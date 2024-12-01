@@ -1,13 +1,13 @@
 {
     "packages": [
         {
-            "name": "jwplc",    //Este es el nombre con el que genera la carpeta
+            "name": "jwplc",    #Este es el nombre con el que genera la carpeta
             "mantainer": "JW Control",
             "websiteURL": "https://www.jw-control.com/",
             "email": "jw.control.peru@gmail.com",
             "platforms": [
                 {
-                    "name": "JW Control ESP32 PLC Boards",    //Este es el nombre con el que sale en el IDE para descargar
+                    "name": "JW Control ESP32 PLC Boards",    #Este es el nombre con el que sale en el IDE para descargar
                     "architecture": "esp32",
                     "version": "1.0.0",
                     "category": "Contributed",
