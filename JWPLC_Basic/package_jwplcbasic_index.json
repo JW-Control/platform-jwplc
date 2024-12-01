@@ -1,13 +1,13 @@
 {
     "packages": [
         {
-            "name": "jwplcbasic",
+            "name": "jwplcbasic1",
             "mantainer": "JW Control",
             "websiteURL": "https://www.jw-control.com/",
             "email": "jw.control.peru@gmail.com",
             "platforms": [
                 {
-                    "name": "jwplcbasic",
+                    "name": "JWPLC",
                     "architecture": "esp32",
                     "version": "1.0.0",
                     "category": "Contributed",
@@ -19,8 +19,8 @@
                             "name": "JWPLC Basic Family"
                         }
                     ],
-                    "archiveFileName": "JWPLC_Basic-1.0.zip",
-                    "url": "https://github.com/JW-Control/platform-jwplc/blob/main/JWPLC_Basic/JWPLC_Basic-1.0.zip?raw=true",
+                    "archiveFileName": "JWPLC_Basic-1.0.0.zip",
+                    "url": "https://github.com/JW-Control/platform-jwplc/blob/main/JWPLC_Basic/JWPLC_Basic-1.0.0.zip?raw=true",
                     "toolsDependencies": [
                         {
                             "packager": "esp32",
@@ -58,8 +58,8 @@
                             "version": "3.0.0-gnu12-dc7f933"
                         }
                     ],
-                    "size": 19958425,
-                    "checksum": "SHA-256:9333A72ED0C8F7435D3E53B9F621E6D78A68ECC070D2BDE8F7DB4B9A3A19ABB6"
+                    "size": 19946855,
+                    "checksum": "SHA-256:87CCB9F20DEA2F1F7D6983ED37CF1173E1D8FB20A8D35251D084C073F7E80E43"
                 }
             ],
             "tools": [
