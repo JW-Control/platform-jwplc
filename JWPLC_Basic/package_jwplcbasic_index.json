@@ -140,6 +140,51 @@
                     ],
                     "size": 78768310,
                     "checksum": "SHA-256:DFB878230AC591AC344C6D18ECC6F84F6F464B17D9D68A3E7532B40B361DF1B6"
+                },
+                {
+                    "name": "JW Control ESP32 PLC Boards",
+                    "architecture": "esp32",
+                    "version": "1.0.3",
+                    "category": "Contributed",
+                    "help": {
+                        "online": "https://www.jw-control.com/"
+                    },
+                    "boards": [
+                        {
+                            "name": "JWPLC Basic Family"
+                        }
+                    ],
+                    "archiveFileName": "JWPLC_Basic-1.0.3.zip",
+                    "url": "https://github.com/JW-Control/platform-jwplc/blob/main/JWPLC_Basic/JWPLC_Basic-1.0.3.zip?raw=true",
+                    "toolsDependencies": [
+                        {
+                            "packager": "esp32",
+                            "name": "riscv32-esp-elf-gcc",
+                            "version": "gcc8_4_0-esp-2021r2-patch3"
+                        },
+                        {
+                            "packager": "esp32",
+                            "name": "xtensa-esp32-elf-gcc",
+                            "version": "gcc8_4_0-esp-2021r2-patch3"
+                        },
+                        {
+                            "packager": "esp32",
+                            "name": "esptool_py",
+                            "version": "4.2.1"
+                        },
+                        {
+                            "packager": "esp32",
+                            "name": "mkspiffs",
+                            "version": "0.2.3"
+                        },
+                        {
+                            "packager": "esp32",
+                            "name": "mklittlefs",
+                            "version": "3.0.0-gnu12-dc7f933"
+                        }
+                    ],
+                    "size": 78735513,
+                    "checksum": "SHA-256:482B6B73F9B6DC0C6CA39A59BFF41E22E3A0EF6E39C9AAE9506971C6530C2140"
                 }
             ],
             "tools": [
