@@ -184,10 +184,7 @@
                         }
                     ],
                     "size": 78735513,
-<<<<<<< Updated upstream
                     "checksum": "SHA-256:6FAF1E8DA3ABAE08AA569EFE30A2D1980A3F4B067B3B86D7E5E0DE72D20BB50C"
-=======
-                    "checksum": "SHA-256:482B6B73F9B6DC0C6CA39A59BFF41E22E3A0EF6E39C9AAE9506971C6530C2140"
                 },
                 {
                     "name": "JW Control ESP32 PLC Boards",
@@ -233,7 +230,6 @@
                     ],
                     "size": 78741875,
                     "checksum": "SHA-256:893F571C889755970B1450FCD60EAD29307550A7BBC4CA160E9C818B38EF780C"
->>>>>>> Stashed changes
                 }
             ],
             "tools": [
