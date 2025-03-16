@@ -19,8 +19,8 @@
                             "name": "JWPLC Basic"
                         }
                     ],
-                    "archiveFileName": "JWPLC_1.0.0.zip",
-                    "url": "https://github.com/JW-Control/platform-jwplc/blob/main/JWPLC_Basic/JWPLC_Basic-1.0.0.zip?raw=true",
+                    "archiveFileName": "JWPLC-1.0.0.zip",
+                    "url": "https://github.com/JW-Control/platform-jwplc/blob/main/JWPLC/JWPLC-1.0.0.zip?raw=true",
                     "toolsDependencies": [
                         {
                         "packager": "jwplc",
