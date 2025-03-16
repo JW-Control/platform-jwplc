@@ -19,7 +19,7 @@
                             "name": "JWPLC Basic"
                         }
                     ],
-                    "archiveFileName": "JWPLC_Basic-1.0.0.zip",
+                    "archiveFileName": "JWPLC_1.0.0.zip",
                     "url": "https://github.com/JW-Control/platform-jwplc/blob/main/JWPLC_Basic/JWPLC_Basic-1.0.0.zip?raw=true",
                     "toolsDependencies": [
                         {
@@ -53,8 +53,8 @@
                         "version": "0.11.0-arduino5"
                         }
                     ],
-                    "size": 19946855,
-                    "checksum": "SHA-256:87CCB9F20DEA2F1F7D6983ED37CF1173E1D8FB20A8D35251D084C073F7E80E43"
+                    "size": 19844934,
+                    "checksum": "SHA-256:B17B2CF129FF8388D21C3180E84A0D31768161E4083AA3CAF2075777AAB875A5"
                 }
             ],
             "tools": [
