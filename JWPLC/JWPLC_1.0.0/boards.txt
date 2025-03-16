@@ -1,0 +1,226 @@
+# Official Espressif options
+menu.UploadSpeed=Upload Speed
+menu.USBMode=USB Mode
+menu.CDCOnBoot=USB CDC On Boot
+menu.MSCOnBoot=USB Firmware MSC On Boot
+menu.DFUOnBoot=USB DFU On Boot
+menu.UploadMode=Upload Mode
+menu.CPUFreq=CPU Frequency
+menu.FlashFreq=Flash Frequency
+menu.FlashMode=Flash Mode
+menu.FlashSize=Flash Size
+menu.PartitionScheme=Partition Scheme
+menu.DebugLevel=Core Debug Level
+menu.PSRAM=PSRAM
+menu.LoopCore=Arduino Runs On
+menu.EventsCore=Events Run On
+menu.MemoryType=Memory Type
+menu.EraseFlash=Erase All Flash Before Sketch Upload
+menu.JTAGAdapter=JTAG Adapter
+menu.ZigbeeMode=Zigbee Mode
+menu.PinNumbers=Pin Numbering
+
+# Custom options
+menu.Revision=Board Revision
+menu.LORAWAN_REGION=LoRaWan Region
+menu.LoRaWanDebugLevel=LoRaWan Debug Level
+menu.LORAWAN_DEVEUI=LoRaWan DevEUI
+menu.LORAWAN_PREAMBLE_LENGTH=LoRaWan Preamble Length
+menu.SLOW_CLK_TPYE=Slow Clk Type(only for LoRaWAN)
+menu.einksize=E-Ink Display Size
+menu.NetworkLogLevel=Network Log Level
+##############################################################
+### DO NOT PUT BOARDS ABOVE THE OFFICIAL ESPRESSIF BOARDS! ###
+##############################################################
+
+jwplcbasic.name=JWPLC Basic
+
+jwplcbasic.bootloader.tool=esptool_py
+jwplcbasic.bootloader.tool.default=esptool_py
+
+jwplcbasic.upload.tool=esptool_py
+jwplcbasic.upload.tool.default=esptool_py
+jwplcbasic.upload.tool.network=esp_ota
+
+jwplcbasic.upload.maximum_size=1310720
+jwplcbasic.upload.maximum_data_size=327680
+jwplcbasic.upload.flags=
+jwplcbasic.upload.extra_flags=
+
+jwplcbasic.serial.disableDTR=true
+jwplcbasic.serial.disableRTS=true
+
+jwplcbasic.build.tarch=xtensa
+jwplcbasic.build.bootloader_addr=0x1000
+jwplcbasic.build.target=esp32
+jwplcbasic.build.mcu=esp32
+jwplcbasic.build.core=jwcontrol
+jwplcbasic.build.variant=jwplcbasic
+jwplcbasic.build.board=JWPLC_DEV
+
+jwplcbasic.build.f_cpu=240000000L
+jwplcbasic.build.flash_size=4MB
+jwplcbasic.build.flash_freq=40m
+jwplcbasic.build.flash_mode=dio
+jwplcbasic.build.boot=dio
+jwplcbasic.build.partitions=default
+jwplcbasic.build.defines=
+jwplcbasic.build.loop_core=
+jwplcbasic.build.event_core=
+
+## IDE 2.0 Seems to not update the value
+jwplcbasic.menu.JTAGAdapter.default=Disabled
+jwplcbasic.menu.JTAGAdapter.default.build.copy_jtag_files=0
+jwplcbasic.menu.JTAGAdapter.external=FTDI Adapter
+jwplcbasic.menu.JTAGAdapter.external.build.openocdscript=esp32-wrover-kit-3.3v.cfg
+jwplcbasic.menu.JTAGAdapter.external.build.copy_jtag_files=1
+jwplcbasic.menu.JTAGAdapter.bridge=ESP USB Bridge
+jwplcbasic.menu.JTAGAdapter.bridge.build.openocdscript=esp32-bridge.cfg
+jwplcbasic.menu.JTAGAdapter.bridge.build.copy_jtag_files=1
+
+jwplcbasic.menu.PSRAM.disabled=Disabled
+jwplcbasic.menu.PSRAM.disabled.build.defines=
+jwplcbasic.menu.PSRAM.disabled.build.extra_libs=
+jwplcbasic.menu.PSRAM.enabled=Enabled
+jwplcbasic.menu.PSRAM.enabled.build.defines=-DBOARD_HAS_PSRAM -mfix-esp32-psram-cache-issue -mfix-esp32-psram-cache-strategy=memw
+jwplcbasic.menu.PSRAM.enabled.build.extra_libs=
+
+jwplcbasic.menu.PartitionScheme.default=Default 4MB with spiffs (1.2MB APP/1.5MB SPIFFS)
+jwplcbasic.menu.PartitionScheme.default.build.partitions=default
+jwplcbasic.menu.PartitionScheme.defaultffat=Default 4MB with ffat (1.2MB APP/1.5MB FATFS)
+jwplcbasic.menu.PartitionScheme.defaultffat.build.partitions=default_ffat
+jwplcbasic.menu.PartitionScheme.default_8MB=8M with spiffs (3MB APP/1.5MB SPIFFS)
+jwplcbasic.menu.PartitionScheme.default_8MB.build.partitions=default_8MB
+jwplcbasic.menu.PartitionScheme.default_8MB.upload.maximum_size=3342336
+jwplcbasic.menu.PartitionScheme.minimal=Minimal (1.3MB APP/700KB SPIFFS)
+jwplcbasic.menu.PartitionScheme.minimal.build.partitions=minimal
+jwplcbasic.menu.PartitionScheme.no_fs=No FS 4MB (2MB APP x2)
+jwplcbasic.menu.PartitionScheme.no_fs.build.partitions=no_fs
+jwplcbasic.menu.PartitionScheme.no_fs.upload.maximum_size=2031616
+jwplcbasic.menu.PartitionScheme.no_ota=No OTA (2MB APP/2MB SPIFFS)
+jwplcbasic.menu.PartitionScheme.no_ota.build.partitions=no_ota
+jwplcbasic.menu.PartitionScheme.no_ota.upload.maximum_size=2097152
+jwplcbasic.menu.PartitionScheme.noota_3g=No OTA (1MB APP/3MB SPIFFS)
+jwplcbasic.menu.PartitionScheme.noota_3g.build.partitions=noota_3g
+jwplcbasic.menu.PartitionScheme.noota_3g.upload.maximum_size=1048576
+jwplcbasic.menu.PartitionScheme.noota_ffat=No OTA (2MB APP/2MB FATFS)
+jwplcbasic.menu.PartitionScheme.noota_ffat.build.partitions=noota_ffat
+jwplcbasic.menu.PartitionScheme.noota_ffat.upload.maximum_size=2097152
+jwplcbasic.menu.PartitionScheme.noota_3gffat=No OTA (1MB APP/3MB FATFS)
+jwplcbasic.menu.PartitionScheme.noota_3gffat.build.partitions=noota_3gffat
+jwplcbasic.menu.PartitionScheme.noota_3gffat.upload.maximum_size=1048576
+jwplcbasic.menu.PartitionScheme.huge_app=Huge APP (3MB No OTA/1MB SPIFFS)
+jwplcbasic.menu.PartitionScheme.huge_app.build.partitions=huge_app
+jwplcbasic.menu.PartitionScheme.huge_app.upload.maximum_size=3145728
+jwplcbasic.menu.PartitionScheme.min_spiffs=Minimal SPIFFS (1.9MB APP with OTA/190KB SPIFFS)
+jwplcbasic.menu.PartitionScheme.min_spiffs.build.partitions=min_spiffs
+jwplcbasic.menu.PartitionScheme.min_spiffs.upload.maximum_size=1966080
+jwplcbasic.menu.PartitionScheme.fatflash=16M Flash (2MB APP/12.5MB FATFS)
+jwplcbasic.menu.PartitionScheme.fatflash.build.partitions=ffat
+jwplcbasic.menu.PartitionScheme.fatflash.upload.maximum_size=2097152
+jwplcbasic.menu.PartitionScheme.app3M_fat9M_16MB=16M Flash (3MB APP/9.9MB FATFS)
+jwplcbasic.menu.PartitionScheme.app3M_fat9M_16MB.build.partitions=app3M_fat9M_16MB
+jwplcbasic.menu.PartitionScheme.app3M_fat9M_16MB.upload.maximum_size=3145728
+jwplcbasic.menu.PartitionScheme.rainmaker=RainMaker 4MB
+jwplcbasic.menu.PartitionScheme.rainmaker.build.partitions=rainmaker
+jwplcbasic.menu.PartitionScheme.rainmaker.upload.maximum_size=1966080
+jwplcbasic.menu.PartitionScheme.rainmaker_4MB=RainMaker 4MB No OTA
+jwplcbasic.menu.PartitionScheme.rainmaker_4MB.build.partitions=rainmaker_4MB_no_ota
+jwplcbasic.menu.PartitionScheme.rainmaker_4MB.upload.maximum_size=4038656
+jwplcbasic.menu.PartitionScheme.rainmaker_8MB=RainMaker 8MB
+jwplcbasic.menu.PartitionScheme.rainmaker_8MB.build.partitions=rainmaker_8MB
+jwplcbasic.menu.PartitionScheme.rainmaker_8MB.upload.maximum_size=4116480
+jwplcbasic.menu.PartitionScheme.zigbee_zczr=Zigbee ZCZR 4MB with spiffs
+jwplcbasic.menu.PartitionScheme.zigbee_zczr.build.partitions=zigbee_zczr
+jwplcbasic.menu.PartitionScheme.zigbee_zczr.upload.maximum_size=1310720
+jwplcbasic.menu.PartitionScheme.custom=Custom
+jwplcbasic.menu.PartitionScheme.custom.build.partitions=
+jwplcbasic.menu.PartitionScheme.custom.upload.maximum_size=16777216
+
+jwplcbasic.menu.CPUFreq.240=240MHz (WiFi/BT)
+jwplcbasic.menu.CPUFreq.240.build.f_cpu=240000000L
+jwplcbasic.menu.CPUFreq.160=160MHz (WiFi/BT)
+jwplcbasic.menu.CPUFreq.160.build.f_cpu=160000000L
+jwplcbasic.menu.CPUFreq.80=80MHz (WiFi/BT)
+jwplcbasic.menu.CPUFreq.80.build.f_cpu=80000000L
+jwplcbasic.menu.CPUFreq.40=40MHz (40MHz XTAL)
+jwplcbasic.menu.CPUFreq.40.build.f_cpu=40000000L
+jwplcbasic.menu.CPUFreq.26=26MHz (26MHz XTAL)
+jwplcbasic.menu.CPUFreq.26.build.f_cpu=26000000L
+jwplcbasic.menu.CPUFreq.20=20MHz (40MHz XTAL)
+jwplcbasic.menu.CPUFreq.20.build.f_cpu=20000000L
+jwplcbasic.menu.CPUFreq.13=13MHz (26MHz XTAL)
+jwplcbasic.menu.CPUFreq.13.build.f_cpu=13000000L
+jwplcbasic.menu.CPUFreq.10=10MHz (40MHz XTAL)
+jwplcbasic.menu.CPUFreq.10.build.f_cpu=10000000L
+
+jwplcbasic.menu.FlashMode.qio=QIO
+jwplcbasic.menu.FlashMode.qio.build.flash_mode=dio
+jwplcbasic.menu.FlashMode.qio.build.boot=qio
+jwplcbasic.menu.FlashMode.dio=DIO
+jwplcbasic.menu.FlashMode.dio.build.flash_mode=dio
+jwplcbasic.menu.FlashMode.dio.build.boot=dio
+
+jwplcbasic.menu.FlashFreq.80=80MHz
+jwplcbasic.menu.FlashFreq.80.build.flash_freq=80m
+jwplcbasic.menu.FlashFreq.40=40MHz
+jwplcbasic.menu.FlashFreq.40.build.flash_freq=40m
+
+jwplcbasic.menu.FlashSize.4M=4MB (32Mb)
+jwplcbasic.menu.FlashSize.4M.build.flash_size=4MB
+jwplcbasic.menu.FlashSize.8M=8MB (64Mb)
+jwplcbasic.menu.FlashSize.8M.build.flash_size=8MB
+jwplcbasic.menu.FlashSize.2M=2MB (16Mb)
+jwplcbasic.menu.FlashSize.2M.build.flash_size=2MB
+jwplcbasic.menu.FlashSize.16M=16MB (128Mb)
+jwplcbasic.menu.FlashSize.16M.build.flash_size=16MB
+
+jwplcbasic.menu.UploadSpeed.921600=921600
+jwplcbasic.menu.UploadSpeed.921600.upload.speed=921600
+jwplcbasic.menu.UploadSpeed.115200=115200
+jwplcbasic.menu.UploadSpeed.115200.upload.speed=115200
+jwplcbasic.menu.UploadSpeed.256000.windows=256000
+jwplcbasic.menu.UploadSpeed.256000.upload.speed=256000
+jwplcbasic.menu.UploadSpeed.230400.windows.upload.speed=256000
+jwplcbasic.menu.UploadSpeed.230400=230400
+jwplcbasic.menu.UploadSpeed.230400.upload.speed=230400
+jwplcbasic.menu.UploadSpeed.460800.linux=460800
+jwplcbasic.menu.UploadSpeed.460800.macosx=460800
+jwplcbasic.menu.UploadSpeed.460800.upload.speed=460800
+jwplcbasic.menu.UploadSpeed.512000.windows=512000
+jwplcbasic.menu.UploadSpeed.512000.upload.speed=512000
+
+jwplcbasic.menu.LoopCore.1=Core 1
+jwplcbasic.menu.LoopCore.1.build.loop_core=-DARDUINO_RUNNING_CORE=1
+jwplcbasic.menu.LoopCore.0=Core 0
+jwplcbasic.menu.LoopCore.0.build.loop_core=-DARDUINO_RUNNING_CORE=0
+
+jwplcbasic.menu.EventsCore.1=Core 1
+jwplcbasic.menu.EventsCore.1.build.event_core=-DARDUINO_EVENT_RUNNING_CORE=1
+jwplcbasic.menu.EventsCore.0=Core 0
+jwplcbasic.menu.EventsCore.0.build.event_core=-DARDUINO_EVENT_RUNNING_CORE=0
+
+jwplcbasic.menu.DebugLevel.none=None
+jwplcbasic.menu.DebugLevel.none.build.code_debug=0
+jwplcbasic.menu.DebugLevel.error=Error
+jwplcbasic.menu.DebugLevel.error.build.code_debug=1
+jwplcbasic.menu.DebugLevel.warn=Warn
+jwplcbasic.menu.DebugLevel.warn.build.code_debug=2
+jwplcbasic.menu.DebugLevel.info=Info
+jwplcbasic.menu.DebugLevel.info.build.code_debug=3
+jwplcbasic.menu.DebugLevel.debug=Debug
+jwplcbasic.menu.DebugLevel.debug.build.code_debug=4
+jwplcbasic.menu.DebugLevel.verbose=Verbose
+jwplcbasic.menu.DebugLevel.verbose.build.code_debug=5
+
+jwplcbasic.menu.EraseFlash.none=Disabled
+jwplcbasic.menu.EraseFlash.none.upload.erase_cmd=
+jwplcbasic.menu.EraseFlash.all=Enabled
+jwplcbasic.menu.EraseFlash.all.upload.erase_cmd=-e
+
+jwplcbasic.menu.ZigbeeMode.default=Disabled
+jwplcbasic.menu.ZigbeeMode.default.build.zigbee_mode=
+jwplcbasic.menu.ZigbeeMode.default.build.zigbee_libs=
+jwplcbasic.menu.ZigbeeMode.zczr=Zigbee ZCZR (coordinator/router)
+jwplcbasic.menu.ZigbeeMode.zczr.build.zigbee_mode=-DZIGBEE_MODE_ZCZR
+jwplcbasic.menu.ZigbeeMode.zczr.build.zigbee_libs=-lesp_zb_api_zczr -lesp_zb_cli_command -lzboss_stack.zczr -lzboss_port
