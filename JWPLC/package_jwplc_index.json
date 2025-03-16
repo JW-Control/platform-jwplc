@@ -7,7 +7,7 @@
             "email": "jw.control.peru@gmail.com",
             "platforms": [
                 {
-                    "name": "JW Control ESP32 PLC Boards",
+                    "name": "JW Control PLC Boards",
                     "architecture": "esp32",
                     "version": "1.0.0",
                     "category": "Contributed",
