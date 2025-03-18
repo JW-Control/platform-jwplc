@@ -1,0 +1,20 @@
+{
+    "files.associations": {
+        "arduino.h": "c",
+        "jwcontrol_io_wrapper.h": "c",
+        "expanded-gpio.h": "c",
+        "peripheral-tca6424a.h": "c",
+        "esp32-hal-gpio.h": "c",
+        "wirec.h": "c",
+        "jwcontrol_io.h": "c",
+        "jwplc-peripherals.h": "c",
+        "stdlib_noniso.h": "c",
+        "binary.h": "c",
+        "esp32-hal.h": "c",
+        "extra_attr.h": "c",
+        "io_pin_remap.h": "c",
+        "jwcontrol.h": "c",
+        "esp-jwplc-peripherals.h": "c",
+        "detect-platform.h": "c"
+    }
+}
