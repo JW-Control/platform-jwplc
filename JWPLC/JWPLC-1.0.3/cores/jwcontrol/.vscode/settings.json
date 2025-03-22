@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "peripherals_init.h": "c",
+        "peripheral-tca6424a.h": "c",
+        "wirec.h": "c",
+        "jwplc_peripherals.h": "c"
+    }
+}
