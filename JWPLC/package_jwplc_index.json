@@ -223,6 +223,62 @@
                     ],
                     "size": 20315123,
                     "checksum": "SHA-256:6B7E08C74231759906F6D45520A2FA753BF1DDAE1A11812EA47E08A17D8F916E"
+                },
+                {
+                    "name": "JW Control PLC Boards",
+                    "architecture": "esp32",
+                    "version": "1.0.4",
+                    "category": "Contributed",
+                    "help": {
+                        "online": "https://www.jw-control.com/"
+                    },
+                    "boards": [
+                        {
+                            "name": "ESP32 Base Board"
+                        },
+                        {
+                            "name": "JWPLC Basic"
+                        },
+                        {
+                            "name": "JWPLC Expansion Module"
+                        }
+                    ],
+                    "archiveFileName": "JWPLC-1.0.4.zip",
+                    "url": "https://github.com/JW-Control/platform-jwplc/blob/main/JWPLC/JWPLC-1.0.4.zip?raw=true",
+                    "toolsDependencies": [
+                        {
+                        "packager": "jwplc",
+                        "name": "esp32-arduino-libs",
+                        "version": "idf-release_v5.1-632e0c2a"
+                        },
+                        {
+                        "packager": "jwplc",
+                        "name": "esptool_py",
+                        "version": "4.6"
+                        },
+                        {
+                        "packager": "jwplc",
+                        "name": "esp-x32",
+                        "version": "2302"
+                        },
+                        {
+                        "packager": "jwplc",
+                        "name": "mklittlefs",
+                        "version": "3.0.0-gnu12-dc7f933"
+                        },
+                        {
+                        "packager": "jwplc",
+                        "name": "mkspiffs",
+                        "version": "0.2.3"
+                        },
+                        {
+                        "packager": "arduino",
+                        "name": "dfu-util",
+                        "version": "0.11.0-arduino5"
+                        }
+                    ],
+                    "size": 20089851,
+                    "checksum": "SHA-256:97BDBD5D581452B99D7FB33C381B63D81EE9DE9332567A784EF8C1298B70C877"
                 }
             ],
             "tools": [
