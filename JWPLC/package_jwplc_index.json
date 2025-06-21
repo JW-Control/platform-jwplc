@@ -279,6 +279,62 @@
                     ],
                     "size": 20089851,
                     "checksum": "SHA-256:97BDBD5D581452B99D7FB33C381B63D81EE9DE9332567A784EF8C1298B70C877"
+                },
+                {
+                    "name": "JW Control PLC Boards",
+                    "architecture": "esp32",
+                    "version": "1.0.5",
+                    "category": "Contributed",
+                    "help": {
+                        "online": "https://www.jw-control.com/"
+                    },
+                    "boards": [
+                        {
+                            "name": "ESP32 Base Board"
+                        },
+                        {
+                            "name": "JWPLC Basic"
+                        },
+                        {
+                            "name": "JWPLC Expansion Module"
+                        }
+                    ],
+                    "archiveFileName": "JWPLC-1.0.5.zip",
+                    "url": "https://github.com/JW-Control/platform-jwplc/blob/main/JWPLC/JWPLC-1.0.5.zip?raw=true",
+                    "toolsDependencies": [
+                        {
+                        "packager": "jwplc",
+                        "name": "esp32-arduino-libs",
+                        "version": "idf-release_v5.1-jwplc"
+                        },
+                        {
+                        "packager": "jwplc",
+                        "name": "esptool_py",
+                        "version": "4.6"
+                        },
+                        {
+                        "packager": "jwplc",
+                        "name": "esp-x32",
+                        "version": "2302"
+                        },
+                        {
+                        "packager": "jwplc",
+                        "name": "mklittlefs",
+                        "version": "3.0.0-gnu12-dc7f933"
+                        },
+                        {
+                        "packager": "jwplc",
+                        "name": "mkspiffs",
+                        "version": "0.2.3"
+                        },
+                        {
+                        "packager": "arduino",
+                        "name": "dfu-util",
+                        "version": "0.11.0-arduino5"
+                        }
+                    ],
+                    "size": 20139467,
+                    "checksum": "SHA-256:84E0F6BF6C054DBD89DBDD14641BBEB9E518FA4F3C3B7D0EE7FF06D298B834A7"
                 }
             ],
             "tools": [
@@ -341,6 +397,68 @@
                       "archiveFileName": "esp32-arduino-libs-idf-release_v5.1-632e0c2a.zip",
                       "checksum": "SHA-256:41f67e1c11f68b57d651955c93b63d6a8d35808ce6aff6ba3d1e1476178758f2",
                       "size": "309895581"
+                    }
+                  ]
+                },
+                {
+                  "name": "esp32-arduino-libs",
+                  "version": "idf-release_v5.1-jwplc",
+                  "systems": [
+                    {
+                      "host": "i686-mingw32",
+                      "url": "https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/packages/jwplc-esp32-libs-idf-v5.1.zip",
+                      "archiveFileName": "jwplc-esp32-libs-idf-v5.1.zip",
+                      "size": "49413514",
+                      "checksum": "SHA-256:1A0B2F16941C3C2AE5B17548DC3245711F1AD3C98855A529DD30438FB8397A58"
+                    },
+                    {
+                      "host": "x86_64-mingw32",
+                      "url": "https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/packages/jwplc-esp32-libs-idf-v5.1.zip",
+                      "archiveFileName": "jwplc-esp32-libs-idf-v5.1.zip",
+                      "size": "49413514",
+                      "checksum": "SHA-256:1A0B2F16941C3C2AE5B17548DC3245711F1AD3C98855A529DD30438FB8397A58"
+                    },
+                    {
+                      "host": "arm64-apple-darwin",
+                      "url": "https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/packages/jwplc-esp32-libs-idf-v5.1.zip",
+                      "archiveFileName": "jwplc-esp32-libs-idf-v5.1.zip",
+                      "size": "49413514",
+                      "checksum": "SHA-256:1A0B2F16941C3C2AE5B17548DC3245711F1AD3C98855A529DD30438FB8397A58"
+                    },
+                    {
+                      "host": "x86_64-apple-darwin",
+                      "url": "https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/packages/jwplc-esp32-libs-idf-v5.1.zip",
+                      "archiveFileName": "jwplc-esp32-libs-idf-v5.1.zip",
+                      "size": "49413514",
+                      "checksum": "SHA-256:1A0B2F16941C3C2AE5B17548DC3245711F1AD3C98855A529DD30438FB8397A58"
+                    },
+                    {
+                      "host": "x86_64-pc-linux-gnu",
+                      "url": "https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/packages/jwplc-esp32-libs-idf-v5.1.zip",
+                      "archiveFileName": "jwplc-esp32-libs-idf-v5.1.zip",
+                      "size": "49413514",
+                      "checksum": "SHA-256:1A0B2F16941C3C2AE5B17548DC3245711F1AD3C98855A529DD30438FB8397A58"
+                    },
+                    {
+                      "host": "i686-pc-linux-gnu",
+                      "url": "https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/packages/jwplc-esp32-libs-idf-v5.1.zip",
+                      "archiveFileName": "jwplc-esp32-libs-idf-v5.1.zip",
+                      "size": "49413514",
+                      "checksum": "SHA-256:1A0B2F16941C3C2AE5B17548DC3245711F1AD3C98855A529DD30438FB8397A58"
+                    },
+                    {
+                      "host": "aarch64-linux-gnu",
+                      "url": "https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/packages/jwplc-esp32-libs-idf-v5.1.zip",
+                      "archiveFileName": "jwplc-esp32-libs-idf-v5.1.zip",
+                      "size": "49413514",
+                      "checksum": "SHA-256:1A0B2F16941C3C2AE5B17548DC3245711F1AD3C98855A529DD30438FB8397A58"
+                    },
+                    {
+                      "host": "arm-linux-gnueabihf",
+                      "url": "https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/packages/jwplc-esp32-libs-idf-v5.1.zip",
+                      "archiveFileName": "jwplc-esp32-libs-idf-v5.1.zip",
+                      "size": "49413514",
+                      "checksum": "SHA-256:1A0B2F16941C3C2AE5B17548DC3245711F1AD3C98855A529DD30438FB8397A58"
                     }
                   ]
                 },
