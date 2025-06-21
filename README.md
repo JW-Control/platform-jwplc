@@ -6,7 +6,7 @@ Repositorio oficial del package personalizado JWPLC para placas basadas en ESP32
 
 - 🔧 Soporte exclusivo para ESP32 base (no incluye S2, S3, C3, etc.)
 - ⚡ Tamaño reducido: de 5.10 GB a 609 MB (~89% de reducción)
-- 🧰 Compatible con Arduino IDE y PlatformIO
+- 🧰 Compatible con Arduino IDE y OpenPLC
 - 📦 Incluye librerías IDF precompiladas solo para ESP32
 - 🧑‍💻 Facilita la programación industrial usando JWPLC Basic
 
