@@ -27,7 +27,6 @@ https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/package_jwplc_i
 ## 📁 Estructura del repositorio
 
 - `/JWPLC` → Archivos comunes del core
-- `/JWPLC_Basic` → Definiciones específicas para el JWPLC BASIC
 - `/packages` → Librerías IDF compiladas solo para ESP32
 
 ## 🤝 Créditos
