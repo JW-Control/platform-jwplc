@@ -44,7 +44,7 @@ No. Solo añade archivos de configuración y scripts que permiten usar el JWPLC 
 Si necesitas ayuda, contáctanos en:
 
 📧 **jw.control.peru@gmail.com**  
-🔗 [jwcontrol.com](https://jwcontrol.com)  
+🔗 [jw-control.com](https://jw-control.com)  
 📱 Instagram / Facebook / LinkedIn: **JW Control**
 
 ---
