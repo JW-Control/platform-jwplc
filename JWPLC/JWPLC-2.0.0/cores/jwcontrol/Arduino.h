@@ -154,6 +154,7 @@ typedef unsigned int word;
 #ifdef __cplusplus
 void setup(void);
 void loop(void);
+void loop1(void);
 
 // The default is using Real Hardware random number generator
 // But when randomSeed() is called, it turns to Psedo random

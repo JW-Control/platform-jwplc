@@ -24,37 +24,47 @@ TaskHandle_t loopTaskHandle = NULL;
 
 #if CONFIG_AUTOSTART_ARDUINO
 #if CONFIG_FREERTOS_UNICORE
-void yieldIfNecessary(void) {
+void yieldIfNecessary(void)
+{
   static uint64_t lastYield = 0;
   uint64_t now = millis();
-  if ((now - lastYield) > 2000) {
+  if ((now - lastYield) > 2000)
+  {
     lastYield = now;
-    vTaskDelay(5);  //delay 1 RTOS tick
+    vTaskDelay(5); // delay 1 RTOS tick
   }
 }
 #endif
 
 bool loopTaskWDTEnabled;
 
-__attribute__((weak)) size_t getArduinoLoopTaskStackSize(void) {
+__attribute__((weak)) size_t getArduinoLoopTaskStackSize(void)
+{
   return ARDUINO_LOOP_STACK_SIZE;
 }
 
-__attribute__((weak)) bool shouldPrintChipDebugReport(void) {
+__attribute__((weak)) bool shouldPrintChipDebugReport(void)
+{
   return false;
 }
 
 // this function can be changed by the sketch using the macro SET_TIME_BEFORE_STARTING_SKETCH_MS(time_ms)
-__attribute__((weak)) uint64_t getArduinoSetupWaitTime_ms(void) {
+__attribute__((weak)) uint64_t getArduinoSetupWaitTime_ms(void)
+{
   return 0;
 }
 
-void loopTask(void *pvParameters) {
+void loop1(void) __attribute__((weak));
+void loop1(void) {}
+
+void loopTask(void *pvParameters)
+{
   delay(getArduinoSetupWaitTime_ms());
 #if ARDUHAL_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_DEBUG
   printBeforeSetupInfo();
 #else
-  if (shouldPrintChipDebugReport()) {
+  if (shouldPrintChipDebugReport())
+  {
     printBeforeSetupInfo();
   }
 #endif
@@ -68,27 +78,32 @@ void loopTask(void *pvParameters) {
 #if ARDUHAL_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_DEBUG
   printAfterSetupInfo();
 #else
-  if (shouldPrintChipDebugReport()) {
+  if (shouldPrintChipDebugReport())
+  {
     printAfterSetupInfo();
   }
 #endif
-  for (;;) {
+  for (;;)
+  {
 #if CONFIG_FREERTOS_UNICORE
     yieldIfNecessary();
 #endif
-    if (loopTaskWDTEnabled) {
+    if (loopTaskWDTEnabled)
+    {
       esp_task_wdt_reset();
     }
     loop();
-    if (serialEventRun) {
+    if (serialEventRun)
+    {
       serialEventRun();
     }
   }
 }
 
-extern "C" void app_main() {
+extern "C" void app_main()
+{
 #ifdef F_XTAL_MHZ
-#if !CONFIG_IDF_TARGET_ESP32S2  // ESP32-S2 does not support rtc_clk_xtal_freq_update
+#if !CONFIG_IDF_TARGET_ESP32S2 // ESP32-S2 does not support rtc_clk_xtal_freq_update
   rtc_clk_xtal_freq_update((rtc_xtal_freq_t)F_XTAL_MHZ);
   rtc_clk_cpu_freq_set_xtal();
 #endif
