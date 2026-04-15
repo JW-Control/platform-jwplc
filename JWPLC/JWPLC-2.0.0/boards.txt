@@ -1329,7 +1329,7 @@ jwplcbasic.build.tarch=xtensa
 jwplcbasic.build.bootloader_addr=0x1000
 jwplcbasic.build.target=esp32
 jwplcbasic.build.mcu=esp32
-jwplcbasic.build.core=esp32
+jwplcbasic.build.core=jwcontrol
 jwplcbasic.build.variant=jwplcbasic
 jwplcbasic.build.board=JWPLCBASIC
 
