@@ -16,8 +16,8 @@
           "category": "Contributed",
           "url": "https://github.com/JW-Control/platform-jwplc/releases/download/v2.0.0-alpha1/jwplc-esp32-2.0.0-alpha1.zip",
           "archiveFileName": "jwplc-esp32-2.0.0-alpha1.zip",
-          "checksum": "SHA-256:REEMPLAZAR_CON_TU_SHA256",
-          "size": "REEMPLAZAR_CON_TU_SIZE",
+          "checksum": "SHA-256:b6bc12be075a8f85a86d784b6adcb5d72371d8bab5598f921dc92031989e8450",
+          "size": "27546586",
           "help": {
             "online": "https://www.jw-control.com/"
           },
