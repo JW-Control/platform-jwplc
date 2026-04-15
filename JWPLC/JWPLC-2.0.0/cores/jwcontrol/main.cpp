@@ -3,6 +3,7 @@
 #include "esp_task_wdt.h"
 #include "soc/rtc.h"
 #include "Arduino.h"
+#include "peripherals_init.h"
 #if (ARDUINO_USB_CDC_ON_BOOT | ARDUINO_USB_MSC_ON_BOOT | ARDUINO_USB_DFU_ON_BOOT) && !ARDUINO_USB_MODE
 #include "USB.h"
 #if ARDUINO_USB_MSC_ON_BOOT
@@ -74,7 +75,10 @@ void loopTask(void *pvParameters)
   // time in ms that the sketch may wait before starting its execution - default is zero
   // usually done for opening the Serial Monitor and seeing all debug messages
 #endif
+
+  initPeripherals();
   setup();
+  
 #if ARDUHAL_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_DEBUG
   printAfterSetupInfo();
 #else
