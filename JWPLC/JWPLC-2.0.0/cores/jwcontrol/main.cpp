@@ -1,9 +1,11 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h"
 #include "esp_task_wdt.h"
 #include "soc/rtc.h"
 #include "Arduino.h"
 #include "peripherals_init.h"
+
 #if (ARDUINO_USB_CDC_ON_BOOT | ARDUINO_USB_MSC_ON_BOOT | ARDUINO_USB_DFU_ON_BOOT) && !ARDUINO_USB_MODE
 #include "USB.h"
 #if ARDUINO_USB_MSC_ON_BOOT
@@ -22,6 +24,8 @@
 #endif
 
 TaskHandle_t loopTaskHandle = NULL;
+TaskHandle_t loop1TaskHandle = NULL;
+SemaphoreHandle_t initSemaphore = NULL;
 
 #if CONFIG_AUTOSTART_ARDUINO
 #if CONFIG_FREERTOS_UNICORE
@@ -44,6 +48,11 @@ __attribute__((weak)) size_t getArduinoLoopTaskStackSize(void)
   return ARDUINO_LOOP_STACK_SIZE;
 }
 
+__attribute__((weak)) size_t getArduinoLoop1TaskStackSize(void)
+{
+  return ARDUINO_LOOP_STACK_SIZE;
+}
+
 __attribute__((weak)) bool shouldPrintChipDebugReport(void)
 {
   return false;
@@ -55,12 +64,17 @@ __attribute__((weak)) uint64_t getArduinoSetupWaitTime_ms(void)
   return 0;
 }
 
+// loop1 por defecto: segura si el usuario no la redefine
 void loop1(void) __attribute__((weak));
-void loop1(void) {}
+void loop1(void)
+{
+  vTaskDelay(1);
+}
 
 void loopTask(void *pvParameters)
 {
   delay(getArduinoSetupWaitTime_ms());
+
 #if ARDUHAL_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_DEBUG
   printBeforeSetupInfo();
 #else
@@ -69,6 +83,7 @@ void loopTask(void *pvParameters)
     printBeforeSetupInfo();
   }
 #endif
+
 #if !defined(NO_GLOBAL_INSTANCES) && !defined(NO_GLOBAL_SERIAL)
   // sets UART0 (default console) RX/TX pins as already configured in boot or as defined in variants/pins_arduino.h
   Serial0.setPins(gpioNumberToDigitalPin(SOC_RX0), gpioNumberToDigitalPin(SOC_TX0));
@@ -78,7 +93,7 @@ void loopTask(void *pvParameters)
 
   initPeripherals();
   setup();
-  
+
 #if ARDUHAL_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_DEBUG
   printAfterSetupInfo();
 #else
@@ -87,6 +102,13 @@ void loopTask(void *pvParameters)
     printAfterSetupInfo();
   }
 #endif
+
+  // Liberar a loop1() solo cuando ya terminaron initPeripherals() y setup()
+  if (initSemaphore != NULL)
+  {
+    xSemaphoreGive(initSemaphore);
+  }
+
   for (;;)
   {
 #if CONFIG_FREERTOS_UNICORE
@@ -104,6 +126,24 @@ void loopTask(void *pvParameters)
   }
 }
 
+void loop1Task(void *pvParameters)
+{
+  if (initSemaphore != NULL)
+  {
+    xSemaphoreTake(initSemaphore, portMAX_DELAY);
+    // permitir futuras reutilizaciones si hicieras re-sync
+    xSemaphoreGive(initSemaphore);
+  }
+
+  for (;;)
+  {
+#if CONFIG_FREERTOS_UNICORE
+    yieldIfNecessary();
+#endif
+    loop1();
+  }
+}
+
 extern "C" void app_main()
 {
 #ifdef F_XTAL_MHZ
@@ -112,9 +152,11 @@ extern "C" void app_main()
   rtc_clk_cpu_freq_set_xtal();
 #endif
 #endif
+
 #ifdef F_CPU
   setCpuFrequencyMhz(F_CPU / 1000000);
 #endif
+
 #if ARDUINO_USB_CDC_ON_BOOT && !ARDUINO_USB_MODE
   Serial.begin();
 #endif
@@ -127,9 +169,35 @@ extern "C" void app_main()
 #if ARDUINO_USB_ON_BOOT && !ARDUINO_USB_MODE
   USB.begin();
 #endif
+
   loopTaskWDTEnabled = false;
   initArduino();
-  xTaskCreateUniversal(loopTask, "loopTask", getArduinoLoopTaskStackSize(), NULL, 1, &loopTaskHandle, ARDUINO_RUNNING_CORE);
+
+  initSemaphore = xSemaphoreCreateBinary();
+
+  xTaskCreateUniversal(
+      loopTask,
+      "loopTask",
+      getArduinoLoopTaskStackSize(),
+      NULL,
+      1,
+      &loopTaskHandle,
+      ARDUINO_RUNNING_CORE);
+
+#if CONFIG_FREERTOS_UNICORE
+  BaseType_t loop1Core = ARDUINO_RUNNING_CORE;
+#else
+  BaseType_t loop1Core = (ARDUINO_RUNNING_CORE == 0) ? 1 : 0;
+#endif
+
+  xTaskCreateUniversal(
+      loop1Task,
+      "loop1Task",
+      getArduinoLoop1TaskStackSize(),
+      NULL,
+      1,
+      &loop1TaskHandle,
+      loop1Core);
 }
 
 #endif
