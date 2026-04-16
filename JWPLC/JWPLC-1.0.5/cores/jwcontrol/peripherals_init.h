@@ -1,5 +1,5 @@
-#ifndef PERIPHERALS_INIT_H
-#define PERIPHERALS_INIT_H
+#ifndef JWCONTROL_PERIPHERALS_INIT_H
+#define JWCONTROL_PERIPHERALS_INIT_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -11,4 +11,4 @@ void initPeripherals(void);
 }
 #endif
 
-#endif // PERIPHERALS_INIT_H
+#endif
