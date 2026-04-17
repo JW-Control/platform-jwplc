@@ -12,10 +12,10 @@
         {
           "name": "JW Control ESP32 Boards",
           "architecture": "esp32",
-          "version": "2.0.0-alpha10",
+          "version": "2.0.0-alpha.10",
           "category": "Contributed",
-          "url": "https://github.com/JW-Control/platform-jwplc/releases/download/v2.0.0-alpha10/jwplc-esp32-2.0.0-alpha10.zip",
-          "archiveFileName": "jwplc-esp32-2.0.0-alpha10.zip",
+          "url": "https://github.com/JW-Control/platform-jwplc/releases/download/v2.0.0-alpha.10/jwplc-esp32-2.0.0-alpha.10.zip",
+          "archiveFileName": "jwplc-esp32-2.0.0-alpha.10.zip",
           "checksum": "SHA-256:6f7d8cddac1447339575c0c671287044347ccbe7182cdef378cd4e340f1b49d5",
           "size": "21405566",
           "help": {
@@ -125,10 +125,10 @@
         {
           "name": "JW Control ESP32 Boards",
           "architecture": "esp32",
-          "version": "2.0.0-alpha9",
+          "version": "2.0.0-alpha.9",
           "category": "Contributed",
-          "url": "https://github.com/JW-Control/platform-jwplc/releases/download/v2.0.0-alpha9/jwplc-esp32-2.0.0-alpha9.zip",
-          "archiveFileName": "jwplc-esp32-2.0.0-alpha9.zip",
+          "url": "https://github.com/JW-Control/platform-jwplc/releases/download/v2.0.0-alpha.9/jwplc-esp32-2.0.0-alpha.9.zip",
+          "archiveFileName": "jwplc-esp32-2.0.0-alpha.9.zip",
           "checksum": "SHA-256:0c09088fa7f58470ff33c34da83a296032275335bfed3a829b56d0efec530416",
           "size": "21405184",
           "help": {
@@ -238,10 +238,10 @@
         {
           "name": "JW Control ESP32 Boards",
           "architecture": "esp32",
-          "version": "2.0.0-alpha8",
+          "version": "2.0.0-alpha.8",
           "category": "Contributed",
-          "url": "https://github.com/JW-Control/platform-jwplc/releases/download/v2.0.0-alpha8/jwplc-esp32-2.0.0-alpha8.zip",
-          "archiveFileName": "jwplc-esp32-2.0.0-alpha8.zip",
+          "url": "https://github.com/JW-Control/platform-jwplc/releases/download/v2.0.0-alpha.8/jwplc-esp32-2.0.0-alpha.8.zip",
+          "archiveFileName": "jwplc-esp32-2.0.0-alpha.8.zip",
           "checksum": "SHA-256:4bd8dc4668de6fcb690dd8c159a15259e2295edf666e927d1a2a703471edbc06",
           "size": "21403834",
           "help": {
@@ -351,10 +351,10 @@
         {
           "name": "JW Control ESP32 Boards",
           "architecture": "esp32",
-          "version": "2.0.0-alpha7",
+          "version": "2.0.0-alpha.7",
           "category": "Contributed",
-          "url": "https://github.com/JW-Control/platform-jwplc/releases/download/v2.0.0-alpha7/jwplc-esp32-2.0.0-alpha7.zip",
-          "archiveFileName": "jwplc-esp32-2.0.0-alpha7.zip",
+          "url": "https://github.com/JW-Control/platform-jwplc/releases/download/v2.0.0-alpha.7/jwplc-esp32-2.0.0-alpha.7.zip",
+          "archiveFileName": "jwplc-esp32-2.0.0-alpha.7.zip",
           "checksum": "SHA-256:c69daf4ac4aef58e7b8b272cfb1d7b5db0f11a1d2a6cfb59902ba20f53ecb672",
           "size": "21403547",
           "help": {
@@ -464,10 +464,10 @@
         {
           "name": "JW Control ESP32 Boards",
           "architecture": "esp32",
-          "version": "2.0.0-alpha6",
+          "version": "2.0.0-alpha.6",
           "category": "Contributed",
-          "url": "https://github.com/JW-Control/platform-jwplc/releases/download/v2.0.0-alpha6/jwplc-esp32-2.0.0-alpha6.zip",
-          "archiveFileName": "jwplc-esp32-2.0.0-alpha6.zip",
+          "url": "https://github.com/JW-Control/platform-jwplc/releases/download/v2.0.0-alpha.6/jwplc-esp32-2.0.0-alpha.6.zip",
+          "archiveFileName": "jwplc-esp32-2.0.0-alpha.6.zip",
           "checksum": "SHA-256:d66efbeac024363a6500c1336201f3634ed14bfa331209a67c41c1f4db3be384",
           "size": "21399093",
           "help": {
@@ -577,10 +577,10 @@
         {
           "name": "JW Control ESP32 Boards",
           "architecture": "esp32",
-          "version": "2.0.0-alpha5",
+          "version": "2.0.0-alpha.5",
           "category": "Contributed",
-          "url": "https://github.com/JW-Control/platform-jwplc/releases/download/v2.0.0-alpha5/jwplc-esp32-2.0.0-alpha5.zip",
-          "archiveFileName": "jwplc-esp32-2.0.0-alpha5.zip",
+          "url": "https://github.com/JW-Control/platform-jwplc/releases/download/v2.0.0-alpha.5/jwplc-esp32-2.0.0-alpha.5.zip",
+          "archiveFileName": "jwplc-esp32-2.0.0-alpha.5.zip",
           "checksum": "SHA-256:e066d0d622497180e42993de84141fa17bc3fe6ed1e7c820ff4bc462608e619e",
           "size": "21398423",
           "help": {
@@ -690,10 +690,10 @@
         {
           "name": "JW Control ESP32 Boards",
           "architecture": "esp32",
-          "version": "2.0.0-alpha4",
+          "version": "2.0.0-alpha.4",
           "category": "Contributed",
-          "url": "https://github.com/JW-Control/platform-jwplc/releases/download/v2.0.0-alpha4/jwplc-esp32-2.0.0-alpha4.zip",
-          "archiveFileName": "jwplc-esp32-2.0.0-alpha4.zip",
+          "url": "https://github.com/JW-Control/platform-jwplc/releases/download/v2.0.0-alpha.4/jwplc-esp32-2.0.0-alpha.4.zip",
+          "archiveFileName": "jwplc-esp32-2.0.0-alpha.4.zip",
           "checksum": "SHA-256:e098d863d9fa08a443a0a28d1ca49f11583e20739e96ae40d060d6c52e4a357f",
           "size": "21398400",
           "help": {
@@ -803,10 +803,10 @@
         {
           "name": "JW Control ESP32 Boards",
           "architecture": "esp32",
-          "version": "2.0.0-alpha3",
+          "version": "2.0.0-alpha.3",
           "category": "Contributed",
-          "url": "https://github.com/JW-Control/platform-jwplc/releases/download/v2.0.0-alpha3/jwplc-esp32-2.0.0-alpha3.zip",
-          "archiveFileName": "jwplc-esp32-2.0.0-alpha3.zip",
+          "url": "https://github.com/JW-Control/platform-jwplc/releases/download/v2.0.0-alpha.3/jwplc-esp32-2.0.0-alpha.3.zip",
+          "archiveFileName": "jwplc-esp32-2.0.0-alpha.3.zip",
           "checksum": "SHA-256:0408d9b319a97e1d4fc315085b09d4a339877f9cb69501dff6619eb95a079a6b",
           "size": "21117171",
           "help": {
@@ -916,10 +916,10 @@
         {
           "name": "JW Control ESP32 Boards",
           "architecture": "esp32",
-          "version": "2.0.0-alpha2",
+          "version": "2.0.0-alpha.2",
           "category": "Contributed",
-          "url": "https://github.com/JW-Control/platform-jwplc/releases/download/v2.0.0-alpha2/jwplc-esp32-2.0.0-alpha2.zip",
-          "archiveFileName": "jwplc-esp32-2.0.0-alpha2.zip",
+          "url": "https://github.com/JW-Control/platform-jwplc/releases/download/v2.0.0-alpha.2/jwplc-esp32-2.0.0-alpha.2.zip",
+          "archiveFileName": "jwplc-esp32-2.0.0-alpha.2.zip",
           "checksum": "SHA-256:dd583a5dadbfa751e119d8c3a8fa980b51a4150f783d610586b784b4d07a915b",
           "size": "27364199",
           "help": {
@@ -1029,10 +1029,10 @@
         {
           "name": "JW Control ESP32 Boards",
           "architecture": "esp32",
-          "version": "2.0.0-alpha1",
+          "version": "2.0.0-alpha.1",
           "category": "Contributed",
-          "url": "https://github.com/JW-Control/platform-jwplc/releases/download/v2.0.0-alpha1/jwplc-esp32-2.0.0-alpha1.zip",
-          "archiveFileName": "jwplc-esp32-2.0.0-alpha1.zip",
+          "url": "https://github.com/JW-Control/platform-jwplc/releases/download/v2.0.0-alpha.1/jwplc-esp32-2.0.0-alpha.1.zip",
+          "archiveFileName": "jwplc-esp32-2.0.0-alpha.1.zip",
           "checksum": "SHA-256:f2e73c3d6a448a77d43937e8ead29a0171f827a28dc9ba84d947d18b0a77c9d3",
           "size": "27652566",
           "help": {
