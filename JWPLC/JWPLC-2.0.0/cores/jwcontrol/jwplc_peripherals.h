@@ -10,12 +10,14 @@ extern "C" {
 
 typedef struct
 {
-    volatile uint8_t di_raw_bank0;      // Lectura cruda P00..P07
-    volatile uint8_t di_logical_bank0;  // Reordenada I0_0..I0_7
-    volatile uint8_t do_bank1;          // Estado sombra Q0_0..Q0_7
-    volatile uint8_t do_bank2;          // Reservado para futuras expansiones
+    volatile uint8_t di_raw_bank0;          // Lectura cruda P00..P07
+    volatile uint8_t di_logical_bank0;      // Reordenada I0_0..I0_7
+    volatile uint8_t do_bank1;              // Shadow Q0_0..Q0_7
+    volatile uint8_t do_bank2;              // Reservado
     volatile bool initialized;
+    volatile bool display_dirty;            // Hay cambios que la TFT debe reflejar
     volatile uint32_t last_scan_ms;
+    volatile uint32_t last_display_refresh_ms;
 } JWPLC_IOState;
 
 typedef struct
@@ -43,11 +45,19 @@ const JWPLC_RTCState* jwplcGetRTCState(void);
 void jwplcSystemInitState(void);
 void jwplcSystemScanIO(void);
 void jwplcSystemTickRTC(void);      // Stub por ahora
-void jwplcSystemDisplayHook(void);  // Stub por ahora
+void jwplcSystemDisplayHook(void);  // Ya consume caché
 
 // Shadow de salidas
 void jwplcSystemSetOutputShadow(uint8_t bank1, uint8_t bank2);
 void jwplcSystemClearOutputShadow(void);
+
+// Control de refresco de display
+void jwplcSystemMarkDisplayDirty(void);
+void jwplcSystemForceDisplayRefresh(void);
+bool jwplcSystemConsumeDisplayDirty(void);
+
+// Callback futuro para la TFT real
+void jwplcDisplayRefreshCallback(const JWPLC_IOState* io, const JWPLC_RTCState* rtc);
 
 #ifdef __cplusplus
 }

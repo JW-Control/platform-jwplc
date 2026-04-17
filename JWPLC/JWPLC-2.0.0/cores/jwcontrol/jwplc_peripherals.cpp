@@ -47,6 +47,14 @@ static inline bool jwplc_isOutputBank2Channel(uint8_t channel)
     return (channel >= 16) && (channel <= 23);
 }
 
+void jwplcDisplayRefreshCallback(const JWPLC_IOState* io, const JWPLC_RTCState* rtc) __attribute__((weak));
+void jwplcDisplayRefreshCallback(const JWPLC_IOState* io, const JWPLC_RTCState* rtc)
+{
+    (void)io;
+    (void)rtc;
+    // Stub: en alpha11 aquí conectamos la TFT real
+}
+
 const JWPLC_IOState* jwplcGetIOState(void)
 {
     return &g_ioState;
@@ -57,6 +65,24 @@ const JWPLC_RTCState* jwplcGetRTCState(void)
     return &g_rtcState;
 }
 
+void jwplcSystemMarkDisplayDirty(void)
+{
+    g_ioState.display_dirty = true;
+}
+
+void jwplcSystemForceDisplayRefresh(void)
+{
+    g_ioState.display_dirty = true;
+    g_ioState.last_display_refresh_ms = 0;
+}
+
+bool jwplcSystemConsumeDisplayDirty(void)
+{
+    bool dirty = g_ioState.display_dirty;
+    g_ioState.display_dirty = false;
+    return dirty;
+}
+
 void jwplcSystemInitState(void)
 {
     g_ioState.di_raw_bank0 = 0;
@@ -64,7 +90,9 @@ void jwplcSystemInitState(void)
     g_ioState.do_bank1 = 0;
     g_ioState.do_bank2 = 0;
     g_ioState.initialized = true;
+    g_ioState.display_dirty = true;
     g_ioState.last_scan_ms = millis();
+    g_ioState.last_display_refresh_ms = 0;
 
     g_rtcState.valid = false;
     g_rtcState.second = 0;
@@ -78,14 +106,17 @@ void jwplcSystemInitState(void)
 
 void jwplcSystemSetOutputShadow(uint8_t bank1, uint8_t bank2)
 {
-    g_ioState.do_bank1 = bank1;
-    g_ioState.do_bank2 = bank2;
+    if ((g_ioState.do_bank1 != bank1) || (g_ioState.do_bank2 != bank2))
+    {
+        g_ioState.do_bank1 = bank1;
+        g_ioState.do_bank2 = bank2;
+        jwplcSystemMarkDisplayDirty();
+    }
 }
 
 void jwplcSystemClearOutputShadow(void)
 {
-    g_ioState.do_bank1 = 0;
-    g_ioState.do_bank2 = 0;
+    jwplcSystemSetOutputShadow(0, 0);
 }
 
 void jwplcSystemScanIO(void)
@@ -94,8 +125,15 @@ void jwplcSystemScanIO(void)
 
     if (TCA6424A_readBank(TCA6424A_DEFAULT_ADDRESS, 0, &bank0) != 0xFF)
     {
-        g_ioState.di_raw_bank0 = bank0;
-        g_ioState.di_logical_bank0 = jwplc_reverseBits8(bank0);
+        uint8_t logical = jwplc_reverseBits8(bank0);
+
+        if ((g_ioState.di_raw_bank0 != bank0) || (g_ioState.di_logical_bank0 != logical))
+        {
+            g_ioState.di_raw_bank0 = bank0;
+            g_ioState.di_logical_bank0 = logical;
+            jwplcSystemMarkDisplayDirty();
+        }
+
         g_ioState.last_scan_ms = millis();
     }
 }
@@ -103,13 +141,24 @@ void jwplcSystemScanIO(void)
 void jwplcSystemTickRTC(void)
 {
     // Stub por ahora.
-    // Aquí luego irá la lectura del RTC sobre WireC / JW_RTC.
+    // Más adelante aquí irá JW_RTC / WireC y cuando cambie la hora:
+    // jwplcSystemMarkDisplayDirty();
 }
 
 void jwplcSystemDisplayHook(void)
 {
-    // Stub por ahora.
-    // Aquí luego irá el refresco de la TFT usando solo el cache.
+    uint32_t now = millis();
+
+    bool dirty = jwplcSystemConsumeDisplayDirty();
+    bool periodicRefresh = ((uint32_t)(now - g_ioState.last_display_refresh_ms) >= 1000u);
+
+    if (!dirty && !periodicRefresh)
+    {
+        return;
+    }
+
+    jwplcDisplayRefreshCallback(&g_ioState, &g_rtcState);
+    g_ioState.last_display_refresh_ms = now;
 }
 
 void jwplc_pinMode(uint16_t pin, uint8_t mode)
@@ -134,26 +183,37 @@ void jwplc_digitalWrite(uint16_t pin, uint8_t val)
         uint8_t channel = jwplc_virtualChannel(pin);
         bool high = (val != LOW);
 
-        if (TCA6424A_writePin(
-                TCA6424A_DEFAULT_ADDRESS,
-                channel,
-                high))
+        if (TCA6424A_writePin(TCA6424A_DEFAULT_ADDRESS, channel, high))
         {
             if (jwplc_isOutputBank1Channel(channel))
             {
                 uint8_t bit = (uint8_t)(channel - 8);
+                uint8_t oldVal = g_ioState.do_bank1;
+
                 if (high)
                     g_ioState.do_bank1 |= (uint8_t)(1u << bit);
                 else
                     g_ioState.do_bank1 &= (uint8_t)~(1u << bit);
+
+                if (g_ioState.do_bank1 != oldVal)
+                {
+                    jwplcSystemMarkDisplayDirty();
+                }
             }
             else if (jwplc_isOutputBank2Channel(channel))
             {
                 uint8_t bit = (uint8_t)(channel - 16);
+                uint8_t oldVal = g_ioState.do_bank2;
+
                 if (high)
                     g_ioState.do_bank2 |= (uint8_t)(1u << bit);
                 else
                     g_ioState.do_bank2 &= (uint8_t)~(1u << bit);
+
+                if (g_ioState.do_bank2 != oldVal)
+                {
+                    jwplcSystemMarkDisplayDirty();
+                }
             }
         }
         return;
@@ -168,14 +228,12 @@ int jwplc_digitalRead(uint16_t pin)
     {
         uint8_t channel = jwplc_virtualChannel(pin);
 
-        // Entradas virtuales: leer SIEMPRE desde cache
         if (jwplc_isInputChannel(channel))
         {
             uint8_t logicalBit = (uint8_t)(7u - channel);
             return (g_ioState.di_logical_bank0 & (1u << logicalBit)) ? HIGH : LOW;
         }
 
-        // Salidas virtuales: devolver shadow
         if (jwplc_isOutputBank1Channel(channel))
         {
             uint8_t bit = (uint8_t)(channel - 8);
