@@ -9,6 +9,7 @@
 
 #include "WireC.h"
 #include "peripheral-tca6424a.h"
+#include "jwplc_peripherals.h"
 
 static bool g_jwplc_peripherals_initialized = false;
 
@@ -43,6 +44,9 @@ void initPeripherals(void)
 
     // Banco 2 no usado por ahora
     (void)TCA6424A_writeBank(TCA6424A_DEFAULT_ADDRESS, 2, 0x00);
+
+    // Shadow interno también en cero
+    jwplcSystemClearOutputShadow();
 
     // 5) Direcciones
     // Banco 0 = entradas
