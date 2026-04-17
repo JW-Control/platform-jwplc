@@ -44,8 +44,8 @@ const JWPLC_RTCState* jwplcGetRTCState(void);
 // Runtime automático JWPLC
 void jwplcSystemInitState(void);
 void jwplcSystemScanIO(void);
-void jwplcSystemTickRTC(void);      // Stub por ahora
-void jwplcSystemDisplayHook(void);  // Ya consume caché
+void jwplcSystemTickRTC(void);
+void jwplcSystemDisplayHook(void);
 
 // Shadow de salidas
 void jwplcSystemSetOutputShadow(uint8_t bank1, uint8_t bank2);
@@ -56,7 +56,8 @@ void jwplcSystemMarkDisplayDirty(void);
 void jwplcSystemForceDisplayRefresh(void);
 bool jwplcSystemConsumeDisplayDirty(void);
 
-// Callback futuro para la TFT real
+// Hooks de display para implementar desde el sketch si se desea
+bool jwplcDisplayBeginCallback(void);
 void jwplcDisplayRefreshCallback(const JWPLC_IOState* io, const JWPLC_RTCState* rtc);
 
 #ifdef __cplusplus

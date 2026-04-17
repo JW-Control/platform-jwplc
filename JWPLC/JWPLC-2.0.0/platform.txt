@@ -1,5 +1,5 @@
 name=JW Control ESP32
-version=2.0.0-alpha10
+version=2.0.0-alpha.11
 
 tools.esp32-arduino-libs.path={runtime.tools.{build.chip_variant}-libs.path}
 tools.esp32-arduino-libs.path.windows={runtime.tools.{build.chip_variant}-libs.path}
@@ -47,7 +47,7 @@ compiler.warning_flags.all=-Wall -Wextra
 compiler.common_werror_flags=-Werror=return-type
 
 # Compile Flags
-compiler.cpreprocessor.flags="@{compiler.sdk.path}/flags/defines" "-I{build.source.path}" -iprefix "{compiler.sdk.path}/include/" "@{compiler.sdk.path}/flags/includes" "-I{compiler.sdk.path}/{build.memory_type}/include"
+compiler.cpreprocessor.flags="@{compiler.sdk.path}/flags/defines" "-I{build.source.path}" -iprefix "{compiler.sdk.path}/include/" "@{compiler.sdk.path}/flags/includes" "-I{compiler.sdk.path}/{build.memory_type}/include" "-I{runtime.platform.path}/cores/jwcontrol/peripherals/include"
 compiler.c.flags=-MMD -c "@{compiler.sdk.path}/flags/c_flags" {compiler.warning_flags} {compiler.optimization_flags} {compiler.common_werror_flags}
 compiler.cpp.flags=-MMD -c "@{compiler.sdk.path}/flags/cpp_flags" {compiler.warning_flags} {compiler.optimization_flags} {compiler.common_werror_flags}
 compiler.S.flags=-MMD -c -x assembler-with-cpp "@{compiler.sdk.path}/flags/S_flags" {compiler.warning_flags} {compiler.optimization_flags}

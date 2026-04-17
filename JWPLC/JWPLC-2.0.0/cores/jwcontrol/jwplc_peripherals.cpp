@@ -14,6 +14,9 @@ extern "C" int ARDUINO_ISR_ATTR __digitalRead(uint8_t pin);
 static JWPLC_IOState g_ioState = {};
 static JWPLC_RTCState g_rtcState = {};
 
+static bool g_displayInitialized = false;
+static uint32_t g_lastDisplayBeginAttemptMs = 0;
+
 static inline bool jwplc_isExpanderPin(uint16_t pin)
 {
     return (pin & 0xFF00u) == 0x2200u;
@@ -47,12 +50,18 @@ static inline bool jwplc_isOutputBank2Channel(uint8_t channel)
     return (channel >= 16) && (channel <= 23);
 }
 
+// Hooks débiles por defecto
+bool jwplcDisplayBeginCallback(void) __attribute__((weak));
+bool jwplcDisplayBeginCallback(void)
+{
+    return false;
+}
+
 void jwplcDisplayRefreshCallback(const JWPLC_IOState* io, const JWPLC_RTCState* rtc) __attribute__((weak));
 void jwplcDisplayRefreshCallback(const JWPLC_IOState* io, const JWPLC_RTCState* rtc)
 {
     (void)io;
     (void)rtc;
-    // Stub: en alpha11 aquí conectamos la TFT real
 }
 
 const JWPLC_IOState* jwplcGetIOState(void)
@@ -102,6 +111,9 @@ void jwplcSystemInitState(void)
     g_rtcState.month = 0;
     g_rtcState.year = 0;
     g_rtcState.last_update_ms = 0;
+
+    g_displayInitialized = false;
+    g_lastDisplayBeginAttemptMs = 0;
 }
 
 void jwplcSystemSetOutputShadow(uint8_t bank1, uint8_t bank2)
@@ -140,14 +152,27 @@ void jwplcSystemScanIO(void)
 
 void jwplcSystemTickRTC(void)
 {
-    // Stub por ahora.
-    // Más adelante aquí irá JW_RTC / WireC y cuando cambie la hora:
-    // jwplcSystemMarkDisplayDirty();
+    // Stub por ahora
 }
 
 void jwplcSystemDisplayHook(void)
 {
     uint32_t now = millis();
+
+    if (!g_displayInitialized)
+    {
+        if ((uint32_t)(now - g_lastDisplayBeginAttemptMs) >= 500u)
+        {
+            g_lastDisplayBeginAttemptMs = now;
+
+            if (jwplcDisplayBeginCallback())
+            {
+                g_displayInitialized = true;
+                jwplcSystemForceDisplayRefresh();
+            }
+        }
+        return;
+    }
 
     bool dirty = jwplcSystemConsumeDisplayDirty();
     bool periodicRefresh = ((uint32_t)(now - g_ioState.last_display_refresh_ms) >= 1000u);
