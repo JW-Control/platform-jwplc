@@ -32,7 +32,7 @@ extern "C" {
 static Adafruit_ST7789 tft(TFT_CS, TFT_DC, TFT_RST);
 
 // =====================================================
-// Layout
+// Layout REPOSO
 // =====================================================
 static const int SCREEN_W = 320;
 static const int SCREEN_H = 170;
@@ -40,18 +40,18 @@ static const int SCREEN_H = 170;
 static const int TITLE_X = 10;
 static const int TITLE_Y = 6;
 
-static const int RTC_X   = 210;
-static const int RTC_Y   = 10;
+static const int RTC_DATE_X = 212;
+static const int RTC_DATE_Y = 8;
+static const int RTC_TIME_X = 228;
+static const int RTC_TIME_Y = 22;
 
 static const int DI_LABEL_X = 10;
-static const int DI_LABEL_Y = 30;
-static const int DI_ROW_Y   = 50;
-static const int DI_TEXT_Y  = 82;
+static const int DI_LABEL_Y = 34;
+static const int DI_ROW_Y   = 54;
 
 static const int DO_LABEL_X = 10;
-static const int DO_LABEL_Y = 98;
-static const int DO_ROW_Y   = 118;
-static const int DO_TEXT_Y  = 150;
+static const int DO_LABEL_Y = 96;
+static const int DO_ROW_Y   = 116;
 
 static const int BOX_X0   = 12;
 static const int BOX_W    = 28;
@@ -59,24 +59,69 @@ static const int BOX_H    = 24;
 static const int BOX_GAP  = 10;
 static const int BOX_STEP = BOX_W + BOX_GAP;
 
-static const int BANK_TEXT_X  = 10;
-static const int BANK_VALUE_X = 78;
-static const int BANK_VALUE_W = 100;
-static const int BANK_VALUE_H = 10;
+static const int IDLE_TEXT_X = 250;
+static const int IDLE_TEXT_Y = 154;
 
 // =====================================================
-// Estado local TFT
+// Estado interno
 // =====================================================
+enum DisplayMode : uint8_t
+{
+    DISPLAY_MODE_IDLE = 0,
+    DISPLAY_MODE_USER = 1
+};
+
 static bool g_tftReady = false;
-static uint8_t lastDI = 0x00;
-static uint8_t lastDO = 0x00;
+static bool g_forceFullRedraw = true;
+
+static DisplayMode g_displayMode = DISPLAY_MODE_IDLE;
+static JWPLCDisplay::IdleReturnMode g_idleReturnMode = JWPLCDisplay::IDLE_RETURN_ESC_ONLY;
+static uint32_t g_idleTimeoutMs = 15000;
+static uint32_t g_lastActivityMs = 0;
+
+// cache IO
+static uint8_t lastDI = 0xFF;
+static uint8_t lastDO = 0xFF;
+
+// cache RTC
 static bool lastRtcValid = false;
 static uint8_t lastRtcHour = 0xFF;
 static uint8_t lastRtcMinute = 0xFF;
 static uint8_t lastRtcSecond = 0xFF;
+static uint8_t lastRtcDay = 0xFF;
+static uint8_t lastRtcMonth = 0xFF;
+static uint16_t lastRtcYear = 0xFFFF;
+
+// navegación previa
+static bool prevLeft = false;
+static bool prevRight = false;
+static bool prevUp = false;
+static bool prevDown = false;
+static bool prevOk = false;
+static bool prevEsc = false;
 
 // =====================================================
-// Utilidades SPI
+// Hooks débiles
+// =====================================================
+extern "C" bool __attribute__((weak)) jwplcNavLeftPressed(void)  { return false; }
+extern "C" bool __attribute__((weak)) jwplcNavRightPressed(void) { return false; }
+extern "C" bool __attribute__((weak)) jwplcNavUpPressed(void)    { return false; }
+extern "C" bool __attribute__((weak)) jwplcNavDownPressed(void)  { return false; }
+extern "C" bool __attribute__((weak)) jwplcNavOkPressed(void)    { return false; }
+extern "C" bool __attribute__((weak)) jwplcNavEscPressed(void)   { return false; }
+
+extern "C" bool __attribute__((weak)) jwplcCanReturnToIdle(void) { return true; }
+
+extern "C" void __attribute__((weak)) jwplcUserDisplayEnterCallback(void) {}
+extern "C" void __attribute__((weak)) jwplcUserDisplayRefreshCallback(const JWPLC_IOState* io, const JWPLC_RTCState* rtc)
+{
+  (void)io;
+  (void)rtc;
+}
+extern "C" void __attribute__((weak)) jwplcUserDisplayExitCallback(void) {}
+
+// =====================================================
+// SPI helpers
 // =====================================================
 static void deselectAllSPI()
 {
@@ -102,17 +147,26 @@ static void prepareForTFT()
 // =====================================================
 // Helpers visuales
 // =====================================================
-static String bankToStringLSBFirst(uint8_t value)
+static void formatTime(const JWPLC_RTCState* rtc, char out[16])
 {
-  String s;
-  s.reserve(8);
-
-  for (int i = 0; i < 8; i++)
+  if (!rtc->valid)
   {
-    s += ((value >> i) & 0x01) ? '1' : '0';
+    snprintf(out, 16, "--:--:--");
+    return;
   }
 
-  return s;
+  snprintf(out, 16, "%02u:%02u:%02u", rtc->hour, rtc->minute, rtc->second);
+}
+
+static void formatDate(const JWPLC_RTCState* rtc, char out[16])
+{
+  if (!rtc->valid)
+  {
+    snprintf(out, 16, "--/--/----");
+    return;
+  }
+
+  snprintf(out, 16, "%02u/%02u/%04u", rtc->day, rtc->month, rtc->year);
 }
 
 static void drawBitBox(int index, int rowY, bool state, bool isOutput)
@@ -141,7 +195,7 @@ static void drawBitBox(int index, int rowY, bool state, bool isOutput)
   int tx = x + (BOX_W - tw) / 2;
   int ty = y + (BOX_H - th) / 2 - 1;
 
-  // ajuste fino validado
+  // ajuste fino validado por ti
   tft.setCursor(tx + 1, ty + 2);
   tft.print(txt);
 }
@@ -160,67 +214,19 @@ static void updateChangedBoxes(uint8_t oldValue, uint8_t newValue, int rowY, boo
   }
 }
 
-static void drawBankTextStatic()
-{
-  tft.setTextSize(1);
-  tft.setTextColor(ST77XX_WHITE);
-
-  tft.setCursor(BANK_TEXT_X, DI_TEXT_Y);
-  tft.print("DI[0..7] =");
-
-  tft.setCursor(BANK_TEXT_X, DO_TEXT_Y);
-  tft.print("DO[0..7] =");
-}
-
-static void updateBankValue(int y, uint8_t value)
-{
-  tft.fillRect(BANK_VALUE_X, y, BANK_VALUE_W, BANK_VALUE_H, ST77XX_BLACK);
-
-  tft.setTextSize(1);
-  tft.setTextColor(ST77XX_WHITE);
-  tft.setCursor(BANK_VALUE_X, y);
-  tft.print(bankToStringLSBFirst(value));
-}
-
-static void drawRTCStatic()
-{
-  tft.setTextSize(1);
-  tft.setTextColor(ST77XX_WHITE);
-  tft.setCursor(RTC_X, RTC_Y);
-  tft.print("RTC --:--:--");
-}
-
-static void updateRTC(const JWPLC_RTCState* rtc)
-{
-  tft.fillRect(RTC_X, RTC_Y, 100, 10, ST77XX_BLACK);
-
-  tft.setTextSize(1);
-  tft.setTextColor(ST77XX_WHITE);
-  tft.setCursor(RTC_X, RTC_Y);
-
-  if (!rtc->valid)
-  {
-    tft.print("RTC --:--:--");
-    return;
-  }
-
-  char buf[16];
-  snprintf(buf, sizeof(buf), "RTC %02u:%02u:%02u", rtc->hour, rtc->minute, rtc->second);
-  tft.print(buf);
-}
-
-static void drawStaticUI()
+static void drawIdleStaticUI()
 {
   tft.fillScreen(ST77XX_BLACK);
   tft.drawRect(0, 0, SCREEN_W, SCREEN_H, ST77XX_WHITE);
 
+  // título
   tft.setTextSize(2);
-  tft.setTextColor(ST77XX_GREEN);
+  tft.setTextColor(ST77XX_CYAN);
   tft.setCursor(TITLE_X, TITLE_Y);
   tft.print("JWPLC Basic");
 
-  drawRTCStatic();
-
+  // etiquetas
+  tft.setTextSize(2);
   tft.setTextColor(ST77XX_YELLOW);
   tft.setCursor(DI_LABEL_X, DI_LABEL_Y);
   tft.print("Entradas:");
@@ -228,20 +234,150 @@ static void drawStaticUI()
   tft.setCursor(DO_LABEL_X, DO_LABEL_Y);
   tft.print("Salidas:");
 
-  drawBankTextStatic();
+  // indicador de reposo
+  tft.setTextSize(1);
+  tft.setTextColor(ST77XX_WHITE);
+  tft.setCursor(IDLE_TEXT_X, IDLE_TEXT_Y);
+  tft.print("REPOSO");
 
+  // recuadros base
   for (int i = 0; i < 8; i++)
   {
     drawBitBox(i, DI_ROW_Y, false, false);
     drawBitBox(i, DO_ROW_Y, false, true);
   }
+}
 
-  updateBankValue(DI_TEXT_Y, 0x00);
-  updateBankValue(DO_TEXT_Y, 0x00);
+static void updateIdleRTC(const JWPLC_RTCState* rtc)
+{
+  bool changed =
+      g_forceFullRedraw ||
+      (rtc->valid != lastRtcValid) ||
+      (rtc->hour != lastRtcHour) ||
+      (rtc->minute != lastRtcMinute) ||
+      (rtc->second != lastRtcSecond) ||
+      (rtc->day != lastRtcDay) ||
+      (rtc->month != lastRtcMonth) ||
+      (rtc->year != lastRtcYear);
+
+  if (!changed)
+  {
+    return;
+  }
+
+  char dateBuf[16];
+  char timeBuf[16];
+  formatDate(rtc, dateBuf);
+  formatTime(rtc, timeBuf);
+
+  tft.fillRect(RTC_DATE_X, RTC_DATE_Y, 100, 12, ST77XX_BLACK);
+  tft.fillRect(RTC_TIME_X, RTC_TIME_Y, 80, 12, ST77XX_BLACK);
+
+  tft.setTextSize(1);
+  tft.setTextColor(ST77XX_WHITE);
+
+  tft.setCursor(RTC_DATE_X, RTC_DATE_Y);
+  tft.print(dateBuf);
+
+  tft.setCursor(RTC_TIME_X, RTC_TIME_Y);
+  tft.print(timeBuf);
+
+  lastRtcValid = rtc->valid;
+  lastRtcHour = rtc->hour;
+  lastRtcMinute = rtc->minute;
+  lastRtcSecond = rtc->second;
+  lastRtcDay = rtc->day;
+  lastRtcMonth = rtc->month;
+  lastRtcYear = rtc->year;
+}
+
+static void updateIdleIO(const JWPLC_IOState* io)
+{
+  if (g_forceFullRedraw)
+  {
+    updateChangedBoxes(0x00, io->di_logical_bank0, DI_ROW_Y, false);
+    updateChangedBoxes(0x00, io->do_bank1, DO_ROW_Y, true);
+    lastDI = io->di_logical_bank0;
+    lastDO = io->do_bank1;
+    return;
+  }
+
+  if (io->di_logical_bank0 != lastDI)
+  {
+    updateChangedBoxes(lastDI, io->di_logical_bank0, DI_ROW_Y, false);
+    lastDI = io->di_logical_bank0;
+  }
+
+  if (io->do_bank1 != lastDO)
+  {
+    updateChangedBoxes(lastDO, io->do_bank1, DO_ROW_Y, true);
+    lastDO = io->do_bank1;
+  }
 }
 
 // =====================================================
-// API pública pequeña
+// Navegación / actividad
+// =====================================================
+static void handleNavigation()
+{
+  bool left  = jwplcNavLeftPressed();
+  bool right = jwplcNavRightPressed();
+  bool up    = jwplcNavUpPressed();
+  bool down  = jwplcNavDownPressed();
+  bool ok    = jwplcNavOkPressed();
+  bool esc   = jwplcNavEscPressed();
+
+  bool leftEdge  = left  && !prevLeft;
+  bool rightEdge = right && !prevRight;
+  bool upEdge    = up    && !prevUp;
+  bool downEdge  = down  && !prevDown;
+  bool okEdge    = ok    && !prevOk;
+  bool escEdge   = esc   && !prevEsc;
+
+  bool anyEdge = leftEdge || rightEdge || upEdge || downEdge || okEdge || escEdge;
+
+  if (anyEdge)
+  {
+    JWPLCDisplay::notifyActivity();
+
+    if (g_displayMode == DISPLAY_MODE_IDLE)
+    {
+      JWPLCDisplay::enterUserUI();
+    }
+    else
+    {
+      // modo usuario activo
+      if ((g_idleReturnMode == JWPLCDisplay::IDLE_RETURN_ESC_ONLY) &&
+          escEdge &&
+          jwplcCanReturnToIdle())
+      {
+        JWPLCDisplay::goIdle();
+      }
+    }
+  }
+
+  if ((g_displayMode == DISPLAY_MODE_USER) &&
+      (g_idleReturnMode == JWPLCDisplay::IDLE_RETURN_TIMEOUT) &&
+      (g_idleTimeoutMs > 0) &&
+      jwplcCanReturnToIdle())
+  {
+    uint32_t now = millis();
+    if ((uint32_t)(now - g_lastActivityMs) >= g_idleTimeoutMs)
+    {
+      JWPLCDisplay::goIdle();
+    }
+  }
+
+  prevLeft = left;
+  prevRight = right;
+  prevUp = up;
+  prevDown = down;
+  prevOk = ok;
+  prevEsc = esc;
+}
+
+// =====================================================
+// API pública
 // =====================================================
 namespace JWPLCDisplay
 {
@@ -250,14 +386,81 @@ namespace JWPLCDisplay
         return g_tftReady;
     }
 
+    bool isIdleMode()
+    {
+        return (g_displayMode == DISPLAY_MODE_IDLE);
+    }
+
     void forceRedraw()
     {
+        g_forceFullRedraw = true;
         jwplcSystemForceDisplayRefresh();
+    }
+
+    void notifyActivity()
+    {
+        g_lastActivityMs = millis();
+    }
+
+    void enterUserUI()
+    {
+        if (g_displayMode == DISPLAY_MODE_USER)
+        {
+            g_lastActivityMs = millis();
+            return;
+        }
+
+        g_displayMode = DISPLAY_MODE_USER;
+        g_lastActivityMs = millis();
+
+        prepareForTFT();
+        tft.fillScreen(ST77XX_BLACK);
+
+        jwplcUserDisplayEnterCallback();
+        jwplcSystemForceDisplayRefresh();
+    }
+
+    void goIdle()
+    {
+        if (g_displayMode == DISPLAY_MODE_USER)
+        {
+            jwplcUserDisplayExitCallback();
+        }
+
+        g_displayMode = DISPLAY_MODE_IDLE;
+        g_forceFullRedraw = true;
+        g_lastActivityMs = millis();
+        jwplcSystemForceDisplayRefresh();
+    }
+
+    void setIdleReturnMode(IdleReturnMode mode)
+    {
+        g_idleReturnMode = mode;
+    }
+
+    IdleReturnMode idleReturnMode()
+    {
+        return g_idleReturnMode;
+    }
+
+    void setIdleTimeoutMs(uint32_t timeoutMs)
+    {
+        g_idleTimeoutMs = timeoutMs;
+    }
+
+    uint32_t idleTimeoutMs()
+    {
+        return g_idleTimeoutMs;
+    }
+
+    Adafruit_ST7789& display()
+    {
+        return tft;
     }
 }
 
 // =====================================================
-// Hooks que consume el core alpha10
+// Hooks del sistema JWPLC
 // =====================================================
 extern "C" bool jwplcDisplayBeginCallback(void)
 {
@@ -272,17 +475,25 @@ extern "C" bool jwplcDisplayBeginCallback(void)
 
   digitalWrite(TFT_CS, HIGH);
 
-  drawStaticUI();
-
   g_tftReady = true;
-  lastDI = 0x00;
-  lastDO = 0x00;
+  g_forceFullRedraw = true;
+  g_displayMode = DISPLAY_MODE_IDLE;
+  g_idleReturnMode = JWPLCDisplay::IDLE_RETURN_ESC_ONLY;
+  g_idleTimeoutMs = 15000;
+  g_lastActivityMs = millis();
+
+  lastDI = 0xFF;
+  lastDO = 0xFF;
+
   lastRtcValid = false;
   lastRtcHour = 0xFF;
   lastRtcMinute = 0xFF;
   lastRtcSecond = 0xFF;
+  lastRtcDay = 0xFF;
+  lastRtcMonth = 0xFF;
+  lastRtcYear = 0xFFFF;
 
-  Serial.println("JWPLC_Display_ST7789 listo");
+  Serial.println("JWPLC_Display_ST7789 alpha13 listo");
   return true;
 }
 
@@ -293,34 +504,23 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState* io, const JWPLC
     return;
   }
 
+  handleNavigation();
+
   prepareForTFT();
 
-  uint8_t di = io->di_logical_bank0;
-  uint8_t doShadow = io->do_bank1;
-
-  if (di != lastDI)
+  if (g_displayMode == DISPLAY_MODE_IDLE)
   {
-    updateChangedBoxes(lastDI, di, DI_ROW_Y, false);
-    updateBankValue(DI_TEXT_Y, di);
-    lastDI = di;
+    if (g_forceFullRedraw)
+    {
+      drawIdleStaticUI();
+    }
+
+    updateIdleRTC(rtc);
+    updateIdleIO(io);
+    g_forceFullRedraw = false;
+    return;
   }
 
-  if (doShadow != lastDO)
-  {
-    updateChangedBoxes(lastDO, doShadow, DO_ROW_Y, true);
-    updateBankValue(DO_TEXT_Y, doShadow);
-    lastDO = doShadow;
-  }
-
-  if ((rtc->valid != lastRtcValid) ||
-      (rtc->hour != lastRtcHour) ||
-      (rtc->minute != lastRtcMinute) ||
-      (rtc->second != lastRtcSecond))
-  {
-    updateRTC(rtc);
-    lastRtcValid = rtc->valid;
-    lastRtcHour = rtc->hour;
-    lastRtcMinute = rtc->minute;
-    lastRtcSecond = rtc->second;
-  }
+  // modo usuario
+  jwplcUserDisplayRefreshCallback(io, rtc);
 }
