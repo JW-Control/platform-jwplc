@@ -12,6 +12,119 @@
         {
           "name": "JW Control ESP32 Boards",
           "architecture": "esp32",
+          "version": "2.0.0-alpha.12",
+          "category": "Contributed",
+          "url": "https://github.com/JW-Control/platform-jwplc/releases/download/v2.0.0-alpha.12/jwplc-esp32-2.0.0-alpha.12.zip",
+          "archiveFileName": "jwplc-esp32-2.0.0-alpha.12.zip",
+          "checksum": "SHA-256:0d8e4151a05fcf3d4d7dcbad74c5cb37861312499b35dc57bd738a860948c8c7",
+          "size": "21872772",
+          "help": {
+            "online": "https://www.jw-control.com/"
+          },
+          "boards": [
+            {
+              "name": "ESP32 Base Board"
+            },
+            {
+              "name": "ESP32-S2 Base Board"
+            },
+            {
+              "name": "ESP32-S3 Base Board"
+            },
+            {
+              "name": "ESP32-C3 Base Board"
+            },
+            {
+              "name": "ESP32-C6 Base Board"
+            },
+            {
+              "name": "ESP32-H2 Base Board"
+            },
+            {
+              "name": "JWPLC Basic"
+            }
+          ],
+          "toolsDependencies": [
+            {
+              "packager": "jwplc",
+              "name": "esp-x32",
+              "version": "2601"
+            },
+            {
+              "packager": "jwplc",
+              "name": "xtensa-esp-elf-gdb",
+              "version": "16.3_20250913"
+            },
+            {
+              "packager": "jwplc",
+              "name": "esp-rv32",
+              "version": "2601"
+            },
+            {
+              "packager": "jwplc",
+              "name": "riscv32-esp-elf-gdb",
+              "version": "16.3_20250913"
+            },
+            {
+              "packager": "jwplc",
+              "name": "openocd-esp32",
+              "version": "v0.12.0-esp32-20251215"
+            },
+            {
+              "packager": "jwplc",
+              "name": "esptool_py",
+              "version": "5.2.0"
+            },
+            {
+              "packager": "jwplc",
+              "name": "mkspiffs",
+              "version": "0.2.3"
+            },
+            {
+              "packager": "jwplc",
+              "name": "mklittlefs",
+              "version": "4.0.2-db0513a"
+            },
+            {
+              "packager": "arduino",
+              "name": "dfu-util",
+              "version": "0.11.0-arduino5"
+            },
+            {
+              "packager": "jwplc",
+              "name": "esp32-libs",
+              "version": "3.3.8"
+            },
+            {
+              "packager": "jwplc",
+              "name": "esp32c3-libs",
+              "version": "3.3.8"
+            },
+            {
+              "packager": "jwplc",
+              "name": "esp32c6-libs",
+              "version": "3.3.8"
+            },
+            {
+              "packager": "jwplc",
+              "name": "esp32h2-libs",
+              "version": "3.3.8"
+            },
+            {
+              "packager": "jwplc",
+              "name": "esp32s2-libs",
+              "version": "3.3.8"
+            },
+            {
+              "packager": "jwplc",
+              "name": "esp32s3-libs",
+              "version": "3.3.8"
+            }
+          ]
+        },
+        {
+          "name": "JW Control ESP32 Boards",
+          "architecture": "esp32",
           "version": "2.0.0-alpha.11",
           "category": "Contributed",
           "url": "https://github.com/JW-Control/platform-jwplc/releases/download/v2.0.0-alpha.11/jwplc-esp32-2.0.0-alpha.11.zip",

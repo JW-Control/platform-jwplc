@@ -215,7 +215,7 @@ static void drawStaticUI()
   tft.drawRect(0, 0, SCREEN_W, SCREEN_H, ST77XX_WHITE);
 
   tft.setTextSize(2);
-  tft.setTextColor(ST77XX_CYAN);
+  tft.setTextColor(ST77XX_GREEN);
   tft.setCursor(TITLE_X, TITLE_Y);
   tft.print("JWPLC Basic");
 

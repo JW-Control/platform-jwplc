@@ -10,6 +10,7 @@
 #include "jwplc_i2c_bridge.h"
 #include "peripheral-tca6424a.h"
 #include "jwplc_peripherals.h"
+#include "jwplc_rtc.h"
 
 static bool g_jwplc_peripherals_initialized = false;
 
@@ -32,6 +33,9 @@ void initPeripherals(void)
     {
         return;
     }
+    
+    // RTC no es crítico para permitir que el resto del sistema arranque
+    (void)jwplcRTC_begin();
 
     if (!TCA6424A_init(TCA6424A_DEFAULT_ADDRESS))
     {

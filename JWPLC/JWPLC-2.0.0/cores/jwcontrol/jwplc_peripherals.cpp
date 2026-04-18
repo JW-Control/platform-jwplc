@@ -5,6 +5,7 @@ extern "C"
 {
 #include "jwplc_peripherals.h"
 #include "peripheral-tca6424a.h"
+#include "jwplc_rtc.h"
 }
 
 extern "C" void ARDUINO_ISR_ATTR __pinMode(uint8_t pin, uint8_t mode);
@@ -57,19 +58,19 @@ bool jwplcDisplayBeginCallback(void)
     return false;
 }
 
-void jwplcDisplayRefreshCallback(const JWPLC_IOState* io, const JWPLC_RTCState* rtc) __attribute__((weak));
-void jwplcDisplayRefreshCallback(const JWPLC_IOState* io, const JWPLC_RTCState* rtc)
+void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc) __attribute__((weak));
+void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc)
 {
     (void)io;
     (void)rtc;
 }
 
-const JWPLC_IOState* jwplcGetIOState(void)
+const JWPLC_IOState *jwplcGetIOState(void)
 {
     return &g_ioState;
 }
 
-const JWPLC_RTCState* jwplcGetRTCState(void)
+const JWPLC_RTCState *jwplcGetRTCState(void)
 {
     return &g_rtcState;
 }
@@ -152,7 +153,42 @@ void jwplcSystemScanIO(void)
 
 void jwplcSystemTickRTC(void)
 {
-    // Stub por ahora
+    JWPLC_RTCDateTime dt = {};
+
+    if (jwplcRTC_readDateTime(&dt))
+    {
+        bool changed =
+            (g_rtcState.valid  != dt.valid)  ||
+            (g_rtcState.second != dt.second) ||
+            (g_rtcState.minute != dt.minute) ||
+            (g_rtcState.hour   != dt.hour)   ||
+            (g_rtcState.day    != dt.day)    ||
+            (g_rtcState.month  != dt.month)  ||
+            (g_rtcState.year   != dt.year);
+
+        g_rtcState.valid = dt.valid;
+        g_rtcState.second = dt.second;
+        g_rtcState.minute = dt.minute;
+        g_rtcState.hour   = dt.hour;
+        g_rtcState.day    = dt.day;
+        g_rtcState.month  = dt.month;
+        g_rtcState.year   = dt.year;
+        g_rtcState.last_update_ms = millis();
+
+        if (changed)
+        {
+            jwplcSystemMarkDisplayDirty();
+        }
+    }
+    else
+    {
+        if (g_rtcState.valid)
+        {
+            g_rtcState.valid = false;
+            g_rtcState.last_update_ms = millis();
+            jwplcSystemMarkDisplayDirty();
+        }
+    }
 }
 
 void jwplcSystemDisplayHook(void)
