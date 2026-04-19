@@ -33,9 +33,13 @@ void initPeripherals(void)
     {
         return;
     }
-    
-    // RTC no es crítico para permitir que el resto del sistema arranque
-    (void)jwplcRTC_begin();
+
+    // RTC no es crítico para permitir que el resto del sistema arranque.
+    // Si responde, sembramos el estado inicial desde el arranque.
+    if (jwplcRTC_begin())
+    {
+        jwplcSystemTickRTC();
+    }
 
     if (!TCA6424A_init(TCA6424A_DEFAULT_ADDRESS))
     {

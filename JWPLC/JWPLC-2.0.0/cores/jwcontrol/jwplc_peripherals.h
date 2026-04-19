@@ -22,7 +22,11 @@ typedef struct
 
 typedef struct
 {
+    volatile bool present;
     volatile bool valid;
+    volatile bool lost_power;
+    volatile uint8_t status;
+    volatile uint8_t day_of_week;
     volatile uint8_t second;
     volatile uint8_t minute;
     volatile uint8_t hour;

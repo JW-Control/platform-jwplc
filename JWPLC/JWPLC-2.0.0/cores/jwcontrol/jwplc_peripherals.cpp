@@ -104,7 +104,11 @@ void jwplcSystemInitState(void)
     g_ioState.last_scan_ms = millis();
     g_ioState.last_display_refresh_ms = 0;
 
+    g_rtcState.present = false;
     g_rtcState.valid = false;
+    g_rtcState.lost_power = false;
+    g_rtcState.status = 0xFF;
+    g_rtcState.day_of_week = 0;
     g_rtcState.second = 0;
     g_rtcState.minute = 0;
     g_rtcState.hour = 0;
@@ -158,15 +162,23 @@ void jwplcSystemTickRTC(void)
     if (jwplcRTC_readDateTime(&dt))
     {
         bool changed =
-            (g_rtcState.valid  != dt.valid)  ||
-            (g_rtcState.second != dt.second) ||
-            (g_rtcState.minute != dt.minute) ||
-            (g_rtcState.hour   != dt.hour)   ||
-            (g_rtcState.day    != dt.day)    ||
-            (g_rtcState.month  != dt.month)  ||
-            (g_rtcState.year   != dt.year);
+            (g_rtcState.present     != dt.present)    ||
+            (g_rtcState.valid       != dt.valid)      ||
+            (g_rtcState.lost_power  != dt.lostPower)  ||
+            (g_rtcState.status      != dt.status)     ||
+            (g_rtcState.day_of_week != dt.dayOfWeek)  ||
+            (g_rtcState.second      != dt.second)     ||
+            (g_rtcState.minute      != dt.minute)     ||
+            (g_rtcState.hour        != dt.hour)       ||
+            (g_rtcState.day         != dt.day)        ||
+            (g_rtcState.month       != dt.month)      ||
+            (g_rtcState.year        != dt.year);
 
+        g_rtcState.present = dt.present;
         g_rtcState.valid = dt.valid;
+        g_rtcState.lost_power = dt.lostPower;
+        g_rtcState.status = dt.status;
+        g_rtcState.day_of_week = dt.dayOfWeek;
         g_rtcState.second = dt.second;
         g_rtcState.minute = dt.minute;
         g_rtcState.hour   = dt.hour;
@@ -182,10 +194,34 @@ void jwplcSystemTickRTC(void)
     }
     else
     {
-        if (g_rtcState.valid)
+        bool changed =
+            g_rtcState.present ||
+            g_rtcState.valid ||
+            g_rtcState.lost_power ||
+            (g_rtcState.status != 0xFFu) ||
+            (g_rtcState.day_of_week != 0u) ||
+            (g_rtcState.second != 0u) ||
+            (g_rtcState.minute != 0u) ||
+            (g_rtcState.hour != 0u) ||
+            (g_rtcState.day != 0u) ||
+            (g_rtcState.month != 0u) ||
+            (g_rtcState.year != 0u);
+
+        g_rtcState.present = false;
+        g_rtcState.valid = false;
+        g_rtcState.lost_power = false;
+        g_rtcState.status = 0xFF;
+        g_rtcState.day_of_week = 0;
+        g_rtcState.second = 0;
+        g_rtcState.minute = 0;
+        g_rtcState.hour = 0;
+        g_rtcState.day = 0;
+        g_rtcState.month = 0;
+        g_rtcState.year = 0;
+        g_rtcState.last_update_ms = millis();
+
+        if (changed)
         {
-            g_rtcState.valid = false;
-            g_rtcState.last_update_ms = millis();
             jwplcSystemMarkDisplayDirty();
         }
     }
