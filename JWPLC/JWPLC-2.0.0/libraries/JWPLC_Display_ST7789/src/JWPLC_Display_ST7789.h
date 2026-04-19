@@ -3,10 +3,29 @@
 
 #include <Arduino.h>
 #include <Adafruit_ST7789.h>
+#include <JW_MatrixButtons.h>
 
-extern "C" {
-  #include "jwplc_peripherals.h"
+extern "C"
+{
+#include "jwplc_peripherals.h"
 }
+
+// -----------------------------------------------------
+// IDs públicos de botones para usar con JW_MatrixButtons
+// -----------------------------------------------------
+enum JWPLCButtonId : uint8_t
+{
+    BTN_LEFT = 0,
+    BTN_UP,
+    BTN_RIGHT,
+    BTN_ESC,
+    BTN_OK,
+    BTN_DOWN,
+    BTN_COUNT
+};
+
+// Objeto público real de la librería JW_MatrixButtons
+extern JW_MatrixButtons JWPLC_Buttons;
 
 namespace JWPLCDisplay
 {
@@ -19,6 +38,7 @@ namespace JWPLCDisplay
 
     bool isReady();
     bool isIdleMode();
+    bool buttonsReady();
 
     void forceRedraw();
 
@@ -32,35 +52,29 @@ namespace JWPLCDisplay
     void setIdleTimeoutMs(uint32_t timeoutMs);
     uint32_t idleTimeoutMs();
 
-    Adafruit_ST7789& display();
+    void setIdleRefreshPeriodMs(uint32_t ms);
+    uint32_t idleRefreshPeriodMs();
+
+    void setUserRefreshPeriodMs(uint32_t ms);
+    uint32_t userRefreshPeriodMs();
+
+    void clearPendingInput();
+
+    Adafruit_ST7789 &display();
 }
 
-// -----------------------------------------------------
-// Hooks débiles de navegación / integración
-// -----------------------------------------------------
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-bool jwplcNavLeftPressed(void);
-bool jwplcNavRightPressed(void);
-bool jwplcNavUpPressed(void);
-bool jwplcNavDownPressed(void);
-bool jwplcNavOkPressed(void);
-bool jwplcNavEscPressed(void);
+    // Debe devolver true SOLO cuando la UI del usuario esté en la raíz
+    bool jwplcCanReturnToIdle(void);
 
-// Debe devolver true SOLO cuando la UI del usuario esté
-// en la raíz y sea válido volver a REPOSO.
-bool jwplcCanReturnToIdle(void);
-
-// Se llama al entrar en modo usuario
-void jwplcUserDisplayEnterCallback(void);
-
-// Se llama continuamente mientras la UI del usuario está activa
-void jwplcUserDisplayRefreshCallback(const JWPLC_IOState* io, const JWPLC_RTCState* rtc);
-
-// Se llama al salir del modo usuario y volver a REPOSO
-void jwplcUserDisplayExitCallback(void);
+    // Callbacks débiles de la UI del usuario
+    void jwplcUserDisplayEnterCallback(void);
+    void jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc);
+    void jwplcUserDisplayExitCallback(void);
 
 #ifdef __cplusplus
 }

@@ -4,8 +4,12 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_ST7789.h>
 
-extern "C" {
-  #include "jwplc_peripherals.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+extern "C"
+{
+#include "jwplc_peripherals.h"
 }
 
 // =====================================================
@@ -13,23 +17,42 @@ extern "C" {
 // =====================================================
 #define SPI_MOSI 23
 #define SPI_MISO 19
-#define SPI_SCK  18
+#define SPI_SCK 18
 
 // TFT
-#define TFT_CS   33
-#define TFT_DC   25
-#define TFT_RST  14
+#define TFT_CS 33
+#define TFT_DC 25
+#define TFT_RST 14
 
 // SD
-#define SD_CS    32
+#define SD_CS 32
 
 // FRAM
-#define FRAM_CS  13
+#define FRAM_CS 13
 
 // Ethernet W5500
-#define ETH_CS   5
+#define ETH_CS 5
 
 static Adafruit_ST7789 tft(TFT_CS, TFT_DC, TFT_RST);
+
+// =====================================================
+// Botonera real: usar directamente JW_MatrixButtons
+// =====================================================
+JW_MatrixButtons JWPLC_Buttons;
+
+static const uint8_t ROWS[] = {12, 2};
+static const uint8_t COLS[] = {35, 34, 36};
+
+static const JW_MatrixButtons::BtnMapItem BUTTON_MAP[] = {
+    {BTN_LEFT, 0, 0},
+    {BTN_UP, 0, 1},
+    {BTN_RIGHT, 0, 2},
+    {BTN_ESC, 1, 0},
+    {BTN_OK, 1, 1},
+    {BTN_DOWN, 1, 2}};
+
+static bool g_buttonsReady = false;
+static TaskHandle_t g_buttonTaskHandle = nullptr;
 
 // =====================================================
 // Layout REPOSO
@@ -38,28 +61,28 @@ static const int SCREEN_W = 320;
 static const int SCREEN_H = 170;
 
 static const int TITLE_X = 10;
-static const int TITLE_Y = 6;
+static const int TITLE_Y = 8;
 
-static const int RTC_DATE_X = 212;
+static const int RTC_DATE_X = 250;
 static const int RTC_DATE_Y = 8;
-static const int RTC_TIME_X = 228;
+static const int RTC_TIME_X = 262;
 static const int RTC_TIME_Y = 22;
 
 static const int DI_LABEL_X = 10;
 static const int DI_LABEL_Y = 34;
-static const int DI_ROW_Y   = 54;
+static const int DI_ROW_Y = 54;
 
 static const int DO_LABEL_X = 10;
 static const int DO_LABEL_Y = 96;
-static const int DO_ROW_Y   = 116;
+static const int DO_ROW_Y = 116;
 
-static const int BOX_X0   = 12;
-static const int BOX_W    = 28;
-static const int BOX_H    = 24;
-static const int BOX_GAP  = 10;
+static const int BOX_X0 = 12;
+static const int BOX_W = 28;
+static const int BOX_H = 24;
+static const int BOX_GAP = 10;
 static const int BOX_STEP = BOX_W + BOX_GAP;
 
-static const int IDLE_TEXT_X = 250;
+static const int IDLE_TEXT_X = 270;
 static const int IDLE_TEXT_Y = 154;
 
 // =====================================================
@@ -67,8 +90,8 @@ static const int IDLE_TEXT_Y = 154;
 // =====================================================
 enum DisplayMode : uint8_t
 {
-    DISPLAY_MODE_IDLE = 0,
-    DISPLAY_MODE_USER = 1
+  DISPLAY_MODE_IDLE = 0,
+  DISPLAY_MODE_USER = 1
 };
 
 static bool g_tftReady = false;
@@ -78,6 +101,8 @@ static DisplayMode g_displayMode = DISPLAY_MODE_IDLE;
 static JWPLCDisplay::IdleReturnMode g_idleReturnMode = JWPLCDisplay::IDLE_RETURN_ESC_ONLY;
 static uint32_t g_idleTimeoutMs = 15000;
 static uint32_t g_lastActivityMs = 0;
+static uint32_t g_idleRefreshPeriodMs = 50;
+static uint32_t g_userRefreshPeriodMs = 20;
 
 // cache IO
 static uint8_t lastDI = 0xFF;
@@ -92,32 +117,19 @@ static uint8_t lastRtcDay = 0xFF;
 static uint8_t lastRtcMonth = 0xFF;
 static uint16_t lastRtcYear = 0xFFFF;
 
-// navegación previa
-static bool prevLeft = false;
-static bool prevRight = false;
-static bool prevUp = false;
-static bool prevDown = false;
-static bool prevOk = false;
-static bool prevEsc = false;
-
 // =====================================================
-// Hooks débiles
+// Hooks débiles de UI usuario
 // =====================================================
-extern "C" bool __attribute__((weak)) jwplcNavLeftPressed(void)  { return false; }
-extern "C" bool __attribute__((weak)) jwplcNavRightPressed(void) { return false; }
-extern "C" bool __attribute__((weak)) jwplcNavUpPressed(void)    { return false; }
-extern "C" bool __attribute__((weak)) jwplcNavDownPressed(void)  { return false; }
-extern "C" bool __attribute__((weak)) jwplcNavOkPressed(void)    { return false; }
-extern "C" bool __attribute__((weak)) jwplcNavEscPressed(void)   { return false; }
-
 extern "C" bool __attribute__((weak)) jwplcCanReturnToIdle(void) { return true; }
 
 extern "C" void __attribute__((weak)) jwplcUserDisplayEnterCallback(void) {}
-extern "C" void __attribute__((weak)) jwplcUserDisplayRefreshCallback(const JWPLC_IOState* io, const JWPLC_RTCState* rtc)
+
+extern "C" void __attribute__((weak)) jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc)
 {
   (void)io;
   (void)rtc;
 }
+
 extern "C" void __attribute__((weak)) jwplcUserDisplayExitCallback(void) {}
 
 // =====================================================
@@ -145,9 +157,90 @@ static void prepareForTFT()
 }
 
 // =====================================================
+// Botonera helpers
+// =====================================================
+static void buttonScanTask(void *pvParameters)
+{
+  (void)pvParameters;
+
+  for (;;)
+  {
+    if (g_buttonsReady)
+    {
+      JWPLC_Buttons.update();
+
+      // Si hubo eventos, pide refresco del display.
+      // Esto ayuda a que USER_UI reaccione antes.
+      if (JWPLC_Buttons.eventCount() > 0)
+      {
+        jwplcSystemForceDisplayRefresh();
+      }
+    }
+
+    // 5 ms: suficientemente rápido para buena respuesta
+    vTaskDelay(pdMS_TO_TICKS(5));
+  }
+}
+
+static void initButtons()
+{
+  bool ok = JWPLC_Buttons.begin(
+      ROWS, 2,
+      COLS, 3,
+      BUTTON_MAP, sizeof(BUTTON_MAP) / sizeof(BUTTON_MAP[0]),
+      BTN_COUNT,
+      false,
+      20);
+
+  if (!ok)
+  {
+    g_buttonsReady = false;
+    return;
+  }
+
+  // Repeat solo para navegación direccional
+  JWPLC_Buttons.setRepeatEnabled(BTN_LEFT, true);
+  JWPLC_Buttons.setRepeatEnabled(BTN_UP, true);
+  JWPLC_Buttons.setRepeatEnabled(BTN_RIGHT, true);
+  JWPLC_Buttons.setRepeatEnabled(BTN_DOWN, true);
+  JWPLC_Buttons.setRepeatEnabled(BTN_OK, false);
+  JWPLC_Buttons.setRepeatEnabled(BTN_ESC, false);
+
+  // Mantengo tu perfil previo
+  JWPLC_Buttons.setRepeatInitialDelay(220);
+  JWPLC_Buttons.setRepeatProfile(6, 12, 20, 1, 1, 1, 1, 120, 90, 70, 50);
+
+  JWPLC_Buttons.clearPendingInput();
+  g_buttonsReady = true;
+
+  if (g_buttonTaskHandle == nullptr)
+  {
+    xTaskCreatePinnedToCore(
+        buttonScanTask,
+        "jwplcBtnScan",
+        4096,
+        nullptr,
+        2,
+        &g_buttonTaskHandle,
+        ARDUINO_RUNNING_CORE);
+  }
+}
+
+static bool anyButtonPressedOrRepeated()
+{
+  if (!g_buttonsReady)
+    return false;
+
+  return JWPLC_Buttons.pressed(BTN_LEFT) || JWPLC_Buttons.pressed(BTN_UP) ||
+         JWPLC_Buttons.pressed(BTN_RIGHT) || JWPLC_Buttons.pressed(BTN_ESC) ||
+         JWPLC_Buttons.pressed(BTN_OK) || JWPLC_Buttons.pressed(BTN_DOWN) ||
+         JWPLC_Buttons.eventCount() > 0;
+}
+
+// =====================================================
 // Helpers visuales
 // =====================================================
-static void formatTime(const JWPLC_RTCState* rtc, char out[16])
+static void formatTime(const JWPLC_RTCState *rtc, char out[16])
 {
   if (!rtc->valid)
   {
@@ -158,7 +251,7 @@ static void formatTime(const JWPLC_RTCState* rtc, char out[16])
   snprintf(out, 16, "%02u:%02u:%02u", rtc->hour, rtc->minute, rtc->second);
 }
 
-static void formatDate(const JWPLC_RTCState* rtc, char out[16])
+static void formatDate(const JWPLC_RTCState *rtc, char out[16])
 {
   if (!rtc->valid)
   {
@@ -175,8 +268,8 @@ static void drawBitBox(int index, int rowY, bool state, bool isOutput)
   int y = rowY;
 
   uint16_t fillColor = state
-    ? (isOutput ? ST77XX_RED : ST77XX_GREEN)
-    : 0x2104;
+                           ? (isOutput ? ST77XX_RED : ST77XX_GREEN)
+                           : 0x2104;
 
   tft.fillRoundRect(x, y, BOX_W, BOX_H, 5, fillColor);
   tft.drawRoundRect(x, y, BOX_W, BOX_H, 5, ST77XX_WHITE);
@@ -195,7 +288,7 @@ static void drawBitBox(int index, int rowY, bool state, bool isOutput)
   int tx = x + (BOX_W - tw) / 2;
   int ty = y + (BOX_H - th) / 2 - 1;
 
-  // ajuste fino validado por ti
+  // tu ajuste fino
   tft.setCursor(tx + 1, ty + 2);
   tft.print(txt);
 }
@@ -220,8 +313,8 @@ static void drawIdleStaticUI()
   tft.drawRect(0, 0, SCREEN_W, SCREEN_H, ST77XX_WHITE);
 
   // título
-  tft.setTextSize(2);
-  tft.setTextColor(ST77XX_CYAN);
+  tft.setTextSize(1);
+  tft.setTextColor(ST77XX_GREEN);
   tft.setCursor(TITLE_X, TITLE_Y);
   tft.print("JWPLC Basic");
 
@@ -248,7 +341,7 @@ static void drawIdleStaticUI()
   }
 }
 
-static void updateIdleRTC(const JWPLC_RTCState* rtc)
+static void updateIdleRTC(const JWPLC_RTCState *rtc)
 {
   bool changed =
       g_forceFullRedraw ||
@@ -270,8 +363,8 @@ static void updateIdleRTC(const JWPLC_RTCState* rtc)
   formatDate(rtc, dateBuf);
   formatTime(rtc, timeBuf);
 
-  tft.fillRect(RTC_DATE_X, RTC_DATE_Y, 100, 12, ST77XX_BLACK);
-  tft.fillRect(RTC_TIME_X, RTC_TIME_Y, 80, 12, ST77XX_BLACK);
+  tft.fillRect(RTC_DATE_X, RTC_DATE_Y, 60, 12, ST77XX_BLACK);
+  tft.fillRect(RTC_TIME_X, RTC_TIME_Y, 48, 12, ST77XX_BLACK);
 
   tft.setTextSize(1);
   tft.setTextColor(ST77XX_WHITE);
@@ -291,7 +384,7 @@ static void updateIdleRTC(const JWPLC_RTCState* rtc)
   lastRtcYear = rtc->year;
 }
 
-static void updateIdleIO(const JWPLC_IOState* io)
+static void updateIdleIO(const JWPLC_IOState *io)
 {
   if (g_forceFullRedraw)
   {
@@ -318,41 +411,15 @@ static void updateIdleIO(const JWPLC_IOState* io)
 // =====================================================
 // Navegación / actividad
 // =====================================================
-static void handleNavigation()
+static void handleIdleWakeAndTimeout()
 {
-  bool left  = jwplcNavLeftPressed();
-  bool right = jwplcNavRightPressed();
-  bool up    = jwplcNavUpPressed();
-  bool down  = jwplcNavDownPressed();
-  bool ok    = jwplcNavOkPressed();
-  bool esc   = jwplcNavEscPressed();
-
-  bool leftEdge  = left  && !prevLeft;
-  bool rightEdge = right && !prevRight;
-  bool upEdge    = up    && !prevUp;
-  bool downEdge  = down  && !prevDown;
-  bool okEdge    = ok    && !prevOk;
-  bool escEdge   = esc   && !prevEsc;
-
-  bool anyEdge = leftEdge || rightEdge || upEdge || downEdge || okEdge || escEdge;
-
-  if (anyEdge)
+  if (g_displayMode == DISPLAY_MODE_IDLE)
   {
-    JWPLCDisplay::notifyActivity();
-
-    if (g_displayMode == DISPLAY_MODE_IDLE)
+    if (anyButtonPressedOrRepeated())
     {
+      JWPLCDisplay::notifyActivity();
       JWPLCDisplay::enterUserUI();
-    }
-    else
-    {
-      // modo usuario activo
-      if ((g_idleReturnMode == JWPLCDisplay::IDLE_RETURN_ESC_ONLY) &&
-          escEdge &&
-          jwplcCanReturnToIdle())
-      {
-        JWPLCDisplay::goIdle();
-      }
+      return;
     }
   }
 
@@ -365,15 +432,15 @@ static void handleNavigation()
     if ((uint32_t)(now - g_lastActivityMs) >= g_idleTimeoutMs)
     {
       JWPLCDisplay::goIdle();
+      return;
     }
   }
+}
 
-  prevLeft = left;
-  prevRight = right;
-  prevUp = up;
-  prevDown = down;
-  prevOk = ok;
-  prevEsc = esc;
+extern "C" uint32_t jwplcDisplayDesiredPeriod_ms(void)
+{
+  return (g_displayMode == DISPLAY_MODE_IDLE) ? g_idleRefreshPeriodMs
+                                              : g_userRefreshPeriodMs;
 }
 
 // =====================================================
@@ -381,82 +448,127 @@ static void handleNavigation()
 // =====================================================
 namespace JWPLCDisplay
 {
-    bool isReady()
+  bool isReady()
+  {
+    return g_tftReady;
+  }
+
+  bool isIdleMode()
+  {
+    return (g_displayMode == DISPLAY_MODE_IDLE);
+  }
+
+  bool buttonsReady()
+  {
+    return g_buttonsReady;
+  }
+
+  void forceRedraw()
+  {
+    g_forceFullRedraw = true;
+    jwplcSystemForceDisplayRefresh();
+  }
+
+  void notifyActivity()
+  {
+    g_lastActivityMs = millis();
+  }
+
+  void enterUserUI()
+  {
+    if (g_displayMode == DISPLAY_MODE_USER)
     {
-        return g_tftReady;
+      g_lastActivityMs = millis();
+      return;
     }
 
-    bool isIdleMode()
+    g_displayMode = DISPLAY_MODE_USER;
+    g_lastActivityMs = millis();
+
+    // el primer toque solo despierta
+    if (g_buttonsReady)
     {
-        return (g_displayMode == DISPLAY_MODE_IDLE);
+      JWPLC_Buttons.clearPendingInput();
     }
 
-    void forceRedraw()
+    prepareForTFT();
+    tft.fillScreen(ST77XX_BLACK);
+
+    jwplcUserDisplayEnterCallback();
+    jwplcSystemForceDisplayRefresh();
+  }
+
+  void goIdle()
+  {
+    if (g_displayMode == DISPLAY_MODE_USER)
     {
-        g_forceFullRedraw = true;
-        jwplcSystemForceDisplayRefresh();
+      jwplcUserDisplayExitCallback();
     }
 
-    void notifyActivity()
+    g_displayMode = DISPLAY_MODE_IDLE;
+    g_forceFullRedraw = true;
+    g_lastActivityMs = millis();
+
+    if (g_buttonsReady)
     {
-        g_lastActivityMs = millis();
+      JWPLC_Buttons.clearPendingInput();
     }
 
-    void enterUserUI()
+    jwplcSystemForceDisplayRefresh();
+  }
+
+  void setIdleReturnMode(IdleReturnMode mode)
+  {
+    g_idleReturnMode = mode;
+  }
+
+  IdleReturnMode idleReturnMode()
+  {
+    return g_idleReturnMode;
+  }
+
+  void setIdleTimeoutMs(uint32_t timeoutMs)
+  {
+    g_idleTimeoutMs = timeoutMs;
+  }
+
+  uint32_t idleTimeoutMs()
+  {
+    return g_idleTimeoutMs;
+  }
+
+  void setIdleRefreshPeriodMs(uint32_t ms)
+  {
+    g_idleRefreshPeriodMs = (ms == 0) ? 1 : ms;
+  }
+
+  uint32_t idleRefreshPeriodMs()
+  {
+    return g_idleRefreshPeriodMs;
+  }
+
+  void setUserRefreshPeriodMs(uint32_t ms)
+  {
+    g_userRefreshPeriodMs = (ms == 0) ? 1 : ms;
+  }
+
+  uint32_t userRefreshPeriodMs()
+  {
+    return g_userRefreshPeriodMs;
+  }
+
+  void clearPendingInput()
+  {
+    if (g_buttonsReady)
     {
-        if (g_displayMode == DISPLAY_MODE_USER)
-        {
-            g_lastActivityMs = millis();
-            return;
-        }
-
-        g_displayMode = DISPLAY_MODE_USER;
-        g_lastActivityMs = millis();
-
-        prepareForTFT();
-        tft.fillScreen(ST77XX_BLACK);
-
-        jwplcUserDisplayEnterCallback();
-        jwplcSystemForceDisplayRefresh();
+      JWPLC_Buttons.clearPendingInput();
     }
+  }
 
-    void goIdle()
-    {
-        if (g_displayMode == DISPLAY_MODE_USER)
-        {
-            jwplcUserDisplayExitCallback();
-        }
-
-        g_displayMode = DISPLAY_MODE_IDLE;
-        g_forceFullRedraw = true;
-        g_lastActivityMs = millis();
-        jwplcSystemForceDisplayRefresh();
-    }
-
-    void setIdleReturnMode(IdleReturnMode mode)
-    {
-        g_idleReturnMode = mode;
-    }
-
-    IdleReturnMode idleReturnMode()
-    {
-        return g_idleReturnMode;
-    }
-
-    void setIdleTimeoutMs(uint32_t timeoutMs)
-    {
-        g_idleTimeoutMs = timeoutMs;
-    }
-
-    uint32_t idleTimeoutMs()
-    {
-        return g_idleTimeoutMs;
-    }
-
-    Adafruit_ST7789& display()
-    {
-        return tft;
-    }
+  Adafruit_ST7789 &display()
+  {
+    return tft;
+  }
 }
 
 // =====================================================
@@ -475,11 +587,15 @@ extern "C" bool jwplcDisplayBeginCallback(void)
 
   digitalWrite(TFT_CS, HIGH);
 
+  initButtons();
+
   g_tftReady = true;
   g_forceFullRedraw = true;
   g_displayMode = DISPLAY_MODE_IDLE;
   g_idleReturnMode = JWPLCDisplay::IDLE_RETURN_ESC_ONLY;
   g_idleTimeoutMs = 15000;
+  g_idleRefreshPeriodMs = 50;
+  g_userRefreshPeriodMs = 20;
   g_lastActivityMs = millis();
 
   lastDI = 0xFF;
@@ -493,18 +609,18 @@ extern "C" bool jwplcDisplayBeginCallback(void)
   lastRtcMonth = 0xFF;
   lastRtcYear = 0xFFFF;
 
-  Serial.println("JWPLC_Display_ST7789 alpha13 listo");
+  Serial.println("JWPLC_Display_ST7789 alpha14 listo");
   return true;
 }
 
-extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState* io, const JWPLC_RTCState* rtc)
+extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc)
 {
   if (!g_tftReady)
   {
     return;
   }
 
-  handleNavigation();
+  handleIdleWakeAndTimeout();
 
   prepareForTFT();
 
@@ -521,6 +637,8 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState* io, const JWPLC
     return;
   }
 
-  // modo usuario
+  // USER_UI:
+  // aquí la botonera ya es responsabilidad del usuario
+  // usando directamente JWPLC_Buttons.pressed(...), applyAxis(...), etc.
   jwplcUserDisplayRefreshCallback(io, rtc);
 }

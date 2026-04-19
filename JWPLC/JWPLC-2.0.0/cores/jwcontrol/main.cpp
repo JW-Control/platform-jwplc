@@ -81,9 +81,15 @@ __attribute__((weak)) uint32_t getJWPLCRTCPeriod_ms(void)
   return 1000;
 }
 
-__attribute__((weak)) uint32_t getJWPLCDisplayPeriod_ms(void)
+extern "C" __attribute__((weak)) uint32_t jwplcDisplayDesiredPeriod_ms(void)
 {
-  return 50;
+  return 50; // valor por defecto si no hay librería que lo sobrescriba
+}
+
+uint32_t getJWPLCDisplayPeriod_ms(void)
+{
+  uint32_t ms = jwplcDisplayDesiredPeriod_ms();
+  return (ms == 0) ? 1 : ms;
 }
 
 __attribute__((weak)) uint32_t getJWPLCSystemTaskSleep_ms(void)
