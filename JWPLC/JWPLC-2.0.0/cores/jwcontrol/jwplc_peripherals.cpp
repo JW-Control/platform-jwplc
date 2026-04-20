@@ -5,7 +5,6 @@ extern "C"
 {
 #include "jwplc_peripherals.h"
 #include "peripheral-tca6424a.h"
-#include "jwplc_rtc.h"
 }
 
 extern "C" void ARDUINO_ISR_ATTR __pinMode(uint8_t pin, uint8_t mode);
@@ -63,6 +62,19 @@ void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC_RTCState *
 {
     (void)io;
     (void)rtc;
+}
+
+bool jwplcRTCBeginCallback(void) __attribute__((weak));
+bool jwplcRTCBeginCallback(void)
+{
+    return false;
+}
+
+bool jwplcRTCReadCallback(JWPLC_RTCState *rtc) __attribute__((weak));
+bool jwplcRTCReadCallback(JWPLC_RTCState *rtc)
+{
+    (void)rtc;
+    return false;
 }
 
 const JWPLC_IOState *jwplcGetIOState(void)
@@ -157,35 +169,26 @@ void jwplcSystemScanIO(void)
 
 void jwplcSystemTickRTC(void)
 {
-    JWPLC_RTCDateTime dt = {};
+    JWPLC_RTCState snapshot = {};
+    snapshot.status = 0xFF;
 
-    if (jwplcRTC_readDateTime(&dt))
+    if (jwplcRTCReadCallback(&snapshot))
     {
         bool changed =
-            (g_rtcState.present     != dt.present)    ||
-            (g_rtcState.valid       != dt.valid)      ||
-            (g_rtcState.lost_power  != dt.lostPower)  ||
-            (g_rtcState.status      != dt.status)     ||
-            (g_rtcState.day_of_week != dt.dayOfWeek)  ||
-            (g_rtcState.second      != dt.second)     ||
-            (g_rtcState.minute      != dt.minute)     ||
-            (g_rtcState.hour        != dt.hour)       ||
-            (g_rtcState.day         != dt.day)        ||
-            (g_rtcState.month       != dt.month)      ||
-            (g_rtcState.year        != dt.year);
+            (g_rtcState.present != snapshot.present) ||
+            (g_rtcState.valid != snapshot.valid) ||
+            (g_rtcState.lost_power != snapshot.lost_power) ||
+            (g_rtcState.status != snapshot.status) ||
+            (g_rtcState.day_of_week != snapshot.day_of_week) ||
+            (g_rtcState.second != snapshot.second) ||
+            (g_rtcState.minute != snapshot.minute) ||
+            (g_rtcState.hour != snapshot.hour) ||
+            (g_rtcState.day != snapshot.day) ||
+            (g_rtcState.month != snapshot.month) ||
+            (g_rtcState.year != snapshot.year);
 
-        g_rtcState.present = dt.present;
-        g_rtcState.valid = dt.valid;
-        g_rtcState.lost_power = dt.lostPower;
-        g_rtcState.status = dt.status;
-        g_rtcState.day_of_week = dt.dayOfWeek;
-        g_rtcState.second = dt.second;
-        g_rtcState.minute = dt.minute;
-        g_rtcState.hour   = dt.hour;
-        g_rtcState.day    = dt.day;
-        g_rtcState.month  = dt.month;
-        g_rtcState.year   = dt.year;
-        g_rtcState.last_update_ms = millis();
+        snapshot.last_update_ms = millis();
+        g_rtcState = snapshot;
 
         if (changed)
         {

@@ -122,7 +122,6 @@ void loopTask(void *pvParameters)
 #endif
 
   initPeripherals();
-  jwplcSystemInitState();
   jwplcSystemScanIO(); // dejar inputs ya disponibles antes de setup()
   setup();
 

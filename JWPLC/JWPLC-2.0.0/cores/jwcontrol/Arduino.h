@@ -158,6 +158,7 @@ void loop(void);
 void loop1(void);
 
 #if defined(JWPLC_BASIC)
+
 #include "jwplc_peripherals.h"
 
 #undef pinMode
@@ -168,6 +169,7 @@ void loop1(void);
 
 #undef digitalRead
 #define digitalRead(pin) jwplc_digitalRead((uint16_t)(pin))
+
 #endif
 
 // The default is using Real Hardware random number generator

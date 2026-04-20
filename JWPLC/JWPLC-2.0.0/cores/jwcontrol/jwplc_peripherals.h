@@ -64,6 +64,10 @@ bool jwplcSystemConsumeDisplayDirty(void);
 bool jwplcDisplayBeginCallback(void);
 void jwplcDisplayRefreshCallback(const JWPLC_IOState* io, const JWPLC_RTCState* rtc);
 
+// Hooks de RTC para implementar desde el sketch si se desea
+bool jwplcRTCBeginCallback(void);
+bool jwplcRTCReadCallback(JWPLC_RTCState* rtc);
+
 #ifdef __cplusplus
 }
 #endif
