@@ -13,7 +13,7 @@ extern "C" {
 }
 
 // =====================================================
-// SPI compartido del JWPLC Basic
+// SPI compartido
 // =====================================================
 #define SPI_MOSI 23
 #define SPI_MISO 19
@@ -27,22 +27,21 @@ extern "C" {
 #define FRAM_CS  13
 #define ETH_CS   5
 
+static constexpr uint32_t TFT_SPI_HZ = 80000000;
+
 static Adafruit_ST7789 tft(TFT_CS, TFT_DC, TFT_RST);
 
 // =====================================================
 // RTC global del ecosistema JWPLC
 // =====================================================
-// Esta instancia NO debe crearla el usuario en su sketch.
-// La librería la publica y además la usa para proveer el estado RTC al core.
+// Esta instancia queda accesible desde el sketch a través del header.
+// La inicialización real del RTC se hace por callback cuando el runtime
+// del package lo solicita.
 JW_RTC JWPLC_RTC;
 
-// Habilita o deshabilita internamente el backend RTC.
-// Por ahora se deja siempre activo. Más adelante puede exponerse una API
-// pública para deshabilitarlo sin tocar el core.
+// Flags básicos para futura expansión.
+// Por ahora el RTC está habilitado por defecto y siempre se muestra en IDLE.
 static bool g_rtcEnabled = true;
-
-// Bit OSF del DS3232/DS3232M dentro del registro STATUS.
-static constexpr uint8_t RTC_STATUS_OSF = 0x80u;
 
 // =====================================================
 // Botonera real
@@ -65,7 +64,7 @@ static bool g_buttonsReady = false;
 static TaskHandle_t g_buttonTaskHandle = nullptr;
 
 // =====================================================
-// Estado general del display
+// Estado general del módulo display
 // =====================================================
 enum DisplayMode : uint8_t
 {
@@ -80,19 +79,34 @@ static DisplayMode g_displayMode = DISPLAY_MODE_IDLE;
 static JWPLCDisplay::IdleReturnMode g_idleReturnMode = JWPLCDisplay::IDLE_RETURN_ESC_ONLY;
 static uint32_t g_idleTimeoutMs = 15000;
 static uint32_t g_idleRefreshPeriodMs = 50;
-static uint32_t g_userRefreshPeriodMs = 20;
+
+// Alpha.17:
+// Se sube el periodo por defecto del modo usuario a 40 ms para aliviar
+// la presión de refresco mientras la UI se navega con botones.
+static uint32_t g_userRefreshPeriodMs = 40;
+
 static uint32_t g_lastActivityMs = 0;
 
-// Indicadores laterales mostrados en la pantalla IDLE.
+// Indicadores laterales del panel IDLE
 static bool g_runLed = true;
 static bool g_errLed = false;
 static bool g_busLed = false;
 static bool g_ethLed = false;
 
 // =====================================================
-// Hooks débiles de UI usuario
+// Optimización Alpha.17: throttle de refresh por botones
 // =====================================================
-// Estos callbacks los puede implementar el sketch del usuario.
+// Antes, cada evento pendiente de la botonera forzaba refresh inmediato.
+// Eso generaba demasiado tráfico visual cuando el usuario mantenía botones
+// o navegaba rápido. Ahora se limita la frecuencia máxima de refresh
+// provocado por input.
+static uint32_t g_buttonRefreshThrottleMs = 25;
+static uint32_t g_lastButtonRefreshRequestMs = 0;
+
+// =====================================================
+// Hooks débiles de UI de usuario
+// =====================================================
+// El sketch puede redefinir estos hooks para crear sus propias pantallas.
 extern "C" bool __attribute__((weak)) jwplcCanReturnToIdle(void) { return true; }
 
 extern "C" void __attribute__((weak)) jwplcUserDisplayEnterCallback(void) {}
@@ -106,64 +120,9 @@ extern "C" void __attribute__((weak)) jwplcUserDisplayRefreshCallback(const JWPL
 extern "C" void __attribute__((weak)) jwplcUserDisplayExitCallback(void) {}
 
 // =====================================================
-// RTC provider callbacks para el core
-// =====================================================
-// El core NO conoce JW_RTC directamente.
-// En su lugar llama a estos callbacks para:
-// 1) inicializar el RTC
-// 2) pedir un snapshot actualizado del RTC
-
-// Inicializa el RTC usando la instancia global JWPLC_RTC.
-extern "C" bool jwplcRTCBeginCallback(void)
-{
-    if (!g_rtcEnabled)
-    {
-        return false;
-    }
-
-    return JWPLC_RTC.begin();
-}
-
-// Lee el RTC y llena la estructura que el core usa internamente.
-extern "C" bool jwplcRTCReadCallback(JWPLC_RTCState* rtc)
-{
-    if (!g_rtcEnabled || rtc == nullptr)
-    {
-        return false;
-    }
-
-    JWRTCDateTime dt = {};
-    uint8_t status = 0xFF;
-
-    // Si no se puede leer fecha/hora, el callback falla y el core
-    // se encargará de limpiar su snapshot interno.
-    if (!JWPLC_RTC.read(dt))
-    {
-        return false;
-    }
-
-    const bool statusOk = JWPLC_RTC.readStatus(status);
-
-    rtc->present = true;
-    rtc->valid = dt.valid;
-    rtc->lost_power = statusOk ? ((status & RTC_STATUS_OSF) != 0u) : false;
-    rtc->status = status;
-    rtc->day_of_week = dt.dayOfWeek;
-    rtc->second = dt.second;
-    rtc->minute = dt.minute;
-    rtc->hour = dt.hour;
-    rtc->day = dt.day;
-    rtc->month = dt.month;
-    rtc->year = dt.year;
-    rtc->last_update_ms = millis();
-
-    return true;
-}
-
-// =====================================================
 // Helpers SPI
 // =====================================================
-// Fuerza a todos los periféricos SPI compartidos a estado no seleccionado.
+// Pone todos los esclavos SPI en estado inactivo para evitar conflictos.
 static void deselectAllSPI()
 {
     pinMode(TFT_CS, OUTPUT);
@@ -177,7 +136,8 @@ static void deselectAllSPI()
     digitalWrite(ETH_CS, HIGH);
 }
 
-// Prepara el bus SPI para hablar únicamente con la TFT.
+// Prepara el bus para uso de la TFT dejando deseleccionados los demás
+// periféricos SPI.
 static void prepareForTFT()
 {
     digitalWrite(SD_CS, HIGH);
@@ -187,9 +147,33 @@ static void prepareForTFT()
 }
 
 // =====================================================
+// Helpers de refresh / invalidación
+// =====================================================
+// Fuerza un refresh del display, pero respetando un intervalo mínimo
+// para que la botonera no dispare redibujados masivos demasiado seguido.
+static void requestDisplayRefreshThrottled()
+{
+    uint32_t now = millis();
+
+    if ((uint32_t)(now - g_lastButtonRefreshRequestMs) >= g_buttonRefreshThrottleMs)
+    {
+        g_lastButtonRefreshRequestMs = now;
+        jwplcSystemForceDisplayRefresh();
+    }
+}
+
+// Reinicia el estado visual básico del módulo al entrar/salir de pantallas.
+static void resetDisplayState()
+{
+    g_forceFullRedraw = true;
+    g_lastActivityMs = millis();
+}
+
+// =====================================================
 // Botonera
 // =====================================================
-// Tarea dedicada al escaneo periódico de la matriz de botones.
+// Tarea dedicada de escaneo. Mantiene la lectura de la matriz desacoplada
+// del loop del usuario y del refresco gráfico.
 static void buttonScanTask(void* pvParameters)
 {
     (void)pvParameters;
@@ -200,10 +184,12 @@ static void buttonScanTask(void* pvParameters)
         {
             JWPLC_Buttons.update();
 
-            // Si hubo eventos, pedimos refresco del display.
+            // Si hay eventos pendientes, no forzamos refresh inmediato sin control.
+            // En su lugar, pedimos refresh con throttle para evitar penalizar la UI
+            // y afectar el resto del sistema cuando el usuario navega rápido.
             if (JWPLC_Buttons.eventCount() > 0)
             {
-                jwplcSystemForceDisplayRefresh();
+                requestDisplayRefreshThrottled();
             }
         }
 
@@ -211,7 +197,7 @@ static void buttonScanTask(void* pvParameters)
     }
 }
 
-// Inicializa la librería de botonera con el mapeo físico del JWPLC Basic.
+// Inicializa la botonera física y su perfil de repetición.
 static void initButtons()
 {
     bool ok = JWPLC_Buttons.begin(
@@ -229,7 +215,6 @@ static void initButtons()
         return;
     }
 
-    // Repetición solo para teclas de navegación.
     JWPLC_Buttons.setRepeatEnabled(BTN_LEFT,  true);
     JWPLC_Buttons.setRepeatEnabled(BTN_UP,    true);
     JWPLC_Buttons.setRepeatEnabled(BTN_RIGHT, true);
@@ -237,7 +222,6 @@ static void initButtons()
     JWPLC_Buttons.setRepeatEnabled(BTN_OK,    false);
     JWPLC_Buttons.setRepeatEnabled(BTN_ESC,   false);
 
-    // Perfil ya validado en hardware.
     JWPLC_Buttons.setRepeatInitialDelay(220);
     JWPLC_Buttons.setRepeatProfile(6, 12, 20, 1, 1, 1, 1, 120, 90, 70, 50);
 
@@ -251,14 +235,14 @@ static void initButtons()
             "jwplcBtnScan",
             4096,
             nullptr,
-            2,
+            1,
             &g_buttonTaskHandle,
             ARDUINO_RUNNING_CORE
         );
     }
 }
 
-// Devuelve true si hubo pulsación o repetición en cualquier tecla.
+// Retorna true si hay pulsaciones/repeticiones pendientes.
 static bool anyButtonPressedOrRepeated()
 {
     if (!g_buttonsReady) return false;
@@ -276,7 +260,8 @@ static bool anyButtonPressedOrRepeated()
 // =====================================================
 // Periodo dinámico del display
 // =====================================================
-// El core consulta este callback para saber cada cuánto refrescar la pantalla.
+// El runtime consulta este hook para decidir con qué frecuencia evaluar
+// el display. El modo usuario ahora usa un periodo más relajado por defecto.
 extern "C" uint32_t jwplcDisplayDesiredPeriod_ms(void)
 {
     return (g_displayMode == DISPLAY_MODE_IDLE) ? g_idleRefreshPeriodMs
@@ -284,9 +269,11 @@ extern "C" uint32_t jwplcDisplayDesiredPeriod_ms(void)
 }
 
 // =====================================================
-// Modo REPOSO / USER
+// Gestión de transiciones REPOSO / USER
 // =====================================================
-// Gestiona la transición desde IDLE hacia USER y el posible retorno automático.
+// Maneja:
+// - despertar desde IDLE al detectar actividad
+// - regreso automático a IDLE por timeout, si está habilitado
 static void handleIdleWakeAndTimeout()
 {
     if (g_displayMode == DISPLAY_MODE_IDLE)
@@ -314,29 +301,26 @@ static void handleIdleWakeAndTimeout()
 }
 
 // =====================================================
-// API pública de la librería
+// API pública JWPLCDisplay
 // =====================================================
 namespace JWPLCDisplay
 {
-    // Indica si la TFT ya fue inicializada correctamente.
     bool isReady()
     {
         return g_tftReady;
     }
 
-    // Indica si actualmente se está mostrando la pantalla IDLE.
     bool isIdleMode()
     {
         return (g_displayMode == DISPLAY_MODE_IDLE);
     }
 
-    // Indica si la botonera quedó operativa.
     bool buttonsReady()
     {
         return g_buttonsReady;
     }
 
-    // Fuerza un redibujado completo de la pantalla IDLE.
+    // Fuerza redibujado completo de la pantalla actual.
     void forceRedraw()
     {
         g_forceFullRedraw = true;
@@ -344,13 +328,13 @@ namespace JWPLCDisplay
         jwplcSystemForceDisplayRefresh();
     }
 
-    // Registra actividad del usuario para timeout / retorno a IDLE.
+    // Registra actividad del usuario para lógica de timeout.
     void notifyActivity()
     {
         g_lastActivityMs = millis();
     }
 
-    // Entra al modo USER y llama al callback del sketch.
+    // Entra al modo USER. Aquí el sketch puede dibujar su propia UI.
     void enterUserUI()
     {
         if (g_displayMode == DISPLAY_MODE_USER)
@@ -360,7 +344,7 @@ namespace JWPLCDisplay
         }
 
         g_displayMode = DISPLAY_MODE_USER;
-        g_lastActivityMs = millis();
+        resetDisplayState();
 
         if (g_buttonsReady)
         {
@@ -374,7 +358,7 @@ namespace JWPLCDisplay
         jwplcSystemForceDisplayRefresh();
     }
 
-    // Retorna al modo IDLE y reinicia el refresco visual.
+    // Retorna al modo IDLE mostrando nuevamente la pantalla base del sistema.
     void goIdle()
     {
         if (g_displayMode == DISPLAY_MODE_USER)
@@ -383,8 +367,7 @@ namespace JWPLCDisplay
         }
 
         g_displayMode = DISPLAY_MODE_IDLE;
-        g_forceFullRedraw = true;
-        g_lastActivityMs = millis();
+        resetDisplayState();
 
         JWPLCIdleScreen::forceFullRedraw();
 
@@ -396,55 +379,46 @@ namespace JWPLCDisplay
         jwplcSystemForceDisplayRefresh();
     }
 
-    // Configura el modo de retorno a IDLE.
     void setIdleReturnMode(IdleReturnMode mode)
     {
         g_idleReturnMode = mode;
     }
 
-    // Devuelve el modo de retorno a IDLE actual.
     IdleReturnMode idleReturnMode()
     {
         return g_idleReturnMode;
     }
 
-    // Configura el timeout de inactividad antes de volver a IDLE.
     void setIdleTimeoutMs(uint32_t timeoutMs)
     {
         g_idleTimeoutMs = timeoutMs;
     }
 
-    // Devuelve el timeout de inactividad actual.
     uint32_t idleTimeoutMs()
     {
         return g_idleTimeoutMs;
     }
 
-    // Configura el periodo de refresco cuando el sistema está en IDLE.
     void setIdleRefreshPeriodMs(uint32_t ms)
     {
         g_idleRefreshPeriodMs = (ms == 0) ? 1 : ms;
     }
 
-    // Devuelve el periodo de refresco en IDLE.
     uint32_t idleRefreshPeriodMs()
     {
         return g_idleRefreshPeriodMs;
     }
 
-    // Configura el periodo de refresco cuando el sistema está en USER.
     void setUserRefreshPeriodMs(uint32_t ms)
     {
         g_userRefreshPeriodMs = (ms == 0) ? 1 : ms;
     }
 
-    // Devuelve el periodo de refresco en USER.
     uint32_t userRefreshPeriodMs()
     {
         return g_userRefreshPeriodMs;
     }
 
-    // Limpia cualquier input retenido en la librería de botones.
     void clearPendingInput()
     {
         if (g_buttonsReady)
@@ -453,59 +427,50 @@ namespace JWPLCDisplay
         }
     }
 
-    // Devuelve la referencia directa al objeto TFT para uso del sketch.
     Adafruit_ST7789& display()
     {
         return tft;
     }
 
-    // Controla el estado del LED lógico RUN mostrado en la pantalla IDLE.
     void setRunLed(bool state)
     {
         g_runLed = state;
         if (g_displayMode == DISPLAY_MODE_IDLE) jwplcSystemForceDisplayRefresh();
     }
 
-    // Devuelve el estado lógico de RUN.
     bool runLed()
     {
         return g_runLed;
     }
 
-    // Controla el estado del LED lógico ERR mostrado en la pantalla IDLE.
     void setErrLed(bool state)
     {
         g_errLed = state;
         if (g_displayMode == DISPLAY_MODE_IDLE) jwplcSystemForceDisplayRefresh();
     }
 
-    // Devuelve el estado lógico de ERR.
     bool errLed()
     {
         return g_errLed;
     }
 
-    // Controla el estado del LED lógico BUS mostrado en la pantalla IDLE.
     void setBusLed(bool state)
     {
         g_busLed = state;
         if (g_displayMode == DISPLAY_MODE_IDLE) jwplcSystemForceDisplayRefresh();
     }
 
-    // Devuelve el estado lógico de BUS.
     bool busLed()
     {
         return g_busLed;
     }
 
-    // Controla el estado del LED lógico ETH mostrado en la pantalla IDLE.
     void setEthLed(bool state)
     {
         g_ethLed = state;
         if (g_displayMode == DISPLAY_MODE_IDLE) jwplcSystemForceDisplayRefresh();
     }
 
-    // Devuelve el estado lógico de ETH.
     bool ethLed()
     {
         return g_ethLed;
@@ -513,9 +478,59 @@ namespace JWPLCDisplay
 }
 
 // =====================================================
-// Hooks del sistema: DISPLAY
+// Hooks RTC provider
 // =====================================================
-// Inicializa el subsistema visual del JWPLC Basic.
+// Estos callbacks permiten que el runtime/core no dependa directamente
+// de JW_RTC. La librería display actúa como proveedor del snapshot RTC.
+
+extern "C" bool jwplcRTCBeginCallback(void)
+{
+    if (!g_rtcEnabled)
+    {
+        return false;
+    }
+
+    return JWPLC_RTC.begin();
+}
+
+extern "C" bool jwplcRTCReadCallback(JWPLC_RTCState* rtc)
+{
+    if (!g_rtcEnabled || rtc == nullptr)
+    {
+        return false;
+    }
+
+    JWRTCDateTime dt = {};
+    uint8_t status = 0xFF;
+
+    if (!JWPLC_RTC.read(dt))
+    {
+        return false;
+    }
+
+    bool statusOk = JWPLC_RTC.readStatus(status);
+
+    rtc->present = true;
+    rtc->valid = dt.valid;
+    rtc->lost_power = statusOk ? ((status & 0x80u) != 0u) : false;
+    rtc->status = status;
+    rtc->day_of_week = dt.dayOfWeek;
+    rtc->second = dt.second;
+    rtc->minute = dt.minute;
+    rtc->hour = dt.hour;
+    rtc->day = dt.day;
+    rtc->month = dt.month;
+    rtc->year = dt.year;
+    rtc->last_update_ms = millis();
+
+    return true;
+}
+
+// =====================================================
+// Hooks display del sistema
+// =====================================================
+// Inicialización real de la TFT y de la botonera. El runtime llama a este
+// hook automáticamente cuando corresponde.
 extern "C" bool jwplcDisplayBeginCallback(void)
 {
     deselectAllSPI();
@@ -526,6 +541,7 @@ extern "C" bool jwplcDisplayBeginCallback(void)
 
     tft.init(170, 320);
     tft.setRotation(3);
+    tft.setSPISpeed(TFT_SPI_HZ); //Probado y validado a 80 MHz sin problemas, incluso con otros periféricos SPI activos. La pantalla responde bien y no se detectan errores visuales ni de comunicación.
 
     digitalWrite(TFT_CS, HIGH);
 
@@ -535,26 +551,29 @@ extern "C" bool jwplcDisplayBeginCallback(void)
     JWPLCIdleScreen::setTitle("JWPLC Basic");
 
     g_tftReady = true;
-    g_forceFullRedraw = true;
     g_displayMode = DISPLAY_MODE_IDLE;
+
+    // Se reinician valores base del módulo al completar la inicialización.
     g_idleReturnMode = JWPLCDisplay::IDLE_RETURN_ESC_ONLY;
     g_idleTimeoutMs = 15000;
-    g_idleRefreshPeriodMs = 50;
-    g_userRefreshPeriodMs = 20;
-    g_lastActivityMs = millis();
+    g_idleRefreshPeriodMs = 10;
+    g_userRefreshPeriodMs = 40;
+    g_lastButtonRefreshRequestMs = 0;
 
     g_runLed = true;
     g_errLed = false;
     g_busLed = false;
     g_ethLed = false;
 
+    resetDisplayState();
     JWPLCIdleScreen::forceFullRedraw();
 
-    Serial.println("JWPLC_Display_ST7789 idle layout actualizado");
+    Serial.println("JWPLC_Display_ST7789 inicializado (alpha.17)");
     return true;
 }
 
-// Refresca la pantalla en función del modo actual (IDLE o USER).
+// Refresco principal del display. El runtime le entrega snapshots del sistema
+// ya procesados. Aquí solo se decide cómo representarlos visualmente.
 extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState* io, const JWPLC_RTCState* rtc)
 {
     if (!g_tftReady)
@@ -581,5 +600,8 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState* io, const JWPLC
         return;
     }
 
+    // En modo usuario, la UI concreta la define el sketch mediante callback.
+    // El objetivo es que el sketch actualice solo lo que cambie, evitando
+    // redibujados globales innecesarios.
     jwplcUserDisplayRefreshCallback(io, rtc);
 }

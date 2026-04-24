@@ -272,7 +272,7 @@ extern "C" void app_main()
       "jwplcSystemTask",
       getArduinoJWPLCSystemTaskStackSize(),
       NULL,
-      2,
+      1,
       &jwplcSystemTaskHandle,
       ARDUINO_RUNNING_CORE);
 }
