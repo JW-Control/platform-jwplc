@@ -5,11 +5,14 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_ST7789.h>
 
+#include "jwplc_hardware_config.h"
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-extern "C" {
-  #include "jwplc_peripherals.h"
+extern "C"
+{
+#include "jwplc_peripherals.h"
 }
 
 // =====================================================
@@ -17,15 +20,15 @@ extern "C" {
 // =====================================================
 #define SPI_MOSI 23
 #define SPI_MISO 19
-#define SPI_SCK  18
+#define SPI_SCK 18
 
-#define TFT_CS   33
-#define TFT_DC   25
-#define TFT_RST  14
+#define TFT_CS 33
+#define TFT_DC 25
+#define TFT_RST 14
 
-#define SD_CS    32
-#define FRAM_CS  13
-#define ETH_CS   5
+#define SD_CS 32
+#define FRAM_CS 13
+#define ETH_CS 5
 
 static constexpr uint32_t TFT_SPI_HZ = 80000000;
 
@@ -52,13 +55,12 @@ static const uint8_t ROWS[] = {12, 2};
 static const uint8_t COLS[] = {35, 34, 36};
 
 static const JW_MatrixButtons::BtnMapItem BUTTON_MAP[] = {
-  {BTN_LEFT,  0, 0},
-  {BTN_UP,    0, 1},
-  {BTN_RIGHT, 0, 2},
-  {BTN_ESC,   1, 0},
-  {BTN_OK,    1, 1},
-  {BTN_DOWN,  1, 2}
-};
+    {BTN_LEFT, 0, 0},
+    {BTN_UP, 0, 1},
+    {BTN_RIGHT, 0, 2},
+    {BTN_ESC, 1, 0},
+    {BTN_OK, 1, 1},
+    {BTN_DOWN, 1, 2}};
 
 static bool g_buttonsReady = false;
 static TaskHandle_t g_buttonTaskHandle = nullptr;
@@ -110,10 +112,10 @@ extern "C" bool __attribute__((weak)) jwplcCanReturnToIdle(void) { return true; 
 
 extern "C" void __attribute__((weak)) jwplcUserDisplayEnterCallback(void) {}
 
-extern "C" void __attribute__((weak)) jwplcUserDisplayRefreshCallback(const JWPLC_IOState* io, const JWPLC_RTCState* rtc)
+extern "C" void __attribute__((weak)) jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc)
 {
-  (void)io;
-  (void)rtc;
+    (void)io;
+    (void)rtc;
 }
 
 extern "C" void __attribute__((weak)) jwplcUserDisplayExitCallback(void) {}
@@ -125,23 +127,40 @@ extern "C" void __attribute__((weak)) jwplcUserDisplayExitCallback(void) {}
 static void deselectAllSPI()
 {
     pinMode(TFT_CS, OUTPUT);
-    pinMode(SD_CS, OUTPUT);
-    pinMode(FRAM_CS, OUTPUT);
-    pinMode(ETH_CS, OUTPUT);
-
     digitalWrite(TFT_CS, HIGH);
+
+#if JWPLC_HAS_SD
+    pinMode(SD_CS, OUTPUT);
     digitalWrite(SD_CS, HIGH);
+#endif
+
+#if JWPLC_HAS_FRAM
+    pinMode(FRAM_CS, OUTPUT);
     digitalWrite(FRAM_CS, HIGH);
+#endif
+
+#if JWPLC_HAS_ETHERNET
+    pinMode(ETH_CS, OUTPUT);
     digitalWrite(ETH_CS, HIGH);
+#endif
 }
 
 // Prepara el bus para uso de la TFT dejando deseleccionados los demás
 // periféricos SPI.
 static void prepareForTFT()
 {
+#if JWPLC_HAS_SD
     digitalWrite(SD_CS, HIGH);
+#endif
+
+#if JWPLC_HAS_FRAM
     digitalWrite(FRAM_CS, HIGH);
+#endif
+
+#if JWPLC_HAS_ETHERNET
     digitalWrite(ETH_CS, HIGH);
+#endif
+
     digitalWrite(TFT_CS, HIGH);
 }
 
@@ -172,7 +191,7 @@ static void resetDisplayState()
 // =====================================================
 // Tarea dedicada de escaneo. Mantiene la lectura de la matriz desacoplada
 // del loop del usuario y del refresco gráfico.
-static void buttonScanTask(void* pvParameters)
+static void buttonScanTask(void *pvParameters)
 {
     (void)pvParameters;
 
@@ -204,8 +223,7 @@ static void initButtons()
         BUTTON_MAP, sizeof(BUTTON_MAP) / sizeof(BUTTON_MAP[0]),
         BTN_COUNT,
         false,
-        20
-    );
+        20);
 
     if (!ok)
     {
@@ -213,12 +231,12 @@ static void initButtons()
         return;
     }
 
-    JWPLC_Buttons.setRepeatEnabled(BTN_LEFT,  true);
-    JWPLC_Buttons.setRepeatEnabled(BTN_UP,    true);
+    JWPLC_Buttons.setRepeatEnabled(BTN_LEFT, true);
+    JWPLC_Buttons.setRepeatEnabled(BTN_UP, true);
     JWPLC_Buttons.setRepeatEnabled(BTN_RIGHT, true);
-    JWPLC_Buttons.setRepeatEnabled(BTN_DOWN,  true);
-    JWPLC_Buttons.setRepeatEnabled(BTN_OK,    false);
-    JWPLC_Buttons.setRepeatEnabled(BTN_ESC,   false);
+    JWPLC_Buttons.setRepeatEnabled(BTN_DOWN, true);
+    JWPLC_Buttons.setRepeatEnabled(BTN_OK, false);
+    JWPLC_Buttons.setRepeatEnabled(BTN_ESC, false);
 
     JWPLC_Buttons.setRepeatInitialDelay(220);
     JWPLC_Buttons.setRepeatProfile(6, 12, 20, 1, 1, 1, 1, 120, 90, 70, 50);
@@ -235,24 +253,23 @@ static void initButtons()
             nullptr,
             1,
             &g_buttonTaskHandle,
-            ARDUINO_RUNNING_CORE
-        );
+            ARDUINO_RUNNING_CORE);
     }
 }
 
 // Retorna true si hay pulsaciones/repeticiones pendientes.
 static bool anyButtonPressedOrRepeated()
 {
-    if (!g_buttonsReady) return false;
+    if (!g_buttonsReady)
+        return false;
 
-    return
-        JWPLC_Buttons.pressed(BTN_LEFT)  ||
-        JWPLC_Buttons.pressed(BTN_UP)    ||
-        JWPLC_Buttons.pressed(BTN_RIGHT) ||
-        JWPLC_Buttons.pressed(BTN_ESC)   ||
-        JWPLC_Buttons.pressed(BTN_OK)    ||
-        JWPLC_Buttons.pressed(BTN_DOWN)  ||
-        (JWPLC_Buttons.eventCount() > 0);
+    return JWPLC_Buttons.pressed(BTN_LEFT) ||
+           JWPLC_Buttons.pressed(BTN_UP) ||
+           JWPLC_Buttons.pressed(BTN_RIGHT) ||
+           JWPLC_Buttons.pressed(BTN_ESC) ||
+           JWPLC_Buttons.pressed(BTN_OK) ||
+           JWPLC_Buttons.pressed(BTN_DOWN) ||
+           (JWPLC_Buttons.eventCount() > 0);
 }
 
 // =====================================================
@@ -424,7 +441,7 @@ namespace JWPLCDisplay
         }
     }
 
-    Adafruit_ST7789& display()
+    Adafruit_ST7789 &display()
     {
         return tft;
     }
@@ -432,7 +449,8 @@ namespace JWPLCDisplay
     void setRunLed(bool state)
     {
         g_runLed = state;
-        if (g_displayMode == DISPLAY_MODE_IDLE) jwplcSystemForceDisplayRefresh();
+        if (g_displayMode == DISPLAY_MODE_IDLE)
+            jwplcSystemForceDisplayRefresh();
     }
 
     bool runLed()
@@ -443,7 +461,8 @@ namespace JWPLCDisplay
     void setErrLed(bool state)
     {
         g_errLed = state;
-        if (g_displayMode == DISPLAY_MODE_IDLE) jwplcSystemForceDisplayRefresh();
+        if (g_displayMode == DISPLAY_MODE_IDLE)
+            jwplcSystemForceDisplayRefresh();
     }
 
     bool errLed()
@@ -454,7 +473,8 @@ namespace JWPLCDisplay
     void setBusLed(bool state)
     {
         g_busLed = state;
-        if (g_displayMode == DISPLAY_MODE_IDLE) jwplcSystemForceDisplayRefresh();
+        if (g_displayMode == DISPLAY_MODE_IDLE)
+            jwplcSystemForceDisplayRefresh();
     }
 
     bool busLed()
@@ -465,7 +485,8 @@ namespace JWPLCDisplay
     void setEthLed(bool state)
     {
         g_ethLed = state;
-        if (g_displayMode == DISPLAY_MODE_IDLE) jwplcSystemForceDisplayRefresh();
+        if (g_displayMode == DISPLAY_MODE_IDLE)
+            jwplcSystemForceDisplayRefresh();
     }
 
     bool ethLed()
@@ -482,16 +503,24 @@ namespace JWPLCDisplay
 
 extern "C" bool jwplcRTCBeginCallback(void)
 {
+#if !JWPLC_HAS_RTC
+    return false;
+#else
     if (!g_rtcEnabled)
     {
         return false;
     }
 
     return JWPLC_RTC.begin();
+#endif
 }
 
-extern "C" bool jwplcRTCReadCallback(JWPLC_RTCState* rtc)
+extern "C" bool jwplcRTCReadCallback(JWPLC_RTCState *rtc)
 {
+#if !JWPLC_HAS_RTC
+    (void)rtc;
+    return false;
+#else
     if (!g_rtcEnabled || rtc == nullptr)
     {
         return false;
@@ -521,6 +550,7 @@ extern "C" bool jwplcRTCReadCallback(JWPLC_RTCState* rtc)
     rtc->last_update_ms = millis();
 
     return true;
+#endif
 }
 
 // =====================================================
@@ -538,7 +568,7 @@ extern "C" bool jwplcDisplayBeginCallback(void)
 
     tft.init(170, 320);
     tft.setRotation(3);
-    tft.setSPISpeed(TFT_SPI_HZ); //Probado y validado a 80 MHz sin problemas, incluso con otros periféricos SPI activos. La pantalla responde bien y no se detectan errores visuales ni de comunicación.
+    tft.setSPISpeed(TFT_SPI_HZ); // Probado y validado a 80 MHz sin problemas, incluso con otros periféricos SPI activos. La pantalla responde bien y no se detectan errores visuales ni de comunicación.
 
     digitalWrite(TFT_CS, HIGH);
 
@@ -571,7 +601,7 @@ extern "C" bool jwplcDisplayBeginCallback(void)
 
 // Refresco principal del display. El runtime le entrega snapshots del sistema
 // ya procesados. Aquí solo se decide cómo representarlos visualmente.
-extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState* io, const JWPLC_RTCState* rtc)
+extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc)
 {
     if (!g_tftReady)
     {

@@ -7,6 +7,8 @@
 #include "freertos/task.h"
 #include "pins_arduino.h"
 
+#include "jwplc_hardware_config.h"
+
 extern "C"
 {
 #include "peripheral-tca6424a.h"
@@ -36,11 +38,14 @@ void initPeripherals(void)
         return;
     }
 
-    // RTC no es crítico para permitir que el resto del sistema arranque
+#if JWPLC_HAS_RTC
+    // RTC no es crítico para permitir que el resto del sistema arranque.
+    // Si está habilitado por perfil de hardware, se inicializa de forma automática.
     if (jwplcRTCBeginCallback())
     {
         jwplcSystemTickRTC();
     }
+#endif
 
     if (!TCA6424A_init(TCA6424A_DEFAULT_ADDRESS))
     {

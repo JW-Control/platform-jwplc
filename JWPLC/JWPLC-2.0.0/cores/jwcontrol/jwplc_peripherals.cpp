@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include "esp32-hal-gpio.h"
+#include "jwplc_hardware_config.h"
 
 extern "C"
 {
@@ -169,6 +170,7 @@ void jwplcSystemScanIO(void)
 
 void jwplcSystemTickRTC(void)
 {
+#if JWPLC_HAS_RTC
     JWPLC_RTCState snapshot = {};
     snapshot.status = 0xFF;
 
@@ -228,6 +230,38 @@ void jwplcSystemTickRTC(void)
             jwplcSystemMarkDisplayDirty();
         }
     }
+#else
+    bool changed =
+        g_rtcState.present ||
+        g_rtcState.valid ||
+        g_rtcState.lost_power ||
+        (g_rtcState.status != 0xFFu) ||
+        (g_rtcState.day_of_week != 0u) ||
+        (g_rtcState.second != 0u) ||
+        (g_rtcState.minute != 0u) ||
+        (g_rtcState.hour != 0u) ||
+        (g_rtcState.day != 0u) ||
+        (g_rtcState.month != 0u) ||
+        (g_rtcState.year != 0u);
+
+    g_rtcState.present = false;
+    g_rtcState.valid = false;
+    g_rtcState.lost_power = false;
+    g_rtcState.status = 0xFF;
+    g_rtcState.day_of_week = 0;
+    g_rtcState.second = 0;
+    g_rtcState.minute = 0;
+    g_rtcState.hour = 0;
+    g_rtcState.day = 0;
+    g_rtcState.month = 0;
+    g_rtcState.year = 0;
+    g_rtcState.last_update_ms = millis();
+
+    if (changed)
+    {
+        jwplcSystemMarkDisplayDirty();
+    }
+#endif
 }
 
 void jwplcSystemDisplayHook(void)
