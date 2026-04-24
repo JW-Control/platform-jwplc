@@ -73,7 +73,6 @@ enum DisplayMode : uint8_t
 };
 
 static bool g_tftReady = false;
-static bool g_forceFullRedraw = true;
 static DisplayMode g_displayMode = DISPLAY_MODE_IDLE;
 
 static JWPLCDisplay::IdleReturnMode g_idleReturnMode = JWPLCDisplay::IDLE_RETURN_ESC_ONLY;
@@ -165,7 +164,6 @@ static void requestDisplayRefreshThrottled()
 // Reinicia el estado visual básico del módulo al entrar/salir de pantallas.
 static void resetDisplayState()
 {
-    g_forceFullRedraw = true;
     g_lastActivityMs = millis();
 }
 
@@ -323,7 +321,6 @@ namespace JWPLCDisplay
     // Fuerza redibujado completo de la pantalla actual.
     void forceRedraw()
     {
-        g_forceFullRedraw = true;
         JWPLCIdleScreen::forceFullRedraw();
         jwplcSystemForceDisplayRefresh();
     }
@@ -568,7 +565,7 @@ extern "C" bool jwplcDisplayBeginCallback(void)
     resetDisplayState();
     JWPLCIdleScreen::forceFullRedraw();
 
-    Serial.println("JWPLC_Display_ST7789 inicializado (alpha.17)");
+    Serial.println("JWPLC_Display_ST7789 inicializado");
     return true;
 }
 
@@ -596,7 +593,6 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState* io, const JWPLC
 
         JWPLCIdleScreen::setStatusPanel(panel);
         JWPLCIdleScreen::draw(io, rtc);
-        g_forceFullRedraw = false;
         return;
     }
 

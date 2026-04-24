@@ -35,6 +35,7 @@ namespace JWPLCIdleScreen
     // Debug temporal de profiling
     // =====================================================
     static bool g_profileIdlePhases = false;
+    static bool g_profileNormalRuntime = false;
     static bool g_profileBaseFramePendingPrint = false;
 
     static uint32_t g_profBaseFillScreenUs = 0;
@@ -92,6 +93,8 @@ namespace JWPLCIdleScreen
     static constexpr int RTC_MM_X = RTC_COLON1_X + RTC_TIME_CHAR_W;
     static constexpr int RTC_COLON2_X = RTC_MM_X + (2 * RTC_TIME_CHAR_W);
     static constexpr int RTC_SS_X = RTC_COLON2_X + RTC_TIME_CHAR_W;
+    static constexpr int RTC_SS_TENS_X = RTC_SS_X;
+    static constexpr int RTC_SS_UNITS_X = RTC_SS_X + RTC_TIME_CHAR_W;
 
     static constexpr int IN_HDR_X = 156;
     static constexpr int OUT_HDR_X = 252;
@@ -139,7 +142,6 @@ namespace JWPLCIdleScreen
     static uint32_t printRtcTimeToken(int x, const char *token);
     static void updateStatusPanel();
     static void updateIO(const JWPLC_IOState *io);
-    static void formatTime(const JWPLC_RTCState *rtc, char *out, size_t len);
     static void formatDate(const JWPLC_RTCState *rtc, char *out, size_t len);
     static void updateRTC(const JWPLC_RTCState *rtc);
 
@@ -179,34 +181,6 @@ namespace JWPLCIdleScreen
         uint16_t color = on ? onColor : C_BG;
 
         tft->fillRect(STATUS_BOX_X + 1, y_label + 2, STATUS_BOX_W - 2, STATUS_BOX_H - 2, color);
-    }
-
-    static void drawIoCell(uint8_t index, bool isInput, bool active)
-    {
-        if (!tft)
-            return;
-
-        int y = IO_ROW_Y0 + index * IO_ROW_STEP;
-
-        tft->setTextSize(1);
-        tft->setTextColor(C_TEXT, C_BG);
-
-        if (isInput)
-        {
-            tft->setCursor(IN_TEXT_X, y + 2);
-            tft->print("I0.");
-            tft->print(index);
-
-            drawBox(IN_BOX_X, y, IO_BOX_W, IO_BOX_H, active, C_IN_ACTIVE);
-        }
-        else
-        {
-            drawBox(OUT_BOX_X, y, IO_BOX_W, IO_BOX_H, active, C_OK_GREEN);
-
-            tft->setCursor(OUT_TEXT_X, y + 2);
-            tft->print("Q0.");
-            tft->print(index);
-        }
     }
 
     static void drawIoCellStatic(uint8_t index, bool isInput)
@@ -422,17 +396,6 @@ namespace JWPLCIdleScreen
         g_profUpdateIoUs = micros() - tStart;
     }
 
-    static void formatTime(const JWPLC_RTCState *rtc, char *out, size_t len)
-    {
-        if (!rtc || !rtc->valid)
-        {
-            snprintf(out, len, "--:--:--");
-            return;
-        }
-
-        snprintf(out, len, "%02u:%02u:%02u", rtc->hour, rtc->minute, rtc->second);
-    }
-
     static void formatDate(const JWPLC_RTCState *rtc, char *out, size_t len)
     {
         if (!rtc || !rtc->valid)
@@ -537,13 +500,48 @@ namespace JWPLCIdleScreen
 
         if (ssChanged)
         {
-            char ssBuf[3];
-            if (rtc->valid)
-                snprintf(ssBuf, sizeof(ssBuf), "%02u", rtc->second);
-            else
-                snprintf(ssBuf, sizeof(ssBuf), "--");
+            char ssTensBuf[2];
+            char ssUnitsBuf[2];
 
-            g_profRtcSSUs = printRtcTimeToken(RTC_SS_X, ssBuf);
+            if (rtc->valid)
+            {
+                ssTensBuf[0] = char('0' + (rtc->second / 10));
+                ssUnitsBuf[0] = char('0' + (rtc->second % 10));
+            }
+            else
+            {
+                ssTensBuf[0] = '-';
+                ssUnitsBuf[0] = '-';
+            }
+
+            ssTensBuf[1] = '\0';
+            ssUnitsBuf[1] = '\0';
+
+            uint32_t ssDrawUs = 0;
+
+            bool validChanged = (rtc->valid != g_lastRtcValid);
+
+            bool tensChanged =
+                g_forceFullRedraw ||
+                validChanged ||
+                ((rtc->second / 10) != (g_lastRtcSecond / 10));
+
+            bool unitsChanged =
+                g_forceFullRedraw ||
+                validChanged ||
+                ((rtc->second % 10) != (g_lastRtcSecond % 10));
+
+            if (tensChanged)
+            {
+                ssDrawUs += printRtcTimeToken(RTC_SS_TENS_X, ssTensBuf);
+            }
+
+            if (unitsChanged)
+            {
+                ssDrawUs += printRtcTimeToken(RTC_SS_UNITS_X, ssUnitsBuf);
+            }
+
+            g_profRtcSSUs = ssDrawUs;
         }
         else
         {
@@ -691,21 +689,24 @@ namespace JWPLCIdleScreen
         updateIO(io);
         updateRTC(rtc);
 
-        uint32_t nowMs = millis();
-        if ((uint32_t)(nowMs - g_profNormalPrintMs) >= 500)
+        if (g_profileNormalRuntime)
         {
-            g_profNormalPrintMs = nowMs;
-            Serial.printf(
-                "[IDLE NORMAL] status=%lu us | io=%lu us | rtc=%lu us (time=%lu us, date=%lu us | hh=%lu us, mm=%lu us, ss=%lu us)\r\n",
-                (unsigned long)g_profUpdateStatusUs,
-                (unsigned long)g_profUpdateIoUs,
-                (unsigned long)g_profUpdateRtcUs,
-                (unsigned long)g_profUpdateRtcTimeUs,
-                (unsigned long)g_profUpdateRtcDateUs,
-                (unsigned long)g_profRtcHHUs,
-                (unsigned long)g_profRtcMMUs,
-                (unsigned long)g_profRtcSSUs
-            );
+            uint32_t nowMs = millis();
+
+            if ((uint32_t)(nowMs - g_profNormalPrintMs) >= 500)
+            {
+                g_profNormalPrintMs = nowMs;
+                Serial.printf(
+                    "[IDLE NORMAL] status=%lu us | io=%lu us | rtc=%lu us (time=%lu us, date=%lu us | hh=%lu us, mm=%lu us, ss=%lu us)\r\n",
+                    (unsigned long)g_profUpdateStatusUs,
+                    (unsigned long)g_profUpdateIoUs,
+                    (unsigned long)g_profUpdateRtcUs,
+                    (unsigned long)g_profUpdateRtcTimeUs,
+                    (unsigned long)g_profUpdateRtcDateUs,
+                    (unsigned long)g_profRtcHHUs,
+                    (unsigned long)g_profRtcMMUs,
+                    (unsigned long)g_profRtcSSUs);
+            }
         }
     }
 }
