@@ -1,5 +1,5 @@
 name=JW Control ESP32
-version=2.0.0-alpha.19
+version=2.0.0-alpha.20
 
 tools.esp32-arduino-libs.path={runtime.tools.{build.chip_variant}-libs.path}
 tools.esp32-arduino-libs.path.windows={runtime.tools.{build.chip_variant}-libs.path}

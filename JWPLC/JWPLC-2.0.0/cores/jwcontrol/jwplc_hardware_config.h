@@ -19,7 +19,7 @@
 // =====================================================
 
 #ifndef JWPLC_HAS_RTC
-#define JWPLC_HAS_RTC 0
+#define JWPLC_HAS_RTC 1
 #endif
 
 #ifndef JWPLC_HAS_FRAM

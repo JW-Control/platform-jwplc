@@ -6,6 +6,7 @@
 #include <Adafruit_ST7789.h>
 
 #include "jwplc_hardware_config.h"
+#include "jwplc_spi_bus.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -18,21 +19,8 @@ extern "C"
 // =====================================================
 // SPI compartido
 // =====================================================
-#define SPI_MOSI 23
-#define SPI_MISO 19
-#define SPI_SCK 18
-
-#define TFT_CS 33
-#define TFT_DC 25
-#define TFT_RST 14
-
-#define SD_CS 32
-#define FRAM_CS 13
-#define ETH_CS 5
-
-static constexpr uint32_t TFT_SPI_HZ = 80000000;
-
-static Adafruit_ST7789 tft(TFT_CS, TFT_DC, TFT_RST);
+// Los pines y frecuencias SPI se centralizan en jwplc_spi_bus.
+static Adafruit_ST7789 tft(JWPLC_TFT_CS, JWPLC_TFT_DC, JWPLC_TFT_RST);
 
 // =====================================================
 // RTC global del ecosistema JWPLC
@@ -126,42 +114,14 @@ extern "C" void __attribute__((weak)) jwplcUserDisplayExitCallback(void) {}
 // Pone todos los esclavos SPI en estado inactivo para evitar conflictos.
 static void deselectAllSPI()
 {
-    pinMode(TFT_CS, OUTPUT);
-    digitalWrite(TFT_CS, HIGH);
-
-#if JWPLC_HAS_SD
-    pinMode(SD_CS, OUTPUT);
-    digitalWrite(SD_CS, HIGH);
-#endif
-
-#if JWPLC_HAS_FRAM
-    pinMode(FRAM_CS, OUTPUT);
-    digitalWrite(FRAM_CS, HIGH);
-#endif
-
-#if JWPLC_HAS_ETHERNET
-    pinMode(ETH_CS, OUTPUT);
-    digitalWrite(ETH_CS, HIGH);
-#endif
+    jwplcSPI_deselectAll();
 }
 
-// Prepara el bus para uso de la TFT dejando deseleccionados los demás
-// periféricos SPI.
+// Toma el mutex del bus SPI y selecciona el dispositivo solicitado de forma segura.
+// En alpha20 no se toma mutex para la TFT, porque Adafruit_ST7789 ya maneja internamente sus transacciones.
 static void prepareForTFT()
 {
-#if JWPLC_HAS_SD
-    digitalWrite(SD_CS, HIGH);
-#endif
-
-#if JWPLC_HAS_FRAM
-    digitalWrite(FRAM_CS, HIGH);
-#endif
-
-#if JWPLC_HAS_ETHERNET
-    digitalWrite(ETH_CS, HIGH);
-#endif
-
-    digitalWrite(TFT_CS, HIGH);
+    jwplcSPI_prepareForTFT();
 }
 
 // =====================================================
@@ -560,17 +520,25 @@ extern "C" bool jwplcRTCReadCallback(JWPLC_RTCState *rtc)
 // hook automáticamente cuando corresponde.
 extern "C" bool jwplcDisplayBeginCallback(void)
 {
+    if (!jwplcSPI_begin())
+    {
+        return false;
+    }
+
     deselectAllSPI();
-    SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI);
+
+    // SPI.begin() se mantiene aquí porque JWPLC_Display_ST7789.cpp
+    // sí tiene acceso a la librería Arduino SPI.
+    SPI.begin(JWPLC_SPI_SCK, JWPLC_SPI_MISO, JWPLC_SPI_MOSI);
 
     prepareForTFT();
-    digitalWrite(TFT_CS, LOW);
+    digitalWrite(JWPLC_TFT_CS, LOW);
 
     tft.init(170, 320);
     tft.setRotation(3);
-    tft.setSPISpeed(TFT_SPI_HZ); // Probado y validado a 80 MHz sin problemas, incluso con otros periféricos SPI activos. La pantalla responde bien y no se detectan errores visuales ni de comunicación.
+    tft.setSPISpeed(JWPLC_SPI_TFT_HZ);
 
-    digitalWrite(TFT_CS, HIGH);
+    digitalWrite(JWPLC_TFT_CS, HIGH);
 
     initButtons();
 
