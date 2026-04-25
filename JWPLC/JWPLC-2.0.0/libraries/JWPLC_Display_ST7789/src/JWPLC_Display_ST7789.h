@@ -5,6 +5,7 @@
 #include <Adafruit_ST7789.h>
 #include <JW_MatrixButtons.h>
 #include <JW_RTC.h>
+#include <JW_FRAM.h>
 
 extern "C" {
   #include "jwplc_peripherals.h"
@@ -23,6 +24,7 @@ enum JWPLCButtonId : uint8_t
 
 extern JW_MatrixButtons JWPLC_Buttons;
 extern JW_RTC JWPLC_RTC;
+extern JW_FRAM JWPLC_FRAM;
 
 namespace JWPLCDisplay
 {

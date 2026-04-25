@@ -4,6 +4,7 @@
 #include <SPI.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_ST7789.h>
+#include <JW_FRAM.h>
 
 #include "jwplc_hardware_config.h"
 #include "jwplc_spi_bus.h"
@@ -29,6 +30,16 @@ static Adafruit_ST7789 tft(JWPLC_TFT_CS, JWPLC_TFT_DC, JWPLC_TFT_RST);
 // La inicialización real del RTC se hace por callback cuando el runtime
 // del package lo solicita.
 JW_RTC JWPLC_RTC;
+
+// =====================================================
+// FRAM global del ecosistema JWPLC
+// =====================================================
+// Esta instancia queda accesible desde el sketch a través del header.
+// La inicialización se realiza automáticamente si JWPLC_HAS_FRAM=1.
+JW_FRAM JWPLC_FRAM(JWPLC_FRAM_CS, &SPI, JWPLC_SPI_FRAM_HZ);
+
+static bool g_framReady = false;
+static bool g_framBeginAttempted = false;
 
 // Flags básicos para futura expansión.
 // Por ahora el RTC está habilitado por defecto y siempre se muestra en IDLE.
@@ -453,6 +464,73 @@ namespace JWPLCDisplay
     {
         return g_ethLed;
     }
+}
+
+// =====================================================
+// FRAM provider interno
+// =====================================================
+// JW_FRAM sigue siendo una librería reusable. Aquí solo se le inyecta
+// el control del bus SPI compartido del ecosistema JWPLC.
+
+static bool jwplcFRAMLockBus(uint32_t timeoutMs, void *userData)
+{
+    (void)userData;
+
+    if (!jwplcSPI_acquire(timeoutMs))
+    {
+        return false;
+    }
+
+    jwplcSPI_deselectAll();
+    return true;
+}
+
+static void jwplcFRAMUnlockBus(void *userData)
+{
+    (void)userData;
+    jwplcSPI_release();
+}
+
+static bool initFRAM()
+{
+#if JWPLC_HAS_FRAM
+    if (g_framBeginAttempted)
+    {
+        return g_framReady;
+    }
+
+    g_framBeginAttempted = true;
+
+    // SPI.begin() se llama aquí porque JWPLC_Display_ST7789.cpp sí tiene
+    // acceso a la librería Arduino SPI. Esto permite inicializar FRAM antes
+    // de que arranque visualmente la TFT.
+    SPI.begin(JWPLC_SPI_SCK, JWPLC_SPI_MISO, JWPLC_SPI_MOSI);
+
+    if (!jwplcSPI_begin())
+    {
+        g_framReady = false;
+        return false;
+    }
+
+    JWPLC_FRAM.setBusLockCallbacks(
+        jwplcFRAMLockBus,
+        jwplcFRAMUnlockBus,
+        nullptr,
+        50);
+
+    g_framReady = JWPLC_FRAM.begin(JWPLC_FRAM_SIZE_BYTES);
+
+    return g_framReady;
+#else
+    g_framBeginAttempted = true;
+    g_framReady = false;
+    return false;
+#endif
+}
+
+extern "C" bool jwplcFRAMBeginCallback(void)
+{
+    return initFRAM();
 }
 
 // =====================================================

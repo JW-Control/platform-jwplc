@@ -47,6 +47,12 @@ void initPeripherals(void)
     }
 #endif
 
+#if JWPLC_HAS_FRAM
+    // FRAM no es crítica para permitir que el resto del sistema arranque.
+    // Si está habilitada por perfil de hardware, se inicializa automáticamente.
+    (void)jwplcFRAMBeginCallback();
+#endif
+
     if (!TCA6424A_init(TCA6424A_DEFAULT_ADDRESS))
     {
         return;

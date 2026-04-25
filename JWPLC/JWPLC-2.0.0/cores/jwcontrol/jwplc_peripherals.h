@@ -68,6 +68,9 @@ void jwplcDisplayRefreshCallback(const JWPLC_IOState* io, const JWPLC_RTCState* 
 bool jwplcRTCBeginCallback(void);
 bool jwplcRTCReadCallback(JWPLC_RTCState* rtc);
 
+// Hooks de FRAM para proveedor interno del ecosistema
+bool jwplcFRAMBeginCallback(void);
+
 #ifdef __cplusplus
 }
 #endif

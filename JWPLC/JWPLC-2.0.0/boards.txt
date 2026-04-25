@@ -1339,7 +1339,7 @@ jwplcbasic.build.flash_freq=40m
 jwplcbasic.build.flash_mode=dio
 jwplcbasic.build.boot=qio
 jwplcbasic.build.partitions=default
-jwplcbasic.build.defines=-DJWPLC_BASIC -DHAVE_TCA6424A -DJWPLC_HAS_RTC=1 -DJWPLC_HAS_FRAM=1 -DJWPLC_HAS_SD=1 -DJWPLC_HAS_ETHERNET=1
+jwplcbasic.build.defines=-DJWPLC_BASIC -DHAVE_TCA6424A -DJWPLC_HAS_RTC=1 -DJWPLC_HAS_FRAM=1 -DJWPLC_HAS_SD=1 -DJWPLC_HAS_ETHERNET=1 -DJWPLC_FRAM_SIZE_BYTES=8192
 jwplcbasic.build.loop_core=
 jwplcbasic.build.event_core=
 
@@ -1428,7 +1428,7 @@ jwplcbasiccore.build.flash_freq=40m
 jwplcbasiccore.build.flash_mode=dio
 jwplcbasiccore.build.boot=qio
 jwplcbasiccore.build.partitions=default
-jwplcbasiccore.build.defines=-DJWPLC_BASIC -DHAVE_TCA6424A -DJWPLC_HAS_RTC=1 -DJWPLC_HAS_FRAM=0 -DJWPLC_HAS_SD=0 -DJWPLC_HAS_ETHERNET=0
+jwplcbasiccore.build.defines=-DJWPLC_BASIC -DHAVE_TCA6424A -DJWPLC_HAS_RTC=1 -DJWPLC_HAS_FRAM=0 -DJWPLC_HAS_SD=0 -DJWPLC_HAS_ETHERNET=0 -DJWPLC_FRAM_SIZE_BYTES=0
 jwplcbasiccore.build.loop_core=
 jwplcbasiccore.build.event_core=
 

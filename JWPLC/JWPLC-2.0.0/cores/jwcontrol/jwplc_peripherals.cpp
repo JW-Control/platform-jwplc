@@ -78,6 +78,12 @@ bool jwplcRTCReadCallback(JWPLC_RTCState *rtc)
     return false;
 }
 
+bool jwplcFRAMBeginCallback(void) __attribute__((weak));
+bool jwplcFRAMBeginCallback(void)
+{
+    return false;
+}
+
 const JWPLC_IOState *jwplcGetIOState(void)
 {
     return &g_ioState;
