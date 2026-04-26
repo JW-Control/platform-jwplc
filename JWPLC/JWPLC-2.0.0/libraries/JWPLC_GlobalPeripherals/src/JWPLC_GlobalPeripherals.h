@@ -4,6 +4,24 @@
 #include <Arduino.h>
 #include <JW_RTC.h>
 #include <JW_FRAM.h>
+#include <JW_MatrixButtons.h>
+
+// =====================================================
+// IDs físicos de la botonera JWPLC
+// =====================================================
+// La botonera ya no pertenece al display. Es un periférico base
+// del ecosistema JWPLC.
+
+enum JWPLCButtonId : uint8_t
+{
+    BTN_LEFT = 0,
+    BTN_UP,
+    BTN_RIGHT,
+    BTN_ESC,
+    BTN_OK,
+    BTN_DOWN,
+    BTN_COUNT
+};
 
 // =====================================================
 // Objetos globales del ecosistema JWPLC
@@ -13,5 +31,18 @@
 
 extern JW_RTC JWPLC_RTC;
 extern JW_FRAM JWPLC_FRAM;
+extern JW_MatrixButtons JWPLC_Buttons;
+
+// =====================================================
+// Helpers globales de botonera
+// =====================================================
+
+namespace JWPLCButtons
+{
+    bool begin();
+    bool isReady();
+    bool anyPressedOrRepeated();
+    void clearPendingInput();
+}
 
 #endif // JWPLC_GLOBAL_PERIPHERALS_H

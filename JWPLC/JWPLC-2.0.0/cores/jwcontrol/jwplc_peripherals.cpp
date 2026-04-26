@@ -84,6 +84,12 @@ bool jwplcFRAMBeginCallback(void)
     return false;
 }
 
+bool jwplcButtonsBeginCallback(void) __attribute__((weak));
+bool jwplcButtonsBeginCallback(void)
+{
+    return false;
+}
+
 const JWPLC_IOState *jwplcGetIOState(void)
 {
     return &g_ioState;

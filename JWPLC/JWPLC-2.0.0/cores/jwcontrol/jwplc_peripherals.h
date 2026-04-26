@@ -71,6 +71,9 @@ bool jwplcRTCReadCallback(JWPLC_RTCState* rtc);
 // Hooks de FRAM para proveedor interno del ecosistema
 bool jwplcFRAMBeginCallback(void);
 
+// Hooks de botonera para proveedor interno del ecosistema
+bool jwplcButtonsBeginCallback(void);
+
 #ifdef __cplusplus
 }
 #endif
