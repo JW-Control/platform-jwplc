@@ -170,7 +170,7 @@ void loop1(void);
 #undef digitalRead
 #define digitalRead(pin) jwplc_digitalRead((uint16_t)(pin))
 
-#endif
+#endif+++
 
 // The default is using Real Hardware random number generator
 // But when randomSeed() is called, it turns to Psedo random
@@ -301,6 +301,10 @@ extern "C" void configTzTime(const char *tz, const char *server1, const char *se
 void setToneChannel(uint8_t channel = 0);
 void tone(uint8_t _pin, unsigned int frequency, unsigned long duration = 0);
 void noTone(uint8_t _pin);
+
+#if defined(JWPLC_BASIC) && !defined(ARDUINO_CORE_BUILD) && (__INCLUDE_LEVEL__ <= 1)
+#include <JWPLC_Display_Auto.h>
+#endif
 
 #endif /* __cplusplus */
 

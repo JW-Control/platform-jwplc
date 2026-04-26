@@ -53,6 +53,10 @@ void initPeripherals(void)
     (void)jwplcFRAMBeginCallback();
 #endif
 
+    // La botonera matricial es parte base del ecosistema JWPLC.
+    // No es crítica para bloquear el arranque si por algún motivo falla.
+    (void)jwplcButtonsBeginCallback();
+
     if (!TCA6424A_init(TCA6424A_DEFAULT_ADDRESS))
     {
         return;
