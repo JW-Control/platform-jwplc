@@ -295,6 +295,8 @@ static bool initSD()
     g_sdBeginAttempted = true;
     g_sdReady = false;
 
+    JWPLC_SD.setEnabled(true);
+
     // SPI compartido del ecosistema JWPLC.
     SPI.begin(JWPLC_SPI_SCK, JWPLC_SPI_MISO, JWPLC_SPI_MOSI);
 
@@ -324,6 +326,9 @@ static bool initSD()
 #else
     g_sdBeginAttempted = true;
     g_sdReady = false;
+
+    JWPLC_SD.setEnabled(false);
+
     return false;
 #endif
 }

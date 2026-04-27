@@ -53,11 +53,9 @@ void initPeripherals(void)
     (void)jwplcFRAMBeginCallback();
 #endif
 
-#if JWPLC_HAS_SD
     // microSD no es crítica para permitir que el resto del sistema arranque.
-    // Si está habilitada por perfil de hardware, se inicializa automáticamente.
+    // El callback también se llama en perfiles sin SD para marcar JWPLC_SD como deshabilitada.
     (void)jwplcSDBeginCallback();
-#endif
 
     // La botonera matricial es parte base del ecosistema JWPLC.
     // No es crítica para bloquear el arranque si por algún motivo falla.
