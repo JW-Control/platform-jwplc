@@ -21,6 +21,10 @@ extern "C"
 // del package lo solicita.
 JW_RTC JWPLC_RTC;
 
+// Flags básicos para futura expansión.
+// Por ahora el RTC está habilitado por defecto y siempre se muestra en IDLE.
+static bool g_rtcEnabled = true;
+
 // =====================================================
 // FRAM global del ecosistema JWPLC
 // =====================================================
@@ -31,9 +35,17 @@ JW_FRAM JWPLC_FRAM(JWPLC_FRAM_CS, &SPI, JWPLC_SPI_FRAM_HZ);
 static bool g_framReady = false;
 static bool g_framBeginAttempted = false;
 
-// Flags básicos para futura expansión.
-// Por ahora el RTC está habilitado por defecto y siempre se muestra en IDLE.
-static bool g_rtcEnabled = true;
+// =====================================================
+// microSD global del ecosistema JWPLC
+// =====================================================
+// La SD se inicializa automáticamente si JWPLC_HAS_SD=1.
+// Las operaciones de archivo deben hacerse mediante JWPLC_SD.open(...)
+// para usar el wrapper protegido JWPLCFile.
+
+JW_SD JWPLC_SD(JWPLC_SD_CS, &SPI, JWPLC_SPI_SD_HZ);
+
+static bool g_sdReady = false;
+static bool g_sdBeginAttempted = false;
 
 // =====================================================
 // Botonera global del ecosistema JWPLC
@@ -247,6 +259,122 @@ static bool initFRAM()
 extern "C" bool jwplcFRAMBeginCallback(void)
 {
     return initFRAM();
+}
+
+// =====================================================
+// SD provider interno
+// =====================================================
+
+static bool jwplcSDLockBus(uint32_t timeoutMs, void *userData)
+{
+    (void)userData;
+
+    if (!jwplcSPI_acquire(timeoutMs))
+    {
+        return false;
+    }
+
+    jwplcSPI_deselectAll();
+    return true;
+}
+
+static void jwplcSDUnlockBus(void *userData)
+{
+    (void)userData;
+    jwplcSPI_release();
+}
+
+static bool initSD()
+{
+#if JWPLC_HAS_SD
+    if (g_sdBeginAttempted)
+    {
+        return g_sdReady;
+    }
+
+    g_sdBeginAttempted = true;
+    g_sdReady = false;
+
+    // SPI compartido del ecosistema JWPLC.
+    SPI.begin(JWPLC_SPI_SCK, JWPLC_SPI_MISO, JWPLC_SPI_MOSI);
+
+    if (!jwplcSPI_begin())
+    {
+        return false;
+    }
+
+    JWPLC_SD.configure(JWPLC_SD_CS, &SPI, JWPLC_SPI_SD_HZ);
+
+    JWPLC_SD.setDetectPin(
+        JWPLC_SD_DETECT_PIN,
+        JWPLC_SD_DETECT_ACTIVE_LOW != 0,
+        false);
+
+    JWPLC_SD.setBusLockCallbacks(
+        jwplcSDLockBus,
+        jwplcSDUnlockBus,
+        nullptr,
+        100);
+
+    JWPLC_SD.setOperationTimeout(100);
+
+    g_sdReady = JWPLC_SD.begin();
+
+    return g_sdReady;
+#else
+    g_sdBeginAttempted = true;
+    g_sdReady = false;
+    return false;
+#endif
+}
+
+namespace JWPLCSD
+{
+    bool begin()
+    {
+        return initSD();
+    }
+
+    bool isEnabled()
+    {
+#if JWPLC_HAS_SD
+        return true;
+#else
+        return false;
+#endif
+    }
+
+    bool isReady()
+    {
+#if JWPLC_HAS_SD
+        return JWPLC_SD.isReady();
+#else
+        return false;
+#endif
+    }
+
+    bool isCardPresent()
+    {
+#if JWPLC_HAS_SD
+        return JWPLC_SD.isCardPresent();
+#else
+        return false;
+#endif
+    }
+
+    const char *lastErrorString()
+    {
+#if JWPLC_HAS_SD
+        return JWPLC_SD.lastErrorString();
+#else
+        return "SD disabled";
+#endif
+    }
+}
+
+extern "C" bool jwplcSDBeginCallback(void)
+{
+    return initSD();
 }
 
 // =====================================================

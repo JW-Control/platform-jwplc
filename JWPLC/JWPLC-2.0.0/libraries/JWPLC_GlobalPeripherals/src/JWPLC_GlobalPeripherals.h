@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <JW_RTC.h>
 #include <JW_FRAM.h>
+#include <JW_SD.h>
 #include <JW_MatrixButtons.h>
 
 // =====================================================
@@ -32,6 +33,7 @@ enum JWPLCButtonId : uint8_t
 extern JW_RTC JWPLC_RTC;
 extern JW_FRAM JWPLC_FRAM;
 extern JW_MatrixButtons JWPLC_Buttons;
+extern JW_SD JWPLC_SD;
 
 // =====================================================
 // Helpers globales de botonera
@@ -43,6 +45,19 @@ namespace JWPLCButtons
     bool isReady();
     bool anyPressedOrRepeated();
     void clearPendingInput();
+}
+
+// =====================================================
+// Helpers globales de microSD
+// =====================================================
+
+namespace JWPLCSD
+{
+    bool begin();
+    bool isEnabled();
+    bool isReady();
+    bool isCardPresent();
+    const char *lastErrorString();
 }
 
 #endif // JWPLC_GLOBAL_PERIPHERALS_H
