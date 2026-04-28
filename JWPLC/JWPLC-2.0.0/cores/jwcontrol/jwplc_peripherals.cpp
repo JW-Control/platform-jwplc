@@ -84,6 +84,12 @@ bool jwplcFRAMBeginCallback(void)
     return false;
 }
 
+bool jwplcSDBeginCallback(void) __attribute__((weak));
+bool jwplcSDBeginCallback(void)
+{
+    return false;
+}
+
 bool jwplcButtonsBeginCallback(void) __attribute__((weak));
 bool jwplcButtonsBeginCallback(void)
 {

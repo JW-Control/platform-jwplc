@@ -21,6 +21,10 @@ extern "C"
 // del package lo solicita.
 JW_RTC JWPLC_RTC;
 
+// Flags básicos para futura expansión.
+// Por ahora el RTC está habilitado por defecto y siempre se muestra en IDLE.
+static bool g_rtcEnabled = true;
+
 // =====================================================
 // FRAM global del ecosistema JWPLC
 // =====================================================
@@ -31,9 +35,164 @@ JW_FRAM JWPLC_FRAM(JWPLC_FRAM_CS, &SPI, JWPLC_SPI_FRAM_HZ);
 static bool g_framReady = false;
 static bool g_framBeginAttempted = false;
 
-// Flags básicos para futura expansión.
-// Por ahora el RTC está habilitado por defecto y siempre se muestra en IDLE.
-static bool g_rtcEnabled = true;
+// =====================================================
+// microSD global del ecosistema JWPLC
+// =====================================================
+// La SD se inicializa automáticamente si JWPLC_HAS_SD=1.
+// Las operaciones de archivo deben hacerse mediante JWPLC_SD.open(...)
+// para usar el wrapper protegido JWPLCFile.
+
+JW_SD JWPLC_SD(JWPLC_SD_CS, &SPI, JWPLC_SPI_SD_HZ);
+
+static bool g_sdReady = false;
+static bool g_sdBeginAttempted = false;
+
+// =====================================================
+// Botonera global del ecosistema JWPLC
+// =====================================================
+// La botonera ya no pertenece al display. El display solo la consume.
+
+JW_MatrixButtons JWPLC_Buttons;
+
+static const uint8_t ROWS[] = {12, 2};
+static const uint8_t COLS[] = {35, 34, 36};
+
+static const JW_MatrixButtons::BtnMapItem BUTTON_MAP[] = {
+    {BTN_LEFT, 0, 0},
+    {BTN_UP, 0, 1},
+    {BTN_RIGHT, 0, 2},
+    {BTN_ESC, 1, 0},
+    {BTN_OK, 1, 1},
+    {BTN_DOWN, 1, 2}};
+
+static bool g_buttonsReady = false;
+static TaskHandle_t g_buttonTaskHandle = nullptr;
+
+static uint32_t g_buttonRefreshThrottleMs = 25;
+static uint32_t g_lastButtonRefreshRequestMs = 0;
+
+// Fuerza un refresh del display, pero respetando un intervalo mínimo
+// para que la botonera no dispare redibujados masivos demasiado seguido.
+static void requestDisplayRefreshThrottled()
+{
+    uint32_t now = millis();
+
+    if ((uint32_t)(now - g_lastButtonRefreshRequestMs) >= g_buttonRefreshThrottleMs)
+    {
+        g_lastButtonRefreshRequestMs = now;
+        jwplcSystemForceDisplayRefresh();
+    }
+}
+
+// Tarea dedicada de escaneo. Mantiene la lectura de la matriz desacoplada
+// del loop del usuario y del refresco gráfico.
+static void buttonScanTask(void *pvParameters)
+{
+    (void)pvParameters;
+
+    for (;;)
+    {
+        if (g_buttonsReady)
+        {
+            JWPLC_Buttons.update();
+
+            if (JWPLC_Buttons.eventCount() > 0)
+            {
+                requestDisplayRefreshThrottled();
+            }
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(5));
+    }
+}
+
+namespace JWPLCButtons
+{
+    bool begin()
+    {
+        if (g_buttonsReady)
+        {
+            return true;
+        }
+
+        bool ok = JWPLC_Buttons.begin(
+            ROWS, 2,
+            COLS, 3,
+            BUTTON_MAP, sizeof(BUTTON_MAP) / sizeof(BUTTON_MAP[0]),
+            BTN_COUNT,
+            false,
+            20);
+
+        if (!ok)
+        {
+            g_buttonsReady = false;
+            return false;
+        }
+
+        JWPLC_Buttons.setRepeatEnabled(BTN_LEFT, true);
+        JWPLC_Buttons.setRepeatEnabled(BTN_UP, true);
+        JWPLC_Buttons.setRepeatEnabled(BTN_RIGHT, true);
+        JWPLC_Buttons.setRepeatEnabled(BTN_DOWN, true);
+        JWPLC_Buttons.setRepeatEnabled(BTN_OK, false);
+        JWPLC_Buttons.setRepeatEnabled(BTN_ESC, false);
+
+        JWPLC_Buttons.setRepeatInitialDelay(220);
+        JWPLC_Buttons.setRepeatProfile(6, 12, 20, 1, 1, 1, 1, 120, 90, 70, 50);
+
+        JWPLC_Buttons.clearPendingInput();
+
+        g_lastButtonRefreshRequestMs = 0;
+        g_buttonsReady = true;
+
+        if (g_buttonTaskHandle == nullptr)
+        {
+            xTaskCreatePinnedToCore(
+                buttonScanTask,
+                "jwplcBtnScan",
+                4096,
+                nullptr,
+                1,
+                &g_buttonTaskHandle,
+                ARDUINO_RUNNING_CORE);
+        }
+
+        return true;
+    }
+
+    bool isReady()
+    {
+        return g_buttonsReady;
+    }
+
+    bool anyPressedOrRepeated()
+    {
+        if (!g_buttonsReady)
+        {
+            return false;
+        }
+
+        return JWPLC_Buttons.pressed(BTN_LEFT) ||
+               JWPLC_Buttons.pressed(BTN_UP) ||
+               JWPLC_Buttons.pressed(BTN_RIGHT) ||
+               JWPLC_Buttons.pressed(BTN_ESC) ||
+               JWPLC_Buttons.pressed(BTN_OK) ||
+               JWPLC_Buttons.pressed(BTN_DOWN) ||
+               (JWPLC_Buttons.eventCount() > 0);
+    }
+
+    void clearPendingInput()
+    {
+        if (g_buttonsReady)
+        {
+            JWPLC_Buttons.clearPendingInput();
+        }
+    }
+}
+
+extern "C" bool jwplcButtonsBeginCallback(void)
+{
+    return JWPLCButtons::begin();
+}
 
 // =====================================================
 // Botonera global del ecosistema JWPLC
@@ -247,6 +406,127 @@ static bool initFRAM()
 extern "C" bool jwplcFRAMBeginCallback(void)
 {
     return initFRAM();
+}
+
+// =====================================================
+// SD provider interno
+// =====================================================
+
+static bool jwplcSDLockBus(uint32_t timeoutMs, void *userData)
+{
+    (void)userData;
+
+    if (!jwplcSPI_acquire(timeoutMs))
+    {
+        return false;
+    }
+
+    jwplcSPI_deselectAll();
+    return true;
+}
+
+static void jwplcSDUnlockBus(void *userData)
+{
+    (void)userData;
+    jwplcSPI_release();
+}
+
+static bool initSD()
+{
+#if JWPLC_HAS_SD
+    if (g_sdBeginAttempted)
+    {
+        return g_sdReady;
+    }
+
+    g_sdBeginAttempted = true;
+    g_sdReady = false;
+
+    JWPLC_SD.setEnabled(true);
+
+    // SPI compartido del ecosistema JWPLC.
+    SPI.begin(JWPLC_SPI_SCK, JWPLC_SPI_MISO, JWPLC_SPI_MOSI);
+
+    if (!jwplcSPI_begin())
+    {
+        return false;
+    }
+
+    JWPLC_SD.configure(JWPLC_SD_CS, &SPI, JWPLC_SPI_SD_HZ);
+
+    JWPLC_SD.setDetectPin(
+        JWPLC_SD_DETECT_PIN,
+        JWPLC_SD_DETECT_ACTIVE_LOW != 0,
+        false);
+
+    JWPLC_SD.setBusLockCallbacks(
+        jwplcSDLockBus,
+        jwplcSDUnlockBus,
+        nullptr,
+        100);
+
+    JWPLC_SD.setOperationTimeout(100);
+
+    g_sdReady = JWPLC_SD.begin();
+
+    return g_sdReady;
+#else
+    g_sdBeginAttempted = true;
+    g_sdReady = false;
+
+    JWPLC_SD.setEnabled(false);
+
+    return false;
+#endif
+}
+
+namespace JWPLCSD
+{
+    bool begin()
+    {
+        return initSD();
+    }
+
+    bool isEnabled()
+    {
+#if JWPLC_HAS_SD
+        return true;
+#else
+        return false;
+#endif
+    }
+
+    bool isReady()
+    {
+#if JWPLC_HAS_SD
+        return JWPLC_SD.isReady();
+#else
+        return false;
+#endif
+    }
+
+    bool isCardPresent()
+    {
+#if JWPLC_HAS_SD
+        return JWPLC_SD.isCardPresent();
+#else
+        return false;
+#endif
+    }
+
+    const char *lastErrorString()
+    {
+#if JWPLC_HAS_SD
+        return JWPLC_SD.lastErrorString();
+#else
+        return "SD disabled";
+#endif
+    }
+}
+
+extern "C" bool jwplcSDBeginCallback(void)
+{
+    return initSD();
 }
 
 // =====================================================
