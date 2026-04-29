@@ -18,5 +18,6 @@
 // sin includes manuales.
 
 #include <JWPLC_GlobalPeripherals.h>
+#include <JWPLC_Display_API.h>
 
 #endif // JWPLC_DISPLAY_AUTO_H
