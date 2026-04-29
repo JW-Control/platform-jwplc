@@ -2,6 +2,7 @@
 #define JWPLC_DISPLAY
 
 #include <Arduino.h>
+#include <JWPLC_Display_API.h>
 #include <Adafruit_ST7789.h>
 #include <JWPLC_GlobalPeripherals.h>
 

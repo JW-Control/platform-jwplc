@@ -385,3 +385,158 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC
     // redibujados globales innecesarios.
     jwplcUserDisplayRefreshCallback(io, rtc);
 }
+
+
+// =====================================================
+// API pública estilo objeto: JWPLC_Display
+// =====================================================
+// Esta capa permite usar el display con sintaxis de punto:
+//
+//   JWPLC_Display.isReady();
+//   JWPLC_Display.enterUserUI();
+//   JWPLC_Display.tft();
+//
+// Se mantiene JWPLCDisplay:: como compatibilidad interna/legacy.
+// =====================================================
+
+JWPLC_DisplayClass JWPLC_Display;
+
+static JWPLCDisplay::IdleReturnMode toLegacyIdleReturnMode(JWPLC_DisplayClass::IdleReturnMode mode)
+{
+    return static_cast<JWPLCDisplay::IdleReturnMode>(mode);
+}
+
+static JWPLC_DisplayClass::IdleReturnMode fromLegacyIdleReturnMode(JWPLCDisplay::IdleReturnMode mode)
+{
+    return static_cast<JWPLC_DisplayClass::IdleReturnMode>(mode);
+}
+
+bool JWPLC_DisplayClass::isReady() const
+{
+    return JWPLCDisplay::isReady();
+}
+
+bool JWPLC_DisplayClass::isIdleMode() const
+{
+    return JWPLCDisplay::isIdleMode();
+}
+
+bool JWPLC_DisplayClass::buttonsReady() const
+{
+    return JWPLCDisplay::buttonsReady();
+}
+
+void JWPLC_DisplayClass::forceRedraw()
+{
+    JWPLCDisplay::forceRedraw();
+}
+
+void JWPLC_DisplayClass::enterUserUI()
+{
+    JWPLCDisplay::enterUserUI();
+}
+
+void JWPLC_DisplayClass::goIdle()
+{
+    JWPLCDisplay::goIdle();
+}
+
+void JWPLC_DisplayClass::notifyActivity()
+{
+    JWPLCDisplay::notifyActivity();
+}
+
+void JWPLC_DisplayClass::setIdleReturnMode(IdleReturnMode mode)
+{
+    JWPLCDisplay::setIdleReturnMode(toLegacyIdleReturnMode(mode));
+}
+
+JWPLC_DisplayClass::IdleReturnMode JWPLC_DisplayClass::idleReturnMode() const
+{
+    return fromLegacyIdleReturnMode(JWPLCDisplay::idleReturnMode());
+}
+
+void JWPLC_DisplayClass::setIdleTimeoutMs(uint32_t timeoutMs)
+{
+    JWPLCDisplay::setIdleTimeoutMs(timeoutMs);
+}
+
+uint32_t JWPLC_DisplayClass::idleTimeoutMs() const
+{
+    return JWPLCDisplay::idleTimeoutMs();
+}
+
+void JWPLC_DisplayClass::setIdleRefreshPeriodMs(uint32_t ms)
+{
+    JWPLCDisplay::setIdleRefreshPeriodMs(ms);
+}
+
+uint32_t JWPLC_DisplayClass::idleRefreshPeriodMs() const
+{
+    return JWPLCDisplay::idleRefreshPeriodMs();
+}
+
+void JWPLC_DisplayClass::setUserRefreshPeriodMs(uint32_t ms)
+{
+    JWPLCDisplay::setUserRefreshPeriodMs(ms);
+}
+
+uint32_t JWPLC_DisplayClass::userRefreshPeriodMs() const
+{
+    return JWPLCDisplay::userRefreshPeriodMs();
+}
+
+void JWPLC_DisplayClass::clearPendingInput()
+{
+    JWPLCDisplay::clearPendingInput();
+}
+
+Adafruit_ST7789 &JWPLC_DisplayClass::tft()
+{
+    return JWPLCDisplay::display();
+}
+
+Adafruit_ST7789 &JWPLC_DisplayClass::display()
+{
+    return JWPLCDisplay::display();
+}
+
+void JWPLC_DisplayClass::setRunLed(bool state)
+{
+    JWPLCDisplay::setRunLed(state);
+}
+
+bool JWPLC_DisplayClass::runLed() const
+{
+    return JWPLCDisplay::runLed();
+}
+
+void JWPLC_DisplayClass::setErrLed(bool state)
+{
+    JWPLCDisplay::setErrLed(state);
+}
+
+bool JWPLC_DisplayClass::errLed() const
+{
+    return JWPLCDisplay::errLed();
+}
+
+void JWPLC_DisplayClass::setBusLed(bool state)
+{
+    JWPLCDisplay::setBusLed(state);
+}
+
+bool JWPLC_DisplayClass::busLed() const
+{
+    return JWPLCDisplay::busLed();
+}
+
+void JWPLC_DisplayClass::setEthLed(bool state)
+{
+    JWPLCDisplay::setEthLed(state);
+}
+
+bool JWPLC_DisplayClass::ethLed() const
+{
+    return JWPLCDisplay::ethLed();
+}
