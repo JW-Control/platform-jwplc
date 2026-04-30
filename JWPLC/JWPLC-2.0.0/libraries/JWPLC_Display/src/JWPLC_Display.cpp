@@ -72,11 +72,23 @@ static void deselectAllSPI()
     jwplcSPI_deselectAll();
 }
 
-// Toma el mutex del bus SPI y selecciona el dispositivo solicitado de forma segura.
-// En alpha20 no se toma mutex para la TFT, porque Adafruit_ST7789 ya maneja internamente sus transacciones.
-static void prepareForTFT()
+// Toma el mutex global del bus SPI antes de usar la TFT.
+// Adafruit_ST7789 maneja transacciones SPI, pero no conoce el mutex
+// compartido del ecosistema JWPLC. Por eso protegemos la TFT aquí.
+static bool acquireTFTBus(uint32_t timeoutMs = 50)
 {
+    if (!jwplcSPI_acquire(timeoutMs))
+    {
+        return false;
+    }
+
     jwplcSPI_prepareForTFT();
+    return true;
+}
+
+static void releaseTFTBus()
+{
+    jwplcSPI_release();
 }
 
 // =====================================================
@@ -178,10 +190,13 @@ namespace JWPLCDisplay
 
         JWPLCButtons::clearPendingInput();
 
-        prepareForTFT();
-        tft.fillScreen(ST77XX_BLACK);
+        if (acquireTFTBus(100))
+        {
+            tft.fillScreen(ST77XX_BLACK);
+            jwplcUserDisplayEnterCallback();
+            releaseTFTBus();
+        }
 
-        jwplcUserDisplayEnterCallback();
         jwplcSystemForceDisplayRefresh();
     }
 
@@ -320,7 +335,11 @@ extern "C" bool jwplcDisplayBeginCallback(void)
     // sí tiene acceso a la librería Arduino SPI.
     SPI.begin(JWPLC_SPI_SCK, JWPLC_SPI_MISO, JWPLC_SPI_MOSI);
 
-    prepareForTFT();
+    if (!acquireTFTBus(100))
+    {
+        return false;
+    }
+
     digitalWrite(JWPLC_TFT_CS, LOW);
 
     tft.init(170, 320);
@@ -328,6 +347,8 @@ extern "C" bool jwplcDisplayBeginCallback(void)
     tft.setSPISpeed(JWPLC_SPI_TFT_HZ);
 
     digitalWrite(JWPLC_TFT_CS, HIGH);
+
+    releaseTFTBus();
 
     JWPLCIdleScreen::begin(&tft);
     JWPLCIdleScreen::setTitle("JWPLC Basic");
@@ -364,7 +385,10 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC
 
     handleIdleWakeAndTimeout();
 
-    prepareForTFT();
+    if (!acquireTFTBus(20))
+    {
+        return;
+    }
 
     if (g_displayMode == DISPLAY_MODE_IDLE)
     {
@@ -377,15 +401,18 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC
 
         JWPLCIdleScreen::setStatusPanel(panel);
         JWPLCIdleScreen::draw(io, rtc);
+
+        releaseTFTBus();
         return;
     }
 
     // En modo usuario, la UI concreta la define el sketch mediante callback.
-    // El objetivo es que el sketch actualice solo lo que cambie, evitando
-    // redibujados globales innecesarios.
+    // IMPORTANTE: dentro del callback USER no se deben consultar periféricos SPI.
+    // Solo dibujar variables previamente cacheadas en loop().
     jwplcUserDisplayRefreshCallback(io, rtc);
-}
 
+    releaseTFTBus();
+}
 
 // =====================================================
 // API pública estilo objeto: JWPLC_Display
