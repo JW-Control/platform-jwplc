@@ -49,7 +49,7 @@ Responsabilidad:
 Uso esperado:
 
 ```cpp
-JWPLC_RS485.begin(9600);
+JWPLC_RS485.begin(); // 115200, SERIAL_8N1
 JWPLC_RS485.println("Hola RS485");
 ```
 
@@ -82,6 +82,12 @@ Responsabilidad:
 - Usar `JW_Modbus` sobre `JWPLC_RS485`.
 - Definir configuración por defecto industrial.
 - Preparar mapeo futuro de OpenPLC.
+
+Uso esperado:
+
+```cpp
+JWPLC_ModbusRTU.begin(); // 19200, SERIAL_8E1
+```
 
 ---
 
@@ -155,14 +161,16 @@ extern "C" void jwplcRs485PostTransmitCallback(void)
 ## 5. API inicial propuesta para `JWPLC_RS485`
 
 ```cpp
-JWPLC_RS485.begin();
-JWPLC_RS485.begin(baud);
-JWPLC_RS485.begin(baud, config);
+JWPLC_RS485.begin();                 // 115200, SERIAL_8N1
+JWPLC_RS485.begin(baud);             // baud, SERIAL_8N1
+JWPLC_RS485.begin(baud, config);     // baud, config
 JWPLC_RS485.end();
 JWPLC_RS485.isEnabled();
 JWPLC_RS485.isReady();
 JWPLC_RS485.baudRate();
 JWPLC_RS485.config();
+JWPLC_RS485.rxPin();
+JWPLC_RS485.txPin();
 JWPLC_RS485.available();
 JWPLC_RS485.read();
 JWPLC_RS485.write(byte);
@@ -178,38 +186,71 @@ JWPLC_RS485.printStatus(Serial);
 
 ---
 
-## 6. Parámetros por confirmar antes de codificar
+## 6. Defaults acordados
 
-Confirmado:
+### `JWPLC_RS485`
 
-- RX2 = IO16.
-- TX2 = IO17.
-- MAX13487EESA+ con auto-dirección.
-- Sin DE/RE controlado por ESP32 en JWPLC Basic actual.
+La capa RS-485 genérica queda optimizada para uso práctico, debug, DWIN, bridge USB-RS485 y protocolos propios.
 
-Pendiente definir:
-
-- Baudios por defecto deseados:
-  - 9600
-  - 19200
-  - 115200
-- Configuración por defecto:
-  - `SERIAL_8N1`
-  - `SERIAL_8E1`
-  - otra
-- Nombre físico del puerto en documentación:
-  - RS485
-  - COM
-  - Modbus RTU
-
-Recomendación inicial:
+Default acordado:
 
 ```txt
-baudrate: 9600
+baudrate: 115200
 config: SERIAL_8N1
+RX: IO16
+TX: IO17
 ```
 
-Para Modbus RTU industrial también evaluar `SERIAL_8E1`, ya que muchos equipos industriales lo usan.
+Equivalencia:
+
+```cpp
+JWPLC_RS485.begin();
+```
+
+es igual a:
+
+```cpp
+JWPLC_RS485.begin(115200, SERIAL_8N1);
+```
+
+### `JWPLC_ModbusRTU`
+
+La capa Modbus RTU queda con default más industrial/conservador, separado del default UART genérico.
+
+Default acordado:
+
+```txt
+baudrate: 19200
+config: SERIAL_8E1
+```
+
+Equivalencia futura:
+
+```cpp
+JWPLC_ModbusRTU.begin();
+```
+
+es igual a:
+
+```cpp
+JWPLC_ModbusRTU.begin(19200, SERIAL_8E1);
+```
+
+### Perfiles recomendados para ejemplos
+
+```cpp
+// RS-485 genérico / debug / DWIN / banco
+JWPLC_RS485.begin(115200, SERIAL_8N1);
+
+// Modbus RTU industrial clásico
+JWPLC_ModbusRTU.begin(19200, SERIAL_8E1);
+
+// Modbus RTU muy compatible en campo
+JWPLC_ModbusRTU.begin(9600, SERIAL_8N1);
+
+// Modbus RTU rápido para banco o cableado corto/controlado
+JWPLC_ModbusRTU.begin(115200, SERIAL_8N1);
+```
 
 ---
 
@@ -217,7 +258,7 @@ Para Modbus RTU industrial también evaluar `SERIAL_8E1`, ya que muchos equipos 
 
 ### `RS485_Basic_Send`
 
-Envía texto periódico por RS-485.
+Envía texto periódico por RS-485 usando el default `115200, SERIAL_8N1`.
 
 ### `RS485_Basic_Echo`
 
@@ -261,6 +302,12 @@ Primera etapa mínima:
 
 Funciones digitales (`0x01`, `0x02`, `0x05`, `0x0F`) pueden entrar si el tiempo alcanza, pero no son requisito para cerrar la primera base.
 
+Default Modbus RTU acordado para el wrapper JWPLC:
+
+```txt
+19200, SERIAL_8E1
+```
+
 ---
 
 ## 9. OpenPLC queda fuera de alpha28
@@ -285,12 +332,13 @@ Alpha28 puede cerrarse cuando:
 
 - `JWPLC_RS485` compile en JWPLC Basic.
 - `JWPLC_RS485` reporte disabled/safe en placas sin RS-485, si aplica.
-- Se pueda enviar texto por RS-485.
-- Se pueda recibir texto por RS-485.
+- Se pueda enviar texto por RS-485 a `115200, SERIAL_8N1`.
+- Se pueda recibir texto por RS-485 a `115200, SERIAL_8N1`.
 - El bridge USB <-> RS-485 funcione.
 - CRC16 Modbus esté probado con vectores conocidos.
 - Modbus RTU slave mínimo responda a `Read Holding Registers`.
 - Modbus RTU master mínimo pueda hacer una consulta básica.
+- Los ejemplos Modbus documenten el default `19200, SERIAL_8E1` y alternativas `9600 8N1` / `115200 8N1`.
 - Ejemplos principales compilen en Arduino IDE.
 
 ---
