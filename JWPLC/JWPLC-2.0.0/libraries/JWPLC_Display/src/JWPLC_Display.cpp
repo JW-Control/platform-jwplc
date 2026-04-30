@@ -4,6 +4,7 @@
 #include <SPI.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_ST7789.h>
+#include <cstring>
 
 #include "jwplc_spi_bus.h"
 
@@ -40,12 +41,16 @@ static uint32_t g_idleRefreshPeriodMs = 50;
 static uint32_t g_userRefreshPeriodMs = 40;
 
 static uint32_t g_lastActivityMs = 0;
+static bool g_waitButtonReleaseBeforeWake = false;
 
 // Indicadores laterales del panel IDLE
 static bool g_runLed = true;
 static bool g_errLed = false;
 static bool g_busLed = false;
-static bool g_ethLed = false;
+static bool g_ethLedAuto = true;
+static JWPLCIdleScreen::StatusLedState g_ethLedState = JWPLCIdleScreen::STATUS_LED_OFF;
+static uint32_t g_lastEthLedAutoUpdateMs = 0;
+static constexpr uint32_t ETH_LED_AUTO_PERIOD_MS = 500;
 
 // =====================================================
 // Hooks débiles de UI de usuario
@@ -72,11 +77,23 @@ static void deselectAllSPI()
     jwplcSPI_deselectAll();
 }
 
-// Toma el mutex del bus SPI y selecciona el dispositivo solicitado de forma segura.
-// En alpha20 no se toma mutex para la TFT, porque Adafruit_ST7789 ya maneja internamente sus transacciones.
-static void prepareForTFT()
+// Toma el mutex global del bus SPI antes de usar la TFT.
+// Adafruit_ST7789 maneja transacciones SPI, pero no conoce el mutex
+// compartido del ecosistema JWPLC. Por eso protegemos la TFT aquí.
+static bool acquireTFTBus(uint32_t timeoutMs = 50)
 {
+    if (!jwplcSPI_acquire(timeoutMs))
+    {
+        return false;
+    }
+
     jwplcSPI_prepareForTFT();
+    return true;
+}
+
+static void releaseTFTBus()
+{
+    jwplcSPI_release();
 }
 
 // =====================================================
@@ -109,24 +126,141 @@ static void handleIdleWakeAndTimeout()
 {
     if (g_displayMode == DISPLAY_MODE_IDLE)
     {
+        // Después de volver desde USER a IDLE, esperamos a que el usuario
+        // suelte todas las teclas antes de permitir un nuevo ingreso a USER.
+        // Esto evita el rebote lógico: ESC -> IDLE -> USER inmediato.
+        if (g_waitButtonReleaseBeforeWake)
+        {
+            if (JWPLCButtons::anyPressed())
+            {
+                JWPLCButtons::clearPendingInput();
+                return;
+            }
+
+            // Ya no hay teclas físicamente presionadas.
+            // Limpiamos eventos de RELEASE/colas residuales y recién
+            // en el siguiente ciclo permitimos despertar USER otra vez.
+            JWPLCButtons::clearPendingInput();
+            g_waitButtonReleaseBeforeWake = false;
+            return;
+        }
+
+        // En IDLE usamos anyPressedOrRepeated() porque queremos despertar
+        // la pantalla con una pulsación, evento pendiente o repetición.
         if (JWPLCButtons::anyPressedOrRepeated())
         {
             JWPLCDisplay::notifyActivity();
             JWPLCDisplay::enterUserUI();
             return;
         }
+
+        return;
     }
 
-    if ((g_displayMode == DISPLAY_MODE_USER) &&
-        (g_idleReturnMode == JWPLCDisplay::IDLE_RETURN_TIMEOUT) &&
+    if (g_displayMode != DISPLAY_MODE_USER)
+    {
+        return;
+    }
+
+    // IMPORTANTE:
+    // En modo ESC_ONLY, primero revisar ESC.
+    // Si llamamos antes a anyPressed(), se puede consumir/absorber
+    // la intención de salida dependiendo de la implementación.
+    if ((g_idleReturnMode == JWPLCDisplay::IDLE_RETURN_ESC_ONLY) &&
+        JWPLCButtons::escPressed() &&
+        jwplcCanReturnToIdle())
+    {
+        JWPLCDisplay::goIdle();
+        return;
+    }
+
+    // En USER, cualquier tecla físicamente presionada cuenta como actividad.
+    // No usamos eventCount() aquí porque una cola con eventos pendientes puede
+    // impedir que el timeout expire correctamente.
+    if (JWPLCButtons::anyPressed())
+    {
+        JWPLCDisplay::notifyActivity();
+    }
+
+    if ((g_idleReturnMode == JWPLCDisplay::IDLE_RETURN_TIMEOUT) &&
         (g_idleTimeoutMs > 0) &&
         jwplcCanReturnToIdle())
     {
         uint32_t now = millis();
+
         if ((uint32_t)(now - g_lastActivityMs) >= g_idleTimeoutMs)
         {
             JWPLCDisplay::goIdle();
             return;
+        }
+    }
+
+    // IDLE_RETURN_DISABLED:
+    // No retorna automáticamente.
+    // El sketch debe llamar manualmente a JWPLC_Display.goIdle().
+}
+
+static JWPLCIdleScreen::StatusLedState computeAutomaticEthLedState()
+{
+    if (!JWPLC_Ethernet.isEnabled())
+    {
+        return JWPLCIdleScreen::STATUS_LED_OFF;
+    }
+
+    if (!JWPLC_Ethernet.isBeginAttempted())
+    {
+        return JWPLCIdleScreen::STATUS_LED_OFF;
+    }
+
+    const char *status = JWPLC_Ethernet.statusString();
+
+    if (strcmp(status, "OK") == 0)
+    {
+        return JWPLCIdleScreen::STATUS_LED_GREEN;
+    }
+
+    if (strcmp(status, "Link OFF") == 0 ||
+        strcmp(status, "Not started") == 0 ||
+        strcmp(status, "Ethernet disabled") == 0)
+    {
+        return JWPLCIdleScreen::STATUS_LED_OFF;
+    }
+
+    // Si el bus SPI estuvo ocupado momentáneamente, no cambiamos el LED.
+    // Evita parpadeos falsos a rojo por una consulta puntual.
+    if (strcmp(status, "SPI lock timeout") == 0)
+    {
+        return g_ethLedState;
+    }
+
+    return JWPLCIdleScreen::STATUS_LED_RED;
+}
+
+static void updateAutomaticEthLed()
+{
+    if (!g_ethLedAuto)
+    {
+        return;
+    }
+
+    uint32_t now = millis();
+
+    if ((uint32_t)(now - g_lastEthLedAutoUpdateMs) < ETH_LED_AUTO_PERIOD_MS)
+    {
+        return;
+    }
+
+    g_lastEthLedAutoUpdateMs = now;
+
+    JWPLCIdleScreen::StatusLedState newState = computeAutomaticEthLedState();
+
+    if (newState != g_ethLedState)
+    {
+        g_ethLedState = newState;
+
+        if (g_displayMode == DISPLAY_MODE_IDLE)
+        {
+            jwplcSystemForceDisplayRefresh();
         }
     }
 }
@@ -178,10 +312,13 @@ namespace JWPLCDisplay
 
         JWPLCButtons::clearPendingInput();
 
-        prepareForTFT();
-        tft.fillScreen(ST77XX_BLACK);
+        if (acquireTFTBus(100))
+        {
+            tft.fillScreen(ST77XX_BLACK);
+            jwplcUserDisplayEnterCallback();
+            releaseTFTBus();
+        }
 
-        jwplcUserDisplayEnterCallback();
         jwplcSystemForceDisplayRefresh();
     }
 
@@ -195,6 +332,10 @@ namespace JWPLCDisplay
 
         g_displayMode = DISPLAY_MODE_IDLE;
         resetDisplayState();
+
+        // Evita que el mismo botón que sacó de USER vuelva a despertar USER
+        // antes de ser soltado físicamente.
+        g_waitButtonReleaseBeforeWake = true;
 
         JWPLCIdleScreen::forceFullRedraw();
 
@@ -291,15 +432,44 @@ namespace JWPLCDisplay
 
     void setEthLed(bool state)
     {
-        g_ethLed = state;
+        // Modo manual/legacy.
+        // Si el usuario llama setEthLed(), se asume que quiere controlar ETH.
+        g_ethLedAuto = false;
+        g_ethLedState = state ? JWPLCIdleScreen::STATUS_LED_GREEN
+                              : JWPLCIdleScreen::STATUS_LED_OFF;
+
         if (g_displayMode == DISPLAY_MODE_IDLE)
+        {
             jwplcSystemForceDisplayRefresh();
+        }
     }
 
     bool ethLed()
     {
-        return g_ethLed;
+        return g_ethLedState == JWPLCIdleScreen::STATUS_LED_GREEN;
     }
+
+    void setEthLedAuto(bool enabled)
+    {
+        g_ethLedAuto = enabled;
+        g_lastEthLedAutoUpdateMs = 0;
+
+        if (enabled)
+        {
+            g_ethLedState = computeAutomaticEthLedState();
+        }
+
+        if (g_displayMode == DISPLAY_MODE_IDLE)
+        {
+            jwplcSystemForceDisplayRefresh();
+        }
+    }
+
+    bool ethLedAuto()
+    {
+        return g_ethLedAuto;
+    }
+
 }
 
 // =====================================================
@@ -320,7 +490,11 @@ extern "C" bool jwplcDisplayBeginCallback(void)
     // sí tiene acceso a la librería Arduino SPI.
     SPI.begin(JWPLC_SPI_SCK, JWPLC_SPI_MISO, JWPLC_SPI_MOSI);
 
-    prepareForTFT();
+    if (!acquireTFTBus(100))
+    {
+        return false;
+    }
+
     digitalWrite(JWPLC_TFT_CS, LOW);
 
     tft.init(170, 320);
@@ -328,6 +502,8 @@ extern "C" bool jwplcDisplayBeginCallback(void)
     tft.setSPISpeed(JWPLC_SPI_TFT_HZ);
 
     digitalWrite(JWPLC_TFT_CS, HIGH);
+
+    releaseTFTBus();
 
     JWPLCIdleScreen::begin(&tft);
     JWPLCIdleScreen::setTitle("JWPLC Basic");
@@ -344,7 +520,9 @@ extern "C" bool jwplcDisplayBeginCallback(void)
     g_runLed = true;
     g_errLed = false;
     g_busLed = false;
-    g_ethLed = false;
+    g_ethLedAuto = true;
+    g_ethLedState = JWPLCIdleScreen::STATUS_LED_OFF;
+    g_lastEthLedAutoUpdateMs = 0;
 
     resetDisplayState();
     JWPLCIdleScreen::forceFullRedraw();
@@ -364,7 +542,14 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC
 
     handleIdleWakeAndTimeout();
 
-    prepareForTFT();
+    // Importante: esto consulta Ethernet/W5500, por eso se hace ANTES
+    // de tomar el bus de la TFT.
+    updateAutomaticEthLed();
+
+    if (!acquireTFTBus(20))
+    {
+        return;
+    }
 
     if (g_displayMode == DISPLAY_MODE_IDLE)
     {
@@ -373,19 +558,22 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC
         panel.run = g_runLed;
         panel.err = g_errLed;
         panel.bus = g_busLed;
-        panel.eth = g_ethLed;
+        panel.eth = g_ethLedState;
 
         JWPLCIdleScreen::setStatusPanel(panel);
         JWPLCIdleScreen::draw(io, rtc);
+
+        releaseTFTBus();
         return;
     }
 
     // En modo usuario, la UI concreta la define el sketch mediante callback.
-    // El objetivo es que el sketch actualice solo lo que cambie, evitando
-    // redibujados globales innecesarios.
+    // IMPORTANTE: dentro del callback USER no se deben consultar periféricos SPI.
+    // Solo dibujar variables previamente cacheadas en loop().
     jwplcUserDisplayRefreshCallback(io, rtc);
-}
 
+    releaseTFTBus();
+}
 
 // =====================================================
 // API pública estilo objeto: JWPLC_Display
@@ -539,4 +727,14 @@ void JWPLC_DisplayClass::setEthLed(bool state)
 bool JWPLC_DisplayClass::ethLed() const
 {
     return JWPLCDisplay::ethLed();
+}
+
+void JWPLC_DisplayClass::setEthLedAuto(bool enabled)
+{
+    JWPLCDisplay::setEthLedAuto(enabled);
+}
+
+bool JWPLC_DisplayClass::ethLedAuto() const
+{
+    return JWPLCDisplay::ethLedAuto();
 }

@@ -6,15 +6,16 @@
 #include <Adafruit_ST7789.h>
 #include <JWPLC_GlobalPeripherals.h>
 
-extern "C" {
-  #include "jwplc_peripherals.h"
+extern "C"
+{
+#include "jwplc_peripherals.h"
 }
 
 namespace JWPLCDisplay
 {
     enum IdleReturnMode : uint8_t
     {
-        IDLE_RETURN_TIMEOUT  = 0,
+        IDLE_RETURN_TIMEOUT = 0,
         IDLE_RETURN_ESC_ONLY = 1,
         IDLE_RETURN_DISABLED = 2
     };
@@ -43,7 +44,7 @@ namespace JWPLCDisplay
 
     void clearPendingInput();
 
-    Adafruit_ST7789& display();
+    Adafruit_ST7789 &display();
 
     // Indicadores laterales
     void setRunLed(bool state);
@@ -57,17 +58,20 @@ namespace JWPLCDisplay
 
     void setEthLed(bool state);
     bool ethLed();
+    void setEthLedAuto(bool enabled);
+    bool ethLedAuto();
 }
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-bool jwplcCanReturnToIdle(void);
+    bool jwplcCanReturnToIdle(void);
 
-void jwplcUserDisplayEnterCallback(void);
-void jwplcUserDisplayRefreshCallback(const JWPLC_IOState* io, const JWPLC_RTCState* rtc);
-void jwplcUserDisplayExitCallback(void);
+    void jwplcUserDisplayEnterCallback(void);
+    void jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc);
+    void jwplcUserDisplayExitCallback(void);
 
 #ifdef __cplusplus
 }

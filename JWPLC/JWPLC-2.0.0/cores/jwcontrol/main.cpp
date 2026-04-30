@@ -81,6 +81,11 @@ __attribute__((weak)) uint32_t getJWPLCRTCPeriod_ms(void)
   return 1000;
 }
 
+__attribute__((weak)) uint32_t getJWPLCEthernetPeriod_ms(void)
+{
+  return 1000;
+}
+
 extern "C" __attribute__((weak)) uint32_t jwplcDisplayDesiredPeriod_ms(void)
 {
   return 50; // valor por defecto si no hay librería que lo sobrescriba
@@ -183,6 +188,7 @@ void jwplcSystemTask(void *pvParameters)
 
   uint32_t lastIoScan = 0;
   uint32_t lastRtcTick = 0;
+  uint32_t lastEthernetTick = 0;
   uint32_t lastDisplayTick = 0;
 
   for (;;)
@@ -199,6 +205,12 @@ void jwplcSystemTask(void *pvParameters)
     {
       lastRtcTick = now;
       jwplcSystemTickRTC();
+    }
+
+    if ((uint32_t)(now - lastEthernetTick) >= getJWPLCEthernetPeriod_ms())
+    {
+      lastEthernetTick = now;
+      jwplcEthernetTickCallback();
     }
 
     if ((uint32_t)(now - lastDisplayTick) >= getJWPLCDisplayPeriod_ms())
