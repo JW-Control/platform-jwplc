@@ -40,6 +40,7 @@ static uint32_t g_idleRefreshPeriodMs = 50;
 static uint32_t g_userRefreshPeriodMs = 40;
 
 static uint32_t g_lastActivityMs = 0;
+static bool g_waitButtonReleaseBeforeWake = false;
 
 // Indicadores laterales del panel IDLE
 static bool g_runLed = true;
@@ -121,9 +122,27 @@ static void handleIdleWakeAndTimeout()
 {
     if (g_displayMode == DISPLAY_MODE_IDLE)
     {
-        // En IDLE sí usamos anyPressedOrRepeated() porque queremos
-        // despertar la pantalla con una pulsación, evento pendiente
-        // o repetición generada por la botonera.
+        // Después de volver desde USER a IDLE, esperamos a que el usuario
+        // suelte todas las teclas antes de permitir un nuevo ingreso a USER.
+        // Esto evita el rebote lógico: ESC -> IDLE -> USER inmediato.
+        if (g_waitButtonReleaseBeforeWake)
+        {
+            if (JWPLCButtons::anyPressed())
+            {
+                JWPLCButtons::clearPendingInput();
+                return;
+            }
+
+            // Ya no hay teclas físicamente presionadas.
+            // Limpiamos eventos de RELEASE/colas residuales y recién
+            // en el siguiente ciclo permitimos despertar USER otra vez.
+            JWPLCButtons::clearPendingInput();
+            g_waitButtonReleaseBeforeWake = false;
+            return;
+        }
+
+        // En IDLE usamos anyPressedOrRepeated() porque queremos despertar
+        // la pantalla con una pulsación, evento pendiente o repetición.
         if (JWPLCButtons::anyPressedOrRepeated())
         {
             JWPLCDisplay::notifyActivity();
@@ -139,20 +158,24 @@ static void handleIdleWakeAndTimeout()
         return;
     }
 
-    // En USER solo una tecla físicamente presionada debe contar como actividad.
-    // No usamos eventCount() aquí porque una cola con eventos pendientes puede
-    // impedir que el timeout expire correctamente.
-    if (JWPLCButtons::anyPressed())
-    {
-        JWPLCDisplay::notifyActivity();
-    }
-
+    // IMPORTANTE:
+    // En modo ESC_ONLY, primero revisar ESC.
+    // Si llamamos antes a anyPressed(), se puede consumir/absorber
+    // la intención de salida dependiendo de la implementación.
     if ((g_idleReturnMode == JWPLCDisplay::IDLE_RETURN_ESC_ONLY) &&
         JWPLCButtons::escPressed() &&
         jwplcCanReturnToIdle())
     {
         JWPLCDisplay::goIdle();
         return;
+    }
+
+    // En USER, cualquier tecla físicamente presionada cuenta como actividad.
+    // No usamos eventCount() aquí porque una cola con eventos pendientes puede
+    // impedir que el timeout expire correctamente.
+    if (JWPLCButtons::anyPressed())
+    {
+        JWPLCDisplay::notifyActivity();
     }
 
     if ((g_idleReturnMode == JWPLCDisplay::IDLE_RETURN_TIMEOUT) &&
@@ -240,6 +263,10 @@ namespace JWPLCDisplay
 
         g_displayMode = DISPLAY_MODE_IDLE;
         resetDisplayState();
+
+        // Evita que el mismo botón que sacó de USER vuelva a despertar USER
+        // antes de ser soltado físicamente.
+        g_waitButtonReleaseBeforeWake = true;
 
         JWPLCIdleScreen::forceFullRedraw();
 

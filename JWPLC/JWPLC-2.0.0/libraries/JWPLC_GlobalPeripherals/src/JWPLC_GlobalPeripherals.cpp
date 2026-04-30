@@ -171,12 +171,12 @@ namespace JWPLCButtons
             return false;
         }
 
-        return JWPLC_Buttons.pressed(BTN_LEFT) ||
-               JWPLC_Buttons.pressed(BTN_UP) ||
-               JWPLC_Buttons.pressed(BTN_RIGHT) ||
-               JWPLC_Buttons.pressed(BTN_ESC) ||
-               JWPLC_Buttons.pressed(BTN_OK) ||
-               JWPLC_Buttons.pressed(BTN_DOWN);
+        return JWPLC_Buttons.isDown(BTN_LEFT) ||
+               JWPLC_Buttons.isDown(BTN_UP) ||
+               JWPLC_Buttons.isDown(BTN_RIGHT) ||
+               JWPLC_Buttons.isDown(BTN_ESC) ||
+               JWPLC_Buttons.isDown(BTN_OK) ||
+               JWPLC_Buttons.isDown(BTN_DOWN);
     }
 
     bool escPressed()
