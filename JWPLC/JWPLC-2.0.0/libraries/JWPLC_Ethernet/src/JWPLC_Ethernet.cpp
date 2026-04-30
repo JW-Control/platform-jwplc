@@ -114,6 +114,31 @@ bool JWPLC_EthernetClass::begin()
     Ethernet.setRetransmissionTimeout((uint16_t)_responseTimeoutMs);
     Ethernet.setRetransmissionCount(_retransmissionCount);
 
+    // Primero verificar hardware antes de intentar DHCP.
+    EthernetHardwareStatus hw = Ethernet.hardwareStatus();
+
+    if (hw == EthernetNoHardware)
+    {
+        releaseBus();
+
+        _ready = false;
+        setError(JWPLC_ETH_NO_HARDWARE);
+        return false;
+    }
+
+    // Luego verificar link físico.
+    // Si no hay cable RJ45, NO intentar DHCP porque bloquearía varios segundos.
+    EthernetLinkStatus link = Ethernet.linkStatus();
+
+    if (link != LinkON)
+    {
+        releaseBus();
+
+        _ready = false;
+        setError(JWPLC_ETH_LINK_OFF);
+        return false;
+    }
+
     int ok = 0;
 
     if (_mode == JWPLC_ETH_MODE_DHCP)
