@@ -19,69 +19,62 @@ unsigned long lastDisplayMs = 0;
 const unsigned long PRINT_PERIOD_MS = 1000;
 const unsigned long DISPLAY_PERIOD_MS = 500;
 
-void setup()
-{
-    Serial.begin(115200);
-    delay(1200);
+void setup() {
+  Serial.begin(115200);
+  delay(1200);
 
-    Serial.println();
-    Serial.println("Ethernet_Display_Status");
-    Serial.println("Runtime auto Ethernet + Display test. No begin() called.");
+  Serial.println();
+  Serial.println("Ethernet_Display_Status");
+  Serial.println("Runtime auto Ethernet + Display test. No begin() called.");
 }
 
-void loop()
-{
-    unsigned long now = millis();
+void loop() {
+  unsigned long now = millis();
 
-    if (!displayConfigured && JWPLC_Display.isReady())
-    {
-        displayConfigured = true;
+  if (!displayConfigured && JWPLC_Display.isReady()) {
+    displayConfigured = true;
 
-        JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);
-        JWPLC_Display.setIdleTimeoutMs(8000);
+    JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);
+    JWPLC_Display.setIdleTimeoutMs(8000);
 
-        JWPLC_Display.setRunLed(true);
-        JWPLC_Display.setBusLed(false);
-        JWPLC_Display.setErrLed(false);
+    JWPLC_Display.setRunLed(true);
+    JWPLC_Display.setBusLed(false);
+    JWPLC_Display.setErrLed(false);
 
-        Serial.println("Display ready");
+    Serial.println("Display ready");
+  }
+
+  if (now - lastDisplayMs >= DISPLAY_PERIOD_MS) {
+    lastDisplayMs = now;
+
+    if (displayConfigured) {
+      JWPLC_Display.setRunLed(true);
+
+      // El LED ETH ya es automático.
+      // RJ45 desconectado NO debe prender ERR.
+      JWPLC_Display.setErrLed(false);
     }
+  }
 
-    if (now - lastDisplayMs >= DISPLAY_PERIOD_MS)
-    {
-        lastDisplayMs = now;
+  if (now - lastPrintMs >= PRINT_PERIOD_MS) {
+    lastPrintMs = now;
 
-        bool ethOk = JWPLC_Ethernet.isReady() && JWPLC_Ethernet.linkUp();
+    Serial.print("ETH: ");
+    Serial.print(JWPLC_Ethernet.statusString());
 
-        if (displayConfigured)
-        {
-            JWPLC_Display.setRunLed(true);
+    Serial.print(" | Enabled: ");
+    Serial.print(JWPLC_Ethernet.isEnabled() ? "yes" : "no");
 
-            bool ethernetDisabled = !JWPLC_Ethernet.isEnabled();
-            JWPLC_Display.setErrLed(!ethernetDisabled && !ethOk);
-        }
-    }
+    Serial.print(" | Attempted: ");
+    Serial.print(JWPLC_Ethernet.isBeginAttempted() ? "yes" : "no");
 
-    if (now - lastPrintMs >= PRINT_PERIOD_MS)
-    {
-        lastPrintMs = now;
+    Serial.print(" | Ready: ");
+    Serial.print(JWPLC_Ethernet.isReady() ? "yes" : "no");
 
-        Serial.print("ETH: ");
-        Serial.print(JWPLC_Ethernet.statusString());
+    Serial.print(" | Link: ");
+    Serial.print(JWPLC_Ethernet.linkUp() ? "UP" : "DOWN");
 
-        Serial.print(" | Enabled: ");
-        Serial.print(JWPLC_Ethernet.isEnabled() ? "yes" : "no");
-
-        Serial.print(" | Attempted: ");
-        Serial.print(JWPLC_Ethernet.isBeginAttempted() ? "yes" : "no");
-
-        Serial.print(" | Ready: ");
-        Serial.print(JWPLC_Ethernet.isReady() ? "yes" : "no");
-
-        Serial.print(" | Link: ");
-        Serial.print(JWPLC_Ethernet.linkUp() ? "UP" : "DOWN");
-
-        Serial.print(" | IP: ");
-        Serial.println(JWPLC_Ethernet.localIP());
-    }
+    Serial.print(" | IP: ");
+    Serial.println(JWPLC_Ethernet.localIP());
+  }
 }

@@ -445,6 +445,11 @@ const char *JWPLC_EthernetClass::statusString()
 
     if (!hardwarePresent())
     {
+        if (_lastError == JWPLC_ETH_BUS_LOCK_TIMEOUT)
+        {
+            return lastErrorString();
+        }
+
         return "No Ethernet hardware";
     }
 
@@ -455,9 +460,15 @@ const char *JWPLC_EthernetClass::statusString()
 
     if (!linkUp())
     {
+        if (_lastError == JWPLC_ETH_BUS_LOCK_TIMEOUT)
+        {
+            return lastErrorString();
+        }
+
         return "Link OFF";
     }
 
+    clearError();
     return "OK";
 #endif
 }

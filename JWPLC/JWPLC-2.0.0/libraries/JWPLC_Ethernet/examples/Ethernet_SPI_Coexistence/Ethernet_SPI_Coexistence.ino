@@ -12,12 +12,15 @@
   - Pantalla USER con resumen de estado.
 
   Importante:
-  - No incluye librerías manualmente.
+  - No incluye JWPLC_Ethernet manualmente.
+  - Incluye JWPLC_Display.h porque usa la TFT directamente.
   - No llama JWPLC_Ethernet.begin().
   - No llama JWPLC_Ethernet.maintain().
   - Ethernet arranca desde el runtime JWPLC.
   - En callbacks gráficos NO se consultan periféricos SPI.
 */
+
+#include <JWPLC_Display.h>
 
 bool displayConfigured = false;
 
@@ -45,275 +48,278 @@ char ethIpText[20] = "0.0.0.0";
 char sdStatusText[32] = "Unknown";
 char framStatusText[8] = "NO";
 
-void copyText(char *dst, size_t dstSize, const char *src)
-{
-    if (!src)
-    {
-        src = "";
-    }
+void copyText(char *dst, size_t dstSize, const char *src) {
+  if (!src) {
+    src = "";
+  }
 
-    strncpy(dst, src, dstSize - 1);
-    dst[dstSize - 1] = '\0';
+  strncpy(dst, src, dstSize - 1);
+  dst[dstSize - 1] = '\0';
 }
 
-void ipToText(IPAddress ip, char *out, size_t len)
-{
-    snprintf(out, len, "%u.%u.%u.%u", ip[0], ip[1], ip[2], ip[3]);
+void ipToText(IPAddress ip, char *out, size_t len) {
+  snprintf(out, len, "%u.%u.%u.%u", ip[0], ip[1], ip[2], ip[3]);
 }
 
-void updateCachedStatus()
-{
-    ethLinkCached = JWPLC_Ethernet.isReady() && JWPLC_Ethernet.linkUp();
-    ethOkCached = ethLinkCached;
+bool ethernetHasFault() {
+  if (!JWPLC_Ethernet.isEnabled()) {
+    return false;
+  }
 
-    copyText(ethStatusText, sizeof(ethStatusText), JWPLC_Ethernet.statusString());
-    ipToText(JWPLC_Ethernet.localIP(), ethIpText, sizeof(ethIpText));
+  if (strcmp(ethStatusText, "OK") == 0) {
+    return false;
+  }
 
-    copyText(sdStatusText, sizeof(sdStatusText), sdOk ? "OK" : JWPLC_SD.lastErrorString());
-    copyText(framStatusText, sizeof(framStatusText), framOk ? "OK" : "NO");
+  if (strcmp(ethStatusText, "Link OFF") == 0) {
+    return false;
+  }
+
+  if (strcmp(ethStatusText, "Not started") == 0) {
+    return false;
+  }
+
+  if (strcmp(ethStatusText, "Ethernet disabled") == 0) {
+    return false;
+  }
+
+  if (strcmp(ethStatusText, "SPI lock timeout") == 0) {
+    return false;
+  }
+
+  return true;
 }
 
-extern "C" void jwplcUserDisplayEnterCallback()
-{
-    auto &tft = JWPLC_Display.tft();
+void updateCachedStatus() {
+  ethLinkCached = JWPLC_Ethernet.isReady() && JWPLC_Ethernet.linkUp();
+  ethOkCached = ethLinkCached;
 
-    tft.fillScreen(ST77XX_BLACK);
-    tft.setTextWrap(false);
+  copyText(ethStatusText, sizeof(ethStatusText), JWPLC_Ethernet.statusString());
+  ipToText(JWPLC_Ethernet.localIP(), ethIpText, sizeof(ethIpText));
 
-    tft.setTextSize(2);
-    tft.setTextColor(ST77XX_CYAN, ST77XX_BLACK);
-    tft.setCursor(10, 12);
-    tft.print("SPI TEST");
-
-    tft.setTextSize(1);
-    tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
-
-    tft.setCursor(10, 48);
-    tft.print("ETH:");
-
-    tft.setCursor(10, 68);
-    tft.print("IP:");
-
-    tft.setCursor(10, 88);
-    tft.print("SD:");
-
-    tft.setCursor(10, 108);
-    tft.print("FRAM:");
-
-    tft.setCursor(10, 128);
-    tft.print("Logs:");
-
-    tft.setCursor(10, 154);
-    tft.print("Retorna a IDLE en 8s");
+  copyText(sdStatusText, sizeof(sdStatusText), sdOk ? "OK" : JWPLC_SD.lastErrorString());
+  copyText(framStatusText, sizeof(framStatusText), framOk ? "OK" : "NO");
 }
 
-extern "C" void jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc)
-{
-    (void)io;
-    (void)rtc;
+extern "C" void jwplcUserDisplayEnterCallback() {
+  auto &tft = JWPLC_Display.tft();
 
-    static unsigned long lastDrawMs = 0;
-    unsigned long now = millis();
+  tft.fillScreen(ST77XX_BLACK);
+  tft.setTextWrap(false);
 
-    if (now - lastDrawMs < 500)
-    {
-        return;
-    }
+  tft.setTextSize(2);
+  tft.setTextColor(ST77XX_CYAN, ST77XX_BLACK);
+  tft.setCursor(10, 12);
+  tft.print("SPI TEST");
 
-    lastDrawMs = now;
+  tft.setTextSize(1);
+  tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
 
-    auto &tft = JWPLC_Display.tft();
+  tft.setCursor(10, 48);
+  tft.print("ETH:");
 
-    tft.fillRect(70, 45, 240, 100, ST77XX_BLACK);
-    tft.setTextWrap(false);
-    tft.setTextSize(1);
+  tft.setCursor(10, 68);
+  tft.print("IP:");
 
-    tft.setCursor(70, 48);
-    tft.setTextColor(ethOkCached ? ST77XX_GREEN : ST77XX_RED, ST77XX_BLACK);
-    tft.print(ethStatusText);
+  tft.setCursor(10, 88);
+  tft.print("SD:");
 
-    tft.setCursor(70, 68);
-    tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
-    tft.print(ethIpText);
+  tft.setCursor(10, 108);
+  tft.print("FRAM:");
 
-    tft.setCursor(70, 88);
-    tft.setTextColor(sdOk ? ST77XX_GREEN : ST77XX_RED, ST77XX_BLACK);
-    tft.print(sdStatusText);
+  tft.setCursor(10, 128);
+  tft.print("Logs:");
 
-    tft.setCursor(70, 108);
-    tft.setTextColor(framOk ? ST77XX_GREEN : ST77XX_RED, ST77XX_BLACK);
-    tft.print(framStatusText);
-
-    tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
-    tft.print(" Boot:");
-    tft.print(bootCounter);
-
-    tft.setCursor(70, 128);
-    tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
-    tft.print(logCounter);
+  tft.setCursor(10, 154);
+  tft.print("Retorna a IDLE en 8s");
 }
 
-extern "C" void jwplcUserDisplayExitCallback()
-{
-    Serial.println("Saliendo de USER hacia IDLE");
+extern "C" void jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc) {
+  (void)io;
+  (void)rtc;
+
+  static unsigned long lastDrawMs = 0;
+  unsigned long now = millis();
+
+  if (now - lastDrawMs < 500) {
+    return;
+  }
+
+  lastDrawMs = now;
+
+  auto &tft = JWPLC_Display.tft();
+
+  tft.fillRect(70, 45, 240, 100, ST77XX_BLACK);
+  tft.setTextWrap(false);
+  tft.setTextSize(1);
+
+  tft.setCursor(70, 48);
+  tft.setTextColor(ethOkCached ? ST77XX_GREEN : ST77XX_RED, ST77XX_BLACK);
+  tft.print(ethStatusText);
+
+  tft.setCursor(70, 68);
+  tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
+  tft.print(ethIpText);
+
+  tft.setCursor(70, 88);
+  tft.setTextColor(sdOk ? ST77XX_GREEN : ST77XX_RED, ST77XX_BLACK);
+  tft.print(sdStatusText);
+
+  tft.setCursor(70, 108);
+  tft.setTextColor(framOk ? ST77XX_GREEN : ST77XX_RED, ST77XX_BLACK);
+  tft.print(framStatusText);
+
+  tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
+  tft.print(" Boot:");
+  tft.print(bootCounter);
+
+  tft.setCursor(70, 128);
+  tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
+  tft.print(logCounter);
 }
 
-void loadBootCounterFromFRAM()
-{
-    framOk = (JWPLC_FRAM.size() > 0);
-
-    if (!framOk)
-    {
-        Serial.println("FRAM not available");
-        return;
-    }
-
-    JWPLC_FRAM.get(FRAM_BOOT_COUNTER_ADDR, bootCounter);
-    bootCounter++;
-
-    JWPLC_FRAM.put(FRAM_BOOT_COUNTER_ADDR, bootCounter);
-
-    Serial.print("FRAM bootCounter: ");
-    Serial.println(bootCounter);
+extern "C" void jwplcUserDisplayExitCallback() {
+  Serial.println("Saliendo de USER hacia IDLE");
 }
 
-void updateSDStatus()
-{
-    sdOk = JWPLC_SD.isEnabled() &&
-           JWPLC_SD.isCardPresent() &&
-           JWPLC_SD.isReady();
+void loadBootCounterFromFRAM() {
+  framOk = (JWPLC_FRAM.size() > 0);
 
-    Serial.print("SD enabled: ");
-    Serial.println(JWPLC_SD.isEnabled() ? "yes" : "no");
+  if (!framOk) {
+    Serial.println("FRAM not available");
+    return;
+  }
 
-    Serial.print("SD present: ");
-    Serial.println(JWPLC_SD.isCardPresent() ? "yes" : "no");
+  JWPLC_FRAM.get(FRAM_BOOT_COUNTER_ADDR, bootCounter);
+  bootCounter++;
 
-    Serial.print("SD ready: ");
-    Serial.println(JWPLC_SD.isReady() ? "yes" : "no");
+  JWPLC_FRAM.put(FRAM_BOOT_COUNTER_ADDR, bootCounter);
 
-    Serial.print("SD status: ");
+  Serial.print("FRAM bootCounter: ");
+  Serial.println(bootCounter);
+}
+
+void updateSDStatus() {
+  sdOk = JWPLC_SD.isEnabled() && JWPLC_SD.isCardPresent() && JWPLC_SD.isReady();
+
+  Serial.print("SD enabled: ");
+  Serial.println(JWPLC_SD.isEnabled() ? "yes" : "no");
+
+  Serial.print("SD present: ");
+  Serial.println(JWPLC_SD.isCardPresent() ? "yes" : "no");
+
+  Serial.print("SD ready: ");
+  Serial.println(JWPLC_SD.isReady() ? "yes" : "no");
+
+  Serial.print("SD status: ");
+  Serial.println(JWPLC_SD.lastErrorString());
+}
+
+void writeSDLog() {
+  if (!JWPLC_SD.isEnabled() || !JWPLC_SD.isCardPresent() || !JWPLC_SD.isReady()) {
+    sdOk = false;
+    Serial.print("SD log skipped: ");
     Serial.println(JWPLC_SD.lastErrorString());
+    return;
+  }
+
+  JWPLCFile f = JWPLC_SD.open("/spi_coexistence.csv", FILE_APPEND);
+
+  if (!f) {
+    sdOk = false;
+    Serial.println("SD log failed: open failed");
+    return;
+  }
+
+  logCounter++;
+
+  f.print(millis());
+  f.print(",");
+  f.print("boot=");
+  f.print(bootCounter);
+  f.print(",");
+  f.print("log=");
+  f.print(logCounter);
+  f.print(",");
+  f.print("eth=");
+  f.print(ethStatusText);
+  f.print(",");
+  f.print("ip=");
+  f.println(ethIpText);
+
+  f.close();
+
+  sdOk = true;
+
+  Serial.print("SD log OK #");
+  Serial.println(logCounter);
 }
 
-void writeSDLog()
-{
-    if (!JWPLC_SD.isEnabled() || !JWPLC_SD.isCardPresent() || !JWPLC_SD.isReady())
-    {
-        sdOk = false;
-        Serial.print("SD log skipped: ");
-        Serial.println(JWPLC_SD.lastErrorString());
-        return;
-    }
+void setup() {
+  Serial.begin(115200);
+  delay(1200);
 
-    JWPLCFile f = JWPLC_SD.open("/spi_coexistence.csv", FILE_APPEND);
+  Serial.println();
+  Serial.println("JWPLC Ethernet + SD + FRAM + Display SPI coexistence test");
+  Serial.println("Runtime auto Ethernet. No begin() called.");
 
-    if (!f)
-    {
-        sdOk = false;
-        Serial.println("SD log failed: open failed");
-        return;
-    }
+  loadBootCounterFromFRAM();
+  updateSDStatus();
 
-    logCounter++;
-
-    f.print(millis());
-    f.print(",");
-    f.print("boot=");
-    f.print(bootCounter);
-    f.print(",");
-    f.print("log=");
-    f.print(logCounter);
-    f.print(",");
-    f.print("eth=");
-    f.print(ethStatusText);
-    f.print(",");
-    f.print("ip=");
-    f.println(ethIpText);
-
-    f.close();
-
-    sdOk = true;
-
-    Serial.print("SD log OK #");
-    Serial.println(logCounter);
+  updateCachedStatus();
 }
 
-void setup()
-{
-    Serial.begin(115200);
-    delay(1200);
+void loop() {
+  unsigned long now = millis();
 
-    Serial.println();
-    Serial.println("JWPLC Ethernet + SD + FRAM + Display SPI coexistence test");
-    Serial.println("Runtime auto Ethernet. No begin() called.");
+  if (!displayConfigured && JWPLC_Display.isReady()) {
+    displayConfigured = true;
 
-    loadBootCounterFromFRAM();
-    updateSDStatus();
+    JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);
+    JWPLC_Display.setIdleTimeoutMs(8000);
+    JWPLC_Display.setUserRefreshPeriodMs(250);
 
+    Serial.println("Display ready");
+  }
+
+  if (now - lastCacheMs >= CACHE_PERIOD_MS) {
+    lastCacheMs = now;
     updateCachedStatus();
-}
+  }
 
-void loop()
-{
-    unsigned long now = millis();
+  if (now - lastLogMs >= LOG_PERIOD_MS) {
+    lastLogMs = now;
+    writeSDLog();
+    updateCachedStatus();
+  }
 
-    if (!displayConfigured && JWPLC_Display.isReady())
-    {
-        displayConfigured = true;
+  if (now - lastCheckMs >= CHECK_PERIOD_MS) {
+    lastCheckMs = now;
 
-        JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);
-        JWPLC_Display.setIdleTimeoutMs(8000);
-        JWPLC_Display.setUserRefreshPeriodMs(250);
+    if (displayConfigured) {
 
-        Serial.println("Display ready");
+      JWPLC_Display.setErrLed(ethernetHasFault() || !sdOk || !framOk);
+      JWPLC_Display.setRunLed(true);
     }
 
-    if (now - lastCacheMs >= CACHE_PERIOD_MS)
-    {
-        lastCacheMs = now;
-        updateCachedStatus();
-    }
+    Serial.print("ETH: ");
+    Serial.print(ethStatusText);
 
-    if (now - lastLogMs >= LOG_PERIOD_MS)
-    {
-        lastLogMs = now;
-        writeSDLog();
-        updateCachedStatus();
-    }
+    Serial.print(" | Link: ");
+    Serial.print(ethLinkCached ? "UP" : "DOWN");
 
-    if (now - lastCheckMs >= CHECK_PERIOD_MS)
-    {
-        lastCheckMs = now;
+    Serial.print(" | IP: ");
+    Serial.print(ethIpText);
 
-        if (displayConfigured)
-        {
+    Serial.print(" | SD: ");
+    Serial.print(sdStatusText);
 
-            bool ethernetDisabled = !JWPLC_Ethernet.isEnabled();
+    Serial.print(" | FRAM: ");
+    Serial.print(framStatusText);
 
-            JWPLC_Display.setErrLed((!ethernetDisabled && !ethOkCached) || !sdOk || !framOk);
-            JWPLC_Display.setRunLed(true);
-        }
+    Serial.print(" | Boot: ");
+    Serial.print(bootCounter);
 
-        Serial.print("ETH: ");
-        Serial.print(ethStatusText);
-
-        Serial.print(" | Link: ");
-        Serial.print(ethLinkCached ? "UP" : "DOWN");
-
-        Serial.print(" | IP: ");
-        Serial.print(ethIpText);
-
-        Serial.print(" | SD: ");
-        Serial.print(sdStatusText);
-
-        Serial.print(" | FRAM: ");
-        Serial.print(framStatusText);
-
-        Serial.print(" | Boot: ");
-        Serial.print(bootCounter);
-
-        Serial.print(" | Logs: ");
-        Serial.println(logCounter);
-    }
+    Serial.print(" | Logs: ");
+    Serial.println(logCounter);
+  }
 }

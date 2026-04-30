@@ -4,6 +4,7 @@
 #include <SPI.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_ST7789.h>
+#include <cstring>
 
 #include "jwplc_spi_bus.h"
 
@@ -201,38 +202,37 @@ static void handleIdleWakeAndTimeout()
 
 static JWPLCIdleScreen::StatusLedState computeAutomaticEthLedState()
 {
-    // Basic Core u otra placa sin Ethernet.
     if (!JWPLC_Ethernet.isEnabled())
     {
         return JWPLCIdleScreen::STATUS_LED_OFF;
     }
 
-    // Antes del primer intento automático, no marcamos error.
     if (!JWPLC_Ethernet.isBeginAttempted())
     {
         return JWPLCIdleScreen::STATUS_LED_OFF;
     }
 
-    // En JWPLC Basic, si no se detecta W5500, eso sí es falla.
-    if (!JWPLC_Ethernet.hardwarePresent())
-    {
-        return JWPLCIdleScreen::STATUS_LED_RED;
-    }
+    const char *status = JWPLC_Ethernet.statusString();
 
-    // Sin cable/link físico: apagado, no error.
-    if (!JWPLC_Ethernet.linkUp())
-    {
-        return JWPLCIdleScreen::STATUS_LED_OFF;
-    }
-
-    // Hay link físico. Si además Ethernet está listo y sin error, verde.
-    if (JWPLC_Ethernet.isReady() &&
-        JWPLC_Ethernet.lastError() == JWPLC_ETH_OK)
+    if (strcmp(status, "OK") == 0)
     {
         return JWPLCIdleScreen::STATUS_LED_GREEN;
     }
 
-    // Hay link, pero DHCP/IP/estado no está OK.
+    if (strcmp(status, "Link OFF") == 0 ||
+        strcmp(status, "Not started") == 0 ||
+        strcmp(status, "Ethernet disabled") == 0)
+    {
+        return JWPLCIdleScreen::STATUS_LED_OFF;
+    }
+
+    // Si el bus SPI estuvo ocupado momentáneamente, no cambiamos el LED.
+    // Evita parpadeos falsos a rojo por una consulta puntual.
+    if (strcmp(status, "SPI lock timeout") == 0)
+    {
+        return g_ethLedState;
+    }
+
     return JWPLCIdleScreen::STATUS_LED_RED;
 }
 
