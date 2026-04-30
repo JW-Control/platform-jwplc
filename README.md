@@ -1,352 +1,178 @@
 # JWPLC Platform for Arduino IDE
 
-Package personalizado de **JW Control** para programar placas basadas en **ESP32** desde Arduino IDE, orientado a aplicaciones industriales y al ecosistema **JWPLC**.
+Package personalizado de **JW Control** para programar placas basadas en **ESP32** desde Arduino IDE, optimizado para el ecosistema **JWPLC Basic**.
 
-Este repositorio contiene el core, variantes, librerías internas, herramientas y archivo de índice necesarios para instalar y usar placas JWPLC desde el Gestor de Placas de Arduino IDE.
-
----
-
-## Estado actual
-
-> Versión en desarrollo: `2.0.0-alpha.24`
-
-La rama `main` contiene la base funcional de la serie `2.0.0`, con soporte validado para:
-
-- `JWPLC Basic`
-- `JWPLC Basic Core`
-- `ESP32 Base Board`
-
-La serie `2.0.0` todavía se considera **alpha / prerelease**. Ya es funcional para pruebas reales de hardware, pero aún se encuentra en evolución antes de declararse como versión estable.
+Este package reduce el peso del core ESP32 original y añade integración directa con periféricos industriales del JWPLC Basic, permitiendo trabajar con una experiencia más limpia desde Arduino IDE.
 
 ---
 
-## Instalación en Arduino IDE
+## Características principales
 
-En Arduino IDE, abre:
+- Soporte enfocado en ESP32 base.
+- Package reducido frente al core ESP32 oficial.
+- Compatible con Arduino IDE.
+- Preparado para desarrollo industrial con JWPLC Basic.
+- Incluye variantes JWPLC:
+  - ESP32 Base Board.
+  - JWPLC Basic.
+  - JWPLC Basic Core.
+- Integra periféricos globales del ecosistema JWPLC.
+- Expone APIs de alto nivel para evitar configuración repetitiva en sketches.
 
-```text
-Archivo > Preferencias > Gestor de URLs adicionales de tarjetas
-```
+---
 
-Agrega la siguiente URL:
+## Instalación
 
-```text
+En Arduino IDE, ingresa este enlace en **Gestor de URLs adicionales de tarjetas**:
+
+```txt
 https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/package_jwplc_index.json
 ```
 
-Luego ve a:
-
-```text
-Herramientas > Placa > Gestor de placas
-```
-
-Busca:
-
-```text
-JW Control ESP32 Boards
-```
-
-e instala la versión disponible.
+Luego instala el package desde el Gestor de Tarjetas.
 
 ---
 
-## Placas soportadas
+## Versiones disponibles
 
-### JWPLC Basic
+La rama `main` contiene las versiones publicadas del package.
 
-Perfil principal para el hardware JWPLC Basic.
-
-Incluye soporte para:
-
-- ESP32 base.
-- Display TFT ST7789 con autoarranque.
-- RTC.
-- FRAM SPI.
-- microSD.
-- Botonera integrada.
-- Base de integración para periféricos industriales.
-
-### JWPLC Basic Core
-
-Perfil reducido para pruebas, depuración o variantes de hardware sin todos los periféricos físicos.
-
-Características:
-
-- Mantiene compatibilidad con el ecosistema JWPLC.
-- Deshabilita periféricos opcionales mediante flags de compilación.
-- Permite compilar y ejecutar sketches sin requerir RTC, FRAM, microSD u otros periféricos físicos.
-
-### ESP32 Base Board
-
-Perfil genérico para ESP32 base.
-
-Útil para:
-
-- Pruebas del core.
-- Compatibilidad general con ESP32.
-- Desarrollo fuera del hardware JWPLC cuando no se requiere el runtime industrial completo.
+Las versiones `alpha` son versiones de prueba para validación progresiva de periféricos y APIs internas antes de la beta/versión estable.
 
 ---
 
-## Filosofía del package
+## Estado actual: 2.0.0-alpha.26
 
-El objetivo del package JWPLC no es replicar todo el ecosistema oficial de Espressif, sino entregar una experiencia optimizada para productos industriales de JW Control.
+`2.0.0-alpha.26` integra Ethernet automático para JWPLC Basic y consolida la coexistencia SPI entre periféricos.
 
-Principios principales:
+### Periféricos integrados
 
-- Reducir peso del package.
-- Evitar variantes no usadas.
-- Facilitar instalación para clientes.
-- Ocultar complejidad de periféricos externos.
-- Exponer objetos globales listos para usar.
-- Mantener compatibilidad con Arduino IDE.
-- Preparar una base industrial reutilizable para futuras familias JWPLC.
+| Periférico | Estado | Notas |
+|---|---:|---|
+| RTC | Operativo | Manejo automático del reloj del sistema. |
+| FRAM | Operativo | Acceso global mediante `JWPLC_FRAM`. |
+| microSD | Operativo | Acceso global protegido mediante `JWPLC_SD`. |
+| TFT Display | Operativo | Pantalla IDLE/USER con API `JWPLC_Display`. |
+| Botonera | Operativa | Lectura global integrada al Display. |
+| Ethernet W5500 | Operativo en alpha26 | Runtime automático mediante `JWPLC_Ethernet`. |
 
 ---
 
-## Periféricos globales
+## Ethernet en alpha26
 
-La serie `2.0.0` introduce periféricos globales administrados por el runtime del package.
+Ethernet queda integrado al runtime del JWPLC.
 
-Esto permite usar periféricos directamente desde el sketch sin instanciarlos manualmente.
-
-### RTC
+En uso normal no es necesario llamar:
 
 ```cpp
-JWPLC_RTC
+JWPLC_Ethernet.begin();
+JWPLC_Ethernet.maintain();
 ```
 
-### FRAM
+El sistema JWPLC se encarga de:
+
+- Inicializar Ethernet automáticamente.
+- Evitar bloqueo largo si no hay RJ45 conectado.
+- Reintentar automáticamente cuando se conecta RJ45 después del arranque.
+- Mantener DHCP.
+- Reportar estado mediante `JWPLC_Ethernet`.
+- Actualizar automáticamente el LED `ETH` en la pantalla IDLE.
+
+### LED ETH en IDLE
+
+| Condición | LED ETH |
+|---|---|
+| Ethernet disabled / Basic Core | Apagado |
+| RJ45 desconectado / Link OFF | Apagado |
+| Ethernet OK | Verde |
+| Falla real con Ethernet | Rojo |
+
+---
+
+## Display en alpha26
+
+La API recomendada para configuración de pantalla es:
 
 ```cpp
-JWPLC_FRAM
+JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);
+JWPLC_Display.setIdleTimeoutMs(8000);
+JWPLC_Display.setRunLed(true);
 ```
 
-Ejemplo:
+Modos de retorno desde USER a IDLE:
 
 ```cpp
-int32_t contador = 0;
-
-JWPLC_FRAM.get(0, contador);
-contador++;
-JWPLC_FRAM.update(0, contador);
+IDLE_RETURN_TIMEOUT
+IDLE_RETURN_ESC_ONLY
+IDLE_RETURN_DISABLED
 ```
 
-### microSD
+Para uso normal de LEDs, modos y estado del Display, no se requiere incluir librerías manualmente.
+
+Para dibujar directamente con la TFT usando métodos de Adafruit ST7789, incluir:
 
 ```cpp
+#include <JWPLC_Display.h>
+```
+
+---
+
+## APIs globales disponibles
+
+En JWPLC Basic, las APIs globales principales son:
+
+```cpp
+JWPLC_Display
+JWPLC_Ethernet
 JWPLC_SD
-```
-
-Ejemplo:
-
-```cpp
-if (JWPLC_SD.isReady())
-{
-    auto file = JWPLC_SD.open("/log.txt", FILE_APPEND);
-
-    if (file)
-    {
-        file.println("Hola desde JWPLC_SD");
-        file.close();
-    }
-}
-```
-
-API disponible:
-
-```cpp
-JWPLC_SD.isEnabled();
-JWPLC_SD.isCardPresent();
-JWPLC_SD.isReady();
-JWPLC_SD.lastErrorString();
-JWPLC_SD.open("/archivo.txt", FILE_APPEND);
-```
-
-### Botonera
-
-```cpp
+JWPLC_FRAM
+JWPLC_RTC
 JWPLC_Buttons
 ```
 
-La botonera se integra con el display para permitir transición entre pantalla IDLE y pantalla USER.
+El objetivo es que los usuarios puedan trabajar con sintaxis directa y clara, sin repetir inicializaciones internas de hardware.
 
 ---
 
-## Display TFT
+## Reglas de coexistencia SPI
 
-La librería interna del display fue renombrada de:
+El JWPLC Basic comparte SPI entre:
 
-```text
-JWPLC_Display_ST7789
+- TFT.
+- W5500 Ethernet.
+- FRAM.
+- microSD.
+
+Regla importante para sketches avanzados:
+
+- Consultar periféricos SPI desde `loop()`.
+- Guardar resultados en variables.
+- En callbacks gráficos del Display, solo dibujar datos cacheados.
+
+Evitar llamadas directas a Ethernet/SD/FRAM dentro de callbacks gráficos.
+
+---
+
+## Ejemplos destacados
+
+### Display
+
+- `Display_Idle_Return_Modes`
+
+### Ethernet
+
+- `Ethernet_Auto_DHCP_Status`
+- `Ethernet_Auto_StaticIP_Status`
+- `Ethernet_Display_Status`
+- `Ethernet_SPI_Coexistence`
+
+---
+
+## Repositorio
+
+```txt
+https://github.com/JW-Control/platform-jwplc
 ```
-
-a:
-
-```text
-JWPLC_Display
-```
-
-El display arranca automáticamente en placas JWPLC compatibles.
-
-Actualmente la API pública mantiene el namespace:
-
-```cpp
-JWPLCDisplay::isReady();
-JWPLCDisplay::enterUserUI();
-JWPLCDisplay::setIdleReturnMode(...);
-```
-
-Una próxima alpha migrará esta API hacia un estilo de objeto global, más consistente con el resto del ecosistema:
-
-```cpp
-JWPLC_Display.isReady();
-JWPLC_Display.enterUserUI();
-JWPLC_Display.tft();
-```
-
----
-
-## Flags de hardware
-
-El package usa flags de compilación para habilitar o deshabilitar periféricos según la placa seleccionada.
-
-Ejemplos:
-
-```cpp
-JWPLC_HAS_RTC
-JWPLC_HAS_FRAM
-JWPLC_HAS_SD
-JWPLC_HAS_ETHERNET
-```
-
-Esto permite que el mismo sketch pueda compilar en `JWPLC Basic` y `JWPLC Basic Core`, adaptándose automáticamente al hardware disponible.
-
----
-
-## Versiones recientes
-
-| Versión | Estado | Descripción |
-|---|---|---|
-| `2.0.0-alpha.24` | Prerelease | Integración funcional de microSD mediante `JWPLC_SD`, validada con FRAM, TFT y USER/IDLE. |
-| `2.0.0-alpha.23` | Prerelease | Autoarranque del display, renombre a `JWPLC_Display` y mejoras de periféricos globales. |
-| `2.0.0-alpha.22` | Prerelease | Consolidación de periféricos globales y validaciones de FRAM/RTC/display. |
-| `1.0.5` | Estable anterior | Package liviano basado en ESP32, previo a la arquitectura 2.0.0. |
-
----
-
-## Validaciones realizadas en `2.0.0-alpha.24`
-
-### JWPLC Basic
-
-Validado en hardware real:
-
-- Compilación correcta.
-- Carga correcta desde Arduino IDE 2.3.4.
-- Display autoarranca.
-- RTC operativo.
-- FRAM SPI operativo.
-- microSD detectada.
-- Escritura y lectura en microSD.
-- Convivencia microSD + FRAM + TFT.
-- Entrada a pantalla USER mediante botonera.
-- Retorno automático a pantalla IDLE.
-
-### JWPLC Basic Core
-
-Validado:
-
-- Compilación correcta.
-- Carga correcta.
-- Display autoarranca.
-- RTC/FRAM/SD reportan estado deshabilitado según perfil.
-- El sistema no se bloquea aunque los periféricos opcionales estén desactivados.
-
----
-
-## Observaciones conocidas
-
-Durante pruebas dinámicas prolongadas de escritura en microSD junto con actividad de display se observaron algunos casos ocasionales de:
-
-```text
-Open failed
-```
-
-La operación se recupera automáticamente en el siguiente ciclo y no bloquea el sistema.
-
-Pendiente para próximas versiones:
-
-- Evaluar retry interno en `JW_SD.open()`.
-- Mejorar coordinación entre display y periféricos SPI.
-- Refactorizar la API del display hacia objeto global con estilo de punto.
-
----
-
-## Recomendación sobre variantes ESP32
-
-La línea actual del package está orientada principalmente a **ESP32 base**.
-
-Para conservar la ventaja de tamaño y simplicidad, se recomienda mantener solamente:
-
-- `ESP32 Base Board`
-- `JWPLC Basic`
-- `JWPLC Basic Core`
-
-Las variantes como ESP32-S2, ESP32-S3, ESP32-C3, ESP32-C6, ESP32-H2, etc., deberían agregarse solo cuando exista un producto JWPLC que realmente las use y hayan sido validadas.
-
-Esto reduce:
-
-- Tamaño del package.
-- Tiempo de mantenimiento.
-- Complejidad del menú de placas.
-- Riesgo de errores por targets no probados.
-- Dependencias innecesarias de toolchains y librerías precompiladas.
-
----
-
-## Estructura general del repositorio
-
-```text
-platform-jwplc/
-├── JWPLC/
-│   ├── JWPLC-2.0.0/
-│   │   ├── boards.txt
-│   │   ├── platform.txt
-│   │   ├── cores/
-│   │   ├── variants/
-│   │   ├── libraries/
-│   │   └── tools/
-│   ├── package_jwplc_index.json
-│   └── jwplc-esp32-*.zip
-├── docs/
-├── installers/
-├── packages/
-├── README.md
-└── LICENSE
-```
-
----
-
-## Desarrollo
-
-Flujo sugerido:
-
-1. Desarrollar cambios en una rama `develop/*` o feature branch.
-2. Validar en carpeta local enlazada al package de Arduino IDE.
-3. Hacer commits pequeños por avance.
-4. Agrupar cambios funcionales en una alpha.
-5. Crear prerelease con tag correspondiente.
-6. Actualizar `package_jwplc_index.json`.
-7. Validar instalación desde Arduino IDE.
-8. Hacer merge a `main` cuando la alpha esté validada.
-
----
-
-## Créditos
-
-Desarrollado por **JW Control**.
-
-Basado en el core oficial de Espressif para Arduino ESP32, adaptado para placas industriales JWPLC.
 
 ---
 
