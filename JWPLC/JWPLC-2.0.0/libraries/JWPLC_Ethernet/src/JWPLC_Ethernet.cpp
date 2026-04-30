@@ -114,7 +114,16 @@ bool JWPLC_EthernetClass::begin()
     Ethernet.setRetransmissionTimeout((uint16_t)_responseTimeoutMs);
     Ethernet.setRetransmissionCount(_retransmissionCount);
 
-    // Primero verificar hardware antes de intentar DHCP.
+    // Inicialización rápida del W5500 sin DHCP.
+    // Esto permite que hardwareStatus() y linkStatus() funcionen
+    // sin bloquear varios segundos cuando no hay cable RJ45.
+    Ethernet.begin(
+        _mac,
+        IPAddress(0, 0, 0, 0),
+        IPAddress(0, 0, 0, 0),
+        IPAddress(0, 0, 0, 0),
+        IPAddress(255, 255, 255, 0));
+
     EthernetHardwareStatus hw = Ethernet.hardwareStatus();
 
     if (hw == EthernetNoHardware)
@@ -126,8 +135,6 @@ bool JWPLC_EthernetClass::begin()
         return false;
     }
 
-    // Luego verificar link físico.
-    // Si no hay cable RJ45, NO intentar DHCP porque bloquearía varios segundos.
     EthernetLinkStatus link = Ethernet.linkStatus();
 
     if (link != LinkON)
@@ -152,13 +159,6 @@ bool JWPLC_EthernetClass::begin()
     }
 
     releaseBus();
-
-    if (!hardwarePresent())
-    {
-        _ready = false;
-        setError(JWPLC_ETH_NO_HARDWARE);
-        return false;
-    }
 
     if (_mode == JWPLC_ETH_MODE_DHCP && ok == 0)
     {
