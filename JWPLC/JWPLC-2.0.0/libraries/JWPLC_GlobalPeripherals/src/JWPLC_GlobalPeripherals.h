@@ -43,7 +43,11 @@ namespace JWPLCButtons
 {
     bool begin();
     bool isReady();
+
+    bool anyPressed();
+    bool escPressed();
     bool anyPressedOrRepeated();
+
     void clearPendingInput();
 }
 

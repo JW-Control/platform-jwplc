@@ -121,26 +121,56 @@ static void handleIdleWakeAndTimeout()
 {
     if (g_displayMode == DISPLAY_MODE_IDLE)
     {
+        // En IDLE sí usamos anyPressedOrRepeated() porque queremos
+        // despertar la pantalla con una pulsación, evento pendiente
+        // o repetición generada por la botonera.
         if (JWPLCButtons::anyPressedOrRepeated())
         {
             JWPLCDisplay::notifyActivity();
             JWPLCDisplay::enterUserUI();
             return;
         }
+
+        return;
     }
 
-    if ((g_displayMode == DISPLAY_MODE_USER) &&
-        (g_idleReturnMode == JWPLCDisplay::IDLE_RETURN_TIMEOUT) &&
+    if (g_displayMode != DISPLAY_MODE_USER)
+    {
+        return;
+    }
+
+    // En USER solo una tecla físicamente presionada debe contar como actividad.
+    // No usamos eventCount() aquí porque una cola con eventos pendientes puede
+    // impedir que el timeout expire correctamente.
+    if (JWPLCButtons::anyPressed())
+    {
+        JWPLCDisplay::notifyActivity();
+    }
+
+    if ((g_idleReturnMode == JWPLCDisplay::IDLE_RETURN_ESC_ONLY) &&
+        JWPLCButtons::escPressed() &&
+        jwplcCanReturnToIdle())
+    {
+        JWPLCDisplay::goIdle();
+        return;
+    }
+
+    if ((g_idleReturnMode == JWPLCDisplay::IDLE_RETURN_TIMEOUT) &&
         (g_idleTimeoutMs > 0) &&
         jwplcCanReturnToIdle())
     {
         uint32_t now = millis();
+
         if ((uint32_t)(now - g_lastActivityMs) >= g_idleTimeoutMs)
         {
             JWPLCDisplay::goIdle();
             return;
         }
     }
+
+    // IDLE_RETURN_DISABLED:
+    // No retorna automáticamente.
+    // El sketch debe llamar manualmente a JWPLC_Display.goIdle().
 }
 
 // =====================================================

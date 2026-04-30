@@ -164,7 +164,7 @@ namespace JWPLCButtons
         return g_buttonsReady;
     }
 
-    bool anyPressedOrRepeated()
+    bool anyPressed()
     {
         if (!g_buttonsReady)
         {
@@ -176,8 +176,27 @@ namespace JWPLCButtons
                JWPLC_Buttons.pressed(BTN_RIGHT) ||
                JWPLC_Buttons.pressed(BTN_ESC) ||
                JWPLC_Buttons.pressed(BTN_OK) ||
-               JWPLC_Buttons.pressed(BTN_DOWN) ||
-               (JWPLC_Buttons.eventCount() > 0);
+               JWPLC_Buttons.pressed(BTN_DOWN);
+    }
+
+    bool escPressed()
+    {
+        if (!g_buttonsReady)
+        {
+            return false;
+        }
+
+        return JWPLC_Buttons.pressed(BTN_ESC);
+    }
+
+    bool anyPressedOrRepeated()
+    {
+        if (!g_buttonsReady)
+        {
+            return false;
+        }
+
+        return anyPressed() || (JWPLC_Buttons.eventCount() > 0);
     }
 
     void clearPendingInput()
