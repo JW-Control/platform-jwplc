@@ -44,6 +44,7 @@ Responsabilidad:
 - Proveer acceso a `Stream` / `HardwareSerial` para protocolos superiores.
 - Manejar TX flush y tiempos básicos si el hardware requiere control de dirección.
 - Mantener compatibilidad con MAX13487 auto-direction si no existe pin DE/RE.
+- Exponer hooks weak para control DE/RE en hardware futuro que no use auto-dirección.
 
 Uso esperado:
 
@@ -84,7 +85,74 @@ Responsabilidad:
 
 ---
 
-## 3. API inicial propuesta para `JWPLC_RS485`
+## 3. Hardware RS-485 confirmado
+
+### UART dedicada
+
+| Señal | ESP32 | Uso |
+|---|---:|---|
+| RX2 | IO16 | Recepción UART desde transceptor RS-485 |
+| TX2 | IO17 | Transmisión UART hacia transceptor RS-485 |
+
+### Transceptor
+
+- Transceptor RS-485: `MAX13487EESA+`.
+- Modo de dirección: auto-direccionamiento.
+- No se usa pin DE/RE controlado por ESP32 en el JWPLC Basic actual.
+- La capa `JWPLC_RS485` debe trabajar por defecto sin manipular DE/RE.
+
+### Protección / bus
+
+El hardware incluye protección TVS y red de terminación/bias configurable mediante jumpers, por lo que la librería no debe asumir siempre terminación activa ni bias activo.
+
+---
+
+## 4. Hooks weak para dirección RS-485
+
+Aunque el JWPLC Basic usa `MAX13487EESA+` con auto-dirección, conviene dejar hooks weak para hardware futuro o placas derivadas con transceptores tipo MAX485/SN65HVD que sí requieren DE/RE.
+
+Comportamiento por defecto:
+
+```cpp
+extern "C" void jwplcRs485PreTransmitCallback(void) __attribute__((weak));
+extern "C" void jwplcRs485PostTransmitCallback(void) __attribute__((weak));
+```
+
+Por defecto no hacen nada.
+
+Secuencia recomendada en `write()`/`flush()` cuando existan hooks:
+
+```txt
+preTransmitCallback()
+write bytes
+flush UART
+postTransmitCallback()
+```
+
+En JWPLC Basic actual:
+
+```txt
+preTransmitCallback()  -> no-op
+postTransmitCallback() -> no-op
+```
+
+En hardware futuro con DE/RE:
+
+```cpp
+extern "C" void jwplcRs485PreTransmitCallback(void)
+{
+    digitalWrite(RS485_DE_PIN, HIGH);
+}
+
+extern "C" void jwplcRs485PostTransmitCallback(void)
+{
+    digitalWrite(RS485_DE_PIN, LOW);
+}
+```
+
+---
+
+## 5. API inicial propuesta para `JWPLC_RS485`
 
 ```cpp
 JWPLC_RS485.begin();
@@ -98,6 +166,7 @@ JWPLC_RS485.config();
 JWPLC_RS485.available();
 JWPLC_RS485.read();
 JWPLC_RS485.write(byte);
+JWPLC_RS485.write(buffer, size);
 JWPLC_RS485.print(...);
 JWPLC_RS485.println(...);
 JWPLC_RS485.flush();
@@ -109,12 +178,17 @@ JWPLC_RS485.printStatus(Serial);
 
 ---
 
-## 4. Parámetros por confirmar antes de codificar
+## 6. Parámetros por confirmar antes de codificar
 
-- Pin RX de `Serial2` conectado al transceptor RS-485.
-- Pin TX de `Serial2` conectado al transceptor RS-485.
-- Si el MAX13487 trabaja completamente con auto-dirección.
-- Si existe pin DE/RE conectado al ESP32 o no.
+Confirmado:
+
+- RX2 = IO16.
+- TX2 = IO17.
+- MAX13487EESA+ con auto-dirección.
+- Sin DE/RE controlado por ESP32 en JWPLC Basic actual.
+
+Pendiente definir:
+
 - Baudios por defecto deseados:
   - 9600
   - 19200
@@ -128,9 +202,18 @@ JWPLC_RS485.printStatus(Serial);
   - COM
   - Modbus RTU
 
+Recomendación inicial:
+
+```txt
+baudrate: 9600
+config: SERIAL_8N1
+```
+
+Para Modbus RTU industrial también evaluar `SERIAL_8E1`, ya que muchos equipos industriales lo usan.
+
 ---
 
-## 5. Ejemplos RS-485 propuestos
+## 7. Ejemplos RS-485 propuestos
 
 ### `RS485_Basic_Send`
 
@@ -162,7 +245,7 @@ Muestra estado del puerto:
 
 ---
 
-## 6. Modbus RTU base en alpha28
+## 8. Modbus RTU base en alpha28
 
 Primera etapa mínima:
 
@@ -180,7 +263,7 @@ Funciones digitales (`0x01`, `0x02`, `0x05`, `0x0F`) pueden entrar si el tiempo 
 
 ---
 
-## 7. OpenPLC queda fuera de alpha28
+## 9. OpenPLC queda fuera de alpha28
 
 OpenPLC se abordará después de tener una beta funcional.
 
@@ -196,7 +279,7 @@ Futuro alcance OpenPLC:
 
 ---
 
-## 8. Criterio para cerrar alpha28
+## 10. Criterio para cerrar alpha28
 
 Alpha28 puede cerrarse cuando:
 
@@ -212,7 +295,7 @@ Alpha28 puede cerrarse cuando:
 
 ---
 
-## 9. Branch
+## 11. Branch
 
 ```txt
 develop/alpha28-rs485-modbus-rtu
