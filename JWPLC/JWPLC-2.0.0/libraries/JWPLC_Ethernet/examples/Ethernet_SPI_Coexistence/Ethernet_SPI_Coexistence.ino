@@ -4,33 +4,28 @@
   Test de coexistencia SPI para JWPLC Basic.
 
   Valida:
-  - Ethernet W5500
-  - Display ST7789
-  - FRAM SPI
-  - microSD SPI
-  - Indicadores ETH / ERR en pantalla IDLE
-  - Pantalla USER con resumen de estado
+  - Ethernet W5500 automático por runtime.
+  - Display ST7789.
+  - FRAM SPI.
+  - microSD SPI.
+  - Indicadores ETH / ERR en pantalla IDLE.
+  - Pantalla USER con resumen de estado.
 
-  Regla importante:
+  Importante:
+  - No incluye librerías manualmente.
+  - No llama JWPLC_Ethernet.begin().
+  - No llama JWPLC_Ethernet.maintain().
+  - Ethernet arranca desde el runtime JWPLC.
   - En callbacks gráficos NO se consultan periféricos SPI.
-  - Ethernet / SD / FRAM se consultan en loop().
-  - Los callbacks USER solo dibujan variables cacheadas.
 */
 
-#include <JWPLC_Ethernet.h>
-#include <JWPLC_Display.h>
-#include <JWPLC_GlobalPeripherals.h>
-
-bool ethernetStarted = false;
 bool displayConfigured = false;
 
 unsigned long lastCheckMs = 0;
-unsigned long lastRetryMs = 0;
 unsigned long lastLogMs = 0;
 unsigned long lastCacheMs = 0;
 
 const unsigned long CHECK_PERIOD_MS = 1000;
-const unsigned long RETRY_PERIOD_MS = 5000;
 const unsigned long LOG_PERIOD_MS = 5000;
 const unsigned long CACHE_PERIOD_MS = 500;
 
@@ -50,10 +45,6 @@ char ethIpText[20] = "0.0.0.0";
 char sdStatusText[32] = "Unknown";
 char framStatusText[8] = "NO";
 
-// =====================================================
-// Helpers seguros de texto/cache
-// =====================================================
-
 void copyText(char *dst, size_t dstSize, const char *src)
 {
     if (!src)
@@ -72,8 +63,8 @@ void ipToText(IPAddress ip, char *out, size_t len)
 
 void updateCachedStatus()
 {
-    ethLinkCached = ethernetStarted && JWPLC_Ethernet.linkUp();
-    ethOkCached = ethernetStarted && ethLinkCached;
+    ethLinkCached = JWPLC_Ethernet.isReady() && JWPLC_Ethernet.linkUp();
+    ethOkCached = ethLinkCached;
 
     copyText(ethStatusText, sizeof(ethStatusText), JWPLC_Ethernet.statusString());
     ipToText(JWPLC_Ethernet.localIP(), ethIpText, sizeof(ethIpText));
@@ -82,16 +73,11 @@ void updateCachedStatus()
     copyText(framStatusText, sizeof(framStatusText), framOk ? "OK" : "NO");
 }
 
-// =====================================================
-// Pantalla USER
-// =====================================================
-
 extern "C" void jwplcUserDisplayEnterCallback()
 {
     auto &tft = JWPLC_Display.tft();
 
     tft.fillScreen(ST77XX_BLACK);
-
     tft.setTextWrap(false);
 
     tft.setTextSize(2);
@@ -138,28 +124,22 @@ extern "C" void jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const J
 
     auto &tft = JWPLC_Display.tft();
 
-    // Limpiar únicamente el área de valores.
     tft.fillRect(70, 45, 240, 100, ST77XX_BLACK);
-
     tft.setTextWrap(false);
     tft.setTextSize(1);
 
-    // Ethernet
     tft.setCursor(70, 48);
     tft.setTextColor(ethOkCached ? ST77XX_GREEN : ST77XX_RED, ST77XX_BLACK);
     tft.print(ethStatusText);
 
-    // IP
     tft.setCursor(70, 68);
     tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
     tft.print(ethIpText);
 
-    // SD
     tft.setCursor(70, 88);
     tft.setTextColor(sdOk ? ST77XX_GREEN : ST77XX_RED, ST77XX_BLACK);
     tft.print(sdStatusText);
 
-    // FRAM
     tft.setCursor(70, 108);
     tft.setTextColor(framOk ? ST77XX_GREEN : ST77XX_RED, ST77XX_BLACK);
     tft.print(framStatusText);
@@ -168,7 +148,6 @@ extern "C" void jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const J
     tft.print(" Boot:");
     tft.print(bootCounter);
 
-    // Logs
     tft.setCursor(70, 128);
     tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
     tft.print(logCounter);
@@ -178,10 +157,6 @@ extern "C" void jwplcUserDisplayExitCallback()
 {
     Serial.println("Saliendo de USER hacia IDLE");
 }
-
-// =====================================================
-// Lógica de periféricos
-// =====================================================
 
 void loadBootCounterFromFRAM()
 {
@@ -264,18 +239,6 @@ void writeSDLog()
     Serial.println(logCounter);
 }
 
-void setupEthernet()
-{
-    ethernetStarted = JWPLC_Ethernet.begin();
-
-    Serial.println(ethernetStarted ? "Ethernet begin OK" : "Ethernet begin failed");
-    JWPLC_Ethernet.printStatus(Serial);
-}
-
-// =====================================================
-// Arduino setup / loop
-// =====================================================
-
 void setup()
 {
     Serial.begin(115200);
@@ -283,10 +246,10 @@ void setup()
 
     Serial.println();
     Serial.println("JWPLC Ethernet + SD + FRAM + Display SPI coexistence test");
+    Serial.println("Runtime auto Ethernet. No begin() called.");
 
     loadBootCounterFromFRAM();
     updateSDStatus();
-    setupEthernet();
 
     updateCachedStatus();
 }
@@ -294,11 +257,6 @@ void setup()
 void loop()
 {
     unsigned long now = millis();
-
-    if (ethernetStarted)
-    {
-        JWPLC_Ethernet.maintain();
-    }
 
     if (!displayConfigured && JWPLC_Display.isReady())
     {
@@ -311,28 +269,12 @@ void loop()
         Serial.println("Display ready");
     }
 
-    // Reintento Ethernet solo si el periférico está habilitado.
-    if (JWPLC_Ethernet.isEnabled() &&
-        !ethernetStarted &&
-        (now - lastRetryMs >= RETRY_PERIOD_MS))
-    {
-        lastRetryMs = now;
-
-        Serial.println("Retry Ethernet begin...");
-        ethernetStarted = JWPLC_Ethernet.begin();
-
-        Serial.print("Retry result: ");
-        Serial.println(ethernetStarted ? "OK" : JWPLC_Ethernet.statusString());
-    }
-
-    // Actualizar estado cacheado fuera del callback gráfico.
     if (now - lastCacheMs >= CACHE_PERIOD_MS)
     {
         lastCacheMs = now;
         updateCachedStatus();
     }
 
-    // Log periódico en SD.
     if (now - lastLogMs >= LOG_PERIOD_MS)
     {
         lastLogMs = now;
@@ -340,15 +282,16 @@ void loop()
         updateCachedStatus();
     }
 
-    // Estado periódico + LEDs del IDLE.
     if (now - lastCheckMs >= CHECK_PERIOD_MS)
     {
         lastCheckMs = now;
 
         if (displayConfigured)
         {
-            JWPLC_Display.setEthLed(ethOkCached);
-            JWPLC_Display.setErrLed(!ethOkCached || !sdOk || !framOk);
+
+            bool ethernetDisabled = !JWPLC_Ethernet.isEnabled();
+
+            JWPLC_Display.setErrLed((!ethernetDisabled && !ethOkCached) || !sdOk || !framOk);
             JWPLC_Display.setRunLed(true);
         }
 

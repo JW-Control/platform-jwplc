@@ -6,6 +6,7 @@
 #include <JW_FRAM.h>
 #include <JW_SD.h>
 #include <JW_MatrixButtons.h>
+#include <JWPLC_Ethernet.h>
 
 // =====================================================
 // IDs físicos de la botonera JWPLC

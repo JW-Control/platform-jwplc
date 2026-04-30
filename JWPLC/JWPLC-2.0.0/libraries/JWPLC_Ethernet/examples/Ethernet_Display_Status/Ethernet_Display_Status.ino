@@ -1,90 +1,87 @@
 /*
   Ethernet_Display_Status
 
-  Prueba de integración básica Ethernet + Display.
+  Prueba de integración Ethernet automático + Display.
 
-  La pantalla IDLE usa el indicador ETH para reflejar link/estado Ethernet.
-
-  Valida:
-  - Arranque rápido sin cable RJ45.
-  - Detección de W5500.
-  - Detección de Link OFF.
-  - Reintento automático cuando se conecta el cable después del arranque.
-  - Indicador ETH en pantalla IDLE.
+  Importante:
+  - No incluye librerías manualmente.
+  - No llama JWPLC_Ethernet.begin().
+  - No llama JWPLC_Ethernet.maintain().
+  - El runtime JWPLC se encarga de Ethernet.
+  - El sketch solo consulta estado y actualiza indicadores IDLE.
 */
 
-#include <JWPLC_Ethernet.h>
-#include <JWPLC_Display.h>
-
-bool ethernetStarted = false;
 bool displayConfigured = false;
 
-unsigned long lastCheckMs = 0;
-unsigned long lastRetryMs = 0;
+unsigned long lastPrintMs = 0;
+unsigned long lastDisplayMs = 0;
 
-const unsigned long CHECK_PERIOD_MS = 1000;
-const unsigned long RETRY_PERIOD_MS = 5000;
+const unsigned long PRINT_PERIOD_MS = 1000;
+const unsigned long DISPLAY_PERIOD_MS = 500;
 
-void setup() {
-  Serial.begin(115200);
-  delay(1200);
+void setup()
+{
+    Serial.begin(115200);
+    delay(1200);
 
-  Serial.println();
-  Serial.println("JWPLC_Ethernet + Display status test");
-
-  ethernetStarted = JWPLC_Ethernet.begin();
-  JWPLC_Ethernet.printStatus(Serial);
+    Serial.println();
+    Serial.println("Ethernet_Display_Status");
+    Serial.println("Runtime auto Ethernet + Display test. No begin() called.");
 }
 
-void loop() {
-  if (ethernetStarted) {
-    JWPLC_Ethernet.maintain();
-  }
+void loop()
+{
+    unsigned long now = millis();
 
-  if (!displayConfigured && JWPLC_Display.isReady()) {
-    displayConfigured = true;
+    if (!displayConfigured && JWPLC_Display.isReady())
+    {
+        displayConfigured = true;
 
-    JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);
-    JWPLC_Display.setIdleTimeoutMs(8000);
+        JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);
+        JWPLC_Display.setIdleTimeoutMs(8000);
 
-    Serial.println("Display ready");
-  }
+        JWPLC_Display.setRunLed(true);
+        JWPLC_Display.setBusLed(false);
+        JWPLC_Display.setErrLed(false);
 
-  unsigned long now = millis();
-
-  // Reintento automático:
-  // Si arrancó sin cable o falló DHCP, vuelve a probar cada cierto tiempo.
-  if (JWPLC_Ethernet.isEnabled() && !ethernetStarted && (now - lastRetryMs >= RETRY_PERIOD_MS)) {
-    lastRetryMs = now;
-
-    Serial.println("Retry Ethernet begin...");
-    ethernetStarted = JWPLC_Ethernet.begin();
-
-    Serial.print("Retry result: ");
-    Serial.println(ethernetStarted ? "OK" : JWPLC_Ethernet.statusString());
-  }
-
-  if (now - lastCheckMs >= CHECK_PERIOD_MS) {
-    lastCheckMs = now;
-
-    bool ethOk = ethernetStarted && JWPLC_Ethernet.linkUp();
-
-    if (displayConfigured) {
-      JWPLC_Display.setEthLed(ethOk);
-      JWPLC_Display.setErrLed(!ethOk);
+        Serial.println("Display ready");
     }
 
-    Serial.print("ETH: ");
-    Serial.print(JWPLC_Ethernet.statusString());
+    if (now - lastDisplayMs >= DISPLAY_PERIOD_MS)
+    {
+        lastDisplayMs = now;
 
-    Serial.print(" | Link: ");
-    Serial.print(JWPLC_Ethernet.linkUp() ? "UP" : "DOWN");
+        bool ethOk = JWPLC_Ethernet.isReady() && JWPLC_Ethernet.linkUp();
 
-    Serial.print(" | IP: ");
-    Serial.println(JWPLC_Ethernet.localIP());
+        if (displayConfigured)
+        {
+            JWPLC_Display.setRunLed(true);
 
-    // Si se perdió el link físico luego de estar iniciado,
-    // no borramos la IP, pero marcamos el estado visual como no OK.
-    // Cuando vuelva el link, la librería reportará OK nuevamente.
-  }
+            bool ethernetDisabled = !JWPLC_Ethernet.isEnabled();
+            JWPLC_Display.setErrLed(!ethernetDisabled && !ethOk);
+        }
+    }
+
+    if (now - lastPrintMs >= PRINT_PERIOD_MS)
+    {
+        lastPrintMs = now;
+
+        Serial.print("ETH: ");
+        Serial.print(JWPLC_Ethernet.statusString());
+
+        Serial.print(" | Enabled: ");
+        Serial.print(JWPLC_Ethernet.isEnabled() ? "yes" : "no");
+
+        Serial.print(" | Attempted: ");
+        Serial.print(JWPLC_Ethernet.isBeginAttempted() ? "yes" : "no");
+
+        Serial.print(" | Ready: ");
+        Serial.print(JWPLC_Ethernet.isReady() ? "yes" : "no");
+
+        Serial.print(" | Link: ");
+        Serial.print(JWPLC_Ethernet.linkUp() ? "UP" : "DOWN");
+
+        Serial.print(" | IP: ");
+        Serial.println(JWPLC_Ethernet.localIP());
+    }
 }

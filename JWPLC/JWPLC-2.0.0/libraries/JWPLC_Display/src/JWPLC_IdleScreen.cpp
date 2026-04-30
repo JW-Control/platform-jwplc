@@ -183,6 +183,34 @@ namespace JWPLCIdleScreen
         tft->fillRect(STATUS_BOX_X + 1, y_label + 2, STATUS_BOX_W - 2, STATUS_BOX_H - 2, color);
     }
 
+    static void fillStatusItemState(uint8_t idx, StatusLedState state)
+    {
+        if (!tft)
+            return;
+
+        int y_label = STATUS_Y0 + idx * STATUS_STEP_Y;
+
+        uint16_t color = C_BG;
+
+        switch (state)
+        {
+        case STATUS_LED_GREEN:
+            color = C_OK_GREEN;
+            break;
+
+        case STATUS_LED_RED:
+            color = C_ERR_RED;
+            break;
+
+        case STATUS_LED_OFF:
+        default:
+            color = C_BG;
+            break;
+        }
+
+        tft->fillRect(STATUS_BOX_X + 1, y_label + 2, STATUS_BOX_W - 2, STATUS_BOX_H - 2, color);
+    }
+
     static void drawIoCellStatic(uint8_t index, bool isInput)
     {
         if (!tft)
@@ -345,7 +373,7 @@ namespace JWPLCIdleScreen
             fillStatusItemState(3, g_panel.bus, C_OK_GREEN);
 
         if (g_forceFullRedraw || g_panel.eth != g_lastPanel.eth)
-            fillStatusItemState(4, g_panel.eth, C_OK_GREEN);
+            fillStatusItemState(4, g_panel.eth);
 
         g_lastPanel = g_panel;
         g_profUpdateStatusUs = micros() - tStart;

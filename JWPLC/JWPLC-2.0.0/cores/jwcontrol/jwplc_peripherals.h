@@ -77,6 +77,8 @@ bool jwplcSDBeginCallback(void);
 // Hooks de botonera para proveedor interno del ecosistema
 bool jwplcButtonsBeginCallback(void);
 
+// Hook de Ethernet para proveedor interno del ecosistema
+void jwplcEthernetTickCallback(void);
 
 #ifdef __cplusplus
 }

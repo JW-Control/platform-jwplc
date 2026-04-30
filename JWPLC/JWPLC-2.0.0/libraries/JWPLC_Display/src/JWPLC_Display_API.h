@@ -18,7 +18,7 @@ class JWPLC_DisplayClass
 public:
     enum IdleReturnMode : uint8_t
     {
-        IDLE_RETURN_TIMEOUT  = 0,
+        IDLE_RETURN_TIMEOUT = 0,
         IDLE_RETURN_ESC_ONLY = 1,
         IDLE_RETURN_DISABLED = 2
     };
@@ -65,6 +65,8 @@ public:
 
     void setEthLed(bool state);
     bool ethLed() const;
+    void setEthLedAuto(bool enabled);
+    bool ethLedAuto() const;
 };
 
 // Objeto global recomendado para sketches.

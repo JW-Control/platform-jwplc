@@ -96,6 +96,11 @@ bool jwplcButtonsBeginCallback(void)
     return false;
 }
 
+void jwplcEthernetTickCallback(void) __attribute__((weak));
+void jwplcEthernetTickCallback(void)
+{
+}
+
 const JWPLC_IOState *jwplcGetIOState(void)
 {
     return &g_ioState;

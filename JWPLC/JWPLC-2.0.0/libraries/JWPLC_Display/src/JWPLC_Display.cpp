@@ -46,7 +46,10 @@ static bool g_waitButtonReleaseBeforeWake = false;
 static bool g_runLed = true;
 static bool g_errLed = false;
 static bool g_busLed = false;
-static bool g_ethLed = false;
+static bool g_ethLedAuto = true;
+static JWPLCIdleScreen::StatusLedState g_ethLedState = JWPLCIdleScreen::STATUS_LED_OFF;
+static uint32_t g_lastEthLedAutoUpdateMs = 0;
+static constexpr uint32_t ETH_LED_AUTO_PERIOD_MS = 500;
 
 // =====================================================
 // Hooks débiles de UI de usuario
@@ -194,6 +197,72 @@ static void handleIdleWakeAndTimeout()
     // IDLE_RETURN_DISABLED:
     // No retorna automáticamente.
     // El sketch debe llamar manualmente a JWPLC_Display.goIdle().
+}
+
+static JWPLCIdleScreen::StatusLedState computeAutomaticEthLedState()
+{
+    // Basic Core u otra placa sin Ethernet.
+    if (!JWPLC_Ethernet.isEnabled())
+    {
+        return JWPLCIdleScreen::STATUS_LED_OFF;
+    }
+
+    // Antes del primer intento automático, no marcamos error.
+    if (!JWPLC_Ethernet.isBeginAttempted())
+    {
+        return JWPLCIdleScreen::STATUS_LED_OFF;
+    }
+
+    // En JWPLC Basic, si no se detecta W5500, eso sí es falla.
+    if (!JWPLC_Ethernet.hardwarePresent())
+    {
+        return JWPLCIdleScreen::STATUS_LED_RED;
+    }
+
+    // Sin cable/link físico: apagado, no error.
+    if (!JWPLC_Ethernet.linkUp())
+    {
+        return JWPLCIdleScreen::STATUS_LED_OFF;
+    }
+
+    // Hay link físico. Si además Ethernet está listo y sin error, verde.
+    if (JWPLC_Ethernet.isReady() &&
+        JWPLC_Ethernet.lastError() == JWPLC_ETH_OK)
+    {
+        return JWPLCIdleScreen::STATUS_LED_GREEN;
+    }
+
+    // Hay link, pero DHCP/IP/estado no está OK.
+    return JWPLCIdleScreen::STATUS_LED_RED;
+}
+
+static void updateAutomaticEthLed()
+{
+    if (!g_ethLedAuto)
+    {
+        return;
+    }
+
+    uint32_t now = millis();
+
+    if ((uint32_t)(now - g_lastEthLedAutoUpdateMs) < ETH_LED_AUTO_PERIOD_MS)
+    {
+        return;
+    }
+
+    g_lastEthLedAutoUpdateMs = now;
+
+    JWPLCIdleScreen::StatusLedState newState = computeAutomaticEthLedState();
+
+    if (newState != g_ethLedState)
+    {
+        g_ethLedState = newState;
+
+        if (g_displayMode == DISPLAY_MODE_IDLE)
+        {
+            jwplcSystemForceDisplayRefresh();
+        }
+    }
 }
 
 // =====================================================
@@ -363,15 +432,44 @@ namespace JWPLCDisplay
 
     void setEthLed(bool state)
     {
-        g_ethLed = state;
+        // Modo manual/legacy.
+        // Si el usuario llama setEthLed(), se asume que quiere controlar ETH.
+        g_ethLedAuto = false;
+        g_ethLedState = state ? JWPLCIdleScreen::STATUS_LED_GREEN
+                              : JWPLCIdleScreen::STATUS_LED_OFF;
+
         if (g_displayMode == DISPLAY_MODE_IDLE)
+        {
             jwplcSystemForceDisplayRefresh();
+        }
     }
 
     bool ethLed()
     {
-        return g_ethLed;
+        return g_ethLedState == JWPLCIdleScreen::STATUS_LED_GREEN;
     }
+
+    void setEthLedAuto(bool enabled)
+    {
+        g_ethLedAuto = enabled;
+        g_lastEthLedAutoUpdateMs = 0;
+
+        if (enabled)
+        {
+            g_ethLedState = computeAutomaticEthLedState();
+        }
+
+        if (g_displayMode == DISPLAY_MODE_IDLE)
+        {
+            jwplcSystemForceDisplayRefresh();
+        }
+    }
+
+    bool ethLedAuto()
+    {
+        return g_ethLedAuto;
+    }
+
 }
 
 // =====================================================
@@ -422,7 +520,9 @@ extern "C" bool jwplcDisplayBeginCallback(void)
     g_runLed = true;
     g_errLed = false;
     g_busLed = false;
-    g_ethLed = false;
+    g_ethLedAuto = true;
+    g_ethLedState = JWPLCIdleScreen::STATUS_LED_OFF;
+    g_lastEthLedAutoUpdateMs = 0;
 
     resetDisplayState();
     JWPLCIdleScreen::forceFullRedraw();
@@ -442,6 +542,10 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC
 
     handleIdleWakeAndTimeout();
 
+    // Importante: esto consulta Ethernet/W5500, por eso se hace ANTES
+    // de tomar el bus de la TFT.
+    updateAutomaticEthLed();
+
     if (!acquireTFTBus(20))
     {
         return;
@@ -454,7 +558,7 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC
         panel.run = g_runLed;
         panel.err = g_errLed;
         panel.bus = g_busLed;
-        panel.eth = g_ethLed;
+        panel.eth = g_ethLedState;
 
         JWPLCIdleScreen::setStatusPanel(panel);
         JWPLCIdleScreen::draw(io, rtc);
@@ -623,4 +727,14 @@ void JWPLC_DisplayClass::setEthLed(bool state)
 bool JWPLC_DisplayClass::ethLed() const
 {
     return JWPLCDisplay::ethLed();
+}
+
+void JWPLC_DisplayClass::setEthLedAuto(bool enabled)
+{
+    JWPLCDisplay::setEthLedAuto(enabled);
+}
+
+bool JWPLC_DisplayClass::ethLedAuto() const
+{
+    return JWPLCDisplay::ethLedAuto();
 }

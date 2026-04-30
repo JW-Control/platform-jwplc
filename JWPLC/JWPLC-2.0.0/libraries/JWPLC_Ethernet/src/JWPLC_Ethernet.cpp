@@ -608,3 +608,37 @@ void JWPLC_EthernetClass::clearError()
 {
     _lastError = JWPLC_ETH_OK;
 }
+
+// =====================================================
+// Hook automático del runtime JWPLC
+// =====================================================
+// El core llama periódicamente este hook desde jwplcSystemTask().
+// Esto permite que Ethernet arranque y se mantenga sin que el usuario
+// tenga que llamar obligatoriamente JWPLC_Ethernet.begin() en el sketch.
+
+extern "C" void jwplcEthernetTickCallback(void)
+{
+#if JWPLC_HAS_ETHERNET
+    static uint32_t lastRetryMs = 0;
+
+    if (!JWPLC_Ethernet.isEnabled())
+    {
+        return;
+    }
+
+    if (JWPLC_Ethernet.isReady())
+    {
+        JWPLC_Ethernet.maintain();
+        return;
+    }
+
+    uint32_t now = millis();
+
+    if (!JWPLC_Ethernet.isBeginAttempted() ||
+        ((uint32_t)(now - lastRetryMs) >= 5000UL))
+    {
+        lastRetryMs = now;
+        (void)JWPLC_Ethernet.begin();
+    }
+#endif
+}
