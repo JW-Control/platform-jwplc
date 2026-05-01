@@ -1,0 +1,14 @@
+set "ARDUINO_VER=2.0.0-alpha.27"
+
+set "ARDUINO_PKG=%LOCALAPPDATA%\Arduino15\packages\jwplc\hardware\esp32\%ARDUINO_VER%"
+
+set "REPO_PKG=%USERPROFILE%\Documentos\GitHub\platform-jwplc\JWPLC\JWPLC-2.0.0"
+
+dir "%LOCALAPPDATA%\Arduino15\packages\jwplc\hardware\esp32"
+dir "%REPO_PKG%"
+
+ren "%ARDUINO_PKG%" "%ARDUINO_VER%_bak"
+
+mklink /J "%ARDUINO_PKG%" "%REPO_PKG%"
+
+dir "%LOCALAPPDATA%\Arduino15\packages\jwplc\hardware\esp32"
