@@ -41,6 +41,19 @@ void jwplc_pinMode(uint16_t pin, uint8_t mode);
 void jwplc_digitalWrite(uint16_t pin, uint8_t val);
 int  jwplc_digitalRead(uint16_t pin);
 
+// Helpers Arduino-like por bloque.
+// En I0_X/Q0_X se optimizan usando cache/shadow y escritura por banco.
+uint8_t jwplc_digitalReadBlock(const uint16_t *pins, uint8_t count);
+void jwplc_digitalWriteBlock(const uint16_t *pins, uint8_t count, uint8_t bitmap);
+
+// Helpers directos estilo JWPLC.
+// Bit 0 -> I0_0 / Q0_0
+// ...
+// Bit 7 -> I0_7 / Q0_7
+uint8_t JWPLC_readInputs(void);
+uint8_t JWPLC_readOutputs(void);
+void JWPLC_writeOutputs(uint8_t bitmap);
+
 // Estado/cache del sistema
 const JWPLC_IOState* jwplcGetIOState(void);
 const JWPLC_RTCState* jwplcGetRTCState(void);

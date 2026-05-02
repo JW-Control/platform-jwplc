@@ -20,6 +20,12 @@ static const uint16_t I0_5 = 0x2202;
 static const uint16_t I0_6 = 0x2201;
 static const uint16_t I0_7 = 0x2200;
 
+static const uint8_t I0_COUNT = 8;
+static const uint16_t I0_X[8] = {
+    I0_0, I0_1, I0_2, I0_3,
+    I0_4, I0_5, I0_6, I0_7
+};
+
 // Salidas digitales tipo relé (TCA6424A)
 static const uint16_t Q0_0 = 0x2208;
 static const uint16_t Q0_1 = 0x2209;
@@ -30,6 +36,11 @@ static const uint16_t Q0_5 = 0x220D;
 static const uint16_t Q0_6 = 0x220E;
 static const uint16_t Q0_7 = 0x220F;
 
+static const uint8_t Q0_COUNT = 8;
+static const uint16_t Q0_X[8] = {
+    Q0_0, Q0_1, Q0_2, Q0_3,
+    Q0_4, Q0_5, Q0_6, Q0_7
+};
 
 // ADC / referencias internas
 static const uint16_t I_VP = 36;

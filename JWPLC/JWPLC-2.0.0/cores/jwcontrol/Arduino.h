@@ -170,7 +170,15 @@ void loop1(void);
 #undef digitalRead
 #define digitalRead(pin) jwplc_digitalRead((uint16_t)(pin))
 
-#endif+++
+#undef digitalReadBlock
+#define digitalReadBlock(pins) \
+  jwplc_digitalReadBlock((pins), (uint8_t)(sizeof(pins) / sizeof((pins)[0])))
+
+#undef digitalWriteBlock
+#define digitalWriteBlock(pins, bitmap) \
+  jwplc_digitalWriteBlock((pins), (uint8_t)(sizeof(pins) / sizeof((pins)[0])), (uint8_t)(bitmap))
+
+#endif
 
 // The default is using Real Hardware random number generator
 // But when randomSeed() is called, it turns to Psedo random

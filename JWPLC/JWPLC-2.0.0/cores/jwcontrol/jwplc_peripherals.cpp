@@ -51,6 +51,47 @@ static inline bool jwplc_isOutputBank2Channel(uint8_t channel)
     return (channel >= 16) && (channel <= 23);
 }
 
+static inline bool jwplc_isI0Block(const uint16_t *pins, uint8_t count)
+{
+    if (pins == nullptr || count != 8)
+    {
+        return false;
+    }
+
+    for (uint8_t i = 0; i < 8; i++)
+    {
+        if (pins[i] != (uint16_t)(0x2207u - i))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static inline bool jwplc_isQ0Block(const uint16_t *pins, uint8_t count)
+{
+    if (pins == nullptr || count != 8)
+    {
+        return false;
+    }
+
+    for (uint8_t i = 0; i < 8; i++)
+    {
+        if (pins[i] != (uint16_t)(0x2208u + i))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static inline uint8_t jwplc_clampBlockCount(uint8_t count)
+{
+    return (count > 8) ? 8 : count;
+}
+
 // Hooks débiles por defecto
 bool jwplcDisplayBeginCallback(void) __attribute__((weak));
 bool jwplcDisplayBeginCallback(void)
@@ -170,6 +211,76 @@ void jwplcSystemSetOutputShadow(uint8_t bank1, uint8_t bank2)
 void jwplcSystemClearOutputShadow(void)
 {
     jwplcSystemSetOutputShadow(0, 0);
+}
+
+uint8_t JWPLC_readInputs(void)
+{
+    return g_ioState.di_logical_bank0;
+}
+
+uint8_t JWPLC_readOutputs(void)
+{
+    return g_ioState.do_bank1;
+}
+
+void JWPLC_writeOutputs(uint8_t bitmap)
+{
+    if (TCA6424A_writeBank(TCA6424A_DEFAULT_ADDRESS, 1, bitmap))
+    {
+        jwplcSystemSetOutputShadow(bitmap, g_ioState.do_bank2);
+    }
+}
+
+uint8_t jwplc_digitalReadBlock(const uint16_t *pins, uint8_t count)
+{
+    if (pins == nullptr || count == 0)
+    {
+        return 0;
+    }
+
+    if (jwplc_isI0Block(pins, count))
+    {
+        return JWPLC_readInputs();
+    }
+
+    if (jwplc_isQ0Block(pins, count))
+    {
+        return JWPLC_readOutputs();
+    }
+
+    uint8_t bitmap = 0;
+    uint8_t safeCount = jwplc_clampBlockCount(count);
+
+    for (uint8_t i = 0; i < safeCount; i++)
+    {
+        if (jwplc_digitalRead(pins[i]) == HIGH)
+        {
+            bitmap |= (uint8_t)(1u << i);
+        }
+    }
+
+    return bitmap;
+}
+
+void jwplc_digitalWriteBlock(const uint16_t *pins, uint8_t count, uint8_t bitmap)
+{
+    if (pins == nullptr || count == 0)
+    {
+        return;
+    }
+
+    if (jwplc_isQ0Block(pins, count))
+    {
+        JWPLC_writeOutputs(bitmap);
+        return;
+    }
+
+    uint8_t safeCount = jwplc_clampBlockCount(count);
+
+    for (uint8_t i = 0; i < safeCount; i++)
+    {
+        jwplc_digitalWrite(pins[i], (bitmap & (uint8_t)(1u << i)) ? HIGH : LOW);
+    }
 }
 
 void jwplcSystemScanIO(void)
