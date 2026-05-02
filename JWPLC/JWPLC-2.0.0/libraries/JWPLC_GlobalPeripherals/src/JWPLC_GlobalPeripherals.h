@@ -7,6 +7,8 @@
 #include <JW_SD.h>
 #include <JW_MatrixButtons.h>
 #include <JWPLC_Ethernet.h>
+#include <JWPLC_RS485.h>
+#include <JWPLC_ModbusRTU.h>
 
 // =====================================================
 // IDs físicos de la botonera JWPLC
@@ -35,6 +37,7 @@ extern JW_RTC JWPLC_RTC;
 extern JW_FRAM JWPLC_FRAM;
 extern JW_MatrixButtons JWPLC_Buttons;
 extern JW_SD JWPLC_SD;
+
 
 // =====================================================
 // Helpers globales de botonera

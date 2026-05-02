@@ -72,5 +72,26 @@
 #define JWPLC_HAS_ETHERNET 1
 #endif
 
+// =====================================================
+// RS-485
+// =====================================================
+
+#ifndef JWPLC_HAS_RS485
+#if defined(JWPLC_BASIC) || defined(JWPLC_BASIC_CORE) || \
+    defined(ARDUINO_JWPLCBASIC) || defined(ARDUINO_JWPLCBASICCORE) || \
+    defined(ARDUINO_JWPLC_BASIC) || defined(ARDUINO_JWPLC_BASIC_CORE)
+#define JWPLC_HAS_RS485 1
+#else
+#define JWPLC_HAS_RS485 0
+#endif
+#endif
+
+#ifndef JWPLC_RS485_RX_PIN
+#define JWPLC_RS485_RX_PIN 16
+#endif
+
+#ifndef JWPLC_RS485_TX_PIN
+#define JWPLC_RS485_TX_PIN 17
+#endif
 
 #endif // JWCONTROL_JWPLC_HARDWARE_CONFIG_H
