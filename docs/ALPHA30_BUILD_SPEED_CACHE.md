@@ -236,3 +236,61 @@ Alpha30 se puede cerrar cuando exista:
 - Decisión sobre configuración final fija.
 - Flujo recomendado de desarrollo rápido.
 - Conclusión sobre si runtime/core precompilado conviene o no.
+
+
+## Evaluación de bootloader precompilado
+
+Durante alpha30 se evaluó el uso de un `bootloader.bin` precompilado dentro de la variante `jwplcbasic`.
+
+El `platform.txt` permite usar un bootloader precompilado en este orden:
+
+1. `bootloader.bin` dentro de la carpeta del sketch.
+2. `bootloader.bin` dentro de la variante.
+3. Generación automática desde el ELF del SDK.
+
+### Condición de seguridad
+
+El bootloader precompilado solo debe considerarse válido para sketches compilados con la misma configuración de placa:
+
+- MCU/target.
+- FlashFreq.
+- FlashMode/build.boot.
+- FlashSize.
+- versión del package/core.
+- dirección de bootloader.
+
+### Estado alpha30
+
+Resultado provisional: el bootloader precompilado muestra mejora de tiempo, pero falta aislar completamente si el beneficio viene del bootloader o de la caché de compilación/sistema.
+
+Decisión provisional: no publicar `bootloader.bin` como definitivo hasta fijar FlashFreq/FlashMode final.
+
+## Decisión alpha30: configuración fija JWPLC Basic 4MB
+
+Para alpha30 se fija una configuración única de placa con el objetivo de reducir combinaciones no validadas y facilitar la evaluación de cache, app-only y bootloader precompilado.
+
+Configuración definida:
+
+- CPU: 240 MHz.
+- Flash size: 4 MB.
+- Flash frequency: 40 MHz.
+- Flash mode: DIO.
+- Bootloader base: QIO.
+- Particiones: `huge_app`.
+- Upload speed: 921600.
+- LoopCore/EventsCore: default del core ESP32, sin menú visible.
+
+Motivos:
+
+- El JWPLC Basic se alimenta desde 24 VDC y el consumo medido es bajo, por lo que se prioriza máximo rendimiento.
+- El hardware actual usa ESP32 WROOM-32E de 4 MB.
+- `huge_app` entrega 3 MB para aplicación, suficiente frente a sketches actuales de ~1 MB.
+- OTA no forma parte de alpha30.
+- FlashFreq se mantiene en 40 MHz por estabilidad industrial.
+- Se mantiene la combinación validada `flash_mode=dio` y `boot=qio`.
+
+Pendiente futuro:
+
+- Evaluar variante JWPLC Basic con 8 MB/16 MB para OTA integrada.
+- Evaluar partición recovery/app principal si se requiere OTA limitada en hardware de 4 MB.
+- Evaluar distribución de tareas por core en una alpha específica de runtime, no en alpha30.

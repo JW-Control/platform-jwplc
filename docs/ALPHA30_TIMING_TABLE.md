@@ -50,6 +50,20 @@
 
 ---
 
-## Conclusión
+## Prueba A/B bootloader precompilado
 
-Pendiente.
+| Caso | Repetición | Limpio/incremental | Tiempo | SHA-256 bootloader | Observación |
+|---|---:|---|---:|---|---|
+| Sin bootloader en variante | 1 | limpio | pendiente | pendiente | genera desde ELF SDK |
+| Sin bootloader en variante | 1 | incremental | pendiente | pendiente | genera desde ELF SDK/cache |
+| Con bootloader en variante | 1 | limpio | pendiente | pendiente | copia desde variante |
+| Con bootloader en variante | 1 | incremental | pendiente | pendiente | copia desde variante |
+
+### Criterio de aceptación
+
+Se considerará que el bootloader precompilado aporta mejora real si:
+
+- la diferencia se repite en varias corridas;
+- la mejora no desaparece al limpiar caché;
+- el SHA-256 del bootloader es estable para sketches distintos con el mismo FQBN;
+- no hay fallas de subida ni arranque en hardware real.
