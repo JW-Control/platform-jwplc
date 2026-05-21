@@ -1,5 +1,7 @@
 # JW_MatrixButtons
 
+**Versión actual:** 1.0.4
+
 Librería ligera para leer una matriz de botones (filas/columnas) con **debounce**, eventos (`press` / `release` / `repeat`) y helpers para navegación tipo **HMI / PLC**.
 
 Está pensada para proyectos donde el **sketch decide qué hacer con los botones**, sin acoplar la librería a menús, pantallas o lógicas específicas de aplicación.
@@ -51,6 +53,22 @@ Con eso, se pueden construir:
 
 ---
 
+## Integración con JWPLC Basic
+
+Dentro del package `JWPLC Basic`, esta librería puede ser usada como base para la botonera frontal del PLC mediante objetos globales del ecosistema JWPLC.
+
+En uso normal del PLC, el usuario final no necesita escanear manualmente la matriz si trabaja con las APIs ya integradas del package. Sin embargo, `JW_MatrixButtons` sigue siendo útil para proyectos standalone, HMIs personalizadas o botoneras matriciales externas.
+
+La recomendación para interfaces con varias pantallas se mantiene:
+
+```cpp
+clearPendingInput();
+```
+
+al cambiar de pantalla, entrar a edición, cerrar popups o volver a una vista anterior.
+
+---
+
 ## Instalación (manual)
 
 1. Crear una carpeta en `Documents/Arduino/libraries/` llamada:
@@ -83,12 +101,14 @@ Con eso, se pueden construir:
   invertLogic = false
   ```
 
-- Si las columnas usan **pullup** y el botón conecta a **GND**, usar:
+- Si las columnas usan **pullup externo** y el botón conecta a **GND**, usar:
 
   ```cpp
   invertLogic = true
   ```
 
+> La librería configura las columnas como `INPUT`. No activa `INPUT_PULLUP` internamente. Si necesitas lógica con pullup, usa resistencias externas o asegúrate de que el hardware ya entregue ese nivel.
+>
 > En ESP32, los pines `34`, `35`, `36` y `39` son **solo entrada** y no soportan `INPUT_PULLUP`, por lo que normalmente se usan con resistencias externas.
 
 ---
@@ -163,12 +183,36 @@ void update(); // ideal cada 3–10 ms
 
 ---
 
+### Task opcional en ESP32
+
+En ESP32, la librería puede ejecutar `update()` desde un task interno:
+
+```cpp
+bool startTask(uint8_t core = 1,
+               uint32_t stackBytes = 4096,
+               uint8_t priority = 1,
+               uint16_t periodMs = 5);
+
+void stopTask();
+bool taskRunning() const;
+void setTaskPeriodMs(uint16_t periodMs);
+uint16_t taskPeriodMs() const;
+```
+
+Notas:
+
+- Si el task está activo, no necesitas llamar `update()` manualmente en `loop()`.
+- `stackBytes` se expresa en **bytes** en Arduino-ESP32 / ESP-IDF.
+- Para aplicaciones simples, el valor por defecto de `4096` bytes es conservador y adecuado.
+
+---
+
 ### Estado / eventos del último `update()`
 
 ```cpp
-bool pressed(uint8_t id);
-bool released(uint8_t id);
-bool isDown(uint8_t id);
+bool pressed(uint8_t id) const;
+bool released(uint8_t id) const;
+bool isDown(uint8_t id) const;
 
 uint8_t eventCount() const;
 bool getEvent(uint8_t idx, BtnEvent& out) const;
@@ -199,10 +243,10 @@ void setRepeatProfile(uint16_t thr1, uint16_t thr2, uint16_t thr3,
 
 #### Perfil por defecto
 
-- `initialDelay = 300 ms`
-- `thresholds = 7 / 15 / 25`
+- `initialDelay = 350 ms`
+- `thresholds = 12 / 30 / 70`
 - `steps = 1 / 10 / 100 / 1000`
-- `delays = 180 / 170 / 150 / 120 ms`
+- `delays = 110 / 95 / 80 / 65 ms`
 
 ---
 

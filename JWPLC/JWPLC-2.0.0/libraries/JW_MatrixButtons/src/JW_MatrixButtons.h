@@ -165,7 +165,9 @@ private:
 
   // Eventos del último update
   BtnEvent _events[MAX_EVENTS];
-  uint8_t _evN;
+  // Mutable porque clearEventQueue()/clearPendingInput() son helpers const
+  // que limpian eventos pendientes sin cambiar la identidad lógica del objeto.
+  mutable uint8_t _evN;
 
   // Latches (persisten hasta que los consumas)
   mutable uint8_t _pressPend[MAX_BTNS];
