@@ -141,15 +141,17 @@ bool JW_MatrixButtons::startTask(uint8_t core, uint32_t stackBytes, uint8_t prio
 
   _taskRun = true;
 
-  uint32_t stackWords = stackBytes / sizeof(StackType_t);
-  if (stackWords < 1024)
-    stackWords = 1024;
+  // En ESP-IDF / Arduino-ESP32, el tamaño de stack para xTaskCreatePinnedToCore()
+  // se expresa en bytes, no en palabras como en FreeRTOS clásico.
+  uint32_t stackSize = stackBytes;
+  if (stackSize < 2048)
+    stackSize = 2048;
 
   TaskHandle_t handle = nullptr;
   BaseType_t ok = xTaskCreatePinnedToCore(
       &JW_MatrixButtons::taskTrampoline,
       "JWMB",
-      (uint32_t)stackWords,
+      stackSize,
       this,
       (UBaseType_t)priority,
       &handle,
