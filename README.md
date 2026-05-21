@@ -6,6 +6,39 @@ El objetivo del package es ofrecer una experiencia industrial más directa que e
 
 ---
 
+## Estado de alpha31
+
+`v2.0.0-alpha.31` corresponde a una etapa de **release readiness**.
+
+Objetivo:
+
+```txt
+Validar el package completo instalado desde cero y preparar beta1.
+```
+
+Alpha31 no agrega features grandes. Su foco es:
+
+- confirmar que `boards.txt` mantiene la configuración fija definida en alpha30;
+- validar instalación limpia desde Boards Manager;
+- validar Arduino IDE y Arduino CLI;
+- compilar placas principales;
+- compilar ejemplos principales;
+- validar periféricos principales;
+- revisar documentación y enlaces de librerías;
+- decidir si el proyecto está listo para pasar a `beta1-package-validation`.
+
+Queda fuera de alpha31:
+
+- integración real con OpenPLC;
+- definición final de OTA;
+- publicación de `bootloader.bin` como definitivo;
+- precompilación de librerías internas;
+- cambios de arquitectura multicore;
+- eliminación de periféricos del autoload normal solo por velocidad.
+
+
+---
+
 ## Resumen rápido
 
 **JWPLC Basic** es una plataforma industrial basada en **ESP32 WROOM-32E**. Este package permite programarla desde Arduino IDE manteniendo una sintaxis familiar, pero con periféricos industriales ya integrados:
@@ -144,10 +177,10 @@ El máximo es 3145728 bytes.
 ### Decisiones asociadas
 
 - OTA no está integrado todavía.
-- No se publica `bootloader.bin` precompilado como parte de alpha30.
+- No se publica `bootloader.bin` precompilado como parte de alpha30 ni se reactiva esa decisión en alpha31.
 - No se eliminan periféricos del autoload normal por velocidad.
-- No se precompilan librerías internas en alpha30.
-- `platform.txt` se mantiene sin cambios para esta optimización.
+- No se precompilan librerías internas en alpha30; alpha31 no reabre esa decisión.
+- `platform.txt` se mantiene sin cambios para esta optimización y alpha31 solo lo valida.
 
 ---
 
@@ -544,7 +577,8 @@ Dirección base recomendada para Modbus:
 | Holding Register 0 | 40001 | Variable interna 0 |
 | Input Register 0 | 30001 | Estado interno 0 |
 
-> OpenPLC no está integrado todavía. Este mapa es una base preliminar para futuras pruebas.
+> Nota alpha31: OpenPLC **no está integrado todavía**. Este mapa es preliminar y solo sirve como base documental para futuras pruebas.
+
 
 ---
 
@@ -615,7 +649,7 @@ Resultado:
 
 Decisión:
 
-No se publica `bootloader.bin` precompilado en alpha30. Se mantiene la generación automática desde:
+No se publica `bootloader.bin` precompilado como definitivo. Esta decisión viene de alpha30 y se mantiene durante alpha31. Se mantiene la generación automática desde:
 
 ```txt
 bootloader_qio_40m.elf
@@ -625,7 +659,7 @@ bootloader_qio_40m.elf
 
 ## OTA
 
-OTA no está integrado todavía en JWPLC Basic v2.0.0 alpha30.
+OTA no está integrado todavía en JWPLC Basic v2.0.0. Esta condición se mantiene durante alpha31.
 
 La configuración actual usa `huge_app` para priorizar espacio de aplicación en hardware de 4 MB.
 

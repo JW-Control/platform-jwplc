@@ -10,7 +10,6 @@ void setup()
 {
     Serial.begin(115200);
     delay(1200);
-    delay(1200);
 
     Serial.println();
     Serial.println("JWPLC IO block mirror");

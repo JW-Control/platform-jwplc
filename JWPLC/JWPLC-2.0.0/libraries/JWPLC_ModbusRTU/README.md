@@ -10,6 +10,8 @@ Puedes usarla directamente en JWPLC Basic sin `#include` manual:
 JWPLC_ModbusRTU.begin();
 ```
 
+> OpenPLC no está integrado todavía. `JWPLC_ModbusRTU` provee la base Modbus RTU propia del package JWPLC y puede servir para futuras pruebas de integración OpenPLC/Modbus, pero alpha31 no incluye OpenPLC real.
+
 ## 1. Qué es Modbus RTU
 
 Modbus RTU es un protocolo industrial maestro/esclavo usado en PLCs, variadores, sensores, medidores, controladores y HMIs.
@@ -532,4 +534,30 @@ Coils              -> salidas digitales / bits de control
 Discrete Inputs    -> entradas digitales
 Holding Registers  -> variables internas/configurables
 Input Registers    -> estados/mediciones
+```
+
+## Validación alpha31
+
+Para alpha31 se recomienda validar:
+
+- `ModbusRTU_CRC_Test`;
+- `ModbusRTU_Slave_HoldingRegisters`;
+- `ModbusRTU_Master_ReadHoldingRegisters`;
+- `ModbusRTU_Master_WriteSingleRegister`;
+- CRC16 con vector conocido;
+- slave holding registers;
+- master read;
+- master write;
+- prueba física por RS-485 si hay equipo externo disponible;
+- `JWPLC_RS485` no inicializado simultáneamente con otra configuración incompatible.
+
+OpenPLC queda fuera de alpha31.
+
+## Estado
+
+Documentación revisada para:
+
+```text
+JWPLC ESP32 2.0.0-alpha.31
+JWPLC_ModbusRTU 1.0.0
 ```
