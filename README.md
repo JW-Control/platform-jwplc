@@ -6,34 +6,44 @@ El objetivo del package es ofrecer una experiencia industrial más directa que e
 
 ---
 
-## Estado de beta1
+## Estado de v2.0.0
 
-`v2.0.0-beta.1` corresponde a una etapa de **validación de package instalable**.
+`v2.0.0` corresponde a la **release estable inicial** del package Arduino **JW Control ESP32 Boards** para **JWPLC Basic**.
 
 Objetivo:
 
 ```txt
-Validar el package completo como candidato beta después de alpha31.
+Publicar una versión estable inicial, instalable desde Boards Manager, validada con Arduino IDE, Arduino CLI y hardware real.
 ```
 
-Beta1 no agrega features grandes. Su foco es:
+Esta release toma como base el trabajo validado en:
 
-- confirmar instalación limpia desde Boards Manager;
-- validar Arduino IDE y Arduino CLI;
-- revisar README principal;
-- revisar links de librerías;
-- confirmar ejemplos visibles en Arduino IDE;
-- publicar y validar `package_jwplc_index.json` con `2.0.0-beta.1`;
-- confirmar que no existen regresiones respecto a alpha31.
+```txt
+v2.0.0-alpha.31
+v2.0.0-beta.1
+```
 
-Queda fuera de beta1:
+Durante este ciclo, `alpha31` actuó como validación técnica integral del package instalado desde cero, y `beta1` fue publicada como etapa de package validation antes de la estable.
+
+A partir de `v2.0.0`, el flujo recomendado puede simplificarse en ciclos futuros:
+
+```txt
+alphas técnicas -> última alpha de verificación -> release estable
+```
+
+Beta queda como etapa opcional cuando se requiera validación pública o de terceros. RC queda como etapa opcional si se necesita un candidato final adicional.
+
+Queda fuera de `v2.0.0`:
 
 - integración real con OpenPLC;
 - definición final de OTA;
 - publicación de `bootloader.bin` como definitivo;
 - precompilación de librerías internas;
 - cambios de arquitectura multicore;
-- eliminación de periféricos del autoload normal solo por velocidad.
+- eliminación de periféricos del autoload normal solo por velocidad;
+- partición recovery;
+- soporte formal para hardware de 8 MB/16 MB;
+- coredump como feature documentada de usuario.
 
 ---
 
@@ -106,16 +116,20 @@ En la práctica, el package JWPLC ocupa alrededor del **27.4 %** del tamaño del
 
 ## Instalación
 
+### Canal público recomendado
+
+Para usuarios finales, usar el índice público:
+
+```txt
+https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index.json
+```
+
+Este canal está pensado para mostrar versiones estables y versiones públicas seleccionadas, evitando que el usuario final vea todas las alphas históricas.
+
 En Arduino IDE, ingresa este enlace en:
 
 ```txt
 Archivo > Preferencias > Gestor de URLs adicionales de tarjetas
-```
-
-URL:
-
-```txt
-https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index.json
 ```
 
 Luego abre:
@@ -130,7 +144,21 @@ Busca:
 JW Control ESP32 Boards
 ```
 
-e instala la versión disponible.
+e instala:
+
+```txt
+2.0.0
+```
+
+### Canal dev / interno
+
+Para validación interna con alphas y betas históricas, usar:
+
+```txt
+https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json
+```
+
+Este canal no se recomienda para usuarios finales.
 
 ---
 
@@ -152,7 +180,7 @@ jwplc:esp32:jwplcbasic
 
 ---
 
-## Configuración actual de JWPLC Basic
+## Configuración estable de JWPLC Basic
 
 Desde alpha30, `JWPLC Basic` y `JWPLC Basic Core` usan una configuración fija para reducir combinaciones no validadas y estabilizar el FQBN.
 
@@ -177,11 +205,12 @@ Maximum is 3145728 bytes.
 ### Decisiones asociadas
 
 - OTA no está integrado todavía.
+- OpenPLC no está integrado todavía.
 - No se publica `bootloader.bin` precompilado como definitivo.
 - No se eliminan periféricos del autoload normal por velocidad.
-- No se precompilan librerías internas en beta1.
+- No se precompilan librerías internas en `v2.0.0`.
 - `platform.txt` se mantiene sin cambios salvo bloqueante real.
-- OpenPLC no está integrado todavía.
+- `app-only` queda documentado como herramienta útil, no como solución principal de compilación.
 
 ---
 
@@ -657,9 +686,40 @@ El uso formal de coredump queda pendiente de validación y documentación en una
 
 ---
 
+## Validación realizada
+
+`v2.0.0` recoge las validaciones realizadas en `alpha31` y `beta1`.
+
+| Área | Resultado |
+|---|---|
+| Instalación limpia desde Boards Manager | OK |
+| Instalación y manejo desde otra PC | OK |
+| Arduino IDE | OK |
+| Arduino CLI | OK |
+| `ESP32 Board` | OK |
+| `JWPLC Basic` | OK |
+| `JWPLC Basic Core` | OK |
+| Sketch vacío | OK |
+| Sketch Serial mínimo | OK |
+| Subida por USB | OK |
+| Monitor serial | OK |
+| Librerías bundled desde package | OK |
+| I/O TCA6424A | OK |
+| Display | OK |
+| Botonera | OK |
+| RTC | OK |
+| FRAM | OK |
+| microSD | OK |
+| Ethernet W5500 | OK |
+| RS-485 | OK |
+| Modbus RTU | OK |
+| Coexistencia SPI Ethernet + SD + FRAM + Display | OK |
+
+---
+
 ## Ejemplos recomendados para validar instalación
 
-Estos son los ejemplos principales usados y/o revisados para validación alpha31/beta1.
+Estos son los ejemplos principales usados y/o revisados para validación alpha31/beta1/v2.0.0.
 
 ### I/O industrial
 
@@ -734,6 +794,7 @@ Estos son los ejemplos principales usados y/o revisados para validación alpha31
 ```txt
 JWPLC/
   package_jwplc_index.json
+  package_jwplc_index_dev.json
   JWPLC-2.0.0/
     boards.txt
     platform.txt
