@@ -26,8 +26,8 @@ Esta revisión no cambia arquitectura, core, variantes, `boards.txt` ni `platfor
 
 ```txt
 README principal: funcional, pero requiere actualización de estado alpha31 -> beta1.
-Links internos: válidos, pero se recomienda usar rutas relativas.
-Links externos: válidos.
+Links internos del package: válidos.
+Links externos/canónicos de librerías JW: deben mantenerse apuntando a main de sus repos públicos.
 Lista de ejemplos: requiere ajuste para coincidir con ejemplos realmente usados/validados.
 Bloqueantes técnicos: ninguno.
 ```
@@ -107,42 +107,62 @@ Queda fuera de beta1:
 
 ---
 
-## 4. Links internos de librerías
+## 4. Política final de links para README beta1
 
-Links internos actuales:
+Para el README final se define esta política:
 
-- `JWPLC_Display`
-- `JWPLC_Ethernet`
-- `JWPLC_RS485`
-- `JWPLC_ModbusRTU`
+### 4.1 Librerías internas incluidas en el package
+
+Para librerías que viven dentro de `platform-jwplc`, se pueden mantener links al `main` del repositorio del package, porque el README público final estará orientado al usuario que instala desde Boards Manager.
+
+Ejemplos:
+
+```txt
+JWPLC_Display
+JWPLC_Ethernet
+JWPLC_RS485
+JWPLC_ModbusRTU
+```
+
+Links actuales:
+
+```txt
+https://github.com/JW-Control/platform-jwplc/blob/main/JWPLC/JWPLC-2.0.0/libraries/JWPLC_Display/README.md
+https://github.com/JW-Control/platform-jwplc/blob/main/JWPLC/JWPLC-2.0.0/libraries/JWPLC_Ethernet/README.md
+https://github.com/JW-Control/platform-jwplc/blob/main/JWPLC/JWPLC-2.0.0/libraries/JWPLC_RS485/README.md
+https://github.com/JW-Control/platform-jwplc/blob/main/JWPLC/JWPLC-2.0.0/libraries/JWPLC_ModbusRTU/README.md
+```
 
 Estado:
 
 ```txt
-Válidos.
+Aceptable para README público final.
 ```
 
-Observación:
-
-Actualmente apuntan a URLs absolutas con branch `main`, por ejemplo:
+Nota:
 
 ```txt
-https://github.com/JW-Control/platform-jwplc/blob/main/JWPLC/JWPLC-2.0.0/libraries/JWPLC_Display/README.md
+Si se quisiera documentación estrictamente congelada por tag/release, se podrían usar rutas relativas o links al tag. Para beta1 no es obligatorio.
 ```
 
-Para beta1 se recomienda cambiar a rutas relativas para que el README apunte a la documentación de la misma rama/tag:
+### 4.2 Librerías externas / distribuibles
 
-```md
-[JWPLC_Display](JWPLC/JWPLC-2.0.0/libraries/JWPLC_Display/README.md)
-[JWPLC_Ethernet](JWPLC/JWPLC-2.0.0/libraries/JWPLC_Ethernet/README.md)
-[JWPLC_RS485](JWPLC/JWPLC-2.0.0/libraries/JWPLC_RS485/README.md)
-[JWPLC_ModbusRTU](JWPLC/JWPLC-2.0.0/libraries/JWPLC_ModbusRTU/README.md)
-```
+Para librerías con repositorio propio, el README final debe apuntar al `main` de su repositorio oficial, porque ese será el punto canónico donde el usuario las revisa o descarga fuera del package.
 
-Ventaja:
+Links a mantener:
 
 ```txt
-Los links funcionarán correctamente al navegar por branch, tag, beta o main sin quedar amarrados a main.
+https://github.com/JW-Control/JW_FRAM/blob/main/README.md
+https://github.com/JW-Control/JW_RTC/blob/main/README.md
+https://github.com/JW-Control/JW_SD/blob/main/README.md
+https://github.com/JW-Control/JW_MatrixButtons/blob/main/README.md
+https://github.com/JW-Control/JW_DWIN_RS485/blob/main/README.md
+```
+
+Estado:
+
+```txt
+Correcto para README final.
 ```
 
 ---
@@ -151,13 +171,13 @@ Los links funcionarán correctamente al navegar por branch, tag, beta o main sin
 
 Links externos revisados:
 
-| Librería | Estado |
-|---|---|
-| `JW_FRAM` | OK |
-| `JW_RTC` | OK |
-| `JW_SD` | OK |
-| `JW_MatrixButtons` | OK |
-| `JW_DWIN_RS485` | OK |
+| Librería | Estado | Comentario |
+|---|---|---|
+| `JW_FRAM` | OK | Repo público principal. |
+| `JW_RTC` | OK | Repo público principal. |
+| `JW_SD` | OK | Repo público principal. |
+| `JW_MatrixButtons` | OK | Repo público principal. |
+| `JW_DWIN_RS485` | OK | Repo público principal, librería complementaria. |
 
 Observación:
 
@@ -273,9 +293,10 @@ README principal apto como base, pero debe recibir ajustes antes de empaquetar b
 Cambios recomendados antes de publicar `2.0.0-beta.1`:
 
 1. Cambiar sección `Estado de alpha31` por `Estado de beta1`.
-2. Cambiar links internos absolutos a rutas relativas.
-3. Actualizar lista de ejemplos recomendados con nombres reales validados.
-4. Mantener advertencias OpenPLC/OTA/bootloader/app-only/autoload.
+2. Mantener links externos de librerías JW apuntando a `main` de sus repos oficiales.
+3. Mantener o revisar links internos del package según estrategia pública final; no son bloqueantes.
+4. Actualizar lista de ejemplos recomendados con nombres reales validados.
+5. Mantener advertencias OpenPLC/OTA/bootloader/app-only/autoload.
 
 Resultado:
 
