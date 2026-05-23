@@ -6,42 +6,50 @@ El objetivo del package es ofrecer una experiencia industrial más directa que e
 
 ---
 
-## Estado de alpha31
+## Estado de v2.0.0
 
-`v2.0.0-alpha.31` corresponde a una etapa de **release readiness**.
+`v2.0.0` corresponde a la **release estable inicial** del package Arduino **JW Control ESP32 Boards** para **JWPLC Basic**.
 
 Objetivo:
 
 ```txt
-Validar el package completo instalado desde cero y preparar beta1.
+Publicar una versión estable inicial, instalable desde Boards Manager, validada con Arduino IDE, Arduino CLI y hardware real.
 ```
 
-Alpha31 no agrega features grandes. Su foco es:
+Esta release toma como base el trabajo validado en:
 
-- confirmar que `boards.txt` mantiene la configuración fija definida en alpha30;
-- validar instalación limpia desde Boards Manager;
-- validar Arduino IDE y Arduino CLI;
-- compilar placas principales;
-- compilar ejemplos principales;
-- validar periféricos principales;
-- revisar documentación y enlaces de librerías;
-- decidir si el proyecto está listo para pasar a `beta1-package-validation`.
+```txt
+v2.0.0-alpha.31
+v2.0.0-beta.1
+```
 
-Queda fuera de alpha31:
+Durante este ciclo, `alpha31` actuó como validación técnica integral del package instalado desde cero, y `beta1` fue publicada como etapa de package validation antes de la estable.
+
+A partir de `v2.0.0`, el flujo recomendado puede simplificarse en ciclos futuros:
+
+```txt
+alphas técnicas -> última alpha de verificación -> release estable
+```
+
+Beta queda como etapa opcional cuando se requiera validación pública o de terceros. RC queda como etapa opcional si se necesita un candidato final adicional.
+
+Queda fuera de `v2.0.0`:
 
 - integración real con OpenPLC;
 - definición final de OTA;
 - publicación de `bootloader.bin` como definitivo;
 - precompilación de librerías internas;
 - cambios de arquitectura multicore;
-- eliminación de periféricos del autoload normal solo por velocidad.
-
+- eliminación de periféricos del autoload normal solo por velocidad;
+- partición recovery;
+- soporte formal para hardware de 8 MB/16 MB;
+- coredump como feature documentada de usuario.
 
 ---
 
 ## Resumen rápido
 
-**JWPLC Basic** es una plataforma industrial basada en **ESP32 WROOM-32E**. Este package permite programarla desde Arduino IDE manteniendo una sintaxis familiar, pero con periféricos industriales ya integrados:
+**JWPLC Basic** es una plataforma industrial basada en **ESP32-WROOM-32E**. Este package permite programarla desde Arduino IDE manteniendo una sintaxis familiar, pero con periféricos industriales ya integrados:
 
 - I/O industrial por TCA6424A.
 - Display TFT ST7789.
@@ -71,9 +79,11 @@ sin tener que manejar directamente expansores I2C, buses SPI, pines internos, in
 
 El package JWPLC mantiene un enfoque compacto y orientado a producto:
 
-- **ESP32 Board** para pruebas ESP32 genéricas dentro del ecosistema JWPLC.
-- **JWPLC Basic** para el hardware completo con periféricos integrados.
-- **JWPLC Basic Core** para validación del core y pruebas esenciales sin periféricos opcionales.
+| Placa | Uso recomendado | Periféricos esperados |
+|---|---|---|
+| ESP32 Board | Desarrollo ESP32 genérico dentro del package JWPLC. | Sin periféricos JWPLC automáticos. |
+| JWPLC Basic | Hardware completo JWPLC Basic. | I/O industrial, Display, botonera, RTC, FRAM, microSD, Ethernet, RS-485 y Modbus RTU base. |
+| JWPLC Basic Core | Validación del core y pruebas esenciales sin periféricos opcionales. | I/O industrial y periféricos esenciales; FRAM, SD y Ethernet pueden reportar disabled. |
 
 No se mantiene soporte visible para ESP32-S2, ESP32-S3, ESP32-C3, ESP32-C6, ESP32-H2 u otras familias dentro del package JWPLC mientras no sean requeridas por un producto real.
 
@@ -106,16 +116,20 @@ En la práctica, el package JWPLC ocupa alrededor del **27.4 %** del tamaño del
 
 ## Instalación
 
+### Canal público recomendado
+
+Para usuarios finales, usar el índice público:
+
+```txt
+https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index.json
+```
+
+Este canal está pensado para mostrar versiones estables y versiones públicas seleccionadas, evitando que el usuario final vea todas las alphas históricas.
+
 En Arduino IDE, ingresa este enlace en:
 
 ```txt
 Archivo > Preferencias > Gestor de URLs adicionales de tarjetas
-```
-
-URL:
-
-```txt
-https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index.json
 ```
 
 Luego abre:
@@ -130,7 +144,21 @@ Busca:
 JW Control ESP32 Boards
 ```
 
-e instala la versión disponible.
+e instala:
+
+```txt
+2.0.0
+```
+
+### Canal dev / interno
+
+Para validación interna con alphas y betas históricas, usar:
+
+```txt
+https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json
+```
+
+Este canal no se recomienda para usuarios finales.
 
 ---
 
@@ -138,15 +166,21 @@ e instala la versión disponible.
 
 Después de instalar el package, selecciona una de las placas disponibles:
 
-| Placa | Uso recomendado | Periféricos esperados |
+| Placa | FQBN | Uso recomendado |
 |---|---|---|
-| ESP32 Board | Desarrollo ESP32 genérico dentro del package JWPLC. | Sin periféricos JWPLC automáticos. |
-| JWPLC Basic | Hardware completo JWPLC Basic. | I/O industrial, Display, botonera, RTC, FRAM, microSD, Ethernet, RS-485 y Modbus RTU base. |
-| JWPLC Basic Core | Validación del core y pruebas sin periféricos opcionales. | I/O industrial y periféricos esenciales; FRAM, SD y Ethernet pueden reportar disabled. |
+| ESP32 Board | `jwplc:esp32:esp32` | Desarrollo ESP32 genérico dentro del package JWPLC. |
+| JWPLC Basic | `jwplc:esp32:jwplcbasic` | Hardware completo JWPLC Basic. |
+| JWPLC Basic Core | `jwplc:esp32:jwplcbasiccore` | Validación del core y pruebas sin periféricos opcionales. |
+
+FQBN recomendado para JWPLC Basic:
+
+```txt
+jwplc:esp32:jwplcbasic
+```
 
 ---
 
-## Configuración actual de JWPLC Basic
+## Configuración estable de JWPLC Basic
 
 Desde alpha30, `JWPLC Basic` y `JWPLC Basic Core` usan una configuración fija para reducir combinaciones no validadas y estabilizar el FQBN.
 
@@ -162,25 +196,21 @@ Desde alpha30, `JWPLC Basic` y `JWPLC Basic Core` usan una configuración fija p
 | LoopCore | default del core |
 | EventsCore | default del core |
 
-FQBN recomendado:
-
-```txt
-jwplc:esp32:jwplcbasic
-```
-
 La partición `huge_app` deja 3 MB para aplicación:
 
 ```txt
-El máximo es 3145728 bytes.
+Maximum is 3145728 bytes.
 ```
 
 ### Decisiones asociadas
 
 - OTA no está integrado todavía.
-- No se publica `bootloader.bin` precompilado como parte de alpha30 ni se reactiva esa decisión en alpha31.
+- OpenPLC no está integrado todavía.
+- No se publica `bootloader.bin` precompilado como definitivo.
 - No se eliminan periféricos del autoload normal por velocidad.
-- No se precompilan librerías internas en alpha30; alpha31 no reabre esa decisión.
-- `platform.txt` se mantiene sin cambios para esta optimización y alpha31 solo lo valida.
+- No se precompilan librerías internas en `v2.0.0`.
+- `platform.txt` se mantiene sin cambios salvo bloqueante real.
+- `app-only` queda documentado como herramienta útil, no como solución principal de compilación.
 
 ---
 
@@ -268,38 +298,6 @@ JWPLC_writeOutputs(bitmap);
 
 Esto permite trabajar con mapas de bits para integración con lógica PLC, Modbus u otros runtimes.
 
-### Ejemplo: entrada a salida
-
-```cpp
-void setup()
-{
-    pinMode(I0_0, INPUT);
-    pinMode(Q0_0, OUTPUT);
-
-    digitalWrite(Q0_0, LOW);
-}
-
-void loop()
-{
-    bool inputState = digitalRead(I0_0);
-    digitalWrite(Q0_0, inputState ? HIGH : LOW);
-}
-```
-
-### Ejemplo: espejo por bloque
-
-```cpp
-void setup()
-{
-}
-
-void loop()
-{
-    uint32_t inputs = JWPLC_readInputs();
-    JWPLC_writeOutputs(inputs);
-}
-```
-
 ---
 
 ## APIs globales del ecosistema JWPLC
@@ -321,9 +319,9 @@ La idea es que el usuario final no tenga que repetir inicializaciones internas n
 
 ---
 
-## READMEs de librerías
+## Librerías incluidas
 
-Para documentación más detallada de cada componente, revisa los README específicos de las librerías del ecosistema JWPLC.
+El package incluye librerías internas del ecosistema JWPLC y snapshots estables de librerías JW distribuibles.
 
 ### Librerías internas del package JWPLC
 
@@ -334,9 +332,11 @@ Para documentación más detallada de cada componente, revisa los README especí
 | `JWPLC_RS485` | API nativa para usar el puerto RS-485 físico del JWPLC Basic sobre `Serial2`. | [Ver README](https://github.com/JW-Control/platform-jwplc/blob/main/JWPLC/JWPLC-2.0.0/libraries/JWPLC_RS485/README.md) |
 | `JWPLC_ModbusRTU` | Modbus RTU base sobre `JWPLC_RS485`, con soporte inicial master/slave. | [Ver README](https://github.com/JW-Control/platform-jwplc/blob/main/JWPLC/JWPLC-2.0.0/libraries/JWPLC_ModbusRTU/README.md) |
 
-> `JWPLC_GlobalPeripherals` no tiene README independiente por ahora. Su función principal es agrupar y exponer los objetos globales del ecosistema JWPLC, como `JWPLC_Display`, `JWPLC_Ethernet`, `JWPLC_SD`, `JWPLC_FRAM`, `JWPLC_RTC`, `JWPLC_RS485` y `JWPLC_ModbusRTU`.
+> `JWPLC_GlobalPeripherals` no tiene README independiente por ahora. Su función principal es agrupar y exponer los objetos globales del ecosistema JWPLC.
 
 ### Librerías JW externas / distribuibles
+
+Estas librerías tienen repositorio propio y el README apunta al branch `main` oficial, que es la referencia pública para consulta y descarga independiente.
 
 | Librería | Descripción | README |
 |---|---|---|
@@ -344,7 +344,7 @@ Para documentación más detallada de cada componente, revisa los README especí
 | `JW_RTC` | Librería para RTC DS3232M / DS3232 con manejo de fecha/hora, timestamp Unix, temperatura, alarmas y NVRAM. | [Ver README](https://github.com/JW-Control/JW_RTC/blob/main/README.md) |
 | `JW_SD` | Wrapper para microSD basado en `SD`, pensado para trabajar de forma segura con bus SPI compartido. | [Ver README](https://github.com/JW-Control/JW_SD/blob/main/README.md) |
 | `JW_MatrixButtons` | Librería para lectura de botonera matricial con debounce, eventos, repeat y helpers de navegación HMI/PLC. | [Ver README](https://github.com/JW-Control/JW_MatrixButtons/blob/main/README.md) |
-| `JW_DWIN_RS485` | Librería para comunicación con pantallas DWIN por RS-485 / Modbus RTU. | [Ver README](https://github.com/JW-Control/JW_DWIN_RS485/blob/main/README.md) |
+| `JW_DWIN_RS485` | Librería complementaria para comunicación con pantallas DWIN por RS-485 / Modbus RTU. No forma parte del runtime base de JWPLC Basic v2.0.0. | [Ver README](https://github.com/JW-Control/JW_DWIN_RS485/blob/main/README.md) |
 
 > En `JWPLC Basic`, varias de estas librerías se usan a través de objetos globales ya integrados al runtime. Para uso normal del PLC, el usuario no necesita inicializar manualmente todos los periféricos ni recordar pines internos del hardware.
 
@@ -557,7 +557,7 @@ Funciones soportadas en modo master:
 
 ## Mapa preliminar para OpenPLC / Modbus
 
-La integración OpenPLC queda para una alpha/beta posterior, pero el mapa preliminar recomendado es:
+La integración OpenPLC queda para una versión posterior, pero el mapa preliminar recomendado es:
 
 | Capa OpenPLC / Modbus | JWPLC Basic | Descripción |
 |---|---|---|
@@ -577,8 +577,7 @@ Dirección base recomendada para Modbus:
 | Holding Register 0 | 40001 | Variable interna 0 |
 | Input Register 0 | 30001 | Estado interno 0 |
 
-> Nota alpha31: OpenPLC **no está integrado todavía**. Este mapa es preliminar y solo sirve como base documental para futuras pruebas.
-
+> OpenPLC **no está integrado todavía**. Este mapa es preliminar y solo sirve como base documental para futuras pruebas.
 
 ---
 
@@ -649,7 +648,7 @@ Resultado:
 
 Decisión:
 
-No se publica `bootloader.bin` precompilado como definitivo. Esta decisión viene de alpha30 y se mantiene durante alpha31. Se mantiene la generación automática desde:
+No se publica `bootloader.bin` precompilado como definitivo. Se mantiene la generación automática desde:
 
 ```txt
 bootloader_qio_40m.elf
@@ -659,7 +658,7 @@ bootloader_qio_40m.elf
 
 ## OTA
 
-OTA no está integrado todavía en JWPLC Basic v2.0.0. Esta condición se mantiene durante alpha31.
+OTA no está integrado todavía en JWPLC Basic v2.0.0.
 
 La configuración actual usa `huge_app` para priorizar espacio de aplicación en hardware de 4 MB.
 
@@ -683,66 +682,87 @@ Uso futuro esperado:
 - Identificación de tarea que falló.
 - Depuración de `loopTask`, `jwplcSystemTask` u otros módulos.
 
-El uso formal de coredump queda pendiente de validación y documentación en una alpha posterior.
+El uso formal de coredump queda pendiente de validación y documentación en una versión posterior.
+
+---
+
+## Validación realizada
+
+`v2.0.0` recoge las validaciones realizadas en `alpha31` y `beta1`.
+
+| Área | Resultado |
+|---|---|
+| Instalación limpia desde Boards Manager | OK |
+| Instalación y manejo desde otra PC | OK |
+| Arduino IDE | OK |
+| Arduino CLI | OK |
+| `ESP32 Board` | OK |
+| `JWPLC Basic` | OK |
+| `JWPLC Basic Core` | OK |
+| Sketch vacío | OK |
+| Sketch Serial mínimo | OK |
+| Subida por USB | OK |
+| Monitor serial | OK |
+| Librerías bundled desde package | OK |
+| I/O TCA6424A | OK |
+| Display | OK |
+| Botonera | OK |
+| RTC | OK |
+| FRAM | OK |
+| microSD | OK |
+| Ethernet W5500 | OK |
+| RS-485 | OK |
+| Modbus RTU | OK |
+| Coexistencia SPI Ethernet + SD + FRAM + Display | OK |
 
 ---
 
 ## Ejemplos recomendados para validar instalación
 
+Estos son los ejemplos principales usados y/o revisados para validación alpha31/beta1/v2.0.0.
+
 ### I/O industrial
 
-- `DigitalIO_InputMonitor`
-- `DigitalIO_OutputSequence`
-- `DigitalIO_InputToOutput`
-- `DigitalIO_AllStatus_Serial`
-- `DigitalIO_BlockMirror`
 - `DigitalIO_BlockRead`
-
-### Display
-
-- `Display_DotAPI_Minimal`
-- `Display_Idle_Return_Modes`
-- `Display_UserUI_Callbacks`
-- `Display_Efficient_Redraw`
-
-### Ethernet
-
-- `Ethernet_Auto_DHCP_Status`
-- `Ethernet_Auto_StaticIP_Status`
-- `Ethernet_Display_Status`
-- `Ethernet_SPI_Coexistence`
-
-### FRAM
-
-- `FRAM_BootCounter`
-- `FRAM_ReadWrite`
-- `FRAM_ConfigStorage`
-
-### microSD
-
-- `SD_FileList`
-- `SD_ReadWrite`
-- `SD_DisplayBrowser`
-
-### RTC
-
-- `RTC_ReadTime`
-- `RTC_SetTime`
-- `RTC_DisplayClock`
+- `DigitalIO_BlockMirror`
 
 ### RS-485
 
-- `RS485_Status`
-- `RS485_Basic_Send`
-- `RS485_Basic_Echo`
 - `RS485_USB_Bridge`
 
 ### Modbus RTU
 
 - `ModbusRTU_CRC_Test`
-- `ModbusRTU_Slave_HoldingRegisters`
+- `ModbusRTU_Master_Extern`
 - `ModbusRTU_Master_ReadHoldingRegisters`
 - `ModbusRTU_Master_WriteSingleRegister`
+- `ModbusRTU_Slave_Extern`
+- `ModbusRTU_Slave_HoldingRegisters`
+
+### RTC
+
+- `BasicRead`
+
+### FRAM
+
+- `Basic_RW`
+
+### microSD
+
+- `CardInfo`
+- `BasicReadWrite`
+
+### Display
+
+- `Display_DotAPI_Minimal`
+- `Display_UserUI_Callbacks`
+- `Display_Idle_Return_Modes`
+
+### Ethernet
+
+- `Ethernet_Auto_DHCP_Status`
+- `Ethernet_Display_Status`
+- `Ethernet_SPI_Coexistence`
 
 ---
 
@@ -761,10 +781,11 @@ El uso formal de coredump queda pendiente de validación y documentación en una
 - Probar retorno `USER -> IDLE` por ESC.
 - Probar Ethernet con RJ45 conectado y desconectado.
 - Probar microSD insertada/retirada.
-- Probar FRAM con contador de arranque.
+- Probar FRAM con lectura/escritura.
 - Probar coexistencia Ethernet + SD + FRAM + Display.
 - Probar RS-485 con bridge USB ↔ RS-485.
 - Probar Modbus RTU como slave y master.
+- Probar Arduino CLI con `jwplc:esp32:jwplcbasic`, `jwplc:esp32:jwplcbasiccore` y `jwplc:esp32:esp32`.
 
 ---
 
@@ -773,6 +794,7 @@ El uso formal de coredump queda pendiente de validación y documentación en una
 ```txt
 JWPLC/
   package_jwplc_index.json
+  package_jwplc_index_dev.json
   JWPLC-2.0.0/
     boards.txt
     platform.txt
