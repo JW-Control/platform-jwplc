@@ -12,6 +12,57 @@
         {
           "name": "JW Control ESP32 Boards",
           "architecture": "esp32",
+          "version": "2.1.0-alpha.1",
+          "category": "Contributed",
+          "url": "https://github.com/JW-Control/platform-jwplc/releases/download/v2.1.0-alpha.1/jwplc-esp32-2.1.0-alpha.1.zip",
+          "archiveFileName": "jwplc-esp32-2.1.0-alpha.1.zip",
+          "checksum": "SHA-256:5df1d18165bc83c441436184c0efbf93bb7aee112dd3a0dff7dd00f9e5ef6a2c",
+          "size": "22051199",
+          "help": {
+            "online": "https://www.jw-control.com/"
+          },
+          "boards": [
+            {
+              "name": "ESP32 Board"
+            },
+            {
+              "name": "JWPLC Basic"
+            },
+            {
+              "name": "JWPLC Basic Core"
+            }
+          ],
+          "toolsDependencies": [
+            {
+              "packager": "jwplc",
+              "name": "esp-x32",
+              "version": "2601"
+            },
+            {
+              "packager": "jwplc",
+              "name": "esptool_py",
+              "version": "5.2.0"
+            },
+            {
+              "packager": "jwplc",
+              "name": "mkspiffs",
+              "version": "0.2.3"
+            },
+            {
+              "packager": "jwplc",
+              "name": "mklittlefs",
+              "version": "4.0.2-db0513a"
+            },
+            {
+              "packager": "jwplc",
+              "name": "esp32-libs",
+              "version": "3.3.8"
+            }
+          ]
+        },
+        {
+          "name": "JW Control ESP32 Boards",
+          "architecture": "esp32",
           "version": "2.0.0",
           "category": "Contributed",
           "url": "https://github.com/JW-Control/platform-jwplc/releases/download/v2.0.0/jwplc-esp32-2.0.0.zip",
