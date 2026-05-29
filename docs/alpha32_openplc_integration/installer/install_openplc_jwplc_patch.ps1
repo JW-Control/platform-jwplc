@@ -1,20 +1,53 @@
 <#
 .SYNOPSIS
-  Instala el patch de integración OpenPLC para JWPLC Basic v2.0.0.
+  Instala el patch de integracion OpenPLC para JWPLC Basic v2.0.0.
 
 .DESCRIPTION
   Este script copia los archivos ubicados en:
     docs/alpha32_openplc_integration/open-plc-editor/
-  sobre una instalación local de OpenPLC Editor v4.
+  sobre una instalacion local de OpenPLC Editor v4.
 
-  Antes de sobrescribir archivos, crea un backup automático con timestamp.
+  Antes de sobrescribir archivos, crea un backup automatico con timestamp.
 
 .NOTES
   No modifica el package Arduino platform-jwplc.
-  No requiere permisos de administrador si OpenPLC está instalado en una carpeta del usuario.
+  No modifica el registro de Windows.
+  No instala servicios.
+  No requiere permisos de administrador si OpenPLC esta en una carpeta del usuario.
 #>
 
 $ErrorActionPreference = "Stop"
+
+function Test-OpenPLCPatchRoot {
+    param([string]$Path)
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        return $false
+    }
+
+    $resources = Join-Path $Path "resources\sources"
+    return (Test-Path $resources)
+}
+
+function Resolve-OpenPLCPatchRoot {
+    param([string]$InputPath)
+
+    $InputPath = $InputPath.Trim('"')
+
+    $candidates = @(
+        $InputPath,
+        (Join-Path $InputPath "editor\arduino"),
+        (Join-Path $InputPath "editor")
+    )
+
+    foreach ($candidate in $candidates) {
+        if (Test-OpenPLCPatchRoot $candidate) {
+            return (Resolve-Path $candidate).Path
+        }
+    }
+
+    return $InputPath
+}
 
 Write-Host "==============================================" -ForegroundColor Cyan
 Write-Host " JWPLC Basic - OpenPLC Editor v4 Patch Installer" -ForegroundColor Cyan
@@ -30,13 +63,14 @@ if (-not (Test-Path $sourceRoot)) {
 }
 
 Write-Host "Este instalador copiara los archivos del patch JWPLC sobre OpenPLC Editor." -ForegroundColor Yellow
-Write-Host "Se creara un backup automatico antes de sobrescribir archivos." -ForegroundColor Yellow
+Write-Host "Se creara un backup automatico antes de sobrescribir archivos existentes." -ForegroundColor Yellow
 Write-Host ""
 
 $defaultCandidates = @(
     "$env:USERPROFILE\OpenPLC_Editor",
     "$env:USERPROFILE\OpenPLC_Editor_save1",
     "$env:USERPROFILE\Documents\OpenPLC_Editor",
+    "$env:USERPROFILE\AppData\Local\Programs\OpenPLC Editor",
     "$env:LOCALAPPDATA\Programs\OpenPLC Editor",
     "C:\Program Files\OpenPLC Editor",
     "C:\Program Files (x86)\OpenPLC Editor"
@@ -47,9 +81,12 @@ $candidateIndex = 1
 $validCandidates = @()
 foreach ($candidate in $defaultCandidates) {
     if (Test-Path $candidate) {
-        Write-Host "  [$candidateIndex] $candidate"
-        $validCandidates += $candidate
-        $candidateIndex++
+        $resolvedCandidate = Resolve-OpenPLCPatchRoot $candidate
+        if (Test-OpenPLCPatchRoot $resolvedCandidate) {
+            Write-Host "  [$candidateIndex] $resolvedCandidate"
+            $validCandidates += $resolvedCandidate
+            $candidateIndex++
+        }
     }
 }
 
@@ -58,23 +95,38 @@ if ($validCandidates.Count -eq 0) {
 }
 
 Write-Host ""
-$targetRoot = Read-Host "Ingresa la ruta raiz de OpenPLC Editor"
-$targetRoot = $targetRoot.Trim('"')
+Write-Host "Ingresa la ruta raiz de OpenPLC Editor o el numero de una ruta candidata." -ForegroundColor Cyan
+$targetInput = Read-Host "Ruta o numero"
 
-if ([string]::IsNullOrWhiteSpace($targetRoot)) {
-    Write-Error "Ruta vacia. Instalacion cancelada."
+if ([string]::IsNullOrWhiteSpace($targetInput)) {
+    Write-Error "Entrada vacia. Instalacion cancelada."
 }
+
+[int]$selectedIndex = 0
+if ([int]::TryParse($targetInput, [ref]$selectedIndex) -and $selectedIndex -ge 1 -and $selectedIndex -le $validCandidates.Count) {
+    $targetRoot = $validCandidates[$selectedIndex - 1]
+}
+else {
+    $targetRoot = Resolve-OpenPLCPatchRoot $targetInput
+}
+
+$targetRoot = $targetRoot.Trim('"')
 
 if (-not (Test-Path $targetRoot)) {
     Write-Error "La ruta indicada no existe: $targetRoot"
 }
 
-# Validaciones flexibles: la estructura puede variar segun version/distribucion de OpenPLC Editor.
-$expectedHints = @(
-    "editor",
-    "resources",
-    "arduino"
-)
+if (-not (Test-OpenPLCPatchRoot $targetRoot)) {
+    Write-Host "" -ForegroundColor Yellow
+    Write-Host "ADVERTENCIA: no se encontro 'resources\sources' dentro de la ruta destino." -ForegroundColor Yellow
+    Write-Host "Ruta destino actual: $targetRoot" -ForegroundColor Yellow
+    Write-Host "Si la ruta no es correcta, el patch se copiara en una ubicacion incorrecta." -ForegroundColor Yellow
+    $forceContinue = Read-Host "Continuar de todos modos? (S/N)"
+    if ($forceContinue -notin @("S", "s", "SI", "Si", "si", "Y", "y")) {
+        Write-Host "Instalacion cancelada por seguridad." -ForegroundColor Yellow
+        exit 0
+    }
+}
 
 Write-Host ""
 Write-Host "Origen : $sourceRoot" -ForegroundColor Gray
@@ -99,6 +151,7 @@ if ($files.Count -eq 0) {
     Write-Error "No hay archivos para copiar en: $sourceRoot"
 }
 
+$backedUp = 0
 foreach ($file in $files) {
     $relativePath = $file.FullName.Substring($sourceRoot.Length).TrimStart('\', '/')
     $targetFile = Join-Path $targetRoot $relativePath
@@ -108,10 +161,13 @@ foreach ($file in $files) {
         $backupDir = Split-Path -Parent $backupFile
         New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
         Copy-Item -Path $targetFile -Destination $backupFile -Force
+        $backedUp++
     }
 }
 
+Write-Host "Archivos existentes respaldados: $backedUp" -ForegroundColor Cyan
 Write-Host "Copiando archivos..." -ForegroundColor Cyan
+
 foreach ($file in $files) {
     $relativePath = $file.FullName.Substring($sourceRoot.Length).TrimStart('\', '/')
     $targetFile = Join-Path $targetRoot $relativePath
