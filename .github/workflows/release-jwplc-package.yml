@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       channel:
-        description: "Release channel"
+        description: "Release channel. auto detects alpha/beta/stable from version."
         required: true
         default: "auto"
         type: choice
@@ -45,12 +45,22 @@ on:
           - yes
           - no
       replace_existing_index_entry:
-        description: "Replace package index entry if this version already exists"
+        description: "Replace package index entry if this version already exists. If false, workflow fails when version already exists."
         required: true
         default: false
         type: boolean
+      commit_index_changes:
+        description: "Commit and push package index JSON changes"
+        required: true
+        default: true
+        type: boolean
+      publish_release:
+        description: "Create/update GitHub Release and upload ZIP asset"
+        required: true
+        default: true
+        type: boolean
       fail_if_release_exists:
-        description: "Fail if the GitHub Release/tag already exists"
+        description: "Fail if the GitHub Release/tag already exists. Ignored when publish_release=false."
         required: true
         default: true
         type: boolean
@@ -60,10 +70,15 @@ on:
         default: false
         type: boolean
       release_notes_file:
-        description: "Markdown file used as release notes if it exists"
+        description: "Markdown file used as release notes if it exists. Ignored when publish_release=false."
         required: true
         default: "docs/alpha32_openplc_integration/PRE_RELEASE.md"
         type: string
+      upload_workflow_artifact:
+        description: "Upload ZIP and package indexes as workflow artifacts"
+        required: true
+        default: true
+        type: boolean
 
 permissions:
   contents: write
@@ -100,6 +115,7 @@ jobs:
           echo "ARCHIVE=jwplc-esp32-$VERSION.zip" >> "$GITHUB_ENV"
 
       - name: Check existing GitHub Release
+        if: ${{ inputs.publish_release }}
         id: release_check
         shell: bash
         env:
@@ -129,6 +145,8 @@ jobs:
           fi
           if [[ "${{ inputs.replace_existing_index_entry }}" == "true" ]]; then
             EXTRA_ARGS+=("--replace-existing-index-entry")
+          else
+            EXTRA_ARGS+=("--fail-if-version-exists")
           fi
           python JWPLC/tools/jwplc_release.py prepare \
             --version "$VERSION" \
@@ -152,6 +170,8 @@ jobs:
           echo "Size        : ${{ steps.prepare.outputs.size }}"
           echo "Prerelease  : ${{ steps.prepare.outputs.prerelease }}"
           echo "Public index: ${{ steps.prepare.outputs.update_public }}"
+          echo "Commit JSON : ${{ inputs.commit_index_changes }}"
+          echo "Publish rel.: ${{ inputs.publish_release }}"
 
       - name: Validate package indexes as JSON
         shell: bash
@@ -161,6 +181,7 @@ jobs:
           python -m json.tool JWPLC/package_jwplc_index.json >/dev/null
 
       - name: Commit package index changes
+        if: ${{ inputs.commit_index_changes }}
         shell: bash
         run: |
           set -euo pipefail
@@ -175,6 +196,7 @@ jobs:
           fi
 
       - name: Prepare release notes
+        if: ${{ inputs.publish_release }}
         id: notes
         shell: bash
         run: |
@@ -204,6 +226,7 @@ jobs:
           fi
 
       - name: Create or update GitHub Release
+        if: ${{ inputs.publish_release }}
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -242,6 +265,7 @@ jobs:
           fi
 
       - name: Upload workflow artifact
+        if: ${{ inputs.upload_workflow_artifact }}
         uses: actions/upload-artifact@v4
         with:
           name: jwplc-package-${{ steps.prepare.outputs.version }}
