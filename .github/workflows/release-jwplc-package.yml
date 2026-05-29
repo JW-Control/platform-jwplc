@@ -50,7 +50,7 @@ on:
         default: false
         type: boolean
       commit_index_changes:
-        description: "Commit and push package index JSON changes"
+        description: "Commit package index JSON changes to an automation branch and open/update PR"
         required: true
         default: true
         type: boolean
@@ -79,9 +79,20 @@ on:
         required: true
         default: true
         type: boolean
+      open_index_pr:
+        description: "Open/update a pull request with package index JSON changes instead of pushing to main"
+        required: true
+        default: true
+        type: boolean
+      index_pr_base_branch:
+        description: "Base branch for the package index PR"
+        required: true
+        default: "main"
+        type: string
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   release:
@@ -113,6 +124,7 @@ jobs:
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "TAG=v$VERSION" >> "$GITHUB_ENV"
           echo "ARCHIVE=jwplc-esp32-$VERSION.zip" >> "$GITHUB_ENV"
+          echo "INDEX_BRANCH=ci/release-index-v$VERSION" >> "$GITHUB_ENV"
 
       - name: Check existing GitHub Release
         if: ${{ inputs.publish_release }}
@@ -171,6 +183,7 @@ jobs:
           echo "Prerelease  : ${{ steps.prepare.outputs.prerelease }}"
           echo "Public index: ${{ steps.prepare.outputs.update_public }}"
           echo "Commit JSON : ${{ inputs.commit_index_changes }}"
+          echo "Open PR     : ${{ inputs.open_index_pr }}"
           echo "Publish rel.: ${{ inputs.publish_release }}"
 
       - name: Validate package indexes as JSON
@@ -180,19 +193,89 @@ jobs:
           python -m json.tool JWPLC/package_jwplc_index_dev.json >/dev/null
           python -m json.tool JWPLC/package_jwplc_index.json >/dev/null
 
-      - name: Commit package index changes
+      - name: Commit package index changes to automation branch
         if: ${{ inputs.commit_index_changes }}
+        id: index_commit
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add JWPLC/package_jwplc_index_dev.json JWPLC/package_jwplc_index.json
           if git diff --cached --quiet; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
             echo "No package index changes to commit."
+            exit 0
+          fi
+
+          echo "has_changes=true" >> "$GITHUB_OUTPUT"
+
+          BASE_BRANCH="${{ inputs.index_pr_base_branch }}"
+          git fetch origin "$BASE_BRANCH" --depth=1
+          git checkout -B "$INDEX_BRANCH" "origin/$BASE_BRANCH"
+          git checkout "$GITHUB_WORKSPACE/JWPLC/package_jwplc_index_dev.json" "$GITHUB_WORKSPACE/JWPLC/package_jwplc_index.json"
+          git add JWPLC/package_jwplc_index_dev.json JWPLC/package_jwplc_index.json
+          git commit -m "ci(release): update JWPLC package indexes for $TAG"
+          git push --force-with-lease origin "$INDEX_BRANCH"
+
+      - name: Open or update package index pull request
+        if: ${{ inputs.commit_index_changes && inputs.open_index_pr && steps.index_commit.outputs.has_changes == 'true' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          BASE_BRANCH="${{ inputs.index_pr_base_branch }}"
+          PR_TITLE="ci(release): update JWPLC package indexes for $TAG"
+          PR_BODY=$(cat <<EOF
+          ## Resumen
+
+          Actualiza los package index de JWPLC para $TAG.
+
+          ## Metadatos generados
+
+          - Versión: ${{ steps.prepare.outputs.version }}
+          - Canal: ${{ steps.prepare.outputs.channel }}
+          - ZIP: ${{ steps.prepare.outputs.zip_name }}
+          - Checksum: ${{ steps.prepare.outputs.checksum }}
+          - Size: ${{ steps.prepare.outputs.size }} bytes
+          - Actualiza índice público: ${{ steps.prepare.outputs.update_public }}
+
+          ## Archivos esperados
+
+          - JWPLC/package_jwplc_index_dev.json
+          - JWPLC/package_jwplc_index.json solo cambia cuando corresponde a release estable o update_public_index=yes.
+
+          ## Nota
+
+          PR generado automáticamente por GitHub Actions para respetar la protección de main.
+          EOF
+          )
+
+          EXISTING_PR=$(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --head "$INDEX_BRANCH" \
+            --base "$BASE_BRANCH" \
+            --state open \
+            --json number \
+            --jq '.[0].number // empty')
+
+          if [[ -n "$EXISTING_PR" ]]; then
+            echo "Updating existing PR #$EXISTING_PR"
+            gh pr edit "$EXISTING_PR" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$PR_TITLE" \
+              --body "$PR_BODY"
           else
-            git commit -m "ci(release): update JWPLC package indexes for $TAG"
-            git push
+            echo "Creating new PR from $INDEX_BRANCH to $BASE_BRANCH"
+            gh pr create \
+              --repo "$GITHUB_REPOSITORY" \
+              --base "$BASE_BRANCH" \
+              --head "$INDEX_BRANCH" \
+              --title "$PR_TITLE" \
+              --body "$PR_BODY"
           fi
 
       - name: Prepare release notes
