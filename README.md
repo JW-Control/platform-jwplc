@@ -35,7 +35,7 @@ Beta queda como etapa opcional cuando se requiera validación pública o de terc
 
 Queda fuera de `v2.0.0`:
 
-- integración real con OpenPLC;
+- OpenPLC como runtime integrado directamente dentro del package Arduino;
 - definición final de OTA;
 - publicación de `bootloader.bin` como definitivo;
 - precompilación de librerías internas;
@@ -44,6 +44,8 @@ Queda fuera de `v2.0.0`:
 - partición recovery;
 - soporte formal para hardware de 8 MB/16 MB;
 - coredump como feature documentada de usuario.
+
+> Nota: a partir de la etapa `alpha32-openplc-integration`, OpenPLC Editor v4 queda validado como **integración externa/opcional mediante patch**, sin modificar el package Arduino estable `v2.0.0`.
 
 ---
 
@@ -205,7 +207,7 @@ Maximum is 3145728 bytes.
 ### Decisiones asociadas
 
 - OTA no está integrado todavía.
-- OpenPLC no está integrado todavía.
+- OpenPLC no forma parte obligatoria del package Arduino; queda validado como integración externa/opcional mediante patch para OpenPLC Editor v4.
 - No se publica `bootloader.bin` precompilado como definitivo.
 - No se eliminan periféricos del autoload normal por velocidad.
 - No se precompilan librerías internas en `v2.0.0`.
@@ -555,29 +557,86 @@ Funciones soportadas en modo master:
 
 ---
 
-## Mapa preliminar para OpenPLC / Modbus
+## Compatibilidad con OpenPLC Editor v4
 
-La integración OpenPLC queda para una versión posterior, pero el mapa preliminar recomendado es:
+A partir de la etapa `alpha32-openplc-integration`, el **JWPLC Basic v2.0.0** fue validado como target externo para **OpenPLC Editor v4**.
 
-| Capa OpenPLC / Modbus | JWPLC Basic | Descripción |
-|---|---|---|
-| Discrete Inputs | `I0_0` a `I0_7` | Entradas digitales físicas |
-| Coils | `Q0_0` a `Q0_7` | Salidas digitales tipo relé |
-| Holding Registers | Variables internas | Setpoints, parámetros, comandos |
-| Input Registers | Estados internos | Diagnóstico, contadores, mediciones |
+Esta integración no modifica el package Arduino estable `platform-jwplc v2.0.0`. Se entrega como un patch externo para OpenPLC Editor, ubicado en:
 
-Dirección base recomendada para Modbus:
+```txt
+docs/alpha32_openplc_integration/open-plc-editor/
+```
 
-| Dirección Modbus base 0 | Dirección estilo 40001/00001 | Señal JWPLC |
-|---:|---:|---|
-| Discrete Input 0 | 10001 | `I0_0` |
-| Discrete Input 1 | 10002 | `I0_1` |
-| Coil 0 | 00001 | `Q0_0` |
-| Coil 1 | 00002 | `Q0_1` |
-| Holding Register 0 | 40001 | Variable interna 0 |
-| Input Register 0 | 30001 | Estado interno 0 |
+### Estado validado
 
-> OpenPLC **no está integrado todavía**. Este mapa es preliminar y solo sirve como base documental para futuras pruebas.
+- OpenPLC Editor reconoce `JWPLC BASIC [2.0.0]`.
+- Compilación desde OpenPLC usando Arduino CLI.
+- Subida por USB al JWPLC Basic.
+- Debugger de OpenPLC operativo.
+- Pin Mapping compatible con `I0_0..I0_7` y `Q0_0..Q0_7`.
+- Lectura de entradas digitales.
+- Activación de salidas digitales.
+- Concordancia entre OpenPLC, E/S físicas y TFT.
+- Modbus TCP por Ethernet W5500.
+- DHCP y puerto TCP 502 validados.
+- Pruebas con ModbusTool como master TCP.
+
+### Limitación conocida
+
+Modbus RTU y Modbus TCP fueron validados de forma independiente:
+
+```txt
+RTU solo: funcional.
+TCP solo: funcional.
+RTU + TCP simultáneo: TCP funciona; RTU queda pendiente de revisión.
+```
+
+### Instalación del patch OpenPLC
+
+La guía y los scripts de instalación están en:
+
+```txt
+docs/alpha32_openplc_integration/
+```
+
+Para instalación rápida en Windows:
+
+```txt
+docs/alpha32_openplc_integration/installer/install_openplc_jwplc_patch.bat
+```
+
+El instalador crea un backup automático y copia los archivos modificados sobre la carpeta local de OpenPLC Editor.
+
+### Mapa Modbus TCP validado
+
+| OpenPLC | Modbus TCP | JWPLC Basic |
+|---|---:|---|
+| `%IX0.0` | Discrete Input 0 | `I0_0` |
+| `%IX0.1` | Discrete Input 1 | `I0_1` |
+| `%IX0.2` | Discrete Input 2 | `I0_2` |
+| `%IX0.3` | Discrete Input 3 | `I0_3` |
+| `%IX0.4` | Discrete Input 4 | `I0_4` |
+| `%IX0.5` | Discrete Input 5 | `I0_5` |
+| `%IX0.6` | Discrete Input 6 | `I0_6` |
+| `%IX0.7` | Discrete Input 7 | `I0_7` |
+| `%QX0.0` | Coil 0 | `Q0_0` |
+| `%QX0.1` | Coil 1 | `Q0_1` |
+| `%QX0.2` | Coil 2 | `Q0_2` |
+| `%QX0.3` | Coil 3 | `Q0_3` |
+| `%QX0.4` | Coil 4 | `Q0_4` |
+| `%QX0.5` | Coil 5 | `Q0_5` |
+| `%QX0.6` | Coil 6 | `Q0_6` |
+| `%QX0.7` | Coil 7 | `Q0_7` |
+
+Ver documentación completa en:
+
+```txt
+docs/alpha32_openplc_integration/openplc-io-map.md
+docs/alpha32_openplc_integration/openplc-validation-report.md
+docs/alpha32_openplc_integration/openplc-modbus-test-guide.md
+```
+
+> OpenPLC queda como integración externa/opcional. El uso normal del JWPLC Basic desde Arduino IDE sigue funcionando sin requerir OpenPLC.
 
 ---
 
@@ -715,6 +774,27 @@ El uso formal de coredump queda pendiente de validación y documentación en una
 | Modbus RTU | OK |
 | Coexistencia SPI Ethernet + SD + FRAM + Display | OK |
 
+### Validación adicional OpenPLC alpha32
+
+| Área | Resultado |
+|---|---|
+| OpenPLC Editor v4 reconoce `JWPLC BASIC [2.0.0]` | OK |
+| Compilación desde OpenPLC usando Arduino CLI | OK |
+| Subida por USB desde OpenPLC | OK |
+| Debugger OpenPLC | OK |
+| Pin Mapping `I0_x` / `Q0_x` | OK |
+| Lectura de entradas digitales | OK |
+| Activación de salidas digitales | OK |
+| Concordancia con TFT | OK |
+| Modbus TCP por W5500 | OK |
+| DHCP | OK |
+| Puerto TCP 502 | OK |
+| FC01 Read Coils | OK |
+| FC02 Read Discrete Inputs | OK |
+| RTU solo | OK |
+| TCP solo | OK |
+| RTU + TCP simultáneo | Parcial: TCP OK, RTU pendiente |
+
 ---
 
 ## Ejemplos recomendados para validar instalación
@@ -764,6 +844,21 @@ Estos son los ejemplos principales usados y/o revisados para validación alpha31
 - `Ethernet_Display_Status`
 - `Ethernet_SPI_Coexistence`
 
+### OpenPLC Editor v4
+
+Los ejemplos/proyectos de OpenPLC se conservan como integración externa/documental en:
+
+```txt
+docs/alpha32_openplc_integration/
+```
+
+Pruebas mínimas recomendadas:
+
+- Blink de `Q0_0` desde Ladder.
+- Entrada `I0_0` controlando salida `Q0_0`.
+- Lectura de coils por Modbus TCP.
+- Lectura de discrete inputs por Modbus TCP.
+
 ---
 
 ## Checklist rápido de validación
@@ -787,6 +882,21 @@ Estos son los ejemplos principales usados y/o revisados para validación alpha31
 - Probar Modbus RTU como slave y master.
 - Probar Arduino CLI con `jwplc:esp32:jwplcbasic`, `jwplc:esp32:jwplcbasiccore` y `jwplc:esp32:esp32`.
 
+### Checklist adicional OpenPLC
+
+- Instalar OpenPLC Editor v4.
+- Aplicar patch externo desde `docs/alpha32_openplc_integration/open-plc-editor/`.
+- Seleccionar `JWPLC BASIC [2.0.0]` en OpenPLC Editor.
+- Compilar proyecto mínimo.
+- Subir por USB.
+- Verificar Debugger.
+- Validar Pin Mapping.
+- Validar `I0_0..I0_7` y `Q0_0..Q0_7`.
+- Habilitar Modbus TCP con DHCP.
+- Validar puerto TCP `502`.
+- Probar FC01 Read Coils.
+- Probar FC02 Read Discrete Inputs.
+
 ---
 
 ## Estructura principal
@@ -801,6 +911,22 @@ JWPLC/
     cores/
     variants/
     libraries/
+```
+
+Documentación y patch OpenPLC:
+
+```txt
+docs/
+  alpha32_openplc_integration/
+    README.md
+    open-plc-editor/
+    installer/
+    openplc-integration-plan.md
+    openplc-io-map.md
+    openplc-architecture-review.md
+    openplc-validation-report.md
+    openplc-modbus-test-guide.md
+    openplc-alpha32-checklist.md
 ```
 
 ---
