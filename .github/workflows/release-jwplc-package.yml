@@ -1,0 +1,252 @@
+name: Release JWPLC Arduino Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version without leading v. Example: 2.1.0-alpha.1, 2.1.0-beta.1, 2.1.0"
+        required: true
+        type: string
+      channel:
+        description: "Release channel"
+        required: true
+        default: "auto"
+        type: choice
+        options:
+          - auto
+          - alpha
+          - beta
+          - stable
+      source_folder:
+        description: "Folder to zip if the ZIP does not already exist"
+        required: true
+        default: "JWPLC/2.1.0"
+        type: string
+      recreate_zip:
+        description: "Regenerate ZIP even if one already exists. Default false reuses existing ZIP when found."
+        required: true
+        default: false
+        type: boolean
+      archive_root_mode:
+        description: "ZIP root mode: contents = zip contents of source folder; folder = include folder itself"
+        required: true
+        default: "contents"
+        type: choice
+        options:
+          - contents
+          - folder
+      update_public_index:
+        description: "Update public package_jwplc_index.json. auto = only stable"
+        required: true
+        default: "auto"
+        type: choice
+        options:
+          - auto
+          - yes
+          - no
+      replace_existing_index_entry:
+        description: "Replace package index entry if this version already exists"
+        required: true
+        default: false
+        type: boolean
+      fail_if_release_exists:
+        description: "Fail if the GitHub Release/tag already exists"
+        required: true
+        default: true
+        type: boolean
+      overwrite_release_asset:
+        description: "If release exists and fail_if_release_exists=false, overwrite asset with same name"
+        required: true
+        default: false
+        type: boolean
+      release_notes_file:
+        description: "Markdown file used as release notes if it exists"
+        required: true
+        default: "docs/alpha32_openplc_integration/PRE_RELEASE.md"
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Prepare and publish JWPLC package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ inputs.version }}"
+          VERSION="${VERSION#v}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z]+\.[0-9]+)?$ ]]; then
+            echo "Invalid version: ${{ inputs.version }}"
+            echo "Expected examples: 2.1.0-alpha.1, 2.1.0-beta.1, 2.1.0"
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "TAG=v$VERSION" >> "$GITHUB_ENV"
+          echo "ARCHIVE=jwplc-esp32-$VERSION.zip" >> "$GITHUB_ENV"
+
+      - name: Check existing GitHub Release
+        id: release_check
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Release $TAG already exists."
+            if [[ "${{ inputs.fail_if_release_exists }}" == "true" ]]; then
+              echo "fail_if_release_exists=true, stopping."
+              exit 1
+            fi
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Release $TAG does not exist yet."
+          fi
+
+      - name: Prepare package ZIP and indexes
+        id: prepare
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXTRA_ARGS=()
+          if [[ "${{ inputs.recreate_zip }}" == "true" ]]; then
+            EXTRA_ARGS+=("--recreate-zip")
+          fi
+          if [[ "${{ inputs.replace_existing_index_entry }}" == "true" ]]; then
+            EXTRA_ARGS+=("--replace-existing-index-entry")
+          fi
+          python JWPLC/tools/jwplc_release.py prepare \
+            --version "$VERSION" \
+            --channel "${{ inputs.channel }}" \
+            --source-folder "${{ inputs.source_folder }}" \
+            --archive-root-mode "${{ inputs.archive_root_mode }}" \
+            --repo-full-name "$GITHUB_REPOSITORY" \
+            --update-public-index "${{ inputs.update_public_index }}" \
+            --release-title "$TAG - JWPLC Arduino package" \
+            "${EXTRA_ARGS[@]}"
+
+      - name: Show generated metadata
+        shell: bash
+        run: |
+          echo "Version     : ${{ steps.prepare.outputs.version }}"
+          echo "Tag         : ${{ steps.prepare.outputs.tag }}"
+          echo "Channel     : ${{ steps.prepare.outputs.channel }}"
+          echo "ZIP file    : ${{ steps.prepare.outputs.zip_file }}"
+          echo "ZIP name    : ${{ steps.prepare.outputs.zip_name }}"
+          echo "Checksum    : ${{ steps.prepare.outputs.checksum }}"
+          echo "Size        : ${{ steps.prepare.outputs.size }}"
+          echo "Prerelease  : ${{ steps.prepare.outputs.prerelease }}"
+          echo "Public index: ${{ steps.prepare.outputs.update_public }}"
+
+      - name: Validate package indexes as JSON
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m json.tool JWPLC/package_jwplc_index_dev.json >/dev/null
+          python -m json.tool JWPLC/package_jwplc_index.json >/dev/null
+
+      - name: Commit package index changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add JWPLC/package_jwplc_index_dev.json JWPLC/package_jwplc_index.json
+          if git diff --cached --quiet; then
+            echo "No package index changes to commit."
+          else
+            git commit -m "ci(release): update JWPLC package indexes for $TAG"
+            git push
+          fi
+
+      - name: Prepare release notes
+        id: notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          NOTES_FILE="${{ inputs.release_notes_file }}"
+          if [[ -f "$NOTES_FILE" ]]; then
+            echo "notes_file=$NOTES_FILE" >> "$GITHUB_OUTPUT"
+          else
+            FALLBACK="release_notes_$VERSION.md"
+            cat > "$FALLBACK" <<EOF
+          # $TAG - JWPLC Arduino package
+
+          Automated JWPLC Arduino package release.
+
+          ## Package
+
+          - Archive: ${{ steps.prepare.outputs.zip_name }}
+          - Checksum: ${{ steps.prepare.outputs.checksum }}
+          - Size: ${{ steps.prepare.outputs.size }} bytes
+
+          ## Index update
+
+          - Dev index updated: yes
+          - Public index updated: ${{ steps.prepare.outputs.update_public }}
+          EOF
+            echo "notes_file=$FALLBACK" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create or update GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ZIP_FILE="${{ steps.prepare.outputs.zip_file }}"
+          NOTES_FILE="${{ steps.notes.outputs.notes_file }}"
+          PRERELEASE_FLAG=""
+          if [[ "${{ steps.prepare.outputs.prerelease }}" == "true" ]]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release exists: $TAG"
+            gh release edit "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "${{ steps.prepare.outputs.release_title }}" \
+              --notes-file "$NOTES_FILE" \
+              $PRERELEASE_FLAG
+
+            if [[ "${{ inputs.overwrite_release_asset }}" == "true" ]]; then
+              echo "Uploading asset with overwrite: $ZIP_FILE"
+              gh release upload "$TAG" "$ZIP_FILE" --repo "$GITHUB_REPOSITORY" --clobber
+            else
+              echo "Uploading asset without overwrite: $ZIP_FILE"
+              gh release upload "$TAG" "$ZIP_FILE" --repo "$GITHUB_REPOSITORY"
+            fi
+          else
+            echo "Creating release: $TAG"
+            gh release create "$TAG" "$ZIP_FILE" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "${{ steps.prepare.outputs.release_title }}" \
+              --notes-file "$NOTES_FILE" \
+              $PRERELEASE_FLAG
+          fi
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jwplc-package-${{ steps.prepare.outputs.version }}
+          path: |
+            ${{ steps.prepare.outputs.zip_file }}
+            JWPLC/package_jwplc_index_dev.json
+            JWPLC/package_jwplc_index.json
+          if-no-files-found: error
