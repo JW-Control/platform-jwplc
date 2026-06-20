@@ -4,6 +4,7 @@ BtnMapItem	KEYWORD1
 EvType	KEYWORD1
 
 begin	KEYWORD2
+beginDirect	KEYWORD2
 update	KEYWORD2
 pressed	KEYWORD2
 released	KEYWORD2

@@ -4,12 +4,12 @@ Origen:
 
 ```txt
 JW-Control/JW-Libraries
-commit=55d36086d93886b496fd8c198afa7f612ccf9b31
+commit=0e243efc580d94792524a98bbf9ea759b192d936
 ```
 
 | Librería | Versión | Ruta origen |
 |---|---:|---|
-| `JW_MatrixButtons` | `1.0.4` | `libraries/JW_MatrixButtons` |
+| `JW_MatrixButtons` | `1.0.5` | `libraries/JW_MatrixButtons` |
 | `JW_FRAM` | `1.0.2` | `libraries/JW_FRAM` |
 | `JW_RTC` | `1.0.2` | `libraries/JW_RTC` |
 | `JW_SD` | `1.0.2` | `libraries/JW_SD` |
