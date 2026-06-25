@@ -11,12 +11,37 @@ extern "C"
 extern "C" void ARDUINO_ISR_ATTR __pinMode(uint8_t pin, uint8_t mode);
 extern "C" void ARDUINO_ISR_ATTR __digitalWrite(uint8_t pin, uint8_t val);
 extern "C" int ARDUINO_ISR_ATTR __digitalRead(uint8_t pin);
+extern "C" uint32_t jwplcDisplayDesiredPeriod_ms(void);
 
 static JWPLC_IOState g_ioState = {};
 static JWPLC_RTCState g_rtcState = {};
 
 static bool g_displayInitialized = false;
 static uint32_t g_lastDisplayBeginAttemptMs = 0;
+
+static constexpr uint32_t JWPLC_DISPLAY_REFRESH_FALLBACK_PERIOD_MS = 1000u;
+static constexpr uint32_t JWPLC_DISPLAY_REFRESH_MIN_PERIOD_MS = 20u;
+static constexpr uint32_t JWPLC_DISPLAY_REFRESH_MAX_PERIOD_MS = 60000u;
+
+static inline uint32_t jwplc_clampDisplayRefreshPeriodMs(uint32_t periodMs)
+{
+    if (periodMs == 0u)
+    {
+        return JWPLC_DISPLAY_REFRESH_FALLBACK_PERIOD_MS;
+    }
+
+    if (periodMs < JWPLC_DISPLAY_REFRESH_MIN_PERIOD_MS)
+    {
+        return JWPLC_DISPLAY_REFRESH_MIN_PERIOD_MS;
+    }
+
+    if (periodMs > JWPLC_DISPLAY_REFRESH_MAX_PERIOD_MS)
+    {
+        return JWPLC_DISPLAY_REFRESH_MAX_PERIOD_MS;
+    }
+
+    return periodMs;
+}
 
 static inline bool jwplc_isExpanderPin(uint16_t pin)
 {
@@ -418,7 +443,8 @@ void jwplcSystemDisplayHook(void)
     }
 
     bool dirty = jwplcSystemConsumeDisplayDirty();
-    bool periodicRefresh = ((uint32_t)(now - g_ioState.last_display_refresh_ms) >= 1000u);
+    uint32_t displayPeriodMs = jwplc_clampDisplayRefreshPeriodMs(jwplcDisplayDesiredPeriod_ms());
+    bool periodicRefresh = ((uint32_t)(now - g_ioState.last_display_refresh_ms) >= displayPeriodMs);
 
     if (!dirty && !periodicRefresh)
     {
