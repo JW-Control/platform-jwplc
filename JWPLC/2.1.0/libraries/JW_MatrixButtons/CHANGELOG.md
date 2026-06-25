@@ -1,45 +1,43 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
-
-## [1.0.4] - 2026-05-20
-
-### Fixed
-- Fixed compilation error in `clearEventQueue() const` and `clearPendingInput() const` by marking `_evN` as `mutable`.
-- Fixed ESP32 task stack handling: `startTask(..., stackBytes, ...)` now passes stack size as bytes, matching Arduino-ESP32 / ESP-IDF behavior.
-
-### Documentation
-- Updated `library.properties` version to `1.0.4`.
-- Updated README repeat defaults to match the actual implementation.
-- Clarified column input wiring: the library configures columns as `INPUT` and does not enable `INPUT_PULLUP` internally.
-- Added a short README section for optional ESP32 task usage.
-
-## [1.0.3] - 2026-04-03
+## 1.0.5
 
 ### Added
-- Added pending-input cleanup helpers:
+
+- Agrega modo de escaneo directo mediante `beginDirect(...)`.
+- Permite usar botones independientes 1×N sin declarar filas, columnas ni `BtnMapItem`.
+- Agrega backend interno de escaneo directo con debounce por botón.
+- Conserva los mismos eventos para modo directo:
+  - `EV_PRESS`
+  - `EV_RELEASE`
+  - `EV_REPEAT`
+- Mantiene compatibilidad de `pressed(id)`, `released(id)`, `isDown(id)`, `eventCount()`, `getEvent()`, `clearPendingInput()`, `applyAxis()` y `startTask()` en modo directo.
+- Documenta el modo de botones directos en README.
+
+### Changed
+
+- `update()` ahora delega internamente según el modo configurado:
+  - matriz R×C;
+  - botones directos 1×N.
+- README actualizado para describir ambos modos de uso.
+
+### Compatibility
+
+- La API existente de matriz `begin(...)` se mantiene sin cambios.
+- El modo matriz sigue usando `rowPins`, `colPins` y `BtnMapItem`.
+- El modo directo no configura ningún pin como `OUTPUT`; solo aplica `pinMode(buttonPins[i], inputMode)`.
+
+## 1.0.4
+
+### Added
+
+- Eventos latcheados para `pressed()` y `released()`.
+- Cola interna de repeats pendientes.
+- Helpers de limpieza:
   - `clearPendingPresses()`
   - `clearPendingReleases()`
   - `clearPendingRepeats()`
   - `clearEventQueue()`
   - `clearPendingInput()`
-
-### Improved
-- Improved library ergonomics for multi-screen / HMI-style applications.
-- README updated with guidance for safe screen transitions.
-- `keywords.txt` aligned with actual public API names.
-
-## [1.0.2] - 2026-02-19
-
-### Changed
-- Metadata / packaging update.
-
-## [1.0.0] - 2026-02-19
-
-### Added
-- Initial release.
-- Matrix scanning (rows/columns).
-- Debounce handling.
-- Press / Release / Repeat events.
-- Key repeat acceleration.
-- Event queue support.
+- Soporte opcional de task en ESP32.
+- Helper `applyAxis()` para navegación de valores en interfaces HMI/PLC.
