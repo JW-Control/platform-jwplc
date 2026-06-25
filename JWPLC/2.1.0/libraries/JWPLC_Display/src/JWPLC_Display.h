@@ -13,11 +13,19 @@ extern "C"
 
 namespace JWPLCDisplay
 {
+    enum IdleWakeMode : uint8_t
+    {
+        IDLE_WAKE_ANY_BUTTON = 0,
+        IDLE_WAKE_BUTTON_ONLY = 1,
+        IDLE_WAKE_DISABLED = 2
+    };
+
     enum IdleReturnMode : uint8_t
     {
         IDLE_RETURN_TIMEOUT = 0,
         IDLE_RETURN_ESC_ONLY = 1,
-        IDLE_RETURN_DISABLED = 2
+        IDLE_RETURN_DISABLED = 2,
+        IDLE_RETURN_BUTTON_ONLY = 3
     };
 
     bool isReady();
@@ -30,8 +38,17 @@ namespace JWPLCDisplay
     void goIdle();
     void notifyActivity();
 
+    void setIdleWakeMode(IdleWakeMode mode);
+    IdleWakeMode idleWakeMode();
+
+    void setIdleWakeButton(uint8_t buttonId);
+    uint8_t idleWakeButton();
+
     void setIdleReturnMode(IdleReturnMode mode);
     IdleReturnMode idleReturnMode();
+
+    void setIdleReturnButton(uint8_t buttonId);
+    uint8_t idleReturnButton();
 
     void setIdleTimeoutMs(uint32_t timeoutMs);
     uint32_t idleTimeoutMs();
