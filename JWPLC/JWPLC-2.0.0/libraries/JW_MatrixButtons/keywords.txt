@@ -1,0 +1,32 @@
+JW_MatrixButtons	KEYWORD1
+BtnEvent	KEYWORD1
+BtnMapItem	KEYWORD1
+EvType	KEYWORD1
+
+begin	KEYWORD2
+beginDirect	KEYWORD2
+update	KEYWORD2
+pressed	KEYWORD2
+released	KEYWORD2
+isDown	KEYWORD2
+eventCount	KEYWORD2
+getEvent	KEYWORD2
+setScanDelays	KEYWORD2
+setRepeatEnabled	KEYWORD2
+setRepeatInitialDelay	KEYWORD2
+setRepeatProfile	KEYWORD2
+applyAxis	KEYWORD2
+startTask	KEYWORD2
+stopTask	KEYWORD2
+taskRunning	KEYWORD2
+setTaskPeriodMs	KEYWORD2
+taskPeriodMs	KEYWORD2
+clearPendingPresses	KEYWORD2
+clearPendingReleases	KEYWORD2
+clearPendingRepeats	KEYWORD2
+clearEventQueue	KEYWORD2
+clearPendingInput	KEYWORD2
+
+EV_PRESS	LITERAL1
+EV_RELEASE	LITERAL1
+EV_REPEAT	LITERAL1
