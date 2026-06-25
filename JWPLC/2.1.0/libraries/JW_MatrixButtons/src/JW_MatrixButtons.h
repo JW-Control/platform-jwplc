@@ -22,8 +22,8 @@ public:
   {
     uint8_t id;
     EvType type;
-    int16_t mult;     // para repeat: 1/10/100/1000 (o lo que configures)
-    uint32_t held_ms; // tiempo sostenido
+    int16_t mult;     // Para repeat: 1/10/100/1000 o el perfil configurado.
+    uint32_t held_ms; // Tiempo sostenido.
   };
 
   struct BtnMapItem
@@ -38,6 +38,8 @@ public:
   // =========================
   // Configuración principal
   // =========================
+
+  // Modo matriz R x C.
   bool begin(const uint8_t *rowPins, uint8_t nRows,
              const uint8_t *colPins, uint8_t nCols,
              const BtnMapItem *map, uint8_t mapLen,
@@ -45,24 +47,37 @@ public:
              bool invertLogic = false,
              uint32_t debounceMs = 35);
 
+  // Modo botones directos 1 x N.
+  //
+  // En este modo:
+  // - No se usan filas.
+  // - No se usa mapa.
+  // - No se configura ningún pin como OUTPUT.
+  // - Cada botón se configura con pinMode(buttonPins[i], inputMode).
+  bool beginDirect(const uint8_t *buttonPins,
+                   uint8_t buttonCount,
+                   bool invertLogic = false,
+                   uint32_t debounceMs = 35,
+                   uint8_t inputMode = INPUT);
+
   // Ajustes finos (opcionales)
   void setScanDelays(uint16_t settleUs, uint16_t betweenRowsUs);
   void setRepeatEnabled(uint8_t id, bool enabled);
   void setRepeatInitialDelay(uint32_t ms);
 
-  // Umbrales por número de repeats, steps y delays (por defecto ya vienen bien)
+  // Umbrales por número de repeats, steps y delays.
   void setRepeatProfile(uint16_t thr1, uint16_t thr2, uint16_t thr3,
                         int16_t s1, int16_t s2, int16_t s3, int16_t s4,
                         uint32_t d1, uint32_t d2, uint32_t d3, uint32_t d4);
 
-  // Llamar en loop, ideal cada 3–10 ms (si NO usas task)
+  // Llamar en loop, ideal cada 3-10 ms si no se usa task.
   void update();
 
   // =========================
-  // ESP32: correr update() en un task (otro núcleo si quieres)
+  // ESP32: correr update() en un task
   // =========================
-  // - En otros micros (sin FreeRTOS) estas funciones devuelven false / no hacen nada.
-  // - Si el task está activo, NO necesitas llamar update() en loop.
+  // - En otros micros estas funciones devuelven false / no hacen nada.
+  // - Si el task está activo, no necesitas llamar update() en loop.
   bool startTask(uint8_t core = 1,
                  uint32_t stackBytes = 4096,
                  uint8_t priority = 1,
@@ -75,34 +90,31 @@ public:
   // =========================
   // Eventos
   // =========================
-  // Eventos generados en el último update() (útil para debug/log)
+  // Eventos generados en el último update().
   uint8_t eventCount() const;
   bool getEvent(uint8_t index, BtnEvent &out) const;
 
-  // Helpers de estado
-  // NOTA: pressed()/released() son "latcheados":
-  // - si ocurre un PRESS/RELEASE, queda pendiente hasta que lo leas.
-  // - esto ayuda muchísimo si update() corre en un task o tu loop a veces tarda.
+  // Helpers de estado.
+  // pressed()/released() son latcheados y consumibles:
+  // si ocurre un PRESS/RELEASE, queda pendiente hasta que lo leas.
   bool isDown(uint8_t id) const;
-  bool pressed(uint8_t id) const;  // consume 1 PRESS pendiente
-  bool released(uint8_t id) const; // consume 1 RELEASE pendiente
+  bool pressed(uint8_t id) const;
+  bool released(uint8_t id) const;
 
-  // Limpieza de estados/eventos pendientes
-  void clearPendingPresses() const;  // limpia los PRESS latcheados que aún no fueron consumidos por pressed()
-  void clearPendingReleases() const; // limpia los RELEASE latcheados
-  void clearPendingRepeats() const;  // vacía la cola interna de repeat pendiente
-  void clearEventQueue() const;      // limpia _events del último update()
-  void clearPendingInput() const;    // helper general que llama a las cuatro anteriores
+  // Limpieza de estados/eventos pendientes.
+  void clearPendingPresses() const;
+  void clearPendingReleases() const;
+  void clearPendingRepeats() const;
+  void clearEventQueue() const;
+  void clearPendingInput() const;
 
-  // Helper genérico de “eje”
-  // - circularWrapOnPress: si estás en max y haces INC (PRESS) => salta a min (y viceversa)
-  // - snapToStepOnRepeat: antes de sumar/restar en REPEAT, alinea val al múltiplo del step
+  // Helper genérico de eje.
   bool applyAxis(uint32_t *val, uint32_t minv, uint32_t maxv,
                  uint8_t decId, uint8_t incId,
                  bool circularWrapOnPress = true,
                  bool snapToStepOnRepeat = true) const;
 
-  // Overload cómodo: puedes pasar la variable “directa” (referencia)
+  // Overload cómodo por referencia.
   inline bool applyAxis(uint32_t &val, uint32_t minv, uint32_t maxv,
                         uint8_t decId, uint8_t incId,
                         bool circularWrapOnPress = true,
@@ -116,7 +128,7 @@ private:
   static const uint8_t MAX_COLS = 8;
   static const uint8_t MAX_BTNS = 32;
   static const uint8_t MAX_EVENTS = 40;
-  static const uint8_t REPEAT_Q = 8; // cola por botón para repeats
+  static const uint8_t REPEAT_Q = 8; // Cola por botón para repeats.
 
   struct DebouncedKey
   {
@@ -125,7 +137,15 @@ private:
     uint32_t lastChange;
   };
 
+  enum ScanMode : uint8_t
+  {
+    SCAN_MODE_MATRIX = 0,
+    SCAN_MODE_DIRECT
+  };
+
   // Config
+  ScanMode _scanMode;
+
   const uint8_t *_rowPins;
   const uint8_t *_colPins;
   uint8_t _nRows;
@@ -135,24 +155,31 @@ private:
   uint8_t _mapLen;
   uint8_t _btnCount;
 
+  const uint8_t *_directPins;
+  uint8_t _directCount;
+  uint8_t _inputMode;
+
   bool _invert;
   uint32_t _debounceMs;
 
-  // Scan delays
+  // Scan delays para modo matriz.
   uint16_t _settleUs;
   uint16_t _betweenRowsUs;
 
-  // Raw + debounced keys
+  // Raw + debounced keys para modo matriz.
   DebouncedKey _keyDeb[MAX_ROWS][MAX_COLS];
   bool _raw[MAX_ROWS][MAX_COLS];
   bool _deb[MAX_ROWS][MAX_COLS];
 
-  // Buttons state
+  // Debounce para modo directo.
+  DebouncedKey _directDeb[MAX_BTNS];
+
+  // Estado lógico por botón.
   bool _btnStable[MAX_BTNS];
   bool _btnPrev[MAX_BTNS];
   uint32_t _btnPressStart[MAX_BTNS];
 
-  // Repeat config/state
+  // Repeat config/state.
   bool _repeatEnabled[MAX_BTNS];
   uint32_t _repeatInitialDelay;
 
@@ -163,13 +190,14 @@ private:
   uint32_t _nextRepeatAt[MAX_BTNS];
   uint16_t _repeatCount[MAX_BTNS];
 
-  // Eventos del último update
+  // Eventos del último update.
   BtnEvent _events[MAX_EVENTS];
-  // Mutable porque clearEventQueue()/clearPendingInput() son helpers const
-  // que limpian eventos pendientes sin cambiar la identidad lógica del objeto.
+
+  // Mutable porque los helpers const limpian eventos pendientes sin cambiar
+  // la identidad lógica del objeto.
   mutable uint8_t _evN;
 
-  // Latches (persisten hasta que los consumas)
+  // Latches: persisten hasta que el sketch los consume.
   mutable uint8_t _pressPend[MAX_BTNS];
   mutable uint8_t _releasePend[MAX_BTNS];
   mutable int16_t _repQ[MAX_BTNS][REPEAT_Q];
@@ -178,7 +206,7 @@ private:
   mutable uint8_t _repCountPend[MAX_BTNS];
 
 #if defined(ARDUINO_ARCH_ESP32)
-  // Sincronización + task
+  // Sincronización + task.
   mutable SemaphoreHandle_t _mtx;
   volatile bool _taskRun;
   volatile TaskHandle_t _taskHandle;
@@ -193,6 +221,7 @@ private:
       xSemaphoreTake(_mtx, portMAX_DELAY);
 #endif
   }
+
   inline void unlock() const
   {
 #if defined(ARDUINO_ARCH_ESP32)
@@ -202,9 +231,16 @@ private:
   }
 
   void resetStates();
+
   bool readCol(uint8_t pin) const;
+  bool readDirectPin(uint8_t pin) const;
+
   void scanRaw(bool raw[MAX_ROWS][MAX_COLS]);
   void debounceUpdate(DebouncedKey &k, bool rawNow);
+
+  void updateMatrix();
+  void updateDirect();
+
   void mapButtons();
   void pushEvent(uint8_t id, EvType type, int16_t mult, uint32_t held);
   void emitEdgesAndRepeats();
