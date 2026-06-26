@@ -211,7 +211,7 @@ size_t JWPLC_RS485Class::write(const uint8_t *buffer, size_t size)
     size_t written = _serial->write(buffer, size);
     _serial->flush();
 
-        if (written > 0)
+    if (written > 0)
     {
         markTxActivity();
     }

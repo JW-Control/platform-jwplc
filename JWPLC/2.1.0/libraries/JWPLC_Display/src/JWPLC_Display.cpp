@@ -627,9 +627,6 @@ extern "C" bool jwplcDisplayBeginCallback(void)
 
     // No reiniciamos configuración de transición, refresh ni LEDs aquí.
     // Los setters pueden llamarse desde setup() antes de que la TFT esté lista.
-
-    // No reiniciamos configuración de transición, refresh ni LEDs aquí.
-    // Los setters pueden llamarse desde setup() antes de que la TFT esté lista.
     if (g_busLedAuto)
     {
         g_busLedState = computeAutomaticBusLedState();
