@@ -4,7 +4,7 @@
 
 .DESCRIPTION
   Este script copia los archivos ubicados en:
-    installers/openplc-jwplc-basic/open-plc-editor/
+    installers/openplc-jwplc-basic-v2.0.0/open-plc-editor/
   sobre una instalacion local de OpenPLC Editor v4.
 
   Antes de sobrescribir archivos, crea un backup automatico con timestamp.
