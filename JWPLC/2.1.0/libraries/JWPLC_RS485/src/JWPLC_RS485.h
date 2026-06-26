@@ -37,6 +37,11 @@ public:
     uint32_t baudRate() const;
     uint32_t config() const;
 
+    uint32_t lastActivityMs() const;
+    uint32_t lastRxActivityMs() const;
+    uint32_t lastTxActivityMs() const;
+    bool hasRecentActivity(uint32_t windowMs) const;
+
     int8_t rxPin() const;
     int8_t txPin() const;
 
@@ -69,6 +74,14 @@ private:
     bool _ready;
     JWPLCRS485Error _lastError;
 
+    uint32_t _lastActivityMs;
+    uint32_t _lastRxActivityMs;
+    uint32_t _lastTxActivityMs;
+
+    void markRxActivity();
+    void markTxActivity();
+    void markActivity();
+
     void setError(JWPLCRS485Error error);
     void clearError();
 };
@@ -79,5 +92,6 @@ extern JWPLC_RS485Class JWPLC_RS485;
 // En JWPLC Basic actual, MAX13487EESA+ usa auto-dirección y estos hooks no hacen nada.
 extern "C" void jwplcRs485PreTransmitCallback(void);
 extern "C" void jwplcRs485PostTransmitCallback(void);
+extern "C" void jwplcRs485ActivityCallback(void);
 
 #endif // JWPLC_RS485_H

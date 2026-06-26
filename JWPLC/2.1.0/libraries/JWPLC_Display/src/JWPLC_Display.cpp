@@ -39,7 +39,12 @@ static bool g_waitButtonReleaseBeforeWake = false;
 
 static bool g_runLed = true;
 static bool g_errLed = false;
-static bool g_busLed = false;
+static JWPLCIdleScreen::StatusLedState g_busLedState = JWPLCIdleScreen::STATUS_LED_DISABLED;
+static bool g_busLedAuto = true;
+static uint32_t g_lastBusLedAutoUpdateMs = 0;
+static constexpr uint32_t BUS_LED_ACTIVE_HOLD_MS = 800;
+static constexpr uint32_t BUS_LED_AUTO_PERIOD_MS = 100;
+
 static bool g_ethLedAuto = true;
 static JWPLCIdleScreen::StatusLedState g_ethLedState = JWPLCIdleScreen::STATUS_LED_OFF;
 static uint32_t g_lastEthLedAutoUpdateMs = 0;
@@ -82,7 +87,18 @@ static void resetDisplayState()
 
 extern "C" uint32_t jwplcDisplayDesiredPeriod_ms(void)
 {
-    return (g_displayMode == DISPLAY_MODE_IDLE) ? g_idleRefreshPeriodMs : g_userRefreshPeriodMs;
+    uint32_t periodMs =
+        (g_displayMode == DISPLAY_MODE_IDLE) ? g_idleRefreshPeriodMs : g_userRefreshPeriodMs;
+
+    if ((g_displayMode == DISPLAY_MODE_IDLE) &&
+        g_busLedAuto &&
+        (g_busLedState == JWPLCIdleScreen::STATUS_LED_GREEN) &&
+        periodMs > BUS_LED_AUTO_PERIOD_MS)
+    {
+        return BUS_LED_AUTO_PERIOD_MS;
+    }
+
+    return periodMs;
 }
 
 static bool shouldWakeFromIdle()
@@ -179,7 +195,7 @@ static JWPLCIdleScreen::StatusLedState computeAutomaticEthLedState()
 {
     if (!JWPLC_Ethernet.isEnabled())
     {
-        return JWPLCIdleScreen::STATUS_LED_OFF;
+        return JWPLCIdleScreen::STATUS_LED_DISABLED;
     }
 
     if (!JWPLC_Ethernet.isBeginAttempted())
@@ -194,9 +210,13 @@ static JWPLCIdleScreen::StatusLedState computeAutomaticEthLedState()
         return JWPLCIdleScreen::STATUS_LED_GREEN;
     }
 
+    if (strcmp(status, "Ethernet disabled") == 0)
+    {
+        return JWPLCIdleScreen::STATUS_LED_DISABLED;
+    }
+
     if (strcmp(status, "Link OFF") == 0 ||
-        strcmp(status, "Not started") == 0 ||
-        strcmp(status, "Ethernet disabled") == 0)
+        strcmp(status, "Not started") == 0)
     {
         return JWPLCIdleScreen::STATUS_LED_OFF;
     }
@@ -207,6 +227,98 @@ static JWPLCIdleScreen::StatusLedState computeAutomaticEthLedState()
     }
 
     return JWPLCIdleScreen::STATUS_LED_RED;
+}
+
+static JWPLCIdleScreen::StatusLedState computeAutomaticBusLedState()
+{
+    if (!JWPLC_RS485.isEnabled())
+    {
+        return JWPLCIdleScreen::STATUS_LED_DISABLED;
+    }
+
+    if (!JWPLC_RS485.isReady())
+    {
+        JWPLCRS485Error rs485Error = JWPLC_RS485.lastError();
+
+        if (rs485Error == JWPLC_RS485_INVALID_SERIAL ||
+            rs485Error == JWPLC_RS485_UNKNOWN_ERROR)
+        {
+            return JWPLCIdleScreen::STATUS_LED_RED;
+        }
+
+        return JWPLCIdleScreen::STATUS_LED_DISABLED;
+    }
+
+    if (JWPLC_ModbusRTU.isReady())
+    {
+        JWPLCModbusRTUError modbusError = JWPLC_ModbusRTU.lastError();
+
+        switch (modbusError)
+        {
+        case JWPLC_MODBUS_OK:
+        case JWPLC_MODBUS_NOT_STARTED:
+            break;
+
+        default:
+            return JWPLCIdleScreen::STATUS_LED_RED;
+        }
+    }
+
+    if (JWPLC_RS485.hasRecentActivity(BUS_LED_ACTIVE_HOLD_MS))
+    {
+        return JWPLCIdleScreen::STATUS_LED_GREEN;
+    }
+
+    return JWPLCIdleScreen::STATUS_LED_OFF;
+}
+
+static void updateAutomaticBusLed()
+{
+    if (!g_busLedAuto)
+    {
+        return;
+    }
+
+    const uint32_t now = millis();
+
+    if ((uint32_t)(now - g_lastBusLedAutoUpdateMs) < BUS_LED_AUTO_PERIOD_MS)
+    {
+        return;
+    }
+
+    g_lastBusLedAutoUpdateMs = now;
+
+    JWPLCIdleScreen::StatusLedState newState = computeAutomaticBusLedState();
+
+    if (newState != g_busLedState)
+    {
+        g_busLedState = newState;
+
+        if (g_displayMode == DISPLAY_MODE_IDLE)
+        {
+            jwplcSystemForceDisplayRefresh();
+        }
+    }
+}
+
+extern "C" void jwplcRs485ActivityCallback(void)
+{
+    if (!g_busLedAuto)
+    {
+        return;
+    }
+
+    JWPLCIdleScreen::StatusLedState newState = computeAutomaticBusLedState();
+
+    if (newState != g_busLedState)
+    {
+        g_busLedState = newState;
+    }
+
+    if (g_displayMode == DISPLAY_MODE_IDLE)
+    {
+        jwplcSystemForceDisplayRefresh();
+    }
 }
 
 static void updateAutomaticEthLed()
@@ -410,14 +522,40 @@ namespace JWPLCDisplay
 
     void setBusLed(bool state)
     {
-        g_busLed = state;
+        g_busLedAuto = false;
+        g_busLedState = state ? JWPLCIdleScreen::STATUS_LED_GREEN
+                              : JWPLCIdleScreen::STATUS_LED_OFF;
+
         if (g_displayMode == DISPLAY_MODE_IDLE)
+        {
             jwplcSystemForceDisplayRefresh();
+        }
     }
 
     bool busLed()
     {
-        return g_busLed;
+        return g_busLedState == JWPLCIdleScreen::STATUS_LED_GREEN;
+    }
+
+    void setBusLedAuto(bool enabled)
+    {
+        g_busLedAuto = enabled;
+        g_lastBusLedAutoUpdateMs = 0;
+
+        if (enabled)
+        {
+            g_busLedState = computeAutomaticBusLedState();
+        }
+
+        if (g_displayMode == DISPLAY_MODE_IDLE)
+        {
+            jwplcSystemForceDisplayRefresh();
+        }
+    }
+
+    bool busLedAuto()
+    {
+        return g_busLedAuto;
     }
 
     void setEthLed(bool state)
@@ -487,13 +625,22 @@ extern "C" bool jwplcDisplayBeginCallback(void)
     g_tftReady = true;
     g_displayMode = DISPLAY_MODE_IDLE;
 
-    // No reiniciamos configuración de transición/refresh aquí.
+    // No reiniciamos configuración de transición, refresh ni LEDs aquí.
     // Los setters pueden llamarse desde setup() antes de que la TFT esté lista.
-    g_runLed = true;
-    g_errLed = false;
-    g_busLed = false;
-    g_ethLedAuto = true;
-    g_ethLedState = JWPLCIdleScreen::STATUS_LED_OFF;
+
+    // No reiniciamos configuración de transición, refresh ni LEDs aquí.
+    // Los setters pueden llamarse desde setup() antes de que la TFT esté lista.
+    if (g_busLedAuto)
+    {
+        g_busLedState = computeAutomaticBusLedState();
+    }
+
+    if (g_ethLedAuto)
+    {
+        g_ethLedState = computeAutomaticEthLedState();
+    }
+
+    g_lastBusLedAutoUpdateMs = 0;
     g_lastEthLedAutoUpdateMs = 0;
 
     resetDisplayState();
@@ -511,6 +658,7 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC
     }
 
     handleIdleWakeAndTimeout();
+    updateAutomaticBusLed();
     updateAutomaticEthLed();
 
     if (!acquireTFTBus(20))
@@ -524,7 +672,7 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC
         panel.pwr = true;
         panel.run = g_runLed;
         panel.err = g_errLed;
-        panel.bus = g_busLed;
+        panel.bus = g_busLedState;
         panel.eth = g_ethLedState;
 
         JWPLCIdleScreen::setStatusPanel(panel);
@@ -590,6 +738,8 @@ void JWPLC_DisplayClass::setErrLed(bool state) { JWPLCDisplay::setErrLed(state);
 bool JWPLC_DisplayClass::errLed() const { return JWPLCDisplay::errLed(); }
 void JWPLC_DisplayClass::setBusLed(bool state) { JWPLCDisplay::setBusLed(state); }
 bool JWPLC_DisplayClass::busLed() const { return JWPLCDisplay::busLed(); }
+void JWPLC_DisplayClass::setBusLedAuto(bool enabled) { JWPLCDisplay::setBusLedAuto(enabled); }
+bool JWPLC_DisplayClass::busLedAuto() const { return JWPLCDisplay::busLedAuto(); }
 void JWPLC_DisplayClass::setEthLed(bool state) { JWPLCDisplay::setEthLed(state); }
 bool JWPLC_DisplayClass::ethLed() const { return JWPLCDisplay::ethLed(); }
 void JWPLC_DisplayClass::setEthLedAuto(bool enabled) { JWPLCDisplay::setEthLedAuto(enabled); }

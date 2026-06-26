@@ -65,10 +65,23 @@ static const bool ENABLE_SERIAL_DEBUG = true;
 static const uint8_t BUZZER_PIN = 26;
 static const bool ENABLE_BUZZER = true;
 static const bool ENABLE_BACKGROUND_MUSIC = true;
-static const bool ENABLE_SFX = true;
+static const bool ENABLE_SFX = false;
 
 // 100 = normal. 80 = mas lento. 120 = mas rapido.
 static const uint16_t MUSIC_SPEED_PERCENT = 100;
+
+static const uint8_t BUZZER_PWM_RES_BITS = 8;
+
+// 0   = apagado
+// 16  = muy bajo
+// 32  = bajo
+// 48  = medio-bajo
+// 64  = medio
+// 96  = medio-alto
+// 128 = fuerte
+// 255 = máximo
+static uint8_t buzzerVolume = 16;
+
 
 // =====================================================
 // Layout
@@ -230,6 +243,7 @@ static const int8_t SHAPES[7][4][4][2] = {
 #define NOTE_E5   659
 #define NOTE_F5   698
 #define NOTE_G5   784
+#define NOTE_GS5  831
 #define NOTE_A5   880
 #define NOTE_B5   988
 
@@ -240,17 +254,45 @@ struct MusicNote
 };
 
 static const MusicNote TETRIS_THEME[] = {
-  {NOTE_E5, 150}, {NOTE_B4, 75},  {NOTE_C5, 75},  {NOTE_D5, 150},
-  {NOTE_C5, 75},  {NOTE_B4, 75},  {NOTE_A4, 150}, {NOTE_A4, 75},
-  {NOTE_C5, 75},  {NOTE_E5, 150}, {NOTE_D5, 75},  {NOTE_C5, 75},
-  {NOTE_B4, 150}, {NOTE_C5, 75},  {NOTE_D5, 150}, {NOTE_E5, 150},
-  {NOTE_C5, 150}, {NOTE_A4, 150}, {NOTE_A4, 150}, {NOTE_REST, 120},
+  {NOTE_E5, 417}, {NOTE_B4, 208}, {NOTE_C5, 208}, {NOTE_D5, 417},
+  {NOTE_C5, 208}, {NOTE_B4, 208}, {NOTE_A4, 417}, {NOTE_A4, 208},
+  {NOTE_C5, 208}, {NOTE_E5, 417}, {NOTE_D5, 208}, {NOTE_C5, 208},
+  {NOTE_B4, 625}, {NOTE_C5, 208}, {NOTE_D5, 417}, {NOTE_E5, 417},
+  {NOTE_C5, 417}, {NOTE_A4, 417}, {NOTE_A4, 417}, {NOTE_REST, 417},
 
-  {NOTE_D5, 150}, {NOTE_F5, 75},  {NOTE_A5, 150}, {NOTE_G5, 75},
-  {NOTE_F5, 75},  {NOTE_E5, 150}, {NOTE_C5, 75},  {NOTE_E5, 150},
-  {NOTE_D5, 75},  {NOTE_C5, 75},  {NOTE_B4, 150}, {NOTE_B4, 75},
-  {NOTE_C5, 75},  {NOTE_D5, 150}, {NOTE_E5, 150}, {NOTE_C5, 150},
-  {NOTE_A4, 150}, {NOTE_A4, 150}, {NOTE_REST, 180}
+  {NOTE_REST, 208}, {NOTE_D5, 417}, {NOTE_F5, 208}, {NOTE_A5, 417},
+  {NOTE_G5, 208}, {NOTE_F5, 208}, {NOTE_E5, 625}, {NOTE_C5, 208},
+  {NOTE_E5, 417}, {NOTE_D5, 208}, {NOTE_C5, 208}, {NOTE_B4, 417},
+  {NOTE_B4, 208}, {NOTE_C5, 208}, {NOTE_D5, 417}, {NOTE_E5, 417},
+  {NOTE_C5, 417}, {NOTE_A4, 417}, {NOTE_A4, 417}, {NOTE_REST, 417},
+
+  {NOTE_E5, 833}, {NOTE_C5, 833},
+  {NOTE_D5, 833}, {NOTE_B4, 833},
+  {NOTE_C5, 833}, {NOTE_A4, 833},
+  {NOTE_B4, 1667},
+
+  {NOTE_E5, 833}, {NOTE_C5, 833},
+  {NOTE_D5, 833}, {NOTE_B4, 833},
+  {NOTE_C5, 417}, {NOTE_E5, 417}, {NOTE_A5, 833},
+  {NOTE_GS5, 1667},
+
+  {NOTE_E5, 417}, {NOTE_B4, 208}, {NOTE_C5, 208}, {NOTE_D5, 417},
+  {NOTE_C5, 208}, {NOTE_B4, 208}, {NOTE_A4, 417}, {NOTE_A4, 208},
+  {NOTE_C5, 208}, {NOTE_E5, 417}, {NOTE_D5, 208}, {NOTE_C5, 208},
+  {NOTE_B4, 625}, {NOTE_C5, 208}, {NOTE_D5, 417}, {NOTE_E5, 417},
+  {NOTE_C5, 417}, {NOTE_A4, 417}, {NOTE_A4, 417}, {NOTE_REST, 417},
+
+  {NOTE_REST, 208}, {NOTE_D5, 417}, {NOTE_F5, 208}, {NOTE_A5, 417},
+  {NOTE_G5, 208}, {NOTE_F5, 208},
+
+  {NOTE_REST, 208}, {NOTE_E5, 417}, {NOTE_C5, 208}, {NOTE_E5, 417},
+  {NOTE_D5, 208}, {NOTE_C5, 208},
+
+  {NOTE_REST, 208}, {NOTE_B4, 417}, {NOTE_C5, 208}, {NOTE_D5, 417},
+  {NOTE_E5, 417},
+
+  {NOTE_REST, 208}, {NOTE_C5, 417}, {NOTE_A4, 208},
+  {NOTE_A4, 417}, {NOTE_REST, 417}
 };
 
 static const uint8_t TETRIS_THEME_LEN =
@@ -272,6 +314,7 @@ static uint32_t nextMusicEventMs = 0;
 static uint32_t noteOffMs = 0;
 static bool noteIsOn = false;
 
+static uint32_t sfxStartMs = 0;
 static uint32_t sfxEndMs = 0;
 
 static uint16_t scaleMusicDuration(uint16_t durMs)
@@ -300,7 +343,9 @@ static void buzzerBegin()
 
   pinMode(BUZZER_PIN, OUTPUT);
   digitalWrite(BUZZER_PIN, LOW);
-  noTone(BUZZER_PIN);
+
+  ledcAttach(BUZZER_PIN, 2000, BUZZER_PWM_RES_BITS);
+  ledcWrite(BUZZER_PIN, 0);
 
   buzzerInitialized = true;
 }
@@ -314,12 +359,14 @@ static void buzzerTone(uint16_t freq)
 
   if (freq == NOTE_REST)
   {
-    noTone(BUZZER_PIN);
+    ledcWrite(BUZZER_PIN, 0);
     noteIsOn = false;
     return;
   }
 
-  tone(BUZZER_PIN, freq);
+  ledcWriteTone(BUZZER_PIN, freq);
+  ledcWrite(BUZZER_PIN, buzzerVolume);
+
   noteIsOn = true;
 }
 
@@ -330,7 +377,7 @@ static void buzzerOff()
     return;
   }
 
-  noTone(BUZZER_PIN);
+  ledcWrite(BUZZER_PIN, 0);
   noteIsOn = false;
 }
 
@@ -371,8 +418,11 @@ static void playSfx(uint16_t freq, uint16_t durMs)
 
   buzzerBegin();
 
+  uint32_t now = millis();
+
   audioMode = AUDIO_MODE_SFX;
-  sfxEndMs = millis() + durMs;
+  sfxStartMs = now;
+  sfxEndMs = now + durMs;
 
   buzzerTone(freq);
 }
@@ -386,9 +436,21 @@ static void serviceSfx(uint32_t now)
 
   if ((int32_t)(now - sfxEndMs) >= 0)
   {
+    uint32_t pausedMs = now - sfxStartMs;
+
     buzzerOff();
+
+    if (nextMusicEventMs != 0)
+    {
+      nextMusicEventMs += pausedMs;
+    }
+
+    if (noteOffMs != 0)
+    {
+      noteOffMs += pausedMs;
+    }
+
     audioMode = AUDIO_MODE_MUSIC;
-    nextMusicEventMs = now + 20;
   }
 }
 
@@ -417,7 +479,7 @@ static void serviceBackgroundMusic(uint32_t now)
   const MusicNote &n = TETRIS_THEME[musicIndex];
 
   uint16_t dur = scaleMusicDuration(n.durMs);
-  uint16_t gate = (dur * 78) / 100;
+  uint16_t gate = (dur * 90) / 100;
 
   if (n.freq == NOTE_REST)
   {
