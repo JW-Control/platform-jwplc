@@ -30,7 +30,7 @@ on:
       archive_root_mode:
         description: "ZIP root mode: contents = zip contents of source folder; folder = include folder itself"
         required: true
-        default: "contents"
+        default: "folder"
         type: choice
         options:
           - contents
