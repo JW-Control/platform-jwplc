@@ -125,7 +125,7 @@ namespace JWPLCIdleScreen
     static constexpr uint16_t C_IN_ACTIVE = 0x867D;
     static constexpr uint16_t C_OK_GREEN = 0x5FE0;
     static constexpr uint16_t C_ERR_RED = ST77XX_RED;
-    static constexpr uint16_t C_DISABLED_GRAY = 0x7BEF;
+    static constexpr uint16_t C_DISABLED_GRAY = 0xCE59;
 
     // =====================================================
     // Prototipos internos
