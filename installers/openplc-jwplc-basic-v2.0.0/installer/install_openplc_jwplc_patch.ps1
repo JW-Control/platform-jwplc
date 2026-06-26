@@ -4,7 +4,7 @@
 
 .DESCRIPTION
   Este script copia los archivos ubicados en:
-    docs/alpha32_openplc_integration/open-plc-editor/
+    installers/openplc-jwplc-basic/open-plc-editor/
   sobre una instalacion local de OpenPLC Editor v4.
 
   Antes de sobrescribir archivos, crea un backup automatico con timestamp.

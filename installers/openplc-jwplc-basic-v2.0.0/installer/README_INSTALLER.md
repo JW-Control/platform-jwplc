@@ -55,7 +55,7 @@ El instalador es un script auditable. No modifica el registro de Windows y no in
 Solo copia archivos desde:
 
 ```txt
-docs/alpha32_openplc_integration/open-plc-editor/
+installers/openplc-jwplc-basic/open-plc-editor/
 ```
 
 hacia la ruta indicada por el usuario.
