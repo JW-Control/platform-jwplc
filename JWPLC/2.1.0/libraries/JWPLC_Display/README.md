@@ -2,13 +2,25 @@
 
 Librería interna del package **JWPLC ESP32** para controlar la pantalla TFT ST7789 integrada del **JWPLC Basic**.
 
-Desde `2.0.0-alpha.25`, la API recomendada usa estilo objeto con punto:
+A partir de **v2.1.0-alpha.2**, `JWPLC_Display` queda orientada a un uso más cómodo desde Arduino IDE:
+
+- las configuraciones principales pueden hacerse directamente desde `setup()`;
+- `setUserRefreshPeriodMs()` controla realmente el periodo de refresco de la pantalla `USER`;
+- los indicadores `RUN`, `ERR`, `BUS` y `ETH` ya no son pisados por la inicialización interna de la TFT;
+- `BUS` y `ETH` usan estados visuales extendidos: gris, apagado, verde y rojo;
+- `BUS` puede reflejar automáticamente actividad RS-485 / Modbus RTU;
+- `ETH` puede reflejar automáticamente el estado del W5500.
+
+La API recomendada usa estilo objeto:
 
 ```cpp
-JWPLC_Display.isReady();
-JWPLC_Display.enterUserUI();
-JWPLC_Display.setIdleTimeoutMs(8000);
-JWPLC_Display.setEthLed(true);
+#include <JWPLC_Display.h>
+
+JWPLC_Display.setIdleWakeMode(IDLE_WAKE_ANY_BUTTON);
+JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
+JWPLC_Display.setUserRefreshPeriodMs(100);
+JWPLC_Display.setBusLedAuto(true);
+JWPLC_Display.setEthLedAuto(true);
 ```
 
 La API legacy con namespace `JWPLCDisplay::` se mantiene temporalmente por compatibilidad interna, pero para sketches nuevos se recomienda usar `JWPLC_Display`.
@@ -17,24 +29,26 @@ La API legacy con namespace `JWPLCDisplay::` se mantiene temporalmente por compa
 
 ## 1. Concepto general
 
-`JWPLC_Display` forma parte del runtime del package JWPLC. En una placa compatible como **JWPLC Basic**, el display se inicializa automáticamente.
+`JWPLC_Display` forma parte del runtime del package JWPLC. En placas compatibles como **JWPLC Basic**, la TFT se inicializa automáticamente.
 
 El usuario no necesita:
 
-- Crear manualmente el objeto `Adafruit_ST7789`.
-- Configurar pines de TFT.
-- Configurar SPI para TFT.
-- Llamar a un `begin()` propio del display.
+- crear manualmente el objeto `Adafruit_ST7789`;
+- configurar pines de TFT;
+- configurar SPI para TFT;
+- llamar a un `begin()` propio del display.
 
-El package administra:
+El runtime administra:
 
-- Inicialización de la TFT.
-- Pantalla automática `IDLE`.
-- Pantalla personalizada `USER`.
-- Integración con botonera.
-- Retorno `USER -> IDLE`.
-- Indicadores laterales `RUN`, `ERR`, `BUS` y `ETH`.
-- Protección del bus SPI compartido.
+- inicialización de la TFT;
+- pantalla automática `IDLE`;
+- pantalla personalizada `USER`;
+- integración con botonera;
+- retorno `USER -> IDLE`;
+- indicadores laterales `PWR`, `RUN`, `ERR`, `BUS` y `ETH`;
+- protección del bus SPI compartido;
+- refresco periódico configurable;
+- coexistencia con Ethernet, FRAM, SD y otros periféricos SPI.
 
 ---
 
@@ -42,7 +56,13 @@ El package administra:
 
 ### IDLE
 
-`IDLE` es la pantalla automática base del JWPLC. Muestra información general del equipo, indicadores laterales, entradas/salidas y RTC cuando está disponible.
+`IDLE` es la pantalla automática base del JWPLC. Muestra información general del equipo:
+
+- indicadores laterales de estado;
+- entradas digitales;
+- salidas digitales;
+- RTC cuando está disponible;
+- estado de bus y Ethernet.
 
 ### USER
 
@@ -50,14 +70,10 @@ El package administra:
 
 Se entra a `USER` cuando:
 
-- Se presiona una tecla de la botonera.
-- El sketch llama manualmente a:
+- se presiona una tecla, si el modo de wake lo permite;
+- el sketch llama manualmente a `JWPLC_Display.enterUserUI()`.
 
-```cpp
-JWPLC_Display.enterUserUI();
-```
-
-En `USER`, el sketch puede dibujar con el objeto interno de Adafruit:
+En `USER`, el sketch puede dibujar usando la TFT interna:
 
 ```cpp
 auto &tft = JWPLC_Display.tft();
@@ -65,47 +81,62 @@ auto &tft = JWPLC_Display.tft();
 
 ---
 
-## 3. Uso rápido
+## 3. Uso recomendado desde setup()
+
+Desde **v2.1.0-alpha.2**, la configuración principal de `JWPLC_Display` puede hacerse directamente en `setup()`.
 
 ```cpp
-bool displayConfigured = false;
+#include <Arduino.h>
+#include <JWPLC_Display.h>
 
 void setup()
 {
     Serial.begin(115200);
+
+    JWPLC_Display.setIdleWakeMode(IDLE_WAKE_ANY_BUTTON);
+    JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
+
+    JWPLC_Display.setIdleRefreshPeriodMs(1000);
+    JWPLC_Display.setUserRefreshPeriodMs(100);
+
+    JWPLC_Display.setIdleTimeoutMs(15000);
+
+    JWPLC_Display.setRunLed(true);
+    JWPLC_Display.setErrLed(false);
+
+    JWPLC_Display.setBusLedAuto(true);
+    JWPLC_Display.setEthLedAuto(true);
 }
 
 void loop()
 {
-    if (!displayConfigured && JWPLC_Display.isReady())
-    {
-        displayConfigured = true;
-
-        JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);
-        JWPLC_Display.setIdleTimeoutMs(8000);
-        JWPLC_Display.setUserRefreshPeriodMs(250);
-
-        JWPLC_Display.setRunLed(true);
-        JWPLC_Display.setErrLed(false);
-        JWPLC_Display.setBusLed(false);
-        JWPLC_Display.setEthLed(false);
-
-        Serial.println("Display listo");
-    }
-
-    // Lógica principal del PLC.
+    // Lógica normal del sketch.
 }
 ```
 
----
+Ya no es necesario hacer este tipo de configuración dentro de `loop()` con una bandera `displayConfigured`.
 
-## 4. ¿Qué hace `isReady()`?
+### Qué sí requiere que la TFT esté lista
 
-`JWPLC_Display.isReady()` devuelve `true` cuando el runtime ya terminó de inicializar la TFT.
+El acceso directo a la TFT con `JWPLC_Display.tft()` debe hacerse cuando la pantalla ya esté inicializada. Lo recomendado es dibujar dentro de los callbacks:
 
-En simple:
+```cpp
+extern "C" void jwplcUserDisplayEnterCallback()
+{
+    auto &tft = JWPLC_Display.tft();
+    tft.fillScreen(ST77XX_BLACK);
+}
+```
 
-> La pantalla ya está lista y es seguro usar la API del display.
+También puede usarse:
+
+```cpp
+if (JWPLC_Display.isReady())
+{
+    auto &tft = JWPLC_Display.tft();
+    // Dibujar aquí.
+}
+```
 
 No se recomienda guardar una referencia global a la TFT:
 
@@ -113,240 +144,216 @@ No se recomienda guardar una referencia global a la TFT:
 auto &tft = JWPLC_Display.tft();  // No recomendado como global
 ```
 
-Las variables globales se construyen antes del `setup()`, y en ese momento el display puede no estar inicializado.
-
-Uso recomendado:
-
-```cpp
-if (JWPLC_Display.isReady())
-{
-    auto &tft = JWPLC_Display.tft();
-    tft.print("Hola");
-}
-```
-
-En proyectos reales, lo más ordenado es configurar el display una sola vez desde `loop()`:
-
-```cpp
-bool displayConfigured = false;
-
-void loop()
-{
-    if (!displayConfigured && JWPLC_Display.isReady())
-    {
-        displayConfigured = true;
-        JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);
-    }
-}
-```
-
 ---
 
-## 5. API principal
+## 4. API principal
 
-### `isReady()`
-
-Indica si el display ya fue inicializado.
+### Estado
 
 ```cpp
-if (JWPLC_Display.isReady())
-{
-    Serial.println("Display listo");
-}
+JWPLC_Display.isReady();
+JWPLC_Display.isIdleMode();
+JWPLC_Display.buttonsReady();
 ```
 
-### `isIdleMode()`
+| API | Descripción |
+|---|---|
+| `isReady()` | Indica si la TFT ya fue inicializada por el runtime. |
+| `isIdleMode()` | Indica si la pantalla actual es `IDLE`. |
+| `buttonsReady()` | Indica si la botonera ya está disponible. |
 
-Indica si la pantalla está en `IDLE`.
-
-```cpp
-Serial.println(JWPLC_Display.isIdleMode() ? "IDLE" : "USER");
-```
-
-### `buttonsReady()`
-
-Indica si la botonera está inicializada.
-
-```cpp
-if (JWPLC_Display.buttonsReady())
-{
-    Serial.println("Botonera lista");
-}
-```
-
-### `forceRedraw()`
-
-Solicita un redibujado.
-
-```cpp
-JWPLC_Display.forceRedraw();
-```
-
-Úsalo con moderación. No es buena práctica llamarlo muchas veces por segundo sin necesidad.
-
-### `enterUserUI()`
-
-Entra manualmente a `USER`.
+### Navegación
 
 ```cpp
 JWPLC_Display.enterUserUI();
-```
-
-### `goIdle()`
-
-Vuelve manualmente a `IDLE`.
-
-```cpp
 JWPLC_Display.goIdle();
-```
-
-### `notifyActivity()`
-
-Notifica actividad del usuario y reinicia el contador de inactividad.
-
-```cpp
 JWPLC_Display.notifyActivity();
-```
-
-Es útil si tu pantalla USER tiene interacciones propias que no pasan por la botonera estándar.
-
-### `setIdleReturnMode(mode)`
-
-Configura cómo se vuelve de `USER` a `IDLE`.
-
-```cpp
-JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);
-```
-
-### `setIdleTimeoutMs(timeoutMs)`
-
-Configura el tiempo de inactividad para retorno automático.
-
-```cpp
-JWPLC_Display.setIdleTimeoutMs(8000);
-```
-
-### `setIdleRefreshPeriodMs(ms)`
-
-Configura cada cuánto se refresca la pantalla `IDLE`.
-
-```cpp
-JWPLC_Display.setIdleRefreshPeriodMs(1000);
-```
-
-### `setUserRefreshPeriodMs(ms)`
-
-Configura cada cuánto se llama `jwplcUserDisplayRefreshCallback()` mientras se está en `USER`.
-
-```cpp
-JWPLC_Display.setUserRefreshPeriodMs(250);
-```
-
-### `clearPendingInput()`
-
-Limpia eventos pendientes de la botonera.
-
-```cpp
 JWPLC_Display.clearPendingInput();
 ```
 
-Es útil al entrar a una pantalla nueva para evitar que una pulsación previa se procese dos veces.
+| API | Descripción |
+|---|---|
+| `enterUserUI()` | Entra manualmente a la pantalla `USER`. |
+| `goIdle()` | Vuelve manualmente a `IDLE`. |
+| `notifyActivity()` | Reinicia el contador de inactividad. |
+| `clearPendingInput()` | Limpia eventos pendientes de botonera. |
+
+### Refresco
+
+```cpp
+JWPLC_Display.setIdleRefreshPeriodMs(1000);
+JWPLC_Display.setUserRefreshPeriodMs(100);
+```
+
+| API | Descripción |
+|---|---|
+| `setIdleRefreshPeriodMs(ms)` | Configura el periodo de refresco de `IDLE`. |
+| `setUserRefreshPeriodMs(ms)` | Configura cada cuánto se llama `jwplcUserDisplayRefreshCallback()` en `USER`. |
+
+`setUserRefreshPeriodMs()` fue validado en hardware a 100 ms y 20 ms dentro de la etapa `v2.1.0-alpha.2`.
+
+El runtime aplica límites seguros internamente para evitar valores extremos.
 
 ---
 
-## 6. Modos de retorno a IDLE
+## 5. Entrada y salida de USER
 
-Hay tres modos disponibles. Para evitar escribir `JWPLC_DisplayClass::`, se exponen alias globales:
-
-```cpp
-IDLE_RETURN_TIMEOUT
-IDLE_RETURN_ESC_ONLY
-IDLE_RETURN_DISABLED
-```
-
-### 6.1 `IDLE_RETURN_TIMEOUT`
-
-Vuelve automáticamente de `USER` a `IDLE` después de un tiempo sin actividad.
-
-Uso recomendado para pantallas informativas o pantallas temporales.
+### Wake desde IDLE
 
 ```cpp
-JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);
-JWPLC_Display.setIdleTimeoutMs(8000);
+JWPLC_Display.setIdleWakeMode(IDLE_WAKE_ANY_BUTTON);
 ```
 
-Comportamiento:
-
-- Entra a `USER`.
-- Si no se presiona nada durante 8 segundos, vuelve a `IDLE`.
-- Si se presiona una tecla, se reinicia el contador de inactividad.
-
-Ejemplo:
+Modos disponibles:
 
 ```cpp
-if (JWPLC_Display.isReady())
-{
-    JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);
-    JWPLC_Display.setIdleTimeoutMs(8000);
-}
+IDLE_WAKE_ANY_BUTTON
+IDLE_WAKE_BUTTON_ONLY
+IDLE_WAKE_DISABLED
 ```
 
-### 6.2 `IDLE_RETURN_ESC_ONLY`
+| Modo | Comportamiento |
+|---|---|
+| `IDLE_WAKE_ANY_BUTTON` | Cualquier botón puede despertar de `IDLE` a `USER`. |
+| `IDLE_WAKE_BUTTON_ONLY` | Solo el botón configurado despierta a `USER`. |
+| `IDLE_WAKE_DISABLED` | El wake automático queda deshabilitado. |
 
-Vuelve a `IDLE` solo con `ESC` o con una acción equivalente definida por el sistema.
+Botón específico:
 
-Uso recomendado para menús donde el usuario debe decidir cuándo salir.
+```cpp
+JWPLC_Display.setIdleWakeButton(BTN_OK);
+```
+
+### Retorno desde USER
 
 ```cpp
 JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
 ```
 
-Comportamiento:
-
-- Entra a `USER`.
-- No vuelve por timeout.
-- Sale con `ESC`.
-
-Ejemplo:
+Modos disponibles:
 
 ```cpp
-if (JWPLC_Display.isReady())
-{
-    JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
-}
+IDLE_RETURN_TIMEOUT
+IDLE_RETURN_ESC_ONLY
+IDLE_RETURN_DISABLED
+IDLE_RETURN_BUTTON_ONLY
 ```
 
-### 6.3 `IDLE_RETURN_DISABLED`
+| Modo | Comportamiento |
+|---|---|
+| `IDLE_RETURN_TIMEOUT` | Vuelve a `IDLE` tras un tiempo sin actividad. |
+| `IDLE_RETURN_ESC_ONLY` | Vuelve a `IDLE` solo con `ESC`. |
+| `IDLE_RETURN_DISABLED` | El retorno automático queda deshabilitado. |
+| `IDLE_RETURN_BUTTON_ONLY` | Vuelve con el botón configurado. |
 
-Desactiva el retorno automático y el retorno por `ESC` gestionado por el display.
-
-Uso recomendado solo cuando el sketch quiere controlar manualmente toda la navegación.
+Timeout:
 
 ```cpp
-JWPLC_Display.setIdleReturnMode(IDLE_RETURN_DISABLED);
+JWPLC_Display.setIdleTimeoutMs(15000);
 ```
 
-Comportamiento:
-
-- Entra a `USER`.
-- No vuelve automáticamente.
-- El sketch debe llamar manualmente a:
+Botón específico:
 
 ```cpp
-JWPLC_Display.goIdle();
+JWPLC_Display.setIdleReturnButton(BTN_ESC);
 ```
 
-Ejemplo:
+---
+
+## 6. Indicadores laterales
+
+La pantalla `IDLE` muestra indicadores laterales:
+
+```txt
+PWR
+RUN
+ERR
+BUS
+ETH
+```
+
+`PWR` es gestionado por la pantalla IDLE. Los demás pueden controlarse desde `JWPLC_Display`.
+
+### RUN
 
 ```cpp
-if (JWPLC_Display.isReady())
-{
-    JWPLC_Display.setIdleReturnMode(IDLE_RETURN_DISABLED);
-}
-
-// Luego, cuando tu lógica decida salir:
-JWPLC_Display.goIdle();
+JWPLC_Display.setRunLed(true);
+JWPLC_Display.setRunLed(false);
+bool run = JWPLC_Display.runLed();
 ```
+
+### ERR
+
+```cpp
+JWPLC_Display.setErrLed(true);
+JWPLC_Display.setErrLed(false);
+bool err = JWPLC_Display.errLed();
+```
+
+### BUS manual
+
+```cpp
+JWPLC_Display.setBusLed(true);
+JWPLC_Display.setBusLed(false);
+bool bus = JWPLC_Display.busLed();
+```
+
+Llamar a `setBusLed(true/false)` desactiva el modo automático de BUS.
+
+### BUS automático
+
+```cpp
+JWPLC_Display.setBusLedAuto(true);
+bool busAuto = JWPLC_Display.busLedAuto();
+```
+
+En modo automático, `BUS` refleja actividad reciente de `JWPLC_RS485`, incluyendo tráfico usado por `JWPLC_ModbusRTU`.
+
+Semántica visual:
+
+| Estado | Significado |
+|---|---|
+| Gris | RS-485 no disponible o no iniciado. |
+| Apagado / negro | RS-485 iniciado, sin actividad reciente. |
+| Verde | Actividad TX/RX reciente. |
+| Rojo | Error de RS-485 o error Modbus RTU reciente. |
+
+El modo automático de BUS no inicializa RS-485. Para que pase de gris a apagado/verde, el usuario debe iniciar `JWPLC_RS485` o `JWPLC_ModbusRTU`.
+
+```cpp
+#include <JWPLC_ModbusRTU.h>
+
+JWPLC_Display.setBusLedAuto(true);
+JWPLC_ModbusRTU.begin(1, 115200, SERIAL_8N1);
+```
+
+### ETH manual
+
+```cpp
+JWPLC_Display.setEthLed(true);
+JWPLC_Display.setEthLed(false);
+bool eth = JWPLC_Display.ethLed();
+```
+
+Llamar a `setEthLed(true/false)` desactiva el modo automático de ETH.
+
+### ETH automático
+
+```cpp
+JWPLC_Display.setEthLedAuto(true);
+bool ethAuto = JWPLC_Display.ethLedAuto();
+```
+
+Semántica visual:
+
+| Estado | Significado |
+|---|---|
+| Gris | Ethernet no disponible o deshabilitado por la variante. |
+| Apagado / negro | Ethernet disponible, pero sin inicio/link/estado activo. |
+| Verde | Ethernet OK. |
+| Rojo | Error real de Ethernet. |
+
+En `JWPLC Basic Core`, donde Ethernet puede estar deshabilitado, `ETH` debe mostrarse en gris.
 
 ---
 
@@ -354,18 +361,10 @@ JWPLC_Display.goIdle();
 
 `JWPLC_Display.tft()` entrega una referencia al objeto interno `Adafruit_ST7789`.
 
-Para usar constantes como `ST77XX_BLACK`, `ST77XX_WHITE`, `ST77XX_GREEN`, etc., incluye:
-
-```cpp
-#include <JWPLC_Display.h>
-```
-
-Ejemplo:
-
 ```cpp
 #include <JWPLC_Display.h>
 
-void drawScreen()
+extern "C" void jwplcUserDisplayEnterCallback()
 {
     auto &tft = JWPLC_Display.tft();
 
@@ -388,23 +387,18 @@ Se recomienda usar `tft()` para dejar claro que se está accediendo al objeto gr
 
 ## 8. Callbacks USER
 
-Para proyectos reales, la forma más ordenada de crear pantallas personalizadas es usar callbacks.
-
 Los callbacks deben declararse con `extern "C"` porque el runtime los llama desde una capa C/C++ interna.
 
-### 8.1 `jwplcUserDisplayEnterCallback()`
+### `jwplcUserDisplayEnterCallback()`
 
-Se ejecuta **una sola vez** al entrar a `USER`.
+Se ejecuta una vez al entrar a `USER`.
 
 Uso recomendado:
 
-- Limpiar la pantalla.
-- Dibujar títulos.
-- Dibujar etiquetas fijas.
-- Dibujar marcos, iconos o layout base.
-- Preparar la pantalla inicial.
-
-Ejemplo:
+- limpiar pantalla;
+- dibujar títulos;
+- dibujar layout base;
+- preparar variables visuales.
 
 ```cpp
 extern "C" void jwplcUserDisplayEnterCallback()
@@ -412,357 +406,49 @@ extern "C" void jwplcUserDisplayEnterCallback()
     auto &tft = JWPLC_Display.tft();
 
     tft.fillScreen(ST77XX_BLACK);
-
     tft.setTextSize(2);
     tft.setTextColor(ST77XX_CYAN, ST77XX_BLACK);
     tft.setCursor(10, 10);
     tft.print("MENU");
-
-    tft.setTextSize(1);
-    tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
-    tft.setCursor(10, 50);
-    tft.print("Temperatura:");
-
-    tft.setCursor(10, 70);
-    tft.print("Estado:");
 }
 ```
 
-Qué **no** conviene hacer aquí:
-
-- Abrir archivos grandes.
-- Leer imágenes pesadas desde SD.
-- Hacer operaciones bloqueantes largas.
-- Consultar Ethernet de forma repetida.
-
-Una lectura puntual puede funcionar, pero para sistemas robustos es mejor cachear estados en `loop()`.
-
-### 8.2 `jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc)`
+### `jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc)`
 
 Se ejecuta periódicamente mientras se está en `USER`.
 
 La frecuencia se define con:
 
 ```cpp
-JWPLC_Display.setUserRefreshPeriodMs(250);
+JWPLC_Display.setUserRefreshPeriodMs(100);
 ```
 
 Uso recomendado:
 
-- Actualizar valores dinámicos.
-- Redibujar solo áreas pequeñas.
-- Mostrar entradas/salidas.
-- Mostrar hora RTC.
-- Mostrar variables ya cacheadas.
-
-Ejemplo básico:
+- actualizar valores dinámicos;
+- redibujar solo áreas pequeñas;
+- mostrar entradas/salidas;
+- mostrar hora RTC;
+- mostrar variables ya cacheadas.
 
 ```cpp
-extern "C" void jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc)
-{
-    (void)io;
-    (void)rtc;
-
-    auto &tft = JWPLC_Display.tft();
-
-    tft.fillRect(120, 50, 100, 16, ST77XX_BLACK);
-    tft.setCursor(120, 50);
-    tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
-    tft.print(millis());
-}
-```
-
-Si usas `io` y `rtc`, puedes leer estados que el runtime ya entrega al callback:
-
-```cpp
-extern "C" void jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc)
+extern "C" void jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io,
+                                                const JWPLC_RTCState *rtc)
 {
     auto &tft = JWPLC_Display.tft();
 
-    tft.fillRect(10, 100, 200, 16, ST77XX_BLACK);
-    tft.setCursor(10, 100);
-
-    if (rtc)
-    {
-        tft.print(rtc->hour);
-        tft.print(":");
-        tft.print(rtc->minute);
-        tft.print(":");
-        tft.print(rtc->second);
-    }
+    tft.fillRect(10, 40, 120, 12, ST77XX_BLACK);
+    tft.setCursor(10, 40);
+    tft.print("DI: ");
+    tft.print(io ? io->di_logical_bank0 : 0);
 }
 ```
 
-> Nota: los nombres exactos de campos de `JWPLC_IOState` y `JWPLC_RTCState` dependen de la versión interna del core. Revisa el header correspondiente si necesitas acceso detallado.
-
-### 8.3 `jwplcUserDisplayExitCallback()`
+### `jwplcUserDisplayExitCallback()`
 
 Se ejecuta al salir de `USER` hacia `IDLE`.
 
-Uso recomendado:
-
-- Guardar cambios.
-- Liberar estados temporales.
-- Imprimir debug.
-- Resetear variables de navegación.
-
-Ejemplo:
-
 ```cpp
-extern "C" void jwplcUserDisplayExitCallback()
-{
-    Serial.println("Saliendo de USER hacia IDLE");
-}
-```
-
----
-
-## 9. Regla importante para SPI compartido
-
-En JWPLC Basic, la TFT comparte SPI con otros periféricos como:
-
-- FRAM
-- microSD
-- Ethernet W5500
-
-Desde `2.0.0-alpha.26`, `JWPLC_Display` protege sus operaciones internas usando el mutex SPI global.
-
-Aun así, en sketches de usuario se debe respetar esta regla:
-
-> Dentro de callbacks gráficos del display, evita consultar periféricos SPI como `JWPLC_Ethernet`, `JWPLC_SD` o `JWPLC_FRAM`.
-
-Patrón recomendado:
-
-1. En `loop()`, consulta periféricos SPI.
-2. Guarda el resultado en variables globales simples.
-3. En `jwplcUserDisplayRefreshCallback()`, solo dibuja esas variables.
-
-Ejemplo recomendado:
-
-```cpp
-char ethStatusText[32] = "Unknown";
-
-void loop()
-{
-    strncpy(ethStatusText, JWPLC_Ethernet.statusString(), sizeof(ethStatusText) - 1);
-    ethStatusText[sizeof(ethStatusText) - 1] = '\0';
-}
-
-extern "C" void jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc)
-{
-    (void)io;
-    (void)rtc;
-
-    auto &tft = JWPLC_Display.tft();
-
-    tft.fillRect(80, 40, 150, 16, ST77XX_BLACK);
-    tft.setCursor(80, 40);
-    tft.print(ethStatusText);
-}
-```
-
-No recomendado:
-
-```cpp
-extern "C" void jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc)
-{
-    auto &tft = JWPLC_Display.tft();
-
-    // Evitar: Ethernet también usa SPI.
-    tft.print(JWPLC_Ethernet.statusString());
-}
-```
-
----
-
-## 10. Indicadores RUN, ERR, BUS y ETH
-
-La pantalla IDLE puede mostrar indicadores laterales.
-
-```cpp
-JWPLC_Display.setRunLed(true);
-JWPLC_Display.setErrLed(false);
-JWPLC_Display.setBusLed(true);
-JWPLC_Display.setEthLed(false);
-```
-
-Lectura de estado:
-
-```cpp
-bool run = JWPLC_Display.runLed();
-bool err = JWPLC_Display.errLed();
-bool bus = JWPLC_Display.busLed();
-bool eth = JWPLC_Display.ethLed();
-```
-
-Uso típico:
-
-```cpp
-JWPLC_Display.setRunLed(maquinaEnMarcha);
-JWPLC_Display.setErrLed(hayError);
-JWPLC_Display.setBusLed(modbusOk);
-JWPLC_Display.setEthLed(ethernetOk);
-```
-
----
-
-## 11. Uso eficiente de la TFT ST7789
-
-La TFT funciona por SPI. Para mantener fluida la interfaz y evitar consumo innecesario, conviene dibujar con cuidado.
-
-### 11.1 Evita `fillScreen()` en refrescos rápidos
-
-No recomendado:
-
-```cpp
-void loop()
-{
-    auto &tft = JWPLC_Display.tft();
-    tft.fillScreen(ST77XX_BLACK);
-    tft.print(millis());
-}
-```
-
-Recomendado:
-
-```cpp
-auto &tft = JWPLC_Display.tft();
-
-tft.fillRect(10, 50, 180, 20, ST77XX_BLACK);
-tft.setCursor(10, 50);
-tft.print(millis());
-```
-
-`fillScreen()` está bien en `jwplcUserDisplayEnterCallback()`, no en cada refresco.
-
-### 11.2 Redibuja solo zonas que cambian
-
-```cpp
-tft.fillRect(90, 40, 80, 16, ST77XX_BLACK);
-tft.setCursor(90, 40);
-tft.print(valor);
-```
-
-### 11.3 Guarda el último valor dibujado
-
-```cpp
-static int lastValue = -1;
-
-if (value != lastValue)
-{
-    lastValue = value;
-
-    auto &tft = JWPLC_Display.tft();
-    tft.fillRect(10, 40, 100, 16, ST77XX_BLACK);
-    tft.setCursor(10, 40);
-    tft.print(value);
-}
-```
-
-### 11.4 Usa periodos de refresco razonables
-
-```cpp
-JWPLC_Display.setUserRefreshPeriodMs(100);  // rápido
-JWPLC_Display.setUserRefreshPeriodMs(250);  // normal
-JWPLC_Display.setUserRefreshPeriodMs(500);  // liviano
-```
-
-Para pantallas industriales, 100 ms a 500 ms suele ser suficiente.
-
-### 11.5 Evita `String` en refrescos frecuentes
-
-Evitar:
-
-```cpp
-String texto = "Valor: " + String(valor);
-tft.print(texto);
-```
-
-Preferir:
-
-```cpp
-tft.print("Valor: ");
-tft.print(valor);
-```
-
-O:
-
-```cpp
-char buffer[32];
-snprintf(buffer, sizeof(buffer), "Valor: %d", valor);
-tft.print(buffer);
-```
-
-### 11.6 Mantén callbacks cortos
-
-Los callbacks USER deben terminar rápido para no afectar:
-
-- Lectura de botonera.
-- Escritura en microSD.
-- Acceso a FRAM.
-- Comunicación Ethernet.
-- Sensación de fluidez de la interfaz.
-
----
-
-## 12. Ejemplo completo: callbacks USER + retorno a IDLE
-
-```cpp
-#include <JWPLC_Display.h>
-
-bool displayConfigured = false;
-uint32_t counter = 0;
-
-void setup()
-{
-    Serial.begin(115200);
-}
-
-void loop()
-{
-    if (!displayConfigured && JWPLC_Display.isReady())
-    {
-        displayConfigured = true;
-
-        JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);
-        JWPLC_Display.setIdleTimeoutMs(8000);
-        JWPLC_Display.setUserRefreshPeriodMs(250);
-    }
-
-    counter++;
-    delay(10);
-}
-
-extern "C" void jwplcUserDisplayEnterCallback()
-{
-    auto &tft = JWPLC_Display.tft();
-
-    tft.fillScreen(ST77XX_BLACK);
-
-    tft.setTextSize(2);
-    tft.setTextColor(ST77XX_CYAN, ST77XX_BLACK);
-    tft.setCursor(10, 10);
-    tft.print("USER");
-
-    tft.setTextSize(1);
-    tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
-    tft.setCursor(10, 50);
-    tft.print("Counter:");
-}
-
-extern "C" void jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc)
-{
-    (void)io;
-    (void)rtc;
-
-    auto &tft = JWPLC_Display.tft();
-
-    tft.fillRect(90, 50, 120, 16, ST77XX_BLACK);
-    tft.setCursor(90, 50);
-    tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
-    tft.print(counter);
-}
-
 extern "C" void jwplcUserDisplayExitCallback()
 {
     Serial.println("Saliendo de USER");
@@ -771,165 +457,125 @@ extern "C" void jwplcUserDisplayExitCallback()
 
 ---
 
-## 13. Compatibilidad con `JWPLCDisplay::`
-
-La API legacy se mantiene temporalmente:
+## 9. Ejemplo mínimo setup-friendly
 
 ```cpp
-JWPLCDisplay::isReady();
-JWPLCDisplay::enterUserUI();
-JWPLCDisplay::display();
-```
-
-Para código nuevo se recomienda:
-
-```cpp
-JWPLC_Display.isReady();
-JWPLC_Display.enterUserUI();
-JWPLC_Display.tft();
-```
-
----
-
-## 14. Problemas comunes
-
-### `JWPLC_Display` no existe
-
-Verifica que estés usando una placa compatible del package JWPLC. Para dibujo directo incluye:
-
-```cpp
+#include <Arduino.h>
 #include <JWPLC_Display.h>
+
+static constexpr uint32_t USER_REFRESH_MS = 100;
+
+extern "C" void jwplcUserDisplayEnterCallback()
+{
+    auto &tft = JWPLC_Display.tft();
+
+    tft.fillScreen(ST77XX_BLACK);
+    tft.setTextSize(2);
+    tft.setTextColor(ST77XX_CYAN, ST77XX_BLACK);
+    tft.setCursor(20, 25);
+    tft.print("USER");
+}
+
+extern "C" void jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io,
+                                                const JWPLC_RTCState *rtc)
+{
+    (void)io;
+    (void)rtc;
+
+    static uint32_t frames = 0;
+    frames++;
+
+    auto &tft = JWPLC_Display.tft();
+
+    tft.fillRect(20, 70, 160, 16, ST77XX_BLACK);
+    tft.setTextSize(1);
+    tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
+    tft.setCursor(20, 70);
+    tft.print("Frames: ");
+    tft.print(frames);
+}
+
+void setup()
+{
+    Serial.begin(115200);
+
+    JWPLC_Display.setIdleWakeMode(IDLE_WAKE_ANY_BUTTON);
+    JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
+
+    JWPLC_Display.setIdleRefreshPeriodMs(1000);
+    JWPLC_Display.setUserRefreshPeriodMs(USER_REFRESH_MS);
+
+    JWPLC_Display.setRunLed(true);
+    JWPLC_Display.setErrLed(false);
+    JWPLC_Display.setBusLedAuto(true);
+    JWPLC_Display.setEthLedAuto(true);
+}
+
+void loop()
+{
+    delay(10);
+}
 ```
-
-### `ST77XX_BLACK` no existe
-
-Incluye:
-
-```cpp
-#include <JWPLC_Display.h>
-```
-
-### La pantalla no dibuja en `setup()`
-
-Puede ocurrir si todavía no terminó el autoarranque. Usa `isReady()` y dibuja desde `loop()` o callbacks USER.
-
-### La pantalla parpadea
-
-Causas comunes:
-
-- Uso repetido de `fillScreen()`.
-- Redibujar toda la pantalla en cada ciclo.
-- Refresh demasiado rápido.
-- No limpiar áreas específicas antes de imprimir texto variable.
-
-Solución:
-
-- Usar `fillRect()` en zonas pequeñas.
-- Cachear últimos valores.
-- Subir `setUserRefreshPeriodMs()` a 100, 250 o 500 ms.
-
-### Texto sobreescrito
-
-Limpia el área antes de imprimir un valor variable:
-
-```cpp
-tft.fillRect(80, 40, 100, 16, ST77XX_BLACK);
-tft.setCursor(80, 40);
-tft.print(valor);
-```
-
-### Ruido gráfico o pantalla corrupta al usar Ethernet/SD/FRAM
-
-Causa probable:
-
-- Acceso simultáneo al bus SPI.
-- Consultas a periféricos SPI dentro de callbacks gráficos.
-- Dibujo TFT demasiado pesado mientras hay tráfico SPI.
-
-Solución:
-
-- Actualizar a una versión donde `JWPLC_Display` use el mutex SPI global.
-- Evitar llamadas a `JWPLC_Ethernet`, `JWPLC_SD` o `JWPLC_FRAM` dentro de callbacks de dibujo.
-- Cachear estados en `loop()` y dibujar solo variables simples.
 
 ---
 
-## 15. Ejemplos incluidos
+## 10. Ejemplos y códigos de prueba
 
-### `Display_DotAPI_Minimal`
+Ejemplos de usuario final dentro de la librería:
 
-Ejemplo mínimo de API con punto.
+```txt
+examples/Display_FlappyBird/
+examples/Display_Tetris/
+```
 
-Valida:
+Códigos internos de validación histórica:
 
-- Autoarranque del display.
-- API `JWPLC_Display`.
-- Indicadores RUN, BUS y ETH.
-- Cambio IDLE/USER.
-- Retorno automático a IDLE.
+```txt
+JWPLC/Test_Codes/
+```
 
-### `Display_UserUI_Callbacks`
+Pruebas usadas durante `v2.1.0-alpha.2`:
 
-Ejemplo con callbacks USER.
-
-Valida:
-
-- `jwplcUserDisplayEnterCallback()`.
-- `jwplcUserDisplayRefreshCallback()`.
-- `jwplcUserDisplayExitCallback()`.
-- Dibujo directo con `JWPLC_Display.tft()`.
-- Redibujado parcial.
-
-### `Display_Efficient_Redraw`
-
-Ejemplo de buenas prácticas.
-
-Valida:
-
-- Redibujar solo zonas necesarias.
-- Cachear últimos valores.
-- Usar `snprintf()`.
-- Evitar `fillScreen()` en refrescos.
-- Controlar periodo de refresco.
-
-### `Display_Idle_Return_Modes`
-
-Ejemplo nuevo recomendado para probar:
-
-- `IDLE_RETURN_TIMEOUT`.
-- `IDLE_RETURN_ESC_ONLY`.
-- `IDLE_RETURN_DISABLED`.
+- configuración de LEDs desde `setup()`;
+- ETH automático;
+- BUS automático por RS-485;
+- Modbus RTU master/slave entre dos JWPLC Basic;
+- refresco USER a 100 ms y 20 ms;
+- retorno `USER -> IDLE` con `ESC`.
 
 ---
 
-## Validación alpha31
+## 11. Reglas de coexistencia SPI
 
-Para alpha31, `JWPLC_Display` se valida como parte del package completo instalado desde cero.
+La TFT comparte SPI con:
 
-Pruebas recomendadas:
+- Ethernet W5500;
+- FRAM;
+- microSD.
 
-- autoarranque de pantalla `IDLE`;
-- entrada a pantalla `USER`;
-- retorno `USER -> IDLE` por timeout;
-- retorno `USER -> IDLE` por `ESC`;
-- modo `IDLE_RETURN_DISABLED`;
-- indicadores `RUN`, `ERR`, `BUS` y `ETH`;
-- ausencia de superposición de texto;
-- ausencia de eventos pendientes de botonera al cambiar de pantalla;
-- coexistencia SPI con Ethernet, SD y FRAM.
+Regla recomendada para sketches avanzados:
 
-No se agregan features nuevas de display en alpha31.
+1. consultar periféricos SPI desde `loop()`;
+2. guardar resultados en variables simples;
+3. dibujar en callbacks usando variables cacheadas.
+
+Evita consultar `JWPLC_Ethernet`, `JWPLC_SD` o `JWPLC_FRAM` de forma repetida dentro de callbacks gráficos.
 
 ---
 
-## Estado
+## 12. Estado
 
-Documentación revisada para:
+Documentación actualizada para:
 
-```text
-JWPLC ESP32 2.0.0-alpha.31
-JWPLC_Display 1.0.0
+```txt
+JWPLC ESP32 2.1.0-alpha.2
+JWPLC_Display
 ```
 
-Alpha31 valida el comportamiento actual del display dentro del package completo. No introduce cambios funcionales grandes en esta librería.
-```
+Cambios principales:
+
+- configuración setup-friendly;
+- refresh USER dinámico;
+- indicadores `BUS` y `ETH` con estados extendidos;
+- BUS automático por actividad RS-485 / Modbus RTU;
+- pruebas de benchmark y juegos para validar refresco TFT.

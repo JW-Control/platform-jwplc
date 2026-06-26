@@ -49,6 +49,49 @@ Queda fuera de `v2.0.0`:
 
 ---
 
+
+## Estado de desarrollo v2.1.0-alpha.2
+
+`v2.1.0-alpha.2` corresponde a una **pre-release técnica** enfocada en mejoras y correcciones de `JWPLC_Display`, refresco TFT y panel de estado `IDLE`.
+
+Esta alpha no reemplaza todavía a `v2.0.0` como canal estable público. Su objetivo es validar sobre hardware real los cambios de HMI antes de preparar una publicación estable posterior.
+
+Objetivo:
+
+```txt
+Mejorar la experiencia de uso del TFT integrado, permitir configuración directa desde setup() y mostrar estados más claros para ETH/BUS en la pantalla IDLE.
+```
+
+Alcance principal:
+
+- `setUserRefreshPeriodMs()` ahora controla realmente la frecuencia de `jwplcUserDisplayRefreshCallback()` en modo `USER`.
+- Las configuraciones principales de `JWPLC_Display` pueden declararse desde `setup()`, sin esperar `isReady()` en `loop()`.
+- Los indicadores `RUN`, `ERR`, `BUS` y `ETH` ya no son pisados por la inicialización interna de la TFT.
+- `BUS` puede funcionar en modo automático usando actividad real de `JWPLC_RS485`.
+- `ETH` y `BUS` usan estados visuales más claros: gris, apagado, verde y rojo.
+- Se agregan códigos internos de prueba en `JWPLC/Test_Codes` para conservar histórico de validación.
+- Se validó Modbus RTU Master/Slave entre dos JWPLC Basic usando el puerto RS-485 físico.
+
+Estados visuales definidos para `BUS` y `ETH`:
+
+| Estado visual | Significado general |
+|---|---|
+| Gris | Periférico no disponible, deshabilitado o no iniciado. |
+| Apagado / negro | Periférico disponible, pero sin actividad o sin link activo. |
+| Verde | Estado OK o actividad reciente. |
+| Rojo | Error real detectado. |
+
+Queda fuera de `v2.1.0-alpha.2`:
+
+- OpenPLC como runtime integrado obligatorio.
+- OTA.
+- definición final de Flash Frequency como decisión de producto.
+- publicación de `bootloader.bin` precompilado como definitivo.
+- cambios de arquitectura multicore.
+- nuevas mejoras visuales de TFT no necesarias para cerrar esta alpha.
+
+> Cualquier mejora adicional de UX del display debería moverse a una alpha posterior para mantener `v2.1.0-alpha.2` acotada y verificable.
+
 ## Resumen rápido
 
 **JWPLC Basic** es una plataforma industrial basada en **ESP32-WROOM-32E**. Este package permite programarla desde Arduino IDE manteniendo una sintaxis familiar, pero con periféricos industriales ya integrados:
@@ -161,6 +204,27 @@ https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_j
 ```
 
 Este canal no se recomienda para usuarios finales.
+
+Versiones esperadas en este canal durante el ciclo `2.1.0`:
+
+```txt
+2.1.0-alpha.1
+2.1.0-alpha.2
+```
+
+Para pruebas locales de PR o desarrollo activo se recomienda usar un package local separado, por ejemplo:
+
+```txt
+jwplc_local:esp32:jwplcbasic
+```
+
+y enlazarlo por junction/symlink hacia:
+
+```txt
+JWPLC/2.1.0
+```
+
+Esto permite probar cambios del repo local sin alterar la instalación estable `jwplc:esp32` instalada desde Boards Manager.
 
 ---
 
@@ -329,10 +393,10 @@ El package incluye librerías internas del ecosistema JWPLC y snapshots estables
 
 | Librería | Descripción | README |
 |---|---|---|
-| `JWPLC_Display` | Manejo de TFT ST7789, pantallas IDLE/USER, callbacks de HMI e indicadores visuales. | [Ver README](https://github.com/JW-Control/platform-jwplc/blob/main/JWPLC/JWPLC-2.0.0/libraries/JWPLC_Display/README.md) |
-| `JWPLC_Ethernet` | Integración del W5500, DHCP/static IP, reconexión, estado de link y coexistencia SPI. | [Ver README](https://github.com/JW-Control/platform-jwplc/blob/main/JWPLC/JWPLC-2.0.0/libraries/JWPLC_Ethernet/README.md) |
-| `JWPLC_RS485` | API nativa para usar el puerto RS-485 físico del JWPLC Basic sobre `Serial2`. | [Ver README](https://github.com/JW-Control/platform-jwplc/blob/main/JWPLC/JWPLC-2.0.0/libraries/JWPLC_RS485/README.md) |
-| `JWPLC_ModbusRTU` | Modbus RTU base sobre `JWPLC_RS485`, con soporte inicial master/slave. | [Ver README](https://github.com/JW-Control/platform-jwplc/blob/main/JWPLC/JWPLC-2.0.0/libraries/JWPLC_ModbusRTU/README.md) |
+| `JWPLC_Display` | Manejo de TFT ST7789, pantallas IDLE/USER, callbacks de HMI e indicadores visuales. | [Ver README](https://github.com/JW-Control/platform-jwplc/blob/main/JWPLC/2.1.0/libraries/JWPLC_Display/README.md) |
+| `JWPLC_Ethernet` | Integración del W5500, DHCP/static IP, reconexión, estado de link y coexistencia SPI. | [Ver README](https://github.com/JW-Control/platform-jwplc/blob/main/JWPLC/2.1.0/libraries/JWPLC_Ethernet/README.md) |
+| `JWPLC_RS485` | API nativa para usar el puerto RS-485 físico del JWPLC Basic sobre `Serial2`. | [Ver README](https://github.com/JW-Control/platform-jwplc/blob/main/JWPLC/2.1.0/libraries/JWPLC_RS485/README.md) |
+| `JWPLC_ModbusRTU` | Modbus RTU base sobre `JWPLC_RS485`, con soporte inicial master/slave. | [Ver README](https://github.com/JW-Control/platform-jwplc/blob/main/JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/README.md) |
 
 > `JWPLC_GlobalPeripherals` no tiene README independiente por ahora. Su función principal es agrupar y exponer los objetos globales del ecosistema JWPLC.
 
@@ -359,32 +423,243 @@ Estas librerías tienen repositorio propio y el README apunta al branch `main` o
 La API recomendada usa estilo objeto con punto:
 
 ```cpp
-JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);
-JWPLC_Display.setIdleTimeoutMs(8000);
+JWPLC_Display.setIdleWakeMode(IDLE_WAKE_ANY_BUTTON);
+JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
+JWPLC_Display.setUserRefreshPeriodMs(100);
 JWPLC_Display.setRunLed(true);
 ```
 
-Modos de retorno desde pantalla `USER` a `IDLE`:
+### Configuración desde `setup()`
+
+Desde `v2.1.0-alpha.2`, las configuraciones principales del display pueden declararse directamente desde `setup()`.
+
+Ya no es necesario crear una lógica en `loop()` del tipo `if (JWPLC_Display.isReady())` solo para configurar comportamiento del display.
+
+Ejemplo recomendado:
+
+```cpp
+#include <Arduino.h>
+#include <JWPLC_Display.h>
+
+void setup()
+{
+    Serial.begin(115200);
+
+    JWPLC_Display.setIdleWakeMode(IDLE_WAKE_ANY_BUTTON);
+    JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
+
+    JWPLC_Display.setIdleRefreshPeriodMs(1000);
+    JWPLC_Display.setUserRefreshPeriodMs(100);
+
+    JWPLC_Display.setRunLed(true);
+    JWPLC_Display.setErrLed(false);
+    JWPLC_Display.setBusLedAuto(true);
+    JWPLC_Display.setEthLedAuto(true);
+}
+
+void loop()
+{
+    // Lógica normal del sketch.
+}
+```
+
+APIs validadas como configuración desde `setup()`:
+
+```cpp
+JWPLC_Display.setIdleWakeMode(...);
+JWPLC_Display.setIdleWakeButton(...);
+
+JWPLC_Display.setIdleReturnMode(...);
+JWPLC_Display.setIdleReturnButton(...);
+JWPLC_Display.setIdleTimeoutMs(...);
+
+JWPLC_Display.setIdleRefreshPeriodMs(...);
+JWPLC_Display.setUserRefreshPeriodMs(...);
+
+JWPLC_Display.setRunLed(...);
+JWPLC_Display.setErrLed(...);
+
+JWPLC_Display.setBusLed(...);
+JWPLC_Display.setBusLedAuto(...);
+
+JWPLC_Display.setEthLed(...);
+JWPLC_Display.setEthLedAuto(...);
+```
+
+`isReady()` sigue siendo útil para saber cuándo la TFT ya está disponible para dibujo directo, pero no es necesario para definir la configuración básica del display.
+
+### IDLE y USER
+
+`IDLE` es la pantalla automática base del JWPLC. Muestra:
+
+- título del equipo;
+- indicadores laterales `PWR`, `RUN`, `ERR`, `BUS`, `ETH`;
+- entradas digitales;
+- salidas digitales;
+- RTC cuando está disponible.
+
+`USER` es la pantalla personalizada del sketch. Se entra a `USER` cuando:
+
+- se presiona una tecla de la botonera según el modo configurado;
+- el sketch llama manualmente a `JWPLC_Display.enterUserUI()`.
+
+Modos de entrada desde `IDLE` a `USER`:
+
+```cpp
+IDLE_WAKE_ANY_BUTTON
+IDLE_WAKE_BUTTON_ONLY
+IDLE_WAKE_DISABLED
+```
+
+Modos de retorno desde `USER` a `IDLE`:
 
 ```cpp
 IDLE_RETURN_TIMEOUT
 IDLE_RETURN_ESC_ONLY
+IDLE_RETURN_BUTTON_ONLY
 IDLE_RETURN_DISABLED
 ```
 
-Para usar funciones de configuración, estado o LEDs del display no hace falta incluir librerías manualmente.
+Ejemplo:
 
-Para dibujar directamente sobre la TFT con métodos de Adafruit ST7789, sí se debe incluir:
+```cpp
+JWPLC_Display.setIdleWakeMode(IDLE_WAKE_ANY_BUTTON);
+JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
+```
+
+### Refresco de pantalla USER
+
+`setUserRefreshPeriodMs(ms)` define cada cuánto se llama:
+
+```cpp
+jwplcUserDisplayRefreshCallback(...)
+```
+
+en modo `USER`.
+
+Desde `v2.1.0-alpha.2`, el core respeta este periodo también cuando no hay eventos de botones.
+
+Ejemplos validados:
+
+```cpp
+JWPLC_Display.setUserRefreshPeriodMs(100); // 10 FPS
+JWPLC_Display.setUserRefreshPeriodMs(20);  // prueba rápida de refresco
+```
+
+El runtime limita el valor a un rango seguro para evitar valores nulos o demasiado agresivos.
+
+### Acceso directo a la TFT
+
+Para dibujar directamente con Adafruit ST7789, incluye:
 
 ```cpp
 #include <JWPLC_Display.h>
 ```
 
-Esto es necesario cuando se usa:
+y usa:
 
 ```cpp
 auto &tft = JWPLC_Display.tft();
 ```
+
+También existe el alias:
+
+```cpp
+auto &display = JWPLC_Display.display();
+```
+
+El acceso directo a la TFT debe hacerse cuando la pantalla ya esté inicializada. Lo más ordenado es dibujar desde los callbacks:
+
+```cpp
+extern "C" void jwplcUserDisplayEnterCallback()
+{
+    auto &tft = JWPLC_Display.tft();
+    tft.fillScreen(ST77XX_BLACK);
+}
+
+extern "C" void jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc)
+{
+    auto &tft = JWPLC_Display.tft();
+    // Redibujar solo áreas pequeñas.
+}
+```
+
+### Indicadores laterales IDLE
+
+Los indicadores laterales resumen el estado del equipo:
+
+| LED | Uso |
+|---|---|
+| `PWR` | Encendido del sistema. |
+| `RUN` | Estado de ejecución definido por el usuario/runtime. |
+| `ERR` | Estado de error definido por el usuario/runtime. |
+| `BUS` | Estado o actividad del bus RS-485/Modbus RTU. |
+| `ETH` | Estado de Ethernet W5500. |
+
+Desde `v2.1.0-alpha.2`, `BUS` y `ETH` usan estados visuales de cuatro niveles:
+
+| Color / estado | Significado |
+|---|---|
+| Gris | Periférico no disponible, deshabilitado o no iniciado. |
+| Negro / apagado | Periférico disponible, pero sin actividad o sin link activo. |
+| Verde | Estado OK o actividad reciente. |
+| Rojo | Error real detectado. |
+
+### LED BUS
+
+Modo manual:
+
+```cpp
+JWPLC_Display.setBusLed(true);
+JWPLC_Display.setBusLed(false);
+```
+
+`setBusLed(...)` desactiva el modo automático y fuerza el estado manual.
+
+Modo automático:
+
+```cpp
+JWPLC_Display.setBusLedAuto(true);
+```
+
+En modo automático, `BUS` depende de `JWPLC_RS485`:
+
+| Condición | LED BUS |
+|---|---|
+| RS-485 no disponible o no iniciado | Gris |
+| RS-485 iniciado, sin tráfico reciente | Apagado |
+| TX/RX reciente por `JWPLC_RS485` o `JWPLC_ModbusRTU` | Verde |
+| Error RS-485 o error Modbus RTU reciente | Rojo |
+
+Este indicador no inicializa RS-485 por sí mismo. Para que `BUS` salga de gris, el sketch debe iniciar `JWPLC_RS485` o `JWPLC_ModbusRTU`.
+
+### LED ETH
+
+Modo manual:
+
+```cpp
+JWPLC_Display.setEthLed(true);
+JWPLC_Display.setEthLed(false);
+```
+
+`setEthLed(...)` desactiva el modo automático y fuerza el estado manual.
+
+Modo automático:
+
+```cpp
+JWPLC_Display.setEthLedAuto(true);
+```
+
+En modo automático:
+
+| Condición | LED ETH |
+|---|---|
+| Ethernet no disponible o deshabilitado por variante | Gris |
+| Ethernet disponible, pero no iniciado / link off | Apagado |
+| Ethernet OK | Verde |
+| Falla real de Ethernet | Rojo |
+
+En `JWPLC Basic Core`, donde Ethernet puede estar deshabilitado por configuración, `ETH` debe mostrarse en gris.
 
 ### Recomendación para callbacks gráficos
 
@@ -394,7 +669,7 @@ En callbacks del display, evita hacer operaciones pesadas o consultas directas a
 2. Guardar resultados en variables simples.
 3. Dibujar en pantalla usando esas variables ya cacheadas.
 
----
+Evita consultar `JWPLC_Ethernet`, `JWPLC_SD` o `JWPLC_FRAM` directamente dentro de callbacks de dibujo repetitivos.
 
 ## Botonera integrada
 
@@ -495,7 +770,7 @@ JWPLC_Ethernet.maintain();
 
 El runtime se encarga de:
 
-- Inicializar Ethernet automáticamente.
+- Inicializar Ethernet automáticamente en variantes compatibles.
 - Evitar bloqueos largos cuando no hay RJ45 conectado.
 - Reintentar al conectar RJ45 después del arranque.
 - Mantener DHCP.
@@ -504,14 +779,34 @@ El runtime se encarga de:
 
 ### LED ETH en IDLE
 
+Desde `v2.1.0-alpha.2`, `ETH` usa cuatro estados visuales:
+
 | Condición | LED ETH |
 |---|---|
-| Ethernet disabled / Basic Core | Apagado |
+| Ethernet disabled / Basic Core / variante sin W5500 | Gris |
+| Ethernet disponible, pero no iniciado | Apagado |
 | RJ45 desconectado / Link OFF | Apagado |
 | Ethernet OK | Verde |
 | Falla real de Ethernet | Rojo |
 
----
+El color gris se reserva para indicar que el periférico no está disponible o está deshabilitado por configuración de placa. Esto evita confundir “no existe/no está habilitado” con “existe, pero está sin link”.
+
+### Control manual / automático
+
+El indicador puede controlarse manualmente:
+
+```cpp
+JWPLC_Display.setEthLed(true);
+JWPLC_Display.setEthLed(false);
+```
+
+o dejarse en modo automático:
+
+```cpp
+JWPLC_Display.setEthLedAuto(true);
+```
+
+Cuando se usa `setEthLed(...)`, el modo automático se desactiva para respetar el valor definido por el sketch.
 
 ## RS-485 integrado
 
@@ -530,15 +825,79 @@ El JWPLC Basic usa transceptor MAX13487 con auto-direccionamiento, por lo que no
 
 RS-485 no se inicializa automáticamente. El usuario debe llamar a `begin()` porque el mismo `Serial2` puede usarse como UART RS-485 genérico o como Modbus RTU.
 
----
+### Actividad de bus
+
+Desde `v2.1.0-alpha.2`, `JWPLC_RS485` registra actividad reciente de recepción/transmisión:
+
+```cpp
+JWPLC_RS485.lastActivityMs();
+JWPLC_RS485.lastRxActivityMs();
+JWPLC_RS485.lastTxActivityMs();
+JWPLC_RS485.hasRecentActivity(800);
+```
+
+Estas APIs permiten que `JWPLC_Display` actualice automáticamente el LED `BUS` en la pantalla IDLE.
+
+La actividad se detecta cuando el sketch usa:
+
+```cpp
+JWPLC_RS485.available();
+JWPLC_RS485.read();
+JWPLC_RS485.write(...);
+```
+
+o cuando se usa `JWPLC_ModbusRTU`, porque Modbus RTU trabaja sobre `JWPLC_RS485`.
+
+> Si un sketch usa `Serial2` directamente sin pasar por `JWPLC_RS485`, el indicador automático `BUS` no puede detectar esa actividad. Para mantener integración con el panel IDLE, usar `JWPLC_RS485` o `JWPLC_ModbusRTU`.
+
+### LED BUS en IDLE
+
+En modo automático:
+
+```cpp
+JWPLC_Display.setBusLedAuto(true);
+```
+
+| Condición | LED BUS |
+|---|---|
+| RS-485 no disponible o no iniciado | Gris |
+| RS-485 iniciado, sin tráfico reciente | Apagado |
+| TX/RX reciente por RS-485 | Verde |
+| Error RS-485 / Modbus RTU reciente | Rojo |
+
+### Uso directo
+
+```cpp
+JWPLC_RS485.begin(115200, SERIAL_8N1);
+JWPLC_RS485.println("Hola RS485");
+```
+
+Para recibir:
+
+```cpp
+while (JWPLC_RS485.available() > 0)
+{
+    int value = JWPLC_RS485.read();
+    if (value >= 0)
+    {
+        Serial.write((uint8_t)value);
+    }
+}
+```
 
 ## Modbus RTU base
 
 El package incluye base Modbus RTU sobre RS-485.
 
 ```cpp
+#include <JWPLC_ModbusRTU.h>
+
 JWPLC_ModbusRTU.begin(); // Slave ID 1, 19200, SERIAL_8E1
 ```
+
+`JWPLC_ModbusRTU.h` incluye internamente `JWPLC_RS485.h`, por lo que no es necesario incluir ambas librerías cuando el sketch solo usa Modbus RTU.
+
+`JWPLC_ModbusRTU.begin(...)` inicializa el puerto RS-485 con la configuración indicada. No debe llamarse adicionalmente `JWPLC_RS485.begin(...)` en el mismo sketch, salvo que se esté cerrando/reconfigurando el bus de forma intencional.
 
 Funciones soportadas en modo slave:
 
@@ -555,7 +914,28 @@ Funciones soportadas en modo master:
 | `readHoldingRegisters()` | Lectura de holding registers |
 | `writeSingleRegister()` | Escritura de un holding register |
 
----
+### Validación Master/Slave
+
+En `v2.1.0-alpha.2` se validó comunicación Modbus RTU entre dos JWPLC Basic:
+
+```txt
+JWPLC Basic Master  <->  RS-485  <->  JWPLC Basic Slave
+```
+
+Resultado validado:
+
+- Master lee holding registers del Slave.
+- Master escribe un registro del Slave.
+- Slave actualiza registros internos.
+- LED `BUS` parpadea en ambos equipos durante tráfico real.
+- El mismo test sirve para validar el modo automático del LED `BUS`.
+
+Los códigos internos de prueba se conservan en:
+
+```txt
+JWPLC/Test_Codes/alpha2_ModbusRTU_BusLedAuto_Master/
+JWPLC/Test_Codes/alpha2_ModbusRTU_BusLedAuto_Slave/
+```
 
 ## Compatibilidad con OpenPLC Editor v4
 
@@ -795,6 +1175,22 @@ El uso formal de coredump queda pendiente de validación y documentación en una
 | TCP solo | OK |
 | RTU + TCP simultáneo | Parcial: TCP OK, RTU pendiente |
 
+### Validación adicional v2.1.0-alpha.2
+
+| Área | Resultado |
+|---|---|
+| Package local `jwplc_local:esp32:jwplcbasic` apuntando a `JWPLC/2.1.0` | OK |
+| `setUserRefreshPeriodMs(100)` con refresco USER a 10 FPS | OK |
+| `setUserRefreshPeriodMs(20)` como prueba rápida de refresco | OK |
+| Configuración de `JWPLC_Display` desde `setup()` | OK |
+| `RUN`, `ERR`, `BUS`, `ETH` manuales desde `setup()` | OK |
+| `ETH` automático con encendido/apagado según estado real | OK |
+| `BUS` automático por actividad `JWPLC_RS485` | OK |
+| `BUS` y `ETH` con estado gris para periférico no disponible/no iniciado | OK |
+| Modbus RTU Master/Slave entre dos JWPLC Basic | OK |
+| Parpadeo de `BUS` en ambos equipos con tráfico RS-485 real | OK |
+| Test codes guardados en `JWPLC/Test_Codes` | OK |
+
 ---
 
 ## Ejemplos recomendados para validar instalación
@@ -837,6 +1233,18 @@ Estos son los ejemplos principales usados y/o revisados para validación alpha31
 - `Display_DotAPI_Minimal`
 - `Display_UserUI_Callbacks`
 - `Display_Idle_Return_Modes`
+- `Display_FlappyBird`
+- `Display_Tetris`
+
+### Test codes internos v2.1.0-alpha.2
+
+Estos códigos no son necesariamente ejemplos públicos finales; se conservan para histórico de validación del package:
+
+- `JWPLC/Test_Codes/alpha2_JWPLC_Display_SetupLedTest`
+- `JWPLC/Test_Codes/alpha2_JWPLC_Display_SetupLedAutoTest`
+- `JWPLC/Test_Codes/alpha2_JWPLC_Display_BusLedAutoRS485Test`
+- `JWPLC/Test_Codes/alpha2_ModbusRTU_BusLedAuto_Master`
+- `JWPLC/Test_Codes/alpha2_ModbusRTU_BusLedAuto_Slave`
 
 ### Ethernet
 
@@ -882,6 +1290,23 @@ Pruebas mínimas recomendadas:
 - Probar Modbus RTU como slave y master.
 - Probar Arduino CLI con `jwplc:esp32:jwplcbasic`, `jwplc:esp32:jwplcbasiccore` y `jwplc:esp32:esp32`.
 
+### Checklist adicional v2.1.0-alpha.2
+
+- Probar con package local `jwplc_local:esp32:jwplcbasic`.
+- Verificar que el log de compilación use `JWPLC/2.1.0`.
+- Probar `setUserRefreshPeriodMs(100)` y confirmar refresco USER a 10 FPS.
+- Probar `setUserRefreshPeriodMs(20)` como prueba rápida.
+- Configurar `JWPLC_Display` desde `setup()` sin lógica adicional en `loop()`.
+- Verificar LEDs manuales `RUN`, `ERR`, `BUS`, `ETH` desde `setup()`.
+- Verificar `setEthLedAuto(true)` con RJ45 conectado/desconectado.
+- Verificar `setBusLedAuto(true)` con tráfico RS-485.
+- Probar Modbus RTU Master/Slave entre dos JWPLC Basic.
+- Confirmar parpadeo de `BUS` en ambos equipos durante tráfico real.
+- Confirmar `BUS` gris cuando RS-485/Modbus no está iniciado.
+- Confirmar `ETH` gris en variante sin Ethernet o con Ethernet disabled.
+- Confirmar que no se agregaron nuevas dependencias obligatorias.
+- Confirmar que OpenPLC, OTA y bootloader precompilado no se asumen como parte de esta alpha.
+
 ### Checklist adicional OpenPLC
 
 - Instalar OpenPLC Editor v4.
@@ -905,13 +1330,39 @@ Pruebas mínimas recomendadas:
 JWPLC/
   package_jwplc_index.json
   package_jwplc_index_dev.json
+
+  2.1.0/
+    boards.txt
+    platform.txt
+    cores/
+    variants/
+    libraries/
+      JWPLC_Display/
+      JWPLC_Ethernet/
+      JWPLC_RS485/
+      JWPLC_ModbusRTU/
+      ...
+
   JWPLC-2.0.0/
     boards.txt
     platform.txt
     cores/
     variants/
     libraries/
+
+  Test_Codes/
+    alpha2_JWPLC_Display_SetupLedTest/
+    alpha2_JWPLC_Display_SetupLedAutoTest/
+    alpha2_JWPLC_Display_BusLedAutoRS485Test/
+    alpha2_ModbusRTU_BusLedAuto_Master/
+    alpha2_ModbusRTU_BusLedAuto_Slave/
 ```
+
+Notas:
+
+- `JWPLC/2.1.0` es la carpeta activa para el ciclo de desarrollo `2.1.0`.
+- `JWPLC/JWPLC-2.0.0` conserva la fuente histórica/estable de `v2.0.0`.
+- `JWPLC/Test_Codes` conserva pruebas internas y sketches de validación que no necesariamente deben aparecer como ejemplos públicos de Arduino IDE.
 
 Documentación y patch OpenPLC:
 
@@ -928,8 +1379,6 @@ docs/
     openplc-modbus-test-guide.md
     openplc-alpha32-checklist.md
 ```
-
----
 
 ## Repositorio
 
