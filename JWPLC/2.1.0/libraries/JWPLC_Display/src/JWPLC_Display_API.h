@@ -80,6 +80,9 @@ public:
     void setBusLed(bool state);
     bool busLed() const;
 
+    void setBusLedAuto(bool enabled);
+    bool busLedAuto() const;
+
     void setEthLed(bool state);
     bool ethLed() const;
     void setEthLedAuto(bool enabled);

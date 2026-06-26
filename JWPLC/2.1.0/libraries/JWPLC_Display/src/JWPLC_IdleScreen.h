@@ -13,9 +13,10 @@ namespace JWPLCIdleScreen
 {
     enum StatusLedState : uint8_t
     {
-        STATUS_LED_OFF = 0,
-        STATUS_LED_GREEN,
-        STATUS_LED_RED
+        STATUS_LED_DISABLED = 0, // Gris: periférico no disponible o no iniciado
+        STATUS_LED_OFF,          // Negro: disponible, pero inactivo
+        STATUS_LED_GREEN,        // Verde: OK / actividad
+        STATUS_LED_RED           // Rojo: error
     };
 
     struct StatusPanel
@@ -23,13 +24,8 @@ namespace JWPLCIdleScreen
         bool pwr = true;
         bool run = true;
         bool err = false;
-        bool bus = false;
-
-        // ETH necesita 3 estados:
-        // OFF   = sin link / disabled
-        // GREEN = link + Ethernet OK
-        // RED   = link/hardware con falla
-        StatusLedState eth = STATUS_LED_OFF;
+        StatusLedState bus = STATUS_LED_DISABLED;
+        StatusLedState eth = STATUS_LED_DISABLED;
     };
 
     void begin(Adafruit_ST7789 *display);

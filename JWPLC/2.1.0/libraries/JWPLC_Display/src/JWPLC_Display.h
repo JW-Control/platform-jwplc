@@ -73,6 +73,9 @@ namespace JWPLCDisplay
     void setBusLed(bool state);
     bool busLed();
 
+    void setBusLedAuto(bool enabled);
+    bool busLedAuto();
+
     void setEthLed(bool state);
     bool ethLed();
     void setEthLedAuto(bool enabled);

@@ -14,6 +14,12 @@ extern "C" void __attribute__((weak)) jwplcRs485PostTransmitCallback(void)
     // Hardware futuro con DE/RE puede sobreescribir este hook desde el sketch/core.
 }
 
+extern "C" void __attribute__((weak)) jwplcRs485ActivityCallback(void)
+{
+    // No-op por defecto.
+    // JWPLC_Display puede sobreescribir este hook para reflejar actividad BUS.
+}
+
 JWPLC_RS485Class::JWPLC_RS485Class()
     : _serial(&Serial2),
       _baud(JWPLC_RS485_DEFAULT_BAUD),
@@ -21,7 +27,10 @@ JWPLC_RS485Class::JWPLC_RS485Class()
       _rxPin(JWPLC_RS485_RX_PIN),
       _txPin(JWPLC_RS485_TX_PIN),
       _ready(false),
-      _lastError(JWPLC_RS485_NOT_STARTED)
+      _lastError(JWPLC_RS485_NOT_STARTED),
+      _lastActivityMs(0),
+      _lastRxActivityMs(0),
+      _lastTxActivityMs(0)
 {
 }
 
@@ -57,6 +66,9 @@ bool JWPLC_RS485Class::begin(uint32_t baud, uint32_t config)
     _serial->begin(_baud, _config, _rxPin, _txPin);
     _ready = true;
     clearError();
+    _lastActivityMs = 0;
+    _lastRxActivityMs = 0;
+    _lastTxActivityMs = 0;
 
     return true;
 #endif
@@ -73,6 +85,9 @@ void JWPLC_RS485Class::end()
 
     _ready = false;
     setError(JWPLC_RS485_NOT_STARTED);
+    _lastActivityMs = 0;
+    _lastRxActivityMs = 0;
+    _lastTxActivityMs = 0;
 }
 
 bool JWPLC_RS485Class::isEnabled() const
@@ -123,7 +138,15 @@ int JWPLC_RS485Class::available()
         return 0;
     }
 
-    return _serial->available();
+    int count = _serial->available();
+
+    if (count > 0)
+    {
+        markRxActivity();
+    }
+
+    return count;
+
 #endif
 }
 
@@ -151,7 +174,15 @@ int JWPLC_RS485Class::read()
         return -1;
     }
 
-    return _serial->read();
+    int value = _serial->read();
+
+    if (value >= 0)
+    {
+        markRxActivity();
+    }
+
+    return value;
+
 #endif
 }
 
@@ -179,6 +210,11 @@ size_t JWPLC_RS485Class::write(const uint8_t *buffer, size_t size)
 
     size_t written = _serial->write(buffer, size);
     _serial->flush();
+
+    if (written > 0)
+    {
+        markTxActivity();
+    }
 
     jwplcRs485PostTransmitCallback();
 
@@ -297,6 +333,53 @@ void JWPLC_RS485Class::printStatus(Print &out)
 
     out.print("Last error: ");
     out.println(lastErrorString());
+}
+
+uint32_t JWPLC_RS485Class::lastActivityMs() const
+{
+    return _lastActivityMs;
+}
+
+uint32_t JWPLC_RS485Class::lastRxActivityMs() const
+{
+    return _lastRxActivityMs;
+}
+
+uint32_t JWPLC_RS485Class::lastTxActivityMs() const
+{
+    return _lastTxActivityMs;
+}
+
+bool JWPLC_RS485Class::hasRecentActivity(uint32_t windowMs) const
+{
+#if !JWPLC_HAS_RS485
+    return false;
+#else
+    if (!_ready || _lastActivityMs == 0)
+    {
+        return false;
+    }
+
+    return ((uint32_t)(millis() - _lastActivityMs) <= windowMs);
+#endif
+}
+
+void JWPLC_RS485Class::markRxActivity()
+{
+    _lastRxActivityMs = millis();
+    markActivity();
+}
+
+void JWPLC_RS485Class::markTxActivity()
+{
+    _lastTxActivityMs = millis();
+    markActivity();
+}
+
+void JWPLC_RS485Class::markActivity()
+{
+    _lastActivityMs = millis();
+    jwplcRs485ActivityCallback();
 }
 
 void JWPLC_RS485Class::setError(JWPLCRS485Error error)

@@ -125,6 +125,7 @@ namespace JWPLCIdleScreen
     static constexpr uint16_t C_IN_ACTIVE = 0x867D;
     static constexpr uint16_t C_OK_GREEN = 0x5FE0;
     static constexpr uint16_t C_ERR_RED = ST77XX_RED;
+    static constexpr uint16_t C_DISABLED_GRAY = 0xCE59;
 
     // =====================================================
     // Prototipos internos
@@ -194,6 +195,10 @@ namespace JWPLCIdleScreen
 
         switch (state)
         {
+        case STATUS_LED_DISABLED:
+            color = C_DISABLED_GRAY;
+            break;
+
         case STATUS_LED_GREEN:
             color = C_OK_GREEN;
             break;
@@ -370,7 +375,7 @@ namespace JWPLCIdleScreen
             fillStatusItemState(2, g_panel.err, C_ERR_RED);
 
         if (g_forceFullRedraw || g_panel.bus != g_lastPanel.bus)
-            fillStatusItemState(3, g_panel.bus, C_OK_GREEN);
+            fillStatusItemState(3, g_panel.bus);
 
         if (g_forceFullRedraw || g_panel.eth != g_lastPanel.eth)
             fillStatusItemState(4, g_panel.eth);
