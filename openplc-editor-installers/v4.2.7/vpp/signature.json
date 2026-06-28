@@ -1,17 +1,17 @@
 {
   "formatVersion": "1.0",
   "alg": "ed25519",
-  "keyId": "jw-control-dev",
+  "keyId": "jwcontrol-2026",
   "packageId": "com.jwcontrol.jwplc-basic",
   "version": "2.1.0-alpha.3",
-  "signedAt": "2026-06-28T17:19:35.192Z",
+  "signedAt": "2026-06-28T21:51:36.405Z",
   "files": {
     "README.md": "f98f113f4095893aca82fbb0a5d750d8a6c383af37e3cbe99691854c96ddb832",
-    "assets/jwplcbasic.svg": "9fbae61192e91457c90c51b5b0ef4fefeb12c09f34a321a41e6ef68c5fbc0174",
+    "assets/jwplcbasic.png": "64c7c2755436f2224c1aa7f4ed535c95339eba3df43dbc93f1f19bf5f1b6fb68",
     "examples/JWPLC_Basic_Blink_Q0_0/README.md": "363bf0ddb193c6d4978e18c3947bf53df755c42704fe383632e8929cad83c52f",
     "examples/JWPLC_Basic_IO_Test_I0_to_Q0/README.md": "c40d37f6963766cb280de09c43ab56f56b74ce5f533beaf06d35e937f37cb747",
     "hal/jwplcbasic.cpp": "d275a2d17248fa8faaeeced315cd7c630b5de291d5da6573f1f09d8058ef7a2d",
-    "manifest.json": "3c8635f1c8bb0ca75f89349c8f448f505e9e5b0ea7b0dc87e35d26c1d7fa0b72"
+    "manifest.json": "a40aa4d8aa2c3ce0855bf1cfd273a0bda1a428b64e127eb3e4a4e9d8755c3357"
   },
-  "signature": "fnXSBwckUorD3O2BNRaSyEiIR/iGFx7VyxHZ9MPwM658rFBTvnamWUNcRzC5RkZ1G8KDeuzFIiaWtqWMs8EJDQ=="
+  "signature": "JE7C3UqZiB+Vw/638co+wh1Dr9dT80A7DPlujd3qa7AIvzpFf83RLrCw2yQTDmBF+DZciH7gEOimi/NWoOdqBg=="
 }
