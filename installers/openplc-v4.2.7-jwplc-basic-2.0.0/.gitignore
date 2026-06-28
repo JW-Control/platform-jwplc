@@ -1,6 +1,0 @@
-out/
-keys/
-*.vpp
-*.zip
-*.pem
-!vpp/**/*.svg
