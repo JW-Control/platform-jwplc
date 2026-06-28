@@ -1,0 +1,6 @@
+;!@Install@!UTF-8!
+Title="JWPLC Basic - OpenPLC Editor v4 Patch Installer"
+BeginPrompt="Este instalador aplicará el patch JWPLC Basic v2.0.0 para OpenPLC Editor v4. No incluye OpenPLC Editor. Cierra OpenPLC antes de continuar."
+RunProgram="installer\\install_openplc_jwplc_patch.bat"
+GUIMode="2"
+;!@InstallEnd@!
