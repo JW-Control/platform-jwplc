@@ -1,0 +1,17 @@
+{
+  "formatVersion": "1.0",
+  "alg": "ed25519",
+  "keyId": "jwcontrol-2026",
+  "packageId": "com.jwcontrol.jwplc-basic",
+  "version": "2.1.0-alpha.3",
+  "signedAt": "2026-06-28T23:15:35.408Z",
+  "files": {
+    "README.md": "f98f113f4095893aca82fbb0a5d750d8a6c383af37e3cbe99691854c96ddb832",
+    "assets/jwplcbasic.png": "64c7c2755436f2224c1aa7f4ed535c95339eba3df43dbc93f1f19bf5f1b6fb68",
+    "examples/JWPLC_Basic_Blink_Q0_0/README.md": "363bf0ddb193c6d4978e18c3947bf53df755c42704fe383632e8929cad83c52f",
+    "examples/JWPLC_Basic_IO_Test_I0_to_Q0/README.md": "c40d37f6963766cb280de09c43ab56f56b74ce5f533beaf06d35e937f37cb747",
+    "hal/jwplcbasic.cpp": "d275a2d17248fa8faaeeced315cd7c630b5de291d5da6573f1f09d8058ef7a2d",
+    "manifest.json": "53eb8e9fa54e1c80bd1ea8562cf176705ffca46ae17a8f4a2e6f34ff91adc223"
+  },
+  "signature": "yw21LYvWmtq/leUzBtrt+8GnHV8f93otIch38097UBwH6l6RR/ONLk1++AcMuBgEHS9TzgkCqRaEBT2b9gubBw=="
+}
