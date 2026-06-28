@@ -1,4 +1,4 @@
-﻿{
+{
     "formatVersion": "1.0",
     "package": {
         "id": "com.jwcontrol.jwplc-basic",
@@ -9,7 +9,7 @@
             "url": "https://www.jw-control.com",
             "logo": "assets/jwplcbasic.png"
         },
-        "description": "IntegraciÃ³n del JWPLC Basic 2.0.0 con OpenPLC Editor 4.2.6/4.2.7 usando el formato Vendor Plugin Package (.vpp).",
+        "description": "Integración del JWPLC Basic 2.0.0 con OpenPLC Editor 4.2.6/4.2.7 usando el formato Vendor Plugin Package (.vpp).",
         "license": "GPL-3.0-or-later",
         "minEditorVersion": "4.2.6"
     },
@@ -114,7 +114,7 @@
                         "params": {
                             "ipAddress": {
                                 "$ref": "configuration.runtimeIpAddress",
-                                "required": "Configura la IP del JWPLC Basic para depuraciÃ³n por Modbus TCP."
+                                "required": "Configura la IP del JWPLC Basic para depuración por Modbus TCP."
                             }
                         }
                     }
