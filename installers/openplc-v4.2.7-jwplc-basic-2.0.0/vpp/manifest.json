@@ -1,0 +1,119 @@
+{
+  "formatVersion": "1.0",
+  "package": {
+    "id": "com.jwcontrol.jwplc-basic",
+    "name": "JWPLC Basic OpenPLC",
+    "version": "2.1.0-alpha.3",
+    "vendor": {
+      "name": "JW Control",
+      "url": "https://www.jw-control.com",
+      "logo": "assets/jwplcbasic.svg"
+    },
+    "description": "Integración del JWPLC Basic 2.0.0 con OpenPLC Editor 4.2.7 usando el formato Vendor Plugin Package (.vpp).",
+    "license": "GPL-3.0-or-later",
+    "minEditorVersion": "4.2.7"
+  },
+  "devices": [
+    {
+      "id": "jwplc-basic-2-0-0",
+      "name": "JWPLC BASIC [2.0.0]",
+      "category": "Arduino",
+      "preview": "assets/jwplcbasic.svg",
+      "target": {
+        "type": "arduino-cli",
+        "core": "jwplc:esp32",
+        "platform": "jwplc:esp32:jwplcbasic",
+        "boardManagerUrl": "https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index.json"
+      },
+      "hal": {
+        "type": "arduino",
+        "source": "hal/jwplcbasic.cpp",
+        "define": [
+          "JWPLC_BASIC",
+          "OPENPLC_JWPLC_BASIC",
+          "MBTCP_ETHERNET"
+        ],
+        "extraArduinoLibraries": []
+      },
+      "defaults": {
+        "pins": {
+          "defaultDin": [
+            "I0_0",
+            "I0_1",
+            "I0_2",
+            "I0_3",
+            "I0_4",
+            "I0_5",
+            "I0_6",
+            "I0_7"
+          ],
+          "defaultDout": [
+            "Q0_0",
+            "Q0_1",
+            "Q0_2",
+            "Q0_3",
+            "Q0_4",
+            "Q0_5",
+            "Q0_6",
+            "Q0_7"
+          ],
+          "defaultAin": [],
+          "defaultAout": []
+        }
+      },
+      "specs": {
+        "CPU": "ESP32 at 240 MHz",
+        "RAM": "520 KB SRAM",
+        "Flash": "4 MB, huge_app",
+        "Digital Pins": "8 DI + 8 DO industriales",
+        "Analog Pins": "No expuestos en esta integración",
+        "PWM Pins": "No expuestos en esta integración",
+        "WiFi": "Sí",
+        "Bluetooth": "Sí",
+        "Ethernet": "Sí, W5500 por SPI"
+      },
+      "capabilities": {
+        "pinMapping": true,
+        "vppIo": false,
+        "modbusTcpRemote": false,
+        "ethercat": false,
+        "modbusTcpServer": false,
+        "opcuaServer": false,
+        "s7Server": false,
+        "debuggerTransports": [
+          "modbus-serial",
+          "modbus-tcp"
+        ],
+        "pythonFunctionBlocks": false,
+        "arduinoApiCompletions": true,
+        "hasRuntimeStats": false,
+        "isInProcessSimulator": false,
+        "directUsbUpload": true
+      },
+      "debug": {
+        "channels": [
+          {
+            "label": "Modbus RTU / USB",
+            "channel": "rtu",
+            "enabledWhen": true,
+            "params": {
+              "baudRate": 115200,
+              "slaveId": 1
+            }
+          },
+          {
+            "label": "Modbus TCP / W5500",
+            "channel": "tcp",
+            "enabledWhen": true,
+            "params": {
+              "ipAddress": {
+                "$ref": "configuration.runtimeIpAddress",
+                "required": "Configura la IP del JWPLC Basic para depuración por Modbus TCP."
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
