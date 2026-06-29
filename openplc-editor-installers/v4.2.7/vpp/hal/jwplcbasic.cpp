@@ -35,6 +35,12 @@ uint16_t pinMask_AOUT[] = {
     0xFFFF
 };
 
+static constexpr int NUM_DISCRETE_INPUT =
+    sizeof(pinMask_DIN) / sizeof(pinMask_DIN[0]);
+
+static constexpr int NUM_DISCRETE_OUTPUT =
+    sizeof(pinMask_DOUT) / sizeof(pinMask_DOUT[0]);
+
 static inline bool jwplcValidPin(uint16_t pin)
 {
     // OpenPLC suele usar -1 o 99 en otros targets para pines no usados.
