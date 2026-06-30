@@ -4,3 +4,9 @@ keys/
 *.zip
 *.pem
 !vpp/**/*.svg
+
+# Local VPP build helpers with private/local paths
+build-jwplc-vpp.bat
+build-jwplc-vpp.local.bat
+command.txt
+*.local.bat

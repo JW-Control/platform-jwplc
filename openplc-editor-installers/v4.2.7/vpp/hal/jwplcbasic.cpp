@@ -6,15 +6,40 @@ extern "C"
 }
 
 #include "Arduino.h"
-#include "../examples/Baremetal/defines.h"
 
 // JWPLC Basic v2.x usa pines virtuales uint16_t:
 // I0_0 = 0x2207, Q0_0 = 0x2208, etc.
 // No usar uint8_t porque truncaria los pines.
-uint16_t pinMask_DIN[] = {PINMASK_DIN};
-uint16_t pinMask_AIN[] = {PINMASK_AIN};
-uint16_t pinMask_DOUT[] = {PINMASK_DOUT};
-uint16_t pinMask_AOUT[] = {PINMASK_AOUT};
+//
+// Para el VPP de JWPLC Basic el mapa físico es fijo:
+//   I0_0..I0_7 -> entradas digitales
+//   Q0_0..Q0_7 -> salidas digitales
+//
+// No depender de ../examples/Baremetal/defines.h porque OpenPLC 4.2.7
+// no genera ese archivo dentro del flujo VPP.
+uint16_t pinMask_DIN[] = {
+    I0_0, I0_1, I0_2, I0_3,
+    I0_4, I0_5, I0_6, I0_7
+};
+
+uint16_t pinMask_AIN[] = {
+    0xFFFF
+};
+
+uint16_t pinMask_DOUT[] = {
+    Q0_0, Q0_1, Q0_2, Q0_3,
+    Q0_4, Q0_5, Q0_6, Q0_7
+};
+
+uint16_t pinMask_AOUT[] = {
+    0xFFFF
+};
+
+static constexpr int NUM_DISCRETE_INPUT =
+    sizeof(pinMask_DIN) / sizeof(pinMask_DIN[0]);
+
+static constexpr int NUM_DISCRETE_OUTPUT =
+    sizeof(pinMask_DOUT) / sizeof(pinMask_DOUT[0]);
 
 static inline bool jwplcValidPin(uint16_t pin)
 {
