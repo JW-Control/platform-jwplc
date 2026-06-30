@@ -2,41 +2,27 @@
 setlocal EnableExtensions EnableDelayedExpansion
 
 rem ============================================================================
-rem JWPLC Basic OpenPLC VPP builder - example version
+rem JWPLC Basic OpenPLC VPP builder
 rem Ubicacion recomendada:
-rem   platform-jwplc\openplc-editor-installers\v4.2.7\build-jwplc-vpp.example.bat
+rem   platform-jwplc\openplc-editor-installers\v4.2.7\build-jwplc-vpp.bat
 rem
-rem Uso recomendado:
-rem   set "JWPLC_VPP_PRIVATE_KEY=H:\Mi unidad\02.JW CONTROL\12.OpenPLC\keys\jwcontrol-2026-private.pem"
-rem   build-jwplc-vpp.example.bat
-rem
-rem Uso alternativo:
-rem   build-jwplc-vpp.example.bat "H:\Mi unidad\02.JW CONTROL\12.OpenPLC\keys\jwcontrol-2026-private.pem"
-rem   build-jwplc-vpp.example.bat "H:\Mi unidad\02.JW CONTROL\12.OpenPLC\keys\jwcontrol-2026-private.pem" --clean-installed
-rem
-rem Esta version NO contiene ruta privada fija. Para uso local puedes copiarla como:
+rem Uso:
 rem   build-jwplc-vpp.bat
-rem y ahi fijar KEY_PATH si lo prefieres. Ese archivo local debe quedar ignorado.
+rem   build-jwplc-vpp.bat --clean-installed
 rem ============================================================================
 
 set "ROOT=%~dp0"
 if "%ROOT:~-1%"=="\" set "ROOT=%ROOT:~0,-1%"
 
-set "KEY_ID=%JWPLC_VPP_KEY_ID%"
-if "%KEY_ID%"=="" set "KEY_ID=jwcontrol-2026"
-
-set "KEY_PATH=%JWPLC_VPP_PRIVATE_KEY%"
-if not "%~1"=="" (
-  if /I not "%~1"=="--clean-installed" set "KEY_PATH=%~1"
-)
-
-set "CLEAN_INSTALLED=0"
-if /I "%~1"=="--clean-installed" set "CLEAN_INSTALLED=1"
-if /I "%~2"=="--clean-installed" set "CLEAN_INSTALLED=1"
+set "KEY_ID=jwcontrol-2026"
+set "KEY_PATH=H:\Mi unidad\02.JW CONTROL\12.OpenPLC\keys\jwcontrol-2026-private.pem"
 
 set "VPP_DIR=%ROOT%\vpp"
 set "TOOLS_DIR=%ROOT%\tools"
 set "OUT_DIR=%ROOT%\out"
+
+set "UNSIGNED_VPP=%OUT_DIR%\jwplc-basic-openplc-2.1.0-alpha.3.unsigned.vpp"
+set "SIGNED_VPP=%OUT_DIR%\jwplc-basic-openplc-2.1.0-alpha.3.jwcontrol-signed.vpp"
 set "INSTALLED_PACKAGE=%APPDATA%\open-plc-editor-jwplc\packages\com.jwcontrol.jwplc-basic"
 
 echo.
@@ -46,6 +32,7 @@ echo ============================================================
 echo Root:      "%ROOT%"
 echo VPP dir:   "%VPP_DIR%"
 echo Key ID:    "%KEY_ID%"
+echo Key path:  "%KEY_PATH%"
 echo.
 
 if not exist "%VPP_DIR%\manifest.json" (
@@ -67,35 +54,15 @@ if not exist "%TOOLS_DIR%\build-unsigned-vpp.ps1" (
 where node >nul 2>nul
 if errorlevel 1 (
   echo [ERROR] Node.js no esta disponible en PATH.
-  echo Abre una terminal donde node -v funcione.
-  exit /b 1
-)
-
-if "%KEY_PATH%"=="" (
-  echo [ERROR] No se indico llave privada.
-  echo.
-  echo Opcion A:
-  echo   set "JWPLC_VPP_PRIVATE_KEY=H:\Mi unidad\02.JW CONTROL\12.OpenPLC\keys\jwcontrol-2026-private.pem"
-  echo   build-jwplc-vpp.example.bat
-  echo.
-  echo Opcion B:
-  echo   build-jwplc-vpp.example.bat "H:\Mi unidad\02.JW CONTROL\12.OpenPLC\keys\jwcontrol-2026-private.pem"
   exit /b 1
 )
 
 if not exist "%KEY_PATH%" (
   echo [ERROR] No se encontro la llave privada:
   echo "%KEY_PATH%"
+  echo Edita KEY_PATH dentro de este .bat si la moviste.
   exit /b 1
 )
-
-for /f "usebackq delims=" %%V in (`powershell -NoProfile -ExecutionPolicy Bypass -Command "(Get-Content '%VPP_DIR%\manifest.json' -Raw | ConvertFrom-Json).package.version"`) do set "PKG_VERSION=%%V"
-if "%PKG_VERSION%"=="" (
-  echo [ERROR] No se pudo leer package.version desde manifest.json.
-  exit /b 1
-)
-
-set "EXPECTED_UNSIGNED_VPP=%OUT_DIR%\jwplc-basic-openplc-%PKG_VERSION%.unsigned.vpp"
 
 echo [1/6] Version de Node:
 node -v
@@ -127,21 +94,11 @@ if errorlevel 1 (
   exit /b 1
 )
 
-set "UNSIGNED_VPP=%EXPECTED_UNSIGNED_VPP%"
 if not exist "%UNSIGNED_VPP%" (
-  set "UNSIGNED_VPP="
-  for /f "delims=" %%F in ('dir /b /a-d "%OUT_DIR%\*.unsigned.vpp" 2^>nul') do (
-    if "!UNSIGNED_VPP!"=="" set "UNSIGNED_VPP=%OUT_DIR%\%%F"
-  )
-)
-
-if "%UNSIGNED_VPP%"=="" (
-  echo [ERROR] No se encontro ningun *.unsigned.vpp en:
-  echo "%OUT_DIR%"
+  echo [ERROR] No se encontro el VPP generado:
+  echo "%UNSIGNED_VPP%"
   exit /b 1
 )
-
-set "SIGNED_VPP=%UNSIGNED_VPP:.unsigned.vpp=.jwcontrol-signed.vpp%"
 
 echo.
 echo [5/6] Copiando salida final firmada...
@@ -162,7 +119,7 @@ if not exist "%SIGNED_VPP%" (
 powershell -NoProfile -ExecutionPolicy Bypass -Command "if (Select-String -Path '%VPP_DIR%\signature.json' -Pattern '%KEY_ID%' -Quiet) { Write-Host '[OK] signature.json contiene %KEY_ID%' } else { Write-Error 'signature.json no contiene %KEY_ID%'; exit 1 }"
 if errorlevel 1 exit /b 1
 
-if "%CLEAN_INSTALLED%"=="1" (
+if /I "%~1"=="--clean-installed" (
   echo.
   echo [EXTRA] Eliminando paquete instalado en JWPLC Edition...
   if exist "%INSTALLED_PACKAGE%" (
@@ -183,6 +140,10 @@ echo Siguiente paso:
 echo  1. Cierra OpenPLC Editor - JWPLC Edition.
 echo  2. Importa el VPP firmado generado arriba.
 echo.
+
+echo.
+echo Presiona ESC para cerrar esta ventana...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "do { $key = [Console]::ReadKey($true) } until ($key.Key -eq 'Escape')"
 
 endlocal
 exit /b 0

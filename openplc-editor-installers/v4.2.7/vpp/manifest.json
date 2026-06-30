@@ -3,7 +3,7 @@
     "package": {
         "id": "com.jwcontrol.jwplc-basic",
         "name": "JWPLC Basic OpenPLC",
-        "version": "2.1.0-alpha.3",
+        "version": "2.1.0-alpha.4",
         "vendor": {
             "name": "JW Control",
             "url": "https://www.jw-control.com",
