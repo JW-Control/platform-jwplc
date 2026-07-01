@@ -3,16 +3,16 @@
   "alg": "ed25519",
   "keyId": "jwcontrol-2026",
   "packageId": "com.jwcontrol.jwplc-basic",
-  "version": "2.1.0-alpha.9",
-  "signedAt": "2026-07-01T06:13:48.441Z",
+  "version": "2.1.0-alpha.10",
+  "signedAt": "2026-07-01T06:44:46.057Z",
   "files": {
     "README.md": "f98f113f4095893aca82fbb0a5d750d8a6c383af37e3cbe99691854c96ddb832",
     "assets/jwplcbasic.png": "64c7c2755436f2224c1aa7f4ed535c95339eba3df43dbc93f1f19bf5f1b6fb68",
     "examples/JWPLC_Basic_Blink_Q0_0/README.md": "363bf0ddb193c6d4978e18c3947bf53df755c42704fe383632e8929cad83c52f",
     "examples/JWPLC_Basic_IO_Test_I0_to_Q0/README.md": "c40d37f6963766cb280de09c43ab56f56b74ce5f533beaf06d35e937f37cb747",
     "hal/jwplcbasic.cpp": "46a70e5af3f3d1b5bb1dfec65f44a0a829d2599556c138f3ea12b22fbf121d13",
-    "manifest.json": "2c702eb884e8dc14d726ced3cebee0829b4f9008ca3cc4140bece0e3f60ba579",
+    "manifest.json": "8018b8d9852be96620b85ce3d76e9dccbf2cae5127f393fe9f7e0d03e5b64223",
     "screens/modbus.json": "8f3be65bd198d34e46724168d391cc9aeea43b5d74153c2be72bf787aea53b6e"
   },
-  "signature": "EqwRMydfkyonC6qy/e3Cnaef3O4RZaliY10YYkZNnaqXH2O8pFgYSiTBt/nptUODceRBhWpaYx/6gLfeEIyhDg=="
+  "signature": "WfhgSRXf5eEaRoDu7UAAkYfjWkHjfvf6TkKXGLaoDzdXXY0RpwXx39Oo9Ipx/hdI4mdTOSG55hgIawx8WMArDw=="
 }
