@@ -37,6 +37,20 @@
           }
         },
         {
+          "id": "rtu_debug_port",
+          "label": "Debug Port",
+          "type": "communication-port",
+          "default": "",
+          "placeholder": "Use Communication Port",
+          "fallbackLabel": "Use Communication Port",
+          "help": "Puerto COM usado por el debugger Modbus RTU. Para USB puede dejarse en 'Use Communication Port'. Para RS-485 selecciona el COM del adaptador USB-RS485.",
+          "visible": {
+            "condition": "fields.enabled",
+            "operator": "equals",
+            "value": true
+          }
+        },
+        {
           "id": "rtu_baud_rate",
           "label": "Baud Rate",
           "type": "select",
@@ -127,8 +141,10 @@
           "label": "Interface",
           "type": "select",
           "options": [
-            "Ethernet",
-            "Wi-Fi"
+            {
+              "label": "Ethernet - W5500",
+              "value": "Ethernet"
+            }
           ],
           "default": "Ethernet",
           "visible": {
@@ -141,7 +157,7 @@
           "id": "tcp_mac_address",
           "label": "MAC Address",
           "type": "mac-address",
-          "default": "",
+          "default": "DE:AD:BE:EF:00:01",
           "placeholder": "DE:AD:BE:EF:00:01",
           "help": "Required only when the board lacks a built-in MAC (e.g. classic Ethernet shields).",
           "visible": {
