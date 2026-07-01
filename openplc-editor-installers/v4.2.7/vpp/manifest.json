@@ -3,7 +3,7 @@
     "package": {
         "id": "com.jwcontrol.jwplc-basic",
         "name": "JWPLC Basic OpenPLC",
-        "version": "2.1.0-alpha.4",
+        "version": "2.1.0-alpha.7",
         "vendor": {
             "name": "JW Control",
             "url": "https://www.jw-control.com",
@@ -19,6 +19,9 @@
             "name": "JWPLC BASIC [2.0.0]",
             "category": "Arduino",
             "preview": "assets/jwplcbasic.png",
+            "screens": {
+                "Modbus": "screens/modbus.json"
+            },
             "target": {
                 "type": "arduino-cli",
                 "core": "jwplc:esp32",
@@ -103,6 +106,10 @@
                         "channel": "rtu",
                         "enabledWhen": true,
                         "params": {
+                            "port": {
+                                "$ref": "configuration.communicationPort",
+                                "required": "Selecciona el puerto COM del JWPLC Basic para depuración por Modbus RTU."
+                            },
                             "baudRate": 115200,
                             "slaveId": 1
                         }

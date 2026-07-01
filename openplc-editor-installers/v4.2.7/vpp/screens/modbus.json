@@ -1,0 +1,301 @@
+{
+  "sections": [
+    {
+      "id": "modbus_rtu",
+      "title": "Modbus RTU",
+      "layout": "form",
+      "collapsible": true,
+      "collapsed": false,
+      "fields": [
+        {
+          "id": "enabled",
+          "label": "Enable Modbus RTU",
+          "type": "boolean",
+          "default": false,
+          "help": "Serve Modbus RTU over a hardware serial port. Disable if the board has no spare UART."
+        },
+        {
+          "id": "rtu_interface",
+          "label": "Interface",
+          "type": "select",
+          "options": [
+            {
+              "label": "USB (Serial0)",
+              "value": "Serial"
+            },
+            {
+              "label": "RS-485 (Serial2)",
+              "value": "Serial2"
+            }
+          ],
+          "default": "Serial",
+          "help": "Hardware serial port used by the Modbus RTU slave. Boards with a single UART only expose Serial.",
+          "visible": {
+            "condition": "fields.enabled",
+            "operator": "equals",
+            "value": true
+          }
+        },
+        {
+          "id": "rtu_baud_rate",
+          "label": "Baud Rate",
+          "type": "select",
+          "options": [
+            "9600",
+            "14400",
+            "19200",
+            "38400",
+            "57600",
+            "115200"
+          ],
+          "default": "115200",
+          "visible": {
+            "condition": "fields.enabled",
+            "operator": "equals",
+            "value": true
+          }
+        },
+        {
+          "id": "rtu_slave_id",
+          "label": "Slave ID",
+          "type": "number",
+          "min": 1,
+          "max": 247,
+          "step": 1,
+          "default": 1,
+          "help": "Modbus RTU slave identifier (1-247).",
+          "visible": {
+            "condition": "fields.enabled",
+            "operator": "equals",
+            "value": true
+          }
+        },
+        {
+          "id": "enable_rs485_en_pin",
+          "label": "Use RS485 EN Pin",
+          "type": "boolean",
+          "default": false,
+          "help": "Enable this if the board uses an external RS485 transceiver with an explicit driver-enable pin.",
+          "visible": {
+            "condition": "fields.enabled",
+            "operator": "equals",
+            "value": true
+          }
+        },
+        {
+          "id": "rtu_rs485_en_pin",
+          "label": "RS485 EN Pin",
+          "type": "text",
+          "default": "",
+          "placeholder": "e.g. 2",
+          "help": "GPIO that drives DE/RE on the RS485 transceiver.",
+          "validation": "^[A-Z]{0,2}\\d{1,3}$",
+          "visible": {
+            "operator": "and",
+            "conditions": [
+              {
+                "condition": "fields.enabled",
+                "operator": "equals",
+                "value": true
+              },
+              {
+                "condition": "fields.enable_rs485_en_pin",
+                "operator": "equals",
+                "value": true
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "modbus_tcp",
+      "title": "Modbus TCP",
+      "layout": "form",
+      "collapsible": true,
+      "collapsed": false,
+      "fields": [
+        {
+          "id": "enabled",
+          "label": "Enable Modbus TCP",
+          "type": "boolean",
+          "default": false,
+          "help": "Serve Modbus TCP over Ethernet or Wi-Fi. Disable on boards without network connectivity."
+        },
+        {
+          "id": "tcp_interface",
+          "label": "Interface",
+          "type": "select",
+          "options": [
+            "Ethernet",
+            "Wi-Fi"
+          ],
+          "default": "Ethernet",
+          "visible": {
+            "condition": "fields.enabled",
+            "operator": "equals",
+            "value": true
+          }
+        },
+        {
+          "id": "tcp_mac_address",
+          "label": "MAC Address",
+          "type": "mac-address",
+          "default": "",
+          "placeholder": "DE:AD:BE:EF:00:01",
+          "help": "Required only when the board lacks a built-in MAC (e.g. classic Ethernet shields).",
+          "visible": {
+            "condition": "fields.enabled",
+            "operator": "equals",
+            "value": true
+          }
+        },
+        {
+          "id": "tcp_wifi_ssid",
+          "label": "Wi-Fi SSID",
+          "type": "text",
+          "default": "",
+          "maxLength": 32,
+          "visible": {
+            "operator": "and",
+            "conditions": [
+              {
+                "condition": "fields.enabled",
+                "operator": "equals",
+                "value": true
+              },
+              {
+                "condition": "fields.tcp_interface",
+                "operator": "equals",
+                "value": "Wi-Fi"
+              }
+            ]
+          }
+        },
+        {
+          "id": "tcp_wifi_password",
+          "label": "Wi-Fi Password",
+          "type": "password",
+          "default": "",
+          "maxLength": 63,
+          "validation": "^(.{8,63})?$",
+          "visible": {
+            "operator": "and",
+            "conditions": [
+              {
+                "condition": "fields.enabled",
+                "operator": "equals",
+                "value": true
+              },
+              {
+                "condition": "fields.tcp_interface",
+                "operator": "equals",
+                "value": "Wi-Fi"
+              }
+            ]
+          }
+        },
+        {
+          "id": "enable_dhcp",
+          "label": "Use DHCP",
+          "type": "boolean",
+          "default": true,
+          "help": "When disabled, the static host fields below become required.",
+          "visible": {
+            "condition": "fields.enabled",
+            "operator": "equals",
+            "value": true
+          }
+        },
+        {
+          "id": "ip_address",
+          "label": "IP Address",
+          "type": "ip-address",
+          "default": "",
+          "placeholder": "192.168.0.10",
+          "visible": {
+            "operator": "and",
+            "conditions": [
+              {
+                "condition": "fields.enabled",
+                "operator": "equals",
+                "value": true
+              },
+              {
+                "condition": "fields.enable_dhcp",
+                "operator": "equals",
+                "value": false
+              }
+            ]
+          }
+        },
+        {
+          "id": "gateway",
+          "label": "Gateway",
+          "type": "ip-address",
+          "default": "",
+          "placeholder": "192.168.0.1",
+          "visible": {
+            "operator": "and",
+            "conditions": [
+              {
+                "condition": "fields.enabled",
+                "operator": "equals",
+                "value": true
+              },
+              {
+                "condition": "fields.enable_dhcp",
+                "operator": "equals",
+                "value": false
+              }
+            ]
+          }
+        },
+        {
+          "id": "subnet",
+          "label": "Subnet Mask",
+          "type": "ip-address",
+          "default": "",
+          "placeholder": "255.255.255.0",
+          "visible": {
+            "operator": "and",
+            "conditions": [
+              {
+                "condition": "fields.enabled",
+                "operator": "equals",
+                "value": true
+              },
+              {
+                "condition": "fields.enable_dhcp",
+                "operator": "equals",
+                "value": false
+              }
+            ]
+          }
+        },
+        {
+          "id": "dns",
+          "label": "DNS",
+          "type": "ip-address",
+          "default": "",
+          "placeholder": "8.8.8.8",
+          "visible": {
+            "operator": "and",
+            "conditions": [
+              {
+                "condition": "fields.enabled",
+                "operator": "equals",
+                "value": true
+              },
+              {
+                "condition": "fields.enable_dhcp",
+                "operator": "equals",
+                "value": false
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
