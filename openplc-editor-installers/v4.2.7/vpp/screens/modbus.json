@@ -224,6 +224,31 @@
           }
         },
         {
+          "id": "tcp_device_discovery",
+          "label": "JWPLC Device Discovery",
+          "type": "jwplc-device-discovery",
+          "default": "",
+          "help": "Busca dispositivos JWPLC/Modbus TCP disponibles en la red local y permite usar su IP para depuración.",
+          "visible": {
+            "condition": "fields.enabled",
+            "operator": "equals",
+            "value": true
+          }
+        },
+        {
+          "id": "tcp_debug_ip_address",
+          "label": "Debug IP Address",
+          "type": "ip-address",
+          "default": "",
+          "placeholder": "Ej. 192.168.0.50",
+          "help": "IP usada por el debugger Modbus TCP. Si queda vacío, se usará IP Address. Si usas DHCP, coloca aquí la IP detectada.",
+          "visible": {
+            "condition": "fields.enabled",
+            "operator": "equals",
+            "value": true
+          }
+        },
+        {
           "id": "ip_address",
           "label": "IP Address",
           "type": "ip-address",
