@@ -21,7 +21,7 @@ enum JWPLCRS485Error : uint8_t
     JWPLC_RS485_UNKNOWN_ERROR
 };
 
-class JWPLC_RS485Class : public Print
+class JWPLC_RS485Class : public Stream
 {
 public:
     JWPLC_RS485Class();

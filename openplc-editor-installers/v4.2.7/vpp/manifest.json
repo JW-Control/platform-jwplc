@@ -3,7 +3,7 @@
     "package": {
         "id": "com.jwcontrol.jwplc-basic",
         "name": "JWPLC Basic OpenPLC",
-        "version": "2.1.0-alpha.3",
+        "version": "2.1.0-alpha.10",
         "vendor": {
             "name": "JW Control",
             "url": "https://www.jw-control.com",
@@ -19,6 +19,9 @@
             "name": "JWPLC BASIC [2.0.0]",
             "category": "Arduino",
             "preview": "assets/jwplcbasic.png",
+            "screens": {
+                "Modbus": "screens/modbus.json"
+            },
             "target": {
                 "type": "arduino-cli",
                 "core": "jwplc:esp32",
@@ -99,22 +102,40 @@
             "debug": {
                 "channels": [
                     {
-                        "label": "Modbus RTU / USB",
+                        "label": "Modbus RTU",
                         "channel": "rtu",
-                        "enabledWhen": true,
+                        "enabledWhen": {
+                            "$ref": "screens.modbus_rtu.enabled"
+                        },
                         "params": {
-                            "baudRate": 115200,
-                            "slaveId": 1
+                            "port": {
+                                "$ref": "screens.modbus_rtu.rtu_debug_port",
+                                "fallback": "configuration.communicationPort",
+                                "required": "Selecciona un puerto de depuración Modbus RTU. Para RS-485 usa el COM del adaptador USB-RS485."
+                            },
+                            "baudRate": {
+                                "$ref": "screens.modbus_rtu.rtu_baud_rate",
+                                "default": "115200",
+                                "as": "number"
+                            },
+                            "slaveId": {
+                                "$ref": "screens.modbus_rtu.rtu_slave_id",
+                                "default": 1,
+                                "as": "number"
+                            }
                         }
                     },
                     {
                         "label": "Modbus TCP / W5500",
                         "channel": "tcp",
-                        "enabledWhen": true,
+                        "enabledWhen": {
+                            "$ref": "screens.modbus_tcp.enabled"
+                        },
                         "params": {
                             "ipAddress": {
-                                "$ref": "configuration.runtimeIpAddress",
-                                "required": "Configura la IP del JWPLC Basic para depuración por Modbus TCP."
+                                "$ref": "screens.modbus_tcp.ip_address",
+                                "fallback": "configuration.runtimeIpAddress",
+                                "required": "Configura la IP del JWPLC Basic para depuración por Modbus TCP. Si usas IP estática, coloca la IP en Modbus TCP > IP Address."
                             }
                         }
                     }
