@@ -3,7 +3,7 @@
     "package": {
         "id": "com.jwcontrol.jwplc-basic",
         "name": "JWPLC Basic OpenPLC",
-        "version": "2.1.0-alpha.10",
+        "version": "2.1.0-alpha.11",
         "vendor": {
             "name": "JW Control",
             "url": "https://www.jw-control.com",
@@ -133,9 +133,9 @@
                         },
                         "params": {
                             "ipAddress": {
-                                "$ref": "screens.modbus_tcp.ip_address",
-                                "fallback": "configuration.runtimeIpAddress",
-                                "required": "Configura la IP del JWPLC Basic para depuración por Modbus TCP. Si usas IP estática, coloca la IP en Modbus TCP > IP Address."
+                                "$ref": "screens.modbus_tcp.tcp_debug_ip_address",
+                                "fallback": "screens.modbus_tcp.ip_address",
+                                "required": "Configura la IP del JWPLC Basic para depuración por Modbus TCP. Si usas DHCP, usa JWPLC Device Discovery o coloca la IP asignada en Debug IP Address."
                             }
                         }
                     }
