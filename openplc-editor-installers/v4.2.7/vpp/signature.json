@@ -4,7 +4,7 @@
   "keyId": "jwcontrol-2026",
   "packageId": "com.jwcontrol.jwplc-basic",
   "version": "2.1.0-alpha.11",
-  "signedAt": "2026-07-03T05:14:56.418Z",
+  "signedAt": "2026-07-05T23:55:13.467Z",
   "files": {
     "README.md": "f98f113f4095893aca82fbb0a5d750d8a6c383af37e3cbe99691854c96ddb832",
     "assets/jwplcbasic.png": "64c7c2755436f2224c1aa7f4ed535c95339eba3df43dbc93f1f19bf5f1b6fb68",
@@ -14,5 +14,5 @@
     "manifest.json": "81a7aee3eaf78b46b25967a4c58075c5b7022164732d4d8e279389be621aad78",
     "screens/modbus.json": "2ba86ffbc65d197eaf94ca6ebc36b6ed0b2cf0d2ea7f0dc6c2676cfd61262ef6"
   },
-  "signature": "/QYa8+sbidynyNzewZeYnKynCQDXojyBdYKMQZafyolsJx/mo4id3UarU58ACnwUpsL6ZTaHc3dAzKpvug4/BA=="
+  "signature": "8UJp4xXPgJxGxjboHYa9ywBBr21iSOObMqWNXLVU6dCEEdf+RSbuux7pe4dzXpuGlbDFrLbHPvoTCI/XNV/6Bw=="
 }
