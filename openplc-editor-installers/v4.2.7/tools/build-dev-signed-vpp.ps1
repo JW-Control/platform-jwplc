@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Genera un VPP firmado con llave local de desarrollo JW Control.
 
@@ -19,8 +19,11 @@ $vppRoot = Join-Path $root "vpp"
 $keysDir = Join-Path $root "keys"
 $outDir = Join-Path $root "out"
 $privateKey = Join-Path $keysDir "jw-control-dev-private.pem"
-$outZip = Join-Path $outDir "jwplc-basic-openplc-2.1.0-alpha.3.dev-signed.zip"
-$outVpp = Join-Path $outDir "jwplc-basic-openplc-2.1.0-alpha.3.dev-signed.vpp"
+$manifestPath = Join-Path $vppRoot "manifest.json"
+$manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+$packageVersion = $manifest.package.version
+$outZip = Join-Path $outDir "jwplc-basic-openplc-$packageVersion.dev-signed.zip"
+$outVpp = Join-Path $outDir "jwplc-basic-openplc-$packageVersion.dev-signed.vpp"
 
 if (-not (Test-Path $vppRoot)) {
     throw "No existe el directorio VPP: $vppRoot"
@@ -55,3 +58,4 @@ Write-Host "VPP firmado con llave dev generado:" -ForegroundColor Green
 Write-Host "  $outVpp"
 Write-Host ""
 Write-Host "Advertencia: OpenPLC Editor stock no aceptara este VPP si no confia en jw-control-dev-public.pem." -ForegroundColor Yellow
+
