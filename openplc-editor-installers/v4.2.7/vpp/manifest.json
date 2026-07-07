@@ -83,7 +83,7 @@
                 "Keyboard": "7 buttons"
             },
             "capabilities": {
-                "pinMapping": true,
+                "pinMapping": false,
                 "vppIo": true,
                 "modbusTcpRemote": false,
                 "ethercat": false,
@@ -154,7 +154,7 @@
                         "description": "Controlador principal JWPLC Basic v2.0.0 con I/O local, Ethernet W5500, RS-485, RTC, FRAM, microSD, display y botonera.",
                         "specs": {
                             "CPU": "ESP32-WROOM-32E / 240 MHz",
-                            "IO": "8 DI / 8 DO locales",
+                            "I_O": "8 DI / 8 DO locales",
                             "Ethernet": "W5500",
                             "RS485": "Serial2",
                             "Role": "Main controller"
@@ -286,97 +286,97 @@
                         "addressMapping": {
                             "channels": [
                                 {
-                                    "name": "RI0",
+                                    "name": "I0_0",
                                     "type": "digitalInput",
                                     "dataType": "BOOL",
                                     "addressPrefix": "%IX"
                                 },
                                 {
-                                    "name": "RI1",
+                                    "name": "I0_1",
                                     "type": "digitalInput",
                                     "dataType": "BOOL",
                                     "addressPrefix": "%IX"
                                 },
                                 {
-                                    "name": "RI2",
+                                    "name": "I0_2",
                                     "type": "digitalInput",
                                     "dataType": "BOOL",
                                     "addressPrefix": "%IX"
                                 },
                                 {
-                                    "name": "RI3",
+                                    "name": "I0_3",
                                     "type": "digitalInput",
                                     "dataType": "BOOL",
                                     "addressPrefix": "%IX"
                                 },
                                 {
-                                    "name": "RI4",
+                                    "name": "I0_4",
                                     "type": "digitalInput",
                                     "dataType": "BOOL",
                                     "addressPrefix": "%IX"
                                 },
                                 {
-                                    "name": "RI5",
+                                    "name": "I0_5",
                                     "type": "digitalInput",
                                     "dataType": "BOOL",
                                     "addressPrefix": "%IX"
                                 },
                                 {
-                                    "name": "RI6",
+                                    "name": "I0_6",
                                     "type": "digitalInput",
                                     "dataType": "BOOL",
                                     "addressPrefix": "%IX"
                                 },
                                 {
-                                    "name": "RI7",
+                                    "name": "I0_7",
                                     "type": "digitalInput",
                                     "dataType": "BOOL",
                                     "addressPrefix": "%IX"
                                 },
                                 {
-                                    "name": "RQ0",
+                                    "name": "Q0_0",
                                     "type": "digitalOutput",
                                     "dataType": "BOOL",
                                     "addressPrefix": "%QX"
                                 },
                                 {
-                                    "name": "RQ1",
+                                    "name": "Q0_1",
                                     "type": "digitalOutput",
                                     "dataType": "BOOL",
                                     "addressPrefix": "%QX"
                                 },
                                 {
-                                    "name": "RQ2",
+                                    "name": "Q0_2",
                                     "type": "digitalOutput",
                                     "dataType": "BOOL",
                                     "addressPrefix": "%QX"
                                 },
                                 {
-                                    "name": "RQ3",
+                                    "name": "Q0_3",
                                     "type": "digitalOutput",
                                     "dataType": "BOOL",
                                     "addressPrefix": "%QX"
                                 },
                                 {
-                                    "name": "RQ4",
+                                    "name": "Q0_4",
                                     "type": "digitalOutput",
                                     "dataType": "BOOL",
                                     "addressPrefix": "%QX"
                                 },
                                 {
-                                    "name": "RQ5",
+                                    "name": "Q0_5",
                                     "type": "digitalOutput",
                                     "dataType": "BOOL",
                                     "addressPrefix": "%QX"
                                 },
                                 {
-                                    "name": "RQ6",
+                                    "name": "Q0_6",
                                     "type": "digitalOutput",
                                     "dataType": "BOOL",
                                     "addressPrefix": "%QX"
                                 },
                                 {
-                                    "name": "RQ7",
+                                    "name": "Q0_7",
                                     "type": "digitalOutput",
                                     "dataType": "BOOL",
                                     "addressPrefix": "%QX"
