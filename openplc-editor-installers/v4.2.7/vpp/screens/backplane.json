@@ -1,0 +1,12 @@
+{
+  "sections": [
+    {
+      "id": "jwplc-backplane",
+      "title": "JWPLC Backplane Configuration",
+      "layout": "module-slots",
+      "persistence": "module-configuration",
+      "maxSlots": 8,
+      "stackable": true
+    }
+  ]
+}
