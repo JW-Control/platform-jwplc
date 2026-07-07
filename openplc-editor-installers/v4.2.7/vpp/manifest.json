@@ -83,7 +83,7 @@
                 "Keyboard": "7 buttons"
             },
             "capabilities": {
-                "pinMapping": true,
+                "pinMapping": false,
                 "vppIo": true,
                 "modbusTcpRemote": false,
                 "ethercat": false,
