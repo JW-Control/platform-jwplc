@@ -3,7 +3,7 @@
     "package": {
         "id": "com.jwcontrol.jwplc-basic",
         "name": "JWPLC Basic OpenPLC",
-        "version": "2.1.0-alpha.11",
+        "version": "2.1.0-alpha.12",
         "vendor": {
             "name": "JW Control",
             "url": "https://www.jw-control.com",
@@ -20,7 +20,8 @@
             "category": "Arduino",
             "preview": "assets/jwplcbasic.png",
             "screens": {
-                "Modbus": "screens/modbus.json"
+                "Modbus": "screens/modbus.json",
+                "JWPLC Backplane": "screens/backplane.json"
             },
             "target": {
                 "type": "arduino-cli",
@@ -83,7 +84,7 @@
             },
             "capabilities": {
                 "pinMapping": true,
-                "vppIo": false,
+                "vppIo": true,
                 "modbusTcpRemote": false,
                 "ethercat": false,
                 "modbusTcpServer": true,
@@ -137,6 +138,250 @@
                                 "fallback": "screens.modbus_tcp.ip_address",
                                 "required": "Configura la IP del JWPLC Basic para depuración por Modbus TCP. Si usas DHCP, usa JWPLC Device Discovery o coloca la IP asignada en Debug IP Address."
                             }
+                        }
+                    }
+                ]
+            },
+            "moduleSystem": {
+                "enabled": true,
+                "maxSlots": 8,
+                "modules": [
+                    {
+                        "id": "jwplc-basic-controller",
+                        "name": "JWPLC Basic v2.0.0",
+                        "fixed": true,
+                        "image": "assets/jwplcbasic.png",
+                        "description": "Controlador principal JWPLC Basic v2.0.0 con I/O local, Ethernet W5500, RS-485, RTC, FRAM, microSD, display y botonera.",
+                        "specs": {
+                            "CPU": "ESP32-WROOM-32E / 240 MHz",
+                            "IO": "8 DI / 8 DO locales",
+                            "Ethernet": "W5500",
+                            "RS485": "Serial2",
+                            "Role": "Main controller"
+                        },
+                        "io": {
+                            "digitalInputs": 8,
+                            "digitalOutputs": 8,
+                            "analogInputs": 0,
+                            "analogOutputs": 0
+                        },
+                        "addressMapping": {
+                            "channels": [
+                                {
+                                    "name": "I0_0",
+                                    "type": "digitalInput",
+                                    "dataType": "BOOL",
+                                    "addressPrefix": "%IX"
+                                },
+                                {
+                                    "name": "I0_1",
+                                    "type": "digitalInput",
+                                    "dataType": "BOOL",
+                                    "addressPrefix": "%IX"
+                                },
+                                {
+                                    "name": "I0_2",
+                                    "type": "digitalInput",
+                                    "dataType": "BOOL",
+                                    "addressPrefix": "%IX"
+                                },
+                                {
+                                    "name": "I0_3",
+                                    "type": "digitalInput",
+                                    "dataType": "BOOL",
+                                    "addressPrefix": "%IX"
+                                },
+                                {
+                                    "name": "I0_4",
+                                    "type": "digitalInput",
+                                    "dataType": "BOOL",
+                                    "addressPrefix": "%IX"
+                                },
+                                {
+                                    "name": "I0_5",
+                                    "type": "digitalInput",
+                                    "dataType": "BOOL",
+                                    "addressPrefix": "%IX"
+                                },
+                                {
+                                    "name": "I0_6",
+                                    "type": "digitalInput",
+                                    "dataType": "BOOL",
+                                    "addressPrefix": "%IX"
+                                },
+                                {
+                                    "name": "I0_7",
+                                    "type": "digitalInput",
+                                    "dataType": "BOOL",
+                                    "addressPrefix": "%IX"
+                                },
+                                {
+                                    "name": "Q0_0",
+                                    "type": "digitalOutput",
+                                    "dataType": "BOOL",
+                                    "addressPrefix": "%QX"
+                                },
+                                {
+                                    "name": "Q0_1",
+                                    "type": "digitalOutput",
+                                    "dataType": "BOOL",
+                                    "addressPrefix": "%QX"
+                                },
+                                {
+                                    "name": "Q0_2",
+                                    "type": "digitalOutput",
+                                    "dataType": "BOOL",
+                                    "addressPrefix": "%QX"
+                                },
+                                {
+                                    "name": "Q0_3",
+                                    "type": "digitalOutput",
+                                    "dataType": "BOOL",
+                                    "addressPrefix": "%QX"
+                                },
+                                {
+                                    "name": "Q0_4",
+                                    "type": "digitalOutput",
+                                    "dataType": "BOOL",
+                                    "addressPrefix": "%QX"
+                                },
+                                {
+                                    "name": "Q0_5",
+                                    "type": "digitalOutput",
+                                    "dataType": "BOOL",
+                                    "addressPrefix": "%QX"
+                                },
+                                {
+                                    "name": "Q0_6",
+                                    "type": "digitalOutput",
+                                    "dataType": "BOOL",
+                                    "addressPrefix": "%QX"
+                                },
+                                {
+                                    "name": "Q0_7",
+                                    "type": "digitalOutput",
+                                    "dataType": "BOOL",
+                                    "addressPrefix": "%QX"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "id": "jwplc-basic-remote-io",
+                        "name": "JWPLC Basic Remote I/O",
+                        "image": "assets/jwplcbasic.png",
+                        "description": "Segundo JWPLC Basic usado como módulo remoto para la prueba inicial de expansión por Modbus.",
+                        "specs": {
+                            "Inputs": "8 digital inputs",
+                            "Outputs": "8 relay outputs",
+                            "Transport": "Modbus TCP / RTU",
+                            "Purpose": "Remote I/O PoC"
+                        },
+                        "io": {
+                            "digitalInputs": 8,
+                            "digitalOutputs": 8,
+                            "analogInputs": 0,
+                            "analogOutputs": 0
+                        },
+                        "addressMapping": {
+                            "channels": [
+                                {
+                                    "name": "RI0",
+                                    "type": "digitalInput",
+                                    "dataType": "BOOL",
+                                    "addressPrefix": "%IX"
+                                },
+                                {
+                                    "name": "RI1",
+                                    "type": "digitalInput",
+                                    "dataType": "BOOL",
+                                    "addressPrefix": "%IX"
+                                },
+                                {
+                                    "name": "RI2",
+                                    "type": "digitalInput",
+                                    "dataType": "BOOL",
+                                    "addressPrefix": "%IX"
+                                },
+                                {
+                                    "name": "RI3",
+                                    "type": "digitalInput",
+                                    "dataType": "BOOL",
+                                    "addressPrefix": "%IX"
+                                },
+                                {
+                                    "name": "RI4",
+                                    "type": "digitalInput",
+                                    "dataType": "BOOL",
+                                    "addressPrefix": "%IX"
+                                },
+                                {
+                                    "name": "RI5",
+                                    "type": "digitalInput",
+                                    "dataType": "BOOL",
+                                    "addressPrefix": "%IX"
+                                },
+                                {
+                                    "name": "RI6",
+                                    "type": "digitalInput",
+                                    "dataType": "BOOL",
+                                    "addressPrefix": "%IX"
+                                },
+                                {
+                                    "name": "RI7",
+                                    "type": "digitalInput",
+                                    "dataType": "BOOL",
+                                    "addressPrefix": "%IX"
+                                },
+                                {
+                                    "name": "RQ0",
+                                    "type": "digitalOutput",
+                                    "dataType": "BOOL",
+                                    "addressPrefix": "%QX"
+                                },
+                                {
+                                    "name": "RQ1",
+                                    "type": "digitalOutput",
+                                    "dataType": "BOOL",
+                                    "addressPrefix": "%QX"
+                                },
+                                {
+                                    "name": "RQ2",
+                                    "type": "digitalOutput",
+                                    "dataType": "BOOL",
+                                    "addressPrefix": "%QX"
+                                },
+                                {
+                                    "name": "RQ3",
+                                    "type": "digitalOutput",
+                                    "dataType": "BOOL",
+                                    "addressPrefix": "%QX"
+                                },
+                                {
+                                    "name": "RQ4",
+                                    "type": "digitalOutput",
+                                    "dataType": "BOOL",
+                                    "addressPrefix": "%QX"
+                                },
+                                {
+                                    "name": "RQ5",
+                                    "type": "digitalOutput",
+                                    "dataType": "BOOL",
+                                    "addressPrefix": "%QX"
+                                },
+                                {
+                                    "name": "RQ6",
+                                    "type": "digitalOutput",
+                                    "dataType": "BOOL",
+                                    "addressPrefix": "%QX"
+                                },
+                                {
+                                    "name": "RQ7",
+                                    "type": "digitalOutput",
+                                    "dataType": "BOOL",
+                                    "addressPrefix": "%QX"
+                                }
+                            ]
                         }
                     }
                 ]
