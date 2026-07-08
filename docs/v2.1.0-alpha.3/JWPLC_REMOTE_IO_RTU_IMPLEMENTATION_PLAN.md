@@ -6,6 +6,20 @@ Implementar y validar **JWPLC Remote I/O por Modbus RTU / RS-485** usando JWPLC 
 
 La integración debe mantenerse opcional y no debe romper el uso normal Arduino del package.
 
+## Ubicación
+
+La documentación de esta etapa vive en:
+
+```txt
+docs/v2.1.0-alpha.3/
+```
+
+Branch de trabajo:
+
+```txt
+feature/v2.1.0-alpha.3-remote-io-rtu-poc1
+```
+
 ## Alcance inicial
 
 La primera implementación se limita a Remote I/O digital:
@@ -26,18 +40,17 @@ Queda fuera de la primera PoC:
 - OTA.
 - Cambios a `platform.txt`.
 - Cambios de FlashFreq.
+- Cambios a `package_jwplc_index_dev.json`.
 
 ## Arquitectura objetivo
 
 ```txt
 PC / OpenPLC Editor
-        │
-        │ USB / Serial0
-        ▼
+        | USB / Serial0
+        v
 JWPLC Basic Master
-        │
-        │ RS-485 / Serial2
-        ▼
+        | RS-485 / Serial2
+        v
 JWPLC Basic Remote I/O Slave(s)
 ```
 
@@ -48,9 +61,12 @@ JWPLC Basic Remote I/O Slave(s)
 Crear/actualizar:
 
 ```txt
-docs/openplc/JWPLC_REMOTE_IO_RTU_PROTOCOL.md
-docs/openplc/JWPLC_REMOTE_IO_RTU_IMPLEMENTATION_PLAN.md
-docs/openplc/JWPLC_REMOTE_IO_RTU_POC1_CHECKLIST.md
+docs/v2.1.0-alpha.3/README.md
+docs/v2.1.0-alpha.3/JWPLC_REMOTE_IO_RTU_PROTOCOL.md
+docs/v2.1.0-alpha.3/JWPLC_REMOTE_IO_RTU_IMPLEMENTATION_PLAN.md
+docs/v2.1.0-alpha.3/JWPLC_REMOTE_IO_RTU_POC1_CHECKLIST.md
+docs/v2.1.0-alpha.3/JWPLC_REMOTE_IO_RTU_HANDOFF_NEXT_CHAT.md
+docs/v2.1.0-alpha.3/JWPLC_V2_1_0_ALPHA3_REMOTE_IO_RTU_NOTES.md
 ```
 
 Resultado esperado:
@@ -59,6 +75,7 @@ Resultado esperado:
 - Mapa de registros definido.
 - PoC 1 delimitada.
 - Riesgos documentados.
+- Convención `alpha.3` aplicada de forma consistente.
 
 ### Etapa 1 - PoC 1: Slave RTU mínimo con ID fijo
 
@@ -71,7 +88,7 @@ Validar I/O físico real por RS-485 antes de integrar FRAM, commissioning o UI.
 Características:
 
 - Firmware `JWPLC_RemoteIO_Slave_RTU`.
-- ID fijo por `#define` o constante local.
+- ID fijo inicial: `2`.
 - Baudrate fijo inicial: `115200`.
 - Formato inicial: `8N1`, salvo ajuste posterior.
 - `Serial2` como bus RS-485.
@@ -93,6 +110,7 @@ Criterio de avance:
 - Lectura real de entradas por RTU.
 - Escritura real de salidas por RTU.
 - Feedback de salidas consistente.
+- Salidas apagadas al arranque.
 - No rompe APIs Arduino normales.
 
 ### Etapa 2 - FRAM y configuración persistente
@@ -116,7 +134,7 @@ Agregar:
 - `uidCrc`.
 - `configCrc`.
 
-Mapa de identificación:
+Mapa de identificación/configuración:
 
 | Área | Rango | Uso |
 |---|---:|---|
@@ -175,7 +193,7 @@ Agregar en editor:
 
 - Botón `Scan JWPLC RTU Devices`.
 - Lista de slaves detectados.
-- Asignación UID → Slot/ID.
+- Asignación UID -> Slot/ID.
 - Generación de configuración Remote Device RTU.
 - Visualización de MAC/UID.
 
@@ -226,4 +244,3 @@ No cerrar ninguna etapa sin documentar:
 - qué comandos se usaron;
 - qué quedó fuera;
 - qué pendiente bloquea o condiciona la siguiente etapa.
-
