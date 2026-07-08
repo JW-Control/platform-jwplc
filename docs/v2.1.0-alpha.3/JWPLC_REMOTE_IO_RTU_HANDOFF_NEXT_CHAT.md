@@ -1,25 +1,22 @@
-# Handoff - Continuación JWPLC Remote I/O RTU
+# Handoff - JWPLC Remote I/O RTU v2.1.0-alpha.3
 
-## Punto de partida
+## Punto de partida real
 
-Venimos de revisar el ZIP:
-
-```txt
-documentación importada de Remote I/O RTU
-```
-
-El ZIP contenía:
+Esta etapa corresponde a:
 
 ```txt
-JWPLC_REMOTE_IO_RTU_PROTOCOL.md
-JWPLC_ALPHA13_REMOTE_IO_RTU_HANDOFF.md
+JWPLC Basic v2.1.0-alpha.3
+branch: feature/v2.1.0-alpha.3-remote-io-rtu-poc1
+base: main
 ```
 
-Se generó una carpeta consolidada con documentación lista para versionar:
+La carpeta oficial de documentación en `platform-jwplc` es:
 
 ```txt
-jwplc_remote_io_rtu_v2_1_0_alpha3_docs/
+docs/v2.1.0-alpha.3/
 ```
+
+Se mantiene la convención `alpha.x` porque ordena correctamente las etapas del package y coincide con el versionado usado por Arduino Boards Manager.
 
 ## Estado estable que no se debe romper
 
@@ -29,7 +26,7 @@ Package Arduino: JW Control ESP32 Boards
 FQBN principal: jwplc:esp32:jwplcbasic
 ```
 
-Validado en `v2.0.0`:
+Validado en la línea estable y alphas posteriores:
 
 - Arduino IDE.
 - Arduino CLI.
@@ -59,11 +56,11 @@ Validado en `v2.0.0`:
 - No quitar periféricos del autoload normal.
 - No tocar `platform.txt` salvo bloqueante real.
 - No asumir OTA.
-- No cambiar FlashFreq sin justificación.
+- No cambiar FlashFreq sin validación.
 - No publicar bootloader definitivo.
-- OpenPLC debe ser opcional o claramente documentado.
+- OpenPLC debe mantenerse como integración opcional o claramente documentada.
 
-## Decisión técnica importada
+## Decisión técnica
 
 Remote I/O principal:
 
@@ -71,19 +68,19 @@ Remote I/O principal:
 Modbus RTU por RS-485
 ```
 
-Arquitectura:
+Arquitectura objetivo:
 
 ```txt
 PC / OpenPLC Editor
-        │ USB / Serial0
-        ▼
+        | USB / Serial0
+        v
 JWPLC Basic Master
-        │ RS-485 / Serial2
-        ▼
+        | RS-485 / Serial2
+        v
 JWPLC Basic Remote I/O Slave(s)
 ```
 
-## Mapa operativo acordado
+## Mapa operativo acordado para PoC 1
 
 ```txt
 FC2  Discrete Inputs  0..7 = I0_0..I0_7
@@ -99,79 +96,50 @@ FC4 Input Registers    240..255 = identificación
 FC3 Holding Registers  224..239 = configuración
 ```
 
-## Rama a confirmar
+## Objetivo inmediato
 
-Hay una diferencia de contexto entre documentos:
-
-### Rama real para esta etapa
-
-```txt
-base:   main o rama actual posterior a v2.1.0-alpha.2
-branch: develop/v2.1.0-alpha.3-remote-io-rtu
-```
-
-Usar si el repo ya tiene mergeado Backplane/VPP y discovery polish.
-
-### Opción B - Continuación desde v2.0.0 estable
-
-```txt
-base:   main con v2.0.0 estable
-branch: develop/alpha32-openplc-integration
-```
-
-Usar como referencia si se trabaja desde la línea estable o desde la alpha técnica anterior.
-
-## Siguiente acción recomendada
-
-Primero crear PR solo documental:
-
-```txt
-docs/openplc/JWPLC_REMOTE_IO_RTU_PROTOCOL.md
-docs/openplc/JWPLC_REMOTE_IO_RTU_IMPLEMENTATION_PLAN.md
-docs/openplc/JWPLC_REMOTE_IO_RTU_POC1_CHECKLIST.md
-```
-
-Commit sugerido:
-
-```txt
-docs(openplc): define JWPLC Remote I/O RTU protocol
-```
-
-## Después del PR documental
-
-Implementar PoC 1:
+Implementar la PoC 1:
 
 ```txt
 JWPLC_RemoteIO_Slave_RTU
 ```
 
-Mínimo:
+Mínimo esperado:
 
-- ID fijo.
-- `Serial2` / RS-485.
-- Modbus RTU Slave.
-- `FC2` lee entradas.
-- `FC15` escribe salidas.
-- `FC5` escribe salida individual.
-- `FC1` lee feedback de salidas.
+- ID fijo inicial `2`.
+- Baudrate inicial `115200`.
+- Formato inicial `8N1`.
+- `Serial2` / RS-485 físico.
 - Logs mínimos por `Serial0`.
+- `FC2` lee entradas digitales reales.
+- `FC15` escribe salidas digitales en bloque.
+- `FC5` escribe una salida individual.
+- `FC1` lee feedback de salidas.
+- Salidas apagadas al arranque.
 - Sin FRAM.
 - Sin commissioning.
+- Sin Modbus TCP.
+- Sin cambios a `package_jwplc_index_dev.json` hasta tener ZIP final.
 
-## Prompt recomendado para nuevo chat
+## Archivos de referencia
 
 ```txt
-Estoy continuando el desarrollo de JWPLC Remote I/O por Modbus RTU / RS-485 para JWPLC Basic.
+docs/v2.1.0-alpha.3/README.md
+docs/v2.1.0-alpha.3/JWPLC_V2_1_0_ALPHA3_REMOTE_IO_RTU_NOTES.md
+docs/v2.1.0-alpha.3/JWPLC_REMOTE_IO_RTU_PROTOCOL.md
+docs/v2.1.0-alpha.3/JWPLC_REMOTE_IO_RTU_IMPLEMENTATION_PLAN.md
+docs/v2.1.0-alpha.3/JWPLC_REMOTE_IO_RTU_POC1_CHECKLIST.md
+```
 
-Usa como base la carpeta de documentación `jwplc_remote_io_rtu_alpha13_review`, especialmente:
+## Prompt recomendado para continuar
 
-- `00_REVISION_IMPORTACION_ALPHA13_REMOTE_IO_RTU.md`
-- `docs/openplc/JWPLC_REMOTE_IO_RTU_PROTOCOL.md`
-- `docs/openplc/JWPLC_REMOTE_IO_RTU_IMPLEMENTATION_PLAN.md`
-- `docs/openplc/JWPLC_REMOTE_IO_RTU_POC1_CHECKLIST.md`
+```txt
+Estoy continuando el desarrollo de JWPLC Remote I/O por Modbus RTU / RS-485 para JWPLC Basic v2.1.0-alpha.3.
+
+Usa como base `platform-jwplc`, branch `feature/v2.1.0-alpha.3-remote-io-rtu-poc1`, y la documentación en `docs/v2.1.0-alpha.3/`.
 
 Objetivo inmediato:
-Crear primero un PR/documentación para fijar el protocolo Remote I/O RTU y luego implementar la PoC 1 del firmware `JWPLC_RemoteIO_Slave_RTU` con ID fijo.
+Implementar la PoC 1 del firmware `JWPLC_RemoteIO_Slave_RTU` con ID fijo, `Serial2`, `FC2`, `FC1`, `FC5` y `FC15`.
 
 Restricciones:
 - No romper el uso normal Arduino del package.
@@ -180,9 +148,4 @@ Restricciones:
 - No asumir OTA.
 - No cambiar FlashFreq sin validación.
 - Mantener OpenPLC como integración opcional o claramente documentada.
-
-Antes de codear, confirma si la rama real es:
-- `develop/v2.1.0-alpha.3-remote-io-rtu` desde `v2.1.0-alpha.2 o main, según la rama que esté vigente`, o
-- `develop/alpha32-openplc-integration` desde `main` con `v2.0.0` estable.
 ```
-
