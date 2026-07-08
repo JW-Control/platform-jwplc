@@ -10,10 +10,20 @@ Esta alpha no reemplaza a `v2.0.0` como canal estable público.
 
 Documentar el protocolo, mapa Modbus y plan de implementación para usar uno o más **JWPLC Basic** como módulos remotos de entradas/salidas conectados por RS-485 a un JWPLC Basic Master.
 
+## Ubicación en el repo
+
+La documentación de esta etapa vive en:
+
+```txt
+docs/v2.1.0-alpha.3/
+```
+
+Se usa `alpha.3`, con punto, para mantener el orden y la convención del versionado del package.
+
 ## Cambios incluidos
 
 - Protocolo `JWPLC Remote I/O RTU v1`.
-- Arquitectura PC/OpenPLC Editor ↔ JWPLC Master ↔ JWPLC Remote I/O Slaves.
+- Arquitectura PC/OpenPLC Editor -> JWPLC Master -> JWPLC Remote I/O Slaves.
 - Mapa operativo inicial:
   - `FC2` para `I0_0..I0_7`.
   - `FC1`, `FC5` y `FC15` para `Q0_0..Q0_7`.
@@ -50,9 +60,9 @@ Documentar el protocolo, mapa Modbus y plan de implementación para usar uno o m
 Puede iniciarse la PoC 1 cuando queden versionados:
 
 ```txt
-docs/openplc/JWPLC_REMOTE_IO_RTU_PROTOCOL.md
-docs/openplc/JWPLC_REMOTE_IO_RTU_IMPLEMENTATION_PLAN.md
-docs/openplc/JWPLC_REMOTE_IO_RTU_POC1_CHECKLIST.md
+docs/v2.1.0-alpha.3/JWPLC_REMOTE_IO_RTU_PROTOCOL.md
+docs/v2.1.0-alpha.3/JWPLC_REMOTE_IO_RTU_IMPLEMENTATION_PLAN.md
+docs/v2.1.0-alpha.3/JWPLC_REMOTE_IO_RTU_POC1_CHECKLIST.md
 ```
 
 La PoC 1 debe validar un JWPLC Basic slave con ID fijo exponiendo entradas por `FC2`, salidas por `FC5/FC15` y feedback por `FC1` sin romper las APIs Arduino normales.
