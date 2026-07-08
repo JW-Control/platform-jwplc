@@ -26,6 +26,8 @@
 */
 
 #include <Arduino.h>
+#include <JWPLC_RS485.h>
+#include <JWPLC_ModbusRTU.h>
 
 // -----------------------------------------------------------------------------
 // Configuración PoC 1
@@ -33,10 +35,6 @@
 
 static const uint8_t JWPLC_REMOTE_IO_SLAVE_ID = 2;
 static const uint32_t JWPLC_REMOTE_IO_BAUDRATE = 115200;
-
-// RS-485 físico del JWPLC Basic
-static const int JWPLC_RS485_RX_PIN = 16;
-static const int JWPLC_RS485_TX_PIN = 17;
 
 // Modbus RTU
 static const uint16_t MODBUS_MAX_FRAME = 256;
@@ -70,47 +68,15 @@ static uint32_t lastRxMs = 0;
 // CRC16 Modbus
 // -----------------------------------------------------------------------------
 
-static uint16_t modbusCrc16(const uint8_t *data, uint16_t length) {
-  uint16_t crc = 0xFFFF;
-
-  for (uint16_t i = 0; i < length; i++) {
-    crc ^= data[i];
-
-    for (uint8_t bit = 0; bit < 8; bit++) {
-      if (crc & 0x0001) {
-        crc >>= 1;
-        crc ^= 0xA001;
-      } else {
-        crc >>= 1;
-      }
-    }
-  }
-
-  return crc;
-}
-
 static bool validateCrc(const uint8_t *frame, uint16_t length) {
-  if (length < 4) {
-    return false;
-  }
-
-  const uint16_t receivedCrc =
-    (uint16_t)frame[length - 2] |
-    ((uint16_t)frame[length - 1] << 8);
-
-  const uint16_t calculatedCrc = modbusCrc16(frame, length - 2);
-
-  return receivedCrc == calculatedCrc;
+  return JWPLC_ModbusRTU.checkCRC(frame, length);
 }
 
 static void appendCrcAndSend(uint8_t *frame, uint16_t lengthWithoutCrc) {
-  const uint16_t crc = modbusCrc16(frame, lengthWithoutCrc);
+  JWPLC_ModbusRTU.appendCRC(frame, lengthWithoutCrc);
 
-  frame[lengthWithoutCrc] = crc & 0xFF;
-  frame[lengthWithoutCrc + 1] = (crc >> 8) & 0xFF;
-
-  Serial2.write(frame, lengthWithoutCrc + 2);
-  Serial2.flush();
+  JWPLC_RS485.write(frame, lengthWithoutCrc + 2);
+  JWPLC_RS485.flush();
 }
 
 // -----------------------------------------------------------------------------
@@ -427,19 +393,22 @@ void setup() {
 
   setupIo();
 
-  Serial2.begin(
-    JWPLC_REMOTE_IO_BAUDRATE,
-    SERIAL_8N1,
-    JWPLC_RS485_RX_PIN,
-    JWPLC_RS485_TX_PIN
-  );
+  if (!JWPLC_RS485.begin(JWPLC_REMOTE_IO_BAUDRATE, SERIAL_8N1)) {
+    Serial.println(F("[RTU] ERROR: JWPLC_RS485 no pudo iniciar"));
+    JWPLC_RS485.printStatus(Serial);
+    while (true) {
+      delay(1000);
+    }
+  }
+
+  JWPLC_RS485.printStatus(Serial);
 
   Serial.println(F("[RTU] Slave listo"));
 }
 
 void loop() {
-  while (Serial2.available() > 0) {
-    const int value = Serial2.read();
+  while (JWPLC_RS485.available() > 0) {
+    const int value = JWPLC_RS485.read();
 
     if (value < 0) {
       break;
