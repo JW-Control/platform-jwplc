@@ -29,8 +29,11 @@ bool JWPLC_LogicRuntime::begin(uint32_t framBytes)
 
 bool JWPLC_LogicRuntime::start()
 {
-  if (_state != JWPLCLogicRuntimeState::Ready &&
-      _state != JWPLCLogicRuntimeState::Stopped)
+  const bool validState =
+      _state == JWPLCLogicRuntimeState::Ready ||
+      _state == JWPLCLogicRuntimeState::Stopped;
+
+  if (!validState || _storageProfile->maxBlocks == 0)
   {
     _lastError = JWPLCLogicRuntimeError::NotReady;
     return false;
