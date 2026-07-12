@@ -56,16 +56,25 @@ public:
   bool blockValue(uint16_t index) const;
   uint32_t scanCount() const;
   uint32_t lastScanMicros() const;
+  uint32_t minScanMicros() const;
+  uint32_t maxScanMicros() const;
+  uint32_t averageScanMicros() const;
+  void resetScanStatistics();
 
   static const char *stateName(JWPLCLogicRuntimeState state);
   static const char *errorName(JWPLCLogicRuntimeError error);
 
 private:
+  void recordScanDuration(uint32_t elapsedMicros);
+
   const LogicStorageProfile *_storageProfile;
   JWPLCLogicRuntimeState _state;
   JWPLCLogicRuntimeError _lastError;
   uint32_t _scanCount;
   uint32_t _lastScanMicros;
+  uint32_t _minScanMicros;
+  uint32_t _maxScanMicros;
+  uint64_t _totalScanMicros;
   JWPLCLogicIO _io;
   LogicEngine _engine;
 };
