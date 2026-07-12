@@ -1,10 +1,10 @@
 #include "JWPLCLogicIO.h"
 
-static constexpr uint8_t JWPLC_LOGIC_IO_CAPACITY = 8;
+#include "jwplc_peripherals.h"
 
 JWPLCLogicIO::JWPLCLogicIO()
-    : _inputs{false, false, false, false, false, false, false, false},
-      _outputs{false, false, false, false, false, false, false, false},
+    : _inputBitmap(0),
+      _outputBitmap(0),
       _initialized(false)
 {
 }
@@ -18,15 +18,16 @@ bool JWPLCLogicIO::begin()
   for (uint8_t index = 0; index < I0_COUNT; ++index)
   {
     pinMode(I0_X[index], INPUT);
-    _inputs[index] = false;
   }
 
   for (uint8_t index = 0; index < Q0_COUNT; ++index)
   {
     pinMode(Q0_X[index], OUTPUT);
-    _outputs[index] = false;
-    digitalWrite(Q0_X[index], LOW);
   }
+
+  _inputBitmap = jwplc_digitalReadBlock(I0_X, I0_COUNT);
+  _outputBitmap = 0;
+  jwplc_digitalWriteBlock(Q0_X, Q0_COUNT, _outputBitmap);
 
   _initialized = true;
   return true;
@@ -41,19 +42,15 @@ void JWPLCLogicIO::scanInputs()
   }
 
 #if defined(JWPLC_BASIC)
-  for (uint8_t index = 0; index < I0_COUNT; ++index)
-  {
-    _inputs[index] = digitalRead(I0_X[index]) == HIGH;
-  }
+  // I0_X usa el snapshot lógico actualizado por la tarea del sistema JWPLC.
+  // Esto evita ocho transacciones I2C independientes en cada scan lógico.
+  _inputBitmap = jwplc_digitalReadBlock(I0_X, I0_COUNT);
 #endif
 }
 
 void JWPLCLogicIO::beginOutputScan()
 {
-  for (uint8_t index = 0; index < JWPLC_LOGIC_IO_CAPACITY; ++index)
-  {
-    _outputs[index] = false;
-  }
+  _outputBitmap = 0;
 }
 
 bool JWPLCLogicIO::digitalInput(uint8_t index) const
@@ -63,7 +60,7 @@ bool JWPLCLogicIO::digitalInput(uint8_t index) const
     return false;
   }
 
-  return _inputs[index];
+  return (_inputBitmap & static_cast<uint8_t>(1U << index)) != 0;
 }
 
 bool JWPLCLogicIO::setDigitalOutput(uint8_t index, bool value)
@@ -73,7 +70,16 @@ bool JWPLCLogicIO::setDigitalOutput(uint8_t index, bool value)
     return false;
   }
 
-  _outputs[index] = value;
+  const uint8_t mask = static_cast<uint8_t>(1U << index);
+  if (value)
+  {
+    _outputBitmap |= mask;
+  }
+  else
+  {
+    _outputBitmap &= static_cast<uint8_t>(~mask);
+  }
+
   return true;
 }
 
@@ -85,16 +91,15 @@ void JWPLCLogicIO::commitOutputs()
   }
 
 #if defined(JWPLC_BASIC)
-  for (uint8_t index = 0; index < Q0_COUNT; ++index)
-  {
-    digitalWrite(Q0_X[index], _outputs[index] ? HIGH : LOW);
-  }
+  // Q0_X se escribe como un único banco para mantener una actualización
+  // coherente de las ocho salidas y evitar ocho escrituras I2C por scan.
+  jwplc_digitalWriteBlock(Q0_X, Q0_COUNT, _outputBitmap);
 #endif
 }
 
 void JWPLCLogicIO::allOutputsOff()
 {
-  beginOutputScan();
+  _outputBitmap = 0;
   commitOutputs();
 }
 
