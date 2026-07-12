@@ -1,60 +1,63 @@
-/*
-  JWPLC_RemoteIO_Slave_RTU
-
-  PoC 1 - JWPLC Basic Remote I/O por Modbus RTU / RS-485
-
-  Objetivo:
-  - Slave ID fijo.
-  - Serial2 / RS-485 físico.
-  - FC2  lee I0_0..I0_7 como Discrete Inputs.
-  - FC1  lee feedback Q0_0..Q0_7 como Coils.
-  - FC5  escribe una salida individual Q0_x.
-  - FC15 escribe salidas Q0_0..Q0_7 en bloque.
-
-  No incluye:
-  - FRAM.
-  - Commissioning.
-  - UID/MAC.
-  - Modbus TCP.
-  - OpenPLC integrado al runtime normal.
-
-  Configuración inicial:
-  - Slave ID: 2
-  - Baudrate: 115200
-  - Formato: 8N1
-  - RS-485: Serial2 RX2=IO16 TX2=IO17
-*/
-
 #include <Arduino.h>
 #include <JWPLC_RS485.h>
 #include <JWPLC_ModbusRTU.h>
 
 // -----------------------------------------------------------------------------
-// Configuración PoC 1
+// JWPLC Remote I/O Slave RTU - PoC 1 ampliada
+// -----------------------------------------------------------------------------
+//
+// Soporta:
+//
+// FC1  Read Coils              -> feedback Q0_0..Q0_7
+// FC2  Read Discrete Inputs    -> I0_0..I0_7
+// FC3  Read Holding Registers  -> holdingRegisters[0..63]
+// FC4  Read Input Registers    -> inputRegisters[0..63]
+// FC5  Write Single Coil       -> Q0_x
+// FC6  Write Single Register   -> holdingRegisters[x]
+// FC15 Write Multiple Coils    -> Q0_0..Q0_7
+// FC16 Write Multiple Registers-> holdingRegisters[x..y]
+//
+// Transporte oficial:
+// - JWPLC_RS485.begin()
+// - JWPLC_RS485.read/write/flush()
+//
+// Helpers Modbus:
+// - JWPLC_ModbusRTU.checkCRC()
+// - JWPLC_ModbusRTU.appendCRC()
+//
 // -----------------------------------------------------------------------------
 
 static const uint8_t JWPLC_REMOTE_IO_SLAVE_ID = 2;
 static const uint32_t JWPLC_REMOTE_IO_BAUDRATE = 115200;
 
-// Modbus RTU
 static const uint16_t MODBUS_MAX_FRAME = 256;
 static const uint32_t MODBUS_FRAME_GAP_MS = 4;
+
+static const uint8_t BIT_IO_COUNT = 8;
+static const uint16_t REGISTER_COUNT = 64;
 
 // -----------------------------------------------------------------------------
 // Mapa físico JWPLC Basic
 // -----------------------------------------------------------------------------
 
-static const int INPUT_PINS[8] = {
+static const int INPUT_PINS[BIT_IO_COUNT] = {
   I0_0, I0_1, I0_2, I0_3,
   I0_4, I0_5, I0_6, I0_7
 };
 
-static const int OUTPUT_PINS[8] = {
+static const int OUTPUT_PINS[BIT_IO_COUNT] = {
   Q0_0, Q0_1, Q0_2, Q0_3,
   Q0_4, Q0_5, Q0_6, Q0_7
 };
 
 static uint8_t outputState = 0x00;
+
+// -----------------------------------------------------------------------------
+// Registros demo para JW Modbus Tool
+// -----------------------------------------------------------------------------
+
+static uint16_t holdingRegisters[REGISTER_COUNT];
+static uint16_t inputRegisters[REGISTER_COUNT];
 
 // -----------------------------------------------------------------------------
 // Buffer RTU
@@ -65,7 +68,7 @@ static uint16_t rxLength = 0;
 static uint32_t lastRxMs = 0;
 
 // -----------------------------------------------------------------------------
-// CRC16 Modbus
+// Utilidades
 // -----------------------------------------------------------------------------
 
 static bool validateCrc(const uint8_t *frame, uint16_t length) {
@@ -79,6 +82,15 @@ static void appendCrcAndSend(uint8_t *frame, uint16_t lengthWithoutCrc) {
   JWPLC_RS485.flush();
 }
 
+static uint16_t readU16BE(const uint8_t *buffer, uint16_t index) {
+  return ((uint16_t)buffer[index] << 8) | buffer[index + 1];
+}
+
+static void writeU16BE(uint8_t *buffer, uint16_t index, uint16_t value) {
+  buffer[index] = highByte(value);
+  buffer[index + 1] = lowByte(value);
+}
+
 // -----------------------------------------------------------------------------
 // I/O helpers
 // -----------------------------------------------------------------------------
@@ -86,14 +98,14 @@ static void appendCrcAndSend(uint8_t *frame, uint16_t lengthWithoutCrc) {
 static void applyOutputs(uint8_t state) {
   outputState = state;
 
-  for (uint8_t i = 0; i < 8; i++) {
+  for (uint8_t i = 0; i < BIT_IO_COUNT; i++) {
     const bool enabled = (outputState & (1 << i)) != 0;
     digitalWrite(OUTPUT_PINS[i], enabled ? HIGH : LOW);
   }
 }
 
 static bool readInputBit(uint8_t index) {
-  if (index >= 8) {
+  if (index >= BIT_IO_COUNT) {
     return false;
   }
 
@@ -101,7 +113,7 @@ static bool readInputBit(uint8_t index) {
 }
 
 static bool readOutputFeedbackBit(uint8_t index) {
-  if (index >= 8) {
+  if (index >= BIT_IO_COUNT) {
     return false;
   }
 
@@ -114,7 +126,7 @@ static uint8_t buildInputBitmap(uint16_t start, uint16_t quantity) {
   for (uint16_t i = 0; i < quantity; i++) {
     const uint8_t physicalIndex = start + i;
 
-    if (physicalIndex < 8 && readInputBit(physicalIndex)) {
+    if (physicalIndex < BIT_IO_COUNT && readInputBit(physicalIndex)) {
       value |= (1 << i);
     }
   }
@@ -128,12 +140,78 @@ static uint8_t buildOutputBitmap(uint16_t start, uint16_t quantity) {
   for (uint16_t i = 0; i < quantity; i++) {
     const uint8_t physicalIndex = start + i;
 
-    if (physicalIndex < 8 && readOutputFeedbackBit(physicalIndex)) {
+    if (physicalIndex < BIT_IO_COUNT && readOutputFeedbackBit(physicalIndex)) {
       value |= (1 << i);
     }
   }
 
   return value;
+}
+
+static uint8_t currentInputBitmap() {
+  return buildInputBitmap(0, BIT_IO_COUNT);
+}
+
+static void updateInputRegisters() {
+  const uint32_t uptimeSec = millis() / 1000UL;
+
+  inputRegisters[0] = currentInputBitmap();
+  inputRegisters[1] = outputState;
+  inputRegisters[2] = (uint16_t)(uptimeSec & 0xFFFF);
+  inputRegisters[3] = (uint16_t)((uptimeSec >> 16) & 0xFFFF);
+
+  for (uint16_t i = 4; i < REGISTER_COUNT; i++) {
+    inputRegisters[i] = 0x2000 + i;
+  }
+}
+
+static void initRegisters() {
+  for (uint16_t i = 0; i < REGISTER_COUNT; i++) {
+    holdingRegisters[i] = 0x1000 + i;
+    inputRegisters[i] = 0x2000 + i;
+  }
+
+  updateInputRegisters();
+}
+
+// -----------------------------------------------------------------------------
+// Validación de rangos
+// -----------------------------------------------------------------------------
+
+static bool isValidBitRange(uint16_t start, uint16_t quantity) {
+  if (quantity == 0) {
+    return false;
+  }
+
+  if (quantity > BIT_IO_COUNT) {
+    return false;
+  }
+
+  if (start >= BIT_IO_COUNT) {
+    return false;
+  }
+
+  if ((start + quantity) > BIT_IO_COUNT) {
+    return false;
+  }
+
+  return true;
+}
+
+static bool isValidRegisterRange(uint16_t start, uint16_t quantity) {
+  if (quantity == 0) {
+    return false;
+  }
+
+  if (start >= REGISTER_COUNT) {
+    return false;
+  }
+
+  if ((start + quantity) > REGISTER_COUNT) {
+    return false;
+  }
+
+  return true;
 }
 
 // -----------------------------------------------------------------------------
@@ -150,60 +228,18 @@ static void sendException(uint8_t slaveId, uint8_t functionCode, uint8_t excepti
   appendCrcAndSend(response, 3);
 }
 
-static bool isValidBitRange(uint16_t start, uint16_t quantity) {
-  if (quantity == 0) {
-    return false;
-  }
-
-  if (quantity > 8) {
-    return false;
-  }
-
-  if (start >= 8) {
-    return false;
-  }
-
-  if ((start + quantity) > 8) {
-    return false;
-  }
-
-  return true;
-}
-
-// FC2 - Read Discrete Inputs
-static void handleReadDiscreteInputs(const uint8_t *request, uint16_t length) {
-  if (length != 8) {
-    sendException(request[0], request[1], 0x03);
-    return;
-  }
-
-  const uint16_t start = ((uint16_t)request[2] << 8) | request[3];
-  const uint16_t quantity = ((uint16_t)request[4] << 8) | request[5];
-
-  if (!isValidBitRange(start, quantity)) {
-    sendException(request[0], request[1], 0x02);
-    return;
-  }
-
-  uint8_t response[6];
-
-  response[0] = request[0];
-  response[1] = request[1];
-  response[2] = 1;  // byte count, PoC 1 solo usa hasta 8 bits
-  response[3] = buildInputBitmap(start, quantity);
-
-  appendCrcAndSend(response, 4);
-}
-
+// -----------------------------------------------------------------------------
 // FC1 - Read Coils / output feedback
+// -----------------------------------------------------------------------------
+
 static void handleReadCoils(const uint8_t *request, uint16_t length) {
   if (length != 8) {
     sendException(request[0], request[1], 0x03);
     return;
   }
 
-  const uint16_t start = ((uint16_t)request[2] << 8) | request[3];
-  const uint16_t quantity = ((uint16_t)request[4] << 8) | request[5];
+  const uint16_t start = readU16BE(request, 2);
+  const uint16_t quantity = readU16BE(request, 4);
 
   if (!isValidBitRange(start, quantity)) {
     sendException(request[0], request[1], 0x02);
@@ -214,23 +250,94 @@ static void handleReadCoils(const uint8_t *request, uint16_t length) {
 
   response[0] = request[0];
   response[1] = request[1];
-  response[2] = 1;  // byte count, PoC 1 solo usa hasta 8 bits
+  response[2] = 1;
   response[3] = buildOutputBitmap(start, quantity);
 
   appendCrcAndSend(response, 4);
 }
 
+// -----------------------------------------------------------------------------
+// FC2 - Read Discrete Inputs
+// -----------------------------------------------------------------------------
+
+static void handleReadDiscreteInputs(const uint8_t *request, uint16_t length) {
+  if (length != 8) {
+    sendException(request[0], request[1], 0x03);
+    return;
+  }
+
+  const uint16_t start = readU16BE(request, 2);
+  const uint16_t quantity = readU16BE(request, 4);
+
+  if (!isValidBitRange(start, quantity)) {
+    sendException(request[0], request[1], 0x02);
+    return;
+  }
+
+  uint8_t response[6];
+
+  response[0] = request[0];
+  response[1] = request[1];
+  response[2] = 1;
+  response[3] = buildInputBitmap(start, quantity);
+
+  appendCrcAndSend(response, 4);
+}
+
+// -----------------------------------------------------------------------------
+// FC3 / FC4 - Read Registers
+// -----------------------------------------------------------------------------
+
+static void handleReadRegisters(const uint8_t *request,
+                                uint16_t length,
+                                const uint16_t *registerMap) {
+  if (length != 8) {
+    sendException(request[0], request[1], 0x03);
+    return;
+  }
+
+  const uint16_t start = readU16BE(request, 2);
+  const uint16_t quantity = readU16BE(request, 4);
+
+  if (!isValidRegisterRange(start, quantity)) {
+    sendException(request[0], request[1], 0x02);
+    return;
+  }
+
+  if (quantity > 60) {
+    sendException(request[0], request[1], 0x03);
+    return;
+  }
+
+  const uint8_t byteCount = quantity * 2;
+
+  uint8_t response[5 + (60 * 2)];
+
+  response[0] = request[0];
+  response[1] = request[1];
+  response[2] = byteCount;
+
+  for (uint16_t i = 0; i < quantity; i++) {
+    writeU16BE(response, 3 + (i * 2), registerMap[start + i]);
+  }
+
+  appendCrcAndSend(response, 3 + byteCount);
+}
+
+// -----------------------------------------------------------------------------
 // FC5 - Write Single Coil
+// -----------------------------------------------------------------------------
+
 static void handleWriteSingleCoil(const uint8_t *request, uint16_t length) {
   if (length != 8) {
     sendException(request[0], request[1], 0x03);
     return;
   }
 
-  const uint16_t address = ((uint16_t)request[2] << 8) | request[3];
-  const uint16_t value = ((uint16_t)request[4] << 8) | request[5];
+  const uint16_t address = readU16BE(request, 2);
+  const uint16_t value = readU16BE(request, 4);
 
-  if (address >= 8) {
+  if (address >= BIT_IO_COUNT) {
     sendException(request[0], request[1], 0x02);
     return;
   }
@@ -248,8 +355,8 @@ static void handleWriteSingleCoil(const uint8_t *request, uint16_t length) {
 
   applyOutputs(outputState);
 
-  // FC5 responde eco exacto de la solicitud
   uint8_t response[8];
+
   for (uint8_t i = 0; i < 6; i++) {
     response[i] = request[i];
   }
@@ -257,15 +364,47 @@ static void handleWriteSingleCoil(const uint8_t *request, uint16_t length) {
   appendCrcAndSend(response, 6);
 }
 
+// -----------------------------------------------------------------------------
+// FC6 - Write Single Register
+// -----------------------------------------------------------------------------
+
+static void handleWriteSingleRegister(const uint8_t *request, uint16_t length) {
+  if (length != 8) {
+    sendException(request[0], request[1], 0x03);
+    return;
+  }
+
+  const uint16_t address = readU16BE(request, 2);
+  const uint16_t value = readU16BE(request, 4);
+
+  if (address >= REGISTER_COUNT) {
+    sendException(request[0], request[1], 0x02);
+    return;
+  }
+
+  holdingRegisters[address] = value;
+
+  uint8_t response[8];
+
+  for (uint8_t i = 0; i < 6; i++) {
+    response[i] = request[i];
+  }
+
+  appendCrcAndSend(response, 6);
+}
+
+// -----------------------------------------------------------------------------
 // FC15 - Write Multiple Coils
+// -----------------------------------------------------------------------------
+
 static void handleWriteMultipleCoils(const uint8_t *request, uint16_t length) {
   if (length < 10) {
     sendException(request[0], request[1], 0x03);
     return;
   }
 
-  const uint16_t start = ((uint16_t)request[2] << 8) | request[3];
-  const uint16_t quantity = ((uint16_t)request[4] << 8) | request[5];
+  const uint16_t start = readU16BE(request, 2);
+  const uint16_t quantity = readU16BE(request, 4);
   const uint8_t byteCount = request[6];
 
   if (!isValidBitRange(start, quantity)) {
@@ -313,7 +452,57 @@ static void handleWriteMultipleCoils(const uint8_t *request, uint16_t length) {
 }
 
 // -----------------------------------------------------------------------------
-// Modbus dispatcher
+// FC16 - Write Multiple Registers
+// -----------------------------------------------------------------------------
+
+static void handleWriteMultipleRegisters(const uint8_t *request, uint16_t length) {
+  if (length < 11) {
+    sendException(request[0], request[1], 0x03);
+    return;
+  }
+
+  const uint16_t start = readU16BE(request, 2);
+  const uint16_t quantity = readU16BE(request, 4);
+  const uint8_t byteCount = request[6];
+
+  if (!isValidRegisterRange(start, quantity)) {
+    sendException(request[0], request[1], 0x02);
+    return;
+  }
+
+  if (quantity > 60) {
+    sendException(request[0], request[1], 0x03);
+    return;
+  }
+
+  if (byteCount != (quantity * 2)) {
+    sendException(request[0], request[1], 0x03);
+    return;
+  }
+
+  if (length != (uint16_t)(9 + byteCount)) {
+    sendException(request[0], request[1], 0x03);
+    return;
+  }
+
+  for (uint16_t i = 0; i < quantity; i++) {
+    holdingRegisters[start + i] = readU16BE(request, 7 + (i * 2));
+  }
+
+  uint8_t response[8];
+
+  response[0] = request[0];
+  response[1] = request[1];
+  response[2] = request[2];
+  response[3] = request[3];
+  response[4] = request[4];
+  response[5] = request[5];
+
+  appendCrcAndSend(response, 6);
+}
+
+// -----------------------------------------------------------------------------
+// Dispatcher Modbus
 // -----------------------------------------------------------------------------
 
 static void processModbusFrame(const uint8_t *frame, uint16_t length) {
@@ -329,9 +518,11 @@ static void processModbusFrame(const uint8_t *frame, uint16_t length) {
   }
 
   if (!validateCrc(frame, length)) {
-    Serial.println(F("[RTU] CRC inválido"));
+    Serial.println(F("[RTU] CRC invalido"));
     return;
   }
+
+  updateInputRegisters();
 
   switch (functionCode) {
     case 0x01:
@@ -342,12 +533,28 @@ static void processModbusFrame(const uint8_t *frame, uint16_t length) {
       handleReadDiscreteInputs(frame, length);
       break;
 
+    case 0x03:
+      handleReadRegisters(frame, length, holdingRegisters);
+      break;
+
+    case 0x04:
+      handleReadRegisters(frame, length, inputRegisters);
+      break;
+
     case 0x05:
       handleWriteSingleCoil(frame, length);
       break;
 
+    case 0x06:
+      handleWriteSingleRegister(frame, length);
+      break;
+
     case 0x0F:
       handleWriteMultipleCoils(frame, length);
+      break;
+
+    case 0x10:
+      handleWriteMultipleRegisters(frame, length);
       break;
 
     default:
@@ -361,11 +568,11 @@ static void processModbusFrame(const uint8_t *frame, uint16_t length) {
 // -----------------------------------------------------------------------------
 
 static void setupIo() {
-  for (uint8_t i = 0; i < 8; i++) {
+  for (uint8_t i = 0; i < BIT_IO_COUNT; i++) {
     pinMode(INPUT_PINS[i], INPUT);
   }
 
-  for (uint8_t i = 0; i < 8; i++) {
+  for (uint8_t i = 0; i < BIT_IO_COUNT; i++) {
     pinMode(OUTPUT_PINS[i], OUTPUT);
   }
 
@@ -377,25 +584,33 @@ void setup() {
   delay(500);
 
   Serial.println();
-  Serial.println(F("=============================================="));
-  Serial.println(F(" JWPLC Remote I/O Slave RTU - PoC 1"));
-  Serial.println(F("=============================================="));
+  Serial.println(F("================================================"));
+  Serial.println(F(" JWPLC Remote I/O Slave RTU - PoC 1 Extended"));
+  Serial.println(F("================================================"));
   Serial.print(F("Slave ID: "));
   Serial.println(JWPLC_REMOTE_IO_SLAVE_ID);
   Serial.print(F("Baudrate: "));
   Serial.println(JWPLC_REMOTE_IO_BAUDRATE);
   Serial.println(F("Formato: 8N1"));
   Serial.println(F("RS-485: Serial2 RX=IO16 TX=IO17"));
-  Serial.println(F("FC2  -> I0_0..I0_7"));
+  Serial.println(F("Transport: JWPLC_RS485"));
+  Serial.println(F("CRC: JWPLC_ModbusRTU helpers"));
   Serial.println(F("FC1  -> feedback Q0_0..Q0_7"));
-  Serial.println(F("FC5  -> write single Q0_x"));
-  Serial.println(F("FC15 -> write block Q0_0..Q0_7"));
+  Serial.println(F("FC2  -> I0_0..I0_7"));
+  Serial.println(F("FC3  -> Holding Registers 0..63"));
+  Serial.println(F("FC4  -> Input Registers 0..63"));
+  Serial.println(F("FC5  -> Write single Q0_x"));
+  Serial.println(F("FC6  -> Write single Holding Register"));
+  Serial.println(F("FC15 -> Write block Q0_0..Q0_7"));
+  Serial.println(F("FC16 -> Write block Holding Registers"));
 
   setupIo();
+  initRegisters();
 
   if (!JWPLC_RS485.begin(JWPLC_REMOTE_IO_BAUDRATE, SERIAL_8N1)) {
     Serial.println(F("[RTU] ERROR: JWPLC_RS485 no pudo iniciar"));
     JWPLC_RS485.printStatus(Serial);
+
     while (true) {
       delay(1000);
     }
