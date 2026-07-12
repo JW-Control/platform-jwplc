@@ -2,7 +2,7 @@
 
 **Rama:** `feature/logic-runtime-poc`  
 **Hardware:** JWPLC Basic  
-**Estado:** PoC 0, PoC 1 y PoC 2.1 validados; PoC 2.2 y PoC 3 pendientes de compilación/prueba.
+**Estado:** PoC 0, 1, 2, 2.1, 2.2 y 3 validados; PoC 4 preparado para prueba.
 
 ## PoC 0 — estructura inicial
 
@@ -77,7 +77,7 @@ Máximo:  43217 us
 
 Conclusión: el costo dominante no era el motor de seis bloques, sino el acceso repetido al expansor TCA6424A.
 
-## PoC 2.1 — acceso por bitmap/banco
+## PoC 2.1 — acceso por snapshot y banco
 
 Compilación informada:
 
@@ -104,38 +104,43 @@ Mejora aproximada: 18.6 veces
 
 La lógica física continuó funcionando correctamente durante cambios de `I0_1` y reinicios del TON.
 
-### Interpretación
+## PoC 2.2 — escritura Q0 solo cuando cambia
 
-- El motor lógico de seis bloques consume una fracción pequeña del tiempo total.
-- La escritura de banco Q0 domina el scan de unos 380–400 us.
-- Los picos de milisegundos siguen siendo posibles por tareas concurrentes del core, display, FreeRTOS e interrupciones.
-- Este resultado no convierte al runtime en hard real-time.
-- Las entradas se obtienen del snapshot del sistema, actualizado por defecto cada 20 ms.
-
-## PoC 2.2 — escritura Q0 solo por cambio
-
-Cambio preparado:
-
-- Conservar el último bitmap físico confirmado.
-- Omitir la transacción I2C cuando Q0 no cambia.
-- Reintentar si el shadow del core no confirma la escritura.
-- Contabilizar escrituras físicas con `outputWriteCount()`.
-
-Resultado esperado:
-
-- Scan normal muy inferior a 380 us cuando Q0 permanece estable.
-- Una escritura física al iniciar y otra por cada transición real de Q0.
-- Mismo comportamiento lógico y seguro.
-
-Estado:
+Validación prolongada informada después de más de 3.5 millones de scans:
 
 ```text
-Pendiente de compilación y validación física.
+Mínimo:      5 us
+Promedio:    5 us
+Máximo estable sin cambio Q0: 24 us
+Máximo al cambiar Q0: 419–425 us
 ```
+
+Contador de escrituras observado:
+
+```text
+Q0 estable encendida: escrituras Q0 = 3
+Transición a apagada: escrituras Q0 = 4
+Transición a encendida: escrituras Q0 = 5
+```
+
+Resultado:
+
+- El bitmap estable no genera nuevas transacciones físicas.
+- Cada transición real agrega una escritura de banco.
+- La lógica `TON` conserva el comportamiento esperado.
+- El scan interno normal cae de aproximadamente 414 us a 5 us.
+- Una transición de salida conserva el costo de la operación I2C, próximo a 0.4 ms.
+
+Interpretación importante:
+
+- Los `5 us` corresponden al trabajo interno medido por `runtime.tick()`.
+- El ejemplo mantiene `delay(1)`, por lo que el periodo total del loop sigue próximo a 1 ms.
+- Las entradas consumen el snapshot lógico que el core actualiza por defecto cada 20 ms.
+- El runtime no se declara hard real-time.
 
 ## PoC 3 — codec binario
 
-Formato preparado:
+Formato:
 
 ```text
 Cabecera: 64 bytes
@@ -151,28 +156,62 @@ Tamaños relevantes:
 | 100 | 1264 B |
 | 400 | 4864 B |
 
-Pruebas automáticas preparadas:
+Resultado ejecutado:
+
+```text
+14 PASS, 0 FAIL
+CODEC BINARIO: PASS
+```
+
+Casos cubiertos:
 
 - Serialización.
 - Deserialización.
-- Conservación de bloques y metadatos.
-- Validación posterior.
-- CRC de cabecera.
-- CRC de payload.
+- Conservación de nombre, bloques y metadatos.
+- Validación del programa reconstruido.
+- Corrupción de payload.
+- Corrupción de cabecera.
 - Imagen truncada.
 - Buffer insuficiente.
 - Nombre demasiado largo.
+- Capacidad de 100 bloques dentro del slot inicial.
 
-Estado:
+Resultado de capacidad:
 
 ```text
-Pendiente de compilación y ejecución en hardware.
+Imagen de 6 bloques: 136 bytes
+Imagen máxima inicial de 100 bloques: 1264 / 2560 bytes por slot
 ```
+
+## PoC 4 — almacenamiento A/B simulado
+
+Preparado en RAM, sin tocar la FRAM física.
+
+Objetivos:
+
+- Backend direccionable por bytes independiente del medio.
+- Dos superblocks redundantes.
+- Dos slots de programa.
+- Descriptor `WRITING` y `VERIFIED` por slot.
+- Escritura exclusiva sobre el slot inactivo.
+- Verificación de imagen antes de activar.
+- Fallback al programa anterior si la imagen activa está corrupta.
+- Recuperación si el superblock más reciente está corrupto.
+- Inyección de corte en cada byte posible de una actualización.
+
+Ejemplo:
+
+```text
+JWPLC_LogicRuntime_AB_Storage
+```
+
+Este ejemplo usa un buffer RAM de 8 KiB y no inicializa E/S ni escribe la FRAM real.
 
 ## Próximos criterios de cierre
 
-- PoC 2.2 mantiene la lógica física correcta.
-- El contador de escrituras Q0 solo aumenta ante cambios reales.
-- PoC 3 termina con cero fallos.
-- La imagen de 100 bloques cabe dentro del slot inicial de 2560 bytes.
-- No se escribe todavía en FRAM.
+- PoC 4 compila.
+- Todos los puntos de corte parciales conservan el programa A.
+- Una escritura completa activa el programa B.
+- La corrupción de B provoca fallback a A.
+- La corrupción del superblock más reciente conserva la copia anterior.
+- Después se implementará el backend real para `JW_FRAM`.
