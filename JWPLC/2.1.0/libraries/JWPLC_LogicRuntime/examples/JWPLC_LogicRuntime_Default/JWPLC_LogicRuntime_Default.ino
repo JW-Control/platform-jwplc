@@ -58,7 +58,7 @@ void setup()
   delay(200);
 
   Serial.println();
-  Serial.println("JWPLC Logic Runtime - PoC 1");
+  Serial.println("JWPLC Logic Runtime - PoC 2");
   Serial.println("Logica: I0_0 AND NOT I0_1 -> TON 2 s -> Q0_0");
 
   if (!runtime.begin())
@@ -96,6 +96,7 @@ void setup()
   }
 
   Serial.println("Runtime iniciado. Las salidas no usadas permanecen apagadas.");
+  Serial.println("Se reportan tiempos minimo, promedio y maximo del scan.");
 }
 
 void loop()
@@ -109,7 +110,7 @@ void loop()
   }
 
   const uint32_t now = millis();
-  if (now - lastReportMs >= 500)
+  if (now - lastReportMs >= 1000)
   {
     lastReportMs = now;
 
@@ -123,9 +124,16 @@ void loop()
     Serial.print(runtime.blockValue(4));
     Serial.print(" Q0_0=");
     Serial.print(runtime.blockValue(5));
-    Serial.print(" | scan=");
+    Serial.print(" | scan us [last/min/avg/max]=");
     Serial.print(runtime.lastScanMicros());
-    Serial.println(" us");
+    Serial.print('/');
+    Serial.print(runtime.minScanMicros());
+    Serial.print('/');
+    Serial.print(runtime.averageScanMicros());
+    Serial.print('/');
+    Serial.print(runtime.maxScanMicros());
+    Serial.print(" | scans=");
+    Serial.println(runtime.scanCount());
   }
 
   delay(1);
