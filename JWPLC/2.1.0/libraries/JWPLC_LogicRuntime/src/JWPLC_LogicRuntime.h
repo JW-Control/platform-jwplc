@@ -3,6 +3,8 @@
 
 #include <Arduino.h>
 
+#include "runtime/LogicEngine.h"
+#include "runtime/LogicProgram.h"
 #include "storage/LogicStorageProfile.h"
 
 #ifndef JWPLC_FRAM_SIZE_BYTES
@@ -21,16 +23,19 @@ enum class JWPLCLogicRuntimeError : uint8_t
 {
   None = 0,
   UnsupportedStorage,
+  IOInitializationFailed,
   NotReady,
   ProgramNotLoaded,
-  InvalidProgram
+  InvalidProgram,
+  ProgramExecutionFailed
 };
 
 /**
  * @brief Motor lógico por bloques para JWPLC Basic.
  *
- * PoC 0: expone el ciclo de vida del runtime y selecciona el perfil de
- * almacenamiento. La ejecución de bloques se agregará en la siguiente etapa.
+ * El programa se valida y ejecuta en un orden determinista. El PoC actual usa
+ * una definición fija en RAM/Flash; la persistencia en FRAM se añadirá después
+ * de validar el motor y las E/S físicas.
  */
 class JWPLC_LogicRuntime
 {
@@ -38,14 +43,17 @@ public:
   JWPLC_LogicRuntime();
 
   bool begin(uint32_t framBytes = JWPLC_FRAM_SIZE_BYTES);
+  bool loadProgram(const LogicProgram &program);
   bool start();
   void stop();
   bool tick();
 
   JWPLCLogicRuntimeState state() const;
   JWPLCLogicRuntimeError lastError() const;
+  LogicValidationError validationError() const;
   const LogicStorageProfile &storageProfile() const;
 
+  bool blockValue(uint16_t index) const;
   uint32_t scanCount() const;
   uint32_t lastScanMicros() const;
 
@@ -58,6 +66,8 @@ private:
   JWPLCLogicRuntimeError _lastError;
   uint32_t _scanCount;
   uint32_t _lastScanMicros;
+  JWPLCLogicIO _io;
+  LogicEngine _engine;
 };
 
 #endif
