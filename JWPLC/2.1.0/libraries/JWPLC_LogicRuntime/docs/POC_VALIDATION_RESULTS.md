@@ -2,7 +2,7 @@
 
 **Rama:** `feature/logic-runtime-poc`  
 **Hardware:** JWPLC Basic  
-**Estado:** PoC 0, 1, 2, 2.1, 2.2 y 3 validados; PoC 4 preparado para prueba.
+**Estado:** PoC 0, 1, 2, 2.1, 2.2, 3 y 4 validados; PoC 5 preparado para prueba física reversible.
 
 ## PoC 0 — estructura inicial
 
@@ -185,33 +185,82 @@ Imagen máxima inicial de 100 bloques: 1264 / 2560 bytes por slot
 
 ## PoC 4 — almacenamiento A/B simulado
 
-Preparado en RAM, sin tocar la FRAM física.
+Backend RAM de 8 KiB, sin E/S y sin acceso a la FRAM física.
+
+Resultado ejecutado:
+
+```text
+19 PASS, 0 FAIL
+ALMACENAMIENTO A/B SIMULADO: PASS
+```
+
+Medición de la transacción:
+
+```text
+Bytes escritos por actualización completa: 196
+Puntos de corte probados: 196
+```
+
+Casos cubiertos:
+
+- Detección de almacenamiento sin formato.
+- Formateo inicial.
+- Guardado y carga de Programa A.
+- Guardado y activación de Programa B.
+- Reinicio lógico después de cada operación.
+- Fallback a Programa A cuando la imagen B está corrupta.
+- Uso de la copia anterior cuando el superblock reciente está corrupto.
+- Corte simulado después de cada byte de la actualización.
+- Conservación de Programa A en todos los cortes parciales.
+- Activación de Programa B solo con presupuesto de escritura completo.
+
+Conclusión:
+
+- El algoritmo no modifica el slot activo durante una actualización.
+- El nuevo slot se activa únicamente después de escribirlo y verificarlo.
+- Los dos superblocks permiten conservar una referencia válida ante una escritura incompleta.
+- El comportamiento transaccional queda aprobado en RAM antes de tocar hardware persistente.
+
+## PoC 5 — backend sobre FRAM física
+
+Estado:
+
+```text
+Preparado; pendiente de compilación y ejecución.
+```
+
+Características de seguridad del ejemplo:
+
+- No inicializa E/S ni conmuta relés.
+- Requiere escribir `ERASE` por Serial antes de modificar la FRAM.
+- Usa una ventana reducida de 1088 bytes al final de la FRAM.
+- Dirección física prevista: `0x1BC0..0x1FFF`.
+- Respalda la ventana completa en RAM antes de escribir.
+- Ejecuta un flujo A/B reducido con slots de 512 bytes.
+- Restaura y verifica byte por byte el contenido original al finalizar.
+- No debe reiniciarse ni perder alimentación durante la prueba porque el respaldo temporal reside en RAM.
 
 Objetivos:
 
-- Backend direccionable por bytes independiente del medio.
-- Dos superblocks redundantes.
-- Dos slots de programa.
-- Descriptor `WRITING` y `VERIFIED` por slot.
-- Escritura exclusiva sobre el slot inactivo.
-- Verificación de imagen antes de activar.
-- Fallback al programa anterior si la imagen activa está corrupta.
-- Recuperación si el superblock más reciente está corrupto.
-- Inyección de corte en cada byte posible de una actualización.
+- Confirmar que `LogicFRAMStorage` opera sobre la instancia global `JWPLC_FRAM`.
+- Confirmar lectura y escritura dentro de una ventana limitada.
+- Confirmar convivencia con el bloqueo del bus SPI del package.
+- Guardar, reiniciar lógicamente y cargar Programa A.
+- Guardar, reiniciar lógicamente y cargar Programa B.
+- Restaurar exactamente la región previa.
 
 Ejemplo:
 
 ```text
-JWPLC_LogicRuntime_AB_Storage
+JWPLC_LogicRuntime_FRAM_Storage
 ```
-
-Este ejemplo usa un buffer RAM de 8 KiB y no inicializa E/S ni escribe la FRAM real.
 
 ## Próximos criterios de cierre
 
-- PoC 4 compila.
-- Todos los puntos de corte parciales conservan el programa A.
-- Una escritura completa activa el programa B.
-- La corrupción de B provoca fallback a A.
-- La corrupción del superblock más reciente conserva la copia anterior.
-- Después se implementará el backend real para `JW_FRAM`.
+- PoC 5 compila con `JWPLC Basic`.
+- La FRAM automática reporta 8192 bytes.
+- El backend acepta la ventana `0x1BC0..0x1FFF`.
+- Programa A y B sobreviven reinicios lógicos del gestor.
+- Ambos programas reconstruidos superan el validador.
+- La región original se restaura exactamente.
+- Después se preparará la prueba de layout completo y reinicio físico controlado.
