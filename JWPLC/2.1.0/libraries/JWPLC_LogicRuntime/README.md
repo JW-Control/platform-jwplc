@@ -5,7 +5,7 @@ Motor lógico por bloques para **JWPLC Basic**.
 ## Estado
 
 ```text
-PoC 2.1 / motor en RAM, E/S físicas, métricas y autopruebas de validación
+PoC 3 / motor en RAM, E/S optimizadas y codec binario versionado
 ```
 
 La librería se integra sobre la placa existente `JWPLC Basic`. No crea una variante física nueva y no reemplaza el uso normal de sketches Arduino.
@@ -21,13 +21,23 @@ La librería se integra sobre la placa existente `JWPLC Basic`. No crea una vari
 - Ejecución determinista desde RAM.
 - Lectura de `I0_0..I0_7` desde el snapshot lógico del core JWPLC.
 - Escritura conjunta de `Q0_0..Q0_7` mediante una única operación por banco.
+- Omisión de escrituras físicas cuando el bitmap Q0 no cambia.
 - Salidas apagadas al iniciar, detenerse o detectar un fallo.
 - Estadísticas de scan:
   - último tiempo;
   - mínimo;
   - promedio;
   - máximo;
-  - cantidad acumulada de scans.
+  - cantidad acumulada de scans;
+  - escrituras físicas Q0.
+- Codec binario portable:
+  - little-endian explícito;
+  - cabecera de 64 bytes;
+  - registros de bloque de 12 bytes;
+  - CRC32 de cabecera;
+  - CRC32 de payload;
+  - metadatos de ID y generación;
+  - nombre corto de programa.
 - Bloques iniciales:
   - entrada digital;
   - salida digital;
@@ -39,7 +49,7 @@ La librería se integra sobre la placa existente `JWPLC Basic`. No crea una vari
 
 ## Validación física completada
 
-El PoC 1 fue compilado, cargado y validado sobre JWPLC Basic con el programa:
+Programa probado:
 
 ```text
 I0_0 AND NOT I0_1 -> TON 2 s -> Q0_0
@@ -54,7 +64,7 @@ Se verificó:
 
 ## Autopruebas del validador
 
-Resultado validado en hardware:
+Resultado validado:
 
 ```text
 10 PASS, 0 FAIL
@@ -68,64 +78,105 @@ Flash: 418001 bytes
 RAM global: 27916 bytes
 ```
 
-## Medición inicial de scan
+## Rendimiento medido
 
-Con la primera implementación por pin se obtuvo aproximadamente:
-
-```text
-mínimo:   7231 us
-promedio: 7669 us
-máximo:  43217 us
-```
-
-La lógica tenía solo seis bloques. El costo dominante no era el motor, sino la lectura y escritura individual de ocho canales del expansor.
-
-El PoC 2.1 cambia el adaptador de E/S para usar las funciones por banco ya disponibles en el core:
+Primera implementación con E/S individuales:
 
 ```text
-jwplc_digitalReadBlock(I0_X, I0_COUNT)
-jwplc_digitalWriteBlock(Q0_X, Q0_COUNT, bitmap)
+mínimo:    7231 us
+promedio:  7680 us aproximadamente
+máximo:   43217 us
 ```
 
-Esto evita ocho lecturas y ocho escrituras individuales por scan. El ejemplo reinicia las estadísticas después de tres segundos para excluir inicializaciones de periféricos y medir el régimen estable.
+Implementación por snapshot/banco después de calentamiento:
 
-## Ejemplo predeterminado
+```text
+mínimo:     380 us
+promedio:   414 us aproximadamente
+máximo:    3889 us
+```
 
-`JWPLC_LogicRuntime_Default.ino` ejecuta la lógica física anterior y reporta cada segundo:
+Resultado aproximado:
+
+```text
+Reducción del promedio: 94.6 %
+Mejora: 18.6 veces
+```
+
+El PoC 2.2 añade una optimización adicional: Q0 solo se escribe físicamente cuando cambia el bitmap. El ejemplo reporta `escrituras Q0` para verificarlo.
+
+Las entradas siguen consumiendo el snapshot lógico que el core actualiza por defecto cada 20 ms. Los picos de latencia de FreeRTOS y periféricos concurrentes deben seguir considerándose; este PoC no declara hard real-time.
+
+## Formato binario PoC 3
+
+```text
+Tamaño = 64 + 12 × bloques
+```
+
+| Bloques | Imagen |
+|---:|---:|
+| 6 | 136 B |
+| 100 | 1264 B |
+| 400 | 4864 B |
+
+Con el perfil inicial:
+
+```text
+Slot por programa: 2560 bytes
+Imagen de 100 bloques: 1264 bytes
+```
+
+El formato no usa volcados de estructuras C++, evitando depender de padding, alineamiento o versión del compilador.
+
+Documentación detallada:
+
+- `docs/LOGIC_PROGRAM_IMAGE_FORMAT_V1.md`
+- `docs/POC_VALIDATION_RESULTS.md`
+
+## Ejemplos
+
+### `JWPLC_LogicRuntime_Default`
+
+Ejecuta la lógica física y reporta:
 
 ```text
 scan us [last/min/avg/max]
+scans
+escrituras Q0
 ```
 
-Comportamiento esperado:
+### `JWPLC_LogicRuntime_Validation`
 
-- `Q0_0` permanece apagada si `I0_0` está inactiva.
-- `Q0_0` permanece apagada si `I0_1` está activa.
-- Si `I0_0` permanece activa e `I0_1` inactiva durante dos segundos, `Q0_0` se activa.
-- Al perder la condición, el `TON` y `Q0_0` se desactivan.
-- Las demás salidas permanecen apagadas.
-
-## Ejemplo de autopruebas
-
-`JWPLC_LogicRuntime_Validation.ino` prueba sin inicializar E/S:
+Prueba sin conmutar salidas:
 
 - programa válido;
 - puntero nulo;
 - programa vacío;
-- límite de bloques excedido;
-- tipo de bloque inválido;
-- fuente ausente;
-- fuente fuera de rango;
-- referencia no anterior;
-- recurso fuera de rango;
-- salida digital duplicada.
+- límite excedido;
+- tipo inválido;
+- fuentes incorrectas;
+- recursos fuera de rango;
+- salida duplicada.
 
-## Fuera del PoC 2.1
+### `JWPLC_LogicRuntime_Codec`
 
-- Persistencia en FRAM.
-- Slots A/B.
+Prueba sin conmutar salidas:
+
+- serialización y deserialización;
+- conservación de bloques y metadatos;
+- validación de la imagen reconstruida;
+- CRC de cabecera y payload;
+- truncamiento;
+- buffer insuficiente;
+- nombre demasiado largo;
+- capacidad del slot inicial para 100 bloques.
+
+## Fuera del PoC 3
+
+- Escritura real en FRAM.
+- Slots A/B transaccionales.
 - Retentivos persistentes.
-- Formato serializado definitivo.
+- Activación y rollback de programa.
 - Editor frontal.
 - TFT de monitorización.
 - microSD.
@@ -145,21 +196,28 @@ JWPLC_LogicRuntime/
 │   │   ├── LogicValidator.h/.cpp
 │   │   └── LogicEngine.h/.cpp
 │   ├── storage/
-│   │   └── LogicStorageProfile.h
+│   │   ├── LogicStorageProfile.h
+│   │   ├── LogicProgramImage.h
+│   │   └── LogicProgramCodec.h/.cpp
 │   └── io/
 │       └── JWPLCLogicIO.h/.cpp
+├── docs/
+│   ├── LOGIC_PROGRAM_IMAGE_FORMAT_V1.md
+│   └── POC_VALIDATION_RESULTS.md
 └── examples/
     ├── JWPLC_LogicRuntime_Default/
-    └── JWPLC_LogicRuntime_Validation/
+    ├── JWPLC_LogicRuntime_Validation/
+    └── JWPLC_LogicRuntime_Codec/
 ```
 
 ## Decisiones vigentes
 
 - El programa activo se ejecuta desde RAM.
-- El orden actual del arreglo es el orden de ejecución.
+- El orden del arreglo es el orden de ejecución.
 - Cada bloque solo puede referenciar bloques anteriores.
 - La validación rechaza lazos o referencias hacia adelante.
 - Una salida física solo puede ser asignada por un bloque de salida.
-- El tamaño serializado será validado además de `maxBlocks` cuando se agregue FRAM.
-- La FRAM de 8 KiB permite avanzar con el mismo motor usando un perfil de capacidad menor.
-- El core JWPLC mantiene el muestreo físico de entradas y el runtime consume su snapshot lógico.
+- El límite se valida por cantidad de bloques y por tamaño serializado.
+- La FRAM de 8 KiB permite iniciar con 100 bloques.
+- La futura FRAM de 32 KiB solo ampliará perfiles y límites.
+- El proyecto editable completo no pertenece al bytecode ejecutable.
