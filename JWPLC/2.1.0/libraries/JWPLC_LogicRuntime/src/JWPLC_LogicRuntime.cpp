@@ -199,6 +199,11 @@ uint32_t JWPLC_LogicRuntime::averageScanMicros() const
   return static_cast<uint32_t>(_totalScanMicros / _scanCount);
 }
 
+uint32_t JWPLC_LogicRuntime::outputWriteCount() const
+{
+  return _io.outputWriteCount();
+}
+
 const char *JWPLC_LogicRuntime::stateName(JWPLCLogicRuntimeState state)
 {
   switch (state)
