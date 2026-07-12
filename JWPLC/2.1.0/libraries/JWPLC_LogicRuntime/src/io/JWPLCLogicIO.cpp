@@ -1,5 +1,7 @@
 #include "JWPLCLogicIO.h"
 
+static constexpr uint8_t JWPLC_LOGIC_IO_CAPACITY = 8;
+
 JWPLCLogicIO::JWPLCLogicIO()
     : _inputs{false, false, false, false, false, false, false, false},
       _outputs{false, false, false, false, false, false, false, false},
@@ -38,15 +40,17 @@ void JWPLCLogicIO::scanInputs()
     return;
   }
 
+#if defined(JWPLC_BASIC)
   for (uint8_t index = 0; index < I0_COUNT; ++index)
   {
     _inputs[index] = digitalRead(I0_X[index]) == HIGH;
   }
+#endif
 }
 
 void JWPLCLogicIO::beginOutputScan()
 {
-  for (uint8_t index = 0; index < Q0_COUNT; ++index)
+  for (uint8_t index = 0; index < JWPLC_LOGIC_IO_CAPACITY; ++index)
   {
     _outputs[index] = false;
   }
@@ -54,7 +58,7 @@ void JWPLCLogicIO::beginOutputScan()
 
 bool JWPLCLogicIO::digitalInput(uint8_t index) const
 {
-  if (!_initialized || index >= I0_COUNT)
+  if (!_initialized || index >= digitalInputCount())
   {
     return false;
   }
@@ -64,7 +68,7 @@ bool JWPLCLogicIO::digitalInput(uint8_t index) const
 
 bool JWPLCLogicIO::setDigitalOutput(uint8_t index, bool value)
 {
-  if (!_initialized || index >= Q0_COUNT)
+  if (!_initialized || index >= digitalOutputCount())
   {
     return false;
   }
@@ -80,10 +84,12 @@ void JWPLCLogicIO::commitOutputs()
     return;
   }
 
+#if defined(JWPLC_BASIC)
   for (uint8_t index = 0; index < Q0_COUNT; ++index)
   {
     digitalWrite(Q0_X[index], _outputs[index] ? HIGH : LOW);
   }
+#endif
 }
 
 void JWPLCLogicIO::allOutputsOff()
