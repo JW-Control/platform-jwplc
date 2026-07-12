@@ -5,6 +5,7 @@
 
 #include "runtime/LogicEngine.h"
 #include "runtime/LogicProgram.h"
+#include "storage/LogicProgramCodec.h"
 #include "storage/LogicStorageProfile.h"
 
 #ifndef JWPLC_FRAM_SIZE_BYTES
@@ -59,6 +60,7 @@ public:
   uint32_t minScanMicros() const;
   uint32_t maxScanMicros() const;
   uint32_t averageScanMicros() const;
+  uint32_t outputWriteCount() const;
   void resetScanStatistics();
 
   static const char *stateName(JWPLCLogicRuntimeState state);
