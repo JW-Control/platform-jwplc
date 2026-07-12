@@ -5,7 +5,9 @@
 
 #include "runtime/LogicEngine.h"
 #include "runtime/LogicProgram.h"
+#include "storage/LogicMemoryStorage.h"
 #include "storage/LogicProgramCodec.h"
+#include "storage/LogicProgramStore.h"
 #include "storage/LogicStorageProfile.h"
 
 #ifndef JWPLC_FRAM_SIZE_BYTES
