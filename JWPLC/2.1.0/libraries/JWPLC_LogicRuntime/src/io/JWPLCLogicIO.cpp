@@ -5,7 +5,10 @@
 JWPLCLogicIO::JWPLCLogicIO()
     : _inputBitmap(0),
       _outputBitmap(0),
-      _initialized(false)
+      _lastCommittedOutputBitmap(0),
+      _initialized(false),
+      _hasCommittedOutputs(false),
+      _outputWriteCount(0)
 {
 }
 
@@ -27,9 +30,13 @@ bool JWPLCLogicIO::begin()
 
   _inputBitmap = jwplc_digitalReadBlock(I0_X, I0_COUNT);
   _outputBitmap = 0;
-  jwplc_digitalWriteBlock(Q0_X, Q0_COUNT, _outputBitmap);
-
+  _lastCommittedOutputBitmap = 0;
+  _hasCommittedOutputs = false;
+  _outputWriteCount = 0;
   _initialized = true;
+
+  // Fuerza un estado físico seguro al iniciar, aunque el shadow previo sea cero.
+  allOutputsOff();
   return true;
 #endif
 }
@@ -91,15 +98,35 @@ void JWPLCLogicIO::commitOutputs()
   }
 
 #if defined(JWPLC_BASIC)
-  // Q0_X se escribe como un único banco para mantener una actualización
-  // coherente de las ocho salidas y evitar ocho escrituras I2C por scan.
+  if (_hasCommittedOutputs &&
+      _outputBitmap == _lastCommittedOutputBitmap)
+  {
+    return;
+  }
+
+  // Q0_X se escribe como un único banco y solo cuando cambia el bitmap.
+  // Esto mantiene las ocho salidas coherentes y evita tráfico I2C innecesario.
   jwplc_digitalWriteBlock(Q0_X, Q0_COUNT, _outputBitmap);
+
+  // JWPLC_readOutputs() consulta el shadow del core, no realiza otra lectura I2C.
+  if (JWPLC_readOutputs() == _outputBitmap)
+  {
+    _lastCommittedOutputBitmap = _outputBitmap;
+    _hasCommittedOutputs = true;
+    ++_outputWriteCount;
+  }
+  else
+  {
+    // El siguiente scan reintentará la escritura.
+    _hasCommittedOutputs = false;
+  }
 #endif
 }
 
 void JWPLCLogicIO::allOutputsOff()
 {
   _outputBitmap = 0;
+  _hasCommittedOutputs = false;
   commitOutputs();
 }
 
@@ -119,4 +146,9 @@ uint8_t JWPLCLogicIO::digitalOutputCount() const
 #else
   return 0;
 #endif
+}
+
+uint32_t JWPLCLogicIO::outputWriteCount() const
+{
+  return _outputWriteCount;
 }
