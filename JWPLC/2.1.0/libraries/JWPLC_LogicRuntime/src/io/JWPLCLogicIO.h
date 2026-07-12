@@ -20,8 +20,8 @@ public:
   uint8_t digitalOutputCount() const;
 
 private:
-  bool _inputs[8];
-  bool _outputs[8];
+  uint8_t _inputBitmap;
+  uint8_t _outputBitmap;
   bool _initialized;
 };
 
