@@ -6,6 +6,9 @@ JWPLC_LogicRuntime::JWPLC_LogicRuntime()
       _lastError(JWPLCLogicRuntimeError::None),
       _scanCount(0),
       _lastScanMicros(0),
+      _minScanMicros(0),
+      _maxScanMicros(0),
+      _totalScanMicros(0),
       _io(),
       _engine()
 {
@@ -14,8 +17,7 @@ JWPLC_LogicRuntime::JWPLC_LogicRuntime()
 bool JWPLC_LogicRuntime::begin(uint32_t framBytes)
 {
   _storageProfile = &JWPLCLogicStorageProfiles::forCapacity(framBytes);
-  _scanCount = 0;
-  _lastScanMicros = 0;
+  resetScanStatistics();
 
   if (_storageProfile->maxBlocks == 0)
   {
@@ -75,6 +77,7 @@ bool JWPLC_LogicRuntime::start()
     return false;
   }
 
+  resetScanStatistics();
   _state = JWPLCLogicRuntimeState::Running;
   _lastError = JWPLCLogicRuntimeError::None;
   return true;
@@ -110,9 +113,35 @@ bool JWPLC_LogicRuntime::tick()
     return false;
   }
 
-  _lastScanMicros = micros() - startedAt;
-  ++_scanCount;
+  recordScanDuration(micros() - startedAt);
   return true;
+}
+
+void JWPLC_LogicRuntime::recordScanDuration(uint32_t elapsedMicros)
+{
+  _lastScanMicros = elapsedMicros;
+
+  if (_scanCount == 0 || elapsedMicros < _minScanMicros)
+  {
+    _minScanMicros = elapsedMicros;
+  }
+
+  if (elapsedMicros > _maxScanMicros)
+  {
+    _maxScanMicros = elapsedMicros;
+  }
+
+  _totalScanMicros += elapsedMicros;
+  ++_scanCount;
+}
+
+void JWPLC_LogicRuntime::resetScanStatistics()
+{
+  _scanCount = 0;
+  _lastScanMicros = 0;
+  _minScanMicros = 0;
+  _maxScanMicros = 0;
+  _totalScanMicros = 0;
 }
 
 JWPLCLogicRuntimeState JWPLC_LogicRuntime::state() const
@@ -148,6 +177,26 @@ uint32_t JWPLC_LogicRuntime::scanCount() const
 uint32_t JWPLC_LogicRuntime::lastScanMicros() const
 {
   return _lastScanMicros;
+}
+
+uint32_t JWPLC_LogicRuntime::minScanMicros() const
+{
+  return _scanCount == 0 ? 0 : _minScanMicros;
+}
+
+uint32_t JWPLC_LogicRuntime::maxScanMicros() const
+{
+  return _maxScanMicros;
+}
+
+uint32_t JWPLC_LogicRuntime::averageScanMicros() const
+{
+  if (_scanCount == 0)
+  {
+    return 0;
+  }
+
+  return static_cast<uint32_t>(_totalScanMicros / _scanCount);
 }
 
 const char *JWPLC_LogicRuntime::stateName(JWPLCLogicRuntimeState state)
