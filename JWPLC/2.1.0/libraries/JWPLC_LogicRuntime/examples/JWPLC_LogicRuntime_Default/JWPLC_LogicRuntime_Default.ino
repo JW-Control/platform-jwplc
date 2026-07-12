@@ -62,7 +62,7 @@ void setup()
   delay(200);
 
   Serial.println();
-  Serial.println("JWPLC Logic Runtime - PoC 2.1");
+  Serial.println("JWPLC Logic Runtime - PoC 2.2");
   Serial.println("Logica: I0_0 AND NOT I0_1 -> TON 2 s -> Q0_0");
 
   if (!runtime.begin())
@@ -102,7 +102,7 @@ void setup()
   runtimeStartedAtMs = millis();
 
   Serial.println("Runtime iniciado. Las salidas no usadas permanecen apagadas.");
-  Serial.println("E/S optimizadas por bloque: snapshot I0 y escritura unica de Q0.");
+  Serial.println("Entradas por snapshot y salidas por banco solo cuando cambian.");
   Serial.println("Las estadisticas se reiniciaran tras 3 s de calentamiento.");
 }
 
@@ -149,7 +149,9 @@ void loop()
     Serial.print('/');
     Serial.print(runtime.maxScanMicros());
     Serial.print(" | scans=");
-    Serial.println(runtime.scanCount());
+    Serial.print(runtime.scanCount());
+    Serial.print(" | escrituras Q0=");
+    Serial.println(runtime.outputWriteCount());
   }
 
   delay(1);
