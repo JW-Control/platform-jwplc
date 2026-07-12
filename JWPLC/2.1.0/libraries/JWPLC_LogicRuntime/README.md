@@ -5,7 +5,7 @@ Motor lógico por bloques para **JWPLC Basic**.
 ## Estado
 
 ```text
-PoC 1 / motor lógico fijo en RAM
+PoC 2 / motor en RAM, E/S físicas, métricas y autopruebas de validación
 ```
 
 La librería se integra sobre la placa existente `JWPLC Basic`. No crea una variante física nueva y no reemplaza el uso normal de sketches Arduino.
@@ -22,6 +22,12 @@ La librería se integra sobre la placa existente `JWPLC Basic`. No crea una vari
 - Lectura de `I0_0..I0_7`.
 - Escritura segura de `Q0_0..Q0_7` al final de cada scan.
 - Salidas apagadas al iniciar, detenerse o detectar un fallo.
+- Estadísticas de scan:
+  - último tiempo;
+  - mínimo;
+  - promedio;
+  - máximo;
+  - cantidad acumulada de scans.
 - Bloques iniciales:
   - entrada digital;
   - salida digital;
@@ -31,12 +37,28 @@ La librería se integra sobre la placa existente `JWPLC Basic`. No crea una vari
   - `SET/RESET` con prioridad de reset;
   - temporizador `TON`.
 
-## Ejemplo predeterminado
+## Validación física completada
 
-`JWPLC_LogicRuntime_Default.ino` ejecuta:
+El PoC 1 fue compilado, cargado y validado sobre JWPLC Basic con el programa:
 
 ```text
 I0_0 AND NOT I0_1 -> TON 2 s -> Q0_0
+```
+
+Resultado informado:
+
+```text
+PASS
+```
+
+Se verificó el encendido retardado de `Q0_0`, el apagado inmediato al perder la condición y la permanencia de las salidas no utilizadas en estado apagado.
+
+## Ejemplo predeterminado
+
+`JWPLC_LogicRuntime_Default.ino` ejecuta la lógica física anterior y reporta cada segundo:
+
+```text
+scan us [last/min/avg/max]
 ```
 
 Comportamiento esperado:
@@ -47,11 +69,34 @@ Comportamiento esperado:
 - Al perder la condición, el `TON` y `Q0_0` se desactivan.
 - Las demás salidas permanecen apagadas.
 
-## Fuera del PoC 1
+## Ejemplo de autopruebas
+
+`JWPLC_LogicRuntime_Validation.ino` prueba sin inicializar E/S:
+
+- programa válido;
+- puntero nulo;
+- programa vacío;
+- límite de bloques excedido;
+- tipo de bloque inválido;
+- fuente ausente;
+- fuente fuera de rango;
+- referencia no anterior;
+- recurso fuera de rango;
+- salida digital duplicada.
+
+Resultado esperado:
+
+```text
+10 PASS, 0 FAIL
+VALIDACION COMPLETA: PASS
+```
+
+## Fuera del PoC 2
 
 - Persistencia en FRAM.
 - Slots A/B.
 - Retentivos persistentes.
+- Formato serializado definitivo.
 - Editor frontal.
 - TFT de monitorización.
 - microSD.
@@ -75,7 +120,8 @@ JWPLC_LogicRuntime/
 │   └── io/
 │       └── JWPLCLogicIO.h/.cpp
 └── examples/
-    └── JWPLC_LogicRuntime_Default/
+    ├── JWPLC_LogicRuntime_Default/
+    └── JWPLC_LogicRuntime_Validation/
 ```
 
 ## Decisiones vigentes
@@ -86,3 +132,4 @@ JWPLC_LogicRuntime/
 - La validación rechaza lazos o referencias hacia adelante.
 - Una salida física solo puede ser asignada por un bloque de salida.
 - El tamaño serializado será validado además de `maxBlocks` cuando se agregue FRAM.
+- La FRAM de 8 KiB permite avanzar con el mismo motor usando un perfil de capacidad menor.
