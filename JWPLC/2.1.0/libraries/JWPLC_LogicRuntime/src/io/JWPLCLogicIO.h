@@ -18,11 +18,15 @@ public:
 
   uint8_t digitalInputCount() const;
   uint8_t digitalOutputCount() const;
+  uint32_t outputWriteCount() const;
 
 private:
   uint8_t _inputBitmap;
   uint8_t _outputBitmap;
+  uint8_t _lastCommittedOutputBitmap;
   bool _initialized;
+  bool _hasCommittedOutputs;
+  uint32_t _outputWriteCount;
 };
 
 #endif
