@@ -5,7 +5,7 @@ Motor lógico por bloques para **JWPLC Basic**.
 ## Estado
 
 ```text
-PoC 2 / motor en RAM, E/S físicas, métricas y autopruebas de validación
+PoC 2.1 / motor en RAM, E/S físicas, métricas y autopruebas de validación
 ```
 
 La librería se integra sobre la placa existente `JWPLC Basic`. No crea una variante física nueva y no reemplaza el uso normal de sketches Arduino.
@@ -19,8 +19,8 @@ La librería se integra sobre la placa existente `JWPLC Basic`. No crea una vari
 - Programa representado mediante bloques ordenados y referencias a bloques anteriores.
 - Validación de fuentes, recursos y salidas duplicadas.
 - Ejecución determinista desde RAM.
-- Lectura de `I0_0..I0_7`.
-- Escritura segura de `Q0_0..Q0_7` al final de cada scan.
+- Lectura de `I0_0..I0_7` desde el snapshot lógico del core JWPLC.
+- Escritura conjunta de `Q0_0..Q0_7` mediante una única operación por banco.
 - Salidas apagadas al iniciar, detenerse o detectar un fallo.
 - Estadísticas de scan:
   - último tiempo;
@@ -45,13 +45,49 @@ El PoC 1 fue compilado, cargado y validado sobre JWPLC Basic con el programa:
 I0_0 AND NOT I0_1 -> TON 2 s -> Q0_0
 ```
 
-Resultado informado:
+Se verificó:
+
+- encendido retardado de `Q0_0`;
+- apagado inmediato al perder la condición;
+- reinicio correcto del `TON`;
+- permanencia de las salidas no utilizadas en estado apagado.
+
+## Autopruebas del validador
+
+Resultado validado en hardware:
 
 ```text
-PASS
+10 PASS, 0 FAIL
+VALIDACION COMPLETA: PASS
 ```
 
-Se verificó el encendido retardado de `Q0_0`, el apagado inmediato al perder la condición y la permanencia de las salidas no utilizadas en estado apagado.
+Consumo informado para `JWPLC_LogicRuntime_Validation`:
+
+```text
+Flash: 418001 bytes
+RAM global: 27916 bytes
+```
+
+## Medición inicial de scan
+
+Con la primera implementación por pin se obtuvo aproximadamente:
+
+```text
+mínimo:   7231 us
+promedio: 7669 us
+máximo:  43217 us
+```
+
+La lógica tenía solo seis bloques. El costo dominante no era el motor, sino la lectura y escritura individual de ocho canales del expansor.
+
+El PoC 2.1 cambia el adaptador de E/S para usar las funciones por banco ya disponibles en el core:
+
+```text
+jwplc_digitalReadBlock(I0_X, I0_COUNT)
+jwplc_digitalWriteBlock(Q0_X, Q0_COUNT, bitmap)
+```
+
+Esto evita ocho lecturas y ocho escrituras individuales por scan. El ejemplo reinicia las estadísticas después de tres segundos para excluir inicializaciones de periféricos y medir el régimen estable.
 
 ## Ejemplo predeterminado
 
@@ -84,14 +120,7 @@ Comportamiento esperado:
 - recurso fuera de rango;
 - salida digital duplicada.
 
-Resultado esperado:
-
-```text
-10 PASS, 0 FAIL
-VALIDACION COMPLETA: PASS
-```
-
-## Fuera del PoC 2
+## Fuera del PoC 2.1
 
 - Persistencia en FRAM.
 - Slots A/B.
@@ -133,3 +162,4 @@ JWPLC_LogicRuntime/
 - Una salida física solo puede ser asignada por un bloque de salida.
 - El tamaño serializado será validado además de `maxBlocks` cuando se agregue FRAM.
 - La FRAM de 8 KiB permite avanzar con el mismo motor usando un perfil de capacidad menor.
+- El core JWPLC mantiene el muestreo físico de entradas y el runtime consume su snapshot lógico.
