@@ -50,7 +50,11 @@ static const LogicProgram DEFAULT_PROGRAM = {
     DEFAULT_BLOCKS,
     static_cast<uint16_t>(sizeof(DEFAULT_BLOCKS) / sizeof(DEFAULT_BLOCKS[0]))};
 
+static constexpr uint32_t BENCHMARK_WARMUP_MS = 3000;
+
 uint32_t lastReportMs = 0;
+uint32_t runtimeStartedAtMs = 0;
+bool benchmarkResetDone = false;
 
 void setup()
 {
@@ -58,7 +62,7 @@ void setup()
   delay(200);
 
   Serial.println();
-  Serial.println("JWPLC Logic Runtime - PoC 2");
+  Serial.println("JWPLC Logic Runtime - PoC 2.1");
   Serial.println("Logica: I0_0 AND NOT I0_1 -> TON 2 s -> Q0_0");
 
   if (!runtime.begin())
@@ -95,8 +99,11 @@ void setup()
     return;
   }
 
+  runtimeStartedAtMs = millis();
+
   Serial.println("Runtime iniciado. Las salidas no usadas permanecen apagadas.");
-  Serial.println("Se reportan tiempos minimo, promedio y maximo del scan.");
+  Serial.println("E/S optimizadas por bloque: snapshot I0 y escritura unica de Q0.");
+  Serial.println("Las estadisticas se reiniciaran tras 3 s de calentamiento.");
 }
 
 void loop()
@@ -110,6 +117,15 @@ void loop()
   }
 
   const uint32_t now = millis();
+
+  if (!benchmarkResetDone &&
+      static_cast<uint32_t>(now - runtimeStartedAtMs) >= BENCHMARK_WARMUP_MS)
+  {
+    runtime.resetScanStatistics();
+    benchmarkResetDone = true;
+    Serial.println("Benchmark estabilizado: estadisticas reiniciadas.");
+  }
+
   if (now - lastReportMs >= 1000)
   {
     lastReportMs = now;
