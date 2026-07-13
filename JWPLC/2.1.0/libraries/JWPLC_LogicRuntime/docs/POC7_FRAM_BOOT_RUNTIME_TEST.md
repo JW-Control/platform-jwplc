@@ -89,6 +89,34 @@ Mientras el runtime está activo, un reinicio vuelve a cargar y ejecutar el mism
 
 Si hay un corte durante la restauración, el siguiente arranque vuelve a intentar restaurarla.
 
+## Incidente detectado en la primera ejecución
+
+La instalación y la carga desde FRAM fueron correctas, pero el primer `tick()` terminó con:
+
+```text
+PROGRAM_EXECUTION_FAILED
+```
+
+Causa identificada:
+
+- `LogicProgramBuffer::asProgram()` devuelve un descriptor `LogicProgram` por valor.
+- El motor guardaba un puntero al descriptor recibido por referencia.
+- Al finalizar `loadProgram()`, el descriptor temporal dejaba de existir.
+- Los arreglos `name` y `blocks` seguían siendo válidos, pero el puntero al descriptor quedaba colgante.
+
+Corrección aplicada:
+
+- `LogicEngine` conserva ahora una copia interna del descriptor `LogicProgram`.
+- La copia mantiene los punteros hacia `name` y `blocks` del buffer externo.
+- `LogicProgramBuffer` debe seguir vivo durante la ejecución, pero ya no es necesario que el descriptor devuelto por `asProgram()` tenga vida permanente.
+- Ante cualquier fallo de scan, las salidas continúan apagándose y el runtime entra en `FAULT`.
+
+Estado de la corrección:
+
+```text
+Preparada; pendiente de recompilación y validación física.
+```
+
 ## Criterios de aprobación
 
 - El programa queda persistido y validado antes del reinicio.
