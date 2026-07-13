@@ -20,6 +20,7 @@ static constexpr uint8_t STAGE_IDLE = 0;
 static constexpr uint8_t STAGE_BACKUP_READY = 1;
 static constexpr uint8_t STAGE_PROGRAM_A_READY = 2;
 static constexpr uint8_t STAGE_PROGRAM_B_READY = 3;
+static constexpr uint8_t STAGE_RESTORE_PENDING = 4;
 
 static constexpr LogicStorageProfile TEST_PROFILE(
     PHYSICAL_FRAM_BYTES,
@@ -174,6 +175,40 @@ static bool validateLoadedProgram(uint32_t expectedProgramId,
                                   8) == LogicValidationError::None;
 }
 
+static bool restoreOriginalWindow()
+{
+  if (!loadBackupFromNVS())
+  {
+    Serial.println("FAIL: respaldo NVS ausente o corrupto.");
+    return false;
+  }
+
+  if (!storage.write(0, backupBytes, sizeof(backupBytes)) ||
+      !storage.read(0, verifyBytes, sizeof(verifyBytes)) ||
+      memcmp(backupBytes, verifyBytes, sizeof(backupBytes)) != 0)
+  {
+    Serial.println("FAIL: no se pudo restaurar exactamente la ventana FRAM.");
+    return false;
+  }
+
+  const uint32_t expectedCrc = preferences.getUInt(NVS_KEY_CRC, 0);
+  if (LogicProgramCodec::crc32(verifyBytes, sizeof(verifyBytes)) != expectedCrc)
+  {
+    Serial.println("FAIL: CRC de la ventana restaurada no coincide.");
+    return false;
+  }
+
+  const bool clearOk = preferences.clear();
+
+  Serial.println("[PASS] Contenido original de FRAM restaurado exactamente.");
+  Serial.println(clearOk ? "[PASS] Estado temporal NVS eliminado."
+                         : "[WARN] No se pudo limpiar NVS; la FRAM si fue restaurada.");
+  Serial.println();
+  Serial.println("PERSISTENCIA ENTRE REINICIOS: PASS");
+  Serial.println("PoC 6 completada.");
+  return true;
+}
+
 static bool runStageBackupReady()
 {
   Serial.println("Etapa 1/3: formatear ventana y guardar Programa A.");
@@ -233,25 +268,37 @@ static bool runStageProgramAReady()
 
   LogicProgramStore store;
   if (!store.begin(storage, TEST_PROFILE) ||
-      !store.loadActive(loadedProgram, scratch, sizeof(scratch)) ||
-      !validateLoadedProgram(0xA001, 1, PROGRAM_A.name))
+      !store.loadActive(loadedProgram, scratch, sizeof(scratch)))
   {
-    Serial.println("FAIL: Programa A no sobrevivio al reinicio.");
+    Serial.println("FAIL: no se pudo cargar un programa activo tras el reinicio.");
     return false;
   }
 
-  Serial.println("[PASS] Programa A cargado despues del reinicio.");
-
-  if (!store.saveProgram(PROGRAM_B,
-                         0xB002,
-                         2,
-                         0,
-                         scratch,
-                         sizeof(scratch)))
+  if (validateLoadedProgram(0xB002, 2, PROGRAM_B.name))
   {
-    Serial.print("FAIL: no se pudo guardar Programa B. Error: ");
-    Serial.println(LogicProgramStore::errorName(store.lastError()));
-    return false;
+    Serial.println("[PASS] Programa B ya estaba confirmado tras una interrupcion previa.");
+  }
+  else
+  {
+    if (!validateLoadedProgram(0xA001, 1, PROGRAM_A.name))
+    {
+      Serial.println("FAIL: Programa A no sobrevivio al reinicio.");
+      return false;
+    }
+
+    Serial.println("[PASS] Programa A cargado despues del reinicio.");
+
+    if (!store.saveProgram(PROGRAM_B,
+                           0xB002,
+                           2,
+                           0,
+                           scratch,
+                           sizeof(scratch)))
+    {
+      Serial.print("FAIL: no se pudo guardar Programa B. Error: ");
+      Serial.println(LogicProgramStore::errorName(store.lastError()));
+      return false;
+    }
   }
 
   if (preferences.putUChar(NVS_KEY_STAGE, STAGE_PROGRAM_B_READY) !=
@@ -288,33 +335,14 @@ static bool runStageProgramBReady()
 
   Serial.println("[PASS] Programa B cargado despues del reinicio.");
 
-  if (!storage.write(0, backupBytes, sizeof(backupBytes)) ||
-      !storage.read(0, verifyBytes, sizeof(verifyBytes)) ||
-      memcmp(backupBytes, verifyBytes, sizeof(backupBytes)) != 0)
+  if (preferences.putUChar(NVS_KEY_STAGE, STAGE_RESTORE_PENDING) !=
+      sizeof(uint8_t))
   {
-    Serial.println("FAIL: no se pudo restaurar exactamente la ventana FRAM.");
+    Serial.println("FAIL: no se pudo registrar la restauracion pendiente.");
     return false;
   }
 
-  const uint32_t expectedCrc = preferences.getUInt(NVS_KEY_CRC, 0);
-  const bool restoredCrcOk =
-      LogicProgramCodec::crc32(verifyBytes, sizeof(verifyBytes)) == expectedCrc;
-
-  if (!restoredCrcOk)
-  {
-    Serial.println("FAIL: CRC de la ventana restaurada no coincide.");
-    return false;
-  }
-
-  const bool clearOk = preferences.clear();
-
-  Serial.println("[PASS] Contenido original de FRAM restaurado exactamente.");
-  Serial.println(clearOk ? "[PASS] Estado temporal NVS eliminado."
-                         : "[WARN] No se pudo limpiar NVS; la FRAM si fue restaurada.");
-  Serial.println();
-  Serial.println("PERSISTENCIA ENTRE REINICIOS: PASS");
-  Serial.println("PoC 6 completada.");
-  return true;
+  return restoreOriginalWindow();
 }
 
 void setup()
@@ -379,6 +407,11 @@ void setup()
 
   case STAGE_PROGRAM_B_READY:
     (void)runStageProgramBReady();
+    break;
+
+  case STAGE_RESTORE_PENDING:
+    Serial.println("Restauracion pendiente detectada; reintentando.");
+    (void)restoreOriginalWindow();
     break;
 
   default:
