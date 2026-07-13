@@ -63,20 +63,17 @@ bool JWPLC_LogicRuntime::loadProgram(const LogicProgram &program)
 
 JWPLCLogicStorageBootState JWPLC_LogicRuntime::prepareStoredProgram()
 {
-  const bool validRuntimeState =
-      _state == JWPLCLogicRuntimeState::Ready ||
-      _state == JWPLCLogicRuntimeState::Stopped;
-
-  if (!validRuntimeState ||
-      _storageProfile->maxBlocks == 0 ||
-      !_storage.isReady())
+  if (!_storage.isReady())
   {
     _lastError = JWPLCLogicRuntimeError::NotReady;
     return JWPLCLogicStorageBootState::NotReady;
   }
 
-  // Una evaluación fallida nunca debe dejar disponible un programa anterior.
-  _engine.unloadProgram();
+  if (_state == JWPLCLogicRuntimeState::Running)
+  {
+    _lastError = JWPLCLogicRuntimeError::NotReady;
+    return JWPLCLogicStorageBootState::NotReady;
+  }
 
   const JWPLCLogicStorageBootState bootState = _storage.prepareBoot();
   const bool bootable =
@@ -85,10 +82,31 @@ JWPLCLogicStorageBootState JWPLC_LogicRuntime::prepareStoredProgram()
 
   if (!bootable)
   {
-    _state = JWPLCLogicRuntimeState::Ready;
+    // La clasificación del almacenamiento puede consultarse antes de begin().
+    // Si el motor ya estaba inicializado, se descarga cualquier programa previo.
+    _engine.unloadProgram();
+
+    if (_storageProfile->maxBlocks > 0)
+    {
+      _state = JWPLCLogicRuntimeState::Ready;
+    }
+
     _lastError = JWPLCLogicRuntimeError::StoredProgramLoadFailed;
     return bootState;
   }
+
+  const bool validRuntimeState =
+      _state == JWPLCLogicRuntimeState::Ready ||
+      _state == JWPLCLogicRuntimeState::Stopped;
+
+  if (!validRuntimeState || _storageProfile->maxBlocks == 0)
+  {
+    _lastError = JWPLCLogicRuntimeError::NotReady;
+    return JWPLCLogicStorageBootState::NotReady;
+  }
+
+  // Una nueva preparación nunca debe dejar disponible un programa anterior.
+  _engine.unloadProgram();
 
   // LogicEngine realiza una copia profunda. El programa preparado queda
   // independiente del buffer interno que storage() pueda reutilizar después.
