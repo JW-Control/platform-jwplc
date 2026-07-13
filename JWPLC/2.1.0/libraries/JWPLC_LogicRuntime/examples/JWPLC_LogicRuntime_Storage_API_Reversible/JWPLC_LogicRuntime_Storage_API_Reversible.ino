@@ -225,13 +225,21 @@ static bool restoreOriginalStore(bool printResult)
   return clearOk;
 }
 
-static bool sameLoadedProgram()
+static bool loadedIdentityMatches()
 {
   const LogicProgram loaded = runtime.storage().activeProgram();
 
-  if (loaded.name == nullptr || loaded.blocks == nullptr ||
-      loaded.blockCount != TEST_PROGRAM.blockCount ||
-      strcmp(loaded.name, TEST_PROGRAM.name) != 0)
+  return loaded.name != nullptr &&
+         loaded.blocks != nullptr &&
+         loaded.blockCount == TEST_PROGRAM.blockCount &&
+         strcmp(loaded.name, TEST_PROGRAM.name) == 0;
+}
+
+static bool loadedBlocksMatch()
+{
+  const LogicProgram loaded = runtime.storage().activeProgram();
+
+  if (loaded.blocks == nullptr || loaded.blockCount != TEST_PROGRAM.blockCount)
   {
     return false;
   }
@@ -242,6 +250,11 @@ static bool sameLoadedProgram()
          loaded.blocks[5].type == LogicBlockType::DigitalOutput &&
          loaded.blocks[5].sourceA == 4 &&
          loaded.blocks[5].resource == 0;
+}
+
+static bool loadedProgramMatches()
+{
+  return loadedIdentityMatches() && loadedBlocksMatch();
 }
 
 static void printSummary()
@@ -378,9 +391,9 @@ void setup()
   expect("fachada reporta programa cargado",
          loadOk && runtime.storage().hasLoadedProgram());
   expect("nombre y cantidad de bloques conservados",
-         loadOk && sameLoadedProgram());
+         loadOk && loadedIdentityMatches());
   expect("TON y salida conservados",
-         loadOk && sameLoadedProgram());
+         loadOk && loadedBlocksMatch());
 
   const bool reopenOk = runtime.storage().begin(JWPLC_FRAM);
   expect("storage().begin() reabre el mapa persistido", reopenOk);
@@ -396,7 +409,7 @@ void setup()
   const bool reloadOk = reopenOk && runtime.storage().loadActive();
   expect("programa vuelve a cargar tras reinicializar", reloadOk);
   expect("programa reabierto conserva su contenido",
-         reloadOk && sameLoadedProgram());
+         reloadOk && loadedProgramMatches());
 
   (void)restoreOriginalStore(true);
   printSummary();
