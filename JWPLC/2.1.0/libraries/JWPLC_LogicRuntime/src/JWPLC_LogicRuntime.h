@@ -58,6 +58,7 @@ public:
   JWPLCLogicRuntimeError lastError() const;
   LogicValidationError validationError() const;
   const LogicStorageProfile &storageProfile() const;
+  const LogicStorageLayout &storageLayout() const;
 
   bool blockValue(uint16_t index) const;
   uint32_t scanCount() const;
