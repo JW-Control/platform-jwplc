@@ -8,7 +8,8 @@ La librería se integra sobre la placa existente `JWPLC Basic`. No crea una vari
 
 ```text
 PoC 0 a PoC 7 validadas
-Fase actual: diseño de producción del almacenamiento persistente
+Mapa persistente v1 validado
+Fase actual: integración de la API persistente pública
 ```
 
 Se validó el recorrido completo:
@@ -43,6 +44,7 @@ programa binario en FRAM
 - Backend sobre `JWPLC_FRAM` física.
 - Persistencia entre reinicios reales.
 - Carga y ejecución física desde una imagen persistida.
+- Mapa persistente v1 para FRAM de 8 KiB y 32 KiB.
 
 ## Rendimiento medido
 
@@ -105,9 +107,9 @@ Imagen de 100 bloques:   1264 bytes
 | Retentivos | `0x6040` | `0x703F` | 4096 B |
 | Reserva | `0x7040` | `0x7FFF` | 4032 B |
 
-El mapa solo se usa cuando el usuario habilita explícitamente el modo persistente. Un almacenamiento sin formato válido debe permanecer intacto hasta recibir una orden explícita de formateo.
+El mapa solo se usa cuando el usuario habilita explícitamente el modo persistente. Un almacenamiento sin formato válido permanece intacto hasta recibir una orden explícita de formateo.
 
-## API actual
+## API en RAM
 
 ```cpp
 JWPLC_LogicRuntime runtime;
@@ -139,22 +141,36 @@ runtime.maxScanMicros();
 runtime.outputWriteCount();
 ```
 
-## API persistente prevista
+## API persistente pública
 
-La siguiente etapa añadirá una fachada sin romper la API anterior:
+La fachada inicial se accede mediante `runtime.storage()`:
 
 ```cpp
 runtime.storage().begin(JWPLC_FRAM);
+runtime.storage().isReady();
 runtime.storage().isFormatted();
-runtime.storage().format();
-runtime.storage().save(program, programId, generation);
-runtime.storage().loadActive();
 runtime.storage().status();
+runtime.storage().format();
+runtime.storage().save(program, programId);
+runtime.storage().loadActive();
+runtime.storage().activeProgram();
 runtime.storage().lastError();
-runtime.storage().rollback();
+runtime.storage().storeError();
+runtime.storage().validationError();
 ```
 
-El primer formateo será siempre explícito.
+El primer formateo siempre es explícito. `begin()` solo detecta el perfil y lee las firmas existentes.
+
+Carga integrada hacia el motor:
+
+```cpp
+runtime.storage().begin(JWPLC_FRAM);
+runtime.begin();
+runtime.loadStoredProgram();
+runtime.start();
+```
+
+La generación del programa se incrementa automáticamente durante `save()`. El rollback explícito queda como siguiente ampliación después de validar compilación, consumo de RAM y operaciones físicas reversibles de esta fachada.
 
 ## Ejemplos principales
 
@@ -166,12 +182,14 @@ El primer formateo será siempre explícito.
 - `JWPLC_LogicRuntime_FRAM_Persistent`: persistencia entre reinicios.
 - `JWPLC_LogicRuntime_FRAM_Boot`: carga y ejecución desde FRAM.
 - `JWPLC_LogicRuntime_Storage_Layout`: validación no destructiva del mapa v1.
+- `JWPLC_LogicRuntime_Storage_API_ReadOnly`: validación no destructiva de la fachada pública.
 
 ## Documentación
 
 - `docs/LOGIC_PROGRAM_IMAGE_FORMAT_V1.md`
 - `docs/LOGIC_PROGRAM_AB_STORE_V1.md`
 - `docs/FRAM_MEMORY_MAP_V1.md`
+- `docs/PERSISTENT_STORAGE_API_V1.md`
 - `docs/POC_VALIDATION_RESULTS.md`
 - `docs/POC5_FRAM_PHYSICAL_RESULTS.md`
 - `docs/POC6_FRAM_PERSISTENT_RESULTS.md`
@@ -188,4 +206,4 @@ El primer formateo será siempre explícito.
 - La FRAM de 8 KiB soporta el límite inicial de 100 bloques.
 - La FRAM de 32 KiB amplía capacidades sin requerir otro motor.
 - El proyecto editable completo no forma parte de la imagen ejecutable.
-- Retentivos, editor TFT, microSD y actualización remota siguen pendientes.
+- Retentivos, rollback público, editor TFT, microSD y actualización remota siguen pendientes.
