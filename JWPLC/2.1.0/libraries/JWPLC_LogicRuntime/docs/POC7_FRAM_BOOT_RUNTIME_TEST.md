@@ -1,5 +1,12 @@
 # PoC 7 — arranque y ejecución del runtime desde FRAM
 
+## Estado
+
+```text
+VALIDADA Y CERRADA
+ARRANQUE Y EJECUCION DESDE FRAM: PASS
+```
+
 ## Objetivo
 
 Validar el flujo completo:
@@ -16,9 +23,9 @@ JWPLC_LogicRuntime::loadProgram()
 Ejecución física de E/S
 ```
 
-La prueba todavía usa una ventana reversible al final de la FRAM. No define el mapa final de producción.
+La prueba usa una ventana reversible al final de la FRAM. No define todavía el mapa final de producción.
 
-## Ventana usada
+## Ventana utilizada
 
 ```text
 FRAM física:       8192 bytes
@@ -29,7 +36,7 @@ Slot A:            512 bytes
 Slot B:            512 bytes
 ```
 
-El contenido original se respalda en NVS antes de modificar la ventana.
+El contenido original se respalda en NVS antes de modificar la ventana y se restaura al finalizar.
 
 ## Programa persistente
 
@@ -48,87 +55,118 @@ B4 = TON(B3, 2000 ms)
 B5 = Q0_0 <- B4
 ```
 
-## Flujo
+## Flujo validado
 
-### Etapa 1 — instalación
+### Instalación
 
-1. Subir `JWPLC_LogicRuntime_FRAM_Boot.ino`.
-2. Abrir el monitor serial a 115200.
-3. Escribir `START`.
-4. El ejemplo respalda la ventana original en NVS.
-5. Registra una instalación pendiente.
-6. Formatea el layout A/B reducido.
-7. Guarda, lee y valida el programa.
-8. Registra el programa como listo.
-9. Solicita reinicio.
+1. El ejemplo respaldó la ventana original en NVS.
+2. Registró una instalación pendiente.
+3. Formateó el layout A/B reducido.
+4. Guardó el programa en FRAM.
+5. Lo releyó y validó.
+6. Registró el programa como listo.
 
-Si hay un corte durante la instalación, el siguiente arranque detecta `STAGE_INSTALL_PENDING` y restaura la ventana original.
-
-### Etapa 2 — ejecución después del reinicio
-
-1. Reiniciar sin volver a compilar.
-2. El ejemplo carga el programa activo desde FRAM.
-3. Verifica metadatos y CRC mediante `LogicProgramStore` y `LogicProgramCodec`.
-4. Reconstruye el programa en `LogicProgramBuffer`.
-5. Inicializa `JWPLC_LogicRuntime`.
-6. Carga el programa en el motor.
-7. Inicia el scan físico.
-8. Probar las entradas y `Q0_0`.
-
-Mientras el runtime está activo, un reinicio vuelve a cargar y ejecutar el mismo programa persistente.
-
-### Etapa 3 — restauración
-
-1. Escribir `RESTORE` por Serial.
-2. El runtime se detiene.
-3. Todas las salidas se apagan.
-4. Se registra restauración pendiente.
-5. Se restaura la ventana original.
-6. Se relee y verifica byte por byte y por CRC32.
-7. Se elimina el estado temporal de NVS.
-
-Si hay un corte durante la restauración, el siguiente arranque vuelve a intentar restaurarla.
-
-## Incidente detectado en la primera ejecución
-
-La instalación y la carga desde FRAM fueron correctas, pero el primer `tick()` terminó con:
+Resultado:
 
 ```text
-PROGRAM_EXECUTION_FAILED
+[PASS] Programa persistido y verificado en FRAM.
+INSTALACION COMPLETA.
 ```
 
-Causa identificada:
+### Arranque desde FRAM
 
-- `LogicProgramBuffer::asProgram()` devuelve un descriptor `LogicProgram` por valor.
-- El motor guardaba un puntero al descriptor recibido por referencia.
-- Al finalizar `loadProgram()`, el descriptor temporal dejaba de existir.
-- Los arreglos `name` y `blocks` seguían siendo válidos, pero el puntero al descriptor quedaba colgante.
-
-Corrección aplicada:
-
-- `LogicEngine` conserva una copia interna del descriptor `LogicProgram`.
-- La copia mantiene los punteros hacia `name` y `blocks` del buffer externo.
-- `LogicProgramBuffer` debe seguir vivo durante la ejecución, pero ya no es necesario que el descriptor devuelto por `asProgram()` tenga vida permanente.
-- Ante cualquier fallo de scan, las salidas continúan apagándose y el runtime entra en `FAULT`.
-
-## Resultado después de la corrección
-
-El mismo programa persistido previamente se cargó sin reinstalarlo ni borrar NVS:
+Después de un reinicio completo del ESP32:
 
 ```text
 [PASS] Programa cargado desde FRAM hacia RAM.
 [PASS] Runtime iniciado con el programa persistente.
 ```
 
-El runtime permaneció ejecutándose durante aproximadamente un minuto sin fallos:
+El programa ejecutado no se tomó de una definición fija alternativa. Se reconstruyó desde la imagen activa almacenada en FRAM.
+
+### Ejecución física
+
+Estado inicial:
 
 ```text
 I0_0=0 I0_1=0 AND=0 TON=0 Q0_0=0
-scan mínimo:   4 us
-scan promedio: 5 us
-scan máximo:   425 us
-escrituras Q0: 2 y estable
 ```
+
+Activación de `I0_0` con `I0_1=0`:
+
+```text
+I0_0=1 I0_1=0 AND=1 TON=0 Q0_0=0
+I0_0=1 I0_1=0 AND=1 TON=1 Q0_0=1
+```
+
+Se confirmó:
+
+- inicio del `TON` al cumplirse la condición;
+- permanencia de `Q0_0` apagada antes de completar dos segundos;
+- activación de `TON` y `Q0_0` después del retardo;
+- una sola escritura física adicional cuando Q0 cambió a encendida.
+
+Al retirar `I0_0`:
+
+```text
+I0_0=0 I0_1=0 AND=0 TON=0 Q0_0=0
+```
+
+Se confirmó:
+
+- reinicio del temporizador;
+- apagado de `Q0_0`;
+- una sola escritura física adicional cuando Q0 cambió a apagada.
+
+La función de inhibición mediante `I0_1` ya había sido validada en las PoC físicas anteriores con el mismo motor y la misma definición lógica. En PoC 7 se validó específicamente el recorrido completo FRAM → RAM → motor → E/S física.
+
+## Rendimiento observado
+
+Durante la ejecución desde FRAM:
+
+```text
+scan mínimo:    4 us
+scan promedio:  5 us
+scan máximo:  460 us
+```
+
+El máximo apareció durante una transición física de Q0, coherente con el costo de escritura del banco por I2C.
+
+Contador de escrituras:
+
+```text
+Q0 estable apagada: 2
+Q0 pasa a encendida: 3
+Q0 pasa a apagada:  4
+```
+
+No se observaron escrituras redundantes mientras el estado de salida permanecía estable.
+
+## Incidente detectado y corregido
+
+La primera ejecución cargó correctamente la imagen desde FRAM, pero el primer `tick()` terminó con:
+
+```text
+PROGRAM_EXECUTION_FAILED
+```
+
+Causa:
+
+- `LogicProgramBuffer::asProgram()` devuelve un descriptor `LogicProgram` por valor;
+- `LogicEngine` conservaba un puntero al descriptor recibido por referencia;
+- al finalizar `loadProgram()`, el descriptor temporal dejaba de existir;
+- los buffers `name` y `blocks` seguían siendo válidos, pero el puntero al descriptor quedaba colgante.
+
+Corrección:
+
+- `LogicEngine` conserva ahora una copia interna del descriptor `LogicProgram`;
+- la copia mantiene los punteros hacia `name` y `blocks` del buffer externo;
+- `LogicProgramBuffer` debe seguir vivo durante la ejecución;
+- ya no se depende de la vida del descriptor temporal devuelto por `asProgram()`.
+
+La corrección se validó reutilizando el mismo programa persistido, sin reinstalarlo ni borrar NVS.
+
+## Restauración final
 
 La prueba terminó mediante `RESTORE`:
 
@@ -136,47 +174,34 @@ La prueba terminó mediante `RESTORE`:
 Runtime detenido. Q0 apagadas.
 [PASS] Contenido original de FRAM restaurado exactamente.
 [PASS] Estado temporal NVS eliminado.
+
 ARRANQUE Y EJECUCION DESDE FRAM: PASS
 PoC 7 completada.
 ```
 
-Validado con este resultado:
+## Conclusiones
 
-- persistencia y carga desde FRAM;
+Quedó validado:
+
+- almacenamiento binario del programa en FRAM;
+- selección del slot activo mediante el gestor A/B;
+- persistencia entre reinicios completos;
 - reconstrucción del programa en RAM;
-- corrección del descriptor temporal;
-- ejecución estable del scan;
+- entrega segura del programa reconstruido al motor;
+- ejecución física de la lógica almacenada;
+- temporización `TON` correcta;
+- activación y apagado físico de `Q0_0`;
 - ausencia de escrituras Q0 redundantes;
 - parada segura;
-- restauración exacta de FRAM y limpieza de NVS.
-
-Pendiente para cierre funcional completo:
-
-- registrar una transición con `I0_0=1` e `I0_1=0` durante dos segundos;
-- confirmar `TON=1` y `Q0_0=1` desde el programa cargado desde FRAM;
-- confirmar el apagado al activar `I0_1`.
-
-## Criterios de aprobación
-
-- El programa queda persistido y validado antes del reinicio.
-- Tras reiniciar, el programa se carga desde FRAM sin una definición fija alternativa.
-- El runtime ejecuta la lógica física esperada.
-- `Q0_0` conserva el comportamiento del `TON` probado en PoC anteriores.
-- Las salidas se apagan antes de restaurar.
-- La ventana original se recupera exactamente.
-- El resultado final muestra:
-
-```text
-ARRANQUE Y EJECUCION DESDE FRAM: PASS
-PoC 7 completada.
-```
+- restauración exacta de la FRAM;
+- limpieza del estado temporal en NVS.
 
 ## Alcance excluido
 
-- Mapa completo definitivo de la FRAM de 8 KiB.
-- Autoinstalación del programa predeterminado de producción.
-- API final de alto nivel para guardar y activar programas.
-- Retentivos persistentes.
-- Editor frontal.
-- Actualización remota de programa.
-- Declaración de hard real-time.
+- mapa definitivo de producción de la FRAM de 8 KiB;
+- API final de alto nivel para instalar, guardar y activar programas;
+- autoinstalación del programa predeterminado de producción;
+- retentivos persistentes;
+- editor frontal;
+- actualización remota de programa;
+- declaración de hard real-time.
