@@ -1,7 +1,11 @@
 #include "LogicEngine.h"
 
+#include <cstring>
+
 LogicEngine::LogicEngine()
     : _io(nullptr),
+      _programName{},
+      _programBlocks{},
       _program{nullptr, nullptr, 0},
       _hasProgram(false),
       _states{},
@@ -18,34 +22,58 @@ bool LogicEngine::loadProgram(const LogicProgram &program, uint16_t maxBlocks)
 {
   if (_io == nullptr)
   {
-    _program = {nullptr, nullptr, 0};
-    _hasProgram = false;
+    unloadProgram();
     _validationError = LogicValidationError::NullProgram;
     return false;
   }
 
-  _validationError = LogicValidator::validate(program,
-                                               maxBlocks,
-                                               _io->digitalInputCount(),
-                                               _io->digitalOutputCount());
+  const LogicValidationError validationError =
+      LogicValidator::validate(program,
+                               maxBlocks,
+                               _io->digitalInputCount(),
+                               _io->digitalOutputCount());
 
-  if (_validationError != LogicValidationError::None)
+  if (validationError != LogicValidationError::None)
   {
-    _program = {nullptr, nullptr, 0};
-    _hasProgram = false;
-    _io->allOutputsOff();
+    unloadProgram();
+    _validationError = validationError;
     return false;
   }
 
-  // Copia el descriptor por valor para no depender de la vida del objeto
-  // LogicProgram pasado por el llamador. Los buffers name/blocks deben seguir
-  // vivos mientras el motor ejecute el programa.
-  _program = program;
+  memset(_programName, 0, sizeof(_programName));
+  if (program.name != nullptr)
+  {
+    strncpy(_programName,
+            program.name,
+            JWPLC_LOGIC_PROGRAM_NAME_BYTES);
+    _programName[JWPLC_LOGIC_PROGRAM_NAME_BYTES] = '\0';
+  }
+
+  memcpy(_programBlocks,
+         program.blocks,
+         static_cast<size_t>(program.blockCount) *
+             sizeof(LogicBlockDefinition));
+
+  _program = {_programName, _programBlocks, program.blockCount};
   _hasProgram = true;
+  _validationError = LogicValidationError::None;
 
   resetStates();
   _io->allOutputsOff();
   return true;
+}
+
+void LogicEngine::unloadProgram()
+{
+  _program = {nullptr, nullptr, 0};
+  _hasProgram = false;
+  _validationError = LogicValidationError::None;
+  resetStates();
+
+  if (_io != nullptr)
+  {
+    _io->allOutputsOff();
+  }
 }
 
 void LogicEngine::resetStates()
