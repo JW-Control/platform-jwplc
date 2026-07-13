@@ -323,7 +323,7 @@ void setup()
 {
   Serial.begin(115200);
   Serial.setTimeout(250);
-  delay(300);
+  delay(5000);
 
   Serial.println();
   Serial.println("JWPLC Logic Runtime - diagnostico de metadata persistente");
