@@ -20,7 +20,9 @@ enum class JWPLCLogicStorageError : uint8_t
   InvalidProgram,
   SaveFailed,
   LoadFailed,
-  NoLoadedProgram
+  NoLoadedProgram,
+  RollbackUnavailable,
+  RollbackFailed
 };
 
 /**
@@ -43,6 +45,14 @@ public:
             uint32_t programId,
             uint32_t flags = 0);
   bool loadActive();
+
+  /**
+   * @brief Activa el otro slot verificado sin reescribir su imagen.
+   *
+   * El candidato se carga, se verifica por CRC/codec y pasa por el validador
+   * lógico antes de escribir el nuevo superblock activo.
+   */
+  bool rollback();
 
   bool hasLoadedProgram() const;
   LogicProgram activeProgram() const;
