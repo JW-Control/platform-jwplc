@@ -5,6 +5,7 @@
 
 #include "LogicByteStorage.h"
 #include "LogicProgramCodec.h"
+#include "LogicStorageLayout.h"
 #include "LogicStorageProfile.h"
 
 static constexpr uint8_t JWPLC_LOGIC_INVALID_SLOT = 0xFF;
@@ -87,8 +88,12 @@ private:
   static constexpr size_t SUPERBLOCK_SIZE = 32;
   static constexpr size_t SUPERBLOCK_COPIES = 2;
   static constexpr size_t SUPERBLOCK_AREA_SIZE =
-      SUPERBLOCK_SIZE * SUPERBLOCK_COPIES;
-  static constexpr size_t SLOT_DESCRIPTOR_SIZE = 32;
+      LogicStorageLayout::SUPERBLOCK_AREA_BYTES;
+  static constexpr size_t SLOT_DESCRIPTOR_SIZE =
+      LogicStorageLayout::SLOT_DESCRIPTOR_BYTES;
+
+  static_assert(SUPERBLOCK_SIZE * SUPERBLOCK_COPIES == SUPERBLOCK_AREA_SIZE,
+                "El layout y el gestor discrepan en superblocks");
 
   struct SuperblockData
   {
