@@ -9,19 +9,23 @@ La librería se integra sobre la placa existente `JWPLC Basic`. No crea una vari
 ```text
 PoC 0 a PoC 7 validadas
 Mapa persistente v1 validado
-API persistente de lectura y escritura reversible validada
-Fase actual: rollback y política de arranque de producción
+API persistente reversible validada
+Rollback persistente validado
+Política de arranque v1 validada
+Integración FRAM → runtime validada
+Fase actual: optimización del perfil compilado de RAM
 ```
 
 Se validó el recorrido completo:
 
 ```text
 programa binario en FRAM
-→ carga después de reinicio
-→ reconstrucción en RAM
+→ clasificación de arranque
+→ carga activa o fallback
+→ copia profunda en RAM
 → ejecución del motor
-→ E/S físicas
 → parada segura
+→ descarga ante fallo total
 → restauración exacta
 ```
 
@@ -29,8 +33,8 @@ programa binario en FRAM
 
 - Ciclo de vida `begin()`, `loadProgram()`, `start()`, `tick()` y `stop()`.
 - Perfil automático para FRAM de 8 KiB.
-- Límite inicial de 100 bloques.
-- Perfil futuro de 32 KiB con límite provisional de 400 bloques.
+- Límite funcional inicial de 100 bloques.
+- Perfil físico futuro de 32 KiB con capacidad de 400 bloques.
 - Ejecución determinista desde RAM.
 - Referencias únicamente hacia bloques anteriores.
 - Validador de fuentes, tipos, recursos y salidas duplicadas.
@@ -40,7 +44,7 @@ programa binario en FRAM
 - Salidas apagadas al iniciar, detener o detectar fallo.
 - Codec binario portable, versionado y con CRC32.
 - Almacenamiento transaccional A/B.
-- Fallback ante imagen o superblock corrupto.
+- Fallback ante imagen activa corrupta.
 - Backend RAM con inyección de cortes.
 - Backend sobre `JWPLC_FRAM` física.
 - Persistencia entre reinicios reales.
@@ -48,7 +52,10 @@ programa binario en FRAM
 - Mapa persistente v1 para FRAM de 8 KiB y 32 KiB.
 - Fachada pública `runtime.storage()`.
 - Detección no destructiva de FRAM sin formato.
-- Formato, guardado y carga reversibles sobre hardware real.
+- Formato, guardado, carga y rollback reversibles sobre hardware real.
+- Política explícita `UNFORMATTED`, `EMPTY`, `ACTIVE`, `FALLBACK` y `NO_VALID`.
+- Copia profunda del programa dentro del motor.
+- Descarga del programa anterior cuando no existe imagen válida.
 
 ## Rendimiento medido
 
@@ -61,9 +68,9 @@ I0_0 AND NOT I0_1 → TON 2 s → Q0_0
 Resultado optimizado:
 
 ```text
-scan mínimo:      4–5 us
-scan promedio:    5 us
-scan con cambio Q0: aproximadamente 0.4–0.46 ms
+scan mínimo:          4–5 us
+scan promedio:        5 us
+scan con cambio Q0:   aproximadamente 0.4–0.46 ms
 ```
 
 Las entradas consumen el snapshot lógico que el core actualiza por defecto cada 20 ms. El runtime no se declara hard real-time.
@@ -112,6 +119,29 @@ Imagen de 100 bloques:   1264 bytes
 | Reserva | `0x7040` | `0x7FFF` | 4032 B |
 
 El mapa solo se usa cuando el usuario habilita explícitamente el modo persistente. Un almacenamiento sin formato válido permanece intacto hasta recibir una orden explícita de formateo.
+
+## Perfil compilado de RAM
+
+La capacidad física del formato y la RAM reservada por el build están separadas.
+
+Build predeterminado actual:
+
+```text
+JWPLC_LOGIC_COMPILED_MAX_BLOCKS = 100
+```
+
+| Perfil físico | Capacidad física | Límite efectivo actual |
+|---|---:|---:|
+| FRAM 8 KiB | 100 | 100 |
+| FRAM 32 KiB | 400 | 100 |
+
+El hardware futuro de 32 KiB podrá compilar explícitamente con:
+
+```text
+-DJWPLC_LOGIC_COMPILED_MAX_BLOCKS=400
+```
+
+En ese build, el perfil de 32 KiB tendrá un límite efectivo de 400 y el perfil de 8 KiB seguirá limitado a 100.
 
 ## API en RAM
 
@@ -171,15 +201,23 @@ Carga integrada hacia el motor:
 ```cpp
 runtime.storage().begin(JWPLC_FRAM);
 runtime.begin();
-runtime.loadStoredProgram();
-runtime.start();
+
+JWPLCLogicStorageBootState bootState =
+    runtime.prepareStoredProgram();
+
+if (runtime.hasProgram())
+{
+  runtime.start();
+}
 ```
+
+`prepareStoredProgram()` no inicia automáticamente la lógica. Un fallback queda disponible en RAM, pero exige una decisión explícita de la aplicación.
 
 `rollback()` carga y valida primero el slot alterno; únicamente después activa una copia nueva del superblock. La imagen candidata no se reescribe.
 
-## Consumo medido de la fachada
+## Consumo medido
 
-Lectura no destructiva:
+### Fachada en lectura
 
 ```text
 Flash:       421449 bytes (13 %)
@@ -187,7 +225,7 @@ RAM global:   40980 bytes (12 %)
 RAM restante: 286700 bytes
 ```
 
-Prueba reversible con respaldo adicional de 5184 bytes:
+### Prueba reversible con respaldo adicional de 5184 bytes
 
 ```text
 Flash:       436597 bytes (13 %)
@@ -195,7 +233,17 @@ RAM global:   46276 bytes (14 %)
 RAM restante: 281404 bytes
 ```
 
-El respaldo de 5184 bytes pertenece al ejemplo de prueba, no al costo permanente de `runtime.storage()`.
+### Integración completa con copia profunda, compilada para 400 bloques
+
+```text
+Flash:       440717 bytes (14 %)
+RAM global:   51108 bytes (15 %)
+RAM restante: 276572 bytes
+```
+
+La copia profunda añadió 4832 bytes frente a la prueba anterior con el mismo respaldo. El nuevo perfil predeterminado de 100 bloques está preparado y pendiente de medición física.
+
+El respaldo de 5184 bytes pertenece a los ejemplos reversibles, no al costo permanente de `runtime.storage()`.
 
 ## Ejemplos principales
 
@@ -206,10 +254,13 @@ El respaldo de 5184 bytes pertenece al ejemplo de prueba, no al costo permanente
 - `JWPLC_LogicRuntime_FRAM_Storage`: backend físico reversible, 22 PASS.
 - `JWPLC_LogicRuntime_FRAM_Persistent`: persistencia entre reinicios.
 - `JWPLC_LogicRuntime_FRAM_Boot`: carga y ejecución desde FRAM.
-- `JWPLC_LogicRuntime_Storage_Layout`: validación no destructiva del mapa v1.
+- `JWPLC_LogicRuntime_Storage_Layout`: validación no destructiva del mapa v1, 15 PASS.
 - `JWPLC_LogicRuntime_Storage_API_ReadOnly`: validación no destructiva de la fachada pública, 8 PASS.
 - `JWPLC_LogicRuntime_Storage_API_Reversible`: formato, guardado, carga y restauración, 27 PASS.
-- `JWPLC_LogicRuntime_Storage_API_Rollback`: prueba reversible de reactivación del slot anterior.
+- `JWPLC_LogicRuntime_Storage_API_Rollback`: rollback reversible, 34 PASS.
+- `JWPLC_LogicRuntime_Storage_API_Startup_Policy`: política de arranque, 44 PASS.
+- `JWPLC_LogicRuntime_Stored_Program_Integration`: integración hacia el motor, 48 PASS.
+- `JWPLC_LogicRuntime_Compiled_Profile`: validación no destructiva del build de 100 bloques.
 
 ## Documentación
 
@@ -217,6 +268,12 @@ El respaldo de 5184 bytes pertenece al ejemplo de prueba, no al costo permanente
 - `docs/LOGIC_PROGRAM_AB_STORE_V1.md`
 - `docs/FRAM_MEMORY_MAP_V1.md`
 - `docs/PERSISTENT_STORAGE_API_V1.md`
+- `docs/STARTUP_POLICY_V1.md`
+- `docs/STARTUP_POLICY_RESULTS.md`
+- `docs/ROLLBACK_PERSISTENT_RESULTS.md`
+- `docs/STORED_PROGRAM_RUNTIME_INTEGRATION.md`
+- `docs/STORED_PROGRAM_RUNTIME_INTEGRATION_RESULTS.md`
+- `docs/COMPILED_MEMORY_PROFILE_V1.md`
 - `docs/POC_VALIDATION_RESULTS.md`
 - `docs/POC5_FRAM_PHYSICAL_RESULTS.md`
 - `docs/POC6_FRAM_PERSISTENT_RESULTS.md`
@@ -227,11 +284,16 @@ El respaldo de 5184 bytes pertenece al ejemplo de prueba, no al costo permanente
 - El programa activo se ejecuta desde RAM.
 - El slot activo no se sobrescribe durante una actualización.
 - El rollback activa únicamente un slot alterno completamente verificado.
+- El fallback de arranque no repara automáticamente el superblock.
+- `start()` siempre es explícito.
+- Un fallo persistente total descarga el programa anterior del motor.
+- El motor mantiene una copia profunda del programa cargado.
 - El orden del arreglo es el orden de ejecución.
 - Cada bloque solo referencia bloques anteriores.
 - Una salida física solo puede tener un bloque escritor.
 - El límite se valida por cantidad de bloques y tamaño serializado.
 - La FRAM de 8 KiB soporta el límite inicial de 100 bloques.
-- La FRAM de 32 KiB amplía capacidades sin requerir otro motor.
+- El build actual reserva RAM para 100 bloques.
+- La FRAM de 32 KiB conserva capacidad física futura de 400 bloques.
 - El proyecto editable completo no forma parte de la imagen ejecutable.
-- Retentivos, política final de arranque, editor TFT, microSD y actualización remota siguen pendientes.
+- Retentivos, corrupción de superblocks, diagnóstico TFT, microSD y actualización remota siguen pendientes.
