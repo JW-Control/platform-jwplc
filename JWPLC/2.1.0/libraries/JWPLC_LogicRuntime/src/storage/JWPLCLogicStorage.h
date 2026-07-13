@@ -7,6 +7,7 @@
 #include "LogicFRAMStorage.h"
 #include "LogicProgramStore.h"
 #include "LogicStorageLayout.h"
+#include "LogicSuperblockInspector.h"
 #include "../runtime/LogicValidator.h"
 
 enum class JWPLCLogicStorageError : uint8_t
@@ -22,7 +23,8 @@ enum class JWPLCLogicStorageError : uint8_t
   LoadFailed,
   NoLoadedProgram,
   RollbackUnavailable,
-  RollbackFailed
+  RollbackFailed,
+  CorruptMetadata
 };
 
 /**
@@ -40,7 +42,8 @@ enum class JWPLCLogicStorageBootState : uint8_t
   ActiveProgramLoaded,
   FallbackProgramLoaded,
   NoValidProgram,
-  InvalidProgram
+  InvalidProgram,
+  CorruptMetadata
 };
 
 /**
@@ -88,6 +91,7 @@ public:
   const LogicProgramStoreStatus &status() const;
   const LogicStorageProfile &profile() const;
   const LogicStorageLayout &layout() const;
+  LogicSuperblockHealth metadataHealth() const;
 
   JWPLCLogicStorageError lastError() const;
   LogicProgramStoreError storeError() const;
@@ -116,6 +120,7 @@ private:
   JWPLCLogicStorageError _lastError;
   LogicValidationError _validationError;
   JWPLCLogicStorageBootState _bootState;
+  LogicSuperblockHealth _metadataHealth;
 };
 
 #endif
