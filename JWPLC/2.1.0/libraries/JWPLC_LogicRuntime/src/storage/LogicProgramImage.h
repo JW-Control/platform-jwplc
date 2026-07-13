@@ -9,7 +9,8 @@ static constexpr uint32_t JWPLC_LOGIC_IMAGE_MAGIC = 0x524C574AUL; // "JWLR" en l
 static constexpr uint16_t JWPLC_LOGIC_IMAGE_FORMAT_VERSION = 1;
 static constexpr uint16_t JWPLC_LOGIC_IMAGE_HEADER_SIZE = 64;
 static constexpr uint16_t JWPLC_LOGIC_IMAGE_BLOCK_SIZE = 12;
-static constexpr uint8_t JWPLC_LOGIC_IMAGE_NAME_BYTES = 24;
+static constexpr uint8_t JWPLC_LOGIC_IMAGE_NAME_BYTES =
+    JWPLC_LOGIC_PROGRAM_NAME_BYTES;
 
 struct LogicProgramImageMetadata
 {
@@ -25,8 +26,9 @@ struct LogicProgramImageMetadata
  * @brief Contenedor propietario para reconstruir un programa desde bytes.
  *
  * No usa memoria dinámica. El LogicProgram devuelto por asProgram() referencia
- * los arreglos internos, por lo que este objeto debe vivir mientras el motor
- * utilice el programa.
+ * los arreglos internos, por lo que este objeto debe vivir mientras el llamador
+ * use directamente ese descriptor. LogicEngine realiza una copia profunda al
+ * cargarlo y no conserva referencias hacia este buffer.
  */
 struct LogicProgramBuffer
 {
