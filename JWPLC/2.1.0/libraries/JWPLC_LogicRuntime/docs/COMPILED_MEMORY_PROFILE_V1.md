@@ -1,5 +1,13 @@
 # Perfil compilado de memoria v1
 
+## Estado
+
+```text
+VALIDADO EN HARDWARE
+Perfil estructural: 10 PASS, 0 FAIL
+Regresión completa: 48 PASS, 0 FAIL
+```
+
 ## Objetivo
 
 Separar dos conceptos que antes compartían el mismo límite:
@@ -17,14 +25,14 @@ FRAM 8 KiB:  hasta 100 bloques
 FRAM 32 KiB: hasta 400 bloques
 ```
 
-Sin embargo, cada instancia de `JWPLC_LogicRuntime` reserva en RAM:
+Cada instancia de `JWPLC_LogicRuntime` reserva en RAM:
 
 - estados temporales del motor;
 - copia profunda del programa activo;
 - buffer reconstruido del almacenamiento;
 - scratch del codec.
 
-Reservar siempre 400 bloques penaliza innecesariamente al JWPLC Basic actual, cuya FRAM es de 8 KiB y cuyo límite funcional es 100 bloques.
+Reservar siempre 400 bloques penalizaba innecesariamente al JWPLC Basic actual, cuya FRAM es de 8 KiB y cuyo límite funcional es 100 bloques.
 
 ## Decisión v1
 
@@ -47,8 +55,6 @@ Un hardware futuro con FRAM de 32 KiB podrá compilar explícitamente con:
 ```
 
 La configuración futura deberá incorporarse en el package o variante correspondiente. No se solicita al usuario normal que agregue flags manuales en Arduino IDE.
-
-La constante pública `JWPLC_LOGIC_COMPILED_MAX_BLOCKS` se mantiene para no romper código existente que consulte el límite.
 
 ## Límite efectivo
 
@@ -82,44 +88,26 @@ La reducción del límite predeterminado:
 - no modifica el mapa FRAM v1;
 - no modifica las direcciones de Slot A/B;
 - conserva la constante pública del límite;
-- no afecta los programas de hasta 100 bloques;
+- no afecta programas de hasta 100 bloques;
 - rechaza de forma segura imágenes mayores al límite compilado;
 - conserva la ruta futura de 400 bloques mediante configuración explícita.
 
-## Motivación medida
+## Validación estructural
 
-Integración persistente compilada inicialmente para 400 bloques:
-
-```text
-Flash:       440717 bytes / 3145728 bytes (14 %)
-RAM global:   51108 bytes / 327680 bytes (15 %)
-RAM restante: 276572 bytes
-```
-
-El costo de la copia profunda frente al build previo fue:
-
-```text
-4832 bytes
-```
-
-Además de esa copia, los estados, el buffer reconstruido y el scratch también escalan con el límite compilado.
-
-## Validación física del build de 100 bloques
-
-Ejemplo no destructivo:
+Ejemplo:
 
 ```text
 JWPLC_LogicRuntime_Compiled_Profile
 ```
 
-Resultado:
+Resultado físico:
 
 ```text
 Resultado: 10 PASS, 0 FAIL
 PERFIL COMPILADO 100 BLOQUES: PASS
 ```
 
-Compilación física:
+Compilación:
 
 ```text
 Flash:       420065 bytes / 3145728 bytes (13 %)
@@ -138,7 +126,7 @@ sizeof(JWPLCLogicStorage):     2588
 sizeof(JWPLC_LogicRuntime):    4688
 ```
 
-También se confirmó:
+Límites confirmados:
 
 ```text
 Bloques compilados:                100
@@ -150,12 +138,54 @@ Capacidad física FRAM 32 KiB:      400
 
 La prueba no inicializó E/S ni leyó o escribió la FRAM.
 
-## Criterio de cierre
+## Regresión funcional directa
 
-El perfil compilado de 100 bloques queda validado estructuralmente y en consumo de memoria. Antes de avanzar a corrupción de superblocks se repetirá la integración persistente completa con este mismo build para confirmar que:
+Se repitió el ejemplo completo:
 
-1. `prepareStoredProgram()` conserva todos los estados de arranque;
-2. la copia profunda sigue siendo independiente de los buffers de almacenamiento;
-3. fallback y descarga segura mantienen el comportamiento validado;
-4. la reducción de capacidad no introduce regresiones;
-5. se obtiene una comparación directa de RAM con el mismo sketch usado para 400 bloques.
+```text
+JWPLC_LogicRuntime_Stored_Program_Integration
+```
+
+Resultado:
+
+```text
+Resultado: 48 PASS, 0 FAIL
+INTEGRACION RUNTIME PERSISTENTE: PASS
+```
+
+La prueba volvió a validar:
+
+- clasificación `UNFORMATTED` y `EMPTY`;
+- carga activa;
+- copia profunda independiente de los buffers del almacenamiento;
+- ejecución y parada explícitas;
+- fallback al slot alterno;
+- descarga segura cuando ambos programas son inválidos;
+- restauración exacta de los 5184 bytes originales.
+
+## Comparación directa 400 vs 100 bloques
+
+Mismo sketch de integración:
+
+| Build | Flash | RAM global | RAM restante |
+|---|---:|---:|---:|
+| 400 bloques | 440717 B | 51108 B | 276572 B |
+| 100 bloques | 440689 B | 37908 B | 289772 B |
+| Diferencia | -28 B | **-13200 B** | **+13200 B** |
+
+El ahorro se explica exactamente por las 300 posiciones eliminadas en cuatro reservas:
+
+```text
+Definiciones internas del motor: 3600 B
+Estados temporales del motor:    2400 B
+Programa reconstruido:           3600 B
+Scratch del codec:               3600 B
+                                 ------
+Total:                           13200 B
+```
+
+## Conclusión
+
+El perfil compilado predeterminado de 100 bloques queda **cerrado y validado** para el JWPLC Basic actual.
+
+La optimización recupera 13200 bytes de RAM en el flujo completo sin introducir regresiones, sin romper la API pública y sin cambiar el formato binario ni el mapa persistente v1.
