@@ -17,8 +17,9 @@ static constexpr char NVS_KEY_BACKUP[] = "backup";
 static constexpr char NVS_KEY_CRC[] = "backup_crc";
 
 static constexpr uint8_t STAGE_IDLE = 0;
-static constexpr uint8_t STAGE_PROGRAM_READY = 1;
-static constexpr uint8_t STAGE_RESTORE_PENDING = 2;
+static constexpr uint8_t STAGE_INSTALL_PENDING = 1;
+static constexpr uint8_t STAGE_PROGRAM_READY = 2;
+static constexpr uint8_t STAGE_RESTORE_PENDING = 3;
 
 static constexpr LogicStorageProfile TEST_PROFILE(
     PHYSICAL_FRAM_BYTES,
@@ -216,6 +217,13 @@ static bool installProgram()
     return false;
   }
 
+  if (preferences.putUChar(NVS_KEY_STAGE, STAGE_INSTALL_PENDING) !=
+      sizeof(uint8_t))
+  {
+    Serial.println("FAIL: no se pudo registrar la instalacion pendiente.");
+    return false;
+  }
+
   LogicProgramStore store;
   if (!store.begin(storage, TEST_PROFILE) ||
       !store.format() ||
@@ -228,6 +236,7 @@ static bool installProgram()
   {
     Serial.print("FAIL: no se pudo instalar el programa. Error: ");
     Serial.println(LogicProgramStore::errorName(store.lastError()));
+    Serial.println("Reinicia el equipo para restaurar automaticamente la ventana.");
     return false;
   }
 
@@ -243,6 +252,7 @@ static bool installProgram()
                                8) != LogicValidationError::None)
   {
     Serial.println("FAIL: el programa instalado no se pudo reconstruir.");
+    Serial.println("Reinicia el equipo para restaurar automaticamente la ventana.");
     return false;
   }
 
@@ -250,6 +260,7 @@ static bool installProgram()
       sizeof(uint8_t))
   {
     Serial.println("FAIL: no se pudo registrar la etapa de arranque.");
+    Serial.println("Reinicia el equipo para restaurar automaticamente la ventana.");
     return false;
   }
 
@@ -369,6 +380,12 @@ void setup()
   {
   case STAGE_IDLE:
     (void)installProgram();
+    break;
+
+  case STAGE_INSTALL_PENDING:
+    Serial.println("Instalacion incompleta detectada tras reinicio.");
+    Serial.println("Se restaurara la ventana original por seguridad.");
+    (void)restoreOriginalWindow();
     break;
 
   case STAGE_PROGRAM_READY:
