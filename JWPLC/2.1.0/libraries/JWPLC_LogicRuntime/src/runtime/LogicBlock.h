@@ -13,18 +13,23 @@ static constexpr uint16_t JWPLC_LOGIC_NO_SOURCE = 0xFFFF;
  *
  * Un hardware futuro con FRAM de 32 KiB puede compilar la misma librería con:
  *
- *   -DJWPLC_LOGIC_COMPILED_MAX_BLOCKS=400
+ *   -DJWPLC_LOGIC_COMPILED_MAX_BLOCKS_CONFIG=400
  *
- * El formato binario y el mapa persistente no cambian al variar este límite.
+ * Se conserva JWPLC_LOGIC_COMPILED_MAX_BLOCKS como constante pública para no
+ * romper código existente. El formato binario y el mapa persistente no cambian
+ * al variar este límite.
  */
-#ifndef JWPLC_LOGIC_COMPILED_MAX_BLOCKS
-#define JWPLC_LOGIC_COMPILED_MAX_BLOCKS 100
+#ifndef JWPLC_LOGIC_COMPILED_MAX_BLOCKS_CONFIG
+#define JWPLC_LOGIC_COMPILED_MAX_BLOCKS_CONFIG 100
 #endif
 
-static_assert(JWPLC_LOGIC_COMPILED_MAX_BLOCKS > 0,
+static_assert(JWPLC_LOGIC_COMPILED_MAX_BLOCKS_CONFIG > 0,
               "JWPLC Logic Runtime requiere al menos un bloque compilado");
-static_assert(JWPLC_LOGIC_COMPILED_MAX_BLOCKS <= 400,
+static_assert(JWPLC_LOGIC_COMPILED_MAX_BLOCKS_CONFIG <= 400,
               "El formato v1 soporta como maximo 400 bloques compilados");
+
+static constexpr uint16_t JWPLC_LOGIC_COMPILED_MAX_BLOCKS =
+    static_cast<uint16_t>(JWPLC_LOGIC_COMPILED_MAX_BLOCKS_CONFIG);
 
 enum class LogicBlockType : uint8_t
 {
