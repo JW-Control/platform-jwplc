@@ -9,6 +9,7 @@ JWPLC_LogicRuntime::JWPLC_LogicRuntime()
       _minScanMicros(0),
       _maxScanMicros(0),
       _totalScanMicros(0),
+      _storage(),
       _io(),
       _engine()
 {
@@ -57,6 +58,26 @@ bool JWPLC_LogicRuntime::loadProgram(const LogicProgram &program)
   _state = JWPLCLogicRuntimeState::Ready;
   _lastError = JWPLCLogicRuntimeError::None;
   return true;
+}
+
+bool JWPLC_LogicRuntime::loadStoredProgram()
+{
+  if (_state == JWPLCLogicRuntimeState::Running ||
+      _storageProfile->maxBlocks == 0 ||
+      !_storage.isReady())
+  {
+    _lastError = JWPLCLogicRuntimeError::NotReady;
+    return false;
+  }
+
+  if (!_storage.loadActive())
+  {
+    _io.allOutputsOff();
+    _lastError = JWPLCLogicRuntimeError::StoredProgramLoadFailed;
+    return false;
+  }
+
+  return loadProgram(_storage.activeProgram());
 }
 
 bool JWPLC_LogicRuntime::start()
@@ -142,6 +163,16 @@ void JWPLC_LogicRuntime::resetScanStatistics()
   _minScanMicros = 0;
   _maxScanMicros = 0;
   _totalScanMicros = 0;
+}
+
+JWPLCLogicStorage &JWPLC_LogicRuntime::storage()
+{
+  return _storage;
+}
+
+const JWPLCLogicStorage &JWPLC_LogicRuntime::storage() const
+{
+  return _storage;
 }
 
 JWPLCLogicRuntimeState JWPLC_LogicRuntime::state() const
@@ -242,6 +273,8 @@ const char *JWPLC_LogicRuntime::errorName(JWPLCLogicRuntimeError error)
     return "PROGRAM_NOT_LOADED";
   case JWPLCLogicRuntimeError::InvalidProgram:
     return "INVALID_PROGRAM";
+  case JWPLCLogicRuntimeError::StoredProgramLoadFailed:
+    return "STORED_PROGRAM_LOAD_FAILED";
   case JWPLCLogicRuntimeError::ProgramExecutionFailed:
     return "PROGRAM_EXECUTION_FAILED";
   default:
