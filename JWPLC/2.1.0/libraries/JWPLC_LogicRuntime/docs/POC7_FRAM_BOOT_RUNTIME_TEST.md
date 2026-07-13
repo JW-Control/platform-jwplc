@@ -106,16 +106,55 @@ Causa identificada:
 
 Corrección aplicada:
 
-- `LogicEngine` conserva ahora una copia interna del descriptor `LogicProgram`.
+- `LogicEngine` conserva una copia interna del descriptor `LogicProgram`.
 - La copia mantiene los punteros hacia `name` y `blocks` del buffer externo.
 - `LogicProgramBuffer` debe seguir vivo durante la ejecución, pero ya no es necesario que el descriptor devuelto por `asProgram()` tenga vida permanente.
 - Ante cualquier fallo de scan, las salidas continúan apagándose y el runtime entra en `FAULT`.
 
-Estado de la corrección:
+## Resultado después de la corrección
+
+El mismo programa persistido previamente se cargó sin reinstalarlo ni borrar NVS:
 
 ```text
-Preparada; pendiente de recompilación y validación física.
+[PASS] Programa cargado desde FRAM hacia RAM.
+[PASS] Runtime iniciado con el programa persistente.
 ```
+
+El runtime permaneció ejecutándose durante aproximadamente un minuto sin fallos:
+
+```text
+I0_0=0 I0_1=0 AND=0 TON=0 Q0_0=0
+scan mínimo:   4 us
+scan promedio: 5 us
+scan máximo:   425 us
+escrituras Q0: 2 y estable
+```
+
+La prueba terminó mediante `RESTORE`:
+
+```text
+Runtime detenido. Q0 apagadas.
+[PASS] Contenido original de FRAM restaurado exactamente.
+[PASS] Estado temporal NVS eliminado.
+ARRANQUE Y EJECUCION DESDE FRAM: PASS
+PoC 7 completada.
+```
+
+Validado con este resultado:
+
+- persistencia y carga desde FRAM;
+- reconstrucción del programa en RAM;
+- corrección del descriptor temporal;
+- ejecución estable del scan;
+- ausencia de escrituras Q0 redundantes;
+- parada segura;
+- restauración exacta de FRAM y limpieza de NVS.
+
+Pendiente para cierre funcional completo:
+
+- registrar una transición con `I0_0=1` e `I0_1=0` durante dos segundos;
+- confirmar `TON=1` y `Q0_0=1` desde el programa cargado desde FRAM;
+- confirmar el apagado al activar `I0_1`.
 
 ## Criterios de aprobación
 
