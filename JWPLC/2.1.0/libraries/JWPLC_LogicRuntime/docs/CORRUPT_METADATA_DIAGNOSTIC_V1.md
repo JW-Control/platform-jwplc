@@ -106,7 +106,7 @@ METADATA
 Resultado esperado:
 
 ```text
-Resultado: 37 PASS, 0 FAIL
+Resultado: 36 PASS, 0 FAIL
 DIAGNOSTICO DE METADATA: PASS
 ```
 
