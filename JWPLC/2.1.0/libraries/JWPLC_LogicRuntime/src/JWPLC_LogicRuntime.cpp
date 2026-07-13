@@ -35,6 +35,7 @@ bool JWPLC_LogicRuntime::begin(uint32_t framBytes)
   }
 
   _engine.attachIO(_io);
+  _engine.unloadProgram();
   _state = JWPLCLogicRuntimeState::Ready;
   _lastError = JWPLCLogicRuntimeError::None;
   return true;
@@ -60,24 +61,53 @@ bool JWPLC_LogicRuntime::loadProgram(const LogicProgram &program)
   return true;
 }
 
-bool JWPLC_LogicRuntime::loadStoredProgram()
+JWPLCLogicStorageBootState JWPLC_LogicRuntime::prepareStoredProgram()
 {
-  if (_state == JWPLCLogicRuntimeState::Running ||
+  const bool validRuntimeState =
+      _state == JWPLCLogicRuntimeState::Ready ||
+      _state == JWPLCLogicRuntimeState::Stopped;
+
+  if (!validRuntimeState ||
       _storageProfile->maxBlocks == 0 ||
       !_storage.isReady())
   {
     _lastError = JWPLCLogicRuntimeError::NotReady;
-    return false;
+    return JWPLCLogicStorageBootState::NotReady;
   }
 
-  if (!_storage.loadActive())
+  // Una evaluación fallida nunca debe dejar disponible un programa anterior.
+  _engine.unloadProgram();
+
+  const JWPLCLogicStorageBootState bootState = _storage.prepareBoot();
+  const bool bootable =
+      bootState == JWPLCLogicStorageBootState::ActiveProgramLoaded ||
+      bootState == JWPLCLogicStorageBootState::FallbackProgramLoaded;
+
+  if (!bootable)
   {
-    _io.allOutputsOff();
+    _state = JWPLCLogicRuntimeState::Ready;
     _lastError = JWPLCLogicRuntimeError::StoredProgramLoadFailed;
-    return false;
+    return bootState;
   }
 
-  return loadProgram(_storage.activeProgram());
+  // LogicEngine realiza una copia profunda. El programa preparado queda
+  // independiente del buffer interno que storage() pueda reutilizar después.
+  if (!loadProgram(_storage.activeProgram()))
+  {
+    _engine.unloadProgram();
+    _state = JWPLCLogicRuntimeState::Fault;
+    _lastError = JWPLCLogicRuntimeError::InvalidProgram;
+    return JWPLCLogicStorageBootState::InvalidProgram;
+  }
+
+  return bootState;
+}
+
+bool JWPLC_LogicRuntime::loadStoredProgram()
+{
+  const JWPLCLogicStorageBootState bootState = prepareStoredProgram();
+  return bootState == JWPLCLogicStorageBootState::ActiveProgramLoaded ||
+         bootState == JWPLCLogicStorageBootState::FallbackProgramLoaded;
 }
 
 bool JWPLC_LogicRuntime::start()
@@ -198,6 +228,11 @@ const LogicStorageProfile &JWPLC_LogicRuntime::storageProfile() const
 const LogicStorageLayout &JWPLC_LogicRuntime::storageLayout() const
 {
   return JWPLCLogicStorageLayouts::forCapacity(_storageProfile->framBytes);
+}
+
+bool JWPLC_LogicRuntime::hasProgram() const
+{
+  return _engine.hasProgram();
 }
 
 bool JWPLC_LogicRuntime::blockValue(uint16_t index) const
