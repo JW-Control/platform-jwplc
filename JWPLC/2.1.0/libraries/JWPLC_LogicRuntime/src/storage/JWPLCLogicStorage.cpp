@@ -12,7 +12,8 @@ JWPLCLogicStorage::JWPLCLogicStorage()
       _ready(false),
       _hasLoadedProgram(false),
       _lastError(JWPLCLogicStorageError::None),
-      _validationError(LogicValidationError::None)
+      _validationError(LogicValidationError::None),
+      _bootState(JWPLCLogicStorageBootState::NotEvaluated)
 {
 }
 
@@ -22,10 +23,16 @@ void JWPLCLogicStorage::clearLoadedProgram()
   _hasLoadedProgram = false;
 }
 
+void JWPLCLogicStorage::resetBootState()
+{
+  _bootState = JWPLCLogicStorageBootState::NotEvaluated;
+}
+
 bool JWPLCLogicStorage::begin(JW_FRAM &fram)
 {
   _ready = false;
   clearLoadedProgram();
+  resetBootState();
   _validationError = LogicValidationError::None;
 
   const uint32_t physicalBytes = static_cast<uint32_t>(fram.size());
@@ -34,18 +41,21 @@ bool JWPLCLogicStorage::begin(JW_FRAM &fram)
 
   if (_profile->maxBlocks == 0 || !_layout->isValid())
   {
+    _bootState = JWPLCLogicStorageBootState::NotReady;
     _lastError = JWPLCLogicStorageError::UnsupportedStorage;
     return false;
   }
 
   if (!_backend.begin(fram, 0, _profile->framBytes))
   {
+    _bootState = JWPLCLogicStorageBootState::NotReady;
     _lastError = JWPLCLogicStorageError::BackendInitializationFailed;
     return false;
   }
 
   if (!_store.begin(_backend, *_profile))
   {
+    _bootState = JWPLCLogicStorageBootState::NotReady;
     _lastError = JWPLCLogicStorageError::StoreInitializationFailed;
     return false;
   }
@@ -69,17 +79,21 @@ bool JWPLCLogicStorage::format()
 {
   if (!_ready)
   {
+    _bootState = JWPLCLogicStorageBootState::NotReady;
     _lastError = JWPLCLogicStorageError::NotReady;
     return false;
   }
 
   if (!_store.format())
   {
+    resetBootState();
     _lastError = JWPLCLogicStorageError::StoreInitializationFailed;
     return false;
   }
 
   clearLoadedProgram();
+  _validationError = LogicValidationError::None;
+  _bootState = JWPLCLogicStorageBootState::Empty;
   _lastError = JWPLCLogicStorageError::None;
   return true;
 }
@@ -88,24 +102,30 @@ bool JWPLCLogicStorage::save(const LogicProgram &program,
                              uint32_t programId,
                              uint32_t flags)
 {
+  resetBootState();
+  _validationError = LogicValidationError::None;
+
   if (!_ready)
   {
+    _bootState = JWPLCLogicStorageBootState::NotReady;
     _lastError = JWPLCLogicStorageError::NotReady;
     return false;
   }
 
   if (!_store.isFormatted())
   {
+    _bootState = JWPLCLogicStorageBootState::Unformatted;
     _lastError = JWPLCLogicStorageError::Unformatted;
     return false;
   }
 
   _validationError = LogicValidator::validate(program,
-                                               _profile->maxBlocks,
-                                               8,
-                                               8);
+                                                _profile->maxBlocks,
+                                                8,
+                                                8);
   if (_validationError != LogicValidationError::None)
   {
+    _bootState = JWPLCLogicStorageBootState::InvalidProgram;
     _lastError = JWPLCLogicStorageError::InvalidProgram;
     return false;
   }
@@ -131,20 +151,26 @@ bool JWPLCLogicStorage::save(const LogicProgram &program,
   }
 
   clearLoadedProgram();
+  resetBootState();
   _lastError = JWPLCLogicStorageError::None;
   return true;
 }
 
 bool JWPLCLogicStorage::loadActive()
 {
+  resetBootState();
+  _validationError = LogicValidationError::None;
+
   if (!_ready)
   {
+    _bootState = JWPLCLogicStorageBootState::NotReady;
     _lastError = JWPLCLogicStorageError::NotReady;
     return false;
   }
 
   if (!_store.isFormatted())
   {
+    _bootState = JWPLCLogicStorageBootState::Unformatted;
     _lastError = JWPLCLogicStorageError::Unformatted;
     return false;
   }
@@ -155,36 +181,92 @@ bool JWPLCLogicStorage::loadActive()
                          _scratch,
                          sizeof(_scratch)))
   {
+    _bootState = JWPLCLogicStorageBootState::NoValidProgram;
     _lastError = JWPLCLogicStorageError::LoadFailed;
     return false;
   }
 
   _validationError = LogicValidator::validate(_loadedProgram.asProgram(),
-                                               _profile->maxBlocks,
-                                               8,
-                                               8);
+                                                _profile->maxBlocks,
+                                                8,
+                                                8);
   if (_validationError != LogicValidationError::None)
   {
     clearLoadedProgram();
+    _bootState = JWPLCLogicStorageBootState::InvalidProgram;
     _lastError = JWPLCLogicStorageError::InvalidProgram;
     return false;
   }
 
   _hasLoadedProgram = true;
+  _bootState =
+      _store.status().lastLoadedSlot == _store.status().activeSlot
+          ? JWPLCLogicStorageBootState::ActiveProgramLoaded
+          : JWPLCLogicStorageBootState::FallbackProgramLoaded;
   _lastError = JWPLCLogicStorageError::None;
   return true;
 }
 
-bool JWPLCLogicStorage::rollback()
+JWPLCLogicStorageBootState JWPLCLogicStorage::prepareBoot()
 {
+  _validationError = LogicValidationError::None;
+
   if (!_ready)
   {
+    clearLoadedProgram();
+    _bootState = JWPLCLogicStorageBootState::NotReady;
+    _lastError = JWPLCLogicStorageError::NotReady;
+    return _bootState;
+  }
+
+  if (!_store.isFormatted())
+  {
+    clearLoadedProgram();
+    _bootState = JWPLCLogicStorageBootState::Unformatted;
+    _lastError = JWPLCLogicStorageError::None;
+    return _bootState;
+  }
+
+  if (_store.status().activeSlot > 1)
+  {
+    clearLoadedProgram();
+    _bootState = JWPLCLogicStorageBootState::Empty;
+    _lastError = JWPLCLogicStorageError::None;
+    return _bootState;
+  }
+
+  (void)loadActive();
+  return _bootState;
+}
+
+JWPLCLogicStorageBootState JWPLCLogicStorage::bootState() const
+{
+  return _bootState;
+}
+
+bool JWPLCLogicStorage::hasBootableProgram() const
+{
+  const bool loadedState =
+      _bootState == JWPLCLogicStorageBootState::ActiveProgramLoaded ||
+      _bootState == JWPLCLogicStorageBootState::FallbackProgramLoaded;
+  return _hasLoadedProgram && loadedState;
+}
+
+bool JWPLCLogicStorage::rollback()
+{
+  resetBootState();
+  _validationError = LogicValidationError::None;
+
+  if (!_ready)
+  {
+    _bootState = JWPLCLogicStorageBootState::NotReady;
     _lastError = JWPLCLogicStorageError::NotReady;
     return false;
   }
 
   if (!_store.isFormatted())
   {
+    _bootState = JWPLCLogicStorageBootState::Unformatted;
     _lastError = JWPLCLogicStorageError::Unformatted;
     return false;
   }
@@ -211,12 +293,13 @@ bool JWPLCLogicStorage::rollback()
   }
 
   _validationError = LogicValidator::validate(_loadedProgram.asProgram(),
-                                               _profile->maxBlocks,
-                                               8,
-                                               8);
+                                                _profile->maxBlocks,
+                                                8,
+                                                8);
   if (_validationError != LogicValidationError::None)
   {
     clearLoadedProgram();
+    _bootState = JWPLCLogicStorageBootState::InvalidProgram;
     _lastError = JWPLCLogicStorageError::InvalidProgram;
     return false;
   }
@@ -230,6 +313,7 @@ bool JWPLCLogicStorage::rollback()
   }
 
   _hasLoadedProgram = true;
+  _bootState = JWPLCLogicStorageBootState::ActiveProgramLoaded;
   _lastError = JWPLCLogicStorageError::None;
   return true;
 }
@@ -308,6 +392,32 @@ const char *JWPLCLogicStorage::errorName(JWPLCLogicStorageError error)
     return "ROLLBACK_UNAVAILABLE";
   case JWPLCLogicStorageError::RollbackFailed:
     return "ROLLBACK_FAILED";
+  default:
+    return "UNKNOWN";
+  }
+}
+
+const char *JWPLCLogicStorage::bootStateName(
+    JWPLCLogicStorageBootState state)
+{
+  switch (state)
+  {
+  case JWPLCLogicStorageBootState::NotEvaluated:
+    return "NOT_EVALUATED";
+  case JWPLCLogicStorageBootState::NotReady:
+    return "NOT_READY";
+  case JWPLCLogicStorageBootState::Unformatted:
+    return "UNFORMATTED";
+  case JWPLCLogicStorageBootState::Empty:
+    return "EMPTY";
+  case JWPLCLogicStorageBootState::ActiveProgramLoaded:
+    return "ACTIVE_PROGRAM_LOADED";
+  case JWPLCLogicStorageBootState::FallbackProgramLoaded:
+    return "FALLBACK_PROGRAM_LOADED";
+  case JWPLCLogicStorageBootState::NoValidProgram:
+    return "NO_VALID_PROGRAM";
+  case JWPLCLogicStorageBootState::InvalidProgram:
+    return "INVALID_PROGRAM";
   default:
     return "UNKNOWN";
   }
