@@ -5,6 +5,7 @@
 
 #include "runtime/LogicEngine.h"
 #include "runtime/LogicProgram.h"
+#include "storage/JWPLCLogicStorage.h"
 #include "storage/LogicFRAMStorage.h"
 #include "storage/LogicMemoryStorage.h"
 #include "storage/LogicProgramCodec.h"
@@ -32,16 +33,16 @@ enum class JWPLCLogicRuntimeError : uint8_t
   NotReady,
   ProgramNotLoaded,
   InvalidProgram,
+  StoredProgramLoadFailed,
   ProgramExecutionFailed
 };
 
 /**
  * @brief Motor lógico por bloques para JWPLC Basic.
  *
- * El programa se valida y ejecuta desde RAM en un orden determinista. El
- * formato binario, el almacenamiento A/B y el backend FRAM ya fueron validados
- * por separado. La siguiente fase integra esas piezas mediante una API pública
- * persistente sin alterar el uso normal de sketches Arduino.
+ * El programa se valida y ejecuta desde RAM en un orden determinista. La
+ * fachada storage() permite conectar explícitamente la FRAM y gestionar el
+ * programa persistente sin apropiarse de la memoria durante sketches normales.
  */
 class JWPLC_LogicRuntime
 {
@@ -50,9 +51,13 @@ public:
 
   bool begin(uint32_t framBytes = JWPLC_FRAM_SIZE_BYTES);
   bool loadProgram(const LogicProgram &program);
+  bool loadStoredProgram();
   bool start();
   void stop();
   bool tick();
+
+  JWPLCLogicStorage &storage();
+  const JWPLCLogicStorage &storage() const;
 
   JWPLCLogicRuntimeState state() const;
   JWPLCLogicRuntimeError lastError() const;
@@ -83,6 +88,7 @@ private:
   uint32_t _minScanMicros;
   uint32_t _maxScanMicros;
   uint64_t _totalScanMicros;
+  JWPLCLogicStorage _storage;
   JWPLCLogicIO _io;
   LogicEngine _engine;
 };
