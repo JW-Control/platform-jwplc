@@ -28,19 +28,27 @@ Reservar siempre 400 bloques penaliza innecesariamente al JWPLC Basic actual, cu
 
 ## Decisión v1
 
-El build predeterminado usa:
+El build predeterminado usa internamente:
 
 ```cpp
-JWPLC_LOGIC_COMPILED_MAX_BLOCKS = 100
+JWPLC_LOGIC_COMPILED_MAX_BLOCKS_CONFIG = 100
+```
+
+Y conserva la constante pública existente:
+
+```cpp
+JWPLC_LOGIC_COMPILED_MAX_BLOCKS == 100
 ```
 
 Un hardware futuro con FRAM de 32 KiB podrá compilar explícitamente con:
 
 ```text
--DJWPLC_LOGIC_COMPILED_MAX_BLOCKS=400
+-DJWPLC_LOGIC_COMPILED_MAX_BLOCKS_CONFIG=400
 ```
 
 La configuración futura deberá incorporarse en el package o variante correspondiente. No se solicita al usuario normal que agregue flags manuales en Arduino IDE.
+
+La constante pública `JWPLC_LOGIC_COMPILED_MAX_BLOCKS` se mantiene para no romper código existente que consulte el límite.
 
 ## Límite efectivo
 
@@ -73,7 +81,7 @@ La reducción del límite predeterminado:
 - no modifica el formato binario `JWLR`;
 - no modifica el mapa FRAM v1;
 - no modifica las direcciones de Slot A/B;
-- no modifica la API pública;
+- conserva la constante pública del límite;
 - no afecta los programas de hasta 100 bloques;
 - rechaza de forma segura imágenes mayores al límite compilado;
 - conserva la ruta futura de 400 bloques mediante configuración explícita.
