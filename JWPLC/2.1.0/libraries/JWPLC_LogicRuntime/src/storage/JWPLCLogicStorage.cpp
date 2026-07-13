@@ -110,7 +110,10 @@ bool JWPLCLogicStorage::save(const LogicProgram &program,
     return false;
   }
 
-  uint32_t nextGeneration = _store.status().generation + 1U;
+  // La secuencia del superblock nunca retrocede, incluso después de rollback.
+  // Usarla como base evita reutilizar una generación antigua al guardar luego
+  // de reactivar un programa previo.
+  uint32_t nextGeneration = _store.status().sequence;
   if (nextGeneration == 0)
   {
     nextGeneration = 1;
@@ -164,6 +167,65 @@ bool JWPLCLogicStorage::loadActive()
   {
     clearLoadedProgram();
     _lastError = JWPLCLogicStorageError::InvalidProgram;
+    return false;
+  }
+
+  _hasLoadedProgram = true;
+  _lastError = JWPLCLogicStorageError::None;
+  return true;
+}
+
+bool JWPLCLogicStorage::rollback()
+{
+  if (!_ready)
+  {
+    _lastError = JWPLCLogicStorageError::NotReady;
+    return false;
+  }
+
+  if (!_store.isFormatted())
+  {
+    _lastError = JWPLCLogicStorageError::Unformatted;
+    return false;
+  }
+
+  const uint8_t activeSlot = _store.status().activeSlot;
+  if (activeSlot > 1)
+  {
+    _lastError = JWPLCLogicStorageError::RollbackUnavailable;
+    return false;
+  }
+
+  const uint8_t targetSlot = activeSlot == 0 ? 1 : 0;
+  clearLoadedProgram();
+
+  // Primera fase: cargar y verificar el candidato sin cambiar el superblock.
+  if (!_store.loadVerifiedSlot(targetSlot,
+                               _loadedProgram,
+                               _scratch,
+                               sizeof(_scratch)))
+  {
+    clearLoadedProgram();
+    _lastError = JWPLCLogicStorageError::RollbackUnavailable;
+    return false;
+  }
+
+  _validationError = LogicValidator::validate(_loadedProgram.asProgram(),
+                                               _profile->maxBlocks,
+                                               8,
+                                               8);
+  if (_validationError != LogicValidationError::None)
+  {
+    clearLoadedProgram();
+    _lastError = JWPLCLogicStorageError::InvalidProgram;
+    return false;
+  }
+
+  // Segunda fase: activar únicamente el slot ya cargado y validado.
+  if (!_store.activateVerifiedSlot(targetSlot))
+  {
+    clearLoadedProgram();
+    _lastError = JWPLCLogicStorageError::RollbackFailed;
     return false;
   }
 
@@ -242,6 +304,10 @@ const char *JWPLCLogicStorage::errorName(JWPLCLogicStorageError error)
     return "LOAD_FAILED";
   case JWPLCLogicStorageError::NoLoadedProgram:
     return "NO_LOADED_PROGRAM";
+  case JWPLCLogicStorageError::RollbackUnavailable:
+    return "ROLLBACK_UNAVAILABLE";
+  case JWPLCLogicStorageError::RollbackFailed:
+    return "ROLLBACK_FAILED";
   default:
     return "UNKNOWN";
   }
