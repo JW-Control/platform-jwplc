@@ -15,6 +15,7 @@ La asignación solo aplica cuando el usuario habilita explícitamente el runtime
 - Existe una reserva explícita para evolución del formato.
 - La selección del perfil depende de la capacidad detectada.
 - Una capacidad menor a 8 KiB se considera no soportada.
+- La capacidad física del formato y el límite compilado en RAM son conceptos separados.
 
 ## Constantes compartidas
 
@@ -53,7 +54,7 @@ Retentivos:               1536 bytes
 Reserva:                  1472 bytes
 ```
 
-El límite comercial inicial se mantiene en **100 bloques**. La capacidad física del slot permitiría más, pero el límite se conserva para mantener margen de evolución, metadatos y validaciones futuras.
+El límite funcional inicial se mantiene en **100 bloques**. La capacidad física del slot permitiría más, pero el límite se conserva para mantener margen de evolución, metadatos y validaciones futuras.
 
 ## Perfil FRAM 32 KiB
 
@@ -81,7 +82,37 @@ Retentivos:               4096 bytes
 Reserva:                  4032 bytes
 ```
 
-El perfil de 32 KiB amplía los límites sin cambiar el motor ni el formato binario v1.
+El perfil físico de 32 KiB admite 400 bloques sin cambiar el motor ni el formato binario v1.
+
+## Capacidad física frente a límite compilado
+
+Cada build reserva buffers y estados en RAM según:
+
+```text
+JWPLC_LOGIC_COMPILED_MAX_BLOCKS
+```
+
+El límite efectivo de un perfil es:
+
+```text
+min(capacidad física del perfil, capacidad compilada)
+```
+
+Build predeterminado del JWPLC Basic actual:
+
+| Perfil | Capacidad física | Capacidad compilada | Límite efectivo |
+|---|---:|---:|---:|
+| 8 KiB | 100 | 100 | 100 |
+| 32 KiB | 400 | 100 | 100 |
+
+Build futuro configurado para 400 bloques:
+
+| Perfil | Capacidad física | Capacidad compilada | Límite efectivo |
+|---|---:|---:|---:|
+| 8 KiB | 100 | 400 | 100 |
+| 32 KiB | 400 | 400 | 400 |
+
+Esta separación evita reservar RAM para 400 bloques en el hardware actual y evita anunciar un límite superior al tamaño real de los buffers compilados.
 
 ## Propiedad de la FRAM
 
@@ -92,7 +123,7 @@ Al habilitar el modo persistente, el runtime considera que las regiones de este 
 - un almacenamiento sin firma válida no debe formatearse automáticamente;
 - el modo Arduino normal sigue pudiendo usar `JWPLC_FRAM` libremente mientras no se active el almacenamiento persistente del runtime.
 
-## Comportamiento de arranque previsto
+## Comportamiento de arranque
 
 1. Detectar capacidad física.
 2. Seleccionar perfil y mapa.
@@ -100,22 +131,20 @@ Al habilitar el modo persistente, el runtime considera que las regiones de este 
 4. Si no existe formato válido, mantener salidas apagadas y reportar `UNFORMATTED`.
 5. Si existe programa válido, cargarlo y validarlo en RAM.
 6. Si el slot activo falla, intentar fallback al slot anterior.
-7. Solo iniciar el scan después de completar todas las validaciones.
+7. Solo iniciar el scan después de completar todas las validaciones y recibir `start()` explícito.
 
-## API pública prevista
-
-La integración se realizará sin romper la API ya validada. El flujo objetivo será de estilo punto:
+## API pública
 
 ```cpp
 JWPLC_LogicRuntime runtime;
 
-runtime.begin();
 runtime.storage().begin(JWPLC_FRAM);
-runtime.storage().loadActive();
+runtime.begin();
+runtime.prepareStoredProgram();
 runtime.start();
 ```
 
-Operaciones previstas:
+Operaciones disponibles:
 
 ```text
 runtime.storage().begin(...)
@@ -126,16 +155,16 @@ runtime.storage().loadActive()
 runtime.storage().status()
 runtime.storage().lastError()
 runtime.storage().rollback()
+runtime.prepareStoredProgram()
 ```
-
-La implementación de esta fachada corresponde a la siguiente etapa. El mapa queda separado para poder validarlo antes de conectar operaciones destructivas.
 
 ## Validación
 
-Ejemplo no destructivo:
+Ejemplos no destructivos:
 
 ```text
 JWPLC_LogicRuntime_Storage_Layout
+JWPLC_LogicRuntime_Compiled_Profile
 ```
 
-El ejemplo no inicializa E/S y no accede a la FRAM. Verifica direcciones, tamaños, capacidad útil, límites de imagen y rechazo de capacidades menores a 8 KiB.
+El primero verifica direcciones y tamaños físicos. El segundo verifica el límite compilado efectivo y registra el costo de RAM del build actual.
