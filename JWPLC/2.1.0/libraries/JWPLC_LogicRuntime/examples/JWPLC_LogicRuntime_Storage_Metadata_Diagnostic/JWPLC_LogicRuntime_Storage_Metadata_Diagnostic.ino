@@ -20,12 +20,9 @@ static constexpr char NVS_KEY_CRC[] = "crc";
 static constexpr uint8_t STAGE_IDLE = 0;
 static constexpr uint8_t STAGE_RESTORE_PENDING = 1;
 
-static constexpr uint32_t PROGRAM_A_ID = 0xA001;
-static constexpr uint32_t PROGRAM_B_ID = 0xB002;
-
 static uint8_t backupBytes[PROGRAM_STORE_BYTES];
 static uint8_t verifyChunk[VERIFY_CHUNK_BYTES];
-static uint8_t superblockSnapshot[SUPERBLOCK_AREA_BYTES];
+static uint8_t corruptedSuperblocks[SUPERBLOCK_AREA_BYTES];
 static uint8_t superblockVerify[SUPERBLOCK_AREA_BYTES];
 
 static Preferences preferences;
@@ -34,42 +31,6 @@ static LogicFRAMStorage rawStorage(JWPLC_FRAM, 0, PROGRAM_STORE_BYTES);
 
 static uint16_t passedTests = 0;
 static uint16_t failedTests = 0;
-
-static const LogicBlockDefinition PROGRAM_A_BLOCKS[] = {
-    {LogicBlockType::DigitalInput,
-     JWPLC_LOGIC_NO_SOURCE,
-     JWPLC_LOGIC_NO_SOURCE,
-     0,
-     0},
-    {LogicBlockType::Not,
-     0,
-     JWPLC_LOGIC_NO_SOURCE,
-     0,
-     0}};
-
-static const LogicProgram PROGRAM_A = {
-    "Metadata A",
-    PROGRAM_A_BLOCKS,
-    static_cast<uint16_t>(sizeof(PROGRAM_A_BLOCKS) /
-                          sizeof(PROGRAM_A_BLOCKS[0]))};
-
-static const LogicBlockDefinition PROGRAM_B_BLOCKS[] = {
-    {LogicBlockType::DigitalInput,
-     JWPLC_LOGIC_NO_SOURCE,
-     JWPLC_LOGIC_NO_SOURCE,
-     1,
-     0},
-    {LogicBlockType::Not,
-     0,
-     JWPLC_LOGIC_NO_SOURCE,
-     0,
-     0}};
-
-static const LogicProgram PROGRAM_B = {
-    "Metadata B",
-    PROGRAM_B_BLOCKS,
-    static_cast<uint16_t>(sizeof(PROGRAM_B_BLOCKS) /
-                          sizeof(PROGRAM_B_BLOCKS[0]))};
 
 static void expect(const char *name, bool condition)
 {
@@ -173,34 +134,6 @@ static bool verifyRestoredBytes()
   return true;
 }
 
-static bool captureSuperblocks()
-{
-  return rawStorage.read(0,
-                         superblockSnapshot,
-                         sizeof(superblockSnapshot));
-}
-
-static bool writeSuperblockSnapshot()
-{
-  return rawStorage.write(0,
-                          superblockSnapshot,
-                          sizeof(superblockSnapshot));
-}
-
-static bool verifySuperblockSnapshot()
-{
-  if (!rawStorage.read(0,
-                       superblockVerify,
-                       sizeof(superblockVerify)))
-  {
-    return false;
-  }
-
-  return memcmp(superblockSnapshot,
-                superblockVerify,
-                sizeof(superblockSnapshot)) == 0;
-}
-
 static bool corruptSuperblockCrc(uint8_t copyIndex)
 {
   if (copyIndex > 1)
@@ -220,6 +153,27 @@ static bool corruptSuperblockCrc(uint8_t copyIndex)
 
   value ^= 0x01U;
   return rawStorage.write(address, &value, 1);
+}
+
+static bool captureCorruptedSuperblocks()
+{
+  return rawStorage.read(0,
+                         corruptedSuperblocks,
+                         sizeof(corruptedSuperblocks));
+}
+
+static bool superblocksRemainUnchanged()
+{
+  if (!rawStorage.read(0,
+                       superblockVerify,
+                       sizeof(superblockVerify)))
+  {
+    return false;
+  }
+
+  return memcmp(corruptedSuperblocks,
+                superblockVerify,
+                sizeof(corruptedSuperblocks)) == 0;
 }
 
 static bool restoreOriginalStore(bool printResult)
@@ -264,16 +218,16 @@ static bool restoreOriginalStore(bool printResult)
     return false;
   }
 
-  const LogicSuperblockInspection originalInspection =
-      LogicSuperblockInspector::inspect(rawStorage);
+  const bool originalUnformatted =
+      runtime.storage().metadataHealth() ==
+      LogicSuperblockHealth::Unformatted;
   if (printResult)
   {
     expect("diagnostico recupera estado original sin formato",
-           originalInspection.health ==
-               LogicSuperblockHealth::Unformatted);
+           originalUnformatted);
   }
 
-  if (originalInspection.health != LogicSuperblockHealth::Unformatted)
+  if (!originalUnformatted)
   {
     return false;
   }
@@ -287,24 +241,6 @@ static bool restoreOriginalStore(bool printResult)
   return clearOk;
 }
 
-static void printInspection(const char *label,
-                            const LogicSuperblockInspection &inspection)
-{
-  Serial.print(label);
-  Serial.print(": ");
-  Serial.print(LogicSuperblockInspector::healthName(inspection.health));
-  Serial.print(" / copia seleccionada: ");
-
-  if (inspection.selectedCopy == LogicSuperblockInspector::INVALID_COPY)
-  {
-    Serial.println("NINGUNA");
-  }
-  else
-  {
-    Serial.println(inspection.selectedCopy);
-  }
-}
-
 static void printSummary()
 {
   Serial.println();
@@ -315,8 +251,8 @@ static void printSummary()
   Serial.println(" FAIL");
 
   Serial.println(failedTests == 0
-                     ? "DIAGNOSTICO DE METADATA: PASS"
-                     : "DIAGNOSTICO DE METADATA: FAIL");
+                     ? "DIAGNOSTICO PUBLICO DE METADATA: PASS"
+                     : "DIAGNOSTICO PUBLICO DE METADATA: FAIL");
 }
 
 void setup()
@@ -326,7 +262,7 @@ void setup()
   delay(300);
 
   Serial.println();
-  Serial.println("JWPLC Logic Runtime - diagnostico de metadata persistente");
+  Serial.println("JWPLC Logic Runtime - diagnostico publico de metadata");
   Serial.println("No inicializa E/S ni conmuta salidas.");
   Serial.println();
 
@@ -363,15 +299,15 @@ void setup()
 
   const bool beginOk = runtime.storage().begin(JWPLC_FRAM);
   expect("storage().begin(JWPLC_FRAM)", beginOk);
+  expect("fachada queda lista", beginOk && runtime.storage().isReady());
+  expect("FRAM original reporta metadata UNFORMATTED",
+         runtime.storage().metadataHealth() ==
+             LogicSuperblockHealth::Unformatted);
+  expect("politica original informa UNFORMATTED",
+         runtime.storage().prepareBoot() ==
+             JWPLCLogicStorageBootState::Unformatted);
 
-  const LogicSuperblockInspection initialInspection =
-      LogicSuperblockInspector::inspect(rawStorage);
-  printInspection("Estado inicial", initialInspection);
-  expect("FRAM original se clasifica UNFORMATTED",
-         initialInspection.health == LogicSuperblockHealth::Unformatted);
-
-  if (!beginOk ||
-      initialInspection.health != LogicSuperblockHealth::Unformatted)
+  if (!beginOk || runtime.storage().isFormatted())
   {
     Serial.println();
     Serial.println("PRUEBA ABORTADA: el estado inicial no es el esperado.");
@@ -383,7 +319,7 @@ void setup()
   Serial.println();
   Serial.println("ADVERTENCIA: esta prueba modificara temporalmente:");
   Serial.println("0x0000..0x143F (5184 bytes: superblocks + Slots A/B).");
-  Serial.println("Diferenciara UNFORMATTED de CORRUPT_METADATA.");
+  Serial.println("Validara CORRUPT_METADATA en la API publica.");
   Serial.println("El contenido original se respaldara y restaurara.");
   Serial.println("Escribe METADATA y pulsa Enviar para continuar.");
 
@@ -416,92 +352,67 @@ void setup()
 
   const bool formatOk = runtime.storage().format();
   expect("storage().format() explicito", formatOk);
+  expect("formato valido actualiza metadataHealth a VALID",
+         runtime.storage().metadataHealth() ==
+             LogicSuperblockHealth::Valid);
+  expect("almacenamiento recien formateado informa EMPTY",
+         runtime.storage().prepareBoot() ==
+             JWPLCLogicStorageBootState::Empty);
 
-  const bool saveAOk =
-      formatOk && runtime.storage().save(PROGRAM_A, PROGRAM_A_ID);
-  expect("Programa A guardado", saveAOk);
+  const bool corrupt0Ok = formatOk && corruptSuperblockCrc(0);
+  expect("copia 0 corrompida de forma controlada", corrupt0Ok);
 
-  const bool saveBOk =
-      saveAOk && runtime.storage().save(PROGRAM_B, PROGRAM_B_ID);
-  expect("Programa B guardado", saveBOk);
+  const bool corrupt1Ok = corrupt0Ok && corruptSuperblockCrc(1);
+  expect("copia 1 corrompida de forma controlada", corrupt1Ok);
 
-  const bool snapshotOk = captureSuperblocks();
-  expect("superblocks validos respaldados en RAM", snapshotOk);
+  const bool captureOk = corrupt1Ok && captureCorruptedSuperblocks();
+  expect("metadata corrupta capturada para verificar solo lectura", captureOk);
 
-  const LogicSuperblockInspection validInspection =
-      LogicSuperblockInspector::inspect(rawStorage);
-  printInspection("Metadata valida", validInspection);
-  expect("metadata integra se clasifica VALID",
-         validInspection.health == LogicSuperblockHealth::Valid);
-  expect("metadata valida selecciona copia 0 mas reciente",
-         validInspection.selectedCopy == 0);
-  expect("ambas copias validas antes de inyecciones",
-         validInspection.copies[0].valid &&
-             validInspection.copies[1].valid);
-
-  const bool corruptNewestOk =
-      snapshotOk && corruptSuperblockCrc(0);
-  expect("CRC de copia 0 corrompido de forma controlada",
-         corruptNewestOk);
-
-  const LogicSuperblockInspection oneValidInspection =
-      LogicSuperblockInspector::inspect(rawStorage);
-  printInspection("Una copia valida", oneValidInspection);
-  expect("una copia integra mantiene estado VALID",
-         oneValidInspection.health == LogicSuperblockHealth::Valid);
-  expect("diagnostico selecciona copia 1 redundante",
-         oneValidInspection.selectedCopy == 1);
-  expect("copia 0 conserva evidencia JWPLC aunque falle CRC",
-         oneValidInspection.copies[0].runtimeEvidence &&
-             !oneValidInspection.copies[0].valid);
-
-  const bool restoreMetadataOk = writeSuperblockSnapshot();
-  expect("superblocks restaurados antes de prueba doble",
-         restoreMetadataOk);
-  expect("restauracion intermedia verificada",
-         restoreMetadataOk && verifySuperblockSnapshot());
-
-  const bool corruptBoth0Ok =
-      restoreMetadataOk && corruptSuperblockCrc(0);
-  expect("copia 0 corrompida para prueba doble", corruptBoth0Ok);
-
-  const bool corruptBoth1Ok =
-      corruptBoth0Ok && corruptSuperblockCrc(1);
-  expect("copia 1 corrompida para prueba doble", corruptBoth1Ok);
-
-  const LogicSuperblockInspection corruptInspection =
-      LogicSuperblockInspector::inspect(rawStorage);
-  printInspection("Ambas copias corruptas", corruptInspection);
-  expect("ambas copias se clasifican CORRUPT_METADATA",
-         corruptInspection.health ==
-             LogicSuperblockHealth::CorruptMetadata);
-  expect("copia 0 mantiene evidencia reconocible",
-         corruptInspection.copies[0].runtimeEvidence);
-  expect("copia 1 mantiene evidencia reconocible",
-         corruptInspection.copies[1].runtimeEvidence);
-  expect("ninguna copia corrupta queda validada",
-         !corruptInspection.copies[0].valid &&
-             !corruptInspection.copies[1].valid);
-
-  const bool reopenCorruptOk = runtime.storage().begin(JWPLC_FRAM);
-  expect("fachada permanece lista con metadata corrupta",
-         reopenCorruptOk && runtime.storage().isReady());
+  const bool reopenOk =
+      captureOk && runtime.storage().begin(JWPLC_FRAM);
+  expect("fachada reabre con metadata corrupta", reopenOk);
+  expect("fachada permanece lista", reopenOk && runtime.storage().isReady());
+  expect("metadataHealth informa CORRUPT_METADATA",
+         reopenOk &&
+             runtime.storage().metadataHealth() ==
+                 LogicSuperblockHealth::CorruptMetadata);
   expect("metadata corrupta no se declara formateada",
-         reopenCorruptOk && !runtime.storage().isFormatted());
+         reopenOk && !runtime.storage().isFormatted());
 
-  const JWPLCLogicStorageBootState transitionalBootState =
+  const JWPLCLogicStorageBootState bootState =
       runtime.storage().prepareBoot();
-  expect("politica publica actual permanece segura UNFORMATTED",
-         transitionalBootState ==
-             JWPLCLogicStorageBootState::Unformatted);
+  expect("prepareBoot informa CORRUPT_METADATA",
+         bootState == JWPLCLogicStorageBootState::CorruptMetadata);
+  expect("bootState conserva CORRUPT_METADATA",
+         runtime.storage().bootState() ==
+             JWPLCLogicStorageBootState::CorruptMetadata);
+  expect("bootStateName expone CORRUPT_METADATA",
+         strcmp(JWPLCLogicStorage::bootStateName(bootState),
+                "CORRUPT_METADATA") == 0);
+  expect("lastError informa CORRUPT_METADATA",
+         runtime.storage().lastError() ==
+             JWPLCLogicStorageError::CorruptMetadata);
+  expect("errorName expone CORRUPT_METADATA",
+         strcmp(JWPLCLogicStorage::errorName(runtime.storage().lastError()),
+                "CORRUPT_METADATA") == 0);
+  expect("metadata corrupta descarga cualquier programa",
+         !runtime.storage().hasLoadedProgram());
   expect("metadata corrupta no ofrece programa arrancable",
          !runtime.storage().hasBootableProgram());
 
-  const bool restoreSuperblocksOk = writeSuperblockSnapshot();
-  expect("superblocks restaurados despues del diagnostico",
-         restoreSuperblocksOk);
-  expect("restauracion final de metadata verificada",
-         restoreSuperblocksOk && verifySuperblockSnapshot());
+  const JWPLCLogicStorageBootState runtimeBootState =
+      runtime.prepareStoredProgram();
+  expect("runtime propaga CORRUPT_METADATA",
+         runtimeBootState ==
+             JWPLCLogicStorageBootState::CorruptMetadata);
+  expect("runtime no conserva programa ante metadata corrupta",
+         !runtime.hasProgram());
+  expect("runtime informa fallo de carga persistente",
+         runtime.lastError() ==
+             JWPLCLogicRuntimeError::StoredProgramLoadFailed);
+
+  expect("evaluar metadata corrupta no escribe superblocks",
+         captureOk && superblocksRemainUnchanged());
 
   (void)restoreOriginalStore(true);
   printSummary();
