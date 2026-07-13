@@ -87,6 +87,7 @@ struct LogicStorageLayout
 
 namespace JWPLCLogicStorageLayouts
 {
+constexpr LogicStorageLayout NONE(JWPLCLogicStorageProfiles::NONE);
 constexpr LogicStorageLayout FRAM_8K(JWPLCLogicStorageProfiles::FRAM_8K);
 constexpr LogicStorageLayout FRAM_32K(JWPLCLogicStorageProfiles::FRAM_32K);
 
@@ -115,7 +116,12 @@ inline const LogicStorageLayout &forCapacity(uint32_t framBytes)
     return FRAM_32K;
   }
 
-  return FRAM_8K;
+  if (framBytes >= JWPLCLogicStorageProfiles::FRAM_8K.framBytes)
+  {
+    return FRAM_8K;
+  }
+
+  return NONE;
 }
 } // namespace JWPLCLogicStorageLayouts
 
