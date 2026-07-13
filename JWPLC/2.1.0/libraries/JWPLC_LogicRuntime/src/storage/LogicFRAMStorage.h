@@ -16,11 +16,15 @@
 class LogicFRAMStorage : public LogicByteStorage
 {
 public:
+  LogicFRAMStorage();
   LogicFRAMStorage(JW_FRAM &fram,
                    size_t baseAddress = 0,
                    size_t windowCapacity = 0);
 
   bool begin();
+  bool begin(JW_FRAM &fram,
+             size_t baseAddress = 0,
+             size_t windowCapacity = 0);
   bool isReady() const;
   size_t baseAddress() const;
 
