@@ -26,6 +26,24 @@ enum class JWPLCLogicStorageError : uint8_t
 };
 
 /**
+ * @brief Resultado de evaluar el programa persistente durante el arranque.
+ *
+ * prepareBoot() no escribe en FRAM. Puede reconstruir en RAM el programa
+ * activo o el slot alterno verificado cuando el activo está corrupto.
+ */
+enum class JWPLCLogicStorageBootState : uint8_t
+{
+  NotEvaluated = 0,
+  NotReady,
+  Unformatted,
+  Empty,
+  ActiveProgramLoaded,
+  FallbackProgramLoaded,
+  NoValidProgram,
+  InvalidProgram
+};
+
+/**
  * @brief Fachada pública del almacenamiento persistente del runtime.
  *
  * No formatea automáticamente la FRAM. begin() solo detecta el perfil,
@@ -47,6 +65,16 @@ public:
   bool loadActive();
 
   /**
+   * @brief Evalúa de forma no destructiva qué programa puede usarse al iniciar.
+   *
+   * Si el slot activo falla, LogicProgramStore intenta el slot alterno. El
+   * fallback se carga en RAM, pero no se modifica el superblock durante boot.
+   */
+  JWPLCLogicStorageBootState prepareBoot();
+  JWPLCLogicStorageBootState bootState() const;
+  bool hasBootableProgram() const;
+
+  /**
    * @brief Activa el otro slot verificado sin reescribir su imagen.
    *
    * El candidato se carga, se verifica por CRC/codec y pasa por el validador
@@ -66,6 +94,7 @@ public:
   LogicValidationError validationError() const;
 
   static const char *errorName(JWPLCLogicStorageError error);
+  static const char *bootStateName(JWPLCLogicStorageBootState state);
 
 private:
   static constexpr size_t SCRATCH_BYTES =
@@ -74,6 +103,7 @@ private:
        JWPLC_LOGIC_COMPILED_MAX_BLOCKS);
 
   void clearLoadedProgram();
+  void resetBootState();
 
   const LogicStorageProfile *_profile;
   const LogicStorageLayout *_layout;
@@ -85,6 +115,7 @@ private:
   bool _hasLoadedProgram;
   JWPLCLogicStorageError _lastError;
   LogicValidationError _validationError;
+  JWPLCLogicStorageBootState _bootState;
 };
 
 #endif
