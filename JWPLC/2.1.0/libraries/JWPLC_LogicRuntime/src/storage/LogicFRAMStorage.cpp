@@ -2,6 +2,15 @@
 
 #include <cstring>
 
+LogicFRAMStorage::LogicFRAMStorage()
+    : _fram(nullptr),
+      _baseAddress(0),
+      _requestedCapacity(0),
+      _capacity(0),
+      _ready(false)
+{
+}
+
 LogicFRAMStorage::LogicFRAMStorage(JW_FRAM &fram,
                                    size_t baseAddress,
                                    size_t windowCapacity)
@@ -11,6 +20,16 @@ LogicFRAMStorage::LogicFRAMStorage(JW_FRAM &fram,
       _capacity(0),
       _ready(false)
 {
+}
+
+bool LogicFRAMStorage::begin(JW_FRAM &fram,
+                             size_t baseAddress,
+                             size_t windowCapacity)
+{
+  _fram = &fram;
+  _baseAddress = baseAddress;
+  _requestedCapacity = windowCapacity;
+  return begin();
 }
 
 bool LogicFRAMStorage::begin()
