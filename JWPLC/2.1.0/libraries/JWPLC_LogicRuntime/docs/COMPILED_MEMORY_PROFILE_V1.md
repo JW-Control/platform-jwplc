@@ -102,9 +102,9 @@ El costo de la copia profunda frente al build previo fue:
 4832 bytes
 ```
 
-Además de esa copia, los estados, el buffer reconstruido y el scratch también escalan con el límite compilado. Por ello se espera un ahorro total notable al pasar de 400 a 100 bloques.
+Además de esa copia, los estados, el buffer reconstruido y el scratch también escalan con el límite compilado.
 
-## Validación preparada
+## Validación física del build de 100 bloques
 
 Ejemplo no destructivo:
 
@@ -112,20 +112,50 @@ Ejemplo no destructivo:
 JWPLC_LogicRuntime_Compiled_Profile
 ```
 
-El ejemplo:
-
-- no inicializa E/S;
-- no accede a la FRAM;
-- imprime tamaños `sizeof` de las estructuras principales;
-- confirma el límite compilado de 100 bloques;
-- confirma la capacidad física futura de 400 bloques;
-- verifica que los perfiles efectivos nunca superen el build.
-
-Resultado esperado:
+Resultado:
 
 ```text
 Resultado: 10 PASS, 0 FAIL
 PERFIL COMPILADO 100 BLOQUES: PASS
 ```
 
-La compilación física debe registrar Flash, RAM global y RAM restante para comparar con el build anterior de 400 bloques.
+Compilación física:
+
+```text
+Flash:       420065 bytes / 3145728 bytes (13 %)
+RAM global:   32612 bytes / 327680 bytes (9 %)
+RAM restante: 295068 bytes
+```
+
+Tamaños medidos:
+
+```text
+sizeof(LogicBlockDefinition): 12
+sizeof(LogicBlockState):       8
+sizeof(LogicProgramBuffer):    1256
+sizeof(LogicEngine):           2052
+sizeof(JWPLCLogicStorage):     2588
+sizeof(JWPLC_LogicRuntime):    4688
+```
+
+También se confirmó:
+
+```text
+Bloques compilados:                100
+Límite efectivo FRAM 8 KiB:        100
+Límite efectivo FRAM 32 KiB:       100
+Capacidad física FRAM 8 KiB:       100
+Capacidad física FRAM 32 KiB:      400
+```
+
+La prueba no inicializó E/S ni leyó o escribió la FRAM.
+
+## Criterio de cierre
+
+El perfil compilado de 100 bloques queda validado estructuralmente y en consumo de memoria. Antes de avanzar a corrupción de superblocks se repetirá la integración persistente completa con este mismo build para confirmar que:
+
+1. `prepareStoredProgram()` conserva todos los estados de arranque;
+2. la copia profunda sigue siendo independiente de los buffers de almacenamiento;
+3. fallback y descarga segura mantienen el comportamiento validado;
+4. la reducción de capacidad no introduce regresiones;
+5. se obtiene una comparación directa de RAM con el mismo sketch usado para 400 bloques.
