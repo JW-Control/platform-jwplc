@@ -51,7 +51,23 @@ public:
 
   bool begin(uint32_t framBytes = JWPLC_FRAM_SIZE_BYTES);
   bool loadProgram(const LogicProgram &program);
+
+  /**
+   * @brief Evalúa el almacenamiento y prepara el programa arrancable en RAM.
+   *
+   * Devuelve la clasificación detallada de storage().prepareBoot(). Un fallback
+   * válido se carga, pero nunca se inicia automáticamente.
+   */
+  JWPLCLogicStorageBootState prepareStoredProgram();
+
+  /**
+   * @brief Compatibilidad booleana para preparar el programa persistente.
+   *
+   * Devuelve true tanto para el programa activo como para un fallback válido.
+   * start() continúa siendo un paso separado y explícito.
+   */
   bool loadStoredProgram();
+
   bool start();
   void stop();
   bool tick();
@@ -65,6 +81,7 @@ public:
   const LogicStorageProfile &storageProfile() const;
   const LogicStorageLayout &storageLayout() const;
 
+  bool hasProgram() const;
   bool blockValue(uint16_t index) const;
   uint32_t scanCount() const;
   uint32_t lastScanMicros() const;
