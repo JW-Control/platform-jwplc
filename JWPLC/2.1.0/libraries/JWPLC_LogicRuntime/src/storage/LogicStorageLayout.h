@@ -41,6 +41,7 @@ struct LogicStorageRegion
 struct LogicStorageLayout
 {
   static constexpr uint32_t SUPERBLOCK_AREA_BYTES = 64;
+  static constexpr uint32_t SLOT_DESCRIPTOR_BYTES = 32;
 
   uint32_t totalBytes;
   LogicStorageRegion superblocks;
@@ -70,6 +71,13 @@ struct LogicStorageLayout
     return slotB.endExclusive();
   }
 
+  constexpr uint32_t slotPayloadBytes() const
+  {
+    return slotA.size >= SLOT_DESCRIPTOR_BYTES
+               ? slotA.size - SLOT_DESCRIPTOR_BYTES
+               : 0;
+  }
+
   constexpr bool isValid() const
   {
     return totalBytes > 0 &&
@@ -79,7 +87,7 @@ struct LogicStorageLayout
            retain.address == slotB.endExclusive() &&
            reserved.address == retain.endExclusive() &&
            reserved.endExclusive() == totalBytes &&
-           slotA.size > 0 &&
+           slotA.size > SLOT_DESCRIPTOR_BYTES &&
            slotB.size == slotA.size &&
            maxBlocks > 0;
   }
