@@ -12,6 +12,7 @@
 #include "storage/LogicProgramStore.h"
 #include "storage/LogicStorageLayout.h"
 #include "storage/LogicStorageProfile.h"
+#include "storage/LogicSuperblockInspector.h"
 
 #ifndef JWPLC_FRAM_SIZE_BYTES
 #define JWPLC_FRAM_SIZE_BYTES 0
