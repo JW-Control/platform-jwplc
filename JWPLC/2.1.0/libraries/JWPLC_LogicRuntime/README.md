@@ -9,7 +9,8 @@ La librería se integra sobre la placa existente `JWPLC Basic`. No crea una vari
 ```text
 PoC 0 a PoC 7 validadas
 Mapa persistente v1 validado
-Fase actual: integración de la API persistente pública
+API persistente de lectura y escritura reversible validada
+Fase actual: rollback y política de arranque de producción
 ```
 
 Se validó el recorrido completo:
@@ -45,6 +46,9 @@ programa binario en FRAM
 - Persistencia entre reinicios reales.
 - Carga y ejecución física desde una imagen persistida.
 - Mapa persistente v1 para FRAM de 8 KiB y 32 KiB.
+- Fachada pública `runtime.storage()`.
+- Detección no destructiva de FRAM sin formato.
+- Formato, guardado y carga reversibles sobre hardware real.
 
 ## Rendimiento medido
 
@@ -143,7 +147,7 @@ runtime.outputWriteCount();
 
 ## API persistente pública
 
-La fachada inicial se accede mediante `runtime.storage()`:
+La fachada se accede mediante `runtime.storage()`:
 
 ```cpp
 runtime.storage().begin(JWPLC_FRAM);
@@ -153,6 +157,7 @@ runtime.storage().status();
 runtime.storage().format();
 runtime.storage().save(program, programId);
 runtime.storage().loadActive();
+runtime.storage().rollback();
 runtime.storage().activeProgram();
 runtime.storage().lastError();
 runtime.storage().storeError();
@@ -170,7 +175,27 @@ runtime.loadStoredProgram();
 runtime.start();
 ```
 
-La generación del programa se incrementa automáticamente durante `save()`. El rollback explícito queda como siguiente ampliación después de validar compilación, consumo de RAM y operaciones físicas reversibles de esta fachada.
+`rollback()` carga y valida primero el slot alterno; únicamente después activa una copia nueva del superblock. La imagen candidata no se reescribe.
+
+## Consumo medido de la fachada
+
+Lectura no destructiva:
+
+```text
+Flash:       421449 bytes (13 %)
+RAM global:   40980 bytes (12 %)
+RAM restante: 286700 bytes
+```
+
+Prueba reversible con respaldo adicional de 5184 bytes:
+
+```text
+Flash:       436597 bytes (13 %)
+RAM global:   46276 bytes (14 %)
+RAM restante: 281404 bytes
+```
+
+El respaldo de 5184 bytes pertenece al ejemplo de prueba, no al costo permanente de `runtime.storage()`.
 
 ## Ejemplos principales
 
@@ -182,7 +207,9 @@ La generación del programa se incrementa automáticamente durante `save()`. El 
 - `JWPLC_LogicRuntime_FRAM_Persistent`: persistencia entre reinicios.
 - `JWPLC_LogicRuntime_FRAM_Boot`: carga y ejecución desde FRAM.
 - `JWPLC_LogicRuntime_Storage_Layout`: validación no destructiva del mapa v1.
-- `JWPLC_LogicRuntime_Storage_API_ReadOnly`: validación no destructiva de la fachada pública.
+- `JWPLC_LogicRuntime_Storage_API_ReadOnly`: validación no destructiva de la fachada pública, 8 PASS.
+- `JWPLC_LogicRuntime_Storage_API_Reversible`: formato, guardado, carga y restauración, 27 PASS.
+- `JWPLC_LogicRuntime_Storage_API_Rollback`: prueba reversible de reactivación del slot anterior.
 
 ## Documentación
 
@@ -199,6 +226,7 @@ La generación del programa se incrementa automáticamente durante `save()`. El 
 
 - El programa activo se ejecuta desde RAM.
 - El slot activo no se sobrescribe durante una actualización.
+- El rollback activa únicamente un slot alterno completamente verificado.
 - El orden del arreglo es el orden de ejecución.
 - Cada bloque solo referencia bloques anteriores.
 - Una salida física solo puede tener un bloque escritor.
@@ -206,4 +234,4 @@ La generación del programa se incrementa automáticamente durante `save()`. El 
 - La FRAM de 8 KiB soporta el límite inicial de 100 bloques.
 - La FRAM de 32 KiB amplía capacidades sin requerir otro motor.
 - El proyecto editable completo no forma parte de la imagen ejecutable.
-- Retentivos, rollback público, editor TFT, microSD y actualización remota siguen pendientes.
+- Retentivos, política final de arranque, editor TFT, microSD y actualización remota siguen pendientes.
