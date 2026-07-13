@@ -32,7 +32,8 @@ enum class LogicProgramStoreError : uint8_t
   InvalidSuperblock,
   InvalidSlotDescriptor,
   ImageCrcMismatch,
-  NoValidProgram
+  NoValidProgram,
+  NoAlternateProgram
 };
 
 struct LogicProgramStoreStatus
@@ -71,6 +72,25 @@ public:
   bool loadActive(LogicProgramBuffer &destination,
                   uint8_t *scratch,
                   size_t scratchCapacity);
+
+  /**
+   * @brief Carga y verifica un slot concreto sin activarlo.
+   *
+   * Esta operación permite validar lógicamente el candidato antes de cambiar
+   * el superblock activo. Si tiene éxito, lastLoadedSlot queda actualizado.
+   */
+  bool loadVerifiedSlot(uint8_t slotIndex,
+                        LogicProgramBuffer &destination,
+                        uint8_t *scratch,
+                        size_t scratchCapacity);
+
+  /**
+   * @brief Activa el último slot verificado y cargado.
+   *
+   * Solo escribe la copia alterna del superblock. No modifica la imagen ni su
+   * descriptor, por lo que la activación es atómica respecto al programa.
+   */
+  bool activateVerifiedSlot(uint8_t slotIndex);
 
   bool isFormatted() const;
   size_t requiredCapacity() const;
@@ -121,10 +141,10 @@ private:
                           SlotDescriptorData &destination);
   bool writeSlotDescriptor(uint8_t slotIndex,
                            const SlotDescriptorData &source);
-  bool loadSlot(uint8_t slotIndex,
-                LogicProgramBuffer &destination,
-                uint8_t *scratch,
-                size_t scratchCapacity);
+  bool loadSlotInternal(uint8_t slotIndex,
+                        LogicProgramBuffer &destination,
+                        uint8_t *scratch,
+                        size_t scratchCapacity);
 
   size_t slotAddress(uint8_t slotIndex) const;
   size_t slotImageAddress(uint8_t slotIndex) const;
