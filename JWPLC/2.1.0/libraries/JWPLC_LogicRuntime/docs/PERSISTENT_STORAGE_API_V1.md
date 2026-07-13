@@ -133,9 +133,17 @@ La fachada no usa memoria dinámica. Conserva:
 - un buffer scratch suficiente para la imagen máxima compilada;
 - estado del backend y del gestor.
 
-El impacto exacto en RAM global debe registrarse con la compilación física del ejemplo `JWPLC_LogicRuntime_Storage_API_ReadOnly`.
+Compilación física validada con `JWPLC_LogicRuntime_Storage_API_ReadOnly`:
 
-## Prueba inicial no destructiva
+```text
+Flash:       421449 bytes / 3145728 bytes (13 %)
+RAM global:   40980 bytes / 327680 bytes (12 %)
+RAM restante: 286700 bytes
+```
+
+El consumo es aceptable para esta fase y deja margen amplio. Antes de cerrar la API se evaluará si conviene mantener buffers para 400 bloques dentro de cada instancia o permitir buffers externos/perfiles compilados para reducir RAM en equipos de 8 KiB.
+
+## Prueba inicial no destructiva — validada
 
 Ejemplo:
 
@@ -151,18 +159,70 @@ Comprueba la nueva API sin:
 - escribir un programa;
 - modificar retentivos o reserva.
 
-Resultado esperado:
+Resultado físico:
 
 ```text
 Resultado: 8 PASS, 0 FAIL
 API PERSISTENTE LECTURA: PASS
 ```
 
+Estado detectado:
+
+```text
+FRAM formateada para runtime: NO
+Slot activo: NINGUNO
+Secuencia: 0
+Program ID: 0
+Generacion: 0
+Error fachada: NONE
+Estado gestor: UNFORMATTED
+```
+
+Esto confirma que `storage().begin(JWPLC_FRAM)` es no destructivo y que una FRAM sin firma válida permanece intacta.
+
+## Prueba reversible de escritura
+
+Ejemplo:
+
+```text
+JWPLC_LogicRuntime_Storage_API_Reversible
+```
+
+La prueba usa la API pública para:
+
+1. confirmar que el mapa completo todavía está sin formato;
+2. respaldar `0x0000..0x143F` en NVS con CRC32;
+3. registrar restauración pendiente;
+4. ejecutar `storage().format()`;
+5. guardar un programa mediante `storage().save()`;
+6. cargarlo mediante `storage().loadActive()`;
+7. reinicializar la fachada y volver a cargarlo;
+8. restaurar exactamente los 5184 bytes originales;
+9. confirmar nuevamente el estado sin formato;
+10. eliminar el respaldo temporal.
+
+La prueba exige escribir explícitamente:
+
+```text
+FORMAT
+```
+
+Si ocurre un reinicio después de registrar la etapa de restauración, el siguiente arranque recupera automáticamente el contenido original antes de continuar.
+
+Resultado esperado:
+
+```text
+Resultado: 27 PASS, 0 FAIL
+API PERSISTENTE REVERSIBLE: PASS
+```
+
+No inicializa el motor de E/S ni conmuta salidas.
+
 ## Pendiente inmediato
 
-Después de validar compilación, RAM y lectura sobre el hardware:
+Después de validar la prueba reversible:
 
-1. prueba física reversible de `format()`, `save()` y `loadActive()` usando respaldo previo;
-2. operación explícita de rollback hacia el slot verificado anterior;
-3. política de arranque ante almacenamiento sin formato, programa ausente o ambas imágenes corruptas;
-4. API de producción para activar un programa sin exponer buffers internos.
+1. operación explícita de rollback hacia el slot verificado anterior;
+2. política de arranque ante almacenamiento sin formato, programa ausente o ambas imágenes corruptas;
+3. API de producción para activar un programa sin exponer buffers internos;
+4. revisión del consumo RAM por instancia y estrategia para perfiles de 8/32 KiB.
