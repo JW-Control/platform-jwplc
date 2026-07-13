@@ -4,7 +4,27 @@
 #include <Arduino.h>
 
 static constexpr uint16_t JWPLC_LOGIC_NO_SOURCE = 0xFFFF;
-static constexpr uint16_t JWPLC_LOGIC_COMPILED_MAX_BLOCKS = 400;
+
+/**
+ * @brief Capacidad máxima reservada en RAM por cada instancia del runtime.
+ *
+ * El JWPLC Basic actual usa FRAM de 8 KiB y admite 100 bloques. Por eso el
+ * build predeterminado reserva únicamente esa capacidad.
+ *
+ * Un hardware futuro con FRAM de 32 KiB puede compilar la misma librería con:
+ *
+ *   -DJWPLC_LOGIC_COMPILED_MAX_BLOCKS=400
+ *
+ * El formato binario y el mapa persistente no cambian al variar este límite.
+ */
+#ifndef JWPLC_LOGIC_COMPILED_MAX_BLOCKS
+#define JWPLC_LOGIC_COMPILED_MAX_BLOCKS 100
+#endif
+
+static_assert(JWPLC_LOGIC_COMPILED_MAX_BLOCKS > 0,
+              "JWPLC Logic Runtime requiere al menos un bloque compilado");
+static_assert(JWPLC_LOGIC_COMPILED_MAX_BLOCKS <= 400,
+              "El formato v1 soporta como maximo 400 bloques compilados");
 
 enum class LogicBlockType : uint8_t
 {
