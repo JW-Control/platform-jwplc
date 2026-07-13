@@ -1,5 +1,13 @@
 # Integración de alto nivel — programa persistente hacia runtime
 
+## Estado
+
+```text
+VALIDADO EN HARDWARE
+Resultado: 48 PASS, 0 FAIL
+INTEGRACION RUNTIME PERSISTENTE: PASS
+```
+
 ## Objetivo
 
 Cerrar el flujo público sin exponer buffers internos:
@@ -53,7 +61,7 @@ el motor descarga cualquier programa previo. Así un fallo persistente no deja d
 
 ## Copia profunda
 
-`LogicEngine` conserva ahora:
+`LogicEngine` conserva:
 
 - nombre del programa;
 - definiciones de bloques;
@@ -62,9 +70,7 @@ el motor descarga cualquier programa previo. Así un fallo persistente no deja d
 
 Esto elimina la dependencia de vida de los buffers externos. Una operación posterior de `storage().save()` puede reutilizar el buffer de almacenamiento sin invalidar el programa que el motor ya había cargado.
 
-El costo es un aumento fijo de RAM proporcional a `JWPLC_LOGIC_COMPILED_MAX_BLOCKS`. Debe medirse en la compilación física antes de cerrar la estrategia definitiva de perfiles 100/400 bloques.
-
-## Prueba reversible preparada
+## Validación física
 
 Ejemplo:
 
@@ -72,40 +78,58 @@ Ejemplo:
 JWPLC_LogicRuntime_Stored_Program_Integration
 ```
 
-La prueba:
+La prueba confirmó:
 
-1. inicializa la fachada y el runtime;
-2. confirma `UNFORMATTED` y rechazo de `start()` sin programa;
-3. respalda 5184 bytes en NVS;
-4. formatea y confirma `EMPTY`;
-5. guarda y prepara Programa A;
-6. ejecuta un scan sin bloques de salida;
-7. guarda Programa B mientras A continúa cargado;
-8. vuelve a ejecutar A para comprobar independencia del buffer;
-9. prepara y ejecuta B;
-10. corrompe B y prepara fallback A;
-11. corrompe A y confirma descarga total del motor;
-12. restaura exactamente la FRAM original.
+1. inicialización independiente de la fachada y del runtime;
+2. clasificación `UNFORMATTED` y rechazo de `start()` sin programa;
+3. respaldo reversible de 5184 bytes en NVS;
+4. clasificación `EMPTY` después del formato explícito;
+5. carga de Programa A mediante la API de alto nivel;
+6. ejecución de A sin bloques de salida;
+7. guardado de B mientras A seguía cargado;
+8. independencia de la copia profunda de A frente a la reutilización de buffers;
+9. reemplazo correcto de A por B;
+10. fallback hacia A al corromper B;
+11. descarga total del motor al corromper ambos slots;
+12. restauración exacta de la FRAM original.
 
 Los programas de prueba no contienen bloques `DigitalOutput`. El ejemplo inicializa E/S, pero mantiene Q0 apagadas y no energiza relés.
 
-Comando de confirmación:
-
-```text
-RUNTIME
-```
-
-Resultado esperado:
+Resultado:
 
 ```text
 Resultado: 48 PASS, 0 FAIL
 INTEGRACION RUNTIME PERSISTENTE: PASS
 ```
 
+## Consumo medido
+
+```text
+Flash:       440717 bytes / 3145728 bytes (14 %)
+RAM global:   51108 bytes / 327680 bytes (15 %)
+RAM restante: 276572 bytes
+```
+
+Comparado con la prueba de política de arranque, que usa el mismo respaldo reversible:
+
+```text
+RAM política de arranque: 46276 bytes
+RAM integración completa: 51108 bytes
+Aumento por copia profunda: 4832 bytes
+```
+
+La medición confirma que el límite compilado de bloques afecta directamente el costo fijo de RAM.
+
+## Decisión siguiente
+
+El JWPLC Basic actual usa FRAM de 8 KiB y su límite funcional es 100 bloques. Por tanto, el build predeterminado pasará a reservar RAM para 100 bloques.
+
+La capacidad física y el formato de 32 KiB seguirán admitiendo 400 bloques, pero requerirán una configuración de compilación explícita en el hardware futuro correspondiente.
+
 ## Pendiente posterior
 
-- medir Flash y RAM después de la copia profunda;
-- decidir si 8 KiB compila solo 100 bloques o conserva 400;
+- validar el perfil compilado predeterminado de 100 bloques y medir el ahorro de RAM;
+- conservar una opción explícita de 400 bloques para FRAM de 32 KiB;
 - pruebas de corrupción de superblocks;
 - diagnóstico TFT;
 - retentivos persistentes.
