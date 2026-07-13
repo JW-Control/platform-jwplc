@@ -9,6 +9,7 @@
 #include "storage/LogicMemoryStorage.h"
 #include "storage/LogicProgramCodec.h"
 #include "storage/LogicProgramStore.h"
+#include "storage/LogicStorageLayout.h"
 #include "storage/LogicStorageProfile.h"
 
 #ifndef JWPLC_FRAM_SIZE_BYTES
@@ -37,9 +38,10 @@ enum class JWPLCLogicRuntimeError : uint8_t
 /**
  * @brief Motor lógico por bloques para JWPLC Basic.
  *
- * El programa se valida y ejecuta en un orden determinista. El PoC actual usa
- * una definición fija en RAM/Flash; la persistencia en FRAM se añadirá después
- * de validar el motor y las E/S físicas.
+ * El programa se valida y ejecuta desde RAM en un orden determinista. El
+ * formato binario, el almacenamiento A/B y el backend FRAM ya fueron validados
+ * por separado. La siguiente fase integra esas piezas mediante una API pública
+ * persistente sin alterar el uso normal de sketches Arduino.
  */
 class JWPLC_LogicRuntime
 {
