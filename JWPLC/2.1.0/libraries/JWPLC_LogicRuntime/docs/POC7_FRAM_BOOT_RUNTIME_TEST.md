@@ -1,0 +1,115 @@
+# PoC 7 — arranque y ejecución del runtime desde FRAM
+
+## Objetivo
+
+Validar el flujo completo:
+
+```text
+Programa binario en FRAM
+        ↓
+Carga y validación durante el arranque
+        ↓
+Reconstrucción en RAM
+        ↓
+JWPLC_LogicRuntime::loadProgram()
+        ↓
+Ejecución física de E/S
+```
+
+La prueba todavía usa una ventana reversible al final de la FRAM. No define el mapa final de producción.
+
+## Ventana usada
+
+```text
+FRAM física:       8192 bytes
+Ventana temporal:  0x1BC0..0x1FFF
+Tamaño:            1088 bytes
+Superblocks:       64 bytes
+Slot A:            512 bytes
+Slot B:            512 bytes
+```
+
+El contenido original se respalda en NVS antes de modificar la ventana.
+
+## Programa persistente
+
+```text
+I0_0 AND NOT I0_1 -> TON 2 s -> Q0_0
+```
+
+Bloques:
+
+```text
+B0 = I0_0
+B1 = I0_1
+B2 = NOT B1
+B3 = B0 AND B2
+B4 = TON(B3, 2000 ms)
+B5 = Q0_0 <- B4
+```
+
+## Flujo
+
+### Etapa 1 — instalación
+
+1. Subir `JWPLC_LogicRuntime_FRAM_Boot.ino`.
+2. Abrir el monitor serial a 115200.
+3. Escribir `START`.
+4. El ejemplo respalda la ventana original en NVS.
+5. Registra una instalación pendiente.
+6. Formatea el layout A/B reducido.
+7. Guarda, lee y valida el programa.
+8. Registra el programa como listo.
+9. Solicita reinicio.
+
+Si hay un corte durante la instalación, el siguiente arranque detecta `STAGE_INSTALL_PENDING` y restaura la ventana original.
+
+### Etapa 2 — ejecución después del reinicio
+
+1. Reiniciar sin volver a compilar.
+2. El ejemplo carga el programa activo desde FRAM.
+3. Verifica metadatos y CRC mediante `LogicProgramStore` y `LogicProgramCodec`.
+4. Reconstruye el programa en `LogicProgramBuffer`.
+5. Inicializa `JWPLC_LogicRuntime`.
+6. Carga el programa en el motor.
+7. Inicia el scan físico.
+8. Probar las entradas y `Q0_0`.
+
+Mientras el runtime está activo, un reinicio vuelve a cargar y ejecutar el mismo programa persistente.
+
+### Etapa 3 — restauración
+
+1. Escribir `RESTORE` por Serial.
+2. El runtime se detiene.
+3. Todas las salidas se apagan.
+4. Se registra restauración pendiente.
+5. Se restaura la ventana original.
+6. Se relee y verifica byte por byte y por CRC32.
+7. Se elimina el estado temporal de NVS.
+
+Si hay un corte durante la restauración, el siguiente arranque vuelve a intentar restaurarla.
+
+## Criterios de aprobación
+
+- El programa queda persistido y validado antes del reinicio.
+- Tras reiniciar, el programa se carga desde FRAM sin una definición fija alternativa.
+- El runtime ejecuta la lógica física esperada.
+- `Q0_0` conserva el comportamiento del `TON` probado en PoC anteriores.
+- Las salidas se apagan antes de restaurar.
+- La ventana original se recupera exactamente.
+- El resultado final muestra:
+
+```text
+ARRANQUE Y EJECUCION DESDE FRAM: PASS
+PoC 7 completada.
+```
+
+## Alcance excluido
+
+- Mapa completo definitivo de la FRAM de 8 KiB.
+- Autoinstalación del programa predeterminado de producción.
+- API final de alto nivel para guardar y activar programas.
+- Retentivos persistentes.
+- Editor frontal.
+- Actualización remota de programa.
+- Declaración de hard real-time.
