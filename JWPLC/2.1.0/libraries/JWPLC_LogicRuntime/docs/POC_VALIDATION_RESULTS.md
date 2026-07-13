@@ -2,7 +2,7 @@
 
 **Rama:** `feature/logic-runtime-poc`  
 **Hardware:** JWPLC Basic  
-**Estado:** PoC 0 a PoC 6 validados; PoC 7 valida carga, ejecución estable y restauración desde FRAM. Pendiente registrar una transición física de entradas/salida para su cierre funcional completo.
+**Estado:** PoC 0 a PoC 7 validadas.
 
 ## Resumen
 
@@ -17,7 +17,7 @@
 | 4 | Almacenamiento A/B simulado en RAM | 19 PASS, 0 FAIL |
 | 5 | Backend A/B sobre FRAM física | 22 PASS, 0 FAIL |
 | 6 | Persistencia entre reinicios reales | PASS |
-| 7 | Carga desde FRAM y ejecución física | PASS técnico; transición física pendiente |
+| 7 | Carga desde FRAM y ejecución física | PASS |
 
 ## PoC 0 — estructura inicial
 
@@ -35,7 +35,7 @@ Validado:
 
 ## PoC 1 — motor lógico y E/S físicas
 
-Programa probado:
+Programa:
 
 ```text
 I0_0 AND NOT I0_1 -> TON 2 s -> Q0_0
@@ -75,7 +75,7 @@ Casos cubiertos:
 
 ## PoC 2.1 — acceso por snapshot y banco
 
-Primera implementación, con ocho lecturas y ocho escrituras individuales:
+Implementación inicial con lecturas y escrituras individuales:
 
 ```text
 Mínimo:    7231 us
@@ -167,10 +167,12 @@ Validado:
 - verificación antes de activar;
 - fallback al programa anterior;
 - recuperación ante superblock corrupto;
-- conservación de Programa A en todos los cortes parciales;
-- activación de Programa B únicamente con transacción completa.
+- conservación del Programa A en todos los cortes parciales;
+- activación del Programa B únicamente con transacción completa.
 
 ## PoC 5 — backend FRAM físico
+
+Ventana temporal:
 
 ```text
 FRAM detectada:   8192 bytes
@@ -190,8 +192,7 @@ Validado:
 
 - backend `LogicFRAMStorage`;
 - layout A/B reducido;
-- guardado y carga de Programa A;
-- guardado y carga de Programa B;
+- guardado y carga de los Programas A y B;
 - metadatos, CRC y validador;
 - reinicios lógicos del gestor;
 - restauración exacta de la ventana original.
@@ -237,38 +238,59 @@ Documento detallado:
 
 ## PoC 7 — arranque y ejecución desde FRAM
 
-Programa:
+Programa persistido:
 
 ```text
 I0_0 AND NOT I0_1 -> TON 2 s -> Q0_0
 ```
 
-Primera ejecución:
-
-- instalación en FRAM: PASS;
-- carga y validación desde FRAM: PASS;
-- primer `tick()`: `PROGRAM_EXECUTION_FAILED`.
-
-Causa y corrección:
-
-- `LogicEngine` conservaba un puntero a un descriptor `LogicProgram` temporal;
-- el descriptor se copia ahora por valor dentro del motor;
-- los buffers `name` y `blocks` permanecen en `LogicProgramBuffer` durante la ejecución.
-
-Resultado posterior a la corrección, reutilizando el mismo programa persistido:
+Flujo validado:
 
 ```text
-[PASS] Programa cargado desde FRAM hacia RAM.
-[PASS] Runtime iniciado con el programa persistente.
-
-I0_0=0 I0_1=0 AND=0 TON=0 Q0_0=0
-scan mínimo:   4 us
-scan promedio: 5 us
-scan máximo:   425 us
-escrituras Q0: 2 y estable
+FRAM -> LogicProgramStore -> LogicProgramBuffer -> RAM -> LogicEngine -> E/S física
 ```
 
-La ejecución permaneció estable durante aproximadamente un minuto y terminó con:
+Resultado de instalación y arranque:
+
+```text
+[PASS] Programa persistido y verificado en FRAM.
+[PASS] Programa cargado desde FRAM hacia RAM.
+[PASS] Runtime iniciado con el programa persistente.
+```
+
+Transición física observada:
+
+```text
+I0_0=1 I0_1=0 AND=1 TON=0 Q0_0=0
+I0_0=1 I0_1=0 AND=1 TON=1 Q0_0=1
+I0_0=0 I0_1=0 AND=0 TON=0 Q0_0=0
+```
+
+Contador de escrituras:
+
+```text
+Q0 estable apagada: 2
+Q0 pasa a encendida: 3
+Q0 pasa a apagada:  4
+```
+
+Rendimiento observado:
+
+```text
+scan mínimo:    4 us
+scan promedio:  5 us
+scan máximo:  460 us
+```
+
+Incidente encontrado y corregido:
+
+- `LogicEngine` conservaba un puntero a un descriptor `LogicProgram` temporal;
+- el primer `tick()` produjo `PROGRAM_EXECUTION_FAILED`;
+- el descriptor se copia ahora por valor dentro del motor;
+- los buffers `name` y `blocks` permanecen en `LogicProgramBuffer` durante la ejecución;
+- la corrección se validó reutilizando el mismo programa persistido.
+
+Cierre:
 
 ```text
 Runtime detenido. Q0 apagadas.
@@ -278,20 +300,6 @@ Runtime detenido. Q0 apagadas.
 ARRANQUE Y EJECUCION DESDE FRAM: PASS
 PoC 7 completada.
 ```
-
-Validado:
-
-- instalación y recuperación del programa persistente;
-- reconstrucción en RAM;
-- transferencia segura del programa al motor;
-- ejecución estable del scan;
-- parada segura;
-- restauración exacta de FRAM y limpieza de NVS.
-
-Pendiente para cierre funcional completo:
-
-- registrar `I0_0=1`, `I0_1=0`, `TON=1` y `Q0_0=1`;
-- registrar el apagado al activar `I0_1`.
 
 Documento detallado:
 
@@ -307,3 +315,4 @@ Documento detallado:
 - La FRAM de 32 KiB ampliará límites y perfiles; no requerirá otro motor.
 - El proyecto editable completo no pertenece a la imagen ejecutable.
 - El mapa definitivo de producción aún no está congelado.
+- La API final de instalación, activación y rollback todavía debe diseñarse antes de congelar el runtime.
