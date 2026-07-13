@@ -26,7 +26,16 @@ private:
   bool sourceValue(uint16_t source) const;
 
   JWPLCLogicIO *_io;
-  const LogicProgram *_program;
+
+  // El descriptor se copia por valor. Esto permite cargar descriptores
+  // temporales, por ejemplo LogicProgramBuffer::asProgram(), sin conservar
+  // un puntero colgante al objeto LogicProgram temporal.
+  //
+  // Los punteros name y blocks siguen apuntando al almacenamiento externo,
+  // por lo que ese buffer debe vivir mientras el motor use el programa.
+  LogicProgram _program;
+  bool _hasProgram;
+
   LogicBlockState _states[JWPLC_LOGIC_COMPILED_MAX_BLOCKS];
   LogicValidationError _validationError;
 };
