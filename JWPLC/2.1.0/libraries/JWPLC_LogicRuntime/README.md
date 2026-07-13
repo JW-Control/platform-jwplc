@@ -13,7 +13,8 @@ API persistente reversible validada
 Rollback persistente validado
 Política de arranque v1 validada
 Integración FRAM → runtime validada
-Fase actual: optimización del perfil compilado de RAM
+Perfil compilado de 100 bloques validado
+Fase actual: regresión de integración completa con build de 100 bloques
 ```
 
 Se validó el recorrido completo:
@@ -56,6 +57,8 @@ programa binario en FRAM
 - Política explícita `UNFORMATTED`, `EMPTY`, `ACTIVE`, `FALLBACK` y `NO_VALID`.
 - Copia profunda del programa dentro del motor.
 - Descarga del programa anterior cuando no existe imagen válida.
+- Separación entre capacidad física persistente y capacidad compilada en RAM.
+- Build predeterminado de 100 bloques validado físicamente.
 
 ## Rendimiento medido
 
@@ -244,9 +247,26 @@ RAM global:   51108 bytes (15 %)
 RAM restante: 276572 bytes
 ```
 
-La copia profunda añadió 4832 bytes frente a la prueba anterior con el mismo respaldo. El nuevo perfil predeterminado de 100 bloques está preparado y pendiente de medición física.
+### Perfil compilado no destructivo de 100 bloques
+
+```text
+Flash:       420065 bytes (13 %)
+RAM global:   32612 bytes (9 %)
+RAM restante: 295068 bytes
+```
+
+Tamaños principales del build de 100 bloques:
+
+```text
+LogicProgramBuffer: 1256 bytes
+LogicEngine:        2052 bytes
+JWPLCLogicStorage:  2588 bytes
+JWPLC_LogicRuntime: 4688 bytes
+```
 
 El respaldo de 5184 bytes pertenece a los ejemplos reversibles, no al costo permanente de `runtime.storage()`.
+
+La comparación directa de la integración completa para 400 y 100 bloques queda pendiente de repetir el mismo ejemplo bajo el nuevo build.
 
 ## Ejemplos principales
 
@@ -262,8 +282,8 @@ El respaldo de 5184 bytes pertenece a los ejemplos reversibles, no al costo perm
 - `JWPLC_LogicRuntime_Storage_API_Reversible`: formato, guardado, carga y restauración, 27 PASS.
 - `JWPLC_LogicRuntime_Storage_API_Rollback`: rollback reversible, 34 PASS.
 - `JWPLC_LogicRuntime_Storage_API_Startup_Policy`: política de arranque, 44 PASS.
-- `JWPLC_LogicRuntime_Stored_Program_Integration`: integración hacia el motor, 48 PASS.
-- `JWPLC_LogicRuntime_Compiled_Profile`: validación no destructiva del build de 100 bloques.
+- `JWPLC_LogicRuntime_Stored_Program_Integration`: integración hacia el motor, 48 PASS con build de 400; pendiente repetir con 100.
+- `JWPLC_LogicRuntime_Compiled_Profile`: build de 100 bloques, 10 PASS.
 
 ## Documentación
 
@@ -277,6 +297,7 @@ El respaldo de 5184 bytes pertenece a los ejemplos reversibles, no al costo perm
 - `docs/STORED_PROGRAM_RUNTIME_INTEGRATION.md`
 - `docs/STORED_PROGRAM_RUNTIME_INTEGRATION_RESULTS.md`
 - `docs/COMPILED_MEMORY_PROFILE_V1.md`
+- `docs/COMPILED_MEMORY_PROFILE_RESULTS.md`
 - `docs/POC_VALIDATION_RESULTS.md`
 - `docs/POC5_FRAM_PHYSICAL_RESULTS.md`
 - `docs/POC6_FRAM_PERSISTENT_RESULTS.md`
