@@ -50,7 +50,7 @@ solicitar mantenimiento, reinstalación o recuperación explícita
 
 ## Inspector no destructivo
 
-Se añadió:
+API de bajo nivel:
 
 ```cpp
 LogicSuperblockInspection inspection =
@@ -76,7 +76,7 @@ El inspector:
 - no escribe ni repara la FRAM;
 - no activa programas.
 
-## Validación preparada
+## Validación del inspector
 
 Ejemplo:
 
@@ -84,20 +84,70 @@ Ejemplo:
 JWPLC_LogicRuntime_Storage_Metadata_Diagnostic
 ```
 
+Primera validación física:
+
+```text
+Resultado: 36 PASS, 0 FAIL
+DIAGNOSTICO DE METADATA: PASS
+```
+
+Quedó confirmado:
+
+```text
+sin evidencia JWPLC            -> UNFORMATTED
+una o dos copias válidas        -> VALID
+ambas copias reconocibles malas -> CORRUPT_METADATA
+```
+
+## Integración pública
+
+`CORRUPT_METADATA` se añadió al final de los enums para conservar los valores numéricos existentes:
+
+```cpp
+JWPLCLogicStorageError::CorruptMetadata
+JWPLCLogicStorageBootState::CorruptMetadata
+```
+
+La fachada expone además:
+
+```cpp
+runtime.storage().metadataHealth();
+```
+
+Después de `storage().begin(JWPLC_FRAM)`, la política queda así:
+
+```text
+metadataHealth() = UNFORMATTED
+prepareBoot()    = UNFORMATTED
+
+metadataHealth() = CORRUPT_METADATA
+prepareBoot()    = CORRUPT_METADATA
+lastError()      = CORRUPT_METADATA
+```
+
+`runtime.prepareStoredProgram()` propaga el mismo estado y descarga cualquier programa previo.
+
+Las operaciones `save()`, `loadActive()` y `rollback()` también rechazan metadata corrupta con diagnóstico explícito. `format()` continúa disponible únicamente como acción deliberada del usuario.
+
+## Validación pública preparada
+
+El mismo ejemplo fue actualizado para validar la integración completa.
+
 Flujo:
 
-1. confirmar que la FRAM original se clasifica `UNFORMATTED`;
+1. confirmar `UNFORMATTED` en la FRAM original;
 2. respaldar los 5184 bytes del gestor A/B en NVS;
-3. formatear y guardar Programa A y Programa B;
-4. comprobar `VALID` con ambas copias íntegras;
-5. corromper la copia más reciente y comprobar `VALID` mediante la redundante;
-6. restaurar la metadata;
-7. corromper ambas copias;
-8. comprobar `CORRUPT_METADATA`;
-9. confirmar que la API pública actual continúa en estado seguro sin programa arrancable;
-10. restaurar exactamente la metadata y los 5184 bytes originales.
+3. formatear explícitamente y confirmar `VALID` + `EMPTY`;
+4. corromper ambos CRC de superblock;
+5. reabrir la fachada;
+6. comprobar `metadataHealth() == CORRUPT_METADATA`;
+7. comprobar `prepareBoot() == CORRUPT_METADATA`;
+8. comprobar nombres públicos de estado y error;
+9. comprobar propagación mediante `runtime.prepareStoredProgram()`;
+10. comprobar que las evaluaciones no escriben los superblocks;
+11. restaurar exactamente los 5184 bytes originales.
 
-La fase destructiva reversible requiere escribir:
+La fase reversible requiere escribir:
 
 ```text
 METADATA
@@ -106,26 +156,16 @@ METADATA
 Resultado esperado:
 
 ```text
-Resultado: 36 PASS, 0 FAIL
-DIAGNOSTICO DE METADATA: PASS
+Resultado: 34 PASS, 0 FAIL
+DIAGNOSTICO PUBLICO DE METADATA: PASS
 ```
 
-La prueba no inicializa E/S ni conmuta salidas.
+La prueba no llama a `runtime.begin()`, no inicializa E/S y no conmuta salidas.
 
-## Integración posterior
+## Reglas vigentes
 
-Después del PASS, `CORRUPT_METADATA` se conectará a:
-
-```text
-JWPLCLogicStorageBootState
-runtime.storage().prepareBoot()
-runtime.prepareStoredProgram()
-bootStateName()
-```
-
-Se conservarán estas reglas:
-
-- `begin()` seguirá siendo no destructivo;
-- `start()` seguirá siendo explícito;
-- no habrá reparación automática durante el arranque;
-- la incorporación del nuevo estado se hará al final del enum para no cambiar los valores numéricos existentes.
+- `begin()` continúa siendo no destructivo;
+- `start()` continúa siendo explícito;
+- no existe reparación automática durante el arranque;
+- no se intenta interpretar o ejecutar slots sin metadata válida;
+- el formateo después de `CORRUPT_METADATA` requiere una orden explícita.

@@ -13,7 +13,8 @@ JWPLCLogicStorage::JWPLCLogicStorage()
       _hasLoadedProgram(false),
       _lastError(JWPLCLogicStorageError::None),
       _validationError(LogicValidationError::None),
-      _bootState(JWPLCLogicStorageBootState::NotEvaluated)
+      _bootState(JWPLCLogicStorageBootState::NotEvaluated),
+      _metadataHealth(LogicSuperblockHealth::Unknown)
 {
 }
 
@@ -34,6 +35,7 @@ bool JWPLCLogicStorage::begin(JW_FRAM &fram)
   clearLoadedProgram();
   resetBootState();
   _validationError = LogicValidationError::None;
+  _metadataHealth = LogicSuperblockHealth::Unknown;
 
   const uint32_t physicalBytes = static_cast<uint32_t>(fram.size());
   _profile = &JWPLCLogicStorageProfiles::forCapacity(physicalBytes);
@@ -47,6 +49,17 @@ bool JWPLCLogicStorage::begin(JW_FRAM &fram)
   }
 
   if (!_backend.begin(fram, 0, _profile->framBytes))
+  {
+    _bootState = JWPLCLogicStorageBootState::NotReady;
+    _lastError = JWPLCLogicStorageError::BackendInitializationFailed;
+    return false;
+  }
+
+  const LogicSuperblockInspection inspection =
+      LogicSuperblockInspector::inspect(_backend);
+  _metadataHealth = inspection.health;
+
+  if (_metadataHealth == LogicSuperblockHealth::ReadFailed)
   {
     _bootState = JWPLCLogicStorageBootState::NotReady;
     _lastError = JWPLCLogicStorageError::BackendInitializationFailed;
@@ -93,6 +106,7 @@ bool JWPLCLogicStorage::format()
 
   clearLoadedProgram();
   _validationError = LogicValidationError::None;
+  _metadataHealth = LogicSuperblockHealth::Valid;
   _bootState = JWPLCLogicStorageBootState::Empty;
   _lastError = JWPLCLogicStorageError::None;
   return true;
@@ -114,8 +128,14 @@ bool JWPLCLogicStorage::save(const LogicProgram &program,
 
   if (!_store.isFormatted())
   {
-    _bootState = JWPLCLogicStorageBootState::Unformatted;
-    _lastError = JWPLCLogicStorageError::Unformatted;
+    const bool corrupt =
+        _metadataHealth == LogicSuperblockHealth::CorruptMetadata;
+    _bootState = corrupt
+                     ? JWPLCLogicStorageBootState::CorruptMetadata
+                     : JWPLCLogicStorageBootState::Unformatted;
+    _lastError = corrupt
+                     ? JWPLCLogicStorageError::CorruptMetadata
+                     : JWPLCLogicStorageError::Unformatted;
     return false;
   }
 
@@ -151,6 +171,7 @@ bool JWPLCLogicStorage::save(const LogicProgram &program,
   }
 
   clearLoadedProgram();
+  _metadataHealth = LogicSuperblockHealth::Valid;
   resetBootState();
   _lastError = JWPLCLogicStorageError::None;
   return true;
@@ -170,8 +191,14 @@ bool JWPLCLogicStorage::loadActive()
 
   if (!_store.isFormatted())
   {
-    _bootState = JWPLCLogicStorageBootState::Unformatted;
-    _lastError = JWPLCLogicStorageError::Unformatted;
+    const bool corrupt =
+        _metadataHealth == LogicSuperblockHealth::CorruptMetadata;
+    _bootState = corrupt
+                     ? JWPLCLogicStorageBootState::CorruptMetadata
+                     : JWPLCLogicStorageBootState::Unformatted;
+    _lastError = corrupt
+                     ? JWPLCLogicStorageError::CorruptMetadata
+                     : JWPLCLogicStorageError::Unformatted;
     return false;
   }
 
@@ -216,6 +243,14 @@ JWPLCLogicStorageBootState JWPLCLogicStorage::prepareBoot()
     clearLoadedProgram();
     _bootState = JWPLCLogicStorageBootState::NotReady;
     _lastError = JWPLCLogicStorageError::NotReady;
+    return _bootState;
+  }
+
+  if (_metadataHealth == LogicSuperblockHealth::CorruptMetadata)
+  {
+    clearLoadedProgram();
+    _bootState = JWPLCLogicStorageBootState::CorruptMetadata;
+    _lastError = JWPLCLogicStorageError::CorruptMetadata;
     return _bootState;
   }
 
@@ -266,8 +301,14 @@ bool JWPLCLogicStorage::rollback()
 
   if (!_store.isFormatted())
   {
-    _bootState = JWPLCLogicStorageBootState::Unformatted;
-    _lastError = JWPLCLogicStorageError::Unformatted;
+    const bool corrupt =
+        _metadataHealth == LogicSuperblockHealth::CorruptMetadata;
+    _bootState = corrupt
+                     ? JWPLCLogicStorageBootState::CorruptMetadata
+                     : JWPLCLogicStorageBootState::Unformatted;
+    _lastError = corrupt
+                     ? JWPLCLogicStorageError::CorruptMetadata
+                     : JWPLCLogicStorageError::Unformatted;
     return false;
   }
 
@@ -313,6 +354,7 @@ bool JWPLCLogicStorage::rollback()
   }
 
   _hasLoadedProgram = true;
+  _metadataHealth = LogicSuperblockHealth::Valid;
   _bootState = JWPLCLogicStorageBootState::ActiveProgramLoaded;
   _lastError = JWPLCLogicStorageError::None;
   return true;
@@ -347,6 +389,11 @@ const LogicStorageProfile &JWPLCLogicStorage::profile() const
 const LogicStorageLayout &JWPLCLogicStorage::layout() const
 {
   return *_layout;
+}
+
+LogicSuperblockHealth JWPLCLogicStorage::metadataHealth() const
+{
+  return _metadataHealth;
 }
 
 JWPLCLogicStorageError JWPLCLogicStorage::lastError() const
@@ -392,6 +439,8 @@ const char *JWPLCLogicStorage::errorName(JWPLCLogicStorageError error)
     return "ROLLBACK_UNAVAILABLE";
   case JWPLCLogicStorageError::RollbackFailed:
     return "ROLLBACK_FAILED";
+  case JWPLCLogicStorageError::CorruptMetadata:
+    return "CORRUPT_METADATA";
   default:
     return "UNKNOWN";
   }
@@ -418,6 +467,8 @@ const char *JWPLCLogicStorage::bootStateName(
     return "NO_VALID_PROGRAM";
   case JWPLCLogicStorageBootState::InvalidProgram:
     return "INVALID_PROGRAM";
+  case JWPLCLogicStorageBootState::CorruptMetadata:
+    return "CORRUPT_METADATA";
   default:
     return "UNKNOWN";
   }
