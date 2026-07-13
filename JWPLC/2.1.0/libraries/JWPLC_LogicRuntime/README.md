@@ -127,8 +127,11 @@ La capacidad física del formato y la RAM reservada por el build están separada
 Build predeterminado actual:
 
 ```text
-JWPLC_LOGIC_COMPILED_MAX_BLOCKS = 100
+JWPLC_LOGIC_COMPILED_MAX_BLOCKS_CONFIG = 100
+JWPLC_LOGIC_COMPILED_MAX_BLOCKS == 100
 ```
+
+La primera es la macro de configuración interna; la segunda sigue siendo la constante pública usada por el código existente.
 
 | Perfil físico | Capacidad física | Límite efectivo actual |
 |---|---:|---:|
@@ -138,7 +141,7 @@ JWPLC_LOGIC_COMPILED_MAX_BLOCKS = 100
 El hardware futuro de 32 KiB podrá compilar explícitamente con:
 
 ```text
--DJWPLC_LOGIC_COMPILED_MAX_BLOCKS=400
+-DJWPLC_LOGIC_COMPILED_MAX_BLOCKS_CONFIG=400
 ```
 
 En ese build, el perfil de 32 KiB tendrá un límite efectivo de 400 y el perfil de 8 KiB seguirá limitado a 100.
