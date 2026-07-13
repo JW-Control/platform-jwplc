@@ -8,15 +8,14 @@ Resultado: 48 PASS, 0 FAIL
 INTEGRACION RUNTIME PERSISTENTE: PASS
 ```
 
-Compilación física:
+La integración se validó dos veces con el mismo ejemplo:
 
-```text
-Flash:       440717 bytes / 3145728 bytes (14 %)
-RAM global:   51108 bytes / 327680 bytes (15 %)
-RAM restante: 276572 bytes
-```
+1. build inicial compilado para 400 bloques;
+2. build optimizado compilado para 100 bloques.
 
-Hardware:
+Ambas ejecuciones terminaron con `48 PASS, 0 FAIL`.
+
+## Hardware
 
 ```text
 JWPLC Basic
@@ -55,27 +54,49 @@ Región reversible: 0x0000..0x143F
 - `storage().save()` puede reutilizar sus buffers sin invalidar el programa cargado.
 - Los programas de prueba no incluyeron bloques `DigitalOutput`; Q0 permaneció apagado.
 - La restauración reversible recuperó byte por byte el contenido original.
+- La reducción del build a 100 bloques no introdujo regresiones funcionales.
 
-## Impacto de memoria medido
+## Comparación directa de memoria
 
-Frente a la prueba de política de arranque, que usó el mismo respaldo reversible:
-
-```text
-RAM antes de copia profunda: 46276 bytes
-RAM con copia profunda:      51108 bytes
-Diferencia:                   4832 bytes
-```
-
-La diferencia coincide con el almacenamiento interno adicional del programa compilado para 400 bloques. Esta medición justifica separar:
+### Build de 400 bloques
 
 ```text
-capacidad física del formato
-≠
-límite compilado en RAM
+Flash:       440717 bytes / 3145728 bytes (14 %)
+RAM global:   51108 bytes / 327680 bytes (15 %)
+RAM restante: 276572 bytes
 ```
 
-Para el JWPLC Basic actual con FRAM de 8 KiB, el siguiente paso es validar un perfil compilado predeterminado de 100 bloques. La capacidad futura de 400 bloques se conservará mediante una configuración de compilación explícita para hardware de 32 KiB.
+### Build de 100 bloques
+
+```text
+Flash:       440689 bytes / 3145728 bytes (14 %)
+RAM global:   37908 bytes / 327680 bytes (11 %)
+RAM restante: 289772 bytes
+```
+
+### Diferencia con el mismo sketch
+
+```text
+Flash:          -28 bytes
+RAM global:  -13200 bytes
+RAM libre:   +13200 bytes
+```
+
+El ahorro de 13200 bytes coincide exactamente con reducir de 400 a 100 bloques cuatro reservas internas:
+
+```text
+Copia de definiciones del motor: 300 × 12 B = 3600 B
+Estados temporales del motor:    300 ×  8 B = 2400 B
+Buffer reconstruido de storage:  300 × 12 B = 3600 B
+Scratch del codec:               300 × 12 B = 3600 B
+                                             --------
+Total:                                       13200 B
+```
+
+El cambio reduce aproximadamente 25.8 % la RAM global usada por este sketch de integración, sin alterar su comportamiento.
 
 ## Conclusión
 
-El flujo de producción queda validado desde FRAM hasta el motor en RAM, incluyendo clasificación de arranque, copia profunda, fallback, descarga segura y restauración exacta. La siguiente tarea es reducir el costo fijo de RAM del build actual sin cambiar el formato binario ni el mapa persistente v1.
+El flujo de producción queda validado desde FRAM hasta el motor en RAM, incluyendo clasificación de arranque, copia profunda, fallback, descarga segura y restauración exacta.
+
+El perfil compilado predeterminado de 100 bloques queda confirmado como la decisión correcta para el JWPLC Basic actual con FRAM de 8 KiB. La capacidad futura de 400 bloques permanece disponible mediante una configuración de compilación explícita para hardware de 32 KiB.
