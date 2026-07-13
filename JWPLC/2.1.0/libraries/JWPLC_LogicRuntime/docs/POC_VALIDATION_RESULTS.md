@@ -2,7 +2,7 @@
 
 **Rama:** `feature/logic-runtime-poc`  
 **Hardware:** JWPLC Basic  
-**Estado:** PoC 0 a PoC 5 validados; PoC 6 preparada para prueba entre reinicios reales.
+**Estado:** PoC 0 a PoC 6 validados; PoC 7 preparada para arranque y ejecución desde FRAM.
 
 ## Resumen
 
@@ -16,7 +16,8 @@
 | 3 | Codec binario versionado | 14 PASS, 0 FAIL |
 | 4 | Almacenamiento A/B simulado en RAM | 19 PASS, 0 FAIL |
 | 5 | Backend A/B sobre FRAM física | 22 PASS, 0 FAIL |
-| 6 | Persistencia entre reinicios reales | Pendiente de ejecución |
+| 6 | Persistencia entre reinicios reales | PASS |
+| 7 | Carga desde FRAM y ejecución física | Preparada |
 
 ## PoC 0 — estructura inicial
 
@@ -127,8 +128,6 @@ Los `5 us` corresponden a `runtime.tick()`. El ejemplo mantiene `delay(1)` y las
 
 ## PoC 3 — codec binario
 
-Formato:
-
 ```text
 Cabecera: 64 bytes
 Bloque:   12 bytes
@@ -152,8 +151,6 @@ El perfil inicial dispone de 2560 bytes por slot; una imagen de 100 bloques ocup
 
 ## PoC 4 — almacenamiento A/B simulado
 
-Resultado:
-
 ```text
 19 PASS, 0 FAIL
 ALMACENAMIENTO A/B SIMULADO: PASS
@@ -174,8 +171,6 @@ Validado:
 - activación de Programa B únicamente con transacción completa.
 
 ## PoC 5 — backend FRAM físico
-
-Ventana utilizada:
 
 ```text
 FRAM detectada:   8192 bytes
@@ -207,28 +202,70 @@ Documento detallado:
 
 ## PoC 6 — persistencia entre reinicios reales
 
-Preparada en:
+Flujo ejecutado:
 
 ```text
-examples/JWPLC_LogicRuntime_FRAM_Persistent/
+Etapa 1: respaldar, formatear y guardar Programa A
+Etapa 2: reiniciar, cargar A y guardar Programa B
+Etapa 3: reiniciar, cargar B y restaurar la ventana
 ```
 
-Flujo:
+Resultado:
 
-1. respaldar la ventana FRAM en NVS;
-2. guardar Programa A;
-3. reiniciar físicamente;
-4. cargar A y guardar B;
-5. reiniciar físicamente otra vez;
-6. cargar B;
-7. restaurar la ventana original;
-8. eliminar el respaldo temporal de NVS.
+```text
+[PASS] Programa A persistido y validado.
+[PASS] Programa A cargado despues del reinicio.
+[PASS] Programa B persistido en el slot inactivo.
+[PASS] Programa B cargado despues del reinicio.
+[PASS] Contenido original de FRAM restaurado exactamente.
+[PASS] Estado temporal NVS eliminado.
 
-La prueba conserva una etapa persistente y puede reanudar operaciones críticas tras una interrupción.
+PERSISTENCIA ENTRE REINICIOS: PASS
+PoC 6 completada.
+```
+
+Conclusión:
+
+- A y B sobreviven reinicios completos del ESP32;
+- el gestor reconstruye el programa activo desde FRAM;
+- la ventana original y su CRC se recuperan exactamente;
+- la FRAM actual de 8 KiB permite avanzar sin esperar la variante de 32 KiB.
 
 Documento detallado:
 
-- `docs/POC6_FRAM_PERSISTENT_TEST.md`
+- `docs/POC6_FRAM_PERSISTENT_RESULTS.md`
+
+## PoC 7 — arranque y ejecución desde FRAM
+
+Preparada en:
+
+```text
+examples/JWPLC_LogicRuntime_FRAM_Boot/
+```
+
+Objetivo:
+
+1. respaldar la ventana temporal;
+2. instalar el programa binario en FRAM;
+3. reiniciar físicamente;
+4. cargar y validar el programa activo;
+5. reconstruirlo en RAM;
+6. entregarlo a `JWPLC_LogicRuntime`;
+7. ejecutar la lógica física;
+8. detener el runtime y apagar salidas;
+9. restaurar la ventana original.
+
+Programa:
+
+```text
+I0_0 AND NOT I0_1 -> TON 2 s -> Q0_0
+```
+
+El ejemplo recupera automáticamente una instalación o restauración interrumpida.
+
+Documento detallado:
+
+- `docs/POC7_FRAM_BOOT_RUNTIME_TEST.md`
 
 ## Decisiones vigentes
 
@@ -239,3 +276,4 @@ Documento detallado:
 - El gestor usa dos slots y nunca sobrescribe directamente el programa activo.
 - La FRAM de 32 KiB ampliará límites y perfiles; no requerirá otro motor.
 - El proyecto editable completo no pertenece a la imagen ejecutable.
+- El mapa definitivo de producción aún no está congelado.
