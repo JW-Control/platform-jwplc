@@ -251,10 +251,10 @@ bool LogicProgramStore::loadActive(LogicProgramBuffer &destination,
 
   if (_status.activeSlot <= 1)
   {
-    if (loadSlot(_status.activeSlot,
-                 destination,
-                 scratch,
-                 scratchCapacity))
+    if (loadSlotInternal(_status.activeSlot,
+                         destination,
+                         scratch,
+                         scratchCapacity))
     {
       _status.lastLoadedSlot = _status.activeSlot;
       _lastError = LogicProgramStoreError::None;
@@ -262,10 +262,10 @@ bool LogicProgramStore::loadActive(LogicProgramBuffer &destination,
     }
 
     const uint8_t fallbackSlot = _status.activeSlot == 0 ? 1 : 0;
-    if (loadSlot(fallbackSlot,
-                 destination,
-                 scratch,
-                 scratchCapacity))
+    if (loadSlotInternal(fallbackSlot,
+                         destination,
+                         scratch,
+                         scratchCapacity))
     {
       _status.lastLoadedSlot = fallbackSlot;
       _lastError = LogicProgramStoreError::None;
@@ -278,10 +278,101 @@ bool LogicProgramStore::loadActive(LogicProgramBuffer &destination,
   return false;
 }
 
-bool LogicProgramStore::loadSlot(uint8_t slotIndex,
-                                 LogicProgramBuffer &destination,
-                                 uint8_t *scratch,
-                                 size_t scratchCapacity)
+bool LogicProgramStore::loadVerifiedSlot(uint8_t slotIndex,
+                                         LogicProgramBuffer &destination,
+                                         uint8_t *scratch,
+                                         size_t scratchCapacity)
+{
+  if (_storage == nullptr || _profile == nullptr || scratch == nullptr)
+  {
+    _lastError = LogicProgramStoreError::NullArgument;
+    return false;
+  }
+
+  if (!_status.formatted)
+  {
+    _lastError = LogicProgramStoreError::Unformatted;
+    return false;
+  }
+
+  if (slotIndex > 1 ||
+      !loadSlotInternal(slotIndex,
+                        destination,
+                        scratch,
+                        scratchCapacity))
+  {
+    _status.lastLoadedSlot = JWPLC_LOGIC_INVALID_SLOT;
+    _lastError = LogicProgramStoreError::NoAlternateProgram;
+    return false;
+  }
+
+  _status.lastLoadedSlot = slotIndex;
+  _lastError = LogicProgramStoreError::None;
+  return true;
+}
+
+bool LogicProgramStore::activateVerifiedSlot(uint8_t slotIndex)
+{
+  if (_storage == nullptr || _profile == nullptr)
+  {
+    _lastError = LogicProgramStoreError::NullArgument;
+    return false;
+  }
+
+  if (!_status.formatted)
+  {
+    _lastError = LogicProgramStoreError::Unformatted;
+    return false;
+  }
+
+  if (slotIndex > 1 ||
+      slotIndex == _status.activeSlot ||
+      _status.lastLoadedSlot != slotIndex)
+  {
+    _lastError = LogicProgramStoreError::NoAlternateProgram;
+    return false;
+  }
+
+  SlotDescriptorData descriptor = {};
+  if (!readSlotDescriptor(slotIndex, descriptor) ||
+      descriptor.state != LogicProgramSlotState::Verified ||
+      descriptor.slotIndex != slotIndex ||
+      descriptor.imageLength == 0 ||
+      descriptor.imageLength > slotPayloadCapacity())
+  {
+    _lastError = LogicProgramStoreError::NoAlternateProgram;
+    return false;
+  }
+
+  const uint8_t nextSuperblockCopy =
+      _status.superblockCopy == 0 ? 1 : 0;
+  const SuperblockData nextSuperblock = {
+      _status.sequence + 1U,
+      slotIndex,
+      descriptor.programId,
+      descriptor.generation};
+
+  if (!writeSuperblock(nextSuperblockCopy, nextSuperblock))
+  {
+    _lastError = LogicProgramStoreError::WriteFailed;
+    return false;
+  }
+
+  _status.formatted = true;
+  _status.activeSlot = slotIndex;
+  _status.superblockCopy = nextSuperblockCopy;
+  _status.lastLoadedSlot = slotIndex;
+  _status.sequence = nextSuperblock.sequence;
+  _status.programId = descriptor.programId;
+  _status.generation = descriptor.generation;
+  _lastError = LogicProgramStoreError::None;
+  return true;
+}
+
+bool LogicProgramStore::loadSlotInternal(uint8_t slotIndex,
+                                         LogicProgramBuffer &destination,
+                                         uint8_t *scratch,
+                                         size_t scratchCapacity)
 {
   SlotDescriptorData descriptor = {};
   if (!readSlotDescriptor(slotIndex, descriptor))
@@ -584,6 +675,8 @@ const char *LogicProgramStore::errorName(LogicProgramStoreError error)
     return "IMAGE_CRC_MISMATCH";
   case LogicProgramStoreError::NoValidProgram:
     return "NO_VALID_PROGRAM";
+  case LogicProgramStoreError::NoAlternateProgram:
+    return "NO_ALTERNATE_PROGRAM";
   default:
     return "UNKNOWN";
   }
