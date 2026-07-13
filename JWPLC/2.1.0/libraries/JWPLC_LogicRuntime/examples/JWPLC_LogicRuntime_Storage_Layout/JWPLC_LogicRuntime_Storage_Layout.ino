@@ -30,7 +30,9 @@ static void printRegion(const char *name, const LogicStorageRegion &region)
   Serial.println(" bytes)");
 }
 
-static void printLayout(const char *name, const LogicStorageLayout &layout)
+static void printLayout(const char *name,
+                        const LogicStorageLayout &layout,
+                        uint16_t physicalMaxBlocks)
 {
   Serial.println();
   Serial.println(name);
@@ -45,8 +47,12 @@ static void printLayout(const char *name, const LogicStorageLayout &layout)
   Serial.print("Capacidad util por slot: ");
   Serial.print(layout.slotPayloadBytes());
   Serial.println(" bytes");
-  Serial.print("Limite de bloques: ");
-  Serial.println(layout.maxBlocks);
+  Serial.print("Capacidad fisica del formato: ");
+  Serial.print(physicalMaxBlocks);
+  Serial.println(" bloques");
+  Serial.print("Limite efectivo del build: ");
+  Serial.print(layout.maxBlocks);
+  Serial.println(" bloques");
 }
 
 void setup()
@@ -61,8 +67,12 @@ void setup()
   const LogicStorageLayout &layout8 = JWPLCLogicStorageLayouts::FRAM_8K;
   const LogicStorageLayout &layout32 = JWPLCLogicStorageLayouts::FRAM_32K;
 
-  printLayout("Perfil FRAM 8 KiB", layout8);
-  printLayout("Perfil FRAM 32 KiB", layout32);
+  printLayout("Perfil FRAM 8 KiB",
+              layout8,
+              JWPLCLogicStorageProfiles::FRAM_8K_PHYSICAL_MAX_BLOCKS);
+  printLayout("Perfil FRAM 32 KiB",
+              layout32,
+              JWPLCLogicStorageProfiles::FRAM_32K_PHYSICAL_MAX_BLOCKS);
 
   Serial.println();
   expect("mapa de 8 KiB valido", layout8.isValid());
