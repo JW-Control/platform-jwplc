@@ -14,6 +14,7 @@ public:
 
   void attachIO(JWPLCLogicIO &io);
   bool loadProgram(const LogicProgram &program, uint16_t maxBlocks);
+  void unloadProgram();
   void resetStates();
   bool scan(uint32_t nowMs);
 
@@ -27,12 +28,11 @@ private:
 
   JWPLCLogicIO *_io;
 
-  // El descriptor se copia por valor. Esto permite cargar descriptores
-  // temporales, por ejemplo LogicProgramBuffer::asProgram(), sin conservar
-  // un puntero colgante al objeto LogicProgram temporal.
-  //
-  // Los punteros name y blocks siguen apuntando al almacenamiento externo,
-  // por lo que ese buffer debe vivir mientras el motor use el programa.
+  // El motor conserva una copia profunda de nombre y bloques. Así el programa
+  // puede provenir de un descriptor temporal o de un buffer de almacenamiento
+  // que luego sea reutilizado sin dejar punteros colgantes durante el scan.
+  char _programName[JWPLC_LOGIC_PROGRAM_NAME_BYTES + 1];
+  LogicBlockDefinition _programBlocks[JWPLC_LOGIC_COMPILED_MAX_BLOCKS];
   LogicProgram _program;
   bool _hasProgram;
 
