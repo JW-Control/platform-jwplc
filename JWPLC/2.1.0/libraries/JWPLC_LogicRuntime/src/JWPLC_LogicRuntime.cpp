@@ -164,6 +164,11 @@ const LogicStorageProfile &JWPLC_LogicRuntime::storageProfile() const
   return *_storageProfile;
 }
 
+const LogicStorageLayout &JWPLC_LogicRuntime::storageLayout() const
+{
+  return JWPLCLogicStorageLayouts::forCapacity(_storageProfile->framBytes);
+}
+
 bool JWPLC_LogicRuntime::blockValue(uint16_t index) const
 {
   return _engine.blockValue(index);
