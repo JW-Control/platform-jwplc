@@ -2,7 +2,8 @@
 
 LogicEngine::LogicEngine()
     : _io(nullptr),
-      _program(nullptr),
+      _program{nullptr, nullptr, 0},
+      _hasProgram(false),
       _states{},
       _validationError(LogicValidationError::None)
 {
@@ -17,7 +18,8 @@ bool LogicEngine::loadProgram(const LogicProgram &program, uint16_t maxBlocks)
 {
   if (_io == nullptr)
   {
-    _program = nullptr;
+    _program = {nullptr, nullptr, 0};
+    _hasProgram = false;
     _validationError = LogicValidationError::NullProgram;
     return false;
   }
@@ -29,12 +31,18 @@ bool LogicEngine::loadProgram(const LogicProgram &program, uint16_t maxBlocks)
 
   if (_validationError != LogicValidationError::None)
   {
-    _program = nullptr;
+    _program = {nullptr, nullptr, 0};
+    _hasProgram = false;
     _io->allOutputsOff();
     return false;
   }
 
-  _program = &program;
+  // Copia el descriptor por valor para no depender de la vida del objeto
+  // LogicProgram pasado por el llamador. Los buffers name/blocks deben seguir
+  // vivos mientras el motor ejecute el programa.
+  _program = program;
+  _hasProgram = true;
+
   resetStates();
   _io->allOutputsOff();
   return true;
@@ -52,7 +60,7 @@ void LogicEngine::resetStates()
 
 bool LogicEngine::sourceValue(uint16_t source) const
 {
-  if (_program == nullptr || source >= _program->blockCount)
+  if (!_hasProgram || source >= _program.blockCount)
   {
     return false;
   }
@@ -62,7 +70,7 @@ bool LogicEngine::sourceValue(uint16_t source) const
 
 bool LogicEngine::scan(uint32_t nowMs)
 {
-  if (_io == nullptr || _program == nullptr)
+  if (_io == nullptr || !_hasProgram || _program.blocks == nullptr)
   {
     return false;
   }
@@ -70,9 +78,9 @@ bool LogicEngine::scan(uint32_t nowMs)
   _io->scanInputs();
   _io->beginOutputScan();
 
-  for (uint16_t index = 0; index < _program->blockCount; ++index)
+  for (uint16_t index = 0; index < _program.blockCount; ++index)
   {
-    const LogicBlockDefinition &block = _program->blocks[index];
+    const LogicBlockDefinition &block = _program.blocks[index];
     LogicBlockState &state = _states[index];
 
     switch (block.type)
@@ -147,9 +155,9 @@ bool LogicEngine::scan(uint32_t nowMs)
     }
   }
 
-  for (uint16_t index = 0; index < _program->blockCount; ++index)
+  for (uint16_t index = 0; index < _program.blockCount; ++index)
   {
-    const LogicBlockDefinition &block = _program->blocks[index];
+    const LogicBlockDefinition &block = _program.blocks[index];
     if (block.type == LogicBlockType::DigitalOutput)
     {
       if (!_io->setDigitalOutput(static_cast<uint8_t>(block.resource),
@@ -167,12 +175,12 @@ bool LogicEngine::scan(uint32_t nowMs)
 
 bool LogicEngine::hasProgram() const
 {
-  return _program != nullptr;
+  return _hasProgram;
 }
 
 bool LogicEngine::blockValue(uint16_t index) const
 {
-  if (_program == nullptr || index >= _program->blockCount)
+  if (!_hasProgram || index >= _program.blockCount)
   {
     return false;
   }
@@ -182,7 +190,7 @@ bool LogicEngine::blockValue(uint16_t index) const
 
 const LogicProgram *LogicEngine::program() const
 {
-  return _program;
+  return _hasProgram ? &_program : nullptr;
 }
 
 LogicValidationError LogicEngine::validationError() const
