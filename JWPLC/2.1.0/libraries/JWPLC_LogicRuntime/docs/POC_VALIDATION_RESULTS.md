@@ -2,7 +2,7 @@
 
 **Rama:** `feature/logic-runtime-poc`  
 **Hardware:** JWPLC Basic  
-**Estado:** PoC 0 a PoC 6 validados; PoC 7 preparada para arranque y ejecución desde FRAM.
+**Estado:** PoC 0 a PoC 6 validados; PoC 7 valida carga, ejecución estable y restauración desde FRAM. Pendiente registrar una transición física de entradas/salida para su cierre funcional completo.
 
 ## Resumen
 
@@ -17,7 +17,7 @@
 | 4 | Almacenamiento A/B simulado en RAM | 19 PASS, 0 FAIL |
 | 5 | Backend A/B sobre FRAM física | 22 PASS, 0 FAIL |
 | 6 | Persistencia entre reinicios reales | PASS |
-| 7 | Carga desde FRAM y ejecución física | Preparada |
+| 7 | Carga desde FRAM y ejecución física | PASS técnico; transición física pendiente |
 
 ## PoC 0 — estructura inicial
 
@@ -237,31 +237,61 @@ Documento detallado:
 
 ## PoC 7 — arranque y ejecución desde FRAM
 
-Preparada en:
-
-```text
-examples/JWPLC_LogicRuntime_FRAM_Boot/
-```
-
-Objetivo:
-
-1. respaldar la ventana temporal;
-2. instalar el programa binario en FRAM;
-3. reiniciar físicamente;
-4. cargar y validar el programa activo;
-5. reconstruirlo en RAM;
-6. entregarlo a `JWPLC_LogicRuntime`;
-7. ejecutar la lógica física;
-8. detener el runtime y apagar salidas;
-9. restaurar la ventana original.
-
 Programa:
 
 ```text
 I0_0 AND NOT I0_1 -> TON 2 s -> Q0_0
 ```
 
-El ejemplo recupera automáticamente una instalación o restauración interrumpida.
+Primera ejecución:
+
+- instalación en FRAM: PASS;
+- carga y validación desde FRAM: PASS;
+- primer `tick()`: `PROGRAM_EXECUTION_FAILED`.
+
+Causa y corrección:
+
+- `LogicEngine` conservaba un puntero a un descriptor `LogicProgram` temporal;
+- el descriptor se copia ahora por valor dentro del motor;
+- los buffers `name` y `blocks` permanecen en `LogicProgramBuffer` durante la ejecución.
+
+Resultado posterior a la corrección, reutilizando el mismo programa persistido:
+
+```text
+[PASS] Programa cargado desde FRAM hacia RAM.
+[PASS] Runtime iniciado con el programa persistente.
+
+I0_0=0 I0_1=0 AND=0 TON=0 Q0_0=0
+scan mínimo:   4 us
+scan promedio: 5 us
+scan máximo:   425 us
+escrituras Q0: 2 y estable
+```
+
+La ejecución permaneció estable durante aproximadamente un minuto y terminó con:
+
+```text
+Runtime detenido. Q0 apagadas.
+[PASS] Contenido original de FRAM restaurado exactamente.
+[PASS] Estado temporal NVS eliminado.
+
+ARRANQUE Y EJECUCION DESDE FRAM: PASS
+PoC 7 completada.
+```
+
+Validado:
+
+- instalación y recuperación del programa persistente;
+- reconstrucción en RAM;
+- transferencia segura del programa al motor;
+- ejecución estable del scan;
+- parada segura;
+- restauración exacta de FRAM y limpieza de NVS.
+
+Pendiente para cierre funcional completo:
+
+- registrar `I0_0=1`, `I0_1=0`, `TON=1` y `Q0_0=1`;
+- registrar el apagado al activar `I0_1`.
 
 Documento detallado:
 
