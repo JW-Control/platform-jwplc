@@ -96,6 +96,17 @@ bool LogicEngine::sourceValue(uint16_t source) const
   return _states[source].value;
 }
 
+bool LogicEngine::isRetentiveSetReset(uint16_t index) const
+{
+  if (!_hasProgram || index >= _program.blockCount)
+  {
+    return false;
+  }
+
+  const LogicBlockDefinition &block = _program.blocks[index];
+  return block.type == LogicBlockType::SetReset && block.isRetentive();
+}
+
 bool LogicEngine::scan(uint32_t nowMs)
 {
   if (_io == nullptr || !_hasProgram || _program.blocks == nullptr)
@@ -214,6 +225,105 @@ bool LogicEngine::blockValue(uint16_t index) const
   }
 
   return _states[index].value;
+}
+
+size_t LogicEngine::retentiveStateBytes() const
+{
+  if (!_hasProgram)
+  {
+    return 0;
+  }
+
+  return (static_cast<size_t>(_program.blockCount) + 7U) / 8U;
+}
+
+uint16_t LogicEngine::retentiveBlockCount() const
+{
+  if (!_hasProgram)
+  {
+    return 0;
+  }
+
+  uint16_t count = 0;
+  for (uint16_t index = 0; index < _program.blockCount; ++index)
+  {
+    if (isRetentiveSetReset(index))
+    {
+      ++count;
+    }
+  }
+
+  return count;
+}
+
+bool LogicEngine::exportRetentiveState(uint8_t *destination,
+                                       size_t destinationCapacity) const
+{
+  const size_t requiredBytes = retentiveStateBytes();
+  if (!_hasProgram || destination == nullptr ||
+      destinationCapacity < requiredBytes)
+  {
+    return false;
+  }
+
+  memset(destination, 0, requiredBytes);
+
+  for (uint16_t index = 0; index < _program.blockCount; ++index)
+  {
+    if (isRetentiveSetReset(index) && _states[index].value)
+    {
+      destination[index / 8U] |=
+          static_cast<uint8_t>(1U << (index % 8U));
+    }
+  }
+
+  return true;
+}
+
+bool LogicEngine::importRetentiveState(const uint8_t *source,
+                                       size_t sourceLength)
+{
+  const size_t requiredBytes = retentiveStateBytes();
+  if (!_hasProgram || source == nullptr || sourceLength < requiredBytes)
+  {
+    return false;
+  }
+
+  for (uint16_t index = 0; index < _program.blockCount; ++index)
+  {
+    if (!isRetentiveSetReset(index))
+    {
+      continue;
+    }
+
+    const bool retainedValue =
+        (source[index / 8U] &
+         static_cast<uint8_t>(1U << (index % 8U))) != 0;
+
+    _states[index].value = retainedValue;
+    _states[index].timing = false;
+    _states[index].startedAtMs = 0;
+  }
+
+  return true;
+}
+
+void LogicEngine::clearRetentiveStates()
+{
+  if (!_hasProgram)
+  {
+    return;
+  }
+
+  for (uint16_t index = 0; index < _program.blockCount; ++index)
+  {
+    if (isRetentiveSetReset(index))
+    {
+      _states[index].value = false;
+      _states[index].timing = false;
+      _states[index].startedAtMs = 0;
+    }
+  }
 }
 
 const LogicProgram *LogicEngine::program() const
