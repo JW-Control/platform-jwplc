@@ -226,7 +226,7 @@ La prueba:
 Resultado esperado:
 
 ```text
-Resultado: 24 PASS, 0 FAIL
+Resultado: 38 PASS, 0 FAIL
 STORE RETENTIVO A/B SIMULADO: PASS
 ```
 
