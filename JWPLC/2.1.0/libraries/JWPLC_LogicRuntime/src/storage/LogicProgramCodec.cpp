@@ -22,6 +22,17 @@ bool isValidBlockType(LogicBlockType type)
   return static_cast<uint8_t>(type) <=
          static_cast<uint8_t>(LogicBlockType::Ton);
 }
+
+bool isValidBlockFlags(LogicBlockType type, uint8_t flags)
+{
+  if ((flags & ~JWPLC_LOGIC_BLOCK_FLAG_KNOWN_MASK) != 0)
+  {
+    return false;
+  }
+
+  return (flags & JWPLC_LOGIC_BLOCK_FLAG_RETENTIVE) == 0 ||
+         type == LogicBlockType::SetReset;
+}
 } // namespace
 
 size_t LogicProgramCodec::requiredSize(uint16_t blockCount)
@@ -31,12 +42,12 @@ size_t LogicProgramCodec::requiredSize(uint16_t blockCount)
 }
 
 LogicProgramCodecError LogicProgramCodec::serialize(const LogicProgram &program,
-                                                    uint32_t programId,
-                                                    uint32_t generation,
-                                                    uint32_t flags,
-                                                    uint8_t *destination,
-                                                    size_t destinationCapacity,
-                                                    size_t &writtenBytes)
+                                                     uint32_t programId,
+                                                     uint32_t generation,
+                                                     uint32_t flags,
+                                                     uint8_t *destination,
+                                                     size_t destinationCapacity,
+                                                     size_t &writtenBytes)
 {
   writtenBytes = 0;
 
@@ -63,9 +74,15 @@ LogicProgramCodecError LogicProgramCodec::serialize(const LogicProgram &program,
 
   for (uint16_t index = 0; index < program.blockCount; ++index)
   {
-    if (!isValidBlockType(program.blocks[index].type))
+    const LogicBlockDefinition &block = program.blocks[index];
+    if (!isValidBlockType(block.type))
     {
       return LogicProgramCodecError::InvalidBlockType;
+    }
+
+    if (!isValidBlockFlags(block.type, block.flags))
+    {
+      return LogicProgramCodecError::InvalidBlockFlags;
     }
   }
 
@@ -99,7 +116,7 @@ LogicProgramCodecError LogicProgramCodec::serialize(const LogicProgram &program,
                       static_cast<size_t>(index) * JWPLC_LOGIC_IMAGE_BLOCK_SIZE;
 
     record[0] = static_cast<uint8_t>(block.type);
-    record[1] = 0; // reservado para flags por bloque
+    record[1] = block.flags;
     writeU16LE(record + 2, block.resource);
     writeU16LE(record + 4, block.sourceA);
     writeU16LE(record + 6, block.sourceB);
@@ -118,8 +135,8 @@ LogicProgramCodecError LogicProgramCodec::serialize(const LogicProgram &program,
 }
 
 LogicProgramCodecError LogicProgramCodec::deserialize(const uint8_t *source,
-                                                      size_t sourceLength,
-                                                      LogicProgramBuffer &destination)
+                                                       size_t sourceLength,
+                                                       LogicProgramBuffer &destination)
 {
   if (source == nullptr)
   {
@@ -207,10 +224,18 @@ LogicProgramCodecError LogicProgramCodec::deserialize(const uint8_t *source,
     LogicBlockDefinition &block = destination.blocks[index];
 
     block.type = static_cast<LogicBlockType>(record[0]);
+    block.flags = record[1];
+
     if (!isValidBlockType(block.type))
     {
       memset(&destination, 0, sizeof(destination));
       return LogicProgramCodecError::InvalidBlockType;
+    }
+
+    if (!isValidBlockFlags(block.type, block.flags))
+    {
+      memset(&destination, 0, sizeof(destination));
+      return LogicProgramCodecError::InvalidBlockFlags;
     }
 
     block.resource = readU16LE(record + 2);
@@ -276,6 +301,8 @@ const char *LogicProgramCodec::errorName(LogicProgramCodecError error)
     return "HEADER_CRC_MISMATCH";
   case LogicProgramCodecError::PayloadCrcMismatch:
     return "PAYLOAD_CRC_MISMATCH";
+  case LogicProgramCodecError::InvalidBlockFlags:
+    return "INVALID_BLOCK_FLAGS";
   default:
     return "UNKNOWN";
   }
@@ -298,7 +325,7 @@ void LogicProgramCodec::writeU32LE(uint8_t *destination, uint32_t value)
 uint16_t LogicProgramCodec::readU16LE(const uint8_t *source)
 {
   return static_cast<uint16_t>(source[0]) |
-         static_cast<uint16_t>(source[1] << 8);
+         (static_cast<uint16_t>(source[1]) << 8);
 }
 
 uint32_t LogicProgramCodec::readU32LE(const uint8_t *source)
