@@ -16,6 +16,7 @@ enum class LogicRetentiveStoreError : uint8_t
   InvalidRegion,
   StorageTooSmall,
   InvalidBitmap,
+  BufferTooSmall,
   ReadFailed,
   WriteFailed,
   VerificationFailed,
