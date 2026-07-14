@@ -258,6 +258,34 @@ bool JWPLC_LogicRuntime::blockValue(uint16_t index) const
   return _engine.blockValue(index);
 }
 
+size_t JWPLC_LogicRuntime::retentiveStateBytes() const
+{
+  return _engine.retentiveStateBytes();
+}
+
+uint16_t JWPLC_LogicRuntime::retentiveBlockCount() const
+{
+  return _engine.retentiveBlockCount();
+}
+
+bool JWPLC_LogicRuntime::exportRetentiveState(
+    uint8_t *destination,
+    size_t destinationCapacity) const
+{
+  return _engine.exportRetentiveState(destination, destinationCapacity);
+}
+
+bool JWPLC_LogicRuntime::importRetentiveState(const uint8_t *source,
+                                              size_t sourceLength)
+{
+  return _engine.importRetentiveState(source, sourceLength);
+}
+
+void JWPLC_LogicRuntime::clearRetentiveStates()
+{
+  _engine.clearRetentiveStates();
+}
+
 uint32_t JWPLC_LogicRuntime::scanCount() const
 {
   return _scanCount;
