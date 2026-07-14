@@ -1,7 +1,7 @@
 #include "LogicValidator.h"
 
 LogicValidationError LogicValidator::validateSource(uint16_t source,
-                                                    uint16_t currentBlockIndex)
+                                                     uint16_t currentBlockIndex)
 {
   if (source == JWPLC_LOGIC_NO_SOURCE)
   {
@@ -45,6 +45,16 @@ LogicValidationError LogicValidator::validate(const LogicProgram &program,
   {
     const LogicBlockDefinition &block = program.blocks[index];
     LogicValidationError error = LogicValidationError::None;
+
+    if ((block.flags & ~JWPLC_LOGIC_BLOCK_FLAG_KNOWN_MASK) != 0)
+    {
+      return LogicValidationError::InvalidBlockFlags;
+    }
+
+    if (block.isRetentive() && block.type != LogicBlockType::SetReset)
+    {
+      return LogicValidationError::InvalidBlockFlags;
+    }
 
     switch (block.type)
     {
@@ -132,6 +142,8 @@ const char *LogicValidator::errorName(LogicValidationError error)
     return "RESOURCE_OUT_OF_RANGE";
   case LogicValidationError::DuplicateDigitalOutput:
     return "DUPLICATE_DIGITAL_OUTPUT";
+  case LogicValidationError::InvalidBlockFlags:
+    return "INVALID_BLOCK_FLAGS";
   default:
     return "UNKNOWN";
   }
