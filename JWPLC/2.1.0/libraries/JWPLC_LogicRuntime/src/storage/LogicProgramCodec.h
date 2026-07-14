@@ -20,7 +20,8 @@ enum class LogicProgramCodecError : uint8_t
   InvalidBlockRecordSize,
   InvalidLength,
   HeaderCrcMismatch,
-  PayloadCrcMismatch
+  PayloadCrcMismatch,
+  InvalidBlockFlags
 };
 
 class LogicProgramCodec
@@ -29,16 +30,16 @@ public:
   static size_t requiredSize(uint16_t blockCount);
 
   static LogicProgramCodecError serialize(const LogicProgram &program,
-                                          uint32_t programId,
-                                          uint32_t generation,
-                                          uint32_t flags,
-                                          uint8_t *destination,
-                                          size_t destinationCapacity,
-                                          size_t &writtenBytes);
+                                           uint32_t programId,
+                                           uint32_t generation,
+                                           uint32_t flags,
+                                           uint8_t *destination,
+                                           size_t destinationCapacity,
+                                           size_t &writtenBytes);
 
   static LogicProgramCodecError deserialize(const uint8_t *source,
-                                            size_t sourceLength,
-                                            LogicProgramBuffer &destination);
+                                             size_t sourceLength,
+                                             LogicProgramBuffer &destination);
 
   static uint32_t crc32(const uint8_t *data, size_t length);
   static const char *errorName(LogicProgramCodecError error);
