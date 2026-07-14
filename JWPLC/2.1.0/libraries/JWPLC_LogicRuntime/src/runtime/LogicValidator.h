@@ -16,7 +16,8 @@ enum class LogicValidationError : uint8_t
   SourceOutOfRange,
   SourceNotPrevious,
   ResourceOutOfRange,
-  DuplicateDigitalOutput
+  DuplicateDigitalOutput,
+  InvalidBlockFlags
 };
 
 class LogicValidator
