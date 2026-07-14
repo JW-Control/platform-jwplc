@@ -84,6 +84,15 @@ public:
 
   bool hasProgram() const;
   bool blockValue(uint16_t index) const;
+
+  size_t retentiveStateBytes() const;
+  uint16_t retentiveBlockCount() const;
+  bool exportRetentiveState(uint8_t *destination,
+                            size_t destinationCapacity) const;
+  bool importRetentiveState(const uint8_t *source,
+                            size_t sourceLength);
+  void clearRetentiveStates();
+
   uint32_t scanCount() const;
   uint32_t lastScanMicros() const;
   uint32_t minScanMicros() const;
