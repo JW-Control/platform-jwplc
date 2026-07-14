@@ -10,6 +10,7 @@
 #include "storage/LogicMemoryStorage.h"
 #include "storage/LogicProgramCodec.h"
 #include "storage/LogicProgramStore.h"
+#include "storage/LogicRetentiveStore.h"
 #include "storage/LogicStorageLayout.h"
 #include "storage/LogicStorageProfile.h"
 #include "storage/LogicSuperblockInspector.h"
