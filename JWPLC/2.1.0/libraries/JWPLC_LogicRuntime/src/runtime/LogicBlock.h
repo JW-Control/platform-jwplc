@@ -43,26 +43,69 @@ enum class LogicBlockType : uint8_t
 };
 
 /**
+ * @brief Flags persistibles de cada bloque.
+ *
+ * El byte ya estaba reservado en el registro binario v1. Los programas
+ * existentes contienen cero y conservan exactamente su comportamiento.
+ */
+static constexpr uint8_t JWPLC_LOGIC_BLOCK_FLAG_NONE = 0x00;
+static constexpr uint8_t JWPLC_LOGIC_BLOCK_FLAG_RETENTIVE = 0x01;
+static constexpr uint8_t JWPLC_LOGIC_BLOCK_FLAG_KNOWN_MASK =
+    JWPLC_LOGIC_BLOCK_FLAG_RETENTIVE;
+
+/**
  * @brief Definición persistible de un bloque lógico.
  *
  * Cada bloque ocupa una posición en el programa. Las fuentes apuntan a la
  * salida de bloques anteriores para mantener un orden de ejecución acíclico y
  * determinista.
+ *
+ * El constructor mantiene el orden histórico de los cinco argumentos
+ * existentes. El sexto argumento opcional añade flags sin romper sketches:
+ *
+ *   {tipo, fuenteA, fuenteB, recurso, parametro}
+ *   {tipo, fuenteA, fuenteB, recurso, parametro, flags}
  */
 struct LogicBlockDefinition
 {
   LogicBlockType type;
+  uint8_t flags;
   uint16_t sourceA;
   uint16_t sourceB;
   uint16_t resource;
   uint32_t parameter;
+
+  constexpr LogicBlockDefinition(
+      LogicBlockType typeValue = LogicBlockType::DigitalInput,
+      uint16_t sourceAValue = JWPLC_LOGIC_NO_SOURCE,
+      uint16_t sourceBValue = JWPLC_LOGIC_NO_SOURCE,
+      uint16_t resourceValue = 0,
+      uint32_t parameterValue = 0,
+      uint8_t flagsValue = JWPLC_LOGIC_BLOCK_FLAG_NONE)
+      : type(typeValue),
+        flags(flagsValue),
+        sourceA(sourceAValue),
+        sourceB(sourceBValue),
+        resource(resourceValue),
+        parameter(parameterValue)
+  {
+  }
+
+  constexpr bool isRetentive() const
+  {
+    return (flags & JWPLC_LOGIC_BLOCK_FLAG_RETENTIVE) != 0;
+  }
 };
+
+static_assert(sizeof(LogicBlockDefinition) == 12,
+              "LogicBlockDefinition debe conservar 12 bytes");
 
 /**
  * @brief Estado temporal de ejecución de un bloque.
  *
- * Este estado vive en RAM. Más adelante solo los campos declarados como
- * retentivos se persistirán en FRAM.
+ * Este estado vive en RAM. Retentivos v1 solo captura el campo value de los
+ * bloques SET/RESET marcados con JWPLC_LOGIC_BLOCK_FLAG_RETENTIVE. TON y los
+ * demás tipos continúan siendo no retentivos.
  */
 struct LogicBlockState
 {
