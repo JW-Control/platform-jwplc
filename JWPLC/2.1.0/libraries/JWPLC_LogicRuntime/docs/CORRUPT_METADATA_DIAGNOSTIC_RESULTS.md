@@ -12,7 +12,9 @@ Resultado: 34 PASS, 0 FAIL
 DIAGNOSTICO PUBLICO DE METADATA: PASS
 ```
 
-## Compilación física del criterio de detección
+## Compilaciones físicas
+
+### Criterio de detección
 
 ```text
 Flash:       438693 bytes / 3145728 bytes (13 %)
@@ -20,7 +22,15 @@ RAM global:   38036 bytes / 327680 bytes (11 %)
 RAM restante: 289644 bytes
 ```
 
-El consumo de Flash/RAM de la segunda compilación, correspondiente a la integración pública, quedó pendiente de registrar porque no fue incluido junto con el log serial.
+### Integración pública
+
+```text
+Flash:       438289 bytes / 3145728 bytes (13 %)
+RAM global:   38036 bytes / 327680 bytes (11 %)
+RAM restante: 289644 bytes
+```
+
+La integración pública no incrementó el consumo de RAM global respecto al inspector validado previamente.
 
 ## Hardware
 
@@ -96,6 +106,6 @@ Reglas vigentes:
 - la pérdida de ambas copias exige mantenimiento, reinstalación o formateo explícito;
 - `start()` sigue siendo una operación separada y explícita.
 
-## Pendiente administrativo
+## Cierre
 
-Registrar el consumo exacto de Flash, RAM global y RAM restante de la prueba pública de 34 PASS para completar la tabla histórica.
+El diagnóstico de metadata queda cerrado tanto en detección como en API pública. La siguiente fase es retentivos v1, comenzando por la marcación y captura en RAM de bloques `SET/RESET` antes de escribir la región retentiva de FRAM.
