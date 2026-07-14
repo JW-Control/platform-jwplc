@@ -23,8 +23,23 @@ public:
   const LogicProgram *program() const;
   LogicValidationError validationError() const;
 
+  /**
+   * @brief Tamaño del bitmap de estado para el programa cargado.
+   *
+   * El bitmap usa el índice de bloque como posición estable. Solo se exportan o
+   * restauran SET/RESET marcados como retentivos; los demás bits se ignoran.
+   */
+  size_t retentiveStateBytes() const;
+  uint16_t retentiveBlockCount() const;
+  bool exportRetentiveState(uint8_t *destination,
+                            size_t destinationCapacity) const;
+  bool importRetentiveState(const uint8_t *source,
+                            size_t sourceLength);
+  void clearRetentiveStates();
+
 private:
   bool sourceValue(uint16_t source) const;
+  bool isRetentiveSetReset(uint16_t index) const;
 
   JWPLCLogicIO *_io;
 
