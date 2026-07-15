@@ -54,11 +54,11 @@ namespace JWPLCLogicRuntimeUIWidgets
                       uint16_t background = COLOR_PANEL);
 
   /**
-   * Actualiza un campo de ancho fijo.
+   * Actualiza un campo de ancho fijo solo cuando su valor cambia.
    *
-   * El texto se trunca o rellena con espacios hasta columns. Adafruit_GFX
-   * escribe el fondo de cada celda junto con el glifo, evitando el ciclo
-   * visible "borrar rectangulo -> escribir texto".
+   * Primero limpia la region completa mediante una unica operacion continua y
+   * luego imprime solamente los caracteres utiles en modo transparente. Esto
+   * evita enviar espacios como glifos y acelera especialmente la carga inicial.
    */
   void updateTextField(Adafruit_ST7789 &tft,
                        int16_t x,
