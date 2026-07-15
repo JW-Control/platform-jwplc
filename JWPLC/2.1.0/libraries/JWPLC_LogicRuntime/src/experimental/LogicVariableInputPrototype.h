@@ -52,7 +52,8 @@ enum class LogicV2BlockType : uint8_t
   Nor,
   Xor,
   DigitalOutput,
-  SetReset
+  SetReset,
+  Ton
 };
 
 struct LogicV2BlockRecord
@@ -165,7 +166,8 @@ enum class LogicV2PrototypeError : uint8_t
   OpenInputNotAllowed,
   NullDigitalInputs,
   OutputBufferTooSmall,
-  DuplicateDigitalOutput
+  DuplicateDigitalOutput,
+  TimerStateRequired
 };
 
 class LogicVariableInputPrototype
@@ -180,9 +182,8 @@ public:
   /**
    * @brief Valida y evalua un programa en una sola llamada.
    *
-   * Es util para pruebas aisladas. Un motor cargado debe validar una vez y usar
-   * evaluateValidated() durante cada scan para no repetir todo el validador.
-   * El arreglo blockValues conserva el estado anterior de SET/RESET.
+   * Es util para pruebas aisladas sin bloques TON. Un motor cargado debe
+   * validar una vez y usar evaluateValidated() durante cada scan.
    */
   static bool evaluate(const LogicV2Program &program,
                        const bool *digitalInputs,
@@ -195,16 +196,21 @@ public:
   /**
    * @brief Evalua un programa que ya fue validado durante la carga.
    *
-   * DigitalOutput se evalua como pass-through y conserva su valor dentro del
-   * arreglo de bloques. SET/RESET usa la entrada 0 como S, la entrada 1 como R
-   * y aplica prioridad de RESET. Este prototipo no conmuta salidas fisicas.
+   * DigitalOutput se evalua como pass-through. SET/RESET usa la entrada 0 como
+   * S y la entrada 1 como R, con prioridad de RESET. TON usa la entrada 0 como
+   * disparo y parameter como tiempo en milisegundos. Para TON se requieren los
+   * arreglos blockTiming y blockStartedAtMs, y nowMs debe entregarse de forma
+   * explicita por el motor.
    */
   static bool evaluateValidated(const LogicV2Program &program,
                                 const bool *digitalInputs,
                                 uint8_t digitalInputCount,
                                 bool *blockValues,
                                 size_t blockValueCapacity,
-                                LogicV2PrototypeError &error);
+                                LogicV2PrototypeError &error,
+                                bool *blockTiming = nullptr,
+                                uint32_t *blockStartedAtMs = nullptr,
+                                uint32_t nowMs = 0);
 
   static constexpr size_t requiredImageBytes(uint16_t blockCount,
                                               uint16_t linkCount,
