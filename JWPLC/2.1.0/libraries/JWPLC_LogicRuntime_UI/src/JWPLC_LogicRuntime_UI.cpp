@@ -8,7 +8,10 @@ JWPLC_LogicRuntime_UIClass::JWPLC_LogicRuntime_UIClass()
       _userVisible(false),
       _lastRunLed(false),
       _lastErrLed(false),
-      _home()
+      _currentView(RuntimeUIView::Home),
+      _pendingProgramAction(RuntimeUIProgramAction::None),
+      _home(),
+      _program()
 {
 }
 
@@ -17,9 +20,13 @@ bool JWPLC_LogicRuntime_UIClass::begin(JWPLC_LogicRuntime &runtime)
   _runtime = &runtime;
   _attached = true;
   _userVisible = false;
-  _home.attach(runtime);
+  _currentView = RuntimeUIView::Home;
+  _pendingProgramAction = RuntimeUIProgramAction::None;
 
-  // La UI del runtime reserva ESC como retorno seguro hacia IDLE.
+  _home.attach(runtime);
+  _program.attach(runtime);
+
+  // ESC conserva el retorno seguro desde cualquier vista USER hacia IDLE.
   JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
   JWPLC_Display.setUserRefreshPeriodMs(50);
   JWPLC_Display.clearPendingInput();
@@ -40,15 +47,20 @@ void JWPLC_LogicRuntime_UIClass::update()
     return;
   }
 
+  // Las operaciones de FRAM y control del runtime se ejecutan aquí, fuera del
+  // callback gráfico que mantiene adquirido el bus SPI de la TFT.
+  processPendingProgramAction();
   syncIdleIndicators();
 }
 
 void JWPLC_LogicRuntime_UIClass::end()
 {
-  _home.exit();
+  exitCurrentView();
   _runtime = nullptr;
   _attached = false;
   _userVisible = false;
+  _currentView = RuntimeUIView::Home;
+  _pendingProgramAction = RuntimeUIProgramAction::None;
 }
 
 bool JWPLC_LogicRuntime_UIClass::isAttached() const
@@ -68,7 +80,16 @@ const JWPLC_LogicRuntime *JWPLC_LogicRuntime_UIClass::runtime() const
 
 void JWPLC_LogicRuntime_UIClass::forceRedraw()
 {
-  _home.forceRedraw();
+  switch (_currentView)
+  {
+  case RuntimeUIView::Program:
+    _program.forceRedraw();
+    break;
+  case RuntimeUIView::Home:
+  default:
+    _home.forceRedraw();
+    break;
+  }
 
   if (JWPLC_Display.isReady())
   {
@@ -84,8 +105,10 @@ void JWPLC_LogicRuntime_UIClass::onDisplayEnter()
   }
 
   _userVisible = true;
+  _currentView = RuntimeUIView::Home;
+  _pendingProgramAction = RuntimeUIProgramAction::None;
   syncIdleIndicators();
-  _home.enter();
+  enterCurrentView();
 }
 
 void JWPLC_LogicRuntime_UIClass::onDisplayRefresh(
@@ -98,7 +121,8 @@ void JWPLC_LogicRuntime_UIClass::onDisplayRefresh(
   }
 
   syncIdleIndicators();
-  _home.refresh(io, rtc);
+  refreshCurrentView(io, rtc);
+  collectViewRequests();
 }
 
 void JWPLC_LogicRuntime_UIClass::onDisplayExit()
@@ -108,8 +132,179 @@ void JWPLC_LogicRuntime_UIClass::onDisplayExit()
     return;
   }
 
-  _home.exit();
+  exitCurrentView();
+  _pendingProgramAction = RuntimeUIProgramAction::None;
+  _currentView = RuntimeUIView::Home;
   _userVisible = false;
+}
+
+void JWPLC_LogicRuntime_UIClass::switchView(RuntimeUIView nextView)
+{
+  if (nextView == RuntimeUIView::None || nextView == _currentView)
+  {
+    return;
+  }
+
+  exitCurrentView();
+  _currentView = nextView;
+  JWPLC_Display.clearPendingInput();
+  enterCurrentView();
+}
+
+void JWPLC_LogicRuntime_UIClass::enterCurrentView()
+{
+  switch (_currentView)
+  {
+  case RuntimeUIView::Program:
+    _program.enter();
+    break;
+  case RuntimeUIView::Home:
+  default:
+    _currentView = RuntimeUIView::Home;
+    _home.enter();
+    break;
+  }
+}
+
+void JWPLC_LogicRuntime_UIClass::refreshCurrentView(
+    const JWPLC_IOState *io,
+    const JWPLC_RTCState *rtc)
+{
+  switch (_currentView)
+  {
+  case RuntimeUIView::Program:
+    _program.refresh(io, rtc);
+    break;
+  case RuntimeUIView::Home:
+  default:
+    _home.refresh(io, rtc);
+    break;
+  }
+}
+
+void JWPLC_LogicRuntime_UIClass::exitCurrentView()
+{
+  switch (_currentView)
+  {
+  case RuntimeUIView::Program:
+    _program.exit();
+    break;
+  case RuntimeUIView::Home:
+  default:
+    _home.exit();
+    break;
+  }
+}
+
+void JWPLC_LogicRuntime_UIClass::collectViewRequests()
+{
+  switch (_currentView)
+  {
+  case RuntimeUIView::Home:
+  {
+    const RuntimeUIView requested = _home.takeRequestedView();
+    if (requested == RuntimeUIView::Program)
+    {
+      switchView(RuntimeUIView::Program);
+    }
+    break;
+  }
+
+  case RuntimeUIView::Program:
+  {
+    const RuntimeUIProgramAction action = _program.takeRequestedAction();
+    if (action != RuntimeUIProgramAction::None &&
+        _pendingProgramAction == RuntimeUIProgramAction::None)
+    {
+      _pendingProgramAction = action;
+    }
+
+    const RuntimeUIView requested = _program.takeRequestedView();
+    if (requested == RuntimeUIView::Home)
+    {
+      switchView(RuntimeUIView::Home);
+    }
+    break;
+  }
+
+  default:
+    break;
+  }
+}
+
+void JWPLC_LogicRuntime_UIClass::processPendingProgramAction()
+{
+  const RuntimeUIProgramAction action = _pendingProgramAction;
+  if (action == RuntimeUIProgramAction::None)
+  {
+    return;
+  }
+
+  _pendingProgramAction = RuntimeUIProgramAction::None;
+
+  // Salir de USER antes de que loop() procese la solicitud cancela la acción.
+  if (!_userVisible || _currentView != RuntimeUIView::Program)
+  {
+    return;
+  }
+
+  RuntimeUIProgramFeedback feedback = RuntimeUIProgramFeedback::PrepareFailed;
+
+  switch (action)
+  {
+  case RuntimeUIProgramAction::Prepare:
+  {
+    const JWPLCLogicStorageBootState bootState =
+        _runtime->prepareStoredProgram();
+
+    switch (bootState)
+    {
+    case JWPLCLogicStorageBootState::ActiveProgramLoaded:
+      _runtime->restoreStoredRetentiveState();
+      feedback = RuntimeUIProgramFeedback::PrepareActive;
+      break;
+    case JWPLCLogicStorageBootState::FallbackProgramLoaded:
+      _runtime->restoreStoredRetentiveState();
+      feedback = RuntimeUIProgramFeedback::PrepareFallback;
+      break;
+    case JWPLCLogicStorageBootState::Unformatted:
+      feedback = RuntimeUIProgramFeedback::PrepareUnformatted;
+      break;
+    case JWPLCLogicStorageBootState::Empty:
+      feedback = RuntimeUIProgramFeedback::PrepareEmpty;
+      break;
+    case JWPLCLogicStorageBootState::NoValidProgram:
+    case JWPLCLogicStorageBootState::InvalidProgram:
+    case JWPLCLogicStorageBootState::CorruptMetadata:
+      feedback = RuntimeUIProgramFeedback::PrepareNoValid;
+      break;
+    case JWPLCLogicStorageBootState::NotEvaluated:
+    case JWPLCLogicStorageBootState::NotReady:
+    default:
+      feedback = RuntimeUIProgramFeedback::PrepareFailed;
+      break;
+    }
+    break;
+  }
+
+  case RuntimeUIProgramAction::Start:
+    feedback = _runtime->start()
+                   ? RuntimeUIProgramFeedback::StartOk
+                   : RuntimeUIProgramFeedback::StartFailed;
+    break;
+
+  case RuntimeUIProgramAction::Stop:
+    _runtime->stop();
+    feedback = RuntimeUIProgramFeedback::StopOk;
+    break;
+
+  case RuntimeUIProgramAction::None:
+  default:
+    return;
+  }
+
+  _program.invalidateDynamicCache();
+  _program.setFeedback(feedback);
 }
 
 bool JWPLC_LogicRuntime_UIClass::criticalErrorActive() const
