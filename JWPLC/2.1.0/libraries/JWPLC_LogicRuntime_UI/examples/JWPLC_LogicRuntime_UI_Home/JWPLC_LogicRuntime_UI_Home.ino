@@ -10,7 +10,7 @@ void setup()
   delay(300);
 
   Serial.println();
-  Serial.println("JWPLC Logic Runtime UI - pantalla principal USER");
+  Serial.println("JWPLC Logic Runtime UI - Home y Programa");
   Serial.println("IDLE conserva monitor I/O y LEDs del package.");
   Serial.println("Pulsa cualquier boton para entrar a USER.");
   Serial.println();
@@ -27,12 +27,20 @@ void setup()
   Serial.print("Runtime UI: ");
   Serial.println(uiOk ? "OK" : "FAIL");
   Serial.println();
-  Serial.println("En USER: flechas mueven el selector, OK confirma y ESC vuelve a IDLE.");
+  Serial.println("Home: OK en PROGRAMA abre el control del runtime.");
+  Serial.println("Programa: PREPARAR, RUN, STOP y VOLVER.");
+  Serial.println("Las acciones se procesan fuera del callback grafico.");
 }
 
 void loop()
 {
-  // Mantiene RUN/ERR de la pantalla IDLE sincronizados con el runtime.
+  // El scan lógico sigue siendo explícito y no pertenece a la capa gráfica.
+  if (runtime.state() == JWPLCLogicRuntimeState::Running)
+  {
+    runtime.tick();
+  }
+
+  // Sincroniza IDLE y procesa acciones diferidas solicitadas desde USER.
   JWPLC_LogicRuntime_UI.update();
   delay(1);
 }
