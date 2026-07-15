@@ -5,42 +5,42 @@
 static JWPLC_LogicRuntime runtime;
 
 static const LogicBlockDefinition DEMO_BLOCKS[] = {
-    // 0: Entrada digital I0.0
+    // B00: Entrada digital I0.0
     {LogicBlockType::DigitalInput,
      JWPLC_LOGIC_NO_SOURCE,
      JWPLC_LOGIC_NO_SOURCE,
      0,
      0},
 
-    // 1: Entrada digital I0.1
+    // B01: Entrada digital I0.1
     {LogicBlockType::DigitalInput,
      JWPLC_LOGIC_NO_SOURCE,
      JWPLC_LOGIC_NO_SOURCE,
      1,
      0},
 
-    // 2: NOT de I0.0
+    // B02: NOT de B00
     {LogicBlockType::Not,
      0,
      JWPLC_LOGIC_NO_SOURCE,
      0,
      0},
 
-    // 3: I0.0 AND I0.1
+    // B03: B00 AND B01
     {LogicBlockType::And,
      0,
      1,
      0,
      0},
 
-    // 4: bloque 2 OR bloque 3
+    // B04: B02 OR B03
     {LogicBlockType::Or,
      2,
      3,
      0,
      0},
 
-    // 5: SET/RESET retentivo en RAM, sin persistencia automática
+    // B05: SET desde B03, RESET desde B01, retentivo en RAM.
     {LogicBlockType::SetReset,
      3,
      1,
@@ -48,7 +48,7 @@ static const LogicBlockDefinition DEMO_BLOCKS[] = {
      0,
      JWPLC_LOGIC_BLOCK_FLAG_RETENTIVE},
 
-    // 6: TON de 2000 ms alimentado por el bloque 4
+    // B06: TON de 2000 ms alimentado por B04.
     {LogicBlockType::Ton,
      4,
      JWPLC_LOGIC_NO_SOURCE,
@@ -66,7 +66,7 @@ void setup()
   delay(300);
 
   Serial.println();
-  Serial.println("JWPLC Logic Runtime UI - lista y detalle de bloques");
+  Serial.println("JWPLC Logic Runtime UI - diagrama grafico de bloques");
   Serial.println("Carga un programa RAM de 7 bloques sin salidas digitales.");
   Serial.println("No formatea ni escribe la FRAM.");
   Serial.println();
@@ -89,9 +89,10 @@ void setup()
   Serial.print("Runtime UI: ");
   Serial.println(uiOk ? "OK" : "FAIL");
   Serial.println();
-  Serial.println("USER -> BLOQUES para abrir la lista.");
-  Serial.println("UP/DOWN seleccionan; LEFT/RIGHT cambian DETALLE/VOLVER.");
-  Serial.println("OK abre detalle o regresa a HOME; ESC vuelve a IDLE.");
+  Serial.println("USER -> BLOQUES abre DIAGRAMA como vista principal.");
+  Serial.println("UP/DOWN cambian el bloque central.");
+  Serial.println("LEFT/RIGHT eligen DETALLE, LISTA o VOLVER.");
+  Serial.println("OK ejecuta la accion; ESC vuelve directamente a IDLE.");
 }
 
 void loop()
