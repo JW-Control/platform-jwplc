@@ -12,7 +12,7 @@ bool LogicVariableInputPrototype::isVariableGate(LogicV2BlockType type)
 bool LogicVariableInputPrototype::isKnownType(LogicV2BlockType type)
 {
   return type >= LogicV2BlockType::DigitalInput &&
-         type <= LogicV2BlockType::SetReset;
+         type <= LogicV2BlockType::Ton;
 }
 
 bool LogicVariableInputPrototype::neutralValue(LogicV2BlockType type)
@@ -62,8 +62,7 @@ LogicV2PrototypeError LogicVariableInputPrototype::validate(
       return LogicV2PrototypeError::InvalidBlockType;
     }
 
-    // Los flags retentivos se habilitarán en una fase posterior. Por ahora el
-    // modelo v2 solo valida SET/RESET no retentivo en RAM.
+    // La retención persistente v2 todavía no está habilitada.
     if (block.flags != 0 || block.reserved != 0)
     {
       return LogicV2PrototypeError::InvalidBlockFlags;
@@ -101,6 +100,7 @@ LogicV2PrototypeError LogicVariableInputPrototype::validate(
       break;
 
     case LogicV2BlockType::Not:
+    case LogicV2BlockType::Ton:
       minimumInputs = 1;
       maximumInputs = 1;
       break;
@@ -248,7 +248,10 @@ bool LogicVariableInputPrototype::evaluateValidated(
     uint8_t digitalInputCount,
     bool *blockValues,
     size_t blockValueCapacity,
-    LogicV2PrototypeError &error)
+    LogicV2PrototypeError &error,
+    bool *blockTiming,
+    uint32_t *blockStartedAtMs,
+    uint32_t nowMs)
 {
   if (program.blocks == nullptr ||
       (program.linkCount > 0 && program.links == nullptr) ||
@@ -343,7 +346,6 @@ bool LogicVariableInputPrototype::evaluateValidated(
         return false;
       }
 
-      // Prioridad de RESET, igual que el motor v1 histórico.
       if (resetValue)
       {
         result = false;
@@ -355,6 +357,50 @@ bool LogicVariableInputPrototype::evaluateValidated(
       else
       {
         result = blockValues[blockIndex];
+      }
+      break;
+    }
+
+    case LogicV2BlockType::Ton:
+    {
+      if (blockTiming == nullptr || blockStartedAtMs == nullptr)
+      {
+        error = LogicV2PrototypeError::TimerStateRequired;
+        return false;
+      }
+
+      bool inputValue = false;
+      if (!resolveInput(program.links[block.firstInput],
+                        block.type,
+                        blockValues,
+                        inputValue))
+      {
+        error = LogicV2PrototypeError::InvalidSourceEncoding;
+        return false;
+      }
+
+      result = blockValues[blockIndex];
+      if (!inputValue)
+      {
+        result = false;
+        blockTiming[blockIndex] = false;
+        blockStartedAtMs[blockIndex] = 0;
+      }
+      else if (!result)
+      {
+        if (!blockTiming[blockIndex])
+        {
+          blockTiming[blockIndex] = true;
+          blockStartedAtMs[blockIndex] = nowMs;
+        }
+
+        const uint32_t elapsedMs =
+            static_cast<uint32_t>(nowMs - blockStartedAtMs[blockIndex]);
+        if (elapsedMs >= block.parameter)
+        {
+          result = true;
+          blockTiming[blockIndex] = false;
+        }
       }
       break;
     }
@@ -461,6 +507,8 @@ const char *LogicVariableInputPrototype::errorName(
     return "OUTPUT_BUFFER_TOO_SMALL";
   case LogicV2PrototypeError::DuplicateDigitalOutput:
     return "DUPLICATE_DIGITAL_OUTPUT";
+  case LogicV2PrototypeError::TimerStateRequired:
+    return "TIMER_STATE_REQUIRED";
   default:
     return "UNKNOWN";
   }
