@@ -94,6 +94,39 @@ ESC             vuelve a IDLE
 
 En esta primera fase, `OK` únicamente confirma visualmente la sección elegida. Las pantallas internas se agregarán en archivos separados.
 
+## Renderizado incremental
+
+Las pantallas USER no deben reconstruirse en cada callback.
+
+Patrón aprobado:
+
+```text
+enter()
+├── dibuja fondo, marcos, etiquetas y botones una sola vez
+├── invalida la caché de valores
+└── dibuja los valores dinámicos iniciales
+
+refresh()
+├── procesa botonera
+├── compara valores actuales con la caché
+└── actualiza únicamente campos modificados
+```
+
+`RuntimeUIHome` ya aplica:
+
+- encabezado estático separado de la insignia de estado;
+- campos de texto de ancho fijo;
+- caché para runtime, programa, identidad, almacenamiento y retentivos;
+- scan visual cada 1000 ms y solo si cambió;
+- redibujado exclusivo de la selección anterior y actual;
+- una única reconstrucción al entrar en `USER`.
+
+Las reglas obligatorias y la plantilla para vistas posteriores están en:
+
+```text
+docs/USER_UI_RENDERING_RULES.md
+```
+
 ## Organización
 
 ```text
@@ -106,6 +139,10 @@ src/
 └── widgets/
     ├── RuntimeUIWidgets.h
     └── RuntimeUIWidgets.cpp
+
+docs/
+├── RUNTIME_UI_HOME_V0_1_TEST.md
+└── USER_UI_RENDERING_RULES.md
 ```
 
 Las siguientes vistas se incorporarán de manera independiente:
