@@ -3,7 +3,9 @@
 JWPLC_LogicRuntime_UIClass JWPLC_LogicRuntime_UI;
 
 JWPLC_LogicRuntime_UIClass::JWPLC_LogicRuntime_UIClass()
-    : _runtime(nullptr),
+    : _backend(Backend::None),
+      _runtime(nullptr),
+      _v2Engine(nullptr),
       _attached(false),
       _userVisible(false),
       _lastRunLed(false),
@@ -13,13 +15,19 @@ JWPLC_LogicRuntime_UIClass::JWPLC_LogicRuntime_UIClass()
       _home(),
       _program(),
       _diagram(),
-      _blocks()
+      _blocks(),
+      _v2Model(),
+      _fbdMapV2()
 {
 }
 
 bool JWPLC_LogicRuntime_UIClass::begin(JWPLC_LogicRuntime &runtime)
 {
+  _backend = Backend::RuntimeV1;
   _runtime = &runtime;
+  _v2Engine = nullptr;
+  _v2Model.detach();
+  _fbdMapV2.detach();
   _attached = true;
   _userVisible = false;
   _currentView = RuntimeUIView::Home;
@@ -30,7 +38,6 @@ bool JWPLC_LogicRuntime_UIClass::begin(JWPLC_LogicRuntime &runtime)
   _diagram.attach(runtime);
   _blocks.attach(runtime);
 
-  // ESC conserva el retorno seguro desde cualquier vista USER hacia IDLE.
   JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
   JWPLC_Display.setUserRefreshPeriodMs(50);
   JWPLC_Display.clearPendingInput();
@@ -44,23 +51,64 @@ bool JWPLC_LogicRuntime_UIClass::begin(JWPLC_LogicRuntime &runtime)
   return true;
 }
 
+bool JWPLC_LogicRuntime_UIClass::begin(LogicV2EnginePrototype &engine)
+{
+  _backend = Backend::EngineV2;
+  _runtime = nullptr;
+  _v2Engine = &engine;
+  _v2Model.attach(engine);
+  _fbdMapV2.attach(_v2Model);
+  _attached = true;
+  _userVisible = false;
+  _currentView = RuntimeUIView::Diagram;
+  _pendingProgramAction = RuntimeUIProgramAction::None;
+
+  JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
+  JWPLC_Display.setUserRefreshPeriodMs(50);
+  JWPLC_Display.clearPendingInput();
+
+  const bool runLed = engine.state() == LogicV2EngineState::Running;
+  const bool errLed = criticalErrorActive();
+  JWPLC_Display.setRunLed(runLed);
+  JWPLC_Display.setErrLed(errLed);
+  _lastRunLed = runLed;
+  _lastErrLed = errLed;
+  return true;
+}
+
 void JWPLC_LogicRuntime_UIClass::update()
 {
-  if (!_attached || _runtime == nullptr)
+  if (!isAttached())
   {
     return;
   }
 
-  // Las operaciones de FRAM y control del runtime se ejecutan aquí, fuera del
-  // callback gráfico que mantiene adquirido el bus SPI de la TFT.
-  processPendingProgramAction();
+  if (_backend == Backend::RuntimeV1)
+  {
+    // Las operaciones de FRAM y control del runtime se ejecutan aquí, fuera del
+    // callback gráfico que mantiene adquirido el bus SPI de la TFT.
+    processPendingProgramAction();
+  }
+
   syncIdleIndicators();
 }
 
 void JWPLC_LogicRuntime_UIClass::end()
 {
-  exitCurrentView();
+  if (_backend == Backend::EngineV2)
+  {
+    _fbdMapV2.exit();
+    _fbdMapV2.detach();
+    _v2Model.detach();
+  }
+  else if (_backend == Backend::RuntimeV1)
+  {
+    exitCurrentView();
+  }
+
+  _backend = Backend::None;
   _runtime = nullptr;
+  _v2Engine = nullptr;
   _attached = false;
   _userVisible = false;
   _currentView = RuntimeUIView::Home;
@@ -69,7 +117,20 @@ void JWPLC_LogicRuntime_UIClass::end()
 
 bool JWPLC_LogicRuntime_UIClass::isAttached() const
 {
-  return _attached && _runtime != nullptr;
+  if (!_attached)
+  {
+    return false;
+  }
+
+  if (_backend == Backend::RuntimeV1)
+  {
+    return _runtime != nullptr;
+  }
+  if (_backend == Backend::EngineV2)
+  {
+    return _v2Engine != nullptr && _v2Model.isAttached();
+  }
+  return false;
 }
 
 JWPLC_LogicRuntime *JWPLC_LogicRuntime_UIClass::runtime()
@@ -82,23 +143,40 @@ const JWPLC_LogicRuntime *JWPLC_LogicRuntime_UIClass::runtime() const
   return _runtime;
 }
 
+LogicV2EnginePrototype *JWPLC_LogicRuntime_UIClass::v2Engine()
+{
+  return _v2Engine;
+}
+
+const LogicV2EnginePrototype *JWPLC_LogicRuntime_UIClass::v2Engine() const
+{
+  return _v2Engine;
+}
+
 void JWPLC_LogicRuntime_UIClass::forceRedraw()
 {
-  switch (_currentView)
+  if (_backend == Backend::EngineV2)
   {
-  case RuntimeUIView::Program:
-    _program.forceRedraw();
-    break;
-  case RuntimeUIView::Diagram:
-    _diagram.forceRedraw();
-    break;
-  case RuntimeUIView::Blocks:
-    _blocks.forceRedraw();
-    break;
-  case RuntimeUIView::Home:
-  default:
-    _home.forceRedraw();
-    break;
+    _fbdMapV2.forceRedraw();
+  }
+  else
+  {
+    switch (_currentView)
+    {
+    case RuntimeUIView::Program:
+      _program.forceRedraw();
+      break;
+    case RuntimeUIView::Diagram:
+      _diagram.forceRedraw();
+      break;
+    case RuntimeUIView::Blocks:
+      _blocks.forceRedraw();
+      break;
+    case RuntimeUIView::Home:
+    default:
+      _home.forceRedraw();
+      break;
+    }
   }
 
   if (JWPLC_Display.isReady())
@@ -115,9 +193,17 @@ void JWPLC_LogicRuntime_UIClass::onDisplayEnter()
   }
 
   _userVisible = true;
-  _currentView = RuntimeUIView::Home;
   _pendingProgramAction = RuntimeUIProgramAction::None;
   syncIdleIndicators();
+
+  if (_backend == Backend::EngineV2)
+  {
+    _currentView = RuntimeUIView::Diagram;
+    _fbdMapV2.enter();
+    return;
+  }
+
+  _currentView = RuntimeUIView::Home;
   enterCurrentView();
 }
 
@@ -131,6 +217,12 @@ void JWPLC_LogicRuntime_UIClass::onDisplayRefresh(
   }
 
   syncIdleIndicators();
+  if (_backend == Backend::EngineV2)
+  {
+    _fbdMapV2.refresh(io, rtc);
+    return;
+  }
+
   refreshCurrentView(io, rtc);
   collectViewRequests();
 }
@@ -142,15 +234,26 @@ void JWPLC_LogicRuntime_UIClass::onDisplayExit()
     return;
   }
 
-  exitCurrentView();
+  if (_backend == Backend::EngineV2)
+  {
+    _fbdMapV2.exit();
+    _currentView = RuntimeUIView::Diagram;
+  }
+  else
+  {
+    exitCurrentView();
+    _currentView = RuntimeUIView::Home;
+  }
+
   _pendingProgramAction = RuntimeUIProgramAction::None;
-  _currentView = RuntimeUIView::Home;
   _userVisible = false;
 }
 
 void JWPLC_LogicRuntime_UIClass::switchView(RuntimeUIView nextView)
 {
-  if (nextView == RuntimeUIView::None || nextView == _currentView)
+  if (_backend != Backend::RuntimeV1 ||
+      nextView == RuntimeUIView::None ||
+      nextView == _currentView)
   {
     return;
   }
@@ -237,8 +340,6 @@ void JWPLC_LogicRuntime_UIClass::collectViewRequests()
     }
     else if (requested == RuntimeUIView::Blocks)
     {
-      // BLOQUES abre primero la representación gráfica. La tabla queda como
-      // herramienta técnica secundaria accesible desde DIAGRAMA.
       switchView(RuntimeUIView::Diagram);
     }
     break;
@@ -280,7 +381,6 @@ void JWPLC_LogicRuntime_UIClass::collectViewRequests()
     const RuntimeUIView requested = _blocks.takeRequestedView();
     if (requested == RuntimeUIView::Home)
     {
-      // VOLVER desde la lista técnica regresa a la vista gráfica principal.
       switchView(RuntimeUIView::Diagram);
     }
     break;
@@ -293,6 +393,11 @@ void JWPLC_LogicRuntime_UIClass::collectViewRequests()
 
 void JWPLC_LogicRuntime_UIClass::processPendingProgramAction()
 {
+  if (_backend != Backend::RuntimeV1 || _runtime == nullptr)
+  {
+    return;
+  }
+
   const RuntimeUIProgramAction action = _pendingProgramAction;
   if (action == RuntimeUIProgramAction::None)
   {
@@ -301,7 +406,6 @@ void JWPLC_LogicRuntime_UIClass::processPendingProgramAction()
 
   _pendingProgramAction = RuntimeUIProgramAction::None;
 
-  // Salir de USER antes de que loop() procese la solicitud cancela la acción.
   if (!_userVisible || _currentView != RuntimeUIView::Program)
   {
     return;
@@ -362,13 +466,17 @@ void JWPLC_LogicRuntime_UIClass::processPendingProgramAction()
     return;
   }
 
-  // La pantalla detectará los cambios por su caché en el próximo refresh.
-  // Solo el resultado se cruza entre loop() y el callback como un byte atómico.
   _program.setFeedback(feedback);
 }
 
 bool JWPLC_LogicRuntime_UIClass::criticalErrorActive() const
 {
+  if (_backend == Backend::EngineV2)
+  {
+    return _v2Engine != nullptr &&
+           _v2Engine->state() == LogicV2EngineState::Fault;
+  }
+
   if (_runtime == nullptr)
   {
     return false;
@@ -409,8 +517,18 @@ bool JWPLC_LogicRuntime_UIClass::criticalErrorActive() const
 
 void JWPLC_LogicRuntime_UIClass::syncIdleIndicators()
 {
-  const bool runLed =
-      _runtime->state() == JWPLCLogicRuntimeState::Running;
+  bool runLed = false;
+  if (_backend == Backend::EngineV2)
+  {
+    runLed = _v2Engine != nullptr &&
+             _v2Engine->state() == LogicV2EngineState::Running;
+  }
+  else if (_backend == Backend::RuntimeV1)
+  {
+    runLed = _runtime != nullptr &&
+             _runtime->state() == JWPLCLogicRuntimeState::Running;
+  }
+
   const bool errLed = criticalErrorActive();
 
   if (runLed != _lastRunLed)
