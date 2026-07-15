@@ -12,7 +12,7 @@ bool LogicVariableInputPrototype::isVariableGate(LogicV2BlockType type)
 bool LogicVariableInputPrototype::isKnownType(LogicV2BlockType type)
 {
   return type >= LogicV2BlockType::DigitalInput &&
-         type <= LogicV2BlockType::DigitalOutput;
+         type <= LogicV2BlockType::SetReset;
 }
 
 bool LogicVariableInputPrototype::neutralValue(LogicV2BlockType type)
@@ -62,6 +62,8 @@ LogicV2PrototypeError LogicVariableInputPrototype::validate(
       return LogicV2PrototypeError::InvalidBlockType;
     }
 
+    // Los flags retentivos se habilitarán en una fase posterior. Por ahora el
+    // modelo v2 solo valida SET/RESET no retentivo en RAM.
     if (block.flags != 0 || block.reserved != 0)
     {
       return LogicV2PrototypeError::InvalidBlockFlags;
@@ -101,6 +103,11 @@ LogicV2PrototypeError LogicVariableInputPrototype::validate(
     case LogicV2BlockType::Not:
       minimumInputs = 1;
       maximumInputs = 1;
+      break;
+
+    case LogicV2BlockType::SetReset:
+      minimumInputs = 2;
+      maximumInputs = 2;
       break;
 
     case LogicV2BlockType::And:
@@ -316,6 +323,39 @@ bool LogicVariableInputPrototype::evaluateValidated(
         return false;
       }
       result = !inputValue;
+      break;
+    }
+
+    case LogicV2BlockType::SetReset:
+    {
+      bool setValue = false;
+      bool resetValue = false;
+      if (!resolveInput(program.links[block.firstInput],
+                        block.type,
+                        blockValues,
+                        setValue) ||
+          !resolveInput(program.links[block.firstInput + 1U],
+                        block.type,
+                        blockValues,
+                        resetValue))
+      {
+        error = LogicV2PrototypeError::InvalidSourceEncoding;
+        return false;
+      }
+
+      // Prioridad de RESET, igual que el motor v1 histórico.
+      if (resetValue)
+      {
+        result = false;
+      }
+      else if (setValue)
+      {
+        result = true;
+      }
+      else
+      {
+        result = blockValues[blockIndex];
+      }
       break;
     }
 
