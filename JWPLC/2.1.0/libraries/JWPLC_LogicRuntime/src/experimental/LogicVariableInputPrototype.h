@@ -3,6 +3,8 @@
 
 #include <Arduino.h>
 
+#include "../runtime/LogicBlock.h"
+
 /**
  * @brief Prototipo aislado del modelo de bloques v2.
  *
@@ -19,6 +21,24 @@ static constexpr uint16_t JWPLC_LOGIC_V2_SOURCE_CONST_TRUE = 0x7FFDU;
 static constexpr uint16_t JWPLC_LOGIC_V2_SOURCE_CONST_FALSE = 0x7FFEU;
 static constexpr uint16_t JWPLC_LOGIC_V2_SOURCE_OPEN = 0x7FFFU;
 static constexpr uint16_t JWPLC_LOGIC_V2_MAX_BLOCK_SOURCE = 0x7FFCU;
+
+#ifndef JWPLC_LOGIC_V2_COMPILED_MAX_LINKS_CONFIG
+#if JWPLC_LOGIC_COMPILED_MAX_BLOCKS_CONFIG > 100
+#define JWPLC_LOGIC_V2_COMPILED_MAX_LINKS_CONFIG 2048
+#else
+#define JWPLC_LOGIC_V2_COMPILED_MAX_LINKS_CONFIG 512
+#endif
+#endif
+
+static_assert(JWPLC_LOGIC_V2_COMPILED_MAX_LINKS_CONFIG > 0,
+              "El motor v2 requiere al menos un enlace compilado");
+static_assert(JWPLC_LOGIC_V2_COMPILED_MAX_LINKS_CONFIG <= 2048,
+              "El prototipo v2 admite como maximo 2048 enlaces compilados");
+
+static constexpr uint16_t JWPLC_LOGIC_V2_COMPILED_MAX_BLOCKS =
+    JWPLC_LOGIC_COMPILED_MAX_BLOCKS;
+static constexpr uint16_t JWPLC_LOGIC_V2_COMPILED_MAX_LINKS =
+    static_cast<uint16_t>(JWPLC_LOGIC_V2_COMPILED_MAX_LINKS_CONFIG);
 
 enum class LogicV2BlockType : uint8_t
 {
@@ -153,12 +173,28 @@ public:
                                         uint16_t maxLinks,
                                         uint8_t digitalInputCount);
 
+  /**
+   * @brief Valida y evalua un programa en una sola llamada.
+   *
+   * Es util para pruebas aisladas. Un motor cargado debe validar una vez y usar
+   * evaluateValidated() durante cada scan para no repetir todo el validador.
+   */
   static bool evaluate(const LogicV2Program &program,
                        const bool *digitalInputs,
                        uint8_t digitalInputCount,
                        bool *blockValues,
                        size_t blockValueCapacity,
                        LogicV2PrototypeError &error);
+
+  /**
+   * @brief Evalua un programa que ya fue validado durante la carga.
+   */
+  static bool evaluateValidated(const LogicV2Program &program,
+                                const bool *digitalInputs,
+                                uint8_t digitalInputCount,
+                                bool *blockValues,
+                                size_t blockValueCapacity,
+                                LogicV2PrototypeError &error);
 
   static constexpr size_t requiredImageBytes(uint16_t blockCount,
                                               uint16_t linkCount,
