@@ -14,9 +14,9 @@
  * por conexiones o cercanía geográfica; el viewport solo se desplaza cuando el
  * bloque seleccionado cruza los márgenes visibles.
  *
- * Desde v0.4.1 el panel separa explícitamente la franja informativa y el área
- * gráfica. Los nodos y cables solo se dibujan cuando caben completamente en el
- * área del mapa, evitando residuos sobre encabezado, borde y pie de pantalla.
+ * Desde v0.4.2 la información Bxx/posición vive en el encabezado, el área del
+ * mapa llega hasta el borde previo al footer y cada nodo reserva un gutter
+ * exclusivo para etiquetas, inversión y puertos de entrada.
  */
 class RuntimeUIFBDMapV2
 {
@@ -43,30 +43,33 @@ private:
   static constexpr uint8_t MAX_LEVELS = 100;
   static constexpr uint32_t VALUE_REFRESH_MS = 100;
 
-  // Panel exterior. La franja INFO y el viewport MAP nunca se superponen.
+  // Espacio entre el título MAPA FBD y la insignia RUN/READY/FAULT.
+  static constexpr int16_t HEADER_INFO_X = 104;
+  static constexpr int16_t HEADER_INFO_Y = 8;
+  static constexpr uint8_t HEADER_INFO_COLUMNS = 22;
+
+  // El panel termina en y=154; el footer conserva su separador en y=156.
   static constexpr int16_t PANEL_X = 4;
   static constexpr int16_t PANEL_Y = 28;
   static constexpr int16_t PANEL_W = 312;
-  static constexpr int16_t PANEL_H = 118;
-
-  static constexpr int16_t INFO_X = PANEL_X + 1;
-  static constexpr int16_t INFO_Y = PANEL_Y + 1;
-  static constexpr int16_t INFO_W = PANEL_W - 2;
-  static constexpr int16_t INFO_H = 13;
+  static constexpr int16_t PANEL_H = 127;
 
   static constexpr int16_t MAP_X = PANEL_X + 1;
-  static constexpr int16_t MAP_Y = INFO_Y + INFO_H;
+  static constexpr int16_t MAP_Y = PANEL_Y + 1;
   static constexpr int16_t MAP_W = PANEL_W - 2;
-  static constexpr int16_t MAP_H = PANEL_H - 2 - INFO_H;
+  static constexpr int16_t MAP_H = PANEL_H - 2;
 
-  static constexpr int16_t NODE_W = 54;
-  static constexpr int16_t NODE_H = 26;
-  static constexpr int16_t COLUMN_STEP = 78;
-  static constexpr int16_t ROW_STEP = 34;
+  // Gutter izquierdo de 17 px: puerto, ! de inversión y etiqueta compacta.
+  static constexpr int16_t NODE_W = 66;
+  static constexpr int16_t NODE_H = 32;
+  static constexpr int16_t NODE_GUTTER_W = 17;
+  static constexpr int16_t NODE_TEXT_X = NODE_GUTTER_W + 2;
+  static constexpr int16_t COLUMN_STEP = 88;
+  static constexpr int16_t ROW_STEP = 40;
   static constexpr int16_t WORLD_MARGIN_X = 4;
   static constexpr int16_t WORLD_MARGIN_Y = 2;
   static constexpr int16_t KEEP_MARGIN_X = 12;
-  static constexpr int16_t KEEP_MARGIN_Y = 8;
+  static constexpr int16_t KEEP_MARGIN_Y = 6;
 
   void invalidateLayout();
   void buildLayout();
@@ -82,8 +85,8 @@ private:
                       uint8_t count) const;
 
   void drawMapStatic();
-  void clearMapRegions();
-  void drawMapInfo();
+  void clearMapArea();
+  void drawMapHeaderInfo();
   void drawMap();
   void drawWires();
   void drawNodes();
@@ -110,6 +113,11 @@ private:
   void formatNodeData(char *destination,
                       size_t capacity,
                       uint16_t blockIndex) const;
+  void formatPinLabel(char *destination,
+                      size_t capacity,
+                      const LogicV2BlockRecord &block,
+                      const LogicV2InputLink &input,
+                      uint8_t inputIndex) const;
   void formatResource(char *destination,
                       size_t capacity,
                       const LogicV2BlockRecord &block) const;
