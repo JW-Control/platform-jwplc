@@ -36,76 +36,46 @@ static void expect(const char *name, bool condition)
 {
   Serial.print(condition ? "[PASS] " : "[FAIL] ");
   Serial.println(name);
-
-  if (condition)
-  {
-    ++passedTests;
-  }
-  else
-  {
-    ++failedTests;
-  }
+  condition ? ++passedTests : ++failedTests;
 }
 
-static bool evaluateV1Reference(const LogicProgram &program,
-                                const bool *inputs,
-                                uint8_t inputCount,
-                                bool *values,
-                                size_t valueCapacity)
+static bool evaluateV1Reference(const bool *inputs,
+                                bool *values)
 {
-  if (program.blocks == nullptr ||
-      inputs == nullptr ||
-      values == nullptr ||
-      valueCapacity < program.blockCount)
+  memset(values, 0, BLOCK_COUNT * sizeof(bool));
+  for (uint16_t index = 0; index < BLOCK_COUNT; ++index)
   {
-    return false;
-  }
-
-  memset(values, 0, valueCapacity * sizeof(bool));
-
-  for (uint16_t index = 0; index < program.blockCount; ++index)
-  {
-    const LogicBlockDefinition &block = program.blocks[index];
+    const LogicBlockDefinition &block = V1_BLOCKS[index];
     switch (block.type)
     {
     case LogicBlockType::DigitalInput:
-      if (block.resource >= inputCount)
-      {
-        return false;
-      }
       values[index] = inputs[block.resource];
       break;
-
     case LogicBlockType::Not:
       values[index] = !values[block.sourceA];
       break;
-
     case LogicBlockType::And:
       values[index] = values[block.sourceA] && values[block.sourceB];
       break;
-
     case LogicBlockType::Or:
       values[index] = values[block.sourceA] || values[block.sourceB];
       break;
-
     default:
       return false;
     }
   }
-
   return true;
 }
 
-static bool allValuesMatch(const bool *reference, uint16_t count)
+static bool allValuesMatch(const bool *reference)
 {
-  for (uint16_t index = 0; index < count; ++index)
+  for (uint16_t index = 0; index < BLOCK_COUNT; ++index)
   {
     if (reference[index] != engine.blockValue(index))
     {
       return false;
     }
   }
-
   return true;
 }
 
@@ -117,19 +87,11 @@ static void testPattern(const char *label,
   char message[80];
 
   snprintf(message, sizeof(message), "%s: referencia v1 evalua", label);
-  expect(message,
-         evaluateV1Reference(V1_PROGRAM,
-                             inputs,
-                             8,
-                             reference,
-                             BLOCK_COUNT));
-
+  expect(message, evaluateV1Reference(inputs, reference));
   snprintf(message, sizeof(message), "%s: motor v2 ejecuta scan", label);
   expect(message, engine.scan(inputs, 8));
-
   snprintf(message, sizeof(message), "%s: todos los bloques coinciden", label);
-  expect(message, allValuesMatch(reference, BLOCK_COUNT));
-
+  expect(message, allValuesMatch(reference));
   snprintf(message, sizeof(message), "%s: salida final coincide", label);
   expect(message, engine.blockValue(13) == expectedFinal);
 }
@@ -144,22 +106,14 @@ void setup()
   Serial.println("No inicializa E/S, no conmuta Q0 y no usa la FRAM.");
   Serial.println();
 
-  expect("descriptor v1 conserva 12 bytes",
-         sizeof(LogicBlockDefinition) == 12);
-  expect("descriptor v2 conserva 12 bytes",
-         sizeof(LogicV2BlockRecord) == 12);
-  expect("enlace v2 conserva 2 bytes",
-         sizeof(LogicV2InputLink) == 2);
+  expect("descriptor v1 conserva 12 bytes", sizeof(LogicBlockDefinition) == 12);
+  expect("descriptor v2 conserva 12 bytes", sizeof(LogicV2BlockRecord) == 12);
+  expect("enlace v2 conserva 2 bytes", sizeof(LogicV2InputLink) == 2);
 
   size_t requiredLinks = 0;
-  LogicV1ToV2AdapterError adapterError =
-      LogicV1ToV2AdapterError::None;
-
+  LogicV1ToV2AdapterError adapterError = LogicV1ToV2AdapterError::None;
   expect("adaptador calcula enlaces del programa",
-         LogicV1ToV2Adapter::requiredLinkCount(
-             V1_PROGRAM,
-             requiredLinks,
-             adapterError));
+         LogicV1ToV2Adapter::requiredLinkCount(V1_PROGRAM, requiredLinks, adapterError));
   expect("programa requiere exactamente 10 enlaces",
          requiredLinks == EXPECTED_LINK_COUNT);
   expect("calculo no deja error",
@@ -178,13 +132,10 @@ void setup()
              EXPECTED_LINK_COUNT,
              convertedProgram,
              adapterError));
-  expect("conversion conserva 14 bloques",
-         convertedProgram.blockCount == BLOCK_COUNT);
-  expect("conversion genera 10 enlaces",
-         convertedProgram.linkCount == EXPECTED_LINK_COUNT);
+  expect("conversion conserva 14 bloques", convertedProgram.blockCount == BLOCK_COUNT);
+  expect("conversion genera 10 enlaces", convertedProgram.linkCount == EXPECTED_LINK_COUNT);
   expect("entradas conservan recursos",
-         convertedBlocks[0].resource == 0 &&
-             convertedBlocks[7].resource == 7);
+         convertedBlocks[0].resource == 0 && convertedBlocks[7].resource == 7);
   expect("NOT usa un enlace",
          convertedBlocks[8].type == LogicV2BlockType::Not &&
              convertedBlocks[8].firstInput == 0 &&
@@ -202,10 +153,9 @@ void setup()
   expect("programa convertido supera validador v2",
          LogicVariableInputPrototype::validate(
              convertedProgram,
-             JWPLC_LOGIC_V2_COMPILED_MAX_BLOCKS,
-             JWPLC_LOGIC_V2_COMPILED_MAX_LINKS,
+             100,
+             512,
              8) == LogicV2PrototypeError::None);
-
   expect("motor v2 carga programa adaptado",
          engine.loadProgram(convertedProgram, 8));
   expect("motor v2 inicia programa adaptado", engine.start());
@@ -272,7 +222,7 @@ void setup()
   expect("enlaces cortos informan LINK_BUFFER_TOO_SMALL",
          adapterError == LogicV1ToV2AdapterError::LinkBufferTooSmall);
 
-  LogicBlockDefinition unsupportedBlocks[2] = {
+  LogicBlockDefinition outputBlocks[2] = {
       {LogicBlockType::DigitalInput,
        JWPLC_LOGIC_NO_SOURCE,
        JWPLC_LOGIC_NO_SOURCE,
@@ -283,28 +233,24 @@ void setup()
        JWPLC_LOGIC_NO_SOURCE,
        0,
        0}};
-  LogicProgram unsupportedProgram = {
-      "UNSUPPORTED",
-      unsupportedBlocks,
-      2};
-
-  expect("DigitalOutput queda pendiente de fase posterior",
-         !LogicV1ToV2Adapter::requiredLinkCount(
-             unsupportedProgram,
+  const LogicProgram outputProgram = {"OUTPUT", outputBlocks, 2};
+  expect("DigitalOutput ya es aceptado por el adaptador",
+         LogicV1ToV2Adapter::requiredLinkCount(
+             outputProgram,
              requiredLinks,
              adapterError));
-  expect("tipo pendiente informa UNSUPPORTED_BLOCK_TYPE",
-         adapterError == LogicV1ToV2AdapterError::UnsupportedBlockType);
+  expect("DigitalOutput requiere un enlace",
+         requiredLinks == 1 &&
+             adapterError == LogicV1ToV2AdapterError::None);
 
-  unsupportedBlocks[1] =
-      LogicBlockDefinition(LogicBlockType::SetReset, 0, 0);
+  outputBlocks[1] = LogicBlockDefinition(LogicBlockType::SetReset, 0, 0);
   expect("SET/RESET queda pendiente de fase posterior",
          !LogicV1ToV2Adapter::requiredLinkCount(
-             unsupportedProgram,
+             outputProgram,
              requiredLinks,
              adapterError));
 
-  unsupportedBlocks[1] =
+  outputBlocks[1] =
       LogicBlockDefinition(LogicBlockType::Ton,
                            0,
                            JWPLC_LOGIC_NO_SOURCE,
@@ -312,21 +258,21 @@ void setup()
                            1000);
   expect("TON queda pendiente de fase posterior",
          !LogicV1ToV2Adapter::requiredLinkCount(
-             unsupportedProgram,
+             outputProgram,
              requiredLinks,
              adapterError));
 
-  unsupportedBlocks[0] =
+  outputBlocks[0] =
       LogicBlockDefinition(LogicBlockType::DigitalInput,
                            JWPLC_LOGIC_NO_SOURCE,
                            JWPLC_LOGIC_NO_SOURCE,
                            0,
                            0,
                            JWPLC_LOGIC_BLOCK_FLAG_RETENTIVE);
-  unsupportedProgram.blockCount = 1;
+  const LogicProgram flagProgram = {"FLAGS", outputBlocks, 1};
   expect("adaptador rechaza flags no soportados",
          !LogicV1ToV2Adapter::requiredLinkCount(
-             unsupportedProgram,
+             flagProgram,
              requiredLinks,
              adapterError));
   expect("flags informan UNSUPPORTED_FLAGS",
@@ -339,7 +285,7 @@ void setup()
        0,
        0},
       {LogicBlockType::Not, JWPLC_LOGIC_NO_SOURCE}};
-  LogicProgram invalidSourceProgram = {
+  const LogicProgram invalidSourceProgram = {
       "INVALID SOURCE",
       invalidSourceBlocks,
       2};
