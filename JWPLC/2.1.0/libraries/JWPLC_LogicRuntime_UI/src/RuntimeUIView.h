@@ -8,6 +8,7 @@ enum class RuntimeUIView : uint8_t
   None = 0,
   Home,
   Program,
+  Diagram,
   Blocks,
   Storage,
   Diagnostics
