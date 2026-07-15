@@ -35,9 +35,8 @@ enum class LogicV2EngineError : uint8_t
  * @brief Motor de ejecución aislado para el modelo de entradas variables v2.
  *
  * Mantiene copias profundas de bloques y enlaces dentro de arreglos de tamaño
- * fijo. No conoce FRAM, codec, retentivos ni salidas físicas. Su objetivo es
- * medir el coste RAM y validar la carga/ejecución antes de sustituir el motor
- * estable v1.
+ * fijo. No conoce FRAM, codec, retentivos ni salidas físicas. DigitalOutput se
+ * conserva como valor lógico consultable, pero todavía no conmuta Q0.
  */
 class LogicV2EnginePrototype
 {
@@ -45,7 +44,8 @@ public:
   LogicV2EnginePrototype();
 
   bool loadProgram(const LogicV2Program &program,
-                   uint8_t digitalInputCount);
+                   uint8_t digitalInputCount,
+                   uint8_t digitalOutputCount = 0);
   void unloadProgram();
 
   bool start();
@@ -60,9 +60,19 @@ public:
   uint16_t blockCount() const;
   uint16_t linkCount() const;
   uint8_t digitalInputCount() const;
+  uint8_t digitalOutputCount() const;
   uint32_t scanCount() const;
 
   bool blockValue(uint16_t blockIndex) const;
+
+  /**
+   * @brief Valor lógico asociado a un recurso Q0.x del programa cargado.
+   *
+   * Devuelve false cuando no existe un bloque DigitalOutput para el recurso.
+   * El validador garantiza que no haya recursos de salida duplicados.
+   */
+  bool digitalOutputValue(uint8_t outputIndex) const;
+
   const LogicV2BlockRecord *blockDefinition(uint16_t blockIndex) const;
   const LogicV2InputLink *inputLink(uint16_t linkIndex) const;
   const LogicV2Program *program() const;
@@ -81,6 +91,7 @@ private:
   bool _values[JWPLC_LOGIC_V2_COMPILED_MAX_BLOCKS];
   LogicV2Program _program;
   uint8_t _digitalInputCount;
+  uint8_t _digitalOutputCount;
   LogicV2EngineState _state;
   LogicV2EngineError _lastError;
   LogicV2PrototypeError _validationError;
