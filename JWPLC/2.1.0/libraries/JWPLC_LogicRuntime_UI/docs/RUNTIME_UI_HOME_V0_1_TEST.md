@@ -1,25 +1,53 @@
-# Prueba física — Runtime UI Home v0.1
+# Resultado físico — Runtime UI Home v0.1
 
 ## Estado
 
 ```text
-DISEÑO VISUAL INICIAL: VALIDADO EN TFT
-DIRTY RENDERING: IMPLEMENTADO
-RECOMPILACIÓN Y REVALIDACIÓN SIN PARPADEO: PENDIENTES
+DISEÑO VISUAL: VALIDADO EN TFT
+DIRTY RENDERING: VALIDADO EN TFT
+PARPADEO PERIÓDICO: ELIMINADO
+BOTONERA Y RETORNO A IDLE: VALIDADOS
 ```
 
-La primera visualización física confirmó correctamente:
+## Compilación validada
+
+```text
+Flash:       428465 bytes / 3145728 bytes (13 %)
+RAM global:   32724 bytes / 327680 bytes (9 %)
+RAM restante: 294956 bytes
+```
+
+## Ejemplo
+
+```text
+JWPLC_LogicRuntime_UI_Home
+```
+
+## Seguridad confirmada
+
+- inicializa la E/S base mediante `runtime.begin()`;
+- no carga ningún programa lógico;
+- no contiene bloques `DigitalOutput`;
+- no escribe ni formatea la FRAM;
+- `storage().begin()` solo inspecciona el mapa existente;
+- Q0 permanece apagado.
+
+## Elementos visuales confirmados
 
 - encabezado `JWPLC LOGIC`;
 - insignia `READY`;
 - panel de estado del programa;
 - botones `PROGRAMA`, `BLOQUES`, `MEMORIA` y `DIAGNOSTICO`;
 - selector visible;
-- pie de navegación.
+- pie de navegación;
+- retorno `USER -> IDLE`;
+- reconstrucción correcta al entrar nuevamente en USER.
 
-Durante esta primera visualización se detectó parpadeo periódico porque los campos dinámicos se borraban y reescribían aunque su valor permaneciera estable.
+## Renderizado incremental validado
 
-La implementación fue refactorizada para aplicar las reglas de:
+La primera versión visible presentaba parpadeo porque los campos dinámicos se borraban y reescribían aunque su valor permaneciera estable.
+
+La versión corregida fue validada con:
 
 ```text
 estructura estática una sola vez
@@ -29,125 +57,33 @@ estructura estática una sola vez
 + redibujado solo de selección anterior y actual
 ```
 
-## Ejemplo
+Resultado observado:
 
 ```text
-JWPLC_LogicRuntime_UI_Home
+Título y marcos: estables
+Programa e identidad: estables
+Storage y retentivos: estables
+Botones: estables
+Insignia READY: estable
+Movimiento del selector: sin parpadeo global
+Mensaje de OK: solo modifica el pie
+Segunda entrada a USER: una sola reconstrucción
 ```
 
-## Seguridad
+## Decisión
 
-- inicializa la E/S base mediante `runtime.begin()`;
-- no carga ningún programa lógico;
-- no contiene bloques `DigitalOutput`;
-- no escribe ni formatea la FRAM;
-- `storage().begin()` solo inspecciona el mapa existente;
-- Q0 debe permanecer apagado.
+El patrón de dirty rendering queda aprobado como base obligatoria para las pantallas posteriores del Runtime.
 
-## Flujo esperado
-
-1. El sketch inicia en la pantalla `IDLE` normal.
-2. `RUN` debe quedar apagado porque el runtime está en `READY`.
-3. `ERR` debe quedar apagado: una FRAM sin formato no es una falla crítica.
-4. El monitor de entradas y salidas de `IDLE` debe continuar funcionando.
-5. Al pulsar cualquier botón se entra en la vista `USER`.
-6. Debe mostrarse el encabezado `JWPLC LOGIC` y el estado `READY`.
-7. Sin programa persistente debe mostrarse:
-
-```text
-Programa: SIN PROGRAMA
-ID / Gen: SIN IDENTIDAD
-Bloques: 0
-```
-
-8. Las flechas deben mover el selector entre:
-
-```text
-PROGRAMA
-BLOQUES
-MEMORIA
-DIAGNOSTICO
-```
-
-9. Al mover el selector, únicamente deben redibujarse el botón anterior y el nuevo.
-10. `OK` debe mostrar durante aproximadamente 1.5 segundos la sección seleccionada.
-11. `ESC` debe regresar a `IDLE`.
-12. Una segunda entrada a `USER` debe reconstruir correctamente la vista.
-
-## Validación específica de parpadeo
-
-Mantener la pantalla en `USER` sin pulsar botones durante al menos 20 segundos.
-
-Debe observarse:
-
-```text
-Título y marcos completamente estables
-Programa e identidad completamente estables
-Estado de storage y retentivos completamente estable
-Botones completamente estables
-Insignia READY completamente estable
-```
-
-El campo de scan se evalúa una vez por segundo, pero no debe escribirse en la TFT cuando promedio y máximo sigan sin cambios.
-
-También se debe comprobar:
-
-1. mover el selector repetidamente no provoca destello en los otros dos botones;
-2. pulsar `OK` solo modifica el pie de pantalla;
-3. al desaparecer el mensaje de `OK`, solo se restaura el pie;
-4. entrar nuevamente a `USER` produce una única reconstrucción, no dos destellos consecutivos.
-
-## Monitor serial esperado
-
-```text
-JWPLC Logic Runtime UI - pantalla principal USER
-IDLE conserva monitor I/O y LEDs del package.
-Pulsa cualquier boton para entrar a USER.
-
-Storage: OK
-Runtime: OK
-Runtime UI: OK
-
-En USER: flechas mueven el selector, OK confirma y ESC vuelve a IDLE.
-JWPLC_Display inicializado
-```
-
-El orden exacto de `JWPLC_Display inicializado` puede variar porque el display pertenece al autoload normal del package.
-
-## Datos que deben registrarse
-
-```text
-Flash utilizada
-RAM global utilizada
-RAM restante
-fotografía de IDLE
-fotografía de USER
-resultado de cada botón
-retorno USER → IDLE
-parpadeo con pantalla estable durante 20 s: SI/NO
-parpadeo al mover selector: SI/NO
-parpadeo al mostrar/restaurar mensaje de OK: SI/NO
-segunda entrada USER con un solo redibujado: SI/NO
-```
-
-## Criterio de aprobación
-
-```text
-COMPILA
-IDLE SIN REGRESIÓN
-USER VISIBLE
-BOTONERA OPERATIVA
-ESC RETORNA A IDLE
-SIN PARPADEO PERIÓDICO
-SOLO SE ACTUALIZAN CAMPOS MODIFICADOS
-FRAM SIN ESCRITURAS
-Q0 APAGADAS
-```
-
-## Documento normativo
-
-Las reglas que deben seguir todas las pantallas posteriores están en:
+Documento normativo:
 
 ```text
 docs/USER_UI_RENDERING_RULES.md
 ```
+
+## Evolución posterior
+
+Después de esta validación:
+
+1. la paleta cian inicial fue reemplazada por tonos verdes, blancos y negros de JW Control;
+2. se inició `RuntimeUIProgram` como primera sección funcional;
+3. la nueva etapa requiere recompilación y validación independiente.
