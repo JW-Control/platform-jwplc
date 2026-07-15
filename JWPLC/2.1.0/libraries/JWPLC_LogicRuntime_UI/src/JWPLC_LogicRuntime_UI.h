@@ -5,7 +5,9 @@
 #include <JWPLC_LogicRuntime.h>
 #include <JWPLC_Display.h>
 
+#include "RuntimeUIView.h"
 #include "screens/RuntimeUIHome.h"
+#include "screens/RuntimeUIProgram.h"
 
 /**
  * @brief Interfaz USER modular del JWPLC Logic Runtime.
@@ -26,10 +28,10 @@ public:
   bool begin(JWPLC_LogicRuntime &runtime);
 
   /**
-   * @brief Sincroniza RUN/ERR de IDLE con el estado del runtime.
+   * @brief Ejecuta trabajo no gráfico fuera del callback de la TFT.
    *
-   * Es una operación liviana. Debe llamarse desde loop(); no dibuja la vista
-   * USER porque ese refresco continúa administrado por JWPLC_Display.
+   * Sincroniza RUN/ERR de IDLE y procesa acciones diferidas como preparar,
+   * iniciar o detener el programa. Debe llamarse desde loop().
    */
   void update();
 
@@ -50,12 +52,23 @@ private:
   bool criticalErrorActive() const;
   void syncIdleIndicators();
 
+  void switchView(RuntimeUIView nextView);
+  void enterCurrentView();
+  void refreshCurrentView(const JWPLC_IOState *io,
+                          const JWPLC_RTCState *rtc);
+  void exitCurrentView();
+  void collectViewRequests();
+  void processPendingProgramAction();
+
   JWPLC_LogicRuntime *_runtime;
   bool _attached;
   bool _userVisible;
   bool _lastRunLed;
   bool _lastErrLed;
+  RuntimeUIView _currentView;
+  volatile RuntimeUIProgramAction _pendingProgramAction;
   RuntimeUIHome _home;
+  RuntimeUIProgram _program;
 };
 
 extern JWPLC_LogicRuntime_UIClass JWPLC_LogicRuntime_UI;
