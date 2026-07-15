@@ -8,6 +8,7 @@
 #include "RuntimeUIView.h"
 #include "screens/RuntimeUIHome.h"
 #include "screens/RuntimeUIProgram.h"
+#include "screens/RuntimeUIBlocks.h"
 
 /**
  * @brief Interfaz USER modular del JWPLC Logic Runtime.
@@ -69,6 +70,7 @@ private:
   volatile RuntimeUIProgramAction _pendingProgramAction;
   RuntimeUIHome _home;
   RuntimeUIProgram _program;
+  RuntimeUIBlocks _blocks;
 };
 
 extern JWPLC_LogicRuntime_UIClass JWPLC_LogicRuntime_UI;
