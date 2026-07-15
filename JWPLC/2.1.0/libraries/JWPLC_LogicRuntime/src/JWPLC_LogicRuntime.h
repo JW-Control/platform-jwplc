@@ -8,6 +8,7 @@
 #include "runtime/LogicEngine.h"
 #include "runtime/LogicProgram.h"
 #include "experimental/LogicVariableInputPrototype.h"
+#include "experimental/LogicV2EnginePrototype.h"
 #include "storage/JWPLCLogicStorage.h"
 #include "storage/LogicFRAMStorage.h"
 #include "storage/LogicMemoryStorage.h"
