@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.3] - 2026-07-15
+
+### Corregido
+- `writeBlock()` ahora habilita la escritura de forma independiente para el encabezado y el payload.
+- Se evita que el payload quede sin escribir en memorias que limpian el latch WEL al finalizar cada comando `WRITE`.
+- La lectura posterior mediante `readBlock()` vuelve a validar correctamente `magic`, versión, longitud y checksum.
+
+### Notas
+- `get()`, `put()` y `update()` no estaban afectados porque cada operación `put()` ya ejecutaba su propio ciclo `WREN -> WRITE -> WRDI`.
+- La corrección mantiene la API pública y el formato almacenado sin cambios.
+
 ## [1.0.2] - 2026-04-24
 
 ### Added
