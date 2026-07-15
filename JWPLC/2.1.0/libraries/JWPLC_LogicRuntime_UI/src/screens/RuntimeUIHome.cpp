@@ -18,6 +18,60 @@ namespace
   static constexpr int16_t MENU_Y[4] = {91, 91, 122, 122};
   static constexpr int16_t MENU_W = 153;
   static constexpr int16_t MENU_H = 26;
+
+  const char *shortBootState(JWPLCLogicStorageBootState state)
+  {
+    switch (state)
+    {
+    case JWPLCLogicStorageBootState::NotEvaluated:
+      return "NO EVAL";
+    case JWPLCLogicStorageBootState::NotReady:
+      return "NO LISTO";
+    case JWPLCLogicStorageBootState::Unformatted:
+      return "SIN FORMATO";
+    case JWPLCLogicStorageBootState::Empty:
+      return "VACIO";
+    case JWPLCLogicStorageBootState::ActiveProgramLoaded:
+      return "ACTIVO";
+    case JWPLCLogicStorageBootState::FallbackProgramLoaded:
+      return "FALLBACK";
+    case JWPLCLogicStorageBootState::NoValidProgram:
+      return "SIN PROG";
+    case JWPLCLogicStorageBootState::InvalidProgram:
+      return "PROG INVALIDO";
+    case JWPLCLogicStorageBootState::CorruptMetadata:
+      return "META CORRUPTA";
+    default:
+      return "DESCONOCIDO";
+    }
+  }
+
+  const char *shortRetentiveState(JWPLCLogicRetentiveState state)
+  {
+    switch (state)
+    {
+    case JWPLCLogicRetentiveState::NotEvaluated:
+      return "RET -";
+    case JWPLCLogicRetentiveState::NotReady:
+      return "RET NO LISTO";
+    case JWPLCLogicRetentiveState::NoStoredProgram:
+      return "RET SIN PROG";
+    case JWPLCLogicRetentiveState::NoRetentiveBlocks:
+      return "SIN RET";
+    case JWPLCLogicRetentiveState::NoSnapshot:
+      return "SIN SNAP";
+    case JWPLCLogicRetentiveState::Restored:
+      return "RET OK";
+    case JWPLCLogicRetentiveState::Saved:
+      return "RET GUARD";
+    case JWPLCLogicRetentiveState::NoMatchingSnapshot:
+      return "SNAP DIST";
+    case JWPLCLogicRetentiveState::StoreError:
+      return "RET ERROR";
+    default:
+      return "RET ?";
+    }
+  }
 }
 
 RuntimeUIHome::RuntimeUIHome()
@@ -127,7 +181,7 @@ void RuntimeUIHome::drawDynamicState()
 
   char identity[48] = "-";
   char blocksAndScan[64] = "-";
-  char storageState[64] = "-";
+  char storageState[48] = "-";
 
   uint32_t programId = 0;
   uint32_t generation = 0;
@@ -160,8 +214,8 @@ void RuntimeUIHome::drawDynamicState()
   snprintf(storageState,
            sizeof(storageState),
            "%s | %s",
-           JWPLCLogicStorage::bootStateName(_runtime->storage().bootState()),
-           JWPLC_LogicRuntime::retentiveStateName(_runtime->retentiveState()));
+           shortBootState(_runtime->storage().bootState()),
+           shortRetentiveState(_runtime->retentiveState()));
 
   drawLabelValue(tft, 12, 43, "Programa:", programName(), 296);
   drawLabelValue(tft, 12, 57, "ID / Gen:", identity, 296);
