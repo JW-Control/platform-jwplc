@@ -34,13 +34,14 @@ void setup()
 
 void loop()
 {
+  // Procesa primero las acciones diferidas solicitadas desde USER.
+  JWPLC_LogicRuntime_UI.update();
+
   // El scan lógico sigue siendo explícito y no pertenece a la capa gráfica.
   if (runtime.state() == JWPLCLogicRuntimeState::Running)
   {
     runtime.tick();
   }
 
-  // Sincroniza IDLE y procesa acciones diferidas solicitadas desde USER.
-  JWPLC_LogicRuntime_UI.update();
   delay(1);
 }
