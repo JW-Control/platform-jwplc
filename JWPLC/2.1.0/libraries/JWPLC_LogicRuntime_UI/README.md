@@ -9,13 +9,13 @@ JWPLC_LogicRuntime
 └── motor, programas, almacenamiento y retentivos
 
 JWPLC_Display
-└── TFT, pantalla IDLE, botonera, SPI y transición IDLE/USER
+└── TFT, IDLE, botonera, SPI y transición IDLE/USER
 
 JWPLC_LogicRuntime_UI
 └── vistas USER específicas del motor lógico
 ```
 
-La librería gráfica no forma parte del núcleo del runtime. Solo se compila cuando el sketch incluye:
+La capa gráfica solo se compila cuando el sketch incluye:
 
 ```cpp
 #include <JWPLC_LogicRuntime_UI.h>
@@ -39,10 +39,8 @@ void setup()
 
 void loop()
 {
-    // Procesa acciones solicitadas desde USER fuera del callback de la TFT.
     JWPLC_LogicRuntime_UI.update();
 
-    // El scan lógico continúa siendo explícito.
     if (runtime.state() == JWPLCLogicRuntimeState::Running)
     {
         runtime.tick();
@@ -50,19 +48,11 @@ void loop()
 }
 ```
 
-`begin(runtime)` enlaza la instancia lógica con `USER`.
+`update()` procesa acciones diferidas y sincroniza `RUN/ERR` de IDLE. No reemplaza el scan explícito.
 
-`update()`:
+## Identidad visual
 
-- sincroniza `RUN` y `ERR` de la pantalla `IDLE`;
-- procesa acciones diferidas de las vistas;
-- nunca sustituye la llamada explícita a `runtime.tick()`.
-
-La pantalla `USER` continúa siendo refrescada por `JWPLC_Display`; el sketch no llama directamente a funciones de dibujo.
-
-## Paleta visual
-
-La interfaz usa la identidad de JW Control:
+Paleta aprobada:
 
 ```text
 verde
@@ -70,56 +60,46 @@ blanco
 negro
 ```
 
-El verde se reserva para:
-
-- estado normal o preparado;
-- acentos;
-- títulos de panel;
-- bordes de selección;
-- fondo oscuro del elemento seleccionado.
-
-Amarillo continúa indicando `STOPPED` y rojo se reserva para fallas.
+- verde: estado normal, títulos y selección;
+- amarillo: `STOPPED` o advertencia;
+- rojo: falla o peligro;
+- negro y panel oscuro: fondos;
+- blanco: texto principal.
 
 ## IDLE
 
-La pantalla automática existente permanece como tablero operativo:
+La pantalla automática existente mantiene:
 
-- `PWR`;
-- `RUN`;
-- `ERR`;
-- `BUS`;
-- `ETH`;
+- `PWR`, `RUN`, `ERR`, `BUS`, `ETH`;
 - entradas `I0.0..I0.7`;
 - salidas `Q0.0..Q0.7`;
 - RTC.
 
-Al usar esta librería:
+Con esta librería:
 
 ```text
 RUN = runtime.state() == Running
 ERR = Fault o error crítico persistente
 ```
 
-Estados normales como FRAM `UNFORMATTED`, ausencia de programa o snapshot inexistente no encienden `ERR`.
+FRAM sin formato, programa ausente o snapshot inexistente no encienden `ERR` por sí solos.
 
 ## HOME v0.1
 
-La pantalla principal muestra:
+Muestra:
 
-- estado `READY`, `RUNNING`, `STOPPED` o `FAULT`;
-- nombre del programa persistente cargado;
-- Program ID y generación;
+- estado del runtime;
+- nombre del programa cargado, incluso si vive únicamente en RAM;
+- Program ID y generación cuando existe identidad persistente;
 - cantidad de bloques;
 - scan promedio y máximo;
 - estado del program store;
 - estado retentivo;
 - accesos a `PROGRAMA`, `BLOQUES`, `MEMORIA` y `DIAGNOSTICO`.
 
-`PROGRAMA` ya abre una vista funcional. Las otras tres secciones permanecen preparadas para etapas posteriores.
-
 ## PROGRAMA v0.2
 
-La primera vista funcional ofrece:
+Acciones:
 
 ```text
 PREPARAR
@@ -130,88 +110,136 @@ VOLVER
 
 ### PREPARAR
 
-Ejecuta fuera del callback gráfico:
+Ejecuta fuera del callback TFT:
 
 ```text
 prepareStoredProgram()
-→ restoreStoredRetentiveState() cuando existe un programa arrancable
+→ restoreStoredRetentiveState() cuando corresponde
 ```
 
-No inicia automáticamente el runtime y no formatea la FRAM.
+No inicia automáticamente y no formatea la FRAM.
 
 ### RUN
-
-Llama a:
 
 ```cpp
 runtime.start();
 ```
 
-El scan continúa siendo responsabilidad explícita del sketch mediante `runtime.tick()`.
-
 ### STOP
-
-Llama a:
 
 ```cpp
 runtime.stop();
 ```
 
-Eso mantiene el comportamiento seguro del motor:
-
-- apaga todas las salidas;
-- limpia estados temporales;
-- conserva la política de retentivos ya aprobada.
+Apaga salidas y limpia estados temporales. El guardado retentivo sigue siendo explícito.
 
 ### VOLVER
 
-Regresa a `HOME` sin pasar por `IDLE`.
+Regresa a HOME sin pasar por IDLE. `ESC` vuelve directamente a IDLE.
 
-`ESC` conserva su función global y vuelve directamente a `IDLE` desde cualquier vista USER.
+## BLOQUES v0.3
+
+Vista de solo lectura del programa que ya está cargado en el motor.
+
+Incluye:
+
+```text
+lista desplazable de bloques
+valor booleano en vivo
+detalle de tipo, fuentes, recurso, parámetro y flags
+retorno a HOME
+```
+
+Controles de lista:
+
+```text
+UP / DOWN     seleccionar y desplazar
+LEFT / RIGHT  alternar DETALLE / VOLVER
+OK            ejecutar acción
+ESC           IDLE
+```
+
+Controles de detalle:
+
+```text
+UP / LEFT      bloque anterior
+DOWN / RIGHT   bloque siguiente
+OK             regresar a lista
+ESC            IDLE
+```
+
+Los valores se revisan visualmente cada 100 ms, pero solo se redibuja la fila o campo cuyo booleano cambió.
+
+## API de lectura del runtime
+
+La UI usa:
+
+```cpp
+const LogicProgram *program = runtime.program();
+uint16_t count = runtime.blockCount();
+const LogicBlockDefinition *block = runtime.blockDefinition(index);
+bool value = runtime.blockValue(index);
+```
+
+Estas vistas son `const`. Los punteros pertenecen al runtime y dejan de ser válidos conceptualmente al cargar o descargar otro programa.
 
 ## Acciones diferidas y bus SPI
 
-Las vistas se ejecutan mientras `JWPLC_Display` mantiene adquirido el bus SPI para la TFT. Por eso una pantalla nunca debe acceder directamente a FRAM, SD o Ethernet desde su callback.
+Una vista nunca accede directamente a FRAM, SD o Ethernet mientras el callback gráfico mantiene el bus TFT.
+
+```text
+callback USER
+→ registra solicitud pequeña
+→ libera SPI
+→ JWPLC_LogicRuntime_UI.update() ejecuta desde loop()
+→ siguiente refresh muestra el resultado
+```
+
+Norma:
+
+```text
+docs/USER_UI_ACTION_RULES.md
+```
+
+## Renderizado
 
 Patrón aprobado:
 
 ```text
-callback USER
-→ registra solicitud de un byte
-→ termina dibujo y libera SPI
-→ JWPLC_LogicRuntime_UI.update() procesa la acción desde loop()
-→ siguiente refresh actualiza solo los campos modificados
-```
-
-## Renderizado incremental
-
-Las pantallas USER no se reconstruyen en cada callback.
-
-```text
 enter()
-├── dibuja fondo, marcos, etiquetas y botones una sola vez
-├── invalida la caché de valores
-└── dibuja los valores dinámicos iniciales
+├── estructura estática una sola vez
+├── caché dinámica invalidada
+└── valores iniciales
 
 refresh()
-├── procesa botonera
-├── compara valores actuales con la caché
-└── actualiza únicamente campos modificados
+├── botonera
+├── comparación contra caché
+└── únicamente regiones modificadas
 ```
 
-`RuntimeUIHome` y `RuntimeUIProgram` usan:
+Desde v0.2.1 los campos variables usan:
 
-- encabezado estático separado de la insignia de estado;
-- campos de texto de ancho fijo;
-- caché de valores dinámicos;
-- redibujado exclusivo de selección anterior y actual;
-- una única reconstrucción al entrar en cada vista.
+```text
+limpieza rectangular continua
++ texto transparente solo con caracteres útiles
+```
 
-Reglas obligatorias:
+Esto eliminó el parpadeo y aceleró fuertemente la construcción inicial.
+
+Norma:
 
 ```text
 docs/USER_UI_RENDERING_RULES.md
 ```
+
+## Ejemplos
+
+```text
+JWPLC_LogicRuntime_UI_Home
+JWPLC_LogicRuntime_UI_Blocks
+```
+
+El ejemplo de Bloques carga siete bloques en RAM, ejecuta el scan y no contiene `DigitalOutput`, por lo que Q0 permanece apagado. Tampoco escribe ni formatea la FRAM.
 
 ## Organización
 
@@ -221,24 +249,24 @@ src/
 ├── JWPLC_LogicRuntime_UI.cpp
 ├── RuntimeUIView.h
 ├── screens/
-│   ├── RuntimeUIHome.h
-│   ├── RuntimeUIHome.cpp
-│   ├── RuntimeUIProgram.h
-│   └── RuntimeUIProgram.cpp
+│   ├── RuntimeUIHome.*
+│   ├── RuntimeUIProgram.*
+│   └── RuntimeUIBlocks.*
 └── widgets/
-    ├── RuntimeUIWidgets.h
-    └── RuntimeUIWidgets.cpp
+    └── RuntimeUIWidgets.*
 
 docs/
 ├── RUNTIME_UI_HOME_V0_1_TEST.md
 ├── RUNTIME_UI_PROGRAM_V0_2_TEST.md
-└── USER_UI_RENDERING_RULES.md
+├── RUNTIME_UI_BLOCKS_V0_3_TEST.md
+├── USER_UI_RENDERING_RULES.md
+├── USER_UI_VISUAL_GUIDE.md
+└── USER_UI_ACTION_RULES.md
 ```
 
-Vistas posteriores:
+## Vistas pendientes
 
 ```text
-RuntimeUIBlocks
 RuntimeUIStorage
 RuntimeUIDiagnostics
 RuntimeUIBlockEditor
@@ -247,9 +275,9 @@ RuntimeUIConfirmDialog
 
 ## Compatibilidad de callbacks
 
-`JWPLC_Display` mantiene callbacks débiles para sketches normales. Cuando se incluye esta librería, sus callbacks fuertes enrutan la pantalla `USER` hacia `JWPLC_LogicRuntime_UI`.
+`JWPLC_Display` mantiene callbacks débiles para sketches normales. Cuando se incluye esta librería, sus callbacks fuertes enrutan USER hacia `JWPLC_LogicRuntime_UI`.
 
-Un sketch que utilice esta librería no debe definir simultáneamente:
+No deben definirse simultáneamente en el sketch:
 
 ```cpp
 jwplcUserDisplayEnterCallback()
@@ -257,4 +285,4 @@ jwplcUserDisplayRefreshCallback()
 jwplcUserDisplayExitCallback()
 ```
 
-Los sketches que no incluyan `JWPLC_LogicRuntime_UI` conservan el comportamiento anterior.
+Los sketches que no incluyan esta librería conservan el comportamiento anterior.
