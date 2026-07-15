@@ -6,6 +6,8 @@ LogicV2EnginePrototype::LogicV2EnginePrototype()
     : _blocks{},
       _links{},
       _values{},
+      _timing{},
+      _startedAtMs{},
       _program{nullptr, 0, nullptr, 0},
       _digitalInputCount(0),
       _digitalOutputCount(0),
@@ -16,20 +18,40 @@ LogicV2EnginePrototype::LogicV2EnginePrototype()
 {
 }
 
-void LogicV2EnginePrototype::clearValues()
+bool LogicV2EnginePrototype::containsTimedBlocks() const
+{
+  if (!hasProgram())
+  {
+    return false;
+  }
+
+  for (uint16_t index = 0; index < _program.blockCount; ++index)
+  {
+    if (_blocks[index].type == LogicV2BlockType::Ton)
+    {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+void LogicV2EnginePrototype::clearRuntimeState()
 {
   memset(_values, 0, sizeof(_values));
+  memset(_timing, 0, sizeof(_timing));
+  memset(_startedAtMs, 0, sizeof(_startedAtMs));
+  _scanCount = 0;
 }
 
 void LogicV2EnginePrototype::clearProgramStorage()
 {
   memset(_blocks, 0, sizeof(_blocks));
   memset(_links, 0, sizeof(_links));
-  clearValues();
+  clearRuntimeState();
   _program = {nullptr, 0, nullptr, 0};
   _digitalInputCount = 0;
   _digitalOutputCount = 0;
-  _scanCount = 0;
 }
 
 void LogicV2EnginePrototype::setFault(
@@ -94,8 +116,7 @@ bool LogicV2EnginePrototype::loadProgram(const LogicV2Program &program,
   _program = {_blocks, program.blockCount, _links, program.linkCount};
   _digitalInputCount = digitalInputCount;
   _digitalOutputCount = digitalOutputCount;
-  clearValues();
-  _scanCount = 0;
+  clearRuntimeState();
   _state = LogicV2EngineState::Ready;
   _lastError = LogicV2EngineError::None;
   _validationError = LogicV2PrototypeError::None;
@@ -119,8 +140,7 @@ bool LogicV2EnginePrototype::start()
     return false;
   }
 
-  clearValues();
-  _scanCount = 0;
+  clearRuntimeState();
   _state = LogicV2EngineState::Running;
   _lastError = LogicV2EngineError::None;
   return true;
@@ -128,8 +148,7 @@ bool LogicV2EnginePrototype::start()
 
 void LogicV2EnginePrototype::stop()
 {
-  clearValues();
-  _scanCount = 0;
+  clearRuntimeState();
   _lastError = LogicV2EngineError::None;
   _state = hasProgram() ? LogicV2EngineState::Stopped
                         : LogicV2EngineState::Empty;
@@ -137,6 +156,19 @@ void LogicV2EnginePrototype::stop()
 
 bool LogicV2EnginePrototype::scan(const bool *digitalInputs,
                                   uint8_t digitalInputCount)
+{
+  if (containsTimedBlocks())
+  {
+    _lastError = LogicV2EngineError::TimeRequired;
+    return false;
+  }
+
+  return scan(digitalInputs, digitalInputCount, 0);
+}
+
+bool LogicV2EnginePrototype::scan(const bool *digitalInputs,
+                                  uint8_t digitalInputCount,
+                                  uint32_t nowMs)
 {
   if (_state != LogicV2EngineState::Running || !hasProgram())
   {
@@ -158,12 +190,15 @@ bool LogicV2EnginePrototype::scan(const bool *digitalInputs,
           digitalInputCount,
           _values,
           JWPLC_LOGIC_V2_COMPILED_MAX_BLOCKS,
-          evaluationError))
+          evaluationError,
+          _timing,
+          _startedAtMs,
+          nowMs))
   {
     _state = LogicV2EngineState::Fault;
     _lastError = LogicV2EngineError::EvaluationFailed;
     _validationError = evaluationError;
-    clearValues();
+    clearRuntimeState();
     return false;
   }
 
@@ -250,6 +285,55 @@ bool LogicV2EnginePrototype::digitalOutputValue(uint8_t outputIndex) const
   return false;
 }
 
+bool LogicV2EnginePrototype::tonTiming(uint16_t blockIndex) const
+{
+  return hasProgram() &&
+         blockIndex < _program.blockCount &&
+         _blocks[blockIndex].type == LogicV2BlockType::Ton &&
+         _timing[blockIndex];
+}
+
+uint32_t LogicV2EnginePrototype::tonElapsedMs(uint16_t blockIndex,
+                                              uint32_t nowMs) const
+{
+  if (!hasProgram() ||
+      blockIndex >= _program.blockCount ||
+      _blocks[blockIndex].type != LogicV2BlockType::Ton)
+  {
+    return 0;
+  }
+
+  const uint32_t configuredMs = _blocks[blockIndex].parameter;
+  if (_values[blockIndex])
+  {
+    return configuredMs;
+  }
+
+  if (!_timing[blockIndex])
+  {
+    return 0;
+  }
+
+  const uint32_t elapsedMs =
+      static_cast<uint32_t>(nowMs - _startedAtMs[blockIndex]);
+  return elapsedMs >= configuredMs ? configuredMs : elapsedMs;
+}
+
+uint32_t LogicV2EnginePrototype::tonRemainingMs(uint16_t blockIndex,
+                                                uint32_t nowMs) const
+{
+  if (!hasProgram() ||
+      blockIndex >= _program.blockCount ||
+      _blocks[blockIndex].type != LogicV2BlockType::Ton)
+  {
+    return 0;
+  }
+
+  const uint32_t configuredMs = _blocks[blockIndex].parameter;
+  const uint32_t elapsedMs = tonElapsedMs(blockIndex, nowMs);
+  return elapsedMs >= configuredMs ? 0 : configuredMs - elapsedMs;
+}
+
 const LogicV2BlockRecord *LogicV2EnginePrototype::blockDefinition(
     uint16_t blockIndex) const
 {
@@ -312,6 +396,8 @@ const char *LogicV2EnginePrototype::errorName(LogicV2EngineError error)
     return "NOT_RUNNING";
   case LogicV2EngineError::InputProfileMismatch:
     return "INPUT_PROFILE_MISMATCH";
+  case LogicV2EngineError::TimeRequired:
+    return "TIME_REQUIRED";
   case LogicV2EngineError::EvaluationFailed:
     return "EVALUATION_FAILED";
   default:
