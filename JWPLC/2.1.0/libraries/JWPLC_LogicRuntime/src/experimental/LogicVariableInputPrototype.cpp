@@ -1,15 +1,5 @@
 #include "LogicVariableInputPrototype.h"
 
-namespace
-{
-  bool isSpecialSource(uint16_t source)
-  {
-    return source == JWPLC_LOGIC_V2_SOURCE_OPEN ||
-           source == JWPLC_LOGIC_V2_SOURCE_CONST_FALSE ||
-           source == JWPLC_LOGIC_V2_SOURCE_CONST_TRUE;
-  }
-}
-
 bool LogicVariableInputPrototype::isVariableGate(LogicV2BlockType type)
 {
   return type == LogicV2BlockType::And ||
@@ -218,7 +208,25 @@ bool LogicVariableInputPrototype::evaluate(
     return false;
   }
 
-  if (blockValues == nullptr)
+  return evaluateValidated(program,
+                           digitalInputs,
+                           digitalInputCount,
+                           blockValues,
+                           blockValueCapacity,
+                           error);
+}
+
+bool LogicVariableInputPrototype::evaluateValidated(
+    const LogicV2Program &program,
+    const bool *digitalInputs,
+    uint8_t digitalInputCount,
+    bool *blockValues,
+    size_t blockValueCapacity,
+    LogicV2PrototypeError &error)
+{
+  if (program.blocks == nullptr ||
+      (program.linkCount > 0 && program.links == nullptr) ||
+      blockValues == nullptr)
   {
     error = LogicV2PrototypeError::NullArgument;
     return false;
@@ -246,6 +254,11 @@ bool LogicVariableInputPrototype::evaluate(
     switch (block.type)
     {
     case LogicV2BlockType::DigitalInput:
+      if (block.resource >= digitalInputCount)
+      {
+        error = LogicV2PrototypeError::ResourceOutOfRange;
+        return false;
+      }
       result = digitalInputs[block.resource];
       break;
 
