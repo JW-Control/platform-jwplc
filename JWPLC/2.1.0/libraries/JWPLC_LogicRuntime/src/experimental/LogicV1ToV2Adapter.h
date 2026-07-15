@@ -9,9 +9,8 @@
 /**
  * @brief Error de conversión del formato RAM v1 al modelo RAM v2.
  *
- * Esta primera fase cubre únicamente el subconjunto combinacional histórico.
- * DigitalOutput, SetReset y Ton se incorporarán después de añadir sus tipos y
- * estados equivalentes al motor v2.
+ * Esta fase cubre DigitalInput, DigitalOutput, NOT, AND y OR. SetReset y Ton
+ * se incorporarán después de añadir sus estados equivalentes al motor v2.
  */
 enum class LogicV1ToV2AdapterError : uint8_t
 {
@@ -31,7 +30,7 @@ class LogicV1ToV2Adapter
 {
 public:
   /**
-   * @brief Convierte un programa v1 combinacional a bloques y enlaces v2.
+   * @brief Convierte un programa v1 soportado a bloques y enlaces v2.
    *
    * El destino utiliza buffers proporcionados por la aplicación. No reserva
    * memoria dinámica y no modifica el programa de origen.
