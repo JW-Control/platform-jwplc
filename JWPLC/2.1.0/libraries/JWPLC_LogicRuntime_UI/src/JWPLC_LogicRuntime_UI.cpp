@@ -11,7 +11,8 @@ JWPLC_LogicRuntime_UIClass::JWPLC_LogicRuntime_UIClass()
       _currentView(RuntimeUIView::Home),
       _pendingProgramAction(RuntimeUIProgramAction::None),
       _home(),
-      _program()
+      _program(),
+      _blocks()
 {
 }
 
@@ -25,6 +26,7 @@ bool JWPLC_LogicRuntime_UIClass::begin(JWPLC_LogicRuntime &runtime)
 
   _home.attach(runtime);
   _program.attach(runtime);
+  _blocks.attach(runtime);
 
   // ESC conserva el retorno seguro desde cualquier vista USER hacia IDLE.
   JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
@@ -84,6 +86,9 @@ void JWPLC_LogicRuntime_UIClass::forceRedraw()
   {
   case RuntimeUIView::Program:
     _program.forceRedraw();
+    break;
+  case RuntimeUIView::Blocks:
+    _blocks.forceRedraw();
     break;
   case RuntimeUIView::Home:
   default:
@@ -158,6 +163,9 @@ void JWPLC_LogicRuntime_UIClass::enterCurrentView()
   case RuntimeUIView::Program:
     _program.enter();
     break;
+  case RuntimeUIView::Blocks:
+    _blocks.enter();
+    break;
   case RuntimeUIView::Home:
   default:
     _currentView = RuntimeUIView::Home;
@@ -175,6 +183,9 @@ void JWPLC_LogicRuntime_UIClass::refreshCurrentView(
   case RuntimeUIView::Program:
     _program.refresh(io, rtc);
     break;
+  case RuntimeUIView::Blocks:
+    _blocks.refresh(io, rtc);
+    break;
   case RuntimeUIView::Home:
   default:
     _home.refresh(io, rtc);
@@ -188,6 +199,9 @@ void JWPLC_LogicRuntime_UIClass::exitCurrentView()
   {
   case RuntimeUIView::Program:
     _program.exit();
+    break;
+  case RuntimeUIView::Blocks:
+    _blocks.exit();
     break;
   case RuntimeUIView::Home:
   default:
@@ -203,9 +217,10 @@ void JWPLC_LogicRuntime_UIClass::collectViewRequests()
   case RuntimeUIView::Home:
   {
     const RuntimeUIView requested = _home.takeRequestedView();
-    if (requested == RuntimeUIView::Program)
+    if (requested == RuntimeUIView::Program ||
+        requested == RuntimeUIView::Blocks)
     {
-      switchView(RuntimeUIView::Program);
+      switchView(requested);
     }
     break;
   }
@@ -220,6 +235,16 @@ void JWPLC_LogicRuntime_UIClass::collectViewRequests()
     }
 
     const RuntimeUIView requested = _program.takeRequestedView();
+    if (requested == RuntimeUIView::Home)
+    {
+      switchView(RuntimeUIView::Home);
+    }
+    break;
+  }
+
+  case RuntimeUIView::Blocks:
+  {
+    const RuntimeUIView requested = _blocks.takeRequestedView();
     if (requested == RuntimeUIView::Home)
     {
       switchView(RuntimeUIView::Home);
