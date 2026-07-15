@@ -245,6 +245,11 @@ bool RuntimeUIHome::updateProgramFields(bool force)
                                                 currentGeneration,
                                                 currentBlockCount);
 
+  if (!currentHasIdentity)
+  {
+    currentBlockCount = _runtime->blockCount();
+  }
+
   const bool programNameChanged =
       force || !_cache.valid ||
       std::strcmp(currentProgramName, _cache.programName) != 0;
@@ -462,6 +467,8 @@ void RuntimeUIHome::requestSelectedView()
     _requestedView = RuntimeUIView::Program;
     return;
   case 1:
+    _requestedView = RuntimeUIView::Blocks;
+    return;
   case 2:
   case 3:
   default:
@@ -494,14 +501,14 @@ void RuntimeUIHome::copyProgramName(char *destination,
 
   if (_runtime != nullptr)
   {
-    if (_runtime->storage().hasLoadedProgram())
+    const LogicProgram *loadedProgram = _runtime->program();
+    if (loadedProgram != nullptr && loadedProgram->name != nullptr)
     {
-      const LogicProgram program = _runtime->storage().activeProgram();
-      source = program.name ? program.name : "PROGRAMA PERSISTENTE";
+      source = loadedProgram->name;
     }
     else
     {
-      source = _runtime->hasProgram() ? "PROGRAMA EN RAM" : "SIN PROGRAMA";
+      source = "SIN PROGRAMA";
     }
   }
 
