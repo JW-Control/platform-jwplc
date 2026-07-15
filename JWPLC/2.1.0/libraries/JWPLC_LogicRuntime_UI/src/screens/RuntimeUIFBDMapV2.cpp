@@ -14,34 +14,27 @@ namespace
     return static_cast<uint16_t>(a > b ? a - b : b - a);
   }
 
-  void drawOrthogonalWire(Adafruit_ST7789 &tft,
-                          int16_t x0,
-                          int16_t y0,
-                          int16_t x1,
-                          int16_t y1,
-                          uint16_t color)
+  int16_t minimum16(int16_t a, int16_t b)
   {
-    if (x1 < x0)
+    return a < b ? a : b;
+  }
+
+  int16_t maximum16(int16_t a, int16_t b)
+  {
+    return a > b ? a : b;
+  }
+
+  int16_t clamp16(int16_t value, int16_t minimum, int16_t maximum)
+  {
+    if (value < minimum)
     {
-      return;
+      return minimum;
     }
-
-    const int16_t middleX = static_cast<int16_t>((x0 + x1) / 2);
-    tft.drawFastHLine(x0,
-                      y0,
-                      static_cast<int16_t>(middleX - x0 + 1),
-                      color);
-
-    const int16_t topY = y0 < y1 ? y0 : y1;
-    tft.drawFastVLine(middleX,
-                      topY,
-                      static_cast<int16_t>(absoluteDistance(y0, y1) + 1U),
-                      color);
-
-    tft.drawFastHLine(middleX,
-                      y1,
-                      static_cast<int16_t>(x1 - middleX + 1),
-                      color);
+    if (value > maximum)
+    {
+      return maximum;
+    }
+    return value;
   }
 }
 
@@ -496,7 +489,7 @@ void RuntimeUIFBDMapV2::clearMapArea()
 
 void RuntimeUIFBDMapV2::drawMapHeaderInfo()
 {
-  char selectedText[32];
+  char selectedText[28];
 
   if (_model == nullptr || _model->blockCount() == 0)
   {
@@ -508,7 +501,7 @@ void RuntimeUIFBDMapV2::drawMapHeaderInfo()
   {
     std::snprintf(selectedText,
                   sizeof(selectedText),
-                  "B%02u %u/%u X%d Y%d",
+                  "B%02u %u/%u %d,%d",
                   static_cast<unsigned>(_selectedIndex),
                   static_cast<unsigned>(_selectedIndex + 1U),
                   static_cast<unsigned>(_model->blockCount()),
@@ -558,6 +551,70 @@ void RuntimeUIFBDMapV2::drawMap()
   }
 }
 
+void RuntimeUIFBDMapV2::drawClippedHorizontal(int16_t x0,
+                                              int16_t x1,
+                                              int16_t y,
+                                              uint16_t color)
+{
+  const int16_t mapRight = static_cast<int16_t>(MAP_X + MAP_W - 1);
+  const int16_t mapBottom = static_cast<int16_t>(MAP_Y + MAP_H - 1);
+  if (y < MAP_Y || y > mapBottom)
+  {
+    return;
+  }
+
+  const int16_t left = maximum16(minimum16(x0, x1), MAP_X);
+  const int16_t right = minimum16(maximum16(x0, x1), mapRight);
+  if (left > right)
+  {
+    return;
+  }
+
+  JWPLC_Display.tft().drawFastHLine(
+      left,
+      y,
+      static_cast<int16_t>(right - left + 1),
+      color);
+}
+
+void RuntimeUIFBDMapV2::drawClippedVertical(int16_t x,
+                                            int16_t y0,
+                                            int16_t y1,
+                                            uint16_t color)
+{
+  const int16_t mapRight = static_cast<int16_t>(MAP_X + MAP_W - 1);
+  const int16_t mapBottom = static_cast<int16_t>(MAP_Y + MAP_H - 1);
+  if (x < MAP_X || x > mapRight)
+  {
+    return;
+  }
+
+  const int16_t top = maximum16(minimum16(y0, y1), MAP_Y);
+  const int16_t bottom = minimum16(maximum16(y0, y1), mapBottom);
+  if (top > bottom)
+  {
+    return;
+  }
+
+  JWPLC_Display.tft().drawFastVLine(
+      x,
+      top,
+      static_cast<int16_t>(bottom - top + 1),
+      color);
+}
+
+void RuntimeUIFBDMapV2::drawOrthogonalWireClipped(int16_t x0,
+                                                  int16_t y0,
+                                                  int16_t x1,
+                                                  int16_t y1,
+                                                  int16_t routeX,
+                                                  uint16_t color)
+{
+  drawClippedHorizontal(x0, routeX, y0, color);
+  drawClippedVertical(routeX, y0, y1, color);
+  drawClippedHorizontal(routeX, x1, y1, color);
+}
+
 void RuntimeUIFBDMapV2::drawWires()
 {
   const uint16_t count = _model->blockCount();
@@ -587,7 +644,27 @@ void RuntimeUIFBDMapV2::drawWire(uint16_t consumerIndex,
     return;
   }
 
+  const int16_t consumerNodeX = screenX(consumerIndex);
+  const int16_t consumerNodeY = screenY(consumerIndex);
+  const int16_t destinationX = consumerNodeX;
+  const int16_t destinationY = static_cast<int16_t>(
+      consumerNodeY + inputPortY(*consumer, inputIndex));
   const uint16_t sourceIndex = input->source();
+
+  if (sourceIndex == JWPLC_LOGIC_V2_SOURCE_OPEN ||
+      sourceIndex == JWPLC_LOGIC_V2_SOURCE_CONST_TRUE ||
+      sourceIndex == JWPLC_LOGIC_V2_SOURCE_CONST_FALSE)
+  {
+    const uint16_t color = _model->inputValue(consumerIndex, inputIndex)
+                               ? COLOR_OK
+                               : COLOR_MUTED;
+    drawClippedHorizontal(destinationX - 8,
+                          destinationX,
+                          destinationY,
+                          color);
+    return;
+  }
+
   if (sourceIndex >= _model->blockCount())
   {
     return;
@@ -595,30 +672,31 @@ void RuntimeUIFBDMapV2::drawWire(uint16_t consumerIndex,
 
   const int16_t sourceNodeX = screenX(sourceIndex);
   const int16_t sourceNodeY = screenY(sourceIndex);
-  const int16_t consumerNodeX = screenX(consumerIndex);
-  const int16_t consumerNodeY = screenY(consumerIndex);
-
-  if (!nodeFullyVisible(sourceNodeX, sourceNodeY) ||
-      !nodeFullyVisible(consumerNodeX, consumerNodeY))
-  {
-    return;
-  }
-
   const int16_t sourceX = static_cast<int16_t>(sourceNodeX + NODE_W);
   const int16_t sourceY = static_cast<int16_t>(sourceNodeY + NODE_H / 2);
-  const int16_t destinationX = consumerNodeX;
-  const int16_t destinationY = static_cast<int16_t>(
-      consumerNodeY + inputPortY(*consumer, inputIndex));
+
+  int16_t routeX = static_cast<int16_t>((sourceX + destinationX) / 2);
+  const int16_t gap = static_cast<int16_t>(destinationX - sourceX);
+  if (gap >= 8)
+  {
+    const uint8_t divisor = static_cast<uint8_t>(consumer->inputCount + 1U);
+    routeX = static_cast<int16_t>(
+        sourceX +
+        (static_cast<int32_t>(inputIndex + 1U) * gap) / divisor);
+    routeX = clamp16(routeX,
+                     static_cast<int16_t>(sourceX + 2),
+                     static_cast<int16_t>(destinationX - 2));
+  }
 
   const uint16_t color = _model->blockValue(sourceIndex)
                              ? COLOR_OK
                              : COLOR_MUTED;
-  drawOrthogonalWire(JWPLC_Display.tft(),
-                     sourceX,
-                     sourceY,
-                     destinationX,
-                     destinationY,
-                     color);
+  drawOrthogonalWireClipped(sourceX,
+                            sourceY,
+                            destinationX,
+                            destinationY,
+                            routeX,
+                            color);
 }
 
 void RuntimeUIFBDMapV2::drawNodes()
@@ -640,18 +718,40 @@ void RuntimeUIFBDMapV2::drawNode(uint16_t blockIndex)
 
   const int16_t x = screenX(blockIndex);
   const int16_t y = screenY(blockIndex);
-  if (!nodeFullyVisible(x, y))
-  {
-    return;
-  }
-
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
   const bool active = _model->blockValue(blockIndex);
   const bool selected = blockIndex == _selectedIndex;
   const uint16_t border = selected
                               ? COLOR_WARNING
                               : (active ? COLOR_OK : COLOR_BORDER);
 
+  if (nodeFullyVisible(x, y))
+  {
+    drawFullNode(blockIndex, x, y, border, active, selected);
+  }
+  else if (nodeIntersectsMap(x, y))
+  {
+    drawPartialNode(blockIndex, x, y, border, active);
+  }
+  else if (nodeNearMap(x, y))
+  {
+    drawEdgeHint(blockIndex, x, y, border, active);
+  }
+}
+
+void RuntimeUIFBDMapV2::drawFullNode(uint16_t blockIndex,
+                                     int16_t x,
+                                     int16_t y,
+                                     uint16_t border,
+                                     bool active,
+                                     bool selected)
+{
+  const LogicV2BlockRecord *definition = _model->block(blockIndex);
+  if (definition == nullptr)
+  {
+    return;
+  }
+
+  Adafruit_ST7789 &tft = JWPLC_Display.tft();
   tft.fillRect(x, y, NODE_W, NODE_H, COLOR_BACKGROUND);
   tft.drawRect(x, y, NODE_W, NODE_H, border);
   if (selected)
@@ -682,6 +782,183 @@ void RuntimeUIFBDMapV2::drawNode(uint16_t blockIndex)
   tft.print(data);
 
   drawNodePorts(blockIndex, x, y);
+}
+
+void RuntimeUIFBDMapV2::drawPartialNode(uint16_t blockIndex,
+                                        int16_t x,
+                                        int16_t y,
+                                        uint16_t border,
+                                        bool active)
+{
+  const int16_t mapRight = static_cast<int16_t>(MAP_X + MAP_W - 1);
+  const int16_t mapBottom = static_cast<int16_t>(MAP_Y + MAP_H - 1);
+  const int16_t nodeRight = static_cast<int16_t>(x + NODE_W - 1);
+  const int16_t nodeBottom = static_cast<int16_t>(y + NODE_H - 1);
+
+  const int16_t visibleLeft = maximum16(x, MAP_X);
+  const int16_t visibleTop = maximum16(y, MAP_Y);
+  const int16_t visibleRight = minimum16(nodeRight, mapRight);
+  const int16_t visibleBottom = minimum16(nodeBottom, mapBottom);
+  const int16_t visibleWidth = static_cast<int16_t>(visibleRight - visibleLeft + 1);
+  const int16_t visibleHeight = static_cast<int16_t>(visibleBottom - visibleTop + 1);
+
+  if (visibleWidth < 24 || visibleHeight < 10)
+  {
+    drawEdgeHint(blockIndex, x, y, border, active);
+    return;
+  }
+
+  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  tft.fillRect(visibleLeft,
+               visibleTop,
+               visibleWidth,
+               visibleHeight,
+               COLOR_BACKGROUND);
+
+  if (y >= MAP_Y && y <= mapBottom)
+  {
+    drawClippedHorizontal(x, nodeRight, y, border);
+  }
+  if (nodeBottom >= MAP_Y && nodeBottom <= mapBottom)
+  {
+    drawClippedHorizontal(x, nodeRight, nodeBottom, border);
+  }
+  if (x >= MAP_X && x <= mapRight)
+  {
+    drawClippedVertical(x, y, nodeBottom, border);
+  }
+  if (nodeRight >= MAP_X && nodeRight <= mapRight)
+  {
+    drawClippedVertical(nodeRight, y, nodeBottom, border);
+  }
+
+  char title[18];
+  formatBlockTitle(title, sizeof(title), blockIndex);
+
+  char compact[18];
+  if (x < MAP_X)
+  {
+    std::snprintf(compact, sizeof(compact), "<%s", title);
+  }
+  else if (nodeRight > mapRight)
+  {
+    std::snprintf(compact, sizeof(compact), "%s>", title);
+  }
+  else if (y < MAP_Y)
+  {
+    std::snprintf(compact, sizeof(compact), "^%s", title);
+  }
+  else
+  {
+    std::snprintf(compact, sizeof(compact), "%sv", title);
+  }
+
+  const uint8_t maxCharacters = static_cast<uint8_t>(
+      (visibleWidth > 4 ? visibleWidth - 4 : 0) / 6);
+  if (maxCharacters == 0)
+  {
+    return;
+  }
+  if (maxCharacters < sizeof(compact))
+  {
+    compact[maxCharacters] = '\0';
+  }
+
+  const int16_t textY = clamp16(
+      static_cast<int16_t>(visibleTop + (visibleHeight - 8) / 2),
+      MAP_Y,
+      static_cast<int16_t>(mapBottom - 7));
+  tft.setTextWrap(false);
+  tft.setTextSize(1);
+  tft.setTextColor(active ? COLOR_OK : COLOR_TEXT,
+                   COLOR_BACKGROUND);
+  tft.setCursor(visibleLeft + 2, textY);
+  tft.print(compact);
+}
+
+void RuntimeUIFBDMapV2::drawEdgeHint(uint16_t blockIndex,
+                                     int16_t x,
+                                     int16_t y,
+                                     uint16_t border,
+                                     bool active)
+{
+  const int16_t mapRight = static_cast<int16_t>(MAP_X + MAP_W - 1);
+  const int16_t mapBottom = static_cast<int16_t>(MAP_Y + MAP_H - 1);
+  const int16_t nodeRight = static_cast<int16_t>(x + NODE_W - 1);
+  const int16_t nodeBottom = static_cast<int16_t>(y + NODE_H - 1);
+  const int16_t centerX = static_cast<int16_t>(x + NODE_W / 2);
+  const int16_t centerY = static_cast<int16_t>(y + NODE_H / 2);
+
+  int16_t hintX = clamp16(
+      static_cast<int16_t>(centerX - EDGE_HINT_W / 2),
+      MAP_X,
+      static_cast<int16_t>(mapRight - EDGE_HINT_W + 1));
+  int16_t hintY = clamp16(
+      static_cast<int16_t>(centerY - EDGE_HINT_H / 2),
+      MAP_Y,
+      static_cast<int16_t>(mapBottom - EDGE_HINT_H + 1));
+  char direction = '>';
+
+  if (nodeRight < MAP_X || x < MAP_X)
+  {
+    hintX = MAP_X;
+    direction = '<';
+  }
+  else if (x > mapRight || nodeRight > mapRight)
+  {
+    hintX = static_cast<int16_t>(mapRight - EDGE_HINT_W + 1);
+    direction = '>';
+  }
+  else if (nodeBottom < MAP_Y || y < MAP_Y)
+  {
+    hintY = MAP_Y;
+    direction = '^';
+  }
+  else
+  {
+    hintY = static_cast<int16_t>(mapBottom - EDGE_HINT_H + 1);
+    direction = 'v';
+  }
+
+  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  tft.fillRect(hintX,
+               hintY,
+               EDGE_HINT_W,
+               EDGE_HINT_H,
+               COLOR_BACKGROUND);
+  tft.drawRect(hintX,
+               hintY,
+               EDGE_HINT_W,
+               EDGE_HINT_H,
+               border);
+
+  char title[16];
+  char compact[18];
+  formatBlockTitle(title, sizeof(title), blockIndex);
+  if (direction == '<' || direction == '^')
+  {
+    std::snprintf(compact,
+                  sizeof(compact),
+                  "%c%s",
+                  direction,
+                  title);
+  }
+  else
+  {
+    std::snprintf(compact,
+                  sizeof(compact),
+                  "%s%c",
+                  title,
+                  direction);
+  }
+  compact[7] = '\0';
+
+  tft.setTextWrap(false);
+  tft.setTextSize(1);
+  tft.setTextColor(active ? COLOR_OK : COLOR_TEXT,
+                   COLOR_BACKGROUND);
+  tft.setCursor(hintX + 3, hintY + 1);
+  tft.print(compact);
 }
 
 void RuntimeUIFBDMapV2::drawNodePorts(uint16_t blockIndex,
@@ -902,8 +1179,45 @@ bool RuntimeUIFBDMapV2::nodeFullyVisible(int16_t x, int16_t y) const
 
   return x >= MAP_X &&
          y >= MAP_Y &&
-         x + NODE_W + 1 <= mapRight &&
+         x + NODE_W <= mapRight &&
          y + NODE_H - 1 <= mapBottom;
+}
+
+bool RuntimeUIFBDMapV2::nodeIntersectsMap(int16_t x, int16_t y) const
+{
+  const int16_t mapRight = static_cast<int16_t>(MAP_X + MAP_W - 1);
+  const int16_t mapBottom = static_cast<int16_t>(MAP_Y + MAP_H - 1);
+  const int16_t nodeRight = static_cast<int16_t>(x + NODE_W);
+  const int16_t nodeBottom = static_cast<int16_t>(y + NODE_H - 1);
+
+  return x <= mapRight &&
+         nodeRight >= MAP_X &&
+         y <= mapBottom &&
+         nodeBottom >= MAP_Y;
+}
+
+bool RuntimeUIFBDMapV2::nodeNearMap(int16_t x, int16_t y) const
+{
+  const int16_t mapRight = static_cast<int16_t>(MAP_X + MAP_W - 1);
+  const int16_t mapBottom = static_cast<int16_t>(MAP_Y + MAP_H - 1);
+  const int16_t nodeRight = static_cast<int16_t>(x + NODE_W);
+  const int16_t nodeBottom = static_cast<int16_t>(y + NODE_H - 1);
+
+  const int16_t horizontalDistance =
+      nodeRight < MAP_X
+          ? static_cast<int16_t>(MAP_X - nodeRight)
+          : (x > mapRight
+                 ? static_cast<int16_t>(x - mapRight)
+                 : 0);
+  const int16_t verticalDistance =
+      nodeBottom < MAP_Y
+          ? static_cast<int16_t>(MAP_Y - nodeBottom)
+          : (y > mapBottom
+                 ? static_cast<int16_t>(y - mapBottom)
+                 : 0);
+
+  return (horizontalDistance <= COLUMN_STEP && verticalDistance == 0) ||
+         (verticalDistance <= ROW_STEP && horizontalDistance == 0);
 }
 
 int16_t RuntimeUIFBDMapV2::screenX(uint16_t blockIndex) const
