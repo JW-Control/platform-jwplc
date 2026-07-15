@@ -6,34 +6,41 @@
 #include <JWPLC_Display.h>
 
 #include "RuntimeUIView.h"
+#include "model/RuntimeUIV2ReadModel.h"
 #include "screens/RuntimeUIHome.h"
 #include "screens/RuntimeUIProgram.h"
 #include "screens/RuntimeUIDiagram.h"
 #include "screens/RuntimeUIBlocks.h"
+#include "screens/RuntimeUIFBDMapV2.h"
 
 /**
  * @brief Interfaz USER modular del JWPLC Logic Runtime.
  *
- * El núcleo lógico permanece independiente de TFT y botonera. Esta librería
- * compañera se enlaza de forma explícita mediante begin(runtime).
+ * El núcleo lógico permanece independiente de TFT y botonera. La API histórica
+ * para JWPLC_LogicRuntime v1 se conserva. El overload v2 abre directamente el
+ * mapa FBD estable de solo lectura.
  */
 class JWPLC_LogicRuntime_UIClass
 {
 public:
   JWPLC_LogicRuntime_UIClass();
 
+  /** @brief Enlaza el runtime v1 histórico con HOME/PROGRAMA/DIAGRAMA. */
+  bool begin(JWPLC_LogicRuntime &runtime);
+
   /**
-   * @brief Enlaza una instancia del runtime con la vista USER.
+   * @brief Enlaza el motor RAM v2 con el mapa FBD estable de solo lectura.
    *
    * Puede llamarse desde setup() aunque la TFT todavía esté inicializándose.
+   * No habilita edición, FRAM ni escritura física de salidas.
    */
-  bool begin(JWPLC_LogicRuntime &runtime);
+  bool begin(LogicV2EnginePrototype &engine);
 
   /**
    * @brief Ejecuta trabajo no gráfico fuera del callback de la TFT.
    *
-   * Sincroniza RUN/ERR de IDLE y procesa acciones diferidas como preparar,
-   * iniciar o detener el programa. Debe llamarse desde loop().
+   * En v1 procesa acciones diferidas y sincroniza RUN/ERR. En v2 solo
+   * sincroniza indicadores; el scan sigue siendo responsabilidad del sketch.
    */
   void update();
 
@@ -41,6 +48,8 @@ public:
   bool isAttached() const;
   JWPLC_LogicRuntime *runtime();
   const JWPLC_LogicRuntime *runtime() const;
+  LogicV2EnginePrototype *v2Engine();
+  const LogicV2EnginePrototype *v2Engine() const;
 
   void forceRedraw();
 
@@ -51,6 +60,13 @@ public:
   void onDisplayExit();
 
 private:
+  enum class Backend : uint8_t
+  {
+    None = 0,
+    RuntimeV1,
+    EngineV2
+  };
+
   bool criticalErrorActive() const;
   void syncIdleIndicators();
 
@@ -62,7 +78,9 @@ private:
   void collectViewRequests();
   void processPendingProgramAction();
 
+  Backend _backend;
   JWPLC_LogicRuntime *_runtime;
+  LogicV2EnginePrototype *_v2Engine;
   bool _attached;
   bool _userVisible;
   bool _lastRunLed;
@@ -73,6 +91,8 @@ private:
   RuntimeUIProgram _program;
   RuntimeUIDiagram _diagram;
   RuntimeUIBlocks _blocks;
+  RuntimeUIV2ReadModel _v2Model;
+  RuntimeUIFBDMapV2 _fbdMapV2;
 };
 
 extern JWPLC_LogicRuntime_UIClass JWPLC_LogicRuntime_UI;
