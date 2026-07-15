@@ -8,6 +8,7 @@
 #include "RuntimeUIView.h"
 #include "screens/RuntimeUIHome.h"
 #include "screens/RuntimeUIProgram.h"
+#include "screens/RuntimeUIDiagram.h"
 #include "screens/RuntimeUIBlocks.h"
 
 /**
@@ -70,6 +71,7 @@ private:
   volatile RuntimeUIProgramAction _pendingProgramAction;
   RuntimeUIHome _home;
   RuntimeUIProgram _program;
+  RuntimeUIDiagram _diagram;
   RuntimeUIBlocks _blocks;
 };
 
