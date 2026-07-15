@@ -2,9 +2,9 @@
 
 ## Objetivo
 
-Todas las vistas de `JWPLC_LogicRuntime_UI` deben mantener una interfaz fluida sobre la TFT ST7789 sin reconstruir la pantalla completa en cada refresco.
+Todas las vistas de `JWPLC_LogicRuntime_UI` deben mantener una interfaz fluida sobre la TFT ST7789, sin reconstruir periódicamente contenido estable y sin hacer que la carga inicial se perciba innecesariamente lenta.
 
-Estas reglas son obligatorias para las vistas actuales y futuras:
+Estas reglas son obligatorias para:
 
 ```text
 RuntimeUIHome
@@ -16,39 +16,53 @@ RuntimeUIBlockEditor
 RuntimeUIConfirmDialog
 ```
 
-## Problema que se evita
+## Dos problemas distintos
 
-El patrón siguiente produce parpadeo y tráfico SPI innecesario:
+### Parpadeo periódico
+
+Ocurre cuando el callback borra y vuelve a imprimir un dato aunque no haya cambiado:
 
 ```cpp
 void refresh()
 {
-    tft.fillRect(...);   // borra aunque el valor no cambió
-    tft.print(...);      // vuelve a escribir lo mismo
+    tft.fillRect(...);
+    tft.print(...);
 }
 ```
 
-Aunque la llamada sea rápida, existe un intervalo visible entre borrar y volver a dibujar. Si se repite cada 50 o 200 ms, el texto parece vibrar o parpadear.
+La solución es una caché de valores y actualización por diferencia.
+
+### Construcción inicial lenta
+
+Puede ocurrir incluso sin parpadeo cuando una vista nueva envía demasiadas operaciones pequeñas a la TFT.
+
+El caso detectado en v0.2.0 fue imprimir campos de 30 a 51 columnas completando el ancho sobrante con espacios. Cada espacio se procesaba como otro glifo, aunque su única función fuera limpiar el campo.
+
+Desde v0.2.1 se usa:
+
+```text
+limpieza rectangular continua
++ impresión transparente solo de caracteres útiles
+```
 
 ## Arquitectura obligatoria de cada vista
 
-Cada pantalla debe separar tres responsabilidades:
-
 ```text
 enter()
-├── dibuja estructura estática una sola vez
 ├── invalida la caché dinámica
+├── dibuja estructura estática una sola vez
 ├── dibuja el estado dinámico inicial
+├── dibuja selección inicial
 └── deja la caché válida
 
 refresh()
 ├── procesa entradas
 ├── compara valores actuales contra la caché
 ├── actualiza únicamente campos modificados
-└── aplica periodos separados según el tipo de dato
+└── aplica periodos distintos según el tipo de dato
 
 exit()
-└── limpia solo el estado lógico temporal de la vista
+└── limpia solo estado lógico temporal de la vista
 ```
 
 `fillScreen()` solo se permite al entrar en una vista o durante una reconstrucción explícita mediante `forceRedraw()`.
@@ -60,19 +74,24 @@ Se dibuja una sola vez en `enter()`:
 - fondo;
 - marcos y paneles;
 - divisores;
-- título de la pantalla;
+- título;
 - etiquetas;
 - iconos fijos;
-- botones no seleccionados;
-- instrucciones permanentes del pie de pantalla.
+- botones;
+- instrucciones permanentes.
 
-No debe volver a dibujarse desde el refresco periódico.
+El texto estático debe imprimirse en modo transparente sobre una región previamente pintada:
+
+```cpp
+tft.setTextColor(COLOR_TEXT);
+tft.print("PROGRAMA");
+```
+
+No debe utilizar fondo opaco carácter por carácter cuando la región ya tiene su color definitivo.
 
 ## Contenido dinámico
 
-Cada valor dinámico debe conservar su copia anterior en una caché local de la vista.
-
-Ejemplo:
+Cada dato conserva una copia anterior:
 
 ```cpp
 struct DynamicCache
@@ -86,7 +105,7 @@ struct DynamicCache
 };
 ```
 
-La actualización debe realizarse por diferencia:
+Actualización por diferencia:
 
 ```cpp
 if (!cache.valid || currentState != cache.runtimeState)
@@ -96,38 +115,11 @@ if (!cache.valid || currentState != cache.runtimeState)
 }
 ```
 
-Consultar un valor en cada callback es válido. Escribir en la TFT cuando ese valor no cambió, no.
+Consultar un estado en cada callback es válido. Escribir en la TFT cuando no cambió, no.
 
-## Frecuencias recomendadas
+## Campos de texto variables
 
-No todos los datos requieren la misma frecuencia visual:
-
-| Tipo de dato | Política recomendada |
-|---|---|
-| Selección de menú | inmediata, solo por evento de botón |
-| RUN, READY, STOPPED, FAULT | al cambiar |
-| Programa, Program ID, generación | al cambiar |
-| Estado de almacenamiento y retentivos | al cambiar |
-| Entradas y salidas | al cambiar |
-| Tiempo de scan promedio/máximo | cada 500 a 1000 ms y solo si cambió |
-| RTC segundos | cada segundo |
-| RTC fecha | solo al cambiar el día |
-| Marcos, etiquetas y títulos | solo en `enter()` |
-
-El callback USER puede ejecutarse cada 50 ms para mantener una botonera ágil. Eso no significa que la TFT deba recibir escrituras cada 50 ms.
-
-## Campos de texto de ancho fijo
-
-Para valores variables se usa `updateTextField()`.
-
-El helper:
-
-1. limita el texto al ancho disponible;
-2. rellena el resto con espacios;
-3. configura color de texto y fondo;
-4. imprime el campo completo en una sola pasada.
-
-Ejemplo:
+Para valores variables se usa `updateTextField()`:
 
 ```cpp
 updateTextField(tft,
@@ -139,7 +131,15 @@ updateTextField(tft,
                 COLOR_PANEL);
 ```
 
-No se debe hacer primero un `fillRect()` periódico y después un `print()` del mismo dato.
+El helper realiza:
+
+1. limita el texto al número de columnas disponible;
+2. limpia toda la región mediante un `fillRect()` continuo;
+3. imprime únicamente los caracteres útiles en modo transparente.
+
+No rellena el campo enviando espacios como glifos.
+
+Esta limpieza solo se permite cuando la caché confirmó que el valor cambió. No debe llamarse periódicamente sobre datos estables.
 
 ## Encabezados
 
@@ -150,33 +150,49 @@ drawHeaderStatic(tft, "JWPLC LOGIC");
 updateHeaderState(tft, "READY", COLOR_ACCENT);
 ```
 
-`drawHeaderStatic()` se llama al entrar.
+- `drawHeaderStatic()` se llama al entrar;
+- `updateHeaderState()` se llama al cambiar el estado;
+- la insignia limpia su propia región y luego imprime únicamente el texto útil.
 
-`updateHeaderState()` se llama únicamente cuando cambia el estado o cuando la caché está invalidada.
+## Menús
 
-## Menús y selección
-
-Al mover el cursor no se redibuja la matriz completa de botones.
-
-Solo deben actualizarse:
+Al mover el cursor solo se actualizan:
 
 ```text
-botón anteriormente seleccionado → estado normal
-botón actualmente seleccionado   → estado seleccionado
+selección anterior -> estado normal
+selección nueva    -> estado seleccionado
 ```
 
-El resto de botones permanece intacto.
+No se redibuja la matriz completa.
+
+Los textos de botones se imprimen de forma transparente porque el fondo del botón ya fue pintado.
+
+## Frecuencias visuales
+
+| Tipo de dato | Política |
+|---|---|
+| Selección de menú | inmediata, por evento |
+| READY, RUNNING, STOPPED, FAULT | al cambiar |
+| Programa, ID y generación | al cambiar |
+| Storage y retentivos | al cambiar |
+| Entradas y salidas | al cambiar |
+| Scan promedio/máximo | cada 500–1000 ms y solo si cambió |
+| RTC segundos | cada segundo |
+| Fecha | al cambiar el día |
+| Marcos, títulos y etiquetas | solo en `enter()` |
+
+El callback USER puede ejecutarse cada 50 ms para mantener la botonera ágil. Eso no autoriza escrituras TFT cada 50 ms.
 
 ## Redibujado completo
 
-Una vista puede marcarse para reconstrucción cuando:
+Una reconstrucción completa está permitida cuando:
 
-- se entra desde otra pantalla;
-- cambia completamente el layout;
-- se recupera el bus o la TFT tras un fallo;
-- se llama explícitamente a `forceRedraw()`.
+- se entra desde otra vista;
+- cambia el layout completo;
+- se recupera la TFT o el bus;
+- se llama a `forceRedraw()`.
 
-El flujo debe ser:
+Flujo:
 
 ```cpp
 invalidateCache();
@@ -188,39 +204,38 @@ cache.valid = true;
 
 No debe quedar una segunda reconstrucción pendiente después de `enter()`.
 
-## Buffers y sprites
+## Framebuffer y sprites
 
-No se usará un framebuffer completo para la TFT actual:
+No se usa framebuffer completo:
 
 ```text
 320 × 170 × 2 bytes = 108800 bytes
 ```
-
-Ese costo de RAM no se justifica para pantallas mayormente estáticas.
 
 Se prioriza:
 
 ```text
 caché de valores
 + dirty fields
-+ dirty rectangles pequeños
++ rectángulos pequeños
 + actualización por evento
 ```
 
-Sprites o buffers parciales solo se evaluarán para elementos realmente animados, gráficas o transiciones que no puedan resolverse con campos sucios.
+Sprites parciales solo se evaluarán para gráficas o animaciones que no puedan resolverse con campos sucios.
 
 ## Bus SPI
 
-Las vistas USER dibujan dentro de los callbacks administrados por `JWPLC_Display`. En ese punto el package ya adquirió y configuró el bus SPI para la TFT.
+Las vistas dibujan dentro de callbacks administrados por `JWPLC_Display`, donde el bus TFT ya está adquirido.
 
 Reglas:
 
-- no adquirir nuevamente el bus desde una pantalla;
-- no guardar una referencia global a `JWPLC_Display.tft()`;
-- obtener la referencia local únicamente durante el dibujo;
-- no ejecutar operaciones lentas de almacenamiento dentro del callback gráfico.
+- no adquirir nuevamente el bus desde la vista;
+- no guardar referencias globales a `JWPLC_Display.tft()`;
+- obtener la referencia local durante el dibujo;
+- no ejecutar FRAM, SD, Ethernet ni operaciones largas dentro del callback;
+- registrar acciones y procesarlas luego desde `JWPLC_LogicRuntime_UI.update()`.
 
-## Plantilla para una nueva pantalla
+## Plantilla
 
 ```cpp
 void RuntimeUIView::enter()
@@ -245,31 +260,34 @@ void RuntimeUIView::refresh(...)
 }
 ```
 
-## Criterios de revisión para cada pantalla
-
-Antes de aprobar una vista nueva debe comprobarse:
+## Criterios de revisión
 
 ```text
-[ ] No usa fillScreen() dentro del refresh normal.
-[ ] Las etiquetas y marcos se dibujan solo en enter().
+[ ] No usa fillScreen() durante refresh normal.
+[ ] Marcos y etiquetas solo se dibujan en enter().
 [ ] Cada dato dinámico tiene caché o condición de cambio.
-[ ] Los datos lentos tienen un periodo visual propio.
-[ ] La navegación redibuja solo selección anterior y actual.
-[ ] El texto variable usa ancho fijo o limpia únicamente su región al cambiar.
-[ ] Una entrada repetida a USER reconstruye la pantalla correctamente.
-[ ] No hay parpadeo periódico con valores estables.
-[ ] La interfaz no altera el estado lógico ni las salidas.
-[ ] Se mide la latencia del scan cuando la vista se pruebe con un programa activo.
+[ ] Los datos lentos tienen periodo propio.
+[ ] Solo se redibujan selección anterior y nueva.
+[ ] Los campos variables limpian su región únicamente al cambiar.
+[ ] No se envían columnas vacías como glifos.
+[ ] Los textos estáticos usan impresión transparente.
+[ ] Una entrada repetida reconstruye la pantalla correctamente.
+[ ] No existe parpadeo periódico con valores estables.
+[ ] La carga inicial no presenta pausas largas entre secciones.
+[ ] La interfaz no altera lógica ni salidas.
+[ ] Las acciones de almacenamiento se procesan fuera del callback TFT.
 ```
 
-## Aplicación inicial
+## Aplicación actual
 
-`RuntimeUIHome` es la primera vista migrada a estas reglas:
+`RuntimeUIHome` y `RuntimeUIProgram` aplican:
 
-- encabezado estático separado de la insignia de estado;
-- etiquetas estáticas dibujadas una sola vez;
-- caché para runtime, programa, identidad, almacenamiento y retentivos;
-- scan actualizado como máximo una vez por segundo;
-- botones redibujados únicamente al cambiar la selección;
-- campos de texto actualizados con ancho fijo;
-- sin segunda reconstrucción inmediata después de `enter()`.
+- dirty rendering;
+- paleta JW Control;
+- campos dinámicos por diferencia;
+- navegación por evento;
+- textos estáticos transparentes;
+- campos variables con limpieza continua y texto útil;
+- acciones diferidas fuera del callback gráfico.
+
+La optimización de campos y textos transparentes se incorporó en `JWPLC_LogicRuntime_UI 0.2.1`.
