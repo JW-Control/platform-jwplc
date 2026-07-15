@@ -14,9 +14,10 @@
  * por conexiones o cercanía geográfica; el viewport solo se desplaza cuando el
  * bloque seleccionado cruza los márgenes visibles.
  *
- * Desde v0.4.2 la información Bxx/posición vive en el encabezado, el área del
- * mapa llega hasta el borde previo al footer y cada nodo reserva un gutter
- * exclusivo para etiquetas, inversión y puertos de entrada.
+ * Desde v0.4.3 los bloques próximos a un borde conservan una identificación
+ * compacta y los cables se recortan por segmentos contra el viewport. Así no
+ * desaparecen las conexiones cuando una fuente o consumidor está fuera de la
+ * zona visible.
  */
 class RuntimeUIFBDMapV2
 {
@@ -43,12 +44,10 @@ private:
   static constexpr uint8_t MAX_LEVELS = 100;
   static constexpr uint32_t VALUE_REFRESH_MS = 100;
 
-  // Espacio entre el título MAPA FBD y la insignia RUN/READY/FAULT.
   static constexpr int16_t HEADER_INFO_X = 104;
   static constexpr int16_t HEADER_INFO_Y = 8;
-  static constexpr uint8_t HEADER_INFO_COLUMNS = 22;
+  static constexpr uint8_t HEADER_INFO_COLUMNS = 18;
 
-  // El panel termina en y=154; el footer conserva su separador en y=156.
   static constexpr int16_t PANEL_X = 4;
   static constexpr int16_t PANEL_Y = 28;
   static constexpr int16_t PANEL_W = 312;
@@ -59,7 +58,6 @@ private:
   static constexpr int16_t MAP_W = PANEL_W - 2;
   static constexpr int16_t MAP_H = PANEL_H - 2;
 
-  // Gutter izquierdo de 17 px: puerto, ! de inversión y etiqueta compacta.
   static constexpr int16_t NODE_W = 66;
   static constexpr int16_t NODE_H = 32;
   static constexpr int16_t NODE_GUTTER_W = 17;
@@ -70,6 +68,9 @@ private:
   static constexpr int16_t WORLD_MARGIN_Y = 2;
   static constexpr int16_t KEEP_MARGIN_X = 12;
   static constexpr int16_t KEEP_MARGIN_Y = 6;
+
+  static constexpr int16_t EDGE_HINT_W = 48;
+  static constexpr int16_t EDGE_HINT_H = 10;
 
   void invalidateLayout();
   void buildLayout();
@@ -93,15 +94,48 @@ private:
   void drawWire(uint16_t consumerIndex,
                 uint8_t inputIndex);
   void drawNode(uint16_t blockIndex);
+  void drawFullNode(uint16_t blockIndex,
+                    int16_t screenX,
+                    int16_t screenY,
+                    uint16_t border,
+                    bool active,
+                    bool selected);
+  void drawPartialNode(uint16_t blockIndex,
+                       int16_t screenX,
+                       int16_t screenY,
+                       uint16_t border,
+                       bool active);
+  void drawEdgeHint(uint16_t blockIndex,
+                    int16_t screenX,
+                    int16_t screenY,
+                    uint16_t border,
+                    bool active);
   void drawNodePorts(uint16_t blockIndex,
                      int16_t screenX,
                      int16_t screenY);
+
+  void drawClippedHorizontal(int16_t x0,
+                             int16_t x1,
+                             int16_t y,
+                             uint16_t color);
+  void drawClippedVertical(int16_t x,
+                           int16_t y0,
+                           int16_t y1,
+                           uint16_t color);
+  void drawOrthogonalWireClipped(int16_t x0,
+                                 int16_t y0,
+                                 int16_t x1,
+                                 int16_t y1,
+                                 int16_t routeX,
+                                 uint16_t color);
 
   void drawDetailStatic();
   void drawDetail(bool force);
 
   bool valuesChanged();
   bool nodeFullyVisible(int16_t screenX, int16_t screenY) const;
+  bool nodeIntersectsMap(int16_t screenX, int16_t screenY) const;
+  bool nodeNearMap(int16_t screenX, int16_t screenY) const;
   int16_t screenX(uint16_t blockIndex) const;
   int16_t screenY(uint16_t blockIndex) const;
   int16_t inputPortY(const LogicV2BlockRecord &block,
