@@ -25,6 +25,7 @@ uint8_t LogicV1ToV2Adapter::inputCountForType(LogicBlockType type)
     return 1;
   case LogicBlockType::And:
   case LogicBlockType::Or:
+  case LogicBlockType::SetReset:
     return 2;
   default:
     return 0xFFU;
@@ -50,6 +51,9 @@ bool LogicV1ToV2Adapter::mapType(LogicBlockType sourceType,
     return true;
   case LogicBlockType::Or:
     destinationType = LogicV2BlockType::Or;
+    return true;
+  case LogicBlockType::SetReset:
+    destinationType = LogicV2BlockType::SetReset;
     return true;
   default:
     return false;
@@ -86,6 +90,8 @@ bool LogicV1ToV2Adapter::requiredLinkCount(
   {
     const LogicBlockDefinition &block = source.blocks[index];
 
+    // La retención persistente v2 todavía no está habilitada. SET/RESET con
+    // flags cero sí puede convertirse y mantener su estado durante RUN.
     if (block.flags != JWPLC_LOGIC_BLOCK_FLAG_NONE)
     {
       error = LogicV1ToV2AdapterError::UnsupportedFlags;
