@@ -213,9 +213,10 @@ bool JW_FRAM::writeBlock(uint32_t addr, const T &value, uint8_t version)
   header.length = static_cast<uint16_t>(sizeof(T));
   header.checksum = computeChecksum(reinterpret_cast<const uint8_t *>(&value), sizeof(T));
 
-  // Header y payload son dos comandos WRITE independientes. Cada uno debe
-  // ejecutar su propio WREN porque algunas FRAM limpian WEL al finalizar
-  // cada transaccion WRITE.
+  // Header y payload se envían como dos comandos WRITE independientes.
+  // Cada WRITE usa put() para ejecutar su propio ciclo WREN -> WRITE -> WRDI.
+  // Esto evita perder el payload en dispositivos que limpian WEL al terminar
+  // la primera transacción de escritura.
   bool ok = put(addr, header);
   if (ok)
   {
