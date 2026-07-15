@@ -244,11 +244,13 @@ void setup()
              adapterError == LogicV1ToV2AdapterError::None);
 
   outputBlocks[1] = LogicBlockDefinition(LogicBlockType::SetReset, 0, 0);
-  expect("SET/RESET queda pendiente de fase posterior",
-         !LogicV1ToV2Adapter::requiredLinkCount(
+  expect("SET/RESET no retentivo ya es aceptado",
+         LogicV1ToV2Adapter::requiredLinkCount(
              outputProgram,
              requiredLinks,
-             adapterError));
+             adapterError) &&
+             requiredLinks == 2 &&
+             adapterError == LogicV1ToV2AdapterError::None);
 
   outputBlocks[1] =
       LogicBlockDefinition(LogicBlockType::Ton,
