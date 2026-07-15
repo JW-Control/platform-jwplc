@@ -303,7 +303,8 @@ void JWPLC_LogicRuntime_UIClass::processPendingProgramAction()
     return;
   }
 
-  _program.invalidateDynamicCache();
+  // La pantalla detectará los cambios por su caché en el próximo refresh.
+  // Solo el resultado se cruza entre loop() y el callback como un byte atómico.
   _program.setFeedback(feedback);
 }
 
