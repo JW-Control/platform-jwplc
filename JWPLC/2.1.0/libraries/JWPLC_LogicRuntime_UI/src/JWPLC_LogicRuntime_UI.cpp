@@ -12,6 +12,7 @@ JWPLC_LogicRuntime_UIClass::JWPLC_LogicRuntime_UIClass()
       _pendingProgramAction(RuntimeUIProgramAction::None),
       _home(),
       _program(),
+      _diagram(),
       _blocks()
 {
 }
@@ -26,6 +27,7 @@ bool JWPLC_LogicRuntime_UIClass::begin(JWPLC_LogicRuntime &runtime)
 
   _home.attach(runtime);
   _program.attach(runtime);
+  _diagram.attach(runtime);
   _blocks.attach(runtime);
 
   // ESC conserva el retorno seguro desde cualquier vista USER hacia IDLE.
@@ -86,6 +88,9 @@ void JWPLC_LogicRuntime_UIClass::forceRedraw()
   {
   case RuntimeUIView::Program:
     _program.forceRedraw();
+    break;
+  case RuntimeUIView::Diagram:
+    _diagram.forceRedraw();
     break;
   case RuntimeUIView::Blocks:
     _blocks.forceRedraw();
@@ -163,6 +168,9 @@ void JWPLC_LogicRuntime_UIClass::enterCurrentView()
   case RuntimeUIView::Program:
     _program.enter();
     break;
+  case RuntimeUIView::Diagram:
+    _diagram.enter();
+    break;
   case RuntimeUIView::Blocks:
     _blocks.enter();
     break;
@@ -183,6 +191,9 @@ void JWPLC_LogicRuntime_UIClass::refreshCurrentView(
   case RuntimeUIView::Program:
     _program.refresh(io, rtc);
     break;
+  case RuntimeUIView::Diagram:
+    _diagram.refresh(io, rtc);
+    break;
   case RuntimeUIView::Blocks:
     _blocks.refresh(io, rtc);
     break;
@@ -199,6 +210,9 @@ void JWPLC_LogicRuntime_UIClass::exitCurrentView()
   {
   case RuntimeUIView::Program:
     _program.exit();
+    break;
+  case RuntimeUIView::Diagram:
+    _diagram.exit();
     break;
   case RuntimeUIView::Blocks:
     _blocks.exit();
@@ -217,10 +231,15 @@ void JWPLC_LogicRuntime_UIClass::collectViewRequests()
   case RuntimeUIView::Home:
   {
     const RuntimeUIView requested = _home.takeRequestedView();
-    if (requested == RuntimeUIView::Program ||
-        requested == RuntimeUIView::Blocks)
+    if (requested == RuntimeUIView::Program)
     {
-      switchView(requested);
+      switchView(RuntimeUIView::Program);
+    }
+    else if (requested == RuntimeUIView::Blocks)
+    {
+      // BLOQUES abre primero la representación gráfica. La tabla queda como
+      // herramienta técnica secundaria accesible desde DIAGRAMA.
+      switchView(RuntimeUIView::Diagram);
     }
     break;
   }
@@ -242,12 +261,27 @@ void JWPLC_LogicRuntime_UIClass::collectViewRequests()
     break;
   }
 
+  case RuntimeUIView::Diagram:
+  {
+    const RuntimeUIView requested = _diagram.takeRequestedView();
+    if (requested == RuntimeUIView::Blocks)
+    {
+      switchView(RuntimeUIView::Blocks);
+    }
+    else if (requested == RuntimeUIView::Home)
+    {
+      switchView(RuntimeUIView::Home);
+    }
+    break;
+  }
+
   case RuntimeUIView::Blocks:
   {
     const RuntimeUIView requested = _blocks.takeRequestedView();
     if (requested == RuntimeUIView::Home)
     {
-      switchView(RuntimeUIView::Home);
+      // VOLVER desde la lista técnica regresa a la vista gráfica principal.
+      switchView(RuntimeUIView::Diagram);
     }
     break;
   }
