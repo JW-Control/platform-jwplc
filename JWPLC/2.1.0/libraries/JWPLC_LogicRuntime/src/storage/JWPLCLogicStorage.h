@@ -6,6 +6,7 @@
 
 #include "LogicFRAMStorage.h"
 #include "LogicProgramStore.h"
+#include "LogicRetentiveStore.h"
 #include "LogicStorageLayout.h"
 #include "LogicSuperblockInspector.h"
 #include "../runtime/LogicValidator.h"
@@ -87,6 +88,42 @@ public:
 
   bool hasLoadedProgram() const;
   LogicProgram activeProgram() const;
+
+  /**
+   * @brief Devuelve la identidad exacta de la imagen reconstruida en RAM.
+   *
+   * En un fallback esta identidad pertenece al slot realmente cargado, no al
+   * slot señalado por el superblock corrupto.
+   */
+  bool loadedProgramIdentity(uint32_t &programId,
+                             uint32_t &generation,
+                             uint16_t &blockCount) const
+  {
+    if (!_hasLoadedProgram)
+    {
+      programId = 0;
+      generation = 0;
+      blockCount = 0;
+      return false;
+    }
+
+    programId = _loadedProgram.metadata.programId;
+    generation = _loadedProgram.metadata.generation;
+    blockCount = _loadedProgram.blockCount;
+    return true;
+  }
+
+  /**
+   * @brief Conecta un gestor retentivo externo a la región asignada del mapa.
+   *
+   * La operación solo inspecciona las dos copias retentivas. No escribe, no
+   * limpia y no repara la FRAM.
+   */
+  bool connectRetentiveStore(LogicRetentiveStore &store)
+  {
+    return _ready && _layout->retain.size > 0 &&
+           store.begin(_backend, _layout->retain);
+  }
 
   const LogicProgramStoreStatus &status() const;
   const LogicStorageProfile &profile() const;
