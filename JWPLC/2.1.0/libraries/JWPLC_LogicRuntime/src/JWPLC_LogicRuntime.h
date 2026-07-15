@@ -3,6 +3,8 @@
 
 #include <Arduino.h>
 
+#include <cstring>
+
 #include "runtime/LogicEngine.h"
 #include "runtime/LogicProgram.h"
 #include "storage/JWPLCLogicStorage.h"
@@ -37,6 +39,22 @@ enum class JWPLCLogicRuntimeError : uint8_t
   InvalidProgram,
   StoredProgramLoadFailed,
   ProgramExecutionFailed
+};
+
+/**
+ * @brief Resultado de guardar o restaurar estado retentivo persistente.
+ */
+enum class JWPLCLogicRetentiveState : uint8_t
+{
+  NotEvaluated = 0,
+  NotReady,
+  NoStoredProgram,
+  NoRetentiveBlocks,
+  NoSnapshot,
+  Restored,
+  Saved,
+  NoMatchingSnapshot,
+  StoreError
 };
 
 /**
@@ -94,6 +112,28 @@ public:
                             size_t sourceLength);
   void clearRetentiveStates();
 
+  /**
+   * @brief Restaura el snapshot que coincide con la imagen persistente cargada.
+   *
+   * Debe llamarse después de prepareStoredProgram() y antes de start(). La
+   * ausencia de snapshot o una identidad distinta no impiden ejecutar el
+   * programa: los estados retentivos permanecen en falso.
+   */
+  JWPLCLogicRetentiveState restoreStoredRetentiveState();
+
+  /**
+   * @brief Guarda el bitmap actual para la imagen persistente cargada.
+   *
+   * La aplicación debe invocarlo explícitamente antes de stop() o antes de una
+   * parada que borre los estados temporales.
+   */
+  bool saveStoredRetentiveState();
+
+  JWPLCLogicRetentiveState retentiveState() const;
+  LogicRetentiveStoreError retentiveStoreError() const;
+  const LogicRetentiveStoreStatus &retentiveStoreStatus() const;
+  static const char *retentiveStateName(JWPLCLogicRetentiveState state);
+
   uint32_t scanCount() const;
   uint32_t lastScanMicros() const;
   uint32_t minScanMicros() const;
@@ -108,6 +148,32 @@ public:
 private:
   void recordScanDuration(uint32_t elapsedMicros);
 
+  bool storedProgramMatchesEngine() const
+  {
+    if (!_storage.hasLoadedProgram() || !_engine.hasProgram())
+    {
+      return false;
+    }
+
+    const LogicProgram storedProgram = _storage.activeProgram();
+    const LogicProgram *engineProgram = _engine.program();
+    if (engineProgram == nullptr ||
+        storedProgram.name == nullptr ||
+        storedProgram.blocks == nullptr ||
+        engineProgram->name == nullptr ||
+        engineProgram->blocks == nullptr ||
+        storedProgram.blockCount != engineProgram->blockCount)
+    {
+      return false;
+    }
+
+    return std::strcmp(storedProgram.name, engineProgram->name) == 0 &&
+           std::memcmp(storedProgram.blocks,
+                       engineProgram->blocks,
+                       static_cast<size_t>(storedProgram.blockCount) *
+                           sizeof(LogicBlockDefinition)) == 0;
+  }
+
   const LogicStorageProfile *_storageProfile;
   JWPLCLogicRuntimeState _state;
   JWPLCLogicRuntimeError _lastError;
@@ -119,6 +185,173 @@ private:
   JWPLCLogicStorage _storage;
   JWPLCLogicIO _io;
   LogicEngine _engine;
+  LogicRetentiveStore _retentiveStore;
+  JWPLCLogicRetentiveState _retentiveState =
+      JWPLCLogicRetentiveState::NotEvaluated;
 };
+
+inline JWPLCLogicRetentiveState
+JWPLC_LogicRuntime::restoreStoredRetentiveState()
+{
+  if (_state == JWPLCLogicRuntimeState::Running ||
+      !_storage.isReady() ||
+      !_storage.connectRetentiveStore(_retentiveStore))
+  {
+    _retentiveState = JWPLCLogicRetentiveState::NotReady;
+    return _retentiveState;
+  }
+
+  if (!storedProgramMatchesEngine())
+  {
+    _retentiveState = JWPLCLogicRetentiveState::NoStoredProgram;
+    return _retentiveState;
+  }
+
+  if (_engine.retentiveBlockCount() == 0)
+  {
+    _retentiveState = JWPLCLogicRetentiveState::NoRetentiveBlocks;
+    return _retentiveState;
+  }
+
+  uint32_t programId = 0;
+  uint32_t generation = 0;
+  uint16_t blockCount = 0;
+  if (!_storage.loadedProgramIdentity(programId, generation, blockCount))
+  {
+    _retentiveState = JWPLCLogicRetentiveState::NoStoredProgram;
+    return _retentiveState;
+  }
+
+  _engine.clearRetentiveStates();
+
+  if (!_retentiveStore.hasSnapshot())
+  {
+    _retentiveState = JWPLCLogicRetentiveState::NoSnapshot;
+    return _retentiveState;
+  }
+
+  uint8_t bitmap[LogicRetentiveStore::MAX_BITMAP_BYTES] = {};
+  size_t loadedBytes = 0;
+  if (!_retentiveStore.load(programId,
+                            generation,
+                            blockCount,
+                            bitmap,
+                            sizeof(bitmap),
+                            loadedBytes))
+  {
+    _retentiveState =
+        _retentiveStore.lastError() ==
+                LogicRetentiveStoreError::NoMatchingSnapshot
+            ? JWPLCLogicRetentiveState::NoMatchingSnapshot
+            : JWPLCLogicRetentiveState::StoreError;
+    return _retentiveState;
+  }
+
+  if (loadedBytes != _engine.retentiveStateBytes() ||
+      !_engine.importRetentiveState(bitmap, loadedBytes))
+  {
+    _engine.clearRetentiveStates();
+    _retentiveState = JWPLCLogicRetentiveState::StoreError;
+    return _retentiveState;
+  }
+
+  _retentiveState = JWPLCLogicRetentiveState::Restored;
+  return _retentiveState;
+}
+
+inline bool JWPLC_LogicRuntime::saveStoredRetentiveState()
+{
+  if (!_storage.isReady() ||
+      !_storage.connectRetentiveStore(_retentiveStore))
+  {
+    _retentiveState = JWPLCLogicRetentiveState::NotReady;
+    return false;
+  }
+
+  if (!storedProgramMatchesEngine())
+  {
+    _retentiveState = JWPLCLogicRetentiveState::NoStoredProgram;
+    return false;
+  }
+
+  if (_engine.retentiveBlockCount() == 0)
+  {
+    _retentiveState = JWPLCLogicRetentiveState::NoRetentiveBlocks;
+    return false;
+  }
+
+  uint32_t programId = 0;
+  uint32_t generation = 0;
+  uint16_t blockCount = 0;
+  if (!_storage.loadedProgramIdentity(programId, generation, blockCount))
+  {
+    _retentiveState = JWPLCLogicRetentiveState::NoStoredProgram;
+    return false;
+  }
+
+  uint8_t bitmap[LogicRetentiveStore::MAX_BITMAP_BYTES] = {};
+  const size_t bitmapBytes = _engine.retentiveStateBytes();
+  if (bitmapBytes == 0 ||
+      bitmapBytes > sizeof(bitmap) ||
+      !_engine.exportRetentiveState(bitmap, sizeof(bitmap)) ||
+      !_retentiveStore.save(programId,
+                            generation,
+                            blockCount,
+                            bitmap,
+                            bitmapBytes))
+  {
+    _retentiveState = JWPLCLogicRetentiveState::StoreError;
+    return false;
+  }
+
+  _retentiveState = JWPLCLogicRetentiveState::Saved;
+  return true;
+}
+
+inline JWPLCLogicRetentiveState
+JWPLC_LogicRuntime::retentiveState() const
+{
+  return _retentiveState;
+}
+
+inline LogicRetentiveStoreError
+JWPLC_LogicRuntime::retentiveStoreError() const
+{
+  return _retentiveStore.lastError();
+}
+
+inline const LogicRetentiveStoreStatus &
+JWPLC_LogicRuntime::retentiveStoreStatus() const
+{
+  return _retentiveStore.status();
+}
+
+inline const char *JWPLC_LogicRuntime::retentiveStateName(
+    JWPLCLogicRetentiveState state)
+{
+  switch (state)
+  {
+  case JWPLCLogicRetentiveState::NotEvaluated:
+    return "NOT_EVALUATED";
+  case JWPLCLogicRetentiveState::NotReady:
+    return "NOT_READY";
+  case JWPLCLogicRetentiveState::NoStoredProgram:
+    return "NO_STORED_PROGRAM";
+  case JWPLCLogicRetentiveState::NoRetentiveBlocks:
+    return "NO_RETENTIVE_BLOCKS";
+  case JWPLCLogicRetentiveState::NoSnapshot:
+    return "NO_SNAPSHOT";
+  case JWPLCLogicRetentiveState::Restored:
+    return "RESTORED";
+  case JWPLCLogicRetentiveState::Saved:
+    return "SAVED";
+  case JWPLCLogicRetentiveState::NoMatchingSnapshot:
+    return "NO_MATCHING_SNAPSHOT";
+  case JWPLCLogicRetentiveState::StoreError:
+    return "STORE_ERROR";
+  default:
+    return "UNKNOWN";
+  }
+}
 
 #endif
