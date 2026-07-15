@@ -76,10 +76,13 @@ La primera revisión del ejemplo expuso un defecto en `JW_FRAM::writeBlock()` de
 
 - el header y el payload se enviaban como dos comandos `WRITE` separados;
 - solo se ejecutaba un `WREN` antes del primer comando;
-- en la FM25CL64B el payload podía quedar sin escribir;
+- la FM25CL64B limpia el latch WEL al finalizar el primer `WRITE`;
+- el segundo `WRITE` podía no almacenar el payload;
 - `readBlock()` recuperaba un header válido, pero rechazaba el payload por checksum y el ejemplo mostraba `ERROR VERIFICACION`.
 
-La versión bundled `JW_FRAM 1.0.3` corrige el flujo ejecutando un ciclo de escritura independiente para el header y otro para el payload. La API pública y el formato del bloque permanecen iguales.
+La versión bundled `JW_FRAM 1.0.3` corrige el flujo ejecutando un ciclo `WREN -> WRITE -> WRDI` para el header y otro para el payload. La API pública y el formato del bloque permanecen iguales.
+
+El ejemplo `Basic_RW` no presentaba el fallo porque `put()` ya ejecutaba un ciclo de habilitación independiente por cada valor escrito.
 
 ## Refresco de la TFT
 
