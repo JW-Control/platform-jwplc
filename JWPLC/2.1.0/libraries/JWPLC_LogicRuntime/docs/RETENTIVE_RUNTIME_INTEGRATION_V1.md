@@ -3,8 +3,17 @@
 ## Estado
 
 ```text
-IMPLEMENTACIÓN PREPARADA
-VALIDACIÓN FÍSICA PENDIENTE
+VALIDADO EN HARDWARE
+Resultado: 59 PASS, 0 FAIL
+INTEGRACION RETENTIVA DEL RUNTIME: PASS
+```
+
+Compilación validada:
+
+```text
+Flash:       445757 bytes / 3145728 bytes (14 %)
+RAM global:   39500 bytes / 327680 bytes (12 %)
+RAM restante: 288180 bytes
 ```
 
 ## Flujo de arranque
@@ -98,7 +107,7 @@ runtime.tick();
 
 La integración retentiva es optativa. Un sketch que no llame a las nuevas funciones mantiene el comportamiento anterior.
 
-## Validación física preparada
+## Validación física
 
 Ejemplo:
 
@@ -106,21 +115,21 @@ Ejemplo:
 JWPLC_LogicRuntime_Retentive_Runtime_Integration
 ```
 
-Comando requerido:
+Comando utilizado:
 
 ```text
 RETRUNTIME
 ```
 
-La prueba modifica temporalmente:
+La prueba modificó temporalmente:
 
 ```text
 0x0000..0x1A3F
 ```
 
-Incluye el program store A/B y la región retentiva. La reserva `0x1A40..0x1FFF` queda fuera.
+Incluyó el program store A/B y la región retentiva. La reserva `0x1A40..0x1FFF` quedó fuera.
 
-Protecciones:
+Protecciones utilizadas:
 
 - respaldo de 6720 bytes en NVS;
 - CRC32 del respaldo;
@@ -130,27 +139,39 @@ Protecciones:
 - guarda posterior dentro de la reserva;
 - programas sin bloques `DigitalOutput`.
 
-Flujo validado por el ejemplo:
+Flujo validado:
 
-1. formatear explícitamente el program store;
-2. limpiar temporalmente la región retentiva;
-3. guardar y preparar Programa A;
-4. confirmar `NO_SNAPSHOT`;
-5. activar en RAM y guardar el retentivo de A;
-6. detener, preparar y restaurar A;
-7. guardar y preparar Programa B;
-8. confirmar `NO_MATCHING_SNAPSHOT` para el snapshot de A;
-9. guardar y restaurar el snapshot de B;
-10. hacer rollback a A y recuperar su snapshot;
-11. regresar a B, corromper su snapshot y rechazarlo;
-12. conservar la copia retentiva A válida;
-13. restaurar exactamente los 6720 bytes originales.
+1. formateo explícito del program store;
+2. limpieza temporal de la región retentiva;
+3. guardado y preparación de Programa A;
+4. confirmación de `NO_SNAPSHOT`;
+5. activación en RAM y guardado del retentivo de A;
+6. detención, preparación y restauración de A;
+7. guardado y preparación de Programa B;
+8. confirmación de `NO_MATCHING_SNAPSHOT` para el snapshot de A;
+9. guardado y restauración del snapshot de B;
+10. rollback a A y recuperación de su snapshot;
+11. regreso a B, corrupción de su snapshot y rechazo seguro;
+12. conservación de la copia retentiva A válida;
+13. restauración exacta de los 6720 bytes originales.
 
-Resultado esperado:
+Resultado:
 
 ```text
 Resultado: 59 PASS, 0 FAIL
 INTEGRACION RETENTIVA DEL RUNTIME: PASS
 ```
 
-La prueba inicializa E/S, pero ambos programas carecen de bloques `DigitalOutput`, por lo que Q0 permanece apagado.
+La prueba inicializó E/S, pero ambos programas carecían de bloques `DigitalOutput`, por lo que Q0 permaneció apagado.
+
+## Cierre
+
+La integración retentiva v1 queda aprobada para continuar con la etapa de cierre previa a la interfaz funcional.
+
+Antes de conectar acciones reales de la interfaz se mantienen tres pruebas:
+
+1. persistencia del snapshot a través de reinicio o corte real de alimentación;
+2. regresión completa del flujo persistente no retentivo con `flags = 0`;
+3. convivencia runtime + TFT/botonera y medición de latencia durante refresco gráfico.
+
+El diseño visual y la navegación de la interfaz pueden comenzar desde este punto sin esperar esas tres pruebas, manteniendo desacopladas las acciones reales de guardado, restauración y RUN.
