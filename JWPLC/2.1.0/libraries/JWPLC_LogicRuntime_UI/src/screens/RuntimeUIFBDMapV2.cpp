@@ -21,9 +21,6 @@ namespace
                           int16_t y1,
                           uint16_t color)
   {
-    // El layout FBD siempre coloca al consumidor a la derecha de su fuente.
-    // Si una geometría futura rompe esa condición, se omite antes que dibujar
-    // una longitud negativa fuera del viewport.
     if (x1 < x0)
     {
       return;
@@ -481,51 +478,48 @@ void RuntimeUIFBDMapV2::drawMapStatic()
   Adafruit_ST7789 &tft = JWPLC_Display.tft();
   clearScreen(tft);
   drawHeaderStatic(tft, "MAPA FBD");
+  drawMapHeaderInfo();
   updateHeaderState(tft, stateText(), stateColor());
   tft.fillRect(PANEL_X, PANEL_Y, PANEL_W, PANEL_H, COLOR_PANEL);
   tft.drawRect(PANEL_X, PANEL_Y, PANEL_W, PANEL_H, COLOR_BORDER);
-  tft.drawFastHLine(PANEL_X + 1,
-                    MAP_Y - 1,
-                    PANEL_W - 2,
-                    COLOR_BORDER);
   drawFooter(tft, "L/R: conexion  UP/DN: mapa  OK: detalle");
 }
 
-void RuntimeUIFBDMapV2::clearMapRegions()
+void RuntimeUIFBDMapV2::clearMapArea()
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
-
-  // Dos limpiezas continuas e independientes. Ningún texto informativo puede
-  // quedar debajo del grafo y ningún nodo puede invadir la franja superior.
-  tft.fillRect(INFO_X, INFO_Y, INFO_W, INFO_H, COLOR_PANEL);
-  tft.fillRect(MAP_X, MAP_Y, MAP_W, MAP_H, COLOR_PANEL);
-  tft.drawFastHLine(PANEL_X + 1,
-                    MAP_Y - 1,
-                    PANEL_W - 2,
-                    COLOR_BORDER);
+  JWPLC_Display.tft().fillRect(MAP_X,
+                               MAP_Y,
+                               MAP_W,
+                               MAP_H,
+                               COLOR_PANEL);
 }
 
-void RuntimeUIFBDMapV2::drawMapInfo()
+void RuntimeUIFBDMapV2::drawMapHeaderInfo()
 {
+  char selectedText[32];
+
   if (_model == nullptr || _model->blockCount() == 0)
   {
-    return;
+    std::snprintf(selectedText,
+                  sizeof(selectedText),
+                  "SIN PROGRAMA");
+  }
+  else
+  {
+    std::snprintf(selectedText,
+                  sizeof(selectedText),
+                  "B%02u %u/%u X%d Y%d",
+                  static_cast<unsigned>(_selectedIndex),
+                  static_cast<unsigned>(_selectedIndex + 1U),
+                  static_cast<unsigned>(_model->blockCount()),
+                  static_cast<int>(_viewportX),
+                  static_cast<int>(_viewportY));
   }
 
-  char selectedText[48];
-  std::snprintf(selectedText,
-                sizeof(selectedText),
-                "B%02u  %u/%u  X:%d Y:%d",
-                static_cast<unsigned>(_selectedIndex),
-                static_cast<unsigned>(_selectedIndex + 1U),
-                static_cast<unsigned>(_model->blockCount()),
-                static_cast<int>(_viewportX),
-                static_cast<int>(_viewportY));
-
   updateTextField(JWPLC_Display.tft(),
-                  INFO_X + 4,
-                  INFO_Y + 2,
-                  46,
+                  HEADER_INFO_X,
+                  HEADER_INFO_Y,
+                  HEADER_INFO_COLUMNS,
                   selectedText,
                   COLOR_MUTED,
                   COLOR_PANEL);
@@ -538,13 +532,14 @@ void RuntimeUIFBDMapV2::drawMap()
     return;
   }
 
-  clearMapRegions();
+  clearMapArea();
+  drawMapHeaderInfo();
 
   if (_model->blockCount() == 0)
   {
     updateTextField(JWPLC_Display.tft(),
                     MAP_X + 74,
-                    MAP_Y + 38,
+                    MAP_Y + 48,
                     27,
                     "SIN PROGRAMA V2",
                     COLOR_WARNING,
@@ -552,7 +547,6 @@ void RuntimeUIFBDMapV2::drawMap()
     return;
   }
 
-  drawMapInfo();
   drawWires();
   drawNodes();
 
@@ -596,7 +590,6 @@ void RuntimeUIFBDMapV2::drawWire(uint16_t consumerIndex,
   const uint16_t sourceIndex = input->source();
   if (sourceIndex >= _model->blockCount())
   {
-    // X, HI y LO se representan dentro del puerto del bloque consumidor.
     return;
   }
 
@@ -605,8 +598,6 @@ void RuntimeUIFBDMapV2::drawWire(uint16_t consumerIndex,
   const int16_t consumerNodeX = screenX(consumerIndex);
   const int16_t consumerNodeY = screenY(consumerIndex);
 
-  // Política robusta de v0.4.1: no se dibujan segmentos parciales. Así ningún
-  // cable puede atravesar encabezado, franja informativa, borde o footer.
   if (!nodeFullyVisible(sourceNodeX, sourceNodeY) ||
       !nodeFullyVisible(consumerNodeX, consumerNodeY))
   {
@@ -668,6 +659,14 @@ void RuntimeUIFBDMapV2::drawNode(uint16_t blockIndex)
     tft.drawRect(x + 1, y + 1, NODE_W - 2, NODE_H - 2, border);
   }
 
+  if (definition->inputCount > 0)
+  {
+    tft.drawFastVLine(x + NODE_GUTTER_W,
+                      y + 2,
+                      NODE_H - 4,
+                      COLOR_BORDER);
+  }
+
   char title[16];
   char data[16];
   formatBlockTitle(title, sizeof(title), blockIndex);
@@ -676,10 +675,10 @@ void RuntimeUIFBDMapV2::drawNode(uint16_t blockIndex)
   tft.setTextWrap(false);
   tft.setTextSize(1);
   tft.setTextColor(COLOR_TEXT, COLOR_BACKGROUND);
-  tft.setCursor(x + 4, y + 4);
+  tft.setCursor(x + NODE_TEXT_X, y + 5);
   tft.print(title);
   tft.setTextColor(active ? COLOR_OK : COLOR_MUTED, COLOR_BACKGROUND);
-  tft.setCursor(x + 4, y + 15);
+  tft.setCursor(x + NODE_TEXT_X, y + 18);
   tft.print(data);
 
   drawNodePorts(blockIndex, x, y);
@@ -712,43 +711,28 @@ void RuntimeUIFBDMapV2::drawNodePorts(uint16_t blockIndex,
     const bool inputActive = _model->inputValue(blockIndex, inputIndex);
     const uint16_t pinColor = inputActive ? COLOR_OK : COLOR_MUTED;
 
-    tft.fillCircle(x, portY, 1, pinColor);
     if (input->inverted())
     {
-      tft.fillCircle(x + 3, portY, 3, COLOR_BACKGROUND);
-      tft.drawCircle(x + 3, portY, 2, COLOR_TEXT);
+      tft.fillCircle(x + 1, portY, 3, COLOR_BACKGROUND);
+      tft.drawCircle(x + 1, portY, 2, COLOR_TEXT);
+    }
+    else
+    {
+      tft.fillCircle(x, portY, 1, pinColor);
     }
 
-    const uint16_t source = input->source();
-    const char *special = nullptr;
-    if (source == JWPLC_LOGIC_V2_SOURCE_OPEN)
-    {
-      special = "X";
-    }
-    else if (source == JWPLC_LOGIC_V2_SOURCE_CONST_TRUE)
-    {
-      special = "1";
-    }
-    else if (source == JWPLC_LOGIC_V2_SOURCE_CONST_FALSE)
-    {
-      special = "0";
-    }
+    char pinLabel[4];
+    formatPinLabel(pinLabel,
+                   sizeof(pinLabel),
+                   *definition,
+                   *input,
+                   inputIndex);
 
-    const char *role = _model->inputRole(definition->type, inputIndex);
-    if (special != nullptr || (role != nullptr && role[0] != '\0'))
-    {
-      tft.setTextSize(1);
-      tft.setTextColor(COLOR_MUTED, COLOR_BACKGROUND);
-      tft.setCursor(x + 6, portY - 3);
-      if (role != nullptr && role[0] != '\0')
-      {
-        tft.print(role);
-      }
-      else
-      {
-        tft.print(special);
-      }
-    }
+    tft.setTextWrap(false);
+    tft.setTextSize(1);
+    tft.setTextColor(pinColor, COLOR_BACKGROUND);
+    tft.setCursor(x + 4, portY - 3);
+    tft.print(pinLabel);
   }
 
   const int16_t outputY = static_cast<int16_t>(y + NODE_H / 2);
@@ -916,9 +900,7 @@ bool RuntimeUIFBDMapV2::nodeFullyVisible(int16_t x, int16_t y) const
   const int16_t mapRight = static_cast<int16_t>(MAP_X + MAP_W - 1);
   const int16_t mapBottom = static_cast<int16_t>(MAP_Y + MAP_H - 1);
 
-  // Se incluye un píxel de seguridad para los pines circulares de entrada y
-  // salida. Un nodo parcial se omite por completo en esta versión.
-  return x - 1 >= MAP_X &&
+  return x >= MAP_X &&
          y >= MAP_Y &&
          x + NODE_W + 1 <= mapRight &&
          y + NODE_H - 1 <= mapBottom;
@@ -945,9 +927,11 @@ int16_t RuntimeUIFBDMapV2::inputPortY(
     return NODE_H / 2;
   }
 
+  const uint16_t top = 4;
+  const uint16_t span = static_cast<uint16_t>(NODE_H - 8);
   return static_cast<int16_t>(
-      3 + (static_cast<uint16_t>(inputIndex) * (NODE_H - 7U)) /
-              (block.inputCount - 1U));
+      top + (static_cast<uint16_t>(inputIndex) * span) /
+                (block.inputCount - 1U));
 }
 
 void RuntimeUIFBDMapV2::formatBlockTitle(char *destination,
@@ -1010,6 +994,51 @@ void RuntimeUIFBDMapV2::formatNodeData(char *destination,
   }
 }
 
+void RuntimeUIFBDMapV2::formatPinLabel(
+    char *destination,
+    size_t capacity,
+    const LogicV2BlockRecord &block,
+    const LogicV2InputLink &input,
+    uint8_t inputIndex) const
+{
+  char base[3];
+  const uint16_t source = input.source();
+
+  if (source == JWPLC_LOGIC_V2_SOURCE_OPEN)
+  {
+    std::snprintf(base, sizeof(base), "X");
+  }
+  else if (source == JWPLC_LOGIC_V2_SOURCE_CONST_TRUE)
+  {
+    std::snprintf(base, sizeof(base), "1");
+  }
+  else if (source == JWPLC_LOGIC_V2_SOURCE_CONST_FALSE)
+  {
+    std::snprintf(base, sizeof(base), "0");
+  }
+  else if (block.type == LogicV2BlockType::SetReset)
+  {
+    std::snprintf(base, sizeof(base), "%s", inputIndex == 0 ? "S" : "R");
+  }
+  else if (block.type == LogicV2BlockType::Ton)
+  {
+    std::snprintf(base, sizeof(base), "T");
+  }
+  else
+  {
+    std::snprintf(base,
+                  sizeof(base),
+                  "%u",
+                  static_cast<unsigned>(inputIndex + 1U));
+  }
+
+  std::snprintf(destination,
+                capacity,
+                "%s%s",
+                input.inverted() ? "!" : "",
+                base);
+}
+
 void RuntimeUIFBDMapV2::formatResource(
     char *destination,
     size_t capacity,
@@ -1052,6 +1081,7 @@ void RuntimeUIFBDMapV2::formatInputSource(
   const uint16_t source = input->source();
   const char *role = _model->inputRole(definition->type, inputIndex);
   char sourceText[12];
+  char inputText[8];
 
   if (source == JWPLC_LOGIC_V2_SOURCE_OPEN)
   {
@@ -1075,24 +1105,23 @@ void RuntimeUIFBDMapV2::formatInputSource(
 
   if (role != nullptr && role[0] != '\0')
   {
-    std::snprintf(destination,
-                  capacity,
-                  "%s%s: %s%s",
-                  role,
-                  input->inverted() ? "!" : "",
-                  sourceText,
-                  _model->inputValue(blockIndex, inputIndex) ? "=1" : "=0");
+    std::snprintf(inputText, sizeof(inputText), "%s", role);
   }
   else
   {
-    std::snprintf(destination,
-                  capacity,
-                  "IN%u%s: %s%s",
-                  static_cast<unsigned>(inputIndex + 1U),
-                  input->inverted() ? "!" : "",
-                  sourceText,
-                  _model->inputValue(blockIndex, inputIndex) ? "=1" : "=0");
+    std::snprintf(inputText,
+                  sizeof(inputText),
+                  "IN%u",
+                  static_cast<unsigned>(inputIndex + 1U));
   }
+
+  std::snprintf(destination,
+                capacity,
+                "%s%s: %s=%u",
+                input->inverted() ? "!" : "",
+                inputText,
+                sourceText,
+                _model->inputValue(blockIndex, inputIndex) ? 1U : 0U);
 }
 
 const char *RuntimeUIFBDMapV2::stateText() const
