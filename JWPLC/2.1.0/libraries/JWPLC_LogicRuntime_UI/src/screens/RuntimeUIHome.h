@@ -20,21 +20,47 @@ public:
 
 private:
   static constexpr uint8_t MENU_COUNT = 4;
+  static constexpr uint32_t SCAN_REFRESH_MS = 1000;
 
+  struct DynamicCache
+  {
+    bool valid;
+    JWPLCLogicRuntimeState runtimeState;
+    JWPLCLogicStorageBootState bootState;
+    JWPLCLogicRetentiveState retentiveState;
+    bool hasIdentity;
+    uint32_t programId;
+    uint32_t generation;
+    uint16_t blockCount;
+    uint32_t averageScanUs;
+    uint32_t maxScanUs;
+    char programName[JWPLC_LOGIC_PROGRAM_NAME_BYTES + 1];
+  };
+
+  void invalidateCache();
   void drawStaticLayout();
-  void drawDynamicState();
+  void updateImmediateFields(bool force);
+  void updateRuntimeBadge(bool force);
+  bool updateProgramFields(bool force);
+  void updateStorageField(bool force);
+  void updateScanField(bool force);
+
   void drawMenu();
+  void redrawMenuSelection(uint8_t previousSelection,
+                           uint8_t currentSelection);
   void handleInput();
   void showSelectionMessage();
 
-  const char *programName() const;
+  void copyProgramName(char *destination,
+                       size_t destinationCapacity) const;
   uint16_t runtimeStateColor() const;
   const char *runtimeStateText() const;
 
   JWPLC_LogicRuntime *_runtime;
+  DynamicCache _cache;
   bool _fullRedraw;
   uint8_t _selectedMenu;
-  uint32_t _lastDynamicRefreshMs;
+  uint32_t _lastScanRefreshMs;
   uint32_t _messageUntilMs;
 };
 
