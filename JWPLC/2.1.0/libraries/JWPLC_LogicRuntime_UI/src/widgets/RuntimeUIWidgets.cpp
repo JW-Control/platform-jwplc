@@ -4,23 +4,28 @@
 
 namespace
 {
-  static constexpr uint8_t MAX_FIXED_TEXT_COLUMNS = 52;
+  static constexpr uint8_t MAX_TEXT_COLUMNS = 52;
+  static constexpr int16_t CLASSIC_FONT_CELL_W = 6;
+  static constexpr int16_t CLASSIC_FONT_CELL_H = 8;
 
-  void buildFixedText(const char *source,
-                      uint8_t requestedColumns,
-                      char *destination,
-                      size_t destinationCapacity)
+  uint8_t boundedColumns(uint8_t requestedColumns)
+  {
+    return requestedColumns < MAX_TEXT_COLUMNS
+               ? requestedColumns
+               : MAX_TEXT_COLUMNS;
+  }
+
+  void buildTruncatedText(const char *source,
+                          uint8_t requestedColumns,
+                          char *destination,
+                          size_t destinationCapacity)
   {
     if (destination == nullptr || destinationCapacity == 0)
     {
       return;
     }
 
-    const uint8_t columns =
-        requestedColumns < MAX_FIXED_TEXT_COLUMNS
-            ? requestedColumns
-            : MAX_FIXED_TEXT_COLUMNS;
-
+    const uint8_t columns = boundedColumns(requestedColumns);
     const char *safeSource = source ? source : "";
     const size_t sourceLength = std::strlen(safeSource);
     const size_t copyLength = sourceLength < columns ? sourceLength : columns;
@@ -30,12 +35,7 @@ namespace
       std::memcpy(destination, safeSource, copyLength);
     }
 
-    for (size_t index = copyLength; index < columns; ++index)
-    {
-      destination[index] = ' ';
-    }
-
-    destination[columns] = '\0';
+    destination[copyLength] = '\0';
   }
 }
 
@@ -54,7 +54,7 @@ namespace JWPLCLogicRuntimeUIWidgets
 
     tft.setTextWrap(false);
     tft.setTextSize(2);
-    tft.setTextColor(COLOR_TEXT, COLOR_PANEL);
+    tft.setTextColor(COLOR_TEXT);
     tft.setCursor(6, 5);
     tft.print(title ? title : "JWPLC LOGIC");
   }
@@ -63,18 +63,18 @@ namespace JWPLCLogicRuntimeUIWidgets
                          const char *stateText,
                          uint16_t stateColor)
   {
-    char fixedState[12];
-    buildFixedText(stateText ? stateText : "UNKNOWN",
-                   11,
-                   fixedState,
-                   sizeof(fixedState));
+    char visibleState[12];
+    buildTruncatedText(stateText ? stateText : "UNKNOWN",
+                       11,
+                       visibleState,
+                       sizeof(visibleState));
 
     tft.fillRoundRect(239, 4, 75, 16, 3, stateColor);
     tft.setTextWrap(false);
     tft.setTextSize(1);
-    tft.setTextColor(COLOR_BACKGROUND, stateColor);
+    tft.setTextColor(COLOR_BACKGROUND);
     tft.setCursor(247, 8);
-    tft.print(fixedState);
+    tft.print(visibleState);
   }
 
   void drawHeader(Adafruit_ST7789 &tft,
@@ -100,7 +100,7 @@ namespace JWPLCLogicRuntimeUIWidgets
     {
       tft.setTextWrap(false);
       tft.setTextSize(1);
-      tft.setTextColor(COLOR_ACCENT, COLOR_PANEL);
+      tft.setTextColor(COLOR_ACCENT);
       tft.setCursor(x + 6, y + 4);
       tft.print(title);
     }
@@ -113,9 +113,11 @@ namespace JWPLCLogicRuntimeUIWidgets
                       uint16_t foreground,
                       uint16_t background)
   {
+    (void)background;
+
     tft.setTextWrap(false);
     tft.setTextSize(1);
-    tft.setTextColor(foreground, background);
+    tft.setTextColor(foreground);
     tft.setCursor(x, y);
     tft.print(label ? label : "");
   }
@@ -128,22 +130,32 @@ namespace JWPLCLogicRuntimeUIWidgets
                        uint16_t foreground,
                        uint16_t background)
   {
-    if (columns == 0)
+    const uint8_t visibleColumns = boundedColumns(columns);
+    if (visibleColumns == 0)
     {
       return;
     }
 
-    char fixedText[MAX_FIXED_TEXT_COLUMNS + 1];
-    buildFixedText(value,
-                   columns,
-                   fixedText,
-                   sizeof(fixedText));
+    char visibleText[MAX_TEXT_COLUMNS + 1];
+    buildTruncatedText(value,
+                       visibleColumns,
+                       visibleText,
+                       sizeof(visibleText));
+
+    // La limpieza continua es mucho mas rapida que imprimir decenas de espacios
+    // como glifos opacos. Este helper solo se invoca cuando la cache detecta un
+    // cambio real, por lo que no reintroduce parpadeo periodico.
+    tft.fillRect(x,
+                 y,
+                 static_cast<int16_t>(visibleColumns) * CLASSIC_FONT_CELL_W,
+                 CLASSIC_FONT_CELL_H,
+                 background);
 
     tft.setTextWrap(false);
     tft.setTextSize(1);
-    tft.setTextColor(foreground, background);
+    tft.setTextColor(foreground);
     tft.setCursor(x, y);
-    tft.print(fixedText);
+    tft.print(visibleText);
   }
 
   void drawLabelValue(Adafruit_ST7789 &tft,
@@ -181,7 +193,7 @@ namespace JWPLCLogicRuntimeUIWidgets
 
     tft.setTextWrap(false);
     tft.setTextSize(1);
-    tft.setTextColor(selected ? COLOR_ACCENT : COLOR_TEXT, fillColor);
+    tft.setTextColor(selected ? COLOR_ACCENT : COLOR_TEXT);
 
     int16_t textX = x + 8;
     if (label)
