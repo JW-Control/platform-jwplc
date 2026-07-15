@@ -1,6 +1,7 @@
 #include "RuntimeUIHome.h"
 
 #include <cstdio>
+#include <cstring>
 
 #include "../widgets/RuntimeUIWidgets.h"
 
@@ -76,11 +77,13 @@ namespace
 
 RuntimeUIHome::RuntimeUIHome()
     : _runtime(nullptr),
+      _cache{},
       _fullRedraw(true),
       _selectedMenu(0),
-      _lastDynamicRefreshMs(0),
+      _lastScanRefreshMs(0),
       _messageUntilMs(0)
 {
+  invalidateCache();
 }
 
 void RuntimeUIHome::attach(JWPLC_LogicRuntime &runtime)
@@ -93,11 +96,15 @@ void RuntimeUIHome::enter()
 {
   _selectedMenu = 0;
   _messageUntilMs = 0;
+
+  invalidateCache();
   drawStaticLayout();
-  drawDynamicState();
+  updateImmediateFields(true);
   drawMenu();
+
+  _cache.valid = true;
   _fullRedraw = false;
-  _lastDynamicRefreshMs = millis();
+  _lastScanRefreshMs = millis();
 }
 
 void RuntimeUIHome::refresh(const JWPLC_IOState *io,
@@ -113,27 +120,32 @@ void RuntimeUIHome::refresh(const JWPLC_IOState *io,
 
   if (_fullRedraw)
   {
+    invalidateCache();
     drawStaticLayout();
-    drawDynamicState();
+    updateImmediateFields(true);
     drawMenu();
+
+    _cache.valid = true;
     _fullRedraw = false;
-    _lastDynamicRefreshMs = millis();
+    _lastScanRefreshMs = millis();
   }
 
   handleInput();
+  updateImmediateFields(false);
 
   const uint32_t now = millis();
-  if (static_cast<uint32_t>(now - _lastDynamicRefreshMs) >= 200U)
+  if (static_cast<uint32_t>(now - _lastScanRefreshMs) >= SCAN_REFRESH_MS)
   {
-    _lastDynamicRefreshMs = now;
-    drawDynamicState();
+    _lastScanRefreshMs = now;
+    updateScanField(false);
   }
 
   if (_messageUntilMs != 0 &&
       static_cast<int32_t>(now - _messageUntilMs) >= 0)
   {
     _messageUntilMs = 0;
-    drawFooter(JWPLC_Display.tft(), "Flechas: mover   OK: abrir   ESC: IDLE");
+    drawFooter(JWPLC_Display.tft(),
+               "Flechas: mover   OK: abrir   ESC: IDLE");
   }
 }
 
@@ -145,7 +157,14 @@ void RuntimeUIHome::exit()
 void RuntimeUIHome::forceRedraw()
 {
   _fullRedraw = true;
-  _lastDynamicRefreshMs = 0;
+  _lastScanRefreshMs = 0;
+  invalidateCache();
+}
+
+void RuntimeUIHome::invalidateCache()
+{
+  std::memset(&_cache, 0, sizeof(_cache));
+  _cache.valid = false;
 }
 
 void RuntimeUIHome::drawStaticLayout()
@@ -157,74 +176,199 @@ void RuntimeUIHome::drawStaticLayout()
 
   Adafruit_ST7789 &tft = JWPLC_Display.tft();
   clearScreen(tft);
-  drawHeader(tft,
-             "JWPLC LOGIC",
-             runtimeStateText(),
-             runtimeStateColor());
+  drawHeaderStatic(tft, "JWPLC LOGIC");
   drawPanel(tft, 4, 28, 312, 57, "ESTADO DEL PROGRAMA");
+
+  drawFieldLabel(tft, 12, 43, "Programa:");
+  drawFieldLabel(tft, 12, 57, "ID / Gen:");
+  drawFieldLabel(tft, 12, 71, "Bloques:");
+
   drawFooter(tft, "Flechas: mover   OK: abrir   ESC: IDLE");
 }
 
-void RuntimeUIHome::drawDynamicState()
+void RuntimeUIHome::updateImmediateFields(bool force)
+{
+  updateRuntimeBadge(force);
+  const bool blockCountChanged = updateProgramFields(force);
+  updateStorageField(force);
+
+  if (force || blockCountChanged)
+  {
+    updateScanField(true);
+  }
+}
+
+void RuntimeUIHome::updateRuntimeBadge(bool force)
 {
   if (_runtime == nullptr)
   {
     return;
   }
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
-  drawHeader(tft,
-             "JWPLC LOGIC",
-             runtimeStateText(),
-             runtimeStateColor());
-
-  char identity[48] = "-";
-  char blocksAndScan[64] = "-";
-  char storageState[48] = "-";
-
-  uint32_t programId = 0;
-  uint32_t generation = 0;
-  uint16_t blockCount = 0;
-  const bool hasIdentity =
-      _runtime->storage().loadedProgramIdentity(programId,
-                                                generation,
-                                                blockCount);
-
-  if (hasIdentity)
+  const JWPLCLogicRuntimeState currentState = _runtime->state();
+  if (!force && _cache.valid && currentState == _cache.runtimeState)
   {
-    snprintf(identity,
-             sizeof(identity),
-             "%lu / %lu",
-             static_cast<unsigned long>(programId),
-             static_cast<unsigned long>(generation));
-  }
-  else
-  {
-    snprintf(identity, sizeof(identity), "SIN IDENTIDAD");
+    return;
   }
 
-  snprintf(blocksAndScan,
-           sizeof(blocksAndScan),
-           "%u  Scan %lu/%lu us",
-           static_cast<unsigned int>(blockCount),
-           static_cast<unsigned long>(_runtime->averageScanMicros()),
-           static_cast<unsigned long>(_runtime->maxScanMicros()));
+  updateHeaderState(JWPLC_Display.tft(),
+                    runtimeStateText(),
+                    runtimeStateColor());
+  _cache.runtimeState = currentState;
+}
 
-  snprintf(storageState,
-           sizeof(storageState),
-           "%s | %s",
-           shortBootState(_runtime->storage().bootState()),
-           shortRetentiveState(_runtime->retentiveState()));
+bool RuntimeUIHome::updateProgramFields(bool force)
+{
+  if (_runtime == nullptr)
+  {
+    return false;
+  }
 
-  drawLabelValue(tft, 12, 43, "Programa:", programName(), 296);
-  drawLabelValue(tft, 12, 57, "ID / Gen:", identity, 296);
-  drawLabelValue(tft, 12, 71, "Bloques:", blocksAndScan, 296);
+  char currentProgramName[JWPLC_LOGIC_PROGRAM_NAME_BYTES + 1] = {};
+  copyProgramName(currentProgramName, sizeof(currentProgramName));
 
-  tft.fillRect(128, 30, 181, 10, COLOR_PANEL);
-  tft.setTextSize(1);
-  tft.setTextColor(COLOR_MUTED, COLOR_PANEL);
-  tft.setCursor(128, 32);
-  tft.print(storageState);
+  uint32_t currentProgramId = 0;
+  uint32_t currentGeneration = 0;
+  uint16_t currentBlockCount = 0;
+  const bool currentHasIdentity =
+      _runtime->storage().loadedProgramIdentity(currentProgramId,
+                                                currentGeneration,
+                                                currentBlockCount);
+
+  const bool programNameChanged =
+      force || !_cache.valid ||
+      std::strcmp(currentProgramName, _cache.programName) != 0;
+
+  if (programNameChanged)
+  {
+    updateTextField(JWPLC_Display.tft(),
+                    68,
+                    43,
+                    40,
+                    currentProgramName);
+    std::strncpy(_cache.programName,
+                 currentProgramName,
+                 sizeof(_cache.programName) - 1);
+    _cache.programName[sizeof(_cache.programName) - 1] = '\0';
+  }
+
+  const bool identityChanged =
+      force || !_cache.valid ||
+      currentHasIdentity != _cache.hasIdentity ||
+      currentProgramId != _cache.programId ||
+      currentGeneration != _cache.generation;
+
+  if (identityChanged)
+  {
+    char identity[40];
+    if (currentHasIdentity)
+    {
+      std::snprintf(identity,
+                    sizeof(identity),
+                    "%lu / %lu",
+                    static_cast<unsigned long>(currentProgramId),
+                    static_cast<unsigned long>(currentGeneration));
+    }
+    else
+    {
+      std::snprintf(identity, sizeof(identity), "SIN IDENTIDAD");
+    }
+
+    updateTextField(JWPLC_Display.tft(),
+                    68,
+                    57,
+                    40,
+                    identity);
+  }
+
+  const bool blockCountChanged =
+      force || !_cache.valid || currentBlockCount != _cache.blockCount;
+
+  _cache.hasIdentity = currentHasIdentity;
+  _cache.programId = currentProgramId;
+  _cache.generation = currentGeneration;
+  _cache.blockCount = currentBlockCount;
+
+  return blockCountChanged;
+}
+
+void RuntimeUIHome::updateStorageField(bool force)
+{
+  if (_runtime == nullptr)
+  {
+    return;
+  }
+
+  const JWPLCLogicStorageBootState currentBootState =
+      _runtime->storage().bootState();
+  const JWPLCLogicRetentiveState currentRetentiveState =
+      _runtime->retentiveState();
+
+  const bool changed =
+      force || !_cache.valid ||
+      currentBootState != _cache.bootState ||
+      currentRetentiveState != _cache.retentiveState;
+
+  if (!changed)
+  {
+    return;
+  }
+
+  char storageState[40];
+  std::snprintf(storageState,
+                sizeof(storageState),
+                "%s | %s",
+                shortBootState(currentBootState),
+                shortRetentiveState(currentRetentiveState));
+
+  updateTextField(JWPLC_Display.tft(),
+                  128,
+                  32,
+                  30,
+                  storageState,
+                  COLOR_MUTED,
+                  COLOR_PANEL);
+
+  _cache.bootState = currentBootState;
+  _cache.retentiveState = currentRetentiveState;
+}
+
+void RuntimeUIHome::updateScanField(bool force)
+{
+  if (_runtime == nullptr)
+  {
+    return;
+  }
+
+  const uint32_t currentAverageScanUs = _runtime->averageScanMicros();
+  const uint32_t currentMaxScanUs = _runtime->maxScanMicros();
+
+  const bool changed =
+      force || !_cache.valid ||
+      currentAverageScanUs != _cache.averageScanUs ||
+      currentMaxScanUs != _cache.maxScanUs;
+
+  if (!changed)
+  {
+    return;
+  }
+
+  char blocksAndScan[48];
+  std::snprintf(blocksAndScan,
+                sizeof(blocksAndScan),
+                "%u  Scan %lu/%lu us",
+                static_cast<unsigned int>(_cache.blockCount),
+                static_cast<unsigned long>(currentAverageScanUs),
+                static_cast<unsigned long>(currentMaxScanUs));
+
+  updateTextField(JWPLC_Display.tft(),
+                  68,
+                  71,
+                  40,
+                  blocksAndScan);
+
+  _cache.averageScanUs = currentAverageScanUs;
+  _cache.maxScanUs = currentMaxScanUs;
 }
 
 void RuntimeUIHome::drawMenu()
@@ -241,6 +385,31 @@ void RuntimeUIHome::drawMenu()
                    MENU_LABELS[index],
                    index == _selectedMenu);
   }
+}
+
+void RuntimeUIHome::redrawMenuSelection(uint8_t previousSelection,
+                                        uint8_t currentSelection)
+{
+  if (previousSelection >= MENU_COUNT || currentSelection >= MENU_COUNT)
+  {
+    return;
+  }
+
+  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  drawMenuButton(tft,
+                 MENU_X[previousSelection],
+                 MENU_Y[previousSelection],
+                 MENU_W,
+                 MENU_H,
+                 MENU_LABELS[previousSelection],
+                 false);
+  drawMenuButton(tft,
+                 MENU_X[currentSelection],
+                 MENU_Y[currentSelection],
+                 MENU_W,
+                 MENU_H,
+                 MENU_LABELS[currentSelection],
+                 true);
 }
 
 void RuntimeUIHome::handleInput()
@@ -262,9 +431,10 @@ void RuntimeUIHome::handleInput()
 
   if (newSelection != _selectedMenu)
   {
+    const uint8_t previousSelection = _selectedMenu;
     _selectedMenu = newSelection;
     JWPLC_Display.notifyActivity();
-    drawMenu();
+    redrawMenuSelection(previousSelection, _selectedMenu);
   }
 
   if (JWPLC_Buttons.pressed(BTN_OK))
@@ -277,29 +447,40 @@ void RuntimeUIHome::handleInput()
 void RuntimeUIHome::showSelectionMessage()
 {
   char message[64];
-  snprintf(message,
-           sizeof(message),
-           "%s: siguiente modulo de la interfaz",
-           MENU_LABELS[_selectedMenu]);
+  std::snprintf(message,
+                sizeof(message),
+                "%s: siguiente modulo de la interfaz",
+                MENU_LABELS[_selectedMenu]);
 
   drawFooter(JWPLC_Display.tft(), message);
   _messageUntilMs = millis() + 1500U;
 }
 
-const char *RuntimeUIHome::programName() const
+void RuntimeUIHome::copyProgramName(char *destination,
+                                    size_t destinationCapacity) const
 {
-  if (_runtime == nullptr)
+  if (destination == nullptr || destinationCapacity == 0)
   {
-    return "SIN RUNTIME";
+    return;
   }
 
-  if (_runtime->storage().hasLoadedProgram())
+  const char *source = "SIN RUNTIME";
+
+  if (_runtime != nullptr)
   {
-    const LogicProgram program = _runtime->storage().activeProgram();
-    return program.name ? program.name : "PROGRAMA PERSISTENTE";
+    if (_runtime->storage().hasLoadedProgram())
+    {
+      const LogicProgram program = _runtime->storage().activeProgram();
+      source = program.name ? program.name : "PROGRAMA PERSISTENTE";
+    }
+    else
+    {
+      source = _runtime->hasProgram() ? "PROGRAMA EN RAM" : "SIN PROGRAMA";
+    }
   }
 
-  return _runtime->hasProgram() ? "PROGRAMA EN RAM" : "SIN PROGRAMA";
+  std::strncpy(destination, source, destinationCapacity - 1);
+  destination[destinationCapacity - 1] = '\0';
 }
 
 uint16_t RuntimeUIHome::runtimeStateColor() const
