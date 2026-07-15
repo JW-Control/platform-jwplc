@@ -6,6 +6,8 @@
 #include <JWPLC_Display.h>
 #include <JWPLC_GlobalPeripherals.h>
 
+#include "../RuntimeUIView.h"
+
 class RuntimeUIHome
 {
 public:
@@ -17,6 +19,9 @@ public:
                const JWPLC_RTCState *rtc);
   void exit();
   void forceRedraw();
+
+  /** Devuelve y consume la vista solicitada mediante OK. */
+  RuntimeUIView takeRequestedView();
 
 private:
   static constexpr uint8_t MENU_COUNT = 4;
@@ -49,7 +54,8 @@ private:
   void redrawMenuSelection(uint8_t previousSelection,
                            uint8_t currentSelection);
   void handleInput();
-  void showSelectionMessage();
+  void requestSelectedView();
+  void showPendingMessage();
 
   void copyProgramName(char *destination,
                        size_t destinationCapacity) const;
@@ -62,6 +68,7 @@ private:
   uint8_t _selectedMenu;
   uint32_t _lastScanRefreshMs;
   uint32_t _messageUntilMs;
+  RuntimeUIView _requestedView;
 };
 
 #endif
