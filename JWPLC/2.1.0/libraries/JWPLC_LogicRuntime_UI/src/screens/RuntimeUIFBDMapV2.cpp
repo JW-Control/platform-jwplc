@@ -21,6 +21,14 @@ namespace
                           int16_t y1,
                           uint16_t color)
   {
+    // El layout FBD siempre coloca al consumidor a la derecha de su fuente.
+    // Si una geometría futura rompe esa condición, se omite antes que dibujar
+    // una longitud negativa fuera del viewport.
+    if (x1 < x0)
+    {
+      return;
+    }
+
     const int16_t middleX = static_cast<int16_t>((x0 + x1) / 2);
     tft.drawFastHLine(x0,
                       y0,
@@ -47,6 +55,8 @@ RuntimeUIFBDMapV2::RuntimeUIFBDMapV2()
       _layoutValid(false),
       _valueCacheValid(false),
       _selectedIndex(0),
+      _layoutBlockCount(0),
+      _layoutLinkCount(0),
       _viewportX(0),
       _viewportY(0),
       _lastValueRefreshMs(0),
@@ -98,6 +108,13 @@ void RuntimeUIFBDMapV2::refresh(const JWPLC_IOState *io,
   if (_model == nullptr || !_model->isAttached())
   {
     return;
+  }
+
+  if (_layoutValid &&
+      (_layoutBlockCount != _model->blockCount() ||
+       _layoutLinkCount != _model->linkCount()))
+  {
+    invalidateLayout();
   }
 
   if (!_layoutValid)
@@ -169,6 +186,8 @@ void RuntimeUIFBDMapV2::invalidateLayout()
 {
   _layoutValid = false;
   _valueCacheValid = false;
+  _layoutBlockCount = 0;
+  _layoutLinkCount = 0;
   std::memset(_levels, 0, sizeof(_levels));
   std::memset(_nodeX, 0, sizeof(_nodeX));
   std::memset(_nodeY, 0, sizeof(_nodeY));
@@ -225,6 +244,8 @@ void RuntimeUIFBDMapV2::buildLayout()
         WORLD_MARGIN_Y + static_cast<int16_t>(lane) * ROW_STEP);
   }
 
+  _layoutBlockCount = count;
+  _layoutLinkCount = _model->linkCount();
   _layoutValid = true;
   _valueCacheValid = false;
 }
@@ -242,13 +263,16 @@ void RuntimeUIFBDMapV2::normalizeSelection()
   }
 }
 
-void RuntimeUIFBDMapV2::ensureSelectionVisible()
+bool RuntimeUIFBDMapV2::ensureSelectionVisible()
 {
+  const int16_t previousViewportX = _viewportX;
+  const int16_t previousViewportY = _viewportY;
+
   if (_model == nullptr || _model->blockCount() == 0)
   {
     _viewportX = 0;
     _viewportY = 0;
-    return;
+    return previousViewportX != 0 || previousViewportY != 0;
   }
 
   const int16_t nodeWorldX = _nodeX[_selectedIndex];
@@ -262,10 +286,10 @@ void RuntimeUIFBDMapV2::ensureSelectionVisible()
                      ? static_cast<int16_t>(nodeWorldX - KEEP_MARGIN_X)
                      : 0;
   }
-  else if (relativeX + NODE_W > VIEW_W - KEEP_MARGIN_X)
+  else if (relativeX + NODE_W + 1 > MAP_W - KEEP_MARGIN_X)
   {
     _viewportX = static_cast<int16_t>(
-        nodeWorldX + NODE_W - (VIEW_W - KEEP_MARGIN_X));
+        nodeWorldX + NODE_W + 1 - (MAP_W - KEEP_MARGIN_X));
   }
 
   relativeY = static_cast<int16_t>(nodeWorldY - _viewportY);
@@ -275,10 +299,10 @@ void RuntimeUIFBDMapV2::ensureSelectionVisible()
                      ? static_cast<int16_t>(nodeWorldY - KEEP_MARGIN_Y)
                      : 0;
   }
-  else if (relativeY + NODE_H > VIEW_H - KEEP_MARGIN_Y)
+  else if (relativeY + NODE_H > MAP_H - KEEP_MARGIN_Y)
   {
     _viewportY = static_cast<int16_t>(
-        nodeWorldY + NODE_H - (VIEW_H - KEEP_MARGIN_Y));
+        nodeWorldY + NODE_H - (MAP_H - KEEP_MARGIN_Y));
   }
 
   if (_viewportX < 0)
@@ -289,6 +313,15 @@ void RuntimeUIFBDMapV2::ensureSelectionVisible()
   {
     _viewportY = 0;
   }
+
+  const bool changed =
+      _viewportX != previousViewportX ||
+      _viewportY != previousViewportY;
+  if (changed)
+  {
+    _valueCacheValid = false;
+  }
+  return changed;
 }
 
 uint16_t RuntimeUIFBDMapV2::nearestByY(const uint16_t *indices,
@@ -449,9 +482,53 @@ void RuntimeUIFBDMapV2::drawMapStatic()
   clearScreen(tft);
   drawHeaderStatic(tft, "MAPA FBD");
   updateHeaderState(tft, stateText(), stateColor());
-  tft.fillRect(VIEW_X, VIEW_Y, VIEW_W, VIEW_H, COLOR_PANEL);
-  tft.drawRect(VIEW_X, VIEW_Y, VIEW_W, VIEW_H, COLOR_BORDER);
+  tft.fillRect(PANEL_X, PANEL_Y, PANEL_W, PANEL_H, COLOR_PANEL);
+  tft.drawRect(PANEL_X, PANEL_Y, PANEL_W, PANEL_H, COLOR_BORDER);
+  tft.drawFastHLine(PANEL_X + 1,
+                    MAP_Y - 1,
+                    PANEL_W - 2,
+                    COLOR_BORDER);
   drawFooter(tft, "L/R: conexion  UP/DN: mapa  OK: detalle");
+}
+
+void RuntimeUIFBDMapV2::clearMapRegions()
+{
+  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+
+  // Dos limpiezas continuas e independientes. Ningún texto informativo puede
+  // quedar debajo del grafo y ningún nodo puede invadir la franja superior.
+  tft.fillRect(INFO_X, INFO_Y, INFO_W, INFO_H, COLOR_PANEL);
+  tft.fillRect(MAP_X, MAP_Y, MAP_W, MAP_H, COLOR_PANEL);
+  tft.drawFastHLine(PANEL_X + 1,
+                    MAP_Y - 1,
+                    PANEL_W - 2,
+                    COLOR_BORDER);
+}
+
+void RuntimeUIFBDMapV2::drawMapInfo()
+{
+  if (_model == nullptr || _model->blockCount() == 0)
+  {
+    return;
+  }
+
+  char selectedText[48];
+  std::snprintf(selectedText,
+                sizeof(selectedText),
+                "B%02u  %u/%u  X:%d Y:%d",
+                static_cast<unsigned>(_selectedIndex),
+                static_cast<unsigned>(_selectedIndex + 1U),
+                static_cast<unsigned>(_model->blockCount()),
+                static_cast<int>(_viewportX),
+                static_cast<int>(_viewportY));
+
+  updateTextField(JWPLC_Display.tft(),
+                  INFO_X + 4,
+                  INFO_Y + 2,
+                  46,
+                  selectedText,
+                  COLOR_MUTED,
+                  COLOR_PANEL);
 }
 
 void RuntimeUIFBDMapV2::drawMap()
@@ -461,18 +538,13 @@ void RuntimeUIFBDMapV2::drawMap()
     return;
   }
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
-  tft.fillRect(VIEW_X + 1,
-               VIEW_Y + 1,
-               VIEW_W - 2,
-               VIEW_H - 2,
-               COLOR_PANEL);
+  clearMapRegions();
 
   if (_model->blockCount() == 0)
   {
-    updateTextField(tft,
-                    79,
-                    78,
+    updateTextField(JWPLC_Display.tft(),
+                    MAP_X + 74,
+                    MAP_Y + 38,
                     27,
                     "SIN PROGRAMA V2",
                     COLOR_WARNING,
@@ -480,23 +552,9 @@ void RuntimeUIFBDMapV2::drawMap()
     return;
   }
 
+  drawMapInfo();
   drawWires();
   drawNodes();
-
-  char selectedText[24];
-  std::snprintf(selectedText,
-                sizeof(selectedText),
-                "B%02u  X:%d Y:%d",
-                static_cast<unsigned>(_selectedIndex),
-                static_cast<int>(_viewportX),
-                static_cast<int>(_viewportY));
-  updateTextField(tft,
-                  VIEW_X + 5,
-                  VIEW_Y + 4,
-                  22,
-                  selectedText,
-                  COLOR_MUTED,
-                  COLOR_PANEL);
 
   _valueCacheValid = true;
   const uint16_t count = _model->blockCount();
@@ -538,27 +596,28 @@ void RuntimeUIFBDMapV2::drawWire(uint16_t consumerIndex,
   const uint16_t sourceIndex = input->source();
   if (sourceIndex >= _model->blockCount())
   {
+    // X, HI y LO se representan dentro del puerto del bloque consumidor.
     return;
   }
 
-  const int16_t sourceX = static_cast<int16_t>(
-      screenX(sourceIndex) + NODE_W);
-  const int16_t sourceY = static_cast<int16_t>(
-      screenY(sourceIndex) + NODE_H / 2);
-  const int16_t destinationX = screenX(consumerIndex);
-  const int16_t destinationY = static_cast<int16_t>(
-      screenY(consumerIndex) + inputPortY(*consumer, inputIndex));
+  const int16_t sourceNodeX = screenX(sourceIndex);
+  const int16_t sourceNodeY = screenY(sourceIndex);
+  const int16_t consumerNodeX = screenX(consumerIndex);
+  const int16_t consumerNodeY = screenY(consumerIndex);
 
-  const int16_t left = sourceX < destinationX ? sourceX : destinationX;
-  const int16_t right = sourceX > destinationX ? sourceX : destinationX;
-  const int16_t top = sourceY < destinationY ? sourceY : destinationY;
-  const int16_t bottom = sourceY > destinationY ? sourceY : destinationY;
-
-  if (right < VIEW_X || left > VIEW_X + VIEW_W ||
-      bottom < VIEW_Y || top > VIEW_Y + VIEW_H)
+  // Política robusta de v0.4.1: no se dibujan segmentos parciales. Así ningún
+  // cable puede atravesar encabezado, franja informativa, borde o footer.
+  if (!nodeFullyVisible(sourceNodeX, sourceNodeY) ||
+      !nodeFullyVisible(consumerNodeX, consumerNodeY))
   {
     return;
   }
+
+  const int16_t sourceX = static_cast<int16_t>(sourceNodeX + NODE_W);
+  const int16_t sourceY = static_cast<int16_t>(sourceNodeY + NODE_H / 2);
+  const int16_t destinationX = consumerNodeX;
+  const int16_t destinationY = static_cast<int16_t>(
+      consumerNodeY + inputPortY(*consumer, inputIndex));
 
   const uint16_t color = _model->blockValue(sourceIndex)
                              ? COLOR_OK
@@ -590,7 +649,7 @@ void RuntimeUIFBDMapV2::drawNode(uint16_t blockIndex)
 
   const int16_t x = screenX(blockIndex);
   const int16_t y = screenY(blockIndex);
-  if (!nodeVisible(x, y))
+  if (!nodeFullyVisible(x, y))
   {
     return;
   }
@@ -852,24 +911,29 @@ bool RuntimeUIFBDMapV2::valuesChanged()
   return changed;
 }
 
-bool RuntimeUIFBDMapV2::nodeVisible(int16_t x, int16_t y) const
+bool RuntimeUIFBDMapV2::nodeFullyVisible(int16_t x, int16_t y) const
 {
-  return x + NODE_W >= VIEW_X &&
-         x <= VIEW_X + VIEW_W &&
-         y + NODE_H >= VIEW_Y &&
-         y <= VIEW_Y + VIEW_H;
+  const int16_t mapRight = static_cast<int16_t>(MAP_X + MAP_W - 1);
+  const int16_t mapBottom = static_cast<int16_t>(MAP_Y + MAP_H - 1);
+
+  // Se incluye un píxel de seguridad para los pines circulares de entrada y
+  // salida. Un nodo parcial se omite por completo en esta versión.
+  return x - 1 >= MAP_X &&
+         y >= MAP_Y &&
+         x + NODE_W + 1 <= mapRight &&
+         y + NODE_H - 1 <= mapBottom;
 }
 
 int16_t RuntimeUIFBDMapV2::screenX(uint16_t blockIndex) const
 {
   return static_cast<int16_t>(
-      VIEW_X + _nodeX[blockIndex] - _viewportX);
+      MAP_X + _nodeX[blockIndex] - _viewportX);
 }
 
 int16_t RuntimeUIFBDMapV2::screenY(uint16_t blockIndex) const
 {
   return static_cast<int16_t>(
-      VIEW_Y + _nodeY[blockIndex] - _viewportY);
+      MAP_Y + _nodeY[blockIndex] - _viewportY);
 }
 
 int16_t RuntimeUIFBDMapV2::inputPortY(
@@ -1009,14 +1073,26 @@ void RuntimeUIFBDMapV2::formatInputSource(
                   static_cast<unsigned>(source));
   }
 
-  std::snprintf(destination,
-                capacity,
-                "%s%u%s: %s%s",
-                (role != nullptr && role[0] != '\0') ? role : "IN",
-                (role != nullptr && role[0] != '\0') ? 0U : inputIndex + 1U,
-                input->inverted() ? "!" : "",
-                sourceText,
-                _model->inputValue(blockIndex, inputIndex) ? "=1" : "=0");
+  if (role != nullptr && role[0] != '\0')
+  {
+    std::snprintf(destination,
+                  capacity,
+                  "%s%s: %s%s",
+                  role,
+                  input->inverted() ? "!" : "",
+                  sourceText,
+                  _model->inputValue(blockIndex, inputIndex) ? "=1" : "=0");
+  }
+  else
+  {
+    std::snprintf(destination,
+                  capacity,
+                  "IN%u%s: %s%s",
+                  static_cast<unsigned>(inputIndex + 1U),
+                  input->inverted() ? "!" : "",
+                  sourceText,
+                  _model->inputValue(blockIndex, inputIndex) ? "=1" : "=0");
+  }
 }
 
 const char *RuntimeUIFBDMapV2::stateText() const
