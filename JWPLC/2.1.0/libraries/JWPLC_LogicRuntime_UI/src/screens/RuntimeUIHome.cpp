@@ -78,7 +78,6 @@ RuntimeUIHome::RuntimeUIHome()
     : _runtime(nullptr),
       _fullRedraw(true),
       _selectedMenu(0),
-      _lastSelectedMenu(0xFF),
       _lastDynamicRefreshMs(0),
       _messageUntilMs(0)
 {
@@ -93,12 +92,12 @@ void RuntimeUIHome::attach(JWPLC_LogicRuntime &runtime)
 void RuntimeUIHome::enter()
 {
   _selectedMenu = 0;
-  _lastSelectedMenu = 0xFF;
   _messageUntilMs = 0;
-  forceRedraw();
   drawStaticLayout();
   drawDynamicState();
   drawMenu();
+  _fullRedraw = false;
+  _lastDynamicRefreshMs = millis();
 }
 
 void RuntimeUIHome::refresh(const JWPLC_IOState *io,
@@ -118,6 +117,7 @@ void RuntimeUIHome::refresh(const JWPLC_IOState *io,
     drawDynamicState();
     drawMenu();
     _fullRedraw = false;
+    _lastDynamicRefreshMs = millis();
   }
 
   handleInput();
@@ -146,7 +146,6 @@ void RuntimeUIHome::forceRedraw()
 {
   _fullRedraw = true;
   _lastDynamicRefreshMs = 0;
-  _lastSelectedMenu = 0xFF;
 }
 
 void RuntimeUIHome::drawStaticLayout()
@@ -242,8 +241,6 @@ void RuntimeUIHome::drawMenu()
                    MENU_LABELS[index],
                    index == _selectedMenu);
   }
-
-  _lastSelectedMenu = _selectedMenu;
 }
 
 void RuntimeUIHome::handleInput()
