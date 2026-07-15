@@ -50,7 +50,8 @@ enum class LogicV2BlockType : uint8_t
   Or,
   Nand,
   Nor,
-  Xor
+  Xor,
+  DigitalOutput
 };
 
 struct LogicV2BlockRecord
@@ -162,16 +163,18 @@ enum class LogicV2PrototypeError : uint8_t
   ResourceOutOfRange,
   OpenInputNotAllowed,
   NullDigitalInputs,
-  OutputBufferTooSmall
+  OutputBufferTooSmall,
+  DuplicateDigitalOutput
 };
 
 class LogicVariableInputPrototype
 {
 public:
   static LogicV2PrototypeError validate(const LogicV2Program &program,
-                                        uint16_t maxBlocks,
-                                        uint16_t maxLinks,
-                                        uint8_t digitalInputCount);
+                                         uint16_t maxBlocks,
+                                         uint16_t maxLinks,
+                                         uint8_t digitalInputCount,
+                                         uint8_t digitalOutputCount = 0);
 
   /**
    * @brief Valida y evalua un programa en una sola llamada.
@@ -184,21 +187,25 @@ public:
                        uint8_t digitalInputCount,
                        bool *blockValues,
                        size_t blockValueCapacity,
-                       LogicV2PrototypeError &error);
+                       LogicV2PrototypeError &error,
+                       uint8_t digitalOutputCount = 0);
 
   /**
    * @brief Evalua un programa que ya fue validado durante la carga.
+   *
+   * DigitalOutput se evalua como pass-through y conserva su valor dentro del
+   * arreglo de bloques. Este prototipo no conmuta salidas fisicas.
    */
   static bool evaluateValidated(const LogicV2Program &program,
-                                const bool *digitalInputs,
-                                uint8_t digitalInputCount,
-                                bool *blockValues,
-                                size_t blockValueCapacity,
-                                LogicV2PrototypeError &error);
+                                 const bool *digitalInputs,
+                                 uint8_t digitalInputCount,
+                                 bool *blockValues,
+                                 size_t blockValueCapacity,
+                                 LogicV2PrototypeError &error);
 
   static constexpr size_t requiredImageBytes(uint16_t blockCount,
-                                              uint16_t linkCount,
-                                              uint16_t headerBytes = 64)
+                                               uint16_t linkCount,
+                                               uint16_t headerBytes = 64)
   {
     return static_cast<size_t>(headerBytes) +
            static_cast<size_t>(blockCount) * sizeof(LogicV2BlockRecord) +
@@ -212,9 +219,9 @@ private:
   static bool isKnownType(LogicV2BlockType type);
   static bool neutralValue(LogicV2BlockType type);
   static bool resolveInput(const LogicV2InputLink &link,
-                           LogicV2BlockType consumerType,
-                           const bool *blockValues,
-                           bool &value);
+                            LogicV2BlockType consumerType,
+                            const bool *blockValues,
+                            bool &value);
 };
 
 #endif
