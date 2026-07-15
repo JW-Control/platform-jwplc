@@ -34,7 +34,6 @@ private:
   JWPLC_LogicRuntime *_runtime;
   bool _fullRedraw;
   uint8_t _selectedMenu;
-  uint8_t _lastSelectedMenu;
   uint32_t _lastDynamicRefreshMs;
   uint32_t _messageUntilMs;
 };
