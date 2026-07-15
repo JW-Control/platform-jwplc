@@ -22,6 +22,7 @@ uint8_t LogicV1ToV2Adapter::inputCountForType(LogicBlockType type)
     return 0;
   case LogicBlockType::DigitalOutput:
   case LogicBlockType::Not:
+  case LogicBlockType::Ton:
     return 1;
   case LogicBlockType::And:
   case LogicBlockType::Or:
@@ -54,6 +55,9 @@ bool LogicV1ToV2Adapter::mapType(LogicBlockType sourceType,
     return true;
   case LogicBlockType::SetReset:
     destinationType = LogicV2BlockType::SetReset;
+    return true;
+  case LogicBlockType::Ton:
+    destinationType = LogicV2BlockType::Ton;
     return true;
   default:
     return false;
