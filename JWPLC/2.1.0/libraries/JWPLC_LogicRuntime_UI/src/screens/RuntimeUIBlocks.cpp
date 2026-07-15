@@ -11,8 +11,7 @@ namespace
 {
   static constexpr int16_t ROW_X = 8;
   static constexpr int16_t ROW_W = 304;
-  static constexpr int16_t ROW_Y[RuntimeUIBlocks::VISIBLE_ROWS] = {
-      68, 80, 92, 104, 116};
+  static constexpr int16_t ROW_Y[5] = {68, 80, 92, 104, 116};
 
   static constexpr int16_t COMMAND_Y = 135;
   static constexpr int16_t COMMAND_H = 20;
@@ -97,7 +96,6 @@ void RuntimeUIBlocks::refresh(const JWPLC_IOState *io,
   if (static_cast<uint32_t>(now - _lastValueRefreshMs) >= VALUE_REFRESH_MS)
   {
     _lastValueRefreshMs = now;
-
     if (_mode == Mode::List)
     {
       updateListValues(false);
@@ -137,18 +135,17 @@ void RuntimeUIBlocks::invalidateCache()
 
 void RuntimeUIBlocks::drawCurrentMode()
 {
-  if (_mode == Mode::List)
-  {
-    drawListStatic();
-    drawListRows(true);
-    drawListCommands();
-    updateListValues(true);
-  }
-  else
+  if (_mode == Mode::Detail)
   {
     drawDetailStatic();
     updateDetailFields(true);
+    return;
   }
+
+  drawListStatic();
+  drawListRows(true);
+  drawListCommands();
+  updateListValues(true);
 }
 
 void RuntimeUIBlocks::drawListStatic()
@@ -160,26 +157,27 @@ void RuntimeUIBlocks::drawListStatic()
 
   drawPanel(tft, 4, 28, 312, 103, "PROGRAMA");
   drawFieldLabel(tft, 12, 43, "Nombre:");
-  drawFieldLabel(tft, 12, 56, "#  TIPO      A    B    RECURSO   V",
+  drawFieldLabel(tft,
+                 12,
+                 56,
+                 "#  TIPO      A    B    RECURSO   V",
                  COLOR_ACCENT,
                  COLOR_PANEL);
 
   char programName[JWPLC_LOGIC_PROGRAM_NAME_BYTES + 1] = {};
   copyProgramName(programName, sizeof(programName));
   updateTextField(tft, 56, 43, 42, programName);
-
   drawFooter(tft, "UP/DN: bloque  L/R: accion  ESC: IDLE");
 }
 
 void RuntimeUIBlocks::drawListRows(bool force)
 {
-  const LogicProgram *program = _runtime ? _runtime->program() : nullptr;
-  const uint16_t blockCount = program ? program->blockCount : 0;
+  const uint16_t blockCount = _runtime ? _runtime->blockCount() : 0;
 
   if (blockCount == 0)
   {
     Adafruit_ST7789 &tft = JWPLC_Display.tft();
-    tft.fillRect(ROW_X, ROW_Y[0], ROW_W, 56, COLOR_PANEL);
+    tft.fillRect(ROW_X, ROW_Y[0], ROW_W, 58, COLOR_PANEL);
     updateTextField(tft,
                     18,
                     88,
@@ -194,9 +192,7 @@ void RuntimeUIBlocks::drawListRows(bool force)
     for (uint8_t row = 0; row < VISIBLE_ROWS; ++row)
     {
       const uint16_t blockIndex = static_cast<uint16_t>(_topIndex + row);
-      drawListRow(row,
-                  blockIndex,
-                  blockIndex == _selectedIndex);
+      drawListRow(row, blockIndex, blockIndex == _selectedIndex);
     }
   }
 
@@ -229,13 +225,13 @@ void RuntimeUIBlocks::drawListRow(uint8_t visibleRow,
   Adafruit_ST7789 &tft = JWPLC_Display.tft();
   const uint16_t background = selected ? COLOR_SELECTED : COLOR_PANEL;
   const uint16_t foreground = selected ? COLOR_ACCENT : COLOR_TEXT;
-
   tft.fillRect(ROW_X, ROW_Y[visibleRow], ROW_W, 10, background);
 
   const LogicBlockDefinition *block =
       _runtime ? _runtime->blockDefinition(blockIndex) : nullptr;
   if (block == nullptr)
   {
+    _cache.valueValid[visibleRow] = false;
     return;
   }
 
@@ -246,6 +242,7 @@ void RuntimeUIBlocks::drawListRow(uint8_t visibleRow,
   formatSource(sourceB, sizeof(sourceB), block->sourceB);
   formatResource(resource, sizeof(resource), *block);
 
+  const bool value = _runtime->blockValue(blockIndex);
   char line[64];
   std::snprintf(line,
                 sizeof(line),
@@ -255,7 +252,7 @@ void RuntimeUIBlocks::drawListRow(uint8_t visibleRow,
                 sourceA,
                 sourceB,
                 resource,
-                _runtime->blockValue(blockIndex) ? '1' : '0');
+                value ? '1' : '0');
 
   tft.setTextWrap(false);
   tft.setTextSize(1);
@@ -263,7 +260,7 @@ void RuntimeUIBlocks::drawListRow(uint8_t visibleRow,
   tft.setCursor(12, ROW_Y[visibleRow] + 1);
   tft.print(line);
 
-  _cache.values[visibleRow] = _runtime->blockValue(blockIndex);
+  _cache.values[visibleRow] = value;
   _cache.valueValid[visibleRow] = true;
 }
 
@@ -313,6 +310,10 @@ void RuntimeUIBlocks::redrawListSelection(uint16_t previousIndex,
 {
   if (previousTopIndex != _topIndex)
   {
+    for (uint8_t row = 0; row < VISIBLE_ROWS; ++row)
+    {
+      _cache.valueValid[row] = false;
+    }
     drawListRows(true);
     return;
   }
@@ -352,13 +353,10 @@ void RuntimeUIBlocks::updateListValues(bool force)
       continue;
     }
 
-    const bool currentValue = _runtime->blockValue(blockIndex);
-    if (force || !_cache.valueValid[row] ||
-        currentValue != _cache.values[row])
+    const bool value = _runtime->blockValue(blockIndex);
+    if (force || !_cache.valueValid[row] || value != _cache.values[row])
     {
-      drawListRow(row,
-                  blockIndex,
-                  blockIndex == _selectedIndex);
+      drawListRow(row, blockIndex, blockIndex == _selectedIndex);
     }
   }
 }
@@ -367,45 +365,35 @@ void RuntimeUIBlocks::handleListInput()
 {
   const uint16_t blockCount = _runtime->blockCount();
 
-  if (blockCount > 0 &&
-      (JWPLC_Buttons.pressed(BTN_UP) ||
-       JWPLC_Buttons.repeated(BTN_UP)))
+  if (blockCount > 0 && JWPLC_Buttons.pressed(BTN_UP))
   {
     const uint16_t previousIndex = _selectedIndex;
-    const uint16_t previousTopIndex = _topIndex;
-
+    const uint16_t previousTop = _topIndex;
     if (_selectedIndex > 0)
     {
       --_selectedIndex;
     }
-
     if (_selectedIndex < _topIndex)
     {
       _topIndex = _selectedIndex;
     }
-
     JWPLC_Display.notifyActivity();
-    redrawListSelection(previousIndex, _selectedIndex, previousTopIndex);
+    redrawListSelection(previousIndex, _selectedIndex, previousTop);
   }
-  else if (blockCount > 0 &&
-           (JWPLC_Buttons.pressed(BTN_DOWN) ||
-            JWPLC_Buttons.repeated(BTN_DOWN)))
+  else if (blockCount > 0 && JWPLC_Buttons.pressed(BTN_DOWN))
   {
     const uint16_t previousIndex = _selectedIndex;
-    const uint16_t previousTopIndex = _topIndex;
-
+    const uint16_t previousTop = _topIndex;
     if (_selectedIndex + 1U < blockCount)
     {
       ++_selectedIndex;
     }
-
     if (_selectedIndex >= static_cast<uint16_t>(_topIndex + VISIBLE_ROWS))
     {
       _topIndex = static_cast<uint16_t>(_selectedIndex - VISIBLE_ROWS + 1U);
     }
-
     JWPLC_Display.notifyActivity();
-    redrawListSelection(previousIndex, _selectedIndex, previousTopIndex);
+    redrawListSelection(previousIndex, _selectedIndex, previousTop);
   }
 
   if (JWPLC_Buttons.pressed(BTN_LEFT) ||
@@ -413,12 +401,10 @@ void RuntimeUIBlocks::handleListInput()
   {
     const uint8_t previousCommand = _selectedCommand;
     _selectedCommand = _selectedCommand == 0 ? 1 : 0;
-
     if (blockCount == 0)
     {
       _selectedCommand = 1;
     }
-
     JWPLC_Display.notifyActivity();
     redrawListCommand(previousCommand, _selectedCommand);
   }
@@ -426,7 +412,6 @@ void RuntimeUIBlocks::handleListInput()
   if (JWPLC_Buttons.pressed(BTN_OK))
   {
     JWPLC_Display.notifyActivity();
-
     if (_selectedCommand == 0 && blockCount > 0)
     {
       _mode = Mode::Detail;
@@ -436,7 +421,6 @@ void RuntimeUIBlocks::handleListInput()
       _fullRedraw = false;
       return;
     }
-
     _requestedView = RuntimeUIView::Home;
   }
 }
@@ -465,7 +449,6 @@ void RuntimeUIBlocks::updateDetailFields(bool force)
 {
   const LogicBlockDefinition *block =
       _runtime ? _runtime->blockDefinition(_selectedIndex) : nullptr;
-
   if (block == nullptr)
   {
     _mode = Mode::List;
@@ -510,17 +493,17 @@ void RuntimeUIBlocks::updateDetailFields(bool force)
                     block->isRetentive() ? "RETENTIVO" : "NINGUNO");
   }
 
-  const bool currentValue = _runtime->blockValue(_selectedIndex);
-  if (force || !_detailValueValid || currentValue != _detailValue)
+  const bool value = _runtime->blockValue(_selectedIndex);
+  if (force || !_detailValueValid || value != _detailValue)
   {
     updateTextField(JWPLC_Display.tft(),
                     68,
                     141,
                     38,
-                    currentValue ? "TRUE" : "FALSE",
-                    currentValue ? COLOR_OK : COLOR_TEXT,
+                    value ? "TRUE" : "FALSE",
+                    value ? COLOR_OK : COLOR_TEXT,
                     COLOR_PANEL);
-    _detailValue = currentValue;
+    _detailValue = value;
     _detailValueValid = true;
   }
 }
@@ -552,7 +535,6 @@ void RuntimeUIBlocks::handleDetailInput()
   {
     JWPLC_Display.notifyActivity();
     _mode = Mode::List;
-
     if (_selectedIndex < _topIndex)
     {
       _topIndex = _selectedIndex;
@@ -561,7 +543,6 @@ void RuntimeUIBlocks::handleDetailInput()
     {
       _topIndex = static_cast<uint16_t>(_selectedIndex - VISIBLE_ROWS + 1U);
     }
-
     invalidateCache();
     drawCurrentMode();
     _fullRedraw = false;
@@ -571,7 +552,6 @@ void RuntimeUIBlocks::handleDetailInput()
 void RuntimeUIBlocks::normalizeSelection()
 {
   const uint16_t blockCount = _runtime ? _runtime->blockCount() : 0;
-
   if (blockCount == 0)
   {
     _selectedIndex = 0;
@@ -584,12 +564,10 @@ void RuntimeUIBlocks::normalizeSelection()
   {
     _selectedIndex = static_cast<uint16_t>(blockCount - 1U);
   }
-
   if (_topIndex > _selectedIndex)
   {
     _topIndex = _selectedIndex;
   }
-
   if (_selectedIndex >= static_cast<uint16_t>(_topIndex + VISIBLE_ROWS))
   {
     _topIndex = static_cast<uint16_t>(_selectedIndex - VISIBLE_ROWS + 1U);
@@ -608,7 +586,6 @@ void RuntimeUIBlocks::copyProgramName(char *destination,
   const char *source = program && program->name
                            ? program->name
                            : "SIN PROGRAMA";
-
   std::strncpy(destination, source, destinationCapacity - 1);
   destination[destinationCapacity - 1] = '\0';
 }
