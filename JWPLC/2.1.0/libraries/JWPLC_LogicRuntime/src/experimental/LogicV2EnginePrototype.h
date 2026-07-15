@@ -28,6 +28,7 @@ enum class LogicV2EngineError : uint8_t
   NotReady,
   NotRunning,
   InputProfileMismatch,
+  TimeRequired,
   EvaluationFailed
 };
 
@@ -50,7 +51,19 @@ public:
 
   bool start();
   void stop();
+
+  /**
+   * @brief Scan sin tiempo, reservado para programas sin bloques TON.
+   *
+   * Cuando existe al menos un TON devuelve false y TIME_REQUIRED para evitar
+   * que un temporizador quede congelado silenciosamente.
+   */
   bool scan(const bool *digitalInputs, uint8_t digitalInputCount);
+
+  /** @brief Scan determinista con tiempo explícito en milisegundos. */
+  bool scan(const bool *digitalInputs,
+            uint8_t digitalInputCount,
+            uint32_t nowMs);
 
   bool hasProgram() const;
   LogicV2EngineState state() const;
@@ -73,6 +86,20 @@ public:
    */
   bool digitalOutputValue(uint8_t outputIndex) const;
 
+  /** @brief Indica si el TON seleccionado está contando actualmente. */
+  bool tonTiming(uint16_t blockIndex) const;
+
+  /**
+   * @brief Tiempo transcurrido del TON para un nowMs explícito.
+   *
+   * Devuelve 0 para bloques que no son TON o que todavía no iniciaron. Cuando
+   * la salida ya está activa devuelve el parámetro completo.
+   */
+  uint32_t tonElapsedMs(uint16_t blockIndex, uint32_t nowMs) const;
+
+  /** @brief Tiempo restante del TON, saturado entre 0 y el parámetro. */
+  uint32_t tonRemainingMs(uint16_t blockIndex, uint32_t nowMs) const;
+
   const LogicV2BlockRecord *blockDefinition(uint16_t blockIndex) const;
   const LogicV2InputLink *inputLink(uint16_t linkIndex) const;
   const LogicV2Program *program() const;
@@ -81,7 +108,8 @@ public:
   static const char *errorName(LogicV2EngineError error);
 
 private:
-  void clearValues();
+  bool containsTimedBlocks() const;
+  void clearRuntimeState();
   void clearProgramStorage();
   void setFault(LogicV2EngineError error,
                 LogicV2PrototypeError validationError);
@@ -89,6 +117,8 @@ private:
   LogicV2BlockRecord _blocks[JWPLC_LOGIC_V2_COMPILED_MAX_BLOCKS];
   LogicV2InputLink _links[JWPLC_LOGIC_V2_COMPILED_MAX_LINKS];
   bool _values[JWPLC_LOGIC_V2_COMPILED_MAX_BLOCKS];
+  bool _timing[JWPLC_LOGIC_V2_COMPILED_MAX_BLOCKS];
+  uint32_t _startedAtMs[JWPLC_LOGIC_V2_COMPILED_MAX_BLOCKS];
   LogicV2Program _program;
   uint8_t _digitalInputCount;
   uint8_t _digitalOutputCount;
