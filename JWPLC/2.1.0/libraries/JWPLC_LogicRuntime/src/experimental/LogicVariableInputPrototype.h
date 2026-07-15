@@ -9,7 +9,7 @@
  * @brief Prototipo aislado del modelo de bloques v2.
  *
  * Esta API todavía no reemplaza LogicBlockDefinition ni el codec v1. Sirve
- * para validar en RAM entradas variables, negación por pin y compuertas
+ * para validar en RAM entradas variables, negación por pin y bloques
  * compatibles con el modelo mental de LOGO! antes de modificar el runtime
  * estable o la FRAM.
  */
@@ -51,7 +51,8 @@ enum class LogicV2BlockType : uint8_t
   Nand,
   Nor,
   Xor,
-  DigitalOutput
+  DigitalOutput,
+  SetReset
 };
 
 struct LogicV2BlockRecord
@@ -181,6 +182,7 @@ public:
    *
    * Es util para pruebas aisladas. Un motor cargado debe validar una vez y usar
    * evaluateValidated() durante cada scan para no repetir todo el validador.
+   * El arreglo blockValues conserva el estado anterior de SET/RESET.
    */
   static bool evaluate(const LogicV2Program &program,
                        const bool *digitalInputs,
@@ -194,18 +196,19 @@ public:
    * @brief Evalua un programa que ya fue validado durante la carga.
    *
    * DigitalOutput se evalua como pass-through y conserva su valor dentro del
-   * arreglo de bloques. Este prototipo no conmuta salidas fisicas.
+   * arreglo de bloques. SET/RESET usa la entrada 0 como S, la entrada 1 como R
+   * y aplica prioridad de RESET. Este prototipo no conmuta salidas fisicas.
    */
   static bool evaluateValidated(const LogicV2Program &program,
-                                 const bool *digitalInputs,
-                                 uint8_t digitalInputCount,
-                                 bool *blockValues,
-                                 size_t blockValueCapacity,
-                                 LogicV2PrototypeError &error);
+                                const bool *digitalInputs,
+                                uint8_t digitalInputCount,
+                                bool *blockValues,
+                                size_t blockValueCapacity,
+                                LogicV2PrototypeError &error);
 
   static constexpr size_t requiredImageBytes(uint16_t blockCount,
-                                               uint16_t linkCount,
-                                               uint16_t headerBytes = 64)
+                                              uint16_t linkCount,
+                                              uint16_t headerBytes = 64)
   {
     return static_cast<size_t>(headerBytes) +
            static_cast<size_t>(blockCount) * sizeof(LogicV2BlockRecord) +
@@ -219,9 +222,9 @@ private:
   static bool isKnownType(LogicV2BlockType type);
   static bool neutralValue(LogicV2BlockType type);
   static bool resolveInput(const LogicV2InputLink &link,
-                            LogicV2BlockType consumerType,
-                            const bool *blockValues,
-                            bool &value);
+                           LogicV2BlockType consumerType,
+                           const bool *blockValues,
+                           bool &value);
 };
 
 #endif
