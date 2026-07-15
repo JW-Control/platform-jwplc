@@ -13,6 +13,10 @@
  * Cada bloque recibe una posición lógica determinista. La selección se mueve
  * por conexiones o cercanía geográfica; el viewport solo se desplaza cuando el
  * bloque seleccionado cruza los márgenes visibles.
+ *
+ * Desde v0.4.1 el panel separa explícitamente la franja informativa y el área
+ * gráfica. Los nodos y cables solo se dibujan cuando caben completamente en el
+ * área del mapa, evitando residuos sobre encabezado, borde y pie de pantalla.
  */
 class RuntimeUIFBDMapV2
 {
@@ -39,23 +43,35 @@ private:
   static constexpr uint8_t MAX_LEVELS = 100;
   static constexpr uint32_t VALUE_REFRESH_MS = 100;
 
-  static constexpr int16_t VIEW_X = 4;
-  static constexpr int16_t VIEW_Y = 28;
-  static constexpr int16_t VIEW_W = 312;
-  static constexpr int16_t VIEW_H = 118;
+  // Panel exterior. La franja INFO y el viewport MAP nunca se superponen.
+  static constexpr int16_t PANEL_X = 4;
+  static constexpr int16_t PANEL_Y = 28;
+  static constexpr int16_t PANEL_W = 312;
+  static constexpr int16_t PANEL_H = 118;
+
+  static constexpr int16_t INFO_X = PANEL_X + 1;
+  static constexpr int16_t INFO_Y = PANEL_Y + 1;
+  static constexpr int16_t INFO_W = PANEL_W - 2;
+  static constexpr int16_t INFO_H = 13;
+
+  static constexpr int16_t MAP_X = PANEL_X + 1;
+  static constexpr int16_t MAP_Y = INFO_Y + INFO_H;
+  static constexpr int16_t MAP_W = PANEL_W - 2;
+  static constexpr int16_t MAP_H = PANEL_H - 2 - INFO_H;
+
   static constexpr int16_t NODE_W = 54;
-  static constexpr int16_t NODE_H = 27;
+  static constexpr int16_t NODE_H = 26;
   static constexpr int16_t COLUMN_STEP = 78;
-  static constexpr int16_t ROW_STEP = 35;
-  static constexpr int16_t WORLD_MARGIN_X = 10;
-  static constexpr int16_t WORLD_MARGIN_Y = 8;
-  static constexpr int16_t KEEP_MARGIN_X = 24;
-  static constexpr int16_t KEEP_MARGIN_Y = 18;
+  static constexpr int16_t ROW_STEP = 34;
+  static constexpr int16_t WORLD_MARGIN_X = 4;
+  static constexpr int16_t WORLD_MARGIN_Y = 2;
+  static constexpr int16_t KEEP_MARGIN_X = 12;
+  static constexpr int16_t KEEP_MARGIN_Y = 8;
 
   void invalidateLayout();
   void buildLayout();
   void normalizeSelection();
-  void ensureSelectionVisible();
+  bool ensureSelectionVisible();
 
   void handleMapInput();
   void handleDetailInput();
@@ -66,6 +82,8 @@ private:
                       uint8_t count) const;
 
   void drawMapStatic();
+  void clearMapRegions();
+  void drawMapInfo();
   void drawMap();
   void drawWires();
   void drawNodes();
@@ -80,7 +98,7 @@ private:
   void drawDetail(bool force);
 
   bool valuesChanged();
-  bool nodeVisible(int16_t screenX, int16_t screenY) const;
+  bool nodeFullyVisible(int16_t screenX, int16_t screenY) const;
   int16_t screenX(uint16_t blockIndex) const;
   int16_t screenY(uint16_t blockIndex) const;
   int16_t inputPortY(const LogicV2BlockRecord &block,
@@ -109,6 +127,8 @@ private:
   bool _layoutValid;
   bool _valueCacheValid;
   uint16_t _selectedIndex;
+  uint16_t _layoutBlockCount;
+  uint16_t _layoutLinkCount;
   int16_t _viewportX;
   int16_t _viewportY;
   uint32_t _lastValueRefreshMs;
