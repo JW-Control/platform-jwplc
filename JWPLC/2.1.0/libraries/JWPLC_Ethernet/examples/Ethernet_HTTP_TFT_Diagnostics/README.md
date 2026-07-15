@@ -70,6 +70,17 @@ Guarda:
 - último código HTTP;
 - instante Unix de la última prueba cuando el RTC es válido.
 
+### Corrección detectada durante la prueba en hardware
+
+La primera revisión del ejemplo expuso un defecto en `JW_FRAM::writeBlock()` de la versión bundled `1.0.2`:
+
+- el header y el payload se enviaban como dos comandos `WRITE` separados;
+- solo se ejecutaba un `WREN` antes del primer comando;
+- en la FM25CL64B el payload podía quedar sin escribir;
+- `readBlock()` recuperaba un header válido, pero rechazaba el payload por checksum y el ejemplo mostraba `ERROR VERIFICACION`.
+
+La versión bundled `JW_FRAM 1.0.3` corrige el flujo ejecutando un ciclo de escritura independiente para el header y otro para el payload. La API pública y el formato del bloque permanecen iguales.
+
 ## Refresco de la TFT
 
 La pantalla usa un sistema de regiones pendientes de actualización. El callback gráfico retorna inmediatamente cuando no cambió ningún dato y solo limpia/redibuja la fila afectada cuando cambia Ethernet, RTC, FRAM, HTTP, botonera o estado de error.
