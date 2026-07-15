@@ -12,7 +12,7 @@ bool LogicVariableInputPrototype::isVariableGate(LogicV2BlockType type)
 bool LogicVariableInputPrototype::isKnownType(LogicV2BlockType type)
 {
   return type >= LogicV2BlockType::DigitalInput &&
-         type <= LogicV2BlockType::Xor;
+         type <= LogicV2BlockType::DigitalOutput;
 }
 
 bool LogicVariableInputPrototype::neutralValue(LogicV2BlockType type)
@@ -25,7 +25,8 @@ LogicV2PrototypeError LogicVariableInputPrototype::validate(
     const LogicV2Program &program,
     uint16_t maxBlocks,
     uint16_t maxLinks,
-    uint8_t digitalInputCount)
+    uint8_t digitalInputCount,
+    uint8_t digitalOutputCount)
 {
   if (program.blocks == nullptr ||
       (program.linkCount > 0 && program.links == nullptr))
@@ -47,6 +48,8 @@ LogicV2PrototypeError LogicVariableInputPrototype::validate(
   {
     return LogicV2PrototypeError::TooManyLinks;
   }
+
+  uint32_t usedDigitalOutputs = 0;
 
   for (uint16_t blockIndex = 0;
        blockIndex < program.blockCount;
@@ -75,6 +78,20 @@ LogicV2PrototypeError LogicVariableInputPrototype::validate(
       {
         return LogicV2PrototypeError::ResourceOutOfRange;
       }
+      break;
+
+    case LogicV2BlockType::DigitalOutput:
+      minimumInputs = 1;
+      maximumInputs = 1;
+      if (block.resource >= digitalOutputCount || block.resource >= 32)
+      {
+        return LogicV2PrototypeError::ResourceOutOfRange;
+      }
+      if ((usedDigitalOutputs & (1UL << block.resource)) != 0)
+      {
+        return LogicV2PrototypeError::DuplicateDigitalOutput;
+      }
+      usedDigitalOutputs |= (1UL << block.resource);
       break;
 
     case LogicV2BlockType::ConstantFalse:
@@ -197,12 +214,14 @@ bool LogicVariableInputPrototype::evaluate(
     uint8_t digitalInputCount,
     bool *blockValues,
     size_t blockValueCapacity,
-    LogicV2PrototypeError &error)
+    LogicV2PrototypeError &error,
+    uint8_t digitalOutputCount)
 {
   error = validate(program,
                    program.blockCount,
                    program.linkCount,
-                   digitalInputCount);
+                   digitalInputCount,
+                   digitalOutputCount);
   if (error != LogicV2PrototypeError::None)
   {
     return false;
@@ -269,6 +288,21 @@ bool LogicVariableInputPrototype::evaluateValidated(
     case LogicV2BlockType::ConstantTrue:
       result = true;
       break;
+
+    case LogicV2BlockType::DigitalOutput:
+    {
+      bool inputValue = false;
+      if (!resolveInput(program.links[block.firstInput],
+                        block.type,
+                        blockValues,
+                        inputValue))
+      {
+        error = LogicV2PrototypeError::InvalidSourceEncoding;
+        return false;
+      }
+      result = inputValue;
+      break;
+    }
 
     case LogicV2BlockType::Not:
     {
@@ -385,6 +419,8 @@ const char *LogicVariableInputPrototype::errorName(
     return "NULL_DIGITAL_INPUTS";
   case LogicV2PrototypeError::OutputBufferTooSmall:
     return "OUTPUT_BUFFER_TOO_SMALL";
+  case LogicV2PrototypeError::DuplicateDigitalOutput:
+    return "DUPLICATE_DIGITAL_OUTPUT";
   default:
     return "UNKNOWN";
   }
