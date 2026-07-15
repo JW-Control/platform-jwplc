@@ -1,5 +1,7 @@
 #include "RuntimeUIWidgets.h"
 
+#include <cstring>
+
 namespace JWPLCLogicRuntimeUIWidgets
 {
   void clearScreen(Adafruit_ST7789 &tft)
@@ -85,7 +87,8 @@ namespace JWPLCLogicRuntimeUIWidgets
     int16_t textX = x + 8;
     if (label)
     {
-      const int16_t approximateWidth = static_cast<int16_t>(strlen(label) * 6);
+      const int16_t approximateWidth =
+          static_cast<int16_t>(std::strlen(label) * 6U);
       textX = x + (w - approximateWidth) / 2;
     }
 
