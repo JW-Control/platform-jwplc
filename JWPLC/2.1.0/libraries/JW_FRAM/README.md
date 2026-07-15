@@ -260,3 +260,11 @@ fram.disableDebug();
 ```
 
 Eso evita amarrar la librería exclusivamente a `Serial`.
+
+## Estado de la versión bundled
+
+```text
+JW_FRAM 1.0.3
+```
+
+Corrección principal: escritura validada de bloques compatible con la FM25CL64B usada por JWPLC Basic.
