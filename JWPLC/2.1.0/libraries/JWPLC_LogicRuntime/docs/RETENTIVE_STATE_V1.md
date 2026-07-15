@@ -23,7 +23,7 @@ Un temporizador acumulativo retentivo deberá ser un tipo de bloque separado en 
 
 ### Flag de bloque
 
-El registro binario v1 ya reservaba el byte relativo `0x01`. Se adopta:
+El registro binario v1 usa el byte relativo `0x01` para flags:
 
 ```cpp
 JWPLC_LOGIC_BLOCK_FLAG_RETENTIVE = 0x01
@@ -44,9 +44,9 @@ Construcción compatible:
  JWPLC_LOGIC_BLOCK_FLAG_RETENTIVE}
 ```
 
-`LogicBlockDefinition` continúa ocupando exactamente 12 bytes. El sexto argumento es opcional y los cinco argumentos históricos conservan el mismo orden.
+`LogicBlockDefinition` continúa ocupando 12 bytes. Los inicializadores históricos conservan los mismos cinco argumentos y dejan `flags = 0`.
 
-### Reglas de validación
+### Reglas
 
 El programa se rechaza cuando:
 
@@ -61,22 +61,17 @@ INVALID_BLOCK_FLAGS
 
 El codec aplica las mismas reglas al serializar y deserializar.
 
-### Bitmap de estado
+### Bitmap y API RAM
 
 El snapshot usa un bit por índice de bloque:
 
 ```text
 bytes = ceil(blockCount / 8)
+100 bloques: 13 bytes
+400 bloques: 50 bytes
 ```
 
-Solo se exportan e importan bits correspondientes a `SET/RESET` retentivos. Los bits de bloques no retentivos se ignoran incluso si están activos en el buffer recibido.
-
-```text
-100 bloques: bitmap máximo de 13 bytes
-400 bloques: bitmap máximo de 50 bytes
-```
-
-### API RAM
+Solo se exportan e importan bits correspondientes a `SET/RESET` retentivos.
 
 ```cpp
 runtime.retentiveStateBytes();
@@ -86,66 +81,25 @@ runtime.importRetentiveState(buffer, length);
 runtime.clearRetentiveStates();
 ```
 
-Estas funciones no leen ni escriben FRAM.
-
-`stop()` conserva su comportamiento histórico y limpia todos los estados temporales. La persistencia real restaurará el snapshot después de cargar el programa y antes de un `start()` explícito.
-
-### Compatibilidad binaria
-
-El registro sigue midiendo 12 bytes:
-
-| Offset | Tamaño | Campo |
-|---:|---:|---|
-| `0x00` | 1 | tipo |
-| `0x01` | 1 | flags del bloque |
-| `0x02` | 2 | recurso |
-| `0x04` | 2 | fuente A |
-| `0x06` | 2 | fuente B |
-| `0x08` | 4 | parámetro |
-
-Las imágenes anteriores contienen `flags = 0` y mantienen su comportamiento no retentivo.
+Estas funciones no leen ni escriben FRAM. `stop()` mantiene su comportamiento histórico y limpia los estados temporales.
 
 ### Validación física
 
-Ejemplo:
-
 ```text
-JWPLC_LogicRuntime_Retentive_State_RAM
-```
-
-Resultado:
-
-```text
+Ejemplo: JWPLC_LogicRuntime_Retentive_State_RAM
 Resultado: 34 PASS, 0 FAIL
 RETENTIVOS EN RAM: PASS
-```
 
-Compilación:
-
-```text
 Flash:       424845 bytes / 3145728 bytes (13 %)
 RAM global:   32612 bytes / 327680 bytes (9 %)
 RAM restante: 295068 bytes
 ```
 
-Se confirmó:
-
-1. `LogicBlockDefinition` permanece en 12 bytes;
-2. los inicializadores históricos dejan `flags = 0`;
-3. solo `SET/RESET` admite `RETENTIVE`;
-4. el validador y el codec rechazan flags inválidos;
-5. el bitmap ignora bloques no retentivos y `TON`;
-6. exportación, limpieza e importación recuperan el estado esperado;
-7. el flag sobrevive serialización y deserialización;
-8. un snapshot puede reimportarse después de `stop()`.
-
 La prueba inicializó E/S, no incluyó bloques `DigitalOutput`, no utilizó FRAM y mantuvo Q0 apagadas.
 
 ## Fase 2 — store retentivo A/B simulado
 
-Antes de escribir la FRAM física se valida un gestor transaccional sobre `LogicMemoryStorage` con inyección de cortes.
-
-Regiones físicas reservadas:
+### Regiones
 
 ```text
 FRAM 8 KiB:  0x1440..0x1A3F, 1536 bytes
@@ -190,7 +144,7 @@ La escritura de una nueva copia sigue este orden:
 3. escribir los bytes `0x04..0x3F` de la cabecera;
 4. escribir `JWRT` al final como commit.
 
-La copia anterior permanece válida durante todo el proceso. Un reinicio antes del último paso debe recuperar el snapshot anterior.
+La copia anterior permanece válida durante toda la actualización.
 
 ### Identidad estricta
 
@@ -203,31 +157,83 @@ cantidad de bloques
 bytes esperados del bitmap
 ```
 
-No se aplicará estado perteneciente a otro programa o generación.
+No se aplica estado perteneciente a otro programa o generación.
 
-### Prueba preparada
-
-Ejemplo:
+### Validación simulada
 
 ```text
-JWPLC_LogicRuntime_Retentive_Store_AB
+Ejemplo: JWPLC_LogicRuntime_Retentive_Store_AB
+Resultado: 38 PASS, 0 FAIL
+STORE RETENTIVO A/B SIMULADO: PASS
+
+Flash:       423713 bytes / 3145728 bytes (13 %)
+RAM global:   32524 bytes / 327680 bytes (9 %)
+RAM restante: 295156 bytes
+
+Bytes escritos por snapshot completo: 66
+Puntos de corte probados: 66
 ```
 
-La prueba:
+Se confirmó:
 
-- no inicializa E/S;
-- no accede a la FRAM física;
-- guarda y recarga dos snapshots alternos;
-- rechaza identidad, generación y cantidad de bloques distintas;
-- corrompe la copia más reciente y recupera la anterior;
-- prueba todos los cortes parciales de una actualización;
-- confirma la nueva copia con el presupuesto exacto de escritura.
+- guardado alterno A/B;
+- selección por secuencia;
+- carga estricta por identidad;
+- recuperación de A al corromper B;
+- conservación de A en todos los cortes parciales;
+- confirmación de B únicamente con el presupuesto completo de 66 bytes.
+
+La prueba no inicializó E/S ni accedió a la FRAM física.
+
+## Fase 3 — prueba física reversible de la región retentiva
+
+Ejemplo preparado:
+
+```text
+JWPLC_LogicRuntime_Retentive_Store_FRAM
+```
+
+La prueba modifica temporalmente solo:
+
+```text
+0x1440..0x1A3F
+```
+
+Protecciones:
+
+- respaldo de los 1536 bytes en NVS;
+- CRC32 del respaldo;
+- marca de restauración pendiente;
+- restauración automática después de un reinicio inesperado;
+- verificación byte por byte;
+- guardas de 16 bytes antes y después de la región;
+- sin inicialización de E/S.
+
+Flujo:
+
+1. respaldar la región original;
+2. limpiar temporalmente la región;
+3. guardar snapshot A en copia 0;
+4. reabrir y cargar A;
+5. guardar snapshot B en copia 1;
+6. reabrir y cargar B;
+7. rechazar identidades distintas;
+8. corromper el CRC de B;
+9. reabrir y recuperar A;
+10. comprobar que las regiones adyacentes no cambiaron;
+11. restaurar exactamente los 1536 bytes originales.
+
+Comando requerido:
+
+```text
+RETENTIVE
+```
 
 Resultado esperado:
 
 ```text
-Resultado: 38 PASS, 0 FAIL
-STORE RETENTIVO A/B SIMULADO: PASS
+Resultado: 44 PASS, 0 FAIL
+STORE RETENTIVO EN FRAM: PASS
 ```
 
-Después del PASS se conectará el gestor a la región retentiva de la FRAM mediante una prueba física reversible.
+Después del PASS se conectará el store retentivo a la fachada de alto nivel y al ciclo `cargar programa → restaurar snapshot → start()`.
