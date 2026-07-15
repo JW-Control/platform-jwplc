@@ -98,6 +98,9 @@ JWPLC_LogicRuntime_UI/
 │   └── widgets/
 │       ├── RuntimeUIWidgets.h
 │       └── RuntimeUIWidgets.cpp
+├── docs/
+│   ├── RUNTIME_UI_HOME_V0_1_TEST.md
+│   └── USER_UI_RENDERING_RULES.md
 └── examples/
     └── JWPLC_LogicRuntime_UI_Home/
 ```
@@ -135,18 +138,61 @@ RuntimeUIBlockEditor
 RuntimeUIConfirmDialog
 ```
 
-## Reglas de redibujado
+## Política de renderizado
 
-- estructura fija al entrar en la vista;
-- actualización periódica solo de datos dinámicos;
-- redibujado inmediato únicamente ante cambio de selección;
-- nada de `fillScreen()` en cada refresco;
-- la prueba de convivencia medirá el impacto sobre el scan antes de habilitar acciones reales.
+La validación visual inicial de `RuntimeUIHome` confirmó el diseño, pero reveló parpadeo periódico causado por borrar y volver a escribir datos que no cambiaban.
+
+Desde esta etapa, todas las vistas deben usar el patrón:
+
+```text
+enter()
+├── estructura estática una vez
+├── caché dinámica invalidada
+└── primer estado dinámico
+
+refresh()
+├── entrada de botonera
+├── comparación contra caché
+└── actualización exclusiva de campos sucios
+```
+
+Reglas resumidas:
+
+- `fillScreen()` solo al entrar o ante `forceRedraw()`;
+- marcos, títulos y etiquetas no se dibujan desde el refresh normal;
+- RUN, programa, storage y retentivos se actualizan solo al cambiar;
+- scan promedio/máximo se evalúa cada 1000 ms;
+- evaluar no implica escribir: si el dato no cambió no se toca la TFT;
+- los textos variables usan campos de ancho fijo;
+- la navegación redibuja solo la selección anterior y la nueva;
+- no se usa framebuffer completo de 108800 bytes;
+- sprites parciales quedan reservados para animaciones que realmente los necesiten.
+
+La norma completa y la plantilla para nuevas pantallas están en:
+
+```text
+JWPLC_LogicRuntime_UI/docs/USER_UI_RENDERING_RULES.md
+```
+
+## Aplicación en RuntimeUIHome
+
+La pantalla principal ya fue migrada a:
+
+- `drawHeaderStatic()` para la parte fija;
+- `updateHeaderState()` para la insignia dinámica;
+- etiquetas dibujadas una sola vez;
+- `DynamicCache` para runtime, programa, identidad, storage, retentivos y scan;
+- `updateTextField()` para texto de ancho fijo sin borrado previo;
+- actualización de scan cada 1000 ms;
+- redibujado exclusivo de los dos botones implicados al mover el selector;
+- una sola reconstrucción al entrar en USER.
 
 ## Estado
 
 ```text
 ARQUITECTURA APROBADA
 ESQUELETO USER IMPLEMENTADO
-VALIDACIÓN EN HARDWARE PENDIENTE
+DISEÑO VISUAL INICIAL VALIDADO
+DIRTY RENDERING IMPLEMENTADO
+REVALIDACIÓN FÍSICA SIN PARPADEO PENDIENTE
 ```
