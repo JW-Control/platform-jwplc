@@ -8,6 +8,7 @@ LogicV2EnginePrototype::LogicV2EnginePrototype()
       _values{},
       _program{nullptr, 0, nullptr, 0},
       _digitalInputCount(0),
+      _digitalOutputCount(0),
       _state(LogicV2EngineState::Empty),
       _lastError(LogicV2EngineError::None),
       _validationError(LogicV2PrototypeError::None),
@@ -27,6 +28,7 @@ void LogicV2EnginePrototype::clearProgramStorage()
   clearValues();
   _program = {nullptr, 0, nullptr, 0};
   _digitalInputCount = 0;
+  _digitalOutputCount = 0;
   _scanCount = 0;
 }
 
@@ -41,14 +43,16 @@ void LogicV2EnginePrototype::setFault(
 }
 
 bool LogicV2EnginePrototype::loadProgram(const LogicV2Program &program,
-                                         uint8_t digitalInputCount)
+                                         uint8_t digitalInputCount,
+                                         uint8_t digitalOutputCount)
 {
   const LogicV2PrototypeError validation =
       LogicVariableInputPrototype::validate(
           program,
           JWPLC_LOGIC_V2_COMPILED_MAX_BLOCKS,
           JWPLC_LOGIC_V2_COMPILED_MAX_LINKS,
-          digitalInputCount);
+          digitalInputCount,
+          digitalOutputCount);
 
   if (validation != LogicV2PrototypeError::None)
   {
@@ -89,6 +93,7 @@ bool LogicV2EnginePrototype::loadProgram(const LogicV2Program &program,
 
   _program = {_blocks, program.blockCount, _links, program.linkCount};
   _digitalInputCount = digitalInputCount;
+  _digitalOutputCount = digitalOutputCount;
   clearValues();
   _scanCount = 0;
   _state = LogicV2EngineState::Ready;
@@ -203,6 +208,11 @@ uint8_t LogicV2EnginePrototype::digitalInputCount() const
   return _digitalInputCount;
 }
 
+uint8_t LogicV2EnginePrototype::digitalOutputCount() const
+{
+  return _digitalOutputCount;
+}
+
 uint32_t LogicV2EnginePrototype::scanCount() const
 {
   return _scanCount;
@@ -216,6 +226,28 @@ bool LogicV2EnginePrototype::blockValue(uint16_t blockIndex) const
   }
 
   return _values[blockIndex];
+}
+
+bool LogicV2EnginePrototype::digitalOutputValue(uint8_t outputIndex) const
+{
+  if (!hasProgram() || outputIndex >= _digitalOutputCount)
+  {
+    return false;
+  }
+
+  for (uint16_t blockIndex = 0;
+       blockIndex < _program.blockCount;
+       ++blockIndex)
+  {
+    const LogicV2BlockRecord &block = _blocks[blockIndex];
+    if (block.type == LogicV2BlockType::DigitalOutput &&
+        block.resource == outputIndex)
+    {
+      return _values[blockIndex];
+    }
+  }
+
+  return false;
 }
 
 const LogicV2BlockRecord *LogicV2EnginePrototype::blockDefinition(
