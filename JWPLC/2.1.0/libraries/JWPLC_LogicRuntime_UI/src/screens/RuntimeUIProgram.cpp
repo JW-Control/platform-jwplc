@@ -233,6 +233,12 @@ void RuntimeUIProgram::updateProgramFields(bool force)
       _runtime->storage().loadedProgramIdentity(currentProgramId,
                                                 currentGeneration,
                                                 currentBlockCount);
+
+  if (!currentHasIdentity)
+  {
+    currentBlockCount = _runtime->blockCount();
+  }
+
   const uint16_t currentRetentiveBlocks = _runtime->retentiveBlockCount();
 
   if (force || !_cache.valid ||
@@ -506,15 +512,10 @@ void RuntimeUIProgram::copyProgramName(char *destination,
   const char *source = "SIN RUNTIME";
   if (_runtime != nullptr)
   {
-    if (_runtime->storage().hasLoadedProgram())
-    {
-      const LogicProgram program = _runtime->storage().activeProgram();
-      source = program.name ? program.name : "PROGRAMA PERSISTENTE";
-    }
-    else
-    {
-      source = _runtime->hasProgram() ? "PROGRAMA EN RAM" : "SIN PROGRAMA";
-    }
+    const LogicProgram *loadedProgram = _runtime->program();
+    source = loadedProgram && loadedProgram->name
+                 ? loadedProgram->name
+                 : "SIN PROGRAMA";
   }
 
   std::strncpy(destination, source, destinationCapacity - 1);
