@@ -81,7 +81,8 @@ RuntimeUIHome::RuntimeUIHome()
       _fullRedraw(true),
       _selectedMenu(0),
       _lastScanRefreshMs(0),
-      _messageUntilMs(0)
+      _messageUntilMs(0),
+      _requestedView(RuntimeUIView::None)
 {
   invalidateCache();
 }
@@ -96,6 +97,7 @@ void RuntimeUIHome::enter()
 {
   _selectedMenu = 0;
   _messageUntilMs = 0;
+  _requestedView = RuntimeUIView::None;
 
   invalidateCache();
   drawStaticLayout();
@@ -152,6 +154,7 @@ void RuntimeUIHome::refresh(const JWPLC_IOState *io,
 void RuntimeUIHome::exit()
 {
   _messageUntilMs = 0;
+  _requestedView = RuntimeUIView::None;
 }
 
 void RuntimeUIHome::forceRedraw()
@@ -159,6 +162,13 @@ void RuntimeUIHome::forceRedraw()
   _fullRedraw = true;
   _lastScanRefreshMs = 0;
   invalidateCache();
+}
+
+RuntimeUIView RuntimeUIHome::takeRequestedView()
+{
+  const RuntimeUIView requested = _requestedView;
+  _requestedView = RuntimeUIView::None;
+  return requested;
 }
 
 void RuntimeUIHome::invalidateCache()
@@ -440,11 +450,27 @@ void RuntimeUIHome::handleInput()
   if (JWPLC_Buttons.pressed(BTN_OK))
   {
     JWPLC_Display.notifyActivity();
-    showSelectionMessage();
+    requestSelectedView();
   }
 }
 
-void RuntimeUIHome::showSelectionMessage()
+void RuntimeUIHome::requestSelectedView()
+{
+  switch (_selectedMenu)
+  {
+  case 0:
+    _requestedView = RuntimeUIView::Program;
+    return;
+  case 1:
+  case 2:
+  case 3:
+  default:
+    showPendingMessage();
+    return;
+  }
+}
+
+void RuntimeUIHome::showPendingMessage()
 {
   char message[64];
   std::snprintf(message,
