@@ -9,16 +9,17 @@ namespace JWPLCLogicRuntimeUIWidgets
   static constexpr int16_t SCREEN_W = 320;
   static constexpr int16_t SCREEN_H = 170;
 
+  // Paleta base de JW Control: verde, blanco y negro.
   static constexpr uint16_t COLOR_BACKGROUND = ST77XX_BLACK;
   static constexpr uint16_t COLOR_TEXT = ST77XX_WHITE;
   static constexpr uint16_t COLOR_MUTED = 0x9CF3;
   static constexpr uint16_t COLOR_BORDER = 0x7BEF;
-  static constexpr uint16_t COLOR_ACCENT = 0x07FF;
+  static constexpr uint16_t COLOR_ACCENT = 0x5FE0;
   static constexpr uint16_t COLOR_OK = 0x07E0;
   static constexpr uint16_t COLOR_WARNING = 0xFFE0;
   static constexpr uint16_t COLOR_ERROR = ST77XX_RED;
   static constexpr uint16_t COLOR_PANEL = 0x1082;
-  static constexpr uint16_t COLOR_SELECTED = 0x18E3;
+  static constexpr uint16_t COLOR_SELECTED = 0x0200;
 
   void clearScreen(Adafruit_ST7789 &tft);
 
