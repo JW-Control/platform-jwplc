@@ -104,6 +104,41 @@ public:
   bool hasProgram() const;
   bool blockValue(uint16_t index) const;
 
+  /**
+   * @brief Vista de solo lectura del programa cargado en el motor.
+   *
+   * El puntero pertenece al runtime y permanece válido hasta loadProgram(),
+   * prepareStoredProgram(), begin() o una descarga posterior. No debe guardarse
+   * para modificar bloques ni utilizarse como almacenamiento propio.
+   */
+  const LogicProgram *program() const
+  {
+    return _engine.program();
+  }
+
+  /** @brief Cantidad de bloques del programa actualmente cargado. */
+  uint16_t blockCount() const
+  {
+    const LogicProgram *loadedProgram = _engine.program();
+    return loadedProgram ? loadedProgram->blockCount : 0;
+  }
+
+  /**
+   * @brief Definición de bloque en modo lectura o nullptr si no existe.
+   */
+  const LogicBlockDefinition *blockDefinition(uint16_t index) const
+  {
+    const LogicProgram *loadedProgram = _engine.program();
+    if (loadedProgram == nullptr ||
+        loadedProgram->blocks == nullptr ||
+        index >= loadedProgram->blockCount)
+    {
+      return nullptr;
+    }
+
+    return &loadedProgram->blocks[index];
+  }
+
   size_t retentiveStateBytes() const;
   uint16_t retentiveBlockCount() const;
   bool exportRetentiveState(uint8_t *destination,
