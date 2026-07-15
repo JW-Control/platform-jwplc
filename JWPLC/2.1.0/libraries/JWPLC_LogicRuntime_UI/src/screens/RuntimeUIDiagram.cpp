@@ -46,22 +46,24 @@ namespace
     if (x0 == x1)
     {
       const int16_t top = y0 < y1 ? y0 : y1;
-      const int16_t height = static_cast<int16_t>(y0 < y1 ? y1 - y0 + 1 : y0 - y1 + 1);
+      const int16_t height = static_cast<int16_t>(
+          (y0 < y1 ? y1 - y0 : y0 - y1) + 1);
       tft.drawFastVLine(x0, top, height, color);
-      if (active)
-      {
-        tft.drawFastVLine(x0 + 1, top, height, color);
-      }
+      tft.drawFastVLine(x0 + 1,
+                        top,
+                        height,
+                        active ? color : COLOR_PANEL);
       return;
     }
 
     const int16_t left = x0 < x1 ? x0 : x1;
-    const int16_t width = static_cast<int16_t>(x0 < x1 ? x1 - x0 + 1 : x0 - x1 + 1);
+    const int16_t width = static_cast<int16_t>(
+        (x0 < x1 ? x1 - x0 : x0 - x1) + 1);
     tft.drawFastHLine(left, y0, width, color);
-    if (active)
-    {
-      tft.drawFastHLine(left, y0 + 1, width, color);
-    }
+    tft.drawFastHLine(left,
+                      y0 + 1,
+                      width,
+                      active ? color : COLOR_PANEL);
   }
 }
 
@@ -144,17 +146,19 @@ void RuntimeUIDiagram::refresh(const JWPLC_IOState *io,
   }
 
   const uint32_t now = millis();
-  if (static_cast<uint32_t>(now - _lastValueRefreshMs) >= VALUE_REFRESH_MS)
+  if (static_cast<uint32_t>(now - _lastValueRefreshMs) < VALUE_REFRESH_MS)
   {
-    _lastValueRefreshMs = now;
-    if (_mode == Mode::Graph)
-    {
-      updateGraphValues(false);
-    }
-    else
-    {
-      updateDetailFields(false);
-    }
+    return;
+  }
+
+  _lastValueRefreshMs = now;
+  if (_mode == Mode::Graph)
+  {
+    updateGraphValues(false);
+  }
+  else
+  {
+    updateDetailFields(false);
   }
 }
 
@@ -198,7 +202,6 @@ void RuntimeUIDiagram::normalizeSelection()
   {
     _selectedIndex = static_cast<uint16_t>(blockCount - 1U);
   }
-
   if (_selectedCommand >= COMMAND_COUNT)
   {
     _selectedCommand = 0;
@@ -237,7 +240,6 @@ void RuntimeUIDiagram::drawGraphStatic()
   char programName[JWPLC_LOGIC_PROGRAM_NAME_BYTES + 1] = {};
   copyProgramName(programName, sizeof(programName));
   updateTextField(tft, 68, 43, 40, programName);
-
   drawFooter(tft, "UP/DN: bloque  L/R: accion  ESC: IDLE");
 }
 
@@ -258,9 +260,6 @@ void RuntimeUIDiagram::drawGraph(bool clearViewport)
   if (blockCount == 0)
   {
     drawNoProgram();
-    _cache.runtimeState = _runtime->state();
-    _cache.blockCount = 0;
-    _cache.valid = true;
     return;
   }
 
@@ -296,7 +295,7 @@ void RuntimeUIDiagram::drawGraph(bool clearViewport)
   const char *portA = block->type == LogicBlockType::SetReset ? "S" : "A";
   const char *portB = block->type == LogicBlockType::SetReset ? "R" : "B";
 
-  // Conexiones primero para que los nodos oculten correctamente los extremos.
+  // Primero se dibujan las conexiones; los nodos cubren luego sus extremos.
   if (block->type == LogicBlockType::DigitalInput)
   {
     drawLeftConnection(TOP_Y + MINI_H / 2,
@@ -322,13 +321,7 @@ void RuntimeUIDiagram::drawGraph(bool clearViewport)
     }
   }
 
-  if (block->type == LogicBlockType::DigitalOutput)
-  {
-    drawRightConnection(MAIN_Y + MAIN_H / 2,
-                        TOP_Y + MINI_H / 2,
-                        selectedValue);
-  }
-  else if (targetCount == 0)
+  if (block->type == LogicBlockType::DigitalOutput || targetCount == 0)
   {
     drawRightConnection(MAIN_Y + MAIN_H / 2,
                         TOP_Y + MINI_H / 2,
@@ -347,7 +340,6 @@ void RuntimeUIDiagram::drawGraph(bool clearViewport)
     }
   }
 
-  // Fuentes o recurso físico de entrada.
   if (block->type == LogicBlockType::DigitalInput)
   {
     char resource[16];
@@ -362,21 +354,14 @@ void RuntimeUIDiagram::drawGraph(bool clearViewport)
   {
     if (sourceAValid)
     {
-      drawMiniBlock(LEFT_X,
-                    TOP_Y,
-                    block->sourceA,
-                    sourceAValue);
+      drawMiniBlock(LEFT_X, TOP_Y, block->sourceA, sourceAValue);
     }
     if (sourceBValid)
     {
-      drawMiniBlock(LEFT_X,
-                    BOTTOM_Y,
-                    block->sourceB,
-                    sourceBValue);
+      drawMiniBlock(LEFT_X, BOTTOM_Y, block->sourceB, sourceBValue);
     }
   }
 
-  // Destinos o recurso físico de salida.
   if (block->type == LogicBlockType::DigitalOutput)
   {
     char resource[16];
@@ -407,21 +392,6 @@ void RuntimeUIDiagram::drawGraph(bool clearViewport)
                     BOTTOM_Y,
                     targets[1],
                     _runtime->blockValue(targets[1]));
-    }
-    if (targetCount > 2)
-    {
-      char more[12];
-      std::snprintf(more,
-                    sizeof(more),
-                    "+%u mas",
-                    static_cast<unsigned int>(targetCount - 2U));
-      updateTextField(tft,
-                      264,
-                      119,
-                      7,
-                      more,
-                      COLOR_ACCENT,
-                      COLOR_PANEL);
     }
   }
 
@@ -456,7 +426,6 @@ void RuntimeUIDiagram::drawGraph(bool clearViewport)
     _cache.targets[target].value =
         valid ? _runtime->blockValue(targets[target]) : false;
   }
-
   _cache.valid = true;
 }
 
@@ -478,18 +447,24 @@ void RuntimeUIDiagram::drawNoProgram()
                   "Use PROGRAMA > PREPARAR",
                   COLOR_MUTED,
                   COLOR_PANEL);
+
   _selectedCommand = 2;
+  _cache.runtimeState = _runtime
+                            ? _runtime->state()
+                            : JWPLCLogicRuntimeState::Stopped;
+  _cache.blockCount = 0;
+  _cache.selectedIndex = 0;
+  _cache.valid = true;
 }
 
 void RuntimeUIDiagram::drawGraphCommands()
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
-  const uint16_t blockCount = _runtime ? _runtime->blockCount() : 0;
-  if (blockCount == 0)
+  if (_runtime == nullptr || _runtime->blockCount() == 0)
   {
     _selectedCommand = 2;
   }
 
+  Adafruit_ST7789 &tft = JWPLC_Display.tft();
   for (uint8_t command = 0; command < COMMAND_COUNT; ++command)
   {
     drawMenuButton(tft,
@@ -531,7 +506,12 @@ void RuntimeUIDiagram::handleGraphInput()
 {
   const uint16_t blockCount = _runtime->blockCount();
 
-  if (blockCount > 0 && JWPLC_Buttons.pressed(BTN_UP))
+  const bool upPressed = JWPLC_Buttons.pressed(BTN_UP);
+  const bool downPressed = JWPLC_Buttons.pressed(BTN_DOWN);
+  const bool leftPressed = JWPLC_Buttons.pressed(BTN_LEFT);
+  const bool rightPressed = JWPLC_Buttons.pressed(BTN_RIGHT);
+
+  if (blockCount > 0 && upPressed)
   {
     _selectedIndex = _selectedIndex == 0
                          ? static_cast<uint16_t>(blockCount - 1U)
@@ -539,7 +519,7 @@ void RuntimeUIDiagram::handleGraphInput()
     JWPLC_Display.notifyActivity();
     drawGraph(true);
   }
-  else if (blockCount > 0 && JWPLC_Buttons.pressed(BTN_DOWN))
+  else if (blockCount > 0 && downPressed)
   {
     _selectedIndex = static_cast<uint16_t>(
         (_selectedIndex + 1U) % blockCount);
@@ -547,8 +527,7 @@ void RuntimeUIDiagram::handleGraphInput()
     drawGraph(true);
   }
 
-  if (JWPLC_Buttons.pressed(BTN_LEFT) ||
-      JWPLC_Buttons.pressed(BTN_RIGHT))
+  if (leftPressed || rightPressed)
   {
     if (blockCount == 0)
     {
@@ -557,7 +536,7 @@ void RuntimeUIDiagram::handleGraphInput()
     else
     {
       const uint8_t previousCommand = _selectedCommand;
-      if (JWPLC_Buttons.pressed(BTN_LEFT))
+      if (leftPressed)
       {
         _selectedCommand = _selectedCommand == 0
                                ? COMMAND_COUNT - 1
@@ -619,9 +598,8 @@ void RuntimeUIDiagram::updateGraphValues(bool force)
     return;
   }
 
-  const bool selectedValue = _runtime->blockValue(_selectedIndex);
   bool changed = force || !_cache.valid ||
-                 selectedValue != _cache.selectedValue;
+                 _runtime->blockValue(_selectedIndex) != _cache.selectedValue;
 
   if (_cache.sourceA.valid)
   {
@@ -635,7 +613,6 @@ void RuntimeUIDiagram::updateGraphValues(bool force)
               _runtime->blockValue(_cache.sourceB.index) !=
                   _cache.sourceB.value;
   }
-
   for (uint8_t target = 0; target < 2; ++target)
   {
     if (_cache.targets[target].valid)
@@ -648,8 +625,8 @@ void RuntimeUIDiagram::updateGraphValues(bool force)
 
   if (changed)
   {
-    // La topología permanece igual: se repintan conexiones y nodos sobre sus
-    // mismas regiones, sin limpiar toda la pantalla ni los controles.
+    // La topología permanece fija: se actualizan las mismas regiones sin
+    // limpiar encabezado, paneles, comandos ni pie de pantalla.
     drawGraph(false);
   }
 }
@@ -670,7 +647,6 @@ void RuntimeUIDiagram::drawDetailStatic()
   drawFieldLabel(tft, 12, 113, "Parametro:");
   drawFieldLabel(tft, 12, 127, "Flags:");
   drawFieldLabel(tft, 12, 141, "Valor:");
-
   drawFooter(tft, "UP/DN: otro bloque  OK: diagrama  ESC: IDLE");
 }
 
@@ -689,14 +665,14 @@ void RuntimeUIDiagram::updateDetailFields(bool force)
 
   if (force)
   {
-    char blockPosition[32];
-    std::snprintf(blockPosition,
-                  sizeof(blockPosition),
+    char position[32];
+    std::snprintf(position,
+                  sizeof(position),
                   "B%02u | %u de %u",
                   static_cast<unsigned int>(_selectedIndex),
                   static_cast<unsigned int>(_selectedIndex + 1U),
                   static_cast<unsigned int>(_runtime->blockCount()));
-    updateTextField(JWPLC_Display.tft(), 68, 43, 38, blockPosition);
+    updateTextField(JWPLC_Display.tft(), 68, 43, 38, position);
     updateTextField(JWPLC_Display.tft(),
                     68,
                     57,
@@ -741,10 +717,12 @@ void RuntimeUIDiagram::updateDetailFields(bool force)
 void RuntimeUIDiagram::handleDetailInput()
 {
   const uint16_t blockCount = _runtime->blockCount();
+  const bool previousPressed = JWPLC_Buttons.pressed(BTN_UP) ||
+                               JWPLC_Buttons.pressed(BTN_LEFT);
+  const bool nextPressed = JWPLC_Buttons.pressed(BTN_DOWN) ||
+                           JWPLC_Buttons.pressed(BTN_RIGHT);
 
-  if ((JWPLC_Buttons.pressed(BTN_UP) ||
-       JWPLC_Buttons.pressed(BTN_LEFT)) &&
-      blockCount > 0)
+  if (blockCount > 0 && previousPressed)
   {
     _selectedIndex = _selectedIndex == 0
                          ? static_cast<uint16_t>(blockCount - 1U)
@@ -753,9 +731,7 @@ void RuntimeUIDiagram::handleDetailInput()
     JWPLC_Display.notifyActivity();
     updateDetailFields(true);
   }
-  else if ((JWPLC_Buttons.pressed(BTN_DOWN) ||
-            JWPLC_Buttons.pressed(BTN_RIGHT)) &&
-           blockCount > 0)
+  else if (blockCount > 0 && nextPressed)
   {
     _selectedIndex = static_cast<uint16_t>(
         (_selectedIndex + 1U) % blockCount);
@@ -778,10 +754,9 @@ void RuntimeUIDiagram::drawMainBlock(const LogicBlockDefinition &block,
                                      bool value)
 {
   Adafruit_ST7789 &tft = JWPLC_Display.tft();
-  const uint16_t background = COLOR_SELECTED;
   const uint16_t border = value ? COLOR_OK : COLOR_ACCENT;
 
-  tft.fillRoundRect(MAIN_X, MAIN_Y, MAIN_W, MAIN_H, 5, background);
+  tft.fillRoundRect(MAIN_X, MAIN_Y, MAIN_W, MAIN_H, 5, COLOR_SELECTED);
   tft.drawRoundRect(MAIN_X, MAIN_Y, MAIN_W, MAIN_H, 5, border);
   tft.drawRoundRect(MAIN_X + 2,
                     MAIN_Y + 2,
@@ -795,7 +770,6 @@ void RuntimeUIDiagram::drawMainBlock(const LogicBlockDefinition &block,
                 sizeof(identifier),
                 "B%02u",
                 static_cast<unsigned int>(_selectedIndex));
-
   char data[20];
   formatMainData(data, sizeof(data), block);
 
@@ -833,7 +807,6 @@ void RuntimeUIDiagram::drawMiniBlock(int16_t x,
   Adafruit_ST7789 &tft = JWPLC_Display.tft();
   const uint16_t background = value ? COLOR_SELECTED : COLOR_BACKGROUND;
   const uint16_t border = value ? COLOR_OK : COLOR_BORDER;
-
   tft.fillRoundRect(x, y, MINI_W, MINI_H, 3, background);
   tft.drawRoundRect(x, y, MINI_W, MINI_H, 3, border);
 
@@ -849,7 +822,6 @@ void RuntimeUIDiagram::drawMiniBlock(int16_t x,
   tft.setTextColor(value ? COLOR_ACCENT : COLOR_TEXT);
   tft.setCursor(x + 4, y + 4);
   tft.print(title);
-
   tft.setTextColor(value ? COLOR_OK : COLOR_MUTED);
   tft.setCursor(x + 4, y + 15);
   tft.print(value ? "VALOR = 1" : "VALOR = 0");
@@ -864,7 +836,6 @@ void RuntimeUIDiagram::drawEndpoint(int16_t x,
   Adafruit_ST7789 &tft = JWPLC_Display.tft();
   const uint16_t background = value ? COLOR_SELECTED : COLOR_BACKGROUND;
   const uint16_t border = value ? COLOR_OK : COLOR_BORDER;
-
   tft.fillRoundRect(x, y, MINI_W, MINI_H, 3, background);
   tft.drawRoundRect(x, y, MINI_W, MINI_H, 3, border);
 
@@ -873,7 +844,6 @@ void RuntimeUIDiagram::drawEndpoint(int16_t x,
   tft.setTextColor(value ? COLOR_ACCENT : COLOR_TEXT);
   tft.setCursor(x + 4, y + 4);
   tft.print(title ? title : "-");
-
   tft.setTextColor(value ? COLOR_OK : COLOR_MUTED);
   tft.setCursor(x + 4, y + 15);
   tft.print(subtitle ? subtitle : "");
@@ -939,7 +909,6 @@ uint8_t RuntimeUIDiagram::collectTargets(uint16_t sourceIndex,
       ++count;
     }
   }
-
   return count;
 }
 
