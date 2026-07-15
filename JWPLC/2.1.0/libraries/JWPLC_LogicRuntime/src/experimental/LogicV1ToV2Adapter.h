@@ -9,8 +9,8 @@
 /**
  * @brief Error de conversión del formato RAM v1 al modelo RAM v2.
  *
- * Esta fase cubre DigitalInput, DigitalOutput, NOT, AND y OR. SetReset y Ton
- * se incorporarán después de añadir sus estados equivalentes al motor v2.
+ * Esta fase cubre DigitalInput, DigitalOutput, NOT, AND, OR y SET/RESET no
+ * retentivo. TON y la persistencia retentiva se incorporarán después.
  */
 enum class LogicV1ToV2AdapterError : uint8_t
 {
