@@ -20,6 +20,7 @@ uint8_t LogicV1ToV2Adapter::inputCountForType(LogicBlockType type)
   {
   case LogicBlockType::DigitalInput:
     return 0;
+  case LogicBlockType::DigitalOutput:
   case LogicBlockType::Not:
     return 1;
   case LogicBlockType::And:
@@ -37,6 +38,9 @@ bool LogicV1ToV2Adapter::mapType(LogicBlockType sourceType,
   {
   case LogicBlockType::DigitalInput:
     destinationType = LogicV2BlockType::DigitalInput;
+    return true;
+  case LogicBlockType::DigitalOutput:
+    destinationType = LogicV2BlockType::DigitalOutput;
     return true;
   case LogicBlockType::Not:
     destinationType = LogicV2BlockType::Not;
