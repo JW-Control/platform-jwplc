@@ -3,8 +3,30 @@
 ## Estado
 
 ```text
-IMPLEMENTACIÓN PREPARADA
-COMPILACIÓN Y VALIDACIÓN VISUAL PENDIENTES
+DISEÑO VISUAL INICIAL: VALIDADO EN TFT
+DIRTY RENDERING: IMPLEMENTADO
+RECOMPILACIÓN Y REVALIDACIÓN SIN PARPADEO: PENDIENTES
+```
+
+La primera visualización física confirmó correctamente:
+
+- encabezado `JWPLC LOGIC`;
+- insignia `READY`;
+- panel de estado del programa;
+- botones `PROGRAMA`, `BLOQUES`, `MEMORIA` y `DIAGNOSTICO`;
+- selector visible;
+- pie de navegación.
+
+Durante esta primera visualización se detectó parpadeo periódico porque los campos dinámicos se borraban y reescribían aunque su valor permaneciera estable.
+
+La implementación fue refactorizada para aplicar las reglas de:
+
+```text
+estructura estática una sola vez
++ caché de valores dinámicos
++ actualización por diferencia
++ scan visual cada 1000 ms
++ redibujado solo de selección anterior y actual
 ```
 
 ## Ejemplo
@@ -47,9 +69,33 @@ MEMORIA
 DIAGNOSTICO
 ```
 
-9. `OK` debe mostrar durante aproximadamente 1.5 segundos la sección seleccionada.
-10. `ESC` debe regresar a `IDLE`.
-11. Una segunda entrada a `USER` debe reconstruir correctamente la vista.
+9. Al mover el selector, únicamente deben redibujarse el botón anterior y el nuevo.
+10. `OK` debe mostrar durante aproximadamente 1.5 segundos la sección seleccionada.
+11. `ESC` debe regresar a `IDLE`.
+12. Una segunda entrada a `USER` debe reconstruir correctamente la vista.
+
+## Validación específica de parpadeo
+
+Mantener la pantalla en `USER` sin pulsar botones durante al menos 20 segundos.
+
+Debe observarse:
+
+```text
+Título y marcos completamente estables
+Programa e identidad completamente estables
+Estado de storage y retentivos completamente estable
+Botones completamente estables
+Insignia READY completamente estable
+```
+
+El campo de scan se evalúa una vez por segundo, pero no debe escribirse en la TFT cuando promedio y máximo sigan sin cambios.
+
+También se debe comprobar:
+
+1. mover el selector repetidamente no provoca destello en los otros dos botones;
+2. pulsar `OK` solo modifica el pie de pantalla;
+3. al desaparecer el mensaje de `OK`, solo se restaura el pie;
+4. entrar nuevamente a `USER` produce una única reconstrucción, no dos destellos consecutivos.
 
 ## Monitor serial esperado
 
@@ -78,6 +124,10 @@ fotografía de IDLE
 fotografía de USER
 resultado de cada botón
 retorno USER → IDLE
+parpadeo con pantalla estable durante 20 s: SI/NO
+parpadeo al mover selector: SI/NO
+parpadeo al mostrar/restaurar mensaje de OK: SI/NO
+segunda entrada USER con un solo redibujado: SI/NO
 ```
 
 ## Criterio de aprobación
@@ -88,6 +138,16 @@ IDLE SIN REGRESIÓN
 USER VISIBLE
 BOTONERA OPERATIVA
 ESC RETORNA A IDLE
+SIN PARPADEO PERIÓDICO
+SOLO SE ACTUALIZAN CAMPOS MODIFICADOS
 FRAM SIN ESCRITURAS
 Q0 APAGADAS
+```
+
+## Documento normativo
+
+Las reglas que deben seguir todas las pantallas posteriores están en:
+
+```text
+docs/USER_UI_RENDERING_RULES.md
 ```
