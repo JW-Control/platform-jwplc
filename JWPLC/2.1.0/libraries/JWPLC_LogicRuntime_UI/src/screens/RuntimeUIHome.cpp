@@ -167,10 +167,10 @@ void RuntimeUIHome::drawDynamicState()
   drawLabelValue(tft, 12, 57, "ID / Gen:", identity, 296);
   drawLabelValue(tft, 12, 71, "Bloques:", blocksAndScan, 296);
 
-  tft.fillRect(177, 30, 132, 10, COLOR_PANEL);
+  tft.fillRect(128, 30, 181, 10, COLOR_PANEL);
   tft.setTextSize(1);
   tft.setTextColor(COLOR_MUTED, COLOR_PANEL);
-  tft.setCursor(177, 32);
+  tft.setCursor(128, 32);
   tft.print(storageState);
 }
 
