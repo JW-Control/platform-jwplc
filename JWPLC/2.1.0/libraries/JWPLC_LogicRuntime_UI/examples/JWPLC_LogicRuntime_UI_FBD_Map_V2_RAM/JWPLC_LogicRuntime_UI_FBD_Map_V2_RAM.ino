@@ -153,7 +153,7 @@ void setup()
   JWPLC_LogicRuntime_UI.begin(engine);
 
   Serial.println("Motor v2: RUNNING");
-  Serial.println("UI FBD v0.4.4: LISTA");
+  Serial.println("UI FBD v0.4.5: LISTA");
   Serial.println("Pulse cualquier boton para entrar a USER.");
 }
 
