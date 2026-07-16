@@ -51,13 +51,24 @@ void RuntimeUIFBDMapV4::drawMapHeaderInfo()
   }
   else
   {
+    char window = 'L';
+    if (_horizontalMode == HorizontalWindowMode::Middle)
+    {
+      window = 'M';
+    }
+    else if (_horizontalMode == HorizontalWindowMode::RightEdge)
+    {
+      window = 'R';
+    }
+
     std::snprintf(selectedText,
                   sizeof(selectedText),
-                  "B%02u %u/%u %d,%d",
+                  "B%02u %u/%u %c%u,%d",
                   static_cast<unsigned>(_selectedIndex),
                   static_cast<unsigned>(_selectedIndex + 1U),
                   static_cast<unsigned>(_model->blockCount()),
-                  static_cast<int>(_viewportX),
+                  window,
+                  static_cast<unsigned>(_centralStartLevel),
                   static_cast<int>(_viewportY));
   }
 
@@ -204,11 +215,23 @@ void RuntimeUIFBDMapV4::drawWire(uint16_t consumerIndex,
     return;
   }
 
+  bool consumerLeftPreview = false;
+  const bool consumerPreview =
+      isPreviewLevel(_levels[consumerIndex], consumerLeftPreview);
+  if (!isFullLevel(_levels[consumerIndex]) && !consumerPreview)
+  {
+    return;
+  }
+
   const int16_t consumerNodeX = screenX(consumerIndex);
-  const int16_t consumerNodeY = screenY(consumerIndex);
+  const int16_t consumerNodeY = static_cast<int16_t>(
+      screenY(consumerIndex) + renderedNodeYOffset(consumerIndex));
+  const int16_t consumerHeight = renderedNodeHeight(consumerIndex);
   const int16_t destinationX = consumerNodeX;
-  const int16_t destinationY = static_cast<int16_t>(
-      consumerNodeY + inputPortY(*consumer, inputIndex));
+  const int16_t destinationY = consumerPreview
+                                   ? static_cast<int16_t>(consumerNodeY + consumerHeight / 2)
+                                   : static_cast<int16_t>(
+                                         consumerNodeY + inputPortY(*consumer, inputIndex));
   const uint16_t sourceIndex = input->source();
 
   if (sourceIndex == JWPLC_LOGIC_V2_SOURCE_OPEN ||
@@ -231,9 +254,12 @@ void RuntimeUIFBDMapV4::drawWire(uint16_t consumerIndex,
   }
 
   const int16_t sourceNodeX = screenX(sourceIndex);
-  const int16_t sourceNodeY = screenY(sourceIndex);
-  const int16_t sourceX = static_cast<int16_t>(sourceNodeX + NODE_W);
-  const int16_t sourceY = static_cast<int16_t>(sourceNodeY + NODE_H / 2);
+  const int16_t sourceNodeY = static_cast<int16_t>(
+      screenY(sourceIndex) + renderedNodeYOffset(sourceIndex));
+  const int16_t sourceX = static_cast<int16_t>(
+      sourceNodeX + renderedNodeWidth(sourceIndex));
+  const int16_t sourceY = static_cast<int16_t>(
+      sourceNodeY + renderedNodeHeight(sourceIndex) / 2);
 
   int16_t routeX = static_cast<int16_t>((sourceX + destinationX) / 2);
   const int16_t gap = static_cast<int16_t>(destinationX - sourceX);
@@ -271,7 +297,7 @@ void RuntimeUIFBDMapV4::drawNodes()
 void RuntimeUIFBDMapV4::drawNode(uint16_t blockIndex)
 {
   const LogicV2BlockRecord *definition = _model->block(blockIndex);
-  if (definition == nullptr)
+  if (definition == nullptr || !isFullLevel(_levels[blockIndex]))
   {
     return;
   }
@@ -349,12 +375,8 @@ void RuntimeUIFBDMapV4::drawFullNode(uint16_t blockIndex,
 void RuntimeUIFBDMapV4::drawEdgeHints()
 {
   const GridRange range = visibleGridRange();
-  if (!range.valid)
-  {
-    return;
-  }
-
   const uint16_t count = _model->blockCount();
+
   for (uint16_t blockIndex = 0; blockIndex < count; ++blockIndex)
   {
     bool leftSide = false;
@@ -382,15 +404,9 @@ void RuntimeUIFBDMapV4::drawEdgeHint(uint16_t blockIndex,
                                      uint16_t border,
                                      bool active)
 {
-  const int16_t mapRight = static_cast<int16_t>(MAP_X + MAP_W - 1);
-  const int16_t mapBottom = static_cast<int16_t>(MAP_Y + MAP_H - 1);
-  const int16_t hintX = leftSide
-                            ? MAP_X
-                            : static_cast<int16_t>(mapRight - EDGE_HINT_W + 1);
-  const int16_t hintY = clamp16(
-      nodeScreenY,
-      MAP_Y,
-      static_cast<int16_t>(mapBottom - EDGE_HINT_H + 1));
+  const int16_t hintX = screenX(blockIndex);
+  const int16_t hintY = static_cast<int16_t>(
+      nodeScreenY + EDGE_HINT_Y_OFFSET);
 
   Adafruit_ST7789 &tft = JWPLC_Display.tft();
   tft.fillRect(hintX,
