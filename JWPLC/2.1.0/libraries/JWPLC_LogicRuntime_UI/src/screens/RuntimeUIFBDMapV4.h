@@ -8,14 +8,17 @@
 #include "../model/RuntimeUIV2ReadModel.h"
 
 /**
- * @brief Mapa FBD compacto v0.4.5 para el motor RAM v2.
+ * @brief Mapa FBD compacto v0.4.6 para el motor RAM v2.
  *
- * El mapa usa bloques estrechos de dos líneas (Bxx / tipo o recurso), elimina
- * el footer de ayuda y reserva los laterales para referencias simétricas a la
- * columna inmediatamente anterior o siguiente.
+ * El mapa abandona el desplazamiento horizontal continuo y usa cinco slots
+ * físicos. Los tres slots centrales permanecen inmóviles; los laterales
+ * representan la columna anterior o siguiente en tamaño reducido. En los
+ * extremos del programa, el slot exterior correspondiente se usa a tamaño
+ * completo.
  *
  * OK abre una vista gráfica de detalle con las fuentes conectadas y el bloque
- * ampliado. La vista sigue siendo de solo lectura; no modifica el programa.
+ * ampliado. La vista sigue siendo de solo lectura; la edición RAM se añadirá
+ * después de cerrar físicamente esta geometría.
  */
 class RuntimeUIFBDMapV4
 {
@@ -35,6 +38,13 @@ private:
   {
     Map = 0,
     Detail
+  };
+
+  enum class HorizontalWindowMode : uint8_t
+  {
+    LeftEdge = 0,
+    Middle,
+    RightEdge
   };
 
   struct GridRange
@@ -69,15 +79,16 @@ private:
   static constexpr int16_t NODE_W = 48;
   static constexpr int16_t NODE_H = 30;
   static constexpr int16_t NODE_GUTTER_W = 11;
-  static constexpr int16_t COLUMN_STEP = 64;
   static constexpr int16_t ROW_STEP = 34;
-  static constexpr int16_t WORLD_MARGIN_X = 4;
   static constexpr int16_t WORLD_MARGIN_Y = 4;
-  static constexpr int16_t KEEP_MARGIN_X = 46;
   static constexpr int16_t KEEP_MARGIN_Y = 4;
 
+  static constexpr uint8_t SLOT_COUNT = 5;
+  static constexpr int16_t SLOT_X0 = MAP_X + 4;
+  static constexpr int16_t SLOT_STEP = 63;
   static constexpr int16_t EDGE_HINT_W = 42;
   static constexpr int16_t EDGE_HINT_H = 24;
+  static constexpr int16_t EDGE_HINT_Y_OFFSET = 3;
 
   static constexpr uint8_t DETAIL_INPUTS_PER_PAGE = 4;
   static constexpr int16_t DETAIL_SOURCE_X = 8;
@@ -94,6 +105,7 @@ private:
   void buildLayout();
   void normalizeSelection();
   bool ensureSelectionVisible();
+  bool updateHorizontalWindow();
 
   void handleMapInput();
   void handleDetailInput();
@@ -162,8 +174,14 @@ private:
   bool shouldDrawEdgeHint(uint16_t blockIndex,
                           const GridRange &range,
                           bool &leftSide) const;
+  bool isFullLevel(uint8_t level) const;
+  bool isPreviewLevel(uint8_t level, bool &leftSide) const;
+  int8_t slotForLevel(uint8_t level) const;
   int16_t screenX(uint16_t blockIndex) const;
   int16_t screenY(uint16_t blockIndex) const;
+  int16_t renderedNodeWidth(uint16_t blockIndex) const;
+  int16_t renderedNodeHeight(uint16_t blockIndex) const;
+  int16_t renderedNodeYOffset(uint16_t blockIndex) const;
   int16_t inputPortY(const LogicV2BlockRecord &block,
                      uint8_t inputIndex) const;
 
@@ -184,6 +202,7 @@ private:
 
   RuntimeUIV2ReadModel *_model;
   Mode _mode;
+  HorizontalWindowMode _horizontalMode;
   bool _fullRedraw;
   bool _layoutValid;
   bool _valueCacheValid;
@@ -193,7 +212,8 @@ private:
   uint8_t _detailInputIndex;
   uint16_t _layoutBlockCount;
   uint16_t _layoutLinkCount;
-  int16_t _viewportX;
+  uint8_t _centralStartLevel;
+  uint8_t _maxLevel;
   int16_t _viewportY;
   uint32_t _lastValueRefreshMs;
   uint32_t _lastDetailRefreshMs;
