@@ -18,6 +18,7 @@ namespace
 RuntimeUIFBDMapV4::RuntimeUIFBDMapV4()
     : _model(nullptr),
       _mode(Mode::Map),
+      _horizontalMode(HorizontalWindowMode::LeftEdge),
       _fullRedraw(true),
       _layoutValid(false),
       _valueCacheValid(false),
@@ -27,7 +28,8 @@ RuntimeUIFBDMapV4::RuntimeUIFBDMapV4()
       _detailInputIndex(0),
       _layoutBlockCount(0),
       _layoutLinkCount(0),
-      _viewportX(0),
+      _centralStartLevel(1),
+      _maxLevel(0),
       _viewportY(0),
       _lastValueRefreshMs(0),
       _lastDetailRefreshMs(0),
@@ -44,7 +46,9 @@ void RuntimeUIFBDMapV4::attach(RuntimeUIV2ReadModel &model)
   _model = &model;
   _selectedIndex = 0;
   _detailInputIndex = 0;
-  _viewportX = 0;
+  _horizontalMode = HorizontalWindowMode::LeftEdge;
+  _centralStartLevel = 1;
+  _maxLevel = 0;
   _viewportY = 0;
   _headerStateValid = false;
   invalidateLayout();
@@ -57,7 +61,9 @@ void RuntimeUIFBDMapV4::detach()
   _mode = Mode::Map;
   _selectedIndex = 0;
   _detailInputIndex = 0;
-  _viewportX = 0;
+  _horizontalMode = HorizontalWindowMode::LeftEdge;
+  _centralStartLevel = 1;
+  _maxLevel = 0;
   _viewportY = 0;
   _headerStateValid = false;
   invalidateLayout();
@@ -176,6 +182,7 @@ void RuntimeUIFBDMapV4::invalidateLayout()
   _valueCacheValid = false;
   _layoutBlockCount = 0;
   _layoutLinkCount = 0;
+  _maxLevel = 0;
   std::memset(_levels, 0, sizeof(_levels));
   std::memset(_lanes, 0, sizeof(_lanes));
   std::memset(_nodeX, 0, sizeof(_nodeX));
@@ -191,6 +198,7 @@ void RuntimeUIFBDMapV4::buildLayout()
 
   uint8_t lanes[MAX_LEVELS] = {};
   const uint16_t count = _model->blockCount();
+  _maxLevel = 0;
 
   for (uint16_t blockIndex = 0; blockIndex < count; ++blockIndex)
   {
@@ -227,10 +235,24 @@ void RuntimeUIFBDMapV4::buildLayout()
 
     _levels[blockIndex] = level;
     _lanes[blockIndex] = lanes[level]++;
-    _nodeX[blockIndex] = static_cast<int16_t>(
-        WORLD_MARGIN_X + static_cast<int16_t>(level) * COLUMN_STEP);
+    _nodeX[blockIndex] = static_cast<int16_t>(level) * SLOT_STEP;
     _nodeY[blockIndex] = static_cast<int16_t>(
         WORLD_MARGIN_Y + static_cast<int16_t>(_lanes[blockIndex]) * ROW_STEP);
+
+    if (level > _maxLevel)
+    {
+      _maxLevel = level;
+    }
+  }
+
+  if (_maxLevel <= 4)
+  {
+    _horizontalMode = HorizontalWindowMode::LeftEdge;
+    _centralStartLevel = 1;
+  }
+  else if (_centralStartLevel > static_cast<uint8_t>(_maxLevel - 3U))
+  {
+    _centralStartLevel = static_cast<uint8_t>(_maxLevel - 3U);
   }
 
   _layoutBlockCount = count;
@@ -252,36 +274,78 @@ void RuntimeUIFBDMapV4::normalizeSelection()
   }
 }
 
+bool RuntimeUIFBDMapV4::updateHorizontalWindow()
+{
+  if (_model == nullptr || _model->blockCount() == 0)
+  {
+    const bool changed =
+        _horizontalMode != HorizontalWindowMode::LeftEdge ||
+        _centralStartLevel != 1;
+    _horizontalMode = HorizontalWindowMode::LeftEdge;
+    _centralStartLevel = 1;
+    return changed;
+  }
+
+  const uint8_t selectedLevel = _levels[_selectedIndex];
+  if (_maxLevel <= 4 || isFullLevel(selectedLevel))
+  {
+    return false;
+  }
+
+  const HorizontalWindowMode previousMode = _horizontalMode;
+  const uint8_t previousStart = _centralStartLevel;
+
+  if (selectedLevel <= 3)
+  {
+    _horizontalMode = HorizontalWindowMode::LeftEdge;
+    _centralStartLevel = 1;
+  }
+  else if (selectedLevel >= _maxLevel)
+  {
+    _horizontalMode = HorizontalWindowMode::RightEdge;
+    _centralStartLevel = static_cast<uint8_t>(_maxLevel - 3U);
+  }
+  else
+  {
+    _horizontalMode = HorizontalWindowMode::Middle;
+    uint8_t start = selectedLevel > 1
+                        ? static_cast<uint8_t>(selectedLevel - 2U)
+                        : 1;
+    const uint8_t maximumStart = static_cast<uint8_t>(_maxLevel - 3U);
+    if (start < 1)
+    {
+      start = 1;
+    }
+    if (start > maximumStart)
+    {
+      start = maximumStart;
+    }
+    _centralStartLevel = start;
+  }
+
+  return previousMode != _horizontalMode ||
+         previousStart != _centralStartLevel;
+}
+
 bool RuntimeUIFBDMapV4::ensureSelectionVisible()
 {
-  const int16_t previousViewportX = _viewportX;
   const int16_t previousViewportY = _viewportY;
+  const bool horizontalChanged = updateHorizontalWindow();
 
   if (_model == nullptr || _model->blockCount() == 0)
   {
-    _viewportX = 0;
     _viewportY = 0;
-    return previousViewportX != 0 || previousViewportY != 0;
+    const bool changed = horizontalChanged || previousViewportY != 0;
+    if (changed)
+    {
+      _valueCacheValid = false;
+    }
+    return changed;
   }
 
-  const int16_t nodeWorldX = _nodeX[_selectedIndex];
   const int16_t nodeWorldY = _nodeY[_selectedIndex];
-  int16_t relativeX = static_cast<int16_t>(nodeWorldX - _viewportX);
   int16_t relativeY = static_cast<int16_t>(nodeWorldY - _viewportY);
 
-  if (relativeX < KEEP_MARGIN_X)
-  {
-    _viewportX = nodeWorldX > KEEP_MARGIN_X
-                     ? static_cast<int16_t>(nodeWorldX - KEEP_MARGIN_X)
-                     : 0;
-  }
-  else if (relativeX + NODE_W > MAP_W - KEEP_MARGIN_X)
-  {
-    _viewportX = static_cast<int16_t>(
-        nodeWorldX + NODE_W - (MAP_W - KEEP_MARGIN_X));
-  }
-
-  relativeY = static_cast<int16_t>(nodeWorldY - _viewportY);
   if (relativeY < KEEP_MARGIN_Y)
   {
     _viewportY = nodeWorldY > KEEP_MARGIN_Y
@@ -294,18 +358,13 @@ bool RuntimeUIFBDMapV4::ensureSelectionVisible()
         nodeWorldY + NODE_H - (MAP_H - KEEP_MARGIN_Y));
   }
 
-  if (_viewportX < 0)
-  {
-    _viewportX = 0;
-  }
   if (_viewportY < 0)
   {
     _viewportY = 0;
   }
 
-  const bool changed =
-      _viewportX != previousViewportX ||
-      _viewportY != previousViewportY;
+  const bool changed = horizontalChanged ||
+                       _viewportY != previousViewportY;
   if (changed)
   {
     _valueCacheValid = false;
