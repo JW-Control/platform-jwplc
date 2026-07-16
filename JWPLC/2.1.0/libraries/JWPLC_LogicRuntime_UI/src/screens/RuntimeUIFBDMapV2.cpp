@@ -85,7 +85,7 @@ void RuntimeUIFBDMapV2::enter()
   buildLayout();
   ensureSelectionVisible();
   drawMapStatic();
-  drawMap();
+  drawMap(true);
   _fullRedraw = false;
 }
 
@@ -120,7 +120,7 @@ void RuntimeUIFBDMapV2::refresh(const JWPLC_IOState *io,
     if (_mode == Mode::Map)
     {
       drawMapStatic();
-      drawMap();
+      drawMap(true);
     }
     else
     {
@@ -152,7 +152,9 @@ void RuntimeUIFBDMapV2::refresh(const JWPLC_IOState *io,
   {
     if (valuesChanged())
     {
-      drawMap();
+      // Refresco dinámico: no borrar el panel completo. Los cables se
+      // sobrescriben en su nueva tonalidad y cada nodo limpia su propia caja.
+      drawMap(false);
     }
   }
   else
@@ -440,7 +442,7 @@ void RuntimeUIFBDMapV2::handleMapInput()
   {
     JWPLC_Display.notifyActivity();
     ensureSelectionVisible();
-    drawMap();
+    drawMap(true);
   }
 
   if (JWPLC_Buttons.pressed(BTN_OK) &&
@@ -463,7 +465,7 @@ void RuntimeUIFBDMapV2::handleDetailInput()
   JWPLC_Display.notifyActivity();
   _mode = Mode::Map;
   drawMapStatic();
-  drawMap();
+  drawMap(true);
 }
 
 void RuntimeUIFBDMapV2::drawMapStatic()
@@ -518,25 +520,31 @@ void RuntimeUIFBDMapV2::drawMapHeaderInfo()
                   COLOR_PANEL);
 }
 
-void RuntimeUIFBDMapV2::drawMap()
+void RuntimeUIFBDMapV2::drawMap(bool clearArea)
 {
   if (_model == nullptr)
   {
     return;
   }
 
-  clearMapArea();
-  drawMapHeaderInfo();
+  if (clearArea)
+  {
+    clearMapArea();
+    drawMapHeaderInfo();
+  }
 
   if (_model->blockCount() == 0)
   {
-    updateTextField(JWPLC_Display.tft(),
-                    MAP_X + 74,
-                    MAP_Y + 48,
-                    27,
-                    "SIN PROGRAMA V2",
-                    COLOR_WARNING,
-                    COLOR_PANEL);
+    if (clearArea)
+    {
+      updateTextField(JWPLC_Display.tft(),
+                      MAP_X + 74,
+                      MAP_Y + 48,
+                      27,
+                      "SIN PROGRAMA V2",
+                      COLOR_WARNING,
+                      COLOR_PANEL);
+    }
     return;
   }
 
@@ -552,9 +560,9 @@ void RuntimeUIFBDMapV2::drawMap()
 }
 
 void RuntimeUIFBDMapV2::drawClippedHorizontal(int16_t x0,
-                                              int16_t x1,
-                                              int16_t y,
-                                              uint16_t color)
+                                               int16_t x1,
+                                               int16_t y,
+                                               uint16_t color)
 {
   const int16_t mapRight = static_cast<int16_t>(MAP_X + MAP_W - 1);
   const int16_t mapBottom = static_cast<int16_t>(MAP_Y + MAP_H - 1);
@@ -578,9 +586,9 @@ void RuntimeUIFBDMapV2::drawClippedHorizontal(int16_t x0,
 }
 
 void RuntimeUIFBDMapV2::drawClippedVertical(int16_t x,
-                                            int16_t y0,
-                                            int16_t y1,
-                                            uint16_t color)
+                                             int16_t y0,
+                                             int16_t y1,
+                                             uint16_t color)
 {
   const int16_t mapRight = static_cast<int16_t>(MAP_X + MAP_W - 1);
   const int16_t mapBottom = static_cast<int16_t>(MAP_Y + MAP_H - 1);
@@ -604,11 +612,11 @@ void RuntimeUIFBDMapV2::drawClippedVertical(int16_t x,
 }
 
 void RuntimeUIFBDMapV2::drawOrthogonalWireClipped(int16_t x0,
-                                                  int16_t y0,
-                                                  int16_t x1,
-                                                  int16_t y1,
-                                                  int16_t routeX,
-                                                  uint16_t color)
+                                                   int16_t y0,
+                                                   int16_t x1,
+                                                   int16_t y1,
+                                                   int16_t routeX,
+                                                   uint16_t color)
 {
   drawClippedHorizontal(x0, routeX, y0, color);
   drawClippedVertical(routeX, y0, y1, color);
@@ -634,7 +642,7 @@ void RuntimeUIFBDMapV2::drawWires()
 }
 
 void RuntimeUIFBDMapV2::drawWire(uint16_t consumerIndex,
-                                 uint8_t inputIndex)
+                                  uint8_t inputIndex)
 {
   const LogicV2BlockRecord *consumer = _model->block(consumerIndex);
   const LogicV2InputLink *input =
@@ -702,9 +710,116 @@ void RuntimeUIFBDMapV2::drawWire(uint16_t consumerIndex,
 void RuntimeUIFBDMapV2::drawNodes()
 {
   const uint16_t count = _model->blockCount();
+  bool partialLeft = false;
+  bool partialRight = false;
+  bool partialTop = false;
+  bool partialBottom = false;
+
   for (uint16_t blockIndex = 0; blockIndex < count; ++blockIndex)
   {
+    const int16_t x = screenX(blockIndex);
+    const int16_t y = screenY(blockIndex);
+    if (!nodeIntersectsMap(x, y))
+    {
+      continue;
+    }
+
+    if (!nodeFullyVisible(x, y))
+    {
+      const EdgeDirection direction = nodeOutsideDirection(x, y);
+      partialLeft |= direction == EdgeDirection::Left;
+      partialRight |= direction == EdgeDirection::Right;
+      partialTop |= direction == EdgeDirection::Top;
+      partialBottom |= direction == EdgeDirection::Bottom;
+    }
     drawNode(blockIndex);
+  }
+
+  int16_t nearestLeft = 32767;
+  int16_t nearestRight = 32767;
+  int16_t nearestTop = 32767;
+  int16_t nearestBottom = 32767;
+
+  for (uint16_t blockIndex = 0; blockIndex < count; ++blockIndex)
+  {
+    const int16_t x = screenX(blockIndex);
+    const int16_t y = screenY(blockIndex);
+    if (nodeIntersectsMap(x, y))
+    {
+      continue;
+    }
+
+    const EdgeDirection direction = nodeOutsideDirection(x, y);
+    const int16_t distance = edgeDistance(x, y, direction);
+    switch (direction)
+    {
+    case EdgeDirection::Left:
+      nearestLeft = minimum16(nearestLeft, distance);
+      break;
+    case EdgeDirection::Right:
+      nearestRight = minimum16(nearestRight, distance);
+      break;
+    case EdgeDirection::Top:
+      nearestTop = minimum16(nearestTop, distance);
+      break;
+    case EdgeDirection::Bottom:
+      nearestBottom = minimum16(nearestBottom, distance);
+      break;
+    default:
+      break;
+    }
+  }
+
+  for (uint16_t blockIndex = 0; blockIndex < count; ++blockIndex)
+  {
+    const int16_t x = screenX(blockIndex);
+    const int16_t y = screenY(blockIndex);
+    if (nodeIntersectsMap(x, y))
+    {
+      continue;
+    }
+
+    const EdgeDirection direction = nodeOutsideDirection(x, y);
+    const int16_t distance = edgeDistance(x, y, direction);
+    bool show = false;
+
+    switch (direction)
+    {
+    case EdgeDirection::Left:
+      show = !partialLeft &&
+             distance == nearestLeft &&
+             distance <= COLUMN_STEP;
+      break;
+    case EdgeDirection::Right:
+      show = !partialRight &&
+             distance == nearestRight &&
+             distance <= COLUMN_STEP;
+      break;
+    case EdgeDirection::Top:
+      show = !partialTop &&
+             distance == nearestTop &&
+             distance <= ROW_STEP;
+      break;
+    case EdgeDirection::Bottom:
+      show = !partialBottom &&
+             distance == nearestBottom &&
+             distance <= ROW_STEP;
+      break;
+    default:
+      break;
+    }
+
+    if (!show)
+    {
+      continue;
+    }
+
+    const bool active = _model->blockValue(blockIndex);
+    const bool selected = blockIndex == _selectedIndex;
+    const uint16_t border = selected
+                                ? COLOR_WARNING
+                                : (active ? COLOR_OK : COLOR_BORDER);
+    drawEdgeHint(blockIndex, direction, border, active);
   }
 }
 
@@ -732,18 +847,14 @@ void RuntimeUIFBDMapV2::drawNode(uint16_t blockIndex)
   {
     drawPartialNode(blockIndex, x, y, border, active);
   }
-  else if (nodeNearMap(x, y))
-  {
-    drawEdgeHint(blockIndex, x, y, border, active);
-  }
 }
 
 void RuntimeUIFBDMapV2::drawFullNode(uint16_t blockIndex,
-                                     int16_t x,
-                                     int16_t y,
-                                     uint16_t border,
-                                     bool active,
-                                     bool selected)
+                                      int16_t x,
+                                      int16_t y,
+                                      uint16_t border,
+                                      bool active,
+                                      bool selected)
 {
   const LogicV2BlockRecord *definition = _model->block(blockIndex);
   if (definition == nullptr)
@@ -785,10 +896,10 @@ void RuntimeUIFBDMapV2::drawFullNode(uint16_t blockIndex,
 }
 
 void RuntimeUIFBDMapV2::drawPartialNode(uint16_t blockIndex,
-                                        int16_t x,
-                                        int16_t y,
-                                        uint16_t border,
-                                        bool active)
+                                         int16_t x,
+                                         int16_t y,
+                                         uint16_t border,
+                                         bool active)
 {
   const int16_t mapRight = static_cast<int16_t>(MAP_X + MAP_W - 1);
   const int16_t mapBottom = static_cast<int16_t>(MAP_Y + MAP_H - 1);
@@ -802,9 +913,8 @@ void RuntimeUIFBDMapV2::drawPartialNode(uint16_t blockIndex,
   const int16_t visibleWidth = static_cast<int16_t>(visibleRight - visibleLeft + 1);
   const int16_t visibleHeight = static_cast<int16_t>(visibleBottom - visibleTop + 1);
 
-  if (visibleWidth < 24 || visibleHeight < 10)
+  if (visibleWidth <= 0 || visibleHeight <= 0)
   {
-    drawEdgeHint(blockIndex, x, y, border, active);
     return;
   }
 
@@ -830,6 +940,11 @@ void RuntimeUIFBDMapV2::drawPartialNode(uint16_t blockIndex,
   if (nodeRight >= MAP_X && nodeRight <= mapRight)
   {
     drawClippedVertical(nodeRight, y, nodeBottom, border);
+  }
+
+  if (visibleWidth < 24 || visibleHeight < 10)
+  {
+    return;
   }
 
   char title[18];
@@ -877,15 +992,14 @@ void RuntimeUIFBDMapV2::drawPartialNode(uint16_t blockIndex,
 }
 
 void RuntimeUIFBDMapV2::drawEdgeHint(uint16_t blockIndex,
-                                     int16_t x,
-                                     int16_t y,
-                                     uint16_t border,
-                                     bool active)
+                                      EdgeDirection direction,
+                                      uint16_t border,
+                                      bool active)
 {
   const int16_t mapRight = static_cast<int16_t>(MAP_X + MAP_W - 1);
   const int16_t mapBottom = static_cast<int16_t>(MAP_Y + MAP_H - 1);
-  const int16_t nodeRight = static_cast<int16_t>(x + NODE_W - 1);
-  const int16_t nodeBottom = static_cast<int16_t>(y + NODE_H - 1);
+  const int16_t x = screenX(blockIndex);
+  const int16_t y = screenY(blockIndex);
   const int16_t centerX = static_cast<int16_t>(x + NODE_W / 2);
   const int16_t centerY = static_cast<int16_t>(y + NODE_H / 2);
 
@@ -897,27 +1011,28 @@ void RuntimeUIFBDMapV2::drawEdgeHint(uint16_t blockIndex,
       static_cast<int16_t>(centerY - EDGE_HINT_H / 2),
       MAP_Y,
       static_cast<int16_t>(mapBottom - EDGE_HINT_H + 1));
-  char direction = '>';
+  char marker = '>';
 
-  if (nodeRight < MAP_X || x < MAP_X)
+  switch (direction)
   {
+  case EdgeDirection::Left:
     hintX = MAP_X;
-    direction = '<';
-  }
-  else if (x > mapRight || nodeRight > mapRight)
-  {
+    marker = '<';
+    break;
+  case EdgeDirection::Right:
     hintX = static_cast<int16_t>(mapRight - EDGE_HINT_W + 1);
-    direction = '>';
-  }
-  else if (nodeBottom < MAP_Y || y < MAP_Y)
-  {
+    marker = '>';
+    break;
+  case EdgeDirection::Top:
     hintY = MAP_Y;
-    direction = '^';
-  }
-  else
-  {
+    marker = '^';
+    break;
+  case EdgeDirection::Bottom:
     hintY = static_cast<int16_t>(mapBottom - EDGE_HINT_H + 1);
-    direction = 'v';
+    marker = 'v';
+    break;
+  default:
+    return;
   }
 
   Adafruit_ST7789 &tft = JWPLC_Display.tft();
@@ -935,12 +1050,13 @@ void RuntimeUIFBDMapV2::drawEdgeHint(uint16_t blockIndex,
   char title[16];
   char compact[18];
   formatBlockTitle(title, sizeof(title), blockIndex);
-  if (direction == '<' || direction == '^')
+  if (direction == EdgeDirection::Left ||
+      direction == EdgeDirection::Top)
   {
     std::snprintf(compact,
                   sizeof(compact),
                   "%c%s",
-                  direction,
+                  marker,
                   title);
   }
   else
@@ -949,7 +1065,7 @@ void RuntimeUIFBDMapV2::drawEdgeHint(uint16_t blockIndex,
                   sizeof(compact),
                   "%s%c",
                   title,
-                  direction);
+                  marker);
   }
   compact[7] = '\0';
 
@@ -962,8 +1078,8 @@ void RuntimeUIFBDMapV2::drawEdgeHint(uint16_t blockIndex,
 }
 
 void RuntimeUIFBDMapV2::drawNodePorts(uint16_t blockIndex,
-                                      int16_t x,
-                                      int16_t y)
+                                       int16_t x,
+                                       int16_t y)
 {
   const LogicV2BlockRecord *definition = _model->block(blockIndex);
   if (definition == nullptr)
@@ -990,26 +1106,35 @@ void RuntimeUIFBDMapV2::drawNodePorts(uint16_t blockIndex,
 
     if (input->inverted())
     {
+      // La inversión permanece como símbolo gráfico; no se imprime !n.
       tft.fillCircle(x + 1, portY, 3, COLOR_BACKGROUND);
-      tft.drawCircle(x + 1, portY, 2, COLOR_TEXT);
+      tft.drawCircle(x + 1, portY, 2, COLOR_MUTED);
     }
     else
     {
       tft.fillCircle(x, portY, 1, pinColor);
     }
 
-    char pinLabel[4];
-    formatPinLabel(pinLabel,
-                   sizeof(pinLabel),
-                   *definition,
-                   *input,
-                   inputIndex);
+    const char *role = nullptr;
+    if (definition->type == LogicV2BlockType::SetReset)
+    {
+      role = inputIndex == 0 ? "S" : "R";
+    }
+    else if (definition->type == LogicV2BlockType::Ton)
+    {
+      role = "T";
+    }
 
-    tft.setTextWrap(false);
-    tft.setTextSize(1);
-    tft.setTextColor(pinColor, COLOR_BACKGROUND);
-    tft.setCursor(x + 4, portY - 3);
-    tft.print(pinLabel);
+    // AND/OR/NOT y demás compuertas no muestran números ni constantes en el
+    // mapa. Sus pines se configurarán gráficamente en la vista de edición.
+    if (role != nullptr)
+    {
+      tft.setTextWrap(false);
+      tft.setTextSize(1);
+      tft.setTextColor(pinColor, COLOR_BACKGROUND);
+      tft.setCursor(x + 5, portY - 3);
+      tft.print(role);
+    }
   }
 
   const int16_t outputY = static_cast<int16_t>(y + NODE_H / 2);
@@ -1054,11 +1179,11 @@ void RuntimeUIFBDMapV2::drawDetailStatic()
                       sizeof(source),
                       _selectedIndex,
                       inputIndex);
-    const int16_t x = inputIndex % 2 == 0 ? 12 : 164;
-    const int16_t y = inputIndex < 2 ? 121 : 134;
+    const int16_t fieldX = inputIndex % 2 == 0 ? 12 : 164;
+    const int16_t fieldY = inputIndex < 2 ? 121 : 134;
     updateTextField(tft,
-                    x,
-                    y,
+                    fieldX,
+                    fieldY,
                     23,
                     source,
                     COLOR_TEXT,
@@ -1196,28 +1321,56 @@ bool RuntimeUIFBDMapV2::nodeIntersectsMap(int16_t x, int16_t y) const
          nodeBottom >= MAP_Y;
 }
 
-bool RuntimeUIFBDMapV2::nodeNearMap(int16_t x, int16_t y) const
+RuntimeUIFBDMapV2::EdgeDirection RuntimeUIFBDMapV2::nodeOutsideDirection(
+    int16_t x,
+    int16_t y) const
 {
   const int16_t mapRight = static_cast<int16_t>(MAP_X + MAP_W - 1);
   const int16_t mapBottom = static_cast<int16_t>(MAP_Y + MAP_H - 1);
   const int16_t nodeRight = static_cast<int16_t>(x + NODE_W);
   const int16_t nodeBottom = static_cast<int16_t>(y + NODE_H - 1);
 
-  const int16_t horizontalDistance =
-      nodeRight < MAP_X
-          ? static_cast<int16_t>(MAP_X - nodeRight)
-          : (x > mapRight
-                 ? static_cast<int16_t>(x - mapRight)
-                 : 0);
-  const int16_t verticalDistance =
-      nodeBottom < MAP_Y
-          ? static_cast<int16_t>(MAP_Y - nodeBottom)
-          : (y > mapBottom
-                 ? static_cast<int16_t>(y - mapBottom)
-                 : 0);
+  if (nodeRight < MAP_X || x < MAP_X)
+  {
+    return EdgeDirection::Left;
+  }
+  if (x > mapRight || nodeRight > mapRight)
+  {
+    return EdgeDirection::Right;
+  }
+  if (nodeBottom < MAP_Y || y < MAP_Y)
+  {
+    return EdgeDirection::Top;
+  }
+  if (y > mapBottom || nodeBottom > mapBottom)
+  {
+    return EdgeDirection::Bottom;
+  }
+  return EdgeDirection::None;
+}
 
-  return (horizontalDistance <= COLUMN_STEP && verticalDistance == 0) ||
-         (verticalDistance <= ROW_STEP && horizontalDistance == 0);
+int16_t RuntimeUIFBDMapV2::edgeDistance(int16_t x,
+                                         int16_t y,
+                                         EdgeDirection direction) const
+{
+  const int16_t mapRight = static_cast<int16_t>(MAP_X + MAP_W - 1);
+  const int16_t mapBottom = static_cast<int16_t>(MAP_Y + MAP_H - 1);
+  const int16_t nodeRight = static_cast<int16_t>(x + NODE_W);
+  const int16_t nodeBottom = static_cast<int16_t>(y + NODE_H - 1);
+
+  switch (direction)
+  {
+  case EdgeDirection::Left:
+    return static_cast<int16_t>(MAP_X - nodeRight);
+  case EdgeDirection::Right:
+    return static_cast<int16_t>(x - mapRight);
+  case EdgeDirection::Top:
+    return static_cast<int16_t>(MAP_Y - nodeBottom);
+  case EdgeDirection::Bottom:
+    return static_cast<int16_t>(y - mapBottom);
+  default:
+    return 32767;
+  }
 }
 
 int16_t RuntimeUIFBDMapV2::screenX(uint16_t blockIndex) const
@@ -1236,6 +1389,12 @@ int16_t RuntimeUIFBDMapV2::inputPortY(
     const LogicV2BlockRecord &block,
     uint8_t inputIndex) const
 {
+  if (block.type == LogicV2BlockType::SetReset && block.inputCount >= 2)
+  {
+    // S y R quedan centrados dentro del gutter, sin tocar los bordes.
+    return inputIndex == 0 ? 10 : 22;
+  }
+
   if (block.inputCount <= 1)
   {
     return NODE_H / 2;
@@ -1249,8 +1408,8 @@ int16_t RuntimeUIFBDMapV2::inputPortY(
 }
 
 void RuntimeUIFBDMapV2::formatBlockTitle(char *destination,
-                                         size_t capacity,
-                                         uint16_t blockIndex) const
+                                          size_t capacity,
+                                          uint16_t blockIndex) const
 {
   const LogicV2BlockRecord *definition = _model->block(blockIndex);
   std::snprintf(destination,
@@ -1261,8 +1420,8 @@ void RuntimeUIFBDMapV2::formatBlockTitle(char *destination,
 }
 
 void RuntimeUIFBDMapV2::formatNodeData(char *destination,
-                                       size_t capacity,
-                                       uint16_t blockIndex) const
+                                        size_t capacity,
+                                        uint16_t blockIndex) const
 {
   const LogicV2BlockRecord *definition = _model->block(blockIndex);
   if (definition == nullptr)
@@ -1306,51 +1465,6 @@ void RuntimeUIFBDMapV2::formatNodeData(char *destination,
                   "%s",
                   _model->blockValue(blockIndex) ? "TRUE" : "FALSE");
   }
-}
-
-void RuntimeUIFBDMapV2::formatPinLabel(
-    char *destination,
-    size_t capacity,
-    const LogicV2BlockRecord &block,
-    const LogicV2InputLink &input,
-    uint8_t inputIndex) const
-{
-  char base[3];
-  const uint16_t source = input.source();
-
-  if (source == JWPLC_LOGIC_V2_SOURCE_OPEN)
-  {
-    std::snprintf(base, sizeof(base), "X");
-  }
-  else if (source == JWPLC_LOGIC_V2_SOURCE_CONST_TRUE)
-  {
-    std::snprintf(base, sizeof(base), "1");
-  }
-  else if (source == JWPLC_LOGIC_V2_SOURCE_CONST_FALSE)
-  {
-    std::snprintf(base, sizeof(base), "0");
-  }
-  else if (block.type == LogicV2BlockType::SetReset)
-  {
-    std::snprintf(base, sizeof(base), "%s", inputIndex == 0 ? "S" : "R");
-  }
-  else if (block.type == LogicV2BlockType::Ton)
-  {
-    std::snprintf(base, sizeof(base), "T");
-  }
-  else
-  {
-    std::snprintf(base,
-                  sizeof(base),
-                  "%u",
-                  static_cast<unsigned>(inputIndex + 1U));
-  }
-
-  std::snprintf(destination,
-                capacity,
-                "%s%s",
-                input.inverted() ? "!" : "",
-                base);
 }
 
 void RuntimeUIFBDMapV2::formatResource(
