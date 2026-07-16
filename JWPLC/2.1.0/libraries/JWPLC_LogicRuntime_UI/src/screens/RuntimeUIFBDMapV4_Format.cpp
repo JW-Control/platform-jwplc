@@ -60,40 +60,120 @@ void RuntimeUIFBDMapV4::updateHeaderStateIfNeeded(bool force)
   _headerStateValid = true;
 }
 
+bool RuntimeUIFBDMapV4::isFullLevel(uint8_t level) const
+{
+  if (_maxLevel <= 4)
+  {
+    return level <= _maxLevel;
+  }
+
+  switch (_horizontalMode)
+  {
+  case HorizontalWindowMode::LeftEdge:
+    return level <= 3;
+
+  case HorizontalWindowMode::Middle:
+    return level >= _centralStartLevel &&
+           level <= static_cast<uint8_t>(_centralStartLevel + 2U);
+
+  case HorizontalWindowMode::RightEdge:
+  default:
+    return level >= static_cast<uint8_t>(_maxLevel - 3U) &&
+           level <= _maxLevel;
+  }
+}
+
+bool RuntimeUIFBDMapV4::isPreviewLevel(uint8_t level,
+                                       bool &leftSide) const
+{
+  leftSide = false;
+  if (_maxLevel <= 4)
+  {
+    return false;
+  }
+
+  switch (_horizontalMode)
+  {
+  case HorizontalWindowMode::LeftEdge:
+    leftSide = false;
+    return level == 4;
+
+  case HorizontalWindowMode::Middle:
+    if (level == static_cast<uint8_t>(_centralStartLevel - 1U))
+    {
+      leftSide = true;
+      return true;
+    }
+    if (level == static_cast<uint8_t>(_centralStartLevel + 3U))
+    {
+      leftSide = false;
+      return true;
+    }
+    return false;
+
+  case HorizontalWindowMode::RightEdge:
+  default:
+    leftSide = true;
+    return level == static_cast<uint8_t>(_maxLevel - 4U);
+  }
+}
+
+int8_t RuntimeUIFBDMapV4::slotForLevel(uint8_t level) const
+{
+  if (_maxLevel <= 4)
+  {
+    if (level <= _maxLevel)
+    {
+      return static_cast<int8_t>(level);
+    }
+    return static_cast<int8_t>(SLOT_COUNT);
+  }
+
+  switch (_horizontalMode)
+  {
+  case HorizontalWindowMode::LeftEdge:
+    if (level <= 4)
+    {
+      return static_cast<int8_t>(level);
+    }
+    return static_cast<int8_t>(SLOT_COUNT);
+
+  case HorizontalWindowMode::Middle:
+    if (level < static_cast<uint8_t>(_centralStartLevel - 1U))
+    {
+      return -1;
+    }
+    if (level > static_cast<uint8_t>(_centralStartLevel + 3U))
+    {
+      return static_cast<int8_t>(SLOT_COUNT);
+    }
+    return static_cast<int8_t>(
+        level - static_cast<uint8_t>(_centralStartLevel - 1U));
+
+  case HorizontalWindowMode::RightEdge:
+  default:
+  {
+    const uint8_t firstLevel = static_cast<uint8_t>(_maxLevel - 4U);
+    if (level < firstLevel)
+    {
+      return -1;
+    }
+    if (level > _maxLevel)
+    {
+      return static_cast<int8_t>(SLOT_COUNT);
+    }
+    return static_cast<int8_t>(level - firstLevel);
+  }
+  }
+}
+
 bool RuntimeUIFBDMapV4::nodeFullyVisible(int16_t x, int16_t y) const
 {
   const int16_t mapRight = static_cast<int16_t>(MAP_X + MAP_W - 1);
   const int16_t mapBottom = static_cast<int16_t>(MAP_Y + MAP_H - 1);
-  int16_t contentLeft = MAP_X;
-  int16_t contentRight = mapRight;
-
-  if (_model != nullptr)
-  {
-    bool reserveLeft = false;
-    bool reserveRight = false;
-    const uint16_t count = _model->blockCount();
-    for (uint16_t index = 0; index < count; ++index)
-    {
-      const int16_t candidateX = screenX(index);
-      const int16_t candidateRight = static_cast<int16_t>(
-          candidateX + NODE_W - 1);
-      reserveLeft |= candidateX < MAP_X;
-      reserveRight |= candidateRight > mapRight;
-    }
-
-    if (reserveLeft)
-    {
-      contentLeft = static_cast<int16_t>(MAP_X + EDGE_HINT_W + 4);
-    }
-    if (reserveRight)
-    {
-      contentRight = static_cast<int16_t>(mapRight - EDGE_HINT_W - 4);
-    }
-  }
-
-  return x >= contentLeft &&
+  return x >= MAP_X &&
          y >= MAP_Y &&
-         x + NODE_W - 1 <= contentRight &&
+         x + NODE_W - 1 <= mapRight &&
          y + NODE_H - 1 <= mapBottom;
 }
 
@@ -108,7 +188,8 @@ RuntimeUIFBDMapV4::GridRange RuntimeUIFBDMapV4::visibleGridRange() const
   const uint16_t count = _model->blockCount();
   for (uint16_t index = 0; index < count; ++index)
   {
-    if (!nodeFullyVisible(screenX(index), screenY(index)))
+    if (!isFullLevel(_levels[index]) ||
+        !nodeFullyVisible(screenX(index), screenY(index)))
     {
       continue;
     }
@@ -137,48 +218,74 @@ bool RuntimeUIFBDMapV4::shouldDrawEdgeHint(uint16_t blockIndex,
                                            const GridRange &range,
                                            bool &leftSide) const
 {
-  if (!range.valid ||
-      nodeFullyVisible(screenX(blockIndex), screenY(blockIndex)))
+  (void)range;
+  if (_model == nullptr || blockIndex >= _model->blockCount())
   {
     return false;
   }
 
-  const uint8_t level = _levels[blockIndex];
-  const uint8_t lane = _lanes[blockIndex];
-  const bool laneNear =
-      lane + 1U >= range.minLane &&
-      lane <= static_cast<uint8_t>(range.maxLane + 1U);
-  if (!laneNear)
+  if (!isPreviewLevel(_levels[blockIndex], leftSide))
   {
     return false;
   }
 
-  if (range.minLevel > 0 &&
-      level == static_cast<uint8_t>(range.minLevel - 1U))
-  {
-    leftSide = true;
-    return true;
-  }
-
-  if (level == static_cast<uint8_t>(range.maxLevel + 1U))
-  {
-    leftSide = false;
-    return true;
-  }
-
-  return false;
+  const int16_t y = static_cast<int16_t>(
+      screenY(blockIndex) + EDGE_HINT_Y_OFFSET);
+  const int16_t mapBottom = static_cast<int16_t>(MAP_Y + MAP_H - 1);
+  return y >= MAP_Y &&
+         y + EDGE_HINT_H - 1 <= mapBottom;
 }
 
 int16_t RuntimeUIFBDMapV4::screenX(uint16_t blockIndex) const
 {
-  return static_cast<int16_t>(
-      MAP_X + _nodeX[blockIndex] - _viewportX);
+  const uint8_t level = _levels[blockIndex];
+  const int8_t slot = slotForLevel(level);
+  if (slot < 0)
+  {
+    return static_cast<int16_t>(MAP_X - NODE_W);
+  }
+  if (slot >= static_cast<int8_t>(SLOT_COUNT))
+  {
+    return static_cast<int16_t>(MAP_X + MAP_W);
+  }
+
+  bool leftSide = false;
+  const bool preview = isPreviewLevel(level, leftSide);
+  const int16_t baseX = static_cast<int16_t>(
+      SLOT_X0 + static_cast<int16_t>(slot) * SLOT_STEP);
+  return preview
+             ? static_cast<int16_t>(baseX + (NODE_W - EDGE_HINT_W) / 2)
+             : baseX;
 }
 
 int16_t RuntimeUIFBDMapV4::screenY(uint16_t blockIndex) const
 {
   return static_cast<int16_t>(
       MAP_Y + _nodeY[blockIndex] - _viewportY);
+}
+
+int16_t RuntimeUIFBDMapV4::renderedNodeWidth(uint16_t blockIndex) const
+{
+  bool leftSide = false;
+  return isPreviewLevel(_levels[blockIndex], leftSide)
+             ? EDGE_HINT_W
+             : NODE_W;
+}
+
+int16_t RuntimeUIFBDMapV4::renderedNodeHeight(uint16_t blockIndex) const
+{
+  bool leftSide = false;
+  return isPreviewLevel(_levels[blockIndex], leftSide)
+             ? EDGE_HINT_H
+             : NODE_H;
+}
+
+int16_t RuntimeUIFBDMapV4::renderedNodeYOffset(uint16_t blockIndex) const
+{
+  bool leftSide = false;
+  return isPreviewLevel(_levels[blockIndex], leftSide)
+             ? EDGE_HINT_Y_OFFSET
+             : 0;
 }
 
 int16_t RuntimeUIFBDMapV4::inputPortY(
