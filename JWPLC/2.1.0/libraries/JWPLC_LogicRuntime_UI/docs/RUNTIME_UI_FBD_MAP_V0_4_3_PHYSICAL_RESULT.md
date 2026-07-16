@@ -31,19 +31,19 @@ Las fotografías físicas confirmaron que la v0.4.3:
 7. Los indicadores deben limitarse a la columna o fila inmediatamente adyacente, no a dos o más niveles de distancia.
 8. La limpieza completa del mapa durante cambios lógicos produce parpadeo perceptible.
 
-## Decisión para v0.4.4
+## Decisión implementada para v0.4.4
 
 ```text
-Nuevo renderer aislado RuntimeUIFBDMapV3.
+Renderer actual RuntimeUIFBDMapV2 conservado para no duplicar código experimental.
 Burbuja negada siempre COLOR_MUTED.
-Sin números ni ! dentro de AND/OR/NOT/Q.
+Sin números, ! ni constantes dentro de AND/OR/NOT/Q.
 Mantener 4 IN / 2 IN / 1 IN en el cuerpo del bloque.
 Mantener S/R y T dentro del gutter.
-SET/RESET: S en y+8 y R en y+24.
-Hints solo para nivel o fila adyacente a bloques completos visibles.
-Repintado incremental de cables y nodos sin limpiar todo el panel.
-Insignia RUN actualizada únicamente cuando cambia el estado.
-Redibujado completo reservado para entrada, detalle o cambio de viewport.
+SET/RESET: S en y+10 y R en y+22.
+Hints solo para el nivel o fila fuera de pantalla más cercano.
+Si ya existe un bloque parcial en un borde, no se agrega un hint más lejano.
+Repintado dinámico de cables y nodos sin limpiar todo el panel.
+Redibujado completo reservado para entrada, detalle, navegación o cambio de layout.
 ```
 
 La pantalla de edición gráfica de entradas queda pendiente y no forma parte de v0.4.4.
