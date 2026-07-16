@@ -72,7 +72,7 @@ private:
   static constexpr int16_t NODE_GUTTER_W = 17;
   static constexpr int16_t NODE_TEXT_X = NODE_GUTTER_W + 2;
   static constexpr int16_t COLUMN_STEP = 88;
-  static constexpr int16_t ROW_STEP = 40;
+  static constexpr int16_t ROW_STEP = 41;
   static constexpr int16_t WORLD_MARGIN_X = 4;
   static constexpr int16_t WORLD_MARGIN_Y = 2;
   static constexpr int16_t KEEP_MARGIN_X = 12;
