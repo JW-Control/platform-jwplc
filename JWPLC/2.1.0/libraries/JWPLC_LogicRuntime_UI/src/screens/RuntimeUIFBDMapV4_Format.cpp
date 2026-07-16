@@ -64,9 +64,36 @@ bool RuntimeUIFBDMapV4::nodeFullyVisible(int16_t x, int16_t y) const
 {
   const int16_t mapRight = static_cast<int16_t>(MAP_X + MAP_W - 1);
   const int16_t mapBottom = static_cast<int16_t>(MAP_Y + MAP_H - 1);
-  return x >= MAP_X &&
+  int16_t contentLeft = MAP_X;
+  int16_t contentRight = mapRight;
+
+  if (_model != nullptr)
+  {
+    bool reserveLeft = false;
+    bool reserveRight = false;
+    const uint16_t count = _model->blockCount();
+    for (uint16_t index = 0; index < count; ++index)
+    {
+      const int16_t candidateX = screenX(index);
+      const int16_t candidateRight = static_cast<int16_t>(
+          candidateX + NODE_W - 1);
+      reserveLeft |= candidateX < MAP_X;
+      reserveRight |= candidateRight > mapRight;
+    }
+
+    if (reserveLeft)
+    {
+      contentLeft = static_cast<int16_t>(MAP_X + EDGE_HINT_W + 4);
+    }
+    if (reserveRight)
+    {
+      contentRight = static_cast<int16_t>(mapRight - EDGE_HINT_W - 4);
+    }
+  }
+
+  return x >= contentLeft &&
          y >= MAP_Y &&
-         x + NODE_W - 1 <= mapRight &&
+         x + NODE_W - 1 <= contentRight &&
          y + NODE_H - 1 <= mapBottom;
 }
 
