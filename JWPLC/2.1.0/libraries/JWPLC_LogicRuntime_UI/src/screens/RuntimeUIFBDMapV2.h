@@ -10,14 +10,12 @@
 /**
  * @brief Mapa FBD estable y de solo lectura para el motor RAM v2.
  *
- * Cada bloque recibe una posición lógica determinista. La selección se mueve
- * por conexiones o cercanía geográfica; el viewport solo se desplaza cuando el
- * bloque seleccionado cruza los márgenes visibles.
+ * La v0.4.4 simplifica los pines combinacionales al estilo LOGO!: el mapa
+ * conserva cantidad de entradas y estado de señales, mientras la edición
+ * detallada de cada pin queda reservada para una pantalla específica.
  *
- * Desde v0.4.3 los bloques próximos a un borde conservan una identificación
- * compacta y los cables se recortan por segmentos contra el viewport. Así no
- * desaparecen las conexiones cuando una fuente o consumidor está fuera de la
- * zona visible.
+ * Los hints laterales solo representan la columna o fila inmediatamente
+ * próxima al viewport y el refresco de valores evita limpiar todo el mapa.
  */
 class RuntimeUIFBDMapV2
 {
@@ -39,10 +37,19 @@ private:
     Detail
   };
 
+  enum class EdgeDirection : uint8_t
+  {
+    None = 0,
+    Left,
+    Right,
+    Top,
+    Bottom
+  };
+
   static constexpr uint16_t MAX_BLOCKS =
       JWPLC_LOGIC_V2_COMPILED_MAX_BLOCKS;
   static constexpr uint8_t MAX_LEVELS = 100;
-  static constexpr uint32_t VALUE_REFRESH_MS = 100;
+  static constexpr uint32_t VALUE_REFRESH_MS = 120;
 
   static constexpr int16_t HEADER_INFO_X = 104;
   static constexpr int16_t HEADER_INFO_Y = 8;
@@ -88,7 +95,7 @@ private:
   void drawMapStatic();
   void clearMapArea();
   void drawMapHeaderInfo();
-  void drawMap();
+  void drawMap(bool clearArea = true);
   void drawWires();
   void drawNodes();
   void drawWire(uint16_t consumerIndex,
@@ -106,8 +113,7 @@ private:
                        uint16_t border,
                        bool active);
   void drawEdgeHint(uint16_t blockIndex,
-                    int16_t screenX,
-                    int16_t screenY,
+                    EdgeDirection direction,
                     uint16_t border,
                     bool active);
   void drawNodePorts(uint16_t blockIndex,
@@ -135,7 +141,11 @@ private:
   bool valuesChanged();
   bool nodeFullyVisible(int16_t screenX, int16_t screenY) const;
   bool nodeIntersectsMap(int16_t screenX, int16_t screenY) const;
-  bool nodeNearMap(int16_t screenX, int16_t screenY) const;
+  EdgeDirection nodeOutsideDirection(int16_t screenX,
+                                     int16_t screenY) const;
+  int16_t edgeDistance(int16_t screenX,
+                       int16_t screenY,
+                       EdgeDirection direction) const;
   int16_t screenX(uint16_t blockIndex) const;
   int16_t screenY(uint16_t blockIndex) const;
   int16_t inputPortY(const LogicV2BlockRecord &block,
@@ -147,11 +157,6 @@ private:
   void formatNodeData(char *destination,
                       size_t capacity,
                       uint16_t blockIndex) const;
-  void formatPinLabel(char *destination,
-                      size_t capacity,
-                      const LogicV2BlockRecord &block,
-                      const LogicV2InputLink &input,
-                      uint8_t inputIndex) const;
   void formatResource(char *destination,
                       size_t capacity,
                       const LogicV2BlockRecord &block) const;
