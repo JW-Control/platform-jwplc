@@ -34,8 +34,14 @@ RuntimeUIFBDMapV4::RuntimeUIFBDMapV4()
       _viewportY(0),
       _lastValueRefreshMs(0),
       _lastDetailRefreshMs(0),
+      _inputReleaseGate(false),
+      _restoreIdleReturnPending(false),
+      _applyRequested(false),
+      _applyCompleted(false),
+      _applySuccess(false),
       _awaitingApply(false),
-      _lastApplySuccess(true),
+      _editFocus(EditFocus::Source),
+      _editFeedback(EditFeedback::None),
       _editSourceCandidate(0),
       _editInverted(false),
       _levels{},
@@ -49,11 +55,13 @@ RuntimeUIFBDMapV4::RuntimeUIFBDMapV4()
 void RuntimeUIFBDMapV4::attach(RuntimeUIV2ReadModel &model)
 {
   _model = &model;
-  const LogicV2EnginePrototype *engine = model.engine();
+  LogicV2EnginePrototype *engine = model.mutableEngine();
   if (engine != nullptr)
   {
-    _editSession.attach(*const_cast<LogicV2EnginePrototype *>(engine));
+    _editSession.attach(*engine);
   }
+
+  _mode = Mode::Map;
   _selectedIndex = 0;
   _detailInputIndex = 0;
   _horizontalMode = HorizontalWindowMode::LeftEdge;
@@ -61,14 +69,25 @@ void RuntimeUIFBDMapV4::attach(RuntimeUIV2ReadModel &model)
   _maxLevel = 0;
   _viewportY = 0;
   _headerStateValid = false;
+  _inputReleaseGate = false;
+  _restoreIdleReturnPending = false;
+  _applyRequested = false;
+  _applyCompleted = false;
+  _applySuccess = false;
   _awaitingApply = false;
-  _lastApplySuccess = true;
+  _editFocus = EditFocus::Source;
+  _editFeedback = EditFeedback::None;
   invalidateLayout();
   forceRedraw();
 }
 
 void RuntimeUIFBDMapV4::detach()
 {
+  if (_mode == Mode::EditInput)
+  {
+    JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
+  }
+
   _editSession.detach();
   _model = nullptr;
   _mode = Mode::Map;
@@ -79,6 +98,10 @@ void RuntimeUIFBDMapV4::detach()
   _maxLevel = 0;
   _viewportY = 0;
   _headerStateValid = false;
+  _inputReleaseGate = false;
+  _restoreIdleReturnPending = false;
+  _applyRequested = false;
+  _applyCompleted = false;
   _awaitingApply = false;
   invalidateLayout();
 }
@@ -86,7 +109,10 @@ void RuntimeUIFBDMapV4::detach()
 void RuntimeUIFBDMapV4::enter()
 {
   _mode = Mode::Map;
+  _applyRequested = false;
+  _applyCompleted = false;
   _awaitingApply = false;
+  _editFeedback = EditFeedback::None;
   _lastValueRefreshMs = millis();
   _lastDetailRefreshMs = _lastValueRefreshMs;
   normalizeSelection();
@@ -94,6 +120,7 @@ void RuntimeUIFBDMapV4::enter()
   ensureSelectionVisible();
   drawMapStatic();
   drawMapFull();
+  gateInputUntilRelease(false);
   _fullRedraw = false;
 }
 
@@ -106,6 +133,33 @@ void RuntimeUIFBDMapV4::refresh(const JWPLC_IOState *io,
   if (_model == nullptr || !_model->isAttached())
   {
     return;
+  }
+
+  if (_applyCompleted)
+  {
+    const bool success = _applySuccess;
+    _applyCompleted = false;
+    _awaitingApply = false;
+
+    if (success)
+    {
+      _editSession.cancel();
+      _editFeedback = EditFeedback::None;
+      _mode = Mode::Detail;
+      invalidateLayout();
+      buildLayout();
+      normalizeSelection();
+      ensureSelectionVisible();
+      _lastDetailRefreshMs = millis();
+      gateInputUntilRelease(true);
+    }
+    else
+    {
+      _editFeedback = EditFeedback::ApplyFailed;
+      gateInputUntilRelease(false);
+    }
+
+    _fullRedraw = true;
   }
 
   if (_layoutValid &&
@@ -144,6 +198,11 @@ void RuntimeUIFBDMapV4::refresh(const JWPLC_IOState *io,
   }
 
   updateHeaderStateIfNeeded(false);
+
+  if (consumeInputReleaseGate())
+  {
+    return;
+  }
 
   if (_mode == Mode::Map)
   {
@@ -191,11 +250,22 @@ void RuntimeUIFBDMapV4::exit()
 {
   _valueCacheValid = false;
   _headerStateValid = false;
+  _applyRequested = false;
+  _applyCompleted = false;
   _awaitingApply = false;
+
   if (_editSession.active())
   {
     _editSession.cancel();
   }
+
+  if (_mode == Mode::EditInput || _restoreIdleReturnPending)
+  {
+    JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
+  }
+
+  _inputReleaseGate = false;
+  _restoreIdleReturnPending = false;
 }
 
 void RuntimeUIFBDMapV4::forceRedraw()
@@ -203,6 +273,19 @@ void RuntimeUIFBDMapV4::forceRedraw()
   _fullRedraw = true;
   _valueCacheValid = false;
   _headerStateValid = false;
+}
+
+void RuntimeUIFBDMapV4::processPendingEdit()
+{
+  if (!_applyRequested)
+  {
+    return;
+  }
+
+  _applyRequested = false;
+  const bool success = _editSession.apply(true);
+  _applySuccess = success;
+  _applyCompleted = true;
 }
 
 void RuntimeUIFBDMapV4::invalidateLayout()
@@ -373,7 +456,7 @@ bool RuntimeUIFBDMapV4::ensureSelectionVisible()
   }
 
   const int16_t nodeWorldY = _nodeY[_selectedIndex];
-  int16_t relativeY = static_cast<int16_t>(nodeWorldY - _viewportY);
+  const int16_t relativeY = static_cast<int16_t>(nodeWorldY - _viewportY);
 
   if (relativeY < KEEP_MARGIN_Y)
   {
@@ -399,6 +482,55 @@ bool RuntimeUIFBDMapV4::ensureSelectionVisible()
     _valueCacheValid = false;
   }
   return changed;
+}
+
+bool RuntimeUIFBDMapV4::anyButtonHeld() const
+{
+  for (uint8_t button = 0; button < BTN_COUNT; ++button)
+  {
+    if (JWPLC_Buttons.isDown(button))
+    {
+      return true;
+    }
+  }
+  return false;
+}
+
+void RuntimeUIFBDMapV4::gateInputUntilRelease(bool restoreIdleReturn)
+{
+  _inputReleaseGate = true;
+  if (restoreIdleReturn)
+  {
+    _restoreIdleReturnPending = true;
+  }
+  JWPLC_Buttons.clearPendingInput();
+}
+
+bool RuntimeUIFBDMapV4::consumeInputReleaseGate()
+{
+  if (!_inputReleaseGate)
+  {
+    return false;
+  }
+
+  JWPLC_Buttons.clearPendingInput();
+  if (anyButtonHeld())
+  {
+    return true;
+  }
+
+  _inputReleaseGate = false;
+  JWPLC_Buttons.clearPendingInput();
+
+  if (_restoreIdleReturnPending)
+  {
+    _restoreIdleReturnPending = false;
+    JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
+  }
+
+  // Se consume un frame adicional para evitar que un RELEASE se interprete
+  // como una acción de la pantalla recién restaurada.
+  return true;
 }
 
 uint16_t RuntimeUIFBDMapV4::nearestByY(const uint16_t *indices,
@@ -542,10 +674,10 @@ void RuntimeUIFBDMapV4::handleMapInput()
       _model->blockCount() > 0)
   {
     JWPLC_Display.notifyActivity();
-    JWPLC_Buttons.clearPendingInput();
     _mode = Mode::Detail;
     _detailInputIndex = 0;
     _lastDetailRefreshMs = millis();
+    gateInputUntilRelease(false);
     drawDetailStatic();
     drawDetail(true);
   }
@@ -578,8 +710,9 @@ void RuntimeUIFBDMapV4::handleDetailInput()
     if (beginInputEdit())
     {
       JWPLC_Display.notifyActivity();
-      JWPLC_Buttons.clearPendingInput();
       _mode = Mode::EditInput;
+      JWPLC_Display.setIdleReturnMode(IDLE_RETURN_DISABLED);
+      gateInputUntilRelease(false);
       drawInputEditStatic();
       drawInputEdit();
       return;
@@ -592,9 +725,9 @@ void RuntimeUIFBDMapV4::handleDetailInput()
     if (input != nullptr && input->source() < _model->blockCount())
     {
       _selectedIndex = input->source();
-      JWPLC_Buttons.clearPendingInput();
       _mode = Mode::Map;
       ensureSelectionVisible();
+      gateInputUntilRelease(false);
       drawMapStatic();
       drawMapFull();
       JWPLC_Display.notifyActivity();
@@ -604,8 +737,8 @@ void RuntimeUIFBDMapV4::handleDetailInput()
   else if (JWPLC_Buttons.pressed(BTN_OK))
   {
     JWPLC_Display.notifyActivity();
-    JWPLC_Buttons.clearPendingInput();
     _mode = Mode::Map;
+    gateInputUntilRelease(false);
     drawMapStatic();
     drawMapFull();
     return;
@@ -635,8 +768,9 @@ bool RuntimeUIFBDMapV4::beginInputEdit()
 
   _editSourceCandidate = sourceCandidateIndex(input->source());
   _editInverted = input->inverted();
+  _editFocus = EditFocus::Source;
+  _editFeedback = EditFeedback::None;
   _awaitingApply = false;
-  _lastApplySuccess = true;
   return true;
 }
 
@@ -644,53 +778,87 @@ void RuntimeUIFBDMapV4::cancelInputEdit()
 {
   _editSession.cancel();
   _awaitingApply = false;
-  JWPLC_Buttons.clearPendingInput();
+  _editFeedback = EditFeedback::None;
   _mode = Mode::Detail;
-  drawDetailStatic();
-  drawDetail(true);
+  gateInputUntilRelease(true);
+  _fullRedraw = true;
+}
+
+bool RuntimeUIFBDMapV4::selectedInputAllowsOpen() const
+{
+  const LogicV2BlockRecord *definition = _model != nullptr
+                                             ? _model->block(_selectedIndex)
+                                             : nullptr;
+  if (definition == nullptr)
+  {
+    return false;
+  }
+
+  switch (definition->type)
+  {
+  case LogicV2BlockType::And:
+  case LogicV2BlockType::Or:
+  case LogicV2BlockType::Nand:
+  case LogicV2BlockType::Nor:
+  case LogicV2BlockType::Xor:
+    return true;
+
+  default:
+    return false;
+  }
 }
 
 uint16_t RuntimeUIFBDMapV4::sourceCandidateCount() const
 {
-  return static_cast<uint16_t>(3U + _selectedIndex);
+  return static_cast<uint16_t>(
+      _selectedIndex + (selectedInputAllowsOpen() ? 3U : 2U));
 }
 
 uint16_t RuntimeUIFBDMapV4::sourceCandidateAt(uint16_t candidateIndex) const
 {
-  if (candidateIndex == 0)
+  const bool allowOpen = selectedInputAllowsOpen();
+  if (allowOpen)
   {
-    return JWPLC_LOGIC_V2_SOURCE_OPEN;
+    if (candidateIndex == 0)
+    {
+      return JWPLC_LOGIC_V2_SOURCE_OPEN;
+    }
+    --candidateIndex;
   }
-  if (candidateIndex == 1)
+
+  if (candidateIndex == 0)
   {
     return JWPLC_LOGIC_V2_SOURCE_CONST_TRUE;
   }
-  if (candidateIndex == 2)
+  if (candidateIndex == 1)
   {
     return JWPLC_LOGIC_V2_SOURCE_CONST_FALSE;
   }
-  return static_cast<uint16_t>(candidateIndex - 3U);
+  return static_cast<uint16_t>(candidateIndex - 2U);
 }
 
 uint16_t RuntimeUIFBDMapV4::sourceCandidateIndex(uint16_t source) const
 {
-  if (source == JWPLC_LOGIC_V2_SOURCE_OPEN)
+  const bool allowOpen = selectedInputAllowsOpen();
+  const uint16_t specialOffset = allowOpen ? 1U : 0U;
+
+  if (allowOpen && source == JWPLC_LOGIC_V2_SOURCE_OPEN)
   {
     return 0;
   }
   if (source == JWPLC_LOGIC_V2_SOURCE_CONST_TRUE)
   {
-    return 1;
+    return specialOffset;
   }
   if (source == JWPLC_LOGIC_V2_SOURCE_CONST_FALSE)
   {
-    return 2;
+    return static_cast<uint16_t>(specialOffset + 1U);
   }
   if (source < _selectedIndex)
   {
-    return static_cast<uint16_t>(source + 3U);
+    return static_cast<uint16_t>(specialOffset + 2U + source);
   }
-  return 0;
+  return specialOffset;
 }
 
 void RuntimeUIFBDMapV4::moveSourceCandidate(bool forward)
@@ -717,23 +885,51 @@ void RuntimeUIFBDMapV4::moveSourceCandidate(bool forward)
 
 void RuntimeUIFBDMapV4::handleEditInput()
 {
+  if (_awaitingApply)
+  {
+    return;
+  }
+
   bool changed = false;
   if (JWPLC_Buttons.pressed(BTN_UP))
   {
-    moveSourceCandidate(false);
+    _editFocus = EditFocus::Source;
+    _editFeedback = EditFeedback::None;
     changed = true;
   }
   else if (JWPLC_Buttons.pressed(BTN_DOWN))
   {
-    moveSourceCandidate(true);
+    _editFocus = EditFocus::Logic;
+    _editFeedback = EditFeedback::None;
     changed = true;
   }
   else if (JWPLC_Buttons.pressed(BTN_LEFT))
   {
-    _editInverted = !_editInverted;
+    if (_editFocus == EditFocus::Source)
+    {
+      moveSourceCandidate(false);
+    }
+    else
+    {
+      _editInverted = !_editInverted;
+    }
+    _editFeedback = EditFeedback::None;
     changed = true;
   }
   else if (JWPLC_Buttons.pressed(BTN_RIGHT))
+  {
+    if (_editFocus == EditFocus::Source)
+    {
+      moveSourceCandidate(true);
+    }
+    else
+    {
+      _editInverted = !_editInverted;
+    }
+    _editFeedback = EditFeedback::None;
+    changed = true;
+  }
+  else if (JWPLC_Buttons.pressed(BTN_ESC))
   {
     JWPLC_Display.notifyActivity();
     cancelInputEdit();
@@ -741,7 +937,6 @@ void RuntimeUIFBDMapV4::handleEditInput()
   }
   else if (JWPLC_Buttons.pressed(BTN_OK))
   {
-    _awaitingApply = true;
     const bool prepared = _editSession.setInputSource(
         _selectedIndex,
         _detailInputIndex,
@@ -749,25 +944,19 @@ void RuntimeUIFBDMapV4::handleEditInput()
         _editInverted);
     const bool valid = prepared &&
                        _editSession.validate() == LogicV2PrototypeError::None;
-    const bool applied = valid && _editSession.apply(true);
-    _awaitingApply = false;
-    _lastApplySuccess = applied;
-    JWPLC_Display.notifyActivity();
-    JWPLC_Buttons.clearPendingInput();
 
-    if (applied)
+    JWPLC_Display.notifyActivity();
+    if (!valid)
     {
-      invalidateLayout();
-      buildLayout();
-      normalizeSelection();
-      ensureSelectionVisible();
-      _mode = Mode::Detail;
-      _lastDetailRefreshMs = millis();
-      drawDetailStatic();
-      drawDetail(true);
+      _editFeedback = EditFeedback::InvalidDraft;
+      drawInputEdit();
       return;
     }
 
+    _awaitingApply = true;
+    _editFeedback = EditFeedback::Applying;
+    _applyRequested = true;
+    gateInputUntilRelease(false);
     drawInputEdit();
     return;
   }
