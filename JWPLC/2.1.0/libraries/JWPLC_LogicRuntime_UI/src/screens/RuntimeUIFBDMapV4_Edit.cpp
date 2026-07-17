@@ -6,6 +6,32 @@
 
 using namespace JWPLCLogicRuntimeUIWidgets;
 
+namespace
+{
+  static constexpr int16_t SOURCE_X = 10;
+  static constexpr int16_t SOURCE_Y = 42;
+  static constexpr int16_t SOURCE_W = 84;
+  static constexpr int16_t SOURCE_H = 48;
+
+  static constexpr int16_t TARGET_X = 218;
+  static constexpr int16_t TARGET_Y = 42;
+  static constexpr int16_t TARGET_W = 88;
+  static constexpr int16_t TARGET_H = 48;
+
+  static constexpr int16_t FIELD_Y = 103;
+  static constexpr int16_t FIELD_H = 38;
+  static constexpr int16_t SOURCE_FIELD_X = 10;
+  static constexpr int16_t SOURCE_FIELD_W = 145;
+  static constexpr int16_t LOGIC_FIELD_X = 165;
+  static constexpr int16_t LOGIC_FIELD_W = 145;
+
+  bool neutralValueFor(LogicV2BlockType type)
+  {
+    return type == LogicV2BlockType::And ||
+           type == LogicV2BlockType::Nand;
+  }
+}
+
 void RuntimeUIFBDMapV4::drawInputEditStatic()
 {
   Adafruit_ST7789 &tft = JWPLC_Display.tft();
@@ -22,6 +48,12 @@ void RuntimeUIFBDMapV4::formatEditSource(char *id,
                                          char *type,
                                          size_t typeCapacity) const
 {
+  if (id == nullptr || idCapacity == 0 ||
+      type == nullptr || typeCapacity == 0)
+  {
+    return;
+  }
+
   const uint16_t source = sourceCandidateAt(_editSourceCandidate);
   if (source == JWPLC_LOGIC_V2_SOURCE_OPEN)
   {
@@ -42,8 +74,18 @@ void RuntimeUIFBDMapV4::formatEditSource(char *id,
     return;
   }
 
-  formatBlockId(id, idCapacity, source);
-  formatMapLine2(type, typeCapacity, source);
+  std::snprintf(id,
+                idCapacity,
+                "B%02u",
+                static_cast<unsigned>(source));
+  const LogicV2BlockRecord *definition =
+      _model != nullptr ? _model->block(source) : nullptr;
+  std::snprintf(type,
+                typeCapacity,
+                "%s",
+                definition != nullptr
+                    ? _model->typeShort(definition->type)
+                    : "?");
 }
 
 void RuntimeUIFBDMapV4::drawInputEdit()
@@ -53,29 +95,29 @@ void RuntimeUIFBDMapV4::drawInputEdit()
     return;
   }
 
-  const LogicV2BlockRecord *definition = _model->block(_selectedIndex);
-  if (definition == nullptr || _detailInputIndex >= definition->inputCount)
+  const LogicV2BlockRecord *target = _model->block(_selectedIndex);
+  if (target == nullptr || _detailInputIndex >= target->inputCount)
   {
     return;
   }
 
   Adafruit_ST7789 &tft = JWPLC_Display.tft();
-  clearMapArea();
+  tft.fillRect(MAP_X, MAP_Y, MAP_W, MAP_H, COLOR_PANEL);
 
   char headerInfo[28];
   std::snprintf(headerInfo,
                 sizeof(headerInfo),
                 "B%02u %s IN%u/%u",
                 static_cast<unsigned>(_selectedIndex),
-                _model->typeShort(definition->type),
+                _model->typeShort(target->type),
                 static_cast<unsigned>(_detailInputIndex + 1U),
-                static_cast<unsigned>(definition->inputCount));
+                static_cast<unsigned>(target->inputCount));
   updateTextField(tft,
                   HEADER_INFO_X,
                   HEADER_INFO_Y,
                   HEADER_INFO_COLUMNS,
                   headerInfo,
-                  COLOR_WARNING,
+                  COLOR_MUTED,
                   COLOR_PANEL);
 
   char sourceId[12];
@@ -85,48 +127,67 @@ void RuntimeUIFBDMapV4::drawInputEdit()
                    sourceType,
                    sizeof(sourceType));
 
-  const int16_t sourceX = 16;
-  const int16_t sourceY = 52;
-  const int16_t sourceW = 102;
-  const int16_t sourceH = 58;
-  const int16_t blockX = 190;
-  const int16_t blockY = 45;
-  const int16_t blockW = 108;
-  const int16_t blockH = 76;
-  const int16_t wireY = 81;
+  const uint16_t source = sourceCandidateAt(_editSourceCandidate);
+  bool rawValue = false;
+  bool sourceKnown = true;
+  if (source == JWPLC_LOGIC_V2_SOURCE_OPEN)
+  {
+    rawValue = neutralValueFor(target->type);
+  }
+  else if (source == JWPLC_LOGIC_V2_SOURCE_CONST_TRUE)
+  {
+    rawValue = true;
+  }
+  else if (source == JWPLC_LOGIC_V2_SOURCE_CONST_FALSE)
+  {
+    rawValue = false;
+  }
+  else if (source < _model->blockCount())
+  {
+    rawValue = _model->blockValue(source);
+  }
+  else
+  {
+    sourceKnown = false;
+  }
 
-  tft.fillRect(sourceX, sourceY, sourceW, sourceH, COLOR_BACKGROUND);
-  tft.drawRect(sourceX, sourceY, sourceW, sourceH, COLOR_WARNING);
-  tft.drawRect(sourceX + 1, sourceY + 1, sourceW - 2, sourceH - 2, COLOR_WARNING);
+  const bool effectiveValue = sourceKnown
+                                  ? (_editInverted ? !rawValue : rawValue)
+                                  : false;
+  const uint16_t sourceBorder = rawValue ? COLOR_OK : COLOR_BORDER;
+  const uint16_t wireColor = effectiveValue ? COLOR_OK : COLOR_MUTED;
 
+  // Fuente candidata.
+  tft.fillRect(SOURCE_X, SOURCE_Y, SOURCE_W, SOURCE_H, COLOR_BACKGROUND);
+  tft.drawRect(SOURCE_X, SOURCE_Y, SOURCE_W, SOURCE_H, sourceBorder);
   tft.setTextWrap(false);
   tft.setTextSize(1);
   tft.setTextColor(COLOR_TEXT, COLOR_BACKGROUND);
-  tft.setCursor(sourceX + 7, sourceY + 8);
-  tft.print("FUENTE");
-  tft.setTextSize(2);
-  tft.setCursor(sourceX + 8, sourceY + 23);
+  tft.setCursor(SOURCE_X + 6, SOURCE_Y + 7);
   tft.print(sourceId);
-  tft.setTextSize(1);
-  tft.setTextColor(COLOR_MUTED, COLOR_BACKGROUND);
-  tft.setCursor(sourceX + 45, sourceY + 28);
+  tft.setTextColor(rawValue ? COLOR_OK : COLOR_MUTED,
+                   COLOR_BACKGROUND);
+  tft.setCursor(SOURCE_X + 6, SOURCE_Y + 26);
   tft.print(sourceType);
 
-  tft.fillRect(blockX, blockY, blockW, blockH, COLOR_BACKGROUND);
-  tft.drawRect(blockX, blockY, blockW, blockH, COLOR_BORDER);
-  tft.drawFastVLine(blockX + 24, blockY + 2, blockH - 4, COLOR_BORDER);
+  // Bloque destino.
+  tft.fillRect(TARGET_X, TARGET_Y, TARGET_W, TARGET_H, COLOR_BACKGROUND);
+  tft.drawRect(TARGET_X, TARGET_Y, TARGET_W, TARGET_H, COLOR_BORDER);
 
-  char blockId[8];
-  formatBlockId(blockId, sizeof(blockId), _selectedIndex);
+  char targetId[8];
+  formatBlockId(targetId, sizeof(targetId), _selectedIndex);
   tft.setTextSize(1);
   tft.setTextColor(COLOR_TEXT, COLOR_BACKGROUND);
-  tft.setCursor(blockX + 34, blockY + 8);
-  tft.print(blockId);
-  tft.setTextSize(2);
-  tft.setCursor(blockX + 48, blockY + 29);
-  tft.print(detailSymbol(definition->type));
+  tft.setCursor(TARGET_X + 8, TARGET_Y + 6);
+  tft.print(targetId);
 
-  const char *role = _model->inputRole(definition->type, _detailInputIndex);
+  tft.setTextSize(2);
+  tft.setCursor(TARGET_X + 42, TARGET_Y + 19);
+  tft.setTextColor(effectiveValue ? COLOR_OK : COLOR_TEXT,
+                   COLOR_BACKGROUND);
+  tft.print(detailSymbol(target->type));
+
+  const char *role = _model->inputRole(target->type, _detailInputIndex);
   char roleText[6];
   if (role != nullptr && role[0] != '\0')
   {
@@ -140,45 +201,89 @@ void RuntimeUIFBDMapV4::drawInputEdit()
                   static_cast<unsigned>(_detailInputIndex + 1U));
   }
   tft.setTextSize(1);
-  tft.setTextColor(COLOR_WARNING, COLOR_BACKGROUND);
-  tft.setCursor(blockX + 8, wireY - 3);
+  tft.setTextColor(wireColor, COLOR_BACKGROUND);
+  tft.setCursor(TARGET_X + 7, TARGET_Y + 28);
   tft.print(roleText);
 
-  tft.drawFastHLine(sourceX + sourceW,
+  // Vista previa gráfica de la conexión.
+  const int16_t wireY = static_cast<int16_t>(SOURCE_Y + SOURCE_H / 2);
+  const int16_t sourceEnd = static_cast<int16_t>(SOURCE_X + SOURCE_W);
+  const int16_t targetStart = TARGET_X;
+  tft.drawFastHLine(sourceEnd,
                     wireY,
-                    blockX - (sourceX + sourceW),
-                    COLOR_WARNING);
-
+                    static_cast<int16_t>(targetStart - sourceEnd),
+                    wireColor);
   if (_editInverted)
   {
-    tft.fillCircle(blockX + 1, wireY, 5, COLOR_BACKGROUND);
-    tft.drawCircle(blockX + 1, wireY, 4, COLOR_MUTED);
-  }
-  else
-  {
-    tft.fillCircle(blockX, wireY, 2, COLOR_WARNING);
-  }
-
-  tft.setTextSize(1);
-  tft.setTextColor(_editInverted ? COLOR_WARNING : COLOR_MUTED,
+    tft.fillCircle(targetStart,
+                   wireY,
+                   5,
                    COLOR_PANEL);
-  tft.setCursor(18, 124);
-  tft.print(_editInverted ? "LOGICA: NEGADA" : "LOGICA: NORMAL");
-
-  if (!_lastApplySuccess)
-  {
-    tft.setTextColor(COLOR_ERROR, COLOR_PANEL);
-    tft.setCursor(198, 126);
-    tft.print("CAMBIO INVALIDO");
+    tft.drawCircle(targetStart,
+                   wireY,
+                   4,
+                   COLOR_MUTED);
   }
   else
   {
-    tft.setTextColor(COLOR_MUTED, COLOR_PANEL);
-    tft.setCursor(174, 126);
-    tft.print("OK APLICAR");
+    tft.fillCircle(targetStart, wireY, 2, wireColor);
   }
 
-  tft.setTextColor(COLOR_MUTED, COLOR_PANEL);
-  tft.setCursor(13, 151);
-  tft.print("UP/DN FUENTE  LEFT INV  RIGHT ATRAS");
+  char sourceField[24];
+  std::snprintf(sourceField,
+                sizeof(sourceField),
+                "FUENTE <%s>",
+                sourceId);
+  drawMenuButton(tft,
+                 SOURCE_FIELD_X,
+                 FIELD_Y,
+                 SOURCE_FIELD_W,
+                 FIELD_H,
+                 sourceField,
+                 _editFocus == EditFocus::Source);
+
+  char logicField[24];
+  std::snprintf(logicField,
+                sizeof(logicField),
+                "LOGICA <%s>",
+                _editInverted ? "NEGADA" : "NORMAL");
+  drawMenuButton(tft,
+                 LOGIC_FIELD_X,
+                 FIELD_Y,
+                 LOGIC_FIELD_W,
+                 FIELD_H,
+                 logicField,
+                 _editFocus == EditFocus::Logic);
+
+  const char *status = "OK GUARDAR   ESC CANCELAR";
+  uint16_t statusColor = COLOR_MUTED;
+  switch (_editFeedback)
+  {
+  case EditFeedback::InvalidDraft:
+    status = "CONFIGURACION NO VALIDA";
+    statusColor = COLOR_ERROR;
+    break;
+
+  case EditFeedback::Applying:
+    status = "APLICANDO CAMBIOS...";
+    statusColor = COLOR_WARNING;
+    break;
+
+  case EditFeedback::ApplyFailed:
+    status = "ERROR AL APLICAR";
+    statusColor = COLOR_ERROR;
+    break;
+
+  case EditFeedback::None:
+  default:
+    break;
+  }
+
+  updateTextField(tft,
+                  78,
+                  154,
+                  28,
+                  status,
+                  statusColor,
+                  COLOR_PANEL);
 }
