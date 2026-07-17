@@ -13,6 +13,8 @@
  */
 class RuntimeUIFBDMapV8 : public RuntimeUIFBDMapV7
 {
+  friend class RuntimeUIFBDMapV9;
+
 public:
   RuntimeUIFBDMapV8();
 
@@ -23,6 +25,36 @@ public:
                const JWPLC_RTCState *rtc);
   void exit();
   void forceRedraw();
+
+protected:
+  /**
+   * @brief Intercepta RIGHT antes del renderer v0.5.4, porque pressed() es
+   * consumible y el mapa base no conoce el nodo virtual +.
+   */
+  bool interceptAddRightPressForExtension()
+  {
+    if (_wizardPage != WizardPage::None ||
+        _addSelected ||
+        _mode != Mode::Map ||
+        _inputReleaseGate ||
+        !selectedAtLastLevel())
+    {
+      return false;
+    }
+
+    if (!JWPLC_Buttons.pressed(BTN_RIGHT))
+    {
+      return false;
+    }
+
+    selectAddNode();
+    return true;
+  }
+
+  bool inputReleaseGateActiveForExtension() const
+  {
+    return _inputReleaseGate;
+  }
 
 private:
   enum class WizardPage : uint8_t
