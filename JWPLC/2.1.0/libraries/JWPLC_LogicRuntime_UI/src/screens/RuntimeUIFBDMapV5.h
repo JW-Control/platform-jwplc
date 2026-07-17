@@ -2,6 +2,7 @@
 #define JWPLC_LOGIC_RUNTIME_UI_FBD_MAP_V5_H
 
 #include <cstdio>
+#include <cstdint>
 
 #include "RuntimeUIFBDMapV4.h"
 #include "../widgets/RuntimeUIWidgets.h"
