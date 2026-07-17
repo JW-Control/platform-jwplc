@@ -1,5 +1,5 @@
 #include <JWPLC_LogicRuntime.h>
-#include "../../src/edit/RuntimeUIV2EditSession.h"
+#include <RuntimeUIV2EditSession.h>
 
 static LogicV2EnginePrototype engine;
 static RuntimeUIV2EditSession editor;
