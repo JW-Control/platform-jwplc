@@ -5,27 +5,23 @@
 #include <JWPLC_Display.h>
 #include <JWPLC_GlobalPeripherals.h>
 
+#include "../edit/RuntimeUIV2EditSession.h"
 #include "../model/RuntimeUIV2ReadModel.h"
 
 /**
- * @brief Mapa FBD compacto v0.4.7 para el motor RAM v2.
+ * @brief Mapa FBD de cinco slots con editor RAM inicial para el motor v2.
  *
- * El mapa abandona el desplazamiento horizontal continuo y usa cinco slots
- * físicos. Los tres slots centrales permanecen inmóviles; los laterales
- * representan la columna anterior o siguiente en tamaño reducido. En los
- * extremos del programa, el slot exterior correspondiente se usa a tamaño
- * completo.
- *
- * OK abre una vista gráfica de detalle con las fuentes conectadas y el bloque
- * ampliado. La edición RAM se implementa mediante una sesión transaccional
- * separada antes de integrarla a esta pantalla.
+ * OK abre el detalle gráfico. En bloques con entradas, RIGHT abre la edición de
+ * la entrada seleccionada. La fuente y negación se modifican sobre un borrador
+ * RAM y la recarga del motor se difiere fuera del callback gráfico.
  */
 class RuntimeUIFBDMapV4
 {
 public:
   RuntimeUIFBDMapV4();
 
-  void attach(RuntimeUIV2ReadModel &model);
+  void attach(RuntimeUIV2ReadModel &model,
+              RuntimeUIV2EditSession &editSession);
   void detach();
   void enter();
   void refresh(const JWPLC_IOState *io,
@@ -33,11 +29,15 @@ public:
   void exit();
   void forceRedraw();
 
+  bool takeApplyRequest();
+  void onApplyResult(bool success);
+
 private:
   enum class Mode : uint8_t
   {
     Map = 0,
-    Detail
+    Detail,
+    EditInput
   };
 
   enum class HorizontalWindowMode : uint8_t
@@ -109,11 +109,19 @@ private:
 
   void handleMapInput();
   void handleDetailInput();
+  void handleEditInput();
   bool selectSource();
   bool selectConsumer();
   bool selectVertical(bool down);
   uint16_t nearestByY(const uint16_t *indices,
                       uint8_t count) const;
+
+  bool beginInputEdit();
+  void cancelInputEdit();
+  uint16_t sourceCandidateCount() const;
+  uint16_t sourceCandidateAt(uint16_t candidateIndex) const;
+  uint16_t sourceCandidateIndex(uint16_t source) const;
+  void moveSourceCandidate(bool forward);
 
   void drawMapStatic();
   void clearMapArea();
@@ -166,6 +174,13 @@ private:
   int16_t detailInputY(uint8_t visibleRow) const;
   uint8_t detailPageStart() const;
 
+  void drawInputEditStatic();
+  void drawInputEdit();
+  void formatEditSource(char *id,
+                        size_t idCapacity,
+                        char *type,
+                        size_t typeCapacity) const;
+
   bool valuesChanged();
   void cacheValues();
   void updateHeaderStateIfNeeded(bool force);
@@ -201,6 +216,7 @@ private:
   uint16_t stateColor() const;
 
   RuntimeUIV2ReadModel *_model;
+  RuntimeUIV2EditSession *_editSession;
   Mode _mode;
   HorizontalWindowMode _horizontalMode;
   bool _fullRedraw;
@@ -217,6 +233,12 @@ private:
   int16_t _viewportY;
   uint32_t _lastValueRefreshMs;
   uint32_t _lastDetailRefreshMs;
+
+  volatile bool _applyRequested;
+  bool _awaitingApply;
+  bool _lastApplySuccess;
+  uint16_t _editSourceCandidate;
+  bool _editInverted;
 
   uint8_t _levels[MAX_BLOCKS];
   uint8_t _lanes[MAX_BLOCKS];
