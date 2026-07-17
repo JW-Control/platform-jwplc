@@ -13,24 +13,20 @@
  *
  * OK abre el detalle gráfico. En bloques con entradas, RIGHT abre la edición de
  * la entrada seleccionada. La fuente y negación se modifican sobre un borrador
- * RAM y la recarga del motor se difiere fuera del callback gráfico.
+ * RAM y luego se aplican al motor validado.
  */
 class RuntimeUIFBDMapV4
 {
 public:
   RuntimeUIFBDMapV4();
 
-  void attach(RuntimeUIV2ReadModel &model,
-              RuntimeUIV2EditSession &editSession);
+  void attach(RuntimeUIV2ReadModel &model);
   void detach();
   void enter();
   void refresh(const JWPLC_IOState *io,
                const JWPLC_RTCState *rtc);
   void exit();
   void forceRedraw();
-
-  bool takeApplyRequest();
-  void onApplyResult(bool success);
 
 private:
   enum class Mode : uint8_t
@@ -216,7 +212,7 @@ private:
   uint16_t stateColor() const;
 
   RuntimeUIV2ReadModel *_model;
-  RuntimeUIV2EditSession *_editSession;
+  RuntimeUIV2EditSession _editSession;
   Mode _mode;
   HorizontalWindowMode _horizontalMode;
   bool _fullRedraw;
@@ -234,7 +230,6 @@ private:
   uint32_t _lastValueRefreshMs;
   uint32_t _lastDetailRefreshMs;
 
-  volatile bool _applyRequested;
   bool _awaitingApply;
   bool _lastApplySuccess;
   uint16_t _editSourceCandidate;
