@@ -41,6 +41,35 @@ public:
   bool setBlockParameter(uint16_t blockIndex, uint32_t parameter);
   bool setBlockResource(uint16_t blockIndex, uint16_t resource);
 
+  /**
+   * @brief Agrega un bloque al final del orden topológico del borrador.
+   *
+   * La operación es atómica: si el bloque, sus fuentes o el programa resultante
+   * no validan, el borrador queda exactamente como estaba. `inputs` puede ser
+   * nullptr únicamente cuando `inputCount` es cero.
+   */
+  bool appendBlock(LogicV2BlockType type,
+                   const LogicV2InputLink *inputs,
+                   uint8_t inputCount,
+                   uint16_t resource = 0,
+                   uint32_t parameter = 0,
+                   uint16_t *newBlockIndex = nullptr);
+
+  /** @brief Cuenta cuántas entradas de otros bloques consumen este bloque. */
+  uint16_t consumerCount(uint16_t blockIndex) const;
+
+  /** @brief Indica si existe al menos un consumidor del bloque. */
+  bool hasConsumers(uint16_t blockIndex) const;
+
+  /**
+   * @brief Elimina un bloque sin consumidores y compacta bloques/enlaces.
+   *
+   * No elimina en cascada ni desconecta automáticamente consumidores. Tampoco
+   * permite borrar el último bloque, porque el motor v2 aún no admite programas
+   * vacíos.
+   */
+  bool removeBlock(uint16_t blockIndex);
+
   LogicV2PrototypeError validate() const;
   bool apply(bool restartIfPreviouslyRunning = true);
 
