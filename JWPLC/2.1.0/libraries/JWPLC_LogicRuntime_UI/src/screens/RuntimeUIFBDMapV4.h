@@ -11,13 +11,15 @@
 /**
  * @brief Mapa FBD de cinco slots con editor RAM inicial para el motor v2.
  *
- * OK abre el detalle gráfico. En bloques con entradas, RIGHT abre la edición de
+ * OK abre el detalle gráfico. En bloques con entradas, OK abre la edición de
  * la entrada seleccionada. La fuente y la negación se modifican sobre un
  * borrador RAM. La recarga del motor se procesa desde el loop, fuera del
  * callback gráfico de la TFT.
  */
 class RuntimeUIFBDMapV4
 {
+  friend class RuntimeUIFBDMapV5;
+
 public:
   RuntimeUIFBDMapV4();
 
