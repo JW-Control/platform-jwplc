@@ -123,6 +123,7 @@ void setup()
   Serial.println();
   Serial.println("JWPLC Logic Runtime UI - mapa FBD v2 en RAM");
   Serial.println("11 bloques, 12 enlaces, AND4 con pin negado y TON 2 s.");
+  Serial.println("Editor v0.5.0: RIGHT en DETALLE edita fuente y negacion.");
   Serial.println("No escribe FRAM ni conmuta salidas Q0 fisicas.");
   Serial.println();
 
@@ -153,7 +154,7 @@ void setup()
   JWPLC_LogicRuntime_UI.begin(engine);
 
   Serial.println("Motor v2: RUNNING");
-  Serial.println("UI FBD v0.4.7: LISTA");
+  Serial.println("UI FBD v0.5.0: LISTA");
   Serial.println("Pulse cualquier boton para entrar a USER.");
 }
 
