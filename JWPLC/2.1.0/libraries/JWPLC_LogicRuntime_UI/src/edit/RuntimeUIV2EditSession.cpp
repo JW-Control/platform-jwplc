@@ -137,8 +137,11 @@ bool RuntimeUIV2EditSession::setInputSource(uint16_t blockIndex,
     return false;
   }
 
-  // El prototipo v2 es acíclico: una entrada solo puede usar bloques previos.
-  if (source < JWPLC_LOGIC_V2_SOURCE_CONST_FALSE && source >= blockIndex)
+  const bool isSpecial = source == JWPLC_LOGIC_V2_SOURCE_OPEN ||
+                         source == JWPLC_LOGIC_V2_SOURCE_CONST_TRUE ||
+                         source == JWPLC_LOGIC_V2_SOURCE_CONST_FALSE;
+  if (!isSpecial &&
+      (source > JWPLC_LOGIC_V2_MAX_BLOCK_SOURCE || source >= blockIndex))
   {
     return false;
   }
@@ -176,7 +179,7 @@ bool RuntimeUIV2EditSession::setBlockParameter(uint16_t blockIndex,
 }
 
 bool RuntimeUIV2EditSession::setBlockResource(uint16_t blockIndex,
-                                              uint8_t resource)
+                                              uint16_t resource)
 {
   if (!_active || blockIndex >= _blockCount)
   {
@@ -246,22 +249,19 @@ bool RuntimeUIV2EditSession::apply(bool restartIfPreviouslyRunning)
 uint16_t RuntimeUIV2EditSession::inputOffset(uint16_t blockIndex,
                                              uint8_t inputIndex) const
 {
-  if (!_active || blockIndex >= _blockCount)
+  if (!_active || blockIndex >= _blockCount ||
+      inputIndex >= _blocks[blockIndex].inputCount)
   {
     return JWPLC_LOGIC_V2_COMPILED_MAX_LINKS;
   }
 
-  uint16_t offset = 0;
-  for (uint16_t index = 0; index < blockIndex; ++index)
-  {
-    offset = static_cast<uint16_t>(offset + _blocks[index].inputCount);
-  }
-
-  if (inputIndex >= _blocks[blockIndex].inputCount)
+  const uint32_t offset = static_cast<uint32_t>(_blocks[blockIndex].firstInput) +
+                          static_cast<uint32_t>(inputIndex);
+  if (offset >= _linkCount)
   {
     return JWPLC_LOGIC_V2_COMPILED_MAX_LINKS;
   }
-  return static_cast<uint16_t>(offset + inputIndex);
+  return static_cast<uint16_t>(offset);
 }
 
 LogicV2InputLink RuntimeUIV2EditSession::makeLink(uint16_t source,
