@@ -190,6 +190,184 @@ bool RuntimeUIV2EditSession::setBlockResource(uint16_t blockIndex,
   return true;
 }
 
+bool RuntimeUIV2EditSession::appendBlock(
+    LogicV2BlockType type,
+    const LogicV2InputLink *inputs,
+    uint8_t inputCount,
+    uint16_t resource,
+    uint32_t parameter,
+    uint16_t *newBlockIndex)
+{
+  if (!_active ||
+      validate() != LogicV2PrototypeError::None ||
+      _blockCount >= JWPLC_LOGIC_V2_COMPILED_MAX_BLOCKS ||
+      inputCount > JWPLC_LOGIC_V2_MAX_INPUTS_PER_BLOCK ||
+      static_cast<uint32_t>(_linkCount) + inputCount >
+          JWPLC_LOGIC_V2_COMPILED_MAX_LINKS ||
+      (inputCount > 0 && inputs == nullptr))
+  {
+    return false;
+  }
+
+  const uint16_t oldBlockCount = _blockCount;
+  const uint16_t oldLinkCount = _linkCount;
+  const bool oldDirty = _dirty;
+  const uint16_t appendedIndex = oldBlockCount;
+
+  _blocks[appendedIndex] = LogicV2BlockRecord(
+      type,
+      oldLinkCount,
+      inputCount,
+      resource,
+      parameter,
+      0);
+
+  for (uint8_t input = 0; input < inputCount; ++input)
+  {
+    _links[oldLinkCount + input] = inputs[input];
+  }
+
+  _blockCount = static_cast<uint16_t>(oldBlockCount + 1U);
+  _linkCount = static_cast<uint16_t>(oldLinkCount + inputCount);
+
+  if (validate() != LogicV2PrototypeError::None)
+  {
+    _blocks[appendedIndex] = LogicV2BlockRecord();
+    for (uint16_t link = oldLinkCount; link < _linkCount; ++link)
+    {
+      _links[link] = LogicV2InputLink();
+    }
+    _blockCount = oldBlockCount;
+    _linkCount = oldLinkCount;
+    _dirty = oldDirty;
+    return false;
+  }
+
+  _dirty = true;
+  if (newBlockIndex != nullptr)
+  {
+    *newBlockIndex = appendedIndex;
+  }
+  return true;
+}
+
+uint16_t RuntimeUIV2EditSession::consumerCount(uint16_t blockIndex) const
+{
+  if (!_active || blockIndex >= _blockCount)
+  {
+    return 0;
+  }
+
+  uint16_t consumers = 0;
+  for (uint16_t link = 0; link < _linkCount; ++link)
+  {
+    if (_links[link].source() == blockIndex)
+    {
+      ++consumers;
+    }
+  }
+  return consumers;
+}
+
+bool RuntimeUIV2EditSession::hasConsumers(uint16_t blockIndex) const
+{
+  return consumerCount(blockIndex) > 0;
+}
+
+bool RuntimeUIV2EditSession::removeBlock(uint16_t blockIndex)
+{
+  if (!_active ||
+      blockIndex >= _blockCount ||
+      _blockCount <= 1 ||
+      hasConsumers(blockIndex) ||
+      validate() != LogicV2PrototypeError::None)
+  {
+    return false;
+  }
+
+  // La eliminación debe ser completamente transaccional. El respaldo temporal
+  // ocupa ~2.2 KiB con la configuración normal de 100 bloques/512 enlaces y
+  // solo existe durante esta operación estructural, nunca durante cada scan.
+  LogicV2BlockRecord blockBackup[JWPLC_LOGIC_V2_COMPILED_MAX_BLOCKS];
+  LogicV2InputLink linkBackup[JWPLC_LOGIC_V2_COMPILED_MAX_LINKS];
+  std::memcpy(blockBackup, _blocks, sizeof(_blocks));
+  std::memcpy(linkBackup, _links, sizeof(_links));
+
+  const uint16_t oldBlockCount = _blockCount;
+  const uint16_t oldLinkCount = _linkCount;
+  const bool oldDirty = _dirty;
+  const uint16_t removedFirstInput = _blocks[blockIndex].firstInput;
+  const uint8_t removedInputCount = _blocks[blockIndex].inputCount;
+  const uint16_t removedEndInput = static_cast<uint16_t>(
+      removedFirstInput + removedInputCount);
+
+  if (removedInputCount > 0)
+  {
+    const uint16_t linksAfter = static_cast<uint16_t>(
+        oldLinkCount - removedEndInput);
+    if (linksAfter > 0)
+    {
+      std::memmove(&_links[removedFirstInput],
+                   &_links[removedEndInput],
+                   static_cast<size_t>(linksAfter) * sizeof(LogicV2InputLink));
+    }
+  }
+
+  const uint16_t newLinkCount = static_cast<uint16_t>(
+      oldLinkCount - removedInputCount);
+  for (uint16_t link = newLinkCount; link < oldLinkCount; ++link)
+  {
+    _links[link] = LogicV2InputLink();
+  }
+
+  const uint16_t blocksAfter = static_cast<uint16_t>(
+      oldBlockCount - blockIndex - 1U);
+  if (blocksAfter > 0)
+  {
+    std::memmove(&_blocks[blockIndex],
+                 &_blocks[blockIndex + 1U],
+                 static_cast<size_t>(blocksAfter) * sizeof(LogicV2BlockRecord));
+  }
+
+  const uint16_t newBlockCount = static_cast<uint16_t>(oldBlockCount - 1U);
+  _blocks[newBlockCount] = LogicV2BlockRecord();
+  _blockCount = newBlockCount;
+  _linkCount = newLinkCount;
+
+  for (uint16_t block = blockIndex; block < _blockCount; ++block)
+  {
+    if (_blocks[block].firstInput >= removedEndInput)
+    {
+      _blocks[block].firstInput = static_cast<uint16_t>(
+          _blocks[block].firstInput - removedInputCount);
+    }
+  }
+
+  for (uint16_t link = 0; link < _linkCount; ++link)
+  {
+    const uint16_t source = _links[link].source();
+    if (source <= JWPLC_LOGIC_V2_MAX_BLOCK_SOURCE && source > blockIndex)
+    {
+      _links[link] = makeLink(
+          static_cast<uint16_t>(source - 1U),
+          _links[link].inverted());
+    }
+  }
+
+  if (validate() != LogicV2PrototypeError::None)
+  {
+    std::memcpy(_blocks, blockBackup, sizeof(_blocks));
+    std::memcpy(_links, linkBackup, sizeof(_links));
+    _blockCount = oldBlockCount;
+    _linkCount = oldLinkCount;
+    _dirty = oldDirty;
+    return false;
+  }
+
+  _dirty = true;
+  return true;
+}
+
 LogicV2PrototypeError RuntimeUIV2EditSession::validate() const
 {
   if (!_active)
