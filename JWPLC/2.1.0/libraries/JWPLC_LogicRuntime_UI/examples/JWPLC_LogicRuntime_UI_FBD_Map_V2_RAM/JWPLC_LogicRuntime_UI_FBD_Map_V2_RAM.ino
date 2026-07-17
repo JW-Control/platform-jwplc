@@ -120,7 +120,9 @@ void setup()
   Serial.println();
   Serial.println("JWPLC Logic Runtime UI - mapa FBD v2 en RAM");
   Serial.println("11 bloques, 12 enlaces, AND4 con pin negado y TON 2 s.");
-  Serial.println("Editor v0.5.1: OK entra, L/R selecciona y UP/DN cambia.");
+  Serial.println("Editor v0.5.2: L/R cambia ENTRADAS/PARAMETROS.");
+  Serial.println("UP/DN selecciona y OK edita Trg o T.");
+  Serial.println("Ta visible; Q se representa graficamente.");
   Serial.println("ESC retrocede un nivel; solo sale desde MAPA FBD.");
   Serial.println("No escribe FRAM ni conmuta salidas Q0 fisicas.");
   Serial.println();
@@ -152,7 +154,7 @@ void setup()
   JWPLC_LogicRuntime_UI.begin(engine);
 
   Serial.println("Motor v2: RUNNING");
-  Serial.println("UI FBD v0.5.1: LISTA");
+  Serial.println("UI FBD v0.5.2: ENTRADAS + PARAMETROS TON");
   Serial.println("Pulse cualquier boton para entrar a USER.");
 }
 
