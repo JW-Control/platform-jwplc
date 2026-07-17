@@ -39,7 +39,7 @@ public:
                         uint8_t inputIndex,
                         bool inverted);
   bool setBlockParameter(uint16_t blockIndex, uint32_t parameter);
-  bool setBlockResource(uint16_t blockIndex, uint8_t resource);
+  bool setBlockResource(uint16_t blockIndex, uint16_t resource);
 
   LogicV2PrototypeError validate() const;
   bool apply(bool restartIfPreviouslyRunning = true);
