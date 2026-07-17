@@ -107,11 +107,11 @@ Cada validación debe aparecer como:
 Al final:
 
 ```text
-RESULTADO: 29 OK, 0 FAIL
+RESULTADO: 34 OK, 0 FAIL
 PRUEBA APROBADA
 ```
 
-El número exacto de verificaciones puede aumentar si se amplía el ejemplo; el criterio principal es `0 FAIL`.
+El criterio principal es `0 FAIL`; el conteo debe actualizarse si se agregan nuevas verificaciones al ejemplo.
 
 ## Criterio de aprobación
 
