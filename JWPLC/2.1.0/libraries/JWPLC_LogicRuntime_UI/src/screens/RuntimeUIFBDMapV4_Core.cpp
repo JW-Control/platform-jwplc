@@ -9,10 +9,10 @@ using namespace JWPLCLogicRuntimeUIWidgets;
 
 namespace
 {
-  uint16_t absoluteDistance(int16_t a, int16_t b)
-  {
-    return static_cast<uint16_t>(a > b ? a - b : b - a);
-  }
+uint16_t absoluteDistance(int16_t a, int16_t b)
+{
+  return static_cast<uint16_t>(a > b ? a - b : b - a);
+}
 }
 
 RuntimeUIFBDMapV4::RuntimeUIFBDMapV4()
@@ -83,7 +83,7 @@ void RuntimeUIFBDMapV4::attach(RuntimeUIV2ReadModel &model)
 
 void RuntimeUIFBDMapV4::detach()
 {
-  if (_mode == Mode::EditInput)
+  if (_mode != Mode::Map || _restoreIdleReturnPending)
   {
     JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
   }
@@ -115,6 +115,7 @@ void RuntimeUIFBDMapV4::enter()
   _editFeedback = EditFeedback::None;
   _lastValueRefreshMs = millis();
   _lastDetailRefreshMs = _lastValueRefreshMs;
+  JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
   normalizeSelection();
   buildLayout();
   ensureSelectionVisible();
@@ -151,7 +152,7 @@ void RuntimeUIFBDMapV4::refresh(const JWPLC_IOState *io,
       normalizeSelection();
       ensureSelectionVisible();
       _lastDetailRefreshMs = millis();
-      gateInputUntilRelease(true);
+      gateInputUntilRelease(false);
     }
     else
     {
@@ -259,11 +260,7 @@ void RuntimeUIFBDMapV4::exit()
     _editSession.cancel();
   }
 
-  if (_mode == Mode::EditInput || _restoreIdleReturnPending)
-  {
-    JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
-  }
-
+  JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
   _inputReleaseGate = false;
   _restoreIdleReturnPending = false;
 }
@@ -528,8 +525,8 @@ bool RuntimeUIFBDMapV4::consumeInputReleaseGate()
     JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
   }
 
-  // Se consume un frame adicional para evitar que un RELEASE se interprete
-  // como una acción de la pantalla recién restaurada.
+  // Consume un frame adicional para que RELEASE no se interprete como una
+  // acción de la pantalla recién restaurada.
   return true;
 }
 
@@ -674,6 +671,7 @@ void RuntimeUIFBDMapV4::handleMapInput()
       _model->blockCount() > 0)
   {
     JWPLC_Display.notifyActivity();
+    JWPLC_Display.setIdleReturnMode(IDLE_RETURN_DISABLED);
     _mode = Mode::Detail;
     _detailInputIndex = 0;
     _lastDetailRefreshMs = millis();
@@ -705,40 +703,23 @@ void RuntimeUIFBDMapV4::handleDetailInput()
         (_detailInputIndex + 1U) % definition->inputCount);
     changed = true;
   }
-  else if (definition->inputCount > 0 && JWPLC_Buttons.pressed(BTN_RIGHT))
+  else if (definition->inputCount > 0 && JWPLC_Buttons.pressed(BTN_OK))
   {
     if (beginInputEdit())
     {
       JWPLC_Display.notifyActivity();
       _mode = Mode::EditInput;
-      JWPLC_Display.setIdleReturnMode(IDLE_RETURN_DISABLED);
       gateInputUntilRelease(false);
       drawInputEditStatic();
       drawInputEdit();
       return;
     }
   }
-  else if (definition->inputCount > 0 && JWPLC_Buttons.pressed(BTN_LEFT))
-  {
-    const LogicV2InputLink *input =
-        _model->inputLink(_selectedIndex, _detailInputIndex);
-    if (input != nullptr && input->source() < _model->blockCount())
-    {
-      _selectedIndex = input->source();
-      _mode = Mode::Map;
-      ensureSelectionVisible();
-      gateInputUntilRelease(false);
-      drawMapStatic();
-      drawMapFull();
-      JWPLC_Display.notifyActivity();
-      return;
-    }
-  }
-  else if (JWPLC_Buttons.pressed(BTN_OK))
+  else if (JWPLC_Buttons.pressed(BTN_ESC))
   {
     JWPLC_Display.notifyActivity();
     _mode = Mode::Map;
-    gateInputUntilRelease(false);
+    gateInputUntilRelease(true);
     drawMapStatic();
     drawMapFull();
     return;
@@ -780,7 +761,7 @@ void RuntimeUIFBDMapV4::cancelInputEdit()
   _awaitingApply = false;
   _editFeedback = EditFeedback::None;
   _mode = Mode::Detail;
-  gateInputUntilRelease(true);
+  gateInputUntilRelease(false);
   _fullRedraw = true;
 }
 
@@ -891,19 +872,25 @@ void RuntimeUIFBDMapV4::handleEditInput()
   }
 
   bool changed = false;
-  if (JWPLC_Buttons.pressed(BTN_UP))
+  if (JWPLC_Buttons.pressed(BTN_LEFT))
   {
-    _editFocus = EditFocus::Source;
+    if (_editFocus != EditFocus::Source)
+    {
+      _editFocus = EditFocus::Source;
+      changed = true;
+    }
     _editFeedback = EditFeedback::None;
-    changed = true;
   }
-  else if (JWPLC_Buttons.pressed(BTN_DOWN))
+  else if (JWPLC_Buttons.pressed(BTN_RIGHT))
   {
-    _editFocus = EditFocus::Logic;
+    if (_editFocus != EditFocus::Logic)
+    {
+      _editFocus = EditFocus::Logic;
+      changed = true;
+    }
     _editFeedback = EditFeedback::None;
-    changed = true;
   }
-  else if (JWPLC_Buttons.pressed(BTN_LEFT))
+  else if (JWPLC_Buttons.pressed(BTN_UP))
   {
     if (_editFocus == EditFocus::Source)
     {
@@ -916,7 +903,7 @@ void RuntimeUIFBDMapV4::handleEditInput()
     _editFeedback = EditFeedback::None;
     changed = true;
   }
-  else if (JWPLC_Buttons.pressed(BTN_RIGHT))
+  else if (JWPLC_Buttons.pressed(BTN_DOWN))
   {
     if (_editFocus == EditFocus::Source)
     {
