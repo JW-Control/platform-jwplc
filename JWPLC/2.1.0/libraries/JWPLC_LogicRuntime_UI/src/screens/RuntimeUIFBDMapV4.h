@@ -12,8 +12,9 @@
  * @brief Mapa FBD de cinco slots con editor RAM inicial para el motor v2.
  *
  * OK abre el detalle gráfico. En bloques con entradas, RIGHT abre la edición de
- * la entrada seleccionada. La fuente y negación se modifican sobre un borrador
- * RAM y luego se aplican al motor validado.
+ * la entrada seleccionada. La fuente y la negación se modifican sobre un
+ * borrador RAM. La recarga del motor se procesa desde el loop, fuera del
+ * callback gráfico de la TFT.
  */
 class RuntimeUIFBDMapV4
 {
@@ -28,6 +29,9 @@ public:
   void exit();
   void forceRedraw();
 
+  /** @brief Aplica fuera del callback TFT una edición solicitada por la UI. */
+  void processPendingEdit();
+
 private:
   enum class Mode : uint8_t
   {
@@ -41,6 +45,20 @@ private:
     LeftEdge = 0,
     Middle,
     RightEdge
+  };
+
+  enum class EditFocus : uint8_t
+  {
+    Source = 0,
+    Logic
+  };
+
+  enum class EditFeedback : uint8_t
+  {
+    None = 0,
+    InvalidDraft,
+    Applying,
+    ApplyFailed
   };
 
   struct GridRange
@@ -103,6 +121,10 @@ private:
   bool ensureSelectionVisible();
   bool updateHorizontalWindow();
 
+  bool anyButtonHeld() const;
+  void gateInputUntilRelease(bool restoreIdleReturn = false);
+  bool consumeInputReleaseGate();
+
   void handleMapInput();
   void handleDetailInput();
   void handleEditInput();
@@ -114,6 +136,7 @@ private:
 
   bool beginInputEdit();
   void cancelInputEdit();
+  bool selectedInputAllowsOpen() const;
   uint16_t sourceCandidateCount() const;
   uint16_t sourceCandidateAt(uint16_t candidateIndex) const;
   uint16_t sourceCandidateIndex(uint16_t source) const;
@@ -230,8 +253,14 @@ private:
   uint32_t _lastValueRefreshMs;
   uint32_t _lastDetailRefreshMs;
 
+  bool _inputReleaseGate;
+  bool _restoreIdleReturnPending;
+  volatile bool _applyRequested;
+  volatile bool _applyCompleted;
+  volatile bool _applySuccess;
   bool _awaitingApply;
-  bool _lastApplySuccess;
+  EditFocus _editFocus;
+  EditFeedback _editFeedback;
   uint16_t _editSourceCandidate;
   bool _editInverted;
 
