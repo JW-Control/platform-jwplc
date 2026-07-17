@@ -67,7 +67,6 @@ static uint8_t fillInputs(uint32_t nowMs, bool inputs[8])
 
   if (phaseMs >= 2000 && phaseMs < 3000)
   {
-    // AND4 = TRUE: activa SET y comienza TON.
     inputs[0] = true;
     inputs[1] = true;
     inputs[2] = false;
@@ -77,13 +76,11 @@ static uint8_t fillInputs(uint32_t nowMs, bool inputs[8])
 
   if (phaseMs >= 3000 && phaseMs < 6000)
   {
-    // SET liberado: SR conserva TRUE y TON alcanza 2000 ms.
     return 2;
   }
 
   if (phaseMs >= 6000 && phaseMs < 7000)
   {
-    // I0.2 activa OR2 y RESET.
     inputs[2] = true;
     return 3;
   }
@@ -173,6 +170,7 @@ void loop()
   }
 
   JWPLC_LogicRuntime_UI.update();
+  JWPLC_LogicRuntime_UI.processV2EditorPending();
 
   if (phase != lastPhase)
   {
