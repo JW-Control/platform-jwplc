@@ -83,7 +83,7 @@ void RuntimeUIFBDMapV4::enter()
 }
 
 void RuntimeUIFBDMapV4::refresh(const JWPLC_IOState *io,
-                                const JWPLC_RTCState *rtc)
+                                 const JWPLC_RTCState *rtc)
 {
   (void)io;
   (void)rtc;
@@ -513,6 +513,7 @@ void RuntimeUIFBDMapV4::handleMapInput()
       _model->blockCount() > 0)
   {
     JWPLC_Display.notifyActivity();
+    JWPLC_Buttons.clearPendingInput();
     _mode = Mode::Detail;
     _detailInputIndex = 0;
     _lastDetailRefreshMs = millis();
@@ -550,6 +551,7 @@ void RuntimeUIFBDMapV4::handleDetailInput()
     if (input != nullptr && input->source() < _model->blockCount())
     {
       _selectedIndex = input->source();
+      JWPLC_Buttons.clearPendingInput();
       _mode = Mode::Map;
       ensureSelectionVisible();
       drawMapStatic();
@@ -561,6 +563,7 @@ void RuntimeUIFBDMapV4::handleDetailInput()
   else if (JWPLC_Buttons.pressed(BTN_OK))
   {
     JWPLC_Display.notifyActivity();
+    JWPLC_Buttons.clearPendingInput();
     _mode = Mode::Map;
     drawMapStatic();
     drawMapFull();
