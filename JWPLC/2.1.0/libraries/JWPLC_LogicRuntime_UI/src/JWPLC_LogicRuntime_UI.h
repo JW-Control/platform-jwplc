@@ -39,10 +39,24 @@ public:
   /**
    * @brief Ejecuta trabajo no gráfico fuera del callback de la TFT.
    *
-   * En v1 procesa acciones diferidas y sincroniza RUN/ERR. En v2 solo
-   * sincroniza indicadores; el scan sigue siendo responsabilidad del sketch.
+   * En v1 procesa acciones diferidas y sincroniza RUN/ERR. En v2 el scan sigue
+   * siendo responsabilidad del sketch.
    */
   void update();
+
+  /**
+   * @brief Aplica una confirmación del editor v2 desde el loop del sketch.
+   *
+   * Debe llamarse inmediatamente después de `update()` en la prueba v0.5.0.
+   * No dibuja ni adquiere el bus SPI de la TFT.
+   */
+  void processV2EditorPending()
+  {
+    if (_backend == Backend::EngineV2)
+    {
+      _fbdMapV2.processPendingEdit();
+    }
+  }
 
   void end();
   bool isAttached() const;
