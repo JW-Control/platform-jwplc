@@ -135,9 +135,9 @@ void RuntimeUIFBDMapV7::configureFastRepeatProfile()
 
   JWPLC_Buttons.setRepeatInitialDelay(170);
   JWPLC_Buttons.setRepeatProfile(
-      3, 8, 15,
+      10, 25, 50,
       step1, step2, step3, step4,
-      85, 65, 48, 35);
+      120, 90, 70, 50);
   JWPLC_Buttons.clearPendingRepeats();
 
   _fastRepeatActive = true;
