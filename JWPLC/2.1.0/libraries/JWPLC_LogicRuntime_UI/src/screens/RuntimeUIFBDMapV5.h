@@ -1,7 +1,10 @@
 #ifndef JWPLC_LOGIC_RUNTIME_UI_FBD_MAP_V5_H
 #define JWPLC_LOGIC_RUNTIME_UI_FBD_MAP_V5_H
 
+#include <cstdio>
+
 #include "RuntimeUIFBDMapV4.h"
+#include "../widgets/RuntimeUIWidgets.h"
 
 /**
  * @brief Extensión v0.5.2 del mapa FBD con navegación Entrada/Parámetros.
@@ -92,6 +95,108 @@ private:
   ParameterEditFocus _parameterEditFocus;
   TimeUnit _parameterUnit;
   uint32_t _parameterValue;
+
+protected:
+  /**
+   * @brief Punto de extensión mínimo para revisiones posteriores del editor.
+   *
+   * Mantiene encapsulados el motor, la sesión transaccional y el resto de la
+   * navegación. Las revisiones derivadas solo pueden acelerar el campo VALOR y
+   * actualizar la lectura viva de Ta.
+   */
+  bool parameterEditorActiveForExtension() const
+  {
+    return _parameterEditorActive;
+  }
+
+  bool parameterValueFocusedForExtension() const
+  {
+    return _parameterEditFocus == ParameterEditFocus::Value;
+  }
+
+  bool applyParameterValueAxisForExtension()
+  {
+    if (!_parameterEditorActive ||
+        _awaitingApply ||
+        _parameterEditFocus != ParameterEditFocus::Value)
+    {
+      return false;
+    }
+
+    const uint32_t multiplier = unitMultiplier(_parameterUnit);
+    const uint32_t maximum =
+        multiplier == 0 ? UINT32_MAX : UINT32_MAX / multiplier;
+
+    const bool changed = JWPLC_Buttons.applyAxis(
+        &_parameterValue,
+        0,
+        maximum,
+        BTN_DOWN,
+        BTN_UP,
+        false,
+        true);
+
+    if (!changed)
+    {
+      return false;
+    }
+
+    _editFeedback = EditFeedback::None;
+    JWPLC_Display.notifyActivity();
+
+    char valueField[24];
+    std::snprintf(valueField,
+                  sizeof(valueField),
+                  "VALOR <%lu>",
+                  static_cast<unsigned long>(_parameterValue));
+    JWPLCLogicRuntimeUIWidgets::drawMenuButton(
+        JWPLC_Display.tft(),
+        10,
+        103,
+        145,
+        38,
+        valueField,
+        true);
+
+    JWPLCLogicRuntimeUIWidgets::updateTextField(
+        JWPLC_Display.tft(),
+        78,
+        154,
+        28,
+        "OK GUARDAR   ESC CANCELAR",
+        JWPLCLogicRuntimeUIWidgets::COLOR_MUTED,
+        JWPLCLogicRuntimeUIWidgets::COLOR_PANEL);
+    return true;
+  }
+
+  void refreshParameterElapsedForExtension()
+  {
+    if (!_parameterEditorActive ||
+        _model == nullptr ||
+        !_model->isTon(_selectedIndex))
+    {
+      return;
+    }
+
+    char elapsed[18];
+    formatDurationCompact(
+        _model->tonElapsedMs(_selectedIndex, millis()),
+        elapsed,
+        sizeof(elapsed));
+
+    const bool timing = _model->tonTiming(_selectedIndex);
+    const bool active = _model->blockValue(_selectedIndex);
+    JWPLCLogicRuntimeUIWidgets::updateTextField(
+        JWPLC_Display.tft(),
+        88,
+        83,
+        18,
+        elapsed,
+        (timing || active)
+            ? JWPLCLogicRuntimeUIWidgets::COLOR_OK
+            : JWPLCLogicRuntimeUIWidgets::COLOR_MUTED,
+        JWPLCLogicRuntimeUIWidgets::COLOR_PANEL);
+  }
 };
 
 #endif
