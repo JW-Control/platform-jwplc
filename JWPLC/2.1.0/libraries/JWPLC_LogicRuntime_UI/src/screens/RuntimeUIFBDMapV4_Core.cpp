@@ -17,7 +17,7 @@ namespace
 
 RuntimeUIFBDMapV4::RuntimeUIFBDMapV4()
     : _model(nullptr),
-      _editSession(nullptr),
+      _editSession(),
       _mode(Mode::Map),
       _horizontalMode(HorizontalWindowMode::LeftEdge),
       _fullRedraw(true),
@@ -34,7 +34,6 @@ RuntimeUIFBDMapV4::RuntimeUIFBDMapV4()
       _viewportY(0),
       _lastValueRefreshMs(0),
       _lastDetailRefreshMs(0),
-      _applyRequested(false),
       _awaitingApply(false),
       _lastApplySuccess(true),
       _editSourceCandidate(0),
@@ -47,11 +46,14 @@ RuntimeUIFBDMapV4::RuntimeUIFBDMapV4()
 {
 }
 
-void RuntimeUIFBDMapV4::attach(RuntimeUIV2ReadModel &model,
-                               RuntimeUIV2EditSession &editSession)
+void RuntimeUIFBDMapV4::attach(RuntimeUIV2ReadModel &model)
 {
   _model = &model;
-  _editSession = &editSession;
+  const LogicV2EnginePrototype *engine = model.engine();
+  if (engine != nullptr)
+  {
+    _editSession.attach(*const_cast<LogicV2EnginePrototype *>(engine));
+  }
   _selectedIndex = 0;
   _detailInputIndex = 0;
   _horizontalMode = HorizontalWindowMode::LeftEdge;
@@ -59,7 +61,6 @@ void RuntimeUIFBDMapV4::attach(RuntimeUIV2ReadModel &model,
   _maxLevel = 0;
   _viewportY = 0;
   _headerStateValid = false;
-  _applyRequested = false;
   _awaitingApply = false;
   _lastApplySuccess = true;
   invalidateLayout();
@@ -68,8 +69,8 @@ void RuntimeUIFBDMapV4::attach(RuntimeUIV2ReadModel &model,
 
 void RuntimeUIFBDMapV4::detach()
 {
+  _editSession.detach();
   _model = nullptr;
-  _editSession = nullptr;
   _mode = Mode::Map;
   _selectedIndex = 0;
   _detailInputIndex = 0;
@@ -78,7 +79,6 @@ void RuntimeUIFBDMapV4::detach()
   _maxLevel = 0;
   _viewportY = 0;
   _headerStateValid = false;
-  _applyRequested = false;
   _awaitingApply = false;
   invalidateLayout();
 }
@@ -86,7 +86,6 @@ void RuntimeUIFBDMapV4::detach()
 void RuntimeUIFBDMapV4::enter()
 {
   _mode = Mode::Map;
-  _applyRequested = false;
   _awaitingApply = false;
   _lastValueRefreshMs = millis();
   _lastDetailRefreshMs = _lastValueRefreshMs;
@@ -192,11 +191,10 @@ void RuntimeUIFBDMapV4::exit()
 {
   _valueCacheValid = false;
   _headerStateValid = false;
-  _applyRequested = false;
   _awaitingApply = false;
-  if (_editSession != nullptr && _editSession->active())
+  if (_editSession.active())
   {
-    _editSession->cancel();
+    _editSession.cancel();
   }
 }
 
@@ -205,35 +203,6 @@ void RuntimeUIFBDMapV4::forceRedraw()
   _fullRedraw = true;
   _valueCacheValid = false;
   _headerStateValid = false;
-}
-
-bool RuntimeUIFBDMapV4::takeApplyRequest()
-{
-  const bool requested = _applyRequested;
-  _applyRequested = false;
-  return requested;
-}
-
-void RuntimeUIFBDMapV4::onApplyResult(bool success)
-{
-  _awaitingApply = false;
-  _lastApplySuccess = success;
-  JWPLC_Display.clearPendingInput();
-
-  if (!success)
-  {
-    drawInputEdit();
-    return;
-  }
-
-  invalidateLayout();
-  buildLayout();
-  normalizeSelection();
-  ensureSelectionVisible();
-  _mode = Mode::Detail;
-  _lastDetailRefreshMs = millis();
-  drawDetailStatic();
-  drawDetail(true);
 }
 
 void RuntimeUIFBDMapV4::invalidateLayout()
@@ -651,16 +620,16 @@ void RuntimeUIFBDMapV4::handleDetailInput()
 
 bool RuntimeUIFBDMapV4::beginInputEdit()
 {
-  if (_editSession == nullptr || !_editSession->begin())
+  if (!_editSession.begin())
   {
     return false;
   }
 
   const LogicV2InputLink *input =
-      _editSession->inputLink(_selectedIndex, _detailInputIndex);
+      _editSession.inputLink(_selectedIndex, _detailInputIndex);
   if (input == nullptr)
   {
-    _editSession->cancel();
+    _editSession.cancel();
     return false;
   }
 
@@ -673,12 +642,8 @@ bool RuntimeUIFBDMapV4::beginInputEdit()
 
 void RuntimeUIFBDMapV4::cancelInputEdit()
 {
-  if (_editSession != nullptr)
-  {
-    _editSession->cancel();
-  }
+  _editSession.cancel();
   _awaitingApply = false;
-  _applyRequested = false;
   JWPLC_Buttons.clearPendingInput();
   _mode = Mode::Detail;
   drawDetailStatic();
@@ -752,12 +717,6 @@ void RuntimeUIFBDMapV4::moveSourceCandidate(bool forward)
 
 void RuntimeUIFBDMapV4::handleEditInput()
 {
-  if (_awaitingApply)
-  {
-    JWPLC_Buttons.clearPendingInput();
-    return;
-  }
-
   bool changed = false;
   if (JWPLC_Buttons.pressed(BTN_UP))
   {
@@ -782,24 +741,33 @@ void RuntimeUIFBDMapV4::handleEditInput()
   }
   else if (JWPLC_Buttons.pressed(BTN_OK))
   {
-    if (_editSession != nullptr &&
-        _editSession->setInputSource(
-            _selectedIndex,
-            _detailInputIndex,
-            sourceCandidateAt(_editSourceCandidate),
-            _editInverted) &&
-        _editSession->validate() == LogicV2PrototypeError::None)
+    _awaitingApply = true;
+    const bool prepared = _editSession.setInputSource(
+        _selectedIndex,
+        _detailInputIndex,
+        sourceCandidateAt(_editSourceCandidate),
+        _editInverted);
+    const bool valid = prepared &&
+                       _editSession.validate() == LogicV2PrototypeError::None;
+    const bool applied = valid && _editSession.apply(true);
+    _awaitingApply = false;
+    _lastApplySuccess = applied;
+    JWPLC_Display.notifyActivity();
+    JWPLC_Buttons.clearPendingInput();
+
+    if (applied)
     {
-      _awaitingApply = true;
-      _lastApplySuccess = true;
-      _applyRequested = true;
-      JWPLC_Display.notifyActivity();
-      JWPLC_Buttons.clearPendingInput();
-      drawInputEdit();
+      invalidateLayout();
+      buildLayout();
+      normalizeSelection();
+      ensureSelectionVisible();
+      _mode = Mode::Detail;
+      _lastDetailRefreshMs = millis();
+      drawDetailStatic();
+      drawDetail(true);
       return;
     }
 
-    _lastApplySuccess = false;
     drawInputEdit();
     return;
   }
