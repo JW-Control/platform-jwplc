@@ -37,12 +37,25 @@ public:
   bool begin(LogicV2EnginePrototype &engine);
 
   /**
-   * @brief Ejecuta trabajo no gráfico fuera del callback de la TFT.
+   * @brief Ejecuta trabajo no gráfico común fuera del callback de la TFT.
    *
-   * En v1 procesa acciones diferidas. En v2 aplica confirmaciones del editor
-   * RAM. El scan lógico sigue siendo responsabilidad del sketch.
+   * El scan lógico v2 sigue siendo responsabilidad del sketch.
    */
   void update();
+
+  /**
+   * @brief Aplica una confirmación del editor v2 desde el loop del sketch.
+   *
+   * Debe llamarse inmediatamente después de `update()`. No dibuja ni adquiere
+   * el bus SPI de la TFT.
+   */
+  void processV2EditorPending()
+  {
+    if (_backend == Backend::EngineV2)
+    {
+      _fbdMapV2.processPendingEdit();
+    }
+  }
 
   void end();
   bool isAttached() const;
