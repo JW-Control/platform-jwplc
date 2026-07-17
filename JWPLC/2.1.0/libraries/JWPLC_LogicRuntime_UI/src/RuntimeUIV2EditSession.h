@@ -1,0 +1,6 @@
+#ifndef JWPLC_LOGIC_RUNTIME_UI_PUBLIC_V2_EDIT_SESSION_H
+#define JWPLC_LOGIC_RUNTIME_UI_PUBLIC_V2_EDIT_SESSION_H
+
+#include "edit/RuntimeUIV2EditSession.h"
+
+#endif
