@@ -2,14 +2,14 @@
 
 ## Objetivo
 
-Validar la primera edición gráfica real del programa v2 desde la TFT:
+Validar la primera edición gráfica real del programa v2 desde la TFT del JWPLC Basic.
 
-- seleccionar una entrada del bloque;
-- cambiar su fuente;
-- activar o quitar negación;
-- validar el borrador RAM;
-- recargar el motor;
-- regresar al detalle con el diagrama actualizado.
+Esta versión permite cambiar:
+
+- la fuente de una entrada;
+- la lógica normal o negada de esa entrada.
+
+Los cambios se realizan en RAM. No se escribe FRAM.
 
 ## Ejemplo
 
@@ -20,7 +20,7 @@ Archivo
 → JWPLC_LogicRuntime_UI_FBD_Map_V2_RAM
 ```
 
-Serial esperado:
+## Serial esperado
 
 ```text
 Motor v2: RUNNING
@@ -32,109 +32,197 @@ UI FBD v0.5.0: LISTA
 ### Mapa
 
 ```text
-LEFT/RIGHT/UP/DOWN → navegar bloques
-OK                  → abrir DETALLE
+LEFT / RIGHT   navegar entre fuentes y consumidores
+UP / DOWN      navegar verticalmente
+OK             abrir detalle del bloque
 ```
 
 ### Detalle
 
 ```text
-UP/DOWN → seleccionar entrada
-LEFT    → saltar al bloque fuente
-RIGHT   → editar la entrada seleccionada
-OK      → volver al mapa
+UP / DOWN      seleccionar entrada
+LEFT           saltar al bloque fuente
+RIGHT          editar la entrada seleccionada
+OK             volver al mapa
 ```
 
 ### Editor de entrada
 
 ```text
-UP/DOWN → recorrer X, HI, LO y bloques anteriores
-LEFT    → alternar NORMAL / NEGADA
-RIGHT   → cancelar y volver al detalle
-OK      → validar y aplicar
+UP             seleccionar campo FUENTE
+DOWN           seleccionar campo LÓGICA
+LEFT / RIGHT   cambiar el valor del campo seleccionado
+OK             validar y aplicar
+ESC            cancelar y volver al detalle
 ```
 
-## Prueba A — quitar negación de B04 IN3
+Mientras el editor está abierto, `ESC` pertenece al editor y no debe regresar a IDLE.
 
-Estado inicial:
+## Prueba 1 — compuerta de liberación
+
+1. Entrar a USER.
+2. Abrir el detalle de `B04 AND`.
+3. Mantener `RIGHT` durante la transición al editor.
+4. Soltar el botón.
+
+Resultado esperado:
 
 ```text
-B04 AND
-IN3 = B02
-Lógica = NEGADA
+El editor se abre una sola vez.
+La fuente no avanza automáticamente.
+No quedan repeticiones aplicadas después de la transición.
 ```
 
-Procedimiento:
+Repetir al:
+
+- cancelar con `ESC`;
+- confirmar con `OK`;
+- volver del detalle al mapa;
+- saltar desde el detalle hacia un bloque fuente.
+
+## Prueba 2 — edición de fuente en B04
 
 1. Seleccionar `B04`.
 2. Pulsar `OK`.
-3. Seleccionar `IN3/4` con `UP/DOWN`.
+3. Seleccionar una de sus cuatro entradas con `UP/DOWN`.
 4. Pulsar `RIGHT`.
-5. Verificar que aparece `B02 / I0.2` y `LOGICA: NEGADA`.
-6. Pulsar `LEFT` una vez.
-7. Verificar `LOGICA: NORMAL`.
-8. Pulsar `OK`.
-9. Confirmar retorno a DETALLE.
-10. Confirmar que la burbuja de negación desapareció.
+5. Con el foco en `FUENTE`, recorrer candidatos con `LEFT/RIGHT`.
 
-## Prueba B — cambiar B05 IN2 de LO a HI
-
-Estado inicial:
-
-```text
-B05 OR
-IN2 = LO
-```
-
-Procedimiento:
-
-1. Seleccionar `B05`.
-2. Abrir DETALLE.
-3. Seleccionar `IN2/2`.
-4. Pulsar `RIGHT`.
-5. Usar `UP/DOWN` hasta seleccionar `HI / CONST 1`.
-6. Mantener lógica NORMAL.
-7. Pulsar `OK`.
-8. Confirmar retorno a DETALLE.
-9. Confirmar que la tarjeta de entrada muestra `HI / CONST 1`.
-10. Confirmar que el estado lógico de B05 cambia acorde a la nueva fuente.
-
-## Prueba C — cancelar
-
-1. Abrir cualquier entrada en edición.
-2. Cambiar temporalmente fuente y negación.
-3. Pulsar `RIGHT`.
-4. Confirmar retorno a DETALLE.
-5. Confirmar que el programa activo no cambió.
-
-## Prueba D — restricción acíclica
-
-El selector solo debe ofrecer:
+Para `B04` deben aparecer:
 
 ```text
 X
 HI
 LO
-B00 ... bloque inmediatamente anterior al bloque editado
+B00
+B01
+B02
+B03
 ```
 
-No deben aparecer el propio bloque ni bloques posteriores.
+No deben aparecer `B04` ni bloques posteriores.
 
-## Prueba E — transición limpia
+La tarjeta izquierda, el cable y el bloque destino deben actualizarse gráficamente.
 
-- Pulsar varias veces una dirección dentro del editor.
-- Aplicar o cancelar.
-- Confirmar que los pulsos pendientes no navegan automáticamente en DETALLE o MAPA.
+## Prueba 3 — filtro de entrada abierta
+
+Abrir el editor de:
+
+- `B07 TON`;
+- `B08 NOT`;
+- `B09 Q`.
+
+Resultado esperado:
+
+```text
+X no aparece como candidato.
+HI y LO sí aparecen.
+Solo aparecen bloques anteriores al bloque editado.
+```
+
+La entrada abierta `X` solo es válida en:
+
+```text
+AND
+OR
+NAND
+NOR
+XOR
+```
+
+## Prueba 4 — negación
+
+1. Abrir una entrada de `B04`.
+2. Pulsar `DOWN` para seleccionar `LÓGICA`.
+3. Usar `LEFT/RIGHT`.
+
+Resultado esperado:
+
+```text
+NORMAL ↔ NEGADA
+```
+
+Al seleccionar `NEGADA`:
+
+- aparece una burbuja gris en el pin;
+- el color del cable representa el valor efectivo después de negar;
+- la fuente conserva su valor bruto en su propia tarjeta.
+
+## Prueba 5 — aplicar
+
+1. Elegir una fuente distinta.
+2. Elegir lógica normal o negada.
+3. Pulsar `OK`.
+
+Resultado esperado:
+
+```text
+APLICANDO CAMBIOS...
+```
+
+Después:
+
+- se regresa al detalle;
+- la conexión mostrada refleja el programa nuevo;
+- el motor continúa en RUNNING;
+- el mapa reconstruye niveles y cableado si la nueva fuente cambia la topología;
+- el cambio afecta los valores lógicos durante el ciclo automático.
+
+La recarga del motor ocurre desde el `loop`, mediante:
+
+```cpp
+JWPLC_LogicRuntime_UI.update();
+JWPLC_LogicRuntime_UI.processV2EditorPending();
+```
+
+## Prueba 6 — cancelar
+
+1. Abrir el editor.
+2. Cambiar fuente y negación.
+3. Pulsar `ESC`.
+
+Resultado esperado:
+
+```text
+Se vuelve al detalle.
+El programa activo no cambia.
+USER permanece abierto.
+Al soltar ESC no se salta a IDLE.
+No quedan pulsos pendientes.
+```
+
+Después de volver al detalle, un nuevo `ESC` deliberado puede regresar a IDLE según la política normal del display.
+
+## Prueba 7 — caso inválido
+
+La navegación no debería ofrecer fuentes posteriores ni `X` en bloques que la rechazan. Como defensa adicional, cualquier borrador rechazado debe mostrar:
+
+```text
+CONFIGURACION NO VALIDA
+```
+
+El motor activo debe permanecer intacto.
+
+## Registro de memoria
+
+Anotar al compilar:
+
+```text
+Flash usada:
+RAM global usada:
+RAM disponible:
+```
 
 ## Criterio de aprobación
 
 ```text
 Compila en Arduino IDE.
-No reinicia el ESP32.
-No aparece SCAN ERROR.
-Aplicar modifica el diagrama y la lógica.
-Cancelar no modifica el programa.
+Carga correctamente en JWPLC Basic.
+No hay reinicios ni Fault del motor.
+Mapa de cinco slots permanece estable.
+No se arrastran pulsos entre pantallas.
+ESC cancela el editor sin salir de USER.
+La fuente aplicada cambia realmente el programa RAM.
+La negación aplicada cambia realmente el valor efectivo.
 No se escribe FRAM.
-No se conmutan salidas físicas Q0.
-No quedan pulsos pendientes entre pantallas.
 ```
