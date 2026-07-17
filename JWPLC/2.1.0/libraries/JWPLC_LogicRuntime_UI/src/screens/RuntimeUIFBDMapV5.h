@@ -19,6 +19,8 @@
  */
 class RuntimeUIFBDMapV5 : public RuntimeUIFBDMapV4
 {
+  friend class RuntimeUIFBDMapV7;
+
 public:
   RuntimeUIFBDMapV5();
 
