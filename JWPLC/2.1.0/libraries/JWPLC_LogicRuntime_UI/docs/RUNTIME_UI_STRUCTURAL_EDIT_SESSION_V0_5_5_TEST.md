@@ -1,5 +1,15 @@
 # Prueba — sesión estructural RAM v0.5.5
 
+## Estado
+
+```text
+VALIDADA EN HARDWARE
+Fecha: 2026-07-17
+Resultado: 34 OK, 0 FAIL
+```
+
+La prueba compiló, cargó y ejecutó correctamente en el JWPLC Basic. La inicialización posterior de `JWPLC_Display` no afectó el resultado del ensayo estructural.
+
 ## Objetivo
 
 Validar la base transaccional necesaria antes de dibujar el bloque virtual `+` en el mapa FBD.
@@ -96,46 +106,47 @@ El bloque `B02` permite probar la eliminación y compactación sin afectar la ra
 16. Aplicar el borrador al motor.
 17. Ejecutar un scan y verificar los valores resultantes.
 
-## Salida esperada
-
-Cada validación debe aparecer como:
-
-```text
-[OK]   descripción
-```
-
-Al final:
+## Resultado observado
 
 ```text
 RESULTADO: 34 OK, 0 FAIL
 PRUEBA APROBADA
 ```
 
-El criterio principal es `0 FAIL`; el conteo debe actualizarse si se agregan nuevas verificaciones al ejemplo.
+Se confirmó específicamente:
+
+- validación y arranque del programa base;
+- rechazo de eliminación con consumidores;
+- compactación correcta de bloques y enlaces;
+- actualización de `firstInput` y referencias posteriores;
+- append válido de TON, NOT y OR;
+- rollback atómico ante salida duplicada y fuente inexistente;
+- aplicación del borrador y reinicio del motor;
+- scan posterior con resultados lógicos correctos.
 
 ## Criterio de aprobación
 
 ```text
-Compila desde Arduino IDE.
-El programa base valida y arranca.
-appendBlock agrega únicamente programas válidos.
-Un append inválido no modifica conteos ni contenido.
-consumerCount identifica usos reales.
-removeBlock rechaza bloques utilizados.
-removeBlock compacta bloques y enlaces.
-Las fuentes mayores al índice eliminado se decrementan.
-Los firstInput posteriores se corrigen.
-El borrador final valida.
-apply recarga y reinicia el motor.
-El scan posterior entrega los valores esperados.
-No se escribe FRAM.
-No se utiliza la TFT.
-No se conmutan salidas físicas.
+[OK] Compila desde Arduino IDE.
+[OK] El programa base valida y arranca.
+[OK] appendBlock agrega únicamente programas válidos.
+[OK] Un append inválido no modifica conteos ni contenido.
+[OK] consumerCount identifica usos reales.
+[OK] removeBlock rechaza bloques utilizados.
+[OK] removeBlock compacta bloques y enlaces.
+[OK] Las fuentes mayores al índice eliminado se decrementan.
+[OK] Los firstInput posteriores se corrigen.
+[OK] El borrador final valida.
+[OK] apply recarga y reinicia el motor.
+[OK] El scan posterior entrega los valores esperados.
+[OK] No se escribe FRAM.
+[OK] No se utiliza la TFT durante la prueba.
+[OK] No se conmutan salidas físicas.
 ```
 
 ## Siguiente incremento
 
-Después de aprobar esta prueba física/compilación, el siguiente paso es exponer estas operaciones en el mapa FBD mediante:
+La base estructural queda cerrada. El siguiente paso es exponer estas operaciones en el mapa FBD mediante:
 
 1. bloque virtual `+` al final del programa;
 2. pantalla `NUEVO BLOQUE`;
