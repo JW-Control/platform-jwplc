@@ -11,7 +11,7 @@
 #include "screens/RuntimeUIProgram.h"
 #include "screens/RuntimeUIDiagram.h"
 #include "screens/RuntimeUIBlocks.h"
-#include "screens/RuntimeUIFBDMapV8.h"
+#include "screens/RuntimeUIFBDMapV9.h"
 
 /**
  * @brief Interfaz USER modular del JWPLC Logic Runtime.
@@ -105,7 +105,7 @@ private:
   RuntimeUIDiagram _diagram;
   RuntimeUIBlocks _blocks;
   RuntimeUIV2ReadModel _v2Model;
-  RuntimeUIFBDMapV8 _fbdMapV2;
+  RuntimeUIFBDMapV9 _fbdMapV2;
 };
 
 extern JWPLC_LogicRuntime_UIClass JWPLC_LogicRuntime_UI;
