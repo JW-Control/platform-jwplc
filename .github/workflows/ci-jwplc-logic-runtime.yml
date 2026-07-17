@@ -1,0 +1,107 @@
+name: CI JWPLC Logic Runtime
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  ARDUINO_CLI_VERSION: "1.x"
+  JWPLC_PACKAGE_VERSION: "2.1.0-alpha.2"
+  JWPLC_FQBN: "jwplc:esp32:jwplcbasic"
+  JWPLC_INDEX_URL: "https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json"
+
+jobs:
+  compile-smoke:
+    name: Compilar ejemplos críticos
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Instalar Arduino CLI
+        uses: arduino/setup-arduino-cli@v2
+        with:
+          version: ${{ env.ARDUINO_CLI_VERSION }}
+
+      - name: Restaurar package y toolchain JWPLC
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15/packages/jwplc
+            ~/.arduino15/staging
+          key: jwplc-${{ runner.os }}-${{ env.JWPLC_PACKAGE_VERSION }}-${{ hashFiles('JWPLC/package_jwplc_index_dev.json') }}
+          restore-keys: |
+            jwplc-${{ runner.os }}-${{ env.JWPLC_PACKAGE_VERSION }}-
+            jwplc-${{ runner.os }}-
+
+      - name: Configurar Arduino CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          arduino-cli config init --overwrite
+          arduino-cli config set board_manager.additional_urls "$JWPLC_INDEX_URL"
+          arduino-cli core update-index
+
+      - name: Instalar package base y herramientas
+        shell: bash
+        run: |
+          set -euo pipefail
+          arduino-cli core install "jwplc:esp32@$JWPLC_PACKAGE_VERSION"
+          arduino-cli core list
+
+      - name: Superponer plataforma del branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          PLATFORM_DIR="$HOME/.arduino15/packages/jwplc/hardware/esp32/$JWPLC_PACKAGE_VERSION"
+          test -d "$PLATFORM_DIR"
+          rsync -a --delete "$GITHUB_WORKSPACE/JWPLC/2.1.0/" "$PLATFORM_DIR/"
+          test -f "$PLATFORM_DIR/boards.txt"
+          test -f "$PLATFORM_DIR/platform.txt"
+          echo "Plataforma activa: $PLATFORM_DIR"
+          arduino-cli board listall "$JWPLC_FQBN"
+
+      - name: Compilar smoke tests
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p "$RUNNER_TEMP/jwplc-builds" "$GITHUB_WORKSPACE/ci-artifacts"
+
+          sketches=(
+            "JWPLC/2.1.0/libraries/JWPLC_LogicRuntime/examples/JWPLC_LogicRuntime_Default"
+            "JWPLC/2.1.0/libraries/JWPLC_LogicRuntime/examples/JWPLC_LogicRuntime_V2_Engine_RAM"
+            "JWPLC/2.1.0/libraries/JWPLC_LogicRuntime/examples/JWPLC_LogicRuntime_V1_V2_Integrated_Regression_RAM"
+            "JWPLC/2.1.0/libraries/JWPLC_LogicRuntime_UI/examples/JWPLC_LogicRuntime_UI_FBD_Map_V2_RAM"
+          )
+
+          for sketch in "${sketches[@]}"; do
+            name="$(basename "$sketch")"
+            build_path="$RUNNER_TEMP/jwplc-builds/$name"
+            log_file="$GITHUB_WORKSPACE/ci-artifacts/$name.log"
+
+            echo "::group::Compilando $name"
+            arduino-cli compile \
+              --fqbn "$JWPLC_FQBN" \
+              --warnings default \
+              --build-path "$build_path" \
+              "$sketch" 2>&1 | tee "$log_file"
+            echo "::endgroup::"
+
+            find "$build_path" -maxdepth 1 -type f \
+              \( -name '*.bin' -o -name '*.elf' -o -name '*.map' \) \
+              -exec cp {} "$GITHUB_WORKSPACE/ci-artifacts/" \;
+          done
+
+      - name: Publicar logs y binarios
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jwplc-logic-runtime-ci
+          path: ci-artifacts/
+          if-no-files-found: warn
+          retention-days: 14
