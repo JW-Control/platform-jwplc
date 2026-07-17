@@ -3,6 +3,7 @@
 
 #include <cstdio>
 #include <cstdint>
+#include <cstring>
 
 #include "RuntimeUIFBDMapV4.h"
 #include "../widgets/RuntimeUIWidgets.h"
@@ -144,6 +145,7 @@ protected:
       return false;
     }
 
+    const bool feedbackChanged = _editFeedback != EditFeedback::None;
     _editFeedback = EditFeedback::None;
     JWPLC_Display.notifyActivity();
 
@@ -152,23 +154,47 @@ protected:
                   sizeof(valueField),
                   "VALOR <%lu>",
                   static_cast<unsigned long>(_parameterValue));
-    JWPLCLogicRuntimeUIWidgets::drawMenuButton(
-        JWPLC_Display.tft(),
-        10,
-        103,
-        145,
-        38,
-        valueField,
-        true);
 
-    JWPLCLogicRuntimeUIWidgets::updateTextField(
-        JWPLC_Display.tft(),
-        78,
-        154,
-        28,
-        "OK GUARDAR   ESC CANCELAR",
-        JWPLCLogicRuntimeUIWidgets::COLOR_MUTED,
-        JWPLCLogicRuntimeUIWidgets::COLOR_PANEL);
+    // Durante repeat no se reconstruye el botón de 145 x 38 px. Solo se limpia
+    // y repinta la línea de texto dentro de la superficie ya seleccionada.
+    Adafruit_ST7789 &tft = JWPLC_Display.tft();
+    static constexpr int16_t valueX = 10;
+    static constexpr int16_t valueY = 103;
+    static constexpr int16_t valueW = 145;
+    static constexpr int16_t valueH = 38;
+    static constexpr int16_t innerX = valueX + 5;
+    static constexpr int16_t textY = valueY + (valueH - 8) / 2;
+
+    tft.fillRect(innerX,
+                 textY,
+                 valueW - 10,
+                 8,
+                 JWPLCLogicRuntimeUIWidgets::COLOR_SELECTED);
+
+    const int16_t textWidth = static_cast<int16_t>(
+        std::strlen(valueField) * 6U);
+    const int16_t textX = static_cast<int16_t>(
+        valueX + (valueW - textWidth) / 2);
+
+    tft.setTextWrap(false);
+    tft.setTextSize(1);
+    tft.setTextColor(JWPLCLogicRuntimeUIWidgets::COLOR_ACCENT,
+                     JWPLCLogicRuntimeUIWidgets::COLOR_SELECTED);
+    tft.setCursor(textX, textY);
+    tft.print(valueField);
+
+    // El pie solo necesita restaurarse si antes mostraba un error.
+    if (feedbackChanged)
+    {
+      JWPLCLogicRuntimeUIWidgets::updateTextField(
+          tft,
+          78,
+          154,
+          28,
+          "OK GUARDAR   ESC CANCELAR",
+          JWPLCLogicRuntimeUIWidgets::COLOR_MUTED,
+          JWPLCLogicRuntimeUIWidgets::COLOR_PANEL);
+    }
     return true;
   }
 
