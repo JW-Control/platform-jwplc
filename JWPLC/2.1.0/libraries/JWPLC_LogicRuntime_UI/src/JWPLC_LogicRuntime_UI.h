@@ -6,7 +6,6 @@
 #include <JWPLC_Display.h>
 
 #include "RuntimeUIView.h"
-#include "RuntimeUIV2EditSession.h"
 #include "model/RuntimeUIV2ReadModel.h"
 #include "screens/RuntimeUIHome.h"
 #include "screens/RuntimeUIProgram.h"
@@ -18,8 +17,8 @@
  * @brief Interfaz USER modular del JWPLC Logic Runtime.
  *
  * El núcleo lógico permanece independiente de TFT y botonera. La API histórica
- * para JWPLC_LogicRuntime v1 se conserva. El overload v2 abre el mapa FBD y
- * prepara una sesión transaccional RAM para la edición gráfica posterior.
+ * para JWPLC_LogicRuntime v1 se conserva. El overload v2 abre directamente el
+ * mapa FBD con edición RAM encapsulada.
  */
 class JWPLC_LogicRuntime_UIClass
 {
@@ -33,17 +32,15 @@ public:
    * @brief Enlaza el motor RAM v2 con el mapa FBD.
    *
    * Puede llamarse desde setup() aunque la TFT todavía esté inicializándose.
-   * La edición v2 trabaja primero sobre un borrador RAM; no escribe FRAM ni
-   * conmuta salidas físicas.
+   * La edición v2 no escribe FRAM ni conmuta salidas físicas.
    */
   bool begin(LogicV2EnginePrototype &engine);
 
   /**
    * @brief Ejecuta trabajo no gráfico fuera del callback de la TFT.
    *
-   * En v1 procesa acciones diferidas y sincroniza RUN/ERR. En v2 mantiene la
-   * sesión de edición desacoplada del renderer; el scan sigue siendo
-   * responsabilidad del sketch.
+   * En v1 procesa acciones diferidas y sincroniza RUN/ERR. En v2 solo
+   * sincroniza indicadores; el scan sigue siendo responsabilidad del sketch.
    */
   void update();
 
@@ -53,8 +50,6 @@ public:
   const JWPLC_LogicRuntime *runtime() const;
   LogicV2EnginePrototype *v2Engine();
   const LogicV2EnginePrototype *v2Engine() const;
-  RuntimeUIV2EditSession *v2EditSession();
-  const RuntimeUIV2EditSession *v2EditSession() const;
 
   void forceRedraw();
 
@@ -97,7 +92,6 @@ private:
   RuntimeUIDiagram _diagram;
   RuntimeUIBlocks _blocks;
   RuntimeUIV2ReadModel _v2Model;
-  RuntimeUIV2EditSession _v2EditSession;
   RuntimeUIFBDMapV4 _fbdMapV2;
 };
 
