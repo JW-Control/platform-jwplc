@@ -5,11 +5,11 @@
 #include <JWPLC_LogicRuntime.h>
 
 /**
- * @brief Puente de inspección de solo lectura entre el motor RAM v2 y la UI.
+ * @brief Puente de inspección entre el motor RAM v2 y la UI.
  *
- * No modifica el programa ni expone los arreglos internos para escritura. Los
- * punteros devueltos pertenecen al motor y solo deben usarse durante la
- * consulta actual.
+ * Las consultas normales siguen siendo de solo lectura. `mutableEngine()` se
+ * reserva exclusivamente para la sesión transaccional RAM del editor, que
+ * valida una copia completa antes de recargar el motor.
  */
 class RuntimeUIV2ReadModel
 {
@@ -21,6 +21,12 @@ public:
   bool isAttached() const;
 
   const LogicV2EnginePrototype *engine() const;
+
+  LogicV2EnginePrototype *mutableEngine() const
+  {
+    return const_cast<LogicV2EnginePrototype *>(_engine);
+  }
+
   LogicV2EngineState state() const;
   uint16_t blockCount() const;
   uint16_t linkCount() const;
