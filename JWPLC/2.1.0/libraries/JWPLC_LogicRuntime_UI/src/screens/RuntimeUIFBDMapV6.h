@@ -40,12 +40,20 @@ public:
   void refresh(const JWPLC_IOState *io,
                const JWPLC_RTCState *rtc)
   {
-    // applyAxis consume tanto PRESS como EV_REPEAT. El perfil global del JWPLC
-    // ya habilita repeat para UP/DOWN y acelera su frecuencia progresivamente.
-    if (parameterEditorActiveForExtension() &&
-        parameterValueFocusedForExtension())
+    if (parameterEditorActiveForExtension())
     {
-      applyParameterValueAxisForExtension();
+      if (parameterValueFocusedForExtension())
+      {
+        // applyAxis consume PRESS y EV_REPEAT. El perfil global del JWPLC ya
+        // habilita repeat para UP/DOWN y acelera su frecuencia progresivamente.
+        applyParameterValueAxisForExtension();
+      }
+      else
+      {
+        // UNIDAD conserva pasos discretos. Evita que repeats acumulados en ese
+        // campo se apliquen después al volver a seleccionar VALOR.
+        JWPLC_Buttons.clearPendingRepeats();
+      }
     }
 
     RuntimeUIFBDMapV5::refresh(io, rtc);
