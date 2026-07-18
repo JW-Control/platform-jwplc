@@ -143,6 +143,11 @@ protected:
     _addPreviewDrawn = true;
   }
 
+  const char *wizardTypeLabelV11() const
+  {
+    return wizardTypeName(_wizardType);
+  }
+
   void requestWizardCreateV11()
   {
     requestWizardCreate();
