@@ -11,7 +11,7 @@
 #include "screens/RuntimeUIProgram.h"
 #include "screens/RuntimeUIDiagram.h"
 #include "screens/RuntimeUIBlocks.h"
-#include "screens/RuntimeUIFBDMapV11.h"
+#include "screens/RuntimeUIFBDMapV12.h"
 
 /**
  * @brief Interfaz USER modular del JWPLC Logic Runtime.
@@ -72,6 +72,14 @@ public:
                         const JWPLC_RTCState *rtc);
   void onDisplayExit();
 
+  /**
+   * @brief Indica al router global si ESC puede abandonar USER.
+   *
+   * En EngineV2 solo la raíz del mapa permite volver a IDLE. Cualquier
+   * subpantalla conserva ESC para regresar exactamente un nivel.
+   */
+  bool canReturnToIdle() const;
+
 private:
   enum class Backend : uint8_t
   {
@@ -105,7 +113,7 @@ private:
   RuntimeUIDiagram _diagram;
   RuntimeUIBlocks _blocks;
   RuntimeUIV2ReadModel _v2Model;
-  RuntimeUIFBDMapV11 _fbdMapV2;
+  RuntimeUIFBDMapV12 _fbdMapV2;
 };
 
 extern JWPLC_LogicRuntime_UIClass JWPLC_LogicRuntime_UI;
