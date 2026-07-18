@@ -60,7 +60,7 @@ private:
   static constexpr int16_t LIST_X = 10;
   static constexpr int16_t LIST_Y = 42;
   static constexpr int16_t LIST_W = 300;
-  static constexpr int16_t LIST_H = 24;
+  static constexpr int16_t LIST_ROW_H = 24;
   static constexpr int16_t LIST_STEP = 28;
 
   void resetV11State();

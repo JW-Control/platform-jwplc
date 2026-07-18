@@ -555,7 +555,7 @@ void RuntimeUIFBDMapV11::drawSourceListRow(uint8_t inputIndex,
                  LIST_X,
                  static_cast<int16_t>(LIST_Y + inputIndex * LIST_STEP),
                  LIST_W,
-                 LIST_H,
+                 LIST_ROW_H,
                  label,
                  selected);
 }
@@ -641,7 +641,7 @@ void RuntimeUIFBDMapV11::drawSourceEditRow()
                  LIST_X,
                  LIST_Y,
                  LIST_W,
-                 LIST_H,
+                 LIST_ROW_H,
                  label,
                  true);
 }
@@ -724,7 +724,7 @@ void RuntimeUIFBDMapV11::drawParameterListRow(uint8_t parameterIndex,
                  LIST_X,
                  static_cast<int16_t>(LIST_Y + parameterIndex * LIST_STEP),
                  LIST_W,
-                 LIST_H,
+                 LIST_ROW_H,
                  label,
                  selected);
 }
@@ -813,7 +813,7 @@ void RuntimeUIFBDMapV11::drawParameterEditValue()
                    10,
                    LIST_Y,
                    145,
-                   LIST_H,
+                   LIST_ROW_H,
                    label,
                    _parameterField == ParameterField::Value);
     return;
@@ -825,7 +825,7 @@ void RuntimeUIFBDMapV11::drawParameterEditValue()
                  LIST_X,
                  LIST_Y,
                  LIST_W,
-                 LIST_H,
+                 LIST_ROW_H,
                  label,
                  true);
 }
@@ -846,7 +846,7 @@ void RuntimeUIFBDMapV11::drawParameterEditUnit()
                  165,
                  LIST_Y,
                  145,
-                 LIST_H,
+                 LIST_ROW_H,
                  label,
                  _parameterField == ParameterField::Unit);
 }
