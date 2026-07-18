@@ -225,7 +225,7 @@ void RuntimeUIFBDMapV12::drawParameterListScreen()
   std::snprintf(subtitle,
                 sizeof(subtitle),
                 "PARAMETROS: %s",
-                wizardTypeName(_wizardType));
+                wizardTypeLabelV11());
   drawConfigHeader(subtitle);
   drawParameterPosition();
 
