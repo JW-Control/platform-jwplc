@@ -175,6 +175,17 @@ protected:
     _wizardTimeValue = _timeValueBackup;
   }
 
+  /**
+   * @brief Expone a revisiones derivadas el gate privado de V4.
+   *
+   * V11 ya es friend explícita de RuntimeUIFBDMapV4. La llamada cualificada
+   * evita ampliar la visibilidad de V4 y mantiene el acceso encapsulado.
+   */
+  void gateInputUntilRelease(bool restoreIdleReturn = false)
+  {
+    RuntimeUIFBDMapV4::gateInputUntilRelease(restoreIdleReturn);
+  }
+
   ConfigView _configView;
   MainFocus _mainFocus;
   uint8_t _sourceInputIndex;
