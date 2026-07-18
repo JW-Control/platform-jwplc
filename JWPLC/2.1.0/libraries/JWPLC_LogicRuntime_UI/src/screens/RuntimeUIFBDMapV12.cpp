@@ -82,13 +82,6 @@ void RuntimeUIFBDMapV12::refresh(const JWPLC_IOState *io,
   syncIdleReturnModeV12();
 }
 
-bool RuntimeUIFBDMapV12::canReturnToIdle() const
-{
-  // Las subpantallas deben recibir ESC antes que el router global. Solo la raíz
-  // del mapa conserva el comportamiento histórico de retorno a IDLE.
-  return normalMapRootActiveV11();
-}
-
 bool RuntimeUIFBDMapV12::handleMainInput()
 {
   if (JWPLC_Buttons.pressed(BTN_ESC))
