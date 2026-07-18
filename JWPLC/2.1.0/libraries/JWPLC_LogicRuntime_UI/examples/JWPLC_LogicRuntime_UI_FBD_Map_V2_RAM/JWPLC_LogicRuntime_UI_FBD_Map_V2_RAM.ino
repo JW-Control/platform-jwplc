@@ -120,10 +120,13 @@ void setup()
   Serial.println();
   Serial.println("JWPLC Logic Runtime UI - mapa FBD v2 en RAM");
   Serial.println("11 bloques, 12 enlaces, AND4 con pin negado y TON 2 s.");
-  Serial.println("Editor v0.5.8: FUENTE / PARAMETROS / CREAR.");
-  Serial.println("El nodo + no tiene preview compacto sobre bloques reales.");
+  Serial.println("Editor v0.5.9 candidato: FUENTE / PARAMETROS / CREAR.");
+  Serial.println("El mapa normal no dibuja preview compacto del nodo +.");
+  Serial.println("RIGHT abre el nodo + completo en una columna virtual.");
+  Serial.println("ESC vuelve un nivel antes de permitir retorno a IDLE.");
+  Serial.println("Un parametro abre directo; listas futuras muestran 4 filas.");
+  Serial.println("Parametros multiples muestran posicion 01/08.");
   Serial.println("Varias fuentes: primero entrada, luego fuente con mini FBD.");
-  Serial.println("Parametros: lista general y editor valor/unidad.");
   Serial.println("Tipos iniciales: DI, NOT, AND2, TON y DO.");
   Serial.println("UP/DN corto cambia 1; mantenido acelera valores de tiempo.");
   Serial.println("No escribe FRAM ni conmuta salidas Q0 fisicas.");
@@ -156,7 +159,7 @@ void setup()
   JWPLC_LogicRuntime_UI.begin(engine);
 
   Serial.println("Motor v2: RUNNING");
-  Serial.println("UI FBD v0.5.8: CONFIGURACION JERARQUICA");
+  Serial.println("UI FBD v0.5.9 candidata: PARAMETROS DIRECTOS Y ESC JERARQUICO");
   Serial.println("Pulse cualquier boton para entrar a USER.");
 }
 
