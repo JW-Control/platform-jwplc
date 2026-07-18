@@ -118,6 +118,60 @@ protected:
     return _parameterEditFocus == ParameterEditFocus::Value;
   }
 
+  /**
+   * @brief Consume UP/DOWN sobre UNIDAD preservando exactamente el tiempo.
+   *
+   * El editor usa valores enteros. Si la duración actual no es divisible por la
+   * unidad vecina, conserva valor y unidad y muestra una advertencia. Así una
+   * duración de 1000 ms nunca puede convertirse por redondeo en 1 h.
+   */
+  bool applyParameterUnitStepExactForExtension()
+  {
+    if (!_parameterEditorActive ||
+        _awaitingApply ||
+        _parameterEditFocus != ParameterEditFocus::Unit)
+    {
+      return false;
+    }
+
+    const bool up = JWPLC_Buttons.pressed(BTN_UP);
+    const bool down = !up && JWPLC_Buttons.pressed(BTN_DOWN);
+    if (!up && !down)
+    {
+      return false;
+    }
+
+    uint8_t unit = static_cast<uint8_t>(_parameterUnit);
+    unit = down
+               ? static_cast<uint8_t>((unit + 1U) % 4U)
+               : (unit == 0 ? 3U : static_cast<uint8_t>(unit - 1U));
+
+    const TimeUnit candidate = static_cast<TimeUnit>(unit);
+    const uint32_t milliseconds = parameterMilliseconds();
+    const uint32_t multiplier = unitMultiplier(candidate);
+
+    JWPLC_Display.notifyActivity();
+    _editFeedback = EditFeedback::None;
+
+    if (multiplier == 0 || milliseconds % multiplier != 0)
+    {
+      JWPLCLogicRuntimeUIWidgets::updateTextField(
+          JWPLC_Display.tft(),
+          78,
+          154,
+          28,
+          "UNIDAD NO EXACTA",
+          JWPLCLogicRuntimeUIWidgets::COLOR_WARNING,
+          JWPLCLogicRuntimeUIWidgets::COLOR_PANEL);
+      return true;
+    }
+
+    _parameterUnit = candidate;
+    _parameterValue = milliseconds / multiplier;
+    drawParameterEdit();
+    return true;
+  }
+
   bool applyParameterValueAxisForExtension()
   {
     if (!_parameterEditorActive ||
