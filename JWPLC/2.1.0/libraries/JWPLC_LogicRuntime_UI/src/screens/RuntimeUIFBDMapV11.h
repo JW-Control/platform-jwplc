@@ -148,6 +148,37 @@ protected:
     return wizardTypeName(_wizardType);
   }
 
+  /**
+   * @brief Cambia la unidad del TON sin alterar la duración real.
+   *
+   * El editor trabaja con valores enteros. Por eso una unidad nueva solo se
+   * acepta cuando los milisegundos actuales son divisibles exactamente por su
+   * multiplicador. Esto evita que 1000 ms se redondee a 1 h y luego se expanda
+   * a 60 min / 3600 s.
+   */
+  void moveWizardTimeUnit(bool forward)
+  {
+    const uint32_t milliseconds = wizardTimeMilliseconds();
+    uint8_t unit = static_cast<uint8_t>(_wizardTimeUnit);
+    unit = forward
+               ? static_cast<uint8_t>((unit + 1U) % 4U)
+               : (unit == 0 ? 3U : static_cast<uint8_t>(unit - 1U));
+
+    const WizardTimeUnit candidate = static_cast<WizardTimeUnit>(unit);
+    const uint32_t multiplier = wizardUnitMultiplier(candidate);
+    if (multiplier == 0 || milliseconds % multiplier != 0)
+    {
+      drawConfigFooter(
+          "UNIDAD NO EXACTA",
+          JWPLCLogicRuntimeUIWidgets::COLOR_WARNING);
+      return;
+    }
+
+    _wizardTimeUnit = candidate;
+    _wizardTimeValue = milliseconds / multiplier;
+    drawConfigFooter("OK ACEPTAR   ESC CANCELAR");
+  }
+
   void requestWizardCreateV11()
   {
     requestWizardCreate();
