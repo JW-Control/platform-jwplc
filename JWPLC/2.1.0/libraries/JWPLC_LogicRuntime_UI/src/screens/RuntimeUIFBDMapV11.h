@@ -148,6 +148,16 @@ protected:
     requestWizardCreate();
   }
 
+  void returnConfigureToTypeV11()
+  {
+    restoreWizardRepeatProfile();
+    _wizardPage = WizardPage::Type;
+    _wizardError = false;
+    JWPLC_Display.notifyActivity();
+    gateInputUntilRelease(false);
+    drawWizardTypeScreen();
+  }
+
   void restoreWizardRepeatProfileV11()
   {
     restoreWizardRepeatProfile();
