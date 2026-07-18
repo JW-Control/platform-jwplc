@@ -22,6 +22,7 @@ class RuntimeUIFBDMapV4
   friend class RuntimeUIFBDMapV7;
   friend class RuntimeUIFBDMapV8;
   friend class RuntimeUIFBDMapV10;
+  friend class RuntimeUIFBDMapV11;
 
 public:
   RuntimeUIFBDMapV4();
