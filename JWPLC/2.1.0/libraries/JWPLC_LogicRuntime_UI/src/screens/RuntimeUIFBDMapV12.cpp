@@ -59,6 +59,18 @@ void RuntimeUIFBDMapV12::forceRedraw()
 void RuntimeUIFBDMapV12::refresh(const JWPLC_IOState *io,
                                  const JWPLC_RTCState *rtc)
 {
+  // El editor histórico de un TON existente vive en V5/V7. Se intercepta
+  // únicamente UP/DOWN cuando el foco está en UNIDAD para aplicar la misma
+  // política exacta que usa el asistente de bloque nuevo. El evento queda
+  // consumido antes de llegar al conversor antiguo.
+  if (parameterEditorActiveForExtension() &&
+      !parameterValueFocusedForExtension() &&
+      applyParameterUnitStepExactForExtension())
+  {
+    syncIdleReturnModeV12();
+    return;
+  }
+
   if (!normalMapRootActiveV11())
   {
     RuntimeUIFBDMapV11::refresh(io, rtc);
