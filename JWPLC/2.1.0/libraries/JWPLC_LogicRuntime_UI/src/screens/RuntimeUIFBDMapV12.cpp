@@ -17,6 +17,18 @@ void RuntimeUIFBDMapV12::resetV12State()
   _parameterListTop = 0;
 }
 
+void RuntimeUIFBDMapV12::syncIdleReturnModeV12()
+{
+  // JWPLC_Display consulta ESC antes del callback USER. Por eso, mientras el
+  // editor está anidado, se deshabilita únicamente el retorno global para que
+  // la pantalla activa conserve y consuma el evento. Al volver a la raíz se
+  // restaura ESC_ONLY y el comportamiento normal de salida a IDLE.
+  JWPLC_Display.setIdleReturnMode(
+      normalMapRootActiveV11()
+          ? IDLE_RETURN_ESC_ONLY
+          : IDLE_RETURN_DISABLED);
+}
+
 void RuntimeUIFBDMapV12::attach(RuntimeUIV2ReadModel &model)
 {
   resetV12State();
@@ -28,12 +40,20 @@ void RuntimeUIFBDMapV12::enter()
   resetV12State();
   RuntimeUIFBDMapV11::enter();
   suppressCompactAddPreviewV11();
+  syncIdleReturnModeV12();
+}
+
+void RuntimeUIFBDMapV12::exit()
+{
+  RuntimeUIFBDMapV11::exit();
+  JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
 }
 
 void RuntimeUIFBDMapV12::forceRedraw()
 {
   RuntimeUIFBDMapV11::forceRedraw();
   suppressCompactAddPreviewV11();
+  syncIdleReturnModeV12();
 }
 
 void RuntimeUIFBDMapV12::refresh(const JWPLC_IOState *io,
@@ -42,6 +62,7 @@ void RuntimeUIFBDMapV12::refresh(const JWPLC_IOState *io,
   if (!normalMapRootActiveV11())
   {
     RuntimeUIFBDMapV11::refresh(io, rtc);
+    syncIdleReturnModeV12();
     return;
   }
 
@@ -52,11 +73,13 @@ void RuntimeUIFBDMapV12::refresh(const JWPLC_IOState *io,
   if (interceptAddRightPressForExtension())
   {
     suppressCompactAddPreviewV11();
+    syncIdleReturnModeV12();
     return;
   }
 
   RuntimeUIFBDMapV7::refresh(io, rtc);
   suppressCompactAddPreviewV11();
+  syncIdleReturnModeV12();
 }
 
 bool RuntimeUIFBDMapV12::canReturnToIdle() const
