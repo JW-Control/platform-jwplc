@@ -34,7 +34,6 @@ src/screens/RuntimeUIFBDMapV11.h
 src/screens/RuntimeUIFBDMapV12.h
 src/screens/RuntimeUIFBDMapV12.cpp
 src/JWPLC_LogicRuntime_UI.h
-src/JWPLC_LogicRuntime_UI_Idle.cpp
 examples/JWPLC_LogicRuntime_UI_FBD_Map_V2_RAM/
 ```
 
@@ -82,14 +81,16 @@ Reglas:
 
 ### ESC
 
-`JWPLC_Display` consulta el retorno a IDLE antes del callback USER. Para evitar que consuma `ESC` desde una subpantalla:
+`JWPLC_Display` consulta el retorno a IDLE antes del callback USER. Para evitar que consuma `ESC` desde una subpantalla, V12 sincroniza el modo global con la profundidad actual:
 
 ```text
 raíz MAPA FBD       → IDLE_RETURN_ESC_ONLY
 pantalla anidada    → IDLE_RETURN_DISABLED
 ```
 
-La pantalla activa consume `ESC` y, al volver a la raíz, se restaura automáticamente `IDLE_RETURN_ESC_ONLY`.
+La pantalla activa consume `ESC` y, al volver a la raíz, V12 restaura automáticamente `IDLE_RETURN_ESC_ONLY`.
+
+No se modifica `JWPLC_Display.cpp` ni se reemplaza el hook global `jwplcCanReturnToIdle()`.
 
 ## Compilación
 
@@ -97,7 +98,7 @@ La pantalla activa consume `ESC` y, al volver a la raíz, se restaura automátic
 - [ ] `Used platform` apunta al package local esperado.
 - [ ] `RuntimeUIFBDMapV12.cpp` compila como parte de la librería.
 - [ ] No existe conflicto por `LIST_ROW_H`.
-- [ ] No existen definiciones duplicadas de `jwplcCanReturnToIdle()`.
+- [ ] `JWPLC_LogicRuntime_UI.h` activa `RuntimeUIFBDMapV12`.
 
 ## Prueba del nodo `+`
 
