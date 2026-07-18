@@ -72,14 +72,6 @@ public:
                         const JWPLC_RTCState *rtc);
   void onDisplayExit();
 
-  /**
-   * @brief Indica al router global si ESC puede abandonar USER.
-   *
-   * En EngineV2 solo la raíz del mapa permite volver a IDLE. Cualquier
-   * subpantalla conserva ESC para regresar exactamente un nivel.
-   */
-  bool canReturnToIdle() const;
-
 private:
   enum class Backend : uint8_t
   {
