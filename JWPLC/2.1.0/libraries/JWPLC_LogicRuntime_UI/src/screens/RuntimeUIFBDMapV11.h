@@ -23,7 +23,7 @@ public:
   void exit();
   void forceRedraw();
 
-private:
+protected:
   enum class ConfigView : uint8_t
   {
     Main = 0,
@@ -93,7 +93,7 @@ private:
                           const char *label);
   void drawMainGroup(MainFocus focus);
   void drawMainScreen();
-  bool handleMainInput();
+  virtual bool handleMainInput();
 
   void drawSourceListScreen();
   void drawSourceListRow(uint8_t inputIndex, bool selected);
@@ -105,9 +105,9 @@ private:
   bool handleSourceEditInput();
   void returnFromSourceEdit(bool accept);
 
-  void drawParameterListScreen();
-  void drawParameterListRow(uint8_t parameterIndex, bool selected);
-  bool handleParameterListInput();
+  virtual void drawParameterListScreen();
+  virtual void drawParameterListRow(uint8_t parameterIndex, bool selected);
+  virtual bool handleParameterListInput();
 
   void beginParameterEdit();
   void drawParameterEditScreen();
@@ -115,7 +115,7 @@ private:
   void drawParameterEditValue();
   void drawParameterEditUnit();
   bool handleParameterEditInput();
-  void returnFromParameterEdit(bool accept);
+  virtual void returnFromParameterEdit(bool accept);
 
   void drawFixedContextForCurrent();
   void drawFixedContext(uint16_t source);
@@ -128,6 +128,37 @@ private:
   void drawConfigFooter(
       const char *text,
       uint16_t color = JWPLCLogicRuntimeUIWidgets::COLOR_MUTED);
+
+  // Hooks protegidos para revisiones posteriores sin volver a duplicar la
+  // cadena V8 -> V11 ni exponer estado del asistente en la API pública.
+  bool normalMapRootActiveV11() const
+  {
+    return _wizardPage == WizardPage::None &&
+           !_addSelected &&
+           _mode == Mode::Map;
+  }
+
+  void suppressCompactAddPreviewV11()
+  {
+    _addPreviewDrawn = true;
+  }
+
+  void requestWizardCreateV11()
+  {
+    requestWizardCreate();
+  }
+
+  void restoreWizardRepeatProfileV11()
+  {
+    restoreWizardRepeatProfile();
+  }
+
+  void restoreParameterBackupV11()
+  {
+    _wizardResource = _resourceBackup;
+    _wizardTimeUnit = _timeUnitBackup;
+    _wizardTimeValue = _timeValueBackup;
+  }
 
   ConfigView _configView;
   MainFocus _mainFocus;
