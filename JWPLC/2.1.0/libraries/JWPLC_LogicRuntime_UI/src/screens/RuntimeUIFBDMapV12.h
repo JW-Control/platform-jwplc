@@ -24,9 +24,6 @@ public:
   void exit();
   void forceRedraw();
 
-  /** @brief Solo la raíz del mapa permite que JWPLC_Display vuelva a IDLE. */
-  bool canReturnToIdle() const;
-
 protected:
   static constexpr uint8_t PARAMETER_ROWS_VISIBLE = 4;
   static constexpr int16_t PARAMETER_POSITION_X = 278;
