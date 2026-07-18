@@ -21,6 +21,7 @@ public:
   void enter();
   void refresh(const JWPLC_IOState *io,
                const JWPLC_RTCState *rtc);
+  void exit();
   void forceRedraw();
 
   /** @brief Solo la raíz del mapa permite que JWPLC_Display vuelva a IDLE. */
@@ -41,6 +42,7 @@ protected:
 
 private:
   void resetV12State();
+  void syncIdleReturnModeV12();
   void ensureParameterListVisible();
   void drawParameterPosition();
 
