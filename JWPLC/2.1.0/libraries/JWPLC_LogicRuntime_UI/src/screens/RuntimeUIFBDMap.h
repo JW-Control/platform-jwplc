@@ -20,6 +20,14 @@ public:
                const JWPLC_RTCState *rtc);
   void forceRedraw();
 
+  /**
+   * @brief Indica si el siguiente callback necesita adquirir el bus TFT.
+   *
+   * No consume botones ni modifica el modelo. Las pantallas interactivas se
+   * mantienen conservadoras; mapa y detalle estáticos comparan sus cachés.
+   */
+  bool needsTftRefresh() const;
+
 private:
   void syncRefreshPeriod();
   uint32_t _appliedRefreshPeriodMs;
