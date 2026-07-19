@@ -76,10 +76,12 @@ V14 no modifica el dato TON ni su ejecución. Corrige exclusivamente:
 2. El encabezado usa zonas no superpuestas: `EDITAR T`, `Bxx TON` e insignia de estado.
 3. El overlay de `T/Ta` limpia únicamente las líneas de texto y conserva completo el marco amarillo del parámetro seleccionado.
 4. La transición último bloque ↔ nodo `+` recompone solo el área FBD; no limpia encabezado, RUN ni marco exterior.
+5. V14 es el único renderer vivo del panel TON en DETALLE: `T` y `Ta` tienen cachés independientes y no se repintan si texto, foco y color permanecen iguales.
 
 ## Archivos
 
 ```text
+src/screens/RuntimeUIFBDMapV7.h
 src/screens/RuntimeUIFBDMapV11.h
 src/screens/RuntimeUIFBDMapV13.h
 src/screens/RuntimeUIFBDMapV14.h
@@ -93,7 +95,7 @@ src/JWPLC_LogicRuntime_UI.h
 - [ ] `RuntimeUIFBDMapV13.cpp` y `RuntimeUIFBDMapV14.cpp` aparecen en el log.
 - [ ] `JWPLC_LogicRuntime_UI.h` instancia `RuntimeUIFBDMapV14`.
 - [ ] No aparecen errores de acceso privado en V4/V7/V8/V11.
-- [ ] No aparecen ambigüedades en métodos virtuales de V11/V12/V13/V14.
+- [ ] No aparecen ambigüedades en métodos virtuales de V7/V11/V12/V13/V14.
 - [ ] `sizeof(LogicV2BlockRecord) == 12` continúa vigente.
 
 ## Creación de TON
@@ -121,7 +123,11 @@ src/JWPLC_LogicRuntime_UI.h
 - [ ] El panel muestra `Ta __:__x` con exactamente la misma base.
 - [ ] Al seleccionar PARAM T, el rectángulo amarillo se ve completo en sus cuatro lados.
 - [ ] Al seleccionar Trg, el panel T no queda marcado en amarillo.
-- [ ] La actualización regional de `Ta` no produce parpadeo general.
+- [ ] Con Trg inactivo y TON en reposo, observar al menos 10 s: `T` y `Ta` permanecen totalmente estáticos, sin parpadeo.
+- [ ] Cambiar únicamente el foco Trg ↔ PARAM T: solo se actualiza la línea `T` y su indicador amarillo; `Ta` no se limpia.
+- [ ] Durante temporización, `T` permanece inmóvil y solo `Ta` actualiza su texto visible aproximadamente cada 100 ms.
+- [ ] Al terminar el TON, `Ta` cambia de color/estado una sola vez y luego queda estable.
+- [ ] No reaparece momentáneamente el formato histórico de V7 sobre el formato tipo LOGO!.
 - [ ] El bloque y sus conexiones permanecen visibles.
 
 ## Transición del nodo `+`
