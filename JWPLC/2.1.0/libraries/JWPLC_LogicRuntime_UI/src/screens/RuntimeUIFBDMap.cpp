@@ -1,7 +1,5 @@
 #include "RuntimeUIFBDMap.h"
 
-#include <JWPLC_GlobalPeripherals.h>
-
 RuntimeUIFBDMap::RuntimeUIFBDMap()
     : RuntimeUIFBDMapV14(),
       _appliedRefreshPeriodMs(0)
@@ -22,30 +20,20 @@ void RuntimeUIFBDMap::syncRefreshPeriod()
 
 bool RuntimeUIFBDMap::needsTftRefresh() const
 {
-  // La consulta no consume eventos. Un pulso o repeat pendiente debe llegar al
-  // callback gráfico para que la pantalla activa lo procese normalmente.
-  if (JWPLCButtons::anyPressedOrRepeated())
-  {
-    return true;
-  }
-
-  // Los asistentes y editores todavía combinan entrada y render. Se mantienen
-  // conservadores a 25 Hz hasta separar formalmente ambos pasos.
-  if (parameterEditorActiveForExtension())
-  {
-    return true;
-  }
-
-  if (normalMapRootActiveV11())
-  {
-    return mapNeedsTftRefreshForExtensionV7();
-  }
-
-  if (detailModeActiveV11())
-  {
-    return detailNeedsTftRefreshForExtensionV7();
-  }
-
+  /**
+   * @warning La UI FBD todavía combina procesamiento de botones y render dentro
+   * de refresh(). Por tanto, omitir el callback basándose solo en regiones TFT
+   * sucias puede bloquear eventos de navegación hasta que cambie una señal del
+   * motor. Se mantiene el callback incondicional hasta separar formalmente:
+   *
+   *   1. updateInputAndState() sin bus SPI;
+   *   2. needsRender() por regiones sucias;
+   *   3. render() con el bus TFT adquirido.
+   *
+   * Las cachés regionales continúan evitando escrituras de píxeles redundantes,
+   * y la frecuencia adaptativa conserva 100 ms en MAPA/DETALLE y 40 ms en los
+   * asistentes. Solo se desactiva el salto previo del callback completo.
+   */
   return true;
 }
 
