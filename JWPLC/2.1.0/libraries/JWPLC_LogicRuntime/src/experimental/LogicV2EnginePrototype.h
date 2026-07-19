@@ -79,6 +79,15 @@ public:
   bool blockValue(uint16_t blockIndex) const;
 
   /**
+   * @brief Valor lógico resuelto de una entrada de bloque.
+   *
+   * Centraliza la semántica de OPEN, HI, LO y negación por pin. La UI y otras
+   * vistas de inspección deben usar esta API en vez de duplicar reglas del
+   * evaluador.
+   */
+  bool inputValue(uint16_t blockIndex, uint8_t inputIndex) const;
+
+  /**
    * @brief Valor lógico asociado a un recurso Q0.x del programa cargado.
    *
    * Devuelve false cuando no existe un bloque DigitalOutput para el recurso.
@@ -109,6 +118,10 @@ public:
 
 private:
   bool containsTimedBlocks() const;
+  bool neutralInputValue(LogicV2BlockType consumerType) const;
+  bool resolveInputValue(const LogicV2InputLink &link,
+                         LogicV2BlockType consumerType,
+                         bool &value) const;
   void clearRuntimeState();
   void clearProgramStorage();
   void setFault(LogicV2EngineError error,
