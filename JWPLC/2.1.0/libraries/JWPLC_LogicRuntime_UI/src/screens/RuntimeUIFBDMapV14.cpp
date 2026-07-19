@@ -31,7 +31,10 @@ RuntimeUIFBDMapV14::RuntimeUIFBDMapV14()
       _detailLogoCacheParameterSelected(false),
       _detailLogoCacheColorOn(false),
       _detailLogoCacheConfigured{},
-      _detailLogoCacheElapsed{}
+      _detailLogoCacheElapsed{},
+      _existingElapsedCacheValid(false),
+      _existingElapsedCacheColorOn(false),
+      _existingElapsedCacheText{}
 {
 }
 
@@ -43,6 +46,13 @@ void RuntimeUIFBDMapV14::invalidateDetailLogoCache()
   _detailLogoCacheColorOn = false;
   _detailLogoCacheConfigured[0] = '\0';
   _detailLogoCacheElapsed[0] = '\0';
+}
+
+void RuntimeUIFBDMapV14::invalidateExistingElapsedCache()
+{
+  _existingElapsedCacheValid = false;
+  _existingElapsedCacheColorOn = false;
+  _existingElapsedCacheText[0] = '\0';
 }
 
 void RuntimeUIFBDMapV14::formatMillisecondsInBase(
@@ -143,26 +153,45 @@ void RuntimeUIFBDMapV14::drawExistingElapsed(bool force)
       sizeof(elapsed));
   std::snprintf(line, sizeof(line), "Ta LECTURA %s", elapsed);
 
+  const bool colorOn =
+      model->tonTiming(selectedBlockIndexForExtension()) ||
+      model->blockValue(selectedBlockIndexForExtension());
+
+  // En EDITAR T se aplica la misma regla ya validada en DETALLE: no limpiar ni
+  // escribir la región cuando el texto visible y el color continúan iguales.
+  if (!force &&
+      _existingElapsedCacheValid &&
+      _existingElapsedCacheColorOn == colorOn &&
+      std::strcmp(_existingElapsedCacheText, line) == 0)
+  {
+    return;
+  }
+
   Adafruit_ST7789 &tft = JWPLC_Display.tft();
   tft.fillRect(22, 70, 276, 12, COLOR_PANEL);
   drawFieldLabel(tft,
                  22,
                  72,
                  line,
-                 (model->tonTiming(selectedBlockIndexForExtension()) ||
-                  model->blockValue(selectedBlockIndexForExtension()))
-                     ? COLOR_OK
-                     : COLOR_MUTED,
+                 colorOn ? COLOR_OK : COLOR_MUTED,
                  COLOR_PANEL);
+
+  _existingElapsedCacheColorOn = colorOn;
+  std::snprintf(_existingElapsedCacheText,
+                sizeof(_existingElapsedCacheText),
+                "%s",
+                line);
+  _existingElapsedCacheValid = true;
 }
 
 void RuntimeUIFBDMapV14::drawExistingLogoScreen()
 {
   Adafruit_ST7789 &tft = JWPLC_Display.tft();
-  clearScreen(tft);
+  invalidateExistingElapsedCache();
 
-  // El título de tamaño 2 termina antes de x=110. El identificador comienza en
-  // x=122 y la insignia de estado mantiene su zona fija desde x=239.
+  // No se ejecuta clearScreen(). La pantalla anterior se sustituye directamente
+  // por el encabezado y el panel finales, evitando el fotograma negro intermedio
+  // que producía el barrido más visible al pasar DETALLE -> EDITAR T.
   drawHeaderStatic(tft, "EDITAR T");
 
   char headerInfo[24];
@@ -185,11 +214,9 @@ void RuntimeUIFBDMapV14::drawExistingLogoScreen()
                     engineStateText(state),
                     engineStateColor(state));
 
-  tft.fillRect(PANEL_X_V14,
-               PANEL_Y_V14,
-               PANEL_W_V14,
-               PANEL_H_V14,
-               COLOR_PANEL);
+  // Un solo overwrite del área de contenido. Antes se hacía fillScreen(BLACK) y
+  // luego otro fill del panel, duplicando casi todos los píxeles transferidos.
+  tft.fillRect(0, 24, 320, 146, COLOR_PANEL);
   tft.drawRect(PANEL_X_V14,
                PANEL_Y_V14,
                PANEL_W_V14,
