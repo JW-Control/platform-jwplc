@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <JWPLC_LogicRuntime.h>
+#include <JWPLC_LogicRuntime_V2.h>
 #include <JWPLC_Display.h>
 
 #include "RuntimeUIView.h"
@@ -11,14 +12,14 @@
 #include "screens/RuntimeUIProgram.h"
 #include "screens/RuntimeUIDiagram.h"
 #include "screens/RuntimeUIBlocks.h"
-#include "screens/RuntimeUIFBDMapV14.h"
+#include "screens/RuntimeUIFBDMap.h"
 
 /**
  * @brief Interfaz USER modular del JWPLC Logic Runtime.
  *
  * El núcleo lógico permanece independiente de TFT y botonera. La API histórica
  * para JWPLC_LogicRuntime v1 se conserva. El overload v2 abre directamente el
- * mapa FBD con edición RAM encapsulada.
+ * mapa FBD con edición RAM encapsulada mediante el contrato explícito v2.
  */
 class JWPLC_LogicRuntime_UIClass
 {
@@ -105,7 +106,7 @@ private:
   RuntimeUIDiagram _diagram;
   RuntimeUIBlocks _blocks;
   RuntimeUIV2ReadModel _v2Model;
-  RuntimeUIFBDMapV14 _fbdMapV2;
+  RuntimeUIFBDMap _fbdMapV2;
 };
 
 extern JWPLC_LogicRuntime_UIClass JWPLC_LogicRuntime_UI;
