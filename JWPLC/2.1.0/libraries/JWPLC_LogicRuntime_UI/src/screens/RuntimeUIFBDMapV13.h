@@ -97,10 +97,50 @@ protected:
                         LogoField &focus,
                         bool wizardScreen);
 
+  /**
+   * @brief Abre el editor LOGO! directamente desde DETALLE.
+   *
+   * Inicializa la sesión V5 y el estado V13 antes de dibujar. El editor histórico
+   * de dos campos nunca se ejecuta, por lo que no puede aparecer como frame
+   * intermedio durante la transición.
+   */
+  bool openExistingLogoEditorDirectV13()
+  {
+    if (!beginParameterEditorDirectV5())
+    {
+      return false;
+    }
+
+    const LogicV2BlockRecord *definition = selectedTonForExtension();
+    if (definition == nullptr)
+    {
+      cancelTonParameterEditorForExtension();
+      return false;
+    }
+
+    _existingOriginalMs = definition->parameter;
+    _existingOriginalResource = definition->resource;
+    _existingBase = effectiveBase(definition->parameter,
+                                  definition->resource);
+    decodeMilliseconds(definition->parameter,
+                       _existingBase,
+                       _existingMajor,
+                       _existingMinor);
+    _existingFocus = LogoField::Major;
+    _existingLogoInitialized = true;
+    _lastExistingElapsedRefreshMs = 0;
+
+    JWPLC_Display.notifyActivity();
+    JWPLC_Display.setIdleReturnMode(IDLE_RETURN_DISABLED);
+    gateInputUntilRelease(false);
+    drawExistingLogoScreen();
+    return true;
+  }
+
   void beginExistingLogoEditor();
   void refreshExistingLogoEditor();
   virtual void drawExistingLogoScreen();
-  void drawExistingLogoFields();
+  virtual void drawExistingLogoFields();
   void drawExistingActual();
   virtual void drawExistingElapsed(bool force);
   void drawExistingFooter(const char *text,
