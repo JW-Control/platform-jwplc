@@ -45,6 +45,7 @@ static const LogicV2BlockRecord PROGRAM_BLOCKS[] = {
     {LogicV2BlockType::And, 0, 4},
     {LogicV2BlockType::Or, 4, 2},
     {LogicV2BlockType::SetReset, 6, 2},
+    // TON resource=0 conserva la base preferida s; parameter sigue en ms.
     {LogicV2BlockType::Ton, 8, 1, 0, TON_DELAY_MS},
     {LogicV2BlockType::Not, 9, 1},
     {LogicV2BlockType::DigitalOutput, 10, 1, 0},
@@ -120,15 +121,16 @@ void setup()
   Serial.println();
   Serial.println("JWPLC Logic Runtime UI - mapa FBD v2 en RAM");
   Serial.println("11 bloques, 12 enlaces, AND4 con pin negado y TON 2 s.");
-  Serial.println("Editor v0.5.9 candidato: FUENTE / PARAMETROS / CREAR.");
+  Serial.println("Editor v0.6.0 candidato: TON con base tipo LOGO!.");
+  Serial.println("TON: ss:cc / mm:ss / hh:mm; base guardada en resource.");
+  Serial.println("parameter permanece en milisegundos para el motor lógico.");
   Serial.println("El mapa normal no dibuja preview compacto del nodo +.");
   Serial.println("RIGHT abre el nodo + completo en una columna virtual.");
   Serial.println("ESC vuelve un nivel antes de permitir retorno a IDLE.");
   Serial.println("Un parametro abre directo; listas futuras muestran 4 filas.");
   Serial.println("Parametros multiples muestran posicion 01/08.");
   Serial.println("Varias fuentes: primero entrada, luego fuente con mini FBD.");
-  Serial.println("Tipos iniciales: DI, NOT, AND2, TON y DO.");
-  Serial.println("UP/DN corto cambia 1; mantenido acelera valores de tiempo.");
+  Serial.println("Tipos actuales del asistente: DI, NOT, AND2, TON y DO.");
   Serial.println("No escribe FRAM ni conmuta salidas Q0 fisicas.");
   Serial.println();
 
@@ -159,7 +161,7 @@ void setup()
   JWPLC_LogicRuntime_UI.begin(engine);
 
   Serial.println("Motor v2: RUNNING");
-  Serial.println("UI FBD v0.5.9 candidata: PARAMETROS DIRECTOS Y ESC JERARQUICO");
+  Serial.println("UI FBD v0.6.0 candidata: TON LOGO! + ESC JERARQUICO");
   Serial.println("Pulse cualquier boton para entrar a USER.");
 }
 
