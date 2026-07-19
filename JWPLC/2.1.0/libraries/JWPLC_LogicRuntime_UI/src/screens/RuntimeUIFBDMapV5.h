@@ -102,6 +102,18 @@ private:
 
 protected:
   /**
+   * @brief Abre únicamente la sesión transaccional del TON existente.
+   *
+   * La revisión activa puede interceptar OK antes de que V5 dibuje su editor
+   * histórico VALOR/UNIDAD. De esta forma el layout antiguo no llega a enviarse
+   * a la TFT y el renderer LOGO! es el único propietario de la transición.
+   */
+  bool beginParameterEditorDirectV5()
+  {
+    return beginParameterEdit();
+  }
+
+  /**
    * @brief Punto de extensión mínimo para revisiones posteriores del editor.
    *
    * Mantiene encapsulados el motor, la sesión transaccional y el resto de la
