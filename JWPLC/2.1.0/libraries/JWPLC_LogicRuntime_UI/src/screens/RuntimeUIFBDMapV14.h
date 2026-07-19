@@ -42,6 +42,7 @@ private:
   static uint16_t engineStateColor(LogicV2EngineState state);
 
   void invalidateDetailLogoCache();
+  void invalidateExistingElapsedCache();
 
   bool _detailLogoCacheValid;
   uint16_t _detailLogoCacheBlock;
@@ -49,6 +50,10 @@ private:
   bool _detailLogoCacheColorOn;
   char _detailLogoCacheConfigured[16];
   char _detailLogoCacheElapsed[16];
+
+  bool _existingElapsedCacheValid;
+  bool _existingElapsedCacheColorOn;
+  char _existingElapsedCacheText[36];
 };
 
 #endif
