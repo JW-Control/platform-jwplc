@@ -66,7 +66,7 @@ protected:
   void resetV11State();
   bool handleAddBackV11();
   bool handleTypeScreenV11();
-  void enterConfigureMain();
+  virtual void enterConfigureMain();
   void handleApplyCompletedV11();
 
   bool hasSourceGroup() const;
@@ -78,9 +78,9 @@ protected:
   bool hasParameterGroup() const;
   uint8_t parameterCount() const;
   const char *parameterName(uint8_t parameterIndex) const;
-  void formatParameterValue(uint8_t parameterIndex,
-                            char *destination,
-                            size_t capacity) const;
+  virtual void formatParameterValue(uint8_t parameterIndex,
+                                    char *destination,
+                                    size_t capacity) const;
 
   void normalizeMainFocus();
   void moveMainFocus(bool forward);
@@ -110,11 +110,11 @@ protected:
   virtual bool handleParameterListInput();
 
   void beginParameterEdit();
-  void drawParameterEditScreen();
+  virtual void drawParameterEditScreen();
   void drawParameterEditFields();
   void drawParameterEditValue();
   void drawParameterEditUnit();
-  bool handleParameterEditInput();
+  virtual bool handleParameterEditInput();
   virtual void returnFromParameterEdit(bool accept);
 
   void drawFixedContextForCurrent();
@@ -138,6 +138,33 @@ protected:
            _mode == Mode::Map;
   }
 
+  bool detailModeActiveV11() const
+  {
+    return _wizardPage == WizardPage::None &&
+           !_addSelected &&
+           _mode == Mode::Detail;
+  }
+
+  uint16_t selectedBlockIndexV11() const
+  {
+    return _selectedIndex;
+  }
+
+  const LogicV2BlockRecord *selectedBlockV11() const
+  {
+    return _model != nullptr ? _model->block(_selectedIndex) : nullptr;
+  }
+
+  RuntimeUIV2ReadModel *readModelV11() const
+  {
+    return _model;
+  }
+
+  bool consumeInputReleaseGateV11()
+  {
+    return consumeInputReleaseGate();
+  }
+
   void suppressCompactAddPreviewV11()
   {
     _addPreviewDrawn = true;
@@ -148,13 +175,21 @@ protected:
     return wizardTypeName(_wizardType);
   }
 
+  bool wizardIsTonV11() const
+  {
+    return _wizardType == WizardType::Ton;
+  }
+
+  uint16_t wizardPrimarySourceV11() const
+  {
+    return _wizardSourceA;
+  }
+
   /**
    * @brief Cambia la unidad del TON sin alterar la duración real.
    *
-   * El editor trabaja con valores enteros. Por eso una unidad nueva solo se
-   * acepta cuando los milisegundos actuales son divisibles exactamente por su
-   * multiplicador. Esto evita que 1000 ms se redondee a 1 h y luego se expanda
-   * a 60 min / 3600 s.
+   * Se conserva para compatibilidad con V12. La revisión LOGO! posterior
+   * reemplaza este flujo por una base de tiempo y dos componentes independientes.
    */
   void moveWizardTimeUnit(bool forward)
   {
@@ -179,9 +214,68 @@ protected:
     drawConfigFooter("OK ACEPTAR   ESC CANCELAR");
   }
 
-  void requestWizardCreateV11()
+  virtual void requestWizardCreateV11()
   {
     requestWizardCreate();
+  }
+
+  bool requestLogoTonCreateV11(uint32_t parameterMs,
+                               uint16_t timeBaseResource)
+  {
+    if (!_editSession.begin())
+    {
+      _wizardError = true;
+      drawConfigFooter("ERROR AL ABRIR BORRADOR", JWPLCLogicRuntimeUIWidgets::COLOR_ERROR);
+      return false;
+    }
+
+    LogicV2InputLink input;
+    if (_wizardSourceA == JWPLC_LOGIC_V2_SOURCE_OPEN)
+    {
+      input = LogicV2InputLink::open();
+    }
+    else if (_wizardSourceA == JWPLC_LOGIC_V2_SOURCE_CONST_TRUE)
+    {
+      input = LogicV2InputLink::constantTrue();
+    }
+    else if (_wizardSourceA == JWPLC_LOGIC_V2_SOURCE_CONST_FALSE)
+    {
+      input = LogicV2InputLink::constantFalse();
+    }
+    else
+    {
+      input = LogicV2InputLink::block(_wizardSourceA);
+    }
+
+    uint16_t newIndex = 0;
+    const bool prepared = _editSession.appendBlock(
+        LogicV2BlockType::Ton,
+        &input,
+        1,
+        timeBaseResource,
+        parameterMs,
+        &newIndex);
+    const bool valid =
+        prepared &&
+        _editSession.validate() == LogicV2PrototypeError::None;
+
+    if (!valid)
+    {
+      _editSession.cancel();
+      _wizardError = true;
+      drawConfigFooter("CONFIGURACION NO VALIDA", JWPLCLogicRuntimeUIWidgets::COLOR_ERROR);
+      return false;
+    }
+
+    _wizardNewIndex = newIndex;
+    _wizardApplying = true;
+    _wizardError = false;
+    _awaitingApply = true;
+    _applyRequested = true;
+    JWPLC_Display.notifyActivity();
+    gateInputUntilRelease(false);
+    drawConfigFooter("APLICANDO CAMBIOS...", JWPLCLogicRuntimeUIWidgets::COLOR_WARNING);
+    return true;
   }
 
   void returnConfigureToTypeV11()
