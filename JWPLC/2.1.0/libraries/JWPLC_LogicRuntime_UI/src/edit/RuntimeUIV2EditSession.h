@@ -2,7 +2,7 @@
 #define JWPLC_LOGIC_RUNTIME_UI_V2_EDIT_SESSION_H
 
 #include <Arduino.h>
-#include <JWPLC_LogicRuntime.h>
+#include <JWPLC_LogicRuntime_V2.h>
 
 /**
  * @brief Borrador RAM transaccional para editar un programa Logic Runtime v2.
