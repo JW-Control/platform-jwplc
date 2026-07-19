@@ -18,6 +18,11 @@ static constexpr int16_t HEADER_BLOCK_X_V14 = 122;
 static constexpr int16_t HEADER_BLOCK_Y_V14 = 8;
 static constexpr uint8_t HEADER_BLOCK_COLUMNS_V14 = 18;
 
+static constexpr int16_t DETAIL_HEADER_X_V14 = 112;
+static constexpr int16_t DETAIL_HEADER_LINE1_Y_V14 = 4;
+static constexpr int16_t DETAIL_HEADER_LINE2_Y_V14 = 13;
+static constexpr uint8_t DETAIL_HEADER_COLUMNS_V14 = 20;
+
 static constexpr int16_t TON_PANEL_X_V14 = 214;
 static constexpr int16_t TON_PANEL_Y_V14 = 101;
 static constexpr int16_t TON_PANEL_W_V14 = 80;
@@ -34,7 +39,11 @@ RuntimeUIFBDMapV14::RuntimeUIFBDMapV14()
       _detailLogoCacheElapsed{},
       _existingElapsedCacheValid(false),
       _existingElapsedCacheColorOn(false),
-      _existingElapsedCacheText{}
+      _existingElapsedCacheText{},
+      _compactDetailHeaderValid(false),
+      _compactDetailHeaderBlock(0xFFFFU),
+      _compactDetailHeaderInput(0),
+      _compactDetailHeaderParameter(false)
 {
 }
 
@@ -53,6 +62,14 @@ void RuntimeUIFBDMapV14::invalidateExistingElapsedCache()
   _existingElapsedCacheValid = false;
   _existingElapsedCacheColorOn = false;
   _existingElapsedCacheText[0] = '\0';
+}
+
+void RuntimeUIFBDMapV14::invalidateCompactDetailHeader()
+{
+  _compactDetailHeaderValid = false;
+  _compactDetailHeaderBlock = 0xFFFFU;
+  _compactDetailHeaderInput = 0;
+  _compactDetailHeaderParameter = false;
 }
 
 void RuntimeUIFBDMapV14::formatMillisecondsInBase(
@@ -106,11 +123,12 @@ void RuntimeUIFBDMapV14::refresh(const JWPLC_IOState *io,
                                  const JWPLC_RTCState *rtc)
 {
   // Al entrar desde MAPA o volver desde un editor, la clase base reconstruye el
-  // panel completo. Se invalida la caché para que el formato LOGO! se reponga una
-  // sola vez sobre ese nuevo fondo.
+  // panel completo. Se invalidan las cachés para reponer una sola vez el formato
+  // LOGO! y el encabezado compacto sobre el nuevo fondo.
   if (!detailModeActiveV11() || parameterEditorActiveForExtension())
   {
     invalidateDetailLogoCache();
+    invalidateCompactDetailHeader();
   }
 
   // V11 recompone únicamente el área FBD al salir de la columna virtual. Esto
@@ -121,6 +139,94 @@ void RuntimeUIFBDMapV14::refresh(const JWPLC_IOState *io,
   }
 
   RuntimeUIFBDMapV13::refresh(io, rtc);
+
+  if (detailModeActiveV11() && !parameterEditorActiveForExtension())
+  {
+    drawCompactDetailHeader(false);
+  }
+}
+
+void RuntimeUIFBDMapV14::drawCompactDetailHeader(bool force)
+{
+  RuntimeUIV2ReadModel *model = readModelV11();
+  const LogicV2BlockRecord *definition = selectedBlockV11();
+  if (model == nullptr || definition == nullptr)
+  {
+    invalidateCompactDetailHeader();
+    return;
+  }
+
+  const uint16_t blockIndex = selectedBlockIndexV11();
+  const uint8_t inputIndex = detailInputIndexForExtensionV7();
+  const bool parameterSelected = detailParameterSelectedForExtensionV7();
+
+  if (!force &&
+      _compactDetailHeaderValid &&
+      _compactDetailHeaderBlock == blockIndex &&
+      _compactDetailHeaderInput == inputIndex &&
+      _compactDetailHeaderParameter == parameterSelected)
+  {
+    return;
+  }
+
+  char line1[24];
+  char line2[24];
+  std::snprintf(line1,
+                sizeof(line1),
+                "B%02u %s",
+                static_cast<unsigned>(blockIndex),
+                model->typeShort(definition->type));
+
+  if (parameterSelected && definition->type == LogicV2BlockType::Ton)
+  {
+    std::snprintf(line2, sizeof(line2), "PARAM T");
+  }
+  else if (definition->inputCount > 0)
+  {
+    const char *role = model->inputRole(definition->type, inputIndex);
+    if (role != nullptr && role[0] != '\0')
+    {
+      std::snprintf(line2, sizeof(line2), "%s", role);
+    }
+    else
+    {
+      std::snprintf(line2,
+                    sizeof(line2),
+                    "IN%u/%u",
+                    static_cast<unsigned>(inputIndex + 1U),
+                    static_cast<unsigned>(definition->inputCount));
+    }
+  }
+  else
+  {
+    line2[0] = '\0';
+  }
+
+  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  tft.fillRect(DETAIL_HEADER_X_V14,
+               3,
+               static_cast<int16_t>(DETAIL_HEADER_COLUMNS_V14) * 6,
+               18,
+               COLOR_PANEL);
+  updateTextField(tft,
+                  DETAIL_HEADER_X_V14,
+                  DETAIL_HEADER_LINE1_Y_V14,
+                  DETAIL_HEADER_COLUMNS_V14,
+                  line1,
+                  COLOR_MUTED,
+                  COLOR_PANEL);
+  updateTextField(tft,
+                  DETAIL_HEADER_X_V14,
+                  DETAIL_HEADER_LINE2_Y_V14,
+                  DETAIL_HEADER_COLUMNS_V14,
+                  line2,
+                  COLOR_MUTED,
+                  COLOR_PANEL);
+
+  _compactDetailHeaderBlock = blockIndex;
+  _compactDetailHeaderInput = inputIndex;
+  _compactDetailHeaderParameter = parameterSelected;
+  _compactDetailHeaderValid = true;
 }
 
 void RuntimeUIFBDMapV14::drawExistingElapsed(bool force)
@@ -188,10 +294,28 @@ void RuntimeUIFBDMapV14::drawExistingLogoScreen()
 {
   Adafruit_ST7789 &tft = JWPLC_Display.tft();
   invalidateExistingElapsedCache();
+  invalidateCompactDetailHeader();
 
-  // No se ejecuta clearScreen(). La pantalla anterior se sustituye directamente
-  // por el encabezado y el panel finales, evitando el fotograma negro intermedio
-  // que producía el barrido más visible al pasar DETALLE -> EDITAR T.
+  // La transición se compone por bandas pequeñas y cada banda recibe su contenido
+  // inmediatamente. Se evita el fillRect único de 320x146 que dejaba visible un
+  // gran panel vacío durante el barrido físico del ST7789.
+
+  // 1) Controles: es la región más reconocible de la nueva pantalla.
+  tft.fillRect(0, 94, 320, 55, COLOR_PANEL);
+  drawExistingLogoFields();
+
+  // 2) Información T/Ta.
+  tft.fillRect(0, 24, 320, 70, COLOR_PANEL);
+  drawExistingActual();
+  drawExistingElapsed(true);
+
+  // 3) Pie de acciones.
+  tft.fillRect(0, 149, 320, 21, COLOR_PANEL);
+  drawExistingFooter("OK GUARDAR   ESC CANCELAR", COLOR_MUTED);
+
+  // 4) Encabezado final. Se dibuja al terminar el contenido para que no exista un
+  // periodo perceptible con título EDITAR T y cuerpo todavía perteneciente a
+  // DETALLE.
   drawHeaderStatic(tft, "EDITAR T");
 
   char headerInfo[24];
@@ -214,19 +338,11 @@ void RuntimeUIFBDMapV14::drawExistingLogoScreen()
                     engineStateText(state),
                     engineStateColor(state));
 
-  // Un solo overwrite del área de contenido. Antes se hacía fillScreen(BLACK) y
-  // luego otro fill del panel, duplicando casi todos los píxeles transferidos.
-  tft.fillRect(0, 24, 320, 146, COLOR_PANEL);
   tft.drawRect(PANEL_X_V14,
                PANEL_Y_V14,
                PANEL_W_V14,
                PANEL_H_V14,
                COLOR_BORDER);
-
-  drawExistingActual();
-  drawExistingElapsed(true);
-  drawExistingLogoFields();
-  drawExistingFooter("OK GUARDAR   ESC CANCELAR", COLOR_MUTED);
 }
 
 void RuntimeUIFBDMapV14::drawTonDetailElapsedLive(bool force)
