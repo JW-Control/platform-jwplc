@@ -249,6 +249,42 @@ protected:
     return true;
   }
 
+  /**
+   * @brief Retorna de DETALLE a MAPA en una sola composición visible.
+   *
+   * Intercepta ESC antes de que V7 ejecute drawMapStatic()+drawMapFull(). El
+   * contenido se sustituye dentro del panel compartido y el encabezado se cambia
+   * al final, evitando dos barridos consecutivos de pantalla.
+   */
+  bool handleDetailBackSinglePassV11()
+  {
+    if (_wizardPage != WizardPage::None ||
+        _addSelected ||
+        _mode != Mode::Detail ||
+        _inputReleaseGate ||
+        !JWPLC_Buttons.pressed(BTN_ESC))
+    {
+      return false;
+    }
+
+    JWPLC_Display.notifyActivity();
+    _mode = Mode::Map;
+    gateInputUntilRelease(true);
+
+    clearMapArea();
+    drawMapFull();
+    noteMapFullRendered();
+    drawMapHeaderInfo();
+
+    JWPLCLogicRuntimeUIWidgets::drawHeaderStatic(
+        JWPLC_Display.tft(),
+        "MAPA FBD");
+    _headerStateValid = false;
+    updateHeaderStateIfNeeded(true);
+    _fullRedraw = false;
+    return true;
+  }
+
   bool detailModeActiveV11() const
   {
     return _wizardPage == WizardPage::None &&
