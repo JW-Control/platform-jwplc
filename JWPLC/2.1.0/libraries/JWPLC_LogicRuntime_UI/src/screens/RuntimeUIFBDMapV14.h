@@ -43,6 +43,8 @@ private:
 
   void invalidateDetailLogoCache();
   void invalidateExistingElapsedCache();
+  void invalidateCompactDetailHeader();
+  void drawCompactDetailHeader(bool force);
 
   bool _detailLogoCacheValid;
   uint16_t _detailLogoCacheBlock;
@@ -54,6 +56,11 @@ private:
   bool _existingElapsedCacheValid;
   bool _existingElapsedCacheColorOn;
   char _existingElapsedCacheText[36];
+
+  bool _compactDetailHeaderValid;
+  uint16_t _compactDetailHeaderBlock;
+  uint8_t _compactDetailHeaderInput;
+  bool _compactDetailHeaderParameter;
 };
 
 #endif
