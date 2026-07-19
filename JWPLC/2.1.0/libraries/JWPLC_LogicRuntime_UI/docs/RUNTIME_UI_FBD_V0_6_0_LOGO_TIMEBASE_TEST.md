@@ -3,10 +3,16 @@
 ## Estado
 
 ```text
-CANDIDATA / PENDIENTE DE COMPILACIÓN Y VALIDACIÓN FÍSICA
+CANDIDATA / VALIDACIÓN FÍSICA PARCIAL EN CURSO
 ```
 
-Esta revisión amplía la candidata v0.5.9. No debe marcarse como aprobada ni publicarse hasta completar la prueba.
+Esta revisión amplía la candidata v0.5.9. No debe marcarse como aprobada ni publicarse hasta completar la prueba funcional completa.
+
+Validación física parcial registrada el **2026-07-19**:
+
+```text
+CORRECCIÓN ANTI-PARPADEO DEL PANEL TON V14: APROBADA
+```
 
 ## Objetivo
 
@@ -123,12 +129,20 @@ src/JWPLC_LogicRuntime_UI.h
 - [ ] El panel muestra `Ta __:__x` con exactamente la misma base.
 - [ ] Al seleccionar PARAM T, el rectángulo amarillo se ve completo en sus cuatro lados.
 - [ ] Al seleccionar Trg, el panel T no queda marcado en amarillo.
-- [ ] Con Trg inactivo y TON en reposo, observar al menos 10 s: `T` y `Ta` permanecen totalmente estáticos, sin parpadeo.
-- [ ] Cambiar únicamente el foco Trg ↔ PARAM T: solo se actualiza la línea `T` y su indicador amarillo; `Ta` no se limpia.
-- [ ] Durante temporización, `T` permanece inmóvil y solo `Ta` actualiza su texto visible aproximadamente cada 100 ms.
-- [ ] Al terminar el TON, `Ta` cambia de color/estado una sola vez y luego queda estable.
-- [ ] No reaparece momentáneamente el formato histórico de V7 sobre el formato tipo LOGO!.
+- [x] Con Trg inactivo y TON en reposo, observar al menos 10 s: `T` y `Ta` permanecen totalmente estáticos, sin parpadeo.
+- [x] Cambiar únicamente el foco Trg ↔ PARAM T: solo se actualiza la línea `T` y su indicador amarillo; `Ta` no se limpia.
+- [x] Durante temporización, `T` permanece inmóvil y solo `Ta` actualiza su texto visible aproximadamente cada 100 ms.
+- [x] Al terminar el TON, `Ta` cambia de color/estado una sola vez y luego queda estable.
+- [x] No reaparece momentáneamente el formato histórico de V7 sobre el formato tipo LOGO!.
 - [ ] El bloque y sus conexiones permanecen visibles.
+
+Resultado parcial:
+
+```text
+Anti-parpadeo T/Ta: APROBADO
+Responsable de validación física: usuario / JW Control
+Fecha: 2026-07-19
+```
 
 ## Transición del nodo `+`
 
@@ -154,9 +168,9 @@ src/JWPLC_LogicRuntime_UI.h
 Compilación:
 Creación TON:
 Edición TON:
-Detalle TON:
+Detalle TON: anti-parpadeo APROBADO; resto pendiente
 Transición +:
 Regresión:
 Observaciones:
-Decisión: APROBADA / REQUIERE CORRECCIÓN
+Decisión global: CANDIDATA / VALIDACIÓN PARCIAL
 ```
