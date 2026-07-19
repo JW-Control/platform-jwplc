@@ -138,6 +138,117 @@ protected:
            _mode == Mode::Map;
   }
 
+  bool addNodeSelectedV11() const
+  {
+    return _wizardPage == WizardPage::None &&
+           _addSelected &&
+           _mode == Mode::Map;
+  }
+
+  /**
+   * @brief Sustituye el salto V8 hacia + por un redibujado limitado al mapa.
+   *
+   * El encabezado, la insignia RUN y el marco exterior permanecen intactos. La
+   * ventana lógica sí se recompone cuando la columna virtual desplaza niveles.
+   */
+  bool interceptAddRightPressForExtension()
+  {
+    if (_wizardPage != WizardPage::None ||
+        _addSelected ||
+        _mode != Mode::Map ||
+        _inputReleaseGate ||
+        !selectedAtLastLevel() ||
+        !canAddBlock())
+    {
+      return false;
+    }
+
+    if (!JWPLC_Buttons.pressed(BTN_RIGHT))
+    {
+      return false;
+    }
+
+    _addOriginIndex = _selectedIndex;
+    _addSelected = true;
+    _addPreviewDrawn = false;
+    JWPLC_Display.notifyActivity();
+    gateInputUntilRelease(false);
+
+    const uint16_t count = _model->blockCount();
+    const uint16_t savedSelection = _selectedIndex;
+    const uint8_t savedMaxLevel = _maxLevel;
+    const HorizontalWindowMode savedWindow = _horizontalMode;
+    const uint8_t savedStart = _centralStartLevel;
+
+    const uint8_t virtualLevel = static_cast<uint8_t>(savedMaxLevel + 1U);
+    _maxLevel = virtualLevel;
+    _horizontalMode = virtualLevel <= 4
+                          ? HorizontalWindowMode::LeftEdge
+                          : HorizontalWindowMode::RightEdge;
+    _centralStartLevel = virtualLevel <= 4
+                             ? 1
+                             : static_cast<uint8_t>(virtualLevel - 3U);
+    _selectedIndex = count;
+
+    clearMapArea();
+    drawMapFull();
+    updateAddHeader(true);
+
+    const int8_t slot = slotForLevel(virtualLevel);
+    if (slot >= 0 && slot < static_cast<int8_t>(SLOT_COUNT))
+    {
+      const int16_t x = static_cast<int16_t>(
+          SLOT_X0 + static_cast<int16_t>(slot) * SLOT_STEP);
+      drawAddNode(true,
+                  false,
+                  x,
+                  addNodeY(),
+                  NODE_W,
+                  NODE_H);
+    }
+
+    _mapSelectionCache = count;
+    _mapSelectionCacheValid = true;
+    noteMapFullRendered();
+
+    _selectedIndex = savedSelection;
+    _maxLevel = savedMaxLevel;
+    _horizontalMode = savedWindow;
+    _centralStartLevel = savedStart;
+    return true;
+  }
+
+  /** @brief Retorno desde + sin limpiar encabezado ni pantalla completa. */
+  bool handleAddBackRegionalV11()
+  {
+    if (!addNodeSelectedV11() || _inputReleaseGate)
+    {
+      return false;
+    }
+
+    const bool left = JWPLC_Buttons.pressed(BTN_LEFT);
+    const bool escape = !left && JWPLC_Buttons.pressed(BTN_ESC);
+    if (!left && !escape)
+    {
+      return false;
+    }
+
+    _addSelected = false;
+    _selectedIndex = _addOriginIndex < _model->blockCount()
+                         ? _addOriginIndex
+                         : static_cast<uint16_t>(_model->blockCount() - 1U);
+    _mapSelectionCacheValid = false;
+    _addPreviewDrawn = true;
+    JWPLC_Display.notifyActivity();
+    gateInputUntilRelease(false);
+
+    clearMapArea();
+    drawMapFull();
+    noteMapFullRendered();
+    drawMapHeaderInfo();
+    return true;
+  }
+
   bool detailModeActiveV11() const
   {
     return _wizardPage == WizardPage::None &&
