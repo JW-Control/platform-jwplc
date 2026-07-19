@@ -39,7 +39,6 @@ protected:
   void returnFromParameterEdit(bool accept) override;
   void requestWizardCreateV11() override;
 
-private:
   enum class LogoTimeBase : uint8_t
   {
     Seconds = 0,
@@ -100,14 +99,14 @@ private:
 
   void beginExistingLogoEditor();
   void refreshExistingLogoEditor();
-  void drawExistingLogoScreen();
+  virtual void drawExistingLogoScreen();
   void drawExistingLogoFields();
   void drawExistingActual();
-  void drawExistingElapsed(bool force);
+  virtual void drawExistingElapsed(bool force);
   void drawExistingFooter(const char *text,
                           uint16_t color);
 
-  void drawDetailLogoOverlay(bool force);
+  virtual void drawDetailLogoOverlay(bool force);
 
   bool _wizardLogoInitialized;
   bool _wizardLogoEditing;
