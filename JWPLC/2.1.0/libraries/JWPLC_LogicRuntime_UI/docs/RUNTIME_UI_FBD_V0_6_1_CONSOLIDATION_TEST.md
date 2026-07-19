@@ -15,6 +15,7 @@ Esta prueba se ejecuta después de la aprobación del anti-parpadeo V14 y antes 
 3. Confirmar que solo se instancia la fachada activa `RuntimeUIFBDMap`.
 4. Reducir adquisiciones del bus TFT en mapa/detalle estático.
 5. Mantener respuesta rápida de botonera durante asistentes y editores.
+6. Evitar repintados redundantes de `Ta LECTURA` y el fotograma negro al abrir `EDITAR T`.
 
 ## Archivos principales
 
@@ -29,6 +30,8 @@ JWPLC_LogicRuntime_UI/src/model/RuntimeUIV2ReadModel.cpp
 JWPLC_LogicRuntime_UI/src/edit/RuntimeUIV2EditSession.h
 JWPLC_LogicRuntime_UI/src/screens/RuntimeUIFBDMap.h
 JWPLC_LogicRuntime_UI/src/screens/RuntimeUIFBDMap.cpp
+JWPLC_LogicRuntime_UI/src/screens/RuntimeUIFBDMapV14.h
+JWPLC_LogicRuntime_UI/src/screens/RuntimeUIFBDMapV14.cpp
 JWPLC_LogicRuntime_UI/src/screens/RuntimeUIFBDMapV14RefreshPolicy.cpp
 JWPLC_LogicRuntime_UI/src/JWPLC_LogicRuntime_UI.h
 ```
@@ -101,6 +104,21 @@ Usar el programa actual y recorrer bloques con entradas:
 - [ ] Editar fuente y lógica; no se siente una pausa de 100 ms entre repeats.
 - [ ] Salir de los editores; mapa/detalle vuelven a la frecuencia estática.
 
+### Editor TON — actualización viva
+
+- [ ] Con TON inactivo, abrir `EDITAR T` y observar 15 s: `Ta LECTURA 00:00x` permanece estático y no parpadea.
+- [ ] Durante temporización, `Ta LECTURA` solo se repinta cuando cambia el texto visible.
+- [ ] Cuando el TON completa el tiempo, `Ta LECTURA` cambia de color/estado una sola vez y luego queda estable.
+- [ ] Cambiar la base o un campo obliga a una actualización correcta, sin dejar residuos.
+
+### Transición DETALLE → EDITAR T
+
+- [ ] Al pulsar OK sobre `PARAM T`, no aparece un fotograma negro completo.
+- [ ] El encabezado nuevo sustituye directamente al anterior.
+- [ ] El área de contenido se sobrescribe una sola vez con el fondo final del editor.
+- [ ] El barrido visible es claramente menor que en la versión anterior.
+- [ ] No quedan restos del bloque, cables o panel DETALLE debajo del editor.
+
 ## Regresión visual
 
 - [ ] El nodo `+` no vuelve a parpadear a pantalla completa.
@@ -113,12 +131,14 @@ Usar el programa actual y recorrer bloques con entradas:
 ## Criterio de cierre
 
 ```text
-Compilación:            APROBADA / FALLA
-Semántica de entradas:  APROBADA / FALLA
-Mapa/detalle 100 ms:    APROBADO / FALLA
-Editores 40 ms:         APROBADOS / FALLA
-Regresión visual:       APROBADA / FALLA
-Decisión:               CONSOLIDACIÓN APROBADA / REQUIERE CORRECCIÓN
+Compilación:             APROBADA / FALLA
+Semántica de entradas:   APROBADA / FALLA
+Mapa/detalle 100 ms:     APROBADO / FALLA
+Editores 40 ms:          APROBADOS / FALLA
+Ta en EDITAR T:          APROBADA / FALLA
+Transición al editor:    APROBADA / FALLA
+Regresión visual:        APROBADA / FALLA
+Decisión:                CONSOLIDACIÓN APROBADA / REQUIERE CORRECCIÓN
 ```
 
 Solo después de aprobar esta prueba se habilitará la UI de `ELIMINAR BLOQUE`.
