@@ -49,8 +49,22 @@ private:
   void drawDetailInputPinLive(uint8_t inputIndex,
                               uint8_t visibleRow);
   void drawDetailBlockStateLive();
-  void drawTonDetailElapsedLive(bool force);
 
+protected:
+  /**
+   * @brief Punto único de actualización viva del tiempo TON en DETALLE.
+   *
+   * Revisiones posteriores pueden sustituir el formato histórico sin permitir
+   * que dos renderers escriban alternativamente sobre la misma región TFT.
+   */
+  virtual void drawTonDetailElapsedLive(bool force);
+
+  bool detailParameterSelectedForExtensionV7() const
+  {
+    return _detailFocus == DetailFocus::Parameters;
+  }
+
+private:
   void refreshParameterEditorOptimized();
   void refreshEditorElapsedLive(bool force);
 
