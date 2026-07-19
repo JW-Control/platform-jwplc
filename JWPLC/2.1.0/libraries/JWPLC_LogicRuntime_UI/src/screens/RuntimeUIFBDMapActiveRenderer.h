@@ -26,8 +26,9 @@ protected:
 private:
   static constexpr int16_t FIELD_Y = 103;
   static constexpr int16_t FIELD_H = 38;
-  static constexpr int16_t FIELD_X[3] = {10, 108, 206};
-  static constexpr int16_t FIELD_W[3] = {94, 94, 104};
+
+  static int16_t fieldX(LogoField field);
+  static int16_t fieldWidth(LogoField field);
 
   void invalidateActiveEditorCaches();
   void drawEditorHeaderTwoLines();
