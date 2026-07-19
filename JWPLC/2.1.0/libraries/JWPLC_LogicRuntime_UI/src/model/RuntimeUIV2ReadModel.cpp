@@ -77,60 +77,12 @@ bool RuntimeUIV2ReadModel::blockValue(uint16_t blockIndex) const
   return _engine ? _engine->blockValue(blockIndex) : false;
 }
 
-bool RuntimeUIV2ReadModel::neutralValue(LogicV2BlockType type) const
-{
-  return type == LogicV2BlockType::And ||
-         type == LogicV2BlockType::Nand;
-}
-
-bool RuntimeUIV2ReadModel::resolveLinkValue(
-    const LogicV2InputLink &input,
-    LogicV2BlockType consumerType,
-    bool &value) const
-{
-  const uint16_t source = input.source();
-
-  if (source == JWPLC_LOGIC_V2_SOURCE_OPEN)
-  {
-    value = neutralValue(consumerType);
-  }
-  else if (source == JWPLC_LOGIC_V2_SOURCE_CONST_FALSE)
-  {
-    value = false;
-  }
-  else if (source == JWPLC_LOGIC_V2_SOURCE_CONST_TRUE)
-  {
-    value = true;
-  }
-  else if (source < blockCount())
-  {
-    value = blockValue(source);
-  }
-  else
-  {
-    return false;
-  }
-
-  if (input.inverted())
-  {
-    value = !value;
-  }
-
-  return true;
-}
-
 bool RuntimeUIV2ReadModel::inputValue(uint16_t blockIndex,
                                       uint8_t inputIndex) const
 {
-  const LogicV2BlockRecord *definition = block(blockIndex);
-  const LogicV2InputLink *input = inputLink(blockIndex, inputIndex);
-  if (definition == nullptr || input == nullptr)
-  {
-    return false;
-  }
-
-  bool value = false;
-  return resolveLinkValue(*input, definition->type, value) ? value : false;
+  // OPEN, HI, LO, negación y valores neutrales pertenecen al contrato del
+  // motor. La UI no vuelve a interpretar enlaces por su cuenta.
+  return _engine ? _engine->inputValue(blockIndex, inputIndex) : false;
 }
 
 bool RuntimeUIV2ReadModel::isTon(uint16_t blockIndex) const
