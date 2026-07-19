@@ -36,6 +36,7 @@ static uint32_t g_userRefreshPeriodMs = 40;
 
 static uint32_t g_lastActivityMs = 0;
 static bool g_waitButtonReleaseBeforeWake = false;
+static bool g_userRefreshForced = false;
 
 static bool g_runLed = true;
 static bool g_errLed = false;
@@ -52,6 +53,12 @@ static constexpr uint32_t ETH_LED_AUTO_PERIOD_MS = 500;
 
 extern "C" bool __attribute__((weak)) jwplcCanReturnToIdle(void) { return true; }
 extern "C" void __attribute__((weak)) jwplcUserDisplayEnterCallback(void) {}
+extern "C" bool __attribute__((weak)) jwplcUserDisplayRefreshNeededCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc)
+{
+    (void)io;
+    (void)rtc;
+    return true;
+}
 extern "C" void __attribute__((weak)) jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc)
 {
     (void)io;
@@ -369,7 +376,14 @@ namespace JWPLCDisplay
 
     void forceRedraw()
     {
-        JWPLCIdleScreen::forceFullRedraw();
+        if (g_displayMode == DISPLAY_MODE_IDLE)
+        {
+            JWPLCIdleScreen::forceFullRedraw();
+        }
+        else
+        {
+            g_userRefreshForced = true;
+        }
         jwplcSystemForceDisplayRefresh();
     }
 
@@ -387,6 +401,7 @@ namespace JWPLCDisplay
         }
 
         g_displayMode = DISPLAY_MODE_USER;
+        g_userRefreshForced = true;
         resetDisplayState();
         JWPLCButtons::clearPendingInput();
 
@@ -394,6 +409,7 @@ namespace JWPLCDisplay
         {
             tft.fillScreen(ST77XX_BLACK);
             jwplcUserDisplayEnterCallback();
+            g_userRefreshForced = false;
             releaseTFTBus();
         }
 
@@ -408,6 +424,7 @@ namespace JWPLCDisplay
         }
 
         g_displayMode = DISPLAY_MODE_IDLE;
+        g_userRefreshForced = false;
         resetDisplayState();
         g_waitButtonReleaseBeforeWake = true;
 
@@ -624,6 +641,7 @@ extern "C" bool jwplcDisplayBeginCallback(void)
 
     g_tftReady = true;
     g_displayMode = DISPLAY_MODE_IDLE;
+    g_userRefreshForced = false;
 
     // No reiniciamos configuración de transición, refresh ni LEDs aquí.
     // Los setters pueden llamarse desde setup() antes de que la TFT esté lista.
@@ -658,6 +676,17 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC
     updateAutomaticBusLed();
     updateAutomaticEthLed();
 
+    // La consulta USER ocurre antes del lock SPI. La implementación weak devuelve
+    // true, por lo que sketches existentes conservan exactamente su frecuencia.
+    // Una UI optimizada puede omitir la adquisición cuando no tiene regiones
+    // sucias ni eventos pendientes.
+    if (g_displayMode == DISPLAY_MODE_USER &&
+        !g_userRefreshForced &&
+        !jwplcUserDisplayRefreshNeededCallback(io, rtc))
+    {
+        return;
+    }
+
     if (!acquireTFTBus(20))
     {
         return;
@@ -680,6 +709,7 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC
     }
 
     jwplcUserDisplayRefreshCallback(io, rtc);
+    g_userRefreshForced = false;
     releaseTFTBus();
 }
 
