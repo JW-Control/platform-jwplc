@@ -64,6 +64,17 @@ protected:
     return _detailFocus == DetailFocus::Parameters;
   }
 
+  uint8_t detailInputIndexForExtensionV7() const
+  {
+    return _detailInputIndex;
+  }
+
+  /** @brief Detecta cambios visibles del mapa sin adquirir el bus TFT. */
+  bool mapNeedsTftRefreshForExtensionV7() const;
+
+  /** @brief Detecta cambios visibles del detalle sin adquirir el bus TFT. */
+  bool detailNeedsTftRefreshForExtensionV7() const;
+
 private:
   void refreshParameterEditorOptimized();
   void refreshEditorElapsedLive(bool force);
