@@ -18,6 +18,15 @@ public:
   void refresh(const JWPLC_IOState *io,
                const JWPLC_RTCState *rtc);
 
+  /**
+   * @brief Periodo recomendado del callback USER según la pantalla activa.
+   *
+   * Mapa y detalle estable usan 10 Hz. Asistentes y editores usan 25 Hz para
+   * conservar respuesta de botonera y repeat sin adquirir el bus TFT a 20 Hz
+   * permanentemente cuando no hay interacción.
+   */
+  uint32_t recommendedRefreshPeriodMs() const;
+
 protected:
   void drawExistingLogoScreen() override;
   void drawExistingElapsed(bool force) override;
