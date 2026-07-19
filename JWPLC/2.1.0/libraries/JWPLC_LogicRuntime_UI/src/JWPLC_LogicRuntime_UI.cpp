@@ -249,6 +249,28 @@ void JWPLC_LogicRuntime_UIClass::onDisplayExit()
   _userVisible = false;
 }
 
+bool JWPLC_LogicRuntime_UIClass::displayRefreshNeeded(
+    const JWPLC_IOState *io,
+    const JWPLC_RTCState *rtc) const
+{
+  (void)io;
+  (void)rtc;
+
+  if (!isAttached() || !_userVisible)
+  {
+    return false;
+  }
+
+  if (_backend == Backend::EngineV2)
+  {
+    return _fbdMapV2.needsTftRefresh();
+  }
+
+  // Las vistas v1 todavía combinan entrada y render en refresh(). Se conserva
+  // su comportamiento histórico hasta migrarlas a un contrato dirty-region.
+  return true;
+}
+
 void JWPLC_LogicRuntime_UIClass::switchView(RuntimeUIView nextView)
 {
   if (_backend != Backend::RuntimeV1 ||
@@ -545,10 +567,19 @@ void JWPLC_LogicRuntime_UIClass::syncIdleIndicators()
 }
 
 // JWPLC_Display conserva callbacks weak para sketches normales. Al incluir esta
-// librería, estas definiciones fuertes enrutan USER hacia la UI modular.
+// librería, estas definiciones fuertes enrutan USER hacia la UI modular. Se
+// mantienen en el mismo objeto que JWPLC_LogicRuntime_UI para garantizar que el
+// linker Arduino extraiga también la compuerta previa al SPI.
 extern "C" void jwplcUserDisplayEnterCallback(void)
 {
   JWPLC_LogicRuntime_UI.onDisplayEnter();
+}
+
+extern "C" bool jwplcUserDisplayRefreshNeededCallback(
+    const JWPLC_IOState *io,
+    const JWPLC_RTCState *rtc)
+{
+  return JWPLC_LogicRuntime_UI.displayRefreshNeeded(io, rtc);
 }
 
 extern "C" void jwplcUserDisplayRefreshCallback(
