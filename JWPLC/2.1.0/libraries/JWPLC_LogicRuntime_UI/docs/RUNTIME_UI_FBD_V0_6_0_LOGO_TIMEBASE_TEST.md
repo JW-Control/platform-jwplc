@@ -68,23 +68,32 @@ HORA <04> | MIN  <10> | BASE <h>
 - Cambiar/aplicar la base recarga el motor RAM y reinicia el tiempo transcurrido del TON.
 - Un programa v2 anterior con `TON.resource == 0` se interpreta inicialmente con base `s`. Si el valor no cabe o no tiene resolución compatible, la UI elige una base representable para mostrarlo, sin modificarlo hasta pulsar `OK`.
 
+## Correcciones visuales V14
+
+V14 no modifica el dato TON ni su ejecución. Corrige exclusivamente:
+
+1. `Ta` se formatea siempre en la misma base visible que `T`; los milisegundos incompletos se truncan según la resolución y nunca fuerzan un salto a `h`.
+2. El encabezado usa zonas no superpuestas: `EDITAR T`, `Bxx TON` e insignia de estado.
+3. El overlay de `T/Ta` limpia únicamente las líneas de texto y conserva completo el marco amarillo del parámetro seleccionado.
+4. La transición último bloque ↔ nodo `+` recompone solo el área FBD; no limpia encabezado, RUN ni marco exterior.
+
 ## Archivos
 
 ```text
-src/screens/RuntimeUIFBDMapV5.h
 src/screens/RuntimeUIFBDMapV11.h
 src/screens/RuntimeUIFBDMapV13.h
-src/screens/RuntimeUIFBDMapV13.cpp
+src/screens/RuntimeUIFBDMapV14.h
+src/screens/RuntimeUIFBDMapV14.cpp
 src/JWPLC_LogicRuntime_UI.h
 ```
 
 ## Compilación
 
 - [ ] Compila desde checkout limpio.
-- [ ] `RuntimeUIFBDMapV13.cpp` aparece en el log de compilación.
-- [ ] `JWPLC_LogicRuntime_UI.h` instancia `RuntimeUIFBDMapV13`.
-- [ ] No aparecen errores de acceso privado en V4/V5/V8.
-- [ ] No aparecen ambigüedades en métodos virtuales de V11/V12/V13.
+- [ ] `RuntimeUIFBDMapV13.cpp` y `RuntimeUIFBDMapV14.cpp` aparecen en el log.
+- [ ] `JWPLC_LogicRuntime_UI.h` instancia `RuntimeUIFBDMapV14`.
+- [ ] No aparecen errores de acceso privado en V4/V7/V8/V11.
+- [ ] No aparecen ambigüedades en métodos virtuales de V11/V12/V13/V14.
 - [ ] `sizeof(LogicV2BlockRecord) == 12` continúa vigente.
 
 ## Creación de TON
@@ -102,14 +111,27 @@ src/JWPLC_LogicRuntime_UI.h
 - [ ] Cambiar de `10:99s` a base `m`; el segundo componente debe quedar limitado a `59`.
 - [ ] Guardar y volver a abrir; la base elegida debe conservarse.
 - [ ] Cancelar con `ESC`; parámetro y base deben quedar sin cambios.
-- [ ] `Ta LECTURA` debe mostrarse en la base actualmente seleccionada.
+- [ ] Con BASE `<s>`, `Ta LECTURA` muestra siempre sufijo `s`, incluso durante los primeros 1–9 ms.
+- [ ] Con BASE `<m>` o `<h>`, `Ta LECTURA` conserva respectivamente `m` o `h`.
+- [ ] `EDITAR T`, `Bxx TON` y RUN/estado no se traslapan.
 
 ## Detalle TON
 
 - [ ] El panel de detalle muestra `T __:__x` usando la base guardada.
-- [ ] El panel muestra `Ta __:__x` con la misma base.
-- [ ] La actualización regional no produce parpadeo general.
+- [ ] El panel muestra `Ta __:__x` con exactamente la misma base.
+- [ ] Al seleccionar PARAM T, el rectángulo amarillo se ve completo en sus cuatro lados.
+- [ ] Al seleccionar Trg, el panel T no queda marcado en amarillo.
+- [ ] La actualización regional de `Ta` no produce parpadeo general.
 - [ ] El bloque y sus conexiones permanecen visibles.
+
+## Transición del nodo `+`
+
+- [ ] Desde el último bloque, pulsar RIGHT.
+- [ ] El encabezado y la insignia RUN permanecen estables.
+- [ ] Solo cambia el contenido dentro del marco del mapa FBD.
+- [ ] No aparece destello de pantalla completa.
+- [ ] Pulsar LEFT y repetir la verificación al volver al último bloque.
+- [ ] Repetir con ESC desde el nodo `+`.
 
 ## Regresión v0.5.9
 
@@ -127,6 +149,7 @@ Compilación:
 Creación TON:
 Edición TON:
 Detalle TON:
+Transición +:
 Regresión:
 Observaciones:
 Decisión: APROBADA / REQUIERE CORRECCIÓN
