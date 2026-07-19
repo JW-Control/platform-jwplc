@@ -1,6 +1,7 @@
 #include "RuntimeUIFBDMapV14.h"
 
 #include <cstdio>
+#include <cstring>
 
 #include "../widgets/RuntimeUIWidgets.h"
 
@@ -24,8 +25,24 @@ static constexpr int16_t TON_PANEL_H_V14 = 31;
 }
 
 RuntimeUIFBDMapV14::RuntimeUIFBDMapV14()
-    : RuntimeUIFBDMapV13()
+    : RuntimeUIFBDMapV13(),
+      _detailLogoCacheValid(false),
+      _detailLogoCacheBlock(0xFFFFU),
+      _detailLogoCacheParameterSelected(false),
+      _detailLogoCacheColorOn(false),
+      _detailLogoCacheConfigured{},
+      _detailLogoCacheElapsed{}
 {
+}
+
+void RuntimeUIFBDMapV14::invalidateDetailLogoCache()
+{
+  _detailLogoCacheValid = false;
+  _detailLogoCacheBlock = 0xFFFFU;
+  _detailLogoCacheParameterSelected = false;
+  _detailLogoCacheColorOn = false;
+  _detailLogoCacheConfigured[0] = '\0';
+  _detailLogoCacheElapsed[0] = '\0';
 }
 
 void RuntimeUIFBDMapV14::formatMillisecondsInBase(
@@ -78,6 +95,14 @@ uint16_t RuntimeUIFBDMapV14::engineStateColor(LogicV2EngineState state)
 void RuntimeUIFBDMapV14::refresh(const JWPLC_IOState *io,
                                  const JWPLC_RTCState *rtc)
 {
+  // Al entrar desde MAPA o volver desde un editor, la clase base reconstruye el
+  // panel completo. Se invalida la caché para que el formato LOGO! se reponga una
+  // sola vez sobre ese nuevo fondo.
+  if (!detailModeActiveV11() || parameterEditorActiveForExtension())
+  {
+    invalidateDetailLogoCache();
+  }
+
   // V11 recompone únicamente el área FBD al salir de la columna virtual. Esto
   // evita que V8 ejecute drawMapStatic() y limpie encabezado/panel completos.
   if (handleAddBackRegionalV11())
@@ -177,11 +202,18 @@ void RuntimeUIFBDMapV14::drawExistingLogoScreen()
   drawExistingFooter("OK GUARDAR   ESC CANCELAR", COLOR_MUTED);
 }
 
+void RuntimeUIFBDMapV14::drawTonDetailElapsedLive(bool force)
+{
+  // V7 ya no debe escribir el formato histórico sobre la misma región. Toda la
+  // actualización del panel TON queda centralizada en el renderer cacheado V14.
+  drawDetailLogoOverlay(force);
+}
+
 void RuntimeUIFBDMapV14::drawDetailLogoOverlay(bool force)
 {
-  (void)force;
   if (!detailModeActiveV11())
   {
+    invalidateDetailLogoCache();
     return;
   }
 
@@ -191,11 +223,18 @@ void RuntimeUIFBDMapV14::drawDetailLogoOverlay(bool force)
       definition == nullptr ||
       definition->type != LogicV2BlockType::Ton)
   {
+    invalidateDetailLogoCache();
     return;
   }
 
   const uint32_t nowMs = millis();
-  _lastDetailOverlayRefreshMs = nowMs;
+  if (_detailLogoCacheValid &&
+      !force &&
+      static_cast<uint32_t>(nowMs - _lastDetailOverlayRefreshMs) <
+          DETAIL_OVERLAY_REFRESH_MS)
+  {
+    return;
+  }
 
   // T define la base efectiva del panel. Ta se formatea directamente en esa
   // misma base aunque el tiempo instantáneo aún no complete una centésima.
@@ -214,34 +253,77 @@ void RuntimeUIFBDMapV14::drawDetailLogoOverlay(bool force)
       elapsed,
       sizeof(elapsed));
 
+  const uint16_t blockIndex = selectedBlockIndexV11();
+  const bool parameterSelected = detailParameterSelectedForExtensionV7();
+  const bool colorOn = model->tonTiming(blockIndex) ||
+                       model->blockValue(blockIndex);
+  const bool blockChanged = !_detailLogoCacheValid ||
+                            _detailLogoCacheBlock != blockIndex;
+
+  const bool configuredChanged =
+      force ||
+      blockChanged ||
+      _detailLogoCacheParameterSelected != parameterSelected ||
+      std::strcmp(_detailLogoCacheConfigured, configured) != 0;
+
+  const bool elapsedChanged =
+      force ||
+      blockChanged ||
+      _detailLogoCacheColorOn != colorOn ||
+      std::strcmp(_detailLogoCacheElapsed, elapsed) != 0;
+
+  _lastDetailOverlayRefreshMs = nowMs;
+  if (!configuredChanged && !elapsedChanged)
+  {
+    return;
+  }
+
   Adafruit_ST7789 &tft = JWPLC_Display.tft();
-
-  // Se limpian solo las dos líneas de texto. El marco amarillo ocupa las líneas
-  // exteriores del primer renglón y queda intacto, evitando los corchetes rotos
-  // observados al borrar todo el interior del panel.
-  tft.fillRect(TON_PANEL_X_V14 + 4,
-               TON_PANEL_Y_V14 + 3,
-               TON_PANEL_W_V14 - 8,
-               9,
-               COLOR_BACKGROUND);
-  tft.fillRect(TON_PANEL_X_V14 + 4,
-               TON_PANEL_Y_V14 + 17,
-               TON_PANEL_W_V14 - 8,
-               TON_PANEL_H_V14 - 19,
-               COLOR_BACKGROUND);
-
   tft.setTextWrap(false);
   tft.setTextSize(1);
-  tft.setTextColor(COLOR_TEXT, COLOR_BACKGROUND);
-  tft.setCursor(TON_PANEL_X_V14 + 4, TON_PANEL_Y_V14 + 4);
-  tft.print("T ");
-  tft.print(configured);
 
-  const bool active = model->tonTiming(selectedBlockIndexV11()) ||
-                      model->blockValue(selectedBlockIndexV11());
-  tft.setTextColor(active ? COLOR_OK : COLOR_MUTED,
-                   COLOR_BACKGROUND);
-  tft.setCursor(TON_PANEL_X_V14 + 4, TON_PANEL_Y_V14 + 19);
-  tft.print("Ta ");
-  tft.print(elapsed);
+  // T es estático durante la ejecución. Solo se repinta si cambia el parámetro,
+  // la base o el foco amarillo. Un cambio exclusivo de Ta no toca esta línea.
+  if (configuredChanged)
+  {
+    tft.fillRect(TON_PANEL_X_V14 + 4,
+                 TON_PANEL_Y_V14 + 3,
+                 TON_PANEL_W_V14 - 8,
+                 9,
+                 COLOR_BACKGROUND);
+    tft.setTextColor(parameterSelected ? COLOR_WARNING : COLOR_TEXT,
+                     COLOR_BACKGROUND);
+    tft.setCursor(TON_PANEL_X_V14 + 4, TON_PANEL_Y_V14 + 4);
+    tft.print("T ");
+    tft.print(configured);
+  }
+
+  // Ta solo se repinta cuando cambia el texto visible o su color de estado.
+  // En reposo permanece completamente inmóvil y no genera tráfico SPI.
+  if (elapsedChanged)
+  {
+    tft.fillRect(TON_PANEL_X_V14 + 4,
+                 TON_PANEL_Y_V14 + 17,
+                 TON_PANEL_W_V14 - 8,
+                 TON_PANEL_H_V14 - 19,
+                 COLOR_BACKGROUND);
+    tft.setTextColor(colorOn ? COLOR_OK : COLOR_MUTED,
+                     COLOR_BACKGROUND);
+    tft.setCursor(TON_PANEL_X_V14 + 4, TON_PANEL_Y_V14 + 19);
+    tft.print("Ta ");
+    tft.print(elapsed);
+  }
+
+  _detailLogoCacheBlock = blockIndex;
+  _detailLogoCacheParameterSelected = parameterSelected;
+  _detailLogoCacheColorOn = colorOn;
+  std::snprintf(_detailLogoCacheConfigured,
+                sizeof(_detailLogoCacheConfigured),
+                "%s",
+                configured);
+  std::snprintf(_detailLogoCacheElapsed,
+                sizeof(_detailLogoCacheElapsed),
+                "%s",
+                elapsed);
+  _detailLogoCacheValid = true;
 }
