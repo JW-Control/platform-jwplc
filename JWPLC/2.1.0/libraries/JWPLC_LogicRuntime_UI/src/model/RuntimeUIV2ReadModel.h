@@ -2,7 +2,7 @@
 #define JWPLC_LOGIC_RUNTIME_UI_V2_READ_MODEL_H
 
 #include <Arduino.h>
-#include <JWPLC_LogicRuntime.h>
+#include <JWPLC_LogicRuntime_V2.h>
 
 /**
  * @brief Puente de inspección entre el motor RAM v2 y la UI.
@@ -58,11 +58,6 @@ public:
                         uint8_t inputIndex) const;
 
 private:
-  bool resolveLinkValue(const LogicV2InputLink &input,
-                        LogicV2BlockType consumerType,
-                        bool &value) const;
-  bool neutralValue(LogicV2BlockType type) const;
-
   const LogicV2EnginePrototype *_engine;
 };
 
