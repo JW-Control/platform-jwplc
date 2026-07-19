@@ -73,6 +73,15 @@ public:
                         const JWPLC_RTCState *rtc);
   void onDisplayExit();
 
+  /**
+   * @brief Consulta previa que no dibuja ni consume botones.
+   *
+   * JWPLC_Display la ejecuta antes de adquirir el bus SPI. Runtime v1 conserva
+   * el comportamiento histórico; el mapa v2 puede omitir callbacks estáticos.
+   */
+  bool displayRefreshNeeded(const JWPLC_IOState *io,
+                            const JWPLC_RTCState *rtc) const;
+
 private:
   enum class Backend : uint8_t
   {
