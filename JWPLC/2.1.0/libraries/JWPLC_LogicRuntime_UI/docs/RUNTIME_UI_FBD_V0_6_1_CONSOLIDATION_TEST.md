@@ -15,11 +15,16 @@ Esta prueba se ejecuta después de la aprobación del anti-parpadeo V14 y antes 
 3. Confirmar que solo se instancia la fachada activa `RuntimeUIFBDMap`.
 4. Reducir adquisiciones del bus TFT en mapa/detalle estático.
 5. Mantener respuesta rápida de botonera durante asistentes y editores.
-6. Evitar repintados redundantes de `Ta LECTURA` y el fotograma negro al abrir `EDITAR T`.
+6. Evitar repintados redundantes de `Ta LECTURA`.
+7. Reducir el barrido de `DETALLE` a `EDITAR T` mediante composición por bandas.
+8. Mostrar la identificación de detalle en dos filas sin invadir el título ni RUN.
 
 ## Archivos principales
 
 ```text
+JWPLC_Display/src/JWPLC_Display.h
+JWPLC_Display/src/JWPLC_Display.cpp
+
 JWPLC_LogicRuntime/src/JWPLC_LogicRuntime_V2.h
 JWPLC_LogicRuntime/src/experimental/LogicV2EnginePrototype.h
 JWPLC_LogicRuntime/src/experimental/LogicV2EngineInspection.cpp
@@ -30,10 +35,13 @@ JWPLC_LogicRuntime_UI/src/model/RuntimeUIV2ReadModel.cpp
 JWPLC_LogicRuntime_UI/src/edit/RuntimeUIV2EditSession.h
 JWPLC_LogicRuntime_UI/src/screens/RuntimeUIFBDMap.h
 JWPLC_LogicRuntime_UI/src/screens/RuntimeUIFBDMap.cpp
+JWPLC_LogicRuntime_UI/src/screens/RuntimeUIFBDMapV7.h
+JWPLC_LogicRuntime_UI/src/screens/RuntimeUIFBDMapV7RefreshPredicates.cpp
 JWPLC_LogicRuntime_UI/src/screens/RuntimeUIFBDMapV14.h
 JWPLC_LogicRuntime_UI/src/screens/RuntimeUIFBDMapV14.cpp
 JWPLC_LogicRuntime_UI/src/screens/RuntimeUIFBDMapV14RefreshPolicy.cpp
 JWPLC_LogicRuntime_UI/src/JWPLC_LogicRuntime_UI.h
+JWPLC_LogicRuntime_UI/src/JWPLC_LogicRuntime_UI.cpp
 ```
 
 ## Contrato esperado
@@ -50,7 +58,7 @@ Esquema de record  = 1
 
 ## Política TFT esperada
 
-| Pantalla | Periodo esperado |
+| Pantalla | Periodo de consulta |
 |---|---:|
 | Mapa FBD normal | 100 ms |
 | Detalle normal | 100 ms |
@@ -62,13 +70,17 @@ Esquema de record  = 1
 
 La política se aplica desde la fachada `RuntimeUIFBDMap`; ninguna revisión `Vx` debe instanciarse desde `JWPLC_LogicRuntime_UIClass`.
 
+Además, `JWPLC_Display` consulta `jwplcUserDisplayRefreshNeededCallback()` antes de adquirir el SPI. La implementación weak devuelve `true`, por lo que las demás interfaces conservan su comportamiento. La UI v2 puede devolver `false` cuando mapa/detalle están estáticos y no hay botones pendientes.
+
 ## Compilación
 
 - [ ] Compila desde checkout limpio.
 - [ ] Se compila `LogicV2EngineInspection.cpp`.
 - [ ] Se compila `RuntimeUIFBDMap.cpp`.
+- [ ] Se compila `RuntimeUIFBDMapV7RefreshPredicates.cpp`.
 - [ ] Se compila `RuntimeUIFBDMapV14RefreshPolicy.cpp`.
 - [ ] No aparece símbolo duplicado de `LogicV2EnginePrototype::inputValue`.
+- [ ] No aparece símbolo duplicado de `jwplcUserDisplayRefreshNeededCallback`.
 - [ ] No aparece acceso privado/protegido desde la fachada activa.
 - [ ] `JWPLC_LogicRuntime_UI.h` instancia `RuntimeUIFBDMap`, no `RuntimeUIFBDMapV14`.
 - [ ] El sketch continúa validando y arrancando el programa RAM.
@@ -84,6 +96,15 @@ Usar el programa actual y recorrer bloques con entradas:
 - [ ] `OPEN` en AND/NAND actúa como neutral verdadero.
 - [ ] `OPEN` en OR/NOR/XOR actúa como neutral falso.
 - [ ] El valor mostrado por la UI coincide con la salida calculada del bloque.
+
+## Compuerta previa al bus TFT
+
+- [ ] En MAPA inmóvil, la botonera sigue siendo detectada aunque los callbacks gráficos se omitan.
+- [ ] Un cambio lógico visible vuelve a habilitar el callback y actualiza el mapa.
+- [ ] En DETALLE estático, T/Ta no generan adquisiciones periódicas innecesarias.
+- [ ] Durante el conteo TON, Ta continúa avanzando aproximadamente cada 100 ms.
+- [ ] `forceRedraw()` atraviesa la compuerta aunque las cachés estén limpias.
+- [ ] Las pantallas v1 y sketches con callback propio conservan el comportamiento anterior por el fallback weak `true`.
 
 ## Mapa y detalle a 10 Hz
 
@@ -106,18 +127,38 @@ Usar el programa actual y recorrer bloques con entradas:
 
 ### Editor TON — actualización viva
 
-- [ ] Con TON inactivo, abrir `EDITAR T` y observar 15 s: `Ta LECTURA 00:00x` permanece estático y no parpadea.
-- [ ] Durante temporización, `Ta LECTURA` solo se repinta cuando cambia el texto visible.
-- [ ] Cuando el TON completa el tiempo, `Ta LECTURA` cambia de color/estado una sola vez y luego queda estable.
+Resultado físico recibido antes de la compuerta SPI y de la transición por bandas:
+
+- [x] Con TON inactivo, `Ta LECTURA 00:00x` permanece estático y no parpadea.
+- [x] Durante temporización, `Ta LECTURA` progresa correctamente.
+- [x] Cuando el TON completa el tiempo, cambia una vez y luego queda estable.
+- [ ] Repetir los tres puntos después de compilar la revisión actual.
 - [ ] Cambiar la base o un campo obliga a una actualización correcta, sin dejar residuos.
 
 ### Transición DETALLE → EDITAR T
 
-- [ ] Al pulsar OK sobre `PARAM T`, no aparece un fotograma negro completo.
-- [ ] El encabezado nuevo sustituye directamente al anterior.
-- [ ] El área de contenido se sobrescribe una sola vez con el fondo final del editor.
+Resultado anterior:
+
+- [ ] El usuario mantiene dudas sobre la ausencia de barrido/fotograma intermedio.
+- [x] No quedaron restos del bloque, cables o panel DETALLE debajo del editor.
+
+Prueba de la revisión por bandas:
+
+- [ ] No aparece un fotograma negro completo.
+- [ ] No aparece una gran región vacía de 320 x 146 antes de los controles.
+- [ ] Los controles, T/Ta y pie se sustituyen en bandas pequeñas con su contenido inmediato.
+- [ ] El encabezado `EDITAR T` se coloca al terminar el cuerpo.
 - [ ] El barrido visible es claramente menor que en la versión anterior.
-- [ ] No quedan restos del bloque, cables o panel DETALLE debajo del editor.
+- [ ] No quedan residuos de DETALLE.
+
+### Encabezado compacto de DETALLE
+
+- [ ] Primera fila: `Bxx TIPO`.
+- [ ] Segunda fila al seleccionar parámetro TON: `PARAM T`.
+- [ ] Segunda fila al seleccionar entrada: `Trg`, `S`, `R` o `INx/y`.
+- [ ] Ninguna fila invade el título `DETALLE`.
+- [ ] Ninguna fila invade la insignia RUN/READY/FAULT.
+- [ ] El texto solo se repinta cuando cambia bloque, entrada o foco.
 
 ## Regresión visual
 
@@ -133,10 +174,12 @@ Usar el programa actual y recorrer bloques con entradas:
 ```text
 Compilación:             APROBADA / FALLA
 Semántica de entradas:   APROBADA / FALLA
-Mapa/detalle 100 ms:     APROBADO / FALLA
+Compuerta previa al SPI: APROBADA / FALLA
+Mapa/detalle estático:   APROBADO / FALLA
 Editores 40 ms:          APROBADOS / FALLA
 Ta en EDITAR T:          APROBADA / FALLA
-Transición al editor:    APROBADA / FALLA
+Transición por bandas:   APROBADA / FALLA
+Encabezado compacto:     APROBADO / FALLA
 Regresión visual:        APROBADA / FALLA
 Decisión:                CONSOLIDACIÓN APROBADA / REQUIERE CORRECCIÓN
 ```
