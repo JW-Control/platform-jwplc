@@ -118,6 +118,111 @@ protected:
     return _parameterEditFocus == ParameterEditFocus::Value;
   }
 
+  const LogicV2BlockRecord *selectedTonForExtension() const
+  {
+    return _model != nullptr && _model->isTon(_selectedIndex)
+               ? _model->block(_selectedIndex)
+               : nullptr;
+  }
+
+  uint16_t selectedBlockIndexForExtension() const
+  {
+    return _selectedIndex;
+  }
+
+  bool consumeInputReleaseGateForExtension()
+  {
+    return consumeInputReleaseGate();
+  }
+
+  bool requestTonParameterApplyForExtension(uint32_t parameterMs,
+                                            uint16_t timeBaseResource)
+  {
+    if (!_parameterEditorActive ||
+        _awaitingApply ||
+        !_editSession.active() ||
+        _model == nullptr ||
+        !_model->isTon(_selectedIndex))
+    {
+      return false;
+    }
+
+    const bool prepared =
+        _editSession.setBlockParameter(_selectedIndex, parameterMs) &&
+        _editSession.setBlockResource(_selectedIndex, timeBaseResource);
+    const bool valid =
+        prepared &&
+        _editSession.validate() == LogicV2PrototypeError::None;
+    if (!valid)
+    {
+      return false;
+    }
+
+    _awaitingApply = true;
+    _editFeedback = EditFeedback::Applying;
+    _applyRequested = true;
+    gateInputUntilRelease(false);
+    return true;
+  }
+
+  bool tonParameterApplyPendingForExtension() const
+  {
+    return _awaitingApply;
+  }
+
+  bool tonParameterApplyCompletedForExtension() const
+  {
+    return _applyCompleted;
+  }
+
+  bool tonParameterApplySucceededForExtension() const
+  {
+    return _applySuccess;
+  }
+
+  void finishTonParameterApplyForExtension(bool success)
+  {
+    _applyCompleted = false;
+    _awaitingApply = false;
+
+    if (success)
+    {
+      _editSession.cancel();
+      _editFeedback = EditFeedback::None;
+      _parameterEditorActive = false;
+      _parameterFullRedraw = false;
+      _detailFocus = DetailFocus::Parameters;
+      invalidateLayout();
+      buildLayout();
+      normalizeSelection();
+      ensureSelectionVisible();
+      normalizeDetailFocus();
+      _lastDetailRefreshMs = millis();
+      gateInputUntilRelease(false);
+      _fullRedraw = true;
+      return;
+    }
+
+    _editFeedback = EditFeedback::ApplyFailed;
+    gateInputUntilRelease(false);
+    _parameterFullRedraw = true;
+  }
+
+  void cancelTonParameterEditorForExtension()
+  {
+    if (_editSession.active())
+    {
+      _editSession.cancel();
+    }
+    _awaitingApply = false;
+    _editFeedback = EditFeedback::None;
+    _parameterEditorActive = false;
+    _parameterFullRedraw = false;
+    _detailFocus = DetailFocus::Parameters;
+    gateInputUntilRelease(false);
+    _fullRedraw = true;
+  }
+
   /**
    * @brief Consume UP/DOWN sobre UNIDAD preservando exactamente el tiempo.
    *
