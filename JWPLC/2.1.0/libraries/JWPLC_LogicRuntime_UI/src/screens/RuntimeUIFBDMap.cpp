@@ -1,14 +1,57 @@
 #include "RuntimeUIFBDMap.h"
 
 RuntimeUIFBDMap::RuntimeUIFBDMap()
-    : RuntimeUIFBDMapActiveRenderer(),
-      _appliedRefreshPeriodMs(0)
+    : _unifiedPreview(false),
+      _appliedRefreshPeriodMs(0),
+      _legacy(),
+      _unified()
 {
+}
+
+void RuntimeUIFBDMap::setUnifiedPreview(bool enabled)
+{
+  _unifiedPreview = enabled;
+  _appliedRefreshPeriodMs = 0;
+}
+
+bool RuntimeUIFBDMap::unifiedPreviewEnabled() const
+{
+  return _unifiedPreview;
+}
+
+void RuntimeUIFBDMap::attach(RuntimeUIV2ReadModel &model)
+{
+  if (_unifiedPreview)
+  {
+    _legacy.detach();
+    _unified.attach(model);
+  }
+  else
+  {
+    _unified.detach();
+    _legacy.attach(model);
+  }
+  _appliedRefreshPeriodMs = 0;
+}
+
+void RuntimeUIFBDMap::detach()
+{
+  _legacy.detach();
+  _unified.detach();
+  _unifiedPreview = false;
+  _appliedRefreshPeriodMs = 0;
+}
+
+uint32_t RuntimeUIFBDMap::desiredRefreshPeriodMs() const
+{
+  return _unifiedPreview
+             ? _unified.requestedRefreshPeriodMs()
+             : _legacy.recommendedRefreshPeriodMs();
 }
 
 void RuntimeUIFBDMap::syncRefreshPeriod()
 {
-  const uint32_t desired = recommendedRefreshPeriodMs();
+  const uint32_t desired = desiredRefreshPeriodMs();
   if (_appliedRefreshPeriodMs == desired)
   {
     return;
@@ -20,26 +63,22 @@ void RuntimeUIFBDMap::syncRefreshPeriod()
 
 bool RuntimeUIFBDMap::needsTftRefresh() const
 {
-  /**
-   * @warning La UI FBD todavía combina procesamiento de botones y render dentro
-   * de refresh(). Por tanto, omitir el callback basándose solo en regiones TFT
-   * sucias puede bloquear eventos de navegación hasta que cambie una señal del
-   * motor. Se mantiene el callback incondicional hasta separar formalmente:
-   *
-   *   1. updateInputAndState() sin bus SPI;
-   *   2. needsRender() por regiones sucias;
-   *   3. render() con el bus TFT adquirido.
-   *
-   * Las cachés regionales continúan evitando escrituras de píxeles redundantes,
-   * y la frecuencia adaptativa conserva 100 ms en MAPA/DETALLE y 40 ms en los
-   * asistentes. Solo se desactiva el salto previo del callback completo.
-   */
-  return true;
+  return _unifiedPreview
+             ? _unified.needsTftRefresh()
+             : true;
 }
 
 void RuntimeUIFBDMap::enter()
 {
-  RuntimeUIFBDMapActiveRenderer::enter();
+  if (_unifiedPreview)
+  {
+    _unified.enter();
+  }
+  else
+  {
+    _legacy.enter();
+  }
+
   _appliedRefreshPeriodMs = 0;
   syncRefreshPeriod();
 }
@@ -47,13 +86,52 @@ void RuntimeUIFBDMap::enter()
 void RuntimeUIFBDMap::refresh(const JWPLC_IOState *io,
                               const JWPLC_RTCState *rtc)
 {
-  RuntimeUIFBDMapActiveRenderer::refresh(io, rtc);
+  if (_unifiedPreview)
+  {
+    _unified.refresh(io, rtc);
+  }
+  else
+  {
+    _legacy.refresh(io, rtc);
+  }
   syncRefreshPeriod();
+}
+
+void RuntimeUIFBDMap::exit()
+{
+  if (_unifiedPreview)
+  {
+    _unified.exit();
+  }
+  else
+  {
+    _legacy.exit();
+  }
 }
 
 void RuntimeUIFBDMap::forceRedraw()
 {
-  RuntimeUIFBDMapActiveRenderer::forceRedraw();
+  if (_unifiedPreview)
+  {
+    _unified.forceRedraw();
+  }
+  else
+  {
+    _legacy.forceRedraw();
+  }
+
   _appliedRefreshPeriodMs = 0;
   syncRefreshPeriod();
+}
+
+void RuntimeUIFBDMap::processPendingEdit()
+{
+  if (_unifiedPreview)
+  {
+    _unified.processPendingEdit();
+  }
+  else
+  {
+    _legacy.processPendingEdit();
+  }
 }
