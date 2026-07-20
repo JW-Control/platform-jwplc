@@ -172,6 +172,7 @@ private:
 
   void handleInput();
   void handleMapInput();
+  void handleMapInputStable();
   void handleDetailInput();
   void handleEditInputInput();
   void handleEditTonInput();
@@ -193,7 +194,9 @@ private:
 
   HeaderModel buildHeaderModel() const;
   void renderHeaderTitle(const HeaderModel &model, bool force);
-  void renderHeaderContext(const HeaderModel &model, bool force);
+  void renderHeaderContext(const HeaderModel &model,
+                           bool line1Changed,
+                           bool line2Changed);
   void renderHeaderState(const HeaderModel &model, bool force);
 
   void clearContentArea();
@@ -228,6 +231,7 @@ private:
 
   void drawMapFull();
   void drawMapLive();
+  void drawMapSelectionFrame(uint16_t blockIndex);
   void drawWires();
   void drawWire(uint16_t consumerIndex, uint8_t inputIndex);
   void drawNodes();
