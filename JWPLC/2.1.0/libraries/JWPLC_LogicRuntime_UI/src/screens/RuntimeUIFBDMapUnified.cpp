@@ -7,6 +7,8 @@
 
 using namespace JWPLCLogicRuntimeUIWidgets;
 
+void jwplcNormalizeUnifiedTonFrame(bool selected);
+
 RuntimeUIFBDMapUnified::RuntimeUIFBDMapUnified()
     : _model(nullptr),
       _editSession(),
@@ -406,6 +408,16 @@ void RuntimeUIFBDMapUnified::handleInput()
 
 void RuntimeUIFBDMapUnified::render(bool force)
 {
+  bool normalizeTonFrame = false;
+  if (_view == View::Detail && selectedBlockHasParameter())
+  {
+    const bool blockStateChanged =
+        !_detailCacheValid ||
+        _detailCacheBlockValue != _model->blockValue(_selectedIndex);
+    normalizeTonFrame =
+        force || _contentDirty || _headerDirty || blockStateChanged;
+  }
+
   switch (_view)
   {
   case View::Map:
@@ -427,6 +439,13 @@ void RuntimeUIFBDMapUnified::render(bool force)
     renderWizard(force || _contentDirty);
     break;
   }
+
+  if (normalizeTonFrame)
+  {
+    jwplcNormalizeUnifiedTonFrame(
+        _detailFocus == DetailFocus::Parameters);
+  }
+
   renderHeader(force);
   _headerDirty = false;
   _contentDirty = false;
