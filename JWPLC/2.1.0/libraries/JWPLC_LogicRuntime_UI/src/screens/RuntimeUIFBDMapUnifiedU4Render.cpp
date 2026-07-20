@@ -123,7 +123,7 @@ void RuntimeUIFBDMapUnified::renderWizard(bool force)
       formatResource(value, sizeof(value));
     char label[48];
     std::snprintf(label, sizeof(label), "%s  <%s>", parameterName(gU4.type), value);
-    drawMenuButton(tft, LIST_X, LIST_Y, LIST_W, LIST_H, label, true);
+    drawMenuButton(tft, LIST_X, LIST_Y, LIST_W, LIST_ROW_H, label, true);
     drawContextPanel(_levels,
                      _lanes,
                      _maxLevel,
