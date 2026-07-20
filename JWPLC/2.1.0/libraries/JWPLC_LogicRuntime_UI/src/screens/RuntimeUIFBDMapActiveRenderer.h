@@ -28,6 +28,7 @@ public:
 
 protected:
   void drawMapHeaderInfo() override;
+  void updateDetailHeader() override;
   void drawExistingLogoScreen() override;
   void drawExistingLogoFields() override;
   void drawExistingElapsed(bool force) override;
