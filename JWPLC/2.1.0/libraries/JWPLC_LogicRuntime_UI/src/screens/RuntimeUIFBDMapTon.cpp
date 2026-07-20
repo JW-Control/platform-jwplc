@@ -288,11 +288,14 @@ void RuntimeUIFBDMap::handleEditTon()
         (static_cast<uint8_t>(_tonField) + 1U) % 3U);
     changed = true;
   }
-  else if (_tonField == TonField::Base &&
-           (JWPLC_Buttons.pressed(BTN_UP) ||
-            JWPLC_Buttons.pressed(BTN_DOWN)))
+  else if (_tonField == TonField::Base)
   {
-    const bool down = JWPLC_Buttons.pressed(BTN_DOWN);
+    const bool up = JWPLC_Buttons.pressed(BTN_UP);
+    const bool down = !up && JWPLC_Buttons.pressed(BTN_DOWN);
+    if (!up && !down)
+    {
+      return;
+    }
     uint8_t base = static_cast<uint8_t>(_tonBase);
     base = down
                ? static_cast<uint8_t>((base + 1U) % 3U)
@@ -440,8 +443,8 @@ void RuntimeUIFBDMap::drawTonFieldFull(TonField field)
     label = tonMinorLabel(_tonBase);
     std::snprintf(value,
                   sizeof(value),
-                  "<%02lu>",
-                  static_cast<unsigned long>(_tonMinor));
+                  "<%02u>",
+                  static_cast<unsigned>(_tonMinor));
   }
   else if (field == TonField::Base)
   {
@@ -454,8 +457,8 @@ void RuntimeUIFBDMap::drawTonFieldFull(TonField field)
   {
     std::snprintf(value,
                   sizeof(value),
-                  "<%02lu>",
-                  static_cast<unsigned long>(_tonMajor));
+                  "<%02u>",
+                  static_cast<unsigned>(_tonMajor));
   }
   char full[24];
   std::snprintf(full, sizeof(full), "%s %s", label, value);
@@ -481,8 +484,8 @@ void RuntimeUIFBDMap::drawTonFieldValueOnly(TonField field)
     label = tonMinorLabel(_tonBase);
     std::snprintf(value,
                   sizeof(value),
-                  "<%02lu>",
-                  static_cast<unsigned long>(_tonMinor));
+                  "<%02u>",
+                  static_cast<unsigned>(_tonMinor));
   }
   else if (field == TonField::Base)
   {
@@ -495,8 +498,8 @@ void RuntimeUIFBDMap::drawTonFieldValueOnly(TonField field)
   {
     std::snprintf(value,
                   sizeof(value),
-                  "<%02lu>",
-                  static_cast<unsigned long>(_tonMajor));
+                  "<%02u>",
+                  static_cast<unsigned>(_tonMajor));
   }
 
   char full[24];
