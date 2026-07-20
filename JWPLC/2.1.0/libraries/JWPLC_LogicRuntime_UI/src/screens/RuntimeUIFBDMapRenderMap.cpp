@@ -1,0 +1,454 @@
+#include "RuntimeUIFBDMap.h"
+
+#include <cstdio>
+#include <cstring>
+
+#include "../widgets/RuntimeUIWidgets.h"
+
+using namespace JWPLCLogicRuntimeUIWidgets;
+
+namespace
+{
+int16_t minimum16(int16_t a, int16_t b) { return a < b ? a : b; }
+int16_t maximum16(int16_t a, int16_t b) { return a > b ? a : b; }
+int16_t clamp16(int16_t value, int16_t minimum, int16_t maximum)
+{
+  if (value < minimum) return minimum;
+  if (value > maximum) return maximum;
+  return value;
+}
+}
+
+void RuntimeUIFBDMap::drawMapFull(bool clearInterior)
+{
+  if (_model == nullptr)
+  {
+    return;
+  }
+  if (clearInterior)
+  {
+    clearMapArea();
+  }
+  if (_model->blockCount() == 0)
+  {
+    updateTextField(JWPLC_Display.tft(),
+                    MAP_X + 80,
+                    MAP_Y + 58,
+                    24,
+                    "SIN PROGRAMA V2",
+                    COLOR_WARNING,
+                    COLOR_PANEL);
+    return;
+  }
+  drawWires();
+  drawNodes();
+  drawEdgeHints();
+  if (_addNodeSelected)
+  {
+    drawAddNode();
+  }
+  cacheValues();
+}
+
+void RuntimeUIFBDMap::drawMapLive()
+{
+  if (_model == nullptr || _model->blockCount() == 0)
+  {
+    return;
+  }
+  drawWires();
+  drawNodes();
+  drawEdgeHints();
+  if (_addNodeSelected)
+  {
+    drawAddNode();
+  }
+  cacheValues();
+}
+
+void RuntimeUIFBDMap::drawClippedHorizontal(int16_t x0,
+                                             int16_t x1,
+                                             int16_t y,
+                                             uint16_t color)
+{
+  const int16_t mapRight = static_cast<int16_t>(MAP_X + MAP_W - 1);
+  const int16_t mapBottom = static_cast<int16_t>(MAP_Y + MAP_H - 1);
+  if (y < MAP_Y || y > mapBottom)
+  {
+    return;
+  }
+  const int16_t left = maximum16(minimum16(x0, x1), MAP_X);
+  const int16_t right = minimum16(maximum16(x0, x1), mapRight);
+  if (left > right)
+  {
+    return;
+  }
+  JWPLC_Display.tft().drawFastHLine(
+      left, y, static_cast<int16_t>(right - left + 1), color);
+}
+
+void RuntimeUIFBDMap::drawClippedVertical(int16_t x,
+                                           int16_t y0,
+                                           int16_t y1,
+                                           uint16_t color)
+{
+  const int16_t mapRight = static_cast<int16_t>(MAP_X + MAP_W - 1);
+  const int16_t mapBottom = static_cast<int16_t>(MAP_Y + MAP_H - 1);
+  if (x < MAP_X || x > mapRight)
+  {
+    return;
+  }
+  const int16_t top = maximum16(minimum16(y0, y1), MAP_Y);
+  const int16_t bottom = minimum16(maximum16(y0, y1), mapBottom);
+  if (top > bottom)
+  {
+    return;
+  }
+  JWPLC_Display.tft().drawFastVLine(
+      x, top, static_cast<int16_t>(bottom - top + 1), color);
+}
+
+void RuntimeUIFBDMap::drawOrthogonalWireClipped(int16_t x0,
+                                                 int16_t y0,
+                                                 int16_t x1,
+                                                 int16_t y1,
+                                                 int16_t routeX,
+                                                 uint16_t color)
+{
+  drawClippedHorizontal(x0, routeX, y0, color);
+  drawClippedVertical(routeX, y0, y1, color);
+  drawClippedHorizontal(routeX, x1, y1, color);
+}
+
+void RuntimeUIFBDMap::drawWires()
+{
+  const uint16_t count = _model->blockCount();
+  for (uint16_t consumer = 0; consumer < count; ++consumer)
+  {
+    const LogicV2BlockRecord *definition = _model->block(consumer);
+    if (definition == nullptr)
+    {
+      continue;
+    }
+    for (uint8_t input = 0; input < definition->inputCount; ++input)
+    {
+      drawWire(consumer, input);
+    }
+  }
+}
+
+void RuntimeUIFBDMap::drawWire(uint16_t consumerIndex,
+                                uint8_t inputIndex)
+{
+  const LogicV2BlockRecord *consumer = _model->block(consumerIndex);
+  const LogicV2InputLink *input = _model->inputLink(consumerIndex, inputIndex);
+  if (consumer == nullptr || input == nullptr)
+  {
+    return;
+  }
+
+  bool consumerLeftPreview = false;
+  const bool consumerPreview =
+      isPreviewLevel(_levels[consumerIndex], consumerLeftPreview);
+  if (!isFullLevel(_levels[consumerIndex]) && !consumerPreview)
+  {
+    return;
+  }
+
+  const int16_t consumerNodeX = screenX(consumerIndex);
+  const int16_t consumerNodeY = static_cast<int16_t>(
+      screenY(consumerIndex) + renderedNodeYOffset(consumerIndex));
+  const int16_t destinationX = consumerNodeX;
+  const int16_t destinationY = consumerPreview
+                                   ? static_cast<int16_t>(
+                                         consumerNodeY +
+                                         renderedNodeHeight(consumerIndex) / 2)
+                                   : static_cast<int16_t>(
+                                         consumerNodeY +
+                                         inputPortY(*consumer, inputIndex));
+  const uint16_t sourceIndex = input->source();
+
+  if (sourceIndex == JWPLC_LOGIC_V2_SOURCE_OPEN ||
+      sourceIndex == JWPLC_LOGIC_V2_SOURCE_CONST_TRUE ||
+      sourceIndex == JWPLC_LOGIC_V2_SOURCE_CONST_FALSE)
+  {
+    const uint16_t color = _model->inputValue(consumerIndex, inputIndex)
+                               ? COLOR_OK
+                               : COLOR_MUTED;
+    drawClippedHorizontal(destinationX - 7,
+                          destinationX,
+                          destinationY,
+                          color);
+    return;
+  }
+  if (sourceIndex >= _model->blockCount())
+  {
+    return;
+  }
+
+  const int16_t sourceNodeX = screenX(sourceIndex);
+  const int16_t sourceNodeY = static_cast<int16_t>(
+      screenY(sourceIndex) + renderedNodeYOffset(sourceIndex));
+  const int16_t sourceX = static_cast<int16_t>(
+      sourceNodeX + renderedNodeWidth(sourceIndex));
+  const int16_t sourceY = static_cast<int16_t>(
+      sourceNodeY + renderedNodeHeight(sourceIndex) / 2);
+  int16_t routeX = static_cast<int16_t>((sourceX + destinationX) / 2);
+  const int16_t gap = static_cast<int16_t>(destinationX - sourceX);
+  if (gap >= 8)
+  {
+    const uint8_t divisor = static_cast<uint8_t>(consumer->inputCount + 1U);
+    routeX = static_cast<int16_t>(
+        sourceX +
+        (static_cast<int32_t>(inputIndex + 1U) * gap) / divisor);
+    routeX = clamp16(routeX,
+                     static_cast<int16_t>(sourceX + 2),
+                     static_cast<int16_t>(destinationX - 2));
+  }
+  const uint16_t color = _model->blockValue(sourceIndex)
+                             ? COLOR_OK
+                             : COLOR_MUTED;
+  drawOrthogonalWireClipped(sourceX,
+                            sourceY,
+                            destinationX,
+                            destinationY,
+                            routeX,
+                            color);
+}
+
+void RuntimeUIFBDMap::drawNodes()
+{
+  const uint16_t count = _model->blockCount();
+  for (uint16_t blockIndex = 0; blockIndex < count; ++blockIndex)
+  {
+    drawNode(blockIndex);
+  }
+}
+
+void RuntimeUIFBDMap::drawNode(uint16_t blockIndex)
+{
+  const LogicV2BlockRecord *definition = _model->block(blockIndex);
+  if (definition == nullptr || !isFullLevel(_levels[blockIndex]))
+  {
+    return;
+  }
+  const int16_t x = screenX(blockIndex);
+  const int16_t y = screenY(blockIndex);
+  if (!nodeFullyVisible(x, y))
+  {
+    return;
+  }
+  const bool active = _model->blockValue(blockIndex);
+  const bool selected = !_addNodeSelected && blockIndex == _selectedIndex;
+  const uint16_t border = selected
+                              ? COLOR_WARNING
+                              : (active ? COLOR_OK : COLOR_BORDER);
+  drawFullNode(blockIndex, x, y, border, active, selected);
+}
+
+void RuntimeUIFBDMap::drawFullNode(uint16_t blockIndex,
+                                   int16_t x,
+                                   int16_t y,
+                                   uint16_t border,
+                                   bool active,
+                                   bool selected)
+{
+  const LogicV2BlockRecord *definition = _model->block(blockIndex);
+  if (definition == nullptr)
+  {
+    return;
+  }
+  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  tft.fillRect(x, y, NODE_W, NODE_H, COLOR_BACKGROUND);
+  tft.drawRect(x, y, NODE_W, NODE_H, border);
+  if (selected)
+  {
+    tft.drawRect(x + 1, y + 1, NODE_W - 2, NODE_H - 2, border);
+  }
+  const bool hasInputs = definition->inputCount > 0;
+  const int16_t gutter = hasInputs ? NODE_GUTTER_W : 0;
+  if (hasInputs)
+  {
+    tft.drawFastVLine(x + NODE_GUTTER_W,
+                      y + 2,
+                      NODE_H - 4,
+                      COLOR_BORDER);
+  }
+
+  char blockId[8];
+  char line2[10];
+  formatBlockId(blockId, sizeof(blockId), blockIndex);
+  formatMapLine2(line2, sizeof(line2), blockIndex);
+  const int16_t contentX = static_cast<int16_t>(x + gutter);
+  const int16_t contentW = static_cast<int16_t>(NODE_W - gutter);
+  const int16_t idX = static_cast<int16_t>(
+      contentX + maximum16(
+                     1,
+                     (contentW -
+                      static_cast<int16_t>(std::strlen(blockId) * 6)) /
+                         2));
+  const int16_t line2X = static_cast<int16_t>(
+      contentX + maximum16(
+                     1,
+                     (contentW -
+                      static_cast<int16_t>(std::strlen(line2) * 6)) /
+                         2));
+  tft.setTextWrap(false);
+  tft.setTextSize(1);
+  tft.setTextColor(COLOR_TEXT, COLOR_BACKGROUND);
+  tft.setCursor(idX, y + 5);
+  tft.print(blockId);
+  tft.setTextColor(active ? COLOR_OK : COLOR_MUTED, COLOR_BACKGROUND);
+  tft.setCursor(line2X, y + 17);
+  tft.print(line2);
+  drawNodePorts(blockIndex, x, y);
+}
+
+void RuntimeUIFBDMap::drawNodePorts(uint16_t blockIndex,
+                                    int16_t x,
+                                    int16_t y)
+{
+  const LogicV2BlockRecord *definition = _model->block(blockIndex);
+  if (definition == nullptr)
+  {
+    return;
+  }
+  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  for (uint8_t inputIndex = 0;
+       inputIndex < definition->inputCount;
+       ++inputIndex)
+  {
+    const LogicV2InputLink *input = _model->inputLink(blockIndex, inputIndex);
+    if (input == nullptr)
+    {
+      continue;
+    }
+    const int16_t portY = static_cast<int16_t>(
+        y + inputPortY(*definition, inputIndex));
+    const bool inputActive = _model->inputValue(blockIndex, inputIndex);
+    const uint16_t pinColor = inputActive ? COLOR_OK : COLOR_MUTED;
+    if (input->inverted())
+    {
+      tft.fillCircle(x + 1, portY, 3, COLOR_BACKGROUND);
+      tft.drawCircle(x + 1, portY, 2, COLOR_MUTED);
+    }
+    else
+    {
+      tft.fillCircle(x, portY, 1, pinColor);
+    }
+    const char *role = _model->inputRole(definition->type, inputIndex);
+    if (role != nullptr && role[0] != '\0')
+    {
+      tft.setTextSize(1);
+      tft.setTextColor(pinColor, COLOR_BACKGROUND);
+      tft.setCursor(x + 4, portY - 3);
+      tft.print(role);
+    }
+  }
+  tft.fillCircle(x + NODE_W,
+                 y + NODE_H / 2,
+                 1,
+                 _model->blockValue(blockIndex) ? COLOR_OK : COLOR_MUTED);
+}
+
+void RuntimeUIFBDMap::drawEdgeHints()
+{
+  const GridRange range = visibleGridRange();
+  const uint16_t count = _model->blockCount();
+  for (uint16_t blockIndex = 0; blockIndex < count; ++blockIndex)
+  {
+    bool leftSide = false;
+    if (!shouldDrawEdgeHint(blockIndex, range, leftSide))
+    {
+      continue;
+    }
+    const bool active = _model->blockValue(blockIndex);
+    const bool selected = !_addNodeSelected && blockIndex == _selectedIndex;
+    const uint16_t border = selected
+                                ? COLOR_WARNING
+                                : (active ? COLOR_OK : COLOR_BORDER);
+    drawEdgeHint(blockIndex,
+                 leftSide,
+                 screenY(blockIndex),
+                 border,
+                 active);
+  }
+}
+
+void RuntimeUIFBDMap::drawEdgeHint(uint16_t blockIndex,
+                                   bool leftSide,
+                                   int16_t nodeScreenY,
+                                   uint16_t border,
+                                   bool active)
+{
+  const int16_t hintX = screenX(blockIndex);
+  const int16_t hintY = static_cast<int16_t>(
+      nodeScreenY + EDGE_HINT_Y_OFFSET);
+  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  tft.fillRect(hintX, hintY, EDGE_HINT_W, EDGE_HINT_H, COLOR_BACKGROUND);
+  tft.drawRect(hintX, hintY, EDGE_HINT_W, EDGE_HINT_H, border);
+  char blockId[8];
+  char line2[10];
+  char firstLine[10];
+  formatBlockId(blockId, sizeof(blockId), blockIndex);
+  formatMapLine2(line2, sizeof(line2), blockIndex);
+  std::snprintf(firstLine,
+                sizeof(firstLine),
+                leftSide ? "<%s" : "%s>",
+                blockId);
+  tft.setTextSize(1);
+  tft.setTextColor(active ? COLOR_OK : COLOR_TEXT, COLOR_BACKGROUND);
+  tft.setCursor(hintX + 3, hintY + 3);
+  tft.print(firstLine);
+  tft.setTextColor(active ? COLOR_OK : COLOR_MUTED, COLOR_BACKGROUND);
+  tft.setCursor(hintX + 9, hintY + 13);
+  tft.print(line2);
+}
+
+void RuntimeUIFBDMap::drawAddNode()
+{
+  if (!_addNodeSelected || _model == nullptr || _model->blockCount() == 0)
+  {
+    return;
+  }
+  const int16_t sourceX = screenX(_addSourceBlock);
+  const int16_t sourceY = screenY(_addSourceBlock);
+  int16_t x = static_cast<int16_t>(sourceX + NODE_W + 15);
+  int16_t y = sourceY;
+  if (x + NODE_W > MAP_X + MAP_W)
+  {
+    x = static_cast<int16_t>(MAP_X + MAP_W - NODE_W - 5);
+  }
+  if (y < MAP_Y)
+  {
+    y = MAP_Y + 4;
+  }
+  if (y + NODE_H > MAP_Y + MAP_H)
+  {
+    y = static_cast<int16_t>(MAP_Y + MAP_H - NODE_H - 4);
+  }
+
+  const int16_t sourceEnd = static_cast<int16_t>(sourceX + NODE_W);
+  const int16_t wireY = static_cast<int16_t>(sourceY + NODE_H / 2);
+  drawClippedHorizontal(sourceEnd,
+                        x,
+                        wireY,
+                        _model->blockValue(_addSourceBlock)
+                            ? COLOR_OK
+                            : COLOR_MUTED);
+
+  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  tft.fillRect(x, y, NODE_W, NODE_H, COLOR_BACKGROUND);
+  tft.drawRect(x, y, NODE_W, NODE_H, COLOR_WARNING);
+  tft.drawRect(x + 1, y + 1, NODE_W - 2, NODE_H - 2, COLOR_WARNING);
+  tft.setTextSize(3);
+  tft.setTextColor(COLOR_WARNING, COLOR_BACKGROUND);
+  tft.setCursor(x + 15, y + 3);
+  tft.print("+");
+}
+
+uint8_t RuntimeUIFBDMap::detailPageStart() const
+{
+  return static_cast<uint8_t>(
+      (_detailInputIndex / DETAIL_INPUTS_PER_PAGE) * DETAIL_INPUTS_PER_PAGE);
+}
