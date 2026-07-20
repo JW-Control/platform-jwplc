@@ -33,6 +33,15 @@ protected:
   void drawDetailLogoOverlay(bool force) override;
   void drawTonDetailElapsedLive(bool force) override;
 
+  /**
+   * @brief Hook del encabezado compacto histórico de DETALLE.
+   *
+   * El renderer activo lo anula porque la cabecera unificada es la única que debe
+   * escribir las dos filas centrales. V14 conserva su implementación para pruebas
+   * históricas aisladas.
+   */
+  virtual void drawCompactDetailHeader(bool force);
+
 private:
   static void formatMillisecondsInBase(uint32_t milliseconds,
                                        LogoTimeBase base,
@@ -44,7 +53,6 @@ private:
   void invalidateDetailLogoCache();
   void invalidateExistingElapsedCache();
   void invalidateCompactDetailHeader();
-  void drawCompactDetailHeader(bool force);
 
   bool _detailLogoCacheValid;
   uint16_t _detailLogoCacheBlock;
