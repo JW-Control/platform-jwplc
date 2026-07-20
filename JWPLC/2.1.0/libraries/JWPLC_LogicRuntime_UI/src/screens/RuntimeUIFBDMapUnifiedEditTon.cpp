@@ -39,6 +39,31 @@ void drawTonValueRegion(uint8_t index,
   tft.print(value != nullptr ? value : "");
 }
 
+void drawTonFieldContent(uint8_t index,
+                         const char *label,
+                         const char *value,
+                         bool selected)
+{
+  const int16_t x = FIELD_X[index];
+  const int16_t w = FIELD_W[index];
+  const uint16_t background = selected ? COLOR_SELECTED : COLOR_PANEL;
+  const uint16_t labelColor = selected ? COLOR_WARNING : COLOR_MUTED;
+  const int16_t labelY = FIELD_Y + 5;
+
+  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+
+  // El rótulo puede cambiar de SEG/CENT a MIN/SEG o HORA/MIN. Se limpia
+  // únicamente su banda interior para evitar residuos sin tocar borde ni fondo.
+  tft.fillRect(x + 5, labelY, w - 10, 10, background);
+  tft.setTextWrap(false);
+  tft.setTextSize(1);
+  tft.setTextColor(labelColor, background);
+  tft.setCursor(x + 7, labelY);
+  tft.print(label != nullptr ? label : "");
+
+  drawTonValueRegion(index, value, selected);
+}
+
 void formatTonFieldValue(uint32_t value,
                          char *destination,
                          size_t capacity)
@@ -353,12 +378,7 @@ void RuntimeUIFBDMapUnified::drawTonEditorField(TonField field)
                       border);
   }
 
-  tft.setTextWrap(false);
-  tft.setTextSize(1);
-  tft.setTextColor(selected ? COLOR_WARNING : COLOR_MUTED, fill);
-  tft.setCursor(x + 7, FIELD_Y + 5);
-  tft.print(label);
-  drawTonValueRegion(index, value, selected);
+  drawTonFieldContent(index, label, value, selected);
 
   _tonMajorCache = _tonDraft.major;
   _tonMinorCache = _tonDraft.minor;
@@ -557,11 +577,27 @@ void RuntimeUIFBDMapUnified::handleEditTonInput()
 
       JWPLC_Display.notifyActivity();
 
-      // Cambiar BASE modifica nombres, interpretación y eventualmente limita el
-      // segundo campo a 59. Se redibujan una sola vez los tres campos.
-      drawTonEditorField(TonField::Major);
-      drawTonEditorField(TonField::Minor);
-      drawTonEditorField(TonField::Base);
+      char majorValue[12];
+      char minorValue[12];
+      formatTonFieldValue(_tonDraft.major, majorValue, sizeof(majorValue));
+      formatTonFieldValue(_tonDraft.minor, minorValue, sizeof(minorValue));
+      const char *baseValue =
+          _tonDraft.base == TonBase::Seconds
+              ? "<s>"
+              : (_tonDraft.base == TonBase::Minutes ? "<m>" : "<h>");
+
+      // El foco continúa en BASE. Solo cambian rótulos y valores interiores;
+      // no se reconstruyen fondos, bordes ni geometría de los tres boxes.
+      drawTonFieldContent(0, tonMajorLabel(), majorValue, false);
+      drawTonFieldContent(1, tonMinorLabel(), minorValue, false);
+      drawTonFieldContent(2, "BASE", baseValue, true);
+
+      _tonMajorCache = _tonDraft.major;
+      _tonMinorCache = _tonDraft.minor;
+      _tonBaseCache = _tonDraft.base;
+      _tonFocusCache = _tonDraft.focus;
+      _tonEditorCacheValid = true;
+
       drawTonEditorElapsed(true);
 
       char configured[16];
