@@ -3,10 +3,10 @@
 ## Estado
 
 ```text
-CANDIDATA / PENDIENTE DE VALIDAR EL MARCO T-ONLY EN HARDWARE
+APROBADA FÍSICAMENTE — 2026-07-20
 ```
 
-## Resultados físicos acumulados
+## Resultados físicos aprobados
 
 - [x] IDLE -> MAPA operativo.
 - [x] Navegación MAPA operativa.
@@ -16,8 +16,14 @@ CANDIDATA / PENDIENTE DE VALIDAR EL MARCO T-ONLY EN HARDWARE
 - [x] DETALLE TON muestra T/Ta correctamente.
 - [x] DETALLE AND/SR recorre entradas correctamente.
 - [x] Botonera responde con Trg apagado.
-- [x] Mover selección entre bloques apagados ya no borra sus textos.
+- [x] Mover selección entre bloques apagados no borra sus textos.
 - [x] `Bxx TIPO` se conserva MAPA <-> DETALLE sin microparpadeo apreciable.
+- [x] Cambiar `Trg -> PARAM T` actualiza la segunda fila de cabecera.
+- [x] El marco amarillo nace directamente alrededor de T.
+- [x] Nunca aparece el marco T + Ta, ni siquiera durante el cambio de estado.
+- [x] Activar el TON no altera la geometría del marco.
+- [x] Completar/apagar el TON no altera la geometría del marco.
+- [x] Ta permanece fuera del marco y actualiza únicamente su valor visible.
 
 ## Estado RUN
 
@@ -36,7 +42,7 @@ Funcional: sí
 Percepción visual: "sí, pero raro"
 ```
 
-Se conserva como observación estética para una revisión posterior; no bloquea U1 mientras el estado sea legible y estable.
+Se conserva como observación estética no bloqueante para una revisión posterior.
 
 ## Selección del mapa
 
@@ -61,47 +67,15 @@ fila 2 = ON/OFF, Trg, PARAM T, INx/n
 
 Al pasar MAPA <-> DETALLE con el mismo bloque, solo cambia la fila 2.
 
-Aclaración de prueba:
+## Selección TON
 
-- `Trg -> PARAM T` se refiere a la segunda fila de la cabecera.
-- La actualización de `Ta` durante la temporización es una prueba distinta.
-
-## Regresión detectada en la selección TON
-
-La primera corrección funcionaba en dos pasos:
-
-```text
-1. drawTonPanelFrame() dibujaba un marco grande T + Ta
-2. jwplcNormalizeUnifiedTonFrame() lo borraba y dibujaba solo T
-```
-
-Resultado físico:
-
-- [ ] Al entrar en PARAM T se veía momentáneamente el marco T + Ta.
-- [ ] Al activar el TON, el marco completo reaparecía unos frames.
-- [ ] Al apagar/completar el TON, ocurría lo mismo.
-
-Esto confirmó que una corrección posterior no era aceptable.
-
-## Fix estructural aplicado
-
-La geometría nativa del panel cambió de:
-
-```text
-TON_PANEL_H = 31
-```
-
-a:
+La geometría nativa es:
 
 ```text
 TON_PANEL_H = 14
 ```
 
-Por tanto, `drawTonPanelFrame()` solo puede dibujar desde el origen el marco de la fila T.
-
-La función `jwplcNormalizeUnifiedTonFrame()` queda temporalmente como no-op para compatibilidad de enlace. Ya no borra ni redibuja píxeles.
-
-Comportamiento esperado:
+Por tanto, `drawTonPanelFrame()` solo puede dibujar desde el origen el marco de la fila T:
 
 ```text
 ┌──────────────┐
@@ -110,40 +84,11 @@ Comportamiento esperado:
   Ta 00:00s
 ```
 
-No debe existir ningún frame intermedio T + Ta al:
-
-- entrar a PARAM T;
-- salir de PARAM T;
-- iniciar temporización;
-- completar temporización;
-- apagar el TON.
-
-## Prueba pendiente
-
-- [ ] RUN continúa legible y estable.
-- [x] Bloques apagados no parpadean al navegar.
-- [x] `Bxx TIPO` permanece estable MAPA <-> DETALLE.
-- [ ] Cambiar `Trg -> PARAM T` actualiza únicamente la segunda fila de cabecera.
-- [ ] El marco amarillo nace directamente alrededor de T.
-- [ ] Nunca aparece el marco T + Ta, ni siquiera por un frame.
-- [ ] Activar el TON no altera la geometría del marco.
-- [ ] Completar/apagar el TON no altera la geometría del marco.
-- [ ] Ta permanece fuera del marco y actualiza únicamente su valor visible.
-
-## Alcance de U1
-
-En esta fase `OK` dentro de DETALLE todavía no abre editores:
-
-```text
-U2 -> EDITAR IN
-U3 -> EDITAR T
-```
-
-Esto es deliberado y no constituye una falla del preview U1.
+No existe una segunda pasada correctiva sobre el marco.
 
 ## Motor
 
-Este fix no modifica:
+U1 no modifica:
 
 ```text
 LogicV2EnginePrototype
@@ -153,4 +98,11 @@ scan TON
 parameter
 resource
 sesión RAM
+```
+
+## Decisión
+
+```text
+U1 MAPA + DETALLE: CERRADA / APROBADA
+Siguiente fase: U2 EDITAR IN + U3 EDITAR T
 ```
