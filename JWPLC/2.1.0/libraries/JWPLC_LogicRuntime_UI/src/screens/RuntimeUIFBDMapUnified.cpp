@@ -7,8 +7,6 @@
 
 using namespace JWPLCLogicRuntimeUIWidgets;
 
-void jwplcNormalizeUnifiedTonFrame(bool selected);
-
 RuntimeUIFBDMapUnified::RuntimeUIFBDMapUnified()
     : _model(nullptr),
       _editSession(),
@@ -79,20 +77,30 @@ void RuntimeUIFBDMapUnified::resetState()
   _centralStartLevel = 1;
   _maxLevel = 0;
   _viewportY = 0;
+
+  _inputEditFocus = InputEditField::Source;
+  _inputDraftSource = JWPLC_LOGIC_V2_SOURCE_OPEN;
+  _inputSourceCursor = 0;
+  _inputDraftInverted = false;
+
   _tonDraft.major = 1;
   _tonDraft.minor = 0;
   _tonDraft.base = TonBase::Seconds;
   _tonDraft.focus = TonField::Major;
   _tonDraft.originalMs = 1000;
   _tonDraft.originalResource = 0;
+
+  _editFeedback = EditFeedback::None;
   _applyRequested = false;
   _applyCompleted = false;
   _applySuccess = false;
   _awaitingApply = false;
   _lastRefreshMs = 0;
   _lastDetailLiveMs = 0;
+
   invalidateLayout();
   invalidateAllCaches();
+  invalidateEditorCaches();
 }
 
 void RuntimeUIFBDMapUnified::invalidateAllCaches()
@@ -172,6 +180,7 @@ void RuntimeUIFBDMapUnified::enter()
   {
     return;
   }
+
   _visible = true;
   _view = View::Map;
   _previousView = View::Map;
@@ -183,6 +192,7 @@ void RuntimeUIFBDMapUnified::enter()
   _contentDirty = true;
   _headerDirty = true;
   invalidateAllCaches();
+  invalidateEditorCaches();
   gateInputUntilRelease();
 }
 
@@ -206,10 +216,13 @@ void RuntimeUIFBDMapUnified::forceRedraw()
   _contentDirty = true;
   _headerDirty = true;
   invalidateAllCaches();
+  invalidateEditorCaches();
 }
 
 bool RuntimeUIFBDMapUnified::needsTftRefresh() const
 {
+  // El procesamiento de botones continúa siendo incondicional. La reducción de
+  // trabajo ocurre mediante cachés regionales dentro de cada renderer.
   return true;
 }
 
@@ -226,6 +239,7 @@ void RuntimeUIFBDMapUnified::transitionTo(View nextView)
   {
     return;
   }
+
   const View previous = _view;
   leaveView(previous, nextView);
   clearTransitionRegions(previous, nextView);
@@ -248,18 +262,22 @@ void RuntimeUIFBDMapUnified::leaveView(View previousView, View nextView)
 
 void RuntimeUIFBDMapUnified::enterView(View previousView, View nextView)
 {
-  (void)previousView;
   if (nextView == View::Detail)
   {
     const LogicV2BlockRecord *definition =
         _model != nullptr ? _model->block(_selectedIndex) : nullptr;
-    _detailInputIndex = 0;
-    _detailParameterIndex = 0;
-    _detailFocus =
-        definition != nullptr && definition->inputCount == 0 &&
-                selectedBlockHasParameter()
-            ? DetailFocus::Parameters
-            : DetailFocus::Inputs;
+
+    if (previousView != View::EditInput && previousView != View::EditTon)
+    {
+      _detailInputIndex = 0;
+      _detailParameterIndex = 0;
+      _detailFocus =
+          definition != nullptr && definition->inputCount == 0 &&
+                  selectedBlockHasParameter()
+              ? DetailFocus::Parameters
+              : DetailFocus::Inputs;
+    }
+
     normalizeDetailFocus();
     _lastDetailLiveMs = 0;
     invalidateDetailCache();
@@ -269,14 +287,19 @@ void RuntimeUIFBDMapUnified::enterView(View previousView, View nextView)
     ensureSelectionVisible();
     invalidateMapCache();
   }
+  else if (nextView == View::EditInput || nextView == View::EditTon)
+  {
+    invalidateEditorCaches();
+  }
 }
 
 void RuntimeUIFBDMapUnified::clearTransitionRegions(View previousView,
-                                                    View nextView)
+                                                     View nextView)
 {
   (void)previousView;
   (void)nextView;
-  // La limpieza ocurre una sola vez en el renderer final de la vista destino.
+  // La vista destino sustituye una sola vez el interior compartido. No se usa
+  // clearScreen()/fillScreen() dentro de las transiciones FBD.
 }
 
 void RuntimeUIFBDMapUnified::clearContentArea()
@@ -328,18 +351,20 @@ bool RuntimeUIFBDMapUnified::consumeInputReleaseGate()
   {
     return false;
   }
+
   JWPLC_Buttons.clearPendingInput();
   if (anyButtonHeld())
   {
     return true;
   }
+
   _inputReleaseGate = false;
   JWPLC_Buttons.clearPendingInput();
   return true;
 }
 
 void RuntimeUIFBDMapUnified::refresh(const JWPLC_IOState *io,
-                                     const JWPLC_RTCState *rtc)
+                                      const JWPLC_RTCState *rtc)
 {
   (void)io;
   (void)rtc;
@@ -347,12 +372,14 @@ void RuntimeUIFBDMapUnified::refresh(const JWPLC_IOState *io,
   {
     return;
   }
+
   if (_layoutValid &&
       (_layoutBlockCount != _model->blockCount() ||
        _layoutLinkCount != _model->linkCount()))
   {
     invalidateLayout();
   }
+
   if (!_layoutValid)
   {
     buildLayout();
@@ -361,10 +388,12 @@ void RuntimeUIFBDMapUnified::refresh(const JWPLC_IOState *io,
     _contentDirty = true;
     _headerDirty = true;
   }
+
   if (!consumeInputReleaseGate())
   {
     handleInput();
   }
+
   render(_forceRedraw);
   _forceRedraw = false;
   _lastRefreshMs = millis();
@@ -376,6 +405,7 @@ void RuntimeUIFBDMapUnified::processPendingEdit()
   {
     return;
   }
+
   _applyRequested = false;
   _applySuccess = _editSession.apply(true);
   _applyCompleted = true;
@@ -388,18 +418,42 @@ void RuntimeUIFBDMapUnified::handleInput()
   case View::Map:
     handleMapInputStable();
     break;
+
   case View::Detail:
+  {
+    const LogicV2BlockRecord *definition =
+        _model != nullptr ? _model->block(_selectedIndex) : nullptr;
+    if (JWPLC_Buttons.pressed(BTN_OK))
+    {
+      JWPLC_Display.notifyActivity();
+      if (_detailFocus == DetailFocus::Parameters &&
+          selectedBlockHasParameter())
+      {
+        beginTonEdit();
+      }
+      else if (_detailFocus == DetailFocus::Inputs &&
+               definition != nullptr && definition->inputCount > 0)
+      {
+        beginInputEdit();
+      }
+      break;
+    }
     handleDetailInput();
     break;
+  }
+
   case View::EditInput:
     handleEditInputInput();
     break;
+
   case View::EditTon:
     handleEditTonInput();
     break;
+
   case View::DeleteConfirm:
     handleDeleteInput();
     break;
+
   default:
     handleWizardInput();
     break;
@@ -408,16 +462,6 @@ void RuntimeUIFBDMapUnified::handleInput()
 
 void RuntimeUIFBDMapUnified::render(bool force)
 {
-  bool normalizeTonFrame = false;
-  if (_view == View::Detail && selectedBlockHasParameter())
-  {
-    const bool blockStateChanged =
-        !_detailCacheValid ||
-        _detailCacheBlockValue != _model->blockValue(_selectedIndex);
-    normalizeTonFrame =
-        force || _contentDirty || _headerDirty || blockStateChanged;
-  }
-
   switch (_view)
   {
   case View::Map:
@@ -440,12 +484,6 @@ void RuntimeUIFBDMapUnified::render(bool force)
     break;
   }
 
-  if (normalizeTonFrame)
-  {
-    jwplcNormalizeUnifiedTonFrame(
-        _detailFocus == DetailFocus::Parameters);
-  }
-
   renderHeader(force);
   _headerDirty = false;
   _contentDirty = false;
@@ -455,17 +493,22 @@ RuntimeUIFBDMapUnified::HeaderModel
 RuntimeUIFBDMapUnified::buildHeaderModel() const
 {
   HeaderModel model{};
-  std::snprintf(model.title,
-                sizeof(model.title),
-                _view == View::Map ? "MAPA FBD" : "DETALLE");
-  if (_view == View::EditInput)
+
+  const char *title = "DETALLE";
+  if (_view == View::Map)
   {
-    std::snprintf(model.title, sizeof(model.title), "EDITAR IN");
+    title = "MAPA FBD";
+  }
+  else if (_view == View::EditInput)
+  {
+    title = "EDITAR IN";
   }
   else if (_view == View::EditTon)
   {
-    std::snprintf(model.title, sizeof(model.title), "EDITAR T");
+    title = "EDITAR T";
   }
+  std::snprintf(model.title, sizeof(model.title), "%s", title);
+
   const LogicV2BlockRecord *definition =
       _model != nullptr ? _model->block(_selectedIndex) : nullptr;
   if (definition == nullptr)
@@ -480,6 +523,7 @@ RuntimeUIFBDMapUnified::buildHeaderModel() const
                   "B%02u %s",
                   static_cast<unsigned>(_selectedIndex),
                   _model->typeShort(definition->type));
+
     if (_view == View::Map)
     {
       std::snprintf(model.line2,
@@ -487,7 +531,8 @@ RuntimeUIFBDMapUnified::buildHeaderModel() const
                     "%s",
                     _model->blockValue(_selectedIndex) ? "ON" : "OFF");
     }
-    else if (_detailFocus == DetailFocus::Parameters &&
+    else if ((_view == View::EditTon ||
+              _detailFocus == DetailFocus::Parameters) &&
              selectedBlockHasParameter())
     {
       std::snprintf(model.line2, sizeof(model.line2), "PARAM T");
@@ -514,6 +559,7 @@ RuntimeUIFBDMapUnified::buildHeaderModel() const
       model.line2[0] = '\0';
     }
   }
+
   std::snprintf(model.state, sizeof(model.state), "%s", stateText());
   model.stateColor = stateColor();
   return model;
@@ -554,6 +600,7 @@ void RuntimeUIFBDMapUnified::renderHeaderTitle(const HeaderModel &model,
   {
     return;
   }
+
   Adafruit_ST7789 &tft = JWPLC_Display.tft();
   clearHeaderTitleArea();
   tft.drawFastHLine(0, HEADER_H - 1, SCREEN_W, COLOR_BORDER);
@@ -580,8 +627,6 @@ void RuntimeUIFBDMapUnified::renderHeaderContext(
                     HEADER_CONTEXT_W,
                     COLOR_BORDER);
 
-  // Las filas tienen cachés independientes. Al pasar MAPA <-> DETALLE normalmente
-  // solo cambia ON/OFF por Trg/PARAM T; Bxx TIPO permanece intacto y no parpadea.
   if (line1Changed)
   {
     updateTextField(tft,
@@ -592,6 +637,7 @@ void RuntimeUIFBDMapUnified::renderHeaderContext(
                     COLOR_MUTED,
                     COLOR_PANEL);
   }
+
   if (line2Changed)
   {
     updateTextField(tft,
@@ -619,8 +665,6 @@ void RuntimeUIFBDMapUnified::renderHeaderState(const HeaderModel &model,
                     HEADER_STATE_W + 6,
                     COLOR_BORDER);
 
-  // Unified usa fondo gris estable. El estado se expresa mediante borde y texto,
-  // evitando la insignia genérica con fondo negro/verde observada físicamente.
   tft.fillRoundRect(HEADER_STATE_X,
                     4,
                     HEADER_STATE_W,
@@ -645,26 +689,10 @@ void RuntimeUIFBDMapUnified::renderHeaderState(const HeaderModel &model,
   tft.print(model.state);
 }
 
-void RuntimeUIFBDMapUnified::handleEditInputInput() {}
-void RuntimeUIFBDMapUnified::handleEditTonInput() {}
 void RuntimeUIFBDMapUnified::handleWizardInput() {}
 void RuntimeUIFBDMapUnified::handleDeleteInput() {}
-void RuntimeUIFBDMapUnified::renderEditInput(bool force) { (void)force; }
-void RuntimeUIFBDMapUnified::renderEditTon(bool force) { (void)force; }
 void RuntimeUIFBDMapUnified::renderWizard(bool force) { (void)force; }
 void RuntimeUIFBDMapUnified::renderDeleteConfirm(bool force) { (void)force; }
-void RuntimeUIFBDMapUnified::beginInputEdit() {}
-void RuntimeUIFBDMapUnified::cancelInputEdit() {}
-void RuntimeUIFBDMapUnified::applyInputEdit() {}
-void RuntimeUIFBDMapUnified::beginTonEdit() {}
-void RuntimeUIFBDMapUnified::cancelTonEdit() {}
-void RuntimeUIFBDMapUnified::applyTonEdit() {}
-void RuntimeUIFBDMapUnified::loadTonDraft() {}
-uint32_t RuntimeUIFBDMapUnified::tonDraftMilliseconds() const { return 0; }
-uint16_t RuntimeUIFBDMapUnified::tonResourceFromBase(TonBase base)
-{
-  return static_cast<uint16_t>(base);
-}
 bool RuntimeUIFBDMapUnified::selectedBlockHasConsumers() const { return false; }
 void RuntimeUIFBDMapUnified::beginDeleteConfirm() {}
 void RuntimeUIFBDMapUnified::cancelDeleteConfirm() {}
