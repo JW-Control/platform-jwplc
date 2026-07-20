@@ -469,11 +469,13 @@ void RuntimeUIFBDMapUnified::handleEditTonInput()
     return;
   }
 
-  if (JWPLC_Buttons.pressed(BTN_LEFT) ||
-      JWPLC_Buttons.pressed(BTN_RIGHT))
+  // pressed() es latcheado y consumible: cada botón se consulta una sola vez.
+  const bool goRight = JWPLC_Buttons.pressed(BTN_RIGHT);
+  const bool goLeft = !goRight && JWPLC_Buttons.pressed(BTN_LEFT);
+  if (goLeft || goRight)
   {
     const TonField previous = _tonDraft.focus;
-    if (JWPLC_Buttons.pressed(BTN_RIGHT))
+    if (goRight)
     {
       _tonDraft.focus = static_cast<TonField>(
           (static_cast<uint8_t>(_tonDraft.focus) + 1U) % 3U);
@@ -524,10 +526,26 @@ void RuntimeUIFBDMapUnified::handleEditTonInput()
       changed = changeTonBase(up);
       if (changed)
       {
+        JWPLC_Display.notifyActivity();
         drawTonEditorField(TonField::Major);
         drawTonEditorField(TonField::Minor);
         drawTonEditorField(TonField::Base);
         drawTonEditorElapsed(true);
+
+        char configured[16];
+        formatMillisecondsInBase(
+            tonDraftMilliseconds(),
+            _tonDraft.base,
+            configured,
+            sizeof(configured));
+        updateTextField(JWPLC_Display.tft(),
+                        CONTENT_X + 104,
+                        CONTENT_Y + 34,
+                        16,
+                        configured,
+                        COLOR_WARNING,
+                        COLOR_PANEL);
+        drawEditorFooter();
       }
       return;
     }
