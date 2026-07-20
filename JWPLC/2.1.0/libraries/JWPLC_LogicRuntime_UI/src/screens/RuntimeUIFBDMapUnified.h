@@ -9,6 +9,14 @@
 #include "../edit/RuntimeUIV2EditSession.h"
 #include "../model/RuntimeUIV2ReadModel.h"
 
+#if defined(JWPLC_UNIFIED_STRONG_IMPLEMENTATION)
+#define JWPLC_UNIFIED_WEAK
+#elif defined(__GNUC__)
+#define JWPLC_UNIFIED_WEAK __attribute__((weak))
+#else
+#define JWPLC_UNIFIED_WEAK
+#endif
+
 class RuntimeUIFBDMapUnified final
 {
 public:
@@ -132,10 +140,6 @@ private:
   static constexpr int16_t CONTENT_W = PANEL_W - 2;
   static constexpr int16_t CONTENT_H = PANEL_H - 2;
 
-  // EDITAR IN necesita 108 px de texto desde x=6. Se reserva una zona de 133 px
-  // y el contexto Bxx TIPO se desplaza 25 px a la derecha en todas las vistas.
-  // RUN usa una región independiente al extremo derecho para evitar que la
-  // limpieza del contexto invada su badge.
   static constexpr int16_t HEADER_TITLE_X = 0;
   static constexpr int16_t HEADER_TITLE_W = 133;
   static constexpr int16_t HEADER_CONTEXT_X = 133;
@@ -175,7 +179,6 @@ private:
   static constexpr int16_t TON_PANEL_X = 214;
   static constexpr int16_t TON_PANEL_Y = 101;
   static constexpr int16_t TON_PANEL_W = 80;
-  // El marco editable pertenece solo a T; Ta es una lectura viva independiente.
   static constexpr int16_t TON_PANEL_H = 14;
 
   static constexpr int16_t EDIT_FIELD_Y = 57;
@@ -196,11 +199,11 @@ private:
 
   void handleInput();
   void handleMapInput();
-  void handleMapInputStable();
+  void handleMapInputStable() JWPLC_UNIFIED_WEAK;
   void handleDetailInput();
   void handleEditInputInput();
   void handleEditTonInput();
-  void handleWizardInput();
+  void handleWizardInput() JWPLC_UNIFIED_WEAK;
   void handleDeleteInput();
 
   bool anyButtonHeld() const;
@@ -209,14 +212,14 @@ private:
 
   void render(bool force);
   void renderHeader(bool force);
-  void renderMap(bool force);
+  void renderMap(bool force) JWPLC_UNIFIED_WEAK;
   void renderDetail(bool force);
   void renderEditInput(bool force);
   void renderEditTon(bool force);
-  void renderWizard(bool force);
+  void renderWizard(bool force) JWPLC_UNIFIED_WEAK;
   void renderDeleteConfirm(bool force);
 
-  HeaderModel buildHeaderModel() const;
+  HeaderModel buildHeaderModel() const JWPLC_UNIFIED_WEAK;
   void renderHeaderTitle(const HeaderModel &model, bool force);
   void renderHeaderContext(const HeaderModel &model,
                            bool line1Changed,
@@ -431,5 +434,7 @@ private:
   bool _headerCacheValid;
   uint32_t _lastRefreshMs;
 };
+
+#undef JWPLC_UNIFIED_WEAK
 
 #endif
