@@ -89,6 +89,7 @@ private:
   bool _activeElapsedCacheValid;
   bool _activeElapsedColorOn;
   char _activeElapsedCache[20];
+  bool _activeFooterDefaultVisible;
 
   bool _unifiedHeaderCacheValid;
   HeaderView _unifiedHeaderViewCache;
