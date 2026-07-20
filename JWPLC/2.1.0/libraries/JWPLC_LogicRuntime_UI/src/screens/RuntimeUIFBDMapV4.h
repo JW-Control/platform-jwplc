@@ -150,7 +150,18 @@ private:
 
   void drawMapStatic();
   void clearMapArea();
-  void drawMapHeaderInfo();
+
+protected:
+  /**
+   * @brief Hook del encabezado histórico de MAPA.
+   *
+   * El renderer activo lo anula para que una única cabecera de dos filas sea la
+   * propietaria del área central. La implementación V4 permanece disponible para
+   * pruebas históricas aisladas.
+   */
+  virtual void drawMapHeaderInfo();
+
+private:
   void drawMapFull();
   void drawMapLive();
   void drawWires();
