@@ -312,19 +312,19 @@ void RuntimeUIFBDMapUnified::clearContentArea()
 void RuntimeUIFBDMapUnified::clearHeaderTitleArea()
 {
   JWPLC_Display.tft().fillRect(
-      HEADER_TITLE_X, 0, HEADER_TITLE_W, HEADER_H, COLOR_PANEL);
+      HEADER_TITLE_X, 0, HEADER_TITLE_W, HEADER_H, COLOR_BACKGROUND);
 }
 
 void RuntimeUIFBDMapUnified::clearHeaderContextArea()
 {
   JWPLC_Display.tft().fillRect(
-      HEADER_CONTEXT_X, 0, HEADER_CONTEXT_W, HEADER_H, COLOR_PANEL);
+      HEADER_CONTEXT_X, 0, HEADER_CONTEXT_W, HEADER_H, COLOR_BACKGROUND);
 }
 
 void RuntimeUIFBDMapUnified::clearHeaderStateArea()
 {
   JWPLC_Display.tft().fillRect(
-      HEADER_STATE_X, 0, HEADER_STATE_W, HEADER_H, COLOR_PANEL);
+      HEADER_STATE_X, 0, HEADER_STATE_W, HEADER_H, COLOR_BACKGROUND);
 }
 
 bool RuntimeUIFBDMapUnified::anyButtonHeld() const
@@ -606,7 +606,7 @@ void RuntimeUIFBDMapUnified::renderHeaderTitle(const HeaderModel &model,
   tft.drawFastHLine(0, HEADER_H - 1, SCREEN_W, COLOR_BORDER);
   tft.setTextWrap(false);
   tft.setTextSize(2);
-  tft.setTextColor(COLOR_TEXT, COLOR_PANEL);
+  tft.setTextColor(COLOR_TEXT, COLOR_BACKGROUND);
   tft.setCursor(6, 5);
   tft.print(model.title);
 }
@@ -635,7 +635,7 @@ void RuntimeUIFBDMapUnified::renderHeaderContext(
                     20,
                     model.line1,
                     COLOR_MUTED,
-                    COLOR_PANEL);
+                    COLOR_BACKGROUND);
   }
 
   if (line2Changed)
@@ -646,7 +646,7 @@ void RuntimeUIFBDMapUnified::renderHeaderContext(
                     20,
                     model.line2,
                     COLOR_MUTED,
-                    COLOR_PANEL);
+                    COLOR_BACKGROUND);
   }
 }
 
@@ -670,7 +670,7 @@ void RuntimeUIFBDMapUnified::renderHeaderState(const HeaderModel &model,
                     HEADER_STATE_W,
                     16,
                     3,
-                    COLOR_PANEL);
+                    COLOR_BACKGROUND);
   tft.drawRoundRect(HEADER_STATE_X,
                     4,
                     HEADER_STATE_W,
@@ -684,7 +684,7 @@ void RuntimeUIFBDMapUnified::renderHeaderState(const HeaderModel &model,
       HEADER_STATE_X + (HEADER_STATE_W - textWidth) / 2);
   tft.setTextWrap(false);
   tft.setTextSize(1);
-  tft.setTextColor(model.stateColor, COLOR_PANEL);
+  tft.setTextColor(model.stateColor, COLOR_BACKGROUND);
   tft.setCursor(textX, 8);
   tft.print(model.state);
 }
