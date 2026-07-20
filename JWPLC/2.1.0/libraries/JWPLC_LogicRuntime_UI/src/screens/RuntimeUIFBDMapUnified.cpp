@@ -384,7 +384,7 @@ void RuntimeUIFBDMapUnified::handleInput()
   switch (_view)
   {
   case View::Map:
-    handleMapInput();
+    handleMapInputStable();
     break;
   case View::Detail:
     handleDetailInput();
@@ -506,18 +506,22 @@ void RuntimeUIFBDMapUnified::renderHeader(bool force)
   const bool titleChanged =
       force || !_headerCacheValid ||
       std::strcmp(_headerCache.title, model.title) != 0;
-  const bool contextChanged =
+  const bool line1Changed =
       force || !_headerCacheValid ||
-      std::strcmp(_headerCache.line1, model.line1) != 0 ||
+      std::strcmp(_headerCache.line1, model.line1) != 0;
+  const bool line2Changed =
+      force || !_headerCacheValid ||
       std::strcmp(_headerCache.line2, model.line2) != 0;
   const bool stateChanged =
       force || !_headerCacheValid ||
       std::strcmp(_headerCache.state, model.state) != 0 ||
       _headerCache.stateColor != model.stateColor;
+
   renderHeaderTitle(model, titleChanged);
-  renderHeaderContext(model, contextChanged);
+  renderHeaderContext(model, line1Changed, line2Changed);
   renderHeaderState(model, stateChanged);
-  if (titleChanged || contextChanged || stateChanged)
+
+  if (titleChanged || line1Changed || line2Changed || stateChanged)
   {
     _headerCache = model;
     _headerCacheValid = true;
@@ -527,7 +531,10 @@ void RuntimeUIFBDMapUnified::renderHeader(bool force)
 void RuntimeUIFBDMapUnified::renderHeaderTitle(const HeaderModel &model,
                                                 bool force)
 {
-  if (!force) return;
+  if (!force)
+  {
+    return;
+  }
   Adafruit_ST7789 &tft = JWPLC_Display.tft();
   clearHeaderTitleArea();
   tft.drawFastHLine(0, HEADER_H - 1, SCREEN_W, COLOR_BORDER);
@@ -538,43 +545,85 @@ void RuntimeUIFBDMapUnified::renderHeaderTitle(const HeaderModel &model,
   tft.print(model.title);
 }
 
-void RuntimeUIFBDMapUnified::renderHeaderContext(const HeaderModel &model,
-                                                  bool force)
+void RuntimeUIFBDMapUnified::renderHeaderContext(
+    const HeaderModel &model,
+    bool line1Changed,
+    bool line2Changed)
 {
-  if (!force) return;
+  if (!line1Changed && !line2Changed)
+  {
+    return;
+  }
+
   Adafruit_ST7789 &tft = JWPLC_Display.tft();
-  clearHeaderContextArea();
   tft.drawFastHLine(HEADER_CONTEXT_X,
                     HEADER_H - 1,
                     HEADER_CONTEXT_W,
                     COLOR_BORDER);
-  updateTextField(tft,
-                  HEADER_CONTEXT_X + 4,
-                  HEADER_LINE1_Y,
-                  20,
-                  model.line1,
-                  COLOR_MUTED,
-                  COLOR_PANEL);
-  updateTextField(tft,
-                  HEADER_CONTEXT_X + 4,
-                  HEADER_LINE2_Y,
-                  20,
-                  model.line2,
-                  COLOR_MUTED,
-                  COLOR_PANEL);
+
+  // Las filas tienen cachés independientes. Al pasar MAPA <-> DETALLE normalmente
+  // solo cambia ON/OFF por Trg/PARAM T; Bxx TIPO permanece intacto y no parpadea.
+  if (line1Changed)
+  {
+    updateTextField(tft,
+                    HEADER_CONTEXT_X + 4,
+                    HEADER_LINE1_Y,
+                    20,
+                    model.line1,
+                    COLOR_MUTED,
+                    COLOR_PANEL);
+  }
+  if (line2Changed)
+  {
+    updateTextField(tft,
+                    HEADER_CONTEXT_X + 4,
+                    HEADER_LINE2_Y,
+                    20,
+                    model.line2,
+                    COLOR_MUTED,
+                    COLOR_PANEL);
+  }
 }
 
 void RuntimeUIFBDMapUnified::renderHeaderState(const HeaderModel &model,
                                                 bool force)
 {
-  if (!force) return;
+  if (!force)
+  {
+    return;
+  }
+
   Adafruit_ST7789 &tft = JWPLC_Display.tft();
   clearHeaderStateArea();
   tft.drawFastHLine(HEADER_STATE_X,
                     HEADER_H - 1,
                     HEADER_STATE_W + 6,
                     COLOR_BORDER);
-  updateHeaderState(tft, model.state, model.stateColor);
+
+  // Unified usa fondo gris estable. El estado se expresa mediante borde y texto,
+  // evitando la insignia genérica con fondo negro/verde observada físicamente.
+  tft.fillRoundRect(HEADER_STATE_X,
+                    4,
+                    HEADER_STATE_W,
+                    16,
+                    3,
+                    COLOR_PANEL);
+  tft.drawRoundRect(HEADER_STATE_X,
+                    4,
+                    HEADER_STATE_W,
+                    16,
+                    3,
+                    model.stateColor);
+
+  const size_t length = std::strlen(model.state);
+  const int16_t textWidth = static_cast<int16_t>(length * 6U);
+  const int16_t textX = static_cast<int16_t>(
+      HEADER_STATE_X + (HEADER_STATE_W - textWidth) / 2);
+  tft.setTextWrap(false);
+  tft.setTextSize(1);
+  tft.setTextColor(model.stateColor, COLOR_PANEL);
+  tft.setCursor(textX, 8);
+  tft.print(model.state);
 }
 
 void RuntimeUIFBDMapUnified::handleEditInputInput() {}
