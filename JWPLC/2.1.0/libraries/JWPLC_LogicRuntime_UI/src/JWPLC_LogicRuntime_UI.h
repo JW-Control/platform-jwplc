@@ -30,12 +30,25 @@ public:
   bool begin(JWPLC_LogicRuntime &runtime);
 
   /**
-   * @brief Enlaza el motor RAM v2 con el mapa FBD.
+   * @brief Enlaza el motor RAM v2 con el mapa FBD vigente.
    *
    * Puede llamarse desde setup() aunque la TFT todavía esté inicializándose.
    * La edición v2 no escribe FRAM ni conmuta salidas físicas.
    */
   bool begin(LogicV2EnginePrototype &engine);
+
+  /**
+   * @brief Abre el preview consolidado MAPA/DETALLE sin la cadena V4...V14.
+   *
+   * Este modo es temporal y deliberadamente no entra todavía a EDITAR IN,
+   * EDITAR T ni NUEVO BLOQUE. El begin(engine) normal conserva el fallback
+   * validado mientras se completa la migración.
+   */
+  bool beginUnifiedPreview(LogicV2EnginePrototype &engine)
+  {
+    _fbdMapV2.setUnifiedPreview(true);
+    return begin(engine);
+  }
 
   /**
    * @brief Ejecuta trabajo no gráfico común fuera del callback de la TFT.
@@ -77,7 +90,8 @@ public:
    * @brief Consulta previa que no dibuja ni consume botones.
    *
    * JWPLC_Display la ejecuta antes de adquirir el bus SPI. Runtime v1 conserva
-   * el comportamiento histórico; el mapa v2 puede omitir callbacks estáticos.
+   * el comportamiento histórico; el mapa v2 mantiene callbacks incondicionales
+   * mientras entrada y render sigan compartiendo refresh().
    */
   bool displayRefreshNeeded(const JWPLC_IOState *io,
                             const JWPLC_RTCState *rtc) const;
