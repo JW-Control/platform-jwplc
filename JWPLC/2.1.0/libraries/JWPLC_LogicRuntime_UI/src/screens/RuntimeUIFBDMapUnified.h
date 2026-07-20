@@ -134,12 +134,14 @@ private:
 
   // EDITAR IN necesita 108 px de texto desde x=6. Se reserva una zona de 133 px
   // y el contexto Bxx TIPO se desplaza 25 px a la derecha en todas las vistas.
+  // RUN usa una región independiente al extremo derecho para evitar que la
+  // limpieza del contexto invada su badge.
   static constexpr int16_t HEADER_TITLE_X = 0;
   static constexpr int16_t HEADER_TITLE_W = 133;
   static constexpr int16_t HEADER_CONTEXT_X = 133;
-  static constexpr int16_t HEADER_CONTEXT_W = 100;
-  static constexpr int16_t HEADER_STATE_X = 239;
-  static constexpr int16_t HEADER_STATE_W = 75;
+  static constexpr int16_t HEADER_CONTEXT_W = 125;
+  static constexpr int16_t HEADER_STATE_X = 264;
+  static constexpr int16_t HEADER_STATE_W = 50;
   static constexpr int16_t HEADER_LINE1_Y = 3;
   static constexpr int16_t HEADER_LINE2_Y = 12;
 
