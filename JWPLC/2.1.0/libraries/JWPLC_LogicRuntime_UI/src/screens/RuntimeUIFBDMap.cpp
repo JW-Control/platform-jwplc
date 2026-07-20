@@ -4,6 +4,9 @@ extern "C" void jwplcUnifiedWizardLinkAnchor();
 extern "C" void jwplcUnifiedU4HeaderAnchor();
 extern "C" void jwplcUnifiedU4MapAnchor();
 extern "C" void jwplcUnifiedU4InputAnchor();
+extern "C" void jwplcUnifiedU4ResetForAttach(
+    const RuntimeUIFBDMapUnified *owner,
+    RuntimeUIV2ReadModel *model);
 
 RuntimeUIFBDMap::RuntimeUIFBDMap()
     : _unifiedPreview(false),
@@ -35,11 +38,13 @@ void RuntimeUIFBDMap::attach(RuntimeUIV2ReadModel &model)
   if (_unifiedPreview)
   {
     _legacy.detach();
+    jwplcUnifiedU4ResetForAttach(&_unified, &model);
     _unified.attach(model);
   }
   else
   {
     _unified.detach();
+    jwplcUnifiedU4ResetForAttach(&_unified, nullptr);
     _legacy.attach(model);
   }
   _appliedRefreshPeriodMs = 0;
@@ -49,6 +54,7 @@ void RuntimeUIFBDMap::detach()
 {
   _legacy.detach();
   _unified.detach();
+  jwplcUnifiedU4ResetForAttach(&_unified, nullptr);
   _unifiedPreview = false;
   _appliedRefreshPeriodMs = 0;
 }
