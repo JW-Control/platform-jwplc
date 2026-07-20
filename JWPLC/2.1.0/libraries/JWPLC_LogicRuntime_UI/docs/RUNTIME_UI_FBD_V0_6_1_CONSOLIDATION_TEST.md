@@ -1,4 +1,4 @@
-# Prueba de consolidación — motor v2 y TFT adaptativo
+# Prueba de consolidación — motor v2 y renderer FBD activo
 
 ## Estado
 
@@ -6,45 +6,47 @@
 CANDIDATA / PENDIENTE DE COMPILACIÓN Y VALIDACIÓN FÍSICA
 ```
 
-Esta prueba se ejecuta después de la aprobación del anti-parpadeo V14 y antes de añadir eliminación o nuevos tipos de bloque.
+Esta prueba se ejecuta antes de añadir eliminación o nuevos tipos de bloque.
 
-## Objetivos
+## Separación de responsabilidades
 
-1. Confirmar que el editor utiliza el contrato explícito v2.
-2. Confirmar que la UI ya no duplica la semántica de `OPEN`, `HI`, `LO` y negación.
-3. Confirmar que solo se instancia la fachada activa `RuntimeUIFBDMap`.
-4. Reducir adquisiciones del bus TFT en mapa/detalle estático.
-5. Mantener respuesta rápida de botonera durante asistentes y editores.
-6. Evitar repintados redundantes de `Ta LECTURA`.
-7. Reducir el barrido de `DETALLE` a `EDITAR T` mediante composición por bandas.
-8. Mostrar la identificación de detalle en dos filas sin invadir el título ni RUN.
+El problema de frames antiguos no corresponde al motor lógico v2.
+
+```text
+Motor v2:
+- evalúa bloques y enlaces;
+- mantiene parameter/resource;
+- no dibuja TFT;
+- no procesa navegación.
+
+JWPLC_LogicRuntime_UI:
+- procesa botones;
+- decide cambios de vista;
+- dibuja MAPA, DETALLE y EDITAR T.
+```
+
+La regresión provenía de la cadena visual histórica V5/V7/V13/V14: una revisión antigua dibujaba primero y otra la sustituía después. La fachada activa ahora usa `RuntimeUIFBDMapActiveRenderer`, que intercepta las transiciones antes de esos renderers.
 
 ## Archivos principales
 
 ```text
-JWPLC_Display/src/JWPLC_Display.h
-JWPLC_Display/src/JWPLC_Display.cpp
-
 JWPLC_LogicRuntime/src/JWPLC_LogicRuntime_V2.h
 JWPLC_LogicRuntime/src/experimental/LogicV2EnginePrototype.h
 JWPLC_LogicRuntime/src/experimental/LogicV2EngineInspection.cpp
 JWPLC_LogicRuntime/docs/LOGIC_RUNTIME_V2_CONTRACT.md
 
-JWPLC_LogicRuntime_UI/src/model/RuntimeUIV2ReadModel.h
-JWPLC_LogicRuntime_UI/src/model/RuntimeUIV2ReadModel.cpp
-JWPLC_LogicRuntime_UI/src/edit/RuntimeUIV2EditSession.h
 JWPLC_LogicRuntime_UI/src/screens/RuntimeUIFBDMap.h
 JWPLC_LogicRuntime_UI/src/screens/RuntimeUIFBDMap.cpp
-JWPLC_LogicRuntime_UI/src/screens/RuntimeUIFBDMapV7.h
-JWPLC_LogicRuntime_UI/src/screens/RuntimeUIFBDMapV7RefreshPredicates.cpp
+JWPLC_LogicRuntime_UI/src/screens/RuntimeUIFBDMapActiveRenderer.h
+JWPLC_LogicRuntime_UI/src/screens/RuntimeUIFBDMapActiveRenderer.cpp
+JWPLC_LogicRuntime_UI/src/screens/RuntimeUIFBDMapV5.h
+JWPLC_LogicRuntime_UI/src/screens/RuntimeUIFBDMapV11.h
+JWPLC_LogicRuntime_UI/src/screens/RuntimeUIFBDMapV13.h
 JWPLC_LogicRuntime_UI/src/screens/RuntimeUIFBDMapV14.h
 JWPLC_LogicRuntime_UI/src/screens/RuntimeUIFBDMapV14.cpp
-JWPLC_LogicRuntime_UI/src/screens/RuntimeUIFBDMapV14RefreshPolicy.cpp
-JWPLC_LogicRuntime_UI/src/JWPLC_LogicRuntime_UI.h
-JWPLC_LogicRuntime_UI/src/JWPLC_LogicRuntime_UI.cpp
 ```
 
-## Contrato esperado
+## Contrato esperado del motor
 
 ```text
 Runtime v1: #include <JWPLC_LogicRuntime.h>
@@ -56,132 +58,140 @@ Contrato v2        = 1.0
 Esquema de record  = 1
 ```
 
-## Política TFT esperada
+No se modifica el evaluador TON, el formato del bloque ni la sesión RAM en este incremento.
 
-| Pantalla | Periodo de consulta |
+## Política TFT vigente
+
+| Pantalla | Periodo de callback |
 |---|---:|
-| Mapa FBD normal | 100 ms |
-| Detalle normal | 100 ms |
-| Nodo `+` | 40 ms |
-| Selector de tipo | 40 ms |
-| Configurar bloque | 40 ms |
+| MAPA FBD | 100 ms |
+| DETALLE | 100 ms |
+| Nodo `+` y asistentes | 40 ms |
 | Editor de fuente/entrada | 40 ms |
-| Editor TON | 40 ms |
+| EDITAR T | 40 ms |
 
-La política se aplica desde la fachada `RuntimeUIFBDMap`; ninguna revisión `Vx` debe instanciarse desde `JWPLC_LogicRuntime_UIClass`.
+La UI todavía procesa botones y render dentro de `refresh()`. Por seguridad:
 
-Además, `JWPLC_Display` consulta `jwplcUserDisplayRefreshNeededCallback()` antes de adquirir el SPI. La implementación weak devuelve `true`, por lo que las demás interfaces conservan su comportamiento. La UI v2 puede devolver `false` cuando mapa/detalle están estáticos y no hay botones pendientes.
+```text
+RuntimeUIFBDMap::needsTftRefresh() = true
+```
+
+La compuerta previa al SPI está suspendida para FBD. Las cachés regionales siguen evitando escrituras de píxeles cuando el callback no detecta cambios visibles.
+
+La optimización previa al lock solo podrá reactivarse después de separar:
+
+```text
+updateInputAndState()  // sin TFT/SPI
+needsRender()          // regiones sucias
+render()               // con TFT/SPI
+```
 
 ## Compilación
 
 - [ ] Compila desde checkout limpio.
-- [ ] Se compila `LogicV2EngineInspection.cpp`.
-- [ ] Se compila `RuntimeUIFBDMap.cpp`.
-- [ ] Se compila `RuntimeUIFBDMapV7RefreshPredicates.cpp`.
-- [ ] Se compila `RuntimeUIFBDMapV14RefreshPolicy.cpp`.
-- [ ] No aparece símbolo duplicado de `LogicV2EnginePrototype::inputValue`.
-- [ ] No aparece símbolo duplicado de `jwplcUserDisplayRefreshNeededCallback`.
-- [ ] No aparece acceso privado/protegido desde la fachada activa.
-- [ ] `JWPLC_LogicRuntime_UI.h` instancia `RuntimeUIFBDMap`, no `RuntimeUIFBDMapV14`.
-- [ ] El sketch continúa validando y arrancando el programa RAM.
+- [ ] Se compila `RuntimeUIFBDMapActiveRenderer.cpp`.
+- [ ] No aparece acceso privado/protegido en V5/V7/V11/V13.
+- [ ] No aparece símbolo duplicado de métodos del editor TON.
+- [ ] `RuntimeUIFBDMap` hereda de `RuntimeUIFBDMapActiveRenderer`.
+- [ ] El sketch valida y arranca el programa RAM.
+- [ ] `sizeof(LogicV2BlockRecord) == 12` continúa vigente.
 
-## Semántica de entradas
+## Regresión crítica de botonera
 
-Usar el programa actual y recorrer bloques con entradas:
+Con `Trg` permanentemente inactivo:
 
-- [ ] `Trg` refleja el mismo valor que consume el TON.
-- [ ] Una entrada negada muestra el valor posterior a la negación.
-- [ ] `HI` siempre se muestra activo.
-- [ ] `LO` siempre se muestra inactivo.
-- [ ] `OPEN` en AND/NAND actúa como neutral verdadero.
-- [ ] `OPEN` en OR/NOR/XOR actúa como neutral falso.
-- [ ] El valor mostrado por la UI coincide con la salida calculada del bloque.
+- [ ] LEFT/RIGHT cambia entre `Trg` y `PARAM T`.
+- [ ] OK sobre `PARAM T` abre `EDITAR T`.
+- [ ] ESC vuelve a DETALLE y luego a MAPA.
+- [ ] UP/DOWN responde donde corresponda.
+- [ ] Ninguna acción requiere un cambio lógico del TON.
 
-## Compuerta previa al bus TFT
+Repetir durante temporización y después de completar el TON.
 
-- [ ] En MAPA inmóvil, la botonera sigue siendo detectada aunque los callbacks gráficos se omitan.
-- [ ] Un cambio lógico visible vuelve a habilitar el callback y actualiza el mapa.
-- [ ] En DETALLE estático, T/Ta no generan adquisiciones periódicas innecesarias.
-- [ ] Durante el conteo TON, Ta continúa avanzando aproximadamente cada 100 ms.
-- [ ] `forceRedraw()` atraviesa la compuerta aunque las cachés estén limpias.
-- [ ] Las pantallas v1 y sketches con callback propio conservan el comportamiento anterior por el fallback weak `true`.
+## DETALLE → MAPA FBD
 
-## Mapa y detalle a 10 Hz
+La revisión activa intercepta ESC antes del retorno histórico V7.
 
-- [ ] Entrar al mapa y dejarlo inmóvil durante 15 s.
-- [ ] No aparece parpadeo ni limpieza completa.
-- [ ] La selección responde con una latencia máxima aproximada de 100 ms.
-- [ ] Los cambios lógicos visibles se actualizan correctamente.
-- [ ] Entrar a DETALLE y dejar TON en reposo durante 15 s.
-- [ ] `T` y `Ta` permanecen estáticos, sin parpadeo.
-- [ ] Durante temporización, `Ta` progresa con resolución visual cercana a 100 ms.
+- [ ] El cambio visible ocurre una sola vez.
+- [ ] No se observa un segundo borrado/redibujado.
+- [ ] El interior del mapa aparece completo.
+- [ ] El título `MAPA FBD` aparece una vez.
+- [ ] La información central del bloque no desaparece.
+- [ ] RUN/READY/FAULT permanece correcto.
+- [ ] La selección conserva el bloque de origen.
 
-## Asistentes y editores a 25 Hz
+## DETALLE → EDITAR T
 
-- [ ] Abrir el nodo `+`; la navegación sigue fluida.
-- [ ] Abrir selector de tipo; UP/DOWN no pierde pulsaciones.
-- [ ] Abrir CONFIGURAR; LEFT/RIGHT no pierde pulsaciones.
-- [ ] Mantener UP/DOWN en un campo TON; el repeat conserva aceleración útil.
-- [ ] Editar fuente y lógica; no se siente una pausa de 100 ms entre repeats.
-- [ ] Salir de los editores; mapa/detalle vuelven a la frecuencia estática.
+La revisión activa intercepta OK antes del editor histórico V5.
 
-### Editor TON — actualización viva
+- [ ] No aparece el layout antiguo de dos campos `VALOR / UNIDAD`.
+- [ ] No aparece el texto antiguo `Bxx TON PARAM T` en una sola fila.
+- [ ] La primera composición visible ya contiene tres campos:
 
-Resultado físico recibido antes de la compuerta SPI y de la transición por bandas:
+```text
+SEG/HORA/MIN | CENT/SEG/MIN | BASE
+```
 
-- [x] Con TON inactivo, `Ta LECTURA 00:00x` permanece estático y no parpadea.
-- [x] Durante temporización, `Ta LECTURA` progresa correctamente.
-- [x] Cuando el TON completa el tiempo, cambia una vez y luego queda estable.
-- [ ] Repetir los tres puntos después de compilar la revisión actual.
-- [ ] Cambiar la base o un campo obliga a una actualización correcta, sin dejar residuos.
+- [ ] No aparece una pantalla negra completa.
+- [ ] No quedan restos de DETALLE.
 
-### Transición DETALLE → EDITAR T
+## Encabezado EDITAR T
 
-Resultado anterior:
+Debe permanecer estable:
 
-- [ ] El usuario mantiene dudas sobre la ausencia de barrido/fotograma intermedio.
-- [x] No quedaron restos del bloque, cables o panel DETALLE debajo del editor.
+```text
+EDITAR T     Bxx TON          RUN
+             PARAM T
+```
 
-Prueba de la revisión por bandas:
+- [ ] Primera fila: `Bxx TON`.
+- [ ] Segunda fila: `PARAM T`.
+- [ ] No invade el título.
+- [ ] No invade RUN.
+- [ ] No cambia a una fila durante la navegación.
 
-- [ ] No aparece un fotograma negro completo.
-- [ ] No aparece una gran región vacía de 320 x 146 antes de los controles.
-- [ ] Los controles, T/Ta y pie se sustituyen en bandas pequeñas con su contenido inmediato.
-- [ ] El encabezado `EDITAR T` se coloca al terminar el cuerpo.
-- [ ] El barrido visible es claramente menor que en la versión anterior.
-- [ ] No quedan residuos de DETALLE.
+## Campos de EDITAR T
 
-### Encabezado compacto de DETALLE
+- [ ] Al mantener UP/DOWN en el primer componente, solo cambia `<nn>`.
+- [ ] El rótulo `SEG`, `MIN` o `HORA` no parpadea.
+- [ ] Al mantener UP/DOWN en el segundo componente, solo cambia `<nn>`.
+- [ ] El rótulo `CENT`, `SEG` o `MIN` no parpadea.
+- [ ] `Ta LECTURA` permanece estático como rótulo.
+- [ ] Solo el valor `__:__x` de Ta se actualiza durante el conteo.
+- [ ] Cambiar el foco redibuja una vez los dos botones afectados.
+- [ ] Cambiar BASE actualiza los rótulos una sola vez porque cambia su significado.
 
-- [ ] Primera fila: `Bxx TIPO`.
-- [ ] Segunda fila al seleccionar parámetro TON: `PARAM T`.
-- [ ] Segunda fila al seleccionar entrada: `Trg`, `S`, `R` o `INx/y`.
-- [ ] Ninguna fila invade el título `DETALLE`.
-- [ ] Ninguna fila invade la insignia RUN/READY/FAULT.
-- [ ] El texto solo se repinta cuando cambia bloque, entrada o foco.
+## Pruebas TON ya aprobadas anteriormente
 
-## Regresión visual
+- [x] T estático sin parpadeo en DETALLE.
+- [x] Ta estático sin parpadeo en DETALLE.
+- [x] Durante temporización, solo Ta se actualiza en DETALLE.
+- [x] Al completar, Ta queda estable.
+- [x] El formato histórico de Ta no reaparece en DETALLE.
+
+Estas pruebas deben repetirse brevemente después de compilar la revisión activa.
+
+## Regresión general
 
 - [ ] El nodo `+` no vuelve a parpadear a pantalla completa.
-- [ ] El panel TON no vuelve a usar el renderer histórico.
-- [ ] `T` y `Ta` conservan la misma base.
-- [ ] El marco amarillo se ve completo.
-- [ ] El encabezado `EDITAR T / Bxx TON / RUN` no se traslapa.
-- [ ] `ESC` conserva la navegación jerárquica aprobada.
+- [ ] El panel TON conserva el marco amarillo completo.
+- [ ] `T` y `Ta` usan la misma base.
+- [ ] ESC conserva navegación jerárquica.
+- [ ] DI, NOT, AND2, TON y DO siguen creándose.
+- [ ] No se escribe FRAM.
+- [ ] No se conmutan salidas físicas.
 
 ## Criterio de cierre
 
 ```text
-Compilación:             APROBADA / FALLA
-Semántica de entradas:   APROBADA / FALLA
-Compuerta previa al SPI: APROBADA / FALLA
-Mapa/detalle estático:   APROBADO / FALLA
-Editores 40 ms:          APROBADOS / FALLA
-Ta en EDITAR T:          APROBADA / FALLA
-Transición por bandas:   APROBADA / FALLA
-Encabezado compacto:     APROBADO / FALLA
-Regresión visual:        APROBADA / FALLA
-Decisión:                CONSOLIDACIÓN APROBADA / REQUIERE CORRECCIÓN
+Compilación:                    APROBADA / FALLA
+Botonera con Trg inactivo:      APROBADA / FALLA
+DETALLE -> MAPA, una pasada:    APROBADA / FALLA
+Editor antiguo ausente:         APROBADO / FALLA
+Encabezado de dos filas:        APROBADO / FALLA
+Valores sin parpadeo de rótulo: APROBADOS / FALLA
+Regresión TON:                  APROBADA / FALLA
+Decisión:                       CONSOLIDACIÓN APROBADA / REQUIERE CORRECCIÓN
 ```
 
-Solo después de aprobar esta prueba se habilitará la UI de `ELIMINAR BLOQUE`.
+Solo después de aprobar esta prueba se habilitará `ELIMINAR BLOQUE`.
