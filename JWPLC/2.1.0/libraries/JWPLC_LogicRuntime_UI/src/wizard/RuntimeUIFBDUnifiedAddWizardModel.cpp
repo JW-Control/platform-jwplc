@@ -248,11 +248,11 @@ void RuntimeUIFBDUnifiedAddWizardModel::buildInputs(LogicV2InputLink *destinatio
 
   if (count > 0)
   {
-    destination[0].sourceAndFlags = _sourceA;
+    destination[0] = LogicV2InputLink(_sourceA);
   }
   if (count > 1)
   {
-    destination[1].sourceAndFlags = _sourceB;
+    destination[1] = LogicV2InputLink(_sourceB);
   }
 }
 
