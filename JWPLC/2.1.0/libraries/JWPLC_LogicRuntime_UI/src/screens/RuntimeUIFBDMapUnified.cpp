@@ -1,5 +1,6 @@
 #include "RuntimeUIFBDMapUnified.h"
 
+#include <cstdio>
 #include <cstring>
 
 #include "../widgets/RuntimeUIWidgets.h"
@@ -11,16 +12,42 @@ RuntimeUIFBDMapUnified::RuntimeUIFBDMapUnified()
       _editSession(),
       _view(View::Map),
       _previousView(View::Map),
+      _horizontalMode(HorizontalWindowMode::LeftEdge),
       _attached(false),
       _visible(false),
       _forceRedraw(true),
       _contentDirty(true),
       _headerDirty(true),
       _inputReleaseGate(false),
+      _layoutValid(false),
       _selectedIndex(0),
       _detailInputIndex(0),
       _detailParameterIndex(0),
       _detailFocus(DetailFocus::Inputs),
+      _layoutBlockCount(0),
+      _layoutLinkCount(0),
+      _centralStartLevel(1),
+      _maxLevel(0),
+      _viewportY(0),
+      _levels{},
+      _lanes{},
+      _nodeX{},
+      _nodeY{},
+      _mapValueCache{},
+      _mapValueCacheValid(false),
+      _mapSelectionCache(0),
+      _mapSelectionCacheValid(false),
+      _detailCacheValid(false),
+      _detailCacheBlock(0),
+      _detailCacheInput(0),
+      _detailCacheFocus(DetailFocus::Inputs),
+      _detailCacheBlockValue(false),
+      _detailInputValueCache{},
+      _detailTonConfiguredCache{},
+      _detailTonElapsedCache{},
+      _detailTonColorCache(false),
+      _detailTonSelectedCache(false),
+      _lastDetailLiveMs(0),
       _tonDraft{},
       _applyRequested(false),
       _applyCompleted(false),
@@ -37,6 +64,7 @@ void RuntimeUIFBDMapUnified::resetState()
 {
   _view = View::Map;
   _previousView = View::Map;
+  _horizontalMode = HorizontalWindowMode::LeftEdge;
   _visible = false;
   _forceRedraw = true;
   _contentDirty = true;
@@ -47,6 +75,10 @@ void RuntimeUIFBDMapUnified::resetState()
   _detailInputIndex = 0;
   _detailParameterIndex = 0;
   _detailFocus = DetailFocus::Inputs;
+
+  _centralStartLevel = 1;
+  _maxLevel = 0;
+  _viewportY = 0;
 
   _tonDraft.major = 1;
   _tonDraft.minor = 0;
@@ -60,7 +92,9 @@ void RuntimeUIFBDMapUnified::resetState()
   _applySuccess = false;
   _awaitingApply = false;
   _lastRefreshMs = 0;
+  _lastDetailLiveMs = 0;
 
+  invalidateLayout();
   invalidateAllCaches();
 }
 
@@ -68,6 +102,43 @@ void RuntimeUIFBDMapUnified::invalidateAllCaches()
 {
   std::memset(&_headerCache, 0, sizeof(_headerCache));
   _headerCacheValid = false;
+  invalidateMapCache();
+  invalidateDetailCache();
+}
+
+void RuntimeUIFBDMapUnified::invalidateLayout()
+{
+  _layoutValid = false;
+  _layoutBlockCount = 0;
+  _layoutLinkCount = 0;
+  _maxLevel = 0;
+  std::memset(_levels, 0, sizeof(_levels));
+  std::memset(_lanes, 0, sizeof(_lanes));
+  std::memset(_nodeX, 0, sizeof(_nodeX));
+  std::memset(_nodeY, 0, sizeof(_nodeY));
+  invalidateMapCache();
+}
+
+void RuntimeUIFBDMapUnified::invalidateMapCache()
+{
+  std::memset(_mapValueCache, 0, sizeof(_mapValueCache));
+  _mapValueCacheValid = false;
+  _mapSelectionCache = 0;
+  _mapSelectionCacheValid = false;
+}
+
+void RuntimeUIFBDMapUnified::invalidateDetailCache()
+{
+  _detailCacheValid = false;
+  _detailCacheBlock = 0;
+  _detailCacheInput = 0;
+  _detailCacheFocus = DetailFocus::Inputs;
+  _detailCacheBlockValue = false;
+  std::memset(_detailInputValueCache, 0, sizeof(_detailInputValueCache));
+  _detailTonConfiguredCache[0] = '\0';
+  _detailTonElapsedCache[0] = '\0';
+  _detailTonColorCache = false;
+  _detailTonSelectedCache = false;
 }
 
 void RuntimeUIFBDMapUnified::attach(RuntimeUIV2ReadModel &model)
@@ -76,20 +147,15 @@ void RuntimeUIFBDMapUnified::attach(RuntimeUIV2ReadModel &model)
   {
     _editSession.cancel();
   }
-  _editSession.detach();
 
   resetState();
   _model = &model;
+  _attached = model.isAttached();
 
   LogicV2EnginePrototype *engine = model.mutableEngine();
-  if (model.isAttached() && engine != nullptr)
+  if (engine != nullptr)
   {
     _editSession.attach(*engine);
-    _attached = _editSession.isAttached();
-  }
-  else
-  {
-    _attached = false;
   }
 }
 
@@ -99,8 +165,8 @@ void RuntimeUIFBDMapUnified::detach()
   {
     _editSession.cancel();
   }
-  _editSession.detach();
 
+  _editSession.detach();
   resetState();
   _model = nullptr;
   _attached = false;
@@ -116,10 +182,17 @@ void RuntimeUIFBDMapUnified::enter()
   _visible = true;
   _view = View::Map;
   _previousView = View::Map;
+  JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
+
+  buildLayout();
+  normalizeSelection();
+  ensureSelectionVisible();
+
   _forceRedraw = true;
   _contentDirty = true;
   _headerDirty = true;
   invalidateAllCaches();
+  gateInputUntilRelease();
 }
 
 void RuntimeUIFBDMapUnified::exit()
@@ -134,6 +207,7 @@ void RuntimeUIFBDMapUnified::exit()
   _applyRequested = false;
   _applyCompleted = false;
   _inputReleaseGate = false;
+  JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
 }
 
 void RuntimeUIFBDMapUnified::forceRedraw()
@@ -146,22 +220,15 @@ void RuntimeUIFBDMapUnified::forceRedraw()
 
 bool RuntimeUIFBDMapUnified::needsTftRefresh() const
 {
-  // Entrada y render todavía comparten refresh(). No se bloquea el callback por
-  // estado visual; las regiones sucias evitan escrituras TFT redundantes.
+  // Entrada y render comparten refresh(); nunca se bloquea la botonera.
   return true;
 }
 
 uint32_t RuntimeUIFBDMapUnified::requestedRefreshPeriodMs() const
 {
-  switch (_view)
-  {
-  case View::Map:
-  case View::Detail:
-    return STATIC_REFRESH_MS;
-
-  default:
-    return EDIT_REFRESH_MS;
-  }
+  return (_view == View::Map || _view == View::Detail)
+             ? STATIC_REFRESH_MS
+             : EDIT_REFRESH_MS;
 }
 
 void RuntimeUIFBDMapUnified::transitionTo(View nextView)
@@ -180,9 +247,19 @@ void RuntimeUIFBDMapUnified::transitionTo(View nextView)
   _headerDirty = true;
   _contentDirty = true;
   _forceRedraw = false;
-  invalidateAllCaches();
+  _headerCacheValid = false;
+
+  if (nextView == View::Map)
+  {
+    JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
+  }
+  else
+  {
+    JWPLC_Display.setIdleReturnMode(IDLE_RETURN_DISABLED);
+  }
 
   enterView(previous, nextView);
+  gateInputUntilRelease();
 }
 
 void RuntimeUIFBDMapUnified::leaveView(View previousView, View nextView)
@@ -194,7 +271,27 @@ void RuntimeUIFBDMapUnified::leaveView(View previousView, View nextView)
 void RuntimeUIFBDMapUnified::enterView(View previousView, View nextView)
 {
   (void)previousView;
-  (void)nextView;
+
+  if (nextView == View::Detail)
+  {
+    const LogicV2BlockRecord *definition =
+        _model != nullptr ? _model->block(_selectedIndex) : nullptr;
+    _detailInputIndex = 0;
+    _detailParameterIndex = 0;
+    _detailFocus =
+        definition != nullptr && definition->inputCount == 0 &&
+                selectedBlockHasParameter()
+            ? DetailFocus::Parameters
+            : DetailFocus::Inputs;
+    normalizeDetailFocus();
+    _lastDetailLiveMs = 0;
+    invalidateDetailCache();
+  }
+  else if (nextView == View::Map)
+  {
+    ensureSelectionVisible();
+    invalidateMapCache();
+  }
 }
 
 void RuntimeUIFBDMapUnified::clearTransitionRegions(View previousView,
@@ -203,47 +300,70 @@ void RuntimeUIFBDMapUnified::clearTransitionRegions(View previousView,
   (void)previousView;
   (void)nextView;
 
-  // Regla general: dentro del editor FBD nunca se usa clearScreen(). El título,
-  // contexto y estado tienen regiones independientes; el contenido comparte un
-  // único rectángulo interior. Las optimizaciones por pares de vistas se añaden
-  // aquí, en un solo lugar, durante la migración de cada pantalla.
-  clearContentArea();
+  // La limpieza se ejecuta una sola vez dentro del renderer de la vista
+  // destino. Aquí solo se centraliza la decisión de regiones; no se dibuja para
+  // evitar el doble fillRect que antes producía dos barridos consecutivos.
 }
 
 void RuntimeUIFBDMapUnified::clearContentArea()
 {
-  JWPLC_Display.tft().fillRect(CONTENT_X,
-                               CONTENT_Y,
-                               CONTENT_W,
-                               CONTENT_H,
-                               COLOR_PANEL);
+  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  tft.fillRect(CONTENT_X, CONTENT_Y, CONTENT_W, CONTENT_H, COLOR_PANEL);
+  tft.drawRect(PANEL_X, PANEL_Y, PANEL_W, PANEL_H, COLOR_BORDER);
 }
 
 void RuntimeUIFBDMapUnified::clearHeaderTitleArea()
 {
-  JWPLC_Display.tft().fillRect(HEADER_TITLE_X,
-                               0,
-                               HEADER_TITLE_W,
-                               HEADER_H,
-                               COLOR_PANEL);
+  JWPLC_Display.tft().fillRect(
+      HEADER_TITLE_X, 0, HEADER_TITLE_W, HEADER_H, COLOR_PANEL);
 }
 
 void RuntimeUIFBDMapUnified::clearHeaderContextArea()
 {
-  JWPLC_Display.tft().fillRect(HEADER_CONTEXT_X,
-                               0,
-                               HEADER_CONTEXT_W,
-                               HEADER_H,
-                               COLOR_PANEL);
+  JWPLC_Display.tft().fillRect(
+      HEADER_CONTEXT_X, 0, HEADER_CONTEXT_W, HEADER_H, COLOR_PANEL);
 }
 
 void RuntimeUIFBDMapUnified::clearHeaderStateArea()
 {
-  JWPLC_Display.tft().fillRect(HEADER_STATE_X,
-                               0,
-                               HEADER_STATE_W,
-                               HEADER_H,
-                               COLOR_PANEL);
+  JWPLC_Display.tft().fillRect(
+      HEADER_STATE_X, 0, HEADER_STATE_W, HEADER_H, COLOR_PANEL);
+}
+
+bool RuntimeUIFBDMapUnified::anyButtonHeld() const
+{
+  for (uint8_t button = 0; button < BTN_COUNT; ++button)
+  {
+    if (JWPLC_Buttons.isDown(button))
+    {
+      return true;
+    }
+  }
+  return false;
+}
+
+void RuntimeUIFBDMapUnified::gateInputUntilRelease()
+{
+  _inputReleaseGate = true;
+  JWPLC_Buttons.clearPendingInput();
+}
+
+bool RuntimeUIFBDMapUnified::consumeInputReleaseGate()
+{
+  if (!_inputReleaseGate)
+  {
+    return false;
+  }
+
+  JWPLC_Buttons.clearPendingInput();
+  if (anyButtonHeld())
+  {
+    return true;
+  }
+
+  _inputReleaseGate = false;
+  JWPLC_Buttons.clearPendingInput();
+  return true;
 }
 
 void RuntimeUIFBDMapUnified::refresh(const JWPLC_IOState *io,
@@ -257,7 +377,27 @@ void RuntimeUIFBDMapUnified::refresh(const JWPLC_IOState *io,
     return;
   }
 
-  handleInput();
+  if (_layoutValid &&
+      (_layoutBlockCount != _model->blockCount() ||
+       _layoutLinkCount != _model->linkCount()))
+  {
+    invalidateLayout();
+  }
+
+  if (!_layoutValid)
+  {
+    buildLayout();
+    normalizeSelection();
+    ensureSelectionVisible();
+    _contentDirty = true;
+    _headerDirty = true;
+  }
+
+  if (!consumeInputReleaseGate())
+  {
+    handleInput();
+  }
+
   render(_forceRedraw);
   _forceRedraw = false;
   _lastRefreshMs = millis();
@@ -265,9 +405,14 @@ void RuntimeUIFBDMapUnified::refresh(const JWPLC_IOState *io,
 
 void RuntimeUIFBDMapUnified::processPendingEdit()
 {
-  // La conexión con RuntimeUIV2EditSession se migrará junto con EDITAR IN,
-  // EDITAR T, creación y eliminación. Mientras esta clase no sea la fachada
-  // activa, no debe solicitar ni aplicar cambios al motor.
+  if (!_applyRequested)
+  {
+    return;
+  }
+
+  _applyRequested = false;
+  _applySuccess = _editSession.apply(true);
+  _applyCompleted = true;
 }
 
 void RuntimeUIFBDMapUnified::handleInput()
@@ -297,8 +442,8 @@ void RuntimeUIFBDMapUnified::handleInput()
 
 void RuntimeUIFBDMapUnified::render(bool force)
 {
-  renderHeader(force || _headerDirty);
-
+  // Se dibuja primero el contenido final y al final la cabecera. Así nunca se ve
+  // un título nuevo sobre el cuerpo anterior durante una transición.
   switch (_view)
   {
   case View::Map:
@@ -321,55 +466,185 @@ void RuntimeUIFBDMapUnified::render(bool force)
     break;
   }
 
+  renderHeader(force || _headerDirty);
   _headerDirty = false;
   _contentDirty = false;
 }
-
-// Los siguientes métodos se implementarán por pantalla, copiando únicamente el
-// comportamiento final validado. No llamarán a ninguna clase RuntimeUIFBDMapVx.
-void RuntimeUIFBDMapUnified::handleMapInput() {}
-void RuntimeUIFBDMapUnified::handleDetailInput() {}
-void RuntimeUIFBDMapUnified::handleEditInputInput() {}
-void RuntimeUIFBDMapUnified::handleEditTonInput() {}
-void RuntimeUIFBDMapUnified::handleWizardInput() {}
-void RuntimeUIFBDMapUnified::handleDeleteInput() {}
-
-void RuntimeUIFBDMapUnified::renderHeader(bool force) { (void)force; }
-void RuntimeUIFBDMapUnified::renderMap(bool force) { (void)force; }
-void RuntimeUIFBDMapUnified::renderDetail(bool force) { (void)force; }
-void RuntimeUIFBDMapUnified::renderEditInput(bool force) { (void)force; }
-void RuntimeUIFBDMapUnified::renderEditTon(bool force) { (void)force; }
-void RuntimeUIFBDMapUnified::renderWizard(bool force) { (void)force; }
-void RuntimeUIFBDMapUnified::renderDeleteConfirm(bool force) { (void)force; }
 
 RuntimeUIFBDMapUnified::HeaderModel
 RuntimeUIFBDMapUnified::buildHeaderModel() const
 {
   HeaderModel model{};
+  std::snprintf(model.title,
+                sizeof(model.title),
+                _view == View::Map ? "MAPA FBD" : "DETALLE");
+
+  if (_view == View::EditInput)
+  {
+    std::snprintf(model.title, sizeof(model.title), "EDITAR IN");
+  }
+  else if (_view == View::EditTon)
+  {
+    std::snprintf(model.title, sizeof(model.title), "EDITAR T");
+  }
+
+  const LogicV2BlockRecord *definition =
+      _model != nullptr ? _model->block(_selectedIndex) : nullptr;
+  if (definition == nullptr)
+  {
+    std::snprintf(model.line1, sizeof(model.line1), "SIN PROGRAMA");
+    model.line2[0] = '\0';
+  }
+  else
+  {
+    std::snprintf(model.line1,
+                  sizeof(model.line1),
+                  "B%02u %s",
+                  static_cast<unsigned>(_selectedIndex),
+                  _model->typeShort(definition->type));
+
+    if (_view == View::Map)
+    {
+      std::snprintf(model.line2,
+                    sizeof(model.line2),
+                    "%s",
+                    _model->blockValue(_selectedIndex) ? "ON" : "OFF");
+    }
+    else if (_detailFocus == DetailFocus::Parameters &&
+             selectedBlockHasParameter())
+    {
+      std::snprintf(model.line2, sizeof(model.line2), "PARAM T");
+    }
+    else if (definition->inputCount > 0)
+    {
+      const char *role =
+          _model->inputRole(definition->type, _detailInputIndex);
+      if (role != nullptr && role[0] != '\0')
+      {
+        std::snprintf(model.line2, sizeof(model.line2), "%s", role);
+      }
+      else
+      {
+        std::snprintf(model.line2,
+                      sizeof(model.line2),
+                      "IN%u/%u",
+                      static_cast<unsigned>(_detailInputIndex + 1U),
+                      static_cast<unsigned>(definition->inputCount));
+      }
+    }
+    else
+    {
+      model.line2[0] = '\0';
+    }
+  }
+
+  std::snprintf(model.state, sizeof(model.state), "%s", stateText());
+  model.stateColor = stateColor();
   return model;
+}
+
+void RuntimeUIFBDMapUnified::renderHeader(bool force)
+{
+  const HeaderModel model = buildHeaderModel();
+
+  const bool titleChanged =
+      force || !_headerCacheValid ||
+      std::strcmp(_headerCache.title, model.title) != 0;
+  const bool contextChanged =
+      force || !_headerCacheValid ||
+      std::strcmp(_headerCache.line1, model.line1) != 0 ||
+      std::strcmp(_headerCache.line2, model.line2) != 0;
+  const bool stateChanged =
+      force || !_headerCacheValid ||
+      std::strcmp(_headerCache.state, model.state) != 0 ||
+      _headerCache.stateColor != model.stateColor;
+
+  renderHeaderTitle(model, titleChanged);
+  renderHeaderContext(model, contextChanged);
+  renderHeaderState(model, stateChanged);
+
+  if (titleChanged || contextChanged || stateChanged)
+  {
+    _headerCache = model;
+    _headerCacheValid = true;
+  }
 }
 
 void RuntimeUIFBDMapUnified::renderHeaderTitle(const HeaderModel &model,
                                                 bool force)
 {
-  (void)model;
-  (void)force;
+  if (!force)
+  {
+    return;
+  }
+
+  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  clearHeaderTitleArea();
+  tft.drawFastHLine(0, HEADER_H - 1, SCREEN_W, COLOR_BORDER);
+  tft.setTextWrap(false);
+  tft.setTextSize(2);
+  tft.setTextColor(COLOR_TEXT, COLOR_PANEL);
+  tft.setCursor(6, 5);
+  tft.print(model.title);
 }
 
 void RuntimeUIFBDMapUnified::renderHeaderContext(const HeaderModel &model,
                                                   bool force)
 {
-  (void)model;
-  (void)force;
+  if (!force)
+  {
+    return;
+  }
+
+  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  clearHeaderContextArea();
+  tft.drawFastHLine(HEADER_CONTEXT_X,
+                    HEADER_H - 1,
+                    HEADER_CONTEXT_W,
+                    COLOR_BORDER);
+  updateTextField(tft,
+                  HEADER_CONTEXT_X + 4,
+                  HEADER_LINE1_Y,
+                  20,
+                  model.line1,
+                  COLOR_MUTED,
+                  COLOR_PANEL);
+  updateTextField(tft,
+                  HEADER_CONTEXT_X + 4,
+                  HEADER_LINE2_Y,
+                  20,
+                  model.line2,
+                  COLOR_MUTED,
+                  COLOR_PANEL);
 }
 
 void RuntimeUIFBDMapUnified::renderHeaderState(const HeaderModel &model,
                                                 bool force)
 {
-  (void)model;
-  (void)force;
+  if (!force)
+  {
+    return;
+  }
+
+  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  clearHeaderStateArea();
+  tft.drawFastHLine(HEADER_STATE_X,
+                    HEADER_H - 1,
+                    HEADER_STATE_W + 6,
+                    COLOR_BORDER);
+  updateHeaderState(tft, model.state, model.stateColor);
 }
 
+// Editores y asistentes se migran en las siguientes fases. Durante el preview
+// MAPA/DETALLE no son alcanzables.
+void RuntimeUIFBDMapUnified::handleEditInputInput() {}
+void RuntimeUIFBDMapUnified::handleEditTonInput() {}
+void RuntimeUIFBDMapUnified::handleWizardInput() {}
+void RuntimeUIFBDMapUnified::handleDeleteInput() {}
+void RuntimeUIFBDMapUnified::renderEditInput(bool force) { (void)force; }
+void RuntimeUIFBDMapUnified::renderEditTon(bool force) { (void)force; }
+void RuntimeUIFBDMapUnified::renderWizard(bool force) { (void)force; }
+void RuntimeUIFBDMapUnified::renderDeleteConfirm(bool force) { (void)force; }
 void RuntimeUIFBDMapUnified::beginInputEdit() {}
 void RuntimeUIFBDMapUnified::cancelInputEdit() {}
 void RuntimeUIFBDMapUnified::applyInputEdit() {}
@@ -377,37 +652,12 @@ void RuntimeUIFBDMapUnified::beginTonEdit() {}
 void RuntimeUIFBDMapUnified::cancelTonEdit() {}
 void RuntimeUIFBDMapUnified::applyTonEdit() {}
 void RuntimeUIFBDMapUnified::loadTonDraft() {}
-
-uint32_t RuntimeUIFBDMapUnified::tonDraftMilliseconds() const
-{
-  return 0;
-}
-
+uint32_t RuntimeUIFBDMapUnified::tonDraftMilliseconds() const { return 0; }
 uint16_t RuntimeUIFBDMapUnified::tonResourceFromBase(TonBase base)
 {
   return static_cast<uint16_t>(base);
 }
-
-RuntimeUIFBDMapUnified::TonBase
-RuntimeUIFBDMapUnified::tonBaseFromResource(uint16_t resource)
-{
-  switch (resource & 0x0003U)
-  {
-  case 1:
-    return TonBase::Minutes;
-  case 2:
-    return TonBase::Hours;
-  case 0:
-  default:
-    return TonBase::Seconds;
-  }
-}
-
-bool RuntimeUIFBDMapUnified::selectedBlockHasConsumers() const
-{
-  return false;
-}
-
+bool RuntimeUIFBDMapUnified::selectedBlockHasConsumers() const { return false; }
 void RuntimeUIFBDMapUnified::beginDeleteConfirm() {}
 void RuntimeUIFBDMapUnified::cancelDeleteConfirm() {}
 void RuntimeUIFBDMapUnified::applyDelete() {}
