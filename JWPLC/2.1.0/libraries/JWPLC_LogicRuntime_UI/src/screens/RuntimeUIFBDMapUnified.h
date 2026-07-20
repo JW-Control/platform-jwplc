@@ -49,6 +49,12 @@ private:
     Actions
   };
 
+  enum class InputEditField : uint8_t
+  {
+    Source = 0,
+    Logic
+  };
+
   enum class TonBase : uint8_t
   {
     Seconds = 0,
@@ -61,6 +67,14 @@ private:
     Major = 0,
     Minor,
     Base
+  };
+
+  enum class EditFeedback : uint8_t
+  {
+    None = 0,
+    Applying,
+    Failed,
+    InvalidBase
   };
 
   enum class HorizontalWindowMode : uint8_t
@@ -160,11 +174,16 @@ private:
   // El marco editable pertenece solo a T; Ta es una lectura viva independiente.
   static constexpr int16_t TON_PANEL_H = 14;
 
+  static constexpr int16_t EDIT_FIELD_Y = 57;
+  static constexpr int16_t EDIT_FIELD_H = 43;
+  static constexpr int16_t EDIT_FOOTER_Y = 157;
+
   void resetState();
   void invalidateAllCaches();
   void invalidateLayout();
   void invalidateMapCache();
   void invalidateDetailCache();
+  void invalidateEditorCaches();
 
   void transitionTo(View nextView);
   void leaveView(View previousView, View nextView);
@@ -204,6 +223,7 @@ private:
   void clearHeaderTitleArea();
   void clearHeaderContextArea();
   void clearHeaderStateArea();
+  void drawEditorFooter();
 
   void buildLayout();
   void normalizeSelection();
@@ -301,13 +321,31 @@ private:
   void beginInputEdit();
   void cancelInputEdit();
   void applyInputEdit();
+  void finishInputApply();
+  uint16_t inputSourceChoiceCount() const;
+  uint16_t inputSourceCursorFromValue(uint16_t source) const;
+  uint16_t inputSourceValueFromCursor(uint16_t cursor) const;
+  void formatInputSource(uint16_t source,
+                         char *destination,
+                         size_t capacity) const;
+  void drawInputEditorFull();
+  void drawInputEditorField(InputEditField field);
 
   void beginTonEdit();
   void cancelTonEdit();
   void applyTonEdit();
+  void finishTonApply();
   void loadTonDraft();
   uint32_t tonDraftMilliseconds() const;
   static uint16_t tonResourceFromBase(TonBase base);
+  static uint32_t tonBaseResolutionMs(TonBase base);
+  static uint32_t tonMinorMaximum(TonBase base);
+  bool changeTonBase(bool forward);
+  const char *tonMajorLabel() const;
+  const char *tonMinorLabel() const;
+  void drawTonEditorFull();
+  void drawTonEditorField(TonField field);
+  void drawTonEditorElapsed(bool force);
 
   bool selectedBlockHasConsumers() const;
   void beginDeleteConfirm();
@@ -360,7 +398,25 @@ private:
   bool _detailTonSelectedCache;
   uint32_t _lastDetailLiveMs;
 
+  InputEditField _inputEditFocus = InputEditField::Source;
+  uint16_t _inputDraftSource = JWPLC_LOGIC_V2_SOURCE_OPEN;
+  uint16_t _inputSourceCursor = 0;
+  bool _inputDraftInverted = false;
+  bool _inputEditorCacheValid = false;
+  InputEditField _inputFocusCache = InputEditField::Source;
+  char _inputSourceCache[24] = {};
+  bool _inputInvertedCache = false;
+
   TonDraft _tonDraft;
+  bool _tonEditorCacheValid = false;
+  uint32_t _tonMajorCache = 0;
+  uint32_t _tonMinorCache = 0;
+  TonBase _tonBaseCache = TonBase::Seconds;
+  TonField _tonFocusCache = TonField::Major;
+  char _tonEditorElapsedCache[16] = {};
+  bool _tonEditorElapsedColorCache = false;
+
+  EditFeedback _editFeedback = EditFeedback::None;
 
   volatile bool _applyRequested;
   volatile bool _applyCompleted;
