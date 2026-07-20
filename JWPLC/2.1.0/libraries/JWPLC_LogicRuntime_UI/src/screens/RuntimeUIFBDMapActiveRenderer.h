@@ -30,6 +30,7 @@ protected:
   void drawExistingLogoScreen() override;
   void drawExistingLogoFields() override;
   void drawExistingElapsed(bool force) override;
+  void drawCompactDetailHeader(bool force) override;
 
 private:
   enum class HeaderView : uint8_t
