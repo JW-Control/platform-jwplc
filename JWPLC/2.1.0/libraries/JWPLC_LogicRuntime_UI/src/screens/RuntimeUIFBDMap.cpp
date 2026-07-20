@@ -1,6 +1,9 @@
 #include "RuntimeUIFBDMap.h"
 
 extern "C" void jwplcUnifiedWizardLinkAnchor();
+extern "C" void jwplcUnifiedU4HeaderAnchor();
+extern "C" void jwplcUnifiedU4MapAnchor();
+extern "C" void jwplcUnifiedU4InputAnchor();
 
 RuntimeUIFBDMap::RuntimeUIFBDMap()
     : _unifiedPreview(false),
@@ -8,9 +11,12 @@ RuntimeUIFBDMap::RuntimeUIFBDMap()
       _legacy(),
       _unified()
 {
-  // Fuerza la extracción del objeto U4 desde el archive Arduino. Las funciones
-  // activas de Unified sustituyen símbolos débiles del núcleo consolidado.
+  // Fuerza la extracción de todos los objetos U4 desde el archive Arduino. Las
+  // funciones activas de Unified sustituyen símbolos débiles del núcleo base.
   jwplcUnifiedWizardLinkAnchor();
+  jwplcUnifiedU4HeaderAnchor();
+  jwplcUnifiedU4MapAnchor();
+  jwplcUnifiedU4InputAnchor();
 }
 
 void RuntimeUIFBDMap::setUnifiedPreview(bool enabled)
