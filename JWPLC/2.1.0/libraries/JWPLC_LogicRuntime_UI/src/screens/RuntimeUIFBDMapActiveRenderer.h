@@ -27,6 +27,7 @@ public:
   void forceRedraw();
 
 protected:
+  void drawMapHeaderInfo() override;
   void drawExistingLogoScreen() override;
   void drawExistingLogoFields() override;
   void drawExistingElapsed(bool force) override;
