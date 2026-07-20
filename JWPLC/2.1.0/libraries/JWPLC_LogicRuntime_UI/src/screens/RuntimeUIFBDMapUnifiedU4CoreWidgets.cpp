@@ -75,7 +75,7 @@ void drawListRow(uint8_t input, bool selected)
                  LIST_X,
                  static_cast<int16_t>(LIST_Y + input * LIST_STEP),
                  LIST_W,
-                 LIST_H,
+                 LIST_ROW_H,
                  label,
                  selected);
 }
