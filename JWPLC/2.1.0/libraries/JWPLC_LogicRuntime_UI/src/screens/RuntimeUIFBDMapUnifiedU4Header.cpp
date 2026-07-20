@@ -9,6 +9,8 @@
 using namespace JWPLCLogicRuntimeUIWidgets;
 using namespace JWPLCUnifiedU4;
 
+extern "C" void jwplcUnifiedU4HeaderAnchor() {}
+
 RuntimeUIFBDMapUnified::HeaderModel
 RuntimeUIFBDMapUnified::buildHeaderModel() const
 {
