@@ -157,7 +157,8 @@ private:
   static constexpr int16_t TON_PANEL_X = 214;
   static constexpr int16_t TON_PANEL_Y = 101;
   static constexpr int16_t TON_PANEL_W = 80;
-  static constexpr int16_t TON_PANEL_H = 31;
+  // El marco editable pertenece solo a T; Ta es una lectura viva independiente.
+  static constexpr int16_t TON_PANEL_H = 14;
 
   void resetState();
   void invalidateAllCaches();
