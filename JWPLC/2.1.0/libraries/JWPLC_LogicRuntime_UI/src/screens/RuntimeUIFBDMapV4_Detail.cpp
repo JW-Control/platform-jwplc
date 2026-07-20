@@ -10,11 +10,14 @@ using namespace JWPLCLogicRuntimeUIWidgets;
 void RuntimeUIFBDMapV4::drawDetailStatic()
 {
   Adafruit_ST7789 &tft = JWPLC_Display.tft();
-  clearScreen(tft);
+
+  // MAPA y DETALLE comparten el mismo panel exterior. No se borra toda la TFT:
+  // drawDetail(true) limpia únicamente el interior común mediante clearMapArea()
+  // y dibuja inmediatamente el contenido final. Así desaparece el barrido negro
+  // que antes producía clearScreen().
   drawHeaderStatic(tft, "DETALLE");
   _headerStateValid = false;
   updateHeaderStateIfNeeded(true);
-  tft.fillRect(PANEL_X, PANEL_Y, PANEL_W, PANEL_H, COLOR_PANEL);
   tft.drawRect(PANEL_X, PANEL_Y, PANEL_W, PANEL_H, COLOR_BORDER);
 }
 
@@ -52,32 +55,11 @@ void RuntimeUIFBDMapV4::drawDetail(bool force)
     clearMapArea();
   }
 
-  char headerInfo[28];
-  if (definition->inputCount > 0)
-  {
-    std::snprintf(headerInfo,
-                  sizeof(headerInfo),
-                  "B%02u %s IN%u/%u",
-                  static_cast<unsigned>(_selectedIndex),
-                  _model->typeShort(definition->type),
-                  static_cast<unsigned>(_detailInputIndex + 1U),
-                  static_cast<unsigned>(definition->inputCount));
-  }
-  else
-  {
-    std::snprintf(headerInfo,
-                  sizeof(headerInfo),
-                  "B%02u %s",
-                  static_cast<unsigned>(_selectedIndex),
-                  _model->typeShort(definition->type));
-  }
-  updateTextField(JWPLC_Display.tft(),
-                  HEADER_INFO_X,
-                  HEADER_INFO_Y,
-                  HEADER_INFO_COLUMNS,
-                  headerInfo,
-                  COLOR_MUTED,
-                  COLOR_PANEL);
+  // Toda la información central del encabezado pasa por un único hook virtual.
+  // RuntimeUIFBDMapActiveRenderer lo anula y dibuja su cabecera de dos filas al
+  // final del mismo callback. De esta manera nunca aparece el frame histórico
+  // "Bxx TIPO IN1/1" al entrar o volver a DETALLE.
+  drawMapHeaderInfo();
 
   drawDetailWires();
 
