@@ -13,6 +13,30 @@ static constexpr int16_t SOURCE_X = 10;
 static constexpr int16_t SOURCE_W = 145;
 static constexpr int16_t LOGIC_X = 165;
 static constexpr int16_t LOGIC_W = 145;
+
+void drawInputValueRegion(int16_t x,
+                          int16_t w,
+                          int16_t y,
+                          int16_t h,
+                          const char *value,
+                          bool selected)
+{
+  const uint16_t background = selected ? COLOR_SELECTED : COLOR_PANEL;
+  const uint16_t foreground = selected ? COLOR_WARNING : COLOR_TEXT;
+  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+
+  const int16_t valueY = static_cast<int16_t>(y + 22);
+  tft.fillRect(x + 5, valueY, w - 10, 10, background);
+
+  const size_t length = std::strlen(value ? value : "");
+  const int16_t textWidth = static_cast<int16_t>(length * 6U);
+  const int16_t textX = static_cast<int16_t>(x + (w - textWidth) / 2);
+  tft.setTextWrap(false);
+  tft.setTextSize(1);
+  tft.setTextColor(foreground, background);
+  tft.setCursor(textX, valueY);
+  tft.print(value ? value : "");
+}
 }
 
 void RuntimeUIFBDMapUnified::beginInputEdit()
@@ -247,11 +271,12 @@ void RuntimeUIFBDMapUnified::drawInputEditorField(InputEditField field)
   tft.setCursor(x + 7, EDIT_FIELD_Y + 6);
   tft.print(label);
 
-  const int16_t textWidth = static_cast<int16_t>(std::strlen(value) * 6U);
-  const int16_t textX = static_cast<int16_t>(x + (w - textWidth) / 2);
-  tft.setTextColor(selected ? COLOR_WARNING : COLOR_TEXT, fill);
-  tft.setCursor(textX, EDIT_FIELD_Y + 24);
-  tft.print(value);
+  drawInputValueRegion(x,
+                       w,
+                       EDIT_FIELD_Y,
+                       EDIT_FIELD_H,
+                       value,
+                       selected);
 
   if (sourceField)
   {
@@ -397,13 +422,32 @@ void RuntimeUIFBDMapUnified::handleEditInputInput()
                 : static_cast<uint16_t>(_inputSourceCursor - 1U);
       }
       _inputDraftSource = inputSourceValueFromCursor(_inputSourceCursor);
-      drawInputEditorField(InputEditField::Source);
+
+      char value[24];
+      formatInputSource(_inputDraftSource, value, sizeof(value));
+      drawInputValueRegion(SOURCE_X,
+                           SOURCE_W,
+                           EDIT_FIELD_Y,
+                           EDIT_FIELD_H,
+                           value,
+                           true);
+      std::snprintf(_inputSourceCache,
+                    sizeof(_inputSourceCache),
+                    "%s",
+                    value);
     }
   }
   else
   {
     _inputDraftInverted = !_inputDraftInverted;
-    drawInputEditorField(InputEditField::Logic);
+    const char *value = _inputDraftInverted ? "NEGADA" : "DIRECTA";
+    drawInputValueRegion(LOGIC_X,
+                         LOGIC_W,
+                         EDIT_FIELD_Y,
+                         EDIT_FIELD_H,
+                         value,
+                         true);
+    _inputInvertedCache = _inputDraftInverted;
 
     updateTextField(JWPLC_Display.tft(),
                     CONTENT_X + 8,
