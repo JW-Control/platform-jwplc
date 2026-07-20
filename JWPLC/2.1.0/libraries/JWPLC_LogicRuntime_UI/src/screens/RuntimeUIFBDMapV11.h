@@ -129,8 +129,6 @@ protected:
       const char *text,
       uint16_t color = JWPLCLogicRuntimeUIWidgets::COLOR_MUTED);
 
-  // Hooks protegidos para revisiones posteriores sin volver a duplicar la
-  // cadena V8 -> V11 ni exponer estado del asistente en la API pública.
   bool normalMapRootActiveV11() const
   {
     return _wizardPage == WizardPage::None &&
@@ -145,12 +143,6 @@ protected:
            _mode == Mode::Map;
   }
 
-  /**
-   * @brief Sustituye el salto V8 hacia + por un redibujado limitado al mapa.
-   *
-   * El encabezado, la insignia RUN y el marco exterior permanecen intactos. La
-   * ventana lógica sí se recompone cuando la columna virtual desplaza niveles.
-   */
   bool interceptAddRightPressForExtension()
   {
     if (_wizardPage != WizardPage::None ||
@@ -218,7 +210,6 @@ protected:
     return true;
   }
 
-  /** @brief Retorno desde + sin limpiar encabezado ni pantalla completa. */
   bool handleAddBackRegionalV11()
   {
     if (!addNodeSelectedV11() || _inputReleaseGate)
@@ -252,9 +243,9 @@ protected:
   /**
    * @brief Retorna de DETALLE a MAPA en una sola composición visible.
    *
-   * Intercepta ESC antes de que V7 ejecute drawMapStatic()+drawMapFull(). El
-   * contenido se sustituye dentro del panel compartido y el encabezado se cambia
-   * al final, evitando dos barridos consecutivos de pantalla.
+   * Solo se sustituye el interior compartido y el área del título. La información
+   * central del bloque y la insignia RUN se actualizan una vez, sin limpiar todo
+   * el encabezado ni ejecutar el renderer histórico V7.
    */
   bool handleDetailBackSinglePassV11()
   {
@@ -274,11 +265,17 @@ protected:
     clearMapArea();
     drawMapFull();
     noteMapFullRendered();
-    drawMapHeaderInfo();
 
-    JWPLCLogicRuntimeUIWidgets::drawHeaderStatic(
-        JWPLC_Display.tft(),
-        "MAPA FBD");
+    Adafruit_ST7789 &tft = JWPLC_Display.tft();
+    tft.fillRect(0, 0, 112, 23,
+                 JWPLCLogicRuntimeUIWidgets::COLOR_PANEL);
+    tft.setTextWrap(false);
+    tft.setTextSize(2);
+    tft.setTextColor(JWPLCLogicRuntimeUIWidgets::COLOR_TEXT);
+    tft.setCursor(6, 5);
+    tft.print("MAPA FBD");
+
+    drawMapHeaderInfo();
     _headerStateValid = false;
     updateHeaderStateIfNeeded(true);
     _fullRedraw = false;
@@ -332,12 +329,6 @@ protected:
     return _wizardSourceA;
   }
 
-  /**
-   * @brief Cambia la unidad del TON sin alterar la duración real.
-   *
-   * Se conserva para compatibilidad con V12. La revisión LOGO! posterior
-   * reemplaza este flujo por una base de tiempo y dos componentes independientes.
-   */
   void moveWizardTimeUnit(bool forward)
   {
     const uint32_t milliseconds = wizardTimeMilliseconds();
@@ -447,12 +438,6 @@ protected:
     _wizardTimeValue = _timeValueBackup;
   }
 
-  /**
-   * @brief Expone a revisiones derivadas el gate privado de V4.
-   *
-   * V11 ya es friend explícita de RuntimeUIFBDMapV4. La llamada cualificada
-   * evita ampliar la visibilidad de V4 y mantiene el acceso encapsulado.
-   */
   void gateInputUntilRelease(bool restoreIdleReturn = false)
   {
     RuntimeUIFBDMapV4::gateInputUntilRelease(restoreIdleReturn);
