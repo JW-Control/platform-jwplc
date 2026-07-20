@@ -76,10 +76,21 @@ void RuntimeUIFBDMapUnified::attach(RuntimeUIV2ReadModel &model)
   {
     _editSession.cancel();
   }
+  _editSession.detach();
 
   resetState();
   _model = &model;
-  _attached = model.isAttached();
+
+  LogicV2EnginePrototype *engine = model.mutableEngine();
+  if (model.isAttached() && engine != nullptr)
+  {
+    _editSession.attach(*engine);
+    _attached = _editSession.isAttached();
+  }
+  else
+  {
+    _attached = false;
+  }
 }
 
 void RuntimeUIFBDMapUnified::detach()
@@ -88,6 +99,7 @@ void RuntimeUIFBDMapUnified::detach()
   {
     _editSession.cancel();
   }
+  _editSession.detach();
 
   resetState();
   _model = nullptr;
