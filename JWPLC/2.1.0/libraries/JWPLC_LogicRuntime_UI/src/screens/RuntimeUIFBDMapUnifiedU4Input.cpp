@@ -9,6 +9,8 @@
 using namespace JWPLCLogicRuntimeUIWidgets;
 using namespace JWPLCUnifiedU4;
 
+extern "C" void jwplcUnifiedU4InputAnchor() {}
+
 void RuntimeUIFBDMapUnified::handleWizardInput()
 {
   ensureU4(this, _model);
