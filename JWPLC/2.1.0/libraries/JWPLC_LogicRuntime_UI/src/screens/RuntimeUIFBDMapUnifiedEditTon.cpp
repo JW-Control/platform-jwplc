@@ -14,6 +14,28 @@ static constexpr int16_t FIELD_W[3] = {95, 95, 96};
 static constexpr int16_t FIELD_Y = 104;
 static constexpr int16_t FIELD_H = 39;
 static constexpr uint32_t TON_MINIMUM_MS = 20UL;
+
+void drawTonValueRegion(uint8_t index,
+                        const char *value,
+                        bool selected)
+{
+  const int16_t x = FIELD_X[index];
+  const int16_t w = FIELD_W[index];
+  const uint16_t background = selected ? COLOR_SELECTED : COLOR_PANEL;
+  const uint16_t foreground = selected ? COLOR_WARNING : COLOR_TEXT;
+  const int16_t valueY = FIELD_Y + 22;
+
+  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  tft.fillRect(x + 5, valueY, w - 10, 10, background);
+  const size_t length = std::strlen(value ? value : "");
+  const int16_t valueWidth = static_cast<int16_t>(length * 6U);
+  const int16_t valueX = static_cast<int16_t>(x + (w - valueWidth) / 2);
+  tft.setTextWrap(false);
+  tft.setTextSize(1);
+  tft.setTextColor(foreground, background);
+  tft.setCursor(valueX, valueY);
+  tft.print(value ? value : "");
+}
 }
 
 void RuntimeUIFBDMapUnified::beginTonEdit()
@@ -336,12 +358,7 @@ void RuntimeUIFBDMapUnified::drawTonEditorField(TonField field)
   tft.setTextColor(selected ? COLOR_WARNING : COLOR_MUTED, fill);
   tft.setCursor(x + 7, FIELD_Y + 5);
   tft.print(label);
-
-  const int16_t valueWidth = static_cast<int16_t>(std::strlen(value) * 6U);
-  const int16_t valueX = static_cast<int16_t>(x + (w - valueWidth) / 2);
-  tft.setTextColor(selected ? COLOR_WARNING : COLOR_TEXT, fill);
-  tft.setCursor(valueX, FIELD_Y + 22);
-  tft.print(value);
+  drawTonValueRegion(index, value, selected);
 
   _tonMajorCache = _tonDraft.major;
   _tonMinorCache = _tonDraft.minor;
@@ -527,6 +544,7 @@ void RuntimeUIFBDMapUnified::handleEditTonInput()
       if (changed)
       {
         JWPLC_Display.notifyActivity();
+        // Cambiar BASE modifica también los nombres de los dos componentes.
         drawTonEditorField(TonField::Major);
         drawTonEditorField(TonField::Minor);
         drawTonEditorField(TonField::Base);
@@ -558,7 +576,26 @@ void RuntimeUIFBDMapUnified::handleEditTonInput()
 
   _editFeedback = EditFeedback::None;
   JWPLC_Display.notifyActivity();
-  drawTonEditorField(_tonDraft.focus);
+
+  char fieldValue[12];
+  if (_tonDraft.focus == TonField::Major)
+  {
+    std::snprintf(fieldValue,
+                  sizeof(fieldValue),
+                  "<%02lu>",
+                  static_cast<unsigned long>(_tonDraft.major));
+    drawTonValueRegion(0, fieldValue, true);
+    _tonMajorCache = _tonDraft.major;
+  }
+  else
+  {
+    std::snprintf(fieldValue,
+                  sizeof(fieldValue),
+                  "<%02lu>",
+                  static_cast<unsigned long>(_tonDraft.minor));
+    drawTonValueRegion(1, fieldValue, true);
+    _tonMinorCache = _tonDraft.minor;
+  }
 
   char configured[16];
   formatMillisecondsInBase(
