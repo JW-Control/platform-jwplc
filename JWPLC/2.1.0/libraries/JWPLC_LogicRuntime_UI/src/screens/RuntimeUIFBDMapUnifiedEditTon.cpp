@@ -27,16 +27,33 @@ void drawTonValueRegion(uint8_t index,
 
   Adafruit_ST7789 &tft = JWPLC_Display.tft();
   tft.fillRect(x + 5, valueY, w - 10, 10, background);
-  const size_t length = std::strlen(value ? value : "");
+
+  const size_t length = std::strlen(value != nullptr ? value : "");
   const int16_t valueWidth = static_cast<int16_t>(length * 6U);
   const int16_t valueX = static_cast<int16_t>(x + (w - valueWidth) / 2);
+
   tft.setTextWrap(false);
   tft.setTextSize(1);
   tft.setTextColor(foreground, background);
   tft.setCursor(valueX, valueY);
-  tft.print(value ? value : "");
+  tft.print(value != nullptr ? value : "");
 }
+
+void formatTonFieldValue(uint32_t value,
+                         char *destination,
+                         size_t capacity)
+{
+  if (destination == nullptr || capacity == 0)
+  {
+    return;
+  }
+
+  std::snprintf(destination,
+                capacity,
+                "<%02lu>",
+                static_cast<unsigned long>(value));
 }
+} // namespace
 
 void RuntimeUIFBDMapUnified::beginTonEdit()
 {
@@ -64,6 +81,7 @@ void RuntimeUIFBDMapUnified::cancelTonEdit()
   {
     _editSession.cancel();
   }
+
   _awaitingApply = false;
   _applyRequested = false;
   _applyCompleted = false;
@@ -162,6 +180,7 @@ void RuntimeUIFBDMapUnified::loadTonDraft()
     _tonDraft.minor = totalSeconds % 60UL;
     break;
   }
+
   case TonBase::Hours:
   {
     const uint32_t totalMinutes = milliseconds / 60000UL;
@@ -169,6 +188,7 @@ void RuntimeUIFBDMapUnified::loadTonDraft()
     _tonDraft.minor = totalMinutes % 60UL;
     break;
   }
+
   case TonBase::Seconds:
   default:
   {
@@ -191,8 +211,10 @@ uint32_t RuntimeUIFBDMapUnified::tonDraftMilliseconds() const
   {
   case TonBase::Minutes:
     return (_tonDraft.major * 60UL + _tonDraft.minor) * 1000UL;
+
   case TonBase::Hours:
     return (_tonDraft.major * 60UL + _tonDraft.minor) * 60000UL;
+
   case TonBase::Seconds:
   default:
     return (_tonDraft.major * 100UL + _tonDraft.minor) * 10UL;
@@ -206,12 +228,16 @@ uint16_t RuntimeUIFBDMapUnified::tonResourceFromBase(TonBase base)
 
 uint32_t RuntimeUIFBDMapUnified::tonBaseResolutionMs(TonBase base)
 {
+  // Se conserva por compatibilidad de la clase Unified. El cambio de BASE ya no
+  // usa esta resolución para bloquear ni convertir el valor visible.
   switch (base)
   {
   case TonBase::Minutes:
     return 1000UL;
+
   case TonBase::Hours:
     return 60000UL;
+
   case TonBase::Seconds:
   default:
     return 10UL;
@@ -226,52 +252,26 @@ uint32_t RuntimeUIFBDMapUnified::tonMinorMaximum(TonBase base)
 bool RuntimeUIFBDMapUnified::changeTonBase(bool forward)
 {
   const uint8_t current = static_cast<uint8_t>(_tonDraft.base);
-  const uint8_t candidateValue = forward
-                                     ? static_cast<uint8_t>((current + 1U) % 3U)
-                                     : static_cast<uint8_t>(
-                                           current == 0 ? 2U : current - 1U);
+  const uint8_t candidateValue =
+      forward
+          ? static_cast<uint8_t>((current + 1U) % 3U)
+          : static_cast<uint8_t>(current == 0 ? 2U : current - 1U);
   const TonBase candidate = static_cast<TonBase>(candidateValue);
-  const uint32_t milliseconds = tonDraftMilliseconds();
-  const uint32_t resolution = tonBaseResolutionMs(candidate);
 
-  if (resolution == 0 || milliseconds % resolution != 0)
-  {
-    _editFeedback = EditFeedback::InvalidBase;
-    drawEditorFooter();
-    return false;
-  }
-
-  uint32_t major = 0;
-  uint32_t minor = 0;
-  if (candidate == TonBase::Seconds)
-  {
-    const uint32_t totalCentiseconds = milliseconds / 10UL;
-    major = totalCentiseconds / 100UL;
-    minor = totalCentiseconds % 100UL;
-  }
-  else if (candidate == TonBase::Minutes)
-  {
-    const uint32_t totalSeconds = milliseconds / 1000UL;
-    major = totalSeconds / 60UL;
-    minor = totalSeconds % 60UL;
-  }
-  else
-  {
-    const uint32_t totalMinutes = milliseconds / 60000UL;
-    major = totalMinutes / 60UL;
-    minor = totalMinutes % 60UL;
-  }
-
-  if (major > 99UL)
-  {
-    _editFeedback = EditFeedback::InvalidBase;
-    drawEditorFooter();
-    return false;
-  }
-
+  // Comportamiento tipo LOGO!: los dos campos numéricos no se convierten para
+  // conservar la duración absoluta. Cambia la interpretación de los mismos
+  // números al seleccionar s, m o h.
   _tonDraft.base = candidate;
-  _tonDraft.major = major;
-  _tonDraft.minor = minor;
+
+  // En minutos y horas el segundo campo representa segundos/minutos, cuyo rango
+  // válido es 00..59. Un valor 60..99 proveniente de centésimas se ajusta sin
+  // bloquear el cambio de base.
+  const uint32_t maximum = tonMinorMaximum(candidate);
+  if (_tonDraft.minor > maximum)
+  {
+    _tonDraft.minor = maximum;
+  }
+
   _editFeedback = EditFeedback::None;
   return true;
 }
@@ -282,8 +282,10 @@ const char *RuntimeUIFBDMapUnified::tonMajorLabel() const
   {
   case TonBase::Minutes:
     return "MIN";
+
   case TonBase::Hours:
     return "HORA";
+
   case TonBase::Seconds:
   default:
     return "SEG";
@@ -296,8 +298,10 @@ const char *RuntimeUIFBDMapUnified::tonMinorLabel() const
   {
   case TonBase::Minutes:
     return "SEG";
+
   case TonBase::Hours:
     return "MIN";
+
   case TonBase::Seconds:
   default:
     return "CENT";
@@ -315,21 +319,16 @@ void RuntimeUIFBDMapUnified::drawTonEditorField(TonField field)
 
   const char *label = "BASE";
   char value[12];
+
   if (field == TonField::Major)
   {
     label = tonMajorLabel();
-    std::snprintf(value,
-                  sizeof(value),
-                  "<%02lu>",
-                  static_cast<unsigned long>(_tonDraft.major));
+    formatTonFieldValue(_tonDraft.major, value, sizeof(value));
   }
   else if (field == TonField::Minor)
   {
     label = tonMinorLabel();
-    std::snprintf(value,
-                  sizeof(value),
-                  "<%02lu>",
-                  static_cast<unsigned long>(_tonDraft.minor));
+    formatTonFieldValue(_tonDraft.minor, value, sizeof(value));
   }
   else
   {
@@ -343,6 +342,7 @@ void RuntimeUIFBDMapUnified::drawTonEditorField(TonField field)
   Adafruit_ST7789 &tft = JWPLC_Display.tft();
   tft.fillRoundRect(x, FIELD_Y, w, FIELD_H, 4, fill);
   tft.drawRoundRect(x, FIELD_Y, w, FIELD_H, 4, border);
+
   if (selected)
   {
     tft.drawRoundRect(x + 1,
@@ -492,6 +492,7 @@ void RuntimeUIFBDMapUnified::handleEditTonInput()
   if (goLeft || goRight)
   {
     const TonField previous = _tonDraft.focus;
+
     if (goRight)
     {
       _tonDraft.focus = static_cast<TonField>(
@@ -500,18 +501,25 @@ void RuntimeUIFBDMapUnified::handleEditTonInput()
     else
     {
       const uint8_t current = static_cast<uint8_t>(_tonDraft.focus);
-      _tonDraft.focus = static_cast<TonField>(current == 0 ? 2U : current - 1U);
+      _tonDraft.focus =
+          static_cast<TonField>(current == 0 ? 2U : current - 1U);
     }
 
+    const bool restoreFooter = _editFeedback != EditFeedback::None;
     _editFeedback = EditFeedback::None;
     JWPLC_Display.notifyActivity();
     drawTonEditorField(previous);
     drawTonEditorField(_tonDraft.focus);
-    drawEditorFooter();
+
+    if (restoreFooter)
+    {
+      drawEditorFooter();
+    }
     return;
   }
 
   bool changed = false;
+
   if (_tonDraft.focus == TonField::Major)
   {
     changed = JWPLC_Buttons.applyAxis(
@@ -538,33 +546,37 @@ void RuntimeUIFBDMapUnified::handleEditTonInput()
   {
     const bool up = JWPLC_Buttons.pressed(BTN_UP);
     const bool down = !up && JWPLC_Buttons.pressed(BTN_DOWN);
+
     if (up || down)
     {
       changed = changeTonBase(up);
-      if (changed)
+      if (!changed)
       {
-        JWPLC_Display.notifyActivity();
-        // Cambiar BASE modifica también los nombres de los dos componentes.
-        drawTonEditorField(TonField::Major);
-        drawTonEditorField(TonField::Minor);
-        drawTonEditorField(TonField::Base);
-        drawTonEditorElapsed(true);
-
-        char configured[16];
-        formatMillisecondsInBase(
-            tonDraftMilliseconds(),
-            _tonDraft.base,
-            configured,
-            sizeof(configured));
-        updateTextField(JWPLC_Display.tft(),
-                        CONTENT_X + 104,
-                        CONTENT_Y + 34,
-                        16,
-                        configured,
-                        COLOR_WARNING,
-                        COLOR_PANEL);
-        drawEditorFooter();
+        return;
       }
+
+      JWPLC_Display.notifyActivity();
+
+      // Cambiar BASE modifica nombres, interpretación y eventualmente limita el
+      // segundo campo a 59. Se redibujan una sola vez los tres campos.
+      drawTonEditorField(TonField::Major);
+      drawTonEditorField(TonField::Minor);
+      drawTonEditorField(TonField::Base);
+      drawTonEditorElapsed(true);
+
+      char configured[16];
+      formatMillisecondsInBase(
+          tonDraftMilliseconds(),
+          _tonDraft.base,
+          configured,
+          sizeof(configured));
+      updateTextField(JWPLC_Display.tft(),
+                      CONTENT_X + 104,
+                      CONTENT_Y + 34,
+                      16,
+                      configured,
+                      COLOR_WARNING,
+                      COLOR_PANEL);
       return;
     }
   }
@@ -574,25 +586,20 @@ void RuntimeUIFBDMapUnified::handleEditTonInput()
     return;
   }
 
+  const bool restoreFooter = _editFeedback != EditFeedback::None;
   _editFeedback = EditFeedback::None;
   JWPLC_Display.notifyActivity();
 
   char fieldValue[12];
   if (_tonDraft.focus == TonField::Major)
   {
-    std::snprintf(fieldValue,
-                  sizeof(fieldValue),
-                  "<%02lu>",
-                  static_cast<unsigned long>(_tonDraft.major));
+    formatTonFieldValue(_tonDraft.major, fieldValue, sizeof(fieldValue));
     drawTonValueRegion(0, fieldValue, true);
     _tonMajorCache = _tonDraft.major;
   }
   else
   {
-    std::snprintf(fieldValue,
-                  sizeof(fieldValue),
-                  "<%02lu>",
-                  static_cast<unsigned long>(_tonDraft.minor));
+    formatTonFieldValue(_tonDraft.minor, fieldValue, sizeof(fieldValue));
     drawTonValueRegion(1, fieldValue, true);
     _tonMinorCache = _tonDraft.minor;
   }
@@ -610,5 +617,9 @@ void RuntimeUIFBDMapUnified::handleEditTonInput()
                   configured,
                   COLOR_WARNING,
                   COLOR_PANEL);
-  drawEditorFooter();
+
+  if (restoreFooter)
+  {
+    drawEditorFooter();
+  }
 }
