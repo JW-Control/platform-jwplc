@@ -3,7 +3,7 @@
 ## Estado
 
 ```text
-CANDIDATA / PENDIENTE DE COMPILACIÓN Y VALIDACIÓN FÍSICA
+CANDIDATA / PENDIENTE DE REVALIDAR DOS TRANSICIONES
 ```
 
 ## Qué significan V5, V7, V13 y V14
@@ -56,61 +56,72 @@ EDITAR T     B07 TON          RUN
              PARAM T
 ```
 
-Los renderers históricos de MAPA (`V4`) y del encabezado compacto de DETALLE (`V14`) quedan anulados en la ruta activa.
+Los renderers históricos de MAPA (`V4`), DETALLE (`V5`) y el encabezado compacto (`V14`) quedan anulados en la ruta activa.
 
-## Pruebas recibidas antes de esta revisión
+## Resultados físicos recibidos
 
 - [x] Botones responden con Trg inactivo.
+- [x] MAPA muestra contexto de dos filas sin traslape.
+- [x] DETALLE muestra contexto de dos filas en posición estable.
+- [x] EDITAR T muestra contexto de dos filas en posición estable.
 - [x] DETALLE -> MAPA muestra un solo cambio visible.
 - [x] DETALLE -> MAPA se percibe especialmente limpio.
+- [x] DETALLE -> EDITAR T presenta directamente los tres campos.
 - [x] EDITAR T ya no muestra el layout histórico `VALOR/UNIDAD`.
-- [x] El encabezado de EDITAR T conserva conceptualmente dos filas.
+- [x] SEG cambia únicamente su valor.
+- [x] CENT cambia únicamente su valor.
+- [x] BASE conserva el comportamiento esperado.
+- [x] Ta no parpadea al modificar SEG/CENT/BASE con TON detenido.
+- [x] El pie `OK GUARDAR / ESC CANCELAR` permanece estable.
 
-## Cabecera unificada
+Pendientes observados antes del último fix:
 
-- [ ] MAPA no muestra restos de `Trg` o `PARAM T`.
-- [ ] MAPA no traslapa el título `MAPA FBD`.
-- [ ] MAPA muestra `Bxx TIPO` en fila 1 y `ON/OFF` en fila 2.
-- [ ] DETALLE muestra `Bxx TIPO` exactamente en las mismas coordenadas.
-- [ ] DETALLE muestra entrada o parámetro en fila 2.
-- [ ] EDITAR T usa exactamente las mismas coordenadas de contexto.
-- [ ] Al salir de EDITAR T el texto no se desplaza a la izquierda.
-- [ ] No aparece una posición provisional durante el retorno.
-- [ ] RUN/READY/FAULT no se traslapa con el contexto.
+- [ ] EDITAR T -> DETALLE mostraba durante algunos frames `B07 TON IN1/1` en una sola fila.
+- [ ] MAPA -> DETALLE mostraba un barrido negro completo muy visible.
 
-## Campos de EDITAR T
+## Causa y corrección del último incremento
 
-Con TON detenido:
+La cabecera residual no provenía de V5. `RuntimeUIFBDMapV4::drawDetail()` todavía escribía directamente:
 
-- [ ] Mantener UP/DOWN en SEG cambia únicamente `<nn>`.
-- [ ] `SEG` permanece inmóvil.
-- [ ] El valor de `Ta` permanece inmóvil y no parpadea.
-- [ ] `Ta LECTURA` permanece inmóvil.
-- [ ] `OK GUARDAR   ESC CANCELAR` permanece inmóvil.
+```text
+Bxx TIPO IN1/1
+```
 
-Repetir en CENT:
+Ahora esa escritura pasa por el hook virtual `drawMapHeaderInfo()`, anulado por el renderer activo. La cabecera unificada es el único escritor.
 
-- [ ] Solo cambia `<nn>`.
-- [ ] No parpadean Ta ni el pie.
+El barrido MAPA -> DETALLE provenía de:
 
-Cambiar BASE:
+```cpp
+clearScreen(tft);
+```
 
-- [ ] Los rótulos cambian una sola vez porque cambia su significado.
-- [ ] El valor de Ta cambia una sola vez a la nueva base.
-- [ ] El pie no parpadea.
+dentro de `RuntimeUIFBDMapV4::drawDetailStatic()`. Se eliminó. MAPA y DETALLE comparten el panel exterior; ahora solo se limpia el interior mediante `clearMapArea()` y se dibuja inmediatamente el contenido final, igual que en la transición DETALLE -> MAPA.
 
-Con TON temporizando:
+## Revalidación necesaria
 
-- [ ] Solo cambia el valor visible de Ta cuando corresponde.
-- [ ] Los campos y el pie permanecen estables.
+### EDITAR T -> DETALLE
 
-## Transiciones
+- [ ] No aparece `Bxx TIPO IN1/1` en ningún frame.
+- [ ] La primera cabecera visible ya es de dos filas.
+- [ ] No existe desplazamiento horizontal antes de estabilizarse.
+- [ ] `PARAM T` se conserva al volver porque era el foco de origen.
+
+### MAPA -> DETALLE
+
+- [ ] No aparece un barrido negro completo.
+- [ ] El marco exterior permanece estable.
+- [ ] Solo se sustituye el interior compartido del panel.
+- [ ] El efecto se percibe comparable a DETALLE -> MAPA.
+- [ ] No quedan nodos o cables del MAPA debajo del DETALLE.
+
+## Regresión general
 
 - [ ] IDLE -> MAPA mantiene un único cambio normal.
-- [ ] MAPA -> DETALLE no muestra cabecera provisional.
-- [ ] DETALLE -> EDITAR T presenta directamente los tres campos.
-- [ ] EDITAR T -> DETALLE no desplaza el contexto.
-- [ ] DETALLE -> MAPA conserva la transición limpia ya aprobada.
+- [ ] DETALLE -> MAPA conserva la transición limpia aprobada.
+- [ ] Los botones siguen respondiendo con Trg inactivo.
+- [ ] T y Ta permanecen sin parpadeo en DETALLE.
+- [ ] Ta y el pie permanecen sin parpadeo en EDITAR T.
+- [ ] El nodo `+` mantiene su transición regional.
 
 ## Contrato del motor
 
@@ -132,12 +143,9 @@ Los cambios pertenecen exclusivamente a la propiedad del render y navegación de
 
 ```text
 Compilación:              APROBADA / FALLA
-Cabecera MAPA:            APROBADA / FALLA
-Cabecera DETALLE:         APROBADA / FALLA
-Cabecera EDITAR T:        APROBADA / FALLA
-Campos sin parpadeo:      APROBADOS / FALLA
-Ta sin parpadeo:          APROBADA / FALLA
-Pie sin parpadeo:         APROBADO / FALLA
-Transiciones:             APROBADAS / FALLA
+EDITAR T -> DETALLE:      APROBADA / FALLA
+MAPA -> DETALLE:          APROBADA / FALLA
+Regresión botonera:       APROBADA / FALLA
+Regresión T/Ta:           APROBADA / FALLA
 Decisión:                 CONSOLIDAR / REQUIERE CORRECCIÓN
 ```
