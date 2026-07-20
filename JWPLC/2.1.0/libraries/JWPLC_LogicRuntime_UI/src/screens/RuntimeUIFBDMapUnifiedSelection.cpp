@@ -5,45 +5,15 @@
 using namespace JWPLCLogicRuntimeUIWidgets;
 
 /**
- * @brief Sustituye el marco histórico de todo el panel TON por uno exclusivo T.
+ * @brief Compatibilidad temporal con la llamada existente del núcleo Unified.
  *
- * Ta es una lectura viva y no forma parte de la selección editable. La función
- * solo toca los píxeles de borde; no limpia ni redibuja los textos.
+ * El marco T-only ya nace correctamente desde drawTonPanelFrame() mediante
+ * TON_PANEL_H=14. No debe existir una segunda pasada que borre y redibuje bordes,
+ * porque produciría el frame intermedio T/Ta observado físicamente.
  */
 void jwplcNormalizeUnifiedTonFrame(bool selected)
 {
-  static constexpr int16_t panelX = 214;
-  static constexpr int16_t panelY = 101;
-  static constexpr int16_t panelW = 80;
-  static constexpr int16_t panelH = 31;
-  static constexpr int16_t parameterH = 14;
-
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
-
-  // Retira cualquier marco exterior dibujado por el renderer base de U1.
-  tft.drawRect(panelX, panelY, panelW, panelH, COLOR_BACKGROUND);
-  tft.drawRect(panelX + 1,
-               panelY + 1,
-               panelW - 2,
-               panelH - 2,
-               COLOR_BACKGROUND);
-
-  if (!selected)
-  {
-    return;
-  }
-
-  // La selección amarilla encierra únicamente la línea T.
-  tft.drawRect(panelX,
-               panelY,
-               panelW,
-               parameterH,
-               COLOR_WARNING);
-  tft.drawRect(panelX + 1,
-               panelY + 1,
-               panelW - 2,
-               parameterH - 2,
-               COLOR_WARNING);
+  (void)selected;
 }
 
 void RuntimeUIFBDMapUnified::handleMapInputStable()
