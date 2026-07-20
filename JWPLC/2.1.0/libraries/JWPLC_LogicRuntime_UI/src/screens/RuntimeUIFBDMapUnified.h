@@ -132,10 +132,12 @@ private:
   static constexpr int16_t CONTENT_W = PANEL_W - 2;
   static constexpr int16_t CONTENT_H = PANEL_H - 2;
 
+  // EDITAR IN necesita 108 px de texto desde x=6. Se reserva una zona de 133 px
+  // y el contexto Bxx TIPO se desplaza 25 px a la derecha en todas las vistas.
   static constexpr int16_t HEADER_TITLE_X = 0;
-  static constexpr int16_t HEADER_TITLE_W = 108;
-  static constexpr int16_t HEADER_CONTEXT_X = 108;
-  static constexpr int16_t HEADER_CONTEXT_W = 125;
+  static constexpr int16_t HEADER_TITLE_W = 133;
+  static constexpr int16_t HEADER_CONTEXT_X = 133;
+  static constexpr int16_t HEADER_CONTEXT_W = 100;
   static constexpr int16_t HEADER_STATE_X = 239;
   static constexpr int16_t HEADER_STATE_W = 75;
   static constexpr int16_t HEADER_LINE1_Y = 3;
