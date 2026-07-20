@@ -9,6 +9,8 @@
 using namespace JWPLCLogicRuntimeUIWidgets;
 using namespace JWPLCUnifiedU4;
 
+extern "C" void jwplcUnifiedU4MapAnchor() {}
+
 void RuntimeUIFBDMapUnified::handleMapInputStable()
 {
   ensureU4(this, _model);
@@ -195,8 +197,6 @@ void RuntimeUIFBDMapUnified::renderMap(bool force)
     drawMapLive();
   }
 
-  // El preview compacto solo se dibuja cuando existe una columna completa libre.
-  // Con cinco o más columnas se omite para que nunca se traslape al último bloque.
   if (!gU4.previewDrawn && canAdd && _maxLevel <= 3)
   {
     uint16_t origin = _selectedIndex;
