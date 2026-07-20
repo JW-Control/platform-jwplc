@@ -281,7 +281,7 @@ void RuntimeUIFBDMapUnified::drawDetailLive()
             DETAIL_LIVE_REFRESH_MS)
     {
       _lastDetailLiveMs = nowMs;
-      drawTonPanel(false);
+      drawTonPanel(blockChanged);
     }
   }
 
