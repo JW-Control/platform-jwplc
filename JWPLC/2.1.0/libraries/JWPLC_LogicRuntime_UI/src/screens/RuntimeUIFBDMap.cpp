@@ -1,7 +1,7 @@
 #include "RuntimeUIFBDMap.h"
 
 RuntimeUIFBDMap::RuntimeUIFBDMap()
-    : RuntimeUIFBDMapV14(),
+    : RuntimeUIFBDMapActiveRenderer(),
       _appliedRefreshPeriodMs(0)
 {
 }
@@ -39,7 +39,7 @@ bool RuntimeUIFBDMap::needsTftRefresh() const
 
 void RuntimeUIFBDMap::enter()
 {
-  RuntimeUIFBDMapV14::enter();
+  RuntimeUIFBDMapActiveRenderer::enter();
   _appliedRefreshPeriodMs = 0;
   syncRefreshPeriod();
 }
@@ -47,13 +47,13 @@ void RuntimeUIFBDMap::enter()
 void RuntimeUIFBDMap::refresh(const JWPLC_IOState *io,
                               const JWPLC_RTCState *rtc)
 {
-  RuntimeUIFBDMapV14::refresh(io, rtc);
+  RuntimeUIFBDMapActiveRenderer::refresh(io, rtc);
   syncRefreshPeriod();
 }
 
 void RuntimeUIFBDMap::forceRedraw()
 {
-  RuntimeUIFBDMapV14::forceRedraw();
+  RuntimeUIFBDMapActiveRenderer::forceRedraw();
   _appliedRefreshPeriodMs = 0;
   syncRefreshPeriod();
 }
