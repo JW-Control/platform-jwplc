@@ -430,11 +430,14 @@ void RuntimeUIFBDMap::handleAddTon()
         (static_cast<uint8_t>(_addTonField) + 1U) % 3U);
     changed = true;
   }
-  else if (_addTonField == TonField::Base &&
-           (JWPLC_Buttons.pressed(BTN_UP) ||
-            JWPLC_Buttons.pressed(BTN_DOWN)))
+  else if (_addTonField == TonField::Base)
   {
-    const bool down = JWPLC_Buttons.pressed(BTN_DOWN);
+    const bool up = JWPLC_Buttons.pressed(BTN_UP);
+    const bool down = !up && JWPLC_Buttons.pressed(BTN_DOWN);
+    if (!up && !down)
+    {
+      return;
+    }
     uint8_t base = static_cast<uint8_t>(_addTonBase);
     base = down
                ? static_cast<uint8_t>((base + 1U) % 3U)
@@ -702,10 +705,10 @@ void RuntimeUIFBDMap::drawAddTonFull(bool clearInterior)
       tonMinorLabel(_addTonBase),
       "BASE"};
   char values[3][10];
-  std::snprintf(values[0], sizeof(values[0]), "<%02lu>",
-                static_cast<unsigned long>(_addTonMajor));
-  std::snprintf(values[1], sizeof(values[1]), "<%02lu>",
-                static_cast<unsigned long>(_addTonMinor));
+  std::snprintf(values[0], sizeof(values[0]), "<%02u>",
+                static_cast<unsigned>(_addTonMajor));
+  std::snprintf(values[1], sizeof(values[1]), "<%02u>",
+                static_cast<unsigned>(_addTonMinor));
   std::snprintf(values[2], sizeof(values[2]), "<%s>", tonBaseText(_addTonBase));
   const int16_t xs[3] = {10, 108, 206};
   const int16_t ws[3] = {94, 94, 104};
