@@ -142,10 +142,10 @@ void drawDisabledGroup(uint8_t index, const char *label);
 void drawMainGroup(U4MainFocus focus);
 void drawListRow(uint8_t input, bool selected);
 void drawMiniMap(const RuntimeUIV2ReadModel *model,
+                 uint16_t selectedSource,
                  const uint8_t *levels,
                  const uint8_t *lanes,
                  uint8_t maxLevel,
-                 uint16_t selectedSource,
                  int16_t x,
                  int16_t y,
                  int16_t width,
