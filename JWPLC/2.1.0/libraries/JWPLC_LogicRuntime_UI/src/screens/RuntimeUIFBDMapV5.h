@@ -71,7 +71,7 @@ private:
   void handleDetailInputV5();
   void drawDetailV5(bool force);
   void drawTonParameterPanel(bool selected);
-  void updateDetailHeader();
+  virtual void updateDetailHeader();
 
   bool beginParameterEdit();
   void cancelParameterEdit();
