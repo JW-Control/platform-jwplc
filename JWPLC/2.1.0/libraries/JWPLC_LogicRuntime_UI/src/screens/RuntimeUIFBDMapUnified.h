@@ -9,21 +9,6 @@
 #include "../edit/RuntimeUIV2EditSession.h"
 #include "../model/RuntimeUIV2ReadModel.h"
 
-/**
- * @brief Implementación consolidada e independiente del editor FBD v2.
- *
- * Esta clase NO hereda de RuntimeUIFBDMapV4...V14. Su objetivo es reemplazar
- * completamente la cadena histórica una vez que alcance paridad funcional y
- * pase la validación física.
- *
- * Reglas de diseño:
- * - una sola máquina de estados;
- * - una sola cabecera compartida;
- * - una sola función de transición entre vistas;
- * - limpieza regional, nunca clearScreen() entre vistas FBD;
- * - entrada y render procesados por la misma implementación;
- * - motor v2 y sesión transaccional permanecen externos y sin cambios.
- */
 class RuntimeUIFBDMapUnified final
 {
 public:
@@ -78,6 +63,22 @@ private:
     Base
   };
 
+  enum class HorizontalWindowMode : uint8_t
+  {
+    LeftEdge = 0,
+    Middle,
+    RightEdge
+  };
+
+  struct GridRange
+  {
+    uint8_t minLevel;
+    uint8_t maxLevel;
+    uint8_t minLane;
+    uint8_t maxLane;
+    bool valid;
+  };
+
   struct HeaderModel
   {
     char title[16];
@@ -99,6 +100,11 @@ private:
 
   static constexpr uint32_t STATIC_REFRESH_MS = 100UL;
   static constexpr uint32_t EDIT_REFRESH_MS = 40UL;
+  static constexpr uint32_t DETAIL_LIVE_REFRESH_MS = 100UL;
+
+  static constexpr uint16_t MAX_BLOCKS =
+      JWPLC_LOGIC_V2_COMPILED_MAX_BLOCKS;
+  static constexpr uint8_t MAX_LEVELS = 100;
 
   static constexpr int16_t SCREEN_W = 320;
   static constexpr int16_t SCREEN_H = 170;
@@ -121,8 +127,43 @@ private:
   static constexpr int16_t HEADER_LINE1_Y = 3;
   static constexpr int16_t HEADER_LINE2_Y = 12;
 
+  static constexpr int16_t MAP_X = CONTENT_X;
+  static constexpr int16_t MAP_Y = CONTENT_Y;
+  static constexpr int16_t MAP_W = CONTENT_W;
+  static constexpr int16_t MAP_H = CONTENT_H;
+  static constexpr int16_t NODE_W = 48;
+  static constexpr int16_t NODE_H = 30;
+  static constexpr int16_t NODE_GUTTER_W = 11;
+  static constexpr int16_t ROW_STEP = 34;
+  static constexpr int16_t WORLD_MARGIN_Y = 4;
+  static constexpr int16_t KEEP_MARGIN_Y = 4;
+  static constexpr uint8_t SLOT_COUNT = 5;
+  static constexpr int16_t SLOT_X0 = MAP_X + 4;
+  static constexpr int16_t SLOT_STEP = 63;
+  static constexpr int16_t EDGE_HINT_W = 42;
+  static constexpr int16_t EDGE_HINT_H = 24;
+  static constexpr int16_t EDGE_HINT_Y_OFFSET = 3;
+
+  static constexpr uint8_t DETAIL_INPUTS_PER_PAGE = 4;
+  static constexpr int16_t DETAIL_SOURCE_X = 8;
+  static constexpr int16_t DETAIL_SOURCE_W = 72;
+  static constexpr int16_t DETAIL_SOURCE_H = 24;
+  static constexpr int16_t DETAIL_SOURCE_STEP = 31;
+  static constexpr int16_t DETAIL_BLOCK_X = 186;
+  static constexpr int16_t DETAIL_BLOCK_Y = 44;
+  static constexpr int16_t DETAIL_BLOCK_W = 112;
+  static constexpr int16_t DETAIL_BLOCK_H = 92;
+  static constexpr int16_t DETAIL_GUTTER_W = 24;
+  static constexpr int16_t TON_PANEL_X = 214;
+  static constexpr int16_t TON_PANEL_Y = 101;
+  static constexpr int16_t TON_PANEL_W = 80;
+  static constexpr int16_t TON_PANEL_H = 31;
+
   void resetState();
   void invalidateAllCaches();
+  void invalidateLayout();
+  void invalidateMapCache();
+  void invalidateDetailCache();
 
   void transitionTo(View nextView);
   void leaveView(View previousView, View nextView);
@@ -136,6 +177,10 @@ private:
   void handleEditTonInput();
   void handleWizardInput();
   void handleDeleteInput();
+
+  bool anyButtonHeld() const;
+  void gateInputUntilRelease();
+  bool consumeInputReleaseGate();
 
   void render(bool force);
   void renderHeader(bool force);
@@ -156,6 +201,98 @@ private:
   void clearHeaderContextArea();
   void clearHeaderStateArea();
 
+  void buildLayout();
+  void normalizeSelection();
+  bool ensureSelectionVisible();
+  bool updateHorizontalWindow();
+  bool selectSource();
+  bool selectConsumer();
+  bool selectVertical(bool down);
+  uint16_t nearestByY(const uint16_t *indices, uint8_t count) const;
+
+  bool isFullLevel(uint8_t level) const;
+  bool isPreviewLevel(uint8_t level, bool &leftSide) const;
+  int8_t slotForLevel(uint8_t level) const;
+  int16_t screenX(uint16_t blockIndex) const;
+  int16_t screenY(uint16_t blockIndex) const;
+  bool nodeFullyVisible(int16_t x, int16_t y) const;
+  int16_t renderedNodeWidth(uint16_t blockIndex) const;
+  int16_t renderedNodeHeight(uint16_t blockIndex) const;
+  int16_t renderedNodeYOffset(uint16_t blockIndex) const;
+  int16_t inputPortY(const LogicV2BlockRecord &block,
+                     uint8_t inputIndex) const;
+  GridRange visibleGridRange() const;
+  bool shouldDrawEdgeHint(uint16_t blockIndex,
+                          const GridRange &range,
+                          bool &leftSide) const;
+
+  void drawMapFull();
+  void drawMapLive();
+  void drawWires();
+  void drawWire(uint16_t consumerIndex, uint8_t inputIndex);
+  void drawNodes();
+  void drawNode(uint16_t blockIndex);
+  void drawFullNode(uint16_t blockIndex,
+                    int16_t x,
+                    int16_t y,
+                    uint16_t border,
+                    bool active,
+                    bool selected);
+  void drawEdgeHints();
+  void drawEdgeHint(uint16_t blockIndex,
+                    bool leftSide,
+                    int16_t nodeScreenY,
+                    uint16_t border,
+                    bool active);
+  void drawNodePorts(uint16_t blockIndex, int16_t x, int16_t y);
+  void drawClippedHorizontal(int16_t x0,
+                             int16_t x1,
+                             int16_t y,
+                             uint16_t color);
+  void drawClippedVertical(int16_t x,
+                           int16_t y0,
+                           int16_t y1,
+                           uint16_t color);
+  void drawOrthogonalWireClipped(int16_t x0,
+                                 int16_t y0,
+                                 int16_t x1,
+                                 int16_t y1,
+                                 int16_t routeX,
+                                 uint16_t color);
+
+  uint8_t detailPageStart() const;
+  void normalizeDetailFocus();
+  bool selectedBlockHasParameter() const;
+  void drawDetailFull();
+  void drawDetailLive();
+  void drawDetailWires();
+  void drawDetailSource(uint8_t inputIndex,
+                        uint8_t visibleRow,
+                        bool selected);
+  void drawDetailBlock();
+  void drawTonPanel(bool force);
+  void drawTonPanelFrame(bool selected);
+  void drawTonTextLine(int16_t y,
+                       const char *prefix,
+                       const char *value,
+                       uint16_t color);
+  void captureDetailCache();
+
+  void formatBlockId(char *destination,
+                     size_t capacity,
+                     uint16_t blockIndex) const;
+  void formatMapLine2(char *destination,
+                      size_t capacity,
+                      uint16_t blockIndex) const;
+  const char *detailSymbol(LogicV2BlockType type) const;
+  const char *stateText() const;
+  uint16_t stateColor() const;
+  static TonBase tonBaseFromResource(uint16_t resource);
+  static void formatMillisecondsInBase(uint32_t milliseconds,
+                                       TonBase base,
+                                       char *destination,
+                                       size_t capacity);
+
   void beginInputEdit();
   void cancelInputEdit();
   void applyInputEdit();
@@ -166,7 +303,6 @@ private:
   void loadTonDraft();
   uint32_t tonDraftMilliseconds() const;
   static uint16_t tonResourceFromBase(TonBase base);
-  static TonBase tonBaseFromResource(uint16_t resource);
 
   bool selectedBlockHasConsumers() const;
   void beginDeleteConfirm();
@@ -178,17 +314,46 @@ private:
 
   View _view;
   View _previousView;
+  HorizontalWindowMode _horizontalMode;
   bool _attached;
   bool _visible;
   bool _forceRedraw;
   bool _contentDirty;
   bool _headerDirty;
   bool _inputReleaseGate;
+  bool _layoutValid;
 
   uint16_t _selectedIndex;
   uint8_t _detailInputIndex;
   uint8_t _detailParameterIndex;
   DetailFocus _detailFocus;
+
+  uint16_t _layoutBlockCount;
+  uint16_t _layoutLinkCount;
+  uint8_t _centralStartLevel;
+  uint8_t _maxLevel;
+  int16_t _viewportY;
+  uint8_t _levels[MAX_BLOCKS];
+  uint8_t _lanes[MAX_BLOCKS];
+  int16_t _nodeX[MAX_BLOCKS];
+  int16_t _nodeY[MAX_BLOCKS];
+
+  bool _mapValueCache[MAX_BLOCKS];
+  bool _mapValueCacheValid;
+  uint16_t _mapSelectionCache;
+  bool _mapSelectionCacheValid;
+
+  bool _detailCacheValid;
+  uint16_t _detailCacheBlock;
+  uint8_t _detailCacheInput;
+  DetailFocus _detailCacheFocus;
+  bool _detailCacheBlockValue;
+  bool _detailInputValueCache[JWPLC_LOGIC_V2_MAX_INPUTS_PER_BLOCK];
+  char _detailTonConfiguredCache[16];
+  char _detailTonElapsedCache[16];
+  bool _detailTonColorCache;
+  bool _detailTonSelectedCache;
+  uint32_t _lastDetailLiveMs;
 
   TonDraft _tonDraft;
 
