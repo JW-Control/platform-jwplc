@@ -213,21 +213,14 @@ bool JW_FRAM::writeBlock(uint32_t addr, const T &value, uint8_t version)
   header.length = static_cast<uint16_t>(sizeof(T));
   header.checksum = computeChecksum(reinterpret_cast<const uint8_t *>(&value), sizeof(T));
 
-  if (!writeEnable(true))
-  {
-    debugPrint(F("JW_FRAM::writeBlock() fallo al habilitar escritura"));
-    return false;
-  }
-
-  bool ok = write(addr, reinterpret_cast<const uint8_t *>(&header), sizeof(header));
+  // Header y payload se envían como dos comandos WRITE independientes.
+  // Cada WRITE usa put() para ejecutar su propio ciclo WREN -> WRITE -> WRDI.
+  // Esto evita perder el payload en dispositivos que limpian WEL al terminar
+  // la primera transacción de escritura.
+  bool ok = put(addr, header);
   if (ok)
   {
-    ok = write(addr + sizeof(header), reinterpret_cast<const uint8_t *>(&value), sizeof(T));
-  }
-
-  if (!writeEnable(false))
-  {
-    debugPrint(F("JW_FRAM::writeBlock() fallo al deshabilitar escritura"));
+    ok = put(addr + sizeof(header), value);
   }
 
   if (!ok)
