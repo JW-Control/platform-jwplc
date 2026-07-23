@@ -4,16 +4,15 @@
 
 Documento consolidado para **JWPLC Basic v2.1.0-alpha.3**.
 
-Uso recomendado en el repositorio:
+Ruta actual en el repositorio:
 
 ```txt
-docs/openplc/JWPLC_REMOTE_IO_RTU_PROTOCOL.md
+docs/v2.1.0-alpha.3/JWPLC_REMOTE_IO_RTU_PROTOCOL.md
 ```
 
 Este protocolo forma parte del diseño de **JWPLC Remote I/O sobre Modbus RTU / RS-485**. No debe interpretarse como integración automática en el runtime estable `v2.0.0`.
 
 ---
-
 
 ## Estado
 
@@ -36,13 +35,13 @@ Diseñar un flujo estable para:
 
 ```txt
 PC / OpenPLC Editor
-        │
-        │ USB / Serial0
-        ▼
+        |
+        | USB / Serial0
+        v
 JWPLC Basic Master
-        │
-        │ RS-485 / Serial2
-        ▼
+        |
+        | RS-485 / Serial2
+        v
 JWPLC Basic Remote I/O Slave(s)
 ```
 
