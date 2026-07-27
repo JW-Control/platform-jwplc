@@ -72,7 +72,7 @@ on:
       release_notes_file:
         description: "Markdown file used as release notes if it exists. Ignored when publish_release=false."
         required: true
-        default: "docs/alpha32_openplc_integration/PRE_RELEASE.md"
+        default: "docs/v2.1.0-alpha.3/PRE_RELEASE.md"
         type: string
       upload_workflow_artifact:
         description: "Upload ZIP and package indexes as workflow artifacts"
