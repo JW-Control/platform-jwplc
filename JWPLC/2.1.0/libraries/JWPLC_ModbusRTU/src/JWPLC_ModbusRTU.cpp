@@ -141,7 +141,9 @@ void JWPLC_ModbusRTUClass::poll()
         return;
     }
 
-    while (JWPLC_RS485.available() > 0)
+    int bytesProcessed = 0;
+
+    while (JWPLC_RS485.available() > 0 && bytesProcessed < 64)
     {
         int value = JWPLC_RS485.read();
 
@@ -149,6 +151,8 @@ void JWPLC_ModbusRTUClass::poll()
         {
             break;
         }
+
+        bytesProcessed++;
 
         if (_rxLength >= JWPLC_MODBUS_RTU_MAX_FRAME)
         {
