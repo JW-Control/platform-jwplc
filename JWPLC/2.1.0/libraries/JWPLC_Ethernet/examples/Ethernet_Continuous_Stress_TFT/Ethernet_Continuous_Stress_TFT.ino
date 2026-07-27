@@ -9,7 +9,8 @@
   - espera una ventana de estabilizacion antes de reportar la primera falla;
   - usa intervalos medidos de inicio a inicio, incluido modo continuo;
   - reutiliza la IP DNS y refresca DNS periodicamente para exigir TCP/HTTP;
-  - conserva las pruebas auxiliares contra IP cacheada y referencia LAN.
+  - conserva las pruebas auxiliares contra IP cacheada y referencia LAN;
+  - normaliza retornos DNS de 16 bits para clasificar correctamente timeouts.
 
   Controles:
   LEFT/RIGHT = pagina | OK = pausa/reanuda | UP/DOWN = intervalo | ESC = ACK
@@ -21,6 +22,7 @@
 #include <Dns.h>
 #include "jwplc_spi_bus.h"
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -432,8 +434,18 @@ const char *errorName(StressError error)
   }
 }
 
+// Algunas versiones de Ethernet hacen que ProcessResponse() devuelva uint16_t.
+// Los codigos negativos -1..-6 pueden llegar como 65535..65530.
+int normalizeDnsResult(int result)
+{
+  if (result >= 0x8000 && result <= 0xFFFF)
+    return (int)(int16_t)(uint16_t)result;
+  return result;
+}
+
 const char *dnsResultName(int result)
 {
+  result = normalizeDnsResult(result);
   switch (result)
   {
   case 1:
@@ -448,6 +460,8 @@ const char *dnsResultName(int result)
     return "RESPUESTA INVALIDA";
   case -5:
     return "SERVIDOR RECHAZO";
+  case -6:
+    return "SIN RESPUESTAS";
   case 0:
     return "SIN SOCKET/ENVIO";
   default:
@@ -457,11 +471,12 @@ const char *dnsResultName(int result)
 
 StressError dnsErrorFromResult(int result)
 {
+  result = normalizeDnsResult(result);
   if (result == -1)
     return STRESS_ERR_DNS_TIMEOUT;
   if (result == -2)
     return STRESS_ERR_DNS_SERVER;
-  if (result == -3 || result == -4 || result == -5)
+  if (result >= -6 && result <= -3)
     return STRESS_ERR_DNS_RESPONSE;
   return STRESS_ERR_DNS_OTHER;
 }
@@ -682,6 +697,10 @@ bool sampleEthernet(bool countTransitions)
 {
   if (!JWPLC_Ethernet.isEnabled())
   {
+    bool changed = hardwarePresent || linkKnown || linkOn || ipValid ||
+                   strcmp(hardwareText, "DESHABILITADO") != 0 ||
+                   strcmp(linkText, "?") != 0 ||
+                   strcmp(ipText, "0.0.0.0") != 0;
     hardwarePresent = false;
     linkKnown = false;
     linkOn = false;
@@ -689,7 +708,8 @@ bool sampleEthernet(bool countTransitions)
     setTextIfChanged(hardwareText, sizeof(hardwareText), "DESHABILITADO");
     setTextIfChanged(linkText, sizeof(linkText), "?");
     setTextIfChanged(ipText, sizeof(ipText), "0.0.0.0");
-    requestUi();
+    if (changed)
+      requestUi();
     return true;
   }
 
@@ -720,6 +740,8 @@ bool sampleEthernet(bool countTransitions)
     if (oldHardwarePresent && !newHardwarePresent)
     {
       stats.hardwareLoss++;
+      copyText(likelySource, sizeof(likelySource),
+               "POSIBLE SPI/W5500/SOLDADURA");
       recordObservedFault(
           STRESS_ERR_NO_HARDWARE,
           "W5500 desaparecio: revisar alimentacion, SPI, CS y soldadura");
@@ -734,6 +756,8 @@ bool sampleEthernet(bool countTransitions)
       if (oldLinkOn && !newLinkOn)
       {
         stats.linkDrop++;
+        copyText(likelySource, sizeof(likelySource),
+                 "POSIBLE RJ45/CABLE/MAGNETICOS");
         recordObservedFault(
             STRESS_ERR_LINK_DOWN,
             "Caida de link: revisar RJ45, magneticos, pares, cable y soldadura");
@@ -1097,13 +1121,19 @@ StressError resolveTarget(IPAddress &remoteIp, char *detail, size_t detailSize)
   dnsClient.begin(dnsServer);
 
   uint32_t started = millis();
-  lastDnsResult = dnsClient.getHostByName(
+  int rawDnsResult = dnsClient.getHostByName(
       STRESS_HOST, remoteIp, DNS_STEP_TIMEOUT_MS);
+  lastDnsResult = normalizeDnsResult(rawDnsResult);
   lastDnsMs = millis() - started;
   unlockEthernet();
 
   if (lastDnsResult != 1 || !isValidIP(remoteIp))
   {
+    // La consulta live ya se ejecuto. Si existe cache, deja que las siguientes
+    // pruebas vuelvan a exigir TCP/HTTP antes del proximo refresco DNS.
+    if (cachedResolvedValid)
+      lastDnsRefreshTest = stats.tests;
+
     snprintf(detail, detailSize,
              "DNS fallo raw=%d %s; server=%s; %lums",
              lastDnsResult, dnsResultName(lastDnsResult), dnsServerText,
@@ -1399,11 +1429,6 @@ void readButtons()
 // -----------------------------------------------------------------------------
 // TFT con cache por filas.
 // -----------------------------------------------------------------------------
-uint16_t stateColor(bool ok)
-{
-  return ok ? ST77XX_GREEN : ST77XX_RED;
-}
-
 void drawFrame(Adafruit_ST7789 &tft)
 {
   static const char *titles[PAGE_COUNT] = {
@@ -1591,9 +1616,9 @@ void drawPage3(Adafruit_ST7789 &tft)
   drawCachedRow(tft, 1, 52, "Fecha: ", lastErrorTime, ST77XX_WHITE);
   drawCachedRow(tft, 2, 68, "Origen: ", lastLikelySource, ST77XX_YELLOW);
 
-  char line1[48] = {};
-  char line2[48] = {};
-  char line3[48] = {};
+  char line1[40] = {};
+  char line2[49] = {};
+  char line3[49] = {};
   splitText3(lastErrorDetail,
              line1, sizeof(line1),
              line2, sizeof(line2),
