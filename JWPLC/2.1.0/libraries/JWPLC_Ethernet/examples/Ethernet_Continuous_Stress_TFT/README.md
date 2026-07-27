@@ -139,6 +139,22 @@ Así se mantiene la supervisión periódica de DNS, pero la mayor parte de la ca
 - recepción de datos;
 - lectura/escritura del W5500 por SPI.
 
+### 5. Normalización de códigos DNS
+
+La implementación de `DNSClient` usada por la librería Ethernet puede transportar internamente algunos errores negativos mediante un retorno de 16 bits. Por ello, un timeout `-1` puede observarse externamente como `65535`, `-2` como `65534`, y así sucesivamente.
+
+El sketch normaliza los valores `65535..65530` nuevamente a `-1..-6` antes de clasificarlos. Con ello:
+
+```text
+65535 -> -1 -> DNS TIMEOUT
+65534 -> -2 -> DNS SERVIDOR
+65533..65530 -> DNS RESPUESTA
+```
+
+La captura obtenida con la revisión anterior, que mostraba `DNS OTRO raw=65535`, corresponde realmente a un `DNS TIMEOUT`. En la v3 corregida quedará identificado con su categoría apropiada.
+
+Cuando una consulta `DNS LIVE` falla y ya existe una IP cacheada, el error se conserva y se ejecuta la prueba TCP auxiliar. Las siguientes pruebas vuelven a usar la IP cacheada hasta el próximo refresco DNS periódico, evitando que una caída temporal del servidor DNS detenga el esfuerzo continuo de TCP/HTTP.
+
 ## Frecuencia de sondeo físico
 
 Aunque no haya una transacción HTTP en ese instante, el sketch consulta cada:
@@ -189,7 +205,7 @@ Errores diferenciados:
 | `DHCP/IP` | Dirección IP inválida o DHCP fallido. |
 | `DNS TIMEOUT` | No llegó respuesta DNS dentro del tiempo. |
 | `DNS SERVIDOR` | Servidor DNS inválido. |
-| `DNS RESPUESTA` | Respuesta DNS truncada, inválida o rechazada. |
+| `DNS RESPUESTA` | Respuesta DNS truncada, inválida, rechazada o sin registros A. |
 | `DNS OTRO` | Fallo de socket/envío u otro retorno DNS. |
 | `TCP CONNECT` | No se abrió TCP al IP resuelto. |
 | `SIN RESPUESTA` | TCP abrió, pero no llegaron bytes HTTP. |
@@ -302,7 +318,7 @@ Muestra:
 Muestra:
 
 - DNS LIVE/CACHE;
-- código DNS bruto;
+- código DNS bruto normalizado;
 - servidor DNS e IP resuelta;
 - TCP;
 - HTTP;
@@ -330,6 +346,7 @@ Conserva tipo, fecha RTC, origen probable, detalle y estado latcheado de la alar
 - [ ] Repetir en frío y con calentamiento moderado controlado.
 - [ ] Mover suavemente cable y conector durante la prueba local.
 - [ ] Confirmar alternancia `DNS LIVE` / `DNS CACHE`.
+- [ ] Provocar o esperar una falla DNS y confirmar que `65535` se presenta como `DNS TIMEOUT raw=-1`.
 - [ ] Confirmar que el último error permanece visible después de recuperarse.
 
 ## Consideraciones
