@@ -50,27 +50,25 @@ Queda fuera de `v2.0.0`:
 ---
 
 
-## Estado de desarrollo v2.1.0-alpha.2
+## Estado de desarrollo v2.1.0-alpha.3
 
-`v2.1.0-alpha.2` corresponde a una **pre-release técnica** enfocada en mejoras y correcciones de `JWPLC_Display`, refresco TFT y panel de estado `IDLE`.
+`v2.1.0-alpha.3` corresponde a una **pre-release técnica** enfocada en la consolidación del instalador de OpenPLC, pruebas de estrés Ethernet por capas y correcciones críticas en Modbus RTU.
 
-Esta alpha no reemplaza todavía a `v2.0.0` como canal estable público. Su objetivo es validar sobre hardware real los cambios de HMI antes de preparar una publicación estable posterior.
+Esta alpha no reemplaza todavía a `v2.0.0` como canal estable público. Su objetivo es validar sobre hardware real las integraciones antes de preparar una publicación estable posterior.
 
 Objetivo:
 
 ```txt
-Mejorar la experiencia de uso del TFT integrado, permitir configuración directa desde setup() y mostrar estados más claros para ETH/BUS en la pantalla IDLE.
+Consolidar el instalador de OpenPLC Editor 4.2.7 con Backplane VPP, validar la estabilidad de Ethernet mediante pruebas continuas con TFT y solucionar bloqueos de sincronización en Modbus RTU.
 ```
 
 Alcance principal:
 
-- `setUserRefreshPeriodMs()` ahora controla realmente la frecuencia de `jwplcUserDisplayRefreshCallback()` en modo `USER`.
-- Las configuraciones principales de `JWPLC_Display` pueden declararse desde `setup()`, sin esperar `isReady()` en `loop()`.
-- Los indicadores `RUN`, `ERR`, `BUS` y `ETH` ya no son pisados por la inicialización interna de la TFT.
-- `BUS` puede funcionar en modo automático usando actividad real de `JWPLC_RS485`.
-- `ETH` y `BUS` usan estados visuales más claros: gris, apagado, verde y rojo.
-- Se agregan códigos internos de prueba en `JWPLC/Test_Codes` para conservar histórico de validación.
-- Se validó Modbus RTU Master/Slave entre dos JWPLC Basic usando el puerto RS-485 físico.
+- **OpenPLC y VPP:** Integración del instalador OpenPLC, limpieza de descubrimiento JWPLC y preparación de VPP para OpenPLC Editor 4.2.7 y Backplane.
+- **Ethernet:** Se agregaron pruebas continuas de estrés por capas con TFT y un diagnóstico HTTP integral con TFT, FRAM, RTC y botonera.
+- **Modbus RTU:** Se corrigió un bloqueo crítico de sincronización en `JWPLC_ModbusRTU`.
+- **Display:** (Heredado de alpha.2) Las configuraciones principales de `JWPLC_Display` pueden declararse desde `setup()`, sin esperar `isReady()` en `loop()`.
+- **Documentación:** Reorganización y limpieza de la documentación para Remote I/O RTU.
 
 Estados visuales definidos para `BUS` y `ETH`:
 
@@ -81,14 +79,12 @@ Estados visuales definidos para `BUS` y `ETH`:
 | Verde | Estado OK o actividad reciente. |
 | Rojo | Error real detectado. |
 
-Queda fuera de `v2.1.0-alpha.2`:
+Queda fuera de `v2.1.0-alpha.3`:
 
-- OpenPLC como runtime integrado obligatorio.
 - OTA.
-- definición final de Flash Frequency como decisión de producto.
-- publicación de `bootloader.bin` precompilado como definitivo.
-- cambios de arquitectura multicore.
-- nuevas mejoras visuales de TFT no necesarias para cerrar esta alpha.
+- Definición final de Flash Frequency como decisión de producto.
+- Publicación de `bootloader.bin` precompilado como definitivo.
+- Cambios de arquitectura multicore.
 
 > Cualquier mejora adicional de UX del display debería moverse a una alpha posterior para mantener `v2.1.0-alpha.2` acotada y verificable.
 
@@ -210,6 +206,7 @@ Versiones esperadas en este canal durante el ciclo `2.1.0`:
 ```txt
 2.1.0-alpha.1
 2.1.0-alpha.2
+2.1.0-alpha.3
 ```
 
 Para pruebas locales de PR o desarrollo activo se recomienda usar un package local separado, por ejemplo:

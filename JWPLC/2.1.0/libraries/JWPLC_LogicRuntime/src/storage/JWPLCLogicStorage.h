@@ -1,0 +1,163 @@
+#ifndef JWPLC_LOGIC_STORAGE_H
+#define JWPLC_LOGIC_STORAGE_H
+
+#include <Arduino.h>
+#include <JW_FRAM.h>
+
+#include "LogicFRAMStorage.h"
+#include "LogicProgramStore.h"
+#include "LogicRetentiveStore.h"
+#include "LogicStorageLayout.h"
+#include "LogicSuperblockInspector.h"
+#include "../runtime/LogicValidator.h"
+
+enum class JWPLCLogicStorageError : uint8_t
+{
+  None = 0,
+  UnsupportedStorage,
+  BackendInitializationFailed,
+  StoreInitializationFailed,
+  NotReady,
+  Unformatted,
+  InvalidProgram,
+  SaveFailed,
+  LoadFailed,
+  NoLoadedProgram,
+  RollbackUnavailable,
+  RollbackFailed,
+  CorruptMetadata
+};
+
+/**
+ * @brief Resultado de evaluar el programa persistente durante el arranque.
+ *
+ * prepareBoot() no escribe en FRAM. Puede reconstruir en RAM el programa
+ * activo o el slot alterno verificado cuando el activo está corrupto.
+ */
+enum class JWPLCLogicStorageBootState : uint8_t
+{
+  NotEvaluated = 0,
+  NotReady,
+  Unformatted,
+  Empty,
+  ActiveProgramLoaded,
+  FallbackProgramLoaded,
+  NoValidProgram,
+  InvalidProgram,
+  CorruptMetadata
+};
+
+/**
+ * @brief Fachada pública del almacenamiento persistente del runtime.
+ *
+ * No formatea automáticamente la FRAM. begin() solo detecta el perfil,
+ * conecta el backend y consulta si existe una firma válida del gestor A/B.
+ */
+class JWPLCLogicStorage
+{
+public:
+  JWPLCLogicStorage();
+
+  bool begin(JW_FRAM &fram);
+  bool isReady() const;
+  bool isFormatted() const;
+
+  bool format();
+  bool save(const LogicProgram &program,
+            uint32_t programId,
+            uint32_t flags = 0);
+  bool loadActive();
+
+  /**
+   * @brief Evalúa de forma no destructiva qué programa puede usarse al iniciar.
+   *
+   * Si el slot activo falla, LogicProgramStore intenta el slot alterno. El
+   * fallback se carga en RAM, pero no se modifica el superblock durante boot.
+   */
+  JWPLCLogicStorageBootState prepareBoot();
+  JWPLCLogicStorageBootState bootState() const;
+  bool hasBootableProgram() const;
+
+  /**
+   * @brief Activa el otro slot verificado sin reescribir su imagen.
+   *
+   * El candidato se carga, se verifica por CRC/codec y pasa por el validador
+   * lógico antes de escribir el nuevo superblock activo.
+   */
+  bool rollback();
+
+  bool hasLoadedProgram() const;
+  LogicProgram activeProgram() const;
+
+  /**
+   * @brief Devuelve la identidad exacta de la imagen reconstruida en RAM.
+   *
+   * En un fallback esta identidad pertenece al slot realmente cargado, no al
+   * slot señalado por el superblock corrupto.
+   */
+  bool loadedProgramIdentity(uint32_t &programId,
+                             uint32_t &generation,
+                             uint16_t &blockCount) const
+  {
+    if (!_hasLoadedProgram)
+    {
+      programId = 0;
+      generation = 0;
+      blockCount = 0;
+      return false;
+    }
+
+    programId = _loadedProgram.metadata.programId;
+    generation = _loadedProgram.metadata.generation;
+    blockCount = _loadedProgram.blockCount;
+    return true;
+  }
+
+  /**
+   * @brief Conecta un gestor retentivo externo a la región asignada del mapa.
+   *
+   * La operación solo inspecciona las dos copias retentivas. No escribe, no
+   * limpia y no repara la FRAM.
+   */
+  bool connectRetentiveStore(LogicRetentiveStore &store)
+  {
+    return _ready && _layout->retain.size > 0 &&
+           store.begin(_backend, _layout->retain);
+  }
+
+  const LogicProgramStoreStatus &status() const;
+  const LogicStorageProfile &profile() const;
+  const LogicStorageLayout &layout() const;
+  LogicSuperblockHealth metadataHealth() const;
+
+  JWPLCLogicStorageError lastError() const;
+  LogicProgramStoreError storeError() const;
+  LogicValidationError validationError() const;
+
+  static const char *errorName(JWPLCLogicStorageError error);
+  static const char *bootStateName(JWPLCLogicStorageBootState state);
+
+private:
+  static constexpr size_t SCRATCH_BYTES =
+      JWPLC_LOGIC_IMAGE_HEADER_SIZE +
+      (static_cast<size_t>(JWPLC_LOGIC_IMAGE_BLOCK_SIZE) *
+       JWPLC_LOGIC_COMPILED_MAX_BLOCKS);
+
+  void clearLoadedProgram();
+  void resetBootState();
+
+  const LogicStorageProfile *_profile;
+  const LogicStorageLayout *_layout;
+  LogicFRAMStorage _backend;
+  LogicProgramStore _store;
+  LogicProgramBuffer _loadedProgram;
+  uint8_t _scratch[SCRATCH_BYTES];
+  bool _ready;
+  bool _hasLoadedProgram;
+  JWPLCLogicStorageError _lastError;
+  LogicValidationError _validationError;
+  JWPLCLogicStorageBootState _bootState;
+  LogicSuperblockHealth _metadataHealth;
+};
+
+#endif

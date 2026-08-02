@@ -90,6 +90,17 @@ extern "C"
     bool jwplcCanReturnToIdle(void);
 
     void jwplcUserDisplayEnterCallback(void);
+
+    /**
+     * @brief Consulta opcional previa a adquirir el bus TFT en modo USER.
+     *
+     * La implementación weak devuelve true, preservando compatibilidad. Una UI
+     * puede devolver false cuando no tiene regiones sucias ni entrada pendiente.
+     * No debe dibujar ni consumir eventos.
+     */
+    bool jwplcUserDisplayRefreshNeededCallback(const JWPLC_IOState *io,
+                                               const JWPLC_RTCState *rtc);
+
     void jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc);
     void jwplcUserDisplayExitCallback(void);
 
