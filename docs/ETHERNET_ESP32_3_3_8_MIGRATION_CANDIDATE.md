@@ -2,7 +2,7 @@
 
 ## Estado
 
-Pendiente para evaluar en una rama separada. No forma parte del experimento de build-speed P3.
+Pendiente para evaluar en una rama separada. No forma parte del experimento de build-speed P3/P4.
 
 ## Contexto actual
 
@@ -29,14 +29,44 @@ Son backends distintos:
 
 Por tanto, cambiar de una a otra requiere adaptar la implementacion interna de `JWPLC_Ethernet`; no es un simple cambio de version en `library.properties`.
 
-## Por que vale la pena evaluarlo
+## Hallazgo de reproducibilidad Alpha4
+
+La auditoria de build del 2026-08-09 confirmo que el package actual no aporta una copia bundled de Arduino `Ethernet 2.0.2` que proporcione `Ethernet.h`.
+
+En la maquina de prueba, Arduino Builder selecciono:
+
+`C:\Users\jeykc\Documentos\Programacion\Arduino\libraries\Ethernet`
+
+Version: `2.0.2`.
+
+La carpeta `JWPLC/2.1.0/libraries/Ethernet`, version `3.3.8`, corresponde al backend Espressif y no proporciona `Ethernet.h`.
+
+Consecuencia: hoy `JWPLC_Ethernet` puede depender de una libreria instalada en el sketchbook del usuario. Esto no es aceptable como estado final del package porque compromete reproducibilidad y puede cambiar el comportamiento entre PCs.
+
+## Correccion conservadora antes de evaluar ETH.h
+
+Antes de una migracion de backend se debe cerrar la reproducibilidad del backend ya probado:
+
+1. Vendorizar dentro del package una copia exacta de la release oficial Arduino Ethernet `2.0.2`.
+2. Usar una carpeta y nombre de libreria exclusivos de JWPLC, por ejemplo:
+   - carpeta: `JWPLC_Ethernet_W5x00_Backend`
+   - nombre: `JWPLC Ethernet W5x00 Backend`
+3. Mantener los headers/API upstream, incluyendo `Ethernet.h`, para no modificar `JWPLC_Ethernet` mas de lo necesario.
+4. Agregar un header marcador exclusivo del backend JWPLC y resolverlo antes de `Ethernet.h`, de forma que Arduino Builder importe primero la copia bundled y no una copia del sketchbook.
+5. Conservar la licencia y avisos upstream de Arduino Ethernet.
+6. Repetir las pruebas Ethernet ya validadas: DHCP, IP estatica, link, HTTP, stress TFT, Modbus TCP y coexistencia SPI.
+7. Repetir benchmark de compilacion con la dependencia ya determinista.
+
+Esta correccion NO implica migrar a `ETH.h`; simplemente hace autocontenido el backend actualmente probado.
+
+## Por que vale la pena evaluar ETH.h despues
 
 Posibles ventajas que deben medirse, no asumirse:
 
 - integracion nativa con el stack `Network` del core ESP32;
 - uso uniforme de `NetworkClient`/`NetworkServer` junto con WiFi/Ethernet;
 - eventos de red y gestion de interfaces del core;
-- menor dependencia de una libreria externa del sketchbook;
+- menor dependencia de una libreria externa separada;
 - mejor alineamiento futuro con el core ESP32 3.x.
 
 ## Riesgos especificos del JWPLC Basic
@@ -62,9 +92,9 @@ La integracion Alpha26 documenta explicitamente soporte W5500, proteccion del bu
 
 Por tanto, no se debe afirmar que la libreria Arduino clasica se eligio por una limitacion conocida de `ETH.h`; la razon exacta no quedo registrada.
 
-## Propuesta de rama futura
+## Propuesta de rama futura para migracion de backend
 
-Sugerencia cuando termine el trabajo actual de build speed:
+Cuando termine el trabajo actual de build speed y la dependencia clasica este vendorizada/validada:
 
 `v2.1.0-alpha.4/feature/ethernet-esp32-eth-eval`
 
@@ -72,6 +102,8 @@ El objetivo de esa rama debe ser crear un backend experimental manteniendo intac
 
 ## Decision actual
 
-- No cambiar el backend Ethernet dentro de P3.
-- Registrar la evaluacion como pendiente separada.
-- Mantener por ahora el backend probado con `Ethernet.h` mientras se cierra la optimizacion de build.
+- No migrar a `ETH.h` 3.3.8 dentro de la rama de build speed.
+- Si corregir ahora la reproducibilidad de dependencias que afecta a los benchmarks y al package.
+- Para Adafruit, forzar las copias bundled del package.
+- Para Ethernet, vendorizar primero Arduino Ethernet 2.0.2 como backend JWPLC autocontenido.
+- Evaluar `ETH.h` 3.3.8 despues, en una rama separada y con pruebas fisicas.
