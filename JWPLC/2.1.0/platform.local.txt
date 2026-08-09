@@ -1,0 +1,11 @@
+# v2.1.0-alpha.4 D1 — library discovery liviano
+#
+# platform.local.txt sobreescribe únicamente esta propiedad durante el
+# experimento D1. Si el resultado es positivo, el cambio se consolidará en
+# platform.txt antes de cerrar/publicar Alpha4.
+#
+# Arduino define {build.library_discovery_phase}=1 durante dependency/library
+# discovery y =0 durante el build normal. Se expone como macro propia para que
+# los headers de autoload puedan evitar expansión pesada sólo en discovery.
+
+compiler.cpreprocessor.flags="@{compiler.sdk.path}/flags/defines" "-I{build.source.path}" -iprefix "{compiler.sdk.path}/include/" "@{compiler.sdk.path}/flags/includes" "-I{compiler.sdk.path}/{build.memory_type}/include" "-I{runtime.platform.path}/cores/jwcontrol/peripherals/include" -DJWPLC_LIBRARY_DISCOVERY_PHASE={build.library_discovery_phase}
