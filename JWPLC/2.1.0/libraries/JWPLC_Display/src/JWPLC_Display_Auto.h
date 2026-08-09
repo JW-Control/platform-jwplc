@@ -5,14 +5,16 @@
 // JWPLC Display autoload marker
 // =====================================================
 //
-// Este header es el punto de entrada automatico del ecosistema JWPLC.
+// Punto de entrada automatico del ecosistema JWPLC.
 // Durante library discovery debe permanecer liviano para evitar expandir
 // repetidamente los headers pesados del runtime y del display.
 //
-// Con librerias precompiladas Arduino omite la deteccion de dependencias de
-// sus fuentes. Por eso se usan marcadores vacios y exclusivos del package
-// para descubrir explicitamente las copias bundled requeridas sin incluir
-// sus APIs pesadas en el sketch.
+// JWPLC_Display puede distribuirse como precompiled=full. En ese modo Arduino
+// no inspecciona los fuentes de la libreria para descubrir dependencias, por
+// lo que declaramos explicitamente solo el header grafico necesario durante
+// discovery. Se deja que Arduino aplique su resolucion normal de librerias;
+// no se fuerzan copias bundled por marcadores para evitar colisiones entre
+// librerias homonimas del core ESP32 y del sketchbook.
 
 #ifndef JWPLC_LIBRARY_DISCOVERY_PHASE
 #define JWPLC_LIBRARY_DISCOVERY_PHASE 0
@@ -22,11 +24,7 @@
 #include <JWPLC_GlobalPeripherals_Auto.h>
 
 #if JWPLC_LIBRARY_DISCOVERY_PHASE
-#include <JWPLC_Bundled_ST77xx_Marker.h>
-#include <JWPLC_Bundled_GFX_Marker.h>
-#include <JWPLC_Bundled_BusIO_Marker.h>
-#include <JWPLC_Bundled_Ethernet_Marker.h>
-#include <JWPLC_Bundled_SD_Marker.h>
+#include <Adafruit_ST7789.h>
 #endif
 
 #endif // JWPLC_DISPLAY_AUTO_H
