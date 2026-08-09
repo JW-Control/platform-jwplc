@@ -109,6 +109,45 @@ function Invoke-ArduinoCompile
     }
 }
 
+function Resolve-NativeToolPath
+{
+    param([string]$Candidate)
+
+    if ([string]::IsNullOrWhiteSpace($Candidate))
+    {
+        return $null
+    }
+
+    $normalized = $Candidate.Trim().Trim('"')
+
+    # Arduino CLI verbose output may escape Windows separators as C:\\Users\\...
+    # Normalize those sequences back to a filesystem path before Test-Path.
+    while ($normalized.Contains("\\"))
+    {
+        $normalized = $normalized.Replace("\\", "\")
+    }
+
+    $candidates = New-Object System.Collections.Generic.List[string]
+    $candidates.Add($normalized)
+
+    if (-not [System.IO.Path]::HasExtension($normalized))
+    {
+        $candidates.Add($normalized + ".exe")
+        $candidates.Add($normalized + ".cmd")
+        $candidates.Add($normalized + ".bat")
+    }
+
+    foreach ($path in $candidates)
+    {
+        if (Test-Path -LiteralPath $path)
+        {
+            return (Resolve-Path -LiteralPath $path).Path
+        }
+    }
+
+    return $null
+}
+
 function Find-Archiver
 {
     param([string[]]$Output)
@@ -116,19 +155,28 @@ function Find-Archiver
     foreach ($line in $Output)
     {
         $text = [string]$line
+        $candidate = $null
 
         if ($text -match '"(?<exe>[^"]*xtensa-esp32-elf-gcc-ar(?:\.exe)?)"')
         {
-            return $Matches["exe"]
+            $candidate = $Matches["exe"]
+        }
+        elseif ($text -match '(?<exe>\S*xtensa-esp32-elf-gcc-ar(?:\.exe)?)\s+cr')
+        {
+            $candidate = $Matches["exe"]
         }
 
-        if ($text -match '(?<exe>\S*xtensa-esp32-elf-gcc-ar(?:\.exe)?)\s+cr')
+        if (-not [string]::IsNullOrWhiteSpace($candidate))
         {
-            return $Matches["exe"]
+            $resolved = Resolve-NativeToolPath -Candidate $candidate
+            if (-not [string]::IsNullOrWhiteSpace($resolved))
+            {
+                return $resolved
+            }
         }
     }
 
-    throw "No se pudo localizar xtensa-esp32-elf-gcc-ar en el log verbose."
+    throw "No se pudo localizar un xtensa-esp32-elf-gcc-ar existente a partir del log verbose."
 }
 
 function Get-LibraryArchivePath
@@ -213,11 +261,6 @@ Write-Host ""
 Write-Host "[1/3] Build fuente limpio para obtener objetos reales de Arduino CLI..." -ForegroundColor Cyan
 $sourceResult = Invoke-ArduinoCompile -BuildPath $sourceBuild -LogPath $sourceLog -SketchPath $sketchPath
 $archiver = Find-Archiver -Output $sourceResult.Output
-
-if (-not (Test-Path $archiver))
-{
-    throw "Archiver detectado pero no existe: $archiver"
-}
 
 Write-Host ("Archiver: {0}" -f $archiver) -ForegroundColor DarkGray
 
