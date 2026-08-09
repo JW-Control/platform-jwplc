@@ -39,9 +39,19 @@ function Resolve-NativeToolPath
 {
     param([string]$Candidate)
     if ([string]::IsNullOrWhiteSpace($Candidate)) { return $null }
+
     $normalized = $Candidate.Trim().Trim('"')
     while ($normalized.Contains("\\")) { $normalized = $normalized.Replace("\\", "\") }
-    $paths = @($normalized, $normalized + ".exe")
+
+    $paths = New-Object System.Collections.Generic.List[string]
+    $paths.Add($normalized)
+    if (-not [System.IO.Path]::HasExtension($normalized))
+    {
+        $paths.Add($normalized + ".exe")
+        $paths.Add($normalized + ".cmd")
+        $paths.Add($normalized + ".bat")
+    }
+
     foreach ($path in $paths)
     {
         if (Test-Path -LiteralPath $path) { return (Resolve-Path -LiteralPath $path).Path }
@@ -52,18 +62,78 @@ function Resolve-NativeToolPath
 function Find-Archiver
 {
     param([string]$LogPath)
-    foreach ($line in Get-Content $LogPath)
+
+    $lines = @()
+    if (-not [string]::IsNullOrWhiteSpace($LogPath) -and (Test-Path -LiteralPath $LogPath))
     {
-        $candidate = $null
-        if ($line -match '"(?<exe>[^"]*xtensa-esp32-elf-gcc-ar(?:\.exe)?)"') { $candidate = $Matches["exe"] }
-        elseif ($line -match '(?<exe>\S*xtensa-esp32-elf-gcc-ar(?:\.exe)?)\s+cr') { $candidate = $Matches["exe"] }
-        if ($candidate)
+        $lines = @(Get-Content -LiteralPath $LogPath)
+
+        # 1) Preferir una invocacion real de gcc-ar si el log la contiene.
+        foreach ($line in $lines)
         {
-            $resolved = Resolve-NativeToolPath $candidate
-            if ($resolved) { return $resolved }
+            $candidate = $null
+            if ($line -match '"(?<exe>[^"]*xtensa-esp32-elf-gcc-ar(?:\.exe)?)"')
+            {
+                $candidate = $Matches["exe"]
+            }
+            elseif ($line -match '(?<exe>\S*xtensa-esp32-elf-gcc-ar(?:\.exe)?)\s+(?:cr|crs)\b')
+            {
+                $candidate = $Matches["exe"]
+            }
+
+            if (-not [string]::IsNullOrWhiteSpace($candidate))
+            {
+                $resolved = Resolve-NativeToolPath -Candidate $candidate
+                if (-not [string]::IsNullOrWhiteSpace($resolved)) { return $resolved }
+            }
+        }
+
+        # 2) Un build puede no ejecutar gcc-ar. En ese caso tomar cualquier
+        #    compilador xtensa del mismo toolchain y resolver el gcc-ar hermano.
+        foreach ($line in $lines)
+        {
+            $compilerCandidate = $null
+            if ($line -match '"(?<exe>[^"]*xtensa-esp32-elf-g\+\+(?:\.exe)?)"')
+            {
+                $compilerCandidate = $Matches["exe"]
+            }
+            elseif ($line -match '(?<exe>\S*xtensa-esp32-elf-g\+\+(?:\.exe)?)\s')
+            {
+                $compilerCandidate = $Matches["exe"]
+            }
+
+            if ([string]::IsNullOrWhiteSpace($compilerCandidate)) { continue }
+
+            $compiler = Resolve-NativeToolPath -Candidate $compilerCandidate
+            if ([string]::IsNullOrWhiteSpace($compiler)) { continue }
+
+            $toolDir = Split-Path -Parent $compiler
+            foreach ($leaf in @("xtensa-esp32-elf-gcc-ar.exe", "xtensa-esp32-elf-gcc-ar"))
+            {
+                $sibling = Join-Path $toolDir $leaf
+                if (Test-Path -LiteralPath $sibling) { return (Resolve-Path -LiteralPath $sibling).Path }
+            }
         }
     }
-    throw "No se pudo localizar xtensa-esp32-elf-gcc-ar."
+
+    # 3) Ultimo fallback para Windows: buscar el tool instalado por Arduino.
+    if (-not [string]::IsNullOrWhiteSpace($env:LOCALAPPDATA))
+    {
+        $packagesRoot = Join-Path $env:LOCALAPPDATA "Arduino15\packages"
+        foreach ($namespace in @("jwplc_local", "jwplc"))
+        {
+            $espX32Root = Join-Path $packagesRoot ($namespace + "\tools\esp-x32")
+            if (-not (Test-Path -LiteralPath $espX32Root)) { continue }
+
+            $found = Get-ChildItem -LiteralPath $espX32Root -Recurse -File -Filter "xtensa-esp32-elf-gcc-ar.exe" -ErrorAction SilentlyContinue |
+                Sort-Object LastWriteTime -Descending |
+                Select-Object -First 1
+
+            if ($null -ne $found) { return $found.FullName }
+        }
+    }
+
+    throw ("No se pudo localizar xtensa-esp32-elf-gcc-ar. Log inspeccionado: {0}" -f $LogPath)
 }
 
 function Find-LatestBuild
