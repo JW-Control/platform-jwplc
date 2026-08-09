@@ -36,4 +36,4 @@ foreach ($library in $Libraries)
 
 Write-Host ""
 Write-Host ("Rollback P1 terminado. Archivos eliminados: {0}" -f $removed) -ForegroundColor Green
-Write-Host "Con precompiled=full y sin .a, Arduino vuelve automáticamente a compilar las fuentes." -ForegroundColor Cyan
+Write-Host "Con precompiled=full y sin .a, Arduino vuelve automaticamente a compilar las fuentes." -ForegroundColor Cyan
