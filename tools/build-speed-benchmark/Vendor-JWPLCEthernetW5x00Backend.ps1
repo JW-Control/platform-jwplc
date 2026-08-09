@@ -65,6 +65,17 @@ function Assert-UpstreamFile
     Write-Host ("  OK {0} {1}" -f $ExpectedSha.Substring(0, 8), $RelativePath) -ForegroundColor DarkGreen
 }
 
+function Write-Utf8NoBom
+{
+    param(
+        [string]$Path,
+        [string]$Text
+    )
+
+    $encoding = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($Path, $Text, $encoding)
+}
+
 $expected = [ordered]@{
     "library.properties"      = "f3f361662b929523d9271bf5a45fed3e83736494"
     "AUTHORS"                 = "1faeec415934af16e085f837ff9755f15460b3f0"
@@ -172,7 +183,8 @@ includes=Ethernet.h
         if ($item.Key -eq "library.properties") { continue }
         $upstreamDoc.Add(('- `{0}`: `{1}`' -f $item.Key, $item.Value))
     }
-    $upstreamDoc | Set-Content -LiteralPath (Join-Path $TargetRoot "UPSTREAM.md") -Encoding utf8
+    $upstreamText = [string]::Join([Environment]::NewLine, $upstreamDoc) + [Environment]::NewLine
+    Write-Utf8NoBom -Path (Join-Path $TargetRoot "UPSTREAM.md") -Text $upstreamText
 
     Write-Host "[3/4] Fijando JWPLC_Ethernet al backend vendorizado..." -ForegroundColor Cyan
     $headerText = Get-Content -LiteralPath $JwEthernetHeader -Raw
@@ -185,14 +197,14 @@ includes=Ethernet.h
         }
         $replacement = $needle + "`r`n#include <JWPLC_Bundled_Ethernet_W5x00.h>"
         $headerText = $headerText.Replace($needle, $replacement)
-        Set-Content -LiteralPath $JwEthernetHeader -Value $headerText -Encoding utf8
+        Write-Utf8NoBom -Path $JwEthernetHeader -Text $headerText
     }
 
     $propsText = Get-Content -LiteralPath $JwEthernetProperties -Raw
     if ($propsText -match '(?m)^depends=Ethernet\s*$')
     {
         $propsText = [regex]::Replace($propsText, '(?m)^depends=Ethernet\s*$', 'depends=JWPLC Ethernet W5x00 Backend')
-        Set-Content -LiteralPath $JwEthernetProperties -Value $propsText -Encoding utf8
+        Write-Utf8NoBom -Path $JwEthernetProperties -Text $propsText
     }
     elseif ($propsText -notmatch '(?m)^depends=JWPLC Ethernet W5x00 Backend\s*$')
     {
