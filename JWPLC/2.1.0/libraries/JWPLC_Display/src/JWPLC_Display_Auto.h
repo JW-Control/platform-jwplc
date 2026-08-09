@@ -5,31 +5,28 @@
 // JWPLC Display autoload marker
 // =====================================================
 //
-// Este header existe para que Arduino Builder detecte y compile
-// automaticamente la libreria JWPLC_Display cuando se usa una placa JWPLC.
+// Este header es el punto de entrada automatico del ecosistema JWPLC.
+// Durante library discovery debe permanecer liviano para evitar expandir
+// repetidamente los headers pesados del runtime y del display.
 //
-// Durante library discovery se mantiene deliberadamente liviano. Arduino
-// preprocesa el sketch varias veces mientras resuelve dependencias; expandir
-// aqui todo el ecosistema JWPLC en cada pasada aumenta el tiempo aunque las
-// librerias ya esten cacheadas.
-//
-// La API publica del display permanece visible en todas las fases porque su
-// header es liviano. El arbol pesado de perifericos globales se expande solo
-// durante el build normal.
-//
-// Durante la compilacion normal se conserva exactamente el contrato publico:
-// - perifericos globales disponibles sin includes manuales;
-// - API publica de JWPLC_Display disponible desde Arduino.h;
-// - ningun periferico se elimina del autoload real.
+// Con librerias precompiladas Arduino omite la deteccion de dependencias de
+// sus fuentes. Por eso se usan marcadores vacios y exclusivos del package
+// para descubrir explicitamente las copias bundled requeridas sin incluir
+// sus APIs pesadas en el sketch.
 
 #ifndef JWPLC_LIBRARY_DISCOVERY_PHASE
 #define JWPLC_LIBRARY_DISCOVERY_PHASE 0
 #endif
 
 #include <JWPLC_Display_API.h>
+#include <JWPLC_GlobalPeripherals_Auto.h>
 
-#if !JWPLC_LIBRARY_DISCOVERY_PHASE
-#include <JWPLC_GlobalPeripherals.h>
+#if JWPLC_LIBRARY_DISCOVERY_PHASE
+#include <JWPLC_Bundled_ST77xx_Marker.h>
+#include <JWPLC_Bundled_GFX_Marker.h>
+#include <JWPLC_Bundled_BusIO_Marker.h>
+#include <JWPLC_Bundled_Ethernet_Marker.h>
+#include <JWPLC_Bundled_SD_Marker.h>
 #endif
 
 #endif // JWPLC_DISPLAY_AUTO_H
