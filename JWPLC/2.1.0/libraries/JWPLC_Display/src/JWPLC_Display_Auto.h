@@ -8,16 +8,23 @@
 // Este header existe para que Arduino Builder detecte y compile
 // automaticamente la libreria JWPLC_Display cuando se usa una placa JWPLC.
 //
-// Importante:
-// - No debe incluir JWPLC_Display.h.
-// - No debe incluir Adafruit_ST7789.h ni headers pesados del display.
-// - Si se incluye desde Arduino.h, un include pesado puede generar ciclos.
+// Durante library discovery se mantiene deliberadamente liviano. Arduino
+// preprocesa el sketch varias veces mientras resuelve dependencias; expandir
+// aqui todo el ecosistema JWPLC en cada pasada aumenta el tiempo aunque las
+// librerias ya esten cacheadas.
 //
-// Pero si debe exponer los perifericos globales livianos del ecosistema,
-// para que el sketch pueda usar JWPLC_RTC, JWPLC_FRAM y JWPLC_Buttons
-// sin includes manuales.
+// Durante la compilacion normal se conserva exactamente el contrato publico:
+// - perifericos globales disponibles sin includes manuales;
+// - API publica de JWPLC_Display disponible desde Arduino.h;
+// - ningun periferico se elimina del autoload real.
 
+#ifndef JWPLC_LIBRARY_DISCOVERY_PHASE
+#define JWPLC_LIBRARY_DISCOVERY_PHASE 0
+#endif
+
+#if !JWPLC_LIBRARY_DISCOVERY_PHASE
 #include <JWPLC_GlobalPeripherals.h>
 #include <JWPLC_Display_API.h>
+#endif
 
 #endif // JWPLC_DISPLAY_AUTO_H
