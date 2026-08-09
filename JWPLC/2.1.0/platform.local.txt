@@ -1,11 +1,20 @@
-# v2.1.0-alpha.4 D1 — library discovery liviano
+# v2.1.0-alpha.4 - build speed experiments
 #
-# platform.local.txt sobreescribe únicamente esta propiedad durante el
-# experimento D1. Si el resultado es positivo, el cambio se consolidará en
-# platform.txt antes de cerrar/publicar Alpha4.
+# D1: library discovery liviano.
+# P2: piloto reversible de core precompilado por perfil de placa.
 #
 # Arduino define {build.library_discovery_phase}=1 durante dependency/library
 # discovery y =0 durante el build normal. Se expone como macro propia para que
-# los headers de autoload puedan evitar expansión pesada sólo en discovery.
+# los headers de autoload puedan evitar expansion pesada solo en discovery.
+#
+# P2 puede cambiar build.core a jwcontrol_p2 mediante boards.local.txt. En ese
+# caso mantenemos el core fuente jwcontrol en el include path para no duplicar
+# headers. El core seleccionado jwcontrol_p2 contiene solamente un stub.
 
-compiler.cpreprocessor.flags="@{compiler.sdk.path}/flags/defines" "-I{build.source.path}" -iprefix "{compiler.sdk.path}/include/" "@{compiler.sdk.path}/flags/includes" "-I{compiler.sdk.path}/{build.memory_type}/include" "-I{runtime.platform.path}/cores/jwcontrol/peripherals/include" -DJWPLC_LIBRARY_DISCOVERY_PHASE={build.library_discovery_phase}
+compiler.cpreprocessor.flags="@{compiler.sdk.path}/flags/defines" "-I{build.source.path}" -iprefix "{compiler.sdk.path}/include/" "@{compiler.sdk.path}/flags/includes" "-I{compiler.sdk.path}/{build.memory_type}/include" "-I{runtime.platform.path}/cores/jwcontrol" "-I{runtime.platform.path}/cores/jwcontrol/peripherals/include" -DJWPLC_LIBRARY_DISCOVERY_PHASE={build.library_discovery_phase}
+
+# P2 - al terminar la fase core, sustituir el core stub por el core.a
+# precompilado correspondiente al build.board. Si P2 no esta activo,
+# build.core sigue siendo jwcontrol y este hook no hace nada.
+recipe.hooks.core.postbuild.2.pattern=/usr/bin/env bash -c "if [ '{build.core}' = 'jwcontrol_p2' ]; then src='{runtime.platform.path}/precompiled/core/{build.board}/core.a'; [ -f \"$src\" ] || { echo 'JWPLC P2: precompiled core missing' >&2; exit 2; }; cp -f \"$src\" '{build.path}/core/core.a'; fi"
+recipe.hooks.core.postbuild.2.pattern.windows=cmd /c IF /I "{build.core}"=="jwcontrol_p2" ( IF EXIST "{runtime.platform.path}\precompiled\core\{build.board}\core.a" ( COPY /y "{runtime.platform.path}\precompiled\core\{build.board}\core.a" "{build.path}\core\core.a" ) ELSE ( ECHO JWPLC P2: precompiled core missing 1>&2 & EXIT /B 2 ) )
