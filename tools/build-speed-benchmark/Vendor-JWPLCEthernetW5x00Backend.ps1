@@ -170,7 +170,7 @@ includes=Ethernet.h
     foreach ($item in $expected.GetEnumerator())
     {
         if ($item.Key -eq "library.properties") { continue }
-        $upstreamDoc.Add(("- `{0}`: `{1}`" -f $item.Key, $item.Value))
+        $upstreamDoc.Add(('- `{0}`: `{1}`' -f $item.Key, $item.Value))
     }
     $upstreamDoc | Set-Content -LiteralPath (Join-Path $TargetRoot "UPSTREAM.md") -Encoding utf8
 
