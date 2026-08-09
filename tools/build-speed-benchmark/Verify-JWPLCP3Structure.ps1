@@ -71,7 +71,7 @@ function Get-ObjectTable
 
     foreach ($file in Get-ChildItem $root -Recurse -File -Filter "*.o")
     {
-        $relative = $file.FullName.Substring($root.Length).TrimStart('\','/')
+        $relative = $file.FullName.Substring($root.Length).TrimStart([char[]]"\/")
         if ($ExcludeDisplay -and $relative -match '^JWPLC_Display[\\/]') { continue }
         $result[$relative] = (Get-FileHash $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
     }
@@ -101,7 +101,6 @@ $CandidateBuildPath = (Resolve-Path $CandidateBuildPath).Path
 
 $refBin = Get-AppBin $ReferenceBuildPath
 $candBin = Get-AppBin $CandidateBuildPath
-$refMapPath = Join-Path $ReferenceBuildPath "01_empty.ino.map"
 $candMapPath = Join-Path $CandidateBuildPath "01_empty.ino.map"
 $candMap = Get-Content $candMapPath -Raw
 
