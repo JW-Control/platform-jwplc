@@ -35,6 +35,9 @@ function Invoke-NativeCaptured
         [Parameter(Mandatory = $true)][string[]]$Arguments
     )
 
+    # Windows PowerShell 5.1 may wrap stderr from native programs as
+    # NativeCommandError. Arduino CLI uses stderr for verbose output too,
+    # so native success is determined only from LASTEXITCODE.
     $previousPreference = $ErrorActionPreference
     $nativeOutput = @()
     $exitCode = -1
@@ -91,18 +94,18 @@ function Invoke-ArduinoCompile
 
     if ($result.ExitCode -ne 0)
     {
-        Write-Host ("Compilación falló (exit={0})." -f $result.ExitCode) -ForegroundColor Red
+        Write-Host ("Compilacion fallo (exit={0})." -f $result.ExitCode) -ForegroundColor Red
         @($result.Output | Select-Object -Last 12) | ForEach-Object { Write-Host $_ -ForegroundColor DarkYellow }
-        throw "Arduino CLI falló. Revisar: $LogPath"
+        throw "Arduino CLI fallo. Revisar: $LogPath"
     }
 
-    Write-Host ("Compilación OK en {0:N3} s" -f $sw.Elapsed.TotalSeconds) -ForegroundColor Green
+    Write-Host ("Compilacion OK en {0:N3} s" -f $sw.Elapsed.TotalSeconds) -ForegroundColor Green
 
     return [PSCustomObject]@{
-        Output      = @($result.Output)
-        DurationMs  = [Math]::Round($sw.Elapsed.TotalMilliseconds, 3)
-        BuildPath   = $BuildPath
-        LogPath     = $LogPath
+        Output     = @($result.Output)
+        DurationMs = [Math]::Round($sw.Elapsed.TotalMilliseconds, 3)
+        BuildPath  = $BuildPath
+        LogPath    = $LogPath
     }
 }
 
@@ -148,7 +151,7 @@ function Assert-PrecompiledFull
     $content = Get-Content -Path $propertiesPath -Raw
     if ($content -notmatch '(?m)^precompiled=full\s*$')
     {
-        throw "$LibraryName todavía no declara precompiled=full en library.properties. Ejecuta git pull de la rama antes de P1."
+        throw "$LibraryName no declara precompiled=full en library.properties. Ejecuta git pull antes de P1."
     }
 }
 
@@ -159,13 +162,13 @@ if ($Jobs -lt 0)
 
 if ($Fqbn -notmatch ':esp32:jwplcbasic(?:core)?$')
 {
-    throw "P1 está limitado por ahora a JWPLC Basic/Basic Core ESP32. FQBN recibido: $Fqbn"
+    throw "P1 esta limitado por ahora a JWPLC Basic/Basic Core ESP32. FQBN recibido: $Fqbn"
 }
 
 $cliCommand = Get-Command $ArduinoCli -ErrorAction SilentlyContinue
 if ($null -eq $cliCommand)
 {
-    throw "No se encontró '$ArduinoCli' en PATH."
+    throw "No se encontro '$ArduinoCli' en PATH."
 }
 
 $sketchPath = Join-Path $SketchRoot $Sketch
@@ -189,14 +192,14 @@ $summaryPath = Join-Path $runRoot "P1_SUMMARY.md"
 
 New-Item -ItemType Directory -Path $runRoot -Force | Out-Null
 
-Write-Host "P1 - Generación de librerías JWPLC precompiladas" -ForegroundColor Cyan
+Write-Host "P1 - Generacion de librerias JWPLC precompiladas" -ForegroundColor Cyan
 Write-Host ("FQBN: {0}" -f $Fqbn)
 Write-Host ("Sketch fuente: {0}" -f $Sketch)
-Write-Host ("Librerías: {0}" -f ($Libraries -join ", "))
+Write-Host ("Librerias: {0}" -f ($Libraries -join ", "))
 
-# Para regenerar de forma reproducible, primero se eliminan exclusivamente
-# los .a P1 de las librerías seleccionadas. Con precompiled=full y sin .a,
-# Arduino vuelve automáticamente al código fuente.
+# To regenerate reproducibly, remove only the P1 archives selected here.
+# With precompiled=full and no compatible archive, Arduino falls back to
+# compiling the library sources.
 foreach ($library in $Libraries)
 {
     $archivePath = Get-LibraryArchivePath -LibraryName $library
@@ -228,7 +231,7 @@ foreach ($library in $Libraries)
     $objectRoot = Join-Path (Join-Path $sourceBuild "libraries") $library
     if (-not (Test-Path $objectRoot))
     {
-        throw "No se encontró el árbol de objetos para $library en $objectRoot"
+        throw "No se encontro el arbol de objetos para $library en $objectRoot"
     }
 
     $objects = @(Get-ChildItem -Path $objectRoot -Recurse -File -Filter "*.o" | Sort-Object FullName)
@@ -251,12 +254,12 @@ foreach ($library in $Libraries)
 
     if ($archiveResult.ExitCode -ne 0)
     {
-        throw "gcc-ar falló al generar $archivePath"
+        throw "gcc-ar fallo al generar $archivePath"
     }
 
     if (-not (Test-Path $archivePath))
     {
-        throw "No se generó el archivo esperado: $archivePath"
+        throw "No se genero el archivo esperado: $archivePath"
     }
 
     $file = Get-Item $archivePath
@@ -274,7 +277,7 @@ foreach ($library in $Libraries)
 }
 
 Write-Host ""
-Write-Host "[3/3] Verificación limpia usando precompiled=full..." -ForegroundColor Cyan
+Write-Host "[3/3] Verificacion limpia usando precompiled=full..." -ForegroundColor Cyan
 $verifyResult = Invoke-ArduinoCompile -BuildPath $verifyBuild -LogPath $verifyLog -SketchPath $sketchPath
 
 $allCompilerInvocations = @(
@@ -295,36 +298,36 @@ foreach ($library in $Libraries)
 
     if ($compiledFromSource -gt 0)
     {
-        $violations.Add(("{0}: {1} compilación(es) desde fuente" -f $library, $compiledFromSource))
+        $violations.Add(("{0}: {1} compilacion(es) desde fuente" -f $library, $compiledFromSource))
     }
 }
 
 $lines = New-Object System.Collections.Generic.List[string]
-$lines.Add("# P1 — generación de librerías precompiladas")
+$lines.Add("# P1 - generacion de librerias precompiladas")
 $lines.Add("")
-$lines.Add(("Run: ``{0}``" -f $runId))
+$lines.Add(("Run: {0}" -f $runId))
 $lines.Add("")
-$lines.Add(("FQBN: ``{0}``" -f $Fqbn))
+$lines.Add(("FQBN: {0}" -f $Fqbn))
 $lines.Add("")
 $lines.Add(("Build fuente: {0:N3} s" -f ($sourceResult.DurationMs / 1000.0)))
-$lines.Add(("Build verificación: {0:N3} s" -f ($verifyResult.DurationMs / 1000.0)))
-$lines.Add(("Compilaciones reales en verificación: {0}" -f $allCompilerInvocations))
+$lines.Add(("Build verificacion: {0:N3} s" -f ($verifyResult.DurationMs / 1000.0)))
+$lines.Add(("Compilaciones reales en verificacion: {0}" -f $allCompilerInvocations))
 $lines.Add("")
-$lines.Add("| Librería | Objetos archivados | Bytes | SHA-256 |")
+$lines.Add("| Libreria | Objetos archivados | Bytes | SHA-256 |")
 $lines.Add("|---|---:|---:|---|")
 foreach ($row in $generated)
 {
-    $lines.Add(("| {0} | {1} | {2} | ``{3}`` |" -f $row.Library, $row.Objects, $row.Bytes, $row.SHA256))
+    $lines.Add(("| {0} | {1} | {2} | {3} |" -f $row.Library, $row.Objects, $row.Bytes, $row.SHA256))
 }
 $lines.Add("")
 
 if ($violations.Count -eq 0)
 {
-    $lines.Add("Resultado: **OK**. Ninguna librería P1 seleccionada se recompiló desde fuente durante la verificación.")
+    $lines.Add("Resultado: OK. Ninguna libreria P1 seleccionada se recompilo desde fuente durante la verificacion.")
 }
 else
 {
-    $lines.Add("Resultado: **REVISAR**. Arduino todavía recompiló librerías P1 desde fuente:")
+    $lines.Add("Resultado: REVISAR. Arduino todavia recompilo librerias P1 desde fuente:")
     $lines.Add("")
     foreach ($violation in $violations)
     {
@@ -333,9 +336,9 @@ else
 }
 
 $lines.Add("")
-$lines.Add("Los archivos `.a` quedan intencionalmente dentro de `JWPLC/2.1.0/libraries/<lib>/src/esp32/` para el benchmark P1.")
-$lines.Add("No hacer merge/publicación de estos binarios hasta validar Basic, Basic Core, tamaños y hardware.")
-$lines | Out-File -FilePath $summaryPath -Encoding utf8
+$lines.Add("Los archivos .a quedan dentro de JWPLC/2.1.0/libraries/<lib>/src/esp32/ para el benchmark P1.")
+$lines.Add("No hacer merge ni publicar estos binarios hasta validar Basic, Basic Core, tamanos y hardware.")
+$lines | Out-File -FilePath $summaryPath -Encoding ascii
 
 Write-Host ""
 if ($violations.Count -eq 0)
@@ -344,7 +347,7 @@ if ($violations.Count -eq 0)
 }
 else
 {
-    Write-Host "P1 generó archivos, pero hay recompilaciones desde fuente que debemos revisar." -ForegroundColor Yellow
+    Write-Host "P1 genero archivos, pero hay recompilaciones desde fuente que debemos revisar." -ForegroundColor Yellow
 }
 
 Write-Host ("Resumen: {0}" -f $summaryPath)
