@@ -29,10 +29,7 @@ if ([string]::IsNullOrWhiteSpace($OutputRoot))
 
 function Get-JWPLCFqbn
 {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Target
-    )
+    param([Parameter(Mandatory = $true)][string]$Target)
 
     switch ($Target)
     {
@@ -66,23 +63,49 @@ function Get-BinaryBytes
     return [int64](($bins | Measure-Object -Property Length -Sum).Sum)
 }
 
+function Invoke-NativeCaptured
+{
+    param(
+        [Parameter(Mandatory = $true)][string]$FilePath,
+        [Parameter(Mandatory = $true)][string[]]$Arguments
+    )
+
+    # Windows PowerShell 5.1 convierte stderr de ejecutables nativos en
+    # NativeCommandError cuando ErrorActionPreference=Stop. Arduino CLI usa
+    # stderr también para salida informativa/verbose, así que durante la
+    # invocación nativa se permite esa salida y se decide éxito únicamente
+    # mediante LASTEXITCODE.
+    $previousPreference = $ErrorActionPreference
+    $nativeOutput = @()
+    $exitCode = -1
+
+    try
+    {
+        $ErrorActionPreference = "Continue"
+        $nativeOutput = @(& $FilePath @Arguments 2>&1 | ForEach-Object { $_.ToString() })
+        $exitCode = $LASTEXITCODE
+    }
+    finally
+    {
+        $ErrorActionPreference = $previousPreference
+    }
+
+    return [PSCustomObject]@{
+        ExitCode = [int]$exitCode
+        Output   = $nativeOutput
+    }
+}
+
 function Invoke-TimedCli
 {
     param(
-        [Parameter(Mandatory = $true)]
-        [string[]]$Arguments,
-        [Parameter(Mandatory = $true)]
-        [string]$Phase,
-        [Parameter(Mandatory = $true)]
-        [string]$Target,
-        [Parameter(Mandatory = $true)]
-        [string]$Fqbn,
-        [Parameter(Mandatory = $true)]
-        [string]$Sketch,
-        [Parameter(Mandatory = $true)]
-        [string]$CacheMode,
-        [Parameter(Mandatory = $true)]
-        [string]$LogPath,
+        [Parameter(Mandatory = $true)][string[]]$Arguments,
+        [Parameter(Mandatory = $true)][string]$Phase,
+        [Parameter(Mandatory = $true)][string]$Target,
+        [Parameter(Mandatory = $true)][string]$Fqbn,
+        [Parameter(Mandatory = $true)][string]$Sketch,
+        [Parameter(Mandatory = $true)][string]$CacheMode,
+        [Parameter(Mandatory = $true)][string]$LogPath,
         [string]$BuildPath = "",
         [string]$Notes = ""
     )
@@ -98,22 +121,20 @@ function Invoke-TimedCli
     Write-Host ("  {0} {1}" -f $ArduinoCli, ($Arguments -join " ")) -ForegroundColor DarkGray
 
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-    $output = & $ArduinoCli @Arguments 2>&1
-    $exitCode = $LASTEXITCODE
+    $native = Invoke-NativeCaptured -FilePath $ArduinoCli -Arguments $Arguments
     $stopwatch.Stop()
+
+    $output = @($native.Output)
+    $exitCode = [int]$native.ExitCode
 
     $output | Out-File -FilePath $LogPath -Encoding utf8
 
     $compilerInvocations = @(
-        $output | Where-Object {
-            ([string]$_) -match '-MMD\s+-c\s'
-        }
+        $output | Where-Object { ([string]$_) -match '-MMD\s+-c\s' }
     ).Count
 
     $linkInvocations = @(
-        $output | Where-Object {
-            ([string]$_) -match '-Wl,--Map='
-        }
+        $output | Where-Object { ([string]$_) -match '-Wl,--Map=' }
     ).Count
 
     $binaryBytes = Get-BinaryBytes -BuildPath $BuildPath
@@ -144,6 +165,11 @@ function Invoke-TimedCli
     else
     {
         Write-Host ("  FAIL exit={0} | {1:N3} s | revisar {2}" -f $exitCode, ($result.DurationMs / 1000.0), $LogPath) -ForegroundColor Red
+        if ($output.Count -gt 0)
+        {
+            Write-Host "  Ultimas lineas:" -ForegroundColor Yellow
+            @($output | Select-Object -Last 8) | ForEach-Object { Write-Host ("    {0}" -f $_) -ForegroundColor DarkYellow }
+        }
     }
 
     return $result
@@ -159,9 +185,20 @@ function Touch-Sketch
         throw "No se encontró .ino en $SketchPath"
     }
 
-    # Simula una edición mínima sin cambiar el contenido del benchmark.
-    # Arduino usa timestamps/dependencias para decidir si puede reutilizar .o/.d.
+    # Simula una edición mínima sin modificar el contenido del benchmark.
     $ino.LastWriteTime = Get-Date
+}
+
+function Invoke-TextCommand
+{
+    param(
+        [Parameter(Mandatory = $true)][string[]]$Arguments,
+        [Parameter(Mandatory = $true)][string]$Destination
+    )
+
+    $native = Invoke-NativeCaptured -FilePath $ArduinoCli -Arguments $Arguments
+    @($native.Output) | Out-File -FilePath $Destination -Encoding utf8
+    return $native.ExitCode
 }
 
 function Save-EnvironmentInfo
@@ -196,17 +233,14 @@ function Save-EnvironmentInfo
     }
     catch
     {
-        # El benchmark también puede ejecutarse en PowerShell sin CIM.
+        # El benchmark sigue siendo util aunque CIM no esté disponible.
     }
 
     $cliVersion = "unknown"
-    try
+    $cliVersionResult = Invoke-NativeCaptured -FilePath $ArduinoCli -Arguments @("version")
+    if ($cliVersionResult.ExitCode -eq 0)
     {
-        $cliVersion = ((& $ArduinoCli version 2>&1) | Out-String).Trim()
-    }
-    catch
-    {
-        $cliVersion = "unavailable"
+        $cliVersion = (@($cliVersionResult.Output) -join " ").Trim()
     }
 
     $gitCommit = "unknown"
@@ -243,23 +277,6 @@ function Save-EnvironmentInfo
     $info | ConvertTo-Json -Depth 6 | Out-File -FilePath $Destination -Encoding utf8
 }
 
-function Save-TextCommand
-{
-    param(
-        [string[]]$Arguments,
-        [string]$Destination
-    )
-
-    try
-    {
-        (& $ArduinoCli @Arguments 2>&1) | Out-File -FilePath $Destination -Encoding utf8
-    }
-    catch
-    {
-        $_ | Out-File -FilePath $Destination -Encoding utf8
-    }
-}
-
 function Write-MarkdownSummary
 {
     param(
@@ -273,11 +290,13 @@ function Write-MarkdownSummary
     $lines.Add("")
     $lines.Add("Run: ``$RunId``")
     $lines.Add("")
+
     if (-not [string]::IsNullOrWhiteSpace($RunLabel))
     {
         $lines.Add("Label: ``$RunLabel``")
         $lines.Add("")
     }
+
     $lines.Add("| Target | Sketch | Fase | Cache | Tiempo (s) | Compiladores | Link | Binarios (bytes) | Resultado |")
     $lines.Add("|---|---|---|---|---:|---:|---:|---:|---|")
 
@@ -293,13 +312,13 @@ function Write-MarkdownSummary
     $lines.Add("")
     $lines.Add("## Interpretación")
     $lines.Add("")
-    $lines.Add("- ``managed_*`` usa el build cache normal de Arduino CLI, aislado dentro de este run.")
-    $lines.Add("- ``explicit_*`` reutiliza un ``--build-path`` fijo para observar recompilación incremental dentro del mismo árbol.")
-    $lines.Add("- ``*_touch`` solo cambia el timestamp del .ino; no cambia su contenido.")
-    $lines.Add("- ``upload_full`` usa el flujo actual del board: bootloader + partitions + boot_app0 + aplicación.")
-    $lines.Add("- ``upload_app_only`` reemplaza experimentalmente los argumentos de esptool para escribir únicamente la aplicación en 0x10000.")
+    $lines.Add("- ``managed_*`` usa una cache Arduino aislada dentro de este run.")
+    $lines.Add("- ``explicit_*`` reutiliza un ``--build-path`` fijo para observar compilación incremental.")
+    $lines.Add("- ``*_touch`` cambia únicamente el timestamp del .ino.")
+    $lines.Add("- ``upload_full`` usa el uploader actual del board.")
+    $lines.Add("- ``upload_app_only`` escribe experimentalmente sólo la aplicación en 0x10000.")
     $lines.Add("")
-    $lines.Add("No usar los resultados de app-only como decisión de producto hasta validar arranque, particiones y recuperación.")
+    $lines.Add("No usar app-only como decisión final hasta completar la validación física correspondiente.")
 
     $lines | Out-File -FilePath $Destination -Encoding utf8
 }
@@ -309,8 +328,7 @@ if ($Jobs -lt 0)
     throw "Jobs debe ser 0 o mayor."
 }
 
-$cliCommand = Get-Command $ArduinoCli -ErrorAction SilentlyContinue
-if ($null -eq $cliCommand)
+if ($null -eq (Get-Command $ArduinoCli -ErrorAction SilentlyContinue))
 {
     throw "No se encontró '$ArduinoCli' en PATH. Instala Arduino CLI o usa -ArduinoCli con la ruta completa."
 }
@@ -327,8 +345,8 @@ New-Item -ItemType Directory -Path $buildRoot -Force | Out-Null
 New-Item -ItemType Directory -Path $cacheRoot -Force | Out-Null
 
 Save-EnvironmentInfo -Destination (Join-Path $runRoot "environment.json")
-Save-TextCommand -Arguments @("config", "dump") -Destination (Join-Path $runRoot "arduino-cli-config.txt")
-Save-TextCommand -Arguments @("core", "list") -Destination (Join-Path $runRoot "arduino-cli-core-list.txt")
+[void](Invoke-TextCommand -Arguments @("config", "dump") -Destination (Join-Path $runRoot "arduino-cli-config.txt"))
+[void](Invoke-TextCommand -Arguments @("core", "list") -Destination (Join-Path $runRoot "arduino-cli-core-list.txt"))
 
 $results = @()
 $previousBuildCache = $env:ARDUINO_BUILD_CACHE_PATH
@@ -359,40 +377,16 @@ try
                     Remove-Item -Path $isolatedCache -Recurse -Force
                 }
                 New-Item -ItemType Directory -Path $isolatedCache -Force | Out-Null
-
                 $env:ARDUINO_BUILD_CACHE_PATH = $isolatedCache
 
                 $phaseArgs = $baseCompileArgs + @($sketchPath)
-                $results += Invoke-TimedCli `
-                    -Arguments $phaseArgs `
-                    -Phase "managed_cold" `
-                    -Target $target `
-                    -Fqbn $fqbn `
-                    -Sketch $sketch `
-                    -CacheMode "isolated_arduino_cache" `
-                    -LogPath (Join-Path $logRoot ("{0}_{1}_managed_cold.log" -f $targetSafe, $sketchSafe)) `
-                    -Notes "Cache aislada vacía; sin --build-path."
 
-                $results += Invoke-TimedCli `
-                    -Arguments $phaseArgs `
-                    -Phase "managed_warm_nochange" `
-                    -Target $target `
-                    -Fqbn $fqbn `
-                    -Sketch $sketch `
-                    -CacheMode "isolated_arduino_cache" `
-                    -LogPath (Join-Path $logRoot ("{0}_{1}_managed_warm.log" -f $targetSafe, $sketchSafe)) `
-                    -Notes "Mismo sketch y misma caché."
+                $results += Invoke-TimedCli -Arguments $phaseArgs -Phase "managed_cold" -Target $target -Fqbn $fqbn -Sketch $sketch -CacheMode "isolated_arduino_cache" -LogPath (Join-Path $logRoot ("{0}_{1}_managed_cold.log" -f $targetSafe, $sketchSafe)) -Notes "Cache aislada vacía; sin --build-path."
+
+                $results += Invoke-TimedCli -Arguments $phaseArgs -Phase "managed_warm_nochange" -Target $target -Fqbn $fqbn -Sketch $sketch -CacheMode "isolated_arduino_cache" -LogPath (Join-Path $logRoot ("{0}_{1}_managed_warm.log" -f $targetSafe, $sketchSafe)) -Notes "Mismo sketch y misma cache."
 
                 Touch-Sketch -SketchPath $sketchPath
-                $results += Invoke-TimedCli `
-                    -Arguments $phaseArgs `
-                    -Phase "managed_warm_touch" `
-                    -Target $target `
-                    -Fqbn $fqbn `
-                    -Sketch $sketch `
-                    -CacheMode "isolated_arduino_cache" `
-                    -LogPath (Join-Path $logRoot ("{0}_{1}_managed_touch.log" -f $targetSafe, $sketchSafe)) `
-                    -Notes "Timestamp del .ino actualizado; contenido idéntico."
+                $results += Invoke-TimedCli -Arguments $phaseArgs -Phase "managed_warm_touch" -Target $target -Fqbn $fqbn -Sketch $sketch -CacheMode "isolated_arduino_cache" -LogPath (Join-Path $logRoot ("{0}_{1}_managed_touch.log" -f $targetSafe, $sketchSafe)) -Notes "Timestamp del .ino actualizado; contenido idéntico."
             }
 
             $explicitBuildPath = Join-Path $buildRoot ("{0}_{1}" -f $targetSafe, $sketchSafe)
@@ -410,43 +404,16 @@ try
                 $coldArgs = $baseCompileArgs + @("--build-path", $explicitBuildPath, "--clean", $sketchPath)
                 $warmArgs = $baseCompileArgs + @("--build-path", $explicitBuildPath, $sketchPath)
 
-                $results += Invoke-TimedCli `
-                    -Arguments $coldArgs `
-                    -Phase "explicit_cold" `
-                    -Target $target `
-                    -Fqbn $fqbn `
-                    -Sketch $sketch `
-                    -CacheMode "fixed_build_path" `
-                    -LogPath (Join-Path $logRoot ("{0}_{1}_explicit_cold.log" -f $targetSafe, $sketchSafe)) `
-                    -BuildPath $explicitBuildPath `
-                    -Notes "--clean y --build-path fijo."
+                $results += Invoke-TimedCli -Arguments $coldArgs -Phase "explicit_cold" -Target $target -Fqbn $fqbn -Sketch $sketch -CacheMode "fixed_build_path" -LogPath (Join-Path $logRoot ("{0}_{1}_explicit_cold.log" -f $targetSafe, $sketchSafe)) -BuildPath $explicitBuildPath -Notes "--clean y --build-path fijo."
 
-                $results += Invoke-TimedCli `
-                    -Arguments $warmArgs `
-                    -Phase "explicit_warm_nochange" `
-                    -Target $target `
-                    -Fqbn $fqbn `
-                    -Sketch $sketch `
-                    -CacheMode "fixed_build_path" `
-                    -LogPath (Join-Path $logRoot ("{0}_{1}_explicit_warm.log" -f $targetSafe, $sketchSafe)) `
-                    -BuildPath $explicitBuildPath `
-                    -Notes "Mismo build-path y sin cambios."
+                $results += Invoke-TimedCli -Arguments $warmArgs -Phase "explicit_warm_nochange" -Target $target -Fqbn $fqbn -Sketch $sketch -CacheMode "fixed_build_path" -LogPath (Join-Path $logRoot ("{0}_{1}_explicit_warm.log" -f $targetSafe, $sketchSafe)) -BuildPath $explicitBuildPath -Notes "Mismo build-path y sin cambios."
 
                 Touch-Sketch -SketchPath $sketchPath
-                $results += Invoke-TimedCli `
-                    -Arguments $warmArgs `
-                    -Phase "explicit_warm_touch" `
-                    -Target $target `
-                    -Fqbn $fqbn `
-                    -Sketch $sketch `
-                    -CacheMode "fixed_build_path" `
-                    -LogPath (Join-Path $logRoot ("{0}_{1}_explicit_touch.log" -f $targetSafe, $sketchSafe)) `
-                    -BuildPath $explicitBuildPath `
-                    -Notes "Timestamp del .ino actualizado; contenido idéntico."
+                $results += Invoke-TimedCli -Arguments $warmArgs -Phase "explicit_warm_touch" -Target $target -Fqbn $fqbn -Sketch $sketch -CacheMode "fixed_build_path" -LogPath (Join-Path $logRoot ("{0}_{1}_explicit_touch.log" -f $targetSafe, $sketchSafe)) -BuildPath $explicitBuildPath -Notes "Timestamp del .ino actualizado; contenido idéntico."
             }
 
             $shouldUpload = (-not $SkipUploads) -and (-not [string]::IsNullOrWhiteSpace($Port))
-            if ($target -eq "Core" -and -not $UploadCore)
+            if (($target -eq "Core") -and (-not $UploadCore))
             {
                 $shouldUpload = $false
             }
@@ -457,63 +424,17 @@ try
                 {
                     New-Item -ItemType Directory -Path $explicitBuildPath -Force | Out-Null
                     $prepareArgs = $baseCompileArgs + @("--build-path", $explicitBuildPath, $sketchPath)
-                    $prepare = Invoke-TimedCli `
-                        -Arguments $prepareArgs `
-                        -Phase "upload_prepare" `
-                        -Target $target `
-                        -Fqbn $fqbn `
-                        -Sketch $sketch `
-                        -CacheMode "fixed_build_path" `
-                        -LogPath (Join-Path $logRoot ("{0}_{1}_upload_prepare.log" -f $targetSafe, $sketchSafe)) `
-                        -BuildPath $explicitBuildPath `
-                        -Notes "Compilación necesaria para preparar binarios de upload."
-                    $results += $prepare
+                    $results += Invoke-TimedCli -Arguments $prepareArgs -Phase "upload_prepare" -Target $target -Fqbn $fqbn -Sketch $sketch -CacheMode "fixed_build_path" -LogPath (Join-Path $logRoot ("{0}_{1}_upload_prepare.log" -f $targetSafe, $sketchSafe)) -BuildPath $explicitBuildPath -Notes "Compilación necesaria para preparar binarios."
                 }
 
-                $fullUploadArgs = @(
-                    "upload", "-b", $fqbn,
-                    "-p", $Port,
-                    "--build-path", $explicitBuildPath,
-                    "-v",
-                    $sketchPath
-                )
+                $fullUploadArgs = @("upload", "-b", $fqbn, "-p", $Port, "--build-path", $explicitBuildPath, "-v", $sketchPath)
+                $results += Invoke-TimedCli -Arguments $fullUploadArgs -Phase "upload_full" -Target $target -Fqbn $fqbn -Sketch $sketch -CacheMode "n/a" -LogPath (Join-Path $logRoot ("{0}_{1}_upload_full.log" -f $targetSafe, $sketchSafe)) -BuildPath $explicitBuildPath -Notes "Flujo actual del board."
 
-                $results += Invoke-TimedCli `
-                    -Arguments $fullUploadArgs `
-                    -Phase "upload_full" `
-                    -Target $target `
-                    -Fqbn $fqbn `
-                    -Sketch $sketch `
-                    -CacheMode "n/a" `
-                    -LogPath (Join-Path $logRoot ("{0}_{1}_upload_full.log" -f $targetSafe, $sketchSafe)) `
-                    -BuildPath $explicitBuildPath `
-                    -Notes "Flujo actual del board."
-
-                # Se reemplaza solamente la propiedad de argumentos del uploader actual.
-                # El patrón replica tools.esptool_py.program.pattern_args de platform.txt:
-                # escribe únicamente la aplicación a 0x10000.
                 $appOnlyPattern = '--chip {build.mcu} --port "{serial.port}" --baud {upload.speed} {upload.flags} --before default-reset --after hard-reset write-flash -z --flash-mode keep --flash-freq keep --flash-size keep 0x10000 "{build.path}/{build.project_name}.bin" {upload.extra_flags}'
                 $appOnlyProperty = "tools.esptool_py.upload.pattern_args=$appOnlyPattern"
+                $appOnlyUploadArgs = @("upload", "-b", $fqbn, "-p", $Port, "--build-path", $explicitBuildPath, "-v", "--upload-property", $appOnlyProperty, $sketchPath)
 
-                $appOnlyUploadArgs = @(
-                    "upload", "-b", $fqbn,
-                    "-p", $Port,
-                    "--build-path", $explicitBuildPath,
-                    "-v",
-                    "--upload-property", $appOnlyProperty,
-                    $sketchPath
-                )
-
-                $results += Invoke-TimedCli `
-                    -Arguments $appOnlyUploadArgs `
-                    -Phase "upload_app_only" `
-                    -Target $target `
-                    -Fqbn $fqbn `
-                    -Sketch $sketch `
-                    -CacheMode "n/a" `
-                    -LogPath (Join-Path $logRoot ("{0}_{1}_upload_app_only.log" -f $targetSafe, $sketchSafe)) `
-                    -BuildPath $explicitBuildPath `
-                    -Notes "EXPERIMENTAL: solo aplicación a 0x10000 mediante --upload-property."
+                $results += Invoke-TimedCli -Arguments $appOnlyUploadArgs -Phase "upload_app_only" -Target $target -Fqbn $fqbn -Sketch $sketch -CacheMode "n/a" -LogPath (Join-Path $logRoot ("{0}_{1}_upload_app_only.log" -f $targetSafe, $sketchSafe)) -BuildPath $explicitBuildPath -Notes "EXPERIMENTAL: sólo aplicación a 0x10000."
             }
         }
     }
