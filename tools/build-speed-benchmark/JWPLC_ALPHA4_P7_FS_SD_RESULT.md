@@ -4,7 +4,7 @@
 
 Evaluar si precompilar `FS` y `SD` reduce de forma real el cold build de `JWPLC Basic` en el segundo equipo de validación, manteniendo el autoload normal y sin retirar periféricos.
 
-Este experimento se ejecuta sobre el estado P6 ya validado estructuralmente. La adopción P7 sigue condicionada a validación en Arduino IDE y gate funcional físico.
+El experimento se ejecutó sobre el estado P6 ya validado estructuralmente y quedó finalmente integrado después de superar rendimiento CLI, gate estructural, Arduino IDE y gate funcional físico de microSD.
 
 FQBN:
 
@@ -12,15 +12,21 @@ FQBN:
 jwplc_local:esp32:jwplcbasic
 ```
 
-Sketch:
+Sketch de benchmark:
 
 ```txt
 tools/build-speed-benchmark/sketches/01_empty
 ```
 
-## Cambio experimental
+Sketch de gate físico:
 
-Se añadió localmente:
+```txt
+tools/build-speed-benchmark/sketches/04_p7_sd_gate/04_p7_sd_gate.ino
+```
+
+## Cambio P7
+
+Se añadió:
 
 ```txt
 precompiled=full
@@ -37,6 +43,12 @@ Y se generaron los archives:
 - `SD`: 3 objetos, 275694 bytes.
 
 El generador verificó que, con los archives presentes, ninguna de estas dos librerías volvió a compilarse desde fuente.
+
+La integración quedó versionada en:
+
+```txt
+1a60176 perf(build): precompilar FS y SD para P7
+```
 
 ## Run de generación / verificación
 
@@ -133,6 +145,63 @@ Global variables use 27908 bytes (8%) of dynamic memory, leaving 299772 bytes fo
 
 El tamaño de app es consistente con el estado P6; no se observa regresión estructural por P7.
 
+## Validación real en Arduino IDE
+
+En el segundo equipo de validación se compiló y subió el sketch físico `04_p7_sd_gate.ino` desde Arduino IDE.
+
+Medición manual desde pulsar **Subir**:
+
+| Hito | Tiempo |
+|---|---:|
+| Fin de compilación / inicio de conexión | **1:13 (73 s)** |
+| `Hard resetting via RTS pin...` | **1:20 (80 s)** |
+| Diferencia atribuible a conexión/upload/reset | **~7 s** |
+
+La subida física fue satisfactoria. Esta medición es observacional de Arduino IDE y no sustituye el cold controlado `63.870 s` de Arduino CLI.
+
+## Gate funcional físico de microSD
+
+La primera ejecución informó:
+
+```txt
+[P7-SD] FAIL begin: No card
+P7_SD_GATE=FAIL
+```
+
+La causa fue física: un detalle de soldadura en la señal de detección de tarjeta. Durante el diagnóstico GPIO39 variaba de forma inestable. Después de resoldar, el detector quedó estable con la lógica esperada por el package:
+
+```txt
+sin microSD -> GPIO39 = 1
+con microSD -> GPIO39 = 0
+```
+
+No se requirió cambiar software, pin, polaridad ni formato de la tarjeta para resolver ese fallo.
+
+Con la soldadura corregida, el gate físico produjo:
+
+```txt
+=== JWPLC P7 FS+SD PHYSICAL GATE ===
+[P7-SD] Iniciando microSD...
+[P7-SD] Card type: 3
+[P7-SD] Card size bytes: 15730212864
+[P7-SD] Readback: JWPLC_P7_FS_SD_OK
+[P7-SD] PASS write/read/verify/remove
+P7_SD_GATE=PASS
+JWPLC_Display inicializado
+```
+
+El gate valida en hardware real:
+
+- detección estable de inserción;
+- inicialización/montaje de la microSD;
+- lectura de tipo y capacidad;
+- creación de archivo;
+- escritura;
+- lectura de retorno;
+- comparación exacta del payload;
+- eliminación del archivo temporal;
+- coexistencia con el autoload normal, incluido Display.
+
 ## Lectura técnica
 
 El resultado demuestra dos efectos simultáneos:
@@ -148,10 +217,16 @@ Como referencia cruzada, el P6 final de la PC principal había medido 67.322 s. 
 
 ## Estado de decisión
 
-P7 FS+SD queda con **rendimiento CLI validado y gate estructural cerrado**, pero todavía no se adopta como cerrado/publicable.
+P7 FS+SD queda **adoptado e integrado** para `JWPLC Basic` en la rama `v2.1.0-alpha.4/feature/build-speed-cache`.
 
-Pendientes antes de integrarlo definitivamente:
+Gates cerrados:
 
-- validar compilación/subida real en Arduino IDE;
-- ejecutar prueba funcional física de microSD y periféricos relacionados;
-- después de esos gates, versionar `precompiled=full` + archives y actualizar la tabla formal de tiempos.
+- rendimiento CLI: **PASS**;
+- reducción 12 -> 7 TUs: **PASS**;
+- gate estructural/mapa de enlace: **PASS**;
+- Arduino IDE + subida física: **PASS**;
+- microSD write/read/verify/remove: **PASS**;
+- CARD DETECT: **PASS tras corrección física de soldadura**;
+- archives y `precompiled=full` versionados: **PASS**.
+
+P7 FS+SD queda cerrado. Los gates generales restantes de alpha4 —TFT/periféricos integrados finales, autoload contract y decisiones de configuración— siguen siendo independientes de este cierre específico.
