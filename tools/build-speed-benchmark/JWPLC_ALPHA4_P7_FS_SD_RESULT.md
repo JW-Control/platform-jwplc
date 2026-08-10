@@ -4,7 +4,7 @@
 
 Evaluar si precompilar `FS` y `SD` reduce de forma real el cold build de `JWPLC Basic` en el segundo equipo de validación, manteniendo el autoload normal y sin retirar periféricos.
 
-Este experimento se ejecuta sobre el estado P6 ya validado estructuralmente. La adopción P7 sigue condicionada a validación estructural completa, Arduino IDE y gate funcional físico.
+Este experimento se ejecuta sobre el estado P6 ya validado estructuralmente. La adopción P7 sigue condicionada a validación en Arduino IDE y gate funcional físico.
 
 FQBN:
 
@@ -94,6 +94,45 @@ Quedan 7 TUs:
 | SPI | `SPI.cpp` | 1.792 s |
 | jwcontrol_p2 | `p2_core_stub.c` | 0.117 s |
 
+## Gate estructural FS + SD
+
+Archives verificados:
+
+| Archive | Bytes | SHA-256 |
+|---|---:|---|
+| `libFS.a` | 415104 | `CBEA33C505D28E9B3A6A2E3ABDDEA6CB4C384B8BE919ED456C00ED0D8A31C327` |
+| `libSD.a` | 275694 | `45D1D9B27701403CE7D380838AD723194A3730DB5F2859B90D0D01D75FA040FD` |
+
+El `FULL_COLD.log` confirmó que Arduino reconoce ambas librerías como precompiladas:
+
+```txt
+Skipping dependencies detection for precompiled library SD
+Skipping dependencies detection for precompiled library FS
+```
+
+El mapa de enlace `01_empty.ino.map` confirmó extracción real desde ambos archives. Entre las entradas observadas:
+
+```txt
+libSD.a(SD.cpp.o)
+libSD.a(sd_diskio.cpp.o)
+libSD.a(sd_diskio_crc.c.o)
+libFS.a(FS.cpp.o)
+libFS.a(vfs_api.cpp.o)
+```
+
+También aparecen referencias resueltas desde estos miembros, incluyendo `fs::SDFS::begin`, `sd_read_raw`, `CRC7`, `ff_diskio_get_drive`, `f_mount`, `esp_vfs_fat_register`, `fileno`, `setvbuf` y `unlink`.
+
+Esto cierra el gate estructural: `FS` y `SD` no sólo son detectadas como precompiladas, sino que sus miembros se extraen y participan efectivamente en el enlace final.
+
+El full cold reportó:
+
+```txt
+Sketch uses 404761 bytes (12%) of program storage space. Maximum is 3145728 bytes.
+Global variables use 27908 bytes (8%) of dynamic memory, leaving 299772 bytes for local variables. Maximum is 327680 bytes.
+```
+
+El tamaño de app es consistente con el estado P6; no se observa regresión estructural por P7.
+
 ## Lectura técnica
 
 El resultado demuestra dos efectos simultáneos:
@@ -109,12 +148,10 @@ Como referencia cruzada, el P6 final de la PC principal había medido 67.322 s. 
 
 ## Estado de decisión
 
-P7 FS+SD pasa de candidato a **resultado de rendimiento validado en CLI**, pero todavía no se adopta como cerrado/publicable.
+P7 FS+SD queda con **rendimiento CLI validado y gate estructural cerrado**, pero todavía no se adopta como cerrado/publicable.
 
 Pendientes antes de integrarlo definitivamente:
 
-- verificar que `libFS.a` y `libSD.a` estén realmente enlazados en el full cold y registrar tamaño/hash;
-- confirmar tamaño de app y ausencia de regresión estructural;
 - validar compilación/subida real en Arduino IDE;
 - ejecutar prueba funcional física de microSD y periféricos relacionados;
 - después de esos gates, versionar `precompiled=full` + archives y actualizar la tabla formal de tiempos.
