@@ -13,20 +13,20 @@
 
 compiler.cpreprocessor.flags="@{compiler.sdk.path}/flags/defines" "-I{build.source.path}" -iprefix "{compiler.sdk.path}/include/" "@{compiler.sdk.path}/flags/includes" "-I{compiler.sdk.path}/{build.memory_type}/include" "-I{runtime.platform.path}/cores/jwcontrol" "-I{runtime.platform.path}/cores/jwcontrol/peripherals/include" -DJWPLC_LIBRARY_DISCOVERY_PHASE={build.library_discovery_phase}
 
-# P2 - al terminar la fase core, sustituir el archive que Arduino enlazara por
+# P2 - al terminar la fase core, sustituir el core stub del build controlado por
 # el core.a precompilado correspondiente al build.board.
 #
-# Importante: Arduino IDE puede reutilizar el core desde su cache global y, en
-# ese caso, {archive_file_path} no apunta a {build.path}/core/core.a sino a
-# %LOCALAPPDATA%/arduino/cores/<fqbn-hash>/core.a. Copiar solo al build.path
-# dejaba el stub de jwcontrol_p2 dentro del cache y el linker terminaba usando
-# ese archive de ~3 KB, provocando undefined references masivas. Por eso el
-# destino correcto es siempre {archive_file_path}, que es exactamente el
-# archive seleccionado por la receta de link.
+# IMPORTANTE (Arduino IDE 2.x): archive_file_path no se expande dentro de este
+# hook core.postbuild. El intento de usar {archive_file_path} quedo literal en
+# el comando CMD y no modifico la cache global de core de Arduino IDE. Por eso
+# este hook vuelve al destino conocido {build.path}/core/core.a, que mantiene
+# correctos los builds CLI/controlados. La compatibilidad con la cache global
+# de Arduino IDE se resolvera por una via de link explicita, no escribiendo una
+# propiedad que no existe en el contexto del hook.
 #
 # No se compara build.core como texto: en Windows cmd.exe esa comparacion fue
 # fragil por el tratamiento de comillas de la receta Arduino. En su lugar el
 # hook detecta el marcador fisico p2_core_stub.c dentro del core seleccionado.
 # Con jwcontrol normal el marcador no existe y el hook no hace nada.
-recipe.hooks.core.postbuild.2.pattern=/usr/bin/env bash -c "marker='{runtime.platform.path}/cores/{build.core}/p2_core_stub.c'; if [ -f \"$marker\" ]; then src='{runtime.platform.path}/precompiled/core/{build.board}/core.a'; [ -f \"$src\" ] || { echo 'JWPLC P2: precompiled core missing' >&2; exit 2; }; cp -f \"$src\" '{archive_file_path}'; fi"
-recipe.hooks.core.postbuild.2.pattern.windows=cmd /c IF EXIST "{runtime.platform.path}\cores\{build.core}\p2_core_stub.c" ( IF EXIST "{runtime.platform.path}\precompiled\core\{build.board}\core.a" ( COPY /y "{runtime.platform.path}\precompiled\core\{build.board}\core.a" "{archive_file_path}" ) ELSE ( ECHO JWPLC P2: precompiled core missing 1>&2 & EXIT /B 2 ) )
+recipe.hooks.core.postbuild.2.pattern=/usr/bin/env bash -c "marker='{runtime.platform.path}/cores/{build.core}/p2_core_stub.c'; if [ -f \"$marker\" ]; then src='{runtime.platform.path}/precompiled/core/{build.board}/core.a'; [ -f \"$src\" ] || { echo 'JWPLC P2: precompiled core missing' >&2; exit 2; }; cp -f \"$src\" '{build.path}/core/core.a'; fi"
+recipe.hooks.core.postbuild.2.pattern.windows=cmd /c IF EXIST "{runtime.platform.path}\cores\{build.core}\p2_core_stub.c" ( IF EXIST "{runtime.platform.path}\precompiled\core\{build.board}\core.a" ( COPY /y "{runtime.platform.path}\precompiled\core\{build.board}\core.a" "{build.path}\core\core.a" ) ELSE ( ECHO JWPLC P2: precompiled core missing 1>&2 & EXIT /B 2 ) )
