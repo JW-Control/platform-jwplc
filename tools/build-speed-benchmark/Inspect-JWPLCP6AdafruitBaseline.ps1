@@ -228,7 +228,7 @@ if (-not (Test-Path -LiteralPath $LogPath))
 $parsed = Get-Content -LiteralPath $CompileDbPath -Raw | ConvertFrom-Json
 $entryList = ConvertTo-EntryList -Parsed $parsed
 $entries = @($entryList)
-$logLines = @(Get-Content -LiteralPath $LogPath)
+$logLines = @(Get-Content -LiteralPath $LogPath | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
 
 if ($entries.Count -ne 24)
 {
