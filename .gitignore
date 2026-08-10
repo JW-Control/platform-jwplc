@@ -1,0 +1,11 @@
+# JWPLC - artefactos locales de benchmarks
+#
+# Los scripts, sketches y documentos de tools/build-speed-benchmark se versionan.
+# Los directorios *-work/ contienen builds, logs, objetos, mapas y resultados
+# preservados localmente durante las mediciones y no deben entrar al repositorio.
+/tools/build-speed-benchmark/*-work/
+/tools/build-speed-benchmark/results/
+
+# Overlay local generado durante los pilotos de core precompilado P2.
+# La configuracion definitiva debe vivir en boards.txt, no en boards.local.txt.
+/JWPLC/2.1.0/boards.local.txt
