@@ -5,7 +5,8 @@ param(
     [string]$Fqbn = "jwplc_local:esp32:jwplcbasic",
     [string]$Sketch,
     [string]$ArduinoCliPath,
-    [switch]$FullCold
+    [switch]$FullCold,
+    [string]$ReuseCompileDb
 )
 
 Set-StrictMode -Version 2.0
@@ -85,48 +86,48 @@ function Invoke-ArduinoCliMeasured
     }
 }
 
-function Convert-ArgumentsToCommand
-{
-    param([object[]]$Arguments)
-
-    $parts = foreach ($argRaw in $Arguments)
-    {
-        $arg = [string]$argRaw
-        if ($arg -match '[\s"]')
-        {
-            '"' + $arg.Replace('"', '\"') + '"'
-        }
-        else
-        {
-            $arg
-        }
-    }
-    return ($parts -join ' ')
-}
-
-function Get-EntryCommand
+function Get-EntryInvocation
 {
     param([Parameter(Mandatory = $true)]$Entry)
 
-    if ($Entry.PSObject.Properties.Name -contains "command" -and -not [string]::IsNullOrWhiteSpace([string]$Entry.command))
+    if (-not ($Entry.PSObject.Properties.Name -contains "arguments"))
     {
-        return [string]$Entry.command
+        throw "Entrada de compile_commands.json sin arguments[]."
     }
-    if ($Entry.PSObject.Properties.Name -contains "arguments" -and $null -ne $Entry.arguments)
+
+    $allArguments = @($Entry.arguments)
+    if ($allArguments.Count -lt 2)
     {
-        return Convert-ArgumentsToCommand -Arguments @($Entry.arguments)
+        throw "Entrada de compile_commands.json con arguments[] incompleto."
     }
-    throw "Entrada de compile_commands.json sin 'command' ni 'arguments'."
+
+    return [PSCustomObject]@{
+        FileName = [string]$allArguments[0]
+        Arguments = [string[]]@($allArguments | Select-Object -Skip 1)
+    }
 }
 
-function Get-OutputPathFromCommand
+function Get-OutputPathFromArguments
 {
-    param([Parameter(Mandatory = $true)][string]$Command)
+    param(
+        [Parameter(Mandatory = $true)][string[]]$Arguments,
+        [Parameter(Mandatory = $true)][string]$WorkingDirectory
+    )
 
-    $match = [regex]::Match($Command, '(?:^|\s)-o\s+(?:"(?<quoted>[^"]+)"|(?<plain>\S+))')
-    if (-not $match.Success) { return $null }
-    if ($match.Groups["quoted"].Success) { return $match.Groups["quoted"].Value }
-    return $match.Groups["plain"].Value
+    for ($i = 0; $i -lt ($Arguments.Count - 1); $i++)
+    {
+        if ($Arguments[$i] -eq "-o")
+        {
+            $outputPath = [string]$Arguments[$i + 1]
+            if (-not [System.IO.Path]::IsPathRooted($outputPath))
+            {
+                $outputPath = [System.IO.Path]::GetFullPath((Join-Path $WorkingDirectory $outputPath))
+            }
+            return $outputPath
+        }
+    }
+
+    return $null
 }
 
 function Get-Category
@@ -164,24 +165,51 @@ function Get-DisplayPath
     return $full
 }
 
-function Invoke-CompileCommandMeasured
+function Set-FileOptsForSource
 {
     param(
-        [Parameter(Mandatory = $true)][string]$Command,
+        [Parameter(Mandatory = $true)][string]$FileOptsPath,
+        [Parameter(Mandatory = $true)][string]$Source
+    )
+
+    if (-not (Test-Path -LiteralPath $FileOptsPath -PathType Leaf))
+    {
+        return
+    }
+
+    $value = ""
+    if ($Source -match '[\\/]cores[\\/]')
+    {
+        $value = "-DARDUINO_CORE_BUILD"
+    }
+
+    [System.IO.File]::WriteAllText(
+        $FileOptsPath,
+        $value,
+        [System.Text.Encoding]::ASCII
+    )
+}
+
+function Invoke-CompilerMeasured
+{
+    param(
+        [Parameter(Mandatory = $true)][string]$FileName,
+        [Parameter(Mandatory = $true)][string[]]$Arguments,
         [Parameter(Mandatory = $true)][string]$WorkingDirectory
     )
 
     $psi = [System.Diagnostics.ProcessStartInfo]::new()
-    $psi.FileName = $env:ComSpec
+    $psi.FileName = $FileName
     $psi.WorkingDirectory = $WorkingDirectory
     $psi.UseShellExecute = $false
     $psi.CreateNoWindow = $true
     $psi.RedirectStandardOutput = $true
     $psi.RedirectStandardError = $true
-    [void]$psi.ArgumentList.Add('/d')
-    [void]$psi.ArgumentList.Add('/s')
-    [void]$psi.ArgumentList.Add('/c')
-    [void]$psi.ArgumentList.Add($Command)
+
+    foreach ($argument in $Arguments)
+    {
+        [void]$psi.ArgumentList.Add($argument)
+    }
 
     $process = [System.Diagnostics.Process]::new()
     $process.StartInfo = $psi
@@ -189,8 +217,9 @@ function Invoke-CompileCommandMeasured
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
     if (-not $process.Start())
     {
-        throw "No se pudo iniciar el comando de compilacion."
+        throw "No se pudo iniciar el compilador: $FileName"
     }
+
     $stdout = $process.StandardOutput.ReadToEnd()
     $stderr = $process.StandardError.ReadToEnd()
     $process.WaitForExit()
@@ -212,16 +241,47 @@ if (-not (Test-Path -LiteralPath $Sketch))
 
 $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $WorkRoot = Join-Path $ScriptRoot "compile-profile-work"
-$RunRoot = Join-Path $WorkRoot $timestamp
-$BuildPath = Join-Path $RunRoot "profile-Basic"
-$CompileDb = Join-Path $BuildPath "compile_commands.json"
-$DiscoveryLog = Join-Path $RunRoot "discovery.log"
+$reuseMode = -not [string]::IsNullOrWhiteSpace($ReuseCompileDb)
+$discoverySeconds = $null
+$discoveryLines = @()
+$DiscoveryLog = $null
+
+if ($reuseMode)
+{
+    $CompileDb = [System.IO.Path]::GetFullPath($ReuseCompileDb)
+    if (-not (Test-Path -LiteralPath $CompileDb -PathType Leaf))
+    {
+        throw "No existe compile_commands.json para reutilizar: $CompileDb"
+    }
+
+    $BuildPath = Split-Path -Parent $CompileDb
+    $sourceRunRoot = Split-Path -Parent $BuildPath
+    $RunRoot = Join-Path $WorkRoot ("reuse_" + $timestamp)
+
+    $sourceDiscoveryLog = Join-Path $sourceRunRoot "discovery.log"
+    if (Test-Path -LiteralPath $sourceDiscoveryLog -PathType Leaf)
+    {
+        $discoveryLines = @(Get-Content -LiteralPath $sourceDiscoveryLog)
+    }
+}
+else
+{
+    $RunRoot = Join-Path $WorkRoot $timestamp
+    $BuildPath = Join-Path $RunRoot "profile-Basic"
+    $CompileDb = Join-Path $BuildPath "compile_commands.json"
+    $DiscoveryLog = Join-Path $RunRoot "discovery.log"
+}
+
 $TuCsv = Join-Path $RunRoot "TU_TIMINGS.csv"
 $GroupCsv = Join-Path $RunRoot "GROUP_TIMINGS.csv"
 $ReportPath = Join-Path $RunRoot "REPORT.md"
+$FileOpts = Join-Path $BuildPath "file_opts"
 
 New-Item -ItemType Directory -Force -Path $RunRoot | Out-Null
-New-Item -ItemType Directory -Force -Path $BuildPath | Out-Null
+if (-not $reuseMode)
+{
+    New-Item -ItemType Directory -Force -Path $BuildPath | Out-Null
+}
 
 Write-Host "JWPLC - perfil cold por unidad de compilacion" -ForegroundColor Cyan
 Write-Host "------------------------------------------------"
@@ -230,31 +290,44 @@ Write-Host ("FQBN:        {0}" -f $Fqbn)
 Write-Host ("Sketch:      {0}" -f $Sketch)
 Write-Host ("Run:         {0}" -f $RunRoot)
 Write-Host ""
-Write-Host "Fase 1/2: preparando build cold y compile_commands.json..." -ForegroundColor Yellow
 
-$discoveryArgs = @(
-    "compile",
-    "--fqbn", $Fqbn,
-    "-j", "1",
-    "-v",
-    "--clean",
-    "--build-path", $BuildPath,
-    "--only-compilation-database",
-    $Sketch
-)
-
-$discovery = Invoke-ArduinoCliMeasured -Cli $ArduinoCli -Arguments $discoveryArgs
-$discovery.Lines | Set-Content -LiteralPath $DiscoveryLog -Encoding utf8NoBOM
-
-if ($discovery.ExitCode -ne 0)
+if ($reuseMode)
 {
-    Write-Host "Fallo preparando compilation database." -ForegroundColor Red
-    Write-Host ("Log: {0}" -f $DiscoveryLog)
-    exit $discovery.ExitCode
+    Write-Host "Fase 1/2: reutilizando compile_commands.json existente." -ForegroundColor Yellow
+    Write-Host ("Compile DB:   {0}" -f $CompileDb)
 }
-if (-not (Test-Path -LiteralPath $CompileDb))
+else
 {
-    throw "arduino-cli termino correctamente pero no genero: $CompileDb"
+    Write-Host "Fase 1/2: preparando build cold y compile_commands.json..." -ForegroundColor Yellow
+
+    $discoveryArgs = @(
+        "compile",
+        "--fqbn", $Fqbn,
+        "-j", "1",
+        "-v",
+        "--clean",
+        "--build-path", $BuildPath,
+        "--only-compilation-database",
+        $Sketch
+    )
+
+    $discovery = Invoke-ArduinoCliMeasured -Cli $ArduinoCli -Arguments $discoveryArgs
+    $discoveryLines = @($discovery.Lines)
+    $discoveryLines | Set-Content -LiteralPath $DiscoveryLog -Encoding utf8NoBOM
+
+    if ($discovery.ExitCode -ne 0)
+    {
+        Write-Host "Fallo preparando compilation database." -ForegroundColor Red
+        Write-Host ("Log: {0}" -f $DiscoveryLog)
+        exit $discovery.ExitCode
+    }
+
+    $discoverySeconds = $discovery.Elapsed.TotalSeconds
+}
+
+if (-not (Test-Path -LiteralPath $CompileDb -PathType Leaf))
+{
+    throw "No se encontro compile_commands.json: $CompileDb"
 }
 
 $entries = @(Get-Content -LiteralPath $CompileDb -Raw | ConvertFrom-Json)
@@ -264,7 +337,7 @@ if ($entries.Count -eq 0)
 }
 
 $precompiledLibraries = @(
-    $discovery.Lines |
+    $discoveryLines |
         ForEach-Object {
             if ($_ -match '^Skipping dependencies detection for precompiled library (?<name>.+)$')
             {
@@ -275,32 +348,40 @@ $precompiledLibraries = @(
         Sort-Object -Unique
 )
 
-Write-Host ("Preparacion/discovery: {0:N3} s | TUs detectados: {1}" -f $discovery.Elapsed.TotalSeconds, $entries.Count) -ForegroundColor Green
+if ($null -ne $discoverySeconds)
+{
+    Write-Host ("Preparacion/discovery: {0:N3} s | TUs detectados: {1}" -f $discoverySeconds, $entries.Count) -ForegroundColor Green
+}
+else
+{
+    Write-Host ("Compile DB reutilizado | TUs detectados: {0}" -f $entries.Count) -ForegroundColor Green
+}
+
 Write-Host ""
-Write-Host "Fase 2/2: midiendo cada comando de compilacion de forma secuencial..." -ForegroundColor Yellow
-Write-Host "Nota: se usa -j 1 a proposito para atribuir tiempo a cada TU; este perfil no sustituye el cold paralelo de uso normal." -ForegroundColor DarkGray
+Write-Host "Fase 2/2: midiendo cada TU con arguments[] nativo..." -ForegroundColor Yellow
+Write-Host "Nota: los TUs se miden secuencialmente para atribuir tiempo por archivo; no equivalen al cold paralelo normal." -ForegroundColor DarkGray
 Write-Host ""
 
 $rows = New-Object System.Collections.Generic.List[object]
 $index = 0
+
 foreach ($entry in $entries)
 {
     $index++
     $source = [System.IO.Path]::GetFullPath([string]$entry.file)
     $directory = [System.IO.Path]::GetFullPath([string]$entry.directory)
-    $command = Get-EntryCommand -Entry $entry
-    $outputPath = Get-OutputPathFromCommand -Command $command
+    $invocation = Get-EntryInvocation -Entry $entry
 
+    Set-FileOptsForSource -FileOptsPath $FileOpts -Source $source
+
+    $outputPath = Get-OutputPathFromArguments -Arguments $invocation.Arguments -WorkingDirectory $directory
     if (-not [string]::IsNullOrWhiteSpace($outputPath))
     {
-        if (-not [System.IO.Path]::IsPathRooted($outputPath))
-        {
-            $outputPath = [System.IO.Path]::GetFullPath((Join-Path $directory $outputPath))
-        }
         if (Test-Path -LiteralPath $outputPath)
         {
             Remove-Item -LiteralPath $outputPath -Force
         }
+
         $depPath = [System.IO.Path]::ChangeExtension($outputPath, ".d")
         if (Test-Path -LiteralPath $depPath)
         {
@@ -310,9 +391,11 @@ foreach ($entry in $entries)
 
     $cat = Get-Category -Source $source
     $display = Get-DisplayPath -Path $source
-    Write-Host ("[{0,2}/{1}] {2} :: {3}" -f $index, $entries.Count, $cat.Group, (Split-Path -Leaf $source)) -NoNewline
+    $leaf = Split-Path -Leaf $source
 
-    $result = Invoke-CompileCommandMeasured -Command $command -WorkingDirectory $directory
+    Write-Host ("[{0,2}/{1}] {2} :: {3}" -f $index, $entries.Count, $cat.Group, $leaf) -NoNewline
+
+    $result = Invoke-CompilerMeasured -FileName $invocation.FileName -Arguments $invocation.Arguments -WorkingDirectory $directory
     Write-Host ("  {0:N3} s" -f $result.Elapsed.TotalSeconds) -ForegroundColor Green
 
     if ($result.ExitCode -ne 0)
@@ -321,8 +404,11 @@ foreach ($entry in $entries)
         @(
             "SOURCE: $source",
             "DIRECTORY: $directory",
-            "COMMAND: $command",
+            "EXECUTABLE: $($invocation.FileName)",
             "EXIT: $($result.ExitCode)",
+            "",
+            "ARGUMENTS:",
+            ($invocation.Arguments | ForEach-Object { [string]$_ }),
             "",
             "STDOUT:",
             $result.StdOut,
@@ -330,6 +416,7 @@ foreach ($entry in $entries)
             "STDERR:",
             $result.StdErr
         ) | Set-Content -LiteralPath $failedLog -Encoding utf8NoBOM
+
         throw "Fallo compilando $source. Ver: $failedLog"
     }
 
@@ -338,7 +425,7 @@ foreach ($entry in $entries)
         Type = $cat.Type
         Group = $cat.Group
         Source = $display
-        Leaf = Split-Path -Leaf $source
+        Leaf = $leaf
         DurationSeconds = [math]::Round($result.Elapsed.TotalSeconds, 6)
         DurationMs = [math]::Round($result.Elapsed.TotalMilliseconds, 3)
     })
@@ -374,6 +461,7 @@ if ($FullCold)
     Write-Host "Fase opcional: cold completo normal con -j 0..." -ForegroundColor Yellow
     $fullBuildPath = Join-Path $RunRoot "full-cold-Basic"
     $fullColdLog = Join-Path $RunRoot "FULL_COLD.log"
+
     $fullArgs = @(
         "compile",
         "--fqbn", $Fqbn,
@@ -383,8 +471,10 @@ if ($FullCold)
         "--build-path", $fullBuildPath,
         $Sketch
     )
+
     $full = Invoke-ArduinoCliMeasured -Cli $ArduinoCli -Arguments $fullArgs
     $full.Lines | Set-Content -LiteralPath $fullColdLog -Encoding utf8NoBOM
+
     if ($full.ExitCode -ne 0)
     {
         Write-Host ("Cold completo fallo; revisar {0}" -f $fullColdLog) -ForegroundColor Red
@@ -398,6 +488,7 @@ if ($FullCold)
 
 $cpuName = "no disponible"
 $ramGb = "no disponible"
+
 try
 {
     $cpuName = ((Get-CimInstance Win32_Processor | Select-Object -First 1 -ExpandProperty Name) -replace '\s+', ' ').Trim()
@@ -419,21 +510,33 @@ $report = New-Object System.Collections.Generic.List[string]
 [void]$report.Add(("- FQBN: {0}" -f $Fqbn))
 [void]$report.Add(("- Sketch: {0}" -f (Get-DisplayPath -Path $Sketch)))
 [void]$report.Add(("- Arduino CLI: {0}" -f $ArduinoCli))
+[void]$report.Add(("- Compile DB: {0}" -f $CompileDb))
+[void]$report.Add(("- Modo reutilizacion: {0}" -f $reuseMode))
 [void]$report.Add("")
 [void]$report.Add("## Lectura metodologica")
 [void]$report.Add("")
-[void]$report.Add("La preparacion de `compile_commands.json` se ejecuta con `--clean` y build path dedicado. Luego cada TU se ejecuta individualmente con el comando exacto generado por Arduino CLI. Esto permite atribuir tiempo de compilador por archivo sin solapamiento.")
+[void]$report.Add("Cada TU se ejecuta usando directamente el array arguments[] de compile_commands.json mediante ProcessStartInfo.ArgumentList. No se reconstruye una linea de comandos textual, para preservar correctamente argumentos con comillas internas como los defines de Arduino.")
 [void]$report.Add("")
-[void]$report.Add("Los tiempos por TU se miden de forma secuencial y **no equivalen** al tiempo de usuario de una compilacion normal paralela (`-j 0`). El objetivo es identificar hotspots. La fase de preparacion/discovery se informa separadamente porque puede representar una parte importante de la primera compilacion.")
+[void]$report.Add("Los tiempos por TU se miden de forma secuencial y no equivalen al tiempo de una compilacion normal paralela con -j 0. El objetivo es identificar hotspots por archivo y por biblioteca.")
 [void]$report.Add("")
 [void]$report.Add("## Resumen")
 [void]$report.Add("")
-[void]$report.Add(("- Preparacion/discovery + compilation database: **{0:N3} s**" -f $discovery.Elapsed.TotalSeconds))
+
+if ($null -ne $discoverySeconds)
+{
+    [void]$report.Add(("- Preparacion/discovery + compilation database: **{0:N3} s**" -f $discoverySeconds))
+}
+else
+{
+    [void]$report.Add("- Preparacion/discovery: no medida en este run; se reutilizo un compile_commands.json existente.")
+}
+
 [void]$report.Add(("- TUs compilados desde fuente: **{0}**" -f $rows.Count))
 [void]$report.Add(("- Suma de compilacion individual de TUs: **{0:N3} s**" -f $compileTotal))
+
 if ($null -ne $fullColdSeconds)
 {
-    [void]$report.Add(("- Cold completo normal `-j 0`: **{0:N3} s**" -f $fullColdSeconds))
+    [void]$report.Add(("- Cold completo normal -j 0: **{0:N3} s**" -f $fullColdSeconds))
 }
 [void]$report.Add("")
 
@@ -452,51 +555,70 @@ if ($precompiledLibraries.Count -gt 0)
 [void]$report.Add("")
 [void]$report.Add("| Grupo | Tipo | TUs | Total s | Promedio s | Max s |")
 [void]$report.Add("|---|---|---:|---:|---:|---:|")
+
 foreach ($g in $groups)
 {
     [void]$report.Add(("| {0} | {1} | {2} | {3:N3} | {4:N3} | {5:N3} |" -f $g.Group, $g.Type, $g.TUs, $g.TotalSeconds, $g.AverageSeconds, $g.MaxSeconds))
 }
+
 [void]$report.Add("")
 [void]$report.Add("## Unidades de compilacion - de mayor a menor")
 [void]$report.Add("")
 [void]$report.Add("| # | Grupo | Fuente | Tiempo s |")
 [void]$report.Add("|---:|---|---|---:|")
+
 $rank = 0
 foreach ($row in @($rows | Sort-Object DurationSeconds -Descending))
 {
     $rank++
     $safeSource = ([string]$row.Source).Replace('|','\|')
-    [void]$report.Add(("| {0} | {1} | `{2}` | {3:N3} |" -f $rank, $row.Group, $safeSource, $row.DurationSeconds))
+    [void]$report.Add(("| {0} | {1} | {2} | {3:N3} |" -f $rank, $row.Group, $safeSource, $row.DurationSeconds))
 }
+
 [void]$report.Add("")
 [void]$report.Add("## Archivos generados")
 [void]$report.Add("")
-[void]$report.Add("- `TU_TIMINGS.csv`: detalle por archivo.")
-[void]$report.Add("- `GROUP_TIMINGS.csv`: agregado por libreria/core/sketch.")
-[void]$report.Add("- `discovery.log`: salida de Arduino CLI al preparar el build cold.")
+[void]$report.Add("- TU_TIMINGS.csv: detalle por archivo.")
+[void]$report.Add("- GROUP_TIMINGS.csv: agregado por libreria/core/sketch.")
+
+if ($null -ne $DiscoveryLog)
+{
+    [void]$report.Add("- discovery.log: salida de Arduino CLI al preparar el build cold.")
+}
 if ($null -ne $fullColdLog)
 {
-    [void]$report.Add("- `FULL_COLD.log`: cold normal opcional con `-j 0`.")
+    [void]$report.Add("- FULL_COLD.log: cold normal opcional con -j 0.")
 }
 
 $report | Set-Content -LiteralPath $ReportPath -Encoding utf8NoBOM
 
 Write-Host ""
 Write-Host "=== TOP 10 TUs ===" -ForegroundColor Cyan
+
 $rows |
     Sort-Object DurationSeconds -Descending |
     Select-Object -First 10 Group,Leaf,DurationSeconds |
     Format-Table -AutoSize
 
 Write-Host "=== GRUPOS ===" -ForegroundColor Cyan
-$groups | Format-Table Group,Type,TUs,TotalSeconds,MaxSeconds -AutoSize
+$groups | Format-Table Group,Type,TUs,TotalSeconds,AverageSeconds,MaxSeconds -AutoSize
 
-Write-Host ("Preparacion/discovery: {0:N3} s" -f $discovery.Elapsed.TotalSeconds) -ForegroundColor Green
+if ($null -ne $discoverySeconds)
+{
+    Write-Host ("Preparacion/discovery: {0:N3} s" -f $discoverySeconds) -ForegroundColor Green
+}
+else
+{
+    Write-Host "Preparacion/discovery: reutilizado / no medido en este run" -ForegroundColor Yellow
+}
+
 Write-Host ("Suma TUs:             {0:N3} s" -f $compileTotal) -ForegroundColor Green
+
 if ($null -ne $fullColdSeconds)
 {
     Write-Host ("Cold normal -j 0:      {0:N3} s" -f $fullColdSeconds) -ForegroundColor Green
 }
+
 Write-Host ("Reporte: {0}" -f $ReportPath) -ForegroundColor Yellow
 Write-Host ("CSV TU:  {0}" -f $TuCsv) -ForegroundColor DarkGray
 Write-Host ("CSV grp: {0}" -f $GroupCsv) -ForegroundColor DarkGray
