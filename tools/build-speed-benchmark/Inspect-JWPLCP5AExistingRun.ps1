@@ -1,5 +1,10 @@
+#requires -Version 7.4
+
 [CmdletBinding()]
-param()
+param(
+    [string]$P3RunId = "20260809_190321",
+    [string]$P5RunId = "20260809_214306"
+)
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = "Stop"
@@ -7,6 +12,48 @@ $ErrorActionPreference = "Stop"
 $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $P3Root = Join-Path $ScriptRoot "p3-deterministic-work"
 $P5Root = Join-Path $ScriptRoot "p5a-ethernet-work"
+
+function ConvertTo-CompileDbEntries
+{
+    param(
+        [Parameter(Mandatory = $true)][string]$Json,
+        [Parameter(Mandatory = $true)][string]$SourceName
+    )
+
+    $parsed = ConvertFrom-Json -InputObject $Json
+    $entries = New-Object System.Collections.Generic.List[object]
+
+    foreach ($entry in $parsed)
+    {
+        [void]$entries.Add($entry)
+    }
+
+    if ($entries.Count -eq 0)
+    {
+        throw "compile_commands vacio: $SourceName"
+    }
+
+    foreach ($entry in $entries)
+    {
+        if ($null -eq $entry.PSObject.Properties['file'] -or [string]::IsNullOrWhiteSpace([string]$entry.file))
+        {
+            throw "Entrada sin campo file en compile_commands: $SourceName"
+        }
+    }
+
+    return $entries.ToArray()
+}
+
+function Test-CompileDbParser
+{
+    $sample = '[{"file":"A.cpp"},{"file":"B.cpp"}]'
+    $entries = @(ConvertTo-CompileDbEntries -Json $sample -SourceName "self-test")
+
+    if ($entries.Count -ne 2 -or [string]$entries[0].file -ne "A.cpp" -or [string]$entries[1].file -ne "B.cpp")
+    {
+        throw "Fallo el self-test del parser de compile_commands.json."
+    }
+}
 
 function Get-CompileDbMetrics
 {
@@ -18,7 +65,8 @@ function Get-CompileDbMetrics
         throw "No existe compile_commands.json: $dbPath"
     }
 
-    $entries = @(Get-Content -LiteralPath $dbPath -Raw | ConvertFrom-Json)
+    $json = Get-Content -LiteralPath $dbPath -Raw
+    $entries = @(ConvertTo-CompileDbEntries -Json $json -SourceName $dbPath)
     $files = @($entries | ForEach-Object { [string]$_.file })
 
     return [PSCustomObject]@{
@@ -74,37 +122,43 @@ function Get-AppBin
     return $bin
 }
 
-function Find-LatestRun
+function Get-ExistingRun
 {
     param(
         [Parameter(Mandatory = $true)][string]$Root,
+        [Parameter(Mandatory = $true)][string]$RunId,
         [Parameter(Mandatory = $true)][string]$BuildName,
         [Parameter(Mandatory = $true)][string]$LogName
     )
 
-    if (-not (Test-Path -LiteralPath $Root)) { return $null }
-    foreach ($run in @(Get-ChildItem -LiteralPath $Root -Directory | Sort-Object LastWriteTime -Descending))
+    $runRoot = Join-Path $Root $RunId
+    $build = Join-Path $runRoot $BuildName
+    $log = Join-Path $runRoot $LogName
+
+    if (-not (Test-Path -LiteralPath $runRoot))
     {
-        $build = Join-Path $run.FullName $BuildName
-        $log = Join-Path $run.FullName $LogName
-        if ((Test-Path -LiteralPath (Join-Path $build "compile_commands.json")) -and
-            (Test-Path -LiteralPath $log))
-        {
-            return [PSCustomObject]@{
-                RunRoot = $run.FullName
-                BuildPath = $build
-                LogPath = $log
-            }
-        }
+        throw "No existe el run solicitado: $runRoot"
     }
-    return $null
+    if (-not (Test-Path -LiteralPath (Join-Path $build "compile_commands.json")))
+    {
+        throw "El run no contiene compile_commands.json: $build"
+    }
+    if (-not (Test-Path -LiteralPath $log))
+    {
+        throw "El run no contiene el log esperado: $log"
+    }
+
+    return [PSCustomObject]@{
+        RunRoot = $runRoot
+        BuildPath = $build
+        LogPath = $log
+    }
 }
 
-$p3 = Find-LatestRun -Root $P3Root -BuildName "p3-Basic" -LogName "p3-Basic.log"
-$p5 = Find-LatestRun -Root $P5Root -BuildName "p5a-Basic" -LogName "p5a-Basic.log"
+Test-CompileDbParser
 
-if ($null -eq $p3) { throw "No se encontro P3 determinista valido." }
-if ($null -eq $p5) { throw "No se encontro P5A existente para inspeccionar." }
+$p3 = Get-ExistingRun -Root $P3Root -RunId $P3RunId -BuildName "p3-Basic" -LogName "p3-Basic.log"
+$p5 = Get-ExistingRun -Root $P5Root -RunId $P5RunId -BuildName "p5a-Basic" -LogName "p5a-Basic.log"
 
 $p3m = Get-CompileDbMetrics -BuildPath $p3.BuildPath
 $p5m = Get-CompileDbMetrics -BuildPath $p5.BuildPath
