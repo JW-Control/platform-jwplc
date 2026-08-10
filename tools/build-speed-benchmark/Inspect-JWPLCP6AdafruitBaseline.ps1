@@ -309,14 +309,14 @@ foreach ($audit in $audits)
     [void]$report.Add("")
     [void]$report.Add(("## {0}" -f $audit.Key))
     [void]$report.Add("")
-    [void]$report.Add(("Fuentes compilados: `{0}`" -f ($audit.CompiledSources -join "`, `")))
+    [void]$report.Add(("Fuentes compilados: {0}" -f ($audit.CompiledSources -join ", ")))
     [void]$report.Add("")
-    [void]$report.Add(("SHA-256 library.properties: `{0}`" -f $audit.PropertiesHash))
+    [void]$report.Add(("SHA-256 library.properties: {0}" -f $audit.PropertiesHash))
     [void]$report.Add("")
     [void]$report.Add("SHA-256 fuentes:")
     foreach ($hashLine in $audit.SourceHashes)
     {
-        [void]$report.Add(("- `{0}`" -f $hashLine))
+        [void]$report.Add(("- {0}" -f $hashLine))
     }
 }
 
