@@ -70,21 +70,58 @@ Con esta arquitectura Arduino IDE puede seguir usando/cacheando el pequeño `cor
 - inclusión explícita de `precompiled/core/JWPLCBASIC/core.a` dentro de `--start-group`;
 - creación correcta del `.elf` y `.bin`;
 - app binaria de `404912 B`;
-- subida física por `COM14` a `921600`;
+- subida física a `921600`;
 - verificación de hashes de flash y reset final satisfactorio.
+
+El mecanismo P2 dejó de depender de `boards.local.txt`: la configuración quedó promovida a `JWPLC/2.1.0/boards.txt` y el archive `JWPLC/2.1.0/precompiled/core/JWPLCBASIC/core.a` quedó versionado en el package. `JWPLC Basic Core` sigue pendiente de un archive propio y no reutiliza el de Basic.
 
 ### Tiempos observados en Arduino IDE
 
-Medición manual de experiencia real con sketch vacío y botón **Subir**:
+Las mediciones manuales de experiencia real distinguen dos hitos:
 
-| Caso observado | Tiempo total aproximado |
+1. **Compilación**: desde pulsar **Subir** hasta que Arduino IDE termina la fase de compilación y comienza la conexión/subida (`Compilación completada` / `Connecting...`). Esta es la métrica principal de velocidad percibida de compilación.
+2. **Total end-to-end**: desde pulsar **Subir** hasta `Hard resetting via RTS pin...`. Se conserva como referencia secundaria porque la fase física de flash es prácticamente estable entre runs.
+
+#### PC principal
+
+| Caso observado | Compilación aproximada |
 |---|---:|
-| Primera carga / entorno sin build reutilizable del sketch | ~1:05 (`65 s`) |
-| Siguiente carga / incremental | ~0:19 (`19 s`) |
+| Primera carga / entorno sin build reutilizable del sketch | ~65 s |
+| Siguiente carga / incremental | ~17–19 s |
 
-Estos valores incluyen el flujo de Arduino IDE y la subida física; **no reemplazan** el cold controlado de `67.322 s` obtenido con `arduino-cli --clean`. Se registran como métrica de experiencia de usuario, no como benchmark cold comparable uno-a-uno con la tabla principal.
+Estos tiempos son observacionales de Arduino IDE y no sustituyen el cold controlado de `67.322 s` obtenido con `arduino-cli --clean`.
 
-Estado P2 para `JWPLC Basic`: **compatibilidad con Arduino IDE validada físicamente** usando enlace explícito del core precompilado. Antes de convertir el piloto en configuración publicada se debe versionar el archive requerido junto con la configuración oficial y validar un archive separado para `JWPLC Basic Core`.
+#### Segundo equipo — laptop de validación cruzada
+
+Hardware reportado:
+
+- Intel Core i5-13420H;
+- 15.7 GB de RAM;
+- SSD NVMe;
+- Intel UHD Graphics.
+
+Arduino IDE 2.3.10, mismo `jwplc_local:esp32:jwplcbasic`, sketch vacío y package obtenido desde la rama versionada.
+
+| Run | Compilación | Total hasta `Hard resetting via RTS pin...` |
+|---|---:|---:|
+| Primera carga | 1:35 (95 s) | 1:43 (103 s) |
+| Incremental 1 | 8 s | 16 s |
+| Incremental 2 | 9 s | 16 s |
+| Incremental 3 | 8 s | 15 s |
+
+La primera carga del segundo equipo es más lenta que en la PC principal, coherente con la creación inicial de caches y objetos todavía compilados desde fuente. En cambio, las tres cargas incrementales convergen a **8–9 s de compilación** y **15–16 s end-to-end**, confirmando que Arduino reutiliza correctamente los objetos no modificados y los archives precompilados.
+
+El log de la laptop confirmó además:
+
+- `FQBN: jwplc_local:esp32:jwplcbasic`;
+- `Using core 'jwcontrol_p2'`;
+- reutilización de dependencias y objetos cacheados;
+- uso de todos los archives P1–P6 esperados;
+- enlace simultáneo del core stub cacheado y `precompiled/core/JWPLCBASIC/core.a`;
+- app de `404912 B`;
+- carga física satisfactoria y reset por RTS.
+
+Esta validación cruzada demuestra que el estado optimizado ya versionado es reproducible en un segundo equipo y no depende de archives locales no publicados.
 
 ## Runs preservados principales
 
@@ -128,11 +165,10 @@ P6 queda cerrado con un cold candidato de **67.322 s**, frente a **136.509 s** d
 
 Esto representa aproximadamente **50.68 % menos tiempo frente al baseline oficial** y **54.71 % menos frente al baseline local pre-D1**, manteniendo el autoload normal del JWPLC Basic.
 
-La validación estructural P6 ya cuenta además con una validación física real de compilación + subida desde Arduino IDE para el mecanismo P2 corregido. Antes del cierre de alpha debe mantenerse como gate funcional una prueba física de TFT y periféricos integrados bajo la configuración final.
+La validación estructural P6 cuenta ahora con validación física real en Arduino IDE en dos equipos distintos para el mecanismo P2 ya promovido a configuración oficial de `JWPLC Basic`. Antes del cierre de alpha debe mantenerse como gate funcional una prueba física de TFT y periféricos integrados bajo la configuración final.
 
 ## Pendientes de cierre de alpha relacionados
 
-- Promover P2 desde el overlay piloto a configuración oficial sólo junto con el archive requerido versionado en el package.
 - Generar/validar el archive de core para `JWPLC Basic Core`, separado del archive de `JWPLC Basic`.
 - Dejar explícita la decisión o pendiente sobre configuración final, incluyendo Flash Frequency.
 - Auditar `#ifdef JWPLC_HAS_*` frente a `#if JWPLC_HAS_*`.
