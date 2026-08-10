@@ -21,6 +21,9 @@ $EthernetArchivePath = Join-Path $EthernetRoot "src\esp32\libJWPLC_Ethernet_W5x0
 $DisplayArchivePath = Join-Path $PlatformRoot "libraries\JWPLC_Display\src\esp32\libJWPLC_Display.a"
 $CoreArchivePath = Join-Path $PlatformRoot "precompiled\core\JWPLCBASIC\core.a"
 $BoardsLocalPath = Join-Path $PlatformRoot "boards.local.txt"
+$P3RunRoot = Join-Path $ScriptRoot "p3-deterministic-work\20260809_190321"
+$P3BuildPath = Join-Path $P3RunRoot "p3-Basic"
+$P3LogPath = Join-Path $P3RunRoot "p3-Basic.log"
 
 function ConvertTo-EntryList
 {
@@ -120,6 +123,144 @@ function Invoke-NativeCaptured
     }
 }
 
+function Resolve-NativeToolPath
+{
+    param([Parameter(Mandatory = $true)][string]$Candidate)
+
+    if ([string]::IsNullOrWhiteSpace($Candidate)) { return $null }
+    $normalized = $Candidate.Trim().Trim('"')
+    while ($normalized.Contains("\\"))
+    {
+        $normalized = $normalized.Replace("\\", "\")
+    }
+
+    $candidates = New-Object System.Collections.Generic.List[string]
+    $candidates.Add($normalized)
+    if (-not [System.IO.Path]::HasExtension($normalized))
+    {
+        $candidates.Add($normalized + ".exe")
+        $candidates.Add($normalized + ".cmd")
+        $candidates.Add($normalized + ".bat")
+    }
+
+    foreach ($path in $candidates)
+    {
+        if (Test-Path -LiteralPath $path)
+        {
+            return (Resolve-Path -LiteralPath $path).Path
+        }
+    }
+    return $null
+}
+
+function Find-Archiver
+{
+    param([Parameter(Mandatory = $true)][string]$LogPath)
+
+    if (-not (Test-Path -LiteralPath $LogPath))
+    {
+        throw "No existe log P3 validado: $LogPath"
+    }
+
+    $lines = @(Get-Content -LiteralPath $LogPath)
+    foreach ($line in $lines)
+    {
+        $candidate = $null
+        if ($line -match '"(?<exe>[^"]*xtensa-esp32-elf-gcc-ar(?:\.exe)?)"')
+        {
+            $candidate = $Matches["exe"]
+        }
+        elseif ($line -match '(?<exe>\S*xtensa-esp32-elf-gcc-ar(?:\.exe)?)\s+(?:cr|crs)\b')
+        {
+            $candidate = $Matches["exe"]
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($candidate))
+        {
+            $resolved = Resolve-NativeToolPath -Candidate $candidate
+            if (-not [string]::IsNullOrWhiteSpace($resolved)) { return $resolved }
+        }
+    }
+
+    foreach ($line in $lines)
+    {
+        $compilerCandidate = $null
+        if ($line -match '"(?<exe>[^"]*xtensa-esp32-elf-g\+\+(?:\.exe)?)"')
+        {
+            $compilerCandidate = $Matches["exe"]
+        }
+        elseif ($line -match '(?<exe>\S*xtensa-esp32-elf-g\+\+(?:\.exe)?)\s')
+        {
+            $compilerCandidate = $Matches["exe"]
+        }
+
+        if ([string]::IsNullOrWhiteSpace($compilerCandidate)) { continue }
+        $compiler = Resolve-NativeToolPath -Candidate $compilerCandidate
+        if ([string]::IsNullOrWhiteSpace($compiler)) { continue }
+
+        $toolDir = Split-Path -Parent $compiler
+        foreach ($leaf in @("xtensa-esp32-elf-gcc-ar.exe", "xtensa-esp32-elf-gcc-ar"))
+        {
+            $sibling = Join-Path $toolDir $leaf
+            if (Test-Path -LiteralPath $sibling)
+            {
+                return (Resolve-Path -LiteralPath $sibling).Path
+            }
+        }
+    }
+
+    throw "No se pudo localizar xtensa-esp32-elf-gcc-ar desde el log P3 validado."
+}
+
+function Ensure-EthernetArchive
+{
+    if (Test-Path -LiteralPath $EthernetArchivePath)
+    {
+        Write-Host ("Archive Ethernet existente: {0} bytes" -f (Get-Item -LiteralPath $EthernetArchivePath).Length) -ForegroundColor Green
+        return
+    }
+
+    $ethernetObjectsRoot = Join-Path $P3BuildPath "libraries\JWPLC_Ethernet_W5x00_Backend"
+    if (-not (Test-Path -LiteralPath $ethernetObjectsRoot))
+    {
+        throw "No existe el arbol de objetos Ethernet del P3 validado: $ethernetObjectsRoot"
+    }
+
+    $objects = @(Get-ChildItem -LiteralPath $ethernetObjectsRoot -Recurse -File -Filter "*.o" | Sort-Object FullName)
+    if ($objects.Count -ne 8)
+    {
+        throw ("El P3 validado debe aportar exactamente 8 objetos Ethernet; encontrados={0}." -f $objects.Count)
+    }
+
+    $archiver = Find-Archiver -LogPath $P3LogPath
+    $archiveDir = Split-Path -Parent $EthernetArchivePath
+    New-Item -ItemType Directory -Path $archiveDir -Force | Out-Null
+
+    Write-Host "Archive Ethernet no esta presente; se regenerara desde los 8 objetos del P3 validado (sin compilar)." -ForegroundColor Yellow
+    $objectPaths = @($objects | ForEach-Object { $_.FullName })
+    $archiveResult = Invoke-NativeCaptured -FilePath $archiver -Arguments (@("crs", $EthernetArchivePath) + $objectPaths)
+    if ($archiveResult.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $EthernetArchivePath))
+    {
+        throw "No se pudo regenerar libJWPLC_Ethernet_W5x00_Backend.a."
+    }
+
+    $membersResult = Invoke-NativeCaptured -FilePath $archiver -Arguments @("t", $EthernetArchivePath)
+    if ($membersResult.ExitCode -ne 0)
+    {
+        throw "No se pudo inspeccionar el archive Ethernet regenerado."
+    }
+
+    $members = @($membersResult.Output | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -ne "" })
+    if ($members.Count -ne 8 -or
+        -not ($members -contains "Ethernet.cpp.o") -or
+        -not ($members -contains "w5100.cpp.o"))
+    {
+        throw ("Archive Ethernet regenerado con miembros inesperados. Total={0}, Ethernet.cpp.o={1}, w5100.cpp.o={2}" -f $members.Count, ($members -contains "Ethernet.cpp.o"), ($members -contains "w5100.cpp.o"))
+    }
+
+    Write-Host ("Archive Ethernet regenerado: {0} bytes | miembros=8 | Ethernet.cpp.o=True | w5100.cpp.o=True" -f (Get-Item -LiteralPath $EthernetArchivePath).Length) -ForegroundColor Green
+}
+
 function Get-AppBin
 {
     param([Parameter(Mandatory = $true)][string]$BuildPath)
@@ -144,13 +285,27 @@ Write-Host ""
 Test-CompileDbParser
 Write-Host "Self-test parser JSON: OK" -ForegroundColor Green
 
-if ($null -eq (Get-Command $ArduinoCli -ErrorAction SilentlyContinue))
-{
-    throw "No se encontro arduino-cli."
-}
 if (-not (Test-Path -LiteralPath $InspectorPath))
 {
     throw "Falta inspector P5A: $InspectorPath"
+}
+
+Write-Host "Ejecutando quality gate P5A existente (sin compilar)..." -ForegroundColor Cyan
+& $InspectorPath
+Write-Host "Quality gate P5A existente: OK" -ForegroundColor Green
+
+if (-not $RunCold)
+{
+    Write-Host ""
+    Write-Host "VALIDACION SOLAMENTE: OK. No se ejecuto ninguna compilacion." -ForegroundColor Green
+    Write-Host "El archive Ethernet actual no es requisito para inspeccionar el run historico validado." -ForegroundColor DarkGray
+    Write-Host "Para ejecutar un unico cold medido, vuelve a lanzar con -RunCold." -ForegroundColor DarkGray
+    return
+}
+
+if ($null -eq (Get-Command $ArduinoCli -ErrorAction SilentlyContinue))
+{
+    throw "No se encontro arduino-cli."
 }
 if (-not (Test-Path -LiteralPath $BoardsLocalPath))
 {
@@ -164,9 +319,13 @@ if (-not (Test-Path -LiteralPath $DisplayArchivePath))
 {
     throw "Falta Display archive P3: $DisplayArchivePath"
 }
-if (-not (Test-Path -LiteralPath $EthernetArchivePath))
+if (-not (Test-Path -LiteralPath $P3BuildPath))
 {
-    throw "Falta archive Ethernet P5A: $EthernetArchivePath"
+    throw "Falta build P3 validado: $P3BuildPath"
+}
+if (-not (Test-Path -LiteralPath $P3LogPath))
+{
+    throw "Falta log P3 validado: $P3LogPath"
 }
 
 $ethernetPropertiesPath = Join-Path $EthernetRoot "library.properties"
@@ -175,17 +334,7 @@ if ((Get-Content -LiteralPath $ethernetPropertiesPath -Raw) -notmatch '(?m)^prec
     throw "Backend Ethernet no declara precompiled=full."
 }
 
-Write-Host "Ejecutando quality gate P5A existente (sin compilar)..." -ForegroundColor Cyan
-& $InspectorPath
-Write-Host "Quality gate P5A existente: OK" -ForegroundColor Green
-
-if (-not $RunCold)
-{
-    Write-Host ""
-    Write-Host "VALIDACION SOLAMENTE: OK. No se ejecuto ninguna compilacion." -ForegroundColor Green
-    Write-Host "Para ejecutar un unico cold medido, vuelve a lanzar con -RunCold." -ForegroundColor DarkGray
-    return
-}
+Ensure-EthernetArchive
 
 $runId = (Get-Date).ToString("yyyyMMdd_HHmmss")
 $runRoot = Join-Path $OutputRoot $runId
