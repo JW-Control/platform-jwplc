@@ -285,22 +285,63 @@ P7 añade:
 - `FS`: 2 miembros, ambos requeridos por el firmware actual;
 - `SD`: 3 miembros, los tres requeridos por el firmware actual.
 
+P8 añade:
+
+- `Wire` como `precompiled=full`, con source fallback preservado;
+- `SPI` como `precompiled=full`, con source fallback preservado;
+- corrección de compatibilidad en `Wire.begin()` para el caso en que JWPLC ya inicializó el HAL I2C;
+- gate físico Wire TX/RX/repeated-start + RTC: PASS;
+- gate físico SPI + microSD: PASS;
+- compilación/link cross-board Basic / Basic Core / ESP32 genérico: PASS.
+
 Los gates estructurales verificaron selección de librerías, símbolos globales, mapa de enlace y objetos externos relevantes; no se usa igualdad byte-a-byte del `.bin` como requisito cuando cambia la semántica de extracción de archives.
 
 ## Conclusión de esta fase
 
-P7 FS+SD queda cerrado e integrado en `v2.1.0-alpha.4/feature/build-speed-cache`.
+P7 FS+SD permanece cerrado e integrado.
+
+P8 Wire+SPI queda cerrado e integrado en `v2.1.0-alpha.4/feature/build-speed-cache` mediante:
+
+```txt
+82fe109 perf(build): precompilar Wire y SPI para P8
+```
 
 En la laptop de validación, el cold normal baja de **107.170 s a 63.870 s**, una mejora de **40.40 %**, mientras los TUs compilados desde fuente bajan de **12 a 7**. La mejora conserva el autoload normal y pasó gate estructural, compilación/subida real en Arduino IDE y prueba física de microSD con write/read/verify/remove.
 
-El estado P6 de la PC principal permanece como referencia histórica de **67.322 s**. Debe ejecutarse un benchmark P7 equivalente en la PC principal si se desea obtener una comparación acumulada P6 -> P7 dentro de ese host.
+La comparación directa A-B-B-A de P8 en la laptop, conectada al cargador, dio:
+
+- Wire + SPI source-only: **64.885 s** promedio;
+- P8 precompilado: **59.901 s** promedio;
+- mejora: **4.985 s / 7.68 %**;
+- TUs desde fuente: **7 -> 5**.
+
+El estado P6 de la PC principal permanece como referencia histórica de **67.322 s**. Debe ejecutarse un benchmark P8 equivalente en la PC principal si se desea obtener una comparación formal dentro de ese host.
+
+## Contrato final de autoload — cierre Alpha4
+
+Después de P8 se volvió a ejecutar `03_autoload_contract` sobre `jwplc_local:esp32:jwplcbasic`.
+
+Resultado:
+
+```txt
+Exit = 0
+ALPHA4_AUTOLOAD_CONTRACT=PASS
+Sketch uses 394709 bytes
+Global variables use 27612 bytes
+```
+
+El build mantuvo visibles las APIs públicas JWPLC sin includes manuales y resolvió correctamente Display, RTC, FRAM, SD, botonera, Ethernet, RS-485 y Modbus RTU junto al stack precompilado P1–P8.
+
+Como referencia de experiencia real en Arduino IDE sobre la PC principal con P8 se observaron aproximadamente **57 s** para una primera compilación y **19 s** para una segunda compilación/incremental.
+
+El contrato de autoload queda cerrado a nivel de compilación/link. El gate físico integral permanece como validación independiente.
 
 ## Pendientes de cierre de alpha relacionados
 
 - Generar/validar el archive de core para `JWPLC Basic Core`, separado del archive de `JWPLC Basic`.
 - Dejar explícita la decisión o pendiente sobre configuración final, incluyendo Flash Frequency.
 - Auditar `#ifdef JWPLC_HAS_*` frente a `#if JWPLC_HAS_*`.
-- Ejecutar `03_autoload_contract` final.
+- Contrato final `03_autoload_contract`: **CERRADO / PASS** después de P8.
 - Ejecutar gate físico final de TFT/periféricos integrados.
 - Corregir gates antiguos de igualdad cruda de payload que ya no representan correctamente la semántica de archives.
-- Opcional para comparación cruzada: repetir P7 cold controlado en la PC principal.
+- Opcional para comparación cruzada: repetir P8 cold controlado en la PC principal.
