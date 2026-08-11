@@ -98,7 +98,15 @@ uint8_t W5100Class::init(void)
 	// case maximum 560 ms pulse length.  This delay is meant to wait
 	// until the reset pulse is ended.  If your hardware has a shorter
 	// reset time, this can be edited or removed.
-	delay(560);
+	// JWPLC PATCH:
+// JWPLC Basic ya realiza un reset explicito del W5500 antes
+// de adquirir el mutex SPI compartido (LOW 10 ms, HIGH y
+// espera 80 ms). El delay upstream de 560 ms esta pensado
+// para shields genericos con CAT811/MAX811.
+//
+// Mantener esa espera aqui retiene innecesariamente el mutex
+// SPI durante ~560 ms y provoca timeouts en FRAM y microSD.
+// No se requiere espera adicional en el backend JWPLC.
 	//Serial.println("w5100 init");
 
 	SPI.begin();
