@@ -19,4 +19,5 @@
 # placa P2. recipe.c.combine.pattern ya coloca {build.extra_libs} dentro del
 # --start-group del linker.
 
-compiler.cpreprocessor.flags="@{compiler.sdk.path}/flags/defines" "-I{build.source.path}" -iprefix "{compiler.sdk.path}/include/" "@{compiler.sdk.path}/flags/includes" "-I{compiler.sdk.path}/{build.memory_type}/include" "-I{runtime.platform.path}/cores/jwcontrol" "-I{runtime.platform.path}/cores/jwcontrol/peripherals/include" -DJWPLC_LIBRARY_DISCOVERY_PHASE={build.library_discovery_phase}
+build.jwplc_source_core_include=
+compiler.cpreprocessor.flags="@{compiler.sdk.path}/flags/defines" "-I{build.source.path}" -iprefix "{compiler.sdk.path}/include/" "@{compiler.sdk.path}/flags/includes" "-I{compiler.sdk.path}/{build.memory_type}/include" {build.jwplc_source_core_include} "-I{runtime.platform.path}/cores/jwcontrol/peripherals/include" -DJWPLC_LIBRARY_DISCOVERY_PHASE={build.library_discovery_phase}
