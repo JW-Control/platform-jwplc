@@ -44,6 +44,7 @@ arduino-cli compile -b jwplc_local:esp32:jwplcbasic -j 0 -v --build-path <BUILD_
 | **P6C-2 / P6D full Adafruit stack — PC principal** | **67.322 s** | **12** | **29** | **404912 B bin** | **Cerrado / validado estructuralmente.** |
 | **P6 baseline — laptop** | **107.170 s** | **12** | — | **404912 B bin** | Baseline del segundo host previo a P7. |
 | **P7 FS+SD precompiled — laptop** | **63.870 s** | **7** | — | **404761 B app / 404912 B bin** | **Cerrado: CLI + mapa + Arduino IDE + microSD física PASS.** |
+| **P8 Wire+SPI precompiled — laptop** | **59.901 s promedio P8 (A-B-B-A)** | **5** | — | — | **Aprobado: -4.985 s / -7.68 % vs source-only; físico + cross-board PASS.** |
 
 ## Validación real en Arduino IDE — P2 compatible con caché
 
@@ -190,6 +191,50 @@ Integración versionada:
 1a60176 perf(build): precompilar FS y SD para P7
 ```
 
+## P8 — Wire + SPI precompilados
+
+P8 añade `precompiled=full` a `Wire` y `SPI`, conservando el source fallback.
+
+Comparación cold directa A-B-B-A en la laptop conectada al cargador:
+
+| Configuración | Promedio |
+|---|---:|
+| Wire + SPI source-only | 64.885 s |
+| P8 precompilado | **59.901 s** |
+
+Ganancia: **4.985 s / 7.68 %**.
+
+Los TUs restantes bajan de **7 a 5**.
+
+Durante P8 se detectó una incompatibilidad preexistente de `Wire.begin()` cuando JWPLC ya había inicializado el HAL I2C. El fallo se reprodujo también con Wire source-only, descartando la precompilación como causa. Se corrigió reservando los buffers internos antes de retornar por `i2cIsInit()`.
+
+Archives finales:
+
+| Archive | Bytes | SHA-256 |
+|---|---:|---|
+| `libWire.a` | 166980 | `A864851EBFCB8CD3FEE55D3D7834B81254AD4EBE0D75F6ED9EBC846355F9C4AA` |
+| `libSPI.a` | 79714 | `F9883DFD39CA299F7CB76673744F8F0DE4EA01C5A53F186A3841199FCA289245` |
+
+Gate físico combinado:
+
+```txt
+P8_WIRE_GATE=PASS
+P8_SPI_GATE=PASS
+P8_WIRE_SPI_GATE=PASS
+```
+
+También pasaron compilación/link con P8 activo:
+
+```txt
+jwplc_local:esp32:jwplcbasic      -> PASS
+jwplc_local:esp32:jwplcbasiccore  -> PASS
+jwplc_local:esp32:esp32            -> PASS
+```
+
+Durante ese gate se encontró una regresión independiente del aislamiento P2. Quedó corregida separadamente en `d971f81 fix(build): aislar include del core P2 por placa`.
+
+P8 queda aprobado para adopción. Los benchmarks formales de esta laptop deben realizarse conectada al cargador, ya que se comprobó una degradación fuerte de rendimiento funcionando en batería.
+
 ## Runs preservados principales
 
 - P3 determinista: `tools/build-speed-benchmark/p3-deterministic-work/20260809_190321/p3-Basic`
@@ -202,6 +247,10 @@ Integración versionada:
 - P7 perfil baseline laptop: `tools/build-speed-benchmark/compile-profile-work/20260810_105835`
 - P7 FS+SD: `tools/build-speed-benchmark/compile-profile-work/20260810_114917`
 - P7 generación/verificación FS+SD: `tools/build-speed-benchmark/precompile-work/20260810_112117`
+- P8 perfil preliminar Wire+SPI: `tools/build-speed-benchmark/compile-profile-work/20260810_153616`
+- P8 rebuild Wire corregido: `tools/build-speed-benchmark/precompile-work/20260810_174435`
+- P8 perfil controlado precompiled: `tools/build-speed-benchmark/compile-profile-work/20260810_191329`
+- P8 control source-only con cargador: `tools/build-speed-benchmark/compile-profile-work/20260810_192855`
 
 ## Reducción acumulada hasta P6 en PC principal
 
@@ -221,7 +270,7 @@ Tomando `67.322 s` como cold final P6 de la PC principal:
 
 No se calcula una reducción acumulada Alpha3 -> P7 usando `63.870 s`, porque P7 fue medido en un host diferente. La mejora P7 válida es **107.170 -> 63.870 s (40.40 %)** dentro de la laptop.
 
-## Estado técnico del stack precompilado al cierre P7
+## Estado técnico del stack precompilado al cierre P8
 
 Además de P1–P6, P7 incorpora `FS` y `SD` como `precompiled=full` con source fallback preservado.
 

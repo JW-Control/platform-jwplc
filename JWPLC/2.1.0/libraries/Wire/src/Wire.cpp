@@ -296,13 +296,18 @@ bool TwoWire::begin(int sdaPin, int sclPin, uint32_t frequency) {
     goto end;
   }
 #endif /* SOC_I2C_SUPPORT_SLAVE */
+
+  // JWPLC compatibility:
+  // El core puede inicializar el HAL I2C antes de que el usuario llame Wire.begin().
+  // Wire necesita reservar sus buffers aunque el bus ya se encuentre activo.
+  if (!allocateWireBuffer()) {
+    // failed! Error Message already issued
+    goto end;
+  }
+
   if (i2cIsInit(num)) {
     log_w("Bus already started in Master Mode.");
     started = true;
-    goto end;
-  }
-  if (!allocateWireBuffer()) {
-    // failed! Error Message already issued
     goto end;
   }
   if (!initPins(sdaPin, sclPin)) {
