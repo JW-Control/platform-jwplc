@@ -69,8 +69,13 @@ upload.speed=921600
 
 `JWPLC Basic Core` usa actualmente los mismos parámetros de CPU/flash/boot/particiones, aunque mantiene un conjunto de periféricos distinto.
 
-Esta configuración es la configuración **actual de trabajo y validación de alpha4**. No se declara aquí como configuración definitiva universal del producto; en particular, la política final de Flash Frequency sigue siendo una decisión que debe quedar explícitamente cerrada o registrada como pendiente antes de publicar un bootloader definitivo.
+Esta configuración queda cerrada para el hardware JWPLC Basic v2.0 validado en alpha4.
 
+En particular:
+
+- `FlashFreq=40 MHz` queda fijado para v2.0.
+- No se abre en alpha4 una migración a 80 MHz.
+- La evaluación de 80 MHz se difiere a la revisión v2.1, donde deberá existir una validación específica del nuevo perfil de flash/boot.
 ## Relación con las optimizaciones de alpha4
 
 Alpha4 redujo el cold candidato de JWPLC Basic hasta:
@@ -87,28 +92,160 @@ Comparado con un cold actual del orden de 67 s, el beneficio histórico de aprox
 
 La rama de alpha4 no modifica `JWPLC/2.1.0/platform.txt`; mantiene la receta base de generación/subida del bootloader. Las modificaciones de build se concentran en `platform.local.txt`, discovery y archives precompilados.
 
+## Revisión B1-B3 de alpha4
+
+Durante el cierre físico de alpha4 se reabrió la auditoría porque el árbol contenía:
+
+```txt
+JWPLC/2.1.0/variants/jwplcbasic/bootloader.bin
+```
+
+aunque la decisión documentada era mantener generación automática.
+
+### B1 - equivalencia contra generación actual
+
+Se ocultó temporalmente el `bootloader.bin` de variante y se ejecutó una compilación limpia con la configuración normal de `JWPLC Basic`.
+
+Resultado generado:
+
+```txt
+Fuente: bootloader_qio_40m.elf
+Tamaño: 25072 bytes
+SHA-256: 68263F0CD7FE3306DDA2EC64AAF61C8E8E27091F6CA0E0C3FE30D7A29FF80931
+Flash mode: DIO
+Flash frequency: 40 MHz
+Flash size: 4 MB
+```
+
+Este SHA coincide exactamente con el bootloader ensayado históricamente en alpha30.
+
+El archivo que estaba versionado en la variante era distinto:
+
+```txt
+Tamaño: 25024 bytes
+SHA-256: 1191EB3D913873C709C2FA100F829F4B824971000C0B8831B33F05F98BE3282A
+```
+
+### B2 - inspección del binario versionado
+
+`esptool image-info` confirmó:
+
+| Parámetro | Versionado | Generado por configuración actual |
+|---|---:|---:|
+| Target | ESP32 | ESP32 |
+| Flash size | 4 MB | 4 MB |
+| Flash mode | DIO | DIO |
+| Flash frequency | **80 MHz** | **40 MHz** |
+| ESP-IDF | v5.5.4 | v5.5.4 |
+
+Por tanto, el archivo versionado no correspondía al `FlashFreq=40 MHz` fijado para JWPLC Basic v2.0.
+
+El historial mostró que el archivo fue agregado durante alpha30 y posteriormente movido durante la reorganización de alpha32.
+
+### B3 - validación física del bootloader de 40 MHz
+
+Se generó y cargó físicamente el bootloader reproducible:
+
+```txt
+SHA-256:
+68263F0CD7FE3306DDA2EC64AAF61C8E8E27091F6CA0E0C3FE30D7A29FF80931
+```
+
+manteniendo sin cambios:
+
+```txt
+Flash size = 4 MB
+Flash mode = DIO
+Flash frequency = 40 MHz
+build.boot = QIO
+Partition = huge_app
+```
+
+El gate físico local terminó:
+
+```txt
+ALPHA4_DISPLAY_READY=PASS
+ALPHA4_RTC=PASS
+ALPHA4_FRAM=PASS
+ALPHA4_SD=PASS
+ALPHA4_BUTTONS=PASS
+ALPHA4_INPUTS=PASS
+ALPHA4_OUTPUTS=PASS
+ALPHA4_DISPLAY_VISUAL=PASS
+ALPHA4_LOCAL_PHYSICAL_GATE=PASS
+```
+
+Posteriormente se retiró el `bootloader.bin` versionado y se realizó una compilación limpia normal.
+
+Resultado:
+
+```txt
+COMPILE_EXIT=0
+GENERATED_SIZE=25072
+GENERATED_SHA256=68263F0CD7FE3306DDA2EC64AAF61C8E8E27091F6CA0E0C3FE30D7A29FF80931
+BOOTLOADER_REMOVAL_GATE=PASS
+```
+
+La receta volvió correctamente a la generación automática desde:
+
+```txt
+bootloader_qio_40m.elf
+```
+
 ## Decisión alpha4
 
 `bootloader.bin` precompilado queda **CERRADO** con la siguiente decisión:
 
-- **No publicar `bootloader.bin` como definitivo en v2.1.0-alpha.4.**
-- Mantener la generación normal del bootloader según la configuración seleccionada por el package/core.
-- No introducir una nueva optimización de `platform.txt` para forzar un bootloader fijo.
-- No repetir ahora un cold específico de bootloader: existe un A/B físico previo y alpha4 no cambió la receta base de `platform.txt`.
-- Si en una release futura se desea publicar un bootloader precompilado, primero deben quedar fijados formalmente FlashFreq, FlashMode, `build.boot`, FlashSize, target, SDK/core y dirección, y luego regenerar/validar el binario para esa configuración exacta.
-- El SHA histórico de alpha30 se conserva únicamente como evidencia del ensayo; **no debe tratarse como binario definitivo de alpha4**.
+- **Eliminar `JWPLC/2.1.0/variants/jwplcbasic/bootloader.bin` del package.**
+- No publicar un `bootloader.bin` precompilado como artefacto definitivo de alpha4.
+- Mantener la generación normal del bootloader desde el ELF del SDK correspondiente.
+- Fijar para JWPLC Basic v2.0:
+  - CPU 240 MHz.
+  - Flash 4 MB.
+  - FlashFreq 40 MHz.
+  - FlashMode DIO.
+  - `build.boot=qio`.
+  - dirección de bootloader `0x1000`.
+- Mantener por ahora `huge_app` como baseline hasta cerrar por separado la evaluación de partición.
+- No introducir una optimización nueva de `platform.txt` para forzar un bootloader fijo.
+- Diferir la evaluación de FlashFreq 80 MHz a la revisión v2.1.
+- Si una release futura adopta un bootloader precompilado, deberá generarse y validarse para su combinación exacta de MCU, FlashFreq, FlashMode, `build.boot`, FlashSize, SDK/core y dirección.
 
 ## Motivo principal
 
-La optimización no justifica acoplar el package a un binario de arranque mientras la configuración final de producto todavía debe quedar explícitamente cerrada. La ganancia histórica fue pequeña/inconsistente y el costo de una incompatibilidad de bootloader es considerablemente mayor que esos segundos de ahorro.
+Aunque la configuración de flash/boot queda ahora fijada para JWPLC Basic v2.0, mantener un `bootloader.bin` precompilado no aporta una mejora de build suficientemente consistente como para justificar un artefacto adicional que pueda quedar desalineado respecto de `boards.txt`.
+
+La auditoría B1-B2 demostró precisamente ese riesgo: el archivo versionado utilizaba 80 MHz mientras la configuración efectiva del hardware v2.0 utiliza 40 MHz.
+
+B3 confirmó físicamente que el bootloader generado automáticamente desde `bootloader_qio_40m.elf`, con DIO / 40 MHz / 4 MB, arranca correctamente y mantiene operativo el conjunto de periféricos validado.
+
+Por ello, para alpha4 se prioriza una única fuente de verdad: la configuración de build. Un bootloader precompilado sólo deberá reconsiderarse en una revisión futura si existe una ventaja medible y se genera, versiona y valida específicamente para el perfil de hardware correspondiente.
 
 ## Conclusión final
 
 ```txt
 BOOTLOADER PRECOMPILADO: EVALUADO Y NO ADOPTADO EN v2.1.0-alpha.4.
-NO PUBLICAR bootloader.bin COMO DEFINITIVO.
-MANTENER GENERACIÓN NORMAL SEGÚN LA CONFIGURACIÓN DE BUILD.
-REABRIR SÓLO DESPUÉS DE FIJAR FORMALMENTE LA CONFIGURACIÓN FINAL DE FLASH/BOOT/SDK.
+
+BOOTLOADER.BIN DE VARIANTE A 80 MHz:
+RETIRADO POR NO CORRESPONDER A LA CONFIGURACIÓN FIJA DE v2.0.
+
+JWPLC BASIC v2.0:
+FLASHFREQ = 40 MHz.
+FLASHMODE = DIO.
+FLASH SIZE = 4 MB.
+BUILD.BOOT = QIO.
+
+BOOTLOADER:
+GENERACIÓN NORMAL DESDE bootloader_qio_40m.elf.
+
+SHA VALIDADO EN ALPHA4:
+68263F0CD7FE3306DDA2EC64AAF61C8E8E27091F6CA0E0C3FE30D7A29FF80931
+
+GATE FÍSICO B3 = PASS.
+GATE DE COMPILACIÓN SIN BOOTLOADER VERSIONADO = PASS.
+
+80 MHz:
+DIFERIDO PARA EVALUACIÓN EN v2.1.
 ```
 
-El siguiente pendiente recomendado es registrar por separado el estado de **configuración final**: qué valores se consideran cerrados para alpha4 y cuáles continúan explícitamente pendientes de decisión de producto.
+El siguiente pendiente de configuración es evaluar y cerrar la partición final de 4 MB para JWPLC Basic v2.0, manteniendo `huge_app` como baseline hasta que esa prueba sea completada.
