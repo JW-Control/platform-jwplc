@@ -5,19 +5,31 @@
 // JWPLC Display autoload marker
 // =====================================================
 //
-// Este header existe para que Arduino Builder detecte y compile
-// automaticamente la libreria JWPLC_Display cuando se usa una placa JWPLC.
+// Punto de entrada automatico del ecosistema JWPLC.
+// Durante library discovery debe permanecer liviano para evitar expandir
+// repetidamente los headers pesados del runtime y del display.
 //
-// Importante:
-// - No debe incluir JWPLC_Display.h.
-// - No debe incluir Adafruit_ST7789.h ni headers pesados del display.
-// - Si se incluye desde Arduino.h, un include pesado puede generar ciclos.
+// JWPLC_Display puede distribuirse como precompiled=full. En ese modo Arduino
+// no inspecciona los fuentes de la libreria para descubrir dependencias.
 //
-// Pero si debe exponer los perifericos globales livianos del ecosistema,
-// para que el sketch pueda usar JWPLC_RTC, JWPLC_FRAM y JWPLC_Buttons
-// sin includes manuales.
+// Para garantizar reproducibilidad, durante discovery se importan primero
+// marcadores exclusivos de las copias Adafruit bundled por JWPLC. Esto evita
+// que una libreria homonima instalada o modificada en el sketchbook tenga
+// prioridad sobre la copia validada con el package. Los marcadores son vacios:
+// no expanden API ni agregan codigo al firmware.
 
-#include <JWPLC_GlobalPeripherals.h>
+#ifndef JWPLC_LIBRARY_DISCOVERY_PHASE
+#define JWPLC_LIBRARY_DISCOVERY_PHASE 0
+#endif
+
 #include <JWPLC_Display_API.h>
+#include <JWPLC_GlobalPeripherals_Auto.h>
+
+#if JWPLC_LIBRARY_DISCOVERY_PHASE
+#include <JWPLC_Bundled_Adafruit_ST77xx.h>
+#include <JWPLC_Bundled_Adafruit_GFX.h>
+#include <JWPLC_Bundled_Adafruit_BusIO.h>
+#include <Adafruit_ST7789.h>
+#endif
 
 #endif // JWPLC_DISPLAY_AUTO_H
