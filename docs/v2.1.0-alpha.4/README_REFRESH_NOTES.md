@@ -1,43 +1,95 @@
 # Notas del refresh documental final de Alpha4
 
-Este archivo registra el criterio usado para actualizar la documentación general después de publicar y validar `v2.1.0-alpha.4`.
+Este archivo registra el criterio usado para actualizar el `README.md` principal después de publicar y validar `v2.1.0-alpha.4`.
 
 ## Objetivo
 
-Evitar que el `README.md` principal continúe mezclando:
+El README general debe cumplir dos funciones, en este orden:
 
-- estado estable `v2.0.0`;
-- estado de desarrollo Alpha3;
-- benchmarks históricos de alpha30;
-- configuración `huge_app` ya reemplazada en JWPLC Basic;
-- detalles de integración que cuentan con documentación específica propia.
+1. explicar con claridad qué aporta el package JWPLC a un usuario o cliente potencial;
+2. permitir que un desarrollador profundice en la implementación y validación sin convertir la portada del repositorio en un informe de ingeniería.
 
-## Criterio aplicado
+Por ello, la prioridad del README es mostrar:
 
-El README principal se mantiene como documento de entrada al repositorio y resume el estado vigente.
+- ventajas del package frente a trabajar con un core ESP32 genérico;
+- facilidad de instalación y programación;
+- periféricos integrados;
+- APIs de alto nivel;
+- comunicaciones industriales;
+- almacenamiento y HMI;
+- mejoras reales de cada release, especialmente la optimización de compilación de Alpha4;
+- estado de validación sobre hardware real.
 
-Se conservaron o actualizaron:
+## Estructura adoptada
 
-- canal estable público `v2.0.0`;
-- canal dev `v2.1.0-alpha.4`;
-- instalación por Boards Manager / Arduino CLI;
-- placas y FQBN;
-- configuración final de JWPLC Basic para Alpha4;
-- Max App de 4 MB;
-- rendimiento formal de compilación;
-- validación standalone posterior a publicación;
-- dependencias de Boards Manager;
-- librerías bundled/precompiladas y versiones observadas;
-- periféricos y APIs principales;
-- coexistencia SPI;
-- Display/botonera;
+La información se organiza en dos niveles.
+
+### Nivel principal — usuario / cliente / integrador
+
+Se muestran directamente:
+
+- qué aporta el package;
+- estado estable y PreRelease;
+- mejora de compilación de Alpha4;
+- instalación por Boards Manager;
+- placas disponibles;
+- E/S industriales;
+- Display y botonera;
+- RTC, FRAM y microSD;
 - Ethernet;
-- RS-485 / Modbus RTU;
-- decisiones de app-only, bootloader y OTA;
-- estado externo/opcional de OpenPLC;
-- gates físicos de Alpha4.
+- RS-485 y Modbus RTU;
+- librerías JWPLC con enlace a sus README;
+- OpenPLC como integración externa/opcional;
+- resumen de validaciones físicas.
 
-El detalle histórico sigue disponible en:
+### Nivel técnico — desarrolladores del package
+
+Los detalles de mantenimiento se conservan, pero quedan agrupados en secciones desplegables o documentos específicos:
+
+- configuración de flash y particionado;
+- `toolsDependencies` de Boards Manager;
+- estrategia de precompilación;
+- backend Ethernet W5x00;
+- SPI compartido;
+- app-only;
+- bootloader;
+- OTA;
+- evidencias completas de benchmark y gates.
+
+## Librerías
+
+Se restauraron en el README general las referencias directas a la documentación de las librerías principales.
+
+Librerías internas del package:
+
+- `JWPLC_Display`;
+- `JWPLC_Ethernet`;
+- `JWPLC_RS485`;
+- `JWPLC_ModbusRTU`.
+
+Librerías JW distribuibles:
+
+- `JW_FRAM`;
+- `JW_RTC`;
+- `JW_SD`;
+- `JW_MatrixButtons`;
+- `JW_DWIN_RS485` como complemento externo al runtime base.
+
+## Información corregida respecto al README anterior
+
+Se actualizaron datos que ya no representaban el estado vigente del package:
+
+- `v2.1.0-alpha.3` dejó de ser la PreRelease actual;
+- Alpha4 pasa a ser la PreRelease dev vigente;
+- `JWPLC Basic` ya no usa `huge_app` como partición por defecto en Alpha4;
+- el máximo de aplicación de JWPLC Basic pasa a `4,063,232 bytes`;
+- los tiempos preliminares de alpha30 se sustituyen por el resultado formal P8;
+- se registra la instalación standalone del package publicado;
+- el checklist de publicación de Alpha4 queda cerrado.
+
+## Documentación técnica complementaria
+
+El detalle histórico y de ingeniería continúa disponible en:
 
 ```txt
 tools/build-speed-benchmark/
@@ -46,24 +98,4 @@ docs/v2.1.0-alpha.4/
 JWPLC/Test_Codes/
 ```
 
-## Razón de la consolidación
-
-El README anterior superponía información de distintas etapas y todavía indicaba, entre otros puntos:
-
-- `v2.1.0-alpha.3` como estado de desarrollo actual;
-- `huge_app` como partición de JWPLC Basic;
-- máximo de aplicación de `3145728 bytes` para JWPLC Basic;
-- tiempos preliminares anteriores al resultado P8;
-- checklist de instalación que seguía esperando `huge_app`.
-
-Esos valores ya no representan el estado de Alpha4.
-
-La consolidación busca que el README responda primero a:
-
-1. qué versión es estable;
-2. cuál es la pre-release técnica vigente;
-3. cómo instalarla;
-4. cuál es la configuración real del board;
-5. qué optimización de compilación se logró;
-6. qué periféricos y dependencias siguen integrados;
-7. qué fue validado físicamente.
+De esta forma el README permanece útil como presentación del package, mientras la evidencia técnica completa sigue versionada y accesible para mantenimiento y auditoría.
