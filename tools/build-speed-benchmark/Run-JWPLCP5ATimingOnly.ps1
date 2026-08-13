@@ -1,0 +1,430 @@
+#requires -Version 7.4
+
+[CmdletBinding()]
+param(
+    [string]$ArduinoCli = "arduino-cli",
+    [int]$Jobs = 0,
+    [switch]$RunCold
+)
+
+Set-StrictMode -Version 2.0
+$ErrorActionPreference = "Stop"
+
+$ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$RepoRoot = [System.IO.Path]::GetFullPath((Join-Path $ScriptRoot "..\.."))
+$PlatformRoot = Join-Path $RepoRoot "JWPLC\2.1.0"
+$SketchPath = Join-Path $ScriptRoot "sketches\01_empty"
+$InspectorPath = Join-Path $ScriptRoot "Inspect-JWPLCP5AExistingRun.ps1"
+$OutputRoot = Join-Path $ScriptRoot "p5a-ethernet-work"
+$EthernetRoot = Join-Path $PlatformRoot "libraries\JWPLC_Ethernet_W5x00_Backend"
+$EthernetArchivePath = Join-Path $EthernetRoot "src\esp32\libJWPLC_Ethernet_W5x00_Backend.a"
+$DisplayArchivePath = Join-Path $PlatformRoot "libraries\JWPLC_Display\src\esp32\libJWPLC_Display.a"
+$CoreArchivePath = Join-Path $PlatformRoot "precompiled\core\JWPLCBASIC\core.a"
+$BoardsLocalPath = Join-Path $PlatformRoot "boards.local.txt"
+$P3RunRoot = Join-Path $ScriptRoot "p3-deterministic-work\20260809_190321"
+$P3BuildPath = Join-Path $P3RunRoot "p3-Basic"
+$P3LogPath = Join-Path $P3RunRoot "p3-Basic.log"
+
+function ConvertTo-EntryList
+{
+    param([Parameter(Mandatory = $true)]$Parsed)
+
+    $entries = New-Object System.Collections.Generic.List[object]
+    foreach ($entry in $Parsed)
+    {
+        [void]$entries.Add($entry)
+    }
+    return $entries
+}
+
+function Test-CompileDbParser
+{
+    $sample = '[{"file":"a.cpp"},{"file":"b.cpp"}]' | ConvertFrom-Json
+    $entries = ConvertTo-EntryList -Parsed $sample
+    if ($entries.Count -ne 2 -or [string]$entries[0].file -ne "a.cpp" -or [string]$entries[1].file -ne "b.cpp")
+    {
+        throw "Self-test del parser JSON fallo. No se ejecutara ningun cold."
+    }
+}
+
+function Get-CompileDbMetrics
+{
+    param([Parameter(Mandatory = $true)][string]$BuildPath)
+
+    $dbPath = Join-Path $BuildPath "compile_commands.json"
+    if (-not (Test-Path -LiteralPath $dbPath))
+    {
+        throw "No existe compile_commands.json: $dbPath"
+    }
+
+    $parsed = Get-Content -LiteralPath $dbPath -Raw | ConvertFrom-Json
+    $entries = ConvertTo-EntryList -Parsed $parsed
+    $files = @($entries | ForEach-Object { [string]$_.file })
+
+    return [PSCustomObject]@{
+        Compiles = $entries.Count
+        EthernetSource = @($files | Where-Object { $_ -match '[\\/]libraries[\\/]JWPLC_Ethernet_W5x00_Backend[\\/]' }).Count
+        DisplaySource = @($files | Where-Object { $_ -match '[\\/]libraries[\\/]JWPLC_Display[\\/]' }).Count
+        Stub = @($files | Where-Object { $_ -match '[\\/]cores[\\/]jwcontrol_p2[\\/]p2_core_stub\.c$' }).Count
+    }
+}
+
+function Get-PreprocessCount
+{
+    param([Parameter(Mandatory = $true)][string]$LogPath)
+
+    if (-not (Test-Path -LiteralPath $LogPath))
+    {
+        throw "No existe log: $LogPath"
+    }
+
+    return @(Get-Content -LiteralPath $LogPath |
+        Where-Object { ([string]$_) -match 'xtensa-esp32-elf-g\+\+.*\s-E\s' }).Count
+}
+
+function Invoke-NativeCaptured
+{
+    param(
+        [Parameter(Mandatory = $true)][string]$FilePath,
+        [Parameter(Mandatory = $true)][string[]]$Arguments
+    )
+
+    $oldErrorAction = $ErrorActionPreference
+    $hadNativePreference = Test-Path variable:global:PSNativeCommandUseErrorActionPreference
+    if ($hadNativePreference)
+    {
+        $oldNativePreference = $global:PSNativeCommandUseErrorActionPreference
+    }
+
+    $output = @()
+    $exitCode = -1
+    try
+    {
+        $ErrorActionPreference = "Continue"
+        if ($hadNativePreference)
+        {
+            $global:PSNativeCommandUseErrorActionPreference = $false
+        }
+        $output = @(& $FilePath @Arguments 2>&1 | ForEach-Object { $_.ToString() })
+        $exitCode = $LASTEXITCODE
+    }
+    finally
+    {
+        $ErrorActionPreference = $oldErrorAction
+        if ($hadNativePreference)
+        {
+            $global:PSNativeCommandUseErrorActionPreference = $oldNativePreference
+        }
+    }
+
+    return [PSCustomObject]@{
+        ExitCode = [int]$exitCode
+        Output = $output
+    }
+}
+
+function Resolve-NativeToolPath
+{
+    param([Parameter(Mandatory = $true)][string]$Candidate)
+
+    if ([string]::IsNullOrWhiteSpace($Candidate)) { return $null }
+    $normalized = $Candidate.Trim().Trim('"')
+    while ($normalized.Contains("\\"))
+    {
+        $normalized = $normalized.Replace("\\", "\")
+    }
+
+    $candidates = New-Object System.Collections.Generic.List[string]
+    $candidates.Add($normalized)
+    if (-not [System.IO.Path]::HasExtension($normalized))
+    {
+        $candidates.Add($normalized + ".exe")
+        $candidates.Add($normalized + ".cmd")
+        $candidates.Add($normalized + ".bat")
+    }
+
+    foreach ($path in $candidates)
+    {
+        if (Test-Path -LiteralPath $path)
+        {
+            return (Resolve-Path -LiteralPath $path).Path
+        }
+    }
+    return $null
+}
+
+function Find-Archiver
+{
+    param([Parameter(Mandatory = $true)][string]$LogPath)
+
+    if (-not (Test-Path -LiteralPath $LogPath))
+    {
+        throw "No existe log P3 validado: $LogPath"
+    }
+
+    $lines = @(Get-Content -LiteralPath $LogPath)
+    foreach ($line in $lines)
+    {
+        $candidate = $null
+        if ($line -match '"(?<exe>[^"]*xtensa-esp32-elf-gcc-ar(?:\.exe)?)"')
+        {
+            $candidate = $Matches["exe"]
+        }
+        elseif ($line -match '(?<exe>\S*xtensa-esp32-elf-gcc-ar(?:\.exe)?)\s+(?:cr|crs)\b')
+        {
+            $candidate = $Matches["exe"]
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($candidate))
+        {
+            $resolved = Resolve-NativeToolPath -Candidate $candidate
+            if (-not [string]::IsNullOrWhiteSpace($resolved)) { return $resolved }
+        }
+    }
+
+    foreach ($line in $lines)
+    {
+        $compilerCandidate = $null
+        if ($line -match '"(?<exe>[^"]*xtensa-esp32-elf-g\+\+(?:\.exe)?)"')
+        {
+            $compilerCandidate = $Matches["exe"]
+        }
+        elseif ($line -match '(?<exe>\S*xtensa-esp32-elf-g\+\+(?:\.exe)?)\s')
+        {
+            $compilerCandidate = $Matches["exe"]
+        }
+
+        if ([string]::IsNullOrWhiteSpace($compilerCandidate)) { continue }
+        $compiler = Resolve-NativeToolPath -Candidate $compilerCandidate
+        if ([string]::IsNullOrWhiteSpace($compiler)) { continue }
+
+        $toolDir = Split-Path -Parent $compiler
+        foreach ($leaf in @("xtensa-esp32-elf-gcc-ar.exe", "xtensa-esp32-elf-gcc-ar"))
+        {
+            $sibling = Join-Path $toolDir $leaf
+            if (Test-Path -LiteralPath $sibling)
+            {
+                return (Resolve-Path -LiteralPath $sibling).Path
+            }
+        }
+    }
+
+    throw "No se pudo localizar xtensa-esp32-elf-gcc-ar desde el log P3 validado."
+}
+
+function Ensure-EthernetArchive
+{
+    if (Test-Path -LiteralPath $EthernetArchivePath)
+    {
+        Write-Host ("Archive Ethernet existente: {0} bytes" -f (Get-Item -LiteralPath $EthernetArchivePath).Length) -ForegroundColor Green
+        return
+    }
+
+    $ethernetObjectsRoot = Join-Path $P3BuildPath "libraries\JWPLC_Ethernet_W5x00_Backend"
+    if (-not (Test-Path -LiteralPath $ethernetObjectsRoot))
+    {
+        throw "No existe el arbol de objetos Ethernet del P3 validado: $ethernetObjectsRoot"
+    }
+
+    $objects = @(Get-ChildItem -LiteralPath $ethernetObjectsRoot -Recurse -File -Filter "*.o" | Sort-Object FullName)
+    if ($objects.Count -ne 8)
+    {
+        throw ("El P3 validado debe aportar exactamente 8 objetos Ethernet; encontrados={0}." -f $objects.Count)
+    }
+
+    $archiver = Find-Archiver -LogPath $P3LogPath
+    $archiveDir = Split-Path -Parent $EthernetArchivePath
+    New-Item -ItemType Directory -Path $archiveDir -Force | Out-Null
+
+    Write-Host "Archive Ethernet no esta presente; se regenerara desde los 8 objetos del P3 validado (sin compilar)." -ForegroundColor Yellow
+    $objectPaths = @($objects | ForEach-Object { $_.FullName })
+    $archiveResult = Invoke-NativeCaptured -FilePath $archiver -Arguments (@("crs", $EthernetArchivePath) + $objectPaths)
+    if ($archiveResult.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $EthernetArchivePath))
+    {
+        throw "No se pudo regenerar libJWPLC_Ethernet_W5x00_Backend.a."
+    }
+
+    $membersResult = Invoke-NativeCaptured -FilePath $archiver -Arguments @("t", $EthernetArchivePath)
+    if ($membersResult.ExitCode -ne 0)
+    {
+        throw "No se pudo inspeccionar el archive Ethernet regenerado."
+    }
+
+    $members = @($membersResult.Output | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -ne "" })
+    if ($members.Count -ne 8 -or
+        -not ($members -contains "Ethernet.cpp.o") -or
+        -not ($members -contains "w5100.cpp.o"))
+    {
+        throw ("Archive Ethernet regenerado con miembros inesperados. Total={0}, Ethernet.cpp.o={1}, w5100.cpp.o={2}" -f $members.Count, ($members -contains "Ethernet.cpp.o"), ($members -contains "w5100.cpp.o"))
+    }
+
+    Write-Host ("Archive Ethernet regenerado: {0} bytes | miembros=8 | Ethernet.cpp.o=True | w5100.cpp.o=True" -f (Get-Item -LiteralPath $EthernetArchivePath).Length) -ForegroundColor Green
+}
+
+function Get-AppBin
+{
+    param([Parameter(Mandatory = $true)][string]$BuildPath)
+
+    $bin = Get-ChildItem -LiteralPath $BuildPath -Filter "*.ino.bin" -File | Select-Object -First 1
+    if ($null -eq $bin)
+    {
+        throw "No se encontro app .bin en $BuildPath"
+    }
+    return $bin
+}
+
+if ($Jobs -lt 0)
+{
+    throw "Jobs debe ser 0 o mayor."
+}
+
+Write-Host "JWPLC - P5A timing-only / PowerShell 7" -ForegroundColor Cyan
+Write-Host ("PowerShell: {0} / {1}" -f $PSVersionTable.PSVersion, $PSVersionTable.PSEdition)
+Write-Host ""
+
+Test-CompileDbParser
+Write-Host "Self-test parser JSON: OK" -ForegroundColor Green
+
+if (-not (Test-Path -LiteralPath $InspectorPath))
+{
+    throw "Falta inspector P5A: $InspectorPath"
+}
+
+Write-Host "Ejecutando quality gate P5A existente (sin compilar)..." -ForegroundColor Cyan
+& $InspectorPath
+Write-Host "Quality gate P5A existente: OK" -ForegroundColor Green
+
+if (-not $RunCold)
+{
+    Write-Host ""
+    Write-Host "VALIDACION SOLAMENTE: OK. No se ejecuto ninguna compilacion." -ForegroundColor Green
+    Write-Host "El archive Ethernet actual no es requisito para inspeccionar el run historico validado." -ForegroundColor DarkGray
+    Write-Host "Para ejecutar un unico cold medido, vuelve a lanzar con -RunCold." -ForegroundColor DarkGray
+    return
+}
+
+if ($null -eq (Get-Command $ArduinoCli -ErrorAction SilentlyContinue))
+{
+    throw "No se encontro arduino-cli."
+}
+if (-not (Test-Path -LiteralPath $BoardsLocalPath))
+{
+    throw "Falta boards.local.txt del overlay P2."
+}
+if (-not (Test-Path -LiteralPath $CoreArchivePath))
+{
+    throw "Falta core P2: $CoreArchivePath"
+}
+if (-not (Test-Path -LiteralPath $DisplayArchivePath))
+{
+    throw "Falta Display archive P3: $DisplayArchivePath"
+}
+if (-not (Test-Path -LiteralPath $P3BuildPath))
+{
+    throw "Falta build P3 validado: $P3BuildPath"
+}
+if (-not (Test-Path -LiteralPath $P3LogPath))
+{
+    throw "Falta log P3 validado: $P3LogPath"
+}
+
+$ethernetPropertiesPath = Join-Path $EthernetRoot "library.properties"
+if ((Get-Content -LiteralPath $ethernetPropertiesPath -Raw) -notmatch '(?m)^precompiled=full\s*$')
+{
+    throw "Backend Ethernet no declara precompiled=full."
+}
+
+Ensure-EthernetArchive
+
+$runId = (Get-Date).ToString("yyyyMMdd_HHmmss")
+$runRoot = Join-Path $OutputRoot $runId
+$buildPath = Join-Path $runRoot "p5a-Basic"
+$logPath = Join-Path $runRoot "p5a-Basic.log"
+$timingPath = Join-Path $runRoot "P5A_TIMING_SECONDS.txt"
+$rawMetricsPath = Join-Path $runRoot "P5A_RAW_METRICS.json"
+$summaryPath = Join-Path $runRoot "P5A_TIMING_SUMMARY.md"
+New-Item -ItemType Directory -Path $buildPath -Force | Out-Null
+
+$arguments = @(
+    "compile",
+    "-b", "jwplc_local:esp32:jwplcbasic",
+    "-j", $Jobs.ToString(),
+    "-v",
+    "--build-path", $buildPath,
+    "--clean",
+    $SketchPath
+)
+
+Write-Host ""
+Write-Host "Se ejecutara UN SOLO cold P5A para obtener tiempo oficial." -ForegroundColor Yellow
+Write-Host ("arduino-cli {0}" -f ($arguments -join " ")) -ForegroundColor DarkGray
+
+$stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+$native = Invoke-NativeCaptured -FilePath $ArduinoCli -Arguments $arguments
+$stopwatch.Stop()
+$seconds = $stopwatch.Elapsed.TotalSeconds
+
+@($native.Output) | Out-File -LiteralPath $logPath -Encoding utf8
+("{0:R}" -f $seconds) | Set-Content -LiteralPath $timingPath -Encoding ascii
+
+Write-Host ("Tiempo bruto preservado inmediatamente: {0:N3} s" -f $seconds) -ForegroundColor Green
+Write-Host ("Log: {0}" -f $logPath) -ForegroundColor DarkGray
+Write-Host ("Timing: {0}" -f $timingPath) -ForegroundColor DarkGray
+
+if ($native.ExitCode -ne 0)
+{
+    @($native.Output | Select-Object -Last 25) | ForEach-Object { Write-Host $_ -ForegroundColor DarkYellow }
+    throw "Arduino CLI fallo. El tiempo y el log quedaron preservados."
+}
+
+$metrics = Get-CompileDbMetrics -BuildPath $buildPath
+$preprocess = Get-PreprocessCount -LogPath $logPath
+$appBin = Get-AppBin -BuildPath $buildPath
+
+$raw = [PSCustomObject]@{
+    RunId = $runId
+    Seconds = $seconds
+    Compiles = $metrics.Compiles
+    EthernetSource = $metrics.EthernetSource
+    DisplaySource = $metrics.DisplaySource
+    Stub = $metrics.Stub
+    Preprocess = $preprocess
+    AppBytes = [int64]$appBin.Length
+    PowerShellVersion = [string]$PSVersionTable.PSVersion
+    PSEdition = [string]$PSVersionTable.PSEdition
+}
+$raw | ConvertTo-Json | Set-Content -LiteralPath $rawMetricsPath -Encoding ascii
+
+$summary = @(
+    "# P5A Ethernet - timing cold",
+    "",
+    "Run: $runId",
+    "",
+    ("Cold: {0:N3} s" -f $seconds),
+    ("Compiles: {0}" -f $metrics.Compiles),
+    ("Ethernet source: {0}" -f $metrics.EthernetSource),
+    ("Display source: {0}" -f $metrics.DisplaySource),
+    ("Core stub: {0}" -f $metrics.Stub),
+    ("Preprocesados -E: {0}" -f $preprocess),
+    ("App bytes: {0}" -f $appBin.Length),
+    ("PowerShell: {0} / {1}" -f $PSVersionTable.PSVersion, $PSVersionTable.PSEdition)
+)
+$summary | Set-Content -LiteralPath $summaryPath -Encoding utf8NoBOM
+
+Write-Host ""
+Write-Host ("Resultado medido: {0:N3} s | total={1}, Ethernet={2}, Display={3}, stub={4}, -E={5}, app={6} bytes" -f $seconds, $metrics.Compiles, $metrics.EthernetSource, $metrics.DisplaySource, $metrics.Stub, $preprocess, $appBin.Length) -ForegroundColor Cyan
+
+if ($metrics.Compiles -ne 24 -or
+    $metrics.EthernetSource -ne 0 -or
+    $metrics.DisplaySource -ne 0 -or
+    $metrics.Stub -ne 1 -or
+    $preprocess -ne 41)
+{
+    throw ("El cold termino, pero la estructura P5A no coincide con 24/0/0/1/-E41. Actual={0}/{1}/{2}/{3}/{4}. Tiempo preservado: {5:N3} s" -f $metrics.Compiles, $metrics.EthernetSource, $metrics.DisplaySource, $metrics.Stub, $preprocess, $seconds)
+}
+
+Write-Host ""
+Write-Host "=== P5A TIMING: VALIDADO ===" -ForegroundColor Green
+Write-Host ("Cold oficial candidato: {0:N3} s" -f $seconds)
+Write-Host ("Compiles: {0} | -E: {1} | App: {2} bytes" -f $metrics.Compiles, $preprocess, $appBin.Length)
+Write-Host ("Artefactos: {0}" -f $runRoot) -ForegroundColor DarkGray

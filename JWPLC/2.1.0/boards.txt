@@ -260,7 +260,7 @@ jwplcbasic.upload.tool=esptool_py
 jwplcbasic.upload.tool.default=esptool_py
 jwplcbasic.upload.tool.network=esp_ota
 
-jwplcbasic.upload.maximum_size=3145728
+jwplcbasic.upload.maximum_size=4063232
 jwplcbasic.upload.maximum_data_size=327680
 jwplcbasic.upload.speed=921600
 jwplcbasic.upload.erase_cmd=
@@ -274,7 +274,9 @@ jwplcbasic.build.tarch=xtensa
 jwplcbasic.build.bootloader_addr=0x1000
 jwplcbasic.build.target=esp32
 jwplcbasic.build.mcu=esp32
-jwplcbasic.build.core=jwcontrol
+jwplcbasic.build.core=jwcontrol_p2
+jwplcbasic.build.jwplc_source_core_include="-I{runtime.platform.path}/cores/jwcontrol"
+jwplcbasic.build.extra_libs="{runtime.platform.path}/precompiled/core/JWPLCBASIC/core.a"
 jwplcbasic.build.variant=jwplcbasic
 jwplcbasic.build.board=JWPLCBASIC
 
@@ -283,7 +285,7 @@ jwplcbasic.build.flash_size=4MB
 jwplcbasic.build.flash_freq=40m
 jwplcbasic.build.flash_mode=dio
 jwplcbasic.build.boot=qio
-jwplcbasic.build.partitions=huge_app
+jwplcbasic.build.partitions=jwplc_max_app_4mb
 jwplcbasic.build.defines=-DJWPLC_BASIC -DHAVE_TCA6424A -DJWPLC_HAS_RTC=1 -DJWPLC_HAS_FRAM=1 -DJWPLC_HAS_SD=1 -DJWPLC_HAS_ETHERNET=1 -DJWPLC_FRAM_SIZE_BYTES=8192
 jwplcbasic.build.loop_core=
 jwplcbasic.build.event_core=

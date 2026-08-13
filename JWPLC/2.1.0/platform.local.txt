@@ -1,0 +1,23 @@
+# v2.1.0-alpha.4 - build speed experiments
+#
+# D1: library discovery liviano.
+# P2: piloto reversible de core precompilado por perfil de placa.
+#
+# Arduino define {build.library_discovery_phase}=1 durante dependency/library
+# discovery y =0 durante el build normal. Se expone como macro propia para que
+# los headers de autoload puedan evitar expansion pesada solo en discovery.
+#
+# P2 cambia build.core a jwcontrol_p2 mediante boards.local.txt. En ese caso
+# mantenemos el core fuente jwcontrol en el include path para no duplicar
+# headers. El core seleccionado jwcontrol_p2 contiene solamente un stub.
+#
+# El core.a completo NO se sustituye mediante un hook core.postbuild. Arduino
+# IDE 2.x puede enlazar el archive del core desde su cache global, mientras que
+# el hook solo conoce {build.path}/core/core.a; ademas {archive_file_path} no se
+# expande dentro de ese hook. La estrategia P2 compatible con IDE/CLI es añadir
+# explicitamente el core precompilado a build.extra_libs desde el perfil de
+# placa P2. recipe.c.combine.pattern ya coloca {build.extra_libs} dentro del
+# --start-group del linker.
+
+build.jwplc_source_core_include=
+compiler.cpreprocessor.flags="@{compiler.sdk.path}/flags/defines" "-I{build.source.path}" -iprefix "{compiler.sdk.path}/include/" "@{compiler.sdk.path}/flags/includes" "-I{compiler.sdk.path}/{build.memory_type}/include" {build.jwplc_source_core_include} "-I{runtime.platform.path}/cores/jwcontrol/peripherals/include" -DJWPLC_LIBRARY_DISCOVERY_PHASE={build.library_discovery_phase}
