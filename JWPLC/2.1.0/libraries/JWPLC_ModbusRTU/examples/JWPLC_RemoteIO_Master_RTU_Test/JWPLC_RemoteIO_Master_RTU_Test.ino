@@ -435,6 +435,66 @@ static void runValidationSequence() {
   Serial.println(F("=============================================="));
 }
 
+static void runWalkingOutputTest() {
+  Serial.println();
+  Serial.println(F("=============================================="));
+  Serial.println(F(" JWPLC Remote I/O - Walking Outputs Q0_0..Q0_7"));
+  Serial.println(F(" Verificar fisicamente UN rele por vez"));
+  Serial.println(F("=============================================="));
+
+  uint8_t bitmap = 0x00;
+
+  // Estado inicial seguro.
+  if (!writeMultipleCoils(0x00)) {
+    Serial.println(F("[FAIL] No se pudieron apagar las salidas al inicio"));
+    return;
+  }
+
+  delay(500);
+
+  for (uint8_t i = 0; i < 8; i++) {
+    const uint8_t expected = (uint8_t)(1U << i);
+
+    Serial.println();
+    Serial.print(F(">>> AHORA DEBE ENCENDER SOLO Q0_"));
+    Serial.print(i);
+    Serial.println(F(" <<<"));
+
+    bool ok = writeSingleCoil(i, true);
+
+    delay(300);
+
+    if (ok) {
+      ok = readCoils(&bitmap) &&
+           expectBitmap(F("Feedback walking output"), bitmap, expected);
+    }
+
+    Serial.print(ok ? F("[PASS] Q0_") : F("[FAIL] Q0_"));
+    Serial.print(i);
+    Serial.println(F(" protocolo/feedback"));
+
+    // Tiempo suficiente para observar LED/rele fisico.
+    delay(1500);
+
+    writeSingleCoil(i, false);
+    delay(300);
+
+    if (readCoils(&bitmap)) {
+      expectBitmap(F("Feedback tras apagar"), bitmap, 0x00);
+    }
+
+    delay(500);
+  }
+
+  writeMultipleCoils(0x00);
+
+  Serial.println();
+  Serial.println(F("=============================================="));
+  Serial.println(F(" WALKING OUTPUTS FINALIZADO"));
+  Serial.println(F(" Todas las salidas quedan apagadas"));
+  Serial.println(F("=============================================="));
+}
+
 // -----------------------------------------------------------------------------
 // Consola Serial0
 // -----------------------------------------------------------------------------
@@ -451,6 +511,7 @@ static void printHelp() {
   Serial.println(F("  5 : escribir patron 0x55 por FC15"));
   Serial.println(F("  a : encender todas las salidas por FC15"));
   Serial.println(F("  0 : apagar todas las salidas por FC15"));
+  Serial.println(F("  w : walking test Q0_0..Q0_7 individual"));
   Serial.println();
 }
 
@@ -464,6 +525,11 @@ static void handleCommand(char command) {
     case 'r':
     case 'R':
       runValidationSequence();
+      break;
+
+    case 'w':
+    case 'W':
+      runWalkingOutputTest();
       break;
 
     case 'i':
