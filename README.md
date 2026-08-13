@@ -1,107 +1,114 @@
 # JWPLC Platform for Arduino IDE
 
-Package personalizado de **JW Control** para programar placas basadas en **ESP32** desde Arduino IDE y Arduino CLI, orientado al ecosistema **JWPLC Basic**.
+Package personalizado de **JW Control** para programar **JWPLC Basic** desde Arduino IDE y Arduino CLI.
 
-El objetivo del package es ofrecer una experiencia más directa que un core ESP32 genérico: menos variantes visibles, APIs de alto nivel y periféricos industriales integrados al runtime normal del JWPLC.
+El objetivo del package es que trabajar con un JWPLC Basic se sienta tan directo como programar una placa Arduino, pero conservando las funciones propias de un controlador industrial: E/S de campo, display, botonera, memoria no volátil, microSD, Ethernet, RS-485 y Modbus RTU ya integrados al entorno.
+
+En lugar de partir de un core ESP32 genérico y configurar manualmente cada periférico, el package entrega una plataforma preparada y validada para el hardware JWPLC.
+
+---
+
+## ¿Qué aporta el package JWPLC?
+
+### Programación Arduino sobre hardware industrial
+
+Las entradas y salidas del JWPLC Basic pueden utilizarse con la sintaxis habitual de Arduino:
+
+```cpp
+pinMode(I0_0, INPUT);
+pinMode(Q0_0, OUTPUT);
+
+digitalWrite(Q0_0, digitalRead(I0_0));
+```
+
+El usuario no necesita manejar directamente el expansor de E/S, los pines internos del ESP32 ni la inicialización de bajo nivel del hardware.
+
+### Periféricos integrados
+
+El perfil normal de **JWPLC Basic** mantiene integrados:
+
+- 8 entradas digitales industriales.
+- 8 salidas digitales por relé.
+- TFT ST7789.
+- Botonera frontal de 6 teclas.
+- RTC.
+- FRAM de 8 KB.
+- microSD.
+- Ethernet W5500.
+- RS-485.
+- Modbus RTU.
+- Bus SPI compartido gestionado por el runtime JWPLC.
+
+### APIs de alto nivel
+
+El package expone objetos globales listos para utilizar:
+
+```cpp
+JWPLC_Display
+JWPLC_Ethernet
+JWPLC_SD
+JWPLC_FRAM
+JWPLC_RTC
+JWPLC_Buttons
+JWPLC_RS485
+JWPLC_ModbusRTU
+```
+
+Esto permite concentrar el sketch en la lógica de la aplicación y no en repetir código de inicialización de hardware.
+
+### Instalación centralizada
+
+El package puede instalarse mediante **Boards Manager**, incluyendo automáticamente las herramientas requeridas para compilar y cargar firmware.
+
+### Validado sobre hardware real
+
+Las versiones publicadas del package se validan no solo por compilación, sino también sobre JWPLC Basic físicos: E/S, display, memorias, comunicaciones y coexistencia de periféricos.
 
 ---
 
 ## Estado actual
 
-| Canal | Versión | Estado | Índice |
-|---|---|---|---|
-| Público / estable | `v2.0.0` | Release estable recomendada para usuarios finales | `JWPLC/package_jwplc_index.json` |
-| Dev / validación | `v2.1.0-alpha.4` | PreRelease técnica publicada y validada | `JWPLC/package_jwplc_index_dev.json` |
+| Canal | Versión | Uso recomendado |
+|---|---|---|
+| Público / estable | `v2.0.0` | Usuarios finales y proyectos estables |
+| Dev / PreRelease | `v2.1.0-alpha.4` | Validación de las mejoras del ciclo 2.1.0 |
 
-`v2.1.0-alpha.4` no reemplaza todavía a `v2.0.0` como versión estable pública. Su objetivo principal fue **reducir el tiempo de compilación manteniendo el autoload normal y todos los periféricos integrados**.
+La versión estable pública continúa siendo **v2.0.0**.
 
-La Alpha4 fue validada desde un entorno limpio de Arduino CLI, instalando el package directamente desde el índice dev, sin una versión JWPLC previa instalada. Después de la instalación se validaron compilación, subida por USB y funcionamiento sobre un JWPLC Basic físico.
-
-Release Alpha4:
-
-```txt
-https://github.com/JW-Control/platform-jwplc/releases/tag/v2.1.0-alpha.4
-```
-
-Artefacto publicado:
-
-```txt
-jwplc-esp32-2.1.0-alpha.4.zip
-SHA-256: 4bdbdf383bb863d8f1a3b22f2b88ce47c68d2044a22f0f4afb6d883ccfdade5b
-Tamaño: 24,698,966 bytes
-```
+`v2.1.0-alpha.4` es la PreRelease técnica más reciente y se centra principalmente en **reducir los tiempos de compilación sin retirar periféricos ni cambiar las APIs ya probadas**.
 
 ---
 
-## Qué cambió en v2.1.0-alpha.4
+## v2.1.0-alpha.4 — compilaciones considerablemente más rápidas
 
-Alpha4 se concentra en optimización de compilación/cache y en cerrar la configuración de JWPLC Basic v2.0.
+La mejora principal de Alpha4 está en el sistema de build del package.
 
-Puntos principales:
+| Medición | Compilación cold |
+|---|---:|
+| Alpha3 instalada | **136.509 s** |
+| Alpha4 P8 final | **59.901 s** |
+| Reducción | **76.608 s** |
+| Mejora relativa | **~56.12 %** |
 
-- Core de `JWPLC Basic` precompilado y empaquetado.
-- Precompilación controlada de librerías seleccionadas.
-- Backend W5x00 vendorizado a partir de Arduino Ethernet 2.0.2 y adaptado para JWPLC.
-- Stack Adafruit utilizado por el TFT distribuido dentro del package y precompilado.
-- `FS`, `SD`, `Wire`, `SPI` y librerías JWPLC seleccionadas precompiladas.
-- Autoload normal conservado para Display, Ethernet, SD, FRAM, RTC, botonera, RS-485, Modbus RTU y TCA/I/O.
-- Mutex SPI compartido conservado.
-- Flash de JWPLC Basic fijada a **40 MHz** para el hardware v2.0.
-- Nueva partición `jwplc_max_app_4mb` para JWPLC Basic.
-- `JWPLC Basic Core` conserva `huge_app` y se evalúa de forma independiente.
-- `app-only` queda como herramienta auxiliar de desarrollo, no como modo de upload público por defecto.
-- No se publica un `bootloader.bin` precompilado definitivo.
-- OTA no queda definida por Alpha4.
-- OpenPLC continúa como integración externa/opcional y no se asume integrado al package Arduino.
+La reducción se consiguió optimizando la forma en que se distribuyen y compilan el core y las librerías utilizadas por JWPLC Basic.
 
----
+**No se retiraron Display, Ethernet, SD, FRAM, RTC, botonera, RS-485, Modbus RTU ni TCA/I/O para conseguir esta mejora.**
 
-## Rendimiento de compilación
+Además, después de publicar Alpha4 se realizó una instalación completamente aislada, sin ninguna versión JWPLC previa instalada. El package pudo instalarse desde el índice dev, compilar, cargarse por USB y ejecutar correctamente el gate físico del JWPLC Basic.
 
-El benchmark formal de Alpha4 utilizó como referencia una instalación oficial de Alpha3.
+Documentación técnica de las mediciones:
 
-| Medición | Tiempo cold | TUs / compilaciones |
-|---|---:|---:|
-| Alpha3 instalada | **136.509 s** | 102 |
-| Alpha4 P8 final | **59.901 s** | 5 |
-| Reducción | **76.608 s** | — |
-| Mejora relativa | **~56.12 %** | — |
-
-En una comparación A-B-B-A en el mismo host, el estado P8 precompilado obtuvo **59.901 s** frente a **64.885 s** de la variante equivalente con `Wire` + `SPI` desde fuente: una mejora adicional de **4.985 s / 7.68 %**.
-
-La optimización no se obtuvo retirando periféricos del autoload normal.
-
-### Validación standalone adicional
-
-Después de publicar Alpha4 se creó un entorno aislado de Arduino CLI sin ninguna plataforma JWPLC instalada previamente.
-
-Resultados observados en ese entorno:
-
-| Prueba | Resultado | Tiempo |
-|---|---|---:|
-| Instalación `jwplc:esp32@2.1.0-alpha.4` | PASS | — |
-| Cold compile `01_empty` | PASS | 44.102 s |
-| Cold compile `03_autoload_contract` | PASS | 42.460 s |
-| Compile + upload del gate físico | PASS | — |
-| Gate físico local | PASS | — |
-
-Estos tiempos standalone son evidencia de que el package publicado conserva la optimización, pero **no deben compararse directamente** con el benchmark P8 porque la metodología y el estado del host no son idénticos.
-
-Documentación detallada:
-
-```txt
-tools/build-speed-benchmark/JWPLC_ALPHA4_BUILD_SPEED_TIMINGS.md
-tools/build-speed-benchmark/PRECOMPILE_STRATEGY.md
-docs/v2.1.0-alpha.4/ALPHA4_CLOSURE_CHECKLIST.md
-```
+- [`JWPLC_ALPHA4_BUILD_SPEED_TIMINGS.md`](tools/build-speed-benchmark/JWPLC_ALPHA4_BUILD_SPEED_TIMINGS.md)
+- [`PRECOMPILE_STRATEGY.md`](tools/build-speed-benchmark/PRECOMPILE_STRATEGY.md)
+- [`ALPHA4_PUBLICATION_VALIDATION.md`](docs/v2.1.0-alpha.4/ALPHA4_PUBLICATION_VALIDATION.md)
 
 ---
 
 ## Instalación
 
-### Canal público recomendado
+### Canal público / estable
 
-Para usuarios finales:
+Para proyectos normales se recomienda el índice público:
 
 ```txt
 https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index.json
@@ -113,7 +120,7 @@ En Arduino IDE:
 Archivo > Preferencias > Gestor de URLs adicionales de tarjetas
 ```
 
-Luego:
+Después:
 
 ```txt
 Herramientas > Placa > Gestor de tarjetas
@@ -131,15 +138,15 @@ La versión estable publicada actualmente es:
 2.0.0
 ```
 
-### Canal dev / interno
+### Canal dev / PreRelease
 
-Para validar alphas del ciclo 2.1.0:
+Para probar el ciclo `2.1.0` y Alpha4:
 
 ```txt
 https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json
 ```
 
-Versiones publicadas en este canal:
+Versiones publicadas actualmente en este canal:
 
 ```txt
 2.1.0-alpha.1
@@ -148,37 +155,19 @@ Versiones publicadas en este canal:
 2.1.0-alpha.4
 ```
 
-Instalación directa de Alpha4 con Arduino CLI:
-
-```powershell
-arduino-cli core install jwplc:esp32@2.1.0-alpha.4
-```
-
-Para desarrollo local del repositorio se puede mantener un package separado, por ejemplo:
-
-```txt
-jwplc_local:esp32:jwplcbasic
-```
-
-y enlazarlo por junction/symlink hacia:
-
-```txt
-JWPLC/2.1.0
-```
-
-Esto evita modificar la instalación `jwplc:esp32` administrada por Boards Manager.
+El canal dev no se recomienda como canal principal de producción mientras la versión siga siendo PreRelease.
 
 ---
 
-## Placas y FQBN
+## Placas disponibles
 
-| Placa | FQBN | Uso recomendado |
+| Placa | FQBN | Uso |
 |---|---|---|
 | ESP32 Board | `jwplc:esp32:esp32` | Desarrollo ESP32 genérico dentro del package JWPLC |
-| JWPLC Basic | `jwplc:esp32:jwplcbasic` | Hardware completo JWPLC Basic |
-| JWPLC Basic Core | `jwplc:esp32:jwplcbasiccore` | Validación del core y perfil reducido sin FRAM, SD ni Ethernet |
+| JWPLC Basic | `jwplc:esp32:jwplcbasic` | Perfil completo del JWPLC Basic |
+| JWPLC Basic Core | `jwplc:esp32:jwplcbasiccore` | Perfil reducido para validación del core |
 
-FQBN normal de JWPLC Basic:
+Para un JWPLC Basic normal:
 
 ```txt
 jwplc:esp32:jwplcbasic
@@ -186,234 +175,74 @@ jwplc:esp32:jwplcbasic
 
 ---
 
-## Configuración de JWPLC Basic en Alpha4
+## E/S industriales
 
-La configuración validada de `JWPLC Basic` queda fijada para reducir combinaciones no probadas.
+El expansor TCA6424A está integrado al core JWPLC, por lo que las E/S físicas se utilizan como pines lógicos del controlador.
 
-| Parámetro | JWPLC Basic | JWPLC Basic Core |
-|---|---|---|
-| CPU | 240 MHz | 240 MHz |
-| Flash size | 4 MB | 4 MB |
-| Flash frequency | **40 MHz** | 40 MHz |
-| Flash mode | DIO | DIO |
-| Boot base | QIO | QIO |
-| Bootloader address | `0x1000` | `0x1000` |
-| Partition scheme | **`jwplc_max_app_4mb`** | `huge_app` |
-| Máximo de aplicación | **4,063,232 bytes** | 3,145,728 bytes |
-| Upload speed | 921600 | 921600 |
-
-En Alpha4, `JWPLC Basic` usa core precompilado mediante:
+### Entradas
 
 ```txt
-jwplcbasic.build.core=jwcontrol_p2
-jwplcbasic.build.extra_libs=.../precompiled/core/JWPLCBASIC/core.a
+I0_0
+I0_1
+I0_2
+I0_3
+I0_4
+I0_5
+I0_6
+I0_7
 ```
 
-`JWPLC Basic Core` conserva el core fuente y `huge_app`.
-
-### Partición Max App de 4 MB
-
-`jwplc_max_app_4mb` conserva:
+### Salidas
 
 ```txt
-NVS       0x9000   0x5000
-otadata   0xE000   0x2000
-app0      0x10000  0x3E0000
-coredump  0x3F0000 0x10000
+Q0_0
+Q0_1
+Q0_2
+Q0_3
+Q0_4
+Q0_5
+Q0_6
+Q0_7
 ```
 
-Capacidad de aplicación:
-
-```txt
-4,063,232 bytes
-3968 KiB
-3.875 MiB
-```
-
-Ganancia frente a `huge_app`:
-
-```txt
-917,504 bytes
-896 KiB
-+29.17 %
-```
-
-Se retiró SPIFFS de este perfil para priorizar la aplicación. La presencia de `otadata` y del subtipo `ota_0` **no define por sí sola una política OTA**; OTA continúa pendiente de decisión.
-
----
-
-## Periféricos integrados
-
-`JWPLC Basic` conserva en el flujo normal:
-
-- I/O industrial por TCA6424A.
-- Display TFT ST7789.
-- Botonera frontal.
-- RTC.
-- FRAM de 8 KB.
-- microSD.
-- Ethernet W5500.
-- RS-485.
-- Modbus RTU base.
-
-Objetos globales principales:
+También existen APIs por bloque, útiles para lógica PLC, mapas Modbus y procesamiento de estados completos:
 
 ```cpp
-JWPLC_Display
-JWPLC_Ethernet
-JWPLC_SD
-JWPLC_FRAM
-JWPLC_RTC
-JWPLC_Buttons
-JWPLC_RS485
-JWPLC_ModbusRTU
-```
+uint32_t inputs  = JWPLC_readInputs();
+uint32_t outputs = JWPLC_readOutputs();
 
-El usuario puede trabajar con las E/S industriales usando la sintaxis habitual de Arduino:
-
-```cpp
-pinMode(I0_0, INPUT);
-pinMode(Q0_0, OUTPUT);
-
-bool state = digitalRead(I0_0);
-digitalWrite(Q0_0, state);
-```
-
-APIs por bloque:
-
-```cpp
-digitalReadBlock(I0_X);
-digitalWriteBlock(Q0_X, bitmap);
-
-JWPLC_readInputs();
-JWPLC_readOutputs();
-JWPLC_writeOutputs(bitmap);
+JWPLC_writeOutputs(0x0000000F);
 ```
 
 ---
 
-## Dependencias de Boards Manager
+## Display y botonera integrados
 
-Las `toolsDependencies` externas del package Alpha4 son exactamente:
+`JWPLC_Display` gestiona la TFT ST7789 del JWPLC Basic y ofrece una base de interfaz gráfica integrada al controlador.
 
-| Tool | Versión |
-|---|---|
-| `esp-x32` | `2601` |
-| `esptool_py` | `5.2.0` |
-| `mkspiffs` | `0.2.3` |
-| `mklittlefs` | `4.0.2-db0513a` |
-| `esp32-libs` | `3.3.8` |
+Entre las funciones disponibles están:
 
-Estas herramientas son distintas de las librerías bundled/precompiladas que viajan dentro del ZIP del package.
+- pantalla IDLE con estado general del equipo;
+- pantalla USER para interfaces propias del sketch;
+- indicadores `PWR`, `RUN`, `ERR`, `BUS` y `ETH`;
+- callbacks para dibujar interfaces de usuario;
+- control del periodo de refresco;
+- integración con la botonera frontal;
+- acceso directo al objeto TFT para interfaces avanzadas.
 
-La instalación standalone de Alpha4 confirmó que Arduino CLI descarga estas cinco dependencias automáticamente antes de instalar `jwplc:esp32@2.1.0-alpha.4`.
-
----
-
-## Librerías bundled y precompiladas en Alpha4
-
-La siguiente tabla corresponde al package Alpha4 instalado y utilizado durante el gate físico standalone.
-
-| Librería | Versión | Estado Alpha4 |
-|---|---:|---|
-| `JWPLC_Display` | 1.0.1 | Precompilada |
-| `JWPLC_GlobalPeripherals` | 1.0.0 | Bundled / autoload liviano |
-| `Adafruit ST7735 and ST7789 Library` | 1.11.0 | Precompilada |
-| `Adafruit GFX Library` | 1.12.4 | Precompilada |
-| `Adafruit BusIO` | 1.17.4 | Precompilada |
-| `Wire` | 3.3.8 | Precompilada |
-| `SPI` | 3.3.8 | Precompilada |
-| `JW_RTC` | 1.0.2 | Precompilada |
-| `JW_FRAM` | 1.0.3 | Precompilada |
-| `JW_SD` | 1.0.2 | Precompilada |
-| `SD` | 3.3.8 | Precompilada |
-| `FS` | 3.3.8 | Precompilada |
-| `JW_MatrixButtons` | 1.0.5 | Precompilada |
-| `JWPLC_Ethernet` | 1.0.0 | Wrapper JWPLC |
-| `JWPLC Ethernet W5x00 Backend` | 2.0.2 | Vendorizada + precompilada |
-| `JWPLC_RS485` | 1.0.1 | Bundled |
-| `JWPLC_ModbusRTU` | 1.0.0 | Precompilada |
-
-El core de `JWPLC Basic` se distribuye además como archive precompilado independiente:
-
-```txt
-JWPLC/2.1.0/precompiled/core/JWPLCBASIC/core.a
-```
-
-### Backend Ethernet
-
-El backend W5x00 parte de **Arduino Ethernet 2.0.2**, pero Alpha4 incorpora un patch específico de JWPLC.
-
-La adaptación elimina una espera genérica de aproximadamente 560 ms dentro de la inicialización W5x00 que era redundante en JWPLC Basic porque el hardware ya controla el reset físico del W5500 antes de adquirir el mutex SPI.
-
-Se mantiene:
-
-- el mutex SPI global;
-- la exclusión entre periféricos;
-- el autoload Ethernet;
-- las APIs públicas existentes.
-
-Por ello debe describirse como:
-
-```txt
-Arduino Ethernet 2.0.2 + patch específico JWPLC
-```
-
----
-
-## Bus SPI compartido
-
-En JWPLC Basic comparten SPI:
-
-- TFT ST7789;
-- W5500 Ethernet;
-- microSD;
-- FRAM.
-
-Pines principales del bus:
-
-```txt
-MOSI    GPIO23
-MISO    GPIO19
-SCK     GPIO18
-TFT CS  GPIO33
-SD CS   GPIO32
-FRAM CS GPIO13
-ETH CS  GPIO5
-```
-
-El core conserva la protección mediante:
-
-```cpp
-jwplcSPI_acquire();
-jwplcSPI_release();
-```
-
-Para callbacks gráficos repetitivos se recomienda leer Ethernet, SD o FRAM fuera del callback y dibujar usando valores ya cacheados.
-
----
-
-## Display y botonera
-
-`JWPLC_Display` se inicializa automáticamente en JWPLC Basic.
-
-Configuraciones principales pueden definirse desde `setup()`:
+Ejemplo de configuración:
 
 ```cpp
 JWPLC_Display.setIdleWakeMode(IDLE_WAKE_ANY_BUTTON);
 JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
-JWPLC_Display.setIdleRefreshPeriodMs(1000);
 JWPLC_Display.setUserRefreshPeriodMs(100);
 
 JWPLC_Display.setRunLed(true);
-JWPLC_Display.setErrLed(false);
 JWPLC_Display.setBusLedAuto(true);
 JWPLC_Display.setEthLedAuto(true);
 ```
 
-`setUserRefreshPeriodMs(100)` corresponde a un objetivo de 10 FPS para la pantalla USER.
-
-Los seis botones físicos validados son:
+La botonera integrada expone las teclas:
 
 ```txt
 UP
@@ -424,55 +253,101 @@ CANCEL
 OK
 ```
 
-CANCEL se representa internamente como `BTN_ESC`.
+Esto permite desarrollar menús, edición de parámetros y HMIs simples directamente en el JWPLC Basic sin hardware adicional.
+
+Documentación de la librería:
+
+- [`JWPLC_Display`](JWPLC/2.1.0/libraries/JWPLC_Display/README.md)
 
 ---
 
-## Ethernet
+## RTC, FRAM y microSD
 
-`JWPLC_Ethernet` integra el W5500 con el runtime de JWPLC Basic.
+### RTC
 
-El runtime normal puede encargarse de:
+`JWPLC_RTC` proporciona fecha y hora para:
 
-- inicialización automática;
-- DHCP;
-- reconexión;
+- registro de eventos;
+- históricos;
+- tiempos de proceso;
+- fechado de archivos;
+- interfaces de usuario.
+
+```cpp
+auto now = JWPLC_RTC.now();
+```
+
+### FRAM
+
+`JWPLC_FRAM` ofrece memoria no volátil de alta frecuencia de escritura para:
+
+- contadores;
+- parámetros;
+- estados de máquina;
+- setpoints;
+- datos que deban sobrevivir reinicios.
+
+```cpp
+uint32_t starts = 0;
+JWPLC_FRAM.get(0, starts);
+starts++;
+JWPLC_FRAM.put(0, starts);
+```
+
+### microSD
+
+`JWPLC_SD` permite utilizar la microSD integrada para:
+
+- datalogging;
+- recetas;
+- archivos de configuración;
+- exportación de información;
+- recursos para interfaces.
+
+Documentación de las librerías:
+
+- [`JW_RTC`](https://github.com/JW-Control/JW_RTC/blob/main/README.md)
+- [`JW_FRAM`](https://github.com/JW-Control/JW_FRAM/blob/main/README.md)
+- [`JW_SD`](https://github.com/JW-Control/JW_SD/blob/main/README.md)
+
+---
+
+## Ethernet W5500
+
+`JWPLC_Ethernet` integra el W5500 al runtime del JWPLC Basic.
+
+El package contempla:
+
+- inicialización del periférico;
+- DHCP o configuración de red;
 - estado de link;
-- coexistencia SPI;
-- indicador `ETH` del display.
+- reconexión;
+- coexistencia con los demás periféricos SPI;
+- integración con el indicador `ETH` del display.
 
-Durante Alpha4 se validaron físicamente:
+Durante las validaciones del package se probaron W5500, DHCP, link, servidor HTTP y uso simultáneo de Ethernet + TFT + FRAM + microSD.
 
-- W5500;
-- DHCP;
-- link Ethernet;
-- coexistencia Ethernet + TFT + FRAM + SD;
-- servidor HTTP.
+Documentación de la librería:
+
+- [`JWPLC_Ethernet`](JWPLC/2.1.0/libraries/JWPLC_Ethernet/README.md)
 
 ---
 
 ## RS-485 y Modbus RTU
 
-JWPLC Basic usa RS-485 sobre `Serial2`.
+JWPLC Basic incluye RS-485 físico y una API propia para utilizarlo sin gestionar manualmente la dirección del transceptor.
 
 ```cpp
 JWPLC_RS485.begin(115200, SERIAL_8N1);
 ```
 
-| Señal | ESP32 |
-|---|---:|
-| RX2 | IO16 |
-| TX2 | IO17 |
-
-El hardware utiliza un transceptor con autodirección, por lo que no se controla DE/RE manualmente desde el sketch normal.
-
-Modbus RTU trabaja sobre `JWPLC_RS485`:
+Sobre esta interfaz se encuentra `JWPLC_ModbusRTU`, con soporte para operación master/slave y las funciones base utilizadas por el ecosistema JWPLC.
 
 ```cpp
 JWPLC_ModbusRTU.begin();
 ```
 
-Funciones slave disponibles:
+Funciones actualmente soportadas en modo slave:
 
 | Código | Función |
 |---:|---|
@@ -480,151 +355,236 @@ Funciones slave disponibles:
 | `0x06` | Write Single Register |
 | `0x10` | Write Multiple Registers |
 
-APIs master principales:
+APIs principales en modo master:
 
 ```cpp
 readHoldingRegisters();
 writeSingleRegister();
 ```
 
-En Alpha4 se validaron físicamente FC03 y FC06, además del enlace RS-485.
+Documentación:
+
+- [`JWPLC_RS485`](JWPLC/2.1.0/libraries/JWPLC_RS485/README.md)
+- [`JWPLC_ModbusRTU`](JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/README.md)
 
 ---
 
-## App-only, bootloader y OTA
+## Librerías del ecosistema JWPLC
 
-### App-only
+El package incluye librerías internas y copias validadas de librerías distribuibles del ecosistema JW Control.
 
-El flujo app-only permite actualizar únicamente la aplicación en `0x10000` cuando la placa ya posee bootloader y particiones compatibles.
+### Librerías internas del package
 
-Conclusión de Alpha4:
+| Librería | Función principal | Documentación |
+|---|---|---|
+| `JWPLC_Display` | TFT, pantallas IDLE/USER, indicadores y callbacks gráficos | [README](JWPLC/2.1.0/libraries/JWPLC_Display/README.md) |
+| `JWPLC_Ethernet` | W5500, red, link, DHCP y coexistencia SPI | [README](JWPLC/2.1.0/libraries/JWPLC_Ethernet/README.md) |
+| `JWPLC_RS485` | Acceso al puerto RS-485 del JWPLC Basic | [README](JWPLC/2.1.0/libraries/JWPLC_RS485/README.md) |
+| `JWPLC_ModbusRTU` | Modbus RTU master/slave sobre RS-485 | [README](JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/README.md) |
 
-- es útil como herramienta auxiliar de desarrollo;
-- no se adopta como upload normal por defecto;
-- no se agrega un menú público `UploadMode` en Alpha4;
-- el upload completo sigue siendo la ruta normal y segura de Arduino IDE.
+`JWPLC_GlobalPeripherals` forma parte de la infraestructura interna que permite exponer los objetos globales del ecosistema, pero no necesita ser utilizado directamente en un sketch normal.
 
-### Bootloader
+### Librerías JW distribuibles
 
-Configuración cerrada para JWPLC Basic v2.0:
+| Librería | Función principal | Documentación |
+|---|---|---|
+| `JW_FRAM` | Acceso a FRAM SPI con API de almacenamiento persistente | [README](https://github.com/JW-Control/JW_FRAM/blob/main/README.md) |
+| `JW_RTC` | RTC DS3232M / DS3232 | [README](https://github.com/JW-Control/JW_RTC/blob/main/README.md) |
+| `JW_SD` | Wrapper para microSD sobre bus SPI compartido | [README](https://github.com/JW-Control/JW_SD/blob/main/README.md) |
+| `JW_MatrixButtons` | Botonera matricial, debounce y eventos de navegación | [README](https://github.com/JW-Control/JW_MatrixButtons/blob/main/README.md) |
+| `JW_DWIN_RS485` | Comunicación complementaria con pantallas DWIN por RS-485 | [README](https://github.com/JW-Control/JW_DWIN_RS485/blob/main/README.md) |
 
-```txt
-FlashFreq: 40 MHz
-Flash mode: DIO
-build.boot: qio
-bootloader address: 0x1000
-```
-
-El bootloader reproducible de 40 MHz fue validado físicamente, pero **no se publica `bootloader.bin` como artefacto definitivo de variante**.
-
-El antiguo `bootloader.bin` de variante asociado a 80 MHz fue retirado.
-
-### OTA
-
-OTA no queda definida en Alpha4.
-
-La partición Max App conserva `otadata`, pero esto no debe interpretarse como una política OTA terminada.
+`JW_DWIN_RS485` es una librería complementaria y no forma parte del runtime base del JWPLC Basic.
 
 ---
 
 ## OpenPLC Editor
 
-OpenPLC no forma parte obligatoria del package Arduino.
+El JWPLC Basic también ha sido validado como target externo para **OpenPLC Editor v4**.
 
-La integración existente con OpenPLC Editor v4 se mantiene como **externa/opcional mediante patch**, conservada en:
+Esta integración se mantiene separada del package Arduino: **OpenPLC es opcional y no es necesario para programar el JWPLC Basic desde Arduino IDE**.
 
-```txt
-docs/alpha32_openplc_integration/
-```
+La documentación y el patch de integración se conservan en:
 
-El uso normal de JWPLC Basic desde Arduino IDE o Arduino CLI no requiere OpenPLC.
+- [`docs/alpha32_openplc_integration/`](docs/alpha32_openplc_integration/)
 
-No se debe asumir OpenPLC integrado al runtime de Alpha4.
+Entre las pruebas realizadas se encuentran compilación, carga por USB, Pin Mapping y Modbus TCP por W5500.
 
 ---
 
-## Validación física de Alpha4
+## Validación de Alpha4
 
-Gate local final:
+El cierre de Alpha4 incluyó validación física de los principales subsistemas:
 
 | Área | Resultado |
 |---|---|
-| Display ready | PASS |
+| Display y TFT | PASS |
 | RTC | PASS |
-| FRAM 8 KB | PASS |
+| FRAM | PASS |
 | microSD | PASS |
-| UP/DOWN/LEFT/RIGHT/CANCEL/OK | PASS |
+| Botonera | PASS |
 | 8 entradas digitales | PASS |
 | 8 salidas / relés | PASS |
-| TFT visual | PASS |
-| W5500 / DHCP | PASS |
+| Ethernet W5500 / DHCP | PASS |
 | Ethernet + TFT + FRAM + SD | PASS |
 | HTTP | PASS |
 | RS-485 | PASS |
-| Modbus RTU FC03 | PASS |
-| Modbus RTU FC06 | PASS |
+| Modbus RTU FC03 / FC06 | PASS |
+| Instalación standalone desde índice dev | PASS |
+| Compilación y carga del package publicado | PASS |
 
-Durante el gate standalone posterior a la publicación también se observó en el ROM boot:
+Para el detalle de los gates y evidencias:
 
-```txt
-mode:DIO, clock div:2
-```
-
-Resultado global del gate local:
-
-```txt
-ALPHA4_LOCAL_PHYSICAL_GATE=PASS
-```
-
-Documentación:
-
-```txt
-tools/build-speed-benchmark/JWPLC_ALPHA4_LOCAL_PHYSICAL_GATE.md
-tools/build-speed-benchmark/JWPLC_ALPHA4_COMMUNICATION_PHYSICAL_GATES.md
-docs/v2.1.0-alpha.4/ALPHA4_PUBLICATION_VALIDATION.md
-```
+- [`ALPHA4_CLOSURE_CHECKLIST.md`](docs/v2.1.0-alpha.4/ALPHA4_CLOSURE_CHECKLIST.md)
+- [`ALPHA4_PUBLICATION_VALIDATION.md`](docs/v2.1.0-alpha.4/ALPHA4_PUBLICATION_VALIDATION.md)
+- [`JWPLC_ALPHA4_LOCAL_PHYSICAL_GATE.md`](tools/build-speed-benchmark/JWPLC_ALPHA4_LOCAL_PHYSICAL_GATE.md)
+- [`JWPLC_ALPHA4_COMMUNICATION_PHYSICAL_GATES.md`](tools/build-speed-benchmark/JWPLC_ALPHA4_COMMUNICATION_PHYSICAL_GATES.md)
 
 ---
 
-## Estructura principal
+## Detalles técnicos de v2.1.0-alpha.4
+
+La información siguiente se conserva para desarrolladores y mantenedores del package. No es necesaria para utilizar normalmente un JWPLC Basic.
+
+<details>
+<summary><strong>Configuración de flash y particionado</strong></summary>
+
+### JWPLC Basic
+
+| Parámetro | Valor |
+|---|---|
+| CPU | 240 MHz |
+| Flash | 4 MB |
+| Flash frequency | 40 MHz |
+| Flash mode | DIO |
+| Boot base | QIO |
+| Bootloader address | `0x1000` |
+| Partition scheme | `jwplc_max_app_4mb` |
+| Máximo de aplicación | 4,063,232 bytes / 3.875 MiB |
+| Upload speed | 921600 |
+
+La nueva partición Max App incrementa el espacio disponible para la aplicación en **917,504 bytes / 896 KiB / 29.17 %** frente a `huge_app`.
+
+Conserva NVS, `otadata` y 64 KiB para coredump. SPIFFS no forma parte de este perfil.
+
+`JWPLC Basic Core` continúa usando `huge_app` y un máximo de 3,145,728 bytes.
+
+La presencia de `otadata` no implica que exista una política OTA final definida.
+
+</details>
+
+<details>
+<summary><strong>Herramientas instaladas por Boards Manager</strong></summary>
+
+Alpha4 declara cinco `toolsDependencies` externas:
+
+| Tool | Versión |
+|---|---|
+| `esp-x32` | `2601` |
+| `esptool_py` | `5.2.0` |
+| `mkspiffs` | `0.2.3` |
+| `mklittlefs` | `4.0.2-db0513a` |
+| `esp32-libs` | `3.3.8` |
+
+Estas herramientas se descargan automáticamente durante la instalación del package y son distintas de las librerías que viajan dentro del ZIP de JWPLC.
+
+</details>
+
+<details>
+<summary><strong>Librerías precompiladas y componentes de build</strong></summary>
+
+Alpha4 distribuye el core de JWPLC Basic y varias librerías seleccionadas en formato precompilado para reducir el trabajo repetitivo del compilador.
+
+Entre los componentes validados se encuentran:
+
+- `JWPLC_Display`;
+- `JWPLC_ModbusRTU`;
+- `JW_RTC`;
+- `JW_FRAM`;
+- `JW_SD`;
+- `JW_MatrixButtons`;
+- Adafruit ST7735/ST7789;
+- Adafruit GFX;
+- Adafruit BusIO;
+- `FS`;
+- `SD`;
+- `Wire`;
+- `SPI`;
+- backend Ethernet W5x00.
+
+El backend W5x00 parte de **Arduino Ethernet 2.0.2** y contiene adaptaciones específicas para el runtime JWPLC. Se mantiene el mutex SPI y las APIs públicas existentes.
+
+El core precompilado se distribuye en:
 
 ```txt
-JWPLC/
-  package_jwplc_index.json
-  package_jwplc_index_dev.json
-
-  2.1.0/
-    boards.txt
-    platform.txt
-    platform.local.txt
-    cores/
-    variants/
-    libraries/
-    precompiled/
-      core/
-    tools/
-      partitions/
-
-  JWPLC-2.0.0/
-    ...
-
-  Test_Codes/
-    ...
-
-docs/
-  alpha32_openplc_integration/
-  v2.1.0-alpha.4/
-
-tools/
-  build-speed-benchmark/
+JWPLC/2.1.0/precompiled/core/JWPLCBASIC/core.a
 ```
 
-Notas:
+Para el detalle de estrategia y equivalencia:
 
-- `JWPLC/2.1.0` es la carpeta activa del ciclo de desarrollo 2.1.0.
-- `JWPLC/JWPLC-2.0.0` conserva la fuente histórica/estable de v2.0.0.
-- `JWPLC/Test_Codes` conserva pruebas internas y sketches de validación.
-- `tools/build-speed-benchmark` conserva scripts, decisiones y resultados técnicos de Alpha4; los directorios locales de build/resultados pesados están excluidos mediante `.gitignore`.
+- [`PRECOMPILE_STRATEGY.md`](tools/build-speed-benchmark/PRECOMPILE_STRATEGY.md)
+- [`P6_ADAFRUIT_FINAL_AUDIT.md`](tools/build-speed-benchmark/P6_ADAFRUIT_FINAL_AUDIT.md)
+- [`JWPLC_ALPHA4_P8_WIRE_SPI_RESULT.md`](tools/build-speed-benchmark/JWPLC_ALPHA4_P8_WIRE_SPI_RESULT.md)
+
+</details>
+
+<details>
+<summary><strong>SPI compartido</strong></summary>
+
+TFT, Ethernet W5500, microSD y FRAM comparten el bus SPI del JWPLC Basic.
+
+El runtime conserva un mecanismo de exclusión para evitar que dos periféricos utilicen simultáneamente el bus.
+
+Para interfaces gráficas con refresco frecuente se recomienda leer periféricos SPI fuera del callback de dibujo y mostrar en pantalla valores ya almacenados en variables simples.
+
+</details>
+
+<details>
+<summary><strong>App-only, bootloader y OTA</strong></summary>
+
+### App-only
+
+Se validó como herramienta auxiliar para desarrollo, pero no se adopta como modo público de upload por defecto. La carga completa continúa siendo la ruta normal y segura en Arduino IDE.
+
+### Bootloader
+
+Para JWPLC Basic v2.0 se cerró la configuración en 40 MHz / DIO. El bootloader correspondiente fue validado físicamente, pero no se publica un `bootloader.bin` precompilado como artefacto definitivo de la variante.
+
+### OTA
+
+Alpha4 no define una política OTA final.
+
+</details>
+
+---
+
+## Para desarrolladores del package
+
+El ciclo activo de desarrollo se encuentra en:
+
+```txt
+JWPLC/2.1.0
+```
+
+La fuente histórica/estable de `v2.0.0` se conserva en:
+
+```txt
+JWPLC/JWPLC-2.0.0
+```
+
+Las herramientas y resultados técnicos de la optimización de Alpha4 están en:
+
+```txt
+tools/build-speed-benchmark/
+```
+
+Los documentos de cierre de Alpha4 están en:
+
+```txt
+docs/v2.1.0-alpha.4/
+```
+
+Para desarrollo local puede mantenerse una instalación separada `jwplc_local` enlazada al repositorio, evitando modificar el package administrado por Boards Manager.
 
 ---
 
