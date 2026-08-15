@@ -106,6 +106,7 @@ void runTCPTest() {
       bytesRead = 0;
     }
 
+    JWPLC_W5500.acquireBus(); // Bloquear mutex una sola vez para toda la lectura
     size_t avail = tcpSock.getRXReceivedSize();
     if (avail > 0) {
       uint8_t buffer[2048]; // Nuestro RX buffer interno
@@ -113,6 +114,7 @@ void runTCPTest() {
       tcpSock.read(buffer, toRead);
       bytesRead += toRead;
     }
+    JWPLC_W5500.releaseBus(); // Liberar mutex
     
     unsigned long elapsed = millis() - startTime;
     if (elapsed >= 5000) {

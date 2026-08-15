@@ -43,11 +43,16 @@ public:
     // Ajuste de Buffers (4 = 4KB por socket, 2 = 2KB, etc.)
     void setBuffers(uint8_t txSize, uint8_t rxSize);
     void setSocketBuffer(uint8_t socket, uint8_t txSize, uint8_t rxSize);
+    
+    // Gestión explícita de Mutex para operaciones agrupadas de alto rendimiento
+    void acquireBus();
+    void releaseBus();
 
 private:
     uint8_t _csPin;
     SPIClass* _spi;
     SPISettings _spiSettings;
+    bool _busAcquired;
 
     // Métodos internos para transacciones SPI
     void startTransaction();

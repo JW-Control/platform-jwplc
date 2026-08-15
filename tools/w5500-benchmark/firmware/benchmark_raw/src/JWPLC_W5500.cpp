@@ -3,7 +3,22 @@
 
 JWPLC_W5500_Class JWPLC_W5500;
 
-JWPLC_W5500_Class::JWPLC_W5500_Class() : _csPin(5), _spi(NULL) {
+JWPLC_W5500_Class::JWPLC_W5500_Class() : _csPin(5), _spi(NULL), _busAcquired(false) {}
+
+void JWPLC_W5500_Class::acquireBus() {
+    if (_busAcquired) return;
+    while (!jwplcSPI_acquire(100)) {
+        delay(1);
+    }
+    _spi->beginTransaction(_spiSettings);
+    _busAcquired = true;
+}
+
+void JWPLC_W5500_Class::releaseBus() {
+    if (!_busAcquired) return;
+    _spi->endTransaction();
+    jwplcSPI_release();
+    _busAcquired = false;
 }
 
 bool JWPLC_W5500_Class::begin(uint8_t csPin, SPIClass* spi) {
@@ -14,10 +29,8 @@ bool JWPLC_W5500_Class::begin(uint8_t csPin, SPIClass* spi) {
     pinMode(_csPin, OUTPUT);
     digitalWrite(_csPin, HIGH);
     
-    if (_spi) {
-        _spi->begin();
-        jwplcSPI_begin(); // Iniciar bus SPI de JWPLC
-    }
+    // Iniciar bus SPI de JWPLC
+    jwplcSPI_begin();
     
     // Configuración base sin esperas excesivas
     softReset();
@@ -26,20 +39,23 @@ bool JWPLC_W5500_Class::begin(uint8_t csPin, SPIClass* spi) {
 }
 
 void JWPLC_W5500_Class::startTransaction() {
-    // Esperar de forma segura la adquisición del mutex para evitar
-    // liberar un mutex que no poseemos (assert xTaskPriorityDisinherit)
-    while (!jwplcSPI_acquire(1000)) {
-        Serial.println("Warning: Mutex SPI ocupado, esperando...");
+    if (!_busAcquired) {
+        while (!jwplcSPI_acquire(1000)) {
+            Serial.println("Warning: Mutex SPI ocupado, esperando...");
+            delay(10); // Evitar spam muy rápido
+        }
+        jwplcSPI_deselectAll();
+        _spi->beginTransaction(_spiSettings);
     }
-    jwplcSPI_deselectAll();
-    _spi->beginTransaction(_spiSettings);
     digitalWrite(_csPin, LOW);
 }
 
 void JWPLC_W5500_Class::endTransaction() {
     digitalWrite(_csPin, HIGH);
-    _spi->endTransaction();
-    jwplcSPI_release();
+    if (!_busAcquired) {
+        _spi->endTransaction();
+        jwplcSPI_release();
+    }
 }
 
 void JWPLC_W5500_Class::sendHeader(uint16_t addr, uint8_t block, uint8_t control) {
