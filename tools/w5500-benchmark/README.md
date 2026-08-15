@@ -13,7 +13,7 @@ Durante la investigación para optimizar la capa de red del JWPLC, se probaron d
 ### 2. Optimización de Memoria y Mutex (TCP)
 - **Baseline (2KB RX / 2KB TX sin seguridad):** ~9.1 Mbps (inestable por colisiones con pantalla).
 - **Driver RAW con Mutex Estricto:** ~7.8 Mbps.
-- **Punto Óptimo Encontrado (Mutex Agrupado + 4KB de Buffers):** **~8.1 Mbps**. Se logra retener el candado del RTOS agrupando transacciones, permitiendo extraer el máximo rendimiento de red sin sacrificar la seguridad y coexistencia industrial.
+- **Punto Óptimo Encontrado (Mutex Agrupado + Ráfagas FIFO):** **Promedio ~8.4 Mbps, Pico ~9.9 Mbps**. Se logra retener el candado del RTOS y vaciar los 4KB del buffer en un solo paso usando DMA/FIFO. Esto extrae el **rendimiento máximo absoluto** de la red sin sacrificar la seguridad y coexistencia industrial.
 
 ### 3. Conclusión
 El throughput TCP RAW fue elevado desde los 2.6 Mbps originales (con el driver heredado a 14MHz) a **7.8 Mbps**, lo que representa una **mejora de casi el 300%** sin sobrepasar los márgenes eléctricos de seguridad de la placa, manteniendo total coexistencia con la pantalla gráfica y la FRAM.
