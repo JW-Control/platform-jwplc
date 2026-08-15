@@ -10,10 +10,10 @@ Durante la investigación para optimizar la capa de red del JWPLC, se probaron d
 - **Límite Físico Encontrado:** `20 MHz`.
 - **Explicación:** A frecuencias de 30 MHz o superiores, el ESP32 transmite datos correctamente por MOSI, pero la lectura del canal MISO se corrompe por retardos de propagación (skew) debidos a las trazas de la PCB y la compartición del bus con la pantalla TFT, SD y FRAM. A 20 MHz, la integridad de la señal es 100% limpia y estable, lo que cumple el objetivo del hardware.
 
-### 2. Optimización de Memoria (Window Size TCP)
-- **Baseline (2KB RX / 2KB TX):** ~2.72 Mbps.
-- **Buffers de 16KB:** Produjo saturación del bus SPI y caídas drásticas de velocidad a ~1.1 Mbps (y 0.6 Mbps al procesarse en bucles), provocado por la inyección masiva de ráfagas TCP desde el host PC y las ineficiencias de enrutamiento SPI de bloques extremos.
-- **Punto Óptimo Encontrado (4KB RX / 4KB TX):** **~7.86 Mbps**. El equilibrio perfecto entre ventana TCP y capacidad de extracción del ESP32.
+### 2. Optimización de Memoria y Mutex (TCP)
+- **Baseline (2KB RX / 2KB TX sin seguridad):** ~9.1 Mbps (inestable por colisiones con pantalla).
+- **Driver RAW con Mutex Estricto:** ~7.8 Mbps.
+- **Punto Óptimo Encontrado (Mutex Agrupado + 4KB de Buffers):** **~8.1 Mbps**. Se logra retener el candado del RTOS agrupando transacciones, permitiendo extraer el máximo rendimiento de red sin sacrificar la seguridad y coexistencia industrial.
 
 ### 3. Conclusión
 El throughput TCP RAW fue elevado desde los 2.6 Mbps originales (con el driver heredado a 14MHz) a **7.8 Mbps**, lo que representa una **mejora de casi el 300%** sin sobrepasar los márgenes eléctricos de seguridad de la placa, manteniendo total coexistencia con la pantalla gráfica y la FRAM.
