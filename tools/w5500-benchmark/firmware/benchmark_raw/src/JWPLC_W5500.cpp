@@ -59,9 +59,11 @@ void JWPLC_W5500_Class::endTransaction() {
 }
 
 void JWPLC_W5500_Class::sendHeader(uint16_t addr, uint8_t block, uint8_t control) {
-    _spi->transfer((addr >> 8) & 0xFF);
-    _spi->transfer(addr & 0xFF);
-    _spi->transfer((block << 3) | control);
+    uint8_t cmd[3];
+    cmd[0] = (addr >> 8) & 0xFF;
+    cmd[1] = addr & 0xFF;
+    cmd[2] = (block << 3) | control;
+    _spi->transfer(cmd, 3);
 }
 
 bool JWPLC_W5500_Class::hardwarePresent() {
@@ -103,8 +105,9 @@ void JWPLC_W5500_Class::write8(uint16_t addr, uint8_t block, uint8_t data) {
 uint16_t JWPLC_W5500_Class::read16(uint16_t addr, uint8_t block) {
     startTransaction();
     sendHeader(addr, block, W5500_RWB_READ | W5500_FDM2);
-    uint16_t val = _spi->transfer(0x00) << 8;
-    val |= _spi->transfer(0x00);
+    uint8_t buf[2] = {0x00, 0x00};
+    _spi->transfer(buf, 2);
+    uint16_t val = (buf[0] << 8) | buf[1];
     endTransaction();
     return val;
 }
@@ -112,22 +115,25 @@ uint16_t JWPLC_W5500_Class::read16(uint16_t addr, uint8_t block) {
 void JWPLC_W5500_Class::write16(uint16_t addr, uint8_t block, uint16_t data) {
     startTransaction();
     sendHeader(addr, block, W5500_RWB_WRITE | W5500_FDM2);
-    _spi->transfer((data >> 8) & 0xFF);
-    _spi->transfer(data & 0xFF);
+    uint8_t buf[2];
+    buf[0] = (data >> 8) & 0xFF;
+    buf[1] = data & 0xFF;
+    _spi->transfer(buf, 2);
     endTransaction();
 }
 
 void JWPLC_W5500_Class::readBlock(uint16_t addr, uint8_t block, uint8_t* buffer, size_t len) {
     startTransaction();
     sendHeader(addr, block, W5500_RWB_READ | W5500_VDM);
-    // Para optimizar a frecuencias altas usaremos transferBytes en vez de transfer() byte a byte
-    _spi->transferBytes(NULL, buffer, len);
+    memset(buffer, 0, len);
+    _spi->transfer(buffer, len);
     endTransaction();
 }
 
 void JWPLC_W5500_Class::writeBlock(uint16_t addr, uint8_t block, const uint8_t* buffer, size_t len) {
     startTransaction();
     sendHeader(addr, block, W5500_RWB_WRITE | W5500_VDM);
+    // Necesitamos un buffer temporal porque _spi->transfer modifica el arreglo y no queremos corromper "buffer" constante
     _spi->transferBytes(buffer, NULL, len);
     endTransaction();
 }
