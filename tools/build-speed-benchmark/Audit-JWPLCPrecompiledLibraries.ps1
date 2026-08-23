@@ -191,11 +191,11 @@ $lines.Add("# Auditoria de compatibilidad de librerias precompiladas JWPLC")
 $lines.Add("")
 $lines.Add(("Fecha: {0}" -f (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")))
 $lines.Add("")
-$lines.Add(("Toolchain nm: `{0}`" -f $nm))
+$lines.Add(('Toolchain nm: `{0}`' -f $nm))
 $lines.Add("")
-$lines.Add("Criterio bloqueante: un archive `src/esp32/lib*.a` no debe depender de simbolos internos `jwplc_*` si puede ser reutilizado por targets que comparten `build.mcu=esp32` pero usan cores distintos.")
+$lines.Add('Criterio bloqueante: un archive `src/esp32/lib*.a` no debe depender de simbolos internos `jwplc_*` si puede ser reutilizado por targets que comparten `build.mcu=esp32` pero usan cores distintos.')
 $lines.Add("")
-$lines.Add("| Libreria | Archive | Undefined | Simbolos `jwplc_*` | Estado |")
+$lines.Add('| Libreria | Archive | Undefined | Simbolos `jwplc_*` | Estado |')
 $lines.Add("|---|---|---:|---|---|")
 
 foreach ($row in $rows)
@@ -208,7 +208,7 @@ foreach ($row in $rows)
 $lines.Add("")
 if ($blockingFindings.Count -eq 0)
 {
-    $lines.Add("Resultado global: **PASS**. No se detectaron dependencias `jwplc_*` en los archives P1 auditados.")
+    $lines.Add('Resultado global: **PASS**. No se detectaron dependencias `jwplc_*` en los archives P1 auditados.')
 }
 else
 {
@@ -221,7 +221,7 @@ else
 }
 
 $lines.Add("")
-$lines.Add("Nota: otros simbolos indefinidos de Arduino/ESP-IDF son normales en una libreria estatica y se resuelven durante el link final. Esta auditoria se concentra en el acoplamiento interno `jwplc_*` que causo la regresion de `JW_MatrixButtons`.")
+$lines.Add('Nota: otros simbolos indefinidos de Arduino/ESP-IDF son normales en una libreria estatica y se resuelven durante el link final. Esta auditoria se concentra en el acoplamiento interno `jwplc_*` que causo la regresion de `JW_MatrixButtons`.')
 
 $parent = Split-Path -Parent $OutputPath
 if (-not [string]::IsNullOrWhiteSpace($parent) -and -not (Test-Path -LiteralPath $parent))
