@@ -55,6 +55,20 @@ Se aplica la misma correccion conservadora:
 3. excluir `JW_SD` de la lista P1 por defecto;
 4. mantener intacta la API y la implementacion GPIO de `JW_SD`.
 
+### SD nativa 3.3.8
+
+La prueba especifica de compatibilidad de `JW_SD` expuso el mismo acoplamiento en el archive nativo `SD/src/esp32/libSD.a`, concretamente desde `sd_diskio.cpp.o`, con dependencia externa a:
+
+```txt
+jwplc_digitalWrite
+```
+
+Se aplico la misma correccion conservadora:
+
+1. retirar `SD/src/esp32/libSD.a`;
+2. retirar `precompiled=full` de `SD/library.properties`;
+3. conservar intactos `SD.cpp`, `sd_diskio.cpp`, `sd_diskio_crc.c` y la API publica de SD.
+
 No se modifica el firmware JWPLC Laundry.
 No se modifica `platform.txt`.
 No se modifica `build.mcu`.
@@ -139,7 +153,7 @@ COMPILACION OK
 
 ### D. JW_SD desde fuente en target generico
 
-Tras retirar el archive de `JW_SD`, compilar con `ESP32 Board` un sketch minimo que incluya y use la libreria:
+Tras retirar los archives de `JW_SD` y `SD`, compilar con `ESP32 Board` un sketch minimo que incluya y use la libreria:
 
 ```cpp
 #include <JW_SD.h>
@@ -162,17 +176,16 @@ Resultado esperado:
 COMPILACION OK
 ```
 
-En salida verbose debe compilarse:
+En salida verbose deben entrar desde objetos de compilacion normal:
 
 ```txt
 JW_SD/src/JW_SD.cpp
+SD/src/SD.cpp
+SD/src/sd_diskio.cpp
+SD/src/sd_diskio_crc.c
 ```
 
-y no debe aparecer:
-
-```txt
-Using precompiled library in .../JW_SD/src/esp32
-```
+y no deben aparecer archives precompilados de `JW_SD` ni `SD`.
 
 ## Evidencia registrada
 
@@ -344,10 +357,90 @@ Conclusion:
 
 - `JW_RTC`, `JW_FRAM` y `JWPLC_ModbusRTU` no muestran el acoplamiento interno que causo la regresion;
 - `JW_SD` si reproduce el mismo patron de incompatibilidad;
-- `JW_SD` queda retirado de P1 y vuelve a compilacion desde fuente;
-- la auditoria por defecto queda limitada a los archives P1 que permanecen activos.
+- `JW_SD` queda retirado de P1 y vuelve a compilacion desde fuente.
 
-La existencia de otros simbolos indefinidos de Arduino/ESP-IDF no se considera por si sola un fallo: se resuelven durante el link final. El criterio de esta auditoria es el acoplamiento a simbolos internos `jwplc_*`.
+### 2026-08-23 - Auditoria global de archives ESP32
+
+Tras ampliar la auditoria a todos los `libraries/*/src/esp32/lib*.a`, se identificaron cuatro archives adicionales con dependencias externas `jwplc_*`: `Adafruit_BusIO`, `Adafruit_GFX_Library`, `JWPLC_Display` y `JWPLC_Ethernet_W5x00_Backend`.
+
+Esos cuatro archives fueron retirados y sus librerias volvieron a compilacion desde fuente. La auditoria posterior quedo en:
+
+```txt
+Archives encontrados: 7
+PASS: 7
+FAIL: 0
+```
+
+Permanecen precompilados y aprobados por este gate:
+
+- `Adafruit_ST7735_and_ST7789_Library`;
+- `FS`;
+- `JW_FRAM`;
+- `JW_RTC`;
+- `JWPLC_ModbusRTU`;
+- `SPI`;
+- `Wire`.
+
+### 2026-08-23 - JW_SD + SD desde fuente / ESP32 Board
+
+Resultado:
+
+```txt
+PASS
+```
+
+Sketch:
+
+```txt
+tools/build-speed-benchmark/sketches/04_sd_source_compat/04_sd_source_compat.ino
+```
+
+Configuracion observada:
+
+```txt
+FQBN: jwplc_local:esp32:esp32
+Board: esp32
+Core: esp32
+Variant: esp32
+Package local: 2.1.0-dev
+```
+
+Arduino selecciono explicitamente las copias vendorizadas del package:
+
+```txt
+JW_SD 1.0.2 -> JWPLC/2.1.0/libraries/JW_SD
+SD 3.3.8    -> JWPLC/2.1.0/libraries/SD
+SPI 3.3.8   -> JWPLC/2.1.0/libraries/SPI
+FS 3.3.8    -> JWPLC/2.1.0/libraries/FS
+```
+
+`JW_SD` y `SD` entraron al link como objetos normales:
+
+```txt
+libraries/JW_SD/JW_SD.cpp.o
+libraries/SD/SD.cpp.o
+libraries/SD/sd_diskio.cpp.o
+libraries/SD/sd_diskio_crc.c.o
+```
+
+`SPI` y `FS` conservaron sus archives aprobados:
+
+```txt
+-lSPI
+-lFS
+```
+
+El enlace final completo correctamente, se genero ELF, BIN y merged BIN, y no aparecieron referencias indefinidas a `jwplc_pinMode`, `jwplc_digitalRead` ni `jwplc_digitalWrite`.
+
+Resumen de memoria:
+
+```txt
+Sketch: 288780 bytes (22%) de 1310720 bytes
+RAM global: 22268 bytes (6%) de 327680 bytes
+RAM libre estimada para variables locales: 305412 bytes
+```
+
+Esta prueba cierra el gate de compatibilidad de `JW_SD` y `SD` desde fuente para el target generico `ESP32 Board`.
 
 ## Evidencia a guardar
 
@@ -371,16 +464,17 @@ El ajuste puede considerarse validado cuando:
 - [x] JWPLC Basic Core compila correctamente tras retirar el precompilado de MatrixButtons.
 - [x] Se auditaron los archives P1 y se identifico/retiró `JW_SD` por acoplamiento `jwplc_*`.
 - [x] Los archives P1 que permanecen activos (`JW_RTC`, `JW_FRAM`, `JWPLC_ModbusRTU`) no presentan simbolos `jwplc_*` no resueltos.
-- [ ] `JW_SD` compila correctamente desde fuente con `ESP32 Board`.
-- [ ] JWPLC Basic conserva compilacion/autoload tras retirar el precompilado de `JW_SD`.
+- [x] La auditoria global de archives ESP32 queda en 7/7 PASS.
+- [x] `JW_SD` y `SD` compilan/enlazan correctamente desde fuente con `ESP32 Board`.
+- [ ] JWPLC Basic conserva compilacion/autoload tras retirar los precompilados incompatibles de `JW_SD`, `SD`, Display, Ethernet backend y stack Adafruit afectado.
 - [ ] La botonera conserva comportamiento funcional en JWPLC Basic.
 
 ## Pendiente de arquitectura
 
-Este cambio no intenta volver a precompilar `JW_MatrixButtons` ni `JW_SD` de inmediato.
+Este cambio no intenta volver a precompilar `JW_MatrixButtons`, `JW_SD`, `SD`, `Adafruit_BusIO`, `Adafruit_GFX_Library`, `JWPLC_Display` ni `JWPLC_Ethernet_W5x00_Backend` de inmediato.
 
 Antes de reintroducir cualquiera como archive comun para `esp32`, debe demostrarse que el binario es independiente del core o definirse una estrategia de precompilados que diferencie configuraciones ABI incompatibles.
 
-No se propone reemplazar las llamadas `pinMode`/`digitalRead` de estas librerias por GPIO nativo del ESP32 sin una decision explicita, porque bajo JWPLC esos remapeos pueden formar parte de la semantica esperada de pines virtuales.
+No se propone reemplazar las llamadas `pinMode`/`digitalRead`/`digitalWrite` de estas librerias por GPIO nativo del ESP32 sin una decision explicita, porque bajo JWPLC esos remapeos pueden formar parte de la semantica esperada de pines virtuales.
 
 La prioridad de Alpha5 para este ajuste es compatibilidad y estabilidad, no recuperar a cualquier costo el ahorro de compilacion asociado a unos pocos translation units.
