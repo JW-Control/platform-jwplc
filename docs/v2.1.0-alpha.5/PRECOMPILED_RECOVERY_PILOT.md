@@ -187,9 +187,38 @@ Interpretación:
 - el hardware siguió siendo detectado;
 - el estado final sin cable fue el esperado: enlace abajo e IP 0.0.0.0;
 - el `SPI lock timeout` transitorio no bloqueó la recuperación del runtime;
-- se registra como observación de estabilidad, no como fallo del piloto, sujeto a un gate final de hot-plug.
+- se registra como observación de estabilidad, no como fallo del piloto.
 
-## Estado del piloto 1
+### Gate físico hot-plug - PASS
+
+Fecha: 2026-08-23.
+
+Condición:
+
+1. arrancar el JWPLC Basic sin RJ45;
+2. esperar a que el runtime estabilice `Link OFF`;
+3. conectar el RJ45 sin reset ni reinicio;
+4. observar recuperación automática y DHCP.
+
+Secuencia observada en una misma captura serial:
+
+```txt
+Enabled: yes | Attempted: yes | Ready: no | HW: present | Link: DOWN | Status: Link OFF | IP: 0.0.0.0
+...
+Enabled: yes | Attempted: yes | Ready: no | HW: present | Link: UP | Status: Link OFF | IP: 0.0.0.0
+...
+Enabled: yes | Attempted: yes | Ready: yes | HW: present | Link: UP | Status: OK | IP: 192.168.0.31
+```
+
+Interpretación:
+
+- el cambio de estado `DOWN -> UP` se detectó sin reiniciar el JWPLC Basic;
+- el runtime recuperó automáticamente `Ready: yes`;
+- DHCP obtuvo una IP válida;
+- la conexión quedó estable en `Status: OK`;
+- los `SPI lock timeout` observados al inicio desaparecieron sin intervención y no impidieron la recuperación.
+
+## Estado del piloto 1 - CERRADO / ADOPTADO
 
 Gates aprobados:
 
@@ -198,8 +227,15 @@ Gates aprobados:
 - JWPLC Basic: PASS;
 - JWPLC Basic Core: PASS;
 - W5500 con RJ45 conectado antes del arranque: PASS;
-- W5500 sin RJ45: PASS con `SPI lock timeout` transitorio y recuperación a `Link OFF`.
+- W5500 sin RJ45: PASS con `SPI lock timeout` transitorio y recuperación a `Link OFF`;
+- hot-plug RJ45 sin reset: PASS con transición automática a `Ready: yes`, `Status: OK` e IP DHCP válida.
 
-Pendiente antes de adoptar definitivamente el archive:
+Conclusión:
 
-- gate físico hot-plug: arrancar sin RJ45, esperar `Link OFF`, conectar RJ45 sin reiniciar y verificar transición a `Ready: yes`, `Link: UP`, `Status: OK` e IP DHCP válida.
+`JWPLC_Ethernet_W5x00_Backend` puede permanecer precompilado en Alpha5 usando el bridge GPIO genérico validado. El archive histórico reutilizado no rompe ESP32 Board, JWPLC Basic ni JWPLC Basic Core, y el W5500 conserva funcionamiento físico normal bajo autoload.
+
+Observación abierta no bloqueante:
+
+- conservar registrado el `SPI lock timeout` transitorio durante algunos arranques sin cable; actualmente el runtime se recupera automáticamente y no requiere reset.
+
+Siguiente paso: iniciar el piloto 2 con el siguiente archive compartido de mayor impacto, manteniendo la política de una librería por vez y gates cross-board antes de adoptar.
