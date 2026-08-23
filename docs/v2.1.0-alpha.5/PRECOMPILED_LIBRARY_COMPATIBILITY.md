@@ -105,6 +105,13 @@ Seleccionar:
 
 ```txt
 JWPLC Basic Core
+FQBN esperado: jwplc_local:esp32:jwplcbasiccore
+```
+
+En el estado actual del package, Arduino IDE reporta como core efectivo:
+
+```txt
+jwcontrol
 ```
 
 Compilar un sketch representativo compatible con esta variante.
@@ -214,6 +221,49 @@ La prueba valida que retirar el archive precompilado de `JW_MatrixButtons` no ro
 
 Nota: esta prueba valida compilacion. La operacion fisica de la botonera queda pendiente de una prueba de hardware con subida.
 
+### 2026-08-22 - JWPLC Basic Core / sketch vacio con autoload
+
+Resultado:
+
+```txt
+PASS
+```
+
+Configuracion observada:
+
+```txt
+FQBN: jwplc_local:esp32:jwplcbasiccore
+Board: jwplcbasiccore
+Core reportado por Arduino IDE: jwcontrol
+Variant: jwplcbasic
+Package local: 2.1.0-dev
+JWPLC_BASIC: definido
+JWPLC_HAS_RTC: 1
+JWPLC_HAS_FRAM: 0
+JWPLC_HAS_SD: 0
+JWPLC_HAS_ETHERNET: 0
+```
+
+El log confirma que `JW_MatrixButtons` se compila desde fuente y no se reutiliza un archive `src/esp32/libJW_MatrixButtons.a`.
+
+Durante el link se utiliza:
+
+```txt
+libraries/JW_MatrixButtons/JW_MatrixButtons.cpp.o
+```
+
+La compilacion completo correctamente el enlace, genero ELF, BIN y merged BIN y no reporto referencias `jwplc_*` no resueltas.
+
+Resumen de memoria reportado por Arduino IDE:
+
+```txt
+Sketch: 339736 bytes (10%) de 3145728 bytes
+RAM global: 26804 bytes (8%) de 327680 bytes
+RAM libre estimada para variables locales: 300876 bytes
+```
+
+Esta prueba valida que la correccion tambien conserva compatibilidad con `JWPLC Basic Core`, que usa el core fuente `jwcontrol`.
+
 ## Evidencia a guardar
 
 Para cada prueba registrar:
@@ -233,7 +283,7 @@ El ajuste puede considerarse validado cuando:
 
 - [x] JWPLC Laundry compila con `ESP32 Board` sin referencias `jwplc_*` no resueltas.
 - [x] JWPLC Basic compila correctamente.
-- [ ] JWPLC Basic Core compila correctamente.
+- [x] JWPLC Basic Core compila correctamente.
 - [ ] La botonera conserva comportamiento funcional en JWPLC Basic.
 - [ ] Se confirma que las demas librerias P1 precompiladas no introducen el mismo acoplamiento.
 
