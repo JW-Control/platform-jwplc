@@ -90,4 +90,69 @@ Interpretación:
 - el core genérico compiló `jwplc-gpio-compat.c` en esta corrida, por lo que el gate no dependió de un `core.a` previo que ocultara el bridge;
 - el enlace terminó sin referencias `jwplc_*` sin resolver.
 
-Estado: auditoría PASS + ESP32 Board PASS; pendientes JWPLC Basic, JWPLC Basic Core y validación funcional Ethernet antes de adoptar definitivamente el archive.
+### Gate de enlace JWPLC Basic - PASS
+
+Fecha: 2026-08-23.
+
+FQBN:
+
+```txt
+jwplc_local:esp32:jwplcbasic
+```
+
+Sketch:
+
+```txt
+tools/build-speed-benchmark/sketches/01_empty/01_empty.ino
+```
+
+Evidencia:
+
+```txt
+Library JWPLC Ethernet W5x00 Backend has been declared precompiled:
+Using precompiled library in ...\JWPLC_Ethernet_W5x00_Backend\src\esp32
+Sketch uses 405553 bytes (9%) of program storage space. Maximum is 4063232 bytes.
+Global variables use 27908 bytes (8%) of dynamic memory, leaving 299772 bytes for local variables.
+```
+
+No se detectaron referencias `jwplc_*` sin resolver ni error de build.
+
+### Gate de enlace JWPLC Basic Core - PASS
+
+Fecha: 2026-08-23.
+
+FQBN:
+
+```txt
+jwplc_local:esp32:jwplcbasiccore
+```
+
+Sketch:
+
+```txt
+tools/build-speed-benchmark/sketches/01_empty/01_empty.ino
+```
+
+Evidencia:
+
+```txt
+Library JWPLC Ethernet W5x00 Backend has been declared precompiled:
+Using precompiled library in ...\JWPLC_Ethernet_W5x00_Backend\src\esp32
+Sketch uses 351396 bytes (11%) of program storage space. Maximum is 3145728 bytes.
+Global variables use 27076 bytes (8%) of dynamic memory, leaving 300604 bytes for local variables.
+```
+
+No se detectaron referencias `jwplc_*` sin resolver ni error de build.
+
+## Estado del piloto 1
+
+Gates estructurales aprobados:
+
+- auditoría bridge-compatible: PASS;
+- ESP32 Board: PASS;
+- JWPLC Basic: PASS;
+- JWPLC Basic Core: PASS.
+
+Pendiente antes de adoptar definitivamente el archive:
+
+- validación funcional física del W5500 sobre JWPLC Basic usando el runtime/autoload normal.
