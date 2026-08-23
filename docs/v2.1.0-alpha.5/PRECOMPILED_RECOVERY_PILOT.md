@@ -144,15 +144,62 @@ Global variables use 27076 bytes (8%) of dynamic memory, leaving 300604 bytes fo
 
 No se detectaron referencias `jwplc_*` sin resolver ni error de build.
 
+### Gate físico W5500 con RJ45 conectado - PASS
+
+Fecha: 2026-08-23.
+
+Sketch:
+
+```txt
+JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/Ethernet_Auto_DHCP_Status/Ethernet_Auto_DHCP_Status.ino
+```
+
+Resultado repetido durante la captura serial:
+
+```txt
+Enabled: yes | Attempted: yes | Ready: yes | HW: present | Link: UP | Status: OK | IP: 192.168.0.31
+```
+
+Interpretación:
+
+- W5500 detectado físicamente;
+- enlace Ethernet activo;
+- DHCP funcional;
+- runtime/autoload normal deja `Ready: yes` y `Status: OK`;
+- la prueba de compilación/subida terminó con exit code 0.
+
+### Gate físico sin RJ45 - PASS con observación
+
+En una corrida sin cable Ethernet, el runtime reportó inicialmente durante algunos ciclos:
+
+```txt
+Enabled: yes | Attempted: yes | Ready: no | HW: present | Link: DOWN | Status: SPI lock timeout | IP: 0.0.0.0
+```
+
+Luego se estabilizó automáticamente en:
+
+```txt
+Enabled: yes | Attempted: yes | Ready: no | HW: present | Link: DOWN | Status: Link OFF | IP: 0.0.0.0
+```
+
+Interpretación:
+
+- el hardware siguió siendo detectado;
+- el estado final sin cable fue el esperado: enlace abajo e IP 0.0.0.0;
+- el `SPI lock timeout` transitorio no bloqueó la recuperación del runtime;
+- se registra como observación de estabilidad, no como fallo del piloto, sujeto a un gate final de hot-plug.
+
 ## Estado del piloto 1
 
-Gates estructurales aprobados:
+Gates aprobados:
 
 - auditoría bridge-compatible: PASS;
 - ESP32 Board: PASS;
 - JWPLC Basic: PASS;
-- JWPLC Basic Core: PASS.
+- JWPLC Basic Core: PASS;
+- W5500 con RJ45 conectado antes del arranque: PASS;
+- W5500 sin RJ45: PASS con `SPI lock timeout` transitorio y recuperación a `Link OFF`.
 
 Pendiente antes de adoptar definitivamente el archive:
 
-- validación funcional física del W5500 sobre JWPLC Basic usando el runtime/autoload normal.
+- gate físico hot-plug: arrancar sin RJ45, esperar `Link OFF`, conectar RJ45 sin reiniciar y verificar transición a `Ready: yes`, `Link: UP`, `Status: OK` e IP DHCP válida.
