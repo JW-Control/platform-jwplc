@@ -1,11 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$PackageNamespace = "jwplc_local",
-    [string[]]$Libraries = @(
-        "JW_RTC",
-        "JW_FRAM",
-        "JWPLC_ModbusRTU"
-    ),
+    [string[]]$Libraries = @(),
     [string]$NmPath = "",
     [string]$OutputPath = ""
 )
@@ -99,14 +95,7 @@ function Invoke-NativeCaptured
     }
 }
 
-function Get-LibraryArchivePath
-{
-    param([string]$LibraryName)
-
-    return Join-Path (Join-Path (Join-Path $LibraryRoot $LibraryName) "src\esp32") ("lib{0}.a" -f $LibraryName)
-}
-
-function Get-CoreCoupledSymbols
+function Get-JwplcSymbols
 {
     param([string[]]$NmOutput)
 
@@ -125,89 +114,134 @@ function Get-CoreCoupledSymbols
     return @($symbols | Sort-Object)
 }
 
+function Get-ArchiveTargets
+{
+    $allArchives = @(
+        Get-ChildItem -Path $LibraryRoot -Recurse -File -Filter "lib*.a" -ErrorAction SilentlyContinue |
+            Where-Object {
+                $_.Directory.Name -ieq "esp32" -and
+                $null -ne $_.Directory.Parent -and
+                $_.Directory.Parent.Name -ieq "src" -and
+                $null -ne $_.Directory.Parent.Parent
+            } |
+            Sort-Object FullName
+    )
+
+    if ($Libraries.Count -eq 0)
+    {
+        return @($allArchives)
+    }
+
+    $requested = New-Object System.Collections.Generic.HashSet[string]([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($library in $Libraries)
+    {
+        if (-not [string]::IsNullOrWhiteSpace($library))
+        {
+            [void]$requested.Add($library)
+        }
+    }
+
+    return @(
+        $allArchives | Where-Object {
+            $requested.Contains($_.Directory.Parent.Parent.Name)
+        }
+    )
+}
+
 $nm = Resolve-NmTool -ExplicitPath $NmPath -Namespace $PackageNamespace
-Write-Host "Auditoria de librerias precompiladas JWPLC" -ForegroundColor Cyan
+$archives = @(Get-ArchiveTargets)
+
+if ($archives.Count -eq 0)
+{
+    throw "No se encontraron archives lib*.a bajo libraries/*/src/esp32 para auditar."
+}
+
+Write-Host "Auditoria global de librerias precompiladas JWPLC" -ForegroundColor Cyan
 Write-Host ("nm: {0}" -f $nm) -ForegroundColor DarkGray
-Write-Host ("Librerias: {0}" -f ($Libraries -join ", "))
+Write-Host ("Archives encontrados: {0}" -f $archives.Count)
 Write-Host ""
 
 $rows = New-Object System.Collections.Generic.List[object]
 $blockingFindings = New-Object System.Collections.Generic.List[string]
 
-foreach ($library in $Libraries)
+foreach ($archive in $archives)
 {
-    $archivePath = Get-LibraryArchivePath -LibraryName $library
+    $library = $archive.Directory.Parent.Parent.Name
 
-    if (-not (Test-Path -LiteralPath $archivePath))
+    $undefinedResult = Invoke-NativeCaptured -FilePath $nm -Arguments @("-u", "-C", $archive.FullName)
+    if ($undefinedResult.ExitCode -ne 0)
     {
-        $rows.Add([PSCustomObject]@{
-            Library        = $library
-            Archive        = $archivePath
-            Exists         = $false
-            UndefinedCount = 0
-            CoupledSymbols = @()
-            Status         = "MISSING"
-        })
-        $blockingFindings.Add(("{0}: archive no encontrado" -f $library))
-        Write-Host ("[MISSING] {0}" -f $library) -ForegroundColor Yellow
-        continue
+        throw "nm -u fallo para $library/$($archive.Name) (exit=$($undefinedResult.ExitCode))."
     }
 
-    $result = Invoke-NativeCaptured -FilePath $nm -Arguments @("-u", "-C", $archivePath)
-    if ($result.ExitCode -ne 0)
+    $definedResult = Invoke-NativeCaptured -FilePath $nm -Arguments @("--defined-only", "-C", $archive.FullName)
+    if ($definedResult.ExitCode -ne 0)
     {
-        throw "nm fallo para $library (exit=$($result.ExitCode))."
+        throw "nm --defined-only fallo para $library/$($archive.Name) (exit=$($definedResult.ExitCode))."
     }
 
     $undefinedLines = @(
-        $result.Output | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) }
+        $undefinedResult.Output | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) }
     )
-    $coupledSymbols = @(Get-CoreCoupledSymbols -NmOutput $undefinedLines)
-    $status = if ($coupledSymbols.Count -eq 0) { "PASS" } else { "FAIL" }
+    $undefinedJwplc = @(Get-JwplcSymbols -NmOutput $undefinedLines)
+    $definedJwplc = @(Get-JwplcSymbols -NmOutput $definedResult.Output)
 
-    if ($coupledSymbols.Count -gt 0)
+    $definedSet = New-Object System.Collections.Generic.HashSet[string]([System.StringComparer]::Ordinal)
+    foreach ($symbol in $definedJwplc)
     {
-        $blockingFindings.Add(("{0}: {1}" -f $library, ($coupledSymbols -join ", ")))
-        Write-Host ("[FAIL] {0}: {1}" -f $library, ($coupledSymbols -join ", ")) -ForegroundColor Red
+        [void]$definedSet.Add($symbol)
+    }
+
+    $externalJwplc = @(
+        $undefinedJwplc | Where-Object { -not $definedSet.Contains($_) }
+    )
+
+    $status = if ($externalJwplc.Count -eq 0) { "PASS" } else { "FAIL" }
+
+    if ($externalJwplc.Count -gt 0)
+    {
+        $blockingFindings.Add(("{0}/{1}: {2}" -f $library, $archive.Name, ($externalJwplc -join ", ")))
+        Write-Host ("[FAIL] {0}/{1}: {2}" -f $library, $archive.Name, ($externalJwplc -join ", ")) -ForegroundColor Red
     }
     else
     {
-        Write-Host ("[PASS] {0}: sin simbolos jwplc_* no resueltos" -f $library) -ForegroundColor Green
+        Write-Host ("[PASS] {0}/{1}" -f $library, $archive.Name) -ForegroundColor Green
     }
 
     $rows.Add([PSCustomObject]@{
-        Library        = $library
-        Archive        = $archivePath
-        Exists         = $true
-        UndefinedCount = $undefinedLines.Count
-        CoupledSymbols = $coupledSymbols
-        Status         = $status
+        Library           = $library
+        Archive           = $archive.Name
+        UndefinedCount    = $undefinedLines.Count
+        DefinedJwplc      = $definedJwplc
+        ExternalJwplc     = $externalJwplc
+        Status            = $status
     })
 }
 
 $lines = New-Object System.Collections.Generic.List[string]
-$lines.Add("# Auditoria de compatibilidad de librerias precompiladas JWPLC")
+$lines.Add("# Auditoria global de compatibilidad de librerias precompiladas JWPLC")
 $lines.Add("")
 $lines.Add(("Fecha: {0}" -f (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")))
 $lines.Add("")
 $lines.Add(('Toolchain nm: `{0}`' -f $nm))
 $lines.Add("")
-$lines.Add('Criterio bloqueante: un archive `src/esp32/lib*.a` no debe depender de simbolos internos `jwplc_*` si puede ser reutilizado por targets que comparten `build.mcu=esp32` pero usan cores distintos.')
+$lines.Add(("Archives auditados: {0}" -f $rows.Count))
 $lines.Add("")
-$lines.Add('| Libreria | Archive | Undefined | Simbolos `jwplc_*` | Estado |')
+$lines.Add('Criterio bloqueante: cualquier archive `libraries/*/src/esp32/lib*.a` reutilizable por targets con `build.mcu=esp32` no debe conservar dependencias externas `jwplc_*` generadas por los remapeos del core JWPLC.')
+$lines.Add("")
+$lines.Add('| Libreria | Archive | Undefined | Dependencias externas `jwplc_*` | Estado |')
 $lines.Add("|---|---|---:|---|---|")
 
 foreach ($row in $rows)
 {
-    $archiveDisplay = if ($row.Exists) { "presente" } else { "faltante" }
-    $symbolsDisplay = if ($row.CoupledSymbols.Count -eq 0) { "-" } else { $row.CoupledSymbols -join ", " }
-    $lines.Add(("| {0} | {1} | {2} | {3} | {4} |" -f $row.Library, $archiveDisplay, $row.UndefinedCount, $symbolsDisplay, $row.Status))
+    $symbolsDisplay = if ($row.ExternalJwplc.Count -eq 0) { "-" } else { $row.ExternalJwplc -join ", " }
+    $lines.Add(("| {0} | {1} | {2} | {3} | {4} |" -f $row.Library, $row.Archive, $row.UndefinedCount, $symbolsDisplay, $row.Status))
 }
 
 $lines.Add("")
 if ($blockingFindings.Count -eq 0)
 {
-    $lines.Add('Resultado global: **PASS**. No se detectaron dependencias `jwplc_*` en los archives P1 auditados.')
+    $lines.Add('Resultado global: **PASS**. No se detectaron dependencias externas `jwplc_*` en los archives ESP32 presentes.')
 }
 else
 {
@@ -220,7 +254,7 @@ else
 }
 
 $lines.Add("")
-$lines.Add('Nota: otros simbolos indefinidos de Arduino/ESP-IDF son normales en una libreria estatica y se resuelven durante el link final. Esta auditoria se concentra en el acoplamiento interno `jwplc_*` que causo las regresiones detectadas en `JW_MatrixButtons` y `JW_SD`.')
+$lines.Add('Nota: `nm -u` reporta simbolos indefinidos por miembro del archive. Para evitar falsos positivos, esta auditoria descuenta simbolos `jwplc_*` que el mismo archive define y bloquea solo dependencias externas reales.')
 
 $parent = Split-Path -Parent $OutputPath
 if (-not [string]::IsNullOrWhiteSpace($parent) -and -not (Test-Path -LiteralPath $parent))
