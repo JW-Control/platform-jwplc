@@ -113,6 +113,58 @@ Resultado esperado:
 COMPILACION OK
 ```
 
+## Evidencia registrada
+
+### 2026-08-22 - ESP32 Board / JWPLC Laundry
+
+Resultado:
+
+```txt
+PASS
+```
+
+Configuracion observada:
+
+```txt
+FQBN: jwplc_local:esp32:esp32
+Board: esp32
+Core: esp32
+Variant: esp32
+Package local: 2.1.0-dev
+```
+
+El log Arduino IDE confirma que `JW_MatrixButtons` ya no se toma desde `src/esp32/libJW_MatrixButtons.a` y se compila desde:
+
+```txt
+JWPLC/2.1.0/libraries/JW_MatrixButtons/src/JW_MatrixButtons.cpp
+```
+
+Durante el link se utiliza:
+
+```txt
+libraries/JW_MatrixButtons/JW_MatrixButtons.cpp.o
+```
+
+No aparecen referencias indefinidas a:
+
+```txt
+jwplc_pinMode
+jwplc_digitalWrite
+jwplc_digitalRead
+```
+
+La compilacion completa genero correctamente ELF, BIN y merged BIN.
+
+Resumen de memoria reportado por Arduino IDE:
+
+```txt
+Sketch: 492255 bytes (37%) de 1310720 bytes
+RAM global: 34728 bytes (10%) de 327680 bytes
+RAM libre estimada para variables locales: 292952 bytes
+```
+
+Esta prueba confirma la causa raiz original y valida la correccion para el target generico `ESP32 Board`.
+
 ## Evidencia a guardar
 
 Para cada prueba registrar:
@@ -130,7 +182,7 @@ Para cada prueba registrar:
 
 El ajuste puede considerarse validado cuando:
 
-- [ ] JWPLC Laundry compila con `ESP32 Board` sin referencias `jwplc_*` no resueltas.
+- [x] JWPLC Laundry compila con `ESP32 Board` sin referencias `jwplc_*` no resueltas.
 - [ ] JWPLC Basic compila correctamente.
 - [ ] JWPLC Basic Core compila correctamente.
 - [ ] La botonera conserva comportamiento funcional en JWPLC Basic.
