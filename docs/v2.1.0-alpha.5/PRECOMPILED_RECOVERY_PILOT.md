@@ -55,4 +55,39 @@ Interpretación:
 - no apareció ningún otro símbolo `jwplc_*` bloqueante;
 - el gate estático del piloto 1 queda aprobado.
 
-Estado: gate estático PASS; pendientes gates de enlace cross-board y validación funcional antes de adoptar el archive.
+### Gate de enlace ESP32 Board - PASS
+
+Fecha: 2026-08-23.
+
+FQBN:
+
+```txt
+jwplc_local:esp32:esp32
+```
+
+Sketch:
+
+```txt
+tools/build-speed-benchmark/sketches/08_ethernet_bridge_link/08_ethernet_bridge_link.ino
+```
+
+Evidencia del log:
+
+```txt
+Skipping dependencies detection for precompiled library JWPLC Ethernet W5x00 Backend
+Library JWPLC Ethernet W5x00 Backend has been declared precompiled:
+Using precompiled library in ...\JWPLC_Ethernet_W5x00_Backend\src\esp32
+...\cores\esp32\jwplc-gpio-compat.c
+Sketch uses 271332 bytes (20%) of program storage space.
+Global variables use 22172 bytes (6%) of dynamic memory, leaving 305508 bytes for local variables.
+EXIT CODE: 0
+```
+
+Interpretación:
+
+- Arduino Builder seleccionó el backend vendorizado del package JWPLC;
+- el backend se consumió como archive precompilado y no se recompilaron sus 8 translation units;
+- el core genérico compiló `jwplc-gpio-compat.c` en esta corrida, por lo que el gate no dependió de un `core.a` previo que ocultara el bridge;
+- el enlace terminó sin referencias `jwplc_*` sin resolver.
+
+Estado: auditoría PASS + ESP32 Board PASS; pendientes JWPLC Basic, JWPLC Basic Core y validación funcional Ethernet antes de adoptar definitivamente el archive.
