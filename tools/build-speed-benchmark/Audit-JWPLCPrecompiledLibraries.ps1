@@ -3,7 +3,8 @@ param(
     [string]$PackageNamespace = "jwplc_local",
     [string[]]$Libraries = @(),
     [string]$NmPath = "",
-    [string]$OutputPath = ""
+    [string]$OutputPath = "",
+    [switch]$AllowGenericGpioBridge
 )
 
 Set-StrictMode -Version 2.0
@@ -13,11 +14,24 @@ $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = [System.IO.Path]::GetFullPath((Join-Path $ScriptRoot "..\.."))
 $PlatformRoot = Join-Path $RepoRoot "JWPLC\2.1.0"
 $LibraryRoot = Join-Path $PlatformRoot "libraries"
+$GenericBridgePath = Join-Path $PlatformRoot "cores\esp32\jwplc_gpio_bridge.cpp"
+$BridgeCompatibleSymbols = @(
+    "jwplc_pinMode",
+    "jwplc_digitalWrite",
+    "jwplc_digitalRead"
+)
 
 if ([string]::IsNullOrWhiteSpace($OutputPath))
 {
     $OutputPath = Join-Path $ScriptRoot "PRECOMPILED_LIBRARY_AUDIT.md"
 }
+
+if ($AllowGenericGpioBridge.IsPresent -and -not (Test-Path -LiteralPath $GenericBridgePath))
+{
+    throw "Se solicito AllowGenericGpioBridge pero no existe el bridge esperado: $GenericBridgePath"
+}
+
+$bridgeEnabled = $AllowGenericGpioBridge.IsPresent
 
 function Resolve-NmTool
 {
@@ -158,11 +172,13 @@ if ($archives.Count -eq 0)
 
 Write-Host "Auditoria global de librerias precompiladas JWPLC" -ForegroundColor Cyan
 Write-Host ("nm: {0}" -f $nm) -ForegroundColor DarkGray
+Write-Host ("Modo bridge GPIO generico: {0}" -f $(if ($bridgeEnabled) { "HABILITADO" } else { "ESTRICTO" }))
 Write-Host ("Archives encontrados: {0}" -f $archives.Count)
 Write-Host ""
 
 $rows = New-Object System.Collections.Generic.List[object]
 $blockingFindings = New-Object System.Collections.Generic.List[string]
+$bridgeFindings = New-Object System.Collections.Generic.List[string]
 
 foreach ($archive in $archives)
 {
@@ -196,12 +212,32 @@ foreach ($archive in $archives)
         $undefinedJwplc | Where-Object { -not $definedSet.Contains($_) }
     )
 
-    $status = if ($externalJwplc.Count -eq 0) { "PASS" } else { "FAIL" }
+    $bridgeJwplc = @()
+    $blockingJwplc = @()
 
-    if ($externalJwplc.Count -gt 0)
+    foreach ($symbol in $externalJwplc)
     {
-        $blockingFindings.Add(("{0}/{1}: {2}" -f $library, $archive.Name, ($externalJwplc -join ", ")))
-        Write-Host ("[FAIL] {0}/{1}: {2}" -f $library, $archive.Name, ($externalJwplc -join ", ")) -ForegroundColor Red
+        if ($bridgeEnabled -and ($BridgeCompatibleSymbols -contains $symbol))
+        {
+            $bridgeJwplc += $symbol
+        }
+        else
+        {
+            $blockingJwplc += $symbol
+        }
+    }
+
+    $status = if ($blockingJwplc.Count -gt 0) { "FAIL" } elseif ($bridgeJwplc.Count -gt 0) { "BRIDGE" } else { "PASS" }
+
+    if ($blockingJwplc.Count -gt 0)
+    {
+        $blockingFindings.Add(("{0}/{1}: {2}" -f $library, $archive.Name, ($blockingJwplc -join ", ")))
+        Write-Host ("[FAIL] {0}/{1}: {2}" -f $library, $archive.Name, ($blockingJwplc -join ", ")) -ForegroundColor Red
+    }
+    elseif ($bridgeJwplc.Count -gt 0)
+    {
+        $bridgeFindings.Add(("{0}/{1}: {2}" -f $library, $archive.Name, ($bridgeJwplc -join ", ")))
+        Write-Host ("[BRIDGE] {0}/{1}: {2}" -f $library, $archive.Name, ($bridgeJwplc -join ", ")) -ForegroundColor Yellow
     }
     else
     {
@@ -214,6 +250,8 @@ foreach ($archive in $archives)
         UndefinedCount    = $undefinedLines.Count
         DefinedJwplc      = $definedJwplc
         ExternalJwplc     = $externalJwplc
+        BridgeJwplc       = $bridgeJwplc
+        BlockingJwplc     = $blockingJwplc
         Status            = $status
     })
 }
@@ -227,21 +265,47 @@ $lines.Add(('Toolchain nm: `{0}`' -f $nm))
 $lines.Add("")
 $lines.Add(("Archives auditados: {0}" -f $rows.Count))
 $lines.Add("")
-$lines.Add('Criterio bloqueante: cualquier archive `libraries/*/src/esp32/lib*.a` reutilizable por targets con `build.mcu=esp32` no debe conservar dependencias externas `jwplc_*` generadas por los remapeos del core JWPLC.')
+$lines.Add(("Modo bridge GPIO generico: **{0}**" -f $(if ($bridgeEnabled) { "HABILITADO" } else { "ESTRICTO" })))
 $lines.Add("")
-$lines.Add('| Libreria | Archive | Undefined | Dependencias externas `jwplc_*` | Estado |')
-$lines.Add("|---|---|---:|---|---|")
+
+if ($bridgeEnabled)
+{
+    $lines.Add('Criterio: se permiten exclusivamente `jwplc_pinMode`, `jwplc_digitalWrite` y `jwplc_digitalRead` como dependencias externas bridge-compatible. El target genérico debe aportar `cores/esp32/jwplc_gpio_bridge.cpp`. Cualquier otro `jwplc_*` externo es bloqueante.')
+}
+else
+{
+    $lines.Add('Criterio bloqueante estricto: cualquier archive `libraries/*/src/esp32/lib*.a` reutilizable por targets con `build.mcu=esp32` no debe conservar dependencias externas `jwplc_*`.')
+}
+
+$lines.Add("")
+$lines.Add('| Libreria | Archive | Undefined | Externos `jwplc_*` | Bridge GPIO | Bloqueantes | Estado |')
+$lines.Add("|---|---|---:|---|---|---|---|")
 
 foreach ($row in $rows)
 {
-    $symbolsDisplay = if ($row.ExternalJwplc.Count -eq 0) { "-" } else { $row.ExternalJwplc -join ", " }
-    $lines.Add(("| {0} | {1} | {2} | {3} | {4} |" -f $row.Library, $row.Archive, $row.UndefinedCount, $symbolsDisplay, $row.Status))
+    $externalDisplay = if ($row.ExternalJwplc.Count -eq 0) { "-" } else { $row.ExternalJwplc -join ", " }
+    $bridgeDisplay = if ($row.BridgeJwplc.Count -eq 0) { "-" } else { $row.BridgeJwplc -join ", " }
+    $blockingDisplay = if ($row.BlockingJwplc.Count -eq 0) { "-" } else { $row.BlockingJwplc -join ", " }
+    $lines.Add(("| {0} | {1} | {2} | {3} | {4} | {5} | {6} |" -f $row.Library, $row.Archive, $row.UndefinedCount, $externalDisplay, $bridgeDisplay, $blockingDisplay, $row.Status))
 }
 
 $lines.Add("")
 if ($blockingFindings.Count -eq 0)
 {
-    $lines.Add('Resultado global: **PASS**. No se detectaron dependencias externas `jwplc_*` en los archives ESP32 presentes.')
+    if ($bridgeFindings.Count -eq 0)
+    {
+        $lines.Add('Resultado global: **PASS NEUTRAL**. No se detectaron dependencias externas `jwplc_*` en los archives ESP32 presentes.')
+    }
+    else
+    {
+        $lines.Add('Resultado global: **PASS BRIDGE-COMPATIBLE**. No se detectaron dependencias `jwplc_*` bloqueantes.')
+        $lines.Add("")
+        $lines.Add('Archives que requieren el bridge GPIO genérico:')
+        foreach ($finding in $bridgeFindings)
+        {
+            $lines.Add(("- {0}" -f $finding))
+        }
+    }
 }
 else
 {
@@ -254,7 +318,7 @@ else
 }
 
 $lines.Add("")
-$lines.Add('Nota: `nm -u` reporta simbolos indefinidos por miembro del archive. Para evitar falsos positivos, esta auditoria descuenta simbolos `jwplc_*` que el mismo archive define y bloquea solo dependencias externas reales.')
+$lines.Add('Nota: `nm -u` reporta simbolos indefinidos por miembro del archive. Para evitar falsos positivos, esta auditoria descuenta simbolos `jwplc_*` que el mismo archive define y clasifica sólo dependencias externas reales.')
 
 $parent = Split-Path -Parent $OutputPath
 if (-not [string]::IsNullOrWhiteSpace($parent) -and -not (Test-Path -LiteralPath $parent))
