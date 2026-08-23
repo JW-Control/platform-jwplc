@@ -14,7 +14,7 @@ $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = [System.IO.Path]::GetFullPath((Join-Path $ScriptRoot "..\.."))
 $PlatformRoot = Join-Path $RepoRoot "JWPLC\2.1.0"
 $LibraryRoot = Join-Path $PlatformRoot "libraries"
-$GenericBridgePath = Join-Path $PlatformRoot "cores\esp32\jwplc_gpio_bridge.cpp"
+$GenericBridgePath = Join-Path $PlatformRoot "cores\esp32\jwplc-gpio-compat.c"
 $BridgeCompatibleSymbols = @(
     "jwplc_pinMode",
     "jwplc_digitalWrite",
@@ -270,7 +270,7 @@ $lines.Add("")
 
 if ($bridgeEnabled)
 {
-    $lines.Add('Criterio: se permiten exclusivamente `jwplc_pinMode`, `jwplc_digitalWrite` y `jwplc_digitalRead` como dependencias externas bridge-compatible. El target genérico debe aportar `cores/esp32/jwplc_gpio_bridge.cpp`. Cualquier otro `jwplc_*` externo es bloqueante.')
+    $lines.Add('Criterio: se permiten exclusivamente `jwplc_pinMode`, `jwplc_digitalWrite` y `jwplc_digitalRead` como dependencias externas bridge-compatible. El target genérico debe aportar `cores/esp32/jwplc-gpio-compat.c`. Cualquier otro `jwplc_*` externo es bloqueante.')
 }
 else
 {
