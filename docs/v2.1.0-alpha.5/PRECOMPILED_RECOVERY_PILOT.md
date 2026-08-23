@@ -238,4 +238,45 @@ Observación abierta no bloqueante:
 
 - conservar registrado el `SPI lock timeout` transitorio durante algunos arranques sin cable; actualmente el runtime se recupera automáticamente y no requiere reset.
 
-Siguiente paso: iniciar el piloto 2 con el siguiente archive compartido de mayor impacto, manteniendo la política de una librería por vez y gates cross-board antes de adoptar.
+## Piloto 2 - Adafruit_GFX_Library
+
+Motivo de prioridad: recupera 4 translation units y es el siguiente bloque de mayor impacto después del backend Ethernet.
+
+Se restaura el archive histórico de Alpha4 identificado por Git blob:
+
+```txt
+0b8b9ad2f7ce449a485635c702e08017194fa204
+```
+
+No se modifica el código fuente de Adafruit GFX ni su API pública.
+
+### Gate estático bridge-compatible - PASS
+
+Fecha: 2026-08-23.
+
+Resultado de la auditoría global:
+
+```txt
+Modo bridge GPIO generico: HABILITADO
+Archives encontrados: 9
+[BRIDGE] Adafruit_GFX_Library/libAdafruit_GFX_Library.a: jwplc_digitalRead, jwplc_digitalWrite, jwplc_pinMode
+[PASS] Adafruit_ST7735_and_ST7789_Library/libAdafruit_ST7735_and_ST7789_Library.a
+[PASS] FS/libFS.a
+[PASS] JW_FRAM/libJW_FRAM.a
+[PASS] JW_RTC/libJW_RTC.a
+[BRIDGE] JWPLC_Ethernet_W5x00_Backend/libJWPLC_Ethernet_W5x00_Backend.a: jwplc_digitalWrite, jwplc_pinMode
+[PASS] JWPLC_ModbusRTU/libJWPLC_ModbusRTU.a
+[PASS] SPI/libSPI.a
+[PASS] Wire/libWire.a
+EXIT CODE: 0
+```
+
+Interpretación:
+
+- GFX requiere exclusivamente los tres símbolos GPIO permitidos por el bridge genérico;
+- no apareció ningún `jwplc_*` adicional bloqueante;
+- el backend Ethernet adoptado sigue bridge-compatible;
+- los otros siete archives permanecen neutrales;
+- resultado global: PASS BRIDGE-COMPATIBLE.
+
+Estado del piloto 2: gate estático PASS; pendientes ESP32 Board, JWPLC Basic, JWPLC Basic Core y validación física del display antes de adoptar el archive.
