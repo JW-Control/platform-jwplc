@@ -4,7 +4,6 @@ param(
     [string[]]$Libraries = @(
         "JW_RTC",
         "JW_FRAM",
-        "JW_SD",
         "JWPLC_ModbusRTU"
     ),
     [string]$NmPath = "",
@@ -221,7 +220,7 @@ else
 }
 
 $lines.Add("")
-$lines.Add('Nota: otros simbolos indefinidos de Arduino/ESP-IDF son normales en una libreria estatica y se resuelven durante el link final. Esta auditoria se concentra en el acoplamiento interno `jwplc_*` que causo la regresion de `JW_MatrixButtons`.')
+$lines.Add('Nota: otros simbolos indefinidos de Arduino/ESP-IDF son normales en una libreria estatica y se resuelven durante el link final. Esta auditoria se concentra en el acoplamiento interno `jwplc_*` que causo las regresiones detectadas en `JW_MatrixButtons` y `JW_SD`.')
 
 $parent = Split-Path -Parent $OutputPath
 if (-not [string]::IsNullOrWhiteSpace($parent) -and -not (Test-Path -LiteralPath $parent))
