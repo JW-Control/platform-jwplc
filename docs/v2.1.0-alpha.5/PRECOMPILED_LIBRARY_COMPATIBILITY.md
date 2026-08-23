@@ -2,9 +2,9 @@
 
 ## Objetivo
 
-Corregir la incompatibilidad detectada al reutilizar `JW_MatrixButtons` precompilada entre las placas del package que comparten `build.mcu=esp32` pero usan cores distintos.
+Corregir incompatibilidades al reutilizar librerias precompiladas entre placas del package que comparten `build.mcu=esp32` pero usan cores distintos.
 
-Caso que expuso la regresion:
+Caso que expuso la regresion original:
 
 ```txt
 JWPLC Laundry
@@ -13,7 +13,7 @@ Core: esp32
 Variant: esp32
 ```
 
-El archive generado previamente para JWPLC Basic se habia compilado bajo el entorno JWPLC, con `JWPLC_BASIC` definido y los remapeos de GPIO activos.
+Los archives P1 se habian generado previamente para JWPLC Basic bajo el entorno JWPLC, con `JWPLC_BASIC` definido y los remapeos de GPIO activos.
 
 En ese contexto, `Arduino.h` remapea:
 
@@ -23,15 +23,11 @@ digitalWrite  -> jwplc_digitalWrite
 digitalRead   -> jwplc_digitalRead
 ```
 
-Por ello `libJW_MatrixButtons.a` quedo enlazado contra simbolos exclusivos del core JWPLC. Arduino lo reutilizaba tambien para `ESP32 Board` porque el archive estaba ubicado en:
-
-```txt
-JWPLC/2.1.0/libraries/JW_MatrixButtons/src/esp32/libJW_MatrixButtons.a
-```
-
-y ambas placas comparten `build.mcu=esp32`.
+Si una libreria que usa esas APIs se compila como `.a` dentro de `src/esp32`, Arduino puede reutilizar el mismo archive tambien en `ESP32 Board`, porque los targets comparten `build.mcu=esp32` aunque no compartan core ni los simbolos `jwplc_*`.
 
 ## Correccion Alpha5
+
+### JW_MatrixButtons
 
 Se aplica la correccion minima y conservadora:
 
@@ -39,11 +35,30 @@ Se aplica la correccion minima y conservadora:
 2. retirar `precompiled=full` de `JW_MatrixButtons/library.properties`;
 3. excluir `JW_MatrixButtons` de la lista P1 de `Build-JWPLCPrecompiledLibraries.ps1`.
 
-No se modifica la API publica de `JW_MatrixButtons`.
+No se modifica la API publica de `JW_MatrixButtons` ni sus llamadas GPIO.
+
+### JW_SD
+
+La auditoria posterior de symbols P1 detecto el mismo patron en `JW_SD`:
+
+```txt
+jwplc_pinMode
+jwplc_digitalRead
+```
+
+El origen esta en `JW_SD.cpp`, donde la funcionalidad de deteccion de tarjeta usa `pinMode()` y `digitalRead()`. Bajo `JWPLC_BASIC`, esas llamadas quedan remapeadas al core JWPLC al generar el archive.
+
+Se aplica la misma correccion conservadora:
+
+1. retirar `libJW_SD.a` de `JW_SD/src/esp32`;
+2. retirar `precompiled=full` de `JW_SD/library.properties`;
+3. excluir `JW_SD` de la lista P1 por defecto;
+4. mantener intacta la API y la implementacion GPIO de `JW_SD`.
+
 No se modifica el firmware JWPLC Laundry.
 No se modifica `platform.txt`.
 No se modifica `build.mcu`.
-No se desactiva la precompilacion de las demas librerias P1.
+No se quitan perifericos del autoload normal.
 
 ## Validacion requerida en Arduino IDE
 
@@ -120,6 +135,43 @@ Resultado esperado:
 
 ```txt
 COMPILACION OK
+```
+
+### D. JW_SD desde fuente en target generico
+
+Tras retirar el archive de `JW_SD`, compilar con `ESP32 Board` un sketch minimo que incluya y use la libreria:
+
+```cpp
+#include <JW_SD.h>
+
+JW_SD sd;
+
+void setup()
+{
+    (void)sd.isCardPresent();
+}
+
+void loop()
+{
+}
+```
+
+Resultado esperado:
+
+```txt
+COMPILACION OK
+```
+
+En salida verbose debe compilarse:
+
+```txt
+JW_SD/src/JW_SD.cpp
+```
+
+y no debe aparecer:
+
+```txt
+Using precompiled library in .../JW_SD/src/esp32
 ```
 
 ## Evidencia registrada
@@ -264,6 +316,39 @@ RAM libre estimada para variables locales: 300876 bytes
 
 Esta prueba valida que la correccion tambien conserva compatibilidad con `JWPLC Basic Core`, que usa el core fuente `jwcontrol`.
 
+### 2026-08-23 - Auditoria de simbolos de archives P1
+
+Herramienta:
+
+```txt
+tools/build-speed-benchmark/Audit-JWPLCPrecompiledLibraries.ps1
+```
+
+Toolchain observado:
+
+```txt
+xtensa-esp32-elf-nm.exe
+esp-x32/2601
+```
+
+Resultado inicial:
+
+| Libreria | Undefined | Acoplamiento `jwplc_*` | Resultado |
+|---|---:|---|---|
+| JW_RTC | 12 | ninguno | PASS |
+| JW_FRAM | 22 | ninguno | PASS |
+| JW_SD | 37 | `jwplc_digitalRead`, `jwplc_pinMode` | FAIL |
+| JWPLC_ModbusRTU | 19 | ninguno | PASS |
+
+Conclusion:
+
+- `JW_RTC`, `JW_FRAM` y `JWPLC_ModbusRTU` no muestran el acoplamiento interno que causo la regresion;
+- `JW_SD` si reproduce el mismo patron de incompatibilidad;
+- `JW_SD` queda retirado de P1 y vuelve a compilacion desde fuente;
+- la auditoria por defecto queda limitada a los archives P1 que permanecen activos.
+
+La existencia de otros simbolos indefinidos de Arduino/ESP-IDF no se considera por si sola un fallo: se resuelven durante el link final. El criterio de esta auditoria es el acoplamiento a simbolos internos `jwplc_*`.
+
 ## Evidencia a guardar
 
 Para cada prueba registrar:
@@ -282,15 +367,20 @@ Para cada prueba registrar:
 El ajuste puede considerarse validado cuando:
 
 - [x] JWPLC Laundry compila con `ESP32 Board` sin referencias `jwplc_*` no resueltas.
-- [x] JWPLC Basic compila correctamente.
-- [x] JWPLC Basic Core compila correctamente.
+- [x] JWPLC Basic compila correctamente tras retirar el precompilado de MatrixButtons.
+- [x] JWPLC Basic Core compila correctamente tras retirar el precompilado de MatrixButtons.
+- [x] Se auditaron los archives P1 y se identifico/retiró `JW_SD` por acoplamiento `jwplc_*`.
+- [x] Los archives P1 que permanecen activos (`JW_RTC`, `JW_FRAM`, `JWPLC_ModbusRTU`) no presentan simbolos `jwplc_*` no resueltos.
+- [ ] `JW_SD` compila correctamente desde fuente con `ESP32 Board`.
+- [ ] JWPLC Basic conserva compilacion/autoload tras retirar el precompilado de `JW_SD`.
 - [ ] La botonera conserva comportamiento funcional en JWPLC Basic.
-- [ ] Se confirma que las demas librerias P1 precompiladas no introducen el mismo acoplamiento.
 
 ## Pendiente de arquitectura
 
-Este cambio no intenta volver a precompilar `JW_MatrixButtons` de inmediato.
+Este cambio no intenta volver a precompilar `JW_MatrixButtons` ni `JW_SD` de inmediato.
 
-Antes de reintroducirla como archive comun para `esp32`, debe demostrarse que el binario es independiente del core o definirse una estrategia de precompilados que diferencie configuraciones ABI incompatibles.
+Antes de reintroducir cualquiera como archive comun para `esp32`, debe demostrarse que el binario es independiente del core o definirse una estrategia de precompilados que diferencie configuraciones ABI incompatibles.
 
-La prioridad de Alpha5 para este ajuste es compatibilidad y estabilidad, no recuperar a cualquier costo el ahorro de compilacion asociado a un unico translation unit.
+No se propone reemplazar las llamadas `pinMode`/`digitalRead` de estas librerias por GPIO nativo del ESP32 sin una decision explicita, porque bajo JWPLC esos remapeos pueden formar parte de la semantica esperada de pines virtuales.
+
+La prioridad de Alpha5 para este ajuste es compatibilidad y estabilidad, no recuperar a cualquier costo el ahorro de compilacion asociado a unos pocos translation units.
