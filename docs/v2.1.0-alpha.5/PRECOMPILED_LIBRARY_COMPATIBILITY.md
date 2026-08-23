@@ -13,12 +13,7 @@ Core: esp32
 Variant: esp32
 ```
 
-El archive generado previamente para JWPLC Basic se habia compilado bajo:
-
-```txt
-Core: jwcontrol
-JWPLC_BASIC definido
-```
+El archive generado previamente para JWPLC Basic se habia compilado bajo el entorno JWPLC, con `JWPLC_BASIC` definido y los remapeos de GPIO activos.
 
 En ese contexto, `Arduino.h` remapea:
 
@@ -28,7 +23,7 @@ digitalWrite  -> jwplc_digitalWrite
 digitalRead   -> jwplc_digitalRead
 ```
 
-Por ello `libJW_MatrixButtons.a` quedo enlazado contra simbolos exclusivos de `jwcontrol`. Arduino lo reutilizaba tambien para `ESP32 Board` porque el archive estaba ubicado en:
+Por ello `libJW_MatrixButtons.a` quedo enlazado contra simbolos exclusivos del core JWPLC. Arduino lo reutilizaba tambien para `ESP32 Board` porque el archive estaba ubicado en:
 
 ```txt
 JWPLC/2.1.0/libraries/JW_MatrixButtons/src/esp32/libJW_MatrixButtons.a
@@ -40,7 +35,7 @@ y ambas placas comparten `build.mcu=esp32`.
 
 Se aplica la correccion minima y conservadora:
 
-1. retirar `libJW_MatrixButtons.a` generado bajo `jwcontrol`;
+1. retirar `libJW_MatrixButtons.a` generado bajo el entorno JWPLC;
 2. retirar `precompiled=full` de `JW_MatrixButtons/library.properties`;
 3. excluir `JW_MatrixButtons` de la lista P1 de `Build-JWPLCPrecompiledLibraries.ps1`.
 
@@ -85,9 +80,16 @@ Seleccionar:
 
 ```txt
 JWPLC Basic
+FQBN esperado: jwplc_local:esp32:jwplcbasic
 ```
 
-Compilar al menos un sketch que utilice la botonera o el display integrado.
+En el estado actual del package, Arduino IDE reporta como core efectivo:
+
+```txt
+jwcontrol_p2
+```
+
+Compilar al menos un sketch que active el autoload normal del JWPLC Basic.
 
 Resultado esperado:
 
@@ -95,7 +97,7 @@ Resultado esperado:
 COMPILACION OK
 ```
 
-Confirmar que la botonera sigue operativa en hardware si se realiza subida.
+Confirmar que `JW_MatrixButtons.cpp` se compila desde fuente. Confirmar la botonera en hardware en una prueba posterior con subida.
 
 ### C. JWPLC Basic Core
 
@@ -165,6 +167,53 @@ RAM libre estimada para variables locales: 292952 bytes
 
 Esta prueba confirma la causa raiz original y valida la correccion para el target generico `ESP32 Board`.
 
+### 2026-08-22 - JWPLC Basic / sketch vacio con autoload
+
+Resultado:
+
+```txt
+PASS
+```
+
+Configuracion observada:
+
+```txt
+FQBN: jwplc_local:esp32:jwplcbasic
+Board: jwplcbasic
+Core reportado por Arduino IDE: jwcontrol_p2
+Variant: jwplcbasic
+Package local: 2.1.0-dev
+JWPLC_BASIC: definido
+```
+
+El sketch vacio activo el autoload normal del target JWPLC Basic. El log confirma la deteccion e integracion de Display, GlobalPeripherals, RTC, FRAM, SD, Ethernet, RS-485, Modbus RTU y la botonera.
+
+`JW_MatrixButtons` se compilo desde:
+
+```txt
+JWPLC/2.1.0/libraries/JW_MatrixButtons/src/JW_MatrixButtons.cpp
+```
+
+Durante el link se utiliza:
+
+```txt
+libraries/JW_MatrixButtons/JW_MatrixButtons.cpp.o
+```
+
+La compilacion completo correctamente el enlace y genero ELF, BIN y merged BIN.
+
+Resumen de memoria reportado por Arduino IDE:
+
+```txt
+Sketch: 394329 bytes (9%) de 4063232 bytes
+RAM global: 27612 bytes (8%) de 327680 bytes
+RAM libre estimada para variables locales: 300068 bytes
+```
+
+La prueba valida que retirar el archive precompilado de `JW_MatrixButtons` no rompe la compilacion normal del target `JWPLC Basic`.
+
+Nota: esta prueba valida compilacion. La operacion fisica de la botonera queda pendiente de una prueba de hardware con subida.
+
 ## Evidencia a guardar
 
 Para cada prueba registrar:
@@ -183,7 +232,7 @@ Para cada prueba registrar:
 El ajuste puede considerarse validado cuando:
 
 - [x] JWPLC Laundry compila con `ESP32 Board` sin referencias `jwplc_*` no resueltas.
-- [ ] JWPLC Basic compila correctamente.
+- [x] JWPLC Basic compila correctamente.
 - [ ] JWPLC Basic Core compila correctamente.
 - [ ] La botonera conserva comportamiento funcional en JWPLC Basic.
 - [ ] Se confirma que las demas librerias P1 precompiladas no introducen el mismo acoplamiento.
