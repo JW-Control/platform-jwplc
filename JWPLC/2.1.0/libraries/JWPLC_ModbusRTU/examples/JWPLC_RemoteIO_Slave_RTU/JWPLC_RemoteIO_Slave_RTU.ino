@@ -30,6 +30,11 @@
 static const uint8_t JWPLC_REMOTE_IO_SLAVE_ID = 2;
 static const uint32_t JWPLC_REMOTE_IO_BAUDRATE = 115200;
 
+// Alpha5: politica provisional de estado seguro.
+// Si el Slave deja de recibir solicitudes Modbus validas durante este tiempo,
+// todas las salidas digitales remotas pasan a OFF.
+static const uint32_t JWPLC_REMOTE_IO_FAILSAFE_TIMEOUT_MS = 100;
+
 static const uint16_t MODBUS_MAX_FRAME = 256;
 static const uint32_t MODBUS_FRAME_GAP_MS = 4;
 
@@ -51,6 +56,10 @@ static const int OUTPUT_PINS[BIT_IO_COUNT] = {
 };
 
 static uint8_t outputState = 0x00;
+
+static uint32_t lastValidMasterRequestMs = 0;
+static bool masterCommunicationSeen = false;
+static bool failsafeActive = false;
 
 // -----------------------------------------------------------------------------
 // Registros demo para JW Modbus Tool
@@ -102,6 +111,38 @@ static void applyOutputs(uint8_t state) {
     const bool enabled = (outputState & (1 << i)) != 0;
     digitalWrite(OUTPUT_PINS[i], enabled ? HIGH : LOW);
   }
+}
+
+static void markValidMasterRequest() {
+  lastValidMasterRequestMs = millis();
+  masterCommunicationSeen = true;
+
+  if (failsafeActive) {
+    failsafeActive = false;
+
+    Serial.println(
+      F("[RTU] Comunicacion recuperada; fail-safe liberado")
+    );
+  }
+}
+
+static void serviceCommunicationFailsafe() {
+  if (!masterCommunicationSeen || failsafeActive) {
+    return;
+  }
+
+  const uint32_t elapsedMs = millis() - lastValidMasterRequestMs;
+
+  if (elapsedMs < JWPLC_REMOTE_IO_FAILSAFE_TIMEOUT_MS) {
+    return;
+  }
+
+  applyOutputs(0x00);
+  failsafeActive = true;
+
+  Serial.print(F("[RTU] FAILSAFE: "));
+  Serial.print(elapsedMs);
+  Serial.println(F(" ms sin comunicacion valida -> Q0_0..Q0_7 OFF"));
 }
 
 static bool readInputBit(uint8_t index) {
@@ -522,6 +563,7 @@ static void processModbusFrame(const uint8_t *frame, uint16_t length) {
     return;
   }
 
+  markValidMasterRequest();
   updateInputRegisters();
 
   switch (functionCode) {
@@ -642,4 +684,6 @@ void loop() {
     processModbusFrame(rxBuffer, rxLength);
     rxLength = 0;
   }
+
+  serviceCommunicationFailsafe();
 }
