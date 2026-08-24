@@ -118,7 +118,12 @@ function Get-JwplcSymbols
     foreach ($line in $NmOutput)
     {
         $text = [string]$line
-        $matches = [regex]::Matches($text, '\bjwplc_[A-Za-z0-9_]+\b')
+
+        # Alpha5: no limitar la deteccion a `jwplc_...`.
+        # El runtime tambien exporta simbolos camelCase como
+        # `jwplcSystemForceDisplayRefresh`; esos simbolos son igualmente
+        # acoplamientos externos y deben pasar por la misma politica de gate.
+        $matches = [regex]::Matches($text, '\bjwplc[A-Za-z0-9_]*\b')
         foreach ($match in $matches)
         {
             [void]$symbols.Add($match.Value)
@@ -270,15 +275,15 @@ $lines.Add("")
 
 if ($bridgeEnabled)
 {
-    $lines.Add('Criterio: se permiten exclusivamente `jwplc_pinMode`, `jwplc_digitalWrite` y `jwplc_digitalRead` como dependencias externas bridge-compatible. El target genérico debe aportar `cores/esp32/jwplc-gpio-compat.c`. Cualquier otro `jwplc_*` externo es bloqueante.')
+    $lines.Add('Criterio: se permiten exclusivamente `jwplc_pinMode`, `jwplc_digitalWrite` y `jwplc_digitalRead` como dependencias externas bridge-compatible. El target genérico debe aportar `cores/esp32/jwplc-gpio-compat.c`. Cualquier otro símbolo externo con prefijo `jwplc` es bloqueante.')
 }
 else
 {
-    $lines.Add('Criterio bloqueante estricto: cualquier archive `libraries/*/src/esp32/lib*.a` reutilizable por targets con `build.mcu=esp32` no debe conservar dependencias externas `jwplc_*`.')
+    $lines.Add('Criterio bloqueante estricto: cualquier archive `libraries/*/src/esp32/lib*.a` reutilizable por targets con `build.mcu=esp32` no debe conservar dependencias externas con prefijo `jwplc`.')
 }
 
 $lines.Add("")
-$lines.Add('| Libreria | Archive | Undefined | Externos `jwplc_*` | Bridge GPIO | Bloqueantes | Estado |')
+$lines.Add('| Libreria | Archive | Undefined | Externos `jwplc...` | Bridge GPIO | Bloqueantes | Estado |')
 $lines.Add("|---|---|---:|---|---|---|---|")
 
 foreach ($row in $rows)
@@ -294,11 +299,11 @@ if ($blockingFindings.Count -eq 0)
 {
     if ($bridgeFindings.Count -eq 0)
     {
-        $lines.Add('Resultado global: **PASS NEUTRAL**. No se detectaron dependencias externas `jwplc_*` en los archives ESP32 presentes.')
+        $lines.Add('Resultado global: **PASS NEUTRAL**. No se detectaron dependencias externas con prefijo `jwplc` en los archives ESP32 presentes.')
     }
     else
     {
-        $lines.Add('Resultado global: **PASS BRIDGE-COMPATIBLE**. No se detectaron dependencias `jwplc_*` bloqueantes.')
+        $lines.Add('Resultado global: **PASS BRIDGE-COMPATIBLE**. No se detectaron dependencias con prefijo `jwplc` bloqueantes.')
         $lines.Add("")
         $lines.Add('Archives que requieren el bridge GPIO genérico:')
         foreach ($finding in $bridgeFindings)
@@ -318,7 +323,7 @@ else
 }
 
 $lines.Add("")
-$lines.Add('Nota: `nm -u` reporta simbolos indefinidos por miembro del archive. Para evitar falsos positivos, esta auditoria descuenta simbolos `jwplc_*` que el mismo archive define y clasifica sólo dependencias externas reales.')
+$lines.Add('Nota: `nm -u` reporta simbolos indefinidos por miembro del archive. Para evitar falsos positivos, esta auditoria descuenta simbolos con prefijo `jwplc` que el mismo archive define y clasifica sólo dependencias externas reales.')
 
 $parent = Split-Path -Parent $OutputPath
 if (-not [string]::IsNullOrWhiteSpace($parent) -and -not (Test-Path -LiteralPath $parent))
