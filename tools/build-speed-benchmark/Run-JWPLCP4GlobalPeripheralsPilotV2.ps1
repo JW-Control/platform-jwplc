@@ -52,7 +52,7 @@ $logPath = Join-Path $run.FullName "verify-Basic.log"
 $summaryPath = Join-Path $run.FullName "P4_SUMMARY.md"
 $mapPath = Join-Path $build "01_empty.ino.map"
 $binPath = Join-Path $build "01_empty.ino.bin"
-$stubObject = Join-Path $build "core\p2_core_stub.c.o"
+$stubObject = Join-Path $build "core\precompiled_core_stub.c.o"
 
 foreach ($required in @($logPath, $summaryPath, $mapPath, $binPath, $stubObject))
 {
@@ -66,8 +66,8 @@ $log = Get-Content -LiteralPath $logPath -Raw
 $summary = Get-Content -LiteralPath $summaryPath -Raw
 $map = Get-Content -LiteralPath $mapPath -Raw
 
-$stubCompile = ([regex]::Matches($log, 'jwcontrol_p2(?:\\\\|\\|/)+p2_core_stub\.c"\s+-o\s+"')).Count
-$hookRan = ($log -match 'cores\\\\jwcontrol_p2\\\\p2_core_stub\.c') -and
+$stubCompile = ([regex]::Matches($log, 'jwcontrol_precompiled_stub(?:\\\\|\\|/)+p2_core_stub\.c"\s+-o\s+"')).Count
+$hookRan = ($log -match 'cores\\\\jwcontrol_precompiled_stub\\\\p2_core_stub\.c') -and
            ($log -match 'precompiled\\\\core\\\\JWPLCBASIC\\\\core\.a')
 
 $globalLinked = $map -match 'libJWPLC_GlobalPeripherals\.a\(JWPLC_GlobalPeripherals\.cpp\.o\)'

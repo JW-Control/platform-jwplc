@@ -140,7 +140,7 @@ function Get-BuildMetrics
     $preprocessLines = @($Output | Where-Object { ([string]$_) -match 'xtensa-esp32-elf-g\+\+.*\s-E\s' })
 
     $displaySourcePattern = '"[^"]*[\\/]+libraries[\\/]+JWPLC_Display[\\/]+src[\\/]+JWPLC_(?:Display|IdleScreen)\.cpp"\s+-o\s+"'
-    $stubPattern = '"[^"]*[\\/]+cores[\\/]+jwcontrol_p2[\\/]+p2_core_stub\.c"\s+-o\s+"'
+    $stubPattern = '"[^"]*[\\/]+cores[\\/]+jwcontrol_precompiled_stub[\\/]+p2_core_stub\.c"\s+-o\s+"'
 
     return [PSCustomObject]@{
         Compiles = $compileLines.Count
@@ -258,7 +258,7 @@ Assert-DeterministicLibraries -Output $sourceOutput -Label "Fuente reutilizada"
 
 $sourceDisplay1 = Join-Path $sourceBuild "libraries\JWPLC_Display\JWPLC_Display.cpp.o"
 $sourceDisplay2 = Join-Path $sourceBuild "libraries\JWPLC_Display\JWPLC_IdleScreen.cpp.o"
-$coreStubObject = Join-Path $sourceBuild "core\p2_core_stub.c.o"
+$coreStubObject = Join-Path $sourceBuild "core\precompiled_core_stub.c.o"
 
 if (-not (Test-Path -LiteralPath $sourceDisplay1) -or -not (Test-Path -LiteralPath $sourceDisplay2))
 {
