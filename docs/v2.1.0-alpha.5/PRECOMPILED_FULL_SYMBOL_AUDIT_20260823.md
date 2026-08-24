@@ -76,6 +76,36 @@ La clasificación anterior de `JW_RTC` como neutral fue un falso negativo del re
 
 Decisión: **retirar el archive compartido de JW_RTC y volver a compilación desde fuente**. No se amplía en Alpha5 el bridge genérico hacia la capa I2C JWPLC.
 
+## Checkpoint posterior a la limpieza - PASS
+
+Después de retirar los archives de `JWPLC_Display` y `JW_RTC` y mantener ambas librerías en compilación desde fuente, se repitió la auditoría completa con el regex corregido.
+
+Log local:
+
+```txt
+tools/build-speed-benchmark/results/manual-logs/20260823_231541_16_post_full_symbol_cleanup_audit.log
+```
+
+Resultado:
+
+```txt
+Modo bridge GPIO generico: HABILITADO
+Archives encontrados: 10
+[BRIDGE] Adafruit_BusIO/libAdafruit_BusIO.a: jwplc_digitalWrite, jwplc_pinMode
+[BRIDGE] Adafruit_GFX_Library/libAdafruit_GFX_Library.a: jwplc_digitalRead, jwplc_digitalWrite, jwplc_pinMode
+[PASS] Adafruit_ST7735_and_ST7789_Library/libAdafruit_ST7735_and_ST7789_Library.a
+[PASS] FS/libFS.a
+[PASS] JW_FRAM/libJW_FRAM.a
+[BRIDGE] JWPLC_Ethernet_W5x00_Backend/libJWPLC_Ethernet_W5x00_Backend.a: jwplc_digitalWrite, jwplc_pinMode
+[PASS] JWPLC_ModbusRTU/libJWPLC_ModbusRTU.a
+[BRIDGE] SD/libSD.a: jwplc_digitalWrite, jwplc_pinMode
+[PASS] SPI/libSPI.a
+[PASS] Wire/libWire.a
+EXIT CODE: 0
+```
+
+Conclusión del checkpoint: **PASS BRIDGE-COMPATIBLE**. No quedan dependencias externas con prefijo `jwplc` fuera de los tres símbolos GPIO permitidos entre los archives compartidos activos.
+
 ## Impacto sobre pilotos ya adoptados
 
 No cambia la validez de:
@@ -117,8 +147,7 @@ La meta estructural de 5 translation units totales de Alpha4 P8 deja de ser un o
 
 ## Siguiente paso
 
-1. verificar auditoría global limpia tras retirar `JWPLC_Display` y `JW_RTC`;
-2. continuar con el piloto de `JW_SD`;
-3. repetir el probe físico de arranque/coexistencia SPI solicitado antes del benchmark final;
-4. cerrar `JW_MatrixButtons` si mantiene compatibilidad;
-5. ejecutar benchmark final y documentar la comparación con Alpha4.
+1. continuar con el piloto de `JW_SD`;
+2. repetir el probe físico de arranque/coexistencia SPI solicitado antes del benchmark final;
+3. cerrar `JW_MatrixButtons` si mantiene compatibilidad;
+4. ejecutar benchmark final y documentar la comparación con Alpha4.
