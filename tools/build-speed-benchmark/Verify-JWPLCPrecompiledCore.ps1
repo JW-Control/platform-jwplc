@@ -141,7 +141,7 @@ function Assert-BoardsLocalUnchanged
 function Test-NativeOutputContains
 {
     param(
-        [Parameter(Mandatory = $true)][string[]]$Output,
+        [AllowNull()][AllowEmptyCollection()][object[]]$Output,
         [Parameter(Mandatory = $true)][string]$Pattern
     )
 
