@@ -61,6 +61,11 @@ void initPeripherals(void)
     // No es crítica para bloquear el arranque si por algún motivo falla.
     (void)jwplcButtonsBeginCallback();
 
+    // Alpha5 PILOTO: inicializar la TFT antes de setup(), mientras
+    // el arranque de periféricos sigue serializado. tft.init()
+    // contiene esperas obligatorias del ST7789 y aquí no compite
+    // con accesos concurrentes del sketch a FRAM o microSD.
+    (void)jwplcDisplayBeginCallback();
     if (!TCA6424A_init(TCA6424A_DEFAULT_ADDRESS))
     {
         return;

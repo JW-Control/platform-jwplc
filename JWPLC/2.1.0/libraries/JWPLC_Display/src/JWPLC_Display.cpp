@@ -615,6 +615,14 @@ namespace JWPLCDisplay
 
 extern "C" bool jwplcDisplayBeginCallback(void)
 {
+    // Alpha5 PILOTO: la inicializacion fisica puede ejecutarse durante
+    // initPeripherals(), antes de setup(). La llamada posterior del
+    // runtime debe reconocer la TFT ya inicializada y no repetir tft.init().
+    if (g_tftReady)
+    {
+        return true;
+    }
+
     if (!jwplcSPI_begin())
     {
         return false;
