@@ -5,10 +5,11 @@
 - Etapa: `v2.1.0-alpha.6`
 - Rama: `v2.1.0-alpha.6/feature/modbus-rtu-nonblocking-master`
 - Objetivo: agregar un motor Master Modbus RTU no bloqueante sin romper las APIs síncronas ya validadas.
+- Estado actual: primera implementación FC03/FC06 completada en source; pendiente compilación y validación física.
 
 ## Motivación
 
-El lado Slave/Server de `JWPLC_ModbusRTU` ya usa `task()/poll()` de forma cooperativa. En cambio, las operaciones Master actuales (`readHoldingRegisters()` y `writeSingleRegister()`) esperan la respuesta dentro de la misma llamada y pueden bloquear hasta `timeoutMs`.
+El lado Slave/Server de `JWPLC_ModbusRTU` ya usa `task()/poll()` de forma cooperativa. En cambio, las operaciones Master heredadas (`readHoldingRegisters()` y `writeSingleRegister()`) esperan la respuesta dentro de la misma llamada y pueden bloquear hasta `timeoutMs`.
 
 Remote I/O necesita que el runtime PLC pueda seguir ejecutándose mientras la comunicación RTU avanza en segundo plano.
 
@@ -23,9 +24,7 @@ Remote I/O necesita que el runtime PLC pueda seguir ejecutándose mientras la co
 7. Permitir una sola transacción Master activa por instancia en esta primera versión.
 8. Separar claramente inicio, progreso, finalización, timeout y error.
 
-## API objetivo mínima
-
-Se agregará un estado de transacción Master y operaciones asíncronas mínimas:
+## API implementada en la primera iteración
 
 ```cpp
 bool beginReadHoldingRegistersAsync(...);
@@ -35,27 +34,76 @@ void task();
 bool masterBusy() const;
 bool masterDone() const;
 bool masterSucceeded() const;
+JWPLCModbusMasterState masterState() const;
 JWPLCModbusRTUError masterResult() const;
 void clearMasterResult();
 ```
 
-Los nombres definitivos se validarán contra el código antes de cerrar la etapa.
+Se agregan además los errores:
 
-## Máquina de estados prevista
+```cpp
+JWPLC_MODBUS_BUSY
+JWPLC_MODBUS_TRANSPORT_ERROR
+```
+
+Los valores anteriores del enum de errores se conservan en el mismo orden; los nuevos códigos se agregan al final.
+
+## Máquina de estados implementada
 
 ```text
 IDLE
   -> WAIT_RESPONSE
-      -> DONE_OK
-      -> DONE_ERROR
-      -> TIMEOUT
+      -> DONE
+      -> ERROR
 ```
 
-La transmisión inicial ocurre al iniciar la operación. `task()` recolecta bytes y detecta fin de trama mediante el frame gap, valida CRC/Slave ID/Function Code y completa la transacción sin esperar en bucles activos.
+`TIMEOUT`, `CRC_ERROR`, `EXCEPTION`, `INVALID_RESPONSE`, `BUFFER_OVERFLOW` y `TRANSPORT_ERROR` se reflejan como resultado de la transacción y llevan el estado a `ERROR`.
+
+La transmisión inicial ocurre al iniciar la operación. `task()` recolecta bytes y detecta fin de trama mediante el frame gap, valida CRC/Slave ID/Function Code y completa la transacción sin esperar en un bucle activo hasta el timeout.
+
+## Alcance exacto de "no bloqueante"
+
+La espera de respuesta RTU deja de bloquear el `loop()` durante decenas, cientos o miles de milisegundos. El runtime debe llamar `JWPLC_ModbusRTU.task()` con frecuencia para avanzar la transacción.
+
+El transporte actual `JWPLC_RS485.write()` todavía ejecuta `HardwareSerial::flush()` para completar físicamente la transmisión antes de retornar. Por tanto, esta primera iteración elimina el bloqueo de **espera de respuesta/timeout**, pero no pretende todavía convertir la serialización TX de unos pocos bytes en DMA/asíncrona completa.
+
+Para Remote I/O a 115200 8N1 ese tiempo de transmisión es acotado y muy inferior al timeout de respuesta; aun así debe medirse antes de fijar `Tplc`/`Tremote` finales.
 
 ## Compatibilidad
 
-Las APIs síncronas existentes se conservarán. En esta etapa podrán seguir usando su implementación actual; una migración posterior para convertirlas en wrappers del motor no bloqueante solo se hará después de validar equivalencia funcional.
+Las APIs síncronas existentes se conservan:
+
+```cpp
+readHoldingRegisters(...)
+writeSingleRegister(...)
+```
+
+No han sido eliminadas ni renombradas. Mientras una operación asíncrona está activa, las APIs síncronas rechazan una nueva transacción con `JWPLC_MODBUS_BUSY` para evitar corrupción del bus compartido.
+
+El lado Slave/Server sigue usando el mismo `task()/poll()` y los handlers FC03/FC06/FC16 existentes.
+
+## Source fallback durante desarrollo
+
+Alpha5 distribuye `JWPLC_ModbusRTU` con `precompiled=full` y un archive ESP32. Ese archive todavía contiene la implementación anterior y no incluye los nuevos símbolos asíncronos.
+
+Durante el desarrollo de Alpha6 se retiró temporalmente `precompiled=full` de `library.properties` para forzar compilación desde source y evitar enlazar accidentalmente el archive obsoleto.
+
+Antes de cerrar/publicar Alpha6 se debe:
+
+1. validar funcionalmente la nueva implementación desde source;
+2. regenerar `src/esp32/libJWPLC_ModbusRTU.a` con la herramienta reproducible del proyecto;
+3. auditar símbolos/ABI;
+4. restaurar `precompiled=full` solo si el archive regenerado pasa los gates.
+
+## Ejemplo de validación agregado
+
+```text
+JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/examples/
+└── ModbusRTU_Master_NonBlocking/
+    └── ModbusRTU_Master_NonBlocking.ino
+```
+
+El ejemplo inicia FC03 de forma asíncrona y mantiene un contador de aplicación (`appTicks`) que debe continuar incrementándose incluso cuando el Slave está desconectado y la transacción termina por timeout.
 
 ## Gate inicial
 
@@ -67,8 +115,11 @@ Antes de integrar Remote I/O sobre este motor deben pasar:
 - FC06 async Master ↔ Slave;
 - timeout sin bloqueo del `loop()`;
 - recuperación después de reconexión;
+- reset de Slave durante transacción;
+- reset de Master;
 - prueba con contador de ciclos de aplicación durante timeout;
-- cero regresiones en APIs síncronas existentes.
+- cero regresiones en APIs síncronas existentes;
+- cero regresiones en Slave `task()/poll()`.
 
 ## No incluido todavía
 
