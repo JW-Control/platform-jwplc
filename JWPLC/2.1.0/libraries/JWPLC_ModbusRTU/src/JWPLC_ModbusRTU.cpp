@@ -13,7 +13,18 @@ JWPLC_ModbusRTUClass::JWPLC_ModbusRTUClass()
       _rxLength(0),
       _lastByteMs(0),
       _lastError(JWPLC_MODBUS_NOT_STARTED),
-      _stats{0, 0, 0, 0, 0, 0}
+      _stats{0, 0, 0, 0, 0, 0},
+      _masterState(JWPLC_MODBUS_MASTER_IDLE),
+      _masterOperation(JWPLC_MODBUS_MASTER_OP_NONE),
+      _masterResult(JWPLC_MODBUS_OK),
+      _masterTargetSlaveId(0),
+      _masterExpectedFunction(0),
+      _masterStartAddress(0),
+      _masterQuantity(0),
+      _masterDestination(nullptr),
+      _masterWriteValue(0),
+      _masterStartMs(0),
+      _masterTimeoutMs(0)
 {
 }
 
@@ -52,6 +63,7 @@ bool JWPLC_ModbusRTUClass::begin(uint8_t slaveId, uint32_t baud, uint32_t config
     }
 
     clearRxBuffer();
+    resetMasterContext();
     _ready = true;
     clearError();
 
@@ -63,6 +75,7 @@ void JWPLC_ModbusRTUClass::end()
     _ready = false;
     JWPLC_RS485.end();
     clearRxBuffer();
+    resetMasterContext();
     setError(JWPLC_MODBUS_NOT_STARTED);
 }
 
@@ -141,6 +154,17 @@ void JWPLC_ModbusRTUClass::poll()
         return;
     }
 
+    if (masterBusy())
+    {
+        pollMaster();
+        return;
+    }
+
+    pollServer();
+}
+
+void JWPLC_ModbusRTUClass::pollServer()
+{
     int bytesProcessed = 0;
 
     while (JWPLC_RS485.available() > 0 && bytesProcessed < 64)
@@ -172,22 +196,72 @@ void JWPLC_ModbusRTUClass::poll()
     }
 }
 
+void JWPLC_ModbusRTUClass::pollMaster()
+{
+    int bytesProcessed = 0;
+
+    while (JWPLC_RS485.available() > 0 && bytesProcessed < 64)
+    {
+        int value = JWPLC_RS485.read();
+
+        if (value < 0)
+        {
+            break;
+        }
+
+        bytesProcessed++;
+
+        if (_rxLength >= JWPLC_MODBUS_RTU_MAX_FRAME)
+        {
+            clearRxBuffer();
+            completeMasterTransaction(JWPLC_MODBUS_BUFFER_OVERFLOW);
+            return;
+        }
+
+        _rxBuffer[_rxLength++] = (uint8_t)value;
+        _lastByteMs = millis();
+    }
+
+    if (_rxLength > 0 && (uint32_t)(millis() - _lastByteMs) >= _frameGapMs)
+    {
+        processMasterFrame(_rxBuffer, _rxLength);
+        clearRxBuffer();
+        return;
+    }
+
+    if ((uint32_t)(millis() - _masterStartMs) >= _masterTimeoutMs)
+    {
+        _stats.masterTimeouts++;
+        clearRxBuffer();
+        completeMasterTransaction(JWPLC_MODBUS_TIMEOUT);
+    }
+}
+
 bool JWPLC_ModbusRTUClass::readHoldingRegisters(uint8_t targetSlaveId,
                                                 uint16_t startAddress,
                                                 uint16_t quantity,
                                                 uint16_t *destination,
                                                 uint32_t timeoutMs)
 {
-    if (!isReady() || destination == nullptr || targetSlaveId == 0 || quantity == 0 || quantity > 125)
+    if (masterBusy())
+    {
+        setError(JWPLC_MODBUS_BUSY);
+        return false;
+    }
+
+    if (masterDone())
+    {
+        clearMasterResult();
+    }
+
+    if (!isReady() || destination == nullptr || targetSlaveId == 0 || targetSlaveId > 247 || quantity == 0 || quantity > 125)
     {
         setError(JWPLC_MODBUS_INVALID_RESPONSE);
         return false;
     }
 
-    while (JWPLC_RS485.available() > 0)
-    {
-        JWPLC_RS485.read();
-    }
+    drainRs485();
+    clearRxBuffer();
 
     uint8_t request[8];
     request[0] = targetSlaveId;
@@ -248,16 +322,25 @@ bool JWPLC_ModbusRTUClass::writeSingleRegister(uint8_t targetSlaveId,
                                                uint16_t value,
                                                uint32_t timeoutMs)
 {
-    if (!isReady() || targetSlaveId == 0)
+    if (masterBusy())
+    {
+        setError(JWPLC_MODBUS_BUSY);
+        return false;
+    }
+
+    if (masterDone())
+    {
+        clearMasterResult();
+    }
+
+    if (!isReady() || targetSlaveId == 0 || targetSlaveId > 247)
     {
         setError(JWPLC_MODBUS_INVALID_RESPONSE);
         return false;
     }
 
-    while (JWPLC_RS485.available() > 0)
-    {
-        JWPLC_RS485.read();
-    }
+    drainRs485();
+    clearRxBuffer();
 
     uint8_t request[8];
     request[0] = targetSlaveId;
@@ -297,6 +380,293 @@ bool JWPLC_ModbusRTUClass::writeSingleRegister(uint8_t targetSlaveId,
 
     clearError();
     return true;
+}
+
+bool JWPLC_ModbusRTUClass::beginReadHoldingRegistersAsync(uint8_t targetSlaveId,
+                                                          uint16_t startAddress,
+                                                          uint16_t quantity,
+                                                          uint16_t *destination,
+                                                          uint32_t timeoutMs)
+{
+    if (masterBusy())
+    {
+        setError(JWPLC_MODBUS_BUSY);
+        return false;
+    }
+
+    if (!isReady() || destination == nullptr || targetSlaveId == 0 || targetSlaveId > 247 || quantity == 0 || quantity > 125 || timeoutMs == 0)
+    {
+        setError(JWPLC_MODBUS_INVALID_RESPONSE);
+        return false;
+    }
+
+    if (masterDone())
+    {
+        clearMasterResult();
+    }
+
+    drainRs485();
+    clearRxBuffer();
+
+    _masterOperation = JWPLC_MODBUS_MASTER_OP_READ_HOLDING_REGISTERS;
+    _masterTargetSlaveId = targetSlaveId;
+    _masterExpectedFunction = 0x03;
+    _masterStartAddress = startAddress;
+    _masterQuantity = quantity;
+    _masterDestination = destination;
+    _masterWriteValue = 0;
+    _masterTimeoutMs = timeoutMs;
+    _masterResult = JWPLC_MODBUS_OK;
+    _masterState = JWPLC_MODBUS_MASTER_WAIT_RESPONSE;
+
+    uint8_t request[8];
+    request[0] = targetSlaveId;
+    request[1] = 0x03;
+    request[2] = highByte(startAddress);
+    request[3] = lowByte(startAddress);
+    request[4] = highByte(quantity);
+    request[5] = lowByte(quantity);
+    appendCRC(request, 6);
+
+    size_t written = JWPLC_RS485.write(request, sizeof(request));
+
+    if (written != sizeof(request))
+    {
+        completeMasterTransaction(JWPLC_MODBUS_TRANSPORT_ERROR);
+        return false;
+    }
+
+    _stats.txFrames++;
+    _masterStartMs = millis();
+    clearError();
+    return true;
+}
+
+bool JWPLC_ModbusRTUClass::beginWriteSingleRegisterAsync(uint8_t targetSlaveId,
+                                                         uint16_t address,
+                                                         uint16_t value,
+                                                         uint32_t timeoutMs)
+{
+    if (masterBusy())
+    {
+        setError(JWPLC_MODBUS_BUSY);
+        return false;
+    }
+
+    if (!isReady() || targetSlaveId == 0 || targetSlaveId > 247 || timeoutMs == 0)
+    {
+        setError(JWPLC_MODBUS_INVALID_RESPONSE);
+        return false;
+    }
+
+    if (masterDone())
+    {
+        clearMasterResult();
+    }
+
+    drainRs485();
+    clearRxBuffer();
+
+    _masterOperation = JWPLC_MODBUS_MASTER_OP_WRITE_SINGLE_REGISTER;
+    _masterTargetSlaveId = targetSlaveId;
+    _masterExpectedFunction = 0x06;
+    _masterStartAddress = address;
+    _masterQuantity = 1;
+    _masterDestination = nullptr;
+    _masterWriteValue = value;
+    _masterTimeoutMs = timeoutMs;
+    _masterResult = JWPLC_MODBUS_OK;
+    _masterState = JWPLC_MODBUS_MASTER_WAIT_RESPONSE;
+
+    uint8_t request[8];
+    request[0] = targetSlaveId;
+    request[1] = 0x06;
+    request[2] = highByte(address);
+    request[3] = lowByte(address);
+    request[4] = highByte(value);
+    request[5] = lowByte(value);
+    appendCRC(request, 6);
+
+    size_t written = JWPLC_RS485.write(request, sizeof(request));
+
+    if (written != sizeof(request))
+    {
+        completeMasterTransaction(JWPLC_MODBUS_TRANSPORT_ERROR);
+        return false;
+    }
+
+    _stats.txFrames++;
+    _masterStartMs = millis();
+    clearError();
+    return true;
+}
+
+bool JWPLC_ModbusRTUClass::masterBusy() const
+{
+    return _masterState == JWPLC_MODBUS_MASTER_WAIT_RESPONSE;
+}
+
+bool JWPLC_ModbusRTUClass::masterDone() const
+{
+    return _masterState == JWPLC_MODBUS_MASTER_DONE ||
+           _masterState == JWPLC_MODBUS_MASTER_ERROR;
+}
+
+bool JWPLC_ModbusRTUClass::masterSucceeded() const
+{
+    return _masterState == JWPLC_MODBUS_MASTER_DONE &&
+           _masterResult == JWPLC_MODBUS_OK;
+}
+
+JWPLCModbusMasterState JWPLC_ModbusRTUClass::masterState() const
+{
+    return _masterState;
+}
+
+JWPLCModbusRTUError JWPLC_ModbusRTUClass::masterResult() const
+{
+    return _masterResult;
+}
+
+void JWPLC_ModbusRTUClass::clearMasterResult()
+{
+    if (masterBusy())
+    {
+        return;
+    }
+
+    resetMasterContext();
+}
+
+void JWPLC_ModbusRTUClass::resetMasterContext()
+{
+    _masterState = JWPLC_MODBUS_MASTER_IDLE;
+    _masterOperation = JWPLC_MODBUS_MASTER_OP_NONE;
+    _masterResult = JWPLC_MODBUS_OK;
+    _masterTargetSlaveId = 0;
+    _masterExpectedFunction = 0;
+    _masterStartAddress = 0;
+    _masterQuantity = 0;
+    _masterDestination = nullptr;
+    _masterWriteValue = 0;
+    _masterStartMs = 0;
+    _masterTimeoutMs = 0;
+}
+
+void JWPLC_ModbusRTUClass::completeMasterTransaction(JWPLCModbusRTUError result)
+{
+    _masterResult = result;
+
+    if (result == JWPLC_MODBUS_OK)
+    {
+        _masterState = JWPLC_MODBUS_MASTER_DONE;
+        _stats.requestsOk++;
+        clearError();
+    }
+    else
+    {
+        _masterState = JWPLC_MODBUS_MASTER_ERROR;
+        setError(result);
+    }
+}
+
+bool JWPLC_ModbusRTUClass::processMasterFrame(const uint8_t *frame, uint16_t length)
+{
+    _stats.rxFrames++;
+
+    if (frame == nullptr || length < 5)
+    {
+        completeMasterTransaction(JWPLC_MODBUS_INVALID_RESPONSE);
+        return false;
+    }
+
+    if (!checkCRC(frame, length))
+    {
+        _stats.crcErrors++;
+        completeMasterTransaction(JWPLC_MODBUS_CRC_ERROR);
+        return false;
+    }
+
+    if (frame[0] != _masterTargetSlaveId)
+    {
+        completeMasterTransaction(JWPLC_MODBUS_INVALID_RESPONSE);
+        return false;
+    }
+
+    if (frame[1] == (uint8_t)(_masterExpectedFunction | 0x80))
+    {
+        completeMasterTransaction(JWPLC_MODBUS_EXCEPTION);
+        return false;
+    }
+
+    if (frame[1] != _masterExpectedFunction)
+    {
+        completeMasterTransaction(JWPLC_MODBUS_INVALID_RESPONSE);
+        return false;
+    }
+
+    switch (_masterOperation)
+    {
+    case JWPLC_MODBUS_MASTER_OP_READ_HOLDING_REGISTERS:
+    {
+        if (_masterDestination == nullptr || _masterQuantity == 0 || _masterQuantity > 125)
+        {
+            completeMasterTransaction(JWPLC_MODBUS_INVALID_RESPONSE);
+            return false;
+        }
+
+        uint16_t expectedByteCount = _masterQuantity * 2;
+        uint16_t expectedLength = 5 + expectedByteCount;
+
+        if (frame[2] != expectedByteCount || length != expectedLength)
+        {
+            completeMasterTransaction(JWPLC_MODBUS_INVALID_RESPONSE);
+            return false;
+        }
+
+        for (uint16_t i = 0; i < _masterQuantity; i++)
+        {
+            _masterDestination[i] = ((uint16_t)frame[3 + i * 2] << 8) |
+                                    frame[4 + i * 2];
+        }
+
+        completeMasterTransaction(JWPLC_MODBUS_OK);
+        return true;
+    }
+
+    case JWPLC_MODBUS_MASTER_OP_WRITE_SINGLE_REGISTER:
+    {
+        if (length != 8)
+        {
+            completeMasterTransaction(JWPLC_MODBUS_INVALID_RESPONSE);
+            return false;
+        }
+
+        if (frame[2] != highByte(_masterStartAddress) ||
+            frame[3] != lowByte(_masterStartAddress) ||
+            frame[4] != highByte(_masterWriteValue) ||
+            frame[5] != lowByte(_masterWriteValue))
+        {
+            completeMasterTransaction(JWPLC_MODBUS_INVALID_RESPONSE);
+            return false;
+        }
+
+        completeMasterTransaction(JWPLC_MODBUS_OK);
+        return true;
+    }
+
+    default:
+        completeMasterTransaction(JWPLC_MODBUS_INVALID_RESPONSE);
+        return false;
+    }
+}
+
+void JWPLC_ModbusRTUClass::drainRs485()
+{
+    while (JWPLC_RS485.available() > 0)
+    {
+        JWPLC_RS485.read();
+    }
 }
 
 uint16_t JWPLC_ModbusRTUClass::crc16(const uint8_t *data, size_t length)
@@ -379,6 +749,10 @@ const char *JWPLC_ModbusRTUClass::lastErrorString() const
         return "Buffer overflow";
     case JWPLC_MODBUS_UNSUPPORTED_FUNCTION:
         return "Unsupported function";
+    case JWPLC_MODBUS_BUSY:
+        return "Master busy";
+    case JWPLC_MODBUS_TRANSPORT_ERROR:
+        return "Transport error";
     default:
         return "Unknown Modbus error";
     }
