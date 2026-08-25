@@ -30,7 +30,7 @@
 static const uint8_t JWPLC_REMOTE_IO_SLAVE_ID = 2;
 static const uint32_t JWPLC_REMOTE_IO_BAUDRATE = 115200;
 
-// Alpha5: politica provisional de estado seguro.
+// Alpha6: politica provisional de estado seguro.
 // Si el Slave deja de recibir solicitudes Modbus validas durante este tiempo,
 // todas las salidas digitales remotas pasan a OFF.
 static const uint32_t JWPLC_REMOTE_IO_FAILSAFE_TIMEOUT_MS = 100;

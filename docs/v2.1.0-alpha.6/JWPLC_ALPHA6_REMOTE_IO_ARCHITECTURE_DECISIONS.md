@@ -1,8 +1,8 @@
-# JWPLC Alpha5 — Decisiones de arquitectura Remote I/O y modelo temporal
+# JWPLC Alpha6 — Decisiones de arquitectura Remote I/O y modelo temporal
 
 **Proyecto:** JWPLC Basic / platform-jwplc  
-**Alpha:** v2.1.0-alpha.5  
-**Rama de trabajo:** `v2.1.0-alpha.5/feature/openplc-backplane-validation`  
+**Alpha:** v2.1.0-alpha.6
+**Rama de trabajo:** `v2.1.0-alpha.6/feature/openplc-backplane-validation`
 **Estado del documento:** decisión base adoptada para implementación y validación  
 **Fecha:** 2026-08-13  
 **Referencia de código previa a este documento:** `b290f26` (`test(remote-io): agregar barrido individual de salidas RTU`)
@@ -11,7 +11,7 @@
 
 ## 1. Objetivo del documento
 
-Este documento conserva las decisiones de diseño tomadas durante la validación de Alpha5 para que cualquier integrante del equipo pueda continuar el trabajo sin reconstruir el razonamiento desde cero.
+Este documento conserva las decisiones de diseño tomadas durante la validación de Alpha6 para que cualquier integrante del equipo pueda continuar el trabajo sin reconstruir el razonamiento desde cero.
 
 El objetivo es definir una arquitectura Remote I/O escalable para JWPLC Basic sobre RS-485 / Modbus RTU, separando correctamente:
 
@@ -23,11 +23,11 @@ El objetivo es definir una arquitectura Remote I/O escalable para JWPLC Basic so
 - supervisión/fail-safe de comunicaciones;
 - latencia real evento → acción.
 
-Estas decisiones son la **base adoptada para Alpha5**, pero los valores temporales deberán medirse físicamente antes de convertirse en especificaciones definitivas de producto.
+Estas decisiones son la **base adoptada para Alpha6**, pero los valores temporales deberán medirse físicamente antes de convertirse en especificaciones definitivas de producto.
 
 ---
 
-## 2. Contrato RTU base de Alpha5
+## 2. Contrato RTU base de Alpha6
 
 Para la PoC y las primeras validaciones se mantiene:
 
@@ -149,7 +149,7 @@ Es decir:
 4. Para las DO normales de esta arquitectura, el estado seguro base será **OFF**.
 5. Cuando el enlace regrese, el Master deberá volver a publicar explícitamente una imagen válida de salidas; no se debe restaurar ciegamente un estado antiguo.
 
-Valor base adoptado para Alpha5:
+Valor base adoptado para Alpha6:
 
 ```text
 Tsafety DO = 100 ms
@@ -206,7 +206,7 @@ Tsafety   -> cuanto tiempo se tolera perder comunicacion
 Tresponse -> latencia real entre evento fisico y accion fisica
 ```
 
-### Valores base adoptados para Alpha5
+### Valores base adoptados para Alpha6
 
 | Parámetro | Valor base | Significado |
 |---|---:|---|
@@ -515,7 +515,7 @@ Por tanto:
 
 > La primera optimización debe ser el scheduler y la organización del tráfico, no aumentar automáticamente el baudrate.
 
-Para Alpha5 se mantiene:
+Para Alpha6 se mantiene:
 
 ```text
 BAUDRATE_BASE=115200
@@ -594,11 +594,11 @@ Mientras tanto un módulo AI puede haber tomado una muestra cada 1 ms durante to
 9. Mantener adquisición AI rápida dentro del módulo aunque `Tremote` sea mayor.
 10. No confundir `sampling rate`, `I/O update rate`, `PLC scan` y `Tresponse` en documentación comercial.
 11. No declarar valores temporales definitivos antes de medirlos.
-12. No modificar el Backplane/OpenPLC antes de cerrar las validaciones de protocolo requeridas por Alpha5.
+12. No modificar el Backplane/OpenPLC antes de cerrar las validaciones de protocolo requeridas por Alpha6.
 
 ---
 
-## 20. Siguiente trabajo inmediato en Alpha5
+## 20. Siguiente trabajo inmediato en Alpha6
 
 Antes de avanzar a OpenPLC se debe continuar sobre el Arduino Slave conocido:
 
@@ -649,7 +649,7 @@ Registrar resultado como evidencia reproducible.
 
 ### 20.4 Después de cerrar Fase A
 
-Seguir el orden Alpha5:
+Seguir el orden Alpha6:
 
 ```text
 A. Arduino Master -> Arduino Slave
@@ -681,7 +681,7 @@ No adelantar cambios de Backplane para ocultar fallas de protocolo.
 | HOLD_LAST_STATE actual | Confirmado en PoC, no deseado como política final |
 | `Tresponse` | Pendiente de benchmark físico |
 | Capacidad final 16 módulos | Pendiente de benchmark físico |
-| Baudrate superior a 115200 | No necesario para Alpha5; evaluar después |
+| Baudrate superior a 115200 | No necesario para Alpha6; evaluar después |
 
 ---
 

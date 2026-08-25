@@ -1,4 +1,4 @@
-# JWPLC Alpha5 — Arquitectura temporal y decisiones de diseño para Remote I/O
+# JWPLC Alpha6 — Arquitectura temporal y decisiones de diseño para Remote I/O
 
 Fecha de decisión: **2026-08-13**
 
@@ -11,7 +11,7 @@ JW-Control/platform-jwplc
 Branch de trabajo:
 
 ```txt
-v2.1.0-alpha.5/feature/openplc-backplane-validation
+v2.1.0-alpha.6/feature/openplc-backplane-validation
 ```
 
 Commit previo relevante:
@@ -24,7 +24,7 @@ b290f26 test(remote-io): agregar barrido individual de salidas RTU
 
 Este documento registra las decisiones de arquitectura, temporización, escalabilidad y seguridad acordadas durante la validación de **JWPLC Remote I/O por RS-485 / Modbus RTU**.
 
-Debe usarse como documento de transferencia para cualquier persona que continúe el trabajo de Alpha5, de forma que no sea necesario reconstruir nuevamente las decisiones desde conversaciones anteriores.
+Debe usarse como documento de transferencia para cualquier persona que continúe el trabajo de Alpha6, de forma que no sea necesario reconstruir nuevamente las decisiones desde conversaciones anteriores.
 
 Las prioridades siguen siendo:
 
@@ -37,7 +37,7 @@ Las prioridades siguen siendo:
 
 ---
 
-# 2. Estado actual validado de Alpha5
+# 2. Estado actual validado de Alpha6
 
 ## 2.1 Configuración PoC vigente
 
@@ -65,7 +65,7 @@ FC05  Write Single Coil
 FC15  Write Multiple Coils
 ```
 
-El Slave de la PoC también contiene soporte adicional de funciones Modbus, pero Alpha5 está cerrando primero el contrato mínimo requerido para Remote I/O digital.
+El Slave de la PoC también contiene soporte adicional de funciones Modbus, pero Alpha6 está cerrando primero el contrato mínimo requerido para Remote I/O digital.
 
 ---
 
@@ -236,7 +236,7 @@ pérdida prolongada de comunicación válida
 -> Q0_0..Q0_7 = OFF
 ```
 
-Valor base acordado para Alpha5:
+Valor base acordado para Alpha6:
 
 ```txt
 Tsafety DO = 100 ms
@@ -270,7 +270,7 @@ Estos tiempos son independientes y deben medirse/documentarse por separado.
 
 # 5. Configuración temporal base adoptada
 
-La siguiente configuración se adopta como **objetivo base de arquitectura** para las siguientes pruebas de Alpha5:
+La siguiente configuración se adopta como **objetivo base de arquitectura** para las siguientes pruebas de Alpha6:
 
 | Parámetro | Valor base | Función |
 |---|---:|---|
@@ -643,7 +643,7 @@ Total = 16 módulos / 96 I/O
 
 Este caso sirve como referencia de dimensionamiento, no como límite final garantizado todavía.
 
-Baudrate base acordado para continuar Alpha5:
+Baudrate base acordado para continuar Alpha6:
 
 ```txt
 115200 baud
@@ -771,7 +771,7 @@ Durante el mismo intervalo, el módulo AI puede haber adquirido decenas de muest
 
 ---
 
-# 13. Siguiente trabajo inmediato de Alpha5
+# 13. Siguiente trabajo inmediato de Alpha6
 
 El siguiente cambio debe ser incremental y limitado al Slave de prueba.
 
@@ -848,7 +848,7 @@ No modificar el Backplane para resolver un problema que todavía no haya sido ai
 ## Decisiones adoptadas
 
 ```txt
-[DECIDIDO] 115200 como baudrate base de Alpha5
+[DECIDIDO] 115200 como baudrate base de Alpha6
 [DECIDIDO] Process Image desacoplada del transporte
 [DECIDIDO] Tplc objetivo base = 5 ms
 [DECIDIDO] Tremote DI/DO base = 20 ms
