@@ -492,10 +492,10 @@ Pendiente de preparar:
 - [x] Revisar diff final Alpha4 -> Alpha5.
 - [x] Preparar PULL_REQUEST.md.
 - [x] Preparar PRE_RELEASE.md.
-- [ ] Commit de documentación final.
-- [ ] Push final de la rama.
-- [ ] Crear PR hacia `release/v2.1.x`.
-- [ ] Revisar CI del PR.
+- [x] Commit de documentación final.
+- [x] Push final de la rama.
+- [x] Crear PR hacia `release/v2.1.x`.
+- [x] Revisar CI del PR.
 - [ ] Hacer merge si todos los gates son satisfactorios.
 - [ ] Preparar ZIP de `v2.1.0-alpha.5`.
 - [ ] Calcular tamaño y SHA-256 del ZIP.

@@ -474,7 +474,7 @@ Este PR no:
 - [x] Bootloader precompilado cerrado.
 - [x] Configuración actual/pending documentada.
 - [ ] Revisión final del diff contra `release/v2.1.x`.
-- [ ] CI del PR aprobado.
+- [x] CI del PR aprobado.
 
 ---
 
