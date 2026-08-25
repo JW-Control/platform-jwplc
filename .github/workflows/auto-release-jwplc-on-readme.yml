@@ -6,6 +6,8 @@ on:
       - release/v2.1.x
     paths:
       - README.md
+      - .github/workflows/release-jwplc-package.yml
+      - .github/workflows/auto-release-jwplc-on-readme.yml
 
 permissions:
   contents: read
@@ -22,9 +24,11 @@ jobs:
         with:
           fetch-depth: 2
 
-      - name: Detectar cambio de version del README
+      - name: Detectar release pendiente
         id: version
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
@@ -47,7 +51,6 @@ jobs:
           fi
 
           PREVIOUS_VERSION=""
-
           BEFORE="${{ github.event.before }}"
 
           if [[ -n "$BEFORE" ]] &&
@@ -58,21 +61,30 @@ jobs:
             PREVIOUS_VERSION="$(read_version /tmp/README.before)"
           fi
 
+          TAG="v$CURRENT_VERSION"
+          NOTES_FILE="docs/v${CURRENT_VERSION}/PRE_RELEASE.md"
+
           echo "Version anterior : ${PREVIOUS_VERSION:-<none>}"
           echo "Version actual   : $CURRENT_VERSION"
-
-          if [[ "$CURRENT_VERSION" == "$PREVIOUS_VERSION" ]]; then
-            echo "El README cambio, pero JWPLC_RELEASE_VERSION no."
-            echo "should_release=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          NOTES_FILE="docs/v${CURRENT_VERSION}/PRE_RELEASE.md"
+          echo "Tag esperado     : $TAG"
 
           if [[ ! -f "$NOTES_FILE" ]]; then
             echo "Falta documentacion de PreRelease:"
             echo "$NOTES_FILE"
             exit 1
+          fi
+
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "La release $TAG ya existe. No se relanza."
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "$CURRENT_VERSION" == "$PREVIOUS_VERSION" ]]; then
+            echo "El marcador no cambio, pero $TAG aun no existe."
+            echo "Se trata como reintento automatico de una publicacion pendiente."
+          else
+            echo "Se detecto una nueva version de release en README.md."
           fi
 
           echo "version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
