@@ -57,8 +57,12 @@ static const int OUTPUT_PINS[BIT_IO_COUNT] = {
 
 static uint8_t outputState = 0x00;
 
-static uint32_t lastValidMasterRequestMs = 0;
-static bool masterCommunicationSeen = false;
+static uint32_t lastValidCommunicationMs = 0;
+static bool communicationSeen = false;
+
+static uint32_t lastValidOutputCommandMs = 0;
+static bool outputCommandSeen = false;
+
 static bool failsafeActive = false;
 
 // -----------------------------------------------------------------------------
@@ -113,25 +117,30 @@ static void applyOutputs(uint8_t state) {
   }
 }
 
-static void markValidMasterRequest() {
-  lastValidMasterRequestMs = millis();
-  masterCommunicationSeen = true;
+static void markValidCommunication() {
+  lastValidCommunicationMs = millis();
+  communicationSeen = true;
+}
+
+static void markValidOutputCommand() {
+  lastValidOutputCommandMs = millis();
+  outputCommandSeen = true;
 
   if (failsafeActive) {
     failsafeActive = false;
 
     Serial.println(
-      F("[RTU] Comunicacion recuperada; fail-safe liberado")
+      F("[RTU] Imagen DO valida recibida; fail-safe liberado")
     );
   }
 }
 
-static void serviceCommunicationFailsafe() {
-  if (!masterCommunicationSeen || failsafeActive) {
+static void serviceOutputFailsafe() {
+  if (!outputCommandSeen || failsafeActive) {
     return;
   }
 
-  const uint32_t elapsedMs = millis() - lastValidMasterRequestMs;
+  const uint32_t elapsedMs = millis() - lastValidOutputCommandMs;
 
   if (elapsedMs < JWPLC_REMOTE_IO_FAILSAFE_TIMEOUT_MS) {
     return;
@@ -140,9 +149,9 @@ static void serviceCommunicationFailsafe() {
   applyOutputs(0x00);
   failsafeActive = true;
 
-  Serial.print(F("[RTU] FAILSAFE: "));
+  Serial.print(F("[RTU] FAILSAFE DO: "));
   Serial.print(elapsedMs);
-  Serial.println(F(" ms sin comunicacion valida -> Q0_0..Q0_7 OFF"));
+  Serial.println(F(" ms sin comando DO valido -> Q0_0..Q0_7 OFF"));
 }
 
 static bool readInputBit(uint8_t index) {
@@ -395,6 +404,7 @@ static void handleWriteSingleCoil(const uint8_t *request, uint16_t length) {
   }
 
   applyOutputs(outputState);
+  markValidOutputCommand();
 
   uint8_t response[8];
 
@@ -479,6 +489,7 @@ static void handleWriteMultipleCoils(const uint8_t *request, uint16_t length) {
   }
 
   applyOutputs(outputState);
+  markValidOutputCommand();
 
   uint8_t response[8];
 
@@ -563,7 +574,7 @@ static void processModbusFrame(const uint8_t *frame, uint16_t length) {
     return;
   }
 
-  markValidMasterRequest();
+  markValidCommunication();
   updateInputRegisters();
 
   switch (functionCode) {
@@ -685,5 +696,5 @@ void loop() {
     rxLength = 0;
   }
 
-  serviceCommunicationFailsafe();
+  serviceOutputFailsafe();
 }
