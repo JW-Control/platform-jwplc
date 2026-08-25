@@ -7,9 +7,9 @@
 # discovery y =0 durante el build normal. Se expone como macro propia para que
 # los headers de autoload puedan evitar expansion pesada solo en discovery.
 #
-# P2 cambia build.core a jwcontrol_p2 mediante boards.local.txt. En ese caso
+# P2 cambia build.core a jwcontrol_precompiled_stub mediante boards.local.txt. En ese caso
 # mantenemos el core fuente jwcontrol en el include path para no duplicar
-# headers. El core seleccionado jwcontrol_p2 contiene solamente un stub.
+# headers. El core seleccionado jwcontrol_precompiled_stub contiene solamente un stub.
 #
 # El core.a completo NO se sustituye mediante un hook core.postbuild. Arduino
 # IDE 2.x puede enlazar el archive del core desde su cache global, mientras que

@@ -196,7 +196,7 @@ if ($Jobs -lt 0) { throw "Jobs debe ser 0 o mayor." }
 if ($null -eq (Get-Command $ArduinoCli -ErrorAction SilentlyContinue)) { throw "No se encontro arduino-cli." }
 if (-not (Test-Path $BoardsLocalPath)) { throw "P4 requiere overlay P2 activo. Ejecuta Verify-JWPLCPrecompiledCore.ps1 si fue retirado." }
 $boardsText = Get-Content $BoardsLocalPath -Raw
-if ($boardsText -notmatch '(?m)^jwplcbasic\.build\.core=jwcontrol_p2\s*$') { throw "P4 requiere jwplcbasic.build.core=jwcontrol_p2." }
+if ($boardsText -notmatch '(?m)^jwplcbasic\.build\.core=jwcontrol_precompiled_stub\s*$') { throw "P4 requiere jwplcbasic.build.core=jwcontrol_precompiled_stub." }
 
 $p2 = Find-LatestBuild "p2-verify-work" "verify-Basic" @(
     "libraries\JWPLC_Display\JWPLC_Display.cpp.o",
@@ -256,7 +256,7 @@ try
     $preprocessLines = @($native.Output | Where-Object { ([string]$_) -match 'xtensa-esp32-elf-g\+\+.*\s-E\s' })
     $globalSource = @($compileLines | Where-Object { ([string]$_) -match 'JWPLC_GlobalPeripherals\.cpp"\s+-o\s+"' }).Count
     $displaySource = @($compileLines | Where-Object { ([string]$_) -match 'libraries[\\/]JWPLC_Display[\\/].*\.cpp"\s+-o\s+"' }).Count
-    $stub = @($compileLines | Where-Object { ([string]$_) -match 'jwcontrol_p2[\\/]p2_core_stub\.c"\s+-o\s+"' }).Count
+    $stub = @($compileLines | Where-Object { ([string]$_) -match 'jwcontrol_precompiled_stub[\\/]p2_core_stub\.c"\s+-o\s+"' }).Count
     $globalE = @($preprocessLines | Where-Object { ([string]$_) -match 'JWPLC_GlobalPeripherals\.cpp' }).Count
     $displayE = @($preprocessLines | Where-Object { ([string]$_) -match 'JWPLC_Display\.cpp' }).Count
 

@@ -194,7 +194,7 @@ function Get-BuildMetrics
         Preprocess = $preprocessLines.Count
         DisplaySource = @($compileLines | Where-Object { ([string]$_) -match 'libraries[\\/]+JWPLC_Display[\\/]+.*\.cpp"\s+-o\s+"' }).Count
         DisplayE = @($preprocessLines | Where-Object { ([string]$_) -match 'JWPLC_Display\.cpp' }).Count
-        Stub = @($compileLines | Where-Object { ([string]$_) -match 'jwcontrol_p2[\\/]+p2_core_stub\.c' }).Count
+        Stub = @($compileLines | Where-Object { ([string]$_) -match 'jwcontrol_precompiled_stub[\\/]+p2_core_stub\.c' }).Count
     }
 }
 
@@ -273,9 +273,9 @@ if ($null -eq (Get-Command $ArduinoCli -ErrorAction SilentlyContinue)) { throw "
 
 if (-not (Test-Path -LiteralPath $BoardsLocalPath)) { throw "Falta boards.local.txt con overlay P2 activo." }
 $boardsText = Get-Content -LiteralPath $BoardsLocalPath -Raw
-if ($boardsText -notmatch '(?m)^jwplcbasic\.build\.core=jwcontrol_p2\s*$')
+if ($boardsText -notmatch '(?m)^jwplcbasic\.build\.core=jwcontrol_precompiled_stub\s*$')
 {
-    throw "P3 determinista requiere jwplcbasic.build.core=jwcontrol_p2."
+    throw "P3 determinista requiere jwplcbasic.build.core=jwcontrol_precompiled_stub."
 }
 if (-not (Test-Path -LiteralPath $CoreArchivePath)) { throw "Falta core P2: $CoreArchivePath" }
 
