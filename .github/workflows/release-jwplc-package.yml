@@ -216,7 +216,12 @@ jobs:
           git fetch origin "$BASE_BRANCH" --depth=1
           git checkout -B "$INDEX_BRANCH" "origin/$BASE_BRANCH"
           git checkout "$GITHUB_WORKSPACE/JWPLC/package_jwplc_index_dev.json" "$GITHUB_WORKSPACE/JWPLC/package_jwplc_index.json"
-          git add JWPLC/package_jwplc_index_dev.json JWPLC/package_jwplc_index.json
+
+          # Llevar tambien a main el README correspondiente al commit
+          # exacto desde el que se publica el package.
+          git show "$GITHUB_SHA:README.md" > README.md
+
+          git add README.md JWPLC/package_jwplc_index_dev.json JWPLC/package_jwplc_index.json
           git commit -m "ci(release): update JWPLC package indexes for $TAG"
           git push --force-with-lease origin "$INDEX_BRANCH"
 
@@ -247,6 +252,7 @@ jobs:
 
           - JWPLC/package_jwplc_index_dev.json
           - JWPLC/package_jwplc_index.json solo cambia cuando corresponde a release estable o update_public_index=yes.
+          - README.md cuando exista una actualización respecto a main.
 
           ## Nota
 
