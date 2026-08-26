@@ -21,32 +21,13 @@
 #ifndef ethernet_h_
 #define ethernet_h_
 
-// All symbols exposed to Arduino sketches are contained in this header file
-//
-// Older versions had much of this stuff in EthernetClient.h, EthernetServer.h,
-// and socket.h.  Including headers in different order could cause trouble, so
-// these "friend" classes are now defined in the same header file.  socket.h
-// was removed to avoid possible conflict with the C library header files.
-
-
-// Configure the maximum number of sockets to support.  W5100 chips can have
-// up to 4 sockets.  W5200 & W5500 can have up to 8 sockets.  Several bytes
-// of RAM are used for each socket.  Reducing the maximum can save RAM, but
-// you are limited to fewer simultaneous connections.
 #if defined(RAMEND) && defined(RAMSTART) && ((RAMEND - RAMSTART) <= 2048)
 #define MAX_SOCK_NUM 4
 #else
 #define MAX_SOCK_NUM 8
 #endif
 
-// By default, each socket uses 2K buffers inside the WIZnet chip.  If
-// MAX_SOCK_NUM is set to fewer than the chip's maximum, uncommenting
-// this will use larger buffers within the WIZnet chip.  Large buffers
-// can really help with UDP protocols like Artnet.  In theory larger
-// buffers should allow faster TCP over high-latency links, but this
-// does not always seem to work in practice (maybe WIZnet bugs?)
 //#define ETHERNET_LARGE_BUFFERS
-
 
 #include <Arduino.h>
 #include "Client.h"
@@ -76,24 +57,19 @@ private:
 	static IPAddress _dnsServerAddress;
 	static DhcpClass* _dhcp;
 public:
-	// Initialise the Ethernet shield to use the provided MAC address and
-	// gain the rest of the configuration through DHCP.
-	// Returns 0 if the DHCP configuration failed, and 1 if it succeeded
 	static int begin(uint8_t *mac, unsigned long timeout = 60000, unsigned long responseTimeout = 4000);
 
-	// JWPLC cooperative DHCP extension. These calls do not wait for the
-	// complete DHCP exchange. beginDHCPAsync() starts it and pollDHCP()
-	// advances at most one short state-machine step per call.
+	// JWPLC cooperative DHCP extension.
 	// pollDHCP(): -1 = failed, 0 = pending, 1 = leased.
 	static int beginDHCPAsync(uint8_t *mac, unsigned long timeout = 60000, unsigned long responseTimeout = 4000);
 	static int pollDHCP();
 	static bool dhcpInProgress();
+	static void cancelDHCP();
 
 	static int maintain();
 	static EthernetLinkStatus linkStatus();
 	static EthernetHardwareStatus hardwareStatus();
 
-	// Manual configuration
 	static void begin(uint8_t *mac, IPAddress ip);
 	static void begin(uint8_t *mac, IPAddress ip, IPAddress dns);
 	static void begin(uint8_t *mac, IPAddress ip, IPAddress dns, IPAddress gateway);
@@ -118,72 +94,48 @@ public:
 	friend class EthernetServer;
 	friend class EthernetUDP;
 private:
-	// Opens a socket(TCP or UDP or IP_RAW mode)
 	static uint8_t socketBegin(uint8_t protocol, uint16_t port);
 	static uint8_t socketBeginMulticast(uint8_t protocol, IPAddress ip,uint16_t port);
 	static uint8_t socketStatus(uint8_t s);
-	// Close socket
 	static void socketClose(uint8_t s);
-	// Establish TCP connection (Active connection)
 	static void socketConnect(uint8_t s, uint8_t * addr, uint16_t port);
-	// disconnect the connection
 	static void socketDisconnect(uint8_t s);
-	// Establish TCP connection (Passive connection)
 	static uint8_t socketListen(uint8_t s);
-	// Send data (TCP)
 	static uint16_t socketSend(uint8_t s, const uint8_t * buf, uint16_t len);
 	static uint16_t socketSendAvailable(uint8_t s);
-	// Receive data (TCP)
 	static int socketRecv(uint8_t s, uint8_t * buf, int16_t len);
 	static uint16_t socketRecvAvailable(uint8_t s);
 	static uint8_t socketPeek(uint8_t s);
-	// sets up a UDP datagram, the data for which will be provided by one
-	// or more calls to bufferData and then finally sent with sendUDP.
-	// return true if the datagram was successfully set up, or false if there was an error
 	static bool socketStartUDP(uint8_t s, uint8_t* addr, uint16_t port);
-	// copy up to len bytes of data from buf into a UDP datagram to be
-	// sent later by sendUDP.  Allows datagrams to be built up from a series of bufferData calls.
-	// return Number of bytes successfully buffered
 	static uint16_t socketBufferData(uint8_t s, uint16_t offset, const uint8_t* buf, uint16_t len);
-	// Send a UDP datagram built up from a sequence of startUDP followed by one or more
-	// calls to bufferData.
-	// return true if the datagram was successfully sent, or false if there was an error
 	static bool socketSendUDP(uint8_t s);
-	// Initialize the "random" source port number
 	static void socketPortRand(uint16_t n);
 };
 
 extern EthernetClass Ethernet;
 
-
 #define UDP_TX_PACKET_MAX_SIZE 24
 
 class EthernetUDP : public UDP {
 private:
-	uint16_t _port; // local port to listen on
-	IPAddress _remoteIP; // remote IP address for the incoming packet whilst it's being processed
-	uint16_t _remotePort; // remote port of the incoming packet whilst it's being processed
-	uint16_t _offset; // offset into the packet being sent
-
+	uint16_t _port;
+	IPAddress _remoteIP;
+	uint16_t _remotePort;
+	uint16_t _offset;
 protected:
 	uint8_t sockindex;
-	uint16_t _remaining; // remaining bytes of incoming packet yet to be processed
-
+	uint16_t _remaining;
 public:
-	EthernetUDP() : sockindex(MAX_SOCK_NUM) {}  // Constructor
-	virtual uint8_t begin(uint16_t);      // initialize, start listening on specified port. Returns 1 if successful, 0 if there are no sockets available to use
-	virtual uint8_t beginMulticast(IPAddress, uint16_t);  // initialize, start listening on specified port. Returns 1 if successful, 0 if there are no sockets available to use
-	virtual void stop();  // Finish with the UDP socket
-
-	// Sending UDP packets
+	EthernetUDP() : sockindex(MAX_SOCK_NUM) {}
+	virtual uint8_t begin(uint16_t);
+	virtual uint8_t beginMulticast(IPAddress, uint16_t);
+	virtual void stop();
 	virtual int beginPacket(IPAddress ip, uint16_t port);
 	virtual int beginPacket(const char *host, uint16_t port);
 	virtual int endPacket();
 	virtual size_t write(uint8_t);
 	virtual size_t write(const uint8_t *buffer, size_t size);
-
 	using Print::write;
-
 	virtual int parsePacket();
 	virtual int available();
 	virtual int read();
@@ -191,19 +143,16 @@ public:
 	virtual int read(char* buffer, size_t len) { return read((unsigned char*)buffer, len); };
 	virtual int peek();
 	virtual void flush();
-
 	virtual IPAddress remoteIP() { return _remoteIP; };
 	virtual uint16_t remotePort() { return _remotePort; };
 	virtual uint16_t localPort() { return _port; }
 };
-
 
 class EthernetClient : public Client {
 public:
 	EthernetClient() : _sockindex(MAX_SOCK_NUM), _timeout(1000) { }
 	EthernetClient(uint8_t s) : _sockindex(s), _timeout(1000) { }
 	virtual ~EthernetClient() {};
-
 	uint8_t status();
 	virtual int connect(IPAddress ip, uint16_t port);
 	virtual int connect(const char *host, uint16_t port);
@@ -227,16 +176,12 @@ public:
 	virtual IPAddress remoteIP();
 	virtual uint16_t remotePort();
 	virtual void setConnectionTimeout(uint16_t timeout) { _timeout = timeout; }
-
 	friend class EthernetServer;
-
 	using Print::write;
-
 private:
-	uint8_t _sockindex; // MAX_SOCK_NUM means client not in use
+	uint8_t _sockindex;
 	uint16_t _timeout;
 };
-
 
 class EthernetServer : public Server {
 private:
@@ -250,12 +195,8 @@ public:
 	virtual size_t write(const uint8_t *buf, size_t size);
 	virtual operator bool();
 	using Print::write;
-	//void statusreport();
-
-	// TODO: make private when socket allocation moves to EthernetClass
 	static uint16_t server_port[MAX_SOCK_NUM];
 };
-
 
 class DhcpClass {
 private:
@@ -284,8 +225,6 @@ private:
 	unsigned long _lastCheckLeaseMillis;
 	uint8_t _dhcp_state;
 	EthernetUDP _dhcpUdpSocket;
-
-	// JWPLC cooperative DHCP state.
 	bool _asyncActive;
 	unsigned long _asyncStartTime;
 	unsigned long _asyncStateStartTime;
@@ -297,33 +236,22 @@ private:
 	void printByte(char *, uint8_t);
 	void finalizeLease();
 	void finishAsync();
-
 	uint8_t parseDHCPResponse(unsigned long responseTimeout, uint32_t& transactionId);
 	uint8_t parseDHCPResponseAvailable(uint32_t& transactionId);
 	uint8_t parseDHCPResponsePacket(uint32_t& transactionId);
 public:
 	DhcpClass();
-
 	IPAddress getLocalIp();
 	IPAddress getSubnetMask();
 	IPAddress getGatewayIp();
 	IPAddress getDhcpServerIp();
 	IPAddress getDnsServerIp();
-
 	int beginWithDHCP(uint8_t *, unsigned long timeout = 60000, unsigned long responseTimeout = 4000);
-
-	// JWPLC cooperative DHCP extension.
-	// beginWithDHCPAsync(): -1 = failed to start, 0 = pending, 1 = leased.
-	// pollDHCP():           -1 = failed/timeout, 0 = pending, 1 = leased.
 	int beginWithDHCPAsync(uint8_t *, unsigned long timeout = 60000, unsigned long responseTimeout = 4000);
 	int pollDHCP();
 	bool dhcpInProgress() const { return _asyncActive; }
-
+	void cancelDHCP();
 	int checkLease();
 };
-
-
-
-
 
 #endif
