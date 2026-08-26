@@ -113,6 +113,10 @@ bool JWPLC_EthernetClass::probeHardware()
 
     jwplcSPI_deselectAll();
 
+    // Si existía una negociación DHCP cooperativa anterior, se cierra antes
+    // de reconfigurar W5500 para evitar dejar el socket cliente 68 huérfano.
+    Ethernet.cancelDHCP();
+
     Ethernet.init(_csPin);
     Ethernet.setRetransmissionTimeout((uint16_t)_responseTimeoutMs);
     Ethernet.setRetransmissionCount(_retransmissionCount);
