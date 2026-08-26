@@ -21,7 +21,9 @@ JWPLC_EthernetClass::JWPLC_EthernetClass()
       _retransmissionCount(JWPLC_ETH_RETRANSMISSION_COUNT),
       _beginAttempted(false),
       _ready(false),
-      _lastError(JWPLC_ETH_OK)
+      _runtimeState(JWPLC_ETH_STATE_NOT_STARTED),
+      _lastError(JWPLC_ETH_OK),
+      _lastAutoAttemptMs(0)
 {
     generateDefaultMac();
 }
@@ -85,13 +87,18 @@ void JWPLC_EthernetClass::setRetransmissionCount(uint8_t count)
 bool JWPLC_EthernetClass::probeHardware()
 {
 #if !JWPLC_HAS_ETHERNET
+    _ready = false;
+    setRuntimeState(JWPLC_ETH_STATE_ERROR);
     setError(JWPLC_ETH_DISABLED);
     return false;
 #else
+    _ready = false;
+    setRuntimeState(JWPLC_ETH_STATE_PROBING);
     clearError();
 
     if (!prepareSPI())
     {
+        setRuntimeState(JWPLC_ETH_STATE_ERROR);
         return false;
     }
 
@@ -100,6 +107,7 @@ bool JWPLC_EthernetClass::probeHardware()
     if (!acquireBus(500))
     {
         setError(JWPLC_ETH_BUS_LOCK_TIMEOUT);
+        setRuntimeState(JWPLC_ETH_STATE_ERROR);
         return false;
     }
 
@@ -124,6 +132,7 @@ bool JWPLC_EthernetClass::probeHardware()
     {
         releaseBus();
         setError(JWPLC_ETH_NO_HARDWARE);
+        setRuntimeState(JWPLC_ETH_STATE_ERROR);
         return false;
     }
 
@@ -133,11 +142,127 @@ bool JWPLC_EthernetClass::probeHardware()
     if (link != LinkON)
     {
         setError(JWPLC_ETH_LINK_OFF);
+        setRuntimeState(JWPLC_ETH_STATE_LINK_OFF);
         return false;
     }
 
     clearError();
+    setRuntimeState(JWPLC_ETH_STATE_PHY_READY);
     return true;
+#endif
+}
+
+void JWPLC_EthernetClass::service()
+{
+#if !JWPLC_HAS_ETHERNET
+    return;
+#else
+    const uint32_t now = millis();
+
+    if (_runtimeState == JWPLC_ETH_STATE_READY)
+    {
+        // Comprobación física corta. El mantenimiento de lease DHCP sigue
+        // separado porque Ethernet.maintain() legado puede bloquear durante
+        // renew/rebind; se convertirá a cooperativo antes de cerrar la feature.
+        if (!linkUp())
+        {
+            _ready = false;
+            setError(JWPLC_ETH_LINK_OFF);
+            setRuntimeState(JWPLC_ETH_STATE_LINK_OFF);
+            _lastAutoAttemptMs = now;
+        }
+        return;
+    }
+
+    if (_runtimeState == JWPLC_ETH_STATE_DHCP_PENDING)
+    {
+        if (!acquireBus(50))
+        {
+            // No abortar la negociación por una contención puntual del SPI.
+            setError(JWPLC_ETH_BUS_LOCK_TIMEOUT);
+            return;
+        }
+
+        jwplcSPI_deselectAll();
+        const int result = Ethernet.pollDHCP();
+        releaseBus();
+
+        if (result == 0)
+        {
+            // Sigue pendiente. No se considera error.
+            clearError();
+            return;
+        }
+
+        if (result < 0)
+        {
+            _ready = false;
+            setError(JWPLC_ETH_DHCP_FAILED);
+            setRuntimeState(JWPLC_ETH_STATE_ERROR);
+            _lastAutoAttemptMs = now;
+            return;
+        }
+
+        (void)finishNetworkConfiguration();
+        return;
+    }
+
+    if (_runtimeState != JWPLC_ETH_STATE_NOT_STARTED &&
+        (uint32_t)(now - _lastAutoAttemptMs) < JWPLC_ETH_AUTO_RETRY_MS)
+    {
+        return;
+    }
+
+    _beginAttempted = true;
+    _lastAutoAttemptMs = now;
+
+    if (!probeHardware())
+    {
+        return;
+    }
+
+    if (!acquireBus(100))
+    {
+        setError(JWPLC_ETH_BUS_LOCK_TIMEOUT);
+        setRuntimeState(JWPLC_ETH_STATE_ERROR);
+        return;
+    }
+
+    jwplcSPI_deselectAll();
+
+    int result = 1;
+
+    if (_mode == JWPLC_ETH_MODE_DHCP)
+    {
+        result = Ethernet.beginDHCPAsync(_mac, _dhcpTimeoutMs, _responseTimeoutMs);
+    }
+    else
+    {
+        Ethernet.begin(_mac, _localIP, _dnsIP, _gatewayIP, _subnetMask);
+    }
+
+    releaseBus();
+
+    if (_mode == JWPLC_ETH_MODE_DHCP)
+    {
+        if (result < 0)
+        {
+            _ready = false;
+            setError(JWPLC_ETH_DHCP_FAILED);
+            setRuntimeState(JWPLC_ETH_STATE_ERROR);
+            return;
+        }
+
+        if (result == 0)
+        {
+            _ready = false;
+            clearError();
+            setRuntimeState(JWPLC_ETH_STATE_DHCP_PENDING);
+            return;
+        }
+    }
+
+    (void)finishNetworkConfiguration();
 #endif
 }
 
@@ -146,15 +271,16 @@ bool JWPLC_EthernetClass::begin()
 #if !JWPLC_HAS_ETHERNET
     _beginAttempted = true;
     _ready = false;
+    setRuntimeState(JWPLC_ETH_STATE_ERROR);
     setError(JWPLC_ETH_DISABLED);
     return false;
 #else
     _beginAttempted = true;
     _ready = false;
+    _lastAutoAttemptMs = millis();
     clearError();
 
     // Primero se valida W5500 + PHY sin solicitar DHCP.
-    // Esto mantiene separado el diagnóstico físico de la obtención de red.
     if (!probeHardware())
     {
         _ready = false;
@@ -164,6 +290,7 @@ bool JWPLC_EthernetClass::begin()
     if (!acquireBus(500))
     {
         setError(JWPLC_ETH_BUS_LOCK_TIMEOUT);
+        setRuntimeState(JWPLC_ETH_STATE_ERROR);
         return false;
     }
 
@@ -174,8 +301,6 @@ bool JWPLC_EthernetClass::begin()
     if (_mode == JWPLC_ETH_MODE_DHCP)
     {
         // Compatibilidad: begin() continúa siendo la ruta síncrona pública.
-        // El autoload dejará de usar esta ruta cuando se incorpore el
-        // servicio DHCP cooperativo de esta feature.
         ok = Ethernet.begin(_mac, _dhcpTimeoutMs, _responseTimeoutMs);
     }
     else
@@ -190,30 +315,11 @@ bool JWPLC_EthernetClass::begin()
     {
         _ready = false;
         setError(JWPLC_ETH_DHCP_FAILED);
+        setRuntimeState(JWPLC_ETH_STATE_ERROR);
         return false;
     }
 
-    IPAddress ip = localIP();
-
-    if (ip == IPAddress(0, 0, 0, 0))
-    {
-        _ready = false;
-        setError(JWPLC_ETH_INVALID_IP);
-        return false;
-    }
-
-    if (!linkUp())
-    {
-        // El hardware e IP pueden estar listos, pero el cable no.
-        // No se marca como error fatal: se reporta por statusString().
-        _ready = true;
-        setError(JWPLC_ETH_LINK_OFF);
-        return true;
-    }
-
-    _ready = true;
-    clearError();
-    return true;
+    return finishNetworkConfiguration();
 #endif
 }
 
@@ -254,12 +360,6 @@ int JWPLC_EthernetClass::maintain()
 
     releaseBus();
 
-    // Ethernet.maintain():
-    // 0 = nada
-    // 1 = renew failed
-    // 2 = renew success
-    // 3 = rebind failed
-    // 4 = rebind success
     if (result == 1 || result == 3)
     {
         setError(JWPLC_ETH_DHCP_FAILED);
@@ -290,6 +390,12 @@ bool JWPLC_EthernetClass::isReady() const
 #else
     return false;
 #endif
+}
+
+bool JWPLC_EthernetClass::isBusy() const
+{
+    return _runtimeState == JWPLC_ETH_STATE_PROBING ||
+           _runtimeState == JWPLC_ETH_STATE_DHCP_PENDING;
 }
 
 bool JWPLC_EthernetClass::hardwarePresent()
@@ -429,6 +535,11 @@ JWPLCEthernetMode JWPLC_EthernetClass::mode() const
     return _mode;
 }
 
+JWPLCEthernetRuntimeState JWPLC_EthernetClass::runtimeState() const
+{
+    return _runtimeState;
+}
+
 JWPLCEthernetError JWPLC_EthernetClass::lastError() const
 {
     return _lastError;
@@ -464,38 +575,77 @@ const char *JWPLC_EthernetClass::statusString()
 #if !JWPLC_HAS_ETHERNET
     return "Ethernet disabled";
 #else
-    if (!_beginAttempted)
+    switch (_runtimeState)
     {
+    case JWPLC_ETH_STATE_NOT_STARTED:
         return "Not started";
-    }
-
-    if (!hardwarePresent())
-    {
-        if (_lastError == JWPLC_ETH_BUS_LOCK_TIMEOUT)
-        {
-            return lastErrorString();
-        }
-
-        return "No Ethernet hardware";
-    }
-
-    if (!_ready)
-    {
+    case JWPLC_ETH_STATE_PROBING:
+        return "Starting";
+    case JWPLC_ETH_STATE_PHY_READY:
+        return "PHY ready";
+    case JWPLC_ETH_STATE_LINK_OFF:
+        return "Link OFF";
+    case JWPLC_ETH_STATE_DHCP_PENDING:
+        return "DHCP pending";
+    case JWPLC_ETH_STATE_ERROR:
         return lastErrorString();
+    case JWPLC_ETH_STATE_READY:
+    default:
+        break;
     }
 
     if (!linkUp())
     {
-        if (_lastError == JWPLC_ETH_BUS_LOCK_TIMEOUT)
-        {
-            return lastErrorString();
-        }
-
         return "Link OFF";
     }
 
-    clearError();
     return "OK";
+#endif
+}
+
+const char *JWPLC_EthernetClass::diagnosticCode() const
+{
+#if !JWPLC_HAS_ETHERNET
+    return "DIS";
+#else
+    switch (_runtimeState)
+    {
+    case JWPLC_ETH_STATE_NOT_STARTED:
+    case JWPLC_ETH_STATE_PROBING:
+        return "INI";
+    case JWPLC_ETH_STATE_PHY_READY:
+        return "PHY";
+    case JWPLC_ETH_STATE_LINK_OFF:
+        return "LNK";
+    case JWPLC_ETH_STATE_DHCP_PENDING:
+        return "DHC";
+    case JWPLC_ETH_STATE_READY:
+        return "---";
+    case JWPLC_ETH_STATE_ERROR:
+    default:
+        break;
+    }
+
+    switch (_lastError)
+    {
+    case JWPLC_ETH_NO_HARDWARE:
+        return "HW";
+    case JWPLC_ETH_LINK_OFF:
+        return "LNK";
+    case JWPLC_ETH_DHCP_FAILED:
+        return "DHC";
+    case JWPLC_ETH_INVALID_IP:
+        return "IP";
+    case JWPLC_ETH_SPI_NOT_READY:
+    case JWPLC_ETH_BUS_LOCK_TIMEOUT:
+        return "SPI";
+    case JWPLC_ETH_DISABLED:
+        return "DIS";
+    case JWPLC_ETH_OK:
+        return "---";
+    default:
+        return "ERR";
+    }
 #endif
 }
 
@@ -525,14 +675,11 @@ void JWPLC_EthernetClass::printStatus(Stream &out)
     out.print("Ready: ");
     out.println(isReady() ? "yes" : "no");
 
-    out.print("Hardware: ");
-    out.println(hardwarePresent() ? "present" : "not found");
-
-    out.print("Link: ");
-    out.println(linkUp() ? "up" : "down");
-
     out.print("Status: ");
     out.println(statusString());
+
+    out.print("Diagnostic: ");
+    out.println(diagnosticCode());
 
     out.print("IP: ");
     out.println(localIP());
@@ -646,36 +793,48 @@ void JWPLC_EthernetClass::clearError()
     _lastError = JWPLC_ETH_OK;
 }
 
+void JWPLC_EthernetClass::setRuntimeState(JWPLCEthernetRuntimeState state)
+{
+    _runtimeState = state;
+}
+
+bool JWPLC_EthernetClass::finishNetworkConfiguration()
+{
+    IPAddress ip = localIP();
+
+    if (ip == IPAddress(0, 0, 0, 0))
+    {
+        _ready = false;
+        setError(JWPLC_ETH_INVALID_IP);
+        setRuntimeState(JWPLC_ETH_STATE_ERROR);
+        _lastAutoAttemptMs = millis();
+        return false;
+    }
+
+    if (!linkUp())
+    {
+        _ready = false;
+        setError(JWPLC_ETH_LINK_OFF);
+        setRuntimeState(JWPLC_ETH_STATE_LINK_OFF);
+        _lastAutoAttemptMs = millis();
+        return false;
+    }
+
+    _ready = true;
+    clearError();
+    setRuntimeState(JWPLC_ETH_STATE_READY);
+    return true;
+}
+
 // =====================================================
 // Hook automático del runtime JWPLC
 // =====================================================
 // El core llama periódicamente este hook desde jwplcSystemTask().
-// Esto permite que Ethernet arranque y se mantenga sin que el usuario
-// tenga que llamar obligatoriamente JWPLC_Ethernet.begin() en el sketch.
+// El hook sólo ejecuta un paso cooperativo y retorna.
 
 extern "C" void jwplcEthernetTickCallback(void)
 {
 #if JWPLC_HAS_ETHERNET
-    static uint32_t lastRetryMs = 0;
-
-    if (!JWPLC_Ethernet.isEnabled())
-    {
-        return;
-    }
-
-    if (JWPLC_Ethernet.isReady())
-    {
-        JWPLC_Ethernet.maintain();
-        return;
-    }
-
-    uint32_t now = millis();
-
-    if (!JWPLC_Ethernet.isBeginAttempted() ||
-        ((uint32_t)(now - lastRetryMs) >= 5000UL))
-    {
-        lastRetryMs = now;
-        (void)JWPLC_Ethernet.begin();
-    }
+    JWPLC_Ethernet.service();
 #endif
 }
