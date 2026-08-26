@@ -80,6 +80,15 @@ public:
 	// gain the rest of the configuration through DHCP.
 	// Returns 0 if the DHCP configuration failed, and 1 if it succeeded
 	static int begin(uint8_t *mac, unsigned long timeout = 60000, unsigned long responseTimeout = 4000);
+
+	// JWPLC cooperative DHCP extension. These calls do not wait for the
+	// complete DHCP exchange. beginDHCPAsync() starts it and pollDHCP()
+	// advances at most one short state-machine step per call.
+	// pollDHCP(): -1 = failed, 0 = pending, 1 = leased.
+	static int beginDHCPAsync(uint8_t *mac, unsigned long timeout = 60000, unsigned long responseTimeout = 4000);
+	static int pollDHCP();
+	static bool dhcpInProgress();
+
 	static int maintain();
 	static EthernetLinkStatus linkStatus();
 	static EthernetHardwareStatus hardwareStatus();
@@ -153,7 +162,7 @@ class EthernetUDP : public UDP {
 private:
 	uint16_t _port; // local port to listen on
 	IPAddress _remoteIP; // remote IP address for the incoming packet whilst it's being processed
-	uint16_t _remotePort; // remote port for the incoming packet whilst it's being processed
+	uint16_t _remotePort; // remote port of the incoming packet whilst it's being processed
 	uint16_t _offset; // offset into the packet being sent
 
 protected:
@@ -167,48 +176,26 @@ public:
 	virtual void stop();  // Finish with the UDP socket
 
 	// Sending UDP packets
-
-	// Start building up a packet to send to the remote host specific in ip and port
-	// Returns 1 if successful, 0 if there was a problem with the supplied IP address or port
 	virtual int beginPacket(IPAddress ip, uint16_t port);
-	// Start building up a packet to send to the remote host specific in host and port
-	// Returns 1 if successful, 0 if there was a problem resolving the hostname or port
 	virtual int beginPacket(const char *host, uint16_t port);
-	// Finish off this packet and send it
-	// Returns 1 if the packet was sent successfully, 0 if there was an error
 	virtual int endPacket();
-	// Write a single byte into the packet
 	virtual size_t write(uint8_t);
-	// Write size bytes from buffer into the packet
 	virtual size_t write(const uint8_t *buffer, size_t size);
 
 	using Print::write;
 
-	// Start processing the next available incoming packet
-	// Returns the size of the packet in bytes, or 0 if no packets are available
 	virtual int parsePacket();
-	// Number of bytes remaining in the current packet
 	virtual int available();
-	// Read a single byte from the current packet
 	virtual int read();
-	// Read up to len bytes from the current packet and place them into buffer
-	// Returns the number of bytes read, or 0 if none are available
-	virtual int read(unsigned char* buffer, size_t len);
-	// Read up to len characters from the current packet and place them into buffer
-	// Returns the number of characters read, or 0 if none are available
+	virtual int read(uint8_t *buf, size_t len);
 	virtual int read(char* buffer, size_t len) { return read((unsigned char*)buffer, len); };
-	// Return the next byte from the current packet without moving on to the next byte
 	virtual int peek();
-	virtual void flush(); // Finish reading the current packet
+	virtual void flush();
 
-	// Return the IP address of the host who sent the current incoming packet
 	virtual IPAddress remoteIP() { return _remoteIP; };
-	// Return the port of the host who sent the current incoming packet
 	virtual uint16_t remotePort() { return _remotePort; };
 	virtual uint16_t localPort() { return _port; }
 };
-
-
 
 
 class EthernetClient : public Client {
@@ -298,14 +285,25 @@ private:
 	uint8_t _dhcp_state;
 	EthernetUDP _dhcpUdpSocket;
 
+	// JWPLC cooperative DHCP state.
+	bool _asyncActive;
+	unsigned long _asyncStartTime;
+	unsigned long _asyncStateStartTime;
+
 	int request_DHCP_lease();
 	void reset_DHCP_lease();
 	void presend_DHCP();
 	void send_DHCP_MESSAGE(uint8_t, uint16_t);
 	void printByte(char *, uint8_t);
+	void finalizeLease();
+	void finishAsync();
 
 	uint8_t parseDHCPResponse(unsigned long responseTimeout, uint32_t& transactionId);
+	uint8_t parseDHCPResponseAvailable(uint32_t& transactionId);
+	uint8_t parseDHCPResponsePacket(uint32_t& transactionId);
 public:
+	DhcpClass();
+
 	IPAddress getLocalIp();
 	IPAddress getSubnetMask();
 	IPAddress getGatewayIp();
@@ -313,6 +311,14 @@ public:
 	IPAddress getDnsServerIp();
 
 	int beginWithDHCP(uint8_t *, unsigned long timeout = 60000, unsigned long responseTimeout = 4000);
+
+	// JWPLC cooperative DHCP extension.
+	// beginWithDHCPAsync(): -1 = failed to start, 0 = pending, 1 = leased.
+	// pollDHCP():           -1 = failed/timeout, 0 = pending, 1 = leased.
+	int beginWithDHCPAsync(uint8_t *, unsigned long timeout = 60000, unsigned long responseTimeout = 4000);
+	int pollDHCP();
+	bool dhcpInProgress() const { return _asyncActive; }
+
 	int checkLease();
 };
 
