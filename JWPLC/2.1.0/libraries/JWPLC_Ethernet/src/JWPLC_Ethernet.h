@@ -68,7 +68,13 @@ public:
     void setTimeouts(uint32_t dhcpTimeoutMs, uint32_t responseTimeoutMs);
     void setRetransmissionCount(uint8_t count);
 
-    // Inicialización.
+    // Probe físico rápido: prepara SPI/W5500 y consulta hardware/link
+    // sin solicitar DHCP ni configurar una IP útil.
+    // Permite diagnosticar LINK ON + sin servidor DHCP sin bloquear
+    // varios segundos dentro del probe de hardware.
+    bool probeHardware();
+
+    // Inicialización completa. Se conserva por compatibilidad.
     bool begin();
     bool begin(const uint8_t mac[6]);
     bool begin(
