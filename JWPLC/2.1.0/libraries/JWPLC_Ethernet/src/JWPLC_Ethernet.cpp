@@ -82,21 +82,16 @@ void JWPLC_EthernetClass::setRetransmissionCount(uint8_t count)
     _retransmissionCount = count;
 }
 
-bool JWPLC_EthernetClass::begin()
+bool JWPLC_EthernetClass::probeHardware()
 {
 #if !JWPLC_HAS_ETHERNET
-    _beginAttempted = true;
-    _ready = false;
     setError(JWPLC_ETH_DISABLED);
     return false;
 #else
-    _beginAttempted = true;
-    _ready = false;
     clearError();
 
     if (!prepareSPI())
     {
-        _ready = false;
         return false;
     }
 
@@ -114,9 +109,8 @@ bool JWPLC_EthernetClass::begin()
     Ethernet.setRetransmissionTimeout((uint16_t)_responseTimeoutMs);
     Ethernet.setRetransmissionCount(_retransmissionCount);
 
-    // Inicialización rápida del W5500 sin DHCP.
-    // Esto permite que hardwareStatus() y linkStatus() funcionen
-    // sin bloquear varios segundos cuando no hay cable RJ45.
+    // Configuración mínima del W5x00 sin DHCP. La IP 0.0.0.0 es
+    // deliberada: este método sólo valida hardware y PHY/link.
     Ethernet.begin(
         _mac,
         IPAddress(0, 0, 0, 0),
@@ -129,27 +123,59 @@ bool JWPLC_EthernetClass::begin()
     if (hw == EthernetNoHardware)
     {
         releaseBus();
-
-        _ready = false;
         setError(JWPLC_ETH_NO_HARDWARE);
         return false;
     }
 
     EthernetLinkStatus link = Ethernet.linkStatus();
+    releaseBus();
 
     if (link != LinkON)
     {
-        releaseBus();
-
-        _ready = false;
         setError(JWPLC_ETH_LINK_OFF);
         return false;
     }
+
+    clearError();
+    return true;
+#endif
+}
+
+bool JWPLC_EthernetClass::begin()
+{
+#if !JWPLC_HAS_ETHERNET
+    _beginAttempted = true;
+    _ready = false;
+    setError(JWPLC_ETH_DISABLED);
+    return false;
+#else
+    _beginAttempted = true;
+    _ready = false;
+    clearError();
+
+    // Primero se valida W5500 + PHY sin solicitar DHCP.
+    // Esto mantiene separado el diagnóstico físico de la obtención de red.
+    if (!probeHardware())
+    {
+        _ready = false;
+        return false;
+    }
+
+    if (!acquireBus(500))
+    {
+        setError(JWPLC_ETH_BUS_LOCK_TIMEOUT);
+        return false;
+    }
+
+    jwplcSPI_deselectAll();
 
     int ok = 0;
 
     if (_mode == JWPLC_ETH_MODE_DHCP)
     {
+        // Compatibilidad: begin() continúa siendo la ruta síncrona pública.
+        // El autoload dejará de usar esta ruta cuando se incorpore el
+        // servicio DHCP cooperativo de esta feature.
         ok = Ethernet.begin(_mac, _dhcpTimeoutMs, _responseTimeoutMs);
     }
     else
