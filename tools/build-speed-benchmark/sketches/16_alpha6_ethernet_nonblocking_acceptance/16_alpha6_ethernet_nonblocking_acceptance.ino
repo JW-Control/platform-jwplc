@@ -2025,7 +2025,8 @@ static bool runAdaptiveSPIStress(uint32_t durationMs, bool longRun)
 
     const uint32_t started = millis();
     uint32_t lastProgress = started;
-    uint32_t lastDhcpMaintain = started;
+
+    bool dhcpFailureLatched = false;
     uint32_t cycle = 0;
 
     while ((uint32_t)(millis() - started) < durationMs)
@@ -2064,15 +2065,24 @@ static bool runAdaptiveSPIStress(uint32_t durationMs, bool longRun)
         if ((cycle % 5U) == 0U)
             JWPLC_Display.forceRedraw();
 
-        // DHCP maintenance real si la ruta Ethernet usa router.
+        // El mantenimiento DHCP de router lo realiza exclusivamente
+        // JWPLC_Ethernet.service() desde el runtime/autoload.
+        // No llamar maintain() aqui: es la API sincrona legacy y podria
+        // ocultar una regresion del mantenimiento cooperativo.
         const uint32_t now = millis();
-        if (results.ethPath == ETH_PATH_ROUTER_DHCP &&
-            (uint32_t)(now - lastDhcpMaintain) >= 5000UL)
+        if (results.ethPath == ETH_PATH_ROUTER_DHCP)
         {
-            lastDhcpMaintain = now;
-            const int maintainResult = JWPLC_Ethernet.maintain();
-            if (maintainResult == 1 || maintainResult == 3)
+            const bool dhcpFailureNow =
+                JWPLC_Ethernet.lastError() == JWPLC_ETH_DHCP_FAILED;
+
+            // Cuenta una sola vez cada episodio de fallo del mantenimiento
+            // DHCP cooperativo ejecutado por JWPLC_Ethernet.service().
+            if (dhcpFailureNow && !dhcpFailureLatched)
+            {
                 ++stats.ethDhcpMaintainFails;
+            }
+
+            dhcpFailureLatched = dhcpFailureNow;
         }
 
         const uint32_t progressPeriod = longRun ? 30000UL : 10000UL;
