@@ -19,7 +19,7 @@
  */
 
 #include <Arduino.h>
-#include "Ethernet.h"
+#include "JWPLC_W5x00_Ethernet.h"
 #include "utility/w5100.h"
 
 uint16_t EthernetServer::server_port[MAX_SOCK_NUM];

@@ -5,7 +5,7 @@
 #ifndef DNSClient_h
 #define DNSClient_h
 
-#include "Ethernet.h"
+#include "JWPLC_W5x00_Ethernet.h"
 
 class DNSClient
 {

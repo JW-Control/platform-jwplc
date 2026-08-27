@@ -18,8 +18,8 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef ethernet_h_
-#define ethernet_h_
+#ifndef JWPLC_W5X00_ETHERNET_H_
+#define JWPLC_W5X00_ETHERNET_H_
 
 // All symbols exposed to Arduino sketches are contained in this header file
 //

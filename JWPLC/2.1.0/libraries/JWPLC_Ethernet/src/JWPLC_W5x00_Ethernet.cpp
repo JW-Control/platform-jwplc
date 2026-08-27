@@ -19,7 +19,7 @@
  */
 
 #include <Arduino.h>
-#include "Ethernet.h"
+#include "JWPLC_W5x00_Ethernet.h"
 #include "utility/w5100.h"
 #include "Dhcp.h"
 

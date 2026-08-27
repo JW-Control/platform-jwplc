@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include "Ethernet.h"
+#include "JWPLC_W5x00_Ethernet.h"
 #include "Dhcp.h"
 
 void DhcpClass::cancelDHCP()

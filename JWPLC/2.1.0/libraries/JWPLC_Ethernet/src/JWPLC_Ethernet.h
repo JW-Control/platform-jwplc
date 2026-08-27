@@ -3,8 +3,7 @@
 
 #include <Arduino.h>
 #include <IPAddress.h>
-#include <JWPLC_Bundled_Ethernet_W5x00.h>
-#include <Ethernet.h>
+#include "JWPLC_W5x00_Ethernet.h"
 
 #include "jwplc_hardware_config.h"
 #include "jwplc_spi_bus.h"
