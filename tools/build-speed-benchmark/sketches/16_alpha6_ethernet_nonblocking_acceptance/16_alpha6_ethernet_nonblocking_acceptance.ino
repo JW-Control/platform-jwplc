@@ -195,6 +195,11 @@ struct SPIStressStats
 static AcceptanceState results;
 static EthernetServer diagnosticServer(ETH_HTTP_PORT);
 
+// Modo de acceptance reducido para Alpha6.
+// No desactiva I2C ni modifica el runtime; solamente excluye
+// RTC/TCA/E/S de los criterios de esta prueba puntual.
+static bool alpha6EthernetSpiOnly = false;
+
 // TFT USER callbacks / estado.
 static volatile bool displayTestActive = false;
 static volatile bool displayStressActive = false;
@@ -1587,20 +1592,23 @@ static bool testLaptopNoDhcpNonBlocking()
         if (JWPLC_Ethernet.isReady())
             unexpectedReady = true;
 
-        const JWPLC_IOState *io = jwplcGetIOState();
-        if (io)
+        if (!alpha6EthernetSpiOnly)
         {
-            const uint32_t age = millis() - io->last_scan_ms;
-            if (age > maxIoAgeMs)
-                maxIoAgeMs = age;
-        }
+            const JWPLC_IOState *io = jwplcGetIOState();
+            if (io)
+            {
+                const uint32_t age = millis() - io->last_scan_ms;
+                if (age > maxIoAgeMs)
+                    maxIoAgeMs = age;
+            }
 
-        const JWPLC_RTCState *rtc = jwplcGetRTCState();
-        if (rtc && rtc->valid)
-        {
-            const uint32_t age = millis() - rtc->last_update_ms;
-            if (age > maxRtcAgeMs)
-                maxRtcAgeMs = age;
+            const JWPLC_RTCState *rtc = jwplcGetRTCState();
+            if (rtc && rtc->valid)
+            {
+                const uint32_t age = millis() - rtc->last_update_ms;
+                if (age > maxRtcAgeMs)
+                    maxRtcAgeMs = age;
+            }
         }
 
         const uint32_t mutexT0 = micros();
@@ -1634,15 +1642,28 @@ static bool testLaptopNoDhcpNonBlocking()
     Serial.print(F("  final code       : "));
     Serial.println(JWPLC_Ethernet.diagnosticCode());
 
-    const bool ioPass = maxIoAgeMs <= ETH_NO_DHCP_IO_MAX_AGE_MS;
-    const bool rtcPass = maxRtcAgeMs <= ETH_NO_DHCP_RTC_MAX_AGE_MS;
+    const bool ioPass =
+        alpha6EthernetSpiOnly ||
+        maxIoAgeMs <= ETH_NO_DHCP_IO_MAX_AGE_MS;
+
+    const bool rtcPass =
+        alpha6EthernetSpiOnly ||
+        maxRtcAgeMs <= ETH_NO_DHCP_RTC_MAX_AGE_MS;
     const bool spiPass = mutexFails == 0 &&
                          maxMutexWaitUs <= SPI_MUTEX_HARD_LIMIT_US;
     const bool expectedNetworkFailure = !unexpectedReady &&
                                         JWPLC_Ethernet.localIP() == IPAddress(0, 0, 0, 0);
 
-    Serial.println(ioPass ? F("ETH_NO_DHCP_TCA=PASS") : F("ETH_NO_DHCP_TCA=FAIL"));
-    Serial.println(rtcPass ? F("ETH_NO_DHCP_RTC=PASS") : F("ETH_NO_DHCP_RTC=FAIL"));
+    if (alpha6EthernetSpiOnly)
+    {
+        Serial.println(F("ETH_NO_DHCP_TCA=SKIP"));
+        Serial.println(F("ETH_NO_DHCP_RTC=SKIP"));
+    }
+    else
+    {
+        Serial.println(ioPass ? F("ETH_NO_DHCP_TCA=PASS") : F("ETH_NO_DHCP_TCA=FAIL"));
+        Serial.println(rtcPass ? F("ETH_NO_DHCP_RTC=PASS") : F("ETH_NO_DHCP_RTC=FAIL"));
+    }
     Serial.println(spiPass ? F("ETH_NO_DHCP_SPI=PASS") : F("ETH_NO_DHCP_SPI=FAIL"));
     Serial.println(expectedNetworkFailure
                        ? F("ETH_NO_DHCP_EXPECTED_NETWORK_FAILURE=PASS")
@@ -2345,6 +2366,149 @@ static void printSummary()
     Serial.println(F("============================================================"));
 }
 
+static void printAlpha6EthernetSPISummary()
+{
+    Serial.println();
+    Serial.println(F("============================================================"));
+    Serial.println(F("JWPLC BASIC - ALPHA6 ETHERNET/SPI ACCEPTANCE"));
+    Serial.println(F("============================================================"));
+
+    Serial.println(F("FUERA DE ALCANCE EN ESTA EJECUCION:"));
+    Serial.println(F("RTC_I2C=SKIP"));
+    Serial.println(F("TCA_RUNTIME_I2C=SKIP"));
+    Serial.println(F("TCA_INPUTS_PHYSICAL=SKIP"));
+    Serial.println(F("TCA_OUTPUTS_PHYSICAL=SKIP"));
+    Serial.println(F("BUTTONS_PHYSICAL=SKIP"));
+    Serial.println(F("BUZZER_PHYSICAL=SKIP"));
+
+    Serial.println(F("SPI:"));
+    printResult("FRAM_RW_STRESS", results.fram);
+    printResult("SD_DETECT", results.sdDetect);
+    printResult("SD_RW", results.sdRW);
+    printResult("TFT_READY", results.tftReady);
+    printResult("TFT_VISUAL", results.tftVisual);
+
+    Serial.println(F("ETHERNET:"));
+    printResult("ETH_W5500_SPI", results.ethW5500);
+    printResult("ETH_PHY_LINK", results.ethLink);
+    printResult("ETH_NETWORK_OR_FAILSAFE", results.ethNetwork);
+
+    Serial.println(F("COEXISTENCIA SPI:"));
+    printResult("SPI_ADAPTIVE_MUTEX_GATE", results.spiMutex);
+    printResult("SPI_LONG_10MIN_STRESS", results.spiLongStress);
+
+    const bool sdSatisfied =
+        results.sdDetect == TEST_PASS &&
+        (results.sdRW == TEST_PASS || results.sdRW == TEST_SKIP);
+
+    const bool ethernetSatisfied =
+        results.ethW5500 == TEST_PASS &&
+        results.ethLink == TEST_PASS &&
+        (!results.ethCableExpected || results.ethNetwork == TEST_PASS);
+
+    const bool technicalPass =
+        mandatoryPass(results.fram) &&
+        sdSatisfied &&
+        mandatoryPass(results.tftReady) &&
+        mandatoryPass(results.tftVisual) &&
+        ethernetSatisfied &&
+        mandatoryPass(results.spiMutex);
+
+    const bool finalPass =
+        technicalPass &&
+        mandatoryPass(results.spiLongStress);
+
+    const bool incomplete =
+        technicalPass &&
+        (results.spiLongStress == TEST_ABORTED ||
+         results.spiLongStress == TEST_NOT_RUN);
+
+    Serial.print(F("ALPHA6_ETH_SPI_ACCEPTANCE="));
+
+    if (finalPass)
+        Serial.println(F("PASS"));
+    else if (incomplete)
+        Serial.println(F("INCOMPLETE"));
+    else
+        Serial.println(F("FAIL"));
+
+    Serial.println(F("NOTA=Este resultado no sustituye PCB_FINAL_ACCEPTANCE."));
+    Serial.println(F("============================================================"));
+}
+
+static void runAlpha6EthernetSPIAcceptance()
+{
+    results = AcceptanceState();
+
+    displayTestActive = false;
+    displayStressActive = false;
+    alpha6EthernetSpiOnly = true;
+
+    results.rtc = TEST_SKIP;
+    results.tcaRuntime = TEST_SKIP;
+    results.tcaInputs = TEST_SKIP;
+    results.tcaOutputsShadow = TEST_SKIP;
+    results.tcaOutputsManual = TEST_SKIP;
+    results.buttons = TEST_SKIP;
+    results.buzzer = TEST_SKIP;
+
+    Serial.println();
+    Serial.println(F("############################################################"));
+    Serial.println(F(" JWPLC BASIC - ALPHA6 ETHERNET/SPI ONLY"));
+    Serial.println(F("############################################################"));
+    Serial.println(F("No se evaluan RTC, TCA, entradas ni salidas."));
+    Serial.println(F("No se requiere activar E/S con fuente externa de 24 V."));
+    Serial.println(F("El runtime normal del JWPLC permanece sin modificaciones."));
+    Serial.println(F("Orden: FRAM -> microSD -> TFT -> Ethernet -> mutex -> stress."));
+
+    (void)testFRAM();
+    (void)testSDGuided();
+    (void)testTFTGuided();
+    (void)testEthernetGuided();
+
+    const bool mutexPass =
+        runAdaptiveSPIStress(SPI_MUTEX_GATE_MS, false);
+
+    results.spiMutex =
+        mutexPass ? TEST_PASS : TEST_FAIL;
+
+    if (mutexPass)
+    {
+        const bool startLong =
+            askYesNo(F("Iniciar stress SPI final de 10 minutos?"));
+
+        if (startLong)
+        {
+            const bool longPass =
+                runAdaptiveSPIStress(SPI_LONG_STRESS_MS, true);
+
+            if (results.spiLongStress != TEST_ABORTED)
+            {
+                results.spiLongStress =
+                    longPass ? TEST_PASS : TEST_FAIL;
+            }
+        }
+        else
+        {
+            Serial.println(F("SPI_LONG_10MIN_STRESS=NOT_EXECUTED"));
+            results.spiLongStress = TEST_NOT_RUN;
+        }
+    }
+    else
+    {
+        Serial.println(F("SPI_LONG_10MIN_STRESS=FAIL_PRECONDITION"));
+        results.spiLongStress = TEST_NOT_RUN;
+    }
+
+    printAlpha6EthernetSPISummary();
+
+    alpha6EthernetSpiOnly = false;
+
+    Serial.println();
+    Serial.println(F("Modo E terminado."));
+    Serial.println(F("E=repetir Ethernet/SPI, S=acceptance completo, P=resumen completo."));
+}
+
 // ============================================================================
 // Wizard principal
 // ============================================================================
@@ -2460,7 +2624,9 @@ void setup()
     Serial.println(F("- ten a mano microSD si deseas validar SD;"));
     Serial.println(F("- Ethernet: router DHCP, laptop sin DHCP o laptop estatica."));
     Serial.println();
-    Serial.println(F("Envia S para INICIAR el wizard."));
+    Serial.println(F("Comandos:"));
+    Serial.println(F("  E = Alpha6 Ethernet/SPI, sin pruebas RTC/TCA/E/S"));
+    Serial.println(F("  S = acceptance PCB completo"));
 }
 
 void loop()
@@ -2471,6 +2637,10 @@ void loop()
 
         switch (cmd)
         {
+        case 'E':
+            runAlpha6EthernetSPIAcceptance();
+            break;
+
         case 'S':
         case 'R':
             runGuidedAcceptance();
@@ -2491,7 +2661,7 @@ void loop()
             break;
 
         default:
-            Serial.println(F("Comandos: S/R=wizard, P=resumen, 0=salidas OFF"));
+            Serial.println(F("Comandos: E=Ethernet/SPI, S/R=wizard completo, P=resumen, 0=salidas OFF"));
             break;
         }
     }
