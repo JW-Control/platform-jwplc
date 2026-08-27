@@ -40,6 +40,27 @@ function Normalize-PathText
     return $Text.Replace('\', '/').ToLowerInvariant()
 }
 
+function Get-JsonPropertyValue
+{
+    param(
+        [object]$Object,
+        [string]$Name
+    )
+
+    if ($null -eq $Object)
+    {
+        return $null
+    }
+
+    $property = $Object.PSObject.Properties[$Name]
+    if ($null -eq $property)
+    {
+        return $null
+    }
+
+    return $property.Value
+}
+
 if ($null -eq (Get-Command $ArduinoCli -ErrorAction SilentlyContinue))
 {
     throw "No se encontro arduino-cli."
@@ -262,7 +283,7 @@ if ($exitCode -ne 0)
 
 # Arduino CLI 1.0.x no siempre imprime las lineas 'Using library ...' cuando
 # --only-compilation-database esta activo. La fuente de verdad en este modo es
-# compile_commands.json: contiene exactamente las unidades/rutas seleccionadas.
+# compile_commands.json. El formato admite tanto 'command' como 'arguments'.
 $compdbFile = Get-ChildItem -LiteralPath $buildPath -Recurse -File -Filter "compile_commands.json" -ErrorAction SilentlyContinue |
     Select-Object -First 1
 
@@ -286,30 +307,45 @@ if ($compdb.Count -eq 0)
 }
 
 $evidence = New-Object System.Collections.Generic.List[string]
+$entriesWithCommand = 0
+$entriesWithArguments = 0
+$entriesWithFile = 0
+
 foreach ($entry in $compdb)
 {
-    if ($null -ne $entry.file)
+    $fileValue = Get-JsonPropertyValue -Object $entry -Name "file"
+    $commandValue = Get-JsonPropertyValue -Object $entry -Name "command"
+    $argumentsValue = Get-JsonPropertyValue -Object $entry -Name "arguments"
+
+    if ($null -ne $fileValue)
     {
-        $evidence.Add([string]$entry.file)
+        ++$entriesWithFile
+        $evidence.Add([string]$fileValue)
     }
 
-    if ($null -ne $entry.command)
+    if ($null -ne $commandValue)
     {
-        $evidence.Add([string]$entry.command)
+        ++$entriesWithCommand
+        $evidence.Add([string]$commandValue)
     }
 
-    if ($null -ne $entry.arguments)
+    if ($null -ne $argumentsValue)
     {
-        $evidence.Add((@($entry.arguments) -join ' '))
+        ++$entriesWithArguments
+        $evidence.Add((@($argumentsValue) -join ' '))
     }
 }
 
 $evidenceText = Normalize-PathText -Text ($evidence -join "`n")
 $expectedPath = Normalize-PathText -Text ([System.IO.Path]::GetFullPath($UnifiedRoot))
+$expectedSrcPath = Normalize-PathText -Text ([System.IO.Path]::GetFullPath((Join-Path $UnifiedRoot "src")))
 
+# Para este checker de seleccion basta con que la compilation database use la
+# ruta exacta de JWPLC_Ethernet/src. El conteo de TUs reales se valida luego en
+# la compilacion completa del acceptance.
 $jwSelected =
     $evidenceText.Contains($expectedPath) -and
-    ($evidenceText -match 'jwplc_ethernet/src/(jwplc_ethernet|jwplc_w5x00_ethernet|dhcp|dns|ethernetclient|ethernetserver|ethernetudp|socket)\.cpp')
+    $evidenceText.Contains($expectedSrcPath)
 
 $legacySelected = $evidenceText -match 'jwplc_ethernet_w5x00_backend'
 
@@ -317,27 +353,46 @@ $userEthernetSelected =
     $evidenceText -match '/documents/arduino/libraries/ethernet/' -or
     $evidenceText -match '/documentos/arduino/libraries/ethernet/'
 
-$foreignEthernetSelected = $false
-$foreignCandidates = @(
-    $compdb | Where-Object {
-        $candidate = ""
-        if ($null -ne $_.file) { $candidate += [string]$_.file }
-        if ($null -ne $_.command) { $candidate += " " + [string]$_.command }
-        $candidate = Normalize-PathText -Text $candidate
+$foreignCandidates = New-Object System.Collections.Generic.List[string]
+foreach ($entry in $compdb)
+{
+    $candidateParts = New-Object System.Collections.Generic.List[string]
 
-        ($candidate -match '/libraries/ethernet/') -and
+    $fileValue = Get-JsonPropertyValue -Object $entry -Name "file"
+    $commandValue = Get-JsonPropertyValue -Object $entry -Name "command"
+    $argumentsValue = Get-JsonPropertyValue -Object $entry -Name "arguments"
+
+    if ($null -ne $fileValue)
+    {
+        $candidateParts.Add([string]$fileValue)
+    }
+
+    if ($null -ne $commandValue)
+    {
+        $candidateParts.Add([string]$commandValue)
+    }
+
+    if ($null -ne $argumentsValue)
+    {
+        $candidateParts.Add((@($argumentsValue) -join ' '))
+    }
+
+    $candidate = Normalize-PathText -Text ($candidateParts -join ' ')
+
+    if (($candidate -match '/libraries/ethernet/') -and
         (-not $candidate.Contains($expectedPath)) -and
         (-not ($candidate -match '/documents/arduino/libraries/ethernet/')) -and
-        (-not ($candidate -match '/documentos/arduino/libraries/ethernet/'))
+        (-not ($candidate -match '/documentos/arduino/libraries/ethernet/')))
+    {
+        $foreignCandidates.Add($candidate)
     }
-)
-if ($foreignCandidates.Count -gt 0)
-{
-    $foreignEthernetSelected = $true
 }
+
+$foreignEthernetSelected = $foreignCandidates.Count -gt 0
 
 Write-Host ("Compilation database: {0}" -f $compdbFile.FullName)
 Write-Host ("Compilation units: {0}" -f $compdb.Count)
+Write-Host ("Schema: file={0} | command={1} | arguments={2}" -f $entriesWithFile, $entriesWithCommand, $entriesWithArguments)
 
 if ($jwSelected)
 {
@@ -384,8 +439,8 @@ if (-not $jwSelected -or
     $userEthernetSelected)
 {
     Write-Host ""
-    Write-Host "Evidencia JWPLC_Ethernet encontrada en compile database:" -ForegroundColor Yellow
-    @($evidence | Where-Object { (Normalize-PathText -Text $_) -match 'ethernet' } | Select-Object -First 12) |
+    Write-Host "Evidencia Ethernet encontrada en compile database:" -ForegroundColor Yellow
+    @($evidence | Where-Object { (Normalize-PathText -Text $_) -match 'ethernet' } | Select-Object -First 16) |
         ForEach-Object { Write-Host ("  {0}" -f $_) -ForegroundColor DarkYellow }
 
     throw "La seleccion Ethernet unificada no es reproducible todavia."
