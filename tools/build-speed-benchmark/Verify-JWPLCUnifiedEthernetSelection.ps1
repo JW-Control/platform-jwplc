@@ -28,6 +28,18 @@ $GlobalHeaderPath = Join-Path $LibrariesRoot "JWPLC_GlobalPeripherals\src\JWPLC_
 
 $OutputRoot = Join-Path $ScriptRoot "dependency-selection-work"
 
+function Normalize-PathText
+{
+    param([string]$Text)
+
+    if ([string]::IsNullOrWhiteSpace($Text))
+    {
+        return ""
+    }
+
+    return $Text.Replace('\', '/').ToLowerInvariant()
+}
+
 if ($null -eq (Get-Command $ArduinoCli -ErrorAction SilentlyContinue))
 {
     throw "No se encontro arduino-cli."
@@ -197,9 +209,8 @@ $logPath = Join-Path $runRoot "verify-Basic.log"
 New-Item -ItemType Directory -Path $probeRoot -Force | Out-Null
 New-Item -ItemType Directory -Path $buildPath -Force | Out-Null
 
-# Este probe es deliberadamente explicito. Su objetivo es verificar la seleccion
-# de la libreria Arduino y detectar homonimos/legacy. El autoload se comprueba
-# arriba como cadena estatica y se valida funcionalmente con el acceptance Alpha6.
+# Probe explicito para aislar la seleccion de la libreria. El autoload real se
+# comprueba arriba y su funcionamiento se valida con el acceptance Alpha6.
 $probeText = @"
 #include <JWPLC_Ethernet.h>
 
@@ -217,7 +228,7 @@ $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 [System.IO.File]::WriteAllText($probeSketch, $probeText, $utf8NoBom)
 
 Write-Host ""
-Write-Host "Ejecutando library discovery con probe Ethernet explicito; no compila firmware final..." -ForegroundColor DarkGray
+Write-Host "Generando compilation database con probe Ethernet explicito..." -ForegroundColor DarkGray
 
 $args = @(
     "compile",
@@ -249,30 +260,84 @@ if ($exitCode -ne 0)
     throw "Arduino CLI fallo durante discovery. Revisar $logPath"
 }
 
-$expectedPath = [System.IO.Path]::GetFullPath($UnifiedRoot)
-$jwLines = @($output | Where-Object { $_ -like 'Using library JWPLC_Ethernet at version * in folder:*' })
-$jwSelected = $false
-foreach ($line in $jwLines)
+# Arduino CLI 1.0.x no siempre imprime las lineas 'Using library ...' cuando
+# --only-compilation-database esta activo. La fuente de verdad en este modo es
+# compile_commands.json: contiene exactamente las unidades/rutas seleccionadas.
+$compdbFile = Get-ChildItem -LiteralPath $buildPath -Recurse -File -Filter "compile_commands.json" -ErrorAction SilentlyContinue |
+    Select-Object -First 1
+
+if ($null -eq $compdbFile)
 {
-    if ([string]$line -and ([string]$line).IndexOf($expectedPath, [System.StringComparison]::OrdinalIgnoreCase) -ge 0)
+    throw "Arduino CLI termino en 0 pero no genero compile_commands.json en $buildPath"
+}
+
+try
+{
+    $compdb = @(Get-Content -LiteralPath $compdbFile.FullName -Raw | ConvertFrom-Json)
+}
+catch
+{
+    throw "No se pudo interpretar compile_commands.json: $($compdbFile.FullName)"
+}
+
+if ($compdb.Count -eq 0)
+{
+    throw "compile_commands.json esta vacio: $($compdbFile.FullName)"
+}
+
+$evidence = New-Object System.Collections.Generic.List[string]
+foreach ($entry in $compdb)
+{
+    if ($null -ne $entry.file)
     {
-        $jwSelected = $true
-        break
+        $evidence.Add([string]$entry.file)
+    }
+
+    if ($null -ne $entry.command)
+    {
+        $evidence.Add([string]$entry.command)
+    }
+
+    if ($null -ne $entry.arguments)
+    {
+        $evidence.Add((@($entry.arguments) -join ' '))
     }
 }
 
-$legacySelected = @($output | Where-Object {
-    $_ -match 'JWPLC Ethernet W5x00 Backend|JWPLC_Ethernet_W5x00_Backend'
-})
+$evidenceText = Normalize-PathText -Text ($evidence -join "`n")
+$expectedPath = Normalize-PathText -Text ([System.IO.Path]::GetFullPath($UnifiedRoot))
 
-$foreignEthernet = @($output | Where-Object {
-    $_ -like 'Using library Ethernet at version * in folder:*'
-})
+$jwSelected =
+    $evidenceText.Contains($expectedPath) -and
+    ($evidenceText -match 'jwplc_ethernet/src/(jwplc_ethernet|jwplc_w5x00_ethernet|dhcp|dns|ethernetclient|ethernetserver|ethernetudp|socket)\.cpp')
 
-$userEthernet = @($output | Where-Object {
-    $_ -match 'Using library .*Ethernet.* in folder:' -and
-    $_ -match '[\\/]Arduino[\\/]libraries[\\/]Ethernet'
-})
+$legacySelected = $evidenceText -match 'jwplc_ethernet_w5x00_backend'
+
+$userEthernetSelected =
+    $evidenceText -match '/documents/arduino/libraries/ethernet/' -or
+    $evidenceText -match '/documentos/arduino/libraries/ethernet/'
+
+$foreignEthernetSelected = $false
+$foreignCandidates = @(
+    $compdb | Where-Object {
+        $candidate = ""
+        if ($null -ne $_.file) { $candidate += [string]$_.file }
+        if ($null -ne $_.command) { $candidate += " " + [string]$_.command }
+        $candidate = Normalize-PathText -Text $candidate
+
+        ($candidate -match '/libraries/ethernet/') -and
+        (-not $candidate.Contains($expectedPath)) -and
+        (-not ($candidate -match '/documents/arduino/libraries/ethernet/')) -and
+        (-not ($candidate -match '/documentos/arduino/libraries/ethernet/'))
+    }
+)
+if ($foreignCandidates.Count -gt 0)
+{
+    $foreignEthernetSelected = $true
+}
+
+Write-Host ("Compilation database: {0}" -f $compdbFile.FullName)
+Write-Host ("Compilation units: {0}" -f $compdb.Count)
 
 if ($jwSelected)
 {
@@ -280,47 +345,49 @@ if ($jwSelected)
 }
 else
 {
-    Write-Host "JWPLC_Ethernet unificado: NO SELECCIONADO" -ForegroundColor Red
+    Write-Host "JWPLC_Ethernet unificado: NO DETECTADO EN COMPILE DATABASE" -ForegroundColor Red
 }
 
-if ($legacySelected.Count -eq 0)
+if (-not $legacySelected)
 {
     Write-Host "Backend legacy separado: NO SELECCIONADO OK" -ForegroundColor Green
 }
 else
 {
     Write-Host "Backend legacy separado: DETECTADO" -ForegroundColor Red
-    $legacySelected | ForEach-Object { Write-Host ("  {0}" -f $_) -ForegroundColor Yellow }
 }
 
-if ($foreignEthernet.Count -eq 0)
+if (-not $foreignEthernetSelected)
 {
     Write-Host "Ethernet homonima externa/Espressif: NO SELECCIONADA" -ForegroundColor Green
 }
 else
 {
     Write-Host "Ethernet homonima externa/Espressif: DETECTADA" -ForegroundColor Red
-    $foreignEthernet | ForEach-Object { Write-Host ("  {0}" -f $_) -ForegroundColor Yellow }
 }
 
-if ($userEthernet.Count -eq 0)
+if (-not $userEthernetSelected)
 {
     Write-Host "Ethernet del sketchbook: IGNORADA OK" -ForegroundColor Green
 }
 else
 {
     Write-Host "Ethernet del sketchbook: DETECTADA" -ForegroundColor Red
-    $userEthernet | ForEach-Object { Write-Host ("  {0}" -f $_) -ForegroundColor Yellow }
 }
 
 Write-Host ""
 Write-Host ("Log: {0}" -f $logPath)
 
 if (-not $jwSelected -or
-    $legacySelected.Count -gt 0 -or
-    $foreignEthernet.Count -gt 0 -or
-    $userEthernet.Count -gt 0)
+    $legacySelected -or
+    $foreignEthernetSelected -or
+    $userEthernetSelected)
 {
+    Write-Host ""
+    Write-Host "Evidencia JWPLC_Ethernet encontrada en compile database:" -ForegroundColor Yellow
+    @($evidence | Where-Object { (Normalize-PathText -Text $_) -match 'ethernet' } | Select-Object -First 12) |
+        ForEach-Object { Write-Host ("  {0}" -f $_) -ForegroundColor DarkYellow }
+
     throw "La seleccion Ethernet unificada no es reproducible todavia."
 }
 
