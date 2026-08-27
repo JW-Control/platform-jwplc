@@ -90,6 +90,12 @@ public:
 	static bool dhcpInProgress();
 	static void cancelDHCP();
 
+	// JWPLC cooperative lease maintenance. maintainAsync() advances at most
+	// one short renew/rebind step and never waits for the full DHCP timeout.
+	// Terminal return codes match maintain(); while idle/pending it returns 0.
+	static int maintainAsync();
+	static bool dhcpMaintenanceInProgress();
+
 	static int maintain();
 	static EthernetLinkStatus linkStatus();
 	static EthernetHardwareStatus hardwareStatus();
@@ -257,7 +263,6 @@ public:
 	static uint16_t server_port[MAX_SOCK_NUM];
 };
 
-
 class DhcpClass {
 private:
 	uint32_t _dhcpInitialTransactionId;
@@ -291,6 +296,17 @@ private:
 	unsigned long _asyncStartTime;
 	unsigned long _asyncStateStartTime;
 
+	// JWPLC cooperative renew/rebind state. Kept separate from the initial
+	// async acquisition so the legacy public API remains compatible.
+	enum LeaseMaintenanceMode : uint8_t
+	{
+		LEASE_MAINT_NONE = 0,
+		LEASE_MAINT_RENEW,
+		LEASE_MAINT_REBIND
+	};
+	uint8_t _leaseMaintenanceMode = LEASE_MAINT_NONE;
+	unsigned long _leaseRetryNotBeforeMs = 0;
+
 	int request_DHCP_lease();
 	void reset_DHCP_lease();
 	void presend_DHCP();
@@ -298,6 +314,8 @@ private:
 	void printByte(char *, uint8_t);
 	void finalizeLease();
 	void finishAsync();
+	void updateLeaseTimers();
+	bool startLeaseMaintenance(uint8_t mode);
 
 	uint8_t parseDHCPResponse(unsigned long responseTimeout, uint32_t& transactionId);
 	uint8_t parseDHCPResponseAvailable(uint32_t& transactionId);
@@ -320,6 +338,14 @@ public:
 	int pollDHCP();
 	bool dhcpInProgress() const { return _asyncActive; }
 	void cancelDHCP();
+
+	// Cooperative renew/rebind. Terminal codes match checkLease(); pending
+	// work reports DHCP_CHECK_NONE and is observable through the boolean.
+	int pollLeaseMaintenance();
+	bool leaseMaintenanceInProgress() const
+	{
+		return _leaseMaintenanceMode != LEASE_MAINT_NONE;
+	}
 
 	int checkLease();
 };

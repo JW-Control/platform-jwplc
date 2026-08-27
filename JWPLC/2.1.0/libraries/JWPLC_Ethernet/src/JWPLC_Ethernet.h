@@ -87,7 +87,8 @@ public:
     bool probeHardware();
 
     // Servicio cooperativo usado por el autoload del runtime.
-    // Cada llamada realiza sólo un paso corto y retorna.
+    // Cada llamada realiza sólo un paso corto y retorna. En modo DHCP incluye
+    // adquisición inicial y mantenimiento renew/rebind cooperativo del lease.
     void service();
 
     // Inicialización completa síncrona. Se conserva por compatibilidad.
@@ -99,9 +100,8 @@ public:
         IPAddress gatewayIP,
         IPAddress subnetMask);
 
-    // Mantenimiento DHCP síncrono legado.
-    // No se usa desde service() mientras se completa el mantenimiento
-    // cooperativo de lease en esta feature.
+    // Mantenimiento DHCP síncrono legado. Se conserva por compatibilidad para
+    // llamadas explícitas del usuario; el autoload service() usa maintainAsync().
     int maintain();
 
     // Estado general.

@@ -165,15 +165,62 @@ void JWPLC_EthernetClass::service()
 
     if (_runtimeState == JWPLC_ETH_STATE_READY)
     {
-        // Comprobación física corta. El mantenimiento de lease DHCP sigue
-        // separado porque Ethernet.maintain() legado puede bloquear durante
-        // renew/rebind; se convertirá a cooperativo antes de cerrar la feature.
+        // La comprobación de LINK y el mantenimiento DHCP se mantienen cortos
+        // y cooperativos. El lease vigente sigue siendo usable mientras se
+        // intenta renew/rebind.
         if (!linkUp())
         {
             _ready = false;
             setError(JWPLC_ETH_LINK_OFF);
             setRuntimeState(JWPLC_ETH_STATE_LINK_OFF);
             _lastAutoAttemptMs = now;
+            return;
+        }
+
+        if (_mode != JWPLC_ETH_MODE_DHCP)
+        {
+            return;
+        }
+
+        if (!acquireBus(50))
+        {
+            // Una contención puntual no invalida el lease ya configurado.
+            setError(JWPLC_ETH_BUS_LOCK_TIMEOUT);
+            return;
+        }
+
+        jwplcSPI_deselectAll();
+        const int maintainResult = Ethernet.maintainAsync();
+        const bool maintainPending = Ethernet.dhcpMaintenanceInProgress();
+        releaseBus();
+
+        if (maintainResult == 1 || maintainResult == 3)
+        {
+            // El lease actual continúa programado en el W5x00 y el backend
+            // reintentará de forma cooperativa; se conserva READY.
+            setError(JWPLC_ETH_DHCP_FAILED);
+            return;
+        }
+
+        if (maintainResult == 2 || maintainResult == 4)
+        {
+            clearError();
+            return;
+        }
+
+        if (maintainPending)
+        {
+            // DHC se mostrará por diagnosticCode(), sin convertir el lease
+            // todavía válido en un fallo de red.
+            clearError();
+            return;
+        }
+
+        if (_lastError == JWPLC_ETH_BUS_LOCK_TIMEOUT)
+        {
+            // El acceso al bus volvió a ser correcto; el timeout histórico no
+            // debe quedar pegado indefinidamente en un runtime READY.
+            clearError();
         }
         return;
     }
@@ -399,7 +446,8 @@ bool JWPLC_EthernetClass::isReady() const
 bool JWPLC_EthernetClass::isBusy() const
 {
     return _runtimeState == JWPLC_ETH_STATE_PROBING ||
-           _runtimeState == JWPLC_ETH_STATE_DHCP_PENDING;
+           _runtimeState == JWPLC_ETH_STATE_DHCP_PENDING ||
+           Ethernet.dhcpMaintenanceInProgress();
 }
 
 bool JWPLC_EthernetClass::hardwarePresent()
@@ -598,6 +646,21 @@ const char *JWPLC_EthernetClass::statusString()
         break;
     }
 
+    if (_mode == JWPLC_ETH_MODE_DHCP && Ethernet.dhcpMaintenanceInProgress())
+    {
+        return "DHCP maintenance";
+    }
+
+    if (_lastError == JWPLC_ETH_DHCP_FAILED)
+    {
+        return "DHCP maintenance failed";
+    }
+
+    if (_lastError == JWPLC_ETH_BUS_LOCK_TIMEOUT)
+    {
+        return "SPI lock timeout";
+    }
+
     if (!linkUp())
     {
         return "Link OFF";
@@ -624,6 +687,18 @@ const char *JWPLC_EthernetClass::diagnosticCode() const
     case JWPLC_ETH_STATE_DHCP_PENDING:
         return "DHC";
     case JWPLC_ETH_STATE_READY:
+        if (_mode == JWPLC_ETH_MODE_DHCP && Ethernet.dhcpMaintenanceInProgress())
+        {
+            return "DHC";
+        }
+        if (_lastError == JWPLC_ETH_DHCP_FAILED)
+        {
+            return "DHC";
+        }
+        if (_lastError == JWPLC_ETH_BUS_LOCK_TIMEOUT)
+        {
+            return "SPI";
+        }
         return "---";
     case JWPLC_ETH_STATE_ERROR:
     default:
