@@ -94,6 +94,10 @@ static constexpr uint32_t ETH_NO_DHCP_OBSERVE_MS = 12000UL;
 static constexpr uint32_t ETH_NO_DHCP_IO_MAX_AGE_MS = 250UL;
 static constexpr uint32_t ETH_NO_DHCP_RTC_MAX_AGE_MS = 2500UL;
 
+static constexpr uint32_t ETH_RECOVERY_READY_WAIT_MS = 25000UL;
+static constexpr uint32_t ETH_RECOVERY_LINK_WAIT_MS = 20000UL;
+static constexpr uint32_t ETH_RECOVERY_SERVICE_HARD_LIMIT_US = 100000UL;
+
 static const char SD_TEST_PATH[] = "/JWPCBTEST.TMP";
 
 static const IPAddress LAPTOP_JWPLC_IP(192, 168, 77, 2);
@@ -1357,6 +1361,12 @@ static bool probeW5500Hardware()
     const bool phyReady = JWPLC_Ethernet.probeHardware();
     const uint32_t probeMs = millis() - probeStart;
 
+    // Los timeouts 1500/500 pertenecen solamente al probe rapido.
+    // Restaurar los valores normales antes de esperar interaccion humana,
+    // porque el autoload Ethernet sigue ejecutando service() en paralelo.
+    JWPLC_Ethernet.setTimeouts(5000, 1000);
+    JWPLC_Ethernet.setRetransmissionCount(3);
+
     Serial.print(F("probeHardware(): "));
     Serial.print(phyReady ? F("PHY_READY") : F("NO_PHY_READY"));
     Serial.print(F(" in "));
@@ -1738,6 +1748,374 @@ static bool testLaptopStatic()
     Serial.println(F("ETH_LAPTOP_TCP_HTTP=FAIL_TIMEOUT"));
     Serial.println(F("W5500/IP pueden estar bien; revisar IP de laptop, firewall, cable y navegador."));
     return false;
+}
+
+static bool waitRecoveryLinkState(
+    EthernetLinkStatus expected,
+    uint32_t timeoutMs,
+    const char *gate)
+{
+    const uint32_t started = millis();
+
+    while ((uint32_t)(millis() - started) < timeoutMs)
+    {
+        JWPLC_Ethernet.service();
+
+        const EthernetLinkStatus link = JWPLC_Ethernet.linkStatus();
+        const char *code = JWPLC_Ethernet.diagnosticCode();
+
+        bool reached = link == expected;
+
+        // Para LINK OFF tambien exigimos que el runtime haya reconocido
+        // la perdida fisica y publique LNK.
+        if (expected == LinkOFF)
+        {
+            reached = reached && strcmp(code, "LNK") == 0;
+        }
+
+        if (reached)
+        {
+            Serial.print(gate);
+            Serial.println(F("=PASS"));
+            return true;
+        }
+
+        delay(20);
+    }
+
+    Serial.print(gate);
+    Serial.println(F("=FAIL"));
+    Serial.print(F("  final link="));
+    Serial.println(linkStatusName(JWPLC_Ethernet.linkStatus()));
+    Serial.print(F("  final code="));
+    Serial.println(JWPLC_Ethernet.diagnosticCode());
+    Serial.print(F("  final status="));
+    Serial.println(JWPLC_Ethernet.statusString());
+    return false;
+}
+
+static bool waitRecoveryReady(
+    const char *gate,
+    uint32_t timeoutMs,
+    bool &sawDhc,
+    uint32_t &maxServiceUs)
+{
+    const uint32_t started = millis();
+
+    JWPLCEthernetRuntimeState lastState =
+        (JWPLCEthernetRuntimeState)255;
+
+    char lastCode[4] = "";
+
+    while ((uint32_t)(millis() - started) < timeoutMs)
+    {
+        const uint32_t t0 = micros();
+        JWPLC_Ethernet.service();
+        const uint32_t serviceUs = micros() - t0;
+
+        if (serviceUs > maxServiceUs)
+            maxServiceUs = serviceUs;
+
+        const JWPLCEthernetRuntimeState state =
+            JWPLC_Ethernet.runtimeState();
+
+        const char *code = JWPLC_Ethernet.diagnosticCode();
+
+        if (strcmp(code, "DHC") == 0)
+            sawDhc = true;
+
+        if (state != lastState ||
+            strncmp(lastCode, code, 3) != 0)
+        {
+            Serial.print(F("  state="));
+            Serial.print((uint8_t)state);
+            Serial.print(F(" code="));
+            Serial.print(code);
+            Serial.print(F(" status="));
+            Serial.println(JWPLC_Ethernet.statusString());
+
+            lastState = state;
+            strncpy(lastCode, code, 3);
+            lastCode[3] = '\0';
+        }
+
+        if (JWPLC_Ethernet.isReady())
+        {
+            const IPAddress ip = JWPLC_Ethernet.localIP();
+            const IPAddress gateway = JWPLC_Ethernet.gatewayIP();
+
+            if (JWPLC_Ethernet.linkStatus() == LinkON &&
+                ipValid(ip) &&
+                ipValid(gateway))
+            {
+                Serial.print(F("  IP="));
+                Serial.println(ip);
+                Serial.print(F("  Gateway="));
+                Serial.println(gateway);
+                Serial.print(F("  max service us="));
+                Serial.println(maxServiceUs);
+
+                const bool latencyPass =
+                    maxServiceUs <= ETH_RECOVERY_SERVICE_HARD_LIMIT_US;
+
+                Serial.print(gate);
+                Serial.println(latencyPass ? F("=PASS") : F("=FAIL_SERVICE_LATENCY"));
+                return latencyPass;
+            }
+        }
+
+        delay(20);
+    }
+
+    Serial.print(gate);
+    Serial.println(F("=FAIL_TIMEOUT"));
+    JWPLC_Ethernet.printStatus(Serial);
+    return false;
+}
+
+static bool observeRecoveryLaptopNoDhcp()
+{
+    Serial.println();
+    Serial.println(F("Observando laptop directa SIN servidor DHCP..."));
+
+    if (!waitRecoveryLinkState(
+            LinkON,
+            ETH_RECOVERY_LINK_WAIT_MS,
+            "ETH_RECOVERY_LAPTOP_LINK"))
+    {
+        return false;
+    }
+
+    const uint32_t started = millis();
+
+    bool sawDhc = false;
+    bool sawDhcpFailure = false;
+    bool unexpectedReady = false;
+    uint32_t maxServiceUs = 0;
+
+    JWPLCEthernetRuntimeState lastState =
+        (JWPLCEthernetRuntimeState)255;
+
+    char lastCode[4] = "";
+
+    while ((uint32_t)(millis() - started) <
+           ETH_NO_DHCP_OBSERVE_MS)
+    {
+        const uint32_t t0 = micros();
+        JWPLC_Ethernet.service();
+        const uint32_t serviceUs = micros() - t0;
+
+        if (serviceUs > maxServiceUs)
+            maxServiceUs = serviceUs;
+
+        const JWPLCEthernetRuntimeState state =
+            JWPLC_Ethernet.runtimeState();
+
+        const char *code = JWPLC_Ethernet.diagnosticCode();
+
+        if (strcmp(code, "DHC") == 0)
+            sawDhc = true;
+
+        if (JWPLC_Ethernet.lastError() ==
+            JWPLC_ETH_DHCP_FAILED)
+        {
+            sawDhcpFailure = true;
+        }
+
+        if (JWPLC_Ethernet.isReady())
+            unexpectedReady = true;
+
+        if (state != lastState ||
+            strncmp(lastCode, code, 3) != 0)
+        {
+            Serial.print(F("  state="));
+            Serial.print((uint8_t)state);
+            Serial.print(F(" code="));
+            Serial.print(code);
+            Serial.print(F(" status="));
+            Serial.println(JWPLC_Ethernet.statusString());
+
+            lastState = state;
+            strncpy(lastCode, code, 3);
+            lastCode[3] = '\0';
+        }
+
+        delay(20);
+    }
+
+    const IPAddress finalIP = JWPLC_Ethernet.localIP();
+
+    const bool ipCleared =
+        finalIP == IPAddress(0, 0, 0, 0);
+
+    const bool servicePass =
+        maxServiceUs <= ETH_RECOVERY_SERVICE_HARD_LIMIT_US;
+
+    Serial.println(F("ETH_RECOVERY_LAPTOP_METRICS:"));
+    Serial.print(F("  saw DHC          : "));
+    Serial.println(sawDhc ? F("YES") : F("NO"));
+    Serial.print(F("  saw DHCP failure : "));
+    Serial.println(sawDhcpFailure ? F("YES") : F("NO"));
+    Serial.print(F("  unexpected ready : "));
+    Serial.println(unexpectedReady ? F("YES") : F("NO"));
+    Serial.print(F("  final IP         : "));
+    Serial.println(finalIP);
+    Serial.print(F("  max service us   : "));
+    Serial.println(maxServiceUs);
+
+    const bool pass =
+        sawDhc &&
+        sawDhcpFailure &&
+        !unexpectedReady &&
+        ipCleared &&
+        servicePass;
+
+    Serial.println(
+        pass
+            ? F("ETH_RECOVERY_LAPTOP_NO_DHCP=PASS")
+            : F("ETH_RECOVERY_LAPTOP_NO_DHCP=FAIL"));
+
+    return pass;
+}
+
+static void runEthernetRecoveryCycle()
+{
+    Serial.println();
+    Serial.println(F("############################################################"));
+    Serial.println(F(" ALPHA6 - RECOVERY ROUTER -> LAPTOP -> ROUTER"));
+    Serial.println(F("############################################################"));
+    Serial.println(F("No usar RESET durante esta prueba."));
+    Serial.println(F("DHCP se procesa mediante service() cooperativo."));
+    Serial.println();
+
+    displayTestActive = false;
+    displayStressActive = false;
+
+    JWPLC_Display.setEthLedAuto(true);
+    JWPLC_Display.goIdle();
+
+    JWPLC_Ethernet.configure();
+    JWPLC_Ethernet.useDefaultMac();
+    JWPLC_Ethernet.useDHCP();
+    JWPLC_Ethernet.setTimeouts(5000, 1000);
+    JWPLC_Ethernet.setRetransmissionCount(3);
+
+    // --------------------------------------------------------
+    // A. Router inicial
+    // --------------------------------------------------------
+
+    waitEnter(F(
+        "A) Conecta el JWPLC directamente al ROUTER DHCP."));
+
+    const bool initialPhy =
+        JWPLC_Ethernet.probeHardware();
+
+    bool sawInitialDhc = false;
+    uint32_t initialMaxServiceUs = 0;
+
+    const bool initialRouterPass =
+        initialPhy &&
+        waitRecoveryReady(
+            "ETH_RECOVERY_ROUTER_INITIAL",
+            ETH_RECOVERY_READY_WAIT_MS,
+            sawInitialDhc,
+            initialMaxServiceUs);
+
+    if (!initialRouterPass)
+    {
+        Serial.println(F("ETH_ROUTER_LAPTOP_ROUTER_RECOVERY=FAIL_INITIAL_ROUTER"));
+        return;
+    }
+
+    // --------------------------------------------------------
+    // B. Router -> cable OFF
+    // --------------------------------------------------------
+
+    waitEnter(F(
+        "B) DESCONECTA el RJ45 del router y dejalo sin conectar."));
+
+    const bool offAfterRouter =
+        waitRecoveryLinkState(
+            LinkOFF,
+            ETH_RECOVERY_LINK_WAIT_MS,
+            "ETH_RECOVERY_ROUTER_TO_OFF");
+
+    if (!offAfterRouter)
+    {
+        Serial.println(F("ETH_ROUTER_LAPTOP_ROUTER_RECOVERY=FAIL_FIRST_LINK_OFF"));
+        return;
+    }
+
+    // --------------------------------------------------------
+    // C. Cable OFF -> laptop SIN DHCP
+    // --------------------------------------------------------
+
+    waitEnter(F(
+        "C) Conecta el RJ45 directamente a la LAPTOP SIN servidor DHCP."));
+
+    const bool laptopPass =
+        observeRecoveryLaptopNoDhcp();
+
+    if (!laptopPass)
+    {
+        Serial.println(F("ETH_ROUTER_LAPTOP_ROUTER_RECOVERY=FAIL_LAPTOP"));
+        return;
+    }
+
+    // --------------------------------------------------------
+    // D. Laptop -> cable OFF
+    // --------------------------------------------------------
+
+    waitEnter(F(
+        "D) DESCONECTA el RJ45 de la laptop y dejalo sin conectar."));
+
+    const bool offAfterLaptop =
+        waitRecoveryLinkState(
+            LinkOFF,
+            ETH_RECOVERY_LINK_WAIT_MS,
+            "ETH_RECOVERY_LAPTOP_TO_OFF");
+
+    if (!offAfterLaptop)
+    {
+        Serial.println(F("ETH_ROUTER_LAPTOP_ROUTER_RECOVERY=FAIL_SECOND_LINK_OFF"));
+        return;
+    }
+
+    // --------------------------------------------------------
+    // E. Cable OFF -> router final, SIN RESET
+    // --------------------------------------------------------
+
+    waitEnter(F(
+        "E) Vuelve a conectar el RJ45 al ROUTER. NO pulses RESET."));
+
+    bool sawFinalDhc = false;
+    uint32_t finalMaxServiceUs = 0;
+
+    const bool finalRouterPass =
+        waitRecoveryReady(
+            "ETH_RECOVERY_ROUTER_FINAL",
+            ETH_RECOVERY_READY_WAIT_MS,
+            sawFinalDhc,
+            finalMaxServiceUs);
+
+    if (!finalRouterPass)
+    {
+        Serial.println(F("ETH_ROUTER_LAPTOP_ROUTER_RECOVERY=FAIL_FINAL_ROUTER"));
+        return;
+    }
+
+    Serial.println();
+    Serial.println(F("ETH_RECOVERY_NO_RESET=PASS"));
+    Serial.println(
+        sawFinalDhc
+            ? F("ETH_RECOVERY_FINAL_DHC_OBSERVED=PASS")
+            : F("ETH_RECOVERY_FINAL_DHC_OBSERVED=REVIEW_FAST_TRANSITION"));
+
+    Serial.println(F("ETH_ROUTER_LAPTOP_ROUTER_RECOVERY=PASS"));
+    JWPLC_Ethernet.printStatus(Serial);
+
+    Serial.println();
+    Serial.println(F("C=repetir recovery, E=Ethernet/SPI, S=acceptance completo."));
 }
 
 static bool testEthernetGuided()
@@ -2506,7 +2884,7 @@ static void runAlpha6EthernetSPIAcceptance()
 
     Serial.println();
     Serial.println(F("Modo E terminado."));
-    Serial.println(F("E=repetir Ethernet/SPI, S=acceptance completo, P=resumen completo."));
+    Serial.println(F("C=recovery R-N-R, E=repetir Ethernet/SPI, S=acceptance completo, P=resumen completo."));
 }
 
 // ============================================================================
@@ -2625,6 +3003,7 @@ void setup()
     Serial.println(F("- Ethernet: router DHCP, laptop sin DHCP o laptop estatica."));
     Serial.println();
     Serial.println(F("Comandos:"));
+    Serial.println(F("  C = recovery Router -> Laptop sin DHCP -> Router"));
     Serial.println(F("  E = Alpha6 Ethernet/SPI, sin pruebas RTC/TCA/E/S"));
     Serial.println(F("  S = acceptance PCB completo"));
 }
@@ -2637,6 +3016,10 @@ void loop()
 
         switch (cmd)
         {
+        case 'C':
+            runEthernetRecoveryCycle();
+            break;
+
         case 'E':
             runAlpha6EthernetSPIAcceptance();
             break;
@@ -2661,7 +3044,7 @@ void loop()
             break;
 
         default:
-            Serial.println(F("Comandos: E=Ethernet/SPI, S/R=wizard completo, P=resumen, 0=salidas OFF"));
+            Serial.println(F("Comandos: C=recovery R-N-R, E=Ethernet/SPI, S/R=wizard completo, P=resumen, 0=salidas OFF"));
             break;
         }
     }
