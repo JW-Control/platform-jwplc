@@ -133,6 +133,8 @@ namespace JWPLCIdleScreen
     static void drawBox(int x, int y, int w, int h, bool on, uint16_t onColor);
     static void drawStatusItemStatic(uint8_t idx, const char *label);
     static void fillStatusItemState(uint8_t idx, bool on, uint16_t onColor);
+    static void fillStatusItemState(uint8_t idx, StatusLedState state);
+    static void fillStatusItemDiagnostic(uint8_t idx, StatusLedState state, const char *code);
     static void drawIoCellStatic(uint8_t index, bool isInput);
     static void fillIoCellState(uint8_t index, bool isInput, bool active);
     static void drawDividers();
@@ -214,6 +216,50 @@ namespace JWPLCIdleScreen
         }
 
         tft->fillRect(STATUS_BOX_X + 1, y_label + 2, STATUS_BOX_W - 2, STATUS_BOX_H - 2, color);
+    }
+
+    static void fillStatusItemDiagnostic(uint8_t idx, StatusLedState state, const char *code)
+    {
+        if (!tft)
+            return;
+
+        int y_label = STATUS_Y0 + idx * STATUS_STEP_Y;
+        uint16_t fillColor = C_BG;
+
+        switch (state)
+        {
+        case STATUS_LED_DISABLED:
+            fillColor = C_DISABLED_GRAY;
+            break;
+        case STATUS_LED_GREEN:
+            fillColor = C_OK_GREEN;
+            break;
+        case STATUS_LED_RED:
+            fillColor = C_ERR_RED;
+            break;
+        case STATUS_LED_OFF:
+        default:
+            fillColor = C_BG;
+            break;
+        }
+
+        const uint16_t textColor =
+            (state == STATUS_LED_GREEN || state == STATUS_LED_DISABLED) ? C_BG : C_TEXT;
+
+        char safeCode[4] = {'-', '-', '-', '\0'};
+        if (code != nullptr)
+        {
+            for (uint8_t i = 0; i < 3 && code[i] != '\0'; i++)
+            {
+                safeCode[i] = code[i];
+            }
+        }
+
+        tft->fillRect(STATUS_BOX_X + 1, y_label + 2, STATUS_BOX_W - 2, STATUS_BOX_H - 2, fillColor);
+        tft->setTextSize(1);
+        tft->setTextColor(textColor, fillColor);
+        tft->setCursor(STATUS_BOX_X + 10, y_label + 3);
+        tft->print(safeCode);
     }
 
     static void drawIoCellStatic(uint8_t index, bool isInput)
@@ -374,11 +420,21 @@ namespace JWPLCIdleScreen
         if (g_forceFullRedraw || g_panel.err != g_lastPanel.err)
             fillStatusItemState(2, g_panel.err, C_ERR_RED);
 
-        if (g_forceFullRedraw || g_panel.bus != g_lastPanel.bus)
-            fillStatusItemState(3, g_panel.bus);
+        const bool busChanged =
+            g_forceFullRedraw ||
+            g_panel.bus != g_lastPanel.bus ||
+            strncmp(g_panel.busCode, g_lastPanel.busCode, 4) != 0;
 
-        if (g_forceFullRedraw || g_panel.eth != g_lastPanel.eth)
-            fillStatusItemState(4, g_panel.eth);
+        if (busChanged)
+            fillStatusItemDiagnostic(3, g_panel.bus, g_panel.busCode);
+
+        const bool ethChanged =
+            g_forceFullRedraw ||
+            g_panel.eth != g_lastPanel.eth ||
+            strncmp(g_panel.ethCode, g_lastPanel.ethCode, 4) != 0;
+
+        if (ethChanged)
+            fillStatusItemDiagnostic(4, g_panel.eth, g_panel.ethCode);
 
         g_lastPanel = g_panel;
         g_profUpdateStatusUs = micros() - tStart;
