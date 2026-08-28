@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$ArduinoCli = "C:\\Users\\jeykc\\AppData\\Local\\Programs\\arduino-ide\\resources\\app\\lib\\backend\\resources\\arduino-cli.exe",
+    [string]$ArduinoCli = "C:\Users\jeykc\AppData\Local\Programs\arduino-ide\resources\app\lib\backend\resources\arduino-cli.exe",
     [string]$Fqbn = "jwplc_local:esp32:jwplcbasic"
 )
 
@@ -8,13 +8,13 @@ Set-StrictMode -Version 2.0
 $ErrorActionPreference = "Stop"
 
 $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$RepoRoot = [System.IO.Path]::GetFullPath((Join-Path $ScriptRoot "..\\.."))
-$LibraryRoot = Join-Path $RepoRoot "JWPLC\\2.1.0\\libraries\\JWPLC_Display"
+$RepoRoot = [System.IO.Path]::GetFullPath((Join-Path $ScriptRoot "..\.."))
+$LibraryRoot = Join-Path $RepoRoot "JWPLC\2.1.0\libraries\JWPLC_Display"
 $PropertiesPath = Join-Path $LibraryRoot "library.properties"
-$ArchivePath = Join-Path $LibraryRoot "src\\esp32\\libJWPLC_Display.a"
-$SketchPath = Join-Path $ScriptRoot "sketches\\17_alpha6_err_code_visual"
+$ArchivePath = Join-Path $LibraryRoot "src\esp32\libJWPLC_Display.a"
+$SketchPath = Join-Path $ScriptRoot "sketches\17_alpha6_err_code_visual"
 $RunId = (Get-Date).ToString("yyyyMMdd_HHmmss")
-$RunRoot = Join-Path $ScriptRoot ("results\\alpha6-display-final-" + $RunId)
+$RunRoot = Join-Path $ScriptRoot ("results\alpha6-display-final-" + $RunId)
 $SourceBuild = Join-Path $RunRoot "source"
 $ArchiveBuild = Join-Path $RunRoot "archive"
 $SourceLog = Join-Path $RunRoot "source.log"
@@ -153,7 +153,7 @@ try
     Write-Host "Branch : $branch"
     Write-Host ("HEAD   : {0}" -f ((git rev-parse --short=8 HEAD).Trim()))
 
-    # 1) Fuente real: quitar temporalmente precompiled=full y retirar archive anterior.
+    # 1) Fuente real: retirar temporalmente precompiled=full y el archive anterior.
     $sourcePropertiesText = [regex]::Replace(
         $originalPropertiesText,
         '(?m)^precompiled=full\s*\r?\n?',
@@ -167,18 +167,18 @@ try
     @($sourceResult.Output) | Out-File -LiteralPath $SourceLog -Encoding utf8
     if ($sourceResult.ExitCode -ne 0) { throw "Build source fallo. Revisar $SourceLog" }
 
-    $displayObj = Join-Path $SourceBuild "libraries\\JWPLC_Display\\JWPLC_Display.cpp.o"
-    $idleObj = Join-Path $SourceBuild "libraries\\JWPLC_Display\\JWPLC_IdleScreen.cpp.o"
-    foreach ($obj in @($displayObj, $idleObj))
+    $displayObj = Join-Path $SourceBuild "libraries\JWPLC_Display\JWPLC_Display.cpp.o"
+    $idleObj = Join-Path $SourceBuild "libraries\JWPLC_Display\JWPLC_IdleScreen.cpp.o"
+    $sourceObjects = @($displayObj, $idleObj)
+    foreach ($obj in $sourceObjects)
     {
-        if (-not (Test-Path -LiteralPath $obj)) { throw "Falta objeto Display: $obj" }
+        if (-not (Test-Path -LiteralPath $obj)) { throw "Falta objeto Display compilado desde source: $obj" }
     }
 
-    $sourceCompileLines = @($sourceResult.Output | Where-Object { $_ -match '-MMD\s+-c\s' -and $_ -match '[\\/]libraries[\\/]JWPLC_Display[\\/].*\.cpp' })
-    if ($sourceCompileLines.Count -lt 2)
-    {
-        throw ("Se esperaban al menos 2 compilaciones source de Display; se observaron {0}." -f $sourceCompileLines.Count)
-    }
+    # La existencia de ambos .o en un --clean con precompiled retirado es la prueba
+    # robusta de compilacion source. No dependemos del formato textual de -v.
+    $sourceDisplayCompiles = $sourceObjects.Count
+    Write-Host ("Source Display objects: {0}/2" -f $sourceDisplayCompiles) -ForegroundColor Green
 
     # 2) Crear archive con los objetos acabados de compilar.
     $archiver = Resolve-Archiver -Lines $sourceResult.Output
@@ -202,10 +202,26 @@ try
     @($archiveResult.Output) | Out-File -LiteralPath $ArchiveLog -Encoding utf8
     if ($archiveResult.ExitCode -ne 0) { throw "Build archive fallo. Revisar $ArchiveLog" }
 
-    $archiveDisplayCompiles = @($archiveResult.Output | Where-Object { $_ -match '-MMD\s+-c\s' -and $_ -match '[\\/]libraries[\\/]JWPLC_Display[\\/].*\.cpp' }).Count
+    # En el build precompilado no deben existir objetos source de JWPLC_Display.
+    $archiveDisplayObjects = @(
+        Get-ChildItem -LiteralPath $ArchiveBuild -Recurse -File -ErrorAction SilentlyContinue |
+        Where-Object {
+            $_.Name -in @("JWPLC_Display.cpp.o", "JWPLC_IdleScreen.cpp.o") -and
+            $_.FullName -match '[\\/]libraries[\\/]JWPLC_Display[\\/]'
+        }
+    )
+    $archiveDisplayCompiles = $archiveDisplayObjects.Count
     if ($archiveDisplayCompiles -ne 0)
     {
-        throw ("Build precompilado todavia compilo {0} fuentes Display." -f $archiveDisplayCompiles)
+        throw ("Build precompilado genero {0} objetos source de Display." -f $archiveDisplayCompiles)
+    }
+
+    $precompiledObserved = @($archiveResult.Output | Where-Object {
+        $_ -match 'Using precompiled library' -and $_ -match 'JWPLC_Display'
+    }).Count -gt 0
+    if (-not $precompiledObserved)
+    {
+        throw "El build archive no reporto uso de JWPLC_Display precompilado."
     }
 
     # 4) Paridad source vs archive.
@@ -223,8 +239,9 @@ try
     Write-Host ""
     Write-Host ("Archive bytes : {0}" -f $archiveFile.Length)
     Write-Host ("Archive SHA256: {0}" -f $archiveSha)
-    Write-Host ("Source Display compiles : {0}" -f $sourceCompileLines.Count)
+    Write-Host ("Source Display compiles : {0}" -f $sourceDisplayCompiles)
     Write-Host ("Archive Display compiles: {0}" -f $archiveDisplayCompiles)
+    Write-Host ("Precompiled observed     : {0}" -f $precompiledObserved)
     Write-Host ("App bytes iguales       : {0}" -f $sameSize)
     Write-Host ("Payload equivalente     : {0}" -f $payloadEquivalent)
     Write-Host ("Source log : {0}" -f $SourceLog)
