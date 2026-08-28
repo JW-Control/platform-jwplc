@@ -1,50 +1,25 @@
 # JWPLC_Ethernet
 
-Librería interna del package **JWPLC ESP32** para manejar el Ethernet W5500 integrado del **JWPLC Basic**.
+Librería interna del package **JWPLC ESP32** para manejar el W5500 integrado del **JWPLC Basic**.
 
-> Esta librería está pensada exclusivamente para el ecosistema JWPLC Basic / JWPLC Basic Core dentro del package JWPLC 2.0.0. No está planteada como librería genérica portable para cualquier ESP32.
+En `v2.1.0-alpha.6` el backend W5500 queda consolidado dentro de `JWPLC_Ethernet` y el autoload usa un runtime **cooperativo/no bloqueante** para sondeo físico, link, adquisición DHCP, recuperación y mantenimiento T1/T2.
 
----
+> Esta librería pertenece al ecosistema JWPLC. No está planteada como wrapper genérico para cualquier ESP32 + W5500.
 
-## 1. Idea principal
+## Uso normal
 
-Desde `2.0.0-alpha.26`, Ethernet queda integrado al runtime del JWPLC.
-
-En uso normal, el usuario **no necesita llamar**:
-
-```cpp
-JWPLC_Ethernet.begin();
-JWPLC_Ethernet.maintain();
-```
-
-El sistema JWPLC se encarga automáticamente de:
-
-- Detectar si Ethernet está habilitado para la placa.
-- Inicializar el W5500.
-- Evitar bloqueos largos si no hay cable RJ45.
-- Reintentar si el equipo arrancó sin cable y luego se conecta.
-- Mantener DHCP con `maintain()`.
-- Proteger el bus SPI compartido.
-- Reportar estado mediante `JWPLC_Ethernet`.
-
----
-
-## 2. Uso recomendado
-
-En sketches para **JWPLC Basic**, puedes consultar el estado directamente:
+En JWPLC Basic Ethernet forma parte del autoload. Para uso normal el sketch no necesita llamar `begin()` ni `maintain()`.
 
 ```cpp
 void setup()
 {
     Serial.begin(115200);
-    delay(1200);
 }
 
 void loop()
 {
     Serial.print("ETH: ");
     Serial.print(JWPLC_Ethernet.statusString());
-
     Serial.print(" | IP: ");
     Serial.println(JWPLC_Ethernet.localIP());
 
@@ -52,166 +27,129 @@ void loop()
 }
 ```
 
-No hace falta agregar:
+Los objetos globales del package quedan expuestos por el entorno JWPLC. También puede incluirse explícitamente:
 
 ```cpp
 #include <JWPLC_Ethernet.h>
 ```
 
-ni llamar:
+## Arquitectura Alpha6
+
+El autoload llama periódicamente:
 
 ```cpp
-JWPLC_Ethernet.begin();
+JWPLC_Ethernet.service();
 ```
 
-porque el package JWPLC expone los periféricos globales automáticamente para las placas JWPLC.
+Cada llamada realiza un paso corto. El runtime no intenta completar toda la secuencia de red dentro de un único tick.
 
----
-
-## 3. Comportamiento por placa
-
-### JWPLC Basic
-
-Ethernet está habilitado.
-
-Resultado esperado con RJ45 conectado:
+Estados públicos:
 
 ```text
-Ethernet enabled: yes
-Begin attempted: yes
-Ready: yes
-Hardware: present
-Link: up
-Status: OK
-IP: 192.168.x.x
+NOT_STARTED
+PROBING
+PHY_READY
+LINK_OFF
+DHCP_PENDING
+READY
+ERROR
 ```
 
-Resultado esperado sin RJ45:
+Flujo típico DHCP:
 
 ```text
-Ethernet enabled: yes
-Begin attempted: yes
-Ready: no
-Hardware: present
-Link: down
-Status: Link OFF
-IP: 0.0.0.0
+NOT_STARTED
+→ PROBING
+→ PHY_READY
+→ LINK_OFF o DHCP_PENDING
+→ READY
 ```
 
-Si conectas el RJ45 después del arranque, el runtime reintenta automáticamente.
+Si el cable se desconecta después de estar listo, el runtime pasa a `LINK_OFF` y reintenta cuando vuelve el link. No requiere reset del ESP32.
 
-### JWPLC Basic Core
+## DHCP cooperativo
 
-Ethernet está deshabilitado.
+Por defecto el JWPLC Basic usa DHCP.
 
-Resultado esperado:
+Alpha6 separa dos problemas:
 
-```text
-Ethernet enabled: no
-Status: Ethernet disabled
-IP: 0.0.0.0
-```
+1. adquisición inicial del lease;
+2. mantenimiento posterior del lease.
 
----
+Durante la adquisición inicial el runtime sigue avanzando por llamadas de `service()` y conserva un límite de espera/reintento.
 
-## 4. DHCP automático
+Durante mantenimiento se atienden de forma cooperativa:
 
-Por defecto, `JWPLC_Ethernet` usa DHCP.
+- T1 `renew`;
+- T2 `rebind`.
 
-Sketch mínimo:
+Un lease ya válido no se borra sólo porque haya comenzado una renovación. Mientras la configuración vigente siga utilizable, `isReady()` e IP pueden permanecer válidos durante el mantenimiento.
+
+Las pruebas aceleradas de Alpha6 confirmaron T1 y T2 reales con:
+
+- estado DHCP pendiente observado;
+- link conservado;
+- IP conservada;
+- `READY` conservado cuando correspondía;
+- llamadas `service()` muy por debajo del límite de 100 ms utilizado por el gate.
+
+Los hooks empleados para acelerar T1/T2 existen únicamente bajo una macro de prueba y quedaron verificados como ausentes en un build normal de producción.
+
+## IP estática
+
+Puede configurarse antes del primer intento automático:
 
 ```cpp
-unsigned long lastPrintMs = 0;
-
-void setup()
-{
-    Serial.begin(115200);
-    delay(1200);
-
-    Serial.println("Ethernet DHCP auto test");
-}
-
-void loop()
-{
-    unsigned long now = millis();
-
-    if (now - lastPrintMs >= 1000)
-    {
-        lastPrintMs = now;
-
-        Serial.print("ETH: ");
-        Serial.print(JWPLC_Ethernet.statusString());
-
-        Serial.print(" | Ready: ");
-        Serial.print(JWPLC_Ethernet.isReady() ? "yes" : "no");
-
-        Serial.print(" | Link: ");
-        Serial.print(JWPLC_Ethernet.linkUp() ? "UP" : "DOWN");
-
-        Serial.print(" | IP: ");
-        Serial.println(JWPLC_Ethernet.localIP());
-    }
-}
+JWPLC_Ethernet.setStaticIP(
+    IPAddress(192, 168, 1, 50),
+    IPAddress(8, 8, 8, 8),
+    IPAddress(192, 168, 1, 1),
+    IPAddress(255, 255, 255, 0));
 ```
 
----
-
-## 5. IP estática automática
-
-Para IP estática, configura la IP en `setup()` y deja que el runtime haga el inicio automático.
+También puede volver a DHCP:
 
 ```cpp
-void setup()
-{
-    Serial.begin(115200);
-    delay(1200);
-
-    JWPLC_Ethernet.setStaticIP(
-        IPAddress(192, 168, 1, 50),
-        IPAddress(8, 8, 8, 8),
-        IPAddress(192, 168, 1, 1),
-        IPAddress(255, 255, 255, 0));
-}
+JWPLC_Ethernet.useDHCP();
 ```
 
-El runtime del JWPLC empieza después de `setup()`, por eso esta configuración queda aplicada antes del primer intento automático de Ethernet.
+## API principal
 
----
+### Estado
 
-## 6. API principal
+```cpp
+JWPLC_Ethernet.isEnabled();
+JWPLC_Ethernet.isBeginAttempted();
+JWPLC_Ethernet.isReady();
+JWPLC_Ethernet.isBusy();
+JWPLC_Ethernet.hardwarePresent();
+JWPLC_Ethernet.linkUp();
 
-- `isEnabled()`: indica si la placa tiene Ethernet habilitado.
-- `isBeginAttempted()`: indica si el runtime ya intentó iniciar Ethernet.
-- `isReady()`: indica si Ethernet está inicializado correctamente.
-- `hardwarePresent()`: indica si se detecta el W5500.
-- `linkUp()`: indica si hay link físico RJ45.
-- `localIP()`: devuelve la IP local.
-- `gatewayIP()`: devuelve gateway.
-- `subnetMask()`: devuelve máscara de red.
-- `dnsServerIP()`: devuelve DNS.
-- `statusString()`: devuelve un texto corto del estado.
-- `printStatus(Stream &out)`: imprime diagnóstico completo.
-
-Estados esperados:
-
-```text
-OK
-Ethernet disabled
-SPI not ready
-No Ethernet hardware
-Link OFF
-DHCP failed
-Invalid IP
-SPI lock timeout
-Unknown Ethernet error
-Not started
+JWPLC_Ethernet.mode();
+JWPLC_Ethernet.runtimeState();
+JWPLC_Ethernet.lastError();
+JWPLC_Ethernet.lastErrorString();
+JWPLC_Ethernet.statusString();
+JWPLC_Ethernet.diagnosticCode();
 ```
 
----
+### Red
 
-## 7. Configuración avanzada
+```cpp
+JWPLC_Ethernet.localIP();
+JWPLC_Ethernet.gatewayIP();
+JWPLC_Ethernet.subnetMask();
+JWPLC_Ethernet.dnsServerIP();
+JWPLC_Ethernet.mac();
+```
 
-Aunque el arranque automático es el modo recomendado, estas funciones siguen disponibles antes del inicio automático:
+### Diagnóstico completo
+
+```cpp
+JWPLC_Ethernet.printStatus(Serial);
+```
+
+### Configuración previa al inicio
 
 ```cpp
 JWPLC_Ethernet.setMac(mac);
@@ -222,139 +160,114 @@ JWPLC_Ethernet.setTimeouts(dhcpTimeoutMs, responseTimeoutMs);
 JWPLC_Ethernet.setRetransmissionCount(count);
 ```
 
-Para uso normal en JWPLC Basic, no cambies `configure()` ni el CS del W5500.
+No se recomienda cambiar `configure()` ni el CS del W5500 en un JWPLC Basic normal.
 
----
+## Compatibilidad síncrona
 
-## 8. Uso manual avanzado
-
-`begin()` sigue existiendo, pero queda reservado para casos avanzados, pruebas internas o reinicios controlados.
-
-Uso normal:
-
-```cpp
-// No llamar begin()
-```
-
-Uso avanzado:
+Las APIs antiguas siguen disponibles:
 
 ```cpp
 bool ok = JWPLC_Ethernet.begin();
+int result = JWPLC_Ethernet.maintain();
 ```
 
----
+`begin()` realiza inicialización completa síncrona y `maintain()` conserva el mantenimiento síncrono legacy. Se mantienen para compatibilidad, pruebas o flujos explícitos del usuario.
 
-## 9. Integración con JWPLC_Display
+El autoload Alpha6 **no depende de ellas**: usa `service()` y mantenimiento DHCP cooperativo.
 
-La pantalla IDLE puede mostrar el estado Ethernet usando el indicador `ETH`.
+## Errores
+
+```text
+JWPLC_ETH_OK
+JWPLC_ETH_DISABLED
+JWPLC_ETH_SPI_NOT_READY
+JWPLC_ETH_NO_HARDWARE
+JWPLC_ETH_LINK_OFF
+JWPLC_ETH_DHCP_FAILED
+JWPLC_ETH_INVALID_IP
+JWPLC_ETH_BUS_LOCK_TIMEOUT
+JWPLC_ETH_UNKNOWN_ERROR
+```
+
+`LINK_OFF` no implica que el sistema quede permanentemente fallado. Es un estado recuperable del runtime.
+
+## Códigos para el indicador ETH
+
+`diagnosticCode()` entrega un código corto usado por `JWPLC_Display`:
+
+| Código | Significado |
+|---|---|
+| `DIS` | Ethernet deshabilitado por la variante. |
+| `INI` | Runtime aún no iniciado. |
+| `PHY` | Sondeo/preparación física. |
+| `LNK` | Sin link RJ45. |
+| `DHC` | Adquisición o mantenimiento DHCP. |
+| `HW` | W5500 no detectado. |
+| `IP` | IP/configuración inválida. |
+| `SPI` | Timeout de acceso al bus SPI. |
+| `---` | Operativo. |
+
+La pantalla IDLE usa estos códigos automáticamente cuando:
 
 ```cpp
-bool ethOk = JWPLC_Ethernet.isReady() && JWPLC_Ethernet.linkUp();
-
-JWPLC_Display.setEthLed(ethOk);
-JWPLC_Display.setErrLed(!ethOk);
+JWPLC_Display.setEthLedAuto(true);
 ```
 
-En **JWPLC Basic Core**, no conviene marcar error por Ethernet deshabilitado:
+No es necesario trasladar fallas de Ethernet al indicador `ERR`: en Alpha6 `ERR` queda reservado para la aplicación.
 
-```cpp
-bool ethernetDisabled = !JWPLC_Ethernet.isEnabled();
-JWPLC_Display.setErrLed(!ethernetDisabled && !ethOk);
-```
-
----
-
-## 10. SPI compartido
-
-En JWPLC Basic, Ethernet comparte SPI con:
-
-- TFT ST7789.
-- FRAM.
-- microSD.
-- W5500.
-
-La librería protege sus operaciones internas con el mutex SPI del ecosistema JWPLC.
-
-Regla importante:
-
-> En callbacks gráficos del display, no consultes directamente `JWPLC_Ethernet`, `JWPLC_SD` ni `JWPLC_FRAM`.
-
-Patrón recomendado:
-
-1. Leer periféricos SPI en `loop()`.
-2. Guardar resultados en variables simples.
-3. En callbacks de display, solo dibujar esas variables cacheadas.
-
----
-
-## 11. Ejemplos incluidos
-
-### `Ethernet_Auto_DHCP_Status`
-
-Valida el arranque automático por DHCP. No llama `begin()`.
-
-### `Ethernet_Auto_StaticIP_Status`
-
-Configura IP estática y deja que el runtime inicie Ethernet. No llama `begin()`.
-
-### `Ethernet_Display_Status`
-
-Muestra estado Ethernet en Serial y actualiza indicadores de la pantalla IDLE. No llama `begin()`.
-
-### `Ethernet_SPI_Coexistence`
-
-Valida coexistencia SPI entre Ethernet, Display, FRAM y microSD. No llama `begin()` ni `maintain()`.
-
----
-
-## 12. Checklist de validación alpha26
+## Comportamiento por placa
 
 ### JWPLC Basic
 
-- Arranque con RJ45 conectado.
-- Arranque sin RJ45.
-- Conectar RJ45 después del arranque.
-- Desconectar/reconectar RJ45.
-- DHCP automático.
-- IP estática configurada en `setup()`.
-- Indicador ETH en IDLE.
-- Coexistencia con SD, FRAM y TFT.
+Ethernet está habilitado y el W5500 forma parte del runtime normal.
 
 ### JWPLC Basic Core
 
-- Ethernet aparece como disabled.
-- No bloquea.
-- Display sigue operativo.
+Ethernet puede estar deshabilitado por configuración de variante. En ese caso:
 
----
+```text
+isEnabled() = false
+diagnosticCode() = DIS
+```
 
-## Validación alpha31
+La ausencia intencional de Ethernet no debe interpretarse como error de aplicación.
 
-Para alpha31, `JWPLC_Ethernet` se valida como parte del package completo instalado desde cero.
+## SPI compartido
 
-Pruebas recomendadas:
+W5500 comparte SPI con:
 
-- arranque con RJ45 conectado;
-- arranque sin RJ45 conectado;
-- conexión posterior de RJ45;
-- desconexión y reconexión sin falso error permanente;
-- DHCP automático;
-- IP estática configurada desde `setup()`;
-- indicador `ETH` en pantalla IDLE;
-- coexistencia SPI con TFT, microSD y FRAM;
-- comportamiento `Ethernet disabled` esperado en `JWPLC Basic Core`.
+- TFT ST7789;
+- FRAM;
+- microSD.
 
-No se agregan cambios funcionales de Ethernet en alpha31.
+`JWPLC_Ethernet` adquiere el mutex del ecosistema JWPLC antes de tocar el W5500 y libera el bus al terminar cada paso.
 
----
+Regla recomendada para UI:
+
+> No realizar consultas largas a Ethernet, FRAM o SD dentro de un callback gráfico mientras la TFT posee SPI.
+
+Leer/cachar primero y dibujar después mantiene la coexistencia determinista.
+
+## Recuperación validada en Alpha6
+
+Se validaron sobre hardware real:
+
+- arranque con link;
+- arranque sin link;
+- conectar/desconectar/reconectar RJ45 sin reset;
+- router DHCP;
+- IP estática;
+- servidor HTTP y tráfico repetitivo;
+- estrés simultáneo con TFT, FRAM y microSD;
+- transición router → red sin DHCP → router;
+- T1 renew y T2 rebind cooperativos;
+- exclusión de hooks DHCP en builds normales.
 
 ## Estado
 
-Documentación revisada para:
-
 ```text
-JWPLC ESP32 2.0.0-alpha.31
+JWPLC ESP32 2.1.0-alpha.6
 JWPLC_Ethernet 1.0.0
 ```
 
-Alpha31 valida la integración Ethernet actual dentro del package completo. No cambia la arquitectura de inicialización automática.
+Alpha6 cambia la arquitectura interna de servicio Ethernet para evitar bloqueos largos y mejorar recuperación, manteniendo las APIs síncronas ya existentes por compatibilidad.
