@@ -156,6 +156,73 @@ int DhcpClass::pollLeaseMaintenance()
     return DHCP_CHECK_NONE;
 }
 
+#ifdef JWPLC_ETHERNET_ENABLE_TEST_HOOKS
+
+bool DhcpClass::testSetLeaseTimers(
+    uint32_t renewInSec,
+    uint32_t rebindInSec)
+{
+    if (_asyncActive ||
+        _leaseMaintenanceMode != LEASE_MAINT_NONE ||
+        _dhcp_state != STATE_DHCP_LEASED)
+    {
+        return false;
+    }
+
+    _renewInSec = renewInSec;
+    _rebindInSec = rebindInSec;
+    _lastCheckLeaseMillis = millis();
+    _leaseRetryNotBeforeMs = 0;
+    return true;
+}
+
+void DhcpClass::testGetLeaseTimers(
+    uint32_t &renewInSec,
+    uint32_t &rebindInSec) const
+{
+    renewInSec = _renewInSec;
+    rebindInSec = _rebindInSec;
+}
+
+bool EthernetClass::testSetDhcpLeaseTimers(
+    uint32_t renewInSec,
+    uint32_t rebindInSec)
+{
+    if (_dhcp == NULL)
+    {
+        return false;
+    }
+
+    return _dhcp->testSetLeaseTimers(renewInSec, rebindInSec);
+}
+
+bool EthernetClass::testGetDhcpLeaseTimers(
+    uint32_t &renewInSec,
+    uint32_t &rebindInSec)
+{
+    if (_dhcp == NULL)
+    {
+        renewInSec = 0;
+        rebindInSec = 0;
+        return false;
+    }
+
+    _dhcp->testGetLeaseTimers(renewInSec, rebindInSec);
+    return true;
+}
+
+uint8_t EthernetClass::testDhcpLeaseMaintenanceMode()
+{
+    if (_dhcp == NULL)
+    {
+        return 0;
+    }
+
+    return _dhcp->testLeaseMaintenanceMode();
+}
+
+#endif // JWPLC_ETHERNET_ENABLE_TEST_HOOKS
+
 int EthernetClass::maintainAsync()
 {
     if (_dhcp == NULL)
