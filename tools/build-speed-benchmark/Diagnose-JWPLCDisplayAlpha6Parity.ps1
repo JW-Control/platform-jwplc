@@ -32,116 +32,117 @@ function Get-OneFile
     return $f
 }
 
-function Resolve-ToolDir
+function Get-MapData
 {
-    param([string]$LogPath)
+    param([string]$MapPath)
 
-    # Primero intenta resolver el ejecutable directamente desde el log. Arduino CLI
-    # puede imprimir el toolchain entre comillas o sin ellas dependiendo del host.
-    foreach ($line in Get-Content -LiteralPath $LogPath)
+    $sections = @{}
+    $symbols = @{}
+    $fills = New-Object System.Collections.Generic.List[object]
+
+    foreach ($line in Get-Content -LiteralPath $MapPath)
     {
-        $candidate = $null
-        if ($line -match '"(?<exe>[^"]*xtensa-esp32-elf-(?:g\+\+|gcc|nm|size)(?:\.exe)?)"')
+        # Secciones de salida del linker. Exigimos que empiecen en columna 0 para
+        # no confundir subsecciones de objetos de entrada con secciones finales.
+        if ($line -match '^(?<name>\.[^\s]+)\s+0x(?<addr>[0-9a-fA-F]+)\s+0x(?<size>[0-9a-fA-F]+)(?:\s|$)')
         {
-            $candidate = $Matches["exe"]
-        }
-        elseif ($line -match '(?<exe>[A-Za-z]:\\[^\r\n"]*?xtensa-esp32-elf-(?:g\+\+|gcc|nm|size)(?:\.exe)?)\s')
-        {
-            $candidate = $Matches["exe"]
-        }
-
-        if (-not [string]::IsNullOrWhiteSpace($candidate))
-        {
-            $candidate = $candidate.Trim().Trim('"')
-            if (Test-Path -LiteralPath $candidate)
+            $name = $Matches["name"]
+            if (-not $sections.ContainsKey($name))
             {
-                return (Split-Path -Parent (Resolve-Path -LiteralPath $candidate).Path)
-            }
-        }
-    }
-
-    # Fallback estable para instalaciones Arduino del package JWPLC en Windows.
-    # Buscamos nm porque es una de las herramientas que este diagnostico requiere.
-    if (-not [string]::IsNullOrWhiteSpace($env:LOCALAPPDATA))
-    {
-        $packagesRoot = Join-Path $env:LOCALAPPDATA "Arduino15\packages"
-        foreach ($namespace in @("jwplc_local", "jwplc"))
-        {
-            $espX32Root = Join-Path $packagesRoot ($namespace + "\tools\esp-x32")
-            if (-not (Test-Path -LiteralPath $espX32Root)) { continue }
-
-            $found = Get-ChildItem -LiteralPath $espX32Root -Recurse -File -Filter "xtensa-esp32-elf-nm.exe" -ErrorAction SilentlyContinue |
-                Sort-Object LastWriteTime -Descending |
-                Select-Object -First 1
-
-            if ($null -ne $found)
-            {
-                return (Split-Path -Parent $found.FullName)
-            }
-        }
-    }
-
-    throw "No se pudo localizar el toolchain desde $LogPath ni desde Arduino15."
-}
-
-function Resolve-Tool
-{
-    param([string]$Dir, [string]$Base)
-    foreach ($name in @($Base + ".exe", $Base))
-    {
-        $p = Join-Path $Dir $name
-        if (Test-Path -LiteralPath $p) { return (Resolve-Path -LiteralPath $p).Path }
-    }
-    throw "No se encontro $Base en $Dir"
-}
-
-function Invoke-Lines
-{
-    param([string]$Tool, [string[]]$Args)
-    $out = @(& $Tool @Args 2>&1 | ForEach-Object { $_.ToString() })
-    if ($LASTEXITCODE -ne 0) { throw "$Tool fallo: $($Args -join ' ')" }
-    return $out
-}
-
-function Get-Sections
-{
-    param([string]$SizeTool, [string]$Elf)
-    $table = @{}
-    foreach ($line in Invoke-Lines -Tool $SizeTool -Args @("-A", $Elf))
-    {
-        if ($line -match '^\s*(?<name>\S+)\s+(?<size>\d+)\s+(?<addr>\d+)\s*$')
-        {
-            $table[$Matches["name"]] = [PSCustomObject]@{
-                Size = [int64]$Matches["size"]
-                Address = [int64]$Matches["addr"]
-            }
-        }
-    }
-    return $table
-}
-
-function Get-Symbols
-{
-    param([string]$NmTool, [string]$Elf)
-    $table = @{}
-    foreach ($line in Invoke-Lines -Tool $NmTool -Args @("-C", "-S", "--size-sort", "--defined-only", $Elf))
-    {
-        if ($line -match '^\s*(?<addr>[0-9a-fA-F]+)\s+(?<size>[0-9a-fA-F]+)\s+(?<type>\S)\s+(?<name>.+)$')
-        {
-            $name = $Matches["name"].Trim()
-            $key = $Matches["type"] + "|" + $name
-            if (-not $table.ContainsKey($key))
-            {
-                $table[$key] = [PSCustomObject]@{
-                    Name = $name
-                    Type = $Matches["type"]
+                $sections[$name] = [PSCustomObject]@{
                     Address = [Convert]::ToInt64($Matches["addr"], 16)
                     Size = [Convert]::ToInt64($Matches["size"], 16)
                 }
             }
+            continue
+        }
+
+        if ($line -match '^\s+\*fill\*\s+0x(?<addr>[0-9a-fA-F]+)\s+0x(?<size>[0-9a-fA-F]+)')
+        {
+            $fills.Add([PSCustomObject]@{
+                Address = [Convert]::ToInt64($Matches["addr"], 16)
+                Size = [Convert]::ToInt64($Matches["size"], 16)
+            })
+            continue
+        }
+
+        # El map de GNU ld lista simbolos definidos como: 0xADDR NOMBRE.
+        # Solo guardamos nombres de una sola palabra para evitar asignaciones y
+        # texto descriptivo del script de linker.
+        if ($line -match '^\s+0x(?<addr>[0-9a-fA-F]+)\s+(?<name>[^\s=]+)\s*$')
+        {
+            $name = $Matches["name"]
+            if ($name -notmatch '^(?:0x|\.|\*|LOAD$|PROVIDE|ASSERT)')
+            {
+                if (-not $symbols.ContainsKey($name))
+                {
+                    $symbols[$name] = [Convert]::ToInt64($Matches["addr"], 16)
+                }
+            }
         }
     }
-    return $table
+
+    return [PSCustomObject]@{
+        Sections = $sections
+        Symbols = $symbols
+        Fills = $fills
+    }
+}
+
+function Get-BinaryAlignmentProbe
+{
+    param([string]$SourcePath, [string]$ArchivePath)
+
+    $s = [System.IO.File]::ReadAllBytes($SourcePath)
+    $a = [System.IO.File]::ReadAllBytes($ArchivePath)
+    $min = [Math]::Min($s.Length, $a.Length)
+
+    $first = -1
+    for ($i = 0; $i -lt $min; $i++)
+    {
+        if ($s[$i] -ne $a[$i]) { $first = $i; break }
+    }
+
+    if ($first -lt 0)
+    {
+        return [PSCustomObject]@{ FirstDiff=-1; BestShift=0; Matches=0; Compared=0 }
+    }
+
+    # Busca si, despues de la primera diferencia, uno de los payloads vuelve a
+    # sincronizarse con un pequeno desplazamiento. Es diagnostico, no criterio PASS.
+    $start = [Math]::Min($min - 1, $first + 256)
+    $window = 8192
+    $bestShift = 0
+    $bestMatches = -1
+    $bestCompared = 0
+
+    for ($shift = -32; $shift -le 32; $shift++)
+    {
+        $matches = 0
+        $compared = 0
+        for ($j = 0; $j -lt $window; $j++)
+        {
+            $si = $start + $j
+            $ai = $si + $shift
+            if ($si -lt 0 -or $si -ge $s.Length -or $ai -lt 0 -or $ai -ge $a.Length) { continue }
+            $compared++
+            if ($s[$si] -eq $a[$ai]) { $matches++ }
+        }
+
+        if ($matches -gt $bestMatches)
+        {
+            $bestMatches = $matches
+            $bestCompared = $compared
+            $bestShift = $shift
+        }
+    }
+
+    return [PSCustomObject]@{
+        FirstDiff = $first
+        BestShift = $bestShift
+        Matches = $bestMatches
+        Compared = $bestCompared
+    }
 }
 
 $run = Get-LatestRun
@@ -157,70 +158,75 @@ foreach ($p in @($sourceDir, $archiveDir, $sourceLog, $archiveLog))
 
 $sourceBin = Get-OneFile -Dir $sourceDir -Filter "*.ino.bin"
 $archiveBin = Get-OneFile -Dir $archiveDir -Filter "*.ino.bin"
-$sourceElf = Get-OneFile -Dir $sourceDir -Filter "*.ino.elf"
-$archiveElf = Get-OneFile -Dir $archiveDir -Filter "*.ino.elf"
-
-$toolDir = Resolve-ToolDir -LogPath $sourceLog
-$sizeTool = Resolve-Tool -Dir $toolDir -Base "xtensa-esp32-elf-size"
-$nmTool = Resolve-Tool -Dir $toolDir -Base "xtensa-esp32-elf-nm"
+$sourceMap = Get-OneFile -Dir $sourceDir -Filter "*.ino.map"
+$archiveMap = Get-OneFile -Dir $archiveDir -Filter "*.ino.map"
 
 Write-Host "=== ALPHA6 - DIAGNOSTICO PARIDAD DISPLAY ===" -ForegroundColor Cyan
 Write-Host "RUN=$run"
-Write-Host "TOOLCHAIN_DIR=$toolDir"
+Write-Host "MODE=MAP_ONLY_NO_BINUTILS"
 Write-Host ("SOURCE_BIN_BYTES={0}" -f $sourceBin.Length)
 Write-Host ("ARCHIVE_BIN_BYTES={0}" -f $archiveBin.Length)
 Write-Host ("BIN_DELTA_BYTES={0}" -f ($archiveBin.Length - $sourceBin.Length))
 
-$sourceSections = Get-Sections -SizeTool $sizeTool -Elf $sourceElf.FullName
-$archiveSections = Get-Sections -SizeTool $sizeTool -Elf $archiveElf.FullName
-$sectionNames = @($sourceSections.Keys + $archiveSections.Keys | Sort-Object -Unique)
+$sourceData = Get-MapData -MapPath $sourceMap.FullName
+$archiveData = Get-MapData -MapPath $archiveMap.FullName
+
+$sectionNames = @($sourceData.Sections.Keys + $archiveData.Sections.Keys | Sort-Object -Unique)
 $sectionDiffs = @()
 foreach ($name in $sectionNames)
 {
-    $s = if ($sourceSections.ContainsKey($name)) { $sourceSections[$name].Size } else { -1 }
-    $a = if ($archiveSections.ContainsKey($name)) { $archiveSections[$name].Size } else { -1 }
-    if ($s -ne $a)
+    $sSize = if ($sourceData.Sections.ContainsKey($name)) { $sourceData.Sections[$name].Size } else { -1 }
+    $aSize = if ($archiveData.Sections.ContainsKey($name)) { $archiveData.Sections[$name].Size } else { -1 }
+    $sAddr = if ($sourceData.Sections.ContainsKey($name)) { $sourceData.Sections[$name].Address } else { -1 }
+    $aAddr = if ($archiveData.Sections.ContainsKey($name)) { $archiveData.Sections[$name].Address } else { -1 }
+
+    if ($sSize -ne $aSize -or $sAddr -ne $aAddr)
     {
-        $sectionDiffs += [PSCustomObject]@{ Section=$name; Source=$s; Archive=$a; Delta=($a-$s) }
+        $sectionDiffs += [PSCustomObject]@{
+            Section = $name
+            SourceSize = $sSize
+            ArchiveSize = $aSize
+            DeltaSize = $aSize - $sSize
+            SourceAddr = if ($sAddr -ge 0) { ('0x{0:X}' -f $sAddr) } else { '-' }
+            ArchiveAddr = if ($aAddr -ge 0) { ('0x{0:X}' -f $aAddr) } else { '-' }
+            DeltaAddr = if ($sAddr -ge 0 -and $aAddr -ge 0) { $aAddr - $sAddr } else { 0 }
+        }
     }
 }
 
-Write-Host "`n=== SECTION SIZE DIFFS ==="
-if ($sectionDiffs.Count -eq 0) { Write-Host "SECTION_SIZE_DIFFS=0" -ForegroundColor Green }
-else { $sectionDiffs | Sort-Object Section | Format-Table -AutoSize }
-
-$sourceSymbols = Get-Symbols -NmTool $nmTool -Elf $sourceElf.FullName
-$archiveSymbols = Get-Symbols -NmTool $nmTool -Elf $archiveElf.FullName
-$common = @($sourceSymbols.Keys | Where-Object { $archiveSymbols.ContainsKey($_) })
-$onlySource = @($sourceSymbols.Keys | Where-Object { -not $archiveSymbols.ContainsKey($_) })
-$onlyArchive = @($archiveSymbols.Keys | Where-Object { -not $sourceSymbols.ContainsKey($_) })
-$sizeChanged = @()
-$addressDeltas = @{}
-
-foreach ($key in $common)
+Write-Host "`n=== OUTPUT SECTION DIFFS ==="
+if ($sectionDiffs.Count -eq 0)
 {
-    $s = $sourceSymbols[$key]
-    $a = $archiveSymbols[$key]
-    if ($s.Size -ne $a.Size)
-    {
-        $sizeChanged += [PSCustomObject]@{ Symbol=$s.Name; SourceSize=$s.Size; ArchiveSize=$a.Size; Delta=($a.Size-$s.Size) }
-    }
-    $delta = $a.Address - $s.Address
-    $dkey = $delta.ToString()
-    if (-not $addressDeltas.ContainsKey($dkey)) { $addressDeltas[$dkey] = 0 }
-    $addressDeltas[$dkey]++
+    Write-Host "OUTPUT_SECTION_DIFFS=0" -ForegroundColor Green
+}
+else
+{
+    $sectionDiffs | Sort-Object Section | Format-Table -AutoSize
 }
 
-Write-Host "`n=== SYMBOL SUMMARY ==="
-Write-Host ("COMMON_SYMBOLS={0}" -f $common.Count)
+$sourceFillTotal = [int64](($sourceData.Fills | Measure-Object -Property Size -Sum).Sum)
+$archiveFillTotal = [int64](($archiveData.Fills | Measure-Object -Property Size -Sum).Sum)
+Write-Host "`n=== LINKER FILL ==="
+Write-Host ("SOURCE_FILL_BYTES={0}" -f $sourceFillTotal)
+Write-Host ("ARCHIVE_FILL_BYTES={0}" -f $archiveFillTotal)
+Write-Host ("FILL_DELTA_BYTES={0}" -f ($archiveFillTotal - $sourceFillTotal))
+
+$commonSymbols = @($sourceData.Symbols.Keys | Where-Object { $archiveData.Symbols.ContainsKey($_) })
+$onlySource = @($sourceData.Symbols.Keys | Where-Object { -not $archiveData.Symbols.ContainsKey($_) })
+$onlyArchive = @($archiveData.Symbols.Keys | Where-Object { -not $sourceData.Symbols.ContainsKey($_) })
+$addressDeltas = @{}
+foreach ($name in $commonSymbols)
+{
+    $delta = $archiveData.Symbols[$name] - $sourceData.Symbols[$name]
+    $key = $delta.ToString()
+    if (-not $addressDeltas.ContainsKey($key)) { $addressDeltas[$key] = 0 }
+    $addressDeltas[$key]++
+}
+
+Write-Host "`n=== MAP SYMBOL SUMMARY ==="
+Write-Host ("COMMON_SYMBOLS={0}" -f $commonSymbols.Count)
 Write-Host ("ONLY_SOURCE_SYMBOLS={0}" -f $onlySource.Count)
 Write-Host ("ONLY_ARCHIVE_SYMBOLS={0}" -f $onlyArchive.Count)
-Write-Host ("SYMBOL_SIZE_CHANGES={0}" -f $sizeChanged.Count)
-
-if ($sizeChanged.Count -gt 0)
-{
-    $sizeChanged | Sort-Object { [math]::Abs($_.Delta) } -Descending | Select-Object -First 20 | Format-Table -AutoSize
-}
 
 Write-Host "`n=== ADDRESS DELTA DISTRIBUTION ==="
 $addressDeltas.GetEnumerator() |
@@ -232,13 +238,19 @@ $addressDeltas.GetEnumerator() |
 if ($onlySource.Count -gt 0)
 {
     Write-Host "`nONLY SOURCE (primeros 20):"
-    $onlySource | ForEach-Object { $sourceSymbols[$_].Name } | Select-Object -First 20
+    $onlySource | Sort-Object | Select-Object -First 20
 }
 if ($onlyArchive.Count -gt 0)
 {
     Write-Host "`nONLY ARCHIVE (primeros 20):"
-    $onlyArchive | ForEach-Object { $archiveSymbols[$_].Name } | Select-Object -First 20
+    $onlyArchive | Sort-Object | Select-Object -First 20
 }
+
+$probe = Get-BinaryAlignmentProbe -SourcePath $sourceBin.FullName -ArchivePath $archiveBin.FullName
+Write-Host "`n=== BINARY ALIGNMENT PROBE ==="
+Write-Host ("FIRST_DIFF_OFFSET={0}" -f $probe.FirstDiff)
+Write-Host ("BEST_LOCAL_SHIFT={0}" -f $probe.BestShift)
+Write-Host ("BEST_LOCAL_MATCHES={0}/{1}" -f $probe.Matches, $probe.Compared)
 
 Write-Host "`n=== SIZE REPORTADO ==="
 Select-String -LiteralPath $sourceLog,$archiveLog -Pattern "Sketch uses|Global variables use|Using precompiled library.*JWPLC_Display" |
