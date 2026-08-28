@@ -134,6 +134,7 @@ namespace JWPLCIdleScreen
     static void drawStatusItemStatic(uint8_t idx, const char *label);
     static void fillStatusItemState(uint8_t idx, bool on, uint16_t onColor);
     static void fillStatusItemState(uint8_t idx, StatusLedState state);
+    static void fillStatusItemError(uint8_t idx, bool on, const char *code);
     static void fillStatusItemDiagnostic(uint8_t idx, StatusLedState state, const char *code);
     static void drawIoCellStatic(uint8_t index, bool isInput);
     static void fillIoCellState(uint8_t index, bool isInput, bool active);
@@ -216,6 +217,48 @@ namespace JWPLCIdleScreen
         }
 
         tft->fillRect(STATUS_BOX_X + 1, y_label + 2, STATUS_BOX_W - 2, STATUS_BOX_H - 2, color);
+    }
+
+    static void fillStatusItemError(uint8_t idx, bool on, const char *code)
+    {
+        if (!tft)
+            return;
+
+        const int y_label = STATUS_Y0 + idx * STATUS_STEP_Y;
+        const uint16_t fillColor = on ? C_ERR_RED : C_BG;
+
+        tft->fillRect(
+            STATUS_BOX_X + 1,
+            y_label + 2,
+            STATUS_BOX_W - 2,
+            STATUS_BOX_H - 2,
+            fillColor);
+
+        // setErrLed(true) legacy: rojo simple, sin texto.
+        if (!on || code == nullptr || code[0] == '\0')
+            return;
+
+        char safeCode[5] = {'\0', '\0', '\0', '\0', '\0'};
+        uint8_t length = 0;
+
+        while (length < 4 && code[length] != '\0')
+        {
+            safeCode[length] = code[length];
+            ++length;
+        }
+
+        safeCode[length] = '\0';
+
+        tft->setTextSize(1);
+        tft->setTextColor(C_TEXT, C_ERR_RED);
+
+        // Fuente base Adafruit_GFX: ~6 px por carácter.
+        const int textWidth = length * 6;
+        const int textX =
+            STATUS_BOX_X + ((STATUS_BOX_W - textWidth) / 2);
+
+        tft->setCursor(textX, y_label + 3);
+        tft->print(safeCode);
     }
 
     static void fillStatusItemDiagnostic(uint8_t idx, StatusLedState state, const char *code)
@@ -417,8 +460,18 @@ namespace JWPLCIdleScreen
         if (g_forceFullRedraw || g_panel.run != g_lastPanel.run)
             fillStatusItemState(1, g_panel.run, C_OK_GREEN);
 
-        if (g_forceFullRedraw || g_panel.err != g_lastPanel.err)
-            fillStatusItemState(2, g_panel.err, C_ERR_RED);
+        const bool errChanged =
+            g_forceFullRedraw ||
+            g_panel.err != g_lastPanel.err ||
+            strncmp(g_panel.errCode, g_lastPanel.errCode, 5) != 0;
+
+        if (errChanged)
+        {
+            fillStatusItemError(
+                2,
+                g_panel.err,
+                g_panel.errCode);
+        }
 
         const bool busChanged =
             g_forceFullRedraw ||

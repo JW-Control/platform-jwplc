@@ -39,7 +39,12 @@ static bool g_waitButtonReleaseBeforeWake = false;
 static bool g_userRefreshForced = false;
 
 static bool g_runLed = true;
+
+// ERR pertenece exclusivamente a la aplicación.
+// Código vacío = sin código visible.
 static bool g_errLed = false;
+static char g_errCode[5] = {'\0', '\0', '\0', '\0', '\0'};
+
 static JWPLCIdleScreen::StatusLedState g_busLedState = JWPLCIdleScreen::STATUS_LED_DISABLED;
 static char g_busDiagnosticCode[4] = "---";
 static bool g_busLedAuto = true;
@@ -112,6 +117,69 @@ static bool setDiagnosticCode(char destination[4], const char *source)
     }
 
     memcpy(destination, next, 4);
+    return true;
+}
+
+static bool normalizeApplicationErrCode(
+    const char *source,
+    char destination[5],
+    bool &hasError)
+{
+    destination[0] = '\0';
+    hasError = false;
+
+    // nullptr y cadena vacía significan "sin error".
+    if (source == nullptr || source[0] == '\0')
+    {
+        return true;
+    }
+
+    const size_t length = strlen(source);
+
+    if (length > 4)
+    {
+        return false;
+    }
+
+    bool onlyZeros = true;
+
+    for (size_t i = 0; i < length; i++)
+    {
+        char c = source[i];
+
+        if (c >= 'a' && c <= 'z')
+        {
+            c = (char)(c - 'a' + 'A');
+        }
+
+        const bool valid =
+            (c >= 'A' && c <= 'Z') ||
+            (c >= '0' && c <= '9');
+
+        if (!valid)
+        {
+            return false;
+        }
+
+        if (c != '0')
+        {
+            onlyZeros = false;
+        }
+
+        destination[i] = c;
+    }
+
+    destination[length] = '\0';
+
+    // "0", "00", "000" y "0000" equivalen a OK / sin error.
+    if (onlyZeros)
+    {
+        destination[0] = '\0';
+        hasError = false;
+        return true;
+    }
+
+    hasError = true;
     return true;
 }
 
@@ -599,9 +667,11 @@ namespace JWPLCDisplay
 
     void setErrLed(bool state)
     {
-        // ERR queda reservado al programa/aplicación. Ningún diagnóstico
-        // automático de BUS o ETH escribe g_errLed.
+        // API histórica conservada por compatibilidad.
+        // El modo manual no muestra código alfanumérico.
         g_errLed = state;
+        memset(g_errCode, 0, sizeof(g_errCode));
+
         if (g_displayMode == DISPLAY_MODE_IDLE)
             jwplcSystemForceDisplayRefresh();
     }
@@ -611,6 +681,34 @@ namespace JWPLCDisplay
         return g_errLed;
     }
 
+    bool setErrCode(const char *code)
+    {
+        char normalized[5] = {'\0', '\0', '\0', '\0', '\0'};
+        bool hasError = false;
+
+        if (!normalizeApplicationErrCode(code, normalized, hasError))
+        {
+            // Código inválido: conservar diagnóstico anterior.
+            return false;
+        }
+
+        g_errLed = hasError;
+
+        if (hasError)
+            memcpy(g_errCode, normalized, sizeof(g_errCode));
+        else
+            memset(g_errCode, 0, sizeof(g_errCode));
+
+        if (g_displayMode == DISPLAY_MODE_IDLE)
+            jwplcSystemForceDisplayRefresh();
+
+        return true;
+    }
+
+    const char *errCode()
+    {
+        return g_errCode;
+    }
     void setBusLed(bool state)
     {
         g_busLedAuto = false;
@@ -786,6 +884,8 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC
         panel.pwr = true;
         panel.run = g_runLed;
         panel.err = g_errLed;
+        memcpy(panel.errCode, g_errCode, sizeof(panel.errCode));
+
         panel.bus = g_busLedState;
         panel.eth = g_ethLedState;
         memcpy(panel.busCode, g_busDiagnosticCode, sizeof(panel.busCode));
@@ -853,7 +953,8 @@ void JWPLC_DisplayClass::setRunLed(bool state) { JWPLCDisplay::setRunLed(state);
 bool JWPLC_DisplayClass::runLed() const { return JWPLCDisplay::runLed(); }
 void JWPLC_DisplayClass::setErrLed(bool state) { JWPLCDisplay::setErrLed(state); }
 bool JWPLC_DisplayClass::errLed() const { return JWPLCDisplay::errLed(); }
-void JWPLC_DisplayClass::setBusLed(bool state) { JWPLCDisplay::setBusLed(state); }
+bool JWPLC_DisplayClass::setErrCode(const char *code) { return JWPLCDisplay::setErrCode(code); }
+const char *JWPLC_DisplayClass::errCode() const { return JWPLCDisplay::errCode(); }void JWPLC_DisplayClass::setBusLed(bool state) { JWPLCDisplay::setBusLed(state); }
 bool JWPLC_DisplayClass::busLed() const { return JWPLCDisplay::busLed(); }
 void JWPLC_DisplayClass::setBusLedAuto(bool enabled) { JWPLCDisplay::setBusLedAuto(enabled); }
 bool JWPLC_DisplayClass::busLedAuto() const { return JWPLCDisplay::busLedAuto(); }
