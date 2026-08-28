@@ -24,8 +24,14 @@ namespace JWPLCIdleScreen
         bool pwr = true;
         bool run = true;
         bool err = false;
+
+        // Código ERR de aplicación. Cadena vacía = sin código visible.
+        char errCode[5] = {'\0', '\0', '\0', '\0', '\0'};
+
         StatusLedState bus = STATUS_LED_DISABLED;
         StatusLedState eth = STATUS_LED_DISABLED;
+        char busCode[4] = {'-', '-', '-', '\0'};
+        char ethCode[4] = {'-', '-', '-', '\0'};
     };
 
     void begin(Adafruit_ST7789 *display);

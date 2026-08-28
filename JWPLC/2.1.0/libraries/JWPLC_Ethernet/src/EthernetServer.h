@@ -1,3 +1,3 @@
 // This file is in the public domain.  No copyright is claimed.
 
-#include "Ethernet.h"
+#include "JWPLC_W5x00_Ethernet.h"
