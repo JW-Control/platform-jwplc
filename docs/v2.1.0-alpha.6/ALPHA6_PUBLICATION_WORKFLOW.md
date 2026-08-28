@@ -4,10 +4,24 @@
 
 Publicar Alpha6 usando los workflows existentes del repositorio y evitar pasos manuales que ya están automatizados.
 
+La línea publicable es la integración corregida:
+
+```text
+v2.1.0-alpha.6/integration/rebase-alpha5-final
+```
+
+basada en:
+
+```text
+release/v2.1.x @ 64068556
+```
+
+El PR de la línea Alpha6 antigua no debe mergearse sin reconciliarse con esta rama corregida.
+
 ## Flujo esperado
 
 ```text
-feature Alpha6
+Alpha6 corregida
     -> PR a release/v2.1.x
     -> CI
     -> merge
@@ -21,6 +35,19 @@ feature Alpha6
     -> PR automático a main
     -> merge PR de índices
     -> validación Boards Manager
+```
+
+## Gate previo al PR/merge
+
+La publicación sólo continúa con estos marcadores cerrados:
+
+```text
+ALPHA6_BASE_CORRECTION=COMPLETE
+ALPHA6_TECHNICAL_VALIDATION=PASS
+ALPHA6_DISPLAY_FINAL_ARCHIVE=PASS
+ALPHA6_INTEGRATED_FINAL_PRODUCTION_COLD=PASS
+ALPHA6_BUILD_SPEED=PASS
+ALPHA6_COLD_REGRESSION=ACCEPTED_KNOWN_COST
 ```
 
 ## Trigger automático
@@ -58,8 +85,6 @@ El auto workflow despacha:
 ```text
 .github/workflows/release-jwplc-package.yml
 ```
-
-con los parámetros de publicación automática.
 
 Ese workflow:
 
