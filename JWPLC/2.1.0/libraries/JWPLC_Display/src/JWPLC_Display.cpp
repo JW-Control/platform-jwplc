@@ -39,8 +39,14 @@ static bool g_waitButtonReleaseBeforeWake = false;
 static bool g_userRefreshForced = false;
 
 static bool g_runLed = true;
+
+// ERR pertenece exclusivamente a la aplicación.
+// Código vacío = sin código visible.
 static bool g_errLed = false;
+static char g_errCode[5] = {'\0', '\0', '\0', '\0', '\0'};
+
 static JWPLCIdleScreen::StatusLedState g_busLedState = JWPLCIdleScreen::STATUS_LED_DISABLED;
+static char g_busDiagnosticCode[4] = "---";
 static bool g_busLedAuto = true;
 static uint32_t g_lastBusLedAutoUpdateMs = 0;
 static constexpr uint32_t BUS_LED_ACTIVE_HOLD_MS = 800;
@@ -48,6 +54,7 @@ static constexpr uint32_t BUS_LED_AUTO_PERIOD_MS = 100;
 
 static bool g_ethLedAuto = true;
 static JWPLCIdleScreen::StatusLedState g_ethLedState = JWPLCIdleScreen::STATUS_LED_OFF;
+static char g_ethDiagnosticCode[4] = "---";
 static uint32_t g_lastEthLedAutoUpdateMs = 0;
 static constexpr uint32_t ETH_LED_AUTO_PERIOD_MS = 500;
 
@@ -90,6 +97,90 @@ static void releaseTFTBus()
 static void resetDisplayState()
 {
     g_lastActivityMs = millis();
+}
+
+static bool setDiagnosticCode(char destination[4], const char *source)
+{
+    char next[4] = {'-', '-', '-', '\0'};
+
+    if (source != nullptr)
+    {
+        for (uint8_t i = 0; i < 3 && source[i] != '\0'; i++)
+        {
+            next[i] = source[i];
+        }
+    }
+
+    if (strncmp(destination, next, 4) == 0)
+    {
+        return false;
+    }
+
+    memcpy(destination, next, 4);
+    return true;
+}
+
+static bool normalizeApplicationErrCode(
+    const char *source,
+    char destination[5],
+    bool &hasError)
+{
+    destination[0] = '\0';
+    hasError = false;
+
+    // nullptr y cadena vacía significan "sin error".
+    if (source == nullptr || source[0] == '\0')
+    {
+        return true;
+    }
+
+    const size_t length = strlen(source);
+
+    if (length > 4)
+    {
+        return false;
+    }
+
+    bool onlyZeros = true;
+
+    for (size_t i = 0; i < length; i++)
+    {
+        char c = source[i];
+
+        if (c >= 'a' && c <= 'z')
+        {
+            c = (char)(c - 'a' + 'A');
+        }
+
+        const bool valid =
+            (c >= 'A' && c <= 'Z') ||
+            (c >= '0' && c <= '9');
+
+        if (!valid)
+        {
+            return false;
+        }
+
+        if (c != '0')
+        {
+            onlyZeros = false;
+        }
+
+        destination[i] = c;
+    }
+
+    destination[length] = '\0';
+
+    // "0", "00", "000" y "0000" equivalen a OK / sin error.
+    if (onlyZeros)
+    {
+        destination[0] = '\0';
+        hasError = false;
+        return true;
+    }
+
+    hasError = true;
+    return true;
 }
 
 extern "C" uint32_t jwplcDisplayDesiredPeriod_ms(void)
@@ -198,77 +289,123 @@ static void handleIdleWakeAndTimeout()
     }
 }
 
+static const char *computeAutomaticEthDiagnosticCode()
+{
+    return JWPLC_Ethernet.diagnosticCode();
+}
+
 static JWPLCIdleScreen::StatusLedState computeAutomaticEthLedState()
 {
-    if (!JWPLC_Ethernet.isEnabled())
+    const char *code = computeAutomaticEthDiagnosticCode();
+
+    if (strcmp(code, "DIS") == 0)
     {
         return JWPLCIdleScreen::STATUS_LED_DISABLED;
     }
 
-    if (!JWPLC_Ethernet.isBeginAttempted())
-    {
-        return JWPLCIdleScreen::STATUS_LED_OFF;
-    }
-
-    const char *status = JWPLC_Ethernet.statusString();
-
-    if (strcmp(status, "OK") == 0)
+    if (strcmp(code, "---") == 0)
     {
         return JWPLCIdleScreen::STATUS_LED_GREEN;
     }
 
-    if (strcmp(status, "Ethernet disabled") == 0)
-    {
-        return JWPLCIdleScreen::STATUS_LED_DISABLED;
-    }
-
-    if (strcmp(status, "Link OFF") == 0 ||
-        strcmp(status, "Not started") == 0)
+    if (strcmp(code, "INI") == 0 ||
+        strcmp(code, "PHY") == 0 ||
+        strcmp(code, "LNK") == 0)
     {
         return JWPLCIdleScreen::STATUS_LED_OFF;
     }
 
-    if (strcmp(status, "SPI lock timeout") == 0)
+    if (strcmp(code, "DHC") == 0)
     {
-        return g_ethLedState;
+        if (JWPLC_Ethernet.runtimeState() == JWPLC_ETH_STATE_ERROR ||
+            JWPLC_Ethernet.lastError() == JWPLC_ETH_DHCP_FAILED)
+        {
+            return JWPLCIdleScreen::STATUS_LED_RED;
+        }
+
+        // Durante renew/rebind el lease vigente sigue operativo.
+        if (JWPLC_Ethernet.isReady())
+        {
+            return JWPLCIdleScreen::STATUS_LED_GREEN;
+        }
+
+        return JWPLCIdleScreen::STATUS_LED_OFF;
     }
 
+    // HW, IP, SPI y cualquier código inesperado representan una causa que
+    // requiere atención en el indicador ETH, sin tocar ERR de aplicación.
     return JWPLCIdleScreen::STATUS_LED_RED;
 }
 
-static JWPLCIdleScreen::StatusLedState computeAutomaticBusLedState()
+static const char *computeAutomaticBusDiagnosticCode()
 {
     if (!JWPLC_RS485.isEnabled())
     {
-        return JWPLCIdleScreen::STATUS_LED_DISABLED;
+        return "DIS";
     }
 
     if (!JWPLC_RS485.isReady())
     {
-        JWPLCRS485Error rs485Error = JWPLC_RS485.lastError();
-
-        if (rs485Error == JWPLC_RS485_INVALID_SERIAL ||
-            rs485Error == JWPLC_RS485_UNKNOWN_ERROR)
+        switch (JWPLC_RS485.lastError())
         {
-            return JWPLCIdleScreen::STATUS_LED_RED;
+        case JWPLC_RS485_DISABLED:
+            return "DIS";
+        case JWPLC_RS485_INVALID_SERIAL:
+        case JWPLC_RS485_UNKNOWN_ERROR:
+            return "SER";
+        case JWPLC_RS485_OK:
+        case JWPLC_RS485_NOT_STARTED:
+        default:
+            return "INI";
         }
+    }
 
+    // Modbus es opcional. NOT_STARTED/DISABLED significan que RS-485 crudo
+    // puede estar perfectamente operativo, por lo que no se marcan como error.
+    switch (JWPLC_ModbusRTU.lastError())
+    {
+    case JWPLC_MODBUS_OK:
+    case JWPLC_MODBUS_DISABLED:
+    case JWPLC_MODBUS_NOT_STARTED:
+        return "---";
+    case JWPLC_MODBUS_INVALID_SLAVE_ID:
+        return "SID";
+    case JWPLC_MODBUS_INVALID_REGISTER_MAP:
+        return "MAP";
+    case JWPLC_MODBUS_TIMEOUT:
+        return "TMO";
+    case JWPLC_MODBUS_CRC_ERROR:
+        return "CRC";
+    case JWPLC_MODBUS_EXCEPTION:
+        return "EXC";
+    case JWPLC_MODBUS_INVALID_RESPONSE:
+        return "RSP";
+    case JWPLC_MODBUS_BUFFER_OVERFLOW:
+        return "OVF";
+    case JWPLC_MODBUS_UNSUPPORTED_FUNCTION:
+        return "FUN";
+    default:
+        return "SER";
+    }
+}
+
+static JWPLCIdleScreen::StatusLedState computeAutomaticBusLedState()
+{
+    const char *code = computeAutomaticBusDiagnosticCode();
+
+    if (strcmp(code, "DIS") == 0)
+    {
         return JWPLCIdleScreen::STATUS_LED_DISABLED;
     }
 
-    if (JWPLC_ModbusRTU.isReady())
+    if (strcmp(code, "INI") == 0)
     {
-        JWPLCModbusRTUError modbusError = JWPLC_ModbusRTU.lastError();
+        return JWPLCIdleScreen::STATUS_LED_OFF;
+    }
 
-        switch (modbusError)
-        {
-        case JWPLC_MODBUS_OK:
-        case JWPLC_MODBUS_NOT_STARTED:
-            break;
-
-        default:
-            return JWPLCIdleScreen::STATUS_LED_RED;
-        }
+    if (strcmp(code, "---") != 0)
+    {
+        return JWPLCIdleScreen::STATUS_LED_RED;
     }
 
     if (JWPLC_RS485.hasRecentActivity(BUS_LED_ACTIVE_HOLD_MS))
@@ -296,8 +433,9 @@ static void updateAutomaticBusLed()
     g_lastBusLedAutoUpdateMs = now;
 
     JWPLCIdleScreen::StatusLedState newState = computeAutomaticBusLedState();
+    const bool codeChanged = setDiagnosticCode(g_busDiagnosticCode, computeAutomaticBusDiagnosticCode());
 
-    if (newState != g_busLedState)
+    if (newState != g_busLedState || codeChanged)
     {
         g_busLedState = newState;
 
@@ -316,8 +454,9 @@ extern "C" void jwplcRs485ActivityCallback(void)
     }
 
     JWPLCIdleScreen::StatusLedState newState = computeAutomaticBusLedState();
+    const bool codeChanged = setDiagnosticCode(g_busDiagnosticCode, computeAutomaticBusDiagnosticCode());
 
-    if (newState != g_busLedState)
+    if (newState != g_busLedState || codeChanged)
     {
         g_busLedState = newState;
     }
@@ -345,8 +484,9 @@ static void updateAutomaticEthLed()
     g_lastEthLedAutoUpdateMs = now;
 
     JWPLCIdleScreen::StatusLedState newState = computeAutomaticEthLedState();
+    const bool codeChanged = setDiagnosticCode(g_ethDiagnosticCode, computeAutomaticEthDiagnosticCode());
 
-    if (newState != g_ethLedState)
+    if (newState != g_ethLedState || codeChanged)
     {
         g_ethLedState = newState;
 
@@ -527,7 +667,11 @@ namespace JWPLCDisplay
 
     void setErrLed(bool state)
     {
+        // API histórica conservada por compatibilidad.
+        // El modo manual no muestra código alfanumérico.
         g_errLed = state;
+        memset(g_errCode, 0, sizeof(g_errCode));
+
         if (g_displayMode == DISPLAY_MODE_IDLE)
             jwplcSystemForceDisplayRefresh();
     }
@@ -537,11 +681,40 @@ namespace JWPLCDisplay
         return g_errLed;
     }
 
+    bool setErrCode(const char *code)
+    {
+        char normalized[5] = {'\0', '\0', '\0', '\0', '\0'};
+        bool hasError = false;
+
+        if (!normalizeApplicationErrCode(code, normalized, hasError))
+        {
+            // Código inválido: conservar diagnóstico anterior.
+            return false;
+        }
+
+        g_errLed = hasError;
+
+        if (hasError)
+            memcpy(g_errCode, normalized, sizeof(g_errCode));
+        else
+            memset(g_errCode, 0, sizeof(g_errCode));
+
+        if (g_displayMode == DISPLAY_MODE_IDLE)
+            jwplcSystemForceDisplayRefresh();
+
+        return true;
+    }
+
+    const char *errCode()
+    {
+        return g_errCode;
+    }
     void setBusLed(bool state)
     {
         g_busLedAuto = false;
         g_busLedState = state ? JWPLCIdleScreen::STATUS_LED_GREEN
                               : JWPLCIdleScreen::STATUS_LED_OFF;
+        setDiagnosticCode(g_busDiagnosticCode, "---");
 
         if (g_displayMode == DISPLAY_MODE_IDLE)
         {
@@ -562,6 +735,11 @@ namespace JWPLCDisplay
         if (enabled)
         {
             g_busLedState = computeAutomaticBusLedState();
+            setDiagnosticCode(g_busDiagnosticCode, computeAutomaticBusDiagnosticCode());
+        }
+        else
+        {
+            setDiagnosticCode(g_busDiagnosticCode, "---");
         }
 
         if (g_displayMode == DISPLAY_MODE_IDLE)
@@ -579,6 +757,7 @@ namespace JWPLCDisplay
     {
         g_ethLedAuto = false;
         g_ethLedState = state ? JWPLCIdleScreen::STATUS_LED_GREEN : JWPLCIdleScreen::STATUS_LED_OFF;
+        setDiagnosticCode(g_ethDiagnosticCode, "---");
 
         if (g_displayMode == DISPLAY_MODE_IDLE)
         {
@@ -599,6 +778,11 @@ namespace JWPLCDisplay
         if (enabled)
         {
             g_ethLedState = computeAutomaticEthLedState();
+            setDiagnosticCode(g_ethDiagnosticCode, computeAutomaticEthDiagnosticCode());
+        }
+        else
+        {
+            setDiagnosticCode(g_ethDiagnosticCode, "---");
         }
 
         if (g_displayMode == DISPLAY_MODE_IDLE)
@@ -656,11 +840,13 @@ extern "C" bool jwplcDisplayBeginCallback(void)
     if (g_busLedAuto)
     {
         g_busLedState = computeAutomaticBusLedState();
+        setDiagnosticCode(g_busDiagnosticCode, computeAutomaticBusDiagnosticCode());
     }
 
     if (g_ethLedAuto)
     {
         g_ethLedState = computeAutomaticEthLedState();
+        setDiagnosticCode(g_ethDiagnosticCode, computeAutomaticEthDiagnosticCode());
     }
 
     g_lastBusLedAutoUpdateMs = 0;
@@ -706,8 +892,12 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC
         panel.pwr = true;
         panel.run = g_runLed;
         panel.err = g_errLed;
+        memcpy(panel.errCode, g_errCode, sizeof(panel.errCode));
+
         panel.bus = g_busLedState;
         panel.eth = g_ethLedState;
+        memcpy(panel.busCode, g_busDiagnosticCode, sizeof(panel.busCode));
+        memcpy(panel.ethCode, g_ethDiagnosticCode, sizeof(panel.ethCode));
 
         JWPLCIdleScreen::setStatusPanel(panel);
         JWPLCIdleScreen::draw(io, rtc);
@@ -771,7 +961,8 @@ void JWPLC_DisplayClass::setRunLed(bool state) { JWPLCDisplay::setRunLed(state);
 bool JWPLC_DisplayClass::runLed() const { return JWPLCDisplay::runLed(); }
 void JWPLC_DisplayClass::setErrLed(bool state) { JWPLCDisplay::setErrLed(state); }
 bool JWPLC_DisplayClass::errLed() const { return JWPLCDisplay::errLed(); }
-void JWPLC_DisplayClass::setBusLed(bool state) { JWPLCDisplay::setBusLed(state); }
+bool JWPLC_DisplayClass::setErrCode(const char *code) { return JWPLCDisplay::setErrCode(code); }
+const char *JWPLC_DisplayClass::errCode() const { return JWPLCDisplay::errCode(); }void JWPLC_DisplayClass::setBusLed(bool state) { JWPLCDisplay::setBusLed(state); }
 bool JWPLC_DisplayClass::busLed() const { return JWPLCDisplay::busLed(); }
 void JWPLC_DisplayClass::setBusLedAuto(bool enabled) { JWPLCDisplay::setBusLedAuto(enabled); }
 bool JWPLC_DisplayClass::busLedAuto() const { return JWPLCDisplay::busLedAuto(); }

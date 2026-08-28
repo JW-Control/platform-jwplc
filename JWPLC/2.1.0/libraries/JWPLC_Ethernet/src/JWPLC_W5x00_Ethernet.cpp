@@ -19,16 +19,16 @@
  */
 
 #include <Arduino.h>
-#include "Ethernet.h"
+#include "JWPLC_W5x00_Ethernet.h"
 #include "utility/w5100.h"
 #include "Dhcp.h"
 
 IPAddress EthernetClass::_dnsServerAddress;
 DhcpClass* EthernetClass::_dhcp = NULL;
+static DhcpClass s_dhcp;
 
 int EthernetClass::begin(uint8_t *mac, unsigned long timeout, unsigned long responseTimeout)
 {
-	static DhcpClass s_dhcp;
 	_dhcp = &s_dhcp;
 
 	// Initialise the basic info
@@ -52,6 +52,42 @@ int EthernetClass::begin(uint8_t *mac, unsigned long timeout, unsigned long resp
 		socketPortRand(micros());
 	}
 	return ret;
+}
+
+int EthernetClass::beginDHCPAsync(uint8_t *mac, unsigned long timeout, unsigned long responseTimeout)
+{
+	_dhcp = &s_dhcp;
+
+	if (W5100.init() == 0) return -1;
+
+	SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
+	W5100.setMACAddress(mac);
+	W5100.setIPAddress(IPAddress(0,0,0,0).raw_address());
+	SPI.endTransaction();
+
+	return _dhcp->beginWithDHCPAsync(mac, timeout, responseTimeout);
+}
+
+int EthernetClass::pollDHCP()
+{
+	if (_dhcp == NULL) return -1;
+
+	int ret = _dhcp->pollDHCP();
+	if (ret == 1) {
+		SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
+		W5100.setIPAddress(_dhcp->getLocalIp().raw_address());
+		W5100.setGatewayIp(_dhcp->getGatewayIp().raw_address());
+		W5100.setSubnetMask(_dhcp->getSubnetMask().raw_address());
+		SPI.endTransaction();
+		_dnsServerAddress = _dhcp->getDnsServerIp();
+		socketPortRand(micros());
+	}
+	return ret;
+}
+
+bool EthernetClass::dhcpInProgress()
+{
+	return (_dhcp != NULL) && _dhcp->dhcpInProgress();
 }
 
 void EthernetClass::begin(uint8_t *mac, IPAddress ip)

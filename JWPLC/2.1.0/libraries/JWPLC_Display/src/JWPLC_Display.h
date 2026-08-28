@@ -70,6 +70,8 @@ namespace JWPLCDisplay
     void setErrLed(bool state);
     bool errLed();
 
+    bool setErrCode(const char *code);
+    const char *errCode();
     void setBusLed(bool state);
     bool busLed();
 

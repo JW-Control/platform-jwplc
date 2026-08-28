@@ -77,6 +77,18 @@ public:
     void setErrLed(bool state);
     bool errLed() const;
 
+    // Código ERR definido por la aplicación.
+    //
+    // Formato:
+    //   - 1..4 caracteres A-Z / 0-9.
+    //   - minúsculas se normalizan a mayúsculas.
+    //   - vacío, nullptr o sólo ceros significan "sin error".
+    //   - una entrada inválida conserva el estado anterior.
+    //
+    // setErrLed(bool) se conserva por compatibilidad; para código nuevo
+    // se recomienda setErrCode().
+    bool setErrCode(const char *code);
+    const char *errCode() const;
     void setBusLed(bool state);
     bool busLed() const;
 
