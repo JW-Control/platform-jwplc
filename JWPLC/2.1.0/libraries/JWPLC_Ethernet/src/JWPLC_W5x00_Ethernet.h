@@ -96,6 +96,13 @@ public:
 	static int maintainAsync();
 	static bool dhcpMaintenanceInProgress();
 
+#ifdef JWPLC_ETHERNET_ENABLE_TEST_HOOKS
+	// Hooks exclusivos de validacion Alpha6. No existen en builds normales.
+	static bool testSetDhcpLeaseTimers(uint32_t renewInSec, uint32_t rebindInSec);
+	static bool testGetDhcpLeaseTimers(uint32_t &renewInSec, uint32_t &rebindInSec);
+	static uint8_t testDhcpLeaseMaintenanceMode();
+#endif
+
 	static int maintain();
 	static EthernetLinkStatus linkStatus();
 	static EthernetHardwareStatus hardwareStatus();
@@ -144,7 +151,7 @@ private:
 	static int socketRecv(uint8_t s, uint8_t * buf, int16_t len);
 	static uint16_t socketRecvAvailable(uint8_t s);
 	static uint8_t socketPeek(uint8_t s);
-	// sets up a UDP datagram, the data for which will be provided by one
+	// sets up a UDP datagram, the data for which will be provided in one
 	// or more calls to bufferData and then finally sent with sendUDP.
 	// return true if the datagram was successfully set up, or false if there was an error
 	static bool socketStartUDP(uint8_t s, uint8_t* addr, uint16_t port);
@@ -168,8 +175,8 @@ extern EthernetClass Ethernet;
 class EthernetUDP : public UDP {
 private:
 	uint16_t _port; // local port to listen on
-	IPAddress _remoteIP; // remote IP address for the incoming packet whilst it's being processed
-	uint16_t _remotePort; // remote port of the incoming packet whilst it's being processed
+	IPAddress _remoteIP; // remote IP address for the incoming packet whilst parsing
+	uint16_t _remotePort; // remote port of the incoming packet whilst parsing
 	uint16_t _offset; // offset into the packet being sent
 
 protected:
@@ -180,7 +187,7 @@ public:
 	EthernetUDP() : sockindex(MAX_SOCK_NUM) {}  // Constructor
 	virtual uint8_t begin(uint16_t);      // initialize, start listening on specified port. Returns 1 if successful, 0 if there are no sockets available to use
 	virtual uint8_t beginMulticast(IPAddress, uint16_t);  // initialize, start listening on specified port. Returns 1 if successful, 0 if there are no sockets available to use
-	virtual void stop();  // Finish with the UDP socket
+	virtual void stop();  // Finish with this UDP socket
 
 	// Sending UDP packets
 	virtual int beginPacket(IPAddress ip, uint16_t port);
@@ -346,6 +353,12 @@ public:
 	{
 		return _leaseMaintenanceMode != LEASE_MAINT_NONE;
 	}
+
+#ifdef JWPLC_ETHERNET_ENABLE_TEST_HOOKS
+	bool testSetLeaseTimers(uint32_t renewInSec, uint32_t rebindInSec);
+	void testGetLeaseTimers(uint32_t &renewInSec, uint32_t &rebindInSec) const;
+	uint8_t testLeaseMaintenanceMode() const { return _leaseMaintenanceMode; }
+#endif
 
 	int checkLease();
 };
