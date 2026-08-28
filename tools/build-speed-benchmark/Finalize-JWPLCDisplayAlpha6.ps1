@@ -14,13 +14,14 @@ $PropertiesPath = Join-Path $LibraryRoot "library.properties"
 $ArchivePath = Join-Path $LibraryRoot "src\esp32\libJWPLC_Display.a"
 $SketchPath = Join-Path $ScriptRoot "sketches\17_alpha6_err_code_visual"
 $RunId = (Get-Date).ToString("yyyyMMdd_HHmmss")
-$RunRoot = Join-Path $ScriptRoot ("results\alpha6-display-final-" + $RunId)
+$RunRoot = Join-Path $ScriptRoot ("results\alpha6-display-final-integrated-" + $RunId)
 $SourceBuild = Join-Path $RunRoot "source"
 $ArchiveBuild = Join-Path $RunRoot "archive"
 $ExtractDir = Join-Path $RunRoot "archive-members"
 $SourceLog = Join-Path $RunRoot "source.log"
 $ArchiveLog = Join-Path $RunRoot "archive.log"
 $BackupArchive = Join-Path ([System.IO.Path]::GetTempPath()) ("jwplc-display-old-" + $RunId + ".a")
+$Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 
 function Invoke-Captured
 {
@@ -82,7 +83,7 @@ function Resolve-Archiver
         }
     }
 
-    throw "No se pudo localizar xtensa-esp32-elf-gcc-ar desde el build fuente."
+    throw "No se pudo localizar xtensa-esp32-elf-gcc-ar desde el build source."
 }
 
 function Get-OneFile
@@ -171,12 +172,35 @@ function Get-RamUsage
     throw "No se pudo leer uso de RAM desde la salida Arduino CLI."
 }
 
+function Get-ArchivePropertiesText
+{
+    param([string]$SourceText, [string]$LineEnding)
+
+    $withoutPrecompiled = [regex]::Replace(
+        $SourceText,
+        '(?m)^precompiled=full\s*\r?\n?',
+        '')
+
+    $ldflagsRegex = [regex]'(?m)^ldflags='
+    if ($ldflagsRegex.IsMatch($withoutPrecompiled))
+    {
+        return $ldflagsRegex.Replace(
+            $withoutPrecompiled,
+            ("precompiled=full" + $LineEnding + "ldflags="),
+            1)
+    }
+
+    $suffix = if ($withoutPrecompiled.EndsWith($LineEnding)) { "" } else { $LineEnding }
+    return $withoutPrecompiled + $suffix + "precompiled=full" + $LineEnding
+}
+
 Set-Location $RepoRoot
 
 $branch = (git branch --show-current).Trim()
-if ($branch -ne "v2.1.0-alpha.6/feature/ethernet-nonblocking-runtime")
+$expectedBranch = "v2.1.0-alpha.6/integration/rebase-alpha5-final"
+if ($branch -ne $expectedBranch)
 {
-    throw "Branch incorrecto: $branch"
+    throw "Branch incorrecto: $branch. Esperado: $expectedBranch"
 }
 
 if (@(git status --porcelain).Count -ne 0)
@@ -191,10 +215,12 @@ if (-not (Test-Path -LiteralPath $SketchPath)) { throw "Falta sketch 17: $Sketch
 
 $originalPropertiesBytes = [System.IO.File]::ReadAllBytes($PropertiesPath)
 $originalPropertiesText = [System.Text.Encoding]::UTF8.GetString($originalPropertiesBytes)
-if ($originalPropertiesText -notmatch '(?m)^precompiled=full\s*$')
-{
-    throw "JWPLC_Display no declara precompiled=full."
-}
+$lineEnding = if ($originalPropertiesText.Contains("`r`n")) { "`r`n" } else { "`n" }
+$sourcePropertiesText = [regex]::Replace(
+    $originalPropertiesText,
+    '(?m)^precompiled=full\s*\r?\n?',
+    '')
+$archivePropertiesText = Get-ArchivePropertiesText -SourceText $sourcePropertiesText -LineEnding $lineEnding
 
 $hadOldArchive = Test-Path -LiteralPath $ArchivePath
 if ($hadOldArchive)
@@ -209,16 +235,13 @@ New-Item -ItemType Directory -Path $ExtractDir -Force | Out-Null
 $success = $false
 try
 {
-    Write-Host "=== ALPHA6 - FINALIZAR JWPLC_Display PRECOMPILADO ===" -ForegroundColor Cyan
+    Write-Host "=== ALPHA6 - FINALIZAR JWPLC_Display SOBRE ALPHA5 FINAL ===" -ForegroundColor Cyan
     Write-Host "Branch : $branch"
     Write-Host ("HEAD   : {0}" -f ((git rev-parse --short=8 HEAD).Trim()))
+    Write-Host ("Inicio : {0}" -f $(if ($originalPropertiesText -match '(?m)^precompiled=full\s*$') { "precompiled" } else { "source fallback" }))
 
-    # 1) Fuente real: retirar temporalmente precompiled=full y el archive anterior.
-    $sourcePropertiesText = [regex]::Replace(
-        $originalPropertiesText,
-        '(?m)^precompiled=full\s*\r?\n?',
-        '')
-    [System.IO.File]::WriteAllText($PropertiesPath, $sourcePropertiesText, (New-Object System.Text.UTF8Encoding($false)))
+    # 1) Build source real. La rama integrada puede partir del fallback source de Alpha5.
+    [System.IO.File]::WriteAllText($PropertiesPath, $sourcePropertiesText, $Utf8NoBom)
     if (Test-Path -LiteralPath $ArchivePath) { Remove-Item -LiteralPath $ArchivePath -Force }
 
     Write-Host "[1/4] Cold compile desde source..." -ForegroundColor Cyan
@@ -235,15 +258,14 @@ try
         if (-not (Test-Path -LiteralPath $obj)) { throw "Falta objeto Display compilado desde source: $obj" }
     }
     $sourceDisplayCompiles = $sourceObjects.Count
+    if ($sourceDisplayCompiles -ne 2) { throw "Se esperaban exactamente 2 objetos source de Display." }
     Write-Host ("Source Display objects: {0}/2" -f $sourceDisplayCompiles) -ForegroundColor Green
 
-    # 2) Crear archive con exactamente los objetos acabados de compilar y comprobar
-    # que los miembros extraidos son byte-identicos a los .o fuente.
+    # 2) Crear el archive exclusivamente con los dos objetos recien compilados.
     $archiver = Resolve-Archiver -Lines $sourceResult.Output
-    [System.IO.File]::WriteAllBytes($PropertiesPath, $originalPropertiesBytes)
     New-Item -ItemType Directory -Path (Split-Path -Parent $ArchivePath) -Force | Out-Null
 
-    Write-Host "[2/4] Generando y verificando libJWPLC_Display.a final..." -ForegroundColor Cyan
+    Write-Host "[2/4] Generando y verificando libJWPLC_Display.a..." -ForegroundColor Cyan
     $arResult = Invoke-Captured -FilePath $archiver -Arguments @("crs", $ArchivePath, $displayObj, $idleObj)
     if ($arResult.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $ArchivePath))
     {
@@ -269,14 +291,16 @@ try
         if (-not (Test-Path -LiteralPath $archiveObject)) { throw "Falta miembro extraido: $archiveObject" }
         $sourceHash = (Get-FileHash -LiteralPath $sourceObject -Algorithm SHA256).Hash
         $archiveHash = (Get-FileHash -LiteralPath $archiveObject -Algorithm SHA256).Hash
-        if ($sourceHash -ne $archiveHash) { throw "Miembro $name no coincide con el objeto fuente." }
+        if ($sourceHash -ne $archiveHash) { throw "Miembro $name no coincide con el objeto source." }
     }
     $archiveMembersEquivalent = $true
-
     $archiveFile = Get-Item -LiteralPath $ArchivePath
     $archiveSha = (Get-FileHash -LiteralPath $ArchivePath -Algorithm SHA256).Hash.ToLowerInvariant()
 
-    # 3) Cold compile normal usando precompiled=full.
+    # Activar precompiled=full solo despues de construir/verificar el archive.
+    [System.IO.File]::WriteAllText($PropertiesPath, $archivePropertiesText, $Utf8NoBom)
+
+    # 3) Cold compile normal con el archive final.
     Write-Host "[3/4] Cold compile usando archive final..." -ForegroundColor Cyan
     $archiveArgs = @("compile", "-b", $Fqbn, "-v", "--clean", "--build-path", $ArchiveBuild, $SketchPath)
     $archiveResult = Invoke-Captured -FilePath $ArduinoCli -Arguments $archiveArgs
@@ -304,10 +328,8 @@ try
         throw "El build archive no reporto uso de JWPLC_Display precompilado."
     }
 
-    # 4) Paridad estructural. Un archive puede cambiar el orden interno de enlace y
-    # por tanto las direcciones/bytes finales. Aceptamos solo diferencias de padding
-    # del linker: mismos miembros .o, mismo conjunto de simbolos, mismo RAM y ninguna
-    # seccion runtime distinta salvo .flash.rodata por exactamente el delta de *fill*.
+    # 4) Paridad estructural: mismos miembros, simbolos y RAM. Solo se admite
+    # padding del linker reflejado de forma consistente en .flash.rodata y APP.
     Write-Host "[4/4] Verificando paridad estructural source/archive..." -ForegroundColor Cyan
 
     $sourceMap = Get-OneFile -Dir $SourceBuild -Filter "*.ino.map"
@@ -412,11 +434,15 @@ try
 }
 finally
 {
-    [System.IO.File]::WriteAllBytes($PropertiesPath, $originalPropertiesBytes)
-
-    if (-not $success)
+    if ($success)
     {
-        Write-Host "Restaurando archive anterior por fallo..." -ForegroundColor Yellow
+        # En PASS se conserva la adopcion: archive final + precompiled=full.
+        [System.IO.File]::WriteAllText($PropertiesPath, $archivePropertiesText, $Utf8NoBom)
+    }
+    else
+    {
+        Write-Host "Restaurando estado anterior por fallo..." -ForegroundColor Yellow
+        [System.IO.File]::WriteAllBytes($PropertiesPath, $originalPropertiesBytes)
         if (Test-Path -LiteralPath $ArchivePath) { Remove-Item -LiteralPath $ArchivePath -Force }
         if ($hadOldArchive -and (Test-Path -LiteralPath $BackupArchive))
         {
