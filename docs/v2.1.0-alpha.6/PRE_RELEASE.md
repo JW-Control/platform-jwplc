@@ -2,13 +2,24 @@
 
 `v2.1.0-alpha.6` es una PreRelease técnica del package Arduino para JWPLC Basic.
 
-Esta versión consolida el runtime Ethernet/W5500 cooperativo, mejora la recuperación DHCP/link sin reset y amplía el diagnóstico visible en el IDLE mediante `BUS`, `ETH` y `ERR`, manteniendo todos los periféricos integrados y el rendimiento de compilación de Alpha5.
+Esta versión consolida el runtime Ethernet/W5500 cooperativo, mejora la recuperación DHCP/link sin reset y amplía el diagnóstico visible en el IDLE mediante `BUS`, `ETH` y `ERR`, manteniendo todos los periféricos integrados y preservando la arquitectura final de Alpha5.
+
+## Corrección de base antes de publicar
+
+Durante el cierre se detectó que la línea Alpha6 original no estaba construida sobre el cierre funcional definitivo de Alpha5. La publicación se detuvo, se creó un backup del estado validado y Alpha6 se integró nuevamente sobre:
+
+```text
+release/v2.1.x @ 64068556
+```
+
+Después de esa corrección se repitieron los gates afectados: build source, adopción/paridad de Display, cold de producción y benchmark Basic/Core.
 
 ## Cambios principales
 
 ### Ethernet y W5500
 
 - consolidación del backend W5500 dentro de `JWPLC_Ethernet`;
+- eliminación de la librería backend W5500 separada;
 - `JWPLC_Ethernet.service()` cooperativo;
 - DHCP inicial no bloqueante para el runtime;
 - mantenimiento T1 renew y T2 rebind;
@@ -28,22 +39,23 @@ Esta versión consolida el runtime Ethernet/W5500 cooperativo, mejora la recuper
 
 ### JWPLC_Display precompilado
 
-Se regenera el archive final de Display:
+Archive final regenerado sobre la base corregida:
 
 ```text
 libJWPLC_Display.a
-368202 bytes
-SHA256 a0094a9d9bf5c40bbd91a18514d97c488b2e8ba1ba6c18ec8161cb74445b416e
+368174 bytes
+SHA256 4da9143e5e80d8ad0890e25bda8802ecee489b2a8c452c3ef1be556cff9541a7
 ```
 
-La paridad source/archive se validó estructuralmente:
+La paridad source/archive quedó exacta:
 
 ```text
 mismos miembros .o
 mismo conjunto de símbolos
 misma RAM
+misma ocupación APP
+mismo binario de aplicación
 0 TUs Display recompiladas en modo precompiled
-delta de APP = delta de linker fill = 8 bytes
 ```
 
 ## Validación física
@@ -74,31 +86,49 @@ ALPHA6_DHCP_T1_T2=PASS
 ETH_ROUTER_LAPTOP_ROUTER_RECOVERY=PASS
 ALPHA6_PRODUCTION_BUILD_CLEAN=PASS
 DHCP_TEST_HOOKS_EXCLUDED=PASS
+ALPHA6_ALPHA5_SOURCE_FALLBACK_SMOKE=PASS
 ALPHA6_DISPLAY_FINAL_ARCHIVE=PASS
-ALPHA6_FINAL_PRODUCTION_COLD=PASS
+ALPHA6_INTEGRATED_FINAL_PRODUCTION_COLD=PASS
 ALPHA6_BUILD_SPEED=PASS
 ```
 
 ## Rendimiento de compilación
 
-Benchmark final sobre el mismo entorno de comparación usado para Alpha5:
+Benchmark final corregido:
+
+```text
+20260828_174534
+HEAD 379246c9
+```
 
 | Target | Fase | Alpha5 | Alpha6 | Cambio |
 |---|---|---:|---:|---:|
-| Basic | managed cold | 54.594 s | 54.912 s | +0.58 % |
-| Basic | managed warm | 24.804 s | 21.343 s | -13.95 % |
-| Basic | managed touch | 23.760 s | 21.264 s | -10.51 % |
-| Basic | explicit cold | 55.387 s | 54.241 s | -2.07 % |
-| Basic | explicit warm | 22.462 s | 20.618 s | -8.21 % |
-| Basic | explicit touch | 22.219 s | 20.525 s | -7.62 % |
-| Core | managed cold | 60.717 s | 61.708 s | +1.63 % |
-| Core | managed warm | 20.934 s | 20.990 s | +0.27 % |
-| Core | managed touch | 21.085 s | 20.957 s | -0.61 % |
-| Core | explicit cold | 58.617 s | 61.543 s | +4.99 % |
-| Core | explicit warm | 21.393 s | 20.462 s | -4.35 % |
-| Core | explicit touch | 21.221 s | 20.989 s | -1.09 % |
+| Basic | managed cold | 54.594 s | 60.683 s | +11.15 % |
+| Basic | managed warm | 24.804 s | 22.122 s | -10.81 % |
+| Basic | managed touch | 23.760 s | 22.922 s | -3.53 % |
+| Basic | explicit cold | 55.387 s | 60.369 s | +8.99 % |
+| Basic | explicit warm | 22.462 s | 21.774 s | -3.06 % |
+| Basic | explicit touch | 22.219 s | 21.813 s | -1.83 % |
+| Core | managed cold | 60.717 s | 68.545 s | +12.89 % |
+| Core | managed warm | 20.934 s | 20.803 s | -0.63 % |
+| Core | managed touch | 21.085 s | 20.589 s | -2.35 % |
+| Core | explicit cold | 58.617 s | 62.366 s | +6.40 % |
+| Core | explicit warm | 21.393 s | 20.065 s | -6.21 % |
+| Core | explicit touch | 21.221 s | 19.905 s | -6.20 % |
 
-Las recompilaciones warm mejoran de forma general y los cold permanecen en el mismo orden de magnitud.
+Lectura agregada:
+
+```text
+cold promedio combinado = +9.88 %
+warm promedio combinado = -4.43 %
+```
+
+Alpha6 tiene una regresión cold explícita cercana al 10 %, asociada a 7 TUs source adicionales del Ethernet consolidado. Se acepta como costo conocido porque la prioridad es la estabilidad/corrección del runtime y no se retiran periféricos del autoload para recuperar tiempo. Las recompilaciones warm mejoran en promedio.
+
+```text
+ALPHA6_COLD_REGRESSION=ACCEPTED_KNOWN_COST
+ALPHA6_WARM_AVG_IMPROVEMENT=4.43_PERCENT
+```
 
 ## Compatibilidad
 
@@ -114,7 +144,8 @@ Se preservan:
 - RS-485;
 - Modbus RTU;
 - mutex SPI global;
-- autoload normal del package.
+- autoload normal del package;
+- core Basic precompilado de Alpha5 mediante `jwcontrol_precompiled_stub` + `core.a`.
 
 No se retiró ningún periférico para acelerar la compilación.
 
@@ -131,6 +162,15 @@ BOOTLOADER_GENERATION=SDK_ELF_AUTOMATIC
 ```
 
 No se publica un `bootloader.bin` definitivo.
+
+## Configuración
+
+```text
+CURRENT_FLASH_PROFILE=VALIDATED_CURRENT_PROFILE
+FINAL_UNIVERSAL_FLASH_CONFIGURATION=PENDING
+```
+
+Alpha6 mantiene el perfil actual validado, sin declararlo como configuración universal para futuras revisiones.
 
 ## No incluido
 
