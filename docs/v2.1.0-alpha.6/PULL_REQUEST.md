@@ -1,6 +1,31 @@
 ## Objetivo
 
-Cerrar `v2.1.0-alpha.6` consolidando el runtime Ethernet/W5500 cooperativo y no bloqueante, la recuperación DHCP/link sin reset y los diagnósticos `BUS`, `ETH` y `ERR` del IDLE, manteniendo todos los periféricos del autoload normal y el rendimiento de compilación alcanzado en Alpha5.
+Cerrar `v2.1.0-alpha.6` consolidando el runtime Ethernet/W5500 cooperativo y no bloqueante, la recuperación DHCP/link sin reset y los diagnósticos `BUS`, `ETH` y `ERR` del IDLE, manteniendo todos los periféricos del autoload normal y preservando la arquitectura final de Alpha5.
+
+## Corrección de base antes de publicación
+
+Durante el cierre se detectó que la línea Alpha6 original no estaba construida sobre el cierre funcional definitivo de Alpha5. El PR quedó bloqueado y se corrigió la integración antes de publicar.
+
+La línea final validada parte de:
+
+```text
+release/v2.1.x @ 64068556
+```
+
+Branch corregido:
+
+```text
+v2.1.0-alpha.6/integration/rebase-alpha5-final
+```
+
+Se preservan explícitamente:
+
+```text
+jwplcbasic.build.core=jwcontrol_precompiled_stub
+precompiled/core/JWPLCBASIC/core.a
+```
+
+y se traslada únicamente el delta funcional Alpha6. La integración no produjo conflictos reales.
 
 ## Resultado principal
 
@@ -25,7 +50,10 @@ ALPHA6_DHCP_T1_T2=PASS
 ETH_ROUTER_LAPTOP_ROUTER_RECOVERY=PASS
 ALPHA6_PRODUCTION_BUILD_CLEAN=PASS
 DHCP_TEST_HOOKS_EXCLUDED=PASS
-ALPHA6_FINAL_PRODUCTION_COLD=PASS
+ALPHA6_ALPHA5_SOURCE_FALLBACK_SMOKE=PASS
+ALPHA6_DISPLAY_FINAL_ARCHIVE=PASS
+ALPHA6_INTEGRATED_FINAL_PRODUCTION_COLD=PASS
+ALPHA6_BUILD_SPEED=PASS
 ```
 
 ## Ethernet cooperativo
@@ -43,7 +71,7 @@ Se validaron:
 - recuperación tras desconexión;
 - coexistencia con TFT, FRAM y SD sobre SPI.
 
-Alpha6 consolida una única implementación W5500 dentro de `JWPLC_Ethernet`.
+Alpha6 consolida una única implementación W5500 dentro de `JWPLC_Ethernet` y elimina la librería backend separada.
 
 ## Diagnóstico IDLE
 
@@ -66,20 +94,9 @@ JWPLC_Display.errCode();
 
 Admite 1 a 4 caracteres alfanuméricos y mantiene `setErrLed(bool)` por compatibilidad.
 
-Validación física:
-
-```text
-1
-A01
-TEMP
-ZZZZ
-0 -> clear
-legacy red/no text
-```
-
 ### BUS
 
-Se validó físicamente:
+Validación física:
 
 ```text
 TMO -> rojo
@@ -102,11 +119,9 @@ DIS
 ---
 ```
 
-sin convertir errores de aplicación en errores Ethernet.
-
 ## JWPLC_Display precompilado final
 
-Archive:
+Archive regenerado sobre la base corregida:
 
 ```text
 JWPLC/2.1.0/libraries/JWPLC_Display/src/esp32/libJWPLC_Display.a
@@ -115,27 +130,28 @@ JWPLC/2.1.0/libraries/JWPLC_Display/src/esp32/libJWPLC_Display.a
 Metadatos:
 
 ```text
-Bytes  : 368202
-SHA256 : a0094a9d9bf5c40bbd91a18514d97c488b2e8ba1ba6c18ec8161cb74445b416e
+Bytes  : 368174
+SHA256 : 4da9143e5e80d8ad0890e25bda8802ecee489b2a8c452c3ef1be556cff9541a7
 ```
 
-Paridad estructural:
+Paridad source/archive:
 
 ```text
 Archive members exactos  : True
-Archive source compiles  : 0
+Source Display compiles  : 2
+Archive Display compiles : 0
 Precompiled observed     : True
+Source app               : 409765
+Archive app              : 409765
 Source RAM               : 27668
 Archive RAM              : 27668
-App delta                : +8
-Linker fill delta        : +8
-.flash.rodata delta      : +8
+App delta                : 0
+Linker fill delta        : 0
+Raw .bin delta           : 0
 Source-only symbols      : 0
 Archive-only symbols     : 0
 Structural parity        : True
 ```
-
-La diferencia de 8 bytes queda explicada por padding/alineamiento del linker. Los miembros del `.a` son byte-idénticos a los objetos fuente usados para producirlo.
 
 ```text
 ALPHA6_DISPLAY_FINAL_ARCHIVE=PASS
@@ -143,21 +159,21 @@ ALPHA6_DISPLAY_FINAL_ARCHIVE=PASS
 
 ## Cold compile final de producción
 
-Sobre el HEAD documental final:
+Sobre el HEAD técnico final:
 
 ```text
-HEAD                    : 412b5b99
+HEAD                    : 379246c9
 Compile exit            : 0
-Tiempo                   : 59.867 s
-Application .ino.bin     : 456768 bytes
-Precompiled observed     : True
+Tiempo                   : 62.261 s
+Application .ino.bin     : 456816 bytes
+Display precompiled      : True
 Display source objects   : 0
-Display source TUs       : 0
+Basic core.a observado   : True
 Git status               : clean
 ```
 
 ```text
-ALPHA6_FINAL_PRODUCTION_COLD=PASS
+ALPHA6_INTEGRATED_FINAL_PRODUCTION_COLD=PASS
 ```
 
 ## Benchmark final Alpha5 vs Alpha6
@@ -165,33 +181,43 @@ ALPHA6_FINAL_PRODUCTION_COLD=PASS
 Run Alpha6:
 
 ```text
-20260828_141058
-alpha6-final-412b5b99
+20260828_174534
+alpha6-integrated-final-379246c9
 ```
 
 | Target | Fase | Alpha5 | Alpha6 | Cambio |
 |---|---|---:|---:|---:|
-| Basic | managed_cold | 54.594 s | 54.912 s | +0.58 % |
-| Basic | managed_warm_nochange | 24.804 s | 21.343 s | -13.95 % |
-| Basic | managed_warm_touch | 23.760 s | 21.264 s | -10.51 % |
-| Basic | explicit_cold | 55.387 s | 54.241 s | -2.07 % |
-| Basic | explicit_warm_nochange | 22.462 s | 20.618 s | -8.21 % |
-| Basic | explicit_warm_touch | 22.219 s | 20.525 s | -7.62 % |
-| Core | managed_cold | 60.717 s | 61.708 s | +1.63 % |
-| Core | managed_warm_nochange | 20.934 s | 20.990 s | +0.27 % |
-| Core | managed_warm_touch | 21.085 s | 20.957 s | -0.61 % |
-| Core | explicit_cold | 58.617 s | 61.543 s | +4.99 % |
-| Core | explicit_warm_nochange | 21.393 s | 20.462 s | -4.35 % |
-| Core | explicit_warm_touch | 21.221 s | 20.989 s | -1.09 % |
+| Basic | managed_cold | 54.594 s | 60.683 s | +11.15 % |
+| Basic | managed_warm_nochange | 24.804 s | 22.122 s | -10.81 % |
+| Basic | managed_warm_touch | 23.760 s | 22.922 s | -3.53 % |
+| Basic | explicit_cold | 55.387 s | 60.369 s | +8.99 % |
+| Basic | explicit_warm_nochange | 22.462 s | 21.774 s | -3.06 % |
+| Basic | explicit_warm_touch | 22.219 s | 21.813 s | -1.83 % |
+| Core | managed_cold | 60.717 s | 68.545 s | +12.89 % |
+| Core | managed_warm_nochange | 20.934 s | 20.803 s | -0.63 % |
+| Core | managed_warm_touch | 21.085 s | 20.589 s | -2.35 % |
+| Core | explicit_cold | 58.617 s | 62.366 s | +6.40 % |
+| Core | explicit_warm_nochange | 21.393 s | 20.065 s | -6.21 % |
+| Core | explicit_warm_touch | 21.221 s | 19.905 s | -6.20 % |
 
-Resultado:
+Resumen agregado:
 
 ```text
 12/12 fases = PASS
-ALPHA6_BUILD_SPEED=PASS
+cold promedio combinado = +9.88 %
+warm promedio combinado = -4.43 %
+Basic cold compilers = 15
+Core cold compilers = 78
+warm compilers = 1
 ```
 
-Las recompilaciones warm mejoran de forma general; los cold permanecen dentro de variación aceptable frente a Alpha5.
+Alpha6 introduce una regresión cold cercana al 10 % frente a Alpha5, asociada a 7 TUs source adicionales del Ethernet consolidado. Se acepta como costo conocido porque la prioridad del alpha es estabilidad/corrección del runtime y no se eliminan periféricos del autoload para recuperar tiempo. Las recompilaciones warm mejoran en promedio.
+
+```text
+ALPHA6_BUILD_SPEED=PASS
+ALPHA6_COLD_REGRESSION=ACCEPTED_KNOWN_COST
+ALPHA6_WARM_AVG_IMPROVEMENT=4.43_PERCENT
+```
 
 ## Autoload preservado
 
@@ -208,11 +234,9 @@ Se conservan en el flujo normal:
 - TCA / I/O;
 - mutex SPI global.
 
-No se retiró ningún periférico para mejorar los tiempos.
+No se retiró ningún periférico para acelerar la compilación.
 
 ## App-only
-
-Se mantiene la decisión de Alpha5:
 
 ```text
 APP_ONLY=VALIDATED_DEVELOPMENT_TOOL
@@ -223,8 +247,6 @@ Es una herramienta auxiliar de desarrollo; el full upload sigue siendo la ruta n
 
 ## Bootloader
 
-Se mantiene:
-
 ```text
 BOOTLOADER_PRECOMPILED=NOT_ADOPTED
 BOOTLOADER_GENERATION=SDK_ELF_AUTOMATIC
@@ -233,8 +255,6 @@ BOOTLOADER_GENERATION=SDK_ELF_AUTOMATIC
 Este PR no publica un `bootloader.bin` definitivo.
 
 ## Configuración actual
-
-El perfil actualmente validado se conserva como perfil de trabajo.
 
 ```text
 CURRENT_FLASH_PROFILE=VALIDATED_CURRENT_PROFILE
@@ -245,10 +265,9 @@ Alpha6 no fija una configuración universal definitiva para futuras revisiones.
 
 ## Documentación
 
-Se actualizaron los README de las librerías `JWPLC_` del package y el README raíz. Las librerías `JW_` mantienen su documentación fuente en el repositorio `JW_Libraries`.
-
 Documentos de cierre Alpha6:
 
+- `docs/v2.1.0-alpha.6/ALPHA6_BASE_CORRECTION_20260828.md`
 - `docs/v2.1.0-alpha.6/ALPHA6_CLOSURE_CHECKLIST.md`
 - `docs/v2.1.0-alpha.6/ALPHA6_FINAL_VALIDATION_20260828.md`
 - `docs/v2.1.0-alpha.6/BUILD_SPEED_COMPARISON_ALPHA5_ALPHA6_FINAL_20260828.md`
@@ -270,19 +289,19 @@ La normalización/versionado adicional de `JWPLC_LogicRuntime_UI` queda para un 
 
 ## Checklist para merge
 
-- [x] Ethernet cooperativo validado.
-- [x] T1/T2 físico validado.
-- [x] recuperación sin reset validada.
-- [x] BUS/ETH/ERR validados.
-- [x] Display precompilado final validado estructuralmente.
-- [x] cold build de producción aprobado.
-- [x] benchmark final Basic/Core aprobado.
-- [x] comparación Alpha5 vs Alpha6 documentada.
-- [x] autoload normal preservado.
-- [x] App-only cerrado.
-- [x] bootloader cerrado.
-- [x] configuración actual/pending documentada.
-- [x] README de librerías JWPLC y raíz actualizados.
+- [x] base corregida a Alpha5 final;
+- [x] Ethernet cooperativo validado;
+- [x] T1/T2 físico validado;
+- [x] recuperación sin reset validada;
+- [x] BUS/ETH/ERR validados;
+- [x] Display precompilado final validado con paridad exacta;
+- [x] cold build de producción aprobado;
+- [x] benchmark final Basic/Core aprobado;
+- [x] regresión cold documentada y aceptada;
+- [x] autoload normal preservado;
+- [x] App-only cerrado;
+- [x] bootloader cerrado;
+- [x] configuración actual/pending documentada;
 - [ ] CI del PR aprobado.
 
 ## Después del merge
