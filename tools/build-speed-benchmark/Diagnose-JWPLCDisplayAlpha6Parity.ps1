@@ -35,15 +35,53 @@ function Get-OneFile
 function Resolve-ToolDir
 {
     param([string]$LogPath)
+
+    # Primero intenta resolver el ejecutable directamente desde el log. Arduino CLI
+    # puede imprimir el toolchain entre comillas o sin ellas dependiendo del host.
     foreach ($line in Get-Content -LiteralPath $LogPath)
     {
-        if ($line -match '"(?<exe>[^"]*xtensa-esp32-elf-g\+\+(?:\.exe)?)"')
+        $candidate = $null
+        if ($line -match '"(?<exe>[^"]*xtensa-esp32-elf-(?:g\+\+|gcc|nm|size)(?:\.exe)?)"')
         {
-            $exe = $Matches["exe"]
-            if (Test-Path -LiteralPath $exe) { return (Split-Path -Parent (Resolve-Path -LiteralPath $exe).Path) }
+            $candidate = $Matches["exe"]
+        }
+        elseif ($line -match '(?<exe>[A-Za-z]:\\[^\r\n"]*?xtensa-esp32-elf-(?:g\+\+|gcc|nm|size)(?:\.exe)?)\s')
+        {
+            $candidate = $Matches["exe"]
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($candidate))
+        {
+            $candidate = $candidate.Trim().Trim('"')
+            if (Test-Path -LiteralPath $candidate)
+            {
+                return (Split-Path -Parent (Resolve-Path -LiteralPath $candidate).Path)
+            }
         }
     }
-    throw "No se pudo localizar el toolchain desde $LogPath"
+
+    # Fallback estable para instalaciones Arduino del package JWPLC en Windows.
+    # Buscamos nm porque es una de las herramientas que este diagnostico requiere.
+    if (-not [string]::IsNullOrWhiteSpace($env:LOCALAPPDATA))
+    {
+        $packagesRoot = Join-Path $env:LOCALAPPDATA "Arduino15\packages"
+        foreach ($namespace in @("jwplc_local", "jwplc"))
+        {
+            $espX32Root = Join-Path $packagesRoot ($namespace + "\tools\esp-x32")
+            if (-not (Test-Path -LiteralPath $espX32Root)) { continue }
+
+            $found = Get-ChildItem -LiteralPath $espX32Root -Recurse -File -Filter "xtensa-esp32-elf-nm.exe" -ErrorAction SilentlyContinue |
+                Sort-Object LastWriteTime -Descending |
+                Select-Object -First 1
+
+            if ($null -ne $found)
+            {
+                return (Split-Path -Parent $found.FullName)
+            }
+        }
+    }
+
+    throw "No se pudo localizar el toolchain desde $LogPath ni desde Arduino15."
 }
 
 function Resolve-Tool
@@ -128,6 +166,7 @@ $nmTool = Resolve-Tool -Dir $toolDir -Base "xtensa-esp32-elf-nm"
 
 Write-Host "=== ALPHA6 - DIAGNOSTICO PARIDAD DISPLAY ===" -ForegroundColor Cyan
 Write-Host "RUN=$run"
+Write-Host "TOOLCHAIN_DIR=$toolDir"
 Write-Host ("SOURCE_BIN_BYTES={0}" -f $sourceBin.Length)
 Write-Host ("ARCHIVE_BIN_BYTES={0}" -f $archiveBin.Length)
 Write-Host ("BIN_DELTA_BYTES={0}" -f ($archiveBin.Length - $sourceBin.Length))
