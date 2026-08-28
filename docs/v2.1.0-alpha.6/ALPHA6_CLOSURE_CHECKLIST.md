@@ -2,6 +2,17 @@
 
 Fecha: 2026-08-28
 
+## Base e integración
+
+- [x] Se detectó que la línea Alpha6 original no partía del cierre funcional final de Alpha5.
+- [x] Backup del Alpha6 previamente validado creado.
+- [x] Alpha6 trasladada sobre `release/v2.1.x @ 64068556`.
+- [x] Integración sin conflictos reales.
+- [x] `jwplcbasic.build.core=jwcontrol_precompiled_stub` preservado.
+- [x] `precompiled/core/JWPLCBASIC/core.a` preservado.
+- [x] Backend W5500 separado eliminado y consolidado dentro de `JWPLC_Ethernet`.
+- [x] Smoke source-fallback posterior a la corrección: PASS.
+
 ## Estado técnico
 
 - [x] Runtime Ethernet cooperativo/no bloqueante validado.
@@ -24,7 +35,7 @@ Fecha: 2026-08-28
 
 ## Display precompilado
 
-- [x] Source build fresco generado.
+- [x] Source build fresco generado sobre la base corregida.
 - [x] Dos objetos Display fuente verificados.
 - [x] Archive regenerado con esos objetos.
 - [x] Miembros extraídos byte-idénticos a source.
@@ -32,29 +43,41 @@ Fecha: 2026-08-28
 - [x] Arduino reporta librería precompilada.
 - [x] RAM source/archive idéntica.
 - [x] Conjunto de símbolos idéntico.
-- [x] Delta de aplicación explicado por linker fill.
+- [x] APP source/archive idéntica.
+- [x] Binario source/archive idéntico.
 - [x] Archive final versionado.
 - [x] SHA-256 registrado.
 
 Archive final:
 
 ```text
-368202 bytes
-a0094a9d9bf5c40bbd91a18514d97c488b2e8ba1ba6c18ec8161cb74445b416e
+368174 bytes
+4da9143e5e80d8ad0890e25bda8802ecee489b2a8c452c3ef1be556cff9541a7
 ```
 
 ## Compilación
 
-- [x] Cold compile normal final.
+- [x] Cold compile normal final sobre `379246c9`.
 - [x] `precompiled=full` activo.
 - [x] Cero objetos/TUs source de Display en build normal.
+- [x] `core.a` precompilado Basic observado.
 - [x] Git limpio después del build.
 - [x] Benchmark final Basic.
 - [x] Benchmark final Basic Core.
 - [x] 12/12 fases OK.
-- [x] Comparación Alpha5 vs Alpha6 documentada.
-- [x] Sin regresión relevante frente a Alpha5.
-- [x] Warm builds mejorados en conjunto.
+- [x] Comparación Alpha5 vs Alpha6 corregida y documentada.
+- [x] Regresión cold cercana al 10 % documentada explícitamente.
+- [x] Warm builds mejoran en promedio 4.43 %.
+- [x] Penalización cold aceptada como costo conocido, sin retirar periféricos.
+
+Marcadores:
+
+```text
+ALPHA6_INTEGRATED_FINAL_PRODUCTION_COLD=PASS
+ALPHA6_BUILD_SPEED=PASS
+ALPHA6_COLD_REGRESSION=ACCEPTED_KNOWN_COST
+ALPHA6_WARM_AVG_IMPROVEMENT=4.43_PERCENT
+```
 
 ## Autoload y compatibilidad
 
@@ -91,14 +114,15 @@ a0094a9d9bf5c40bbd91a18514d97c488b2e8ba1ba6c18ec8161cb74445b416e
 - [x] README `JWPLC_ModbusRTU` actualizado.
 - [x] README `JWPLC_LogicRuntime` actualizado.
 - [x] README `JWPLC_LogicRuntime_UI` actualizado sin cambiar su versión.
-- [x] Validación final Alpha6 documentada.
-- [x] Tabla Alpha5 vs Alpha6 documentada.
-- [x] PR body preparado en español.
-- [x] PreRelease preparada en español.
+- [x] Validación final Alpha6 corregida.
+- [x] Tabla Alpha5 vs Alpha6 corregida.
+- [x] Corrección de base registrada.
+- [x] PR body actualizado en español.
+- [x] PreRelease actualizada en español.
 
 ## GitHub / publicación
 
-- [ ] PR Alpha6 abierto contra `release/v2.1.x`.
+- [ ] PR corregido Alpha6 abierto contra `release/v2.1.x`.
 - [ ] CI del PR aprobado.
 - [ ] PR mergeado.
 - [ ] Auto workflow detecta `JWPLC_RELEASE_VERSION: 2.1.0-alpha.6`.
@@ -112,15 +136,14 @@ a0094a9d9bf5c40bbd91a18514d97c488b2e8ba1ba6c18ec8161cb74445b416e
 - [ ] instalación limpia desde Boards Manager validada.
 - [ ] documentación de cierre de publicación añadida.
 
-## Gate
-
-Antes del merge:
+## Gate antes del PR/merge
 
 ```text
 ALPHA6_TECHNICAL_VALIDATION=PASS
-ALPHA6_BUILD_SPEED=PASS
 ALPHA6_DISPLAY_FINAL_ARCHIVE=PASS
-ALPHA6_FINAL_PRODUCTION_COLD=PASS
+ALPHA6_INTEGRATED_FINAL_PRODUCTION_COLD=PASS
+ALPHA6_BUILD_SPEED=PASS
+ALPHA6_COLD_REGRESSION=ACCEPTED_KNOWN_COST
 ```
 
 Estado:
