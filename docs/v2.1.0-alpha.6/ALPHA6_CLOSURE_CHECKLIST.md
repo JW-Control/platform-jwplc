@@ -137,6 +137,8 @@ ALPHA6_WARM_AVG_IMPROVEMENT=4.43_PERCENT
 - [x] instalación limpia desde el índice dev validada.
 - [x] compilación aislada desde el package publicado validada.
 - [x] carga física aislada por USB validada.
+- [x] arranque posterior al upload sin boot loop validado.
+- [x] TFT posterior al upload validada (`BUS: INI`, `ETH: LNK` sin comunicaciones conectadas).
 - [x] documentación de cierre de publicación añadida.
 
 Artefacto publicado:
@@ -155,6 +157,8 @@ ALPHA6_ISOLATED_COMPILE=PASS
 COMPILE_SECONDS=53.027
 APP_BIN_BYTES=395120
 ALPHA6_ISOLATED_PHYSICAL_UPLOAD=PASS
+ALPHA6_POST_UPLOAD_TFT=PASS
+ALPHA6_POST_UPLOAD_BOOT=PASS
 ```
 
 ## Higiene de ramas
@@ -184,6 +188,8 @@ ALPHA6_COLD_REGRESSION=ACCEPTED_KNOWN_COST
 ALPHA6_ISOLATED_INSTALL=PASS
 ALPHA6_ISOLATED_COMPILE=PASS
 ALPHA6_ISOLATED_PHYSICAL_UPLOAD=PASS
+ALPHA6_POST_UPLOAD_TFT=PASS
+ALPHA6_POST_UPLOAD_BOOT=PASS
 ALPHA6_PUBLICATION_CLOSURE=PASS
 ```
 
