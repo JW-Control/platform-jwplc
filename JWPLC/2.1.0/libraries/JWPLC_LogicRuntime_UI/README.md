@@ -1,39 +1,47 @@
 # JWPLC_LogicRuntime_UI
 
-Interfaz gráfica modular para mostrar y administrar `JWPLC_LogicRuntime` desde la pantalla `USER` del JWPLC Basic.
+Interfaz gráfica experimental para conectar `JWPLC_LogicRuntime` con la pantalla `USER` y la botonera del **JWPLC Basic**.
+
+La librería mantiene compatibilidad con el runtime v1 y contiene además la evolución del editor FBD sobre el motor v2 RAM-only. La UI no sustituye al motor lógico ni debe mezclar rendering TFT con persistencia o comunicación.
+
+## Estado de versión
+
+`library.properties` declara actualmente:
+
+```text
+JWPLC_LogicRuntime_UI 0.5.8
+```
+
+El branch 2.1.0 contiene trabajo experimental posterior de consolidación del renderer FBD y del contrato v2 que todavía no se presenta como una nueva versión publicada de la librería. Este README describe el **estado real del código del branch**, distinguiendo lo estable de lo experimental.
 
 ## Separación de responsabilidades
 
 ```text
 JWPLC_LogicRuntime
-└── motor, programas, almacenamiento y retentivos
+└── motor, programas, validación y almacenamiento
 
 JWPLC_Display
-└── TFT, IDLE, botonera, SPI y transición IDLE/USER
+└── TFT, IDLE/USER, SPI y callbacks gráficos
 
 JWPLC_LogicRuntime_UI
-└── vistas USER específicas del motor lógico
+└── navegación USER, vistas del runtime y editor FBD
 ```
 
-La capa gráfica solo se compila cuando el sketch incluye:
+No se debe asumir OpenPLC integrado.
+
+## API pública
 
 ```cpp
 #include <JWPLC_LogicRuntime_UI.h>
 ```
 
-## Uso
+### Runtime v1
 
 ```cpp
-#include <JWPLC_GlobalPeripherals.h>
-#include <JWPLC_LogicRuntime.h>
-#include <JWPLC_LogicRuntime_UI.h>
-
 JWPLC_LogicRuntime runtime;
 
 void setup()
 {
-    runtime.storage().begin(JWPLC_FRAM);
-    runtime.begin(JWPLCLogicStorageProfiles::FRAM_8K.framBytes);
     JWPLC_LogicRuntime_UI.begin(runtime);
 }
 
@@ -48,241 +56,227 @@ void loop()
 }
 ```
 
-`update()` procesa acciones diferidas y sincroniza `RUN/ERR` de IDLE. No reemplaza el scan explícito.
+`update()` procesa trabajo no gráfico y acciones diferidas. No reemplaza el scan del runtime.
 
-## Identidad visual
-
-Paleta aprobada:
-
-```text
-verde
-blanco
-negro
-```
-
-- verde: estado normal, títulos y selección;
-- amarillo: `STOPPED` o advertencia;
-- rojo: falla o peligro;
-- negro y panel oscuro: fondos;
-- blanco: texto principal.
-
-## IDLE
-
-La pantalla automática existente mantiene:
-
-- `PWR`, `RUN`, `ERR`, `BUS`, `ETH`;
-- entradas `I0.0..I0.7`;
-- salidas `Q0.0..Q0.7`;
-- RTC.
-
-Con esta librería:
-
-```text
-RUN = runtime.state() == Running
-ERR = Fault o error crítico persistente
-```
-
-FRAM sin formato, programa ausente o snapshot inexistente no encienden `ERR` por sí solos.
-
-## HOME v0.1
-
-Muestra:
-
-- estado del runtime;
-- nombre del programa cargado, incluso si vive únicamente en RAM;
-- Program ID y generación cuando existe identidad persistente;
-- cantidad de bloques;
-- scan promedio y máximo;
-- estado del program store;
-- estado retentivo;
-- accesos a `PROGRAMA`, `BLOQUES`, `MEMORIA` y `DIAGNOSTICO`.
-
-## PROGRAMA v0.2
-
-Acciones:
-
-```text
-PREPARAR
-RUN
-STOP
-VOLVER
-```
-
-### PREPARAR
-
-Ejecuta fuera del callback TFT:
-
-```text
-prepareStoredProgram()
-→ restoreStoredRetentiveState() cuando corresponde
-```
-
-No inicia automáticamente y no formatea la FRAM.
-
-### RUN
+### Motor v2
 
 ```cpp
-runtime.start();
+JWPLCLogicV2::Engine engine;
+
+void setup()
+{
+    JWPLC_LogicRuntime_UI.begin(engine);
+}
+
+void loop()
+{
+    JWPLC_LogicRuntime_UI.update();
+    JWPLC_LogicRuntime_UI.processV2EditorPending();
+
+    // El scan v2 continúa bajo responsabilidad del sketch.
+}
 ```
 
-### STOP
+La edición v2 actúa sobre RAM. No escribe FRAM ni conmuta salidas físicas por el solo hecho de editar.
+
+También existe una entrada experimental de consolidación:
 
 ```cpp
-runtime.stop();
+JWPLC_LogicRuntime_UI.beginUnifiedPreview(engine);
 ```
 
-Apaga salidas y limpia estados temporales. El guardado retentivo sigue siendo explícito.
+Se utiliza para validar el renderer FBD unificado sin declarar finalizada la migración completa del editor.
 
-### VOLVER
+## Vistas del runtime v1
 
-Regresa a HOME sin pasar por IDLE. `ESC` vuelve directamente a IDLE.
+La UI conserva las vistas históricas para:
 
-## BLOQUES v0.3
+- HOME;
+- PROGRAMA;
+- DIAGRAMA;
+- BLOQUES.
 
-Vista de solo lectura del programa que ya está cargado en el motor.
+Estas vistas permiten inspeccionar el runtime, preparar/correr/detener la lógica y consultar bloques sin duplicar el motor dentro de la capa gráfica.
 
-Incluye:
+Las acciones que requieren almacenamiento se difieren fuera del callback TFT.
 
-```text
-lista desplazable de bloques
-valor booleano en vivo
-detalle de tipo, fuentes, recurso, parámetro y flags
-retorno a HOME
-```
+## Editor FBD v2
 
-Controles de lista:
+La línea v2 añade un mapa FBD navegable y edición transaccional en RAM.
 
-```text
-UP / DOWN     seleccionar y desplazar
-LEFT / RIGHT  alternar DETALLE / VOLVER
-OK            ejecutar acción
-ESC           IDLE
-```
+Capacidades desarrolladas en el branch:
 
-Controles de detalle:
+- mapa y detalle de bloques;
+- selección visual de bloque;
+- actividad lógica en vivo;
+- navegación por botonera;
+- edición de fuentes/entradas;
+- edición TON;
+- asistente de nuevo bloque;
+- nodo virtual `+` para creación append-only;
+- configuración jerárquica de fuente/parámetros;
+- mini mapa contextual;
+- sesión de edición transaccional;
+- refresco regional y cachés para reducir parpadeo;
+- política de refresco TFT adaptable;
+- gate previo a adquirir SPI cuando una vista estática no requiere redibujado;
+- renderer/fachada FBD activa que evita que el sketch dependa directamente de revisiones internas históricas.
 
-```text
-UP / LEFT      bloque anterior
-DOWN / RIGHT   bloque siguiente
-OK             regresar a lista
-ESC            IDLE
-```
+El motor v2 puede ejecutar más tipos que los habilitados por el asistente gráfico. No debe confundirse capacidad del engine con capacidad disponible en la UI.
 
-Los valores se revisan visualmente cada 100 ms, pero solo se redibuja la fila o campo cuyo booleano cambió.
+## Contrato v2
 
-## API de lectura del runtime
-
-La UI usa:
+La UI depende del contrato explícito:
 
 ```cpp
-const LogicProgram *program = runtime.program();
-uint16_t count = runtime.blockCount();
-const LogicBlockDefinition *block = runtime.blockDefinition(index);
-bool value = runtime.blockValue(index);
+#include <JWPLC_LogicRuntime_V2.h>
 ```
 
-Estas vistas son `const`. Los punteros pertenecen al runtime y dejan de ser válidos conceptualmente al cargar o descargar otro programa.
+El motor es la fuente de verdad para:
 
-## Acciones diferidas y bus SPI
+- resolución de entradas;
+- `HI`, `LO` y `OPEN`;
+- negación de enlaces;
+- orden topológico;
+- validación de programa;
+- evaluación de bloques.
 
-Una vista nunca accede directamente a FRAM, SD o Ethernet mientras el callback gráfico mantiene el bus TFT.
+La UI no debe reimplementar esas reglas.
+
+Documento principal:
 
 ```text
-callback USER
-→ registra solicitud pequeña
-→ libera SPI
-→ JWPLC_LogicRuntime_UI.update() ejecuta desde loop()
+../JWPLC_LogicRuntime/docs/LOGIC_RUNTIME_V2_CONTRACT.md
+```
+
+## Edición transaccional
+
+El flujo aprobado es:
+
+```text
+UI crea/edita borrador
+→ RuntimeUIV2EditSession valida
+→ callback TFT sólo registra la solicitud
+→ se libera SPI
+→ processV2EditorPending() aplica desde loop
+→ el motor recibe una copia válida
 → siguiente refresh muestra el resultado
 ```
 
-Norma:
+Esto evita FRAM, SD, Ethernet o trabajo pesado dentro de un callback gráfico.
+
+La sesión estructural soporta las operaciones implementadas por el contrato actual, incluyendo append y eliminación controlada/rollback en RAM. Que una operación exista en el modelo no significa que todas sus pantallas estén promovidas al flujo principal de usuario.
+
+## TON y edición temporal
+
+La UI conserva la duración efectiva del TON en milisegundos y permite presentarla con bases tipo LOGO!:
 
 ```text
-docs/USER_UI_ACTION_RULES.md
+segundos : centésimas
+minutos : segundos
+horas : minutos
 ```
 
-## Renderizado
+Cambiar la base de presentación no debe alterar silenciosamente el tiempo efectivo del bloque.
 
-Patrón aprobado:
+La edición TON utiliza actualizaciones parciales para evitar barridos completos y parpadeo durante repeat de botonera.
+
+## Renderizado y SPI
+
+Regla central:
+
+> Un refresh de lógica no obliga a transmitir toda la pantalla TFT.
+
+La UI usa:
+
+- cachés de regiones;
+- invalidación explícita;
+- redraw completo sólo al cambiar layout/página o aplicar una edición estructural;
+- periodos distintos según contexto;
+- consulta `displayRefreshNeeded()` antes del lock SPI cuando el flujo lo permite.
+
+La entrada de botonera y el rendering aún comparten rutas en parte del editor FBD, por lo que el mapa v2 conserva callbacks suficientes para no perder eventos mientras continúa la consolidación.
+
+## Navegación
+
+Botonera base:
 
 ```text
-enter()
-├── estructura estática una sola vez
-├── caché dinámica invalidada
-└── valores iniciales
-
-refresh()
-├── botonera
-├── comparación contra caché
-└── únicamente regiones modificadas
+UP
+DOWN
+LEFT
+RIGHT
+ESC
+OK
 ```
 
-Desde v0.2.1 los campos variables usan:
+La regla de diseño para pantallas anidadas es que `ESC` vuelva al padre antes de permitir que el router global abandone USER hacia IDLE.
 
-```text
-limpieza rectangular continua
-+ texto transparente solo con caracteres útiles
-```
+Las pantallas activas deben consumir sus eventos una sola vez. `JWPLC_Buttons.pressed()` es consumible y no debe consultarse en dos capas para el mismo evento.
 
-Esto eliminó el parpadeo y aceleró fuertemente la construcción inicial.
+## Integración con IDLE
 
-Norma:
+La UI puede sincronizar `RUN` y el estado de error del runtime con los indicadores de `JWPLC_Display` cuando opera sobre runtime v1.
 
-```text
-docs/USER_UI_RENDERING_RULES.md
-```
+Con Alpha6 debe respetarse la separación general del display:
 
-## Ejemplos
+- `ERR`: error de aplicación/runtime lógico cuando corresponde;
+- `BUS`: RS-485/Modbus;
+- `ETH`: Ethernet.
 
-```text
-JWPLC_LogicRuntime_UI_Home
-JWPLC_LogicRuntime_UI_Blocks
-```
+La UI no debe reutilizar `ERR` para fallas de red o bus.
 
-El ejemplo de Bloques carga siete bloques en RAM, ejecuta el scan y no contiene `DigitalOutput`, por lo que Q0 permanece apagado. Tampoco escribe ni formatea la FRAM.
+## Callbacks Display
 
-## Organización
+`JWPLC_Display` proporciona callbacks débiles para sketches normales. Cuando esta librería está enlazada, la UI enruta los callbacks USER hacia su objeto global.
 
-```text
-src/
-├── JWPLC_LogicRuntime_UI.h
-├── JWPLC_LogicRuntime_UI.cpp
-├── RuntimeUIView.h
-├── screens/
-│   ├── RuntimeUIHome.*
-│   ├── RuntimeUIProgram.*
-│   └── RuntimeUIBlocks.*
-└── widgets/
-    └── RuntimeUIWidgets.*
-
-docs/
-├── RUNTIME_UI_HOME_V0_1_TEST.md
-├── RUNTIME_UI_PROGRAM_V0_2_TEST.md
-├── RUNTIME_UI_BLOCKS_V0_3_TEST.md
-├── USER_UI_RENDERING_RULES.md
-├── USER_UI_VISUAL_GUIDE.md
-└── USER_UI_ACTION_RULES.md
-```
-
-## Vistas pendientes
-
-```text
-RuntimeUIStorage
-RuntimeUIDiagnostics
-RuntimeUIBlockEditor
-RuntimeUIConfirmDialog
-```
-
-## Compatibilidad de callbacks
-
-`JWPLC_Display` mantiene callbacks débiles para sketches normales. Cuando se incluye esta librería, sus callbacks fuertes enrutan USER hacia `JWPLC_LogicRuntime_UI`.
-
-No deben definirse simultáneamente en el sketch:
+No conviene definir simultáneamente en el sketch implementaciones incompatibles de:
 
 ```cpp
 jwplcUserDisplayEnterCallback()
+jwplcUserDisplayRefreshNeededCallback()
 jwplcUserDisplayRefreshCallback()
 jwplcUserDisplayExitCallback()
 ```
 
-Los sketches que no incluyan esta librería conservan el comportamiento anterior.
+## Documentación interna relevante
+
+La carpeta `docs/` conserva planes, resultados físicos y reglas de UI. Entre los documentos de referencia están:
+
+```text
+JWPLC_LOGIC_RUNTIME_UI_CHAT_TRANSFER_V0_5_8.md
+RUNTIME_UI_FBD_CONFIG_GROUPS_V0_5_8_TEST.md
+RUNTIME_UI_FBD_CONFIG_GROUPS_V0_5_8_PHYSICAL_RESULT.md
+RUNTIME_UI_FBD_UNIFIED_MIGRATION_PLAN.md
+USER_UI_ACTION_RULES.md
+USER_UI_RENDERING_RULES.md
+USER_UI_STYLE_GUIDE.md
+USER_UI_NAVIGATION_STACK_RULES.md
+```
+
+Los documentos históricos de V4..V14 describen iteraciones internas del renderer. Para código nuevo debe usarse la fachada activa/publicada por `JWPLC_LogicRuntime_UI`, no instanciar revisiones internas por número.
+
+## Límites actuales
+
+No documentar como resuelto o estable sin un gate específico:
+
+- persistencia automática del programa v2;
+- codec FRAM v2;
+- retentividad v2;
+- salidas físicas v2;
+- todos los tipos del motor disponibles en el asistente;
+- migración completa de todos los flujos históricos al renderer unificado.
+
+El editor FBD sigue siendo una línea experimental dentro del package.
+
+## Estado
+
+```text
+JWPLC ESP32 2.1.0-alpha.6
+JWPLC_LogicRuntime_UI: metadata 0.5.8
+runtime v1: compatible
+editor v2: RAM-only / experimental
+renderer FBD unificado: migración en curso
+```
+
+El README debe avanzar junto con el contrato del motor y con los gates físicos; no usar números de revisión interna del renderer como API pública.

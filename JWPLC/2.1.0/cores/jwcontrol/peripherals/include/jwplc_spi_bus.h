@@ -29,7 +29,9 @@ extern "C" {
 // Estas constantes quedan disponibles para las librerías que sí usen SPI.h.
 #define JWPLC_SPI_TFT_HZ   80000000UL
 #define JWPLC_SPI_ETH_HZ   20000000UL
+#ifndef JWPLC_SPI_SD_HZ
 #define JWPLC_SPI_SD_HZ    20000000UL
+#endif
 #define JWPLC_SPI_FRAM_HZ  10000000UL
 
 // Inicialización base de pines CS y mutex.
