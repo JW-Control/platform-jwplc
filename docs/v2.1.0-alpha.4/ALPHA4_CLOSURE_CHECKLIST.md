@@ -130,59 +130,21 @@ No forman parte del cierre de Alpha4:
 - [x] Gates físicos documentados.
 - [x] `PULL_REQUEST.md` preparado en español.
 - [x] `PRE_RELEASE.md` preparado en español.
-- [x] Validación de publicación standalone documentada en `ALPHA4_PUBLICATION_VALIDATION.md`.
-- [x] README general actualizado al estado de Alpha4.
 
-## Publicación
+## Pendientes de publicación
 
-- [x] PR técnico #62 hacia `release/v2.1.x` creado y fusionado.
-- [x] CI de publicación ejecutado satisfactoriamente.
-- [x] ZIP `jwplc-esp32-2.1.0-alpha.4.zip` generado.
-- [x] Tamaño final: **24,698,966 bytes**.
-- [x] SHA-256 final: `4bdbdf383bb863d8f1a3b22f2b88ce47c68d2044a22f0f4afb6d883ccfdade5b`.
-- [x] Tag `v2.1.0-alpha.4` creado y congelado sobre `444282f560065fb9ae4cb0ba7d4067877410ca0f`.
-- [x] GitHub PreRelease creada.
-- [x] ZIP adjuntado a la PreRelease.
-- [x] Índice dev actualizado con Alpha4 mediante PR #63.
-- [x] Índice público estable conservado en `v2.0.0`.
-- [x] Integración final de Alpha4 a `main` mediante PR #64.
+- [ ] Crear PR hacia `release/v2.1.x`.
+- [ ] Revisar CI del PR.
+- [ ] Hacer merge si los gates del PR son satisfactorios.
+- [ ] Preparar ZIP de `v2.1.0-alpha.4`.
+- [ ] Calcular tamaño y SHA-256 del ZIP.
+- [ ] Actualizar el índice dev correspondiente.
+- [ ] Crear tag de Alpha4.
+- [ ] Crear GitHub PreRelease.
+- [ ] Adjuntar ZIP.
+- [ ] Validar instalación mediante Boards Manager.
+- [ ] Validar compilación y subida desde la instalación publicada.
 
-## Validación standalone posterior a publicación
+## Criterio de cierre técnico
 
-Fuente: `docs/v2.1.0-alpha.4/ALPHA4_PUBLICATION_VALIDATION.md`.
-
-- [x] Entorno Arduino CLI aislado sin plataformas JWPLC previamente instaladas.
-- [x] Índice dev descargado desde `main`.
-- [x] `jwplc:esp32@2.1.0-alpha.4` visible antes de instalar.
-- [x] Instalación standalone completada.
-- [x] Las cinco `toolsDependencies` fueron descargadas automáticamente.
-- [x] `01_empty` compiló desde el package instalado: **44.102 s**.
-- [x] `03_autoload_contract` compiló desde el package instalado: **42.460 s**.
-- [x] Upload standalone por USB a JWPLC Basic físico completado.
-- [x] Gate físico local recompilado usando el package publicado.
-- [x] Máximo de aplicación observado: **4,063,232 bytes**.
-- [x] Display, RTC, FRAM, SD, botonera, 8 DI, 8 DO y TFT visual: PASS.
-- [x] Resultado: `ALPHA4_STANDALONE_INSTALL=PASS`.
-- [x] Resultado: `ALPHA4_STANDALONE_COMPILE_GATE=PASS`.
-- [x] Resultado: `ALPHA4_STANDALONE_UPLOAD=PASS`.
-- [x] Resultado: `ALPHA4_LOCAL_PHYSICAL_GATE=PASS`.
-
-## Criterio de cierre final
-
-Alpha4 queda cerrada técnica y públicamente.
-
-Se dispone de evidencia para:
-
-- rendimiento de compilación;
-- app-only;
-- bootloader y FlashFreq;
-- particionado Max App;
-- gates físicos;
-- publicación del ZIP;
-- índice dev;
-- instalación limpia;
-- compilación standalone;
-- subida standalone a hardware real;
-- funcionamiento físico posterior a publicación.
-
-No quedan pendientes de Alpha4 que requieran nuevos experimentos técnicos. Cualquier cambio adicional debe tratarse como documentación de mantenimiento, tooling o trabajo de una alpha posterior.
+La fase técnica de build-speed/cache de Alpha4 queda cerrada: rendimiento, app-only, bootloader, FlashFreq, particionado y gates físicos cuentan con una decisión explícita y evidencia registrada. Los puntos abiertos corresponden a integración/publicación de la alpha, no a nuevos experimentos de rendimiento.

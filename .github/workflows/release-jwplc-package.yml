@@ -203,22 +203,46 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add JWPLC/package_jwplc_index_dev.json JWPLC/package_jwplc_index.json
-          if git diff --cached --quiet; then
+
+          # Conservar los indices generados sin cambiar de rama en el working
+          # tree principal. Los pasos posteriores aun necesitan el ZIP y la
+          # documentacion del commit fuente de la release.
+          INDEX_TMP="$RUNNER_TEMP/jwplc-release-index-$VERSION"
+          INDEX_WORKTREE="$RUNNER_TEMP/jwplc-index-worktree-$VERSION"
+          rm -rf "$INDEX_TMP" "$INDEX_WORKTREE"
+          mkdir -p "$INDEX_TMP"
+
+          cp JWPLC/package_jwplc_index_dev.json "$INDEX_TMP/package_jwplc_index_dev.json"
+          cp JWPLC/package_jwplc_index.json "$INDEX_TMP/package_jwplc_index.json"
+
+          BASE_BRANCH="${{ inputs.index_pr_base_branch }}"
+          git fetch origin "$BASE_BRANCH" --depth=1
+
+          # Preparar la rama automatica en un worktree separado para no pisar
+          # los archivos generados ni PRE_RELEASE.md del checkout original.
+          git worktree add --detach "$INDEX_WORKTREE" "origin/$BASE_BRANCH"
+          git -C "$INDEX_WORKTREE" checkout -B "$INDEX_BRANCH"
+
+          cp "$INDEX_TMP/package_jwplc_index_dev.json" "$INDEX_WORKTREE/JWPLC/package_jwplc_index_dev.json"
+          cp "$INDEX_TMP/package_jwplc_index.json" "$INDEX_WORKTREE/JWPLC/package_jwplc_index.json"
+
+          # Llevar tambien a main el README correspondiente al commit exacto
+          # desde el que se publica el package.
+          git show "$GITHUB_SHA:README.md" > "$INDEX_WORKTREE/README.md"
+
+          git -C "$INDEX_WORKTREE" add README.md JWPLC/package_jwplc_index_dev.json JWPLC/package_jwplc_index.json
+
+          if git -C "$INDEX_WORKTREE" diff --cached --quiet; then
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
-            echo "No package index changes to commit."
+            echo "No package index or README changes to commit."
+            git worktree remove --force "$INDEX_WORKTREE"
             exit 0
           fi
 
           echo "has_changes=true" >> "$GITHUB_OUTPUT"
-
-          BASE_BRANCH="${{ inputs.index_pr_base_branch }}"
-          git fetch origin "$BASE_BRANCH" --depth=1
-          git checkout -B "$INDEX_BRANCH" "origin/$BASE_BRANCH"
-          git checkout "$GITHUB_WORKSPACE/JWPLC/package_jwplc_index_dev.json" "$GITHUB_WORKSPACE/JWPLC/package_jwplc_index.json"
-          git add JWPLC/package_jwplc_index_dev.json JWPLC/package_jwplc_index.json
-          git commit -m "ci(release): update JWPLC package indexes for $TAG"
-          git push --force-with-lease origin "$INDEX_BRANCH"
+          git -C "$INDEX_WORKTREE" commit -m "ci(release): update JWPLC package indexes for $TAG"
+          git -C "$INDEX_WORKTREE" push --force-with-lease origin "$INDEX_BRANCH"
+          git worktree remove --force "$INDEX_WORKTREE"
 
       - name: Open or update package index pull request
         if: ${{ inputs.commit_index_changes && inputs.open_index_pr && steps.index_commit.outputs.has_changes == 'true' }}
@@ -247,6 +271,7 @@ jobs:
 
           - JWPLC/package_jwplc_index_dev.json
           - JWPLC/package_jwplc_index.json solo cambia cuando corresponde a release estable o update_public_index=yes.
+          - README.md cuando exista una actualización respecto a main.
 
           ## Nota
 

@@ -7,8 +7,6 @@ param(
     [string[]]$Libraries = @(
         "JW_RTC",
         "JW_FRAM",
-        "JW_SD",
-        "JW_MatrixButtons",
         "JWPLC_ModbusRTU"
     ),
     [string]$OutputRoot = ""

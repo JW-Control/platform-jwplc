@@ -1,531 +1,146 @@
 # JWPLC_RS485
 
-`JWPLC_RS485` es la librería nativa del ecosistema JWPLC para usar el puerto físico RS-485 del **JWPLC Basic** como comunicación UART industrial sobre `Serial2`.
+Librería interna del package **JWPLC ESP32** para utilizar el puerto RS-485 integrado del **JWPLC Basic**.
 
-Permite usar RS-485 como puerto genérico y también sirve como base para `JWPLC_ModbusRTU`.
+`JWPLC_RS485` encapsula la UART usada por el hardware, mantiene la API de transporte y expone telemetría de actividad para el indicador `BUS` de la pantalla IDLE.
+
+## Inicio
+
+Uso típico:
 
 ```cpp
 #include <JWPLC_RS485.h>
 
-JWPLC_RS485.begin();
-JWPLC_RS485.println("Hola RS485");
+void setup()
+{
+    JWPLC_RS485.begin(115200, SERIAL_8N1);
+}
 ```
 
-Cuando el sketch usa `JWPLC_ModbusRTU`, no es necesario incluir `JWPLC_RS485.h` directamente porque `JWPLC_ModbusRTU.h` ya lo incluye.
-
----
-
-## 1. Qué es RS-485
-
-RS-485 es una capa física diferencial. Define cómo viajan los datos eléctricamente por las líneas A/B, pero no define qué significan esos datos.
-
-Sobre RS-485 puedes transportar:
-
-- texto o comandos propios;
-- DWIN por RS-485;
-- Modbus RTU;
-- tramas binarias;
-- protocolos propietarios.
-
-En JWPLC se separa así:
-
-```txt
-JWPLC_RS485      -> puerto UART/RS-485 genérico
-JWPLC_ModbusRTU  -> protocolo Modbus RTU sobre JWPLC_RS485
-```
-
----
-
-## 2. Hardware JWPLC Basic
-
-| Señal | ESP32 | Uso |
-|---|---:|---|
-| RX2 | IO16 | Recepción RS-485 |
-| TX2 | IO17 | Transmisión RS-485 |
-
-Transceptor:
-
-```txt
-MAX13487EESA+
-```
-
-El MAX13487 usa auto-direccionamiento. Por eso el JWPLC Basic actual no necesita controlar pines DE/RE por software.
-
----
-
-## 3. Default
+También puede utilizarse la configuración por defecto de la librería:
 
 ```cpp
 JWPLC_RS485.begin();
 ```
 
-equivale a:
+La configuración histórica por defecto es `19200` y `SERIAL_8E1`.
 
-```cpp
-JWPLC_RS485.begin(115200, SERIAL_8N1);
-```
+RS-485 **no se autoinicia sólo para encender el indicador BUS**. La aplicación o una capa superior como `JWPLC_ModbusRTU` debe iniciar el transporte con los parámetros requeridos por el proyecto.
 
-Configuración por defecto:
+## Hardware JWPLC Basic
 
-```txt
-Baudrate: 115200
-Formato:  SERIAL_8N1
-UART:     Serial2
-RX:       IO16
-TX:       IO17
-```
+El transporte usa la interfaz serial asignada por la plataforma JWPLC, históricamente `Serial2` en el ESP32 del JWPLC Basic. Los pines y el manejo del transceptor pertenecen al package/hardware y no deben reconfigurarse en un sketch normal.
 
-Este default es práctico para debug, bridge USB-RS485, DWIN, protocolos propios y pruebas rápidas.
+La librería conserva hooks internos para el control físico del transceptor cuando sean necesarios por una variante.
 
----
-
-## 4. Por qué no inicia automáticamente
-
-`JWPLC_RS485` es nativo, pero no auto-iniciado.
-
-Esto es intencional porque RS-485 y Modbus RTU comparten `Serial2`, pero pueden usar defaults distintos:
-
-```txt
-JWPLC_RS485.begin()      -> 115200, SERIAL_8N1
-JWPLC_ModbusRTU.begin()  -> 19200, SERIAL_8E1
-```
-
-Si el runtime iniciara RS-485 automáticamente, podría bloquear `Serial2` con una configuración que el usuario no quería.
-
----
-
-## 5. SERIAL_8N1 vs SERIAL_8E1
-
-`SERIAL_8N1`:
-
-```txt
-8 bits de datos
-sin paridad
-1 bit de parada
-```
-
-`SERIAL_8E1`:
-
-```txt
-8 bits de datos
-paridad par
-1 bit de parada
-```
-
-Para que dos equipos comuniquen, ambos deben usar el mismo baudrate y el mismo formato.
-
----
-
-## 6. API principal
-
-### `begin()`
+## API base
 
 ```cpp
 JWPLC_RS485.begin();
-```
-
-Inicializa RS-485 con `115200, SERIAL_8N1`.
-
-### `begin(baud)`
-
-```cpp
-JWPLC_RS485.begin(9600);
-```
-
-Inicializa con baudrate personalizado y `SERIAL_8N1`.
-
-### `begin(baud, config)`
-
-```cpp
-JWPLC_RS485.begin(19200, SERIAL_8E1);
-```
-
-Inicializa con baudrate y formato personalizados.
-
-### `end()`
-
-```cpp
+JWPLC_RS485.begin(baud, config);
 JWPLC_RS485.end();
+
+JWPLC_RS485.isEnabled();
+JWPLC_RS485.isReady();
+JWPLC_RS485.lastError();
+JWPLC_RS485.lastErrorString();
 ```
 
-Cierra el puerto y limpia el estado de actividad.
+Errores públicos:
 
-### `isEnabled()`
-
-```cpp
-if (JWPLC_RS485.isEnabled())
-{
-    Serial.println("RS485 disponible");
-}
+```text
+JWPLC_RS485_OK
+JWPLC_RS485_DISABLED
+JWPLC_RS485_INVALID_SERIAL
+JWPLC_RS485_NOT_STARTED
+JWPLC_RS485_UNKNOWN_ERROR
 ```
 
-Indica si la placa seleccionada tiene RS-485 disponible.
+## Lectura y escritura
 
-### `isReady()`
-
-```cpp
-if (JWPLC_RS485.isReady())
-{
-    JWPLC_RS485.println("OK");
-}
-```
-
-Indica si `begin()` fue ejecutado correctamente.
-
-### `available()`, `read()`
+La API permite utilizar RS-485 como transporte binario o por frames simples.
 
 ```cpp
-while (JWPLC_RS485.available() > 0)
-{
-    int value = JWPLC_RS485.read();
-}
-```
+JWPLC_RS485.write(data, length);
+JWPLC_RS485.writeFrame(data, length);
 
-Lee bytes recibidos.
-
-Desde `v2.1.0-alpha.2`, `available()` y `read()` marcan actividad RX cuando hay datos recibidos. Esto permite que `JWPLC_Display` refleje actividad del bus en el LED `BUS`.
-
-### `write()`
-
-```cpp
-JWPLC_RS485.write(0x55);
-```
-
-```cpp
-uint8_t data[] = {0x01, 0x02, 0x03};
-JWPLC_RS485.write(data, sizeof(data));
-```
-
-Envía bytes.
-
-Desde `v2.1.0-alpha.2`, `write()` marca actividad TX cuando se envían bytes correctamente.
-
-### `print()` y `println()`
-
-`JWPLC_RS485` hereda de `Print`, por lo que puede usarse así:
-
-```cpp
-JWPLC_RS485.print("Valor: ");
-JWPLC_RS485.println(123);
-```
-
-### `flush()`
-
-```cpp
+JWPLC_RS485.available();
+JWPLC_RS485.read(buffer, maxLength);
+JWPLC_RS485.readFrame(buffer, maxLength, timeoutMs);
 JWPLC_RS485.flush();
 ```
 
-Espera a que termine la transmisión.
+`write()`/`read()` son la base recomendada para protocolos binarios como Modbus RTU. Los helpers de frame son útiles para pruebas o protocolos simples y no deben confundirse con el framing Modbus.
 
-### `stream()`
+## Telemetría de actividad
 
-```cpp
-Stream &port = JWPLC_RS485.stream();
-```
-
-Permite entregar el puerto a protocolos superiores.
-
-### `serial()`
+La librería registra actividad TX/RX para que otras capas puedan diagnosticar el bus sin duplicar lógica:
 
 ```cpp
-HardwareSerial &rs485 = JWPLC_RS485.serial();
+JWPLC_RS485.lastTxMs();
+JWPLC_RS485.lastRxMs();
+JWPLC_RS485.lastActivityMs();
+JWPLC_RS485.hasRecentActivity(windowMs);
 ```
 
-Accede al `HardwareSerial` interno.
+Esta telemetría alimenta el modo automático del indicador `BUS`.
 
-### `printStatus()`
+## Integración con BUS
 
 ```cpp
-JWPLC_RS485.printStatus(Serial);
+JWPLC_Display.setBusLedAuto(true);
 ```
 
-Imprime estado, baudrate, configuración, RX/TX y último error.
+La capa Display combina estado de `JWPLC_RS485` con el error actual de `JWPLC_ModbusRTU` cuando Modbus está activo.
 
----
+Códigos originados directamente por la capa RS-485:
 
-## 7. API de actividad
-
-A partir de `v2.1.0-alpha.2`, la librería expone estado de actividad TX/RX.
-
-```cpp
-uint32_t last = JWPLC_RS485.lastActivityMs();
-uint32_t lastRx = JWPLC_RS485.lastRxActivityMs();
-uint32_t lastTx = JWPLC_RS485.lastTxActivityMs();
-
-if (JWPLC_RS485.hasRecentActivity(800))
-{
-    Serial.println("Actividad RS485 reciente");
-}
-```
-
-| API | Descripción |
+| Código | Significado |
 |---|---|
-| `lastActivityMs()` | Último `millis()` con actividad RX o TX. |
-| `lastRxActivityMs()` | Último `millis()` con actividad RX. |
-| `lastTxActivityMs()` | Último `millis()` con actividad TX. |
-| `hasRecentActivity(windowMs)` | Devuelve `true` si hubo actividad dentro de la ventana indicada. |
+| `DIS` | Transporte deshabilitado/no disponible. |
+| `INI` | Transporte todavía no iniciado. |
+| `SER` | Configuración o estado serial inválido. |
+| `---` | RS-485 listo y sin error propio. |
 
-Esta API se usa internamente para el LED `BUS` automático de `JWPLC_Display`.
+Cuando Modbus RTU está operativo pueden aparecer códigos adicionales (`TMO`, `CRC`, `EXC`, etc.); esos pertenecen a la capa `JWPLC_ModbusRTU` y se documentan en su README.
 
----
+Semántica visual de `BUS`:
 
-## 8. Hook weak de actividad
+- gris: RS-485 deshabilitado;
+- negro: no iniciado o listo sin actividad reciente;
+- verde: actividad TX/RX reciente y sin error;
+- rojo: error RS-485 o Modbus.
 
-La librería declara un hook weak:
+El indicador es diagnóstico: no cambia baudrate, UART ni configuración del bus.
 
-```cpp
-extern "C" void jwplcRs485ActivityCallback(void);
-```
+## Convivencia con Modbus RTU
 
-Por defecto no hace nada.
+`JWPLC_ModbusRTU` usa `JWPLC_RS485` como transporte. No deben iniciarse dos propietarios con configuraciones incompatibles sobre la misma UART.
 
-`JWPLC_Display` puede sobreescribirlo para actualizar el LED `BUS` cuando se detecta TX/RX reciente.
-
-Este hook está pensado para integración interna del package. En sketches normales no es necesario sobreescribirlo.
-
----
-
-## 9. Ejemplo: envío simple
+Ejemplo slave:
 
 ```cpp
-#include <Arduino.h>
-#include <JWPLC_RS485.h>
-
-void setup()
-{
-    Serial.begin(115200);
-    delay(1200);
-
-    JWPLC_RS485.begin();
-}
-
-void loop()
-{
-    JWPLC_RS485.println("Mensaje desde JWPLC Basic");
-    delay(1000);
-}
-```
-
----
-
-## 10. Ejemplo: recepción simple
-
-```cpp
-#include <Arduino.h>
-#include <JWPLC_RS485.h>
-
-void setup()
-{
-    Serial.begin(115200);
-    delay(1200);
-
-    JWPLC_RS485.begin();
-}
-
-void loop()
-{
-    while (JWPLC_RS485.available() > 0)
-    {
-        int value = JWPLC_RS485.read();
-
-        if (value >= 0)
-        {
-            Serial.write((uint8_t)value);
-        }
-    }
-}
-```
-
----
-
-## 11. Ejemplo: bridge USB ↔ RS-485
-
-```cpp
-#include <Arduino.h>
-#include <JWPLC_RS485.h>
-
-void setup()
-{
-    Serial.begin(115200);
-    delay(1200);
-
-    JWPLC_RS485.begin();
-    Serial.println("Bridge USB <-> RS485 listo");
-}
-
-void loop()
-{
-    while (Serial.available() > 0)
-    {
-        int value = Serial.read();
-
-        if (value >= 0)
-        {
-            JWPLC_RS485.write((uint8_t)value);
-        }
-    }
-
-    while (JWPLC_RS485.available() > 0)
-    {
-        int value = JWPLC_RS485.read();
-
-        if (value >= 0)
-        {
-            Serial.write((uint8_t)value);
-        }
-    }
-}
-```
-
----
-
-## 12. Ejemplo: BUS automático con Display
-
-```cpp
-#include <Arduino.h>
-#include <JWPLC_Display.h>
-#include <JWPLC_RS485.h>
-
-void setup()
-{
-    Serial.begin(115200);
-
-    JWPLC_Display.setBusLedAuto(true);
-    JWPLC_RS485.begin(115200, SERIAL_8N1);
-}
-
-void loop()
-{
-    JWPLC_RS485.println("Ping RS485");
-    delay(1000);
-}
-```
-
-Resultado esperado en la pantalla IDLE:
-
-| Estado | LED BUS |
-|---|---|
-| RS-485 no iniciado | Gris |
-| RS-485 iniciado sin tráfico | Apagado |
-| TX/RX reciente | Verde |
-| Error real | Rojo |
-
----
-
-## 13. Hooks weak para DE/RE futuro
-
-El JWPLC Basic actual no usa DE/RE por software, pero la librería deja hooks weak para hardware futuro:
-
-```cpp
-extern "C" void jwplcRs485PreTransmitCallback(void)
-{
-    digitalWrite(RS485_DE_PIN, HIGH);
-}
-
-extern "C" void jwplcRs485PostTransmitCallback(void)
-{
-    digitalWrite(RS485_DE_PIN, LOW);
-}
-```
-
-Por defecto no hacen nada.
-
----
-
-## 14. Cableado
-
-```txt
-A   <-> A
-B   <-> B
-COM <-> COM
-```
-
-Si no comunica, prueba invertir A/B en uno de los extremos. Algunos fabricantes nombran A/B al revés.
-
----
-
-## 15. Terminación y bias
-
-- Terminación 120 Ω solo en los extremos del bus.
-- Bias normalmente en un solo punto.
-- En banco puede funcionar sin terminación.
-- En campo conviene usar par trenzado, COM/GND y configuración correcta de jumpers.
-
----
-
-## 16. Problemas comunes
-
-### No llega nada
-
-Revisar A/B, baudrate, formato, COM/GND, cableado y que se haya llamado `JWPLC_RS485.begin()`.
-
-### Llegan caracteres raros
-
-Normalmente es baudrate incorrecto, formato distinto (`8N1` vs `8E1`) o ruido.
-
-### Funciona texto, pero no Modbus
-
-RS-485 puede estar bien, pero Modbus requiere ID, CRC, función y dirección correctas.
-
-### El LED BUS queda gris
-
-Significa que RS-485 no está disponible en la variante o no se ha iniciado todavía.
-
-Para usar RS-485 genérico:
-
-```cpp
-JWPLC_RS485.begin();
-```
-
-Para usar Modbus RTU:
-
-```cpp
-#include <JWPLC_ModbusRTU.h>
-
 JWPLC_ModbusRTU.begin(1, 115200, SERIAL_8N1);
 ```
 
----
+En ese caso la capa Modbus se encarga de iniciar/usar el transporte requerido.
 
-## 17. Ejemplos incluidos
+## Validación física
 
-```txt
-RS485_Status
-RS485_Basic_Send
-RS485_Basic_Echo
-RS485_USB_Bridge
+En el ciclo 2.1.0 se ha validado RS-485 entre dos JWPLC Basic, incluyendo:
+
+- tráfico binario;
+- Modbus RTU master/slave;
+- walking de salidas Remote I/O;
+- actividad visible en `BUS`;
+- timeout Modbus visible como `TMO` rojo;
+- recuperación a lecturas correctas y `BUS` verde al volver a estar disponible el peer.
+
+## Estado
+
+```text
+JWPLC ESP32 2.1.0-alpha.6
+JWPLC_RS485 1.0.1
 ```
 
-Códigos internos de validación relacionados:
-
-```txt
-JWPLC/Test_Codes/
-```
-
-Pruebas usadas durante `v2.1.0-alpha.2`:
-
-- BUS automático por actividad RS-485;
-- Modbus RTU master/slave entre dos JWPLC Basic;
-- parpadeo de BUS en master y slave;
-- estados gris/apagado/verde/rojo en pantalla IDLE.
-
----
-
-## 18. Estado
-
-Documentación actualizada para:
-
-```txt
-JWPLC ESP32 2.1.0-alpha.2
-JWPLC_RS485
-```
-
-Cambios principales:
-
-- tracking de actividad TX/RX;
-- `lastActivityMs()`;
-- `lastRxActivityMs()`;
-- `lastTxActivityMs()`;
-- `hasRecentActivity(windowMs)`;
-- hook weak `jwplcRs485ActivityCallback()`;
-- soporte para LED BUS automático en `JWPLC_Display`.
+La actualización documental de Alpha6 no cambia la API del transporte; alinea el README con los diagnósticos BUS y las pruebas físicas actuales.

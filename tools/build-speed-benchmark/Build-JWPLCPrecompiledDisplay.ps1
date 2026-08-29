@@ -155,9 +155,9 @@ if ($null -eq (Get-Command $ArduinoCli -ErrorAction SilentlyContinue)) { throw "
 if (-not (Test-Path $CoreArchivePath)) { throw "P3 requiere el core P2 validado: $CoreArchivePath" }
 if (-not (Test-Path $BoardsLocalPath)) { throw "P3 requiere overlay P2 activo en boards.local.txt." }
 $boardsLocal = Get-Content $BoardsLocalPath -Raw
-if ($boardsLocal -notmatch '(?m)^jwplcbasic\.build\.core=jwcontrol_p2\s*$')
+if ($boardsLocal -notmatch '(?m)^jwplcbasic\.build\.core=jwcontrol_precompiled_stub\s*$')
 {
-    throw "P3 requiere jwplcbasic.build.core=jwcontrol_p2. Ejecuta Verify-JWPLCPrecompiledCore.ps1 primero."
+    throw "P3 requiere jwplcbasic.build.core=jwcontrol_precompiled_stub. Ejecuta Verify-JWPLCPrecompiledCore.ps1 primero."
 }
 
 $propertiesPath = Join-Path $LibraryRoot "library.properties"
@@ -237,7 +237,7 @@ try
     $allCompiles = $compileLines.Count
     $displaySourcePattern = '"[^"]*[\\/]+libraries[\\/]+JWPLC_Display[\\/]+[^"]+\.cpp"\s+-o\s+"'
     $displaySourceCompiles = @($compileLines | Where-Object { ([string]$_) -match $displaySourcePattern }).Count
-    $stubPattern = '"[^"]*[\\/]+cores[\\/]+jwcontrol_p2[\\/]+p2_core_stub\.c"\s+-o\s+"'
+    $stubPattern = '"[^"]*[\\/]+cores[\\/]+jwcontrol_precompiled_stub[\\/]+p2_core_stub\.c"\s+-o\s+"'
     $stubCompiles = @($compileLines | Where-Object { ([string]$_) -match $stubPattern }).Count
 
     $preprocessLines = @($native.Output | Where-Object { ([string]$_) -match 'xtensa-esp32-elf-g\+\+.*\s-E\s' })

@@ -61,7 +61,7 @@
 #endif
 
 #ifndef JWPLC_SPI_SD_HZ
-#define JWPLC_SPI_SD_HZ 10000000UL
+#define JWPLC_SPI_SD_HZ 20000000UL
 #endif
 
 // =====================================================
