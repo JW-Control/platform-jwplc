@@ -12,12 +12,12 @@
         {
           "name": "JW Control ESP32 Boards",
           "architecture": "esp32",
-          "version": "2.1.0-alpha.5",
+          "version": "2.1.0-alpha.6",
           "category": "Contributed",
-          "url": "https://github.com/JW-Control/platform-jwplc/releases/download/v2.1.0-alpha.5/jwplc-esp32-2.1.0-alpha.5.zip",
-          "archiveFileName": "jwplc-esp32-2.1.0-alpha.5.zip",
-          "checksum": "SHA-256:e24505d49852c075378f786700c54308ce20ed77cac959a52e9d8072ccde16ae",
-          "size": "24552607",
+          "url": "https://github.com/JW-Control/platform-jwplc/releases/download/v2.1.0-alpha.6/jwplc-esp32-2.1.0-alpha.6.zip",
+          "archiveFileName": "jwplc-esp32-2.1.0-alpha.6.zip",
+          "checksum": "SHA-256:cfd81391e80852f26c279ca67885227d6f24e4d3ec6b93d715e072176878c9f1",
+          "size": "24294308",
           "help": {
             "online": "https://www.jw-control.com/"
           },
