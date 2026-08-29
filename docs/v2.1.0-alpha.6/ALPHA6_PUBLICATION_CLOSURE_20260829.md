@@ -127,6 +127,26 @@ ALPHA6_ISOLATED_PHYSICAL_UPLOAD=PASS
 
 `esptool` verificó correctamente los hashes de los bloques escritos y completó el reset final por RTS.
 
+## Verificación visual posterior al upload
+
+Después del reset físico, la TFT arrancó normalmente y no se observó boot loop.
+
+Sin comunicaciones conectadas, el diagnóstico mostrado fue coherente con el runtime:
+
+```text
+BUS : INI
+ETH : LNK
+```
+
+`BUS: INI` corresponde a RS-485 todavía no iniciado por la aplicación y se representa con el indicador BUS apagado, no como error. `ETH: LNK` corresponde a Ethernet inicializado pero esperando enlace físico; con el cable desconectado también se representa con el indicador ETH apagado.
+
+Resultado:
+
+```text
+ALPHA6_POST_UPLOAD_TFT=PASS
+ALPHA6_POST_UPLOAD_BOOT=PASS
+```
+
 ## Decisiones que permanecen vigentes
 
 ```text
@@ -149,7 +169,7 @@ También permanecen fuera de alcance de Alpha6:
 
 ## Cierre
 
-Con instalación limpia, compilación aislada y carga física aprobadas, Alpha6 queda cerrada como PreRelease publicada del canal dev.
+Con instalación limpia, compilación aislada, carga física y arranque visual aprobados, Alpha6 queda cerrada como PreRelease publicada del canal dev.
 
 ```text
 ALPHA6_TECHNICAL_VALIDATION=PASS
@@ -158,6 +178,8 @@ ALPHA6_BUILD_SPEED=PASS
 ALPHA6_ISOLATED_INSTALL=PASS
 ALPHA6_ISOLATED_COMPILE=PASS
 ALPHA6_ISOLATED_PHYSICAL_UPLOAD=PASS
+ALPHA6_POST_UPLOAD_TFT=PASS
+ALPHA6_POST_UPLOAD_BOOT=PASS
 ALPHA6_PUBLICATION_CLOSURE=PASS
 ALPHA6_STATUS=CLOSED
 ```
