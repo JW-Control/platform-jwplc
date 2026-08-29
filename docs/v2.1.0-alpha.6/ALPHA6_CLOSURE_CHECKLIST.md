@@ -1,6 +1,6 @@
 # v2.1.0-alpha.6 — Checklist de cierre
 
-Fecha: 2026-08-28
+Fecha: 2026-08-29
 
 ## Base e integración
 
@@ -119,24 +119,61 @@ ALPHA6_WARM_AVG_IMPROVEMENT=4.43_PERCENT
 - [x] Corrección de base registrada.
 - [x] PR body actualizado en español.
 - [x] PreRelease actualizada en español.
+- [x] Cierre de publicación documentado en `ALPHA6_PUBLICATION_CLOSURE_20260829.md`.
 
 ## GitHub / publicación
 
-- [ ] PR corregido Alpha6 abierto contra `release/v2.1.x`.
-- [ ] CI del PR aprobado.
-- [ ] PR mergeado.
-- [ ] Auto workflow detecta `JWPLC_RELEASE_VERSION: 2.1.0-alpha.6`.
-- [ ] `Release JWPLC Arduino Package` aprobado.
-- [ ] ZIP `jwplc-esp32-2.1.0-alpha.6.zip` publicado.
-- [ ] SHA-256 y tamaño generados por workflow.
-- [ ] GitHub PreRelease `v2.1.0-alpha.6` publicada.
-- [ ] índice dev actualizado.
-- [ ] PR automático de índices hacia `main` creado.
-- [ ] PR de índices mergeado.
-- [ ] instalación limpia desde Boards Manager validada.
-- [ ] documentación de cierre de publicación añadida.
+- [x] PR corregido Alpha6 abierto contra `release/v2.1.x` (`#69`).
+- [x] CI del PR aprobado.
+- [x] PR mergeado.
+- [x] Auto workflow detectó `JWPLC_RELEASE_VERSION: 2.1.0-alpha.6`.
+- [x] `Release JWPLC Arduino Package` aprobado.
+- [x] ZIP `jwplc-esp32-2.1.0-alpha.6.zip` publicado.
+- [x] SHA-256 y tamaño generados por workflow.
+- [x] GitHub PreRelease `v2.1.0-alpha.6` publicada.
+- [x] índice dev actualizado.
+- [x] PR automático de índices hacia `main` creado (`#70`).
+- [x] PR de índices mergeado.
+- [x] instalación limpia desde el índice dev validada.
+- [x] compilación aislada desde el package publicado validada.
+- [x] carga física aislada por USB validada.
+- [x] documentación de cierre de publicación añadida.
 
-## Gate antes del PR/merge
+Artefacto publicado:
+
+```text
+ZIP    : jwplc-esp32-2.1.0-alpha.6.zip
+Size   : 24294308 bytes
+SHA256 : cfd81391e80852f26c279ca67885227d6f24e4d3ec6b93d715e072176878c9f1
+```
+
+Gate aislado final:
+
+```text
+ALPHA6_ISOLATED_INSTALL=PASS
+ALPHA6_ISOLATED_COMPILE=PASS
+COMPILE_SECONDS=53.027
+APP_BIN_BYTES=395120
+ALPHA6_ISOLATED_PHYSICAL_UPLOAD=PASS
+```
+
+## Higiene de ramas
+
+- [x] Divergencia histórica `main` / `release/v2.1.x` auditada.
+- [x] `JWPLC/2.1.0` de la sincronización verificado idéntico al release Alpha6 (`PACKAGE_DIFF_COUNT=0`).
+- [x] PR de sincronización `#71` mergeado mediante merge commit excepcional.
+- [x] `release/v2.1.x` confirmado como ancestro de `main`.
+- [x] `Require linear history` reactivado después de la sincronización.
+
+Marcadores:
+
+```text
+ALPHA6_BRANCH_DIVERGENCE=RESOLVED
+RELEASE_IS_ANCESTOR_OF_MAIN=PASS
+MAIN_LINEAR_HISTORY_PROTECTION=RESTORED
+```
+
+## Gate final
 
 ```text
 ALPHA6_TECHNICAL_VALIDATION=PASS
@@ -144,10 +181,14 @@ ALPHA6_DISPLAY_FINAL_ARCHIVE=PASS
 ALPHA6_INTEGRATED_FINAL_PRODUCTION_COLD=PASS
 ALPHA6_BUILD_SPEED=PASS
 ALPHA6_COLD_REGRESSION=ACCEPTED_KNOWN_COST
+ALPHA6_ISOLATED_INSTALL=PASS
+ALPHA6_ISOLATED_COMPILE=PASS
+ALPHA6_ISOLATED_PHYSICAL_UPLOAD=PASS
+ALPHA6_PUBLICATION_CLOSURE=PASS
 ```
 
 Estado:
 
 ```text
-READY_FOR_PR
+ALPHA6_STATUS=CLOSED
 ```
