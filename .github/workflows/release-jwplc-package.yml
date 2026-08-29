@@ -146,6 +146,19 @@ jobs:
             echo "Release $TAG does not exist yet."
           fi
 
+      - name: Seed package indexes from main
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # La rama de release contiene el código que se publicará,
+          # pero main conserva el histórico canónico del Boards Manager.
+          # Sembrar los índices desde main evita perder versiones previas
+          # cuando se publica una nueva alpha/beta desde release/v2.1.x.
+          git fetch origin main --depth=1
+          git show origin/main:JWPLC/package_jwplc_index_dev.json > JWPLC/package_jwplc_index_dev.json
+          git show origin/main:JWPLC/package_jwplc_index.json > JWPLC/package_jwplc_index.json
+
       - name: Prepare package ZIP and indexes
         id: prepare
         shell: bash
