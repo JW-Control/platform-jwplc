@@ -11,10 +11,10 @@ El objetivo es que el hardware pueda utilizarse con una experiencia cercana a Ar
 | Canal | Versión | Estado |
 |---|---|---|
 | Público / estable | `v2.0.0` | Recomendado para proyectos estables. |
-| Dev publicada | `v2.1.0-alpha.5` | Última PreRelease publicada antes del trabajo Alpha6. |
-| Rama actual | `v2.1.0-alpha.6` | En cierre técnico/documental; todavía no debe asumirse publicada hasta completar release. |
+| Dev publicada | `v2.1.0-alpha.6` | Última PreRelease publicada y cerrada del ciclo 2.1.0. |
+| Siguiente alpha | — | No iniciado formalmente. |
 
-Alpha6 mantiene las optimizaciones de compilación de Alpha4/Alpha5 y se concentra en robustecer el runtime de comunicaciones y diagnóstico sin retirar periféricos del autoload normal.
+Alpha6 mantiene las optimizaciones de compilación de Alpha4/Alpha5 y consolida un runtime Ethernet/W5500 cooperativo, diagnóstico integrado y validación física del package publicado, sin retirar periféricos del autoload normal.
 
 ## Qué incluye JWPLC Basic
 
@@ -252,7 +252,7 @@ Documentación:
 
 ## Precompilación y tiempos de build
 
-El ciclo 2.1.0 reduce compilaciones sin retirar funcionalidades. Alpha5 recuperó gran parte de las TUs precompiladas y Alpha6 vuelve a dejar `JWPLC_Display` precompilado después de cerrar sus cambios funcionales.
+El ciclo 2.1.0 reduce compilaciones sin retirar funcionalidades. Alpha5 recuperó gran parte de las TUs precompiladas y Alpha6 dejó `JWPLC_Display` precompilado después de cerrar sus cambios funcionales.
 
 Para Display, el archive final Alpha6 se regeneró desde los dos objetos fuente actuales y se validó con:
 
@@ -260,9 +260,19 @@ Para Display, el archive final Alpha6 se regeneró desde los dos objetos fuente 
 - cero compilaciones source de Display en modo `precompiled=full`;
 - mismo conjunto de símbolos;
 - misma RAM;
-- diferencia de flash explicada por padding del linker.
+- misma ocupación APP;
+- mismo binario de aplicación.
 
-La tabla final de tiempos de Alpha6 y la conclusión global de build deben registrarse en la documentación de cierre de la release, no fijarse aquí mientras el alpha siga en proceso.
+Resultado agregado Alpha5 -> Alpha6:
+
+```text
+cold promedio combinado = +9.88 %
+warm promedio combinado = -4.43 %
+```
+
+La regresión cold cercana al 10 % queda aceptada como costo conocido de consolidar el runtime Ethernet sin retirar periféricos del autoload normal. Las recompilaciones warm mejoran en promedio.
+
+Documentación: [`BUILD_SPEED_COMPARISON_ALPHA5_ALPHA6_FINAL_20260828.md`](docs/v2.1.0-alpha.6/BUILD_SPEED_COMPARISON_ALPHA5_ALPHA6_FINAL_20260828.md)
 
 ## Instalación
 
@@ -288,7 +298,13 @@ Versión estable pública actual:
 https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json
 ```
 
-Las PreRelease deben utilizarse únicamente cuando la versión correspondiente ya haya sido publicada en ese índice. La rama Alpha6 actual no debe asumirse disponible por Boards Manager hasta completar su release.
+Última PreRelease publicada:
+
+```text
+2.1.0-alpha.6
+```
+
+Alpha6 fue validada desde una instalación Arduino CLI aislada, incluyendo compilación y upload físico del package descargado desde el índice dev.
 
 ## Placas
 
@@ -313,7 +329,9 @@ Para desarrollo local se utiliza también el namespace `jwplc_local` según el f
 
 ## Estado Alpha6
 
-A la fecha de este README ya se han cerrado técnicamente los gates principales de:
+`v2.1.0-alpha.6` está cerrada y publicada como PreRelease del canal dev.
+
+Se cerraron y documentaron:
 
 - `ERR` alfanumérico de aplicación;
 - diagnóstico automático `BUS`;
@@ -321,6 +339,25 @@ A la fecha de este README ya se han cerrado técnicamente los gates principales 
 - Ethernet cooperativo y recuperación de link;
 - DHCP T1/T2 cooperativo;
 - build normal sin hooks de prueba DHCP;
-- archive final precompilado de `JWPLC_Display`.
+- archive final precompilado de `JWPLC_Display`;
+- benchmark final Basic/Core;
+- publicación automatizada;
+- instalación limpia desde el índice dev;
+- compilación aislada;
+- upload físico por USB;
+- arranque/TFT posterior al upload;
+- sincronización histórica `release/v2.1.x -> main`.
 
-Antes de publicar Alpha6 todavía corresponde completar el cierre documental/release y ejecutar el gate final de producción sobre el HEAD definitivo.
+Marcadores finales:
+
+```text
+ALPHA6_TECHNICAL_VALIDATION=PASS
+ALPHA6_BUILD_SPEED=PASS
+ALPHA6_ISOLATED_INSTALL=PASS
+ALPHA6_ISOLATED_COMPILE=PASS
+ALPHA6_ISOLATED_PHYSICAL_UPLOAD=PASS
+ALPHA6_PUBLICATION_CLOSURE=PASS
+ALPHA6_STATUS=CLOSED
+```
+
+El siguiente alpha todavía no ha sido iniciado formalmente.
