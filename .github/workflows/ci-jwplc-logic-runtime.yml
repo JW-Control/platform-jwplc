@@ -15,9 +15,9 @@ permissions:
 
 env:
   ARDUINO_CLI_VERSION: "1.x"
-  # Última versión publicada usada como bootstrap del toolchain.
-  # El contenido de JWPLC/2.1.0 del PR se superpone después.
-  JWPLC_PACKAGE_VERSION: "2.1.0-alpha.4"
+  # Ultima version publicada usada como bootstrap del toolchain.
+  # El contenido de JWPLC/2.1.0 del PR se superpone despues.
+  JWPLC_PACKAGE_VERSION: "2.1.0-alpha.5"
   JWPLC_FQBN: "jwplc:esp32:jwplcbasic"
   JWPLC_INDEX_URL: "https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json"
 
