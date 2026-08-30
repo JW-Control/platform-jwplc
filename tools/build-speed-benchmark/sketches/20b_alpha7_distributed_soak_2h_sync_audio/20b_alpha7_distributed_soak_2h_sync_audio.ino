@@ -21,11 +21,40 @@
       48 : fuerte
 */
 
+#include <Arduino.h>
+
+// El soak base se incluye como fuente validada, pero sus escrituras no-cero
+// de digitalWriteBlock() quedan bloqueadas en esta variante. Así evitamos el
+// primer click autónomo cuando START pone IO_NODE_STAGGER_MS=0. El scheduler
+// nuevo escribe el banco directamente mediante jwplc_digitalWriteBlock().
+static void syncLegacyDigitalWriteBlock(
+    const uint16_t *pins,
+    uint8_t count,
+    uint8_t bitmap)
+{
+    if (bitmap == 0)
+        jwplc_digitalWriteBlock(pins, count, bitmap);
+}
+
+#undef digitalWriteBlock
+#define digitalWriteBlock(pins, bitmap) \
+    syncLegacyDigitalWriteBlock( \
+        (pins), \
+        (uint8_t)(sizeof(pins) / sizeof((pins)[0])), \
+        (uint8_t)(bitmap))
+
 #define setup alpha7AsyncBaseSetup
 #define loop alpha7AsyncBaseLoop
 #include "../20_alpha7_distributed_soak_2h_gate_7NB_async_master/20_alpha7_distributed_soak_2h_gate_7NB_async_master.ino"
 #undef setup
 #undef loop
+
+#undef digitalWriteBlock
+#define digitalWriteBlock(pins, bitmap) \
+    jwplc_digitalWriteBlock( \
+        (pins), \
+        (uint8_t)(sizeof(pins) / sizeof((pins)[0])), \
+        (uint8_t)(bitmap))
 
 // ============================================================================
 // Configuracion del overlay sincronizado
@@ -73,7 +102,6 @@ static uint8_t syncChannel = 0;
 static uint8_t syncTargetSlave = 1;
 static SyncDispatchField syncField = SYNC_FIELD_ARG0;
 static uint16_t syncSequence = 0;
-static uint16_t syncDelayMsForSlave = 0;
 static uint8_t syncDesiredMask = 0;
 static uint32_t syncMasterTargetUs = 0;
 static uint32_t syncNextPhaseMs = 0;
@@ -148,7 +176,7 @@ static void syncAudioStart(uint16_t frequency)
         return;
 
     // El soak base usa tone() para avisos esporadicos. Para las notas del
-    // patrón soltamos cualquier canal previo y usamos LEDC directo, porque
+    // patron soltamos cualquier canal previo y usamos LEDC directo, porque
     // tone() no ofrece control de volumen/duty.
     syncAudioStop();
     ledcDetach(BUZZER_PIN);
@@ -171,7 +199,10 @@ static void syncApplyNow(uint8_t mask, uint8_t channel, uint16_t token)
 {
     const uint8_t previous = ioStress.outputBitmap;
 
-    setOutputs(mask);
+    // Bypass deliberado de setOutputs(): esa funcion pertenece al oscilador
+    // legacy y sus ON quedan bloqueados por esta variante.
+    jwplc_digitalWriteBlock(Q0_X, 8, mask);
+    ioStress.outputBitmap = mask;
     ioStress.channel = channel;
     ioStress.onPhase = (mask != 0);
     ioStress.phaseStartMs = millis();
@@ -549,10 +580,19 @@ static void syncEnterTakeover()
     syncApplyPending = false;
     syncNextPhaseMs = millis() + 150UL;
 
+    // El start legacy pudo incrementar software antes de que este overlay
+    // tomara control; la corrida sincronizada empieza con contadores limpios.
+    memset(ioStress.qPulses, 0, sizeof(ioStress.qPulses));
+    memset(ioStress.iPulses, 0, sizeof(ioStress.iPulses));
+    ioStress.mismatches = 0;
+
     // Desactiva exclusivamente el oscilador I/O autonomo del soak base.
     // El resto del acceptance permanece intacto.
     ioStress.running = false;
     ioStress.waitingInitialStagger = false;
+    ioStress.onPhase = false;
+    ioStress.phaseFailureLatched = false;
+    ioStress.pulseDetectedThisOn = false;
     setOutputs(0x00);
 
     Serial.print(F("[SYNC IO] takeover=ON volume="));
@@ -580,8 +620,6 @@ static void syncOverlayBeforeBaseLoop()
         ioStress.running = false;
         ioStress.waitingInitialStagger = false;
     }
-
-    // Aplicaciones de salida/audio ocurren en syncApplyTask, no aqui.
 }
 
 static void syncOverlayAfterBaseLoop()
