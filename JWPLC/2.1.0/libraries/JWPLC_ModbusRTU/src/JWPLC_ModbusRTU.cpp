@@ -165,9 +165,172 @@ void JWPLC_ModbusRTUClass::poll()
         _lastByteMs = millis();
     }
 
-    if (_rxLength > 0 && (uint32_t)(millis() - _lastByteMs) >= _frameGapMs)
+    if (_rxLength > 0 &&
+        (uint32_t)(millis() - _lastByteMs) >= _frameGapMs)
     {
-        processServerFrame(_rxBuffer, _rxLength);
+        uint16_t offset = 0;
+
+        while (offset < _rxLength)
+        {
+            const uint16_t remaining = _rxLength - offset;
+            const uint8_t *frame = &_rxBuffer[offset];
+
+            uint16_t frameLength = 0;
+
+            if (remaining >= 5)
+            {
+                const uint8_t functionCode = frame[1];
+
+                // Respuesta Modbus de excepción:
+                // address + (function | 0x80) + exception + CRC16.
+                if ((functionCode & 0x80) != 0)
+                {
+                    if (checkCRC(frame, 5))
+                    {
+                        frameLength = 5;
+                    }
+                }
+                else
+                {
+                    switch (functionCode)
+                    {
+                    // Read Coils / Discrete Inputs /
+                    // Holding Registers / Input Registers.
+                    //
+                    // Request:  8 bytes.
+                    // Response: address + function + byteCount +
+                    //           data + CRC16 = 5 + byteCount.
+                    case 0x01:
+                    case 0x02:
+                    case 0x03:
+                    case 0x04:
+                    {
+                        // Priorizar request fija de 8 bytes.
+                        if (remaining >= 8 &&
+                            checkCRC(frame, 8))
+                        {
+                            frameLength = 8;
+                            break;
+                        }
+
+                        const uint8_t byteCount = frame[2];
+
+                        bool validResponseShape = (byteCount > 0);
+
+                        // FC03/FC04 devuelven registros de 16 bits,
+                        // por lo que byteCount debe ser par.
+                        if (functionCode == 0x03 ||
+                            functionCode == 0x04)
+                        {
+                            validResponseShape =
+                                validResponseShape &&
+                                ((byteCount & 0x01) == 0);
+                        }
+
+                        const uint16_t responseLength =
+                            (uint16_t)5 + byteCount;
+
+                        if (validResponseShape &&
+                            responseLength <= remaining &&
+                            checkCRC(frame, responseLength))
+                        {
+                            frameLength = responseLength;
+                        }
+
+                        break;
+                    }
+
+                    // Write Single Coil / Register.
+                    // Request y response tienen exactamente 8 bytes.
+                    case 0x05:
+                    case 0x06:
+                        if (remaining >= 8 &&
+                            checkCRC(frame, 8))
+                        {
+                            frameLength = 8;
+                        }
+                        break;
+
+                    // Write Multiple Coils / Registers.
+                    //
+                    // Request: 9 + byteCount.
+                    // Response: 8 bytes.
+                    case 0x0F:
+                    case 0x10:
+                    {
+                        if (remaining >= 9)
+                        {
+                            const uint16_t quantity =
+                                ((uint16_t)frame[4] << 8) |
+                                frame[5];
+
+                            const uint8_t byteCount = frame[6];
+
+                            bool validRequestShape = false;
+
+                            if (functionCode == 0x10)
+                            {
+                                validRequestShape =
+                                    quantity >= 1 &&
+                                    quantity <= 123 &&
+                                    byteCount == quantity * 2;
+                            }
+                            else
+                            {
+                                validRequestShape =
+                                    quantity >= 1 &&
+                                    quantity <= 1968 &&
+                                    byteCount ==
+                                        (uint8_t)((quantity + 7) / 8);
+                            }
+
+                            const uint16_t requestLength =
+                                (uint16_t)9 + byteCount;
+
+                            if (validRequestShape &&
+                                requestLength <= remaining &&
+                                checkCRC(frame, requestLength))
+                            {
+                                frameLength = requestLength;
+                            }
+                        }
+
+                        if (frameLength == 0 &&
+                            remaining >= 8 &&
+                            checkCRC(frame, 8))
+                        {
+                            frameLength = 8;
+                        }
+
+                        break;
+                    }
+
+                    default:
+                        // Mantener comportamiento para funciones no
+                        // reconocidas cuando el lote completo forma
+                        // una ADU CRC-válida.
+                        if (checkCRC(frame, remaining))
+                        {
+                            frameLength = remaining;
+                        }
+                        break;
+                    }
+                }
+            }
+
+            if (frameLength == 0)
+            {
+                // Corrupción real o función/trama que no se puede
+                // delimitar de forma estructural. Mantener el
+                // diagnóstico CRC anterior sobre el remanente.
+                processServerFrame(frame, remaining);
+                break;
+            }
+
+            processServerFrame(frame, frameLength);
+            offset += frameLength;
+        }
+
         clearRxBuffer();
     }
 }
