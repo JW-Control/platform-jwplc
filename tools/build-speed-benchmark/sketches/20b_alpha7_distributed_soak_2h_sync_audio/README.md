@@ -1,4 +1,4 @@
-# Gate 7NB.3A-C — Soak async sincronizado + audio
+# Gate 7NB.3A-C — Soak async sincronizado + patrones + audio
 
 Variante incremental del `20_alpha7_distributed_soak_2h_gate_7NB_async_master`.
 
@@ -8,30 +8,83 @@ Validar dentro del acceptance completo que la secuencia de E/S sea gobernada por
 
 Esta variante **no modifica `JWPLC_ModbusRTU`**. Consume la API Master cooperativa ya existente.
 
+## Qué conserva del soak 20
+
+El `.ino` incluye el soak 20 completo como base y mantiene sus rutas de:
+
+- Display/TFT y botonera.
+- FRAM stress.
+- RTC, NTP y drift.
+- microSD en Master.
+- WiFi + HTTP worker en Core 0.
+- Ethernet + HTTP + rotación de cable.
+- BLE qualification.
+- RS-485 y Modbus RTU cooperativo.
+- telemetría, heap, uptime, max loop y CRC diagnostics.
+- loopback físico Q0.x -> I0.x.
+
+El cambio funcional se concentra en cómo se generan y aplican los patrones Q.
+
 ## Arquitectura I/O
 
 El soak 20 original arrancaba un temporizador local en cada nodo. Aunque `IO_NODE_STAGGER_MS=0`, cada placa conservaba su propia fase y los relés terminaban audiblemente desincronizados.
 
 En 7NB.3A-C:
 
-1. M2 decide canal y fase ON/OFF.
-2. M2 prepara cada Slave mediante FC06 direccionado, sin broadcast.
-3. Cada Slave recibe máscara, canal y retardo relativo.
-4. M2 y los Slaves programan la aplicación en una tarea `jwplcSyncIO` de prioridad alta en Core 1.
-5. La tarea aplica el banco con `digitalWriteBlock(Q0_X, bitmap)` en el instante objetivo.
-6. El loopback Q0.x -> I0.x sigue validando pulso, bitmap y mismatch.
+1. M2 carga el siguiente `SyncPatternStep`.
+2. Cada paso define un bitmap independiente para M2, S1 y S2.
+3. M2 prepara cada Slave mediante FC06 direccionado, sin broadcast.
+4. Cada Slave recibe bitmap, hint de canal y retardo relativo.
+5. M2 y los Slaves programan la aplicación en una tarea `jwplcSyncIO` de prioridad alta en Core 1.
+6. La tarea aplica el banco completo en el instante objetivo.
+7. El loopback compara el bitmap físico completo y cuenta cada transición individual `0 -> 1` de Q/I.
 
 La tarea dedicada evita que un bloqueo ocasional del loop Arduino por Ethernet desplace por cientos de milisegundos el instante de conmutación.
 
-## Audio
+## Patrones SHOW
 
-Cada transición de salida dispara una nota corta no bloqueante usando LEDC. La nota depende del patrón:
+`START` inicia el soak completo y usa por defecto el modo `SHOW`.
 
-- `Q0_0 .. Q0_7`: escala ascendente C5..C6.
-- fase OFF: nota G4.
-- si en el futuro se usan máscaras multibit, la cantidad de bits activos desplaza la nota, por lo que patrones distintos pueden producir notas distintas.
+Incluye:
 
-Patrones iguales en tres nodos producen la misma nota en los tres y deben escucharse como un solo evento.
+- `all-off / all-on`.
+- chase Q0..Q7 en las tres placas.
+- `0xAA / 0x55` cruzado entre nodos.
+- ola M2 -> S1 -> S2.
+- patrones espejo `0x81 / 0x42 / 0x24 / 0x18`.
+
+Por ejemplo:
+
+```text
+alternate-a  M2/S1/S2 = AA/55/AA
+wave-s1      M2/S1/S2 = 00/FF/00
+mirror-1     M2/S1/S2 = 81/42/24
+```
+
+Los tres bitmaps cambian en el mismo instante aunque sean diferentes.
+
+### Comandos extra
+
+En M2:
+
+```text
+START  -> inicia el soak completo en SHOW
+CLACK  -> inicia/cambia a 00<->FF sincronizado
+SHOW   -> vuelve al juego de patrones durante un soak en curso
+STOP   -> usa el STOP normal del soak completo
+```
+
+`CLACK` no es un sketch aparte: usa el mismo acceptance completo y sólo cambia el generador de patrones.
+
+## Audio por bitmap completo
+
+Cada nodo genera una nota corta no bloqueante usando LEDC en el mismo instante de aplicación del bitmap.
+
+La frecuencia se deriva de la firma completa de las ocho salidas, no solamente del número de bits activos. Por eso, por ejemplo, `0xAA` y `0x55` pueden producir notas distintas aunque ambos tengan cuatro relés ON.
+
+La paleta usa frecuencias consonantes y los patrones iguales producen la misma nota. Patrones distintos pueden formar un trío de notas entre M2/S1/S2.
+
+El OFF total (`0x00`) usa una nota grave de referencia.
 
 ### Volumen configurable
 
@@ -54,34 +107,38 @@ El nivel se implementa con duty PWM LEDC; `tone()` por sí solo no permite contr
 
 ## Compile-check
 
-Primero compilar sin subir a las placas. El sketch incluye como base el soak 20 mediante `#include` y renombra su `setup()/loop()` para conservar todas las rutas ya validadas.
+El sketch incluye como base el soak 20 mediante `#include` y renombra su `setup()/loop()` para conservar todas las rutas ya validadas.
 
-Esperado al boot después de compilar/subir:
+Esperado al boot de la revisión actual:
 
 ```text
 [SYNC IO] apply task=PASS
-GATE_RT_REV=4 7NB-sync-addressed-audio
+GATE_RT_REV=5 7NB-sync-patterns-audio
 BUZZER_VOLUME=24/255
+SYNC_COMMANDS=START/SHOW/CLACK/STOP
 ```
 
 Durante `START` debe aparecer:
 
 ```text
-[SYNC IO] takeover=ON volume=24/255
+[SYNC IO] mode=SHOW
+[SYNC IO] takeover=ON mode=SHOW volume=24/255
+PATTERN seq=... name=... M2/S1/S2=0x../0x../0x.. tone=.../.../...Hz
 ```
 
 ## Criterio inicial PASS
 
-- compile-check limpio;
+- compile-check limpio de REV=5;
 - tarea `jwplcSyncIO = PASS` en los tres nodos;
-- clicks M2/S1/S2 audiblemente en sincronía;
-- notas audiblemente en sincronía;
+- clicks M2/S1/S2 audiblemente alineados en cada frontera de patrón;
+- notas del trío alineadas con cada patrón;
+- bitmaps distintos visibles en alternancias/ola/espejos;
 - `MODBUS_CRC total/run = 0/0` en los tres;
 - `MB_FAIL W/R/V = 0/0/0` durante la ventana corta;
-- `IO mismatch = 0`;
+- `IO mismatch = 0` y contadores Q/I coherentes;
 - FRAM/RTC/SD/WiFi/Ethernet siguen activos como en soak 20.
 
-Primera prueba física: 60-120 s. Si pasa, extender a 5-10 min antes de volver al endurance largo.
+Primera prueba física: 60-120 s. Si pasa, extender a 5-10 min antes de volver al endurance largo. No dejar el modo SHOW durante horas todavía: genera más ciclos de relé que el walking original.
 
 ## Pendiente separado
 
