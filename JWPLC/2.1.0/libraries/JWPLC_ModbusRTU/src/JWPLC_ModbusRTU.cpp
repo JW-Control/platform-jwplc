@@ -402,23 +402,21 @@ void JWPLC_ModbusRTUClass::pollMaster()
         }
     }
 
-    // El Master conoce de antemano el largo de la respuesta normal. No debe
-    // depender del frame gap para declarar completa una FC03 larga: bajo
-    // carga del loop, el limite previo de 64 bytes podia fragmentar una ADU.
-    if (expectedLength > 0 &&
-        _rxLength >= expectedLength)
+    // Para operaciones conocidas, la longitud esperada manda. Un frame gap
+    // intermedio no puede cerrar prematuramente una FC03 larga.
+    if (expectedLength > 0)
     {
-        processMasterFrame(_rxBuffer, expectedLength);
-        clearRxBuffer();
-        return;
+        if (_rxLength >= expectedLength)
+        {
+            processMasterFrame(_rxBuffer, expectedLength);
+            clearRxBuffer();
+            return;
+        }
     }
-
-    // Si se drenaron todos los bytes disponibles y existe un silencio real de
-    // bus antes de alcanzar el largo esperado, entregar el remanente al
-    // validador para conservar diagnostico de respuesta corta/malformada.
-    if (_rxLength > 0 &&
-        (uint32_t)(millis() - _lastByteMs) >= _frameGapMs)
+    else if (_rxLength > 0 &&
+             (uint32_t)(millis() - _lastByteMs) >= _frameGapMs)
     {
+        // Fallback reservado para operaciones cuyo largo no puede derivarse.
         processMasterFrame(_rxBuffer, _rxLength);
         clearRxBuffer();
         return;
