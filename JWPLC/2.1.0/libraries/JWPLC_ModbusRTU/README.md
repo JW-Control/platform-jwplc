@@ -1,8 +1,8 @@
 # JWPLC_ModbusRTU
 
-Librería interna del package **JWPLC ESP32** para Modbus RTU sobre `JWPLC_RS485`.
+Librería del package **JWPLC ESP32** para Modbus RTU sobre `JWPLC_RS485`.
 
-La versión actual mantiene un alcance deliberadamente acotado: servidor slave con Holding Registers y cliente master básico. No pretende declarar soporte para todo Modbus RTU.
+Desde Alpha7, el criterio de diseño del Master es **cooperativo/no bloqueante por defecto**. La API síncrona se mantiene de forma explícita para commissioning, pruebas o sketches simples, pero no es la ruta recomendada para lógica PLC, Backplane ni Remote I/O.
 
 ## Inicio
 
@@ -25,22 +25,90 @@ void loop()
 }
 ```
 
-También existe el inicio por defecto, históricamente con slave ID `1`, `19200` y `SERIAL_8E1`.
-
-### Master
-
-La misma capa puede actuar como master para las operaciones implementadas:
+### Master cooperativo — recomendado
 
 ```cpp
-uint16_t values[4];
+#include <JWPLC_ModbusRTU.h>
 
-bool ok = JWPLC_ModbusRTU.readHoldingRegisters(
-    slaveId,
-    startAddress,
-    quantity,
-    values,
-    1000);
+uint16_t values[4];
+uint32_t nextRequestMs = 0;
+
+void setup()
+{
+    JWPLC_ModbusRTU.begin(247, 115200, SERIAL_8N1);
+}
+
+void loop()
+{
+    JWPLC_ModbusRTU.task();
+
+    if (JWPLC_ModbusRTU.masterDone())
+    {
+        if (JWPLC_ModbusRTU.masterSucceeded())
+        {
+            // values[] ya contiene la respuesta FC03.
+        }
+        else
+        {
+            // Revisar masterResult() / lastErrorString().
+        }
+
+        JWPLC_ModbusRTU.clearMasterResult();
+        nextRequestMs = millis() + 100;
+    }
+
+    if (!JWPLC_ModbusRTU.masterBusy() &&
+        !JWPLC_ModbusRTU.masterDone() &&
+        (int32_t)(millis() - nextRequestMs) >= 0)
+    {
+        JWPLC_ModbusRTU.requestReadHoldingRegisters(
+            1, 0, 4, values, 1000);
+    }
+}
 ```
+
+`requestReadHoldingRegisters()` y `requestWriteSingleRegister()` **solo inician** la transacción. Un retorno `true` significa que la solicitud fue aceptada; no significa que la respuesta ya haya llegado.
+
+Mientras exista una transacción pendiente, `task()` debe ejecutarse con frecuencia. El timeout también se resuelve desde este motor cooperativo, por lo que el `loop()` puede seguir atendiendo lógica, E/S, display, Ethernet y watchdogs.
+
+## Contrato del Master cooperativo
+
+- una sola transacción Master activa a la vez;
+- llamar `task()` frecuentemente;
+- no iniciar otra solicitud mientras `masterBusy()` sea `true`;
+- el buffer `destination` de una lectura debe seguir existiendo hasta que `masterDone()` sea `true`;
+- al terminar, revisar `masterSucceeded()` o `masterResult()`;
+- llamar `clearMasterResult()` antes de iniciar el siguiente ciclo.
+
+API principal:
+
+```cpp
+requestReadHoldingRegisters(...)
+requestWriteSingleRegister(...)
+masterBusy()
+masterDone()
+masterSucceeded()
+masterState()
+masterResult()
+clearMasterResult()
+task()
+```
+
+## API síncrona explícita
+
+Para pruebas, commissioning o sketches donde bloquear sea aceptable:
+
+```cpp
+bool ok = JWPLC_ModbusRTU.readHoldingRegistersSync(
+    1, 0, 4, values, 1000);
+
+bool ok2 = JWPLC_ModbusRTU.writeSingleRegisterSync(
+    1, 2, 1234, 1000);
+```
+
+Estas llamadas esperan hasta recibir la respuesta o vencer el timeout. Durante esa espera el flujo de aplicación que realizó la llamada no continúa.
+
+Los nombres históricos `readHoldingRegisters()` y `writeSingleRegister()` se conservan temporalmente durante Alpha7 como wrappers de compatibilidad hacia las variantes `...Sync()`. Código nuevo debe usar la API cooperativa o el sufijo `Sync` de forma explícita.
 
 ## Funciones implementadas
 
@@ -52,121 +120,95 @@ bool ok = JWPLC_ModbusRTU.readHoldingRegisters(
 | `0x06` | Write Single Register |
 | `0x10` | Write Multiple Registers |
 
-### Master
+### Master cooperativo
 
-API pública principal:
+| Código | API |
+|---:|---|
+| `0x03` | `requestReadHoldingRegisters()` |
+| `0x06` | `requestWriteSingleRegister()` |
 
-```cpp
-readHoldingRegisters(...)
-writeSingleRegister(...)
+La API Sync expone las mismas dos operaciones Master en esta etapa.
+
+## Multidrop — Alpha7
+
+Durante la validación M2 + S1 + S2 se detectó que un Slave podía leer en una sola ejecución de `poll()` la request dirigida a otro nodo y la respuesta correspondiente ya acumuladas en el FIFO UART. El parser anterior trataba ambos ADU como una única trama y registraba un falso error CRC.
+
+Alpha7 separa el contenido recibido usando la estructura de la función Modbus antes de validar CRC:
+
+- FC01/02/03/04 request: 8 bytes;
+- FC01/02/03/04 response: `5 + byteCount`;
+- FC05/06 request/response: 8 bytes;
+- FC0F/10 request: `9 + byteCount`;
+- FC0F/10 response: 8 bytes;
+- exception response: 5 bytes.
+
+El CRC valida una longitud derivada de la estructura del protocolo; ya no se usa para buscar arbitrariamente el primer prefijo coincidente.
+
+Validación física Alpha7 con dos Slaves en el mismo bus:
+
+```text
+S1 CRC=0, EXCEPTIONS=0
+S2 CRC=0, EXCEPTIONS=0
+M2 W/R/V S1=0/0/0
+M2 W/R/V S2=0/0/0
 ```
-
-No debe asumirse soporte master para funciones que no estén expuestas por la API actual.
-
-## API de ciclo de vida
-
-```cpp
-JWPLC_ModbusRTU.begin();
-JWPLC_ModbusRTU.begin(slaveId, baud, serialConfig);
-JWPLC_ModbusRTU.end();
-
-JWPLC_ModbusRTU.task();
-JWPLC_ModbusRTU.poll();
-```
-
-`task()`/`poll()` procesan el servicio slave. Las operaciones master esperan cooperativamente su respuesta hasta completar o vencer el timeout configurado para la llamada.
-
-## Holding Registers
-
-```cpp
-JWPLC_ModbusRTU.setHoldingRegisters(registers, count);
-```
-
-El mapa debe mantenerse válido durante la operación del slave. Un mapa inválido se refleja en `lastError()` y en el diagnóstico `BUS`.
 
 ## Estado y estadísticas
 
-La librería expone estado, último error y contadores de diagnóstico. Los errores públicos actuales incluyen:
+```cpp
+const JWPLCModbusRTUStats &s = JWPLC_ModbusRTU.stats();
+```
+
+Contadores disponibles:
+
+```text
+rxFrames
+txFrames
+requestsOk
+crcErrors
+exceptionsSent
+masterTimeouts
+```
+
+Errores relevantes:
 
 ```text
 JWPLC_MODBUS_OK
 JWPLC_MODBUS_DISABLED
+JWPLC_MODBUS_NOT_STARTED
 JWPLC_MODBUS_INVALID_SLAVE_ID
 JWPLC_MODBUS_INVALID_REGISTER_MAP
-JWPLC_MODBUS_NOT_STARTED
-JWPLC_MODBUS_INVALID_FRAME
-JWPLC_MODBUS_CRC_ERROR
-JWPLC_MODBUS_UNSUPPORTED_FUNCTION
-JWPLC_MODBUS_INVALID_ADDRESS
-JWPLC_MODBUS_BUFFER_OVERFLOW
 JWPLC_MODBUS_TIMEOUT
+JWPLC_MODBUS_CRC_ERROR
+JWPLC_MODBUS_EXCEPTION
 JWPLC_MODBUS_INVALID_RESPONSE
-JWPLC_MODBUS_EXCEPTION_RESPONSE
-JWPLC_MODBUS_UNKNOWN_ERROR
+JWPLC_MODBUS_BUFFER_OVERFLOW
+JWPLC_MODBUS_UNSUPPORTED_FUNCTION
+JWPLC_MODBUS_BUSY
+JWPLC_MODBUS_TRANSPORT_ERROR
 ```
 
-El README no convierte todos estos errores en un código visual distinto: la pantalla IDLE compacta los que requieren atención en el indicador `BUS`.
+## Indicador BUS
 
-## Códigos BUS
+`JWPLC_Display.setBusLedAuto(true)` combina el estado RS-485 con el último error Modbus. Los códigos visibles incluyen `TMO`, `CRC`, `EXC`, `RSP`, `OVF` y `FUN`.
 
-Con `JWPLC_Display.setBusLedAuto(true)`, Display combina el estado RS-485 con el último error Modbus.
+## Precompilación durante Alpha7
 
-| Código | Origen | Significado |
-|---|---|---|
-| `SID` | Modbus | Slave ID inválido. |
-| `MAP` | Modbus | Mapa de registros inválido. |
-| `TMO` | Modbus | Timeout esperando respuesta. |
-| `CRC` | Modbus | CRC inválido. |
-| `EXC` | Modbus | Exception Response. |
-| `RSP` | Modbus | Respuesta inválida. |
-| `OVF` | Modbus | Buffer overflow. |
-| `FUN` | Modbus | Función no soportada. |
-| `---` | Modbus/RS-485 | Sin error de protocolo. |
+Mientras se valida el nuevo motor Master cooperativo, `JWPLC_ModbusRTU` se compila temporalmente desde source. El archive precompilado anterior no debe reutilizarse porque no contiene la API ni el parser Alpha7.
 
-Los códigos `DIS`, `INI` y `SER` pertenecen principalmente al estado del transporte `JWPLC_RS485`.
+Antes de cerrar Alpha7 se debe regenerar `src/esp32/libJWPLC_ModbusRTU.a`, auditar sus símbolos, restaurar `precompiled=full` y repetir la validación multidrop con el archive nuevo.
 
-Cuando `lastError()` es `OK`, `DISABLED` o `NOT_STARTED`, la capa Modbus no fuerza por sí sola un error rojo si RS-485 está listo. Esto permite utilizar RS-485 crudo sin que Modbus opcional se interprete como falla.
+## OpenPLC / Backplane / Remote I/O
 
-## Semántica del indicador BUS
+La política para integración PLC es usar únicamente el Master cooperativo. OpenPLC sigue siendo una integración externa/opcional y no una dependencia del runtime Arduino normal.
 
-- gris: transporte no disponible;
-- negro: transporte iniciado y sin actividad reciente, o todavía no iniciado según el código;
-- verde: actividad TX/RX reciente sin error;
-- rojo: error RS-485/Modbus que requiere atención.
-
-Ejemplo:
-
-```cpp
-JWPLC_Display.setBusLedAuto(true);
-JWPLC_ModbusRTU.begin(1, 115200, SERIAL_8N1);
-```
-
-## Remote I/O
-
-Los ejemplos del package incluyen pruebas master/slave usadas para validar comunicación entre dos JWPLC Basic y el PoC de Remote I/O RTU.
-
-El patrón validado utiliza un JWPLC como master y otro como slave, transportando Holding Registers y actualizando E/S sobre Modbus RTU. Esto es una validación de la librería actual; no convierte automáticamente cualquier sketch en un sistema Remote I/O.
-
-## Validación Alpha6
-
-El gate físico de `BUS` se cerró con dos JWPLC Basic:
-
-1. master activo sin slave disponible → timeout `TMO`, indicador rojo;
-2. slave iniciado → lecturas correctas sin reset del master;
-3. actividad posterior → `BUS` verde;
-4. sin romper la coexistencia del resto del runtime.
-
-También se conserva la validación previa de walking outputs del PoC Remote I/O RTU.
-
-## Precompilación
-
-`JWPLC_ModbusRTU` declara `precompiled=full` para el package. Los cambios documentales de Alpha6 no cambian la API ni el ABI validado.
+La capa de Backplane/Remote I/O debe ejecutar `JWPLC_ModbusRTU.task()` con frecuencia y programar las solicitudes sin bloquear el ciclo de aplicación.
 
 ## Estado
 
 ```text
-JWPLC ESP32 2.1.0-alpha.6
+JWPLC ESP32 2.1.0-alpha.7 — en desarrollo
 JWPLC_ModbusRTU 1.0.0
+Master: cooperativo por defecto
+Sync: explícito para pruebas/commissioning
 ```
-
-La librería sigue siendo una implementación base y controlada. Nuevas funciones Modbus deben añadirse explícitamente y validarse antes de documentarlas como soportadas.
