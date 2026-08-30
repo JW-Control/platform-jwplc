@@ -336,9 +336,52 @@ void JWPLC_ModbusRTUClass::pollServer()
 
             if (frameLength == 0)
             {
-                // Corrupcion real o trama no delimitable: mantener el
-                // diagnostico previo sobre el remanente.
-                processServerFrame(frame, remaining);
+                // Un tail de una respuesta ajena puede empezar por casualidad
+                // con el ID local. Solo contar CRC si el remanente tiene forma
+                // estructural de una request dirigida a este Slave/broadcast.
+                uint16_t localRequestLength = 0;
+
+                if (remaining >= 2 &&
+                    (frame[0] == _slaveId || frame[0] == 0))
+                {
+                    switch (frame[1])
+                    {
+                    case 0x03:
+                    case 0x06:
+                        if (remaining >= 8)
+                        {
+                            localRequestLength = 8;
+                        }
+                        break;
+
+                    case 0x10:
+                        if (remaining >= 7)
+                        {
+                            const uint16_t candidateLength =
+                                (uint16_t)9 + frame[6];
+
+                            if (candidateLength <= remaining &&
+                                candidateLength <= JWPLC_MODBUS_RTU_MAX_FRAME)
+                            {
+                                localRequestLength = candidateLength;
+                            }
+                        }
+                        break;
+
+                    default:
+                        break;
+                    }
+                }
+
+                if (localRequestLength > 0)
+                {
+                    processServerFrame(frame, localRequestLength);
+                    offset += localRequestLength;
+                    continue;
+                }
+
+                // Trafico ajeno o remanente ambiguo: descartarlo sin ensuciar
+                // crcErrors/lastError del nodo local.
                 break;
             }
 
