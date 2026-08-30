@@ -46,7 +46,7 @@ static bool running = false;
 static uint32_t lastPhaseMs = 0;
 static String serialLine;
 
-static uint8_t outputPins[8] = {
+static uint16_t outputPins[8] = {
     Q0_0,
     Q0_1,
     Q0_2,
