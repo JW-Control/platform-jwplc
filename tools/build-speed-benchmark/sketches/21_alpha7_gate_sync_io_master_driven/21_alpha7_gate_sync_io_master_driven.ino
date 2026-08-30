@@ -47,14 +47,14 @@ static uint32_t lastPhaseMs = 0;
 static String serialLine;
 
 static uint8_t outputPins[8] = {
-    CONTROLLINO_R0,
-    CONTROLLINO_R1,
-    CONTROLLINO_R2,
-    CONTROLLINO_R3,
-    CONTROLLINO_R4,
-    CONTROLLINO_R5,
-    CONTROLLINO_R6,
-    CONTROLLINO_R7
+    Q0_0,
+    Q0_1,
+    Q0_2,
+    Q0_3,
+    Q0_4,
+    Q0_5,
+    Q0_6,
+    Q0_7
 };
 
 static uint16_t crc16(const uint8_t *data, size_t length)
@@ -122,11 +122,11 @@ static bool issueSynchronizedCommand(uint16_t command)
 
     delayMicroseconds(250);
 
-    // 2) El cambio de secuencia actúa como trigger común para S1/S2.
+    // 2) El cambio de secuencia actua como trigger comun para S1/S2.
     if (!broadcastWriteSingleRegister(HR_SEQUENCE, txSequence))
         return false;
 
-    // 3) M2 conmuta inmediatamente después del trigger transmitido.
+    // 3) M2 conmuta inmediatamente despues del trigger transmitido.
     applyCommand(command);
     return true;
 }
@@ -264,8 +264,6 @@ void setup()
 
 void loop()
 {
-    const uint32_t loopStartUs = micros();
-
     if (role == ROLE_S1 || role == ROLE_S2)
     {
         JWPLC_ModbusRTU.task();
@@ -290,6 +288,4 @@ void loop()
             serialLine += c;
         }
     }
-
-    (void)loopStartUs;
 }
