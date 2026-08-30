@@ -1103,6 +1103,17 @@ bool JWPLC_ModbusRTUClass::processServerFrame(
         return false;
     }
 
+    const uint8_t address = frame[0];
+    const bool broadcast = (address == 0);
+
+    // En un bus multidrop todos los nodos reciben fisicamente el trafico.
+    // Las tramas destinadas a otro Slave no deben contaminar crcErrors,
+    // rxFrames ni lastError del nodo local.
+    if (address != _slaveId && !broadcast)
+    {
+        return false;
+    }
+
     _stats.rxFrames++;
 
     if (!checkCRC(frame, length))
@@ -1112,14 +1123,7 @@ bool JWPLC_ModbusRTUClass::processServerFrame(
         return false;
     }
 
-    uint8_t address = frame[0];
-    uint8_t functionCode = frame[1];
-    bool broadcast = (address == 0);
-
-    if (address != _slaveId && !broadcast)
-    {
-        return false;
-    }
+    const uint8_t functionCode = frame[1];
 
     switch (functionCode)
     {
