@@ -1,618 +1,632 @@
 /*
   JWPLC_RemoteIO_Master_RTU_Test
-
-  PoC 1 - Master de prueba para JWPLC Basic Remote I/O por Modbus RTU / RS-485
+  Alpha7 A7.1 - Arduino Master -> Arduino Remote I/O Slave
 
   Objetivo:
-  - Usar un JWPLC Basic como Master de pruebas.
-  - Consultar un JWPLC Basic Remote I/O Slave con ID fijo.
-  - Validar FC2, FC1, FC5 y FC15 sin PC/QModMaster como intermediario.
+  - Validar la API oficial JWPLC_ModbusRTU.
+  - Master cooperativo/no bloqueante: request...() + task().
+  - FC02 Read Discrete Inputs.
+  - FC01 Read Coils.
+  - FC05 Write Single Coil.
+  - FC15 Write Multiple Coils.
+  - Mantener imagen DO cada 40 ms durante holds para convivir con
+    el fail-safe de 100 ms del Slave.
 
-  No incluye:
-  - OpenPLC integrado.
-  - Commissioning.
-  - FRAM.
-  - Modbus TCP.
-  - API final de Remote I/O dentro de JWPLC_ModbusRTU.
+  Banco:
+  - Master local ID 247.
+  - Slave ID 2.
+  - 115200 8N1.
+  - RS-485 A/P -> A/P, B/N -> B/N y GND comun.
+  - Sin cargas reales conectadas a los reles.
 
-  Configuración inicial:
-  - Target Slave ID: 2
-  - Baudrate: 115200
-  - Formato: 8N1
-  - RS-485: Serial2 RX2=IO16 TX2=IO17
-
-  Cableado:
-  - Master RS485 A -> Slave RS485 A
-  - Master RS485 B -> Slave RS485 B
-  - GND común recomendado en banco de pruebas
+  Serial 115200:
+  - RUN    : validacion automatica FC02/01/05/15.
+  - WALK   : walking outputs Q0_0..Q0_7 con refresh DO.
+  - STOP   : detener y ordenar Q=0.
+  - STATUS : imprimir estado y estadisticas Modbus.
 */
 
 #include <Arduino.h>
-#include <JWPLC_RS485.h>
 #include <JWPLC_ModbusRTU.h>
 
-// -----------------------------------------------------------------------------
-// Configuración PoC 1
-// -----------------------------------------------------------------------------
+static constexpr uint32_t SERIAL_BAUD = 115200UL;
+static constexpr uint32_t MODBUS_BAUD = 115200UL;
+static constexpr uint32_t MODBUS_CONFIG = SERIAL_8N1;
+static constexpr uint8_t MASTER_LOCAL_ID = 247;
+static constexpr uint8_t REMOTE_SLAVE_ID = 2;
+static constexpr uint32_t MODBUS_TIMEOUT_MS = 250UL;
+static constexpr uint16_t MODBUS_FRAME_GAP_MS = 2;
+static constexpr uint32_t DO_REFRESH_MS = 40UL;
+static constexpr uint32_t VALIDATION_HOLD_MS = 800UL;
+static constexpr uint32_t WALK_HOLD_MS = 1500UL;
 
-static const uint8_t JWPLC_REMOTE_IO_SLAVE_ID = 2;
-static const uint32_t JWPLC_REMOTE_IO_BAUDRATE = 115200;
-static const uint32_t MODBUS_RESPONSE_TIMEOUT_MS = 1000;
-static const uint32_t MODBUS_FRAME_GAP_MS = 4;
-static const uint16_t MODBUS_MAX_FRAME = 256;
+enum RunMode : uint8_t
+{
+    MODE_IDLE = 0,
+    MODE_VALIDATION,
+    MODE_WALK
+};
 
-// -----------------------------------------------------------------------------
-// Utilidades de impresión
-// -----------------------------------------------------------------------------
+enum Step : uint8_t
+{
+    STEP_IDLE = 0,
+    STEP_CLEAR_START,
+    STEP_CLEAR_WAIT,
+    STEP_INPUTS_START,
+    STEP_INPUTS_WAIT,
+    STEP_FC5_ON_START,
+    STEP_FC5_ON_WAIT,
+    STEP_READ_Q0_ON_START,
+    STEP_READ_Q0_ON_WAIT,
+    STEP_HOLD_Q0,
+    STEP_READ_Q0_HELD_START,
+    STEP_READ_Q0_HELD_WAIT,
+    STEP_FC5_OFF_START,
+    STEP_FC5_OFF_WAIT,
+    STEP_READ_Q0_OFF_START,
+    STEP_READ_Q0_OFF_WAIT,
+    STEP_PATTERN_START,
+    STEP_PATTERN_WAIT,
+    STEP_READ_PATTERN_START,
+    STEP_READ_PATTERN_WAIT,
+    STEP_HOLD_PATTERN,
+    STEP_READ_PATTERN_HELD_START,
+    STEP_READ_PATTERN_HELD_WAIT,
+    STEP_FINAL_CLEAR_START,
+    STEP_FINAL_CLEAR_WAIT,
+    STEP_FINAL_READ_START,
+    STEP_FINAL_READ_WAIT,
+    STEP_DONE,
+    STEP_WALK_ON_START,
+    STEP_WALK_ON_WAIT,
+    STEP_WALK_HOLD,
+    STEP_WALK_VERIFY_START,
+    STEP_WALK_VERIFY_WAIT,
+    STEP_WALK_OFF_START,
+    STEP_WALK_OFF_WAIT,
+    STEP_WALK_NEXT
+};
 
-static void printHexByte(uint8_t value) {
-  if (value < 0x10) {
-    Serial.print('0');
-  }
+static RunMode runMode = MODE_IDLE;
+static Step step = STEP_IDLE;
+static uint8_t rxBits = 0;
+static uint8_t txBits = 0;
+static uint32_t holdUntilMs = 0;
+static uint32_t lastRefreshMs = 0;
+static uint8_t walkChannel = 0;
+static uint32_t passCount = 0;
+static uint32_t failCount = 0;
+static String serialLine;
 
-  Serial.print(value, HEX);
+static void printHex8(uint8_t value)
+{
+    if (value < 0x10)
+        Serial.print('0');
+    Serial.print(value, HEX);
 }
 
-static void printFrame(const __FlashStringHelper *label, const uint8_t *frame, uint16_t length) {
-  Serial.print(label);
-  Serial.print(F(" ["));
-  Serial.print(length);
-  Serial.print(F("]: "));
+static void printBitmap(const char *label, uint8_t value)
+{
+    Serial.print(label);
+    Serial.print(F("=0x"));
+    printHex8(value);
+    Serial.print(F(" bits="));
 
-  for (uint16_t i = 0; i < length; i++) {
-    printHexByte(frame[i]);
-
-    if (i + 1 < length) {
-      Serial.print(' ');
+    for (uint8_t i = 0; i < 8; ++i)
+    {
+        Serial.print((value & (1U << i)) ? '1' : '0');
+        if (i != 7)
+            Serial.print(' ');
     }
-  }
-
-  Serial.println();
-}
-
-static const __FlashStringHelper *exceptionName(uint8_t code) {
-  switch (code) {
-    case 0x01:
-      return F("Illegal function");
-    case 0x02:
-      return F("Illegal data address");
-    case 0x03:
-      return F("Illegal data value");
-    case 0x04:
-      return F("Slave device failure");
-    default:
-      return F("Unknown exception");
-  }
-}
-
-static void printBitMap(uint8_t value, uint8_t quantity) {
-  Serial.print(F("Bits: "));
-
-  for (uint8_t i = 0; i < quantity; i++) {
-    Serial.print((value & (1 << i)) ? '1' : '0');
-
-    if (i + 1 < quantity) {
-      Serial.print(' ');
-    }
-  }
-
-  Serial.print(F("  Bitmap: 0x"));
-  printHexByte(value);
-  Serial.println();
-}
-
-// -----------------------------------------------------------------------------
-// Transporte RTU usando JWPLC_RS485 + helpers CRC de JWPLC_ModbusRTU
-// -----------------------------------------------------------------------------
-
-static void drainRs485() {
-  while (JWPLC_RS485.available() > 0) {
-    JWPLC_RS485.read();
-    delay(1);
-  }
-}
-
-static bool readResponse(uint8_t *response, uint16_t &length, uint32_t timeoutMs) {
-  length = 0;
-
-  const uint32_t startMs = millis();
-  uint32_t lastByteMs = 0;
-  bool receivedAnyByte = false;
-
-  while ((millis() - startMs) < timeoutMs) {
-    while (JWPLC_RS485.available() > 0) {
-      const int value = JWPLC_RS485.read();
-
-      if (value < 0) {
-        break;
-      }
-
-      if (length < MODBUS_MAX_FRAME) {
-        response[length++] = (uint8_t)value;
-        lastByteMs = millis();
-        receivedAnyByte = true;
-      } else {
-        Serial.println(F("[RTU] ERROR: overflow de buffer RX"));
-        length = 0;
-        return false;
-      }
-    }
-
-    if (receivedAnyByte && (millis() - lastByteMs) >= MODBUS_FRAME_GAP_MS) {
-      return true;
-    }
-
-    delay(1);
-  }
-
-  return false;
-}
-
-static bool sendRequest(uint8_t *request,
-                        uint16_t payloadLength,
-                        uint8_t expectedFunction,
-                        uint8_t *response,
-                        uint16_t &responseLength) {
-  drainRs485();
-
-  JWPLC_ModbusRTU.appendCRC(request, payloadLength);
-  const uint16_t requestLength = payloadLength + 2;
-
-  printFrame(F("TX"), request, requestLength);
-
-  JWPLC_RS485.write(request, requestLength);
-  JWPLC_RS485.flush();
-
-  if (!readResponse(response, responseLength, MODBUS_RESPONSE_TIMEOUT_MS)) {
-    Serial.println(F("[RTU] ERROR: timeout esperando respuesta"));
-    return false;
-  }
-
-  printFrame(F("RX"), response, responseLength);
-
-  if (responseLength < 5) {
-    Serial.println(F("[RTU] ERROR: respuesta demasiado corta"));
-    return false;
-  }
-
-  if (!JWPLC_ModbusRTU.checkCRC(response, responseLength)) {
-    Serial.println(F("[RTU] ERROR: CRC inválido en respuesta"));
-    return false;
-  }
-
-  if (response[0] != JWPLC_REMOTE_IO_SLAVE_ID) {
-    Serial.println(F("[RTU] ERROR: Slave ID inesperado"));
-    return false;
-  }
-
-  if (response[1] == (expectedFunction | 0x80)) {
-    Serial.print(F("[RTU] EXCEPTION: "));
-    Serial.print(response[2]);
-    Serial.print(F(" - "));
-    Serial.println(exceptionName(response[2]));
-    return false;
-  }
-
-  if (response[1] != expectedFunction) {
-    Serial.println(F("[RTU] ERROR: Function Code inesperado"));
-    return false;
-  }
-
-  Serial.println(F("[RTU] CRC OK"));
-  return true;
-}
-
-// -----------------------------------------------------------------------------
-// Requests Remote I/O
-// -----------------------------------------------------------------------------
-
-static bool readBits(uint8_t functionCode,
-                     const __FlashStringHelper *label,
-                     uint16_t start,
-                     uint16_t quantity,
-                     uint8_t *bitmapOut = nullptr) {
-  uint8_t request[8];
-  uint8_t response[MODBUS_MAX_FRAME];
-  uint16_t responseLength = 0;
-
-  request[0] = JWPLC_REMOTE_IO_SLAVE_ID;
-  request[1] = functionCode;
-  request[2] = highByte(start);
-  request[3] = lowByte(start);
-  request[4] = highByte(quantity);
-  request[5] = lowByte(quantity);
-
-  Serial.println();
-  Serial.println(label);
-
-  if (!sendRequest(request, 6, functionCode, response, responseLength)) {
-    return false;
-  }
-
-  if (responseLength < 6) {
-    Serial.println(F("[RTU] ERROR: respuesta de bits incompleta"));
-    return false;
-  }
-
-  const uint8_t byteCount = response[2];
-
-  if (byteCount < 1) {
-    Serial.println(F("[RTU] ERROR: byte count inválido"));
-    return false;
-  }
-
-  const uint8_t bitmap = response[3];
-
-  printBitMap(bitmap, (uint8_t)quantity);
-
-  if (bitmapOut != nullptr) {
-    *bitmapOut = bitmap;
-  }
-
-  return true;
-}
-
-static bool readDiscreteInputs(uint8_t *bitmapOut = nullptr) {
-  return readBits(0x02, F("FC2 - Read Discrete Inputs I0_0..I0_7"), 0, 8, bitmapOut);
-}
-
-static bool readCoils(uint8_t *bitmapOut = nullptr) {
-  return readBits(0x01, F("FC1 - Read Coils feedback Q0_0..Q0_7"), 0, 8, bitmapOut);
-}
-
-static bool writeSingleCoil(uint16_t address, bool enabled) {
-  uint8_t request[8];
-  uint8_t response[MODBUS_MAX_FRAME];
-  uint16_t responseLength = 0;
-
-  request[0] = JWPLC_REMOTE_IO_SLAVE_ID;
-  request[1] = 0x05;
-  request[2] = highByte(address);
-  request[3] = lowByte(address);
-  request[4] = enabled ? 0xFF : 0x00;
-  request[5] = 0x00;
-
-  Serial.println();
-  Serial.print(F("FC5 - Write Single Coil Q0_"));
-  Serial.print(address);
-  Serial.print(F(" = "));
-  Serial.println(enabled ? F("ON") : F("OFF"));
-
-  if (!sendRequest(request, 6, 0x05, response, responseLength)) {
-    return false;
-  }
-
-  if (responseLength != 8) {
-    Serial.println(F("[RTU] ERROR: respuesta FC5 no tiene longitud esperada"));
-    return false;
-  }
-
-  for (uint8_t i = 0; i < 6; i++) {
-    if (response[i] != request[i]) {
-      Serial.println(F("[RTU] ERROR: eco FC5 no coincide con solicitud"));
-      return false;
-    }
-  }
-
-  Serial.println(F("[RTU] FC5 OK"));
-  return true;
-}
-
-static bool writeMultipleCoils(uint8_t pattern) {
-  uint8_t request[10];
-  uint8_t response[MODBUS_MAX_FRAME];
-  uint16_t responseLength = 0;
-
-  request[0] = JWPLC_REMOTE_IO_SLAVE_ID;
-  request[1] = 0x0F;
-  request[2] = 0x00;
-  request[3] = 0x00;
-  request[4] = 0x00;
-  request[5] = 0x08;
-  request[6] = 0x01;
-  request[7] = pattern;
-
-  Serial.println();
-  Serial.print(F("FC15 - Write Multiple Coils Q0_0..Q0_7 = 0x"));
-  printHexByte(pattern);
-  Serial.println();
-
-  if (!sendRequest(request, 8, 0x0F, response, responseLength)) {
-    return false;
-  }
-
-  if (responseLength != 8) {
-    Serial.println(F("[RTU] ERROR: respuesta FC15 no tiene longitud esperada"));
-    return false;
-  }
-
-  if (response[2] != 0x00 || response[3] != 0x00 ||
-      response[4] != 0x00 || response[5] != 0x08) {
-    Serial.println(F("[RTU] ERROR: eco FC15 no coincide con start/quantity"));
-    return false;
-  }
-
-  Serial.println(F("[RTU] FC15 OK"));
-  return true;
-}
-
-// -----------------------------------------------------------------------------
-// Secuencia de validación
-// -----------------------------------------------------------------------------
-
-static void printStepResult(const __FlashStringHelper *name, bool ok) {
-  Serial.print(ok ? F("[PASS] ") : F("[FAIL] "));
-  Serial.println(name);
-}
-
-static bool expectBitmap(const __FlashStringHelper *name, uint8_t actual, uint8_t expected) {
-  const bool ok = actual == expected;
-
-  Serial.print(ok ? F("[PASS] ") : F("[FAIL] "));
-  Serial.print(name);
-  Serial.print(F(" esperado=0x"));
-  printHexByte(expected);
-  Serial.print(F(" actual=0x"));
-  printHexByte(actual);
-  Serial.println();
-
-  return ok;
-}
-
-static void runValidationSequence() {
-  Serial.println();
-  Serial.println(F("=============================================="));
-  Serial.println(F(" JWPLC Remote I/O Master RTU - Validation"));
-  Serial.println(F(" ATENCION: esta prueba conmuta salidas Q0_0..Q0_7"));
-  Serial.println(F("=============================================="));
-
-  uint8_t passed = 0;
-  uint8_t total = 0;
-  uint8_t bitmap = 0x00;
-
-  total++;
-  bool ok = writeMultipleCoils(0x00);
-  printStepResult(F("FC15 apagar todas las salidas"), ok);
-  if (ok) passed++;
-  delay(200);
-
-  total++;
-  ok = readDiscreteInputs(&bitmap);
-  printStepResult(F("FC2 leer entradas I0_0..I0_7"), ok);
-  if (ok) passed++;
-  delay(200);
-
-  total++;
-  ok = writeSingleCoil(0, true);
-  printStepResult(F("FC5 encender Q0_0"), ok);
-  if (ok) passed++;
-  delay(300);
-
-  total++;
-  ok = readCoils(&bitmap) && expectBitmap(F("Feedback tras Q0_0 ON"), bitmap, 0x01);
-  if (ok) passed++;
-  delay(200);
-
-  total++;
-  ok = writeSingleCoil(0, false);
-  printStepResult(F("FC5 apagar Q0_0"), ok);
-  if (ok) passed++;
-  delay(300);
-
-  total++;
-  ok = readCoils(&bitmap) && expectBitmap(F("Feedback tras Q0_0 OFF"), bitmap, 0x00);
-  if (ok) passed++;
-  delay(200);
-
-  total++;
-  ok = writeMultipleCoils(0x55);
-  printStepResult(F("FC15 escribir patron 0x55"), ok);
-  if (ok) passed++;
-  delay(300);
-
-  total++;
-  ok = readCoils(&bitmap) && expectBitmap(F("Feedback patron 0x55"), bitmap, 0x55);
-  if (ok) passed++;
-  delay(200);
-
-  total++;
-  ok = writeMultipleCoils(0x00);
-  printStepResult(F("FC15 apagar todo al cierre"), ok);
-  if (ok) passed++;
-  delay(300);
-
-  total++;
-  ok = readCoils(&bitmap) && expectBitmap(F("Feedback final 0x00"), bitmap, 0x00);
-  if (ok) passed++;
-
-  Serial.println();
-  Serial.println(F("=============================================="));
-  Serial.print(F("Resultado: "));
-  Serial.print(passed);
-  Serial.print('/');
-  Serial.println(total);
-  Serial.println(passed == total ? F("VALIDACION OK") : F("VALIDACION CON FALLAS"));
-  Serial.println(F("=============================================="));
-}
-
-static void runWalkingOutputTest() {
-  Serial.println();
-  Serial.println(F("=============================================="));
-  Serial.println(F(" JWPLC Remote I/O - Walking Outputs Q0_0..Q0_7"));
-  Serial.println(F(" Verificar fisicamente UN rele por vez"));
-  Serial.println(F("=============================================="));
-
-  uint8_t bitmap = 0x00;
-
-  // Estado inicial seguro.
-  if (!writeMultipleCoils(0x00)) {
-    Serial.println(F("[FAIL] No se pudieron apagar las salidas al inicio"));
-    return;
-  }
-
-  delay(500);
-
-  for (uint8_t i = 0; i < 8; i++) {
-    const uint8_t expected = (uint8_t)(1U << i);
 
     Serial.println();
-    Serial.print(F(">>> AHORA DEBE ENCENDER SOLO Q0_"));
-    Serial.print(i);
-    Serial.println(F(" <<<"));
-
-    bool ok = writeSingleCoil(i, true);
-
-    delay(300);
-
-    if (ok) {
-      ok = readCoils(&bitmap) &&
-           expectBitmap(F("Feedback walking output"), bitmap, expected);
-    }
-
-    Serial.print(ok ? F("[PASS] Q0_") : F("[FAIL] Q0_"));
-    Serial.print(i);
-    Serial.println(F(" protocolo/feedback"));
-
-    // Tiempo suficiente para observar LED/rele fisico.
-    delay(1500);
-
-    writeSingleCoil(i, false);
-    delay(300);
-
-    if (readCoils(&bitmap)) {
-      expectBitmap(F("Feedback tras apagar"), bitmap, 0x00);
-    }
-
-    delay(500);
-  }
-
-  writeMultipleCoils(0x00);
-
-  Serial.println();
-  Serial.println(F("=============================================="));
-  Serial.println(F(" WALKING OUTPUTS FINALIZADO"));
-  Serial.println(F(" Todas las salidas quedan apagadas"));
-  Serial.println(F("=============================================="));
 }
 
-// -----------------------------------------------------------------------------
-// Consola Serial0
-// -----------------------------------------------------------------------------
-
-static void printHelp() {
-  Serial.println();
-  Serial.println(F("Comandos Serial Monitor:"));
-  Serial.println(F("  h : mostrar ayuda"));
-  Serial.println(F("  r : ejecutar secuencia completa de validacion"));
-  Serial.println(F("  i : leer entradas FC2"));
-  Serial.println(F("  f : leer feedback salidas FC1"));
-  Serial.println(F("  1 : encender Q0_0 por FC5"));
-  Serial.println(F("  2 : apagar Q0_0 por FC5"));
-  Serial.println(F("  5 : escribir patron 0x55 por FC15"));
-  Serial.println(F("  a : encender todas las salidas por FC15"));
-  Serial.println(F("  0 : apagar todas las salidas por FC15"));
-  Serial.println(F("  w : walking test Q0_0..Q0_7 individual"));
-  Serial.println();
+static void abortRun(const char *label)
+{
+    Serial.print(F("[FAIL] "));
+    Serial.print(label);
+    Serial.print(F(" result="));
+    Serial.print((int)JWPLC_ModbusRTU.masterResult());
+    Serial.print(F(" error="));
+    Serial.println(JWPLC_ModbusRTU.lastErrorString());
+    ++failCount;
+    runMode = MODE_IDLE;
+    step = STEP_IDLE;
 }
 
-static void handleCommand(char command) {
-  switch (command) {
-    case 'h':
-    case 'H':
-      printHelp();
-      break;
+static bool consumeResult(const char *label)
+{
+    if (!JWPLC_ModbusRTU.masterDone())
+        return false;
 
-    case 'r':
-    case 'R':
-      runValidationSequence();
-      break;
+    const bool ok = JWPLC_ModbusRTU.masterSucceeded();
 
-    case 'w':
-    case 'W':
-      runWalkingOutputTest();
-      break;
+    if (ok)
+    {
+        ++passCount;
+        Serial.print(F("[PASS] "));
+        Serial.println(label);
+    }
+    else
+    {
+        abortRun(label);
+    }
 
-    case 'i':
-    case 'I':
-      readDiscreteInputs();
-      break;
+    JWPLC_ModbusRTU.clearMasterResult();
+    return ok;
+}
 
-    case 'f':
-    case 'F':
-      readCoils();
-      break;
+static bool startReadCoils()
+{
+    rxBits = 0;
+    if (JWPLC_ModbusRTU.requestReadCoils(
+            REMOTE_SLAVE_ID, 0, 8, &rxBits, MODBUS_TIMEOUT_MS))
+        return true;
 
-    case '1':
-      writeSingleCoil(0, true);
-      break;
+    Serial.print(F("[FAIL] no inicia FC01: "));
+    Serial.println(JWPLC_ModbusRTU.lastErrorString());
+    ++failCount;
+    runMode = MODE_IDLE;
+    step = STEP_IDLE;
+    return false;
+}
 
-    case '2':
-      writeSingleCoil(0, false);
-      break;
+static bool startReadInputs()
+{
+    rxBits = 0;
+    if (JWPLC_ModbusRTU.requestReadDiscreteInputs(
+            REMOTE_SLAVE_ID, 0, 8, &rxBits, MODBUS_TIMEOUT_MS))
+        return true;
 
-    case '5':
-      writeMultipleCoils(0x55);
-      break;
+    Serial.print(F("[FAIL] no inicia FC02: "));
+    Serial.println(JWPLC_ModbusRTU.lastErrorString());
+    ++failCount;
+    runMode = MODE_IDLE;
+    step = STEP_IDLE;
+    return false;
+}
 
-    case 'a':
-    case 'A':
-      writeMultipleCoils(0xFF);
-      break;
+static bool startWriteSingleCoil(uint8_t address, bool value)
+{
+    if (JWPLC_ModbusRTU.requestWriteSingleCoil(
+            REMOTE_SLAVE_ID, address, value, MODBUS_TIMEOUT_MS))
+        return true;
 
-    case '0':
-      writeMultipleCoils(0x00);
-      break;
+    Serial.print(F("[FAIL] no inicia FC05: "));
+    Serial.println(JWPLC_ModbusRTU.lastErrorString());
+    ++failCount;
+    runMode = MODE_IDLE;
+    step = STEP_IDLE;
+    return false;
+}
 
-    case '\r':
-    case '\n':
-      break;
+static bool startWriteMultipleCoils(uint8_t pattern)
+{
+    txBits = pattern;
+    if (JWPLC_ModbusRTU.requestWriteMultipleCoils(
+            REMOTE_SLAVE_ID, 0, 8, &txBits, MODBUS_TIMEOUT_MS))
+        return true;
+
+    Serial.print(F("[FAIL] no inicia FC15: "));
+    Serial.println(JWPLC_ModbusRTU.lastErrorString());
+    ++failCount;
+    runMode = MODE_IDLE;
+    step = STEP_IDLE;
+    return false;
+}
+
+static bool expectBits(const char *label, uint8_t expected)
+{
+    printBitmap(label, rxBits);
+
+    if (rxBits == expected)
+    {
+        ++passCount;
+        Serial.print(F("[PASS] "));
+        Serial.print(label);
+        Serial.print(F(" expected=0x"));
+        printHex8(expected);
+        Serial.println();
+        return true;
+    }
+
+    ++failCount;
+    Serial.print(F("[FAIL] "));
+    Serial.print(label);
+    Serial.print(F(" expected=0x"));
+    printHex8(expected);
+    Serial.print(F(" actual=0x"));
+    printHex8(rxBits);
+    Serial.println();
+    runMode = MODE_IDLE;
+    step = STEP_IDLE;
+    return false;
+}
+
+static void beginHold(uint32_t durationMs)
+{
+    const uint32_t now = millis();
+    holdUntilMs = now + durationMs;
+    lastRefreshMs = now - DO_REFRESH_MS;
+}
+
+static bool serviceHold(uint8_t pattern)
+{
+    if (JWPLC_ModbusRTU.masterBusy())
+        return false;
+
+    if (JWPLC_ModbusRTU.masterDone())
+    {
+        if (!consumeResult("FC15 refresh DO"))
+            return false;
+    }
+
+    const uint32_t now = millis();
+    if ((int32_t)(now - holdUntilMs) >= 0)
+        return true;
+
+    if ((uint32_t)(now - lastRefreshMs) >= DO_REFRESH_MS)
+    {
+        lastRefreshMs = now;
+        (void)startWriteMultipleCoils(pattern);
+    }
+
+    return false;
+}
+
+static void serviceValidation()
+{
+    switch (step)
+    {
+    case STEP_CLEAR_START:
+        if (startWriteMultipleCoils(0x00)) step = STEP_CLEAR_WAIT;
+        break;
+
+    case STEP_CLEAR_WAIT:
+        if (JWPLC_ModbusRTU.masterDone() && consumeResult("FC15 clear inicial"))
+            step = STEP_INPUTS_START;
+        break;
+
+    case STEP_INPUTS_START:
+        if (startReadInputs()) step = STEP_INPUTS_WAIT;
+        break;
+
+    case STEP_INPUTS_WAIT:
+        if (JWPLC_ModbusRTU.masterDone() && consumeResult("FC02 read DI"))
+        {
+            printBitmap("DI", rxBits);
+            step = STEP_FC5_ON_START;
+        }
+        break;
+
+    case STEP_FC5_ON_START:
+        if (startWriteSingleCoil(0, true)) step = STEP_FC5_ON_WAIT;
+        break;
+
+    case STEP_FC5_ON_WAIT:
+        if (JWPLC_ModbusRTU.masterDone() && consumeResult("FC05 Q0_0 ON"))
+            step = STEP_READ_Q0_ON_START;
+        break;
+
+    case STEP_READ_Q0_ON_START:
+        if (startReadCoils()) step = STEP_READ_Q0_ON_WAIT;
+        break;
+
+    case STEP_READ_Q0_ON_WAIT:
+        if (JWPLC_ModbusRTU.masterDone() &&
+            consumeResult("FC01 feedback Q0_0 ON") &&
+            expectBits("COILS", 0x01))
+        {
+            beginHold(VALIDATION_HOLD_MS);
+            step = STEP_HOLD_Q0;
+        }
+        break;
+
+    case STEP_HOLD_Q0:
+        if (serviceHold(0x01)) step = STEP_READ_Q0_HELD_START;
+        break;
+
+    case STEP_READ_Q0_HELD_START:
+        if (startReadCoils()) step = STEP_READ_Q0_HELD_WAIT;
+        break;
+
+    case STEP_READ_Q0_HELD_WAIT:
+        if (JWPLC_ModbusRTU.masterDone() &&
+            consumeResult("FC01 feedback Q0_0 after refresh") &&
+            expectBits("COILS_HELD", 0x01))
+            step = STEP_FC5_OFF_START;
+        break;
+
+    case STEP_FC5_OFF_START:
+        if (startWriteSingleCoil(0, false)) step = STEP_FC5_OFF_WAIT;
+        break;
+
+    case STEP_FC5_OFF_WAIT:
+        if (JWPLC_ModbusRTU.masterDone() && consumeResult("FC05 Q0_0 OFF"))
+            step = STEP_READ_Q0_OFF_START;
+        break;
+
+    case STEP_READ_Q0_OFF_START:
+        if (startReadCoils()) step = STEP_READ_Q0_OFF_WAIT;
+        break;
+
+    case STEP_READ_Q0_OFF_WAIT:
+        if (JWPLC_ModbusRTU.masterDone() &&
+            consumeResult("FC01 feedback Q0_0 OFF") &&
+            expectBits("COILS", 0x00))
+            step = STEP_PATTERN_START;
+        break;
+
+    case STEP_PATTERN_START:
+        if (startWriteMultipleCoils(0x55)) step = STEP_PATTERN_WAIT;
+        break;
+
+    case STEP_PATTERN_WAIT:
+        if (JWPLC_ModbusRTU.masterDone() && consumeResult("FC15 pattern 0x55"))
+            step = STEP_READ_PATTERN_START;
+        break;
+
+    case STEP_READ_PATTERN_START:
+        if (startReadCoils()) step = STEP_READ_PATTERN_WAIT;
+        break;
+
+    case STEP_READ_PATTERN_WAIT:
+        if (JWPLC_ModbusRTU.masterDone() &&
+            consumeResult("FC01 feedback 0x55") &&
+            expectBits("COILS", 0x55))
+        {
+            beginHold(VALIDATION_HOLD_MS);
+            step = STEP_HOLD_PATTERN;
+        }
+        break;
+
+    case STEP_HOLD_PATTERN:
+        if (serviceHold(0x55)) step = STEP_READ_PATTERN_HELD_START;
+        break;
+
+    case STEP_READ_PATTERN_HELD_START:
+        if (startReadCoils()) step = STEP_READ_PATTERN_HELD_WAIT;
+        break;
+
+    case STEP_READ_PATTERN_HELD_WAIT:
+        if (JWPLC_ModbusRTU.masterDone() &&
+            consumeResult("FC01 feedback 0x55 after refresh") &&
+            expectBits("COILS_HELD", 0x55))
+            step = STEP_FINAL_CLEAR_START;
+        break;
+
+    case STEP_FINAL_CLEAR_START:
+        if (startWriteMultipleCoils(0x00)) step = STEP_FINAL_CLEAR_WAIT;
+        break;
+
+    case STEP_FINAL_CLEAR_WAIT:
+        if (JWPLC_ModbusRTU.masterDone() && consumeResult("FC15 clear final"))
+            step = STEP_FINAL_READ_START;
+        break;
+
+    case STEP_FINAL_READ_START:
+        if (startReadCoils()) step = STEP_FINAL_READ_WAIT;
+        break;
+
+    case STEP_FINAL_READ_WAIT:
+        if (JWPLC_ModbusRTU.masterDone() &&
+            consumeResult("FC01 feedback final") &&
+            expectBits("COILS_FINAL", 0x00))
+            step = STEP_DONE;
+        break;
+
+    case STEP_DONE:
+        Serial.println();
+        Serial.println(F("=============================================="));
+        Serial.println(F("ALPHA7_A7_1_ARDUINO_ARDUINO=PASS"));
+        Serial.print(F("PASS_COUNT=")); Serial.println(passCount);
+        Serial.print(F("FAIL_COUNT=")); Serial.println(failCount);
+        Serial.println(F("FC01=PASS"));
+        Serial.println(F("FC02=PASS"));
+        Serial.println(F("FC05=PASS"));
+        Serial.println(F("FC15=PASS"));
+        Serial.println(F("DO_REFRESH_40MS=PASS"));
+        Serial.println(F("=============================================="));
+        runMode = MODE_IDLE;
+        step = STEP_IDLE;
+        break;
 
     default:
-      Serial.print(F("Comando no reconocido: "));
-      Serial.println(command);
-      printHelp();
-      break;
-  }
-}
-
-// -----------------------------------------------------------------------------
-// Setup / loop
-// -----------------------------------------------------------------------------
-
-void setup() {
-  Serial.begin(115200);
-  delay(500);
-
-  Serial.println();
-  Serial.println(F("=============================================="));
-  Serial.println(F(" JWPLC Remote I/O Master RTU Test - PoC 1"));
-  Serial.println(F("=============================================="));
-  Serial.print(F("Target Slave ID: "));
-  Serial.println(JWPLC_REMOTE_IO_SLAVE_ID);
-  Serial.print(F("Baudrate: "));
-  Serial.println(JWPLC_REMOTE_IO_BAUDRATE);
-  Serial.println(F("Formato: 8N1"));
-  Serial.println(F("RS-485: Serial2 RX=IO16 TX=IO17"));
-  Serial.println(F("Transporte: JWPLC_RS485"));
-  Serial.println(F("CRC: JWPLC_ModbusRTU helpers"));
-
-  if (!JWPLC_RS485.begin(JWPLC_REMOTE_IO_BAUDRATE, SERIAL_8N1)) {
-    Serial.println(F("[RTU] ERROR: JWPLC_RS485 no pudo iniciar"));
-    JWPLC_RS485.printStatus(Serial);
-    while (true) {
-      delay(1000);
+        break;
     }
-  }
-
-  JWPLC_RS485.printStatus(Serial);
-
-  Serial.println(F("[RTU] Master listo"));
-  printHelp();
 }
 
-void loop() {
-  while (Serial.available() > 0) {
-    const char command = (char)Serial.read();
-    handleCommand(command);
-  }
+static void serviceWalk()
+{
+    const uint8_t pattern = (uint8_t)(1U << walkChannel);
+
+    switch (step)
+    {
+    case STEP_WALK_ON_START:
+        Serial.print(F("[WALK] Q0_"));
+        Serial.print(walkChannel);
+        Serial.println(F(" ON"));
+        if (startWriteMultipleCoils(pattern)) step = STEP_WALK_ON_WAIT;
+        break;
+
+    case STEP_WALK_ON_WAIT:
+        if (JWPLC_ModbusRTU.masterDone() && consumeResult("FC15 WALK ON"))
+        {
+            beginHold(WALK_HOLD_MS);
+            step = STEP_WALK_HOLD;
+        }
+        break;
+
+    case STEP_WALK_HOLD:
+        if (serviceHold(pattern)) step = STEP_WALK_VERIFY_START;
+        break;
+
+    case STEP_WALK_VERIFY_START:
+        if (startReadCoils()) step = STEP_WALK_VERIFY_WAIT;
+        break;
+
+    case STEP_WALK_VERIFY_WAIT:
+        if (JWPLC_ModbusRTU.masterDone() &&
+            consumeResult("FC01 WALK feedback") &&
+            expectBits("WALK_COILS", pattern))
+            step = STEP_WALK_OFF_START;
+        break;
+
+    case STEP_WALK_OFF_START:
+        if (startWriteMultipleCoils(0x00)) step = STEP_WALK_OFF_WAIT;
+        break;
+
+    case STEP_WALK_OFF_WAIT:
+        if (JWPLC_ModbusRTU.masterDone() && consumeResult("FC15 WALK OFF"))
+            step = STEP_WALK_NEXT;
+        break;
+
+    case STEP_WALK_NEXT:
+        ++walkChannel;
+        if (walkChannel >= 8)
+        {
+            Serial.println(F("ALPHA7_A7_1_WALKING_OUTPUTS=PASS"));
+            runMode = MODE_IDLE;
+            step = STEP_IDLE;
+        }
+        else
+        {
+            step = STEP_WALK_ON_START;
+        }
+        break;
+
+    default:
+        break;
+    }
+}
+
+static void printStatus()
+{
+    const JWPLCModbusRTUStats &stats = JWPLC_ModbusRTU.stats();
+
+    Serial.println();
+    Serial.println(F("---- MASTER STATUS ----"));
+    Serial.print(F("READY=")); Serial.println(JWPLC_ModbusRTU.isReady() ? F("YES") : F("NO"));
+    Serial.print(F("BUSY=")); Serial.println(JWPLC_ModbusRTU.masterBusy() ? F("YES") : F("NO"));
+    Serial.print(F("MODE=")); Serial.println((int)runMode);
+    Serial.print(F("STEP=")); Serial.println((int)step);
+    Serial.print(F("RX/TX/OK="));
+    Serial.print(stats.rxFrames); Serial.print('/');
+    Serial.print(stats.txFrames); Serial.print('/');
+    Serial.println(stats.requestsOk);
+    Serial.print(F("CRC/TIMEOUT="));
+    Serial.print(stats.crcErrors); Serial.print('/');
+    Serial.println(stats.masterTimeouts);
+    Serial.print(F("LAST_ERROR=")); Serial.println(JWPLC_ModbusRTU.lastErrorString());
+    Serial.println(F("-----------------------"));
+}
+
+static void startValidation()
+{
+    if (runMode != MODE_IDLE || JWPLC_ModbusRTU.masterBusy())
+    {
+        Serial.println(F("[CMD] Master ocupado"));
+        return;
+    }
+
+    if (JWPLC_ModbusRTU.masterDone())
+        JWPLC_ModbusRTU.clearMasterResult();
+
+    passCount = 0;
+    failCount = 0;
+    runMode = MODE_VALIDATION;
+    step = STEP_CLEAR_START;
+    Serial.println(F("A7.1 validation START"));
+}
+
+static void startWalk()
+{
+    if (runMode != MODE_IDLE || JWPLC_ModbusRTU.masterBusy())
+    {
+        Serial.println(F("[CMD] Master ocupado"));
+        return;
+    }
+
+    if (JWPLC_ModbusRTU.masterDone())
+        JWPLC_ModbusRTU.clearMasterResult();
+
+    passCount = 0;
+    failCount = 0;
+    walkChannel = 0;
+    runMode = MODE_WALK;
+    step = STEP_WALK_ON_START;
+    Serial.println(F("A7.1 walking outputs START"));
+}
+
+static void handleCommand(String line)
+{
+    line.trim();
+    line.toUpperCase();
+
+    if (line == "RUN")
+        startValidation();
+    else if (line == "WALK")
+        startWalk();
+    else if (line == "STOP")
+    {
+        runMode = MODE_IDLE;
+        step = STEP_IDLE;
+        Serial.println(F("A7.1 STOP"));
+    }
+    else if (line == "STATUS")
+        printStatus();
+    else
+        Serial.println(F("CMD: RUN | WALK | STOP | STATUS"));
+}
+
+void setup()
+{
+    Serial.begin(SERIAL_BAUD);
+    delay(500);
+
+    Serial.println();
+    Serial.println(F("JWPLC Alpha7 A7.1 - Remote I/O Master oficial"));
+
+    if (!JWPLC_ModbusRTU.begin(MASTER_LOCAL_ID, MODBUS_BAUD, MODBUS_CONFIG))
+    {
+        Serial.print(F("MODBUS_BEGIN=FAIL "));
+        Serial.println(JWPLC_ModbusRTU.lastErrorString());
+        return;
+    }
+
+    JWPLC_ModbusRTU.setFrameGapMs(MODBUS_FRAME_GAP_MS);
+    JWPLC_ModbusRTU.resetStats();
+
+    Serial.println(F("MODBUS_BEGIN=PASS"));
+    Serial.println(F("TARGET_SLAVE=2"));
+    Serial.println(F("CMD: RUN | WALK | STOP | STATUS"));
+}
+
+void loop()
+{
+    JWPLC_ModbusRTU.task();
+
+    if (runMode == MODE_VALIDATION)
+        serviceValidation();
+    else if (runMode == MODE_WALK)
+        serviceWalk();
+
+    while (Serial.available() > 0)
+    {
+        const char c = (char)Serial.read();
+
+        if (c == '\n' || c == '\r')
+        {
+            if (serialLine.length() > 0)
+            {
+                handleCommand(serialLine);
+                serialLine = "";
+            }
+        }
+        else
+        {
+            serialLine += c;
+        }
+    }
 }
