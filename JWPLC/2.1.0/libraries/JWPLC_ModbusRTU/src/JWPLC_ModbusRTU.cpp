@@ -352,9 +352,7 @@ void JWPLC_ModbusRTUClass::pollServer()
 
 void JWPLC_ModbusRTUClass::pollMaster()
 {
-    int bytesProcessed = 0;
-
-    while (JWPLC_RS485.available() > 0 && bytesProcessed < 64)
+    while (JWPLC_RS485.available() > 0)
     {
         int value = JWPLC_RS485.read();
 
@@ -362,8 +360,6 @@ void JWPLC_ModbusRTUClass::pollMaster()
         {
             break;
         }
-
-        bytesProcessed++;
 
         if (_rxLength >= JWPLC_MODBUS_RTU_MAX_FRAME)
         {
@@ -376,6 +372,50 @@ void JWPLC_ModbusRTUClass::pollMaster()
         _lastByteMs = millis();
     }
 
+    uint16_t expectedLength = 0;
+
+    if (_rxLength >= 2 &&
+        _rxBuffer[0] == _masterTargetSlaveId &&
+        _rxBuffer[1] == (uint8_t)(_masterExpectedFunction | 0x80))
+    {
+        // Respuesta de excepcion Modbus:
+        // address + function|0x80 + exception + CRC16.
+        expectedLength = 5;
+    }
+    else
+    {
+        switch (_masterOperation)
+        {
+        case JWPLC_MODBUS_MASTER_OP_READ_HOLDING_REGISTERS:
+            // address + function + byteCount + data + CRC16.
+            expectedLength =
+                (uint16_t)(5 + _masterQuantity * 2U);
+            break;
+
+        case JWPLC_MODBUS_MASTER_OP_WRITE_SINGLE_REGISTER:
+            // Echo FC06 completo.
+            expectedLength = 8;
+            break;
+
+        default:
+            break;
+        }
+    }
+
+    // El Master conoce de antemano el largo de la respuesta normal. No debe
+    // depender del frame gap para declarar completa una FC03 larga: bajo
+    // carga del loop, el limite previo de 64 bytes podia fragmentar una ADU.
+    if (expectedLength > 0 &&
+        _rxLength >= expectedLength)
+    {
+        processMasterFrame(_rxBuffer, expectedLength);
+        clearRxBuffer();
+        return;
+    }
+
+    // Si se drenaron todos los bytes disponibles y existe un silencio real de
+    // bus antes de alcanzar el largo esperado, entregar el remanente al
+    // validador para conservar diagnostico de respuesta corta/malformada.
     if (_rxLength > 0 &&
         (uint32_t)(millis() - _lastByteMs) >= _frameGapMs)
     {
