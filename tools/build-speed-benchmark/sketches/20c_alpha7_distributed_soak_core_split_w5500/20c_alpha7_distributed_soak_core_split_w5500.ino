@@ -9,21 +9,23 @@
       - TCA / ScanIO del core JWPLC
       - scheduler de salidas sincronizadas
       - RTC
+      - JWPLC_Ethernet.service() cooperativo, solo cuando W5500 esta libre
       - FRAM / SD (se difieren mientras W5500 posee SPI)
       - TFT (el driver ya usa mutex SPI y puede diferir refresco)
 
     Core 0 bloqueante:
       - worker WiFi HTTP existente
       - worker W5500 de esta revision:
-          * JWPLC_Ethernet.service()
           * HTTP Ethernet
           * NTP Ethernet
 
-  El W5500 es el unico periferico SPI que se mueve de core.
+  El W5500 es el unico periferico SPI cuyo trabajo bloqueante se mueve de core.
   TFT/FRAM/SD permanecen donde estan.
 
   IMPORTANTE:
   - No modifica JWPLC_ModbusRTU.
+  - JWPLC_Ethernet.service() conserva su estado/cache en Core1. No se comparte
+    el state machine de la libreria entre cores.
   - El worker W5500 reserva el mutex SPI durante una operacion HTTP/NTP
     completa. Esto garantiza integridad cross-core sin tocar aun el backend
     W5x00. En este gate se mide el beneficio CPU/Core1 primero; una revision
@@ -74,10 +76,12 @@ static void rev6LegacyDigitalWriteBlock(
         (uint8_t)(bitmap))
 
 // ============================================================================
-// Override del tick Ethernet automatico del core
+// Control del tick Ethernet automatico del core
 // ============================================================================
-// El jwplcSystemTask conserva ScanIO/RTC/Display en Core1, pero ya no llama
-// al service() de Ethernet. El worker W5500 de Core0 es el unico que lo hace.
+// Se desactiva el tick automatico de jwplcSystemTask para poder decidir desde
+// el loop Core1 si service() puede tocar W5500. Si Core0 esta dentro de un job
+// HTTP/NTP, el service cooperativo simplemente se difiere. Asi evitamos que
+// linkStatus() confunda BUS_LOCK_TIMEOUT con LINK_OFF durante el job.
 uint32_t getJWPLCEthernetPeriod_ms(void)
 {
     return 0xFFFFFFFFUL;
@@ -108,7 +112,8 @@ static constexpr BaseType_t ETH_WORKER_CORE = 0;
 static constexpr uint32_t ETH_WORKER_SERVICE_PERIOD_MS = 20UL;
 static constexpr uint32_t ETH_WORKER_BUS_ACQUIRE_MS = 250UL;
 static constexpr size_t ETH_WORKER_BODY_MAX = 512;
-static constexpr EventBits_t ETH_WORKER_SPI_BUSY_BIT = BIT0;
+static constexpr EventBits_t ETH_WORKER_SPI_BUSY_BIT =
+    (EventBits_t)(1U << 0);
 
 // ============================================================================
 // Patrones distribuidos
@@ -123,37 +128,39 @@ struct Rev6PatternStep
     const char *name;
 };
 
+// El hold minimo queda por encima de IO_VERIFY_DEADLINE_MS=500 ms para que
+// cada mascara pueda ser realmente verificada antes de pasar a la siguiente.
 static const Rev6PatternStep REV6_SHOW_PATTERN[] = {
-    {0x00, 0x00, 0x00, 450, "all-off"},
-    {0xFF, 0xFF, 0xFF, 650, "all-on"},
-    {0x00, 0x00, 0x00, 450, "all-off"},
+    {0x00, 0x00, 0x00, 650, "all-off"},
+    {0xFF, 0xFF, 0xFF, 700, "all-on"},
+    {0x00, 0x00, 0x00, 650, "all-off"},
 
-    {0x01, 0x01, 0x01, 350, "chase-q0"},
-    {0x02, 0x02, 0x02, 350, "chase-q1"},
-    {0x04, 0x04, 0x04, 350, "chase-q2"},
-    {0x08, 0x08, 0x08, 350, "chase-q3"},
-    {0x10, 0x10, 0x10, 350, "chase-q4"},
-    {0x20, 0x20, 0x20, 350, "chase-q5"},
-    {0x40, 0x40, 0x40, 350, "chase-q6"},
-    {0x80, 0x80, 0x80, 450, "chase-q7"},
+    {0x01, 0x01, 0x01, 650, "chase-q0"},
+    {0x02, 0x02, 0x02, 650, "chase-q1"},
+    {0x04, 0x04, 0x04, 650, "chase-q2"},
+    {0x08, 0x08, 0x08, 650, "chase-q3"},
+    {0x10, 0x10, 0x10, 650, "chase-q4"},
+    {0x20, 0x20, 0x20, 650, "chase-q5"},
+    {0x40, 0x40, 0x40, 650, "chase-q6"},
+    {0x80, 0x80, 0x80, 700, "chase-q7"},
 
-    {0xAA, 0x55, 0xAA, 650, "alternate-a"},
-    {0x55, 0xAA, 0x55, 650, "alternate-b"},
-    {0xAA, 0x55, 0xAA, 650, "alternate-a"},
-    {0x55, 0xAA, 0x55, 650, "alternate-b"},
+    {0xAA, 0x55, 0xAA, 700, "alternate-a"},
+    {0x55, 0xAA, 0x55, 700, "alternate-b"},
+    {0xAA, 0x55, 0xAA, 700, "alternate-a"},
+    {0x55, 0xAA, 0x55, 700, "alternate-b"},
 
-    {0xFF, 0x00, 0x00, 500, "wave-m2"},
-    {0x00, 0xFF, 0x00, 500, "wave-s1"},
-    {0x00, 0x00, 0xFF, 500, "wave-s2"},
-    {0xFF, 0x00, 0x00, 500, "wave-m2"},
+    {0xFF, 0x00, 0x00, 700, "wave-m2"},
+    {0x00, 0xFF, 0x00, 700, "wave-s1"},
+    {0x00, 0x00, 0xFF, 700, "wave-s2"},
+    {0xFF, 0x00, 0x00, 700, "wave-m2"},
 
-    {0x81, 0x42, 0x24, 500, "mirror-1"},
-    {0x42, 0x24, 0x18, 500, "mirror-2"},
-    {0x24, 0x18, 0x24, 500, "mirror-3"},
-    {0x18, 0x24, 0x42, 500, "mirror-4"},
-    {0x24, 0x42, 0x81, 650, "mirror-5"},
+    {0x81, 0x42, 0x24, 700, "mirror-1"},
+    {0x42, 0x24, 0x18, 700, "mirror-2"},
+    {0x24, 0x18, 0x24, 700, "mirror-3"},
+    {0x18, 0x24, 0x42, 700, "mirror-4"},
+    {0x24, 0x42, 0x81, 750, "mirror-5"},
 
-    {0x00, 0x00, 0x00, 700, "all-off"}
+    {0x00, 0x00, 0x00, 750, "all-off"}
 };
 
 static constexpr size_t REV6_SHOW_STEP_COUNT =
@@ -215,8 +222,8 @@ static TaskHandle_t rev6SyncTaskHandle = nullptr;
 static bool rev6AudioActive = false;
 static uint32_t rev6AudioStopUs = 0;
 
-static uint8_t rev6ExpectedMask = 0;
-static uint8_t rev6PendingRisingMask = 0;
+static volatile uint8_t rev6ExpectedMask = 0;
+static volatile uint8_t rev6PendingRisingMask = 0;
 static uint8_t rev6CreditedInputMask = 0;
 
 // ============================================================================
@@ -289,20 +296,6 @@ static uint16_t rev6FrequencyForBitmap(uint8_t bitmap)
 
     return REV6_NOTE_PALETTE[
         folded % (sizeof(REV6_NOTE_PALETTE) / sizeof(REV6_NOTE_PALETTE[0]))];
-}
-
-static uint8_t rev6LocalMask()
-{
-    if (isMaster())
-        return rev6M2Mask;
-
-    if (isSlave() && cfg.nodeId == 1)
-        return rev6S1Mask;
-
-    if (isSlave() && cfg.nodeId == 2)
-        return rev6S2Mask;
-
-    return 0;
 }
 
 static bool rev6EthSpiBusy()
@@ -549,8 +542,14 @@ static bool rev6SyncWantsModbusPriority()
     if (!rev6SyncTakeover || !isMaster())
         return false;
 
+    // Una operacion sync ya iniciada conserva prioridad hasta completarse.
     if (rev6SyncStage != REV6_STAGE_IDLE)
         return true;
+
+    // Nunca dejar a medias un poll cooperativo que ya empezo. La maquina de
+    // estados base necesita seguir siendo llamada para cerrar FC06/FC03.
+    if (masterRuntimePollPhase != MASTER_RT_POLL_IDLE)
+        return false;
 
     return (int32_t)(millis() - rev6NextStepMs) >= 0;
 }
@@ -598,11 +597,8 @@ static void rev6ServiceMasterSync()
         return;
     }
 
-    if (rev6SyncTxnActive)
-    {
-        if (!JWPLC_ModbusRTU.masterDone())
-            return;
-    }
+    if (rev6SyncTxnActive && !JWPLC_ModbusRTU.masterDone())
+        return;
 
     switch (rev6SyncStage)
     {
@@ -781,12 +777,14 @@ static void rev6ServiceLoopback()
     }
 
     const uint32_t age = now - ioStress.phaseStartMs;
+    const uint8_t expectedMask = rev6ExpectedMask;
+    const uint8_t risingMask = rev6PendingRisingMask;
 
     if (age >= IO_SETTLE_MS &&
-        ioStress.inputBitmap == rev6ExpectedMask)
+        ioStress.inputBitmap == expectedMask)
     {
         uint8_t toCredit =
-            (uint8_t)(rev6PendingRisingMask &
+            (uint8_t)(risingMask &
                       (uint8_t)~rev6CreditedInputMask);
 
         for (uint8_t bit = 0; bit < 8; ++bit)
@@ -803,7 +801,7 @@ static void rev6ServiceLoopback()
     }
 
     if (age >= IO_VERIFY_DEADLINE_MS &&
-        ioStress.inputBitmap != rev6ExpectedMask)
+        ioStress.inputBitmap != expectedMask)
     {
         recordIoMismatch("REV6 input bitmap != output bitmap");
     }
@@ -825,6 +823,8 @@ static void rev6EnterTakeover()
     rev6CreditedInputMask = 0;
     rev6NextStepMs = millis() + 150UL;
 
+    // Consumir el trigger START existente antes de cambiar CODE a SYNC.
+    // Evita interpretar START+ARG1=0 como primer comando sincronizado.
     if (isSlave())
         rev6SlaveLastTrigger = holdingRegisters[HR_CMD_SEQ];
 
@@ -882,7 +882,7 @@ static void rev6SetMode(uint8_t mode)
 }
 
 // ============================================================================
-// W5500 worker Core0: HTTP/NTP via queues
+// W5500 worker Core0: solo operaciones potencialmente bloqueantes
 // ============================================================================
 
 static bool rev6WorkerQueueNtp(uint8_t jobType)
@@ -952,10 +952,7 @@ static void rev6EthernetWorkerTask(void *)
                 pdMS_TO_TICKS(ETH_WORKER_SERVICE_PERIOD_MS));
 
         if (gotJob != pdTRUE)
-        {
-            JWPLC_Ethernet.service();
             continue;
-        }
 
         Rev6EthResult result;
         result.type = job.type;
@@ -976,6 +973,7 @@ static void rev6EthernetWorkerTask(void *)
             if (job.type == ETH_JOB_HTTP)
             {
                 EthernetClient client;
+                client.setConnectionTimeout(450);
                 client.setTimeout(450);
 
                 const IPAddress target(
@@ -990,8 +988,12 @@ static void rev6EthernetWorkerTask(void *)
                     client.print(F("\r\nConnection: close\r\n\r\n"));
                     client.print(job.body);
 
+                    // Nunca ejecutar Modbus desde Core0.
                     result.ok =
-                        validateHttpAck(client, job.sequence);
+                        validateHttpAck(
+                            client,
+                            job.sequence,
+                            false);
                 }
 
                 client.stop();
@@ -1049,11 +1051,7 @@ static void rev6EthernetWorkerTask(void *)
             xEventGroupClearBits(rev6EthEvents, ETH_WORKER_SPI_BUSY_BIT);
 
         result.latencyMs = millis() - started;
-
         xQueueOverwrite(rev6EthResultQueue, &result);
-
-        // Entre jobs, continuar el state machine cooperativo W5500.
-        JWPLC_Ethernet.service();
     }
 }
 
@@ -1295,7 +1293,7 @@ static void rev6ServiceMasterCommissioning()
         Serial.println(F("ALL_COMMISSIONED=PASS"));
         Serial.println(F("RTC_NETWORK_SYNC=PASS"));
         Serial.println(F("READY_FOR_START"));
-        Serial.println(F("REV6: Core1 determinista / W5500 Core0"));
+        Serial.println(F("REV6: Core1 determinista / W5500 blocking Core0"));
         printRule();
         tripleBeep();
     }
@@ -1533,6 +1531,19 @@ void loop()
 
     serviceWiFi();
 
+    // El state machine cooperativo de JWPLC_Ethernet permanece en Core1.
+    // Solo corre cuando Core0 no posee el W5500; asi su estado/cache no cruza
+    // cores y no interpreta la reserva del bus como un LINK_OFF.
+    if (!rev6EthSpiBusy())
+    {
+        const uint32_t opUs = micros();
+        JWPLC_Ethernet.service();
+        const uint32_t elapsedUs = micros() - opUs;
+
+        if (elapsedUs > ethernetServiceMaxUs)
+            ethernetServiceMaxUs = elapsedUs;
+    }
+
     // W5500 puede reservar SPI durante HTTP/NTP en Core0. FRAM/SD no fallan:
     // simplemente esperan al siguiente loop libre. ScanIO/RTC/Modbus no usan SPI.
     if (!rev6EthSpiBusy())
@@ -1555,8 +1566,8 @@ void loop()
         rev6ServiceEthernetResult();
         const uint32_t elapsedUs = micros() - opUs;
 
-        // Esta metrica vuelve a representar trabajo Ethernet en Core1.
-        // Debe quedar corta aunque ethHttp.maxLatencyMs siga siendo alto.
+        // Aqui solo hay scheduling/colas/resultados; la latencia real de red
+        // queda en ethHttp.maxLatencyMs / rev6EthMaxJobMs.
         if (elapsedUs > ethernetServiceMaxUs)
             ethernetServiceMaxUs = elapsedUs;
     }
