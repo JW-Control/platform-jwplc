@@ -241,6 +241,10 @@ static volatile uint8_t rev6ApplyMask = 0;
 static volatile uint32_t rev6ApplyAtUs = 0;
 static volatile uint16_t rev6ApplyToken = 0;
 static volatile uint16_t rev6AppliedToken = 0;
+static volatile uint32_t rev6AppliedAtMs = 0;
+static volatile uint16_t rev6InputSampleToken = 0;
+static uint32_t rev6IoRaceDiscardCount = 0;
+static portMUX_TYPE rev6IoStateMux = portMUX_INITIALIZER_UNLOCKED;
 static TaskHandle_t rev6SyncTaskHandle = nullptr;
 
 static bool rev6AudioActive = false;
@@ -370,28 +374,42 @@ static void rev6AudioStart(uint8_t bitmap)
 static void rev6ApplyNow(uint8_t bitmap, uint16_t token)
 {
     const uint8_t previous = ioStress.outputBitmap;
+    const uint8_t risingMask =
+        (uint8_t)(bitmap & (uint8_t)~previous);
+
+    // Token 0 = generacion invalida/en actualizacion. Como rev6Sequence nunca
+    // usa 0, el verifier puede detectar que el task de apply lo interrumpio.
+    rev6AppliedToken = 0;
 
     JWPLC_writeOutputs(bitmap);
+    const uint32_t appliedAtMs = millis();
+
+    portENTER_CRITICAL(&rev6IoStateMux);
     ioStress.outputBitmap = bitmap;
-    ioStress.phaseStartMs = millis();
+    ioStress.phaseStartMs = appliedAtMs;
     ioStress.phaseFailureLatched = false;
     ioStress.pulseDetectedThisOn = false;
     ioStress.onPhase = bitmap != 0;
 
     rev6ExpectedMask = bitmap;
-    rev6PendingRisingMask =
-        (uint8_t)(bitmap & (uint8_t)~previous);
+    rev6PendingRisingMask = risingMask;
     rev6CreditedInputMask = 0;
+    rev6AppliedAtMs = appliedAtMs;
+    rev6InputSampleToken = 0;
 
     for (uint8_t bit = 0; bit < 8; ++bit)
     {
-        if (rev6PendingRisingMask & (uint8_t)(1U << bit))
+        if (risingMask & (uint8_t)(1U << bit))
             ioStress.qPulses[bit]++;
     }
 
+    // Publicar el token al final: desde este punto todo el estado pertenece a
+    // una sola generacion coherente y puede ser consumido por el loop.
+    rev6AppliedToken = token;
+    portEXIT_CRITICAL(&rev6IoStateMux);
+
     rev6AudioStart(bitmap);
     rev6ApplyCount++;
-    rev6AppliedToken = token;
 }
 
 static void rev6SyncApplyTask(void *)
@@ -908,42 +926,157 @@ static void rev6ServiceLoopback()
     if (!rev6SyncTakeover || soakState != SOAK_RUNNING)
         return;
 
-    const uint32_t now = millis();
+    // Snapshot corto y coherente de la generacion aplicada. El task de apply
+    // publica rev6AppliedToken al final de la actualizacion; token 0 significa
+    // que una nueva generacion esta en curso y esta muestra debe ignorarse.
+    uint16_t tokenBefore = 0;
+    uint8_t expectedMask = 0;
+    uint8_t risingMask = 0;
+    uint32_t phaseStartMs = 0;
 
-    if ((uint32_t)(now - ioStress.lastScanMs) >= IO_SCAN_MS)
+    portENTER_CRITICAL(&rev6IoStateMux);
+    tokenBefore = rev6AppliedToken;
+    expectedMask = rev6ExpectedMask;
+    risingMask = rev6PendingRisingMask;
+    phaseStartMs = rev6AppliedAtMs;
+    portEXIT_CRITICAL(&rev6IoStateMux);
+
+    if (tokenBefore == 0 || phaseStartMs == 0)
+        return;
+
+    if (rev6AppliedToken != tokenBefore)
     {
-        ioStress.lastScanMs = now;
-        ioStress.inputBitmap = digitalReadBlock(I0_X);
+        rev6IoRaceDiscardCount++;
+        return;
     }
 
-    const uint32_t age = now - ioStress.phaseStartMs;
-    const uint8_t expectedMask = rev6ExpectedMask;
-    const uint8_t risingMask = rev6PendingRisingMask;
+    const uint32_t scanNow = millis();
 
-    if (age >= IO_SETTLE_MS &&
-        ioStress.inputBitmap == expectedMask)
+    if ((uint32_t)(scanNow - ioStress.lastScanMs) >= IO_SCAN_MS)
     {
-        uint8_t toCredit =
-            (uint8_t)(risingMask &
-                      (uint8_t)~rev6CreditedInputMask);
+        const uint8_t sampledInput = digitalReadBlock(I0_X);
+        bool accepted = false;
 
-        for (uint8_t bit = 0; bit < 8; ++bit)
+        portENTER_CRITICAL(&rev6IoStateMux);
+        if (rev6AppliedToken == tokenBefore)
         {
-            const uint8_t mask = (uint8_t)(1U << bit);
-            if (toCredit & mask)
+            ioStress.lastScanMs = scanNow;
+            ioStress.inputBitmap = sampledInput;
+            rev6InputSampleToken = tokenBefore;
+            accepted = true;
+        }
+        portEXIT_CRITICAL(&rev6IoStateMux);
+
+        if (!accepted)
+        {
+            rev6IoRaceDiscardCount++;
+            return;
+        }
+    }
+
+    uint16_t tokenAfter = 0;
+    uint16_t sampleToken = 0;
+    uint8_t inputBitmap = 0;
+
+    portENTER_CRITICAL(&rev6IoStateMux);
+    tokenAfter = rev6AppliedToken;
+    sampleToken = rev6InputSampleToken;
+    inputBitmap = ioStress.inputBitmap;
+    portEXIT_CRITICAL(&rev6IoStateMux);
+
+    if (tokenAfter != tokenBefore)
+    {
+        rev6IoRaceDiscardCount++;
+        return;
+    }
+
+    // Nunca comparar un expected nuevo contra una muestra I perteneciente a la
+    // generacion anterior. El siguiente scan valido llegara en <= IO_SCAN_MS.
+    if (sampleToken != tokenBefore)
+        return;
+
+    const uint32_t now = millis();
+    const uint32_t age = now - phaseStartMs;
+
+    if (age >= IO_SETTLE_MS && inputBitmap == expectedMask)
+    {
+        bool stable = false;
+
+        portENTER_CRITICAL(&rev6IoStateMux);
+        if (rev6AppliedToken == tokenBefore &&
+            rev6InputSampleToken == tokenBefore)
+        {
+            const uint8_t toCredit =
+                (uint8_t)(risingMask &
+                          (uint8_t)~rev6CreditedInputMask);
+
+            for (uint8_t bit = 0; bit < 8; ++bit)
             {
-                ioStress.iPulses[bit]++;
-                rev6CreditedInputMask |= mask;
+                const uint8_t mask = (uint8_t)(1U << bit);
+                if (toCredit & mask)
+                {
+                    ioStress.iPulses[bit]++;
+                    rev6CreditedInputMask |= mask;
+                }
             }
+
+            ioStress.pulseDetectedThisOn = true;
+            stable = true;
+        }
+        portEXIT_CRITICAL(&rev6IoStateMux);
+
+        if (!stable)
+        {
+            rev6IoRaceDiscardCount++;
+            return;
+        }
+    }
+
+    if (age >= IO_VERIFY_DEADLINE_MS && inputBitmap != expectedMask)
+    {
+        bool committed = false;
+        bool raced = false;
+
+        // La decision de mismatch se confirma dentro del mismo guard de la
+        // generacion. El log/latch se hace fuera de la seccion critica.
+        portENTER_CRITICAL(&rev6IoStateMux);
+        if (rev6AppliedToken != tokenBefore ||
+            rev6InputSampleToken != tokenBefore)
+        {
+            raced = true;
+        }
+        else if (!ioStress.phaseFailureLatched)
+        {
+            ioStress.phaseFailureLatched = true;
+            ioStress.mismatches++;
+            committed = true;
+        }
+        portEXIT_CRITICAL(&rev6IoStateMux);
+
+        if (raced)
+        {
+            rev6IoRaceDiscardCount++;
+            return;
         }
 
-        ioStress.pulseDetectedThisOn = true;
-    }
+        if (committed)
+        {
+            Serial.print(F("[IO FAIL] node="));
+            Serial.print(shortRoleName());
+            Serial.print(F(" ch="));
+            Serial.print(ioStress.channel);
+            Serial.print(F(" token="));
+            Serial.print(tokenBefore);
+            Serial.print(F(" Q=0x"));
+            Serial.print(expectedMask, HEX);
+            Serial.print(F(" I=0x"));
+            Serial.print(inputBitmap, HEX);
+            Serial.println(F(" reason=REV6 input bitmap != output bitmap"));
 
-    if (age >= IO_VERIFY_DEADLINE_MS &&
-        ioStress.inputBitmap != expectedMask)
-    {
-        recordIoMismatch("REV6 input bitmap != output bitmap");
+            latchError(
+                ERR_IO,
+                "REV6 input bitmap != output bitmap");
+        }
     }
 }
 
@@ -958,6 +1091,9 @@ static void rev6EnterTakeover()
     rev6ClackOn = false;
     rev6Sequence = 100;
     rev6AppliedToken = 0;
+    rev6AppliedAtMs = 0;
+    rev6InputSampleToken = 0;
+    rev6IoRaceDiscardCount = 0;
     rev6ApplyPending = false;
     rev6ExpectedMask = 0;
     rev6PendingRisingMask = 0;
@@ -1008,6 +1144,8 @@ static void rev6LeaveTakeover()
     rev6PendingMasterRequest = Rev6PendingMasterRequest{};
     rev6SyncStage = REV6_STAGE_IDLE;
     rev6ApplyPending = false;
+    rev6AppliedToken = 0;
+    rev6InputSampleToken = 0;
     JWPLC_writeOutputs(0x00);
     ioStress.outputBitmap = 0;
     rev6AudioStop();
@@ -1477,7 +1615,9 @@ static void rev6PrintDiagnostics()
     Serial.print(F(" maxTxnUs="));
     Serial.print(rev6TxnMaxUs);
     Serial.print(F(" gapMs="));
-    Serial.println(REV6_MODBUS_INTER_TX_GAP_MS);
+    Serial.print(REV6_MODBUS_INTER_TX_GAP_MS);
+    Serial.print(F(" ioRaceDiscard="));
+    Serial.println(rev6IoRaceDiscardCount);
 
     Serial.print(F("ETH_WORKER core="));
     Serial.print((int)rev6EthObservedCore);
@@ -1572,6 +1712,8 @@ static void rev6ServiceWorkerPeriodicDiag()
         Serial.print(rev6SyncFail);
         Serial.print(F(" syncTimeout="));
         Serial.print(rev6TxnTimeoutCount);
+        Serial.print(F(" ioRaceDiscard="));
+        Serial.print(rev6IoRaceDiscardCount);
         Serial.print(F(" ioMismatch="));
         Serial.println(ioStress.mismatches);
     }
@@ -1610,6 +1752,7 @@ void setup()
     Serial.println(F("/255"));
     Serial.print(F("SYNC_FC06_GAP_MS="));
     Serial.println(REV6_MODBUS_INTER_TX_GAP_MS);
+    Serial.println(F("SYNC_IO_GENERATION_GUARD=ON"));
     Serial.print(F("[CORE] W5500 worker observed core="));
     Serial.println((int)rev6EthObservedCore);
     Serial.println(F("SYNC_COMMANDS=START/SHOW/CLACK/STOP/SYNC"));
