@@ -167,102 +167,22 @@
                         },
                         "addressMapping": {
                             "channels": [
-                                {
-                                    "name": "I0_0",
-                                    "type": "digitalInput",
-                                    "dataType": "BOOL",
-                                    "addressPrefix": "%IX"
-                                },
-                                {
-                                    "name": "I0_1",
-                                    "type": "digitalInput",
-                                    "dataType": "BOOL",
-                                    "addressPrefix": "%IX"
-                                },
-                                {
-                                    "name": "I0_2",
-                                    "type": "digitalInput",
-                                    "dataType": "BOOL",
-                                    "addressPrefix": "%IX"
-                                },
-                                {
-                                    "name": "I0_3",
-                                    "type": "digitalInput",
-                                    "dataType": "BOOL",
-                                    "addressPrefix": "%IX"
-                                },
-                                {
-                                    "name": "I0_4",
-                                    "type": "digitalInput",
-                                    "dataType": "BOOL",
-                                    "addressPrefix": "%IX"
-                                },
-                                {
-                                    "name": "I0_5",
-                                    "type": "digitalInput",
-                                    "dataType": "BOOL",
-                                    "addressPrefix": "%IX"
-                                },
-                                {
-                                    "name": "I0_6",
-                                    "type": "digitalInput",
-                                    "dataType": "BOOL",
-                                    "addressPrefix": "%IX"
-                                },
-                                {
-                                    "name": "I0_7",
-                                    "type": "digitalInput",
-                                    "dataType": "BOOL",
-                                    "addressPrefix": "%IX"
-                                },
-                                {
-                                    "name": "Q0_0",
-                                    "type": "digitalOutput",
-                                    "dataType": "BOOL",
-                                    "addressPrefix": "%QX"
-                                },
-                                {
-                                    "name": "Q0_1",
-                                    "type": "digitalOutput",
-                                    "dataType": "BOOL",
-                                    "addressPrefix": "%QX"
-                                },
-                                {
-                                    "name": "Q0_2",
-                                    "type": "digitalOutput",
-                                    "dataType": "BOOL",
-                                    "addressPrefix": "%QX"
-                                },
-                                {
-                                    "name": "Q0_3",
-                                    "type": "digitalOutput",
-                                    "dataType": "BOOL",
-                                    "addressPrefix": "%QX"
-                                },
-                                {
-                                    "name": "Q0_4",
-                                    "type": "digitalOutput",
-                                    "dataType": "BOOL",
-                                    "addressPrefix": "%QX"
-                                },
-                                {
-                                    "name": "Q0_5",
-                                    "type": "digitalOutput",
-                                    "dataType": "BOOL",
-                                    "addressPrefix": "%QX"
-                                },
-                                {
-                                    "name": "Q0_6",
-                                    "type": "digitalOutput",
-                                    "dataType": "BOOL",
-                                    "addressPrefix": "%QX"
-                                },
-                                {
-                                    "name": "Q0_7",
-                                    "type": "digitalOutput",
-                                    "dataType": "BOOL",
-                                    "addressPrefix": "%QX"
-                                }
+                                { "name": "I0_0", "type": "digitalInput", "dataType": "BOOL", "addressPrefix": "%IX" },
+                                { "name": "I0_1", "type": "digitalInput", "dataType": "BOOL", "addressPrefix": "%IX" },
+                                { "name": "I0_2", "type": "digitalInput", "dataType": "BOOL", "addressPrefix": "%IX" },
+                                { "name": "I0_3", "type": "digitalInput", "dataType": "BOOL", "addressPrefix": "%IX" },
+                                { "name": "I0_4", "type": "digitalInput", "dataType": "BOOL", "addressPrefix": "%IX" },
+                                { "name": "I0_5", "type": "digitalInput", "dataType": "BOOL", "addressPrefix": "%IX" },
+                                { "name": "I0_6", "type": "digitalInput", "dataType": "BOOL", "addressPrefix": "%IX" },
+                                { "name": "I0_7", "type": "digitalInput", "dataType": "BOOL", "addressPrefix": "%IX" },
+                                { "name": "Q0_0", "type": "digitalOutput", "dataType": "BOOL", "addressPrefix": "%QX" },
+                                { "name": "Q0_1", "type": "digitalOutput", "dataType": "BOOL", "addressPrefix": "%QX" },
+                                { "name": "Q0_2", "type": "digitalOutput", "dataType": "BOOL", "addressPrefix": "%QX" },
+                                { "name": "Q0_3", "type": "digitalOutput", "dataType": "BOOL", "addressPrefix": "%QX" },
+                                { "name": "Q0_4", "type": "digitalOutput", "dataType": "BOOL", "addressPrefix": "%QX" },
+                                { "name": "Q0_5", "type": "digitalOutput", "dataType": "BOOL", "addressPrefix": "%QX" },
+                                { "name": "Q0_6", "type": "digitalOutput", "dataType": "BOOL", "addressPrefix": "%QX" },
+                                { "name": "Q0_7", "type": "digitalOutput", "dataType": "BOOL", "addressPrefix": "%QX" }
                             ]
                         }
                     },
@@ -271,6 +191,7 @@
                         "name": "JWPLC Basic Remote I/O",
                         "image": "assets/jwplcbasic.png",
                         "description": "Segundo JWPLC Basic usado como módulo remoto para la prueba inicial de expansión por Modbus.",
+                        "configScreen": "screens/jwplc-basic-remote-io.json",
                         "specs": {
                             "Inputs": "8 digital inputs",
                             "Outputs": "8 relay outputs",
@@ -285,102 +206,22 @@
                         },
                         "addressMapping": {
                             "channels": [
-                                {
-                                    "name": "I0_0",
-                                    "type": "digitalInput",
-                                    "dataType": "BOOL",
-                                    "addressPrefix": "%IX"
-                                },
-                                {
-                                    "name": "I0_1",
-                                    "type": "digitalInput",
-                                    "dataType": "BOOL",
-                                    "addressPrefix": "%IX"
-                                },
-                                {
-                                    "name": "I0_2",
-                                    "type": "digitalInput",
-                                    "dataType": "BOOL",
-                                    "addressPrefix": "%IX"
-                                },
-                                {
-                                    "name": "I0_3",
-                                    "type": "digitalInput",
-                                    "dataType": "BOOL",
-                                    "addressPrefix": "%IX"
-                                },
-                                {
-                                    "name": "I0_4",
-                                    "type": "digitalInput",
-                                    "dataType": "BOOL",
-                                    "addressPrefix": "%IX"
-                                },
-                                {
-                                    "name": "I0_5",
-                                    "type": "digitalInput",
-                                    "dataType": "BOOL",
-                                    "addressPrefix": "%IX"
-                                },
-                                {
-                                    "name": "I0_6",
-                                    "type": "digitalInput",
-                                    "dataType": "BOOL",
-                                    "addressPrefix": "%IX"
-                                },
-                                {
-                                    "name": "I0_7",
-                                    "type": "digitalInput",
-                                    "dataType": "BOOL",
-                                    "addressPrefix": "%IX"
-                                },
-                                {
-                                    "name": "Q0_0",
-                                    "type": "digitalOutput",
-                                    "dataType": "BOOL",
-                                    "addressPrefix": "%QX"
-                                },
-                                {
-                                    "name": "Q0_1",
-                                    "type": "digitalOutput",
-                                    "dataType": "BOOL",
-                                    "addressPrefix": "%QX"
-                                },
-                                {
-                                    "name": "Q0_2",
-                                    "type": "digitalOutput",
-                                    "dataType": "BOOL",
-                                    "addressPrefix": "%QX"
-                                },
-                                {
-                                    "name": "Q0_3",
-                                    "type": "digitalOutput",
-                                    "dataType": "BOOL",
-                                    "addressPrefix": "%QX"
-                                },
-                                {
-                                    "name": "Q0_4",
-                                    "type": "digitalOutput",
-                                    "dataType": "BOOL",
-                                    "addressPrefix": "%QX"
-                                },
-                                {
-                                    "name": "Q0_5",
-                                    "type": "digitalOutput",
-                                    "dataType": "BOOL",
-                                    "addressPrefix": "%QX"
-                                },
-                                {
-                                    "name": "Q0_6",
-                                    "type": "digitalOutput",
-                                    "dataType": "BOOL",
-                                    "addressPrefix": "%QX"
-                                },
-                                {
-                                    "name": "Q0_7",
-                                    "type": "digitalOutput",
-                                    "dataType": "BOOL",
-                                    "addressPrefix": "%QX"
-                                }
+                                { "name": "I0_0", "type": "digitalInput", "dataType": "BOOL", "addressPrefix": "%IX" },
+                                { "name": "I0_1", "type": "digitalInput", "dataType": "BOOL", "addressPrefix": "%IX" },
+                                { "name": "I0_2", "type": "digitalInput", "dataType": "BOOL", "addressPrefix": "%IX" },
+                                { "name": "I0_3", "type": "digitalInput", "dataType": "BOOL", "addressPrefix": "%IX" },
+                                { "name": "I0_4", "type": "digitalInput", "dataType": "BOOL", "addressPrefix": "%IX" },
+                                { "name": "I0_5", "type": "digitalInput", "dataType": "BOOL", "addressPrefix": "%IX" },
+                                { "name": "I0_6", "type": "digitalInput", "dataType": "BOOL", "addressPrefix": "%IX" },
+                                { "name": "I0_7", "type": "digitalInput", "dataType": "BOOL", "addressPrefix": "%IX" },
+                                { "name": "Q0_0", "type": "digitalOutput", "dataType": "BOOL", "addressPrefix": "%QX" },
+                                { "name": "Q0_1", "type": "digitalOutput", "dataType": "BOOL", "addressPrefix": "%QX" },
+                                { "name": "Q0_2", "type": "digitalOutput", "dataType": "BOOL", "addressPrefix": "%QX" },
+                                { "name": "Q0_3", "type": "digitalOutput", "dataType": "BOOL", "addressPrefix": "%QX" },
+                                { "name": "Q0_4", "type": "digitalOutput", "dataType": "BOOL", "addressPrefix": "%QX" },
+                                { "name": "Q0_5", "type": "digitalOutput", "dataType": "BOOL", "addressPrefix": "%QX" },
+                                { "name": "Q0_6", "type": "digitalOutput", "dataType": "BOOL", "addressPrefix": "%QX" },
+                                { "name": "Q0_7", "type": "digitalOutput", "dataType": "BOOL", "addressPrefix": "%QX" }
                             ]
                         }
                     }
