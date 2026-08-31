@@ -1,19 +1,26 @@
 {
-    "title": "JWPLC Basic Remote I/O",
-    "totalBytes": 1,
-    "fields": [
+    "sections": [
         {
-            "id": "slaveId",
-            "label": "Slave ID",
-            "type": "number",
-            "default": 2,
-            "min": 1,
-            "max": 247,
-            "step": 1,
-            "encoding": {
-                "byteOffset": 0,
-                "size": 1
-            }
+            "id": "rtu-config",
+            "title": "Modbus RTU",
+            "layout": "form",
+            "totalBytes": 1,
+            "fields": [
+                {
+                    "id": "slaveId",
+                    "label": "Slave ID",
+                    "type": "number",
+                    "default": 2,
+                    "min": 1,
+                    "max": 247,
+                    "step": 1,
+                    "help": "Direccion Modbus RTU del JWPLC Basic remoto en este slot.",
+                    "encoding": {
+                        "byteOffset": 0,
+                        "size": 1
+                    }
+                }
+            ]
         }
     ]
 }
