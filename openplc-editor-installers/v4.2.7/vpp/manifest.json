@@ -271,6 +271,7 @@
                         "name": "JWPLC Basic Remote I/O",
                         "image": "assets/jwplcbasic.png",
                         "description": "Segundo JWPLC Basic usado como módulo remoto para la prueba inicial de expansión por Modbus.",
+                        "configScreen": "screens/jwplc-basic-remote-io.json",
                         "specs": {
                             "Inputs": "8 digital inputs",
                             "Outputs": "8 relay outputs",
