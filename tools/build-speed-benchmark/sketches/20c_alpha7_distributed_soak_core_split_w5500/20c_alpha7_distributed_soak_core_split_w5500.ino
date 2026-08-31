@@ -102,6 +102,11 @@ static constexpr uint32_t REV6_SYNC_LEAD_US = 300000UL;
 static constexpr uint32_t REV6_TRIGGER_COMP_US = 12000UL;
 static constexpr uint32_t REV6_MIN_REMAIN_US = 30000UL;
 static constexpr uint32_t REV6_SYNC_RETRY_MS = 250UL;
+// Separacion deliberada entre FC06 del scheduler. El Slave usa frameGap=2 ms;
+// 4 ms da margen para que todos los nodos multidrop cierren request/response
+// ajenos antes de iniciar el siguiente comando, sin bloquear el loop Core1.
+static constexpr uint32_t REV6_MODBUS_INTER_TX_GAP_US = 4000UL;
+static constexpr uint32_t REV6_MODBUS_INTER_TX_GAP_MS = 4UL;
 static constexpr UBaseType_t REV6_SYNC_TASK_PRIORITY = 3;
 static constexpr uint32_t REV6_SYNC_TASK_STACK = 4096UL;
 static constexpr BaseType_t REV6_SYNC_TASK_CORE = 1;
@@ -189,6 +194,17 @@ static constexpr uint8_t REV6_STAGE_DELAY_S2_WAIT = 7;
 static constexpr uint8_t REV6_STAGE_TRIGGER_S2_WAIT = 8;
 static constexpr uint8_t REV6_STAGE_WAIT_APPLY = 9;
 
+struct Rev6PendingMasterRequest
+{
+    bool pending = false;
+    bool dynamicDelay = false;
+    uint8_t slaveId = 0;
+    uint16_t reg = 0;
+    uint16_t value = 0;
+    uint8_t nextStage = REV6_STAGE_IDLE;
+    const char *abortReason = nullptr;
+};
+
 static bool rev6SyncTakeover = false;
 static bool rev6SyncCodesPrepared = false;
 static bool rev6SyncTxnActive = false;
@@ -207,10 +223,18 @@ static uint16_t rev6Sequence = 0;
 static uint16_t rev6SlaveLastTrigger = 0;
 static uint32_t rev6TargetUs = 0;
 static uint32_t rev6NextStepMs = 0;
+static uint32_t rev6NextTxnAllowedUs = 0;
 static uint32_t rev6TxnStartedUs = 0;
 static uint32_t rev6TxnMaxUs = 0;
+static uint32_t rev6TxnCount = 0;
+static uint32_t rev6TxnTimeoutCount = 0;
+static uint32_t rev6RequestRejectCount = 0;
+static uint8_t rev6TxnSlave = 0;
+static uint16_t rev6TxnReg = 0;
+static uint16_t rev6TxnValue = 0;
 static uint32_t rev6SyncFail = 0;
 static uint32_t rev6ApplyCount = 0;
+static Rev6PendingMasterRequest rev6PendingMasterRequest;
 
 static volatile bool rev6ApplyPending = false;
 static volatile uint8_t rev6ApplyMask = 0;
@@ -433,6 +457,9 @@ static bool rev6MasterRequest(uint8_t slaveId, uint16_t reg, uint16_t value)
     if (JWPLC_ModbusRTU.masterDone())
         JWPLC_ModbusRTU.clearMasterResult();
 
+    rev6TxnSlave = slaveId;
+    rev6TxnReg = reg;
+    rev6TxnValue = value;
     rev6TxnStartedUs = micros();
 
     if (!JWPLC_ModbusRTU.requestWriteSingleRegister(
@@ -441,6 +468,15 @@ static bool rev6MasterRequest(uint8_t slaveId, uint16_t reg, uint16_t value)
             value,
             MODBUS_TIMEOUT_MS))
     {
+        rev6RequestRejectCount++;
+        Serial.print(F("[SYNC REV6] REQUEST REJECT S"));
+        Serial.print(slaveId);
+        Serial.print(F(" reg="));
+        Serial.print(reg);
+        Serial.print(F(" value="));
+        Serial.print(value);
+        Serial.print(F(" err="));
+        Serial.println((int)JWPLC_ModbusRTU.lastError());
         return false;
     }
 
@@ -457,18 +493,37 @@ static bool rev6FinishTxn(const char *label)
     if (elapsedUs > rev6TxnMaxUs)
         rev6TxnMaxUs = elapsedUs;
 
+    rev6TxnCount++;
+
     const bool ok = JWPLC_ModbusRTU.masterSucceeded();
     const JWPLCModbusRTUError result = JWPLC_ModbusRTU.masterResult();
+    const uint32_t masterTimeouts = JWPLC_ModbusRTU.stats().masterTimeouts;
+
+    if (result == JWPLC_MODBUS_TIMEOUT)
+        rev6TxnTimeoutCount++;
+
     JWPLC_ModbusRTU.clearMasterResult();
     rev6SyncTxnActive = false;
+    rev6NextTxnAllowedUs = micros() + REV6_MODBUS_INTER_TX_GAP_US;
 
     if (!ok)
     {
-        rev6SyncFail++;
+        // rev6AbortSync() contabiliza una sola falla del scheduler. Aqui solo
+        // se registra la transaccion concreta para no duplicar syncFail.
         Serial.print(F("[SYNC REV6] FAIL "));
         Serial.print(label);
+        Serial.print(F(" S"));
+        Serial.print(rev6TxnSlave);
+        Serial.print(F(" reg="));
+        Serial.print(rev6TxnReg);
+        Serial.print(F(" value="));
+        Serial.print(rev6TxnValue);
+        Serial.print(F(" us="));
+        Serial.print(elapsedUs);
         Serial.print(F(" err="));
-        Serial.println((int)result);
+        Serial.print((int)result);
+        Serial.print(F(" masterTimeouts="));
+        Serial.println(masterTimeouts);
     }
 
     return ok;
@@ -495,11 +550,84 @@ static void rev6AbortSync(const char *reason)
 {
     rev6SyncFail++;
     rev6SyncTxnActive = false;
+    rev6PendingMasterRequest = Rev6PendingMasterRequest{};
     rev6SyncStage = REV6_STAGE_IDLE;
+    rev6NextTxnAllowedUs = micros() + REV6_MODBUS_INTER_TX_GAP_US;
     rev6NextStepMs = millis() + REV6_SYNC_RETRY_MS;
     Serial.print(F("[SYNC REV6] ABORT: "));
     Serial.println(reason);
     latchError(ERR_MODBUS, reason);
+}
+
+static void rev6QueueMasterRequest(
+    uint8_t slaveId,
+    uint16_t reg,
+    uint16_t value,
+    uint8_t nextStage,
+    const char *abortReason,
+    bool dynamicDelay = false)
+{
+    rev6PendingMasterRequest.pending = true;
+    rev6PendingMasterRequest.dynamicDelay = dynamicDelay;
+    rev6PendingMasterRequest.slaveId = slaveId;
+    rev6PendingMasterRequest.reg = reg;
+    rev6PendingMasterRequest.value = value;
+    rev6PendingMasterRequest.nextStage = nextStage;
+    rev6PendingMasterRequest.abortReason = abortReason;
+}
+
+static bool rev6ServicePendingMasterRequest()
+{
+    if (!rev6PendingMasterRequest.pending)
+        return false;
+
+    if (!rev6DueUs(micros(), rev6NextTxnAllowedUs))
+        return true;
+
+    uint16_t value = rev6PendingMasterRequest.value;
+
+    if (rev6PendingMasterRequest.dynamicDelay &&
+        !rev6RemainingDelayMs(value))
+    {
+        const char *reason = rev6PendingMasterRequest.abortReason;
+        rev6PendingMasterRequest = Rev6PendingMasterRequest{};
+        rev6AbortSync(reason != nullptr ? reason : "delay dinamico");
+        return true;
+    }
+
+    const uint8_t slaveId = rev6PendingMasterRequest.slaveId;
+    const uint16_t reg = rev6PendingMasterRequest.reg;
+    const uint8_t nextStage = rev6PendingMasterRequest.nextStage;
+    const char *reason = rev6PendingMasterRequest.abortReason;
+
+    rev6PendingMasterRequest = Rev6PendingMasterRequest{};
+
+    if (!rev6MasterRequest(slaveId, reg, value))
+    {
+        rev6AbortSync(reason != nullptr ? reason : "request pendiente");
+        return true;
+    }
+
+    rev6SyncStage = nextStage;
+    return true;
+}
+
+static bool rev6InitialModbusGapReady()
+{
+    if (!rev6DueUs(micros(), rev6NextTxnAllowedUs))
+        return false;
+
+    // finishMasterRuntimePoll() actualiza lastMasterPollMs. Evitar que el
+    // primer FC06 sync salga en el mismo instante en que termino FC03/FC06
+    // del poll cooperativo base.
+    if (lastMasterPollMs != 0 &&
+        (uint32_t)(millis() - lastMasterPollMs) <
+            REV6_MODBUS_INTER_TX_GAP_MS)
+    {
+        return false;
+    }
+
+    return true;
 }
 
 static void rev6BeginStep()
@@ -509,7 +637,8 @@ static void rev6BeginStep()
 
     if (masterRuntimePollPhase != MASTER_RT_POLL_IDLE ||
         JWPLC_ModbusRTU.masterBusy() ||
-        JWPLC_ModbusRTU.masterDone())
+        JWPLC_ModbusRTU.masterDone() ||
+        !rev6InitialModbusGapReady())
     {
         return;
     }
@@ -525,14 +654,20 @@ static void rev6BeginStep()
     if (!rev6SyncCodesPrepared)
     {
         if (!rev6MasterRequest(1, HR_CMD_CODE, CMD_SYNC_IO_PHASE))
+        {
+            rev6AbortSync("request code S1");
             return;
+        }
 
         rev6SyncStage = REV6_STAGE_CODE_S1_WAIT;
         return;
     }
 
     if (!rev6MasterRequest(1, HR_CMD_ARG0, rev6S1Mask))
+    {
+        rev6AbortSync("request mask S1");
         return;
+    }
 
     rev6SyncStage = REV6_STAGE_MASK_S1_WAIT;
 }
@@ -543,8 +678,11 @@ static bool rev6SyncWantsModbusPriority()
         return false;
 
     // Una operacion sync ya iniciada conserva prioridad hasta completarse.
-    if (rev6SyncStage != REV6_STAGE_IDLE)
+    if (rev6SyncStage != REV6_STAGE_IDLE ||
+        rev6PendingMasterRequest.pending)
+    {
         return true;
+    }
 
     // Nunca dejar a medias un poll cooperativo que ya empezo. La maquina de
     // estados base necesita seguir siendo llamada para cerrar FC06/FC03.
@@ -597,6 +735,14 @@ static void rev6ServiceMasterSync()
         return;
     }
 
+    // Una transaccion terminada programa el siguiente FC06 y conserva
+    // prioridad del scheduler, pero el request real espera 4 ms sin bloquear.
+    if (rev6PendingMasterRequest.pending)
+    {
+        (void)rev6ServicePendingMasterRequest();
+        return;
+    }
+
     if (rev6SyncTxnActive && !JWPLC_ModbusRTU.masterDone())
         return;
 
@@ -608,13 +754,13 @@ static void rev6ServiceMasterSync()
                 rev6AbortSync("code S1");
                 return;
             }
-            if (!rev6MasterRequest(2, HR_CMD_CODE, CMD_SYNC_IO_PHASE))
-            {
-                rev6AbortSync("request code S2");
-                return;
-            }
-            rev6SyncStage = REV6_STAGE_CODE_S2_WAIT;
-            break;
+            rev6QueueMasterRequest(
+                2,
+                HR_CMD_CODE,
+                CMD_SYNC_IO_PHASE,
+                REV6_STAGE_CODE_S2_WAIT,
+                "request code S2");
+            return;
 
         case REV6_STAGE_CODE_S2_WAIT:
             if (!rev6FinishTxn("code-s2"))
@@ -623,13 +769,13 @@ static void rev6ServiceMasterSync()
                 return;
             }
             rev6SyncCodesPrepared = true;
-            if (!rev6MasterRequest(1, HR_CMD_ARG0, rev6S1Mask))
-            {
-                rev6AbortSync("request mask S1");
-                return;
-            }
-            rev6SyncStage = REV6_STAGE_MASK_S1_WAIT;
-            break;
+            rev6QueueMasterRequest(
+                1,
+                HR_CMD_ARG0,
+                rev6S1Mask,
+                REV6_STAGE_MASK_S1_WAIT,
+                "request mask S1");
+            return;
 
         case REV6_STAGE_MASK_S1_WAIT:
             if (!rev6FinishTxn("mask-s1"))
@@ -637,31 +783,28 @@ static void rev6ServiceMasterSync()
                 rev6AbortSync("mask S1");
                 return;
             }
-            if (!rev6MasterRequest(2, HR_CMD_ARG0, rev6S2Mask))
-            {
-                rev6AbortSync("request mask S2");
-                return;
-            }
-            rev6SyncStage = REV6_STAGE_MASK_S2_WAIT;
-            break;
+            rev6QueueMasterRequest(
+                2,
+                HR_CMD_ARG0,
+                rev6S2Mask,
+                REV6_STAGE_MASK_S2_WAIT,
+                "request mask S2");
+            return;
 
         case REV6_STAGE_MASK_S2_WAIT:
-        {
             if (!rev6FinishTxn("mask-s2"))
             {
                 rev6AbortSync("mask S2");
                 return;
             }
-            uint16_t delayMs = 0;
-            if (!rev6RemainingDelayMs(delayMs) ||
-                !rev6MasterRequest(1, HR_CMD_ARG1, delayMs))
-            {
-                rev6AbortSync("delay S1");
-                return;
-            }
-            rev6SyncStage = REV6_STAGE_DELAY_S1_WAIT;
-            break;
-        }
+            rev6QueueMasterRequest(
+                1,
+                HR_CMD_ARG1,
+                0,
+                REV6_STAGE_DELAY_S1_WAIT,
+                "delay S1",
+                true);
+            return;
 
         case REV6_STAGE_DELAY_S1_WAIT:
             if (!rev6FinishTxn("delay-s1"))
@@ -669,31 +812,28 @@ static void rev6ServiceMasterSync()
                 rev6AbortSync("delay S1 tx");
                 return;
             }
-            if (!rev6MasterRequest(1, HR_CMD_SEQ, rev6Sequence))
-            {
-                rev6AbortSync("trigger S1");
-                return;
-            }
-            rev6SyncStage = REV6_STAGE_TRIGGER_S1_WAIT;
-            break;
+            rev6QueueMasterRequest(
+                1,
+                HR_CMD_SEQ,
+                rev6Sequence,
+                REV6_STAGE_TRIGGER_S1_WAIT,
+                "trigger S1");
+            return;
 
         case REV6_STAGE_TRIGGER_S1_WAIT:
-        {
             if (!rev6FinishTxn("trigger-s1"))
             {
                 rev6AbortSync("trigger S1 tx");
                 return;
             }
-            uint16_t delayMs = 0;
-            if (!rev6RemainingDelayMs(delayMs) ||
-                !rev6MasterRequest(2, HR_CMD_ARG1, delayMs))
-            {
-                rev6AbortSync("delay S2");
-                return;
-            }
-            rev6SyncStage = REV6_STAGE_DELAY_S2_WAIT;
-            break;
-        }
+            rev6QueueMasterRequest(
+                2,
+                HR_CMD_ARG1,
+                0,
+                REV6_STAGE_DELAY_S2_WAIT,
+                "delay S2",
+                true);
+            return;
 
         case REV6_STAGE_DELAY_S2_WAIT:
             if (!rev6FinishTxn("delay-s2"))
@@ -701,13 +841,13 @@ static void rev6ServiceMasterSync()
                 rev6AbortSync("delay S2 tx");
                 return;
             }
-            if (!rev6MasterRequest(2, HR_CMD_SEQ, rev6Sequence))
-            {
-                rev6AbortSync("trigger S2");
-                return;
-            }
-            rev6SyncStage = REV6_STAGE_TRIGGER_S2_WAIT;
-            break;
+            rev6QueueMasterRequest(
+                2,
+                HR_CMD_SEQ,
+                rev6Sequence,
+                REV6_STAGE_TRIGGER_S2_WAIT,
+                "trigger S2");
+            return;
 
         case REV6_STAGE_TRIGGER_S2_WAIT:
             if (!rev6FinishTxn("trigger-s2"))
@@ -723,11 +863,11 @@ static void rev6ServiceMasterSync()
             }
             rev6QueueApply(rev6M2Mask, rev6TargetUs, rev6Sequence);
             rev6SyncStage = REV6_STAGE_WAIT_APPLY;
-            break;
+            return;
 
         default:
             rev6AbortSync("stage invalido");
-            break;
+            return;
     }
 }
 
@@ -812,6 +952,7 @@ static void rev6EnterTakeover()
     rev6SyncTakeover = true;
     rev6SyncCodesPrepared = false;
     rev6SyncTxnActive = false;
+    rev6PendingMasterRequest = Rev6PendingMasterRequest{};
     rev6SyncStage = REV6_STAGE_IDLE;
     rev6PatternIndex = 0;
     rev6ClackOn = false;
@@ -821,7 +962,19 @@ static void rev6EnterTakeover()
     rev6ExpectedMask = 0;
     rev6PendingRisingMask = 0;
     rev6CreditedInputMask = 0;
+    rev6NextTxnAllowedUs = micros() + REV6_MODBUS_INTER_TX_GAP_US;
     rev6NextStepMs = millis() + 150UL;
+
+    rev6TxnStartedUs = 0;
+    rev6TxnMaxUs = 0;
+    rev6TxnCount = 0;
+    rev6TxnTimeoutCount = 0;
+    rev6RequestRejectCount = 0;
+    rev6TxnSlave = 0;
+    rev6TxnReg = 0;
+    rev6TxnValue = 0;
+    rev6SyncFail = 0;
+    rev6ApplyCount = 0;
 
     // Consumir el trigger START existente antes de cambiar CODE a SYNC.
     // Evita interpretar START+ARG1=0 como primer comando sincronizado.
@@ -844,13 +997,15 @@ static void rev6EnterTakeover()
     Serial.print(rev6SyncMode == REV6_MODE_CLACK ? F("CLACK") : F("SHOW"));
     Serial.print(F(" volume="));
     Serial.print(REV6_BUZZER_VOLUME);
-    Serial.println(F("/255"));
+    Serial.print(F("/255 fc06GapMs="));
+    Serial.println(REV6_MODBUS_INTER_TX_GAP_MS);
 }
 
 static void rev6LeaveTakeover()
 {
     rev6SyncTakeover = false;
     rev6SyncTxnActive = false;
+    rev6PendingMasterRequest = Rev6PendingMasterRequest{};
     rev6SyncStage = REV6_STAGE_IDLE;
     rev6ApplyPending = false;
     JWPLC_writeOutputs(0x00);
@@ -1313,8 +1468,16 @@ static void rev6PrintDiagnostics()
     Serial.print(rev6ApplyCount);
     Serial.print(F(" fail="));
     Serial.print(rev6SyncFail);
+    Serial.print(F(" txns="));
+    Serial.print(rev6TxnCount);
+    Serial.print(F(" timeouts="));
+    Serial.print(rev6TxnTimeoutCount);
+    Serial.print(F(" rejects="));
+    Serial.print(rev6RequestRejectCount);
     Serial.print(F(" maxTxnUs="));
-    Serial.println(rev6TxnMaxUs);
+    Serial.print(rev6TxnMaxUs);
+    Serial.print(F(" gapMs="));
+    Serial.println(REV6_MODBUS_INTER_TX_GAP_MS);
 
     Serial.print(F("ETH_WORKER core="));
     Serial.print((int)rev6EthObservedCore);
@@ -1407,6 +1570,8 @@ static void rev6ServiceWorkerPeriodicDiag()
         Serial.print(rev6EthMaxJobMs);
         Serial.print(F(" syncFail="));
         Serial.print(rev6SyncFail);
+        Serial.print(F(" syncTimeout="));
+        Serial.print(rev6TxnTimeoutCount);
         Serial.print(F(" ioMismatch="));
         Serial.println(ioStress.mismatches);
     }
@@ -1443,6 +1608,8 @@ void setup()
     Serial.print(F("BUZZER_VOLUME="));
     Serial.print(REV6_BUZZER_VOLUME);
     Serial.println(F("/255"));
+    Serial.print(F("SYNC_FC06_GAP_MS="));
+    Serial.println(REV6_MODBUS_INTER_TX_GAP_MS);
     Serial.print(F("[CORE] W5500 worker observed core="));
     Serial.println((int)rev6EthObservedCore);
     Serial.println(F("SYNC_COMMANDS=START/SHOW/CLACK/STOP/SYNC"));
