@@ -736,9 +736,9 @@ static const char *syncModeName()
     return syncPatternMode == SYNC_MODE_CLACK ? "CLACK" : "SHOW";
 }
 
-static void syncSetMode(SyncPatternMode mode)
+static void syncSetMode(uint8_t mode)
 {
-    syncPatternMode = mode;
+    syncPatternMode = (SyncPatternMode)mode;
 
     if (mode == SYNC_MODE_SHOW)
         syncShowIndex = 0;
