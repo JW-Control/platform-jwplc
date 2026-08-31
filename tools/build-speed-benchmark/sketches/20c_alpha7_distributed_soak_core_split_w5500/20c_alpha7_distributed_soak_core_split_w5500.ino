@@ -107,6 +107,13 @@ static constexpr uint32_t REV6_SYNC_RETRY_MS = 250UL;
 // ajenos antes de iniciar el siguiente comando, sin bloquear el loop Core1.
 static constexpr uint32_t REV6_MODBUS_INTER_TX_GAP_US = 4000UL;
 static constexpr uint32_t REV6_MODBUS_INTER_TX_GAP_MS = 4UL;
+// El cambio de runtime cooperativo a los comandos Sync del STOP usa el mismo
+// silencio. Evita lanzar HR_ETH_OWNER inmediatamente despues de la ultima
+// respuesta del scheduler/poll que acaba de drenarse.
+static constexpr uint32_t REV6_STOP_QUIET_GAP_US =
+    REV6_MODBUS_INTER_TX_GAP_US;
+static constexpr uint32_t REV6_STOP_QUIET_GAP_MS =
+    REV6_MODBUS_INTER_TX_GAP_MS;
 static constexpr UBaseType_t REV6_SYNC_TASK_PRIORITY = 3;
 static constexpr uint32_t REV6_SYNC_TASK_STACK = 4096UL;
 static constexpr BaseType_t REV6_SYNC_TASK_CORE = 1;
@@ -246,6 +253,15 @@ static volatile uint16_t rev6InputSampleToken = 0;
 static uint32_t rev6IoRaceDiscardCount = 0;
 static portMUX_TYPE rev6IoStateMux = portMUX_INITIALIZER_UNLOCKED;
 static TaskHandle_t rev6SyncTaskHandle = nullptr;
+
+// STOP seguro: no mezcla la API Sync base con una transaccion cooperativa REV6
+// todavia en vuelo. Se conserva como estado de la aplicacion de test.
+static bool rev6StopRequested = false;
+static uint32_t rev6StopRequestedMs = 0;
+static uint32_t rev6StopQuietUntilUs = 0;
+static uint32_t rev6StopLastDrainMs = 0;
+static uint32_t rev6StopMaxDrainMs = 0;
+static uint32_t rev6StopCount = 0;
 
 static bool rev6AudioActive = false;
 static uint32_t rev6AudioStopUs = 0;
@@ -1112,6 +1128,13 @@ static void rev6EnterTakeover()
     rev6SyncFail = 0;
     rev6ApplyCount = 0;
 
+    rev6StopRequested = false;
+    rev6StopRequestedMs = 0;
+    rev6StopQuietUntilUs = 0;
+    rev6StopLastDrainMs = 0;
+    rev6StopMaxDrainMs = 0;
+    rev6StopCount = 0;
+
     // Consumir el trigger START existente antes de cambiar CODE a SYNC.
     // Evita interpretar START+ARG1=0 como primer comando sincronizado.
     if (isSlave())
@@ -1172,6 +1195,107 @@ static void rev6SetMode(uint8_t mode)
 
     Serial.print(F("[SYNC REV6] mode="));
     Serial.println(rev6SyncMode == REV6_MODE_CLACK ? F("CLACK") : F("SHOW"));
+}
+
+// ============================================================================
+// STOP Master seguro: drena runtime cooperativo antes de entrar al Sync base
+// ============================================================================
+
+static void rev6RequestSafeStop()
+{
+    if (!isMaster() || soakState != SOAK_RUNNING)
+        return;
+
+    if (rev6StopRequested)
+    {
+        Serial.println(F("[STOP REV6] already pending"));
+        return;
+    }
+
+    rev6StopRequested = true;
+    rev6StopRequestedMs = millis();
+    rev6StopQuietUntilUs = 0;
+
+    Serial.print(F("[STOP REV6] requested stage="));
+    Serial.print((int)rev6SyncStage);
+    Serial.print(F(" pollPhase="));
+    Serial.print((int)masterRuntimePollPhase);
+    Serial.print(F(" masterBusy="));
+    Serial.println(JWPLC_ModbusRTU.masterBusy() ? 1 : 0);
+}
+
+static void rev6ServiceSafeStop()
+{
+    if (!rev6StopRequested || !isMaster())
+        return;
+
+    // Si el scheduler ya habia iniciado una secuencia, terminar SOLO esa
+    // secuencia. No se inicia un patron nuevo desde este path.
+    if (rev6SyncStage != REV6_STAGE_IDLE ||
+        rev6PendingMasterRequest.pending)
+    {
+        rev6ServiceMasterSync();
+        return;
+    }
+
+    // Lo mismo para el poll cooperativo base: si empezo FC06/FC03, dejar que
+    // su maquina de estados consuma el resultado antes del STOP Sync.
+    if (masterRuntimePollPhase != MASTER_RT_POLL_IDLE)
+    {
+        masterPollOneSlaveCooperative();
+        return;
+    }
+
+    // Estado defensivo: no debe quedar una txn REV6 activa con stage IDLE,
+    // pero si ocurre se drena sin lanzar trabajo nuevo.
+    if (rev6SyncTxnActive || JWPLC_ModbusRTU.masterBusy())
+    {
+        JWPLC_ModbusRTU.task();
+
+        if (!JWPLC_ModbusRTU.masterDone())
+            return;
+
+        JWPLC_ModbusRTU.clearMasterResult();
+        rev6SyncTxnActive = false;
+    }
+    else if (JWPLC_ModbusRTU.masterDone())
+    {
+        JWPLC_ModbusRTU.clearMasterResult();
+    }
+
+    // Primera vuelta realmente idle: iniciar un silencio equivalente al que
+    // ya demostro estabilidad entre FC06 del scheduler REV6.
+    if (rev6StopQuietUntilUs == 0)
+    {
+        rev6StopQuietUntilUs = micros() + REV6_STOP_QUIET_GAP_US;
+
+        Serial.print(F("[STOP REV6] bus idle; quietGapMs="));
+        Serial.println(REV6_STOP_QUIET_GAP_MS);
+        return;
+    }
+
+    if (!rev6DueUs(micros(), rev6StopQuietUntilUs))
+        return;
+
+    rev6StopLastDrainMs = millis() - rev6StopRequestedMs;
+    if (rev6StopLastDrainMs > rev6StopMaxDrainMs)
+        rev6StopMaxDrainMs = rev6StopLastDrainMs;
+
+    rev6StopCount++;
+    rev6StopRequested = false;
+    rev6StopQuietUntilUs = 0;
+    rev6ApplyPending = false;
+
+    Serial.print(F("[STOP REV6] quiescent drainMs="));
+    Serial.println(rev6StopLastDrainMs);
+
+    // Desde aqui la API Sync base entra con el Master libre y tras un frame
+    // gap real. Conservamos setEthernetOwner()/stopAllSlaves()/FRAM tal como
+    // estaban validados; solo cambia el momento en que se los invoca.
+    manualStopMaster();
+    rev6UpdateTakeover();
+
+    Serial.println(F("[STOP REV6] complete"));
 }
 
 // ============================================================================
@@ -1619,6 +1743,15 @@ static void rev6PrintDiagnostics()
     Serial.print(F(" ioRaceDiscard="));
     Serial.println(rev6IoRaceDiscardCount);
 
+    Serial.print(F("STOP pending/lastMs/maxMs/count="));
+    Serial.print(rev6StopRequested ? 1 : 0);
+    Serial.print('/');
+    Serial.print(rev6StopLastDrainMs);
+    Serial.print('/');
+    Serial.print(rev6StopMaxDrainMs);
+    Serial.print('/');
+    Serial.println(rev6StopCount);
+
     Serial.print(F("ETH_WORKER core="));
     Serial.print((int)rev6EthObservedCore);
     Serial.print(F(" busy="));
@@ -1659,6 +1792,14 @@ static void rev6HandleSerial(String line)
         rev6SetMode(REV6_MODE_CLACK);
         if (isMaster() && soakState == SOAK_READY_TO_START)
             startSoakMaster();
+        return;
+    }
+
+    if (upper == "STOP" &&
+        isMaster() &&
+        soakState == SOAK_RUNNING)
+    {
+        rev6RequestSafeStop();
         return;
     }
 
@@ -1753,6 +1894,8 @@ void setup()
     Serial.print(F("SYNC_FC06_GAP_MS="));
     Serial.println(REV6_MODBUS_INTER_TX_GAP_MS);
     Serial.println(F("SYNC_IO_GENERATION_GUARD=ON"));
+    Serial.print(F("STOP_SAFE_GAP_MS="));
+    Serial.println(REV6_STOP_QUIET_GAP_MS);
     Serial.print(F("[CORE] W5500 worker observed core="));
     Serial.println((int)rev6EthObservedCore);
     Serial.println(F("SYNC_COMMANDS=START/SHOW/CLACK/STOP/SYNC"));
@@ -1819,7 +1962,11 @@ void loop()
     {
         refreshHoldingRegisters();
 
-        if (soakState == SOAK_RUNNING)
+        if (rev6StopRequested)
+        {
+            rev6ServiceSafeStop();
+        }
+        else if (soakState == SOAK_RUNNING)
         {
             if (rev6SyncWantsModbusPriority())
             {
@@ -1884,7 +2031,10 @@ void loop()
 
     if (isMaster())
     {
-        serviceMasterEthernetRotation();
+        // Mientras STOP esta drenando Modbus no iniciar un nuevo handoff de
+        // Ethernet desde la rotacion base.
+        if (!rev6StopRequested)
+            serviceMasterEthernetRotation();
 
         if (!rev6EthSpiBusy())
         {
