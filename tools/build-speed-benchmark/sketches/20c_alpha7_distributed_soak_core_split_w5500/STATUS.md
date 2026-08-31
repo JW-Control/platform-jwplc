@@ -1,6 +1,6 @@
 # Estado — Gate 7NB.3C1 / REV6
 
-Estado actual: **TCA 0xFF REVALIDADO / GUARD I/O POR GENERACIÓN PENDIENTE DE COMPILE-CHECK Y PRUEBA FÍSICA**.
+Estado actual: **RUNTIME REV6 PASS CORTO / STOP SEGURO PENDIENTE DE COMPILE-CHECK Y REVALIDACIÓN FÍSICA**.
 
 ## Implementado
 
@@ -18,108 +18,134 @@ Estado actual: **TCA 0xFF REVALIDADO / GUARD I/O POR GENERACIÓN PENDIENTE DE CO
 - separación no bloqueante de 4 ms entre FC06 del scheduler REV6.
 - diagnóstico por transacción REV6: Slave, registro, valor, duración, timeout y rejects.
 - `syncFail` ya no duplica el conteo de una misma transacción fallida.
+- verifier I/O protegido por generación/token para no mezclar una muestra I anterior con un Q nuevo.
 - `JWPLC_ModbusRTU` sin cambios.
 
-## Evidencia REV6 / split Core0-Core1
+## TCA / I/O 0xFF — PASS
 
-- compile-check Arduino IDE de REV6 previo: PASS.
-- mismo sketch cargado en M2/S1/S2: PASS de arranque.
-- worker W5500 separado del loop de control: mejora observable.
-- el `MAX_LOOP` de Core 1 dejó de seguir directamente las esperas W5500 de ~450 ms vistas antes del split.
-- en corridas cortas posteriores, S1/S2 se mantuvieron típicamente por debajo de ~50–57 ms de max loop y sin loops >250 ms.
-- M2 conserva un pico aislado >250 ms pendiente de localizar con precisión; no se atribuye todavía a W5500 ni a una causa cerrada.
+Los patrones `0xFF` expusieron el conflicto histórico entre dato válido y sentinel de error de `TCA6424A_readBank()`.
 
-## TCA / I/O 0xFF — corregido y revalidado
+Corrección ya aplicada y revalidada:
 
-Los patrones con las ocho entradas activas (`0xFF`) expusieron un bug del runtime del package:
+- `TCA6424A_readBank()` retorna `bool` como estado de transacción;
+- el bitmap completo se entrega por `*state`, incluido `0xFF`;
+- `jwplcSystemScanIO()` acepta correctamente `0xFF`;
+- `precompiled/core/JWPLCBASIC/core.a` fue regenerado desde `cores/jwcontrol` y verificado para el target Basic normal;
+- patrones `all-on`, `wave-*` y demás secuencias pasan por `0xFF` sin conservar el bitmap anterior.
 
-- `TCA6424A_readBank()` retornaba `uint8_t`;
-- `0xFF` se usaba simultáneamente como dato válido y como sentinel de error;
-- `jwplcSystemScanIO()` interpretaba una lectura válida `0xFF` como fallo y conservaba el bitmap DI anterior.
+Resultado: **PASS**.
 
-Corrección aplicada en el package:
+## Guard I/O por generación — PASS
 
-- `TCA6424A_readBank()` ahora retorna `bool` como estado de la transacción;
-- el dato completo, incluido `0xFF`, se entrega exclusivamente por `*state`;
-- `jwplcSystemScanIO()` evalúa el `bool` y acepta `0xFF` como bitmap válido;
-- `precompiled/core/JWPLCBASIC/core.a` fue regenerado desde `cores/jwcontrol` y verificado con el gate normalizado del core precompilado.
+Antes del guard, S1 registró falsos `ERR IO` al combinar el patrón nuevo con una muestra I que correspondía exactamente al patrón anterior, por ejemplo:
 
-Revalidación física:
+- `Q=0x00 / I=0xAA`;
+- `Q=0x00 / I=0x42`.
 
-- `all-on` y patrones `wave-*` pasan por `0xFF` sin conservar el bitmap anterior;
-- M2 mantuvo `IO_MISMATCH=0` durante las corridas observadas;
-- visualmente las entradas/salidas de TFT acompañaron los patrones;
-- el bug específico `0xFF` se considera cerrado.
+La corrección REV6 usa `rev6AppliedToken` como generación, asocia cada muestra a `rev6InputSampleToken` y descarta cualquier captura que cambie de generación durante la verificación.
 
-## Hallazgo nuevo — race del verifier I/O REV6
+Revalidación física posterior:
 
-S1 registró falsos `ERR IO` con lecturas que coincidían exactamente con el patrón anterior:
+- M2 `IO_MISMATCH=0`;
+- S1 `IO_MISMATCH=0`, `FIRST_ERROR=NONE`, `ERROR_COUNT=0`;
+- S2 `IO_MISMATCH=0`, `FIRST_ERROR=NONE`, `ERROR_COUNT=0`;
+- se recorrieron repetidamente `all-on`, `alternate-*`, `wave-*`, `mirror-*` y `all-off` sin volver a generar los falsos mismatches;
+- `ioRaceDiscard=0` en la corrida de cierre, por lo que el PASS no depende de descartar muestras de forma continua.
 
-- `Q=0x00 / I=0xAA` al salir de un patrón donde S1 estaba en `0xAA`;
-- `Q=0x00 / I=0x42` al salir de un patrón donde S1 estaba en `0x42`.
+Resultado: **PASS**.
 
-S2 también llegó a latchear `ERR IO` durante la misma clase de prueba.
+## Modbus durante RUN — PASS corto
 
-La evidencia apunta a una carrera entre:
+Snapshot final durante `STATE=RUNNING`:
 
-- `rev6SyncApplyTask()` de prioridad alta, que aplica Q y publica la nueva fase;
-- `rev6ServiceLoopback()` en `loop()`, que podía conservar una muestra I de la generación anterior y combinarla con `phaseStart/expected` de la nueva generación.
+- scheduler REV6: `apply=1107`, `txns=6645`, `fail=0`, `timeouts=0`, `rejects=0`;
+- `maxTxnUs=95383`;
+- polling cooperativo: `MB_POLL=6816/0`;
+- `MB_FAIL W/R/V=0/0/0`;
+- CRC M2/S1/S2: 0;
+- M2 `FIRST_ERROR=NONE`, `ERROR_COUNT=0`.
 
-Corrección REV6 aplicada en el sketch:
+Los timeouts aislados observados en una corrida anterior no reaparecieron en esta muestra de 6645 transacciones REV6 con el gap de 4 ms.
 
-- `rev6AppliedToken` pasa a actuar como marcador de generación;
-- token `0` significa estado en actualización/no verificable;
-- la nueva generación se publica sólo después de completar Q + metadata;
-- cada muestra I queda asociada a `rev6InputSampleToken`;
-- el verifier sólo compara `expected`, tiempo de fase e input si pertenecen al mismo token;
-- si la generación cambia durante la captura, la muestra se descarta en vez de generar `IO FAIL`;
-- nuevo contador diagnóstico `ioRaceDiscard`;
-- el commit del mismatch se protege con un guard corto de estado para evitar latchear una generación que cambió durante la decisión.
+Resultado para el runtime corto actual: **PASS**. No se modifica `JWPLC_ModbusRTU`.
 
-## Modbus scheduler REV6 — pendiente separado
+## Split Core0/Core1 — PASS arquitectónico inicial
 
-El bus Modbus normal continúa muy estable:
+Durante la corrida de cierre:
 
-- CRC M2/S1/S2: 0 en las muestras revisadas;
-- polling cooperativo normal llegó a miles de operaciones con `MB_POLL fail=0`;
-- `MB_FAIL W/R/V=0/0/0`.
+- WiFi llegó a `max=555 ms`;
+- worker W5500 llegó a `maxJobMs=227 ms`;
+- M2 `MAX_LOOP_US=151797`;
+- `LONG_LOOP_250MS=0`;
+- S1 `MAX_LOOP_US=44303`, sin loops >50/250 ms;
+- S2 `MAX_LOOP_US=42042`, sin loops >50/250 ms.
 
-Sin embargo, el scheduler sincronizado aún mostró timeouts aislados en sus FC06:
+Esto confirma que Core 1 ya no copia directamente las esperas largas de red. Los picos restantes de ~151 ms siguen como optimización posterior.
 
-- corrida observada: `txns=5980`, `timeouts=4`, `rejects=0`;
-- orden de magnitud: ~0.067 % de timeout del scheduler;
-- se observaron fallos en `HR_CMD_ARG0` (`reg=73`) tanto hacia S1 como S2;
-- no se aumenta todavía `MODBUS_TIMEOUT_MS=250` para no ocultar el síntoma;
-- no se modifica todavía `JWPLC_ModbusRTU`.
+## Hallazgo al ejecutar STOP — pendiente separado
 
-Este pendiente se tratará después de cerrar el guard I/O por generación.
+Después del snapshot limpio de RUN, el comando `STOP` produjo:
 
-## Evidencia requerida siguiente
+```text
+[MODBUS FAIL] write S1 reg=77 err=Timeout
+```
+
+`reg=77` corresponde a `HR_ETH_OWNER`.
+
+El fallo apareció después de 6645/6645 transacciones REV6 y 6816/6816 polls normales correctos, con CRC 0. Por tanto se clasifica como problema de transición entre el runtime cooperativo REV6 y las escrituras Sync usadas por el cierre, no como regresión del bus durante RUN.
+
+El flujo base de `manualStopMaster()` hace primero `setEthernetOwner(ETH_OWNER_NONE)` y luego `stopAllSlaves()`. `setEthernetOwner()` usa `masterWriteRegister()` síncrono. Aunque `prepareMasterForSyncCommand()` drena una transacción cooperativa en curso, no deja el silencio de 4 ms que sí estabilizó el scheduler REV6.
+
+## Corrección STOP segura — implementada, pendiente de revalidación
+
+Se agregó en `20c` una transición explícita a quiescencia antes de invocar el `STOP` base:
+
+1. `STOP` en Master durante RUN sólo marca `rev6StopRequested`.
+2. Si existe una secuencia REV6 iniciada, se deja terminar sin iniciar un patrón nuevo.
+3. Si existe un poll cooperativo iniciado, se deja terminar FC06/FC03.
+4. Se drena cualquier resultado `masterBusy/masterDone` residual.
+5. Una vez realmente idle, se espera `REV6_STOP_QUIET_GAP_MS=4`.
+6. Recién entonces se ejecuta el `manualStopMaster()` existente, conservando `setEthernetOwner()`, `stopAllSlaves()`, FRAM y semántica base.
+7. La rotación Ethernet no inicia un nuevo handoff mientras el STOP está pendiente.
+
+Diagnóstico agregado:
+
+- boot: `STOP_SAFE_GAP_MS=4`;
+- solicitud: `[STOP REV6] requested stage=... pollPhase=... masterBusy=...`;
+- quiescencia: `[STOP REV6] bus idle; quietGapMs=4`;
+- cierre: `[STOP REV6] quiescent drainMs=...` y `[STOP REV6] complete`;
+- `SYNC`: `STOP pending/lastMs/maxMs/count=...`.
+
+`JWPLC_ModbusRTU` no fue modificado.
+
+## Siguiente mini-gate
 
 1. `git pull --ff-only`.
-2. Compilar nuevamente `20c_alpha7_distributed_soak_core_split_w5500.ino`.
-3. Confirmar en boot `SYNC_IO_GENERATION_GUARD=ON` y `SYNC_FC06_GAP_MS=4`.
+2. Compilar `20c_alpha7_distributed_soak_core_split_w5500.ino`.
+3. Confirmar en boot:
+   - `SYNC_FC06_GAP_MS=4`;
+   - `SYNC_IO_GENERATION_GUARD=ON`;
+   - `STOP_SAFE_GAP_MS=4`.
 4. Cargar el mismo sketch en S1, S2 y M2.
-5. Ejecutar una corrida corta de 10–15 min con Ethernet fijo en M2 y sin `ETHNEXT`.
-6. Observar especialmente S1/S2 y confirmar ausencia de `IO FAIL` falso al cambiar `0xAA -> 0x00`, `0x42 -> 0x00` y otros cambios de patrón.
-7. Capturar `DIAG`, `SYNC` y `STATUS` de M2; `DIAG` y `STATUS` de S1/S2 si aparece algún error.
+5. Ejecutar RUN corto de 3–5 min con Ethernet fijo en M2 y sin `ETHNEXT`.
+6. Ejecutar `STOP` desde M2 mientras los patrones están activos.
+7. Confirmar ausencia de `[MODBUS FAIL] write S1 reg=77` y cualquier otro error de cierre.
+8. Capturar `SYNC` y `STATUS` de M2 después del STOP; `STATUS` de S1/S2.
 
-## Criterios del mini-gate actual
+## Criterios del mini-gate STOP
 
-- M2/S1/S2 `IO_MISMATCH=0`.
-- `ioRaceDiscard` puede ser mayor que cero y se considera evidencia útil de muestras descartadas correctamente.
-- `0xFF` continúa válido sin regresión.
+- `STOP` termina en `SOAK_STOPPED`.
+- aparece `[STOP REV6] complete`.
+- no aparece ningún `[MODBUS FAIL]` durante el cierre.
+- M2/S1/S2 quedan con Q=0 e I=0.
+- S1/S2 quedan `STATE=STOPPED`.
 - CRC M2/S1/S2 = 0.
-- FRAM/SD fail = 0.
-- RTC sync PASS.
-- WiFi y Ethernet HTTP activos.
-- `ETH_WORKER core=0`.
-- no introducir regresiones de Core 1.
+- no se introduce `ERR IO` ni una regresión del guard por generación.
 
 ## Pendientes posteriores
 
-- resolver los timeouts aislados del scheduler FC06 REV6 sin tocar aún la librería Modbus;
-- identificar el origen del pico aislado >250 ms visto en M2;
-- handoff/semántica de `ETHNEXT`;
+- identificar y reducir los picos restantes de Core 1 (~151 ms observados);
+- probar y cerrar `ETHNEXT`/handoff entre nodos con la arquitectura Core0/Core1;
 - decidir si granularizar el lock SPI interno del backend W5x00;
-- endurance largo sólo después de pasar estos mini-gates.
+- endurance largo sólo después de cerrar estos mini-gates;
+- antes de cerrar Alpha7, restaurar/auditar la estrategia precompilada de Modbus y repetir la validación multidrop correspondiente.
