@@ -11,6 +11,8 @@
                     "label": "Slave ID",
                     "type": "number",
                     "default": 2,
+                    "defaultFromSlot": true,
+                    "uniqueAcrossSlots": true,
                     "min": 1,
                     "max": 247,
                     "step": 1,
