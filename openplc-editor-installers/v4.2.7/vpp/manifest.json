@@ -3,7 +3,7 @@
     "package": {
         "id": "com.jwcontrol.jwplc-basic",
         "name": "JWPLC Basic OpenPLC",
-        "version": "2.1.0-alpha.12",
+        "version": "2.1.0-alpha.14",
         "vendor": {
             "name": "JW Control",
             "url": "https://www.jw-control.com",
@@ -27,7 +27,27 @@
                 "type": "arduino-cli",
                 "core": "jwplc:esp32",
                 "platform": "jwplc:esp32:jwplcbasic",
-                "boardManagerUrl": "https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index.json"
+                "boardManagerUrl": "https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index.json",
+                "platformOptions": [
+                    {
+                        "key": "packageSource",
+                        "label": "Package Source",
+                        "default": "published",
+                        "help": "Selecciona si OpenPLC compila con el package publicado/instalado o con el namespace local de desarrollo.",
+                        "values": [
+                            {
+                                "id": "published",
+                                "label": "Published / Installed",
+                                "fqbn": "jwplc:esp32:jwplcbasic"
+                            },
+                            {
+                                "id": "local",
+                                "label": "Local Development",
+                                "fqbn": "jwplc_local:esp32:jwplcbasic"
+                            }
+                        ]
+                    }
+                ]
             },
             "hal": {
                 "type": "arduino",
@@ -83,7 +103,7 @@
                 "Keyboard": "7 buttons"
             },
             "capabilities": {
-                "pinMapping": false,
+                "pinMapping": true,
                 "vppIo": true,
                 "modbusTcpRemote": false,
                 "ethercat": false,
