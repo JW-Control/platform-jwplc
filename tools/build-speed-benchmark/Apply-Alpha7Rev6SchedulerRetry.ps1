@@ -77,8 +77,7 @@ static Rev6PendingMasterRequest rev6PendingMasterRequest;
 '@
 $text = Replace-Once $text $old $new 'estado retry REV6'
 
-# 2) Registrar el resultado concreto de la ultima transaccion y evitar llamar
-#    FAIL a un timeout que aun puede recuperarse por reinicio de secuencia.
+# 2) Guardar el resultado concreto de la ultima transaccion.
 $old = @'
 static bool rev6FinishTxn(const char *label)
 {
@@ -152,8 +151,7 @@ static bool rev6FinishTxn(const char *label)
 
     if (!ok)
     {
-        // El helper posterior decide si este error es recuperable. Por eso
-        // aqui se registra como TXN_ERROR y no se lachea MBUS todavia.
+        // Todavia no se lachea MBUS: el helper decide si corresponde un retry.
         Serial.print(F("[SYNC REV6] TXN_ERROR "));
         Serial.print(label);
         Serial.print(F(" S"));
@@ -175,8 +173,7 @@ static bool rev6FinishTxn(const char *label)
 '@
 $text = Replace-Once $text $old $new 'rev6FinishTxn retry-aware'
 
-# 3) El ABORT final limpia cualquier estado de retry; helper para decidir
-#    retry solo antes de que el primer TRIGGER haya sido transmitido.
+# 3) ABORT final + politica de retry seguro.
 $old = @'
 static void rev6AbortSync(const char *reason)
 {
@@ -218,8 +215,8 @@ static bool rev6StageAllowsSequenceRetry()
         case REV6_STAGE_DELAY_S1_WAIT:
             return true;
 
-        // Desde TRIGGER_S1_WAIT ya existe ambiguedad: el request pudo haber
-        // llegado al Slave aunque se haya perdido su respuesta. No repetir.
+        // Desde TRIGGER_S1_WAIT el request pudo haber llegado al Slave aunque
+        // se haya perdido la respuesta. No repetir una operacion ambigua.
         default:
             return false;
     }
@@ -265,7 +262,7 @@ static void rev6HandleTxnFailure(const char *reason)
 '@
 $text = Replace-Once $text $old $new 'abort + helper retry'
 
-# 4) Reiniciar el MISMO patron con target nuevo cuando hay retry pendiente.
+# 4) Reiniciar el mismo patron con target nuevo.
 $old = @'
     rev6LoadPattern();
 
@@ -276,8 +273,8 @@ $new = @'
 
     if (retryingSequence)
     {
-        // rev6LoadPattern() ya avanzo el indice en el primer intento. Para el
-        // retry se conservan masks/nombre/hold actuales y solo cambia target.
+        // El primer intento ya avanzo rev6PatternIndex. Conservamos las masks
+        // actuales y generamos un target nuevo para el mismo patron.
         rev6RetrySequencePending = false;
         rev6RetrySequenceActive = true;
 
@@ -294,8 +291,7 @@ $new = @'
 '@
 $text = Replace-Once $text $old $new 'reinicio mismo patron'
 
-# 5) Mientras espera los 4 ms del retry, el scheduler conserva prioridad y no
-#    deja que un poll base se cuele entre timeout y reinicio.
+# 5) El retry pendiente mantiene prioridad Modbus durante sus 4 ms.
 $old = @'
     if (rev6SyncStage != REV6_STAGE_IDLE ||
         rev6PendingMasterRequest.pending)
@@ -313,8 +309,7 @@ $new = @'
 '@
 $text = Replace-Once $text $old $new 'prioridad durante retry'
 
-# 6) Contabilizar recuperacion solo cuando el patron reintentado realmente fue
-#    aplicado con su nuevo token.
+# 6) Recovery solo cuenta al aplicar realmente el patron reintentado.
 $old = @'
         if (rev6AppliedToken != rev6Sequence)
             return;
@@ -340,151 +335,143 @@ $new = @'
 '@
 $text = Replace-Once $text $old $new 'contabilizar retry recuperado'
 
-# 7) Cada estado WAIT delega el resultado al helper retry-aware.
-$replacements = @(
-    @(
-@'
+# 7a) WAIT code-s1.
+$old = @'
             if (!rev6FinishTxn("code-s1"))
             {
                 rev6AbortSync("code S1");
                 return;
             }
-'@,
-@'
+'@
+$new = @'
             if (!rev6FinishTxn("code-s1"))
             {
                 rev6HandleTxnFailure("code S1");
                 return;
             }
-'@,
-        'failure code-s1'
-    ),
-    @(
-@'
+'@
+$text = Replace-Once $text $old $new 'failure code-s1'
+
+# 7b) WAIT code-s2.
+$old = @'
             if (!rev6FinishTxn("code-s2"))
             {
                 rev6AbortSync("code S2");
                 return;
             }
-'@,
-@'
+'@
+$new = @'
             if (!rev6FinishTxn("code-s2"))
             {
                 rev6HandleTxnFailure("code S2");
                 return;
             }
-'@,
-        'failure code-s2'
-    ),
-    @(
-@'
+'@
+$text = Replace-Once $text $old $new 'failure code-s2'
+
+# 7c) WAIT mask-s1.
+$old = @'
             if (!rev6FinishTxn("mask-s1"))
             {
                 rev6AbortSync("mask S1");
                 return;
             }
-'@,
-@'
+'@
+$new = @'
             if (!rev6FinishTxn("mask-s1"))
             {
                 rev6HandleTxnFailure("mask S1");
                 return;
             }
-'@,
-        'failure mask-s1'
-    ),
-    @(
-@'
+'@
+$text = Replace-Once $text $old $new 'failure mask-s1'
+
+# 7d) WAIT mask-s2.
+$old = @'
             if (!rev6FinishTxn("mask-s2"))
             {
                 rev6AbortSync("mask S2");
                 return;
             }
-'@,
-@'
+'@
+$new = @'
             if (!rev6FinishTxn("mask-s2"))
             {
                 rev6HandleTxnFailure("mask S2");
                 return;
             }
-'@,
-        'failure mask-s2'
-    ),
-    @(
-@'
+'@
+$text = Replace-Once $text $old $new 'failure mask-s2'
+
+# 7e) WAIT delay-s1.
+$old = @'
             if (!rev6FinishTxn("delay-s1"))
             {
                 rev6AbortSync("delay S1 tx");
                 return;
             }
-'@,
-@'
+'@
+$new = @'
             if (!rev6FinishTxn("delay-s1"))
             {
                 rev6HandleTxnFailure("delay S1 tx");
                 return;
             }
-'@,
-        'failure delay-s1'
-    ),
-    @(
-@'
+'@
+$text = Replace-Once $text $old $new 'failure delay-s1'
+
+# 7f) WAIT trigger-s1: helper lo clasifica como NO reintentable.
+$old = @'
             if (!rev6FinishTxn("trigger-s1"))
             {
                 rev6AbortSync("trigger S1 tx");
                 return;
             }
-'@,
-@'
+'@
+$new = @'
             if (!rev6FinishTxn("trigger-s1"))
             {
                 rev6HandleTxnFailure("trigger S1 tx");
                 return;
             }
-'@,
-        'failure trigger-s1'
-    ),
-    @(
-@'
+'@
+$text = Replace-Once $text $old $new 'failure trigger-s1'
+
+# 7g) WAIT delay-s2: S1 ya pudo quedar armado, por eso NO reintentable.
+$old = @'
             if (!rev6FinishTxn("delay-s2"))
             {
                 rev6AbortSync("delay S2 tx");
                 return;
             }
-'@,
-@'
+'@
+$new = @'
             if (!rev6FinishTxn("delay-s2"))
             {
                 rev6HandleTxnFailure("delay S2 tx");
                 return;
             }
-'@,
-        'failure delay-s2'
-    ),
-    @(
-@'
+'@
+$text = Replace-Once $text $old $new 'failure delay-s2'
+
+# 7h) WAIT trigger-s2: NO reintentable.
+$old = @'
             if (!rev6FinishTxn("trigger-s2"))
             {
                 rev6AbortSync("trigger S2 tx");
                 return;
             }
-'@,
-@'
+'@
+$new = @'
             if (!rev6FinishTxn("trigger-s2"))
             {
                 rev6HandleTxnFailure("trigger S2 tx");
                 return;
             }
-'@,
-        'failure trigger-s2'
-    )
-)
+'@
+$text = Replace-Once $text $old $new 'failure trigger-s2'
 
-foreach ($item in $replacements) {
-    $text = Replace-Once $text $item[0] $item[1] $item[2]
-}
-
-# 8) Reset de contadores/estado al entrar en RUN.
+# 8) Reset al entrar en RUN.
 $old = @'
     rev6TxnSlave = 0;
     rev6TxnReg = 0;
@@ -511,8 +498,7 @@ $new = @'
 '@
 $text = Replace-Once $text $old $new 'reset retry por RUN'
 
-# 9) Al salir del takeover cancelar solo estados pendientes; conservar contadores
-#    para DIAG post-STOP.
+# 9) Al salir del takeover cancelar pendientes, conservando contadores.
 $old = @'
     rev6SyncTxnActive = false;
     rev6PendingMasterRequest = Rev6PendingMasterRequest{};
@@ -529,7 +515,55 @@ $new = @'
 '@
 $text = Replace-Once $text $old $new 'cancelar retry al salir takeover'
 
-# 10) SYNC diagnostico: timeout bruto + attempts/recovered/final.
+# 10) STOP debe terminar un retry ya programado antes de entrar al Sync base.
+$old = @'
+    if (rev6SyncStage != REV6_STAGE_IDLE ||
+        rev6PendingMasterRequest.pending)
+    {
+        rev6ServiceMasterSync();
+        return;
+    }
+
+    // Lo mismo para el poll cooperativo base: si empezo FC06/FC03, dejar que
+'@
+$new = @'
+    if (rev6SyncStage != REV6_STAGE_IDLE ||
+        rev6PendingMasterRequest.pending ||
+        rev6RetrySequencePending)
+    {
+        rev6ServiceMasterSync();
+        return;
+    }
+
+    // Lo mismo para el poll cooperativo base: si empezo FC06/FC03, dejar que
+'@
+$text = Replace-Once $text $old $new 'STOP drena retry pendiente'
+
+# 11) ETHNEXT aplica la misma regla de drenaje.
+$old = @'
+        if (rev6SyncStage != REV6_STAGE_IDLE ||
+            rev6PendingMasterRequest.pending)
+        {
+            rev6ServiceMasterSync();
+            return;
+        }
+
+        // Terminar el poll FC06/FC03 ya iniciado, sin iniciar otro.
+'@
+$new = @'
+        if (rev6SyncStage != REV6_STAGE_IDLE ||
+            rev6PendingMasterRequest.pending ||
+            rev6RetrySequencePending)
+        {
+            rev6ServiceMasterSync();
+            return;
+        }
+
+        // Terminar el poll FC06/FC03 ya iniciado, sin iniciar otro.
+'@
+$text = Replace-Once $text $old $new 'ETHNEXT drena retry pendiente'
+
+# 12) Diagnostico SYNC: timeout bruto + retry attempts/recovered/final.
 $old = @'
     Serial.print(F(" timeouts="));
     Serial.print(rev6TxnTimeoutCount);
@@ -548,7 +582,7 @@ $new = @'
 '@
 $text = Replace-Once $text $old $new 'diagnostico SYNC retry'
 
-# 11) Diag periodico compacto.
+# 13) Diagnostico periodico compacto.
 $old = @'
         Serial.print(F(" syncTimeout="));
         Serial.print(rev6TxnTimeoutCount);
@@ -567,7 +601,7 @@ $new = @'
 '@
 $text = Replace-Once $text $old $new 'diag periodico retry'
 
-# 12) Banner inequívoco para verificar que las tres placas tienen la revision.
+# 14) Banner inequívoco de revision.
 $old = @'
     Serial.println(F("SYNC_IO_GENERATION_GUARD=ON"));
     Serial.print(F("STOP_SAFE_GAP_MS="));
@@ -587,8 +621,9 @@ $text = Replace-Once $text $old $new 'banner retry'
 Write-Host ''
 Write-Host 'OK: retry de secuencia REV6 aplicado en 20c.'
 Write-Host 'Politica: 1 retry solo para timeout antes del primer TRIGGER.'
-Write-Host 'No modifica JWPLC_ModbusRTU ni STOP.'
+Write-Host 'No modifica JWPLC_ModbusRTU ni la logica funcional de STOP.'
 Write-Host ''
+
 & git -C $RepoRoot diff --check
 if ($LASTEXITCODE -ne 0) {
     throw 'git diff --check detecto problemas.'
