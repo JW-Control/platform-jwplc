@@ -114,6 +114,14 @@ static constexpr uint32_t REV6_STOP_QUIET_GAP_US =
     REV6_MODBUS_INTER_TX_GAP_US;
 static constexpr uint32_t REV6_STOP_QUIET_GAP_MS =
     REV6_MODBUS_INTER_TX_GAP_MS;
+// ETHNEXT usa la misma transicion cooperativo->Sync que STOP. Ademas, despues
+// de publicar owner=NONE se deja una gracia suficiente para que un HTTP o NTP
+// ya iniciado en el nodo saliente libere W5500 antes de pedir mover el cable.
+static constexpr uint32_t REV6_ETHNEXT_QUIET_GAP_US =
+    REV6_MODBUS_INTER_TX_GAP_US;
+static constexpr uint32_t REV6_ETHNEXT_QUIET_GAP_MS =
+    REV6_MODBUS_INTER_TX_GAP_MS;
+static constexpr uint32_t REV6_ETHNEXT_RELEASE_GRACE_MS = 2300UL;
 static constexpr UBaseType_t REV6_SYNC_TASK_PRIORITY = 3;
 static constexpr uint32_t REV6_SYNC_TASK_STACK = 4096UL;
 static constexpr BaseType_t REV6_SYNC_TASK_CORE = 1;
@@ -262,6 +270,21 @@ static uint32_t rev6StopQuietUntilUs = 0;
 static uint32_t rev6StopLastDrainMs = 0;
 static uint32_t rev6StopMaxDrainMs = 0;
 static uint32_t rev6StopCount = 0;
+
+static constexpr uint8_t REV6_ETHNEXT_STAGE_IDLE = 0;
+static constexpr uint8_t REV6_ETHNEXT_STAGE_DRAIN = 1;
+static constexpr uint8_t REV6_ETHNEXT_STAGE_RELEASE_WAIT = 2;
+static bool rev6EthNextRequested = false;
+static bool rev6EthNextAutomatic = false;
+static uint8_t rev6EthNextStage = REV6_ETHNEXT_STAGE_IDLE;
+static uint32_t rev6EthNextRequestedMs = 0;
+static uint32_t rev6EthNextQuietUntilUs = 0;
+static uint32_t rev6EthNextReleaseUntilMs = 0;
+static uint32_t rev6EthNextLastMs = 0;
+static uint32_t rev6EthNextMaxMs = 0;
+static uint32_t rev6EthNextCount = 0;
+static uint16_t rev6EthNextPreviousOwner = ETH_OWNER_NONE;
+static uint16_t rev6EthNextNextOwner = ETH_OWNER_NONE;
 
 static bool rev6AudioActive = false;
 static uint32_t rev6AudioStopUs = 0;
@@ -1135,6 +1158,18 @@ static void rev6EnterTakeover()
     rev6StopMaxDrainMs = 0;
     rev6StopCount = 0;
 
+    rev6EthNextRequested = false;
+    rev6EthNextAutomatic = false;
+    rev6EthNextStage = REV6_ETHNEXT_STAGE_IDLE;
+    rev6EthNextRequestedMs = 0;
+    rev6EthNextQuietUntilUs = 0;
+    rev6EthNextReleaseUntilMs = 0;
+    rev6EthNextLastMs = 0;
+    rev6EthNextMaxMs = 0;
+    rev6EthNextCount = 0;
+    rev6EthNextPreviousOwner = ETH_OWNER_NONE;
+    rev6EthNextNextOwner = ETH_OWNER_NONE;
+
     // Consumir el trigger START existente antes de cambiar CODE a SYNC.
     // Evita interpretar START+ARG1=0 como primer comando sincronizado.
     if (isSlave())
@@ -1205,6 +1240,12 @@ static void rev6RequestSafeStop()
 {
     if (!isMaster() || soakState != SOAK_RUNNING)
         return;
+
+    if (rev6EthNextRequested)
+    {
+        Serial.println(F("[STOP REV6] deferred: ETHNEXT pending"));
+        return;
+    }
 
     if (rev6StopRequested)
     {
@@ -1296,6 +1337,219 @@ static void rev6ServiceSafeStop()
     rev6UpdateTakeover();
 
     Serial.println(F("[STOP REV6] complete"));
+}
+
+// ============================================================================
+// ETHNEXT seguro: drena Modbus + libera owner anterior antes de mover cable
+// ============================================================================
+
+static void rev6RequestSafeEthNext(bool automatic)
+{
+    if (!isMaster() ||
+        !masterSoakRunning ||
+        soakState != SOAK_RUNNING ||
+        rotationSlot >= rotationTotalSlots)
+    {
+        return;
+    }
+
+    if (rev6StopRequested)
+    {
+        Serial.println(F("[ETHNEXT REV6] rejected: STOP pending"));
+        return;
+    }
+
+    if (rev6EthNextRequested)
+    {
+        if (!automatic)
+            Serial.println(F("[ETHNEXT REV6] already pending"));
+        return;
+    }
+
+    rev6EthNextRequested = true;
+    rev6EthNextAutomatic = automatic;
+    rev6EthNextStage = REV6_ETHNEXT_STAGE_DRAIN;
+    rev6EthNextRequestedMs = millis();
+    rev6EthNextQuietUntilUs = 0;
+    rev6EthNextReleaseUntilMs = 0;
+    rev6EthNextPreviousOwner = ethWindow.owner;
+
+    const uint16_t nextSlot = rotationSlot + 1U;
+    rev6EthNextNextOwner =
+        nextSlot < rotationTotalSlots
+            ? ownerForRotationSlot(nextSlot)
+            : ETH_OWNER_NONE;
+
+    Serial.print(F("[ETHNEXT REV6] requested source="));
+    Serial.print(automatic ? F("AUTO") : F("MANUAL"));
+    Serial.print(F(" stage="));
+    Serial.print((int)rev6SyncStage);
+    Serial.print(F(" pollPhase="));
+    Serial.print((int)masterRuntimePollPhase);
+    Serial.print(F(" masterBusy="));
+    Serial.print(JWPLC_ModbusRTU.masterBusy() ? 1 : 0);
+    Serial.print(F(" owner="));
+    Serial.print(rev6EthNextPreviousOwner);
+    Serial.print(F(" next="));
+    Serial.println(rev6EthNextNextOwner);
+}
+
+static void rev6PrintEthernetMovePrompt(uint16_t nextOwner)
+{
+    Serial.println();
+    printRule();
+    Serial.print(F("MOVE_ETHERNET_CABLE_TO="));
+
+    if (nextOwner == 0)
+        Serial.println(F("MASTER"));
+    else
+    {
+        Serial.print(F("S"));
+        Serial.println(nextOwner);
+    }
+
+    Serial.println(F("Mueve el cable ahora; la ventana espera LINK/READY."));
+    printRule();
+}
+
+static void rev6FinishSafeEthNext()
+{
+    rotationSlot++;
+    ethWindowStartMs = 0;
+    rotationWaitingForReady = true;
+
+    rev6EthNextLastMs = millis() - rev6EthNextRequestedMs;
+    if (rev6EthNextLastMs > rev6EthNextMaxMs)
+        rev6EthNextMaxMs = rev6EthNextLastMs;
+
+    rev6EthNextCount++;
+    rev6EthNextRequested = false;
+    rev6EthNextAutomatic = false;
+    rev6EthNextStage = REV6_ETHNEXT_STAGE_IDLE;
+    rev6EthNextQuietUntilUs = 0;
+    rev6EthNextReleaseUntilMs = 0;
+
+    if (rotationSlot >= rotationTotalSlots)
+    {
+        Serial.print(F("[ETHNEXT REV6] complete finalSlot ms="));
+        Serial.println(rev6EthNextLastMs);
+        completeSoakMaster();
+        return;
+    }
+
+    const uint16_t nextOwner = ownerForRotationSlot(rotationSlot);
+    rev6EthNextNextOwner = nextOwner;
+
+    // No usar announceEthernetMove(): su tripleBeep()/CMD_BEEP son bloqueantes
+    // y contaminarian el gate de handoff. El prompt Serial conserva la accion
+    // operativa que necesita el usuario.
+    rev6PrintEthernetMovePrompt(nextOwner);
+    setEthernetOwner(nextOwner);
+
+    Serial.print(F("[ETHNEXT REV6] complete ms="));
+    Serial.print(rev6EthNextLastMs);
+    Serial.print(F(" newOwner="));
+    Serial.println(nextOwner);
+}
+
+static void rev6ServiceSafeEthNext()
+{
+    if (!rev6EthNextRequested || !isMaster())
+        return;
+
+    if (rev6EthNextStage == REV6_ETHNEXT_STAGE_DRAIN)
+    {
+        // Terminar una secuencia REV6 ya iniciada, sin abrir otra.
+        if (rev6SyncStage != REV6_STAGE_IDLE ||
+            rev6PendingMasterRequest.pending)
+        {
+            rev6ServiceMasterSync();
+            return;
+        }
+
+        // Terminar el poll FC06/FC03 ya iniciado, sin iniciar otro.
+        if (masterRuntimePollPhase != MASTER_RT_POLL_IDLE)
+        {
+            masterPollOneSlaveCooperative();
+            return;
+        }
+
+        if (rev6SyncTxnActive || JWPLC_ModbusRTU.masterBusy())
+        {
+            JWPLC_ModbusRTU.task();
+            if (!JWPLC_ModbusRTU.masterDone())
+                return;
+
+            JWPLC_ModbusRTU.clearMasterResult();
+            rev6SyncTxnActive = false;
+        }
+        else if (JWPLC_ModbusRTU.masterDone())
+        {
+            JWPLC_ModbusRTU.clearMasterResult();
+        }
+
+        // Si el owner actual es M2, no cortar owner mientras Core0 termina un
+        // HTTP/NTP ya aceptado. rev6ServiceLocalEthernetWindow() deja de crear
+        // jobs nuevos desde que ETHNEXT queda pending.
+        if (rev6EthNextPreviousOwner == localNodeOrdinal() &&
+            rev6EthJobOutstanding)
+        {
+            return;
+        }
+
+        if (rev6EthNextQuietUntilUs == 0)
+        {
+            rev6EthNextQuietUntilUs =
+                micros() + REV6_ETHNEXT_QUIET_GAP_US;
+
+            Serial.print(F("[ETHNEXT REV6] bus idle; quietGapMs="));
+            Serial.println(REV6_ETHNEXT_QUIET_GAP_MS);
+            return;
+        }
+
+        if (!rev6DueUs(micros(), rev6EthNextQuietUntilUs))
+            return;
+
+        setEthernetOwner(ETH_OWNER_NONE);
+
+        // El owner remoto puede estar dentro de HTTP/NTP cuando recibe NONE.
+        // 2.3 s cubre NTP_TIMEOUT_MS=1800 ms + adquisicion SPI + margen.
+        rev6EthNextReleaseUntilMs =
+            millis() + REV6_ETHNEXT_RELEASE_GRACE_MS;
+        rev6EthNextStage = REV6_ETHNEXT_STAGE_RELEASE_WAIT;
+
+        Serial.print(F("[ETHNEXT REV6] owner=NONE releaseGraceMs="));
+        Serial.println(REV6_ETHNEXT_RELEASE_GRACE_MS);
+        return;
+    }
+
+    if (rev6EthNextStage == REV6_ETHNEXT_STAGE_RELEASE_WAIT)
+    {
+        if ((int32_t)(millis() - rev6EthNextReleaseUntilMs) < 0)
+            return;
+
+        rev6FinishSafeEthNext();
+    }
+}
+
+static void rev6ServiceMasterEthernetRotationSafe()
+{
+    if (!isMaster() ||
+        !masterSoakRunning ||
+        rotationSlot >= rotationTotalSlots)
+    {
+        return;
+    }
+
+    // La expiracion automatica usa la misma maquina segura que ETHNEXT manual.
+    if (ethWindowStartMs != 0 &&
+        (uint32_t)(millis() - ethWindowStartMs) >= ethWindowDurationMs)
+    {
+        rev6RequestSafeEthNext(true);
+        return;
+    }
+
+    serviceMasterEthernetRotation();
 }
 
 // ============================================================================
@@ -1644,6 +1898,11 @@ static void rev6ServiceLocalEthernetWindow()
     if (!ownerNow || !JWPLC_Ethernet.isReady())
         return;
 
+    // ETHNEXT espera a que un job local ya iniciado termine, pero desde la
+    // solicitud no debe aceptar otro HTTP/NTP que vuelva a prolongar el handoff.
+    if (isMaster() && rev6EthNextRequested)
+        return;
+
     if (!ethWindow.ntpDone && !rev6EthJobOutstanding)
     {
         if (rev6WorkerQueueNtp(ETH_JOB_NTP_WINDOW))
@@ -1752,6 +2011,17 @@ static void rev6PrintDiagnostics()
     Serial.print('/');
     Serial.println(rev6StopCount);
 
+    Serial.print(F("ETHNEXT pending/stage/lastMs/maxMs/count="));
+    Serial.print(rev6EthNextRequested ? 1 : 0);
+    Serial.print('/');
+    Serial.print((int)rev6EthNextStage);
+    Serial.print('/');
+    Serial.print(rev6EthNextLastMs);
+    Serial.print('/');
+    Serial.print(rev6EthNextMaxMs);
+    Serial.print('/');
+    Serial.println(rev6EthNextCount);
+
     Serial.print(F("ETH_WORKER core="));
     Serial.print((int)rev6EthObservedCore);
     Serial.print(F(" busy="));
@@ -1800,6 +2070,14 @@ static void rev6HandleSerial(String line)
         soakState == SOAK_RUNNING)
     {
         rev6RequestSafeStop();
+        return;
+    }
+
+    if (upper == "ETHNEXT" &&
+        isMaster() &&
+        soakState == SOAK_RUNNING)
+    {
+        rev6RequestSafeEthNext(false);
         return;
     }
 
@@ -1896,9 +2174,13 @@ void setup()
     Serial.println(F("SYNC_IO_GENERATION_GUARD=ON"));
     Serial.print(F("STOP_SAFE_GAP_MS="));
     Serial.println(REV6_STOP_QUIET_GAP_MS);
+    Serial.print(F("ETHNEXT_SAFE_GAP_MS="));
+    Serial.println(REV6_ETHNEXT_QUIET_GAP_MS);
+    Serial.print(F("ETHNEXT_RELEASE_GRACE_MS="));
+    Serial.println(REV6_ETHNEXT_RELEASE_GRACE_MS);
     Serial.print(F("[CORE] W5500 worker observed core="));
     Serial.println((int)rev6EthObservedCore);
-    Serial.println(F("SYNC_COMMANDS=START/SHOW/CLACK/STOP/SYNC"));
+    Serial.println(F("SYNC_COMMANDS=START/SHOW/CLACK/STOP/SYNC/ETHNEXT"));
 }
 
 void loop()
@@ -1966,6 +2248,10 @@ void loop()
         {
             rev6ServiceSafeStop();
         }
+        else if (rev6EthNextRequested)
+        {
+            rev6ServiceSafeEthNext();
+        }
         else if (soakState == SOAK_RUNNING)
         {
             if (rev6SyncWantsModbusPriority())
@@ -2031,10 +2317,10 @@ void loop()
 
     if (isMaster())
     {
-        // Mientras STOP esta drenando Modbus no iniciar un nuevo handoff de
-        // Ethernet desde la rotacion base.
-        if (!rev6StopRequested)
-            serviceMasterEthernetRotation();
+        // STOP y ETHNEXT son transiciones exclusivas. La expiracion automatica
+        // de ventana tambien entra por la misma maquina segura del handoff.
+        if (!rev6StopRequested && !rev6EthNextRequested)
+            rev6ServiceMasterEthernetRotationSafe();
 
         if (!rev6EthSpiBusy())
         {
