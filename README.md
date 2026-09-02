@@ -11,8 +11,8 @@ El objetivo es que el hardware pueda utilizarse con una experiencia cercana a Ar
 | Canal | Versión | Estado |
 |---|---|---|
 | Público / estable | `v2.0.0` | Recomendado para proyectos estables. |
-| Dev publicada | `v2.1.0-alpha.6` | PreRelease validada y publicada. |
-| Candidata de PreRelease | `v2.1.0-alpha.7` | Cierre técnico completado; pendiente PR/CI/publicación. |
+| Dev publicada | `v2.1.0-alpha.7` | PreRelease validada y publicada. |
+| Siguiente alpha | `v2.1.0-alpha.8` | Pendiente de iniciar formalmente. |
 
 Alpha7 parte de Alpha6 sin retirar periféricos del autoload normal. Este cierre consolida Modbus RTU cooperativo y multidrop, Remote I/O, robustez Ethernet/W5500 ante contención SPI y la integración externa OpenPLC/VPP trabajada durante el alpha.
 
@@ -330,7 +330,7 @@ Versión estable pública actual:
 https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json
 ```
 
-Las PreRelease deben utilizarse únicamente cuando la versión correspondiente ya haya sido publicada en ese índice. Alpha7 no debe asumirse disponible por Boards Manager hasta completar PR, CI, merge y release.
+Las PreRelease deben utilizarse únicamente cuando la versión correspondiente ya haya sido publicada en ese índice. Alpha7 ya está publicada en el índice dev y disponible para instalación mediante Boards Manager configurado con dicho índice.
 
 ## Placas
 
@@ -365,7 +365,9 @@ Marcador de cierre:
 
 ```text
 ALPHA7_TECHNICAL_CLOSURE=PASS
-ALPHA7_PUBLICATION=PENDING_PR_CI_RELEASE
+ALPHA7_PUBLICATION=PASS
+ALPHA7_STATUS=CLOSED
+NEXT_ALPHA=ALPHA8
 ```
 
 OpenPLC no forma parte del autoload normal del package y no debe asumirse como runtime Arduino integrado.
