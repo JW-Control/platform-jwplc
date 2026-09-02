@@ -280,6 +280,58 @@ Documentación:
 
 El ciclo 2.1.0 reduce compilaciones sin retirar funcionalidades. Alpha5 recuperó gran parte de las TUs precompiladas y Alpha6 cerró sus archives validados.
 
+### Benchmark de compilación
+
+El benchmark se ejecutó con `Arduino CLI`, sketch `tools/build-speed-benchmark/sketches/01_empty` y mediciones controladas de build cold/warm. Para comparar la evolución se priorizan resultados obtenidos en el mismo PC principal.
+
+#### Evolución del cold en JWPLC Basic
+
+| Estado | Cold | TUs compiladas desde fuente |
+|---|---:|---:|
+| Alpha3 / baseline local pre-D1 | 148.649 s | 102 |
+| Alpha4 D1 discovery | 121.732 s | 102 |
+| Alpha4 P2 core precompilado | 104.223 s | 34 |
+| Alpha4 P5A Ethernet | 90.587 s | 24 |
+| Alpha4 P6C-2 / full Adafruit | 67.322 s | 12 |
+| **Alpha5 final** | **55.387 s** | **8** |
+
+Entre el baseline local y Alpha5 final:
+
+```text
+Cold        : 148.649 s -> 55.387 s
+Reducción   : 93.262 s
+Mejora      : 62.74 %
+TUs source  : 102 -> 8
+```
+
+La reducción no se consiguió retirando Display, Ethernet, microSD, FRAM, RTC, botonera, RS-485, Modbus RTU o TCA/I/O del autoload normal.
+
+#### Alpha5 vs Alpha6 — JWPLC Basic
+
+Alpha6 consolidó el backend W5500 dentro de `JWPLC_Ethernet`. Esto añadió 7 TUs source al cold, pero mantuvo/mejoró los warm builds.
+
+| Fase | Alpha5 | Alpha6 | Cambio |
+|---|---:|---:|---:|
+| explicit cold | 55.387 s | 60.369 s | +8.99 % |
+| explicit warm no-change | 22.462 s | 21.774 s | -3.06 % |
+| explicit warm touch | 22.219 s | 21.813 s | -1.83 % |
+
+Promedio combinado Basic + Basic Core del benchmark final Alpha6:
+
+```text
+cold : +9.88 %
+warm : -4.43 %
+```
+
+La regresión cold de Alpha6 fue aceptada como costo conocido para priorizar estabilidad del runtime Ethernet/W5500. Alpha7 mantiene esa decisión, restaura `JWPLC_ModbusRTU` a `precompiled=full` después de cerrar sus cambios funcionales y no reclama un nuevo benchmark global de tiempos.
+
+Documentación detallada:
+
+- [`Alpha4 vs Alpha5 — benchmark final`](docs/v2.1.0-alpha.5/BUILD_SPEED_COMPARISON_ALPHA4_ALPHA5_FINAL_20260824.md)
+- [`Alpha5 vs Alpha6 — benchmark final`](docs/v2.1.0-alpha.6/BUILD_SPEED_COMPARISON_ALPHA5_ALPHA6_FINAL_20260828.md)
+
+Alpha8 retoma como objetivo explícito la precompilación de `JWPLC_Ethernet` y la repetición del benchmark cold/warm.
+
 Durante el desarrollo de Alpha7, `JWPLC_ModbusRTU` se mantuvo temporalmente en source-build para impedir que un archive anterior ocultara cambios del parser/API. Al cierre se restauró `precompiled=full` y se regeneró el archive final:
 
 ```text
