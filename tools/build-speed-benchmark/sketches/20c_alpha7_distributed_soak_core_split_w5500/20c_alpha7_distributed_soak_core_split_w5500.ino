@@ -40,6 +40,13 @@
 #include <freertos/queue.h>
 #include <freertos/event_groups.h>
 #include <jwplc_spi_bus.h>
+#include <esp_err.h>
+#include <driver/gpio.h>
+
+extern "C"
+{
+#include "jwplc_i2c_bridge.h"
+}
 
 // ---------------------------------------------------------------------------
 // Bloquear exclusivamente los ON del oscilador I/O legacy del soak base.
@@ -122,6 +129,17 @@ static constexpr uint32_t REV6_ETHNEXT_QUIET_GAP_US =
 static constexpr uint32_t REV6_ETHNEXT_QUIET_GAP_MS =
     REV6_MODBUS_INTER_TX_GAP_MS;
 static constexpr uint32_t REV6_ETHNEXT_RELEASE_GRACE_MS = 2300UL;
+
+// Diagnostico I2C del acceptance. El bus real del JWPLC Basic usa SDA=21,
+// SCL=22, TCA6424A=0x22 y RTC=0x68. 0x23 se consulta solo manualmente como
+// direccion alternativa del TCA; su ausencia NO es falla.
+static constexpr uint8_t REV6_I2C_TCA_ADDR = 0x22;
+static constexpr uint8_t REV6_I2C_TCA_ALT_ADDR = 0x23;
+static constexpr uint8_t REV6_I2C_RTC_ADDR = 0x68;
+static constexpr uint32_t REV6_I2C_LINE_SAMPLE_MS = 1000UL;
+static constexpr uint32_t REV6_I2C_COMMISSION_PERIOD_MS = 5000UL;
+static constexpr uint32_t REV6_I2C_WATCH_PERIOD_MS = 30000UL;
+static constexpr uint32_t REV6_I2C_BUSY_RETRY_MS = 500UL;
 static constexpr UBaseType_t REV6_SYNC_TASK_PRIORITY = 3;
 static constexpr uint32_t REV6_SYNC_TASK_STACK = 4096UL;
 static constexpr BaseType_t REV6_SYNC_TASK_CORE = 1;
@@ -247,8 +265,19 @@ static uint32_t rev6RequestRejectCount = 0;
 static uint8_t rev6TxnSlave = 0;
 static uint16_t rev6TxnReg = 0;
 static uint16_t rev6TxnValue = 0;
+static JWPLCModbusRTUError rev6LastTxnResult = JWPLC_MODBUS_OK;
 static uint32_t rev6SyncFail = 0;
 static uint32_t rev6ApplyCount = 0;
+
+// Un timeout antes del primer TRIGGER no invalida el patron: ningun Slave
+// fue armado todavia. En ese caso se reinicia UNA vez la secuencia completa
+// con un target nuevo. No se reintenta una transaccion TRIGGER ambigua.
+static bool rev6RetrySequencePending = false;
+static bool rev6RetrySequenceActive = false;
+static uint32_t rev6RetryAttempts = 0;
+static uint32_t rev6RetryRecovered = 0;
+static uint32_t rev6RetryFinalTimeouts = 0;
+
 static Rev6PendingMasterRequest rev6PendingMasterRequest;
 
 static volatile bool rev6ApplyPending = false;
@@ -285,6 +314,32 @@ static uint32_t rev6EthNextMaxMs = 0;
 static uint32_t rev6EthNextCount = 0;
 static uint16_t rev6EthNextPreviousOwner = ETH_OWNER_NONE;
 static uint16_t rev6EthNextNextOwner = ETH_OWNER_NONE;
+
+struct Rev6I2CDiagStats
+{
+    uint32_t cycles = 0;
+    uint32_t tcaOk = 0;
+    uint32_t tcaFail = 0;
+    uint32_t rtcOk = 0;
+    uint32_t rtcFail = 0;
+    uint32_t deferredBusy = 0;
+    uint32_t sdaLowSamples = 0;
+    uint32_t sclLowSamples = 0;
+    uint32_t bothLowSamples = 0;
+    uint16_t sdaLowConsecutive = 0;
+    uint16_t sclLowConsecutive = 0;
+    int lastTcaErr = ESP_OK;
+    int lastRtcErr = ESP_OK;
+    int lastTcaInputErr = ESP_OK;
+    uint8_t lastTcaInput[3] = {0, 0, 0};
+    bool haveTcaInput = false;
+};
+
+static Rev6I2CDiagStats rev6I2CDiag;
+static bool rev6I2CWatchEnabled = true;
+static uint32_t rev6I2CLastLineSampleMs = 0;
+static uint32_t rev6I2CNextWatchMs = 0;
+static void rev6ResetI2CDiagnostics();
 
 static bool rev6AudioActive = false;
 static uint32_t rev6AudioStopUs = 0;
@@ -556,6 +611,8 @@ static bool rev6FinishTxn(const char *label)
     const JWPLCModbusRTUError result = JWPLC_ModbusRTU.masterResult();
     const uint32_t masterTimeouts = JWPLC_ModbusRTU.stats().masterTimeouts;
 
+    rev6LastTxnResult = result;
+
     if (result == JWPLC_MODBUS_TIMEOUT)
         rev6TxnTimeoutCount++;
 
@@ -565,9 +622,8 @@ static bool rev6FinishTxn(const char *label)
 
     if (!ok)
     {
-        // rev6AbortSync() contabiliza una sola falla del scheduler. Aqui solo
-        // se registra la transaccion concreta para no duplicar syncFail.
-        Serial.print(F("[SYNC REV6] FAIL "));
+        // Todavia no se lachea MBUS: el helper decide si corresponde un retry.
+        Serial.print(F("[SYNC REV6] TXN_ERROR "));
         Serial.print(label);
         Serial.print(F(" S"));
         Serial.print(rev6TxnSlave);
@@ -607,6 +663,8 @@ static void rev6AbortSync(const char *reason)
 {
     rev6SyncFail++;
     rev6SyncTxnActive = false;
+    rev6RetrySequencePending = false;
+    rev6RetrySequenceActive = false;
     rev6PendingMasterRequest = Rev6PendingMasterRequest{};
     rev6SyncStage = REV6_STAGE_IDLE;
     rev6NextTxnAllowedUs = micros() + REV6_MODBUS_INTER_TX_GAP_US;
@@ -614,6 +672,62 @@ static void rev6AbortSync(const char *reason)
     Serial.print(F("[SYNC REV6] ABORT: "));
     Serial.println(reason);
     latchError(ERR_MODBUS, reason);
+}
+
+static bool rev6StageAllowsSequenceRetry()
+{
+    switch (rev6SyncStage)
+    {
+        case REV6_STAGE_CODE_S1_WAIT:
+        case REV6_STAGE_CODE_S2_WAIT:
+        case REV6_STAGE_MASK_S1_WAIT:
+        case REV6_STAGE_MASK_S2_WAIT:
+        case REV6_STAGE_DELAY_S1_WAIT:
+            return true;
+
+        // Desde TRIGGER_S1_WAIT el request pudo haber llegado al Slave aunque
+        // se haya perdido la respuesta. No repetir una operacion ambigua.
+        default:
+            return false;
+    }
+}
+
+static void rev6HandleTxnFailure(const char *reason)
+{
+    const bool timeout =
+        rev6LastTxnResult == JWPLC_MODBUS_TIMEOUT;
+
+    if (timeout &&
+        !rev6RetrySequenceActive &&
+        rev6StageAllowsSequenceRetry())
+    {
+        rev6RetryAttempts++;
+        rev6RetrySequencePending = true;
+        rev6RetrySequenceActive = false;
+        rev6SyncTxnActive = false;
+        rev6PendingMasterRequest = Rev6PendingMasterRequest{};
+        rev6SyncStage = REV6_STAGE_IDLE;
+        rev6ApplyPending = false;
+        rev6NextTxnAllowedUs = micros() + REV6_MODBUS_INTER_TX_GAP_US;
+        rev6NextStepMs = millis() + REV6_MODBUS_INTER_TX_GAP_MS;
+
+        Serial.print(F("[SYNC REV6] RETRY sequence attempt="));
+        Serial.print(rev6RetryAttempts);
+        Serial.print(F(" reason="));
+        Serial.print(reason);
+        Serial.print(F(" pattern="));
+        Serial.print(rev6PatternName);
+        Serial.print(F(" last=S"));
+        Serial.print(rev6TxnSlave);
+        Serial.print(F("/reg"));
+        Serial.println(rev6TxnReg);
+        return;
+    }
+
+    if (timeout)
+        rev6RetryFinalTimeouts++;
+
+    rev6AbortSync(reason);
 }
 
 static void rev6QueueMasterRequest(
@@ -700,7 +814,23 @@ static void rev6BeginStep()
         return;
     }
 
-    rev6LoadPattern();
+    const bool retryingSequence = rev6RetrySequencePending;
+
+    if (retryingSequence)
+    {
+        // El primer intento ya avanzo rev6PatternIndex. Conservamos las masks
+        // actuales y generamos un target nuevo para el mismo patron.
+        rev6RetrySequencePending = false;
+        rev6RetrySequenceActive = true;
+
+        Serial.print(F("[SYNC REV6] RETRY restart pattern="));
+        Serial.println(rev6PatternName);
+    }
+    else
+    {
+        rev6RetrySequenceActive = false;
+        rev6LoadPattern();
+    }
 
     rev6Sequence++;
     if (rev6Sequence == 0)
@@ -736,7 +866,8 @@ static bool rev6SyncWantsModbusPriority()
 
     // Una operacion sync ya iniciada conserva prioridad hasta completarse.
     if (rev6SyncStage != REV6_STAGE_IDLE ||
-        rev6PendingMasterRequest.pending)
+        rev6PendingMasterRequest.pending ||
+        rev6RetrySequencePending)
     {
         return true;
     }
@@ -765,6 +896,17 @@ static void rev6ServiceMasterSync()
     {
         if (rev6AppliedToken != rev6Sequence)
             return;
+
+        if (rev6RetrySequenceActive)
+        {
+            rev6RetryRecovered++;
+            rev6RetrySequenceActive = false;
+
+            Serial.print(F("[SYNC REV6] RETRY recovered seq="));
+            Serial.print(rev6Sequence);
+            Serial.print(F(" recovered="));
+            Serial.println(rev6RetryRecovered);
+        }
 
         Serial.print(F("PATTERN seq="));
         Serial.print(rev6Sequence);
@@ -808,7 +950,7 @@ static void rev6ServiceMasterSync()
         case REV6_STAGE_CODE_S1_WAIT:
             if (!rev6FinishTxn("code-s1"))
             {
-                rev6AbortSync("code S1");
+                rev6HandleTxnFailure("code S1");
                 return;
             }
             rev6QueueMasterRequest(
@@ -822,7 +964,7 @@ static void rev6ServiceMasterSync()
         case REV6_STAGE_CODE_S2_WAIT:
             if (!rev6FinishTxn("code-s2"))
             {
-                rev6AbortSync("code S2");
+                rev6HandleTxnFailure("code S2");
                 return;
             }
             rev6SyncCodesPrepared = true;
@@ -837,7 +979,7 @@ static void rev6ServiceMasterSync()
         case REV6_STAGE_MASK_S1_WAIT:
             if (!rev6FinishTxn("mask-s1"))
             {
-                rev6AbortSync("mask S1");
+                rev6HandleTxnFailure("mask S1");
                 return;
             }
             rev6QueueMasterRequest(
@@ -851,7 +993,7 @@ static void rev6ServiceMasterSync()
         case REV6_STAGE_MASK_S2_WAIT:
             if (!rev6FinishTxn("mask-s2"))
             {
-                rev6AbortSync("mask S2");
+                rev6HandleTxnFailure("mask S2");
                 return;
             }
             rev6QueueMasterRequest(
@@ -866,7 +1008,7 @@ static void rev6ServiceMasterSync()
         case REV6_STAGE_DELAY_S1_WAIT:
             if (!rev6FinishTxn("delay-s1"))
             {
-                rev6AbortSync("delay S1 tx");
+                rev6HandleTxnFailure("delay S1 tx");
                 return;
             }
             rev6QueueMasterRequest(
@@ -880,7 +1022,7 @@ static void rev6ServiceMasterSync()
         case REV6_STAGE_TRIGGER_S1_WAIT:
             if (!rev6FinishTxn("trigger-s1"))
             {
-                rev6AbortSync("trigger S1 tx");
+                rev6HandleTxnFailure("trigger S1 tx");
                 return;
             }
             rev6QueueMasterRequest(
@@ -895,7 +1037,7 @@ static void rev6ServiceMasterSync()
         case REV6_STAGE_DELAY_S2_WAIT:
             if (!rev6FinishTxn("delay-s2"))
             {
-                rev6AbortSync("delay S2 tx");
+                rev6HandleTxnFailure("delay S2 tx");
                 return;
             }
             rev6QueueMasterRequest(
@@ -909,7 +1051,7 @@ static void rev6ServiceMasterSync()
         case REV6_STAGE_TRIGGER_S2_WAIT:
             if (!rev6FinishTxn("trigger-s2"))
             {
-                rev6AbortSync("trigger S2 tx");
+                rev6HandleTxnFailure("trigger S2 tx");
                 return;
             }
             if ((int32_t)(rev6TargetUs - micros()) <
@@ -1148,8 +1290,14 @@ static void rev6EnterTakeover()
     rev6TxnSlave = 0;
     rev6TxnReg = 0;
     rev6TxnValue = 0;
+    rev6LastTxnResult = JWPLC_MODBUS_OK;
     rev6SyncFail = 0;
     rev6ApplyCount = 0;
+    rev6RetrySequencePending = false;
+    rev6RetrySequenceActive = false;
+    rev6RetryAttempts = 0;
+    rev6RetryRecovered = 0;
+    rev6RetryFinalTimeouts = 0;
 
     rev6StopRequested = false;
     rev6StopRequestedMs = 0;
@@ -1157,6 +1305,8 @@ static void rev6EnterTakeover()
     rev6StopLastDrainMs = 0;
     rev6StopMaxDrainMs = 0;
     rev6StopCount = 0;
+
+    rev6ResetI2CDiagnostics();
 
     rev6EthNextRequested = false;
     rev6EthNextAutomatic = false;
@@ -1199,6 +1349,8 @@ static void rev6LeaveTakeover()
 {
     rev6SyncTakeover = false;
     rev6SyncTxnActive = false;
+    rev6RetrySequencePending = false;
+    rev6RetrySequenceActive = false;
     rev6PendingMasterRequest = Rev6PendingMasterRequest{};
     rev6SyncStage = REV6_STAGE_IDLE;
     rev6ApplyPending = false;
@@ -1273,7 +1425,8 @@ static void rev6ServiceSafeStop()
     // Si el scheduler ya habia iniciado una secuencia, terminar SOLO esa
     // secuencia. No se inicia un patron nuevo desde este path.
     if (rev6SyncStage != REV6_STAGE_IDLE ||
-        rev6PendingMasterRequest.pending)
+        rev6PendingMasterRequest.pending ||
+        rev6RetrySequencePending)
     {
         rev6ServiceMasterSync();
         return;
@@ -1461,7 +1614,8 @@ static void rev6ServiceSafeEthNext()
     {
         // Terminar una secuencia REV6 ya iniciada, sin abrir otra.
         if (rev6SyncStage != REV6_STAGE_IDLE ||
-            rev6PendingMasterRequest.pending)
+            rev6PendingMasterRequest.pending ||
+            rev6RetrySequencePending)
         {
             rev6ServiceMasterSync();
             return;
@@ -1979,6 +2133,378 @@ static void rev6ServiceMasterCommissioning()
 // Serial REV6: agrega SHOW / CLACK / SYNC
 // ============================================================================
 
+static void rev6I2CPrintHexByte(uint8_t value)
+{
+    if (value < 0x10)
+        Serial.print('0');
+    Serial.print(value, HEX);
+}
+
+static void rev6I2CPrintBytes(const __FlashStringHelper *label, const uint8_t *data, size_t length)
+{
+    Serial.print(label);
+    Serial.print('=');
+    for (size_t i = 0; i < length; ++i)
+    {
+        if (i != 0)
+            Serial.print(' ');
+        rev6I2CPrintHexByte(data[i]);
+    }
+    Serial.println();
+}
+
+static void rev6I2CPrintProbeResult(const char *name, uint8_t address, int result)
+{
+    Serial.print(name);
+    Serial.print(F(" @0x"));
+    rev6I2CPrintHexByte(address);
+    Serial.print(F("="));
+    Serial.print(result == ESP_OK ? F("PASS") : F("FAIL"));
+    Serial.print(F(" err="));
+    Serial.print(result);
+    Serial.print(F("/"));
+    Serial.println(esp_err_to_name((esp_err_t)result));
+}
+
+static void rev6ResetI2CDiagnostics()
+{
+    rev6I2CDiag = Rev6I2CDiagStats{};
+    rev6I2CLastLineSampleMs = 0;
+    rev6I2CNextWatchMs = millis() + REV6_I2C_WATCH_PERIOD_MS;
+}
+
+static bool rev6I2CCanActiveProbe()
+{
+    if (!isMaster())
+        return true;
+
+    if (rev6StopRequested || rev6EthNextRequested)
+        return false;
+
+    if (rev6SyncStage != REV6_STAGE_IDLE ||
+        rev6PendingMasterRequest.pending ||
+        rev6RetrySequencePending ||
+        rev6SyncTxnActive)
+    {
+        return false;
+    }
+
+    if (masterRuntimePollPhase != MASTER_RT_POLL_IDLE ||
+        JWPLC_ModbusRTU.masterBusy())
+    {
+        return false;
+    }
+
+    return true;
+}
+
+static int rev6I2CRawSdaLevel()
+{
+    return gpio_get_level(GPIO_NUM_21);
+}
+
+static int rev6I2CRawSclLevel()
+{
+    return gpio_get_level(GPIO_NUM_22);
+}
+
+static void rev6I2CSampleLines(bool verbose)
+{
+    // Lectura fisica de los pads. No usa digitalRead(): en JWPLC esa API pasa
+    // por digitalPinToGPIONumber() y no sirve como observacion RAW del bus.
+    const int sdaLevel = rev6I2CRawSdaLevel();
+    const int sclLevel = rev6I2CRawSclLevel();
+
+    if (sdaLevel == 0)
+    {
+        rev6I2CDiag.sdaLowSamples++;
+        rev6I2CDiag.sdaLowConsecutive++;
+    }
+    else
+    {
+        rev6I2CDiag.sdaLowConsecutive = 0;
+    }
+
+    if (sclLevel == 0)
+    {
+        rev6I2CDiag.sclLowSamples++;
+        rev6I2CDiag.sclLowConsecutive++;
+    }
+    else
+    {
+        rev6I2CDiag.sclLowConsecutive = 0;
+    }
+
+    if (sdaLevel == 0 && sclLevel == 0)
+        rev6I2CDiag.bothLowSamples++;
+
+    // Un sample LOW aislado puede coincidir con una transferencia valida.
+    // Solo imprimir automaticamente si persiste >=3 muestras de 1 s.
+    if (verbose ||
+        rev6I2CDiag.sdaLowConsecutive == 3 ||
+        rev6I2CDiag.sclLowConsecutive == 3)
+    {
+        Serial.print(F("[I2C RAW] node="));
+        Serial.print(shortRoleName());
+        Serial.print(F(" GPIO21/SDA="));
+        Serial.print(sdaLevel);
+        Serial.print(F(" GPIO22/SCL="));
+        Serial.print(sclLevel);
+        Serial.print(F(" lowConsecutive="));
+        Serial.print(rev6I2CDiag.sdaLowConsecutive);
+        Serial.print('/');
+        Serial.println(rev6I2CDiag.sclLowConsecutive);
+    }
+}
+
+static void rev6I2CProbeExpected(bool verbose)
+{
+    const int tcaResult = jwplcI2C_probe(REV6_I2C_TCA_ADDR);
+    const int rtcResult = jwplcI2C_probe(REV6_I2C_RTC_ADDR);
+
+    uint8_t tcaInput[3] = {0, 0, 0};
+    int tcaInputErr = ESP_FAIL;
+    bool tcaInputChanged = false;
+
+    if (tcaResult == ESP_OK)
+    {
+        tcaInputErr = jwplcI2C_readRegs(
+            REV6_I2C_TCA_ADDR,
+            0x00,
+            3,
+            tcaInput);
+
+        if (tcaInputErr == ESP_OK)
+        {
+            tcaInputChanged =
+                !rev6I2CDiag.haveTcaInput ||
+                memcmp(tcaInput, rev6I2CDiag.lastTcaInput, 3) != 0;
+
+            memcpy(rev6I2CDiag.lastTcaInput, tcaInput, 3);
+            rev6I2CDiag.haveTcaInput = true;
+        }
+    }
+
+    rev6I2CDiag.cycles++;
+    rev6I2CDiag.lastTcaErr = tcaResult;
+    rev6I2CDiag.lastRtcErr = rtcResult;
+    rev6I2CDiag.lastTcaInputErr = tcaInputErr;
+
+    if (tcaResult == ESP_OK)
+        rev6I2CDiag.tcaOk++;
+    else
+        rev6I2CDiag.tcaFail++;
+
+    if (rtcResult == ESP_OK)
+        rev6I2CDiag.rtcOk++;
+    else
+        rev6I2CDiag.rtcFail++;
+
+    if (verbose ||
+        tcaResult != ESP_OK ||
+        rtcResult != ESP_OK ||
+        tcaInputErr != ESP_OK ||
+        tcaInputChanged)
+    {
+        Serial.print(F("[I2C WATCH] node="));
+        Serial.print(shortRoleName());
+        Serial.print(F(" cycle="));
+        Serial.print(rev6I2CDiag.cycles);
+        Serial.print(F(" TCA22="));
+        Serial.print(tcaResult == ESP_OK ? F("OK") : F("FAIL"));
+        Serial.print(F(" RTC68="));
+        Serial.print(rtcResult == ESP_OK ? F("OK") : F("FAIL"));
+        Serial.print(F(" RAW21/22="));
+        Serial.print(rev6I2CRawSdaLevel());
+        Serial.print('/');
+        Serial.print(rev6I2CRawSclLevel());
+        Serial.print(F(" appRTC="));
+        Serial.print(rtcPresent ? F("OK") : F("--"));
+        Serial.print(F(" rtcFail="));
+        Serial.println(rtcFail);
+
+        if (tcaInputErr == ESP_OK)
+            rev6I2CPrintBytes(F("[I2C TCA] INPUT0..2"), tcaInput, 3);
+        else
+        {
+            Serial.print(F("[I2C TCA] input-read FAIL err="));
+            Serial.print(tcaInputErr);
+            Serial.print('/');
+            Serial.println(esp_err_to_name((esp_err_t)tcaInputErr));
+        }
+    }
+
+    if (verbose || tcaResult != ESP_OK)
+        rev6I2CPrintProbeResult("TCA6424A", REV6_I2C_TCA_ADDR, tcaResult);
+
+    if (verbose || rtcResult != ESP_OK)
+        rev6I2CPrintProbeResult("RTC", REV6_I2C_RTC_ADDR, rtcResult);
+}
+
+static void rev6PrintI2CSummary()
+{
+    Serial.print(F("I2C watch="));
+    Serial.print(rev6I2CWatchEnabled ? F("ON") : F("OFF"));
+    Serial.print(F(" cycles="));
+    Serial.print(rev6I2CDiag.cycles);
+    Serial.print(F(" TCA ok/fail="));
+    Serial.print(rev6I2CDiag.tcaOk);
+    Serial.print('/');
+    Serial.print(rev6I2CDiag.tcaFail);
+    Serial.print(F(" RTC ok/fail="));
+    Serial.print(rev6I2CDiag.rtcOk);
+    Serial.print('/');
+    Serial.print(rev6I2CDiag.rtcFail);
+    Serial.print(F(" deferred="));
+    Serial.print(rev6I2CDiag.deferredBusy);
+    Serial.print(F(" lineLow SDA/SCL/both="));
+    Serial.print(rev6I2CDiag.sdaLowSamples);
+    Serial.print('/');
+    Serial.print(rev6I2CDiag.sclLowSamples);
+    Serial.print('/');
+    Serial.print(rev6I2CDiag.bothLowSamples);
+    Serial.print(F(" lastErr TCA/RTC/input="));
+    Serial.print(rev6I2CDiag.lastTcaErr);
+    Serial.print('/');
+    Serial.print(rev6I2CDiag.lastRtcErr);
+    Serial.print('/');
+    Serial.print(rev6I2CDiag.lastTcaInputErr);
+    Serial.print(F(" rawTCA="));
+    if (rev6I2CDiag.haveTcaInput)
+    {
+        rev6I2CPrintHexByte(rev6I2CDiag.lastTcaInput[0]);
+        Serial.print('/');
+        rev6I2CPrintHexByte(rev6I2CDiag.lastTcaInput[1]);
+        Serial.print('/');
+        rev6I2CPrintHexByte(rev6I2CDiag.lastTcaInput[2]);
+    }
+    else
+    {
+        Serial.print(F("--/--/--"));
+    }
+    Serial.println();
+}
+
+static void rev6PrintI2CDiagnostics()
+{
+    Serial.println();
+    Serial.println(F("---- I2C DIAGNOSTICS ----"));
+    Serial.print(F("NODE="));
+    Serial.print(shortRoleName());
+    Serial.println(F(" RAW_GPIO_SDA=21 RAW_GPIO_SCL=22"));
+
+    rev6I2CSampleLines(true);
+
+    Serial.println(F("EXPECTED: TCA6424A@0x22 RTC@0x68; TCA@0x23=ALT/OPTIONAL"));
+
+    const int tcaResult = jwplcI2C_probe(REV6_I2C_TCA_ADDR);
+    const int tcaAltResult = jwplcI2C_probe(REV6_I2C_TCA_ALT_ADDR);
+    const int rtcResult = jwplcI2C_probe(REV6_I2C_RTC_ADDR);
+
+    rev6I2CPrintProbeResult("TCA6424A", REV6_I2C_TCA_ADDR, tcaResult);
+    rev6I2CPrintProbeResult("TCA_ALT", REV6_I2C_TCA_ALT_ADDR, tcaAltResult);
+    rev6I2CPrintProbeResult("RTC", REV6_I2C_RTC_ADDR, rtcResult);
+
+    if (tcaResult == ESP_OK)
+    {
+        uint8_t input[3] = {};
+        uint8_t output[3] = {};
+        uint8_t config[3] = {};
+        const int inputErr = jwplcI2C_readRegs(REV6_I2C_TCA_ADDR, 0x00, 3, input);
+        const int outputErr = jwplcI2C_readRegs(REV6_I2C_TCA_ADDR, 0x04, 3, output);
+        const int configErr = jwplcI2C_readRegs(REV6_I2C_TCA_ADDR, 0x0C, 3, config);
+
+        Serial.print(F("TCA_REG_READ err input/output/config="));
+        Serial.print(inputErr);
+        Serial.print('/');
+        Serial.print(outputErr);
+        Serial.print('/');
+        Serial.println(configErr);
+
+        if (inputErr == ESP_OK)
+            rev6I2CPrintBytes(F("TCA_INPUT0..2"), input, 3);
+        if (outputErr == ESP_OK)
+            rev6I2CPrintBytes(F("TCA_OUTPUT0..2"), output, 3);
+        if (configErr == ESP_OK)
+            rev6I2CPrintBytes(F("TCA_CONFIG0..2"), config, 3);
+    }
+
+    if (rtcResult == ESP_OK)
+    {
+        uint8_t timeRegs[7] = {};
+        uint8_t ctrlStatus[2] = {};
+        uint8_t tempRegs[2] = {};
+        const int timeErr = jwplcI2C_readRegs(REV6_I2C_RTC_ADDR, 0x00, 7, timeRegs);
+        const int ctrlErr = jwplcI2C_readRegs(REV6_I2C_RTC_ADDR, 0x0E, 2, ctrlStatus);
+        const int tempErr = jwplcI2C_readRegs(REV6_I2C_RTC_ADDR, 0x11, 2, tempRegs);
+
+        Serial.print(F("RTC_REG_READ err time/ctrl/temp="));
+        Serial.print(timeErr);
+        Serial.print('/');
+        Serial.print(ctrlErr);
+        Serial.print('/');
+        Serial.println(tempErr);
+
+        if (timeErr == ESP_OK)
+            rev6I2CPrintBytes(F("RTC_TIME_00..06"), timeRegs, 7);
+        if (ctrlErr == ESP_OK)
+            rev6I2CPrintBytes(F("RTC_CTRL_STATUS_0E..0F"), ctrlStatus, 2);
+        if (tempErr == ESP_OK)
+            rev6I2CPrintBytes(F("RTC_TEMP_RAW_11..12"), tempRegs, 2);
+    }
+
+    Serial.print(F("APP RTC present/synced/fail="));
+    Serial.print(rtcPresent ? 1 : 0);
+    Serial.print('/');
+    Serial.print(rtcSynced ? 1 : 0);
+    Serial.print('/');
+    Serial.println(rtcFail);
+
+    Serial.print(F("APP Q/I/mismatch=0x"));
+    rev6I2CPrintHexByte(ioStress.outputBitmap);
+    Serial.print(F("/0x"));
+    rev6I2CPrintHexByte(ioStress.inputBitmap);
+    Serial.print('/');
+    Serial.println(ioStress.mismatches);
+
+    rev6PrintI2CSummary();
+    Serial.println(F("NOTE: I2C diag no latches ERR; RTC/TCA funcionales conservan su propio ERR."));
+    Serial.println(F("-------------------------"));
+}
+
+static void rev6ServiceI2CDiagnostics()
+{
+    const uint32_t now = millis();
+
+    if ((uint32_t)(now - rev6I2CLastLineSampleMs) >= REV6_I2C_LINE_SAMPLE_MS)
+    {
+        rev6I2CLastLineSampleMs = now;
+        rev6I2CSampleLines(false);
+    }
+
+    if (!rev6I2CWatchEnabled || soakState == SOAK_NEED_ROLE)
+        return;
+
+    if ((int32_t)(now - rev6I2CNextWatchMs) < 0)
+        return;
+
+    if (!rev6I2CCanActiveProbe())
+    {
+        rev6I2CDiag.deferredBusy++;
+        rev6I2CNextWatchMs = now + REV6_I2C_BUSY_RETRY_MS;
+        return;
+    }
+
+    rev6I2CProbeExpected(true);
+
+    const uint32_t period =
+        soakState == SOAK_RUNNING
+            ? REV6_I2C_WATCH_PERIOD_MS
+            : REV6_I2C_COMMISSION_PERIOD_MS;
+
+    rev6I2CNextWatchMs = now + period;
+}
+
 static void rev6PrintDiagnostics()
 {
     Serial.println();
@@ -1993,6 +2519,12 @@ static void rev6PrintDiagnostics()
     Serial.print(rev6TxnCount);
     Serial.print(F(" timeouts="));
     Serial.print(rev6TxnTimeoutCount);
+    Serial.print(F(" retry="));
+    Serial.print(rev6RetryAttempts);
+    Serial.print('/');
+    Serial.print(rev6RetryRecovered);
+    Serial.print('/');
+    Serial.print(rev6RetryFinalTimeouts);
     Serial.print(F(" rejects="));
     Serial.print(rev6RequestRejectCount);
     Serial.print(F(" maxTxnUs="));
@@ -2001,6 +2533,8 @@ static void rev6PrintDiagnostics()
     Serial.print(REV6_MODBUS_INTER_TX_GAP_MS);
     Serial.print(F(" ioRaceDiscard="));
     Serial.println(rev6IoRaceDiscardCount);
+
+    rev6PrintI2CSummary();
 
     Serial.print(F("STOP pending/lastMs/maxMs/count="));
     Serial.print(rev6StopRequested ? 1 : 0);
@@ -2081,6 +2615,27 @@ static void rev6HandleSerial(String line)
         return;
     }
 
+    if (upper == "I2C")
+    {
+        rev6PrintI2CDiagnostics();
+        return;
+    }
+
+    if (upper == "I2CWATCH ON")
+    {
+        rev6I2CWatchEnabled = true;
+        rev6I2CNextWatchMs = millis() + REV6_I2C_BUSY_RETRY_MS;
+        Serial.println(F("I2C_WATCH=ON"));
+        return;
+    }
+
+    if (upper == "I2CWATCH OFF")
+    {
+        rev6I2CWatchEnabled = false;
+        Serial.println(F("I2C_WATCH=OFF"));
+        return;
+    }
+
     if (upper == "SYNC")
     {
         rev6PrintDiagnostics();
@@ -2131,6 +2686,12 @@ static void rev6ServiceWorkerPeriodicDiag()
         Serial.print(rev6SyncFail);
         Serial.print(F(" syncTimeout="));
         Serial.print(rev6TxnTimeoutCount);
+        Serial.print(F(" syncRetry="));
+        Serial.print(rev6RetryAttempts);
+        Serial.print('/');
+        Serial.print(rev6RetryRecovered);
+        Serial.print('/');
+        Serial.print(rev6RetryFinalTimeouts);
         Serial.print(F(" ioRaceDiscard="));
         Serial.print(rev6IoRaceDiscardCount);
         Serial.print(F(" ioMismatch="));
@@ -2172,6 +2733,10 @@ void setup()
     Serial.print(F("SYNC_FC06_GAP_MS="));
     Serial.println(REV6_MODBUS_INTER_TX_GAP_MS);
     Serial.println(F("SYNC_IO_GENERATION_GUARD=ON"));
+    Serial.println(F("SYNC_TIMEOUT_RETRY=SEQUENCE_ONCE_PRE_TRIGGER"));
+    Serial.println(F("I2C_DIAG=WATCH30S+COMMAND"));
+    Serial.println(F("I2C_DIAG_V2=RAW_GPIO+COMMISSIONING_PROBE"));
+    Serial.println(F("I2C_EXPECTED=TCA6424A@0x22,RTC@0x68"));
     Serial.print(F("STOP_SAFE_GAP_MS="));
     Serial.println(REV6_STOP_QUIET_GAP_MS);
     Serial.print(F("ETHNEXT_SAFE_GAP_MS="));
@@ -2180,7 +2745,7 @@ void setup()
     Serial.println(REV6_ETHNEXT_RELEASE_GRACE_MS);
     Serial.print(F("[CORE] W5500 worker observed core="));
     Serial.println((int)rev6EthObservedCore);
-    Serial.println(F("SYNC_COMMANDS=START/SHOW/CLACK/STOP/SYNC/ETHNEXT"));
+    Serial.println(F("SYNC_COMMANDS=START/SHOW/CLACK/STOP/SYNC/ETHNEXT/I2C/I2CWATCH ON|OFF"));
 }
 
 void loop()
@@ -2339,6 +2904,8 @@ void loop()
 
     if (rev6SyncTakeover)
         rev6ServiceLoopback();
+
+    rev6ServiceI2CDiagnostics();
 
     refreshHoldingRegisters();
     servicePeriodicRuntimeDiagnostics();
