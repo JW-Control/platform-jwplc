@@ -1,6 +1,6 @@
 # JWPLC Platform for Arduino IDE
 
-<!-- JWPLC_RELEASE_VERSION: 2.1.0-alpha.6 -->
+<!-- JWPLC_RELEASE_VERSION: 2.1.0-alpha.7 -->
 
 Package personalizado de **JW Control** para programar **JWPLC Basic** desde Arduino IDE y Arduino CLI.
 
@@ -11,10 +11,10 @@ El objetivo es que el hardware pueda utilizarse con una experiencia cercana a Ar
 | Canal | Versión | Estado |
 |---|---|---|
 | Público / estable | `v2.0.0` | Recomendado para proyectos estables. |
-| Dev publicada | `v2.1.0-alpha.6` | Última PreRelease publicada y cerrada del ciclo 2.1.0. |
-| Siguiente alpha | — | No iniciado formalmente. |
+| Dev publicada | `v2.1.0-alpha.6` | PreRelease validada y publicada. |
+| Candidata de PreRelease | `v2.1.0-alpha.7` | Cierre técnico completado; pendiente PR/CI/publicación. |
 
-Alpha6 mantiene las optimizaciones de compilación de Alpha4/Alpha5 y consolida un runtime Ethernet/W5500 cooperativo, diagnóstico integrado y validación física del package publicado, sin retirar periféricos del autoload normal.
+Alpha7 parte de Alpha6 sin retirar periféricos del autoload normal. Este cierre consolida Modbus RTU cooperativo y multidrop, Remote I/O, robustez Ethernet/W5500 ante contención SPI y la integración externa OpenPLC/VPP trabajada durante el alpha.
 
 ## Qué incluye JWPLC Basic
 
@@ -93,7 +93,7 @@ BUS
 ETH
 ```
 
-Alpha6 diferencia claramente sus responsabilidades:
+Alpha6 consolidó la separación de responsabilidades que se mantiene en Alpha7:
 
 - `ERR`: error definido por la aplicación, con código alfanumérico de hasta 4 caracteres;
 - `BUS`: diagnóstico RS-485/Modbus RTU con código corto;
@@ -121,7 +121,7 @@ Códigos ETH actuales:
 
 Documentación: [`JWPLC_Display`](JWPLC/2.1.0/libraries/JWPLC_Display/README.md)
 
-## Ethernet W5500 — Alpha6
+## Ethernet W5500 — Alpha6/Alpha7
 
 `JWPLC_Ethernet` usa un runtime cooperativo/no bloqueante para:
 
@@ -140,7 +140,7 @@ El autoload utiliza:
 JWPLC_Ethernet.service();
 ```
 
-Las APIs síncronas `begin()` y `maintain()` se conservan por compatibilidad, pero no son la base del autoload Alpha6.
+Las APIs síncronas `begin()` y `maintain()` se conservan por compatibilidad, pero no son la base del autoload.
 
 Estados del runtime:
 
@@ -154,7 +154,20 @@ READY
 ERROR
 ```
 
-En los gates físicos se validaron DHCP, IP estática, servidor HTTP, stress SPI, router→red sin DHCP→router y mantenimiento T1/T2 conservando un lease válido cuando corresponde.
+Alpha7 corrige además un falso `LINK_OFF` que podía producirse cuando el mutex SPI estaba ocupado temporalmente. Un `BUS_LOCK_TIMEOUT` ya no se interpreta como desconexión física: `READY` se conserva mientras el cable siga conectado.
+
+Gate dirigido Alpha7:
+
+```text
+FORCED_BUS_LOCK_TIMEOUTS=12
+FALSE_LINK_OFFS=0
+READY_DROPS=0
+FINAL_READY=YES
+FINAL_LINK=ON
+ALPHA7_ETH_SPI_CONTENTION=PASS
+```
+
+También se revalidó la recuperación Router -> laptop sin DHCP -> Router sin RESET.
 
 Documentación: [`JWPLC_Ethernet`](JWPLC/2.1.0/libraries/JWPLC_Ethernet/README.md)
 
@@ -166,31 +179,46 @@ Documentación: [`JWPLC_Ethernet`](JWPLC/2.1.0/libraries/JWPLC_Ethernet/README.m
 JWPLC_RS485.begin(115200, SERIAL_8N1);
 ```
 
-`JWPLC_ModbusRTU` implementa actualmente:
+`JWPLC_ModbusRTU` implementa actualmente Slave y Master sobre el transporte RS-485 del JWPLC Basic.
 
-### Slave
-
-| FC | Función |
-|---:|---|
-| `0x03` | Read Holding Registers |
-| `0x06` | Write Single Register |
-| `0x10` | Write Multiple Registers |
-
-### Master
+### Master cooperativo — API recomendada
 
 ```cpp
-readHoldingRegisters();
-writeSingleRegister();
+JWPLC_ModbusRTU.requestReadHoldingRegisters(...);
+JWPLC_ModbusRTU.requestWriteSingleRegister(...);
+
+void loop()
+{
+    JWPLC_ModbusRTU.task();
+    // resto de la aplicación
+}
 ```
 
-La integración `BUS` muestra actividad y errores como `TMO`, `CRC`, `EXC` o `RSP` sin apropiarse de `ERR`.
+Las solicitudes retornan de inmediato. La aplicación consulta `masterBusy()`, `masterDone()`, `masterSucceeded()` y `masterResult()` para seguir el estado de la transacción.
 
-El gate físico Alpha6 verificó timeout rojo `TMO` con peer ausente y recuperación a lecturas correctas/actividad verde al iniciar el segundo JWPLC sin reset del master.
+La llamada frecuente a `task()` forma parte del contrato del Master cooperativo. OpenPLC/Backplane/Remote I/O deben utilizar esta ruta para evitar que un timeout detenga el ciclo de aplicación.
+
+### Master síncrono — uso explícito
+
+```cpp
+JWPLC_ModbusRTU.readHoldingRegistersSync(...);
+JWPLC_ModbusRTU.writeSingleRegisterSync(...);
+```
+
+Estas variantes pueden bloquear hasta recibir respuesta o vencer el timeout y se reservan para commissioning, pruebas o sketches donde esa espera sea aceptable.
+
+Alpha7 corrigió el framing multidrop observado con M2 + S1 + S2: request y response de otro nodo podían quedar acumuladas en el FIFO UART y ser interpretadas como una sola trama. El parser actual separa ADU por estructura Modbus antes de validar CRC.
+
+El gate físico multidrop cerró con CRC=0 y exceptions=0 en ambos Slaves. Remote I/O A7.1 validó FC01, FC02, FC05 y FC15, fail-safe, pérdida de bus, reset del Slave y recuperación sin reiniciar el Master.
+
+La integración `BUS` muestra actividad y errores como `TMO`, `CRC`, `EXC` o `RSP` sin apropiarse de `ERR`.
 
 Documentación:
 
 - [`JWPLC_RS485`](JWPLC/2.1.0/libraries/JWPLC_RS485/README.md)
 - [`JWPLC_ModbusRTU`](JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/README.md)
+- [`Alpha7 Modbus RTU`](docs/v2.1.0-alpha.7/MODBUS_RTU_MASTER_COOPERATIVO.md)
+- [`Alpha7 Remote I/O A7.1`](docs/v2.1.0-alpha.7/REMOTE_IO_A7_1_VALIDATION.md)
 
 ## Periféricos globales
 
@@ -229,9 +257,7 @@ El motor v2 todavía no debe asumirse con persistencia FRAM, retentividad o sali
 
 ### `JWPLC_LogicRuntime_UI`
 
-Conecta runtime/motor con TFT y botonera. El branch actual incluye evolución del mapa FBD, edición transaccional en RAM, editor TON, mini mapa, refresco regional y consolidación experimental de renderer.
-
-Su metadata continúa declarando `0.5.8`; el trabajo posterior contenido en el branch no debe confundirse con una nueva versión publicada de la librería.
+Conecta runtime/motor con TFT y botonera. Su metadata continúa declarando `0.5.8`; el trabajo posterior contenido en el branch no debe confundirse con una nueva versión publicada de la librería.
 
 Documentación:
 
@@ -243,36 +269,42 @@ Documentación:
 | Librería | Rol | Estado resumido |
 |---|---|---|
 | `JWPLC_Display` | TFT, IDLE/USER, ERR/BUS/ETH | Producción Alpha6; archive precompilado validado. |
-| `JWPLC_Ethernet` | W5500, DHCP/IP, link, recuperación | Runtime cooperativo Alpha6 validado. |
+| `JWPLC_Ethernet` | W5500, DHCP/IP, link, recuperación | Runtime cooperativo Alpha6 + fix de contención SPI Alpha7. |
 | `JWPLC_RS485` | Transporte RS-485 | API estable dentro del ciclo 2.1.0. |
-| `JWPLC_ModbusRTU` | Modbus RTU base master/slave | Alcance funcional acotado y validado. |
+| `JWPLC_ModbusRTU` | Modbus RTU master/slave | Multidrop y Master cooperativo Alpha7 validados; archive final regenerado. |
 | `JWPLC_GlobalPeripherals` | Objetos globales/autoload | Capa interna de integración. |
 | `JWPLC_LogicRuntime` | Motor lógico v1/v2 | Experimental; v1 persistente + v2 RAM-only. |
 | `JWPLC_LogicRuntime_UI` | UI/Editor FBD | Experimental; migración/consolidación en curso. |
 
 ## Precompilación y tiempos de build
 
-El ciclo 2.1.0 reduce compilaciones sin retirar funcionalidades. Alpha5 recuperó gran parte de las TUs precompiladas y Alpha6 dejó `JWPLC_Display` precompilado después de cerrar sus cambios funcionales.
+El ciclo 2.1.0 reduce compilaciones sin retirar funcionalidades. Alpha5 recuperó gran parte de las TUs precompiladas y Alpha6 cerró sus archives validados.
 
-Para Display, el archive final Alpha6 se regeneró desde los dos objetos fuente actuales y se validó con:
-
-- miembros del archive byte-idénticos a los `.o` fuente;
-- cero compilaciones source de Display en modo `precompiled=full`;
-- mismo conjunto de símbolos;
-- misma RAM;
-- misma ocupación APP;
-- mismo binario de aplicación.
-
-Resultado agregado Alpha5 -> Alpha6:
+Durante el desarrollo de Alpha7, `JWPLC_ModbusRTU` se mantuvo temporalmente en source-build para impedir que un archive anterior ocultara cambios del parser/API. Al cierre se restauró `precompiled=full` y se regeneró el archive final:
 
 ```text
-cold promedio combinado = +9.88 %
-warm promedio combinado = -4.43 %
+Bytes   : 231062
+SHA256  : 444BE3A04079A579252B2737FE6070E00ADCA949FD176880588FE69561B2A79F
 ```
 
-La regresión cold cercana al 10 % queda aceptada como costo conocido de consolidar el runtime Ethernet sin retirar periféricos del autoload normal. Las recompilaciones warm mejoran en promedio.
+JWPLC Basic Core compiló con cero TUs source de Modbus RTU y uso explícito del archive. Ethernet continúa source-build como decisión aceptada desde Alpha6.
 
-Documentación: [`BUILD_SPEED_COMPARISON_ALPHA5_ALPHA6_FINAL_20260828.md`](docs/v2.1.0-alpha.6/BUILD_SPEED_COMPARISON_ALPHA5_ALPHA6_FINAL_20260828.md)
+Alpha7 no reclama una nueva mejora global de cold build sin un benchmark dedicado adicional.
+
+## OpenPLC / VPP Alpha7
+
+OpenPLC sigue siendo una integración externa al runtime Arduino del package.
+
+Durante Alpha7 se preservó el VPP Alpha18 con reproducibilidad del payload firmado declarado y se integró feedback FC01 en la HAL/VPP.
+
+```text
+ALPHA18_VPP_STATUS=CLOSED
+SIGNED_PAYLOAD_PHYSICAL=9/9
+FRESH_CHECKOUT_SIGNED_PAYLOAD=9/9
+ALPHA18_CHECKOUT_REPRODUCIBILITY=PASS
+```
+
+Documentación: [`OPENPLC_BACKPLANE_ALPHA18_VPP.md`](docs/v2.1.0-alpha.7/OPENPLC_BACKPLANE_ALPHA18_VPP.md)
 
 ## Instalación
 
@@ -298,13 +330,7 @@ Versión estable pública actual:
 https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json
 ```
 
-Última PreRelease publicada:
-
-```text
-2.1.0-alpha.6
-```
-
-Alpha6 fue validada desde una instalación Arduino CLI aislada, incluyendo compilación y upload físico del package descargado desde el índice dev.
+Las PreRelease deben utilizarse únicamente cuando la versión correspondiente ya haya sido publicada en ese índice. Alpha7 no debe asumirse disponible por Boards Manager hasta completar PR, CI, merge y release.
 
 ## Placas
 
@@ -320,44 +346,26 @@ Para desarrollo local se utiliza también el namespace `jwplc_local` según el f
 
 - estabilidad primero;
 - compatibilidad Arduino IDE;
-- no romper APIs ya validadas;
+- evitar bloqueos innecesarios en el runtime PLC;
 - no retirar periféricos del autoload normal sólo para ganar velocidad;
 - registrar decisiones y resultados físicos;
 - no asumir OpenPLC integrado;
 - no asumir OTA definida;
 - no fijar FlashFreq o bootloader definitivo antes de cerrar su configuración.
 
-## Estado Alpha6
+## Estado Alpha7
 
-`v2.1.0-alpha.6` está cerrada y publicada como PreRelease del canal dev.
+El cierre técnico de Alpha7 queda documentado en:
 
-Se cerraron y documentaron:
+- [`ALPHA7_CLOSURE_CHECKLIST.md`](docs/v2.1.0-alpha.7/ALPHA7_CLOSURE_CHECKLIST.md)
+- [`PULL_REQUEST.md`](docs/v2.1.0-alpha.7/PULL_REQUEST.md)
+- [`PRE_RELEASE.md`](docs/v2.1.0-alpha.7/PRE_RELEASE.md)
 
-- `ERR` alfanumérico de aplicación;
-- diagnóstico automático `BUS`;
-- diagnóstico automático `ETH`;
-- Ethernet cooperativo y recuperación de link;
-- DHCP T1/T2 cooperativo;
-- build normal sin hooks de prueba DHCP;
-- archive final precompilado de `JWPLC_Display`;
-- benchmark final Basic/Core;
-- publicación automatizada;
-- instalación limpia desde el índice dev;
-- compilación aislada;
-- upload físico por USB;
-- arranque/TFT posterior al upload;
-- sincronización histórica `release/v2.1.x -> main`.
-
-Marcadores finales:
+Marcador de cierre:
 
 ```text
-ALPHA6_TECHNICAL_VALIDATION=PASS
-ALPHA6_BUILD_SPEED=PASS
-ALPHA6_ISOLATED_INSTALL=PASS
-ALPHA6_ISOLATED_COMPILE=PASS
-ALPHA6_ISOLATED_PHYSICAL_UPLOAD=PASS
-ALPHA6_PUBLICATION_CLOSURE=PASS
-ALPHA6_STATUS=CLOSED
+ALPHA7_TECHNICAL_CLOSURE=PASS
+ALPHA7_PUBLICATION=PENDING_PR_CI_RELEASE
 ```
 
-El siguiente alpha todavía no ha sido iniciado formalmente.
+OpenPLC no forma parte del autoload normal del package y no debe asumirse como runtime Arduino integrado.
