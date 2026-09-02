@@ -120,7 +120,18 @@ static JWPLCIecBitAddress jwplcRemoteOutputMap[JWPLC_REMOTE_CHANNELS] = {};
 static bool jwplcRemoteEnabled = false;
 static uint8_t jwplcRemoteSlaveId = 0;
 static uint8_t jwplcRemoteInputBits = 0;
+
+// Snapshot exacto entregado a FC15.
+// Debe mantenerse separado del valor IEC actual porque el Ladder puede
+// cambiar mientras la transaccion Modbus sigue en vuelo.
 static uint8_t jwplcRemoteOutputBits = 0;
+
+// Feedback real de las coils del Slave leido por FC01.
+// No modifica %QX ni cambia la semantica del comando IEC.
+static uint8_t jwplcRemoteFeedbackBits = 0;
+static uint8_t jwplcRemoteFeedbackMismatchBits = 0;
+static bool jwplcRemoteFeedbackValid = false;
+static uint32_t jwplcRemoteFeedbackMismatchCount = 0;
 
 #if JWPLC_ALPHA7_RTU_TIMING_DIAGNOSTICS
 struct JWPLCRtuTimingStat
@@ -133,6 +144,7 @@ struct JWPLCRtuTimingStat
 
 static JWPLCRtuTimingStat jwplcTimingScanPeriod;
 static JWPLCRtuTimingStat jwplcTimingServiceGap;
+static JWPLCRtuTimingStat jwplcTimingFc01Rtt;
 static JWPLCRtuTimingStat jwplcTimingFc02Rtt;
 static JWPLCRtuTimingStat jwplcTimingFc02PollPeriod;
 static JWPLCRtuTimingStat jwplcTimingInputToOutputUpdate;
@@ -143,6 +155,7 @@ static JWPLCRtuTimingStat jwplcTimingFc15Cycle;
 
 static uint32_t jwplcTimingLastScanUs = 0;
 static uint32_t jwplcTimingLastServiceUs = 0;
+static uint32_t jwplcTimingFc01StartUs = 0;
 static uint32_t jwplcTimingFc02StartUs = 0;
 static uint32_t jwplcTimingLastFc02StartUs = 0;
 static uint32_t jwplcTimingFc15StartUs = 0;
@@ -161,6 +174,8 @@ static uint8_t jwplcTimingLastRemoteQBits = 0;
 
 static uint32_t jwplcTimingInputChanges = 0;
 static uint32_t jwplcTimingRemoteQChanges = 0;
+static uint32_t jwplcTimingFc01Ok = 0;
+static uint32_t jwplcTimingFc01Fail = 0;
 static uint32_t jwplcTimingFc02Ok = 0;
 static uint32_t jwplcTimingFc02Fail = 0;
 static uint32_t jwplcTimingFc15Ok = 0;
@@ -302,6 +317,26 @@ static void jwplcTimingOnFc15Done(bool success)
     else ++jwplcTimingFc15Fail;
 }
 
+static void jwplcTimingOnFc01Accepted()
+{
+    jwplcTimingFc01StartUs = micros();
+}
+
+static void jwplcTimingOnFc01Done(bool success)
+{
+    if (jwplcTimingFc01StartUs != 0)
+    {
+        jwplcTimingRecord(
+            jwplcTimingFc01Rtt,
+            micros() - jwplcTimingFc01StartUs);
+
+        jwplcTimingFc01StartUs = 0;
+    }
+
+    if (success) ++jwplcTimingFc01Ok;
+    else ++jwplcTimingFc01Fail;
+}
+
 static void jwplcTimingOnFc02Accepted()
 {
     const uint32_t nowUs = micros();
@@ -375,6 +410,19 @@ static void jwplcTimingMaybePrint()
         (unsigned long)jwplcTimingFc02Fail,
         (unsigned long)jwplcTimingFc15Ok,
         (unsigned long)jwplcTimingFc15Fail);
+
+    Serial.printf(
+        "[RTU-FEEDBACK] fc01_rtt_us=%lu/%lu/%lu ok/fail=%lu/%lu valid=%u requested=0x%02X feedback=0x%02X mismatch=0x%02X mismatch_count=%lu\r\n",
+        (unsigned long)jwplcTimingFc01Rtt.lastUs,
+        (unsigned long)jwplcTimingAverage(jwplcTimingFc01Rtt),
+        (unsigned long)jwplcTimingFc01Rtt.maxUs,
+        (unsigned long)jwplcTimingFc01Ok,
+        (unsigned long)jwplcTimingFc01Fail,
+        jwplcRemoteFeedbackValid ? 1U : 0U,
+        (unsigned int)jwplcRemoteOutputBits,
+        (unsigned int)jwplcRemoteFeedbackBits,
+        (unsigned int)jwplcRemoteFeedbackMismatchBits,
+        (unsigned long)jwplcRemoteFeedbackMismatchCount);
 }
 #else
 static inline void jwplcTimingInit() {}
@@ -385,6 +433,8 @@ static inline void jwplcTimingOnOutputUpdate() {}
 static inline void jwplcTimingObserveRemoteOutputs(uint8_t) {}
 static inline void jwplcTimingOnFc15Accepted() {}
 static inline void jwplcTimingOnFc15Done(bool) {}
+static inline void jwplcTimingOnFc01Accepted() {}
+static inline void jwplcTimingOnFc01Done(bool) {}
 static inline void jwplcTimingOnFc02Accepted() {}
 static inline void jwplcTimingOnFc02Done(bool) {}
 static inline void jwplcTimingMaybePrint() {}
@@ -394,6 +444,8 @@ enum JWPLCRemoteRtuPhase : uint8_t
 {
     JWPLC_REMOTE_WRITE_START = 0,
     JWPLC_REMOTE_WRITE_WAIT,
+    JWPLC_REMOTE_FEEDBACK_START,
+    JWPLC_REMOTE_FEEDBACK_WAIT,
     JWPLC_REMOTE_READ_START,
     JWPLC_REMOTE_READ_WAIT
 };
@@ -597,6 +649,29 @@ static uint8_t jwplcPackRemoteOutputs()
     return packed;
 }
 
+static void jwplcUpdateRemoteFeedback(bool valid)
+{
+    jwplcRemoteFeedbackValid = valid;
+
+    if (!valid)
+    {
+        // Si FC01 fallo, el ultimo bitmap no debe presentarse como una
+        // comparacion nueva y valida.
+        jwplcRemoteFeedbackMismatchBits = 0;
+        return;
+    }
+
+    // Comparar contra el snapshot que realmente fue enviado mediante FC15.
+    // No leer bool_output nuevamente: puede corresponder ya al siguiente scan.
+    jwplcRemoteFeedbackMismatchBits =
+        (uint8_t)(jwplcRemoteFeedbackBits ^ jwplcRemoteOutputBits);
+
+    if (jwplcRemoteFeedbackMismatchBits != 0)
+    {
+        ++jwplcRemoteFeedbackMismatchCount;
+    }
+}
+
 static void jwplcServiceRemoteRtu()
 {
     if (!jwplcRemoteEnabled)
@@ -626,8 +701,45 @@ static void jwplcServiceRemoteRtu()
     case JWPLC_REMOTE_WRITE_WAIT:
         if (JWPLC_ModbusRTU.masterDone())
         {
-            const bool jwplcFc15Succeeded = JWPLC_ModbusRTU.masterSucceeded();
+            const bool jwplcFc15Succeeded =
+                JWPLC_ModbusRTU.masterSucceeded();
+
             jwplcTimingOnFc15Done(jwplcFc15Succeeded);
+
+            JWPLC_ModbusRTU.clearMasterResult();
+            jwplcRemotePhase = JWPLC_REMOTE_FEEDBACK_START;
+        }
+        break;
+
+    case JWPLC_REMOTE_FEEDBACK_START:
+        // Cada FC01 debe volver a validar su propia muestra.
+        // No conservar como valido un feedback de un ciclo anterior mientras
+        // la nueva lectura esta pendiente o no pudo iniciarse.
+        jwplcRemoteFeedbackValid = false;
+        jwplcRemoteFeedbackMismatchBits = 0;
+        jwplcRemoteFeedbackBits = 0;
+
+        if (JWPLC_ModbusRTU.requestReadCoils(
+                jwplcRemoteSlaveId,
+                0,
+                JWPLC_REMOTE_CHANNELS,
+                &jwplcRemoteFeedbackBits,
+                JWPLC_MODBUS_TIMEOUT_MS))
+        {
+            jwplcTimingOnFc01Accepted();
+            jwplcRemotePhase = JWPLC_REMOTE_FEEDBACK_WAIT;
+        }
+        break;
+
+    case JWPLC_REMOTE_FEEDBACK_WAIT:
+        if (JWPLC_ModbusRTU.masterDone())
+        {
+            const bool jwplcFc01Succeeded =
+                JWPLC_ModbusRTU.masterSucceeded();
+
+            jwplcTimingOnFc01Done(jwplcFc01Succeeded);
+            jwplcUpdateRemoteFeedback(jwplcFc01Succeeded);
+
             JWPLC_ModbusRTU.clearMasterResult();
             jwplcRemotePhase = JWPLC_REMOTE_READ_START;
         }
@@ -714,8 +826,19 @@ void hardwareInit()
             JWPLC_MODBUS_CONFIG))
     {
         JWPLC_ModbusRTU.setFrameGapMs(JWPLC_MODBUS_FRAME_GAP_MS);
+
+        jwplcRemoteFeedbackBits = 0;
+        jwplcRemoteFeedbackMismatchBits = 0;
+        jwplcRemoteFeedbackValid = false;
+        jwplcRemoteFeedbackMismatchCount = 0;
+
         jwplcRemotePhase = JWPLC_REMOTE_WRITE_START;
         jwplcRemoteEnabled = true;
+
+#if JWPLC_ALPHA7_RTU_TIMING_DIAGNOSTICS
+        Serial.println(
+            "[RTU-FEEDBACK] FC01 gate enabled; %QX remains command state");
+#endif
     }
 }
 
