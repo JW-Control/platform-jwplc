@@ -2,117 +2,295 @@
 
 **Versión actual:** 1.0.5
 
-Librería ligera para leer botones en proyectos Arduino / ESP32 con **debounce**, eventos (`press` / `release` / `repeat`) y helpers para navegación tipo **HMI / PLC**.
+Librería reusable para leer botones en Arduino/ESP32 con **debounce**, eventos `PRESS / RELEASE / REPEAT`, lectura de estado y helpers para navegación tipo HMI/PLC.
 
-Soporta dos modos de escaneo:
+Puede usarse de dos formas:
 
-1. **Matriz R×C**: filas + columnas + mapa de botones.
-2. **Botones directos 1×N**: cada botón conectado a un GPIO, sin filas ni mapa.
-
-La librería está pensada para que el sketch decida qué hacer con los botones, sin acoplarla a menús, pantallas o lógicas específicas de aplicación.
+1. como librería genérica `JW_MatrixButtons` en cualquier proyecto compatible;
+2. como botonera global ya integrada al runtime del **JWPLC Basic** mediante el objeto `JWPLC_Buttons`.
 
 ---
 
 ## Características
 
-- Lectura de matriz **R×C** hasta **8×8**.
-- Lectura de botones directos **1×N** hasta **32 botones**.
-- Debounce por tecla con ventana configurable.
-- Eventos:
-  - `EV_PRESS`
-  - `EV_RELEASE`
-  - `EV_REPEAT`
-- Repeat configurable:
-  - habilitar/deshabilitar por botón
-  - retardo inicial
-  - perfil de aceleración (`thresholds`, `step` y `delay`)
-- Helpers latcheados:
-  - `pressed(id)`
-  - `released(id)`
-  - `isDown(id)`
-- Cola de eventos del último `update()`:
-  - `eventCount()`
-  - `getEvent(...)`
-- Helper `applyAxis()` para navegación de valores con botones tipo:
-  - `LEFT / RIGHT`
-  - `UP / DOWN`
-- Helpers para limpiar entradas pendientes al cambiar de pantalla o modo:
-  - `clearPendingPresses()`
-  - `clearPendingReleases()`
-  - `clearPendingRepeats()`
-  - `clearEventQueue()`
-  - `clearPendingInput()`
-- Task opcional en ESP32 para ejecutar `update()` periódicamente.
+- matriz R×C hasta 8×8;
+- botones directos 1×N hasta 32 entradas;
+- debounce por tecla;
+- eventos:
+  - `EV_PRESS`;
+  - `EV_RELEASE`;
+  - `EV_REPEAT`;
+- repeat configurable por botón;
+- perfil de aceleración configurable;
+- estado físico mediante `isDown(id)`;
+- latches consumibles mediante `pressed(id)` / `released(id)`;
+- inspección de eventos del último scan mediante `eventCount()` / `getEvent()`;
+- helper `applyAxis()`;
+- limpieza de pendientes;
+- task opcional en ESP32.
 
 ---
 
-## ¿Para qué sirve?
+# Uso en JWPLC Basic
 
-La librería **no hace menús por sí sola**.
+## Objeto global recomendado
 
-Su función es:
+En JWPLC Basic la botonera física ya está creada por el package:
 
-- leer botones;
-- aplicar debounce;
-- generar eventos consistentes;
-- mantener estado por botón;
-- entregar esos datos al sketch.
+```cpp
+JWPLC_Buttons
+```
 
-Con eso, se pueden construir:
+IDs disponibles:
 
-- menús en TFT / GLCD;
-- HMIs sencillas;
-- editores de parámetros;
-- navegación de listas;
-- sistemas tipo PLC / control industrial;
-- botoneras matriciales;
-- botoneras directas reutilizando la misma lógica.
+```text
+BTN_LEFT
+BTN_UP
+BTN_RIGHT
+BTN_ESC
+BTN_OK
+BTN_DOWN
+```
+
+La aplicación puede usar directamente:
+
+```cpp
+if (JWPLC_Buttons.pressed(BTN_OK))
+{
+    Serial.println("OK");
+}
+
+if (JWPLC_Buttons.isDown(BTN_UP))
+{
+    // UP físicamente sostenido
+}
+```
+
+Para sketches JWPLC se recomienda la API de objeto `JWPLC_Buttons` en lugar de helpers namespace internos.
 
 ---
 
-## Instalación manual
+## No llamar `update()` manualmente en JWPLC Basic
 
-1. Crear una carpeta en `Documents/Arduino/libraries/` llamada:
+El package mantiene un task de escaneo propio para la botonera integrada.
 
-   ```txt
-   JW_MatrixButtons
-   ```
+Por lo tanto, en un sketch normal de JWPLC Basic **no** se debe hacer:
 
-2. Copiar dentro:
+```cpp
+JWPLC_Buttons.update();
+```
 
-   ```txt
-   library.properties
-   README.md
-   CHANGELOG.md
-   src/JW_MatrixButtons.h
-   src/JW_MatrixButtons.cpp
-   examples/
-   ```
+ni iniciar un segundo task con:
 
-3. Reiniciar Arduino IDE.
+```cpp
+JWPLC_Buttons.startTask(...);
+```
+
+Hacer doble scan introduce dos productores sobre la misma instancia y no forma parte del contrato del autoload JWPLC.
+
+Patrón correcto:
+
+```cpp
+void loop()
+{
+    if (JWPLC_Buttons.pressed(BTN_LEFT))
+    {
+        // Acción
+    }
+
+    delay(5);
+}
+```
+
+---
+
+## Matriz física del JWPLC Basic
+
+La integración actual del package utiliza:
+
+```text
+             GPIO35     GPIO34     GPIO36
+             COL0       COL1       COL2
+GPIO12 ROW0  LEFT       UP         RIGHT
+GPIO2  ROW1  ESC        OK         DOWN
+```
+
+Los GPIO 34/35/36 del ESP32 son entradas only y no ofrecen pull-up/pull-down interno general. El package configura las columnas de esta matriz como `INPUT` y deja la topología eléctrica a la placa JWPLC.
+
+No reconfigurar estos pines desde el sketch mientras se usa la botonera integrada.
+
+---
+
+# Semántica de eventos
+
+## `isDown(id)`
+
+Devuelve el estado físico/debounced actual.
+
+```cpp
+bool held = JWPLC_Buttons.isDown(BTN_UP);
+```
+
+No consume eventos.
+
+---
+
+## `pressed(id)`
+
+`pressed()` es **latcheado y consumible**.
+
+Si se generó un `PRESS`, queda pendiente hasta que alguien lo lea.
+
+```cpp
+if (JWPLC_Buttons.pressed(BTN_OK))
+{
+    // Consume un PRESS pendiente de OK
+}
+```
+
+Una segunda lectura inmediata normalmente devuelve `false` porque el evento anterior ya fue consumido.
+
+---
+
+## `released(id)`
+
+Misma semántica consumible para un flanco de liberación:
+
+```cpp
+if (JWPLC_Buttons.released(BTN_OK))
+{
+}
+```
+
+---
+
+## `eventCount()` y `getEvent()`
+
+Estos métodos inspeccionan la cola de eventos producida por el scan actual.
+
+```cpp
+JW_MatrixButtons::BtnEvent ev;
+
+for (uint8_t i = 0; i < JWPLC_Buttons.eventCount(); ++i)
+{
+    if (JWPLC_Buttons.getEvent(i, ev))
+    {
+        Serial.print("id=");
+        Serial.print(ev.id);
+        Serial.print(" type=");
+        Serial.print((int)ev.type);
+        Serial.print(" mult=");
+        Serial.print(ev.mult);
+        Serial.print(" held_ms=");
+        Serial.println(ev.held_ms);
+    }
+}
+```
+
+Tipos:
+
+```cpp
+JW_MatrixButtons::EV_PRESS
+JW_MatrixButtons::EV_RELEASE
+JW_MatrixButtons::EV_REPEAT
+```
+
+`getEvent()` no reemplaza los latches `pressed()` / `released()`; son dos mecanismos complementarios.
+
+---
+
+## Repeat en JWPLC Basic
+
+El package habilita repeat para:
+
+```text
+LEFT
+UP
+RIGHT
+DOWN
+```
+
+y lo deja deshabilitado para:
+
+```text
+OK
+ESC
+```
+
+Perfil integrado actual:
+
+```text
+initial delay: 220 ms
+thresholds:    6 / 12 / 20
+steps:         1 / 1 / 1 / 1
+delays:        120 / 90 / 70 / 50 ms
+```
+
+La existencia de `EV_REPEAT` no significa que `pressed()` se repita. `pressed()` representa el flanco de pulsación; los repeats se consultan por la cola/eventos o mediante helpers que los procesen.
+
+---
+
+## Display y aplicación no compiten por `pressed()` en Alpha8
+
+Desde `v2.1.0-alpha.8`, `JWPLC_Display` no usa los latches de aplicación `pressed()` / `released()` para su navegación interna.
+
+El Display observa el estado físico y mantiene su propio snapshot de flancos.
+
+Esto permite:
+
+```text
+ESC físico
+├── Display detecta su flanco y retorna a IDLE
+└── sketch sigue pudiendo leer JWPLC_Buttons.pressed(BTN_ESC)
+```
+
+El gate físico Alpha8 validó los seis botones y confirmó esta independencia.
+
+---
+
+## Limpieza de pendientes
+
+```cpp
+JWPLC_Buttons.clearPendingPresses();
+JWPLC_Buttons.clearPendingReleases();
+JWPLC_Buttons.clearPendingRepeats();
+JWPLC_Buttons.clearEventQueue();
+JWPLC_Buttons.clearPendingInput();
+```
+
+Estas funciones limpian eventos/latches pendientes. No modifican el estado físico actual del botón.
+
+Son útiles al cambiar de contexto de aplicación, por ejemplo:
+
+```cpp
+mode = MODE_EDIT;
+JWPLC_Buttons.clearPendingInput();
+```
+
+En Alpha8, `JWPLC_Display` ya no borra los latches del usuario al entrar/salir de USER como mecanismo normal de navegación.
+
+---
+
+# Uso genérico de la librería
+
+Fuera del runtime JWPLC, el usuario crea su propia instancia y decide si escanea desde `loop()` o desde el task opcional.
 
 ---
 
 ## Modo matriz R×C
 
-### Cableado típico
-
-- **Filas**: pines configurados como `OUTPUT`.
-- **Columnas**: pines configurados como `INPUT`.
-- Cada botón conecta una fila con una columna.
-
 ### Inicialización
 
 ```cpp
-bool begin(const uint8_t* rowPins, uint8_t nRows,
-           const uint8_t* colPins, uint8_t nCols,
-           const BtnMapItem* map, uint8_t mapLen,
+bool begin(const uint8_t *rowPins, uint8_t nRows,
+           const uint8_t *colPins, uint8_t nCols,
+           const BtnMapItem *map, uint8_t mapLen,
            uint8_t buttonCount,
            bool invertLogic = false,
            uint32_t debounceMs = 35);
 ```
 
-### Ejemplo mínimo matriz
+Ejemplo:
 
 ```cpp
 #include <Arduino.h>
@@ -121,44 +299,41 @@ bool begin(const uint8_t* rowPins, uint8_t nRows,
 static const uint8_t ROWS[] = {25, 26};
 static const uint8_t COLS[] = {35, 34, 39, 36};
 
-enum BtnId : uint8_t {
-  BTN_A,
-  BTN_B,
-  BTN_COUNT
+enum BtnId : uint8_t
+{
+    BTN_A,
+    BTN_B,
+    BTN_COUNT
 };
 
 static const JW_MatrixButtons::BtnMapItem MAP[] = {
-  {BTN_A, 0, 0},
-  {BTN_B, 1, 1},
+    {BTN_A, 0, 0},
+    {BTN_B, 1, 1},
 };
 
-JW_MatrixButtons btn;
+JW_MatrixButtons buttons;
 
-void setup() {
-  Serial.begin(115200);
-
-  btn.begin(
-    ROWS, 2,
-    COLS, 4,
-    MAP, sizeof(MAP) / sizeof(MAP[0]),
-    BTN_COUNT,
-    false,
-    35
-  );
+void setup()
+{
+    buttons.begin(
+        ROWS, 2,
+        COLS, 4,
+        MAP, sizeof(MAP) / sizeof(MAP[0]),
+        BTN_COUNT,
+        false,
+        35);
 }
 
-void loop() {
-  btn.update();
+void loop()
+{
+    buttons.update();
 
-  if (btn.pressed(BTN_A)) {
-    Serial.println("A press");
-  }
+    if (buttons.pressed(BTN_A))
+    {
+        // Acción
+    }
 
-  if (btn.released(BTN_A)) {
-    Serial.println("A release");
-  }
-
-  delay(5);
+    delay(5);
 }
 ```
 
@@ -166,156 +341,46 @@ void loop() {
 
 ## Modo botones directos
 
-Este modo es para proyectos donde no existe una matriz real. Cada botón entra directo a un GPIO.
-
-Ejemplo conceptual:
-
-```txt
-LEFT   -> GPIO directo
-RIGHT  -> GPIO directo
-CENTER -> GPIO directo
-```
-
-En modo directo:
-
-- no se usan `rowPins`;
-- no se usan `colPins`;
-- no se usa `BtnMapItem`;
-- no se configura ningún pin como `OUTPUT`;
-- cada botón se configura con `pinMode(buttonPins[i], inputMode)`;
-- `update()` lee cada pin con `digitalRead(buttonPins[i])`;
-- se reutiliza la misma lógica de debounce, eventos, repeat y `applyAxis()`.
-
-### Inicialización
-
 ```cpp
-bool beginDirect(const uint8_t* buttonPins,
+bool beginDirect(const uint8_t *buttonPins,
                  uint8_t buttonCount,
                  bool invertLogic = false,
                  uint32_t debounceMs = 35,
                  uint8_t inputMode = INPUT);
 ```
 
-### `invertLogic`
-
-Usar:
+Ejemplo:
 
 ```cpp
-invertLogic = true
-```
+static const uint8_t PINS[] = {35, 34, 39};
 
-cuando el botón sea activo en `LOW`, por ejemplo:
+JW_MatrixButtons buttons;
 
-```txt
-GPIO ---- botón ---- GND
-GPIO con pull-up externo
-```
-
-Usar:
-
-```cpp
-invertLogic = false
-```
-
-cuando el botón sea activo en `HIGH`, por ejemplo:
-
-```txt
-GPIO ---- botón ---- 3V3
-GPIO con pulldown externo
-```
-
-### `inputMode`
-
-Valores típicos:
-
-```cpp
-INPUT
-INPUT_PULLUP
-INPUT_PULLDOWN // si el core/placa lo soporta
-```
-
-En ESP32, los GPIO `34`, `35`, `36` y `39` son solo entrada y **no tienen pull-up/pull-down interno usable**. Para esos pines usa `INPUT` y resistencias externas.
-
-### Ejemplo mínimo directo
-
-```cpp
-#include <Arduino.h>
-#include <JW_MatrixButtons.h>
-
-enum BtnId : uint8_t {
-  BTN_LEFT = 0,
-  BTN_RIGHT,
-  BTN_CENTER,
-  BTN_COUNT
-};
-
-static const uint8_t BTN_PINS[] = {
-  35, 34, 39
-};
-
-JW_MatrixButtons btn;
-uint32_t value = 0;
-
-void setup() {
-  Serial.begin(115200);
-
-  btn.beginDirect(
-    BTN_PINS,
-    BTN_COUNT,
-    true, // true si presionado = LOW
+buttons.beginDirect(
+    PINS,
+    3,
+    true,
     35,
-    INPUT
-  );
-
-  btn.setRepeatEnabled(BTN_LEFT, true);
-  btn.setRepeatEnabled(BTN_RIGHT, true);
-}
-
-void loop() {
-  btn.update();
-
-  if (btn.pressed(BTN_CENTER)) {
-    Serial.println("CENTER press");
-  }
-
-  if (btn.applyAxis(&value, 0, 1000, BTN_LEFT, BTN_RIGHT)) {
-    Serial.print("value=");
-    Serial.println(value);
-  }
-
-  delay(5);
-}
+    INPUT);
 ```
+
+Usar `invertLogic=true` cuando el estado activo sea LOW y `false` cuando el estado activo sea HIGH.
 
 ---
 
-## Flujo de uso recomendado
+## Task opcional ESP32
 
-1. Llamar a `begin(...)` o `beginDirect(...)` en `setup()`.
-2. Llamar a `update()` en cada vuelta del `loop()`.
-3. Consultar:
-   - `pressed(id)`
-   - `released(id)`
-   - `isDown(id)`
-   - o la cola de eventos con `eventCount()` / `getEvent(...)`.
+Para una instancia genérica:
 
 ```cpp
-void loop() {
-  btn.update();
-
-  if (btn.pressed(BTN_OK)) {
-    // Acción de OK
-  }
-
-  delay(5);
-}
+buttons.startTask(
+    1,    // core
+    4096, // stack bytes
+    1,    // prioridad
+    5);   // periodo ms
 ```
 
----
-
-## Task opcional en ESP32
-
-En ESP32, la librería puede ejecutar `update()` desde un task interno:
+API:
 
 ```cpp
 bool startTask(uint8_t core = 1,
@@ -329,172 +394,133 @@ void setTaskPeriodMs(uint16_t periodMs);
 uint16_t taskPeriodMs() const;
 ```
 
-Notas:
-
-- Si el task está activo, no necesitas llamar `update()` manualmente en `loop()`.
-- `stackBytes` se expresa en bytes en Arduino-ESP32 / ESP-IDF.
-- Para aplicaciones simples, `4096` bytes es conservador y adecuado.
+Si el task interno está activo, no llamar también `update()` periódicamente desde `loop()`.
 
 ---
 
-## Eventos
+## Repeat genérico
 
 ```cpp
-JW_MatrixButtons::EvType      // EV_PRESS, EV_RELEASE, EV_REPEAT
-JW_MatrixButtons::BtnEvent    // { id, type, mult, held_ms }
-JW_MatrixButtons::BtnMapItem  // { id, row, col }
+buttons.setRepeatEnabled(BTN_LEFT, true);
+buttons.setRepeatInitialDelay(350);
+
+buttons.setRepeatProfile(
+    12, 30, 70,
+    1, 10, 100, 1000,
+    110, 95, 80, 65);
 ```
 
-### Leer eventos del último update
+Los parámetros representan:
 
-```cpp
-JW_MatrixButtons::BtnEvent ev;
-
-for (uint8_t i = 0; i < btn.eventCount(); i++) {
-  if (btn.getEvent(i, ev)) {
-    Serial.print("id=");
-    Serial.print(ev.id);
-    Serial.print(" type=");
-    Serial.print((int)ev.type);
-    Serial.print(" mult=");
-    Serial.print(ev.mult);
-    Serial.print(" held_ms=");
-    Serial.println(ev.held_ms);
-  }
-}
-```
-
----
-
-## `pressed()` y `released()`
-
-Estas funciones son **latcheadas y consumibles**.
-
-Eso significa que si ocurre un `PRESS` o `RELEASE`, queda pendiente hasta que el sketch lo lea.
-
-```cpp
-if (btn.pressed(BTN_OK)) {
-  Serial.println("OK");
-}
-```
-
-Si llamas dos veces seguidas a `pressed(BTN_OK)`, la primera consume el evento y la segunda normalmente devuelve `false`.
-
----
-
-## Repeat
-
-```cpp
-void setRepeatEnabled(uint8_t id, bool enabled);
-void setRepeatInitialDelay(uint32_t ms);
-
-void setRepeatProfile(uint16_t thr1, uint16_t thr2, uint16_t thr3,
-                      int16_t s1, int16_t s2, int16_t s3, int16_t s4,
-                      uint32_t d1, uint32_t d2, uint32_t d3, uint32_t d4);
-```
-
-Perfil por defecto:
-
-```txt
-initialDelay = 350 ms
-thresholds   = 12 / 30 / 70
-steps        = 1 / 10 / 100 / 1000
-delays       = 110 / 95 / 80 / 65 ms
-```
-
-Activar repeat solo donde tenga sentido:
-
-```cpp
-btn.setRepeatEnabled(BTN_LEFT, true);
-btn.setRepeatEnabled(BTN_RIGHT, true);
+```text
+thresholds -> cambios de tramo según cantidad de repeats
+steps      -> multiplicador entregado por EV_REPEAT
+Delays     -> separación entre repeats en cada tramo
 ```
 
 ---
 
 ## `applyAxis()`
 
-Helper para modificar un valor usando un botón de decremento y otro de incremento.
-
 ```cpp
-bool applyAxis(uint32_t* val, uint32_t minv, uint32_t maxv,
-               uint8_t decId, uint8_t incId,
+bool applyAxis(uint32_t *value,
+               uint32_t minValue,
+               uint32_t maxValue,
+               uint8_t decId,
+               uint8_t incId,
                bool circularWrapOnPress = true,
                bool snapToStepOnRepeat = true) const;
 ```
-
-Devuelve:
-
-- `true` si modificó el valor;
-- `false` si no hubo cambio.
 
 Ejemplo:
 
 ```cpp
 uint32_t value = 0;
 
-if (btn.applyAxis(&value, 0, 1000, BTN_LEFT, BTN_RIGHT)) {
-  Serial.println(value);
+if (buttons.applyAxis(&value, 0, 1000, BTN_LEFT, BTN_RIGHT))
+{
+    Serial.println(value);
 }
 ```
 
 ---
 
-## Limpieza de pendientes
+# Instalación y resolución de librerías
 
-```cpp
-void clearPendingPresses() const;
-void clearPendingReleases() const;
-void clearPendingRepeats() const;
-void clearEventQueue() const;
-void clearPendingInput() const;
+## Dentro del package JWPLC
+
+Para JWPLC Basic no se recomienda instalar otra copia manual de `JW_MatrixButtons` en el sketchbook si se pretende usar la versión integrada por el package.
+
+Una copia adicional con el mismo nombre puede participar en la resolución de librerías de Arduino y dificulta la reproducibilidad entre PCs.
+
+Para talleres/validación se recomienda comprobar en la salida verbose:
+
+```text
+Used platform
+Used library
+Using precompiled library
 ```
 
-Estas funciones limpian entradas pendientes de consumir, pero **no alteran el estado físico del botón**.
-
-Son útiles al:
-
-- cambiar de pantalla;
-- entrar a un modo de edición;
-- cerrar un popup;
-- salir de un submenú;
-- abrir otra vista inmediatamente después de una pulsación.
-
-Ejemplo:
-
-```cpp
-screenMode = SCREEN_DETAIL;
-btn.clearPendingInput();
-```
+y confirmar que `JW_MatrixButtons` provenga de la versión de package esperada.
 
 ---
 
-## Consejos de uso
+## Instalación manual para proyectos genéricos
 
-### No usar delays grandes
+Si se usa fuera de JWPLC, instalar como una librería Arduino normal en el sketchbook:
 
-Evita `delay()` largos en el `loop()`. Si `update()` deja de ejecutarse con frecuencia, el debounce y el repeat se vuelven más toscos.
-
-### Frecuencia recomendada
-
-Llamar `update()` cada **3 a 10 ms** suele dar buen resultado.
-
-### Aplicaciones con varias pantallas
-
-Si una pulsación afecta a la vista siguiente, limpia pendientes al cambiar de pantalla:
-
-```cpp
-btn.clearPendingInput();
+```text
+Documents/Arduino/libraries/JW_MatrixButtons
 ```
+
+Evitar mantener simultáneamente varias copias con el mismo nombre en diferentes carpetas de librerías.
+
+---
+
+# Precompilación en el package JWPLC
+
+La copia integrada en JWPLC usa:
+
+```text
+precompiled=full
+```
+
+para ESP32 cuando existe el archive correspondiente.
+
+En Alpha8 no se modificó el código fuente de `JW_MatrixButtons`; la corrección de interacción Display/botonera se implementó en las capas `JWPLC_Display` y `JWPLC_GlobalPeripherals`. Por ello el archive 1.0.5 existente no requiere regeneración por el alcance Alpha8.
+
+---
+
+# Validación Alpha8
+
+Se verificó físicamente:
+
+```text
+LEFT  -> correcto
+UP    -> correcto
+RIGHT -> correcto
+ESC   -> correcto
+OK    -> correcto
+DOWN  -> correcto
+```
+
+También:
+
+- ningún evento fantasma sostenido durante el gate dirigido;
+- estado IDLE estable;
+- Display no consume los latches de aplicación;
+- pulsación sostenida no congela el runtime;
+- aplicación continúa recibiendo eventos mientras la TFT funciona.
 
 ---
 
 ## Compatibilidad
 
-- ESP32
-- Arduino AVR
-- otras arquitecturas compatibles con Arduino
+- ESP32;
+- Arduino AVR;
+- otras arquitecturas Arduino compatibles con las primitivas utilizadas.
 
-El soporte de task interno solo está disponible cuando se compila para ESP32.
+El task interno sólo está disponible en ESP32.
 
 ---
 
