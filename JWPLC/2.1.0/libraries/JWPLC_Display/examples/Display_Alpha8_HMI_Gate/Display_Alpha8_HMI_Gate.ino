@@ -11,57 +11,49 @@ enum UIFieldId : uint8_t
 
 const JWPLC_UIField UI_FIELDS[] =
 {
+    // Helper agrupado: rect, texto, formato y estilo se configuran una vez.
     JWPLC_UIValueField(
         FIELD_COUNT,
-        10, 38,
-        "Contador", nullptr,
-        6, 0,
-        false, false,
-        2, 1,
-        true,
-        JWPLC_UI_AUTO, JWPLC_UI_AUTO,
+        JWPLC_UIRect(10, 38),
+        JWPLC_UIText("Contador"),
+        JWPLC_UIValueFormat(6, 0, false, false),
+        JWPLC_UIValueStyle(2, 1, true),
         0),
 
+    // Helper corto: suficiente cuando AUTO y estilo default son adecuados.
     JWPLC_UIValueField(
         FIELD_INPUTS,
         170, 38,
-        "Entradas", nullptr,
-        3, 0,
-        false, false,
-        2, 1,
-        true,
-        JWPLC_UI_AUTO, JWPLC_UI_AUTO,
+        "Entradas",
+        nullptr,
+        JWPLC_UIValueFormat(3, 0, false, false),
         0),
 
-    JWPLC_UIValueField(
-        FIELD_TEMP,
-        10, 95,
-        "Temp", "C",
-        3, 1,
-        true, false,
-        2, 1,
-        true,
-        JWPLC_UI_AUTO, JWPLC_UI_AUTO,
-        0),
+    // Inicializacion directa agrupada: una fila por grupo del struct.
+    {
+        {FIELD_TEMP, 0, JWPLC_UI_FIELD_VALUE},
+        {10, 95, JWPLC_UI_AUTO, JWPLC_UI_AUTO},
+        {"Temp", "C"},
+        {1, 2, true, JWPLC_UI_LAYOUT_INLINE, JWPLC_UI_ALIGN_RIGHT,
+         {ST77XX_WHITE, ST77XX_WHITE, ST77XX_BLACK, ST77XX_WHITE}},
+        {3, 1, true, false},
+        {}
+    },
 
     JWPLC_UIBoolField(
         FIELD_RUN,
-        170, 95,
-        "Estado",
-        "STOP", "RUN",
-        2, 1,
-        true,
-        JWPLC_UI_AUTO, JWPLC_UI_AUTO,
+        JWPLC_UIRect(170, 95),
+        JWPLC_UIText("Estado"),
+        JWPLC_UIBoolText("STOP", "RUN"),
+        JWPLC_UIBoolStyle(2, 1, true),
         0),
 
     JWPLC_UIBarField(
         FIELD_BAR,
-        10, 80,
-        "Nivel",
-        0.0f, 100.0f,
-        280, 28,
-        1,
-        true,
+        JWPLC_UIRect(10, 80, 280, 28),
+        JWPLC_UIText("Nivel"),
+        JWPLC_UIRange(0.0f, 100.0f),
+        JWPLC_UIBarStyle(1, true),
         1)
 };
 
@@ -112,8 +104,8 @@ void setup()
     {
         Serial.println("[FAIL] setFields()");
     }
-    // Alpha8: ON_DEMAND es el default. Lo fijamos explicitamente
-    // en el gate para dejar la intencion visible.
+
+    // Alpha8: ON_DEMAND es el default. Se fija explicitamente en este gate.
     JWPLC_Display.setUserRefreshMode(USER_REFRESH_ON_DEMAND);
     JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
 
@@ -190,7 +182,9 @@ void loop()
     {
         barValue += 10.0f;
         if (barValue > 100.0f)
+        {
             barValue = 100.0f;
+        }
 
         JWPLC_Display.setBar(FIELD_BAR, barValue);
         Serial.println("[BTN] UP");
@@ -200,7 +194,9 @@ void loop()
     {
         barValue -= 10.0f;
         if (barValue < 0.0f)
+        {
             barValue = 0.0f;
+        }
 
         JWPLC_Display.setBar(FIELD_BAR, barValue);
         Serial.println("[BTN] DOWN");
