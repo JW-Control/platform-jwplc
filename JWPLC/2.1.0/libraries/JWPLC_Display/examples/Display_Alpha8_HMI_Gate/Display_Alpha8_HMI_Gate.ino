@@ -29,15 +29,14 @@ const JWPLC_UIField UI_FIELDS[] =
         JWPLC_UIValueFormat(3, 0, false, false),
         0),
 
-    // Inicializacion directa agrupada: una fila por grupo del struct.
+    // Inicializacion directa: una fila por grupo, sin grupos anidados.
     {
         {FIELD_TEMP, 0, JWPLC_UI_FIELD_VALUE},
         {10, 95, JWPLC_UI_AUTO, JWPLC_UI_AUTO},
         {"Temp", "C"},
         {1, 2, true, JWPLC_UI_LAYOUT_INLINE, JWPLC_UI_ALIGN_RIGHT},
         {ST77XX_WHITE, ST77XX_WHITE, ST77XX_BLACK, ST77XX_WHITE},
-        {3, 1, true, false},
-        {}
+        {3, 1, true, false}
     },
 
     JWPLC_UIBoolField(
