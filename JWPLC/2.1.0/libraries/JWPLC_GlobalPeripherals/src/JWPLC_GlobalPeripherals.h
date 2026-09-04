@@ -9,6 +9,7 @@
 #include <JWPLC_Ethernet.h>
 #include <JWPLC_RS485.h>
 #include <JWPLC_ModbusRTU.h>
+#include <JWPLC_RuntimeView.h>
 
 // =====================================================
 // IDs físicos de la botonera JWPLC
@@ -38,6 +39,8 @@ extern JW_FRAM JWPLC_FRAM;
 extern JW_MatrixButtons JWPLC_Buttons;
 extern JW_SD JWPLC_SD;
 
+// JWPLC_IO y JWPLC_Time se exponen desde JWPLC_RuntimeView.h y leen
+// snapshots cacheados del runtime sin transacciones adicionales.
 
 // =====================================================
 // Helpers globales de botonera

@@ -1,7 +1,7 @@
 /*
   ModbusRTU_Master_ReadHoldingRegisters
 
-  Cliente/master Modbus RTU básico.
+  Master Modbus RTU cooperativo/no bloqueante (API recomendada).
 
   Requiere un slave Modbus RTU con:
   - Slave ID: 1
@@ -9,13 +9,16 @@
   - Config: SERIAL_8E1
   - Holding registers disponibles desde address 0
 
-  Puedes usar otro JWPLC Basic con el ejemplo:
-  ModbusRTU_Slave_HoldingRegisters
+  Importante:
+  - requestReadHoldingRegisters() solo inicia la solicitud.
+  - JWPLC_ModbusRTU.task() debe ejecutarse frecuentemente.
+  - values[] debe existir hasta que masterDone() sea true.
 */
 
 #include <JWPLC_ModbusRTU.h>
 
-uint16_t values[4];
+static uint16_t values[4];
+static uint32_t nextReadMs = 1000;
 
 void setup()
 {
@@ -23,9 +26,9 @@ void setup()
     delay(1200);
 
     Serial.println();
-    Serial.println("JWPLC Modbus RTU master read holding registers");
+    Serial.println("JWPLC Modbus RTU master cooperativo - FC03");
 
-    // En modo master usamos slaveId local 247 solo como ID interno no usado.
+    // En modo master usamos slaveId local 247 como ID interno no usado.
     if (!JWPLC_ModbusRTU.begin(247, 19200, SERIAL_8E1))
     {
         Serial.print("Modbus begin failed: ");
@@ -38,16 +41,13 @@ void setup()
 
 void loop()
 {
-    static unsigned long lastReadMs = 0;
-    unsigned long now = millis();
+    JWPLC_ModbusRTU.task();
 
-    if (now - lastReadMs >= 1000)
+    const uint32_t now = millis();
+
+    if (JWPLC_ModbusRTU.masterDone())
     {
-        lastReadMs = now;
-
-        bool ok = JWPLC_ModbusRTU.readHoldingRegisters(1, 0, 4, values, 1000);
-
-        if (ok)
+        if (JWPLC_ModbusRTU.masterSucceeded())
         {
             Serial.print("Read OK | HR0: ");
             Serial.print(values[0]);
@@ -62,6 +62,28 @@ void loop()
         {
             Serial.print("Read failed: ");
             Serial.println(JWPLC_ModbusRTU.lastErrorString());
+        }
+
+        JWPLC_ModbusRTU.clearMasterResult();
+        nextReadMs = now + 1000;
+    }
+
+    if (!JWPLC_ModbusRTU.masterBusy() &&
+        !JWPLC_ModbusRTU.masterDone() &&
+        (int32_t)(now - nextReadMs) >= 0)
+    {
+        const bool accepted = JWPLC_ModbusRTU.requestReadHoldingRegisters(
+            1,
+            0,
+            4,
+            values,
+            1000);
+
+        if (!accepted)
+        {
+            Serial.print("Request rejected: ");
+            Serial.println(JWPLC_ModbusRTU.lastErrorString());
+            nextReadMs = now + 1000;
         }
     }
 }

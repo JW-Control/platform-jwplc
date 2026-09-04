@@ -1,0 +1,18 @@
+# JWPLC VPP Alpha18 signed payload EOL policy.
+# These rules reproduce the exact working-tree bytes used by signature.json.
+
+# Historical signed text payload: CRLF.
+openplc-editor-installers/v4.2.7/vpp/README.md text eol=crlf
+openplc-editor-installers/v4.2.7/vpp/examples/JWPLC_Basic_Blink_Q0_0/README.md text eol=crlf
+openplc-editor-installers/v4.2.7/vpp/examples/JWPLC_Basic_IO_Test_I0_to_Q0/README.md text eol=crlf
+openplc-editor-installers/v4.2.7/vpp/screens/backplane.json text eol=crlf
+openplc-editor-installers/v4.2.7/vpp/screens/jwplc-basic-remote-io.json text eol=crlf
+openplc-editor-installers/v4.2.7/vpp/screens/modbus.json text eol=crlf
+
+# Alpha18 generated/signed text payload: LF.
+openplc-editor-installers/v4.2.7/vpp/hal/jwplcbasic.cpp text eol=lf
+openplc-editor-installers/v4.2.7/vpp/manifest.json text eol=lf
+openplc-editor-installers/v4.2.7/vpp/signature.json text eol=lf
+
+# Signed binary payload.
+openplc-editor-installers/v4.2.7/vpp/assets/jwplcbasic.png -text

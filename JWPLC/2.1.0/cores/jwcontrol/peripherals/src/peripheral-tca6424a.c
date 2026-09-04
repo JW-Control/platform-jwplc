@@ -37,20 +37,15 @@ bool TCA6424A_readPin(uint8_t address, uint16_t pin, uint8_t *state)
     return true;
 }
 
-uint8_t TCA6424A_readBank(uint8_t address, uint8_t bank, uint8_t *state)
+bool TCA6424A_readBank(uint8_t address, uint8_t bank, uint8_t *state)
 {
     if (!TCA6424A_isValidBank(bank) || state == 0)
     {
-        return 0xFF;
+        return false;
     }
 
     uint8_t regAddr = (uint8_t)(TCA6424A_RA_INPUT0 + bank);
-    if (jwplcI2C_readReg8(address, regAddr, state) == 0)
-    {
-        return *state;
-    }
-
-    return 0xFF;
+    return jwplcI2C_readReg8(address, regAddr, state) == 0;
 }
 
 bool TCA6424A_writePin(uint8_t address, uint16_t pin, bool state)

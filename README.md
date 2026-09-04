@@ -13,12 +13,12 @@ El objetivo es ofrecer una experiencia cercana a Arduino sin perder las funcione
 | Canal | Versión | Estado |
 |---|---|---|
 | Público / estable | `v2.0.0` | Recomendado para proyectos estables. |
-| Dev publicada | `v2.1.0-alpha.8` | PreRelease publicada, validada y cerrada. |
-| Siguiente trabajo | `Alpha9` | Integración de la HMI hacia OpenPLC/Ladder. |
+| Dev publicada | `v2.1.0-alpha.7` | PreRelease publicada y cerrada. |
+| Candidata de PreRelease | `v2.1.0-alpha.8` | Cierre técnico HMI/Display/botonera en curso. |
 
 Alpha8 parte de Alpha7 y **no retira ningún periférico del autoload normal**.
 
-Su alcance Arduino/HMI quedó cerrado con:
+Su alcance es Arduino/HMI:
 
 - corrección de autowake y navegación Display/botonera;
 - independencia entre eventos del sketch y navegación del Display;
@@ -27,12 +27,9 @@ Su alcance Arduino/HMI quedó cerrado con:
 - refresh dirty-only;
 - vistas cacheadas `JWPLC_IO` y `JWPLC_Time`;
 - lazy-link del motor HMI para que un sketch que no lo usa no pague su costo de enlace;
-- preservación de compatibilidad Arduino y APIs existentes;
-- 19 ejemplos numerados de taller compilados correctamente;
-- validación física de botonera/TFT/IDLE;
-- instalación aislada desde el package público `jwplc:esp32@2.1.0-alpha.8`.
+- preservación de compatibilidad Arduino y APIs existentes.
 
-La exposición de esta HMI hacia OpenPLC/Ladder queda fuera de Alpha8 y corresponde al trabajo de Alpha9.
+La exposición de esta HMI hacia OpenPLC/Ladder queda fuera de Alpha8 y corresponde al trabajo posterior de Alpha9.
 
 ---
 
@@ -476,31 +473,22 @@ Versión estable:
 https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json
 ```
 
-Versión dev publicada:
+Alpha8 no debe asumirse disponible por Boards Manager hasta completar:
 
 ```text
-2.1.0-alpha.8
-```
-
-La publicación Alpha8 completó:
-
-```text
-PR técnico                         PASS
-CI JWPLC Package Smoke             PASS
-merge release/v2.1.x               PASS
-workflow de publicación            PASS
-PreRelease v2.1.0-alpha.8          PASS
-índice dev                         PASS
-instalación aislada                PASS
-compilación Buttons publicada      PASS
-compilación HMI publicada          PASS
-procedencia sin jwplc_local        PASS
-upload físico package publicado    PASS
+PR técnico
+-> CI
+-> merge release/v2.1.x
+-> workflow de publicación
+-> PreRelease
+-> índice dev
+-> instalación aislada
+-> upload físico post-publicación
 ```
 
 Para desarrollo local se utiliza el namespace `jwplc_local`.
 
-La validación final de publicación se realizó también con el namespace público `jwplc` instalado desde el índice dev.
+La validación de publicación final debe hacerse también con el namespace público `jwplc` instalado desde el índice dev.
 
 ---
 
@@ -537,27 +525,23 @@ No se retiran periféricos del autoload para acelerar compilación.
 
 # Documentación Alpha8
 
-El cierre de Alpha8 se documenta en:
+El cierre técnico se documenta en:
 
 - `docs/v2.1.0-alpha.8/ALPHA8_BUILD_SPEED_AND_LAZY_LINK.md`;
 - `docs/v2.1.0-alpha.8/ALPHA8_HMI_BUTTON_VALIDATION.md`;
-- `docs/v2.1.0-alpha.8/ALPHA8_WORKSHOP_EXAMPLES.md`;
 - `docs/v2.1.0-alpha.8/ALPHA8_CLOSURE_CHECKLIST.md`;
-- `docs/v2.1.0-alpha.8/ALPHA8_TECHNICAL_CLOSURE.md`;
-- `docs/v2.1.0-alpha.8/ALPHA8_TO_ALPHA9_OPENPLC_HANDOFF.md`;
 - `docs/v2.1.0-alpha.8/PULL_REQUEST.md`;
 - `docs/v2.1.0-alpha.8/PRE_RELEASE.md`.
 
-Estado final:
+Estado esperado antes de publicación:
 
 ```text
 ALPHA8_TECHNICAL_CLOSURE=PASS
-ALPHA8_PUBLIC_RELEASE=v2.1.0-alpha.8
-ALPHA8_ISOLATED_INSTALL=PASS
-ALPHA8_ISOLATED_COMPILE=PASS
-ALPHA8_PUBLIC_PACKAGE_PROVENANCE=PASS
-ALPHA8_ISOLATED_PHYSICAL_UPLOAD=PASS
-ALPHA8_STATUS=CLOSED
+ALPHA8_PUBLICATION=PENDING_PR_CI_RELEASE
 ```
 
-El siguiente trabajo funcional corresponde a Alpha9/OpenPLC.
+Después de la publicación se requiere la validación aislada desde Boards Manager/Arduino CLI antes de declarar:
+
+```text
+ALPHA8_STATUS=CLOSED
+```
