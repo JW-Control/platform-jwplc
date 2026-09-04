@@ -13,8 +13,8 @@ Cerrar Alpha9 con el Backplane OpenPLC / Remote I/O físicamente validado en el 
 - [x] No se hace merge ciego del branch histórico divergente Alpha9.
 - [x] README canónico del Slave RTU trasladado a la rama final.
 - [x] Documentación pública en español.
-- [ ] CI del PR técnico aprobado.
-- [ ] Merge técnico a `release/v2.1.x`.
+- [x] CI del PR técnico aprobado.
+- [x] Merge técnico a `release/v2.1.x` mediante PR #84.
 
 ## Slave Arduino
 
@@ -77,7 +77,7 @@ MULTIBIT_SIMULTANEOUS=NOT_TESTED
 REASON=PHYSICAL_TEST_RIG_ONE_INPUT_AT_A_TIME
 ```
 
-No es bloqueante para el alcance one-hot declarado de Alpha9; queda explícitamente documentado.
+No es bloqueante para el alcance one-hot declarado de Alpha9; queda explícitamente documentado y transferido a Alpha10.
 
 ## Persistencia
 
@@ -248,31 +248,56 @@ HMI_TO_LADDER_EXPOSURE=PENDING
 - [x] `ALPHA9_CLOSURE_CHECKLIST.md`.
 - [x] `PRE_RELEASE.md`.
 - [x] README del Remote I/O Slave.
-- [ ] README raíz Alpha9.
-- [ ] `PULL_REQUEST.md`.
-- [ ] cierre post-publicación con ZIP/SHA/size.
+- [x] README raíz Alpha9.
+- [x] `PULL_REQUEST.md`.
+- [x] `ALPHA9_TO_ALPHA10_HANDOFF.md`.
+- [x] `ALPHA9_PUBLICATION_CLOSURE_20260904.md` con ZIP/SHA/size.
 
 ## Publicación
 
-- [ ] PR técnico Alpha9 hacia `release/v2.1.x`.
-- [ ] CI verde.
-- [ ] merge técnico.
-- [ ] marcador `JWPLC_RELEASE_VERSION: 2.1.0-alpha.9`.
-- [ ] workflow automático.
-- [ ] ZIP `jwplc-esp32-2.1.0-alpha.9.zip`.
-- [ ] SHA-256 del ZIP.
-- [ ] tamaño del ZIP.
-- [ ] GitHub PreRelease.
-- [ ] índice dev actualizado.
-- [ ] índice estable sin cambios.
-- [ ] PR automático de índices hacia `main`.
-- [ ] sincronización `release/v2.1.x -> main`.
-- [ ] cierre documental post-publicación.
+- [x] PR técnico Alpha9 #84 hacia `release/v2.1.x`.
+- [x] CI verde.
+- [x] merge técnico.
+- [x] marcador `JWPLC_RELEASE_VERSION: 2.1.0-alpha.9`.
+- [x] workflow automático.
+- [x] ZIP `jwplc-esp32-2.1.0-alpha.9.zip`.
+- [x] SHA-256 `015679533e13dabbe79041771e1e85d3011970dd0c69bc62e3b51f3101043907`.
+- [x] tamaño `24464282` bytes.
+- [x] GitHub PreRelease `v2.1.0-alpha.9`.
+- [x] índice dev actualizado por PR #85.
+- [x] índice estable permanece en `2.0.0`.
+- [x] PR automático de índices #85 mergeado a `main`.
+- [x] sincronización del árbol técnico `release/v2.1.x -> main` mediante PR #82 + squash compatible con `required_linear_history`.
+- [x] tree parity exacta previa al índice: `e4027a3b071906283b9498239845e384e082d411`.
+- [x] cierre documental post-publicación.
 
-## Estado técnico previo al PR
+## Topología Git de cierre
+
+El ruleset `Protect main` exige historia lineal. La historia heredada de `release/v2.1.x` contiene merge commits, de modo que la ancestría literal no puede introducirse en `main` sin violar el ruleset o reescribir historia.
+
+Se verificó:
+
+```text
+FAST_FORWARD_RELEASE_TO_MAIN=REJECTED_BY_REQUIRED_LINEAR_HISTORY
+MERGE_COMMIT=REJECTED_BY_REQUIRED_LINEAR_HISTORY
+REBASE_MERGE=NOT_SUPPORTED_FOR_CURRENT_RELEASE_HISTORY
+RELEASE_TO_MAIN_SYNC_METHOD=SQUASH
+MAIN_LINEAR_HISTORY_PRESERVED=PASS
+RELEASE_MAIN_TREE_PARITY_BEFORE_INDEX=PASS
+RELEASE_IS_ANCESTOR_OF_MAIN=NOT_APPLICABLE_UNDER_CURRENT_RULESET
+```
+
+No se realizó force-push ni reescritura de branches.
+
+## Estado final
 
 ```text
 ALPHA9_TECHNICAL_CLOSURE=PASS
-ALPHA9_STATUS=TECHNICALLY_CLOSED
-ALPHA9_PUBLICATION=PENDING_PR_CI_RELEASE
+ALPHA9_RELEASE_PUBLICATION=PASS
+ALPHA9_DEV_INDEX=PASS
+ALPHA9_STABLE_INDEX_UNCHANGED=PASS
+ALPHA9_MAIN_SYNC=PASS
+ALPHA9_DOCUMENTATION=PASS
+ALPHA9_STATUS=CLOSED_PUBLISHED
+NEXT=ALPHA10
 ```
