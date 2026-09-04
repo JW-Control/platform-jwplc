@@ -1,5 +1,6 @@
 #include "JWPLC_Display.h"
 #include "JWPLC_IdleScreen.h"
+#include "JWPLC_UI_RuntimeHooks.h"
 
 #include <SPI.h>
 #include <Adafruit_GFX.h>
@@ -69,13 +70,26 @@ extern "C" void __attribute__((weak)) jwplcUIPageEnter(uint8_t page) { (void)pag
 extern "C" void __attribute__((weak)) jwplcUIUpdate(void) {}
 extern "C" void __attribute__((weak)) jwplcUIExit(void) {}
 
+// Runtime HMI opcional. Estos defaults evitan arrastrar JWPLC_UI.cpp cuando el
+// sketch no usa campos HMI. JWPLC_UI_API.cpp aporta implementaciones strong al
+// enlazarse la API de campos, manteniendo exactamente JWPLC_Display.*.
+extern "C" bool __attribute__((weak)) jwplcUIRuntimeRefreshNeeded(void) { return true; }
+extern "C" void __attribute__((weak)) jwplcUIRuntimeInvalidateAll(bool redrawStatic) { (void)redrawStatic; }
+extern "C" void __attribute__((weak)) jwplcUIRuntimePrepareEnter(void) {}
+extern "C" uint8_t __attribute__((weak)) jwplcUIRuntimeCurrentPage(void) { return 0; }
+extern "C" bool __attribute__((weak)) jwplcUIRuntimePageRedrawPending(void) { return false; }
+extern "C" void __attribute__((weak)) jwplcUIRuntimeConsumePageRedrawPending(void) {}
+extern "C" void __attribute__((weak)) jwplcUIRuntimeConsumeRefreshRequest(void) {}
+extern "C" void __attribute__((weak)) jwplcUIRuntimeDrawStatic(Adafruit_ST7789 *display) { (void)display; }
+extern "C" void __attribute__((weak)) jwplcUIRuntimeDrawDirty(Adafruit_ST7789 *display) { (void)display; }
+
 // Callbacks legacy conservados sin romper sketches existentes.
 extern "C" void __attribute__((weak)) jwplcUserDisplayEnterCallback(void) {}
 extern "C" bool __attribute__((weak)) jwplcUserDisplayRefreshNeededCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc)
 {
     (void)io;
     (void)rtc;
-    return JWPLCUI::refreshNeeded();
+    return jwplcUIRuntimeRefreshNeeded();
 }
 extern "C" void __attribute__((weak)) jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc)
 {
@@ -569,7 +583,7 @@ namespace JWPLCDisplay
         else
         {
             g_userRefreshForced = true;
-            JWPLCUI::invalidateAll(true);
+            jwplcUIRuntimeInvalidateAll(true);
         }
         jwplcSystemForceDisplayRefresh();
     }
@@ -594,7 +608,7 @@ namespace JWPLCDisplay
         // Los latches pressed()/released() del usuario permanecen intactos.
         g_navigationPreviousMask = readButtonDownMask();
 
-        JWPLCUI::prepareEnter();
+        jwplcUIRuntimePrepareEnter();
 
         if (acquireTFTBus(100))
         {
@@ -602,12 +616,12 @@ namespace JWPLCDisplay
 
             jwplcUserDisplayEnterCallback();
             jwplcUIEnter();
-            jwplcUIPageEnter(JWPLCUI::currentPage());
+            jwplcUIPageEnter(jwplcUIRuntimeCurrentPage());
 
-            JWPLCUI::drawStatic(tft);
-            JWPLCUI::drawDirty(tft);
-            JWPLCUI::consumePageRedrawPending();
-            JWPLCUI::consumeRefreshRequest();
+            jwplcUIRuntimeDrawStatic(&tft);
+            jwplcUIRuntimeDrawDirty(&tft);
+            jwplcUIRuntimeConsumePageRedrawPending();
+            jwplcUIRuntimeConsumeRefreshRequest();
 
             g_userRefreshForced = false;
             releaseTFTBus();
@@ -770,6 +784,7 @@ namespace JWPLCDisplay
     {
         return g_errCode;
     }
+
     void setBusLed(bool state)
     {
         g_busLedAuto = false;
@@ -931,10 +946,9 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC
     updateAutomaticBusLed();
     updateAutomaticEthLed();
 
-    // La consulta USER ocurre antes del lock SPI. La implementación weak devuelve
-    // true, por lo que sketches existentes conservan exactamente su frecuencia.
-    // Una UI optimizada puede omitir la adquisición cuando no tiene regiones
-    // sucias ni eventos pendientes.
+    // La consulta USER ocurre antes del lock SPI. Sin HMI de campos el hook
+    // weak devuelve true y preserva el comportamiento legacy. Con HMI enlazada
+    // se usa dirty/refreshNeeded sin obligar al sketch vacío a cargar el motor.
     if (g_displayMode == DISPLAY_MODE_USER &&
         !g_userRefreshForced &&
         !jwplcUserDisplayRefreshNeededCallback(io, rtc))
@@ -967,14 +981,14 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC
         return;
     }
 
-    if (JWPLCUI::pageRedrawPending())
+    if (jwplcUIRuntimePageRedrawPending())
     {
         tft.fillScreen(ST77XX_BLACK);
 
-        jwplcUIPageEnter(JWPLCUI::currentPage());
+        jwplcUIPageEnter(jwplcUIRuntimeCurrentPage());
 
-        JWPLCUI::drawStatic(tft);
-        JWPLCUI::consumePageRedrawPending();
+        jwplcUIRuntimeDrawStatic(&tft);
+        jwplcUIRuntimeConsumePageRedrawPending();
     }
 
     // Legacy y API corta se ejecutan con el bus TFT adquirido.
@@ -983,8 +997,8 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC
     jwplcUserDisplayRefreshCallback(io, rtc);
     jwplcUIUpdate();
     // Solo las regiones VALUE marcadas dirty se redibujan.
-    JWPLCUI::drawDirty(tft);
-    JWPLCUI::consumeRefreshRequest();
+    jwplcUIRuntimeDrawDirty(&tft);
+    jwplcUIRuntimeConsumeRefreshRequest();
 
     g_userRefreshForced = false;
     releaseTFTBus();
@@ -1041,7 +1055,8 @@ bool JWPLC_DisplayClass::runLed() const { return JWPLCDisplay::runLed(); }
 void JWPLC_DisplayClass::setErrLed(bool state) { JWPLCDisplay::setErrLed(state); }
 bool JWPLC_DisplayClass::errLed() const { return JWPLCDisplay::errLed(); }
 bool JWPLC_DisplayClass::setErrCode(const char *code) { return JWPLCDisplay::setErrCode(code); }
-const char *JWPLC_DisplayClass::errCode() const { return JWPLCDisplay::errCode(); }void JWPLC_DisplayClass::setBusLed(bool state) { JWPLCDisplay::setBusLed(state); }
+const char *JWPLC_DisplayClass::errCode() const { return JWPLCDisplay::errCode(); }
+void JWPLC_DisplayClass::setBusLed(bool state) { JWPLCDisplay::setBusLed(state); }
 bool JWPLC_DisplayClass::busLed() const { return JWPLCDisplay::busLed(); }
 void JWPLC_DisplayClass::setBusLedAuto(bool enabled) { JWPLCDisplay::setBusLedAuto(enabled); }
 bool JWPLC_DisplayClass::busLedAuto() const { return JWPLCDisplay::busLedAuto(); }
