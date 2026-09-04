@@ -233,7 +233,25 @@ namespace JWPLCButtons
             return false;
         }
 
-        return anyPressed();
+        const uint8_t count = JWPLC_Buttons.eventCount();
+
+        for (uint8_t i = 0; i < count; ++i)
+        {
+            JW_MatrixButtons::BtnEvent event;
+
+            if (!JWPLC_Buttons.getEvent(i, event))
+            {
+                continue;
+            }
+
+            if (event.type == JW_MatrixButtons::EV_PRESS ||
+                event.type == JW_MatrixButtons::EV_REPEAT)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     void clearPendingInput()
