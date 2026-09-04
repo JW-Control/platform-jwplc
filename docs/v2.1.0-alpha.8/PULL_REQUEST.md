@@ -2,13 +2,9 @@
 
 ## Resumen
 
-Este PR cierra `v2.1.0-alpha.8` del package Arduino JWPLC Basic.
+Este PR cierra técnicamente `v2.1.0-alpha.8` del package Arduino JWPLC Basic.
 
-El objetivo del alpha es consolidar una HMI Arduino eficiente sobre la TFT integrada y corregir la interacción entre Display y botonera sin retirar periféricos del autoload normal ni romper las APIs públicas ya utilizadas.
-
-## Base
-
-Alpha8 parte del cierre publicado de Alpha7.
+Alpha8 consolida una HMI Arduino eficiente sobre la TFT integrada, corrige la interacción entre Display y botonera, mantiene todos los periféricos del autoload normal y añade una serie numerada de ejemplos compactos para taller.
 
 Branch técnico:
 
@@ -22,26 +18,22 @@ Destino:
 release/v2.1.x
 ```
 
-## Alcance
-
-### Display / navegación
+## Display / navegación
 
 - `IDLE_WAKE_DISABLED` pasa a ser el comportamiento por defecto;
 - wake automático sigue disponible por API explícita;
 - navegación Display basada en flancos físicos propios;
-- el Display deja de consumir latches `pressed()/released()` del sketch;
-- entrada/salida USER absorbe correctamente estados sostenidos sin limpiar eventos de aplicación de forma destructiva;
-- APIs existentes `JWPLC_Display` preservadas.
+- Display deja de consumir los latches `pressed()` / `released()` del sketch;
+- `ESC` puede retornar IDLE y seguir llegando a la aplicación;
+- entrada/salida USER absorbe correctamente estados sostenidos;
+- API pública `JWPLC_Display` preservada.
 
-### HMI declarativa
+## HMI declarativa
 
-Se incorpora un motor HMI para la pantalla USER con:
+Se incorpora una HMI USER con:
 
 - hasta 32 campos;
-- `VALUE`;
-- `TEXT`;
-- `BOOL`;
-- `BAR`;
+- VALUE, TEXT, BOOL y BAR;
 - múltiples páginas;
 - formato numérico;
 - colores;
@@ -64,7 +56,7 @@ JWPLC_Display.setBar(...);
 JWPLC_Display.setUserPage(...);
 ```
 
-### Vistas cacheadas
+## Vistas cacheadas
 
 Se añaden:
 
@@ -73,20 +65,18 @@ JWPLC_IO
 JWPLC_Time
 ```
 
-Estas fachadas leen snapshots ya mantenidos por el runtime y no fuerzan transacciones físicas adicionales.
+Estas fachadas leen snapshots ya mantenidos por el runtime y no fuerzan nuevas transacciones físicas de I/O o RTC.
 
-### Botonera
+## Botonera
 
-- se mantiene `JWPLC_Buttons` como objeto global;
+- `JWPLC_Buttons` sigue siendo el objeto global recomendado;
 - se preservan `pressed()`, `released()`, `isDown()`, repeat y event queue;
-- `anyPressedOrRepeated()` vuelve a distinguir correctamente `PRESS/REPEAT` de `RELEASE`;
-- el router de refresh del Display responde a cambios físicos de la matriz y no a contenido residual de la cola de eventos.
+- `anyPressedOrRepeated()` distingue `PRESS/REPEAT` de `RELEASE`;
+- el router de refresh responde a cambios físicos de la matriz, no a contenido residual de la cola.
 
-## Build speed y precompilación
+## Build speed / lazy-link
 
-Durante Alpha8 se detectó que una implementación inicial de `JWPLC_RuntimeView.cpp` añadía un TU al cold build.
-
-Se integró la implementación dentro de `JWPLC_GlobalPeripherals.cpp`, recuperando:
+La implementación inicial de RuntimeView añadía un TU al cold build. La implementación se reintegró en `JWPLC_GlobalPeripherals.cpp` y recuperó la estructura del baseline Alpha6:
 
 ```text
 Basic cold = 15 compilaciones
@@ -94,9 +84,7 @@ Core cold  = 78 compilaciones
 Warm       = 1 compilación
 ```
 
-También se implementó lazy-link para el motor HMI.
-
-Resultado:
+Lazy-link HMI:
 
 ```text
 01_empty UI engine linked = NO
@@ -110,20 +98,23 @@ APP vacía:
 Delta  = -3456 bytes
 ```
 
-Los tiempos absolutos mostraron variación significativa del host, por lo que Alpha8 no reclama una mejora global de wall-clock frente a Alpha6. La conclusión se limita a la paridad estructural de TUs/cache y al no-enlace del motor HMI cuando no se utiliza.
+Los tiempos absolutos mostraron variación significativa del host, por lo que Alpha8 no reclama una mejora global de wall-clock frente a Alpha6. La conclusión se limita a paridad estructural de TUs/cache, warm de una TU y no-enlace del motor HMI cuando no se utiliza.
 
-## Archive Display Alpha8
+## Precompilación final
 
-Candidato generado y validado:
+`JWPLC_Display` continúa con `precompiled=full`.
+
+Archive final:
 
 ```text
 JWPLC/2.1.0/libraries/JWPLC_Display/src/esp32/libJWPLC_Display.a
-Bytes:  642576
-SHA256: D47B72A48B82DA99952A3C5FD042D3D5864DFEB5BB786B95BC5684F9AEDC73BC
-Objetos: 4
+Bytes   : 642576
+SHA256  : D47B72A48B82DA99952A3C5FD042D3D5864DFEB5BB786B95BC5684F9AEDC73BC
+Objetos : 4
+Commit  : 08073e5a0244d9461d3889f02d411b68f727d638
 ```
 
-Miembros esperados:
+Miembros:
 
 ```text
 JWPLC_Display.cpp.o
@@ -132,17 +123,30 @@ JWPLC_UI.cpp.o
 JWPLC_UI_API.cpp.o
 ```
 
-`JW_MatrixButtons 1.0.5` no modifica su fuente en Alpha8, por lo que su archive existente no requiere regeneración por este alcance.
+Gate final:
+
+```text
+Basic / 01_empty Display source TUs      = 0
+Basic Core / 01_empty Display source TUs = 0
+Basic / HMI Display source TUs           = 0
+```
+
+`JW_MatrixButtons 1.0.5` no modifica su fuente en Alpha8 y conserva el archive validado:
+
+```text
+Bytes  : 129506
+SHA256 : 55BE8D7791DDAD79D613DBB199C10A504DE0F20CDF3330B6679A35DD64E25C81
+```
 
 ## Validación física
 
-Gate:
+Gate principal:
 
 ```text
 JWPLC_Display/examples/Display_Alpha8_HMI_Gate
 ```
 
-Resultados principales:
+Resultados:
 
 ```text
 ALPHA8_IDLE_SOAK_180S=PASS
@@ -154,29 +158,11 @@ ALPHA8_ESC_DISPLAY_AND_SKETCH=PASS
 ALPHA8_HELD_BUTTON_REGRESSION=PASS
 ```
 
-Se verificó:
-
-- IDLE estable sin autowake inesperado;
-- RTC avanzando;
-- los seis botones;
-- entrada USER explícita por OK;
-- navegación de páginas;
-- barra UP/DOWN;
-- ESC retorna IDLE y el sketch conserva su evento;
-- botones disponibles en IDLE sin despertar USER cuando wake está deshabilitado;
-- reentrada USER;
-- valor/texto/bool/bar;
-- ausencia de congelamiento visible durante el gate.
+Se verificó IDLE estable, RTC, seis botones, entrada USER, páginas, barra, ESC compartido Display/sketch, reentrada USER y ausencia de congelamiento visible en la regresión final.
 
 ## Incidente histórico de taller
 
-Durante un taller anterior se observaron cuelgues aparentes con comportamiento variable según laptop/placa.
-
-El entorno exacto de esas máquinas no se conservó y no existe una reproducción controlada concluyente de todos los casos.
-
-Por ello este PR no afirma una causa única retrospectiva.
-
-Clasificación:
+Los cuelgues aparentes observados anteriormente se registran como incidente histórico. El entorno exacto de todas las laptops/placas no se preservó, por lo que este PR no atribuye retrospectivamente todos los casos a una única causa no reproducida de forma concluyente.
 
 ```text
 WORKSHOP_BUTTONS_FREEZE=HISTORICAL_INCIDENT
@@ -184,7 +170,33 @@ EXACT_ROOT_CAUSE=NOT_CONCLUSIVELY_REPRODUCED
 OPERATIONAL_STATUS=RESOLVED_FOR_ALPHA8
 ```
 
-Alpha8 actual pasó los gates físicos dirigidos y se considera estable operacionalmente para continuar.
+Alpha8 actual supera los gates dirigidos y se considera estable operacionalmente.
+
+## Ejemplos numerados de taller
+
+Se incorporan 19 ejemplos compactos, comentados y numerados con prefijo `XX.`.
+
+Distribución:
+
+```text
+JWPLC_GlobalPeripherals = 6
+JWPLC_Display           = 4
+JWPLC_Ethernet          = 3
+JWPLC_RS485             = 3
+JWPLC_ModbusRTU         = 3
+TOTAL                    = 19
+```
+
+Los ejemplos específicos de RTC, FRAM, microSD y botonera se ubican en `JWPLC_GlobalPeripherals`; no se contaminan los drivers genéricos `JW_*` con dependencias específicas del JWPLC Basic.
+
+Gate de compilación:
+
+```text
+TOTAL=19
+PASS=19
+FAIL=0
+ALPHA8_WORKSHOP_EXAMPLES_COMPILE=PASS
+```
 
 ## Documentación
 
@@ -193,24 +205,28 @@ Se actualizan:
 - README raíz;
 - README `JWPLC_Display`;
 - README `JW_MatrixButtons`;
-- README `JWPLC_GlobalPeripherals`.
+- README `JWPLC_GlobalPeripherals`;
+- README `JWPLC_Ethernet`;
+- README `JWPLC_RS485`;
+- README `JWPLC_ModbusRTU`.
 
 Se añaden:
 
 - `ALPHA8_BUILD_SPEED_AND_LAZY_LINK.md`;
 - `ALPHA8_HMI_BUTTON_VALIDATION.md`;
+- `ALPHA8_WORKSHOP_EXAMPLES.md`;
 - `ALPHA8_CLOSURE_CHECKLIST.md`;
+- `ALPHA8_TECHNICAL_CLOSURE.md`;
+- `ALPHA8_TO_ALPHA9_OPENPLC_HANDOFF.md`;
 - `PULL_REQUEST.md`;
 - `PRE_RELEASE.md`.
 
-## Compatibilidad
+## Compatibilidad preservada
 
-Se preservan:
-
-- Arduino IDE;
-- Arduino CLI;
+- Arduino IDE / Arduino CLI;
 - `JWPLC_Display`;
 - `JWPLC_Buttons`;
+- I/O JWPLC;
 - TFT IDLE/USER;
 - Ethernet/W5500;
 - RTC;
@@ -221,13 +237,13 @@ Se preservan:
 - TCA/I/O;
 - mutex SPI global;
 - core precompilado vigente;
-- archives precompilados ya validados que no fueron afectados por Alpha8.
+- autoload normal del package.
 
-## No incluido
+## Fuera de alcance
 
 Alpha8 no:
 
-- integra la HMI con OpenPLC/Ladder;
+- integra HMI con OpenPLC/Ladder;
 - convierte OpenPLC en dependencia del runtime Arduino;
 - define OTA;
 - fija una FlashFreq universal definitiva;
@@ -255,16 +271,16 @@ OTA=NOT_DEFINED
 
 ## Gates de merge
 
-Antes de mergear:
+Antes del PR quedaron aprobados:
 
-- [ ] archive Display final versionado con el SHA esperado;
-- [ ] `git diff --check`;
-- [ ] working tree limpio;
-- [ ] Basic compila;
-- [ ] Basic Core compila;
-- [ ] ejemplo HMI Alpha8 compila;
-- [ ] precompiled Display usado sin recompilar source;
-- [ ] CI verde.
+- [x] archive Display final versionado con SHA esperado;
+- [x] `git diff --check`;
+- [x] working tree limpio;
+- [x] Basic compila;
+- [x] Basic Core compila;
+- [x] HMI Alpha8 compila usando Display precompilado;
+- [x] 19/19 ejemplos de taller compilan;
+- [ ] CI del PR verde.
 
 ## Gate post-publicación
 
@@ -276,12 +292,15 @@ Después de publicar `v2.1.0-alpha.8`:
 - [ ] compilación aislada;
 - [ ] upload físico;
 - [ ] boot/TFT post-upload;
+- [ ] compatibilidad Arduino IDE del package publicado;
 - [ ] índice dev actualizado;
 - [ ] topología `release/v2.1.x -> main` validada.
 
-## Resultado técnico esperado
+## Resultado técnico
 
 ```text
+ALPHA8_WORKSHOP_EXAMPLES_COMPILE=PASS
 ALPHA8_TECHNICAL_CLOSURE=PASS
+ALPHA8_STATUS=TECHNICALLY_CLOSED
 ALPHA8_PUBLICATION=PENDING_PR_CI_RELEASE
 ```
