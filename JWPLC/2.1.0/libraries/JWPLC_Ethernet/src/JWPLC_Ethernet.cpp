@@ -165,21 +165,11 @@ void JWPLC_EthernetClass::service()
 
     if (_runtimeState == JWPLC_ETH_STATE_READY)
     {
-        // LINK y mantenimiento DHCP comparten una sola ventana de ownership
-        // SPI. Una contención puntual del mutex no equivale a LINK_OFF y no
-        // invalida un lease que ya estaba operativo.
-        if (!acquireBus(50))
+        // La comprobación de LINK y el mantenimiento DHCP se mantienen cortos
+        // y cooperativos. El lease vigente sigue siendo usable mientras se
+        // intenta renew/rebind.
+        if (!linkUp())
         {
-            setError(JWPLC_ETH_BUS_LOCK_TIMEOUT);
-            return;
-        }
-
-        jwplcSPI_deselectAll();
-        const EthernetLinkStatus link = Ethernet.linkStatus();
-
-        if (link == LinkOFF)
-        {
-            releaseBus();
             _ready = false;
             setError(JWPLC_ETH_LINK_OFF);
             setRuntimeState(JWPLC_ETH_STATE_LINK_OFF);
@@ -187,30 +177,19 @@ void JWPLC_EthernetClass::service()
             return;
         }
 
-        if (link != LinkON)
-        {
-            // El bus SPI sí fue adquirido. Un estado PHY desconocido ya no se
-            // interpreta como cable desconectado: se conserva el diagnóstico
-            // real como error indeterminado y se permite el retry normal.
-            releaseBus();
-            _ready = false;
-            setError(JWPLC_ETH_UNKNOWN_ERROR);
-            setRuntimeState(JWPLC_ETH_STATE_ERROR);
-            _lastAutoAttemptMs = now;
-            return;
-        }
-
         if (_mode != JWPLC_ETH_MODE_DHCP)
         {
-            releaseBus();
-
-            if (_lastError == JWPLC_ETH_BUS_LOCK_TIMEOUT)
-            {
-                clearError();
-            }
             return;
         }
 
+        if (!acquireBus(50))
+        {
+            // Una contención puntual no invalida el lease ya configurado.
+            setError(JWPLC_ETH_BUS_LOCK_TIMEOUT);
+            return;
+        }
+
+        jwplcSPI_deselectAll();
         const int maintainResult = Ethernet.maintainAsync();
         const bool maintainPending = Ethernet.dhcpMaintenanceInProgress();
         releaseBus();
@@ -245,6 +224,7 @@ void JWPLC_EthernetClass::service()
         }
         return;
     }
+
     if (_runtimeState == JWPLC_ETH_STATE_DHCP_PENDING)
     {
         if (!acquireBus(50))
@@ -681,21 +661,9 @@ const char *JWPLC_EthernetClass::statusString()
         return "SPI lock timeout";
     }
 
-    const EthernetLinkStatus link = linkStatus();
-
-    if (link == LinkOFF)
+    if (!linkUp())
     {
         return "Link OFF";
-    }
-
-    if (link != LinkON)
-    {
-        if (_lastError == JWPLC_ETH_BUS_LOCK_TIMEOUT)
-        {
-            return "SPI lock timeout";
-        }
-
-        return "Link unknown";
     }
 
     return "OK";
@@ -911,24 +879,7 @@ void JWPLC_EthernetClass::setRuntimeState(JWPLCEthernetRuntimeState state)
 
 bool JWPLC_EthernetClass::finishNetworkConfiguration()
 {
-    // IP y LINK deben pertenecer al mismo snapshot del W5500. Además, si el
-    // mutex SPI está temporalmente ocupado, eso es SPI_BUSY y no INVALID_IP
-    // ni LINK_OFF.
-    if (!acquireBus(200))
-    {
-        _ready = false;
-        setError(JWPLC_ETH_BUS_LOCK_TIMEOUT);
-        setRuntimeState(JWPLC_ETH_STATE_ERROR);
-        _lastAutoAttemptMs = millis();
-        return false;
-    }
-
-    jwplcSPI_deselectAll();
-
-    const IPAddress ip = Ethernet.localIP();
-    const EthernetLinkStatus link = Ethernet.linkStatus();
-
-    releaseBus();
+    IPAddress ip = localIP();
 
     if (ip == IPAddress(0, 0, 0, 0))
     {
@@ -939,20 +890,11 @@ bool JWPLC_EthernetClass::finishNetworkConfiguration()
         return false;
     }
 
-    if (link == LinkOFF)
+    if (!linkUp())
     {
         _ready = false;
         setError(JWPLC_ETH_LINK_OFF);
         setRuntimeState(JWPLC_ETH_STATE_LINK_OFF);
-        _lastAutoAttemptMs = millis();
-        return false;
-    }
-
-    if (link != LinkON)
-    {
-        _ready = false;
-        setError(JWPLC_ETH_UNKNOWN_ERROR);
-        setRuntimeState(JWPLC_ETH_STATE_ERROR);
         _lastAutoAttemptMs = millis();
         return false;
     }
@@ -962,6 +904,7 @@ bool JWPLC_EthernetClass::finishNetworkConfiguration()
     setRuntimeState(JWPLC_ETH_STATE_READY);
     return true;
 }
+
 // =====================================================
 // Hook automático del runtime JWPLC
 // =====================================================

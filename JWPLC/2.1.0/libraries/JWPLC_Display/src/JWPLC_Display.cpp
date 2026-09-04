@@ -1,6 +1,5 @@
 #include "JWPLC_Display.h"
 #include "JWPLC_IdleScreen.h"
-#include "JWPLC_UI_RuntimeHooks.h"
 
 #include <SPI.h>
 #include <Adafruit_GFX.h>
@@ -25,7 +24,7 @@ static Adafruit_ST7789 tft(JWPLC_TFT_CS, JWPLC_TFT_DC, JWPLC_TFT_RST);
 static bool g_tftReady = false;
 static DisplayMode g_displayMode = DISPLAY_MODE_IDLE;
 
-static JWPLCDisplay::IdleWakeMode g_idleWakeMode = JWPLCDisplay::IDLE_WAKE_DISABLED;
+static JWPLCDisplay::IdleWakeMode g_idleWakeMode = JWPLCDisplay::IDLE_WAKE_ANY_BUTTON;
 static uint8_t g_idleWakeButton = BTN_OK;
 
 static JWPLCDisplay::IdleReturnMode g_idleReturnMode = JWPLCDisplay::IDLE_RETURN_ESC_ONLY;
@@ -38,9 +37,6 @@ static uint32_t g_userRefreshPeriodMs = 40;
 static uint32_t g_lastActivityMs = 0;
 static bool g_waitButtonReleaseBeforeWake = false;
 static bool g_userRefreshForced = false;
-// La navegacion de la TFT observa estados fisicos y detecta sus propios
-// flancos. No consume pressed()/released() del sketch.
-static uint8_t g_navigationPreviousMask = 0;
 
 static bool g_runLed = true;
 
@@ -63,33 +59,12 @@ static uint32_t g_lastEthLedAutoUpdateMs = 0;
 static constexpr uint32_t ETH_LED_AUTO_PERIOD_MS = 500;
 
 extern "C" bool __attribute__((weak)) jwplcCanReturnToIdle(void) { return true; }
-
-// Callbacks cortos recomendados desde Alpha8.
-extern "C" void __attribute__((weak)) jwplcUIEnter(void) {}
-extern "C" void __attribute__((weak)) jwplcUIPageEnter(uint8_t page) { (void)page; }
-extern "C" void __attribute__((weak)) jwplcUIUpdate(void) {}
-extern "C" void __attribute__((weak)) jwplcUIExit(void) {}
-
-// Runtime HMI opcional. Estos defaults evitan arrastrar JWPLC_UI.cpp cuando el
-// sketch no usa campos HMI. JWPLC_UI_API.cpp aporta implementaciones strong al
-// enlazarse la API de campos, manteniendo exactamente JWPLC_Display.*.
-extern "C" bool __attribute__((weak)) jwplcUIRuntimeRefreshNeeded(void) { return true; }
-extern "C" void __attribute__((weak)) jwplcUIRuntimeInvalidateAll(bool redrawStatic) { (void)redrawStatic; }
-extern "C" void __attribute__((weak)) jwplcUIRuntimePrepareEnter(void) {}
-extern "C" uint8_t __attribute__((weak)) jwplcUIRuntimeCurrentPage(void) { return 0; }
-extern "C" bool __attribute__((weak)) jwplcUIRuntimePageRedrawPending(void) { return false; }
-extern "C" void __attribute__((weak)) jwplcUIRuntimeConsumePageRedrawPending(void) {}
-extern "C" void __attribute__((weak)) jwplcUIRuntimeConsumeRefreshRequest(void) {}
-extern "C" void __attribute__((weak)) jwplcUIRuntimeDrawStatic(Adafruit_ST7789 *display) { (void)display; }
-extern "C" void __attribute__((weak)) jwplcUIRuntimeDrawDirty(Adafruit_ST7789 *display) { (void)display; }
-
-// Callbacks legacy conservados sin romper sketches existentes.
 extern "C" void __attribute__((weak)) jwplcUserDisplayEnterCallback(void) {}
 extern "C" bool __attribute__((weak)) jwplcUserDisplayRefreshNeededCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc)
 {
     (void)io;
     (void)rtc;
-    return jwplcUIRuntimeRefreshNeeded();
+    return true;
 }
 extern "C" void __attribute__((weak)) jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc)
 {
@@ -224,63 +199,33 @@ extern "C" uint32_t jwplcDisplayDesiredPeriod_ms(void)
     return periodMs;
 }
 
-static uint8_t readButtonDownMask()
-{
-    if (!JWPLCButtons::isReady())
-    {
-        return 0;
-    }
-
-    uint8_t mask = 0;
-
-    if (JWPLC_Buttons.isDown(BTN_LEFT))
-        mask |= (uint8_t)(1u << BTN_LEFT);
-    if (JWPLC_Buttons.isDown(BTN_UP))
-        mask |= (uint8_t)(1u << BTN_UP);
-    if (JWPLC_Buttons.isDown(BTN_RIGHT))
-        mask |= (uint8_t)(1u << BTN_RIGHT);
-    if (JWPLC_Buttons.isDown(BTN_ESC))
-        mask |= (uint8_t)(1u << BTN_ESC);
-    if (JWPLC_Buttons.isDown(BTN_OK))
-        mask |= (uint8_t)(1u << BTN_OK);
-    if (JWPLC_Buttons.isDown(BTN_DOWN))
-        mask |= (uint8_t)(1u << BTN_DOWN);
-
-    return mask;
-}
-
-static uint8_t buttonMaskForId(uint8_t buttonId)
-{
-    return (buttonId < 8)
-               ? (uint8_t)(1u << buttonId)
-               : 0;
-}
-
-static bool shouldWakeFromIdle(uint8_t pressedEdges)
+static bool shouldWakeFromIdle()
 {
     switch (g_idleWakeMode)
     {
     case JWPLCDisplay::IDLE_WAKE_ANY_BUTTON:
-        return pressedEdges != 0;
+        return JWPLCButtons::anyPressedOrRepeated();
 
     case JWPLCDisplay::IDLE_WAKE_BUTTON_ONLY:
-        return (pressedEdges & buttonMaskForId(g_idleWakeButton)) != 0;
+        return JWPLCButtons::isReady() && JWPLC_Buttons.pressed(g_idleWakeButton);
 
     case JWPLCDisplay::IDLE_WAKE_DISABLED:
-    default:
         return false;
+
+    default:
+        return JWPLCButtons::anyPressedOrRepeated();
     }
 }
 
-static bool shouldReturnToIdleByButton(uint8_t pressedEdges)
+static bool shouldReturnToIdleByButton()
 {
     switch (g_idleReturnMode)
     {
     case JWPLCDisplay::IDLE_RETURN_ESC_ONLY:
-        return (pressedEdges & buttonMaskForId(BTN_ESC)) != 0;
+        return JWPLCButtons::escPressed();
 
     case JWPLCDisplay::IDLE_RETURN_BUTTON_ONLY:
-        return (pressedEdges & buttonMaskForId(g_idleReturnButton)) != 0;
+        return JWPLCButtons::isReady() && JWPLC_Buttons.pressed(g_idleReturnButton);
 
     default:
         return false;
@@ -289,27 +234,22 @@ static bool shouldReturnToIdleByButton(uint8_t pressedEdges)
 
 static void handleIdleWakeAndTimeout()
 {
-    const uint8_t downMask = readButtonDownMask();
-    const uint8_t pressedEdges =
-        (uint8_t)(downMask & (uint8_t)~g_navigationPreviousMask);
-
-    g_navigationPreviousMask = downMask;
-
     if (g_displayMode == DISPLAY_MODE_IDLE)
     {
         if (g_waitButtonReleaseBeforeWake)
         {
-            if (downMask != 0)
+            if (JWPLCButtons::anyPressed())
             {
+                JWPLCButtons::clearPendingInput();
                 return;
             }
 
+            JWPLCButtons::clearPendingInput();
             g_waitButtonReleaseBeforeWake = false;
-            g_navigationPreviousMask = 0;
             return;
         }
 
-        if (shouldWakeFromIdle(pressedEdges))
+        if (shouldWakeFromIdle())
         {
             JWPLCDisplay::notifyActivity();
             JWPLCDisplay::enterUserUI();
@@ -324,13 +264,13 @@ static void handleIdleWakeAndTimeout()
         return;
     }
 
-    if (shouldReturnToIdleByButton(pressedEdges) && jwplcCanReturnToIdle())
+    if (shouldReturnToIdleByButton() && jwplcCanReturnToIdle())
     {
         JWPLCDisplay::goIdle();
         return;
     }
 
-    if (downMask != 0)
+    if (JWPLCButtons::anyPressed())
     {
         JWPLCDisplay::notifyActivity();
     }
@@ -583,7 +523,6 @@ namespace JWPLCDisplay
         else
         {
             g_userRefreshForced = true;
-            jwplcUIRuntimeInvalidateAll(true);
         }
         jwplcSystemForceDisplayRefresh();
     }
@@ -604,25 +543,12 @@ namespace JWPLCDisplay
         g_displayMode = DISPLAY_MODE_USER;
         g_userRefreshForced = true;
         resetDisplayState();
-        // Absorbe el estado fisico actual solo para la navegacion interna.
-        // Los latches pressed()/released() del usuario permanecen intactos.
-        g_navigationPreviousMask = readButtonDownMask();
-
-        jwplcUIRuntimePrepareEnter();
+        JWPLCButtons::clearPendingInput();
 
         if (acquireTFTBus(100))
         {
             tft.fillScreen(ST77XX_BLACK);
-
             jwplcUserDisplayEnterCallback();
-            jwplcUIEnter();
-            jwplcUIPageEnter(jwplcUIRuntimeCurrentPage());
-
-            jwplcUIRuntimeDrawStatic(&tft);
-            jwplcUIRuntimeDrawDirty(&tft);
-            jwplcUIRuntimeConsumePageRedrawPending();
-            jwplcUIRuntimeConsumeRefreshRequest();
-
             g_userRefreshForced = false;
             releaseTFTBus();
         }
@@ -635,16 +561,15 @@ namespace JWPLCDisplay
         if (g_displayMode == DISPLAY_MODE_USER)
         {
             jwplcUserDisplayExitCallback();
-            jwplcUIExit();
         }
 
         g_displayMode = DISPLAY_MODE_IDLE;
         g_userRefreshForced = false;
         resetDisplayState();
         g_waitButtonReleaseBeforeWake = true;
-        g_navigationPreviousMask = readButtonDownMask();
 
         JWPLCIdleScreen::forceFullRedraw();
+        JWPLCButtons::clearPendingInput();
         jwplcSystemForceDisplayRefresh();
     }
 
@@ -784,7 +709,6 @@ namespace JWPLCDisplay
     {
         return g_errCode;
     }
-
     void setBusLed(bool state)
     {
         g_busLedAuto = false;
@@ -946,9 +870,10 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC
     updateAutomaticBusLed();
     updateAutomaticEthLed();
 
-    // La consulta USER ocurre antes del lock SPI. Sin HMI de campos el hook
-    // weak devuelve true y preserva el comportamiento legacy. Con HMI enlazada
-    // se usa dirty/refreshNeeded sin obligar al sketch vacío a cargar el motor.
+    // La consulta USER ocurre antes del lock SPI. La implementación weak devuelve
+    // true, por lo que sketches existentes conservan exactamente su frecuencia.
+    // Una UI optimizada puede omitir la adquisición cuando no tiene regiones
+    // sucias ni eventos pendientes.
     if (g_displayMode == DISPLAY_MODE_USER &&
         !g_userRefreshForced &&
         !jwplcUserDisplayRefreshNeededCallback(io, rtc))
@@ -981,25 +906,7 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC
         return;
     }
 
-    if (jwplcUIRuntimePageRedrawPending())
-    {
-        tft.fillScreen(ST77XX_BLACK);
-
-        jwplcUIPageEnter(jwplcUIRuntimeCurrentPage());
-
-        jwplcUIRuntimeDrawStatic(&tft);
-        jwplcUIRuntimeConsumePageRedrawPending();
-    }
-
-    // Legacy y API corta se ejecutan con el bus TFT adquirido.
-    // Para HMI basada en campos no es obligatorio implementar callbacks:
-    // setValue()/setText()/setBool()/setBar() disparan el refresh por si solos.
     jwplcUserDisplayRefreshCallback(io, rtc);
-    jwplcUIUpdate();
-    // Solo las regiones VALUE marcadas dirty se redibujan.
-    jwplcUIRuntimeDrawDirty(&tft);
-    jwplcUIRuntimeConsumeRefreshRequest();
-
     g_userRefreshForced = false;
     releaseTFTBus();
 }
@@ -1055,8 +962,7 @@ bool JWPLC_DisplayClass::runLed() const { return JWPLCDisplay::runLed(); }
 void JWPLC_DisplayClass::setErrLed(bool state) { JWPLCDisplay::setErrLed(state); }
 bool JWPLC_DisplayClass::errLed() const { return JWPLCDisplay::errLed(); }
 bool JWPLC_DisplayClass::setErrCode(const char *code) { return JWPLCDisplay::setErrCode(code); }
-const char *JWPLC_DisplayClass::errCode() const { return JWPLCDisplay::errCode(); }
-void JWPLC_DisplayClass::setBusLed(bool state) { JWPLCDisplay::setBusLed(state); }
+const char *JWPLC_DisplayClass::errCode() const { return JWPLCDisplay::errCode(); }void JWPLC_DisplayClass::setBusLed(bool state) { JWPLCDisplay::setBusLed(state); }
 bool JWPLC_DisplayClass::busLed() const { return JWPLCDisplay::busLed(); }
 void JWPLC_DisplayClass::setBusLedAuto(bool enabled) { JWPLCDisplay::setBusLedAuto(enabled); }
 bool JWPLC_DisplayClass::busLedAuto() const { return JWPLCDisplay::busLedAuto(); }

@@ -312,7 +312,7 @@ void jwplcSystemScanIO(void)
 {
     uint8_t bank0 = 0;
 
-    if (TCA6424A_readBank(TCA6424A_DEFAULT_ADDRESS, 0, &bank0))
+    if (TCA6424A_readBank(TCA6424A_DEFAULT_ADDRESS, 0, &bank0) != 0xFF)
     {
         uint8_t logical = jwplc_reverseBits8(bank0);
 

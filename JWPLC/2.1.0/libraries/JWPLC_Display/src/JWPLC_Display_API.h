@@ -2,7 +2,6 @@
 #define JWPLC_DISPLAY_API_H
 
 #include <Arduino.h>
-#include <JWPLC_UI.h>
 
 class Adafruit_ST7789;
 
@@ -63,40 +62,6 @@ public:
     void setUserRefreshPeriodMs(uint32_t ms);
     uint32_t userRefreshPeriodMs() const;
 
-    void setUserRefreshMode(JWPLC_UIRefreshMode mode);
-    JWPLC_UIRefreshMode userRefreshMode() const;
-    void requestUserRefresh();
-
-    void setUserPage(uint8_t page);
-    uint8_t userPage() const;
-
-    bool setFields(const JWPLC_UIField *fields, size_t count);
-    void clearFields();
-    size_t fieldCount() const;
-
-    template <typename T>
-    bool setValue(uint8_t fieldId, T value)
-    {
-        return setNumericValue(fieldId, static_cast<double>(value));
-    }
-
-    bool setValue(uint8_t fieldId, bool value)
-    {
-        return setBool(fieldId, value);
-    }
-
-    bool setValue(uint8_t fieldId, const char *value)
-    {
-        return setText(fieldId, value);
-    }
-
-    bool setText(uint8_t fieldId, const char *value);
-    bool setBool(uint8_t fieldId, bool value);
-    bool setBar(uint8_t fieldId, float value);
-
-    void invalidateField(uint8_t fieldId);
-    void invalidateAllFields();
-
     void clearPendingInput();
 
     // Alias principal recomendado.
@@ -134,9 +99,6 @@ public:
     bool ethLed() const;
     void setEthLedAuto(bool enabled);
     bool ethLedAuto() const;
-
-private:
-    bool setNumericValue(uint8_t fieldId, double value);
 };
 
 // Objeto global recomendado para sketches.

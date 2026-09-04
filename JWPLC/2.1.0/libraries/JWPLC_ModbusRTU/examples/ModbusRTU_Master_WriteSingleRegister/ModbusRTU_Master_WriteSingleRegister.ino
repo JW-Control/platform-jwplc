@@ -1,22 +1,20 @@
 /*
   ModbusRTU_Master_WriteSingleRegister
 
-  Master Modbus RTU cooperativo/no bloqueante para FC06.
+  Cliente/master Modbus RTU para escribir un holding register.
 
   Requiere un slave Modbus RTU con:
   - Slave ID: 1
   - Baud: 19200
   - Config: SERIAL_8E1
 
-  Importante:
-  - requestWriteSingleRegister() solo inicia la solicitud.
-  - JWPLC_ModbusRTU.task() debe ejecutarse frecuentemente.
+  Puedes usar otro JWPLC Basic con:
+  ModbusRTU_Slave_HoldingRegisters
 */
 
 #include <JWPLC_ModbusRTU.h>
 
-static uint16_t valueToWrite = 0;
-static uint32_t nextWriteMs = 1000;
+uint16_t valueToWrite = 0;
 
 void setup()
 {
@@ -24,7 +22,7 @@ void setup()
     delay(1200);
 
     Serial.println();
-    Serial.println("JWPLC Modbus RTU master cooperativo - FC06");
+    Serial.println("JWPLC Modbus RTU master write single register");
 
     if (!JWPLC_ModbusRTU.begin(247, 19200, SERIAL_8E1))
     {
@@ -38,13 +36,17 @@ void setup()
 
 void loop()
 {
-    JWPLC_ModbusRTU.task();
+    static unsigned long lastWriteMs = 0;
+    unsigned long now = millis();
 
-    const uint32_t now = millis();
-
-    if (JWPLC_ModbusRTU.masterDone())
+    if (now - lastWriteMs >= 2000)
     {
-        if (JWPLC_ModbusRTU.masterSucceeded())
+        lastWriteMs = now;
+        valueToWrite++;
+
+        bool ok = JWPLC_ModbusRTU.writeSingleRegister(1, 1, valueToWrite, 1000);
+
+        if (ok)
         {
             Serial.print("Write OK | HR1 = ");
             Serial.println(valueToWrite);
@@ -53,29 +55,6 @@ void loop()
         {
             Serial.print("Write failed: ");
             Serial.println(JWPLC_ModbusRTU.lastErrorString());
-        }
-
-        JWPLC_ModbusRTU.clearMasterResult();
-        nextWriteMs = now + 2000;
-    }
-
-    if (!JWPLC_ModbusRTU.masterBusy() &&
-        !JWPLC_ModbusRTU.masterDone() &&
-        (int32_t)(now - nextWriteMs) >= 0)
-    {
-        valueToWrite++;
-
-        const bool accepted = JWPLC_ModbusRTU.requestWriteSingleRegister(
-            1,
-            1,
-            valueToWrite,
-            1000);
-
-        if (!accepted)
-        {
-            Serial.print("Request rejected: ");
-            Serial.println(JWPLC_ModbusRTU.lastErrorString());
-            nextWriteMs = now + 2000;
         }
     }
 }

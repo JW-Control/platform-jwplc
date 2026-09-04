@@ -91,13 +91,6 @@ extern "C"
 
     bool jwplcCanReturnToIdle(void);
 
-    // API corta recomendada Alpha8.
-    // Mantiene los callbacks legacy debajo por compatibilidad.
-    void jwplcUIEnter(void);
-    void jwplcUIPageEnter(uint8_t page);
-    void jwplcUIUpdate(void);
-    void jwplcUIExit(void);
-
     void jwplcUserDisplayEnterCallback(void);
 
     /**

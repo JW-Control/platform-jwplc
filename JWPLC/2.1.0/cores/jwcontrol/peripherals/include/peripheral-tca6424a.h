@@ -40,7 +40,7 @@ bool TCA6424A_testConnection(uint8_t address);
 bool TCA6424A_readPin(uint8_t address, uint16_t pin, uint8_t *state);
 bool TCA6424A_writePin(uint8_t address, uint16_t pin, bool state);
 
-bool TCA6424A_readBank(uint8_t address, uint8_t bank, uint8_t *state);
+uint8_t TCA6424A_readBank(uint8_t address, uint8_t bank, uint8_t *state);
 bool TCA6424A_writeBank(uint8_t address, uint8_t bank, uint8_t state);
 
 bool TCA6424A_setPinDirection(uint8_t address, uint16_t pin, uint8_t direction);
