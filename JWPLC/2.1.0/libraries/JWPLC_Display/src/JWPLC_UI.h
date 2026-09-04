@@ -110,6 +110,10 @@ struct JWPLC_UIStyle
     bool frame;
     JWPLC_UIFieldLayout layout;
     JWPLC_UIValueAlign valueAlign;
+
+    // Mirror interno temporal para mantener el motor Alpha8 desacoplado de
+    // la forma de inicializacion publica. El usuario configura colors como
+    // grupo propio dentro de JWPLC_UIField, no anidado dentro de style.
     JWPLC_UIColors colors;
 
     JWPLC_UIStyle(
@@ -192,13 +196,14 @@ struct JWPLC_UIFieldOptions
 };
 
 // Definicion HMI agrupada. En inicializacion directa queda una fila por grupo:
-// { meta }, { rect }, { text }, { style }, { format }, { options }.
+// { meta }, { rect }, { text }, { style }, { colors }, { format }, { options }.
 struct JWPLC_UIField
 {
     JWPLC_UIFieldMeta meta;
     JWPLC_UIRect rect;
     JWPLC_UIText text;
     JWPLC_UIStyle style;
+    JWPLC_UIColors colors;
     JWPLC_UIValueFormat format;
     JWPLC_UIFieldOptions options;
 
@@ -207,15 +212,20 @@ struct JWPLC_UIField
         JWPLC_UIRect rectValue = JWPLC_UIRect(),
         JWPLC_UIText textValue = JWPLC_UIText(),
         JWPLC_UIStyle styleValue = JWPLC_UIStyle(),
+        JWPLC_UIColors colorsValue = JWPLC_UIColors(),
         JWPLC_UIValueFormat formatValue = JWPLC_UIValueFormat(),
         JWPLC_UIFieldOptions optionsValue = JWPLC_UIFieldOptions())
         : meta(metaValue),
           rect(rectValue),
           text(textValue),
           style(styleValue),
+          colors(colorsValue),
           format(formatValue),
           options(optionsValue)
     {
+        // El motor actual lee style.colors. Se sincroniza una sola vez al
+        // registrar la definicion; el API publico mantiene colors separado.
+        style.colors = colors;
     }
 };
 
@@ -224,16 +234,14 @@ inline JWPLC_UIStyle JWPLC_UIValueStyle(
     uint8_t labelTextSize = 1,
     bool frame = false,
     JWPLC_UIFieldLayout layout = JWPLC_UI_LAYOUT_INLINE,
-    JWPLC_UIValueAlign align = JWPLC_UI_ALIGN_RIGHT,
-    JWPLC_UIColors colors = JWPLC_UIColors())
+    JWPLC_UIValueAlign align = JWPLC_UI_ALIGN_RIGHT)
 {
     return JWPLC_UIStyle(
         labelTextSize,
         valueTextSize,
         frame,
         layout,
-        align,
-        colors);
+        align);
 }
 
 inline JWPLC_UIStyle JWPLC_UITextFieldStyle(
@@ -241,16 +249,14 @@ inline JWPLC_UIStyle JWPLC_UITextFieldStyle(
     uint8_t labelTextSize = 1,
     bool frame = false,
     JWPLC_UIFieldLayout layout = JWPLC_UI_LAYOUT_INLINE,
-    JWPLC_UIValueAlign align = JWPLC_UI_ALIGN_LEFT,
-    JWPLC_UIColors colors = JWPLC_UIColors())
+    JWPLC_UIValueAlign align = JWPLC_UI_ALIGN_LEFT)
 {
     return JWPLC_UIValueStyle(
         valueTextSize,
         labelTextSize,
         frame,
         layout,
-        align,
-        colors);
+        align);
 }
 
 inline JWPLC_UIStyle JWPLC_UIBoolStyle(
@@ -258,35 +264,32 @@ inline JWPLC_UIStyle JWPLC_UIBoolStyle(
     uint8_t labelTextSize = 1,
     bool frame = false,
     JWPLC_UIFieldLayout layout = JWPLC_UI_LAYOUT_INLINE,
-    JWPLC_UIValueAlign align = JWPLC_UI_ALIGN_CENTER,
-    JWPLC_UIColors colors = JWPLC_UIColors())
+    JWPLC_UIValueAlign align = JWPLC_UI_ALIGN_CENTER)
 {
     return JWPLC_UIValueStyle(
         valueTextSize,
         labelTextSize,
         frame,
         layout,
-        align,
-        colors);
+        align);
 }
 
 inline JWPLC_UIStyle JWPLC_UIBarStyle(
     uint8_t labelTextSize = 1,
     bool frame = false,
-    JWPLC_UIFieldLayout layout = JWPLC_UI_LAYOUT_STACKED,
-    JWPLC_UIColors colors = JWPLC_UIColors())
+    JWPLC_UIFieldLayout layout = JWPLC_UI_LAYOUT_STACKED)
 {
     return JWPLC_UIValueStyle(
         1,
         labelTextSize,
         frame,
         layout,
-        JWPLC_UI_ALIGN_LEFT,
-        colors);
+        JWPLC_UI_ALIGN_LEFT);
 }
 
 // ---------------------------------------------------------------------
-// Helpers agrupados: control completo de rect/style sin llenar el struct.
+// Helpers agrupados: control completo sin llenar el struct miembro a miembro.
+// colors queda separado de style para que cada grupo sea una sola fila clara.
 // ---------------------------------------------------------------------
 inline JWPLC_UIField JWPLC_UIValueField(
     uint8_t id,
@@ -294,13 +297,15 @@ inline JWPLC_UIField JWPLC_UIValueField(
     JWPLC_UIText text = JWPLC_UIText(),
     JWPLC_UIValueFormat format = JWPLC_UIValueFormat(),
     JWPLC_UIStyle style = JWPLC_UIValueStyle(),
-    uint8_t page = 0)
+    uint8_t page = 0,
+    JWPLC_UIColors colors = JWPLC_UIColors())
 {
     return JWPLC_UIField(
         JWPLC_UIFieldMeta(id, page, JWPLC_UI_FIELD_VALUE),
         rect,
         text,
         style,
+        colors,
         format,
         JWPLC_UIFieldOptions());
 }
@@ -311,13 +316,15 @@ inline JWPLC_UIField JWPLC_UITextField(
     JWPLC_UIText text = JWPLC_UIText(),
     uint8_t textCapacity = 12,
     JWPLC_UIStyle style = JWPLC_UITextFieldStyle(),
-    uint8_t page = 0)
+    uint8_t page = 0,
+    JWPLC_UIColors colors = JWPLC_UIColors())
 {
     return JWPLC_UIField(
         JWPLC_UIFieldMeta(id, page, JWPLC_UI_FIELD_TEXT),
         rect,
         text,
         style,
+        colors,
         JWPLC_UIValueFormat(),
         JWPLC_UIFieldOptions(textCapacity));
 }
@@ -328,13 +335,15 @@ inline JWPLC_UIField JWPLC_UIBoolField(
     JWPLC_UIText text = JWPLC_UIText(),
     JWPLC_UIBoolText boolText = JWPLC_UIBoolText(),
     JWPLC_UIStyle style = JWPLC_UIBoolStyle(),
-    uint8_t page = 0)
+    uint8_t page = 0,
+    JWPLC_UIColors colors = JWPLC_UIColors())
 {
     return JWPLC_UIField(
         JWPLC_UIFieldMeta(id, page, JWPLC_UI_FIELD_BOOL),
         rect,
         text,
         style,
+        colors,
         JWPLC_UIValueFormat(),
         JWPLC_UIFieldOptions(12, boolText));
 }
@@ -345,13 +354,15 @@ inline JWPLC_UIField JWPLC_UIBarField(
     JWPLC_UIText text = JWPLC_UIText(),
     JWPLC_UIRange range = JWPLC_UIRange(),
     JWPLC_UIStyle style = JWPLC_UIBarStyle(),
-    uint8_t page = 0)
+    uint8_t page = 0,
+    JWPLC_UIColors colors = JWPLC_UIColors())
 {
     return JWPLC_UIField(
         JWPLC_UIFieldMeta(id, page, JWPLC_UI_FIELD_BAR),
         rect,
         text,
         style,
+        colors,
         JWPLC_UIValueFormat(),
         JWPLC_UIFieldOptions(12, JWPLC_UIBoolText(), range));
 }
