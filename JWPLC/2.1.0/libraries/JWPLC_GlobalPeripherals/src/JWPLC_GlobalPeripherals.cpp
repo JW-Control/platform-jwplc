@@ -68,11 +68,45 @@ static const JW_MatrixButtons::BtnMapItem BUTTON_MAP[] = {
 static bool g_buttonsReady = false;
 static TaskHandle_t g_buttonTaskHandle = nullptr;
 
+// Snapshot fisico privado para notificar cambios al Display sin consumir
+// pressed()/released() ni depender de la cola de eventos del usuario.
+static uint8_t g_lastButtonDownMask = 0;
+
 static uint32_t g_buttonRefreshThrottleMs = 25;
 static uint32_t g_lastButtonRefreshRequestMs = 0;
 
 // Fuerza un refresh del display, pero respetando un intervalo mínimo
 // para que la botonera no dispare redibujados masivos demasiado seguido.
+static uint8_t readButtonDownMask()
+{
+    if (!g_buttonsReady)
+    {
+        return 0;
+    }
+
+    uint8_t mask = 0;
+
+    if (JWPLC_Buttons.isDown(BTN_LEFT))
+        mask |= (uint8_t)(1u << BTN_LEFT);
+
+    if (JWPLC_Buttons.isDown(BTN_UP))
+        mask |= (uint8_t)(1u << BTN_UP);
+
+    if (JWPLC_Buttons.isDown(BTN_RIGHT))
+        mask |= (uint8_t)(1u << BTN_RIGHT);
+
+    if (JWPLC_Buttons.isDown(BTN_ESC))
+        mask |= (uint8_t)(1u << BTN_ESC);
+
+    if (JWPLC_Buttons.isDown(BTN_OK))
+        mask |= (uint8_t)(1u << BTN_OK);
+
+    if (JWPLC_Buttons.isDown(BTN_DOWN))
+        mask |= (uint8_t)(1u << BTN_DOWN);
+
+    return mask;
+}
+
 static void requestDisplayRefreshThrottled()
 {
     uint32_t now = millis();
@@ -96,8 +130,11 @@ static void buttonScanTask(void *pvParameters)
         {
             JWPLC_Buttons.update();
 
-            if (JWPLC_Buttons.eventCount() > 0)
+            const uint8_t currentMask = readButtonDownMask();
+
+            if (currentMask != g_lastButtonDownMask)
             {
+                g_lastButtonDownMask = currentMask;
                 requestDisplayRefreshThrottled();
             }
         }
@@ -196,7 +233,7 @@ namespace JWPLCButtons
             return false;
         }
 
-        return anyPressed() || (JWPLC_Buttons.eventCount() > 0);
+        return anyPressed();
     }
 
     void clearPendingInput()

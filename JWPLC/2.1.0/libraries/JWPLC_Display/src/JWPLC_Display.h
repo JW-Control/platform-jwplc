@@ -5,6 +5,7 @@
 #include <JWPLC_Display_API.h>
 #include <Adafruit_ST7789.h>
 #include <JWPLC_GlobalPeripherals.h>
+#include <JWPLC_RuntimeView.h>
 
 extern "C"
 {
@@ -90,6 +91,13 @@ extern "C"
 #endif
 
     bool jwplcCanReturnToIdle(void);
+
+    // API corta recomendada Alpha8.
+    // Mantiene los callbacks legacy debajo por compatibilidad.
+    void jwplcUIEnter(void);
+    void jwplcUIPageEnter(uint8_t page);
+    void jwplcUIUpdate(void);
+    void jwplcUIExit(void);
 
     void jwplcUserDisplayEnterCallback(void);
 
