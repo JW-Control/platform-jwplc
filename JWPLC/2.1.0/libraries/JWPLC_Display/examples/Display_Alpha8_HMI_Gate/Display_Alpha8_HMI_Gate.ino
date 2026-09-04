@@ -34,8 +34,8 @@ const JWPLC_UIField UI_FIELDS[] =
         {FIELD_TEMP, 0, JWPLC_UI_FIELD_VALUE},
         {10, 95, JWPLC_UI_AUTO, JWPLC_UI_AUTO},
         {"Temp", "C"},
-        {1, 2, true, JWPLC_UI_LAYOUT_INLINE, JWPLC_UI_ALIGN_RIGHT,
-         {ST77XX_WHITE, ST77XX_WHITE, ST77XX_BLACK, ST77XX_WHITE}},
+        {1, 2, true, JWPLC_UI_LAYOUT_INLINE, JWPLC_UI_ALIGN_RIGHT},
+        {ST77XX_WHITE, ST77XX_WHITE, ST77XX_BLACK, ST77XX_WHITE},
         {3, 1, true, false},
         {}
     },
