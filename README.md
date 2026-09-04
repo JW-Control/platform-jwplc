@@ -1,6 +1,6 @@
 # JWPLC Platform for Arduino IDE
 
-<!-- JWPLC_RELEASE_VERSION: 2.1.0-alpha.8 -->
+<!-- JWPLC_RELEASE_VERSION: 2.1.0-alpha.9 -->
 
 Package personalizado de **JW Control** para programar **JWPLC Basic** desde Arduino IDE y Arduino CLI.
 
@@ -13,26 +13,32 @@ El objetivo es ofrecer una experiencia cercana a Arduino sin perder las funcione
 | Canal | Versión | Estado |
 |---|---|---|
 | Público / estable | `v2.0.0` | Recomendado para proyectos estables. |
-| Dev publicada | `v2.1.0-alpha.8` | PreRelease publicada, validada y cerrada. |
-| Siguiente trabajo | `Alpha9` | Integración de la HMI hacia OpenPLC/Ladder. |
+| Dev candidata | `v2.1.0-alpha.9` | Cierre técnico aprobado; publicación automática al integrar en `release/v2.1.x`. |
+| Siguiente trabajo | `Alpha10` | Configuración RTU del Backplane, referencias FB de timers y source freeze del fork OpenPLC Editor. |
 
-Alpha8 parte de Alpha7 y **no retira ningún periférico del autoload normal**.
+Alpha9 parte del package publicado Alpha8 y **no retira ningún periférico del autoload normal**.
 
-Su alcance Arduino/HMI quedó cerrado con:
+Su alcance OpenPLC/Backplane queda cerrado en el perfil RTU físicamente validado:
 
-- corrección de autowake y navegación Display/botonera;
-- independencia entre eventos del sketch y navegación del Display;
-- HMI declarativa de campos;
-- páginas USER;
-- refresh dirty-only;
-- vistas cacheadas `JWPLC_IO` y `JWPLC_Time`;
-- lazy-link del motor HMI para que un sketch que no lo usa no pague su costo de enlace;
-- preservación de compatibilidad Arduino y APIs existentes;
-- 19 ejemplos numerados de taller compilados correctamente;
-- validación física de botonera/TFT/IDLE;
-- instalación aislada desde el package público `jwplc:esp32@2.1.0-alpha.8`.
+```text
+Master OpenPLC : 115200 / 8N1
+Slave Arduino  : 115200 / 8N1
+Slave ID       : 2
+```
 
-La exposición de esta HMI hacia OpenPLC/Ladder queda fuera de Alpha8 y corresponde al trabajo de Alpha9.
+Alpha9 valida:
+
+- JWPLC Basic Master generado/subido por OpenPLC;
+- JWPLC Basic Slave Arduino con `JWPLC_RemoteIO_Slave_RTU`;
+- recorrido `FC02 -> Ladder -> FC15 -> FC01`;
+- 8/8 bits remotos uno por uno sin cruces;
+- persistencia de configuración del Backplane;
+- recompilación posterior a reabrir proyecto;
+- recuperación automática tras power-cycle del Slave sin resetear el Master;
+- VPP JWPLC Basic OpenPLC `2.1.0-alpha.19` con payload Ed25519 9/9 verificado;
+- artefactos de taller para `OpenPLC Editor - JWPLC Edition 4.2.8-jwplc.2`.
+
+La selección de baudrate/formato desde el Backplane, las referencias tipadas `TON0.Q` / `TOF0.Q` / `TP0.Q`, el source freeze reproducible del fork OpenPLC Editor y la exposición de la HMI Alpha8 hacia Ladder quedan explícitamente fuera de Alpha9.
 
 ---
 
@@ -342,12 +348,13 @@ void loop()
 }
 ```
 
-Alpha7 validó multidrop, Remote I/O y recuperación sin reset del Master.
+Alpha7 validó multidrop, Remote I/O y recuperación sin reset del Master. Alpha9 reutiliza esa base y cierra el recorrido OpenPLC Backplane con FC01/FC02/FC15 en hardware real.
 
 Documentación:
 
 - [`JWPLC_RS485`](JWPLC/2.1.0/libraries/JWPLC_RS485/README.md)
 - [`JWPLC_ModbusRTU`](JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/README.md)
+- [`JWPLC Remote I/O Slave RTU`](JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/examples/JWPLC_RemoteIO_Slave_RTU/README.md)
 
 ---
 
@@ -436,19 +443,64 @@ El incidente histórico de cuelgues observado en un taller con entornos anterior
 
 ---
 
-# OpenPLC
+# OpenPLC / Backplane Alpha9
 
 OpenPLC sigue siendo una integración externa al runtime Arduino del package.
 
-Alpha8 **no** integra la nueva HMI con Ladder/OpenPLC.
+Alpha9 cierra el Backplane/Remote I/O con el perfil fijo:
 
-Ese trabajo queda explícitamente para Alpha9.
+```text
+Master OpenPLC : 115200 / 8N1
+Slave Arduino  : 115200 / 8N1
+Slave ID       : 2
+```
+
+Ruta físicamente validada:
+
+```text
+Slave DI -> FC02 -> OpenPLC/Ladder -> FC15 -> Slave DO -> FC01 -> feedback
+```
+
+Resultados principales:
+
+```text
+BACKPLANE_8CH_ONE_HOT_GATE=PASS
+FC02_REMOTE_INPUT_BITS=8/8 PASS
+OPENPLC_LADDER_MAPPING=8/8 PASS
+FC15_REMOTE_OUTPUT_BITS=8/8 PASS
+FC01_OUTPUT_FEEDBACK=8/8 PASS
+BIT_POSITION_MAPPING=8/8 PASS
+PHYSICAL_CORRELATION=8/8 PASS
+CROSSED_BITS=0
+BACKPLANE_PERSISTENCE=PASS
+BACKPLANE_RECOMPILE=PASS
+RTU_AUTOMATIC_RECOVERY=PASS
+POST_RECOVERY_PHYSICAL_IO=PASS
+```
+
+El banco de prueba sólo permitía activar una entrada a la vez:
+
+```text
+MULTIBIT_SIMULTANEOUS=NOT_TESTED
+```
+
+El VPP conservado usa versionado propio:
+
+```text
+JWPLC Basic OpenPLC VPP = 2.1.0-alpha.19
+Signature               = ed25519 / jwcontrol-2026
+Signed payload          = 9/9 PASS
+```
 
 No asumir:
 
 ```text
 OpenPLC integrado al autoload Arduino = NO
+Backplane baudrate configurable por UI = NO en Alpha9
+Backplane serial format configurable   = NO en Alpha9
 ```
+
+La HMI Arduino de Alpha8 todavía no está expuesta a Ladder/OpenPLC.
 
 ---
 
@@ -476,31 +528,25 @@ Versión estable:
 https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json
 ```
 
-Versión dev publicada:
+Versión candidata al merge técnico:
 
 ```text
-2.1.0-alpha.8
+2.1.0-alpha.9
 ```
 
-La publicación Alpha8 completó:
+Estado previo a publicación automática:
 
 ```text
-PR técnico                         PASS
-CI JWPLC Package Smoke             PASS
-merge release/v2.1.x               PASS
-workflow de publicación            PASS
-PreRelease v2.1.0-alpha.8          PASS
-índice dev                         PASS
-instalación aislada                PASS
-compilación Buttons publicada      PASS
-compilación HMI publicada          PASS
-procedencia sin jwplc_local        PASS
-upload físico package publicado    PASS
+ALPHA9_TECHNICAL_CLOSURE=PASS
+ALPHA9_BACKPLANE_FIXED_PROFILE_115200_8N1=PASS
+ALPHA9_VPP_SIGNED_PAYLOAD=PASS
+ALPHA9_WORKSHOP_ARTIFACT_BUNDLE=PASS
+ALPHA9_PUBLICATION=PENDING_AUTOMATION
 ```
+
+Al integrar el PR técnico a `release/v2.1.x`, el workflow automático debe generar la PreRelease `v2.1.0-alpha.9`, actualizar el índice dev y abrir el PR correspondiente hacia `main`.
 
 Para desarrollo local se utiliza el namespace `jwplc_local`.
-
-La validación final de publicación se realizó también con el namespace público `jwplc` instalado desde el índice dev.
 
 ---
 
@@ -514,7 +560,7 @@ La validación final de publicación se realizó también con el namespace públ
 
 ---
 
-# Decisiones del ciclo 2.1.0 que Alpha8 no cambia
+# Decisiones del ciclo 2.1.0 que Alpha9 no cambia
 
 ```text
 APP_ONLY=VALIDATED_DEVELOPMENT_TOOL
@@ -535,29 +581,30 @@ No se retiran periféricos del autoload para acelerar compilación.
 
 ---
 
-# Documentación Alpha8
+# Documentación Alpha9
 
-El cierre de Alpha8 se documenta en:
+El cierre técnico de Alpha9 se documenta en:
 
-- `docs/v2.1.0-alpha.8/ALPHA8_BUILD_SPEED_AND_LAZY_LINK.md`;
-- `docs/v2.1.0-alpha.8/ALPHA8_HMI_BUTTON_VALIDATION.md`;
-- `docs/v2.1.0-alpha.8/ALPHA8_WORKSHOP_EXAMPLES.md`;
-- `docs/v2.1.0-alpha.8/ALPHA8_CLOSURE_CHECKLIST.md`;
-- `docs/v2.1.0-alpha.8/ALPHA8_TECHNICAL_CLOSURE.md`;
-- `docs/v2.1.0-alpha.8/ALPHA8_TO_ALPHA9_OPENPLC_HANDOFF.md`;
-- `docs/v2.1.0-alpha.8/PULL_REQUEST.md`;
-- `docs/v2.1.0-alpha.8/PRE_RELEASE.md`.
+- `docs/v2.1.0-alpha.9/ALPHA9_TECHNICAL_CLOSURE.md`;
+- `docs/v2.1.0-alpha.9/ALPHA9_CLOSURE_CHECKLIST.md`;
+- `docs/v2.1.0-alpha.9/ALPHA9_TO_ALPHA10_HANDOFF.md`;
+- `docs/v2.1.0-alpha.9/PULL_REQUEST.md`;
+- `docs/v2.1.0-alpha.9/PRE_RELEASE.md`;
+- `JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/examples/JWPLC_RemoteIO_Slave_RTU/README.md`.
 
-Estado final:
+Estado técnico previo a publicación:
 
 ```text
-ALPHA8_TECHNICAL_CLOSURE=PASS
-ALPHA8_PUBLIC_RELEASE=v2.1.0-alpha.8
-ALPHA8_ISOLATED_INSTALL=PASS
-ALPHA8_ISOLATED_COMPILE=PASS
-ALPHA8_PUBLIC_PACKAGE_PROVENANCE=PASS
-ALPHA8_ISOLATED_PHYSICAL_UPLOAD=PASS
-ALPHA8_STATUS=CLOSED
+ALPHA9_FINAL_BASE_CORRECT=PASS
+ALPHA9_BACKPLANE_8CH_ONE_HOT=PASS
+ALPHA9_BACKPLANE_PERSISTENCE=PASS
+ALPHA9_BACKPLANE_RECOVERY=PASS
+ALPHA9_BACKPLANE_FIXED_PROFILE_115200_8N1=PASS
+ALPHA9_VPP_SIGNED_PAYLOAD=PASS
+ALPHA9_WORKSHOP_ARTIFACT_BUNDLE=PASS
+ALPHA9_TECHNICAL_CLOSURE=PASS
+ALPHA9_STATUS=TECHNICALLY_CLOSED
+ALPHA9_PUBLICATION=PENDING_PR_CI_RELEASE
 ```
 
-El siguiente trabajo funcional corresponde a Alpha9/OpenPLC.
+El siguiente ciclo debe partir del `release/v2.1.x` publicado/sincronizado y retomar los pendientes explícitos de Alpha9 sin asumirlos ya resueltos.
