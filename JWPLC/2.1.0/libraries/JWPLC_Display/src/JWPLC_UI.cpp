@@ -23,27 +23,44 @@ namespace
 
     struct FieldRuntime
     {
-        JWPLC_UIField def = {};
-        bool used = false;
-        bool dirty = true;
-        bool hasValue = false;
+        JWPLC_UIField def;
+        bool used;
+        bool dirty;
+        bool hasValue;
 
-        char value[VALUE_BUFFER_SIZE] = {};
+        char value[VALUE_BUFFER_SIZE];
+        float barValue;
 
-        float barValue = 0.0f;
+        int16_t fieldX;
+        int16_t fieldY;
+        int16_t fieldW;
+        int16_t fieldH;
 
-        int16_t fieldX = 0;
-        int16_t fieldY = 0;
-        int16_t fieldW = 0;
-        int16_t fieldH = 0;
+        int16_t valueX;
+        int16_t valueY;
+        int16_t valueW;
+        int16_t valueH;
 
-        int16_t valueX = 0;
-        int16_t valueY = 0;
-        int16_t valueW = 0;
-        int16_t valueH = 0;
+        FieldRuntime()
+            : def(),
+              used(false),
+              dirty(true),
+              hasValue(false),
+              barValue(0.0f),
+              fieldX(0),
+              fieldY(0),
+              fieldW(0),
+              fieldH(0),
+              valueX(0),
+              valueY(0),
+              valueW(0),
+              valueH(0)
+        {
+            memset(value, 0, sizeof(value));
+        }
     };
 
-    FieldRuntime g_fields[JWPLC_UI_MAX_FIELDS] = {};
+    FieldRuntime g_fields[JWPLC_UI_MAX_FIELDS];
     size_t g_fieldCount = 0;
 
     JWPLC_UIRefreshMode g_refreshMode = USER_REFRESH_ON_DEMAND;
@@ -52,11 +69,16 @@ namespace
     uint8_t g_page = 0;
     bool g_pageRedrawPending = true;
 
+    bool userModeVisible()
+    {
+        return !JWPLC_Display.isIdleMode();
+    }
+
     FieldRuntime *findField(uint8_t id)
     {
         for (size_t i = 0; i < g_fieldCount; ++i)
         {
-            if (g_fields[i].used && g_fields[i].def.id == id)
+            if (g_fields[i].used && g_fields[i].def.meta.id == id)
             {
                 return &g_fields[i];
             }
@@ -70,7 +92,7 @@ namespace
         for (size_t i = 0; i < g_fieldCount; ++i)
         {
             if (g_fields[i].used &&
-                g_fields[i].def.page == g_page &&
+                g_fields[i].def.meta.page == g_page &&
                 g_fields[i].dirty)
             {
                 return true;
@@ -80,10 +102,25 @@ namespace
         return false;
     }
 
-    void requestRefreshInternal()
+    void requestCurrentViewRefresh()
     {
         g_refreshRequested = true;
-        jwplcSystemForceDisplayRefresh();
+
+        // Si USER no esta visible, conservar dirty/cache sin tocar la TFT.
+        if (userModeVisible())
+        {
+            jwplcSystemForceDisplayRefresh();
+        }
+    }
+
+    void markFieldDirty(FieldRuntime &field)
+    {
+        field.dirty = true;
+
+        if (field.def.meta.page == g_page)
+        {
+            requestCurrentViewRefresh();
+        }
     }
 
     void textBounds(
@@ -120,7 +157,7 @@ namespace
 
         size_t pos = 0;
 
-        if (def.format.reserveSign && pos + 1 < outSize)
+        if (def.format.signedValue && pos + 1 < outSize)
         {
             out[pos++] = '-';
         }
@@ -152,9 +189,7 @@ namespace
             return;
         }
 
-        const uint8_t count =
-            (capacity == 0) ? 1 : capacity;
-
+        const uint8_t count = (capacity == 0) ? 1 : capacity;
         size_t pos = 0;
 
         for (uint8_t i = 0; i < count && pos + 1 < outSize; ++i)
@@ -172,16 +207,15 @@ namespace
             return;
         }
 
-        size_t slots = (def.format.integerDigits == 0)
-                           ? 1
-                           : def.format.integerDigits;
+        size_t slots =
+            (def.format.integerDigits == 0) ? 1 : def.format.integerDigits;
 
         if (def.format.decimalDigits > 0)
         {
             slots += 1 + def.format.decimalDigits;
         }
 
-        if (def.format.reserveSign)
+        if (def.format.signedValue)
         {
             slots += 1;
         }
@@ -212,7 +246,15 @@ namespace
 
         if (!std::isfinite(value))
         {
-            snprintf(out, outSize, "NaN");
+            makeOverflowText(def, out, outSize);
+            return false;
+        }
+
+        const bool negative = value < 0.0;
+
+        if (negative && !def.format.signedValue)
+        {
+            makeOverflowText(def, out, outSize);
             return false;
         }
 
@@ -223,13 +265,27 @@ namespace
             const uint8_t integerDigits =
                 (def.format.integerDigits == 0) ? 1 : def.format.integerDigits;
 
-            const bool negative = value < 0.0;
-            const int width =
-                integerDigits +
-                ((decimals > 0) ? (1 + decimals) : 0) +
-                (negative ? 1 : 0);
+            const int magnitudeWidth =
+                integerDigits + ((decimals > 0) ? (1 + decimals) : 0);
 
-            snprintf(out, outSize, "%0*.*f", width, decimals, value);
+            char magnitude[VALUE_BUFFER_SIZE] = {};
+            snprintf(
+                magnitude,
+                sizeof(magnitude),
+                "%0*.*f",
+                magnitudeWidth,
+                decimals,
+                std::fabs(value));
+
+            if (negative)
+            {
+                snprintf(out, outSize, "-%s", magnitude);
+            }
+            else
+            {
+                strncpy(out, magnitude, outSize - 1);
+                out[outSize - 1] = '\0';
+            }
         }
         else
         {
@@ -284,10 +340,47 @@ namespace
         field.value[sizeof(field.value) - 1] = '\0';
 
         field.hasValue = true;
-        field.dirty = true;
-
-        requestRefreshInternal();
+        markFieldDirty(field);
         return true;
+    }
+
+    int16_t alignedValueX(
+        Adafruit_ST7789 &tft,
+        const FieldRuntime &field)
+    {
+        if (field.def.meta.type == JWPLC_UI_FIELD_BAR)
+        {
+            return field.valueX;
+        }
+
+        uint16_t currentW = 0;
+        uint16_t currentH = 0;
+        textBounds(
+            tft,
+            field.value,
+            field.def.style.valueTextSize,
+            currentW,
+            currentH);
+
+        if ((int16_t)currentW >= field.valueW)
+        {
+            return field.valueX;
+        }
+
+        const int16_t freeW = field.valueW - (int16_t)currentW;
+
+        switch (field.def.style.valueAlign)
+        {
+        case JWPLC_UI_ALIGN_CENTER:
+            return field.valueX + freeW / 2;
+
+        case JWPLC_UI_ALIGN_RIGHT:
+            return field.valueX + freeW;
+
+        case JWPLC_UI_ALIGN_LEFT:
+        default:
+            return field.valueX;
+        }
     }
 
     void computeFieldGeometry(Adafruit_ST7789 &tft, FieldRuntime &field)
@@ -296,27 +389,49 @@ namespace
 
         uint16_t labelW = 0;
         uint16_t labelH = 0;
-        textBounds(tft, def.label, def.labelTextSize, labelW, labelH);
+        textBounds(
+            tft,
+            def.text.label,
+            def.style.labelTextSize,
+            labelW,
+            labelH);
 
         uint16_t unitW = 0;
         uint16_t unitH = 0;
-        textBounds(tft, def.unit, def.labelTextSize, unitW, unitH);
+        textBounds(
+            tft,
+            def.text.unit,
+            def.style.labelTextSize,
+            unitW,
+            unitH);
 
         uint16_t valueW = 0;
         uint16_t valueH = 0;
-
         char sample[VALUE_BUFFER_SIZE] = {};
 
-        switch (def.type)
+        switch (def.meta.type)
         {
         case JWPLC_UI_FIELD_VALUE:
             makeNumericSample(def, sample, sizeof(sample));
-            textBounds(tft, sample, def.valueTextSize, valueW, valueH);
+            textBounds(
+                tft,
+                sample,
+                def.style.valueTextSize,
+                valueW,
+                valueH);
             break;
 
         case JWPLC_UI_FIELD_TEXT:
-            makeTextSample(def.textCapacity, sample, sizeof(sample));
-            textBounds(tft, sample, def.valueTextSize, valueW, valueH);
+            makeTextSample(
+                def.options.textCapacity,
+                sample,
+                sizeof(sample));
+            textBounds(
+                tft,
+                sample,
+                def.style.valueTextSize,
+                valueW,
+                valueH);
             break;
 
         case JWPLC_UI_FIELD_BOOL:
@@ -328,15 +443,19 @@ namespace
 
             textBounds(
                 tft,
-                (def.falseText != nullptr) ? def.falseText : "OFF",
-                def.valueTextSize,
+                (def.options.boolText.falseText != nullptr)
+                    ? def.options.boolText.falseText
+                    : "OFF",
+                def.style.valueTextSize,
                 falseW,
                 falseH);
 
             textBounds(
                 tft,
-                (def.trueText != nullptr) ? def.trueText : "ON",
-                def.valueTextSize,
+                (def.options.boolText.trueText != nullptr)
+                    ? def.options.boolText.trueText
+                    : "ON",
+                def.style.valueTextSize,
                 trueW,
                 trueH);
 
@@ -348,24 +467,21 @@ namespace
         case JWPLC_UI_FIELD_BAR:
         default:
             valueW =
-                (def.width == JWPLC_UI_AUTO)
+                (def.rect.width == JWPLC_UI_AUTO)
                     ? DEFAULT_BAR_WIDTH
-                    : (uint16_t)((def.width > 2 * FIELD_PADDING)
-                                     ? def.width - 2 * FIELD_PADDING
+                    : (uint16_t)((def.rect.width > 2 * FIELD_PADDING)
+                                     ? def.rect.width - 2 * FIELD_PADDING
                                      : DEFAULT_BAR_WIDTH);
-
             valueH = DEFAULT_BAR_HEIGHT;
             break;
         }
 
-        if (def.type == JWPLC_UI_FIELD_BAR &&
-            def.width != JWPLC_UI_AUTO)
+        if (def.meta.type == JWPLC_UI_FIELD_BAR &&
+            def.rect.width != JWPLC_UI_AUTO)
         {
-            int16_t available =
-                def.width - 2 * FIELD_PADDING;
+            int16_t available = def.rect.width - 2 * FIELD_PADDING;
 
-            if (def.layout == JWPLC_UI_LAYOUT_INLINE &&
-                labelW > 0)
+            if (def.style.layout == JWPLC_UI_LAYOUT_INLINE && labelW > 0)
             {
                 available -= (int16_t)labelW + FIELD_GAP;
             }
@@ -384,11 +500,10 @@ namespace
         }
 
         const int16_t pad = FIELD_PADDING;
-
         int16_t autoW = 0;
         int16_t autoH = 0;
 
-        if (def.layout == JWPLC_UI_LAYOUT_STACKED)
+        if (def.style.layout == JWPLC_UI_LAYOUT_STACKED)
         {
             const int16_t valueAndUnitW =
                 (int16_t)valueW +
@@ -406,9 +521,9 @@ namespace
                 ((labelH > 0) ? FIELD_GAP : 0) +
                 (int16_t)((valueH > unitH) ? valueH : unitH);
 
-            field.valueX = def.x + pad;
+            field.valueX = def.rect.x + pad;
             field.valueY =
-                def.y + pad +
+                def.rect.y + pad +
                 (int16_t)labelH +
                 ((labelH > 0) ? FIELD_GAP : 0);
         }
@@ -428,25 +543,27 @@ namespace
                               : ((valueH > unitH) ? valueH : unitH));
 
             field.valueX =
-                def.x + pad +
+                def.rect.x + pad +
                 (int16_t)labelW +
                 ((labelW > 0) ? FIELD_GAP : 0);
 
-            field.valueY = def.y + pad;
+            field.valueY = def.rect.y + pad;
         }
 
-        field.fieldX = def.x;
-        field.fieldY = def.y;
+        field.fieldX = def.rect.x;
+        field.fieldY = def.rect.y;
         field.fieldW =
-            (def.width == JWPLC_UI_AUTO) ? autoW : def.width;
+            (def.rect.width == JWPLC_UI_AUTO) ? autoW : def.rect.width;
         field.fieldH =
-            (def.height == JWPLC_UI_AUTO) ? autoH : def.height;
+            (def.rect.height == JWPLC_UI_AUTO) ? autoH : def.rect.height;
 
         field.valueW = (int16_t)valueW;
         field.valueH =
-            (def.type == JWPLC_UI_FIELD_BAR)
+            (def.meta.type == JWPLC_UI_FIELD_BAR)
                 ? (int16_t)valueH
-                : (int16_t)((valueH == 0) ? (6 * def.valueTextSize) : valueH);
+                : (int16_t)((valueH == 0)
+                                 ? (6 * def.style.valueTextSize)
+                                 : valueH);
     }
 
     void drawFieldStatic(Adafruit_ST7789 &tft, FieldRuntime &field)
@@ -462,41 +579,47 @@ namespace
                 field.fieldY,
                 field.fieldW,
                 field.fieldH,
-                def.backgroundColor);
+                def.style.colors.background);
         }
 
-        if (def.frame && field.fieldW > 1 && field.fieldH > 1)
+        if (def.style.frame && field.fieldW > 1 && field.fieldH > 1)
         {
             tft.drawRect(
                 field.fieldX,
                 field.fieldY,
                 field.fieldW,
                 field.fieldH,
-                def.frameColor);
+                def.style.colors.frame);
         }
 
-        uint16_t labelW = 0;
-        uint16_t labelH = 0;
-        textBounds(tft, def.label, def.labelTextSize, labelW, labelH);
-
-        if (def.label != nullptr && def.label[0] != '\0')
+        if (def.text.label != nullptr && def.text.label[0] != '\0')
         {
-            tft.setTextSize((def.labelTextSize == 0) ? 1 : def.labelTextSize);
-            tft.setTextColor(def.labelColor, def.backgroundColor);
+            tft.setTextSize(
+                (def.style.labelTextSize == 0)
+                    ? 1
+                    : def.style.labelTextSize);
+            tft.setTextColor(
+                def.style.colors.label,
+                def.style.colors.background);
             tft.setCursor(
-                def.x + FIELD_PADDING,
-                def.y + FIELD_PADDING);
-            tft.print(def.label);
+                def.rect.x + FIELD_PADDING,
+                def.rect.y + FIELD_PADDING);
+            tft.print(def.text.label);
         }
 
-        if (def.unit != nullptr && def.unit[0] != '\0')
+        if (def.text.unit != nullptr && def.text.unit[0] != '\0')
         {
-            tft.setTextSize((def.labelTextSize == 0) ? 1 : def.labelTextSize);
-            tft.setTextColor(def.labelColor, def.backgroundColor);
+            tft.setTextSize(
+                (def.style.labelTextSize == 0)
+                    ? 1
+                    : def.style.labelTextSize);
+            tft.setTextColor(
+                def.style.colors.label,
+                def.style.colors.background);
             tft.setCursor(
                 field.valueX + field.valueW + FIELD_GAP,
                 field.valueY);
-            tft.print(def.unit);
+            tft.print(def.text.unit);
         }
 
         field.dirty = true;
@@ -512,12 +635,13 @@ namespace
             return;
         }
 
+        // Alpha8: al cambiar una variable solo se limpia su region VALUE.
         tft.fillRect(
             field.valueX,
             field.valueY,
             field.valueW,
             field.valueH,
-            def.backgroundColor);
+            def.style.colors.background);
 
         if (!field.hasValue)
         {
@@ -525,10 +649,10 @@ namespace
             return;
         }
 
-        if (def.type == JWPLC_UI_FIELD_BAR)
+        if (def.meta.type == JWPLC_UI_FIELD_BAR)
         {
-            float minValue = def.barMin;
-            float maxValue = def.barMax;
+            float minValue = def.options.barRange.min;
+            float maxValue = def.options.barRange.max;
 
             if (maxValue <= minValue)
             {
@@ -536,8 +660,7 @@ namespace
             }
 
             float normalized =
-                (field.barValue - minValue) /
-                (maxValue - minValue);
+                (field.barValue - minValue) / (maxValue - minValue);
 
             if (normalized < 0.0f)
             {
@@ -558,16 +681,21 @@ namespace
                     field.valueY,
                     fillW,
                     field.valueH,
-                    def.valueColor);
+                    def.style.colors.value);
             }
 
             field.dirty = false;
             return;
         }
 
-        tft.setTextSize((def.valueTextSize == 0) ? 1 : def.valueTextSize);
-        tft.setTextColor(def.valueColor, def.backgroundColor);
-        tft.setCursor(field.valueX, field.valueY);
+        tft.setTextSize(
+            (def.style.valueTextSize == 0)
+                ? 1
+                : def.style.valueTextSize);
+        tft.setTextColor(
+            def.style.colors.value,
+            def.style.colors.background);
+        tft.setCursor(alignedValueX(tft, field), field.valueY);
         tft.print(field.value);
 
         field.dirty = false;
@@ -588,14 +716,14 @@ namespace JWPLCUI
 
         for (size_t i = 0; i < JWPLC_UI_MAX_FIELDS; ++i)
         {
-            g_fields[i] = FieldRuntime{};
+            g_fields[i] = FieldRuntime();
         }
 
         for (size_t i = 0; i < count; ++i)
         {
             for (size_t j = 0; j < i; ++j)
             {
-                if (fields[i].id == fields[j].id)
+                if (fields[i].meta.id == fields[j].meta.id)
                 {
                     return false;
                 }
@@ -608,7 +736,7 @@ namespace JWPLCUI
         }
 
         g_pageRedrawPending = true;
-        requestRefreshInternal();
+        requestCurrentViewRefresh();
         return true;
     }
 
@@ -618,11 +746,11 @@ namespace JWPLCUI
 
         for (size_t i = 0; i < JWPLC_UI_MAX_FIELDS; ++i)
         {
-            g_fields[i] = FieldRuntime{};
+            g_fields[i] = FieldRuntime();
         }
 
         g_pageRedrawPending = true;
-        requestRefreshInternal();
+        requestCurrentViewRefresh();
     }
 
     size_t fieldCount()
@@ -635,7 +763,7 @@ namespace JWPLCUI
         FieldRuntime *field = findField(fieldId);
 
         if (field == nullptr ||
-            field->def.type != JWPLC_UI_FIELD_VALUE)
+            field->def.meta.type != JWPLC_UI_FIELD_VALUE)
         {
             return false;
         }
@@ -657,7 +785,7 @@ namespace JWPLCUI
         FieldRuntime *field = findField(fieldId);
 
         if (field == nullptr ||
-            field->def.type != JWPLC_UI_FIELD_TEXT)
+            field->def.meta.type != JWPLC_UI_FIELD_TEXT)
         {
             return false;
         }
@@ -670,9 +798,9 @@ namespace JWPLCUI
         char clipped[VALUE_BUFFER_SIZE] = {};
 
         const uint8_t capacity =
-            (field->def.textCapacity == 0)
+            (field->def.options.textCapacity == 0)
                 ? (VALUE_BUFFER_SIZE - 1)
-                : field->def.textCapacity;
+                : field->def.options.textCapacity;
 
         const size_t allowed =
             (capacity < VALUE_BUFFER_SIZE - 1)
@@ -692,18 +820,18 @@ namespace JWPLCUI
         FieldRuntime *field = findField(fieldId);
 
         if (field == nullptr ||
-            field->def.type != JWPLC_UI_FIELD_BOOL)
+            field->def.meta.type != JWPLC_UI_FIELD_BOOL)
         {
             return false;
         }
 
         const char *text =
             value
-                ? ((field->def.trueText != nullptr)
-                       ? field->def.trueText
+                ? ((field->def.options.boolText.trueText != nullptr)
+                       ? field->def.options.boolText.trueText
                        : "ON")
-                : ((field->def.falseText != nullptr)
-                       ? field->def.falseText
+                : ((field->def.options.boolText.falseText != nullptr)
+                       ? field->def.options.boolText.falseText
                        : "OFF");
 
         setValueString(*field, text);
@@ -715,7 +843,7 @@ namespace JWPLCUI
         FieldRuntime *field = findField(fieldId);
 
         if (field == nullptr ||
-            field->def.type != JWPLC_UI_FIELD_BAR)
+            field->def.meta.type != JWPLC_UI_FIELD_BAR)
         {
             return false;
         }
@@ -727,16 +855,14 @@ namespace JWPLCUI
 
         field->barValue = value;
         field->hasValue = true;
-        field->dirty = true;
-
-        requestRefreshInternal();
+        markFieldDirty(*field);
         return true;
     }
 
     void setRefreshMode(JWPLC_UIRefreshMode mode)
     {
         g_refreshMode = mode;
-        requestRefreshInternal();
+        requestCurrentViewRefresh();
     }
 
     JWPLC_UIRefreshMode refreshMode()
@@ -746,7 +872,7 @@ namespace JWPLCUI
 
     void requestRefresh()
     {
-        requestRefreshInternal();
+        requestCurrentViewRefresh();
     }
 
     bool refreshNeeded()
@@ -775,13 +901,13 @@ namespace JWPLCUI
         for (size_t i = 0; i < g_fieldCount; ++i)
         {
             if (g_fields[i].used &&
-                g_fields[i].def.page == g_page)
+                g_fields[i].def.meta.page == g_page)
             {
                 g_fields[i].dirty = true;
             }
         }
 
-        requestRefreshInternal();
+        requestCurrentViewRefresh();
     }
 
     uint8_t currentPage()
@@ -808,8 +934,7 @@ namespace JWPLCUI
             return;
         }
 
-        field->dirty = true;
-        requestRefreshInternal();
+        markFieldDirty(*field);
     }
 
     void invalidateAll(bool redrawStatic)
@@ -827,7 +952,7 @@ namespace JWPLCUI
             g_pageRedrawPending = true;
         }
 
-        requestRefreshInternal();
+        requestCurrentViewRefresh();
     }
 
     void prepareEnter()
@@ -837,7 +962,7 @@ namespace JWPLCUI
         for (size_t i = 0; i < g_fieldCount; ++i)
         {
             if (g_fields[i].used &&
-                g_fields[i].def.page == g_page)
+                g_fields[i].def.meta.page == g_page)
             {
                 g_fields[i].dirty = true;
             }
@@ -852,7 +977,7 @@ namespace JWPLCUI
         {
             FieldRuntime &field = g_fields[i];
 
-            if (!field.used || field.def.page != g_page)
+            if (!field.used || field.def.meta.page != g_page)
             {
                 continue;
             }
@@ -868,7 +993,7 @@ namespace JWPLCUI
             FieldRuntime &field = g_fields[i];
 
             if (!field.used ||
-                field.def.page != g_page ||
+                field.def.meta.page != g_page ||
                 !field.dirty)
             {
                 continue;
@@ -878,6 +1003,7 @@ namespace JWPLCUI
         }
     }
 }
+
 // =====================================================
 // Puente API publica JWPLC_DisplayClass -> motor HMI Alpha8
 // =====================================================
