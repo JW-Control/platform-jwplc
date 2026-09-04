@@ -13,7 +13,7 @@ El objetivo es ofrecer una experiencia cercana a Arduino sin perder las funcione
 | Canal | Versión | Estado |
 |---|---|---|
 | Público / estable | `v2.0.0` | Recomendado para proyectos estables. |
-| Dev candidata | `v2.1.0-alpha.9` | Cierre técnico aprobado; publicación automática al integrar en `release/v2.1.x`. |
+| Dev / PreRelease | `v2.1.0-alpha.9` | **Publicada y cerrada**. Backplane OpenPLC / Remote I/O validado en `115200 8N1`. |
 | Siguiente trabajo | `Alpha10` | Configuración RTU del Backplane, referencias FB de timers y source freeze del fork OpenPLC Editor. |
 
 Alpha9 parte del package publicado Alpha8 y **no retira ningún periférico del autoload normal**.
@@ -37,6 +37,14 @@ Alpha9 valida:
 - recuperación automática tras power-cycle del Slave sin resetear el Master;
 - VPP JWPLC Basic OpenPLC `2.1.0-alpha.19` con payload Ed25519 9/9 verificado;
 - artefactos de taller para `OpenPLC Editor - JWPLC Edition 4.2.8-jwplc.2`.
+
+Artefacto Arduino publicado:
+
+```text
+jwplc-esp32-2.1.0-alpha.9.zip
+Bytes: 24464282
+SHA-256: 015679533e13dabbe79041771e1e85d3011970dd0c69bc62e3b51f3101043907
+```
 
 La selección de baudrate/formato desde el Backplane, las referencias tipadas `TON0.Q` / `TOF0.Q` / `TP0.Q`, el source freeze reproducible del fork OpenPLC Editor y la exposición de la HMI Alpha8 hacia Ladder quedan explícitamente fuera de Alpha9.
 
@@ -528,23 +536,30 @@ Versión estable:
 https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json
 ```
 
-Versión candidata al merge técnico:
+Versión publicada:
 
 ```text
 2.1.0-alpha.9
 ```
 
-Estado previo a publicación automática:
+Metadata del package:
+
+```text
+ZIP: jwplc-esp32-2.1.0-alpha.9.zip
+Bytes: 24464282
+SHA-256: 015679533e13dabbe79041771e1e85d3011970dd0c69bc62e3b51f3101043907
+```
+
+Estado:
 
 ```text
 ALPHA9_TECHNICAL_CLOSURE=PASS
-ALPHA9_BACKPLANE_FIXED_PROFILE_115200_8N1=PASS
-ALPHA9_VPP_SIGNED_PAYLOAD=PASS
-ALPHA9_WORKSHOP_ARTIFACT_BUNDLE=PASS
-ALPHA9_PUBLICATION=PENDING_AUTOMATION
+ALPHA9_RELEASE_PUBLICATION=PASS
+ALPHA9_DEV_INDEX=PASS
+ALPHA9_STABLE_INDEX_UNCHANGED=PASS
+ALPHA9_MAIN_SYNC=PASS
+ALPHA9_STATUS=CLOSED_PUBLISHED
 ```
-
-Al integrar el PR técnico a `release/v2.1.x`, el workflow automático debe generar la PreRelease `v2.1.0-alpha.9`, actualizar el índice dev y abrir el PR correspondiente hacia `main`.
 
 Para desarrollo local se utiliza el namespace `jwplc_local`.
 
@@ -583,16 +598,17 @@ No se retiran periféricos del autoload para acelerar compilación.
 
 # Documentación Alpha9
 
-El cierre técnico de Alpha9 se documenta en:
+El cierre de Alpha9 se documenta en:
 
 - `docs/v2.1.0-alpha.9/ALPHA9_TECHNICAL_CLOSURE.md`;
 - `docs/v2.1.0-alpha.9/ALPHA9_CLOSURE_CHECKLIST.md`;
+- `docs/v2.1.0-alpha.9/ALPHA9_PUBLICATION_CLOSURE_20260904.md`;
 - `docs/v2.1.0-alpha.9/ALPHA9_TO_ALPHA10_HANDOFF.md`;
 - `docs/v2.1.0-alpha.9/PULL_REQUEST.md`;
 - `docs/v2.1.0-alpha.9/PRE_RELEASE.md`;
 - `JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/examples/JWPLC_RemoteIO_Slave_RTU/README.md`.
 
-Estado técnico previo a publicación:
+Estado final:
 
 ```text
 ALPHA9_FINAL_BASE_CORRECT=PASS
@@ -602,9 +618,16 @@ ALPHA9_BACKPLANE_RECOVERY=PASS
 ALPHA9_BACKPLANE_FIXED_PROFILE_115200_8N1=PASS
 ALPHA9_VPP_SIGNED_PAYLOAD=PASS
 ALPHA9_WORKSHOP_ARTIFACT_BUNDLE=PASS
-ALPHA9_TECHNICAL_CLOSURE=PASS
-ALPHA9_STATUS=TECHNICALLY_CLOSED
-ALPHA9_PUBLICATION=PENDING_PR_CI_RELEASE
+ALPHA9_RELEASE_TAG=PASS
+ALPHA9_RELEASE_ASSET=PASS
+ALPHA9_DEV_INDEX=PASS
+ALPHA9_STABLE_INDEX_UNCHANGED=PASS
+ALPHA9_MAIN_SYNC=PASS
+ALPHA9_DOCUMENTATION=PASS
+ALPHA9_STATUS=CLOSED_PUBLISHED
+NEXT=ALPHA10
 ```
 
-El siguiente ciclo debe partir del `release/v2.1.x` publicado/sincronizado y retomar los pendientes explícitos de Alpha9 sin asumirlos ya resueltos.
+`main` exige historia lineal. La sincronización del árbol técnico desde `release/v2.1.x` se realizó mediante squash en el PR #82 después de que fast-forward/merge/rebase no fueran compatibles con el ruleset y la historia heredada de `release`. Antes de integrar el índice, ambos árboles técnicos tuvieron el mismo tree SHA `e4027a3b071906283b9498239845e384e082d411`.
+
+El siguiente ciclo debe retomar los pendientes explícitos de Alpha9 sin asumirlos ya resueltos.
