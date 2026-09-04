@@ -2,9 +2,25 @@
 
 Librería del package **JWPLC ESP32** para Modbus RTU sobre `JWPLC_RS485`.
 
-Desde Alpha7, el Master usa un modelo **cooperativo/no bloqueante por defecto**. La API síncrona existe de forma explícita para commissioning, pruebas o sketches simples, pero no es la ruta recomendada para lógica PLC, Backplane ni Remote I/O.
+El Master recomendado usa un motor **cooperativo/no bloqueante**. Las variantes `...Sync()` se conservan para commissioning o sketches donde una espera bloqueante sea aceptable.
 
-## Funciones Modbus soportadas en Alpha7
+## Configuración
+
+Ejemplo Slave:
+
+```cpp
+JWPLC_ModbusRTU.begin(2, 115200, SERIAL_8N1);
+```
+
+Ejemplo Master:
+
+```cpp
+JWPLC_ModbusRTU.begin(247, 115200, SERIAL_8N1);
+```
+
+El ID `247` se usa en los ejemplos como ID local interno del Master; el ID destino se especifica en cada `request...()`.
+
+## Funciones soportadas
 
 ### Slave / Server
 
@@ -21,7 +37,7 @@ Desde Alpha7, el Master usa un modelo **cooperativo/no bloqueante por defecto**.
 
 ### Master cooperativo
 
-| Código | API principal |
+| Código | API |
 |---:|---|
 | `0x01` | `requestReadCoils()` |
 | `0x02` | `requestReadDiscreteInputs()` |
@@ -31,192 +47,110 @@ Desde Alpha7, el Master usa un modelo **cooperativo/no bloqueante por defecto**.
 | `0x06` | `requestWriteSingleRegister()` |
 | `0x0F` | `requestWriteMultipleCoils()` |
 
-Las variantes `...Sync()` exponen las mismas operaciones Master cuando bloquear el flujo de aplicación es aceptable.
-
 ## Mapas Slave
 
-Coils y Discrete Inputs se almacenan como bits empaquetados LSB-first. Para 8 señales basta un byte:
+```cpp
+uint8_t coils = 0;
+uint8_t discreteInputs = 0;
+uint16_t holding[8] = {};
+uint16_t inputRegisters[8] = {};
+
+JWPLC_ModbusRTU.setCoils(&coils, 8);
+JWPLC_ModbusRTU.setDiscreteInputs(&discreteInputs, 8);
+JWPLC_ModbusRTU.setHoldingRegisters(holding, 8);
+JWPLC_ModbusRTU.setInputRegisters(inputRegisters, 8);
+```
+
+Coils/Discrete Inputs usan bits empaquetados LSB-first. Bit 0 corresponde a la dirección 0.
+
+Helpers de mapa:
 
 ```cpp
-uint8_t coils = 0x00;
-uint8_t inputs = 0x00;
-uint16_t holding[16] = {};
-uint16_t inputRegs[16] = {};
+JWPLC_ModbusRTU.getCoil(...);
+JWPLC_ModbusRTU.setCoil(...);
+JWPLC_ModbusRTU.getDiscreteInput(...);
+JWPLC_ModbusRTU.getHoldingRegister(...);
+JWPLC_ModbusRTU.setHoldingRegister(...);
+JWPLC_ModbusRTU.getInputRegister(...);
+```
 
-void setup()
-{
-    JWPLC_ModbusRTU.setCoils(&coils, 8);
-    JWPLC_ModbusRTU.setDiscreteInputs(&inputs, 8);
-    JWPLC_ModbusRTU.setHoldingRegisters(holding, 16);
-    JWPLC_ModbusRTU.setInputRegisters(inputRegs, 16);
+## Slave: atender requests
 
-    JWPLC_ModbusRTU.begin(1, 115200, SERIAL_8N1);
-}
-
+```cpp
 void loop()
 {
-    // Refrescar inputs antes de atender requests FC02.
-    inputs = JWPLC_readInputs();
-
     JWPLC_ModbusRTU.task();
-
-    // Aplicar la imagen de coils recibida por FC05/FC15.
-    JWPLC_writeOutputs(coils);
 }
 ```
 
-Para más de 8 bits, el mapa ocupa `ceil(count / 8)` bytes.
+`task()` debe ejecutarse con frecuencia.
 
-## Actividad válida y fail-safe Remote I/O
-
-La librería registra actividad válida dirigida al Slave local:
+Actividad válida disponible para Remote I/O/fail-safe:
 
 ```cpp
 JWPLC_ModbusRTU.hasValidRequest();
 JWPLC_ModbusRTU.lastValidRequestMs();
-```
-
-Para salidas remotas, FC05 y FC15 actualizan además:
-
-```cpp
 JWPLC_ModbusRTU.hasCoilWrite();
 JWPLC_ModbusRTU.lastCoilWriteMs();
 ```
 
-Esto permite implementar un fail-safe de DO sin volver a parsear Modbus en el sketch:
+## Master cooperativo
+
+Una solicitud cooperativa **inicia** la transacción y retorna. `true` significa que fue aceptada, no que la respuesta ya llegó.
 
 ```cpp
-if (JWPLC_ModbusRTU.hasCoilWrite() &&
-    millis() - JWPLC_ModbusRTU.lastCoilWriteMs() > 100)
-{
-    coils = 0x00;
-    JWPLC_writeOutputs(0x00);
-}
+uint16_t values[4];
+
+JWPLC_ModbusRTU.requestReadHoldingRegisters(
+    2, 0, 4, values, 1000);
 ```
 
-La política exacta de timeout/reintentos/offline pertenece a la capa Backplane/Remote Devices, no al driver RTU básico.
+Contrato:
 
-## Master cooperativo — recomendado
+1. llamar `JWPLC_ModbusRTU.task()` frecuentemente;
+2. mantener vivos los buffers hasta terminar;
+3. no iniciar otra transacción mientras `masterBusy()` sea `true`;
+4. esperar `masterDone()`;
+5. revisar `masterSucceeded()` / `masterResult()`;
+6. llamar `clearMasterResult()` antes del siguiente ciclo.
 
-```cpp
-#include <JWPLC_ModbusRTU.h>
-
-uint8_t remoteInputs = 0;
-uint32_t nextRequestMs = 0;
-
-void setup()
-{
-    JWPLC_ModbusRTU.begin(247, 115200, SERIAL_8N1);
-}
-
-void loop()
-{
-    JWPLC_ModbusRTU.task();
-
-    if (JWPLC_ModbusRTU.masterDone())
-    {
-        if (JWPLC_ModbusRTU.masterSucceeded())
-        {
-            // remoteInputs ya contiene FC02 I0_0..I0_7.
-        }
-        else
-        {
-            // Revisar masterResult() / lastErrorString().
-        }
-
-        JWPLC_ModbusRTU.clearMasterResult();
-        nextRequestMs = millis() + 50;
-    }
-
-    if (!JWPLC_ModbusRTU.masterBusy() &&
-        !JWPLC_ModbusRTU.masterDone() &&
-        (int32_t)(millis() - nextRequestMs) >= 0)
-    {
-        JWPLC_ModbusRTU.requestReadDiscreteInputs(
-            2, 0, 8, &remoteInputs, 250);
-    }
-}
-```
-
-Las funciones `request...()` **solo inician** la transacción. Un retorno `true` significa solicitud aceptada; no significa que la respuesta ya haya llegado.
-
-Mientras exista una transacción pendiente, `task()` debe ejecutarse con frecuencia. El timeout también se resuelve desde este motor cooperativo, por lo que el `loop()` puede seguir atendiendo lógica, E/S, display, Ethernet y watchdogs.
-
-## Contrato del Master cooperativo
-
-- una sola transacción Master activa a la vez;
-- llamar `task()` frecuentemente;
-- no iniciar otra solicitud mientras `masterBusy()` sea `true`;
-- buffers de lectura deben seguir existiendo hasta `masterDone()`;
-- buffers de bits son empaquetados LSB-first;
-- al terminar, revisar `masterSucceeded()` o `masterResult()`;
-- llamar `clearMasterResult()` antes del siguiente ciclo.
-
-API de estado:
+Estado:
 
 ```cpp
-masterBusy()
-masterDone()
-masterSucceeded()
-masterState()
-masterResult()
-clearMasterResult()
-task()
+JWPLC_ModbusRTU.masterBusy();
+JWPLC_ModbusRTU.masterDone();
+JWPLC_ModbusRTU.masterSucceeded();
+JWPLC_ModbusRTU.masterState();
+JWPLC_ModbusRTU.masterResult();
+JWPLC_ModbusRTU.clearMasterResult();
 ```
 
 ## API síncrona explícita
 
-Las variantes bloqueantes usan internamente el mismo motor cooperativo para evitar mantener dos parsers Master distintos:
-
-```cpp
-uint8_t inputs = 0;
-
-bool ok = JWPLC_ModbusRTU.readDiscreteInputsSync(
-    2, 0, 8, &inputs, 250);
-
-bool ok2 = JWPLC_ModbusRTU.writeSingleCoilSync(
-    2, 0, true, 250);
-```
-
-También están disponibles:
-
 ```text
 readCoilsSync()
+readDiscreteInputsSync()
 readHoldingRegistersSync()
 readInputRegistersSync()
+writeSingleCoilSync()
 writeSingleRegisterSync()
 writeMultipleCoilsSync()
 ```
 
-Los nombres históricos `readHoldingRegisters()` y `writeSingleRegister()` se conservan temporalmente durante Alpha7 como wrappers hacia las variantes `...Sync()`. Código nuevo debe usar `request...()` o el sufijo `Sync` de forma explícita.
-
-## Multidrop — Alpha7
-
-Durante la validación M2 + S1 + S2 se detectó que un Slave podía leer en una sola ejecución de `poll()` la request dirigida a otro nodo y la respuesta correspondiente ya acumuladas en el FIFO UART. El parser anterior trataba ambos ADU como una única trama y registraba falsos CRC.
-
-Alpha7 usa la estructura de la función Modbus para delimitar ADUs antes de validar CRC:
-
-- FC01/02/03/04 request: 8 bytes;
-- FC01/02 response: `5 + byteCount`;
-- FC03/04 response: `5 + byteCount`;
-- FC05/06 request/response: 8 bytes;
-- FC0F/10 request: `9 + byteCount`;
-- FC0F/10 response: 8 bytes;
-- exception response: 5 bytes.
-
-El Master también conoce de antemano la longitud esperada de las funciones soportadas y no cierra una respuesta larga por un `frameGap` intermedio.
-
-El servidor drena todos los bytes UART disponibles en cada `task()` para evitar fragmentar requests FC0F/10 largas por un límite artificial de lectura.
-
-El tráfico dirigido a otros Slaves y los tails ambiguos de respuestas ajenas se descartan sin contaminar `crcErrors`, `rxFrames` ni `lastError` del nodo local.
+Los wrappers históricos `readHoldingRegisters()` y `writeSingleRegister()` continúan disponibles por compatibilidad, pero código nuevo debe preferir `request...()` o una variante `...Sync()` explícita.
 
 ## Estado y estadísticas
 
 ```cpp
+JWPLC_ModbusRTU.lastError();
+JWPLC_ModbusRTU.lastErrorString();
+JWPLC_ModbusRTU.configString();
+JWPLC_ModbusRTU.printStatus(Serial);
+
 const JWPLCModbusRTUStats &s = JWPLC_ModbusRTU.stats();
 ```
 
-Contadores disponibles:
+Estadísticas:
 
 ```text
 rxFrames
@@ -227,47 +161,55 @@ exceptionsSent
 masterTimeouts
 ```
 
-Errores relevantes:
+## Multidrop / Remote I/O
 
-```text
-JWPLC_MODBUS_OK
-JWPLC_MODBUS_DISABLED
-JWPLC_MODBUS_NOT_STARTED
-JWPLC_MODBUS_INVALID_SLAVE_ID
-JWPLC_MODBUS_INVALID_REGISTER_MAP
-JWPLC_MODBUS_TIMEOUT
-JWPLC_MODBUS_CRC_ERROR
-JWPLC_MODBUS_EXCEPTION
-JWPLC_MODBUS_INVALID_RESPONSE
-JWPLC_MODBUS_BUFFER_OVERFLOW
-JWPLC_MODBUS_UNSUPPORTED_FUNCTION
-JWPLC_MODBUS_BUSY
-JWPLC_MODBUS_TRANSPORT_ERROR
-```
+Alpha7 corrigió el parser multidrop para delimitar ADUs según la estructura Modbus antes de validar CRC. Se validaron FC01, FC02, FC05 y FC15 en Remote I/O, pérdida de bus, fail-safe y recuperación sin reiniciar el Master.
+
+Los ejemplos avanzados Remote I/O existentes se conservan para esa validación.
 
 ## Indicador BUS
 
-`JWPLC_Display.setBusLedAuto(true)` combina el estado RS-485 con el último error Modbus. Los códigos visibles incluyen `TMO`, `CRC`, `EXC`, `RSP`, `OVF` y `FUN`.
-
-## Precompilación durante Alpha7
-
-Mientras se valida el motor cooperativo y el soporte Remote I/O, `JWPLC_ModbusRTU` se compila temporalmente desde source. El archive precompilado anterior no debe reutilizarse porque no contiene la API ni el parser Alpha7.
-
-Antes de cerrar Alpha7 se debe regenerar `src/esp32/libJWPLC_ModbusRTU.a`, auditar sus símbolos, restaurar `precompiled=full` y repetir la validación multidrop/Remote I/O con el archive nuevo.
-
-## OpenPLC / Backplane / Remote I/O
-
-La política para integración PLC es usar el Master cooperativo. OpenPLC sigue siendo una integración externa/opcional y no una dependencia del runtime Arduino normal.
-
-La capa Backplane/Remote Devices debe ejecutar `JWPLC_ModbusRTU.task()` con frecuencia y manejar política de reintentos, estado ONLINE/OFFLINE, datos stale y fail-safe sin bloquear el scan PLC.
-
-## Estado
+`JWPLC_Display.setBusLedAuto(true)` combina el estado del transporte RS-485 con el resultado Modbus. Entre los códigos visibles están:
 
 ```text
-JWPLC ESP32 2.1.0-alpha.7 — en desarrollo
+TMO CRC EXC RSP OVF FUN
+```
+
+## Precompilación
+
+Al cierre de Alpha7 se restauró `precompiled=full` y se regeneró el archive final:
+
+```text
+Archivo : src/esp32/libJWPLC_ModbusRTU.a
+Bytes   : 231062
+SHA256  : 444BE3A04079A579252B2737FE6070E00ADCA949FD176880588FE69561B2A79F
+```
+
+Alpha8 no modifica la fuente de `JWPLC_ModbusRTU`, por lo que ese archive continúa siendo la base validada.
+
+## Ejemplos numerados para taller
+
+Configuración común:
+
+```text
+Slave ID = 2
+115200 8N1
+```
+
+```text
+01.ModbusRTU_Slave_Holding
+02.ModbusRTU_Master_Read
+03.ModbusRTU_Master_Write
+```
+
+`02` y `03` pueden probarse directamente contra `01` cargado en otro JWPLC Basic.
+
+## Estado Alpha8
+
+```text
+JWPLC ESP32 2.1.0-alpha.8
 JWPLC_ModbusRTU 1.0.0
-Master: cooperativo por defecto
-Remote I/O digital: FC01/02/05/15 integrado
-Registers: FC03/04/06/16 integrado en Slave; FC03/04/06 en Master
-Sync: explícito para pruebas/commissioning
+Master cooperativo: recomendado
+Master Sync: explícito
+Remote I/O digital: validado en Alpha7
 ```
