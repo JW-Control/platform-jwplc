@@ -144,11 +144,12 @@ ALPHA8_PERFORMANCE_FREEZE=PASS
 - [x] `precompiled=full` continúa vigente.
 - [x] Archive existente no requiere regeneración por el alcance Alpha8.
 
-Archive actualmente versionado:
+Archive validado:
 
 ```text
 libJW_MatrixButtons.a
-129506 bytes
+Bytes  : 129506
+SHA256 : 55BE8D7791DDAD79D613DBB199C10A504DE0F20CDF3330B6679A35DD64E25C81
 ```
 
 ### JWPLC_Display
@@ -161,17 +162,31 @@ libJW_MatrixButtons.a
 - [x] 4 objetos archivados.
 - [x] Gate de link precompiled aprobado.
 - [x] Archive candidato usado durante validación física.
-- [ ] Archive final Alpha8 versionado en Git.
-- [ ] Hash del archive versionado revalidado después de pull limpio.
+- [x] Gate final Basic: 0 TUs Display source.
+- [x] Gate final Basic Core: 0 TUs Display source.
+- [x] Gate final HMI: 0 TUs Display source.
+- [x] Archive final Alpha8 versionado en Git.
+- [x] Hash final validado antes del commit/push.
 
-Candidato validado:
+Archive final:
 
 ```text
-Bytes  : 642576
-SHA256 : D47B72A48B82DA99952A3C5FD042D3D5864DFEB5BB786B95BC5684F9AEDC73BC
+Archivo : JWPLC/2.1.0/libraries/JWPLC_Display/src/esp32/libJWPLC_Display.a
+Bytes   : 642576
+SHA256  : D47B72A48B82DA99952A3C5FD042D3D5864DFEB5BB786B95BC5684F9AEDC73BC
+Commit  : 08073e5a0244d9461d3889f02d411b68f727d638
 ```
 
-El archive histórico todavía presente en Git antes del cierre Alpha8 corresponde a Alpha6 y debe ser reemplazado antes del PR técnico.
+Marcadores:
+
+```text
+ALPHA8_BASIC_DISPLAY_PRECOMPILED=PASS
+ALPHA8_CORE_DISPLAY_PRECOMPILED=PASS
+ALPHA8_HMI_DISPLAY_PRECOMPILED=PASS
+ALPHA8_FINAL_SOURCE_FREEZE=PASS
+ALPHA8_FINAL_PRECOMPILED_GATE=PASS
+ALPHA8_DISPLAY_ARCHIVE_COMMIT=PASS
+```
 
 ## Hardware Alpha8
 
@@ -214,17 +229,64 @@ EXACT_ROOT_CAUSE=NOT_CONCLUSIVELY_REPRODUCED
 OPERATIONAL_STATUS=RESOLVED_FOR_ALPHA8
 ```
 
+## Ejemplos numerados para taller
+
+Se añadió una serie compacta específica para JWPLC Basic. Los drivers genéricos `JW_*` no reciben ejemplos dependientes del hardware JWPLC.
+
+### `JWPLC_GlobalPeripherals`
+
+- [x] `01.DigitalIO_Basic`.
+- [x] `02.Buttons_Basic`.
+- [x] `03.RTC_Basic`.
+- [x] `04.FRAM_Basic`.
+- [x] `05.microSD_Basic`.
+- [x] `06.Runtime_Cache_Status`.
+
+### `JWPLC_Display`
+
+- [x] `01.Display_IDLE_Status`.
+- [x] `02.Display_HMI_Fields`.
+- [x] `03.Display_HMI_Pages`.
+- [x] `04.Display_TFT_Direct`.
+
+### `JWPLC_Ethernet`
+
+- [x] `01.Ethernet_DHCP_Basic`.
+- [x] `02.Ethernet_StaticIP_Basic`.
+- [x] `03.Ethernet_Diagnostics`.
+
+### `JWPLC_RS485`
+
+- [x] `01.RS485_Send`.
+- [x] `02.RS485_Echo`.
+- [x] `03.RS485_Status`.
+
+### `JWPLC_ModbusRTU`
+
+- [x] `01.ModbusRTU_Slave_Holding`.
+- [x] `02.ModbusRTU_Master_Read`.
+- [x] `03.ModbusRTU_Master_Write`.
+
+- [x] `ALPHA8_WORKSHOP_EXAMPLES.md` creado.
+- [x] READMEs de Ethernet, RS-485 y Modbus RTU sincronizados con la API actual.
+- [ ] Compilación en lote de los 19 ejemplos numerados.
+
 ## Documentación
 
 - [x] README `JWPLC_Display` actualizado.
 - [x] README `JW_MatrixButtons` actualizado.
 - [x] README `JWPLC_GlobalPeripherals` actualizado.
+- [x] README `JWPLC_Ethernet` actualizado.
+- [x] README `JWPLC_RS485` actualizado.
+- [x] README `JWPLC_ModbusRTU` actualizado.
 - [x] README raíz actualizado a Alpha8.
 - [x] `ALPHA8_BUILD_SPEED_AND_LAZY_LINK.md`.
 - [x] `ALPHA8_HMI_BUTTON_VALIDATION.md`.
+- [x] `ALPHA8_WORKSHOP_EXAMPLES.md`.
 - [x] `ALPHA8_CLOSURE_CHECKLIST.md`.
-- [ ] `PULL_REQUEST.md`.
-- [ ] `PRE_RELEASE.md`.
+- [x] `PULL_REQUEST.md`.
+- [x] `PRE_RELEASE.md`.
+- [x] `ALPHA8_TO_ALPHA9_OPENPLC_HANDOFF.md`.
 
 ## Autoload preservado
 
@@ -266,12 +328,13 @@ OTA=NOT_DEFINED
 - [x] Hardware HMI/botonera aprobado.
 - [x] Lazy-link aprobado.
 - [x] Conteos estructurales aprobados.
-- [ ] Archive Display final versionado.
-- [ ] `git diff --check` local final.
-- [ ] `git status` limpio.
-- [ ] compilación final Basic.
-- [ ] compilación final Basic Core.
-- [ ] ejemplos Alpha8 relevantes compilados.
+- [x] Archive Display final versionado.
+- [x] `git diff --check` del freeze pre-examples.
+- [x] compilación final Basic del freeze.
+- [x] compilación final Basic Core del freeze.
+- [ ] lote de ejemplos numerados compilado.
+- [ ] `git diff --check` final post-examples.
+- [ ] `git status` limpio post-examples.
 - [ ] Arduino IDE final cuando aplique.
 
 ## Publicación
@@ -298,9 +361,10 @@ OTA=NOT_DEFINED
 ALPHA8_SOURCE_FREEZE=PASS
 ALPHA8_HARDWARE_GATE=PASS
 ALPHA8_BUILD_ARCHITECTURE=PASS
-ALPHA8_DOCUMENTATION=IN_PROGRESS
-ALPHA8_FINAL_DISPLAY_ARCHIVE=PENDING_GIT_VERSIONING
-ALPHA8_TECHNICAL_CLOSURE=PENDING_FINAL_ARCHIVE
+ALPHA8_FINAL_DISPLAY_ARCHIVE=PASS
+ALPHA8_DOCUMENTATION=PASS
+ALPHA8_WORKSHOP_EXAMPLES=PENDING_COMPILE_GATE
+ALPHA8_TECHNICAL_CLOSURE=PENDING_EXAMPLE_GATE
 ```
 
-Alpha9 no debe modificar el branch Alpha8. Puede iniciarse después de cerrar el archive/PR/publicación de Alpha8 o sobre la base publicada correspondiente, según el flujo de release.
+Alpha9 no debe modificar el branch Alpha8. Puede iniciarse después de cerrar el gate de ejemplos/PR/publicación de Alpha8 o sobre la base publicada correspondiente, según el flujo de release.
