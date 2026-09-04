@@ -5,7 +5,6 @@
 #include <JWPLC_Display_API.h>
 #include <Adafruit_ST7789.h>
 #include <JWPLC_GlobalPeripherals.h>
-#include <JWPLC_RuntimeView.h>
 
 extern "C"
 {
