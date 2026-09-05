@@ -118,14 +118,45 @@ ALPHA10_WARM_BEHAVIOR=PASS_WITH_HOST_VARIATION
 EXACT_PERCENT_RECOVERY_CLAIM=NOT_USED
 ```
 
-Falta extraer/comparar `BinaryBytes` de los `results.csv` antes del cierre técnico final.
+## Paridad binaria
+
+Los `results.csv` de r1/r2/r3 dieron valores idénticos por target/sketch:
+
+```text
+Basic / 01_empty    = 4618688,4618688,4618688
+Basic / 02_io_basic = 4618784,4618784,4618784
+Core  / 01_empty    = 4574464,4574464,4574464
+Core  / 02_io_basic = 4574576,4574576,4574576
+ALPHA10_BINARY_SIZE_PARITY=PASS
+```
+
+No aparece deriva de `BinaryBytes` entre las réplicas del candidato.
+
+## Matriz funcional local
+
+Sobre `HEAD=c696034fd2c1f1dafbeb33fcf41c06be6a8f05f1` se ejecutó la matriz local:
+
+```text
+DigitalIO_Basic=PASS
+Buttons_Basic=PASS
+Display_HMI_Fields=PASS
+Ethernet_Diagnostics=PASS
+RemoteIO_Slave_RTU=PASS
+COMPILE_TOTAL=5
+COMPILE_PASS=5
+COMPILE_FAIL=0
+UNDEFINED_REFERENCE_HITS=0
+ALPHA10_LOCAL_FUNCTIONAL_MATRIX=5/5_PASS
+ALPHA10_LOCAL_COMPILE_GATE=PASS
+```
+
+Esto valida compilación de los bloques principales afectados por el autoload/discovery sin introducir dependencias manuales JW/JWPLC externas.
 
 ## CI
 
-El workflow `CI JWPLC Package Smoke` de la PR #90 terminó correctamente para el HEAD benchmarkeado:
+El workflow `CI JWPLC Package Smoke` de la PR #90 terminó correctamente para el HEAD benchmarkeado y posteriormente para el HEAD documental `c696034fd2c1f1dafbeb33fcf41c06be6a8f05f1`.
 
 ```text
-HEAD=456d5b9f55088091fcadcb87e9f33ffb90d3754c
 CI_JWPLC_PACKAGE_SMOKE=SUCCESS
 ```
 
@@ -166,17 +197,16 @@ OpenPLC continúa externo/opcional al runtime Arduino; este alpha no redefine es
 
 ## Validación restante antes del cierre
 
-Antes de volver a declarar Alpha10 cerrado faltan:
+Antes de volver a declarar Alpha10 cerrado faltan únicamente:
 
-- `BinaryBytes` del benchmark local;
-- matriz funcional local 5/5;
-- compilación desde Arduino IDE;
+- compilación desde Arduino IDE con el candidato local;
 - smoke físico rápido de periféricos integrados;
 - CI verde sobre el HEAD documental final;
-- README raíz final;
-- publicación de reemplazo y validación desde índice.
+- README raíz final.
 
-La tabla completa de tiempos ya se encuentra en `ALPHA10_BUILD_BENCHMARK.md`.
+Después del cierre técnico se reemplazará la publicación Alpha10 interna y se validará el package desde el índice dev publicado.
+
+La tabla completa de tiempos y `BinaryBytes` se encuentra en `ALPHA10_BUILD_BENCHMARK.md`.
 
 ## Estado actual
 
@@ -186,11 +216,13 @@ ALPHA10_PROTECTION_AUDIT=PASS
 ALPHA10_TECHNICAL_CHANGE=COMMITTED
 ALPHA10_LOCAL_BENCHMARK=PASS_WITH_HOST_VARIATION
 ALPHA10_COMPILER_STRUCTURE_PARITY=PASS
-ALPHA10_CI_PR90_BENCHMARK_HEAD=PASS
-ALPHA10_BINARY_SIZE_CHECK=PENDING
-ALPHA10_FUNCTIONAL_MATRIX=PENDING_LOCAL_REVALIDATION
+ALPHA10_BINARY_SIZE_PARITY=PASS
+ALPHA10_LOCAL_FUNCTIONAL_MATRIX=5/5_PASS
+ALPHA10_LOCAL_COMPILE_GATE=PASS
+ALPHA10_CI_PR90=PASS_TO_C696034F
+ALPHA10_ARDUINO_IDE_VALIDATION=PENDING
 ALPHA10_PHYSICAL_VALIDATION=PENDING
-ALPHA10_TECHNICAL_CLOSURE=PENDING_REMAINING_GATES
+ALPHA10_TECHNICAL_CLOSURE=PENDING_PHYSICAL_GATE
 ALPHA10_PUBLICATION_REPLACEMENT=PENDING
 NEXT_ALPHA=BLOCKED_UNTIL_ALPHA10_CLOSED
 ```
