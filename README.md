@@ -1,6 +1,6 @@
 # JWPLC Platform for Arduino IDE
 
-<!-- JWPLC_RELEASE_VERSION: 2.1.0-alpha.9 -->
+<!-- JWPLC_RELEASE_VERSION: 2.1.0-alpha.10 -->
 
 Package personalizado de **JW Control** para programar **JWPLC Basic** desde Arduino IDE y Arduino CLI.
 
@@ -13,8 +13,70 @@ El objetivo es ofrecer una experiencia cercana a Arduino sin perder las funcione
 | Canal | Versión | Estado |
 |---|---|---|
 | Público / estable | `v2.0.0` | Recomendado para proyectos estables. |
-| Dev / PreRelease | `v2.1.0-alpha.9` | **Publicada y cerrada**. Backplane OpenPLC / Remote I/O validado en `115200 8N1`. |
-| Siguiente trabajo | `Alpha10` | Configuración RTU del Backplane, referencias FB de timers y source freeze del fork OpenPLC Editor. |
+| Dev candidata | `v2.1.0-alpha.10` | **Cierre técnico aprobado**. Hotfix de shadowing de `JWPLC_Ethernet`; publicación automática al integrar en `release/v2.1.x`. |
+| Siguiente trabajo | `Alpha11` | Configuración RTU del Backplane, referencias FB de timers, source freeze del fork OpenPLC Editor y aislamiento general de librerías con menor coste. |
+
+## Alpha10 - hotfix de shadowing de JWPLC_Ethernet
+
+Alpha10 corrige un caso real observado durante un taller con Arduino IDE: una copia antigua de `JWPLC_Ethernet` instalada en el sketchbook del usuario podía ser seleccionada antes que la copia incluida en el package JWPLC.
+
+El fallo reproducido terminaba en linker error sobre:
+
+```text
+JWPLC_EthernetClass::diagnosticCode() const
+JWPLC_EthernetClass::runtimeState() const
+```
+
+La solución adoptada añade un marker exclusivo del package:
+
+```text
+JWPLC_Bundled_JWPLC_Ethernet.h
+```
+
+que se carga sólo durante `JWPLC_LIBRARY_DISCOVERY_PHASE`. También se actualiza la metadata de `JWPLC_Ethernet` de `1.0.0` a `1.0.1`.
+
+Validación final:
+
+```text
+ETHERNET_HOSTILE_SHADOW_TEST=PASS
+JWPLC_ETHERNET_UNIFIED_SELECTION=PASS
+FINAL_COMPILE_MATRIX=5/5_PASS
+UNDEFINED_REFERENCE_HITS=0
+PUBLIC_API_CHANGED=NO
+RUNTIME_IMPLEMENTATION_CHANGED=NO
+PRECOMPILED_ARCHIVES_CHANGED=NO
+AUTOLOAD_PERIPHERALS_REMOVED=NO
+```
+
+### Benchmark de library discovery
+
+Se evaluó proteger 1, 4 y 7 librerías mediante markers bundled. El coste warm creció de forma casi lineal:
+
+| Configuración | Warm promedio | Delta |
+|---|---:|---:|
+| 0 markers | 22.094 s | base |
+| `JWPLC_Ethernet` únicamente | 23.327 s | +5.6% |
+| 4 markers | 26.888 s | +21.7% |
+| 7 markers | 30.353 s | +37.4% |
+
+Alpha10 adopta el mínimo conjunto que resuelve la causa primaria reproducida:
+
+```text
+ALPHA10_MARKER_SET=JWPLC_ETHERNET_ONLY
+GENERALIZED_7_MARKER_OPTION=REJECTED_BUILD_COST
+```
+
+No se afirma que Alpha10 blinde todas las librerías JW/JWPLC frente a copias homónimas del sketchbook. Una estrategia general de menor coste queda transferida a Alpha11.
+
+Commit técnico:
+
+```text
+c0e5c621cec71977b86becfc8d7acb26ca21e906
+```
+
+---
+
+## Base heredada de Alpha9
 
 Alpha9 parte del package publicado Alpha8 y **no retira ningún periférico del autoload normal**.
 
@@ -46,7 +108,7 @@ Bytes: 24464282
 SHA-256: 015679533e13dabbe79041771e1e85d3011970dd0c69bc62e3b51f3101043907
 ```
 
-La selección de baudrate/formato desde el Backplane, las referencias tipadas `TON0.Q` / `TOF0.Q` / `TP0.Q`, el source freeze reproducible del fork OpenPLC Editor y la exposición de la HMI Alpha8 hacia Ladder quedan explícitamente fuera de Alpha9.
+La selección de baudrate/formato desde el Backplane, las referencias tipadas `TON0.Q` / `TOF0.Q` / `TP0.Q`, el source freeze reproducible del fork OpenPLC Editor y la exposición de la HMI Alpha8 hacia Ladder quedan explícitamente pendientes y se transfieren a Alpha11 tras el hotfix Alpha10.
 
 ---
 
@@ -330,6 +392,8 @@ JWPLC_Ethernet.service();
 
 Las APIs síncronas `begin()` y `maintain()` se conservan por compatibilidad y commissioning.
 
+Alpha10 añade aislamiento de library discovery para `JWPLC_Ethernet` frente a copias homónimas antiguas en el sketchbook, sin modificar su API pública.
+
 Documentación: [`JWPLC_Ethernet`](JWPLC/2.1.0/libraries/JWPLC_Ethernet/README.md)
 
 ---
@@ -372,19 +436,19 @@ Documentación:
 
 En Alpha8 también aloja las implementaciones de `JWPLC_IO` y `JWPLC_Time` dentro del mismo TU existente para no añadir una compilación extra al cold build.
 
+En Alpha10, `JWPLC_GlobalPeripherals_Auto.h` incorpora únicamente el marker bundled de `JWPLC_Ethernet` durante discovery.
+
 Documentación: [`JWPLC_GlobalPeripherals`](JWPLC/2.1.0/libraries/JWPLC_GlobalPeripherals/README.md)
 
 ---
 
-# Precompilación y build speed Alpha8
+# Precompilación y build speed
 
-Alpha8 mantiene el trabajo de precompilación de Alpha5/Alpha6/Alpha7.
+Alpha10 mantiene el trabajo de precompilación de Alpha5/Alpha6/Alpha7/Alpha8.
 
-## Estructura de compilación recuperada
+## Estructura de compilación preservada
 
-Durante el desarrollo inicial de Alpha8, las fachadas de runtime añadieron un TU extra. Ese costo fue eliminado integrando su implementación dentro de `JWPLC_GlobalPeripherals.cpp`.
-
-Conteos recuperados:
+Conteos de referencia:
 
 ```text
 Basic cold: 15 compiladores
@@ -392,13 +456,20 @@ Core cold:  78 compiladores
 Warm:        1 compilador
 ```
 
-Esto conserva paridad estructural con Alpha6.
+El benchmark Alpha10 mantuvo paridad estructural y de tamaño binario respecto al baseline:
+
+```text
+COMPILER_STRUCTURE_PARITY=PASS
+BINARY_SIZE_PARITY=PASS
+```
+
+El marker único de `JWPLC_Ethernet` añade en el host medido aproximadamente `+1.233 s / +5.6%` al warm de `01_empty`. La alternativa de siete markers fue descartada por `+8.259 s / +37.4%`.
 
 ## Lazy-link HMI
 
 El motor HMI se desacopló del Display base mediante hooks internos.
 
-Gate de link:
+Gate de link heredado de Alpha8:
 
 ```text
 01_empty:
@@ -410,7 +481,7 @@ HMI gate:
   UI API linked    = YES
 ```
 
-El `01_empty` pasó de:
+El `01_empty` pasó históricamente de:
 
 ```text
 399696 bytes -> 396240 bytes
@@ -419,8 +490,6 @@ El `01_empty` pasó de:
 reduciendo 3456 bytes respecto al estado Alpha8 previo al lazy-link.
 
 La HMI paga su costo de link sólo cuando la aplicación la usa.
-
-Los tiempos absolutos de compilación mostraron variación del host durante las réplicas; Alpha8 no reclama una mejora global de wall-clock frente a Alpha6. La conclusión defendible es la preservación estructural de TUs/cache y la eliminación del enlace HMI innecesario.
 
 ---
 
@@ -504,8 +573,8 @@ No asumir:
 
 ```text
 OpenPLC integrado al autoload Arduino = NO
-Backplane baudrate configurable por UI = NO en Alpha9
-Backplane serial format configurable   = NO en Alpha9
+Backplane baudrate configurable por UI = NO
+Backplane serial format configurable   = NO
 ```
 
 La HMI Arduino de Alpha8 todavía no está expuesta a Ladder/OpenPLC.
@@ -536,29 +605,23 @@ Versión estable:
 https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json
 ```
 
-Versión publicada:
+Última versión publicada antes del merge Alpha10:
 
 ```text
 2.1.0-alpha.9
 ```
 
-Metadata del package:
+Versión candidata:
 
 ```text
-ZIP: jwplc-esp32-2.1.0-alpha.9.zip
-Bytes: 24464282
-SHA-256: 015679533e13dabbe79041771e1e85d3011970dd0c69bc62e3b51f3101043907
+2.1.0-alpha.10
 ```
 
-Estado:
+Estado candidato:
 
 ```text
-ALPHA9_TECHNICAL_CLOSURE=PASS
-ALPHA9_RELEASE_PUBLICATION=PASS
-ALPHA9_DEV_INDEX=PASS
-ALPHA9_STABLE_INDEX_UNCHANGED=PASS
-ALPHA9_MAIN_SYNC=PASS
-ALPHA9_STATUS=CLOSED_PUBLISHED
+ALPHA10_TECHNICAL_CLOSURE=PASS
+ALPHA10_PUBLICATION=PENDING_PR_CI_RELEASE
 ```
 
 Para desarrollo local se utiliza el namespace `jwplc_local`.
@@ -575,7 +638,7 @@ Para desarrollo local se utiliza el namespace `jwplc_local`.
 
 ---
 
-# Decisiones del ciclo 2.1.0 que Alpha9 no cambia
+# Decisiones del ciclo 2.1.0 que Alpha10 no cambia
 
 ```text
 APP_ONLY=VALIDATED_DEVELOPMENT_TOOL
@@ -596,9 +659,36 @@ No se retiran periféricos del autoload para acelerar compilación.
 
 ---
 
+# Documentación Alpha10
+
+El cierre técnico de Alpha10 se documenta en:
+
+- `docs/v2.1.0-alpha.10/ALPHA10_BUILD_BENCHMARK.md`;
+- `docs/v2.1.0-alpha.10/ALPHA10_TECHNICAL_CLOSURE.md`;
+- `docs/v2.1.0-alpha.10/ALPHA10_CLOSURE_CHECKLIST.md`;
+- `docs/v2.1.0-alpha.10/ALPHA10_TO_ALPHA11_HANDOFF.md`;
+- `docs/v2.1.0-alpha.10/PULL_REQUEST.md`;
+- `docs/v2.1.0-alpha.10/PRE_RELEASE.md`.
+
+Estado previo a publicación:
+
+```text
+ALPHA10_ROOT_CAUSE=CONFIRMED
+ALPHA10_MARKER_SET=JWPLC_ETHERNET_ONLY
+ALPHA10_MINIMUM_SAFE_FIX=PASS
+ALPHA10_BUILD_BENCHMARK=PASS_WITH_SCOPED_FIX
+ALPHA10_ETHERNET_SELECTION_VERIFIER=PASS
+ALPHA10_FINAL_COMPILE_MATRIX=5/5_PASS
+ALPHA10_TECHNICAL_CLOSURE=PASS
+ALPHA10_STATUS=READY_FOR_RELEASE_PR
+NEXT=ALPHA11_AFTER_PUBLICATION
+```
+
+---
+
 # Documentación Alpha9
 
-El cierre de Alpha9 se documenta en:
+El cierre histórico de Alpha9 se documenta en:
 
 - `docs/v2.1.0-alpha.9/ALPHA9_TECHNICAL_CLOSURE.md`;
 - `docs/v2.1.0-alpha.9/ALPHA9_CLOSURE_CHECKLIST.md`;
@@ -608,26 +698,4 @@ El cierre de Alpha9 se documenta en:
 - `docs/v2.1.0-alpha.9/PRE_RELEASE.md`;
 - `JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/examples/JWPLC_RemoteIO_Slave_RTU/README.md`.
 
-Estado final:
-
-```text
-ALPHA9_FINAL_BASE_CORRECT=PASS
-ALPHA9_BACKPLANE_8CH_ONE_HOT=PASS
-ALPHA9_BACKPLANE_PERSISTENCE=PASS
-ALPHA9_BACKPLANE_RECOVERY=PASS
-ALPHA9_BACKPLANE_FIXED_PROFILE_115200_8N1=PASS
-ALPHA9_VPP_SIGNED_PAYLOAD=PASS
-ALPHA9_WORKSHOP_ARTIFACT_BUNDLE=PASS
-ALPHA9_RELEASE_TAG=PASS
-ALPHA9_RELEASE_ASSET=PASS
-ALPHA9_DEV_INDEX=PASS
-ALPHA9_STABLE_INDEX_UNCHANGED=PASS
-ALPHA9_MAIN_SYNC=PASS
-ALPHA9_DOCUMENTATION=PASS
-ALPHA9_STATUS=CLOSED_PUBLISHED
-NEXT=ALPHA10
-```
-
-`main` exige historia lineal. La sincronización del árbol técnico desde `release/v2.1.x` se realizó mediante squash en el PR #82 después de que fast-forward/merge/rebase no fueran compatibles con el ruleset y la historia heredada de `release`. Antes de integrar el índice, ambos árboles técnicos tuvieron el mismo tree SHA `e4027a3b071906283b9498239845e384e082d411`.
-
-El siguiente ciclo debe retomar los pendientes explícitos de Alpha9 sin asumirlos ya resueltos.
+Alpha9 finalizó publicado y sincronizado; Alpha10 no modifica ese cierre histórico.
