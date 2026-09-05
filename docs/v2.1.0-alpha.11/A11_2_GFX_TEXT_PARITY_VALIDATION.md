@@ -1,12 +1,21 @@
-# Alpha11 — Validación física A11-2 GFX Text Parity
+# Alpha11 — Validación A11-2 de texto
 
 Fecha: 2026-09-05
 
 ## Objetivo
 
-Validar que el renderer RAW del JWPLC HMI Designer reproduce visualmente la celda clásica de Adafruit GFX utilizada por el JWPLC Basic físico.
+Separar dos validaciones que no deben confundirse:
 
-## Muestra canónica
+1. **paridad RAW de fuente Adafruit GFX**;
+2. **comportamiento final mediante la API pública declarativa de `JWPLC_Display`**.
+
+La primera sirve para comprobar que el Designer conoce los mismos glifos/píxeles que usa la TFT. La segunda es la que define el comportamiento que verá el usuario final y el código que deberá generar el Designer.
+
+---
+
+## A11-2A — GFX RAW font parity
+
+Muestra canónica:
 
 ```text
 Texto       : TEMP: 25.6 C
@@ -18,49 +27,105 @@ Background  : WHITE / 0xFFFF
 Bounds GFX  : 144 x 16 px
 ```
 
-## Evidencia
-
 Se compararon:
 
-1. captura del Designer con la muestra canónica;
-2. fotografía del JWPLC Basic físico ejecutando `A11_2_GFX_Text_Parity.ino`.
+1. captura del Designer RAW;
+2. fotografía del JWPLC Basic físico ejecutando el gate RAW.
 
-En ambas se observa el mismo patrón de caracteres para:
+Resultado del subgate:
+
+```text
+A11_2A_GFX_CLASSIC_FONT=PASS
+A11_2A_TEXT_SIZE_2X=PASS
+A11_2A_CELL_GEOMETRY_144X16=PASS
+A11_2A_PHYSICAL_VISUAL_MATCH=PASS
+A11_2A_RAW_FONT_PARITY=PASS
+```
+
+Este PASS **no aprueba el borde/fondo final de la HMI**. El modo RAW conserva de forma intencional la celda clásica GFX 6x8, cuya separación visual no es simétrica respecto al glifo.
+
+Además, el gate RAW usa dibujo directo (`JWPLC_Display.tft()` / `tft.*`) y por tanto no representa el codegen final del Designer.
+
+---
+
+## Observación pendiente de borde/fondo
+
+La evidencia física confirmó que el modo RAW sigue mostrando la asimetría observada:
+
+```text
+arriba / izquierda -> sin margen visual equivalente
+abajo / derecha    -> espacio nativo de la celda GFX
+```
+
+Por tanto, no se considera correcto cerrar A11-2 completo sólo con el gate RAW.
+
+Regla:
+
+```text
+RAW_FONT_PARITY_PASS_DOES_NOT_IMPLY_HMI_TEXT_BOX_PASS=YES
+```
+
+---
+
+## A11-2B — Public API Text Field
+
+Se añade un segundo gate que **no usa `JWPLC_Display.tft()` ni llamadas `tft.*`**.
+
+Ruta:
+
+```text
+tools/jwplc-hmi-designer/gates/A11_2B_Public_API_Text_Field/
+```
+
+El gate usa únicamente API pública:
+
+```cpp
+JWPLC_UITextField(...)
+JWPLC_Display.setFields(...)
+JWPLC_Display.setText(...)
+JWPLC_Display.setUserRefreshMode(...)
+JWPLC_Display.setUserPage(...)
+JWPLC_Display.enterUserUI()
+```
+
+Muestra:
 
 ```text
 TEMP: 25.6 C
+field x=20
+y=20
+textSize=2
+RED sobre WHITE
+capacity=12
 ```
 
-incluyendo:
-
-- forma de los glifos clásicos;
-- espaciado horizontal de la celda 6x8 escalada a 2x;
-- foreground rojo;
-- background blanco de la celda GFX;
-- ausencia de padding simétrico artificial;
-- mismo orden y composición de caracteres.
-
-La fotografía física contiene perspectiva, rotación y artefactos propios de cámara/panel, por lo que no se usa para una comparación raster matemática 1:1. Para el gate Alpha11 se considera suficiente la coincidencia visual de la muestra canónica contra el mismo contrato GFX y dimensiones lógicas del Designer.
-
-## Resultado
+Con la geometría pública actual:
 
 ```text
-A11_2_GFX_CLASSIC_FONT=PASS
-A11_2_TEXT_SIZE_2X=PASS
-A11_2_FOREGROUND_BACKGROUND=PASS
-A11_2_CELL_GEOMETRY_144X16=PASS
-A11_2_RAW_NO_SYMMETRIC_PADDING=PASS
-A11_2_PHYSICAL_VISUAL_MATCH=PASS
-A11_2_GFX_TEXT_PARITY=PASS
+GFX cell      = 144 x 16 px
+FIELD_PADDING = 3 px
+AUTO field    = 150 x 22 px
 ```
 
-## Decisiones conservadas
+Este gate comprobará si el field declarativo actual ya ofrece un borde/fondo visual aceptable para el Designer.
+
+### Criterio
+
+Si el borde/fondo sigue viéndose asimétrico respecto al glifo, **no se maquillará sólo en el Designer**. Se abrirá una ampliación aditiva de la API pública y del runtime antes de A11-3/A11-4, de modo que el resultado visual y el código generado sigan representando el mismo contrato.
 
 ```text
-GFX_RAW_TOOL=DIAGNOSTIC_ONLY
-RAW_GFX_PADDING_ARTIFICIAL=NO
-JWPLC_DISPLAY_RUNTIME_CHANGE=NO
-JWPLC_UI_FIELD_PADDING_CHANGE=NO
+DESIGNER_ONLY_VISUAL_FIX=FORBIDDEN
+PUBLIC_API_CHANGE_IF_REQUIRED=YES
 ```
 
-A11-3 puede comenzar sobre los fields declarativos reales (`VALUE`, `TEXT`, `BOOL`, `BAR`) y debe reproducir la geometría actual de `JWPLC_UIField` separadamente del modo GFX RAW.
+---
+
+## Estado actual
+
+```text
+A11_2A_RAW_FONT_PARITY=PASS
+A11_2B_PUBLIC_API_TEXT_FIELD=IN_PROGRESS
+A11_2_TEXT=IN_PROGRESS
+```
+
+A11-3 no debe darse por cerrado ni avanzar a codegen final hasta decidir explícitamente el comportamiento de borde/fondo mediante API pública.
