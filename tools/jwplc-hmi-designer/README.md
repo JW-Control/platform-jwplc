@@ -39,7 +39,7 @@ Canvas lógico : 320 x 170
 Controlador   : ST7789
 Rotación      : 3
 Color         : RGB565
-Fuente        : Adafruit GFX classic 5x7
+Fuente        : Adafruit GFX classic
 Campos        : VALUE / TEXT / BOOL / BAR
 Máximo actual : 32 fields
 ```
@@ -63,10 +63,10 @@ El PoC implementa actualmente:
 - dibujo y borrado por píxel;
 - preview simultáneo 1:1;
 - fuente clásica Adafruit GFX para ASCII 32–126;
+- celda RAW de 6 × 8 px por carácter;
 - `textSize` 1×..4×;
 - edición en vivo de texto, X/Y, foreground y background;
-- guía visual recomendada de 3 px sin offset implícito;
-- aviso cuando el texto sale de la safe area recomendada.
+- `Fondo de celda GFX` reproducido sin padding simétrico artificial.
 
 ### Ejecutar sin dependencias
 
@@ -83,14 +83,17 @@ Luego abrir:
 http://localhost:8080
 ```
 
-## A11-2 — paridad física
+## A11-2 — paridad física RAW
 
 Muestra canónica:
 
 ```text
 TEMP: 25.6 C
+X=20
+Y=20
 size=2
 RED sobre WHITE
+bounds GFX=144x16
 ```
 
 Gate físico:
@@ -99,17 +102,18 @@ Gate físico:
 tools/jwplc-hmi-designer/gates/A11_2_GFX_Text_Parity/
 ```
 
-El sketch permite alternar:
+A11-2 comprueba que el Designer reproduce el comportamiento nativo equivalente a:
 
-```text
-LEFT  -> x=0, y=0
-RIGHT -> x=3, y=3
+```cpp
+tft.setTextSize(2);
+tft.setTextColor(ST77XX_RED, ST77XX_WHITE);
+tft.setCursor(20, 20);
+tft.print("TEMP: 25.6 C");
 ```
 
-Esto valida dos cosas por separado:
+El background del modo RAW pertenece a la celda clásica GFX. No es una caja con padding simétrico.
 
-1. `setCursor(x,y)` permanece exacto y no recibe margen oculto;
-2. la guía de 3 px del Designer es una recomendación visual, no una transformación del runtime.
+La `safe area` de pantalla probada temporalmente durante A11-2 fue retirada porque respondía a una interpretación incorrecta de la observación visual.
 
 ## Prioridad del PoC
 
@@ -135,7 +139,17 @@ BOOL
 BAR
 ```
 
-El renderer del Designer deberá reproducir `FIELD_PADDING`, `FIELD_GAP`, geometría AUTO, layouts y alineación del runtime actual de `JWPLC_Display`.
+El renderer del Designer deberá reproducir exactamente la geometría actual de `JWPLC_Display`:
+
+```text
+FIELD_PADDING=3
+FIELD_GAP=4
+AUTO width/height
+INLINE / STACKED
+LEFT / CENTER / RIGHT
+```
+
+Sólo después de reproducir esa geometría se evaluará si una futura API necesita padding configurable o un objeto de texto con fondo simétrico.
 
 ## Regla de integración
 
@@ -156,5 +170,6 @@ Ver:
 
 ```text
 docs/v2.1.0-alpha.11/ALPHA11_HMI_DESIGNER_ARCHITECTURE.md
-docs/v2.1.0-alpha.11/A11_2_SAFE_AREA_DECISION.md
+docs/v2.1.0-alpha.11/A11_2_GFX_CELL_BACKGROUND_DECISION.md
+docs/v2.1.0-alpha.11/A11_2_SAFE_AREA_DECISION.md  (SUPERSEDED)
 ```
