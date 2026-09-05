@@ -42,25 +42,25 @@ El Designer sí debe dejar definidos desde la interfaz:
 
 La frontera manual empieza en `jwplcUIUpdate()`.
 
-El usuario no vuelve a declarar variables ni fields: utiliza los símbolos ya generados y dentro de `jwplcUIUpdate()` decide cómo actualizar sus valores y qué llamadas `setValue()/setText()/setBool()/setBar()` realizar.
-
 ## Gates
 
 ```text
 A11_0_ARCHITECTURE=PASS
 A11_1_PIXEL_CANVAS=PASS
-A11_2_GFX_TEXT_PARITY=PASS
+A11_2A_RAW_FONT_PARITY=PASS
+A11_2B_PUBLIC_API_TEXT_FIELD=IN_PROGRESS
+A11_2_TEXT=IN_PROGRESS
 A11_3_PUBLIC_API_CODEGEN_CONTRACT=PASS
-A11_3_FIELDS=IN_PROGRESS
+A11_3_FIELDS=PENDING
 A11_4_CODEGEN=PENDING
 A11_5_PHYSICAL_PARITY=PENDING
 A11_6_SKETCH_INTEGRATION=PENDING
 ALPHA11_STATUS=IN_PROGRESS
 ```
 
-## A11-2 — cerrado
+## A11-2A — paridad RAW cerrada como subgate
 
-El PoC reprodujo la fuente clásica `glcdfont.c` y se comparó contra un JWPLC Basic físico con la muestra canónica:
+La muestra RAW:
 
 ```text
 TEMP: 25.6 C
@@ -71,33 +71,68 @@ RED sobre WHITE
 bounds GFX=144x16
 ```
 
-Resultado:
+confirmó la misma fuente clásica y geometría de celda entre Designer y TFT física.
 
 ```text
-A11_2_GFX_CLASSIC_FONT=PASS
-A11_2_TEXT_SIZE_2X=PASS
-A11_2_FOREGROUND_BACKGROUND=PASS
-A11_2_CELL_GEOMETRY_144X16=PASS
-A11_2_RAW_NO_SYMMETRIC_PADDING=PASS
-A11_2_PHYSICAL_VISUAL_MATCH=PASS
-A11_2_GFX_TEXT_PARITY=PASS
+A11_2A_GFX_CLASSIC_FONT=PASS
+A11_2A_TEXT_SIZE_2X=PASS
+A11_2A_CELL_GEOMETRY_144X16=PASS
+A11_2A_PHYSICAL_VISUAL_MATCH=PASS
 ```
 
-Documento de validación:
+Sin embargo, la evidencia también confirma que el fondo RAW mantiene la asimetría de la celda GFX respecto al glifo. Además el gate RAW usa dibujo directo `tft.*`, por lo que no representa el contrato final del Designer.
+
+Por tanto:
 
 ```text
-A11_2_GFX_TEXT_PARITY_VALIDATION.md
+RAW_FONT_PARITY_PASS_DOES_NOT_CLOSE_A11_2=YES
 ```
 
-Se mantiene:
+## A11-2B — validación mediante API pública
+
+Se añade el gate:
 
 ```text
-GFX_RAW_TOOL=DIAGNOSTIC_ONLY
-DESIGNER_SCREEN_SAFE_AREA=REMOVED
-RAW_GFX_PADDING_ARTIFICIAL=NO
-JWPLC_DISPLAY_RUNTIME_CHANGE=NO
-JWPLC_UI_FIELD_PADDING_CHANGE=NO
+tools/jwplc-hmi-designer/gates/A11_2B_Public_API_Text_Field/
 ```
+
+Este gate no usa:
+
+```text
+JWPLC_Display.tft()
+tft.*
+```
+
+Usa únicamente:
+
+```cpp
+JWPLC_UITextField(...)
+JWPLC_Display.setFields(...)
+JWPLC_Display.setText(...)
+JWPLC_Display.setUserRefreshMode(...)
+JWPLC_Display.setUserPage(...)
+JWPLC_Display.enterUserUI()
+```
+
+La geometría actual esperada para `TEMP: 25.6 C` con `textSize=2` y `capacity=12` es:
+
+```text
+GFX_CELL=144x16
+FIELD_PADDING=3
+AUTO_FIELD=150x22
+```
+
+Este gate decide si el comportamiento público actual de borde/fondo es suficiente.
+
+Si no lo es:
+
+```text
+DESIGNER_ONLY_VISUAL_FIX=FORBIDDEN
+PUBLIC_API_CHANGE_IF_REQUIRED=YES
+BREAK_EXISTING_DISPLAY_API=NO
+```
+
+La corrección deberá ser aditiva y quedar expresable tanto en el runtime como en el codegen del Designer.
 
 ## Contrato de codegen público
 
@@ -108,7 +143,6 @@ JWPLC_UIValueField(...)
 JWPLC_UITextField(...)
 JWPLC_UIBoolField(...)
 JWPLC_UIBarField(...)
-
 JWPLC_Display.setFields(...)
 ```
 
@@ -129,52 +163,15 @@ extern "C" void jwplcUIUpdate()
 
 El usuario implementa ese callback y utiliza las variables e IDs ya generados.
 
-Ejemplo conceptual de código manual:
-
-```cpp
-extern "C" void jwplcUIUpdate()
-{
-    temperatura = obtenerTemperatura();
-    JWPLC_Display.setValue(FIELD_TEMP, temperatura);
-}
-```
-
 ```text
 DESIGNER_GENERATES_VARIABLE_CONTRACT=YES
 DESIGNER_GENERATES_JWPLC_UI_UPDATE_BODY=NO
 USER_CONFIGURES_JWPLC_UI_UPDATE=YES
-API_CHANGE_REQUIRED_NOW=NO
 ```
 
-`JWPLC_Display.tft()` permanece público para dibujo directo, pero `Texto GFX RAW` es sólo diagnóstico/paridad y no forma parte del codegen declarativo V1.
+## Pendiente inmediato
 
-Documento vigente:
-
-```text
-A11_3_PUBLIC_API_CODEGEN_CONTRACT.md
-```
-
-## Pendiente inmediato — A11-3
-
-Implementar y validar en el Designer los cuatro tipos declarativos actuales:
-
-```text
-VALUE
-TEXT
-BOOL
-BAR
-```
-
-El renderer debe reproducir exactamente la geometría de `JWPLC_UIField`:
-
-```text
-FIELD_PADDING=3
-FIELD_GAP=4
-AUTO width/height
-INLINE / STACKED
-LEFT / CENTER / RIGHT
-label / value / unit
-frame / background / colors
-```
-
-Cada field dinámico debe incluir desde la interfaz su contrato de variable HMI (nombre, tipo y preview), sin generar el cuerpo de `jwplcUIUpdate()`.
+1. ejecutar `A11_2B_Public_API_Text_Field.ino` en un JWPLC Basic;
+2. observar el borde/fondo real generado por `JWPLC_UITextField`;
+3. decidir `API_CHANGE_REQUIRED_FOR_TEXT_BOX=YES/NO`;
+4. sólo entonces continuar con `VALUE / TEXT / BOOL / BAR` en el Designer.
