@@ -17,6 +17,21 @@ EXISTING_DISPLAY_API=PROTECTED
 SECOND_HMI_RUNTIME=NO
 ```
 
+## Frontera de responsabilidad del Designer
+
+```text
+DESIGNER_GENERATES_FIELD_DEFINITIONS=YES
+DESIGNER_GENERATES_HMI_REGISTRATION=YES
+DESIGNER_GENERATES_DISPLAY_CONFIGURATION=YES
+DESIGNER_GENERATES_JWPLC_UI_UPDATE=NO
+DESIGNER_GENERATES_DYNAMIC_BINDINGS=NO
+USER_OWNS_JWPLC_UI_UPDATE=YES
+```
+
+El Designer termina antes de `jwplcUIUpdate()`.
+
+Su salida debe dejar disponibles IDs simbólicos estables (`FIELD_TEMP`, `FIELD_RUN`, etc.) y la definición/configuración HMI. El usuario es responsable de vincular esos IDs con variables y lógica de aplicación mediante `JWPLC_Display.setValue()`, `setText()`, `setBool()` y `setBar()` donde corresponda.
+
 ## Gates
 
 ```text
@@ -74,7 +89,7 @@ A11_2_GFX_CELL_BACKGROUND_DECISION.md       -> VIGENTE
 
 ## Contrato de codegen público fijado
 
-Antes de implementar A11-3 se auditó la API pública vigente y se fijó que el código generado para el usuario debe usar:
+El código generado para el usuario debe usar la API pública declarativa:
 
 ```cpp
 JWPLC_UIValueField(...)
@@ -83,18 +98,31 @@ JWPLC_UIBoolField(...)
 JWPLC_UIBarField(...)
 
 JWPLC_Display.setFields(...)
+```
+
+El Designer también puede generar las llamadas de configuración seleccionadas visualmente, por ejemplo:
+
+```cpp
+JWPLC_Display.setUserRefreshMode(...);
+JWPLC_Display.setUserPage(...);
+JWPLC_Display.setIdleWakeMode(...);
+JWPLC_Display.setIdleReturnMode(...);
+```
+
+La frontera termina ahí.
+
+No forman parte del codegen del Designer:
+
+```text
+jwplcUIUpdate()
 JWPLC_Display.setValue(...)
 JWPLC_Display.setText(...)
 JWPLC_Display.setBool(...)
 JWPLC_Display.setBar(...)
-
-jwplcUIEnter()
-jwplcUIPageEnter(...)
-jwplcUIUpdate()
-jwplcUIExit()
+bindings a variables de aplicación
 ```
 
-No se generarán callbacks legacy ni llamadas al namespace interno `JWPLCUI`.
+Esas llamadas siguen siendo la API pública correcta para el usuario, pero su uso pertenece al código manual de aplicación.
 
 `JWPLC_Display.tft()` permanece público para dibujo directo, pero `Texto GFX RAW` de A11-2 es una herramienta de diagnóstico/paridad y no formará parte del codegen declarativo V1.
 
@@ -105,13 +133,13 @@ API_CHANGE_REQUIRED_NOW=NO
 DESIGNER_PROPERTY_WITHOUT_PUBLIC_CODEGEN=FORBIDDEN
 ```
 
-Si A11-3 introduce una propiedad editable que hoy sólo existe como constante interna, se ampliará la API de forma aditiva antes de A11-4.
-
-Documento:
+Documento vigente:
 
 ```text
 A11_3_PUBLIC_API_CODEGEN_CONTRACT.md
 ```
+
+Cualquier texto anterior que describa generación automática de bindings dentro de `jwplcUIUpdate()` queda sustituido por este contrato.
 
 ## Pendiente inmediato
 
