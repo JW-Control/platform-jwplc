@@ -32,7 +32,6 @@
         </select>
       </label>
       <label class="check"><input id="gridToggle" type="checkbox" checked /> Grid</label>
-      <label class="check"><input id="safeAreaToggle" type="checkbox" checked /> Guía 3 px</label>
     </div>
   </header>
 
@@ -48,7 +47,7 @@
         <h2>Herramientas</h2>
         <button class="tool" data-tool="pixel">Píxel</button>
         <button class="tool" data-tool="erase">Borrar</button>
-        <button class="tool active" data-tool="text">Texto GFX · A11-2</button>
+        <button class="tool active" data-tool="text">Texto GFX RAW · A11-2</button>
         <button class="tool" disabled>VALUE · A11-3</button>
         <button class="tool" disabled>TEXT field · A11-3</button>
         <button class="tool" disabled>BOOL · A11-3</button>
@@ -56,16 +55,16 @@
       </section>
 
       <section id="textControlsSection">
-        <h2>Texto GFX A11-2</h2>
+        <h2>Texto GFX RAW A11-2</h2>
         <label class="field-label">Contenido
           <input id="textInput" class="field-input" type="text" value="HOLA JWPLC" maxlength="40" />
         </label>
         <div class="inline-fields">
           <label class="field-label">X
-            <input id="textX" class="field-input" type="number" min="0" max="319" value="3" />
+            <input id="textX" class="field-input" type="number" min="0" max="319" value="20" />
           </label>
           <label class="field-label">Y
-            <input id="textY" class="field-input" type="number" min="0" max="169" value="3" />
+            <input id="textY" class="field-input" type="number" min="0" max="169" value="20" />
           </label>
           <label class="field-label">Tamaño
             <select id="textSize" class="field-input">
@@ -76,11 +75,11 @@
             </select>
           </label>
         </div>
-        <label class="field-label">Fondo
+        <label class="field-label">Fondo de celda GFX
           <select id="textBackground" class="field-input"></select>
         </label>
         <p class="muted small">El color activo de la paleta es el foreground. Haz clic en el canvas con la herramienta Texto para reposicionarlo.</p>
-        <p class="muted small">Texto GFX conserva X/Y exactos: la guía de 3 px es sólo una recomendación visual y no agrega offset.</p>
+        <p class="muted small">RAW reproduce la celda clásica 6×8 de Adafruit GFX. El fondo no es una caja con padding simétrico: incluye el espacio nativo del glifo/celda.</p>
       </section>
 
       <section>
@@ -98,7 +97,6 @@
       <div id="canvasViewport" class="canvas-viewport">
         <div id="canvasStage" class="canvas-stage">
           <canvas id="displayCanvas" aria-label="Canvas lógico JWPLC Basic 320 por 170"></canvas>
-          <div id="safeAreaGuide" class="safe-area-guide" aria-hidden="true"></div>
         </div>
       </div>
 
@@ -131,17 +129,17 @@
       </section>
 
       <section>
-        <h2>Paridad GFX</h2>
+        <h2>Paridad GFX RAW</h2>
         <div class="property-grid">
           <span>Fuente</span><strong>Classic glcdfont</strong>
-          <span>Glifo</span><strong>5 × 8 bits</strong>
+          <span>Bitmap</span><strong>5 columnas × 8 bits</strong>
           <span>Celda</span><strong>6 × 8 px</strong>
           <span>Escala</span><strong id="textScaleStatus">2×</strong>
-          <span>Bounds</span><strong id="textBoundsStatus">60 × 16 px</strong>
+          <span>Bounds celda</span><strong id="textBoundsStatus">60 × 16 px</strong>
           <span>Charset PoC</span><strong>ASCII 32–126</strong>
-          <span>Safe area</span><strong>3 px recomendada</strong>
+          <span>Fondo</span><strong>celda nativa GFX</strong>
+          <span>Padding simétrico</span><strong>NO · modo RAW</strong>
         </div>
-        <p id="safeAreaStatus" class="safe-area-status ok">Dentro de guía recomendada · 3 px</p>
       </section>
 
       <section>
@@ -167,12 +165,14 @@ A11-1 Pixel Canvas: PASS (validación visual 2026-09-05)
 
 A11-2 en curso:
 - fuente clásica Adafruit GFX glcdfont.c
-- celda 6x8 y drawChar pixel-perfect
+- celda RAW 6x8 y drawChar pixel-perfect
 - textSize entero 1x..4x
 - edición en vivo de texto/X/Y/tamaño/color
-- X/Y crudos sin offset implícito
-- guía visual recomendada de 3 px, no restrictiva
-- siguiente gate: comparar muestra canónica contra TFT física</pre>
+- fondo = celda nativa GFX, sin padding simétrico artificial
+- siguiente gate: comparar muestra canónica contra TFT física
+
+A11-3:
+- los fields JWPLC reproducirán su caja/padding real por separado</pre>
   </section>
 
   <footer class="statusbar">
@@ -184,6 +184,5 @@ A11-2 en curso:
 
   <script src="./gfx-classic-font.js"></script>
   <script src="./app.js"></script>
-  <script src="./safe-area.js"></script>
 </body>
 </html>
