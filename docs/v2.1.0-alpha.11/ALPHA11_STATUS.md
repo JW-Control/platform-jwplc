@@ -21,16 +21,28 @@ SECOND_HMI_RUNTIME=NO
 
 ```text
 DESIGNER_GENERATES_FIELD_DEFINITIONS=YES
+DESIGNER_GENERATES_VARIABLE_DECLARATIONS=YES
 DESIGNER_GENERATES_HMI_REGISTRATION=YES
 DESIGNER_GENERATES_DISPLAY_CONFIGURATION=YES
 DESIGNER_GENERATES_JWPLC_UI_UPDATE=NO
-DESIGNER_GENERATES_DYNAMIC_BINDINGS=NO
-USER_OWNS_JWPLC_UI_UPDATE=YES
+USER_WRITES_JWPLC_UI_UPDATE=YES
 ```
 
-El Designer termina antes de `jwplcUIUpdate()`.
+El Designer sí debe dejar definidos desde la interfaz:
 
-Su salida debe dejar disponibles IDs simbólicos estables (`FIELD_TEMP`, `FIELD_RUN`, etc.) y la definición/configuración HMI. El usuario es responsable de vincular esos IDs con variables y lógica de aplicación mediante `JWPLC_Display.setValue()`, `setText()`, `setBool()` y `setBar()` donde corresponda.
+```text
+- IDs simbólicos;
+- variables HMI;
+- tipos C++ de variables;
+- buffers de texto/capacidad;
+- JWPLC_UIField[];
+- estilos, formatos, colores, páginas y geometría;
+- registro/configuración de JWPLC_Display.
+```
+
+La frontera manual empieza en `jwplcUIUpdate()`.
+
+El usuario no vuelve a declarar variables ni fields: utiliza los símbolos ya generados y dentro de `jwplcUIUpdate()` decide cómo actualizar sus valores y qué llamadas `setValue()/setText()/setBool()/setBar()` realizar.
 
 ## Gates
 
@@ -65,13 +77,11 @@ PREVIEW_1_TO_1=YES
 
 La implementación replica el principio de la fuente clásica de Adafruit GFX: cinco columnas de bitmap dentro de una celda lógica de seis columnas por ocho filas, escalada por un entero.
 
-## Corrección de interpretación
+## Corrección de interpretación A11-2
 
-Durante A11-2 se interpretó inicialmente una observación como falta de margen respecto al borde físico de la TFT y se añadió temporalmente una `safe area` de 3 px.
+Durante A11-2 se añadió temporalmente una `safe area` por interpretar una observación como margen respecto al borde físico de la TFT.
 
-La observación real corresponde al margen interno entre el glifo y el **fondo de su celda GFX**.
-
-Por tanto:
+La observación real corresponde al margen interno entre el glifo y el fondo de su celda GFX.
 
 ```text
 DESIGNER_SCREEN_SAFE_AREA=REMOVED
@@ -80,16 +90,16 @@ JWPLC_DISPLAY_RUNTIME_CHANGE=NO
 JWPLC_UI_FIELD_PADDING_CHANGE=NO
 ```
 
-La safe area fue retirada del PoC antes del cierre del gate y la decisión quedó registrada en:
+Documentos:
 
 ```text
 A11_2_SAFE_AREA_DECISION.md                 -> SUPERSEDED
 A11_2_GFX_CELL_BACKGROUND_DECISION.md       -> VIGENTE
 ```
 
-## Contrato de codegen público fijado
+## Contrato de codegen público
 
-El código generado para el usuario debe usar la API pública declarativa:
+El Designer genera definición y datos HMI mediante la API pública:
 
 ```cpp
 JWPLC_UIValueField(...)
@@ -100,46 +110,47 @@ JWPLC_UIBarField(...)
 JWPLC_Display.setFields(...)
 ```
 
-El Designer también puede generar las llamadas de configuración seleccionadas visualmente, por ejemplo:
+Además genera las variables configuradas visualmente, por ejemplo:
 
 ```cpp
-JWPLC_Display.setUserRefreshMode(...);
-JWPLC_Display.setUserPage(...);
-JWPLC_Display.setIdleWakeMode(...);
-JWPLC_Display.setIdleReturnMode(...);
+float temperatura = 0.0f;
+bool motorOn = false;
+char estadoTexto[13] = {};
+float nivel = 0.0f;
 ```
 
-La frontera termina ahí.
+No genera el cuerpo de:
 
-No forman parte del codegen del Designer:
-
-```text
-jwplcUIUpdate()
-JWPLC_Display.setValue(...)
-JWPLC_Display.setText(...)
-JWPLC_Display.setBool(...)
-JWPLC_Display.setBar(...)
-bindings a variables de aplicación
+```cpp
+extern "C" void jwplcUIUpdate()
 ```
 
-Esas llamadas siguen siendo la API pública correcta para el usuario, pero su uso pertenece al código manual de aplicación.
+El usuario implementa ese callback y utiliza las variables e IDs ya generados.
 
-`JWPLC_Display.tft()` permanece público para dibujo directo, pero `Texto GFX RAW` de A11-2 es una herramienta de diagnóstico/paridad y no formará parte del codegen declarativo V1.
+Ejemplo conceptual de código manual:
 
-La API actual ya expresa el alcance V1, por lo que:
+```cpp
+extern "C" void jwplcUIUpdate()
+{
+    temperatura = obtenerTemperatura();
+    JWPLC_Display.setValue(FIELD_TEMP, temperatura);
+}
+```
 
 ```text
+DESIGNER_GENERATES_VARIABLE_CONTRACT=YES
+DESIGNER_GENERATES_JWPLC_UI_UPDATE_BODY=NO
+USER_CONFIGURES_JWPLC_UI_UPDATE=YES
 API_CHANGE_REQUIRED_NOW=NO
-DESIGNER_PROPERTY_WITHOUT_PUBLIC_CODEGEN=FORBIDDEN
 ```
+
+`JWPLC_Display.tft()` permanece público para dibujo directo, pero `Texto GFX RAW` de A11-2 es sólo diagnóstico/paridad y no forma parte del codegen declarativo V1.
 
 Documento vigente:
 
 ```text
 A11_3_PUBLIC_API_CODEGEN_CONTRACT.md
 ```
-
-Cualquier texto anterior que describa generación automática de bindings dentro de `jwplcUIUpdate()` queda sustituido por este contrato.
 
 ## Pendiente inmediato
 
@@ -161,4 +172,4 @@ Comparar:
 
 A11-2 sólo pasa después de esa comparación.
 
-Después, A11-3 reproducirá `JWPLC_UIField` mediante la API pública, incluyendo el comportamiento actual de `FIELD_PADDING=3`, `FIELD_GAP=4`, layouts y geometría AUTO.
+Después, A11-3 reproducirá `JWPLC_UIField` mediante la API pública, incluyendo `FIELD_PADDING=3`, `FIELD_GAP=4`, layouts y geometría AUTO.
