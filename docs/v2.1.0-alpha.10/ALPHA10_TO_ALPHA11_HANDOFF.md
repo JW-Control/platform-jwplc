@@ -1,11 +1,15 @@
 # Transferencia Alpha10 -> Alpha11
 
+Fecha de actualización: 2026-09-05.
+
 ## Regla de avance
 
-Alpha11 no debe iniciar como trabajo de release hasta que Alpha10 quede publicado nuevamente y validado desde el índice dev.
+Alpha10 ya fue publicado nuevamente y validado desde el índice dev. Antes de abrir formalmente Alpha11 sólo se exige completar la paridad final de contenido entre `release/v2.1.x` y `main`.
 
 ```text
-NEXT_ALPHA=BLOCKED_UNTIL_ALPHA10_PUBLISHED
+ALPHA10_RELEASE_PUBLICATION=PASS
+ALPHA10_PUBLISHED_PACKAGE_GATE=PASS
+NEXT_ALPHA=BLOCKED_ONLY_BY_FINAL_TREE_PARITY
 ```
 
 ## Qué cerró Alpha10
@@ -15,27 +19,40 @@ Alpha10 queda acotado a limpieza de build/library discovery:
 ```text
 JWPLC_ETHERNET_SHADOW_GUARD=REMOVED
 JWPLC_ETHERNET_VERSION=1.0.0
+SUPPORTED_LIBRARY_MODEL=PACKAGE_MANAGED
 MANUAL_JW_JWPLC_OVERRIDES=OUT_OF_SCOPE
 ADAFRUIT_BUNDLED_MARKERS=RETAINED
 AUTOLOAD_PERIPHERALS_REMOVED=NO
 ```
 
-Commit técnico:
+Commit técnico principal:
 
 ```text
 35385c7286c8a4fdf33aec1af1175b8bb4f45e64
 ```
 
-Cierre técnico local:
+No se reintroducen guards generalizados para copias manuales de librerías JW/JWPLC salvo que aparezca un caso reproducible dentro del flujo soportado y el coste sea medido.
+
+## Publicación final
 
 ```text
-ALPHA10_BUILD_BENCHMARK=PASS_WITH_HOST_VARIATION
-ALPHA10_COMPILER_STRUCTURE_PARITY=PASS
-ALPHA10_BINARY_SIZE_PARITY=PASS
-ALPHA10_LOCAL_FUNCTIONAL_MATRIX=5/5_PASS
-ALPHA10_ARDUINO_IDE_VALIDATION=PASS
-ALPHA10_PHYSICAL_VALIDATION=PASS_WITH_SCOPED_INHERITED_ETH_RTU_EVIDENCE
-ALPHA10_TECHNICAL_CLOSURE=PASS
+PUBLISHED_PACKAGE_SOURCE_SHA=f365738e8b0903bca9f93f5c42dfee8310e074b2
+TAG=v2.1.0-alpha.10
+ZIP=jwplc-esp32-2.1.0-alpha.10.zip
+SIZE=24464282
+SHA256=5ca5a71d6de0ddd25c81442d7ea4f840ad48603dd024afcd2925235dc4d1b0bf
+PACKAGE_ROOT=2.1.0/
+```
+
+El primer ZIP de reemplazo generado con `archive_root_mode=contents` fue descartado porque Arduino CLI exige una raíz única. El workflow final usa una única carpeta `2.1.0/` y valida `boards.txt` + `platform.txt` antes de publicar.
+
+Validación desde el package publicado:
+
+```text
+ALPHA10_PUBLISHED_EXACT_INSTALL=PASS
+ALPHA10_PUBLISHED_COMPILE=PASS
+ALPHA10_PUBLISHED_UPLOAD=PASS
+ALPHA10_PUBLISHED_RUNTIME=PASS
 ```
 
 ## Benchmark de referencia
@@ -54,7 +71,46 @@ avg r1-r3 = 23.284 s
 avg r2-r3 = 22.863 s
 ```
 
-No usar un porcentaje exacto de recuperación como conclusión del alpha; se registró variación de host.
+No usar un porcentaje exacto de recuperación como conclusión del alpha; se registró variación del host.
+
+Paridad conservada:
+
+```text
+Basic cold = 15 compiladores
+Core cold  = 78 compiladores
+Warm       = 1 compilador
+COMPILER_STRUCTURE_PARITY=PASS
+ALPHA10_BINARY_SIZE_PARITY=PASS
+```
+
+## Evidencia funcional transferida
+
+Matriz Alpha10:
+
+```text
+DigitalIO_Basic=PASS
+Buttons_Basic=PASS
+Display_HMI_Fields=PASS
+Ethernet_Diagnostics=PASS
+RemoteIO_Slave_RTU=PASS
+ALPHA10_LOCAL_FUNCTIONAL_MATRIX=5/5_PASS
+```
+
+Gate físico:
+
+```text
+ALPHA4_DISPLAY_READY=PASS
+ALPHA4_RTC=PASS
+ALPHA4_FRAM=PASS
+ALPHA4_SD=PASS
+ALPHA4_BUTTONS=PASS
+ALPHA4_INPUTS=PASS
+ALPHA4_OUTPUTS=PASS
+ALPHA4_DISPLAY_VISUAL=PASS
+ALPHA4_LOCAL_PHYSICAL_GATE=PASS
+```
+
+Ethernet y RS-485/Modbus no cambiaron de runtime en Alpha10. Se conserva su evidencia física cerrada en Alpha6/Alpha7/Alpha9 y la regresión de compilación Alpha10.
 
 ## Decisiones que Alpha11 hereda
 
@@ -72,48 +128,35 @@ APP_ONLY=VALIDATED_DEVELOPMENT_TOOL
 APP_ONLY_DEFAULT_UPLOAD=NO
 ```
 
-Alpha11 no debe reintroducir markers generalizados de librerías JW/JWPLC sin una necesidad reproducida y un benchmark que justifique el coste.
+## Pendientes transferidos a Alpha11
 
-## Evidencia física que se transfiere
+- configuración de baudrate RTU desde el Backplane/UI;
+- configuración de formato serial RTU y propagación hasta HAL;
+- referencias tipadas de timers como `TON0.Q`, `TOF0.Q` y `TP0.Q`;
+- source freeze reproducible del fork OpenPLC Editor;
+- integración futura de HMI Arduino con Ladder/OpenPLC;
+- prueba Remote I/O con múltiples bits simultáneos;
+- continuar las mejoras de HMI/TFT sin romper la API ya validada;
+- mantener como regla el modelo package-managed sin markers JW/JWPLC generalizados.
 
-Alpha10 revalidó desde Arduino IDE:
+La definición exacta del alcance Alpha11 debe cerrarse al crear su branch; esta transferencia no convierte pendientes en APIs ya implementadas.
 
-- Display;
-- RTC;
-- FRAM;
-- microSD;
-- botonera;
-- 8 DI;
-- 8 DO;
-- TFT visual.
-
-Ethernet y RS-485/Modbus no cambiaron de runtime en Alpha10. Se conserva su evidencia física cerrada en Alpha6/Alpha7/Alpha9 y su regresión de compilación Alpha10:
+## Último pendiente de Alpha10
 
 ```text
-Ethernet_Diagnostics=PASS
-RemoteIO_Slave_RTU=PASS
-UNDEFINED_REFERENCE_HITS=0
+RELEASE_MAIN_CONTENT_SYNC=PENDING
+TREE_PARITY_CRITERION=REQUIRED
+GIT_ANCESTRY_PARITY=NOT_REQUIRED
 ```
 
-## Pendiente antes de habilitar Alpha11
-
-Sólo queda el cierre de publicación de Alpha10:
-
-- CI verde del commit documental final;
-- merge de PR #90 a `release/v2.1.x`;
-- reemplazo del release/tag Alpha10 interno previo;
-- nueva PreRelease `v2.1.0-alpha.10`;
-- ZIP/SHA/tamaño nuevos;
-- índice dev actualizado;
-- índice estable sin cambios;
-- instalación/compilación/upload desde el package publicado;
-- README y documentos de transferencia finales;
-- estado `CLOSED_PUBLISHED`.
+Debido a los squash merges históricos, la historia de `release/v2.1.x` y `main` puede seguir divergente. El criterio final es que ambos branches terminen con el mismo árbol/contenido después del sync controlado.
 
 ## Estado
 
 ```text
-ALPHA10_TO_ALPHA11_HANDOFF=PREPARED
+ALPHA10_TO_ALPHA11_HANDOFF=UPDATED
 ALPHA10_TECHNICAL_CLOSURE=PASS
-HANDOFF_EXECUTION=PENDING_ALPHA10_PUBLICATION
+ALPHA10_RELEASE_PUBLICATION=PASS
+ALPHA10_PUBLISHED_PACKAGE_GATE=PASS
+HANDOFF_EXECUTION=PENDING_ONLY_FINAL_TREE_PARITY
 ```
