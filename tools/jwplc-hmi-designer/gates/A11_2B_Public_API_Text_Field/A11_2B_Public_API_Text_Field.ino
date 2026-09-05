@@ -35,7 +35,7 @@ void setup()
     Serial.println("Objetivo: validar borde/fondo usando solo API publica JWPLC_Display");
     Serial.println("Sin JWPLC_Display.tft() y sin llamadas tft.*");
     Serial.println("Field x=20 y=20 / textSize=2 / RED sobre WHITE / capacity=12");
-    Serial.println("Geometria esperada actual: celda 144x16 + FIELD_PADDING=3 => field 150x22");
+    Serial.println("Geometria esperada A11-2C: cuerpo 5x7 nominal / field AUTO 148x20 / margen visual 3 px");
 
     const bool fieldsOk = JWPLC_Display.setFields(
         HMI_FIELDS,
