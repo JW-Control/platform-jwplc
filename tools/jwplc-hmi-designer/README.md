@@ -6,7 +6,7 @@ Estado actual:
 
 ```text
 Alpha11
-PoC inicial
+Gate en trabajo: A11-1 Pixel Canvas
 Target: ST7789 / 320 x 170 / rotation 3
 ```
 
@@ -42,6 +42,46 @@ Campos        : VALUE / TEXT / BOOL / BAR
 Máximo actual : 32 fields
 ```
 
+## PoC A11-1 disponible
+
+Ruta:
+
+```text
+tools/jwplc-hmi-designer/poc/
+```
+
+El PoC actual implementa:
+
+- framebuffer RGB565 de 320 × 170;
+- zoom 2× / 3× / 4× / 6× / 8×;
+- escalado sin interpolación;
+- grid de píxel opcional;
+- coordenadas X/Y exactas;
+- lectura del valor RGB565 bajo el cursor;
+- dibujo y borrado por píxel;
+- paleta RGB565 básica;
+- preview simultáneo 1:1;
+- demo geométrica para probar zoom/grid.
+
+Todavía no reclama A11-1 como `PASS`; requiere ejecución local y revisión visual.
+
+### Ejecutar sin dependencias
+
+Desde la raíz del repositorio:
+
+```powershell
+cd tools\jwplc-hmi-designer\poc
+py -m http.server 8080
+```
+
+Luego abrir:
+
+```text
+http://localhost:8080
+```
+
+También puede abrirse `index.html` directamente, pero el servidor local se recomienda porque los siguientes gates incorporarán recursos cargados desde el proyecto.
+
 ## Prioridad del PoC
 
 1. framebuffer 320 × 170;
@@ -54,6 +94,20 @@ Máximo actual : 32 fields
 8. proyecto `.jwhmi`;
 9. codegen C++;
 10. exportación segura hacia sketch.
+
+## Siguiente gate: A11-2
+
+La siguiente incorporación será la reproducción de la fuente clásica usada por Adafruit GFX a partir del `glcdfont.c` bundled del mismo package JWPLC.
+
+Objetivo:
+
+```text
+Texto escrito en Designer
+        ==
+mismos píxeles del texto renderizado por JWPLC_Display
+```
+
+Se validará primero con caracteres ASCII y `textSize` 1×/2×/3× antes de avanzar a los fields declarativos.
 
 ## Regla de integración
 
