@@ -4,12 +4,14 @@ Fecha de actualización: 2026-09-05.
 
 ## Regla de avance
 
-Alpha10 ya fue publicado nuevamente y validado desde el índice dev. Antes de abrir formalmente Alpha11 sólo se exige completar la paridad final de contenido entre `release/v2.1.x` y `main`.
+Alpha10 quedó publicado, validado desde el índice dev y sincronizado por contenido entre `release/v2.1.x` y `main`.
 
 ```text
 ALPHA10_RELEASE_PUBLICATION=PASS
 ALPHA10_PUBLISHED_PACKAGE_GATE=PASS
-NEXT_ALPHA=BLOCKED_ONLY_BY_FINAL_TREE_PARITY
+ALPHA10_RELEASE_MAIN_TREE_PARITY=PASS
+ALPHA10_STATUS=CLOSED_PUBLISHED
+ALPHA11_UNBLOCKED=YES
 ```
 
 ## Qué cerró Alpha10
@@ -71,7 +73,7 @@ avg r1-r3 = 23.284 s
 avg r2-r3 = 22.863 s
 ```
 
-No usar un porcentaje exacto de recuperación como conclusión del alpha; se registró variación del host.
+No usar un porcentaje exacto de recuperación como conclusión del alpha; se registró variación de host.
 
 Paridad conservada:
 
@@ -112,6 +114,20 @@ ALPHA4_LOCAL_PHYSICAL_GATE=PASS
 
 Ethernet y RS-485/Modbus no cambiaron de runtime en Alpha10. Se conserva su evidencia física cerrada en Alpha6/Alpha7/Alpha9 y la regresión de compilación Alpha10.
 
+## Sincronización final cerrada
+
+La sincronización de contenido hacia `main` se cerró con PR #93 mediante un branch creado directamente desde `main` y un commit cuyo árbol era el árbol final de `release/v2.1.x`.
+
+```text
+MAIN_COMMIT_AFTER_SYNC=d25db91db2f327b4e97bef1ff339fc514548a632
+MAIN_TREE_AFTER_SYNC=7d0358741d525445630814894dde6ea2cab37dbd
+RELEASE_TREE_AT_SYNC=7d0358741d525445630814894dde6ea2cab37dbd
+TREE_PARITY_CRITERION=PASS
+GIT_ANCESTRY_PARITY=NOT_REQUIRED
+```
+
+La historia de ambas ramas puede seguir divergente debido a los squash merges históricos; Alpha10 usa paridad de árbol/contenido como criterio de cierre.
+
 ## Decisiones que Alpha11 hereda
 
 ```text
@@ -141,22 +157,15 @@ APP_ONLY_DEFAULT_UPLOAD=NO
 
 La definición exacta del alcance Alpha11 debe cerrarse al crear su branch; esta transferencia no convierte pendientes en APIs ya implementadas.
 
-## Último pendiente de Alpha10
-
-```text
-RELEASE_MAIN_CONTENT_SYNC=PENDING
-TREE_PARITY_CRITERION=REQUIRED
-GIT_ANCESTRY_PARITY=NOT_REQUIRED
-```
-
-Debido a los squash merges históricos, la historia de `release/v2.1.x` y `main` puede seguir divergente. El criterio final es que ambos branches terminen con el mismo árbol/contenido después del sync controlado.
-
 ## Estado
 
 ```text
-ALPHA10_TO_ALPHA11_HANDOFF=UPDATED
+ALPHA10_TO_ALPHA11_HANDOFF=FINAL
 ALPHA10_TECHNICAL_CLOSURE=PASS
 ALPHA10_RELEASE_PUBLICATION=PASS
 ALPHA10_PUBLISHED_PACKAGE_GATE=PASS
-HANDOFF_EXECUTION=PENDING_ONLY_FINAL_TREE_PARITY
+ALPHA10_RELEASE_MAIN_TREE_PARITY=PASS
+ALPHA10_STATUS=CLOSED_PUBLISHED
+ALPHA11_UNBLOCKED=YES
+HANDOFF_EXECUTION=READY
 ```

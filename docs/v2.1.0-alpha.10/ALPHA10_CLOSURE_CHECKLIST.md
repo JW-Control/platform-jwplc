@@ -74,7 +74,7 @@ ALPHA10_LOCAL_COMPILE_GATE=PASS
 ALPHA10_ARDUINO_IDE_VALIDATION=PASS
 ```
 
-## Validación física local
+## Validación física
 
 - [x] TFT listo.
 - [x] RTC operativo.
@@ -103,18 +103,17 @@ Ethernet y RS-485/Modbus RTU no fueron sometidos a un nuevo stress de runtime po
 ## Empaquetado y publicación
 
 - [x] Primer ZIP con `archive_root_mode=contents` identificado como inválido para Boards Manager.
-- [x] Publicación inválida descartada antes de considerarla cierre final.
+- [x] Publicación inválida descartada.
 - [x] `archive_root_mode=folder` fijado como política del release.
 - [x] Workflow manual simplificado a un único input editable: `version`.
-- [x] Validación de raíz única + `boards.txt` + `platform.txt` añadida al workflow.
+- [x] Validación de raíz única + `boards.txt` + `platform.txt` añadida.
 - [x] Workflow final #19 = SUCCESS.
 - [x] PreRelease `v2.1.0-alpha.10` regenerada.
 - [x] ZIP final con raíz única `2.1.0/`.
-- [x] SHA-256 final registrado.
-- [x] Tamaño final registrado.
+- [x] SHA-256 y tamaño final registrados.
 - [x] PR #92 del índice dev integrada a `main`.
 - [x] Índice estable permanece en `2.0.0`.
-- [x] Índice dev final sincronizado también a `release/v2.1.x`.
+- [x] Índice dev final sincronizado en `main` y `release/v2.1.x`.
 - [x] Instalación exacta desde package publicado = PASS.
 - [x] Compilación desde package publicado = PASS.
 - [x] Upload físico desde package publicado = PASS.
@@ -131,6 +130,18 @@ ALPHA10_PUBLISHED_COMPILE=PASS
 ALPHA10_PUBLISHED_UPLOAD=PASS
 ALPHA10_PUBLISHED_RUNTIME=PASS
 ```
+
+## README y documentación
+
+- [x] README raíz revisado de forma general.
+- [x] Distribución reorganizada tomando Alpha1 como referencia.
+- [x] `package_jwplc_index_dev.json` y `package_jwplc_index.json` movidos a la primera sección útil.
+- [x] Eliminadas referencias obsoletas que presentaban `JWPLC_Bundled_JWPLC_Ethernet.h` como protección vigente.
+- [x] Lista de librerías JW/JWPLC actualizada según `JWPLC/2.1.0/libraries/`.
+- [x] Modelo `PACKAGE_MANAGED` documentado para usuarios y talleres.
+- [x] PreRelease final actualizada con ZIP/SHA/tamaño reales.
+- [x] Handoff Alpha10 -> Alpha11 actualizado.
+- [x] PR #93 de sincronización final a `main` integrada mediante Squash and merge.
 
 ## Decisiones de configuración
 
@@ -149,14 +160,16 @@ No se publica `bootloader.bin` como definitivo.
 
 ## Sincronización de ramas
 
-- [x] Índice dev de `main` copiado exactamente a `release/v2.1.x` antes del sync final.
-- [x] Índice estable verificado idéntico en ambos branches.
-- [ ] PR final `release/v2.1.x -> main` integrada mediante Squash and merge.
-- [ ] Tree SHA final de `main` igual al tree SHA de `release/v2.1.x`.
+El sync final se realizó mediante un branch construido directamente desde `main` y un commit cuyo árbol era el árbol final de `release/v2.1.x`. Esto evitó mezclar historiales divergentes.
 
-La historia Git puede permanecer divergente por la política de historia lineal de `main`; el criterio de cierre es paridad de árbol/contenido, no ancestría literal.
+- [x] PR #93 integrada con Squash and merge.
+- [x] `main` quedó con tree SHA `7d0358741d525445630814894dde6ea2cab37dbd` inmediatamente después del sync.
+- [x] Ese tree SHA coincidía exactamente con `release/v2.1.x` en el momento del merge.
+- [x] La ancestría literal no se usa como criterio de paridad debido a squash merges históricos.
 
-## Estado previo al sync final
+Los commits documentales de cierre posteriores deben mantenerse idénticos en ambas ramas para conservar la paridad de contenido.
+
+## Estado final
 
 ```text
 ALPHA10_PROTECTION_AUDIT=PASS
@@ -171,7 +184,7 @@ ALPHA10_PUBLISHED_RUNTIME=PASS
 ALPHA10_RELEASE_PUBLICATION=PASS
 ALPHA10_DEV_INDEX=PASS
 ALPHA10_STABLE_INDEX_UNCHANGED=PASS
-ALPHA10_RELEASE_MAIN_TREE_PARITY=PENDING_FINAL_SYNC
-ALPHA10_STATUS=BLOCKED_ONLY_BY_FINAL_BRANCH_SYNC
-NEXT_ALPHA=BLOCKED_UNTIL_TREE_PARITY
+ALPHA10_RELEASE_MAIN_TREE_PARITY=PASS
+ALPHA10_STATUS=CLOSED_PUBLISHED
+NEXT=ALPHA11
 ```
