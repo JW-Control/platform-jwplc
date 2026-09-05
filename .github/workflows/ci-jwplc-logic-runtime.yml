@@ -81,11 +81,15 @@ jobs:
 
           mkdir -p "$RUNNER_TEMP/jwplc-builds" "$GITHUB_WORKSPACE/ci-artifacts"
 
+          # El smoke principal valida APIs y perifericos soportados del package.
+          # JWPLC_LogicRuntime y JWPLC_LogicRuntime_UI permanecen experimentales
+          # y no forman parte del gate general de Arduino/JWPLC Basic.
           sketches=(
-            "JWPLC/2.1.0/libraries/JWPLC_LogicRuntime/examples/JWPLC_LogicRuntime_Default"
-            "JWPLC/2.1.0/libraries/JWPLC_LogicRuntime/examples/JWPLC_LogicRuntime_V2_Engine_RAM"
-            "JWPLC/2.1.0/libraries/JWPLC_LogicRuntime/examples/JWPLC_LogicRuntime_V1_V2_Integrated_Regression_RAM"
-            "JWPLC/2.1.0/libraries/JWPLC_LogicRuntime_UI/examples/JWPLC_LogicRuntime_UI_FBD_Map_V2_RAM"
+            "JWPLC/2.1.0/libraries/JWPLC_GlobalPeripherals/examples/01.DigitalIO_Basic"
+            "JWPLC/2.1.0/libraries/JWPLC_GlobalPeripherals/examples/02.Buttons_Basic"
+            "JWPLC/2.1.0/libraries/JWPLC_Display/examples/02.Display_HMI_Fields"
+            "JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/03.Ethernet_Diagnostics"
+            "JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/examples/JWPLC_RemoteIO_Slave_RTU"
             "tools/build-speed-benchmark/sketches/06_alpha4_local_physical_gate"
           )
 
@@ -111,7 +115,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: jwplc-logic-runtime-ci
+          name: jwplc-package-smoke-ci
           path: ci-artifacts/
           if-no-files-found: warn
           retention-days: 14
