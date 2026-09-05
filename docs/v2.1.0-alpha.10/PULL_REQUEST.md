@@ -1,103 +1,36 @@
-# PR Alpha10 - aislar JWPLC_Ethernet del sketchbook
+# PR - Alpha10: retirar guard de shadowing y recuperar build speed
 
 ## Resumen
 
-Alpha10 corrige un fallo real de compatibilidad con Arduino Library Resolver: una copia antigua de `JWPLC_Ethernet` instalada en el sketchbook podía tener prioridad sobre la copia bundled del package JWPLC.
+Esta PR redefine `v2.1.0-alpha.10` como un ciclo de limpieza de library discovery y recuperación de build speed.
 
-El problema se detectó durante un taller con Arduino IDE y terminó en linker error sobre:
+El guard introducido inicialmente para `JWPLC_Ethernet` resolvía una copia antigua/manual instalada en un sketchbook, pero el benchmark mostró un coste warm aproximado de `+1.233 s / +5.6%` incluso con un único marker.
 
-```text
-JWPLC_EthernetClass::diagnosticCode() const
-JWPLC_EthernetClass::runtimeState() const
-```
-
-## Causa raíz
+Se adopta como contrato:
 
 ```text
-ALPHA10_TRIGGER=USER_LIBRARY_SHADOWING
-ALPHA10_REPRODUCTION=PASS
-ALPHA10_ROOT_CAUSE=CONFIRMED
-PRIMARY_FAILURE=STALE_JWPLC_ETHERNET_SELECTED
+SUPPORTED_LIBRARY_MODEL=PACKAGE_MANAGED
+MANUAL_JW_JWPLC_OVERRIDES=OUT_OF_SCOPE
 ```
 
 ## Cambios
 
-- añade `JWPLC_Bundled_JWPLC_Ethernet.h` como marker exclusivo del package;
-- lo carga sólo durante `JWPLC_LIBRARY_DISCOVERY_PHASE`;
-- actualiza `JWPLC_Ethernet` de `1.0.0` a `1.0.1`;
-- mejora `Verify-JWPLCUnifiedEthernetSelection.ps1` para layouts de repo, `jwplc`, `jwplc_local`, paths Windows escapados y sketchbooks no estándar;
-- añade detección específica de `JWPLC_Ethernet` del sketchbook.
+- elimina `JWPLC_Bundled_JWPLC_Ethernet.h`;
+- restaura `JWPLC_GlobalPeripherals_Auto.h` al comportamiento de Alpha9;
+- restaura `JWPLC_Ethernet` a `1.0.0`;
+- retira el verificador específico de shadowing de `JWPLC_Ethernet`;
+- conserva los markers Adafruit heredados;
+- no modifica API pública, runtime, archives precompilados ni autoload.
 
 Commit técnico:
 
 ```text
-c0e5c621cec71977b86becfc8d7acb26ca21e906
+35385c7286c8a4fdf33aec1af1175b8bb4f45e64
 ```
 
-## Validación funcional
+## Por qué se conservan los markers Adafruit
 
-Prueba hostil:
-
-```text
-COMPILE_EXIT_CODE=0
-PACKAGE_ETHERNET_SEEN=True
-USER_ETHERNET_SEEN=False
-HOSTILE_ETHERNET_TRIGGERED=False
-UNDEFINED_REFERENCE=False
-ETHERNET_SHADOWING_FIX=PASS
-```
-
-Verificador:
-
-```text
-JWPLC_Ethernet unificado: SELECCIONADO OK
-Backend legacy separado: NO SELECCIONADO OK
-Ethernet homonima externa/Espressif: NO SELECCIONADA
-Ethernet del sketchbook: IGNORADA OK
-JWPLC_Ethernet del sketchbook: IGNORADA OK
-JWPLC_ETHERNET_UNIFIED_SELECTION=PASS
-```
-
-Matriz final:
-
-```text
-DigitalIO_Basic          PASS
-Buttons_Basic            PASS
-Display_HMI_Fields       PASS
-Ethernet_Diagnostics     PASS
-RemoteIO_Slave_RTU       PASS
-
-FINAL_COMPILE_MATRIX=5/5_PASS
-UNDEFINED_REFERENCE_HITS=0
-```
-
-## Benchmark y decisión de alcance
-
-La primera propuesta añadía markers a siete librerías. El benchmark mostró una penalización warm creciente:
-
-| Variante | Markers | Warm promedio | Delta |
-|---|---:|---:|---:|
-| M0 | 0 | 22.094 s | base |
-| M1 | 1 (`JWPLC_Ethernet`) | 23.327 s | +5.6% |
-| M4 | 4 | 26.888 s | +21.7% |
-| M7 | 7 | 30.353 s | +37.4% |
-
-Una contraprueba Alpha10 -> Alpha9 confirmó que el coste M7 no era sólo efecto del orden:
-
-```text
-ALPHA10_WARM_AVG_S=30.996
-ALPHA9_WARM_AVG_S=22.227
-WARM_DELTA_PCT=39.5
-```
-
-Por ello se adopta el mínimo seguro que resuelve la causa primaria reproducida:
-
-```text
-ALPHA10_MARKER_SET=JWPLC_ETHERNET_ONLY
-GENERALIZED_7_MARKER_OPTION=REJECTED_BUILD_COST
-```
-
-La protección general de otras librerías homónimas no se considera resuelta por este PR.
+ST77xx, GFX y BusIO son dependencias externas vendorizadas/precompiladas. Es normal que existan otras versiones instaladas mediante Library Manager y Alpha5 ya registró una selección real de BusIO desde sketchbook durante un gate genérico.
 
 ## Compatibilidad
 
@@ -106,11 +39,89 @@ PUBLIC_API_CHANGED=NO
 RUNTIME_IMPLEMENTATION_CHANGED=NO
 PRECOMPILED_ARCHIVES_CHANGED=NO
 AUTOLOAD_PERIPHERALS_REMOVED=NO
+OPENPLC_AUTOLOAD_INTEGRATION=NO
+OTA=NOT_DEFINED
 ```
 
-No se retiran Display, Ethernet, microSD, FRAM, RTC, botonera, RS-485, Modbus RTU, TCA/I/O ni el arbitraje SPI compartido.
+Se mantienen integrados Display, Ethernet, microSD, FRAM, RTC, botonera, RS-485, Modbus RTU y TCA/I/O.
 
-OpenPLC continúa externo/opcional al runtime Arduino.
+## Benchmark
+
+Histórico:
+
+| Configuración | Warm promedio | Delta |
+|---|---:|---:|
+| 0 markers JW/JWPLC | 22.094 s | base |
+| Ethernet únicamente | 23.327 s | +5.6% |
+| 4 markers | 26.888 s | +21.7% |
+| 7 markers | 30.353 s | +37.4% |
+
+Candidato final, tres réplicas:
+
+```text
+Basic cold = 15 compiladores
+Core cold  = 78 compiladores
+Warm       = 1 compilador
+COMPILER_STRUCTURE_PARITY=PASS
+
+Basic / 01_empty / managed_warm_touch:
+r1 = 24.126 s
+r2 = 21.860 s
+r3 = 23.866 s
+avg r1-r3 = 23.284 s
+avg r2-r3 = 22.863 s
+```
+
+No se reclama una recuperación porcentual exacta por variación del host. El warm estabilizado vuelve al entorno de M0.
+
+## Paridad binaria
+
+```text
+Basic / 01_empty    = 4618688 x3
+Basic / 02_io_basic = 4618784 x3
+Core  / 01_empty    = 4574464 x3
+Core  / 02_io_basic = 4574576 x3
+ALPHA10_BINARY_SIZE_PARITY=PASS
+```
+
+## Matriz funcional local
+
+```text
+DigitalIO_Basic=PASS
+Buttons_Basic=PASS
+Display_HMI_Fields=PASS
+Ethernet_Diagnostics=PASS
+RemoteIO_Slave_RTU=PASS
+COMPILE_TOTAL=5
+COMPILE_PASS=5
+COMPILE_FAIL=0
+UNDEFINED_REFERENCE_HITS=0
+ALPHA10_LOCAL_FUNCTIONAL_MATRIX=5/5_PASS
+ALPHA10_LOCAL_COMPILE_GATE=PASS
+```
+
+## Arduino IDE / físico
+
+Se compiló y subió desde Arduino IDE el gate físico histórico del autoload normal.
+
+```text
+ALPHA4_DISPLAY_READY=PASS
+ALPHA4_RTC=PASS
+ALPHA4_FRAM=PASS
+ALPHA4_SD=PASS
+ALPHA4_BUTTONS=PASS
+ALPHA4_INPUTS=PASS
+ALPHA4_OUTPUTS=PASS
+ALPHA4_DISPLAY_VISUAL=PASS
+ALPHA4_LOCAL_PHYSICAL_GATE=PASS
+```
+
+```text
+ALPHA10_ARDUINO_IDE_VALIDATION=PASS
+ALPHA10_PHYSICAL_VALIDATION=PASS_WITH_SCOPED_INHERITED_ETH_RTU_EVIDENCE
+```
+
+Ethernet y RS-485/Modbus no se someten a un nuevo stress de runtime porque Alpha10 no modifica esos subsistemas. Se conserva la evidencia física cerrada en Alpha6/Alpha7/Alpha9 y se revalida compilación en esta PR.
 
 ## Decisiones heredadas
 
@@ -124,21 +135,43 @@ FINAL_UNIVERSAL_FLASH_CONFIGURATION=PENDING
 OTA=NOT_DEFINED
 ```
 
-## Pendientes transferidos a Alpha11
+## CI
 
-- UI de baudrate RTU del Backplane;
-- UI de serial format RTU;
-- propagación de configuración RTU al HAL;
-- `TON0.Q`, `TOF0.Q`, `TP0.Q`;
-- validación/autocomplete tipado de miembros FB;
-- source freeze reproducible del fork OpenPLC Editor;
-- HMI Arduino hacia Ladder/OpenPLC;
-- prueba multibit simultánea;
-- estrategia de aislamiento general de librerías con menor coste de discovery.
+`CI JWPLC Package Smoke` quedó verde hasta `09ba7395450ce9d85a174dbd96a57f255371590c`.
 
-## Estado
+El commit documental final de cierre debe quedar verde antes del merge.
+
+## Gates técnicos
+
+- [x] limpieza de source;
+- [x] benchmark r1/r2/r3;
+- [x] comparación Basic/Core;
+- [x] estructura de compiladores;
+- [x] paridad `BinaryBytes`;
+- [x] matriz funcional local 5/5;
+- [x] `undefined reference` = 0;
+- [x] Arduino IDE compile/upload;
+- [x] gate físico local;
+- [x] app-only/bootloader/configuración final documentados;
+- [x] documentación técnica en español;
+- [ ] CI verde sobre commit documental final;
+- [ ] merge a `release/v2.1.x`.
+
+## Publicación
+
+La publicación/tag Alpha10 interna anterior se reemplazará sólo después del merge de esta PR.
+
+Después del merge:
+
+1. retirar release/tag Alpha10 previo;
+2. regenerar PreRelease `v2.1.0-alpha.10`;
+3. registrar ZIP, tamaño y SHA-256 nuevos;
+4. actualizar índice dev;
+5. mantener índice estable sin cambios;
+6. instalar/compilar/subir desde el package publicado;
+7. documentar `CLOSED_PUBLISHED`.
 
 ```text
 ALPHA10_TECHNICAL_CLOSURE=PASS
-ALPHA10_STATUS=READY_FOR_RELEASE_PR
+ALPHA10_RELEASE_REPLACEMENT=PENDING_PR_MERGE
 ```

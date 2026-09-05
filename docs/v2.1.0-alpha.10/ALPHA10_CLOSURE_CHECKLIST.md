@@ -1,64 +1,134 @@
 # Alpha10 - Checklist de cierre
 
+Fecha de actualización: 2026-09-05.
+
 ## Base y alcance
 
 - [x] Rama creada desde `release/v2.1.x`.
-- [x] Causa raíz reproducida.
-- [x] Fallo primario identificado como `JWPLC_Ethernet` obsoleta en sketchbook.
-- [x] Alcance reducido a hotfix de compatibilidad Arduino.
+- [x] Alpha10 previo identificado como release interno a reemplazar.
+- [x] Alcance redefinido a limpieza de library discovery / recuperación de build speed.
+- [x] Modelo soportado definido como `PACKAGE_MANAGED` para librerías JW/JWPLC.
 - [x] No se retiran periféricos del autoload.
 
-## Corrección técnica
+## Cambio técnico
 
-- [x] Marker exclusivo `JWPLC_Bundled_JWPLC_Ethernet.h`.
-- [x] Marker cargado sólo durante `JWPLC_LIBRARY_DISCOVERY_PHASE`.
-- [x] `JWPLC_Ethernet` actualizada a `1.0.1`.
+- [x] Retirado `JWPLC_Bundled_JWPLC_Ethernet.h`.
+- [x] `JWPLC_GlobalPeripherals_Auto.h` restaurado al comportamiento de Alpha9.
+- [x] `JWPLC_Ethernet` restaurada a `1.0.0`.
+- [x] Eliminado el verificador específico de shadowing de `JWPLC_Ethernet`.
 - [x] API pública preservada.
-- [x] Runtime sin cambios.
-- [x] Archives precompilados sin cambios.
+- [x] Runtime preservado.
+- [x] Archives precompilados preservados.
 
-## Verificación de selección
+```text
+TECHNICAL_COMMIT_SHA=35385c7286c8a4fdf33aec1af1175b8bb4f45e64
+```
 
-- [x] Ruta de repo soportada.
-- [x] `Arduino15/packages/jwplc` soportado.
-- [x] `Arduino15/packages/jwplc_local` soportado.
-- [x] Paths Windows escapados normalizados.
-- [x] Sketchbooks no estándar detectados.
-- [x] `JWPLC_Ethernet` del sketchbook detectada explícitamente por el verificador.
-- [x] `JWPLC_ETHERNET_UNIFIED_SELECTION=PASS`.
+## Auditoría de protecciones
 
-## Regresión hostil
-
-- [x] Se creó `JWPLC_Ethernet` hostil en sketchbook.
-- [x] Compilación contaminada finaliza con exit code 0.
-- [x] Copia package detectada.
-- [x] Copia sketchbook no seleccionada.
-- [x] Header hostil no ejecutado.
-- [x] Undefined references = 0.
-- [x] Cleanup de librería temporal completo.
-
-## Matriz final
-
-- [x] `DigitalIO_Basic` compila.
-- [x] `Buttons_Basic` compila.
-- [x] `Display_HMI_Fields` compila.
-- [x] `Ethernet_Diagnostics` compila.
-- [x] `RemoteIO_Slave_RTU` compila.
-- [x] Matriz final = 5/5 PASS.
-- [x] Undefined references = 0.
+- [x] Guard JWPLC_Ethernet evaluado y retirado.
+- [x] `JWPLC_Bundled_Adafruit_ST77xx.h` se conserva.
+- [x] `JWPLC_Bundled_Adafruit_GFX.h` se conserva.
+- [x] `JWPLC_Bundled_Adafruit_BusIO.h` se conserva.
+- [x] `JWPLC_LIBRARY_DISCOVERY_PHASE` se conserva.
+- [x] Motivo de cada decisión documentado.
 
 ## Benchmark
 
-- [x] Alpha9 exact base medido.
-- [x] Alpha10 propuesta M7 medida.
-- [x] Contraprueba en orden inverso realizada.
-- [x] Paridad de compiladores confirmada.
-- [x] Paridad de tamaño binario confirmada.
-- [x] Perfil `M0/M1/M4/M7` realizado.
-- [x] M7 descartado por `+37.4%` warm.
-- [x] M4 descartado por `+21.7%` warm.
-- [x] M1 adoptado con `+5.6%` warm.
-- [x] Decisión de performance documentada.
+- [x] Evidencia histórica M0/M1/M4/M7 conservada.
+- [x] Candidato r1 ejecutado.
+- [x] Candidato r2 ejecutado.
+- [x] Candidato r3 ejecutado.
+- [x] Basic `01_empty` comparado.
+- [x] Core `01_empty` comparado.
+- [x] Basic/Core `02_io_basic` comparado.
+- [x] Cold evaluado.
+- [x] Warm no-change evaluado.
+- [x] Warm touch evaluado.
+- [x] Compiler invocations comparadas.
+- [x] `BinaryBytes` comparados.
+- [x] Paridad binaria exacta entre r1/r2/r3.
+- [x] Tabla final de tiempos completada.
+- [x] Conclusión de build speed documentada sin reclamar porcentaje exacto por variación del host.
+
+```text
+Basic cold = 15 compiladores
+Core cold  = 78 compiladores
+Warm       = 1 compilador
+COMPILER_STRUCTURE_PARITY=PASS
+
+Basic / 01_empty / managed_warm_touch:
+r1 = 24.126 s
+r2 = 21.860 s
+r3 = 23.866 s
+avg r1-r3 = 23.284 s
+avg r2-r3 = 22.863 s
+historical M0 = 22.094 s
+historical M1 = 23.327 s
+
+Basic / 01_empty    BinaryBytes = 4618688 x3
+Basic / 02_io_basic BinaryBytes = 4618784 x3
+Core  / 01_empty    BinaryBytes = 4574464 x3
+Core  / 02_io_basic BinaryBytes = 4574576 x3
+ALPHA10_BINARY_SIZE_PARITY=PASS
+```
+
+## Matriz funcional
+
+- [x] `DigitalIO_Basic` compila localmente.
+- [x] `Buttons_Basic` compila localmente.
+- [x] `Display_HMI_Fields` compila localmente.
+- [x] `Ethernet_Diagnostics` compila localmente.
+- [x] `RemoteIO_Slave_RTU` compila localmente.
+- [x] Matriz local final = 5/5 PASS.
+- [x] Undefined references = 0.
+- [x] Arduino IDE compila y sube el candidato local.
+
+## Validación física
+
+Gate reutilizado:
+
+```text
+tools/build-speed-benchmark/sketches/06_alpha4_local_physical_gate/06_alpha4_local_physical_gate.ino
+```
+
+- [x] Boot y autoload normal.
+- [x] TFT listo.
+- [x] RTC operativo.
+- [x] FRAM operativo.
+- [x] microSD write/read/verify/remove.
+- [x] Botonera 6/6.
+- [x] Entradas digitales 8/8.
+- [x] Salidas/relés 8/8.
+- [x] Confirmación visual TFT.
+- [x] Gate físico local final = PASS.
+- [x] No se observaron congelamientos ni resets inesperados durante el smoke.
+
+```text
+ALPHA4_DISPLAY_READY=PASS
+ALPHA4_RTC=PASS
+ALPHA4_FRAM=PASS
+ALPHA4_SD=PASS
+ALPHA4_BUTTONS=PASS
+ALPHA4_INPUTS=PASS
+ALPHA4_OUTPUTS=PASS
+ALPHA4_DISPLAY_VISUAL=PASS
+ALPHA4_LOCAL_PHYSICAL_GATE=PASS
+```
+
+### Ethernet / RS-485 / Modbus
+
+- [x] `Ethernet_Diagnostics` compile regression = PASS.
+- [x] `RemoteIO_Slave_RTU` compile regression = PASS.
+- [x] Ethernet runtime no fue modificado en Alpha10.
+- [x] RS-485/Modbus RTU runtime no fue modificado en Alpha10.
+- [x] Se conserva evidencia física Ethernet/SPI cerrada en Alpha6/Alpha7.
+- [x] Se conserva evidencia física RS-485/Modbus/Remote I/O cerrada en Alpha7/Alpha9.
+- [x] No se repite stress de 10 minutos por no existir cambio de runtime/SPI en Alpha10.
+
+```text
+ALPHA10_PHYSICAL_VALIDATION=PASS_WITH_SCOPED_INHERITED_ETH_RTU_EVIDENCE
+```
 
 ## Arquitectura y decisiones
 
@@ -74,57 +144,73 @@
 - [x] OpenPLC no se declara integrado al runtime Arduino.
 - [x] OTA no se asume definido.
 - [x] `bootloader.bin` no se publica como definitivo.
-- [x] Configuración Flash universal sigue pendiente.
+- [x] Configuración Flash universal final sigue pendiente.
 - [x] App-only continúa como herramienta de desarrollo, no upload por defecto.
 - [x] Bootloader precompilado continúa no adoptado.
 
-## Commit técnico
-
-- [x] Commit técnico creado.
-- [x] Commit técnico subido al remoto.
-
 ```text
-TECHNICAL_COMMIT_SHA=c0e5c621cec71977b86becfc8d7acb26ca21e906
+APP_ONLY=VALIDATED_DEVELOPMENT_TOOL
+APP_ONLY_DEFAULT_UPLOAD=NO
+BOOTLOADER_PRECOMPILED=NOT_ADOPTED
+BOOTLOADER_GENERATION=SDK_ELF_AUTOMATIC
+CURRENT_FLASH_PROFILE=VALIDATED_CURRENT_PROFILE
+FINAL_UNIVERSAL_FLASH_CONFIGURATION=PENDING
+OTA=NOT_DEFINED
 ```
+
+## CI
+
+- [x] `CI JWPLC Package Smoke` verde sobre HEAD benchmarkeado.
+- [x] CI verde sobre `c696034fd2c1f1dafbeb33fcf41c06be6a8f05f1`.
+- [x] CI verde sobre `09ba7395450ce9d85a174dbd96a57f255371590c`.
+- [ ] El commit documental de cierre debe quedar verde antes del merge.
 
 ## Documentación
 
-- [x] Benchmark documentado.
-- [x] Cierre técnico documentado.
+- [x] Auditoría de protecciones.
+- [x] Benchmark con r1/r2/r3 y BinaryBytes.
+- [x] Cierre técnico.
+- [x] Validación Arduino IDE/física documentada.
 - [x] Checklist actualizado.
-- [x] Handoff Alpha10 -> Alpha11 documentado.
-- [x] PR documentado.
-- [x] PreRelease preparada.
-- [x] README actualizado a Alpha10.
+- [x] Handoff actualizado para publicación.
+- [x] PR en español.
+- [x] PreRelease en español.
+- [ ] README raíz final se actualiza junto con el artefacto/SHA publicado.
+- [ ] Documentos de transferencia del proyecto se actualizan al cerrar publicación.
 
-## Publicación
+## Publicación de reemplazo
 
-- [ ] PR técnico abierto hacia `release/v2.1.x`.
-- [ ] CI del PR en verde.
-- [ ] PR integrado.
-- [ ] PreRelease `v2.1.0-alpha.10` publicada.
-- [ ] ZIP generado y checksum verificado.
-- [ ] Índice dev actualizado.
+- [x] Cierre técnico local = PASS.
+- [ ] CI verde sobre HEAD documental final.
+- [ ] PR #90 lista para review/merge.
+- [ ] Release/tag Alpha10 previo retirado después del merge aprobado.
+- [ ] PR integrada a `release/v2.1.x`.
+- [ ] PreRelease `v2.1.0-alpha.10` regenerada.
+- [ ] ZIP nuevo generado.
+- [ ] SHA-256 nuevo registrado.
+- [ ] Tamaño nuevo registrado.
+- [ ] Índice dev actualizado al artefacto nuevo.
 - [ ] Índice estable sin cambios.
-- [ ] PR de índices hacia `main` integrado.
-- [ ] Cierre de publicación documentado.
-
-## Pendientes transferidos a Alpha11
-
-- [x] UI baudrate RTU del Backplane.
-- [x] UI serial format RTU del Backplane.
-- [x] Propagación de configuración RTU al HAL.
-- [x] Referencias `TON0.Q` / `TOF0.Q` / `TP0.Q`.
-- [x] Validación/autocomplete tipado de miembros FB.
-- [x] Source freeze reproducible del fork OpenPLC Editor.
-- [x] HMI Arduino hacia Ladder/OpenPLC.
-- [x] Prueba multibit simultánea.
-- [x] Estrategia de aislamiento general de librerías con menor coste de discovery.
+- [ ] Instalación aislada desde índice publicado.
+- [ ] Compilación desde package publicado.
+- [ ] Upload físico desde package publicado.
+- [ ] Arranque post-upload.
+- [ ] README/documentos de transferencia finales.
+- [ ] Estado `CLOSED_PUBLISHED`.
 
 ## Estado actual
 
 ```text
+ALPHA10_CLEANUP_SOURCE=PASS
+ALPHA10_BENCHMARK_RUNS=3_PASS
+ALPHA10_COMPILER_STRUCTURE_PARITY=PASS
+ALPHA10_WARM_BEHAVIOR=PASS_WITH_HOST_VARIATION
+ALPHA10_BINARY_SIZE_PARITY=PASS
+ALPHA10_LOCAL_FUNCTIONAL_MATRIX=5/5_PASS
+ALPHA10_LOCAL_COMPILE_GATE=PASS
+ALPHA10_ARDUINO_IDE_VALIDATION=PASS
+ALPHA10_PHYSICAL_VALIDATION=PASS_WITH_SCOPED_INHERITED_ETH_RTU_EVIDENCE
 ALPHA10_TECHNICAL_CLOSURE=PASS
-ALPHA10_DOCUMENTATION=PASS
-ALPHA10_PUBLICATION=PENDING_PR
+ALPHA10_PUBLICATION_REPLACEMENT=PENDING
+NEXT_ALPHA=BLOCKED_UNTIL_ALPHA10_PUBLISHED
 ```
