@@ -62,6 +62,75 @@ También se conserva `JWPLC_LIBRARY_DISCOVERY_PHASE` porque forma parte del auto
 
 Detalle: `ALPHA10_PROTECTION_AUDIT.md`.
 
+## Benchmark local del candidato
+
+El 2026-09-05 se ejecutaron tres réplicas completas sobre:
+
+```text
+BRANCH=v2.1.0-alpha.10/optimize/remove-shadow-guard
+HEAD=456d5b9f55088091fcadcb87e9f33ffb90d3754c
+DIRTY_COUNT=0
+ALPHA10_CLEANUP_SOURCE=PASS
+```
+
+Runs:
+
+```text
+20260905_110955
+20260905_112529
+20260905_113956
+```
+
+La estructura de compilación permaneció:
+
+```text
+Basic cold = 15 compiladores
+Core cold  = 78 compiladores
+Warm       = 1 compilador
+COMPILER_STRUCTURE_PARITY=PASS
+```
+
+Para `Basic / 01_empty / managed_warm_touch`:
+
+```text
+r1 = 24.126 s
+r2 = 21.860 s
+r3 = 23.866 s
+avg r1-r3 = 23.284 s
+avg r2-r3 = 22.863 s
+```
+
+Referencias históricas:
+
+```text
+M0_NONE = 22.094 s
+M1_ETH  = 23.327 s
+M4      = 26.888 s
+M7      = 30.353 s
+```
+
+El primer run evidencia deriva del host, por lo que no se reclama una recuperación porcentual exacta. La conclusión defendible es que el coste específico de los markers JW/JWPLC fue eliminado, se conserva la estructura de compilación y el warm estabilizado vuelve al entorno de M0.
+
+```text
+ALPHA10_BENCHMARK_RUNS=3_PASS
+ALPHA10_COMPILER_STRUCTURE_PARITY=PASS
+ALPHA10_WARM_BEHAVIOR=PASS_WITH_HOST_VARIATION
+EXACT_PERCENT_RECOVERY_CLAIM=NOT_USED
+```
+
+Falta extraer/comparar `BinaryBytes` de los `results.csv` antes del cierre técnico final.
+
+## CI
+
+El workflow `CI JWPLC Package Smoke` de la PR #90 terminó correctamente para el HEAD benchmarkeado:
+
+```text
+HEAD=456d5b9f55088091fcadcb87e9f33ffb90d3754c
+CI_JWPLC_PACKAGE_SMOKE=SUCCESS
+```
+
+Los commits documentales posteriores deben volver a dejar CI verde antes del merge final.
+
 ## Periféricos
 
 Alpha10 mantiene integrados:
@@ -91,26 +160,23 @@ FINAL_UNIVERSAL_FLASH_CONFIGURATION=PENDING
 OTA=NOT_DEFINED
 ```
 
-No se publica `bootloader.bin` como definitivo mientras la configuración final siga pendiente.
+Estas conclusiones se revalidan sin cambio para Alpha10. No se publica `bootloader.bin` como definitivo mientras la configuración final siga pendiente.
 
 OpenPLC continúa externo/opcional al runtime Arduino; este alpha no redefine esa arquitectura.
 
-## Validación pendiente
+## Validación restante antes del cierre
 
-Antes de volver a declarar Alpha10 cerrado deben existir:
+Antes de volver a declarar Alpha10 cerrado faltan:
 
-- tres réplicas de benchmark del candidato;
-- comparación con la evidencia histórica Alpha9/M0 y Alpha10/M1;
-- matriz funcional 5/5;
+- `BinaryBytes` del benchmark local;
+- matriz funcional local 5/5;
 - compilación desde Arduino IDE;
-- validación física rápida de periféricos críticos;
-- conclusión actualizada de app-only;
-- conclusión actualizada de bootloader precompilado;
-- decisión o pendiente explícito sobre configuración final;
-- PR en español actualizado;
-- PreRelease en español actualizada;
-- checklist actualizado;
-- publicación reemplazada y validada desde índice cuando corresponda.
+- smoke físico rápido de periféricos integrados;
+- CI verde sobre el HEAD documental final;
+- README raíz final;
+- publicación de reemplazo y validación desde índice.
+
+La tabla completa de tiempos ya se encuentra en `ALPHA10_BUILD_BENCHMARK.md`.
 
 ## Estado actual
 
@@ -118,10 +184,13 @@ Antes de volver a declarar Alpha10 cerrado deben existir:
 ALPHA10_SCOPE=BUILD_SPEED_CLEANUP
 ALPHA10_PROTECTION_AUDIT=PASS
 ALPHA10_TECHNICAL_CHANGE=COMMITTED
-ALPHA10_LOCAL_BENCHMARK=PENDING
-ALPHA10_FUNCTIONAL_MATRIX=PENDING_REVALIDATION
+ALPHA10_LOCAL_BENCHMARK=PASS_WITH_HOST_VARIATION
+ALPHA10_COMPILER_STRUCTURE_PARITY=PASS
+ALPHA10_CI_PR90_BENCHMARK_HEAD=PASS
+ALPHA10_BINARY_SIZE_CHECK=PENDING
+ALPHA10_FUNCTIONAL_MATRIX=PENDING_LOCAL_REVALIDATION
 ALPHA10_PHYSICAL_VALIDATION=PENDING
-ALPHA10_TECHNICAL_CLOSURE=PENDING_REVALIDATION
+ALPHA10_TECHNICAL_CLOSURE=PENDING_REMAINING_GATES
 ALPHA10_PUBLICATION_REPLACEMENT=PENDING
 NEXT_ALPHA=BLOCKED_UNTIL_ALPHA10_CLOSED
 ```
