@@ -1,132 +1,43 @@
-# Alpha10 - Cierre técnico
+# Alpha10 - Cierre técnico reabierto
 
 ## Resumen
 
-Alpha10 se redefine como hotfix de compatibilidad para resolver un fallo real observado durante un taller con Arduino IDE: una copia antigua de `JWPLC_Ethernet` instalada en el sketchbook del usuario podía ser seleccionada por Arduino Library Resolver antes que la copia distribuida con el package JWPLC.
+El cierre técnico previo de Alpha10 se reabre antes de continuar con otro alpha.
 
-El fallo reproducido terminaba en linker error porque la copia antigua no implementaba las APIs usadas por `JWPLC_Display`:
+La primera versión de Alpha10 añadió un guard para impedir que una copia antigua de `JWPLC_Ethernet` instalada manualmente en el sketchbook tuviera prioridad sobre la copia del package. El fix funcionó, pero su benchmark mostró un coste warm aproximado de `+5.6%` incluso usando un solo marker.
 
-```text
-JWPLC_EthernetClass::diagnosticCode() const
-JWPLC_EthernetClass::runtimeState() const
-```
+Dado que el package JWPLC administra sus propias librerías y el despliegue actual puede controlarse, Alpha10 se redefine como un ciclo de limpieza y recuperación de tiempo de compilación.
 
-Commit técnico validado:
+## Contrato de producto
 
 ```text
-c0e5c621cec71977b86becfc8d7acb26ca21e906
-fix(alpha10): aislar JWPLC_Ethernet del sketchbook
+SUPPORTED_LIBRARY_MODEL=PACKAGE_MANAGED
+MANUAL_JW_JWPLC_OVERRIDES=OUT_OF_SCOPE
 ```
 
-## Causa raíz
+No se garantiza que una copia antigua/manual de `JW_*` o `JWPLC_*` instalada en paralelo al package sea ignorada automáticamente por Arduino Builder.
+
+Ese entorno debe corregirse eliminando/renombrando la copia conflictiva o ajustando la instalación, no añadiendo un coste permanente al autoload normal.
+
+## Cambio técnico
+
+Commit:
 
 ```text
-ALPHA10_TRIGGER=USER_LIBRARY_SHADOWING
-ALPHA10_REPRODUCTION=PASS
-ALPHA10_ROOT_CAUSE=CONFIRMED
-PRIMARY_FAILURE=STALE_JWPLC_ETHERNET_SELECTED
+35385c7286c8a4fdf33aec1af1175b8bb4f45e64
+perf(alpha10): retirar guard de shadowing de JWPLC_Ethernet
 ```
 
-El problema no era la instalación del platform ni el FQBN: el entorno afectado utilizaba el package JWPLC correcto, pero Arduino resolvía una librería homónima desde el sketchbook.
-
-## Solución adoptada
-
-Se añade un marker exclusivo del package:
+Cambios:
 
 ```text
-JWPLC_Bundled_JWPLC_Ethernet.h
+JWPLC_Bundled_JWPLC_Ethernet.h=REMOVED
+JWPLC_GlobalPeripherals_Auto.h=RESTORED_TO_ALPHA9_BEHAVIOR
+JWPLC_Ethernet_VERSION=1.0.0
+Verify-JWPLCUnifiedEthernetSelection.ps1=REMOVED
 ```
 
-`JWPLC_GlobalPeripherals_Auto.h` lo incluye únicamente durante `JWPLC_LIBRARY_DISCOVERY_PHASE`, de forma que Arduino Builder descubra primero la copia bundled validada de `JWPLC_Ethernet`.
-
-También se actualiza la metadata de la librería:
-
-```text
-JWPLC_Ethernet 1.0.0 -> 1.0.1
-```
-
-No se modifican APIs públicas ni implementación runtime.
-
-## Verificador
-
-`Verify-JWPLCUnifiedEthernetSelection.ps1` se corrigió para:
-
-- aceptar rutas del árbol fuente del repositorio;
-- aceptar `Arduino15/packages/jwplc/...`;
-- aceptar `Arduino15/packages/jwplc_local/...`;
-- normalizar paths Windows escapados en `compile_commands.json`;
-- detectar sketchbooks Arduino en layouts no estándar;
-- detectar específicamente una `JWPLC_Ethernet` del sketchbook.
-
-Resultado final:
-
-```text
-JWPLC_Ethernet unificado: SELECCIONADO OK
-Backend legacy separado: NO SELECCIONADO OK
-Ethernet homonima externa/Espressif: NO SELECCIONADA
-Ethernet del sketchbook: IGNORADA OK
-JWPLC_Ethernet del sketchbook: IGNORADA OK
-JWPLC_ETHERNET_UNIFIED_SELECTION=PASS
-```
-
-## Regresión hostil
-
-Se creó una `JWPLC_Ethernet` intencionalmente incompatible en el sketchbook con un `#error` para demostrar que no era seleccionada.
-
-```text
-COMPILE_EXIT_CODE=0
-PACKAGE_ETHERNET_SEEN=True
-USER_ETHERNET_SEEN=False
-HOSTILE_ETHERNET_TRIGGERED=False
-UNDEFINED_REFERENCE=False
-ETHERNET_SHADOWING_FIX=PASS
-```
-
-La librería temporal se eliminó al terminar la prueba.
-
-## Matriz final de compilación
-
-El estado exacto adoptado se volvió a validar con:
-
-```text
-DigitalIO_Basic          PASS
-Buttons_Basic            PASS
-Display_HMI_Fields       PASS
-Ethernet_Diagnostics     PASS
-RemoteIO_Slave_RTU       PASS
-```
-
-Resultado:
-
-```text
-COMPILE_TOTAL=5
-COMPILE_PASS=5
-COMPILE_FAIL=0
-UNDEFINED_REFERENCE_HITS=0
-FINAL_COMPILE_MATRIX=5/5_PASS
-```
-
-## Benchmark y alcance del aislamiento
-
-Se evaluó inicialmente proteger siete librerías homónimas mediante markers. Esa opción fue descartada por coste de library discovery.
-
-| Variante | Warm promedio | Delta |
-|---|---:|---:|
-| 0 markers | 22.094 s | base |
-| Ethernet únicamente | 23.327 s | +5.6% |
-| 4 markers | 26.888 s | +21.7% |
-| 7 markers | 30.353 s | +37.4% |
-
-Alpha10 adopta el mínimo conjunto que resuelve la causa primaria reproducida:
-
-```text
-ALPHA10_MARKER_SET=JWPLC_ETHERNET_ONLY
-GENERALIZED_7_MARKER_OPTION=REJECTED_BUILD_COST
-```
-
-No se afirma que Alpha10 blinde todas las librerías JW/JWPLC frente a copias homónimas del sketchbook.
-
-## Compatibilidad
+No cambia:
 
 ```text
 PUBLIC_API_CHANGED=NO
@@ -135,9 +46,38 @@ PRECOMPILED_ARCHIVES_CHANGED=NO
 AUTOLOAD_PERIPHERALS_REMOVED=NO
 ```
 
-Se mantienen integrados Display, Ethernet W5500, microSD, FRAM, RTC, botonera, RS-485, Modbus RTU, TCA/I/O y arbitraje SPI compartido.
+## Protecciones heredadas auditadas
 
-OpenPLC continúa externo/opcional al runtime Arduino.
+Los markers de Adafruit se conservan:
+
+```text
+JWPLC_Bundled_Adafruit_ST77xx.h=KEEP
+JWPLC_Bundled_Adafruit_GFX.h=KEEP
+JWPLC_Bundled_Adafruit_BusIO.h=KEEP
+```
+
+Motivo: corresponden a dependencias externas vendorizadas/precompiladas. Es normal que un usuario tenga otras versiones de Adafruit instaladas mediante Library Manager, y Alpha5 ya registró una selección real de BusIO desde sketchbook durante un gate genérico.
+
+También se conserva `JWPLC_LIBRARY_DISCOVERY_PHASE` porque forma parte del autoload liviano y de la selección reproducible del stack Display.
+
+Detalle: `ALPHA10_PROTECTION_AUDIT.md`.
+
+## Periféricos
+
+Alpha10 mantiene integrados:
+
+- Display;
+- Ethernet W5500;
+- microSD;
+- FRAM;
+- RTC;
+- botonera;
+- RS-485;
+- Modbus RTU;
+- TCA/I/O;
+- arbitraje SPI compartido.
+
+No se obtiene el benchmark retirando periféricos.
 
 ## Decisiones heredadas sin cambio
 
@@ -151,36 +91,37 @@ FINAL_UNIVERSAL_FLASH_CONFIGURATION=PENDING
 OTA=NOT_DEFINED
 ```
 
-No se publica `bootloader.bin` como definitivo.
+No se publica `bootloader.bin` como definitivo mientras la configuración final siga pendiente.
 
-## Pendientes transferidos a Alpha11
+OpenPLC continúa externo/opcional al runtime Arduino; este alpha no redefine esa arquitectura.
 
-El hotfix ocupa el alcance de Alpha10. Se transfieren explícitamente:
+## Validación pendiente
+
+Antes de volver a declarar Alpha10 cerrado deben existir:
+
+- tres réplicas de benchmark del candidato;
+- comparación con la evidencia histórica Alpha9/M0 y Alpha10/M1;
+- matriz funcional 5/5;
+- compilación desde Arduino IDE;
+- validación física rápida de periféricos críticos;
+- conclusión actualizada de app-only;
+- conclusión actualizada de bootloader precompilado;
+- decisión o pendiente explícito sobre configuración final;
+- PR en español actualizado;
+- PreRelease en español actualizada;
+- checklist actualizado;
+- publicación reemplazada y validada desde índice cuando corresponda.
+
+## Estado actual
 
 ```text
-BACKPLANE_RTU_BAUDRATE_UI=PENDING
-BACKPLANE_RTU_SERIAL_FORMAT_UI=PENDING
-BACKPLANE_RTU_CONFIG_PROPAGATION=PENDING
-TON_Q_REFERENCE=REQUIRED
-TOF_Q_REFERENCE=REQUIRED
-TP_Q_REFERENCE=REQUIRED
-FB_MEMBER_TYPE_VALIDATION=REQUIRED
-FB_MEMBER_AUTOCOMPLETE=REQUIRED
-OPENPLC_EDITOR_SOURCE_FREEZE=PENDING
-MULTIBIT_SIMULTANEOUS=NOT_TESTED
-HMI_TO_OPENPLC_LADDER=PENDING
-GENERALIZED_LIBRARY_ISOLATION_LOW_COST=PENDING
-```
-
-## Estado
-
-```text
-ALPHA10_ROOT_CAUSE=CONFIRMED
-ALPHA10_MINIMUM_SAFE_FIX=PASS
-ALPHA10_BUILD_BENCHMARK=PASS_WITH_SCOPED_FIX
-ALPHA10_ETHERNET_SELECTION_VERIFIER=PASS
-ALPHA10_FINAL_COMPILE_MATRIX=5/5_PASS
-ALPHA10_TECHNICAL_CLOSURE=PASS
-ALPHA10_STATUS=TECHNICALLY_CLOSED
-PUBLICATION=PENDING_PR_CI_RELEASE
+ALPHA10_SCOPE=BUILD_SPEED_CLEANUP
+ALPHA10_PROTECTION_AUDIT=PASS
+ALPHA10_TECHNICAL_CHANGE=COMMITTED
+ALPHA10_LOCAL_BENCHMARK=PENDING
+ALPHA10_FUNCTIONAL_MATRIX=PENDING_REVALIDATION
+ALPHA10_PHYSICAL_VALIDATION=PENDING
+ALPHA10_TECHNICAL_CLOSURE=PENDING_REVALIDATION
+ALPHA10_PUBLICATION_REPLACEMENT=PENDING
+NEXT_ALPHA=BLOCKED_UNTIL_ALPHA10_CLOSED
 ```

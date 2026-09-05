@@ -1,100 +1,131 @@
 # Alpha10 - Benchmark de compilación
 
-## Objetivo
+## Objetivo actual
 
-Validar que la corrección de shadowing de librerías no introduzca una regresión de compilación desproporcionada en el ciclo normal de Arduino IDE / Arduino CLI.
+Revalidar `v2.1.0-alpha.10` después de retirar el guard de shadowing de `JWPLC_Ethernet` y comprobar que el ciclo normal de Arduino IDE / Arduino CLI vuelve al entorno de tiempos de Alpha9 sin sacrificar periféricos ni compatibilidad.
 
-El caso base fue:
+## Evidencia histórica que motivó el cambio
 
-```text
-Target: Basic y Core
-Sketch: tools/build-speed-benchmark/sketches/01_empty
-Namespace: jwplc_local
-Mismo host / mismo Arduino CLI / Jobs=0
-```
+Durante el Alpha10 inicial se midió el coste de markers bundled en `tools/build-speed-benchmark/sketches/01_empty`:
 
-`01_empty` es representativo porque el autoload normal del JWPLC Basic sigue activo aun cuando el sketch no declare periféricos explícitamente.
-
-## Comparación inicial Alpha9 vs propuesta de 7 markers
-
-La primera propuesta protegía siete librerías bundled:
-
-```text
-JW_RTC
-JW_FRAM
-JW_MatrixButtons
-JW_SD
-JWPLC_Ethernet
-JWPLC_RS485
-JWPLC_ModbusRTU
-```
-
-La estructura de compilación permaneció idéntica:
-
-```text
-Basic cold: 15 compiladores -> 15
-Core cold:  78 compiladores -> 78
-Warm:        1 compilador    -> 1
-BINARY_SIZE_DIFFERENCES=0
-COMPILER_STRUCTURE_PARITY=PASS
-BINARY_SIZE_PARITY=PASS
-```
-
-Sin embargo, el wall-clock warm aumentó de forma consistente. En la comparación completa se observaron incrementos aproximados entre `+26.4%` y `+40.1%` según target/fase.
-
-Una contraprueba en orden inverso, ejecutando Alpha10 antes que Alpha9, confirmó el efecto:
-
-```text
-ALPHA10_WARM_AVG_S=30.996
-ALPHA9_WARM_AVG_S=22.227
-WARM_DELTA_S=8.769
-WARM_DELTA_PCT=39.5
-```
-
-Por tanto, la regresión no se atribuye únicamente al orden de ejecución o deriva del host.
-
-## Perfil por cantidad de markers
-
-Se midió el coste de library discovery para cuatro configuraciones:
-
-| Variante | Markers | Warm promedio | Delta vs 0 markers |
+| Variante | Markers adicionales JW/JWPLC | Warm promedio | Delta vs M0 |
 |---|---:|---:|---:|
-| `M0_NONE` | 0 | 22.094 s | 0.0% |
+| `M0_NONE` | 0 | 22.094 s | base |
 | `M1_ETH` | 1 | 23.327 s | +1.233 s / +5.6% |
 | `M4_OBSERVED_STALE` | 4 | 26.888 s | +4.794 s / +21.7% |
 | `M7_ALL` | 7 | 30.353 s | +8.259 s / +37.4% |
 
-Los tiempos cold se mantuvieron alrededor de 57-59 s y no mostraron una penalización equivalente.
+La estructura de compilación y el tamaño binario se mantuvieron equivalentes. El efecto observado fue principalmente coste de library discovery/warm build.
 
-## Decisión
+## Decisión de esta revisión
 
-Alpha10 adopta únicamente el marker de `JWPLC_Ethernet`.
+Se retira `M1_ETH` y se vuelve al comportamiento de Alpha9 para `JWPLC_GlobalPeripherals_Auto.h`.
 
 ```text
-ALPHA10_MARKER_SET=JWPLC_ETHERNET_ONLY
-BUNDLED_MARKER_COUNT=1
-PROFILED_WARM_OVERHEAD=+5.6_PERCENT
-PROFILED_WARM_DELTA=+1.233_SECONDS
-GENERALIZED_7_MARKER_OPTION=REJECTED_BUILD_COST
-GENERALIZED_7_MARKER_WARM_OVERHEAD=+37.4_PERCENT
+ALPHA10_MARKER_SET_JW_JWPLC=NONE
+JWPLC_ETHERNET_SHADOW_GUARD=REMOVED
+JWPLC_ETHERNET_LIBRARY_VERSION=1.0.0
+ADAFRUIT_BUNDLED_MARKERS=RETAINED
+AUTOLOAD_PERIPHERALS_REMOVED=NO
 ```
 
-Motivo:
+Los markers Adafruit no pertenecen a esta eliminación: protegen dependencias externas precompiladas que pueden coexistir legítimamente con copias del sketchbook.
 
-- `JWPLC_Ethernet` fue la causa primaria reproducida del fallo de linker observado en el taller;
-- el marker único mantiene el coste warm en un incremento acotado;
-- proteger siete librerías mediante el mismo mecanismo añade un coste lineal de discovery demasiado alto;
-- no se retiran periféricos del autoload;
-- no se modifica runtime ni API pública;
-- no cambian archives precompilados.
+Commit candidato:
 
-La protección general de otras librerías homónimas queda como línea de trabajo separada: si se aborda, debe buscar un mecanismo de menor coste antes de adoptarlo.
+```text
+35385c7286c8a4fdf33aec1af1175b8bb4f45e64
+```
+
+## Matriz de revalidación requerida
+
+Usar el mismo host, mismo Arduino CLI, mismo `Jobs` y el namespace local enlazado al árbol bajo prueba.
+
+Targets:
+
+```text
+jwplc_local:esp32:jwplcbasic
+jwplc_local:esp32:jwplcbasiccore
+```
+
+Sketches de benchmark:
+
+```text
+tools/build-speed-benchmark/sketches/01_empty
+tools/build-speed-benchmark/sketches/02_io_basic
+```
+
+Fases relevantes:
+
+```text
+managed_cold
+managed_warm_nochange
+managed_warm_touch
+explicit_cold
+explicit_warm_nochange
+explicit_warm_touch
+```
+
+Hacer al menos tres réplicas del candidato para distinguir el cambio real de la variación normal del host.
+
+## Comando candidato
+
+Desde la raíz del repositorio:
+
+```powershell
+cd tools\build-speed-benchmark
+
+.\Run-JWPLCBuildBenchmark.ps1 `
+    -ArduinoCli "C:\Program Files\Arduino PLC IDE Tools\arduino-cli.exe" `
+    -PackageNamespace jwplc_local `
+    -Targets Basic,Core `
+    -Sketches 01_empty,02_io_basic `
+    -RunLabel alpha10-cleanup-r1
+```
+
+Repetir como `alpha10-cleanup-r2` y `alpha10-cleanup-r3` sin cambiar configuración del host.
+
+## Matriz funcional corta
+
+Además del benchmark, Alpha10 debe volver a compilar:
+
+```text
+JWPLC_GlobalPeripherals/examples/01.DigitalIO_Basic
+JWPLC_GlobalPeripherals/examples/02.Buttons_Basic
+JWPLC_Display/examples/02.Display_HMI_Fields
+JWPLC_Ethernet/examples/03.Ethernet_Diagnostics
+JWPLC_ModbusRTU/examples/JWPLC_RemoteIO_Slave_RTU
+```
+
+El workflow general ya usa esta matriz. La validación local/Arduino IDE debe comprobar también que no aparece una dependencia inesperada del sketchbook.
+
+## Criterios de aceptación
+
+- la matriz funcional termina 5/5;
+- no aparecen undefined references;
+- Basic y Basic Core conservan la estructura esperada de compilación;
+- no se retira ningún periférico del autoload;
+- el tamaño de firmware no presenta una diferencia funcional inexplicada;
+- el warm build mejora respecto al Alpha10 inicial con `M1_ETH`;
+- el resultado queda razonablemente alineado con Alpha9/M0 teniendo en cuenta la variación del host;
+- Arduino IDE y Arduino CLI permanecen operativos.
+
+## Resultados nuevos
+
+Pendientes de la ejecución física/local del candidato:
+
+| Run | Target | Sketch | Cold | Warm no-change | Warm touch | Resultado |
+|---|---|---|---:|---:|---:|---|
+| r1 | Basic | `01_empty` | PENDING | PENDING | PENDING | PENDING |
+| r2 | Basic | `01_empty` | PENDING | PENDING | PENDING | PENDING |
+| r3 | Basic | `01_empty` | PENDING | PENDING | PENDING | PENDING |
+| r1-r3 | Core | `01_empty` | PENDING | PENDING | PENDING | PENDING |
+| r1-r3 | Basic/Core | `02_io_basic` | PENDING | PENDING | PENDING | PENDING |
 
 ## Estado
 
 ```text
-COMPILER_STRUCTURE_PARITY=PASS
-BINARY_SIZE_PARITY=PASS
-M1_ETHERNET_HOSTILE_SHADOW_TEST=PASS
-ALPHA10_BUILD_BENCHMARK=PASS_WITH_SCOPED_FIX
+ALPHA10_BUILD_BENCHMARK_HISTORICAL_EVIDENCE=RECORDED
+ALPHA10_CLEANUP_CANDIDATE=READY_FOR_LOCAL_BENCHMARK
+ALPHA10_BUILD_BENCHMARK_FINAL=PENDING
 ```
