@@ -4,120 +4,84 @@
 
 Package personalizado de **JW Control** para programar **JWPLC Basic** desde Arduino IDE y Arduino CLI.
 
-El objetivo es ofrecer una experiencia cercana a Arduino sin perder las funciones propias del controlador: E/S industriales, TFT, botonera, RTC, FRAM, microSD, Ethernet W5500, RS-485 y Modbus RTU integrados al runtime del package.
+El objetivo es mantener una experiencia cercana a Arduino, pero con las E/S industriales y periféricos del JWPLC integrados al runtime del package: TFT, botonera, RTC, FRAM, microSD, Ethernet W5500, RS-485, Modbus RTU y TCA/I/O.
 
 ---
 
-## Estado de versiones
+## Índices de Boards Manager
 
-| Canal | Versión | Estado |
-|---|---|---|
-| Público / estable | `v2.0.0` | Recomendado para proyectos estables. |
-| Dev candidata | `v2.1.0-alpha.10` | **Cierre técnico aprobado**. Hotfix de shadowing de `JWPLC_Ethernet`; publicación automática al integrar en `release/v2.1.x`. |
-| Siguiente trabajo | `Alpha11` | Configuración RTU del Backplane, referencias FB de timers, source freeze del fork OpenPLC Editor y aislamiento general de librerías con menor coste. |
+Estos son los archivos que normalmente se necesitan primero al instalar el package:
 
-## Alpha10 - hotfix de shadowing de JWPLC_Ethernet
+| Canal | Archivo | Versión actual | Uso |
+|---|---|---:|---|
+| **Dev / PreRelease** | [`package_jwplc_index_dev.json`](JWPLC/package_jwplc_index_dev.json) | `2.1.0-alpha.10` | Talleres, validación y desarrollo de la rama 2.1.x. |
+| **Estable** | [`package_jwplc_index.json`](JWPLC/package_jwplc_index.json) | `2.0.0` | Proyectos que requieren la release estable publicada. |
 
-Alpha10 corrige un caso real observado durante un taller con Arduino IDE: una copia antigua de `JWPLC_Ethernet` instalada en el sketchbook del usuario podía ser seleccionada antes que la copia incluida en el package JWPLC.
-
-El fallo reproducido terminaba en linker error sobre:
+URL dev / PreRelease:
 
 ```text
-JWPLC_EthernetClass::diagnosticCode() const
-JWPLC_EthernetClass::runtimeState() const
+https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json
 ```
 
-La solución adoptada añade un marker exclusivo del package:
+URL estable:
 
 ```text
-JWPLC_Bundled_JWPLC_Ethernet.h
+https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index.json
 ```
 
-que se carga sólo durante `JWPLC_LIBRARY_DISCOVERY_PHASE`. También se actualiza la metadata de `JWPLC_Ethernet` de `1.0.0` a `1.0.1`.
-
-Validación final:
+En Arduino IDE:
 
 ```text
-ETHERNET_HOSTILE_SHADOW_TEST=PASS
-JWPLC_ETHERNET_UNIFIED_SELECTION=PASS
-FINAL_COMPILE_MATRIX=5/5_PASS
-UNDEFINED_REFERENCE_HITS=0
-PUBLIC_API_CHANGED=NO
-RUNTIME_IMPLEMENTATION_CHANGED=NO
-PRECOMPILED_ARCHIVES_CHANGED=NO
-AUTOLOAD_PERIPHERALS_REMOVED=NO
+Archivo > Preferencias > Gestor de URLs adicionales de tarjetas
 ```
 
-### Benchmark de library discovery
-
-Se evaluó proteger 1, 4 y 7 librerías mediante markers bundled. El coste warm creció de forma casi lineal:
-
-| Configuración | Warm promedio | Delta |
-|---|---:|---:|
-| 0 markers | 22.094 s | base |
-| `JWPLC_Ethernet` únicamente | 23.327 s | +5.6% |
-| 4 markers | 26.888 s | +21.7% |
-| 7 markers | 30.353 s | +37.4% |
-
-Alpha10 adopta el mínimo conjunto que resuelve la causa primaria reproducida:
+Luego:
 
 ```text
-ALPHA10_MARKER_SET=JWPLC_ETHERNET_ONLY
-GENERALIZED_7_MARKER_OPTION=REJECTED_BUILD_COST
+Herramientas > Placa > Gestor de tarjetas
 ```
 
-No se afirma que Alpha10 blinde todas las librerías JW/JWPLC frente a copias homónimas del sketchbook. Una estrategia general de menor coste queda transferida a Alpha11.
-
-Commit técnico:
+Buscar:
 
 ```text
-c0e5c621cec71977b86becfc8d7acb26ca21e906
+JW Control ESP32 Boards
 ```
+
+> Para un taller o validación de una alpha concreta, usar el índice **dev** únicamente cuando así se indique. Para usuarios finales, el canal estable sigue siendo `2.0.0` hasta que una nueva release estable sea publicada.
 
 ---
 
-## Base heredada de Alpha9
+## Estado actual
 
-Alpha9 parte del package publicado Alpha8 y **no retira ningún periférico del autoload normal**.
+| Canal / ciclo | Estado |
+|---|---|
+| `v2.0.0` | Release estable pública. |
+| `v2.1.0-alpha.10` | PreRelease publicada y validada desde Boards Manager. |
+| Alpha11 | Siguiente ciclo de desarrollo; no forma parte de Alpha10. |
 
-Su alcance OpenPLC/Backplane queda cerrado en el perfil RTU físicamente validado:
-
-```text
-Master OpenPLC : 115200 / 8N1
-Slave Arduino  : 115200 / 8N1
-Slave ID       : 2
-```
-
-Alpha9 valida:
-
-- JWPLC Basic Master generado/subido por OpenPLC;
-- JWPLC Basic Slave Arduino con `JWPLC_RemoteIO_Slave_RTU`;
-- recorrido `FC02 -> Ladder -> FC15 -> FC01`;
-- 8/8 bits remotos uno por uno sin cruces;
-- persistencia de configuración del Backplane;
-- recompilación posterior a reabrir proyecto;
-- recuperación automática tras power-cycle del Slave sin resetear el Master;
-- VPP JWPLC Basic OpenPLC `2.1.0-alpha.19` con payload Ed25519 9/9 verificado;
-- artefactos de taller para `OpenPLC Editor - JWPLC Edition 4.2.8-jwplc.2`.
-
-Artefacto Arduino publicado:
+Artefacto Alpha10 publicado:
 
 ```text
-jwplc-esp32-2.1.0-alpha.9.zip
-Bytes: 24464282
-SHA-256: 015679533e13dabbe79041771e1e85d3011970dd0c69bc62e3b51f3101043907
+TAG=v2.1.0-alpha.10
+ZIP=jwplc-esp32-2.1.0-alpha.10.zip
+SIZE=24464282
+SHA256=5ca5a71d6de0ddd25c81442d7ea4f840ad48603dd024afcd2925235dc4d1b0bf
+PACKAGE_ROOT=2.1.0/
 ```
 
-La selección de baudrate/formato desde el Backplane, las referencias tipadas `TON0.Q` / `TOF0.Q` / `TP0.Q`, el source freeze reproducible del fork OpenPLC Editor y la exposición de la HMI Alpha8 hacia Ladder quedan explícitamente pendientes y se transfieren a Alpha11 tras el hotfix Alpha10.
+Alpha10 fue instalado desde el índice dev publicado, compilado y subido a hardware real con resultado PASS.
 
 ---
 
-# Qué incluye JWPLC Basic
+## Resumen rápido
 
-El perfil completo mantiene:
+**JWPLC Basic** es una plataforma industrial basada en ESP32. El package permite programarla con sintaxis Arduino sin tener que manejar directamente expansores, buses internos o pines físicos para las funciones normales del PLC.
+
+El perfil completo integra:
 
 - 8 entradas digitales industriales;
 - 8 salidas digitales por relé;
+- TCA6424A / I/O industrial;
 - TFT ST7789;
 - botonera frontal de 6 teclas;
 - RTC;
@@ -126,10 +90,87 @@ El perfil completo mantiene:
 - Ethernet W5500;
 - RS-485;
 - Modbus RTU;
-- TCA / I/O industrial;
 - arbitraje del bus SPI compartido.
 
-APIs principales:
+Además, el package conserva las capacidades del core ESP32 necesarias para aplicaciones como Wi-Fi, Bluetooth y ESP-NOW. Estas capacidades no deben confundirse con periféricos JWPLC autoinicializados.
+
+Ejemplo de E/S:
+
+```cpp
+pinMode(I0_0, INPUT);
+pinMode(Q0_0, OUTPUT);
+
+digitalWrite(Q0_0, digitalRead(I0_0));
+```
+
+---
+
+## Enfoque del package
+
+El package JWPLC se mantiene orientado al producto y evita exponer combinaciones de hardware que no hayan sido necesarias para un JWPLC real.
+
+| Placa | FQBN | Uso recomendado |
+|---|---|---|
+| ESP32 Board | `jwplc:esp32:esp32` | Desarrollo ESP32 genérico dentro del package JWPLC. |
+| JWPLC Basic | `jwplc:esp32:jwplcbasic` | Hardware completo JWPLC Basic. |
+| JWPLC Basic Core | `jwplc:esp32:jwplcbasiccore` | Validación del core y pruebas esenciales. |
+
+FQBN recomendado para el hardware completo:
+
+```text
+jwplc:esp32:jwplcbasic
+```
+
+No se retiran periféricos del autoload normal sólo para reducir tiempos de compilación.
+
+---
+
+## Modelo de librerías: package-managed
+
+Desde el cierre de Alpha10, el flujo soportado para las librerías propias JW/JWPLC es:
+
+```text
+SUPPORTED_LIBRARY_MODEL=PACKAGE_MANAGED
+MANUAL_JW_JWPLC_OVERRIDES=OUT_OF_SCOPE
+```
+
+Esto significa que una instalación normal requiere instalar **el package JWPLC**, no instalar manualmente copias adicionales de `JW_*` o `JWPLC_*` en el sketchbook de Arduino.
+
+La variante inicial de Alpha10 había añadido un guard específico para una copia manual antigua de `JWPLC_Ethernet`. El candidato final lo retiró para recuperar el comportamiento de discovery del package:
+
+```text
+JWPLC_Bundled_JWPLC_Ethernet.h=REMOVED
+JWPLC_Ethernet_VERSION=1.0.0
+```
+
+Se mantienen las protecciones bundled de Adafruit GFX, BusIO y ST77xx porque son dependencias externas vendorizadas/precompiladas y pueden coexistir legítimamente con versiones instaladas desde Library Manager.
+
+> Si existe una copia manual antigua de una librería JW/JWPLC en el sketchbook, la corrección soportada es retirar o actualizar esa copia. No se añade coste permanente al autoload para defender overrides manuales fuera del package.
+
+---
+
+## Compatibilidad de periféricos
+
+| Periférico / API | ESP32 Board | JWPLC Basic | JWPLC Basic Core |
+|---|---:|---:|---:|
+| `pinMode()` / `digitalRead()` / `digitalWrite()` sobre I/O industrial | No automático | Sí | Sí |
+| TCA6424A integrado | No automático | Sí | Sí |
+| `JWPLC_Display` | No automático | Sí | Sí |
+| `JWPLC_Buttons` | No automático | Sí | Sí |
+| `JWPLC_RTC` / `JWPLC_Time` | No automático | Sí | Sí |
+| `JWPLC_FRAM` | No automático | Sí | Disabled |
+| `JWPLC_SD` | No automático | Sí | Disabled |
+| `JWPLC_Ethernet` | No automático | Sí | Disabled |
+| `JWPLC_RS485` | No automático | Sí | Sí |
+| `JWPLC_ModbusRTU` | No automático | Sí | Sí |
+
+En `JWPLC Basic Core`, estados como `Ethernet disabled`, SD deshabilitada o FRAM con tamaño 0 son esperados cuando esos periféricos no forman parte del perfil compilado.
+
+---
+
+## APIs globales del ecosistema JWPLC
+
+El perfil `JWPLC Basic` expone objetos y helpers de alto nivel:
 
 ```cpp
 JWPLC_Display
@@ -144,27 +185,68 @@ JWPLC_RS485
 JWPLC_ModbusRTU
 ```
 
-Las librerías lógicas experimentales continúan separadas:
-
-```text
-JWPLC_LogicRuntime
-JWPLC_LogicRuntime_UI
-```
-
-No deben confundirse con OpenPLC integrado al runtime Arduino.
+El usuario no necesita repetir la inicialización interna de los periféricos que pertenecen al autoload del JWPLC.
 
 ---
 
-# E/S industriales
+## Librerías incluidas
 
-Las E/S físicas se usan con nombres lógicos:
+El árbol `JWPLC/2.1.0/libraries/` contiene las librerías del ecosistema JWPLC y las dependencias necesarias del core ESP32.
+
+### Librerías JWPLC del package
+
+| Librería | Función principal | Documentación |
+|---|---|---|
+| `JWPLC_GlobalPeripherals` | Integración del autoload, objetos globales, snapshots de I/O/RTC y coordinación de periféricos. | [README](JWPLC/2.1.0/libraries/JWPLC_GlobalPeripherals/README.md) |
+| `JWPLC_Display` | TFT ST7789, IDLE/USER, indicadores y HMI declarativa. | [README](JWPLC/2.1.0/libraries/JWPLC_Display/README.md) |
+| `JWPLC_Ethernet` | W5500, DHCP/static IP, diagnóstico, recovery y servicio cooperativo. | [README](JWPLC/2.1.0/libraries/JWPLC_Ethernet/README.md) |
+| `JWPLC_RS485` | Transporte RS-485 del JWPLC Basic sobre el UART industrial. | [README](JWPLC/2.1.0/libraries/JWPLC_RS485/README.md) |
+| `JWPLC_ModbusRTU` | Modbus RTU Master/Slave y Remote I/O sobre `JWPLC_RS485`. | [README](JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/README.md) |
+| `JWPLC_LogicRuntime` | Runtime lógico experimental, separado del autoload Arduino normal. | [Carpeta](JWPLC/2.1.0/libraries/JWPLC_LogicRuntime/) |
+| `JWPLC_LogicRuntime_UI` | Capa UI experimental asociada a `JWPLC_LogicRuntime`. | [Carpeta](JWPLC/2.1.0/libraries/JWPLC_LogicRuntime_UI/) |
+
+### Librerías JW distribuidas dentro del package
+
+| Librería | Función principal | Documentación |
+|---|---|---|
+| `JW_FRAM` | FRAM SPI con API de persistencia tipo EEPROM. | [README](JWPLC/2.1.0/libraries/JW_FRAM/README.md) |
+| `JW_RTC` | RTC, fecha/hora y utilidades de tiempo. | [README](JWPLC/2.1.0/libraries/JW_RTC/README.md) |
+| `JW_SD` | Wrapper de microSD preparado para el SPI compartido del JWPLC. | [README](JWPLC/2.1.0/libraries/JW_SD/README.md) |
+| `JW_MatrixButtons` | Lectura de botonera matricial, debounce y eventos. | [README](JWPLC/2.1.0/libraries/JW_MatrixButtons/README.md) |
+
+### Dependencias y librerías del core
+
+El package también contiene librerías estándar o de terceros necesarias para el entorno ESP32, entre ellas:
+
+```text
+Adafruit_BusIO
+Adafruit_GFX_Library
+Adafruit_ST7735_and_ST7789_Library
+Ethernet
+FS
+SD
+SPI
+Wire
+WiFi
+BluetoothSerial
+BLE
+ESP_NOW
+```
+
+Que una librería exista dentro del core no significa que una función de producto JWPLC esté definida. Por ejemplo, `ArduinoOTA` forma parte del ecosistema ESP32, pero la estrategia OTA final de JWPLC sigue **no definida**.
+
+---
+
+## I/O industrial nativo
+
+Las entradas y salidas se usan con nombres lógicos:
 
 ```text
 I0_0 ... I0_7
 Q0_0 ... Q0_7
 ```
 
-Ejemplo:
+Uso pin a pin:
 
 ```cpp
 pinMode(I0_0, INPUT);
@@ -173,15 +255,17 @@ pinMode(Q0_0, OUTPUT);
 digitalWrite(Q0_0, digitalRead(I0_0));
 ```
 
-También existen operaciones por banco:
+También existen operaciones por bloque:
 
 ```cpp
-uint32_t inputs = JWPLC_readInputs();
+uint32_t inputs = digitalReadBlock(I0_X);
 uint32_t outputs = JWPLC_readOutputs();
+
 JWPLC_writeOutputs(0x0F);
+digitalWriteBlock(Q0_X, 0xAA);
 ```
 
-Alpha8 añade una vista cacheada de alto nivel:
+Y una vista cacheada mantenida por el runtime:
 
 ```cpp
 uint8_t inputs = JWPLC_IO.inputs();
@@ -191,34 +275,13 @@ bool i0 = JWPLC_IO.input(0);
 bool q0 = JWPLC_IO.output(0);
 ```
 
-Estas llamadas leen el snapshot ya mantenido por el runtime y no ejecutan una nueva transacción I2C.
+Las APIs cacheadas no fuerzan una nueva transacción I2C en cada consulta.
 
 ---
 
-# RTC cacheado Alpha8
+## Botonera integrada
 
-Además del objeto `JWPLC_RTC`, Alpha8 expone:
-
-```cpp
-JWPLC_Time.present();
-JWPLC_Time.valid();
-JWPLC_Time.lostPower();
-JWPLC_Time.hour();
-JWPLC_Time.minute();
-JWPLC_Time.second();
-JWPLC_Time.day();
-JWPLC_Time.month();
-JWPLC_Time.year();
-JWPLC_Time.dayOfWeek();
-```
-
-`JWPLC_Time` consume el último snapshot RTC del runtime y resulta útil para HMI o lógica ligera que no necesita forzar otra lectura física.
-
----
-
-# Botonera
-
-Objeto global recomendado:
+Objeto global:
 
 ```cpp
 JWPLC_Buttons
@@ -244,37 +307,21 @@ if (JWPLC_Buttons.pressed(BTN_OK))
 }
 ```
 
-El runtime mantiene el scan de la botonera. Un sketch JWPLC normal no necesita llamar `JWPLC_Buttons.update()` ni iniciar otro task de scan.
-
-Desde Alpha8, el Display no consume los latches `pressed()` / `released()` de la aplicación para navegar. El sketch y el Display pueden observar una misma acción física sin apropiarse mutuamente del evento de aplicación.
-
-Documentación: [`JW_MatrixButtons`](JWPLC/2.1.0/libraries/JW_MatrixButtons/README.md)
+El runtime mantiene el scan de la botonera. En uso normal no se necesita llamar manualmente `JWPLC_Buttons.update()` ni crear otro task de scan.
 
 ---
 
-# Display, IDLE y HMI Alpha8
+## Display, IDLE y HMI
 
-`JWPLC_Display` gestiona:
+`JWPLC_Display` gestiona TFT, pantalla IDLE, pantalla USER, diagnósticos, navegación y coordinación SPI.
 
-- TFT integrada;
-- pantalla automática `IDLE`;
-- pantalla `USER`;
-- diagnósticos `ERR/BUS/ETH`;
-- navegación;
-- HMI declarativa Alpha8;
-- coordinación SPI del display.
-
-## IDLE seguro por defecto
-
-Alpha8 usa:
+El comportamiento seguro por defecto mantiene deshabilitado el wake automático hacia USER:
 
 ```text
 IDLE_WAKE_DISABLED
 ```
 
-como comportamiento por defecto.
-
-La entrada explícita a USER puede hacerse desde el sketch:
+Entrada explícita a USER:
 
 ```cpp
 if (JWPLC_Buttons.pressed(BTN_OK))
@@ -283,15 +330,13 @@ if (JWPLC_Buttons.pressed(BTN_OK))
 }
 ```
 
-Si una aplicación desea wake automático:
+Wake automático opcional:
 
 ```cpp
 JWPLC_Display.setIdleWakeMode(IDLE_WAKE_ANY_BUTTON);
 ```
 
-## Campos HMI
-
-Tipos:
+HMI declarativa:
 
 ```text
 JWPLC_UI_FIELD_VALUE
@@ -308,119 +353,97 @@ JWPLC_Display.setValue(fieldId, value);
 JWPLC_Display.setText(fieldId, "READY");
 JWPLC_Display.setBool(fieldId, true);
 JWPLC_Display.setBar(fieldId, 75.0f);
-
 JWPLC_Display.setUserPage(0);
-JWPLC_Display.setUserRefreshMode(USER_REFRESH_ON_DEMAND);
 JWPLC_Display.requestUserRefresh();
 ```
 
-La HMI soporta hasta 32 campos, varias páginas, formato numérico, colores, layout, alineación, bool text, rango de barra y redibujado dirty-only.
-
-Los valores de páginas no visibles se mantienen cacheados y se dibujan al entrar a la página correspondiente.
-
-## Acceso TFT manual
-
-La API Adafruit sigue disponible cuando se necesita control gráfico directo:
+Para dibujo directo con Adafruit:
 
 ```cpp
+#include <JWPLC_Display.h>
 auto &tft = JWPLC_Display.tft();
 ```
 
-Documentación completa: [`JWPLC_Display`](JWPLC/2.1.0/libraries/JWPLC_Display/README.md)
+Documentación: [`JWPLC_Display`](JWPLC/2.1.0/libraries/JWPLC_Display/README.md)
 
 ---
 
-# Indicadores IDLE
+## RTC y tiempo cacheado
 
-El IDLE muestra:
-
-```text
-PWR
-RUN
-ERR
-BUS
-ETH
-```
-
-Responsabilidades:
-
-- `ERR`: error de aplicación, hasta 4 caracteres;
-- `BUS`: diagnóstico RS-485 / Modbus RTU;
-- `ETH`: diagnóstico Ethernet.
-
-Ejemplos:
+Además de `JWPLC_RTC`, el runtime expone `JWPLC_Time` para consultar el último snapshot sin forzar una nueva lectura física:
 
 ```cpp
-JWPLC_Display.setErrCode("A01");
-JWPLC_Display.setBusLedAuto(true);
-JWPLC_Display.setEthLedAuto(true);
-```
-
-Códigos BUS:
-
-```text
---- DIS INI SER SID MAP TMO CRC EXC RSP OVF FUN
-```
-
-Códigos ETH:
-
-```text
---- DIS INI PHY LNK DHC HW IP SPI
+JWPLC_Time.present();
+JWPLC_Time.valid();
+JWPLC_Time.lostPower();
+JWPLC_Time.hour();
+JWPLC_Time.minute();
+JWPLC_Time.second();
+JWPLC_Time.day();
+JWPLC_Time.month();
+JWPLC_Time.year();
+JWPLC_Time.dayOfWeek();
 ```
 
 ---
 
-# Ethernet W5500
+## FRAM y microSD
 
-`JWPLC_Ethernet` mantiene el runtime cooperativo/no bloqueante consolidado en Alpha6 y las correcciones de contención SPI de Alpha7.
+`JWPLC_FRAM` proporciona persistencia rápida para contadores, parámetros, setpoints y estados.
+
+`JWPLC_SD` permite trabajar con logs, recetas, configuraciones y exportación de datos.
+
+TFT, W5500, FRAM y microSD comparten SPI. El package mantiene el arbitraje interno necesario para que estos periféricos coexistan en el flujo normal.
+
+---
+
+## Ethernet W5500
+
+`JWPLC_Ethernet` mantiene el runtime cooperativo/no bloqueante consolidado desde Alpha6 y la contención SPI validada en ciclos posteriores.
 
 Incluye:
 
-- sondeo W5500;
-- link RJ45;
-- DHCP inicial cooperativo;
+- detección del W5500;
+- estado de link RJ45;
+- DHCP cooperativo;
 - IP estática;
 - recuperación sin reset;
-- mantenimiento DHCP T1/T2;
-- coexistencia SPI con TFT/FRAM/microSD.
+- mantenimiento DHCP;
+- diagnóstico de hardware/link/IP/SPI;
+- coexistencia con TFT, FRAM y microSD.
 
-El autoload utiliza:
+El autoload utiliza internamente:
 
 ```cpp
 JWPLC_Ethernet.service();
 ```
 
-Las APIs síncronas `begin()` y `maintain()` se conservan por compatibilidad y commissioning.
-
-Alpha10 añade aislamiento de library discovery para `JWPLC_Ethernet` frente a copias homónimas antiguas en el sketchbook, sin modificar su API pública.
+Las APIs síncronas se conservan por compatibilidad y commissioning.
 
 Documentación: [`JWPLC_Ethernet`](JWPLC/2.1.0/libraries/JWPLC_Ethernet/README.md)
 
 ---
 
-# RS-485 y Modbus RTU
+## RS-485 y Modbus RTU
 
-`JWPLC_RS485` expone el transporte industrial. La aplicación define parámetros como baudrate/configuración:
+`JWPLC_RS485` expone el transporte industrial. La aplicación puede definir baudrate y formato:
 
 ```cpp
 JWPLC_RS485.begin(115200, SERIAL_8N1);
 ```
 
-`JWPLC_ModbusRTU` mantiene el Master cooperativo y la ruta Sync explícita.
+`JWPLC_ModbusRTU` incluye operación Master/Slave y servicio cooperativo.
 
-API cooperativa recomendada:
+Ejemplo de servicio:
 
 ```cpp
-JWPLC_ModbusRTU.requestReadHoldingRegisters(...);
-JWPLC_ModbusRTU.requestWriteSingleRegister(...);
-
 void loop()
 {
     JWPLC_ModbusRTU.task();
 }
 ```
 
-Alpha7 validó multidrop, Remote I/O y recuperación sin reset del Master. Alpha9 reutiliza esa base y cierra el recorrido OpenPLC Backplane con FC01/FC02/FC15 en hardware real.
+Alpha7 validó multidrop, Remote I/O y recuperación sin reset. Alpha9 reutilizó esta base para cerrar el recorrido OpenPLC Backplane con FC01/FC02/FC15 en hardware real.
 
 Documentación:
 
@@ -430,101 +453,50 @@ Documentación:
 
 ---
 
-# Periféricos globales
+## Build speed y Alpha10
 
-`JWPLC_GlobalPeripherals` es la capa de integración entre drivers y runtime.
+Alpha10 no elimina periféricos. Su cambio principal es retirar el coste de discovery añadido por guards JW/JWPLC que no forman parte del flujo package-managed soportado.
 
-En Alpha8 también aloja las implementaciones de `JWPLC_IO` y `JWPLC_Time` dentro del mismo TU existente para no añadir una compilación extra al cold build.
+Benchmark histórico del mismo host:
 
-En Alpha10, `JWPLC_GlobalPeripherals_Auto.h` incorpora únicamente el marker bundled de `JWPLC_Ethernet` durante discovery.
+| Configuración | Warm promedio | Delta |
+|---|---:|---:|
+| 0 markers JW/JWPLC | 22.094 s | base |
+| Ethernet únicamente | 23.327 s | +5.6% |
+| 4 markers | 26.888 s | +21.7% |
+| 7 markers | 30.353 s | +37.4% |
 
-Documentación: [`JWPLC_GlobalPeripherals`](JWPLC/2.1.0/libraries/JWPLC_GlobalPeripherals/README.md)
-
----
-
-# Precompilación y build speed
-
-Alpha10 mantiene el trabajo de precompilación de Alpha5/Alpha6/Alpha7/Alpha8.
-
-## Estructura de compilación preservada
-
-Conteos de referencia:
+Tres réplicas del candidato final mantuvieron:
 
 ```text
-Basic cold: 15 compiladores
-Core cold:  78 compiladores
-Warm:        1 compilador
-```
-
-El benchmark Alpha10 mantuvo paridad estructural y de tamaño binario respecto al baseline:
-
-```text
+Basic cold = 15 compiladores
+Core cold  = 78 compiladores
+Warm       = 1 compilador
 COMPILER_STRUCTURE_PARITY=PASS
-BINARY_SIZE_PARITY=PASS
+ALPHA10_BINARY_SIZE_PARITY=PASS
 ```
 
-El marker único de `JWPLC_Ethernet` añade en el host medido aproximadamente `+1.233 s / +5.6%` al warm de `01_empty`. La alternativa de siete markers fue descartada por `+8.259 s / +37.4%`.
+Por variación del host no se reclama un porcentaje exacto de recuperación para el candidato final.
 
-## Lazy-link HMI
-
-El motor HMI se desacopló del Display base mediante hooks internos.
-
-Gate de link heredado de Alpha8:
+El empaquetado publicado también queda validado con una única raíz de Boards Manager:
 
 ```text
-01_empty:
-  JWPLC_UI engine references = 0
-  JWPLC_UI API references    = 0
-
-HMI gate:
-  UI engine linked = YES
-  UI API linked    = YES
+2.1.0/
+  boards.txt
+  platform.txt
+  cores/
+  libraries/
+  variants/
+  ...
 ```
-
-El `01_empty` pasó históricamente de:
-
-```text
-399696 bytes -> 396240 bytes
-```
-
-reduciendo 3456 bytes respecto al estado Alpha8 previo al lazy-link.
-
-La HMI paga su costo de link sólo cuando la aplicación la usa.
 
 ---
 
-# Validación física Alpha8
+## OpenPLC / Backplane
 
-El gate `Display_Alpha8_HMI_Gate` validó:
+OpenPLC continúa siendo una integración **externa/opcional** respecto al runtime Arduino del package.
 
-```text
-IDLE_SOAK_180S_NO_AUTOWAKE=PASS
-unexpectedUser=0
-```
-
-Además:
-
-- los seis botones;
-- entrada USER explícita con OK;
-- páginas LEFT/RIGHT;
-- barra UP/DOWN;
-- ESC retorna IDLE y sigue llegando al sketch;
-- botones en IDLE no despiertan USER con wake deshabilitado;
-- RTC cacheado avanzando;
-- I/O cacheado;
-- valor/texto/bool/bar;
-- refresh sin flicker observado;
-- pulsación sostenida sin congelamiento.
-
-El incidente histórico de cuelgues observado en un taller con entornos anteriores se considera resuelto operacionalmente para continuar. Su causa exacta no se reproduce de forma concluyente y no se atribuye retrospectivamente a una única causa demostrada.
-
----
-
-# OpenPLC / Backplane Alpha9
-
-OpenPLC sigue siendo una integración externa al runtime Arduino del package.
-
-Alpha9 cierra el Backplane/Remote I/O con el perfil fijo:
+El cierre Alpha9 validó físicamente:
 
 ```text
 Master OpenPLC : 115200 / 8N1
@@ -532,113 +504,26 @@ Slave Arduino  : 115200 / 8N1
 Slave ID       : 2
 ```
 
-Ruta físicamente validada:
+Ruta validada:
 
 ```text
 Slave DI -> FC02 -> OpenPLC/Ladder -> FC15 -> Slave DO -> FC01 -> feedback
 ```
 
-Resultados principales:
-
-```text
-BACKPLANE_8CH_ONE_HOT_GATE=PASS
-FC02_REMOTE_INPUT_BITS=8/8 PASS
-OPENPLC_LADDER_MAPPING=8/8 PASS
-FC15_REMOTE_OUTPUT_BITS=8/8 PASS
-FC01_OUTPUT_FEEDBACK=8/8 PASS
-BIT_POSITION_MAPPING=8/8 PASS
-PHYSICAL_CORRELATION=8/8 PASS
-CROSSED_BITS=0
-BACKPLANE_PERSISTENCE=PASS
-BACKPLANE_RECOMPILE=PASS
-RTU_AUTOMATIC_RECOVERY=PASS
-POST_RECOVERY_PHYSICAL_IO=PASS
-```
-
-El banco de prueba sólo permitía activar una entrada a la vez:
-
-```text
-MULTIBIT_SIMULTANEOUS=NOT_TESTED
-```
-
-El VPP conservado usa versionado propio:
-
-```text
-JWPLC Basic OpenPLC VPP = 2.1.0-alpha.19
-Signature               = ed25519 / jwcontrol-2026
-Signed payload          = 9/9 PASS
-```
-
-No asumir:
+No asumir todavía:
 
 ```text
 OpenPLC integrado al autoload Arduino = NO
 Backplane baudrate configurable por UI = NO
 Backplane serial format configurable   = NO
+HMI Arduino expuesta a Ladder          = NO
 ```
 
-La HMI Arduino de Alpha8 todavía no está expuesta a Ladder/OpenPLC.
+La configuración RTU del Backplane, referencias tipadas de timers y la integración futura de HMI/Ladder permanecen como trabajo posterior a Alpha10.
 
 ---
 
-# Instalación
-
-## Canal estable
-
-Índice:
-
-```text
-https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index.json
-```
-
-Versión estable:
-
-```text
-2.0.0
-```
-
-## Canal dev / PreRelease
-
-Índice:
-
-```text
-https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json
-```
-
-Última versión publicada antes del merge Alpha10:
-
-```text
-2.1.0-alpha.9
-```
-
-Versión candidata:
-
-```text
-2.1.0-alpha.10
-```
-
-Estado candidato:
-
-```text
-ALPHA10_TECHNICAL_CLOSURE=PASS
-ALPHA10_PUBLICATION=PENDING_PR_CI_RELEASE
-```
-
-Para desarrollo local se utiliza el namespace `jwplc_local`.
-
----
-
-# Placas
-
-| Placa | FQBN | Uso |
-|---|---|---|
-| ESP32 Board | `jwplc:esp32:esp32` | Perfil ESP32 genérico del package. |
-| JWPLC Basic | `jwplc:esp32:jwplcbasic` | Perfil completo JWPLC Basic. |
-| JWPLC Basic Core | `jwplc:esp32:jwplcbasiccore` | Perfil de control/validación. |
-
----
-
-# Decisiones del ciclo 2.1.0 que Alpha10 no cambia
+## Decisiones de configuración vigentes
 
 ```text
 APP_ONLY=VALIDATED_DEVELOPMENT_TOOL
@@ -653,49 +538,40 @@ FINAL_UNIVERSAL_FLASH_CONFIGURATION=PENDING
 OTA=NOT_DEFINED
 ```
 
-No se publica `bootloader.bin` como definitivo.
-
-No se retiran periféricos del autoload para acelerar compilación.
+No se publica `bootloader.bin` como definitivo mientras la configuración final universal siga pendiente.
 
 ---
 
-# Documentación Alpha10
+## Documentación de Alpha10
 
-El cierre técnico de Alpha10 se documenta en:
+El detalle técnico y de publicación está en:
 
-- `docs/v2.1.0-alpha.10/ALPHA10_BUILD_BENCHMARK.md`;
-- `docs/v2.1.0-alpha.10/ALPHA10_TECHNICAL_CLOSURE.md`;
-- `docs/v2.1.0-alpha.10/ALPHA10_CLOSURE_CHECKLIST.md`;
-- `docs/v2.1.0-alpha.10/ALPHA10_TO_ALPHA11_HANDOFF.md`;
-- `docs/v2.1.0-alpha.10/PULL_REQUEST.md`;
-- `docs/v2.1.0-alpha.10/PRE_RELEASE.md`.
+- [`ALPHA10_BUILD_BENCHMARK.md`](docs/v2.1.0-alpha.10/ALPHA10_BUILD_BENCHMARK.md)
+- [`ALPHA10_PROTECTION_AUDIT.md`](docs/v2.1.0-alpha.10/ALPHA10_PROTECTION_AUDIT.md)
+- [`ALPHA10_TECHNICAL_CLOSURE.md`](docs/v2.1.0-alpha.10/ALPHA10_TECHNICAL_CLOSURE.md)
+- [`ALPHA10_CLOSURE_CHECKLIST.md`](docs/v2.1.0-alpha.10/ALPHA10_CLOSURE_CHECKLIST.md)
+- [`ALPHA10_TO_ALPHA11_HANDOFF.md`](docs/v2.1.0-alpha.10/ALPHA10_TO_ALPHA11_HANDOFF.md)
+- [`PRE_RELEASE.md`](docs/v2.1.0-alpha.10/PRE_RELEASE.md)
 
-Estado previo a publicación:
+Estado del package publicado:
 
 ```text
-ALPHA10_ROOT_CAUSE=CONFIRMED
-ALPHA10_MARKER_SET=JWPLC_ETHERNET_ONLY
-ALPHA10_MINIMUM_SAFE_FIX=PASS
-ALPHA10_BUILD_BENCHMARK=PASS_WITH_SCOPED_FIX
-ALPHA10_ETHERNET_SELECTION_VERIFIER=PASS
-ALPHA10_FINAL_COMPILE_MATRIX=5/5_PASS
-ALPHA10_TECHNICAL_CLOSURE=PASS
-ALPHA10_STATUS=READY_FOR_RELEASE_PR
-NEXT=ALPHA11_AFTER_PUBLICATION
+ALPHA10_PUBLISHED_INSTALL=PASS
+ALPHA10_PUBLISHED_COMPILE=PASS
+ALPHA10_PUBLISHED_UPLOAD=PASS
+ALPHA10_PUBLISHED_RUNTIME=PASS
+ALPHA10_RELEASE_PUBLICATION=PASS
 ```
 
 ---
 
-# Documentación Alpha9
+## Regla práctica para usuarios
 
-El cierre histórico de Alpha9 se documenta en:
+Para programar un JWPLC Basic normal:
 
-- `docs/v2.1.0-alpha.9/ALPHA9_TECHNICAL_CLOSURE.md`;
-- `docs/v2.1.0-alpha.9/ALPHA9_CLOSURE_CHECKLIST.md`;
-- `docs/v2.1.0-alpha.9/ALPHA9_PUBLICATION_CLOSURE_20260904.md`;
-- `docs/v2.1.0-alpha.9/ALPHA9_TO_ALPHA10_HANDOFF.md`;
-- `docs/v2.1.0-alpha.9/PULL_REQUEST.md`;
-- `docs/v2.1.0-alpha.9/PRE_RELEASE.md`;
-- `JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/examples/JWPLC_RemoteIO_Slave_RTU/README.md`.
+1. Agrega el índice correspondiente a Arduino IDE.
+2. Instala `JW Control ESP32 Boards`.
+3. Selecciona `JWPLC Basic`.
+4. Programa usando las APIs JWPLC incluidas en el package.
 
-Alpha9 finalizó publicado y sincronizado; Alpha10 no modifica ese cierre histórico.
+No es necesario instalar manualmente copias adicionales de las librerías JW/JWPLC que ya vienen dentro del package.
