@@ -163,6 +163,19 @@ ALPHA10_PUBLISHED_UPLOAD=PASS
 ALPHA10_PUBLISHED_RUNTIME=PASS
 ```
 
+## Sincronización final
+
+El contenido final de Alpha10 fue sincronizado a `main` con PR #93 mediante Squash and merge. En el momento del sync, ambos branches quedaron con el mismo árbol:
+
+```text
+MAIN_COMMIT_AFTER_SYNC=d25db91db2f327b4e97bef1ff339fc514548a632
+MAIN_TREE_AFTER_SYNC=7d0358741d525445630814894dde6ea2cab37dbd
+RELEASE_TREE_AT_SYNC=7d0358741d525445630814894dde6ea2cab37dbd
+ALPHA10_RELEASE_MAIN_TREE_PARITY=PASS
+```
+
+La paridad se evalúa por árbol/contenido; no se exige ancestría literal por los squash merges históricos.
+
 ## Decisiones de configuración
 
 ```text
@@ -177,7 +190,7 @@ OTA=NOT_DEFINED
 
 No se publica `bootloader.bin` como definitivo mientras la configuración final siga pendiente.
 
-## Estado
+## Estado final
 
 ```text
 TECHNICAL_COMMIT_SHA=35385c7286c8a4fdf33aec1af1175b8bb4f45e64
@@ -192,5 +205,7 @@ ALPHA10_PUBLISHED_COMPILE=PASS
 ALPHA10_PUBLISHED_UPLOAD=PASS
 ALPHA10_PUBLISHED_RUNTIME=PASS
 ALPHA10_RELEASE_PUBLICATION=PASS
-ALPHA10_RELEASE_MAIN_TREE_PARITY=PENDING_FINAL_SYNC
+ALPHA10_RELEASE_MAIN_TREE_PARITY=PASS
+ALPHA10_STATUS=CLOSED_PUBLISHED
+NEXT=ALPHA11
 ```
