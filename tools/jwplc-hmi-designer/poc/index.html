@@ -12,7 +12,7 @@
       <div class="chip">JW</div>
       <div>
         <h1>JWPLC HMI Designer</h1>
-        <p>Alpha11 · PoC de framebuffer ST7789</p>
+        <p>Alpha11 · PoC ST7789 pixel-perfect</p>
       </div>
     </div>
 
@@ -44,13 +44,41 @@
       </section>
 
       <section>
-        <h2>Herramientas A11-1</h2>
-        <button class="tool active" data-tool="pixel">Píxel</button>
+        <h2>Herramientas</h2>
+        <button class="tool" data-tool="pixel">Píxel</button>
         <button class="tool" data-tool="erase">Borrar</button>
+        <button class="tool active" data-tool="text">Texto GFX · A11-2</button>
         <button class="tool" disabled>VALUE · A11-3</button>
-        <button class="tool" disabled>TEXT · A11-3</button>
+        <button class="tool" disabled>TEXT field · A11-3</button>
         <button class="tool" disabled>BOOL · A11-3</button>
         <button class="tool" disabled>BAR · A11-3</button>
+      </section>
+
+      <section id="textControlsSection">
+        <h2>Texto GFX A11-2</h2>
+        <label class="field-label">Contenido
+          <input id="textInput" class="field-input" type="text" value="HOLA JWPLC" maxlength="40" />
+        </label>
+        <div class="inline-fields">
+          <label class="field-label">X
+            <input id="textX" class="field-input" type="number" min="0" max="319" value="20" />
+          </label>
+          <label class="field-label">Y
+            <input id="textY" class="field-input" type="number" min="0" max="169" value="20" />
+          </label>
+          <label class="field-label">Tamaño
+            <select id="textSize" class="field-input">
+              <option value="1">1×</option>
+              <option value="2" selected>2×</option>
+              <option value="3">3×</option>
+              <option value="4">4×</option>
+            </select>
+          </label>
+        </div>
+        <label class="field-label">Fondo
+          <select id="textBackground" class="field-input"></select>
+        </label>
+        <p class="muted small">El color activo de la paleta es el foreground. Haz clic en el canvas con la herramienta Texto para reposicionarlo.</p>
       </section>
 
       <section>
@@ -62,7 +90,7 @@
     <section class="editor-panel">
       <div class="tabs">
         <button class="tab active">Principal</button>
-        <span class="gate">Gate actual: A11-1 Pixel Canvas</span>
+        <span class="gate">Gate actual: A11-2 GFX Text Parity</span>
       </div>
 
       <div id="canvasViewport" class="canvas-viewport">
@@ -98,6 +126,18 @@
       </section>
 
       <section>
+        <h2>Paridad GFX</h2>
+        <div class="property-grid">
+          <span>Fuente</span><strong>Classic glcdfont</strong>
+          <span>Glifo</span><strong>5 × 8 bits</strong>
+          <span>Celda</span><strong>6 × 8 px</strong>
+          <span>Escala</span><strong id="textScaleStatus">2×</strong>
+          <span>Bounds</span><strong id="textBoundsStatus">60 × 16 px</strong>
+          <span>Charset PoC</span><strong>ASCII 32–126</strong>
+        </div>
+      </section>
+
+      <section>
         <h2>Color activo</h2>
         <div class="active-color-row">
           <span id="activeColorSwatch" class="active-color-swatch"></span>
@@ -115,26 +155,25 @@
       <button class="tab active">Estado del PoC</button>
       <button class="tab" disabled>Código generado · A11-4</button>
     </div>
-    <pre id="pocStatus">A11-1 objetivo:
-- framebuffer 320x170
-- zoom pixel-perfect
-- grid opcional
-- coordenadas exactas
-- preview 1:1
+    <pre id="pocStatus">A11-0 Arquitectura: PASS
+A11-1 Pixel Canvas: PASS (validación visual 2026-09-05)
 
-A11-2 siguiente:
+A11-2 en curso:
 - fuente clásica Adafruit GFX glcdfont.c
-- texto pixel-perfect
-- paridad de textSize</pre>
+- celda 6x8 y drawChar pixel-perfect
+- textSize entero 1x..4x
+- edición en vivo de texto/X/Y/tamaño/color
+- siguiente gate: comparar muestras contra TFT física</pre>
   </section>
 
   <footer class="statusbar">
     <span class="ready-dot"></span>
-    <span>Alpha11 en progreso</span>
+    <span>Alpha11 · A11-2 en progreso</span>
     <span class="grow"></span>
     <span id="framebufferStatus">Framebuffer: 54,400 px</span>
   </footer>
 
+  <script src="./gfx-classic-font.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>
