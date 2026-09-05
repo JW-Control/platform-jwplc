@@ -6,7 +6,9 @@ Estado actual:
 
 ```text
 Alpha11
-Gate en trabajo: A11-1 Pixel Canvas
+A11-0 Arquitectura: PASS
+A11-1 Pixel Canvas: PASS
+Gate en trabajo: A11-2 GFX Text Parity
 Target: ST7789 / 320 x 170 / rotation 3
 ```
 
@@ -42,7 +44,7 @@ Campos        : VALUE / TEXT / BOOL / BAR
 Máximo actual : 32 fields
 ```
 
-## PoC A11-1 disponible
+## PoC disponible
 
 Ruta:
 
@@ -50,7 +52,7 @@ Ruta:
 tools/jwplc-hmi-designer/poc/
 ```
 
-El PoC actual implementa:
+El PoC implementa actualmente:
 
 - framebuffer RGB565 de 320 × 170;
 - zoom 2× / 3× / 4× / 6× / 8×;
@@ -59,11 +61,12 @@ El PoC actual implementa:
 - coordenadas X/Y exactas;
 - lectura del valor RGB565 bajo el cursor;
 - dibujo y borrado por píxel;
-- paleta RGB565 básica;
 - preview simultáneo 1:1;
-- demo geométrica para probar zoom/grid.
-
-Todavía no reclama A11-1 como `PASS`; requiere ejecución local y revisión visual.
+- fuente clásica Adafruit GFX para ASCII 32–126;
+- `textSize` 1×..4×;
+- edición en vivo de texto, X/Y, foreground y background;
+- guía visual recomendada de 3 px sin offset implícito;
+- aviso cuando el texto sale de la safe area recomendada.
 
 ### Ejecutar sin dependencias
 
@@ -80,34 +83,59 @@ Luego abrir:
 http://localhost:8080
 ```
 
-También puede abrirse `index.html` directamente, pero el servidor local se recomienda porque los siguientes gates incorporarán recursos cargados desde el proyecto.
+## A11-2 — paridad física
+
+Muestra canónica:
+
+```text
+TEMP: 25.6 C
+size=2
+RED sobre WHITE
+```
+
+Gate físico:
+
+```text
+tools/jwplc-hmi-designer/gates/A11_2_GFX_Text_Parity/
+```
+
+El sketch permite alternar:
+
+```text
+LEFT  -> x=0, y=0
+RIGHT -> x=3, y=3
+```
+
+Esto valida dos cosas por separado:
+
+1. `setCursor(x,y)` permanece exacto y no recibe margen oculto;
+2. la guía de 3 px del Designer es una recomendación visual, no una transformación del runtime.
 
 ## Prioridad del PoC
 
-1. framebuffer 320 × 170;
-2. zoom sin interpolación;
-3. grid de píxel;
-4. coordenadas exactas;
-5. fuente clásica Adafruit GFX;
+1. framebuffer 320 × 170 — PASS;
+2. zoom sin interpolación — PASS;
+3. grid de píxel — PASS;
+4. coordenadas exactas — PASS;
+5. fuente clásica Adafruit GFX — EN VALIDACIÓN FÍSICA;
 6. campos HMI existentes;
 7. inspector de propiedades;
 8. proyecto `.jwhmi`;
 9. codegen C++;
 10. exportación segura hacia sketch.
 
-## Siguiente gate: A11-2
+## Siguiente gate tras A11-2
 
-La siguiente incorporación será la reproducción de la fuente clásica usada por Adafruit GFX a partir del `glcdfont.c` bundled del mismo package JWPLC.
-
-Objetivo:
+A11-3 incorporará los fields declarativos reales:
 
 ```text
-Texto escrito en Designer
-        ==
-mismos píxeles del texto renderizado por JWPLC_Display
+VALUE
+TEXT
+BOOL
+BAR
 ```
 
-Se validará primero con caracteres ASCII y `textSize` 1×/2×/3× antes de avanzar a los fields declarativos.
+El renderer del Designer deberá reproducir `FIELD_PADDING`, `FIELD_GAP`, geometría AUTO, layouts y alineación del runtime actual de `JWPLC_Display`.
 
 ## Regla de integración
 
@@ -128,4 +156,5 @@ Ver:
 
 ```text
 docs/v2.1.0-alpha.11/ALPHA11_HMI_DESIGNER_ARCHITECTURE.md
+docs/v2.1.0-alpha.11/A11_2_SAFE_AREA_DECISION.md
 ```
