@@ -14,7 +14,7 @@ Target: ST7789 / 320 x 170 / rotation 3
 
 ## Objetivo
 
-El Designer debe permitir construir interfaces viendo los píxeles reales que ocupará la TFT, configurar campos HMI y generar la **definición/configuración visual** sobre la API pública existente:
+El Designer debe permitir construir interfaces viendo los píxeles reales que ocupará la TFT, configurar campos HMI y generar la **estructura completa de presentación** sobre la API pública existente:
 
 ```cpp
 JWPLC_UIValueField(...)
@@ -25,22 +25,27 @@ JWPLC_UIBarField(...)
 JWPLC_Display.setFields(...)
 ```
 
-El Designer termina antes de `jwplcUIUpdate()`.
+Además debe generar las variables HMI definidas visualmente por el usuario: nombre, tipo y capacidad cuando corresponda.
 
-La lógica dinámica pertenece al usuario:
+Ejemplo:
+
+```cpp
+float temperatura = 0.0f;
+bool motorOn = false;
+char estadoTexto[13] = {};
+```
+
+El Designer **no genera** el cuerpo de `jwplcUIUpdate()`.
+
+El usuario implementa ese callback utilizando las variables e IDs ya generados:
 
 ```cpp
 extern "C" void jwplcUIUpdate()
 {
-    // código manual del usuario
-    // JWPLC_Display.setValue(...)
-    // JWPLC_Display.setText(...)
-    // JWPLC_Display.setBool(...)
-    // JWPLC_Display.setBar(...)
+    temperatura = obtenerTemperatura();
+    JWPLC_Display.setValue(FIELD_TEMP, temperatura);
 }
 ```
-
-El Designer no genera bindings ni reescribe este callback.
 
 No se crea un runtime gráfico alternativo.
 
@@ -61,19 +66,24 @@ Máximo actual : 32 fields
 ```text
 Designer genera:
 - IDs simbólicos de fields
+- variables HMI y tipos C++
+- buffers de texto según capacity
 - JWPLC_UIField[]
 - helpers JWPLC_UI*Field(...)
 - JWPLC_Display.setFields(...)
 - configuración de display elegida visualmente
 
-Usuario genera:
+Usuario escribe:
 - jwplcUIUpdate()
+- adquisición/asignación de datos
 - setValue(...)
 - setText(...)
 - setBool(...)
 - setBar(...)
-- adquisición y lógica de proceso
+- lógica de proceso
 ```
+
+La declaración de variables pertenece al Designer; la forma en que obtienen su valor pertenece al usuario.
 
 Documento contractual:
 
@@ -160,9 +170,9 @@ La `safe area` de pantalla probada temporalmente durante A11-2 fue retirada porq
 4. coordenadas exactas — PASS;
 5. fuente clásica Adafruit GFX — EN VALIDACIÓN FÍSICA;
 6. campos HMI existentes;
-7. inspector de propiedades;
+7. inspector de propiedades, incluida variable/tipo;
 8. proyecto `.jwhmi`;
-9. codegen C++ estructural;
+9. codegen C++ estructural + variables;
 10. exportación segura hacia sketch.
 
 ## Siguiente gate tras A11-2
@@ -185,6 +195,8 @@ AUTO width/height
 INLINE / STACKED
 LEFT / CENTER / RIGHT
 ```
+
+El inspector A11-3 también debe permitir definir el símbolo y tipo de la variable HMI asociada al objeto, sin generar la lógica de adquisición de esa variable.
 
 Sólo después de reproducir esa geometría se evaluará si una futura API necesita padding configurable o un objeto de texto con fondo simétrico.
 
