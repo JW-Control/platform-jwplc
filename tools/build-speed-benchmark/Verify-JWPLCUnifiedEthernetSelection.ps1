@@ -37,7 +37,8 @@ function Normalize-PathText
         return ""
     }
 
-    return $Text.Replace('\', '/').ToLowerInvariant()
+    $normalized = $Text.Replace('\', '/').ToLowerInvariant()
+    return [regex]::Replace($normalized, '/+', '/')
 }
 
 if ($null -eq (Get-Command $ArduinoCli -ErrorAction SilentlyContinue))
@@ -282,19 +283,38 @@ $evidenceText = Normalize-PathText -Text $compdbRaw
 $expectedPath = Normalize-PathText -Text ([System.IO.Path]::GetFullPath($UnifiedRoot))
 $expectedSrcPath = Normalize-PathText -Text ([System.IO.Path]::GetFullPath((Join-Path $UnifiedRoot "src")))
 
+# Arduino CLI puede reportar la libreria desde dos layouts validos:
+#
+# 1. Arbol fuente del repositorio.
+# 2. Plataforma instalada/enlazada bajo Arduino15/packages/jwplc*
+#
+# El verificador anterior aceptaba solamente (1), produciendo un falso
+# negativo cuando compile_commands.json contenia correctamente (2).
+$repoJwSelected =
+    $evidenceText.Contains($expectedPath) -and
+    $evidenceText.Contains($expectedSrcPath)
+
+$installedJwSelected =
+    $evidenceText -match '/arduino15/packages/jwplc(?:_local)?/hardware/esp32/[^/]+/libraries/jwplc_ethernet/src'
+
 $hasFileSchema = $compdbRaw -match '"file"\s*:'
 $hasCommandSchema = $compdbRaw -match '"command"\s*:'
 $hasArgumentsSchema = $compdbRaw -match '"arguments"\s*:'
 $fileEntries = [regex]::Matches($compdbRaw, '"file"\s*:').Count
 
 $jwSelected =
-    $evidenceText.Contains($expectedPath) -and
-    $evidenceText.Contains($expectedSrcPath)
+    $repoJwSelected -or
+    $installedJwSelected
 
 $legacySelected = $evidenceText -match 'jwplc_ethernet_w5x00_backend'
+# Detecta cualquier sketchbook cuyo layout termine en
+# Arduino/libraries, incluyendo por ejemplo:
+# Documentos/Programacion/Arduino/libraries.
 $userEthernetSelected =
-    $evidenceText -match '/documents/arduino/libraries/ethernet/' -or
-    $evidenceText -match '/documentos/arduino/libraries/ethernet/'
+    $evidenceText -match '/arduino/libraries/ethernet/'
+
+$userJwplcEthernetSelected =
+    $evidenceText -match '/arduino/libraries/jwplc_ethernet/'
 
 # Una libreria homonima externa usa literalmente .../libraries/Ethernet/.
 # JWPLC_Ethernet no coincide con este patron.
@@ -342,13 +362,23 @@ else
     Write-Host "Ethernet del sketchbook: DETECTADA" -ForegroundColor Red
 }
 
+if (-not $userJwplcEthernetSelected)
+{
+    Write-Host "JWPLC_Ethernet del sketchbook: IGNORADA OK" -ForegroundColor Green
+}
+else
+{
+    Write-Host "JWPLC_Ethernet del sketchbook: DETECTADA" -ForegroundColor Red
+}
+
 Write-Host ""
 Write-Host ("Log: {0}" -f $logPath)
 
 if (-not $jwSelected -or
     $legacySelected -or
     $foreignEthernetSelected -or
-    $userEthernetSelected)
+    $userEthernetSelected -or
+    $userJwplcEthernetSelected)
 {
     Write-Host ""
     Write-Host "Fragmentos Ethernet encontrados en compile database:" -ForegroundColor Yellow
