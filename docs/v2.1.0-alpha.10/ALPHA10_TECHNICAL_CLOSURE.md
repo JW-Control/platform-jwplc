@@ -1,27 +1,25 @@
-# Alpha10 - Cierre técnico reabierto
+# Alpha10 - Cierre técnico
+
+Fecha de cierre técnico: 2026-09-05.
 
 ## Resumen
 
-El cierre técnico previo de Alpha10 se reabre antes de continuar con otro alpha.
+`v2.1.0-alpha.10` se redefine como un ciclo de limpieza de library discovery y recuperación de build speed.
 
-La primera versión de Alpha10 añadió un guard para impedir que una copia antigua de `JWPLC_Ethernet` instalada manualmente en el sketchbook tuviera prioridad sobre la copia del package. El fix funcionó, pero su benchmark mostró un coste warm aproximado de `+5.6%` incluso usando un solo marker.
+La primera variante de Alpha10 añadió un guard para impedir que una copia antigua/manual de `JWPLC_Ethernet` instalada en el sketchbook tuviera prioridad sobre la copia del package. El fix funcionó, pero el benchmark mostró un coste warm aproximado de `+5.6%` usando un solo marker.
 
-Dado que el package JWPLC administra sus propias librerías y el despliegue actual puede controlarse, Alpha10 se redefine como un ciclo de limpieza y recuperación de tiempo de compilación.
-
-## Contrato de producto
+Dado que JWPLC distribuye sus librerías propias dentro del package, se adopta el contrato:
 
 ```text
 SUPPORTED_LIBRARY_MODEL=PACKAGE_MANAGED
 MANUAL_JW_JWPLC_OVERRIDES=OUT_OF_SCOPE
 ```
 
-No se garantiza que una copia antigua/manual de `JW_*` o `JWPLC_*` instalada en paralelo al package sea ignorada automáticamente por Arduino Builder.
-
-Ese entorno debe corregirse eliminando/renombrando la copia conflictiva o ajustando la instalación, no añadiendo un coste permanente al autoload normal.
+Una instalación manual/paralela de `JW_*` o `JWPLC_*` debe corregirse en el entorno del usuario y no añade coste permanente al autoload normal.
 
 ## Cambio técnico
 
-Commit:
+Commit principal:
 
 ```text
 35385c7286c8a4fdf33aec1af1175b8bb4f45e64
@@ -48,30 +46,20 @@ AUTOLOAD_PERIPHERALS_REMOVED=NO
 
 ## Protecciones heredadas auditadas
 
-Los markers de Adafruit se conservan:
+Se conservan:
 
 ```text
 JWPLC_Bundled_Adafruit_ST77xx.h=KEEP
 JWPLC_Bundled_Adafruit_GFX.h=KEEP
 JWPLC_Bundled_Adafruit_BusIO.h=KEEP
+JWPLC_LIBRARY_DISCOVERY_PHASE=KEEP
 ```
 
-Motivo: corresponden a dependencias externas vendorizadas/precompiladas. Es normal que un usuario tenga otras versiones de Adafruit instaladas mediante Library Manager, y Alpha5 ya registró una selección real de BusIO desde sketchbook durante un gate genérico.
-
-También se conserva `JWPLC_LIBRARY_DISCOVERY_PHASE` porque forma parte del autoload liviano y de la selección reproducible del stack Display.
+Motivo: Adafruit es una dependencia externa vendorizada/precompilada y puede coexistir legítimamente con otras versiones instaladas mediante Arduino Library Manager. Alpha5 registró además una selección real de BusIO desde el sketchbook durante un gate genérico.
 
 Detalle: `ALPHA10_PROTECTION_AUDIT.md`.
 
-## Benchmark local del candidato
-
-El 2026-09-05 se ejecutaron tres réplicas completas sobre:
-
-```text
-BRANCH=v2.1.0-alpha.10/optimize/remove-shadow-guard
-HEAD=456d5b9f55088091fcadcb87e9f33ffb90d3754c
-DIRTY_COUNT=0
-ALPHA10_CLEANUP_SOURCE=PASS
-```
+## Benchmark local
 
 Runs:
 
@@ -81,7 +69,7 @@ Runs:
 20260905_113956
 ```
 
-La estructura de compilación permaneció:
+Estructura:
 
 ```text
 Basic cold = 15 compiladores
@@ -90,7 +78,7 @@ Warm       = 1 compilador
 COMPILER_STRUCTURE_PARITY=PASS
 ```
 
-Para `Basic / 01_empty / managed_warm_touch`:
+Referencia principal, `Basic / 01_empty / managed_warm_touch`:
 
 ```text
 r1 = 24.126 s
@@ -109,32 +97,28 @@ M4      = 26.888 s
 M7      = 30.353 s
 ```
 
-El primer run evidencia deriva del host, por lo que no se reclama una recuperación porcentual exacta. La conclusión defendible es que el coste específico de los markers JW/JWPLC fue eliminado, se conserva la estructura de compilación y el warm estabilizado vuelve al entorno de M0.
+El primer run presenta deriva de host, por lo que no se reclama una recuperación porcentual exacta. La conclusión defendible es:
 
 ```text
-ALPHA10_BENCHMARK_RUNS=3_PASS
-ALPHA10_COMPILER_STRUCTURE_PARITY=PASS
-ALPHA10_WARM_BEHAVIOR=PASS_WITH_HOST_VARIATION
+JW_JWPLC_DISCOVERY_MARKER_OVERHEAD=REMOVED
+COMPILER_STRUCTURE_PARITY=PASS
+WARM_BEHAVIOR_RETURNED_TO_M0_RANGE=PASS_WITH_HOST_VARIATION
 EXACT_PERCENT_RECOVERY_CLAIM=NOT_USED
 ```
 
+La tabla completa está en `ALPHA10_BUILD_BENCHMARK.md`.
+
 ## Paridad binaria
 
-Los `results.csv` de r1/r2/r3 dieron valores idénticos por target/sketch:
-
 ```text
-Basic / 01_empty    = 4618688,4618688,4618688
-Basic / 02_io_basic = 4618784,4618784,4618784
-Core  / 01_empty    = 4574464,4574464,4574464
-Core  / 02_io_basic = 4574576,4574576,4574576
+Basic / 01_empty    = 4618688 x3
+Basic / 02_io_basic = 4618784 x3
+Core  / 01_empty    = 4574464 x3
+Core  / 02_io_basic = 4574576 x3
 ALPHA10_BINARY_SIZE_PARITY=PASS
 ```
 
-No aparece deriva de `BinaryBytes` entre las réplicas del candidato.
-
 ## Matriz funcional local
-
-Sobre `HEAD=c696034fd2c1f1dafbeb33fcf41c06be6a8f05f1` se ejecutó la matriz local:
 
 ```text
 DigitalIO_Basic=PASS
@@ -150,34 +134,56 @@ ALPHA10_LOCAL_FUNCTIONAL_MATRIX=5/5_PASS
 ALPHA10_LOCAL_COMPILE_GATE=PASS
 ```
 
-Esto valida compilación de los bloques principales afectados por el autoload/discovery sin introducir dependencias manuales JW/JWPLC externas.
+## Arduino IDE y validación física
+
+Se compiló y subió desde Arduino IDE el gate histórico:
+
+```text
+tools/build-speed-benchmark/sketches/06_alpha4_local_physical_gate/06_alpha4_local_physical_gate.ino
+```
+
+Resultado:
+
+```text
+ALPHA4_DISPLAY_READY=PASS
+ALPHA4_RTC=PASS
+ALPHA4_FRAM=PASS
+ALPHA4_SD=PASS
+ALPHA4_BUTTONS=PASS
+ALPHA4_INPUTS=PASS
+ALPHA4_OUTPUTS=PASS
+ALPHA4_DISPLAY_VISUAL=PASS
+ALPHA4_LOCAL_PHYSICAL_GATE=PASS
+```
+
+Por tanto:
+
+```text
+ALPHA10_ARDUINO_IDE_VALIDATION=PASS
+ALPHA10_LOCAL_PHYSICAL_GATE=PASS
+ALPHA10_PHYSICAL_VALIDATION=PASS_WITH_SCOPED_INHERITED_ETH_RTU_EVIDENCE
+```
+
+El gate reutilizado no prueba Ethernet ni RS-485/Modbus físicamente. Alpha10 no modifica esos runtimes, así que se conserva la evidencia física ya cerrada en Alpha6/Alpha7/Alpha9 y se exige únicamente regresión de compilación en este alpha:
+
+```text
+Ethernet_Diagnostics=PASS
+RemoteIO_Slave_RTU=PASS
+ETHERNET_RUNTIME_CHANGED=NO
+MODBUS_RTU_RUNTIME_CHANGED=NO
+```
+
+Detalle: `ALPHA10_PHYSICAL_VALIDATION_20260905.md`.
 
 ## CI
 
-El workflow `CI JWPLC Package Smoke` de la PR #90 terminó correctamente para el HEAD benchmarkeado y posteriormente para el HEAD documental `c696034fd2c1f1dafbeb33fcf41c06be6a8f05f1`.
+`CI JWPLC Package Smoke` terminó `SUCCESS` para los estados benchmarkeados/documentados hasta:
 
 ```text
-CI_JWPLC_PACKAGE_SMOKE=SUCCESS
+09ba7395450ce9d85a174dbd96a57f255371590c
 ```
 
-Los commits documentales posteriores deben volver a dejar CI verde antes del merge final.
-
-## Periféricos
-
-Alpha10 mantiene integrados:
-
-- Display;
-- Ethernet W5500;
-- microSD;
-- FRAM;
-- RTC;
-- botonera;
-- RS-485;
-- Modbus RTU;
-- TCA/I/O;
-- arbitraje SPI compartido.
-
-No se obtiene el benchmark retirando periféricos.
+El commit documental de cierre debe volver a quedar verde antes del merge de PR #90.
 
 ## Decisiones heredadas sin cambio
 
@@ -191,38 +197,25 @@ FINAL_UNIVERSAL_FLASH_CONFIGURATION=PENDING
 OTA=NOT_DEFINED
 ```
 
-Estas conclusiones se revalidan sin cambio para Alpha10. No se publica `bootloader.bin` como definitivo mientras la configuración final siga pendiente.
+No se publica `bootloader.bin` como definitivo mientras la configuración final siga pendiente.
 
-OpenPLC continúa externo/opcional al runtime Arduino; este alpha no redefine esa arquitectura.
+OpenPLC continúa externo/opcional al runtime Arduino.
 
-## Validación restante antes del cierre
-
-Antes de volver a declarar Alpha10 cerrado faltan únicamente:
-
-- compilación desde Arduino IDE con el candidato local;
-- smoke físico rápido de periféricos integrados;
-- CI verde sobre el HEAD documental final;
-- README raíz final.
-
-Después del cierre técnico se reemplazará la publicación Alpha10 interna y se validará el package desde el índice dev publicado.
-
-La tabla completa de tiempos y `BinaryBytes` se encuentra en `ALPHA10_BUILD_BENCHMARK.md`.
-
-## Estado actual
+## Cierre técnico
 
 ```text
 ALPHA10_SCOPE=BUILD_SPEED_CLEANUP
 ALPHA10_PROTECTION_AUDIT=PASS
-ALPHA10_TECHNICAL_CHANGE=COMMITTED
-ALPHA10_LOCAL_BENCHMARK=PASS_WITH_HOST_VARIATION
+ALPHA10_BUILD_BENCHMARK=PASS_WITH_HOST_VARIATION
 ALPHA10_COMPILER_STRUCTURE_PARITY=PASS
 ALPHA10_BINARY_SIZE_PARITY=PASS
 ALPHA10_LOCAL_FUNCTIONAL_MATRIX=5/5_PASS
 ALPHA10_LOCAL_COMPILE_GATE=PASS
-ALPHA10_CI_PR90=PASS_TO_C696034F
-ALPHA10_ARDUINO_IDE_VALIDATION=PENDING
-ALPHA10_PHYSICAL_VALIDATION=PENDING
-ALPHA10_TECHNICAL_CLOSURE=PENDING_PHYSICAL_GATE
+ALPHA10_ARDUINO_IDE_VALIDATION=PASS
+ALPHA10_PHYSICAL_VALIDATION=PASS_WITH_SCOPED_INHERITED_ETH_RTU_EVIDENCE
+ALPHA10_TECHNICAL_CLOSURE=PASS
 ALPHA10_PUBLICATION_REPLACEMENT=PENDING
-NEXT_ALPHA=BLOCKED_UNTIL_ALPHA10_CLOSED
+NEXT_ALPHA=BLOCKED_UNTIL_ALPHA10_PUBLISHED
 ```
+
+La publicación Alpha10 interna anterior todavía debe reemplazarse. El alpha sólo pasa a `CLOSED_PUBLISHED` después de merge, nueva PreRelease/ZIP/SHA, actualización del índice dev y validación desde el package publicado.
