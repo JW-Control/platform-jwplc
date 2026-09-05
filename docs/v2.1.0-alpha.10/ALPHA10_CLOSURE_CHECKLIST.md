@@ -45,8 +45,9 @@ TECHNICAL_COMMIT_SHA=35385c7286c8a4fdf33aec1af1175b8bb4f45e64
 - [x] Warm no-change evaluado.
 - [x] Warm touch evaluado.
 - [x] Compiler invocations comparadas.
-- [ ] Tamaño binario comparado desde `results.csv`.
-- [x] Conclusión provisional de build speed documentada.
+- [x] Tamaño binario comparado desde `results.csv`.
+- [x] Paridad exacta de `BinaryBytes` entre r1/r2/r3.
+- [x] Conclusión final de build speed documentada.
 - [x] No se reclama un porcentaje exacto de recuperación por variación de host.
 
 Estructura observada:
@@ -70,17 +71,28 @@ historical M0 = 22.094 s
 historical M1 = 23.327 s
 ```
 
+BinaryBytes:
+
+```text
+Basic / 01_empty   = 4618688 x3
+Basic / 02_io_basic= 4618784 x3
+Core  / 01_empty   = 4574464 x3
+Core  / 02_io_basic= 4574576 x3
+ALPHA10_BINARY_SIZE_PARITY=PASS
+```
+
 ## Matriz funcional
 
-- [ ] `DigitalIO_Basic` compila localmente.
-- [ ] `Buttons_Basic` compila localmente.
-- [ ] `Display_HMI_Fields` compila localmente.
-- [ ] `Ethernet_Diagnostics` compila localmente.
-- [ ] `RemoteIO_Slave_RTU` compila localmente.
-- [ ] Matriz local final = 5/5 PASS.
-- [ ] Undefined references local = 0.
+- [x] `DigitalIO_Basic` compila localmente.
+- [x] `Buttons_Basic` compila localmente.
+- [x] `Display_HMI_Fields` compila localmente.
+- [x] `Ethernet_Diagnostics` compila localmente.
+- [x] `RemoteIO_Slave_RTU` compila localmente.
+- [x] Matriz local final = 5/5 PASS.
+- [x] Undefined references local = 0.
 - [ ] Arduino IDE compila con package local candidato.
 - [x] CI `JWPLC Package Smoke` de PR #90 = SUCCESS para `456d5b9f55088091fcadcb87e9f33ffb90d3754c`.
+- [x] CI `JWPLC Package Smoke` = SUCCESS para `c696034fd2c1f1dafbeb33fcf41c06be6a8f05f1`.
 
 ## Validación física
 
@@ -119,13 +131,14 @@ historical M1 = 23.327 s
 - [x] Auditoría de protecciones creada.
 - [x] Benchmark reabierto y procedimiento actualizado.
 - [x] Resultados r1/r2/r3 incorporados.
+- [x] Tabla `BinaryBytes` incorporada.
+- [x] Matriz funcional local 5/5 incorporada.
 - [x] Cierre técnico reabierto y actualizado.
 - [x] Checklist actualizado.
 - [x] Handoff actualizado.
 - [x] PR candidata redactada en español.
 - [x] PreRelease candidata redactada en español.
 - [x] Tabla de tiempos del benchmark local completada.
-- [ ] Tabla de `BinaryBytes` completada.
 - [ ] README raíz actualizado después de los resultados finales.
 - [ ] Documentos de transferencia del proyecto actualizados después del cierre.
 
@@ -133,6 +146,7 @@ historical M1 = 23.327 s
 
 - [ ] PR técnica lista para review después de todos los gates locales/físicos.
 - [x] CI verde para el estado benchmarkeado `456d5b9f55088091fcadcb87e9f33ffb90d3754c`.
+- [x] CI verde para `c696034fd2c1f1dafbeb33fcf41c06be6a8f05f1`.
 - [ ] CI verde para el HEAD documental final antes del merge.
 - [ ] Release/tag Alpha10 previo retirado sólo después de aprobar el candidato.
 - [ ] PR integrada a `release/v2.1.x`.
@@ -155,11 +169,13 @@ ALPHA10_CLEANUP_SOURCE=PASS
 ALPHA10_BENCHMARK_RUNS=3_PASS
 ALPHA10_COMPILER_STRUCTURE_PARITY=PASS
 ALPHA10_WARM_BEHAVIOR=PASS_WITH_HOST_VARIATION
-ALPHA10_CI_PR90=PASS
-ALPHA10_BINARY_SIZE_CHECK=PENDING
-ALPHA10_LOCAL_FUNCTIONAL_MATRIX=PENDING
+ALPHA10_BINARY_SIZE_PARITY=PASS
+ALPHA10_LOCAL_FUNCTIONAL_MATRIX=5/5_PASS
+ALPHA10_LOCAL_COMPILE_GATE=PASS
+ALPHA10_CI_PR90=PASS_TO_C696034F
+ALPHA10_ARDUINO_IDE_VALIDATION=PENDING
 ALPHA10_PHYSICAL_VALIDATION=PENDING
-ALPHA10_TECHNICAL_CLOSURE=PENDING
+ALPHA10_TECHNICAL_CLOSURE=PENDING_PHYSICAL_GATE
 ALPHA10_PUBLICATION_REPLACEMENT=PENDING
 NEXT_ALPHA=BLOCKED
 ```
