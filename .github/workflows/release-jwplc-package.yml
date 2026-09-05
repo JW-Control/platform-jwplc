@@ -4,90 +4,8 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version without leading v. Example: 2.1.0-alpha.1, 2.1.0-beta.1, 2.1.0"
+        description: "Versión sin v inicial. Ejemplo: 2.1.0-alpha.10, 2.1.0-beta.1, 2.1.0"
         required: true
-        type: string
-      channel:
-        description: "Release channel. auto detects alpha/beta/stable from version."
-        required: true
-        default: "auto"
-        type: choice
-        options:
-          - auto
-          - alpha
-          - beta
-          - stable
-      source_folder:
-        description: "Folder to zip if the ZIP does not already exist"
-        required: true
-        default: "JWPLC/2.1.0"
-        type: string
-      recreate_zip:
-        description: "Regenerate ZIP even if one already exists. Default false reuses existing ZIP when found."
-        required: true
-        default: false
-        type: boolean
-      archive_root_mode:
-        description: "ZIP root mode: contents = zip contents of source folder; folder = include folder itself"
-        required: true
-        default: "folder"
-        type: choice
-        options:
-          - contents
-          - folder
-      update_public_index:
-        description: "Update public package_jwplc_index.json. auto = only stable"
-        required: true
-        default: "auto"
-        type: choice
-        options:
-          - auto
-          - yes
-          - no
-      replace_existing_index_entry:
-        description: "Replace package index entry if this version already exists. If false, workflow fails when version already exists."
-        required: true
-        default: false
-        type: boolean
-      commit_index_changes:
-        description: "Commit package index JSON changes to an automation branch and open/update PR"
-        required: true
-        default: true
-        type: boolean
-      publish_release:
-        description: "Create/update GitHub Release and upload ZIP asset"
-        required: true
-        default: true
-        type: boolean
-      fail_if_release_exists:
-        description: "Fail if the GitHub Release/tag already exists. Ignored when publish_release=false."
-        required: true
-        default: true
-        type: boolean
-      overwrite_release_asset:
-        description: "If release exists and fail_if_release_exists=false, overwrite asset with same name"
-        required: true
-        default: false
-        type: boolean
-      release_notes_file:
-        description: "Markdown file used as release notes if it exists. Ignored when publish_release=false."
-        required: true
-        default: "docs/v2.1.0-alpha.3/PRE_RELEASE.md"
-        type: string
-      upload_workflow_artifact:
-        description: "Upload ZIP and package indexes as workflow artifacts"
-        required: true
-        default: true
-        type: boolean
-      open_index_pr:
-        description: "Open/update a pull request with package index JSON changes instead of pushing to main"
-        required: true
-        default: true
-        type: boolean
-      index_pr_base_branch:
-        description: "Base branch for the package index PR"
-        required: true
-        default: "main"
         type: string
 
 permissions:
@@ -96,7 +14,7 @@ permissions:
 
 jobs:
   release:
-    name: Prepare and publish JWPLC package
+    name: Preparar y publicar package JWPLC
     runs-on: ubuntu-latest
 
     steps:
@@ -110,80 +28,157 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Validate inputs
+      - name: Resolver política fija de publicación
         shell: bash
         run: |
           set -euo pipefail
+
           VERSION="${{ inputs.version }}"
           VERSION="${VERSION#v}"
+
           if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z]+\.[0-9]+)?$ ]]; then
-            echo "Invalid version: ${{ inputs.version }}"
-            echo "Expected examples: 2.1.0-alpha.1, 2.1.0-beta.1, 2.1.0"
+            echo "Versión inválida: ${{ inputs.version }}"
+            echo "Ejemplos válidos: 2.1.0-alpha.10, 2.1.0-beta.1, 2.1.0"
             exit 1
           fi
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-          echo "TAG=v$VERSION" >> "$GITHUB_ENV"
-          echo "ARCHIVE=jwplc-esp32-$VERSION.zip" >> "$GITHUB_ENV"
-          echo "INDEX_BRANCH=ci/release-index-v$VERSION" >> "$GITHUB_ENV"
 
-      - name: Check existing GitHub Release
-        if: ${{ inputs.publish_release }}
-        id: release_check
+          BASE_VERSION="${VERSION%%-*}"
+          SOURCE_FOLDER="JWPLC/$BASE_VERSION"
+          NOTES_FILE="docs/v${VERSION}/PRE_RELEASE.md"
+          TAG="v$VERSION"
+          ARCHIVE="jwplc-esp32-$VERSION.zip"
+          INDEX_BRANCH="ci/release-index-v$VERSION"
+
+          if [[ ! -d "$SOURCE_FOLDER" ]]; then
+            echo "No existe source folder: $SOURCE_FOLDER"
+            exit 1
+          fi
+
+          if [[ ! -f "$SOURCE_FOLDER/boards.txt" ]] || [[ ! -f "$SOURCE_FOLDER/platform.txt" ]]; then
+            echo "El source folder no parece una plataforma Arduino válida: $SOURCE_FOLDER"
+            echo "Se requieren boards.txt y platform.txt."
+            exit 1
+          fi
+
+          if [[ ! -f "$NOTES_FILE" ]]; then
+            echo "Falta documentación de PreRelease: $NOTES_FILE"
+            exit 1
+          fi
+
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "BASE_VERSION=$BASE_VERSION" >> "$GITHUB_ENV"
+          echo "SOURCE_FOLDER=$SOURCE_FOLDER" >> "$GITHUB_ENV"
+          echo "NOTES_FILE=$NOTES_FILE" >> "$GITHUB_ENV"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          echo "ARCHIVE=$ARCHIVE" >> "$GITHUB_ENV"
+          echo "INDEX_BRANCH=$INDEX_BRANCH" >> "$GITHUB_ENV"
+
+          echo "========================================"
+          echo " JWPLC RELEASE POLICY"
+          echo "========================================"
+          echo "VERSION=$VERSION"
+          echo "SOURCE_FOLDER=$SOURCE_FOLDER"
+          echo "ARCHIVE_ROOT_MODE=folder"
+          echo "RECREATE_ZIP=true"
+          echo "CHANNEL=auto"
+          echo "UPDATE_PUBLIC_INDEX=auto"
+          echo "REPLACE_EXISTING_INDEX_ENTRY=true"
+          echo "INDEX_PR_BASE=main"
+          echo "PUBLISH_RELEASE=true"
+          echo "FAIL_IF_RELEASE_EXISTS=true"
+
+      - name: Rechazar release/tag existente
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-            echo "Release $TAG already exists."
-            if [[ "${{ inputs.fail_if_release_exists }}" == "true" ]]; then
-              echo "fail_if_release_exists=true, stopping."
-              exit 1
-            fi
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-            echo "Release $TAG does not exist yet."
+            echo "La release $TAG ya existe."
+            echo "Para conservar inmutabilidad, el workflow normal no la sobrescribe."
+            exit 1
           fi
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "El tag remoto $TAG ya existe aunque no exista GitHub Release."
+            echo "Resolver manualmente antes de publicar."
+            exit 1
+          fi
+
+          echo "RELEASE_TAG_AVAILABLE=PASS"
 
       - name: Seed package indexes from main
         shell: bash
         run: |
           set -euo pipefail
 
-          # La rama de release contiene el código que se publicará,
-          # pero main conserva el histórico canónico del Boards Manager.
-          # Sembrar los índices desde main evita perder versiones previas
-          # cuando se publica una nueva alpha/beta desde release/v2.1.x.
+          # main conserva el histórico canónico del Boards Manager.
+          # La rama release contiene el código exacto que se publicará.
           git fetch origin main --depth=1
           git show origin/main:JWPLC/package_jwplc_index_dev.json > JWPLC/package_jwplc_index_dev.json
           git show origin/main:JWPLC/package_jwplc_index.json > JWPLC/package_jwplc_index.json
 
-      - name: Prepare package ZIP and indexes
+      - name: Preparar ZIP e índices
         id: prepare
         shell: bash
         run: |
           set -euo pipefail
-          EXTRA_ARGS=()
-          if [[ "${{ inputs.recreate_zip }}" == "true" ]]; then
-            EXTRA_ARGS+=("--recreate-zip")
-          fi
-          if [[ "${{ inputs.replace_existing_index_entry }}" == "true" ]]; then
-            EXTRA_ARGS+=("--replace-existing-index-entry")
-          else
-            EXTRA_ARGS+=("--fail-if-version-exists")
-          fi
+
           python JWPLC/tools/jwplc_release.py prepare \
             --version "$VERSION" \
-            --channel "${{ inputs.channel }}" \
-            --source-folder "${{ inputs.source_folder }}" \
-            --archive-root-mode "${{ inputs.archive_root_mode }}" \
+            --channel auto \
+            --source-folder "$SOURCE_FOLDER" \
+            --recreate-zip \
+            --archive-root-mode folder \
             --repo-full-name "$GITHUB_REPOSITORY" \
-            --update-public-index "${{ inputs.update_public_index }}" \
-            --release-title "$TAG - JWPLC Arduino package" \
-            "${EXTRA_ARGS[@]}"
+            --update-public-index auto \
+            --replace-existing-index-entry \
+            --release-title "$TAG - JWPLC Arduino package"
 
-      - name: Show generated metadata
+      - name: Validar estructura instalable del ZIP
+        shell: bash
+        env:
+          ZIP_FILE: ${{ steps.prepare.outputs.zip_file }}
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import os
+          import sys
+          import zipfile
+
+          zip_file = os.environ["ZIP_FILE"]
+          expected_root = os.environ["BASE_VERSION"]
+
+          with zipfile.ZipFile(zip_file, "r") as zf:
+              names = [name for name in zf.namelist() if name and not name.endswith("/")]
+
+          if not names:
+              print("ZIP vacío")
+              sys.exit(1)
+
+          roots = sorted({name.split("/", 1)[0] for name in names})
+          print(f"ZIP_ROOTS={roots}")
+
+          if roots != [expected_root]:
+              print(f"ERROR: se esperaba una única raíz '{expected_root}'")
+              sys.exit(1)
+
+          required = {
+              f"{expected_root}/boards.txt",
+              f"{expected_root}/platform.txt",
+          }
+          missing = sorted(required.difference(names))
+          if missing:
+              print(f"ERROR: faltan archivos requeridos: {missing}")
+              sys.exit(1)
+
+          print("JWPLC_PACKAGE_UNIQUE_ROOT=PASS")
+          print("JWPLC_PACKAGE_REQUIRED_FILES=PASS")
+          PY
+
+      - name: Mostrar metadata generada
         shell: bash
         run: |
           echo "Version     : ${{ steps.prepare.outputs.version }}"
@@ -195,59 +190,54 @@ jobs:
           echo "Size        : ${{ steps.prepare.outputs.size }}"
           echo "Prerelease  : ${{ steps.prepare.outputs.prerelease }}"
           echo "Public index: ${{ steps.prepare.outputs.update_public }}"
-          echo "Commit JSON : ${{ inputs.commit_index_changes }}"
-          echo "Open PR     : ${{ inputs.open_index_pr }}"
-          echo "Publish rel.: ${{ inputs.publish_release }}"
 
-      - name: Validate package indexes as JSON
+      - name: Validar package indexes como JSON
         shell: bash
         run: |
           set -euo pipefail
           python -m json.tool JWPLC/package_jwplc_index_dev.json >/dev/null
           python -m json.tool JWPLC/package_jwplc_index.json >/dev/null
+          echo "PACKAGE_INDEX_JSON_VALIDATION=PASS"
 
-      - name: Commit package index changes to automation branch
-        if: ${{ inputs.commit_index_changes }}
+      - name: Commit package index en rama automática
         id: index_commit
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # Conservar los indices generados sin cambiar de rama en el working
-          # tree principal. Los pasos posteriores aun necesitan el ZIP y la
-          # documentacion del commit fuente de la release.
           INDEX_TMP="$RUNNER_TEMP/jwplc-release-index-$VERSION"
           INDEX_WORKTREE="$RUNNER_TEMP/jwplc-index-worktree-$VERSION"
+          BASE_BRANCH="main"
+
           rm -rf "$INDEX_TMP" "$INDEX_WORKTREE"
           mkdir -p "$INDEX_TMP"
 
           cp JWPLC/package_jwplc_index_dev.json "$INDEX_TMP/package_jwplc_index_dev.json"
           cp JWPLC/package_jwplc_index.json "$INDEX_TMP/package_jwplc_index.json"
 
-          BASE_BRANCH="${{ inputs.index_pr_base_branch }}"
           git fetch origin "$BASE_BRANCH" --depth=1
-
-          # Preparar la rama automatica en un worktree separado para no pisar
-          # los archivos generados ni PRE_RELEASE.md del checkout original.
           git worktree add --detach "$INDEX_WORKTREE" "origin/$BASE_BRANCH"
           git -C "$INDEX_WORKTREE" checkout -B "$INDEX_BRANCH"
 
           cp "$INDEX_TMP/package_jwplc_index_dev.json" "$INDEX_WORKTREE/JWPLC/package_jwplc_index_dev.json"
           cp "$INDEX_TMP/package_jwplc_index.json" "$INDEX_WORKTREE/JWPLC/package_jwplc_index.json"
 
-          # Llevar tambien a main el README correspondiente al commit exacto
-          # desde el que se publica el package.
+          # Mantener el README visible de main alineado con la release publicada.
           git show "$GITHUB_SHA:README.md" > "$INDEX_WORKTREE/README.md"
 
-          git -C "$INDEX_WORKTREE" add README.md JWPLC/package_jwplc_index_dev.json JWPLC/package_jwplc_index.json
+          git -C "$INDEX_WORKTREE" add \
+            README.md \
+            JWPLC/package_jwplc_index_dev.json \
+            JWPLC/package_jwplc_index.json
 
           if git -C "$INDEX_WORKTREE" diff --cached --quiet; then
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
-            echo "No package index or README changes to commit."
+            echo "No hay cambios de índice/README para commit."
             git worktree remove --force "$INDEX_WORKTREE"
             exit 0
           fi
@@ -257,14 +247,15 @@ jobs:
           git -C "$INDEX_WORKTREE" push --force-with-lease origin "$INDEX_BRANCH"
           git worktree remove --force "$INDEX_WORKTREE"
 
-      - name: Open or update package index pull request
-        if: ${{ inputs.commit_index_changes && inputs.open_index_pr && steps.index_commit.outputs.has_changes == 'true' }}
+      - name: Abrir o actualizar PR de package index
+        if: ${{ steps.index_commit.outputs.has_changes == 'true' }}
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          BASE_BRANCH="${{ inputs.index_pr_base_branch }}"
+
+          BASE_BRANCH="main"
           PR_TITLE="ci(release): update JWPLC package indexes for $TAG"
           PR_BODY=$(cat <<EOF
           ## Resumen
@@ -279,16 +270,17 @@ jobs:
           - Checksum: ${{ steps.prepare.outputs.checksum }}
           - Size: ${{ steps.prepare.outputs.size }} bytes
           - Actualiza índice público: ${{ steps.prepare.outputs.update_public }}
+          - Archive root: $BASE_VERSION/
 
-          ## Archivos esperados
+          ## Política fija
 
-          - JWPLC/package_jwplc_index_dev.json
-          - JWPLC/package_jwplc_index.json solo cambia cuando corresponde a release estable o update_public_index=yes.
-          - README.md cuando exista una actualización respecto a main.
+          - ZIP regenerado desde el source del branch de release.
+          - Una única carpeta raíz obligatoria.
+          - Índice dev actualizado siempre.
+          - Índice estable actualizado sólo para canal estable.
+          - PR hacia main obligatorio cuando existen cambios.
 
-          ## Nota
-
-          PR generado automáticamente por GitHub Actions para respetar la protección de main.
+          PR generado automáticamente por GitHub Actions.
           EOF
           )
 
@@ -301,13 +293,13 @@ jobs:
             --jq '.[0].number // empty')
 
           if [[ -n "$EXISTING_PR" ]]; then
-            echo "Updating existing PR #$EXISTING_PR"
+            echo "Actualizando PR existente #$EXISTING_PR"
             gh pr edit "$EXISTING_PR" \
               --repo "$GITHUB_REPOSITORY" \
               --title "$PR_TITLE" \
               --body "$PR_BODY"
           else
-            echo "Creating new PR from $INDEX_BRANCH to $BASE_BRANCH"
+            echo "Creando PR desde $INDEX_BRANCH hacia $BASE_BRANCH"
             gh pr create \
               --repo "$GITHUB_REPOSITORY" \
               --base "$BASE_BRANCH" \
@@ -316,77 +308,28 @@ jobs:
               --body "$PR_BODY"
           fi
 
-      - name: Prepare release notes
-        if: ${{ inputs.publish_release }}
-        id: notes
-        shell: bash
-        run: |
-          set -euo pipefail
-          NOTES_FILE="${{ inputs.release_notes_file }}"
-          if [[ -f "$NOTES_FILE" ]]; then
-            echo "notes_file=$NOTES_FILE" >> "$GITHUB_OUTPUT"
-          else
-            FALLBACK="release_notes_$VERSION.md"
-            cat > "$FALLBACK" <<EOF
-          # $TAG - JWPLC Arduino package
-
-          Automated JWPLC Arduino package release.
-
-          ## Package
-
-          - Archive: ${{ steps.prepare.outputs.zip_name }}
-          - Checksum: ${{ steps.prepare.outputs.checksum }}
-          - Size: ${{ steps.prepare.outputs.size }} bytes
-
-          ## Index update
-
-          - Dev index updated: yes
-          - Public index updated: ${{ steps.prepare.outputs.update_public }}
-          EOF
-            echo "notes_file=$FALLBACK" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Create or update GitHub Release
-        if: ${{ inputs.publish_release }}
+      - name: Crear GitHub Release / PreRelease
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+
           ZIP_FILE="${{ steps.prepare.outputs.zip_file }}"
-          NOTES_FILE="${{ steps.notes.outputs.notes_file }}"
           PRERELEASE_FLAG=""
+
           if [[ "${{ steps.prepare.outputs.prerelease }}" == "true" ]]; then
             PRERELEASE_FLAG="--prerelease"
           fi
 
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release exists: $TAG"
-            gh release edit "$TAG" \
-              --repo "$GITHUB_REPOSITORY" \
-              --title "${{ steps.prepare.outputs.release_title }}" \
-              --notes-file "$NOTES_FILE" \
-              $PRERELEASE_FLAG
-
-            if [[ "${{ inputs.overwrite_release_asset }}" == "true" ]]; then
-              echo "Uploading asset with overwrite: $ZIP_FILE"
-              gh release upload "$TAG" "$ZIP_FILE" --repo "$GITHUB_REPOSITORY" --clobber
-            else
-              echo "Uploading asset without overwrite: $ZIP_FILE"
-              gh release upload "$TAG" "$ZIP_FILE" --repo "$GITHUB_REPOSITORY"
-            fi
-          else
-            echo "Creating release: $TAG"
-            gh release create "$TAG" "$ZIP_FILE" \
-              --repo "$GITHUB_REPOSITORY" \
-              --target "$GITHUB_SHA" \
-              --title "${{ steps.prepare.outputs.release_title }}" \
-              --notes-file "$NOTES_FILE" \
-              $PRERELEASE_FLAG
-          fi
+          gh release create "$TAG" "$ZIP_FILE" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "${{ steps.prepare.outputs.release_title }}" \
+            --notes-file "$NOTES_FILE" \
+            $PRERELEASE_FLAG
 
       - name: Upload workflow artifact
-        if: ${{ inputs.upload_workflow_artifact }}
         uses: actions/upload-artifact@v4
         with:
           name: jwplc-package-${{ steps.prepare.outputs.version }}
