@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>JWPLC HMI Designer — Alpha11 PoC</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="chip">JW</div>
+      <div>
+        <h1>JWPLC HMI Designer</h1>
+        <p>Alpha11 · PoC de framebuffer ST7789</p>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <button id="newProjectButton">Nuevo</button>
+      <button id="clearButton">Limpiar</button>
+      <button id="demoButton">Demo</button>
+      <span class="separator"></span>
+      <label>
+        Zoom
+        <select id="zoomSelect">
+          <option value="2">2×</option>
+          <option value="3" selected>3×</option>
+          <option value="4">4×</option>
+          <option value="6">6×</option>
+          <option value="8">8×</option>
+        </select>
+      </label>
+      <label class="check"><input id="gridToggle" type="checkbox" checked /> Grid</label>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <aside class="panel left-panel">
+      <section>
+        <h2>Páginas</h2>
+        <button class="page-item active">0 · Principal</button>
+        <button class="page-item" disabled>+ Nueva página · A11-3</button>
+      </section>
+
+      <section>
+        <h2>Herramientas A11-1</h2>
+        <button class="tool active" data-tool="pixel">Píxel</button>
+        <button class="tool" data-tool="erase">Borrar</button>
+        <button class="tool" disabled>VALUE · A11-3</button>
+        <button class="tool" disabled>TEXT · A11-3</button>
+        <button class="tool" disabled>BOOL · A11-3</button>
+        <button class="tool" disabled>BAR · A11-3</button>
+      </section>
+
+      <section>
+        <h2>Paleta RGB565</h2>
+        <div id="palette" class="palette"></div>
+      </section>
+    </aside>
+
+    <section class="editor-panel">
+      <div class="tabs">
+        <button class="tab active">Principal</button>
+        <span class="gate">Gate actual: A11-1 Pixel Canvas</span>
+      </div>
+
+      <div id="canvasViewport" class="canvas-viewport">
+        <canvas id="displayCanvas" aria-label="Canvas lógico JWPLC Basic 320 por 170"></canvas>
+      </div>
+
+      <footer class="canvas-status">
+        <span>Target: ST7789 · 320 × 170 · rotation 3</span>
+        <span id="cursorStatus">X: — · Y: —</span>
+        <span id="pixelStatus">Pixel: —</span>
+      </footer>
+    </section>
+
+    <aside class="panel right-panel">
+      <section>
+        <h2>Vista previa 1:1</h2>
+        <div class="device-preview">
+          <canvas id="previewCanvas" width="320" height="170"></canvas>
+        </div>
+        <p class="muted">Framebuffer lógico sin interpolación.</p>
+      </section>
+
+      <section>
+        <h2>Propiedades</h2>
+        <div class="property-grid">
+          <span>Dispositivo</span><strong>JWPLC Basic v2</strong>
+          <span>Controlador</span><strong>ST7789</strong>
+          <span>Resolución</span><strong>320 × 170</strong>
+          <span>Rotación</span><strong>3</strong>
+          <span>Formato</span><strong>RGB565</strong>
+          <span>Fields runtime</span><strong>máx. 32</strong>
+        </div>
+      </section>
+
+      <section>
+        <h2>Color activo</h2>
+        <div class="active-color-row">
+          <span id="activeColorSwatch" class="active-color-swatch"></span>
+          <div>
+            <strong id="activeColorName">ORANGE</strong>
+            <code id="activeColorValue">0xFD20</code>
+          </div>
+        </div>
+      </section>
+    </aside>
+  </main>
+
+  <section class="code-panel">
+    <div class="tabs">
+      <button class="tab active">Estado del PoC</button>
+      <button class="tab" disabled>Código generado · A11-4</button>
+    </div>
+    <pre id="pocStatus">A11-1 objetivo:
+- framebuffer 320x170
+- zoom pixel-perfect
+- grid opcional
+- coordenadas exactas
+- preview 1:1
+
+A11-2 siguiente:
+- fuente clásica Adafruit GFX glcdfont.c
+- texto pixel-perfect
+- paridad de textSize</pre>
+  </section>
+
+  <footer class="statusbar">
+    <span class="ready-dot"></span>
+    <span>Alpha11 en progreso</span>
+    <span class="grow"></span>
+    <span id="framebufferStatus">Framebuffer: 54,400 px</span>
+  </footer>
+
+  <script src="./app.js"></script>
+</body>
+</html>
