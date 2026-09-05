@@ -4,74 +4,140 @@ Fecha: 2026-09-05
 
 ## Objetivo
 
-Fijar antes de A11-3/A11-4 qué API puede emitir **JWPLC HMI Designer** en código destinado al usuario.
+Fijar antes de A11-3/A11-4 qué debe generar **JWPLC HMI Designer** y qué queda bajo control manual del usuario.
 
-La regla principal es:
+Regla principal:
 
 ```text
 DESIGNER_GENERATED_CODE_USES_PUBLIC_API=YES
 DESIGNER_GENERATED_CODE_USES_INTERNAL_RUNTIME=NO
 DESIGNER_GENERATED_CODE_USES_LEGACY_CALLBACKS=NO
-DESIGNER_STOPS_BEFORE_JWPLC_UI_UPDATE=YES
-USER_OWNS_JWPLC_UI_UPDATE=YES
+
+DESIGNER_GENERATES_FIELD_STRUCTURES=YES
+DESIGNER_GENERATES_VARIABLE_DECLARATIONS=YES
+DESIGNER_GENERATES_HMI_REGISTRATION=YES
+DESIGNER_GENERATES_DISPLAY_CONFIGURATION=YES
+
+DESIGNER_GENERATES_JWPLC_UI_UPDATE=NO
+USER_WRITES_JWPLC_UI_UPDATE=YES
 ```
 
-El Designer es un frontend de la API pública existente de `JWPLC_Display`; no debe generar un segundo runtime ni apropiarse de la lógica de actualización de variables del sketch.
+El Designer define toda la estructura de la HMI, incluidos los **nombres y tipos de las variables HMI** configuradas visualmente. El usuario no debe volver a declarar esas variables manualmente.
+
+La frontera manual empieza dentro de `jwplcUIUpdate()`: allí el usuario decide de dónde obtiene cada dato y cómo lo publica en el field correspondiente.
 
 ---
 
 ## 1. Límite de responsabilidad del Designer
 
-El Designer genera únicamente la **definición estructural y configuración de la HMI**:
+El Designer genera:
 
 ```text
-objetos visuales
-páginas
-posición/tamaño
-label/unit
-formatos
-estilos
-colores
-frames
-rangos
-textos BOOL
-registro de fields
-configuración USER/refresh/página inicial cuando corresponda
+- IDs simbólicos de fields;
+- declaraciones/definiciones de variables HMI;
+- tipo C++ de cada variable HMI;
+- capacidad de buffers de texto;
+- JWPLC_UIField[];
+- páginas;
+- posición/tamaño;
+- label/unit;
+- formatos;
+- estilos;
+- colores;
+- frames;
+- rangos;
+- textos BOOL;
+- registro mediante JWPLC_Display.setFields(...);
+- configuración USER/refresh/página inicial cuando corresponda.
 ```
 
-El Designer **NO genera**:
+El Designer **NO genera el cuerpo de**:
+
+```cpp
+extern "C" void jwplcUIUpdate()
+```
+
+Ni asume dentro de ese callback:
 
 ```text
-jwplcUIUpdate()
-lecturas de variables del sketch
-setValue(...)
-setText(...)
-setBool(...)
-setBar(...)
-lógica de sensores
-lógica de proceso
-lógica Ladder/OpenPLC
+- lecturas de sensores;
+- IO;
+- RTC;
+- FRAM;
+- Ethernet;
+- Modbus;
+- fórmulas de proceso;
+- Ladder/OpenPLC;
+- lógica de aplicación.
 ```
 
-La frontera es deliberada:
+La frontera queda así:
 
 ```text
 JWPLC HMI Designer
         ↓
-field IDs + JWPLC_UIField[] + setup HMI
+variables HMI + field IDs + JWPLC_UIField[] + setup HMI
         ↓
 ---------------- FRONTERA ----------------
         ↓
 usuario implementa jwplcUIUpdate()
         ↓
-usuario decide qué variables alimentan cada field
+usuario alimenta las variables HMI y publica los fields
 ```
-
-Razón: el Designer conoce la presentación, pero no debe asumir cómo ni cuándo se adquieren o actualizan los datos de la aplicación.
 
 ---
 
-## 2. API autorizada para definición de campos
+## 2. Variables HMI definidas desde la interfaz
+
+Cada objeto dinámico debe poder definir desde el Designer, como mínimo:
+
+```text
+Nombre de variable
+Tipo C++
+Valor inicial / preview
+```
+
+Ejemplo visual:
+
+```text
+Field       : Temperatura
+ID          : FIELD_TEMP
+Variable    : temperatura
+Tipo        : float
+Preview     : 25.6
+```
+
+El codegen debe dejar la variable disponible al sketch sin que el usuario tenga que volver a declararla.
+
+Ejemplo conceptual:
+
+```cpp
+extern float temperatura;
+extern bool motorOn;
+extern char estadoTexto[13];
+extern float nivel;
+```
+
+con sus definiciones correspondientes en el archivo generado.
+
+### Tipos V1 recomendados
+
+```text
+VALUE -> tipo numérico elegible por el usuario; default float
+TEXT  -> buffer char[capacity + 1]
+BOOL  -> bool
+BAR   -> float
+```
+
+Para `TEXT`, la capacidad visual del field debe coincidir con el tamaño útil del buffer generado.
+
+Si varios fields usan el mismo símbolo de variable, el Designer debe declararlo una sola vez y validar compatibilidad de tipo.
+
+La forma exacta final de almacenamiento —variables individuales o un struct generado de datos HMI— se cerrará en A11-4. En ambos casos la regla es la misma: **la declaración pertenece al Designer; la adquisición/asignación del dato pertenece al usuario**.
+
+---
+
+## 3. API autorizada para definición de campos
 
 El codegen V1 debe construir la HMI mediante los helpers públicos:
 
@@ -102,7 +168,7 @@ El Designer no debe generar inicialización miembro-a-miembro de estructuras int
 
 ---
 
-## 3. API autorizada para registrar la HMI
+## 4. API autorizada para registrar la HMI
 
 La definición generada debe registrarse mediante:
 
@@ -125,11 +191,9 @@ Sólo se emitirá cada llamada cuando corresponda a una opción configurada en e
 
 ---
 
-## 4. IDs públicos como contrato con el usuario
+## 5. IDs y variables como contrato con el usuario
 
-El Designer sí debe generar IDs legibles y estables para que el usuario los consuma luego desde `jwplcUIUpdate()`.
-
-Ejemplo:
+El Designer genera IDs legibles y estables:
 
 ```cpp
 enum HMIFieldId : uint8_t
@@ -140,60 +204,66 @@ enum HMIFieldId : uint8_t
 };
 ```
 
-Estos IDs son el punto de enlace entre el código generado y el código manual.
+Y las variables HMI configuradas visualmente:
 
-El Designer puede mostrar en su interfaz un nombre simbólico como:
-
-```text
-FIELD_TEMP
-FIELD_RUN
-FIELD_LEVEL
+```cpp
+float temperatura = 0.0f;
+bool motorOn = false;
+float nivel = 0.0f;
 ```
 
-pero no debe convertirlo automáticamente en una lectura o expresión C++ de la aplicación.
+De esta manera el usuario entra a `jwplcUIUpdate()` con todo el contrato ya preparado:
+
+```text
+FIELD_TEMP   <-> temperatura
+FIELD_RUN    <-> motorOn
+FIELD_LEVEL  <-> nivel
+```
+
+El Designer puede mostrar esta asociación en la interfaz, pero **no decide la fuente del dato**.
 
 ---
 
-## 5. `jwplcUIUpdate()` pertenece al usuario
+## 6. `jwplcUIUpdate()` pertenece al usuario
 
-El usuario implementa manualmente, cuando lo necesite:
+El Designer no crea ni regenera la función.
+
+El usuario puede escribir, por ejemplo:
 
 ```cpp
 extern "C" void jwplcUIUpdate()
 {
+    temperatura = obtenerTemperatura();
+    motorOn = JWPLC_IO.readDO(0);
+    nivel = nivelProceso;
+
     JWPLC_Display.setValue(FIELD_TEMP, temperatura);
     JWPLC_Display.setBool(FIELD_RUN, motorOn);
     JWPLC_Display.setBar(FIELD_LEVEL, nivel);
 }
 ```
 
-El Designer no escribe ni regenera este callback.
+Lo importante es que:
 
-Esto permite que el usuario decida libremente:
+- `temperatura`, `motorOn` y `nivel` ya fueron declaradas por el Designer;
+- `FIELD_TEMP`, `FIELD_RUN` y `FIELD_LEVEL` ya fueron generados por el Designer;
+- el usuario sólo completa la lógica de actualización dentro de `jwplcUIUpdate()`.
 
-- qué variable usar;
-- si usa una variable cacheada;
-- si aplica escalado o conversión;
-- si un valor viene de IO, RTC, FRAM, Ethernet, Modbus u otra lógica;
-- cuándo actualizar un field;
-- qué condiciones de aplicación deben existir antes de publicar un valor.
+El Designer puede mostrar un **snippet sugerido** para ayudar al usuario, pero ese callback no forma parte de los archivos regenerables.
 
 Regla:
 
 ```text
-DESIGNER_GENERATES_DYNAMIC_BINDINGS=NO
-USER_CONTROLS_DYNAMIC_BINDINGS=YES
+DESIGNER_GENERATES_VARIABLE_CONTRACT=YES
+DESIGNER_GENERATES_JWPLC_UI_UPDATE_BODY=NO
+USER_CONFIGURES_JWPLC_UI_UPDATE=YES
 ```
-
-El Designer puede, como ayuda visual futura, mostrar el **ID del field** y ejemplos de uso, pero dichos ejemplos no forman parte de los archivos generados.
 
 ---
 
-## 6. Callbacks
+## 7. Callbacks
 
-El codegen V1 no necesita generar `jwplcUIUpdate()`.
-
-Tampoco debe generar automáticamente callbacks vacíos sólo por existir la HMI.
+El codegen V1 no genera automáticamente `jwplcUIUpdate()` ni callbacks vacíos.
 
 Si más adelante una función visual estática requiere código adicional en:
 
@@ -218,11 +288,9 @@ Los callbacks legacy se conservan únicamente por compatibilidad del package.
 
 ---
 
-## 7. Regla sobre `JWPLC_Display.tft()`
+## 8. Regla sobre `JWPLC_Display.tft()`
 
 `JWPLC_Display.tft()` sigue siendo una API pública válida para dibujo directo con Adafruit GFX, pero **no forma parte del codegen declarativo V1**.
-
-En Alpha11:
 
 ```text
 GFX_RAW_TOOL=DIAGNOSTIC_ONLY
@@ -233,23 +301,9 @@ La herramienta `Texto GFX RAW` de A11-2 existe para validar paridad de píxeles 
 
 No debe confundirse con `TEXT field`.
 
-Un `TEXT field` generado por el Designer termina en una definición:
-
-```cpp
-JWPLC_UITextField(...)
-```
-
-La actualización de su contenido mediante:
-
-```cpp
-JWPLC_Display.setText(...)
-```
-
-pertenece al usuario en `jwplcUIUpdate()` o en la lógica que corresponda.
-
 ---
 
-## 8. Padding y fondo
+## 9. Padding y fondo
 
 La asimetría observada en A11-2 pertenece a la celda clásica GFX RAW de `6x8`.
 
@@ -260,11 +314,9 @@ FIELD_PADDING=3
 FIELD_GAP=4
 ```
 
-Además el runtime pinta primero el rectángulo completo del field con `background` y luego ubica `label/value/unit` dentro del field.
+El runtime pinta primero el rectángulo completo del field con `background` y luego ubica `label/value/unit` dentro del field.
 
-Por tanto, para A11-3 el Designer debe reproducir estos valores como parte del contrato del runtime actual.
-
-### Decisión de API
+Para A11-3 el Designer debe reproducir estos valores exactamente.
 
 Por ahora:
 
@@ -274,11 +326,7 @@ PUBLIC_GAP_PARAMETER_REQUIRED_FOR_V1=NO
 JWPLC_DISPLAY_API_CHANGE_FOR_A11_3=NO
 ```
 
-Razón: V1 puede reproducir exactamente el runtime actual sin ampliar la API y preservando estabilidad.
-
-Si durante A11-3 se decide que el usuario debe **editar** padding/gap, entonces se abrirá una ampliación pública aditiva antes de A11-4. No se permitirá que el Designer ofrezca una propiedad que no pueda expresarse en código público generado.
-
-Regla:
+Si A11-3 concluye que padding/gap deben ser editables, se abrirá una ampliación pública aditiva antes de A11-4.
 
 ```text
 DESIGNER_PROPERTY_WITHOUT_PUBLIC_CODEGEN=FORBIDDEN
@@ -286,9 +334,9 @@ DESIGNER_PROPERTY_WITHOUT_PUBLIC_CODEGEN=FORBIDDEN
 
 ---
 
-## 9. Forma objetivo del código generado
+## 10. Forma objetivo del código generado
 
-Ejemplo conceptual para una HMI con temperatura y estado:
+Ejemplo conceptual:
 
 ```cpp
 #include <JWPLC_Display.h>
@@ -299,6 +347,10 @@ enum HMIFieldId : uint8_t
     FIELD_RUN = 2
 };
 
+// Variables declaradas desde el Designer.
+float temperatura = 0.0f;
+bool motorOn = false;
+
 static const JWPLC_UIField HMI_FIELDS[] =
 {
     JWPLC_UIValueField(
@@ -307,8 +359,7 @@ static const JWPLC_UIField HMI_FIELDS[] =
         JWPLC_UIText("Temp", "C"),
         JWPLC_UIValueFormat(3, 1, true, false),
         JWPLC_UIValueStyle(2, 1, true),
-        0,
-        JWPLC_UIColors(ST77XX_WHITE, ST77XX_CYAN, ST77XX_BLACK, ST77XX_WHITE)),
+        0),
 
     JWPLC_UIBoolField(
         FIELD_RUN,
@@ -330,27 +381,17 @@ void jwplcHMISetup()
 }
 ```
 
-**El archivo generado termina ahí.**
+**El archivo regenerable del Designer no contiene `jwplcUIUpdate()`.**
 
-El usuario, en su propio código, puede escribir después:
-
-```cpp
-extern "C" void jwplcUIUpdate()
-{
-    JWPLC_Display.setValue(FIELD_TEMP, temperatura);
-    JWPLC_Display.setBool(FIELD_RUN, motorOn);
-}
-```
-
-pero esa sección no pertenece al Designer ni debe ser sobrescrita por él.
+El usuario completa esa parte en su sketch usando las variables e IDs ya generados.
 
 ---
 
-## 10. Criterio para ampliar la API durante Alpha11
+## 11. Criterio para ampliar la API durante Alpha11
 
-Se modifica la API pública únicamente cuando se cumplen las tres condiciones:
+Se modifica la API pública únicamente cuando:
 
-1. existe una propiedad visual necesaria del Designer;
+1. existe una propiedad necesaria del Designer;
 2. el runtime puede soportarla de forma estable;
 3. la propiedad no puede expresarse con la API pública actual.
 
@@ -367,9 +408,11 @@ ADD_PUBLIC_API_WHEN_REQUIRED=YES
 
 ```text
 A11_3_PUBLIC_API_CODEGEN_CONTRACT=PASS
-DESIGNER_STOPS_BEFORE_JWPLC_UI_UPDATE=YES
-USER_OWNS_JWPLC_UI_UPDATE=YES
-DESIGNER_GENERATES_DYNAMIC_BINDINGS=NO
+DESIGNER_GENERATES_VARIABLE_DECLARATIONS=YES
+DESIGNER_GENERATES_FIELD_STRUCTURES=YES
+DESIGNER_GENERATES_JWPLC_UI_UPDATE=NO
+USER_WRITES_JWPLC_UI_UPDATE=YES
+USER_CONFIGURES_DYNAMIC_VALUES_IN_UPDATE=YES
 API_CHANGE_REQUIRED_NOW=NO
 NEXT=A11_2_PHYSICAL_GFX_PARITY_THEN_A11_3_FIELDS
 ```
