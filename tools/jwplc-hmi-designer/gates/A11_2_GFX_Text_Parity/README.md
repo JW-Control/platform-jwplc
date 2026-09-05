@@ -1,61 +1,72 @@
-# A11-2 — Gate físico de paridad GFX
+# A11-2 — Gate físico de paridad GFX RAW
 
 Este gate compara el renderer de texto del **JWPLC HMI Designer** contra la TFT física del **JWPLC Basic v2** usando la fuente clásica de Adafruit GFX.
+
+A11-2 valida únicamente el comportamiento **RAW** equivalente a:
+
+```cpp
+tft.setTextSize(2);
+tft.setTextColor(ST77XX_RED, ST77XX_WHITE);
+tft.setCursor(20, 20);
+tft.print("TEMP: 25.6 C");
+```
+
+No valida todavía cajas HMI ni padding simétrico de `JWPLC_UIField`.
 
 ## Muestra canónica
 
 ```text
 Texto      : TEMP: 25.6 C
+X          : 20
+Y          : 20
 Text size  : 2
 Foreground : RED / 0xF800
 Background : WHITE / 0xFFFF
-Bounds     : 144 x 16 px
+Bounds GFX : 144 x 16 px
 ```
-
-El sketch tiene dos páginas:
-
-```text
-LEFT  -> página 0 -> RAW edge -> x=0, y=0
-RIGHT -> página 1 -> safe area -> x=3, y=3
-```
-
-La página `0` demuestra que el API GFX crudo no introduce margen implícito.
-
-La página `1` valida la recomendación visual de 3 px adoptada por el Designer sin modificar las coordenadas reales.
 
 ## Configuración equivalente en el Designer
 
-Para comparar página 0:
-
 ```text
-Contenido : TEMP: 25.6 C
-X         : 0
-Y         : 0
-Tamaño    : 2x
-Foreground: RED
-Fondo     : WHITE
+Herramienta        : Texto GFX RAW · A11-2
+Contenido          : TEMP: 25.6 C
+X                  : 20
+Y                  : 20
+Tamaño             : 2x
+Foreground         : RED
+Fondo de celda GFX : WHITE
 ```
 
-Para comparar página 1:
+## Qué debe observarse
 
-```text
-Contenido : TEMP: 25.6 C
-X         : 3
-Y         : 3
-Tamaño    : 2x
-Foreground: RED
-Fondo     : WHITE
-```
+La fuente clásica usa una celda lógica de `6 x 8` por carácter. El bitmap visible ocupa cinco columnas de datos y la celda conserva una columna adicional de avance/spacing.
+
+Cuando foreground y background son distintos, el fondo pertenece a la **celda nativa GFX**, no a una caja de UI con padding simétrico.
+
+Por eso la separación visual entre glifo y fondo puede ser asimétrica según el carácter. Esa asimetría forma parte del comportamiento RAW y el Designer debe reproducirla exactamente en A11-2.
 
 ## Criterio PASS
 
 A11-2 puede cerrarse cuando:
 
-- los glifos coinciden visualmente con la TFT física;
+- los glifos coinciden con la TFT física;
+- la secuencia de celdas coincide;
 - el ancho lógico coincide en 144 px;
 - la altura lógica coincide en 16 px;
-- página 0 aparece pegada a `x=0/y=0`, sin offset automático;
-- página 1 aparece exactamente 3 px desplazada en X e Y;
+- foreground/background coinciden en RGB565;
+- la posición inicial coincide en `x=20/y=20`;
+- no hay padding simétrico artificial en el Designer RAW;
 - no hay cambio de geometría al variar sólo el zoom del Designer.
 
-No se requiere que la fotografía física tenga escala o perspectiva idéntica; la comparación es sobre el patrón de píxeles, posición lógica y dimensiones.
+No se requiere que una fotografía física tenga escala o perspectiva idéntica. La comparación es sobre patrón de píxeles, posición lógica y dimensiones.
+
+## Separación con A11-3
+
+A11-3 reproducirá por separado la geometría actual de los fields declarativos:
+
+```text
+FIELD_PADDING=3
+FIELD_GAP=4
+```
+
+Esos márgenes pertenecen al contenedor `JWPLC_UIField`; no deben confundirse con el fondo nativo de la celda GFX validado en este gate.
