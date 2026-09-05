@@ -46,6 +46,29 @@ Ejemplo:
 jwplc-esp32-2.1.0-alpha.1.zip
 ```
 
+### Regla de raíz para Arduino Boards Manager
+
+Los releases del package JWPLC deben usar siempre:
+
+```txt
+source_folder: JWPLC/2.1.0
+archive_root_mode: folder
+```
+
+Arduino Boards Manager exige una única carpeta raíz dentro del archive. La estructura esperada es:
+
+```txt
+2.1.0/
+  boards.txt
+  platform.txt
+  cores/
+  libraries/
+  variants/
+  ...
+```
+
+No usar `archive_root_mode: contents` para un release del Boards Manager. Ese modo coloca `cores/`, `libraries/`, etc. directamente en la raíz del ZIP y Arduino CLI puede rechazarlo con `no unique root dir in archive`.
+
 ### Si el ZIP ya existe
 
 Si el ZIP existe en:
@@ -159,8 +182,8 @@ Actions > Release JWPLC Arduino Package > Run workflow
 version: 2.1.0-alpha.1
 channel: auto
 source_folder: JWPLC/2.1.0
-recreate_zip: false
-archive_root_mode: contents
+recreate_zip: true
+archive_root_mode: folder
 update_public_index: auto
 replace_existing_index_entry: false
 fail_if_release_exists: true
@@ -183,8 +206,8 @@ Resultado esperado:
 version: 2.1.0
 channel: auto
 source_folder: JWPLC/2.1.0
-recreate_zip: false
-archive_root_mode: contents
+recreate_zip: true
+archive_root_mode: folder
 update_public_index: auto
 replace_existing_index_entry: false
 fail_if_release_exists: true
@@ -210,7 +233,7 @@ python JWPLC/tools/jwplc_release.py prepare \
   --version 2.1.0-alpha.1 \
   --channel auto \
   --source-folder JWPLC/2.1.0 \
-  --archive-root-mode contents \
+  --archive-root-mode folder \
   --update-public-index auto
 ```
 
@@ -221,6 +244,7 @@ python JWPLC/tools/jwplc_release.py prepare \
   --version 2.1.0-alpha.1 \
   --channel auto \
   --source-folder JWPLC/2.1.0 \
+  --archive-root-mode folder \
   --recreate-zip
 ```
 
@@ -228,8 +252,7 @@ python JWPLC/tools/jwplc_release.py prepare \
 
 Antes de usarlo como flujo final estable:
 
-- Probar primero con una versión alpha.
-- Confirmar que el ZIP generado tiene la estructura correcta para Arduino Boards Manager.
-- Confirmar que Arduino IDE descarga desde `package_jwplc_index_dev.json`.
+- Confirmar que el ZIP generado tiene una única carpeta raíz y que dentro de ella existen `boards.txt` y `platform.txt`.
+- Confirmar instalación real con Arduino CLI/Arduino IDE desde `package_jwplc_index_dev.json`.
 - Confirmar que `package_jwplc_index.json` no cambia para alpha/beta.
 - Confirmar que un release existente no se sobrescribe accidentalmente.
