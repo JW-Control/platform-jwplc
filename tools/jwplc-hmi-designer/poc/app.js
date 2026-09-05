@@ -15,6 +15,7 @@
     { name: 'ORANGE', value: 0xFD20 }
   ];
 
+  const pixelLayer = new Uint16Array(WIDTH * HEIGHT);
   const framebuffer = new Uint16Array(WIDTH * HEIGHT);
 
   const displayCanvas = document.getElementById('displayCanvas');
@@ -39,11 +40,29 @@
   const activeColorName = document.getElementById('activeColorName');
   const activeColorValue = document.getElementById('activeColorValue');
 
+  const textInput = document.getElementById('textInput');
+  const textXInput = document.getElementById('textX');
+  const textYInput = document.getElementById('textY');
+  const textSizeSelect = document.getElementById('textSize');
+  const textBackgroundSelect = document.getElementById('textBackground');
+  const textScaleStatus = document.getElementById('textScaleStatus');
+  const textBoundsStatus = document.getElementById('textBoundsStatus');
+
   let zoom = Number(zoomSelect.value);
   let selectedColor = COLORS.find((color) => color.name === 'ORANGE');
-  let selectedTool = 'pixel';
+  let selectedTool = 'text';
   let drawing = false;
+  let draggingText = false;
   let lastPoint = null;
+
+  const textState = {
+    x: Number(textXInput.value),
+    y: Number(textYInput.value),
+    size: Number(textSizeSelect.value),
+    value: textInput.value,
+    foreground: selectedColor.value,
+    background: 0x0000
+  };
 
   function hex565(value) {
     return `0x${value.toString(16).toUpperCase().padStart(4, '0')}`;
@@ -74,12 +93,17 @@
     return x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT;
   }
 
-  function setPixel(x, y, value) {
+  function setLayerPixel(x, y, value) {
     if (!inside(x, y)) return false;
     const index = indexFor(x, y);
-    if (framebuffer[index] === value) return false;
-    framebuffer[index] = value;
+    if (pixelLayer[index] === value) return false;
+    pixelLayer[index] = value;
     return true;
+  }
+
+  function setBufferPixel(buffer, x, y, value) {
+    if (!inside(x, y)) return;
+    buffer[indexFor(x, y)] = value;
   }
 
   function getPixel(x, y) {
@@ -87,8 +111,29 @@
     return framebuffer[indexFor(x, y)];
   }
 
-  function clearFramebuffer() {
-    framebuffer.fill(0x0000);
+  function clearAll() {
+    pixelLayer.fill(0x0000);
+    textInput.value = '';
+    textState.value = '';
+    render();
+  }
+
+  function resetProject() {
+    pixelLayer.fill(0x0000);
+    selectedTool = 'text';
+    textState.x = 20;
+    textState.y = 20;
+    textState.size = 2;
+    textState.value = 'HOLA JWPLC';
+    textState.foreground = selectedColor.value;
+    textState.background = 0x0000;
+
+    textInput.value = textState.value;
+    textXInput.value = String(textState.x);
+    textYInput.value = String(textState.y);
+    textSizeSelect.value = String(textState.size);
+    textBackgroundSelect.value = 'BLACK';
+    syncToolButtons();
     render();
   }
 
@@ -101,7 +146,7 @@
     let changed = false;
 
     while (true) {
-      changed = setPixel(x0, y0, value) || changed;
+      changed = setLayerPixel(x0, y0, value) || changed;
       if (x0 === x1 && y0 === y1) break;
       const e2 = 2 * error;
       if (e2 >= dy) {
@@ -117,7 +162,7 @@
     return changed;
   }
 
-  function fillRect(x, y, width, height, value) {
+  function fillLayerRect(x, y, width, height, value) {
     const x0 = Math.max(0, x);
     const y0 = Math.max(0, y);
     const x1 = Math.min(WIDTH, x + width);
@@ -125,12 +170,25 @@
 
     for (let py = y0; py < y1; py += 1) {
       for (let px = x0; px < x1; px += 1) {
-        setPixel(px, py, value);
+        setLayerPixel(px, py, value);
       }
     }
   }
 
-  function drawRect(x, y, width, height, value) {
+  function fillBufferRect(buffer, x, y, width, height, value) {
+    const x0 = Math.max(0, x);
+    const y0 = Math.max(0, y);
+    const x1 = Math.min(WIDTH, x + width);
+    const y1 = Math.min(HEIGHT, y + height);
+
+    for (let py = y0; py < y1; py += 1) {
+      for (let px = x0; px < x1; px += 1) {
+        setBufferPixel(buffer, px, py, value);
+      }
+    }
+  }
+
+  function drawLayerRect(x, y, width, height, value) {
     if (width <= 0 || height <= 0) return;
     rasterLine(x, y, x + width - 1, y, value);
     rasterLine(x, y + height - 1, x + width - 1, y + height - 1, value);
@@ -139,34 +197,107 @@
   }
 
   function drawDemo() {
-    framebuffer.fill(0x0000);
+    pixelLayer.fill(0x0000);
 
     const orange = 0xFD20;
     const white = 0xFFFF;
     const green = 0x07E0;
     const red = 0xF800;
 
-    drawRect(6, 6, 308, 158, orange);
-    fillRect(14, 22, 92, 5, orange);
-    fillRect(14, 34, 140, 2, orange);
+    drawLayerRect(6, 6, 308, 158, orange);
+    fillLayerRect(14, 22, 92, 5, orange);
+    fillLayerRect(14, 34, 140, 2, orange);
 
-    drawRect(18, 52, 130, 42, white);
-    fillRect(25, 62, 48, 22, orange);
-    fillRect(86, 62, 50, 22, green);
+    drawLayerRect(18, 52, 130, 42, white);
+    fillLayerRect(25, 62, 48, 22, orange);
+    fillLayerRect(86, 62, 50, 22, green);
 
-    drawRect(18, 108, 220, 20, white);
-    fillRect(21, 111, 136, 14, green);
+    drawLayerRect(18, 108, 220, 20, white);
+    fillLayerRect(21, 111, 136, 14, green);
 
-    drawRect(248, 52, 50, 50, white);
-    fillRect(262, 66, 22, 22, red);
+    drawLayerRect(248, 52, 50, 50, white);
+    fillLayerRect(262, 66, 22, 22, red);
 
-    drawRect(236, 136, 62, 18, orange);
-    fillRect(244, 142, 45, 6, orange);
+    drawLayerRect(236, 136, 62, 18, orange);
+    fillLayerRect(244, 142, 45, 6, orange);
+
+    textState.value = 'HOLA JWPLC';
+    textState.x = 170;
+    textState.y = 24;
+    textState.size = 2;
+    textState.foreground = white;
+    textState.background = 0x0000;
+    textInput.value = textState.value;
+    textXInput.value = String(textState.x);
+    textYInput.value = String(textState.y);
+    textSizeSelect.value = String(textState.size);
+    textBackgroundSelect.value = 'BLACK';
 
     render();
   }
 
+  function drawClassicChar(buffer, x, y, charCode, foreground, background, size) {
+    const font = window.JWPLCGfxClassicFont;
+    const glyph = font.glyphFor(charCode);
+    const scale = Math.max(1, Math.trunc(size));
+
+    for (let column = 0; column < font.cellWidth; column += 1) {
+      const bits = column < font.bytesPerGlyph ? glyph[column] : 0;
+
+      for (let row = 0; row < font.cellHeight; row += 1) {
+        const on = column < font.bytesPerGlyph && ((bits >> row) & 0x01) !== 0;
+        const color = on ? foreground : background;
+        fillBufferRect(
+          buffer,
+          x + column * scale,
+          y + row * scale,
+          scale,
+          scale,
+          color
+        );
+      }
+    }
+  }
+
+  function drawClassicText(buffer) {
+    if (!textState.value) return;
+
+    const font = window.JWPLCGfxClassicFont;
+    const scale = Math.max(1, Math.trunc(textState.size));
+    let cursorX = textState.x;
+    let cursorY = textState.y;
+
+    for (const character of textState.value) {
+      if (character === '\n') {
+        cursorX = textState.x;
+        cursorY += font.cellHeight * scale;
+        continue;
+      }
+
+      if (character === '\r') continue;
+
+      drawClassicChar(
+        buffer,
+        cursorX,
+        cursorY,
+        character.codePointAt(0),
+        textState.foreground,
+        textState.background,
+        scale
+      );
+
+      cursorX += font.cellWidth * scale;
+    }
+  }
+
+  function composeFramebuffer() {
+    framebuffer.set(pixelLayer);
+    drawClassicText(framebuffer);
+  }
+
   function rebuildLogicalImage() {
+    composeFramebuffer();
+
     const image = logicalCtx.createImageData(WIDTH, HEIGHT);
     const bytes = image.data;
 
@@ -206,6 +337,15 @@
     displayCtx.restore();
   }
 
+  function updateTextMetrics() {
+    const font = window.JWPLCGfxClassicFont;
+    const scale = Math.max(1, Math.trunc(textState.size));
+    const width = textState.value.length * font.cellWidth * scale;
+    const height = font.cellHeight * scale;
+    textScaleStatus.textContent = `${scale}×`;
+    textBoundsStatus.textContent = `${width} × ${height} px`;
+  }
+
   function render() {
     rebuildLogicalImage();
 
@@ -233,6 +373,8 @@
     previewCtx.imageSmoothingEnabled = false;
     previewCtx.clearRect(0, 0, WIDTH, HEIGHT);
     previewCtx.drawImage(logicalCanvas, 0, 0);
+
+    updateTextMetrics();
   }
 
   function pointFromPointer(event) {
@@ -255,13 +397,22 @@
     let changed;
 
     if (lastPoint === null) {
-      changed = setPixel(point.x, point.y, value);
+      changed = setLayerPixel(point.x, point.y, value);
     } else {
       changed = rasterLine(lastPoint.x, lastPoint.y, point.x, point.y, value);
     }
 
     lastPoint = point;
     if (changed) render();
+  }
+
+  function placeTextAt(point) {
+    if (!inside(point.x, point.y)) return;
+    textState.x = point.x;
+    textState.y = point.y;
+    textXInput.value = String(textState.x);
+    textYInput.value = String(textState.y);
+    render();
   }
 
   function updateCursor(point) {
@@ -282,6 +433,12 @@
     activeColorValue.textContent = hex565(selectedColor.value);
   }
 
+  function syncToolButtons() {
+    document.querySelectorAll('.tool[data-tool]').forEach((item) => {
+      item.classList.toggle('active', item.dataset.tool === selectedTool);
+    });
+  }
+
   function buildPalette() {
     COLORS.forEach((color) => {
       const button = document.createElement('button');
@@ -296,40 +453,76 @@
 
       button.addEventListener('click', () => {
         selectedColor = color;
-        selectedTool = 'pixel';
+        if (selectedTool === 'text') {
+          textState.foreground = color.value;
+        }
 
         document.querySelectorAll('.palette-button').forEach((item) => {
           item.classList.toggle('active', item === button);
         });
 
-        document.querySelectorAll('.tool[data-tool]').forEach((item) => {
-          item.classList.toggle('active', item.dataset.tool === selectedTool);
-        });
-
         updateActiveColorUI();
+        render();
       });
 
       palette.appendChild(button);
     });
   }
 
+  function buildBackgroundSelect() {
+    COLORS.forEach((color) => {
+      const option = document.createElement('option');
+      option.value = color.name;
+      option.textContent = `${color.name} · ${hex565(color.value)}`;
+      if (color.name === 'BLACK') option.selected = true;
+      textBackgroundSelect.appendChild(option);
+    });
+  }
+
+  function syncTextStateFromControls() {
+    textState.value = textInput.value;
+    textState.x = Math.max(0, Math.min(WIDTH - 1, Number(textXInput.value) || 0));
+    textState.y = Math.max(0, Math.min(HEIGHT - 1, Number(textYInput.value) || 0));
+    textState.size = Math.max(1, Number(textSizeSelect.value) || 1);
+
+    const bg = COLORS.find((color) => color.name === textBackgroundSelect.value);
+    textState.background = bg ? bg.value : 0x0000;
+
+    textXInput.value = String(textState.x);
+    textYInput.value = String(textState.y);
+    render();
+  }
+
   displayCanvas.addEventListener('pointerdown', (event) => {
-    drawing = true;
-    lastPoint = null;
-    displayCanvas.setPointerCapture(event.pointerId);
     const point = pointFromPointer(event);
     updateCursor(point);
+    displayCanvas.setPointerCapture(event.pointerId);
+
+    if (selectedTool === 'text') {
+      draggingText = true;
+      placeTextAt(point);
+      return;
+    }
+
+    drawing = true;
+    lastPoint = null;
     drawAt(point);
   });
 
   displayCanvas.addEventListener('pointermove', (event) => {
     const point = pointFromPointer(event);
     updateCursor(point);
-    if (drawing) drawAt(point);
+
+    if (selectedTool === 'text' && draggingText) {
+      placeTextAt(point);
+    } else if (drawing) {
+      drawAt(point);
+    }
   });
 
   displayCanvas.addEventListener('pointerup', (event) => {
     drawing = false;
+    draggingText = false;
     lastPoint = null;
     if (displayCanvas.hasPointerCapture(event.pointerId)) {
       displayCanvas.releasePointerCapture(event.pointerId);
@@ -338,11 +531,12 @@
 
   displayCanvas.addEventListener('pointercancel', () => {
     drawing = false;
+    draggingText = false;
     lastPoint = null;
   });
 
   displayCanvas.addEventListener('pointerleave', () => {
-    if (!drawing) {
+    if (!drawing && !draggingText) {
       cursorStatus.textContent = 'X: — · Y: —';
       pixelStatus.textContent = 'Pixel: —';
     }
@@ -354,20 +548,27 @@
   });
 
   gridToggle.addEventListener('change', render);
-  clearButton.addEventListener('click', clearFramebuffer);
-  newProjectButton.addEventListener('click', clearFramebuffer);
+  clearButton.addEventListener('click', clearAll);
+  newProjectButton.addEventListener('click', resetProject);
   demoButton.addEventListener('click', drawDemo);
+
+  [textInput, textXInput, textYInput, textSizeSelect, textBackgroundSelect]
+    .forEach((control) => control.addEventListener('input', syncTextStateFromControls));
 
   document.querySelectorAll('.tool[data-tool]').forEach((button) => {
     button.addEventListener('click', () => {
       selectedTool = button.dataset.tool;
-      document.querySelectorAll('.tool[data-tool]').forEach((item) => {
-        item.classList.toggle('active', item === button);
-      });
+      if (selectedTool === 'text') {
+        textState.foreground = selectedColor.value;
+      }
+      syncToolButtons();
+      render();
     });
   });
 
   buildPalette();
+  buildBackgroundSelect();
   updateActiveColorUI();
-  clearFramebuffer();
+  syncToolButtons();
+  resetProject();
 })();
