@@ -23,6 +23,7 @@ SECOND_HMI_RUNTIME=NO
 A11_0_ARCHITECTURE=PASS
 A11_1_PIXEL_CANVAS=PASS
 A11_2_GFX_TEXT_PARITY=IN_PROGRESS
+A11_3_PUBLIC_API_CODEGEN_CONTRACT=PASS
 A11_3_FIELDS=PENDING
 A11_4_CODEGEN=PENDING
 A11_5_PHYSICAL_PARITY=PENDING
@@ -71,6 +72,47 @@ A11_2_SAFE_AREA_DECISION.md                 -> SUPERSEDED
 A11_2_GFX_CELL_BACKGROUND_DECISION.md       -> VIGENTE
 ```
 
+## Contrato de codegen público fijado
+
+Antes de implementar A11-3 se auditó la API pública vigente y se fijó que el código generado para el usuario debe usar:
+
+```cpp
+JWPLC_UIValueField(...)
+JWPLC_UITextField(...)
+JWPLC_UIBoolField(...)
+JWPLC_UIBarField(...)
+
+JWPLC_Display.setFields(...)
+JWPLC_Display.setValue(...)
+JWPLC_Display.setText(...)
+JWPLC_Display.setBool(...)
+JWPLC_Display.setBar(...)
+
+jwplcUIEnter()
+jwplcUIPageEnter(...)
+jwplcUIUpdate()
+jwplcUIExit()
+```
+
+No se generarán callbacks legacy ni llamadas al namespace interno `JWPLCUI`.
+
+`JWPLC_Display.tft()` permanece público para dibujo directo, pero `Texto GFX RAW` de A11-2 es una herramienta de diagnóstico/paridad y no formará parte del codegen declarativo V1.
+
+La API actual ya expresa el alcance V1, por lo que:
+
+```text
+API_CHANGE_REQUIRED_NOW=NO
+DESIGNER_PROPERTY_WITHOUT_PUBLIC_CODEGEN=FORBIDDEN
+```
+
+Si A11-3 introduce una propiedad editable que hoy sólo existe como constante interna, se ampliará la API de forma aditiva antes de A11-4.
+
+Documento:
+
+```text
+A11_3_PUBLIC_API_CODEGEN_CONTRACT.md
+```
+
 ## Pendiente inmediato
 
 Ejecutar el gate físico con la muestra canónica:
@@ -91,4 +133,4 @@ Comparar:
 
 A11-2 sólo pasa después de esa comparación.
 
-A11-3 reproducirá por separado `JWPLC_UIField`, incluyendo `FIELD_PADDING=3`, `FIELD_GAP=4`, layouts y geometría AUTO.
+Después, A11-3 reproducirá `JWPLC_UIField` mediante la API pública, incluyendo el comportamiento actual de `FIELD_PADDING=3`, `FIELD_GAP=4`, layouts y geometría AUTO.
