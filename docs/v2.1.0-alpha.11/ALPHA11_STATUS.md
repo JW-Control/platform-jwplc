@@ -49,52 +49,54 @@ El usuario no vuelve a declarar variables ni fields: utiliza los símbolos ya ge
 ```text
 A11_0_ARCHITECTURE=PASS
 A11_1_PIXEL_CANVAS=PASS
-A11_2_GFX_TEXT_PARITY=IN_PROGRESS
+A11_2_GFX_TEXT_PARITY=PASS
 A11_3_PUBLIC_API_CODEGEN_CONTRACT=PASS
-A11_3_FIELDS=PENDING
+A11_3_FIELDS=IN_PROGRESS
 A11_4_CODEGEN=PENDING
 A11_5_PHYSICAL_PARITY=PENDING
 A11_6_SKETCH_INTEGRATION=PENDING
 ALPHA11_STATUS=IN_PROGRESS
 ```
 
-## A11-2 implementado hasta ahora
+## A11-2 — cerrado
 
-El PoC contiene una implementación de texto basada en el bitmap clásico `glcdfont.c` incluido en el package.
+El PoC reprodujo la fuente clásica `glcdfont.c` y se comparó contra un JWPLC Basic físico con la muestra canónica:
 
 ```text
-ASCII_PRINTABLE=32..126
-GLYPH_DATA_COLUMNS=5
-CELL=6x8
-TEXT_SIZE=1x..4x
-FOREGROUND=RGB565
-BACKGROUND=GFX_CELL_BACKGROUND
-SYMMETRIC_PADDING=NO
-LIVE_EDIT=YES
-CLICK_DRAG_POSITION=YES
-PREVIEW_1_TO_1=YES
+TEMP: 25.6 C
+X=20
+Y=20
+size=2
+RED sobre WHITE
+bounds GFX=144x16
 ```
 
-La implementación replica el principio de la fuente clásica de Adafruit GFX: cinco columnas de bitmap dentro de una celda lógica de seis columnas por ocho filas, escalada por un entero.
-
-## Corrección de interpretación A11-2
-
-Durante A11-2 se añadió temporalmente una `safe area` por interpretar una observación como margen respecto al borde físico de la TFT.
-
-La observación real corresponde al margen interno entre el glifo y el fondo de su celda GFX.
+Resultado:
 
 ```text
+A11_2_GFX_CLASSIC_FONT=PASS
+A11_2_TEXT_SIZE_2X=PASS
+A11_2_FOREGROUND_BACKGROUND=PASS
+A11_2_CELL_GEOMETRY_144X16=PASS
+A11_2_RAW_NO_SYMMETRIC_PADDING=PASS
+A11_2_PHYSICAL_VISUAL_MATCH=PASS
+A11_2_GFX_TEXT_PARITY=PASS
+```
+
+Documento de validación:
+
+```text
+A11_2_GFX_TEXT_PARITY_VALIDATION.md
+```
+
+Se mantiene:
+
+```text
+GFX_RAW_TOOL=DIAGNOSTIC_ONLY
 DESIGNER_SCREEN_SAFE_AREA=REMOVED
 RAW_GFX_PADDING_ARTIFICIAL=NO
 JWPLC_DISPLAY_RUNTIME_CHANGE=NO
 JWPLC_UI_FIELD_PADDING_CHANGE=NO
-```
-
-Documentos:
-
-```text
-A11_2_SAFE_AREA_DECISION.md                 -> SUPERSEDED
-A11_2_GFX_CELL_BACKGROUND_DECISION.md       -> VIGENTE
 ```
 
 ## Contrato de codegen público
@@ -144,7 +146,7 @@ USER_CONFIGURES_JWPLC_UI_UPDATE=YES
 API_CHANGE_REQUIRED_NOW=NO
 ```
 
-`JWPLC_Display.tft()` permanece público para dibujo directo, pero `Texto GFX RAW` de A11-2 es sólo diagnóstico/paridad y no forma parte del codegen declarativo V1.
+`JWPLC_Display.tft()` permanece público para dibujo directo, pero `Texto GFX RAW` es sólo diagnóstico/paridad y no forma parte del codegen declarativo V1.
 
 Documento vigente:
 
@@ -152,24 +154,27 @@ Documento vigente:
 A11_3_PUBLIC_API_CODEGEN_CONTRACT.md
 ```
 
-## Pendiente inmediato
+## Pendiente inmediato — A11-3
 
-Ejecutar el gate físico con la muestra canónica:
+Implementar y validar en el Designer los cuatro tipos declarativos actuales:
 
 ```text
-TEMP: 25.6 C
-X=20
-Y=20
-size=2
-RED sobre WHITE
-bounds GFX=144x16
+VALUE
+TEXT
+BOOL
+BAR
 ```
 
-Comparar:
+El renderer debe reproducir exactamente la geometría de `JWPLC_UIField`:
 
-1. Designer RAW;
-2. `JWPLC_Display.tft()` / Adafruit GFX en JWPLC Basic físico.
+```text
+FIELD_PADDING=3
+FIELD_GAP=4
+AUTO width/height
+INLINE / STACKED
+LEFT / CENTER / RIGHT
+label / value / unit
+frame / background / colors
+```
 
-A11-2 sólo pasa después de esa comparación.
-
-Después, A11-3 reproducirá `JWPLC_UIField` mediante la API pública, incluyendo `FIELD_PADDING=3`, `FIELD_GAP=4`, layouts y geometría AUTO.
+Cada field dinámico debe incluir desde la interfaz su contrato de variable HMI (nombre, tipo y preview), sin generar el cuerpo de `jwplcUIUpdate()`.
