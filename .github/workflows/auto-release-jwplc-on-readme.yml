@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   detect-and-dispatch:
-    name: Detectar version y disparar release
+    name: Detectar versión y disparar release
     runs-on: ubuntu-latest
 
     steps:
@@ -41,12 +41,12 @@ jobs:
           CURRENT_VERSION="$(read_version README.md)"
 
           if [[ -z "$CURRENT_VERSION" ]]; then
-            echo "No se encontro JWPLC_RELEASE_VERSION en README.md"
+            echo "No se encontró JWPLC_RELEASE_VERSION en README.md"
             exit 1
           fi
 
           if [[ ! "$CURRENT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z]+\.[0-9]+)?$ ]]; then
-            echo "Version invalida: $CURRENT_VERSION"
+            echo "Versión inválida: $CURRENT_VERSION"
             exit 1
           fi
 
@@ -64,12 +64,12 @@ jobs:
           TAG="v$CURRENT_VERSION"
           NOTES_FILE="docs/v${CURRENT_VERSION}/PRE_RELEASE.md"
 
-          echo "Version anterior : ${PREVIOUS_VERSION:-<none>}"
-          echo "Version actual   : $CURRENT_VERSION"
+          echo "Versión anterior : ${PREVIOUS_VERSION:-<none>}"
+          echo "Versión actual   : $CURRENT_VERSION"
           echo "Tag esperado     : $TAG"
 
           if [[ ! -f "$NOTES_FILE" ]]; then
-            echo "Falta documentacion de PreRelease:"
+            echo "Falta documentación de PreRelease:"
             echo "$NOTES_FILE"
             exit 1
           fi
@@ -81,14 +81,13 @@ jobs:
           fi
 
           if [[ "$CURRENT_VERSION" == "$PREVIOUS_VERSION" ]]; then
-            echo "El marcador no cambio, pero $TAG aun no existe."
-            echo "Se trata como reintento automatico de una publicacion pendiente."
+            echo "El marcador no cambió, pero $TAG aún no existe."
+            echo "Se trata como reintento automático de una publicación pendiente."
           else
-            echo "Se detecto una nueva version de release en README.md."
+            echo "Se detectó una nueva versión de release en README.md."
           fi
 
           echo "version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
-          echo "notes_file=$NOTES_FILE" >> "$GITHUB_OUTPUT"
           echo "should_release=true" >> "$GITHUB_OUTPUT"
 
       - name: Disparar workflow de publicación
@@ -97,29 +96,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
-          NOTES_FILE: ${{ steps.version.outputs.notes_file }}
         run: |
           set -euo pipefail
 
           echo "Disparando publicación de v$VERSION"
+          echo "El workflow de release aplica la política fija del package."
 
           gh workflow run release-jwplc-package.yml \
             --repo "$GITHUB_REPOSITORY" \
             --ref "$GITHUB_REF_NAME" \
-            -f version="$VERSION" \
-            -f channel="auto" \
-            -f source_folder="JWPLC/2.1.0" \
-            -f recreate_zip="true" \
-            -f archive_root_mode="folder" \
-            -f update_public_index="auto" \
-            -f replace_existing_index_entry="false" \
-            -f commit_index_changes="true" \
-            -f publish_release="true" \
-            -f fail_if_release_exists="true" \
-            -f overwrite_release_asset="false" \
-            -f release_notes_file="$NOTES_FILE" \
-            -f upload_workflow_artifact="true" \
-            -f open_index_pr="true" \
-            -f index_pr_base_branch="main"
+            -f version="$VERSION"
 
           echo "Release workflow enviado."
