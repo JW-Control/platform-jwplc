@@ -1,63 +1,48 @@
 # Automatización de release del package JWPLC
 
-Esta carpeta contiene herramientas para automatizar la generación del ZIP del package Arduino JWPLC, el cálculo de `SHA-256`, el cálculo de `size`, la actualización de los índices Arduino y la creación del GitHub Release / Pre-release.
+Esta carpeta contiene las herramientas usadas para generar y publicar el package Arduino JWPLC, calcular `SHA-256` y `size`, actualizar los índices del Boards Manager y crear el GitHub Release / PreRelease.
 
-## Archivos
+## Política de operación
 
-| Archivo | Uso |
-|---|---|
-| `jwplc_release.py` | Script Python usado por GitHub Actions para preparar el ZIP y actualizar los JSON. |
-| `.github/workflows/release-jwplc-package.yml` | Workflow manual para publicar releases del package JWPLC. |
+El flujo normal de publicación queda deliberadamente simplificado: en GitHub Actions el único dato editable es la versión.
 
-## Qué automatiza
-
-El workflow manual puede:
-
-1. Validar la versión ingresada.
-2. Detectar canal `alpha`, `beta` o `stable`.
-3. Reutilizar un ZIP existente o generar uno nuevo.
-4. Calcular `SHA-256`.
-5. Calcular `size`.
-6. Actualizar `JWPLC/package_jwplc_index_dev.json`.
-7. Actualizar `JWPLC/package_jwplc_index.json` solo para versiones estables, salvo que se fuerce lo contrario.
-8. Crear un GitHub Release o Pre-release.
-9. Subir el ZIP como asset del release.
-10. Publicar los archivos finales como artifact del workflow.
-
-## Reglas de canal
-
-| Versión | Canal detectado | GitHub Release | Dev index | Public index |
-|---|---|---:|---:|---:|
-| `2.1.0-alpha.1` | `alpha` | Pre-release | Sí | No |
-| `2.1.0-beta.1` | `beta` | Pre-release | Sí | No |
-| `2.1.0` | `stable` | Release | Sí | Sí |
-
-## Comportamiento del ZIP
-
-Nombre estándar:
-
-```txt
-jwplc-esp32-<version>.zip
+```text
+version = 2.1.0-alpha.10
 ```
 
-Ejemplo:
+El resto de parámetros forman parte de la política fija del package y no deben depender de una selección manual en cada release.
 
-```txt
-jwplc-esp32-2.1.0-alpha.1.zip
+```text
+channel=auto
+source_folder=JWPLC/<base-version>
+recreate_zip=true
+archive_root_mode=folder
+update_public_index=auto
+replace_existing_index_entry=true
+commit_index_changes=true
+publish_release=true
+fail_if_release_exists=true
+overwrite_release_asset=false
+release_notes_file=docs/v<version>/PRE_RELEASE.md
+upload_workflow_artifact=true
+open_index_pr=true
+index_pr_base_branch=main
 ```
 
-### Regla de raíz para Arduino Boards Manager
+Para `2.1.0-alpha.10`, por ejemplo:
 
-Los releases del package JWPLC deben usar siempre:
-
-```txt
-source_folder: JWPLC/2.1.0
-archive_root_mode: folder
+```text
+source_folder=JWPLC/2.1.0
+release_notes_file=docs/v2.1.0-alpha.10/PRE_RELEASE.md
 ```
 
-Arduino Boards Manager exige una única carpeta raíz dentro del archive. La estructura esperada es:
+## Por qué `archive_root_mode=folder` es obligatorio
 
-```txt
+Arduino Boards Manager necesita una única carpeta raíz dentro del ZIP de plataforma.
+
+Estructura válida:
+
+```text
 2.1.0/
   boards.txt
   platform.txt
@@ -67,192 +52,136 @@ Arduino Boards Manager exige una única carpeta raíz dentro del archive. La est
   ...
 ```
 
-No usar `archive_root_mode: contents` para un release del Boards Manager. Ese modo coloca `cores/`, `libraries/`, etc. directamente en la raíz del ZIP y Arduino CLI puede rechazarlo con `no unique root dir in archive`.
+Una estructura como esta es inválida para nuestro package:
 
-### Si el ZIP ya existe
-
-Si el ZIP existe en:
-
-```txt
-JWPLC/jwplc-esp32-<version>.zip
+```text
+boards.txt
+platform.txt
+cores/
+libraries/
+variants/
 ```
 
-y `recreate_zip = false`, el workflow lo reutiliza.
+Durante el cierre de Alpha10 se reprodujo el error de Arduino CLI:
 
-Esto sirve si el ZIP ya fue generado/revisado manualmente.
-
-### Si el ZIP no existe
-
-Si no existe el ZIP, el workflow genera uno nuevo desde `source_folder` y lo coloca en:
-
-```txt
-dist/jwplc-esp32-<version>.zip
+```text
+searching package root dir: no unique root dir in archive
 ```
 
-### Si `recreate_zip = true`
+La causa fue publicar con `archive_root_mode=contents`. Desde Alpha10 la UI normal ya no expone esa opción y el workflow fija `folder` internamente.
 
-Si `recreate_zip = true`:
+Además, antes de crear el GitHub Release el workflow valida que:
 
-- Si se indicó `zip_file`, ese archivo puede ser regenerado/sobrescrito.
-- Si no se indicó `zip_file`, el script **no sobrescribe** el ZIP ubicado en `JWPLC/`; genera uno nuevo en `dist/`.
-
-Esto evita borrar por accidente un ZIP preparado manualmente dentro de `JWPLC/`.
-
-## Comportamiento de los índices
-
-### `package_jwplc_index_dev.json`
-
-Siempre se actualiza.
-
-El índice dev conserva histórico de alphas, betas y releases estables.
-
-Si la versión ya existe:
-
-- con `replace_existing_index_entry = false`, se conserva protección contra reemplazo accidental;
-- con `replace_existing_index_entry = true`, se reemplaza la entrada existente.
-
-### `package_jwplc_index.json`
-
-Por defecto, solo se actualiza si el canal es `stable`.
-
-Regla:
-
-```txt
-update_public_index = auto
+```text
+JWPLC_PACKAGE_UNIQUE_ROOT=PASS
+JWPLC_PACKAGE_REQUIRED_FILES=PASS
 ```
 
-Significa:
+Se exige una única raíz con el nombre de la versión base y la presencia de `boards.txt` y `platform.txt` dentro de ella.
 
-```txt
-stable -> actualiza package_jwplc_index.json
-alpha/beta -> no actualiza package_jwplc_index.json
-```
-
-También se puede forzar:
-
-```txt
-update_public_index = yes
-update_public_index = no
-```
-
-Para uso normal, dejar `auto`.
-
-## Comportamiento del GitHub Release
-
-El workflow usa el tag:
-
-```txt
-v<version>
-```
-
-Ejemplo:
-
-```txt
-v2.1.0-alpha.1
-```
-
-### Si el release ya existe
-
-Si `fail_if_release_exists = true`, el workflow se detiene.
-
-Si `fail_if_release_exists = false`, el workflow puede editar el release existente.
-
-Si además `overwrite_release_asset = true`, reemplaza el asset ZIP con el mismo nombre.
-
-Para uso normal:
-
-```txt
-fail_if_release_exists = true
-overwrite_release_asset = false
-```
-
-Así se evita pisar releases por accidente.
-
-## Uso recomendado desde GitHub
+## Flujo normal desde GitHub
 
 Ir a:
 
-```txt
-Actions > Release JWPLC Arduino Package > Run workflow
+```text
+Actions
+  -> Release JWPLC Arduino Package
+  -> Run workflow
 ```
 
-### Para alpha
+Seleccionar el branch de release correspondiente, actualmente:
 
-```txt
-version: 2.1.0-alpha.1
-channel: auto
-source_folder: JWPLC/2.1.0
-recreate_zip: true
-archive_root_mode: folder
-update_public_index: auto
-replace_existing_index_entry: false
-fail_if_release_exists: true
-overwrite_release_asset: false
-release_notes_file: docs/alpha32_openplc_integration/PRE_RELEASE.md
+```text
+release/v2.1.x
 ```
 
-Resultado esperado:
+Ingresar únicamente:
 
-```txt
-- Crea Pre-release v2.1.0-alpha.1.
-- Sube jwplc-esp32-2.1.0-alpha.1.zip.
-- Actualiza package_jwplc_index_dev.json.
-- No actualiza package_jwplc_index.json.
+```text
+Version without leading v:
+2.1.0-alpha.10
 ```
 
-### Para release estable
+El workflow se encarga automáticamente de:
 
-```txt
-version: 2.1.0
-channel: auto
-source_folder: JWPLC/2.1.0
-recreate_zip: true
-archive_root_mode: folder
-update_public_index: auto
-replace_existing_index_entry: false
-fail_if_release_exists: true
-overwrite_release_asset: false
-release_notes_file: RELEASE_NOTES.md
+1. Validar formato de versión.
+2. Derivar la versión base y `source_folder`.
+3. Verificar `boards.txt`, `platform.txt` y `PRE_RELEASE.md`.
+4. Rechazar un GitHub Release o tag ya existente.
+5. Sembrar los índices desde `main`.
+6. Regenerar el ZIP desde el branch de release.
+7. Empaquetar siempre con raíz `folder`.
+8. Validar la estructura del ZIP.
+9. Calcular `SHA-256` y `size`.
+10. Actualizar el índice dev.
+11. Actualizar el índice estable sólo cuando el canal sea estable.
+12. Crear/actualizar la rama automática del índice.
+13. Abrir el PR de índice hacia `main`.
+14. Crear GitHub Release / PreRelease.
+15. Subir el artifact del workflow.
+
+## Reglas de canal
+
+El canal se deriva automáticamente desde la versión.
+
+| Versión | Canal | GitHub | Dev index | Stable index |
+|---|---|---|---|---|
+| `2.1.0-alpha.10` | alpha | PreRelease | Sí | No |
+| `2.1.0-beta.1` | beta | PreRelease | Sí | No |
+| `2.1.0` | stable | Release | Sí | Sí |
+
+No se expone `update_public_index` como opción manual en el flujo normal.
+
+## Re-publicación de una misma versión
+
+El workflow normal nunca sobrescribe un GitHub Release/tag existente.
+
+```text
+FAIL_IF_RELEASE_EXISTS=true
 ```
 
-Resultado esperado:
+Si una publicación interna se descarta deliberadamente, primero deben eliminarse manualmente el GitHub Release y el tag. El índice dev puede conservar todavía una entrada de esa versión; por eso el generador permite reemplazar esa entrada al volver a publicar, pero sólo después de haber comprobado que Release/tag ya no existen.
 
-```txt
-- Crea Release v2.1.0.
-- Sube jwplc-esp32-2.1.0.zip.
-- Actualiza package_jwplc_index_dev.json.
-- Actualiza package_jwplc_index.json.
+Esto permite reparar una alpha interna sin abrir múltiples opciones peligrosas en la UI.
+
+## Auto Release desde README
+
+`.github/workflows/auto-release-jwplc-on-readme.yml` detecta `JWPLC_RELEASE_VERSION` en `README.md` y dispara el mismo workflow pasando únicamente:
+
+```text
+version=<versión detectada>
 ```
 
-## Uso local del script Python
+La política de empaquetado permanece centralizada en `release-jwplc-package.yml`.
 
-También puede ejecutarse localmente:
+## Herramienta Python
+
+`JWPLC/tools/jwplc_release.py` conserva argumentos avanzados para mantenimiento y diagnóstico local. Esos argumentos no forman parte de la UI normal de publicación.
+
+Ejemplo mínimo equivalente a la política normal:
 
 ```bash
 python JWPLC/tools/jwplc_release.py prepare \
-  --version 2.1.0-alpha.1 \
+  --version 2.1.0-alpha.10 \
   --channel auto \
   --source-folder JWPLC/2.1.0 \
+  --recreate-zip \
   --archive-root-mode folder \
-  --update-public-index auto
+  --update-public-index auto \
+  --replace-existing-index-entry
 ```
 
-Para regenerar ZIP:
+## Principio adoptado
 
-```bash
-python JWPLC/tools/jwplc_release.py prepare \
-  --version 2.1.0-alpha.1 \
-  --channel auto \
-  --source-folder JWPLC/2.1.0 \
-  --archive-root-mode folder \
-  --recreate-zip
+```text
+RELEASE_UI_EDITABLE_INPUTS=VERSION_ONLY
+PACKAGE_ARCHIVE_ROOT=FOLDER_FIXED
+PACKAGE_ZIP_REGENERATED=ALWAYS
+CHANNEL=AUTO
+PUBLIC_INDEX=AUTO_STABLE_ONLY
+INDEX_PR_BASE=MAIN
+RELEASE_OVERWRITE=FORBIDDEN
+ZIP_STRUCTURE_VALIDATION=REQUIRED
 ```
 
-## Validaciones pendientes recomendadas
-
-Antes de usarlo como flujo final estable:
-
-- Confirmar que el ZIP generado tiene una única carpeta raíz y que dentro de ella existen `boards.txt` y `platform.txt`.
-- Confirmar instalación real con Arduino CLI/Arduino IDE desde `package_jwplc_index_dev.json`.
-- Confirmar que `package_jwplc_index.json` no cambia para alpha/beta.
-- Confirmar que un release existente no se sobrescribe accidentalmente.
+El objetivo es reducir errores de operación: las decisiones que forman parte del contrato del package se codifican en el workflow y no se vuelven a preguntar en cada publicación.
