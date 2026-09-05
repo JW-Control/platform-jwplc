@@ -32,6 +32,7 @@
         </select>
       </label>
       <label class="check"><input id="gridToggle" type="checkbox" checked /> Grid</label>
+      <label class="check"><input id="safeAreaToggle" type="checkbox" checked /> Guía 3 px</label>
     </div>
   </header>
 
@@ -61,10 +62,10 @@
         </label>
         <div class="inline-fields">
           <label class="field-label">X
-            <input id="textX" class="field-input" type="number" min="0" max="319" value="20" />
+            <input id="textX" class="field-input" type="number" min="0" max="319" value="3" />
           </label>
           <label class="field-label">Y
-            <input id="textY" class="field-input" type="number" min="0" max="169" value="20" />
+            <input id="textY" class="field-input" type="number" min="0" max="169" value="3" />
           </label>
           <label class="field-label">Tamaño
             <select id="textSize" class="field-input">
@@ -79,6 +80,7 @@
           <select id="textBackground" class="field-input"></select>
         </label>
         <p class="muted small">El color activo de la paleta es el foreground. Haz clic en el canvas con la herramienta Texto para reposicionarlo.</p>
+        <p class="muted small">Texto GFX conserva X/Y exactos: la guía de 3 px es sólo una recomendación visual y no agrega offset.</p>
       </section>
 
       <section>
@@ -94,7 +96,10 @@
       </div>
 
       <div id="canvasViewport" class="canvas-viewport">
-        <canvas id="displayCanvas" aria-label="Canvas lógico JWPLC Basic 320 por 170"></canvas>
+        <div id="canvasStage" class="canvas-stage">
+          <canvas id="displayCanvas" aria-label="Canvas lógico JWPLC Basic 320 por 170"></canvas>
+          <div id="safeAreaGuide" class="safe-area-guide" aria-hidden="true"></div>
+        </div>
       </div>
 
       <footer class="canvas-status">
@@ -134,7 +139,9 @@
           <span>Escala</span><strong id="textScaleStatus">2×</strong>
           <span>Bounds</span><strong id="textBoundsStatus">60 × 16 px</strong>
           <span>Charset PoC</span><strong>ASCII 32–126</strong>
+          <span>Safe area</span><strong>3 px recomendada</strong>
         </div>
+        <p id="safeAreaStatus" class="safe-area-status ok">Dentro de guía recomendada · 3 px</p>
       </section>
 
       <section>
@@ -163,7 +170,9 @@ A11-2 en curso:
 - celda 6x8 y drawChar pixel-perfect
 - textSize entero 1x..4x
 - edición en vivo de texto/X/Y/tamaño/color
-- siguiente gate: comparar muestras contra TFT física</pre>
+- X/Y crudos sin offset implícito
+- guía visual recomendada de 3 px, no restrictiva
+- siguiente gate: comparar muestra canónica contra TFT física</pre>
   </section>
 
   <footer class="statusbar">
@@ -175,5 +184,6 @@ A11-2 en curso:
 
   <script src="./gfx-classic-font.js"></script>
   <script src="./app.js"></script>
+  <script src="./safe-area.js"></script>
 </body>
 </html>
