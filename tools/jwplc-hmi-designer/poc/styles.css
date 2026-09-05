@@ -23,7 +23,8 @@ input {
 }
 
 button,
-select {
+select,
+input {
   color: #dfe8f0;
   background: #17212b;
   border: 1px solid #2a3947;
@@ -35,7 +36,9 @@ button {
   cursor: pointer;
 }
 
-button:hover:not(:disabled) {
+button:hover:not(:disabled),
+select:hover,
+input:hover {
   border-color: #ff8a2a;
 }
 
@@ -114,7 +117,7 @@ button:disabled {
 
 .workspace {
   display: grid;
-  grid-template-columns: 230px minmax(680px, 1fr) 360px;
+  grid-template-columns: 260px minmax(680px, 1fr) 360px;
   min-height: calc(100vh - 72px - 235px - 30px);
 }
 
@@ -161,6 +164,30 @@ h2 {
 .tab.active {
   border-color: #ff8a2a;
   box-shadow: inset 0 -2px 0 #ff8a2a;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 9px;
+  color: #9fb0be;
+  font-size: 12px;
+}
+
+.field-input {
+  width: 100%;
+  margin-top: 5px;
+  padding: 7px 8px;
+}
+
+.inline-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.25fr;
+  gap: 7px;
+}
+
+.small {
+  font-size: 11px;
+  line-height: 1.45;
 }
 
 .palette {
