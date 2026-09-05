@@ -32,27 +32,63 @@ ALPHA11_STATUS=IN_PROGRESS
 
 ## A11-2 implementado hasta ahora
 
-El PoC ya contiene una primera implementación de texto basada en el bitmap clásico `glcdfont.c` incluido en el package.
+El PoC contiene una implementación de texto basada en el bitmap clásico `glcdfont.c` incluido en el package.
 
 ```text
 ASCII_PRINTABLE=32..126
-GLYPH_BITMAP=5_columns_x_8_bits
+GLYPH_DATA_COLUMNS=5
 CELL=6x8
 TEXT_SIZE=1x..4x
 FOREGROUND=RGB565
-BACKGROUND=RGB565
+BACKGROUND=GFX_CELL_BACKGROUND
+SYMMETRIC_PADDING=NO
 LIVE_EDIT=YES
 CLICK_DRAG_POSITION=YES
 PREVIEW_1_TO_1=YES
 ```
 
-La implementación replica el principio de `Adafruit_GFX::drawChar()` para la fuente clásica: cinco columnas de bitmap y una sexta columna de spacing, escaladas por un entero.
+La implementación replica el principio de la fuente clásica de Adafruit GFX: cinco columnas de bitmap dentro de una celda lógica de seis columnas por ocho filas, escalada por un entero.
+
+## Corrección de interpretación
+
+Durante A11-2 se interpretó inicialmente una observación como falta de margen respecto al borde físico de la TFT y se añadió temporalmente una `safe area` de 3 px.
+
+La observación real corresponde al margen interno entre el glifo y el **fondo de su celda GFX**.
+
+Por tanto:
+
+```text
+DESIGNER_SCREEN_SAFE_AREA=REMOVED
+RAW_GFX_PADDING_ARTIFICIAL=NO
+JWPLC_DISPLAY_RUNTIME_CHANGE=NO
+JWPLC_UI_FIELD_PADDING_CHANGE=NO
+```
+
+La safe area fue retirada del PoC antes del cierre del gate y la decisión quedó registrada en:
+
+```text
+A11_2_SAFE_AREA_DECISION.md                 -> SUPERSEDED
+A11_2_GFX_CELL_BACKGROUND_DECISION.md       -> VIGENTE
+```
 
 ## Pendiente inmediato
 
-Validar visualmente el nuevo editor de texto y preparar una muestra idéntica para:
+Ejecutar el gate físico con la muestra canónica:
 
-1. Designer;
+```text
+TEMP: 25.6 C
+X=20
+Y=20
+size=2
+RED sobre WHITE
+bounds GFX=144x16
+```
+
+Comparar:
+
+1. Designer RAW;
 2. `JWPLC_Display.tft()` / Adafruit GFX en JWPLC Basic físico.
 
-El gate A11-2 sólo pasa después de esa comparación.
+A11-2 sólo pasa después de esa comparación.
+
+A11-3 reproducirá por separado `JWPLC_UIField`, incluyendo `FIELD_PADDING=3`, `FIELD_GAP=4`, layouts y geometría AUTO.
