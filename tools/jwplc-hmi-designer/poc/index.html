@@ -12,14 +12,14 @@
       <div class="chip">JW</div>
       <div>
         <h1>JWPLC HMI Designer</h1>
-        <p>Alpha11 · PoC ST7789 pixel-perfect</p>
+        <p>Alpha11 · HMI declarativa ST7789 320×170</p>
       </div>
     </div>
 
     <div class="toolbar">
       <button id="newProjectButton">Nuevo</button>
       <button id="clearButton">Limpiar</button>
-      <button id="demoButton">Demo</button>
+      <button id="demoButton">Demo TEXT</button>
       <span class="separator"></span>
       <label>
         Zoom
@@ -40,34 +40,34 @@
       <section>
         <h2>Páginas</h2>
         <button class="page-item active">0 · Principal</button>
-        <button class="page-item" disabled>+ Nueva página · A11-3</button>
+        <button class="page-item" disabled>+ Nueva página · A11-3E</button>
       </section>
 
       <section>
         <h2>Herramientas</h2>
         <button class="tool" data-tool="pixel">Píxel</button>
         <button class="tool" data-tool="erase">Borrar</button>
-        <button class="tool active" data-tool="text">Texto GFX RAW · A11-2</button>
-        <button class="tool" disabled>VALUE · A11-3</button>
-        <button class="tool" disabled>TEXT field · A11-3</button>
-        <button class="tool" disabled>BOOL · A11-3</button>
-        <button class="tool" disabled>BAR · A11-3</button>
+        <button class="tool" data-tool="rawText">Texto GFX RAW · referencia</button>
+        <button class="tool active" data-tool="textField">TEXT field · A11-3A</button>
+        <button class="tool" disabled>VALUE · A11-3B</button>
+        <button class="tool" disabled>BOOL · A11-3C</button>
+        <button class="tool" disabled>BAR · A11-3D</button>
       </section>
 
-      <section id="textControlsSection">
-        <h2>Texto GFX RAW A11-2</h2>
+      <section id="rawTextControlsSection" hidden>
+        <h2>Texto GFX RAW</h2>
         <label class="field-label">Contenido
-          <input id="textInput" class="field-input" type="text" value="HOLA JWPLC" maxlength="40" />
+          <input id="rawTextInput" class="field-input" type="text" value="TEMP: 25.6 C" maxlength="40" />
         </label>
         <div class="inline-fields">
           <label class="field-label">X
-            <input id="textX" class="field-input" type="number" min="0" max="319" value="20" />
+            <input id="rawTextX" class="field-input" type="number" min="0" max="319" value="20" />
           </label>
           <label class="field-label">Y
-            <input id="textY" class="field-input" type="number" min="0" max="169" value="20" />
+            <input id="rawTextY" class="field-input" type="number" min="0" max="169" value="20" />
           </label>
           <label class="field-label">Tamaño
-            <select id="textSize" class="field-input">
+            <select id="rawTextSize" class="field-input">
               <option value="1">1×</option>
               <option value="2" selected>2×</option>
               <option value="3">3×</option>
@@ -76,10 +76,103 @@
           </label>
         </div>
         <label class="field-label">Fondo de celda GFX
-          <select id="textBackground" class="field-input"></select>
+          <select id="rawTextBackground" class="field-input"></select>
         </label>
-        <p class="muted small">El color activo de la paleta es el foreground. Haz clic en el canvas con la herramienta Texto para reposicionarlo.</p>
-        <p class="muted small">RAW reproduce la celda clásica 6×8 de Adafruit GFX. El fondo no es una caja con padding simétrico: incluye el espacio nativo del glifo/celda.</p>
+        <p class="muted small">Referencia técnica 6×8. No representa la caja HMI final.</p>
+      </section>
+
+      <section id="textFieldControlsSection">
+        <h2>TEXT field · A11-3A</h2>
+
+        <label class="field-label">Nombre
+          <input id="fieldName" class="field-input" type="text" value="Estado" maxlength="24" />
+        </label>
+        <label class="field-label">ID simbólico
+          <input id="fieldId" class="field-input" type="text" value="FIELD_STATUS" maxlength="32" />
+        </label>
+        <label class="field-label">Variable HMI
+          <input id="fieldVariable" class="field-input" type="text" value="estadoTexto" maxlength="32" />
+        </label>
+        <div class="inline-fields">
+          <label class="field-label">Capacidad
+            <input id="fieldCapacity" class="field-input" type="number" min="1" max="39" value="12" />
+          </label>
+          <label class="field-label">X
+            <input id="fieldX" class="field-input" type="number" min="0" max="319" value="20" />
+          </label>
+          <label class="field-label">Y
+            <input id="fieldY" class="field-input" type="number" min="0" max="169" value="20" />
+          </label>
+        </div>
+
+        <label class="field-label">Valor de preview
+          <input id="fieldPreview" class="field-input" type="text" value="READY" maxlength="39" />
+        </label>
+        <label class="field-label">Label
+          <input id="fieldLabel" class="field-input" type="text" value="Estado" maxlength="24" />
+        </label>
+        <label class="field-label">Unidad
+          <input id="fieldUnit" class="field-input" type="text" value="" maxlength="12" />
+        </label>
+
+        <div class="inline-fields">
+          <label class="field-label">Valor
+            <select id="fieldValueSize" class="field-input">
+              <option value="1">1×</option>
+              <option value="2" selected>2×</option>
+              <option value="3">3×</option>
+              <option value="4">4×</option>
+            </select>
+          </label>
+          <label class="field-label">Label
+            <select id="fieldLabelSize" class="field-input">
+              <option value="1" selected>1×</option>
+              <option value="2">2×</option>
+              <option value="3">3×</option>
+              <option value="4">4×</option>
+            </select>
+          </label>
+          <label class="field-label">Frame
+            <select id="fieldFrame" class="field-input">
+              <option value="0" selected>No</option>
+              <option value="1">Sí</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="inline-fields">
+          <label class="field-label">Layout
+            <select id="fieldLayout" class="field-input">
+              <option value="INLINE" selected>INLINE</option>
+              <option value="STACKED">STACKED</option>
+            </select>
+          </label>
+          <label class="field-label">Alineación
+            <select id="fieldAlign" class="field-input">
+              <option value="LEFT" selected>LEFT</option>
+              <option value="CENTER">CENTER</option>
+              <option value="RIGHT">RIGHT</option>
+            </select>
+          </label>
+          <label class="field-label">Página
+            <input class="field-input" value="0" disabled />
+          </label>
+        </div>
+
+        <label class="field-label">Color label
+          <select id="fieldLabelColor" class="field-input"></select>
+        </label>
+        <label class="field-label">Color valor
+          <select id="fieldValueColor" class="field-input"></select>
+        </label>
+        <label class="field-label">Color fondo
+          <select id="fieldBackgroundColor" class="field-input"></select>
+        </label>
+        <label class="field-label">Color frame
+          <select id="fieldFrameColor" class="field-input"></select>
+        </label>
+
+        <p class="muted small">Ancho/alto AUTO en A11-3A. Haz clic o arrastra sobre el canvas para reposicionar el field.</p>
       </section>
 
       <section>
@@ -91,7 +184,7 @@
     <section class="editor-panel">
       <div class="tabs">
         <button class="tab active">Principal</button>
-        <span class="gate">Gate actual: A11-2 GFX Text Parity</span>
+        <span class="gate">Gate actual: A11-3A TEXT Field</span>
       </div>
 
       <div id="canvasViewport" class="canvas-viewport">
@@ -128,17 +221,27 @@
         </div>
       </section>
 
-      <section>
+      <section id="rawMetricsSection" hidden>
         <h2>Paridad GFX RAW</h2>
         <div class="property-grid">
           <span>Fuente</span><strong>Classic glcdfont</strong>
-          <span>Bitmap</span><strong>5 columnas × 8 bits</strong>
           <span>Celda</span><strong>6 × 8 px</strong>
-          <span>Escala</span><strong id="textScaleStatus">2×</strong>
-          <span>Bounds celda</span><strong id="textBoundsStatus">60 × 16 px</strong>
-          <span>Charset PoC</span><strong>ASCII 32–126</strong>
-          <span>Fondo</span><strong>celda nativa GFX</strong>
-          <span>Padding simétrico</span><strong>NO · modo RAW</strong>
+          <span>Bounds</span><strong id="rawBoundsStatus">—</strong>
+          <span>Padding simétrico</span><strong>NO · RAW</strong>
+        </div>
+      </section>
+
+      <section id="fieldMetricsSection">
+        <h2>Geometría JWPLC_UITextField</h2>
+        <div class="property-grid">
+          <span>Padding efectivo</span><strong id="fieldPadStatus">3 px</strong>
+          <span>Gap</span><strong>4 px</strong>
+          <span>Field AUTO</span><strong id="fieldBoundsStatus">—</strong>
+          <span>Value region</span><strong id="fieldValueBoundsStatus">—</strong>
+          <span>Value XY</span><strong id="fieldValueXYStatus">—</strong>
+          <span>Layout</span><strong id="fieldLayoutStatus">INLINE</strong>
+          <span>Métrica texto</span><strong>5×7 nominal</strong>
+          <span>Raster GFX</span><strong>6×8 clásico</strong>
         </div>
       </section>
 
@@ -157,27 +260,15 @@
 
   <section class="code-panel">
     <div class="tabs">
-      <button class="tab active">Estado del PoC</button>
-      <button class="tab" disabled>Código generado · A11-4</button>
+      <button id="statusTab" class="tab active">Estado A11-3A</button>
+      <button id="contractTab" class="tab">Contrato C++</button>
     </div>
-    <pre id="pocStatus">A11-0 Arquitectura: PASS
-A11-1 Pixel Canvas: PASS (validación visual 2026-09-05)
-
-A11-2 en curso:
-- fuente clásica Adafruit GFX glcdfont.c
-- celda RAW 6x8 y drawChar pixel-perfect
-- textSize entero 1x..4x
-- edición en vivo de texto/X/Y/tamaño/color
-- fondo = celda nativa GFX, sin padding simétrico artificial
-- siguiente gate: comparar muestra canónica contra TFT física
-
-A11-3:
-- los fields JWPLC reproducirán su caja/padding real por separado</pre>
+    <pre id="codeOutput"></pre>
   </section>
 
   <footer class="statusbar">
     <span class="ready-dot"></span>
-    <span>Alpha11 · A11-2 en progreso</span>
+    <span>A11-3A · TEXT field sobre API pública</span>
     <span class="grow"></span>
     <span id="framebufferStatus">Framebuffer: 54,400 px</span>
   </footer>
