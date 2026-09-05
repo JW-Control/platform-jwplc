@@ -95,7 +95,7 @@ TECHNICAL_COMMIT_SHA=c0e5c621cec71977b86becfc8d7acb26ca21e906
 - [x] Handoff Alpha10 -> Alpha11 documentado.
 - [x] PR documentado.
 - [x] PreRelease preparada.
-- [ ] README actualizado a Alpha10.
+- [x] README actualizado a Alpha10.
 
 ## Publicación
 
@@ -125,6 +125,6 @@ TECHNICAL_COMMIT_SHA=c0e5c621cec71977b86becfc8d7acb26ca21e906
 
 ```text
 ALPHA10_TECHNICAL_CLOSURE=PASS
-ALPHA10_DOCUMENTATION=IN_PROGRESS
-ALPHA10_PUBLICATION=PENDING
+ALPHA10_DOCUMENTATION=PASS
+ALPHA10_PUBLICATION=PENDING_PR
 ```
