@@ -247,6 +247,12 @@ h2 {
   background-position: 0 0, 12px 12px;
 }
 
+.canvas-stage {
+  position: relative;
+  width: max-content;
+  height: max-content;
+}
+
 #displayCanvas {
   display: block;
   background: #000;
@@ -254,6 +260,18 @@ h2 {
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   cursor: crosshair;
+}
+
+.safe-area-guide {
+  position: absolute;
+  pointer-events: none;
+  border: 1px dashed rgba(129, 212, 162, 0.9);
+  box-shadow: 0 0 0 1px rgba(10, 16, 22, 0.45);
+  z-index: 2;
+}
+
+.safe-area-guide[hidden] {
+  display: none;
 }
 
 .canvas-status {
@@ -308,6 +326,26 @@ h2 {
 .property-grid strong {
   color: #dbe5ed;
   font-weight: 600;
+}
+
+.safe-area-status {
+  margin: 12px 0 0;
+  padding: 8px 9px;
+  border: 1px solid #2a3947;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.safe-area-status.ok {
+  color: #9edbb0;
+  border-color: rgba(67, 209, 122, 0.45);
+  background: rgba(67, 209, 122, 0.07);
+}
+
+.safe-area-status.warning {
+  color: #f3c477;
+  border-color: rgba(243, 196, 119, 0.45);
+  background: rgba(243, 196, 119, 0.07);
 }
 
 .active-color-row {
