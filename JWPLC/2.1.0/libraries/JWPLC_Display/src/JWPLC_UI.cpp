@@ -141,8 +141,47 @@ namespace
         int16_t x1 = 0;
         int16_t y1 = 0;
 
-        tft.setTextSize((textSize == 0) ? 1 : textSize);
+        const uint8_t scale = (textSize == 0) ? 1 : textSize;
+        tft.setTextSize(scale);
         tft.getTextBounds(text, 0, 0, &x1, &y1, &w, &h);
+
+        // HMI declarativa: Adafruit GFX reporta la celda clasica 6x8 completa.
+        // Para el layout del field usamos el cuerpo nominal 5x7 y dejamos el
+        // spacer final / fila de descenso dentro del padding del contenedor.
+        if (w >= scale)
+        {
+            w -= scale;
+        }
+
+        if (h >= scale)
+        {
+            h -= scale;
+        }
+    }
+
+    int16_t effectiveFieldPadding(const JWPLC_UIField &def)
+    {
+        uint8_t maxTextSize = (def.style.labelTextSize == 0)
+                                  ? 1
+                                  : def.style.labelTextSize;
+
+        if (def.meta.type != JWPLC_UI_FIELD_BAR)
+        {
+            const uint8_t valueSize = (def.style.valueTextSize == 0)
+                                          ? 1
+                                          : def.style.valueTextSize;
+            if (valueSize > maxTextSize)
+            {
+                maxTextSize = valueSize;
+            }
+        }
+
+        // FIELD_PADDING sigue siendo el margen visual minimo. Para escalas
+        // mayores reservamos al menos una celda de escala para contener la
+        // posible fila 8 (descenders) sin salir del rectangulo del field.
+        return (maxTextSize > FIELD_PADDING)
+                   ? (int16_t)maxTextSize
+                   : FIELD_PADDING;
     }
 
     void makeNumericSample(const JWPLC_UIField &def, char *out, size_t outSize)
@@ -386,6 +425,7 @@ namespace
     void computeFieldGeometry(Adafruit_ST7789 &tft, FieldRuntime &field)
     {
         const JWPLC_UIField &def = field.def;
+        const int16_t pad = effectiveFieldPadding(def);
 
         uint16_t labelW = 0;
         uint16_t labelH = 0;
@@ -469,8 +509,8 @@ namespace
             valueW =
                 (def.rect.width == JWPLC_UI_AUTO)
                     ? DEFAULT_BAR_WIDTH
-                    : (uint16_t)((def.rect.width > 2 * FIELD_PADDING)
-                                     ? def.rect.width - 2 * FIELD_PADDING
+                    : (uint16_t)((def.rect.width > 2 * pad)
+                                     ? def.rect.width - 2 * pad
                                      : DEFAULT_BAR_WIDTH);
             valueH = DEFAULT_BAR_HEIGHT;
             break;
@@ -479,7 +519,7 @@ namespace
         if (def.meta.type == JWPLC_UI_FIELD_BAR &&
             def.rect.width != JWPLC_UI_AUTO)
         {
-            int16_t available = def.rect.width - 2 * FIELD_PADDING;
+            int16_t available = def.rect.width - 2 * pad;
 
             if (def.style.layout == JWPLC_UI_LAYOUT_INLINE && labelW > 0)
             {
@@ -499,7 +539,6 @@ namespace
             valueW = (uint16_t)available;
         }
 
-        const int16_t pad = FIELD_PADDING;
         int16_t autoW = 0;
         int16_t autoH = 0;
 
@@ -562,7 +601,9 @@ namespace
             (def.meta.type == JWPLC_UI_FIELD_BAR)
                 ? (int16_t)valueH
                 : (int16_t)((valueH == 0)
-                                 ? (6 * def.style.valueTextSize)
+                                 ? (7 * ((def.style.valueTextSize == 0)
+                                            ? 1
+                                            : def.style.valueTextSize))
                                  : valueH);
     }
 
@@ -571,6 +612,7 @@ namespace
         computeFieldGeometry(tft, field);
 
         const JWPLC_UIField &def = field.def;
+        const int16_t pad = effectiveFieldPadding(def);
 
         if (field.fieldW > 0 && field.fieldH > 0)
         {
@@ -602,8 +644,8 @@ namespace
                 def.style.colors.label,
                 def.style.colors.background);
             tft.setCursor(
-                def.rect.x + FIELD_PADDING,
-                def.rect.y + FIELD_PADDING);
+                def.rect.x + pad,
+                def.rect.y + pad);
             tft.print(def.text.label);
         }
 
@@ -635,12 +677,31 @@ namespace
             return;
         }
 
-        // Alpha8: al cambiar una variable solo se limpia su region VALUE.
+        // Al cambiar una variable solo se limpia su region VALUE. El layout
+        // usa el cuerpo nominal 5x7, pero la fuente clasica puede usar la fila
+        // 8 (descenders), por eso la limpieza vertical cubre una escala extra.
+        int16_t clearH = field.valueH;
+
+        if (def.meta.type != JWPLC_UI_FIELD_BAR)
+        {
+            const int16_t scale = (def.style.valueTextSize == 0)
+                                      ? 1
+                                      : (int16_t)def.style.valueTextSize;
+            clearH += scale;
+
+            const int16_t maxClearH =
+                (field.fieldY + field.fieldH) - field.valueY;
+            if (clearH > maxClearH)
+            {
+                clearH = maxClearH;
+            }
+        }
+
         tft.fillRect(
             field.valueX,
             field.valueY,
             field.valueW,
-            field.valueH,
+            clearH,
             def.style.colors.background);
 
         if (!field.hasValue)
