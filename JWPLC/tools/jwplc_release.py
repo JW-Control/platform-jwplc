@@ -403,7 +403,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--source-folder", default="JWPLC/2.1.0", help="Folder to zip when a ZIP must be generated")
     p.add_argument("--zip-file", default="", help="Optional ZIP path. If omitted, JWPLC/jwplc-esp32-<version>.zip is reused if present; otherwise dist/<zip> is generated")
     p.add_argument("--recreate-zip", action="store_true", help="Regenerate the ZIP. With no explicit --zip-file, output goes to dist/ and does not overwrite repository ZIPs")
-    p.add_argument("--archive-root-mode", default="contents", choices=["contents", "folder"], help="Zip source folder contents or include the folder itself")
+    p.add_argument("--archive-root-mode", default="folder", choices=["contents", "folder"], help="Zip source folder contents or include the folder itself. JWPLC Boards Manager releases require 'folder'.")
     p.add_argument("--repo-full-name", default=REPO_DEFAULT)
     p.add_argument("--dev-index", default="JWPLC/package_jwplc_index_dev.json")
     p.add_argument("--public-index", default="JWPLC/package_jwplc_index.json")
