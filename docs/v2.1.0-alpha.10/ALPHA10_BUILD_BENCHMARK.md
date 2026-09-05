@@ -151,6 +151,43 @@ Core cold = 78
 Core warm = 1
 ```
 
+## BinaryBytes
+
+Los `results.csv` de las tres réplicas muestran paridad exacta para los builds `explicit_cold`:
+
+| Target | Sketch | r1 | r2 | r3 | Paridad |
+|---|---|---:|---:|---:|---|
+| Basic | `01_empty` | 4,618,688 | 4,618,688 | 4,618,688 | PASS |
+| Basic | `02_io_basic` | 4,618,784 | 4,618,784 | 4,618,784 | PASS |
+| Core | `01_empty` | 4,574,464 | 4,574,464 | 4,574,464 | PASS |
+| Core | `02_io_basic` | 4,574,576 | 4,574,576 | 4,574,576 | PASS |
+
+```text
+ALPHA10_BINARY_SIZE_PARITY=PASS
+```
+
+No se observa variación de artefactos entre las tres réplicas del candidato.
+
+## Matriz funcional local
+
+Sobre `HEAD=c696034fd2c1f1dafbeb33fcf41c06be6a8f05f1` se compiló localmente con `jwplc_local:esp32:jwplcbasic`:
+
+```text
+DigitalIO_Basic=PASS
+Buttons_Basic=PASS
+Display_HMI_Fields=PASS
+Ethernet_Diagnostics=PASS
+RemoteIO_Slave_RTU=PASS
+COMPILE_TOTAL=5
+COMPILE_PASS=5
+COMPILE_FAIL=0
+UNDEFINED_REFERENCE_HITS=0
+ALPHA10_LOCAL_FUNCTIONAL_MATRIX=5/5_PASS
+ALPHA10_LOCAL_COMPILE_GATE=PASS
+```
+
+La matriz cubre I/O, botonera, HMI/Display, Ethernet y Modbus RTU sin depender de instalaciones manuales JW/JWPLC externas.
+
 ## Interpretación
 
 El candidato conserva exactamente la estructura esperada de compilación:
@@ -171,20 +208,30 @@ La conclusión defendible es:
 ```text
 JW_JWPLC_DISCOVERY_MARKER_OVERHEAD=REMOVED
 COMPILER_STRUCTURE_PARITY=PASS
+BINARY_SIZE_PARITY=PASS
+LOCAL_FUNCTIONAL_MATRIX=5/5_PASS
+UNDEFINED_REFERENCE_HITS=0
 WARM_BEHAVIOR_RETURNED_TO_M0_RANGE=PASS_WITH_HOST_VARIATION
 EXACT_PERCENT_RECOVERY_CLAIM=NOT_USED
 ```
 
 No se reclama una recuperación exacta de `5.6%` porque las mediciones actuales y las históricas no son una comparación A/B simultánea. Sí se confirma que el guard que causaba el coste fue eliminado y que los warm builds estabilizados vuelven al entorno de tiempos de M0.
 
-## Pendientes del benchmark de cierre
+## CI
 
-Antes de cerrar Alpha10 faltan únicamente los datos que no aparecen en la salida resumida recibida:
+La PR #90 tuvo `CI JWPLC Package Smoke=SUCCESS` sobre el HEAD benchmarkeado y volvió a quedar verde sobre `c696034fd2c1f1dafbeb33fcf41c06be6a8f05f1` antes de este registro documental.
 
-- comparar `BinaryBytes` desde los `results.csv`;
-- ejecutar la matriz funcional 5/5 sobre el candidato;
-- validación Arduino IDE;
-- smoke físico.
+Los commits documentales posteriores deben volver a dejar CI verde antes del merge final.
+
+## Pendientes del cierre local
+
+Antes de cerrar técnicamente Alpha10 faltan únicamente:
+
+- compilación desde Arduino IDE;
+- smoke físico rápido de periféricos integrados;
+- CI verde sobre el HEAD documental final.
+
+Después de ello se actualizará README raíz, se reemplazará la publicación Alpha10 interna y se validará el package desde el índice publicado.
 
 ## Estado
 
@@ -194,7 +241,10 @@ ALPHA10_CLEANUP_SOURCE=PASS
 ALPHA10_BENCHMARK_RUNS=3_PASS
 ALPHA10_COMPILER_STRUCTURE_PARITY=PASS
 ALPHA10_WARM_BEHAVIOR=PASS_WITH_HOST_VARIATION
-ALPHA10_BINARY_SIZE_CHECK=PENDING
-ALPHA10_FUNCTIONAL_MATRIX=PENDING
-ALPHA10_BUILD_BENCHMARK_FINAL=PENDING_REMAINING_GATES
+ALPHA10_BINARY_SIZE_PARITY=PASS
+ALPHA10_LOCAL_FUNCTIONAL_MATRIX=5/5_PASS
+ALPHA10_LOCAL_COMPILE_GATE=PASS
+ALPHA10_BUILD_BENCHMARK_FINAL=PASS
+ALPHA10_ARDUINO_IDE_VALIDATION=PENDING
+ALPHA10_PHYSICAL_VALIDATION=PENDING
 ```
