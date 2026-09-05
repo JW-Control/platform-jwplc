@@ -28,7 +28,7 @@ DESIGNER_GENERATES_JWPLC_UI_UPDATE=NO
 USER_WRITES_JWPLC_UI_UPDATE=YES
 ```
 
-El Designer sí debe dejar definidos desde la interfaz:
+El Designer debe dejar definidos desde la interfaz:
 
 ```text
 - IDs simbólicos;
@@ -40,7 +40,19 @@ El Designer sí debe dejar definidos desde la interfaz:
 - registro/configuración de JWPLC_Display.
 ```
 
-La frontera manual empieza en `jwplcUIUpdate()`.
+La frontera manual empieza en el cuerpo de `jwplcUIUpdate()`: el usuario alimenta las variables e invoca los setters públicos correspondientes.
+
+## Política de desarrollo de JWPLC_Display en Alpha11
+
+Mientras Alpha11 siga modificando el motor HMI, `JWPLC_Display` se compila desde source para evitar validar accidentalmente un archive obsoleto.
+
+```text
+ALPHA11_DISPLAY_DEVELOPMENT_MODE=SOURCE
+JWPLC_DISPLAY_PRECOMPILED_ARCHIVE_ACTIVE=NO
+LIBRARY_PROPERTIES_PRECOMPILED_FULL=PRESERVED
+```
+
+El archive final se regenerará únicamente al cierre del alpha y deberá repetir gates source/precompiled y build-speed.
 
 ## Gates
 
@@ -48,19 +60,27 @@ La frontera manual empieza en `jwplcUIUpdate()`.
 A11_0_ARCHITECTURE=PASS
 A11_1_PIXEL_CANVAS=PASS
 A11_2A_RAW_FONT_PARITY=PASS
-A11_2B_PUBLIC_API_TEXT_FIELD=IN_PROGRESS
-A11_2_TEXT=IN_PROGRESS
+A11_2B_PUBLIC_API_TEXT_FIELD=PASS
+A11_2C_BALANCED_SOURCE=PASS
+A11_2_TEXT_SOURCE=PASS
+A11_2_PRECOMPILED_FINAL=DEFERRED_TO_ALPHA11_CLOSE
 A11_3_PUBLIC_API_CODEGEN_CONTRACT=PASS
-A11_3_FIELDS=PENDING
+A11_3A_TEXT_FIELD=IN_PROGRESS
+A11_3B_VALUE_FIELD=PENDING
+A11_3C_BOOL_FIELD=PENDING
+A11_3D_BAR_FIELD=PENDING
+A11_3E_MULTI_FIELD_PAGES=PENDING
 A11_4_CODEGEN=PENDING
 A11_5_PHYSICAL_PARITY=PENDING
 A11_6_SKETCH_INTEGRATION=PENDING
 ALPHA11_STATUS=IN_PROGRESS
 ```
 
-## A11-2A — paridad RAW cerrada como subgate
+## A11-2 — texto y geometría HMI
 
-La muestra RAW:
+### A11-2A — paridad RAW
+
+La muestra RAW confirmó la misma fuente clásica y geometría de celda entre Designer y TFT física:
 
 ```text
 TEMP: 25.6 C
@@ -71,8 +91,6 @@ RED sobre WHITE
 bounds GFX=144x16
 ```
 
-confirmó la misma fuente clásica y geometría de celda entre Designer y TFT física.
-
 ```text
 A11_2A_GFX_CLASSIC_FONT=PASS
 A11_2A_TEXT_SIZE_2X=PASS
@@ -80,30 +98,11 @@ A11_2A_CELL_GEOMETRY_144X16=PASS
 A11_2A_PHYSICAL_VISUAL_MATCH=PASS
 ```
 
-Sin embargo, la evidencia también confirma que el fondo RAW mantiene la asimetría de la celda GFX respecto al glifo. Además el gate RAW usa dibujo directo `tft.*`, por lo que no representa el contrato final del Designer.
+RAW queda sólo como herramienta técnica de referencia. No representa el contrato final del Designer porque usa la celda GFX 6×8 y dibujo directo.
 
-Por tanto:
+### A11-2B — gate por API pública
 
-```text
-RAW_FONT_PARITY_PASS_DOES_NOT_CLOSE_A11_2=YES
-```
-
-## A11-2B — validación mediante API pública
-
-Se añade el gate:
-
-```text
-tools/jwplc-hmi-designer/gates/A11_2B_Public_API_Text_Field/
-```
-
-Este gate no usa:
-
-```text
-JWPLC_Display.tft()
-tft.*
-```
-
-Usa únicamente:
+El gate público usa únicamente:
 
 ```cpp
 JWPLC_UITextField(...)
@@ -114,25 +113,44 @@ JWPLC_Display.setUserPage(...)
 JWPLC_Display.enterUserUI()
 ```
 
-La geometría actual esperada para `TEMP: 25.6 C` con `textSize=2` y `capacity=12` es:
+No usa:
 
 ```text
-GFX_CELL=144x16
+JWPLC_Display.tft()
+tft.*
+```
+
+La primera validación física confirmó que el padding fijo de 3 px se veía como aproximadamente 3 px arriba/izquierda y 5 px abajo debido a la fila/spacing nativo de la celda clásica 6×8.
+
+### A11-2C — métricas balanceadas
+
+Se corrigió `JWPLC_UI.cpp` para que el layout declarativo use cuerpo nominal 5×7 sin cambiar la rasterización de Adafruit GFX.
+
+```text
+layoutWidth  = gfxBoundsWidth  - textSize
+layoutHeight = gfxBoundsHeight - textSize
+```
+
+El padding efectivo es:
+
+```text
+max(FIELD_PADDING, maxTextSize)
 FIELD_PADDING=3
-AUTO_FIELD=150x22
 ```
 
-Este gate decide si el comportamiento público actual de borde/fondo es suficiente.
-
-Si no lo es:
+La prueba física source posterior mostró el borde visual balanceado.
 
 ```text
-DESIGNER_ONLY_VISUAL_FIX=FORBIDDEN
-PUBLIC_API_CHANGE_IF_REQUIRED=YES
-BREAK_EXISTING_DISPLAY_API=NO
+A11_2C_BALANCED_SOURCE=PASS
+A11_2C_PUBLIC_API_ONLY=PASS
+A11_2C_VISUAL_PADDING_BALANCED=PASS
 ```
 
-La corrección deberá ser aditiva y quedar expresable tanto en el runtime como en el codegen del Designer.
+Validación detallada:
+
+```text
+docs/v2.1.0-alpha.11/A11_2C_BALANCED_SOURCE_VALIDATION.md
+```
 
 ## Contrato de codegen público
 
@@ -146,7 +164,7 @@ JWPLC_UIBarField(...)
 JWPLC_Display.setFields(...)
 ```
 
-Además genera las variables configuradas visualmente, por ejemplo:
+También genera las variables configuradas visualmente, por ejemplo:
 
 ```cpp
 float temperatura = 0.0f;
@@ -171,7 +189,18 @@ USER_CONFIGURES_JWPLC_UI_UPDATE=YES
 
 ## Pendiente inmediato
 
-1. ejecutar `A11_2B_Public_API_Text_Field.ino` en un JWPLC Basic;
-2. observar el borde/fondo real generado por `JWPLC_UITextField`;
-3. decidir `API_CHANGE_REQUIRED_FOR_TEXT_BOX=YES/NO`;
-4. sólo entonces continuar con `VALUE / TEXT / BOOL / BAR` en el Designer.
+A11-3A activa `TEXT field` en el Designer y debe reproducir exactamente la geometría pública vigente:
+
+```text
+FIELD_PADDING=3 mínimo
+effectivePadding=max(3,maxTextSize)
+FIELD_GAP=4
+AUTO width/height
+INLINE / STACKED
+LEFT / CENTER / RIGHT
+label / value / unit
+frame / colors
+text capacity
+```
+
+El preview debe usar las mismas métricas nominales 5×7 del runtime corregido y mantener la rasterización clásica 6×8 dentro del field.
