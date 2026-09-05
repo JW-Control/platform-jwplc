@@ -9,10 +9,19 @@
   box-sizing: border-box;
 }
 
+html,
+body {
+  width: 100%;
+  height: 100%;
+}
+
 body {
   margin: 0;
   min-width: 1180px;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: 58px minmax(0, 1fr) 150px 28px;
   background: #0b1117;
 }
 
@@ -20,11 +29,6 @@ button,
 select,
 input {
   font: inherit;
-}
-
-button,
-select,
-input {
   color: #dfe8f0;
   background: #17212b;
   border: 1px solid #2a3947;
@@ -32,7 +36,7 @@ input {
 }
 
 button {
-  padding: 7px 11px;
+  padding: 6px 10px;
   cursor: pointer;
 }
 
@@ -48,11 +52,11 @@ button:disabled {
 }
 
 .topbar {
-  height: 72px;
+  height: 58px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 18px;
+  padding: 0 14px;
   background: #101820;
   border-bottom: 1px solid #25323e;
 }
@@ -60,24 +64,24 @@ button:disabled {
 .brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .brand h1 {
   margin: 0;
-  font-size: 21px;
-  line-height: 1.1;
+  font-size: 18px;
+  line-height: 1.05;
 }
 
 .brand p {
-  margin: 5px 0 0;
+  margin: 3px 0 0;
   color: #8ea0b0;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .chip {
-  width: 42px;
-  height: 42px;
+  width: 36px;
+  height: 36px;
   display: grid;
   place-items: center;
   color: #101820;
@@ -89,26 +93,26 @@ button:disabled {
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
 }
 
 .toolbar label {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   color: #aebcca;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .toolbar select {
-  padding: 6px 8px;
+  padding: 5px 7px;
 }
 
 .separator {
   width: 1px;
-  height: 28px;
+  height: 24px;
   background: #30404d;
-  margin: 0 5px;
+  margin: 0 4px;
 }
 
 .check {
@@ -116,20 +120,25 @@ button:disabled {
 }
 
 .workspace {
+  min-height: 0;
+  overflow: hidden;
   display: grid;
-  grid-template-columns: 260px minmax(680px, 1fr) 360px;
-  min-height: calc(100vh - 72px - 235px - 30px);
+  grid-template-columns: 320px minmax(620px, 1fr) 330px;
 }
 
 .panel,
 .editor-panel,
 .code-panel {
+  min-height: 0;
   background: #111a22;
   border-color: #263440;
 }
 
 .panel {
-  padding: 14px;
+  padding: 10px 11px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
 
 .left-panel {
@@ -141,14 +150,14 @@ button:disabled {
 }
 
 .panel section + section {
-  margin-top: 22px;
-  padding-top: 18px;
+  margin-top: 12px;
+  padding-top: 11px;
   border-top: 1px solid #22303b;
 }
 
 h2 {
-  margin: 0 0 10px;
-  font-size: 13px;
+  margin: 0 0 7px;
+  font-size: 12px;
   color: #cbd7e0;
 }
 
@@ -156,7 +165,8 @@ h2 {
 .tool {
   width: 100%;
   text-align: left;
-  margin-bottom: 7px;
+  margin-bottom: 5px;
+  min-height: 30px;
 }
 
 .page-item.active,
@@ -168,36 +178,63 @@ h2 {
 
 .field-label {
   display: block;
-  margin-bottom: 9px;
+  margin-bottom: 6px;
   color: #9fb0be;
-  font-size: 12px;
+  font-size: 11px;
+  min-width: 0;
 }
 
 .field-input {
   width: 100%;
-  margin-top: 5px;
-  padding: 7px 8px;
+  min-width: 0;
+  margin-top: 3px;
+  padding: 5px 7px;
+  min-height: 29px;
 }
 
 .inline-fields {
   display: grid;
-  grid-template-columns: 1fr 1fr 1.25fr;
-  gap: 7px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+/*
+ * El inspector TEXT es deliberadamente denso: identidad y propiedades
+ * simples aprovechan dos columnas, mientras los grupos triples conservan
+ * toda la anchura. La columna lateral mantiene scroll propio si la ventana
+ * es especialmente baja, sin desplazar el canvas ni la barra inferior.
+ */
+#textFieldControlsSection {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 7px;
+  align-content: start;
+}
+
+#textFieldControlsSection > h2,
+#textFieldControlsSection > .inline-fields,
+#textFieldControlsSection > p {
+  grid-column: 1 / -1;
+}
+
+#rawTextControlsSection .inline-fields {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .small {
-  font-size: 11px;
-  line-height: 1.45;
+  font-size: 10px;
+  line-height: 1.35;
 }
 
 .palette {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 7px;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 5px;
 }
 
 .palette-button {
-  height: 40px;
+  height: 28px;
+  min-width: 0;
   padding: 0;
   border-width: 2px;
 }
@@ -209,36 +246,39 @@ h2 {
 
 .editor-panel {
   min-width: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
 .tabs {
-  min-height: 42px;
+  min-height: 38px;
+  height: 38px;
+  flex: 0 0 38px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
+  gap: 7px;
+  padding: 4px 9px;
   border-bottom: 1px solid #263440;
   background: #0f171f;
 }
 
 .tab {
-  padding: 7px 13px;
+  padding: 5px 11px;
 }
 
 .gate {
   margin-left: auto;
   color: #81d4a2;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .canvas-viewport {
   position: relative;
-  flex: 1;
-  min-height: 480px;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
-  padding: 22px;
+  padding: 14px;
   background:
     linear-gradient(45deg, rgba(255,255,255,0.015) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.015) 75%),
     linear-gradient(45deg, rgba(255,255,255,0.015) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.015) 75%),
@@ -263,14 +303,16 @@ h2 {
 }
 
 .canvas-status {
-  min-height: 34px;
+  min-height: 30px;
+  height: 30px;
+  flex: 0 0 30px;
   display: flex;
   align-items: center;
-  gap: 22px;
-  padding: 0 12px;
+  gap: 18px;
+  padding: 0 10px;
   border-top: 1px solid #263440;
   color: #93a5b4;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .canvas-status span:nth-child(2) {
@@ -279,32 +321,33 @@ h2 {
 
 .device-preview {
   width: 100%;
-  padding: 18px;
-  overflow: auto;
+  padding: 10px;
+  overflow: hidden;
   border: 1px solid #2a3947;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #06090c;
 }
 
 #previewCanvas {
   display: block;
-  width: 320px;
-  height: 170px;
-  max-width: 100%;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 320 / 170;
   border: 1px solid #394955;
   image-rendering: pixelated;
 }
 
 .muted {
   color: #7f92a2;
-  font-size: 12px;
+  font-size: 11px;
+  margin: 6px 0 0;
 }
 
 .property-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 9px 12px;
-  font-size: 12px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px 10px;
+  font-size: 11px;
 }
 
 .property-grid span {
@@ -319,12 +362,12 @@ h2 {
 .active-color-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .active-color-swatch {
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   border-radius: 6px;
   border: 1px solid #566775;
   background: #ffa500;
@@ -332,44 +375,80 @@ h2 {
 
 .active-color-row code {
   display: block;
-  margin-top: 4px;
+  margin-top: 2px;
   color: #9edbb0;
 }
 
 .code-panel {
-  height: 235px;
+  height: 150px;
+  min-height: 0;
+  overflow: hidden;
   border-top: 1px solid #263440;
+}
+
+.code-panel .tabs {
+  height: 36px;
+  min-height: 36px;
+  flex-basis: 36px;
 }
 
 .code-panel pre {
   margin: 0;
-  height: 193px;
+  height: calc(100% - 36px);
   overflow: auto;
-  padding: 14px 18px;
+  padding: 8px 14px;
   color: #9edbb0;
   background: #091015;
-  font: 12px/1.55 "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  font: 11px/1.4 "Cascadia Code", "SFMono-Regular", Consolas, monospace;
 }
 
 .statusbar {
-  height: 30px;
+  height: 28px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 12px;
+  gap: 7px;
+  padding: 0 10px;
   color: #93a5b4;
   background: #0e161d;
   border-top: 1px solid #263440;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .ready-dot {
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: #43d17a;
 }
 
 .grow {
   flex: 1;
+}
+
+@media (max-height: 820px) {
+  body {
+    grid-template-rows: 54px minmax(0, 1fr) 120px 26px;
+  }
+
+  .topbar {
+    height: 54px;
+  }
+
+  .brand p {
+    display: none;
+  }
+
+  .panel {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .panel section + section {
+    margin-top: 9px;
+    padding-top: 9px;
+  }
+
+  .code-panel {
+    height: 120px;
+  }
 }
