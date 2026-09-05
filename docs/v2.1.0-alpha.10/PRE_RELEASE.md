@@ -2,9 +2,9 @@
 
 ## Resumen
 
-Alpha10 optimiza el ciclo de compilación eliminando un guard de library discovery que protegía una instalación manual/paralela de `JWPLC_Ethernet` en el sketchbook.
+Alpha10 optimiza el ciclo de compilación retirando un guard de library discovery específico para una instalación manual/paralela de `JWPLC_Ethernet` en el sketchbook.
 
-El package adopta el modelo:
+El flujo soportado queda definido como:
 
 ```text
 SUPPORTED_LIBRARY_MODEL=PACKAGE_MANAGED
@@ -19,21 +19,17 @@ No se retiran periféricos ni se modifican APIs públicas o runtimes.
 JWPLC_Bundled_JWPLC_Ethernet.h=REMOVED
 JWPLC_Ethernet_VERSION=1.0.0
 JWPLC_GlobalPeripherals_Auto=RESTORED_TO_ALPHA9_BEHAVIOR
+PUBLIC_API_CHANGED=NO
+RUNTIME_IMPLEMENTATION_CHANGED=NO
+PRECOMPILED_ARCHIVES_CHANGED=NO
+AUTOLOAD_PERIPHERALS_REMOVED=NO
 ```
 
 La variante inicial de Alpha10 había incorporado un marker de `JWPLC_Ethernet`. Ese marker resolvía el shadowing observado en una laptop con una copia antigua de la librería, pero añadió aproximadamente `+5.6%` al warm build del host de benchmark.
 
 ## Protecciones que permanecen
 
-Se conservan los markers de:
-
-```text
-Adafruit ST77xx
-Adafruit GFX
-Adafruit BusIO
-```
-
-porque son dependencias externas vendorizadas/precompiladas y pueden coexistir legítimamente con otras versiones instaladas mediante Arduino Library Manager.
+Se conservan los markers de Adafruit ST77xx, GFX y BusIO porque son dependencias externas vendorizadas/precompiladas y pueden coexistir legítimamente con versiones instaladas mediante Arduino Library Manager.
 
 ## Compatibilidad
 
@@ -46,18 +42,7 @@ OPENPLC_AUTOLOAD_INTEGRATION=NO
 OTA=NOT_DEFINED
 ```
 
-Se mantienen integrados:
-
-- Display;
-- Ethernet W5500;
-- microSD;
-- FRAM;
-- RTC;
-- botonera;
-- RS-485;
-- Modbus RTU;
-- TCA/I/O;
-- arbitraje SPI compartido.
+Se mantienen integrados Display, Ethernet W5500, microSD, FRAM, RTC, botonera, RS-485, Modbus RTU, TCA/I/O y arbitraje SPI compartido.
 
 OpenPLC continúa externo/opcional al runtime Arduino.
 
@@ -136,18 +121,13 @@ ALPHA4_DISPLAY_VISUAL=PASS
 ALPHA4_LOCAL_PHYSICAL_GATE=PASS
 ```
 
-Resultado Alpha10:
-
-```text
-ALPHA10_ARDUINO_IDE_VALIDATION=PASS
-ALPHA10_PHYSICAL_VALIDATION=PASS_WITH_SCOPED_INHERITED_ETH_RTU_EVIDENCE
-```
-
 Ethernet y RS-485/Modbus no fueron sometidos a un nuevo stress físico porque Alpha10 no modifica esos runtimes. Se conserva la evidencia física cerrada en Alpha6/Alpha7/Alpha9 y se revalidó compilación mediante `Ethernet_Diagnostics` y `RemoteIO_Slave_RTU`.
 
 ## Empaquetado para Boards Manager
 
-El archive de publicación debe contener una única carpeta raíz:
+Durante el cierre se detectó que un ZIP creado con `archive_root_mode=contents` no tiene una raíz única y Arduino CLI lo rechaza. Ese artefacto fue descartado.
+
+La publicación final usa y valida una única raíz:
 
 ```text
 2.1.0/
@@ -159,14 +139,29 @@ El archive de publicación debe contener una única carpeta raíz:
   ...
 ```
 
-El workflow oficial debe ejecutarse con:
+El workflow manual quedó simplificado a un único input editable (`version`) y fija internamente la política correcta de empaquetado.
+
+## Artefacto final
 
 ```text
-source_folder=JWPLC/2.1.0
-archive_root_mode=folder
+PUBLISHED_PACKAGE_SOURCE_SHA=f365738e8b0903bca9f93f5c42dfee8310e074b2
+TAG=v2.1.0-alpha.10
+ZIP=jwplc-esp32-2.1.0-alpha.10.zip
+SIZE=24464282
+SHA256=5ca5a71d6de0ddd25c81442d7ea4f840ad48603dd024afcd2925235dc4d1b0bf
+PACKAGE_ROOT=2.1.0/
+PUBLIC_INDEX_UPDATE=NO
+DEV_INDEX_UPDATE=PASS
 ```
 
-Durante el cierre de Alpha10 se detectó y documentó que `archive_root_mode=contents` genera un ZIP que Arduino CLI rechaza por no tener una raíz única. Esa publicación fue descartada y no constituye el artefacto final.
+Validación desde el package publicado:
+
+```text
+ALPHA10_PUBLISHED_EXACT_INSTALL=PASS
+ALPHA10_PUBLISHED_COMPILE=PASS
+ALPHA10_PUBLISHED_UPLOAD=PASS
+ALPHA10_PUBLISHED_RUNTIME=PASS
+```
 
 ## Decisiones de configuración
 
@@ -182,17 +177,7 @@ OTA=NOT_DEFINED
 
 No se publica `bootloader.bin` como definitivo mientras la configuración final siga pendiente.
 
-## Artefacto
-
-El workflow de publicación genera y registra automáticamente el ZIP, `SHA-256` y tamaño en `package_jwplc_index_dev.json` y en el asset del GitHub PreRelease.
-
-```text
-ZIP=jwplc-esp32-2.1.0-alpha.10.zip
-ARTIFACT_METADATA=GENERATED_BY_RELEASE_WORKFLOW
-PUBLIC_INDEX_UPDATE=NO
-```
-
-## Estado técnico antes del gate publicado
+## Estado
 
 ```text
 TECHNICAL_COMMIT_SHA=35385c7286c8a4fdf33aec1af1175b8bb4f45e64
@@ -202,6 +187,10 @@ ALPHA10_BINARY_SIZE_PARITY=PASS
 ALPHA10_FUNCTIONAL_MATRIX=5/5_PASS
 ALPHA10_ARDUINO_IDE_VALIDATION=PASS
 ALPHA10_PHYSICAL_VALIDATION=PASS_WITH_SCOPED_INHERITED_ETH_RTU_EVIDENCE
-ALPHA10_TECHNICAL_CLOSURE=PASS
-ALPHA10_PUBLISHED_PACKAGE_GATE=REQUIRED_BEFORE_CLOSED_PUBLISHED
+ALPHA10_PUBLISHED_INSTALL=PASS
+ALPHA10_PUBLISHED_COMPILE=PASS
+ALPHA10_PUBLISHED_UPLOAD=PASS
+ALPHA10_PUBLISHED_RUNTIME=PASS
+ALPHA10_RELEASE_PUBLICATION=PASS
+ALPHA10_RELEASE_MAIN_TREE_PARITY=PENDING_FINAL_SYNC
 ```
