@@ -3,6 +3,8 @@
 
   const WIDTH = 320;
   const HEIGHT = 170;
+  const FIELD_PADDING = 3;
+  const FIELD_GAP = 4;
 
   const COLORS = [
     { name: 'BLACK', value: 0x0000 },
@@ -22,7 +24,6 @@
   const displayCtx = displayCanvas.getContext('2d', { alpha: false });
   const previewCanvas = document.getElementById('previewCanvas');
   const previewCtx = previewCanvas.getContext('2d', { alpha: false });
-
   const logicalCanvas = document.createElement('canvas');
   logicalCanvas.width = WIDTH;
   logicalCanvas.height = HEIGHT;
@@ -40,39 +41,107 @@
   const activeColorName = document.getElementById('activeColorName');
   const activeColorValue = document.getElementById('activeColorValue');
 
-  const textInput = document.getElementById('textInput');
-  const textXInput = document.getElementById('textX');
-  const textYInput = document.getElementById('textY');
-  const textSizeSelect = document.getElementById('textSize');
-  const textBackgroundSelect = document.getElementById('textBackground');
-  const textScaleStatus = document.getElementById('textScaleStatus');
-  const textBoundsStatus = document.getElementById('textBoundsStatus');
+  const rawSection = document.getElementById('rawTextControlsSection');
+  const fieldSection = document.getElementById('textFieldControlsSection');
+  const rawMetricsSection = document.getElementById('rawMetricsSection');
+  const fieldMetricsSection = document.getElementById('fieldMetricsSection');
+
+  const rawTextInput = document.getElementById('rawTextInput');
+  const rawTextX = document.getElementById('rawTextX');
+  const rawTextY = document.getElementById('rawTextY');
+  const rawTextSize = document.getElementById('rawTextSize');
+  const rawTextBackground = document.getElementById('rawTextBackground');
+  const rawBoundsStatus = document.getElementById('rawBoundsStatus');
+
+  const fieldName = document.getElementById('fieldName');
+  const fieldId = document.getElementById('fieldId');
+  const fieldVariable = document.getElementById('fieldVariable');
+  const fieldCapacity = document.getElementById('fieldCapacity');
+  const fieldX = document.getElementById('fieldX');
+  const fieldY = document.getElementById('fieldY');
+  const fieldPreview = document.getElementById('fieldPreview');
+  const fieldLabel = document.getElementById('fieldLabel');
+  const fieldUnit = document.getElementById('fieldUnit');
+  const fieldValueSize = document.getElementById('fieldValueSize');
+  const fieldLabelSize = document.getElementById('fieldLabelSize');
+  const fieldFrame = document.getElementById('fieldFrame');
+  const fieldLayout = document.getElementById('fieldLayout');
+  const fieldAlign = document.getElementById('fieldAlign');
+  const fieldLabelColor = document.getElementById('fieldLabelColor');
+  const fieldValueColor = document.getElementById('fieldValueColor');
+  const fieldBackgroundColor = document.getElementById('fieldBackgroundColor');
+  const fieldFrameColor = document.getElementById('fieldFrameColor');
+
+  const fieldPadStatus = document.getElementById('fieldPadStatus');
+  const fieldBoundsStatus = document.getElementById('fieldBoundsStatus');
+  const fieldValueBoundsStatus = document.getElementById('fieldValueBoundsStatus');
+  const fieldValueXYStatus = document.getElementById('fieldValueXYStatus');
+  const fieldLayoutStatus = document.getElementById('fieldLayoutStatus');
+
+  const statusTab = document.getElementById('statusTab');
+  const contractTab = document.getElementById('contractTab');
+  const codeOutput = document.getElementById('codeOutput');
 
   let zoom = Number(zoomSelect.value);
   let selectedColor = COLORS.find((color) => color.name === 'ORANGE');
-  let selectedTool = 'text';
+  let selectedTool = 'textField';
   let drawing = false;
-  let draggingText = false;
+  let draggingObject = false;
   let lastPoint = null;
+  let codeMode = 'status';
 
-  const textState = {
-    x: Number(textXInput.value),
-    y: Number(textYInput.value),
-    size: Number(textSizeSelect.value),
-    value: textInput.value,
-    foreground: selectedColor.value,
-    background: 0x0000
+  const rawState = {
+    x: 20,
+    y: 20,
+    size: 2,
+    value: 'TEMP: 25.6 C',
+    foreground: 0xF800,
+    background: 0xFFFF
   };
+
+  const fieldState = {
+    name: 'Estado',
+    id: 'FIELD_STATUS',
+    variable: 'estadoTexto',
+    capacity: 12,
+    x: 20,
+    y: 20,
+    preview: 'READY',
+    label: 'Estado',
+    unit: '',
+    valueSize: 2,
+    labelSize: 1,
+    frame: false,
+    layout: 'INLINE',
+    align: 'LEFT',
+    page: 0,
+    labelColor: 0xFFFF,
+    valueColor: 0x07FF,
+    backgroundColor: 0x0000,
+    frameColor: 0xFFFF
+  };
+
+  function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
 
   function hex565(value) {
     return `0x${value.toString(16).toUpperCase().padStart(4, '0')}`;
+  }
+
+  function colorByName(name) {
+    return COLORS.find((color) => color.name === name) || COLORS[0];
+  }
+
+  function colorName(value) {
+    const match = COLORS.find((color) => color.value === value);
+    return match ? match.name : hex565(value);
   }
 
   function rgb565ToRgb888(value) {
     const r5 = (value >> 11) & 0x1F;
     const g6 = (value >> 5) & 0x3F;
     const b5 = value & 0x1F;
-
     return {
       r: Math.round((r5 * 255) / 31),
       g: Math.round((g6 * 255) / 63),
@@ -106,45 +175,33 @@
     buffer[indexFor(x, y)] = value;
   }
 
-  function getPixel(x, y) {
-    if (!inside(x, y)) return null;
-    return framebuffer[indexFor(x, y)];
+  function fillBufferRect(buffer, x, y, width, height, value) {
+    const x0 = Math.max(0, x);
+    const y0 = Math.max(0, y);
+    const x1 = Math.min(WIDTH, x + width);
+    const y1 = Math.min(HEIGHT, y + height);
+    for (let py = y0; py < y1; py += 1) {
+      for (let px = x0; px < x1; px += 1) {
+        setBufferPixel(buffer, px, py, value);
+      }
+    }
   }
 
-  function clearAll() {
-    pixelLayer.fill(0x0000);
-    textInput.value = '';
-    textState.value = '';
-    render();
-  }
-
-  function resetProject() {
-    pixelLayer.fill(0x0000);
-    selectedTool = 'text';
-    textState.x = 20;
-    textState.y = 20;
-    textState.size = 2;
-    textState.value = 'HOLA JWPLC';
-    textState.foreground = selectedColor.value;
-    textState.background = 0x0000;
-
-    textInput.value = textState.value;
-    textXInput.value = String(textState.x);
-    textYInput.value = String(textState.y);
-    textSizeSelect.value = String(textState.size);
-    textBackgroundSelect.value = 'BLACK';
-    syncToolButtons();
-    render();
+  function drawBufferRect(buffer, x, y, width, height, value) {
+    if (width <= 0 || height <= 0) return;
+    fillBufferRect(buffer, x, y, width, 1, value);
+    fillBufferRect(buffer, x, y + height - 1, width, 1, value);
+    fillBufferRect(buffer, x, y, 1, height, value);
+    fillBufferRect(buffer, x + width - 1, y, 1, height, value);
   }
 
   function rasterLine(x0, y0, x1, y1, value) {
     let dx = Math.abs(x1 - x0);
-    let sx = x0 < x1 ? 1 : -1;
+    const sx = x0 < x1 ? 1 : -1;
     let dy = -Math.abs(y1 - y0);
-    let sy = y0 < y1 ? 1 : -1;
+    const sy = y0 < y1 ? 1 : -1;
     let error = dx + dy;
     let changed = false;
-
     while (true) {
       changed = setLayerPixel(x0, y0, value) || changed;
       if (x0 === x1 && y0 === y1) break;
@@ -158,149 +215,179 @@
         y0 += sy;
       }
     }
-
     return changed;
-  }
-
-  function fillLayerRect(x, y, width, height, value) {
-    const x0 = Math.max(0, x);
-    const y0 = Math.max(0, y);
-    const x1 = Math.min(WIDTH, x + width);
-    const y1 = Math.min(HEIGHT, y + height);
-
-    for (let py = y0; py < y1; py += 1) {
-      for (let px = x0; px < x1; px += 1) {
-        setLayerPixel(px, py, value);
-      }
-    }
-  }
-
-  function fillBufferRect(buffer, x, y, width, height, value) {
-    const x0 = Math.max(0, x);
-    const y0 = Math.max(0, y);
-    const x1 = Math.min(WIDTH, x + width);
-    const y1 = Math.min(HEIGHT, y + height);
-
-    for (let py = y0; py < y1; py += 1) {
-      for (let px = x0; px < x1; px += 1) {
-        setBufferPixel(buffer, px, py, value);
-      }
-    }
-  }
-
-  function drawLayerRect(x, y, width, height, value) {
-    if (width <= 0 || height <= 0) return;
-    rasterLine(x, y, x + width - 1, y, value);
-    rasterLine(x, y + height - 1, x + width - 1, y + height - 1, value);
-    rasterLine(x, y, x, y + height - 1, value);
-    rasterLine(x + width - 1, y, x + width - 1, y + height - 1, value);
-  }
-
-  function drawDemo() {
-    pixelLayer.fill(0x0000);
-
-    const orange = 0xFD20;
-    const white = 0xFFFF;
-    const green = 0x07E0;
-    const red = 0xF800;
-
-    drawLayerRect(6, 6, 308, 158, orange);
-    fillLayerRect(14, 22, 92, 5, orange);
-    fillLayerRect(14, 34, 140, 2, orange);
-
-    drawLayerRect(18, 52, 130, 42, white);
-    fillLayerRect(25, 62, 48, 22, orange);
-    fillLayerRect(86, 62, 50, 22, green);
-
-    drawLayerRect(18, 108, 220, 20, white);
-    fillLayerRect(21, 111, 136, 14, green);
-
-    drawLayerRect(248, 52, 50, 50, white);
-    fillLayerRect(262, 66, 22, 22, red);
-
-    drawLayerRect(236, 136, 62, 18, orange);
-    fillLayerRect(244, 142, 45, 6, orange);
-
-    textState.value = 'HOLA JWPLC';
-    textState.x = 170;
-    textState.y = 24;
-    textState.size = 2;
-    textState.foreground = white;
-    textState.background = 0x0000;
-    textInput.value = textState.value;
-    textXInput.value = String(textState.x);
-    textYInput.value = String(textState.y);
-    textSizeSelect.value = String(textState.size);
-    textBackgroundSelect.value = 'BLACK';
-
-    render();
   }
 
   function drawClassicChar(buffer, x, y, charCode, foreground, background, size) {
     const font = window.JWPLCGfxClassicFont;
     const glyph = font.glyphFor(charCode);
     const scale = Math.max(1, Math.trunc(size));
-
     for (let column = 0; column < font.cellWidth; column += 1) {
       const bits = column < font.bytesPerGlyph ? glyph[column] : 0;
-
       for (let row = 0; row < font.cellHeight; row += 1) {
         const on = column < font.bytesPerGlyph && ((bits >> row) & 0x01) !== 0;
-        const color = on ? foreground : background;
         fillBufferRect(
           buffer,
           x + column * scale,
           y + row * scale,
           scale,
           scale,
-          color
+          on ? foreground : background
         );
       }
     }
   }
 
-  function drawClassicText(buffer) {
-    if (!textState.value) return;
-
+  function drawClassicTextAt(buffer, text, x, y, foreground, background, size) {
+    if (!text) return;
     const font = window.JWPLCGfxClassicFont;
-    const scale = Math.max(1, Math.trunc(textState.size));
-    let cursorX = textState.x;
-    let cursorY = textState.y;
-
-    for (const character of textState.value) {
+    const scale = Math.max(1, Math.trunc(size));
+    let cursorX = x;
+    let cursorY = y;
+    for (const character of text) {
       if (character === '\n') {
-        cursorX = textState.x;
+        cursorX = x;
         cursorY += font.cellHeight * scale;
         continue;
       }
-
       if (character === '\r') continue;
-
-      drawClassicChar(
-        buffer,
-        cursorX,
-        cursorY,
-        character.codePointAt(0),
-        textState.foreground,
-        textState.background,
-        scale
-      );
-
+      drawClassicChar(buffer, cursorX, cursorY, character.codePointAt(0), foreground, background, scale);
       cursorX += font.cellWidth * scale;
     }
   }
 
+  // Equivale al textBounds() corregido del runtime Alpha11:
+  // getTextBounds() 6x8 menos una escala en ancho/alto => cuerpo nominal 5x7.
+  function nominalTextBounds(text, size) {
+    if (!text) return { width: 0, height: 0 };
+    const scale = Math.max(1, Math.trunc(size));
+    return {
+      width: text.length * 6 * scale - scale,
+      height: 7 * scale
+    };
+  }
+
+  function effectiveFieldPadding() {
+    return Math.max(FIELD_PADDING, fieldState.labelSize || 1, fieldState.valueSize || 1);
+  }
+
+  function computeTextFieldGeometry() {
+    const pad = effectiveFieldPadding();
+    const labelBounds = nominalTextBounds(fieldState.label, fieldState.labelSize);
+    const unitBounds = nominalTextBounds(fieldState.unit, fieldState.labelSize);
+    const sample = 'W'.repeat(Math.max(1, fieldState.capacity));
+    const valueBounds = nominalTextBounds(sample, fieldState.valueSize);
+
+    let fieldW;
+    let fieldH;
+    let valueX;
+    let valueY;
+
+    if (fieldState.layout === 'STACKED') {
+      const valueAndUnitW = valueBounds.width + (unitBounds.width > 0 ? FIELD_GAP + unitBounds.width : 0);
+      fieldW = 2 * pad + Math.max(labelBounds.width, valueAndUnitW);
+      fieldH = 2 * pad + labelBounds.height + (labelBounds.height > 0 ? FIELD_GAP : 0) + Math.max(valueBounds.height, unitBounds.height);
+      valueX = fieldState.x + pad;
+      valueY = fieldState.y + pad + labelBounds.height + (labelBounds.height > 0 ? FIELD_GAP : 0);
+    } else {
+      fieldW = 2 * pad + labelBounds.width + (labelBounds.width > 0 ? FIELD_GAP : 0) + valueBounds.width + (unitBounds.width > 0 ? FIELD_GAP + unitBounds.width : 0);
+      fieldH = 2 * pad + Math.max(labelBounds.height, valueBounds.height, unitBounds.height);
+      valueX = fieldState.x + pad + labelBounds.width + (labelBounds.width > 0 ? FIELD_GAP : 0);
+      valueY = fieldState.y + pad;
+    }
+
+    return {
+      pad,
+      fieldX: fieldState.x,
+      fieldY: fieldState.y,
+      fieldW,
+      fieldH,
+      valueX,
+      valueY,
+      valueW: valueBounds.width,
+      valueH: valueBounds.height,
+      labelBounds,
+      unitBounds
+    };
+  }
+
+  function alignedValueX(geometry) {
+    const current = nominalTextBounds(fieldState.preview, fieldState.valueSize).width;
+    if (current >= geometry.valueW) return geometry.valueX;
+    const free = geometry.valueW - current;
+    if (fieldState.align === 'CENTER') return geometry.valueX + Math.floor(free / 2);
+    if (fieldState.align === 'RIGHT') return geometry.valueX + free;
+    return geometry.valueX;
+  }
+
+  function drawTextField(buffer) {
+    const g = computeTextFieldGeometry();
+    fillBufferRect(buffer, g.fieldX, g.fieldY, g.fieldW, g.fieldH, fieldState.backgroundColor);
+    if (fieldState.frame && g.fieldW > 1 && g.fieldH > 1) {
+      drawBufferRect(buffer, g.fieldX, g.fieldY, g.fieldW, g.fieldH, fieldState.frameColor);
+    }
+
+    if (fieldState.label) {
+      drawClassicTextAt(
+        buffer,
+        fieldState.label,
+        fieldState.x + g.pad,
+        fieldState.y + g.pad,
+        fieldState.labelColor,
+        fieldState.backgroundColor,
+        fieldState.labelSize
+      );
+    }
+
+    if (fieldState.unit) {
+      drawClassicTextAt(
+        buffer,
+        fieldState.unit,
+        g.valueX + g.valueW + FIELD_GAP,
+        g.valueY,
+        fieldState.labelColor,
+        fieldState.backgroundColor,
+        fieldState.labelSize
+      );
+    }
+
+    const preview = fieldState.preview.slice(0, fieldState.capacity);
+    if (preview) {
+      drawClassicTextAt(
+        buffer,
+        preview,
+        alignedValueX(g),
+        g.valueY,
+        fieldState.valueColor,
+        fieldState.backgroundColor,
+        fieldState.valueSize
+      );
+    }
+
+    return g;
+  }
+
   function composeFramebuffer() {
     framebuffer.set(pixelLayer);
-    drawClassicText(framebuffer);
+    if (selectedTool === 'rawText') {
+      drawClassicTextAt(
+        framebuffer,
+        rawState.value,
+        rawState.x,
+        rawState.y,
+        rawState.foreground,
+        rawState.background,
+        rawState.size
+      );
+    } else if (selectedTool === 'textField') {
+      drawTextField(framebuffer);
+    }
   }
 
   function rebuildLogicalImage() {
     composeFramebuffer();
-
     const image = logicalCtx.createImageData(WIDTH, HEIGHT);
     const bytes = image.data;
-
     for (let i = 0; i < framebuffer.length; i += 1) {
       const { r, g, b } = rgb565ToRgb888(framebuffer[i]);
       const offset = i * 4;
@@ -309,41 +396,77 @@
       bytes[offset + 2] = b;
       bytes[offset + 3] = 255;
     }
-
     logicalCtx.putImageData(image, 0, 0);
   }
 
   function drawGrid() {
     if (!gridToggle.checked || zoom < 3) return;
-
     displayCtx.save();
     displayCtx.strokeStyle = 'rgba(118, 151, 176, 0.18)';
     displayCtx.lineWidth = 1;
     displayCtx.beginPath();
-
     for (let x = 0; x <= WIDTH; x += 1) {
       const px = x * zoom + 0.5;
       displayCtx.moveTo(px, 0);
       displayCtx.lineTo(px, HEIGHT * zoom);
     }
-
     for (let y = 0; y <= HEIGHT; y += 1) {
       const py = y * zoom + 0.5;
       displayCtx.moveTo(0, py);
       displayCtx.lineTo(WIDTH * zoom, py);
     }
-
     displayCtx.stroke();
     displayCtx.restore();
   }
 
-  function updateTextMetrics() {
-    const font = window.JWPLCGfxClassicFont;
-    const scale = Math.max(1, Math.trunc(textState.size));
-    const width = textState.value.length * font.cellWidth * scale;
-    const height = font.cellHeight * scale;
-    textScaleStatus.textContent = `${scale}×`;
-    textBoundsStatus.textContent = `${width} × ${height} px`;
+  function sanitizeSymbol(value, fallback) {
+    const cleaned = String(value || '').trim().replace(/[^A-Za-z0-9_]/g, '_');
+    if (!cleaned) return fallback;
+    return /^[A-Za-z_]/.test(cleaned) ? cleaned : `_${cleaned}`;
+  }
+
+  function cppString(value) {
+    return String(value || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  }
+
+  function buildContractText() {
+    const id = sanitizeSymbol(fieldState.id, 'FIELD_STATUS');
+    const variable = sanitizeSymbol(fieldState.variable, 'estadoTexto');
+    const capacity = Math.max(1, fieldState.capacity);
+    const layout = `JWPLC_UI_LAYOUT_${fieldState.layout}`;
+    const align = `JWPLC_UI_ALIGN_${fieldState.align}`;
+    const frame = fieldState.frame ? 'true' : 'false';
+    const label = fieldState.label ? `"${cppString(fieldState.label)}"` : 'nullptr';
+    const unit = fieldState.unit ? `"${cppString(fieldState.unit)}"` : 'nullptr';
+
+    return `// Contrato generado por el Designer (A11-3A)\n\nenum HMIFieldId : uint8_t\n{\n    ${id} = 1\n};\n\nchar ${variable}[${capacity + 1}] = {};\n\nstatic const JWPLC_UIField HMI_FIELDS[] =\n{\n    JWPLC_UITextField(\n        ${id},\n        JWPLC_UIRect(${fieldState.x}, ${fieldState.y}),\n        JWPLC_UIText(${label}, ${unit}, ${capacity}),\n        JWPLC_UITextFieldStyle(\n            ${fieldState.valueSize},\n            ${fieldState.labelSize},\n            ${frame},\n            ${layout},\n            ${align}),\n        ${fieldState.page},\n        JWPLC_UIColors(\n            ${colorName(fieldState.labelColor)},\n            ${colorName(fieldState.valueColor)},\n            ${colorName(fieldState.backgroundColor)},\n            ${colorName(fieldState.frameColor)}))\n};\n\nvoid jwplcHMISetup()\n{\n    JWPLC_Display.setFields(\n        HMI_FIELDS,\n        sizeof(HMI_FIELDS) / sizeof(HMI_FIELDS[0]));\n}\n\n// jwplcUIUpdate() NO se genera.\n// El usuario alimenta ${variable} y usa JWPLC_Display.setText(${id}, ${variable});`;
+  }
+
+  function buildStatusText() {
+    const g = computeTextFieldGeometry();
+    return `A11-0 Arquitectura: PASS\nA11-1 Pixel Canvas: PASS\nA11-2 Texto / métricas balanceadas source: PASS\n\nA11-3A TEXT field: IN_PROGRESS\n- API objetivo: JWPLC_UITextField(...)\n- runtime duplicado: NO\n- métrica layout: 5×7 nominal\n- raster: GFX clásico 6×8\n- FIELD_PADDING mínimo: 3 px\n- effectivePadding: ${g.pad} px\n- FIELD_GAP: 4 px\n- AUTO field: ${g.fieldW} × ${g.fieldH} px\n- value region: ${g.valueW} × ${g.valueH} px\n- variable: ${sanitizeSymbol(fieldState.variable, 'estadoTexto')}[${fieldState.capacity + 1}]\n\nPendiente de A11-3A: validar Designer ↔ TFT usando JWPLC_UITextField.`;
+  }
+
+  function updateMetrics() {
+    if (selectedTool === 'rawText') {
+      const width = rawState.value ? rawState.value.length * 6 * rawState.size : 0;
+      const height = rawState.value ? 8 * rawState.size : 0;
+      rawBoundsStatus.textContent = `${width} × ${height} px`;
+      return;
+    }
+
+    if (selectedTool === 'textField') {
+      const g = computeTextFieldGeometry();
+      fieldPadStatus.textContent = `${g.pad} px`;
+      fieldBoundsStatus.textContent = `${g.fieldW} × ${g.fieldH} px`;
+      fieldValueBoundsStatus.textContent = `${g.valueW} × ${g.valueH} px`;
+      fieldValueXYStatus.textContent = `${g.valueX}, ${g.valueY}`;
+      fieldLayoutStatus.textContent = fieldState.layout;
+    }
+  }
+
+  function updateCodePanel() {
+    codeOutput.textContent = codeMode === 'contract' ? buildContractText() : buildStatusText();
   }
 
   function render() {
@@ -356,63 +479,25 @@
 
     displayCtx.imageSmoothingEnabled = false;
     displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
-    displayCtx.drawImage(
-      logicalCanvas,
-      0,
-      0,
-      WIDTH,
-      HEIGHT,
-      0,
-      0,
-      WIDTH * zoom,
-      HEIGHT * zoom
-    );
-
+    displayCtx.drawImage(logicalCanvas, 0, 0, WIDTH, HEIGHT, 0, 0, WIDTH * zoom, HEIGHT * zoom);
     drawGrid();
 
     previewCtx.imageSmoothingEnabled = false;
     previewCtx.clearRect(0, 0, WIDTH, HEIGHT);
     previewCtx.drawImage(logicalCanvas, 0, 0);
 
-    updateTextMetrics();
+    updateMetrics();
+    updateCodePanel();
   }
 
   function pointFromPointer(event) {
     const rect = displayCanvas.getBoundingClientRect();
     const scaleX = displayCanvas.width / rect.width;
     const scaleY = displayCanvas.height / rect.height;
-    const x = Math.floor(((event.clientX - rect.left) * scaleX) / zoom);
-    const y = Math.floor(((event.clientY - rect.top) * scaleY) / zoom);
-    return { x, y };
-  }
-
-  function activeDrawValue() {
-    return selectedTool === 'erase' ? 0x0000 : selectedColor.value;
-  }
-
-  function drawAt(point) {
-    if (!inside(point.x, point.y)) return;
-
-    const value = activeDrawValue();
-    let changed;
-
-    if (lastPoint === null) {
-      changed = setLayerPixel(point.x, point.y, value);
-    } else {
-      changed = rasterLine(lastPoint.x, lastPoint.y, point.x, point.y, value);
-    }
-
-    lastPoint = point;
-    if (changed) render();
-  }
-
-  function placeTextAt(point) {
-    if (!inside(point.x, point.y)) return;
-    textState.x = point.x;
-    textState.y = point.y;
-    textXInput.value = String(textState.x);
-    textYInput.value = String(textState.y);
-    render();
+    return {
+      x: Math.floor(((event.clientX - rect.left) * scaleX) / zoom),
+      y: Math.floor(((event.clientY - rect.top) * scaleY) / zoom)
+    };
   }
 
   function updateCursor(point) {
@@ -421,10 +506,18 @@
       pixelStatus.textContent = 'Pixel: —';
       return;
     }
-
-    const value = getPixel(point.x, point.y);
     cursorStatus.textContent = `X: ${point.x} · Y: ${point.y}`;
-    pixelStatus.textContent = `Pixel: ${hex565(value)}`;
+    pixelStatus.textContent = `Pixel: ${hex565(framebuffer[indexFor(point.x, point.y)])}`;
+  }
+
+  function syncToolUI() {
+    document.querySelectorAll('.tool[data-tool]').forEach((button) => {
+      button.classList.toggle('active', button.dataset.tool === selectedTool);
+    });
+    rawSection.hidden = selectedTool !== 'rawText';
+    fieldSection.hidden = selectedTool !== 'textField';
+    rawMetricsSection.hidden = selectedTool !== 'rawText';
+    fieldMetricsSection.hidden = selectedTool !== 'textField';
   }
 
   function updateActiveColorUI() {
@@ -433,142 +526,266 @@
     activeColorValue.textContent = hex565(selectedColor.value);
   }
 
-  function syncToolButtons() {
-    document.querySelectorAll('.tool[data-tool]').forEach((item) => {
-      item.classList.toggle('active', item.dataset.tool === selectedTool);
+  function buildColorSelect(select, selectedName) {
+    select.innerHTML = '';
+    COLORS.forEach((color) => {
+      const option = document.createElement('option');
+      option.value = color.name;
+      option.textContent = `${color.name} · ${hex565(color.value)}`;
+      option.selected = color.name === selectedName;
+      select.appendChild(option);
     });
   }
 
   function buildPalette() {
+    palette.innerHTML = '';
     COLORS.forEach((color) => {
       const button = document.createElement('button');
       button.className = 'palette-button';
       button.title = `${color.name} ${hex565(color.value)}`;
       button.style.background = rgb565ToCss(color.value);
-      button.dataset.colorName = color.name;
-
-      if (color.name === selectedColor.name) {
-        button.classList.add('active');
-      }
-
       button.addEventListener('click', () => {
         selectedColor = color;
-        if (selectedTool === 'text') {
-          textState.foreground = color.value;
-        }
-
-        document.querySelectorAll('.palette-button').forEach((item) => {
-          item.classList.toggle('active', item === button);
-        });
-
+        if (selectedTool === 'rawText') rawState.foreground = color.value;
         updateActiveColorUI();
+        buildPalette();
         render();
       });
-
+      button.classList.toggle('active', selectedColor.name === color.name);
       palette.appendChild(button);
     });
   }
 
-  function buildBackgroundSelect() {
-    COLORS.forEach((color) => {
-      const option = document.createElement('option');
-      option.value = color.name;
-      option.textContent = `${color.name} · ${hex565(color.value)}`;
-      if (color.name === 'BLACK') option.selected = true;
-      textBackgroundSelect.appendChild(option);
-    });
+  function syncInputsFromState() {
+    rawTextInput.value = rawState.value;
+    rawTextX.value = String(rawState.x);
+    rawTextY.value = String(rawState.y);
+    rawTextSize.value = String(rawState.size);
+    rawTextBackground.value = colorName(rawState.background);
+
+    fieldName.value = fieldState.name;
+    fieldId.value = fieldState.id;
+    fieldVariable.value = fieldState.variable;
+    fieldCapacity.value = String(fieldState.capacity);
+    fieldX.value = String(fieldState.x);
+    fieldY.value = String(fieldState.y);
+    fieldPreview.value = fieldState.preview;
+    fieldLabel.value = fieldState.label;
+    fieldUnit.value = fieldState.unit;
+    fieldValueSize.value = String(fieldState.valueSize);
+    fieldLabelSize.value = String(fieldState.labelSize);
+    fieldFrame.value = fieldState.frame ? '1' : '0';
+    fieldLayout.value = fieldState.layout;
+    fieldAlign.value = fieldState.align;
+    fieldLabelColor.value = colorName(fieldState.labelColor);
+    fieldValueColor.value = colorName(fieldState.valueColor);
+    fieldBackgroundColor.value = colorName(fieldState.backgroundColor);
+    fieldFrameColor.value = colorName(fieldState.frameColor);
   }
 
-  function syncTextStateFromControls() {
-    textState.value = textInput.value;
-    textState.x = Math.max(0, Math.min(WIDTH - 1, Number(textXInput.value) || 0));
-    textState.y = Math.max(0, Math.min(HEIGHT - 1, Number(textYInput.value) || 0));
-    textState.size = Math.max(1, Number(textSizeSelect.value) || 1);
-
-    const bg = COLORS.find((color) => color.name === textBackgroundSelect.value);
-    textState.background = bg ? bg.value : 0x0000;
-
-    textXInput.value = String(textState.x);
-    textYInput.value = String(textState.y);
+  function resetProject() {
+    pixelLayer.fill(0x0000);
+    selectedTool = 'textField';
+    Object.assign(fieldState, {
+      name: 'Estado',
+      id: 'FIELD_STATUS',
+      variable: 'estadoTexto',
+      capacity: 12,
+      x: 20,
+      y: 20,
+      preview: 'READY',
+      label: 'Estado',
+      unit: '',
+      valueSize: 2,
+      labelSize: 1,
+      frame: false,
+      layout: 'INLINE',
+      align: 'LEFT',
+      page: 0,
+      labelColor: 0xFFFF,
+      valueColor: 0x07FF,
+      backgroundColor: 0x0000,
+      frameColor: 0xFFFF
+    });
+    syncInputsFromState();
+    syncToolUI();
     render();
   }
 
-  displayCanvas.addEventListener('pointerdown', (event) => {
-    const point = pointFromPointer(event);
-    updateCursor(point);
-    displayCanvas.setPointerCapture(event.pointerId);
+  function demoTextField() {
+    pixelLayer.fill(0x0000);
+    selectedTool = 'textField';
+    Object.assign(fieldState, {
+      name: 'Estado de máquina',
+      id: 'FIELD_STATUS',
+      variable: 'estadoTexto',
+      capacity: 12,
+      x: 18,
+      y: 28,
+      preview: 'PRODUCCION',
+      label: 'Estado',
+      unit: '',
+      valueSize: 2,
+      labelSize: 1,
+      frame: true,
+      layout: 'STACKED',
+      align: 'CENTER',
+      labelColor: 0xFFFF,
+      valueColor: 0x07E0,
+      backgroundColor: 0x0000,
+      frameColor: 0xFD20
+    });
+    syncInputsFromState();
+    syncToolUI();
+    render();
+  }
 
-    if (selectedTool === 'text') {
-      draggingText = true;
-      placeTextAt(point);
-      return;
-    }
+  function bindInput(element, handler) {
+    element.addEventListener('input', () => {
+      handler();
+      render();
+    });
+    element.addEventListener('change', () => {
+      handler();
+      render();
+    });
+  }
 
-    drawing = true;
-    lastPoint = null;
-    drawAt(point);
-  });
-
-  displayCanvas.addEventListener('pointermove', (event) => {
-    const point = pointFromPointer(event);
-    updateCursor(point);
-
-    if (selectedTool === 'text' && draggingText) {
-      placeTextAt(point);
-    } else if (drawing) {
-      drawAt(point);
-    }
-  });
-
-  displayCanvas.addEventListener('pointerup', (event) => {
-    drawing = false;
-    draggingText = false;
-    lastPoint = null;
-    if (displayCanvas.hasPointerCapture(event.pointerId)) {
-      displayCanvas.releasePointerCapture(event.pointerId);
-    }
-  });
-
-  displayCanvas.addEventListener('pointercancel', () => {
-    drawing = false;
-    draggingText = false;
-    lastPoint = null;
-  });
-
-  displayCanvas.addEventListener('pointerleave', () => {
-    if (!drawing && !draggingText) {
-      cursorStatus.textContent = 'X: — · Y: —';
-      pixelStatus.textContent = 'Pixel: —';
-    }
+  document.querySelectorAll('.tool[data-tool]').forEach((button) => {
+    button.addEventListener('click', () => {
+      selectedTool = button.dataset.tool;
+      syncToolUI();
+      render();
+    });
   });
 
   zoomSelect.addEventListener('change', () => {
     zoom = Number(zoomSelect.value);
     render();
   });
-
   gridToggle.addEventListener('change', render);
-  clearButton.addEventListener('click', clearAll);
   newProjectButton.addEventListener('click', resetProject);
-  demoButton.addEventListener('click', drawDemo);
-
-  [textInput, textXInput, textYInput, textSizeSelect, textBackgroundSelect]
-    .forEach((control) => control.addEventListener('input', syncTextStateFromControls));
-
-  document.querySelectorAll('.tool[data-tool]').forEach((button) => {
-    button.addEventListener('click', () => {
-      selectedTool = button.dataset.tool;
-      if (selectedTool === 'text') {
-        textState.foreground = selectedColor.value;
-      }
-      syncToolButtons();
-      render();
-    });
+  demoButton.addEventListener('click', demoTextField);
+  clearButton.addEventListener('click', () => {
+    pixelLayer.fill(0x0000);
+    if (selectedTool === 'rawText') rawState.value = '';
+    if (selectedTool === 'textField') fieldState.preview = '';
+    syncInputsFromState();
+    render();
   });
 
+  bindInput(rawTextInput, () => { rawState.value = rawTextInput.value; });
+  bindInput(rawTextX, () => { rawState.x = clamp(Number(rawTextX.value) || 0, 0, WIDTH - 1); });
+  bindInput(rawTextY, () => { rawState.y = clamp(Number(rawTextY.value) || 0, 0, HEIGHT - 1); });
+  bindInput(rawTextSize, () => { rawState.size = Number(rawTextSize.value) || 1; });
+  bindInput(rawTextBackground, () => { rawState.background = colorByName(rawTextBackground.value).value; });
+
+  bindInput(fieldName, () => { fieldState.name = fieldName.value; });
+  bindInput(fieldId, () => { fieldState.id = fieldId.value; });
+  bindInput(fieldVariable, () => { fieldState.variable = fieldVariable.value; });
+  bindInput(fieldCapacity, () => {
+    fieldState.capacity = clamp(Number(fieldCapacity.value) || 1, 1, 39);
+    fieldState.preview = fieldState.preview.slice(0, fieldState.capacity);
+    fieldPreview.value = fieldState.preview;
+  });
+  bindInput(fieldX, () => { fieldState.x = clamp(Number(fieldX.value) || 0, 0, WIDTH - 1); });
+  bindInput(fieldY, () => { fieldState.y = clamp(Number(fieldY.value) || 0, 0, HEIGHT - 1); });
+  bindInput(fieldPreview, () => {
+    fieldState.preview = fieldPreview.value.slice(0, fieldState.capacity);
+    if (fieldPreview.value !== fieldState.preview) fieldPreview.value = fieldState.preview;
+  });
+  bindInput(fieldLabel, () => { fieldState.label = fieldLabel.value; });
+  bindInput(fieldUnit, () => { fieldState.unit = fieldUnit.value; });
+  bindInput(fieldValueSize, () => { fieldState.valueSize = Number(fieldValueSize.value) || 1; });
+  bindInput(fieldLabelSize, () => { fieldState.labelSize = Number(fieldLabelSize.value) || 1; });
+  bindInput(fieldFrame, () => { fieldState.frame = fieldFrame.value === '1'; });
+  bindInput(fieldLayout, () => { fieldState.layout = fieldLayout.value; });
+  bindInput(fieldAlign, () => { fieldState.align = fieldAlign.value; });
+  bindInput(fieldLabelColor, () => { fieldState.labelColor = colorByName(fieldLabelColor.value).value; });
+  bindInput(fieldValueColor, () => { fieldState.valueColor = colorByName(fieldValueColor.value).value; });
+  bindInput(fieldBackgroundColor, () => { fieldState.backgroundColor = colorByName(fieldBackgroundColor.value).value; });
+  bindInput(fieldFrameColor, () => { fieldState.frameColor = colorByName(fieldFrameColor.value).value; });
+
+  statusTab.addEventListener('click', () => {
+    codeMode = 'status';
+    statusTab.classList.add('active');
+    contractTab.classList.remove('active');
+    updateCodePanel();
+  });
+  contractTab.addEventListener('click', () => {
+    codeMode = 'contract';
+    contractTab.classList.add('active');
+    statusTab.classList.remove('active');
+    updateCodePanel();
+  });
+
+  displayCanvas.addEventListener('pointerdown', (event) => {
+    const point = pointFromPointer(event);
+    if (!inside(point.x, point.y)) return;
+    displayCanvas.setPointerCapture(event.pointerId);
+    if (selectedTool === 'pixel' || selectedTool === 'erase') {
+      drawing = true;
+      lastPoint = null;
+      const value = selectedTool === 'erase' ? 0x0000 : selectedColor.value;
+      lastPoint = point;
+      setLayerPixel(point.x, point.y, value);
+    } else {
+      draggingObject = true;
+      if (selectedTool === 'rawText') {
+        rawState.x = point.x;
+        rawState.y = point.y;
+      } else if (selectedTool === 'textField') {
+        fieldState.x = point.x;
+        fieldState.y = point.y;
+      }
+      syncInputsFromState();
+    }
+    render();
+  });
+
+  displayCanvas.addEventListener('pointermove', (event) => {
+    const point = pointFromPointer(event);
+    updateCursor(point);
+    if (!inside(point.x, point.y)) return;
+    if (drawing) {
+      const value = selectedTool === 'erase' ? 0x0000 : selectedColor.value;
+      if (lastPoint) rasterLine(lastPoint.x, lastPoint.y, point.x, point.y, value);
+      else setLayerPixel(point.x, point.y, value);
+      lastPoint = point;
+      render();
+    } else if (draggingObject) {
+      if (selectedTool === 'rawText') {
+        rawState.x = point.x;
+        rawState.y = point.y;
+      } else if (selectedTool === 'textField') {
+        fieldState.x = point.x;
+        fieldState.y = point.y;
+      }
+      syncInputsFromState();
+      render();
+    }
+  });
+
+  function endPointer() {
+    drawing = false;
+    draggingObject = false;
+    lastPoint = null;
+  }
+  displayCanvas.addEventListener('pointerup', endPointer);
+  displayCanvas.addEventListener('pointercancel', endPointer);
+  displayCanvas.addEventListener('pointerleave', () => {
+    cursorStatus.textContent = 'X: — · Y: —';
+    pixelStatus.textContent = 'Pixel: —';
+  });
+
+  buildColorSelect(rawTextBackground, 'WHITE');
+  buildColorSelect(fieldLabelColor, 'WHITE');
+  buildColorSelect(fieldValueColor, 'CYAN');
+  buildColorSelect(fieldBackgroundColor, 'BLACK');
+  buildColorSelect(fieldFrameColor, 'WHITE');
   buildPalette();
-  buildBackgroundSelect();
   updateActiveColorUI();
-  syncToolButtons();
-  resetProject();
+  syncInputsFromState();
+  syncToolUI();
+  render();
 })();
