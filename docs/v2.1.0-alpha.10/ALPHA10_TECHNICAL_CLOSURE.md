@@ -1,6 +1,6 @@
 # Alpha10 - Cierre técnico
 
-Fecha: 2026-09-05.
+Fecha de cierre: 2026-09-05.
 
 ## Resumen
 
@@ -27,7 +27,7 @@ PRECOMPILED_ARCHIVES_CHANGED=NO
 AUTOLOAD_PERIPHERALS_REMOVED=NO
 ```
 
-Se conservan `JWPLC_Bundled_Adafruit_ST77xx.h`, `JWPLC_Bundled_Adafruit_GFX.h`, `JWPLC_Bundled_Adafruit_BusIO.h` y `JWPLC_LIBRARY_DISCOVERY_PHASE`: son protecciones de dependencias externas vendorizadas/precompiladas y no equivalen al override manual de una librería JW/JWPLC propia.
+Se conservan `JWPLC_Bundled_Adafruit_ST77xx.h`, `JWPLC_Bundled_Adafruit_GFX.h`, `JWPLC_Bundled_Adafruit_BusIO.h` y `JWPLC_LIBRARY_DISCOVERY_PHASE` por corresponder a dependencias externas vendorizadas/precompiladas.
 
 ## Benchmark
 
@@ -66,7 +66,7 @@ ALPHA10_BINARY_SIZE_PARITY=PASS
 
 Detalle completo: `ALPHA10_BUILD_BENCHMARK.md`.
 
-## Matriz funcional y hardware local
+## Matriz funcional y hardware
 
 ```text
 DigitalIO_Basic=PASS
@@ -81,7 +81,7 @@ UNDEFINED_REFERENCE_HITS=0
 ALPHA10_LOCAL_FUNCTIONAL_MATRIX=5/5_PASS
 ```
 
-Gate físico desde Arduino IDE:
+Gate físico:
 
 ```text
 ALPHA4_DISPLAY_READY=PASS
@@ -97,7 +97,7 @@ ALPHA4_LOCAL_PHYSICAL_GATE=PASS
 
 Ethernet y RS-485/Modbus RTU no recibieron un nuevo stress porque Alpha10 no cambia sus runtimes. Se conserva la evidencia física de Alpha6/Alpha7/Alpha9 y se revalidó compilación de `Ethernet_Diagnostics` y `RemoteIO_Slave_RTU`.
 
-## Hallazgo de empaquetado y corrección
+## Hallazgo de empaquetado
 
 La primera reedición del release se generó con `archive_root_mode=contents`. Arduino CLI la rechazó con:
 
@@ -105,7 +105,7 @@ La primera reedición del release se generó con `archive_root_mode=contents`. A
 no unique root dir in archive
 ```
 
-Ese artefacto se descartó y no constituye la publicación final. Se corrigió la automatización para que el package de Boards Manager use siempre una única raíz:
+Ese artefacto se descartó. El workflow final usa y valida una única raíz:
 
 ```text
 2.1.0/
@@ -117,16 +117,9 @@ Ese artefacto se descartó y no constituye la publicación final. Se corrigió l
   ...
 ```
 
-Además, el workflow manual quedó reducido a un único input editable (`version`) y ahora valida antes de publicar:
-
-```text
-JWPLC_PACKAGE_UNIQUE_ROOT=PASS
-JWPLC_PACKAGE_REQUIRED_FILES=PASS
-```
+El workflow manual quedó reducido a un único input editable (`version`) y valida la raíz y los archivos requeridos antes de publicar.
 
 ## Publicación final validada
-
-Workflow final: `Release JWPLC Arduino Package` #19.
 
 ```text
 PUBLISHED_PACKAGE_SOURCE_SHA=f365738e8b0903bca9f93f5c42dfee8310e074b2
@@ -135,22 +128,33 @@ ZIP=jwplc-esp32-2.1.0-alpha.10.zip
 SIZE=24464282
 SHA256=5ca5a71d6de0ddd25c81442d7ea4f840ad48603dd024afcd2925235dc4d1b0bf
 PACKAGE_ROOT=2.1.0/
-PR_INDEX=92
 ```
 
-La instalación exacta desde el índice de la publicación final quedó validada:
+Validación desde el package publicado:
 
 ```text
-Platform jwplc:esp32@2.1.0-alpha.10 installed
 ALPHA10_PUBLISHED_EXACT_INSTALL=PASS
 ALPHA10_PUBLISHED_COMPILE=PASS
 ALPHA10_PUBLISHED_UPLOAD=PASS
 ALPHA10_PUBLISHED_RUNTIME=PASS
 ```
 
-El gate físico post-upload volvió a cerrar todos los checks de Display, RTC, FRAM, microSD, botonera, DI, DO y TFT visual en PASS.
+El tag permanece apuntando al commit fuente del package probado (`f365738e...`). Los commits posteriores sólo sincronizan automatización, índices y documentación, por lo que no requieren republicar el ZIP validado.
 
-El tag permanece correctamente apuntando al commit fuente del package probado (`f365738e...`). Los commits posteriores de cierre modifican únicamente automatización/documentación/índices y no requieren republicar el ZIP ya validado.
+## README y sincronización final
+
+El README raíz fue reorganizado tomando Alpha1 como referencia de distribución. Los dos índices JSON quedaron en la primera sección útil, se actualizó la lista real de librerías y se eliminó la descripción obsoleta del guard `JWPLC_Bundled_JWPLC_Ethernet.h` como comportamiento vigente.
+
+El sync de contenido se realizó con PR #93 mediante un branch creado directamente desde `main` y un commit cuyo árbol coincidía con `release/v2.1.x`. Después del merge:
+
+```text
+MAIN_COMMIT_AFTER_SYNC=d25db91db2f327b4e97bef1ff339fc514548a632
+MAIN_TREE_AFTER_SYNC=7d0358741d525445630814894dde6ea2cab37dbd
+RELEASE_TREE_AT_SYNC=7d0358741d525445630814894dde6ea2cab37dbd
+ALPHA10_RELEASE_MAIN_TREE_PARITY=PASS
+```
+
+La historia Git puede seguir divergente por los squash merges históricos; el criterio de cierre es la paridad de árbol/contenido.
 
 ## Decisiones heredadas
 
@@ -167,7 +171,7 @@ OPENPLC_AUTOLOAD_INTEGRATION=NO
 
 No se publica `bootloader.bin` como definitivo.
 
-## Estado técnico
+## Estado final
 
 ```text
 ALPHA10_SCOPE=BUILD_SPEED_CLEANUP
@@ -183,7 +187,8 @@ ALPHA10_PUBLISHED_COMPILE=PASS
 ALPHA10_PUBLISHED_UPLOAD=PASS
 ALPHA10_PUBLISHED_RUNTIME=PASS
 ALPHA10_RELEASE_PUBLICATION=PASS
+ALPHA10_RELEASE_MAIN_TREE_PARITY=PASS
 ALPHA10_TECHNICAL_CLOSURE=PASS
-ALPHA10_RELEASE_MAIN_TREE_PARITY=PENDING_FINAL_SYNC
-NEXT_ALPHA=BLOCKED_UNTIL_TREE_PARITY
+ALPHA10_STATUS=CLOSED_PUBLISHED
+NEXT=ALPHA11
 ```
