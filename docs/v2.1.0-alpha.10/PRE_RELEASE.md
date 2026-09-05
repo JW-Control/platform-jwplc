@@ -1,7 +1,5 @@
 # v2.1.0-alpha.10 - JWPLC Arduino package
 
-> Borrador final de PreRelease para la reedición de Alpha10. Publicar sólo después de integrar PR #90 y reemplazar el release/tag interno previo.
-
 ## Resumen
 
 Alpha10 optimiza el ciclo de compilación eliminando un guard de library discovery que protegía una instalación manual/paralela de `JWPLC_Ethernet` en el sketchbook.
@@ -147,6 +145,29 @@ ALPHA10_PHYSICAL_VALIDATION=PASS_WITH_SCOPED_INHERITED_ETH_RTU_EVIDENCE
 
 Ethernet y RS-485/Modbus no fueron sometidos a un nuevo stress físico porque Alpha10 no modifica esos runtimes. Se conserva la evidencia física cerrada en Alpha6/Alpha7/Alpha9 y se revalidó compilación mediante `Ethernet_Diagnostics` y `RemoteIO_Slave_RTU`.
 
+## Empaquetado para Boards Manager
+
+El archive de publicación debe contener una única carpeta raíz:
+
+```text
+2.1.0/
+  boards.txt
+  platform.txt
+  cores/
+  libraries/
+  variants/
+  ...
+```
+
+El workflow oficial debe ejecutarse con:
+
+```text
+source_folder=JWPLC/2.1.0
+archive_root_mode=folder
+```
+
+Durante el cierre de Alpha10 se detectó y documentó que `archive_root_mode=contents` genera un ZIP que Arduino CLI rechaza por no tener una raíz única. Esa publicación fue descartada y no constituye el artefacto final.
+
 ## Decisiones de configuración
 
 ```text
@@ -163,17 +184,15 @@ No se publica `bootloader.bin` como definitivo mientras la configuración final 
 
 ## Artefacto
 
-Completar después del workflow de publicación final:
+El workflow de publicación genera y registra automáticamente el ZIP, `SHA-256` y tamaño en `package_jwplc_index_dev.json` y en el asset del GitHub PreRelease.
 
 ```text
 ZIP=jwplc-esp32-2.1.0-alpha.10.zip
-SIZE=PENDING_NEW_RELEASE
-SHA-256=PENDING_NEW_RELEASE
+ARTIFACT_METADATA=GENERATED_BY_RELEASE_WORKFLOW
+PUBLIC_INDEX_UPDATE=NO
 ```
 
-El ZIP/SHA de la publicación Alpha10 interna anterior queda obsoleto al reemplazar esa publicación y no debe reutilizarse como evidencia final.
-
-## Estado previo a publicación
+## Estado técnico antes del gate publicado
 
 ```text
 TECHNICAL_COMMIT_SHA=35385c7286c8a4fdf33aec1af1175b8bb4f45e64
@@ -184,6 +203,5 @@ ALPHA10_FUNCTIONAL_MATRIX=5/5_PASS
 ALPHA10_ARDUINO_IDE_VALIDATION=PASS
 ALPHA10_PHYSICAL_VALIDATION=PASS_WITH_SCOPED_INHERITED_ETH_RTU_EVIDENCE
 ALPHA10_TECHNICAL_CLOSURE=PASS
-ALPHA10_PUBLICATION_REPLACEMENT=PENDING
-DO_NOT_PUBLISH_BEFORE_PR90_MERGE=TRUE
+ALPHA10_PUBLISHED_PACKAGE_GATE=REQUIRED_BEFORE_CLOSED_PUBLISHED
 ```
