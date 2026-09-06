@@ -18,6 +18,10 @@
   const previewCanvas = document.getElementById('previewCanvas');
   const zoomSelect = document.getElementById('zoomSelect');
   const fieldSection = document.getElementById('textFieldControlsSection');
+  const codeOutput = document.getElementById('codeOutput');
+  const contractTab = document.getElementById('contractTab');
+  const statusTab = document.getElementById('statusTab');
+  const generateButton = document.getElementById('generateButton');
   const statusPage = [...document.querySelectorAll('.statusbar span')]
     .find((span) => span.textContent.trim().startsWith('Página:'));
 
@@ -265,6 +269,23 @@
     drawIndicator(displayCanvas.getContext('2d', { alpha: false }), zoom);
   }
 
+  function patchGeneratedCode() {
+    if (!codeOutput?.textContent.startsWith('// Código generado por JWPLC HMI Designer')) return;
+
+    let text = codeOutput.textContent
+      .replace('// API pública JWPLC_UI · Alpha11 A11-3B', '// API pública JWPLC_UI · Alpha11 A11-3E')
+      .replace('// API pública JWPLC_UI · Alpha11 A11-3C', '// API pública JWPLC_UI · Alpha11 A11-3E')
+      .replace('// API pública JWPLC_UI · Alpha11 A11-3D', '// API pública JWPLC_UI · Alpha11 A11-3E');
+
+    if (!text.includes('JWPLC_Display.setUserPageCount(')) {
+      const registration = `        sizeof(HMI_FIELDS) / sizeof(HMI_FIELDS[0]));`;
+      const setup = `${registration}\n    JWPLC_Display.setUserPageCount(${pages().length});\n    JWPLC_Display.setUserPage(0);`;
+      text = text.replace(registration, setup);
+    }
+
+    codeOutput.textContent = text;
+  }
+
   function patchStatus() {
     const current = pages().find((page) => page.id === activePage());
     if (statusPage) statusPage.textContent = `Página: ${activePage()} · ${current?.name || 'Página'}`;
@@ -279,10 +300,14 @@
     syncInspectorPage();
     patchStatus();
     patchCanvases();
+    patchGeneratedCode();
   }
 
   window.addEventListener('jwplc:editor-refresh', patchUI);
   window.addEventListener('resize', () => setTimeout(patchUI, 0));
+  contractTab?.addEventListener('click', () => setTimeout(patchGeneratedCode, 0));
+  statusTab?.addEventListener('click', () => setTimeout(patchUI, 0));
+  generateButton?.addEventListener('click', () => setTimeout(patchGeneratedCode, 0));
 
   patchUI();
 
