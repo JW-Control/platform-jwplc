@@ -3,7 +3,7 @@
 
   const WIDTH = 320;
   const HEIGHT = 170;
-  const BAUD_RATE = 500000;
+  const BAUD_RATE = 921600;
   const POLL_MS = 120;
   const PROBE_MS = 500;
   const ACK_TIMEOUT_MS = 4000;
