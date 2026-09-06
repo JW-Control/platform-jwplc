@@ -12,9 +12,11 @@ El primer bridge de Live Preview reservaba un framebuffer RGB565 completo de 320
 
 Ese enfoque produjo overflow de DRAM en JWPLC Basic v2. La corrección posterior cambió a streaming de una sola fila de 320 píxeles (640 B), eliminó el overflow y, junto con 500000 baud + ACK por frame, dio estabilidad visual física.
 
-## Decisión A11-LIVE-BUFFER
+## Evolución del buffer parcial
 
-Para evaluar mejor fluidez sin regresar al costo de RAM del framebuffer completo, el bridge usa un framebuffer **parcial de 16 filas**:
+### Etapa 1 — 16 filas @ 500000 baud
+
+Se validó un framebuffer parcial de 16 filas:
 
 ```text
 FRAME_BUFFER_ROWS=16
@@ -26,16 +28,52 @@ HOST_TX_CHUNK=1024
 FLOW_CONTROL=FRAME_ACK
 ```
 
-El último bloque del ST7789 contiene 10 filas porque 170 no es múltiplo de 16.
+Esto reduce el máximo aproximado desde 170 operaciones de dibujo por frame a 11 operaciones.
 
-### Objetivo
+La prueba física mantuvo:
 
-Reducir el overhead de dibujo del bridge:
+```text
+VISUAL_CORRUPTION=0
+FRAME_ACK=PASS
+```
+
+pero la sensación de fluidez durante drag continuo fue considerada regular. La compilación observada con 16 filas fue:
+
+```text
+PROGRAM_BYTES=416397
+GLOBAL_BYTES=42884
+GLOBAL_PERCENT=13
+LOCAL_HEAP_HEADROOM_REPORTED=284796
+```
+
+Por lo tanto existe margen de RAM para evaluar un bloque mayor sin volver al framebuffer completo.
+
+### Etapa 2 — candidato 32 filas @ 921600 baud
+
+Se define como siguiente candidato físico:
+
+```text
+FRAME_BUFFER_ROWS=32
+FRAME_BUFFER_PIXELS=320*32
+FRAME_BUFFER_BYTES=20480
+SERIAL_BAUD=921600
+SERIAL_RX_BUFFER=8192
+HOST_TX_CHUNK=1024
+HOST_POLL_MS=120
+FLOW_CONTROL=FRAME_ACK
+```
+
+El último bloque del ST7789 contiene 10 filas porque 170 no es múltiplo de 32.
+
+Objetivo:
 
 ```text
 BUFFER_1_ROW   -> hasta 170 operaciones de dibujo por frame
 BUFFER_16_ROWS -> 11 operaciones de dibujo por frame
+BUFFER_32_ROWS -> 6 operaciones de dibujo por frame
 ```
+
+El regreso a 921600 baud se realiza únicamente después de tener ACK por frame estable. El host no puede enviar el siguiente framebuffer hasta que el bridge confirme que el frame previo terminó de recibirse y dibujarse.
 
 No cambia el contrato de producción ni aumenta la capacidad de campos/objetos del Designer. Es exclusivamente una optimización del transporte de desarrollo LIVE.
 
@@ -55,7 +93,7 @@ free=<bytes>
 min=<bytes>
 largest=<bytes>
 errors=<n>
-buffer_rows=16
+buffer_rows=<n>
 ```
 
 Definiciones:
@@ -70,9 +108,7 @@ Definiciones:
 
 El ACK `JWHMI_LIVE_FRAME <seq>` se emite antes de la telemetría para no retrasar el backpressure del host.
 
-## Gate A/B pendiente
-
-Comparar físicamente el bridge estable previo de una fila contra el nuevo buffer de 16 filas.
+## Gate físico del candidato 32/921600
 
 Prueba recomendada:
 
@@ -83,9 +119,11 @@ VISUAL_CORRUPTION=0
 LIVE_ERRORS=0
 ```
 
-Registrar al menos dos ventanas `JWHMI_LIVE_STATS` y observar:
+Registrar:
 
 ```text
+PROGRAM_BYTES
+GLOBAL_BYTES
 frame_us_avg
 frame_us_max
 draw_us_avg
@@ -94,26 +132,31 @@ free
 min
 largest
 errors
+buffer_rows
 ```
 
 ## Criterio de decisión
 
-Mantener 16 filas si:
+Mantener 32 filas + 921600 baud si:
 
 1. no reaparece corrupción visual;
 2. `errors=0` durante el stress;
 3. heap mínimo mantiene margen holgado;
-4. el tiempo de dibujo/total mejora de forma útil o la sensación de arrastre es más fluida.
+4. la sensación de arrastre mejora claramente frente a 16 filas @ 500000;
+5. no aparecen timeouts de ACK.
 
-Si la mejora es marginal, volver al buffer de una fila y priorizar actualización por regiones modificadas como siguiente optimización de LIVE.
+Si el resultado es estable pero la mejora sigue siendo limitada, no se seguirá aumentando `g_frame` de forma indefinida. La siguiente optimización prioritaria será transmitir/dibujar sólo regiones modificadas.
 
 ## Estado
 
 ```text
 A11_LIVE_500K_STABILITY=PASS_PHYSICAL
 A11_LIVE_FRAME_ACK=PASS_PHYSICAL
-A11_LIVE_BUFFER_16_ROWS=IMPLEMENTED_PENDING_PHYSICAL_GATE
-A11_LIVE_TELEMETRY=IMPLEMENTED_PENDING_PHYSICAL_GATE
+A11_LIVE_BUFFER_16_ROWS=PASS_STABILITY_FLUIDITY_REGULAR
+A11_LIVE_TELEMETRY=IMPLEMENTED
+A11_LIVE_921600_ACK_CANDIDATE=IMPLEMENTED_PENDING_PHYSICAL_GATE
+A11_LIVE_BUFFER_32_ROWS=IMPLEMENTED_PENDING_PHYSICAL_GATE
+A11_LIVE_DIRTY_REGIONS=DEFERRED_UNTIL_BUFFER32_GATE
 SECOND_HMI_RUNTIME=NO
 PRODUCTION_CODEGEN_UNCHANGED=YES
 ```
