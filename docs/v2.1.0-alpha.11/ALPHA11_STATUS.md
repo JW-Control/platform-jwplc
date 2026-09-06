@@ -28,17 +28,7 @@ DESIGNER_GENERATES_JWPLC_UI_UPDATE=NO
 USER_WRITES_JWPLC_UI_UPDATE=YES
 ```
 
-El Designer debe dejar definidos desde la interfaz:
-
-```text
-- IDs simbólicos;
-- variables HMI;
-- tipos C++ de variables;
-- buffers de texto/capacidad;
-- JWPLC_UIField[];
-- estilos, formatos, colores, páginas y geometría;
-- registro/configuración de JWPLC_Display.
-```
+El Designer deja definidos desde la interfaz IDs simbólicos, variables HMI, tipos C++, buffers/capacidad, `JWPLC_UIField[]`, estilos, formatos, colores, páginas, geometría y registro/configuración de `JWPLC_Display`.
 
 La frontera manual empieza en el cuerpo de `jwplcUIUpdate()`: el usuario alimenta las variables e invoca los setters públicos correspondientes.
 
@@ -52,7 +42,7 @@ JWPLC_DISPLAY_PRECOMPILED_ARCHIVE_ACTIVE=NO
 LIBRARY_PROPERTIES_PRECOMPILED_FULL=PRESERVED
 ```
 
-El archive final se regenerará únicamente al cierre del alpha y deberá repetir gates source/precompiled y build-speed.
+El archive final se regenerará al cierre del alpha y deberá repetir gates source/precompiled y build-speed.
 
 ## Gates
 
@@ -66,7 +56,16 @@ A11_2_TEXT_SOURCE=PASS
 A11_2_PRECOMPILED_FINAL=DEFERRED_TO_ALPHA11_CLOSE
 A11_3_PUBLIC_API_CODEGEN_CONTRACT=PASS
 A11_3A_TEXT_FIELD=IN_PROGRESS
-A11_3B_VALUE_FIELD=PENDING
+
+ALPHA11_UX_FOUNDATION=IN_PROGRESS
+UX_1_LAYOUT_BASE=IMPLEMENTED_PENDING_VISUAL_GATE
+UX_2_OBJECT_LIST=IMPLEMENTED_TEXT_ONLY_PENDING_VISUAL_GATE
+UX_2_SELECTION_OVERLAY=IMPLEMENTED_PENDING_VISUAL_GATE
+UX_3_TEXT_INSPECTOR=IMPLEMENTED_PENDING_VISUAL_GATE
+UX_4_TOOLBAR_SHELL=PARTIAL
+UX_5_BOTTOM_PANEL=PARTIAL
+
+A11_3B_VALUE_FIELD=BLOCKED_BY_UX_FOUNDATION
 A11_3C_BOOL_FIELD=PENDING
 A11_3D_BAR_FIELD=PENDING
 A11_3E_MULTI_FIELD_PAGES=PENDING
@@ -78,29 +77,7 @@ ALPHA11_STATUS=IN_PROGRESS
 
 ## A11-2 — texto y geometría HMI
 
-### A11-2A — paridad RAW
-
-La muestra RAW confirmó la misma fuente clásica y geometría de celda entre Designer y TFT física:
-
-```text
-TEMP: 25.6 C
-X=20
-Y=20
-size=2
-RED sobre WHITE
-bounds GFX=144x16
-```
-
-```text
-A11_2A_GFX_CLASSIC_FONT=PASS
-A11_2A_TEXT_SIZE_2X=PASS
-A11_2A_CELL_GEOMETRY_144X16=PASS
-A11_2A_PHYSICAL_VISUAL_MATCH=PASS
-```
-
-RAW queda sólo como herramienta técnica de referencia. No representa el contrato final del Designer porque usa la celda GFX 6×8 y dibujo directo.
-
-### A11-2B — gate por API pública
+La muestra RAW confirmó la misma fuente clásica y geometría de celda entre Designer y TFT física. RAW queda sólo como herramienta técnica de referencia y no representa el contrato final del Designer.
 
 El gate público usa únicamente:
 
@@ -113,29 +90,15 @@ JWPLC_Display.setUserPage(...)
 JWPLC_Display.enterUserUI()
 ```
 
-No usa:
+No usa `JWPLC_Display.tft()` ni llamadas `tft.*`.
 
-```text
-JWPLC_Display.tft()
-tft.*
-```
-
-La primera validación física confirmó que el padding fijo de 3 px se veía como aproximadamente 3 px arriba/izquierda y 5 px abajo debido a la fila/spacing nativo de la celda clásica 6×8.
-
-### A11-2C — métricas balanceadas
-
-Se corrigió `JWPLC_UI.cpp` para que el layout declarativo use cuerpo nominal 5×7 sin cambiar la rasterización de Adafruit GFX.
+La corrección A11-2C hizo que el layout declarativo use cuerpo nominal 5×7 sin modificar la rasterización clásica 6×8 de Adafruit GFX:
 
 ```text
 layoutWidth  = gfxBoundsWidth  - textSize
 layoutHeight = gfxBoundsHeight - textSize
-```
-
-El padding efectivo es:
-
-```text
-max(FIELD_PADDING, maxTextSize)
 FIELD_PADDING=3
+effectivePadding=max(3,maxTextSize)
 ```
 
 La prueba física source posterior mostró el borde visual balanceado.
@@ -144,12 +107,6 @@ La prueba física source posterior mostró el borde visual balanceado.
 A11_2C_BALANCED_SOURCE=PASS
 A11_2C_PUBLIC_API_ONLY=PASS
 A11_2C_VISUAL_PADDING_BALANCED=PASS
-```
-
-Validación detallada:
-
-```text
-docs/v2.1.0-alpha.11/A11_2C_BALANCED_SOURCE_VALIDATION.md
 ```
 
 ## Contrato de codegen público
@@ -179,28 +136,47 @@ No genera el cuerpo de:
 extern "C" void jwplcUIUpdate()
 ```
 
-El usuario implementa ese callback y utiliza las variables e IDs ya generados.
+## UX Foundation
+
+Antes de continuar con `VALUE`, `BOOL` y `BAR`, Alpha11 estabiliza el shell del editor siguiendo:
 
 ```text
-DESIGNER_GENERATES_VARIABLE_CONTRACT=YES
-DESIGNER_GENERATES_JWPLC_UI_UPDATE_BODY=NO
-USER_CONFIGURES_JWPLC_UI_UPDATE=YES
+LEFT=PAGES_OBJECTS_COMPONENTS_TOOLS
+CENTER=CANVAS_320x170
+RIGHT=PREVIEW_PLUS_CONTEXTUAL_INSPECTOR
+BOTTOM=TECHNICAL_PANEL
+ORANGE=ACTIVE_SELECTION_OR_ACTION
+CANVAS_BORDER=NEUTRAL
+```
+
+Implementado para validación visual:
+
+- lista de Objetos separada de Componentes y Herramientas;
+- propiedades `TEXT` migradas al Inspector derecho;
+- Preview 1:1 conservado;
+- overlay de geometría independiente del framebuffer;
+- field rect, handles, X/Y y dimensiones AUTO resueltas;
+- regiones label/value/unit visibles con `Geometría`;
+- panel inferior colapsable;
+- botón `Ajustar` funcional;
+- `Generar C++` abre el contrato/código actual;
+- shell de Abrir/Guardar/Undo/Redo visible pero deshabilitado hasta tener contrato funcional.
+
+Documento:
+
+```text
+docs/v2.1.0-alpha.11/A11_UX_FOUNDATION.md
 ```
 
 ## Pendiente inmediato
 
-A11-3A activa `TEXT field` en el Designer y debe reproducir exactamente la geometría pública vigente:
+Validar visualmente la nueva UX con A11-3A `TEXT` todavía funcional.
+
+Criterio:
 
 ```text
-FIELD_PADDING=3 mínimo
-effectivePadding=max(3,maxTextSize)
-FIELD_GAP=4
-AUTO width/height
-INLINE / STACKED
-LEFT / CENTER / RIGHT
-label / value / unit
-frame / colors
-text capacity
+ALPHA11_UX_FOUNDATION=PASS
+NEXT=A11_3B_VALUE_FIELD
 ```
 
-El preview debe usar las mismas métricas nominales 5×7 del runtime corregido y mantener la rasterización clásica 6×8 dentro del field.
+No se inicia `VALUE` hasta cerrar este gate.
