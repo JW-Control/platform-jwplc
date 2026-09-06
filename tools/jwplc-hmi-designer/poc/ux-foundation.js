@@ -26,7 +26,8 @@
     'fieldName', 'fieldId', 'fieldVariable', 'fieldCapacity', 'fieldX', 'fieldY',
     'fieldPreview', 'fieldLabel', 'fieldUnit', 'fieldValueSize', 'fieldLabelSize',
     'fieldLayout', 'fieldAlign', 'fieldFrame', 'fieldLabelColor', 'fieldValueColor',
-    'fieldBackgroundColor', 'fieldFrameColor'
+    'fieldBackgroundColor', 'fieldFrameColor', 'fieldIntegerDigits',
+    'fieldDecimalDigits', 'fieldSigned', 'fieldLeadingZeros'
   ].map((id) => document.getElementById(id)).filter(Boolean);
 
   let bottomCollapsed = false;
@@ -35,8 +36,8 @@
     return window.JWPLCHMIEditor || null;
   }
 
-  function hasTextSelection() {
-    return Boolean(editor()?.hasTextSelection?.());
+  function hasFieldSelection() {
+    return Boolean(editor()?.hasFieldSelection?.());
   }
 
   function selectedField() {
@@ -104,7 +105,7 @@
   function drawGeometryOverlay() {
     syncOverlaySize();
     overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-    if (!geometryToggle.checked || !hasTextSelection()) return;
+    if (!geometryToggle.checked || !hasFieldSelection()) return;
 
     const field = selectedField();
     const g = selectedGeometry();
@@ -134,11 +135,13 @@
   function updateStatus() {
     const field = selectedField();
     const g = selectedGeometry();
-    if (hasTextSelection() && field && g) {
-      selectedObjectStatus.textContent = `TEXT ${field.name || 'Sin nombre'} · ${field.id || 'SIN_ID'}`;
+    if (hasFieldSelection() && field && g) {
+      selectedObjectStatus.textContent = `${field.type} ${field.name || 'Sin nombre'} · ${field.id || 'SIN_ID'}`;
       selectedGeometryStatus.textContent = `X:${field.x} Y:${field.y} · ${g.fieldW}×${g.fieldH} px`;
     } else {
-      selectedObjectStatus.textContent = editor()?.getSelectedTool?.() === 'rawText' ? 'Texto GFX RAW' : 'Sin objeto seleccionado';
+      selectedObjectStatus.textContent = editor()?.getSelectedTool?.() === 'rawText'
+        ? 'Texto GFX RAW'
+        : 'Sin objeto seleccionado';
       selectedGeometryStatus.textContent = 'X:— Y:—';
     }
     zoomStatus.textContent = `Zoom: ${zoomSelect.value}×`;
@@ -162,7 +165,9 @@
     const raw = Math.min(availableW / WIDTH, availableH / HEIGHT);
     const choices = [2, 3, 4, 6, 8];
     let best = 2;
-    choices.forEach((candidate) => { if (candidate <= raw) best = candidate; });
+    choices.forEach((candidate) => {
+      if (candidate <= raw) best = candidate;
+    });
     zoomSelect.value = String(best);
     zoomSelect.dispatchEvent(new Event('change', { bubbles: true }));
   });
