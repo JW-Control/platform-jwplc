@@ -223,7 +223,9 @@
   loadScript('./designer-bool.js', () => {
     loadScript('./designer-bar.js', () => {
       loadScript('./designer-field-visibility.js', () => {
-        loadScript('./designer-live.js');
+        loadScript('./designer-pages.js', () => {
+          loadScript('./designer-live.js');
+        });
       });
     });
   });
