@@ -29,11 +29,12 @@ El Designer agrega directamente:
 #include <JWPLC_Display.h>
 ```
 
-La separación de responsabilidades es:
+La separación de responsabilidades queda fijada así:
 
 ```text
 JWPLC_HMI_Generated.h
-  -> IDs
+  -> HMIPageId
+  -> HMIFieldId
   -> variables HMI
   -> definiciones JWPLC_UIField[]
   -> páginas / geometría / estilos
@@ -41,10 +42,8 @@ JWPLC_HMI_Generated.h
 
 Proyecto.ino
   -> setup()
-  -> jwplcUIUpdate()
-  -> sensores / entradas
-  -> lógica de aplicación
-  -> loop()
+  -> loop(): lógica de aplicación, botonera, sensores, E/S, cálculos
+  -> jwplcUIUpdate(): sincronización de variables hacia fields gráficos
 ```
 
 El header generado debe poder reemplazarse al regenerar la HMI sin mezclar código manual del usuario.
@@ -55,17 +54,19 @@ El Designer debe generar:
 
 ```text
 1. #pragma once + include público JWPLC_Display.h
-2. enum HMIFieldId
-3. variables HMI
-4. JWPLC_UIField HMI_FIELDS[]
-5. jwplcHMISetup()
-6. comentarios con setters públicos correspondientes
+2. enum HMIPageId
+3. enum HMIFieldId
+4. variables HMI
+5. JWPLC_UIField HMI_FIELDS[]
+6. jwplcHMISetup()
+7. bloques de referencia con setters públicos correspondientes
 ```
 
 El Designer no debe generar:
 
 ```text
 - cuerpo de jwplcUIUpdate()
+- cuerpo de loop()
 - tft.*
 - llamadas directas Adafruit_GFX
 - lógica de aplicación
@@ -73,20 +74,51 @@ El Designer no debe generar:
 - navegación manual de páginas
 ```
 
-La lógica runtime pertenece al usuario:
+La lógica de aplicación pertenece al usuario y se recomienda ubicarla en `loop()`. `jwplcUIUpdate()` queda exclusivamente como capa de presentación/sincronización gráfica.
+
+Ejemplo:
 
 ```cpp
+void loop()
+{
+    if (!JWPLC_Display.isUserPageSelection() &&
+        JWPLC_Display.userPage() == PAGE_PROCESO)
+    {
+        if (JWPLC_Buttons.pressed(BTN_UP))
+            valorProceso += 1.0f;
+    }
+}
+
 void jwplcUIUpdate()
 {
-    // El usuario actualiza sus variables y llama setters públicos.
+    JWPLC_Display.setValue(FIELD_PROCESO, valorProceso);
 }
 ```
 
-## Organización por páginas
+## Refresh normal
 
-Para facilitar mantenimiento, tres secciones del header se agrupan con comentarios de página:
+Para HMI generada por Designer, el modo normal queda fijado explícitamente como periódico:
 
 ```cpp
+JWPLC_Display.setUserRefreshMode(USER_REFRESH_PERIODIC);
+```
+
+`USER_REFRESH_ON_DEMAND` se conserva como modo opcional/avanzado para aplicaciones que quieran solicitar ciclos manualmente con `requestUserRefresh()`.
+
+En modo periódico, la lógica de `loop()` puede limitarse a modificar variables HMI. `jwplcUIUpdate()` se ejecuta en los ciclos USER y los setters sólo marcan dirty/redibujan cuando el valor realmente cambia.
+
+## Organización por páginas
+
+Las secciones del header se agrupan con comentarios de página.
+
+```cpp
+enum HMIPageId : uint8_t
+{
+    PAGE_PRINCIPAL = 0,
+    PAGE_PROCESO = 1,
+    PAGE_DIAGNOSTICO = 2
+};
+
 enum HMIFieldId : uint8_t
 {
     // Página 01 · Principal
@@ -104,16 +136,23 @@ float valor2 = 0.0f;
 
 // Página 02 · Proceso
 bool estado3 = false;
+```
 
-// ...
+Los setters de referencia se generan como bloques `/* ... */` por página para que el usuario pueda copiar/descomentar el bloque sin quitar `//` línea por línea:
 
+```cpp
 // Setters públicos que corresponden a este diseño:
+
 // Página 01 · Principal
-// JWPLC_Display.setText(...);
-// JWPLC_Display.setValue(...);
+/*
+JWPLC_Display.setText(FIELD_TEXT_1, texto1);
+JWPLC_Display.setValue(FIELD_VALUE_2, valor2);
+*/
 
 // Página 02 · Proceso
-// JWPLC_Display.setBool(...);
+/*
+JWPLC_Display.setBool(FIELD_BOOL_3, estado3);
+*/
 ```
 
 Los valores numéricos de `HMIFieldId` conservan el orden global del proyecto aunque la presentación se agrupe por página.
@@ -154,6 +193,12 @@ Para una composición con TEXT + VALUE + BOOL + BAR en varias páginas:
 #pragma once
 #include <JWPLC_Display.h>
 
+enum HMIPageId : uint8_t
+{
+    PAGE_PRINCIPAL = 0,
+    PAGE_PROCESO = 1
+};
+
 enum HMIFieldId : uint8_t
 {
     // Página 01 · Principal
@@ -180,14 +225,16 @@ void jwplcHMISetup()
     JWPLC_Display.setFields(
         HMI_FIELDS,
         sizeof(HMI_FIELDS) / sizeof(HMI_FIELDS[0]));
+    JWPLC_Display.setUserRefreshMode(USER_REFRESH_PERIODIC);
     JWPLC_Display.setUserPageCount(N);
-    JWPLC_Display.setUserPage(0);
+    JWPLC_Display.setUserPage(PAGE_PRINCIPAL);
 }
 ```
 
 ## Reglas de validez
 
 ```text
+PAGE_SYMBOLS_GENERATED=YES
 FIELD_IDS_UNIQUE_GLOBAL=YES
 VARIABLE_NAMES_UNIQUE_GLOBAL=YES
 DUPLICATE_GUARD_IN_INSPECTOR=YES
@@ -201,6 +248,10 @@ BOOL_CPP_TYPE=bool
 BAR_CPP_TYPE=float
 COLORS=RGB565
 PUBLIC_SETTERS_ONLY=YES
+NORMAL_REFRESH_MODE=USER_REFRESH_PERIODIC
+ON_DEMAND_MODE=OPTIONAL
+APPLICATION_LOGIC_LOCATION=loop()
+GRAPHIC_SYNC_LOCATION=jwplcUIUpdate()
 ```
 
 ## Matriz mínima de prueba
@@ -243,23 +294,26 @@ El bloque copiado desde `Código generado` debe cumplir:
 
 ```text
 [ ] Empieza como header regenerable (#pragma once + JWPLC_Display.h).
+[ ] Incluye HMIPageId con símbolos 0-based.
 [ ] HMIFieldId queda separado por comentarios de página.
 [ ] Variables HMI quedan separadas por comentarios de página.
-[ ] Setters comentados quedan separados por comentarios de página.
+[ ] Setters de referencia quedan en bloques /* ... */ separados por página.
+[ ] jwplcHMISetup() fija USER_REFRESH_PERIODIC.
 [ ] No contiene tft.
 [ ] No contiene Adafruit_ST7789.
 [ ] No contiene Adafruit_GFX.
 [ ] No define jwplcUIUpdate().
+[ ] No define loop().
 [ ] Incluye todos los fields de todas las páginas.
 [ ] Cada helper contiene pageId correcto.
 [ ] setUserPageCount(N) coincide con cantidad de páginas.
-[ ] setUserPage(0) está presente.
+[ ] setUserPage(PAGE_...) está presente.
 [ ] Todos los IDs son únicos.
 [ ] Todas las variables son únicas.
 [ ] Un intento manual de ID duplicado es rechazado y muestra página origen.
 [ ] Un intento manual de variable duplicada es rechazado y muestra página origen.
 [ ] TEXT reserva capacity + 1 para terminador nulo.
-[ ] Los setters comentados corresponden al tipo de field.
+[ ] Los setters corresponden al tipo de field.
 ```
 
 ## Gate de compilación Arduino
@@ -277,11 +331,12 @@ void setup()
 
 void jwplcUIUpdate()
 {
-    // lógica escrita manualmente por el usuario
+    // Sólo sincronización gráfica.
 }
 
 void loop()
 {
+    // Lógica de aplicación.
 }
 ```
 
@@ -307,6 +362,7 @@ Después de compilar/subir:
 6. Cada página muestra sólo sus fields.
 7. No aparecen restos visuales al cambiar página.
 8. El sketch del usuario conserva control de botones dentro de PAGE_CONTENT.
+9. La lógica en loop() modifica variables y se refleja vía refresh periódico + jwplcUIUpdate().
 ```
 
 ## Criterio de salida
