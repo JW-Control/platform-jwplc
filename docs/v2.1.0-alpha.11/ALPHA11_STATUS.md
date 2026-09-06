@@ -24,13 +24,15 @@ DESIGNER_GENERATES_FIELD_DEFINITIONS=YES
 DESIGNER_GENERATES_VARIABLE_DECLARATIONS=YES
 DESIGNER_GENERATES_HMI_REGISTRATION=YES
 DESIGNER_GENERATES_DISPLAY_CONFIGURATION=YES
-DESIGNER_GENERATES_JWPLC_UI_UPDATE=NO
-USER_WRITES_JWPLC_UI_UPDATE=YES
+DESIGNER_GENERATES_HMI_PAGE_IDS=YES
+DESIGNER_GENERATES_JWPLC_UI_UPDATE=YES
+USER_WRITES_JWPLC_UI_UPDATE=NO
+USER_APPLICATION_LOGIC_LOCATION=loop()
 ```
 
-El Designer define IDs, variables HMI, tipos C++, buffers/capacidad, `JWPLC_UIField[]`, estilos, formatos, colores, páginas, geometría y registro de `JWPLC_Display`.
+El Designer genera `JWPLC_HMI_Generated.h` con IDs de página/campo, variables HMI, tipos C++, buffers/capacidad, `JWPLC_UIField[]`, estilos, formatos, colores, páginas, geometría, `jwplcHMISetup()` y `jwplcUIUpdate()`.
 
-La frontera manual empieza en `jwplcUIUpdate()`: el usuario alimenta las variables e invoca los setters públicos correspondientes.
+La lógica de aplicación permanece en `loop()`: botonera, sensores, E/S, Modbus, estados y cálculos modifican las variables HMI; el callback generado sincroniza sólo la página activa con los setters públicos.
 
 ## Política de desarrollo de JWPLC_Display en Alpha11
 
@@ -86,11 +88,19 @@ A11_3E_PAGE_BOUNDARIES=PASS
 A11_3E_CONTENT_BUTTON_OWNERSHIP=PASS
 A11_3E_ESC_TO_SELECTOR=PASS
 A11_3E_LIVE_PAGE_SWITCH=PASS
-A11_4_CODEGEN_HEADER_FORMAT=IMPLEMENTED_PENDING_GATE
-A11_4_CODEGEN_PAGE_GROUPING=IMPLEMENTED_PENDING_GATE
-A11_4_IDENTIFIER_DUPLICATE_GUARD=IMPLEMENTED_PENDING_GATE
-A11_4_CODEGEN=READY_TO_VALIDATE
-A11_5_PHYSICAL_PARITY=BLOCKED_BY_A11_4_GATE
+
+A11_BUTTON_ROBUSTNESS=PASS_PHYSICAL
+A11_BUTTON_PENDING_INPUT_CLEANUP=PASS_PHYSICAL
+
+A11_4_CODEGEN_HEADER_FORMAT=PASS
+A11_4_CODEGEN_PAGE_GROUPING=PASS
+A11_4_IDENTIFIER_DUPLICATE_GUARD=PASS
+A11_4_CODEGEN_STATIC=PASS
+A11_4_CODEGEN_COMPILE=PASS
+A11_4_CODEGEN_PHYSICAL=PASS
+A11_4_CODEGEN=PASS
+
+A11_5_PHYSICAL_PARITY=READY_TO_VALIDATE
 A11_6_SKETCH_INTEGRATION=BLOCKED_BY_A11_5_GATE
 ALPHA11_STATUS=IN_PROGRESS
 ```
@@ -124,15 +134,7 @@ JWPLC_Display.setBool(...)
 JWPLC_Display.setBar(...)
 ```
 
-No se genera `tft.*` ni el cuerpo de `jwplcUIUpdate()`.
-
-Documentos:
-
-```text
-docs/v2.1.0-alpha.11/A11_3B_VALUE_FIELD_GATE.md
-docs/v2.1.0-alpha.11/A11_3C_BOOL_FIELD_GATE.md
-docs/v2.1.0-alpha.11/A11_3D_BAR_FIELD_GATE.md
-```
+No se genera `tft.*` ni llamadas directas a Adafruit.
 
 ## LIVE Preview
 
@@ -187,45 +189,35 @@ docs/v2.1.0-alpha.11/A11_3E_MULTI_FIELD_PAGES_GATE.md
 
 ## A11-4 — Codegen integral
 
-El artefacto recomendado queda separado del sketch de usuario:
+Artefacto oficial:
 
 ```text
 JWPLC_HMI_Generated.h
 ```
 
-El output ahora prepara directamente:
-
-```cpp
-#pragma once
-#include <JWPLC_Display.h>
-```
-
-Se agrupan por comentarios de página:
+Contrato cerrado:
 
 ```text
-HMIFieldId
-Variables HMI
-Setters públicos comentados
+HMIPageId=GENERATED
+HMIFieldId=GENERATED
+VARIABLES_HMI=GENERATED
+HMI_FIELDS=GENERATED
+JWPLC_HMI_SETUP=GENERATED
+JWPLC_UI_UPDATE=GENERATED
+APPLICATION_LOGIC=USER_LOOP
+NORMAL_REFRESH_MODE=USER_REFRESH_PERIODIC
 ```
 
-Ejemplo:
+El `jwplcUIUpdate()` generado usa `switch (JWPLC_Display.userPage())` y sólo ejecuta setters de la página activa.
 
-```cpp
-// Página 01 · Principal
-// Página 02 · Proceso
-// Página 03 · Diagnóstico
-```
-
-Se agregó protección global contra duplicados editados manualmente en Inspector:
+Protección de símbolos:
 
 ```text
-ID_CPP_DUPLICATE_GUARD=YES
-VARIABLE_CPP_DUPLICATE_GUARD=YES
-SANITIZED_CPP_SYMBOL_COLLISION_GUARD=YES
-DUPLICATE_WARNING_INCLUDES_PAGE=YES
+ID_CPP_DUPLICATE_GUARD=PASS
+VARIABLE_CPP_DUPLICATE_GUARD=PASS
+SANITIZED_CPP_SYMBOL_COLLISION_GUARD=PASS
+DUPLICATE_WARNING_INCLUDES_PAGE=PASS
 ```
-
-La creación y duplicación automática ya producían nombres únicos; la protección nueva cubre la edición manual y una validación defensiva antes del codegen.
 
 Documento:
 
@@ -233,21 +225,50 @@ Documento:
 docs/v2.1.0-alpha.11/A11_4_CODEGEN_GATE.md
 ```
 
-## Pendiente inmediato
+## Robustez de botonera
 
-Validar visualmente A11-4 tras `Ctrl+F5`:
+Durante A11-4 se logró reproducir un fallo intermitente previamente observado en ejercicios de taller: un `loop()` cerrado consultando `pressed()` podía competir con el scanner de botonera y dejar la interacción sin respuesta.
+
+Correcciones cerradas físicamente:
 
 ```text
-1. Confirmar #pragma once + include en Código generado.
-2. Confirmar comentarios Página NN · Nombre en HMIFieldId.
-3. Confirmar comentarios de página en Variables HMI.
-4. Confirmar comentarios de página en setters finales.
-5. Intentar duplicar un ID C++ entre páginas y verificar aviso con página origen.
-6. Intentar duplicar una variable C++ entre páginas y verificar aviso con página origen.
+BUTTON_SCAN_TASK_PRIORITY=2
+BUTTON_SCAN_PERIOD_MS=5
+BUTTON_SCAN_TIGHT_LOOP_NO_DELAY=PASS
+BUTTON_SCAN_MULTI_RESET=PASS
+SERIAL_REQUIRED=NO
+USER_DELAY_REQUIRED=NO
+PAGE_CONTENT_ESC_CLEANUP=PASS
+PENDING_OK_NO_REENTRY=PASS
 ```
 
-Después usar el header generado en Arduino IDE y cerrar compile/link/physical.
+También se corrigió la transición `PAGE_CONTENT -> PAGE_SELECT` para limpiar latches/eventos pendientes y evitar que un `OK` viejo provoque reingreso fantasma.
+
+Documento:
 
 ```text
-NEXT=A11_4_CODEGEN_STATIC_GATE
+docs/v2.1.0-alpha.11/A11_BUTTON_ROBUSTNESS_GATE.md
+```
+
+Este hallazgo debe mencionarse en el README final de Alpha11, explicando que el package mantiene el scanner automáticamente y que `pressed()` / `released()` pueden usarse desde `loop()` sin delays artificiales.
+
+```text
+README_BUTTON_ROBUSTNESS_NOTE=REQUIRED_AT_ALPHA11_CLOSE
+```
+
+## Pendiente inmediato
+
+A11-4 queda cerrado. El siguiente gate es paridad física integral entre:
+
+```text
+Designer canvas 3x
+Vista previa 1:1
+LIVE físico
+Sketch compilado desde JWPLC_HMI_Generated.h
+```
+
+Debe comprobarse la misma geometría, texto, colores, estilos, páginas y comportamiento para TEXT / VALUE / BOOL / BAR.
+
+```text
+NEXT=A11_5_PHYSICAL_PARITY
 ```
