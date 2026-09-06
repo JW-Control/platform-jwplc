@@ -1,0 +1,145 @@
+/* Alpha11 A11-6 — distribución responsive de la app de escritorio.
+   El renderer lógico permanece 320x170; sólo cambia la distribución del shell. */
+
+#compactInspectorButton {
+  display: none;
+}
+
+@media (max-width: 1480px) {
+  .brand h1 { font-size: 16px; }
+  .brand p { display: none; }
+  .chip { width: 32px; height: 32px; }
+  .toolbar { gap: 4px; }
+  .toolbar button { padding-inline: 8px; }
+  .workspace { grid-template-columns: 230px minmax(560px, 1fr) 320px; }
+  .left-panel, .right-panel { padding-inline: 8px; }
+}
+
+@media (max-width: 1180px) {
+  body {
+    min-width: 720px;
+  }
+
+  .topbar {
+    gap: 8px;
+    padding-inline: 8px;
+  }
+
+  .brand {
+    max-width: 176px;
+  }
+
+  .toolbar {
+    flex: 1 1 auto;
+    justify-content: flex-start;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    padding-bottom: 2px;
+  }
+
+  .toolbar > * {
+    flex: 0 0 auto;
+  }
+
+  #compactInspectorButton {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  #compactInspectorButton.active {
+    border-color: var(--orange);
+    box-shadow: inset 0 -2px 0 var(--orange);
+  }
+
+  .workspace {
+    grid-template-columns: 190px minmax(0, 1fr);
+    position: relative;
+  }
+
+  .left-panel {
+    padding-inline: 7px;
+  }
+
+  .right-panel {
+    position: fixed;
+    z-index: 3500;
+    top: 58px;
+    right: 0;
+    bottom: 192px;
+    width: min(370px, 82vw);
+    transform: translateX(calc(100% + 10px));
+    transition: transform .18s ease;
+    box-shadow: -14px 0 34px rgba(0, 0, 0, .42);
+    border-left: 1px solid var(--line);
+  }
+
+  body.bottom-collapsed .right-panel {
+    bottom: 66px;
+  }
+
+  body.compact-inspector-open .right-panel {
+    transform: translateX(0);
+  }
+
+  .page-tabs .gate {
+    display: none;
+  }
+
+  .editor-caption span:last-child {
+    display: none;
+  }
+
+  .statusbar {
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .canvas-status {
+    gap: 10px;
+  }
+}
+
+@media (max-width: 860px) {
+  body {
+    min-width: 640px;
+  }
+
+  .brand {
+    max-width: 145px;
+  }
+
+  .brand h1 {
+    font-size: 14px;
+  }
+
+  .workspace {
+    grid-template-columns: 168px minmax(0, 1fr);
+  }
+
+  .object-item {
+    grid-template-columns: 20px 38px minmax(0, 1fr) 10px;
+  }
+
+  .object-id {
+    display: none;
+  }
+
+  .component-tool {
+    grid-template-columns: 34px 48px 1fr;
+  }
+
+  .utility-tool {
+    grid-template-columns: 24px 60px 1fr;
+  }
+
+  .toolbar .separator {
+    display: none;
+  }
+}
+
+@media (min-width: 1181px) {
+  body.compact-inspector-open .right-panel {
+    transform: none;
+  }
+}
