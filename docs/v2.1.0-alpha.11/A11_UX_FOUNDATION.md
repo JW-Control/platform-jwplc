@@ -48,48 +48,40 @@ El panel izquierdo no contiene propiedades del field. El Inspector derecho es el
 
 ## UX-1 — Layout base
 
-Estado:
-
 ```text
-UX_1_LAYOUT_BASE=IMPLEMENTED_PENDING_VISUAL_GATE
+UX_1_LAYOUT_BASE=PASS
 ```
 
-Incluye:
+Validado visualmente:
 
-- shell fijo al viewport;
+- shell dentro del viewport;
 - scroll independiente en laterales;
 - panel inferior colapsable;
-- Preview 1:1 siempre visible;
+- Preview 1:1 separado del overlay;
 - canvas como zona central dominante;
 - borde permanente del display neutro.
 
 ## UX-2 — Objetos y selección
 
-Estado:
-
 ```text
-UX_2_OBJECT_LIST=IMPLEMENTED_TEXT_ONLY_PENDING_VISUAL_GATE
-UX_2_SELECTION_OVERLAY=IMPLEMENTED_PENDING_VISUAL_GATE
+UX_2_OBJECT_LIST=PASS_TEXT_BASE
+UX_2_SELECTION_OVERLAY=PASS
 ```
 
-Para A11-3A existe un único objeto `TEXT` y se sincroniza con el objeto seleccionado.
+Validado:
 
-El overlay de geometría no forma parte del framebuffer ni del Preview 1:1. Puede mostrar:
+- lista de Objetos y canvas representan la misma selección;
+- selección naranja sólo en el editor;
+- handles, X/Y y dimensiones AUTO;
+- región label/value representada sin modificar framebuffer;
+- drag actualiza Inspector, overlay y status bar.
 
-- `field rect`;
-- handles;
-- X/Y;
-- ancho/alto AUTO resuelto;
-- región label;
-- región value;
-- región unit.
+UX-4 amplía la lista para permitir varios `TEXT` de la misma página. Esto es infraestructura de edición y no reemplaza el gate A11-3E de composición multi-tipo/páginas.
 
 ## UX-3 — Inspector TEXT
 
-Estado:
-
 ```text
-UX_3_TEXT_INSPECTOR=IMPLEMENTED_PENDING_VISUAL_GATE
+UX_3_TEXT_INSPECTOR=PASS
 ```
 
 Secciones:
@@ -103,6 +95,16 @@ Apariencia
 Contrato C++
 ```
 
+Validado:
+
+- `INLINE` / `STACKED`;
+- `LEFT` / `CENTER` / `RIGHT`;
+- capacidad con recálculo AUTO;
+- tamaños label/value;
+- frame y colores;
+- X/Y;
+- cambio contextual a Inspector GFX RAW.
+
 Padding y gap continúan read-only:
 
 ```text
@@ -111,51 +113,46 @@ FIELD_GAP=4
 effectivePadding=max(3,maxTextSize)
 ```
 
-Las dimensiones AUTO se presentan como valores calculados y no como propiedades libres.
+## UX-4 — Barra superior / edición
 
-## UX-4 — Barra superior / teclado
-
-Estado:
+Estado actual:
 
 ```text
-UX_4_TOOLBAR_SHELL=PARTIAL
-UX_4_FIT=IMPLEMENTED
-UX_4_GENERATE_SHORTCUT_TO_CODE_PANEL=IMPLEMENTED
-UX_4_UNDO_REDO=PENDING
-UX_4_KEYBOARD_NUDGE=PENDING
+UX_4_EDITING=IMPLEMENTED_PENDING_GATE
+UX_4_UNDO_REDO=IMPLEMENTED_PENDING_GATE
+UX_4_KEYBOARD_NUDGE=IMPLEMENTED_PENDING_GATE
+UX_4_DUPLICATE_DELETE=IMPLEMENTED_PENDING_GATE
+UX_4_FIT=PASS_BASE
+UX_4_GENERATE_SHORTCUT_TO_CODE_PANEL=PASS_BASE
 UX_4_SAVE_OPEN=PENDING_MODEL_JWHMI
 ```
 
-Los controles que todavía no tienen contrato real quedan deshabilitados; la interfaz no debe simular funcionalidad inexistente.
+Gate dedicado:
+
+```text
+docs/v2.1.0-alpha.11/A11_UX4_EDITING_GATE.md
+```
 
 ## UX-5 — Panel técnico
 
-Estado:
-
 ```text
-UX_5_BOTTOM_PANEL_COLLAPSIBLE=IMPLEMENTED
+UX_5_BOTTOM_PANEL_COLLAPSIBLE=PASS_BASE
 UX_5_PROBLEMS_VALIDATOR=PENDING
 UX_5_CODE_PREVIEW=PARTIAL_EXISTING_CONTRACT
 UX_5_DIAGNOSTIC_TAB=PENDING
 ```
 
-## Criterio de salida
+## Resultado de Foundation
 
-Antes de iniciar `A11-3B VALUE` deben quedar visualmente validados al menos:
-
-```text
-[ ] Layout completo cabe en viewport de referencia.
-[ ] Lista de objetos y canvas representan la misma selección.
-[ ] Inspector TEXT conserva toda la funcionalidad A11-3A.
-[ ] Overlay Geometría no altera framebuffer ni Preview 1:1.
-[ ] Borde del canvas es neutro y naranja queda reservado a selección.
-[ ] Panel inferior puede contraerse sin desplazar el workspace.
-[ ] Geometría mostrada coincide con JWPLC_UITextField/runtime.
-```
-
-Cuando estos puntos pasen:
+La revisión visual del 2026-09-05 cerró la arquitectura base:
 
 ```text
 ALPHA11_UX_FOUNDATION=PASS
+```
+
+Antes de iniciar `A11-3B VALUE` sólo falta cerrar el gate funcional de UX-4:
+
+```text
+UX_4_EDITING=PASS
 NEXT=A11_3B_VALUE_FIELD
 ```
