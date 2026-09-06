@@ -249,20 +249,38 @@
     return chunks.join('\n\n');
   }
 
-  function groupedSetterBlocks() {
+  function generatedUIUpdateBlock() {
     const fields = allFields();
-    const chunks = [];
+    const symbols = new Map(
+      pageSymbols().map(({ page, symbol }) => [Number(page.id), symbol]));
+    const cases = [];
 
     pages().forEach((page) => {
       const entries = fields
         .map((field, index) => ({ field, index }))
         .filter(({ field }) => Number(field.page || 0) === Number(page.id));
       if (!entries.length) return;
-      const lines = entries.map(({ field, index }) => setterHint(field, index));
-      chunks.push(`// ${pageComment(page)}\n/*\n${lines.join('\n')}\n*/`);
+
+      const symbol = symbols.get(Number(page.id)) || String(Number(page.id));
+      const lines = entries.map(({ field, index }) => `        ${setterHint(field, index)}`);
+      cases.push(
+        `    case ${symbol}:\n` +
+        `        // ${pageComment(page)}\n` +
+        `${lines.join('\n')}\n` +
+        `        break;`);
     });
 
-    return chunks.join('\n\n');
+    return `// Sincronización gráfica autogenerada.\n` +
+      `// La lógica de aplicación debe permanecer en loop().\n` +
+      `void jwplcUIUpdate()\n` +
+      `{\n` +
+      `    switch (JWPLC_Display.userPage())\n` +
+      `    {\n` +
+      `${cases.join('\n\n')}\n\n` +
+      `    default:\n` +
+      `        break;\n` +
+      `    }\n` +
+      `}`;
   }
 
   function pageEnumBlock() {
@@ -290,7 +308,7 @@
     }, '    ');
 
     const variables = groupedChunks((field, index) => variableDeclaration(field, index));
-    const setters = groupedSetterBlocks();
+    const uiUpdate = generatedUIUpdateBlock();
     const pageEnum = pageEnumBlock();
 
     if (/enum HMIPageId : uint8_t\n\{[\s\S]*?\n\};/.test(text)) {
@@ -311,9 +329,18 @@
       /\/\/ Variables HMI\n[\s\S]*?\n\n\/\/ Definición declarativa/,
       `// Variables HMI\n${variables}\n\n// Definición declarativa`);
 
-    text = text.replace(
-      /(\/\/ Setters públicos que corresponden a este diseño:\n)[\s\S]*$/,
-      `$1${setters}`);
+    const generatedTailMarker = text.indexOf('// Sincronización gráfica autogenerada.');
+    const legacyTailMarker = text.indexOf('// jwplcUIUpdate() NO se genera.');
+    const settersTailMarker = text.indexOf('// Setters públicos que corresponden a este diseño:');
+    const tailCandidates = [generatedTailMarker, legacyTailMarker, settersTailMarker]
+      .filter((value) => value >= 0);
+
+    if (tailCandidates.length) {
+      const tailStart = Math.min(...tailCandidates);
+      text = `${text.slice(0, tailStart).trimEnd()}\n\n${uiUpdate}`;
+    } else {
+      text = `${text.trimEnd()}\n\n${uiUpdate}`;
+    }
 
     if (!text.includes('JWPLC_Display.setUserRefreshMode(')) {
       text = text.replace(
