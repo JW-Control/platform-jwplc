@@ -5,7 +5,9 @@
   const HEIGHT = 170;
   const BAUD_RATE = 921600;
   const POLL_MS = 120;
+  const PROBE_MS = 500;
   const MAGIC = [0x4A, 0x57, 0x48, 0x31]; // JWH1
+  const PROBE = new Uint8Array([0x4A, 0x57, 0x48, 0x3F]); // JWH?
 
   const previewCanvas = document.getElementById('previewCanvas');
   const toolbar = document.querySelector('.toolbar');
@@ -54,6 +56,7 @@
   let sendInFlight = false;
   let forceNextFrame = false;
   let pollTimer = null;
+  let probeTimer = null;
   let readBuffer = '';
 
   function editor() {
@@ -159,6 +162,20 @@
     return packet;
   }
 
+  async function sendProbe() {
+    if (!writer || bridgeReady) return;
+    try {
+      await writer.write(PROBE);
+    } catch (error) {
+      if (port) console.warn('[JWPLC LIVE] probe failed', error);
+    }
+  }
+
+  function stopProbeTimer() {
+    if (probeTimer) clearInterval(probeTimer);
+    probeTimer = null;
+  }
+
   async function sendCurrentFrame(force = false) {
     if (!writer || !bridgeReady || sendInFlight) {
       if (force) forceNextFrame = true;
@@ -188,7 +205,9 @@
     const clean = line.trim();
     if (!clean) return;
     if (clean.startsWith('JWHMI_LIVE_READY')) {
+      if (bridgeReady) return;
       bridgeReady = true;
+      stopProbeTimer();
       liveButton.classList.remove('waiting');
       liveButton.classList.add('live');
       liveButton.textContent = 'Desconectar LIVE';
@@ -233,18 +252,22 @@
     reader = port.readable.getReader();
     bridgeReady = false;
     lastHash = null;
+    readBuffer = '';
     liveButton.classList.add('waiting');
     liveButton.textContent = 'Esperando bridge…';
-    liveStatus.textContent = 'USB conectado · esperando JWPLC';
+    liveStatus.textContent = 'USB conectado · buscando JWPLC';
     liveStatus.className = 'live-status waiting';
     readLoop();
 
+    await sendProbe();
+    probeTimer = setInterval(() => sendProbe(), PROBE_MS);
     pollTimer = setInterval(() => sendCurrentFrame(false), POLL_MS);
   }
 
   async function disconnectLive() {
     if (pollTimer) clearInterval(pollTimer);
     pollTimer = null;
+    stopProbeTimer();
     bridgeReady = false;
 
     try { await reader?.cancel(); } catch (_) {}
