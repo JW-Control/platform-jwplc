@@ -9,6 +9,8 @@ if (-not (Test-Path -LiteralPath $launcher -PathType Leaf)) {
     throw "No se encontró el launcher: $launcher"
 }
 
+$powershellExe = (Get-Command powershell.exe -ErrorAction Stop).Source
+
 function Find-BrowserIcon {
     $candidates = @(
         "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe",
@@ -24,7 +26,7 @@ function Find-BrowserIcon {
 function New-JwplcShortcut([string]$Path) {
     $shell = New-Object -ComObject WScript.Shell
     $shortcut = $shell.CreateShortcut($Path)
-    $shortcut.TargetPath = 'powershell.exe'
+    $shortcut.TargetPath = $powershellExe
     $shortcut.Arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$launcher`""
     $shortcut.WorkingDirectory = $PSScriptRoot
     $shortcut.Description = 'JWPLC HMI Designer'
