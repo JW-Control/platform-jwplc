@@ -96,11 +96,13 @@ A11_BUTTON_ROBUSTNESS=PASS_PHYSICAL
 A11_BUTTON_PENDING_INPUT_CLEANUP=PASS_PHYSICAL
 
 A11_5_PHYSICAL_PARITY=PASS_USER_VISUAL
-A11_6_SKETCH_INTEGRATION=IMPLEMENTED_PENDING_GATE
-A11_6_DESKTOP_LAUNCHER=IMPLEMENTED_PENDING_GATE
-A11_6_PROJECT_SAVE_OPEN=IMPLEMENTED_PENDING_GATE
-A11_6_SKETCH_LINK=IMPLEMENTED_PENDING_GATE
-A11_6_HEADER_DIRECT_WRITE=IMPLEMENTED_PENDING_GATE
+A11_6_DESKTOP_LAUNCHER=PASS_USER_WINDOWS
+A11_6_PROJECT_SAVE_OPEN=PASS_USER_WINDOWS
+A11_6_SKETCH_LINK=PASS_USER_WINDOWS
+A11_6_HEADER_DIRECT_WRITE=PASS_USER_WINDOWS
+A11_6_LIVE_FROM_DESKTOP_APP=PASS_USER_WINDOWS
+A11_6_RESPONSIVE_LAYOUT=IMPLEMENTED_PENDING_GATE
+A11_6_SKETCH_INTEGRATION=IN_PROGRESS_UX_POLISH
 
 ALPHA11_STATUS=IN_PROGRESS
 ```
@@ -239,53 +241,81 @@ DUPLICATE_WARNING_INCLUDES_PAGE=YES
 
 ## A11-6 App / integración con sketch
 
-Implementado para gate:
+Gate Windows confirmado:
 
 ```text
-WINDOWS_ONE_CLICK_LAUNCHER=YES
+WINDOWS_ONE_CLICK_LAUNCHER=PASS
+EDGE_CHROME_APP_MODE=PASS
+PROJECT_OPEN_SAVE=PASS
+SKETCH_FOLDER_LINK=PASS
+DIRECT_HEADER_WRITE=PASS
+LIVE_AVAILABLE_FROM_APP=PASS
+```
+
+Arquitectura:
+
+```text
 LOCALHOST_MANUAL_START=NO
-EDGE_CHROME_APP_MODE=YES
 PWA_MANIFEST=YES
 SERVICE_WORKER=YES
-
 PROJECT_EXTENSION=.jwhmi
-PROJECT_SAVE_OPEN=YES
 PROJECT_DECLARATIVE_ONLY=YES
-
-SKETCH_FOLDER_LINK=YES
 SKETCH_REQUIRES_INO=YES
 LINK_HANDLE_PERSISTENCE=INDEXED_DB
-DIRECT_HEADER_WRITE=YES
 HEADER_OVERWRITE_CONFIRM=YES
 INO_AUTOMATIC_MODIFICATION=NO
 ```
 
 La app usa `127.0.0.1` de forma interna para conservar Web Serial y File System Access en contexto seguro; el usuario no inicia el servidor manualmente.
 
-Documento:
+Convención recomendada de proyecto:
+
+```text
+MiProyecto/
+├─ MiProyecto.ino
+├─ MiProyecto.jwhmi
+└─ JWPLC_HMI_Generated.h
+```
+
+`.jwhmi` no es una unidad de compilación Arduino y puede mantenerse junto al sketch para versionado/regeneración.
+
+Decisión Arduino IDE 2:
+
+```text
+ARDUINO_IDE_DIRECT_TOOLBAR_BUTTON=NOT_REQUIRED_ALPHA11
+ARDUINO_IDE_FORK=NO
+UNSUPPORTED_IDE_PATCHING=NO
+STANDALONE_DESKTOP_APP=PRIMARY
+```
+
+Se evita acoplar Alpha11 a un mecanismo de extensión no soportado/estable por Arduino IDE 2. La distribución final debe ofrecer launcher/instalación de un clic fuera del IDE.
+
+Documentos:
 
 ```text
 docs/v2.1.0-alpha.11/A11_6_DESKTOP_INTEGRATION_GATE.md
+docs/v2.1.0-alpha.11/A11_6_DESKTOP_UX_FOLLOWUP.md
 ```
 
 ## Pendiente inmediato
 
-Validar A11-6 en Windows:
+Validar el refinamiento responsive A11-6 en Windows:
 
 ```text
-1. Ejecutar JWPLC-HMI-Designer.cmd.
-2. Confirmar apertura en modo aplicación.
-3. Guardar y reabrir .jwhmi.
-4. Vincular carpeta de sketch con .ino.
-5. Actualizar JWPLC_HMI_Generated.h desde el Designer.
-6. Confirmar overwrite explícito.
-7. Compilar/subir desde Arduino IDE.
-8. Confirmar LIVE Web Serial desde la app.
+1. Pull del nuevo shell responsive.
+2. Abrir a pantalla completa y confirmar layout normal.
+3. Reducir a aproximadamente media pantalla.
+4. Confirmar editor principal usable.
+5. Abrir/cerrar botón Inspector compacto.
+6. Vincular sketch y confirmar nombre visible en botón/título.
+7. Confirmar LIVE disponible.
+8. Compilar/subir sketch vinculado tras actualizar header.
 ```
 
 Si pasa:
 
 ```text
+A11_6_RESPONSIVE_LAYOUT=PASS
 A11_6_SKETCH_INTEGRATION=PASS
 NEXT=ALPHA11_CLOSE_PRECOMPILED_AND_DOCS
 ```
