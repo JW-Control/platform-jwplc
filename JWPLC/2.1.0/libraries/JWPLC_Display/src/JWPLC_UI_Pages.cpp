@@ -213,7 +213,22 @@ namespace JWPLCUIPages
         }
 
         // PAGE_CONTENT: LEFT/RIGHT/UP/DOWN/OK quedan intactos para el usuario.
-        // Sólo ESC pertenece al sistema HMI y vuelve a PAGE_SELECT.
+        // Un flanco de cualquiera de esos botones solicita un ciclo USER para
+        // que jwplcUIUpdate() pueda observar pressed() aun con refresh ON_DEMAND.
+        // No se limpian los latches: la aplicación conserva la propiedad del
+        // evento. Sólo ESC pertenece al sistema HMI y vuelve a PAGE_SELECT.
+        const uint8_t userOwnedMask =
+            buttonMask(BTN_LEFT) |
+            buttonMask(BTN_RIGHT) |
+            buttonMask(BTN_UP) |
+            buttonMask(BTN_DOWN) |
+            buttonMask(BTN_OK);
+
+        if ((pressedEdges & userOwnedMask) != 0)
+        {
+            JWPLCUI::requestRefresh();
+        }
+
         if ((pressedEdges & buttonMask(BTN_ESC)) != 0)
         {
             consumeNavigationInput();
