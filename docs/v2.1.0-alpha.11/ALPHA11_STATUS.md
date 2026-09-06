@@ -79,10 +79,13 @@ A11_LIVE_TRANSPORT=FROZEN_ALPHA11
 A11_3B_VALUE_FIELD=PASS
 A11_3C_BOOL_FIELD=PASS
 A11_3D_BAR_FIELD=PASS
-A11_3E_MULTI_FIELD_PAGES=IMPLEMENTED_PENDING_GATE
-A11_3E_PAGE_INDICATOR=IMPLEMENTED_PENDING_GATE
-A11_3E_PAGE_BUTTON_ROUTING=IMPLEMENTED_PENDING_PHYSICAL_GATE
-A11_4_CODEGEN=BLOCKED_BY_A11_3E_GATE
+A11_3E_MULTI_FIELD_PAGES=IMPLEMENTED_PENDING_LIVE_PAGE_GATE
+A11_3E_PAGE_INDICATOR=PASS_PHYSICAL
+A11_3E_PAGE_BUTTON_ROUTING=PASS_PHYSICAL
+A11_3E_PAGE_BOUNDARIES=PASS_PHYSICAL
+A11_3E_CONTENT_BUTTON_OWNERSHIP=PASS_PHYSICAL
+A11_3E_ESC_TO_SELECTOR=PASS_PHYSICAL
+A11_4_CODEGEN=BLOCKED_BY_A11_3E_LIVE_PAGE_GATE
 A11_5_PHYSICAL_PARITY=PENDING
 A11_6_SKETCH_INTEGRATION=PENDING
 ALPHA11_STATUS=IN_PROGRESS
@@ -148,7 +151,7 @@ La validación mostró predominio casi total de REGION sobre FULL, heap estable 
 
 ## A11-3E — páginas
 
-Implementado para validación en navegador y gate físico.
+Implementado en navegador y validado físicamente para navegación con la botonera real.
 
 ### Designer
 
@@ -236,6 +239,62 @@ El overlay se dibuja después de los fields para permanecer visible.
 
 El transporte LIVE no cambia; sigue recibiendo el framebuffer ya compuesto por el Designer.
 
+### Evidencia física de botonera
+
+Gate usado:
+
+```text
+tools/jwplc-hmi-designer/gates/A11_Pages_Navigation/
+  JWPLC_HMI_Pages_Gate/
+    JWPLC_HMI_Pages_Gate.ino
+```
+
+Resultado observado en COM4:
+
+```text
+page=1/3 mode=SELECT
+page=2/3 mode=SELECT
+page=3/3 mode=SELECT
+page=2/3 mode=SELECT
+page=1/3 mode=SELECT
+page=1/3 mode=CONTENT
+USER RIGHT
+USER LEFT
+USER UP
+USER DOWN
+USER OK
+page=1/3 mode=SELECT
+page=2/3 mode=SELECT
+page=2/3 mode=CONTENT
+USER UP
+USER LEFT
+USER DOWN
+USER RIGHT
+USER OK
+page=2/3 mode=SELECT
+page=3/3 mode=SELECT
+page=3/3 mode=CONTENT
+USER UP
+USER LEFT
+USER DOWN
+USER RIGHT
+USER OK
+page=3/3 mode=SELECT
+```
+
+Conclusión:
+
+```text
+PAGE_SELECT_LEFT_RIGHT=PASS
+PAGE_BOUNDARIES=PASS
+OK_ENTERS_PAGE_CONTENT=PASS
+PAGE_CONTENT_USER_BUTTONS=PASS
+ESC_RETURNS_TO_PAGE_SELECT=PASS
+PAGE_INDICATOR_PHYSICAL=PASS
+```
+
+No se observaron cambios de página causados por LEFT/RIGHT dentro de PAGE_CONTENT.
+
 ### Limitación explícita Alpha11
 
 ```text
@@ -252,28 +311,25 @@ Documento:
 docs/v2.1.0-alpha.11/A11_3E_MULTI_FIELD_PAGES_GATE.md
 ```
 
-Gate físico:
-
-```text
-tools/jwplc-hmi-designer/gates/A11_Pages_Navigation/
-  JWPLC_HMI_Pages_Gate/
-    JWPLC_HMI_Pages_Gate.ino
-```
-
 ## Pendiente inmediato
 
-1. Validar A11-3E en navegador con al menos tres páginas y TEXT/VALUE/BOOL/BAR repartidos.
-2. Confirmar que LIVE cambia únicamente el contenido de la página activa y muestra `NN/TT`.
-3. Compilar/subir el gate físico.
-4. Validar botonera real:
+El gate físico de navegación quedó cerrado. Falta únicamente el smoke físico de cambio de página por LIVE para cerrar A11-3E completo sin inferencias.
 
 ```text
-SELECT: LEFT/RIGHT + OK
-CONTENT: LEFT/RIGHT/UP/DOWN/OK libres
-CONTENT: ESC -> SELECT
+LIVE_PAGE_SWITCH_PHYSICAL=PENDING
 ```
 
-Criterio:
+Prueba mínima:
+
+```text
+1. Volver a cargar JWPLC_HMI_Live_Bridge.ino.
+2. Conectar LIVE desde el Designer.
+3. Cambiar 01 -> 02 -> 03 -> 01 desde tabs/panel.
+4. Confirmar que TFT sigue cada página y NN/TT sin corrupción.
+5. Confirmar errores LIVE = 0.
+```
+
+Criterio final:
 
 ```text
 A11_3E_MULTI_FIELD_PAGES=PASS
