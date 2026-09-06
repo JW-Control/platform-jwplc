@@ -23,11 +23,16 @@
         let html = await response.text();
         html = html.replace(
           '</head>',
-          '<meta name="theme-color" content="#101a21" /><link rel="manifest" href="./manifest.webmanifest" /></head>'
+          '<meta name="theme-color" content="#101a21" />' +
+          '<link rel="manifest" href="./manifest.webmanifest" />' +
+          '<link rel="stylesheet" href="./desktop-responsive.css" />' +
+          '</head>'
         );
         html = html.replace(
           '</body>',
-          '<script src="./designer-project.js"><\/script></body>'
+          '<script src="./designer-project.js"><\/script>' +
+          '<script src="./desktop-responsive.js"><\/script>' +
+          '</body>'
         );
         document.open();
         document.write(html);
