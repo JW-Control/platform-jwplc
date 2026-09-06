@@ -79,15 +79,16 @@ A11_LIVE_TRANSPORT=FROZEN_ALPHA11
 A11_3B_VALUE_FIELD=PASS
 A11_3C_BOOL_FIELD=PASS
 A11_3D_BAR_FIELD=PASS
-A11_3E_MULTI_FIELD_PAGES=IMPLEMENTED_PENDING_LIVE_PAGE_GATE
-A11_3E_PAGE_INDICATOR=PASS_PHYSICAL
-A11_3E_PAGE_BUTTON_ROUTING=PASS_PHYSICAL
-A11_3E_PAGE_BOUNDARIES=PASS_PHYSICAL
-A11_3E_CONTENT_BUTTON_OWNERSHIP=PASS_PHYSICAL
-A11_3E_ESC_TO_SELECTOR=PASS_PHYSICAL
-A11_4_CODEGEN=BLOCKED_BY_A11_3E_LIVE_PAGE_GATE
-A11_5_PHYSICAL_PARITY=PENDING
-A11_6_SKETCH_INTEGRATION=PENDING
+A11_3E_MULTI_FIELD_PAGES=PASS
+A11_3E_PAGE_INDICATOR=PASS
+A11_3E_PAGE_BUTTON_ROUTING=PASS
+A11_3E_PAGE_BOUNDARIES=PASS
+A11_3E_CONTENT_BUTTON_OWNERSHIP=PASS
+A11_3E_ESC_TO_SELECTOR=PASS
+A11_3E_LIVE_PAGE_SWITCH=PASS
+A11_4_CODEGEN=READY_TO_VALIDATE
+A11_5_PHYSICAL_PARITY=BLOCKED_BY_A11_4_GATE
+A11_6_SKETCH_INTEGRATION=BLOCKED_BY_A11_5_GATE
 ALPHA11_STATUS=IN_PROGRESS
 ```
 
@@ -151,7 +152,7 @@ La validación mostró predominio casi total de REGION sobre FULL, heap estable 
 
 ## A11-3E — páginas
 
-Implementado en navegador y validado físicamente para navegación con la botonera real.
+Gate cerrado en Designer, runtime físico y transporte LIVE.
 
 ### Designer
 
@@ -175,8 +176,6 @@ tools/jwplc-hmi-designer/poc/designer-pages.js
 ```
 
 agrega panel/tabs de páginas, selector de página en Inspector y overlay compacto `NN/TT`.
-
-BOOL y BAR se ajustaron para que el codegen recorra el conjunto global de fields y no dependa sólo de los objetos visibles en la página activa.
 
 ### Indicador físico
 
@@ -220,69 +219,7 @@ JWPLC_Display.setUserPageCount(N);
 JWPLC_Display.setUserPage(0);
 ```
 
-### Runtime
-
-Archivos nuevos:
-
-```text
-JWPLC/2.1.0/libraries/JWPLC_Display/src/JWPLC_UI_Pages.h
-JWPLC/2.1.0/libraries/JWPLC_Display/src/JWPLC_UI_Pages.cpp
-```
-
-La entrada de sistema se procesa antes del filtro dirty/forced mediante:
-
-```text
-jwplcUIRuntimeServiceInput()
-```
-
-El overlay se dibuja después de los fields para permanecer visible.
-
-El transporte LIVE no cambia; sigue recibiendo el framebuffer ya compuesto por el Designer.
-
 ### Evidencia física de botonera
-
-Gate usado:
-
-```text
-tools/jwplc-hmi-designer/gates/A11_Pages_Navigation/
-  JWPLC_HMI_Pages_Gate/
-    JWPLC_HMI_Pages_Gate.ino
-```
-
-Resultado observado en COM4:
-
-```text
-page=1/3 mode=SELECT
-page=2/3 mode=SELECT
-page=3/3 mode=SELECT
-page=2/3 mode=SELECT
-page=1/3 mode=SELECT
-page=1/3 mode=CONTENT
-USER RIGHT
-USER LEFT
-USER UP
-USER DOWN
-USER OK
-page=1/3 mode=SELECT
-page=2/3 mode=SELECT
-page=2/3 mode=CONTENT
-USER UP
-USER LEFT
-USER DOWN
-USER RIGHT
-USER OK
-page=2/3 mode=SELECT
-page=3/3 mode=SELECT
-page=3/3 mode=CONTENT
-USER UP
-USER LEFT
-USER DOWN
-USER RIGHT
-USER OK
-page=3/3 mode=SELECT
-```
-
-Conclusión:
 
 ```text
 PAGE_SELECT_LEFT_RIGHT=PASS
@@ -291,9 +228,23 @@ OK_ENTERS_PAGE_CONTENT=PASS
 PAGE_CONTENT_USER_BUTTONS=PASS
 ESC_RETURNS_TO_PAGE_SELECT=PASS
 PAGE_INDICATOR_PHYSICAL=PASS
+UNEXPECTED_PAGE_CHANGE_IN_CONTENT=0
 ```
 
-No se observaron cambios de página causados por LEFT/RIGHT dentro de PAGE_CONTENT.
+### Evidencia LIVE multi-page
+
+Smoke aprobado con tres páginas usando el bridge LIVE ya congelado.
+
+```text
+LIVE_PAGE_01=PASS
+LIVE_PAGE_02=PASS
+LIVE_PAGE_03=PASS
+LIVE_PAGE_INDICATOR_NN_TT=PASS
+LIVE_ERRORS=0
+LIVE_BRIDGE_CHANGE_REQUIRED=NO
+```
+
+Durante los cambios de página el transporte puede elegir `FULL 320x170`, lo cual es correcto porque la composición visible cambia de forma extensa. No se observó corrupción.
 
 ### Limitación explícita Alpha11
 
@@ -313,27 +264,20 @@ docs/v2.1.0-alpha.11/A11_3E_MULTI_FIELD_PAGES_GATE.md
 
 ## Pendiente inmediato
 
-El gate físico de navegación quedó cerrado. Falta únicamente el smoke físico de cambio de página por LIVE para cerrar A11-3E completo sin inferencias.
+A11-3E queda cerrado. El siguiente gate es la validación integral del código generado.
 
 ```text
-LIVE_PAGE_SWITCH_PHYSICAL=PENDING
-```
-
-Prueba mínima:
-
-```text
-1. Volver a cargar JWPLC_HMI_Live_Bridge.ino.
-2. Conectar LIVE desde el Designer.
-3. Cambiar 01 -> 02 -> 03 -> 01 desde tabs/panel.
-4. Confirmar que TFT sigue cada página y NN/TT sin corrupción.
-5. Confirmar errores LIVE = 0.
-```
-
-Criterio final:
-
-```text
-A11_3E_MULTI_FIELD_PAGES=PASS
-A11_3E_PAGE_INDICATOR=PASS
-A11_3E_PAGE_BUTTON_ROUTING=PASS
 NEXT=A11_4_CODEGEN
+```
+
+Objetivo A11-4:
+
+```text
+GENERATED_CPP_ALL_FIELD_TYPES=YES
+GENERATED_CPP_ALL_PAGES=YES
+GENERATED_CPP_PUBLIC_API_ONLY=YES
+GENERATED_CPP_NO_TFT_DIRECT=YES
+GENERATED_CPP_NO_JWPLC_UI_UPDATE_BODY=YES
+GENERATED_CPP_COMPILES=TO_VALIDATE
+GENERATED_CPP_RUNS_ON_PHYSICAL_JWPLC=TO_VALIDATE
 ```
