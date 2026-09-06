@@ -76,9 +76,9 @@ A11_LIVE_DIAGNOSTIC_PANEL=PASS
 A11_LIVE_PHYSICAL_GATE=PASS
 A11_LIVE_TRANSPORT=FROZEN_ALPHA11
 
-A11_3B_VALUE_FIELD=IMPLEMENTED_PENDING_GATE
-A11_3C_BOOL_FIELD=BLOCKED_BY_A11_3B_GATE
-A11_3D_BAR_FIELD=PENDING
+A11_3B_VALUE_FIELD=PASS
+A11_3C_BOOL_FIELD=IMPLEMENTED_PENDING_GATE
+A11_3D_BAR_FIELD=BLOCKED_BY_A11_3C_GATE
 A11_3E_MULTI_FIELD_PAGES=PENDING
 A11_4_CODEGEN=PENDING
 A11_5_PHYSICAL_PARITY=PENDING
@@ -241,56 +241,9 @@ Documento:
 docs/v2.1.0-alpha.11/A11_UX4_EDITING_GATE.md
 ```
 
-## A11-LIVE — preview físico por Web Serial
-
-El Live Preview de desarrollo queda validado y congelado para Alpha11.
-
-Arquitectura final del gate:
-
-```text
-SERIAL_BAUD=921600
-SERIAL_RX_BUFFER=8192
-HOST_TX_CHUNK=1024
-FRAME_BUFFER_ROWS=32
-FULL_PROTOCOL=JWH1
-REGION_PROTOCOL=JWH2
-EVENT_DRIVEN=YES
-FLOW_CONTROL=FRAME_ACK
-LATEST_STATE_COALESCING=YES
-DIAGNOSTIC_PANEL=YES
-SECOND_HMI_RUNTIME=NO
-```
-
-La prueba física confirmó actualización incremental estable con una única sincronización FULL y más de mil actualizaciones REGION durante edición continua.
-
-Última captura de cierre:
-
-```text
-FPS_EFFECTIVE=18.7
-LAST_ACK_MS=40.4
-LAST_TX_BYTES=1236
-MODE=REGION
-LAST_REGION=98x14
-FULL_CONFIRMED=1
-REGION_CONFIRMED=1114
-HEAP_FREE_BYTES=262504
-HEAP_MIN_BYTES=262088
-LARGEST_BLOCK_BYTES=110580
-ERRORS=0
-VISUAL_CORRUPTION=0
-```
-
-La mejora respecto al framebuffer completo fue drástica y perceptible. No se continuará aumentando baudrate ni `g_frame` en Alpha11.
-
-Documento:
-
-```text
-docs/v2.1.0-alpha.11/A11_LIVE_DIRTY_REGIONS.md
-```
-
 ## A11-3B — VALUE
 
-Implementado para gate visual/funcional sobre la misma arquitectura UX.
+Gate cerrado.
 
 ```text
 PUBLIC_HELPER=JWPLC_UIValueField
@@ -299,6 +252,7 @@ STYLE=JWPLC_UIValueStyle
 RUNTIME_SETTER=JWPLC_Display.setValue
 DIRECT_TFT_CALLS=NO
 SECOND_HMI_RUNTIME=NO
+A11_3B_VALUE_FIELD=PASS
 ```
 
 El Inspector VALUE agrega:
@@ -310,22 +264,9 @@ signedValue
 leadingZeros
 ```
 
-La geometría AUTO reserva el peor caso del formato, igual que el runtime:
+La geometría AUTO reserva el peor caso del formato, igual que el runtime. El preview implementa decimales fijos, signo permitido, leading zeros y overflow `#`.
 
-```text
-3 enteros + 1 decimal unsigned -> 888.8
-3 enteros + 1 decimal signed   -> -888.8
-```
-
-El preview implementa las reglas funcionales actuales del formatter del runtime:
-
-- decimales fijos;
-- signo negativo sólo cuando está permitido;
-- leading zeros opcional;
-- overflow visual con `#` cuando el valor no entra en la reserva;
-- label, unidad, frame, layout y alineación reutilizan el contrato común.
-
-El codegen mezcla `TEXT` y `VALUE` en el mismo `HMI_FIELDS[]`, declara `float` para VALUE y conserva `char[]` para TEXT. Los colores se emiten como constantes RGB565 explícitas para no depender de aliases inexistentes.
+El codegen mezcla `TEXT` y `VALUE`, declara `float` para VALUE y conserva `char[]` para TEXT.
 
 Documento:
 
@@ -333,15 +274,82 @@ Documento:
 docs/v2.1.0-alpha.11/A11_3B_VALUE_FIELD_GATE.md
 ```
 
+## A11-3C — BOOL
+
+Implementado para validación visual/funcional.
+
+```text
+PUBLIC_HELPER=JWPLC_UIBoolField
+BOOL_TEXT=JWPLC_UIBoolText
+STYLE=JWPLC_UIBoolStyle
+RUNTIME_SETTER=JWPLC_Display.setBool
+DIRECT_TFT_CALLS=NO
+SECOND_HMI_RUNTIME=NO
+```
+
+El Designer habilita BOOL con defaults:
+
+```text
+Nombre objeto = BOOL N
+ID C++        = FIELD_BOOL_N
+Variable      = estadoN
+Tipo C++      = bool
+FALSE         = OFF
+TRUE          = ON
+Preview       = false
+Align         = CENTER
+```
+
+La geometría reserva el mayor ancho entre los textos FALSE/TRUE, igual que el runtime.
+
+Para reducir riesgo sobre el core ya validado, A11-3C se implementa como extensión:
+
+```text
+tools/jwplc-hmi-designer/poc/designer-bool.js
+```
+
+cargada antes del transporte LIVE desde `ux-foundation.js`.
+
+Documento:
+
+```text
+docs/v2.1.0-alpha.11/A11_3C_BOOL_FIELD_GATE.md
+```
+
+## LIVE Preview
+
+El transporte físico queda congelado para Alpha11 tras la validación con Dirty Regions.
+
+```text
+SERIAL_BAUD=921600
+SERIAL_RX_BUFFER=8192
+FRAME_BUFFER_ROWS=32
+EVENT_DRIVEN=YES
+DIRTY_REGION_JWH2=YES
+FLOW_CONTROL=ACK
+LATEST_STATE_COALESCING=YES
+VISUAL_CORRUPTION=0
+LIVE_ERRORS=0
+A11_LIVE_TRANSPORT=FROZEN_ALPHA11
+```
+
+La última validación mostró predominio casi total de REGION sobre FULL, heap estable y cero errores.
+
+Documento:
+
+```text
+docs/v2.1.0-alpha.11/A11_LIVE_DIRTY_REGIONS.md
+```
+
 ## Pendiente inmediato
 
-Con el LIVE cerrado, el siguiente gate vuelve al camino principal de Alpha11: validar A11-3B VALUE y recién después iniciar BOOL.
+Validar A11-3C BOOL en navegador y Live Preview antes de iniciar BAR.
 
 Criterio:
 
 ```text
-A11_3B_VALUE_FIELD=PASS
-NEXT=A11_3C_BOOL_FIELD
+A11_3C_BOOL_FIELD=PASS
+NEXT=A11_3D_BAR_FIELD
 ```
 
-No se inicia `BOOL` hasta cerrar este gate.
+No se inicia `BAR` hasta cerrar este gate.
