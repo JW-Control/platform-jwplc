@@ -36,6 +36,7 @@
   const clearButton = document.getElementById('clearButton');
   const newProjectButton = document.getElementById('newProjectButton');
   const demoButton = document.getElementById('demoButton');
+  const demoValueButton = document.getElementById('demoValueButton');
   const cursorStatus = document.getElementById('cursorStatus');
   const pixelStatus = document.getElementById('pixelStatus');
   const palette = document.getElementById('palette');
@@ -47,6 +48,10 @@
   const fieldSection = document.getElementById('textFieldControlsSection');
   const rawMetricsSection = document.getElementById('rawMetricsSection');
   const fieldMetricsSection = document.getElementById('fieldMetricsSection');
+  const numericFormatDetails = document.getElementById('numericFormatDetails');
+  const fieldInspectorTitle = document.getElementById('fieldInspectorTitle');
+  const fieldCapacityWrap = document.getElementById('fieldCapacityWrap');
+  const fieldCppType = document.getElementById('fieldCppType');
 
   const rawTextInput = document.getElementById('rawTextInput');
   const rawTextX = document.getElementById('rawTextX');
@@ -73,6 +78,13 @@
   const fieldValueColor = document.getElementById('fieldValueColor');
   const fieldBackgroundColor = document.getElementById('fieldBackgroundColor');
   const fieldFrameColor = document.getElementById('fieldFrameColor');
+
+  const fieldIntegerDigits = document.getElementById('fieldIntegerDigits');
+  const fieldDecimalDigits = document.getElementById('fieldDecimalDigits');
+  const fieldSigned = document.getElementById('fieldSigned');
+  const fieldLeadingZeros = document.getElementById('fieldLeadingZeros');
+  const valueFormatSampleStatus = document.getElementById('valueFormatSampleStatus');
+  const valueFormattedStatus = document.getElementById('valueFormattedStatus');
 
   const fieldPadStatus = document.getElementById('fieldPadStatus');
   const fieldBoundsStatus = document.getElementById('fieldBoundsStatus');
@@ -147,8 +159,9 @@
     background: 0xFFFF
   };
 
-  function defaultField(key = 'text-1') {
+  function defaultTextField(key = 'text-1') {
     return {
+      type: 'TEXT',
       key,
       name: 'Estado',
       id: 'FIELD_STATUS',
@@ -172,7 +185,36 @@
     };
   }
 
-  let textFields = [defaultField()];
+  function defaultValueField(key = 'value-2') {
+    return {
+      type: 'VALUE',
+      key,
+      name: 'Temperatura',
+      id: 'FIELD_TEMP',
+      variable: 'temperatura',
+      x: 36,
+      y: 58,
+      preview: '25.6',
+      label: 'Temp',
+      unit: 'C',
+      integerDigits: 3,
+      decimalDigits: 1,
+      signedValue: false,
+      leadingZeros: false,
+      valueSize: 2,
+      labelSize: 1,
+      frame: false,
+      layout: 'INLINE',
+      align: 'RIGHT',
+      page: 0,
+      labelColor: 0xFFFF,
+      valueColor: 0x07FF,
+      backgroundColor: 0x0000,
+      frameColor: 0xFFFF
+    };
+  }
+
+  let hmiFields = [defaultTextField()];
 
   const history = [];
   let historyIndex = -1;
@@ -214,7 +256,12 @@
   function inside(x, y) { return x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT; }
 
   function selectedField() {
-    return textFields.find((field) => field.key === selectedFieldKey) || null;
+    return hmiFields.find((field) => field.key === selectedFieldKey) || null;
+  }
+
+  function toolForField(field) {
+    if (!field) return 'none';
+    return field.type === 'VALUE' ? 'valueField' : 'textField';
   }
 
   function setLayerPixel(x, y, value) {
@@ -301,16 +348,69 @@
     return Math.max(FIELD_PADDING, field.labelSize || 1, field.valueSize || 1);
   }
 
-  function computeTextFieldGeometry(field) {
+  function makeNumericSample(field) {
+    const integerDigits = Math.max(1, Math.trunc(field.integerDigits || 1));
+    const decimalDigits = Math.max(0, Math.trunc(field.decimalDigits || 0));
+    return `${field.signedValue ? '-' : ''}${'8'.repeat(integerDigits)}${decimalDigits > 0 ? `.${'8'.repeat(decimalDigits)}` : ''}`;
+  }
+
+  function makeOverflowText(field) {
+    let slots = Math.max(1, Math.trunc(field.integerDigits || 1));
+    const decimals = Math.max(0, Math.trunc(field.decimalDigits || 0));
+    if (decimals > 0) slots += 1 + decimals;
+    if (field.signedValue) slots += 1;
+    return '#'.repeat(slots);
+  }
+
+  function formatNumericPreview(field) {
+    const raw = String(field.preview ?? '').trim();
+    if (!raw) return '';
+    const value = Number(raw);
+    if (!Number.isFinite(value)) return makeOverflowText(field);
+    const negative = value < 0;
+    if (negative && !field.signedValue) return makeOverflowText(field);
+
+    const decimals = Math.max(0, Math.trunc(field.decimalDigits || 0));
+    const allowed = Math.max(1, Math.trunc(field.integerDigits || 1));
+    let out;
+
+    if (field.leadingZeros) {
+      const magnitude = Math.abs(value).toFixed(decimals);
+      const [integerPart, fractionPart] = magnitude.split('.');
+      const paddedInteger = integerPart.padStart(allowed, '0');
+      const body = decimals > 0 ? `${paddedInteger}.${fractionPart || ''.padEnd(decimals, '0')}` : paddedInteger;
+      out = negative ? `-${body}` : body;
+    } else {
+      out = value.toFixed(decimals);
+    }
+
+    const unsigned = out.replace(/^[+-]/, '');
+    const integerPart = unsigned.split('.')[0] || '';
+    if (integerPart.length > allowed) return makeOverflowText(field);
+    return out;
+  }
+
+  function valueSampleForField(field) {
+    if (field.type === 'VALUE') return makeNumericSample(field);
+    return 'W'.repeat(Math.max(1, field.capacity || 1));
+  }
+
+  function previewTextForField(field) {
+    if (field.type === 'VALUE') return formatNumericPreview(field);
+    return String(field.preview || '').slice(0, Math.max(1, field.capacity || 1));
+  }
+
+  function computeFieldGeometry(field) {
     if (!field) return null;
     const pad = effectiveFieldPadding(field);
     const labelBounds = nominalTextBounds(field.label, field.labelSize);
     const unitBounds = nominalTextBounds(field.unit, field.labelSize);
-    const valueBounds = nominalTextBounds('W'.repeat(Math.max(1, field.capacity)), field.valueSize);
+    const valueBounds = nominalTextBounds(valueSampleForField(field), field.valueSize);
     let fieldW;
     let fieldH;
     let valueX;
     let valueY;
+
     if (field.layout === 'STACKED') {
       const valueAndUnitW = valueBounds.width + (unitBounds.width > 0 ? FIELD_GAP + unitBounds.width : 0);
       fieldW = 2 * pad + Math.max(labelBounds.width, valueAndUnitW);
@@ -323,15 +423,24 @@
       valueX = field.x + pad + labelBounds.width + (labelBounds.width > 0 ? FIELD_GAP : 0);
       valueY = field.y + pad;
     }
+
     return {
-      pad, fieldX: field.x, fieldY: field.y, fieldW, fieldH,
-      valueX, valueY, valueW: valueBounds.width, valueH: valueBounds.height,
-      labelBounds, unitBounds
+      pad,
+      fieldX: field.x,
+      fieldY: field.y,
+      fieldW,
+      fieldH,
+      valueX,
+      valueY,
+      valueW: valueBounds.width,
+      valueH: valueBounds.height,
+      labelBounds,
+      unitBounds
     };
   }
 
   function alignedValueX(field, geometry) {
-    const current = nominalTextBounds(field.preview, field.valueSize).width;
+    const current = nominalTextBounds(previewTextForField(field), field.valueSize).width;
     if (current >= geometry.valueW) return geometry.valueX;
     const free = geometry.valueW - current;
     if (field.align === 'CENTER') return geometry.valueX + Math.floor(free / 2);
@@ -339,20 +448,28 @@
     return geometry.valueX;
   }
 
-  function drawTextField(buffer, field) {
-    const g = computeTextFieldGeometry(field);
+  function drawField(buffer, field) {
+    const g = computeFieldGeometry(field);
     fillBufferRect(buffer, g.fieldX, g.fieldY, g.fieldW, g.fieldH, field.backgroundColor);
-    if (field.frame && g.fieldW > 1 && g.fieldH > 1) drawBufferRect(buffer, g.fieldX, g.fieldY, g.fieldW, g.fieldH, field.frameColor);
-    if (field.label) drawClassicTextAt(buffer, field.label, field.x + g.pad, field.y + g.pad, field.labelColor, field.backgroundColor, field.labelSize);
-    if (field.unit) drawClassicTextAt(buffer, field.unit, g.valueX + g.valueW + FIELD_GAP, g.valueY, field.labelColor, field.backgroundColor, field.labelSize);
-    const preview = field.preview.slice(0, field.capacity);
-    if (preview) drawClassicTextAt(buffer, preview, alignedValueX(field, g), g.valueY, field.valueColor, field.backgroundColor, field.valueSize);
+    if (field.frame && g.fieldW > 1 && g.fieldH > 1) {
+      drawBufferRect(buffer, g.fieldX, g.fieldY, g.fieldW, g.fieldH, field.frameColor);
+    }
+    if (field.label) {
+      drawClassicTextAt(buffer, field.label, field.x + g.pad, field.y + g.pad, field.labelColor, field.backgroundColor, field.labelSize);
+    }
+    if (field.unit) {
+      drawClassicTextAt(buffer, field.unit, g.valueX + g.valueW + FIELD_GAP, g.valueY, field.labelColor, field.backgroundColor, field.labelSize);
+    }
+    const preview = previewTextForField(field);
+    if (preview) {
+      drawClassicTextAt(buffer, preview, alignedValueX(field, g), g.valueY, field.valueColor, field.backgroundColor, field.valueSize);
+    }
     return g;
   }
 
   function composeFramebuffer() {
     framebuffer.set(pixelLayer);
-    textFields.forEach((field) => drawTextField(framebuffer, field));
+    hmiFields.forEach((field) => drawField(framebuffer, field));
     if (selectedTool === 'rawText') {
       drawClassicTextAt(framebuffer, rawState.value, rawState.x, rawState.y, rawState.foreground, rawState.background, rawState.size);
     }
@@ -365,7 +482,10 @@
     for (let i = 0; i < framebuffer.length; i += 1) {
       const { r, g, b } = rgb565ToRgb888(framebuffer[i]);
       const offset = i * 4;
-      bytes[offset] = r; bytes[offset + 1] = g; bytes[offset + 2] = b; bytes[offset + 3] = 255;
+      bytes[offset] = r;
+      bytes[offset + 1] = g;
+      bytes[offset + 2] = b;
+      bytes[offset + 3] = 255;
     }
     logicalCtx.putImageData(image, 0, 0);
   }
@@ -376,8 +496,16 @@
     displayCtx.strokeStyle = 'rgba(118, 151, 176, 0.18)';
     displayCtx.lineWidth = 1;
     displayCtx.beginPath();
-    for (let x = 0; x <= WIDTH; x += 1) { const px = x * zoom + 0.5; displayCtx.moveTo(px, 0); displayCtx.lineTo(px, HEIGHT * zoom); }
-    for (let y = 0; y <= HEIGHT; y += 1) { const py = y * zoom + 0.5; displayCtx.moveTo(0, py); displayCtx.lineTo(WIDTH * zoom, py); }
+    for (let x = 0; x <= WIDTH; x += 1) {
+      const px = x * zoom + 0.5;
+      displayCtx.moveTo(px, 0);
+      displayCtx.lineTo(px, HEIGHT * zoom);
+    }
+    for (let y = 0; y <= HEIGHT; y += 1) {
+      const py = y * zoom + 0.5;
+      displayCtx.moveTo(0, py);
+      displayCtx.lineTo(WIDTH * zoom, py);
+    }
     displayCtx.stroke();
     displayCtx.restore();
   }
@@ -392,28 +520,66 @@
     return String(value || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   }
 
+  function cppBool(value) {
+    return value ? 'true' : 'false';
+  }
+
+  function fieldFallbackId(field, index) {
+    return field.type === 'VALUE' ? `FIELD_VALUE_${index + 1}` : `FIELD_TEXT_${index + 1}`;
+  }
+
+  function variableFallback(field, index) {
+    return field.type === 'VALUE' ? `valor${index + 1}` : `texto${index + 1}`;
+  }
+
+  function variableDeclaration(field, index) {
+    const variable = sanitizeSymbol(field.variable, variableFallback(field, index));
+    if (field.type === 'VALUE') return `float ${variable} = 0.0f;`;
+    return `char ${variable}[${Math.max(1, field.capacity) + 1}] = {};`;
+  }
+
   function fieldContract(field, index) {
-    const id = sanitizeSymbol(field.id, `FIELD_TEXT_${index + 1}`);
+    const id = sanitizeSymbol(field.id, fieldFallbackId(field, index));
     const layout = `JWPLC_UI_LAYOUT_${field.layout}`;
     const align = `JWPLC_UI_ALIGN_${field.align}`;
-    const frame = field.frame ? 'true' : 'false';
+    const frame = cppBool(field.frame);
     const label = field.label ? `"${cppString(field.label)}"` : 'nullptr';
     const unit = field.unit ? `"${cppString(field.unit)}"` : 'nullptr';
-    return `    JWPLC_UITextField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        JWPLC_UIText(${label}, ${unit}, ${field.capacity}),\n        JWPLC_UITextFieldStyle(\n            ${field.valueSize},\n            ${field.labelSize},\n            ${frame},\n            ${layout},\n            ${align}),\n        ${field.page},\n        JWPLC_UIColors(\n            ${colorName(field.labelColor)},\n            ${colorName(field.valueColor)},\n            ${colorName(field.backgroundColor)},\n            ${colorName(field.frameColor)}))`;
+    const colors = `JWPLC_UIColors(\n            ${hex565(field.labelColor)},\n            ${hex565(field.valueColor)},\n            ${hex565(field.backgroundColor)},\n            ${hex565(field.frameColor)})`;
+
+    if (field.type === 'VALUE') {
+      return `    JWPLC_UIValueField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        JWPLC_UIText(${label}, ${unit}),\n        JWPLC_UIValueFormat(\n            ${Math.max(1, field.integerDigits)},\n            ${Math.max(0, field.decimalDigits)},\n            ${cppBool(field.signedValue)},\n            ${cppBool(field.leadingZeros)}),\n        JWPLC_UIValueStyle(\n            ${field.valueSize},\n            ${field.labelSize},\n            ${frame},\n            ${layout},\n            ${align}),\n        ${field.page},\n        ${colors})`;
+    }
+
+    return `    JWPLC_UITextField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        JWPLC_UIText(${label}, ${unit}, ${field.capacity}),\n        JWPLC_UITextFieldStyle(\n            ${field.valueSize},\n            ${field.labelSize},\n            ${frame},\n            ${layout},\n            ${align}),\n        ${field.page},\n        ${colors})`;
+  }
+
+  function setterHint(field, index) {
+    const id = sanitizeSymbol(field.id, fieldFallbackId(field, index));
+    const variable = sanitizeSymbol(field.variable, variableFallback(field, index));
+    return field.type === 'VALUE'
+      ? `// JWPLC_Display.setValue(${id}, ${variable});`
+      : `// JWPLC_Display.setText(${id}, ${variable});`;
   }
 
   function buildContractText() {
-    if (textFields.length === 0) return '// Sin campos HMI. Agrega un componente TEXT para comenzar.';
-    const enumLines = textFields.map((field, index) => `    ${sanitizeSymbol(field.id, `FIELD_TEXT_${index + 1}`)} = ${index + 1}`).join(',\n');
-    const variables = textFields.map((field, index) => `char ${sanitizeSymbol(field.variable, `texto${index + 1}`)}[${Math.max(1, field.capacity) + 1}] = {};`).join('\n');
-    const fields = textFields.map(fieldContract).join(',\n');
-    return `// Contrato generado por el Designer (A11 UX-4)\n\nenum HMIFieldId : uint8_t\n{\n${enumLines}\n};\n\n${variables}\n\nstatic const JWPLC_UIField HMI_FIELDS[] =\n{\n${fields}\n};\n\nvoid jwplcHMISetup()\n{\n    JWPLC_Display.setFields(\n        HMI_FIELDS,\n        sizeof(HMI_FIELDS) / sizeof(HMI_FIELDS[0]));\n}\n\n// jwplcUIUpdate() NO se genera.\n// El usuario alimenta las variables declaradas y llama los setters públicos.`;
+    if (hmiFields.length === 0) return '// Sin campos HMI. Agrega TEXT o VALUE para comenzar.';
+    const enumLines = hmiFields
+      .map((field, index) => `    ${sanitizeSymbol(field.id, fieldFallbackId(field, index))} = ${index + 1}`)
+      .join(',\n');
+    const variables = hmiFields.map(variableDeclaration).join('\n');
+    const fields = hmiFields.map(fieldContract).join(',\n');
+    const setters = hmiFields.map(setterHint).join('\n');
+
+    return `// Código generado por JWPLC HMI Designer\n// API pública JWPLC_UI · Alpha11 A11-3B\n\nenum HMIFieldId : uint8_t\n{\n${enumLines}\n};\n\n// Variables HMI\n${variables}\n\n// Definición declarativa\nstatic const JWPLC_UIField HMI_FIELDS[] =\n{\n${fields}\n};\n\nvoid jwplcHMISetup()\n{\n    JWPLC_Display.setFields(\n        HMI_FIELDS,\n        sizeof(HMI_FIELDS) / sizeof(HMI_FIELDS[0]));\n}\n\n// jwplcUIUpdate() NO se genera.\n// El usuario alimenta las variables anteriores dentro de su jwplcUIUpdate().\n// Setters públicos que corresponden a este diseño:\n${setters}`;
   }
 
   function buildStatusText() {
     const field = selectedField();
-    const g = field ? computeTextFieldGeometry(field) : null;
-    return `A11 UX Foundation: PASS visual\nA11 UX-4 Edición: IN_PROGRESS\n\n- Undo/Redo: ${historyIndex > 0 ? 'disponible' : 'sin historial previo'}\n- TEXT fields: ${textFields.length}/${MAX_FIELDS}\n- Selección: ${field ? `${field.name} · ${field.id}` : 'ninguna'}\n- Movimiento: flechas 1 px / Shift+flechas 10 px\n- Duplicar: Ctrl+D\n- Eliminar: Delete\n${g ? `- AUTO field seleccionado: ${g.fieldW} × ${g.fieldH} px\n- X/Y: ${field.x}, ${field.y}\n- effectivePadding: ${g.pad} px` : ''}\n\nVALUE/BOOL/BAR siguen bloqueados hasta cerrar UX-4.`;
+    const g = field ? computeFieldGeometry(field) : null;
+    const textCount = hmiFields.filter((item) => item.type === 'TEXT').length;
+    const valueCount = hmiFields.filter((item) => item.type === 'VALUE').length;
+    return `A11 UX Foundation: PASS\nA11 UX-4 Edición: PASS\nA11-3A TEXT: PASS_BASE_DESIGNER\nA11-3B VALUE: IN_PROGRESS\n\n- Campos: ${hmiFields.length}/${MAX_FIELDS}\n- TEXT: ${textCount}\n- VALUE: ${valueCount}\n- Selección: ${field ? `${field.type} ${field.name} · ${field.id}` : 'ninguna'}\n- Movimiento: flechas 1 px / Shift+flechas 10 px\n- Duplicar: Ctrl+D\n- Eliminar: Delete\n${g ? `- AUTO field: ${g.fieldW} × ${g.fieldH} px\n- X/Y: ${field.x}, ${field.y}\n- effectivePadding: ${g.pad} px` : ''}${field?.type === 'VALUE' ? `\n- sample reservado: ${makeNumericSample(field)}\n- preview formateado: ${formatNumericPreview(field) || '(vacío)'}` : ''}\n\nA11-3C BOOL y A11-3D BAR permanecen pendientes.`;
   }
 
   function updateMetrics() {
@@ -423,14 +589,19 @@
       rawBoundsStatus.textContent = `${width} × ${height} px`;
       return;
     }
+
     const field = selectedField();
-    if (selectedTool === 'textField' && field) {
-      const g = computeTextFieldGeometry(field);
+    if (field) {
+      const g = computeFieldGeometry(field);
       fieldPadStatus.textContent = `${g.pad} px`;
       fieldBoundsStatus.textContent = `${g.fieldW} × ${g.fieldH} px`;
       fieldValueBoundsStatus.textContent = `${g.valueW} × ${g.valueH} px`;
       fieldValueXYStatus.textContent = `${g.valueX}, ${g.valueY}`;
       fieldLayoutStatus.textContent = field.layout;
+      if (field.type === 'VALUE') {
+        if (valueFormatSampleStatus) valueFormatSampleStatus.textContent = makeNumericSample(field);
+        if (valueFormattedStatus) valueFormattedStatus.textContent = formatNumericPreview(field) || '—';
+      }
     }
   }
 
@@ -440,32 +611,41 @@
 
   function renderObjectList() {
     objectList.querySelectorAll('.object-item').forEach((item) => item.remove());
-    textFields.forEach((field, index) => {
+    hmiFields.forEach((field, index) => {
       const button = document.createElement('button');
-      button.className = `object-item${field.key === selectedFieldKey && selectedTool === 'textField' ? ' active' : ''}`;
+      const active = field.key === selectedFieldKey && toolForField(field) === selectedTool;
+      button.className = `object-item${active ? ' active' : ''}`;
       button.type = 'button';
       button.dataset.fieldKey = field.key;
-      button.title = `${field.name} · ${field.id}`;
-      button.innerHTML = `<span class="object-icon">T</span><span class="object-type">TEXT</span><span class="object-name"></span><span class="object-id"></span><span class="object-eye">●</span>`;
-      button.querySelector('.object-name').textContent = field.name || `TEXT ${index + 1}`;
-      button.querySelector('.object-id').textContent = field.id || `FIELD_TEXT_${index + 1}`;
+      button.title = `${field.type} · ${field.name} · ${field.id}`;
+      const icon = field.type === 'VALUE' ? '123' : 'T';
+      const iconClass = 'object-icon';
+      button.innerHTML = `<span class="${iconClass}">${icon}</span><span class="object-type">${field.type}</span><span class="object-name"></span><span class="object-id"></span><span class="object-eye">●</span>`;
+      if (field.type === 'VALUE') {
+        const iconNode = button.querySelector('.object-icon');
+        iconNode.style.fontSize = '9.5px';
+        iconNode.style.fontWeight = '800';
+        iconNode.style.color = '#52c9ff';
+      }
+      button.querySelector('.object-name').textContent = field.name || `${field.type} ${index + 1}`;
+      button.querySelector('.object-id').textContent = field.id || fieldFallbackId(field, index);
       button.addEventListener('click', () => {
         selectedFieldKey = field.key;
-        selectedTool = 'textField';
+        selectedTool = toolForField(field);
         syncInputsFromState();
         syncToolUI();
         render();
       });
       objectList.appendChild(button);
     });
-    countBadge.textContent = String(textFields.length);
-    if (fieldsStatus) fieldsStatus.textContent = `Campos: ${textFields.length}/${MAX_FIELDS}`;
+    countBadge.textContent = String(hmiFields.length);
+    if (fieldsStatus) fieldsStatus.textContent = `Campos: ${hmiFields.length}/${MAX_FIELDS}`;
   }
 
   function updateHistoryButtons() {
     if (undoButton) undoButton.disabled = historyIndex <= 0;
     if (redoButton) redoButton.disabled = historyIndex < 0 || historyIndex >= history.length - 1;
-    duplicateButton.disabled = !selectedField() || textFields.length >= MAX_FIELDS;
+    duplicateButton.disabled = !selectedField() || hmiFields.length >= MAX_FIELDS;
     deleteButton.disabled = !selectedField();
   }
 
@@ -479,15 +659,21 @@
     displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
     displayCtx.drawImage(logicalCanvas, 0, 0, WIDTH, HEIGHT, 0, 0, WIDTH * zoom, HEIGHT * zoom);
     drawGrid();
+
     previewCtx.imageSmoothingEnabled = false;
     previewCtx.clearRect(0, 0, WIDTH, HEIGHT);
     previewCtx.drawImage(logicalCanvas, 0, 0);
+
     renderObjectList();
     updateMetrics();
     updateCodePanel();
     updateHistoryButtons();
     window.dispatchEvent(new CustomEvent('jwplc:editor-refresh', {
-      detail: { selectedTool, hasTextSelection: Boolean(selectedField()) }
+      detail: {
+        selectedTool,
+        hasFieldSelection: Boolean(selectedField()),
+        fieldType: selectedField()?.type || null
+      }
     }));
   }
 
@@ -512,11 +698,23 @@
   }
 
   function syncToolUI() {
-    document.querySelectorAll('.tool[data-tool]').forEach((button) => button.classList.toggle('active', button.dataset.tool === selectedTool));
+    document.querySelectorAll('.tool[data-tool]').forEach((button) => {
+      button.classList.toggle('active', button.dataset.tool === selectedTool);
+    });
+
+    const field = selectedField();
     rawSection.hidden = selectedTool !== 'rawText';
-    fieldSection.hidden = selectedTool !== 'textField' || !selectedField();
+    fieldSection.hidden = !field || !['textField', 'valueField'].includes(selectedTool);
     rawMetricsSection.hidden = selectedTool !== 'rawText';
-    fieldMetricsSection.hidden = selectedTool !== 'textField' || !selectedField();
+    fieldMetricsSection.hidden = !field || !['textField', 'valueField'].includes(selectedTool);
+
+    if (field) {
+      const isValue = field.type === 'VALUE';
+      if (fieldInspectorTitle) fieldInspectorTitle.textContent = `Inspector · ${field.type} field`;
+      if (numericFormatDetails) numericFormatDetails.hidden = !isValue;
+      if (fieldCapacityWrap) fieldCapacityWrap.hidden = isValue;
+      if (fieldCppType) fieldCppType.value = isValue ? 'float' : 'char[]';
+    }
   }
 
   function updateActiveColorUI() {
@@ -568,13 +766,14 @@
       inspectorContract.textContent = 'Sin objeto seleccionado';
       return;
     }
+
     fieldName.value = field.name;
     fieldId.value = field.id;
     fieldVariable.value = field.variable;
-    fieldCapacity.value = String(field.capacity);
+    fieldCapacity.value = String(field.capacity || 12);
     fieldX.value = String(field.x);
     fieldY.value = String(field.y);
-    fieldPreview.value = field.preview;
+    fieldPreview.value = String(field.preview ?? '');
     fieldLabel.value = field.label;
     fieldUnit.value = field.unit;
     fieldValueSize.value = String(field.valueSize);
@@ -586,12 +785,21 @@
     fieldValueColor.value = colorName(field.valueColor);
     fieldBackgroundColor.value = colorName(field.backgroundColor);
     fieldFrameColor.value = colorName(field.frameColor);
-    inspectorContract.textContent = `char ${sanitizeSymbol(field.variable, 'estadoTexto')}[${field.capacity + 1}];`;
+
+    if (field.type === 'VALUE') {
+      if (fieldIntegerDigits) fieldIntegerDigits.value = String(field.integerDigits);
+      if (fieldDecimalDigits) fieldDecimalDigits.value = String(field.decimalDigits);
+      if (fieldSigned) fieldSigned.value = field.signedValue ? '1' : '0';
+      if (fieldLeadingZeros) fieldLeadingZeros.value = field.leadingZeros ? '1' : '0';
+      inspectorContract.textContent = `float ${sanitizeSymbol(field.variable, 'valor')} = 0.0f;`;
+    } else {
+      inspectorContract.textContent = `char ${sanitizeSymbol(field.variable, 'texto')}[${field.capacity + 1}] = {};`;
+    }
   }
 
   function captureSnapshot() {
     return {
-      fields: textFields.map((field) => ({ ...field })),
+      fields: hmiFields.map((field) => ({ ...field })),
       selectedFieldKey,
       selectedTool,
       raw: { ...rawState },
@@ -625,13 +833,15 @@
   }
 
   function restoreSnapshot(snapshot) {
-    textFields = snapshot.fields.map((field) => ({ ...field }));
+    hmiFields = snapshot.fields.map((field) => ({ ...field }));
     selectedFieldKey = snapshot.selectedFieldKey;
     selectedTool = snapshot.selectedTool;
     Object.assign(rawState, snapshot.raw);
     pixelLayer.set(snapshot.pixels);
     fieldSerial = snapshot.serial;
-    if (selectedFieldKey && !selectedField()) selectedFieldKey = textFields[0]?.key || null;
+    if (selectedFieldKey && !selectedField()) selectedFieldKey = hmiFields[0]?.key || null;
+    const field = selectedField();
+    if (field && !['rawText', 'pixel', 'erase'].includes(selectedTool)) selectedTool = toolForField(field);
     syncInputsFromState();
     syncToolUI();
     render();
@@ -650,25 +860,37 @@
   }
 
   function uniqueFieldSymbol(base) {
-    const used = new Set(textFields.map((field) => field.id));
+    const used = new Set(hmiFields.map((field) => field.id));
     let candidate = base;
     let suffix = 2;
-    while (used.has(candidate)) { candidate = `${base}_${suffix}`; suffix += 1; }
+    while (used.has(candidate)) {
+      candidate = `${base}_${suffix}`;
+      suffix += 1;
+    }
     return candidate;
   }
 
   function uniqueVariable(base) {
-    const used = new Set(textFields.map((field) => field.variable));
+    const used = new Set(hmiFields.map((field) => field.variable));
     let candidate = base;
     let suffix = 2;
-    while (used.has(candidate)) { candidate = `${base}${suffix}`; suffix += 1; }
+    while (used.has(candidate)) {
+      candidate = `${base}${suffix}`;
+      suffix += 1;
+    }
     return candidate;
   }
 
+  function placeNewField(field) {
+    const g = computeFieldGeometry(field);
+    field.x = clamp(field.x, 0, Math.max(0, WIDTH - g.fieldW));
+    field.y = clamp(field.y, 0, Math.max(0, HEIGHT - g.fieldH));
+  }
+
   function addTextField() {
-    if (textFields.length >= MAX_FIELDS) return;
+    if (hmiFields.length >= MAX_FIELDS) return;
     fieldSerial += 1;
-    const field = defaultField(`text-${fieldSerial}`);
+    const field = defaultTextField(`text-${fieldSerial}`);
     field.name = `Texto ${fieldSerial}`;
     field.id = uniqueFieldSymbol(`FIELD_TEXT_${fieldSerial}`);
     field.variable = uniqueVariable(`texto${fieldSerial}`);
@@ -676,7 +898,8 @@
     field.preview = 'READY';
     field.x = 20 + ((fieldSerial - 1) * 8) % 80;
     field.y = 20 + ((fieldSerial - 1) * 8) % 60;
-    textFields.push(field);
+    placeNewField(field);
+    hmiFields.push(field);
     selectedFieldKey = field.key;
     selectedTool = 'textField';
     syncInputsFromState();
@@ -685,23 +908,42 @@
     commitHistory();
   }
 
+  function addValueField() {
+    if (hmiFields.length >= MAX_FIELDS) return;
+    fieldSerial += 1;
+    const field = defaultValueField(`value-${fieldSerial}`);
+    field.name = `Valor ${fieldSerial}`;
+    field.id = uniqueFieldSymbol(`FIELD_VALUE_${fieldSerial}`);
+    field.variable = uniqueVariable(`valor${fieldSerial}`);
+    field.label = field.name;
+    field.x = 28 + ((fieldSerial - 1) * 8) % 90;
+    field.y = 44 + ((fieldSerial - 1) * 8) % 70;
+    placeNewField(field);
+    hmiFields.push(field);
+    selectedFieldKey = field.key;
+    selectedTool = 'valueField';
+    syncInputsFromState();
+    syncToolUI();
+    render();
+    commitHistory();
+  }
+
   function duplicateSelectedField() {
     const source = selectedField();
-    if (!source || textFields.length >= MAX_FIELDS) return;
+    if (!source || hmiFields.length >= MAX_FIELDS) return;
     fieldSerial += 1;
     const copy = { ...source };
-    copy.key = `text-${fieldSerial}`;
-    copy.name = `${source.name || 'TEXT'} copia`;
-    copy.id = uniqueFieldSymbol(`${sanitizeSymbol(source.id, 'FIELD_TEXT')}_COPY`);
-    copy.variable = uniqueVariable(`${sanitizeSymbol(source.variable, 'texto')}Copy`);
-    copy.x = clamp(source.x + 8, 0, WIDTH - 1);
-    copy.y = clamp(source.y + 8, 0, HEIGHT - 1);
-    const g = computeTextFieldGeometry(copy);
-    copy.x = clamp(copy.x, 0, Math.max(0, WIDTH - g.fieldW));
-    copy.y = clamp(copy.y, 0, Math.max(0, HEIGHT - g.fieldH));
-    textFields.push(copy);
+    const prefix = source.type === 'VALUE' ? 'value' : 'text';
+    copy.key = `${prefix}-${fieldSerial}`;
+    copy.name = `${source.name || source.type} copia`;
+    copy.id = uniqueFieldSymbol(`${sanitizeSymbol(source.id, fieldFallbackId(source, 0))}_COPY`);
+    copy.variable = uniqueVariable(`${sanitizeSymbol(source.variable, variableFallback(source, 0))}Copy`);
+    copy.x = source.x + 8;
+    copy.y = source.y + 8;
+    placeNewField(copy);
+    hmiFields.push(copy);
     selectedFieldKey = copy.key;
-    selectedTool = 'textField';
+    selectedTool = toolForField(copy);
     syncInputsFromState();
     syncToolUI();
     render();
@@ -709,12 +951,12 @@
   }
 
   function deleteSelectedField() {
-    const index = textFields.findIndex((field) => field.key === selectedFieldKey);
+    const index = hmiFields.findIndex((field) => field.key === selectedFieldKey);
     if (index < 0) return;
-    textFields.splice(index, 1);
-    const replacement = textFields[Math.min(index, textFields.length - 1)] || null;
+    hmiFields.splice(index, 1);
+    const replacement = hmiFields[Math.min(index, hmiFields.length - 1)] || null;
     selectedFieldKey = replacement ? replacement.key : null;
-    selectedTool = replacement ? 'textField' : 'none';
+    selectedTool = replacement ? toolForField(replacement) : 'none';
     syncInputsFromState();
     syncToolUI();
     render();
@@ -724,7 +966,7 @@
   function resetProject() {
     pixelLayer.fill(0x0000);
     fieldSerial = 1;
-    textFields = [defaultField('text-1')];
+    hmiFields = [defaultTextField('text-1')];
     selectedFieldKey = 'text-1';
     selectedTool = 'textField';
     syncInputsFromState();
@@ -735,15 +977,28 @@
 
   function demoTextField() {
     pixelLayer.fill(0x0000);
-    const demo = defaultField('text-1');
+    const demo = defaultTextField('text-1');
     Object.assign(demo, {
-      name: 'Estado de máquina', id: 'FIELD_STATUS', variable: 'estadoTexto', capacity: 12,
-      x: 18, y: 28, preview: 'PRODUCCION', label: 'Estado', valueSize: 2, labelSize: 1,
-      frame: true, layout: 'STACKED', align: 'CENTER', labelColor: 0xFFFF,
-      valueColor: 0x07E0, backgroundColor: 0x0000, frameColor: 0xFD20
+      name: 'Estado de máquina',
+      id: 'FIELD_STATUS',
+      variable: 'estadoTexto',
+      capacity: 12,
+      x: 18,
+      y: 28,
+      preview: 'PRODUCCION',
+      label: 'Estado',
+      valueSize: 2,
+      labelSize: 1,
+      frame: true,
+      layout: 'STACKED',
+      align: 'CENTER',
+      labelColor: 0xFFFF,
+      valueColor: 0x07E0,
+      backgroundColor: 0x0000,
+      frameColor: 0xFD20
     });
     fieldSerial = 1;
-    textFields = [demo];
+    hmiFields = [demo];
     selectedFieldKey = demo.key;
     selectedTool = 'textField';
     syncInputsFromState();
@@ -752,17 +1007,62 @@
     commitHistory();
   }
 
+  function demoValueField() {
+    pixelLayer.fill(0x0000);
+    const demo = defaultValueField('value-1');
+    Object.assign(demo, {
+      name: 'Temperatura',
+      id: 'FIELD_TEMP',
+      variable: 'temperatura',
+      x: 22,
+      y: 28,
+      preview: '25.6',
+      label: 'Temp',
+      unit: 'C',
+      integerDigits: 3,
+      decimalDigits: 1,
+      signedValue: true,
+      leadingZeros: false,
+      valueSize: 2,
+      labelSize: 1,
+      frame: true,
+      layout: 'INLINE',
+      align: 'RIGHT',
+      labelColor: 0xFFFF,
+      valueColor: 0x07FF,
+      backgroundColor: 0x0000,
+      frameColor: 0xFD20
+    });
+    fieldSerial = 1;
+    hmiFields = [demo];
+    selectedFieldKey = demo.key;
+    selectedTool = 'valueField';
+    syncInputsFromState();
+    syncToolUI();
+    render();
+    commitHistory();
+  }
+
   function bindRawInput(element, handler) {
-    element.addEventListener('input', () => { handler(); render(); });
-    element.addEventListener('change', () => { handler(); render(); commitHistory(); });
+    element.addEventListener('input', () => {
+      handler();
+      render();
+    });
+    element.addEventListener('change', () => {
+      handler();
+      render();
+      commitHistory();
+    });
   }
 
   function bindFieldInput(element, handler) {
+    if (!element) return;
     element.addEventListener('input', () => {
       const field = selectedField();
       if (!field) return;
       handler(field);
       syncInputsFromState();
+      syncToolUI();
       render();
     });
     element.addEventListener('change', () => {
@@ -770,6 +1070,7 @@
       if (!field) return;
       handler(field);
       syncInputsFromState();
+      syncToolUI();
       render();
       commitHistory();
     });
@@ -778,25 +1079,47 @@
   document.querySelectorAll('.tool[data-tool]').forEach((button) => {
     button.addEventListener('click', () => {
       const tool = button.dataset.tool;
-      if (tool === 'textField' && !selectedField()) addTextField();
-      else {
-        selectedTool = tool;
-        syncToolUI();
-        render();
+      const field = selectedField();
+      if (tool === 'textField') {
+        if (!field || field.type !== 'TEXT') addTextField();
+        else {
+          selectedTool = 'textField';
+          syncToolUI();
+          render();
+        }
+        return;
       }
+      if (tool === 'valueField') {
+        if (!field || field.type !== 'VALUE') addValueField();
+        else {
+          selectedTool = 'valueField';
+          syncToolUI();
+          render();
+        }
+        return;
+      }
+      selectedTool = tool;
+      syncToolUI();
+      render();
     });
   });
 
-  zoomSelect.addEventListener('change', () => { zoom = Number(zoomSelect.value); render(); });
+  zoomSelect.addEventListener('change', () => {
+    zoom = Number(zoomSelect.value);
+    render();
+  });
   gridToggle.addEventListener('change', render);
   newProjectButton.addEventListener('click', resetProject);
   demoButton.addEventListener('click', demoTextField);
+  if (demoValueButton) demoValueButton.addEventListener('click', demoValueField);
   clearButton.addEventListener('click', () => {
     pixelLayer.fill(0x0000);
     if (selectedTool === 'rawText') rawState.value = '';
     const field = selectedField();
-    if (field && selectedTool === 'textField') field.preview = '';
-    syncInputsFromState(); render(); commitHistory();
+    if (field) field.preview = field.type === 'VALUE' ? '0' : '';
+    syncInputsFromState();
+    render();
+    commitHistory();
   });
 
   if (undoButton) undoButton.addEventListener('click', undo);
@@ -814,12 +1137,17 @@
   bindFieldInput(fieldId, (field) => { field.id = fieldId.value; });
   bindFieldInput(fieldVariable, (field) => { field.variable = fieldVariable.value; });
   bindFieldInput(fieldCapacity, (field) => {
+    if (field.type !== 'TEXT') return;
     field.capacity = clamp(Number(fieldCapacity.value) || 1, 1, 39);
-    field.preview = field.preview.slice(0, field.capacity);
+    field.preview = String(field.preview || '').slice(0, field.capacity);
   });
   bindFieldInput(fieldX, (field) => { field.x = clamp(Number(fieldX.value) || 0, 0, WIDTH - 1); });
   bindFieldInput(fieldY, (field) => { field.y = clamp(Number(fieldY.value) || 0, 0, HEIGHT - 1); });
-  bindFieldInput(fieldPreview, (field) => { field.preview = fieldPreview.value.slice(0, field.capacity); });
+  bindFieldInput(fieldPreview, (field) => {
+    field.preview = field.type === 'TEXT'
+      ? fieldPreview.value.slice(0, Math.max(1, field.capacity))
+      : fieldPreview.value;
+  });
   bindFieldInput(fieldLabel, (field) => { field.label = fieldLabel.value; });
   bindFieldInput(fieldUnit, (field) => { field.unit = fieldUnit.value; });
   bindFieldInput(fieldValueSize, (field) => { field.valueSize = Number(fieldValueSize.value) || 1; });
@@ -832,18 +1160,40 @@
   bindFieldInput(fieldBackgroundColor, (field) => { field.backgroundColor = colorByName(fieldBackgroundColor.value).value; });
   bindFieldInput(fieldFrameColor, (field) => { field.frameColor = colorByName(fieldFrameColor.value).value; });
 
-  statusTab.addEventListener('click', () => {
-    codeMode = 'status'; statusTab.classList.add('active'); contractTab.classList.remove('active'); updateCodePanel();
+  bindFieldInput(fieldIntegerDigits, (field) => {
+    if (field.type === 'VALUE') field.integerDigits = clamp(Number(fieldIntegerDigits.value) || 1, 1, 9);
   });
-  contractTab.addEventListener('click', () => {
-    codeMode = 'contract'; contractTab.classList.add('active'); statusTab.classList.remove('active'); updateCodePanel();
+  bindFieldInput(fieldDecimalDigits, (field) => {
+    if (field.type === 'VALUE') field.decimalDigits = clamp(Number(fieldDecimalDigits.value) || 0, 0, 6);
+  });
+  bindFieldInput(fieldSigned, (field) => {
+    if (field.type === 'VALUE') field.signedValue = fieldSigned.value === '1';
+  });
+  bindFieldInput(fieldLeadingZeros, (field) => {
+    if (field.type === 'VALUE') field.leadingZeros = fieldLeadingZeros.value === '1';
   });
 
-  function hitTestTextField(point) {
-    for (let index = textFields.length - 1; index >= 0; index -= 1) {
-      const field = textFields[index];
-      const g = computeTextFieldGeometry(field);
-      if (point.x >= field.x && point.x < field.x + g.fieldW && point.y >= field.y && point.y < field.y + g.fieldH) return field;
+  statusTab.addEventListener('click', () => {
+    codeMode = 'status';
+    statusTab.classList.add('active');
+    contractTab.classList.remove('active');
+    updateCodePanel();
+  });
+  contractTab.addEventListener('click', () => {
+    codeMode = 'contract';
+    contractTab.classList.add('active');
+    statusTab.classList.remove('active');
+    updateCodePanel();
+  });
+
+  function hitTestField(point) {
+    for (let index = hmiFields.length - 1; index >= 0; index -= 1) {
+      const field = hmiFields[index];
+      const g = computeFieldGeometry(field);
+      if (
+        point.x >= field.x && point.x < field.x + g.fieldW &&
+        point.y >= field.y && point.y < field.y + g.fieldH
+      ) return field;
     }
     return null;
   }
@@ -853,6 +1203,7 @@
     if (!inside(point.x, point.y)) return;
     displayCanvas.setPointerCapture(event.pointerId);
     gestureChanged = false;
+
     if (selectedTool === 'pixel' || selectedTool === 'erase') {
       drawing = true;
       lastPoint = point;
@@ -862,10 +1213,10 @@
       draggingObject = true;
       dragOffset = { x: point.x - rawState.x, y: point.y - rawState.y };
     } else {
-      const hit = hitTestTextField(point);
+      const hit = hitTestField(point);
       if (hit) {
-        selectedTool = 'textField';
         selectedFieldKey = hit.key;
+        selectedTool = toolForField(hit);
         draggingObject = true;
         dragOffset = { x: point.x - hit.x, y: point.y - hit.y };
         syncInputsFromState();
@@ -883,6 +1234,7 @@
     const point = pointFromPointer(event);
     updateCursor(point);
     if (!inside(point.x, point.y)) return;
+
     if (drawing) {
       const value = selectedTool === 'erase' ? 0x0000 : selectedColor.value;
       if (lastPoint) gestureChanged = rasterLine(lastPoint.x, lastPoint.y, point.x, point.y, value) || gestureChanged;
@@ -894,15 +1246,17 @@
         const nextX = clamp(point.x - dragOffset.x, 0, WIDTH - 1);
         const nextY = clamp(point.y - dragOffset.y, 0, HEIGHT - 1);
         gestureChanged = gestureChanged || nextX !== rawState.x || nextY !== rawState.y;
-        rawState.x = nextX; rawState.y = nextY;
+        rawState.x = nextX;
+        rawState.y = nextY;
       } else {
         const field = selectedField();
         if (!field) return;
-        const g = computeTextFieldGeometry(field);
+        const g = computeFieldGeometry(field);
         const nextX = clamp(point.x - dragOffset.x, 0, Math.max(0, WIDTH - g.fieldW));
         const nextY = clamp(point.y - dragOffset.y, 0, Math.max(0, HEIGHT - g.fieldH));
         gestureChanged = gestureChanged || nextX !== field.x || nextY !== field.y;
-        field.x = nextX; field.y = nextY;
+        field.x = nextX;
+        field.y = nextY;
       }
       syncInputsFromState();
       render();
@@ -911,9 +1265,13 @@
 
   function endPointer() {
     const changed = gestureChanged;
-    drawing = false; draggingObject = false; lastPoint = null; gestureChanged = false;
+    drawing = false;
+    draggingObject = false;
+    lastPoint = null;
+    gestureChanged = false;
     if (changed) commitHistory();
   }
+
   displayCanvas.addEventListener('pointerup', endPointer);
   displayCanvas.addEventListener('pointercancel', endPointer);
   displayCanvas.addEventListener('pointerleave', () => {
@@ -922,25 +1280,35 @@
   });
 
   function isEditingTarget(target) {
-    return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || target?.isContentEditable;
+    return target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      target instanceof HTMLSelectElement ||
+      target?.isContentEditable;
   }
 
   function nudgeSelection(dx, dy) {
     const field = selectedField();
-    if (selectedTool === 'textField' && field) {
-      const g = computeTextFieldGeometry(field);
+    if (field && ['textField', 'valueField'].includes(selectedTool)) {
+      const g = computeFieldGeometry(field);
       const nextX = clamp(field.x + dx, 0, Math.max(0, WIDTH - g.fieldW));
       const nextY = clamp(field.y + dy, 0, Math.max(0, HEIGHT - g.fieldH));
       if (nextX === field.x && nextY === field.y) return false;
-      field.x = nextX; field.y = nextY;
-      syncInputsFromState(); render(); return true;
+      field.x = nextX;
+      field.y = nextY;
+      syncInputsFromState();
+      render();
+      return true;
     }
+
     if (selectedTool === 'rawText') {
       const nextX = clamp(rawState.x + dx, 0, WIDTH - 1);
       const nextY = clamp(rawState.y + dy, 0, HEIGHT - 1);
       if (nextX === rawState.x && nextY === rawState.y) return false;
-      rawState.x = nextX; rawState.y = nextY;
-      syncInputsFromState(); render(); return true;
+      rawState.x = nextX;
+      rawState.y = nextY;
+      syncInputsFromState();
+      render();
+      return true;
     }
     return false;
   }
@@ -950,18 +1318,39 @@
     if (!isEditingTarget(event.target)) {
       if (ctrl && event.key.toLowerCase() === 'z') {
         event.preventDefault();
-        if (event.shiftKey) redo(); else undo();
+        if (event.shiftKey) redo();
+        else undo();
         return;
       }
-      if (ctrl && event.key.toLowerCase() === 'y') { event.preventDefault(); redo(); return; }
-      if (ctrl && event.key.toLowerCase() === 'd') { event.preventDefault(); duplicateSelectedField(); return; }
-      if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); deleteSelectedField(); return; }
-      if (event.key === 'Escape') {
-        selectedFieldKey = null; selectedTool = 'none'; syncToolUI(); render(); return;
+      if (ctrl && event.key.toLowerCase() === 'y') {
+        event.preventDefault();
+        redo();
+        return;
       }
+      if (ctrl && event.key.toLowerCase() === 'd') {
+        event.preventDefault();
+        duplicateSelectedField();
+        return;
+      }
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        event.preventDefault();
+        deleteSelectedField();
+        return;
+      }
+      if (event.key === 'Escape') {
+        selectedFieldKey = null;
+        selectedTool = 'none';
+        syncToolUI();
+        render();
+        return;
+      }
+
       const step = event.shiftKey ? 10 : 1;
       const delta = {
-        ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step]
+        ArrowLeft: [-step, 0],
+        ArrowRight: [step, 0],
+        ArrowUp: [0, -step],
+        ArrowDown: [0, step]
       }[event.key];
       if (delta) {
         event.preventDefault();
@@ -994,12 +1383,16 @@
   window.JWPLCHMIEditor = {
     getSelectedField: () => selectedField(),
     getSelectedTool: () => selectedTool,
-    computeSelectedGeometry: () => computeTextFieldGeometry(selectedField()),
-    hasTextSelection: () => Boolean(selectedField()) && selectedTool === 'textField',
+    getSelectedFieldType: () => selectedField()?.type || null,
+    computeSelectedGeometry: () => computeFieldGeometry(selectedField()),
+    hasFieldSelection: () => Boolean(selectedField()) && ['textField', 'valueField'].includes(selectedTool),
+    hasTextSelection: () => selectedField()?.type === 'TEXT' && selectedTool === 'textField',
+    hasValueSelection: () => selectedField()?.type === 'VALUE' && selectedTool === 'valueField',
     undo,
     redo,
     duplicateSelectedField,
     deleteSelectedField,
-    addTextField
+    addTextField,
+    addValueField
   };
 })();
