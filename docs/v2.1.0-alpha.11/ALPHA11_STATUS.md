@@ -1,6 +1,6 @@
 # JWPLC Basic v2.1.0-alpha.11 — Estado
 
-Fecha: 2026-09-05
+Fecha: 2026-09-06
 
 ## Rama
 
@@ -86,6 +86,9 @@ A11_3E_PAGE_BOUNDARIES=PASS
 A11_3E_CONTENT_BUTTON_OWNERSHIP=PASS
 A11_3E_ESC_TO_SELECTOR=PASS
 A11_3E_LIVE_PAGE_SWITCH=PASS
+A11_4_CODEGEN_HEADER_FORMAT=IMPLEMENTED_PENDING_GATE
+A11_4_CODEGEN_PAGE_GROUPING=IMPLEMENTED_PENDING_GATE
+A11_4_IDENTIFIER_DUPLICATE_GUARD=IMPLEMENTED_PENDING_GATE
 A11_4_CODEGEN=READY_TO_VALIDATE
 A11_5_PHYSICAL_PARITY=BLOCKED_BY_A11_4_GATE
 A11_6_SKETCH_INTEGRATION=BLOCKED_BY_A11_5_GATE
@@ -154,73 +157,6 @@ La validación mostró predominio casi total de REGION sobre FULL, heap estable 
 
 Gate cerrado en Designer, runtime físico y transporte LIVE.
 
-### Designer
-
-```text
-PAGE_0_ID=0
-PAGE_0_NAME=Principal
-MAX_PAGES_DESIGNER_ALPHA11=16
-ACTIVE_PAGE_FILTERS_CANVAS=YES
-ACTIVE_PAGE_FILTERS_PREVIEW=YES
-ACTIVE_PAGE_FILTERS_OBJECT_LIST=YES
-CODEGEN_INCLUDES_ALL_PAGES=YES
-NEW_FIELDS_USE_ACTIVE_PAGE=YES
-MOVE_FIELD_BETWEEN_PAGES=YES
-UNDO_REDO_INCLUDES_PAGE_STATE=YES
-```
-
-La extensión:
-
-```text
-tools/jwplc-hmi-designer/poc/designer-pages.js
-```
-
-agrega panel/tabs de páginas, selector de página en Inspector y overlay compacto `NN/TT`.
-
-### Indicador físico
-
-```text
-PAGE_INDICATOR=NN/TT
-POSITION=TOP_RIGHT
-X=282
-Y=3
-W=36
-H=12
-PAGE_INDICATOR_FIELD=NO
-```
-
-Con una sola página no se muestra.
-
-```text
-PAGE_SELECT:
-  BLACK background / WHITE text
-  LEFT/RIGHT = cambiar página
-  OK         = entrar
-  UP/DOWN    = consumidos
-
-PAGE_CONTENT:
-  WHITE background / BLACK text
-  LEFT/RIGHT/UP/DOWN/OK = usuario
-  ESC                   = volver a PAGE_SELECT
-```
-
-### API pública
-
-```cpp
-JWPLC_Display.setUserPageCount(count);
-JWPLC_Display.userPageCount();
-JWPLC_Display.isUserPageSelection();
-```
-
-El codegen A11-3E agrega:
-
-```cpp
-JWPLC_Display.setUserPageCount(N);
-JWPLC_Display.setUserPage(0);
-```
-
-### Evidencia física de botonera
-
 ```text
 PAGE_SELECT_LEFT_RIGHT=PASS
 PAGE_BOUNDARIES=PASS
@@ -228,25 +164,14 @@ OK_ENTERS_PAGE_CONTENT=PASS
 PAGE_CONTENT_USER_BUTTONS=PASS
 ESC_RETURNS_TO_PAGE_SELECT=PASS
 PAGE_INDICATOR_PHYSICAL=PASS
-UNEXPECTED_PAGE_CHANGE_IN_CONTENT=0
-```
-
-### Evidencia LIVE multi-page
-
-Smoke aprobado con tres páginas usando el bridge LIVE ya congelado.
-
-```text
 LIVE_PAGE_01=PASS
 LIVE_PAGE_02=PASS
 LIVE_PAGE_03=PASS
 LIVE_PAGE_INDICATOR_NN_TT=PASS
 LIVE_ERRORS=0
-LIVE_BRIDGE_CHANGE_REQUIRED=NO
 ```
 
-Durante los cambios de página el transporte puede elegir `FULL 320x170`, lo cual es correcto porque la composición visible cambia de forma extensa. No se observó corrupción.
-
-### Limitación explícita Alpha11
+Limitación explícita Alpha11:
 
 ```text
 DECLARATIVE_FIELDS_PAGE_SCOPED=YES
@@ -254,30 +179,75 @@ PIXEL_LAYER_PAGE_SCOPED=NO
 RAW_GFX_PAGE_SCOPED=NO
 ```
 
-Pixel/Borrador/GFX RAW siguen siendo herramientas técnicas/globales.
-
 Documento:
 
 ```text
 docs/v2.1.0-alpha.11/A11_3E_MULTI_FIELD_PAGES_GATE.md
 ```
 
-## Pendiente inmediato
+## A11-4 — Codegen integral
 
-A11-3E queda cerrado. El siguiente gate es la validación integral del código generado.
+El artefacto recomendado queda separado del sketch de usuario:
 
 ```text
-NEXT=A11_4_CODEGEN
+JWPLC_HMI_Generated.h
 ```
 
-Objetivo A11-4:
+El output ahora prepara directamente:
+
+```cpp
+#pragma once
+#include <JWPLC_Display.h>
+```
+
+Se agrupan por comentarios de página:
 
 ```text
-GENERATED_CPP_ALL_FIELD_TYPES=YES
-GENERATED_CPP_ALL_PAGES=YES
-GENERATED_CPP_PUBLIC_API_ONLY=YES
-GENERATED_CPP_NO_TFT_DIRECT=YES
-GENERATED_CPP_NO_JWPLC_UI_UPDATE_BODY=YES
-GENERATED_CPP_COMPILES=TO_VALIDATE
-GENERATED_CPP_RUNS_ON_PHYSICAL_JWPLC=TO_VALIDATE
+HMIFieldId
+Variables HMI
+Setters públicos comentados
+```
+
+Ejemplo:
+
+```cpp
+// Página 01 · Principal
+// Página 02 · Proceso
+// Página 03 · Diagnóstico
+```
+
+Se agregó protección global contra duplicados editados manualmente en Inspector:
+
+```text
+ID_CPP_DUPLICATE_GUARD=YES
+VARIABLE_CPP_DUPLICATE_GUARD=YES
+SANITIZED_CPP_SYMBOL_COLLISION_GUARD=YES
+DUPLICATE_WARNING_INCLUDES_PAGE=YES
+```
+
+La creación y duplicación automática ya producían nombres únicos; la protección nueva cubre la edición manual y una validación defensiva antes del codegen.
+
+Documento:
+
+```text
+docs/v2.1.0-alpha.11/A11_4_CODEGEN_GATE.md
+```
+
+## Pendiente inmediato
+
+Validar visualmente A11-4 tras `Ctrl+F5`:
+
+```text
+1. Confirmar #pragma once + include en Código generado.
+2. Confirmar comentarios Página NN · Nombre en HMIFieldId.
+3. Confirmar comentarios de página en Variables HMI.
+4. Confirmar comentarios de página en setters finales.
+5. Intentar duplicar un ID C++ entre páginas y verificar aviso con página origen.
+6. Intentar duplicar una variable C++ entre páginas y verificar aviso con página origen.
+```
+
+Después usar el header generado en Arduino IDE y cerrar compile/link/physical.
+
+```text
+NEXT=A11_4_CODEGEN_STATIC_GATE
 ```
