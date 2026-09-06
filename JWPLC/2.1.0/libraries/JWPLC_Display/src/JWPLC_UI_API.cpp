@@ -1,4 +1,5 @@
 #include "JWPLC_UI.h"
+#include "JWPLC_UI_Pages.h"
 #include "JWPLC_UI_RuntimeHooks.h"
 
 #include <Adafruit_ST7789.h>
@@ -317,6 +318,7 @@ JWPLC_UIField JWPLC_UIBarField(
 // la HMI se usa: JWPLC_UI.cpp depende de los constructores definidos arriba.
 extern "C" bool jwplcUIRuntimeRefreshNeeded(void)
 {
+    JWPLCUIPages::serviceNavigation();
     return JWPLCUI::refreshNeeded();
 }
 
@@ -328,6 +330,7 @@ extern "C" void jwplcUIRuntimeInvalidateAll(bool redrawStatic)
 extern "C" void jwplcUIRuntimePrepareEnter(void)
 {
     JWPLCUI::prepareEnter();
+    JWPLCUIPages::prepareEnter();
 }
 
 extern "C" uint8_t jwplcUIRuntimeCurrentPage(void)
@@ -363,5 +366,6 @@ extern "C" void jwplcUIRuntimeDrawDirty(Adafruit_ST7789 *tft)
     if (tft != nullptr)
     {
         JWPLCUI::drawDirty(*tft);
+        JWPLCUIPages::drawIndicator(*tft);
     }
 }
