@@ -108,7 +108,8 @@ A11_6_PROJECT_CANONICAL_SAVE=IMPLEMENTED_PENDING_USER_GATE
 A11_6_STANDALONE_INSTALLER=NATIVE_EXE_IMPLEMENTED_PENDING_USER_GATE
 A11_6_ARDUINO_IDE_ICON=PASS_USER_2_3_4
 A11_6_ARDUINO_IDE_OPEN_V0_1_0=FAIL_USER
-A11_6_ARDUINO_IDE_OPEN_V0_1_1=IMPLEMENTED_PENDING_USER_GATE
+A11_6_ARDUINO_IDE_OPEN_V0_1_1_CUSTOM_URI=FAIL_USER
+A11_6_ARDUINO_IDE_OPEN_V0_1_2_DIRECT_EXE=IMPLEMENTED_PENDING_USER_GATE
 A11_6_SKETCH_INTEGRATION=IN_PROGRESS_FINAL_GATE
 
 ALPHA11_STATUS=IN_PROGRESS
@@ -303,7 +304,7 @@ Build-JWPLC-HMI-Designer-Exe.ps1
 JWPLC-HMI-Designer-Launcher.cs
 ```
 
-El instalador copia la app fuera del repositorio, genera `JWPLC-HMI-Designer.exe`, crea accesos directos y registra `jwplc-hmi://open`.
+El instalador copia la app fuera del repositorio, genera `JWPLC-HMI-Designer.exe`, crea accesos directos y registra `jwplc-hmi://open` como fallback.
 
 ### Launcher experimental Arduino IDE 2
 
@@ -315,20 +316,21 @@ TARGET_IDE=2.3.4
 TARGET_THEIA=1.41.x
 ```
 
-Gate v0.1.0 del usuario:
+Gates del usuario:
 
 ```text
 EDITOR_TITLE_ICON=PASS
-CLICK_OPEN=FAIL
+V0_1_0_DIRECT_POWERSHELL=FAIL
+V0_1_1_CUSTOM_URI=FAIL
 ```
 
-La v0.1.1 elimina el lanzamiento directo de PowerShell desde el plugin. El comando ahora delega a Windows mediante:
+La v0.1.2 usa como ruta principal el ejecutable instalado:
 
 ```text
-jwplc-hmi://open
+%LOCALAPPDATA%\JWPLC\HMI Designer\JWPLC-HMI-Designer.exe
 ```
 
-Windows resuelve el protocolo al ejecutable instalado. Esto reduce el acoplamiento del plugin al proceso host de Arduino IDE.
+El plugin busca primero `JWPLC_HMI_DESIGNER_HOME`, aplica fallback a `%LOCALAPPDATA%`, ejecuta el EXE directamente mediante el host de extensión y conserva `jwplc-hmi://open` sólo como fallback. El icono ya fue confirmado como cargado en Arduino IDE 2.3.4.
 
 El VSIX se instala en:
 
@@ -355,7 +357,7 @@ Gate final A11-6 en Windows:
 5. Abrir el EXE directamente y confirmar Designer + LIVE.
 6. Reabrir Arduino IDE 2.3.4.
 7. Confirmar icono JW.
-8. Pulsar icono y confirmar apertura del Designer mediante jwplc-hmi://open.
+8. Pulsar icono y confirmar apertura del Designer por EXE directo v0.1.2.
 9. Confirmar <Sketch>.jwhmi junto al .ino al guardar.
 10. Compilar/subir un sketch JWPLC para descartar regresiones.
 ```
