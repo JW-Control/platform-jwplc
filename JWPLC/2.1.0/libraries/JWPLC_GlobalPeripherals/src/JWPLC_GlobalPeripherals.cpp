@@ -68,6 +68,13 @@ static const JW_MatrixButtons::BtnMapItem BUTTON_MAP[] = {
 static bool g_buttonsReady = false;
 static TaskHandle_t g_buttonTaskHandle = nullptr;
 
+// El scanner debe poder adelantarse al loop del usuario cuando este consulta
+// pressed()/released() de forma intensiva. Con prioridad 2, si el scanner
+// despierta mientras el loop (prioridad Arduino habitual 1) posee el mutex,
+// la herencia de prioridad permite liberar el lock y completar el scan sin
+// exigir delay()/Serial en el sketch.
+static constexpr UBaseType_t BUTTON_SCAN_TASK_PRIORITY = 2;
+
 // Snapshot fisico privado para notificar cambios al Display sin consumir
 // pressed()/released() ni depender de la cola de eventos del usuario.
 static uint8_t g_lastButtonDownMask = 0;
@@ -183,14 +190,21 @@ namespace JWPLCButtons
 
         if (g_buttonTaskHandle == nullptr)
         {
-            xTaskCreatePinnedToCore(
+            const BaseType_t created = xTaskCreatePinnedToCore(
                 buttonScanTask,
                 "jwplcBtnScan",
                 4096,
                 nullptr,
-                1,
+                BUTTON_SCAN_TASK_PRIORITY,
                 &g_buttonTaskHandle,
                 ARDUINO_RUNNING_CORE);
+
+            if (created != pdPASS || g_buttonTaskHandle == nullptr)
+            {
+                g_buttonTaskHandle = nullptr;
+                g_buttonsReady = false;
+                return false;
+            }
         }
 
         return true;
