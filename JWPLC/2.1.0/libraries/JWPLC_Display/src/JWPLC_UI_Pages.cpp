@@ -102,6 +102,16 @@ namespace
 
         g_selectionMode = true;
         restoreIdleReturnMode();
+
+        // Al salir de PAGE_CONTENT no deben sobrevivir PRESS/RELEASE/REPEAT
+        // de teclas que pertenecían a la aplicación. En particular, un OK
+        // pendiente no puede provocar un reingreso inmediato al selector.
+        consumeNavigationInput();
+
+        // Sincroniza también el snapshot físico: si una tecla sigue sostenida
+        // al volver al selector, no debe aparecer como un flanco nuevo.
+        g_previousMask = readButtonDownMask();
+
         markIndicatorDirty();
         JWPLCUI::requestRefresh();
     }
