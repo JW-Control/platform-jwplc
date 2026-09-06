@@ -77,8 +77,8 @@ A11_LIVE_PHYSICAL_GATE=PASS
 A11_LIVE_TRANSPORT=FROZEN_ALPHA11
 
 A11_3B_VALUE_FIELD=PASS
-A11_3C_BOOL_FIELD=IMPLEMENTED_PENDING_GATE
-A11_3D_BAR_FIELD=BLOCKED_BY_A11_3C_GATE
+A11_3C_BOOL_FIELD=PASS
+A11_3D_BAR_FIELD=READY_TO_IMPLEMENT
 A11_3E_MULTI_FIELD_PAGES=PENDING
 A11_4_CODEGEN=PENDING
 A11_5_PHYSICAL_PARITY=PENDING
@@ -276,7 +276,7 @@ docs/v2.1.0-alpha.11/A11_3B_VALUE_FIELD_GATE.md
 
 ## A11-3C — BOOL
 
-Implementado para validación visual/funcional.
+Gate cerrado tras validación visual/funcional con `TEXT + VALUE + BOOL` y Live Preview activo.
 
 ```text
 PUBLIC_HELPER=JWPLC_UIBoolField
@@ -285,30 +285,27 @@ STYLE=JWPLC_UIBoolStyle
 RUNTIME_SETTER=JWPLC_Display.setBool
 DIRECT_TFT_CALLS=NO
 SECOND_HMI_RUNTIME=NO
+A11_3C_BOOL_FIELD=PASS
 ```
 
-El Designer habilita BOOL con defaults:
+Validado visualmente:
 
 ```text
-Nombre objeto = BOOL N
-ID C++        = FIELD_BOOL_N
-Variable      = estadoN
-Tipo C++      = bool
-FALSE         = OFF
-TRUE          = ON
-Preview       = false
-Align         = CENTER
+FALSE=OFF
+TRUE=ON
+INLINE=PASS
+STACKED=PASS
+ALIGN=PASS
+FRAME=PASS
+COLORS=PASS
+DRAG=PASS
+DUPLICATE=PASS
+TEXT_VALUE_BOOL_COEXIST=PASS
+LIVE_PREVIEW_BOOL=PASS
+VISUAL_CORRUPTION=0
 ```
 
-La geometría reserva el mayor ancho entre los textos FALSE/TRUE, igual que el runtime.
-
-Para reducir riesgo sobre el core ya validado, A11-3C se implementa como extensión:
-
-```text
-tools/jwplc-hmi-designer/poc/designer-bool.js
-```
-
-cargada antes del transporte LIVE desde `ux-foundation.js`.
+La duplicación conserva la configuración y produce ID/variable independientes. El codegen de la extensión fue contrastado con la API pública y no introduce `tft.*` ni genera `jwplcUIUpdate()`.
 
 Documento:
 
@@ -343,13 +340,18 @@ docs/v2.1.0-alpha.11/A11_LIVE_DIRTY_REGIONS.md
 
 ## Pendiente inmediato
 
-Validar A11-3C BOOL en navegador y Live Preview antes de iniciar BAR.
-
-Criterio:
+Iniciar A11-3D BAR sobre la API pública ya existente:
 
 ```text
-A11_3C_BOOL_FIELD=PASS
-NEXT=A11_3D_BAR_FIELD
+PUBLIC_HELPER=JWPLC_UIBarField
+RANGE=JWPLC_UIRange
+STYLE=JWPLC_UIBarStyle
+RUNTIME_SETTER=JWPLC_Display.setBar
 ```
 
-No se inicia `BAR` hasta cerrar este gate.
+Criterio siguiente:
+
+```text
+A11_3D_BAR_FIELD=PASS
+NEXT=A11_3E_MULTI_FIELD_PAGES
+```
