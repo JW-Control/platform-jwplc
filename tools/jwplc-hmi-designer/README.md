@@ -12,7 +12,9 @@ Páginas + indicador NN/TT: PASS
 LIVE Web Serial: PASS
 Codegen JWPLC_HMI_Generated.h: PASS
 Robustez botonera pressed()/released(): PASS_PHYSICAL
-Integración app/sketch: IMPLEMENTED_PENDING_GATE
+Responsive WIDE/MEDIUM/COMPACT: PASS_USER_VISUAL
+Integración app/sketch: CLOSING_GATE
+Arduino IDE launcher: EXPERIMENTAL_PENDING_GATE
 ```
 
 ## Flujo recomendado
@@ -58,19 +60,33 @@ loop()          = lógica del programa
 jwplcUIUpdate() = sincronización gráfica autogenerada
 ```
 
-## Ejecutar como aplicación en Windows
+## Instalación Windows
 
-Desde:
-
-```text
-tools\jwplc-hmi-designer\
-```
-
-puede ejecutarse directamente:
+Durante desarrollo puede ejecutarse desde el repositorio con:
 
 ```text
 JWPLC-HMI-Designer.cmd
 ```
+
+Para una instalación independiente del repositorio existe:
+
+```text
+Install-JWPLC-HMI-Designer.cmd
+```
+
+El instalador copia la aplicación a:
+
+```text
+%LOCALAPPDATA%\JWPLC\HMI Designer
+```
+
+crea accesos en Escritorio y menú Inicio `JWPLC`, y define:
+
+```text
+JWPLC_HMI_DESIGNER_HOME
+```
+
+El usuario instalado ya no depende de `GitHub\platform-jwplc\tools` para ejecutar el Designer.
 
 El launcher:
 
@@ -79,17 +95,9 @@ El launcher:
 - conserva el contexto seguro necesario para Web Serial y acceso controlado a carpetas;
 - no requiere ejecutar manualmente `py -m http.server`.
 
-Opcionalmente, instalar accesos directos:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\Install-JWPLC-HMI-Designer.ps1
-```
-
-Se crea acceso en Escritorio y menú Inicio `JWPLC`.
-
 ## Abrir / Guardar proyecto
 
-La aplicación habilita proyectos:
+La aplicación usa proyectos:
 
 ```text
 *.jwhmi
@@ -106,11 +114,26 @@ ST7789 320x170 rotation 3 RGB565
 
 Se guardan páginas, campos declarativos, geometría, estilos, colores, IDs/variables y página activa.
 
+Cuando existe un sketch vinculado y el proyecto todavía no tiene archivo propio, **Guardar** crea automáticamente:
+
+```text
+<Sketch>\<Sketch>.jwhmi
+```
+
+Por ejemplo:
+
+```text
+test\
+├─ test.ino
+├─ test.jwhmi
+└─ JWPLC_HMI_Generated.h
+```
+
+`.jwhmi` no es una unidad compilable de Arduino y puede convivir en la misma carpeta del sketch para versionado y regeneración.
+
 Limitación Alpha11: las herramientas técnicas `Texto GFX RAW` y capa manual de píxeles no forman parte de la persistencia `.jwhmi` de producción.
 
-## Vincular con Arduino IDE / sketch
-
-No se requiere una extensión privada de Arduino IDE.
+## Vincular con sketch
 
 En la aplicación:
 
@@ -137,6 +160,62 @@ El Designer valida primero los identificadores C++, y pide confirmación antes d
 El `.ino` nunca se modifica automáticamente.
 
 Arduino IDE detectará el cambio del archivo del sketch y el usuario compila/sube normalmente.
+
+## Launcher experimental para Arduino IDE 2
+
+La aplicación standalone es el camino principal. Alpha11 incluye además un experimento de integración mínima con Arduino IDE 2: **el plugin no incrusta el Designer ni modifica el IDE; sólo abre la aplicación instalada**.
+
+Archivos:
+
+```text
+arduino-ide-launcher\
+Build-ArduinoIDE-Launcher.ps1
+Install-ArduinoIDE-Launcher.ps1
+```
+
+Instalación manual del gate:
+
+```powershell
+.\Install-ArduinoIDE-Launcher.ps1
+```
+
+O desde el instalador principal:
+
+```powershell
+.\Install-JWPLC-HMI-Designer.ps1 -InstallArduinoIDELauncher
+```
+
+El VSIX se copia a la carpeta de plugins de usuario documentada por Arduino IDE:
+
+```text
+%USERPROFILE%\.arduinoIDE\plugins
+```
+
+Después se debe cerrar completamente Arduino IDE y abrirlo nuevamente.
+
+Gate esperado en Arduino IDE 2.3.4:
+
+```text
+Ctrl+Shift+P -> JWPLC: Abrir HMI Designer
+barra de estado -> JW HMI
+editor/title -> icono JW (best-effort)
+```
+
+La barra de estado es el botón visual principal del experimento. `editor/title` depende de cómo Arduino IDE/Theia exponga el menú en esa versión.
+
+Si el VSIX funcional no es aceptado por Arduino IDE, no se parchea ni forkea el IDE: la aplicación instalada, Escritorio y menú Inicio continúan siendo el flujo soportado.
+
+## Responsive / Ajustar
+
+La shell clasifica la ventana principalmente por porcentaje de pantalla:
+
+```text
+WIDE     >= 70 %
+MEDIUM   38..69 %
+COMPACT  < 38 %
+```
+
+`Ajustar canvas` usa Fit continuo y calcula la escala máxima que conserva 320:170 dentro del área editable. Los zoom manuales `1×/2×/3×/4×/6×/8×` siguen disponibles.
 
 ## LIVE Preview
 
@@ -226,7 +305,7 @@ cd tools\jwplc-hmi-designer\poc
 py -m http.server 8080
 ```
 
-Pero el flujo recomendado para usuario es `JWPLC-HMI-Designer.cmd`.
+Pero el flujo recomendado para usuario es la instalación independiente.
 
 ## Documentación Alpha11
 
