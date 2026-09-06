@@ -3,79 +3,81 @@
 
   if (window.JWPLCHMIDesktopResponsive) return;
 
-  const STORAGE_PREFIX = 'jwplc-hmi-layout.';
+  const STORAGE = 'jwplc-hmi-layout.';
   const WIDE_RATIO = 0.70;
   const COMPACT_RATIO = 0.38;
-  const ZOOM_CHOICES = [1, 2, 3, 4, 6, 8];
+  const ZOOMS = [1, 2, 3, 4, 6, 8];
 
   let mode = null;
-  let rightView = localStorage.getItem(`${STORAGE_PREFIX}rightView`) || 'inspector';
+  let rightView = localStorage.getItem(`${STORAGE}rightView`) || 'inspector';
   let leftDrawerOpen = false;
   let rightDrawerOpen = false;
   let activeLeftSection = 'pages';
   let applyingZoom = false;
 
-  const qs = (selector, root = document) => root.querySelector(selector);
-  const qsa = (selector, root = document) => [...root.querySelectorAll(selector)];
+  const $ = (selector, root = document) => root.querySelector(selector);
+  const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
-  function toolbar() { return qs('.toolbar'); }
-  function statusbar() { return qs('.statusbar'); }
-  function workspace() { return qs('.workspace'); }
-  function leftPanel() { return qs('.left-panel'); }
-  function rightPanel() { return qs('.right-panel'); }
+  const toolbar = () => $('.toolbar');
+  const statusbar = () => $('.statusbar');
+  const workspace = () => $('.workspace');
+  const leftPanel = () => $('.left-panel');
+  const rightPanel = () => $('.right-panel');
 
   function screenRatio() {
-    const available = Number(window.screen?.availWidth || window.screen?.width || window.innerWidth || 1);
-    const current = Number(window.outerWidth || window.innerWidth || available);
+    const available = Number(screen?.availWidth || screen?.width || innerWidth || 1);
+    const current = Number(outerWidth || innerWidth || available);
     return Math.max(0.10, Math.min(1.25, current / Math.max(1, available)));
   }
 
   function chooseMode() {
     const ratio = screenRatio();
-    if (ratio < COMPACT_RATIO || window.innerWidth < 620) return 'compact';
+    if (ratio < COMPACT_RATIO || innerWidth < 620) return 'compact';
     if (ratio < WIDE_RATIO) return 'medium';
     return 'wide';
   }
 
-  function parseSketchName() {
+  function linkedSketchName() {
     const apiName = window.JWPLCHMIProject?.linkedSketchName?.();
     if (apiName) return apiName;
-    const text = qs('#sketchLinkStatus')?.textContent || '';
+    const text = $('#sketchLinkStatus')?.textContent || '';
     const match = text.match(/^Sketch:\s*([^·]+?)(?:\s*·|$)/);
     const name = match?.[1]?.trim();
     return name && name !== 'sin vincular' ? name : null;
   }
 
+  function setTextIfChanged(node, text) {
+    if (node && node.textContent !== text) node.textContent = text;
+  }
+
   function syncSketchIdentity() {
-    const name = parseSketchName();
-    const button = qs('#linkSketchButton');
+    const name = linkedSketchName();
+    const button = $('#linkSketchButton');
     if (button) {
-      button.dataset.linkedSketch = name || '';
-      button.textContent = name ? `Sketch: ${name}` : 'Vincular sketch…';
+      const label = name ? `Sketch: ${name}` : 'Vincular sketch…';
+      setTextIfChanged(button, label);
       button.title = name
         ? `Sketch vinculado: ${name}. Clic para cambiar la vinculación.`
         : 'Seleccionar la carpeta del sketch Arduino';
     }
-    document.title = name
-      ? `${name} · JWPLC HMI Designer — Alpha11`
-      : 'JWPLC HMI Designer — Alpha11';
+    const title = name ? `${name} · JWPLC HMI Designer — Alpha11` : 'JWPLC HMI Designer — Alpha11';
+    if (document.title !== title) document.title = title;
   }
 
-  function ensureGateInStatusbar() {
-    const gate = qs('.gate');
+  function moveGateToStatusbar() {
+    const gate = $('.gate');
     const bar = statusbar();
-    const grow = qs('.grow', bar || document);
-    if (!gate || !bar || gate.dataset.responsiveMoved === '1') return;
-    gate.dataset.responsiveMoved = '1';
+    const grow = bar && $('.grow', bar);
+    if (!gate || !bar || gate.parentElement === bar) return;
     gate.classList.add('responsive-gate-status');
     if (grow) bar.insertBefore(gate, grow);
     else bar.appendChild(gate);
   }
 
-  function ensureLiveStatusInStatusbar() {
-    const live = qs('#liveStatus');
+  function moveLiveStatusToStatusbar() {
+    const live = $('#liveStatus');
     const bar = statusbar();
-    const grow = qs('.grow', bar || document);
+    const grow = bar && $('.grow', bar);
     if (!live || !bar || live.parentElement === bar) return;
     live.classList.add('responsive-live-status');
     if (grow) bar.insertBefore(live, grow);
@@ -85,7 +87,7 @@
   function markToolbarCommands() {
     const bar = toolbar();
     if (!bar) return;
-    qsa('button', bar).forEach((button) => {
+    $$('button', bar).forEach((button) => {
       const text = button.textContent.trim();
       if (text === 'Deshacer') button.classList.add('cmd-undo');
       if (text === 'Rehacer') button.classList.add('cmd-redo');
@@ -93,22 +95,16 @@
   }
 
   function proxyTarget(key) {
-    const map = {
-      new: '#newProjectButton',
-      open: '#openProjectButton',
-      undo: '.cmd-undo',
-      redo: '.cmd-redo',
-      fit: '#fitButton',
-      sketch: '#linkSketchButton',
-      install: '#installAppButton'
+    const selectors = {
+      new: '#newProjectButton', open: '#openProjectButton', undo: '.cmd-undo',
+      redo: '.cmd-redo', fit: '#fitButton', sketch: '#linkSketchButton', install: '#installAppButton'
     };
-    return map[key] ? qs(map[key]) : null;
+    return selectors[key] ? $(selectors[key]) : null;
   }
 
-  function ensureOverflowMenu() {
+  function ensureOverflow() {
     const bar = toolbar();
-    if (!bar || qs('#responsiveOverflow')) return;
-
+    if (!bar || $('#responsiveOverflow')) return;
     const wrap = document.createElement('div');
     wrap.id = 'responsiveOverflow';
     wrap.className = 'responsive-overflow';
@@ -120,21 +116,20 @@
         <button type="button" data-proxy="undo">Deshacer</button>
         <button type="button" data-proxy="redo">Rehacer</button>
         <button type="button" data-proxy="fit">Ajustar canvas</button>
-        <button type="button" data-proxy="sketch">Vincular / cambiar sketch</button>
+        <button type="button" data-proxy="sketch">Vincular sketch…</button>
         <button type="button" data-proxy="install">Instalar app</button>
       </div>`;
     bar.appendChild(wrap);
 
-    const toggle = qs('#responsiveOverflowButton');
-    const menu = qs('#responsiveOverflowMenu');
+    const toggle = $('#responsiveOverflowButton');
+    const menu = $('#responsiveOverflowMenu');
     toggle.addEventListener('click', (event) => {
       event.stopPropagation();
-      const opening = menu.hidden;
-      menu.hidden = !opening;
-      toggle.setAttribute('aria-expanded', opening ? 'true' : 'false');
-      syncOverflowState();
+      menu.hidden = !menu.hidden;
+      toggle.setAttribute('aria-expanded', menu.hidden ? 'false' : 'true');
+      syncOverflow();
     });
-    qsa('[data-proxy]', menu).forEach((button) => {
+    $$('[data-proxy]', menu).forEach((button) => {
       button.addEventListener('click', () => {
         const source = proxyTarget(button.dataset.proxy);
         if (source && !source.disabled && !source.hidden) source.click();
@@ -150,114 +145,102 @@
     });
   }
 
-  function syncOverflowState() {
-    const menu = qs('#responsiveOverflowMenu');
+  function syncOverflow() {
+    const menu = $('#responsiveOverflowMenu');
     if (!menu) return;
-    qsa('[data-proxy]', menu).forEach((button) => {
+    $$('[data-proxy]', menu).forEach((button) => {
       const source = proxyTarget(button.dataset.proxy);
-      const unavailable = !source || source.disabled || source.hidden;
-      button.disabled = unavailable;
+      button.disabled = !source || source.disabled || source.hidden;
       if (button.dataset.proxy === 'sketch') {
-        const name = parseSketchName();
-        button.textContent = name ? `Cambiar sketch · ${name}` : 'Vincular sketch…';
+        const name = linkedSketchName();
+        setTextIfChanged(button, name ? `Cambiar sketch · ${name}` : 'Vincular sketch…');
       }
     });
   }
 
   function ensureRightTabs() {
     const panel = rightPanel();
-    if (!panel || qs('#responsiveRightTabs')) return;
+    if (!panel || $('#responsiveRightTabs')) return;
     const tabs = document.createElement('div');
     tabs.id = 'responsiveRightTabs';
     tabs.className = 'responsive-right-tabs';
-    tabs.innerHTML = `
-      <button type="button" data-right-view="inspector">Inspector</button>
-      <button type="button" data-right-view="preview">Vista 1:1</button>`;
+    tabs.innerHTML = '<button type="button" data-right-view="inspector">Inspector</button><button type="button" data-right-view="preview">Vista 1:1</button>';
     panel.prepend(tabs);
-    qsa('[data-right-view]', tabs).forEach((button) => {
-      button.addEventListener('click', () => setRightView(button.dataset.rightView, true));
-    });
+    $$('[data-right-view]', tabs).forEach((button) => button.addEventListener('click', () => setRightView(button.dataset.rightView, true)));
   }
 
   function setRightView(view, persist = false) {
     rightView = view === 'preview' ? 'preview' : 'inspector';
-    if (persist) localStorage.setItem(`${STORAGE_PREFIX}rightView`, rightView);
+    if (persist) localStorage.setItem(`${STORAGE}rightView`, rightView);
     document.body.classList.toggle('right-view-preview', rightView === 'preview');
-    document.body.classList.toggle('right-view-inspector', rightView !== 'preview');
-    qsa('[data-right-view]').forEach((button) => {
-      button.classList.toggle('active', button.dataset.rightView === rightView);
-    });
+    document.body.classList.toggle('right-view-inspector', rightView === 'inspector');
+    $$('[data-right-view]').forEach((button) => button.classList.toggle('active', button.dataset.rightView === rightView));
   }
 
   function ensureCompactRightButtons() {
     const bar = toolbar();
     if (!bar) return;
-    if (!qs('#compactInspectorButton')) {
-      const inspector = document.createElement('button');
-      inspector.id = 'compactInspectorButton';
-      inspector.type = 'button';
-      inspector.textContent = 'Inspector';
-      inspector.addEventListener('click', () => {
+    if (!$('#compactInspectorButton')) {
+      const button = document.createElement('button');
+      button.id = 'compactInspectorButton';
+      button.type = 'button';
+      button.textContent = 'Inspector';
+      button.addEventListener('click', () => {
+        const sameOpenView = rightDrawerOpen && rightView === 'inspector';
         setRightView('inspector', true);
-        rightDrawerOpen = !(rightDrawerOpen && rightView === 'inspector');
+        rightDrawerOpen = !sameOpenView;
+        leftDrawerOpen = false;
         syncDrawers();
       });
-      bar.appendChild(inspector);
+      bar.appendChild(button);
     }
-    if (!qs('#compactPreviewButton')) {
-      const preview = document.createElement('button');
-      preview.id = 'compactPreviewButton';
-      preview.type = 'button';
-      preview.textContent = '1:1';
-      preview.title = 'Vista previa 1:1';
-      preview.addEventListener('click', () => {
+    if (!$('#compactPreviewButton')) {
+      const button = document.createElement('button');
+      button.id = 'compactPreviewButton';
+      button.type = 'button';
+      button.textContent = '1:1';
+      button.title = 'Vista previa 1:1';
+      button.addEventListener('click', () => {
+        const sameOpenView = rightDrawerOpen && rightView === 'preview';
         setRightView('preview', true);
-        rightDrawerOpen = !(rightDrawerOpen && rightView === 'preview');
+        rightDrawerOpen = !sameOpenView;
+        leftDrawerOpen = false;
         syncDrawers();
       });
-      bar.appendChild(preview);
+      bar.appendChild(button);
     }
   }
 
-  function leftSectionMap() {
-    const blocks = qsa('.left-panel .nav-block');
-    return {
-      pages: blocks[0] || null,
-      objects: blocks[1] || null,
-      components: blocks[2] || null,
-      tools: blocks[3] || null,
-      dev: qs('.left-panel .dev-actions')
-    };
+  function leftSections() {
+    const blocks = $$('.left-panel .nav-block');
+    return { pages: blocks[0], objects: blocks[1], components: blocks[2], tools: blocks[3], dev: $('.left-panel .dev-actions') };
   }
 
   function ensureLeftRail() {
     const root = workspace();
-    if (!root || qs('#responsiveLeftRail')) return;
+    if (!root || $('#responsiveLeftRail')) return;
     const rail = document.createElement('nav');
     rail.id = 'responsiveLeftRail';
     rail.className = 'responsive-left-rail';
-    rail.setAttribute('aria-label', 'Paneles de diseño');
     rail.innerHTML = `
       <button type="button" data-left-section="pages" title="Páginas">P</button>
       <button type="button" data-left-section="objects" title="Objetos">O</button>
       <button type="button" data-left-section="components" title="Componentes">C</button>
       <button type="button" data-left-section="tools" title="Herramientas">T</button>`;
     root.prepend(rail);
-    qsa('[data-left-section]', rail).forEach((button) => {
-      button.addEventListener('click', () => {
-        activeLeftSection = button.dataset.leftSection;
-        leftDrawerOpen = true;
-        rightDrawerOpen = false;
-        const section = leftSectionMap()[activeLeftSection];
-        section?.classList.remove('section-collapsed');
-        syncDrawers();
-        setTimeout(() => section?.scrollIntoView({ block: 'start' }), 0);
-      });
-    });
+    $$('[data-left-section]', rail).forEach((button) => button.addEventListener('click', () => {
+      activeLeftSection = button.dataset.leftSection;
+      leftDrawerOpen = true;
+      rightDrawerOpen = false;
+      const section = leftSections()[activeLeftSection];
+      section?.classList.remove('section-collapsed');
+      syncDrawers();
+      setTimeout(() => section?.scrollIntoView({ block: 'start' }), 0);
+    }));
   }
 
   function ensureScrim() {
-    if (qs('#responsiveScrim')) return;
+    if ($('#responsiveScrim')) return;
     const scrim = document.createElement('button');
     scrim.id = 'responsiveScrim';
     scrim.className = 'responsive-scrim';
@@ -272,17 +255,18 @@
   }
 
   function syncDrawers() {
-    document.body.classList.toggle('compact-left-open', mode === 'compact' && leftDrawerOpen);
-    document.body.classList.toggle('compact-right-open', mode === 'compact' && rightDrawerOpen);
-    document.body.classList.toggle('responsive-drawer-open', mode === 'compact' && (leftDrawerOpen || rightDrawerOpen));
-    qsa('[data-left-section]').forEach((button) => {
-      button.classList.toggle('active', leftDrawerOpen && button.dataset.leftSection === activeLeftSection);
-    });
+    const compact = mode === 'compact';
+    document.body.classList.toggle('compact-left-open', compact && leftDrawerOpen);
+    document.body.classList.toggle('compact-right-open', compact && rightDrawerOpen);
+    document.body.classList.toggle('responsive-drawer-open', compact && (leftDrawerOpen || rightDrawerOpen));
+    $$('[data-left-section]').forEach((button) => button.classList.toggle('active', leftDrawerOpen && button.dataset.leftSection === activeLeftSection));
+    $('#compactInspectorButton')?.classList.toggle('active', compact && rightDrawerOpen && rightView === 'inspector');
+    $('#compactPreviewButton')?.classList.toggle('active', compact && rightDrawerOpen && rightView === 'preview');
   }
 
-  function makeLeftSectionsCollapsible() {
-    const map = leftSectionMap();
-    ['components', 'tools'].forEach((key) => {
+  function bindCollapsibleSections() {
+    const map = leftSections();
+    ['components', 'tools', 'dev'].forEach((key) => {
       const section = map[key];
       const heading = section?.querySelector(':scope > h2');
       if (!section || !heading || section.dataset.responsiveCollapsible === '1') return;
@@ -291,66 +275,45 @@
       heading.title = 'Expandir o contraer sección';
       heading.addEventListener('click', () => {
         section.classList.toggle('section-collapsed');
-        localStorage.setItem(`${STORAGE_PREFIX}left.${key}.collapsed`, section.classList.contains('section-collapsed') ? '1' : '0');
+        localStorage.setItem(`${STORAGE}left.${key}.collapsed`, section.classList.contains('section-collapsed') ? '1' : '0');
       });
     });
-
-    const dev = map.dev;
-    const devHeading = dev?.querySelector(':scope > h2');
-    if (dev && devHeading && dev.dataset.responsiveCollapsible !== '1') {
-      dev.dataset.responsiveCollapsible = '1';
-      dev.classList.add('responsive-collapsible');
-      devHeading.title = 'Expandir o contraer herramientas de desarrollo';
-      devHeading.addEventListener('click', () => {
-        dev.classList.toggle('section-collapsed');
-        localStorage.setItem(`${STORAGE_PREFIX}left.dev.collapsed`, dev.classList.contains('section-collapsed') ? '1' : '0');
-      });
-    }
   }
 
   function applyLeftDefaults(nextMode) {
-    const map = leftSectionMap();
+    const map = leftSections();
     ['components', 'tools'].forEach((key) => {
-      const section = map[key];
-      if (!section) return;
-      const stored = localStorage.getItem(`${STORAGE_PREFIX}left.${key}.collapsed`);
-      const collapse = stored == null ? nextMode !== 'wide' : stored === '1';
-      section.classList.toggle('section-collapsed', collapse);
+      const stored = localStorage.getItem(`${STORAGE}left.${key}.collapsed`);
+      map[key]?.classList.toggle('section-collapsed', stored == null ? nextMode !== 'wide' : stored === '1');
     });
-    if (map.dev) {
-      const stored = localStorage.getItem(`${STORAGE_PREFIX}left.dev.collapsed`);
-      map.dev.classList.toggle('section-collapsed', stored == null ? true : stored === '1');
-    }
+    const storedDev = localStorage.getItem(`${STORAGE}left.dev.collapsed`);
+    map.dev?.classList.toggle('section-collapsed', storedDev == null ? true : storedDev === '1');
   }
 
-  function ensureBottomPersistence() {
-    const button = qs('#collapseBottomButton');
+  function bindBottomPersistence() {
+    const button = $('#collapseBottomButton');
     if (!button || button.dataset.responsiveBound === '1') return;
     button.dataset.responsiveBound = '1';
-    button.addEventListener('click', () => {
-      setTimeout(() => {
-        localStorage.setItem(`${STORAGE_PREFIX}bottomCollapsed`, document.body.classList.contains('bottom-collapsed') ? '1' : '0');
-      }, 0);
-    });
-    qsa('.bottom-tabs .tab').forEach((tab) => {
-      tab.addEventListener('click', () => {
-        if (mode === 'compact' && document.body.classList.contains('bottom-collapsed')) button.click();
-      });
-    });
+    button.addEventListener('click', () => setTimeout(() => {
+      localStorage.setItem(`${STORAGE}bottomCollapsed`, document.body.classList.contains('bottom-collapsed') ? '1' : '0');
+    }, 0));
+    $$('.bottom-tabs .tab').forEach((tab) => tab.addEventListener('click', () => {
+      if (mode === 'compact' && document.body.classList.contains('bottom-collapsed')) button.click();
+    }));
   }
 
   function applyBottomDefault(nextMode) {
-    const button = qs('#collapseBottomButton');
+    const button = $('#collapseBottomButton');
     if (!button) return;
-    const stored = localStorage.getItem(`${STORAGE_PREFIX}bottomCollapsed`);
+    const stored = localStorage.getItem(`${STORAGE}bottomCollapsed`);
     const wantCollapsed = stored == null ? nextMode !== 'wide' : stored === '1';
     const isCollapsed = document.body.classList.contains('bottom-collapsed');
     if (wantCollapsed !== isCollapsed) button.click();
   }
 
   function ensureZoomOne() {
-    const select = qs('#zoomSelect');
-    if (!select || qsa('option', select).some((option) => option.value === '1')) return;
+    const select = $('#zoomSelect');
+    if (!select || $$('option', select).some((option) => option.value === '1')) return;
     const option = document.createElement('option');
     option.value = '1';
     option.textContent = '1×';
@@ -358,68 +321,69 @@
   }
 
   function bestFitZoom(maxZoom = 8) {
-    const viewport = qs('#canvasViewport');
+    const viewport = $('#canvasViewport');
     if (!viewport) return 1;
-    const availableW = Math.max(320, viewport.clientWidth - 34);
-    const availableH = Math.max(170, viewport.clientHeight - 30);
-    const raw = Math.min(availableW / 320, availableH / 170, maxZoom);
+    const raw = Math.min(
+      Math.max(320, viewport.clientWidth - 34) / 320,
+      Math.max(170, viewport.clientHeight - 30) / 170,
+      maxZoom
+    );
     let best = 1;
-    ZOOM_CHOICES.forEach((candidate) => { if (candidate <= raw) best = candidate; });
+    ZOOMS.forEach((candidate) => { if (candidate <= raw) best = candidate; });
     return best;
   }
 
   function setZoom(value, persist = true) {
-    const select = qs('#zoomSelect');
+    const select = $('#zoomSelect');
     if (!select) return;
     ensureZoomOne();
-    const normalized = ZOOM_CHOICES.includes(Number(value)) ? Number(value) : 1;
+    const normalized = ZOOMS.includes(Number(value)) ? Number(value) : 1;
     applyingZoom = true;
     select.value = String(normalized);
     select.dispatchEvent(new Event('change', { bubbles: true }));
     applyingZoom = false;
-    if (persist && mode) localStorage.setItem(`${STORAGE_PREFIX}zoom.${mode}`, String(normalized));
+    if (persist && mode) localStorage.setItem(`${STORAGE}zoom.${mode}`, String(normalized));
   }
 
   function applyAdaptiveZoom(nextMode) {
-    const stored = Number(localStorage.getItem(`${STORAGE_PREFIX}zoom.${nextMode}`));
-    if (ZOOM_CHOICES.includes(stored)) {
-      setZoom(stored, false);
-      return;
-    }
+    const stored = Number(localStorage.getItem(`${STORAGE}zoom.${nextMode}`));
+    if (ZOOMS.includes(stored)) return setZoom(stored, false);
     setTimeout(() => {
       const fit = bestFitZoom(nextMode === 'wide' ? 4 : 3);
-      if (nextMode === 'wide') setZoom(Math.min(3, fit || 1), false);
-      else if (nextMode === 'medium') setZoom(Math.min(2, fit || 1), false);
-      else setZoom(fit || 1, false);
-    }, 40);
+      if (nextMode === 'wide') setZoom(Math.min(3, fit), false);
+      else if (nextMode === 'medium') setZoom(Math.min(2, fit), false);
+      else setZoom(fit, false);
+    }, 50);
   }
 
   function bindAdaptiveFit() {
-    const fit = qs('#fitButton');
-    if (!fit || fit.dataset.responsiveBound === '1') return;
-    fit.dataset.responsiveBound = '1';
-    fit.addEventListener('click', () => {
-      setTimeout(() => setZoom(bestFitZoom(mode === 'wide' ? 8 : 4), true), 0);
-    });
-    const select = qs('#zoomSelect');
-    select?.addEventListener('change', () => {
-      if (!applyingZoom && mode) localStorage.setItem(`${STORAGE_PREFIX}zoom.${mode}`, select.value);
-    });
+    const fit = $('#fitButton');
+    if (fit && fit.dataset.responsiveBound !== '1') {
+      fit.dataset.responsiveBound = '1';
+      fit.addEventListener('click', () => setTimeout(() => setZoom(bestFitZoom(mode === 'wide' ? 8 : 4), true), 0));
+    }
+    const select = $('#zoomSelect');
+    if (select && select.dataset.responsiveBound !== '1') {
+      select.dataset.responsiveBound = '1';
+      select.addEventListener('change', () => {
+        if (!applyingZoom && mode) localStorage.setItem(`${STORAGE}zoom.${mode}`, select.value);
+      });
+    }
   }
 
   function syncToolbarLabels() {
-    const generate = qs('#generateButton');
-    const update = qs('#updateHmiButton');
-    const connect = qs('#liveConnectButton');
-    if (generate) generate.textContent = mode === 'compact' ? 'Generar' : 'Generar C++';
-    if (update) update.textContent = mode === 'compact' ? 'HMI' : 'Actualizar HMI';
-    if (connect && !connect.classList.contains('live')) connect.textContent = mode === 'compact' ? 'JWPLC' : 'Conectar JWPLC';
+    const generate = $('#generateButton');
+    const update = $('#updateHmiButton');
+    const connect = $('#liveConnectButton');
+    setTextIfChanged(generate, mode === 'compact' ? 'Generar' : 'Generar C++');
+    setTextIfChanged(update, mode === 'compact' ? 'HMI' : 'Actualizar HMI');
+    if (connect && !connect.classList.contains('live')) setTextIfChanged(connect, mode === 'compact' ? 'JWPLC' : 'Conectar JWPLC');
   }
 
   function markStatusItems() {
     const bar = statusbar();
     if (!bar) return;
-    qsa(':scope > span', bar).forEach((span) => {
+    $$(':scope > span', bar).forEach((span) => {
       const text = span.textContent.trim();
       if (text.startsWith('Proyecto:')) span.classList.add('status-project');
       if (text.startsWith('Página:')) span.classList.add('status-page');
@@ -427,28 +391,25 @@
       if (text.startsWith('Resolución:')) span.classList.add('status-resolution');
       if (text.startsWith('Formato:')) span.classList.add('status-format');
     });
-    qs('#selectedObjectStatus')?.classList.add('status-object');
-    qs('#selectedGeometryStatus')?.classList.add('status-geometry');
-    qs('#zoomStatus')?.classList.add('status-zoom');
-    qs('#sketchLinkStatus')?.classList.add('status-sketch');
+    $('#selectedObjectStatus')?.classList.add('status-object');
+    $('#selectedGeometryStatus')?.classList.add('status-geometry');
+    $('#zoomStatus')?.classList.add('status-zoom');
+    $('#sketchLinkStatus')?.classList.add('status-sketch');
   }
 
-  function syncOverflowAndLateNodes() {
+  function syncLateNodes() {
     markToolbarCommands();
-    ensureLiveStatusInStatusbar();
+    moveGateToStatusbar();
+    moveLiveStatusToStatusbar();
     syncSketchIdentity();
-    syncOverflowState();
+    syncOverflow();
     markStatusItems();
     syncToolbarLabels();
   }
 
   function applyMode(force = false) {
     const next = chooseMode();
-    if (!force && next === mode) {
-      syncOverflowAndLateNodes();
-      return;
-    }
-
+    if (!force && next === mode) return syncLateNodes();
     mode = next;
     document.body.classList.remove('layout-wide', 'layout-medium', 'layout-compact');
     document.body.classList.add(`layout-${mode}`);
@@ -459,53 +420,43 @@
       leftDrawerOpen = false;
       rightDrawerOpen = false;
     }
-    if (mode === 'wide') setRightView('inspector', false);
-    else setRightView(rightView, false);
-
+    setRightView(mode === 'wide' ? 'inspector' : rightView, false);
     applyLeftDefaults(mode);
     applyBottomDefault(mode);
     applyAdaptiveZoom(mode);
     syncDrawers();
     syncToolbarLabels();
-    setTimeout(() => window.dispatchEvent(new Event('resize')), 0);
+    setTimeout(() => dispatchEvent(new Event('resize')), 0);
   }
 
   function init() {
-    ensureGateInStatusbar();
-    ensureOverflowMenu();
+    moveGateToStatusbar();
+    ensureOverflow();
     ensureRightTabs();
     ensureCompactRightButtons();
     ensureLeftRail();
     ensureScrim();
-    makeLeftSectionsCollapsible();
-    ensureBottomPersistence();
+    bindCollapsibleSections();
+    bindBottomPersistence();
     ensureZoomOne();
     bindAdaptiveFit();
     markStatusItems();
     syncSketchIdentity();
     applyMode(true);
 
-    const toolbarObserver = new MutationObserver(() => {
-      syncOverflowAndLateNodes();
-      ensureCompactRightButtons();
-    });
-    if (toolbar()) toolbarObserver.observe(toolbar(), { childList: true, subtree: true, characterData: true });
-
-    const statusObserver = new MutationObserver(() => {
-      markStatusItems();
-      syncSketchIdentity();
-    });
-    if (statusbar()) statusObserver.observe(statusbar(), { childList: true, subtree: true, characterData: true });
+    // designer-live.js se carga después de ux-foundation.js. Un sondeo liviano
+    // evita observers recursivos y captura los controles tardíos sin tocar el runtime.
+    setInterval(syncLateNodes, 500);
   }
 
   let resizeTimer = null;
-  window.addEventListener('resize', () => {
+  addEventListener('resize', () => {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => applyMode(false), 60);
+    resizeTimer = setTimeout(() => applyMode(false), 70);
   });
-  window.addEventListener('jwplc:editor-refresh', syncOverflowAndLateNodes);
-  window.addEventListener('jwplc:header-written', syncSketchIdentity);
-  window.addEventListener('jwplc:project-loaded', syncSketchIdentity);
+  addEventListener('jwplc:editor-refresh', syncLateNodes);
+  addEventListener('jwplc:header-written', syncSketchIdentity);
+  addEventListener('jwplc:project-loaded', syncSketchIdentity);
 
   setTimeout(init, 0);
 
