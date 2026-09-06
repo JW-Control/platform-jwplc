@@ -1,11 +1,12 @@
 'use strict';
 
-const CACHE_NAME = 'jwplc-hmi-designer-alpha11-a11-6-v2-responsive';
+const CACHE_NAME = 'jwplc-hmi-designer-alpha11-a11-6-v3-responsive';
 const CORE = [
   './desktop.html',
   './index.html',
   './styles.css',
   './desktop-responsive.css',
+  './desktop-responsive-compat.css',
   './gfx-classic-font.js',
   './app.js',
   './ux-foundation.js',
