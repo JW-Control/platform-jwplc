@@ -79,196 +79,51 @@ A11_LIVE_TRANSPORT=FROZEN_ALPHA11
 A11_3B_VALUE_FIELD=PASS
 A11_3C_BOOL_FIELD=PASS
 A11_3D_BAR_FIELD=PASS
-A11_3E_MULTI_FIELD_PAGES=READY_TO_IMPLEMENT
+A11_3E_MULTI_FIELD_PAGES=IMPLEMENTED_PENDING_GATE
+A11_3E_PAGE_INDICATOR=IMPLEMENTED_PENDING_GATE
+A11_3E_PAGE_BUTTON_ROUTING=IMPLEMENTED_PENDING_PHYSICAL_GATE
 A11_4_CODEGEN=BLOCKED_BY_A11_3E_GATE
 A11_5_PHYSICAL_PARITY=PENDING
 A11_6_SKETCH_INTEGRATION=PENDING
 ALPHA11_STATUS=IN_PROGRESS
 ```
 
-## A11-2 — texto y geometría HMI
+## TEXT / VALUE / BOOL / BAR
 
-La muestra RAW confirmó la misma fuente clásica y geometría de celda entre Designer y TFT física. RAW queda sólo como herramienta técnica de referencia y no representa el contrato final del Designer.
-
-La corrección A11-2C hizo que el layout declarativo use cuerpo nominal 5×7 sin modificar la rasterización clásica 6×8 de Adafruit GFX:
+Los cuatro tipos declarativos están cerrados:
 
 ```text
-layoutWidth  = gfxBoundsWidth  - textSize
-layoutHeight = gfxBoundsHeight - textSize
-FIELD_PADDING=3
-effectivePadding=max(3,maxTextSize)
+TEXT=PASS
+VALUE=PASS
+BOOL=PASS
+BAR=PASS
 ```
 
-```text
-A11_2C_BALANCED_SOURCE=PASS
-A11_2C_PUBLIC_API_ONLY=PASS
-A11_2C_VISUAL_PADDING_BALANCED=PASS
-```
-
-## Contrato de codegen público
-
-El Designer usa únicamente helpers públicos:
+Helpers públicos:
 
 ```cpp
-JWPLC_UIValueField(...)
 JWPLC_UITextField(...)
+JWPLC_UIValueField(...)
 JWPLC_UIBoolField(...)
 JWPLC_UIBarField(...)
-JWPLC_Display.setFields(...)
 ```
 
-También genera las variables configuradas visualmente. No genera el cuerpo de:
+Setters públicos:
 
 ```cpp
-extern "C" void jwplcUIUpdate()
+JWPLC_Display.setText(...)
+JWPLC_Display.setValue(...)
+JWPLC_Display.setBool(...)
+JWPLC_Display.setBar(...)
 ```
 
-## A11-3A — TEXT
+No se genera `tft.*` ni el cuerpo de `jwplcUIUpdate()`.
 
-Gate cerrado.
-
-```text
-A11_3A_TEXT_FIELD=PASS
-```
-
-Validado:
-
-- variable `char[]`;
-- geometría AUTO;
-- INLINE / STACKED;
-- LEFT / CENTER / RIGHT;
-- colores y borde;
-- capacidad;
-- codegen público sin `tft.*`;
-- sin generar `jwplcUIUpdate()`.
-
-## UX Foundation / UX-4
-
-Arquitectura validada:
-
-```text
-LEFT=PAGES_OBJECTS_COMPONENTS_TOOLS
-CENTER=CANVAS_320x170
-RIGHT=PREVIEW_PLUS_CONTEXTUAL_INSPECTOR
-BOTTOM=TECHNICAL_PANEL
-ORANGE=ACTIVE_SELECTION_OR_ACTION
-CANVAS_BORDER=NEUTRAL
-```
-
-Edición congelada:
-
-```text
-Ctrl+Z                 Undo
-Ctrl+Y                 Redo
-Ctrl+Shift+Z           Redo
-Arrow keys             mover 1 px
-Shift+Arrow keys       mover 10 px
-Ctrl+D                 duplicar objeto seleccionado
-Delete                 eliminar objeto seleccionado
-Esc                    deseleccionar
-```
-
-Regla de interacción:
-
-```text
-DRAG_STARTS_ONLY_ON_FIELD=YES
-CLICK_EMPTY_CANVAS=DESELECT
-CLICK_EMPTY_CANVAS_REPOSITIONS_FIELD=NO
-```
-
-## A11-3B — VALUE
-
-Gate cerrado.
-
-```text
-PUBLIC_HELPER=JWPLC_UIValueField
-FORMAT=JWPLC_UIValueFormat
-STYLE=JWPLC_UIValueStyle
-RUNTIME_SETTER=JWPLC_Display.setValue
-A11_3B_VALUE_FIELD=PASS
-```
-
-El preview replica decimales fijos, signo, leading zeros y overflow `#`. La geometría reserva el peor caso del formato.
-
-Documento:
+Documentos:
 
 ```text
 docs/v2.1.0-alpha.11/A11_3B_VALUE_FIELD_GATE.md
-```
-
-## A11-3C — BOOL
-
-Gate cerrado tras validación visual/funcional con `TEXT + VALUE + BOOL` y Live Preview activo.
-
-```text
-PUBLIC_HELPER=JWPLC_UIBoolField
-BOOL_TEXT=JWPLC_UIBoolText
-STYLE=JWPLC_UIBoolStyle
-RUNTIME_SETTER=JWPLC_Display.setBool
-A11_3C_BOOL_FIELD=PASS
-```
-
-Validado:
-
-```text
-FALSE=OFF
-TRUE=ON
-INLINE=PASS
-STACKED=PASS
-ALIGN=PASS
-FRAME=PASS
-COLORS=PASS
-DRAG=PASS
-DUPLICATE=PASS
-LIVE_PREVIEW_BOOL=PASS
-VISUAL_CORRUPTION=0
-```
-
-Documento:
-
-```text
 docs/v2.1.0-alpha.11/A11_3C_BOOL_FIELD_GATE.md
-```
-
-## A11-3D — BAR
-
-Gate cerrado tras validación visual final en navegador.
-
-```text
-PUBLIC_HELPER=JWPLC_UIBarField
-RANGE=JWPLC_UIRange
-STYLE=JWPLC_UIBarStyle
-RUNTIME_SETTER=JWPLC_Display.setBar
-A11_3D_BAR_FIELD=PASS
-```
-
-Validado:
-
-- rango mínimo/máximo;
-- valor de prueba y porcentaje normalizado;
-- ancho AUTO;
-- ancho FIJO con recálculo de región;
-- altura BAR de 12 px según runtime;
-- STACKED;
-- etiqueta y unidad;
-- borde y colores;
-- drag y geometría;
-- coexistencia con otros fields;
-- Preview 1:1.
-
-Corrección de cierre:
-
-```text
-BAR_GENERIC_TEST_VALUE_CONTROL=HIDDEN
-BAR_RANGE_TEST_VALUE_CONTROL=VISIBLE
-BAR_CAPACITY_CONTROL=HIDDEN
-```
-
-El único `Valor de prueba` de BAR pertenece a `Rango BAR`.
-
-Documento:
-
-```text
 docs/v2.1.0-alpha.11/A11_3D_BAR_FIELD_GATE.md
 ```
 
@@ -291,31 +146,105 @@ A11_LIVE_TRANSPORT=FROZEN_ALPHA11
 
 La validación mostró predominio casi total de REGION sobre FULL, heap estable y cero errores.
 
-Documento:
-
-```text
-docs/v2.1.0-alpha.11/A11_LIVE_DIRTY_REGIONS.md
-```
-
 ## A11-3E — páginas
 
-Gate definido y listo para implementación.
+Implementado para validación en navegador y gate físico.
+
+### Designer
 
 ```text
 PAGE_0_ID=0
 PAGE_0_NAME=Principal
-MAX_PAGES_ALPHA11=8
+MAX_PAGES_DESIGNER_ALPHA11=16
 ACTIVE_PAGE_FILTERS_CANVAS=YES
+ACTIVE_PAGE_FILTERS_PREVIEW=YES
 ACTIVE_PAGE_FILTERS_OBJECT_LIST=YES
 CODEGEN_INCLUDES_ALL_PAGES=YES
 NEW_FIELDS_USE_ACTIVE_PAGE=YES
 MOVE_FIELD_BETWEEN_PAGES=YES
-LIVE_PROTOCOL_CHANGE=NO
+UNDO_REDO_INCLUDES_PAGE_STATE=YES
 ```
 
-El alcance incluye crear/cambiar páginas, filtrar canvas/Preview/Objetos por página activa y conservar el `pageId` correcto en cada field generado.
+La extensión:
 
-No se incorpora lógica automática de navegación dentro de `jwplcUIUpdate()`.
+```text
+tools/jwplc-hmi-designer/poc/designer-pages.js
+```
+
+agrega panel/tabs de páginas, selector de página en Inspector y overlay compacto `NN/TT`.
+
+BOOL y BAR se ajustaron para que el codegen recorra el conjunto global de fields y no dependa sólo de los objetos visibles en la página activa.
+
+### Indicador físico
+
+```text
+PAGE_INDICATOR=NN/TT
+POSITION=TOP_RIGHT
+X=282
+Y=3
+W=36
+H=12
+PAGE_INDICATOR_FIELD=NO
+```
+
+Con una sola página no se muestra.
+
+```text
+PAGE_SELECT:
+  BLACK background / WHITE text
+  LEFT/RIGHT = cambiar página
+  OK         = entrar
+  UP/DOWN    = consumidos
+
+PAGE_CONTENT:
+  WHITE background / BLACK text
+  LEFT/RIGHT/UP/DOWN/OK = usuario
+  ESC                   = volver a PAGE_SELECT
+```
+
+### API pública
+
+```cpp
+JWPLC_Display.setUserPageCount(count);
+JWPLC_Display.userPageCount();
+JWPLC_Display.isUserPageSelection();
+```
+
+El codegen A11-3E agrega:
+
+```cpp
+JWPLC_Display.setUserPageCount(N);
+JWPLC_Display.setUserPage(0);
+```
+
+### Runtime
+
+Archivos nuevos:
+
+```text
+JWPLC/2.1.0/libraries/JWPLC_Display/src/JWPLC_UI_Pages.h
+JWPLC/2.1.0/libraries/JWPLC_Display/src/JWPLC_UI_Pages.cpp
+```
+
+La entrada de sistema se procesa antes del filtro dirty/forced mediante:
+
+```text
+jwplcUIRuntimeServiceInput()
+```
+
+El overlay se dibuja después de los fields para permanecer visible.
+
+El transporte LIVE no cambia; sigue recibiendo el framebuffer ya compuesto por el Designer.
+
+### Limitación explícita Alpha11
+
+```text
+DECLARATIVE_FIELDS_PAGE_SCOPED=YES
+PIXEL_LAYER_PAGE_SCOPED=NO
+RAW_GFX_PAGE_SCOPED=NO
+```
+
+Pixel/Borrador/GFX RAW siguen siendo herramientas técnicas/globales.
 
 Documento:
 
@@ -323,13 +252,32 @@ Documento:
 docs/v2.1.0-alpha.11/A11_3E_MULTI_FIELD_PAGES_GATE.md
 ```
 
+Gate físico:
+
+```text
+tools/jwplc-hmi-designer/gates/A11_Pages_Navigation/
+  JWPLC_HMI_Pages_Gate/
+    JWPLC_HMI_Pages_Gate.ino
+```
+
 ## Pendiente inmediato
 
-Implementar A11-3E y validar una composición con al menos dos páginas y los cuatro tipos declarativos.
+1. Validar A11-3E en navegador con al menos tres páginas y TEXT/VALUE/BOOL/BAR repartidos.
+2. Confirmar que LIVE cambia únicamente el contenido de la página activa y muestra `NN/TT`.
+3. Compilar/subir el gate físico.
+4. Validar botonera real:
+
+```text
+SELECT: LEFT/RIGHT + OK
+CONTENT: LEFT/RIGHT/UP/DOWN/OK libres
+CONTENT: ESC -> SELECT
+```
 
 Criterio:
 
 ```text
 A11_3E_MULTI_FIELD_PAGES=PASS
+A11_3E_PAGE_INDICATOR=PASS
+A11_3E_PAGE_BUTTON_ROUTING=PASS
 NEXT=A11_4_CODEGEN
 ```
