@@ -4,25 +4,31 @@ Fecha: 2026-09-06
 
 ## Objetivo
 
-Convertir el PoC web del JWPLC HMI Designer en una herramienta de uso diario sin exigir al usuario arrancar manualmente `localhost`, manteniendo intactos Web Serial/LIVE y el codegen ya validado.
+Convertir el JWPLC HMI Designer en una herramienta diaria instalable, vinculada al sketch Arduino y accesible sin arrancar manualmente `localhost`.
 
-La integración no depende de APIs privadas de Arduino IDE ni requiere mantener un fork del IDE.
+La aplicación standalone es el producto principal. Arduino IDE 2 puede recibir un launcher experimental que **sólo abre la aplicación externa**; no se incrusta el Designer ni se mantiene un fork del IDE.
 
 ## Arquitectura
 
 ```text
 JWPLC HMI Designer
+  -> instalación usuario (%LOCALAPPDATA%)
   -> launcher Windows
   -> servidor localhost privado
   -> Edge/Chrome --app
   -> desktop.html
-  -> Designer existente + designer-project.js
-  -> desktop-responsive.js / .css
+  -> Designer + LIVE + File System Access
 
 Sketch Arduino
   -> Proyecto.ino
+  -> Proyecto.jwhmi
   -> JWPLC_HMI_Generated.h
-  -> Proyecto.jwhmi (recomendado junto al sketch)
+
+Arduino IDE 2 (experimental)
+  -> VSIX usuario
+  -> comando JWPLC: Abrir HMI Designer
+  -> botón JW HMI
+  -> abre la app instalada
 ```
 
 El servidor localhost existe sólo para conservar el contexto seguro requerido por Web Serial y File System Access. El usuario no debe iniciarlo manualmente.
@@ -42,6 +48,8 @@ PROJECT_SAVE_JWHMI=YES
 PROJECT_FORMAT_VERSION=1
 PROJECT_DECLARATIVE_LAYER=YES
 RAW_PIXEL_PROJECT_PERSISTENCE=NO_ALPHA11
+PROJECT_CANONICAL_LOCATION=SKETCH_FOLDER
+PROJECT_CANONICAL_NAME=<SKETCH>.jwhmi
 
 SKETCH_FOLDER_LINK=YES
 SKETCH_MUST_CONTAIN_INO=YES
@@ -53,11 +61,12 @@ DUPLICATE_IDENTIFIER_BLOCKS_WRITE=YES
 
 LIVE_WEB_SERIAL=PRESERVED
 ARDUINO_IDE_FORK_REQUIRED=NO
+ARDUINO_IDE_LAUNCHER_EXPERIMENT=YES
 ```
 
 ## Responsive adaptativo
 
-La clasificación horizontal ya no depende de un breakpoint fijo en píxeles. Se calcula principalmente mediante la proporción de la ventana respecto al ancho disponible de la pantalla actual:
+La clasificación horizontal se calcula principalmente mediante la proporción de la ventana respecto al ancho disponible de la pantalla actual:
 
 ```text
 WINDOW_RATIO = window.outerWidth / screen.availWidth
@@ -66,8 +75,6 @@ WIDE     >= 70 %
 MEDIUM   38..69 %
 COMPACT  < 38 %
 ```
-
-Existen únicamente límites absolutos de seguridad para viewports extremadamente pequeños; la decisión normal se basa en porcentaje para que una ventana al 50 % entre siempre en `MEDIUM` aunque la pantalla sea 1080p, 1440p o 4K.
 
 Contrato:
 
@@ -86,7 +93,6 @@ LEFT_PANEL=OPEN
 RIGHT_PANEL=PREVIEW_PLUS_INSPECTOR
 BOTTOM_PANEL=USER_STATE
 TOOLBAR=FULL
-DEFAULT_ZOOM=3X_IF_FITS
 ```
 
 ### MEDIUM
@@ -97,10 +103,7 @@ COMPONENTS_TOOLS=COLLAPSIBLE
 RIGHT_PANEL=TABBED_INSPECTOR_OR_PREVIEW
 BOTTOM_PANEL=COLLAPSED_DEFAULT
 TOOLBAR=COMPACT_WITH_OVERFLOW
-DEFAULT_ZOOM=2X_OR_FIT
 ```
-
-Acciones secundarias pasan al menú `⋯`; estado LIVE y gate técnico se llevan a la barra de estado. El nombre del sketch vinculado se conserva en título/status y no consume ancho crítico del toolbar.
 
 ### COMPACT
 
@@ -109,57 +112,72 @@ LEFT_PANEL=RAIL_PLUS_DRAWER
 RIGHT_PANEL=DRAWER
 BOTTOM_PANEL=OVERLAY
 TOOLBAR=MINIMAL_WITH_OVERFLOW
-DEFAULT_ZOOM=FIT
 ```
 
-Rail:
+### Ajustar canvas
+
+`Ajustar canvas` ya no selecciona un zoom entero. Usa Fit continuo:
 
 ```text
-P=Páginas
-O=Objetos
-C=Componentes
-T=Herramientas
+FIT_ZOOM = min(viewportWidth / 320, viewportHeight / 170)
 ```
 
-El panel derecho permite alternar `Inspector` / `Vista 1:1` bajo demanda.
+Se conserva la relación 320:170 y se recalcula automáticamente al redimensionar mientras el modo Fit esté activo.
 
-### Persistencia Alpha11
-
-Se conserva mediante `localStorage`:
+Zoom manual permanece disponible:
 
 ```text
-RIGHT_ACTIVE_VIEW
-LEFT_COLLAPSE_STATE
-BOTTOM_COLLAPSED
-ZOOM_PER_LAYOUT_MODE
+1x / 2x / 3x / 4x / 6x / 8x
 ```
 
-El resize manual de anchos de panel queda fuera del gate inmediato; primero se cierra paridad visual/funcional en WIDE, MEDIUM y COMPACT.
+Gate visual confirmado por usuario en WIDE y MEDIUM, incluyendo Fit continuo.
 
-## Launcher
+## Instalación Windows
 
-Archivos:
+Fuente de desarrollo:
 
 ```text
-tools/jwplc-hmi-designer/JWPLC-HMI-Designer.cmd
-tools/jwplc-hmi-designer/Start-JWPLC-HMI-Designer.ps1
-tools/jwplc-hmi-designer/JWPLC-HMI-Server.ps1
-tools/jwplc-hmi-designer/Install-JWPLC-HMI-Designer.ps1
+tools/jwplc-hmi-designer/
 ```
 
-El launcher:
+Instalación real de usuario:
 
-1. verifica si el servidor local ya está activo;
-2. si no está activo, inicia el servidor oculto en `127.0.0.1:8765`;
-3. espera el endpoint `/__health`;
-4. abre Edge o Chrome con `--app=http://127.0.0.1:8765/desktop.html`;
-5. usa el navegador predeterminado sólo como fallback.
+```text
+%LOCALAPPDATA%\JWPLC\HMI Designer
+```
 
-El servidor se cierra por inactividad después de 60 minutos.
+Archivos de instalación:
+
+```text
+Install-JWPLC-HMI-Designer.cmd
+Install-JWPLC-HMI-Designer.ps1
+Start-JWPLC-HMI-Designer.ps1
+JWPLC-HMI-Server.ps1
+```
+
+El instalador:
+
+1. copia la aplicación fuera del repositorio;
+2. crea acceso directo en Escritorio;
+3. crea `Menú Inicio/JWPLC/JWPLC HMI Designer`;
+4. define `JWPLC_HMI_DESIGNER_HOME` a nivel usuario;
+5. opcionalmente instala el launcher experimental de Arduino IDE.
+
+Comando de prueba:
+
+```powershell
+.\Install-JWPLC-HMI-Designer.ps1 -InstallArduinoIDELauncher
+```
+
+También existe instalador de doble clic:
+
+```text
+Install-JWPLC-HMI-Designer.cmd
+```
 
 ## Vinculación con sketch
 
-El botón `Vincular sketch…` usa File System Access API. La carpeta seleccionada debe contener al menos un `.ino`.
+`Vincular sketch…` usa File System Access API. La carpeta debe contener al menos un `.ino`.
 
 Una vez vinculada, `Actualizar HMI`:
 
@@ -182,9 +200,13 @@ fields<=32
 target=ST7789_320x170_ROT3_RGB565
 ```
 
-Se persisten páginas, fields declarativos, propiedades, geometría, colores, variables/IDs y página activa.
+Cuando existe sketch vinculado y aún no hay un archivo de proyecto abierto/guardado, `Guardar` crea automáticamente:
 
-Convención recomendada:
+```text
+<Sketch>\<Sketch>.jwhmi
+```
+
+Convención oficial propuesta:
 
 ```text
 MiProyecto/
@@ -193,18 +215,99 @@ MiProyecto/
   JWPLC_HMI_Generated.h
 ```
 
-`.jwhmi` no es una unidad compilable por Arduino y puede convivir en la carpeta del sketch.
+`.jwhmi` no es una unidad compilable por Arduino.
 
-Limitación explícita:
+## Launcher experimental Arduino IDE 2
+
+### Motivo
+
+Arduino IDE 2 usa Eclipse Theia y carga plugins VSIX desde su carpeta de configuración de usuario. Arduino documenta esa carpeta para temas de terceros; usar un VSIX funcional con comandos se considera **experimental** hasta pasar gate físico en Arduino IDE 2.3.4.
+
+No se modifica el IDE y no se distribuye fork.
+
+### Archivos
 
 ```text
-RAW_GFX_LAYER_PERSISTENCE=NO_ALPHA11
-PIXEL_LAYER_PERSISTENCE=NO_ALPHA11
+arduino-ide-launcher/package.json
+arduino-ide-launcher/extension.js
+arduino-ide-launcher/media/jw-hmi.svg
+Build-ArduinoIDE-Launcher.ps1
+Install-ArduinoIDE-Launcher.ps1
 ```
 
-## Gate manual
+El build VSIX no necesita npm/Node para empaquetar:
 
-Ya confirmados por usuario en Windows:
+```powershell
+.\Build-ArduinoIDE-Launcher.ps1
+```
+
+Salida:
+
+```text
+dist\jwplc-hmi-launcher-0.1.0.vsix
+```
+
+Instalación objetivo:
+
+```text
+%USERPROFILE%\.arduinoIDE\plugins\jwplc-hmi-launcher-0.1.0.vsix
+```
+
+El plugin busca el Designer en:
+
+```text
+JWPLC_HMI_DESIGNER_HOME
+```
+
+con fallback:
+
+```text
+%LOCALAPPDATA%\JWPLC\HMI Designer
+```
+
+### Superficies de acceso
+
+Esperadas:
+
+```text
+Command Palette -> JWPLC: Abrir HMI Designer
+Status bar      -> JW HMI
+Editor title    -> icono JW (best-effort)
+```
+
+La barra de estado se considera el botón principal porque usa una API estándar VS Code/Theia. `editor/title` se evalúa como mejora adicional y puede variar con Arduino IDE.
+
+### Gate físico Arduino IDE 2.3.4
+
+```text
+1. Instalar Designer standalone.
+2. Instalar VSIX.
+3. Cerrar todas las ventanas de Arduino IDE.
+4. Abrir Arduino IDE 2.3.4.
+5. Confirmar que el IDE inicia normalmente.
+6. Ctrl+Shift+P -> buscar "JWPLC: Abrir HMI Designer".
+7. Confirmar botón "JW HMI" en barra de estado.
+8. Pulsar comando/botón -> Designer abre.
+9. Compilar sketch JWPLC.
+10. Subir sketch JWPLC.
+11. Confirmar cero regresiones del IDE.
+```
+
+Resultado posible:
+
+```text
+ARDUINO_IDE_LAUNCHER=PASS_EXPERIMENTAL
+```
+
+o, si Arduino IDE no acepta el VSIX funcional:
+
+```text
+ARDUINO_IDE_LAUNCHER=UNSUPPORTED
+STANDALONE_APP=PRIMARY
+ARDUINO_IDE_FORK=NO
+```
+
+## Gates confirmados
 
 ```text
 A11_6_DESKTOP_LAUNCHER=PASS_USER_WINDOWS
@@ -212,36 +315,24 @@ A11_6_PROJECT_SAVE_OPEN=PASS_USER_WINDOWS
 A11_6_SKETCH_LINK=PASS_USER_WINDOWS
 A11_6_HEADER_DIRECT_WRITE=PASS_USER_WINDOWS
 A11_6_LIVE_FROM_DESKTOP_APP=PASS_USER_WINDOWS
+A11_6_RESPONSIVE_WIDE=PASS_USER_VISUAL
+A11_6_RESPONSIVE_MEDIUM_50_PERCENT=PASS_USER_VISUAL
+A11_6_FIT_CONTINUOUS=PASS_USER_VISUAL
 ```
 
-Gate responsive pendiente después de la implementación adaptativa:
+Pendiente inmediato:
 
 ```text
-1. Pantalla completa -> WIDE.
-2. Ventana exactamente ~50 % -> MEDIUM sin necesidad de achicar manualmente.
-3. Confirmar toolbar sin wrap en MEDIUM.
-4. Confirmar Inspector / Vista 1:1 por tabs.
-5. Confirmar bottom colapsado por defecto en MEDIUM.
-6. Reducir a ~25 % -> COMPACT.
-7. Confirmar rail P/O/C/T y drawers.
-8. Confirmar panel derecho bajo demanda.
-9. Confirmar bottom overlay.
-10. Confirmar LIVE y edición sin regresiones.
+A11_6_PROJECT_CANONICAL_SAVE=PENDING_USER_GATE
+A11_6_STANDALONE_INSTALLER=PENDING_USER_GATE
+A11_6_ARDUINO_IDE_LAUNCHER=PENDING_USER_GATE
 ```
 
-Criterio de salida:
+Criterio de salida A11-6:
 
 ```text
-A11_6_RESPONSIVE_WIDE=PASS
-A11_6_RESPONSIVE_MEDIUM_50_PERCENT=PASS
-A11_6_RESPONSIVE_COMPACT_25_PERCENT=PASS
-A11_6_RESPONSIVE_LAYOUT=PASS
-A11_6_SKETCH_INTEGRATION=PASS
-```
-
-Hasta completar esa prueba:
-
-```text
-A11_6_RESPONSIVE_LAYOUT=IMPLEMENTED_PENDING_GATE
-A11_6_SKETCH_INTEGRATION=IN_PROGRESS_UX_POLISH
+PROJECT_CANONICAL_SAVE=PASS
+STANDALONE_INSTALLER=PASS
+ARDUINO_IDE_LAUNCHER=PASS_EXPERIMENTAL_OR_EXPLICIT_UNSUPPORTED
+SKETCH_INTEGRATION=PASS
 ```
