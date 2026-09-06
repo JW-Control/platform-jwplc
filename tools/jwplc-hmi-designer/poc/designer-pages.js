@@ -315,3 +315,14 @@
     indicatorRect: () => ({ ...INDICATOR })
   };
 })();
+
+// A11-4: el refinamiento de codegen depende de que el modelo de páginas ya esté
+// disponible. Se carga desde aquí sin acoplarlo al core validado de app.js.
+(() => {
+  if (document.querySelector('script[data-a11-codegen]')) return;
+  const script = document.createElement('script');
+  script.src = './designer-codegen.js';
+  script.async = false;
+  script.dataset.a11Codegen = '1';
+  document.body.appendChild(script);
+})();
