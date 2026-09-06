@@ -6,6 +6,7 @@
   const FIELD_PADDING = 3;
   const FIELD_GAP = 4;
   const MAX_FIELDS = 32;
+  const MAX_PAGES = 16;
   const MAX_HISTORY = 50;
 
   const COLORS = [
@@ -149,6 +150,8 @@
   let codeMode = 'status';
   let gestureChanged = false;
   let keyboardNudgeChanged = false;
+  let activePage = 0;
+  let hmiPages = [{ id: 0, name: 'Principal' }];
 
   const rawState = {
     x: 20,
@@ -255,13 +258,24 @@
   function indexFor(x, y) { return y * WIDTH + x; }
   function inside(x, y) { return x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT; }
 
+  function pageExists(page) {
+    return hmiPages.some((item) => item.id === Number(page));
+  }
+
+  function fieldsForPage(page = activePage) {
+    return hmiFields.filter((field) => Number(field.page || 0) === Number(page));
+  }
+
   function selectedField() {
     return hmiFields.find((field) => field.key === selectedFieldKey) || null;
   }
 
   function toolForField(field) {
     if (!field) return 'none';
-    return field.type === 'VALUE' ? 'valueField' : 'textField';
+    if (field.type === 'VALUE') return 'valueField';
+    if (field.type === 'BOOL') return 'boolField';
+    if (field.type === 'BAR') return 'barField';
+    return 'textField';
   }
 
   function setLayerPixel(x, y, value) {
@@ -469,7 +483,7 @@
 
   function composeFramebuffer() {
     framebuffer.set(pixelLayer);
-    hmiFields.forEach((field) => drawField(framebuffer, field));
+    fieldsForPage(activePage).forEach((field) => drawField(framebuffer, field));
     if (selectedTool === 'rawText') {
       drawClassicTextAt(framebuffer, rawState.value, rawState.x, rawState.y, rawState.foreground, rawState.background, rawState.size);
     }
@@ -525,16 +539,23 @@
   }
 
   function fieldFallbackId(field, index) {
-    return field.type === 'VALUE' ? `FIELD_VALUE_${index + 1}` : `FIELD_TEXT_${index + 1}`;
+    if (field.type === 'VALUE') return `FIELD_VALUE_${index + 1}`;
+    if (field.type === 'BOOL') return `FIELD_BOOL_${index + 1}`;
+    if (field.type === 'BAR') return `FIELD_BAR_${index + 1}`;
+    return `FIELD_TEXT_${index + 1}`;
   }
 
   function variableFallback(field, index) {
-    return field.type === 'VALUE' ? `valor${index + 1}` : `texto${index + 1}`;
+    if (field.type === 'VALUE') return `valor${index + 1}`;
+    if (field.type === 'BOOL') return `estado${index + 1}`;
+    if (field.type === 'BAR') return `nivel${index + 1}`;
+    return `texto${index + 1}`;
   }
 
   function variableDeclaration(field, index) {
     const variable = sanitizeSymbol(field.variable, variableFallback(field, index));
-    if (field.type === 'VALUE') return `float ${variable} = 0.0f;`;
+    if (field.type === 'VALUE' || field.type === 'BAR') return `float ${variable} = 0.0f;`;
+    if (field.type === 'BOOL') return `bool ${variable} = false;`;
     return `char ${variable}[${Math.max(1, field.capacity) + 1}] = {};`;
   }
 
@@ -557,13 +578,14 @@
   function setterHint(field, index) {
     const id = sanitizeSymbol(field.id, fieldFallbackId(field, index));
     const variable = sanitizeSymbol(field.variable, variableFallback(field, index));
-    return field.type === 'VALUE'
-      ? `// JWPLC_Display.setValue(${id}, ${variable});`
-      : `// JWPLC_Display.setText(${id}, ${variable});`;
+    if (field.type === 'VALUE') return `// JWPLC_Display.setValue(${id}, ${variable});`;
+    if (field.type === 'BOOL') return `// JWPLC_Display.setBool(${id}, ${variable});`;
+    if (field.type === 'BAR') return `// JWPLC_Display.setBar(${id}, ${variable});`;
+    return `// JWPLC_Display.setText(${id}, ${variable});`;
   }
 
   function buildContractText() {
-    if (hmiFields.length === 0) return '// Sin campos HMI. Agrega TEXT o VALUE para comenzar.';
+    if (hmiFields.length === 0) return '// Sin campos HMI. Agrega TEXT, VALUE, BOOL o BAR para comenzar.';
     const enumLines = hmiFields
       .map((field, index) => `    ${sanitizeSymbol(field.id, fieldFallbackId(field, index))} = ${index + 1}`)
       .join(',\n');
@@ -571,7 +593,7 @@
     const fields = hmiFields.map(fieldContract).join(',\n');
     const setters = hmiFields.map(setterHint).join('\n');
 
-    return `// Código generado por JWPLC HMI Designer\n// API pública JWPLC_UI · Alpha11 A11-3B\n\nenum HMIFieldId : uint8_t\n{\n${enumLines}\n};\n\n// Variables HMI\n${variables}\n\n// Definición declarativa\nstatic const JWPLC_UIField HMI_FIELDS[] =\n{\n${fields}\n};\n\nvoid jwplcHMISetup()\n{\n    JWPLC_Display.setFields(\n        HMI_FIELDS,\n        sizeof(HMI_FIELDS) / sizeof(HMI_FIELDS[0]));\n}\n\n// jwplcUIUpdate() NO se genera.\n// El usuario alimenta las variables anteriores dentro de su jwplcUIUpdate().\n// Setters públicos que corresponden a este diseño:\n${setters}`;
+    return `// Código generado por JWPLC HMI Designer\n// API pública JWPLC_UI · Alpha11 A11-3E\n\nenum HMIFieldId : uint8_t\n{\n${enumLines}\n};\n\n// Variables HMI\n${variables}\n\n// Definición declarativa\nstatic const JWPLC_UIField HMI_FIELDS[] =\n{\n${fields}\n};\n\nvoid jwplcHMISetup()\n{\n    JWPLC_Display.setFields(\n        HMI_FIELDS,\n        sizeof(HMI_FIELDS) / sizeof(HMI_FIELDS[0]));\n}\n\n// jwplcUIUpdate() NO se genera.\n// El usuario alimenta las variables anteriores dentro de su jwplcUIUpdate().\n// Setters públicos que corresponden a este diseño:\n${setters}`;
   }
 
   function buildStatusText() {
@@ -579,7 +601,8 @@
     const g = field ? computeFieldGeometry(field) : null;
     const textCount = hmiFields.filter((item) => item.type === 'TEXT').length;
     const valueCount = hmiFields.filter((item) => item.type === 'VALUE').length;
-    return `A11 UX Foundation: PASS\nA11 UX-4 Edición: PASS\nA11-3A TEXT: PASS_BASE_DESIGNER\nA11-3B VALUE: IN_PROGRESS\n\n- Campos: ${hmiFields.length}/${MAX_FIELDS}\n- TEXT: ${textCount}\n- VALUE: ${valueCount}\n- Selección: ${field ? `${field.type} ${field.name} · ${field.id}` : 'ninguna'}\n- Movimiento: flechas 1 px / Shift+flechas 10 px\n- Duplicar: Ctrl+D\n- Eliminar: Delete\n${g ? `- AUTO field: ${g.fieldW} × ${g.fieldH} px\n- X/Y: ${field.x}, ${field.y}\n- effectivePadding: ${g.pad} px` : ''}${field?.type === 'VALUE' ? `\n- sample reservado: ${makeNumericSample(field)}\n- preview formateado: ${formatNumericPreview(field) || '(vacío)'}` : ''}\n\nA11-3C BOOL y A11-3D BAR permanecen pendientes.`;
+    const current = hmiPages.find((item) => item.id === activePage);
+    return `A11 UX Foundation: PASS\nA11 UX-4 Edición: PASS\nA11-3A TEXT: PASS_BASE_DESIGNER\nA11-3B VALUE: PASS\nA11-3C BOOL: PASS\nA11-3D BAR: PASS\nA11-3E PAGES: IN_PROGRESS\n\n- Página activa: ${activePage} · ${current?.name || 'Página'}\n- Páginas: ${hmiPages.length}/${MAX_PAGES}\n- Campos globales: ${hmiFields.length}/${MAX_FIELDS}\n- Campos página: ${fieldsForPage().length}\n- TEXT: ${textCount}\n- VALUE: ${valueCount}\n- Selección: ${field ? `${field.type} ${field.name} · ${field.id}` : 'ninguna'}\n- Movimiento: flechas 1 px / Shift+flechas 10 px\n- Duplicar: Ctrl+D\n- Eliminar: Delete\n${g ? `- AUTO field: ${g.fieldW} × ${g.fieldH} px\n- X/Y: ${field.x}, ${field.y}\n- effectivePadding: ${g.pad} px` : ''}${field?.type === 'VALUE' ? `\n- sample reservado: ${makeNumericSample(field)}\n- preview formateado: ${formatNumericPreview(field) || '(vacío)'}` : ''}`;
   }
 
   function updateMetrics() {
@@ -611,7 +634,9 @@
 
   function renderObjectList() {
     objectList.querySelectorAll('.object-item').forEach((item) => item.remove());
-    hmiFields.forEach((field, index) => {
+    const visibleFields = fieldsForPage(activePage);
+    visibleFields.forEach((field) => {
+      const index = hmiFields.indexOf(field);
       const button = document.createElement('button');
       const active = field.key === selectedFieldKey && toolForField(field) === selectedTool;
       button.className = `object-item${active ? ' active' : ''}`;
@@ -619,8 +644,7 @@
       button.dataset.fieldKey = field.key;
       button.title = `${field.type} · ${field.name} · ${field.id}`;
       const icon = field.type === 'VALUE' ? '123' : 'T';
-      const iconClass = 'object-icon';
-      button.innerHTML = `<span class="${iconClass}">${icon}</span><span class="object-type">${field.type}</span><span class="object-name"></span><span class="object-id"></span><span class="object-eye">●</span>`;
+      button.innerHTML = `<span class="object-icon">${icon}</span><span class="object-type">${field.type}</span><span class="object-name"></span><span class="object-id"></span><span class="object-eye">●</span>`;
       if (field.type === 'VALUE') {
         const iconNode = button.querySelector('.object-icon');
         iconNode.style.fontSize = '9.5px';
@@ -638,7 +662,7 @@
       });
       objectList.appendChild(button);
     });
-    countBadge.textContent = String(hmiFields.length);
+    countBadge.textContent = String(visibleFields.length);
     if (fieldsStatus) fieldsStatus.textContent = `Campos: ${hmiFields.length}/${MAX_FIELDS}`;
   }
 
@@ -672,7 +696,9 @@
       detail: {
         selectedTool,
         hasFieldSelection: Boolean(selectedField()),
-        fieldType: selectedField()?.type || null
+        fieldType: selectedField()?.type || null,
+        activePage,
+        pageCount: hmiPages.length
       }
     }));
   }
@@ -703,10 +729,11 @@
     });
 
     const field = selectedField();
+    const fieldTools = ['textField', 'valueField', 'boolField', 'barField'];
     rawSection.hidden = selectedTool !== 'rawText';
-    fieldSection.hidden = !field || !['textField', 'valueField'].includes(selectedTool);
+    fieldSection.hidden = !field || !fieldTools.includes(selectedTool);
     rawMetricsSection.hidden = selectedTool !== 'rawText';
-    fieldMetricsSection.hidden = !field || !['textField', 'valueField'].includes(selectedTool);
+    fieldMetricsSection.hidden = !field || !fieldTools.includes(selectedTool);
 
     if (field) {
       const isValue = field.type === 'VALUE';
@@ -792,6 +819,10 @@
       if (fieldSigned) fieldSigned.value = field.signedValue ? '1' : '0';
       if (fieldLeadingZeros) fieldLeadingZeros.value = field.leadingZeros ? '1' : '0';
       inspectorContract.textContent = `float ${sanitizeSymbol(field.variable, 'valor')} = 0.0f;`;
+    } else if (field.type === 'BOOL') {
+      inspectorContract.textContent = `bool ${sanitizeSymbol(field.variable, 'estado')} = false;`;
+    } else if (field.type === 'BAR') {
+      inspectorContract.textContent = `float ${sanitizeSymbol(field.variable, 'nivel')} = 0.0f;`;
     } else {
       inspectorContract.textContent = `char ${sanitizeSymbol(field.variable, 'texto')}[${field.capacity + 1}] = {};`;
     }
@@ -800,6 +831,8 @@
   function captureSnapshot() {
     return {
       fields: hmiFields.map((field) => ({ ...field })),
+      pages: hmiPages.map((page) => ({ ...page })),
+      activePage,
       selectedFieldKey,
       selectedTool,
       raw: { ...rawState },
@@ -816,8 +849,9 @@
 
   function sameSnapshot(a, b) {
     if (!a || !b) return false;
-    if (a.selectedFieldKey !== b.selectedFieldKey || a.selectedTool !== b.selectedTool || a.serial !== b.serial) return false;
+    if (a.activePage !== b.activePage || a.selectedFieldKey !== b.selectedFieldKey || a.selectedTool !== b.selectedTool || a.serial !== b.serial) return false;
     if (JSON.stringify(a.fields) !== JSON.stringify(b.fields)) return false;
+    if (JSON.stringify(a.pages) !== JSON.stringify(b.pages)) return false;
     if (JSON.stringify(a.raw) !== JSON.stringify(b.raw)) return false;
     return equalPixels(a.pixels, b.pixels);
   }
@@ -834,14 +868,21 @@
 
   function restoreSnapshot(snapshot) {
     hmiFields = snapshot.fields.map((field) => ({ ...field }));
+    hmiPages = (snapshot.pages || [{ id: 0, name: 'Principal' }]).map((page) => ({ ...page }));
+    activePage = pageExists(snapshot.activePage) ? snapshot.activePage : 0;
     selectedFieldKey = snapshot.selectedFieldKey;
     selectedTool = snapshot.selectedTool;
     Object.assign(rawState, snapshot.raw);
     pixelLayer.set(snapshot.pixels);
     fieldSerial = snapshot.serial;
-    if (selectedFieldKey && !selectedField()) selectedFieldKey = hmiFields[0]?.key || null;
-    const field = selectedField();
-    if (field && !['rawText', 'pixel', 'erase'].includes(selectedTool)) selectedTool = toolForField(field);
+    const selected = selectedField();
+    if (!selected || Number(selected.page || 0) !== activePage) {
+      const replacement = fieldsForPage(activePage)[0] || null;
+      selectedFieldKey = replacement?.key || null;
+      selectedTool = replacement ? toolForField(replacement) : 'none';
+    } else if (!['rawText', 'pixel', 'erase'].includes(selectedTool)) {
+      selectedTool = toolForField(selected);
+    }
     syncInputsFromState();
     syncToolUI();
     render();
@@ -887,15 +928,79 @@
     field.y = clamp(field.y, 0, Math.max(0, HEIGHT - g.fieldH));
   }
 
+  function selectFirstOnPage() {
+    const first = fieldsForPage(activePage)[0] || null;
+    selectedFieldKey = first?.key || null;
+    selectedTool = first ? toolForField(first) : 'none';
+  }
+
+  function setActivePage(page) {
+    const target = Number(page);
+    if (!pageExists(target) || target === activePage) return false;
+    activePage = target;
+    const selected = selectedField();
+    if (!selected || Number(selected.page || 0) !== activePage) selectFirstOnPage();
+    syncInputsFromState();
+    syncToolUI();
+    render();
+    return true;
+  }
+
+  function addPage(name) {
+    if (hmiPages.length >= MAX_PAGES) return null;
+    let id = 0;
+    while (pageExists(id) && id < MAX_PAGES) id += 1;
+    if (id >= MAX_PAGES) return null;
+    const page = { id, name: String(name || `Página ${id + 1}`).slice(0, 24) };
+    hmiPages.push(page);
+    hmiPages.sort((a, b) => a.id - b.id);
+    activePage = id;
+    selectedFieldKey = null;
+    selectedTool = 'none';
+    syncInputsFromState();
+    syncToolUI();
+    render();
+    commitHistory();
+    return { ...page };
+  }
+
+  function renamePage(page, name) {
+    const target = hmiPages.find((item) => item.id === Number(page));
+    if (!target) return false;
+    const next = String(name || '').trim().slice(0, 24);
+    if (!next || next === target.name) return false;
+    target.name = next;
+    render();
+    commitHistory();
+    return true;
+  }
+
+  function moveSelectedFieldToPage(page) {
+    const target = Number(page);
+    const field = selectedField();
+    if (!field || !pageExists(target)) return false;
+    if (Number(field.page || 0) === target) return true;
+    field.page = target;
+    activePage = target;
+    selectedFieldKey = field.key;
+    selectedTool = toolForField(field);
+    syncInputsFromState();
+    syncToolUI();
+    render();
+    commitHistory();
+    return true;
+  }
+
   function addTextField() {
     if (hmiFields.length >= MAX_FIELDS) return;
     fieldSerial += 1;
     const field = defaultTextField(`text-${fieldSerial}`);
-    field.name = `Texto ${fieldSerial}`;
+    field.name = `TEXT ${fieldSerial}`;
     field.id = uniqueFieldSymbol(`FIELD_TEXT_${fieldSerial}`);
     field.variable = uniqueVariable(`texto${fieldSerial}`);
-    field.label = field.name;
+    field.label = `Texto ${fieldSerial}`;
     field.preview = 'READY';
+    field.page = activePage;
     field.x = 20 + ((fieldSerial - 1) * 8) % 80;
     field.y = 20 + ((fieldSerial - 1) * 8) % 60;
     placeNewField(field);
@@ -912,10 +1017,11 @@
     if (hmiFields.length >= MAX_FIELDS) return;
     fieldSerial += 1;
     const field = defaultValueField(`value-${fieldSerial}`);
-    field.name = `Valor ${fieldSerial}`;
+    field.name = `VALUE ${fieldSerial}`;
     field.id = uniqueFieldSymbol(`FIELD_VALUE_${fieldSerial}`);
     field.variable = uniqueVariable(`valor${fieldSerial}`);
-    field.label = field.name;
+    field.label = `Valor ${fieldSerial}`;
+    field.page = activePage;
     field.x = 28 + ((fieldSerial - 1) * 8) % 90;
     field.y = 44 + ((fieldSerial - 1) * 8) % 70;
     placeNewField(field);
@@ -933,11 +1039,12 @@
     if (!source || hmiFields.length >= MAX_FIELDS) return;
     fieldSerial += 1;
     const copy = { ...source };
-    const prefix = source.type === 'VALUE' ? 'value' : 'text';
+    const prefix = source.type.toLowerCase();
     copy.key = `${prefix}-${fieldSerial}`;
     copy.name = `${source.name || source.type} copia`;
     copy.id = uniqueFieldSymbol(`${sanitizeSymbol(source.id, fieldFallbackId(source, 0))}_COPY`);
     copy.variable = uniqueVariable(`${sanitizeSymbol(source.variable, variableFallback(source, 0))}Copy`);
+    copy.page = activePage;
     copy.x = source.x + 8;
     copy.y = source.y + 8;
     placeNewField(copy);
@@ -954,8 +1061,8 @@
     const index = hmiFields.findIndex((field) => field.key === selectedFieldKey);
     if (index < 0) return;
     hmiFields.splice(index, 1);
-    const replacement = hmiFields[Math.min(index, hmiFields.length - 1)] || null;
-    selectedFieldKey = replacement ? replacement.key : null;
+    const replacement = fieldsForPage(activePage)[0] || null;
+    selectedFieldKey = replacement?.key || null;
     selectedTool = replacement ? toolForField(replacement) : 'none';
     syncInputsFromState();
     syncToolUI();
@@ -966,6 +1073,8 @@
   function resetProject() {
     pixelLayer.fill(0x0000);
     fieldSerial = 1;
+    hmiPages = [{ id: 0, name: 'Principal' }];
+    activePage = 0;
     hmiFields = [defaultTextField('text-1')];
     selectedFieldKey = 'text-1';
     selectedTool = 'textField';
@@ -992,12 +1101,15 @@
       frame: true,
       layout: 'STACKED',
       align: 'CENTER',
+      page: 0,
       labelColor: 0xFFFF,
       valueColor: 0x07E0,
       backgroundColor: 0x0000,
       frameColor: 0xFD20
     });
     fieldSerial = 1;
+    hmiPages = [{ id: 0, name: 'Principal' }];
+    activePage = 0;
     hmiFields = [demo];
     selectedFieldKey = demo.key;
     selectedTool = 'textField';
@@ -1028,12 +1140,15 @@
       frame: true,
       layout: 'INLINE',
       align: 'RIGHT',
+      page: 0,
       labelColor: 0xFFFF,
       valueColor: 0x07FF,
       backgroundColor: 0x0000,
       frameColor: 0xFD20
     });
     fieldSerial = 1;
+    hmiPages = [{ id: 0, name: 'Principal' }];
+    activePage = 0;
     hmiFields = [demo];
     selectedFieldKey = demo.key;
     selectedTool = 'valueField';
@@ -1189,6 +1304,7 @@
   function hitTestField(point) {
     for (let index = hmiFields.length - 1; index >= 0; index -= 1) {
       const field = hmiFields[index];
+      if (Number(field.page || 0) !== activePage) continue;
       const g = computeFieldGeometry(field);
       if (
         point.x >= field.x && point.x < field.x + g.fieldW &&
@@ -1250,7 +1366,7 @@
         rawState.y = nextY;
       } else {
         const field = selectedField();
-        if (!field) return;
+        if (!field || Number(field.page || 0) !== activePage) return;
         const g = computeFieldGeometry(field);
         const nextX = clamp(point.x - dragOffset.x, 0, Math.max(0, WIDTH - g.fieldW));
         const nextY = clamp(point.y - dragOffset.y, 0, Math.max(0, HEIGHT - g.fieldH));
@@ -1288,7 +1404,7 @@
 
   function nudgeSelection(dx, dy) {
     const field = selectedField();
-    if (field && ['textField', 'valueField'].includes(selectedTool)) {
+    if (field && Number(field.page || 0) === activePage && ['textField', 'valueField', 'boolField', 'barField'].includes(selectedTool)) {
       const g = computeFieldGeometry(field);
       const nextX = clamp(field.x + dx, 0, Math.max(0, WIDTH - g.fieldW));
       const nextY = clamp(field.y + dy, 0, Math.max(0, HEIGHT - g.fieldH));
@@ -1384,10 +1500,21 @@
     getSelectedField: () => selectedField(),
     getSelectedTool: () => selectedTool,
     getSelectedFieldType: () => selectedField()?.type || null,
+    getAllFields: () => hmiFields,
+    getFieldsForPage: (page = activePage) => fieldsForPage(page),
+    getPages: () => hmiPages.map((page) => ({ ...page })),
+    getActivePage: () => activePage,
+    getMaxPages: () => MAX_PAGES,
     computeSelectedGeometry: () => computeFieldGeometry(selectedField()),
-    hasFieldSelection: () => Boolean(selectedField()) && ['textField', 'valueField'].includes(selectedTool),
+    hasFieldSelection: () => Boolean(selectedField()) && ['textField', 'valueField', 'boolField', 'barField'].includes(selectedTool),
     hasTextSelection: () => selectedField()?.type === 'TEXT' && selectedTool === 'textField',
     hasValueSelection: () => selectedField()?.type === 'VALUE' && selectedTool === 'valueField',
+    setActivePage,
+    addPage,
+    renamePage,
+    moveSelectedFieldToPage,
+    commitHistory,
+    render,
     undo,
     redo,
     duplicateSelectedField,
