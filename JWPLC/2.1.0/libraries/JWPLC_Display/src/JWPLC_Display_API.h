@@ -70,6 +70,13 @@ public:
     void setUserPage(uint8_t page);
     uint8_t userPage() const;
 
+    // Navegación compacta Alpha11. Un conteo > 1 habilita el selector físico
+    // NN/TT en la esquina superior derecha. El ID interno de página sigue
+    // siendo 0-based; el indicador visible es 1-based.
+    void setUserPageCount(uint8_t count);
+    uint8_t userPageCount() const;
+    bool isUserPageSelection() const;
+
     bool setFields(const JWPLC_UIField *fields, size_t count);
     void clearFields();
     size_t fieldCount() const;
