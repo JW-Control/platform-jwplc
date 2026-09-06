@@ -21,7 +21,7 @@
         "command": "jwplc.openHmiDesigner",
         "title": "JWPLC: Abrir HMI Designer",
         "category": "JWPLC",
-        "icon": "$(window)"
+        "icon": "media/jw-hmi.svg"
       }
     ],
     "menus": {
