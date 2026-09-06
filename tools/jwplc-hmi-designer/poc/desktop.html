@@ -3,11 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>JWPLC HMI Designer</title>
+  <title>JWPLC HMI Designer — Alpha11</title>
   <meta name="theme-color" content="#101a21" />
-  <link rel="icon" href="./JWPLC-HMI-Designer.ico?v=alpha11-final" sizes="any" />
-  <link rel="alternate icon" href="./jwplc-hmi-icon.svg?v=alpha11-final" type="image/svg+xml" />
-  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./JWPLC-HMI-Designer.ico?v=alpha11-window-v2" type="image/x-icon" sizes="any" />
+  <link rel="shortcut icon" href="./JWPLC-HMI-Designer.ico?v=alpha11-window-v2" type="image/x-icon" />
+  <link rel="manifest" href="./manifest.webmanifest?v=alpha11-window-v2" />
+  <link rel="preload" href="./styles.css" as="style" />
+  <link rel="preload" href="./desktop-responsive.css" as="style" />
   <style>
     html, body { margin: 0; min-height: 100%; background: #101a21; color: #dce9f1; font-family: Segoe UI, sans-serif; }
     .boot { min-height: 100vh; display: grid; place-items: center; }
@@ -23,20 +25,29 @@
         const response = await fetch('./index.html', { cache: 'no-store' });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         let html = await response.text();
+
+        // El documento final se mantiene oculto hasta que estilos y scripts estén
+        // completamente cargados. Evita el flash blanco/HTML sin estilos que se
+        // producía durante document.write().
         html = html.replace(
           '</head>',
           '<meta name="theme-color" content="#101a21" />' +
-          '<link rel="icon" href="./JWPLC-HMI-Designer.ico?v=alpha11-final" sizes="any" />' +
-          '<link rel="alternate icon" href="./jwplc-hmi-icon.svg?v=alpha11-final" type="image/svg+xml" />' +
-          '<link rel="manifest" href="./manifest.webmanifest" />' +
+          '<link rel="icon" href="./JWPLC-HMI-Designer.ico?v=alpha11-window-v2" type="image/x-icon" sizes="any" />' +
+          '<link rel="shortcut icon" href="./JWPLC-HMI-Designer.ico?v=alpha11-window-v2" type="image/x-icon" />' +
+          '<link rel="manifest" href="./manifest.webmanifest?v=alpha11-window-v2" />' +
           '<link rel="stylesheet" href="./desktop-responsive.css" />' +
           '<link rel="stylesheet" href="./desktop-responsive-compat.css" />' +
+          '<style id="jwplcBootGuard">html{background:#101a21!important}body{opacity:0!important}</style>' +
           '</head>'
         );
         html = html.replace(
           '</body>',
-          '<script src="./designer-project.js"><\/script>' +
-          '<script src="./desktop-responsive.js"><\/script>' +
+          '<script src="./designer-project.js"><\\/script>' +
+          '<script src="./desktop-responsive.js"><\\/script>' +
+          '<script>' +
+          'window.addEventListener("load",function(){requestAnimationFrame(function(){var g=document.getElementById("jwplcBootGuard");if(g)g.remove();});},{once:true});' +
+          'setTimeout(function(){var g=document.getElementById("jwplcBootGuard");if(g)g.remove();},1800);' +
+          '<\\/script>' +
           '</body>'
         );
         document.open();
