@@ -26,6 +26,18 @@ function findDesignerExe() {
   return null;
 }
 
+function cleanElectronChildEnv() {
+  const env = { ...process.env };
+
+  // Arduino IDE 2/Theia ejecuta extensiones dentro de un host Electron.
+  // Ese host puede exportar ELECTRON_RUN_AS_NODE=1. Si se hereda al lanzar
+  // nuestro ejecutable Electron, JWPLC HMI Designer arranca como proceso Node
+  // y no crea BrowserWindow aunque spawn/Start-Process reporten éxito.
+  delete env.ELECTRON_RUN_AS_NODE;
+
+  return env;
+}
+
 async function openByProtocol() {
   try {
     return await vscode.env.openExternal(vscode.Uri.parse(DESIGNER_URI));
@@ -42,6 +54,7 @@ function launchViaWindowsShell(exe) {
   return new Promise((resolve) => {
     const workDir = path.dirname(exe);
     const command =
+      `Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue; ` +
       `Start-Process -FilePath '${psQuote(exe)}' ` +
       `-WorkingDirectory '${psQuote(workDir)}'`;
 
@@ -69,7 +82,8 @@ function launchViaWindowsShell(exe) {
           cwd: workDir,
           detached: true,
           stdio: 'ignore',
-          windowsHide: true
+          windowsHide: true,
+          env: cleanElectronChildEnv()
         }
       );
 
@@ -98,7 +112,8 @@ function launchDirect(exe) {
         cwd: path.dirname(exe),
         detached: true,
         stdio: 'ignore',
-        windowsHide: false
+        windowsHide: false,
+        env: cleanElectronChildEnv()
       });
 
       child.once('spawn', () => {
@@ -119,23 +134,17 @@ async function launchDesigner() {
   if (exe) {
     let result;
 
-    // En Windows usamos Shell/Start-Process, igual que un acceso directo.
-    // Esto evita heredar flags del proceso host de Arduino IDE/Theia que
-    // pueden impedir que una aplicación Electron muestre su ventana.
-    if (process.platform === 'win32') {
-      result = await launchViaWindowsShell(exe);
-    } else {
-      result = await launchDirect(exe);
-    }
-
+    // Primero intentamos directamente con un entorno saneado. Es la ruta más
+    // determinista para una app Electron lanzada desde otro host Electron.
+    result = await launchDirect(exe);
     if (result.ok) {
       vscode.window.setStatusBarMessage('JW HMI: Designer iniciado', 1800);
       return;
     }
 
-    // Segundo intento directo antes del protocolo registrado.
+    // Fallback Windows Shell, también con ELECTRON_RUN_AS_NODE eliminado.
     if (process.platform === 'win32') {
-      result = await launchDirect(exe);
+      result = await launchViaWindowsShell(exe);
       if (result.ok) {
         vscode.window.setStatusBarMessage('JW HMI: Designer iniciado', 1800);
         return;
