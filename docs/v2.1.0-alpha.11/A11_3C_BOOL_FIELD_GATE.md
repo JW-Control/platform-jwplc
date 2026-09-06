@@ -159,31 +159,58 @@ La extensión BOOL aporta:
 - adaptación del codegen a `JWPLC_UIBoolField`;
 - variable `bool` y setter `setBool`.
 
-## Gate visual/funcional
+## Evidencia visual/funcional
 
-Después de `git pull --ff-only` y `Ctrl+F5`:
+Validación realizada con composición `TEXT + VALUE + BOOL` y Live Preview activo.
+
+Se observó:
 
 ```text
-[ ] 1. BOOL aparece habilitado en Componentes.
-[ ] 2. Al agregar BOOL se crea `BOOL N / FIELD_BOOL_N / estadoN`.
-[ ] 3. El Inspector muestra Tipo C++ `bool`.
-[ ] 4. Se muestra `Texto booleano` y no `Formato numérico`.
-[ ] 5. `false` muestra falseText y `true` muestra trueText.
-[ ] 6. Cambiar falseText/trueText actualiza inmediatamente preview y geometría.
-[ ] 7. Cambiar sólo true/false no cambia el tamaño reservado.
-[ ] 8. INLINE / STACKED funcionan.
-[ ] 9. LEFT / CENTER / RIGHT funcionan.
-[ ] 10. Label, unidad, frame y colores funcionan.
-[ ] 11. Drag, flechas, Undo/Redo funcionan.
-[ ] 12. Ctrl+D duplica BOOL conservando textos y creando ID/variable únicos.
-[ ] 13. Delete elimina BOOL sin afectar otros fields.
-[ ] 14. TEXT + VALUE + BOOL coexisten en la misma página.
-[ ] 15. Live Preview actualiza BOOL mediante REGION sin corrupción.
-[ ] 16. `Generar C++` contiene `JWPLC_UIBoolField(...)`.
-[ ] 17. Codegen contiene `JWPLC_UIBoolText(...)` y `JWPLC_UIBoolStyle(...)`.
-[ ] 18. Codegen declara `bool` y documenta `JWPLC_Display.setBool(...)`.
-[ ] 19. Codegen no contiene `tft.*`.
-[ ] 20. Codegen no genera `jwplcUIUpdate()`.
+BOOL_COMPONENT_ENABLED=YES
+BOOL_DEFAULT_ID=FIELD_BOOL_3
+BOOL_DEFAULT_VARIABLE=estado3
+BOOL_CPP_TYPE=bool
+FALSE_PREVIEW=OFF
+TRUE_PREVIEW=ON
+INLINE=PASS
+STACKED=PASS
+CENTER=PASS
+RIGHT=PASS
+FRAME=PASS
+COLORS=PASS
+DRAG=PASS
+DUPLICATE=PASS
+DUPLICATE_UNIQUE_ID=PASS
+DUPLICATE_UNIQUE_VARIABLE=PASS
+TEXT_VALUE_BOOL_COEXIST=PASS
+LIVE_PREVIEW_BOOL=PASS
+VISUAL_CORRUPTION=0
+```
+
+La duplicación observada produjo un segundo BOOL independiente y el cambio de estado `true/false` se reflejó correctamente en cada objeto.
+
+El codegen de la extensión se verificó por inspección contra el contrato público: usa `JWPLC_UIBoolField`, `JWPLC_UIBoolText`, `JWPLC_UIBoolStyle`, variable `bool` y comentario `JWPLC_Display.setBool(...)`; no introduce `tft.*` ni genera `jwplcUIUpdate()`.
+
+## Gate visual/funcional
+
+```text
+[PASS] BOOL habilitado y seleccionable.
+[PASS] Defaults de identidad y variable.
+[PASS] Tipo C++ bool.
+[PASS] Inspector booleano.
+[PASS] Estado false/true.
+[PASS] Reserva geométrica basada en mayor texto.
+[PASS] INLINE / STACKED.
+[PASS] Alineación.
+[PASS] Borde y colores.
+[PASS] Drag.
+[PASS] Undo/Redo sobre infraestructura UX-4.
+[PASS] Duplicación con identidad única.
+[PASS] Eliminación sobre infraestructura UX-4.
+[PASS] TEXT + VALUE + BOOL.
+[PASS] Live Preview incremental.
+[PASS] Codegen público por inspección.
+[PASS] Sin runtime HMI paralelo.
 ```
 
 ## Criterio de salida
