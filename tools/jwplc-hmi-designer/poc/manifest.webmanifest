@@ -1,0 +1,18 @@
+{
+  "name": "JWPLC HMI Designer",
+  "short_name": "JWPLC HMI",
+  "description": "Diseñador HMI para JWPLC Basic ST7789 320x170.",
+  "start_url": "./desktop.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#101a21",
+  "theme_color": "#101a21",
+  "icons": [
+    {
+      "src": "./jwplc-hmi-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

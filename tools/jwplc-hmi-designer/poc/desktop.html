@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>JWPLC HMI Designer</title>
+  <meta name="theme-color" content="#101a21" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <style>
+    html, body { margin: 0; min-height: 100%; background: #101a21; color: #dce9f1; font-family: Segoe UI, sans-serif; }
+    .boot { min-height: 100vh; display: grid; place-items: center; }
+    .boot-card { padding: 24px 28px; border: 1px solid #304653; border-radius: 10px; background: #14212a; box-shadow: 0 14px 45px rgba(0,0,0,.28); }
+    .boot-card strong { display: block; margin-bottom: 6px; color: #ff9a43; }
+  </style>
+</head>
+<body>
+  <div class="boot"><div class="boot-card"><strong>JWPLC HMI Designer</strong><span>Iniciando aplicación…</span></div></div>
+  <script>
+    (async () => {
+      try {
+        const response = await fetch('./index.html', { cache: 'no-store' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        let html = await response.text();
+        html = html.replace(
+          '</head>',
+          '<meta name="theme-color" content="#101a21" /><link rel="manifest" href="./manifest.webmanifest" /></head>'
+        );
+        html = html.replace(
+          '</body>',
+          '<script src="./designer-project.js"><\/script></body>'
+        );
+        document.open();
+        document.write(html);
+        document.close();
+      } catch (error) {
+        document.querySelector('.boot-card').innerHTML =
+          '<strong>No se pudo iniciar JWPLC HMI Designer</strong>' +
+          '<span>Verifica que el launcher local esté activo.</span>';
+        console.error(error);
+      }
+    })();
+  </script>
+</body>
+</html>
