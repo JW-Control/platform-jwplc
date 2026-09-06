@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>JWPLC HMI Designer — Alpha11 PoC</title>
+  <title>JWPLC HMI Designer — Alpha11</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -16,11 +16,16 @@
       </div>
     </div>
 
-    <div class="toolbar">
-      <button id="newProjectButton">Nuevo</button>
-      <button id="clearButton">Limpiar</button>
-      <button id="demoButton">Demo TEXT</button>
+    <nav class="toolbar" aria-label="Comandos principales">
+      <button id="newProjectButton" title="Nuevo proyecto">Nuevo</button>
+      <button disabled title="Guardado .jwhmi se habilitará en un gate posterior">Abrir</button>
+      <button disabled title="Guardado .jwhmi se habilitará en un gate posterior">Guardar</button>
       <span class="separator"></span>
+      <button disabled title="Undo/Redo se habilitará en UX-4">Deshacer</button>
+      <button disabled title="Undo/Redo se habilitará en UX-4">Rehacer</button>
+      <span class="separator"></span>
+      <button id="generateButton" class="primary-action">Generar C++</button>
+      <button id="fitButton">Ajustar</button>
       <label>
         Zoom
         <select id="zoomSelect">
@@ -32,248 +37,308 @@
         </select>
       </label>
       <label class="check"><input id="gridToggle" type="checkbox" checked /> Grid</label>
-    </div>
+      <label class="check"><input id="geometryToggle" type="checkbox" checked /> Geometría</label>
+    </nav>
   </header>
 
   <main class="workspace">
     <aside class="panel left-panel">
-      <section>
-        <h2>Páginas</h2>
+      <section class="nav-block">
+        <div class="section-heading">
+          <h2>Páginas</h2>
+          <button class="icon-button" disabled title="Nueva página · A11-3E">＋</button>
+        </div>
         <button class="page-item active">0 · Principal</button>
-        <button class="page-item" disabled>+ Nueva página · A11-3E</button>
+        <button class="page-item secondary" disabled>＋ Nueva página · A11-3E</button>
       </section>
 
-      <section>
+      <section class="nav-block">
+        <div class="section-heading">
+          <h2>Objetos <span class="count-badge">1</span></h2>
+        </div>
+        <button id="textObjectItem" class="object-item active" type="button">
+          <span class="object-icon">T</span>
+          <span class="object-type">TEXT</span>
+          <span id="objectName" class="object-name">Estado</span>
+          <span id="objectId" class="object-id">FIELD_STATUS</span>
+          <span class="object-eye">●</span>
+        </button>
+      </section>
+
+      <section class="nav-block">
+        <h2>Componentes</h2>
+        <button class="tool component-tool active" data-tool="textField">
+          <span class="component-icon">T</span><strong>TEXT</strong><span>Campo de texto</span>
+        </button>
+        <button class="component-tool" disabled>
+          <span class="component-icon numeric">123</span><strong>VALUE</strong><span>A11-3B</span>
+        </button>
+        <button class="component-tool" disabled>
+          <span class="component-icon">○</span><strong>BOOL</strong><span>A11-3C</span>
+        </button>
+        <button class="component-tool" disabled>
+          <span class="component-icon">▥</span><strong>BAR</strong><span>A11-3D</span>
+        </button>
+      </section>
+
+      <section class="nav-block">
         <h2>Herramientas</h2>
-        <button class="tool" data-tool="pixel">Píxel</button>
-        <button class="tool" data-tool="erase">Borrar</button>
-        <button class="tool" data-tool="rawText">Texto GFX RAW · referencia</button>
-        <button class="tool active" data-tool="textField">TEXT field · A11-3A</button>
-        <button class="tool" disabled>VALUE · A11-3B</button>
-        <button class="tool" disabled>BOOL · A11-3C</button>
-        <button class="tool" disabled>BAR · A11-3D</button>
+        <button class="tool utility-tool" data-tool="pixel"><strong>✎</strong><span>Píxel</span><small>Dibujar píxel</small></button>
+        <button class="tool utility-tool" data-tool="erase"><strong>◇</strong><span>Borrador</span><small>Borrar píxeles</small></button>
+        <button class="tool utility-tool" data-tool="rawText"><strong>A</strong><span>Texto GFX RAW</span><small>Referencia técnica</small></button>
       </section>
 
-      <section id="rawTextControlsSection" hidden>
-        <h2>Texto GFX RAW</h2>
-        <label class="field-label">Contenido
-          <input id="rawTextInput" class="field-input" type="text" value="TEMP: 25.6 C" maxlength="40" />
-        </label>
-        <div class="inline-fields">
-          <label class="field-label">X
-            <input id="rawTextX" class="field-input" type="number" min="0" max="319" value="20" />
-          </label>
-          <label class="field-label">Y
-            <input id="rawTextY" class="field-input" type="number" min="0" max="169" value="20" />
-          </label>
-          <label class="field-label">Tamaño
-            <select id="rawTextSize" class="field-input">
-              <option value="1">1×</option>
-              <option value="2" selected>2×</option>
-              <option value="3">3×</option>
-              <option value="4">4×</option>
-            </select>
-          </label>
+      <section class="dev-actions">
+        <h2>Desarrollo</h2>
+        <div class="dev-buttons">
+          <button id="clearButton">Limpiar</button>
+          <button id="demoButton">Demo TEXT</button>
         </div>
-        <label class="field-label">Fondo de celda GFX
-          <select id="rawTextBackground" class="field-input"></select>
-        </label>
-        <p class="muted small">Referencia técnica 6×8. No representa la caja HMI final.</p>
-      </section>
-
-      <section id="textFieldControlsSection">
-        <h2>TEXT field · A11-3A</h2>
-
-        <label class="field-label">Nombre
-          <input id="fieldName" class="field-input" type="text" value="Estado" maxlength="24" />
-        </label>
-        <label class="field-label">ID simbólico
-          <input id="fieldId" class="field-input" type="text" value="FIELD_STATUS" maxlength="32" />
-        </label>
-        <label class="field-label">Variable HMI
-          <input id="fieldVariable" class="field-input" type="text" value="estadoTexto" maxlength="32" />
-        </label>
-        <div class="inline-fields">
-          <label class="field-label">Capacidad
-            <input id="fieldCapacity" class="field-input" type="number" min="1" max="39" value="12" />
-          </label>
-          <label class="field-label">X
-            <input id="fieldX" class="field-input" type="number" min="0" max="319" value="20" />
-          </label>
-          <label class="field-label">Y
-            <input id="fieldY" class="field-input" type="number" min="0" max="169" value="20" />
-          </label>
-        </div>
-
-        <label class="field-label">Valor de preview
-          <input id="fieldPreview" class="field-input" type="text" value="READY" maxlength="39" />
-        </label>
-        <label class="field-label">Label
-          <input id="fieldLabel" class="field-input" type="text" value="Estado" maxlength="24" />
-        </label>
-        <label class="field-label">Unidad
-          <input id="fieldUnit" class="field-input" type="text" value="" maxlength="12" />
-        </label>
-
-        <div class="inline-fields">
-          <label class="field-label">Valor
-            <select id="fieldValueSize" class="field-input">
-              <option value="1">1×</option>
-              <option value="2" selected>2×</option>
-              <option value="3">3×</option>
-              <option value="4">4×</option>
-            </select>
-          </label>
-          <label class="field-label">Label
-            <select id="fieldLabelSize" class="field-input">
-              <option value="1" selected>1×</option>
-              <option value="2">2×</option>
-              <option value="3">3×</option>
-              <option value="4">4×</option>
-            </select>
-          </label>
-          <label class="field-label">Frame
-            <select id="fieldFrame" class="field-input">
-              <option value="0" selected>No</option>
-              <option value="1">Sí</option>
-            </select>
-          </label>
-        </div>
-
-        <div class="inline-fields">
-          <label class="field-label">Layout
-            <select id="fieldLayout" class="field-input">
-              <option value="INLINE" selected>INLINE</option>
-              <option value="STACKED">STACKED</option>
-            </select>
-          </label>
-          <label class="field-label">Alineación
-            <select id="fieldAlign" class="field-input">
-              <option value="LEFT" selected>LEFT</option>
-              <option value="CENTER">CENTER</option>
-              <option value="RIGHT">RIGHT</option>
-            </select>
-          </label>
-          <label class="field-label">Página
-            <input class="field-input" value="0" disabled />
-          </label>
-        </div>
-
-        <label class="field-label">Color label
-          <select id="fieldLabelColor" class="field-input"></select>
-        </label>
-        <label class="field-label">Color valor
-          <select id="fieldValueColor" class="field-input"></select>
-        </label>
-        <label class="field-label">Color fondo
-          <select id="fieldBackgroundColor" class="field-input"></select>
-        </label>
-        <label class="field-label">Color frame
-          <select id="fieldFrameColor" class="field-input"></select>
-        </label>
-
-        <p class="muted small">Ancho/alto AUTO en A11-3A. Haz clic o arrastra sobre el canvas para reposicionar el field.</p>
-      </section>
-
-      <section>
-        <h2>Paleta RGB565</h2>
-        <div id="palette" class="palette"></div>
       </section>
     </aside>
 
     <section class="editor-panel">
-      <div class="tabs">
+      <div class="tabs page-tabs">
         <button class="tab active">Principal</button>
-        <span class="gate">Gate actual: A11-3A TEXT Field</span>
+        <button class="tab add-tab" disabled>＋</button>
+        <span class="gate">Gate: UX Foundation · A11-3A TEXT</span>
+      </div>
+
+      <div class="editor-caption">
+        <span>Pantalla ST7789 · 320 × 170 px</span>
+        <span>Modo edición pixel-perfect</span>
       </div>
 
       <div id="canvasViewport" class="canvas-viewport">
         <div id="canvasStage" class="canvas-stage">
           <canvas id="displayCanvas" aria-label="Canvas lógico JWPLC Basic 320 por 170"></canvas>
+          <canvas id="geometryCanvas" aria-hidden="true"></canvas>
         </div>
       </div>
 
       <footer class="canvas-status">
-        <span>Target: ST7789 · 320 × 170 · rotation 3</span>
+        <span>Target: ST7789 · rotation 3 · RGB565</span>
         <span id="cursorStatus">X: — · Y: —</span>
         <span id="pixelStatus">Pixel: —</span>
       </footer>
     </section>
 
     <aside class="panel right-panel">
-      <section>
-        <h2>Vista previa 1:1</h2>
+      <section class="preview-section">
+        <div class="section-heading">
+          <h2>Vista previa 1:1</h2>
+          <span class="target-badge">ST7789 · 320×170</span>
+        </div>
         <div class="device-preview">
           <canvas id="previewCanvas" width="320" height="170"></canvas>
         </div>
-        <p class="muted">Framebuffer lógico sin interpolación.</p>
+        <p class="muted preview-note">Framebuffer lógico sin interpolación.</p>
       </section>
 
-      <section>
-        <h2>Propiedades</h2>
-        <div class="property-grid">
-          <span>Dispositivo</span><strong>JWPLC Basic v2</strong>
-          <span>Controlador</span><strong>ST7789</strong>
-          <span>Resolución</span><strong>320 × 170</strong>
-          <span>Rotación</span><strong>3</strong>
-          <span>Formato</span><strong>RGB565</strong>
-          <span>Fields runtime</span><strong>máx. 32</strong>
+      <section id="textFieldControlsSection" class="inspector-section">
+        <div class="inspector-title">
+          <h2>Inspector · TEXT field</h2>
+          <span class="inspector-delete" title="Eliminar objeto se habilitará en UX-4">♲</span>
         </div>
-      </section>
 
-      <section id="rawMetricsSection" hidden>
-        <h2>Paridad GFX RAW</h2>
-        <div class="property-grid">
-          <span>Fuente</span><strong>Classic glcdfont</strong>
-          <span>Celda</span><strong>6 × 8 px</strong>
-          <span>Bounds</span><strong id="rawBoundsStatus">—</strong>
-          <span>Padding simétrico</span><strong>NO · RAW</strong>
-        </div>
-      </section>
-
-      <section id="fieldMetricsSection">
-        <h2>Geometría JWPLC_UITextField</h2>
-        <div class="property-grid">
-          <span>Padding efectivo</span><strong id="fieldPadStatus">3 px</strong>
-          <span>Gap</span><strong>4 px</strong>
-          <span>Field AUTO</span><strong id="fieldBoundsStatus">—</strong>
-          <span>Value region</span><strong id="fieldValueBoundsStatus">—</strong>
-          <span>Value XY</span><strong id="fieldValueXYStatus">—</strong>
-          <span>Layout</span><strong id="fieldLayoutStatus">INLINE</strong>
-          <span>Métrica texto</span><strong>5×7 nominal</strong>
-          <span>Raster GFX</span><strong>6×8 clásico</strong>
-        </div>
-      </section>
-
-      <section>
-        <h2>Color activo</h2>
-        <div class="active-color-row">
-          <span id="activeColorSwatch" class="active-color-swatch"></span>
-          <div>
-            <strong id="activeColorName">ORANGE</strong>
-            <code id="activeColorValue">0xFD20</code>
+        <details open>
+          <summary>Identidad</summary>
+          <div class="inspector-body two-cols">
+            <label class="field-label full">Nombre
+              <input id="fieldName" class="field-input" type="text" value="Estado" maxlength="24" />
+            </label>
+            <label class="field-label full">ID simbólico
+              <input id="fieldId" class="field-input code-input" type="text" value="FIELD_STATUS" maxlength="32" />
+            </label>
           </div>
-        </div>
+        </details>
+
+        <details open>
+          <summary>Dato HMI</summary>
+          <div class="inspector-body two-cols">
+            <label class="field-label full">Variable HMI
+              <input id="fieldVariable" class="field-input code-input" type="text" value="estadoTexto" maxlength="32" />
+            </label>
+            <label class="field-label">Tipo
+              <input class="field-input" value="char[]" disabled />
+            </label>
+            <label class="field-label">Capacidad
+              <input id="fieldCapacity" class="field-input" type="number" min="1" max="39" value="12" />
+            </label>
+            <label class="field-label full">Valor de preview
+              <input id="fieldPreview" class="field-input" type="text" value="READY" maxlength="39" />
+            </label>
+            <label class="field-label">Label
+              <input id="fieldLabel" class="field-input" type="text" value="Estado" maxlength="24" />
+            </label>
+            <label class="field-label">Unidad
+              <input id="fieldUnit" class="field-input" type="text" value="" maxlength="12" />
+            </label>
+          </div>
+        </details>
+
+        <details open>
+          <summary>Geometría</summary>
+          <div class="inspector-body two-cols">
+            <label class="field-label">X
+              <input id="fieldX" class="field-input" type="number" min="0" max="319" value="20" />
+            </label>
+            <label class="field-label">Y
+              <input id="fieldY" class="field-input" type="number" min="0" max="169" value="20" />
+            </label>
+            <div class="readout"><span>Ancho/alto</span><strong id="fieldBoundsStatus">—</strong></div>
+            <div class="readout"><span>Value region</span><strong id="fieldValueBoundsStatus">—</strong></div>
+            <div id="fieldMetricsSection" class="metrics-inline full">
+              <span>Padding efectivo <strong id="fieldPadStatus">3 px</strong></span>
+              <span>Gap <strong>4 px</strong></span>
+              <span>Value XY <strong id="fieldValueXYStatus">—</strong></span>
+              <span>Layout <strong id="fieldLayoutStatus">INLINE</strong></span>
+            </div>
+          </div>
+        </details>
+
+        <details open>
+          <summary>Tipografía</summary>
+          <div class="inspector-body two-cols">
+            <label class="field-label">Tamaño label
+              <select id="fieldLabelSize" class="field-input">
+                <option value="1" selected>1×</option>
+                <option value="2">2×</option>
+                <option value="3">3×</option>
+                <option value="4">4×</option>
+              </select>
+            </label>
+            <label class="field-label">Tamaño valor
+              <select id="fieldValueSize" class="field-input">
+                <option value="1">1×</option>
+                <option value="2" selected>2×</option>
+                <option value="3">3×</option>
+                <option value="4">4×</option>
+              </select>
+            </label>
+          </div>
+        </details>
+
+        <details open>
+          <summary>Apariencia</summary>
+          <div class="inspector-body three-cols">
+            <label class="field-label">Layout
+              <select id="fieldLayout" class="field-input">
+                <option value="INLINE" selected>INLINE</option>
+                <option value="STACKED">STACKED</option>
+              </select>
+            </label>
+            <label class="field-label">Alineación
+              <select id="fieldAlign" class="field-input">
+                <option value="LEFT" selected>LEFT</option>
+                <option value="CENTER">CENTER</option>
+                <option value="RIGHT">RIGHT</option>
+              </select>
+            </label>
+            <label class="field-label">Borde
+              <select id="fieldFrame" class="field-input">
+                <option value="0" selected>No</option>
+                <option value="1">Sí</option>
+              </select>
+            </label>
+            <label class="field-label color-field">Color label
+              <select id="fieldLabelColor" class="field-input"></select>
+            </label>
+            <label class="field-label color-field">Color valor
+              <select id="fieldValueColor" class="field-input"></select>
+            </label>
+            <label class="field-label color-field">Color fondo
+              <select id="fieldBackgroundColor" class="field-input"></select>
+            </label>
+            <label class="field-label color-field">Color borde
+              <select id="fieldFrameColor" class="field-input"></select>
+            </label>
+            <label class="field-label">Página
+              <input class="field-input" value="0" disabled />
+            </label>
+          </div>
+        </details>
+
+        <details open>
+          <summary>Contrato C++</summary>
+          <div class="contract-mini">
+            <code id="inspectorContract">char estadoTexto[13];</code>
+            <button id="copyContractButton" class="icon-button" title="Copiar contrato">⧉</button>
+          </div>
+        </details>
+      </section>
+
+      <section id="rawTextControlsSection" class="inspector-section" hidden>
+        <div class="inspector-title"><h2>Inspector · Texto GFX RAW</h2></div>
+        <details open>
+          <summary>Referencia técnica</summary>
+          <div class="inspector-body two-cols">
+            <label class="field-label full">Contenido
+              <input id="rawTextInput" class="field-input" type="text" value="TEMP: 25.6 C" maxlength="40" />
+            </label>
+            <label class="field-label">X
+              <input id="rawTextX" class="field-input" type="number" min="0" max="319" value="20" />
+            </label>
+            <label class="field-label">Y
+              <input id="rawTextY" class="field-input" type="number" min="0" max="169" value="20" />
+            </label>
+            <label class="field-label">Tamaño
+              <select id="rawTextSize" class="field-input">
+                <option value="1">1×</option><option value="2" selected>2×</option><option value="3">3×</option><option value="4">4×</option>
+              </select>
+            </label>
+            <label class="field-label">Fondo de celda GFX
+              <select id="rawTextBackground" class="field-input"></select>
+            </label>
+          </div>
+          <div id="rawMetricsSection" class="metrics-inline">
+            <span>Celda clásica <strong>6×8</strong></span>
+            <span>Bounds <strong id="rawBoundsStatus">—</strong></span>
+          </div>
+        </details>
+      </section>
+
+      <section class="pixel-controls">
+        <details>
+          <summary>Paleta RGB565 / Pixel</summary>
+          <div id="palette" class="palette"></div>
+          <div class="active-color-row">
+            <span id="activeColorSwatch" class="active-color-swatch"></span>
+            <div><strong id="activeColorName">ORANGE</strong><code id="activeColorValue">0xFD20</code></div>
+          </div>
+        </details>
       </section>
     </aside>
   </main>
 
   <section class="code-panel">
-    <div class="tabs">
-      <button id="statusTab" class="tab active">Estado A11-3A</button>
-      <button id="contractTab" class="tab">Contrato C++</button>
+    <div class="tabs bottom-tabs">
+      <button id="statusTab" class="tab active">Estado / Problemas</button>
+      <button id="contractTab" class="tab">Código generado</button>
+      <button class="tab" disabled>Diagnóstico</button>
+      <span class="bottom-summary">A11-3A · TEXT sobre API pública</span>
+      <button id="collapseBottomButton" class="icon-button" title="Contraer panel inferior">⌄</button>
     </div>
     <pre id="codeOutput"></pre>
   </section>
 
   <footer class="statusbar">
     <span class="ready-dot"></span>
-    <span>A11-3A · TEXT field sobre API pública</span>
+    <span>Listo</span>
+    <span>Proyecto: HMI_ST7789</span>
+    <span>Página: 0 · Principal</span>
+    <span>Campos: 1/32</span>
+    <span>Resolución: 320 × 170</span>
+    <span>Formato: RGB565</span>
     <span class="grow"></span>
-    <span id="framebufferStatus">Framebuffer: 54,400 px</span>
+    <span id="selectedObjectStatus">TEXT Estado · FIELD_STATUS</span>
+    <span id="selectedGeometryStatus">X:20 Y:20 · —</span>
+    <span id="zoomStatus">Zoom: 3×</span>
+    <span id="framebufferStatus" class="sr-only">Framebuffer: 54,400 px</span>
   </footer>
 
   <script src="./gfx-classic-font.js"></script>
   <script src="./app.js"></script>
+  <script src="./ux-foundation.js"></script>
 </body>
 </html>
