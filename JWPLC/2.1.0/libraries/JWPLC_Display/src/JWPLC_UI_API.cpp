@@ -316,9 +316,13 @@ JWPLC_UIField JWPLC_UIBarField(
 
 // Implementaciones strong de los hooks internos. Este TU solo se enlaza cuando
 // la HMI se usa: JWPLC_UI.cpp depende de los constructores definidos arriba.
-extern "C" bool jwplcUIRuntimeRefreshNeeded(void)
+extern "C" void jwplcUIRuntimeServiceInput(void)
 {
     JWPLCUIPages::serviceNavigation();
+}
+
+extern "C" bool jwplcUIRuntimeRefreshNeeded(void)
+{
     return JWPLCUI::refreshNeeded();
 }
 
