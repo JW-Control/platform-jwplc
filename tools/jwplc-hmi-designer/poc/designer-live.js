@@ -3,9 +3,11 @@
 
   const WIDTH = 320;
   const HEIGHT = 170;
-  const BAUD_RATE = 921600;
+  const BAUD_RATE = 500000;
   const POLL_MS = 120;
   const PROBE_MS = 500;
+  const ACK_TIMEOUT_MS = 4000;
+  const TX_CHUNK_BYTES = 1024;
   const MAGIC = [0x4A, 0x57, 0x48, 0x31]; // JWH1
   const PROBE = new Uint8Array([0x4A, 0x57, 0x48, 0x3F]); // JWH?
 
@@ -57,7 +59,10 @@
   let forceNextFrame = false;
   let pollTimer = null;
   let probeTimer = null;
+  let ackTimer = null;
   let readBuffer = '';
+  let awaitingAckSequence = null;
+  let pendingHash = null;
 
   function editor() {
     return window.JWPLCHMIEditor || null;
@@ -162,6 +167,12 @@
     return packet;
   }
 
+  async function writePacketChunked(packet) {
+    for (let offset = 0; offset < packet.length; offset += TX_CHUNK_BYTES) {
+      await writer.write(packet.subarray(offset, Math.min(offset + TX_CHUNK_BYTES, packet.length)));
+    }
+  }
+
   async function sendProbe() {
     if (!writer || bridgeReady) return;
     try {
@@ -176,8 +187,26 @@
     probeTimer = null;
   }
 
+  function stopAckTimer() {
+    if (ackTimer) clearTimeout(ackTimer);
+    ackTimer = null;
+  }
+
+  function armAckTimeout(expectedSequence) {
+    stopAckTimer();
+    ackTimer = setTimeout(() => {
+      if (awaitingAckSequence !== expectedSequence) return;
+      console.warn(`[JWPLC LIVE] ACK timeout frame ${expectedSequence}`);
+      awaitingAckSequence = null;
+      pendingHash = null;
+      forceNextFrame = true;
+      liveStatus.textContent = 'LIVE · reintentando frame';
+      liveStatus.className = 'live-status waiting';
+    }, ACK_TIMEOUT_MS);
+  }
+
   async function sendCurrentFrame(force = false) {
-    if (!writer || !bridgeReady || sendInFlight) {
+    if (!writer || !bridgeReady || sendInFlight || awaitingAckSequence !== null) {
       if (force) forceNextFrame = true;
       return;
     }
@@ -188,11 +217,17 @@
     sendInFlight = true;
     forceNextFrame = false;
     try {
-      await writer.write(encodeFrame(runs));
-      lastHash = hash;
-      liveStatus.textContent = `LIVE · frame ${sequence}`;
+      const packet = encodeFrame(runs);
+      const frameSequence = sequence;
+      await writePacketChunked(packet);
+      awaitingAckSequence = frameSequence;
+      pendingHash = hash;
+      armAckTimeout(frameSequence);
+      liveStatus.textContent = `LIVE · enviando frame ${frameSequence}`;
       liveStatus.className = 'live-status ready';
     } catch (error) {
+      awaitingAckSequence = null;
+      pendingHash = null;
       liveStatus.textContent = 'LIVE · error de envío';
       liveStatus.className = 'live-status waiting';
       console.error('[JWPLC LIVE] write failed', error);
@@ -204,6 +239,7 @@
   function handleDeviceLine(line) {
     const clean = line.trim();
     if (!clean) return;
+
     if (clean.startsWith('JWHMI_LIVE_READY')) {
       if (bridgeReady) return;
       bridgeReady = true;
@@ -217,9 +253,32 @@
       sendCurrentFrame(true);
       return;
     }
+
     if (clean.startsWith('JWHMI_LIVE_FRAME')) {
+      const ackSequence = Number(clean.split(/\s+/)[1]);
+      if (Number.isFinite(ackSequence) && ackSequence === awaitingAckSequence) {
+        stopAckTimer();
+        awaitingAckSequence = null;
+        lastHash = pendingHash;
+        pendingHash = null;
+        liveStatus.textContent = `LIVE · frame ${ackSequence}`;
+        liveStatus.className = 'live-status ready';
+        setTimeout(() => sendCurrentFrame(forceNextFrame), 0);
+      }
       return;
     }
+
+    if (clean.startsWith('JWHMI_LIVE_ERROR')) {
+      stopAckTimer();
+      awaitingAckSequence = null;
+      pendingHash = null;
+      forceNextFrame = true;
+      liveStatus.textContent = `LIVE · ${clean.replace('JWHMI_LIVE_ERROR ', '')}`;
+      liveStatus.className = 'live-status waiting';
+      console.warn('[JWPLC LIVE]', clean);
+      return;
+    }
+
     console.debug('[JWPLC LIVE]', clean);
   }
 
@@ -247,11 +306,13 @@
     }
 
     port = await navigator.serial.requestPort();
-    await port.open({ baudRate: BAUD_RATE, bufferSize: 255 });
+    await port.open({ baudRate: BAUD_RATE, bufferSize: 4096 });
     writer = port.writable.getWriter();
     reader = port.readable.getReader();
     bridgeReady = false;
     lastHash = null;
+    awaitingAckSequence = null;
+    pendingHash = null;
     readBuffer = '';
     liveButton.classList.add('waiting');
     liveButton.textContent = 'Esperando bridge…';
@@ -268,7 +329,10 @@
     if (pollTimer) clearInterval(pollTimer);
     pollTimer = null;
     stopProbeTimer();
+    stopAckTimer();
     bridgeReady = false;
+    awaitingAckSequence = null;
+    pendingHash = null;
 
     try { await reader?.cancel(); } catch (_) {}
     try { reader?.releaseLock(); } catch (_) {}
