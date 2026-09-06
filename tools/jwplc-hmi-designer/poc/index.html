@@ -21,8 +21,8 @@
       <button disabled title="Guardado .jwhmi se habilitará en un gate posterior">Abrir</button>
       <button disabled title="Guardado .jwhmi se habilitará en un gate posterior">Guardar</button>
       <span class="separator"></span>
-      <button disabled title="Undo/Redo se habilitará en UX-4">Deshacer</button>
-      <button disabled title="Undo/Redo se habilitará en UX-4">Rehacer</button>
+      <button disabled>Deshacer</button>
+      <button disabled>Rehacer</button>
       <span class="separator"></span>
       <button id="generateButton" class="primary-action">Generar C++</button>
       <button id="fitButton">Ajustar</button>
@@ -59,8 +59,8 @@
         <button id="textObjectItem" class="object-item active" type="button">
           <span class="object-icon">T</span>
           <span class="object-type">TEXT</span>
-          <span id="objectName" class="object-name">Estado</span>
-          <span id="objectId" class="object-id">FIELD_STATUS</span>
+          <span class="object-name">Estado</span>
+          <span class="object-id">FIELD_STATUS</span>
           <span class="object-eye">●</span>
         </button>
       </section>
@@ -70,8 +70,8 @@
         <button class="tool component-tool active" data-tool="textField">
           <span class="component-icon">T</span><strong>TEXT</strong><span>Campo de texto</span>
         </button>
-        <button class="component-tool" disabled>
-          <span class="component-icon numeric">123</span><strong>VALUE</strong><span>A11-3B</span>
+        <button class="tool component-tool" data-tool="valueField">
+          <span class="component-icon numeric">123</span><strong>VALUE</strong><span>Valor numérico</span>
         </button>
         <button class="component-tool" disabled>
           <span class="component-icon">○</span><strong>BOOL</strong><span>A11-3C</span>
@@ -93,6 +93,7 @@
         <div class="dev-buttons">
           <button id="clearButton">Limpiar</button>
           <button id="demoButton">Demo TEXT</button>
+          <button id="demoValueButton">Demo VALUE</button>
         </div>
       </section>
     </aside>
@@ -101,7 +102,7 @@
       <div class="tabs page-tabs">
         <button class="tab active">Principal</button>
         <button class="tab add-tab" disabled>＋</button>
-        <span class="gate">Gate: UX Foundation · A11-3A TEXT</span>
+        <span class="gate">Gate: A11-3B VALUE · API pública</span>
       </div>
 
       <div class="editor-caption">
@@ -137,8 +138,8 @@
 
       <section id="textFieldControlsSection" class="inspector-section">
         <div class="inspector-title">
-          <h2>Inspector · TEXT field</h2>
-          <span class="inspector-delete" title="Eliminar objeto se habilitará en UX-4">♲</span>
+          <h2 id="fieldInspectorTitle">Inspector · TEXT field</h2>
+          <span class="inspector-delete">♲</span>
         </div>
 
         <details open>
@@ -159,10 +160,10 @@
             <label class="field-label full">Variable HMI
               <input id="fieldVariable" class="field-input code-input" type="text" value="estadoTexto" maxlength="32" />
             </label>
-            <label class="field-label">Tipo
-              <input class="field-input" value="char[]" disabled />
+            <label class="field-label">Tipo C++
+              <input id="fieldCppType" class="field-input" value="char[]" disabled />
             </label>
-            <label class="field-label">Capacidad
+            <label id="fieldCapacityWrap" class="field-label">Capacidad
               <input id="fieldCapacity" class="field-input" type="number" min="1" max="39" value="12" />
             </label>
             <label class="field-label full">Valor de preview
@@ -174,6 +175,32 @@
             <label class="field-label">Unidad
               <input id="fieldUnit" class="field-input" type="text" value="" maxlength="12" />
             </label>
+          </div>
+        </details>
+
+        <details id="numericFormatDetails" open hidden>
+          <summary>Formato numérico</summary>
+          <div class="inspector-body two-cols">
+            <label class="field-label">Dígitos enteros
+              <input id="fieldIntegerDigits" class="field-input" type="number" min="1" max="9" value="3" />
+            </label>
+            <label class="field-label">Decimales
+              <input id="fieldDecimalDigits" class="field-input" type="number" min="0" max="6" value="1" />
+            </label>
+            <label class="field-label">Permitir signo
+              <select id="fieldSigned" class="field-input">
+                <option value="0" selected>No</option>
+                <option value="1">Sí</option>
+              </select>
+            </label>
+            <label class="field-label">Ceros a la izquierda
+              <select id="fieldLeadingZeros" class="field-input">
+                <option value="0" selected>No</option>
+                <option value="1">Sí</option>
+              </select>
+            </label>
+            <div class="readout"><span>Reserva geométrica</span><strong id="valueFormatSampleStatus">888.8</strong></div>
+            <div class="readout"><span>Preview formateado</span><strong id="valueFormattedStatus">25.6</strong></div>
           </div>
         </details>
 
@@ -262,7 +289,7 @@
         <details open>
           <summary>Contrato C++</summary>
           <div class="contract-mini">
-            <code id="inspectorContract">char estadoTexto[13];</code>
+            <code id="inspectorContract">char estadoTexto[13] = {};</code>
             <button id="copyContractButton" class="icon-button" title="Copiar contrato">⧉</button>
           </div>
         </details>
@@ -284,7 +311,10 @@
             </label>
             <label class="field-label">Tamaño
               <select id="rawTextSize" class="field-input">
-                <option value="1">1×</option><option value="2" selected>2×</option><option value="3">3×</option><option value="4">4×</option>
+                <option value="1">1×</option>
+                <option value="2" selected>2×</option>
+                <option value="3">3×</option>
+                <option value="4">4×</option>
               </select>
             </label>
             <label class="field-label">Fondo de celda GFX
@@ -316,7 +346,7 @@
       <button id="statusTab" class="tab active">Estado / Problemas</button>
       <button id="contractTab" class="tab">Código generado</button>
       <button class="tab" disabled>Diagnóstico</button>
-      <span class="bottom-summary">A11-3A · TEXT sobre API pública</span>
+      <span class="bottom-summary">A11-3B · VALUE sobre API pública</span>
       <button id="collapseBottomButton" class="icon-button" title="Contraer panel inferior">⌄</button>
     </div>
     <pre id="codeOutput"></pre>
