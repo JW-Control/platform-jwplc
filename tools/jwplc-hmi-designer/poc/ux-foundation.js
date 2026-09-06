@@ -208,11 +208,19 @@
   refreshUX();
 })();
 
-// Alpha11 Live Preview se mantiene separado del runtime/codegen de producción.
-// Este loader permite evolucionar el transporte Web Serial sin acoplarlo al editor base.
+// Alpha11: los gates del Designer se cargan fuera del core para no acoplar
+// funcionalidad experimental al runtime/codegen base ya validado.
 (() => {
-  const script = document.createElement('script');
-  script.src = './designer-live.js';
-  script.async = false;
-  document.body.appendChild(script);
+  function loadScript(src, onDone) {
+    const script = document.createElement('script');
+    script.src = src;
+    script.async = false;
+    script.onload = () => onDone?.();
+    script.onerror = () => onDone?.();
+    document.body.appendChild(script);
+  }
+
+  loadScript('./designer-bool.js', () => {
+    loadScript('./designer-live.js');
+  });
 })();
