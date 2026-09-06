@@ -13,6 +13,7 @@ $sourceServer = Join-Path $PSScriptRoot 'JWPLC-HMI-Server.ps1'
 $sourceCmd = Join-Path $PSScriptRoot 'JWPLC-HMI-Designer.cmd'
 $sourceBuildExe = Join-Path $PSScriptRoot 'Build-JWPLC-HMI-Designer-Exe.ps1'
 $sourceLauncherCs = Join-Path $PSScriptRoot 'JWPLC-HMI-Designer-Launcher.cs'
+$sourceIcon = Join-Path $PSScriptRoot 'assets\JWPLC-HMI-Designer.ico'
 $arduinoInstaller = Join-Path $PSScriptRoot 'Install-ArduinoIDE-Launcher.ps1'
 
 foreach ($required in @($sourcePoc, $sourceStart, $sourceServer, $sourceCmd, $sourceBuildExe, $sourceLauncherCs)) {
@@ -27,6 +28,7 @@ $installStart = Join-Path $InstallRoot 'Start-JWPLC-HMI-Designer.ps1'
 $installServer = Join-Path $InstallRoot 'JWPLC-HMI-Server.ps1'
 $installCmd = Join-Path $InstallRoot 'JWPLC-HMI-Designer.cmd'
 $installExe = Join-Path $InstallRoot 'JWPLC-HMI-Designer.exe'
+$installIcon = Join-Path $InstallRoot 'JWPLC-HMI-Designer.ico'
 
 Write-Host 'Instalando JWPLC HMI Designer...' -ForegroundColor Cyan
 Write-Host "  Destino: $InstallRoot"
@@ -40,8 +42,20 @@ Copy-Item -LiteralPath $sourceStart -Destination $installStart -Force
 Copy-Item -LiteralPath $sourceServer -Destination $installServer -Force
 Copy-Item -LiteralPath $sourceCmd -Destination $installCmd -Force
 
+$buildIcon = ''
+if (Test-Path -LiteralPath $sourceIcon -PathType Leaf) {
+    Copy-Item -LiteralPath $sourceIcon -Destination $installIcon -Force
+    $buildIcon = $sourceIcon
+    Write-Host "Icono: $sourceIcon" -ForegroundColor DarkGray
+}
+
 Write-Host 'Generando ejecutable de entrada...' -ForegroundColor Cyan
-& $sourceBuildExe -OutputPath $installExe | Out-Null
+if ([string]::IsNullOrWhiteSpace($buildIcon)) {
+    & $sourceBuildExe -OutputPath $installExe | Out-Null
+}
+else {
+    & $sourceBuildExe -OutputPath $installExe -IconPath $buildIcon | Out-Null
+}
 if (-not (Test-Path -LiteralPath $installExe -PathType Leaf)) {
     throw "No se pudo instalar el ejecutable del Designer: $installExe"
 }
@@ -99,6 +113,9 @@ Write-Host ''
 Write-Host 'JWPLC HMI Designer instalado.' -ForegroundColor Green
 Write-Host "  Aplicación: $installExe"
 Write-Host "  Recursos: $InstallRoot"
+if (Test-Path -LiteralPath $installIcon -PathType Leaf) {
+    Write-Host "  Icono: $installIcon"
+}
 Write-Host '  Protocolo: jwplc-hmi://open'
 $created | ForEach-Object { Write-Host "  Acceso: $_" }
 Write-Host 'El usuario ya no depende de la carpeta del repositorio para ejecutar el Designer.'
