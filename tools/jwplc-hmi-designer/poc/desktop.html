@@ -5,9 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>JWPLC HMI Designer — Alpha11</title>
   <meta name="theme-color" content="#101a21" />
-  <link rel="icon" href="./jwplc-hmi-icon.svg?v=alpha11-taskbar-v1" type="image/svg+xml" sizes="any" />
-  <link rel="shortcut icon" href="./jwplc-hmi-icon.svg?v=alpha11-taskbar-v1" type="image/svg+xml" />
-  <link rel="manifest" href="./manifest.webmanifest?v=alpha11-taskbar-v1" />
+  <!--
+    Iconos raster dibujados a su resolución nativa. No son miniaturas del arte
+    256 px: a 16–48 px se simplifican TFT/botonera para evitar el blur que
+    Chromium/Windows producía al rasterizar el SVG detallado.
+  -->
+  <link rel="icon" type="image/png" sizes="16x16" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA0UlEQVR42mNkYGBgMPeJ+89ABji5ZREjo7lP3P8HV86Qo59BQceEgQVZIMDfhyiNGzZugbNZkDXPrKjEqck2JoqBgYGBYcemNSiGsKArZNFUxdD85/ptnAYzYRP8c+8RCobZDLO9r62e4d7V07gNwADs7AwefiEMHn4hDAwMDAxFVY0MStqmhA1gUZIjaDYTKdEm0M/FEHE3juFZ8l3yDMDqSqwh/vMnBpsoA2BxjQt8KPzGwMDAwKClo8vAwHCdyl7YsHELZUkZXYJYwEhpdgYAdQ5LUct8Y5QAAAAASUVORK5CYII=" />
+  <link rel="icon" type="image/png" sizes="20x20" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAA80lEQVR42mNkgAJzn7j/DBSAk1sWMTIwMDAwwgx7cOUMJeYxKOiYMJzcsoiREdmwAH8fsgzbsHEL3FAWmGCAvw/DzIpKgpptY6IwxAL8feCGsqBLsmiq4jTsz/XbKPwdm9YwePiFoOrHqvHeI+wm/vxJ0Acs5ITZjk1rMNg4vczAwMDAoiSH18swb8K8rKWjC1fDxEBlQNDAP/ce4QxT9AjBaSA+Q2gSKYf+/GJgYGBg8JsswMDAwMDwjOEuA8NGGoUhC9aYhKY3DDapBmLLVtiAHQsbhFH4jYGBgQGabK4PULIhOww3bNxCcfFFmwKW2lUAAF1qY8Kc3+7jAAAAAElFTkSuQmCC" />
+  <link rel="icon" type="image/png" sizes="24x24" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAABMklEQVR42mNgoDFgRBcw94n7T4mBJ7csYsRqAczgB1fOUORiBR0TFItYkCUfXDnDEODvQ5EFGzZugVsC94G5T9x/mOHXrlymyAItHV24JSe3LGJkQVdweMkyogyyjYmCs3dsWsPg4ReCVR0LVkFNVbyG/7l+G8VwfJYw4TTk3iOsGBnADMfFx2sBIYBsGLLL+9rqCQcRAwMDA4uSHF4LPPxCUIIHBoqqGsnzAbYgQg9zkuIAn8HYDCUpFcEMJhbgMhyvBcSC7Z+/MDAwMDBET5aACCyjUirCajgDA8OLqPvUSUXEAhZCORUf8OTlYdj++QvD0twXcF9ILFNkYGC4itsC5DKGWEsYGBgYGKogwSWhQ8U4IAbQ3AKUGo2aFQ7WGk1Bx4Rhw8YtVKky6Vbp0xwAAPxDh08S8QbEAAAAAElFTkSuQmCC" />
+  <link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABf0lEQVR42u2XP0vDQBiHfwmBDtU9k1TnjCWZ7KwQzA3SoZV+CMcu4uLokm8gmiF0iKWQznFK6WbUQailk3vjUAjUQTR/mrRJaC4KvhBIjuOe595ccvcCJQcTbZDkzrJIoD24YRIFJLmznDrjQmdcE+ohCZYmHACmzjiUZSYOThS5ELhxP1jJBBftRBQZz85jIQJEkUMSAMAldX641XJBDs9amfqzZX+GmwUqlXRXQgz7vfIy8A1fJ8FtGoQ72EsF815e18582O/hvHtJJwNB+NHJ6c/99dUFHYEgNChDLQNRibjn3ALeZAZvMsskkQRPtQiD4G1kIrNAXnDa4Ioa2Jy7AIC2yvuNGqUfkTl3UbUttFUehqh/7YSijvfWG70MfEgNGLa1hVewWKT680WjalsgoyYMUYch6iCjJr01cLy7A1Nq4A4AUX0wr+0DeEonkHVfj5MAAHRdX0D4k+eBf4GCg4s7OtM4lq9URrQKk2h1xAZrtppQpwr/FcVp6fEJkeuLbXbtPQoAAAAASUVORK5CYII=" />
+  <link rel="icon" type="image/png" sizes="48x48" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAACKklEQVR42u2aMU/CQBTHX5smDMDixGTU0eBm6GQnBzAEGQgDMX4IRxbjQuJiHJ2NYSAMSogwOOEEcZPoYKLGyckFGEhIdDBXrqV3vWuq9yC85BIuLb3/771318u9Asy5abyLZvbwG4PIbvNSkwLAIlwEROOJf+8/oBC+ltxmQmhe4rEIZ4HQEPq8iKe10VliiPwxv59VIvj6pim2CrG8r0q4HwidSkIReOo/KhG+mdzyvUf3SxtV4umxeZkgFIH7q2qownYOSqE9S8e0yrQb9X8AiESCNwHxshA6Rs/LQOhY00YUwpAd0NhYDSR08vwiLbLdqMNR+QRnBNzi07mC3Wg7qxzjA5CdqDwIJQBuL/sZL40MVSmUzhUckWBFBe0cEImESKSUL6MskaJphuJF5hYrM0dCB5i8ftgtCITsBEe1mZMVH8oqRHs66Ft6YbbTQcxQ7fHWYGj/zsRjAACwUolNb6gijkDn7nam7xAPABfnpzgBWoMhjEwLot0OAABEux3I94qe936W3vDOAQIxMq3fI5RUbXqckqoxoUIBcO/xvfqksYyIJ5HI94oOiPBXofF42kT6DMvEYw7Pj0zLFk4giPcT1XWcKWTt7s30v8pDG8JPvPAyGuY5jlck3EYgAAASyQV/kS0BlgB/BUDO5EWOuP/KyNi8Qoch8yCMZhfLeDUyTCUmd6HPCPogdHOAENE1WWzmVWZdrEK3FwQmE/rUACMI72OPubcfi9r7dqXoLsgAAAAASUVORK5CYII=" />
+  <link rel="shortcut icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABf0lEQVR42u2XP0vDQBiHfwmBDtU9k1TnjCWZ7KwQzA3SoZV+CMcu4uLokm8gmiF0iKWQznFK6WbUQailk3vjUAjUQTR/mrRJaC4KvhBIjuOe595ccvcCJQcTbZDkzrJIoD24YRIFJLmznDrjQmdcE+ohCZYmHACmzjiUZSYOThS5ELhxP1jJBBftRBQZz85jIQJEkUMSAMAldX641XJBDs9amfqzZX+GmwUqlXRXQgz7vfIy8A1fJ8FtGoQ72EsF815e18582O/hvHtJJwNB+NHJ6c/99dUFHYEgNChDLQNRibjn3ALeZAZvMsskkQRPtQiD4G1kIrNAXnDa4Ioa2Jy7AIC2yvuNGqUfkTl3UbUttFUehqh/7YSijvfWG70MfEgNGLa1hVewWKT680WjalsgoyYMUYch6iCjJr01cLy7A1Nq4A4AUX0wr+0DeEonkHVfj5MAAHRdX0D4k+eBf4GCg4s7OtM4lq9URrQKk2h1xAZrtppQpwr/FcVp6fEJkeuLbXbtPQoAAAAASUVORK5CYII=" />
+  <link rel="manifest" href="./manifest.webmanifest?v=alpha11-taskbar-raster-v2" />
   <link rel="preload" href="./styles.css" as="style" />
   <link rel="preload" href="./desktop-responsive.css" as="style" />
   <style>
@@ -26,15 +35,24 @@
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         let html = await response.text();
 
+        // Favicon raster nativo: mantener la misma identidad visual pero sin
+        // pedirle a Chromium que reduzca el SVG detallado hasta 16–32 px.
+        const iconLinks =
+          '<link rel="icon" type="image/png" sizes="16x16" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA0UlEQVR42mNkYGBgMPeJ+89ABji5ZREjo7lP3P8HV86Qo59BQceEgQVZIMDfhyiNGzZugbNZkDXPrKjEqck2JoqBgYGBYcemNSiGsKArZNFUxdD85/ptnAYzYRP8c+8RCobZDLO9r62e4d7V07gNwADs7AwefiEMHn4hDAwMDAxFVY0MStqmhA1gUZIjaDYTKdEm0M/FEHE3juFZ8l3yDMDqSqwh/vMnBpsoA2BxjQt8KPzGwMDAwKClo8vAwHCdyl7YsHELZUkZXYJYwEhpdgYAdQ5LUct8Y5QAAAAASUVORK5CYII=" />' +
+          '<link rel="icon" type="image/png" sizes="20x20" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAA80lEQVR42mNkgAJzn7j/DBSAk1sWMTIwMDAwwgx7cOUMJeYxKOiYMJzcsoiREdmwAH8fsgzbsHEL3FAWmGCAvw/DzIpKgpptY6IwxAL8feCGsqBLsmiq4jTsz/XbKPwdm9YwePiFoOrHqvHeI+wm/vxJ0Acs5ITZjk1rMNg4vczAwMDAoiSH18swb8K8rKWjC1fDxEBlQNDAP/ce4QxT9AjBaSA+Q2gSKYf+/GJgYGBg8JsswMDAwMDwjOEuA8NGGoUhC9aYhKY3DDapBmLLVtiAHQsbhFH4jYGBgQGabK4PULIhOww3bNxCcfFFmwKW2lUAAF1qY8Kc3+7jAAAAAElFTkSuQmCC" />' +
+          '<link rel="icon" type="image/png" sizes="24x24" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAABMklEQVR42mNgoDFgRBcw94n7T4mBJ7csYsRqAczgB1fOUORiBR0TFItYkCUfXDnDEODvQ5EFGzZugVsC94G5T9x/mOHXrlymyAItHV24JSe3LGJkQVdweMkyogyyjYmCs3dsWsPg4ReCVR0LVkFNVbyG/7l+G8VwfJYw4TTk3iOsGBnADMfFx2sBIYBsGLLL+9rqCQcRAwMDA4uSHF4LPPxCUIIHBoqqGsnzAbYgQg9zkuIAn8HYDCUpFcEMJhbgMhyvBcSC7Z+/MDAwMDBET5aACCyjUirCajgDA8OLqPvUSUXEAhZCORUf8OTlYdj++QvD0twXcF9ILFNkYGC4itsC5DKGWEsYGBgYGKogwSWhQ8U4IAbQ3AKUGo2aFQ7WGk1Bx4Rhw8YtVKky6Vbp0xwAAPxDh08S8QbEAAAAAElFTkSuQmCC" />' +
+          '<link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABf0lEQVR42u2XP0vDQBiHfwmBDtU9k1TnjCWZ7KwQzA3SoZV+CMcu4uLokm8gmiF0iKWQznFK6WbUQailk3vjUAjUQTR/mrRJaC4KvhBIjuOe595ccvcCJQcTbZDkzrJIoD24YRIFJLmznDrjQmdcE+ohCZYmHACmzjiUZSYOThS5ELhxP1jJBBftRBQZz85jIQJEkUMSAMAldX641XJBDs9amfqzZX+GmwUqlXRXQgz7vfIy8A1fJ8FtGoQ72EsF815e18582O/hvHtJJwNB+NHJ6c/99dUFHYEgNChDLQNRibjn3ALeZAZvMsskkQRPtQiD4G1kIrNAXnDa4Ioa2Jy7AIC2yvuNGqUfkTl3UbUttFUehqh/7YSijvfWG70MfEgNGLa1hVewWKT680WjalsgoyYMUYch6iCjJr01cLy7A1Nq4A4AUX0wr+0DeEonkHVfj5MAAHRdX0D4k+eBf4GCg4s7OtM4lq9URrQKk2h1xAZrtppQpwr/FcVp6fEJkeuLbXbtPQoAAAAASUVORK5CYII=" />' +
+          '<link rel="icon" type="image/png" sizes="48x48" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAACKklEQVR42u2aMU/CQBTHX5smDMDixGTU0eBm6GQnBzAEGQgDMX4IRxbjQuJiHJ2NYSAMSogwOOEEcZPoYKLGyckFGEhIdDBXrqV3vWuq9yC85BIuLb3/771318u9Asy5abyLZvbwG4PIbvNSkwLAIlwEROOJf+8/oBC+ltxmQmhe4rEIZ4HQEPq8iKe10VliiPwxv59VIvj6pim2CrG8r0q4HwidSkIReOo/KhG+mdzyvUf3SxtV4umxeZkgFIH7q2qownYOSqE9S8e0yrQb9X8AiESCNwHxshA6Rs/LQOhY00YUwpAd0NhYDSR08vwiLbLdqMNR+QRnBNzi07mC3Wg7qxzjA5CdqDwIJQBuL/sZL40MVSmUzhUckWBFBe0cEImESKSUL6MskaJphuJF5hYrM0dCB5i8ftgtCITsBEe1mZMVH8oqRHs66Ft6YbbTQcxQ7fHWYGj/zsRjAACwUolNb6gijkDn7nam7xAPABfnpzgBWoMhjEwLot0OAABEux3I94qe936W3vDOAQIxMq3fI5RUbXqckqoxoUIBcO/xvfqksYyIJ5HI94oOiPBXofF42kT6DMvEYw7Pj0zLFk4giPcT1XWcKWTt7s30v8pDG8JPvPAyGuY5jlck3EYgAAASyQV/kS0BlgB/BUDO5EWOuP/KyNi8Qoch8yCMZhfLeDUyTCUmd6HPCPogdHOAENE1WWzmVWZdrEK3FwQmE/rUACMI72OPubcfi9r7dqXoLsgAAAAASUVORK5CYII=" />' +
+          '<link rel="shortcut icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABf0lEQVR42u2XP0vDQBiHfwmBDtU9k1TnjCWZ7KwQzA3SoZV+CMcu4uLokm8gmiF0iKWQznFK6WbUQailk3vjUAjUQTR/mrRJaC4KvhBIjuOe595ccvcCJQcTbZDkzrJIoD24YRIFJLmznDrjQmdcE+ohCZYmHACmzjiUZSYOThS5ELhxP1jJBBftRBQZz85jIQJEkUMSAMAldX641XJBDs9amfqzZX+GmwUqlXRXQgz7vfIy8A1fJ8FtGoQ72EsF815e18582O/hvHtJJwNB+NHJ6c/99dUFHYEgNChDLQNRibjn3ALeZAZvMsskkQRPtQiD4G1kIrNAXnDa4Ioa2Jy7AIC2yvuNGqUfkTl3UbUttFUehqh/7YSijvfWG70MfEgNGLa1hVewWKT680WjalsgoyYMUYch6iCjJr01cLy7A1Nq4A4AUX0wr+0DeEonkHVfj5MAAHRdX0D4k+eBf4GCg4s7OtM4lq9URrQKk2h1xAZrtppQpwr/FcVp6fEJkeuLbXbtPQoAAAAASUVORK5CYII=" />';
+
         // El documento final se mantiene oculto hasta que estilos y scripts estén
         // completamente cargados. Evita el flash blanco/HTML sin estilos que se
         // producía durante document.write().
         html = html.replace(
           '</head>',
           '<meta name="theme-color" content="#101a21" />' +
-          '<link rel="icon" href="./jwplc-hmi-icon.svg?v=alpha11-taskbar-v1" type="image/svg+xml" sizes="any" />' +
-          '<link rel="shortcut icon" href="./jwplc-hmi-icon.svg?v=alpha11-taskbar-v1" type="image/svg+xml" />' +
-          '<link rel="manifest" href="./manifest.webmanifest?v=alpha11-taskbar-v1" />' +
+          iconLinks +
+          '<link rel="manifest" href="./manifest.webmanifest?v=alpha11-taskbar-raster-v2" />' +
           '<link rel="stylesheet" href="./desktop-responsive.css" />' +
           '<link rel="stylesheet" href="./desktop-responsive-compat.css" />' +
           '<style id="jwplcBootGuard">html{background:#101a21!important}body{opacity:0!important}</style>' +
