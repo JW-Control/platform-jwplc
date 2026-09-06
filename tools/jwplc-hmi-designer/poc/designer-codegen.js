@@ -227,10 +227,10 @@
   function setterHint(field, index) {
     const id = canonicalFor(field, 'id', field.id, index);
     const variable = canonicalFor(field, 'variable', field.variable, index);
-    if (field.type === 'VALUE') return `// JWPLC_Display.setValue(${id}, ${variable});`;
-    if (field.type === 'BOOL') return `// JWPLC_Display.setBool(${id}, ${variable});`;
-    if (field.type === 'BAR') return `// JWPLC_Display.setBar(${id}, ${variable});`;
-    return `// JWPLC_Display.setText(${id}, ${variable});`;
+    if (field.type === 'VALUE') return `JWPLC_Display.setValue(${id}, ${variable});`;
+    if (field.type === 'BOOL') return `JWPLC_Display.setBool(${id}, ${variable});`;
+    if (field.type === 'BAR') return `JWPLC_Display.setBar(${id}, ${variable});`;
+    return `JWPLC_Display.setText(${id}, ${variable});`;
   }
 
   function groupedChunks(renderer, commentIndent = '') {
@@ -244,6 +244,22 @@
       if (!entries.length) return;
       const lines = entries.map(({ field, index }) => renderer(field, index));
       chunks.push(`${commentIndent}// ${pageComment(page)}\n${lines.join('\n')}`);
+    });
+
+    return chunks.join('\n\n');
+  }
+
+  function groupedSetterBlocks() {
+    const fields = allFields();
+    const chunks = [];
+
+    pages().forEach((page) => {
+      const entries = fields
+        .map((field, index) => ({ field, index }))
+        .filter(({ field }) => Number(field.page || 0) === Number(page.id));
+      if (!entries.length) return;
+      const lines = entries.map(({ field, index }) => setterHint(field, index));
+      chunks.push(`// ${pageComment(page)}\n/*\n${lines.join('\n')}\n*/`);
     });
 
     return chunks.join('\n\n');
@@ -274,7 +290,7 @@
     }, '    ');
 
     const variables = groupedChunks((field, index) => variableDeclaration(field, index));
-    const setters = groupedChunks((field, index) => setterHint(field, index));
+    const setters = groupedSetterBlocks();
     const pageEnum = pageEnumBlock();
 
     if (/enum HMIPageId : uint8_t\n\{[\s\S]*?\n\};/.test(text)) {
@@ -298,6 +314,12 @@
     text = text.replace(
       /(\/\/ Setters públicos que corresponden a este diseño:\n)[\s\S]*$/,
       `$1${setters}`);
+
+    if (!text.includes('JWPLC_Display.setUserRefreshMode(')) {
+      text = text.replace(
+        /(JWPLC_Display\.setFields\([\s\S]*?\);\n)/,
+        `$1    JWPLC_Display.setUserRefreshMode(USER_REFRESH_PERIODIC);\n`);
+    }
 
     const firstPage = pageSymbols()[0];
     if (firstPage) {
