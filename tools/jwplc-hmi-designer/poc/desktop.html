@@ -40,14 +40,16 @@
           '<style id="jwplcBootGuard">html{background:#101a21!important}body{opacity:0!important}</style>' +
           '</head>'
         );
+
+        const closeScript = '<' + '/script>';
         html = html.replace(
           '</body>',
-          '<script src="./designer-project.js"><\\/script>' +
-          '<script src="./desktop-responsive.js"><\\/script>' +
+          '<script src="./designer-project.js">' + closeScript +
+          '<script src="./desktop-responsive.js">' + closeScript +
           '<script>' +
           'window.addEventListener("load",function(){requestAnimationFrame(function(){var g=document.getElementById("jwplcBootGuard");if(g)g.remove();});},{once:true});' +
           'setTimeout(function(){var g=document.getElementById("jwplcBootGuard");if(g)g.remove();},1800);' +
-          '<\\/script>' +
+          closeScript +
           '</body>'
         );
         document.open();
