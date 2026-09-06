@@ -73,6 +73,7 @@ extern "C" void __attribute__((weak)) jwplcUIExit(void) {}
 // Runtime HMI opcional. Estos defaults evitan arrastrar JWPLC_UI.cpp cuando el
 // sketch no usa campos HMI. JWPLC_UI_API.cpp aporta implementaciones strong al
 // enlazarse la API de campos, manteniendo exactamente JWPLC_Display.*.
+extern "C" void __attribute__((weak)) jwplcUIRuntimeServiceInput(void) {}
 extern "C" bool __attribute__((weak)) jwplcUIRuntimeRefreshNeeded(void) { return true; }
 extern "C" void __attribute__((weak)) jwplcUIRuntimeInvalidateAll(bool redrawStatic) { (void)redrawStatic; }
 extern "C" void __attribute__((weak)) jwplcUIRuntimePrepareEnter(void) {}
@@ -943,6 +944,15 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC
     }
 
     handleIdleWakeAndTimeout();
+
+    if (g_displayMode == DISPLAY_MODE_USER)
+    {
+        // La entrada HMI se atiende siempre antes del filtro dirty/forced.
+        // Así PAGE_SELECT puede consumir LEFT/RIGHT/OK sin depender de que el
+        // frame haya sido solicitado por el propio motor o por otra fuente.
+        jwplcUIRuntimeServiceInput();
+    }
+
     updateAutomaticBusLed();
     updateAutomaticEthLed();
 
