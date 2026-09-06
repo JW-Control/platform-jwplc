@@ -2,17 +2,23 @@
 
 Fecha: 2026-09-06
 
-## Objetivo
-
-Validar el código C++ generado por JWPLC HMI Designer como artefacto reutilizable en un sketch Arduino real, después de cerrar TEXT, VALUE, BOOL, BAR y páginas.
+## Estado
 
 ```text
 A11_3E_MULTI_FIELD_PAGES=PASS
-A11_4_CODEGEN=READY_TO_VALIDATE
-PUBLIC_API_ONLY=REQUIRED
-DIRECT_TFT_IN_GENERATED_CODE=FORBIDDEN
+A11_4_CODEGEN_STATIC=PASS
+A11_4_CODEGEN_COMPILE=PASS
+A11_4_CODEGEN_PHYSICAL=PASS
+A11_4_CODEGEN=PASS
+PUBLIC_API_ONLY=PASS
+DIRECT_TFT_IN_GENERATED_CODE=NO
 DESIGNER_GENERATES_JWPLC_UI_UPDATE=YES
+NEXT=A11_5_PHYSICAL_PARITY
 ```
+
+## Objetivo
+
+Validar el código C++ generado por JWPLC HMI Designer como artefacto reutilizable en un sketch Arduino real, después de cerrar TEXT, VALUE, BOOL, BAR y páginas.
 
 ## Artefacto generado
 
@@ -90,7 +96,7 @@ Esto mantiene fuera del ciclo normal los setters de páginas inactivas. Al entra
 
 ## Lógica del usuario
 
-La lógica debe permanecer en `loop()`.
+La lógica permanece en `loop()`.
 
 ```cpp
 void loop()
@@ -111,7 +117,7 @@ La HMI no modifica ni limita silenciosamente variables de proceso. Por ejemplo, 
 
 ## Refresh normal
 
-Para HMI generada por Designer, el modo normal se fija explícitamente como periódico:
+Para HMI generada por Designer, el modo normal queda explícitamente periódico:
 
 ```cpp
 JWPLC_Display.setUserRefreshMode(USER_REFRESH_PERIODIC);
@@ -156,7 +162,7 @@ bool estado3 = false;
 
 ## Protección de identificadores
 
-La creación, duplicación y edición manual deben mantener unicidad global entre páginas:
+La creación, duplicación y edición manual mantienen unicidad global entre páginas:
 
 ```text
 HMIFieldId / ID C++ = UNIQUE_GLOBAL
@@ -165,9 +171,18 @@ Variable vinculada  = UNIQUE_GLOBAL
 
 La comparación se realiza sobre el símbolo C++ sanitizado. Si existe un conflicto, el Inspector rechaza el cambio e indica página y objeto de origen.
 
-## Contrato esperado
+Validación física/UI:
 
-El Designer debe generar:
+```text
+ID_CPP_DUPLICATE_GUARD=PASS
+VARIABLE_CPP_DUPLICATE_GUARD=PASS
+DUPLICATE_WARNING_INCLUDES_PAGE=PASS
+SANITIZED_CPP_SYMBOL_COLLISION_GUARD=PASS
+```
+
+## Contrato generado validado
+
+El Designer genera:
 
 ```text
 1. #pragma once + JWPLC_Display.h
@@ -182,7 +197,7 @@ El Designer debe generar:
 10. jwplcUIUpdate() con switch de página activa
 ```
 
-El Designer no debe generar:
+El Designer no genera:
 
 ```text
 - loop()
@@ -195,7 +210,7 @@ El Designer no debe generar:
 
 ## Gate de compilación Arduino
 
-El uso recomendado queda reducido a:
+Uso validado:
 
 ```cpp
 #include "JWPLC_HMI_Generated.h"
@@ -212,9 +227,9 @@ void loop()
 }
 ```
 
-No debe existir una segunda definición manual de `jwplcUIUpdate()` en el `.ino`, porque el header generado ya aporta la implementación fuerte que sustituye al hook weak de la librería.
+No existe una segunda definición manual de `jwplcUIUpdate()` en el `.ino`, porque el header generado aporta la implementación fuerte que sustituye al hook weak de la librería.
 
-Criterio:
+Resultado:
 
 ```text
 COMPILE=PASS
@@ -226,21 +241,27 @@ NO_DIRECT_TFT_REQUIRED=YES
 
 ## Gate físico
 
-Debe verificarse:
+Se verificó con HMI real generada por Designer:
 
 ```text
-1. TEXT se actualiza desde su variable.
-2. VALUE se actualiza desde su variable.
-3. BOOL se actualiza desde su variable.
-4. BAR se actualiza desde su variable.
-5. Sólo la página activa ejecuta sus setters.
-6. Navegación NN/TT funciona con botonera física.
-7. El indicador sólo se redibuja al cambiar página/modo.
-8. ESC vuelve de PAGE_CONTENT a PAGE_SELECT.
-9. La lógica en loop() modifica variables y se refleja por refresh periódico.
+TEXT_VARIABLE_UPDATE=PASS
+VALUE_VARIABLE_UPDATE=PASS
+BOOL_VARIABLE_UPDATE=PASS
+BAR_VARIABLE_UPDATE=PASS
+ACTIVE_PAGE_SWITCH=PASS
+PAGE_NAVIGATION_NN_TT=PASS
+INDICATOR_DIRTY_ONLY=PASS
+ESC_PAGE_CONTENT_TO_SELECT=PASS
+LOOP_LOGIC_TO_PERIODIC_HMI=PASS
 ```
 
-## Reglas de validez
+Durante este gate se reprodujo y corrigió además un problema intermitente de robustez de botonera bajo `loop()` intensivo con `pressed()`. El cierre físico está documentado en:
+
+```text
+docs/v2.1.0-alpha.11/A11_BUTTON_ROBUSTNESS_GATE.md
+```
+
+## Reglas de validez cerradas
 
 ```text
 PAGE_SYMBOLS_GENERATED=YES
