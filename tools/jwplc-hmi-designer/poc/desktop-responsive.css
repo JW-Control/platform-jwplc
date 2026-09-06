@@ -1,145 +1,463 @@
-/* Alpha11 A11-6 — distribución responsive de la app de escritorio.
-   El renderer lógico permanece 320x170; sólo cambia la distribución del shell. */
+/* Alpha11 A11-6 — responsive adaptativo por porcentaje real de pantalla.
+   El framebuffer permanece 320x170; sólo cambia la jerarquía del shell. */
 
-#compactInspectorButton {
+:root {
+  --responsive-left-wide: 280px;
+  --responsive-right-wide: 360px;
+  --responsive-left-medium: clamp(205px, 22vw, 235px);
+  --responsive-right-medium: clamp(270px, 28vw, 320px);
+  --responsive-rail: 52px;
+}
+
+body.layout-wide,
+body.layout-medium,
+body.layout-compact {
+  min-width: 0 !important;
+}
+
+.responsive-gate-status {
+  margin-left: 0 !important;
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #77c997 !important;
+  font-size: 9px !important;
+}
+
+.responsive-live-status {
+  font-size: 9.5px !important;
+}
+
+.responsive-overflow {
+  position: relative;
+  display: none;
+  flex: 0 0 auto;
+}
+
+.responsive-overflow-menu {
+  position: fixed;
+  z-index: 5200;
+  top: 48px;
+  right: 8px;
+  width: 220px;
+  padding: 6px;
+  border: 1px solid #314958;
+  border-radius: 7px;
+  background: #0d1922;
+  box-shadow: 0 12px 34px rgba(0,0,0,.44);
+}
+
+.responsive-overflow-menu button {
+  width: 100%;
+  display: block;
+  margin: 2px 0;
+  text-align: left;
+  min-height: 31px;
+}
+
+.responsive-right-tabs {
+  display: none;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  padding: 0 0 8px;
+  background: var(--panel);
+}
+
+.responsive-right-tabs button.active,
+#compactInspectorButton.active,
+#compactPreviewButton.active,
+.responsive-left-rail button.active {
+  border-color: var(--orange);
+  box-shadow: inset 0 -2px 0 var(--orange);
+}
+
+#compactInspectorButton,
+#compactPreviewButton,
+.responsive-left-rail,
+.responsive-scrim {
   display: none;
 }
 
-@media (max-width: 1480px) {
-  .brand h1 { font-size: 16px; }
-  .brand p { display: none; }
-  .chip { width: 32px; height: 32px; }
-  .toolbar { gap: 4px; }
-  .toolbar button { padding-inline: 8px; }
-  .workspace { grid-template-columns: 230px minmax(560px, 1fr) 320px; }
-  .left-panel, .right-panel { padding-inline: 8px; }
+.responsive-collapsible > h2 {
+  cursor: pointer;
+  user-select: none;
 }
 
-@media (max-width: 1180px) {
-  body {
-    min-width: 720px;
-  }
-
-  .topbar {
-    gap: 8px;
-    padding-inline: 8px;
-  }
-
-  .brand {
-    max-width: 176px;
-  }
-
-  .toolbar {
-    flex: 1 1 auto;
-    justify-content: flex-start;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scrollbar-width: thin;
-    padding-bottom: 2px;
-  }
-
-  .toolbar > * {
-    flex: 0 0 auto;
-  }
-
-  #compactInspectorButton {
-    display: inline-flex;
-    align-items: center;
-  }
-
-  #compactInspectorButton.active {
-    border-color: var(--orange);
-    box-shadow: inset 0 -2px 0 var(--orange);
-  }
-
-  .workspace {
-    grid-template-columns: 190px minmax(0, 1fr);
-    position: relative;
-  }
-
-  .left-panel {
-    padding-inline: 7px;
-  }
-
-  .right-panel {
-    position: fixed;
-    z-index: 3500;
-    top: 58px;
-    right: 0;
-    bottom: 192px;
-    width: min(370px, 82vw);
-    transform: translateX(calc(100% + 10px));
-    transition: transform .18s ease;
-    box-shadow: -14px 0 34px rgba(0, 0, 0, .42);
-    border-left: 1px solid var(--line);
-  }
-
-  body.bottom-collapsed .right-panel {
-    bottom: 66px;
-  }
-
-  body.compact-inspector-open .right-panel {
-    transform: translateX(0);
-  }
-
-  .page-tabs .gate {
-    display: none;
-  }
-
-  .editor-caption span:last-child {
-    display: none;
-  }
-
-  .statusbar {
-    overflow-x: auto;
-    scrollbar-width: thin;
-  }
-
-  .canvas-status {
-    gap: 10px;
-  }
+.responsive-collapsible > h2::before {
+  content: '▾';
+  display: inline-block;
+  width: 14px;
+  color: #8fa5b5;
 }
 
-@media (max-width: 860px) {
-  body {
-    min-width: 640px;
-  }
-
-  .brand {
-    max-width: 145px;
-  }
-
-  .brand h1 {
-    font-size: 14px;
-  }
-
-  .workspace {
-    grid-template-columns: 168px minmax(0, 1fr);
-  }
-
-  .object-item {
-    grid-template-columns: 20px 38px minmax(0, 1fr) 10px;
-  }
-
-  .object-id {
-    display: none;
-  }
-
-  .component-tool {
-    grid-template-columns: 34px 48px 1fr;
-  }
-
-  .utility-tool {
-    grid-template-columns: 24px 60px 1fr;
-  }
-
-  .toolbar .separator {
-    display: none;
-  }
+.responsive-collapsible.section-collapsed > h2::before {
+  content: '▸';
 }
 
-@media (min-width: 1181px) {
-  body.compact-inspector-open .right-panel {
-    transform: none;
-  }
+.responsive-collapsible.section-collapsed > :not(h2) {
+  display: none !important;
+}
+
+.dev-actions.responsive-collapsible.section-collapsed {
+  opacity: .9;
+}
+
+/* ------------------------------------------------------------------ */
+/* WIDE — >= ~70% de la pantalla disponible                           */
+/* ------------------------------------------------------------------ */
+
+body.layout-wide {
+  grid-template-rows: 58px minmax(0, 1fr) 150px 28px;
+}
+
+body.layout-wide.bottom-collapsed {
+  grid-template-rows: 58px minmax(0, 1fr) 38px 28px;
+}
+
+.layout-wide .workspace {
+  grid-template-columns: var(--responsive-left-wide) minmax(650px, 1fr) var(--responsive-right-wide) !important;
+}
+
+.layout-wide .brand h1 { font-size: 18px; }
+.layout-wide .brand p { display: block; }
+.layout-wide .left-panel { padding-inline: 10px; }
+.layout-wide .right-panel { padding-inline: 10px; }
+.layout-wide .responsive-right-tabs { display: none; }
+.layout-wide .preview-section,
+.layout-wide .inspector-section,
+.layout-wide .pixel-controls { display: block; }
+.layout-wide .responsive-gate-status { display: inline-flex; }
+.layout-wide .responsive-overflow { display: none; }
+.layout-wide .code-panel { position: static; }
+
+/* ------------------------------------------------------------------ */
+/* MEDIUM — ~38..69% de la pantalla                                   */
+/* ------------------------------------------------------------------ */
+
+body.layout-medium {
+  grid-template-rows: 52px minmax(0, 1fr) 36px 26px;
+  font-size: clamp(11px, .78vw, 13px);
+}
+
+body.layout-medium:not(.bottom-collapsed) {
+  grid-template-rows: 52px minmax(0, 1fr) 122px 26px;
+}
+
+.layout-medium .topbar {
+  gap: 7px;
+  padding-inline: 8px;
+}
+
+.layout-medium .brand {
+  flex: 0 0 118px;
+  max-width: 118px;
+  min-width: 0;
+}
+
+.layout-medium .brand .chip {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  font-size: 12px;
+}
+
+.layout-medium .brand h1 {
+  max-width: 78px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.layout-medium .brand p { display: none; }
+
+.layout-medium .toolbar {
+  flex: 1 1 auto;
+  justify-content: flex-end;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.layout-medium .toolbar > * { flex: 0 0 auto; }
+.layout-medium .toolbar button { min-height: 30px; padding: 5px 7px; font-size: 11px; }
+.layout-medium .toolbar label { font-size: 11px; }
+.layout-medium .toolbar select { padding: 4px 5px; font-size: 11px; }
+.layout-medium .toolbar .separator { display: none; }
+
+/* Acciones secundarias pasan a ⋯ */
+.layout-medium #newProjectButton,
+.layout-medium #openProjectButton,
+.layout-medium .cmd-undo,
+.layout-medium .cmd-redo,
+.layout-medium #fitButton,
+.layout-medium #linkSketchButton,
+.layout-medium #installAppButton {
+  display: none !important;
+}
+
+.layout-medium .responsive-overflow { display: block; }
+
+.layout-medium .workspace {
+  grid-template-columns: var(--responsive-left-medium) minmax(0, 1fr) var(--responsive-right-medium) !important;
+}
+
+.layout-medium .left-panel,
+.layout-medium .right-panel { padding-inline: 7px; }
+
+.layout-medium .left-panel h2,
+.layout-medium .inspector-title h2 { font-size: 12px; }
+.layout-medium .field-label { font-size: 11px; }
+.layout-medium .field-input { min-height: 30px; font-size: 11.5px; }
+.layout-medium .component-tool,
+.layout-medium .utility-tool { min-height: 34px; }
+.layout-medium .object-id { display: none; }
+
+.layout-medium .responsive-right-tabs { display: grid; }
+.layout-medium.right-view-inspector .preview-section { display: none !important; }
+.layout-medium.right-view-preview .inspector-section,
+.layout-medium.right-view-preview .pixel-controls { display: none !important; }
+.layout-medium.right-view-preview .preview-section { display: block !important; }
+.layout-medium.right-view-inspector .inspector-section,
+.layout-medium.right-view-inspector .pixel-controls { display: block; }
+
+.layout-medium .right-panel {
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.layout-medium .device-preview { padding: 6px; }
+.layout-medium .preview-note { display: none; }
+.layout-medium .canvas-status { gap: 10px; }
+.layout-medium .canvas-status span:first-child { display: none; }
+.layout-medium .editor-caption span:last-child { display: none; }
+
+.layout-medium .bottom-summary { display: none; }
+.layout-medium .code-panel pre { font-size: 10px; }
+.layout-medium .status-project,
+.layout-medium .status-format,
+.layout-medium .responsive-gate-status { display: none !important; }
+.layout-medium .statusbar { gap: 6px; font-size: 9px; overflow: hidden; }
+.layout-medium .statusbar > span + span { padding-left: 6px; }
+
+/* ------------------------------------------------------------------ */
+/* COMPACT — < ~38% de la pantalla                                    */
+/* ------------------------------------------------------------------ */
+
+body.layout-compact {
+  grid-template-rows: 48px minmax(0, 1fr) 26px;
+  min-width: 0 !important;
+  overflow: hidden;
+  font-size: 11px;
+}
+
+.layout-compact .topbar {
+  grid-row: 1;
+  gap: 5px;
+  padding-inline: 5px;
+}
+
+.layout-compact .brand {
+  flex: 0 0 58px;
+  max-width: 58px;
+  gap: 5px;
+}
+
+.layout-compact .brand .chip {
+  width: 27px;
+  height: 27px;
+  border-radius: 6px;
+  font-size: 10px;
+}
+
+.layout-compact .brand h1 {
+  width: 27px;
+  overflow: hidden;
+  font-size: 0;
+}
+.layout-compact .brand h1::after { content: 'HMI'; font-size: 11px; }
+.layout-compact .brand p { display: none; }
+
+.layout-compact .toolbar {
+  flex: 1 1 auto;
+  min-width: 0;
+  justify-content: flex-start;
+  gap: 3px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.layout-compact .toolbar > * { flex: 0 0 auto; }
+.layout-compact .toolbar button { min-height: 29px; padding: 4px 6px; font-size: 11px; }
+.layout-compact .toolbar .separator { display: none; }
+
+.layout-compact #newProjectButton,
+.layout-compact #openProjectButton,
+.layout-compact .cmd-undo,
+.layout-compact .cmd-redo,
+.layout-compact #fitButton,
+.layout-compact #linkSketchButton,
+.layout-compact #installAppButton,
+.layout-compact #saveProjectButton {
+  display: none !important;
+}
+
+.layout-compact .toolbar label:not(.check) {
+  font-size: 0;
+}
+.layout-compact .toolbar label:not(.check) select { font-size: 11px; }
+.layout-compact .toolbar .check { padding-inline: 2px; font-size: 0; }
+.layout-compact .toolbar .check input { margin: 0; }
+.layout-compact .responsive-overflow { display: block; }
+.layout-compact #compactInspectorButton,
+.layout-compact #compactPreviewButton { display: inline-flex; align-items: center; }
+
+.layout-compact .workspace {
+  grid-row: 2;
+  min-height: 0;
+  grid-template-columns: var(--responsive-rail) minmax(0, 1fr) !important;
+  position: relative;
+  overflow: hidden;
+}
+
+.layout-compact .responsive-left-rail {
+  display: flex;
+  grid-column: 1;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  padding: 7px 5px;
+  background: #0c1821;
+  border-right: 1px solid var(--line);
+  z-index: 10;
+}
+
+.layout-compact .responsive-left-rail button {
+  min-width: 0;
+  width: 100%;
+  min-height: 38px;
+  padding: 4px;
+  font-weight: 700;
+}
+
+.layout-compact .editor-panel {
+  grid-column: 2;
+  min-width: 0;
+}
+
+.layout-compact .left-panel,
+.layout-compact .right-panel {
+  position: fixed;
+  z-index: 4100;
+  top: 48px;
+  bottom: 26px;
+  width: min(86vw, 300px);
+  max-width: 300px;
+  padding: 8px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  box-shadow: 0 12px 38px rgba(0,0,0,.48);
+  transition: transform .18s ease;
+}
+
+.layout-compact .left-panel {
+  left: var(--responsive-rail);
+  transform: translateX(calc(-100% - var(--responsive-rail) - 10px));
+  border-right: 1px solid var(--line);
+}
+
+.layout-compact .right-panel {
+  right: 0;
+  width: min(90vw, 360px);
+  max-width: 360px;
+  transform: translateX(calc(100% + 10px));
+  border-left: 1px solid var(--line);
+}
+
+.layout-compact.compact-left-open .left-panel { transform: translateX(0); }
+.layout-compact.compact-right-open .right-panel { transform: translateX(0); }
+
+.layout-compact .responsive-scrim {
+  display: none;
+  position: fixed;
+  inset: 48px 0 26px 0;
+  z-index: 4000;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: rgba(0,0,0,.32);
+}
+.layout-compact.responsive-drawer-open .responsive-scrim { display: block; }
+
+.layout-compact .responsive-right-tabs { display: grid; }
+.layout-compact.right-view-inspector .preview-section { display: none !important; }
+.layout-compact.right-view-preview .inspector-section,
+.layout-compact.right-view-preview .pixel-controls { display: none !important; }
+.layout-compact.right-view-preview .preview-section { display: block !important; }
+.layout-compact.right-view-inspector .inspector-section,
+.layout-compact.right-view-inspector .pixel-controls { display: block; }
+
+.layout-compact .page-tabs .gate { display: none !important; }
+.layout-compact .editor-caption { padding-inline: 8px; }
+.layout-compact .editor-caption span:last-child { display: none; }
+.layout-compact .canvas-viewport { padding: 8px; }
+.layout-compact .canvas-status { min-height: 24px; flex-basis: 24px; padding-inline: 7px; gap: 7px; }
+.layout-compact .canvas-status span:first-child,
+.layout-compact #pixelStatus { display: none; }
+
+.layout-compact .code-panel {
+  position: fixed;
+  z-index: 3900;
+  left: var(--responsive-rail);
+  right: 0;
+  bottom: 26px;
+  height: min(190px, 40vh);
+  border-left: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.layout-compact.bottom-collapsed .code-panel { height: 38px; }
+.layout-compact .bottom-tabs { height: 38px; overflow: hidden; }
+.layout-compact .bottom-tabs .tab { padding: 5px 7px; font-size: 10.5px; }
+.layout-compact .bottom-summary { display: none; }
+.layout-compact .code-panel pre { font-size: 10px; padding: 8px; }
+
+.layout-compact .statusbar {
+  grid-row: 3;
+  min-width: 0;
+  gap: 5px;
+  padding-inline: 6px;
+  overflow: hidden;
+  font-size: 9px;
+}
+.layout-compact .statusbar > span + span { padding-left: 5px; }
+.layout-compact .status-project,
+.layout-compact .status-resolution,
+.layout-compact .status-format,
+.layout-compact .status-object,
+.layout-compact .status-sketch,
+.layout-compact .responsive-live-status,
+.layout-compact .responsive-gate-status { display: none !important; }
+.layout-compact .status-page,
+.layout-compact .status-fields,
+.layout-compact .status-geometry,
+.layout-compact .status-zoom { display: inline-flex; }
+.layout-compact .grow { min-width: 2px; }
+
+/* ------------------------------------------------------------------ */
+/* Ajustes de altura: no cambian el modo horizontal.                   */
+/* ------------------------------------------------------------------ */
+
+@media (max-height: 820px) {
+  .layout-wide { grid-template-rows: 52px minmax(0,1fr) 126px 26px !important; }
+  .layout-wide.bottom-collapsed { grid-template-rows: 52px minmax(0,1fr) 36px 26px !important; }
+  .layout-medium { grid-template-rows: 48px minmax(0,1fr) 34px 24px !important; }
+  .layout-medium:not(.bottom-collapsed) { grid-template-rows: 48px minmax(0,1fr) 108px 24px !important; }
+  .layout-medium .topbar { min-height: 48px; }
+  .layout-medium .component-tool,
+  .layout-medium .utility-tool { min-height: 32px; }
 }
