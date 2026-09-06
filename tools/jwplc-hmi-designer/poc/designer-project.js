@@ -213,6 +213,26 @@
     return false;
   }
 
+  function sanitizeFileStem(value, fallback = 'JWPLC_HMI') {
+    const normalized = String(value || '').trim().replace(/[<>:"/\\|?*\u0000-\u001F]/g, '_');
+    return (normalized || fallback).slice(0, 80);
+  }
+
+  function canonicalProjectFileName() {
+    const stem = linkedSketchDirectory?.name || projectName || 'JWPLC_HMI';
+    return `${sanitizeFileStem(stem)}.jwhmi`;
+  }
+
+  async function directoryHasFile(directory, name) {
+    try {
+      await directory.getFileHandle(name, { create: false });
+      return true;
+    } catch (error) {
+      if (error?.name === 'NotFoundError') return false;
+      throw error;
+    }
+  }
+
   function serializeProject() {
     const api = editor();
     const pages = api?.getPages?.() || [{ id: 0, name: 'Principal' }];
@@ -318,6 +338,32 @@
     await writable.close();
   }
 
+  async function saveProjectBesideSketch(data) {
+    if (!linkedSketchDirectory) return false;
+    if (!(await ensureDirectoryPermission(linkedSketchDirectory, true))) {
+      updateLinkedUI('permission');
+      toast('No se concedió permiso para guardar el proyecto junto al sketch.', 'error');
+      return false;
+    }
+
+    const fileName = canonicalProjectFileName();
+    const existing = await directoryHasFile(linkedSketchDirectory, fileName);
+    if (existing && !window.confirm(`Se reemplazará ${fileName} en el sketch “${linkedSketchDirectory.name}”. ¿Continuar?`)) {
+      return false;
+    }
+
+    projectFileHandle = await linkedSketchDirectory.getFileHandle(fileName, { create: true });
+    await writeFileHandle(projectFileHandle, data);
+    projectName = projectFileHandle.name.replace(/\.jwhmi$/i, '') || projectName;
+    setDirty(false);
+    updateLinkedUI('linked');
+    toast(`${fileName} guardado junto al sketch.`, 'ok');
+    window.dispatchEvent(new CustomEvent('jwplc:project-written', {
+      detail: { sketch: linkedSketchDirectory.name, project: fileName }
+    }));
+    return true;
+  }
+
   async function saveProjectAs() {
     const data = JSON.stringify(serializeProject(), null, 2) + '\n';
 
@@ -354,6 +400,7 @@
         toast('Proyecto HMI actualizado.', 'ok');
         return;
       }
+      if (linkedSketchDirectory && await saveProjectBesideSketch(data)) return;
       await saveProjectAs();
     } catch (error) {
       if (error?.name !== 'AbortError') toast(error?.message || 'No se pudo guardar el proyecto.', 'error');
@@ -445,9 +492,13 @@
         return;
       }
       linkedSketchDirectory = directory;
+      if (!projectFileHandle && projectName === 'HMI_ST7789') {
+        projectName = String(directory.name || projectName).slice(0, 48);
+        setProjectStatus();
+      }
       await storeHandle(SKETCH_HANDLE_KEY, directory);
       updateLinkedUI('linked');
-      toast(`Sketch “${directory.name}” vinculado.`, 'ok');
+      toast(`Sketch “${directory.name}” vinculado. Guardar creará ${canonicalProjectFileName()} junto al .ino.`, 'ok');
     } catch (error) {
       if (error?.name !== 'AbortError') toast(error?.message || 'No se pudo vincular el sketch.', 'error');
     }
@@ -642,6 +693,7 @@
     linkSketch,
     updateGeneratedHeader,
     linkedSketchName: () => linkedSketchDirectory?.name || null,
+    linkedProjectFileName: canonicalProjectFileName,
     headerName: HEADER_NAME
   };
 })();
