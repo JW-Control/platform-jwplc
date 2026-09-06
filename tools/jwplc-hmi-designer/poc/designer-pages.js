@@ -59,7 +59,6 @@
       .a11-page-mode button { min-height:30px; font-size:11px; }
       .a11-page-mode button.active { border-color:#ff8a2a; color:#ffb36f; }
       .a11-page-hint { margin:7px 2px 0; color:#7697b0; font-size:10px; line-height:1.35; }
-      .page-item .page-count-mini { margin-left:auto; color:#7697b0; font-size:9px; }
     `;
     document.head.appendChild(style);
   }
@@ -70,11 +69,7 @@
     button.type = 'button';
     button.dataset.pageId = String(page.id);
     button.title = 'Click: abrir página · Doble click: renombrar';
-
-    const count = (editor()?.getFieldsForPage?.(page.id) || []).length;
-    button.innerHTML = `<span></span><span class="page-count-mini"></span>`;
-    button.querySelector('span:first-child').textContent = pageLabel(page);
-    button.querySelector('.page-count-mini').textContent = `${count}`;
+    button.textContent = pageLabel(page);
 
     button.addEventListener('click', () => {
       navigationMode = 'SELECT';
