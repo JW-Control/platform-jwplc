@@ -11,7 +11,7 @@ TEXT=PASS
 VALUE=PASS
 BOOL=PASS
 BAR=PASS
-PAGES=IMPLEMENTED_PENDING_LIVE_PAGE_GATE
+PAGES=PASS
 SECOND_RUNTIME=NO
 LIVE_TRANSPORT=FROZEN
 ```
@@ -90,8 +90,6 @@ DOWN   -> consumido / sin acción
 
 En el primer y último pageId, intentar salir del rango no cambia de página.
 
-Los eventos de LEFT/RIGHT/UP/DOWN/OK consumidos por el sistema no deben llegar a la lógica de usuario.
-
 ### PAGE_CONTENT
 
 Visual:
@@ -113,11 +111,7 @@ OK     -> usuario
 ESC    -> volver a PAGE_SELECT
 ```
 
-ESC es consumido por el sistema HMI en este estado y no debe llegar a la lógica de la página.
-
-Para que el manejador histórico de `IDLE_RETURN_ESC_ONLY` no robe ESC antes del selector, PAGE_CONTENT deshabilita temporalmente el retorno IDLE por botón y restaura el modo previo al regresar a PAGE_SELECT.
-
-En PAGE_SELECT, ESC conserva el contrato de retorno a IDLE que ya tenga configurado `JWPLC_Display`.
+ESC es consumido por el sistema HMI en este estado y no llega a la lógica de página.
 
 ## API pública agregada
 
@@ -135,17 +129,11 @@ JWPLC_Display.setUserPageCount(N);
 JWPLC_Display.setUserPage(0);
 ```
 
-No genera lógica de navegación dentro de:
-
-```cpp
-jwplcUIUpdate()
-```
-
-El usuario mantiene la responsabilidad sobre LEFT/RIGHT/UP/DOWN/OK cuando está dentro de PAGE_CONTENT.
+No genera lógica dentro de `jwplcUIUpdate()`.
 
 ## Designer
 
-El core ahora mantiene:
+El core mantiene:
 
 ```text
 hmiPages[]
@@ -169,7 +157,7 @@ A11-3E incluye:
 - mostrar el indicador `NN/TT` en canvas y Preview;
 - previsualizar `Selector` / `Dentro` para comprobar la inversión de colores.
 
-La lista muestra nombres humanos, por ejemplo:
+La lista muestra nombres humanos:
 
 ```text
 01 · Principal
@@ -177,7 +165,7 @@ La lista muestra nombres humanos, por ejemplo:
 03 · Diagnóstico
 ```
 
-La TFT sólo muestra el número compacto `NN/TT`.
+El contador visual de objetos junto al nombre de página fue eliminado para mantener el panel limpio.
 
 ## Semántica de composición
 
@@ -193,7 +181,7 @@ Cambiar de página no elimina ni reconstruye fields; sólo cambia el subconjunto
 
 ## TEXT / VALUE / BOOL / BAR entre páginas
 
-El codegen debe conservar todos los tipos, incluso los que estén en páginas no visibles durante la generación.
+El codegen conserva todos los tipos, incluso los que estén en páginas no visibles durante la generación.
 
 ```cpp
 JWPLC_UITextField(..., page, ...)
@@ -201,8 +189,6 @@ JWPLC_UIValueField(..., page, ...)
 JWPLC_UIBoolField(..., page, ...)
 JWPLC_UIBarField(..., page, ...)
 ```
-
-Las extensiones BOOL/BAR se actualizaron para obtener el conjunto global de fields desde el core, en vez de inferirlo únicamente desde la lista DOM de la página activa.
 
 ## Pixel y GFX RAW
 
@@ -214,11 +200,9 @@ PIXEL_LAYER_PAGE_SCOPED=NO
 RAW_GFX_PAGE_SCOPED=NO
 ```
 
-No se amplía su alcance para evitar mezclar el gate declarativo con un sistema de capas por página.
-
 ## LIVE Preview
 
-No se modifica el protocolo.
+No se modificó el protocolo.
 
 Al cambiar página activa:
 
@@ -231,19 +215,32 @@ Designer recompone framebuffer de la nueva página + indicador NN/TT
 
 El bridge continúa siendo transporte de framebuffer y no conoce páginas.
 
+### Smoke físico LIVE aprobado
+
+Se validaron tres páginas distintas con el bridge existente:
+
+```text
+01/03 -> PASS
+02/03 -> PASS
+03/03 -> PASS
+LIVE_ERRORS=0
+VISUAL_CORRUPTION=0
+BRIDGE_CHANGE_REQUIRED=NO
+```
+
+En cambios de página se observaron transmisiones `FULL 320x170`, comportamiento esperado al cambiar de forma extensa el framebuffer visible.
+
 ## Runtime / input
 
-La navegación física se procesa antes del filtro `dirty/forced` del Display mediante un hook interno dedicado:
+La navegación física se procesa antes del filtro `dirty/forced` mediante:
 
 ```text
 jwplcUIRuntimeServiceInput()
 ```
 
-Esto evita que un refresh forzado salte el procesamiento de la botonera de sistema.
+El overlay `NN/TT` se dibuja al final del refresh HMI para permanecer visible.
 
-El overlay `NN/TT` se dibuja al final del refresh HMI para quedar por encima de los fields.
-
-## Gate de compilación y físico
+## Gate físico de botonera
 
 Sketch:
 
@@ -253,46 +250,7 @@ tools/jwplc-hmi-designer/gates/A11_Pages_Navigation/
     JWPLC_HMI_Pages_Gate.ino
 ```
 
-El gate usa tres páginas y los cuatro tipos declarativos.
-
-### Resultado físico 2026-09-05
-
-La botonera real fue validada en COM4 con tres páginas.
-
-Secuencia observada:
-
-```text
-[A11-PAGES] page=1/3 mode=SELECT
-[A11-PAGES] page=2/3 mode=SELECT
-[A11-PAGES] page=3/3 mode=SELECT
-[A11-PAGES] page=2/3 mode=SELECT
-[A11-PAGES] page=1/3 mode=SELECT
-[A11-PAGES] page=1/3 mode=CONTENT
-[A11-PAGES] USER RIGHT
-[A11-PAGES] USER LEFT
-[A11-PAGES] USER UP
-[A11-PAGES] USER DOWN
-[A11-PAGES] USER OK
-[A11-PAGES] page=1/3 mode=SELECT
-[A11-PAGES] page=2/3 mode=SELECT
-[A11-PAGES] page=2/3 mode=CONTENT
-[A11-PAGES] USER UP
-[A11-PAGES] USER LEFT
-[A11-PAGES] USER DOWN
-[A11-PAGES] USER RIGHT
-[A11-PAGES] USER OK
-[A11-PAGES] page=2/3 mode=SELECT
-[A11-PAGES] page=3/3 mode=SELECT
-[A11-PAGES] page=3/3 mode=CONTENT
-[A11-PAGES] USER UP
-[A11-PAGES] USER LEFT
-[A11-PAGES] USER DOWN
-[A11-PAGES] USER RIGHT
-[A11-PAGES] USER OK
-[A11-PAGES] page=3/3 mode=SELECT
-```
-
-Conclusión física:
+Resultado:
 
 ```text
 PAGE_INDICATOR_PHYSICAL=PASS
@@ -333,29 +291,17 @@ UNEXPECTED_PAGE_CHANGE_IN_CONTENT=0
 [x] 22. OK entra a PAGE_CONTENT.
 [x] 23. LEFT/RIGHT/UP/DOWN/OK llegan al usuario en PAGE_CONTENT.
 [x] 24. ESC vuelve a PAGE_SELECT y no llega al usuario.
-[ ] 25. LIVE cambia de página sin corrupción y sin cambios al bridge.
+[x] 25. LIVE cambia de página sin corrupción y sin cambios al bridge.
 [x] 26. Codegen no contiene tft.*.
 [x] 27. Designer no genera jwplcUIUpdate().
 ```
 
 ## Criterio de salida
 
-Gate físico de navegación:
-
-```text
-A11_3E_PAGE_INDICATOR=PASS
-A11_3E_PAGE_BUTTON_ROUTING=PASS
-```
-
-Pendiente único para cierre completo:
-
-```text
-A11_3E_LIVE_PAGE_SWITCH=PENDING
-```
-
-Después:
-
 ```text
 A11_3E_MULTI_FIELD_PAGES=PASS
+A11_3E_PAGE_INDICATOR=PASS
+A11_3E_PAGE_BUTTON_ROUTING=PASS
+A11_3E_LIVE_PAGE_SWITCH=PASS
 NEXT=A11_4_CODEGEN
 ```
