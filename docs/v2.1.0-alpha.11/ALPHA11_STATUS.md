@@ -105,8 +105,10 @@ A11_6_RESPONSIVE_WIDE=PASS_USER_VISUAL
 A11_6_RESPONSIVE_MEDIUM_50_PERCENT=PASS_USER_VISUAL
 A11_6_FIT_CONTINUOUS=PASS_USER_VISUAL
 A11_6_PROJECT_CANONICAL_SAVE=IMPLEMENTED_PENDING_USER_GATE
-A11_6_STANDALONE_INSTALLER=IMPLEMENTED_PENDING_USER_GATE
-A11_6_ARDUINO_IDE_LAUNCHER=IMPLEMENTED_EXPERIMENTAL_PENDING_USER_GATE
+A11_6_STANDALONE_INSTALLER=NATIVE_EXE_IMPLEMENTED_PENDING_USER_GATE
+A11_6_ARDUINO_IDE_ICON=PASS_USER_2_3_4
+A11_6_ARDUINO_IDE_OPEN_V0_1_0=FAIL_USER
+A11_6_ARDUINO_IDE_OPEN_V0_1_1=IMPLEMENTED_PENDING_USER_GATE
 A11_6_SKETCH_INTEGRATION=IN_PROGRESS_FINAL_GATE
 
 ALPHA11_STATUS=IN_PROGRESS
@@ -259,10 +261,16 @@ RESPONSIVE_50_PERCENT=PASS
 FIT_CONTINUOUS=PASS
 ```
 
-Arquitectura standalone:
+Arquitectura standalone Alpha11:
 
 ```text
+INSTALL_ROOT=%LOCALAPPDATA%\JWPLC\HMI Designer
+NATIVE_ENTRYPOINT=JWPLC-HMI-Designer.exe
+NATIVE_ENTRYPOINT_TECH=C_SHARP_WINDOWS_APPLICATION
+UI_RUNTIME=EDGE_OR_CHROME_APP_MODE
 LOCALHOST_MANUAL_START=NO
+LOCAL_SERVER_INTERNAL=YES
+CUSTOM_URI_PROTOCOL=jwplc-hmi://open
 PWA_MANIFEST=YES
 SERVICE_WORKER=YES
 PROJECT_EXTENSION=.jwhmi
@@ -271,10 +279,9 @@ SKETCH_REQUIRES_INO=YES
 LINK_HANDLE_PERSISTENCE=INDEXED_DB
 HEADER_OVERWRITE_CONFIRM=YES
 INO_AUTOMATIC_MODIFICATION=NO
-INSTALL_ROOT=%LOCALAPPDATA%\JWPLC\HMI Designer
 ```
 
-La app usa `127.0.0.1` de forma interna para conservar Web Serial y File System Access en contexto seguro; el usuario no inicia el servidor manualmente.
+El ejecutable es la entrada de usuario instalada. Internamente conserva el frontend web ya validado y levanta el servidor privado `127.0.0.1` antes de abrir Edge/Chrome en modo aplicación. Esta decisión evita reescribir el runtime LIVE/Web Serial durante Alpha11.
 
 Convención de proyecto:
 
@@ -292,9 +299,11 @@ El flujo `Guardar` crea automáticamente `<Sketch>.jwhmi` junto al `.ino` cuando
 ```text
 Install-JWPLC-HMI-Designer.cmd
 Install-JWPLC-HMI-Designer.ps1
+Build-JWPLC-HMI-Designer-Exe.ps1
+JWPLC-HMI-Designer-Launcher.cs
 ```
 
-El instalador copia la app fuera del repositorio, crea accesos directos y define `JWPLC_HMI_DESIGNER_HOME`.
+El instalador copia la app fuera del repositorio, genera `JWPLC-HMI-Designer.exe`, crea accesos directos y registra `jwplc-hmi://open`.
 
 ### Launcher experimental Arduino IDE 2
 
@@ -306,28 +315,25 @@ TARGET_IDE=2.3.4
 TARGET_THEIA=1.41.x
 ```
 
-El experimento registra:
+Gate v0.1.0 del usuario:
 
 ```text
-JWPLC: Abrir HMI Designer
-JW HMI (status bar)
-editor/title icon (best-effort)
+EDITOR_TITLE_ICON=PASS
+CLICK_OPEN=FAIL
 ```
+
+La v0.1.1 elimina el lanzamiento directo de PowerShell desde el plugin. El comando ahora delega a Windows mediante:
+
+```text
+jwplc-hmi://open
+```
+
+Windows resuelve el protocolo al ejecutable instalado. Esto reduce el acoplamiento del plugin al proceso host de Arduino IDE.
 
 El VSIX se instala en:
 
 ```text
 %USERPROFILE%\.arduinoIDE\plugins
-```
-
-La carpeta está documentada por Arduino para VSIX de terceros (temas); el uso de una extensión funcional se considera experimental hasta gate físico.
-
-Si Arduino IDE 2.3.4 no acepta el plugin funcional:
-
-```text
-ARDUINO_IDE_LAUNCHER=UNSUPPORTED
-STANDALONE_APP=PRIMARY
-ARDUINO_IDE_FORK=NO
 ```
 
 Documentos:
@@ -343,23 +349,22 @@ Gate final A11-6 en Windows:
 
 ```text
 1. Pull del HEAD actual.
-2. Vincular un sketch sin .jwhmi y pulsar Guardar.
-3. Confirmar <Sketch>.jwhmi junto a <Sketch>.ino y JWPLC_HMI_Generated.h.
-4. Ejecutar Install-JWPLC-HMI-Designer.cmd.
-5. Confirmar ejecución desde Escritorio/Menú Inicio sin depender del repo.
-6. Instalar launcher experimental Arduino IDE cuando lo pregunte el instalador.
-7. Cerrar completamente Arduino IDE 2.3.4.
-8. Reabrir y buscar "JWPLC: Abrir HMI Designer" en Ctrl+Shift+P.
-9. Confirmar botón "JW HMI" en barra de estado.
-10. Pulsar launcher y confirmar apertura del Designer.
-11. Compilar/subir un sketch JWPLC para descartar regresiones del IDE.
+2. Cerrar Arduino IDE y Designer.
+3. Reejecutar Install-JWPLC-HMI-Designer.cmd e instalar launcher Arduino IDE.
+4. Confirmar existencia de %LOCALAPPDATA%\JWPLC\HMI Designer\JWPLC-HMI-Designer.exe.
+5. Abrir el EXE directamente y confirmar Designer + LIVE.
+6. Reabrir Arduino IDE 2.3.4.
+7. Confirmar icono JW.
+8. Pulsar icono y confirmar apertura del Designer mediante jwplc-hmi://open.
+9. Confirmar <Sketch>.jwhmi junto al .ino al guardar.
+10. Compilar/subir un sketch JWPLC para descartar regresiones.
 ```
 
 Cierre A11-6:
 
 ```text
 A11_6_PROJECT_CANONICAL_SAVE=PASS
-A11_6_STANDALONE_INSTALLER=PASS
+A11_6_STANDALONE_INSTALLER=PASS_NATIVE_ENTRYPOINT
 A11_6_ARDUINO_IDE_LAUNCHER=PASS_EXPERIMENTAL_OR_EXPLICIT_UNSUPPORTED
 A11_6_SKETCH_INTEGRATION=PASS
 NEXT=ALPHA11_CLOSE_PRECOMPILED_AND_DOCS
