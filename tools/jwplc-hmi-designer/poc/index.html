@@ -145,19 +145,19 @@
         <details open>
           <summary>Identidad</summary>
           <div class="inspector-body two-cols">
-            <label class="field-label full">Nombre
+            <label class="field-label full" title="Nombre amigable usado por el Designer y la lista de Objetos. No se imprime en la TFT.">Nombre del objeto
               <input id="fieldName" class="field-input" type="text" value="Estado" maxlength="24" />
             </label>
-            <label class="field-label full">ID simbólico
+            <label class="field-label full" title="Identificador del enum HMIFieldId generado en C++.">ID C++ del campo
               <input id="fieldId" class="field-input code-input" type="text" value="FIELD_STATUS" maxlength="32" />
             </label>
           </div>
         </details>
 
         <details open>
-          <summary>Dato HMI</summary>
+          <summary>Vinculación de datos</summary>
           <div class="inspector-body two-cols">
-            <label class="field-label full">Variable HMI
+            <label class="field-label full" title="Variable C++ declarada por el Designer y utilizada por el usuario para alimentar este campo.">Variable vinculada (C++)
               <input id="fieldVariable" class="field-input code-input" type="text" value="estadoTexto" maxlength="32" />
             </label>
             <label class="field-label">Tipo C++
@@ -166,11 +166,17 @@
             <label id="fieldCapacityWrap" class="field-label">Capacidad
               <input id="fieldCapacity" class="field-input" type="number" min="1" max="39" value="12" />
             </label>
-            <label class="field-label full">Valor de preview
-              <input id="fieldPreview" class="field-input" type="text" value="READY" maxlength="39" />
-            </label>
-            <label class="field-label">Label
+          </div>
+        </details>
+
+        <details open>
+          <summary>Contenido</summary>
+          <div class="inspector-body two-cols">
+            <label class="field-label full" title="Texto fijo que sí se dibuja en la TFT como etiqueta del campo.">Etiqueta visible
               <input id="fieldLabel" class="field-input" type="text" value="Estado" maxlength="24" />
+            </label>
+            <label class="field-label" title="Valor utilizado sólo para previsualizar el diseño. No genera lógica de actualización.">Valor de prueba
+              <input id="fieldPreview" class="field-input" type="text" value="READY" maxlength="39" />
             </label>
             <label class="field-label">Unidad
               <input id="fieldUnit" class="field-input" type="text" value="" maxlength="12" />
@@ -200,7 +206,7 @@
               </select>
             </label>
             <div class="readout"><span>Reserva geométrica</span><strong id="valueFormatSampleStatus">888.8</strong></div>
-            <div class="readout"><span>Preview formateado</span><strong id="valueFormattedStatus">25.6</strong></div>
+            <div class="readout"><span>Resultado formateado</span><strong id="valueFormattedStatus">25.6</strong></div>
           </div>
         </details>
 
@@ -214,11 +220,11 @@
               <input id="fieldY" class="field-input" type="number" min="0" max="169" value="20" />
             </label>
             <div class="readout"><span>Ancho/alto</span><strong id="fieldBoundsStatus">—</strong></div>
-            <div class="readout"><span>Value region</span><strong id="fieldValueBoundsStatus">—</strong></div>
+            <div class="readout"><span>Región de valor</span><strong id="fieldValueBoundsStatus">—</strong></div>
             <div id="fieldMetricsSection" class="metrics-inline full">
               <span>Padding efectivo <strong id="fieldPadStatus">3 px</strong></span>
               <span>Gap <strong>4 px</strong></span>
-              <span>Value XY <strong id="fieldValueXYStatus">—</strong></span>
+              <span>Valor XY <strong id="fieldValueXYStatus">—</strong></span>
               <span>Layout <strong id="fieldLayoutStatus">INLINE</strong></span>
             </div>
           </div>
@@ -227,7 +233,7 @@
         <details open>
           <summary>Tipografía</summary>
           <div class="inspector-body two-cols">
-            <label class="field-label">Tamaño label
+            <label class="field-label">Tamaño etiqueta
               <select id="fieldLabelSize" class="field-input">
                 <option value="1" selected>1×</option>
                 <option value="2">2×</option>
@@ -268,7 +274,7 @@
                 <option value="1">Sí</option>
               </select>
             </label>
-            <label class="field-label color-field">Color label
+            <label class="field-label color-field">Color etiqueta
               <select id="fieldLabelColor" class="field-input"></select>
             </label>
             <label class="field-label color-field">Color valor
