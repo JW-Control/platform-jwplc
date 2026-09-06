@@ -5,7 +5,7 @@
 
 class Adafruit_ST7789;
 
-// Hooks internos entre el runtime base del Display y el motor HMI Alpha8.
+// Hooks internos entre el runtime base del Display y el motor HMI Alpha11.
 //
 // JWPLC_Display.cpp mantiene implementaciones weak/no-op para que un sketch que
 // no use la HMI de campos no arrastre JWPLC_UI.cpp desde el archive
@@ -16,6 +16,10 @@ class Adafruit_ST7789;
 extern "C"
 {
 #endif
+
+// Se ejecuta siempre en USER antes de decidir si hace falta dibujar. Permite
+// procesar navegación física aunque el refresh haya sido forzado por un botón.
+void jwplcUIRuntimeServiceInput(void);
 
 bool jwplcUIRuntimeRefreshNeeded(void);
 void jwplcUIRuntimeInvalidateAll(bool redrawStatic);
