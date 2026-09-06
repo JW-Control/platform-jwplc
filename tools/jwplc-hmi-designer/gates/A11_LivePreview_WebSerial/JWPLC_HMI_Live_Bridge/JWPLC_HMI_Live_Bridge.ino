@@ -6,7 +6,7 @@
 // Alpha11 · herramienta de desarrollo, NO runtime de producción.
 //
 // Transporte:
-//   Web Serial @ 500000 baud
+//   Web Serial @ 921600 baud
 //   RLE RGB565 del framebuffer lógico 320x170.
 //
 // Handshake:
@@ -20,9 +20,9 @@
 // Buffer de dibujo:
 //   El JWPLC Basic v2 no dispone de PSRAM. No reservamos el framebuffer
 //   completo de 320x170x16 bits (~106 KiB). El RLE se decodifica en un
-//   framebuffer parcial de 16 filas (10 KiB) y se envía a la TFT por bloques.
-//   Esto reduce drásticamente adquisiciones del mutex SPI frente al buffer de
-//   una sola fila, manteniendo un consumo de RAM muy inferior al frame completo.
+//   framebuffer parcial de 32 filas (20 KiB) y se envía a la TFT por bloques.
+//   Esto reduce adquisiciones del mutex SPI manteniendo un consumo de RAM muy
+//   inferior al frame completo.
 //
 // Telemetría:
 //   Cada 30 frames se publica JWHMI_LIVE_STATS con tiempos de frame/dibujo,
@@ -39,10 +39,10 @@ namespace
     static constexpr uint16_t FRAME_H = 170;
     static constexpr uint32_t FRAME_PIXELS = (uint32_t)FRAME_W * FRAME_H;
     static constexpr uint32_t MAX_RUNS = FRAME_PIXELS;
-    static constexpr uint32_t SERIAL_BAUD = 500000;
+    static constexpr uint32_t SERIAL_BAUD = 921600;
     static constexpr size_t SERIAL_RX_BUFFER = 8192;
 
-    static constexpr uint16_t FRAME_BUFFER_ROWS = 16;
+    static constexpr uint16_t FRAME_BUFFER_ROWS = 32;
     static constexpr uint32_t FRAME_BUFFER_PIXELS =
         (uint32_t)FRAME_W * FRAME_BUFFER_ROWS;
     static constexpr uint32_t STATS_INTERVAL_FRAMES = 30;
@@ -69,7 +69,7 @@ namespace
         uint32_t errors = 0;
     };
 
-    // Framebuffer PARCIAL: 320 * 16 * 2 bytes = 10,240 bytes.
+    // Framebuffer PARCIAL: 320 * 32 * 2 bytes = 20,480 bytes.
     uint16_t g_frame[FRAME_BUFFER_PIXELS] = {};
     LiveStats g_stats;
 
@@ -368,7 +368,7 @@ namespace
             }
         }
 
-        // 170 no es múltiplo de 16: el último bloque contiene 10 filas.
+        // 170 no es múltiplo de 32: el último bloque contiene 10 filas.
         if (blockFill > 0)
         {
             if ((blockFill % FRAME_W) != 0)
