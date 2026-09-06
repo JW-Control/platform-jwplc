@@ -29,6 +29,7 @@ $installServer = Join-Path $InstallRoot 'JWPLC-HMI-Server.ps1'
 $installCmd = Join-Path $InstallRoot 'JWPLC-HMI-Designer.cmd'
 $installExe = Join-Path $InstallRoot 'JWPLC-HMI-Designer.exe'
 $installIcon = Join-Path $InstallRoot 'JWPLC-HMI-Designer.ico'
+$installWebIcon = Join-Path $installPoc 'JWPLC-HMI-Designer.ico'
 
 Write-Host 'Instalando JWPLC HMI Designer...' -ForegroundColor Cyan
 Write-Host "  Destino: $InstallRoot"
@@ -45,6 +46,10 @@ Copy-Item -LiteralPath $sourceCmd -Destination $installCmd -Force
 $buildIcon = ''
 if (Test-Path -LiteralPath $sourceIcon -PathType Leaf) {
     Copy-Item -LiteralPath $sourceIcon -Destination $installIcon -Force
+    # El mismo ICO alimenta el EXE/accesos directos y el favicon del modo --app.
+    # Así la ventana del Designer conserva exactamente la identidad visual del
+    # acceso directo en lugar del favicon genérico del navegador.
+    Copy-Item -LiteralPath $sourceIcon -Destination $installWebIcon -Force
     $buildIcon = $sourceIcon
     Write-Host "Icono: $sourceIcon" -ForegroundColor DarkGray
 }
