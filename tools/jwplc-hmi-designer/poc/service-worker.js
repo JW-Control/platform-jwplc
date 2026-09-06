@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'jwplc-hmi-designer-alpha11-a11-6-v3-responsive';
+const CACHE_NAME = 'jwplc-hmi-designer-alpha11-a11-6-v4-window-icon';
 const CORE = [
   './desktop.html',
   './index.html',
