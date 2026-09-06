@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $designerRoot = Join-Path $PSScriptRoot 'poc'
 $serverScript = Join-Path $PSScriptRoot 'JWPLC-HMI-Server.ps1'
-$url = "http://127.0.0.1:$Port/desktop.html"
+$url = "http://127.0.0.1:$Port/desktop.html?app=alpha11-window-v2"
 $healthUrl = "http://127.0.0.1:$Port/__health"
 
 function Test-JwplcHmiServer {
