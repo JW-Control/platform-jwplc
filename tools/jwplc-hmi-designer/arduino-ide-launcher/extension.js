@@ -34,44 +34,119 @@ async function openByProtocol() {
   }
 }
 
-async function launchDesigner() {
-  vscode.window.setStatusBarMessage('JW HMI: abriendo Designer…', 1800);
+function psQuote(value) {
+  return String(value).replace(/'/g, "''");
+}
 
-  const exe = findDesignerExe();
-  if (exe) {
+function launchViaWindowsShell(exe) {
+  return new Promise((resolve) => {
+    const workDir = path.dirname(exe);
+    const command =
+      `Start-Process -FilePath '${psQuote(exe)}' ` +
+      `-WorkingDirectory '${psQuote(workDir)}'`;
+
+    let settled = false;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      resolve(result);
+    };
+
+    try {
+      const child = childProcess.spawn(
+        'powershell.exe',
+        [
+          '-NoProfile',
+          '-NonInteractive',
+          '-ExecutionPolicy',
+          'Bypass',
+          '-WindowStyle',
+          'Hidden',
+          '-Command',
+          command
+        ],
+        {
+          cwd: workDir,
+          detached: true,
+          stdio: 'ignore',
+          windowsHide: true
+        }
+      );
+
+      child.once('spawn', () => {
+        child.unref();
+        finish({ ok: true });
+      });
+      child.once('error', (error) => finish({ ok: false, error }));
+    } catch (error) {
+      finish({ ok: false, error });
+    }
+  });
+}
+
+function launchDirect(exe) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      resolve(result);
+    };
+
     try {
       const child = childProcess.spawn(exe, [], {
         cwd: path.dirname(exe),
         detached: true,
         stdio: 'ignore',
-        windowsHide: true
+        windowsHide: false
       });
 
-      child.once('error', async (error) => {
-        const opened = await openByProtocol();
-        if (!opened) {
-          vscode.window.showErrorMessage(
-            `No se pudo abrir JWPLC HMI Designer (${error.message}). Reinstala la aplicación.`
-          );
-        }
+      child.once('spawn', () => {
+        child.unref();
+        finish({ ok: true });
       });
-
-      child.unref();
-      return;
+      child.once('error', (error) => finish({ ok: false, error }));
     } catch (error) {
-      const opened = await openByProtocol();
-      if (opened) return;
-      vscode.window.showErrorMessage(
-        `No se pudo ejecutar JWPLC HMI Designer: ${error?.message || error}`
-      );
+      finish({ ok: false, error });
+    }
+  });
+}
+
+async function launchDesigner() {
+  vscode.window.setStatusBarMessage('JW HMI: abriendo Designer…', 1800);
+
+  const exe = findDesignerExe();
+  if (exe) {
+    let result;
+
+    // En Windows usamos Shell/Start-Process, igual que un acceso directo.
+    // Esto evita heredar flags del proceso host de Arduino IDE/Theia que
+    // pueden impedir que una aplicación Electron muestre su ventana.
+    if (process.platform === 'win32') {
+      result = await launchViaWindowsShell(exe);
+    } else {
+      result = await launchDirect(exe);
+    }
+
+    if (result.ok) {
+      vscode.window.setStatusBarMessage('JW HMI: Designer iniciado', 1800);
       return;
+    }
+
+    // Segundo intento directo antes del protocolo registrado.
+    if (process.platform === 'win32') {
+      result = await launchDirect(exe);
+      if (result.ok) {
+        vscode.window.setStatusBarMessage('JW HMI: Designer iniciado', 1800);
+        return;
+      }
     }
   }
 
   const opened = await openByProtocol();
   if (!opened) {
     vscode.window.showErrorMessage(
-      'JWPLC HMI Designer no está instalado. Reinstala la aplicación y reinicia Arduino IDE.'
+      'JWPLC HMI Designer no está instalado o Windows no pudo iniciarlo. Reinstala la aplicación y reinicia Arduino IDE.'
     );
   }
 }
