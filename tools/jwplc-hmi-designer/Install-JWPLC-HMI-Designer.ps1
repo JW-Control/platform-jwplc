@@ -13,6 +13,7 @@ $sourceServer = Join-Path $PSScriptRoot 'JWPLC-HMI-Server.ps1'
 $sourceCmd = Join-Path $PSScriptRoot 'JWPLC-HMI-Designer.cmd'
 $sourceBuildExe = Join-Path $PSScriptRoot 'Build-JWPLC-HMI-Designer-Exe.ps1'
 $sourceLauncherCs = Join-Path $PSScriptRoot 'JWPLC-HMI-Designer-Launcher.cs'
+$sourceElectronExe = Join-Path $PSScriptRoot 'dist\JWPLC-HMI-Designer-Electron.exe'
 $sourceIcon = Join-Path $PSScriptRoot 'assets\JWPLC-HMI-Designer.ico'
 $arduinoInstaller = Join-Path $PSScriptRoot 'Install-ArduinoIDE-Launcher.ps1'
 
@@ -46,21 +47,31 @@ Copy-Item -LiteralPath $sourceCmd -Destination $installCmd -Force
 $buildIcon = ''
 if (Test-Path -LiteralPath $sourceIcon -PathType Leaf) {
     Copy-Item -LiteralPath $sourceIcon -Destination $installIcon -Force
-    # El mismo ICO alimenta el EXE/accesos directos y el favicon del modo --app.
-    # Así la ventana del Designer conserva exactamente la identidad visual del
-    # acceso directo en lugar del favicon genérico del navegador.
     Copy-Item -LiteralPath $sourceIcon -Destination $installWebIcon -Force
     $buildIcon = $sourceIcon
     Write-Host "Icono: $sourceIcon" -ForegroundColor DarkGray
 }
 
-Write-Host 'Generando ejecutable de entrada...' -ForegroundColor Cyan
-if ([string]::IsNullOrWhiteSpace($buildIcon)) {
-    & $sourceBuildExe -OutputPath $installExe | Out-Null
+$installMode = 'CHROMIUM_FALLBACK'
+if (Test-Path -LiteralPath $sourceElectronExe -PathType Leaf) {
+    Write-Host 'Instalando ejecutable nativo Electron...' -ForegroundColor Cyan
+    Copy-Item -LiteralPath $sourceElectronExe -Destination $installExe -Force
+    $installMode = 'ELECTRON_NATIVE'
 }
 else {
-    & $sourceBuildExe -OutputPath $installExe -IconPath $buildIcon | Out-Null
+    Write-Host 'Ejecutable Electron no encontrado; usando launcher Chromium de compatibilidad.' -ForegroundColor Yellow
+    Write-Host 'Para el modo nativo ejecuta primero:' -ForegroundColor Yellow
+    Write-Host '  .\tools\jwplc-hmi-designer\Build-JWPLC-HMI-Designer-Electron.ps1' -ForegroundColor Yellow
+    Write-Host ''
+    Write-Host 'Generando ejecutable de entrada...' -ForegroundColor Cyan
+    if ([string]::IsNullOrWhiteSpace($buildIcon)) {
+        & $sourceBuildExe -OutputPath $installExe | Out-Null
+    }
+    else {
+        & $sourceBuildExe -OutputPath $installExe -IconPath $buildIcon | Out-Null
+    }
 }
+
 if (-not (Test-Path -LiteralPath $installExe -PathType Leaf)) {
     throw "No se pudo instalar el ejecutable del Designer: $installExe"
 }
@@ -117,6 +128,7 @@ if ($InstallArduinoIDELauncher) {
 Write-Host ''
 Write-Host 'JWPLC HMI Designer instalado.' -ForegroundColor Green
 Write-Host "  Aplicación: $installExe"
+Write-Host "  Modo: $installMode"
 Write-Host "  Recursos: $InstallRoot"
 if (Test-Path -LiteralPath $installIcon -PathType Leaf) {
     Write-Host "  Icono: $installIcon"

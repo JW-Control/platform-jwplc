@@ -1,0 +1,46 @@
+{
+  "name": "jwplc-hmi-designer-electron",
+  "version": "0.11.0-alpha.11",
+  "private": true,
+  "description": "Wrapper nativo Electron para JWPLC HMI Designer Alpha11",
+  "main": "main.js",
+  "type": "module",
+  "scripts": {
+    "start": "electron .",
+    "dist:portable": "electron-builder --win portable --x64 --publish never"
+  },
+  "devDependencies": {
+    "electron": "^31.4.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.jwcontrol.jwplc.hmidesigner",
+    "productName": "JWPLC HMI Designer",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../poc",
+        "to": "poc"
+      },
+      {
+        "from": "build/icon.ico",
+        "to": "JWPLC-HMI-Designer.ico"
+      }
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        "portable"
+      ]
+    },
+    "portable": {
+      "artifactName": "JWPLC-HMI-Designer-Portable-${version}-${arch}.${ext}"
+    }
+  }
+}
