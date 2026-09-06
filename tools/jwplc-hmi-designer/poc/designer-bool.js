@@ -21,8 +21,6 @@
 
   if (!boolButton || !fieldSection || !numericFormatDetails || !fieldPreview) return;
 
-  const boolFields = new Set();
-
   const boolDetails = document.createElement('details');
   boolDetails.id = 'boolTextDetails';
   boolDetails.open = true;
@@ -63,6 +61,10 @@
     return field?.type === 'BOOL';
   }
 
+  function allBoolFields() {
+    return (editor()?.getAllFields?.() || []).filter((field) => field?.type === 'BOOL');
+  }
+
   function serialFor(field) {
     const match = String(field?.key || '').match(/-(\d+)$/);
     return match ? Number(match[1]) : 1;
@@ -88,7 +90,6 @@
 
   function ensureBoolState(field) {
     if (!field || field.type !== 'BOOL') return;
-    boolFields.add(field);
     if (typeof field.falseText !== 'string') field.falseText = 'OFF';
     if (typeof field.trueText !== 'string') field.trueText = 'ON';
     if (typeof field.boolValue !== 'boolean') field.boolValue = false;
@@ -148,7 +149,6 @@
     field.align = 'CENTER';
     ensureBoolState(field);
 
-    // El cambio sobre Nombre usa el pipeline normal del editor: render + history.
     fieldName.value = field.name;
     fieldName.dispatchEvent(new Event('change', { bubbles: true }));
   }
@@ -200,6 +200,7 @@
   }
 
   function boolFieldBlock(field) {
+    ensureBoolState(field);
     const id = sanitizeSymbol(field.id, `FIELD_BOOL_${serialFor(field)}`);
     const label = field.label ? `"${cppString(field.label)}"` : 'nullptr';
     const unit = field.unit ? `"${cppString(field.unit)}"` : 'nullptr';
@@ -234,7 +235,7 @@
   }
 
   function activeBoolFieldsInCode(text) {
-    return [...boolFields].filter((field) => {
+    return allBoolFields().filter((field) => {
       const id = sanitizeSymbol(field.id, `FIELD_BOOL_${serialFor(field)}`);
       return text.includes(id);
     });
@@ -249,8 +250,11 @@
       ensureBoolState(field);
       const id = sanitizeSymbol(field.id, `FIELD_BOOL_${serialFor(field)}`);
       const variable = sanitizeSymbol(field.variable, `estado${serialFor(field)}`);
-      const legacyDeclaration = `char ${variable}[${Math.max(1, field.capacity) + 1}] = {};`;
-      text = text.replace(legacyDeclaration, `bool ${variable} = false;`);
+      const legacyDeclaration = `bool ${variable} = false;`;
+      if (!text.includes(legacyDeclaration)) {
+        const textDeclaration = `char ${variable}[${Math.max(1, field.capacity) + 1}] = {};`;
+        text = text.replace(textDeclaration, legacyDeclaration);
+      }
       text = replaceHelperCall(text, id, boolFieldBlock(field));
       text = text.replace(
         `// JWPLC_Display.setText(${id}, ${variable});`,
@@ -261,16 +265,14 @@
 
   function patchStatusText() {
     if (!codeOutput?.textContent.startsWith('A11 UX Foundation:')) return;
-    const boolCount = [...boolFields].filter((field) => {
-      const id = sanitizeSymbol(field.id, `FIELD_BOOL_${serialFor(field)}`);
-      return [...document.querySelectorAll('.object-id')].some((node) => node.textContent.trim() === id);
-    }).length;
+    const activePage = Number(editor()?.getActivePage?.() ?? 0);
+    const boolCount = allBoolFields().filter((field) => Number(field.page || 0) === activePage).length;
 
     let text = codeOutput.textContent
       .replace('A11-3B VALUE: IN_PROGRESS', 'A11-3B VALUE: PASS')
       .replace('A11-3C BOOL y A11-3D BAR permanecen pendientes.', 'A11-3D BAR permanece pendiente.');
 
-    if (!text.includes('A11-3C BOOL: IN_PROGRESS')) {
+    if (!text.includes('A11-3C BOOL: IN_PROGRESS') && !text.includes('A11-3C BOOL: PASS')) {
       text = text.replace('A11-3B VALUE: PASS', 'A11-3B VALUE: PASS\nA11-3C BOOL: IN_PROGRESS');
     }
     if (!text.includes('\n- BOOL:')) {
@@ -305,13 +307,11 @@
     }, 0);
   });
 
-  // Si se duplica un BOOL, el core conserva field.type=BOOL. El refresh lo
-  // registra aquí y el codegen se corrige sin modificar el runtime base.
   patchUI();
 
   window.JWPLCHMIBool = {
     addBoolField: createBoolField,
     hasBoolSelection: () => isBool(),
-    trackedCount: () => boolFields.size
+    trackedCount: () => allBoolFields().length
   };
 })();
