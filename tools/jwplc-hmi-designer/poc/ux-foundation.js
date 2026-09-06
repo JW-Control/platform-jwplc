@@ -3,8 +3,6 @@
 
   const WIDTH = 320;
   const HEIGHT = 170;
-  const FIELD_PADDING = 3;
-  const FIELD_GAP = 4;
 
   const displayCanvas = document.getElementById('displayCanvas');
   const overlayCanvas = document.getElementById('geometryCanvas');
@@ -17,95 +15,36 @@
   const generateButton = document.getElementById('generateButton');
   const contractTab = document.getElementById('contractTab');
   const collapseBottomButton = document.getElementById('collapseBottomButton');
-  const textObjectItem = document.getElementById('textObjectItem');
-  const objectName = document.getElementById('objectName');
-  const objectId = document.getElementById('objectId');
-  const inspectorContract = document.getElementById('inspectorContract');
   const copyContractButton = document.getElementById('copyContractButton');
-
-  const fieldName = document.getElementById('fieldName');
-  const fieldId = document.getElementById('fieldId');
-  const fieldVariable = document.getElementById('fieldVariable');
-  const fieldCapacity = document.getElementById('fieldCapacity');
-  const fieldX = document.getElementById('fieldX');
-  const fieldY = document.getElementById('fieldY');
-  const fieldPreview = document.getElementById('fieldPreview');
-  const fieldLabel = document.getElementById('fieldLabel');
-  const fieldUnit = document.getElementById('fieldUnit');
-  const fieldValueSize = document.getElementById('fieldValueSize');
-  const fieldLabelSize = document.getElementById('fieldLabelSize');
-  const fieldLayout = document.getElementById('fieldLayout');
+  const inspectorContract = document.getElementById('inspectorContract');
 
   const selectedObjectStatus = document.getElementById('selectedObjectStatus');
   const selectedGeometryStatus = document.getElementById('selectedGeometryStatus');
   const zoomStatus = document.getElementById('zoomStatus');
 
-  const trackedInputs = [
-    fieldName, fieldId, fieldVariable, fieldCapacity, fieldX, fieldY,
-    fieldPreview, fieldLabel, fieldUnit, fieldValueSize, fieldLabelSize,
-    fieldLayout
-  ].filter(Boolean);
+  const fieldInputs = [
+    'fieldName', 'fieldId', 'fieldVariable', 'fieldCapacity', 'fieldX', 'fieldY',
+    'fieldPreview', 'fieldLabel', 'fieldUnit', 'fieldValueSize', 'fieldLabelSize',
+    'fieldLayout', 'fieldAlign', 'fieldFrame', 'fieldLabelColor', 'fieldValueColor',
+    'fieldBackgroundColor', 'fieldFrameColor'
+  ].map((id) => document.getElementById(id)).filter(Boolean);
 
-  let selectedKind = 'textField';
   let bottomCollapsed = false;
 
-  function numberValue(element, fallback = 0) {
-    const parsed = Number(element && element.value);
-    return Number.isFinite(parsed) ? parsed : fallback;
+  function editor() {
+    return window.JWPLCHMIEditor || null;
   }
 
-  function nominalTextBounds(text, size) {
-    if (!text) return { width: 0, height: 0 };
-    const scale = Math.max(1, Math.trunc(size || 1));
-    return {
-      width: text.length * 6 * scale - scale,
-      height: 7 * scale
-    };
+  function hasTextSelection() {
+    return Boolean(editor()?.hasTextSelection?.());
   }
 
-  function readGeometry() {
-    const x = Math.max(0, Math.min(WIDTH - 1, numberValue(fieldX)));
-    const y = Math.max(0, Math.min(HEIGHT - 1, numberValue(fieldY)));
-    const capacity = Math.max(1, Math.trunc(numberValue(fieldCapacity, 1)));
-    const labelSize = Math.max(1, Math.trunc(numberValue(fieldLabelSize, 1)));
-    const valueSize = Math.max(1, Math.trunc(numberValue(fieldValueSize, 1)));
-    const pad = Math.max(FIELD_PADDING, labelSize, valueSize);
-    const labelBounds = nominalTextBounds(fieldLabel.value, labelSize);
-    const unitBounds = nominalTextBounds(fieldUnit.value, labelSize);
-    const valueBounds = nominalTextBounds('W'.repeat(capacity), valueSize);
-    const layout = fieldLayout.value;
+  function selectedField() {
+    return editor()?.getSelectedField?.() || null;
+  }
 
-    let fieldW;
-    let fieldH;
-    let valueX;
-    let valueY;
-
-    if (layout === 'STACKED') {
-      const valueAndUnitW = valueBounds.width + (unitBounds.width > 0 ? FIELD_GAP + unitBounds.width : 0);
-      fieldW = 2 * pad + Math.max(labelBounds.width, valueAndUnitW);
-      fieldH = 2 * pad + labelBounds.height + (labelBounds.height > 0 ? FIELD_GAP : 0) + Math.max(valueBounds.height, unitBounds.height);
-      valueX = x + pad;
-      valueY = y + pad + labelBounds.height + (labelBounds.height > 0 ? FIELD_GAP : 0);
-    } else {
-      fieldW = 2 * pad + labelBounds.width + (labelBounds.width > 0 ? FIELD_GAP : 0) + valueBounds.width + (unitBounds.width > 0 ? FIELD_GAP + unitBounds.width : 0);
-      fieldH = 2 * pad + Math.max(labelBounds.height, valueBounds.height, unitBounds.height);
-      valueX = x + pad + labelBounds.width + (labelBounds.width > 0 ? FIELD_GAP : 0);
-      valueY = y + pad;
-    }
-
-    return {
-      x, y, fieldW, fieldH, pad, layout,
-      labelSize, valueSize,
-      labelBounds,
-      valueBounds,
-      unitBounds,
-      labelX: x + pad,
-      labelY: y + pad,
-      valueX,
-      valueY,
-      unitX: valueX + valueBounds.width + (unitBounds.width > 0 ? FIELD_GAP : 0),
-      unitY: valueY
-    };
+  function selectedGeometry() {
+    return editor()?.computeSelectedGeometry?.() || null;
   }
 
   function badge(ctx, text, x, y) {
@@ -165,77 +104,57 @@
   function drawGeometryOverlay() {
     syncOverlaySize();
     overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+    if (!geometryToggle.checked || !hasTextSelection()) return;
 
-    if (!geometryToggle.checked || selectedKind !== 'textField') return;
+    const field = selectedField();
+    const g = selectedGeometry();
+    if (!field || !g) return;
 
-    const zoom = Math.max(1, numberValue(zoomSelect, 3));
-    const g = readGeometry();
-    const left = g.x * zoom;
-    const top = g.y * zoom;
+    const zoom = Math.max(1, Number(zoomSelect.value) || 3);
+    const left = field.x * zoom;
+    const top = field.y * zoom;
     const width = g.fieldW * zoom;
     const height = g.fieldH * zoom;
 
     overlayCtx.save();
     overlayCtx.strokeStyle = '#ff8a2a';
     overlayCtx.lineWidth = 2;
-    overlayCtx.setLineDash([]);
     overlayCtx.strokeRect(left + 0.5, top + 0.5, width, height);
     overlayCtx.restore();
 
-    regionRect(overlayCtx, g.labelX, g.labelY, g.labelBounds.width, g.labelBounds.height, zoom, 'rgba(225,238,247,.60)');
-    regionRect(overlayCtx, g.valueX, g.valueY, g.valueBounds.width, g.valueBounds.height, zoom, 'rgba(40,220,232,.72)');
-    regionRect(overlayCtx, g.unitX, g.unitY, g.unitBounds.width, g.unitBounds.height, zoom, 'rgba(121,211,161,.62)');
+    const labelX = field.x + g.pad;
+    const labelY = field.y + g.pad;
+    regionRect(overlayCtx, labelX, labelY, g.labelBounds.width, g.labelBounds.height, zoom, 'rgba(225,238,247,.60)');
+    regionRect(overlayCtx, g.valueX, g.valueY, g.valueW, g.valueH, zoom, 'rgba(40,220,232,.72)');
     drawHandles(overlayCtx, left, top, width, height);
-
-    badge(overlayCtx, `X: ${g.x}   Y: ${g.y}`, left + 7, top - 27);
+    badge(overlayCtx, `X: ${field.x}   Y: ${field.y}`, left + 7, top - 27);
     badge(overlayCtx, `${g.fieldW} × ${g.fieldH} px`, left + width - 84, top - 27);
   }
 
-  function updateObjectAndStatus() {
-    const name = (fieldName.value || 'TEXT').trim();
-    const id = (fieldId.value || 'FIELD_STATUS').trim();
-    const variable = (fieldVariable.value || 'estadoTexto').trim();
-    const capacity = Math.max(1, Math.trunc(numberValue(fieldCapacity, 1)));
-    const g = readGeometry();
-
-    objectName.textContent = name;
-    objectId.textContent = id;
-    inspectorContract.textContent = `char ${variable}[${capacity + 1}];`;
-    selectedObjectStatus.textContent = `TEXT ${name} · ${id}`;
-    selectedGeometryStatus.textContent = `X:${g.x} Y:${g.y} · ${g.fieldW}×${g.fieldH} px`;
+  function updateStatus() {
+    const field = selectedField();
+    const g = selectedGeometry();
+    if (hasTextSelection() && field && g) {
+      selectedObjectStatus.textContent = `TEXT ${field.name || 'Sin nombre'} · ${field.id || 'SIN_ID'}`;
+      selectedGeometryStatus.textContent = `X:${field.x} Y:${field.y} · ${g.fieldW}×${g.fieldH} px`;
+    } else {
+      selectedObjectStatus.textContent = editor()?.getSelectedTool?.() === 'rawText' ? 'Texto GFX RAW' : 'Sin objeto seleccionado';
+      selectedGeometryStatus.textContent = 'X:— Y:—';
+    }
     zoomStatus.textContent = `Zoom: ${zoomSelect.value}×`;
   }
 
   function refreshUX() {
-    updateObjectAndStatus();
+    updateStatus();
     requestAnimationFrame(drawGeometryOverlay);
   }
 
-  function activateTextField() {
-    const textTool = document.querySelector('.tool[data-tool="textField"]');
-    if (textTool) textTool.click();
-    selectedKind = 'textField';
-    textObjectItem.classList.add('active');
-    refreshUX();
-  }
-
-  textObjectItem.addEventListener('click', activateTextField);
-
-  document.querySelectorAll('.tool[data-tool]').forEach((button) => {
-    button.addEventListener('click', () => {
-      selectedKind = button.dataset.tool;
-      textObjectItem.classList.toggle('active', selectedKind === 'textField');
-      refreshUX();
-    });
-  });
-
-  trackedInputs.forEach((input) => {
+  geometryToggle.addEventListener('change', refreshUX);
+  zoomSelect.addEventListener('change', refreshUX);
+  fieldInputs.forEach((input) => {
     input.addEventListener('input', refreshUX);
     input.addEventListener('change', refreshUX);
   });
-
-  geometryToggle.addEventListener('change', refreshUX);
-  zoomSelect.addEventListener('change', refreshUX);
 
   fitButton.addEventListener('click', () => {
     const availableW = Math.max(320, canvasViewport.clientWidth - 36);
@@ -243,9 +162,7 @@
     const raw = Math.min(availableW / WIDTH, availableH / HEIGHT);
     const choices = [2, 3, 4, 6, 8];
     let best = 2;
-    choices.forEach((candidate) => {
-      if (candidate <= raw) best = candidate;
-    });
+    choices.forEach((candidate) => { if (candidate <= raw) best = candidate; });
     zoomSelect.value = String(best);
     zoomSelect.dispatchEvent(new Event('change', { bubbles: true }));
   });
@@ -275,16 +192,13 @@
     }
   });
 
-  displayCanvas.addEventListener('pointerdown', () => setTimeout(refreshUX, 0));
-  displayCanvas.addEventListener('pointermove', () => {
-    if (selectedKind === 'textField') requestAnimationFrame(refreshUX);
-  });
   window.addEventListener('resize', refreshUX);
+  window.addEventListener('jwplc:editor-refresh', refreshUX);
+  displayCanvas.addEventListener('pointermove', refreshUX);
+  document.querySelector('.left-panel')?.addEventListener('click', () => setTimeout(refreshUX, 0));
 
   const canvasObserver = new MutationObserver(refreshUX);
   canvasObserver.observe(displayCanvas, { attributes: true, attributeFilter: ['width', 'height', 'style'] });
 
-  // El PoC actual conserva TEXT como único objeto editable. La lista de objetos,
-  // inspector y overlay ya quedan estructurados para escalar a VALUE/BOOL/BAR.
   refreshUX();
 })();
