@@ -6,12 +6,16 @@
 // Alpha11 · herramienta de desarrollo, NO runtime de producción.
 //
 // Transporte:
-//   Web Serial @ 921600 baud
+//   Web Serial @ 500000 baud
 //   RLE RGB565 del framebuffer lógico 320x170.
 //
 // Handshake:
 //   Host -> JWH?
 //   Bridge -> JWHMI_LIVE_READY 1
+//
+// Flujo:
+//   El host envía un frame y espera JWHMI_LIVE_FRAME <seq> antes de
+//   transmitir el siguiente. Esto evita acumular frames durante drag/edición.
 //
 // Importante:
 //   El JWPLC Basic v2 no dispone de PSRAM. Por ello el bridge NO reserva
@@ -30,8 +34,8 @@ namespace
     static constexpr uint16_t FRAME_H = 170;
     static constexpr uint32_t FRAME_PIXELS = (uint32_t)FRAME_W * FRAME_H;
     static constexpr uint32_t MAX_RUNS = FRAME_PIXELS;
-    static constexpr uint32_t SERIAL_BAUD = 921600;
-    static constexpr size_t SERIAL_RX_BUFFER = 4096;
+    static constexpr uint32_t SERIAL_BAUD = 500000;
+    static constexpr size_t SERIAL_RX_BUFFER = 8192;
 
     // JWH1 = inicio de frame binario.
     // JWH? = probe corto del navegador para solicitar READY.
