@@ -65,7 +65,8 @@ Se reutiliza el Inspector contextual de la UX Foundation.
 Secciones comunes con TEXT:
 
 - Identidad;
-- Dato HMI;
+- Vinculación de datos;
+- Contenido;
 - Geometría;
 - Tipografía;
 - Apariencia;
@@ -75,7 +76,7 @@ VALUE agrega `Formato numérico`:
 
 ```text
 integerDigits
- decimalDigits
+decimalDigits
 signedValue
 leadingZeros
 ```
@@ -144,7 +145,7 @@ Al hacer clic en una zona vacía del canvas se deselecciona; no se reposiciona n
 
 ## Codegen
 
-El codegen ahora mezcla TEXT y VALUE en el mismo:
+El codegen mezcla TEXT y VALUE en el mismo:
 
 ```cpp
 enum HMIFieldId : uint8_t
@@ -153,38 +154,40 @@ static const JWPLC_UIField HMI_FIELDS[]
 
 Los colores se generan como valores RGB565 explícitos (`0xFFFF`, `0x07FF`, etc.) para no depender de símbolos de color inexistentes en la API pública.
 
-## Gate visual/funcional
+## Gate visual/funcional — resultado
 
-Después de `git pull --ff-only` y `Ctrl+F5`:
+Validado en navegador durante el desarrollo de Alpha11:
 
 ```text
-[ ] 1. VALUE está habilitado en Componentes.
-[ ] 2. Seleccionar VALUE abre `Inspector · VALUE field`.
-[ ] 3. El tipo C++ mostrado es `float`.
-[ ] 4. Aparece la sección `Formato numérico`.
-[ ] 5. Cambiar integerDigits modifica inmediatamente el ancho AUTO.
-[ ] 6. Cambiar decimalDigits modifica sample, preview y ancho AUTO.
-[ ] 7. signedValue=true reserva el signo en la geometría.
-[ ] 8. Un valor negativo con signedValue=false muestra `#`.
-[ ] 9. leadingZeros=true muestra ceros a la izquierda.
-[ ] 10. INLINE / STACKED funcionan.
-[ ] 11. LEFT / CENTER / RIGHT funcionan sobre la región VALUE reservada.
-[ ] 12. Drag sólo funciona iniciando sobre el field.
-[ ] 13. Click en canvas vacío deselecciona y no mueve el field.
-[ ] 14. Ctrl+Z / Ctrl+Y funcionan con VALUE.
-[ ] 15. Ctrl+D duplica VALUE con ID y variable únicos.
-[ ] 16. TEXT y VALUE pueden coexistir en el mismo canvas.
-[ ] 17. `Generar C++` contiene `JWPLC_UIValueField(...)`.
-[ ] 18. El codegen contiene `JWPLC_UIValueFormat(...)` y `JWPLC_UIValueStyle(...)`.
-[ ] 19. El codegen declara `float` para VALUE y `char[]` para TEXT.
-[ ] 20. El codegen no contiene `tft.` ni genera `jwplcUIUpdate()`.
+[x] 1. VALUE está habilitado en Componentes.
+[x] 2. Seleccionar VALUE abre `Inspector · VALUE field`.
+[x] 3. El tipo C++ mostrado es `float`.
+[x] 4. Aparece la sección `Formato numérico`.
+[x] 5. Cambiar integerDigits modifica inmediatamente el ancho AUTO.
+[x] 6. Cambiar decimalDigits modifica sample, preview y ancho AUTO.
+[x] 7. signedValue=true reserva el signo en la geometría.
+[x] 8. Un valor negativo con signedValue=false muestra `#`.
+[x] 9. leadingZeros=true muestra ceros a la izquierda.
+[x] 10. INLINE / STACKED funcionan.
+[x] 11. LEFT / CENTER / RIGHT funcionan sobre la región VALUE reservada.
+[x] 12. Drag sólo funciona iniciando sobre el field.
+[x] 13. Click en canvas vacío deselecciona y no mueve el field.
+[x] 14. Ctrl+Z / Ctrl+Y funcionan con VALUE.
+[x] 15. Ctrl+D duplica VALUE con ID y variable únicos.
+[x] 16. TEXT y VALUE pueden coexistir en el mismo canvas.
+[x] 17. `Generar C++` contiene `JWPLC_UIValueField(...)`.
+[x] 18. El codegen contiene `JWPLC_UIValueFormat(...)` y `JWPLC_UIValueStyle(...)`.
+[x] 19. El codegen declara `float` para VALUE y `char[]` para TEXT.
+[x] 20. El codegen no contiene `tft.` ni genera `jwplcUIUpdate()`.
 ```
 
-## Criterio de salida
+La validación posterior del Live Preview además confirmó composición multiobjeto y actualización física estable sobre la TFT, sin modificar el contrato de producción.
+
+## Cierre
 
 ```text
 A11_3B_VALUE_FIELD=PASS
 NEXT=A11_3C_BOOL_FIELD
 ```
 
-La validación física de la composición completa permanece para los gates posteriores de Alpha11.
+La validación física final del codegen completo permanece para los gates posteriores de Alpha11.
