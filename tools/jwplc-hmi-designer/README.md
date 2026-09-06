@@ -1,225 +1,243 @@
 # JWPLC HMI Designer
 
-Herramienta visual en desarrollo para diseñar la TFT/HMI del **JWPLC Basic** y generar código compatible con `JWPLC_Display`.
+Herramienta visual para diseñar la HMI/TFT del **JWPLC Basic** sobre la API pública `JWPLC_Display` / `JWPLC_UI`.
 
 Estado actual:
 
 ```text
 Alpha11
-A11-0 Arquitectura: PASS
-A11-1 Pixel Canvas: PASS
-Gate en trabajo: A11-2 GFX Text Parity
-Target: ST7789 / 320 x 170 / rotation 3
+Target: ST7789 / 320 x 170 / rotation 3 / RGB565
+TEXT / VALUE / BOOL / BAR: PASS
+Páginas + indicador NN/TT: PASS
+LIVE Web Serial: PASS
+Codegen JWPLC_HMI_Generated.h: PASS
+Robustez botonera pressed()/released(): PASS_PHYSICAL
+Integración app/sketch: IMPLEMENTED_PENDING_GATE
 ```
 
-## Objetivo
+## Flujo recomendado
 
-El Designer debe permitir construir interfaces viendo los píxeles reales que ocupará la TFT, configurar campos HMI y generar la **estructura completa de presentación** sobre la API pública existente:
+El Designer genera toda la capa de presentación en:
 
-```cpp
-JWPLC_UIValueField(...)
-JWPLC_UITextField(...)
-JWPLC_UIBoolField(...)
-JWPLC_UIBarField(...)
-
-JWPLC_Display.setFields(...)
+```text
+JWPLC_HMI_Generated.h
 ```
 
-Además debe generar las variables HMI definidas visualmente por el usuario: nombre, tipo y capacidad cuando corresponda.
+Ese header contiene:
 
-Ejemplo:
-
-```cpp
-float temperatura = 0.0f;
-bool motorOn = false;
-char estadoTexto[13] = {};
+```text
+HMIPageId
+HMIFieldId
+variables HMI
+JWPLC_UIField[]
+jwplcHMISetup()
+jwplcUIUpdate() autogenerado
 ```
 
-El Designer **no genera** el cuerpo de `jwplcUIUpdate()`.
-
-El usuario implementa ese callback utilizando las variables e IDs ya generados:
+El `.ino` del usuario conserva la lógica de aplicación:
 
 ```cpp
-extern "C" void jwplcUIUpdate()
+#include "JWPLC_HMI_Generated.h"
+
+void setup()
 {
-    temperatura = obtenerTemperatura();
-    JWPLC_Display.setValue(FIELD_TEMP, temperatura);
+    jwplcHMISetup();
+    JWPLC_Display.enterUserUI();
+}
+
+void loop()
+{
+    // lógica de proceso, botones, sensores, E/S, Modbus, etc.
 }
 ```
 
-No se crea un runtime gráfico alternativo.
-
-## Contrato V1
+Regla Alpha11:
 
 ```text
-Canvas lógico : 320 x 170
-Controlador   : ST7789
-Rotación      : 3
-Color         : RGB565
-Fuente        : Adafruit GFX classic
-Campos        : VALUE / TEXT / BOOL / BAR
-Máximo actual : 32 fields
+loop()          = lógica del programa
+jwplcUIUpdate() = sincronización gráfica autogenerada
 ```
 
-## Frontera de codegen
+## Ejecutar como aplicación en Windows
+
+Desde:
 
 ```text
-Designer genera:
-- IDs simbólicos de fields
-- variables HMI y tipos C++
-- buffers de texto según capacity
-- JWPLC_UIField[]
-- helpers JWPLC_UI*Field(...)
-- JWPLC_Display.setFields(...)
-- configuración de display elegida visualmente
-
-Usuario escribe:
-- jwplcUIUpdate()
-- adquisición/asignación de datos
-- setValue(...)
-- setText(...)
-- setBool(...)
-- setBar(...)
-- lógica de proceso
+tools\jwplc-hmi-designer\
 ```
 
-La declaración de variables pertenece al Designer; la forma en que obtienen su valor pertenece al usuario.
-
-Documento contractual:
+puede ejecutarse directamente:
 
 ```text
-docs/v2.1.0-alpha.11/A11_3_PUBLIC_API_CODEGEN_CONTRACT.md
+JWPLC-HMI-Designer.cmd
 ```
 
-## PoC disponible
+El launcher:
 
-Ruta:
+- inicia automáticamente un servidor privado en `127.0.0.1:8765`;
+- abre Edge o Chrome en modo aplicación (`--app`);
+- conserva el contexto seguro necesario para Web Serial y acceso controlado a carpetas;
+- no requiere ejecutar manualmente `py -m http.server`.
+
+Opcionalmente, instalar accesos directos:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Install-JWPLC-HMI-Designer.ps1
+```
+
+Se crea acceso en Escritorio y menú Inicio `JWPLC`.
+
+## Abrir / Guardar proyecto
+
+La aplicación habilita proyectos:
+
+```text
+*.jwhmi
+```
+
+Formato Alpha11:
+
+```text
+JWPLC_HMI_PROJECT v1
+máximo 16 páginas
+máximo 32 fields
+ST7789 320x170 rotation 3 RGB565
+```
+
+Se guardan páginas, campos declarativos, geometría, estilos, colores, IDs/variables y página activa.
+
+Limitación Alpha11: las herramientas técnicas `Texto GFX RAW` y capa manual de píxeles no forman parte de la persistencia `.jwhmi` de producción.
+
+## Vincular con Arduino IDE / sketch
+
+No se requiere una extensión privada de Arduino IDE.
+
+En la aplicación:
+
+```text
+Vincular sketch…
+```
+
+selecciona una carpeta que contenga un archivo `.ino`.
+
+Después:
+
+```text
+Actualizar HMI
+```
+
+escribe directamente:
+
+```text
+<Sketch>\JWPLC_HMI_Generated.h
+```
+
+El Designer valida primero los identificadores C++, y pide confirmación antes de reemplazar un header existente.
+
+El `.ino` nunca se modifica automáticamente.
+
+Arduino IDE detectará el cambio del archivo del sketch y el usuario compila/sube normalmente.
+
+## LIVE Preview
+
+LIVE se mantiene sobre Web Serial:
+
+```text
+baud: 921600
+RX buffer: 8192
+frame rows: 32
+ACK flow control
+JWH2 dirty regions
+latest-state coalescing
+```
+
+La aplicación de escritorio sigue usando Edge/Chrome precisamente para conservar Web Serial sin introducir un segundo protocolo o runtime.
+
+## Páginas
+
+El indicador físico usa:
+
+```text
+01/03
+```
+
+Semántica:
+
+```text
+PAGE_SELECT
+  fondo negro / texto blanco
+  LEFT / RIGHT = cambiar página
+  OK           = entrar
+
+PAGE_CONTENT
+  fondo blanco / texto negro
+  LEFT/RIGHT/UP/DOWN/OK = usuario
+  ESC                    = volver a selector
+```
+
+Los símbolos C++ generados evitan números mágicos:
+
+```cpp
+if (!JWPLC_Display.isUserPageSelection() &&
+    JWPLC_Display.userPage() == PAGE_PROCESO)
+{
+    // lógica de esa página
+}
+```
+
+## Botonera: regla importante de robustez
+
+El package mantiene el escaneo de la matriz automáticamente desde `jwplcBtnScan`.
+
+Un sketch normal puede consultar:
+
+```cpp
+JWPLC_Buttons.pressed(BTN_UP)
+JWPLC_Buttons.released(BTN_OK)
+JWPLC_Buttons.isDown(BTN_LEFT)
+```
+
+en un `loop()` cerrado **sin añadir `delay()` ni Serial para estabilizar el escaneo**.
+
+Durante Alpha11 se reprodujo el fallo intermitente observado previamente en taller: un `loop()` intensivo consultando `pressed()` podía competir con el scanner y dejar la interacción aparentemente colgada. Se corrigió elevando la prioridad del task de scan y validando su creación.
+
+También se corrigió la transición `PAGE_CONTENT -> PAGE_SELECT`: al pulsar ESC se limpian PRESS/RELEASE/REPEAT pendientes y se resincroniza el estado físico, evitando reingresos fantasma por un `OK` pendiente.
+
+Por lo tanto, en un sketch normal **no** se debe:
+
+```cpp
+JWPLC_Buttons.update();
+```
+
+ni iniciar otro task de escaneo sobre `JWPLC_Buttons`.
+
+## PoC / desarrollo manual
+
+La ruta base sigue siendo:
 
 ```text
 tools/jwplc-hmi-designer/poc/
 ```
 
-El PoC implementa actualmente:
-
-- framebuffer RGB565 de 320 × 170;
-- zoom 2× / 3× / 4× / 6× / 8×;
-- escalado sin interpolación;
-- grid de píxel opcional;
-- coordenadas X/Y exactas;
-- lectura del valor RGB565 bajo el cursor;
-- dibujo y borrado por píxel;
-- preview simultáneo 1:1;
-- fuente clásica Adafruit GFX para ASCII 32–126;
-- celda RAW de 6 × 8 px por carácter;
-- `textSize` 1×..4×;
-- edición en vivo de texto, X/Y, foreground y background;
-- `Fondo de celda GFX` reproducido sin padding simétrico artificial.
-
-### Ejecutar sin dependencias
-
-Desde la raíz del repositorio:
+Para depuración web también puede usarse un servidor manual:
 
 ```powershell
 cd tools\jwplc-hmi-designer\poc
 py -m http.server 8080
 ```
 
-Luego abrir:
-
-```text
-http://localhost:8080
-```
-
-## A11-2 — paridad física RAW
-
-Muestra canónica:
-
-```text
-TEMP: 25.6 C
-X=20
-Y=20
-size=2
-RED sobre WHITE
-bounds GFX=144x16
-```
-
-Gate físico:
-
-```text
-tools/jwplc-hmi-designer/gates/A11_2_GFX_Text_Parity/
-```
-
-A11-2 comprueba que el Designer reproduce el comportamiento nativo equivalente a:
-
-```cpp
-tft.setTextSize(2);
-tft.setTextColor(ST77XX_RED, ST77XX_WHITE);
-tft.setCursor(20, 20);
-tft.print("TEMP: 25.6 C");
-```
-
-El background del modo RAW pertenece a la celda clásica GFX. No es una caja con padding simétrico.
-
-La `safe area` de pantalla probada temporalmente durante A11-2 fue retirada porque respondía a una interpretación incorrecta de la observación visual.
-
-## Prioridad del PoC
-
-1. framebuffer 320 × 170 — PASS;
-2. zoom sin interpolación — PASS;
-3. grid de píxel — PASS;
-4. coordenadas exactas — PASS;
-5. fuente clásica Adafruit GFX — EN VALIDACIÓN FÍSICA;
-6. campos HMI existentes;
-7. inspector de propiedades, incluida variable/tipo;
-8. proyecto `.jwhmi`;
-9. codegen C++ estructural + variables;
-10. exportación segura hacia sketch.
-
-## Siguiente gate tras A11-2
-
-A11-3 incorporará los fields declarativos reales:
-
-```text
-VALUE
-TEXT
-BOOL
-BAR
-```
-
-El renderer del Designer deberá reproducir exactamente la geometría actual de `JWPLC_Display`:
-
-```text
-FIELD_PADDING=3
-FIELD_GAP=4
-AUTO width/height
-INLINE / STACKED
-LEFT / CENTER / RIGHT
-```
-
-El inspector A11-3 también debe permitir definir el símbolo y tipo de la variable HMI asociada al objeto, sin generar la lógica de adquisición de esa variable.
-
-Sólo después de reproducir esa geometría se evaluará si una futura API necesita padding configurable o un objeto de texto con fondo simétrico.
-
-## Regla de integración
-
-El núcleo del Designer debe poder funcionar de forma independiente de Arduino IDE.
-
-La futura integración con el IDE debe actuar como una capa para:
-
-- abrir el diseñador;
-- detectar el sketch actual;
-- escribir/regenerar archivos controlados;
-- compilar/subir cuando exista una ruta soportada.
-
-No se debe acoplar el modelo `.jwhmi` ni el renderer a APIs privadas del IDE.
+Pero el flujo recomendado para usuario es `JWPLC-HMI-Designer.cmd`.
 
 ## Documentación Alpha11
 
-Ver:
-
 ```text
-docs/v2.1.0-alpha.11/ALPHA11_HMI_DESIGNER_ARCHITECTURE.md
-docs/v2.1.0-alpha.11/A11_2_GFX_CELL_BACKGROUND_DECISION.md
-docs/v2.1.0-alpha.11/A11_2_SAFE_AREA_DECISION.md  (SUPERSEDED)
-docs/v2.1.0-alpha.11/A11_3_PUBLIC_API_CODEGEN_CONTRACT.md
+docs/v2.1.0-alpha.11/ALPHA11_STATUS.md
+docs/v2.1.0-alpha.11/A11_3B_VALUE_FIELD_GATE.md
+docs/v2.1.0-alpha.11/A11_3C_BOOL_FIELD_GATE.md
+docs/v2.1.0-alpha.11/A11_3D_BAR_FIELD_GATE.md
+docs/v2.1.0-alpha.11/A11_3E_MULTI_FIELD_PAGES_GATE.md
+docs/v2.1.0-alpha.11/A11_4_CODEGEN_GATE.md
+docs/v2.1.0-alpha.11/A11_BUTTON_ROBUSTNESS_GATE.md
+docs/v2.1.0-alpha.11/A11_5_PHYSICAL_PARITY_GATE.md
+docs/v2.1.0-alpha.11/A11_6_DESKTOP_INTEGRATION_GATE.md
 ```
