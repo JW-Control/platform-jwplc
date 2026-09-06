@@ -9,6 +9,12 @@
   "theme_color": "#101a21",
   "icons": [
     {
+      "src": "./JWPLC-HMI-Designer.ico",
+      "sizes": "16x16 24x24 32x32 48x48 64x64 128x128 256x256",
+      "type": "image/x-icon",
+      "purpose": "any"
+    },
+    {
       "src": "./jwplc-hmi-icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
