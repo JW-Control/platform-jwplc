@@ -8,69 +8,62 @@ Cerrar la identidad visual del JWPLC HMI Designer en Windows antes del cierre de
 
 ## Problema reproducido
 
-El icono grande del acceso directo se veía correctamente, pero la barra de tareas mostraba una versión muy borrosa. El motivo es que Windows/Chromium trabaja con tamaños pequeños y puede reescalar agresivamente un recurso demasiado detallado.
+El icono grande del acceso directo se veía correctamente, pero Windows/Chromium reducía el mismo arte detallado a 16–32 px y la barra de tareas mostraba una mancha borrosa. La variante SVG simplificada tampoco dio un resultado suficientemente nítido en el `--app` de Chromium.
 
-## Ajuste Alpha11
+## Ajuste final Alpha11
 
-Se separa la identidad visual grande del recurso optimizado para ventana/taskbar:
+Se separan deliberadamente dos niveles de arte:
 
 ```text
 DESKTOP_SHORTCUT_ICON=JWPLC-HMI-Designer.ico
-WINDOW_TASKBAR_ICON=jwplc-hmi-icon.svg
-TASKBAR_SMALL_SIZE_OPTIMIZED=YES
-ICON_CACHE_BUST=alpha11-taskbar-v1
+EXE_ICON=JWPLC-HMI-Designer.ico
+WINDOW_TASKBAR_ICON_FAMILY=PNG_RASTER_PIXEL_ALIGNED
+ICON_SIZES=16,20,24,32,40,48,64
+ICON_CACHE_BUST=alpha11-taskbar-raster-v3
 ```
 
-El SVG de ventana/taskbar mantiene los rasgos del icono aprobado pero simplifica detalle fino:
+Los PNG pequeños no son una reducción automática del arte de 256 px. Se dibujan sobre la rejilla final para conservar sólo los rasgos reconocibles:
 
 ```text
-DARK_NAVY_BACKGROUND=YES
+DARK_NAVY_TILE=YES
 JWPLC_FRONT_PANEL=YES
 TFT_CYAN=YES
-DIRECTION_BUTTONS=YES
+DIRECTION_PAD=SIMPLIFIED
 ESC_RED=YES
 OK_GREEN=YES
-BUZZER=YES
 TEXT_LOGO=NO
-SMALL_DETAILS_REDUCED=YES
+FINE_SCREEN_DETAIL=REMOVED
+PIXEL_ALIGNED=YES
 ```
 
-La aplicación fuerza una nueva identidad de carga mediante:
+El `.ico` detallado aprobado se mantiene para el EXE, Escritorio y Menú Inicio.
+
+## Carga y caché
+
+La aplicación usa una identidad nueva:
 
 ```text
-desktop.html?app=alpha11-taskbar-v1
-manifest.webmanifest?v=alpha11-taskbar-v1
-jwplc-hmi-icon.svg?v=alpha11-taskbar-v1
+desktop.html?app=alpha11-taskbar-raster-v3
+manifest.webmanifest?v=alpha11-taskbar-raster-v3
+icons/icon-16.png ... icons/icon-64.png
 ```
 
-## Commits relacionados
-
-```text
-5ee2a08  fix(hmi): optimizar icono de ventana para tamanos pequenos
-5635a10  fix(hmi): usar icono vectorial optimizado en barra de tareas
-33c1290  fix(hmi): priorizar icono vectorial en manifest de escritorio
-80ca4fd  fix(hmi): invalidar cache del icono optimizado de taskbar
-```
+`desktop.html` declara tamaños concretos de favicon antes y después de inyectar el documento final. No se usa SVG para el icono pequeño.
 
 ## Gate de usuario
 
-Después de hacer pull debe reinstalarse la aplicación, porque la copia real vive en `%LOCALAPPDATA%\JWPLC\HMI Designer`.
-
-Secuencia:
-
 ```text
-1. Cerrar JWPLC HMI Designer.
+1. Cerrar completamente JWPLC HMI Designer.
 2. Cerrar Arduino IDE.
 3. git pull --ff-only.
 4. Reejecutar Install-JWPLC-HMI-Designer.cmd.
-5. Instalar también el launcher Arduino IDE cuando se pregunte.
-6. Abrir el Designer desde el acceso del Escritorio.
-7. Confirmar icono grande del acceso directo.
-8. Confirmar icono en barra de título de la app.
-9. Confirmar icono nítido en barra de tareas a escala Windows actual.
-10. Abrir el Designer desde el botón JW HMI de Arduino IDE.
-11. Confirmar que no aparece flash blanco/HTML sin estilos durante el arranque.
-12. Confirmar que Guardar, Actualizar HMI y LIVE siguen operativos.
+5. Abrir Designer desde Escritorio.
+6. Confirmar que el icono grande sigue correcto.
+7. Confirmar que la barra de título muestra un icono legible.
+8. Confirmar que la barra de tareas muestra el símbolo JWPLC nítido.
+9. Confirmar ausencia del flash blanco/HTML sin estilos.
+10. Abrir desde JW HMI en Arduino IDE.
+11. Confirmar Guardar, Actualizar HMI y LIVE.
 ```
 
 ## Resultado esperado
@@ -83,10 +76,10 @@ A11_6_APP_BOOT_GUARD=PASS
 A11_6_ARDUINO_IDE_LAUNCHER=PASS_EXPERIMENTAL
 ```
 
-Hasta la confirmación física/visual del usuario:
+Hasta confirmación visual:
 
 ```text
 A11_6_ICON_TASKBAR_GATE=IMPLEMENTED_PENDING_USER_GATE
 ```
 
-Una vez aprobado este gate, el siguiente paso es el cierre técnico de Alpha11: regeneración de `JWPLC_Display` precompilado, comparación source/precompiled, benchmark final, README/checklist y documentación de PR/PreRelease.
+Una vez aprobado, no se vuelve a modificar UI/launcher en Alpha11. El siguiente paso es el cierre técnico: regeneración de `JWPLC_Display` precompilado, comparación source/precompiled, benchmark final, smoke físico, README/checklist y PR/PreRelease.
