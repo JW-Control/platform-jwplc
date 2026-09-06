@@ -2,7 +2,7 @@
   "name": "jwplc-hmi-launcher",
   "displayName": "JWPLC HMI Designer Launcher",
   "description": "Abre JWPLC HMI Designer desde Arduino IDE 2 sin integrar ni modificar el runtime del IDE.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "jw-control",
   "license": "MIT",
   "engines": {
