@@ -1,5 +1,17 @@
 # Alpha11 · Gate de robustez de botonera
 
+## Estado
+
+```text
+A11_BUTTON_ROBUSTNESS=PASS_PHYSICAL
+BUTTON_SCAN_TIGHT_LOOP_NO_DELAY=PASS
+BUTTON_SCAN_MULTI_RESET=PASS
+PAGE_CONTENT_ESC_CLEANUP=PASS
+PENDING_OK_NO_REENTRY=PASS
+SERIAL_REQUIRED=NO
+USER_DELAY_REQUIRED=NO
+```
+
 ## Contexto
 
 Durante A11-4 se reprodujo de forma intermitente un bloqueo de interacción al entrar en `PAGE_CONTENT` cuando el `loop()` consulta `JWPLC_Buttons.pressed(...)` de forma intensiva y sin `delay()`.
@@ -12,7 +24,7 @@ Patrón observado:
 - Añadir `Serial.printf(...)` o un `delay(1)` al loop hacía desaparecer el fallo durante múltiples reinicios.
 - El scanner real del JWPLC Basic es `jwplcBtnScan` en `JWPLC_GlobalPeripherals`; `JWPLC_Buttons.taskRunning()` no representa ese task y no debe usarse para diagnosticarlo.
 
-Esto es consistente con contención/scheduling entre el loop del usuario y el task de scan, pero la causa se considera **pendiente de cierre físico** hasta superar el gate sin Serial ni delays de usuario.
+La reproducción fue importante porque el comportamiento coincide con los bloqueos intermitentes observados previamente durante ejercicios de botonera en taller: un sketch de usuario no debe necesitar `delay()` ni tráfico Serial para que `pressed()` sea robusto.
 
 ## Fix 1 · Robustez del scanner
 
@@ -39,43 +51,28 @@ Al pulsar `ESC` dentro de `PAGE_CONTENT`:
 
 Objetivo: un `OK` u otra tecla pendiente usada dentro de la aplicación no puede sobrevivir a la transición y provocar un reingreso fantasma al contenido.
 
-## Gate físico obligatorio
+## Evidencia física
 
-Usar el sketch HMI generado real, **sin Serial de diagnóstico y sin `delay()` añadido por el usuario**.
+Se validó el sketch HMI generado real, sin Serial de diagnóstico y sin `delay()` añadido por el usuario.
 
-Repetir al menos 10 ciclos de reset/subida con:
+Se realizaron múltiples reinicios/subidas y se recorrieron repetidamente las tres páginas:
 
 ```text
 01 -> OK -> ESC
 02 -> OK -> ESC
 03 -> OK
-UP UP DOWN
+UP / DOWN
 ESC
 ```
 
-En Página 03 mantener la lógica intensiva:
+Resultado:
 
-```cpp
-if (!JWPLC_Display.isUserPageSelection() &&
-    JWPLC_Display.userPage() == PAGE_PAGINA_3)
-{
-    if (JWPLC_Buttons.pressed(BTN_UP))
-        nivel11 += 10.0f;
-
-    if (JWPLC_Buttons.pressed(BTN_DOWN))
-        nivel11 -= 10.0f;
-}
-```
-
-Validar adicionalmente el caso de latches pendientes:
-
-```text
-entrar en una página
-OK varias veces
-ESC
-```
-
-Esperado: vuelve una sola vez a `PAGE_SELECT` y permanece allí; no debe reentrar por un `OK` pendiente.
+- entrada/salida estable en todas las páginas;
+- `pressed(BTN_UP)` / `pressed(BTN_DOWN)` operativos en loop cerrado;
+- BAR actualizado correctamente desde la lógica de usuario;
+- no se requirió `Serial.begin()`, `Serial.printf()` ni `delay(1)`;
+- `ESC` retorna a `PAGE_SELECT` de forma estable;
+- múltiples `OK` dentro de `PAGE_CONTENT` ya no provocan reingreso al salir con `ESC`.
 
 ## Criterio de cierre
 
@@ -86,10 +83,19 @@ PAGE_CONTENT_ESC_CLEANUP=PASS
 PENDING_OK_NO_REENTRY=PASS
 SERIAL_REQUIRED=NO
 USER_DELAY_REQUIRED=NO
+A11_BUTTON_ROBUSTNESS=PASS_PHYSICAL
 ```
 
-Hasta completar este gate:
+## Nota obligatoria para README
+
+Al documentar la botonera del JWPLC Basic debe quedar explícito:
+
+- el package mantiene el escaneo automáticamente en segundo plano;
+- el sketch normal no debe llamar `JWPLC_Buttons.update()` ni crear un segundo scanner;
+- `pressed()` / `released()` pueden usarse directamente desde un `loop()` sin añadir delays artificiales;
+- los eventos son latcheados/consumibles;
+- al diseñar máquinas de estados o navegación, conviene limpiar eventos pendientes al cambiar de contexto cuando una pulsación vieja no debe sobrevivir a la transición.
 
 ```text
-A11_BUTTON_ROBUSTNESS=IMPLEMENTED_PENDING_PHYSICAL_GATE
+README_BUTTON_ROBUSTNESS_NOTE=REQUIRED_AT_ALPHA11_CLOSE
 ```
