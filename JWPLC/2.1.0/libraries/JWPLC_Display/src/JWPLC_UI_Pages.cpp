@@ -20,6 +20,7 @@ namespace
     uint8_t g_pageCount = 1;
     bool g_selectionMode = true;
     uint8_t g_previousMask = 0;
+    bool g_indicatorDirty = true;
 
     JWPLC_DisplayIdleReturnMode g_savedIdleReturnMode = IDLE_RETURN_ESC_ONLY;
     bool g_idleReturnOverridden = false;
@@ -61,6 +62,11 @@ namespace
         JWPLCButtons::clearPendingInput();
     }
 
+    void markIndicatorDirty()
+    {
+        g_indicatorDirty = true;
+    }
+
     void restoreIdleReturnMode()
     {
         if (!g_idleReturnOverridden)
@@ -83,6 +89,7 @@ namespace
         JWPLC_Display.setIdleReturnMode(IDLE_RETURN_DISABLED);
         g_idleReturnOverridden = true;
         g_selectionMode = false;
+        markIndicatorDirty();
         JWPLCUI::requestRefresh();
     }
 
@@ -95,6 +102,7 @@ namespace
 
         g_selectionMode = true;
         restoreIdleReturnMode();
+        markIndicatorDirty();
         JWPLCUI::requestRefresh();
     }
 }
@@ -135,6 +143,7 @@ namespace JWPLCUIPages
         }
 
         g_previousMask = readButtonDownMask();
+        markIndicatorDirty();
         JWPLCUI::requestRefresh();
     }
 
@@ -160,35 +169,48 @@ namespace JWPLCUIPages
             (uint8_t)(downMask & (uint8_t)~g_previousMask);
         g_previousMask = downMask;
 
-        if (!navigationEnabled() || pressedEdges == 0)
+        if (!navigationEnabled())
         {
             return;
         }
 
         if (g_selectionMode)
         {
-            bool consumed = false;
-            const uint8_t current = JWPLCUI::currentPage();
+            // PAGE_SELECT es propiedad del sistema HMI. Usamos los latches
+            // pressed() para no perder pulsaciones entre dos ticks de Display.
+            // En este modo es correcto consumir LEFT/RIGHT/UP/DOWN/OK.
+            const bool leftPressed = JWPLC_Buttons.pressed(BTN_LEFT);
+            const bool rightPressed = JWPLC_Buttons.pressed(BTN_RIGHT);
+            const bool okPressed = JWPLC_Buttons.pressed(BTN_OK);
+            const bool upPressed = JWPLC_Buttons.pressed(BTN_UP);
+            const bool downPressed = JWPLC_Buttons.pressed(BTN_DOWN);
 
-            if ((pressedEdges & buttonMask(BTN_LEFT)) != 0)
+            bool consumed = false;
+            uint8_t current = JWPLCUI::currentPage();
+
+            if (leftPressed)
             {
                 consumed = true;
                 if (current > 0)
                 {
-                    JWPLCUI::setPage((uint8_t)(current - 1));
+                    current = (uint8_t)(current - 1);
+                    JWPLCUI::setPage(current);
+                    markIndicatorDirty();
                 }
             }
 
-            if ((pressedEdges & buttonMask(BTN_RIGHT)) != 0)
+            if (rightPressed)
             {
                 consumed = true;
                 if ((uint8_t)(current + 1) < g_pageCount)
                 {
-                    JWPLCUI::setPage((uint8_t)(current + 1));
+                    current = (uint8_t)(current + 1);
+                    JWPLCUI::setPage(current);
+                    markIndicatorDirty();
                 }
             }
 
-            if ((pressedEdges & buttonMask(BTN_OK)) != 0)
+            if (okPressed)
             {
                 consumed = true;
                 enterContentMode();
@@ -196,14 +218,13 @@ namespace JWPLCUIPages
 
             // UP/DOWN no hacen nada en PAGE_SELECT y tampoco deben llegar a la
             // aplicación: en este modo la botonera pertenece al selector.
-            if ((pressedEdges & (buttonMask(BTN_UP) | buttonMask(BTN_DOWN))) != 0)
+            if (upPressed || downPressed)
             {
                 consumed = true;
             }
 
-            // ESC se deja al comportamiento IDLE existente. Si el usuario
-            // mantiene IDLE_RETURN_ESC_ONLY, un segundo ESC desde el selector
-            // puede regresar a IDLE sin introducir una ruta paralela.
+            // ESC se deja al comportamiento IDLE existente. El resto de las
+            // teclas del selector se absorben completamente al cambiar de modo.
             if (consumed)
             {
                 consumeNavigationInput();
@@ -213,10 +234,9 @@ namespace JWPLCUIPages
         }
 
         // PAGE_CONTENT: LEFT/RIGHT/UP/DOWN/OK quedan intactos para el usuario.
-        // Un flanco de cualquiera de esos botones solicita un ciclo USER para
-        // que jwplcUIUpdate() pueda observar pressed() aun con refresh ON_DEMAND.
-        // No se limpian los latches: la aplicación conserva la propiedad del
-        // evento. Sólo ESC pertenece al sistema HMI y vuelve a PAGE_SELECT.
+        // Para ON_DEMAND mantenemos el wake por flanco físico sin consumir sus
+        // latches. En PERIODIC este request es inocuo y no añade redibujos si
+        // los setters no modifican ningún field.
         const uint8_t userOwnedMask =
             buttonMask(BTN_LEFT) |
             buttonMask(BTN_RIGHT) |
@@ -229,9 +249,11 @@ namespace JWPLCUIPages
             JWPLCUI::requestRefresh();
         }
 
-        if ((pressedEdges & buttonMask(BTN_ESC)) != 0)
+        // ESC sí pertenece al sistema HMI en PAGE_CONTENT. Se usa el latch
+        // pressed() para que la salida al selector no dependa de acertar el
+        // intervalo de sondeo físico del Display.
+        if (JWPLC_Buttons.pressed(BTN_ESC))
         {
-            consumeNavigationInput();
             enterSelectionMode();
         }
     }
@@ -241,18 +263,20 @@ namespace JWPLCUIPages
         if (!navigationEnabled())
         {
             g_previousMask = readButtonDownMask();
+            markIndicatorDirty();
             return;
         }
 
         restoreIdleReturnMode();
         g_selectionMode = true;
         g_previousMask = readButtonDownMask();
+        markIndicatorDirty();
         JWPLCUI::requestRefresh();
     }
 
     void drawIndicator(Adafruit_ST7789 &tft)
     {
-        if (!navigationEnabled())
+        if (!navigationEnabled() || !g_indicatorDirty)
         {
             return;
         }
@@ -286,6 +310,8 @@ namespace JWPLCUIPages
         tft.setTextColor(foreground, background);
         tft.setCursor(INDICATOR_TEXT_X, INDICATOR_TEXT_Y);
         tft.print(text);
+
+        g_indicatorDirty = false;
     }
 }
 
