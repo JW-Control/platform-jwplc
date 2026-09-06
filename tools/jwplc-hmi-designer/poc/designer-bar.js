@@ -51,7 +51,6 @@
 
   if (!barButton || !fieldSection || !displayCanvas || !previewCanvas) return;
 
-  const barFields = new Set();
   let barDragging = null;
   let barDragOffset = { x: 0, y: 0 };
   let barKeyboardChanged = false;
@@ -107,6 +106,15 @@
     return field?.type === 'BAR';
   }
 
+  function activeBars() {
+    return (editor()?.getAllFields?.() || []).filter((field) => field?.type === 'BAR');
+  }
+
+  function visibleBars() {
+    const page = Number(editor()?.getActivePage?.() ?? 0);
+    return activeBars().filter((field) => Number(field.page || 0) === page);
+  }
+
   function serialFor(field) {
     const match = String(field?.key || '').match(/-(\d+)$/);
     return match ? Number(match[1]) : 1;
@@ -153,7 +161,6 @@
 
   function ensureBarState(field) {
     if (!field || field.type !== 'BAR') return;
-    barFields.add(field);
     if (typeof field.barLabel !== 'string') field.barLabel = field.label || 'Nivel';
     if (typeof field.barUnit !== 'string') field.barUnit = field.unit || '%';
     if (!Number.isFinite(Number(field.barMin))) field.barMin = 0;
@@ -162,8 +169,6 @@
     if (typeof field.barAutoWidth !== 'boolean') field.barAutoWidth = true;
     if (!Number.isFinite(Number(field.barWidth))) field.barWidth = 110;
 
-    // Placeholder mínimo para el core. BAR se compone pixel-perfect después
-    // del render base, usando exactamente la geometría del runtime JWPLC_UI.
     field.label = '';
     field.unit = '';
     field.preview = '';
@@ -229,16 +234,6 @@
       labelBounds,
       unitBounds
     };
-  }
-
-  function isTrackedActive(field) {
-    if (!field || field.type !== 'BAR') return false;
-    return [...document.querySelectorAll('.object-id')]
-      .some((node) => node.textContent.trim() === String(field.id || '').trim());
-  }
-
-  function activeBars() {
-    return [...barFields].filter(isTrackedActive);
   }
 
   function drawClassicText(ctx, text, x, y, size, color, scale) {
@@ -315,7 +310,7 @@
   }
 
   function patchCanvases() {
-    const bars = activeBars();
+    const bars = visibleBars();
     if (!bars.length) return;
     const displayCtx = displayCanvas.getContext('2d', { alpha: false });
     const previewCtx = previewCanvas.getContext('2d', { alpha: false });
@@ -528,12 +523,12 @@
 
   function patchStatusText() {
     if (!codeOutput?.textContent.startsWith('A11 UX Foundation:')) return;
-    const barCount = activeBars().length;
+    const barCount = visibleBars().length;
     let text = codeOutput.textContent
       .replace('A11-3C BOOL: IN_PROGRESS', 'A11-3C BOOL: PASS')
       .replace('A11-3D BAR permanece pendiente.', 'A11-3D BAR: IN_PROGRESS');
 
-    if (!text.includes('A11-3D BAR: IN_PROGRESS')) {
+    if (!text.includes('A11-3D BAR: IN_PROGRESS') && !text.includes('A11-3D BAR: PASS')) {
       const marker = text.includes('A11-3C BOOL: PASS') ? 'A11-3C BOOL: PASS' : 'A11-3B VALUE: PASS';
       text = text.replace(marker, `${marker}\nA11-3D BAR: IN_PROGRESS`);
     }
@@ -558,7 +553,7 @@
   }
 
   function hitBar(point) {
-    const bars = activeBars();
+    const bars = visibleBars();
     for (let index = bars.length - 1; index >= 0; index -= 1) {
       const field = bars[index];
       const g = barGeometry(field);
