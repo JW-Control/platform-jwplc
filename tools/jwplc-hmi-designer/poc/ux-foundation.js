@@ -31,6 +31,7 @@
   ].map((id) => document.getElementById(id)).filter(Boolean);
 
   let bottomCollapsed = false;
+  let fitResizeTimer = null;
 
   function editor() {
     return window.JWPLCHMIEditor || null;
@@ -111,7 +112,7 @@
     const g = selectedGeometry();
     if (!field || !g) return;
 
-    const zoom = Math.max(1, Number(zoomSelect.value) || 3);
+    const zoom = Math.max(0.5, Number(zoomSelect.value) || 3);
     const left = field.x * zoom;
     const top = field.y * zoom;
     const width = g.fieldW * zoom;
@@ -144,12 +145,38 @@
         : 'Sin objeto seleccionado';
       selectedGeometryStatus.textContent = 'X:— Y:—';
     }
-    zoomStatus.textContent = `Zoom: ${zoomSelect.value}×`;
+    const currentZoom = Number(zoomSelect.value) || 1;
+    const fitActive = zoomSelect.selectedOptions?.[0]?.dataset.fitOption === '1';
+    zoomStatus.textContent = fitActive
+      ? `Zoom: Fit ${currentZoom.toFixed(2)}×`
+      : `Zoom: ${zoomSelect.value}×`;
   }
 
   function refreshUX() {
     updateStatus();
     requestAnimationFrame(drawGeometryOverlay);
+  }
+
+  function exactFitZoom() {
+    const availableW = Math.max(160, canvasViewport.clientWidth - 20);
+    const availableH = Math.max(85, canvasViewport.clientHeight - 20);
+    const raw = Math.min(availableW / WIDTH, availableH / HEIGHT, 8);
+    return Math.max(0.5, Math.floor(raw * 100) / 100);
+  }
+
+  function applyExactFit() {
+    const value = exactFitZoom();
+    let option = zoomSelect.querySelector('option[data-fit-option="1"]');
+    if (!option) {
+      option = document.createElement('option');
+      option.dataset.fitOption = '1';
+      zoomSelect.insertBefore(option, zoomSelect.firstChild);
+    }
+    option.value = value.toFixed(2);
+    option.textContent = `Fit · ${value.toFixed(2)}×`;
+    zoomSelect.value = option.value;
+    zoomSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    refreshUX();
   }
 
   geometryToggle.addEventListener('change', refreshUX);
@@ -159,17 +186,12 @@
     input.addEventListener('change', refreshUX);
   });
 
-  fitButton.addEventListener('click', () => {
-    const availableW = Math.max(320, canvasViewport.clientWidth - 36);
-    const availableH = Math.max(170, canvasViewport.clientHeight - 30);
-    const raw = Math.min(availableW / WIDTH, availableH / HEIGHT);
-    const choices = [2, 3, 4, 6, 8];
-    let best = 2;
-    choices.forEach((candidate) => {
-      if (candidate <= raw) best = candidate;
-    });
-    zoomSelect.value = String(best);
-    zoomSelect.dispatchEvent(new Event('change', { bubbles: true }));
+  fitButton.addEventListener('click', (event) => {
+    // En la app desktop, Ajustar significa FIT real: usar el mayor área posible
+    // preservando la relación 320:170. Se detienen listeners posteriores que
+    // intenten reducirlo a una escala discreta 1×/2×/3×.
+    event.stopImmediatePropagation();
+    requestAnimationFrame(applyExactFit);
   });
 
   generateButton.addEventListener('click', () => {
@@ -197,7 +219,12 @@
     }
   });
 
-  window.addEventListener('resize', refreshUX);
+  window.addEventListener('resize', () => {
+    refreshUX();
+    if (zoomSelect.selectedOptions?.[0]?.dataset.fitOption !== '1') return;
+    clearTimeout(fitResizeTimer);
+    fitResizeTimer = setTimeout(applyExactFit, 90);
+  });
   window.addEventListener('jwplc:editor-refresh', refreshUX);
   displayCanvas.addEventListener('pointermove', refreshUX);
   document.querySelector('.left-panel')?.addEventListener('click', () => setTimeout(refreshUX, 0));
