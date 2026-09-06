@@ -17,11 +17,16 @@
 //   El host envía un frame y espera JWHMI_LIVE_FRAME <seq> antes de
 //   transmitir el siguiente. Esto evita acumular frames durante drag/edición.
 //
-// Importante:
-//   El JWPLC Basic v2 no dispone de PSRAM. Por ello el bridge NO reserva
-//   un framebuffer completo de 320x170x16 bits (~106 KiB). El RLE recibido
-//   se decodifica de forma streaming usando sólo una línea RGB565 (640 B)
-//   y cada línea se envía a la TFT bajo el mutex SPI compartido.
+// Buffer de dibujo:
+//   El JWPLC Basic v2 no dispone de PSRAM. No reservamos el framebuffer
+//   completo de 320x170x16 bits (~106 KiB). El RLE se decodifica en un
+//   framebuffer parcial de 16 filas (10 KiB) y se envía a la TFT por bloques.
+//   Esto reduce drásticamente adquisiciones del mutex SPI frente al buffer de
+//   una sola fila, manteniendo un consumo de RAM muy inferior al frame completo.
+//
+// Telemetría:
+//   Cada 30 frames se publica JWHMI_LIVE_STATS con tiempos de frame/dibujo,
+//   heap libre/mínimo/bloque mayor y contador de errores del bridge.
 //
 // El Designer sigue generando C++ mediante la API pública JWPLC_UI.
 // Este bridge sólo permite ver el framebuffer del editor en la TFT física
@@ -37,6 +42,11 @@ namespace
     static constexpr uint32_t SERIAL_BAUD = 500000;
     static constexpr size_t SERIAL_RX_BUFFER = 8192;
 
+    static constexpr uint16_t FRAME_BUFFER_ROWS = 16;
+    static constexpr uint32_t FRAME_BUFFER_PIXELS =
+        (uint32_t)FRAME_W * FRAME_BUFFER_ROWS;
+    static constexpr uint32_t STATS_INTERVAL_FRAMES = 30;
+
     // JWH1 = inicio de frame binario.
     // JWH? = probe corto del navegador para solicitar READY.
     static constexpr uint8_t FRAME_MAGIC[4] = {'J', 'W', 'H', '1'};
@@ -48,8 +58,20 @@ namespace
         INPUT_PROBE
     };
 
-    // Sólo una línea: 320 * 2 bytes = 640 bytes.
-    uint16_t g_row[FRAME_W] = {};
+    struct LiveStats
+    {
+        uint32_t frames = 0;
+        uint32_t frameUsTotal = 0;
+        uint32_t frameUsMax = 0;
+        uint32_t rxUsTotal = 0;
+        uint32_t drawUsTotal = 0;
+        uint32_t drawUsMax = 0;
+        uint32_t errors = 0;
+    };
+
+    // Framebuffer PARCIAL: 320 * 16 * 2 bytes = 10,240 bytes.
+    uint16_t g_frame[FRAME_BUFFER_PIXELS] = {};
+    LiveStats g_stats;
 
     uint16_t readU16LE(const uint8_t *p)
     {
@@ -68,6 +90,13 @@ namespace
     void sendReady()
     {
         Serial.println("JWHMI_LIVE_READY 1");
+    }
+
+    void reportError(const char *reason)
+    {
+        ++g_stats.errors;
+        Serial.print("JWHMI_LIVE_ERROR ");
+        Serial.println(reason);
     }
 
     bool readExact(uint8_t *dst, size_t length, uint32_t timeoutMs = 1000)
@@ -160,28 +189,108 @@ namespace
         return INPUT_NONE;
     }
 
-    bool drawRow(uint16_t y)
+    bool drawBlock(uint16_t startY, uint16_t rows, uint32_t &drawUs)
     {
-        if (y >= FRAME_H)
+        if (rows == 0 || startY >= FRAME_H || startY + rows > FRAME_H)
         {
             return false;
         }
+
+        const uint32_t started = micros();
 
         // El display comparte SPI con Ethernet, SD y FRAM. Aunque este sketch
         // sea un bridge de desarrollo, respetamos el mutex común del package.
         if (!jwplcSPI_acquire(50))
         {
+            drawUs += micros() - started;
             return false;
         }
 
         jwplcSPI_prepareForTFT();
-        JWPLC_Display.tft().drawRGBBitmap(0, (int16_t)y, g_row, FRAME_W, 1);
+        JWPLC_Display.tft().drawRGBBitmap(
+            0,
+            (int16_t)startY,
+            g_frame,
+            FRAME_W,
+            rows);
         jwplcSPI_release();
+
+        drawUs += micros() - started;
         return true;
+    }
+
+    void sendStatsIfNeeded()
+    {
+        if (g_stats.frames < STATS_INTERVAL_FRAMES)
+        {
+            return;
+        }
+
+        const uint32_t frames = g_stats.frames;
+        const uint32_t frameUsAvg = g_stats.frameUsTotal / frames;
+        const uint32_t rxUsAvg = g_stats.rxUsTotal / frames;
+        const uint32_t drawUsAvg = g_stats.drawUsTotal / frames;
+
+        Serial.print("JWHMI_LIVE_STATS frames=");
+        Serial.print(frames);
+        Serial.print(" frame_us_avg=");
+        Serial.print(frameUsAvg);
+        Serial.print(" frame_us_max=");
+        Serial.print(g_stats.frameUsMax);
+        Serial.print(" rx_us_avg=");
+        Serial.print(rxUsAvg);
+        Serial.print(" draw_us_avg=");
+        Serial.print(drawUsAvg);
+        Serial.print(" draw_us_max=");
+        Serial.print(g_stats.drawUsMax);
+        Serial.print(" free=");
+        Serial.print(ESP.getFreeHeap());
+        Serial.print(" min=");
+        Serial.print(ESP.getMinFreeHeap());
+        Serial.print(" largest=");
+        Serial.print(ESP.getMaxAllocHeap());
+        Serial.print(" errors=");
+        Serial.print(g_stats.errors);
+        Serial.print(" buffer_rows=");
+        Serial.println(FRAME_BUFFER_ROWS);
+
+        // Las métricas temporales se reinician por ventana; el contador de
+        // errores se conserva para detectar fallos acumulados durante el soak.
+        g_stats.frames = 0;
+        g_stats.frameUsTotal = 0;
+        g_stats.frameUsMax = 0;
+        g_stats.rxUsTotal = 0;
+        g_stats.drawUsTotal = 0;
+        g_stats.drawUsMax = 0;
+    }
+
+    void recordFrameStats(uint32_t frameUs, uint32_t drawUs)
+    {
+        const uint32_t rxUs = (frameUs >= drawUs)
+                                  ? frameUs - drawUs
+                                  : 0;
+
+        ++g_stats.frames;
+        g_stats.frameUsTotal += frameUs;
+        g_stats.rxUsTotal += rxUs;
+        g_stats.drawUsTotal += drawUs;
+
+        if (frameUs > g_stats.frameUsMax)
+        {
+            g_stats.frameUsMax = frameUs;
+        }
+
+        if (drawUs > g_stats.drawUsMax)
+        {
+            g_stats.drawUsMax = drawUs;
+        }
     }
 
     bool receiveFrame()
     {
+        const uint32_t frameStarted = micros();
+        uint32_t drawUs = 0;
+
         // Header posterior a JWH1:
         //   u32 sequence
         //   u32 runCount
@@ -190,7 +299,7 @@ namespace
         uint8_t header[12] = {};
         if (!readExact(header, sizeof(header)))
         {
-            Serial.println("JWHMI_LIVE_ERROR header_timeout");
+            reportError("header_timeout");
             return false;
         }
 
@@ -202,20 +311,20 @@ namespace
         if (width != FRAME_W || height != FRAME_H ||
             runCount == 0 || runCount > MAX_RUNS)
         {
-            Serial.println("JWHMI_LIVE_ERROR invalid_header");
+            reportError("invalid_header");
             return false;
         }
 
         uint32_t pixelIndex = 0;
-        uint16_t rowFill = 0;
-        uint16_t rowY = 0;
+        uint32_t blockFill = 0;
+        uint16_t blockStartY = 0;
         uint8_t pair[4] = {};
 
         for (uint32_t i = 0; i < runCount; ++i)
         {
             if (!readExact(pair, sizeof(pair)))
             {
-                Serial.println("JWHMI_LIVE_ERROR payload_timeout");
+                reportError("payload_timeout");
                 return false;
             }
 
@@ -224,48 +333,75 @@ namespace
 
             if (remaining == 0 || pixelIndex + remaining > FRAME_PIXELS)
             {
-                Serial.println("JWHMI_LIVE_ERROR invalid_run");
+                reportError("invalid_run");
                 return false;
             }
 
             while (remaining > 0)
             {
-                const uint16_t freeInRow = FRAME_W - rowFill;
-                const uint16_t chunk = (remaining < freeInRow)
-                                           ? remaining
-                                           : freeInRow;
+                const uint32_t freeInBlock = FRAME_BUFFER_PIXELS - blockFill;
+                const uint16_t chunk =
+                    (remaining < freeInBlock)
+                        ? remaining
+                        : (uint16_t)freeInBlock;
 
                 for (uint16_t p = 0; p < chunk; ++p)
                 {
-                    g_row[rowFill + p] = color;
+                    g_frame[blockFill + p] = color;
                 }
 
-                rowFill += chunk;
+                blockFill += chunk;
                 pixelIndex += chunk;
                 remaining -= chunk;
 
-                if (rowFill == FRAME_W)
+                if (blockFill == FRAME_BUFFER_PIXELS)
                 {
-                    if (!drawRow(rowY))
+                    if (!drawBlock(blockStartY, FRAME_BUFFER_ROWS, drawUs))
                     {
-                        Serial.println("JWHMI_LIVE_ERROR spi_busy");
+                        reportError("spi_busy");
                         return false;
                     }
 
-                    rowFill = 0;
-                    ++rowY;
+                    blockStartY += FRAME_BUFFER_ROWS;
+                    blockFill = 0;
                 }
             }
         }
 
-        if (pixelIndex != FRAME_PIXELS || rowFill != 0 || rowY != FRAME_H)
+        // 170 no es múltiplo de 16: el último bloque contiene 10 filas.
+        if (blockFill > 0)
         {
-            Serial.println("JWHMI_LIVE_ERROR incomplete_frame");
+            if ((blockFill % FRAME_W) != 0)
+            {
+                reportError("incomplete_block");
+                return false;
+            }
+
+            const uint16_t rows = (uint16_t)(blockFill / FRAME_W);
+            if (!drawBlock(blockStartY, rows, drawUs))
+            {
+                reportError("spi_busy");
+                return false;
+            }
+
+            blockStartY += rows;
+            blockFill = 0;
+        }
+
+        if (pixelIndex != FRAME_PIXELS || blockStartY != FRAME_H)
+        {
+            reportError("incomplete_frame");
             return false;
         }
 
+        const uint32_t frameUs = micros() - frameStarted;
+        recordFrameStats(frameUs, drawUs);
+
         Serial.print("JWHMI_LIVE_FRAME ");
         Serial.println(sequence);
+
+        // El ACK sale primero para liberar al host lo antes posible.
+        sendStatsIfNeeded();
         return true;
     }
 }
@@ -276,8 +412,8 @@ extern "C" bool jwplcCanReturnToIdle(void)
 }
 
 // Evita que el servicio periódico del display intente refrescar mientras el
-// bridge dibuja las líneas directamente bajo el mutex SPI. enterUserUI() puede
-// realizar su transición inicial; después el framebuffer lo gobierna el LIVE.
+// bridge dibuja directamente bajo el mutex SPI. enterUserUI() puede realizar
+// su transición inicial; después el framebuffer lo gobierna el LIVE.
 extern "C" bool jwplcUserDisplayRefreshNeededCallback(
     const JWPLC_IOState *io,
     const JWPLC_RTCState *rtc)
@@ -289,7 +425,7 @@ extern "C" bool jwplcUserDisplayRefreshNeededCallback(
 
 extern "C" void jwplcUIUpdate(void)
 {
-    // Intencionalmente vacío: el LIVE se pinta en streaming desde loop().
+    // Intencionalmente vacío: el LIVE se pinta desde loop().
 }
 
 void setup()
