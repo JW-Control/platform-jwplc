@@ -46,9 +46,16 @@ if (-not (Test-Path -LiteralPath $installExe -PathType Leaf)) {
     throw "No se pudo instalar el ejecutable del Designer: $installExe"
 }
 
-# El launcher experimental del Arduino IDE usa esta variable cuando está
-# disponible. También existe fallback fijo a %LOCALAPPDATA%\JWPLC\HMI Designer.
 [Environment]::SetEnvironmentVariable('JWPLC_HMI_DESIGNER_HOME', $InstallRoot, 'User')
+
+# Protocolo local estable usado por el launcher de Arduino IDE.
+$protocolRoot = 'HKCU:\Software\Classes\jwplc-hmi'
+New-Item -Path $protocolRoot -Force | Out-Null
+Set-Item -Path $protocolRoot -Value 'URL:JWPLC HMI Designer'
+New-ItemProperty -Path $protocolRoot -Name 'URL Protocol' -Value '' -PropertyType String -Force | Out-Null
+$commandKey = Join-Path $protocolRoot 'shell\open\command'
+New-Item -Path $commandKey -Force | Out-Null
+Set-Item -Path $commandKey -Value ('"' + $installExe + '" "%1"')
 
 function New-JwplcShortcut([string]$Path) {
     $shell = New-Object -ComObject WScript.Shell
@@ -92,6 +99,7 @@ Write-Host ''
 Write-Host 'JWPLC HMI Designer instalado.' -ForegroundColor Green
 Write-Host "  Aplicación: $installExe"
 Write-Host "  Recursos: $InstallRoot"
+Write-Host '  Protocolo: jwplc-hmi://open'
 $created | ForEach-Object { Write-Host "  Acceso: $_" }
 Write-Host 'El usuario ya no depende de la carpeta del repositorio para ejecutar el Designer.'
 if (-not $InstallArduinoIDELauncher) {
