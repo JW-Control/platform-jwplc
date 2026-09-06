@@ -9,6 +9,10 @@
 //   Web Serial @ 921600 baud
 //   RLE RGB565 del framebuffer lógico 320x170.
 //
+// Handshake:
+//   Host -> JWH?
+//   Bridge -> JWHMI_LIVE_READY 1
+//
 // Importante:
 //   El JWPLC Basic v2 no dispone de PSRAM. Por ello el bridge NO reserva
 //   un framebuffer completo de 320x170x16 bits (~106 KiB). El RLE recibido
@@ -29,7 +33,16 @@ namespace
     static constexpr uint32_t SERIAL_BAUD = 921600;
     static constexpr size_t SERIAL_RX_BUFFER = 4096;
 
-    static constexpr uint8_t MAGIC[4] = {'J', 'W', 'H', '1'};
+    // JWH1 = inicio de frame binario.
+    // JWH? = probe corto del navegador para solicitar READY.
+    static constexpr uint8_t FRAME_MAGIC[4] = {'J', 'W', 'H', '1'};
+
+    enum InputCommand : uint8_t
+    {
+        INPUT_NONE = 0,
+        INPUT_FRAME,
+        INPUT_PROBE
+    };
 
     // Sólo una línea: 320 * 2 bytes = 640 bytes.
     uint16_t g_row[FRAME_W] = {};
@@ -46,6 +59,11 @@ namespace
                ((uint32_t)p[1] << 8) |
                ((uint32_t)p[2] << 16) |
                ((uint32_t)p[3] << 24);
+    }
+
+    void sendReady()
+    {
+        Serial.println("JWHMI_LIVE_READY 1");
     }
 
     bool readExact(uint8_t *dst, size_t length, uint32_t timeoutMs = 1000)
@@ -76,7 +94,7 @@ namespace
         return true;
     }
 
-    bool waitForMagic()
+    InputCommand pollInputCommand()
     {
         static uint8_t matched = 0;
 
@@ -84,22 +102,58 @@ namespace
         {
             const uint8_t value = (uint8_t)Serial.read();
 
-            if (value == MAGIC[matched])
+            if (matched == 0)
             {
-                ++matched;
-                if (matched == sizeof(MAGIC))
-                {
-                    matched = 0;
-                    return true;
-                }
+                matched = (value == 'J') ? 1 : 0;
+                continue;
             }
-            else
+
+            if (matched == 1)
             {
-                matched = (value == MAGIC[0]) ? 1 : 0;
+                if (value == 'W')
+                {
+                    matched = 2;
+                }
+                else
+                {
+                    matched = (value == 'J') ? 1 : 0;
+                }
+                continue;
+            }
+
+            if (matched == 2)
+            {
+                if (value == 'H')
+                {
+                    matched = 3;
+                }
+                else
+                {
+                    matched = (value == 'J') ? 1 : 0;
+                }
+                continue;
+            }
+
+            // matched == 3: ya recibimos JWH.
+            matched = 0;
+
+            if (value == FRAME_MAGIC[3])
+            {
+                return INPUT_FRAME;
+            }
+
+            if (value == '?')
+            {
+                return INPUT_PROBE;
+            }
+
+            if (value == 'J')
+            {
+                matched = 1;
             }
         }
 
-        return false;
+        return INPUT_NONE;
     }
 
     bool drawRow(uint16_t y)
@@ -245,12 +299,20 @@ void setup()
     JWPLC_Display.enterUserUI();
 
     delay(150);
-    Serial.println("JWHMI_LIVE_READY 1");
+    sendReady();
 }
 
 void loop()
 {
-    if (waitForMagic())
+    const InputCommand command = pollInputCommand();
+
+    if (command == INPUT_PROBE)
+    {
+        // El navegador puede abrir el COM mucho después de setup().
+        // Responder al probe evita depender de capturar el READY inicial.
+        sendReady();
+    }
+    else if (command == INPUT_FRAME)
     {
         receiveFrame();
     }
