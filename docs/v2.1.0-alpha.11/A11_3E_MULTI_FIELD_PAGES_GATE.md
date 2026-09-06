@@ -11,7 +11,7 @@ TEXT=PASS
 VALUE=PASS
 BOOL=PASS
 BAR=PASS
-PAGES=IMPLEMENTED_PENDING_GATE
+PAGES=IMPLEMENTED_PENDING_LIVE_PAGE_GATE
 SECOND_RUNTIME=NO
 LIVE_TRANSPORT=FROZEN
 ```
@@ -255,43 +255,107 @@ tools/jwplc-hmi-designer/gates/A11_Pages_Navigation/
 
 El gate usa tres páginas y los cuatro tipos declarativos.
 
+### Resultado físico 2026-09-05
+
+La botonera real fue validada en COM4 con tres páginas.
+
+Secuencia observada:
+
+```text
+[A11-PAGES] page=1/3 mode=SELECT
+[A11-PAGES] page=2/3 mode=SELECT
+[A11-PAGES] page=3/3 mode=SELECT
+[A11-PAGES] page=2/3 mode=SELECT
+[A11-PAGES] page=1/3 mode=SELECT
+[A11-PAGES] page=1/3 mode=CONTENT
+[A11-PAGES] USER RIGHT
+[A11-PAGES] USER LEFT
+[A11-PAGES] USER UP
+[A11-PAGES] USER DOWN
+[A11-PAGES] USER OK
+[A11-PAGES] page=1/3 mode=SELECT
+[A11-PAGES] page=2/3 mode=SELECT
+[A11-PAGES] page=2/3 mode=CONTENT
+[A11-PAGES] USER UP
+[A11-PAGES] USER LEFT
+[A11-PAGES] USER DOWN
+[A11-PAGES] USER RIGHT
+[A11-PAGES] USER OK
+[A11-PAGES] page=2/3 mode=SELECT
+[A11-PAGES] page=3/3 mode=SELECT
+[A11-PAGES] page=3/3 mode=CONTENT
+[A11-PAGES] USER UP
+[A11-PAGES] USER LEFT
+[A11-PAGES] USER DOWN
+[A11-PAGES] USER RIGHT
+[A11-PAGES] USER OK
+[A11-PAGES] page=3/3 mode=SELECT
+```
+
+Conclusión física:
+
+```text
+PAGE_INDICATOR_PHYSICAL=PASS
+PAGE_SELECT_LEFT_RIGHT=PASS
+PAGE_BOUNDARIES=PASS
+OK_ENTERS_PAGE_CONTENT=PASS
+PAGE_CONTENT_LEFT_RIGHT_USER=PASS
+PAGE_CONTENT_UP_DOWN_USER=PASS
+PAGE_CONTENT_OK_USER=PASS
+ESC_RETURNS_TO_PAGE_SELECT=PASS
+UNEXPECTED_PAGE_CHANGE_IN_CONTENT=0
+```
+
 ## Checklist
 
 ```text
-[ ] 1. Página 0 Principal existe al iniciar.
-[ ] 2. + crea una nueva página hasta el límite del Designer.
-[ ] 3. Panel izquierdo y tabs muestran la misma página activa.
-[ ] 4. Doble click permite renombrar página.
-[ ] 5. Cambiar página cambia canvas y Preview 1:1.
-[ ] 6. La lista Objetos muestra sólo fields de la página activa.
-[ ] 7. Un field nuevo recibe el pageId activo.
-[ ] 8. TEXT / VALUE / BOOL / BAR funcionan en páginas diferentes.
-[ ] 9. Volver a una página conserva intactos sus objetos.
-[ ] 10. Inspector permite mover un objeto a otra página.
-[ ] 11. Mover conserva ID, variable, geometría y estilo.
-[ ] 12. Ctrl+D duplica dentro de la página activa.
-[ ] 13. Undo/Redo conserva página y composición.
-[ ] 14. IDs/variables siguen siendo únicos globalmente.
-[ ] 15. Generar C++ incluye fields de todas las páginas.
-[ ] 16. Cada helper contiene el pageId correcto.
-[ ] 17. Codegen genera setUserPageCount(N) y setUserPage(0).
-[ ] 18. Con >1 página aparece NN/TT arriba a la derecha.
-[ ] 19. PAGE_SELECT muestra negro/blanco.
-[ ] 20. PAGE_CONTENT muestra blanco/negro.
-[ ] 21. LEFT/RIGHT cambian página sólo en PAGE_SELECT.
-[ ] 22. OK entra a PAGE_CONTENT.
-[ ] 23. LEFT/RIGHT/UP/DOWN/OK llegan al usuario en PAGE_CONTENT.
-[ ] 24. ESC vuelve a PAGE_SELECT y no llega al usuario.
+[x] 1. Página 0 Principal existe al iniciar.
+[x] 2. + crea una nueva página hasta el límite del Designer.
+[x] 3. Panel izquierdo y tabs muestran la misma página activa.
+[x] 4. Doble click permite renombrar página.
+[x] 5. Cambiar página cambia canvas y Preview 1:1.
+[x] 6. La lista Objetos muestra sólo fields de la página activa.
+[x] 7. Un field nuevo recibe el pageId activo.
+[x] 8. TEXT / VALUE / BOOL / BAR funcionan en páginas diferentes.
+[x] 9. Volver a una página conserva intactos sus objetos.
+[x] 10. Inspector permite mover un objeto a otra página.
+[x] 11. Mover conserva ID, variable, geometría y estilo.
+[x] 12. Ctrl+D duplica dentro de la página activa.
+[x] 13. Undo/Redo conserva página y composición.
+[x] 14. IDs/variables siguen siendo únicos globalmente.
+[x] 15. Generar C++ incluye fields de todas las páginas.
+[x] 16. Cada helper contiene el pageId correcto.
+[x] 17. Codegen genera setUserPageCount(N) y setUserPage(0).
+[x] 18. Con >1 página aparece NN/TT arriba a la derecha.
+[x] 19. PAGE_SELECT muestra negro/blanco.
+[x] 20. PAGE_CONTENT muestra blanco/negro.
+[x] 21. LEFT/RIGHT cambian página sólo en PAGE_SELECT.
+[x] 22. OK entra a PAGE_CONTENT.
+[x] 23. LEFT/RIGHT/UP/DOWN/OK llegan al usuario en PAGE_CONTENT.
+[x] 24. ESC vuelve a PAGE_SELECT y no llega al usuario.
 [ ] 25. LIVE cambia de página sin corrupción y sin cambios al bridge.
-[ ] 26. Codegen no contiene tft.*.
-[ ] 27. Designer no genera jwplcUIUpdate().
+[x] 26. Codegen no contiene tft.*.
+[x] 27. Designer no genera jwplcUIUpdate().
 ```
 
 ## Criterio de salida
 
+Gate físico de navegación:
+
 ```text
-A11_3E_MULTI_FIELD_PAGES=PASS
 A11_3E_PAGE_INDICATOR=PASS
 A11_3E_PAGE_BUTTON_ROUTING=PASS
+```
+
+Pendiente único para cierre completo:
+
+```text
+A11_3E_LIVE_PAGE_SWITCH=PENDING
+```
+
+Después:
+
+```text
+A11_3E_MULTI_FIELD_PAGES=PASS
 NEXT=A11_4_CODEGEN
 ```
