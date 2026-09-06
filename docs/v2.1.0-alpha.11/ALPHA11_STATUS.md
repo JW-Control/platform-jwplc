@@ -57,15 +57,18 @@ A11_2_PRECOMPILED_FINAL=DEFERRED_TO_ALPHA11_CLOSE
 A11_3_PUBLIC_API_CODEGEN_CONTRACT=PASS
 A11_3A_TEXT_FIELD=IN_PROGRESS
 
-ALPHA11_UX_FOUNDATION=IN_PROGRESS
-UX_1_LAYOUT_BASE=IMPLEMENTED_PENDING_VISUAL_GATE
-UX_2_OBJECT_LIST=IMPLEMENTED_TEXT_ONLY_PENDING_VISUAL_GATE
-UX_2_SELECTION_OVERLAY=IMPLEMENTED_PENDING_VISUAL_GATE
-UX_3_TEXT_INSPECTOR=IMPLEMENTED_PENDING_VISUAL_GATE
-UX_4_TOOLBAR_SHELL=PARTIAL
-UX_5_BOTTOM_PANEL=PARTIAL
+ALPHA11_UX_FOUNDATION=PASS
+UX_1_LAYOUT_BASE=PASS
+UX_2_OBJECT_LIST=PASS_TEXT_BASE
+UX_2_SELECTION_OVERLAY=PASS
+UX_3_TEXT_INSPECTOR=PASS
+UX_4_EDITING=IMPLEMENTED_PENDING_GATE
+UX_4_UNDO_REDO=IMPLEMENTED_PENDING_GATE
+UX_4_KEYBOARD_NUDGE=IMPLEMENTED_PENDING_GATE
+UX_4_DUPLICATE_DELETE=IMPLEMENTED_PENDING_GATE
+UX_5_BOTTOM_PANEL=PASS_BASE
 
-A11_3B_VALUE_FIELD=BLOCKED_BY_UX_FOUNDATION
+A11_3B_VALUE_FIELD=BLOCKED_BY_UX_4_GATE
 A11_3C_BOOL_FIELD=PENDING
 A11_3D_BAR_FIELD=PENDING
 A11_3E_MULTI_FIELD_PAGES=PENDING
@@ -121,16 +124,7 @@ JWPLC_UIBarField(...)
 JWPLC_Display.setFields(...)
 ```
 
-También genera las variables configuradas visualmente, por ejemplo:
-
-```cpp
-float temperatura = 0.0f;
-bool motorOn = false;
-char estadoTexto[13] = {};
-float nivel = 0.0f;
-```
-
-No genera el cuerpo de:
+También genera las variables configuradas visualmente. No genera el cuerpo de:
 
 ```cpp
 extern "C" void jwplcUIUpdate()
@@ -138,7 +132,7 @@ extern "C" void jwplcUIUpdate()
 
 ## UX Foundation
 
-Antes de continuar con `VALUE`, `BOOL` y `BAR`, Alpha11 estabiliza el shell del editor siguiendo:
+La validación visual realizada con A11-3A `TEXT` confirmó la arquitectura:
 
 ```text
 LEFT=PAGES_OBJECTS_COMPONENTS_TOOLS
@@ -149,18 +143,22 @@ ORANGE=ACTIVE_SELECTION_OR_ACTION
 CANVAS_BORDER=NEUTRAL
 ```
 
-Implementado para validación visual:
+Validado:
 
-- lista de Objetos separada de Componentes y Herramientas;
-- propiedades `TEXT` migradas al Inspector derecho;
-- Preview 1:1 conservado;
-- overlay de geometría independiente del framebuffer;
-- field rect, handles, X/Y y dimensiones AUTO resueltas;
-- regiones label/value/unit visibles con `Geometría`;
-- panel inferior colapsable;
-- botón `Ajustar` funcional;
-- `Generar C++` abre el contrato/código actual;
-- shell de Abrir/Guardar/Undo/Redo visible pero deshabilitado hasta tener contrato funcional.
+- layout completo dentro del viewport;
+- inspector contextual derecho;
+- lista de Objetos sincronizada con canvas;
+- `INLINE` / `STACKED`;
+- `LEFT` / `CENTER` / `RIGHT`;
+- cambio de capacidad con geometría AUTO;
+- drag con X/Y sincronizado;
+- Preview 1:1 sin overlay del editor;
+- cambio a GFX RAW con inspector propio;
+- zoom y panel técnico colapsable.
+
+```text
+ALPHA11_UX_FOUNDATION=PASS
+```
 
 Documento:
 
@@ -168,15 +166,47 @@ Documento:
 docs/v2.1.0-alpha.11/A11_UX_FOUNDATION.md
 ```
 
+## UX-4 — edición
+
+Implementado para gate funcional:
+
+```text
+Ctrl+Z                 Undo
+Ctrl+Y                 Redo
+Ctrl+Shift+Z           Redo
+Arrow keys              mover 1 px
+Shift+Arrow keys        mover 10 px
+Ctrl+D                  duplicar TEXT seleccionado
+Delete                  eliminar TEXT seleccionado
+Esc                     deseleccionar
+```
+
+También:
+
+- botones `Deshacer` / `Rehacer` se habilitan según historial;
+- un drag completo produce una sola entrada de historial;
+- una secuencia de nudge se consolida al soltar la flecha;
+- duplicar crea ID simbólico y variable HMI únicos;
+- eliminar el último TEXT deja el proyecto sin selección;
+- al no existir TEXT seleccionado, pulsar el componente `TEXT` crea uno nuevo;
+- el framebuffer puede contener más de un `TEXT` de la misma página;
+- el codegen preview agrega las definiciones y variables de todos los `TEXT` presentes.
+
+Este soporte multi-TEXT es infraestructura de edición y no cierra `A11-3E`, que todavía debe definir páginas y composición multi-tipo.
+
+Documento:
+
+```text
+docs/v2.1.0-alpha.11/A11_UX4_EDITING_GATE.md
+```
+
 ## Pendiente inmediato
 
-Validar visualmente la nueva UX con A11-3A `TEXT` todavía funcional.
+Validar UX-4 en navegador antes de iniciar `VALUE`.
 
 Criterio:
 
 ```text
-ALPHA11_UX_FOUNDATION=PASS
+UX_4_EDITING=PASS
 NEXT=A11_3B_VALUE_FIELD
 ```
-
-No se inicia `VALUE` hasta cerrar este gate.
