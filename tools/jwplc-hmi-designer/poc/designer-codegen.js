@@ -1,6 +1,8 @@
 (() => {
   'use strict';
 
+  if (window.JWPLCHMICodegen) return;
+
   const codeOutput = document.getElementById('codeOutput');
   const contractTab = document.getElementById('contractTab');
   const statusTab = document.getElementById('statusTab');
@@ -32,6 +34,32 @@
     const cleaned = String(value || '').trim().replace(/[^A-Za-z0-9_]/g, '_');
     if (!cleaned) return fallback;
     return /^[A-Za-z_]/.test(cleaned) ? cleaned : `_${cleaned}`;
+  }
+
+  function sanitizePageToken(value, fallback) {
+    const normalized = String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .replace(/[^A-Za-z0-9_]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .toUpperCase();
+    const token = normalized || fallback;
+    return /^[A-Z_]/.test(token) ? token : `_${token}`;
+  }
+
+  function pageSymbols() {
+    const used = new Set();
+    return pages().map((page, index) => {
+      const fallback = `PAGINA_${Number(page?.id ?? index) + 1}`;
+      const token = sanitizePageToken(page?.name, fallback);
+      let symbol = `PAGE_${token}`;
+      if (used.has(symbol)) {
+        symbol = `${symbol}_${Number(page?.id ?? index) + 1}`;
+      }
+      used.add(symbol);
+      return { page, symbol };
+    });
   }
 
   function serialFor(field, fallbackIndex = 0) {
@@ -221,6 +249,12 @@
     return chunks.join('\n\n');
   }
 
+  function pageEnumBlock() {
+    const lines = pageSymbols().map(({ page, symbol }) =>
+      `    ${symbol} = ${Number(page?.id || 0)}`);
+    return `enum HMIPageId : uint8_t\n{\n${lines.join(',\n')}\n};`;
+  }
+
   function decorateHeader(text) {
     text = text
       .replace('// API pública JWPLC_UI · Alpha11 A11-3E', '// API pública JWPLC_UI · Alpha11 A11-4')
@@ -234,8 +268,6 @@
   }
 
   function groupGeneratedSections(text) {
-    const fields = allFields();
-
     const enumLines = groupedChunks((field, index) => {
       const id = canonicalFor(field, 'id', field.id, index);
       return `    ${id} = ${index + 1},`;
@@ -243,6 +275,17 @@
 
     const variables = groupedChunks((field, index) => variableDeclaration(field, index));
     const setters = groupedChunks((field, index) => setterHint(field, index));
+    const pageEnum = pageEnumBlock();
+
+    if (/enum HMIPageId : uint8_t\n\{[\s\S]*?\n\};/.test(text)) {
+      text = text.replace(
+        /enum HMIPageId : uint8_t\n\{[\s\S]*?\n\};/,
+        pageEnum);
+    } else {
+      text = text.replace(
+        /enum HMIFieldId : uint8_t/,
+        `${pageEnum}\n\nenum HMIFieldId : uint8_t`);
+    }
 
     text = text.replace(
       /enum HMIFieldId : uint8_t\n\{\n[\s\S]*?\n\};/,
@@ -255,6 +298,13 @@
     text = text.replace(
       /(\/\/ Setters públicos que corresponden a este diseño:\n)[\s\S]*$/,
       `$1${setters}`);
+
+    const firstPage = pageSymbols()[0];
+    if (firstPage) {
+      text = text.replace(
+        /JWPLC_Display\.setUserPage\([^)]*\);/,
+        `JWPLC_Display.setUserPage(${firstPage.symbol});`);
+    }
 
     return text;
   }
@@ -301,6 +351,7 @@
 
   window.JWPLCHMICodegen = {
     validateIdentifiers: validationIssues,
+    getPageSymbols: () => pageSymbols().map(({ page, symbol }) => ({ id: Number(page.id), name: page.name, symbol })),
     refresh: patchGeneratedCode
   };
 })();
