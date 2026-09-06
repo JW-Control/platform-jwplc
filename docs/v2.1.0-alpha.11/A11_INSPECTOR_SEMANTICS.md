@@ -115,6 +115,37 @@ PREVIEW     != RUNTIME_VALUE
 
 La interfaz debe comunicar estas diferencias mediante terminología estable y tooltips breves.
 
+## Nombres por defecto
+
+Se mantiene separación entre el nombre humano del objeto y el identificador técnico C++.
+
+```text
+Nombre del objeto    ID C++ del campo    Variable vinculada
+TEXT 1               FIELD_TEXT_1        texto1
+VALUE 2              FIELD_VALUE_2       valor2
+TEXT 3               FIELD_TEXT_3        texto3
+```
+
+Para los gates siguientes:
+
+```text
+BOOL n               FIELD_BOOL_n        estado<n>
+BAR n                FIELD_BAR_n         valor<n>
+```
+
+Reglas:
+
+```text
+DEFAULT_OBJECT_NAME=<TYPE> <SERIAL>
+DEFAULT_FIELD_ID=FIELD_<TYPE>_<SERIAL>
+DEFAULT_LINKED_VARIABLE=TYPE_SPECIFIC_LOWERCASE_NAME
+OBJECT_NAME_EQUALS_FIELD_ID=NO
+```
+
+Motivo: `Nombre del objeto` debe poder convertirse en un nombre legible como `Temperatura reactor` sin obligar a cambiar referencias C++ existentes.
+
+Cambiar la etiqueta visible tampoco debe renombrar automáticamente el objeto ni el ID.
+
 ## Aplicación en A11-3A / A11-3B
 
 La estructura se aplica de manera común a `TEXT` y `VALUE`.
