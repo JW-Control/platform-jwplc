@@ -2,27 +2,22 @@
   "name": "JWPLC HMI Designer",
   "short_name": "JWPLC HMI",
   "description": "Diseñador HMI para JWPLC Basic ST7789 320x170.",
-  "start_url": "./desktop.html?app=alpha11-taskbar-raster-v2",
+  "start_url": "./desktop.html?app=alpha11-taskbar-raster-v3",
   "scope": "./",
   "display": "standalone",
   "background_color": "#101a21",
   "theme_color": "#101a21",
   "icons": [
+    { "src": "./icons/icon-16.png?v=alpha11-taskbar-raster-v3", "sizes": "16x16", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-20.png?v=alpha11-taskbar-raster-v3", "sizes": "20x20", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-24.png?v=alpha11-taskbar-raster-v3", "sizes": "24x24", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-32.png?v=alpha11-taskbar-raster-v3", "sizes": "32x32", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-40.png?v=alpha11-taskbar-raster-v3", "sizes": "40x40", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-48.png?v=alpha11-taskbar-raster-v3", "sizes": "48x48", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-64.png?v=alpha11-taskbar-raster-v3", "sizes": "64x64", "type": "image/png", "purpose": "any" },
     {
-      "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABf0lEQVR42u2XP0vDQBiHfwmBDtU9k1TnjCWZ7KwQzA3SoZV+CMcu4uLokm8gmiF0iKWQznFK6WbUQailk3vjUAjUQTR/mrRJaC4KvhBIjuOe595ccvcCJQcTbZDkzrJIoD24YRIFJLmznDrjQmdcE+ohCZYmHACmzjiUZSYOThS5ELhxP1jJBBftRBQZz85jIQJEkUMSAMAldX641XJBDs9amfqzZX+GmwUqlXRXQgz7vfIy8A1fJ8FtGoQ72EsF815e18582O/hvHtJJwNB+NHJ6c/99dUFHYEgNChDLQNRibjn3ALeZAZvMsskkQRPtQiD4G1kIrNAXnDa4Ioa2Jy7AIC2yvuNGqUfkTl3UbUttFUehqh/7YSijvfWG70MfEgNGLa1hVewWKT680WjalsgoyYMUYch6iCjJr01cLy7A1Nq4A4AUX0wr+0DeEonkHVfj5MAAHRdX0D4k+eBf4GCg4s7OtM4lq9URrQKk2h1xAZrtppQpwr/FcVp6fEJkeuLbXbtPQoAAAAASUVORK5CYII=",
-      "sizes": "32x32",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAACKklEQVR42u2aMU/CQBTHX5smDMDixGTU0eBm6GQnBzAEGQgDMX4IRxbjQuJiHJ2NYSAMSogwOOEEcZPoYKLGyckFGEhIdDBXrqV3vWuq9yC85BIuLb3/771318u9Asy5abyLZvbwG4PIbvNSkwLAIlwEROOJf+8/oBC+ltxmQmhe4rEIZ4HQEPq8iKe10VliiPwxv59VIvj6pim2CrG8r0q4HwidSkIReOo/KhG+mdzyvUf3SxtV4umxeZkgFIH7q2qownYOSqE9S8e0yrQb9X8AiESCNwHxshA6Rs/LQOhY00YUwpAd0NhYDSR08vwiLbLdqMNR+QRnBNzi07mC3Wg7qxzjA5CdqDwIJQBuL/sZL40MVSmUzhUckWBFBe0cEImESKSUL6MskaJphuJF5hYrM0dCB5i8ftgtCITsBEe1mZMVH8oqRHs66Ft6YbbTQcxQ7fHWYGj/zsRjAACwUolNb6gijkDn7nam7xAPABfnpzgBWoMhjEwLot0OAABEux3I94qe936W3vDOAQIxMq3fI5RUbXqckqoxoUIBcO/xvfqksYyIJ5HI94oOiPBXofF42kT6DMvEYw7Pj0zLFk4giPcT1XWcKWTt7s30v8pDG8JPvPAyGuY5jlck3EYgAAASyQV/kS0BlgB/BUDO5EWOuP/KyNi8Qoch8yCMZhfLeDUyTCUmd6HPCPogdHOAENE1WWzmVWZdrEK3FwQmE/rUACMI72OPubcfi9r7dqXoLsgAAAAASUVORK5CYII=",
-      "sizes": "48x48",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "./JWPLC-HMI-Designer.ico?v=alpha11-window-v2",
-      "sizes": "16x16 20x20 24x24 32x32 40x40 48x48 64x64 96x96 128x128 192x192 256x256",
+      "src": "./JWPLC-HMI-Designer.ico?v=alpha11-taskbar-raster-v3",
+      "sizes": "128x128 192x192 256x256",
       "type": "image/x-icon",
       "purpose": "any"
     }

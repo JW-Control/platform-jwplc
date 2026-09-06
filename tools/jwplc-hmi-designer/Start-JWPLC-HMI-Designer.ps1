@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $designerRoot = Join-Path $PSScriptRoot 'poc'
 $serverScript = Join-Path $PSScriptRoot 'JWPLC-HMI-Server.ps1'
-$url = "http://127.0.0.1:$Port/desktop.html?app=alpha11-taskbar-raster-v2"
+$url = "http://127.0.0.1:$Port/desktop.html?app=alpha11-taskbar-raster-v3"
 $healthUrl = "http://127.0.0.1:$Port/__health"
 
 function Test-JwplcHmiServer {
@@ -67,7 +67,5 @@ $browser = Find-ChromiumBrowser
 if ($browser) {
     Start-Process -FilePath $browser -ArgumentList @("--app=$url", '--start-maximized') | Out-Null
 } else {
-    # Fallback. El Designer abre, aunque LIVE/Web Serial requiere un navegador
-    # Chromium compatible (Edge o Chrome).
     Start-Process $url | Out-Null
 }
