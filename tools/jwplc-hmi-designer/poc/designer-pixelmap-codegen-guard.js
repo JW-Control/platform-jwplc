@@ -42,7 +42,11 @@
     const source = String(text || '');
     if (!source.includes(MARKER) && !source.includes('HMIPixelMapId')) return source;
 
+    // La capa stability es la única fuente canónica de IDs. Si todavía no está
+    // lista, no tocamos el texto para evitar eliminar un enum válido durante boot.
     const enumBlock = canonicalEnum();
+    if (!enumBlock) return source;
+
     const stripped = stripEnums(source)
       .replace(/\n{3,}/g, '\n\n')
       .trimEnd();
@@ -91,7 +95,9 @@
   });
 
   const wrapTimer = setInterval(() => {
-    if (!window.JWPLCHMIPixelMaps || !window.JWPLCHMIPixelOptimizer) return;
+    if (!window.JWPLCHMIPixelMaps ||
+        !window.JWPLCHMIPixelOptimizer ||
+        !window.JWPLCHMIPixelStability?.pixelMapEnumBlock) return;
     wrapBuildCode();
     applyToOutput();
     clearInterval(wrapTimer);
