@@ -63,6 +63,16 @@
     objectNav.appendChild(objectShim);
   }
 
+  function loadInspectorState() {
+    if (window.JWPLCHMIInspectorState || document.querySelector('script[data-a11-inspector-state]')) return;
+    const script = document.createElement('script');
+    script.src = './designer-inspector-state.js';
+    script.async = false;
+    script.dataset.a11InspectorState = '1';
+    script.onload = () => window.JWPLCHMIInspectorState?.sync?.();
+    document.body.appendChild(script);
+  }
+
   const compat = document.createElement('script');
   compat.src = './designer-pixelmap-compat.js';
   compat.async = false;
@@ -70,6 +80,7 @@
   compat.onload = () => {
     if (window.JWPLCHMIPixelMaps || document.querySelector('script[data-a11-pixelmap]')) {
       objectShim?.remove?.();
+      loadInspectorState();
       return;
     }
 
@@ -89,8 +100,10 @@
         .find((node) => node.textContent.trim().startsWith('Gate:'));
       if (statusGate) statusGate.textContent = 'Gate: A11-7 PIXELMAP + RGB565';
 
+      loadInspectorState();
+
       // Fuerza una sincronización posterior a la carga para actualizar caption
-      // de herramientas, inspector y lista de Objetos con el módulo ya activo.
+      // de herramientas, inspector y lista de Objetos con los módulos ya activos.
       window.dispatchEvent(new CustomEvent('jwplc:editor-refresh'));
     };
     pixel.onerror = () => objectShim?.remove?.();
