@@ -1,5 +1,6 @@
 #include "JWPLC_UI.h"
 #include "JWPLC_UI_Pages.h"
+#include "JWPLC_UI_PixelMap.h"
 #include "JWPLC_UI_RuntimeHooks.h"
 
 #include <Adafruit_ST7789.h>
@@ -361,6 +362,9 @@ extern "C" void jwplcUIRuntimeDrawStatic(Adafruit_ST7789 *tft)
 {
     if (tft != nullptr)
     {
+        // PixelMaps son fondo estático de la página; los fields declarativos se
+        // dibujan después y por tanto conservan prioridad visual.
+        JWPLCUI::drawPixelMapsStatic(*tft);
         JWPLCUI::drawStatic(*tft);
     }
 }
