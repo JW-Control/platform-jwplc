@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'jwplc-hmi-designer-alpha11-a11-7b-pixel-layer-editing';
+const CACHE_NAME = 'jwplc-hmi-designer-alpha11-a11-7b-pixel-stability';
 const CORE = [
   './desktop.html',
   './index.html',
@@ -16,6 +16,7 @@ const CORE = [
   './designer-field-visibility.js',
   './designer-pixelmap-compat.js',
   './designer-pixelmap.js',
+  './designer-pixelmap-stability.js',
   './designer-inspector-state.js',
   './designer-pages.js',
   './designer-live.js',
