@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <JWPLC_UI.h>
+#include <JWPLC_UI_PixelMap.h>
 
 class Adafruit_ST7789;
 
@@ -80,6 +81,13 @@ public:
     bool setFields(const JWPLC_UIField *fields, size_t count);
     void clearFields();
     size_t fieldCount() const;
+
+    // Gráficos estáticos agrupados por página. El Designer comprime los
+    // píxeles manuales en runs horizontales RGB565 y los registra una vez.
+    // Se dibujan únicamente durante el redraw estático de la página.
+    bool setPixelMaps(const JWPLC_UIPixelMap *maps, size_t count);
+    void clearPixelMaps();
+    size_t pixelMapCount() const;
 
     template <typename T>
     bool setValue(uint8_t fieldId, T value)
