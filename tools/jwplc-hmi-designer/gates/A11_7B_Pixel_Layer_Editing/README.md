@@ -37,9 +37,9 @@ PIXEL_PERFECT=YES
 La huella se aplica sobre una trayectoria rasterizada continua para evitar huecos
 al mover rápidamente el puntero.
 
-### Visibilidad y onion skin
+### Visibilidad y onion skin del Designer
 
-Cada objeto PIXEL incorpora metadatos exclusivos del Designer:
+Cada objeto PIXEL incorpora metadatos exclusivos de edición:
 
 ```text
 editorVisible=true|false
@@ -60,49 +60,116 @@ La intención es permitir flujos como:
 4. dibujar el frame siguiente encima usando el anterior como onion skin;
 5. ocultar/mostrar capas según sea necesario.
 
-### Estabilidad visual de la referencia
+Estos metadatos no modifican los runs RGB565 ni la visibilidad inicial del
+runtime.
 
-Durante la validación se detectó que `globalAlpha` mezclaba la referencia con la
-grilla ya dibujada en el canvas. A porcentajes bajos, un mismo color RGB565 podía
-verse con dos intensidades aunque el objeto no estuviera seleccionado.
+### Compositor estable
 
-Se añade `designer-pixelmap-stability.js` para normalizar la vista final de los
-PixelMaps de referencia:
+Durante la validación se detectaron dos fuentes de artefactos cuando un PIXEL
+estaba seleccionado y con opacidad reducida:
 
-- la atenuación se calcula como color de edición sobre el fondo lógico negro;
-- cada RGB565 conserva una única intensidad visual por porcentaje;
-- no se modifica el color almacenado;
-- no se modifica el C++ generado;
-- los fields se restauran encima para mantener el orden `PixelMaps -> fields`.
+- el render histórico aplicaba `globalAlpha` sobre el canvas con grilla;
+- un render PIXEL adicional podía ejecutarse después del estabilizador y dejar
+  por un frame los bordes naranjas/intensidad de selección.
 
-Esto es una ayuda visual del Designer y no introduce alpha en el runtime.
+A11-7B corrige el pipeline:
+
+1. `designer-pixelmap-compat.js` conserva el framebuffer base sin PixelMaps;
+2. el compositor final restaura ese framebuffer completo;
+3. pinta cada PixelMap una sola vez con color de edición atenuado y opaco;
+4. restaura los fields por encima;
+5. dibuja la geometría de selección fuera del borde del PixelMap, sin iluminar
+   los píxeles del arte;
+6. el RAF final se registra desde una microtarea para quedar después de todos los
+   renders heredados del mismo evento, sin frame intermedio visible.
+
+La selección del objeto no debe cambiar la intensidad del pixelart.
 
 ### Duplicado de PIXEL
 
-`Ctrl+D` debe duplicar el objeto PIXEL seleccionado antes de que el manejador
-global de fields pueda capturar el atajo.
+`Ctrl+D` duplica el objeto PIXEL seleccionado antes de que el manejador global de
+fields pueda capturar el atajo.
 
 El botón `Duplicar` del inspector y `Ctrl+D` pasan por la misma operación
 `JWPLCHMIPixelMaps.duplicate()`.
 
+## Visibilidad runtime de PixelMaps
+
+La visibilidad del Designer y la visibilidad real en la TFT son conceptos
+separados.
+
+El package incorpora API pública compatible con `setPixelMaps()`:
+
+```cpp
+bool JWPLC_Display.setPixelMapVisible(size_t index, bool visible);
+bool JWPLC_Display.isPixelMapVisible(size_t index) const;
+```
+
+Reglas:
+
+- `setPixelMaps()` conserva su firma y registra los mapas como antes;
+- todos los PixelMaps quedan visibles al registrarse;
+- `setPixelMapVisible()` permite mostrar/ocultar un mapa sin modificar sus runs;
+- un cambio de visibilidad invalida el estático para limpiar correctamente el
+  frame anterior;
+- un índice fuera de rango devuelve `false`;
+- RGB565 sigue sin alpha runtime.
+
+El Designer genera IDs simbólicos según el orden de los PixelMaps no vacíos, por
+ejemplo:
+
+```cpp
+enum HMIPixelMapId : uint8_t
+{
+    PIXEL_1 = 0,
+    PIXEL_FRAME_2 = 1
+};
+```
+
+Uso esperado desde el sketch:
+
+```cpp
+JWPLC_Display.setPixelMapVisible(PIXEL_1, false);
+JWPLC_Display.setPixelMapVisible(PIXEL_FRAME_2, true);
+```
+
+Esto habilita frames y estados gráficos sin exponer `tft.*` ni cambiar el formato
+de `JWPLC_UIPixelMap`.
+
+## Codegen Pixel-only
+
+Se detectó que un proyecto con PixelMaps y `0/32` fields dejaba el panel de
+`Código generado` vacío, porque el parche PIXEL dependía del esqueleto producido
+por el codegen base de fields.
+
+A11-7B añade una ruta Pixel-only. Si existen PixelMaps no vacíos y no hay fields,
+se genera un header completo con:
+
+- `#pragma once`;
+- `#include <JWPLC_Display.h>`;
+- `HMIPageId`;
+- `HMIPixelMapId`;
+- arrays `JWPLC_UIPixelRun`;
+- `HMI_PIXEL_MAPS`;
+- `jwplcHMISetup()` con `setPixelMaps()`;
+- `jwplcUIUpdate()` vacío/documentado para control de frames.
+
+La misma enumeración `HMIPixelMapId` también se inserta cuando PixelMaps y fields
+conviven.
+
 ## Alcance deliberado
-
-La visibilidad y opacidad son sólo ayudas de edición.
-
-RGB565 no tiene canal alpha y A11-7B no introduce una semántica nueva en
-`JWPLC_Display`.
-
-Por tanto:
 
 ```text
 EDITOR_VISIBILITY_AFFECTS_CODEGEN=NO
 EDITOR_OPACITY_AFFECTS_CODEGEN=NO
 RUNTIME_ALPHA=NO
-JWPLC_DISPLAY_API_CHANGE=NO
+RUNTIME_VISIBILITY_API=YES
+SET_PIXEL_MAPS_COMPATIBLE=YES
+PIXEL_ONLY_CODEGEN=YES
 ```
 
-`buildCode()` sigue generando todos los PixelMaps no vacíos como RGB565 opacos.
-Ocultar una capa en el Designer no la elimina del contrato C++.
+`editorVisible` y `editorOpacity` siguen siendo ayudas de edición. La nueva API
+runtime controla visibilidad real por índice de PixelMap y no representa alpha.
 
 ## Persistencia
 
@@ -122,27 +189,36 @@ A11_7B_BRUSH_SIZE_1_16=IMPLEMENTED_PENDING_USER_GATE
 A11_7B_ERASER_SIZE_1_16=IMPLEMENTED_PENDING_USER_GATE
 A11_7B_EDITOR_HIDE_SHOW=IMPLEMENTED_PENDING_USER_GATE
 A11_7B_EDITOR_ONION_SKIN=IMPLEMENTED_PENDING_USER_GATE
-A11_7B_EDITOR_REFERENCE_SINGLE_TONE=IMPLEMENTED_PENDING_USER_GATE
+A11_7B_EDITOR_COMPOSITOR_STABLE=IMPLEMENTED_PENDING_USER_GATE
 A11_7B_PIXEL_DUPLICATE_BUTTON=IMPLEMENTED_PENDING_USER_GATE
 A11_7B_PIXEL_CTRL_D=IMPLEMENTED_PENDING_USER_GATE
-A11_7B_CODEGEN_UNCHANGED_BY_EDITOR_VISIBILITY=IMPLEMENTED_PENDING_USER_GATE
+A11_7B_RUNTIME_VISIBILITY_API=IMPLEMENTED_PENDING_COMPILE_GATE
+A11_7B_PIXEL_ONLY_CODEGEN=IMPLEMENTED_PENDING_USER_GATE
+A11_7B_PIXELMAP_SYMBOLIC_IDS=IMPLEMENTED_PENDING_USER_GATE
 ```
 
 ## Gate del usuario
 
-1. Confirmar que `PIXEL` aparece en `Componentes` y ya no existe la sección
-   `Herramientas`.
-2. Crear un PIXEL y probar pincel 1x1, 4x4 y 16x16.
-3. Probar borrador con tamaños distintos al pincel.
-4. Dibujar dos PixelMaps superpuestos.
-5. Poner uno a 35 % y confirmar que, al deseleccionarlo, todo el trazo conserva
-   una única intensidad visual sin dos tonos derivados de la grilla.
-6. Ocultar/mostrar cualquiera de los dos y confirmar independencia entre capas.
-7. Seleccionar un PIXEL y probar el botón `Duplicar`.
-8. Seleccionar un PIXEL y probar `Ctrl+D`; debe crear exactamente una copia.
-9. Confirmar que el indicador de Objetos muestra estado/porcentaje sin convertirlo
-   en un control de visibilidad lateral.
-10. Generar C++ y confirmar que opacidad/ocultamiento de edición no aparecen en el
-    código ni cambian `JWPLC_Display.setPixelMaps()`.
+1. Seleccionar un PIXEL, mover el slider 10/25/30/35/100 % y confirmar que el
+   trazo mantiene una sola intensidad estable, sin parpadeo ni laterales/bordes
+   que queden iluminados.
+2. Con `Geometría` activa, confirmar que el marco de selección queda fuera del
+   arte y no altera la intensidad de sus píxeles.
+3. Probar `Duplicar` y `Ctrl+D`; cada acción debe crear exactamente una copia.
+4. Crear un proyecto con sólo PIXEL (`0/32` fields), pulsar `Generar C++` y
+   confirmar que aparece un header completo.
+5. Confirmar que el header contiene `HMIPixelMapId`, `JWPLC_UIPixelRun`,
+   `JWPLC_UIPixelMap` y `JWPLC_Display.setPixelMaps()`.
+6. Compilar el header/sketch con el package de la misma rama.
+7. Con dos PixelMaps, validar físicamente:
 
-No marcar A11-7B como PASS hasta recibir validación visual y funcional del usuario.
+```cpp
+JWPLC_Display.setPixelMapVisible(PIXEL_1, false);
+JWPLC_Display.setPixelMapVisible(PIXEL_2, true);
+```
+
+   y luego invertir los estados. La TFT debe limpiar el frame anterior y mostrar
+   únicamente el habilitado.
+
+No marcar A11-7B como PASS hasta completar gate visual, codegen, compilación y
+validación runtime de visibilidad.
