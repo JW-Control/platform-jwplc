@@ -73,6 +73,15 @@
     document.body.appendChild(script);
   }
 
+  function loadPixelStability() {
+    if (window.JWPLCHMIPixelStability || document.querySelector('script[data-a11-pixel-stability]')) return;
+    const script = document.createElement('script');
+    script.src = './designer-pixelmap-stability.js';
+    script.async = false;
+    script.dataset.a11PixelStability = '1';
+    document.body.appendChild(script);
+  }
+
   const compat = document.createElement('script');
   compat.src = './designer-pixelmap-compat.js';
   compat.async = false;
@@ -81,6 +90,7 @@
     if (window.JWPLCHMIPixelMaps || document.querySelector('script[data-a11-pixelmap]')) {
       objectShim?.remove?.();
       loadInspectorState();
+      loadPixelStability();
       return;
     }
 
@@ -101,6 +111,7 @@
       if (statusGate) statusGate.textContent = 'Gate: A11-7B PIXEL LAYERS';
 
       loadInspectorState();
+      loadPixelStability();
 
       // Fuerza una sincronización posterior a la carga para actualizar caption,
       // inspector, Componentes y lista de Objetos con los módulos ya activos.
