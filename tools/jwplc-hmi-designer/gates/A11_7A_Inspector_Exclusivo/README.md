@@ -11,8 +11,8 @@ modos de edición. Se observaron dos casos principales:
 - con un PIXEL seleccionado quedaban controles RAW/FIELD por encima del
   `Inspector · PIXEL`, además de una segunda sección global de color.
 
-La causa es que varias secciones dependen del atributo `hidden`, mientras reglas
-de estilo del panel pueden mantener elementos con `display` explícito. Además,
+La causa es que varias secciones dependían del atributo `hidden`, mientras reglas
+de estilo del panel podían mantener elementos con `display` explícito. Además,
 A11-7 agregaba un inspector PIXEL sin un único coordinador de estado del panel.
 
 ## Decisión
@@ -38,22 +38,27 @@ El módulo:
   PIXEL ya vive en `Inspector · PIXEL` y los colores de fields viven en
   `Apariencia`.
 
+## Validación del usuario
+
+Validado visualmente el 2026-09-07 en la aplicación Electron instalada.
+
+Se comprobó:
+
+- `TEXT` muestra únicamente su inspector de field;
+- `PIXEL` muestra únicamente `Inspector · PIXEL`;
+- `Texto GFX RAW` mostraba únicamente su inspector técnico;
+- el cambio repetido entre modos no deja secciones pegadas ni controles cruzados.
+
 ## Estado
 
 ```text
-A11_7A_INSPECTOR_EXCLUSIVE=IMPLEMENTED_PENDING_USER_GATE
-A11_7A_FIELD_ONLY=IMPLEMENTED_PENDING_USER_GATE
-A11_7A_PIXEL_ONLY=IMPLEMENTED_PENDING_USER_GATE
-A11_7A_RAW_ONLY=IMPLEMENTED_PENDING_USER_GATE
-A11_7A_LEGACY_GLOBAL_COLOR_HIDDEN=IMPLEMENTED_PENDING_USER_GATE
+A11_7A_INSPECTOR_EXCLUSIVE=PASS
+A11_7A_FIELD_ONLY=PASS
+A11_7A_PIXEL_ONLY=PASS
+A11_7A_RAW_ONLY=PASS
+A11_7A_LEGACY_GLOBAL_COLOR_HIDDEN=PASS
+A11_7A_USER_GATE=PASS
 ```
 
-No marcar PASS hasta validar visualmente en la aplicación instalada.
-
-## Gate del usuario
-
-1. Seleccionar TEXT: no debe aparecer RAW ni PIXEL debajo.
-2. Seleccionar PIXEL: debe comenzar directamente en `Inspector · PIXEL` y no
-   mostrar controles FIELD/RAW por encima ni `Color RGB565 activo` duplicado.
-3. Seleccionar `Texto GFX RAW`: sólo debe mostrarse su inspector técnico.
-4. Volver a TEXT/PIXEL varias veces y comprobar que no quedan secciones pegadas.
+A11-7A queda cerrado. El siguiente gate es A11-7B para edición avanzada de
+PixelMaps por capas.
