@@ -69,11 +69,15 @@
 
   function drawSelectionGeometry() {
     if (!geometryCanvas) return;
+    const map = pixels()?.getSelected?.();
+
+    // Si el seleccionado es un FIELD, su geometría pertenece al renderer base.
+    // No tocar ese canvas desde el compositor PIXEL.
+    if (!map) return;
+
     const gctx = geometryCanvas.getContext('2d');
     gctx.clearRect(0, 0, geometryCanvas.width, geometryCanvas.height);
-
-    const map = pixels()?.getSelected?.();
-    if (!map || Number(map.page || 0) !== page() || map.editorVisible === false || !geometryToggle?.checked) return;
+    if (Number(map.page || 0) !== page() || map.editorVisible === false || !geometryToggle?.checked) return;
 
     const zoom = Math.max(0.01, Number(zoomSelect?.value) || 1);
     const b = mapBounds(map);
@@ -129,8 +133,7 @@
 
   // designer-pixelmap.js puede agendar un render adicional después del evento
   // editor-refresh. La microtarea espera a que termine el stack actual y recién
-  // entonces registra nuestro RAF al final de la cola del mismo frame. Así el
-  // usuario nunca ve el frame intermedio con globalAlpha/bordes de selección.
+  // entonces registra nuestro RAF al final de la cola del mismo frame.
   function scheduleStableRepaint() {
     const token = ++repaintToken;
     queueMicrotask(() => {
@@ -166,14 +169,18 @@
     return (pixels()?.getAll?.() || []).filter((map) => Array.isArray(map.pixels) && map.pixels.length);
   }
 
-  function pixelMapEnumBlock() {
+  function pixelMapSymbols() {
     const used = new Set();
-    const lines = runtimeMaps().map((map, index) => {
+    return runtimeMaps().map((map, index) => {
       let symbol = sanitizeToken(map.name, `PIXEL_${index + 1}`);
       if (used.has(symbol)) symbol = `${symbol}_${index + 1}`;
       used.add(symbol);
-      return `    ${symbol} = ${index}`;
+      return { map, index, symbol };
     });
+  }
+
+  function pixelMapEnumBlock() {
+    const lines = pixelMapSymbols().map(({ index, symbol }) => `    ${symbol} = ${index}`);
     if (!lines.length) return '';
     return `enum HMIPixelMapId : uint8_t\n{\n${lines.join(',\n')}\n};`;
   }
@@ -231,20 +238,49 @@
       `void jwplcUIUpdate()\n` +
       `{\n` +
       `    // Los PixelMaps son estáticos. Para frames/estados use:\n` +
-      `    // JWPLC_Display.setPixelMapVisible(PIXEL_1, true/false);\n` +
+      `    // JWPLC_Display.setPixelMapVisible(<HMIPixelMapId>, true/false);\n` +
       `}\n`;
   }
 
-  function ensurePixelOnlyCode() {
+  function insertPixelCodeIntoMixedHeader(text, generated) {
+    if (!text.startsWith('// Código generado por JWPLC HMI Designer')) return text;
+
+    const marker = '// PixelMaps estáticos RGB565 · JWPLC HMI Designer';
+    const enumBlock = pixelMapEnumBlock();
+
+    if (text.includes(marker)) {
+      if (enumBlock && !text.includes('enum HMIPixelMapId : uint8_t')) {
+        return text.replace(marker, `${enumBlock}\n\n${marker}`);
+      }
+      return text;
+    }
+
+    const setup = text.indexOf('void jwplcHMISetup()');
+    if (setup < 0) return text;
+
+    let result = `${text.slice(0, setup).trimEnd()}\n\n${generated.block}\n\n${text.slice(setup)}`;
+    if (!result.includes('JWPLC_Display.setPixelMaps(')) {
+      const refreshMarker = result.indexOf('    JWPLC_Display.setUserRefreshMode(', result.indexOf('void jwplcHMISetup()'));
+      if (refreshMarker >= 0) {
+        result = `${result.slice(0, refreshMarker)}${generated.registration}\n${result.slice(refreshMarker)}`;
+      }
+    }
+    return result;
+  }
+
+  function ensurePixelCode() {
     wrapBuildCode();
     const pm = pixels();
     const generated = pm?.buildCode?.();
     if (!generated?.block || !codeOutput) return;
 
     const fields = editor()?.getAllFields?.() || [];
-    if (fields.length !== 0) return;
+    if (fields.length === 0) {
+      codeOutput.textContent = pixelOnlyHeader(generated);
+      return;
+    }
 
-    codeOutput.textContent = pixelOnlyHeader(generated);
+    codeOutput.textContent = insertPixelCodeIntoMixedHeader(codeOutput.textContent, generated);
   }
 
   // Captura antes del keydown global de app.js. Si hay PIXEL seleccionado,
@@ -293,8 +329,8 @@
   }, true);
   geometryToggle?.addEventListener('change', scheduleStableRepaint);
 
-  generateButton?.addEventListener('click', () => setTimeout(ensurePixelOnlyCode, 90));
-  contractTab?.addEventListener('click', () => setTimeout(ensurePixelOnlyCode, 90));
+  generateButton?.addEventListener('click', () => setTimeout(ensurePixelCode, 110));
+  contractTab?.addEventListener('click', () => setTimeout(ensurePixelCode, 110));
 
   const readyTimer = setInterval(() => {
     if (!pixels()) return;
@@ -307,7 +343,7 @@
   window.JWPLCHMIPixelStability = {
     repaint: stableRepaint,
     schedule: scheduleStableRepaint,
-    ensurePixelOnlyCode,
+    ensurePixelCode,
     pixelMapEnumBlock
   };
 })();
