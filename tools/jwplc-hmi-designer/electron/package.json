@@ -3,7 +3,7 @@
   "version": "0.11.0-alpha.11",
   "private": true,
   "description": "Wrapper nativo Electron para JWPLC HMI Designer Alpha11",
-  "main": "main.js",
+  "main": "bootstrap.js",
   "type": "module",
   "scripts": {
     "start": "electron .",
@@ -20,6 +20,7 @@
       "output": "release"
     },
     "files": [
+      "bootstrap.js",
       "main.js",
       "preload.cjs",
       "package.json"
