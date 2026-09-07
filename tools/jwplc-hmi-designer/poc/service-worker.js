@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'jwplc-hmi-designer-alpha11-a11-7a-inspector-exclusive';
+const CACHE_NAME = 'jwplc-hmi-designer-alpha11-a11-7b-pixel-layer-editing';
 const CORE = [
   './desktop.html',
   './index.html',
