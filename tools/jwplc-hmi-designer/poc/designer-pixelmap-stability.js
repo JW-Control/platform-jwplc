@@ -7,6 +7,8 @@
   const HEIGHT = 170;
   const displayCanvas = document.getElementById('displayCanvas');
   const previewCanvas = document.getElementById('previewCanvas');
+  const geometryCanvas = document.getElementById('geometryCanvas');
+  const geometryToggle = document.getElementById('geometryToggle');
   const zoomSelect = document.getElementById('zoomSelect');
   const codeOutput = document.getElementById('codeOutput');
   const generateButton = document.getElementById('generateButton');
@@ -54,6 +56,40 @@
     }).filter(Boolean);
   }
 
+  function mapBounds(map) {
+    if (!map?.pixels?.length) return { x: Number(map?.x || 0), y: Number(map?.y || 0), width: 1, height: 1 };
+    let maxX = 0;
+    let maxY = 0;
+    map.pixels.forEach((pixel) => {
+      maxX = Math.max(maxX, Number(pixel.x || 0));
+      maxY = Math.max(maxY, Number(pixel.y || 0));
+    });
+    return { x: Number(map.x || 0), y: Number(map.y || 0), width: maxX + 1, height: maxY + 1 };
+  }
+
+  function drawSelectionGeometry() {
+    if (!geometryCanvas) return;
+    const gctx = geometryCanvas.getContext('2d');
+    gctx.clearRect(0, 0, geometryCanvas.width, geometryCanvas.height);
+
+    const map = pixels()?.getSelected?.();
+    if (!map || Number(map.page || 0) !== page() || map.editorVisible === false || !geometryToggle?.checked) return;
+
+    const zoom = Math.max(0.01, Number(zoomSelect?.value) || 1);
+    const b = mapBounds(map);
+    const left = Math.max(0, b.x - 1);
+    const top = Math.max(0, b.y - 1);
+    const right = Math.min(WIDTH, b.x + b.width + 1);
+    const bottom = Math.min(HEIGHT, b.y + b.height + 1);
+
+    gctx.save();
+    gctx.strokeStyle = 'rgba(255,154,67,.65)';
+    gctx.lineWidth = 1;
+    gctx.setLineDash([5, 3]);
+    gctx.strokeRect(left * zoom + 0.5, top * zoom + 0.5, (right - left) * zoom, (bottom - top) * zoom);
+    gctx.restore();
+  }
+
   function stableRepaint() {
     const pm = pixels();
     const helper = compat();
@@ -88,16 +124,20 @@
     ctx.restore();
     pctx.restore();
     helper.restoreFields?.();
+    drawSelectionGeometry();
   }
 
-  // Un único RAF: designer-pixelmap.js ya agenda su render antes que este
-  // listener. El compositor final corre en el mismo frame y no deja visible un
-  // frame intermedio con globalAlpha o bordes naranjas de selección.
+  // designer-pixelmap.js puede agendar un render adicional después del evento
+  // editor-refresh. La microtarea espera a que termine el stack actual y recién
+  // entonces registra nuestro RAF al final de la cola del mismo frame. Así el
+  // usuario nunca ve el frame intermedio con globalAlpha/bordes de selección.
   function scheduleStableRepaint() {
     const token = ++repaintToken;
-    requestAnimationFrame(() => {
-      if (token !== repaintToken) return;
-      stableRepaint();
+    queueMicrotask(() => {
+      requestAnimationFrame(() => {
+        if (token !== repaintToken) return;
+        stableRepaint();
+      });
     });
   }
 
@@ -235,8 +275,6 @@
   window.addEventListener('jwplc:pixelmap-changed', scheduleStableRepaint);
   window.addEventListener('jwplc:project-loaded', scheduleStableRepaint);
 
-  // El input del slider ocurre después de que el handler PIXEL agenda su render;
-  // nuestro RAF queda después y compone el estado definitivo en el mismo frame.
   document.addEventListener('input', (event) => {
     if (event.target?.id === 'pixelMapOpacity') scheduleStableRepaint();
   });
@@ -253,6 +291,7 @@
   document.addEventListener('keyup', (event) => {
     if (event.key === 'Escape' || event.key.startsWith('Arrow')) scheduleStableRepaint();
   }, true);
+  geometryToggle?.addEventListener('change', scheduleStableRepaint);
 
   generateButton?.addEventListener('click', () => setTimeout(ensurePixelOnlyCode, 90));
   contractTab?.addEventListener('click', () => setTimeout(ensurePixelOnlyCode, 90));
