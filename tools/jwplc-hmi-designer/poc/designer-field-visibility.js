@@ -42,3 +42,23 @@
 
   syncFieldVisibility();
 })();
+
+// A11-7: compat se registra antes del objeto PIXEL para capturar el framebuffer
+// base y preservar el orden visual físico PixelMaps -> fields. Después se carga
+// el editor de capas/colores RGB565.
+(() => {
+  if (document.querySelector('script[data-a11-pixel-compat]')) return;
+  const compat = document.createElement('script');
+  compat.src = './designer-pixelmap-compat.js';
+  compat.async = false;
+  compat.dataset.a11PixelCompat = '1';
+  compat.onload = () => {
+    if (window.JWPLCHMIPixelMaps || document.querySelector('script[data-a11-pixelmap]')) return;
+    const pixel = document.createElement('script');
+    pixel.src = './designer-pixelmap.js';
+    pixel.async = false;
+    pixel.dataset.a11Pixelmap = '1';
+    document.body.appendChild(pixel);
+  };
+  document.body.appendChild(compat);
+})();

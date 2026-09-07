@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'jwplc-hmi-designer-alpha11-a11-6-v4-window-icon';
+const CACHE_NAME = 'jwplc-hmi-designer-alpha11-a11-7-pixelmap-rgb565';
 const CORE = [
   './desktop.html',
   './index.html',
@@ -14,6 +14,8 @@ const CORE = [
   './designer-bool.js',
   './designer-bar.js',
   './designer-field-visibility.js',
+  './designer-pixelmap-compat.js',
+  './designer-pixelmap.js',
   './designer-pages.js',
   './designer-live.js',
   './designer-project.js',
