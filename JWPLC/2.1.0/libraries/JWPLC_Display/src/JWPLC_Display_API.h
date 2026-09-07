@@ -82,11 +82,17 @@ public:
     void clearFields();
     size_t fieldCount() const;
 
-    // Gráficos estáticos agrupados por página. El Designer comprime los
-    // píxeles manuales en runs horizontales RGB565 y los registra una vez.
-    // Todos los mapas quedan visibles al registrarlos; el sketch puede cambiar
-    // su visibilidad por índice sin modificar sus datos estáticos.
+    // PixelMaps estáticos agrupados por página.
+    //
+    // setPixelMaps(): formato RGB565_RUN compatible, conservado sin cambios.
+    // setPackedPixelMaps(): formato PACKED_SPAN16 generado automáticamente por
+    // el Designer cuando reduce memoria/código y la paleta cabe en 16 colores.
+    //
+    // Ambos registros son mutuamente exclusivos. clearPixelMaps(),
+    // pixelMapCount() y las funciones de visibilidad trabajan sobre el formato
+    // activo, de modo que el sketch no necesita conocer la codificación elegida.
     bool setPixelMaps(const JWPLC_UIPixelMap *maps, size_t count);
+    bool setPackedPixelMaps(const JWPLC_UIPixelPackedMap *maps, size_t count);
     void clearPixelMaps();
     size_t pixelMapCount() const;
     bool setPixelMapVisible(size_t index, bool visible);
