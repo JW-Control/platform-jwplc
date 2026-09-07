@@ -150,20 +150,6 @@ JWPLC_UIPixelMap::JWPLC_UIPixelMap(
 {
 }
 
-JWPLC_UIPixelPackedMap::JWPLC_UIPixelPackedMap(
-    uint8_t pageValue,
-    const uint16_t *paletteValue,
-    uint8_t paletteCountValue,
-    const uint32_t *spansValue,
-    size_t spanCountValue)
-    : page(pageValue),
-      palette(paletteValue),
-      paletteCount(paletteCountValue),
-      spans(spansValue),
-      spanCount(spanCountValue)
-{
-}
-
 namespace JWPLCUI
 {
     bool setPixelMaps(const JWPLC_UIPixelMap *maps, size_t count)
