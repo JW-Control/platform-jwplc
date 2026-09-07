@@ -60,6 +60,31 @@ La intención es permitir flujos como:
 4. dibujar el frame siguiente encima usando el anterior como onion skin;
 5. ocultar/mostrar capas según sea necesario.
 
+### Estabilidad visual de la referencia
+
+Durante la validación se detectó que `globalAlpha` mezclaba la referencia con la
+grilla ya dibujada en el canvas. A porcentajes bajos, un mismo color RGB565 podía
+verse con dos intensidades aunque el objeto no estuviera seleccionado.
+
+Se añade `designer-pixelmap-stability.js` para normalizar la vista final de los
+PixelMaps de referencia:
+
+- la atenuación se calcula como color de edición sobre el fondo lógico negro;
+- cada RGB565 conserva una única intensidad visual por porcentaje;
+- no se modifica el color almacenado;
+- no se modifica el C++ generado;
+- los fields se restauran encima para mantener el orden `PixelMaps -> fields`.
+
+Esto es una ayuda visual del Designer y no introduce alpha en el runtime.
+
+### Duplicado de PIXEL
+
+`Ctrl+D` debe duplicar el objeto PIXEL seleccionado antes de que el manejador
+global de fields pueda capturar el atajo.
+
+El botón `Duplicar` del inspector y `Ctrl+D` pasan por la misma operación
+`JWPLCHMIPixelMaps.duplicate()`.
+
 ## Alcance deliberado
 
 La visibilidad y opacidad son sólo ayudas de edición.
@@ -97,6 +122,9 @@ A11_7B_BRUSH_SIZE_1_16=IMPLEMENTED_PENDING_USER_GATE
 A11_7B_ERASER_SIZE_1_16=IMPLEMENTED_PENDING_USER_GATE
 A11_7B_EDITOR_HIDE_SHOW=IMPLEMENTED_PENDING_USER_GATE
 A11_7B_EDITOR_ONION_SKIN=IMPLEMENTED_PENDING_USER_GATE
+A11_7B_EDITOR_REFERENCE_SINGLE_TONE=IMPLEMENTED_PENDING_USER_GATE
+A11_7B_PIXEL_DUPLICATE_BUTTON=IMPLEMENTED_PENDING_USER_GATE
+A11_7B_PIXEL_CTRL_D=IMPLEMENTED_PENDING_USER_GATE
 A11_7B_CODEGEN_UNCHANGED_BY_EDITOR_VISIBILITY=IMPLEMENTED_PENDING_USER_GATE
 ```
 
@@ -107,12 +135,14 @@ A11_7B_CODEGEN_UNCHANGED_BY_EDITOR_VISIBILITY=IMPLEMENTED_PENDING_USER_GATE
 2. Crear un PIXEL y probar pincel 1x1, 4x4 y 16x16.
 3. Probar borrador con tamaños distintos al pincel.
 4. Dibujar dos PixelMaps superpuestos.
-5. Poner uno a 35 % y confirmar que el otro puede dibujarse encima sin alterar
-   sus píxeles.
+5. Poner uno a 35 % y confirmar que, al deseleccionarlo, todo el trazo conserva
+   una única intensidad visual sin dos tonos derivados de la grilla.
 6. Ocultar/mostrar cualquiera de los dos y confirmar independencia entre capas.
-7. Confirmar que el indicador de Objetos muestra estado/porcentaje sin convertirlo
+7. Seleccionar un PIXEL y probar el botón `Duplicar`.
+8. Seleccionar un PIXEL y probar `Ctrl+D`; debe crear exactamente una copia.
+9. Confirmar que el indicador de Objetos muestra estado/porcentaje sin convertirlo
    en un control de visibilidad lateral.
-8. Generar C++ y confirmar que opacidad/ocultamiento de edición no aparecen en el
-   código ni cambian `JWPLC_Display.setPixelMaps()`.
+10. Generar C++ y confirmar que opacidad/ocultamiento de edición no aparecen en el
+    código ni cambian `JWPLC_Display.setPixelMaps()`.
 
 No marcar A11-7B como PASS hasta recibir validación visual y funcional del usuario.
