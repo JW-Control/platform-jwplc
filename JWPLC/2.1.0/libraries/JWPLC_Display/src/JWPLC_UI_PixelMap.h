@@ -48,8 +48,9 @@ struct JWPLC_UIPixelMap
 //   bit      30 : DIR      (0=horizontal, 1=vertical)
 //   bit      31 : reservado (0)
 //
-// La paleta RGB565 se almacena una sola vez por PixelMap. El formato permite
-// comprimir líneas horizontales y verticales sin perder ningún píxel.
+// La paleta RGB565 se almacena una sola vez por PixelMap. El descriptor usa un
+// constructor constexpr para permitir inicialización estática sin trabajo de
+// arranque adicional en el ESP32.
 struct JWPLC_UIPixelPackedMap
 {
     uint8_t page;
@@ -58,12 +59,19 @@ struct JWPLC_UIPixelPackedMap
     const uint32_t *spans;
     size_t spanCount;
 
-    JWPLC_UIPixelPackedMap(
+    constexpr JWPLC_UIPixelPackedMap(
         uint8_t pageValue = 0,
         const uint16_t *paletteValue = nullptr,
         uint8_t paletteCountValue = 0,
         const uint32_t *spansValue = nullptr,
-        size_t spanCountValue = 0);
+        size_t spanCountValue = 0)
+        : page(pageValue),
+          palette(paletteValue),
+          paletteCount(paletteCountValue),
+          spans(spansValue),
+          spanCount(spanCountValue)
+    {
+    }
 };
 
 namespace JWPLCUI
