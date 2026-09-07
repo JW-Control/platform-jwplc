@@ -81,7 +81,7 @@
       width = 2 * pad + Math.max(label.width, value.width + (unit.width ? FIELD_GAP + unit.width : 0));
       height = 2 * pad + label.height + (label.height ? FIELD_GAP : 0) + Math.max(value.height, unit.height);
     } else {
-      width = 2 * pad + label.width + (label.width ? FIELD_GAP : 0) + value.width + (unit.width ? FIELD_GAP + unit.width : 0);
+      width = 2 * pad + label.width + (label.width ? FIELD_GAP + 0 : 0) + value.width + (unit.width ? FIELD_GAP + unit.width : 0);
       height = 2 * pad + Math.max(label.height, value.height, unit.height);
     }
     return { x: Number(field.x) || 0, y: Number(field.y) || 0, width, height };
@@ -95,6 +95,26 @@
     basePreview.height = preview.height;
     basePreview.getContext('2d').drawImage(preview, 0, 0);
     haveBase = true;
+  }
+
+  function restoreBase() {
+    if (!haveBase) return false;
+
+    const dctx = display.getContext('2d');
+    dctx.save();
+    dctx.globalAlpha = 1;
+    dctx.clearRect(0, 0, display.width, display.height);
+    dctx.drawImage(baseDisplay, 0, 0);
+    dctx.restore();
+
+    const pctx = preview.getContext('2d');
+    pctx.save();
+    pctx.globalAlpha = 1;
+    pctx.clearRect(0, 0, preview.width, preview.height);
+    pctx.drawImage(basePreview, 0, 0);
+    pctx.restore();
+
+    return true;
   }
 
   function restoreFields() {
@@ -123,8 +143,9 @@
   }
 
   // Se registra antes de designer-pixelmap.js: captura el framebuffer base que
-  // acaba de producir app.js. Después del overlay restaura únicamente los fields,
-  // reproduciendo el orden físico PixelMaps -> fields del runtime JWPLC_Display.
+  // acaba de producir app.js. El compositor Pixel puede restaurar este snapshot
+  // completo antes de aplicar la capa final, eliminando restos de selección y
+  // preservando después los fields por encima.
   window.addEventListener('jwplc:editor-refresh', () => {
     captureBase();
     queueRestore();
@@ -167,5 +188,5 @@
     setTimeout(() => window.JWPLCHMILive?.sendFrame?.(), 0);
   });
 
-  window.JWPLCHMIPixelCompat = { fieldRect, captureBase, restoreFields, wrapCodegen };
+  window.JWPLCHMIPixelCompat = { fieldRect, captureBase, restoreBase, restoreFields, wrapCodegen };
 })();
