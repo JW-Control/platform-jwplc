@@ -43,7 +43,7 @@
   syncFieldVisibility();
 })();
 
-// A11-7: compat se registra antes del objeto PIXEL para capturar el framebuffer
+// A11-7B: compat se registra antes del objeto PIXEL para capturar el framebuffer
 // base y preservar el orden visual físico PixelMaps -> fields. Después se carga
 // el editor de capas/colores RGB565.
 (() => {
@@ -93,17 +93,17 @@
       if (!window.JWPLCHMIPixelMaps) return;
 
       const pageGate = document.querySelector('.page-tabs .gate');
-      if (pageGate) pageGate.textContent = 'Gate: A11-7 · PIXELMAP + RGB565';
+      if (pageGate) pageGate.textContent = 'Gate: A11-7B · PIXEL por capas';
       const bottomSummary = document.querySelector('.bottom-summary');
-      if (bottomSummary) bottomSummary.textContent = 'A11-7 · PIXEL como objeto/capa RGB565';
+      if (bottomSummary) bottomSummary.textContent = 'A11-7B · pincel, borrador y onion skin';
       const statusGate = [...document.querySelectorAll('.statusbar span')]
         .find((node) => node.textContent.trim().startsWith('Gate:'));
-      if (statusGate) statusGate.textContent = 'Gate: A11-7 PIXELMAP + RGB565';
+      if (statusGate) statusGate.textContent = 'Gate: A11-7B PIXEL LAYERS';
 
       loadInspectorState();
 
-      // Fuerza una sincronización posterior a la carga para actualizar caption
-      // de herramientas, inspector y lista de Objetos con los módulos ya activos.
+      // Fuerza una sincronización posterior a la carga para actualizar caption,
+      // inspector, Componentes y lista de Objetos con los módulos ya activos.
       window.dispatchEvent(new CustomEvent('jwplc:editor-refresh'));
     };
     pixel.onerror = () => objectShim?.remove?.();
