@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, session } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, session } from "electron";
 import http from "node:http";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -8,6 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const isPackaged = app.isPackaged;
 const appUserModelId = "com.jwcontrol.jwplc.hmidesigner";
+const HEADER_NAME = "JWPLC_HMI_Generated.h";
 
 const webRoot = isPackaged
   ? path.join(process.resourcesPath, "poc")
@@ -17,8 +18,12 @@ const iconPath = isPackaged
   ? path.join(process.resourcesPath, "JWPLC-HMI-Designer.ico")
   : path.resolve(__dirname, "build/icon.ico");
 
+const preloadPath = path.join(__dirname, "preload.cjs");
+
 let mainWindow = null;
 let localServer = null;
+let linkedSketchPath = null;
+let ipcInstalled = false;
 
 const mimeTypes = new Map([
   [".html", "text/html; charset=utf-8"],
@@ -73,11 +78,8 @@ const startStaticServer = async () => {
         "Content-Type": contentType,
         "Cache-Control": "no-store"
       });
-      if (request.method === "HEAD") {
-        response.end();
-      } else {
-        response.end(data);
-      }
+      if (request.method === "HEAD") response.end();
+      else response.end(data);
     } catch (error) {
       response.writeHead(error?.code === "ENOENT" ? 404 : 500, { "Content-Type": "text/plain; charset=utf-8" });
       response.end(error?.code === "ENOENT" ? "Not found" : "Internal server error");
@@ -129,9 +131,124 @@ const installSerialPermissions = () => {
   });
 };
 
+const linkedStateFile = () => path.join(app.getPath("userData"), "linked-sketch.json");
+
+const directoryContainsSketch = async (directoryPath) => {
+  try {
+    const entries = await fs.readdir(directoryPath, { withFileTypes: true });
+    return entries.some((entry) => entry.isFile() && /\.ino$/i.test(entry.name));
+  } catch {
+    return false;
+  }
+};
+
+const fileExists = async (filePath) => {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const sketchInfo = async (directoryPath) => {
+  if (!directoryPath || !(await directoryContainsSketch(directoryPath))) return null;
+  return {
+    ok: true,
+    name: path.basename(directoryPath),
+    path: directoryPath,
+    headerExists: await fileExists(path.join(directoryPath, HEADER_NAME))
+  };
+};
+
+const persistLinkedSketch = async () => {
+  try {
+    await fs.mkdir(path.dirname(linkedStateFile()), { recursive: true });
+    await fs.writeFile(linkedStateFile(), JSON.stringify({ path: linkedSketchPath }, null, 2), "utf8");
+  } catch {
+    // Persistencia best-effort; la vinculación de la sesión sigue siendo válida.
+  }
+};
+
+const restoreLinkedSketchPath = async () => {
+  if (linkedSketchPath) return linkedSketchPath;
+  try {
+    const state = JSON.parse(await fs.readFile(linkedStateFile(), "utf8"));
+    if (state?.path && await directoryContainsSketch(state.path)) linkedSketchPath = state.path;
+  } catch {
+    linkedSketchPath = null;
+  }
+  return linkedSketchPath;
+};
+
+const installNativeIpc = () => {
+  if (ipcInstalled) return;
+  ipcInstalled = true;
+
+  ipcMain.handle("jwplc-hmi:select-sketch-directory", async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: "Vincular sketch Arduino",
+      properties: ["openDirectory"]
+    });
+    if (result.canceled || !result.filePaths?.[0]) return { ok: false, canceled: true };
+
+    const selectedPath = result.filePaths[0];
+    if (!(await directoryContainsSketch(selectedPath))) {
+      return { ok: false, error: "La carpeta seleccionada no contiene un archivo .ino." };
+    }
+
+    linkedSketchPath = selectedPath;
+    await persistLinkedSketch();
+    return await sketchInfo(linkedSketchPath);
+  });
+
+  ipcMain.handle("jwplc-hmi:get-linked-sketch", async () => {
+    await restoreLinkedSketchPath();
+    return (await sketchInfo(linkedSketchPath)) || { ok: false };
+  });
+
+  ipcMain.handle("jwplc-hmi:write-generated-header", async (_event, payload = {}) => {
+    await restoreLinkedSketchPath();
+    const info = await sketchInfo(linkedSketchPath);
+    if (!info) return { ok: false, error: "No hay un sketch vinculado válido." };
+
+    const target = path.join(linkedSketchPath, HEADER_NAME);
+    const exists = await fileExists(target);
+    if (exists && !payload.overwrite) return { ok: false, requiresOverwrite: true, name: info.name };
+
+    const text = String(payload.text || "");
+    if (!text.startsWith("// Código generado por JWPLC HMI Designer") || !text.includes("#pragma once")) {
+      return { ok: false, error: "El contenido generado no corresponde a un header HMI válido." };
+    }
+
+    await fs.writeFile(target, text, "utf8");
+    return { ok: true, name: info.name, path: target };
+  });
+
+  ipcMain.handle("jwplc-hmi:write-project", async (_event, payload = {}) => {
+    await restoreLinkedSketchPath();
+    const info = await sketchInfo(linkedSketchPath);
+    if (!info) return { ok: false, error: "No hay un sketch vinculado válido." };
+
+    const requestedName = String(payload.fileName || `${info.name}.jwhmi`);
+    const safeName = path.basename(requestedName);
+    if (!/^[^<>:\"/\\|?*]+\.jwhmi$/i.test(safeName)) {
+      return { ok: false, error: "Nombre de proyecto .jwhmi inválido." };
+    }
+
+    const target = path.join(linkedSketchPath, safeName);
+    const exists = await fileExists(target);
+    if (exists && !payload.overwrite) return { ok: false, requiresOverwrite: true, name: info.name };
+
+    await fs.writeFile(target, String(payload.text || ""), "utf8");
+    return { ok: true, name: info.name, path: target };
+  });
+};
+
 const createWindow = async () => {
   const baseUrl = await startStaticServer();
   installSerialPermissions();
+  installNativeIpc();
 
   mainWindow = new BrowserWindow({
     width: 1440,
@@ -144,6 +261,7 @@ const createWindow = async () => {
     autoHideMenuBar: true,
     title: "JWPLC HMI Designer — Alpha11",
     webPreferences: {
+      preload: preloadPath,
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -160,12 +278,10 @@ const createWindow = async () => {
     mainWindow = null;
   });
 
-  await mainWindow.loadURL(`${baseUrl}/desktop.html?app=alpha11-electron-v1`);
+  await mainWindow.loadURL(`${baseUrl}/desktop.html?app=alpha11-electron-v2`);
 };
 
-if (process.platform === "win32") {
-  app.setAppUserModelId(appUserModelId);
-}
+if (process.platform === "win32") app.setAppUserModelId(appUserModelId);
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
