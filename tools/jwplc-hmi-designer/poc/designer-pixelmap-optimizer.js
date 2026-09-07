@@ -221,9 +221,11 @@
     const enumBlock = existingEnumBlock(originalGenerated?.block, analysis.maps);
     if (enumBlock) sections.push(enumBlock);
 
+    // Conserva el marcador canónico reconocido por designer-pixelmap-stability.js
+    // para que regenerar varias veces no duplique el bloque PixelMap.
     sections.push(
-      `// PixelMaps compactos RGB565 · PACKED_SPAN16 · JWPLC HMI Designer\n` +
-      `// ${analysis.pixelCount} px -> ${analysis.packedSpans} spans · ${analysis.paletteEntries} entradas de paleta\n` +
+      `// PixelMaps estáticos RGB565 · JWPLC HMI Designer\n` +
+      `// Formato: PACKED_SPAN16 · ${analysis.pixelCount} px -> ${analysis.packedSpans} spans · ${analysis.paletteEntries} entradas de paleta\n` +
       `// Estimado: ${analysis.packedBytes} B vs ${analysis.legacyBytes} B RGB565_RUN · ahorro ${analysis.savings}%`);
 
     analysis.plans.forEach((plan, index) => {
