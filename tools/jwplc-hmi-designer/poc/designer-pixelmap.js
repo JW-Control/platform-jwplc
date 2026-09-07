@@ -6,6 +6,8 @@
   const WIDTH = 320;
   const HEIGHT = 170;
   const MAX_PIXEL_MAPS = 16;
+  const MAX_BRUSH_SIZE = 16;
+  const DEFAULT_ONION_OPACITY = 0.35;
   const PRESETS = [
     ['BLACK', 0x0000], ['WHITE', 0xFFFF], ['RED', 0xF800],
     ['GREEN', 0x07E0], ['BLUE', 0x001F], ['CYAN', 0x07FF],
@@ -22,6 +24,7 @@
   const pixelSection = document.querySelector('.pixel-controls');
   const pixelTool = document.querySelector('.tool[data-tool="pixel"]');
   const eraseTool = document.querySelector('.tool[data-tool="erase"]');
+  const rawTool = document.querySelector('.tool[data-tool="rawText"]');
   const zoomSelect = document.getElementById('zoomSelect');
   const gridToggle = document.getElementById('gridToggle');
   const geometryToggle = document.getElementById('geometryToggle');
@@ -30,13 +33,15 @@
   const generateButton = document.getElementById('generateButton');
   const newProjectButton = document.getElementById('newProjectButton');
 
-  if (!displayCanvas || !previewCanvas || !objectList || !pixelSection) return;
+  if (!displayCanvas || !previewCanvas || !objectList) return;
 
   let maps = [];
   let selectedKey = null;
   let serial = 0;
   let mode = 'DRAW';
   let color = 0xFD20;
+  let brushSize = 1;
+  let eraserSize = 1;
   let pointer = null;
   let lastPoint = null;
   let dragStart = null;
@@ -48,6 +53,7 @@
   const page = () => Number(editor()?.getActivePage?.() || 0);
   const hex565 = (value) => `0x${(Number(value) & 0xFFFF).toString(16).toUpperCase().padStart(4, '0')}`;
   const inside = (p) => p.x >= 0 && p.x < WIDTH && p.y >= 0 && p.y < HEIGHT;
+  const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
   function parse565(value, fallback = 0) {
     let text = String(value ?? '').trim();
@@ -93,8 +99,16 @@
     return maps.find((map) => map.key === selectedKey) || null;
   }
 
-  function visibleMaps() {
+  function mapsForPage() {
     return maps.filter((map) => Number(map.page || 0) === page());
+  }
+
+  function ensureEditorMeta(map) {
+    if (!map) return map;
+    if (typeof map.editorVisible !== 'boolean') map.editorVisible = true;
+    const opacity = Number(map.editorOpacity);
+    map.editorOpacity = Number.isFinite(opacity) ? clamp(opacity, 0.1, 1) : 1;
+    return map;
   }
 
   function bounds(map) {
@@ -167,11 +181,37 @@
     return true;
   }
 
-  function erasePixel(map, gx, gy) {
+  function brushRange(size) {
+    const normalized = clamp(Math.trunc(Number(size) || 1), 1, MAX_BRUSH_SIZE);
+    const start = -Math.floor((normalized - 1) / 2);
+    return { size: normalized, start, end: start + normalized - 1 };
+  }
+
+  function putBrush(map, gx, gy, value, size) {
+    const range = brushRange(size);
+    let changedAny = false;
+    for (let oy = range.start; oy <= range.end; oy += 1) {
+      for (let ox = range.start; ox <= range.end; ox += 1) {
+        changedAny = putPixel(map, gx + ox, gy + oy, value) || changedAny;
+      }
+    }
+    return changedAny;
+  }
+
+  function eraseBrush(map, gx, gy, size) {
     if (!map?.pixels?.length) return false;
-    const index = findPixel(map, gx - map.x, gy - map.y);
-    if (index < 0) return false;
-    map.pixels.splice(index, 1);
+    const range = brushRange(size);
+    const minX = gx + range.start;
+    const maxX = gx + range.end;
+    const minY = gy + range.start;
+    const maxY = gy + range.end;
+    const before = map.pixels.length;
+    map.pixels = map.pixels.filter((pixel) => {
+      const px = map.x + pixel.x;
+      const py = map.y + pixel.y;
+      return px < minX || px > maxX || py < minY || py > maxY;
+    });
+    if (map.pixels.length === before) return false;
     canonicalize(map);
     return true;
   }
@@ -205,8 +245,15 @@
     clearFieldSelection();
     serial += 1;
     const map = {
-      type: 'PIXELMAP', key: `pixelmap-${serial}`, name: `Pixel ${serial}`,
-      page: page(), x: 20, y: 20, pixels: []
+      type: 'PIXELMAP',
+      key: `pixelmap-${serial}`,
+      name: `Pixel ${serial}`,
+      page: page(),
+      x: 20,
+      y: 20,
+      editorVisible: true,
+      editorOpacity: 1,
+      pixels: []
     };
     maps.push(map);
     selectedKey = map.key;
@@ -226,6 +273,8 @@
       name: `${source.name} copia`.slice(0, 24),
       x: Math.min(WIDTH - 1, source.x + 4),
       y: Math.min(HEIGHT - 1, source.y + 4),
+      editorVisible: true,
+      editorOpacity: 1,
       pixels: source.pixels.map((p) => ({ ...p }))
     };
     const b = bounds(copy);
@@ -247,14 +296,27 @@
   }
 
   function hitMap(point) {
-    const fieldHit = document.elementFromPoint?.(point.clientX, point.clientY);
-    void fieldHit;
-    const visible = visibleMaps();
+    const visible = mapsForPage().filter((map) => ensureEditorMeta(map).editorVisible);
     for (let i = visible.length - 1; i >= 0; i -= 1) {
       const map = visible[i];
       if (findPixel(map, point.x - map.x, point.y - map.y) >= 0) return map;
     }
     return null;
+  }
+
+  function organizeLeftPanel() {
+    const components = document.querySelector('.tool[data-tool="textField"]')?.closest('.nav-block');
+    const toolsSection = pixelTool?.closest('.nav-block') || eraseTool?.closest('.nav-block') || rawTool?.closest('.nav-block');
+    if (components && pixelTool) {
+      pixelTool.classList.remove('utility-tool');
+      pixelTool.classList.add('component-tool');
+      pixelTool.innerHTML = '<span class="component-icon">▦</span><strong>PIXEL</strong><span>Mapa de píxeles</span>';
+      pixelTool.title = 'Crear un objeto PIXEL';
+      components.appendChild(pixelTool);
+    }
+    eraseTool?.remove();
+    rawTool?.remove();
+    if (toolsSection && !toolsSection.querySelector('.tool')) toolsSection.remove();
   }
 
   function injectStyles() {
@@ -264,13 +326,19 @@
     style.textContent = `
       .a11-pixel-row .object-icon{color:#ff9a43;font-weight:800}
       .a11-pixel-row.active{border-color:#ff8a2a!important;background:rgba(255,138,42,.10)!important}
+      .a11-pixel-row[data-hidden="1"]{opacity:.62}
       .a11-color-control{display:grid;grid-template-columns:34px 1fr 86px;gap:6px;align-items:center}
       .a11-color-control input[type=color]{width:34px;height:30px;padding:1px;border:1px solid #425764;border-radius:4px;background:#13212a}
       .a11-color-control input[type=text]{min-width:0}
       .a11-color-presets{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
       .a11-color-chip{width:22px;height:22px;border:1px solid #5b6f7b;border-radius:4px;padding:0;cursor:pointer}
       .a11-pixel-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
-      .a11-pixel-actions button.active{border-color:#ff8a2a;color:#ffc48f;background:rgba(255,138,42,.12)}
+      .a11-pixel-actions button.active,.a11-pixel-layer-actions button.active{border-color:#ff8a2a;color:#ffc48f;background:rgba(255,138,42,.12)}
+      .a11-pixel-size-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px}
+      .a11-pixel-layer-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+      .a11-opacity-row{display:grid;grid-template-columns:1fr 50px;gap:8px;align-items:center;margin-top:8px}
+      .a11-opacity-row input[type=range]{width:100%}
+      .a11-opacity-value{text-align:right;font-variant-numeric:tabular-nums;color:#cbd9e1}
       .a11-pixel-note{font-size:10px;line-height:1.35;color:#92a7b3;margin:7px 0 0}
       .a11-custom-color{display:grid;gap:5px;margin-top:6px}
       .a11-custom-color .a11-color-control{grid-template-columns:30px 1fr}
@@ -280,6 +348,7 @@
   }
 
   function makeColorControl(root, getValue, setValue, compact = false) {
+    if (!root) return () => {};
     root.innerHTML = '';
     root.classList.toggle('a11-custom-color', compact);
     const row = document.createElement('div');
@@ -306,7 +375,7 @@
         button.className = 'a11-color-chip';
         button.title = `${name} · ${hex565(value)}`;
         button.style.background = css565(value);
-        button.addEventListener('click', () => { setValue(value); sync(); });
+        button.addEventListener('click', () => { setValue(value); sync(); changed(); });
         presets.appendChild(button);
       });
       root.appendChild(presets);
@@ -334,7 +403,17 @@
   let mapPage = null;
   let pixelCount = null;
   let pixelBounds = null;
+  let brushSizeInput = null;
+  let eraserSizeInput = null;
+  let visibilityButton = null;
+  let onionButton = null;
+  let opacityInput = null;
+  let opacityValue = null;
   let syncMainColor = () => {};
+
+  function sizeOptions() {
+    return Array.from({ length: MAX_BRUSH_SIZE }, (_, index) => `<option value="${index + 1}">${index + 1} × ${index + 1} px</option>`).join('');
+  }
 
   function injectInspector() {
     inspector = document.createElement('section');
@@ -355,17 +434,34 @@
       </div></details>
       <details open><summary>Edición</summary><div class="inspector-body">
         <div class="a11-pixel-actions"><button data-pm-mode="DRAW">✎ Pincel</button><button data-pm-mode="ERASE">◇ Borrador</button><button data-pm-mode="MOVE">✥ Mover</button></div>
-        <p class="a11-pixel-note">Pincel y borrador sólo modifican este objeto PIXEL. Un objeto puede contener múltiples colores RGB565.</p>
+        <div class="a11-pixel-size-grid">
+          <label class="field-label">Tamaño pincel<select id="pixelBrushSize" class="field-input">${sizeOptions()}</select></label>
+          <label class="field-label">Tamaño borrador<select id="pixelEraserSize" class="field-input">${sizeOptions()}</select></label>
+        </div>
+        <p class="a11-pixel-note">Huella cuadrada pixel-perfect. Pincel y borrador sólo modifican este objeto PIXEL.</p>
       </div></details>
       <details open><summary>Color RGB565</summary><div class="inspector-body"><div id="pixelMapColor"></div><p class="a11-pixel-note">Rango completo: 0x0000…0xFFFF. Los presets son sólo atajos.</p></div></details>
+      <details open><summary>Visibilidad de edición</summary><div class="inspector-body">
+        <div class="a11-pixel-layer-actions"><button id="pixelMapVisibility">👁 Ocultar</button><button id="pixelMapOnion">◐ Referencia 35%</button></div>
+        <div class="a11-opacity-row"><input id="pixelMapOpacity" type="range" min="10" max="100" step="5" value="100"><span id="pixelMapOpacityValue" class="a11-opacity-value">100%</span></div>
+        <p class="a11-pixel-note">Sólo afecta al Designer. El codegen conserva todos los PixelMaps opacos RGB565; esta opacidad sirve como onion skin para dibujar frames.</p>
+      </div></details>
       <details open><summary>Objeto</summary><div class="inspector-body two-cols"><button id="pixelMapDuplicate">⧉ Duplicar</button><button id="pixelMapDelete">🗑 Eliminar</button></div></details>`;
     rawSection?.insertAdjacentElement('afterend', inspector);
+    if (!inspector.isConnected) fieldSection?.insertAdjacentElement('afterend', inspector);
+
     mapName = document.getElementById('pixelMapName');
     mapX = document.getElementById('pixelMapX');
     mapY = document.getElementById('pixelMapY');
     mapPage = document.getElementById('pixelMapPage');
     pixelCount = document.getElementById('pixelMapCount');
     pixelBounds = document.getElementById('pixelMapBounds');
+    brushSizeInput = document.getElementById('pixelBrushSize');
+    eraserSizeInput = document.getElementById('pixelEraserSize');
+    visibilityButton = document.getElementById('pixelMapVisibility');
+    onionButton = document.getElementById('pixelMapOnion');
+    opacityInput = document.getElementById('pixelMapOpacity');
+    opacityValue = document.getElementById('pixelMapOpacityValue');
     syncMainColor = makeColorControl(document.getElementById('pixelMapColor'), () => color, (value) => { color = value & 0xFFFF; });
 
     inspector.querySelectorAll('[data-pm-mode]').forEach((button) => button.addEventListener('click', () => {
@@ -373,15 +469,65 @@
       syncInspector();
       render();
     }));
+
+    brushSizeInput.value = String(brushSize);
+    eraserSizeInput.value = String(eraserSize);
+    brushSizeInput.addEventListener('change', () => {
+      brushSize = clamp(Number(brushSizeInput.value) || 1, 1, MAX_BRUSH_SIZE);
+      brushSizeInput.value = String(brushSize);
+    });
+    eraserSizeInput.addEventListener('change', () => {
+      eraserSize = clamp(Number(eraserSizeInput.value) || 1, 1, MAX_BRUSH_SIZE);
+      eraserSizeInput.value = String(eraserSize);
+    });
+
+    visibilityButton.addEventListener('click', () => {
+      const map = selected();
+      if (!map) return;
+      ensureEditorMeta(map);
+      map.editorVisible = !map.editorVisible;
+      syncInspector();
+      refreshBase();
+      changed();
+    });
+
+    onionButton.addEventListener('click', () => {
+      const map = selected();
+      if (!map) return;
+      ensureEditorMeta(map);
+      map.editorOpacity = map.editorOpacity >= 0.99 ? DEFAULT_ONION_OPACITY : 1;
+      syncInspector();
+      refreshBase();
+      changed();
+    });
+
+    opacityInput.addEventListener('input', () => {
+      const map = selected();
+      if (!map) return;
+      ensureEditorMeta(map);
+      map.editorOpacity = clamp((Number(opacityInput.value) || 100) / 100, 0.1, 1);
+      syncInspector();
+      refreshBase();
+    });
+    opacityInput.addEventListener('change', changed);
+
     document.getElementById('pixelMapDuplicate').addEventListener('click', duplicateMap);
     document.getElementById('pixelMapDelete').addEventListener('click', deleteMap);
-    mapName.addEventListener('change', () => { const m = selected(); if (m) { m.name = mapName.value.trim().slice(0, 24) || m.name; changed(); refreshBase(); } });
+    mapName.addEventListener('change', () => {
+      const map = selected();
+      if (!map) return;
+      map.name = mapName.value.trim().slice(0, 24) || map.name;
+      changed();
+      refreshBase();
+    });
     [mapX, mapY].forEach((input) => input.addEventListener('change', () => {
-      const m = selected(); if (!m) return;
-      const b = bounds(m);
-      m.x = Math.max(0, Math.min(WIDTH - b.width, Number(mapX.value) || 0));
-      m.y = Math.max(0, Math.min(HEIGHT - b.height, Number(mapY.value) || 0));
-      changed(); refreshBase();
+      const map = selected();
+      if (!map) return;
+      const b = bounds(map);
+      map.x = Math.max(0, Math.min(WIDTH - b.width, Number(mapX.value) || 0));
+      map.y = Math.max(0, Math.min(HEIGHT - b.height, Number(mapY.value) || 0));
+      changed();
+      refreshBase();
     }));
   }
 
@@ -389,8 +535,11 @@
     const map = selected();
     if (fieldSection) fieldSection.hidden = Boolean(map) || fieldSection.hidden;
     if (rawSection && map) rawSection.hidden = true;
+    if (!inspector) return;
     inspector.hidden = !map;
     if (!map) return;
+
+    ensureEditorMeta(map);
     const b = bounds(map);
     mapName.value = map.name;
     mapX.value = map.x;
@@ -398,19 +547,32 @@
     mapPage.value = String(Number(map.page || 0));
     pixelCount.textContent = String(map.pixels.length);
     pixelBounds.textContent = `${b.width} × ${b.height} px`;
+    brushSizeInput.value = String(brushSize);
+    eraserSizeInput.value = String(eraserSize);
+    visibilityButton.textContent = map.editorVisible ? '👁 Ocultar' : '👁 Mostrar';
+    visibilityButton.classList.toggle('active', !map.editorVisible);
+    onionButton.textContent = map.editorOpacity >= 0.99 ? '◐ Referencia 35%' : '◐ Opacidad 100%';
+    onionButton.classList.toggle('active', map.editorOpacity < 0.99);
+    opacityInput.value = String(Math.round(map.editorOpacity * 100));
+    opacityValue.textContent = `${Math.round(map.editorOpacity * 100)}%`;
     inspector.querySelectorAll('[data-pm-mode]').forEach((button) => button.classList.toggle('active', button.dataset.pmMode === mode));
     syncMainColor();
   }
 
   function patchObjectList() {
     objectList.querySelectorAll('.a11-pixel-row').forEach((node) => node.remove());
-    visibleMaps().forEach((map) => {
+    mapsForPage().forEach((map) => {
+      ensureEditorMeta(map);
       const row = document.createElement('button');
       row.type = 'button';
+      row.dataset.hidden = map.editorVisible ? '0' : '1';
       row.className = `object-item a11-pixel-row${map.key === selectedKey ? ' active' : ''}`;
-      row.innerHTML = '<span class="object-icon">▦</span><span class="object-type">PIXEL</span><span class="object-name"></span><span class="object-id"></span><span class="object-eye">●</span>';
+      row.innerHTML = '<span class="object-icon">▦</span><span class="object-type">PIXEL</span><span class="object-name"></span><span class="object-id"></span><span class="object-eye"></span>';
       row.querySelector('.object-name').textContent = map.name;
-      row.querySelector('.object-id').textContent = `${map.pixels.length} px`;
+      row.querySelector('.object-id').textContent = map.editorVisible
+        ? `${map.pixels.length} px · ${Math.round(map.editorOpacity * 100)}%`
+        : `${map.pixels.length} px · oculto`;
+      row.querySelector('.object-eye').textContent = map.editorVisible ? '●' : '○';
       row.addEventListener('click', (event) => {
         event.preventDefault();
         clearFieldSelection();
@@ -418,21 +580,18 @@
         mode = 'MOVE';
         syncInspector();
         render();
+        window.JWPLCHMIInspectorState?.sync?.();
       });
       objectList.appendChild(row);
     });
-    if (countBadge) countBadge.textContent = String((editor()?.getFieldsForPage?.(page()) || []).length + visibleMaps().length);
+    if (countBadge) countBadge.textContent = String((editor()?.getFieldsForPage?.(page()) || []).length + mapsForPage().length);
   }
 
   function fieldRects() {
-    const zoom = Math.max(0.01, Number(zoomSelect?.value) || 1);
-    const nodes = [...document.querySelectorAll('.object-item:not(.a11-pixel-row)')];
-    void zoom; void nodes;
-    const fields = (editor()?.getFieldsForPage?.(page()) || []);
-    return fields.map((field) => {
-      const g = editor()?.getSelectedField?.() === field ? editor()?.computeSelectedGeometry?.() : null;
-      if (g) return { x: field.x, y: field.y, w: g.fieldW, h: g.fieldH };
-      return null;
+    const compat = window.JWPLCHMIPixelCompat;
+    return (editor()?.getFieldsForPage?.(page()) || []).map((field) => {
+      const rect = compat?.fieldRect?.(field);
+      return rect ? { x: rect.x, y: rect.y, w: rect.width, h: rect.height } : null;
     }).filter(Boolean);
   }
 
@@ -445,19 +604,29 @@
     const protectedRects = fieldRects();
     const covered = (x, y) => protectedRects.some((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
 
-    visibleMaps().forEach((map) => map.pixels.forEach((pixel) => {
-      const x = map.x + pixel.x;
-      const y = map.y + pixel.y;
-      if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT || covered(x, y)) return;
-      ctx.fillStyle = css565(pixel.color);
-      ctx.fillRect(x * zoom, y * zoom, zoom, zoom);
-      pctx.fillStyle = css565(pixel.color);
-      pctx.fillRect(x, y, 1, 1);
-    }));
+    mapsForPage().forEach((map) => {
+      ensureEditorMeta(map);
+      if (!map.editorVisible) return;
+      ctx.save();
+      pctx.save();
+      ctx.globalAlpha = map.editorOpacity;
+      pctx.globalAlpha = map.editorOpacity;
+      map.pixels.forEach((pixel) => {
+        const x = map.x + pixel.x;
+        const y = map.y + pixel.y;
+        if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT || covered(x, y)) return;
+        ctx.fillStyle = css565(pixel.color);
+        ctx.fillRect(x * zoom, y * zoom, zoom, zoom);
+        pctx.fillStyle = css565(pixel.color);
+        pctx.fillRect(x, y, 1, 1);
+      });
+      ctx.restore();
+      pctx.restore();
+    });
 
     if (gridToggle?.checked && zoom >= 3) {
       const map = selected();
-      if (map && Number(map.page || 0) === page()) {
+      if (map && Number(map.page || 0) === page() && ensureEditorMeta(map).editorVisible) {
         ctx.save();
         ctx.strokeStyle = 'rgba(255,154,67,.5)';
         ctx.lineWidth = 1;
@@ -473,7 +642,7 @@
 
   function drawGeometry() {
     const map = selected();
-    if (!map || Number(map.page || 0) !== page()) return;
+    if (!map || Number(map.page || 0) !== page() || !ensureEditorMeta(map).editorVisible) return;
     const zoom = Math.max(0.01, Number(zoomSelect?.value) || 1);
     const ctx = geometryCanvas.getContext('2d');
     const b = bounds(map);
@@ -492,11 +661,6 @@
 
   function changed() {
     window.dispatchEvent(new CustomEvent('jwplc:pixelmap-changed', { detail: { count: maps.length } }));
-  }
-
-  function injectGlobalPicker() {
-    pixelSection.innerHTML = '<details open><summary>Color RGB565 activo</summary><div class="inspector-body"><div id="a11Global565"></div></div></details>';
-    makeColorControl(document.getElementById('a11Global565'), () => color, (value) => { color = value & 0xFFFF; syncInspector(); });
   }
 
   function ensureSelectOption(select, value) {
@@ -595,23 +759,16 @@
   function syncTools() {
     if (pixelTool) {
       pixelTool.title = 'Crear un nuevo objeto PIXEL';
-      const small = pixelTool.querySelector('small');
-      if (small) small.textContent = 'Crear capa Pixel';
       pixelTool.classList.toggle('active', Boolean(selected()) && mode === 'DRAW');
-    }
-    if (eraseTool) {
-      eraseTool.title = selected() ? 'Borrar del objeto PIXEL seleccionado' : 'Selecciona primero un objeto PIXEL';
-      eraseTool.classList.toggle('active', Boolean(selected()) && mode === 'ERASE');
     }
   }
 
   pixelTool?.addEventListener('click', (event) => {
-    event.preventDefault(); event.stopImmediatePropagation(); createMap(); syncTools();
-  }, true);
-  eraseTool?.addEventListener('click', (event) => {
-    event.preventDefault(); event.stopImmediatePropagation();
-    if (!selected()) return;
-    mode = 'ERASE'; syncInspector(); syncTools(); render();
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    createMap();
+    syncTools();
+    window.JWPLCHMIInspectorState?.sync?.();
   }, true);
 
   displayCanvas.addEventListener('pointerdown', (event) => {
@@ -626,13 +783,21 @@
       mode = 'MOVE';
     }
     if (Number(map.page || 0) !== page()) return;
-    event.preventDefault(); event.stopImmediatePropagation();
+    event.preventDefault();
+    event.stopImmediatePropagation();
     pointer = event.pointerId;
     lastPoint = p;
     displayCanvas.setPointerCapture?.(pointer);
-    if (mode === 'MOVE') { dragStart = p; dragOrigin = { x: map.x, y: map.y }; }
-    else if (mode === 'ERASE') { erasePixel(map, p.x, p.y); refreshBase(); }
-    else { putPixel(map, p.x, p.y, color); refreshBase(); }
+    if (mode === 'MOVE') {
+      dragStart = p;
+      dragOrigin = { x: map.x, y: map.y };
+    } else if (mode === 'ERASE') {
+      eraseBrush(map, p.x, p.y, eraserSize);
+      refreshBase();
+    } else {
+      putBrush(map, p.x, p.y, color, brushSize);
+      refreshBase();
+    }
   }, true);
 
   displayCanvas.addEventListener('pointermove', (event) => {
@@ -641,13 +806,17 @@
     if (!inside(p)) return;
     const map = selected();
     if (!map) return;
-    event.preventDefault(); event.stopImmediatePropagation();
+    event.preventDefault();
+    event.stopImmediatePropagation();
     if (mode === 'MOVE' && dragStart && dragOrigin) {
       const b = bounds(map);
       map.x = Math.max(0, Math.min(WIDTH - b.width, dragOrigin.x + p.x - dragStart.x));
       map.y = Math.max(0, Math.min(HEIGHT - b.height, dragOrigin.y + p.y - dragStart.y));
     } else if (lastPoint) {
-      rasterLine(lastPoint, p, (x, y) => mode === 'ERASE' ? erasePixel(map, x, y) : putPixel(map, x, y, color));
+      rasterLine(lastPoint, p, (x, y) => {
+        if (mode === 'ERASE') eraseBrush(map, x, y, eraserSize);
+        else putBrush(map, x, y, color, brushSize);
+      });
       lastPoint = p;
     }
     refreshBase();
@@ -655,8 +824,14 @@
 
   function endPointer(event) {
     if (pointer === null || (event?.pointerId !== undefined && event.pointerId !== pointer)) return;
-    event?.preventDefault?.(); event?.stopImmediatePropagation?.();
-    pointer = null; lastPoint = null; dragStart = null; dragOrigin = null; changed(); syncInspector();
+    event?.preventDefault?.();
+    event?.stopImmediatePropagation?.();
+    pointer = null;
+    lastPoint = null;
+    dragStart = null;
+    dragOrigin = null;
+    changed();
+    syncInspector();
   }
   displayCanvas.addEventListener('pointerup', endPointer, true);
   displayCanvas.addEventListener('pointercancel', endPointer, true);
@@ -667,19 +842,30 @@
     const target = event.target;
     if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || target?.isContentEditable) return;
     if (event.key === 'Delete' || event.key === 'Backspace') {
-      event.preventDefault(); event.stopImmediatePropagation(); deleteMap(); return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      deleteMap();
+      return;
     }
     if (event.key === 'Escape') {
-      event.preventDefault(); event.stopImmediatePropagation(); selectedKey = null; syncInspector(); refreshBase(); return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      selectedKey = null;
+      syncInspector();
+      refreshBase();
+      window.JWPLCHMIInspectorState?.sync?.();
+      return;
     }
     const step = event.shiftKey ? 10 : 1;
     const delta = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[event.key];
     if (!delta) return;
-    event.preventDefault(); event.stopImmediatePropagation();
+    event.preventDefault();
+    event.stopImmediatePropagation();
     const b = bounds(map);
     map.x = Math.max(0, Math.min(WIDTH - b.width, map.x + delta[0]));
     map.y = Math.max(0, Math.min(HEIGHT - b.height, map.y + delta[1]));
-    refreshBase(); changed();
+    refreshBase();
+    changed();
   }, true);
 
   window.addEventListener('jwplc:editor-refresh', () => {
@@ -688,23 +874,42 @@
     requestAnimationFrame(() => { render(); syncTools(); });
   });
   window.addEventListener('jwplc:project-loaded', () => requestAnimationFrame(render));
-  newProjectButton?.addEventListener('click', () => { maps = []; selectedKey = null; serial = 0; syncInspector(); requestAnimationFrame(render); });
+  newProjectButton?.addEventListener('click', () => {
+    maps = [];
+    selectedKey = null;
+    serial = 0;
+    syncInspector();
+    requestAnimationFrame(render);
+  });
   contractTab?.addEventListener('click', () => setTimeout(patchCode, 50));
   generateButton?.addEventListener('click', () => setTimeout(patchCode, 70));
 
   function exportMaps() {
     return maps.map((map) => ({
-      type: 'PIXELMAP', name: map.name, page: Number(map.page || 0), x: map.x, y: map.y,
+      type: 'PIXELMAP',
+      name: map.name,
+      page: Number(map.page || 0),
+      x: map.x,
+      y: map.y,
+      editorVisible: ensureEditorMeta(map).editorVisible,
+      editorOpacity: ensureEditorMeta(map).editorOpacity,
       pixels: map.pixels.map((p) => ({ x: p.x, y: p.y, color: p.color & 0xFFFF }))
     }));
   }
 
   function importMaps(input) {
-    maps = Array.isArray(input) ? input.slice(0, MAX_PIXEL_MAPS).map((map, index) => ({
-      type: 'PIXELMAP', key: `pixelmap-${index + 1}`, name: String(map.name || `Pixel ${index + 1}`).slice(0, 24),
-      page: Number(map.page || 0), x: Math.max(0, Math.min(WIDTH - 1, Number(map.x) || 0)),
+    maps = Array.isArray(input) ? input.slice(0, MAX_PIXEL_MAPS).map((map, index) => ensureEditorMeta({
+      type: 'PIXELMAP',
+      key: `pixelmap-${index + 1}`,
+      name: String(map.name || `Pixel ${index + 1}`).slice(0, 24),
+      page: Number(map.page || 0),
+      x: Math.max(0, Math.min(WIDTH - 1, Number(map.x) || 0)),
       y: Math.max(0, Math.min(HEIGHT - 1, Number(map.y) || 0)),
-      pixels: Array.isArray(map.pixels) ? map.pixels.map((p) => ({ x: Math.max(0, Number(p.x) || 0), y: Math.max(0, Number(p.y) || 0), color: Number(p.color) & 0xFFFF })) : []
+      editorVisible: map.editorVisible !== false,
+      editorOpacity: Number(map.editorOpacity),
+      pixels: Array.isArray(map.pixels)
+        ? map.pixels.map((p) => ({ x: Math.max(0, Number(p.x) || 0), y: Math.max(0, Number(p.y) || 0), color: Number(p.color) & 0xFFFF }))
+        : []
     })) : [];
     serial = maps.length;
     selectedKey = null;
@@ -712,10 +917,10 @@
   }
 
   injectStyles();
+  organizeLeftPanel();
   injectInspector();
-  injectGlobalPicker();
   injectAppearancePickers();
-  pixelSection.querySelector('#palette')?.remove();
+  if (pixelSection) pixelSection.hidden = true;
   render();
 
   window.JWPLCHMIPixelMaps = {
@@ -723,6 +928,8 @@
     getSelected: selected,
     getActiveColor: () => color,
     setActiveColor: (value) => { color = Number(value) & 0xFFFF; syncMainColor(); syncInspector(); },
+    getBrushSize: () => brushSize,
+    getEraserSize: () => eraserSize,
     create: createMap,
     duplicate: duplicateMap,
     removeSelected: deleteMap,
