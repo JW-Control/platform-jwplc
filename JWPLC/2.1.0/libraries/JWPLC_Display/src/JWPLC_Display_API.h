@@ -84,10 +84,13 @@ public:
 
     // Gráficos estáticos agrupados por página. El Designer comprime los
     // píxeles manuales en runs horizontales RGB565 y los registra una vez.
-    // Se dibujan únicamente durante el redraw estático de la página.
+    // Todos los mapas quedan visibles al registrarlos; el sketch puede cambiar
+    // su visibilidad por índice sin modificar sus datos estáticos.
     bool setPixelMaps(const JWPLC_UIPixelMap *maps, size_t count);
     void clearPixelMaps();
     size_t pixelMapCount() const;
+    bool setPixelMapVisible(size_t index, bool visible);
+    bool isPixelMapVisible(size_t index) const;
 
     template <typename T>
     bool setValue(uint8_t fieldId, T value)
