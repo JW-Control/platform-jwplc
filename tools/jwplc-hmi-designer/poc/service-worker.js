@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'jwplc-hmi-designer-alpha11-a11-7d-pixel-optimizer';
+const CACHE_NAME = 'jwplc-hmi-designer-alpha11-a11-7d-enum-guard';
 const CORE = [
   './desktop.html',
   './index.html',
@@ -19,6 +19,7 @@ const CORE = [
   './designer-pixelmap-stability.js',
   './designer-pixelmap-workbench.js',
   './designer-pixelmap-optimizer.js',
+  './designer-pixelmap-codegen-guard.js',
   './designer-inspector-state.js',
   './designer-pages.js',
   './designer-live.js',
