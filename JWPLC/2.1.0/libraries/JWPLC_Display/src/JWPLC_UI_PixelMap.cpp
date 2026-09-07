@@ -9,6 +9,15 @@ namespace
 {
     const JWPLC_UIPixelMap *g_pixelMaps = nullptr;
     size_t g_pixelMapCount = 0;
+    bool g_pixelMapVisible[JWPLC_UI_MAX_PIXEL_MAPS] = {};
+
+    void resetPixelMapVisibility(size_t count)
+    {
+        for (size_t i = 0; i < JWPLC_UI_MAX_PIXEL_MAPS; ++i)
+        {
+            g_pixelMapVisible[i] = (i < count);
+        }
+    }
 }
 
 JWPLC_UIPixelRun::JWPLC_UIPixelRun(
@@ -52,6 +61,7 @@ namespace JWPLCUI
 
         g_pixelMaps = maps;
         g_pixelMapCount = count;
+        resetPixelMapVisibility(count);
         JWPLCUI::invalidateAll(true);
         return true;
     }
@@ -60,12 +70,35 @@ namespace JWPLCUI
     {
         g_pixelMaps = nullptr;
         g_pixelMapCount = 0;
+        resetPixelMapVisibility(0);
         JWPLCUI::invalidateAll(true);
     }
 
     size_t pixelMapCount()
     {
         return g_pixelMapCount;
+    }
+
+    bool setPixelMapVisible(size_t index, bool visible)
+    {
+        if (index >= g_pixelMapCount)
+        {
+            return false;
+        }
+
+        if (g_pixelMapVisible[index] == visible)
+        {
+            return true;
+        }
+
+        g_pixelMapVisible[index] = visible;
+        JWPLCUI::invalidateAll(true);
+        return true;
+    }
+
+    bool pixelMapVisible(size_t index)
+    {
+        return index < g_pixelMapCount && g_pixelMapVisible[index];
     }
 
     void drawPixelMapsStatic(Adafruit_ST7789 &tft)
@@ -81,6 +114,11 @@ namespace JWPLCUI
 
         for (size_t mapIndex = 0; mapIndex < g_pixelMapCount; ++mapIndex)
         {
+            if (!g_pixelMapVisible[mapIndex])
+            {
+                continue;
+            }
+
             const JWPLC_UIPixelMap &map = g_pixelMaps[mapIndex];
 
             if (map.page != page || map.runs == nullptr)
@@ -138,4 +176,14 @@ void JWPLC_DisplayClass::clearPixelMaps()
 size_t JWPLC_DisplayClass::pixelMapCount() const
 {
     return JWPLCUI::pixelMapCount();
+}
+
+bool JWPLC_DisplayClass::setPixelMapVisible(size_t index, bool visible)
+{
+    return JWPLCUI::setPixelMapVisible(index, visible);
+}
+
+bool JWPLC_DisplayClass::isPixelMapVisible(size_t index) const
+{
+    return JWPLCUI::pixelMapVisible(index);
 }
