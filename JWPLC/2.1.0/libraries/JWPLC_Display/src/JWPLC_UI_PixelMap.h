@@ -24,8 +24,9 @@ struct JWPLC_UIPixelRun
         uint16_t colorValue = 0xFFFF);
 };
 
-// PixelMap estático asociado a una página HMI. No tiene variable runtime ni
-// setter periódico: sólo se redibuja al entrar/cambiar/redibujar la página.
+// PixelMap estático asociado a una página HMI. Sus runs no cambian en runtime,
+// pero cada mapa puede mostrarse u ocultarse por índice para soportar frames,
+// estados gráficos y animaciones declarativas sin tocar la TFT directamente.
 struct JWPLC_UIPixelMap
 {
     uint8_t page;
@@ -43,6 +44,9 @@ namespace JWPLCUI
     bool setPixelMaps(const JWPLC_UIPixelMap *maps, size_t count);
     void clearPixelMaps();
     size_t pixelMapCount();
+
+    bool setPixelMapVisible(size_t index, bool visible);
+    bool pixelMapVisible(size_t index);
 
     // Hook interno invocado antes de drawStatic(fields), de modo que los
     // campos declarativos permanezcan por encima del PixelMap.
