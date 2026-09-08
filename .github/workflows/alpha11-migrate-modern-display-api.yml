@@ -1,4 +1,4 @@
-name: Alpha11 migrate modern Display API
+name: Alpha11 normalize modern Display examples
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 jobs:
-  migrate:
+  normalize:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
@@ -19,170 +19,58 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Migrar ejemplos a API corta JWPLC_Display
+      - name: Normalizar formato y verificar API pública
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
 
-          ROOT = Path('.')
+          files = {
+              'tetris': Path('JWPLC/2.1.0/libraries/JWPLC_Display/examples/Display_Tetris/Display_Tetris.ino'),
+              'flappy': Path('JWPLC/2.1.0/libraries/JWPLC_Display/examples/Display_FlappyBird/Display_FlappyBird.ino'),
+          }
 
-          def load(rel):
-              p = ROOT / rel
-              return p, p.read_text(encoding='utf-8')
+          s = files['tetris'].read_text(encoding='utf-8')
+          s, c1 = re.subn(r'(?m)^if \(JWPLC_Buttons\.pressed\(BTN_OK\)\)',
+                          '  if (JWPLC_Buttons.pressed(BTN_OK))', s, count=1)
+          s, c2 = re.subn(r'(?m)^if \(\(uint32_t\)\(now - userEnterMs\)',
+                          '    if ((uint32_t)(now - userEnterMs)', s, count=1)
+          if c1 != 1 or c2 != 1:
+              raise SystemExit(f'Tetris: formato esperado no encontrado ({c1}, {c2})')
+          files['tetris'].write_text(s, encoding='utf-8', newline='\n')
 
-          def save(p, text):
-              p.write_text(text, encoding='utf-8', newline='\n')
+          s = files['flappy'].read_text(encoding='utf-8')
+          s, c1 = re.subn(r'(?m)^birdV100 \+=', '  birdV100 +=', s, count=1)
+          s, c2 = re.subn(r'(?m)^if \(\(uint32_t\)\(now - userEnterMs\)',
+                          '    if ((uint32_t)(now - userEnterMs)', s, count=1)
+          if c1 != 1 or c2 != 1:
+              raise SystemExit(f'Flappy: formato esperado no encontrado ({c1}, {c2})')
+          files['flappy'].write_text(s, encoding='utf-8', newline='\n')
 
-          def migrate_simple_callbacks(rel):
-              p, s = load(rel)
-              pattern = re.compile(
-                  r'extern\s+"C"\s+void\s+jwplcUserDisplayRefreshCallback\s*\('
-                  r'\s*const\s+JWPLC_IOState\s*\*io\s*,'
-                  r'\s*const\s+JWPLC_RTCState\s*\*rtc\s*\)\s*\{'
-                  r'\s*\(void\)io;\s*\(void\)rtc;',
-                  re.S,
-              )
-              s, count = pattern.subn('extern "C" void jwplcUIUpdate()\n{', s)
-              if count != 1:
-                  raise SystemExit(f'{rel}: refresh legacy esperado 1 vez, encontrado {count}')
-              s = s.replace('jwplcUserDisplayEnterCallback', 'jwplcUIEnter')
-              s = s.replace('jwplcUserDisplayExitCallback', 'jwplcUIExit')
-              save(p, s)
-
-          # 04.Display_TFT_Direct ya fue migrado previamente y actúa como
-          # referencia de la API moderna + JWPLC_Time.
-          p04, s04 = load('JWPLC/2.1.0/libraries/JWPLC_Display/examples/04.Display_TFT_Direct/04.Display_TFT_Direct.ino')
-          if 'jwplcUserDisplay' in s04:
-              raise SystemExit('04.Display_TFT_Direct todavía contiene API legacy')
-          if 'jwplcUIEnter' not in s04 or 'jwplcUIUpdate' not in s04 or 'JWPLC_Time' not in s04:
-              raise SystemExit('04.Display_TFT_Direct no refleja la API moderna esperada')
-
-          # Juegos: callbacks cortos, ESC central y periodo IDLE heredado.
-          games = [
-              'JWPLC/2.1.0/libraries/JWPLC_Display/examples/Display_Tetris/Display_Tetris.ino',
-              'JWPLC/2.1.0/libraries/JWPLC_Display/examples/Display_FlappyBird/Display_FlappyBird.ino',
-          ]
-
-          for rel in games:
-              p, s = load(rel)
-
-              refresh = re.compile(
-                  r'extern\s+"C"\s+void\s+jwplcUserDisplayRefreshCallback\s*\('
-                  r'\s*const\s+JWPLC_IOState\s*\*io\s*,'
-                  r'\s*const\s+JWPLC_RTCState\s*\*rtc\s*\)\s*\{'
-                  r'\s*\(void\)io;\s*\(void\)rtc;',
-                  re.S,
-              )
-              s, count = refresh.subn('extern "C" void jwplcUIUpdate()\n{', s)
-              if count != 1:
-                  raise SystemExit(f'{rel}: refresh legacy esperado 1 vez, encontrado {count}')
-
-              s = s.replace('jwplcUserDisplayEnterCallback', 'jwplcUIEnter')
-              s = s.replace('jwplcUserDisplayExitCallback', 'jwplcUIExit')
-
-              can_return = re.compile(
-                  r'\nextern\s+"C"\s+bool\s+jwplcCanReturnToIdle\s*\(void\)\s*\{[^{}]*\}\s*\n',
-                  re.S,
-              )
-              s, count = can_return.subn('\n', s, count=1)
-              if count != 1:
-                  raise SystemExit(f'{rel}: hook jwplcCanReturnToIdle esperado 1 vez, encontrado {count}')
-
-              # IDLE_RETURN_ESC_ONLY procesa ESC antes de jwplcUIUpdate().
-              esc_block = re.compile(
-                  r'\n\s*if\s*\(JWPLC_Buttons\.pressed\(BTN_ESC\)\)\s*\{'
-                  r'[^{}]*JWPLC_Display\.goIdle\(\);\s*return;\s*\}\s*',
-                  re.S,
-              )
-              s = esc_block.sub('\n', s)
-
-              # El periodo IDLE pertenece al package; el juego sólo define FPS USER.
-              s = re.sub(
-                  r'^\s*JWPLC_Display\.setIdleRefreshPeriodMs\(\d+\);\s*\n',
-                  '',
-                  s,
-                  flags=re.M,
-              )
-              s = s.replace('// Callbacks USER del JWPLC_Display', '// API corta USER del JWPLC_Display')
-
-              if 'jwplcUserDisplay' in s or 'jwplcCanReturnToIdle' in s:
-                  raise SystemExit(f'{rel}: quedó API Display legacy')
-
-              save(p, s)
-
-          # Ejemplos Ethernet que dibujan TFT: misma API corta.
-          ethernet_examples = [
-              'JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/Ethernet_SPI_Coexistence/Ethernet_SPI_Coexistence.ino',
-              'JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/Ethernet_HTTP_TFT_Diagnostics/Ethernet_HTTP_TFT_Diagnostics.ino',
-              'JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/Ethernet_Continuous_Stress_TFT/Ethernet_Continuous_Stress_TFT.ino',
-          ]
-          for rel in ethernet_examples:
-              migrate_simple_callbacks(rel)
-
-          # Ethernet_SPI_Coexistence había quedado sin ruta de wake explícita
-          # después del cambio seguro de Alpha8.
-          rel = ethernet_examples[0]
-          p, s = load(rel)
-          marker = '''    JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);
-              JWPLC_Display.setIdleTimeoutMs(8000);
-              JWPLC_Display.setUserRefreshPeriodMs(250);
-          '''
-          replacement = '''    JWPLC_Display.setIdleWakeButton(BTN_OK);
-              JWPLC_Display.setIdleWakeMode(IDLE_WAKE_BUTTON_ONLY);
-              JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);
-              JWPLC_Display.setIdleTimeoutMs(8000);
-              JWPLC_Display.setUserRefreshPeriodMs(250);
-              JWPLC_Display.clearPendingInput();
-          '''
-          if marker not in s:
-              raise SystemExit('Ethernet_SPI_Coexistence: bloque Display esperado no encontrado')
-          s = s.replace(marker, replacement, 1)
-          save(p, s)
-
-          # HTTP diagnostics: ESC vuelve por la política central del Display.
-          rel = ethernet_examples[1]
-          p, s = load(rel)
-          if 'JWPLC_Display.setIdleReturnMode(IDLE_RETURN_DISABLED);' not in s:
-              raise SystemExit('Ethernet_HTTP_TFT_Diagnostics: retorno legacy no encontrado')
-          s = s.replace(
-              'JWPLC_Display.setIdleReturnMode(IDLE_RETURN_DISABLED);',
-              'JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);',
-              1,
-          )
-          s, esc_count = re.subn(
-              r'\n\s*case BTN_ESC:\s*\n\s*JWPLC_Display\.goIdle\(\);\s*\n\s*break;',
-              '',
-              s,
-              count=1,
-          )
-          if esc_count != 1:
-              raise SystemExit('Ethernet_HTTP_TFT_Diagnostics: case ESC manual no encontrado')
-          save(p, s)
-
-          # Gate contractual: ningún .ino público de libraries/examples enseña
-          # los callbacks históricos. La compatibilidad queda sólo en runtime.
           offenders = []
-          for base in (ROOT / 'JWPLC/2.1.0/libraries').glob('*/examples'):
+          for base in Path('JWPLC/2.1.0/libraries').glob('*/examples'):
               for p in base.rglob('*.ino'):
                   text = p.read_text(encoding='utf-8', errors='ignore')
                   if 'jwplcUserDisplay' in text:
                       offenders.append(str(p))
-
           if offenders:
-              raise SystemExit(
-                  'Legacy Display API todavía presente en ejemplos públicos:\n' +
-                  '\n'.join(offenders)
-              )
+              raise SystemExit('API Display legacy presente:\n' + '\n'.join(offenders))
+
+          for p in files.values():
+              text = p.read_text(encoding='utf-8')
+              for required in ('jwplcUIEnter', 'jwplcUIUpdate', 'jwplcUIExit'):
+                  if required not in text:
+                      raise SystemExit(f'{p}: falta {required}')
 
           print('ALPHA11_EXAMPLES_MODERN_DISPLAY_API=PASS')
+          print('ALPHA11_EXAMPLES_FORMAT=PASS')
           PY
 
           git diff --check
           git diff --stat
 
-      - name: Commit de migración
+      - name: Commit de formato
         shell: bash
         run: |
           set -euo pipefail
@@ -192,6 +80,7 @@ jobs:
           fi
           git config user.name "JW-Control Actions"
           git config user.email "jw.control.peru@gmail.com"
-          git add JWPLC/2.1.0/libraries/*/examples
-          git commit -m "refactor(alpha11): retirar API Display legacy de ejemplos"
+          git add JWPLC/2.1.0/libraries/JWPLC_Display/examples/Display_Tetris/Display_Tetris.ino
+          git add JWPLC/2.1.0/libraries/JWPLC_Display/examples/Display_FlappyBird/Display_FlappyBird.ino
+          git commit -m "style(alpha11): limpiar formato de ejemplos Display"
           git push origin HEAD:v2.1.0-alpha.11/feature/hmi-designer
