@@ -94,6 +94,9 @@ jobs:
             "JWPLC/2.1.0/libraries/JWPLC_Display/examples/Display_Tetris"
             "JWPLC/2.1.0/libraries/JWPLC_Display/examples/Display_FlappyBird"
             "JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/03.Ethernet_Diagnostics"
+            "JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/Ethernet_SPI_Coexistence"
+            "JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/Ethernet_HTTP_TFT_Diagnostics"
+            "JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/Ethernet_Continuous_Stress_TFT"
             "JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/examples/JWPLC_RemoteIO_Slave_RTU"
             "tools/build-speed-benchmark/sketches/06_alpha4_local_physical_gate"
           )
