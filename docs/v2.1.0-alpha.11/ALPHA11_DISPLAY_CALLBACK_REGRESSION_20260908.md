@@ -39,36 +39,49 @@ Si una aplicación mezcla deliberadamente callbacks manuales con HMI declarativa
 
 ## Paridad source / archive del gate de precompilación
 
-Durante la regeneración del archive, el gate llegó correctamente a:
+Durante la regeneración del archive se detectaron dos asimetrías de enlace que se corrigieron antes de aceptar el precompilado:
 
-```text
-Archive members: expected=6, actual=6, diff=0
-```
+1. El modo source sin `dot_a_linkage=true` podía enlazar directamente todos los objetos de `JWPLC_Display`, arrastrando TUs HMI no requeridos.
+2. Una vez activado `dot_a_linkage=true`, el precompilado seguía usando `ldflags=-Wl,--undefined=JWPLC_Display`, mientras que source usaba el anchor real de `JWPLC_Display_Auto.h`, dejando una diferencia artificial de un símbolo en el `.map`.
 
-pero la comparación `SOURCE EMPTY` vs `ARCHIVE EMPTY` detectó:
-
-```text
-source-only=19
-archive-only=0
-```
-
-La diferencia no provenía de miembros faltantes del archive. El modo source temporal del script elimina `precompiled=full`, y sin `dot_a_linkage=true` Arduino puede enlazar los objetos compilados de la librería directamente. En cambio, el modo precompilado enlaza `libJWPLC_Display.a` y permite extracción lazy por miembro.
-
-Esto no era sólo un problema de comparación del gate: en el enlace source directo, `JWPLC_UI_API.cpp` puede quedar presente aunque el sketch no use HMI declarativa. Sus hooks strong pueden entonces sustituir a los weak del Display base. Ese camino coincide precisamente con la condición que puede filtrar los callbacks USER manuales y es consistente con la congelación observada en Tetris cuando se trabaja desde source/fallback.
-
-Se añade por ello:
+La configuración final queda:
 
 ```text
 dot_a_linkage=true
+precompiled=full
 ```
 
-al `library.properties` de `JWPLC_Display`. De este modo:
+sin `ldflags=-Wl,--undefined=JWPLC_Display`.
 
-- el fallback/source de Arduino también se agrupa en un archive `.a`;
-- el enlace source y el enlace `precompiled=full` usan la misma semántica de extracción por miembros;
-- un sketch que sólo usa TFT/callbacks no arrastra el motor HMI por el mero hecho de compilar desde source;
-- el gate de paridad compara configuraciones equivalentes;
-- se conserva el objetivo lazy-link del motor HMI.
+`JWPLC_Display_Auto.h` mantiene una referencia mínima al objeto global `JWPLC_Display` fuera de la fase de discovery. Así source y precompiled comparten el mismo mecanismo de autoload, conservan lazy-link por miembro y no requieren `--whole-archive`.
+
+### Resultado final de paridad
+
+Gate ejecutado el 2026-09-08 sobre:
+
+```text
+HEAD=d2296d73840318afe23388862dd051f06a061739
+```
+
+Resultado:
+
+```text
+DISPLAY_TUS=6
+ARCHIVE_MEMBERS_EXACT=PASS
+PRECOMPILED_DISPLAY_SOURCE_TUS=0
+SOURCE_ARCHIVE_EMPTY_PARITY=PASS
+SOURCE_ARCHIVE_HMI_PARITY=PASS
+ALPHA11_DISPLAY_FINAL_ARCHIVE=PASS
+```
+
+Candidato generado:
+
+```text
+ARCHIVE_BYTES=849596
+ARCHIVE_SHA256=2974d42c847c1b7c7ab3a7b74da42e2f17969fb852b47a8d434f57f70da924af
+```
+
+El archive contiene exactamente las seis TUs actuales de `JWPLC_Display` y los miembros extraídos coinciden byte a byte con los objetos source usados para generarlo.
 
 La protección añadida en `jwplcUIRuntimeRefreshNeeded()` se mantiene además como defensa de compatibilidad para los casos en que el motor HMI sí quede enlazado legítimamente.
 
@@ -136,11 +149,12 @@ Esperado:
 
 ## Criterio de cierre
 
-No regenerar ni congelar el `libJWPLC_Display.a` final de Alpha11 hasta que esta corrección pase el gate físico. El archive debe construirse desde el source ya corregido.
+El candidato `libJWPLC_Display.a` ya pasó paridad source/precompiled, pero **no se congela ni publica todavía** hasta completar el gate físico de Tetris y FlappyBird. El archive final debe corresponder al mismo source corregido y conservar el SHA-256 registrado o ser regenerado y documentado nuevamente si cambia cualquier TU.
 
 ```text
 A11_DISPLAY_MANUAL_CALLBACK_COMPAT=IMPLEMENTED_PENDING_PHYSICAL_GATE
-A11_DISPLAY_SOURCE_ARCHIVE_LINKAGE=IMPLEMENTED_PENDING_GATE
+A11_DISPLAY_SOURCE_ARCHIVE_LINKAGE=PASS
+A11_DISPLAY_PRECOMPILED_PARITY=PASS
 A11_TETRIS_RUNTIME=PHYSICAL_GATE_PENDING
 A11_FLAPPY_RUNTIME=PHYSICAL_GATE_PENDING
 ```
