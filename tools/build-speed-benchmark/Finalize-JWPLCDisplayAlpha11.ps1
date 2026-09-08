@@ -408,7 +408,9 @@ try
     if ($listResult.ExitCode -ne 0) { throw "No se pudo listar el archive." }
     $members = @($listResult.Output | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ })
     $expectedMembers = @($sourceCpp | ForEach-Object { $_.Name + ".o" })
-    if ((Compare-Object $expectedMembers $members).Count -ne 0)
+    $memberDiff = @(Compare-Object -ReferenceObject $expectedMembers -DifferenceObject $members)
+    Write-Host ("Archive members: expected={0}, actual={1}, diff={2}" -f $expectedMembers.Count, $members.Count, $memberDiff.Count)
+    if ($memberDiff.Count -ne 0)
     {
         throw ("Miembros del archive no coinciden. Esperados={0}; reales={1}" -f ($expectedMembers -join ','), ($members -join ','))
     }
