@@ -311,7 +311,7 @@ namespace JWPLCIdleScreen
         if (!tft)
             return;
 
-        int y = IO_ROW_Y0 + index * IO_ROW_STEP_Y;
+        int y = IO_ROW_Y0 + index * IO_ROW_STEP;
 
         tft->setTextSize(1);
         tft->setTextColor(C_TEXT, C_BG);
