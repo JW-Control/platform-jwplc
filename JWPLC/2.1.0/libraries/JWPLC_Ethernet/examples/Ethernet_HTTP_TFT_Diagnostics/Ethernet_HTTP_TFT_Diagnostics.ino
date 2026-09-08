@@ -568,9 +568,6 @@ void handleButton(uint8_t id)
   case BTN_OK:
     runHttpTest();
     break;
-  case BTN_ESC:
-    JWPLC_Display.goIdle();
-    break;
   }
 }
 
@@ -837,7 +834,7 @@ void drawPage1(Adafruit_ST7789 &tft, uint32_t dirty)
     drawErrorRow(tft);
 }
 
-extern "C" void jwplcUserDisplayEnterCallback()
+extern "C" void jwplcUIEnter()
 {
   auto &tft = JWPLC_Display.tft();
   markUiDirty(UI_DIRTY_ALL);
@@ -849,12 +846,8 @@ extern "C" void jwplcUserDisplayEnterCallback()
     drawPage1(tft, dirty | UI_DIRTY_FRAME);
 }
 
-extern "C" void jwplcUserDisplayRefreshCallback(
-    const JWPLC_IOState *io,
-    const JWPLC_RTCState *rtc)
+extern "C" void jwplcUIUpdate()
 {
-  (void)io;
-  (void)rtc;
   uint32_t dirty = takeUiDirty();
   if (dirty == 0)
     return;
@@ -868,7 +861,7 @@ extern "C" void jwplcUserDisplayRefreshCallback(
     drawPage1(tft, dirty);
 }
 
-extern "C" void jwplcUserDisplayExitCallback()
+extern "C" void jwplcUIExit()
 {
   Serial.println("Display: USER -> IDLE");
 }
@@ -905,7 +898,7 @@ void setup()
   Serial.println("Ethernet automatico: no se llama begin() ni maintain().");
 
   JWPLC_Display.setIdleWakeMode(IDLE_WAKE_ANY_BUTTON);
-  JWPLC_Display.setIdleReturnMode(IDLE_RETURN_DISABLED);
+  JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
   JWPLC_Display.setUserRefreshPeriodMs(100);
   JWPLC_Display.setRunLed(true);
   JWPLC_Display.setEthLedAuto(true);

@@ -100,7 +100,7 @@ void updateCachedStatus() {
   copyText(framStatusText, sizeof(framStatusText), framOk ? "OK" : "NO");
 }
 
-extern "C" void jwplcUserDisplayEnterCallback() {
+extern "C" void jwplcUIEnter() {
   auto &tft = JWPLC_Display.tft();
 
   tft.fillScreen(ST77XX_BLACK);
@@ -133,9 +133,8 @@ extern "C" void jwplcUserDisplayEnterCallback() {
   tft.print("Retorna a IDLE en 8s");
 }
 
-extern "C" void jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc) {
-  (void)io;
-  (void)rtc;
+extern "C" void jwplcUIUpdate()
+{
 
   static unsigned long lastDrawMs = 0;
   unsigned long now = millis();
@@ -177,7 +176,7 @@ extern "C" void jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const J
   tft.print(logCounter);
 }
 
-extern "C" void jwplcUserDisplayExitCallback() {
+extern "C" void jwplcUIExit() {
   Serial.println("Saliendo de USER hacia IDLE");
 }
 
@@ -274,9 +273,12 @@ void loop() {
   if (!displayConfigured && JWPLC_Display.isReady()) {
     displayConfigured = true;
 
+    JWPLC_Display.setIdleWakeButton(BTN_OK);
+    JWPLC_Display.setIdleWakeMode(IDLE_WAKE_BUTTON_ONLY);
     JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);
     JWPLC_Display.setIdleTimeoutMs(8000);
     JWPLC_Display.setUserRefreshPeriodMs(250);
+    JWPLC_Display.clearPendingInput();
 
     Serial.println("Display ready");
   }

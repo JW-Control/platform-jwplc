@@ -1644,7 +1644,7 @@ void drawContent(Adafruit_ST7789 &tft)
     drawPage3(tft);
 }
 
-extern "C" void jwplcUserDisplayEnterCallback()
+extern "C" void jwplcUIEnter()
 {
   bool frame = false;
   bool content = false;
@@ -1654,12 +1654,8 @@ extern "C" void jwplcUserDisplayEnterCallback()
   drawContent(tft);
 }
 
-extern "C" void jwplcUserDisplayRefreshCallback(
-    const JWPLC_IOState *io,
-    const JWPLC_RTCState *rtc)
+extern "C" void jwplcUIUpdate()
 {
-  (void)io;
-  (void)rtc;
   bool frame = false;
   bool content = false;
   takeUi(frame, content);
@@ -1671,7 +1667,7 @@ extern "C" void jwplcUserDisplayRefreshCallback(
   drawContent(tft);
 }
 
-extern "C" void jwplcUserDisplayExitCallback()
+extern "C" void jwplcUIExit()
 {
   Serial.println("[ETH-STRESS] Display USER -> IDLE");
 }
