@@ -1359,7 +1359,10 @@ static void updateGame()
 
 extern "C" bool jwplcCanReturnToIdle(void)
 {
-  return (gameState != GAME_RUNNING);
+  // Alpha11: ESC vuelve a estar gestionado por JWPLC_Display.
+  // Este hook queda permisivo para conservar compatibilidad con el fallback
+  // manual del ejemplo sin bloquear el retorno central del package.
+  return true;
 }
 
 extern "C" void jwplcUserDisplayEnterCallback()
@@ -1469,7 +1472,7 @@ void setup()
   */
   JWPLC_Display.setIdleWakeMode(IDLE_WAKE_BUTTON_ONLY);
   JWPLC_Display.setIdleWakeButton(BTN_OK);
-  JWPLC_Display.setIdleReturnMode(IDLE_RETURN_DISABLED);
+  JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
   JWPLC_Display.setUserRefreshPeriodMs(FRAME_PERIOD_MS);
   JWPLC_Display.setIdleRefreshPeriodMs(250);
   JWPLC_Display.clearPendingInput();
