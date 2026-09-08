@@ -11,7 +11,7 @@
   - jwplcUserDisplayEnterCallback()
   - jwplcUserDisplayRefreshCallback(...)
   - jwplcUserDisplayExitCallback()
-  - Retorno automático USER -> IDLE
+  - Entrada USER con OK y retorno automático USER -> IDLE
 */
 
 #include <JWPLC_Display.h>
@@ -86,8 +86,18 @@ void setup()
     Serial.begin(115200);
     delay(1200);
 
+    // Alpha8+ usa IDLE_WAKE_DISABLED por defecto. Este ejemplo solicita
+    // explícitamente que OK abra la pantalla USER.
+    JWPLC_Display.setIdleWakeButton(BTN_OK);
+    JWPLC_Display.setIdleWakeMode(IDLE_WAKE_BUTTON_ONLY);
+    JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);
+    JWPLC_Display.setIdleTimeoutMs(8000);
+    JWPLC_Display.setUserRefreshPeriodMs(100);
+    JWPLC_Display.clearPendingInput();
+
     Serial.println();
     Serial.println("JWPLC_Display dot API - USER test");
+    Serial.println("OK=USER | retorno automatico en 8s");
 }
 
 void loop()
@@ -95,11 +105,6 @@ void loop()
     if (!displayConfigured && JWPLC_Display.isReady())
     {
         displayConfigured = true;
-
-        JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);
-        JWPLC_Display.setIdleTimeoutMs(8000);
-        JWPLC_Display.setUserRefreshPeriodMs(100);
-
         Serial.println("Display configurado usando API con punto");
     }
 
