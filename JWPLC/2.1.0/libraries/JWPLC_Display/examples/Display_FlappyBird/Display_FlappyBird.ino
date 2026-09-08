@@ -189,9 +189,6 @@ static uint8_t buzzerVolumeSfx = 48;
 #define NOTE_FS6 1480
 #define NOTE_G6 1568
 
-
-
-
 struct MusicNote {
   uint16_t freq;
   uint16_t durMs;
@@ -1293,7 +1290,10 @@ static void updateGame(uint32_t rawDtMs) {
 // =====================================================
 
 extern "C" bool jwplcCanReturnToIdle(void) {
-  return (gameState != GAME_RUNNING);
+  // Alpha11: ESC vuelve a estar gestionado por JWPLC_Display.
+  // Mantener el hook permisivo evita bloquear el retorno central mientras el
+  // fallback manual legacy del ejemplo sigue disponible durante esta prueba.
+  return true;
 }
 
 extern "C" void jwplcUserDisplayEnterCallback() {
@@ -1400,7 +1400,7 @@ void setup() {
   */
   JWPLC_Display.setIdleWakeMode(IDLE_WAKE_BUTTON_ONLY);
   JWPLC_Display.setIdleWakeButton(BTN_OK);
-  JWPLC_Display.setIdleReturnMode(IDLE_RETURN_DISABLED);
+  JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
   JWPLC_Display.setUserRefreshPeriodMs(FRAME_PERIOD_MS);
   JWPLC_Display.setIdleRefreshPeriodMs(250);
   JWPLC_Display.clearPendingInput();
