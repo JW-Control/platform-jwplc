@@ -6,11 +6,10 @@
       auto &tft = JWPLC_Display.tft();
 
   Para coexistir correctamente con Ethernet, FRAM y microSD, el dibujo directo
-  se realiza dentro de los callbacks USER. El runtime ya posee el mutex SPI
-  cuando invoca estos callbacks.
+  se realiza dentro de jwplcUIEnter()/jwplcUIUpdate(). El runtime ya posee el
+  mutex SPI cuando invoca estas funciones.
 
-  Este ejemplo conserva el callback legacy de refresh de forma deliberada:
-  recibe directamente los snapshots JWPLC_IOState/JWPLC_RTCState del runtime.
+  La hora se consulta mediante JWPLC_Time, vista cacheada y ligera del RTC.
 
   Controles:
   - OK  : entra a USER mediante el wake central de JWPLC_Display.
@@ -18,12 +17,12 @@
 */
 
 #include <JWPLC_Display.h>
+#include <JWPLC_GlobalPeripherals.h>
 
 static uint8_t lastSecondDrawn = 255;
 
-extern "C" void jwplcUserDisplayEnterCallback()
+extern "C" void jwplcUIEnter()
 {
-    // Este callback se ejecuta con el bus TFT protegido por el runtime.
     auto &tft = JWPLC_Display.tft();
 
     tft.fillScreen(ST77XX_BLACK);
@@ -41,16 +40,12 @@ extern "C" void jwplcUserDisplayEnterCallback()
     lastSecondDrawn = 255;
 }
 
-extern "C" void jwplcUserDisplayRefreshCallback(
-    const JWPLC_IOState *io,
-    const JWPLC_RTCState *rtc)
+extern "C" void jwplcUIUpdate()
 {
-    (void)io;
-
-    if (rtc == nullptr || !rtc->valid || rtc->second == lastSecondDrawn)
+    if (!JWPLC_Time.valid() || JWPLC_Time.second() == lastSecondDrawn)
         return;
 
-    lastSecondDrawn = rtc->second;
+    lastSecondDrawn = JWPLC_Time.second();
 
     auto &tft = JWPLC_Display.tft();
 
@@ -60,14 +55,14 @@ extern "C" void jwplcUserDisplayRefreshCallback(
     tft.setTextSize(2);
     tft.setCursor(20, 90);
 
-    if (rtc->hour < 10) tft.print('0');
-    tft.print(rtc->hour);
+    if (JWPLC_Time.hour() < 10) tft.print('0');
+    tft.print(JWPLC_Time.hour());
     tft.print(':');
-    if (rtc->minute < 10) tft.print('0');
-    tft.print(rtc->minute);
+    if (JWPLC_Time.minute() < 10) tft.print('0');
+    tft.print(JWPLC_Time.minute());
     tft.print(':');
-    if (rtc->second < 10) tft.print('0');
-    tft.print(rtc->second);
+    if (JWPLC_Time.second() < 10) tft.print('0');
+    tft.print(JWPLC_Time.second());
 }
 
 void setup()
@@ -81,7 +76,7 @@ void setup()
     JWPLC_Display.setIdleWakeMode(IDLE_WAKE_BUTTON_ONLY);
     JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
 
-    // 100 ms es suficiente para este ejemplo; el callback sólo redibuja
+    // 100 ms es suficiente para este ejemplo; jwplcUIUpdate() sólo redibuja
     // realmente cuando cambia el segundo del RTC.
     JWPLC_Display.setUserRefreshPeriodMs(100);
     JWPLC_Display.clearPendingInput();
