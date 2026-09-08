@@ -37,6 +37,38 @@ No se obliga a Tetris/FlappyBird a llamar `setUserRefreshMode(USER_REFRESH_PERIO
 
 Si una aplicación mezcla deliberadamente callbacks manuales con HMI declarativa y necesita tick periódico del callback, debe seleccionar `USER_REFRESH_PERIODIC` explícitamente.
 
+## Paridad source / archive del gate de precompilación
+
+Durante la regeneración del archive, el gate llegó correctamente a:
+
+```text
+Archive members: expected=6, actual=6, diff=0
+```
+
+pero la comparación `SOURCE EMPTY` vs `ARCHIVE EMPTY` detectó:
+
+```text
+source-only=19
+archive-only=0
+```
+
+La diferencia no provenía de miembros faltantes del archive. El modo source temporal del script elimina `precompiled=full`, y sin `dot_a_linkage=true` Arduino puede enlazar los objetos compilados de la librería directamente. En cambio, el modo precompilado enlaza `libJWPLC_Display.a` y permite extracción lazy por miembro. Comparar ambos resultados como si tuvieran exactamente la misma semántica de static archive genera una falsa divergencia de símbolos.
+
+Se añade por ello:
+
+```text
+dot_a_linkage=true
+```
+
+al `library.properties` de `JWPLC_Display`. De este modo:
+
+- el fallback/source de Arduino también se agrupa en un archive `.a`;
+- el enlace source y el enlace `precompiled=full` usan la misma semántica de extracción por miembros;
+- el gate de paridad vuelve a comparar configuraciones equivalentes;
+- se conserva el objetivo lazy-link del motor HMI.
+
+Este ajuste no cambia la API pública ni obliga a cargar el motor HMI cuando no se usa.
+
 ## Auditoría de ejemplos
 
 Se revisaron los ejemplos actuales de `JWPLC_Display`.
@@ -103,6 +135,7 @@ No regenerar ni congelar el `libJWPLC_Display.a` final de Alpha11 hasta que esta
 
 ```text
 A11_DISPLAY_MANUAL_CALLBACK_COMPAT=IMPLEMENTED_PENDING_PHYSICAL_GATE
+A11_DISPLAY_SOURCE_ARCHIVE_LINKAGE=IMPLEMENTED_PENDING_GATE
 A11_TETRIS_RUNTIME=PHYSICAL_GATE_PENDING
 A11_FLAPPY_RUNTIME=PHYSICAL_GATE_PENDING
 ```
