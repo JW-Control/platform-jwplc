@@ -23,7 +23,7 @@ Display_UserUI_Callbacks
 
 Desde Alpha8 el wake USER es seguro por defecto (`IDLE_WAKE_DISABLED`). Los ejemplos que esperan entrada automática a USER configuran explícitamente su botón/modo de wake.
 
-Para dibujo manual nuevo se usan los callbacks cortos `jwplcUIEnter()`, `jwplcUIUpdate()` y `jwplcUIExit()`. Los callbacks históricos `jwplcUserDisplay*` se conservan únicamente dentro de la librería por compatibilidad con sketches existentes, pero no forman parte de la API recomendada ni se usan en los ejemplos públicos.
+Para dibujo manual nuevo se usan los callbacks cortos `jwplcUIEnter()`, `jwplcUIUpdate()` y `jwplcUIExit()`. Las rutas históricas se conservan únicamente dentro de la librería por compatibilidad con sketches existentes; no forman parte de la API recomendada ni aparecen en los ejemplos públicos.
 
 Los callbacks manuales conservan la cadencia definida por `setUserRefreshPeriodMs()` cuando no hay fields ni PixelMaps declarativos registrados. Si una aplicación mezcla callbacks manuales con HMI declarativa y necesita ejecución periódica del callback, debe seleccionar `USER_REFRESH_PERIODIC` de forma explícita.
 
