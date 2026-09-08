@@ -1,0 +1,261 @@
+name: Alpha11 migrate modern Display API
+
+on:
+  push:
+    branches:
+      - v2.1.0-alpha.11/feature/hmi-designer
+    paths:
+      - ".github/workflows/alpha11-migrate-modern-display-api.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Migrar ejemplos a API corta JWPLC_Display
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          ROOT = Path('.')
+
+          def load(rel):
+              p = ROOT / rel
+              return p, p.read_text(encoding='utf-8')
+
+          def save(p, text):
+              p.write_text(text, encoding='utf-8', newline='\n')
+
+          def replace_once(text, old, new, label):
+              if old not in text:
+                  raise SystemExit(f'No se encontro bloque esperado: {label}')
+              return text.replace(old, new, 1)
+
+          def migrate_simple_callbacks(rel):
+              p, s = load(rel)
+              s = s.replace('jwplcUserDisplayEnterCallback', 'jwplcUIEnter')
+              s = s.replace('jwplcUserDisplayExitCallback', 'jwplcUIExit')
+              pattern = re.compile(
+                  r'extern\s+"C"\s+void\s+jwplcUserDisplayRefreshCallback\s*\('
+                  r'\s*const\s+JWPLC_IOState\s*\*io\s*,'
+                  r'\s*const\s+JWPLC_RTCState\s*\*rtc\s*\)\s*\{'
+                  r'\s*\(void\)io;\s*\(void\)rtc;',
+                  re.S,
+              )
+              s, count = pattern.subn('extern "C" void jwplcUIUpdate()\n{', s)
+              if count != 1:
+                  raise SystemExit(f'{rel}: refresh legacy esperado 1 vez, encontrado {count}')
+              save(p, s)
+
+          # -----------------------------------------------------------------
+          # 04.Display_TFT_Direct: API corta + reloj cacheado JWPLC_Time.
+          # -----------------------------------------------------------------
+          rel = 'JWPLC/2.1.0/libraries/JWPLC_Display/examples/04.Display_TFT_Direct/04.Display_TFT_Direct.ino'
+          p, s = load(rel)
+          s = s.replace(
+              '  Para coexistir correctamente con Ethernet, FRAM y microSD, el dibujo directo\n'
+              '  se realiza dentro de los callbacks USER. El runtime ya posee el mutex SPI\n'
+              '  cuando invoca estos callbacks.\n\n'
+              '  Este ejemplo conserva el callback legacy de refresh de forma deliberada:\n'
+              '  recibe directamente los snapshots JWPLC_IOState/JWPLC_RTCState del runtime.\n',
+              '  Para coexistir correctamente con Ethernet, FRAM y microSD, el dibujo directo\n'
+              '  se realiza dentro de jwplcUIEnter()/jwplcUIUpdate(). El runtime ya posee el\n'
+              '  mutex SPI cuando invoca estas funciones.\n\n'
+              '  La hora se consulta mediante JWPLC_Time, vista cacheada y ligera del RTC.\n'
+          )
+          s = s.replace('#include <JWPLC_Display.h>\n', '#include <JWPLC_Display.h>\n#include <JWPLC_GlobalPeripherals.h>\n', 1)
+          s = s.replace('jwplcUserDisplayEnterCallback', 'jwplcUIEnter')
+          old_refresh = '''extern "C" void jwplcUserDisplayRefreshCallback(
+              const JWPLC_IOState *io,
+              const JWPLC_RTCState *rtc)
+          {
+              (void)io;
+
+              if (rtc == nullptr || !rtc->valid || rtc->second == lastSecondDrawn)
+                  return;
+
+              lastSecondDrawn = rtc->second;
+
+              auto &tft = JWPLC_Display.tft();
+
+              // Limpiar sólo la región dinámica evita parpadeos de pantalla completa.
+              tft.fillRect(20, 85, 180, 30, ST77XX_BLACK);
+              tft.setTextColor(ST77XX_YELLOW, ST77XX_BLACK);
+              tft.setTextSize(2);
+              tft.setCursor(20, 90);
+
+              if (rtc->hour < 10) tft.print('0');
+              tft.print(rtc->hour);
+              tft.print(':');
+              if (rtc->minute < 10) tft.print('0');
+              tft.print(rtc->minute);
+              tft.print(':');
+              if (rtc->second < 10) tft.print('0');
+              tft.print(rtc->second);
+          }
+          '''
+          new_refresh = '''extern "C" void jwplcUIUpdate()
+          {
+              if (!JWPLC_Time.valid() || JWPLC_Time.second() == lastSecondDrawn)
+                  return;
+
+              lastSecondDrawn = JWPLC_Time.second();
+
+              auto &tft = JWPLC_Display.tft();
+
+              // Limpiar sólo la región dinámica evita parpadeos de pantalla completa.
+              tft.fillRect(20, 85, 180, 30, ST77XX_BLACK);
+              tft.setTextColor(ST77XX_YELLOW, ST77XX_BLACK);
+              tft.setTextSize(2);
+              tft.setCursor(20, 90);
+
+              if (JWPLC_Time.hour() < 10) tft.print('0');
+              tft.print(JWPLC_Time.hour());
+              tft.print(':');
+              if (JWPLC_Time.minute() < 10) tft.print('0');
+              tft.print(JWPLC_Time.minute());
+              tft.print(':');
+              if (JWPLC_Time.second() < 10) tft.print('0');
+              tft.print(JWPLC_Time.second());
+          }
+          '''
+          s = replace_once(s, old_refresh, new_refresh, '04.Display_TFT_Direct refresh')
+          save(p, s)
+
+          # -----------------------------------------------------------------
+          # Juegos: API corta, ESC central y default IDLE del package.
+          # -----------------------------------------------------------------
+          games = [
+              'JWPLC/2.1.0/libraries/JWPLC_Display/examples/Display_Tetris/Display_Tetris.ino',
+              'JWPLC/2.1.0/libraries/JWPLC_Display/examples/Display_FlappyBird/Display_FlappyBird.ino',
+          ]
+
+          for rel in games:
+              p, s = load(rel)
+              s = s.replace('jwplcUserDisplayEnterCallback', 'jwplcUIEnter')
+              s = s.replace('jwplcUserDisplayExitCallback', 'jwplcUIExit')
+
+              refresh = re.compile(
+                  r'extern\s+"C"\s+void\s+jwplcUserDisplayRefreshCallback\s*\('
+                  r'\s*const\s+JWPLC_IOState\s*\*io\s*,'
+                  r'\s*const\s+JWPLC_RTCState\s*\*rtc\s*\)\s*\{'
+                  r'\s*\(void\)io;\s*\(void\)rtc;',
+                  re.S,
+              )
+              s, count = refresh.subn('extern "C" void jwplcUIUpdate() {', s)
+              if count != 1:
+                  # Tetris usa la llave en la siguiente linea; la sustitucion sigue siendo válida.
+                  raise SystemExit(f'{rel}: refresh legacy esperado 1 vez, encontrado {count}')
+
+              can_return = re.compile(
+                  r'\nextern\s+"C"\s+bool\s+jwplcCanReturnToIdle\s*\(void\)\s*\{.*?\n\}\s*\n',
+                  re.S,
+              )
+              s, count = can_return.subn('\n', s, count=1)
+              if count != 1:
+                  raise SystemExit(f'{rel}: hook jwplcCanReturnToIdle esperado')
+
+              # ESC ya lo procesa IDLE_RETURN_ESC_ONLY antes de jwplcUIUpdate().
+              esc_block = re.compile(
+                  r'\n\s*if\s*\(JWPLC_Buttons\.pressed\(BTN_ESC\)\)\s*\{'
+                  r'.*?JWPLC_Display\.goIdle\(\);\s*return;\s*\}\s*',
+                  re.S,
+              )
+              s = esc_block.sub('\n', s)
+
+              s = re.sub(
+                  r'^\s*JWPLC_Display\.setIdleRefreshPeriodMs\(\d+\);\s*\n',
+                  '',
+                  s,
+                  flags=re.M,
+              )
+              s = s.replace('// Callbacks USER del JWPLC_Display', '// API corta USER del JWPLC_Display')
+              save(p, s)
+
+          # -----------------------------------------------------------------
+          # Ejemplos Ethernet con TFT: mismos callbacks cortos.
+          # -----------------------------------------------------------------
+          ethernet_examples = [
+              'JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/Ethernet_SPI_Coexistence/Ethernet_SPI_Coexistence.ino',
+              'JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/Ethernet_HTTP_TFT_Diagnostics/Ethernet_HTTP_TFT_Diagnostics.ino',
+              'JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/Ethernet_Continuous_Stress_TFT/Ethernet_Continuous_Stress_TFT.ino',
+          ]
+          for rel in ethernet_examples:
+              migrate_simple_callbacks(rel)
+
+          # SPI coexistence no tenía wake explícito después de Alpha8.
+          rel = ethernet_examples[0]
+          p, s = load(rel)
+          old = '''    JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);
+              JWPLC_Display.setIdleTimeoutMs(8000);
+              JWPLC_Display.setUserRefreshPeriodMs(250);
+          '''
+          new = '''    JWPLC_Display.setIdleWakeButton(BTN_OK);
+              JWPLC_Display.setIdleWakeMode(IDLE_WAKE_BUTTON_ONLY);
+              JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);
+              JWPLC_Display.setIdleTimeoutMs(8000);
+              JWPLC_Display.setUserRefreshPeriodMs(250);
+              JWPLC_Display.clearPendingInput();
+          '''
+          s = replace_once(s, old, new, 'Ethernet_SPI_Coexistence wake')
+          save(p, s)
+
+          # HTTP diagnostics: ESC se delega al retorno central del Display.
+          rel = ethernet_examples[1]
+          p, s = load(rel)
+          s = s.replace(
+              'JWPLC_Display.setIdleReturnMode(IDLE_RETURN_DISABLED);',
+              'JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);',
+              1,
+          )
+          s = re.sub(
+              r'\n\s*case BTN_ESC:\s*\n\s*JWPLC_Display\.goIdle\(\);\s*\n\s*break;',
+              '',
+              s,
+              count=1,
+          )
+          save(p, s)
+
+          # -----------------------------------------------------------------
+          # Gate: ningún ejemplo de librería debe enseñar callbacks legacy.
+          # -----------------------------------------------------------------
+          offenders = []
+          for base in (ROOT / 'JWPLC/2.1.0/libraries').glob('*/examples'):
+              for p in base.rglob('*'):
+                  if p.suffix.lower() not in {'.ino', '.md'}:
+                      continue
+                  text = p.read_text(encoding='utf-8', errors='ignore')
+                  if 'jwplcUserDisplay' in text:
+                      offenders.append(str(p))
+
+          if offenders:
+              raise SystemExit('Legacy Display API todavía presente en ejemplos:\n' + '\n'.join(offenders))
+
+          print('ALPHA11_EXAMPLES_MODERN_DISPLAY_API=PASS')
+          PY
+
+          git diff --check
+          git diff --stat
+
+      - name: Commit de migración
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "Sin cambios pendientes"
+            exit 0
+          fi
+          git config user.name "JW-Control Actions"
+          git config user.email "jw.control.peru@gmail.com"
+          git add JWPLC/2.1.0/libraries/*/examples
+          git commit -m "refactor(alpha11): retirar API Display legacy de ejemplos"
+          git push origin HEAD:v2.1.0-alpha.11/feature/hmi-designer
