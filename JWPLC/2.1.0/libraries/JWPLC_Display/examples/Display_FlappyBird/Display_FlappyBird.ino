@@ -1241,7 +1241,7 @@ static void updateGame(uint32_t rawDtMs) {
     JWPLC_Display.notifyActivity();
     playSfxFlap();
   }
-birdV100 += ((int32_t)GRAVITY_PX_S2 * 100L * (int32_t)dtMs) / 1000L;
+  birdV100 += ((int32_t)GRAVITY_PX_S2 * 100L * (int32_t)dtMs) / 1000L;
 
   int32_t maxFall100 = (int32_t)MAX_FALL_PX_S * 100L;
 
@@ -1304,7 +1304,7 @@ extern "C" void jwplcUIUpdate()
       startGame();
       return;
     }
-if ((uint32_t)(now - userEnterMs) >= WAIT_OK_HINT_MS) {
+    if ((uint32_t)(now - userEnterMs) >= WAIT_OK_HINT_MS) {
       JWPLC_Display.goIdle();
     }
 

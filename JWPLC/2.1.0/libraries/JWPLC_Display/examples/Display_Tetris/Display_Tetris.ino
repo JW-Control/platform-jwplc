@@ -1269,7 +1269,7 @@ static void updateGame()
 
   bool pieceChanged = false;
   bool shouldLock = false;
-if (JWPLC_Buttons.pressed(BTN_OK))
+  if (JWPLC_Buttons.pressed(BTN_OK))
   {
     if (tryRotate())
     {
@@ -1378,7 +1378,7 @@ extern "C" void jwplcUIUpdate()
       startGame();
       return;
     }
-if ((uint32_t)(now - userEnterMs) >= WAIT_OK_HINT_MS)
+    if ((uint32_t)(now - userEnterMs) >= WAIT_OK_HINT_MS)
     {
       JWPLC_Display.goIdle();
     }
