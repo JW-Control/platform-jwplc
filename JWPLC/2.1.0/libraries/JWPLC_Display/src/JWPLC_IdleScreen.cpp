@@ -37,6 +37,7 @@ namespace JWPLCIdleScreen
     static bool g_profileIdlePhases = false;
     static bool g_profileNormalRuntime = false;
     static bool g_profileBaseFramePendingPrint = false;
+    static uint32_t g_profileFullRedrawStartMs = 0;
 
     static uint32_t g_profBaseFillScreenUs = 0;
     static uint32_t g_profBaseBorderUs = 0;
@@ -310,7 +311,7 @@ namespace JWPLCIdleScreen
         if (!tft)
             return;
 
-        int y = IO_ROW_Y0 + index * IO_ROW_STEP;
+        int y = IO_ROW_Y0 + index * IO_ROW_STEP_Y;
 
         tft->setTextSize(1);
         tft->setTextColor(C_TEXT, C_BG);
@@ -759,6 +760,9 @@ namespace JWPLCIdleScreen
     {
         g_forceFullRedraw = true;
         g_fullRedrawPhase = 0;
+        g_profileIdlePhases = true;
+        g_profileBaseFramePendingPrint = false;
+        g_profileFullRedrawStartMs = millis();
     }
 
     void draw(const JWPLC_IOState *io, const JWPLC_RTCState *rtc)
@@ -805,8 +809,10 @@ namespace JWPLCIdleScreen
 
                 if (g_profileIdlePhases && g_profileBaseFramePendingPrint)
                 {
+                    const uint32_t wallMs = millis() - g_profileFullRedrawStartMs;
                     Serial.printf(
-                        "[IDLE PROFILE] phase0 total=%lu us | fillScreen=%lu us | border=%lu us | dividers=%lu us | title=%lu us | phase1=%lu us | phase2=%lu us | phase3=%lu us\r\n",
+                        "[IDLE PROFILE] wall=%lu ms | phase0=%lu us (fill=%lu, border=%lu, div=%lu, title=%lu) | phase1=%lu us | phase2=%lu us | phase3=%lu us\r\n",
+                        (unsigned long)wallMs,
                         (unsigned long)g_profBaseTotalUs,
                         (unsigned long)g_profBaseFillScreenUs,
                         (unsigned long)g_profBaseBorderUs,
