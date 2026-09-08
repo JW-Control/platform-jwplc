@@ -324,6 +324,15 @@ extern "C" void jwplcUIRuntimeServiceInput(void)
 
 extern "C" bool jwplcUIRuntimeRefreshNeeded(void)
 {
+    // Compatibilidad con callbacks USER manuales/legacy:
+    // si el motor HMI queda enlazado pero no hay fields ni PixelMaps
+    // declarativos registrados, no debe filtrar jwplcUserDisplayRefreshCallback().
+    // El periodo USER sigue siendo responsabilidad de JWPLC_Display.
+    if (JWPLCUI::fieldCount() == 0 && JWPLCUI::pixelMapCount() == 0)
+    {
+        return true;
+    }
+
     return JWPLCUI::refreshNeeded();
 }
 
