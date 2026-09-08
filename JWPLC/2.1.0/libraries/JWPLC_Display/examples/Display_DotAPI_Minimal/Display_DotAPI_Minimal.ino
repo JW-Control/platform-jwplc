@@ -8,11 +8,12 @@
 
   Valida:
   - JWPLC_Display.isReady()
+  - JWPLC_Display.setIdleWakeMode(...)
   - JWPLC_Display.setIdleReturnMode(...)
   - JWPLC_Display.setIdleTimeoutMs(...)
   - JWPLC_Display.setUserRefreshPeriodMs(...)
   - Indicadores RUN, ERR, BUS y ETH
-  - Cambio IDLE/USER mediante botonera
+  - Cambio IDLE/USER mediante OK y retorno por timeout
 */
 
 bool displayConfigured = false;
@@ -25,8 +26,18 @@ void setup()
     Serial.begin(115200);
     delay(1200);
 
+    // Alpha8+ mantiene el wake deshabilitado por defecto. Este ejemplo mínimo
+    // habilita únicamente OK y conserva el retorno automático por timeout.
+    JWPLC_Display.setIdleWakeButton(BTN_OK);
+    JWPLC_Display.setIdleWakeMode(IDLE_WAKE_BUTTON_ONLY);
+    JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);
+    JWPLC_Display.setIdleTimeoutMs(8000);
+    JWPLC_Display.setUserRefreshPeriodMs(100);
+    JWPLC_Display.clearPendingInput();
+
     Serial.println();
     Serial.println("JWPLC_Display dot API - minimal test");
+    Serial.println("OK=USER | retorno automatico en 8s");
 }
 
 void loop()
@@ -34,10 +45,6 @@ void loop()
     if (!displayConfigured && JWPLC_Display.isReady())
     {
         displayConfigured = true;
-
-        JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);
-        JWPLC_Display.setIdleTimeoutMs(8000);
-        JWPLC_Display.setUserRefreshPeriodMs(100);
 
         JWPLC_Display.setRunLed(true);
         JWPLC_Display.setBusLed(false);
