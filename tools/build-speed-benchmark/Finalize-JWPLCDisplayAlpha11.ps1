@@ -218,7 +218,7 @@ function Test-SourceArchiveParity
     $onlyArchiveSymbols = @($archiveData.Symbols.Keys | Where-Object { -not $sourceData.Symbols.ContainsKey($_) })
     if ($onlySourceSymbols.Count -ne 0 -or $onlyArchiveSymbols.Count -ne 0)
     {
-        throw ("$Label: conjunto de simbolos distinto. source-only={0}, archive-only={1}" -f $onlySourceSymbols.Count, $onlyArchiveSymbols.Count)
+        throw ("${Label}: conjunto de simbolos distinto. source-only={0}, archive-only={1}" -f $onlySourceSymbols.Count, $onlyArchiveSymbols.Count)
     }
 
     $sectionNames = @($sourceData.Sections.Keys + $archiveData.Sections.Keys | Sort-Object -Unique)
@@ -245,14 +245,14 @@ function Test-SourceArchiveParity
     {
         if ($runtimeDiffs.Count -ne 1 -or $runtimeDiffs[0].Section -ne ".flash.rodata" -or $runtimeDiffs[0].DeltaAddr -ne 0)
         {
-            throw ("$Label: diferencias runtime fuera del padding permitido: {0}" -f (($runtimeDiffs | ForEach-Object { $_.Section }) -join ', '))
+            throw ("${Label}: diferencias runtime fuera del padding permitido: {0}" -f (($runtimeDiffs | ForEach-Object { $_.Section }) -join ', '))
         }
         $rodataDelta = [int64]$runtimeDiffs[0].DeltaSize
     }
 
     if ($rodataDelta -ne $fillDelta)
     {
-        throw "$Label: delta .flash.rodata ($rodataDelta) no coincide con linker fill ($fillDelta)."
+        throw "${Label}: delta .flash.rodata ($rodataDelta) no coincide con linker fill ($fillDelta)."
     }
 
     $sourceApp = Get-AppUsage -Output $SourceOutput
@@ -261,8 +261,8 @@ function Test-SourceArchiveParity
     $archiveRam = Get-RamUsage -Output $ArchiveOutput
     $appDelta = $archiveApp - $sourceApp
 
-    if ($sourceRam -ne $archiveRam) { throw "$Label: RAM distinta source=$sourceRam archive=$archiveRam." }
-    if ($appDelta -ne $fillDelta) { throw "$Label: delta APP ($appDelta) no coincide con linker fill ($fillDelta)." }
+    if ($sourceRam -ne $archiveRam) { throw "${Label}: RAM distinta source=$sourceRam archive=$archiveRam." }
+    if ($appDelta -ne $fillDelta) { throw "${Label}: delta APP ($appDelta) no coincide con linker fill ($fillDelta)." }
 
     return [PSCustomObject]@{
         Label = $Label
@@ -305,10 +305,22 @@ Set-Location $RepoRoot
 
 $branch = (git branch --show-current).Trim()
 if ($branch -ne $ExpectedBranch) { throw "Branch incorrecto: $branch. Esperado: $ExpectedBranch" }
-if (@(git status --porcelain).Count -ne 0)
+
+# Los builds locales del HMI Designer son artefactos no versionados y no deben
+# bloquear el gate del firmware. Sí exigimos que todo archivo ya versionado esté
+# limpio y que no existan fuentes Display .cpp sin seguimiento de Git.
+$trackedDirty = @(git status --porcelain --untracked-files=no)
+if ($trackedDirty.Count -ne 0)
 {
-    git status --short
-    throw "Repo no limpio antes de regenerar JWPLC_Display."
+    $trackedDirty | ForEach-Object { Write-Host $_ }
+    throw "Hay cambios versionados locales antes de regenerar JWPLC_Display."
+}
+
+$untrackedDisplay = @(git ls-files --others --exclude-standard -- "JWPLC/2.1.0/libraries/JWPLC_Display")
+if ($untrackedDisplay.Count -ne 0)
+{
+    $untrackedDisplay | ForEach-Object { Write-Host ("UNTRACKED_DISPLAY={0}" -f $_) }
+    throw "Hay archivos no versionados dentro de JWPLC_Display; revisarlos antes del archive."
 }
 
 $Cli = Resolve-ArduinoCli -Candidate $ArduinoCli
@@ -458,13 +470,13 @@ try
     $lines.Add(("- HEAD: ``{0}``" -f ((git rev-parse HEAD).Trim())))
     $lines.Add(("- FQBN: ``{0}``" -f $Fqbn))
     $lines.Add(("- TUs source: **{0}**" -f $sourceCpp.Count))
-    $lines.Add(("- Miembros exactos: **PASS**"))
+    $lines.Add("- Miembros exactos: **PASS**")
     $lines.Add(("- Archive bytes: **{0}**" -f $archiveFile.Length))
     $lines.Add(("- Archive SHA-256: ``{0}``" -f $archiveSha))
-    $lines.Add(("- Display source compilado en build precompiled: **0**"))
-    $lines.Add(("- Arduino reporta precompiled: **PASS**"))
-    $lines.Add(("- Paridad EMPTY simbolos/estructura/RAM: **PASS**"))
-    if ($hmiParity) { $lines.Add(("- Paridad HMI simbolos/estructura/RAM: **PASS**")) }
+    $lines.Add("- Display source compilado en build precompiled: **0**")
+    $lines.Add("- Arduino reporta precompiled: **PASS**")
+    $lines.Add("- Paridad EMPTY simbolos/estructura/RAM: **PASS**")
+    if ($hmiParity) { $lines.Add("- Paridad HMI simbolos/estructura/RAM: **PASS**") }
     $lines.Add("")
     $lines.Add("## Translation units")
     $lines.Add("")
