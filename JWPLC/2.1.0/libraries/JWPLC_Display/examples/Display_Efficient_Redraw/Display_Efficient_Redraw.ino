@@ -92,8 +92,17 @@ void setup()
     Serial.begin(115200);
     delay(1200);
 
+    // Alpha8+ no despierta USER por defecto. OK se habilita de forma explícita.
+    JWPLC_Display.setIdleWakeButton(BTN_OK);
+    JWPLC_Display.setIdleWakeMode(IDLE_WAKE_BUTTON_ONLY);
+    JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);
+    JWPLC_Display.setIdleTimeoutMs(8000);
+    JWPLC_Display.setUserRefreshPeriodMs(200);
+    JWPLC_Display.clearPendingInput();
+
     Serial.println();
     Serial.println("JWPLC_Display efficient redraw test");
+    Serial.println("OK=USER | retorno automatico en 8s");
 }
 
 void loop()
@@ -101,11 +110,6 @@ void loop()
     if (!displayConfigured && JWPLC_Display.isReady())
     {
         displayConfigured = true;
-
-        JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);
-        JWPLC_Display.setIdleTimeoutMs(8000);
-        JWPLC_Display.setUserRefreshPeriodMs(200);
-
         Serial.println("Display configurado");
     }
 
