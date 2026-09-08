@@ -9,8 +9,11 @@
   se realiza dentro de los callbacks USER. El runtime ya posee el mutex SPI
   cuando invoca estos callbacks.
 
+  Este ejemplo conserva el callback legacy de refresh de forma deliberada:
+  recibe directamente los snapshots JWPLC_IOState/JWPLC_RTCState del runtime.
+
   Controles:
-  - OK  : entra a USER y dibuja la pantalla.
+  - OK  : entra a USER mediante el wake central de JWPLC_Display.
   - ESC : retorna a IDLE.
 */
 
@@ -72,14 +75,16 @@ void setup()
     Serial.begin(115200);
     delay(300);
 
-    JWPLC_Display.setIdleWakeMode(IDLE_WAKE_DISABLED);
+    // Alpha8+ no despierta USER por defecto. Este ejemplo deja que el runtime
+    // gestione la transición completa OK -> USER y ESC -> IDLE.
+    JWPLC_Display.setIdleWakeButton(BTN_OK);
+    JWPLC_Display.setIdleWakeMode(IDLE_WAKE_BUTTON_ONLY);
     JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
 
     // 100 ms es suficiente para este ejemplo; el callback sólo redibuja
     // realmente cuando cambia el segundo del RTC.
     JWPLC_Display.setUserRefreshPeriodMs(100);
-
-    JWPLC_Buttons.clearPendingInput();
+    JWPLC_Display.clearPendingInput();
 
     Serial.println("JWPLC Basic - TFT direct");
     Serial.println("OK=USER | ESC=IDLE");
@@ -87,10 +92,5 @@ void setup()
 
 void loop()
 {
-    if (JWPLC_Buttons.pressed(BTN_OK) && JWPLC_Display.isIdleMode())
-    {
-        JWPLC_Display.enterUserUI();
-    }
-
     delay(5);
 }

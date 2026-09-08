@@ -84,7 +84,12 @@ jobs:
           sketches=(
             "JWPLC/2.1.0/libraries/JWPLC_GlobalPeripherals/examples/01.DigitalIO_Basic"
             "JWPLC/2.1.0/libraries/JWPLC_GlobalPeripherals/examples/02.Buttons_Basic"
+            "JWPLC/2.1.0/libraries/JWPLC_Display/examples/01.Display_IDLE_Status"
             "JWPLC/2.1.0/libraries/JWPLC_Display/examples/02.Display_HMI_Fields"
+            "JWPLC/2.1.0/libraries/JWPLC_Display/examples/04.Display_TFT_Direct"
+            "JWPLC/2.1.0/libraries/JWPLC_Display/examples/Display_DotAPI_Minimal"
+            "JWPLC/2.1.0/libraries/JWPLC_Display/examples/Display_Efficient_Redraw"
+            "JWPLC/2.1.0/libraries/JWPLC_Display/examples/Display_Idle_Return_Modes"
             "JWPLC/2.1.0/libraries/JWPLC_Display/examples/Display_UserUI_Callbacks"
             "JWPLC/2.1.0/libraries/JWPLC_Display/examples/Display_Tetris"
             "JWPLC/2.1.0/libraries/JWPLC_Display/examples/Display_FlappyBird"

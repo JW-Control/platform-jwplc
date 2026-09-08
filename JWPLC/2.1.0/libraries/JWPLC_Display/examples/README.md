@@ -21,8 +21,12 @@ Display_Tetris
 Display_UserUI_Callbacks
 ```
 
-Desde Alpha8 el wake USER es seguro por defecto (`IDLE_WAKE_DISABLED`). Los ejemplos que esperan entrada automática a USER configuran explícitamente su botón/modo de wake o realizan `enterUserUI()` desde el sketch.
+Desde Alpha8 el wake USER es seguro por defecto (`IDLE_WAKE_DISABLED`). Los ejemplos que esperan entrada automática a USER configuran explícitamente su botón/modo de wake.
 
-Los ejemplos con dibujo manual mediante `jwplcUserDisplayRefreshCallback()` conservan su cadencia definida por `setUserRefreshPeriodMs()` cuando no hay fields ni PixelMaps declarativos registrados. Si una aplicación mezcla callbacks manuales con HMI declarativa y necesita ejecución periódica del callback, debe seleccionar `USER_REFRESH_PERIODIC` de forma explícita.
+Para dibujo manual nuevo se prefieren los callbacks cortos `jwplcUIEnter()`, `jwplcUIUpdate()` y `jwplcUIExit()`. `04.Display_TFT_Direct` conserva deliberadamente el callback legacy `jwplcUserDisplayRefreshCallback(io, rtc)` porque demuestra el uso directo de los snapshots `JWPLC_IOState`/`JWPLC_RTCState` entregados por el runtime.
 
-`Display_Tetris` y `Display_FlappyBird` son además gates físicos útiles para validar que el callback USER periódico, la botonera y el dibujo directo continúan avanzando mientras el `loop()` principal permanece operativo.
+Los callbacks manuales conservan la cadencia definida por `setUserRefreshPeriodMs()` cuando no hay fields ni PixelMaps declarativos registrados. Si una aplicación mezcla callbacks manuales con HMI declarativa y necesita ejecución periódica del callback, debe seleccionar `USER_REFRESH_PERIODIC` de forma explícita.
+
+El periodo IDLE no debe endurecerse en un ejemplo salvo que sea parte de lo que se está demostrando. El package mantiene su propio valor por defecto; así los ejemplos heredan futuras mejoras del scheduler.
+
+`Display_Tetris` y `Display_FlappyBird` son además gates físicos útiles para validar callback USER, botonera, dibujo directo y audio no bloqueante mientras el `loop()` principal permanece operativo.

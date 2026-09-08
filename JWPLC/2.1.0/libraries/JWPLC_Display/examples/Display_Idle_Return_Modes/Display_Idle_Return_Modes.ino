@@ -1,13 +1,13 @@
 /*
   Display_Idle_Return_Modes
 
-  Ejemplo para probar los tres modos de retorno USER -> IDLE:
+  Ejemplo para probar tres modos de retorno USER -> IDLE:
 
   1) IDLE_RETURN_TIMEOUT
      Retorna automáticamente a IDLE luego de un tiempo sin actividad.
 
   2) IDLE_RETURN_ESC_ONLY
-     Solo retorna a IDLE con ESC o acción equivalente del runtime.
+     Solo retorna a IDLE con ESC.
 
   3) IDLE_RETURN_DISABLED
      No retorna automáticamente. El sketch debe llamar goIdle().
@@ -105,7 +105,7 @@ void loop()
     }
 }
 
-extern "C" void jwplcUserDisplayEnterCallback()
+extern "C" void jwplcUIEnter()
 {
     userCounter = 0;
 
@@ -144,11 +144,8 @@ extern "C" void jwplcUserDisplayEnterCallback()
     }
 }
 
-extern "C" void jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc)
+extern "C" void jwplcUIUpdate()
 {
-    (void)io;
-    (void)rtc;
-
     userCounter++;
 
     auto &tft = JWPLC_Display.tft();
@@ -178,7 +175,7 @@ extern "C" void jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const J
     tft.print(userCounter);
 }
 
-extern "C" void jwplcUserDisplayExitCallback()
+extern "C" void jwplcUIExit()
 {
     Serial.println("Saliendo de USER hacia IDLE");
 }
