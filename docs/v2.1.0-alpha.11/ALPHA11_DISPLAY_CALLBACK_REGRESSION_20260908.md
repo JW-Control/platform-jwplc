@@ -52,7 +52,9 @@ source-only=19
 archive-only=0
 ```
 
-La diferencia no provenía de miembros faltantes del archive. El modo source temporal del script elimina `precompiled=full`, y sin `dot_a_linkage=true` Arduino puede enlazar los objetos compilados de la librería directamente. En cambio, el modo precompilado enlaza `libJWPLC_Display.a` y permite extracción lazy por miembro. Comparar ambos resultados como si tuvieran exactamente la misma semántica de static archive genera una falsa divergencia de símbolos.
+La diferencia no provenía de miembros faltantes del archive. El modo source temporal del script elimina `precompiled=full`, y sin `dot_a_linkage=true` Arduino puede enlazar los objetos compilados de la librería directamente. En cambio, el modo precompilado enlaza `libJWPLC_Display.a` y permite extracción lazy por miembro.
+
+Esto no era sólo un problema de comparación del gate: en el enlace source directo, `JWPLC_UI_API.cpp` puede quedar presente aunque el sketch no use HMI declarativa. Sus hooks strong pueden entonces sustituir a los weak del Display base. Ese camino coincide precisamente con la condición que puede filtrar los callbacks USER manuales y es consistente con la congelación observada en Tetris cuando se trabaja desde source/fallback.
 
 Se añade por ello:
 
@@ -64,10 +66,13 @@ al `library.properties` de `JWPLC_Display`. De este modo:
 
 - el fallback/source de Arduino también se agrupa en un archive `.a`;
 - el enlace source y el enlace `precompiled=full` usan la misma semántica de extracción por miembros;
-- el gate de paridad vuelve a comparar configuraciones equivalentes;
+- un sketch que sólo usa TFT/callbacks no arrastra el motor HMI por el mero hecho de compilar desde source;
+- el gate de paridad compara configuraciones equivalentes;
 - se conserva el objetivo lazy-link del motor HMI.
 
-Este ajuste no cambia la API pública ni obliga a cargar el motor HMI cuando no se usa.
+La protección añadida en `jwplcUIRuntimeRefreshNeeded()` se mantiene además como defensa de compatibilidad para los casos en que el motor HMI sí quede enlazado legítimamente.
+
+Este ajuste no cambia la API pública.
 
 ## Auditoría de ejemplos
 
