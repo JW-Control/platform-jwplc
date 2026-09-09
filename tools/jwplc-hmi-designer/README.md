@@ -1,225 +1,188 @@
 # JWPLC HMI Designer
 
-Herramienta visual para diseñar la HMI/TFT del **JWPLC Basic** sobre la API pública `JWPLC_Display` / `JWPLC_UI`.
+Herramienta visual para diseñar la HMI/TFT del **JWPLC Basic** sobre `JWPLC_Display` / `JWPLC_UI`.
 
-Estado actual:
+Estado de cierre:
 
 ```text
-Alpha11
-Target: ST7789 / 320 x 170 / rotation 3 / RGB565
-TEXT / VALUE / BOOL / BAR: PASS
-Páginas + indicador NN/TT: PASS
-LIVE Web Serial: PASS
-Codegen JWPLC_HMI_Generated.h: PASS
-Robustez botonera pressed()/released(): PASS_PHYSICAL
-Responsive WIDE/MEDIUM/COMPACT: PASS_USER_VISUAL
-Integración app/sketch: CLOSING_GATE
-Extensión Arduino IDE 2: INCLUDED_IN_INSTALLER_PENDING_FINAL_GATE
+VERSION_SCOPE=v2.1.0-alpha.11
+TARGET=ST7789_320x170_ROT3_RGB565
+TEXT=PASS
+VALUE=PASS
+BOOL=PASS
+BAR=PASS
+PIXELMAP=PASS
+MULTIPAGE=PASS
+LIVE_WEB_SERIAL=PASS
+CODEGEN=PASS
+DESKTOP_APP=PASS_USER_WINDOWS
+ARDUINO_IDE_2_3_4=PASS_EXPERIMENTAL
+AUTOCOMPLETE_JWPLC_DISPLAY=PASS_USER
 ```
+
+---
 
 ## Flujo recomendado
 
-El Designer genera toda la capa de presentación en:
+El Designer genera:
 
 ```text
 JWPLC_HMI_Generated.h
 ```
 
-Ese header contiene:
+El header contiene:
 
 ```text
 HMIPageId
 HMIFieldId
 variables HMI
 JWPLC_UIField[]
+PixelMaps
 jwplcHMISetup()
-jwplcUIUpdate() autogenerado
+jwplcUIUpdate()
 ```
 
-El `.ino` del usuario conserva la lógica de aplicación:
+El `.ino` conserva la lógica de aplicación.
 
 ```cpp
-#include "JWPLC_HMI_Generated.h"
+#include <JWPLC_Display.h>
+#include <JWPLC_HMI_Generated.h>
 
 void setup()
 {
     jwplcHMISetup();
-    JWPLC_Display.enterUserUI();
 }
 
 void loop()
 {
-    // lógica de proceso, botones, sensores, E/S, Modbus, etc.
+    // lógica de proceso, sensores, E/S, comunicaciones y botones
 }
 ```
 
 Regla Alpha11:
 
 ```text
-loop()          = lógica del programa
+loop()          = lógica de aplicación
 jwplcUIUpdate() = sincronización gráfica autogenerada
 ```
 
-## Instalación Windows
+---
 
-Durante desarrollo puede ejecutarse desde el repositorio con:
+## Proyecto `.jwhmi`
 
-```text
-JWPLC-HMI-Designer.cmd
-```
-
-Para una instalación independiente del repositorio existe:
+Convención:
 
 ```text
-Install-JWPLC-HMI-Designer.cmd
-```
-
-El instalador final de Alpha11 es combinado: instala **la aplicación y la extensión JWPLC HMI para Arduino IDE 2** en una sola ejecución.
-
-La aplicación se copia a:
-
-```text
-%LOCALAPPDATA%\JWPLC\HMI Designer
-```
-
-La extensión se instala en:
-
-```text
-%USERPROFILE%\.arduinoIDE\plugins
-```
-
-Además se crean accesos en Escritorio y menú Inicio `JWPLC`, y se define:
-
-```text
-JWPLC_HMI_DESIGNER_HOME
-```
-
-El usuario instalado ya no depende de `GitHub\platform-jwplc\tools` para ejecutar el Designer.
-
-Después de instalar o actualizar la extensión debe cerrarse completamente Arduino IDE 2 y volver a abrirlo.
-
-Sólo para pruebas técnicas puede omitirse la extensión con:
-
-```powershell
-.\Install-JWPLC-HMI-Designer.ps1 -NoArduinoIDEExtension
-```
-
-El launcher de compatibilidad de la aplicación:
-
-- inicia automáticamente un servidor privado en `127.0.0.1:8765`;
-- abre Edge o Chrome en modo aplicación (`--app`) cuando no existe el ejecutable Electron nativo;
-- conserva el contexto seguro necesario para Web Serial y acceso controlado a carpetas;
-- no requiere ejecutar manualmente `py -m http.server`.
-
-## Abrir / Guardar proyecto
-
-La aplicación usa proyectos:
-
-```text
-*.jwhmi
-```
-
-Formato Alpha11:
-
-```text
-JWPLC_HMI_PROJECT v1
-máximo 16 páginas
-máximo 32 fields
-ST7789 320x170 rotation 3 RGB565
-```
-
-Se guardan páginas, campos declarativos, geometría, estilos, colores, IDs/variables y página activa.
-
-Cuando existe un sketch vinculado y el proyecto todavía no tiene archivo propio, **Guardar** crea automáticamente:
-
-```text
-<Sketch>\<Sketch>.jwhmi
-```
-
-Por ejemplo:
-
-```text
-test\
-├─ test.ino
-├─ test.jwhmi
+MiProyecto/
+├─ MiProyecto.ino
+├─ MiProyecto.jwhmi
 └─ JWPLC_HMI_Generated.h
 ```
 
-`.jwhmi` no es una unidad compilable de Arduino y puede convivir en la misma carpeta del sketch para versionado y regeneración.
+El Designer no modifica automáticamente el `.ino`.
 
-Limitación Alpha11: las herramientas técnicas `Texto GFX RAW` y capa manual de píxeles no forman parte de la persistencia `.jwhmi` de producción.
+`Actualizar HMI` escribe `JWPLC_HMI_Generated.h` después de validar IDs/símbolos y pedir confirmación si debe reemplazar un archivo existente.
 
-## Vincular con sketch
-
-En la aplicación:
+Límites V1:
 
 ```text
-Vincular sketch…
+MAX_PAGES=16
+MAX_FIELDS=32
 ```
 
-selecciona una carpeta que contenga un archivo `.ino`.
+---
 
-Después:
+## Fields
+
+Tipos V1:
 
 ```text
-Actualizar HMI
+TEXT
+VALUE
+BOOL
+BAR
 ```
 
-escribe directamente:
+El motor usa dirty refresh y caché para evitar redibujados globales innecesarios.
+
+---
+
+## PixelMap
+
+Alpha11 incorpora una capa de PixelMap con:
+
+- edición por píxel;
+- capas;
+- brush/eraser;
+- fill;
+- eyedropper;
+- línea;
+- rectángulo;
+- undo/redo específico;
+- RGB565;
+- hide/onion-skin en Designer;
+- persistencia de proyecto;
+- visibilidad runtime;
+- codegen optimizado.
+
+El generador puede elegir:
 
 ```text
-<Sketch>\JWPLC_HMI_Generated.h
+RGB565_RUN
+PACKED_SPAN16
 ```
 
-El Designer valida primero los identificadores C++, y pide confirmación antes de reemplazar un header existente.
+`PACKED_SPAN16` se usa cuando reduce memoria/código y la paleta cabe en 16 colores.
 
-El `.ino` nunca se modifica automáticamente.
+---
 
-Arduino IDE detectará el cambio del archivo del sketch y el usuario compila/sube normalmente.
+## Navegación multipágina
 
-## Extensión para Arduino IDE 2
-
-La aplicación standalone sigue siendo el componente principal. La extensión de Arduino IDE 2 **no incrusta el Designer ni modifica el IDE**; sólo ofrece accesos para abrir la aplicación instalada.
-
-Archivos fuente:
+Indicador físico:
 
 ```text
-arduino-ide-launcher\
-Build-ArduinoIDE-Launcher.ps1
-Install-ArduinoIDE-Launcher.ps1
+NN/TT
 ```
 
-La instalación normal ya no requiere una segunda decisión del usuario: `Install-JWPLC-HMI-Designer.cmd` instala aplicación + extensión automáticamente.
-
-Para diagnóstico todavía puede instalarse sólo la extensión con:
-
-```powershell
-.\Install-ArduinoIDE-Launcher.ps1
-```
-
-El VSIX se copia a:
+Semántica:
 
 ```text
-%USERPROFILE%\.arduinoIDE\plugins
+PAGE_SELECT
+  LEFT / RIGHT -> cambiar página
+  OK           -> entrar
+
+PAGE_CONTENT
+  LEFT / RIGHT / UP / DOWN / OK -> aplicación
+  ESC                            -> volver al selector
 ```
 
-Después se debe cerrar completamente Arduino IDE y abrirlo nuevamente.
+Al volver de CONTENT a SELECT se limpian eventos pendientes y se resincroniza el estado físico.
 
-Gate esperado en Arduino IDE 2.3.4:
+---
+
+## LIVE Preview
+
+Transporte:
 
 ```text
-Ctrl+Shift+P -> JWPLC: Abrir HMI Designer
-barra de estado -> JW HMI
-editor/title -> icono JW (best-effort)
+Web Serial
+baud=921600
+RX_BUFFER=8192
+FRAME_ROWS=32
+FLOW_CONTROL=ACK
+DIRTY_REGION=JWH2
+LATEST_STATE_COALESCING=YES
 ```
 
-La barra de estado es el botón visual principal. `editor/title` depende de cómo Arduino IDE/Theia exponga el menú en esa versión.
+LIVE quedó validado físicamente y no se reemplaza por otro runtime en Alpha11.
 
-Si el VSIX funcional no es aceptado por una versión futura de Arduino IDE, no se parchea ni forkea el IDE: la aplicación instalada, Escritorio y menú Inicio continúan siendo el flujo soportado.
+---
 
-## Responsive / Ajustar
+## Responsive
 
-La shell clasifica la ventana principalmente por porcentaje de pantalla:
+La interfaz está pensada para 4K y 1080p mediante layout adaptativo y Fit continuo.
+
+Clasificación de referencia:
 
 ```text
 WIDE     >= 70 %
@@ -227,108 +190,194 @@ MEDIUM   38..69 %
 COMPACT  < 38 %
 ```
 
-`Ajustar canvas` usa Fit continuo y calcula la escala máxima que conserva 320:170 dentro del área editable. Los zoom manuales `1×/2×/3×/4×/6×/8×` siguen disponibles.
+Los gates visuales WIDE y MEDIUM/50 % fueron aprobados por usuario.
 
-## LIVE Preview
+---
 
-LIVE se mantiene sobre Web Serial:
+## Instalación Windows
 
-```text
-baud: 921600
-RX buffer: 8192
-frame rows: 32
-ACK flow control
-JWH2 dirty regions
-latest-state coalescing
-```
-
-La aplicación de escritorio sigue usando Edge/Chrome precisamente para conservar Web Serial sin introducir un segundo protocolo o runtime.
-
-## Páginas
-
-El indicador físico usa:
+Instalador:
 
 ```text
-01/03
+Install-JWPLC-HMI-Designer.cmd
 ```
 
-Semántica:
+Destino:
 
 ```text
-PAGE_SELECT
-  fondo negro / texto blanco
-  LEFT / RIGHT = cambiar página
-  OK           = entrar
-
-PAGE_CONTENT
-  fondo blanco / texto negro
-  LEFT/RIGHT/UP/DOWN/OK = usuario
-  ESC                    = volver a selector
+%LOCALAPPDATA%\JWPLC\HMI Designer
 ```
 
-Los símbolos C++ generados evitan números mágicos:
+Entrada:
+
+```text
+JWPLC-HMI-Designer.exe
+```
+
+Identidad visual final:
+
+```text
+DESKTOP_SHORTCUT_ICON=PASS
+WINDOW_ICON=PASS
+TASKBAR_ICON=PASS
+```
+
+La aplicación usa Electron nativo como entrada principal y mantiene un servidor local interno para el frontend/LIVE.
+
+---
+
+## Extensión Arduino IDE 2
+
+El Designer **no** se incrusta dentro de Arduino IDE y no se mantiene un fork del IDE.
+
+La integración usa un VSIX de usuario:
+
+```text
+%USERPROFILE%\.arduinoIDE\plugins
+```
+
+Versión final Alpha11:
+
+```text
+jwplc-hmi-launcher-0.1.6.vsix
+```
+
+Objetivo validado:
+
+```text
+Arduino IDE 2.3.4
+Theia 1.41.x
+Windows
+```
+
+La extensión aporta:
+
+1. comando `JWPLC: Abrir HMI Designer`;
+2. botón `JW HMI` en barra de estado;
+3. icono de editor best-effort;
+4. autocompletado contextual de `JWPLC_Display`.
+
+Después de instalar/actualizar el VSIX se debe cerrar completamente Arduino IDE y abrirlo otra vez.
+
+---
+
+## Autocompletado `JWPLC_Display`
+
+Al escribir:
 
 ```cpp
-if (!JWPLC_Display.isUserPageSelection() &&
-    JWPLC_Display.userPage() == PAGE_PROCESO)
-{
-    // lógica de esa página
-}
+JWPLC_Display.
 ```
 
-## Botonera: regla importante de robustez
+se ofrece una **API recomendada curada**, no un dump de todos los métodos compatibles.
 
-El package mantiene el escaneo de la matriz automáticamente desde `jwplcBtnScan`.
-
-Un sketch normal puede consultar:
-
-```cpp
-JWPLC_Buttons.pressed(BTN_UP)
-JWPLC_Buttons.released(BTN_OK)
-JWPLC_Buttons.isDown(BTN_LEFT)
-```
-
-en un `loop()` cerrado **sin añadir `delay()` ni Serial para estabilizar el escaneo**.
-
-Durante Alpha11 se reprodujo el fallo intermitente observado previamente en taller: un `loop()` intensivo consultando `pressed()` podía competir con el scanner y dejar la interacción aparentemente colgada. Se corrigió elevando la prioridad del task de scan y validando su creación.
-
-También se corrigió la transición `PAGE_CONTENT -> PAGE_SELECT`: al pulsar ESC se limpian PRESS/RELEASE/REPEAT pendientes y se resincroniza el estado físico, evitando reingresos fantasma por un `OK` pendiente.
-
-Por lo tanto, en un sketch normal **no** se debe:
-
-```cpp
-JWPLC_Buttons.update();
-```
-
-ni iniciar otro task de escaneo sobre `JWPLC_Buttons`.
-
-## PoC / desarrollo manual
-
-La ruta base sigue siendo:
+Principio:
 
 ```text
-tools/jwplc-hmi-designer/poc/
+API_COMPATIBLE_WIDE=YES
+AUTOCOMPLETE_RECOMMENDED_PATH_ONLY=YES
 ```
 
-Para depuración web también puede usarse un servidor manual:
+Por ejemplo, `tft()` se prioriza como acceso raw canónico y `display()` no se duplica en la lista.
+
+Los getters de configuración siguen existiendo por compatibilidad, pero no se priorizan porque pueden confundir al usuario con setters equivalentes.
+
+Contextos configurables:
+
+```text
+setIdleWakeMode(     -> IDLE_WAKE_*
+setIdleWakeButton(   -> BTN_*
+setIdleReturnMode(   -> IDLE_RETURN_*
+setIdleReturnButton( -> BTN_*
+setUserRefreshMode(  -> USER_REFRESH_*
+```
+
+Gate físico/UX:
+
+```text
+A11_6_ARDUINO_IDE_AUTOCOMPLETE=PASS_USER_2_3_4
+```
+
+---
+
+## Instalador del launcher
+
+Diagnóstico/instalación independiente:
 
 ```powershell
-cd tools\jwplc-hmi-designer\poc
-py -m http.server 8080
+.\Install-ArduinoIDE-Launcher.ps1
 ```
 
-Pero el flujo recomendado para usuario es la instalación independiente.
+El instalador del VSIX quedó desacoplado de la presencia del Designer:
 
-## Documentación Alpha11
+```text
+DESIGNER_REQUIRED_FOR_AUTOCOMPLETE=NO
+DESIGNER_REQUIRED_FOR_LAUNCH_BUTTON=YES
+```
+
+Si la app no está instalada, el VSIX/autocompletado se instala igualmente y sólo se advierte que el botón `JW HMI` no podrá abrirla.
+
+---
+
+## Botonera y loops cerrados
+
+El sketch normal puede consultar:
+
+```cpp
+JWPLC_Buttons.pressed(BTN_UP);
+JWPLC_Buttons.released(BTN_OK);
+JWPLC_Buttons.isDown(BTN_LEFT);
+```
+
+sin añadir `delay()` ni Serial.
+
+También quedó validado un `loop()` intensivo con `digitalWrite(Q0_0, estado)` en cada vuelta sin necesidad de `delay(1)`.
+
+```text
+ALPHA11_USER_DELAY_REQUIRED=NO
+ALPHA11_RUNTIME_CLOSED_LOOP=PASS_PHYSICAL
+```
+
+---
+
+## Archivos principales
+
+```text
+tools/jwplc-hmi-designer/
+├─ Install-JWPLC-HMI-Designer.cmd
+├─ Install-JWPLC-HMI-Designer.ps1
+├─ Build-JWPLC-HMI-Designer-Electron.ps1
+├─ Build-ArduinoIDE-Launcher.ps1
+├─ Install-ArduinoIDE-Launcher.ps1
+├─ arduino-ide-launcher/
+├─ electron/
+├─ poc/
+└─ gates/
+```
+
+---
+
+## Documentación de cierre
 
 ```text
 docs/v2.1.0-alpha.11/ALPHA11_STATUS.md
-docs/v2.1.0-alpha.11/A11_3B_VALUE_FIELD_GATE.md
-docs/v2.1.0-alpha.11/A11_3C_BOOL_FIELD_GATE.md
-docs/v2.1.0-alpha.11/A11_3D_BAR_FIELD_GATE.md
-docs/v2.1.0-alpha.11/A11_3E_MULTI_FIELD_PAGES_GATE.md
-docs/v2.1.0-alpha.11/A11_4_CODEGEN_GATE.md
-docs/v2.1.0-alpha.11/A11_BUTTON_ROBUSTNESS_GATE.md
-docs/v2.1.0-alpha.11/A11_5_PHYSICAL_PARITY_GATE.md
+docs/v2.1.0-alpha.11/ALPHA11_CLOSURE_CHECKLIST.md
+docs/v2.1.0-alpha.11/ALPHA11_BUILD_BENCHMARK.md
+docs/v2.1.0-alpha.11/ALPHA11_HMI_DESIGNER_ARCHITECTURE.md
 docs/v2.1.0-alpha.11/A11_6_DESKTOP_INTEGRATION_GATE.md
+docs/v2.1.0-alpha.11/A11_6_ICON_TASKBAR_GATE.md
+```
+
+## Estado final Alpha11
+
+```text
+HMI_DESIGNER_V1=PASS_USER
+DESKTOP_INSTALL=PASS_USER_WINDOWS
+ARDUINO_IDE_LAUNCHER=PASS_EXPERIMENTAL_2_3_4
+AUTOCOMPLETE=PASS_USER
+CODEGEN=PASS
+LIVE=PASS
+PIXELMAP=PASS
+MULTIPAGE=PASS
+NEXT=PR_RELEASE_V2_1_X
 ```
