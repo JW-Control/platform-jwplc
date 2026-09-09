@@ -86,14 +86,47 @@ ALPHA11_JWPLC_EXAMPLES_COMPILE=PASS
 
 Resultado: la limpieza de includes no rompió discovery, compilación ni link del package Arduino.
 
+## Archive precompilado final de JWPLC_Display
+
+Finalizer ejecutado desde el HEAD `bc21768860498ae18154d91431abfe983cb3c04a` con source vacío, source HMI, archive vacío y archive HMI.
+
+Resultado:
+
+```text
+ARCHIVE_BYTES=849596
+ARCHIVE_SHA256=2974d42c847c1b7c7ab3a7b74da42e2f17969fb852b47a8d434f57f70da924af
+DISPLAY_TUS=6
+ARCHIVE_MEMBERS_EXACT=PASS
+PRECOMPILED_DISPLAY_SOURCE_TUS=0
+SOURCE_ARCHIVE_EMPTY_PARITY=PASS
+SOURCE_ARCHIVE_HMI_PARITY=PASS
+ALPHA11_DISPLAY_FINAL_ARCHIVE=PASS
+```
+
+El archive quedó versionado en:
+
+```text
+JWPLC/2.1.0/libraries/JWPLC_Display/src/esp32/libJWPLC_Display.a
+```
+
+Commit que lo publica:
+
+```text
+4142f801fbacc9388bf63c3a6352696522d6b445
+```
+
+La configuración pública asociada se mantiene en `JWPLC_Display/library.properties` con `dot_a_linkage=true` y `precompiled=full`.
+
 ## Cierre de revisión
 
-La revisión de ejemplos Alpha11 queda cerrada respecto a:
+La revisión de ejemplos y el cierre técnico del precompilado Display Alpha11 quedan cerrados respecto a:
 
 - API Display moderna;
 - retorno IDLE y reentrada USER;
 - TFT declarativa sin parpadeo en diagnósticos Ethernet;
 - eliminación de includes redundantes en ejemplos integrados;
-- compilación de los 57 sketches modificados.
+- compilación de los 57 sketches modificados;
+- archive final con 6 TUs exactas y paridad source/archive;
+- cero TUs de `JWPLC_Display` recompiladas al usar el archive final.
 
-Pendiente del cierre general Alpha11: regenerar el archive precompilado final de `JWPLC_Display` desde el HEAD definitivo, verificar paridad source/archive y completar benchmark/documentación de release.
+Pendiente del cierre general Alpha11: ejecutar el benchmark final de tiempos, cerrar documentación de release/README, revisar reproducibilidad del empaquetado HMI Designer y preparar PR/PreRelease en español.
