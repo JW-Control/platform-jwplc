@@ -11,7 +11,6 @@
   dispositivo, por ejemplo leer su sensor interno de temperatura.
 */
 
-#include <JWPLC_GlobalPeripherals.h>
 
 void setup()
 {

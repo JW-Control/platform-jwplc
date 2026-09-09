@@ -1,0 +1,25 @@
+/* Compatibilidad del shell desktop con los breakpoints legacy de styles.css.
+   Las clases layout-* son la autoridad horizontal en modo aplicación. */
+
+.layout-wide #openProjectButton,
+.layout-wide #saveProjectButton {
+  display: inline-block !important;
+}
+
+.layout-wide .object-id {
+  display: inline !important;
+}
+
+.layout-wide .toolbar {
+  overflow: visible;
+}
+
+.layout-medium .object-id,
+.layout-compact .object-id {
+  display: none !important;
+}
+
+/* En MEDIUM/COMPACT la visibilidad se decide por rol, no por nth-of-type. */
+.layout-medium #saveProjectButton {
+  display: inline-block !important;
+}

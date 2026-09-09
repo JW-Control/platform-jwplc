@@ -1,4 +1,6 @@
 #include "JWPLC_UI.h"
+#include "JWPLC_UI_Pages.h"
+#include "JWPLC_UI_PixelMap.h"
 #include "JWPLC_UI_RuntimeHooks.h"
 
 #include <Adafruit_ST7789.h>
@@ -315,8 +317,22 @@ JWPLC_UIField JWPLC_UIBarField(
 
 // Implementaciones strong de los hooks internos. Este TU solo se enlaza cuando
 // la HMI se usa: JWPLC_UI.cpp depende de los constructores definidos arriba.
+extern "C" void jwplcUIRuntimeServiceInput(void)
+{
+    JWPLCUIPages::serviceNavigation();
+}
+
 extern "C" bool jwplcUIRuntimeRefreshNeeded(void)
 {
+    // Compatibilidad con callbacks USER manuales/legacy:
+    // si el motor HMI queda enlazado pero no hay fields ni PixelMaps
+    // declarativos registrados, no debe filtrar jwplcUserDisplayRefreshCallback().
+    // El periodo USER sigue siendo responsabilidad de JWPLC_Display.
+    if (JWPLCUI::fieldCount() == 0 && JWPLCUI::pixelMapCount() == 0)
+    {
+        return true;
+    }
+
     return JWPLCUI::refreshNeeded();
 }
 
@@ -328,6 +344,7 @@ extern "C" void jwplcUIRuntimeInvalidateAll(bool redrawStatic)
 extern "C" void jwplcUIRuntimePrepareEnter(void)
 {
     JWPLCUI::prepareEnter();
+    JWPLCUIPages::prepareEnter();
 }
 
 extern "C" uint8_t jwplcUIRuntimeCurrentPage(void)
@@ -354,6 +371,9 @@ extern "C" void jwplcUIRuntimeDrawStatic(Adafruit_ST7789 *tft)
 {
     if (tft != nullptr)
     {
+        // PixelMaps son fondo estático de la página; los fields declarativos se
+        // dibujan después y por tanto conservan prioridad visual.
+        JWPLCUI::drawPixelMapsStatic(*tft);
         JWPLCUI::drawStatic(*tft);
     }
 }
@@ -363,5 +383,6 @@ extern "C" void jwplcUIRuntimeDrawDirty(Adafruit_ST7789 *tft)
     if (tft != nullptr)
     {
         JWPLCUI::drawDirty(*tft);
+        JWPLCUIPages::drawIndicator(*tft);
     }
 }

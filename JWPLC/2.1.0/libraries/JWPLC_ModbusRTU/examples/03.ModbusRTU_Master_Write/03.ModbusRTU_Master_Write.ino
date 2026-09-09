@@ -12,7 +12,6 @@
   - masterDone()/masterSucceeded(): resultado.
 */
 
-#include <JWPLC_ModbusRTU.h>
 
 static constexpr uint8_t TARGET_SLAVE_ID = 2;
 static uint16_t valueToWrite = 0;

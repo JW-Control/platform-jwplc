@@ -13,7 +13,6 @@
   - JWPLC_ModbusRTU.task() debe ejecutarse frecuentemente.
 */
 
-#include <JWPLC_ModbusRTU.h>
 
 static uint16_t valueToWrite = 0;
 static uint32_t nextWriteMs = 1000;

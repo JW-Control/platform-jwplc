@@ -8,7 +8,6 @@
   de forma óptima usando timers para no saturar el bus I2C.
 */
 
-#include <JWPLC_ModbusRTU.h>
 #include <Arduino.h>
 #include <Wire.h> // REQUERIDO para el expansor I/O (I2C)
 

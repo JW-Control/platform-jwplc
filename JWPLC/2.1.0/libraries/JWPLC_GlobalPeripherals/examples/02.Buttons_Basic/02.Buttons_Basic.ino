@@ -13,7 +13,6 @@
   - clearPendingInput(): descarta eventos anteriores al inicio de la aplicación.
 */
 
-#include <JWPLC_GlobalPeripherals.h>
 
 static const uint8_t BUTTON_IDS[] = {
     BTN_LEFT, BTN_UP, BTN_RIGHT, BTN_ESC, BTN_OK, BTN_DOWN};

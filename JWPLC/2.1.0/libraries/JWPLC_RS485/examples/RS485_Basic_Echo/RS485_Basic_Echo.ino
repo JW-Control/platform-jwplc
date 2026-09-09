@@ -7,7 +7,6 @@
   Útil para probar recepción/transmisión con un conversor USB-RS485 externo.
 */
 
-#include <JWPLC_RS485.h>
 
 void setup()
 {

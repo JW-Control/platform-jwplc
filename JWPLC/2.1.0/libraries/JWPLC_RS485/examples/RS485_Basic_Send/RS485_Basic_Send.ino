@@ -6,7 +6,6 @@
   Requiere otro dispositivo RS-485 conectado para recibir el mensaje.
 */
 
-#include <JWPLC_RS485.h>
 
 uint32_t counter = 0;
 

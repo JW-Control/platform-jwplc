@@ -13,7 +13,6 @@
   - "No line ending" o el final de línea que necesite tu equipo externo.
 */
 
-#include <JWPLC_RS485.h>
 
 void setup()
 {
