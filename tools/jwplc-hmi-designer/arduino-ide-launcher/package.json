@@ -1,8 +1,8 @@
 {
   "name": "jwplc-hmi-launcher",
   "displayName": "JWPLC HMI Designer Launcher",
-  "description": "Abre JWPLC HMI Designer desde Arduino IDE 2 y aporta sugerencias contextuales para la configuración habitual de JWPLC_Display.",
-  "version": "0.1.5",
+  "description": "Abre JWPLC HMI Designer desde Arduino IDE 2 y aporta sugerencias contextuales de la API recomendada de JWPLC_Display.",
+  "version": "0.1.6",
   "publisher": "jw-control",
   "license": "MIT",
   "engines": {
@@ -12,6 +12,7 @@
     "Other"
   ],
   "activationEvents": [
+    "onStartupFinished",
     "onCommand:jwplc.openHmiDesigner",
     "onLanguage:cpp",
     "onLanguage:c",
