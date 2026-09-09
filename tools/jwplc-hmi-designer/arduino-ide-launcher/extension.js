@@ -160,6 +160,44 @@ async function launchDesigner() {
   }
 }
 
+function enumCompletion(label, detail, index) {
+  const item = new vscode.CompletionItem(label, vscode.CompletionItemKind.EnumMember);
+  item.insertText = label;
+  item.detail = detail;
+  item.sortText = String(index).padStart(2, '0');
+  return item;
+}
+
+function displayConfigCompletions(document, position) {
+  const line = document.lineAt(position.line).text.slice(0, position.character);
+
+  if (/JWPLC_Display\s*\.\s*setIdleWakeMode\s*\(\s*$/.test(line)) {
+    return [
+      enumCompletion('IDLE_WAKE_ANY_BUTTON', 'JWPLC Display · cualquier botón abre USER', 1),
+      enumCompletion('IDLE_WAKE_BUTTON_ONLY', 'JWPLC Display · sólo el botón configurado abre USER', 2),
+      enumCompletion('IDLE_WAKE_DISABLED', 'JWPLC Display · wake automático deshabilitado', 3)
+    ];
+  }
+
+  if (/JWPLC_Display\s*\.\s*setIdleReturnMode\s*\(\s*$/.test(line)) {
+    return [
+      enumCompletion('IDLE_RETURN_ESC_ONLY', 'JWPLC Display · ESC regresa a IDLE', 1),
+      enumCompletion('IDLE_RETURN_TIMEOUT', 'JWPLC Display · regresa a IDLE por inactividad', 2),
+      enumCompletion('IDLE_RETURN_BUTTON_ONLY', 'JWPLC Display · botón configurado regresa a IDLE', 3),
+      enumCompletion('IDLE_RETURN_DISABLED', 'JWPLC Display · retorno automático deshabilitado', 4)
+    ];
+  }
+
+  if (/JWPLC_Display\s*\.\s*setUserRefreshMode\s*\(\s*$/.test(line)) {
+    return [
+      enumCompletion('USER_REFRESH_ON_DEMAND', 'JWPLC Display · redibujar sólo cuando cambia contenido', 1),
+      enumCompletion('USER_REFRESH_PERIODIC', 'JWPLC Display · refresco USER periódico', 2)
+    ];
+  }
+
+  return undefined;
+}
+
 function activate(context) {
   const command = vscode.commands.registerCommand('jwplc.openHmiDesigner', launchDesigner);
   context.subscriptions.push(command);
@@ -170,6 +208,22 @@ function activate(context) {
   item.command = 'jwplc.openHmiDesigner';
   item.show();
   context.subscriptions.push(item);
+
+  // Arduino IDE 2 usa el motor de extensiones VS Code/Theia. Este provider no
+  // sustituye IntelliSense de C++; sólo añade las opciones JWPLC pertinentes
+  // justo al escribir el paréntesis de los setters de configuración habituales.
+  const selector = [
+    { language: 'cpp', scheme: 'file' },
+    { language: 'c', scheme: 'file' },
+    { language: 'arduino', scheme: 'file' }
+  ];
+
+  const completions = vscode.languages.registerCompletionItemProvider(
+    selector,
+    { provideCompletionItems: displayConfigCompletions },
+    '('
+  );
+  context.subscriptions.push(completions);
 }
 
 function deactivate() {}
