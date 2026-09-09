@@ -1,0 +1,185 @@
+name: Alpha11 clean JWPLC example includes
+
+on:
+  push:
+    branches:
+      - v2.1.0-alpha.11/feature/hmi-designer
+    paths:
+      - ".github/workflows/alpha11-clean-jwplc-example-includes.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  clean:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Limpiar includes redundantes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          root = Path('JWPLC/2.1.0/libraries')
+
+          # Headers del ecosistema que Arduino.h -> JWPLC_Display_Auto.h ->
+          # JWPLC_GlobalPeripherals_Auto.h ya expone en un sketch JWPLC Basic.
+          autoload_headers = {
+              'JWPLC_GlobalPeripherals.h',
+              'JW_RTC.h',
+              'JW_FRAM.h',
+              'JW_SD.h',
+              'JW_MatrixButtons.h',
+              'JWPLC_Ethernet.h',
+              'JWPLC_RS485.h',
+              'JWPLC_ModbusRTU.h',
+              'JWPLC_GlobalPeripherals_RuntimeView.h',
+              'jwplc_spi_bus.h',
+          }
+
+          changed = []
+          removed = []
+
+          # Sólo librerías JWPLC_*: son ejemplos ligados al package integrado.
+          # Se dejan intactos JW_FRAM/JW_RTC/JW_SD/JW_MatrixButtons porque son
+          # drivers reutilizables y sus ejemplos deben conservar autonomía.
+          for lib in sorted(root.glob('JWPLC_*')):
+              examples = lib / 'examples'
+              if not examples.exists():
+                  continue
+              for path in sorted(examples.rglob('*')):
+                  if not path.is_file() or path.suffix.lower() not in {'.ino', '.h', '.hpp', '.c', '.cpp'}:
+                      continue
+
+                  text = path.read_text(encoding='utf-8', errors='strict')
+                  original = text
+                  lines = text.splitlines(keepends=True)
+                  out = []
+
+                  for line in lines:
+                      m = re.match(r'^(\s*#\s*include\s*[<\"])([^>\"]+)([>\"].*)$', line.rstrip('\r\n'))
+                      if m and m.group(2) in autoload_headers:
+                          removed.append((path.as_posix(), m.group(2)))
+                          continue
+                      out.append(line)
+
+                  text = ''.join(out)
+                  if text != original:
+                      path.write_text(text, encoding='utf-8', newline='\n')
+                      changed.append(path)
+
+          # Los tres ejemplos declarativos básicos sólo usan la API liviana
+          # que ya expone Arduino.h. A diferencia de juegos/TFT directo, no
+          # necesitan el tipo completo Adafruit_ST7789 de JWPLC_Display.h.
+          declarative_display = [
+              root / 'JWPLC_Display/examples/01.Display_IDLE_Status/01.Display_IDLE_Status.ino',
+              root / 'JWPLC_Display/examples/02.Display_HMI_Fields/02.Display_HMI_Fields.ino',
+              root / 'JWPLC_Display/examples/03.Display_HMI_Pages/03.Display_HMI_Pages.ino',
+          ]
+          for path in declarative_display:
+              text = path.read_text(encoding='utf-8')
+              old = '#include <JWPLC_Display.h>\n'
+              if old not in text:
+                  raise SystemExit(f'{path}: include Display esperado no encontrado')
+              text = text.replace(old, '', 1)
+              path.write_text(text, encoding='utf-8', newline='\n')
+              if path not in changed:
+                  changed.append(path)
+              removed.append((path.as_posix(), 'JWPLC_Display.h'))
+
+          if not changed:
+              raise SystemExit('No se modificó ningún ejemplo')
+
+          # Gate: ningún ejemplo JWPLC_* debe volver a declarar los headers de
+          # autoload anteriores. Headers específicos no-autoload (p.ej.
+          # JWPLC_Ethernet_DNS.h o JWPLC_LogicRuntime.h) sí permanecen.
+          leftovers = []
+          legacy = []
+          legacy_patterns = [
+              r'JWPLCDisplay::',
+              r'jwplcUserDisplayEnterCallback',
+              r'jwplcUserDisplayRefreshNeededCallback',
+              r'jwplcUserDisplayRefreshCallback',
+              r'jwplcUserDisplayExitCallback',
+          ]
+
+          for lib in sorted(root.glob('JWPLC_*')):
+              examples = lib / 'examples'
+              if not examples.exists():
+                  continue
+              for path in sorted(examples.rglob('*')):
+                  if not path.is_file() or path.suffix.lower() not in {'.ino', '.h', '.hpp', '.c', '.cpp'}:
+                      continue
+                  text = path.read_text(encoding='utf-8', errors='strict')
+                  includes = re.findall(r'^\s*#\s*include\s*[<\"]([^>\"]+)[>\"]', text, re.M)
+                  hits = [h for h in includes if h in autoload_headers]
+                  if hits:
+                      leftovers.append((path.as_posix(), hits))
+                  lh = [pat for pat in legacy_patterns if re.search(pat, text)]
+                  if lh:
+                      legacy.append((path.as_posix(), lh))
+
+          if leftovers:
+              for path, hits in leftovers:
+                  print('LEFTOVER', path, ','.join(hits))
+              raise SystemExit('Quedaron includes redundantes')
+
+          if legacy:
+              for path, hits in legacy:
+                  print('LEGACY', path, ','.join(hits))
+              raise SystemExit('Quedó API Display legacy en ejemplos')
+
+          # Los ejemplos de dibujo directo/callbacks deben conservar el header
+          # completo de Display; no se convierten artificialmente a fields.
+          raw_display_examples = [
+              root / 'JWPLC_Display/examples/04.Display_TFT_Direct/04.Display_TFT_Direct.ino',
+              root / 'JWPLC_Display/examples/Display_Alpha8_HMI_Gate/Display_Alpha8_HMI_Gate.ino',
+              root / 'JWPLC_Display/examples/Display_Efficient_Redraw/Display_Efficient_Redraw.ino',
+              root / 'JWPLC_Display/examples/Display_FlappyBird/Display_FlappyBird.ino',
+              root / 'JWPLC_Display/examples/Display_Idle_Return_Modes/Display_Idle_Return_Modes.ino',
+              root / 'JWPLC_Display/examples/Display_Tetris/Display_Tetris.ino',
+              root / 'JWPLC_Display/examples/Display_UserUI_Callbacks/Display_UserUI_Callbacks.ino',
+          ]
+          for path in raw_display_examples:
+              text = path.read_text(encoding='utf-8')
+              if '#include <JWPLC_Display.h>' not in text:
+                  raise SystemExit(f'{path}: se perdió el header Display requerido')
+
+          # HTTP/Stress conservan ownership SPI de la operación aunque el
+          # include directo ya no sea necesario.
+          for rel in [
+              'JWPLC_Ethernet/examples/Ethernet_HTTP_TFT_Diagnostics/Ethernet_HTTP_TFT_Diagnostics.ino',
+              'JWPLC_Ethernet/examples/Ethernet_Continuous_Stress_TFT/Ethernet_Continuous_Stress_TFT.ino',
+          ]:
+              path = root / rel
+              text = path.read_text(encoding='utf-8')
+              for required in ('jwplcSPI_acquire(', 'jwplcSPI_release('):
+                  if required not in text:
+                      raise SystemExit(f'{path}: se perdió {required}')
+
+          print(f'CHANGED_FILES={len(changed)}')
+          print(f'REMOVED_INCLUDES={len(removed)}')
+          for path, header in removed:
+              print(f'REMOVED {header} :: {path}')
+          print('LEGACY_DISPLAY_FILES=0')
+          print('ALPHA11_EXAMPLE_INCLUDE_CLEANUP=PASS')
+          PY
+
+          git diff --check
+          git diff --stat
+
+      - name: Commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "JW-Control Actions"
+          git config user.email "jw.control.peru@gmail.com"
+          git add JWPLC/2.1.0/libraries/JWPLC_*/examples
+          git commit -m "refactor(alpha11): simplificar includes de ejemplos JWPLC"
+          git push origin HEAD:v2.1.0-alpha.11/feature/hmi-designer
