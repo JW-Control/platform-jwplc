@@ -1,0 +1,96 @@
+name: Alpha11 audit JWPLC examples
+
+on:
+  push:
+    branches:
+      - v2.1.0-alpha.11/feature/hmi-designer
+    paths:
+      - ".github/workflows/alpha11-audit-jwplc-examples.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Auditar includes y API Display
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          root = Path('JWPLC/2.1.0/libraries')
+          exts = {'.ino', '.h', '.hpp', '.c', '.cpp'}
+          files = []
+          for lib in sorted(root.iterdir()):
+              if not lib.is_dir() or not lib.name.startswith('JW'):
+                  continue
+              ex = lib / 'examples'
+              if not ex.exists():
+                  continue
+              for p in sorted(ex.rglob('*')):
+                  if p.is_file() and p.suffix.lower() in exts:
+                      files.append(p)
+
+          redundant_when_display = {
+              'JWPLC_GlobalPeripherals.h',
+              'JW_RTC.h', 'JW_FRAM.h', 'JW_SD.h', 'JW_MatrixButtons.h',
+              'JWPLC_Ethernet.h', 'JWPLC_RS485.h', 'JWPLC_ModbusRTU.h',
+              'JWPLC_GlobalPeripherals_RuntimeView.h',
+          }
+          legacy_patterns = [
+              r'jwplcUserDisplayEnterCallback',
+              r'jwplcUserDisplayRefreshCallback',
+              r'jwplcUserDisplayExitCallback',
+              r'jwplcCanReturnToIdle',
+              r'jwplcUIEnter\s*\(',
+              r'jwplcUIUpdate\s*\(',
+              r'jwplcUIExit\s*\(',
+              r'JWPLC_Display\.tft\s*\(',
+              r'\bfillScreen\s*\(',
+              r'\bfillRect\s*\(',
+              r'setUserRefreshPeriodMs\s*\(',
+          ]
+          internal_headers = {
+              'jwplc_spi_bus.h', 'jwplc_peripherals.h', 'peripherals_init.h'
+          }
+
+          print(f'AUDIT_FILES={len(files)}')
+          print('=== EXAMPLE FILES ===')
+          for p in files:
+              print(p.as_posix())
+
+          print('\n=== FINDINGS ===')
+          finding_count = 0
+          for p in files:
+              text = p.read_text(encoding='utf-8', errors='replace')
+              includes = re.findall(r'^\s*#\s*include\s*[<\"]([^>\"]+)[>\"]', text, re.M)
+              findings = []
+              if 'JWPLC_Display.h' in includes:
+                  redundant = [h for h in includes if h in redundant_when_display]
+                  if redundant:
+                      findings.append('REDUNDANT_WITH_DISPLAY=' + ','.join(redundant))
+              internals = [h for h in includes if h in internal_headers]
+              if internals:
+                  findings.append('INTERNAL_INCLUDE=' + ','.join(internals))
+              hits = [pat for pat in legacy_patterns if re.search(pat, text)]
+              if hits:
+                  findings.append('DISPLAY_LEGACY_OR_MANUAL=' + ','.join(hits))
+              if findings:
+                  finding_count += 1
+                  print(p.as_posix())
+                  for f in findings:
+                      print('  ' + f)
+                  if includes:
+                      print('  INCLUDES=' + ','.join(includes))
+
+          print(f'FINDING_FILES={finding_count}')
+          print('ALPHA11_JWPLC_EXAMPLES_AUDIT=PASS')
+          PY
