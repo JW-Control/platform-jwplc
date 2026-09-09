@@ -14,7 +14,7 @@ Codegen JWPLC_HMI_Generated.h: PASS
 Robustez botonera pressed()/released(): PASS_PHYSICAL
 Responsive WIDE/MEDIUM/COMPACT: PASS_USER_VISUAL
 Integración app/sketch: CLOSING_GATE
-Arduino IDE launcher: EXPERIMENTAL_PENDING_GATE
+Extensión Arduino IDE 2: INCLUDED_IN_INSTALLER_PENDING_FINAL_GATE
 ```
 
 ## Flujo recomendado
@@ -74,13 +74,21 @@ Para una instalación independiente del repositorio existe:
 Install-JWPLC-HMI-Designer.cmd
 ```
 
-El instalador copia la aplicación a:
+El instalador final de Alpha11 es combinado: instala **la aplicación y la extensión JWPLC HMI para Arduino IDE 2** en una sola ejecución.
+
+La aplicación se copia a:
 
 ```text
 %LOCALAPPDATA%\JWPLC\HMI Designer
 ```
 
-crea accesos en Escritorio y menú Inicio `JWPLC`, y define:
+La extensión se instala en:
+
+```text
+%USERPROFILE%\.arduinoIDE\plugins
+```
+
+Además se crean accesos en Escritorio y menú Inicio `JWPLC`, y se define:
 
 ```text
 JWPLC_HMI_DESIGNER_HOME
@@ -88,10 +96,18 @@ JWPLC_HMI_DESIGNER_HOME
 
 El usuario instalado ya no depende de `GitHub\platform-jwplc\tools` para ejecutar el Designer.
 
-El launcher:
+Después de instalar o actualizar la extensión debe cerrarse completamente Arduino IDE 2 y volver a abrirlo.
+
+Sólo para pruebas técnicas puede omitirse la extensión con:
+
+```powershell
+.\Install-JWPLC-HMI-Designer.ps1 -NoArduinoIDEExtension
+```
+
+El launcher de compatibilidad de la aplicación:
 
 - inicia automáticamente un servidor privado en `127.0.0.1:8765`;
-- abre Edge o Chrome en modo aplicación (`--app`);
+- abre Edge o Chrome en modo aplicación (`--app`) cuando no existe el ejecutable Electron nativo;
 - conserva el contexto seguro necesario para Web Serial y acceso controlado a carpetas;
 - no requiere ejecutar manualmente `py -m http.server`.
 
@@ -161,11 +177,11 @@ El `.ino` nunca se modifica automáticamente.
 
 Arduino IDE detectará el cambio del archivo del sketch y el usuario compila/sube normalmente.
 
-## Launcher experimental para Arduino IDE 2
+## Extensión para Arduino IDE 2
 
-La aplicación standalone es el camino principal. Alpha11 incluye además un experimento de integración mínima con Arduino IDE 2: **el plugin no incrusta el Designer ni modifica el IDE; sólo abre la aplicación instalada**.
+La aplicación standalone sigue siendo el componente principal. La extensión de Arduino IDE 2 **no incrusta el Designer ni modifica el IDE**; sólo ofrece accesos para abrir la aplicación instalada.
 
-Archivos:
+Archivos fuente:
 
 ```text
 arduino-ide-launcher\
@@ -173,19 +189,15 @@ Build-ArduinoIDE-Launcher.ps1
 Install-ArduinoIDE-Launcher.ps1
 ```
 
-Instalación manual del gate:
+La instalación normal ya no requiere una segunda decisión del usuario: `Install-JWPLC-HMI-Designer.cmd` instala aplicación + extensión automáticamente.
+
+Para diagnóstico todavía puede instalarse sólo la extensión con:
 
 ```powershell
 .\Install-ArduinoIDE-Launcher.ps1
 ```
 
-O desde el instalador principal:
-
-```powershell
-.\Install-JWPLC-HMI-Designer.ps1 -InstallArduinoIDELauncher
-```
-
-El VSIX se copia a la carpeta de plugins de usuario documentada por Arduino IDE:
+El VSIX se copia a:
 
 ```text
 %USERPROFILE%\.arduinoIDE\plugins
@@ -201,9 +213,9 @@ barra de estado -> JW HMI
 editor/title -> icono JW (best-effort)
 ```
 
-La barra de estado es el botón visual principal del experimento. `editor/title` depende de cómo Arduino IDE/Theia exponga el menú en esa versión.
+La barra de estado es el botón visual principal. `editor/title` depende de cómo Arduino IDE/Theia exponga el menú en esa versión.
 
-Si el VSIX funcional no es aceptado por Arduino IDE, no se parchea ni forkea el IDE: la aplicación instalada, Escritorio y menú Inicio continúan siendo el flujo soportado.
+Si el VSIX funcional no es aceptado por una versión futura de Arduino IDE, no se parchea ni forkea el IDE: la aplicación instalada, Escritorio y menú Inicio continúan siendo el flujo soportado.
 
 ## Responsive / Ajustar
 
