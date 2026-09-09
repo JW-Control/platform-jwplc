@@ -1,0 +1,89 @@
+name: Alpha11 fix HTTP ESC ownership
+
+on:
+  push:
+    branches:
+      - v2.1.0-alpha.11/feature/hmi-designer
+    paths:
+      - ".github/workflows/alpha11-fix-http-esc-owner.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Dejar ESC al runtime Display
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/Ethernet_HTTP_TFT_Diagnostics/Ethernet_HTTP_TFT_Diagnostics.ino')
+          text = path.read_text(encoding='utf-8')
+
+          old = '''void readButtons()
+{
+  if (!displayReady || JWPLC_Display.isIdleMode() ||
+      !JWPLCButtons::isReady() || httpBusy)
+    return;
+
+  for (uint8_t id = 0; id < BTN_COUNT; id++)
+  {
+    if (JWPLC_Buttons.pressed(id))
+      handleButton(id);
+  }
+}
+'''
+
+          new = '''void readButtons()
+{
+  if (!displayReady || JWPLC_Display.isIdleMode() ||
+      !JWPLCButtons::isReady() || httpBusy)
+    return;
+
+  // ESC pertenece al runtime porque usamos IDLE_RETURN_ESC_ONLY.
+  // No llamar pressed(BTN_ESC) aquí: pressed() consume el latch y podría
+  // robar el evento antes de que JWPLC_Display procese el retorno a IDLE.
+  for (uint8_t id = 0; id < BTN_COUNT; id++)
+  {
+    if (id == BTN_ESC)
+      continue;
+
+    if (JWPLC_Buttons.pressed(id))
+      handleButton(id);
+  }
+}
+'''
+
+          if old not in text:
+              raise SystemExit('readButtons esperado no encontrado')
+          text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8', newline='\n')
+
+          if 'JWPLC_Buttons.pressed(BTN_ESC)' in text:
+              raise SystemExit('El diagnóstico HTTP todavía consume pressed(BTN_ESC)')
+          if 'IDLE_RETURN_ESC_ONLY' not in text:
+              raise SystemExit('El diagnóstico HTTP no conserva retorno ESC central')
+
+          print('ALPHA11_HTTP_ESC_OWNER=DISPLAY_PASS')
+          PY
+
+          git diff --check
+          git diff --stat
+
+      - name: Commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "JW-Control Actions"
+          git config user.email "jw.control.peru@gmail.com"
+          git add JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/Ethernet_HTTP_TFT_Diagnostics/Ethernet_HTTP_TFT_Diagnostics.ino
+          git commit -m "fix(alpha11): reservar ESC al runtime Display en diagnóstico HTTP"
+          git push origin HEAD:v2.1.0-alpha.11/feature/hmi-designer
