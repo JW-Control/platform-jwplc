@@ -8,8 +8,40 @@ $buildScript = Join-Path $PSScriptRoot 'Build-ArduinoIDE-Launcher.ps1'
 $dist = Join-Path $PSScriptRoot 'dist'
 $plugins = Join-Path $HOME '.arduinoIDE\plugins'
 
-if (-not (Test-Path -LiteralPath (Join-Path $DesignerHome 'Start-JWPLC-HMI-Designer.ps1') -PathType Leaf)) {
-    throw "JWPLC HMI Designer no está instalado en: $DesignerHome"
+# El VSIX aporta dos capacidades independientes:
+#   1) autocompletado contextual de JWPLC_Display;
+#   2) launcher opcional del JWPLC HMI Designer.
+#
+# La primera no debe depender de que la aplicación Designer ya esté instalada.
+# Se intenta resolver primero la ruta solicitada y luego una ruta previamente
+# registrada en la variable de usuario JWPLC_HMI_DESIGNER_HOME. Si ninguna
+# contiene el EXE, el VSIX se instala igualmente y sólo se advierte al usuario.
+$resolvedDesignerHome = [IO.Path]::GetFullPath($DesignerHome)
+$designerExe = Join-Path $resolvedDesignerHome 'JWPLC-HMI-Designer.exe'
+$designerAvailable = Test-Path -LiteralPath $designerExe -PathType Leaf
+
+if (-not $designerAvailable) {
+    $configuredDesignerHome = [Environment]::GetEnvironmentVariable(
+        'JWPLC_HMI_DESIGNER_HOME',
+        'User'
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($configuredDesignerHome)) {
+        try {
+            $configuredDesignerHome = [IO.Path]::GetFullPath($configuredDesignerHome)
+            $configuredDesignerExe = Join-Path $configuredDesignerHome 'JWPLC-HMI-Designer.exe'
+
+            if (Test-Path -LiteralPath $configuredDesignerExe -PathType Leaf) {
+                $resolvedDesignerHome = $configuredDesignerHome
+                $designerExe = $configuredDesignerExe
+                $designerAvailable = $true
+            }
+        }
+        catch {
+            # Una variable antigua o inválida no debe bloquear la instalación
+            # del autocompletado de Arduino IDE.
+        }
+    }
 }
 
 if (-not $SkipBuild) {
@@ -35,15 +67,30 @@ Get-ChildItem -LiteralPath $plugins -Filter 'jwplc-hmi-launcher-*.vsix' -File -E
 
 $destination = Join-Path $plugins $currentName
 Copy-Item -LiteralPath $vsix -Destination $destination -Force
-[Environment]::SetEnvironmentVariable('JWPLC_HMI_DESIGNER_HOME', $DesignerHome, 'User')
+
+if ($designerAvailable) {
+    [Environment]::SetEnvironmentVariable(
+        'JWPLC_HMI_DESIGNER_HOME',
+        $resolvedDesignerHome,
+        'User'
+    )
+}
 
 Write-Host ''
 Write-Host 'Extensión JWPLC HMI para Arduino IDE 2 instalada.' -ForegroundColor Green
 Write-Host "  VSIX: $destination"
-Write-Host "  Designer: $DesignerHome"
+
+if ($designerAvailable) {
+    Write-Host "  Designer: $resolvedDesignerHome"
+}
+else {
+    Write-Host '  Designer: no detectado; el autocompletado queda disponible igualmente.' -ForegroundColor Yellow
+    Write-Host '  El botón JW HMI requerirá instalar JWPLC HMI Designer para poder abrir la aplicación.' -ForegroundColor Yellow
+}
+
 Write-Host ''
 Write-Host 'Cierra todas las ventanas de Arduino IDE y vuelve a abrirlo.' -ForegroundColor Yellow
-Write-Host 'Gate esperado: comando "JWPLC: Abrir HMI Designer" + botón "JW HMI" en barra de estado.'
+Write-Host 'Gate esperado: autocompletado de JWPLC_Display. + comando "JWPLC: Abrir HMI Designer" + botón "JW HMI".'
 Write-Host 'El botón adicional en el título del editor es best-effort y puede variar por versión de Arduino IDE.'
 
 # Permite al instalador combinado recuperar de forma estable la ruta instalada
