@@ -24,7 +24,7 @@ if (-not $SkipBuild) {
 }
 
 if (-not $vsix -or -not (Test-Path -LiteralPath $vsix -PathType Leaf)) {
-    throw 'No se pudo localizar el VSIX del launcher JWPLC.'
+    throw 'No se pudo localizar el VSIX de la extensión JWPLC HMI.'
 }
 
 New-Item -ItemType Directory -Force -Path $plugins | Out-Null
@@ -38,10 +38,14 @@ Copy-Item -LiteralPath $vsix -Destination $destination -Force
 [Environment]::SetEnvironmentVariable('JWPLC_HMI_DESIGNER_HOME', $DesignerHome, 'User')
 
 Write-Host ''
-Write-Host 'Launcher experimental de Arduino IDE instalado.' -ForegroundColor Green
+Write-Host 'Extensión JWPLC HMI para Arduino IDE 2 instalada.' -ForegroundColor Green
 Write-Host "  VSIX: $destination"
 Write-Host "  Designer: $DesignerHome"
 Write-Host ''
 Write-Host 'Cierra todas las ventanas de Arduino IDE y vuelve a abrirlo.' -ForegroundColor Yellow
 Write-Host 'Gate esperado: comando "JWPLC: Abrir HMI Designer" + botón "JW HMI" en barra de estado.'
 Write-Host 'El botón adicional en el título del editor es best-effort y puede variar por versión de Arduino IDE.'
+
+# Permite al instalador combinado recuperar de forma estable la ruta instalada
+# sin tener que parsear los mensajes de consola.
+Write-Output $destination
