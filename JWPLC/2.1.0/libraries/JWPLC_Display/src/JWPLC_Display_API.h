@@ -196,4 +196,37 @@ static constexpr JWPLC_DisplayIdleReturnMode IDLE_RETURN_DISABLED =
 static constexpr JWPLC_DisplayIdleReturnMode IDLE_RETURN_BUTTON_ONLY =
     JWPLC_DisplayClass::IDLE_RETURN_BUTTON_ONLY;
 
+// =====================================================
+// Opciones agrupadas para autocompletado en Arduino IDE.
+//
+// Ejemplos:
+//   JWPLC_Display.setIdleWakeMode(JWPLC_DisplayWake::ButtonOnly);
+//   JWPLC_Display.setIdleReturnMode(JWPLC_DisplayReturn::EscOnly);
+//   JWPLC_Display.setUserRefreshMode(JWPLC_DisplayRefresh::OnDemand);
+//
+// Los nombres globales IDLE_* y USER_REFRESH_* se conservan intactos para
+// compatibilidad con sketches existentes.
+// =====================================================
+
+namespace JWPLC_DisplayWake
+{
+    static constexpr JWPLC_DisplayIdleWakeMode AnyButton = IDLE_WAKE_ANY_BUTTON;
+    static constexpr JWPLC_DisplayIdleWakeMode ButtonOnly = IDLE_WAKE_BUTTON_ONLY;
+    static constexpr JWPLC_DisplayIdleWakeMode Disabled = IDLE_WAKE_DISABLED;
+}
+
+namespace JWPLC_DisplayReturn
+{
+    static constexpr JWPLC_DisplayIdleReturnMode Timeout = IDLE_RETURN_TIMEOUT;
+    static constexpr JWPLC_DisplayIdleReturnMode EscOnly = IDLE_RETURN_ESC_ONLY;
+    static constexpr JWPLC_DisplayIdleReturnMode ButtonOnly = IDLE_RETURN_BUTTON_ONLY;
+    static constexpr JWPLC_DisplayIdleReturnMode Disabled = IDLE_RETURN_DISABLED;
+}
+
+namespace JWPLC_DisplayRefresh
+{
+    static constexpr JWPLC_UIRefreshMode OnDemand = USER_REFRESH_ON_DEMAND;
+    static constexpr JWPLC_UIRefreshMode Periodic = USER_REFRESH_PERIODIC;
+}
+
 #endif // JWPLC_DISPLAY_API_H
