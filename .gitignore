@@ -9,3 +9,11 @@
 # Overlay local generado durante los pilotos de core precompilado P2.
 # La configuracion definitiva debe vivir en boards.txt, no en boards.local.txt.
 /JWPLC/2.1.0/boards.local.txt
+
+# JWPLC HMI Designer - productos y dependencias generadas localmente.
+# Se versionan las fuentes, el icono fuente y electron/package-lock.json;
+# no se versionan outputs de build ni node_modules.
+/tools/jwplc-hmi-designer/dist/
+/tools/jwplc-hmi-designer/electron/build/
+/tools/jwplc-hmi-designer/electron/node_modules/
+/tools/jwplc-hmi-designer/electron/release/
