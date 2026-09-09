@@ -20,7 +20,6 @@
   - stats(): contadores de diagnóstico.
 */
 
-#include <JWPLC_ModbusRTU.h>
 
 static constexpr uint8_t SLAVE_ID = 2;
 static uint16_t holding[8] = {0, 100, 200, 300, 400, 500, 600, 700};

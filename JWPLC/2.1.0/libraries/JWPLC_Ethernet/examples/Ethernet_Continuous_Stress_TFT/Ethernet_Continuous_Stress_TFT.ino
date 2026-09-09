@@ -3,8 +3,8 @@
 
   Prueba continua y diagnostico por capas del puerto Ethernet del JWPLC Basic.
 
-  Mejoras v3:
-  - evita redibujar filas TFT cuyo texto y color no cambiaron;
+  Mejoras v4:
+  - usa fields declarativos con dirty redraw automatico;
   - diferencia LINK desconocido de LINK OFF durante el arranque;
   - espera una ventana de estabilizacion antes de reportar la primera falla;
   - usa intervalos medidos de inicio a inicio, incluido modo continuo;
@@ -17,10 +17,7 @@
 */
 
 #include <JWPLC_Display.h>
-#include <JWPLC_GlobalPeripherals.h>
-#include <Ethernet.h>
-#include <Dns.h>
-#include "jwplc_spi_bus.h"
+#include <JWPLC_Ethernet_DNS.h>
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -132,19 +129,11 @@ struct StressStats
   uint16_t lastCode = 0;
 };
 
-struct UiRowCache
-{
-  bool valid = false;
-  uint16_t color = 0;
-  char label[24] = {};
-  char value[96] = {};
-};
 
 // -----------------------------------------------------------------------------
 // Estado global.
 // -----------------------------------------------------------------------------
 StressStats stats;
-UiRowCache uiRows[PAGE_COUNT][UI_ROWS_PER_PAGE];
 EthernetClient stressClient;
 EthernetClient probeClient;
 DNSClient dnsClient;
@@ -217,32 +206,11 @@ uint32_t lastUiSecondMs = 0;
 uint32_t lastSuccessMs = 0;
 uint32_t lastErrorUptimeMs = 0;
 
-portMUX_TYPE uiMux = portMUX_INITIALIZER_UNLOCKED;
-volatile bool uiFrameDirty = true;
-volatile bool uiContentDirty = true;
+void syncStressUi();
 
 // -----------------------------------------------------------------------------
 // Helpers de texto y UI.
 // -----------------------------------------------------------------------------
-void requestUi(bool frame = false)
-{
-  portENTER_CRITICAL(&uiMux);
-  uiContentDirty = true;
-  if (frame)
-    uiFrameDirty = true;
-  portEXIT_CRITICAL(&uiMux);
-}
-
-void takeUi(bool &frame, bool &content)
-{
-  portENTER_CRITICAL(&uiMux);
-  frame = uiFrameDirty;
-  content = uiContentDirty;
-  uiFrameDirty = false;
-  uiContentDirty = false;
-  portEXIT_CRITICAL(&uiMux);
-}
-
 void copyText(char *dst, size_t size, const char *src)
 {
   if (!dst || size == 0)
@@ -300,62 +268,6 @@ void formatInterval(char *out, size_t size)
     copyText(out, size, "CONT");
   else
     snprintf(out, size, "%lums", (unsigned long)interval);
-}
-
-void invalidatePageCache(uint8_t pageIndex)
-{
-  if (pageIndex >= PAGE_COUNT)
-    return;
-  for (uint8_t row = 0; row < UI_ROWS_PER_PAGE; ++row)
-    uiRows[pageIndex][row].valid = false;
-}
-
-void invalidateAllUiCache()
-{
-  for (uint8_t p = 0; p < PAGE_COUNT; ++p)
-    invalidatePageCache(p);
-}
-
-void clearRowArea(Adafruit_ST7789 &tft, int16_t y, int16_t height = 13)
-{
-  tft.fillRect(0, y - 2, 320, height, ST77XX_BLACK);
-}
-
-void drawCachedRow(Adafruit_ST7789 &tft,
-                   uint8_t rowIndex,
-                   int16_t y,
-                   const char *label,
-                   const char *value,
-                   uint16_t color = ST77XX_WHITE,
-                   int16_t height = 13)
-{
-  if (page >= PAGE_COUNT || rowIndex >= UI_ROWS_PER_PAGE)
-    return;
-  if (!label)
-    label = "";
-  if (!value)
-    value = "";
-
-  UiRowCache &cache = uiRows[page][rowIndex];
-  bool unchanged = cache.valid &&
-                   cache.color == color &&
-                   strcmp(cache.label, label) == 0 &&
-                   strcmp(cache.value, value) == 0;
-  if (unchanged)
-    return;
-
-  copyText(cache.label, sizeof(cache.label), label);
-  copyText(cache.value, sizeof(cache.value), value);
-  cache.color = color;
-  cache.valid = true;
-
-  clearRowArea(tft, y, height);
-  tft.setTextSize(1);
-  tft.setCursor(6, y);
-  tft.setTextColor(ST77XX_CYAN, ST77XX_BLACK);
-  tft.print(label);
-  tft.setTextColor(color, ST77XX_BLACK);
-  tft.print(value);
 }
 
 void splitText3(const char *source,
@@ -574,7 +486,7 @@ void updateErrLed()
   {
     errLedState = newState;
     JWPLC_Display.setErrLed(errLedState);
-    requestUi();
+    syncStressUi();
   }
 }
 
@@ -608,7 +520,7 @@ void rememberError(StressError error, const char *detail)
   formatLastErrorTime();
   snprintf(currentResult, sizeof(currentResult), "ERROR: %s", errorName(error));
   updateErrLed();
-  requestUi();
+  syncStressUi();
 }
 
 void recordFailure(StressError error, const char *detail)
@@ -656,7 +568,7 @@ void recordSuccess(uint16_t code, uint32_t bytes)
            "OK HTTP %u | %lums | %luB",
            code, (unsigned long)lastHttpMs, (unsigned long)bytes);
   updateErrLed();
-  requestUi();
+  syncStressUi();
 
   Serial.print("[ETH-STRESS][OK] #");
   Serial.print(stats.tests);
@@ -684,7 +596,7 @@ void acknowledgeAlarm()
   if (currentError == STRESS_OK)
     alarmLatched = false;
   updateErrLed();
-  requestUi();
+  syncStressUi();
   Serial.println(currentError == STRESS_OK
                      ? "[ETH-STRESS] Alarma reconocida"
                      : "[ETH-STRESS] La falla sigue activa");
@@ -709,7 +621,7 @@ bool sampleEthernet(bool countTransitions)
     setTextIfChanged(linkText, sizeof(linkText), "?");
     setTextIfChanged(ipText, sizeof(ipText), "0.0.0.0");
     if (changed)
-      requestUi();
+      syncStressUi();
     return true;
   }
 
@@ -795,7 +707,7 @@ bool sampleEthernet(bool countTransitions)
   setTextIfChanged(ipText, sizeof(ipText), newIpText);
 
   if (changed)
-    requestUi();
+    syncStressUi();
   return true;
 }
 
@@ -839,7 +751,7 @@ void updateStartupQualification(uint32_t now)
       transitionsArmed = true;
       setTextIfChanged(currentResult, sizeof(currentResult),
                        "ARRANQUE OK: INICIANDO ESTRES");
-      requestUi();
+      syncStressUi();
       Serial.println("[ETH-STRESS] Arranque Ethernet cualificado");
       return;
     }
@@ -854,13 +766,13 @@ void updateStartupQualification(uint32_t now)
   if (!startupTimeoutExpired)
   {
     if (setTextIfChanged(currentResult, sizeof(currentResult), startupWaitReason()))
-      requestUi();
+      syncStressUi();
   }
   else
   {
     if (setTextIfChanged(currentResult, sizeof(currentResult),
                          "ARRANQUE: TIMEOUT, DIAGNOSTICANDO"))
-      requestUi();
+      syncStressUi();
   }
 }
 
@@ -1317,7 +1229,7 @@ void runTest()
   copyText(currentResult, sizeof(currentResult), "PROBANDO CAPAS...");
   copyText(lastStatusLine, sizeof(lastStatusLine), "-");
   resetLayerResult();
-  requestUi();
+  syncStressUi();
 
   char detail[192] = {};
   uint16_t code = 0;
@@ -1374,7 +1286,7 @@ void runTest()
   }
 
   busy = false;
-  requestUi();
+  syncStressUi();
 }
 
 // -----------------------------------------------------------------------------
@@ -1386,11 +1298,13 @@ void handleButton(uint8_t id)
   {
   case BTN_LEFT:
     page = page == 0 ? PAGE_COUNT - 1 : page - 1;
-    requestUi(true);
+    JWPLC_Display.setUserPage(page);
+    syncStressUi();
     break;
   case BTN_RIGHT:
     page = (uint8_t)((page + 1) % PAGE_COUNT);
-    requestUi(true);
+    JWPLC_Display.setUserPage(page);
+    syncStressUi();
     break;
   case BTN_OK:
     running = !running;
@@ -1399,17 +1313,17 @@ void handleButton(uint8_t id)
       uint32_t interval = TEST_INTERVALS_MS[intervalIndex];
       lastTestStartedMs = millis() - interval;
     }
-    requestUi();
+    syncStressUi();
     break;
   case BTN_UP:
     if (intervalIndex + 1 < TEST_INTERVAL_COUNT)
       intervalIndex++;
-    requestUi();
+    syncStressUi();
     break;
   case BTN_DOWN:
     if (intervalIndex > 0)
       intervalIndex--;
-    requestUi();
+    syncStressUi();
     break;
   case BTN_ESC:
     acknowledgeAlarm();
@@ -1427,253 +1341,177 @@ void readButtons()
 }
 
 // -----------------------------------------------------------------------------
-// TFT con cache por filas.
+// TFT declarativa: 4 paginas x (titulo + 7 filas) = 32 fields.
+// setText() compara el contenido y sólo invalida la región que cambió.
 // -----------------------------------------------------------------------------
-void drawFrame(Adafruit_ST7789 &tft)
+enum StressFieldId : uint8_t
 {
-  static const char *titles[PAGE_COUNT] = {
-      "ETH STRESS TEST", "DIAGNOSTICO CAPAS",
-      "CONTADORES DE FALLA", "ULTIMO ERROR"};
+  STRESS_P0_TITLE = 1,
+  STRESS_P0_R1, STRESS_P0_R2, STRESS_P0_R3, STRESS_P0_R4,
+  STRESS_P0_R5, STRESS_P0_R6, STRESS_P0_R7,
+  STRESS_P1_TITLE,
+  STRESS_P1_R1, STRESS_P1_R2, STRESS_P1_R3, STRESS_P1_R4,
+  STRESS_P1_R5, STRESS_P1_R6, STRESS_P1_R7,
+  STRESS_P2_TITLE,
+  STRESS_P2_R1, STRESS_P2_R2, STRESS_P2_R3, STRESS_P2_R4,
+  STRESS_P2_R5, STRESS_P2_R6, STRESS_P2_R7,
+  STRESS_P3_TITLE,
+  STRESS_P3_R1, STRESS_P3_R2, STRESS_P3_R3, STRESS_P3_R4,
+  STRESS_P3_R5, STRESS_P3_R6, STRESS_P3_R7
+};
 
-  invalidatePageCache(page);
-  tft.fillScreen(ST77XX_BLACK);
-  tft.setTextWrap(false);
-  tft.setTextSize(2);
-  tft.setTextColor(ST77XX_CYAN, ST77XX_BLACK);
-  tft.setCursor(7, 7);
-  tft.print(titles[page]);
-  tft.setTextSize(1);
-  tft.setTextColor(ST77XX_YELLOW, ST77XX_BLACK);
-  tft.setCursor(286, 10);
-  tft.print(page + 1);
-  tft.print("/");
-  tft.print(PAGE_COUNT);
-  tft.drawFastHLine(0, 29, 320, ST77XX_BLUE);
-  tft.drawFastHLine(0, 148, 320, ST77XX_BLUE);
-  tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
-  tft.setCursor(4, 157);
-  tft.print("</>=PAG OK=PAUSA UP/DN=VELOCIDAD ESC=ACK");
-}
+#define STRESS_ROW_FIELD(id, y, pageIndex) \
+  JWPLC_UITextField(id, 6, y, nullptr, 39, pageIndex)
 
-void drawPage0(Adafruit_ST7789 &tft)
+static const JWPLC_UIField STRESS_FIELDS[] = {
+    JWPLC_UITextField(
+        STRESS_P0_TITLE, JWPLC_UIRect(6, 4), JWPLC_UIText(nullptr, nullptr, 28),
+        JWPLC_UITextFieldStyle(2, 1, false, JWPLC_UI_LAYOUT_INLINE, JWPLC_UI_ALIGN_LEFT),
+        0, JWPLC_UIColors(ST77XX_CYAN, ST77XX_CYAN, ST77XX_BLACK, ST77XX_CYAN)),
+    STRESS_ROW_FIELD(STRESS_P0_R1, 30, 0), STRESS_ROW_FIELD(STRESS_P0_R2, 47, 0),
+    STRESS_ROW_FIELD(STRESS_P0_R3, 64, 0), STRESS_ROW_FIELD(STRESS_P0_R4, 81, 0),
+    STRESS_ROW_FIELD(STRESS_P0_R5, 98, 0), STRESS_ROW_FIELD(STRESS_P0_R6, 115, 0),
+    STRESS_ROW_FIELD(STRESS_P0_R7, 132, 0),
+
+    JWPLC_UITextField(
+        STRESS_P1_TITLE, JWPLC_UIRect(6, 4), JWPLC_UIText(nullptr, nullptr, 28),
+        JWPLC_UITextFieldStyle(2, 1, false, JWPLC_UI_LAYOUT_INLINE, JWPLC_UI_ALIGN_LEFT),
+        1, JWPLC_UIColors(ST77XX_CYAN, ST77XX_CYAN, ST77XX_BLACK, ST77XX_CYAN)),
+    STRESS_ROW_FIELD(STRESS_P1_R1, 30, 1), STRESS_ROW_FIELD(STRESS_P1_R2, 47, 1),
+    STRESS_ROW_FIELD(STRESS_P1_R3, 64, 1), STRESS_ROW_FIELD(STRESS_P1_R4, 81, 1),
+    STRESS_ROW_FIELD(STRESS_P1_R5, 98, 1), STRESS_ROW_FIELD(STRESS_P1_R6, 115, 1),
+    STRESS_ROW_FIELD(STRESS_P1_R7, 132, 1),
+
+    JWPLC_UITextField(
+        STRESS_P2_TITLE, JWPLC_UIRect(6, 4), JWPLC_UIText(nullptr, nullptr, 28),
+        JWPLC_UITextFieldStyle(2, 1, false, JWPLC_UI_LAYOUT_INLINE, JWPLC_UI_ALIGN_LEFT),
+        2, JWPLC_UIColors(ST77XX_CYAN, ST77XX_CYAN, ST77XX_BLACK, ST77XX_CYAN)),
+    STRESS_ROW_FIELD(STRESS_P2_R1, 30, 2), STRESS_ROW_FIELD(STRESS_P2_R2, 47, 2),
+    STRESS_ROW_FIELD(STRESS_P2_R3, 64, 2), STRESS_ROW_FIELD(STRESS_P2_R4, 81, 2),
+    STRESS_ROW_FIELD(STRESS_P2_R5, 98, 2), STRESS_ROW_FIELD(STRESS_P2_R6, 115, 2),
+    STRESS_ROW_FIELD(STRESS_P2_R7, 132, 2),
+
+    JWPLC_UITextField(
+        STRESS_P3_TITLE, JWPLC_UIRect(6, 4), JWPLC_UIText(nullptr, nullptr, 28),
+        JWPLC_UITextFieldStyle(2, 1, false, JWPLC_UI_LAYOUT_INLINE, JWPLC_UI_ALIGN_LEFT),
+        3, JWPLC_UIColors(ST77XX_CYAN, ST77XX_CYAN, ST77XX_BLACK, ST77XX_CYAN)),
+    STRESS_ROW_FIELD(STRESS_P3_R1, 30, 3), STRESS_ROW_FIELD(STRESS_P3_R2, 47, 3),
+    STRESS_ROW_FIELD(STRESS_P3_R3, 64, 3), STRESS_ROW_FIELD(STRESS_P3_R4, 81, 3),
+    STRESS_ROW_FIELD(STRESS_P3_R5, 98, 3), STRESS_ROW_FIELD(STRESS_P3_R6, 115, 3),
+    STRESS_ROW_FIELD(STRESS_P3_R7, 132, 3)};
+
+#undef STRESS_ROW_FIELD
+
+void syncStressUi()
 {
+  char line[40] = {};
   char intervalText[16] = {};
-  formatInterval(intervalText, sizeof(intervalText));
-
-  char line[96] = {};
-  snprintf(line, sizeof(line), "%s Int=%s Host=%s",
-           busy ? "PROBANDO" : (running ? "RUN" : "PAUSA"),
-           intervalText, STRESS_HOST);
-  drawCachedRow(tft, 0, 36, "", line,
-                running ? ST77XX_GREEN : ST77XX_YELLOW);
-
-  snprintf(line, sizeof(line), "HW=%s LINK=%s IP=%s",
-           hardwareText, linkText, ipText);
-  uint16_t hwColor = hardwarePresent && linkKnown && linkOn
-                         ? ST77XX_GREEN
-                         : ST77XX_YELLOW;
-  drawCachedRow(tft, 1, 52, "", line, hwColor);
-
-  snprintf(line, sizeof(line), "Tests %lu OK %lu ERR %lu Racha %lu",
-           (unsigned long)stats.tests,
-           (unsigned long)stats.ok,
-           (unsigned long)stats.failed,
-           (unsigned long)stats.failStreak);
-  drawCachedRow(tft, 2, 68, "", line, ST77XX_WHITE);
-
-  drawCachedRow(tft, 3, 84, "Ultimo: ", currentResult,
-                currentError == STRESS_OK ? ST77XX_GREEN : ST77XX_RED);
-
-  drawCachedRow(tft, 4, 100, "Origen: ", likelySource,
-                currentError == STRESS_OK ? ST77XX_GREEN : ST77XX_YELLOW);
-
-  snprintf(line, sizeof(line), "DNS %s/%lums TCP %lums 1B %lums TOT %lums",
-           lastDnsUsedCache ? "CACHE" : "LIVE",
-           (unsigned long)lastDnsMs,
-           (unsigned long)lastTcpMs,
-           (unsigned long)lastFirstByteMs,
-           (unsigned long)lastHttpMs);
-  drawCachedRow(tft, 5, 116, "", line, ST77XX_WHITE);
-
   char runtime[20] = {};
+
+  formatInterval(intervalText, sizeof(intervalText));
   formatDuration(millis() - bootMs, runtime, sizeof(runtime));
-  unsigned long lastOkAge = lastSuccessMs == 0
-                                ? 0UL
-                                : (unsigned long)((millis() - lastSuccessMs) / 1000UL);
-  snprintf(line, sizeof(line), "Tiempo %s UltOK=%s%lus ERR=%s",
-           runtime,
-           lastSuccessMs == 0 ? "NUNCA/" : "",
-           lastOkAge,
-           errLedState ? "LAT" : "NO");
-  drawCachedRow(tft, 6, 132, "", line,
-                errLedState ? ST77XX_YELLOW : ST77XX_WHITE);
-}
 
-void drawPage1(Adafruit_ST7789 &tft)
-{
-  char line[96] = {};
-  snprintf(line, sizeof(line), "%s raw=%d %s %lums",
-           lastDnsUsedCache ? "CACHE" : "LIVE",
-           lastDnsResult,
-           dnsResultName(lastDnsResult),
-           (unsigned long)lastDnsMs);
-  drawCachedRow(tft, 0, 36, "DNS: ", line,
-                lastDnsOk ? ST77XX_GREEN : ST77XX_YELLOW);
+  JWPLC_Display.setText(STRESS_P0_TITLE, "ETH STRESS TEST 1/4");
+  snprintf(line, sizeof(line), "%s Int=%s Host=%s",
+ busy ? "TEST" : (running ? "RUN" : "PAUSA"), intervalText, STRESS_HOST);
+  JWPLC_Display.setText(STRESS_P0_R1, line);
+  snprintf(line, sizeof(line), "HW=%s LINK=%s IP=%s", hardwareText, linkText, ipText);
+  JWPLC_Display.setText(STRESS_P0_R2, line);
+  snprintf(line, sizeof(line), "T%lu OK%lu ERR%lu R%lu",
+ (unsigned long)stats.tests, (unsigned long)stats.ok,
+ (unsigned long)stats.failed, (unsigned long)stats.failStreak);
+  JWPLC_Display.setText(STRESS_P0_R3, line);
+  snprintf(line, sizeof(line), "Ult: %.34s", currentResult);
+  JWPLC_Display.setText(STRESS_P0_R4, line);
+  snprintf(line, sizeof(line), "Origen: %.31s", likelySource);
+  JWPLC_Display.setText(STRESS_P0_R5, line);
+  snprintf(line, sizeof(line), "DNS %lums TCP %lums 1B %lums T %lums",
+ (unsigned long)lastDnsMs, (unsigned long)lastTcpMs,
+ (unsigned long)lastFirstByteMs, (unsigned long)lastHttpMs);
+  JWPLC_Display.setText(STRESS_P0_R6, line);
+  snprintf(line, sizeof(line), "Up %s UltOK %lus ERR=%s", runtime,
+ lastSuccessMs == 0 ? 0UL : (unsigned long)((millis() - lastSuccessMs) / 1000UL),
+ errLedState ? "LAT" : "NO");
+  JWPLC_Display.setText(STRESS_P0_R7, line);
 
-  snprintf(line, sizeof(line), "%s -> %s",
-           dnsServerText, resolvedIpText);
-  drawCachedRow(tft, 1, 52, "Servidor/IP: ", line, ST77XX_WHITE);
+  JWPLC_Display.setText(STRESS_P1_TITLE, "DIAGNOSTICO CAPAS 2/4");
+  snprintf(line, sizeof(line), "DNS %s raw=%d %s %lums",
+ lastDnsUsedCache ? "CACHE" : "LIVE", lastDnsResult,
+ dnsResultName(lastDnsResult), (unsigned long)lastDnsMs);
+  JWPLC_Display.setText(STRESS_P1_R1, line);
+  snprintf(line, sizeof(line), "DNS %s -> %s", dnsServerText, resolvedIpText);
+  JWPLC_Display.setText(STRESS_P1_R2, line);
+  snprintf(line, sizeof(line), "TCP %s %lums port %u",
+ lastTcpOk ? "OK" : "FAIL/NO", (unsigned long)lastTcpMs, STRESS_PORT);
+  JWPLC_Display.setText(STRESS_P1_R3, line);
+  snprintf(line, sizeof(line), "HTTP %s code=%u RX=%luB",
+ lastHttpOk ? "OK" : "FAIL/NO", stats.lastCode,
+ (unsigned long)stats.lastBytes);
+  JWPLC_Display.setText(STRESS_P1_R4, line);
+  snprintf(line, sizeof(line), "1B=%lums total=%lums DNS/%u",
+ (unsigned long)lastFirstByteMs, (unsigned long)lastHttpMs,
+ DNS_REFRESH_EVERY_TESTS);
+  JWPLC_Display.setText(STRESS_P1_R5, line);
+  snprintf(line, sizeof(line), "Cache: %.31s", cachedProbeText);
+  JWPLC_Display.setText(STRESS_P1_R6, line);
+  snprintf(line, sizeof(line), "LAN: %.33s", localProbeText);
+  JWPLC_Display.setText(STRESS_P1_R7, line);
 
-  snprintf(line, sizeof(line), "%s %lums a puerto %u",
-           lastTcpOk ? "OK" : "FAIL/NO",
-           (unsigned long)lastTcpMs, STRESS_PORT);
-  drawCachedRow(tft, 2, 68, "TCP: ", line,
-                lastTcpOk ? ST77XX_GREEN : ST77XX_YELLOW);
-
-  snprintf(line, sizeof(line), "%s code=%u RX=%luB",
-           lastHttpOk ? "OK" : "FAIL/NO",
-           stats.lastCode, (unsigned long)stats.lastBytes);
-  drawCachedRow(tft, 3, 84, "HTTP: ", line,
-                lastHttpOk ? ST77XX_GREEN : ST77XX_YELLOW);
-
-  snprintf(line, sizeof(line), "1B=%lums total=%lums DNS cada %u tests",
-           (unsigned long)lastFirstByteMs,
-           (unsigned long)lastHttpMs,
-           DNS_REFRESH_EVERY_TESTS);
-  drawCachedRow(tft, 4, 100, "Tiempos: ", line, ST77XX_WHITE);
-
-  drawCachedRow(tft, 5, 116, "Cache: ", cachedProbeText,
-                lastCachedProbeAttempted
-                    ? (lastCachedProbeOk ? ST77XX_GREEN : ST77XX_RED)
-                    : ST77XX_WHITE);
-
-  drawCachedRow(tft, 6, 132, "LAN local: ", localProbeText,
-                lastLocalProbeAttempted
-                    ? (lastLocalProbeOk ? ST77XX_GREEN : ST77XX_RED)
-                    : ST77XX_WHITE);
-}
-
-void drawPage2(Adafruit_ST7789 &tft)
-{
-  char line[96] = {};
-  snprintf(line, sizeof(line), "SPI %lu HW %lu LINK %lu DHCP %lu NOTRDY %lu",
-           (unsigned long)stats.spi,
-           (unsigned long)stats.noHardware,
-           (unsigned long)stats.link,
-           (unsigned long)stats.dhcpIp,
-           (unsigned long)stats.notReady);
-  drawCachedRow(tft, 0, 36, "", line, ST77XX_WHITE);
-
-  snprintf(line, sizeof(line), "DNS TMO %lu SRV %lu RESP %lu OTRO %lu",
-           (unsigned long)stats.dnsTimeout,
-           (unsigned long)stats.dnsServer,
-           (unsigned long)stats.dnsResponse,
-           (unsigned long)stats.dnsOther);
-  drawCachedRow(tft, 1, 52, "", line, ST77XX_WHITE);
-
-  snprintf(line, sizeof(line), "TCP %lu SINRX %lu TMO-RX %lu BADHTTP %lu",
-           (unsigned long)stats.tcpConnect,
-           (unsigned long)stats.noResponse,
-           (unsigned long)stats.timeout,
-           (unsigned long)stats.badStatus);
-  drawCachedRow(tft, 2, 68, "", line, ST77XX_WHITE);
-
-  snprintf(line, sizeof(line), "CODE %lu DATA %lu CACHE OK/F %lu/%lu",
-           (unsigned long)stats.httpCode,
-           (unsigned long)stats.content,
-           (unsigned long)stats.cachedProbeOk,
-           (unsigned long)stats.cachedProbeFail);
-  drawCachedRow(tft, 3, 84, "", line, ST77XX_WHITE);
-
-  snprintf(line, sizeof(line), "LAN OK/F %lu/%lu RX=%luKiB",
-           (unsigned long)stats.localProbeOk,
-           (unsigned long)stats.localProbeFail,
-           (unsigned long)(stats.totalBytes / 1024ULL));
-  drawCachedRow(tft, 4, 100, "", line, ST77XX_WHITE);
-
-  snprintf(line, sizeof(line), "Link OFF/ON %lu/%lu HW OFF/ON %lu/%lu",
-           (unsigned long)stats.linkDrop,
-           (unsigned long)stats.linkRecovery,
-           (unsigned long)stats.hardwareLoss,
-           (unsigned long)stats.hardwareRecovery);
-  drawCachedRow(tft, 5, 116, "", line, ST77XX_WHITE);
-
+  JWPLC_Display.setText(STRESS_P2_TITLE, "CONTADORES FALLA 3/4");
+  snprintf(line, sizeof(line), "SPI%lu HW%lu LINK%lu DHCP%lu NR%lu",
+ (unsigned long)stats.spi, (unsigned long)stats.noHardware,
+ (unsigned long)stats.link, (unsigned long)stats.dhcpIp,
+ (unsigned long)stats.notReady);
+  JWPLC_Display.setText(STRESS_P2_R1, line);
+  snprintf(line, sizeof(line), "DNS T%lu S%lu R%lu O%lu",
+ (unsigned long)stats.dnsTimeout, (unsigned long)stats.dnsServer,
+ (unsigned long)stats.dnsResponse, (unsigned long)stats.dnsOther);
+  JWPLC_Display.setText(STRESS_P2_R2, line);
+  snprintf(line, sizeof(line), "TCP%lu NORX%lu TMO%lu BAD%lu",
+ (unsigned long)stats.tcpConnect, (unsigned long)stats.noResponse,
+ (unsigned long)stats.timeout, (unsigned long)stats.badStatus);
+  JWPLC_Display.setText(STRESS_P2_R3, line);
+  snprintf(line, sizeof(line), "CODE%lu DATA%lu CACHE %lu/%lu",
+ (unsigned long)stats.httpCode, (unsigned long)stats.content,
+ (unsigned long)stats.cachedProbeOk, (unsigned long)stats.cachedProbeFail);
+  JWPLC_Display.setText(STRESS_P2_R4, line);
+  snprintf(line, sizeof(line), "LAN %lu/%lu RX=%luKiB",
+ (unsigned long)stats.localProbeOk, (unsigned long)stats.localProbeFail,
+ (unsigned long)(stats.totalBytes / 1024ULL));
+  JWPLC_Display.setText(STRESS_P2_R5, line);
+  snprintf(line, sizeof(line), "Link %lu/%lu HW %lu/%lu",
+ (unsigned long)stats.linkDrop, (unsigned long)stats.linkRecovery,
+ (unsigned long)stats.hardwareLoss, (unsigned long)stats.hardwareRecovery);
+  JWPLC_Display.setText(STRESS_P2_R6, line);
   uint32_t average = stats.ok > 0
-                         ? (uint32_t)(stats.successfulLatencyTotal / stats.ok)
-                         : 0;
-  snprintf(line, sizeof(line), "Lat min/avg/max %lu/%lu/%lums RachaMax %lu",
-           (unsigned long)stats.minLatency,
-           (unsigned long)average,
-           (unsigned long)stats.maxLatency,
-           (unsigned long)stats.maxFailStreak);
-  drawCachedRow(tft, 6, 132, "", line, ST77XX_WHITE);
-}
+               ? (uint32_t)(stats.successfulLatencyTotal / stats.ok)
+               : 0;
+  snprintf(line, sizeof(line), "Lat %lu/%lu/%lums Rmax%lu",
+ (unsigned long)stats.minLatency, (unsigned long)average,
+ (unsigned long)stats.maxLatency, (unsigned long)stats.maxFailStreak);
+  JWPLC_Display.setText(STRESS_P2_R7, line);
 
-void drawPage3(Adafruit_ST7789 &tft)
-{
-  drawCachedRow(tft, 0, 36, "Tipo: ", lastErrorName,
-                lastError == STRESS_OK ? ST77XX_GREEN : ST77XX_RED);
-  drawCachedRow(tft, 1, 52, "Fecha: ", lastErrorTime, ST77XX_WHITE);
-  drawCachedRow(tft, 2, 68, "Origen: ", lastLikelySource, ST77XX_YELLOW);
+  JWPLC_Display.setText(STRESS_P3_TITLE, "ULTIMO ERROR 4/4");
+  snprintf(line, sizeof(line), "Tipo: %.32s", lastErrorName);
+  JWPLC_Display.setText(STRESS_P3_R1, line);
+  snprintf(line, sizeof(line), "Fecha: %.31s", lastErrorTime);
+  JWPLC_Display.setText(STRESS_P3_R2, line);
+  snprintf(line, sizeof(line), "Origen: %.31s", lastLikelySource);
+  JWPLC_Display.setText(STRESS_P3_R3, line);
 
   char line1[40] = {};
-  char line2[49] = {};
-  char line3[49] = {};
+  char line2[40] = {};
+  char line3[40] = {};
   splitText3(lastErrorDetail,
-             line1, sizeof(line1),
-             line2, sizeof(line2),
-             line3, sizeof(line3));
-
-  drawCachedRow(tft, 3, 84, "Detalle: ", line1, ST77XX_YELLOW);
-  drawCachedRow(tft, 4, 100, "         ", line2, ST77XX_YELLOW);
-  drawCachedRow(tft, 5, 116, "         ", line3, ST77XX_YELLOW);
-  drawCachedRow(tft, 6, 132, "Alarma: ",
-                errLedState ? "ACTIVA/LATCHEADA" : "RECONOCIDA",
-                errLedState ? ST77XX_RED : ST77XX_GREEN);
-}
-
-void drawContent(Adafruit_ST7789 &tft)
-{
-  if (page == 0)
-    drawPage0(tft);
-  else if (page == 1)
-    drawPage1(tft);
-  else if (page == 2)
-    drawPage2(tft);
-  else
-    drawPage3(tft);
-}
-
-extern "C" void jwplcUserDisplayEnterCallback()
-{
-  bool frame = false;
-  bool content = false;
-  takeUi(frame, content);
-  auto &tft = JWPLC_Display.tft();
-  drawFrame(tft);
-  drawContent(tft);
-}
-
-extern "C" void jwplcUserDisplayRefreshCallback(
-    const JWPLC_IOState *io,
-    const JWPLC_RTCState *rtc)
-{
-  (void)io;
-  (void)rtc;
-  bool frame = false;
-  bool content = false;
-  takeUi(frame, content);
-  if (!frame && !content)
-    return;
-  auto &tft = JWPLC_Display.tft();
-  if (frame)
-    drawFrame(tft);
-  drawContent(tft);
-}
-
-extern "C" void jwplcUserDisplayExitCallback()
-{
-  Serial.println("[ETH-STRESS] Display USER -> IDLE");
+   line1, sizeof(line1),
+   line2, sizeof(line2),
+   line3, sizeof(line3));
+  JWPLC_Display.setText(STRESS_P3_R4, line1);
+  JWPLC_Display.setText(STRESS_P3_R5, line2);
+  JWPLC_Display.setText(STRESS_P3_R6, line3);
+  JWPLC_Display.setText(
+      STRESS_P3_R7,
+      errLedState ? "Alarma: ACTIVA/LATCHEADA" : "Alarma: RECONOCIDA");
 }
 
 // -----------------------------------------------------------------------------
@@ -1724,7 +1562,6 @@ void setup()
   delay(1200);
   bootMs = millis();
   lastTestStartedMs = bootMs;
-  invalidateAllUiCache();
 
   Serial.println();
   Serial.println("JWPLC Basic - Ethernet Continuous Stress TFT v3");
@@ -1751,11 +1588,20 @@ void setup()
 
   JWPLC_Display.setIdleWakeMode(IDLE_WAKE_ANY_BUTTON);
   JWPLC_Display.setIdleReturnMode(IDLE_RETURN_DISABLED);
-  JWPLC_Display.setUserRefreshPeriodMs(100);
+  JWPLC_Display.setUserRefreshMode(USER_REFRESH_ON_DEMAND);
   JWPLC_Display.setRunLed(true);
   JWPLC_Display.setEthLedAuto(true);
   JWPLC_Display.setErrLed(false);
-  requestUi(true);
+  JWPLC_Display.setUserPage(0);
+
+  if (!JWPLC_Display.setFields(
+STRESS_FIELDS,
+sizeof(STRESS_FIELDS) / sizeof(STRESS_FIELDS[0])))
+  {
+    Serial.println("ERROR: no se pudieron registrar fields de stress");
+  }
+
+  syncStressUi();
 }
 
 void loop()
@@ -1787,7 +1633,7 @@ void loop()
   if ((uint32_t)(now - lastUiSecondMs) >= 1000UL)
   {
     lastUiSecondMs = now;
-    requestUi();
+    syncStressUi();
   }
 
   bool startupAllowsTest = startupQualified || startupTimeoutExpired;

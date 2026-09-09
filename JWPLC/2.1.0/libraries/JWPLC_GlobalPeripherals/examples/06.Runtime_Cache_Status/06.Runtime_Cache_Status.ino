@@ -10,7 +10,6 @@
   estado actual sin aumentar tráfico de buses.
 */
 
-#include <JWPLC_GlobalPeripherals.h>
 
 void setup()
 {

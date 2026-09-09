@@ -15,7 +15,6 @@
   - values[] debe existir hasta que masterDone() sea true.
 */
 
-#include <JWPLC_ModbusRTU.h>
 
 static uint16_t values[4];
 static uint32_t nextReadMs = 1000;

@@ -14,7 +14,6 @@
   - localIP(): IP obtenida.
 */
 
-#include <JWPLC_Ethernet.h>
 
 void setup()
 {

@@ -1,0 +1,73 @@
+{
+  "name": "jwplc-hmi-designer-electron",
+  "version": "0.11.0-alpha.11",
+  "private": true,
+  "description": "Wrapper nativo Electron para JWPLC HMI Designer Alpha11",
+  "author": "JW Control",
+  "main": "bootstrap.js",
+  "type": "module",
+  "scripts": {
+    "start": "electron .",
+    "dist:portable": "electron-builder --win portable --x64 --publish never",
+    "dist:setup": "electron-builder --win nsis --x64 --publish never"
+  },
+  "devDependencies": {
+    "electron": "^31.4.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.jwcontrol.jwplc.hmidesigner",
+    "productName": "JWPLC HMI Designer",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "bootstrap.js",
+      "main.js",
+      "preload.cjs",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../poc",
+        "to": "poc"
+      },
+      {
+        "from": "build/icon.ico",
+        "to": "JWPLC-HMI-Designer.ico"
+      },
+      {
+        "from": "build",
+        "to": "installer",
+        "filter": [
+          "jwplc-hmi-launcher-*.vsix"
+        ]
+      }
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "executableName": "JWPLC-HMI-Designer",
+      "target": [
+        "nsis"
+      ]
+    },
+    "portable": {
+      "artifactName": "JWPLC-HMI-Designer-Portable-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "menuCategory": "JWPLC",
+      "shortcutName": "JWPLC HMI Designer",
+      "uninstallDisplayName": "JWPLC HMI Designer",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "include": "installer.nsh",
+      "artifactName": "JWPLC-HMI-Designer-Setup-${version}-${arch}.${ext}"
+    }
+  }
+}

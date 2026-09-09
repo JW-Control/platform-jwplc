@@ -1,4 +1,3 @@
-#include <JWPLC_GlobalPeripherals.h>
 #include <JWPLC_LogicRuntime.h>
 
 static JWPLC_LogicRuntime runtime;

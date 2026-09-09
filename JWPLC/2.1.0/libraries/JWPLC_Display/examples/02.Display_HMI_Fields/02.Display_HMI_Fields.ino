@@ -18,7 +18,6 @@
   - ESC   : retorna a IDLE mediante el manejo interno del Display.
 */
 
-#include <JWPLC_Display.h>
 
 enum FieldId : uint8_t
 {

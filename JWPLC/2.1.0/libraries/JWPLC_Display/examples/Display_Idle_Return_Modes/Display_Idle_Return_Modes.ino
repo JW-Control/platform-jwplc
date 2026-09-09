@@ -1,20 +1,20 @@
 /*
   Display_Idle_Return_Modes
 
-  Ejemplo para probar los tres modos de retorno USER -> IDLE:
+  Ejemplo para probar tres modos de retorno USER -> IDLE:
 
   1) IDLE_RETURN_TIMEOUT
      Retorna automáticamente a IDLE luego de un tiempo sin actividad.
 
   2) IDLE_RETURN_ESC_ONLY
-     Solo retorna a IDLE con ESC o acción equivalente del runtime.
+     Solo retorna a IDLE con ESC.
 
   3) IDLE_RETURN_DISABLED
      No retorna automáticamente. El sketch debe llamar goIdle().
 
   Uso:
   - Cambia CURRENT_MODE para probar cada caso.
-  - Presiona una tecla para entrar a USER.
+  - Presiona OK para entrar a USER.
 */
 
 #include <JWPLC_Display.h>
@@ -38,8 +38,23 @@ void setup()
     Serial.begin(115200);
     delay(1200);
 
+    // Alpha8+ mantiene IDLE_WAKE_DISABLED por defecto. El ejemplo habilita
+    // de forma deliberada únicamente OK para entrar a USER.
+    JWPLC_Display.setIdleWakeButton(BTN_OK);
+    JWPLC_Display.setIdleWakeMode(IDLE_WAKE_BUTTON_ONLY);
+    JWPLC_Display.setIdleReturnMode(CURRENT_MODE);
+    JWPLC_Display.setIdleTimeoutMs(TIMEOUT_MS);
+    JWPLC_Display.setUserRefreshPeriodMs(250);
+    JWPLC_Display.clearPendingInput();
+
+    JWPLC_Display.setRunLed(true);
+    JWPLC_Display.setErrLed(false);
+    JWPLC_Display.setBusLed(false);
+    JWPLC_Display.setEthLed(false);
+
     Serial.println();
     Serial.println("Display_Idle_Return_Modes");
+    Serial.println("OK=USER");
 }
 
 void loop()
@@ -47,15 +62,6 @@ void loop()
     if (!displayConfigured && JWPLC_Display.isReady())
     {
         displayConfigured = true;
-
-        JWPLC_Display.setIdleReturnMode(CURRENT_MODE);
-        JWPLC_Display.setIdleTimeoutMs(TIMEOUT_MS);
-        JWPLC_Display.setUserRefreshPeriodMs(250);
-
-        JWPLC_Display.setRunLed(true);
-        JWPLC_Display.setErrLed(false);
-        JWPLC_Display.setBusLed(false);
-        JWPLC_Display.setEthLed(false);
 
         Serial.print("Display ready. Mode: ");
 
@@ -99,7 +105,7 @@ void loop()
     }
 }
 
-extern "C" void jwplcUserDisplayEnterCallback()
+extern "C" void jwplcUIEnter()
 {
     userCounter = 0;
 
@@ -138,11 +144,8 @@ extern "C" void jwplcUserDisplayEnterCallback()
     }
 }
 
-extern "C" void jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc)
+extern "C" void jwplcUIUpdate()
 {
-    (void)io;
-    (void)rtc;
-
     userCounter++;
 
     auto &tft = JWPLC_Display.tft();
@@ -172,7 +175,7 @@ extern "C" void jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const J
     tft.print(userCounter);
 }
 
-extern "C" void jwplcUserDisplayExitCallback()
+extern "C" void jwplcUIExit()
 {
     Serial.println("Saliendo de USER hacia IDLE");
 }

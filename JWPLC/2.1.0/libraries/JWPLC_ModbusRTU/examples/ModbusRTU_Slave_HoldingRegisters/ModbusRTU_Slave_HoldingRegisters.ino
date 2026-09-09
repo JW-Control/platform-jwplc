@@ -14,7 +14,6 @@
   - 0x10 Write Multiple Registers
 */
 
-#include <JWPLC_ModbusRTU.h>
 
 uint16_t holdingRegs[16];
 

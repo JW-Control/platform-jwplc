@@ -1269,14 +1269,6 @@ static void updateGame()
 
   bool pieceChanged = false;
   bool shouldLock = false;
-
-  if (JWPLC_Buttons.pressed(BTN_ESC))
-  {
-    gameState = GAME_WAIT_OK;
-    JWPLC_Display.goIdle();
-    return;
-  }
-
   if (JWPLC_Buttons.pressed(BTN_OK))
   {
     if (tryRotate())
@@ -1354,15 +1346,10 @@ static void updateGame()
 }
 
 // =====================================================
-// Callbacks USER del JWPLC_Display
+// API corta USER del JWPLC_Display
 // =====================================================
 
-extern "C" bool jwplcCanReturnToIdle(void)
-{
-  return (gameState != GAME_RUNNING);
-}
-
-extern "C" void jwplcUserDisplayEnterCallback()
+extern "C" void jwplcUIEnter()
 {
   userEnterMs = millis();
 
@@ -1379,10 +1366,8 @@ extern "C" void jwplcUserDisplayEnterCallback()
   }
 }
 
-extern "C" void jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc)
+extern "C" void jwplcUIUpdate()
 {
-  (void)io;
-  (void)rtc;
 
   uint32_t now = millis();
 
@@ -1393,13 +1378,6 @@ extern "C" void jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const J
       startGame();
       return;
     }
-
-    if (JWPLC_Buttons.pressed(BTN_ESC))
-    {
-      JWPLC_Display.goIdle();
-      return;
-    }
-
     if ((uint32_t)(now - userEnterMs) >= WAIT_OK_HINT_MS)
     {
       JWPLC_Display.goIdle();
@@ -1439,7 +1417,7 @@ extern "C" void jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const J
   }
 }
 
-extern "C" void jwplcUserDisplayExitCallback()
+extern "C" void jwplcUIExit()
 {
   musicStop();
 
@@ -1469,9 +1447,8 @@ void setup()
   */
   JWPLC_Display.setIdleWakeMode(IDLE_WAKE_BUTTON_ONLY);
   JWPLC_Display.setIdleWakeButton(BTN_OK);
-  JWPLC_Display.setIdleReturnMode(IDLE_RETURN_DISABLED);
+  JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
   JWPLC_Display.setUserRefreshPeriodMs(FRAME_PERIOD_MS);
-  JWPLC_Display.setIdleRefreshPeriodMs(250);
   JWPLC_Display.clearPendingInput();
 
   if (ENABLE_SERIAL_DEBUG)

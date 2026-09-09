@@ -8,6 +8,7 @@
 #include "pins_arduino.h"
 
 #include "jwplc_hardware_config.h"
+#include "jwplc_spi_bus.h"
 
 extern "C"
 {
@@ -27,6 +28,15 @@ void initPeripherals(void)
 
 #if defined(JWPLC_BASIC)
     gpio_set_direction((gpio_num_t)EN_IO, GPIO_MODE_OUTPUT);
+
+    // Mantener la TFT en un estado eléctrico conocido desde el primer instante
+    // del autoload. El backlight del JWPLC Basic no tiene control por software,
+    // así que dejar el ST7789 fuera de reset mientras se inicializan RTC/FRAM/SD
+    // puede hacer visible contenido aleatorio de GRAM antes de tft.init().
+    gpio_set_direction((gpio_num_t)JWPLC_TFT_CS, GPIO_MODE_OUTPUT);
+    gpio_set_level((gpio_num_t)JWPLC_TFT_CS, 1);
+    gpio_set_direction((gpio_num_t)JWPLC_TFT_RST, GPIO_MODE_OUTPUT);
+    gpio_set_level((gpio_num_t)JWPLC_TFT_RST, 0);
 
     gpio_set_level((gpio_num_t)EN_IO, 0);
     vTaskDelay(pdMS_TO_TICKS(2));
@@ -65,7 +75,15 @@ void initPeripherals(void)
     // el arranque de periféricos sigue serializado. tft.init()
     // contiene esperas obligatorias del ST7789 y aquí no compite
     // con accesos concurrentes del sketch a FRAM o microSD.
-    (void)jwplcDisplayBeginCallback();
+    //
+    // Alpha11: si la inicialización física termina correctamente, dibujar el
+    // primer frame IDLE aquí mismo. Así la pantalla no depende del primer turno
+    // de jwplcSystemTask para abandonar el contenido indeterminado de GRAM.
+    if (jwplcDisplayBeginCallback())
+    {
+        jwplcDisplayRefreshCallback(jwplcGetIOState(), jwplcGetRTCState());
+    }
+
     if (!TCA6424A_init(TCA6424A_DEFAULT_ADDRESS))
     {
         return;

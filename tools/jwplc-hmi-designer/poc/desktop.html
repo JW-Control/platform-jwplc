@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>JWPLC HMI Designer — Alpha11</title>
+  <meta name="theme-color" content="#101a21" />
+  <link rel="icon" href="./icons/icon-16.png?v=alpha11-taskbar-raster-v3" type="image/png" sizes="16x16" />
+  <link rel="icon" href="./icons/icon-20.png?v=alpha11-taskbar-raster-v3" type="image/png" sizes="20x20" />
+  <link rel="icon" href="./icons/icon-24.png?v=alpha11-taskbar-raster-v3" type="image/png" sizes="24x24" />
+  <link rel="icon" href="./icons/icon-32.png?v=alpha11-taskbar-raster-v3" type="image/png" sizes="32x32" />
+  <link rel="icon" href="./icons/icon-40.png?v=alpha11-taskbar-raster-v3" type="image/png" sizes="40x40" />
+  <link rel="icon" href="./icons/icon-48.png?v=alpha11-taskbar-raster-v3" type="image/png" sizes="48x48" />
+  <link rel="shortcut icon" href="./icons/icon-32.png?v=alpha11-taskbar-raster-v3" type="image/png" />
+  <link rel="manifest" href="./manifest.webmanifest?v=alpha11-taskbar-raster-v3" />
+  <link rel="preload" href="./styles.css" as="style" />
+  <link rel="preload" href="./desktop-responsive.css" as="style" />
+  <style>
+    html, body { margin: 0; min-height: 100%; background: #101a21; color: #dce9f1; font-family: Segoe UI, sans-serif; }
+    .boot { min-height: 100vh; display: grid; place-items: center; }
+    .boot-card { padding: 24px 28px; border: 1px solid #304653; border-radius: 10px; background: #14212a; box-shadow: 0 14px 45px rgba(0,0,0,.28); }
+    .boot-card strong { display: block; margin-bottom: 6px; color: #ff9a43; }
+  </style>
+</head>
+<body>
+  <div class="boot"><div class="boot-card"><strong>JWPLC HMI Designer</strong><span>Iniciando aplicación…</span></div></div>
+  <script>
+    (async () => {
+      try {
+        const response = await fetch('./index.html', { cache: 'no-store' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        let html = await response.text();
+
+        // El documento final se mantiene oculto hasta que estilos y scripts estén
+        // completamente cargados. Evita el flash blanco/HTML sin estilos.
+        html = html.replace(
+          '</head>',
+          '<meta name="theme-color" content="#101a21" />' +
+          '<link rel="icon" href="./icons/icon-16.png?v=alpha11-taskbar-raster-v3" type="image/png" sizes="16x16" />' +
+          '<link rel="icon" href="./icons/icon-20.png?v=alpha11-taskbar-raster-v3" type="image/png" sizes="20x20" />' +
+          '<link rel="icon" href="./icons/icon-24.png?v=alpha11-taskbar-raster-v3" type="image/png" sizes="24x24" />' +
+          '<link rel="icon" href="./icons/icon-32.png?v=alpha11-taskbar-raster-v3" type="image/png" sizes="32x32" />' +
+          '<link rel="icon" href="./icons/icon-40.png?v=alpha11-taskbar-raster-v3" type="image/png" sizes="40x40" />' +
+          '<link rel="icon" href="./icons/icon-48.png?v=alpha11-taskbar-raster-v3" type="image/png" sizes="48x48" />' +
+          '<link rel="shortcut icon" href="./icons/icon-32.png?v=alpha11-taskbar-raster-v3" type="image/png" />' +
+          '<link rel="manifest" href="./manifest.webmanifest?v=alpha11-taskbar-raster-v3" />' +
+          '<link rel="stylesheet" href="./desktop-responsive.css" />' +
+          '<link rel="stylesheet" href="./desktop-responsive-compat.css" />' +
+          '<style id="jwplcBootGuard">html{background:#101a21!important}body{opacity:0!important}</style>' +
+          '</head>'
+        );
+
+        const closeScript = '<' + '/script>';
+        html = html.replace(
+          '</body>',
+          '<script src="./designer-project.js">' + closeScript +
+          '<script src="./designer-native-project.js">' + closeScript +
+          '<script src="./designer-pixelmap-workbench.js">' + closeScript +
+          '<script src="./designer-pixelmap-optimizer.js">' + closeScript +
+          '<script src="./designer-pixelmap-codegen-guard.js">' + closeScript +
+          '<script src="./designer-project-integration-fix.js">' + closeScript +
+          '<script src="./desktop-responsive.js">' + closeScript +
+          '<script>' +
+          'window.addEventListener("load",function(){requestAnimationFrame(function(){var g=document.getElementById("jwplcBootGuard");if(g)g.remove();});},{once:true});' +
+          'setTimeout(function(){var g=document.getElementById("jwplcBootGuard");if(g)g.remove();},1800);' +
+          closeScript +
+          '</body>'
+        );
+        document.open();
+        document.write(html);
+        document.close();
+      } catch (error) {
+        document.querySelector('.boot-card').innerHTML =
+          '<strong>No se pudo iniciar JWPLC HMI Designer</strong>' +
+          '<span>Verifica que el launcher local esté activo.</span>';
+        console.error(error);
+      }
+    })();
+  </script>
+</body>
+</html>
