@@ -117,9 +117,33 @@ Commit que lo publica:
 
 La configuración pública asociada se mantiene en `JWPLC_Display/library.properties` con `dot_a_linkage=true` y `precompiled=full`.
 
+## Benchmark final asociado
+
+El benchmark final de Alpha11 quedó documentado en:
+
+```text
+docs/v2.1.0-alpha.11/ALPHA11_BUILD_BENCHMARK.md
+```
+
+Resultado:
+
+```text
+TOTAL_PHASES=72
+FAILED_PHASES=0
+ALPHA11_BUILD_BENCHMARK_3X=PASS
+ALPHA11_COMPILER_STRUCTURE_PARITY=PASS
+ALPHA11_WARM_PERFORMANCE_STABLE=PASS
+ALPHA11_BINARY_SIZE_REGRESSION=MATERIAL_NO
+ALPHA11_DISPLAY_PRECOMPILED_SOURCE_AVOIDANCE=PASS
+ALPHA11_DISPLAY_SOURCE_ARCHIVE_PARITY=PASS
+ALPHA11_EXACT_SPEEDUP_CLAIM=NOT_USED
+```
+
+El archive evita recompilar las TUs de `JWPLC_Display`, pero el tiempo global warm del package se mantiene esencialmente en el mismo rango que Alpha10. No se usa una afirmación porcentual artificial de aceleración total.
+
 ## Cierre de revisión
 
-La revisión de ejemplos y el cierre técnico del precompilado Display Alpha11 quedan cerrados respecto a:
+La revisión de ejemplos, el cierre técnico del precompilado Display y el benchmark Alpha11 quedan cerrados respecto a:
 
 - API Display moderna;
 - retorno IDLE y reentrada USER;
@@ -127,6 +151,7 @@ La revisión de ejemplos y el cierre técnico del precompilado Display Alpha11 q
 - eliminación de includes redundantes en ejemplos integrados;
 - compilación de los 57 sketches modificados;
 - archive final con 6 TUs exactas y paridad source/archive;
-- cero TUs de `JWPLC_Display` recompiladas al usar el archive final.
+- cero TUs de `JWPLC_Display` recompiladas al usar el archive final;
+- benchmark final de 72 fases sin fallos y rendimiento warm estable frente a Alpha10.
 
-Pendiente del cierre general Alpha11: ejecutar el benchmark final de tiempos, cerrar documentación de release/README, revisar reproducibilidad del empaquetado HMI Designer y preparar PR/PreRelease en español.
+Pendiente del cierre general Alpha11: cerrar documentación de release/README, revisar reproducibilidad del empaquetado HMI Designer y preparar PR/PreRelease en español.
