@@ -6,7 +6,8 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $root = $PSScriptRoot
-$sourceExe = Join-Path $root 'dist\JWPLC-HMI-Designer-Electron.exe'
+$portableSourceExe = Join-Path $root 'dist\JWPLC-HMI-Designer-Electron.exe'
+$nsisSourceExe = Join-Path $root 'electron\release\win-unpacked\JWPLC-HMI-Designer.exe'
 $installedExe = Join-Path $InstallRoot 'JWPLC-HMI-Designer.exe'
 $extensionPackage = Join-Path $root 'arduino-ide-launcher\package.json'
 $pluginsRoot = Join-Path $HOME '.arduinoIDE\plugins'
@@ -36,14 +37,28 @@ Write-Host ''
 $appExists = Test-Path -LiteralPath $installedExe -PathType Leaf
 $results.Add((Write-Gate 'HMI_APP_INSTALLED' $appExists $installedExe))
 
-if ($appExists -and (Test-Path -LiteralPath $sourceExe -PathType Leaf)) {
+$sourceExe = ''
+if (Test-Path -LiteralPath $nsisSourceExe -PathType Leaf) {
+    $sourceExe = $nsisSourceExe
+}
+elseif (Test-Path -LiteralPath $portableSourceExe -PathType Leaf) {
+    $sourceExe = $portableSourceExe
+}
+
+if ($appExists -and -not [string]::IsNullOrWhiteSpace($sourceExe)) {
     $sourceHash = (Get-FileHash -LiteralPath $sourceExe -Algorithm SHA256).Hash.ToLowerInvariant()
     $installedHash = (Get-FileHash -LiteralPath $installedExe -Algorithm SHA256).Hash.ToLowerInvariant()
-    $results.Add((Write-Gate 'HMI_APP_SOURCE_PARITY' ($sourceHash -eq $installedHash) "source=$sourceHash installed=$installedHash"))
+    $results.Add((Write-Gate 'HMI_APP_SOURCE_PARITY' ($sourceHash -eq $installedHash) "source=$sourceHash installed=$installedHash path=$sourceExe"))
 }
 else {
     $results.Add((Write-Gate 'HMI_APP_SOURCE_PARITY' $false 'source o instalación no disponible'))
 }
+
+$uninstaller = Get-ChildItem -LiteralPath $InstallRoot -Filter 'Uninstall*.exe' -File -ErrorAction SilentlyContinue |
+    Select-Object -First 1
+$uninstallerPass = $null -ne $uninstaller
+$uninstallerDetail = if ($uninstaller) { $uninstaller.FullName } else { 'no encontrado' }
+$results.Add((Write-Gate 'HMI_UNINSTALLER_INSTALLED' $uninstallerPass $uninstallerDetail))
 
 $expectedHome = [IO.Path]::GetFullPath($InstallRoot).TrimEnd('\')
 $userHome = [Environment]::GetEnvironmentVariable('JWPLC_HMI_DESIGNER_HOME', 'User')
