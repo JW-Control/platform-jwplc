@@ -93,7 +93,7 @@ void syncSpiUi()
   char logsLine[16] = {};
 
   snprintf(framLine, sizeof(framLine), "%s  Boot:%lu",
- framStatusText, (unsigned long)bootCounter);
+           framStatusText, (unsigned long)bootCounter);
   snprintf(logsLine, sizeof(logsLine), "%lu", (unsigned long)logCounter);
 
   JWPLC_Display.setText(SPI_FIELD_TITLE, "SPI COEXISTENCIA");

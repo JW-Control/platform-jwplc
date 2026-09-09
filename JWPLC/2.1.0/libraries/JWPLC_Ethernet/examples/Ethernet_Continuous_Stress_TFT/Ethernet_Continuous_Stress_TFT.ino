@@ -214,7 +214,7 @@ void syncStressUi();
 // -----------------------------------------------------------------------------
 // Helpers de texto y UI.
 // -----------------------------------------------------------------------------
-void copyText(char *dst, size_t size, const char *src)void copyText(char *dst, size_t size, const char *src)
+void copyText(char *dst, size_t size, const char *src)
 {
   if (!dst || size == 0)
     return;
@@ -273,7 +273,7 @@ void formatInterval(char *out, size_t size)
     snprintf(out, size, "%lums", (unsigned long)interval);
 }
 
-void splitText3(const char *source,void splitText3(const char *source,
+void splitText3(const char *source,
                 char *line1, size_t size1,
                 char *line2, size_t size2,
                 char *line3, size_t size3)

@@ -93,7 +93,7 @@ uint32_t lastLogMs = 0;
 
 void syncDiagnosticUi();
 
-void copyText(char *dst, size_t size, const char *src)void copyText(char *dst, size_t size, const char *src)
+void copyText(char *dst, size_t size, const char *src)
 {
   if (!dst || size == 0)
     return;
