@@ -1,0 +1,688 @@
+name: Alpha11 modernize Ethernet TFT examples
+
+on:
+  push:
+    branches:
+      - v2.1.0-alpha.11/feature/hmi-designer
+    paths:
+      - ".github/workflows/alpha11-modernize-ethernet-tft.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Migrar TFT Ethernet a fields declarativos
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          ROOT = Path('.')
+
+          def load(rel):
+              p = ROOT / rel
+              return p, p.read_text(encoding='utf-8')
+
+          def save(p, text):
+              p.write_text(text, encoding='utf-8', newline='\n')
+
+          def replace_once(text, old, new, label):
+              if old not in text:
+                  raise SystemExit(f'No se encontró bloque esperado: {label}')
+              return text.replace(old, new, 1)
+
+          def replace_region(text, start, end, replacement, label):
+              i = text.find(start)
+              if i < 0:
+                  raise SystemExit(f'No se encontró inicio: {label}')
+              j = text.find(end, i)
+              if j < 0:
+                  raise SystemExit(f'No se encontró fin: {label}')
+              return text[:i] + replacement + text[j:]
+
+          # ================================================================
+          # 1) Ethernet_SPI_Coexistence
+          # ================================================================
+          rel = 'JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/Ethernet_SPI_Coexistence/Ethernet_SPI_Coexistence.ino'
+          p, s = load(rel)
+
+          s = s.replace(
+              '  - Incluye JWPLC_Display.h porque usa la TFT directamente.\n',
+              '  - Usa fields declarativos de JWPLC_Display; no dibuja la TFT directamente.\n'
+          )
+          s = s.replace(
+              '  - En callbacks gráficos NO se consultan periféricos SPI.\n',
+              '  - setText() sólo invalida el field cuando cambia su contenido.\n'
+          )
+
+          spi_ui = r'''enum SpiUiFieldId : uint8_t
+{
+  SPI_FIELD_TITLE = 1,
+  SPI_FIELD_ETH,
+  SPI_FIELD_IP,
+  SPI_FIELD_SD,
+  SPI_FIELD_FRAM,
+  SPI_FIELD_LOGS,
+  SPI_FIELD_INFO
+};
+
+static const JWPLC_UIField SPI_FIELDS[] = {
+    JWPLC_UITextField(
+        SPI_FIELD_TITLE,
+        JWPLC_UIRect(8, 4),
+        JWPLC_UIText(nullptr, nullptr, 24),
+        JWPLC_UITextFieldStyle(2, 1, false, JWPLC_UI_LAYOUT_INLINE, JWPLC_UI_ALIGN_LEFT),
+        0,
+        JWPLC_UIColors(ST77XX_CYAN, ST77XX_CYAN, ST77XX_BLACK, ST77XX_CYAN)),
+    JWPLC_UITextField(SPI_FIELD_ETH, 8, 34, "ETH", 31),
+    JWPLC_UITextField(SPI_FIELD_IP, 8, 54, "IP", 20),
+    JWPLC_UITextField(SPI_FIELD_SD, 8, 74, "SD", 31),
+    JWPLC_UITextField(SPI_FIELD_FRAM, 8, 94, "FRAM", 31),
+    JWPLC_UITextField(SPI_FIELD_LOGS, 8, 114, "Logs", 16),
+    JWPLC_UITextField(SPI_FIELD_INFO, 8, 140, nullptr, 28)};
+
+void syncSpiUi()
+{
+  char framLine[32] = {};
+  char logsLine[16] = {};
+
+  snprintf(framLine, sizeof(framLine), "%s  Boot:%lu",
+           framStatusText, (unsigned long)bootCounter);
+  snprintf(logsLine, sizeof(logsLine), "%lu", (unsigned long)logCounter);
+
+  JWPLC_Display.setText(SPI_FIELD_TITLE, "SPI COEXISTENCIA");
+  JWPLC_Display.setText(SPI_FIELD_ETH, ethStatusText);
+  JWPLC_Display.setText(SPI_FIELD_IP, ethIpText);
+  JWPLC_Display.setText(SPI_FIELD_SD, sdStatusText);
+  JWPLC_Display.setText(SPI_FIELD_FRAM, framLine);
+  JWPLC_Display.setText(SPI_FIELD_LOGS, logsLine);
+  JWPLC_Display.setText(SPI_FIELD_INFO, "IDLE AUTOMATICO EN 8s");
+}
+
+'''
+          s = replace_once(s, 'bool ethernetHasFault() {', spi_ui + 'bool ethernetHasFault() {', 'SPI fields')
+
+          s = replace_once(
+              s,
+              '  copyText(framStatusText, sizeof(framStatusText), framOk ? "OK" : "NO");\n}',
+              '  copyText(framStatusText, sizeof(framStatusText), framOk ? "OK" : "NO");\n  syncSpiUi();\n}',
+              'SPI sync cached status'
+          )
+
+          s = replace_region(
+              s,
+              'extern "C" void jwplcUIEnter()',
+              'void loadBootCounterFromFRAM()',
+              '',
+              'SPI callbacks manuales'
+          )
+
+          setup_marker = '''  Serial.println("Runtime auto Ethernet. No begin() called.");
+
+  loadBootCounterFromFRAM();
+'''
+          setup_repl = '''  Serial.println("Runtime auto Ethernet. No begin() called.");
+
+  JWPLC_Display.setIdleWakeButton(BTN_OK);
+  JWPLC_Display.setIdleWakeMode(IDLE_WAKE_BUTTON_ONLY);
+  JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);
+  JWPLC_Display.setIdleTimeoutMs(8000);
+  JWPLC_Display.setUserRefreshMode(USER_REFRESH_ON_DEMAND);
+  JWPLC_Display.clearPendingInput();
+
+  if (!JWPLC_Display.setFields(SPI_FIELDS, sizeof(SPI_FIELDS) / sizeof(SPI_FIELDS[0]))) {
+    Serial.println("ERROR: no se pudieron registrar fields SPI");
+  }
+
+  loadBootCounterFromFRAM();
+'''
+          s = replace_once(s, setup_marker, setup_repl, 'SPI setup fields')
+
+          old_cfg = '''  if (!displayConfigured && JWPLC_Display.isReady()) {
+    displayConfigured = true;
+
+    JWPLC_Display.setIdleWakeButton(BTN_OK);
+    JWPLC_Display.setIdleWakeMode(IDLE_WAKE_BUTTON_ONLY);
+    JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);
+    JWPLC_Display.setIdleTimeoutMs(8000);
+    JWPLC_Display.setUserRefreshPeriodMs(250);
+    JWPLC_Display.clearPendingInput();
+
+    Serial.println("Display ready");
+  }
+'''
+          new_cfg = '''  if (!displayConfigured && JWPLC_Display.isReady()) {
+    displayConfigured = true;
+    syncSpiUi();
+    Serial.println("Display ready");
+  }
+'''
+          s = replace_once(s, old_cfg, new_cfg, 'SPI display ready')
+          save(p, s)
+
+          # ================================================================
+          # 2) Ethernet_HTTP_TFT_Diagnostics
+          # ================================================================
+          rel = 'JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/Ethernet_HTTP_TFT_Diagnostics/Ethernet_HTTP_TFT_Diagnostics.ino'
+          p, s = load(rel)
+
+          s = s.replace('#include <Ethernet.h>\n', '#include <JWPLC_Ethernet.h>\n')
+          s = s.replace(
+              '  - Los callbacks graficos solo dibujan variables cacheadas.\n'
+              '  - La TFT solo redibuja las filas cuyo contenido cambio.\n',
+              '  - La TFT usa fields declarativos con dirty redraw automatico.\n'
+              '  - setText()/setValue() no redibujan cuando el valor no cambia.\n'
+          )
+
+          # Forward declaration: varias rutinas de estado sincronizan la UI.
+          s = replace_once(
+              s,
+              'uint32_t lastLogMs = 0;\n\n',
+              'uint32_t lastLogMs = 0;\n\nvoid syncDiagnosticUi();\n\n',
+              'HTTP forward sync'
+          )
+
+          s = replace_region(
+              s,
+              'enum UiDirty : uint32_t',
+              'void copyText(char *dst, size_t size, const char *src)',
+              'void copyText(char *dst, size_t size, const char *src)',
+              'HTTP dirty engine'
+          )
+
+          # La API de fields ya compara valores y administra dirty redraw.
+          s = re.sub(r'(?m)^(\s*)markUiDirty\([^;]+\);', r'\1syncDiagnosticUi();', s)
+
+          old_left = '''  case BTN_LEFT:
+    page = page == 0 ? PAGE_COUNT - 1 : page - 1;
+    syncDiagnosticUi();
+    break;
+  case BTN_RIGHT:
+    page = (uint8_t)((page + 1) % PAGE_COUNT);
+    syncDiagnosticUi();
+    break;
+'''
+          new_left = '''  case BTN_LEFT:
+    page = page == 0 ? PAGE_COUNT - 1 : page - 1;
+    JWPLC_Display.setUserPage(page);
+    syncDiagnosticUi();
+    break;
+  case BTN_RIGHT:
+    page = (uint8_t)((page + 1) % PAGE_COUNT);
+    JWPLC_Display.setUserPage(page);
+    syncDiagnosticUi();
+    break;
+'''
+          s = replace_once(s, old_left, new_left, 'HTTP page navigation')
+
+          http_ui = r'''enum DiagnosticFieldId : uint8_t
+{
+  DIAG_P0_TITLE = 1,
+  DIAG_P0_USB,
+  DIAG_P0_ETH,
+  DIAG_P0_IP,
+  DIAG_P0_RTC,
+  DIAG_P0_FRAM,
+  DIAG_P0_HTTP,
+  DIAG_P0_RESPONSE,
+  DIAG_P0_STATS,
+  DIAG_P0_ERROR,
+
+  DIAG_P1_TITLE,
+  DIAG_P1_BUTTONS_A,
+  DIAG_P1_BUTTONS_B,
+  DIAG_P1_LAST,
+  DIAG_P1_FRAM,
+  DIAG_P1_SAVE,
+  DIAG_P1_ERROR,
+  DIAG_P1_HELP
+};
+
+static const JWPLC_UIField DIAGNOSTIC_FIELDS[] = {
+    JWPLC_UITextField(
+        DIAG_P0_TITLE, JWPLC_UIRect(6, 4), JWPLC_UIText(nullptr, nullptr, 28),
+        JWPLC_UITextFieldStyle(2, 1, false, JWPLC_UI_LAYOUT_INLINE, JWPLC_UI_ALIGN_LEFT),
+        0, JWPLC_UIColors(ST77XX_CYAN, ST77XX_CYAN, ST77XX_BLACK, ST77XX_CYAN)),
+    JWPLC_UITextField(DIAG_P0_USB, 6, 28, "USB", 24, 0),
+    JWPLC_UITextField(DIAG_P0_ETH, 6, 44, "ETH", 31, 0),
+    JWPLC_UITextField(DIAG_P0_IP, 6, 60, "IP", 20, 0),
+    JWPLC_UITextField(DIAG_P0_RTC, 6, 76, "RTC", 24, 0),
+    JWPLC_UITextField(DIAG_P0_FRAM, 6, 92, "FRAM", 31, 0),
+    JWPLC_UITextField(DIAG_P0_HTTP, 6, 108, "HTTP", 28, 0),
+    JWPLC_UITextField(DIAG_P0_RESPONSE, 6, 124, "Resp", 31, 0),
+    JWPLC_UITextField(DIAG_P0_STATS, 6, 140, "GET", 31, 0),
+    JWPLC_UITextField(DIAG_P0_ERROR, 6, 156, "ERR", 31, 0),
+
+    JWPLC_UITextField(
+        DIAG_P1_TITLE, JWPLC_UIRect(6, 4), JWPLC_UIText(nullptr, nullptr, 28),
+        JWPLC_UITextFieldStyle(2, 1, false, JWPLC_UI_LAYOUT_INLINE, JWPLC_UI_ALIGN_LEFT),
+        1, JWPLC_UIColors(ST77XX_CYAN, ST77XX_CYAN, ST77XX_BLACK, ST77XX_CYAN)),
+    JWPLC_UITextField(DIAG_P1_BUTTONS_A, 6, 34, nullptr, 39, 1),
+    JWPLC_UITextField(DIAG_P1_BUTTONS_B, 6, 52, nullptr, 39, 1),
+    JWPLC_UITextField(DIAG_P1_LAST, 6, 70, "Ultimo", 16, 1),
+    JWPLC_UITextField(DIAG_P1_FRAM, 6, 90, "FRAM", 31, 1),
+    JWPLC_UITextField(DIAG_P1_SAVE, 6, 110, "Save", 31, 1),
+    JWPLC_UITextField(DIAG_P1_ERROR, 6, 130, "ERR", 31, 1),
+    JWPLC_UITextField(DIAG_P1_HELP, 6, 150, nullptr, 34, 1)};
+
+void syncDiagnosticUi()
+{
+  char line[40] = {};
+
+  JWPLC_Display.setText(DIAG_P0_TITLE, "DIAGNOSTICO HTTP 1/2");
+  JWPLC_Display.setText(DIAG_P0_USB, "Serial 115200 activo");
+  JWPLC_Display.setText(DIAG_P0_ETH, ethStatus);
+  JWPLC_Display.setText(DIAG_P0_IP, ethIp);
+  JWPLC_Display.setText(DIAG_P0_RTC, rtcText);
+
+  snprintf(line, sizeof(line), "Boot %lu Val %ld %s",
+           (unsigned long)data.bootCount,
+           (long)data.framValue,
+           framSaveText);
+  JWPLC_Display.setText(DIAG_P0_FRAM, line);
+  JWPLC_Display.setText(DIAG_P0_HTTP, httpState);
+  JWPLC_Display.setText(DIAG_P0_RESPONSE, httpTitle);
+
+  snprintf(line, sizeof(line), "%lu/%lu  %luB",
+           (unsigned long)data.successCount,
+           (unsigned long)data.requestCount,
+           (unsigned long)httpBytes);
+  JWPLC_Display.setText(DIAG_P0_STATS, line);
+  JWPLC_Display.setText(DIAG_P0_ERROR, errReason);
+
+  JWPLC_Display.setText(DIAG_P1_TITLE, "BOTONERA Y FRAM 2/2");
+  snprintf(line, sizeof(line), "LEFT %lu  UP %lu  RIGHT %lu",
+           (unsigned long)buttonCount[BTN_LEFT],
+           (unsigned long)buttonCount[BTN_UP],
+           (unsigned long)buttonCount[BTN_RIGHT]);
+  JWPLC_Display.setText(DIAG_P1_BUTTONS_A, line);
+
+  snprintf(line, sizeof(line), "ESC %lu  OK %lu  DOWN %lu",
+           (unsigned long)buttonCount[BTN_ESC],
+           (unsigned long)buttonCount[BTN_OK],
+           (unsigned long)buttonCount[BTN_DOWN]);
+  JWPLC_Display.setText(DIAG_P1_BUTTONS_B, line);
+  JWPLC_Display.setText(DIAG_P1_LAST, lastButton);
+
+  snprintf(line, sizeof(line), "Valor %ld  Boot %lu",
+           (long)data.framValue,
+           (unsigned long)data.bootCount);
+  JWPLC_Display.setText(DIAG_P1_FRAM, line);
+  JWPLC_Display.setText(DIAG_P1_SAVE, framSaveText);
+  JWPLC_Display.setText(DIAG_P1_ERROR, errReason);
+  JWPLC_Display.setText(DIAG_P1_HELP, "UP/DOWN cambia y guarda");
+}
+
+'''
+          s = replace_region(
+              s,
+              'uint16_t statusColor(bool ok)',
+              'void printStatus()',
+              http_ui,
+              'HTTP manual TFT renderer'
+          )
+
+          setup_old = '''  JWPLC_Display.setIdleWakeMode(IDLE_WAKE_ANY_BUTTON);
+  JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
+  JWPLC_Display.setUserRefreshPeriodMs(100);
+  JWPLC_Display.setRunLed(true);
+  JWPLC_Display.setEthLedAuto(true);
+
+  loadData();
+'''
+          setup_new = '''  JWPLC_Display.setIdleWakeMode(IDLE_WAKE_ANY_BUTTON);
+  JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
+  JWPLC_Display.setUserRefreshMode(USER_REFRESH_ON_DEMAND);
+  JWPLC_Display.setRunLed(true);
+  JWPLC_Display.setEthLedAuto(true);
+  JWPLC_Display.setUserPage(0);
+
+  if (!JWPLC_Display.setFields(
+          DIAGNOSTIC_FIELDS,
+          sizeof(DIAGNOSTIC_FIELDS) / sizeof(DIAGNOSTIC_FIELDS[0])))
+  {
+    Serial.println("ERROR: no se pudieron registrar fields de diagnostico");
+  }
+
+  syncDiagnosticUi();
+  loadData();
+'''
+          s = replace_once(s, setup_old, setup_new, 'HTTP setup fields')
+          save(p, s)
+
+          # ================================================================
+          # 3) Ethernet_Continuous_Stress_TFT
+          # ================================================================
+          rel = 'JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/Ethernet_Continuous_Stress_TFT/Ethernet_Continuous_Stress_TFT.ino'
+          p, s = load(rel)
+
+          s = s.replace('#include <Ethernet.h>\n#include <Dns.h>\n', '#include <JWPLC_Ethernet.h>\n#include <JWPLC_Ethernet_DNS.h>\n')
+          s = s.replace(
+              '  Mejoras v3:\n  - evita redibujar filas TFT cuyo texto y color no cambiaron;\n',
+              '  Mejoras v4:\n  - usa fields declarativos con dirty redraw automatico;\n'
+          )
+
+          # Ya no hace falta cache gráfico propio.
+          s = re.sub(
+              r'\nstruct UiRowCache\n\{.*?\n\};\n',
+              '\n', s, count=1, flags=re.S)
+          s = re.sub(r'^UiRowCache uiRows\[PAGE_COUNT\]\[UI_ROWS_PER_PAGE\];\n', '', s, flags=re.M)
+          s = re.sub(
+              r'\nportMUX_TYPE uiMux = portMUX_INITIALIZER_UNLOCKED;\nvolatile bool uiFrameDirty = true;\nvolatile bool uiContentDirty = true;\n',
+              '\nvoid syncStressUi();\n', s, count=1)
+
+          s = replace_region(
+              s,
+              'void requestUi(bool frame = false)',
+              'void copyText(char *dst, size_t size, const char *src)',
+              'void copyText(char *dst, size_t size, const char *src)',
+              'Stress custom dirty engine'
+          )
+
+          s = replace_region(
+              s,
+              'void invalidatePageCache(uint8_t pageIndex)',
+              'void splitText3(const char *source,',
+              'void splitText3(const char *source,',
+              'Stress row cache renderer'
+          )
+
+          s = s.replace('requestUi(true);', 'syncStressUi();')
+          s = s.replace('requestUi();', 'syncStressUi();')
+          s = s.replace('  invalidateAllUiCache();\n', '')
+
+          old_nav = '''  case BTN_LEFT:
+    page = page == 0 ? PAGE_COUNT - 1 : page - 1;
+    syncStressUi();
+    break;
+  case BTN_RIGHT:
+    page = (uint8_t)((page + 1) % PAGE_COUNT);
+    syncStressUi();
+    break;
+'''
+          new_nav = '''  case BTN_LEFT:
+    page = page == 0 ? PAGE_COUNT - 1 : page - 1;
+    JWPLC_Display.setUserPage(page);
+    syncStressUi();
+    break;
+  case BTN_RIGHT:
+    page = (uint8_t)((page + 1) % PAGE_COUNT);
+    JWPLC_Display.setUserPage(page);
+    syncStressUi();
+    break;
+'''
+          s = replace_once(s, old_nav, new_nav, 'Stress page navigation')
+
+          stress_ui = r'''// -----------------------------------------------------------------------------
+// TFT declarativa: 4 paginas x (titulo + 7 filas) = 32 fields.
+// setText() compara el contenido y sólo invalida la región que cambió.
+// -----------------------------------------------------------------------------
+enum StressFieldId : uint8_t
+{
+  STRESS_P0_TITLE = 1,
+  STRESS_P0_R1, STRESS_P0_R2, STRESS_P0_R3, STRESS_P0_R4,
+  STRESS_P0_R5, STRESS_P0_R6, STRESS_P0_R7,
+  STRESS_P1_TITLE,
+  STRESS_P1_R1, STRESS_P1_R2, STRESS_P1_R3, STRESS_P1_R4,
+  STRESS_P1_R5, STRESS_P1_R6, STRESS_P1_R7,
+  STRESS_P2_TITLE,
+  STRESS_P2_R1, STRESS_P2_R2, STRESS_P2_R3, STRESS_P2_R4,
+  STRESS_P2_R5, STRESS_P2_R6, STRESS_P2_R7,
+  STRESS_P3_TITLE,
+  STRESS_P3_R1, STRESS_P3_R2, STRESS_P3_R3, STRESS_P3_R4,
+  STRESS_P3_R5, STRESS_P3_R6, STRESS_P3_R7
+};
+
+#define STRESS_ROW_FIELD(id, y, pageIndex) \
+  JWPLC_UITextField(id, 6, y, nullptr, 39, pageIndex)
+
+static const JWPLC_UIField STRESS_FIELDS[] = {
+    JWPLC_UITextField(
+        STRESS_P0_TITLE, JWPLC_UIRect(6, 4), JWPLC_UIText(nullptr, nullptr, 28),
+        JWPLC_UITextFieldStyle(2, 1, false, JWPLC_UI_LAYOUT_INLINE, JWPLC_UI_ALIGN_LEFT),
+        0, JWPLC_UIColors(ST77XX_CYAN, ST77XX_CYAN, ST77XX_BLACK, ST77XX_CYAN)),
+    STRESS_ROW_FIELD(STRESS_P0_R1, 30, 0), STRESS_ROW_FIELD(STRESS_P0_R2, 47, 0),
+    STRESS_ROW_FIELD(STRESS_P0_R3, 64, 0), STRESS_ROW_FIELD(STRESS_P0_R4, 81, 0),
+    STRESS_ROW_FIELD(STRESS_P0_R5, 98, 0), STRESS_ROW_FIELD(STRESS_P0_R6, 115, 0),
+    STRESS_ROW_FIELD(STRESS_P0_R7, 132, 0),
+
+    JWPLC_UITextField(
+        STRESS_P1_TITLE, JWPLC_UIRect(6, 4), JWPLC_UIText(nullptr, nullptr, 28),
+        JWPLC_UITextFieldStyle(2, 1, false, JWPLC_UI_LAYOUT_INLINE, JWPLC_UI_ALIGN_LEFT),
+        1, JWPLC_UIColors(ST77XX_CYAN, ST77XX_CYAN, ST77XX_BLACK, ST77XX_CYAN)),
+    STRESS_ROW_FIELD(STRESS_P1_R1, 30, 1), STRESS_ROW_FIELD(STRESS_P1_R2, 47, 1),
+    STRESS_ROW_FIELD(STRESS_P1_R3, 64, 1), STRESS_ROW_FIELD(STRESS_P1_R4, 81, 1),
+    STRESS_ROW_FIELD(STRESS_P1_R5, 98, 1), STRESS_ROW_FIELD(STRESS_P1_R6, 115, 1),
+    STRESS_ROW_FIELD(STRESS_P1_R7, 132, 1),
+
+    JWPLC_UITextField(
+        STRESS_P2_TITLE, JWPLC_UIRect(6, 4), JWPLC_UIText(nullptr, nullptr, 28),
+        JWPLC_UITextFieldStyle(2, 1, false, JWPLC_UI_LAYOUT_INLINE, JWPLC_UI_ALIGN_LEFT),
+        2, JWPLC_UIColors(ST77XX_CYAN, ST77XX_CYAN, ST77XX_BLACK, ST77XX_CYAN)),
+    STRESS_ROW_FIELD(STRESS_P2_R1, 30, 2), STRESS_ROW_FIELD(STRESS_P2_R2, 47, 2),
+    STRESS_ROW_FIELD(STRESS_P2_R3, 64, 2), STRESS_ROW_FIELD(STRESS_P2_R4, 81, 2),
+    STRESS_ROW_FIELD(STRESS_P2_R5, 98, 2), STRESS_ROW_FIELD(STRESS_P2_R6, 115, 2),
+    STRESS_ROW_FIELD(STRESS_P2_R7, 132, 2),
+
+    JWPLC_UITextField(
+        STRESS_P3_TITLE, JWPLC_UIRect(6, 4), JWPLC_UIText(nullptr, nullptr, 28),
+        JWPLC_UITextFieldStyle(2, 1, false, JWPLC_UI_LAYOUT_INLINE, JWPLC_UI_ALIGN_LEFT),
+        3, JWPLC_UIColors(ST77XX_CYAN, ST77XX_CYAN, ST77XX_BLACK, ST77XX_CYAN)),
+    STRESS_ROW_FIELD(STRESS_P3_R1, 30, 3), STRESS_ROW_FIELD(STRESS_P3_R2, 47, 3),
+    STRESS_ROW_FIELD(STRESS_P3_R3, 64, 3), STRESS_ROW_FIELD(STRESS_P3_R4, 81, 3),
+    STRESS_ROW_FIELD(STRESS_P3_R5, 98, 3), STRESS_ROW_FIELD(STRESS_P3_R6, 115, 3),
+    STRESS_ROW_FIELD(STRESS_P3_R7, 132, 3)};
+
+#undef STRESS_ROW_FIELD
+
+void syncStressUi()
+{
+  char line[40] = {};
+  char intervalText[16] = {};
+  char runtime[20] = {};
+
+  formatInterval(intervalText, sizeof(intervalText));
+  formatDuration(millis() - bootMs, runtime, sizeof(runtime));
+
+  JWPLC_Display.setText(STRESS_P0_TITLE, "ETH STRESS TEST 1/4");
+  snprintf(line, sizeof(line), "%s Int=%s Host=%s",
+           busy ? "TEST" : (running ? "RUN" : "PAUSA"), intervalText, STRESS_HOST);
+  JWPLC_Display.setText(STRESS_P0_R1, line);
+  snprintf(line, sizeof(line), "HW=%s LINK=%s IP=%s", hardwareText, linkText, ipText);
+  JWPLC_Display.setText(STRESS_P0_R2, line);
+  snprintf(line, sizeof(line), "T%lu OK%lu ERR%lu R%lu",
+           (unsigned long)stats.tests, (unsigned long)stats.ok,
+           (unsigned long)stats.failed, (unsigned long)stats.failStreak);
+  JWPLC_Display.setText(STRESS_P0_R3, line);
+  snprintf(line, sizeof(line), "Ult: %.34s", currentResult);
+  JWPLC_Display.setText(STRESS_P0_R4, line);
+  snprintf(line, sizeof(line), "Origen: %.31s", likelySource);
+  JWPLC_Display.setText(STRESS_P0_R5, line);
+  snprintf(line, sizeof(line), "DNS %lums TCP %lums 1B %lums T %lums",
+           (unsigned long)lastDnsMs, (unsigned long)lastTcpMs,
+           (unsigned long)lastFirstByteMs, (unsigned long)lastHttpMs);
+  JWPLC_Display.setText(STRESS_P0_R6, line);
+  snprintf(line, sizeof(line), "Up %s UltOK %lus ERR=%s", runtime,
+           lastSuccessMs == 0 ? 0UL : (unsigned long)((millis() - lastSuccessMs) / 1000UL),
+           errLedState ? "LAT" : "NO");
+  JWPLC_Display.setText(STRESS_P0_R7, line);
+
+  JWPLC_Display.setText(STRESS_P1_TITLE, "DIAGNOSTICO CAPAS 2/4");
+  snprintf(line, sizeof(line), "DNS %s raw=%d %s %lums",
+           lastDnsUsedCache ? "CACHE" : "LIVE", lastDnsResult,
+           dnsResultName(lastDnsResult), (unsigned long)lastDnsMs);
+  JWPLC_Display.setText(STRESS_P1_R1, line);
+  snprintf(line, sizeof(line), "DNS %s -> %s", dnsServerText, resolvedIpText);
+  JWPLC_Display.setText(STRESS_P1_R2, line);
+  snprintf(line, sizeof(line), "TCP %s %lums port %u",
+           lastTcpOk ? "OK" : "FAIL/NO", (unsigned long)lastTcpMs, STRESS_PORT);
+  JWPLC_Display.setText(STRESS_P1_R3, line);
+  snprintf(line, sizeof(line), "HTTP %s code=%u RX=%luB",
+           lastHttpOk ? "OK" : "FAIL/NO", stats.lastCode,
+           (unsigned long)stats.lastBytes);
+  JWPLC_Display.setText(STRESS_P1_R4, line);
+  snprintf(line, sizeof(line), "1B=%lums total=%lums DNS/%u",
+           (unsigned long)lastFirstByteMs, (unsigned long)lastHttpMs,
+           DNS_REFRESH_EVERY_TESTS);
+  JWPLC_Display.setText(STRESS_P1_R5, line);
+  snprintf(line, sizeof(line), "Cache: %.31s", cachedProbeText);
+  JWPLC_Display.setText(STRESS_P1_R6, line);
+  snprintf(line, sizeof(line), "LAN: %.33s", localProbeText);
+  JWPLC_Display.setText(STRESS_P1_R7, line);
+
+  JWPLC_Display.setText(STRESS_P2_TITLE, "CONTADORES FALLA 3/4");
+  snprintf(line, sizeof(line), "SPI%lu HW%lu LINK%lu DHCP%lu NR%lu",
+           (unsigned long)stats.spi, (unsigned long)stats.noHardware,
+           (unsigned long)stats.link, (unsigned long)stats.dhcpIp,
+           (unsigned long)stats.notReady);
+  JWPLC_Display.setText(STRESS_P2_R1, line);
+  snprintf(line, sizeof(line), "DNS T%lu S%lu R%lu O%lu",
+           (unsigned long)stats.dnsTimeout, (unsigned long)stats.dnsServer,
+           (unsigned long)stats.dnsResponse, (unsigned long)stats.dnsOther);
+  JWPLC_Display.setText(STRESS_P2_R2, line);
+  snprintf(line, sizeof(line), "TCP%lu NORX%lu TMO%lu BAD%lu",
+           (unsigned long)stats.tcpConnect, (unsigned long)stats.noResponse,
+           (unsigned long)stats.timeout, (unsigned long)stats.badStatus);
+  JWPLC_Display.setText(STRESS_P2_R3, line);
+  snprintf(line, sizeof(line), "CODE%lu DATA%lu CACHE %lu/%lu",
+           (unsigned long)stats.httpCode, (unsigned long)stats.content,
+           (unsigned long)stats.cachedProbeOk, (unsigned long)stats.cachedProbeFail);
+  JWPLC_Display.setText(STRESS_P2_R4, line);
+  snprintf(line, sizeof(line), "LAN %lu/%lu RX=%luKiB",
+           (unsigned long)stats.localProbeOk, (unsigned long)stats.localProbeFail,
+           (unsigned long)(stats.totalBytes / 1024ULL));
+  JWPLC_Display.setText(STRESS_P2_R5, line);
+  snprintf(line, sizeof(line), "Link %lu/%lu HW %lu/%lu",
+           (unsigned long)stats.linkDrop, (unsigned long)stats.linkRecovery,
+           (unsigned long)stats.hardwareLoss, (unsigned long)stats.hardwareRecovery);
+  JWPLC_Display.setText(STRESS_P2_R6, line);
+  uint32_t average = stats.ok > 0
+                         ? (uint32_t)(stats.successfulLatencyTotal / stats.ok)
+                         : 0;
+  snprintf(line, sizeof(line), "Lat %lu/%lu/%lums Rmax%lu",
+           (unsigned long)stats.minLatency, (unsigned long)average,
+           (unsigned long)stats.maxLatency, (unsigned long)stats.maxFailStreak);
+  JWPLC_Display.setText(STRESS_P2_R7, line);
+
+  JWPLC_Display.setText(STRESS_P3_TITLE, "ULTIMO ERROR 4/4");
+  snprintf(line, sizeof(line), "Tipo: %.32s", lastErrorName);
+  JWPLC_Display.setText(STRESS_P3_R1, line);
+  snprintf(line, sizeof(line), "Fecha: %.31s", lastErrorTime);
+  JWPLC_Display.setText(STRESS_P3_R2, line);
+  snprintf(line, sizeof(line), "Origen: %.31s", lastLikelySource);
+  JWPLC_Display.setText(STRESS_P3_R3, line);
+
+  char line1[40] = {};
+  char line2[40] = {};
+  char line3[40] = {};
+  splitText3(lastErrorDetail,
+             line1, sizeof(line1),
+             line2, sizeof(line2),
+             line3, sizeof(line3));
+  JWPLC_Display.setText(STRESS_P3_R4, line1);
+  JWPLC_Display.setText(STRESS_P3_R5, line2);
+  JWPLC_Display.setText(STRESS_P3_R6, line3);
+  JWPLC_Display.setText(
+      STRESS_P3_R7,
+      errLedState ? "Alarma: ACTIVA/LATCHEADA" : "Alarma: RECONOCIDA");
+}
+
+'''
+          s = replace_region(
+              s,
+              '// -----------------------------------------------------------------------------\n// TFT con cache por filas.\n// -----------------------------------------------------------------------------',
+              '// -----------------------------------------------------------------------------\n// Log y ciclo principal.\n// -----------------------------------------------------------------------------',
+              stress_ui,
+              'Stress TFT renderer'
+          )
+
+          setup_old = '''  JWPLC_Display.setIdleWakeMode(IDLE_WAKE_ANY_BUTTON);
+  JWPLC_Display.setIdleReturnMode(IDLE_RETURN_DISABLED);
+  JWPLC_Display.setUserRefreshPeriodMs(100);
+  JWPLC_Display.setRunLed(true);
+  JWPLC_Display.setEthLedAuto(true);
+  JWPLC_Display.setErrLed(false);
+  syncStressUi();
+'''
+          setup_new = '''  JWPLC_Display.setIdleWakeMode(IDLE_WAKE_ANY_BUTTON);
+  JWPLC_Display.setIdleReturnMode(IDLE_RETURN_DISABLED);
+  JWPLC_Display.setUserRefreshMode(USER_REFRESH_ON_DEMAND);
+  JWPLC_Display.setRunLed(true);
+  JWPLC_Display.setEthLedAuto(true);
+  JWPLC_Display.setErrLed(false);
+  JWPLC_Display.setUserPage(0);
+
+  if (!JWPLC_Display.setFields(
+          STRESS_FIELDS,
+          sizeof(STRESS_FIELDS) / sizeof(STRESS_FIELDS[0])))
+  {
+    Serial.println("ERROR: no se pudieron registrar fields de stress");
+  }
+
+  syncStressUi();
+'''
+          s = replace_once(s, setup_old, setup_new, 'Stress setup fields')
+          save(p, s)
+
+          # Header único para evitar colisión con Ethernet/Dns instalados por usuario.
+          dns_header = ROOT / 'JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/JWPLC_Ethernet_DNS.h'
+          dns_header.write_text(
+              '#ifndef JWPLC_ETHERNET_DNS_H\n'
+              '#define JWPLC_ETHERNET_DNS_H\n\n'
+              '// DNSClient del W5x00 integrado en JWPLC_Ethernet.\n'
+              '// Header único para evitar seleccionar accidentalmente otra librería Ethernet.\n'
+              '#include "Dns.h"\n\n'
+              '#endif // JWPLC_ETHERNET_DNS_H\n',
+              encoding='utf-8', newline='\n')
+
+          # ================================================================
+          # Gates estáticos
+          # ================================================================
+          examples = [
+              'JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/Ethernet_SPI_Coexistence/Ethernet_SPI_Coexistence.ino',
+              'JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/Ethernet_HTTP_TFT_Diagnostics/Ethernet_HTTP_TFT_Diagnostics.ino',
+              'JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/Ethernet_Continuous_Stress_TFT/Ethernet_Continuous_Stress_TFT.ino',
+          ]
+          for rel in examples:
+              text = (ROOT / rel).read_text(encoding='utf-8')
+              if 'fillScreen(' in text or 'fillRect(' in text:
+                  raise SystemExit(f'{rel}: todavía dibuja/limpia TFT manualmente')
+              if 'jwplcUIEnter' in text or 'jwplcUIUpdate' in text or 'jwplcUIExit' in text:
+                  raise SystemExit(f'{rel}: todavía usa callbacks gráficos')
+              if 'USER_REFRESH_ON_DEMAND' not in text or '.setFields(' not in text:
+                  raise SystemExit(f'{rel}: no quedó en fields ON_DEMAND')
+
+          for rel in examples[1:]:
+              text = (ROOT / rel).read_text(encoding='utf-8')
+              if '#include <Ethernet.h>' in text:
+                  raise SystemExit(f'{rel}: todavía incluye Ethernet.h genérico')
+
+          print('ALPHA11_ETHERNET_TFT_FIELDS=PASS')
+          PY
+
+          git diff --check
+          git diff --stat
+
+      - name: Commit de migración
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "JW-Control Actions"
+          git config user.email "jw.control.peru@gmail.com"
+          git add \
+            JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/Ethernet_SPI_Coexistence/Ethernet_SPI_Coexistence.ino \
+            JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/Ethernet_HTTP_TFT_Diagnostics/Ethernet_HTTP_TFT_Diagnostics.ino \
+            JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/Ethernet_Continuous_Stress_TFT/Ethernet_Continuous_Stress_TFT.ino \
+            JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/JWPLC_Ethernet_DNS.h
+          git commit -m "refactor(alpha11): usar fields declarativos en TFT Ethernet"
+          git push origin HEAD:v2.1.0-alpha.11/feature/hmi-designer
