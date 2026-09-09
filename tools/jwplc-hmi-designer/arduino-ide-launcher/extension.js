@@ -176,21 +176,48 @@ function methodCompletion(label, insertText, detail, index) {
   return item;
 }
 
-function habitualDisplayMethods() {
+function recommendedDisplayMethods() {
   return [
-    methodCompletion('setIdleWakeMode(...)', 'setIdleWakeMode(${1:IDLE_WAKE_BUTTON_ONLY})', 'JWPLC habitual · cómo entra de IDLE a USER', 1),
-    methodCompletion('setIdleWakeButton(...)', 'setIdleWakeButton(${1:BTN_OK})', 'JWPLC habitual · botón de wake', 2),
-    methodCompletion('setIdleReturnMode(...)', 'setIdleReturnMode(${1:IDLE_RETURN_ESC_ONLY})', 'JWPLC habitual · cómo vuelve a IDLE', 3),
-    methodCompletion('setIdleTimeoutMs(...)', 'setIdleTimeoutMs(${1:15000})', 'JWPLC habitual · timeout de retorno', 4),
-    methodCompletion('setUserRefreshMode(...)', 'setUserRefreshMode(${1:USER_REFRESH_ON_DEMAND})', 'JWPLC habitual · estrategia de refresh USER', 5),
-    methodCompletion('enterUserUI()', 'enterUserUI()', 'JWPLC habitual · entrar a USER', 6),
-    methodCompletion('goIdle()', 'goIdle()', 'JWPLC habitual · regresar a IDLE', 7),
-    methodCompletion('setUserPage(...)', 'setUserPage(${1:0})', 'JWPLC habitual · seleccionar página USER', 8),
-    methodCompletion('setValue(...)', 'setValue(${1:FIELD_ID}, ${2:value})', 'JWPLC habitual · actualizar valor HMI', 9),
-    methodCompletion('setText(...)', 'setText(${1:FIELD_ID}, "${2:texto}")', 'JWPLC habitual · actualizar texto HMI', 10),
-    methodCompletion('setBool(...)', 'setBool(${1:FIELD_ID}, ${2:true})', 'JWPLC habitual · actualizar booleano HMI', 11),
-    methodCompletion('setBar(...)', 'setBar(${1:FIELD_ID}, ${2:0.0f})', 'JWPLC habitual · actualizar barra HMI', 12),
-    methodCompletion('setErrCode(...)', 'setErrCode("${1:A01}")', 'JWPLC habitual · código ERR de aplicación', 13)
+    // Configuración habitual IDLE / USER.
+    methodCompletion('setIdleWakeMode(...)', 'setIdleWakeMode(${1:IDLE_WAKE_BUTTON_ONLY})', 'JWPLC Display · modo de entrada de IDLE a USER', 1),
+    methodCompletion('setIdleWakeButton(...)', 'setIdleWakeButton(${1:BTN_OK})', 'JWPLC Display · botón físico de entrada a USER', 2),
+    methodCompletion('setIdleReturnMode(...)', 'setIdleReturnMode(${1:IDLE_RETURN_ESC_ONLY})', 'JWPLC Display · modo de retorno a IDLE', 3),
+    methodCompletion('setIdleReturnButton(...)', 'setIdleReturnButton(${1:BTN_ESC})', 'JWPLC Display · botón físico de retorno a IDLE', 4),
+    methodCompletion('setIdleTimeoutMs(...)', 'setIdleTimeoutMs(${1:15000})', 'JWPLC Display · tiempo de inactividad antes de volver a IDLE', 5),
+    methodCompletion('setIdleRefreshPeriodMs(...)', 'setIdleRefreshPeriodMs(${1:50})', 'JWPLC Display · periodo de refresco de la pantalla IDLE', 6),
+    methodCompletion('setUserRefreshMode(...)', 'setUserRefreshMode(${1:USER_REFRESH_ON_DEMAND})', 'JWPLC Display · estrategia de refresco de la HMI USER', 7),
+    methodCompletion('setUserRefreshPeriodMs(...)', 'setUserRefreshPeriodMs(${1:50})', 'JWPLC Display · periodo de refresco USER cuando el modo es periódico', 8),
+
+    // Navegación y uso habitual de la HMI.
+    methodCompletion('enterUserUI()', 'enterUserUI()', 'JWPLC Display · entrar manualmente a USER', 9),
+    methodCompletion('goIdle()', 'goIdle()', 'JWPLC Display · volver manualmente a IDLE', 10),
+    methodCompletion('setUserPage(...)', 'setUserPage(${1:0})', 'JWPLC Display · seleccionar página USER', 11),
+    methodCompletion('setValue(...)', 'setValue(${1:FIELD_ID}, ${2:value})', 'JWPLC Display · actualizar valor, texto o booleano de un campo HMI', 12),
+    methodCompletion('setBar(...)', 'setBar(${1:FIELD_ID}, ${2:0.0f})', 'JWPLC Display · actualizar una barra HMI', 13),
+    methodCompletion('setPixelMapVisible(...)', 'setPixelMapVisible(${1:PIXELMAP_INDEX}, ${2:true})', 'JWPLC Display · mostrar u ocultar un PixelMap generado', 14),
+
+    // Estado e indicadores que sí son útiles directamente desde el sketch.
+    methodCompletion('isReady()', 'isReady()', 'JWPLC Display · indica si la TFT está inicializada', 15),
+    methodCompletion('isIdleMode()', 'isIdleMode()', 'JWPLC Display · indica si la pantalla está en IDLE', 16),
+    methodCompletion('setRunLed(...)', 'setRunLed(${1:true})', 'JWPLC Display · indicador RUN de la pantalla IDLE', 17),
+    methodCompletion('setErrCode(...)', 'setErrCode("${1:A01}")', 'JWPLC Display · código ERR de aplicación', 18),
+    methodCompletion('setBusLedAuto(...)', 'setBusLedAuto(${1:true})', 'JWPLC Display · control automático del indicador BUS', 19),
+    methodCompletion('setEthLedAuto(...)', 'setEthLedAuto(${1:true})', 'JWPLC Display · control automático del indicador ETH', 20),
+
+    // Acceso raw canónico. display() existe sólo como alias de compatibilidad
+    // y deliberadamente no se ofrece para evitar dos nombres equivalentes.
+    methodCompletion('tft()', 'tft()', 'JWPLC Display · acceso directo al Adafruit_ST7789', 21)
+  ];
+}
+
+function buttonCompletions(contextLabel) {
+  return [
+    enumCompletion('BTN_LEFT', `JWPLC Display · ${contextLabel}: LEFT`, 1),
+    enumCompletion('BTN_UP', `JWPLC Display · ${contextLabel}: UP`, 2),
+    enumCompletion('BTN_RIGHT', `JWPLC Display · ${contextLabel}: RIGHT`, 3),
+    enumCompletion('BTN_ESC', `JWPLC Display · ${contextLabel}: ESC`, 4),
+    enumCompletion('BTN_OK', `JWPLC Display · ${contextLabel}: OK`, 5),
+    enumCompletion('BTN_DOWN', `JWPLC Display · ${contextLabel}: DOWN`, 6)
   ];
 }
 
@@ -198,7 +225,7 @@ function displayConfigCompletions(document, position) {
   const line = document.lineAt(position.line).text.slice(0, position.character);
 
   if (/JWPLC_Display\s*\.\s*$/.test(line)) {
-    return habitualDisplayMethods();
+    return recommendedDisplayMethods();
   }
 
   if (/JWPLC_Display\s*\.\s*setIdleWakeMode\s*\(\s*$/.test(line)) {
@@ -209,6 +236,10 @@ function displayConfigCompletions(document, position) {
     ];
   }
 
+  if (/JWPLC_Display\s*\.\s*setIdleWakeButton\s*\(\s*$/.test(line)) {
+    return buttonCompletions('botón de wake');
+  }
+
   if (/JWPLC_Display\s*\.\s*setIdleReturnMode\s*\(\s*$/.test(line)) {
     return [
       enumCompletion('IDLE_RETURN_ESC_ONLY', 'JWPLC Display · ESC regresa a IDLE', 1),
@@ -216,6 +247,10 @@ function displayConfigCompletions(document, position) {
       enumCompletion('IDLE_RETURN_BUTTON_ONLY', 'JWPLC Display · botón configurado regresa a IDLE', 3),
       enumCompletion('IDLE_RETURN_DISABLED', 'JWPLC Display · retorno automático deshabilitado', 4)
     ];
+  }
+
+  if (/JWPLC_Display\s*\.\s*setIdleReturnButton\s*\(\s*$/.test(line)) {
+    return buttonCompletions('botón de retorno');
   }
 
   if (/JWPLC_Display\s*\.\s*setUserRefreshMode\s*\(\s*$/.test(line)) {
@@ -239,15 +274,20 @@ function activate(context) {
   item.show();
   context.subscriptions.push(item);
 
-  // Arduino IDE 2 usa el motor de extensiones VS Code/Theia. Este provider no
-  // sustituye IntelliSense de C++; prioriza la API habitual al escribir
-  // JWPLC_Display. y añade las opciones pertinentes justo al abrir los setters.
+  // Arduino IDE 2 usa VS Code/Theia internamente, pero la clasificación del
+  // lenguaje de un .ino puede variar entre versiones. Se cubren los languageId
+  // habituales y además cualquier archivo local .ino.
   const selector = [
     { language: 'cpp', scheme: 'file' },
     { language: 'c', scheme: 'file' },
-    { language: 'arduino', scheme: 'file' }
+    { language: 'arduino', scheme: 'file' },
+    { scheme: 'file', pattern: '**/*.ino' }
   ];
 
+  // Este provider no intenta replicar toda la clase C++. Ofrece únicamente la
+  // API recomendada para sketches y los valores válidos justo dentro de los
+  // setters. Alias, getters de configuración y funciones de registro generadas
+  // por el Designer siguen disponibles en C++, pero no ensucian las sugerencias.
   const completions = vscode.languages.registerCompletionItemProvider(
     selector,
     { provideCompletionItems: displayConfigCompletions },
