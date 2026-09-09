@@ -216,20 +216,34 @@ $arduinoExtensionPath = ''
 if ($installArduinoIDEExtension) {
     Write-Host ''
     Write-Host 'Instalando extensión JWPLC HMI para Arduino IDE 2...' -ForegroundColor Cyan
+
+    # Los errores del subinstalador son terminating errors porque ambos scripts
+    # usan ErrorActionPreference=Stop. No se consulta LASTEXITCODE: una llamada
+    # a otro .ps1 no tiene semántica fiable de exit code nativo.
     $extensionOutput = @(& $arduinoInstaller -DesignerHome $InstallRoot)
-    if ($LASTEXITCODE -ne 0) {
-        throw 'No se pudo instalar la extensión JWPLC HMI para Arduino IDE 2.'
+    $reportedVsix = @(
+        $extensionOutput | Where-Object {
+            $_ -is [string] -and
+            $_ -like '*.vsix' -and
+            (Test-Path -LiteralPath $_ -PathType Leaf)
+        }
+    ) | Select-Object -Last 1
+
+    if ($reportedVsix) {
+        $arduinoExtensionPath = [IO.Path]::GetFullPath([string]$reportedVsix)
+    }
+    else {
+        $pluginsRoot = Join-Path $HOME '.arduinoIDE\plugins'
+        $installedVsix = Get-ChildItem -LiteralPath $pluginsRoot -Filter 'jwplc-hmi-launcher-*.vsix' -File -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+        if ($installedVsix) {
+            $arduinoExtensionPath = $installedVsix.FullName
+        }
     }
 
-    # Install-ArduinoIDE-Launcher imprime información humana y el VSIX queda en
-    # la carpeta estable de plugins del usuario. Guardamos la ruta esperada para
-    # el resumen sin depender del formato de sus mensajes.
-    $pluginsRoot = Join-Path $HOME '.arduinoIDE\plugins'
-    $installedVsix = Get-ChildItem -LiteralPath $pluginsRoot -Filter 'jwplc-hmi-launcher-*.vsix' -File -ErrorAction SilentlyContinue |
-        Sort-Object LastWriteTime -Descending |
-        Select-Object -First 1
-    if ($installedVsix) {
-        $arduinoExtensionPath = $installedVsix.FullName
+    if (-not $arduinoExtensionPath) {
+        throw 'La extensión JWPLC HMI terminó sin reportar un VSIX instalado.'
     }
 }
 
@@ -244,12 +258,7 @@ if (Test-Path -LiteralPath $installIcon -PathType Leaf) {
 Write-Host '  Protocolo: jwplc-hmi://open'
 $created | ForEach-Object { Write-Host "  Acceso: $_" }
 if ($installArduinoIDEExtension) {
-    if ($arduinoExtensionPath) {
-        Write-Host "  Extensión Arduino IDE: $arduinoExtensionPath"
-    }
-    else {
-        Write-Host '  Extensión Arduino IDE: instalada' -ForegroundColor Green
-    }
+    Write-Host "  Extensión Arduino IDE: $arduinoExtensionPath"
     Write-Host '  Reinicia completamente Arduino IDE 2 para cargar la extensión.' -ForegroundColor Yellow
 }
 else {
