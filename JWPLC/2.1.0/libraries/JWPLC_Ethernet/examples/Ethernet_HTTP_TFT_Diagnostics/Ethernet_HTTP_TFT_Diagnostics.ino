@@ -541,6 +541,9 @@ void handleButton(uint8_t id)
   case BTN_OK:
     runHttpTest();
     break;
+  case BTN_ESC:
+    JWPLC_Display.goIdle();
+    break;
   }
 }
 
@@ -687,7 +690,7 @@ void setup()
   Serial.println("Ethernet automatico: no se llama begin() ni maintain().");
 
   JWPLC_Display.setIdleWakeMode(IDLE_WAKE_ANY_BUTTON);
-  JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
+  JWPLC_Display.setIdleReturnMode(IDLE_RETURN_DISABLED);
   JWPLC_Display.setUserRefreshMode(USER_REFRESH_ON_DEMAND);
   JWPLC_Display.setRunLed(true);
   JWPLC_Display.setEthLedAuto(true);
