@@ -1,6 +1,7 @@
 param(
     [switch]$NoStartMenu,
     [switch]$NoDesktop,
+    [switch]$NoArduinoIDEExtension,
     [switch]$InstallArduinoIDELauncher,
     [string]$InstallRoot = (Join-Path $env:LOCALAPPDATA 'JWPLC\HMI Designer')
 )
@@ -17,7 +18,28 @@ $sourceElectronExe = Join-Path $PSScriptRoot 'dist\JWPLC-HMI-Designer-Electron.e
 $sourceIcon = Join-Path $PSScriptRoot 'assets\JWPLC-HMI-Designer.ico'
 $arduinoInstaller = Join-Path $PSScriptRoot 'Install-ArduinoIDE-Launcher.ps1'
 
-foreach ($required in @($sourcePoc, $sourceStart, $sourceServer, $sourceCmd, $sourceBuildExe, $sourceLauncherCs)) {
+# Alpha11: la instalación normal incluye la extensión de Arduino IDE 2.
+# -NoArduinoIDEExtension queda únicamente como opt-out técnico. El switch
+# histórico -InstallArduinoIDELauncher se conserva por compatibilidad y fuerza
+# explícitamente la instalación si algún script antiguo todavía lo utiliza.
+$installArduinoIDEExtension = -not $NoArduinoIDEExtension
+if ($InstallArduinoIDELauncher) {
+    $installArduinoIDEExtension = $true
+}
+
+$requiredFiles = @(
+    $sourcePoc,
+    $sourceStart,
+    $sourceServer,
+    $sourceCmd,
+    $sourceBuildExe,
+    $sourceLauncherCs
+)
+if ($installArduinoIDEExtension) {
+    $requiredFiles += $arduinoInstaller
+}
+
+foreach ($required in $requiredFiles) {
     if (-not (Test-Path -LiteralPath $required)) {
         throw "Falta un archivo requerido del Designer: $required"
     }
@@ -96,6 +118,12 @@ function Stop-InstalledDesigner {
 
 Write-Host 'Instalando JWPLC HMI Designer...' -ForegroundColor Cyan
 Write-Host "  Destino: $InstallRoot"
+if ($installArduinoIDEExtension) {
+    Write-Host '  Arduino IDE 2: extensión JWPLC HMI incluida' -ForegroundColor Cyan
+}
+else {
+    Write-Host '  Arduino IDE 2: extensión omitida por -NoArduinoIDEExtension' -ForegroundColor Yellow
+}
 
 # El ejecutable Electron instalado no puede ser reemplazado mientras sigue abierto.
 # El instalador lo cierra de forma controlada antes de copiar la nueva version.
@@ -144,7 +172,7 @@ if (-not (Test-Path -LiteralPath $installExe -PathType Leaf)) {
 
 [Environment]::SetEnvironmentVariable('JWPLC_HMI_DESIGNER_HOME', $InstallRoot, 'User')
 
-# Protocolo local estable usado por el launcher de Arduino IDE.
+# Protocolo local estable usado por la extensión de Arduino IDE.
 $protocolRoot = 'HKCU:\Software\Classes\jwplc-hmi'
 New-Item -Path $protocolRoot -Force | Out-Null
 Set-Item -Path $protocolRoot -Value 'URL:JWPLC HMI Designer'
@@ -184,11 +212,25 @@ if (-not $NoStartMenu) {
     }
 }
 
-if ($InstallArduinoIDELauncher) {
-    if (-not (Test-Path -LiteralPath $arduinoInstaller -PathType Leaf)) {
-        throw "No se encontró el instalador del launcher Arduino IDE: $arduinoInstaller"
+$arduinoExtensionPath = ''
+if ($installArduinoIDEExtension) {
+    Write-Host ''
+    Write-Host 'Instalando extensión JWPLC HMI para Arduino IDE 2...' -ForegroundColor Cyan
+    $extensionOutput = @(& $arduinoInstaller -DesignerHome $InstallRoot)
+    if ($LASTEXITCODE -ne 0) {
+        throw 'No se pudo instalar la extensión JWPLC HMI para Arduino IDE 2.'
     }
-    & $arduinoInstaller -DesignerHome $InstallRoot
+
+    # Install-ArduinoIDE-Launcher imprime información humana y el VSIX queda en
+    # la carpeta estable de plugins del usuario. Guardamos la ruta esperada para
+    # el resumen sin depender del formato de sus mensajes.
+    $pluginsRoot = Join-Path $HOME '.arduinoIDE\plugins'
+    $installedVsix = Get-ChildItem -LiteralPath $pluginsRoot -Filter 'jwplc-hmi-launcher-*.vsix' -File -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First 1
+    if ($installedVsix) {
+        $arduinoExtensionPath = $installedVsix.FullName
+    }
 }
 
 Write-Host ''
@@ -201,7 +243,16 @@ if (Test-Path -LiteralPath $installIcon -PathType Leaf) {
 }
 Write-Host '  Protocolo: jwplc-hmi://open'
 $created | ForEach-Object { Write-Host "  Acceso: $_" }
-Write-Host 'El usuario ya no depende de la carpeta del repositorio para ejecutar el Designer.'
-if (-not $InstallArduinoIDELauncher) {
-    Write-Host 'Launcher Arduino IDE no instalado (opcional: -InstallArduinoIDELauncher).'
+if ($installArduinoIDEExtension) {
+    if ($arduinoExtensionPath) {
+        Write-Host "  Extensión Arduino IDE: $arduinoExtensionPath"
+    }
+    else {
+        Write-Host '  Extensión Arduino IDE: instalada' -ForegroundColor Green
+    }
+    Write-Host '  Reinicia completamente Arduino IDE 2 para cargar la extensión.' -ForegroundColor Yellow
 }
+else {
+    Write-Host '  Extensión Arduino IDE: no instalada (-NoArduinoIDEExtension).' -ForegroundColor Yellow
+}
+Write-Host 'El usuario ya no depende de la carpeta del repositorio para ejecutar el Designer.'
