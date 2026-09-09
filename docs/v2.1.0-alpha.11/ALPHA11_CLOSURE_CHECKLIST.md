@@ -214,11 +214,15 @@ jwplc-hmi-launcher-0.1.6.vsix
 - [x] arquitectura Designer / `.jwhmi` / `JWPLC_HMI_Generated.h` documentada.
 - [x] launcher standalone / Arduino IDE documentado.
 - [x] limitaciones y decisiones heredadas explícitas.
-- [ ] README raíz actualizado a Alpha11.
-- [ ] README `tools/jwplc-hmi-designer/` actualizado al estado final.
-- [ ] README `JWPLC_Display` actualizado a Alpha11.
-- [ ] `PULL_REQUEST.md` Alpha11 preparado.
-- [ ] `PRE_RELEASE.md` Alpha11 preparado.
+- [x] README raíz actualizado a Alpha11.
+- [x] README `tools/jwplc-hmi-designer/` actualizado al estado final.
+- [x] README `JWPLC_Display` actualizado a Alpha11.
+- [x] `PULL_REQUEST.md` Alpha11 preparado.
+- [x] `PRE_RELEASE.md` Alpha11 preparado.
+
+```text
+ALPHA11_DOCUMENTATION=PASS_PRE_PR
+```
 
 ## 10. Decisiones heredadas que no cambian
 
@@ -246,9 +250,9 @@ OPENPLC_RUNTIME_AUTOLOAD=NO
 - [x] compilación Arduino CLI.
 - [x] compilación Arduino IDE.
 - [x] gate físico final de runtime.
-- [x] documentación en español en curso de cierre.
-- [ ] `PULL_REQUEST.md` preparado.
-- [ ] `PRE_RELEASE.md` preparado.
+- [x] documentación en español cerrada.
+- [x] `PULL_REQUEST.md` preparado.
+- [x] `PRE_RELEASE.md` preparado.
 - [ ] pull local del commit documental final.
 - [ ] `git diff --check` final.
 - [ ] `git status` limpio final.
@@ -308,7 +312,7 @@ ALPHA11_CORE_PRECOMPILED=PASS
 ALPHA11_BUILD_SPEED=PASS_WITH_HOST_VARIATION
 ALPHA11_RUNTIME_REGRESSION_GATE=PASS_PHYSICAL
 ALPHA11_AUTOCOMPLETE=PASS_USER
-ALPHA11_DOCUMENTATION=IN_FINALIZATION
+ALPHA11_DOCUMENTATION=PASS_PRE_PR
 ALPHA11_TECHNICAL_CLOSURE=PASS
 ALPHA11_PUBLICATION=PENDING
 ALPHA11_STATUS=TECHNICALLY_CLOSED
