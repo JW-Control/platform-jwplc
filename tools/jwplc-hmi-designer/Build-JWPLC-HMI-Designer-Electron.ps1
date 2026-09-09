@@ -6,6 +6,8 @@ $ErrorActionPreference = 'Stop'
 
 $root = $PSScriptRoot
 $electronRoot = Join-Path $root 'electron'
+$packageJson = Join-Path $electronRoot 'package.json'
+$packageLock = Join-Path $electronRoot 'package-lock.json'
 $sourceIcon = Join-Path $root 'assets\JWPLC-HMI-Designer.ico'
 $electronBuild = Join-Path $electronRoot 'build'
 $electronIcon = Join-Path $electronBuild 'icon.ico'
@@ -13,8 +15,11 @@ $releaseRoot = Join-Path $electronRoot 'release'
 $distRoot = Join-Path $root 'dist'
 $targetExe = Join-Path $distRoot 'JWPLC-HMI-Designer-Electron.exe'
 
-if (-not (Test-Path -LiteralPath (Join-Path $electronRoot 'package.json') -PathType Leaf)) {
+if (-not (Test-Path -LiteralPath $packageJson -PathType Leaf)) {
     throw "No se encontró electron\package.json."
+}
+if (-not (Test-Path -LiteralPath $packageLock -PathType Leaf)) {
+    throw "No se encontró electron\package-lock.json. Alpha11 requiere el lockfile para un build reproducible."
 }
 if (-not (Test-Path -LiteralPath $sourceIcon -PathType Leaf)) {
     throw "No se encontró el icono del Designer: $sourceIcon"
@@ -34,16 +39,17 @@ Write-Host ' JWPLC HMI Designer - Build Electron Alpha11' -ForegroundColor Cyan
 Write-Host '================================================' -ForegroundColor DarkCyan
 Write-Host ''
 Write-Host "Icono nativo: $sourceIcon"
+Write-Host "Lockfile:     $packageLock"
 Write-Host "Destino:      $targetExe"
 Write-Host ''
 
 Push-Location $electronRoot
 try {
     if (-not $SkipDependencies) {
-        Write-Host 'Instalando/verificando dependencias Electron...' -ForegroundColor Cyan
-        & $npm.Source install --no-audit --no-fund
+        Write-Host 'Instalando dependencias exactas desde package-lock.json...' -ForegroundColor Cyan
+        & $npm.Source ci --no-audit --no-fund
         if ($LASTEXITCODE -ne 0) {
-            throw "npm install falló con código $LASTEXITCODE."
+            throw "npm ci falló con código $LASTEXITCODE."
         }
     }
 
@@ -71,6 +77,7 @@ Write-Host ''
 Write-Host 'Build Electron completado.' -ForegroundColor Green
 Write-Host "  Artifact: $($artifact.FullName)"
 Write-Host "  Instalador usará: $targetExe"
+Write-Host '  Dependencias: package-lock.json + npm ci'
 Write-Host ''
 Write-Host 'Siguiente paso:' -ForegroundColor Yellow
 Write-Host '  .\Install-JWPLC-HMI-Designer.cmd'
