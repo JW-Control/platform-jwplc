@@ -168,8 +168,38 @@ function enumCompletion(label, detail, index) {
   return item;
 }
 
+function methodCompletion(label, insertText, detail, index) {
+  const item = new vscode.CompletionItem(label, vscode.CompletionItemKind.Method);
+  item.insertText = new vscode.SnippetString(insertText);
+  item.detail = detail;
+  item.sortText = `00-${String(index).padStart(2, '0')}`;
+  return item;
+}
+
+function habitualDisplayMethods() {
+  return [
+    methodCompletion('setIdleWakeMode(...)', 'setIdleWakeMode(${1:IDLE_WAKE_BUTTON_ONLY})', 'JWPLC habitual · cómo entra de IDLE a USER', 1),
+    methodCompletion('setIdleWakeButton(...)', 'setIdleWakeButton(${1:BTN_OK})', 'JWPLC habitual · botón de wake', 2),
+    methodCompletion('setIdleReturnMode(...)', 'setIdleReturnMode(${1:IDLE_RETURN_ESC_ONLY})', 'JWPLC habitual · cómo vuelve a IDLE', 3),
+    methodCompletion('setIdleTimeoutMs(...)', 'setIdleTimeoutMs(${1:15000})', 'JWPLC habitual · timeout de retorno', 4),
+    methodCompletion('setUserRefreshMode(...)', 'setUserRefreshMode(${1:USER_REFRESH_ON_DEMAND})', 'JWPLC habitual · estrategia de refresh USER', 5),
+    methodCompletion('enterUserUI()', 'enterUserUI()', 'JWPLC habitual · entrar a USER', 6),
+    methodCompletion('goIdle()', 'goIdle()', 'JWPLC habitual · regresar a IDLE', 7),
+    methodCompletion('setUserPage(...)', 'setUserPage(${1:0})', 'JWPLC habitual · seleccionar página USER', 8),
+    methodCompletion('setValue(...)', 'setValue(${1:FIELD_ID}, ${2:value})', 'JWPLC habitual · actualizar valor HMI', 9),
+    methodCompletion('setText(...)', 'setText(${1:FIELD_ID}, "${2:texto}")', 'JWPLC habitual · actualizar texto HMI', 10),
+    methodCompletion('setBool(...)', 'setBool(${1:FIELD_ID}, ${2:true})', 'JWPLC habitual · actualizar booleano HMI', 11),
+    methodCompletion('setBar(...)', 'setBar(${1:FIELD_ID}, ${2:0.0f})', 'JWPLC habitual · actualizar barra HMI', 12),
+    methodCompletion('setErrCode(...)', 'setErrCode("${1:A01}")', 'JWPLC habitual · código ERR de aplicación', 13)
+  ];
+}
+
 function displayConfigCompletions(document, position) {
   const line = document.lineAt(position.line).text.slice(0, position.character);
+
+  if (/JWPLC_Display\s*\.\s*$/.test(line)) {
+    return habitualDisplayMethods();
+  }
 
   if (/JWPLC_Display\s*\.\s*setIdleWakeMode\s*\(\s*$/.test(line)) {
     return [
@@ -210,8 +240,8 @@ function activate(context) {
   context.subscriptions.push(item);
 
   // Arduino IDE 2 usa el motor de extensiones VS Code/Theia. Este provider no
-  // sustituye IntelliSense de C++; sólo añade las opciones JWPLC pertinentes
-  // justo al escribir el paréntesis de los setters de configuración habituales.
+  // sustituye IntelliSense de C++; prioriza la API habitual al escribir
+  // JWPLC_Display. y añade las opciones pertinentes justo al abrir los setters.
   const selector = [
     { language: 'cpp', scheme: 'file' },
     { language: 'c', scheme: 'file' },
@@ -221,6 +251,7 @@ function activate(context) {
   const completions = vscode.languages.registerCompletionItemProvider(
     selector,
     { provideCompletionItems: displayConfigCompletions },
+    '.',
     '('
   );
   context.subscriptions.push(completions);
