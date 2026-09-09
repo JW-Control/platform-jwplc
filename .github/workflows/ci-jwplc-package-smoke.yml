@@ -15,9 +15,9 @@ permissions:
 
 env:
   ARDUINO_CLI_VERSION: "1.x"
-  # Ultima version publicada usada como bootstrap del toolchain.
-  # El contenido de JWPLC/2.1.0 del PR se superpone despues.
-  JWPLC_PACKAGE_VERSION: "2.1.0-alpha.5"
+  # Última alpha publicada usada únicamente como bootstrap del toolchain.
+  # El árbol completo JWPLC/2.1.0 del PR se superpone después con rsync --delete.
+  JWPLC_BOOTSTRAP_VERSION: "2.1.0-alpha.10"
   JWPLC_FQBN: "jwplc:esp32:jwplcbasic"
   JWPLC_INDEX_URL: "https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json"
 
@@ -42,9 +42,9 @@ jobs:
           path: |
             ~/.arduino15/packages/jwplc
             ~/.arduino15/staging
-          key: jwplc-${{ runner.os }}-${{ env.JWPLC_PACKAGE_VERSION }}-${{ hashFiles('JWPLC/package_jwplc_index_dev.json') }}
+          key: jwplc-${{ runner.os }}-${{ env.JWPLC_BOOTSTRAP_VERSION }}-${{ hashFiles('JWPLC/package_jwplc_index_dev.json') }}
           restore-keys: |
-            jwplc-${{ runner.os }}-${{ env.JWPLC_PACKAGE_VERSION }}-
+            jwplc-${{ runner.os }}-${{ env.JWPLC_BOOTSTRAP_VERSION }}-
             jwplc-${{ runner.os }}-
 
       - name: Configurar Arduino CLI
@@ -59,19 +59,43 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          arduino-cli core install "jwplc:esp32@$JWPLC_PACKAGE_VERSION"
+          echo "JWPLC_BOOTSTRAP_VERSION=$JWPLC_BOOTSTRAP_VERSION"
+          arduino-cli core install "jwplc:esp32@$JWPLC_BOOTSTRAP_VERSION"
           arduino-cli core list
 
-      - name: Superponer plataforma del branch
+      - name: Superponer y verificar plataforma del branch
         shell: bash
         run: |
           set -euo pipefail
-          PLATFORM_DIR="$HOME/.arduino15/packages/jwplc/hardware/esp32/$JWPLC_PACKAGE_VERSION"
+          PLATFORM_DIR="$HOME/.arduino15/packages/jwplc/hardware/esp32/$JWPLC_BOOTSTRAP_VERSION"
+          SOURCE_DIR="$GITHUB_WORKSPACE/JWPLC/2.1.0"
+
           test -d "$PLATFORM_DIR"
-          rsync -a --delete "$GITHUB_WORKSPACE/JWPLC/2.1.0/" "$PLATFORM_DIR/"
+          test -d "$SOURCE_DIR"
+
+          rsync -a --delete "$SOURCE_DIR/" "$PLATFORM_DIR/"
+
           test -f "$PLATFORM_DIR/boards.txt"
           test -f "$PLATFORM_DIR/platform.txt"
-          echo "Plataforma activa: $PLATFORM_DIR"
+          test -f "$PLATFORM_DIR/precompiled/core/JWPLCBASIC/core.a"
+          test -f "$PLATFORM_DIR/libraries/JWPLC_Display/src/esp32/libJWPLC_Display.a"
+
+          # El nombre del directorio conserva la versión bootstrap, pero el
+          # contenido activo debe ser exactamente el árbol del PR.
+          cmp "$SOURCE_DIR/boards.txt" "$PLATFORM_DIR/boards.txt"
+          cmp "$SOURCE_DIR/platform.txt" "$PLATFORM_DIR/platform.txt"
+          cmp "$SOURCE_DIR/precompiled/core/JWPLCBASIC/core.a" \
+              "$PLATFORM_DIR/precompiled/core/JWPLCBASIC/core.a"
+          cmp "$SOURCE_DIR/libraries/JWPLC_Display/src/esp32/libJWPLC_Display.a" \
+              "$PLATFORM_DIR/libraries/JWPLC_Display/src/esp32/libJWPLC_Display.a"
+
+          echo "BOOTSTRAP_VERSION=$JWPLC_BOOTSTRAP_VERSION"
+          echo "BRANCH_SHA=$GITHUB_SHA"
+          echo "ACTIVE_PLATFORM_DIR=$PLATFORM_DIR"
+          echo "BRANCH_OVERLAY_BYTE_PARITY=PASS"
+          sha256sum "$PLATFORM_DIR/precompiled/core/JWPLCBASIC/core.a"
+          sha256sum "$PLATFORM_DIR/libraries/JWPLC_Display/src/esp32/libJWPLC_Display.a"
+
           arduino-cli board listall "$JWPLC_FQBN"
 
       - name: Compilar smoke tests del package
