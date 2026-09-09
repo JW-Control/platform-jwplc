@@ -17,10 +17,7 @@
 */
 
 #include <JWPLC_Display.h>
-#include <JWPLC_GlobalPeripherals.h>
-#include <JWPLC_Ethernet.h>
 #include <JWPLC_Ethernet_DNS.h>
-#include "jwplc_spi_bus.h"
 
 #include <stdint.h>
 #include <stdlib.h>

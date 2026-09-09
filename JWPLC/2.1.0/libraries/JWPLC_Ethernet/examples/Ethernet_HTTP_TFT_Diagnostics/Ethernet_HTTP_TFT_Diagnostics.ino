@@ -28,9 +28,6 @@
 */
 
 #include <JWPLC_Display.h>
-#include <JWPLC_GlobalPeripherals.h>
-#include <JWPLC_Ethernet.h>
-#include "jwplc_spi_bus.h"
 
 #include <string.h>
 #include <stdlib.h>

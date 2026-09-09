@@ -12,7 +12,6 @@
   El ejemplo envía un PING cada 2 s para generar actividad TX.
 */
 
-#include <JWPLC_RS485.h>
 
 void setup()
 {

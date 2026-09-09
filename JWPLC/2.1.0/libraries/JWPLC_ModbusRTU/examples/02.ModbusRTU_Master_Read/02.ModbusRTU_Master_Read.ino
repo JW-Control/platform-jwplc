@@ -12,7 +12,6 @@
   - clearMasterResult(): libera el resultado para iniciar la siguiente.
 */
 
-#include <JWPLC_ModbusRTU.h>
 
 static constexpr uint8_t TARGET_SLAVE_ID = 2;
 static uint16_t values[4] = {};

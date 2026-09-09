@@ -9,7 +9,6 @@
   Bytes RTU: C5 CD
 */
 
-#include <JWPLC_ModbusRTU.h>
 
 void printHex16(uint16_t value)
 {

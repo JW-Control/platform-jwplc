@@ -16,7 +16,6 @@
   - RIGHT : fuerza un redibujado.
 */
 
-#include <JWPLC_Display.h>
 
 static bool runState = true;
 static bool testError = false;

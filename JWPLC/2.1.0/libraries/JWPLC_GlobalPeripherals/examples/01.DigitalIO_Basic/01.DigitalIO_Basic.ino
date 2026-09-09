@@ -11,7 +11,6 @@
   I0_0 -> Q0_0, I0_1 -> Q0_1, ... I0_7 -> Q0_7.
 */
 
-#include <JWPLC_GlobalPeripherals.h>
 
 void setup()
 {

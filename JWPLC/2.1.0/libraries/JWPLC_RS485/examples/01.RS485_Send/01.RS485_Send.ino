@@ -13,7 +13,6 @@
   - flush(): espera a que termine la transmisión pendiente.
 */
 
-#include <JWPLC_RS485.h>
 
 void setup()
 {

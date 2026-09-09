@@ -8,7 +8,6 @@
   configuración que utilizará el servicio automático.
 */
 
-#include <JWPLC_Ethernet.h>
 
 static const IPAddress LOCAL_IP(192, 168, 1, 50);
 static const IPAddress DNS_IP(192, 168, 1, 1);

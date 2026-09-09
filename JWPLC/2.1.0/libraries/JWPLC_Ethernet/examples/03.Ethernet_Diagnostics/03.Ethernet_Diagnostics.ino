@@ -13,7 +13,6 @@
   printStatus() agrupa la información principal del driver.
 */
 
-#include <JWPLC_Ethernet.h>
 
 void setup()
 {

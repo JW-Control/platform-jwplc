@@ -17,7 +17,6 @@
 */
 
 #include <JWPLC_Display.h>
-#include <JWPLC_GlobalPeripherals.h>
 
 static uint8_t lastSecondDrawn = 255;
 
