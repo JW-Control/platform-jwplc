@@ -13,11 +13,11 @@
 
   Importante:
   - No incluye JWPLC_Ethernet manualmente.
-  - Incluye JWPLC_Display.h porque usa la TFT directamente.
+  - Usa fields declarativos de JWPLC_Display; no dibuja la TFT directamente.
   - No llama JWPLC_Ethernet.begin().
   - No llama JWPLC_Ethernet.maintain().
   - Ethernet arranca desde el runtime JWPLC.
-  - En callbacks gráficos NO se consultan periféricos SPI.
+  - setText() sólo invalida el field cuando cambia su contenido.
 */
 
 #include <JWPLC_Display.h>
@@ -61,6 +61,50 @@ void ipToText(IPAddress ip, char *out, size_t len) {
   snprintf(out, len, "%u.%u.%u.%u", ip[0], ip[1], ip[2], ip[3]);
 }
 
+enum SpiUiFieldId : uint8_t
+{
+  SPI_FIELD_TITLE = 1,
+  SPI_FIELD_ETH,
+  SPI_FIELD_IP,
+  SPI_FIELD_SD,
+  SPI_FIELD_FRAM,
+  SPI_FIELD_LOGS,
+  SPI_FIELD_INFO
+};
+
+static const JWPLC_UIField SPI_FIELDS[] = {
+    JWPLC_UITextField(
+        SPI_FIELD_TITLE,
+        JWPLC_UIRect(8, 4),
+        JWPLC_UIText(nullptr, nullptr, 24),
+        JWPLC_UITextFieldStyle(2, 1, false, JWPLC_UI_LAYOUT_INLINE, JWPLC_UI_ALIGN_LEFT),
+        0,
+        JWPLC_UIColors(ST77XX_CYAN, ST77XX_CYAN, ST77XX_BLACK, ST77XX_CYAN)),
+    JWPLC_UITextField(SPI_FIELD_ETH, 8, 34, "ETH", 31),
+    JWPLC_UITextField(SPI_FIELD_IP, 8, 54, "IP", 20),
+    JWPLC_UITextField(SPI_FIELD_SD, 8, 74, "SD", 31),
+    JWPLC_UITextField(SPI_FIELD_FRAM, 8, 94, "FRAM", 31),
+    JWPLC_UITextField(SPI_FIELD_LOGS, 8, 114, "Logs", 16),
+    JWPLC_UITextField(SPI_FIELD_INFO, 8, 140, nullptr, 28)};
+
+void syncSpiUi()
+{
+  char framLine[32] = {};
+  char logsLine[16] = {};
+
+  snprintf(framLine, sizeof(framLine), "%s  Boot:%lu",
+ framStatusText, (unsigned long)bootCounter);
+  snprintf(logsLine, sizeof(logsLine), "%lu", (unsigned long)logCounter);
+
+  JWPLC_Display.setText(SPI_FIELD_TITLE, "SPI COEXISTENCIA");
+  JWPLC_Display.setText(SPI_FIELD_ETH, ethStatusText);
+  JWPLC_Display.setText(SPI_FIELD_IP, ethIpText);
+  JWPLC_Display.setText(SPI_FIELD_SD, sdStatusText);
+  JWPLC_Display.setText(SPI_FIELD_FRAM, framLine);
+  JWPLC_Display.setText(SPI_FIELD_LOGS, logsLine);
+  JWPLC_Display.setText(SPI_FIELD_INFO, "IDLE AUTOMATICO EN 8s");
+}
+
 bool ethernetHasFault() {
   if (!JWPLC_Ethernet.isEnabled()) {
     return false;
@@ -98,86 +142,7 @@ void updateCachedStatus() {
 
   copyText(sdStatusText, sizeof(sdStatusText), sdOk ? "OK" : JWPLC_SD.lastErrorString());
   copyText(framStatusText, sizeof(framStatusText), framOk ? "OK" : "NO");
-}
-
-extern "C" void jwplcUIEnter() {
-  auto &tft = JWPLC_Display.tft();
-
-  tft.fillScreen(ST77XX_BLACK);
-  tft.setTextWrap(false);
-
-  tft.setTextSize(2);
-  tft.setTextColor(ST77XX_CYAN, ST77XX_BLACK);
-  tft.setCursor(10, 12);
-  tft.print("SPI TEST");
-
-  tft.setTextSize(1);
-  tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
-
-  tft.setCursor(10, 48);
-  tft.print("ETH:");
-
-  tft.setCursor(10, 68);
-  tft.print("IP:");
-
-  tft.setCursor(10, 88);
-  tft.print("SD:");
-
-  tft.setCursor(10, 108);
-  tft.print("FRAM:");
-
-  tft.setCursor(10, 128);
-  tft.print("Logs:");
-
-  tft.setCursor(10, 154);
-  tft.print("Retorna a IDLE en 8s");
-}
-
-extern "C" void jwplcUIUpdate()
-{
-
-  static unsigned long lastDrawMs = 0;
-  unsigned long now = millis();
-
-  if (now - lastDrawMs < 500) {
-    return;
-  }
-
-  lastDrawMs = now;
-
-  auto &tft = JWPLC_Display.tft();
-
-  tft.fillRect(70, 45, 240, 100, ST77XX_BLACK);
-  tft.setTextWrap(false);
-  tft.setTextSize(1);
-
-  tft.setCursor(70, 48);
-  tft.setTextColor(ethOkCached ? ST77XX_GREEN : ST77XX_RED, ST77XX_BLACK);
-  tft.print(ethStatusText);
-
-  tft.setCursor(70, 68);
-  tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
-  tft.print(ethIpText);
-
-  tft.setCursor(70, 88);
-  tft.setTextColor(sdOk ? ST77XX_GREEN : ST77XX_RED, ST77XX_BLACK);
-  tft.print(sdStatusText);
-
-  tft.setCursor(70, 108);
-  tft.setTextColor(framOk ? ST77XX_GREEN : ST77XX_RED, ST77XX_BLACK);
-  tft.print(framStatusText);
-
-  tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
-  tft.print(" Boot:");
-  tft.print(bootCounter);
-
-  tft.setCursor(70, 128);
-  tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
-  tft.print(logCounter);
-}
-
-extern "C" void jwplcUIExit() {
-  Serial.println("Saliendo de USER hacia IDLE");
+  syncSpiUi();
 }
 
 void loadBootCounterFromFRAM() {
@@ -261,6 +226,17 @@ void setup() {
   Serial.println("JWPLC Ethernet + SD + FRAM + Display SPI coexistence test");
   Serial.println("Runtime auto Ethernet. No begin() called.");
 
+  JWPLC_Display.setIdleWakeButton(BTN_OK);
+  JWPLC_Display.setIdleWakeMode(IDLE_WAKE_BUTTON_ONLY);
+  JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);
+  JWPLC_Display.setIdleTimeoutMs(8000);
+  JWPLC_Display.setUserRefreshMode(USER_REFRESH_ON_DEMAND);
+  JWPLC_Display.clearPendingInput();
+
+  if (!JWPLC_Display.setFields(SPI_FIELDS, sizeof(SPI_FIELDS) / sizeof(SPI_FIELDS[0]))) {
+    Serial.println("ERROR: no se pudieron registrar fields SPI");
+  }
+
   loadBootCounterFromFRAM();
   updateSDStatus();
 
@@ -272,14 +248,7 @@ void loop() {
 
   if (!displayConfigured && JWPLC_Display.isReady()) {
     displayConfigured = true;
-
-    JWPLC_Display.setIdleWakeButton(BTN_OK);
-    JWPLC_Display.setIdleWakeMode(IDLE_WAKE_BUTTON_ONLY);
-    JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);
-    JWPLC_Display.setIdleTimeoutMs(8000);
-    JWPLC_Display.setUserRefreshPeriodMs(250);
-    JWPLC_Display.clearPendingInput();
-
+    syncSpiUi();
     Serial.println("Display ready");
   }
 

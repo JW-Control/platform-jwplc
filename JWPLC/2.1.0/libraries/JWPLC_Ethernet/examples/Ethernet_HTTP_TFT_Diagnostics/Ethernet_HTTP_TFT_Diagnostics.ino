@@ -21,15 +21,15 @@
   Importante:
   - No llama JWPLC_Ethernet.begin() ni maintain().
   - Ethernet arranca y se mantiene desde el runtime JWPLC.
-  - Los callbacks graficos solo dibujan variables cacheadas.
-  - La TFT solo redibuja las filas cuyo contenido cambio.
+  - La TFT usa fields declarativos con dirty redraw automatico.
+  - setText()/setValue() no redibujan cuando el valor no cambia.
   - EthernetClient usa el mutex SPI compartido del JWPLC.
   - El ejemplo escribe su bloque de prueba desde la direccion FRAM 0x0100.
 */
 
 #include <JWPLC_Display.h>
 #include <JWPLC_GlobalPeripherals.h>
-#include <Ethernet.h>
+#include <JWPLC_Ethernet.h>
 #include "jwplc_spi_bus.h"
 
 #include <string.h>
@@ -91,38 +91,9 @@ uint32_t lastEthUpdateMs = 0;
 uint32_t lastRtcUpdateMs = 0;
 uint32_t lastLogMs = 0;
 
-enum UiDirty : uint32_t
-{
-  UI_DIRTY_FRAME = 1UL << 0,
-  UI_DIRTY_ETH = 1UL << 1,
-  UI_DIRTY_RTC = 1UL << 2,
-  UI_DIRTY_FRAM = 1UL << 3,
-  UI_DIRTY_HTTP = 1UL << 4,
-  UI_DIRTY_BUTTONS = 1UL << 5,
-  UI_DIRTY_ERROR = 1UL << 6,
-  UI_DIRTY_ALL = 0x7FUL
-};
+void syncDiagnosticUi();
 
-portMUX_TYPE uiDirtyMux = portMUX_INITIALIZER_UNLOCKED;
-volatile uint32_t uiDirty = UI_DIRTY_ALL;
-
-void markUiDirty(uint32_t mask)
-{
-  portENTER_CRITICAL(&uiDirtyMux);
-  uiDirty |= mask;
-  portEXIT_CRITICAL(&uiDirtyMux);
-}
-
-uint32_t takeUiDirty()
-{
-  portENTER_CRITICAL(&uiDirtyMux);
-  uint32_t dirty = uiDirty;
-  uiDirty = 0;
-  portEXIT_CRITICAL(&uiDirtyMux);
-  return dirty;
-}
-
-void copyText(char *dst, size_t size, const char *src)
+void copyText(char *dst, size_t size, const char *src)void copyText(char *dst, size_t size, const char *src)
 {
   if (!dst || size == 0)
     return;
@@ -189,7 +160,7 @@ bool saveData()
   {
     framOk = false;
     copyText(framSaveText, sizeof(framSaveText), "ERROR DE RANGO");
-    markUiDirty(UI_DIRTY_FRAM | UI_DIRTY_ERROR);
+    syncDiagnosticUi();
     return false;
   }
 
@@ -197,7 +168,7 @@ bool saveData()
   {
     framOk = false;
     copyText(framSaveText, sizeof(framSaveText), "ERROR ESCRITURA");
-    markUiDirty(UI_DIRTY_FRAM | UI_DIRTY_ERROR);
+    syncDiagnosticUi();
     return false;
   }
 
@@ -207,14 +178,14 @@ bool saveData()
   {
     framOk = false;
     copyText(framSaveText, sizeof(framSaveText), "ERROR VERIFICACION");
-    markUiDirty(UI_DIRTY_FRAM | UI_DIRTY_ERROR);
+    syncDiagnosticUi();
     return false;
   }
 
   data = check;
   framOk = true;
   copyText(framSaveText, sizeof(framSaveText), "GUARDADO OK");
-  markUiDirty(UI_DIRTY_FRAM | UI_DIRTY_ERROR);
+  syncDiagnosticUi();
   return true;
 }
 
@@ -224,7 +195,7 @@ void loadData()
   if (!framOk)
   {
     copyText(framSaveText, sizeof(framSaveText), "NO DISPONIBLE");
-    markUiDirty(UI_DIRTY_FRAM | UI_DIRTY_ERROR);
+    syncDiagnosticUi();
     Serial.println("FRAM: no disponible");
     return;
   }
@@ -282,7 +253,7 @@ void updateRTC()
       oldValid != rtcTimeValid ||
       textChanged(oldText, rtcText))
   {
-    markUiDirty(UI_DIRTY_RTC | UI_DIRTY_ERROR);
+    syncDiagnosticUi();
   }
 }
 
@@ -304,7 +275,7 @@ void updateEthernet()
     ethOk = newOk;
     copyText(ethStatus, sizeof(ethStatus), newStatus);
     copyText(ethIp, sizeof(ethIp), newIp);
-    markUiDirty(UI_DIRTY_ETH);
+    syncDiagnosticUi();
   }
 }
 
@@ -332,7 +303,7 @@ void buildErrorReason(bool httpFault)
   if (textChanged(newReason, errReason))
   {
     copyText(errReason, sizeof(errReason), newReason);
-    markUiDirty(UI_DIRTY_ERROR);
+    syncDiagnosticUi();
   }
 }
 
@@ -347,7 +318,7 @@ void updateIndicators()
     errLedInitialized = true;
     errLedState = newErrState;
     JWPLC_Display.setErrLed(errLedState);
-    markUiDirty(UI_DIRTY_ERROR);
+    syncDiagnosticUi();
   }
 }
 
@@ -413,7 +384,7 @@ void runHttpTest()
     copyText(httpLine, sizeof(httpLine), "-");
     copyText(httpTitle, sizeof(httpTitle), "-");
     page = 0;
-    markUiDirty(UI_DIRTY_FRAME | UI_DIRTY_HTTP | UI_DIRTY_ERROR);
+    syncDiagnosticUi();
     updateIndicators();
     Serial.println("HTTP: Ethernet no esta listo");
     return;
@@ -429,7 +400,7 @@ void runHttpTest()
   copyText(httpLine, sizeof(httpLine), "-");
   copyText(httpTitle, sizeof(httpTitle), "-");
   page = 0;
-  markUiDirty(UI_DIRTY_FRAME | UI_DIRTY_HTTP | UI_DIRTY_FRAM | UI_DIRTY_ERROR);
+  syncDiagnosticUi();
   updateIndicators();
 
   Serial.println();
@@ -504,7 +475,7 @@ void runHttpTest()
 
   storeHttpResult();
   httpBusy = false;
-  markUiDirty(UI_DIRTY_HTTP | UI_DIRTY_FRAM | UI_DIRTY_ERROR);
+  syncDiagnosticUi();
   updateIndicators();
 
   Serial.println("=== Resultado HTTP ===");
@@ -542,7 +513,7 @@ void handleButton(uint8_t id)
 {
   buttonCount[id]++;
   copyText(lastButton, sizeof(lastButton), buttonName(id));
-  markUiDirty(UI_DIRTY_BUTTONS);
+  syncDiagnosticUi();
 
   Serial.print("Button: ");
   Serial.print(lastButton);
@@ -553,11 +524,13 @@ void handleButton(uint8_t id)
   {
   case BTN_LEFT:
     page = page == 0 ? PAGE_COUNT - 1 : page - 1;
-    markUiDirty(UI_DIRTY_FRAME | UI_DIRTY_ALL);
+    JWPLC_Display.setUserPage(page);
+    syncDiagnosticUi();
     break;
   case BTN_RIGHT:
     page = (uint8_t)((page + 1) % PAGE_COUNT);
-    markUiDirty(UI_DIRTY_FRAME | UI_DIRTY_ALL);
+    JWPLC_Display.setUserPage(page);
+    syncDiagnosticUi();
     break;
   case BTN_UP:
     changeFramValue(1);
@@ -584,286 +557,102 @@ void readButtons()
   }
 }
 
-uint16_t statusColor(bool ok)
+enum DiagnosticFieldId : uint8_t
 {
-  return ok ? ST77XX_GREEN : ST77XX_RED;
-}
+  DIAG_P0_TITLE = 1,
+  DIAG_P0_USB,
+  DIAG_P0_ETH,
+  DIAG_P0_IP,
+  DIAG_P0_RTC,
+  DIAG_P0_FRAM,
+  DIAG_P0_HTTP,
+  DIAG_P0_RESPONSE,
+  DIAG_P0_STATS,
+  DIAG_P0_ERROR,
 
-uint16_t rtcStatusColor()
+  DIAG_P1_TITLE,
+  DIAG_P1_BUTTONS_A,
+  DIAG_P1_BUTTONS_B,
+  DIAG_P1_LAST,
+  DIAG_P1_FRAM,
+  DIAG_P1_SAVE,
+  DIAG_P1_ERROR,
+  DIAG_P1_HELP
+};
+
+static const JWPLC_UIField DIAGNOSTIC_FIELDS[] = {
+    JWPLC_UITextField(
+        DIAG_P0_TITLE, JWPLC_UIRect(6, 4), JWPLC_UIText(nullptr, nullptr, 28),
+        JWPLC_UITextFieldStyle(2, 1, false, JWPLC_UI_LAYOUT_INLINE, JWPLC_UI_ALIGN_LEFT),
+        0, JWPLC_UIColors(ST77XX_CYAN, ST77XX_CYAN, ST77XX_BLACK, ST77XX_CYAN)),
+    JWPLC_UITextField(DIAG_P0_USB, 6, 28, "USB", 24, 0),
+    JWPLC_UITextField(DIAG_P0_ETH, 6, 44, "ETH", 31, 0),
+    JWPLC_UITextField(DIAG_P0_IP, 6, 60, "IP", 20, 0),
+    JWPLC_UITextField(DIAG_P0_RTC, 6, 76, "RTC", 24, 0),
+    JWPLC_UITextField(DIAG_P0_FRAM, 6, 92, "FRAM", 31, 0),
+    JWPLC_UITextField(DIAG_P0_HTTP, 6, 108, "HTTP", 28, 0),
+    JWPLC_UITextField(DIAG_P0_RESPONSE, 6, 124, "Resp", 31, 0),
+    JWPLC_UITextField(DIAG_P0_STATS, 6, 140, "GET", 31, 0),
+    JWPLC_UITextField(DIAG_P0_ERROR, 6, 156, "ERR", 31, 0),
+
+    JWPLC_UITextField(
+        DIAG_P1_TITLE, JWPLC_UIRect(6, 4), JWPLC_UIText(nullptr, nullptr, 28),
+        JWPLC_UITextFieldStyle(2, 1, false, JWPLC_UI_LAYOUT_INLINE, JWPLC_UI_ALIGN_LEFT),
+        1, JWPLC_UIColors(ST77XX_CYAN, ST77XX_CYAN, ST77XX_BLACK, ST77XX_CYAN)),
+    JWPLC_UITextField(DIAG_P1_BUTTONS_A, 6, 34, nullptr, 39, 1),
+    JWPLC_UITextField(DIAG_P1_BUTTONS_B, 6, 52, nullptr, 39, 1),
+    JWPLC_UITextField(DIAG_P1_LAST, 6, 70, "Ultimo", 16, 1),
+    JWPLC_UITextField(DIAG_P1_FRAM, 6, 90, "FRAM", 31, 1),
+    JWPLC_UITextField(DIAG_P1_SAVE, 6, 110, "Save", 31, 1),
+    JWPLC_UITextField(DIAG_P1_ERROR, 6, 130, "ERR", 31, 1),
+    JWPLC_UITextField(DIAG_P1_HELP, 6, 150, nullptr, 34, 1)};
+
+void syncDiagnosticUi()
 {
-  if (!rtcPresent)
-    return ST77XX_RED;
-  return rtcTimeValid ? ST77XX_GREEN : ST77XX_YELLOW;
-}
+  char line[40] = {};
 
-void clearRow(Adafruit_ST7789 &tft, int16_t y, int16_t height = 13)
-{
-  tft.fillRect(0, y - 2, 320, height, ST77XX_BLACK);
-}
+  JWPLC_Display.setText(DIAG_P0_TITLE, "DIAGNOSTICO HTTP 1/2");
+  JWPLC_Display.setText(DIAG_P0_USB, "Serial 115200 activo");
+  JWPLC_Display.setText(DIAG_P0_ETH, ethStatus);
+  JWPLC_Display.setText(DIAG_P0_IP, ethIp);
+  JWPLC_Display.setText(DIAG_P0_RTC, rtcText);
 
-void drawFrame(Adafruit_ST7789 &tft)
-{
-  tft.fillScreen(ST77XX_BLACK);
-  tft.setTextWrap(false);
-  tft.setTextSize(2);
-  tft.setTextColor(ST77XX_CYAN, ST77XX_BLACK);
-  tft.setCursor(8, 7);
-  tft.print(page == 0 ? "DIAGNOSTICO HTTP" : "BOTONERA Y FRAM");
+  snprintf(line, sizeof(line), "Boot %lu Val %ld %s",
+ (unsigned long)data.bootCount,
+ (long)data.framValue,
+ framSaveText);
+  JWPLC_Display.setText(DIAG_P0_FRAM, line);
+  JWPLC_Display.setText(DIAG_P0_HTTP, httpState);
+  JWPLC_Display.setText(DIAG_P0_RESPONSE, httpTitle);
 
-  tft.setTextSize(1);
-  tft.setTextColor(ST77XX_YELLOW, ST77XX_BLACK);
-  tft.setCursor(286, 10);
-  tft.print(page + 1);
-  tft.print("/");
-  tft.print(PAGE_COUNT);
-  tft.drawFastHLine(0, 29, 320, ST77XX_BLUE);
-  tft.drawFastHLine(0, 148, 320, ST77XX_BLUE);
-  tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
-  tft.setCursor(5, 157);
-  tft.print("OK=GET  </>=PAG  UP/DN=GUARDA  ESC=IDLE");
-}
+  snprintf(line, sizeof(line), "%lu/%lu  %luB",
+ (unsigned long)data.successCount,
+ (unsigned long)data.requestCount,
+ (unsigned long)httpBytes);
+  JWPLC_Display.setText(DIAG_P0_STATS, line);
+  JWPLC_Display.setText(DIAG_P0_ERROR, errReason);
 
-void drawUsbRow(Adafruit_ST7789 &tft)
-{
-  clearRow(tft, 36);
-  tft.setTextSize(1);
-  tft.setCursor(6, 36);
-  tft.setTextColor(ST77XX_GREEN, ST77XX_BLACK);
-  tft.print("USB:");
-  tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
-  tft.print(" Serial 115200 activo");
-}
+  JWPLC_Display.setText(DIAG_P1_TITLE, "BOTONERA Y FRAM 2/2");
+  snprintf(line, sizeof(line), "LEFT %lu  UP %lu  RIGHT %lu",
+ (unsigned long)buttonCount[BTN_LEFT],
+ (unsigned long)buttonCount[BTN_UP],
+ (unsigned long)buttonCount[BTN_RIGHT]);
+  JWPLC_Display.setText(DIAG_P1_BUTTONS_A, line);
 
-void drawEthernetRow(Adafruit_ST7789 &tft)
-{
-  clearRow(tft, 52);
-  tft.setTextSize(1);
-  tft.setCursor(6, 52);
-  tft.setTextColor(statusColor(ethOk), ST77XX_BLACK);
-  tft.print("ETH:");
-  tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
-  tft.print(" ");
-  tft.print(ethStatus);
-  tft.print("  ");
-  tft.print(ethIp);
-}
+  snprintf(line, sizeof(line), "ESC %lu  OK %lu  DOWN %lu",
+ (unsigned long)buttonCount[BTN_ESC],
+ (unsigned long)buttonCount[BTN_OK],
+ (unsigned long)buttonCount[BTN_DOWN]);
+  JWPLC_Display.setText(DIAG_P1_BUTTONS_B, line);
+  JWPLC_Display.setText(DIAG_P1_LAST, lastButton);
 
-void drawRtcRow(Adafruit_ST7789 &tft)
-{
-  clearRow(tft, 68);
-  tft.setTextSize(1);
-  tft.setCursor(6, 68);
-  tft.setTextColor(rtcStatusColor(), ST77XX_BLACK);
-  tft.print("RTC:");
-  tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
-  tft.print(" ");
-  tft.print(rtcText);
-}
-
-void drawFramHttpRow(Adafruit_ST7789 &tft)
-{
-  clearRow(tft, 84);
-  tft.setTextSize(1);
-  tft.setCursor(6, 84);
-  tft.setTextColor(statusColor(framOk), ST77XX_BLACK);
-  tft.print("FRAM:");
-  tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
-  tft.print(" Boot ");
-  tft.print(data.bootCount);
-  tft.print("  Valor ");
-  tft.print(data.framValue);
-  tft.print("  ");
-  tft.print(framSaveText);
-}
-
-void drawHttpStateRow(Adafruit_ST7789 &tft)
-{
-  clearRow(tft, 100);
-  tft.setTextSize(1);
-  tft.setCursor(6, 100);
-  uint16_t color = ST77XX_WHITE;
-  if (httpBusy)
-    color = ST77XX_YELLOW;
-  else if (httpAttempted)
-    color = statusColor(httpOk);
-  tft.setTextColor(color, ST77XX_BLACK);
-  tft.print("HTTP:");
-  tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
-  tft.print(" ");
-  tft.print(httpState);
-}
-
-void drawHttpTitleRow(Adafruit_ST7789 &tft)
-{
-  clearRow(tft, 116);
-  tft.setTextSize(1);
-  tft.setCursor(6, 116);
-  tft.setTextColor(ST77XX_YELLOW, ST77XX_BLACK);
-  tft.print("Titulo:");
-  tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
-  tft.print(" ");
-  tft.print(httpTitle);
-}
-
-void drawHttpStatsRow(Adafruit_ST7789 &tft)
-{
-  clearRow(tft, 132);
-  tft.setTextSize(1);
-  tft.setCursor(6, 132);
-  tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
-  tft.print("GET ");
-  tft.print(data.successCount);
-  tft.print("/");
-  tft.print(data.requestCount);
-  tft.print("  Bytes ");
-  tft.print(httpBytes);
-  tft.print("  ERR: ");
-  tft.setTextColor(errLedState ? ST77XX_RED : ST77XX_GREEN, ST77XX_BLACK);
-  tft.print(errReason);
-}
-
-void drawButtonCounts(Adafruit_ST7789 &tft)
-{
-  clearRow(tft, 38, 16);
-  clearRow(tft, 60, 16);
-  tft.setTextSize(1);
-  tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
-  tft.setCursor(8, 38);
-  tft.print("LEFT ");
-  tft.print(buttonCount[BTN_LEFT]);
-  tft.setCursor(112, 38);
-  tft.print("UP ");
-  tft.print(buttonCount[BTN_UP]);
-  tft.setCursor(210, 38);
-  tft.print("RIGHT ");
-  tft.print(buttonCount[BTN_RIGHT]);
-  tft.setCursor(8, 60);
-  tft.print("ESC ");
-  tft.print(buttonCount[BTN_ESC]);
-  tft.setCursor(112, 60);
-  tft.print("OK ");
-  tft.print(buttonCount[BTN_OK]);
-  tft.setCursor(210, 60);
-  tft.print("DOWN ");
-  tft.print(buttonCount[BTN_DOWN]);
-}
-
-void drawLastButtonRow(Adafruit_ST7789 &tft)
-{
-  clearRow(tft, 84);
-  tft.setTextSize(1);
-  tft.setCursor(8, 84);
-  tft.setTextColor(ST77XX_YELLOW, ST77XX_BLACK);
-  tft.print("Ultimo boton:");
-  tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
-  tft.print(" ");
-  tft.print(lastButton);
-}
-
-void drawFramValueRow(Adafruit_ST7789 &tft)
-{
-  clearRow(tft, 102);
-  tft.setTextSize(1);
-  tft.setCursor(8, 102);
-  tft.setTextColor(statusColor(framOk), ST77XX_BLACK);
-  tft.print("Valor FRAM:");
-  tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
-  tft.print(" ");
-  tft.print(data.framValue);
-  tft.print("  UP/DOWN cambia y guarda");
-}
-
-void drawFramSaveRow(Adafruit_ST7789 &tft)
-{
-  clearRow(tft, 120);
-  tft.setTextSize(1);
-  tft.setCursor(8, 120);
-  tft.setTextColor(statusColor(framOk), ST77XX_BLACK);
-  tft.print("Persistencia:");
-  tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
-  tft.print(" ");
-  tft.print(framSaveText);
-  tft.print("  Boot ");
-  tft.print(data.bootCount);
-}
-
-void drawErrorRow(Adafruit_ST7789 &tft)
-{
-  clearRow(tft, 138, 11);
-  tft.setTextSize(1);
-  tft.setCursor(8, 138);
-  tft.setTextColor(errLedState ? ST77XX_RED : ST77XX_GREEN, ST77XX_BLACK);
-  tft.print("ERR:");
-  tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
-  tft.print(" ");
-  tft.print(errReason);
-}
-
-void drawPage0(Adafruit_ST7789 &tft, uint32_t dirty)
-{
-  if (dirty & UI_DIRTY_FRAME)
-    drawUsbRow(tft);
-  if (dirty & (UI_DIRTY_FRAME | UI_DIRTY_ETH))
-    drawEthernetRow(tft);
-  if (dirty & (UI_DIRTY_FRAME | UI_DIRTY_RTC))
-    drawRtcRow(tft);
-  if (dirty & (UI_DIRTY_FRAME | UI_DIRTY_FRAM))
-    drawFramHttpRow(tft);
-  if (dirty & (UI_DIRTY_FRAME | UI_DIRTY_HTTP))
-  {
-    drawHttpStateRow(tft);
-    drawHttpTitleRow(tft);
-  }
-  if (dirty & (UI_DIRTY_FRAME | UI_DIRTY_HTTP | UI_DIRTY_FRAM | UI_DIRTY_ERROR))
-    drawHttpStatsRow(tft);
-}
-
-void drawPage1(Adafruit_ST7789 &tft, uint32_t dirty)
-{
-  if (dirty & (UI_DIRTY_FRAME | UI_DIRTY_BUTTONS))
-  {
-    drawButtonCounts(tft);
-    drawLastButtonRow(tft);
-  }
-  if (dirty & (UI_DIRTY_FRAME | UI_DIRTY_FRAM))
-  {
-    drawFramValueRow(tft);
-    drawFramSaveRow(tft);
-  }
-  if (dirty & (UI_DIRTY_FRAME | UI_DIRTY_ERROR))
-    drawErrorRow(tft);
-}
-
-extern "C" void jwplcUIEnter()
-{
-  auto &tft = JWPLC_Display.tft();
-  markUiDirty(UI_DIRTY_ALL);
-  uint32_t dirty = takeUiDirty();
-  drawFrame(tft);
-  if (page == 0)
-    drawPage0(tft, dirty | UI_DIRTY_FRAME);
-  else
-    drawPage1(tft, dirty | UI_DIRTY_FRAME);
-}
-
-extern "C" void jwplcUIUpdate()
-{
-  uint32_t dirty = takeUiDirty();
-  if (dirty == 0)
-    return;
-
-  auto &tft = JWPLC_Display.tft();
-  if (dirty & UI_DIRTY_FRAME)
-    drawFrame(tft);
-  if (page == 0)
-    drawPage0(tft, dirty);
-  else
-    drawPage1(tft, dirty);
-}
-
-extern "C" void jwplcUIExit()
-{
-  Serial.println("Display: USER -> IDLE");
+  snprintf(line, sizeof(line), "Valor %ld  Boot %lu",
+ (long)data.framValue,
+ (unsigned long)data.bootCount);
+  JWPLC_Display.setText(DIAG_P1_FRAM, line);
+  JWPLC_Display.setText(DIAG_P1_SAVE, framSaveText);
+  JWPLC_Display.setText(DIAG_P1_ERROR, errReason);
+  JWPLC_Display.setText(DIAG_P1_HELP, "UP/DOWN cambia y guarda");
 }
 
 void printStatus()
@@ -899,15 +688,24 @@ void setup()
 
   JWPLC_Display.setIdleWakeMode(IDLE_WAKE_ANY_BUTTON);
   JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
-  JWPLC_Display.setUserRefreshPeriodMs(100);
+  JWPLC_Display.setUserRefreshMode(USER_REFRESH_ON_DEMAND);
   JWPLC_Display.setRunLed(true);
   JWPLC_Display.setEthLedAuto(true);
+  JWPLC_Display.setUserPage(0);
 
+  if (!JWPLC_Display.setFields(
+DIAGNOSTIC_FIELDS,
+sizeof(DIAGNOSTIC_FIELDS) / sizeof(DIAGNOSTIC_FIELDS[0])))
+  {
+    Serial.println("ERROR: no se pudieron registrar fields de diagnostico");
+  }
+
+  syncDiagnosticUi();
   loadData();
   updateRTC();
   updateEthernet();
   updateIndicators();
-  markUiDirty(UI_DIRTY_ALL);
+  syncDiagnosticUi();
 }
 
 void loop()
