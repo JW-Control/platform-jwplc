@@ -13,7 +13,6 @@
   3. vuelve a leer el archivo por Serial.
 */
 
-#include <JWPLC_GlobalPeripherals.h>
 
 void setup()
 {

@@ -60,6 +60,16 @@ __attribute__((weak)) size_t getArduinoJWPLCSystemTaskStackSize(void)
   return ARDUINO_LOOP_STACK_SIZE;
 }
 
+// El runtime integrado (I/O, RTC, Ethernet y Display) debe conservar una
+// ventana de servicio aunque el sketch tenga un loop() intensivo que nunca
+// invoque delay()/yield(). Se deja como hook débil para diagnóstico avanzado,
+// pero la prioridad normal del sistema JWPLC queda por encima del loop de
+// usuario (prioridad 1).
+__attribute__((weak)) UBaseType_t getJWPLCSystemTaskPriority(void)
+{
+  return 2;
+}
+
 __attribute__((weak)) bool shouldPrintChipDebugReport(void)
 {
   return false;
@@ -158,6 +168,11 @@ void loopTask(void *pvParameters)
     {
       serialEventRun();
     }
+
+    // Un sketch JWPLC no debe necesitar delay(1) sólo para que el runtime
+    // mantenga sus periféricos. taskYIELD() no impone una espera fija: sólo
+    // entrega cooperativamente la CPU cuando existe otra tarea lista.
+    taskYIELD();
   }
 }
 
@@ -278,13 +293,15 @@ extern "C" void app_main()
       &loop1TaskHandle,
       loop1Core);
 
-  // La tarea del sistema JWPLC se queda con el mismo core de loopTask
+  // La tarea del sistema JWPLC se queda con el mismo core de loopTask y una
+  // prioridad ligeramente superior para garantizar servicio determinista del
+  // runtime integrado incluso ante un loop() sin esperas cooperativas.
   xTaskCreateUniversal(
       jwplcSystemTask,
       "jwplcSystemTask",
       getArduinoJWPLCSystemTaskStackSize(),
       NULL,
-      1,
+      getJWPLCSystemTaskPriority(),
       &jwplcSystemTaskHandle,
       ARDUINO_RUNNING_CORE);
 }

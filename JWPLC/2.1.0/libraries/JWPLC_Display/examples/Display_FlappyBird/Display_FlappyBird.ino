@@ -189,9 +189,6 @@ static uint8_t buzzerVolumeSfx = 48;
 #define NOTE_FS6 1480
 #define NOTE_G6 1568
 
-
-
-
 struct MusicNote {
   uint16_t freq;
   uint16_t durMs;
@@ -1244,14 +1241,6 @@ static void updateGame(uint32_t rawDtMs) {
     JWPLC_Display.notifyActivity();
     playSfxFlap();
   }
-
-  if (JWPLC_Buttons.pressed(BTN_ESC)) {
-    audioStopAll();
-    gameState = GAME_WAIT_OK;
-    JWPLC_Display.goIdle();
-    return;
-  }
-
   birdV100 += ((int32_t)GRAVITY_PX_S2 * 100L * (int32_t)dtMs) / 1000L;
 
   int32_t maxFall100 = (int32_t)MAX_FALL_PX_S * 100L;
@@ -1289,14 +1278,10 @@ static void updateGame(uint32_t rawDtMs) {
 }
 
 // =====================================================
-// Callbacks USER del JWPLC_Display
+// API corta USER del JWPLC_Display
 // =====================================================
 
-extern "C" bool jwplcCanReturnToIdle(void) {
-  return (gameState != GAME_RUNNING);
-}
-
-extern "C" void jwplcUserDisplayEnterCallback() {
+extern "C" void jwplcUIEnter() {
   userEnterMs = millis();
 
   cacheScreenGeometry();
@@ -1309,9 +1294,8 @@ extern "C" void jwplcUserDisplayEnterCallback() {
   }
 }
 
-extern "C" void jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc) {
-  (void)io;
-  (void)rtc;
+extern "C" void jwplcUIUpdate()
+{
 
   uint32_t now = millis();
 
@@ -1320,12 +1304,6 @@ extern "C" void jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const J
       startGame();
       return;
     }
-
-    if (JWPLC_Buttons.pressed(BTN_ESC)) {
-      JWPLC_Display.goIdle();
-      return;
-    }
-
     if ((uint32_t)(now - userEnterMs) >= WAIT_OK_HINT_MS) {
       JWPLC_Display.goIdle();
     }
@@ -1374,7 +1352,7 @@ extern "C" void jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const J
   }
 }
 
-extern "C" void jwplcUserDisplayExitCallback() {
+extern "C" void jwplcUIExit() {
   gameState = GAME_WAIT_OK;
 
   audioStopAll();
@@ -1400,9 +1378,8 @@ void setup() {
   */
   JWPLC_Display.setIdleWakeMode(IDLE_WAKE_BUTTON_ONLY);
   JWPLC_Display.setIdleWakeButton(BTN_OK);
-  JWPLC_Display.setIdleReturnMode(IDLE_RETURN_DISABLED);
+  JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
   JWPLC_Display.setUserRefreshPeriodMs(FRAME_PERIOD_MS);
-  JWPLC_Display.setIdleRefreshPeriodMs(250);
   JWPLC_Display.clearPendingInput();
 
   buzzerBegin();

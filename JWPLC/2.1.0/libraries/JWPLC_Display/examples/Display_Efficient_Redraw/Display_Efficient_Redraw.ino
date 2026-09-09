@@ -9,6 +9,7 @@
   - Redibujar solo las zonas que cambian.
   - Guardar últimos valores dibujados.
   - Usar snprintf() en lugar de concatenaciones String frecuentes.
+  - Resetear la caché de dibujo al volver a entrar a USER.
 */
 
 #include <JWPLC_Display.h>
@@ -18,7 +19,11 @@ bool displayConfigured = false;
 static uint32_t g_processCounter = 0;
 static bool g_runState = false;
 
-extern "C" void jwplcUserDisplayEnterCallback()
+static bool g_firstDraw = true;
+static bool g_lastRunState = false;
+static uint32_t g_lastCounter = 0xFFFFFFFF;
+
+extern "C" void jwplcUIEnter()
 {
     auto &tft = JWPLC_Display.tft();
 
@@ -41,22 +46,21 @@ extern "C" void jwplcUserDisplayEnterCallback()
 
     tft.setCursor(10, 120);
     tft.print("Redibujo parcial");
+
+    // La pantalla acaba de limpiarse: forzar una primera actualización de
+    // todos los campos dinámicos, incluso si se reentra antes de que cambien.
+    g_firstDraw = true;
+    g_lastRunState = !g_runState;
+    g_lastCounter = 0xFFFFFFFF;
 }
 
-extern "C" void jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc)
+extern "C" void jwplcUIUpdate()
 {
-    (void)io;
-    (void)rtc;
-
-    static bool lastRunState = false;
-    static uint32_t lastCounter = 0xFFFFFFFF;
-    static bool firstDraw = true;
-
     auto &tft = JWPLC_Display.tft();
 
-    if (firstDraw || g_runState != lastRunState)
+    if (g_firstDraw || g_runState != g_lastRunState)
     {
-        lastRunState = g_runState;
+        g_lastRunState = g_runState;
 
         // Solo limpiar el campo del estado, no toda la pantalla.
         tft.fillRect(90, 55, 120, 14, ST77XX_BLACK);
@@ -65,9 +69,9 @@ extern "C" void jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const J
         tft.print(g_runState ? "RUN" : "STOP");
     }
 
-    if (firstDraw || g_processCounter != lastCounter)
+    if (g_firstDraw || g_processCounter != g_lastCounter)
     {
-        lastCounter = g_processCounter;
+        g_lastCounter = g_processCounter;
 
         char buffer[32];
         snprintf(buffer, sizeof(buffer), "%lu", (unsigned long)g_processCounter);
@@ -79,10 +83,10 @@ extern "C" void jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const J
         tft.print(buffer);
     }
 
-    firstDraw = false;
+    g_firstDraw = false;
 }
 
-extern "C" void jwplcUserDisplayExitCallback()
+extern "C" void jwplcUIExit()
 {
     Serial.println("Saliendo de USER hacia IDLE");
 }
@@ -92,8 +96,17 @@ void setup()
     Serial.begin(115200);
     delay(1200);
 
+    // Alpha8+ no despierta USER por defecto. OK se habilita de forma explícita.
+    JWPLC_Display.setIdleWakeButton(BTN_OK);
+    JWPLC_Display.setIdleWakeMode(IDLE_WAKE_BUTTON_ONLY);
+    JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);
+    JWPLC_Display.setIdleTimeoutMs(8000);
+    JWPLC_Display.setUserRefreshPeriodMs(200);
+    JWPLC_Display.clearPendingInput();
+
     Serial.println();
     Serial.println("JWPLC_Display efficient redraw test");
+    Serial.println("OK=USER | retorno automatico en 8s");
 }
 
 void loop()
@@ -101,11 +114,6 @@ void loop()
     if (!displayConfigured && JWPLC_Display.isReady())
     {
         displayConfigured = true;
-
-        JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);
-        JWPLC_Display.setIdleTimeoutMs(8000);
-        JWPLC_Display.setUserRefreshPeriodMs(200);
-
         Serial.println("Display configurado");
     }
 

@@ -12,7 +12,6 @@
   - writeCString()/readCString(): texto C sin String dinámico obligatorio.
 */
 
-#include <JWPLC_GlobalPeripherals.h>
 
 struct TallerState
 {

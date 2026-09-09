@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <JWPLC_UI.h>
+#include <JWPLC_UI_PixelMap.h>
 
 class Adafruit_ST7789;
 
@@ -70,9 +71,32 @@ public:
     void setUserPage(uint8_t page);
     uint8_t userPage() const;
 
+    // Navegación compacta Alpha11. Un conteo > 1 habilita el selector físico
+    // NN/TT en la esquina superior derecha. El ID interno de página sigue
+    // siendo 0-based; el indicador visible es 1-based.
+    void setUserPageCount(uint8_t count);
+    uint8_t userPageCount() const;
+    bool isUserPageSelection() const;
+
     bool setFields(const JWPLC_UIField *fields, size_t count);
     void clearFields();
     size_t fieldCount() const;
+
+    // PixelMaps estáticos agrupados por página.
+    //
+    // setPixelMaps(): formato RGB565_RUN compatible, conservado sin cambios.
+    // setPackedPixelMaps(): formato PACKED_SPAN16 generado automáticamente por
+    // el Designer cuando reduce memoria/código y la paleta cabe en 16 colores.
+    //
+    // Ambos registros son mutuamente exclusivos. clearPixelMaps(),
+    // pixelMapCount() y las funciones de visibilidad trabajan sobre el formato
+    // activo, de modo que el sketch no necesita conocer la codificación elegida.
+    bool setPixelMaps(const JWPLC_UIPixelMap *maps, size_t count);
+    bool setPackedPixelMaps(const JWPLC_UIPixelPackedMap *maps, size_t count);
+    void clearPixelMaps();
+    size_t pixelMapCount() const;
+    bool setPixelMapVisible(size_t index, bool visible);
+    bool isPixelMapVisible(size_t index) const;
 
     template <typename T>
     bool setValue(uint8_t fieldId, T value)
@@ -143,8 +167,11 @@ private:
 extern JWPLC_DisplayClass JWPLC_Display;
 
 // =====================================================
-// Alias globales para evitar uso de JWPLC_DisplayClass::
-// en sketches de usuario.
+// Alias globales de compatibilidad y uso directo.
+//
+// Arduino IDE recibe sugerencias contextuales desde la extensión JWPLC al
+// escribir los setters habituales; no es necesario introducir namespaces
+// adicionales que ensucien el autocompletado global.
 // =====================================================
 
 using JWPLC_DisplayIdleWakeMode = JWPLC_DisplayClass::IdleWakeMode;

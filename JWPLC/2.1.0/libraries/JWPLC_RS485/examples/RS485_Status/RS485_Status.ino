@@ -10,7 +10,6 @@
   - 115200, SERIAL_8N1
 */
 
-#include <JWPLC_RS485.h>
 
 void setup()
 {

@@ -23,7 +23,6 @@
   detenida esperando la respuesta Modbus.
 */
 
-#include <JWPLC_ModbusRTU.h>
 
 static constexpr uint8_t MASTER_LOCAL_ID = 247;
 static constexpr uint8_t TARGET_SLAVE_ID = 1;

@@ -9,7 +9,6 @@
   Para probarlo, conecte otro equipo RS-485 que envíe texto a 115200 8N1.
 */
 
-#include <JWPLC_RS485.h>
 
 void setup()
 {

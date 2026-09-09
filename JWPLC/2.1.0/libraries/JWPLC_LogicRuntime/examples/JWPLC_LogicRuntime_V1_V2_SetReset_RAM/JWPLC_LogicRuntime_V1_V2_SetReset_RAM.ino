@@ -1,4 +1,3 @@
-#include <JWPLC_GlobalPeripherals.h>
 #include <JWPLC_LogicRuntime.h>
 #include <LogicV1ToV2Adapter.h>
 
