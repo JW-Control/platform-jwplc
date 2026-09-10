@@ -1,0 +1,179 @@
+============================================================
+ JWPLC MBLOCK POC - GATE 2G
+ INSTALLED DEVICE VERIFICATION
+============================================================
+
+DATE=2026-09-10 00:51:48 -05:00
+BRANCH=experiment/mblock-jwplc-poc
+HEAD=2e8c6750629764a1f8f192f4073fd07878783576
+INSTALLED_ROOT=C:\Users\jeykc\mblock\exts\jwplc_basic_poc
+
+============================================================
+ SECTION 1 - MANIFEST
+============================================================
+MANIFEST_FOUND=YES
+MANIFEST_PATH=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\manifest.json
+MANIFEST_SHA256=ADC05FFD7670C1DB5DA438B7AC7259500355DA9EE3880CEB6F81EF9811546D6E
+
+----- MANIFEST RAW -----
+{
+    "id": "jwplc_basic_poc",
+    "iconURL": "jwplc_basic_poc/imgs/lALPBE1XYi3KSRXNAUDNAUA_320_320.png",
+    "coverURL": "./res/lALPBE1XYi3KSRXNAUDNAUA_320_320.png",
+    "name": {
+        "zh": "JWPLC",
+        "de": "JWPLC",
+        "es": "JWPLC",
+        "fr": "JWPLC",
+        "id": "JWPLC",
+        "ja": "JWPLC",
+        "ja-jph": "JWPLC",
+        "ko": "JWPLC",
+        "pl": "JWPLC",
+        "uk": "JWPLC",
+        "zh-hant": "JWPLC",
+        "nl": "JWPLC",
+        "it": "JWPLC",
+        "hr": "JWPLC",
+        "ru": "JWPLC",
+        "pt": "JWPLC",
+        "fi": "JWPLC",
+        "tr": "JWPLC",
+        "tk": "JWPLC",
+        "en": "JWPLC"
+    },
+    "description": {},
+    "main": "jwplc_basic_poc/index.js",
+    "codeTypes": [
+        "arduinoc"
+    ],
+    "device": true,
+    "sortId": 999,
+    "version": "0.0.3",
+    "extApiVersion": [],
+    "platform": [
+        "mblockpc"
+    ],
+    "homepage": "",
+    "feature": [
+        "worker"
+    ]
+}
+
+----- END MANIFEST -----
+
+----- MANIFEST SUMMARY -----
+DEVICE_ID=jwplc_basic_poc
+DEVICE_NAME=@{zh=JWPLC; de=JWPLC; es=JWPLC; fr=JWPLC; id=JWPLC; ja=JWPLC; ja-jph=JWPLC; ko=JWPLC; pl=JWPLC; uk=JWPLC; zh-hant=JWPLC; nl=JWPLC; it=JWPLC; hr=JWPLC; ru=JWPLC; pt=JWPLC; fi=JWPLC; tr=JWPLC; tk=JWPLC; en=JWPLC}
+DEVICE_VERSION=0.0.3
+
+============================================================
+ SECTION 2 - INSTALLED JS FILES
+============================================================
+JS_FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\handlerProxy.js | BYTES=7207 | SHA256=E25241D064C81E80CC87655DCE9271FB65D3495F7554549CE3FA06F6AEA03A45
+JS_FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\index.js | BYTES=25601 | SHA256=E22EEAA41887D300FDC124AA0A18FE3F79120164133ED412974CA6E3C741CB31
+JS_FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\arduinosources.js | BYTES=18 | SHA256=37B82084F43A8E4772665574B64511B6B1C54874C2C3CD66CB85A1FC3958D503
+JS_FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\cates\index.js | BYTES=60 | SHA256=FBBEE1FE7ACDEB7FDAD65FAE47BC7F14C41E1E9D7E63CEBA6B38275A2DCB13A8
+JS_FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\exthandler.js | BYTES=1371 | SHA256=031BE77C282B9D287154DFAC980E4DEDB264EBABB58C375F239209676E99F63A
+JS_FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\facepanels.js | BYTES=18 | SHA256=9F085B1079AB38F776BBB3930DFD067A838CA3E0483AFF8625F88837E8ED964C
+JS_FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\generators.js | BYTES=1436 | SHA256=F90648B8096B18AEACB2F27AFF0C0795D06744B9D718E1C3B4276825A8D09C55
+JS_FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\handlerProxy.js | BYTES=17095 | SHA256=482B3FE2BD63D2AF7DF227F09D57DBC726BFFDD392126F24F6D2ECCB6B8689C9
+JS_FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\index.js | BYTES=21740 | SHA256=E54DDBCB3708A2CF1BECC04FCB67FEE4E3C07FC5D71928948AE49DAD27AB1A75
+JS_FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\langs\de.js | BYTES=80 | SHA256=D7B53EA81605D27B9D070E95E049A6EC9BE1D92E781432471EBE4C1086141765
+JS_FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\langs\en.js | BYTES=80 | SHA256=D7B53EA81605D27B9D070E95E049A6EC9BE1D92E781432471EBE4C1086141765
+JS_FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\langs\es.js | BYTES=80 | SHA256=D7B53EA81605D27B9D070E95E049A6EC9BE1D92E781432471EBE4C1086141765
+JS_FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\langs\fi.js | BYTES=80 | SHA256=D7B53EA81605D27B9D070E95E049A6EC9BE1D92E781432471EBE4C1086141765
+JS_FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\langs\fr.js | BYTES=80 | SHA256=D7B53EA81605D27B9D070E95E049A6EC9BE1D92E781432471EBE4C1086141765
+JS_FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\langs\hr.js | BYTES=80 | SHA256=D7B53EA81605D27B9D070E95E049A6EC9BE1D92E781432471EBE4C1086141765
+JS_FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\langs\id.js | BYTES=80 | SHA256=D7B53EA81605D27B9D070E95E049A6EC9BE1D92E781432471EBE4C1086141765
+JS_FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\langs\index.js | BYTES=873 | SHA256=B3F67F000162ADF999B0D1A8145363A8DC3EB2E52A39E3AEA4EC729593085EB1
+JS_FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\langs\it.js | BYTES=80 | SHA256=D7B53EA81605D27B9D070E95E049A6EC9BE1D92E781432471EBE4C1086141765
+JS_FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\langs\ja-jph.js | BYTES=80 | SHA256=D7B53EA81605D27B9D070E95E049A6EC9BE1D92E781432471EBE4C1086141765
+JS_FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\langs\ja.js | BYTES=80 | SHA256=D7B53EA81605D27B9D070E95E049A6EC9BE1D92E781432471EBE4C1086141765
+JS_FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\langs\ko.js | BYTES=80 | SHA256=D7B53EA81605D27B9D070E95E049A6EC9BE1D92E781432471EBE4C1086141765
+JS_FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\langs\nl.js | BYTES=80 | SHA256=D7B53EA81605D27B9D070E95E049A6EC9BE1D92E781432471EBE4C1086141765
+JS_FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\langs\pl.js | BYTES=80 | SHA256=D7B53EA81605D27B9D070E95E049A6EC9BE1D92E781432471EBE4C1086141765
+JS_FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\langs\pt.js | BYTES=80 | SHA256=D7B53EA81605D27B9D070E95E049A6EC9BE1D92E781432471EBE4C1086141765
+JS_FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\langs\ru.js | BYTES=80 | SHA256=D7B53EA81605D27B9D070E95E049A6EC9BE1D92E781432471EBE4C1086141765
+JS_FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\langs\tk.js | BYTES=80 | SHA256=D7B53EA81605D27B9D070E95E049A6EC9BE1D92E781432471EBE4C1086141765
+JS_FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\langs\tr.js | BYTES=80 | SHA256=D7B53EA81605D27B9D070E95E049A6EC9BE1D92E781432471EBE4C1086141765
+JS_FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\langs\uk.js | BYTES=80 | SHA256=D7B53EA81605D27B9D070E95E049A6EC9BE1D92E781432471EBE4C1086141765
+JS_FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\langs\zh-hant.js | BYTES=80 | SHA256=D7B53EA81605D27B9D070E95E049A6EC9BE1D92E781432471EBE4C1086141765
+JS_FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\langs\zh.js | BYTES=80 | SHA256=D7B53EA81605D27B9D070E95E049A6EC9BE1D92E781432471EBE4C1086141765
+JS_FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\snippets.js | BYTES=38 | SHA256=A1CDB1465A6E19D40EF170D916113CF2B37AA0524FE6896AF4FB9F90B19B6BEA
+
+============================================================
+ SECTION 3 - GATE2E SOURCE MARKERS
+============================================================
+
+GATE2E_SOURCE_HITS=0
+
+============================================================
+ SECTION 4 - EXTHANDLER TARGETED CONTEXT
+============================================================
+
+FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\exthandler.js
+
+----- MATCH -----
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\exthandler.js:1:const ExtHandler = {
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\exthandler.js:2:
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\exthandler.js:3:    // when extension is loaded
+> C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\exthandler.js:4:    onLoad(app, target) {},
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\exthandler.js:5:
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\exthandler.js:6:    // when extension is unloaded
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\exthandler.js:7:    onUnload(app) {
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\exthandler.js:8:        // TODO
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\exthandler.js:9:    },
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\exthandler.js:10:
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\exthandler.js:11:    // when device is connected
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\exthandler.js:12:    onConnect(app, device) {
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\exthandler.js:13:        // TODO
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\exthandler.js:14:    },
+
+FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\index.js
+
+----- MATCH -----
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\index.js:773:  const extSources = {
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\index.js:774:    arduino: []
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\index.js:775:  };
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\index.js:776:  const extFacePanels = {};
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\index.js:777:  const ExtHandler = {
+> C:\Users\jeykc\mblock\exts\jwplc_basic_poc\index.js:778:    onLoad: function onLoad(app, target) {
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\index.js:779:      const that = this;
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\index.js:780:
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\index.js:781:      if (!that.__workerSetupInstance) {
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\index.js:782:        that.__workerSetupInstance = that.workerSetup({
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\index.js:783:          app
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\index.js:784:        }).then(() => {
+
+----- MATCH -----
+> C:\Users\jeykc\mblock\exts\jwplc_basic_poc\index.js:785:          that.worker.remote.runExtension('onLoad', target.id);
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\index.js:786:        });
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\index.js:787:      }
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\index.js:788:    },
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\index.js:789:    onUnload: function onUnload(app) {
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\index.js:790:      this.__workerSetupInstance = null;
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\index.js:791:      this.worker.remote.runExtension('onUnload');
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\index.js:792:      this.worker.dispose();
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\index.js:793:    },
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\index.js:794:    onConnect: function onConnect(app, device) {
+  C:\Users\jeykc\mblock\exts\jwplc_basic_poc\index.js:795:      this.worker.remote.runExtension('onConnect', device.id);
+
+FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\index.js
+TARGET_MATCHES=NONE
+
+============================================================
+ SECTION 5 - MBLOCK LOG INVENTORY
+============================================================
+
+LOG_DIR=C:\Users\jeykc\mblock5\logs
+EXISTS=YES
+LOG_FILE=C:\Users\jeykc\mblock5\logs\runtime.log | BYTES=1113807 | MODIFIED=2024-11-01 09:26:05
+
+LOG_DIR=C:\Users\jeykc\mlink1\logs
+EXISTS=YES
+LOG_FILE=C:\Users\jeykc\mlink1\logs\runtime.log | BYTES=548152 | MODIFIED=2026-09-10 00:46:57
+
+============================================================
+ GATE2G_SCAN_COMPLETE=YES
+============================================================

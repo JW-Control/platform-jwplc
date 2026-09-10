@@ -1,0 +1,114 @@
+============================================================
+ JWPLC MBLOCK POC - GATE 2H
+ ONLOAD EXPORT VERIFICATION
+============================================================
+
+DATE=2026-09-10 00:57:20 -05:00
+BRANCH=experiment/mblock-jwplc-poc
+HEAD=2e8c6750629764a1f8f192f4073fd07878783576
+INSTALLED_ROOT=C:\Users\jeykc\mblock\exts\jwplc_basic_poc
+
+=== MANIFEST ===
+MANIFEST_FOUND=YES
+DEVICE_ID=jwplc_basic_poc
+DEVICE_VERSION=0.0.4
+
+=== GATE2H SOURCE MARKER ===
+GATE2H_SOURCE_MARKER=FOUND
+GATE2H_SOURCE_HITS=1
+
+FILE=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\handlerProxy.js
+LINE=609
+TEXT=app.log('[JWPLC MBLOCK POC] GATE2H_ONLOAD_EXPORT=YES');
+
+=== EXTHANDLER ===
+EXTHANDLER_FOUND=YES
+EXTHANDLER_PATH=C:\Users\jeykc\mblock\exts\jwplc_basic_poc\src\exthandler.js
+
+----- BEGIN EXTHANDLER -----
+const ExtHandler = {
+
+    // when extension is loaded
+    onLoad(app, target) {},
+
+    // when extension is unloaded
+    onUnload(app) {
+        // TODO
+    },
+
+    // when device is connected
+    onConnect(app, device) {
+        // TODO
+    },
+
+    // when device is disconnected
+    onDisconnect(app, device) {
+        // TODO
+    },
+
+    // when stop button is clicked
+    onStopAll(app, device) {
+        // TODO
+    },
+
+    // before switch to upload mode
+    beforeChangeUploadMode(app, device) {
+        // TODO
+        return true;
+    },
+
+    // before switch to debug mode
+    beforeChangeDebugMode(app, device) {
+        // TODO
+        return true;
+    },
+
+    // after switched to upload mode
+    afterChangeUploadMode(app, device) {
+        // TODO
+        return true;
+    },
+
+    // after switched to debug mode
+    afterChangeDebugMode(app, device) {
+        // TODO
+        return true;
+    },
+
+    // when device is selected
+    onSelect(app, device) {
+        // TODO
+    },
+
+    // when device is unselected
+    onUnselect(app, device) {
+        // TODO
+    },
+
+    // before upload code
+    beforeCodeUpload(app, device) {
+        // TODO
+    },
+
+    // after code uploaded
+    afterCodeUpload(app, device) {
+        // TODO
+    },
+
+    // when receiving and reading byte
+    onRead(app, device) {
+        // TODO
+    }
+}
+
+export default ExtHandler;
+----- END EXTHANDLER -----
+
+=== RESULT ===
+VERSION_0_0_4=True
+ONLOAD_EXPORTED=True
+GATE2H_RESULT=PASS
+
+============================================================
+ GATE2H_SCAN_COMPLETE=YES
+============================================================
