@@ -14,12 +14,12 @@ ALPHA14_STATUS=IN_PROGRESS
 ## Gate actual
 
 ```text
-CURRENT_GATE=A14.1_FC03_PHYSICAL
+CURRENT_GATE=A14.1_FC06_PHYSICAL
 A14_1_IMPLEMENTATION=PASS_SOURCE_COMPLETE
 A14_1_COMPILE=PASS
 A14_1_EMPTY_SKETCH_REGRESSION=PASS
 A14_1_SERVER_LISTEN_SMOKE=PASS
-A14_1_FC03=NOT_EXECUTED
+A14_1_FC03=PASS
 A14_1_FC06=NOT_EXECUTED
 A14_1_SERVER_RUNTIME=PARTIAL_PASS
 A14_2_CLIENT=NOT_STARTED
@@ -128,7 +128,46 @@ A14_1_SERVER_LISTEN_SMOKE=PASS
 
 El server pasó de espera de Ethernet a `READY` aproximadamente 2.3 s después del mensaje inicial y permaneció `READY` en múltiples impresiones periódicas sin error ni reset observado.
 
-Este gate confirma inicialización Ethernet/DHCP y socket de escucha. Todavía no confirma procesamiento de ninguna Function Code; por eso `A14_1_SERVER_RUNTIME` permanece como `PARTIAL_PASS` hasta ejecutar tráfico Modbus TCP real.
+## Gate físico FC03
+
+Cliente: PowerShell sobre PC. Server: JWPLC Basic `192.168.0.31:502`, Unit ID `1`.
+
+Request:
+
+```text
+TX=00 01 00 00 00 06 01 03 00 00 00 01
+FUNCTION=FC03 Read Holding Registers
+START_ADDRESS=0
+QUANTITY=1
+```
+
+Response observada:
+
+```text
+RX=00 01 00 00 00 05 01 03 02 00 00
+TRANSACTION_ID=1
+PROTOCOL_ID=0
+UNIT_ID=1
+FUNCTION=0x03
+HOLDING_0=0
+CLIENT_RESULT=PASS
+```
+
+Diagnóstico interno posterior del JWPLC:
+
+```text
+SERVER_STATE=READY
+CLIENT=NONE
+LAST_ERROR=OK
+RX_FRAMES=1
+TX_FRAMES=1
+REQUESTS_OK=1
+EXCEPTIONS=0
+HOLDING_0=0
+A14_1_FC03=PASS
+```
+
+Este gate confirma procesamiento Modbus TCP end-to-end para una lectura FC03: conexión TCP, MBAP, PDU, acceso al mapa Holding Register, respuesta y cierre limpio del cliente. `A14_1_SERVER_RUNTIME` permanece `PARTIAL_PASS` hasta validar escritura FC06 y luego ampliar la matriz funcional.
 
 ## Implementado en A14.1
 
@@ -187,16 +226,15 @@ ROBOT_INTEROPERABILITY=PASS       -> NO
 
 ## Próximo gate
 
-Validar una única operación real Modbus TCP de lectura:
+Validar escritura FC06 sobre Holding Register 0 y confirmar el cambio tanto por echo de protocolo como por el diagnóstico periódico del JWPLC.
 
 ```text
 CLIENT=PC PowerShell
 SERVER=192.168.0.31:502
 UNIT_ID=1
-FUNCTION=FC03 Read Holding Registers
-START_ADDRESS=0
-QUANTITY=1
-EXPECTED_VALUE=0
+FUNCTION=FC06 Write Single Register
+ADDRESS=0
+VALUE=12345 (0x3039)
+EXPECTED_ECHO=00 02 00 00 00 06 01 06 00 00 30 39
+EXPECTED_HOLDING_0=12345
 ```
-
-Si FC03 pasa, el siguiente gate será FC06 sobre Holding Register 0 y lectura FC03 de confirmación.
