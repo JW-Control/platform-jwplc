@@ -14,7 +14,7 @@ ALPHA14_STATUS=IN_PROGRESS
 ## Gate actual
 
 ```text
-CURRENT_GATE=A14.1_EXCEPTION_RECOVERY
+CURRENT_GATE=A14.1_INVALID_MBAP_RECONNECT
 A14_1_IMPLEMENTATION=PASS_SOURCE_COMPLETE
 A14_1_COMPILE=PASS
 A14_1_EMPTY_SKETCH_REGRESSION=PASS
@@ -28,7 +28,8 @@ A14_1_FC06=PASS
 A14_1_FC15=PASS
 A14_1_FC16=PASS
 A14_1_SERVER_FUNCTION_MATRIX=PASS
-A14_1_EXCEPTION_RECOVERY=NOT_EXECUTED
+A14_1_EXCEPTION_RECOVERY=PASS
+A14_1_INVALID_MBAP_RECONNECT=NOT_EXECUTED
 A14_1_SERVER_RUNTIME=PARTIAL_PASS
 A14_2_CLIENT=NOT_STARTED
 RTU_TCP_SIMULTANEOUS=NOT_EXECUTED
@@ -139,7 +140,7 @@ COILS_RAW=0xA5
 UNEXPECTED_RESET=0
 ```
 
-Conclusión funcional válida a este punto:
+Conclusión funcional:
 
 ```text
 A14_1_FC01_02_03_04_05_06_15_16=PASS
@@ -147,20 +148,92 @@ A14_1_PERSISTENT_CONNECTION_MATRIX=PASS
 A14_1_SERVER_FUNCTION_MATRIX=PASS
 ```
 
-## Contrato de excepciones observado en source
+## Gate físico de excepciones y recuperación
 
-El Server implementa respuestas de excepción Modbus y conserva la conexión para errores de PDU/Function Code válidamente enmarcados:
+Se ejecutó sobre una única conexión TCP persistente contra `192.168.0.31:502`, Unit ID `1`.
+
+### EX01 — Illegal Function
 
 ```text
-01=Illegal Function
-02=Illegal Data Address
-03=Illegal Data Value
-04=Server Device Failure
+TX=00 14 00 00 00 02 01 45
+RX=00 14 00 00 00 03 01 C5 01
+EXPECTED_EXCEPTION=01
+RESULT=PASS
 ```
 
-`buildException()` incrementa `exceptionsSent`, marca temporalmente `Last error=Modbus exception` y genera la respuesta con `Function | 0x80`. Un request válido posterior incrementa `requestsOk` y vuelve `Last error=OK`.
+### EX02 — Illegal Data Address
 
-En cambio, un MBAP inválido o longitud fatal se trata como error de framing/protocolo y fuerza `dropClient()` para evitar desincronización. Esta diferencia debe conservarse en el gate físico.
+Lectura FC03 desde Holding Register `16`, fuera del mapa válido `0..15`:
+
+```text
+TX=00 15 00 00 00 06 01 03 00 10 00 01
+RX=00 15 00 00 00 03 01 83 02
+EXPECTED_EXCEPTION=02
+RESULT=PASS
+```
+
+### EX03 — Illegal Data Value
+
+FC03 con `quantity=0`:
+
+```text
+TX=00 16 00 00 00 06 01 03 00 00 00 00
+RX=00 16 00 00 00 03 01 83 03
+EXPECTED_EXCEPTION=03
+RESULT=PASS
+```
+
+### Request válido posterior sobre la misma conexión
+
+```text
+TX=00 17 00 00 00 06 01 03 00 00 00 01
+RX=00 17 00 00 00 05 01 03 02 30 39
+HOLDING_0=12345
+SAME_TCP_CONNECTION=PASS
+VALID_AFTER_EXCEPTIONS=PASS
+```
+
+Diagnóstico interno posterior del JWPLC:
+
+```text
+SERVER_STATE=READY
+CLIENT=NONE
+LAST_ERROR=OK
+RX_FRAMES=15
+TX_FRAMES=15
+REQUESTS_OK=12
+EXCEPTIONS=3
+HOLDING_0=12345
+COILS_RAW=0xA5
+UNEXPECTED_RESET=0
+```
+
+Conclusión:
+
+```text
+EX01_ILLEGAL_FUNCTION=PASS
+EX02_ILLEGAL_DATA_ADDRESS=PASS
+EX03_ILLEGAL_DATA_VALUE=PASS
+VALID_REQUEST_AFTER_EXCEPTIONS=PASS
+SAME_TCP_CONNECTION_AFTER_EXCEPTIONS=PASS
+A14_1_EXCEPTION_RECOVERY=PASS
+```
+
+El contrato observado coincide con source: las excepciones Modbus válidamente enmarcadas no obligan a cerrar la sesión; `buildException()` incrementa `exceptionsSent` y marca temporalmente `Last error=Modbus exception`. El request válido posterior incrementa `requestsOk` y limpia el error a `OK`.
+
+## Contrato de framing fatal
+
+Un MBAP con `Protocol ID != 0` o una longitud MBAP fatal se trata como error de framing/protocolo. El Server incrementa `protocolErrors`, marca el error correspondiente y fuerza `dropClient()` para evitar desincronización.
+
+El siguiente gate debe validar físicamente esa diferencia:
+
+```text
+INVALID_MBAP -> CLIENT_CONNECTION_DROPPED
+SERVER_REMAINS_LISTENING
+NEW_TCP_CONNECTION -> VALID_FC03_PASS
+HOLDING_0_PRESERVED=12345
+NO_RESET
+```
 
 ## Hallazgo para A14.2
 
@@ -180,7 +253,7 @@ El ownership SPI debe mantenerse sólo durante operaciones W5500 cortas.
 ## Lo que todavía NO se afirma
 
 ```text
-MODBUS_TCP_SERVER=PASS            -> NO, falta excepción/recuperación y lifecycle
+MODBUS_TCP_SERVER=PASS            -> NO, falta framing fatal/reconnect y lifecycle
 MODBUS_TCP_CLIENT=PASS            -> NO
 MODBUS_TCP_RECONNECT=PASS         -> NO
 MODBUS_RTU_TCP_SIMULTANEOUS=PASS -> NO
@@ -189,13 +262,4 @@ ROBOT_INTEROPERABILITY=PASS       -> NO
 
 ## Próximo gate
 
-Validar sobre una misma conexión TCP:
-
-```text
-EX01 Illegal Function
-EX02 Illegal Data Address
-EX03 Illegal Data Value
-VALID_FC03_AFTER_EXCEPTIONS
-```
-
-Debe verificarse que las tres excepciones respondan correctamente, que la conexión siga utilizable y que un FC03 válido posterior recupere `Last error=OK` sin reset ni reapertura obligatoria del Server.
+Validar MBAP inválido y recuperación por nueva conexión TCP sin reset del JWPLC.
