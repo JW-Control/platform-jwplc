@@ -14,7 +14,7 @@ ALPHA14_STATUS=IN_PROGRESS
 ## Gate actual
 
 ```text
-CURRENT_GATE=A14.2_CLIENT_COOPERATIVE_BACKEND
+CURRENT_GATE=A14.2_ASYNC_TCP_ACK_CONFIRMATION
 A14_1_IMPLEMENTATION=PASS_SOURCE_COMPLETE
 A14_1_COMPILE=PASS
 A14_1_EMPTY_SKETCH_REGRESSION=PASS
@@ -32,6 +32,10 @@ A14_1_EXCEPTION_RECOVERY=PASS
 A14_1_INVALID_MBAP_RECONNECT=PASS
 A14_1_SERVER_RUNTIME=PASS
 A14_1=PASS
+A14_2_ASYNC_BACKEND_COMPILE=PASS
+A14_2_ASYNC_CONNECT_NONBLOCKING=PASS
+A14_2_TCP_ESTABLISHED=PASS
+A14_2_ASYNC_BACKEND_RUNTIME=PARTIAL_PASS
 A14_2_CLIENT=IN_PROGRESS
 RTU_TCP_SIMULTANEOUS=NOT_EXECUTED
 ```
@@ -160,15 +164,9 @@ Esto cierra el alcance de A14.1 definido en `ALPHA14_PLAN.md`: librería, mapas,
 
 ## A14.2 — Client cooperativo
 
-### Hallazgo confirmado
+### Backend async
 
-El backend actual `EthernetClient::connect(IPAddress, port)` abre el socket y ejecuta `socketConnect()`, pero después espera síncronamente en un bucle hasta `ESTABLISHED`, `CLOSE_WAIT`, `CLOSED` o timeout.
-
-`socketConnect()` del backend W5500 sólo configura destino, ejecuta `Sock_CONNECT` y retorna; por tanto, la espera bloqueante puede separarse sin modificar `socket.cpp`.
-
-### Decisión
-
-A14.2 añadirá una extensión mínima compatible a `EthernetClient` para conexión TCP por estados:
+Se añadió a `EthernetClient` una extensión mínima compatible para conexión TCP cooperativa:
 
 ```text
 beginConnectAsync(IP, port)
@@ -177,23 +175,68 @@ connectAsyncInProgress()
 cancelConnectAsync()
 ```
 
-Contrato previsto:
+Contrato:
 
 ```text
 beginConnectAsync: -1=falló al iniciar, 0=pending, 1=connected
 pollConnectAsync : -1=failed/closed, 0=pending, 1=connected
 ```
 
-La API `connect()` existente se conserva sin cambios de semántica para compatibilidad Arduino. El nuevo Client Modbus TCP usará exclusivamente el camino cooperativo y mantendrá el mutex SPI JWPLC sólo alrededor de pasos W5500 cortos.
+La API `connect()` existente conserva su semántica bloqueante para compatibilidad Arduino y se implementa sobre el mismo motor async.
+
+### Compile gate
+
+El primer intento de generar el probe falló por un error del harness PowerShell: una variable `$probe` conservaba tipo `Byte[]` de una prueba previa y el sketch temporal terminó conteniendo `0`. Se corrigió usando un nombre nuevo y escritura UTF-8 sin BOM.
+
+```text
+HARNESS_ERROR=YES
+PRODUCT_CODE_FAILURE=NO
+ASYNC_API_COMPILE_EXIT=0
+A14_2_ASYNC_BACKEND_COMPILE=PASS
+```
+
+### Runtime físico de conexión TCP cooperativa
+
+Primer intento: el JWPLC estaba `READY` y `beginConnectAsync()` retornó `pending` en `418 us`, pero el listener PowerShell lanzado en background no aceptó conexión y el probe terminó por timeout. Luego se repitió el gate con un listener TCP visible en primer plano sobre la PC.
+
+Resultado PC:
+
+```text
+LISTENER_READY=PASS
+LISTENING=0.0.0.0:15020
+TCP_ACCEPT=PASS
+REMOTE=192.168.0.31:59018
+RX=JWPLC_ASYNC_CONNECTED begin_us=418 connect_ms=1 polls=9 loops_pending=10 max_poll_us=20
+TX=PC_ACK
+LISTENER_RESULT=PASS
+```
+
+Interpretación:
+
+```text
+ETHERNET_READY=PASS
+BEGIN_CONNECT_ASYNC_RESULT=PENDING
+BEGIN_CALL_US=418
+TCP_ESTABLISH_MS=1
+POLL_COUNT=9
+LOOPS_WHILE_PENDING=10
+MAX_POLL_US=20
+TCP_ACCEPT=PASS
+A14_2_ASYNC_CONNECT_NONBLOCKING=PASS
+A14_2_TCP_ESTABLISHED=PASS
+```
+
+La evidencia confirma que el establecimiento TCP no bloquea el `loop()`: el inicio retorna en microsegundos, la conexión se completa mediante múltiples polls cortos y el sketch ejecuta varias iteraciones mientras el socket sigue pendiente.
+
+El listener PC envió `PC_ACK`, pero todavía falta registrar la salida serie del JWPLC confirmando que recibió ese ACK y publicó `A14_2_ASYNC_BACKEND_RUNTIME=PASS`. Por eso el gate global del probe permanece temporalmente en `PARTIAL_PASS`, aunque el objetivo crítico de conexión TCP cooperativa ya está en `PASS`.
 
 ## Siguientes pasos A14.2
 
-1. añadir primitiva TCP connect asíncrona al backend Ethernet;
-2. compilar regresión de Server existente;
-3. implementar state machine Client/Master en `JWPLC_ModbusTCP`;
-4. exponer FC01/02/03/04/05/06/15/16 cooperativas;
-5. añadir ejemplo Client;
-6. validar timeout, reconexión y matriz Client contra servidor de prueba.
+1. confirmar por Serial el `PC_ACK` y cerrar el runtime probe async;
+2. implementar state machine Client/Master en `JWPLC_ModbusTCP`;
+3. exponer FC01/02/03/04/05/06/15/16 cooperativas;
+4. añadir ejemplo Client;
+5. validar timeout, reconexión y matriz Client contra servidor de prueba.
 
 ## Pendientes posteriores
 
