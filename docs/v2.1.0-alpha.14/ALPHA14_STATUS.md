@@ -14,7 +14,7 @@ ALPHA14_STATUS=IN_PROGRESS
 ## Gate actual
 
 ```text
-CURRENT_GATE=A14.2_CLIENT_STATE_MACHINE_SOURCE
+CURRENT_GATE=A14.2_ASYNC_TX_RUNTIME
 A14_1_IMPLEMENTATION=PASS_SOURCE_COMPLETE
 A14_1_COMPILE=PASS
 A14_1_EMPTY_SKETCH_REGRESSION=PASS
@@ -36,8 +36,12 @@ A14_2_ASYNC_BACKEND_COMPILE=PASS
 A14_2_ASYNC_CONNECT_NONBLOCKING=PASS
 A14_2_TCP_ESTABLISHED=PASS
 A14_2_ASYNC_BACKEND_RUNTIME=PASS
+A14_2_SERVER_REGRESSION_COMPILE=PASS
+A14_2_ASYNC_TX_API_COMPILE=PASS
+A14_2_ASYNC_TX_RUNTIME=NOT_EXECUTED
 A14_2_CLIENT_STATE_MACHINE=IN_PROGRESS
 A14_2_CLIENT=IN_PROGRESS
+A14_3_PERFORMANCE_BENCHMARK=PLANNED
 RTU_TCP_SIMULTANEOUS=NOT_EXECUTED
 ```
 
@@ -185,7 +189,7 @@ pollConnectAsync : -1=failed/closed, 0=pending, 1=connected
 
 La API `connect()` existente conserva su semántica bloqueante para compatibilidad Arduino y se implementa sobre el mismo motor async.
 
-### Compile gate
+### Compile gate del connect async
 
 El primer intento de generar el probe falló por un error del harness PowerShell: una variable `$probe` conservaba tipo `Byte[]` de una prueba previa y el sketch temporal terminó conteniendo `0`. Se corrigió usando un nombre nuevo y escritura UTF-8 sin BOM.
 
@@ -243,19 +247,75 @@ A14_2_ASYNC_BACKEND_RUNTIME=PASS
 
 El establecimiento TCP no bloquea el `loop()`: `beginConnectAsync()` retorna en microsegundos, el handshake progresa con polls cortos y el sketch ejecuta múltiples iteraciones mientras el socket está pendiente. Además, la sesión establecida permite tráfico bidireccional real.
 
+### TX TCP cooperativo
+
+Se confirmó que `EthernetClient::write()` legado espera espacio TX y `SEND_OK`, por lo que no se usará como supuesto envío cooperativo dentro del nuevo Modbus TCP Client.
+
+Se añadió un helper interno de TX asíncrono para separar:
+
+```text
+load frame + Sock_SEND
+poll SEND_OK / TIMEOUT
+```
+
+sin modificar `socket.cpp` ni cambiar la semántica pública de `EthernetClient::write()`.
+
+Compile gate posterior:
+
+```text
+A14_2_SERVER_REGRESSION_COMPILE=PASS
+A14_2_ASYNC_TX_API_COMPILE=PASS
+A14_2_ASYNC_TX_RUNTIME=NOT_EXECUTED
+```
+
+## A14.3 — Benchmark de rendimiento planificado
+
+Plan detallado: `docs/v2.1.0-alpha.14/A14_MODBUS_TCP_PERFORMANCE_BENCHMARK_PLAN.md`.
+
+Se medirán Server y Client con conexión TCP persistente a:
+
+```text
+10 req/s
+20 req/s
+50 req/s
+100 req/s
+200 req/s
+500 req/s
+1000 req/s
+saturación sin espera
+```
+
+También se variará el tamaño de FC01/03/15/16 hasta sus máximos Modbus. Se registrarán throughput, latencias p50/p95/p99, timeouts, errores, reconexiones, service gap, contención SPI y resets.
+
+El benchmark tendrá escenarios aislados y escenarios con runtime/periféricos normales activos; no se retirarán periféricos del autoload para mejorar resultados.
+
+Objetivos de salida:
+
+```text
+SERVER_MAX_STABLE_REQ_S
+SERVER_MAX_PEAK_REQ_S
+CLIENT_MAX_STABLE_REQ_S
+CLIENT_MAX_PEAK_REQ_S
+FULL_RUNTIME_MAX_STABLE_REQ_S
+RTU_TCP_COEX_MAX_STABLE_REQ_S
+RECOMMENDED_POLL_INTERVAL_MS
+```
+
 ## Siguientes pasos A14.2
 
-1. implementar state machine Client/Master en `JWPLC_ModbusTCP` sobre el backend async ya validado;
-2. exponer FC01/02/03/04/05/06/15/16 cooperativas;
-3. añadir ejemplo Client;
-4. validar compile/runtime de FC03 + FC06;
-5. ampliar a matriz Client completa, timeout y reconexión.
+1. validar físicamente TX TCP cooperativo;
+2. implementar state machine Client/Master en `JWPLC_ModbusTCP` sobre connect + TX async ya validados;
+3. exponer FC01/02/03/04/05/06/15/16 cooperativas;
+4. añadir ejemplo Client;
+5. validar compile/runtime de FC03 + FC06;
+6. ampliar a matriz Client completa, timeout y reconexión.
 
 ## Pendientes posteriores
 
 ```text
-MODBUS_TCP_CLIENT=PASS            -> NO
-MODBUS_TCP_RECONNECT=PASS         -> PARCIAL: Server sí; Client pendiente
-MODBUS_RTU_TCP_SIMULTANEOUS=PASS -> NO
-ROBOT_INTEROPERABILITY=PASS       -> NO
+MODBUS_TCP_CLIENT=PASS                  -> NO
+MODBUS_TCP_RECONNECT=PASS               -> PARCIAL: Server sí; Client pendiente
+MODBUS_TCP_PERFORMANCE_BENCHMARK=PASS  -> NO, planificado
+MODBUS_RTU_TCP_SIMULTANEOUS=PASS       -> NO
+ROBOT_INTEROPERABILITY=PASS             -> NO
 ```
