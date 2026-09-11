@@ -14,21 +14,27 @@ ALPHA14_STATUS=IN_PROGRESS
 ## Gate actual
 
 ```text
-CURRENT_GATE=A14.1_SERVER_FUNCTION_MATRIX
+CURRENT_GATE=A14.1_EXCEPTION_RECOVERY
 A14_1_IMPLEMENTATION=PASS_SOURCE_COMPLETE
 A14_1_COMPILE=PASS
 A14_1_EMPTY_SKETCH_REGRESSION=PASS
 A14_1_SERVER_LISTEN_SMOKE=PASS
+A14_1_FC01=PASS
+A14_1_FC02=PASS
 A14_1_FC03=PASS
+A14_1_FC04=PASS
+A14_1_FC05=PASS
 A14_1_FC06=PASS
+A14_1_FC15=PASS
+A14_1_FC16=PASS
+A14_1_SERVER_FUNCTION_MATRIX=PASS
+A14_1_EXCEPTION_RECOVERY=NOT_EXECUTED
 A14_1_SERVER_RUNTIME=PARTIAL_PASS
 A14_2_CLIENT=NOT_STARTED
 RTU_TCP_SIMULTANEOUS=NOT_EXECUTED
 ```
 
-## Evidencia de compilación A14.1
-
-Validación ejecutada por el usuario sobre checkout local de la rama Alpha14:
+## Evidencia de compilación
 
 ```text
 FQBN=jwplc_local:esp32:jwplcbasic
@@ -36,216 +42,131 @@ PLATFORM=jwplc_local:esp32 2.1.0-dev
 JWPLC_ModbusTCP=0.1.0
 COMPILE_EXIT_CODE=0
 PROGRAM_BYTES=417893
-PROGRAM_PERCENT=10
 GLOBAL_VARIABLE_BYTES=28452
-GLOBAL_VARIABLE_PERCENT=8
-LOCAL_VARIABLE_BYTES_AVAILABLE=299228
 A14_1_COMPILE=PASS
-```
-
-La resolución de librerías confirmó que `JWPLC_ModbusTCP`, `JWPLC_Ethernet`, Display, RTC, FRAM, SD, botonera, RS-485 y Modbus RTU provinieron del árbol local `JWPLC/2.1.0/libraries`.
-
-```text
 LOCAL_PACKAGE_RESOLUTION=PASS
-UNEXPECTED_EXTERNAL_JWPLC_LIBRARY=NO
 ```
 
-## Regresión de sketch vacío / build speed
+## Regresión de sketch vacío
 
-Run:
-
-```text
-RUN=20260911_161448
-LABEL=alpha14-empty-regression
-TARGET=Basic
-SKETCH=01_empty
-```
-
-Resultados Alpha14:
-
-| Fase | Tiempo | Compiladores | Binarios |
-|---|---:|---:|---:|
-| managed cold | 65.517 s | 15 | n/a |
-| managed warm no-change | 24.070 s | 1 | n/a |
-| managed warm touch | 23.114 s | 1 | n/a |
-| explicit cold | 61.851 s | 15 | 4,619,056 bytes |
-| explicit warm no-change | 22.779 s | 1 | 4,619,056 bytes |
-| explicit warm touch | 22.624 s | 1 | 4,619,056 bytes |
-
-Baseline Alpha11 `Basic / 01_empty`:
+Run `20260911_161448`, label `alpha14-empty-regression`.
 
 ```text
-cold compilers=15
-warm compilers=1
-explicit binary bytes=4,618,720
-```
-
-Delta agregado de binarios del benchmark:
-
-```text
-ALPHA11_BYTES=4618720
-ALPHA14_BYTES=4619056
+ALPHA11_BASIC_EMPTY_COLD_COMPILERS=15
+ALPHA14_BASIC_EMPTY_COLD_COMPILERS=15
+ALPHA11_BASIC_EMPTY_WARM_COMPILERS=1
+ALPHA14_BASIC_EMPTY_WARM_COMPILERS=1
+ALPHA11_EXPLICIT_BINARY_BYTES=4618720
+ALPHA14_EXPLICIT_BINARY_BYTES=4619056
 DELTA_BYTES=+336
 DELTA_PERCENT≈+0.0073%
-```
-
-Conclusión:
-
-```text
 A14_1_COMPILER_STRUCTURE_PARITY=PASS
-A14_1_WARM_COMPILERS=1
-A14_1_EMPTY_SKETCH_BINARY_EXACT_PARITY=NO
 A14_1_EMPTY_SKETCH_BINARY_REGRESSION=MATERIAL_NO
 A14_1_EMPTY_SKETCH_REGRESSION=PASS
-A14_1_EXACT_SPEEDUP_CLAIM=NOT_USED
 ```
 
-La presencia de la nueva librería no incrementó el número de compiladores del flujo normal del sketch vacío. La variación de `+336 bytes` representa aproximadamente `+0.0073%` del agregado de binarios reportado por el benchmark y se clasifica como no material. No se interpreta el tiempo cold de una sola ejecución como regresión causal debido a la variación del host ya observada en Alpha10/Alpha11.
+`JWPLC_ModbusTCP` permanece opt-in; no se añade todavía a `JWPLC_GlobalPeripherals` ni al autoload global.
 
 ## Smoke físico del Server
 
-Prueba ejecutada con `01.ModbusTCP_Server` sobre JWPLC Basic físico.
-
-Secuencia observada:
+Con `01.ModbusTCP_Server` sobre JWPLC Basic físico:
 
 ```text
 BOOT=POWERON_RESET
-MODBUS_TCP_WAITING_ETHERNET=PASS
 DHCP_READY=PASS
 IP=192.168.0.31
 TCP_PORT=502
 UNIT_ID=1
 SERVER_STATE=READY
 LAST_ERROR=OK
-CLIENT=NONE
-RX_FRAMES=0
-TX_FRAMES=0
-REQUESTS_OK=0
-EXCEPTIONS=0
 UNEXPECTED_RESET=0
 A14_1_SERVER_LISTEN_SMOKE=PASS
 ```
 
-El server pasó de espera de Ethernet a `READY` aproximadamente 2.3 s después del mensaje inicial y permaneció `READY` en múltiples impresiones periódicas sin error ni reset observado.
+## Gates físicos individuales
 
-## Gate físico FC03
-
-Cliente: PowerShell sobre PC. Server: JWPLC Basic `192.168.0.31:502`, Unit ID `1`.
-
-Request:
+### FC03
 
 ```text
 TX=00 01 00 00 00 06 01 03 00 00 00 01
-FUNCTION=FC03 Read Holding Registers
-START_ADDRESS=0
-QUANTITY=1
-```
-
-Response observada:
-
-```text
 RX=00 01 00 00 00 05 01 03 02 00 00
-TRANSACTION_ID=1
-PROTOCOL_ID=0
-UNIT_ID=1
-FUNCTION=0x03
-HOLDING_0=0
-CLIENT_RESULT=PASS
-```
-
-Diagnóstico interno posterior del JWPLC:
-
-```text
-SERVER_STATE=READY
-CLIENT=NONE
-LAST_ERROR=OK
-RX_FRAMES=1
-TX_FRAMES=1
-REQUESTS_OK=1
-EXCEPTIONS=0
 HOLDING_0=0
 A14_1_FC03=PASS
 ```
 
-Este gate confirma procesamiento Modbus TCP end-to-end para una lectura FC03: conexión TCP, MBAP, PDU, acceso al mapa Holding Register, respuesta y cierre limpio del cliente.
-
-## Gate físico FC06
-
-Cliente: PowerShell sobre PC. Server: JWPLC Basic `192.168.0.31:502`, Unit ID `1`.
-
-Request:
+### FC06
 
 ```text
 TX=00 02 00 00 00 06 01 06 00 00 30 39
-FUNCTION=FC06 Write Single Register
-ADDRESS=0
-VALUE=12345 (0x3039)
+RX=00 02 00 00 00 06 01 06 00 00 30 39
+EXACT_ECHO=PASS
+HOLDING_0=12345
+A14_1_FC06=PASS
 ```
 
-Response observada:
+## Matriz física completa del Server
+
+Evidencia detallada: `docs/v2.1.0-alpha.14/A14_1_SERVER_FUNCTION_MATRIX_20260911.md`.
+
+La matriz se ejecutó sobre una única conexión TCP persistente y validó:
 
 ```text
-RX=00 02 00 00 00 06 01 06 00 00 30 39
-TRANSACTION_ID=2
-PROTOCOL_ID=0
-UNIT_ID=1
-FUNCTION=0x06
-ADDRESS=0
-VALUE=12345
-EXACT_ECHO=PASS
-CLIENT_RESULT=PASS
+FC01 Read Coils=PASS
+FC02 Read Discrete Inputs=PASS
+FC04 Read Input Registers=PASS
+FC05 Write Single Coil=PASS
+FC05 -> FC01 readback=PASS
+FC15 Write Multiple Coils=PASS
+FC15 -> FC01 readback=PASS
+FC16 Write Multiple Registers=PASS
+FC16 -> FC03 readback=PASS
+PASS_COUNT=9
+FAIL_COUNT=0
 ```
 
-Diagnóstico interno posterior del JWPLC:
+Estado interno posterior:
 
 ```text
 SERVER_STATE=READY
 CLIENT=NONE
 LAST_ERROR=OK
-RX_FRAMES=2
-TX_FRAMES=2
-REQUESTS_OK=2
+RX_FRAMES=11
+TX_FRAMES=11
+REQUESTS_OK=11
 EXCEPTIONS=0
 HOLDING_0=12345
-A14_1_FC06=PASS
+COILS_RAW=0xA5
+UNEXPECTED_RESET=0
 ```
 
-FC06 queda validado end-to-end: MBAP/PDU correctos, echo exacto exigido por la función, modificación efectiva del mapa Holding y cierre limpio del cliente. FC03 + FC06 demuestran lectura/escritura básica real sobre el mapa del Server.
-
-## Implementado en A14.1
-
-- nueva librería opt-in `JWPLC_ModbusTCP`;
-- dependencia explícita de `JWPLC_Ethernet`;
-- Server configurado por `beginServer(unitId, port)`;
-- espera cooperativa a que el autoload Ethernet llegue a `READY`;
-- parser MBAP incremental;
-- presupuesto RX por llamada a `task()`;
-- mutex SPI compartido alrededor de accesos W5500;
-- procesamiento de PDU fuera del mutex;
-- mapas de Coils, Discrete Inputs, Holding Registers e Input Registers;
-- FC01, FC02, FC03, FC04, FC05, FC06, FC15 y FC16;
-- excepciones 01/02/03/04;
-- estadísticas y estado;
-- ejemplo `01.ModbusTCP_Server`;
-- README específico.
-
-## Decisiones de integración vigentes
-
-`JWPLC_ModbusTCP` permanece opt-in durante Alpha14 y todavía no se añade a `JWPLC_GlobalPeripherals` ni al autoload/discovery global.
+Conclusión funcional válida a este punto:
 
 ```text
-NEW_PROTOCOL_FEATURE=OPT_IN_DURING_ALPHA14
-ALPHA10_BUILD_SPEED_GATE=PRESERVED
-EMPTY_SKETCH_COMPILER_STRUCTURE_PRESERVED=YES
+A14_1_FC01_02_03_04_05_06_15_16=PASS
+A14_1_PERSISTENT_CONNECTION_MATRIX=PASS
+A14_1_SERVER_FUNCTION_MATRIX=PASS
 ```
 
-La librería todavía no usa `precompiled=full`. Esa decisión se tomará después de estabilizar la API y completar los gates funcionales.
+## Contrato de excepciones observado en source
+
+El Server implementa respuestas de excepción Modbus y conserva la conexión para errores de PDU/Function Code válidamente enmarcados:
+
+```text
+01=Illegal Function
+02=Illegal Data Address
+03=Illegal Data Value
+04=Server Device Failure
+```
+
+`buildException()` incrementa `exceptionsSent`, marca temporalmente `Last error=Modbus exception` y genera la respuesta con `Function | 0x80`. Un request válido posterior incrementa `requestsOk` y vuelve `Last error=OK`.
+
+En cambio, un MBAP inválido o longitud fatal se trata como error de framing/protocolo y fuerza `dropClient()` para evitar desincronización. Esta diferencia debe conservarse en el gate físico.
 
 ## Hallazgo para A14.2
 
-El backend actual `EthernetClient::connect()` espera síncronamente a conexión/timeout. No se usará tal cual para declarar un Client/Master cooperativo.
+El backend actual `EthernetClient::connect()` espera síncronamente a conexión/timeout. A14.2 no reutilizará ese bloqueo como si fuera cooperativo.
 
-A14.2 debe implementar una extensión mínima de conexión TCP por estados:
+Se requiere extensión mínima por estados:
 
 ```text
 start connect
@@ -254,14 +175,13 @@ connected / failed / timeout
 cancel
 ```
 
-Cada paso debe mantener ownership SPI sólo durante operaciones W5500 cortas.
+El ownership SPI debe mantenerse sólo durante operaciones W5500 cortas.
 
 ## Lo que todavía NO se afirma
 
 ```text
-MODBUS_TCP_SERVER=PASS            -> NO
+MODBUS_TCP_SERVER=PASS            -> NO, falta excepción/recuperación y lifecycle
 MODBUS_TCP_CLIENT=PASS            -> NO
-FC01_02_03_04_05_06_15_16=PASS  -> NO
 MODBUS_TCP_RECONNECT=PASS         -> NO
 MODBUS_RTU_TCP_SIMULTANEOUS=PASS -> NO
 ROBOT_INTEROPERABILITY=PASS       -> NO
@@ -269,15 +189,13 @@ ROBOT_INTEROPERABILITY=PASS       -> NO
 
 ## Próximo gate
 
-Ejecutar una matriz automatizada sobre el mismo Server físico para las Function Codes todavía pendientes:
+Validar sobre una misma conexión TCP:
 
 ```text
-FC01 Read Coils
-FC02 Read Discrete Inputs
-FC04 Read Input Registers
-FC05 Write Single Coil + FC01 readback
-FC15 Write Multiple Coils + FC01 readback
-FC16 Write Multiple Registers + FC03 readback
+EX01 Illegal Function
+EX02 Illegal Data Address
+EX03 Illegal Data Value
+VALID_FC03_AFTER_EXCEPTIONS
 ```
 
-La matriz debe mantener `Last error=OK`, no producir excepciones inesperadas y confirmar round-trip para todas las operaciones de escritura.
+Debe verificarse que las tres excepciones respondan correctamente, que la conexión siga utilizable y que un FC03 válido posterior recupere `Last error=OK` sin reset ni reapertura obligatoria del Server.
