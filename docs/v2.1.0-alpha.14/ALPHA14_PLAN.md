@@ -49,6 +49,7 @@ JWPLC_ModbusTCP -> protocolo Modbus TCP
 8. Las variantes Sync, si se exponen, se construirán sobre el mismo motor cooperativo.
 9. Todo acceso al W5500 debe respetar el mutex SPI compartido JWPLC.
 10. No se declarará coexistencia RTU+TCP como PASS hasta completar gate físico simultáneo.
+11. Alpha14 incluirá un benchmark físico de rendimiento Modbus TCP para determinar tasa máxima estable, pico de saturación y polling recomendado, tanto aislado como bajo runtime normal del JWPLC.
 
 ## Alcance funcional Alpha14
 
@@ -112,6 +113,7 @@ A14_1_SERVER_RUNTIME=NOT_EXECUTED
 ### A14.2 — Client cooperativo
 
 - extensión Ethernet mínima si es necesaria para conexión TCP no bloqueante;
+- TX TCP cooperativo para no depender de `EthernetClient::write()` bloqueante;
 - requests FC01/02/03/04/05/06/15/16;
 - state machine;
 - ejemplo Client;
@@ -122,7 +124,7 @@ A14_2_CLIENT_COMPILE=NOT_EXECUTED
 A14_2_CLIENT_RUNTIME=NOT_EXECUTED
 ```
 
-### A14.3 — Matriz funcional
+### A14.3 — Matriz funcional + benchmark de rendimiento
 
 - PC/JW Modbus Tool contra Server JWPLC;
 - JWPLC Client contra servidor de prueba;
@@ -130,7 +132,13 @@ A14_2_CLIENT_RUNTIME=NOT_EXECUTED
 - Unit ID;
 - excepciones;
 - rangos;
-- pérdida/reconexión Ethernet.
+- pérdida/reconexión Ethernet;
+- benchmark físico de rendimiento según `A14_MODBUS_TCP_PERFORMANCE_BENCHMARK_PLAN.md`;
+- sweep de 10, 20, 50, 100, 200, 500 y 1000 req/s, más saturación sin espera;
+- tamaños representativos y máximos de FC01/03/15/16;
+- latencia p50/p95/p99, throughput, timeouts, errores, service gap y resets;
+- tasa máxima estable y tasa pico para Server y Client;
+- repetición de puntos representativos manteniendo runtime/periféricos normales.
 
 ### A14.4 — Coexistencia industrial
 
@@ -147,6 +155,8 @@ Modbus TCP
 ```
 
 Requiere evidencia física y logs.
+
+Además se repetirá un subconjunto del benchmark para conocer el throughput TCP sostenible con RTU y periféricos activos simultáneamente.
 
 ### A14.5 — Caso robot / interoperabilidad
 
@@ -178,6 +188,10 @@ FC06=PASS
 FC15=PASS
 FC16=PASS
 MODBUS_TCP_RECONNECT=PASS
+MODBUS_TCP_PERFORMANCE_BENCHMARK=PASS_PHYSICAL
+SERVER_MAX_STABLE_REQ_S=MEASURED
+CLIENT_MAX_STABLE_REQ_S=MEASURED
+FULL_RUNTIME_MAX_STABLE_REQ_S=MEASURED
 MODBUS_RTU_TCP_SIMULTANEOUS=PASS_PHYSICAL
 SPI_SHARED_BUS_REGRESSION=0
 BUILD_SPEED_MATERIAL_REGRESSION=NO
@@ -188,5 +202,5 @@ AUTOLOAD_PERIPHERALS_REMOVED=NO
 
 ```text
 ALPHA14_STATUS=IN_PROGRESS
-CURRENT_GATE=A14.1_FOUNDATION_SERVER
+CURRENT_GATE=A14.2_CLIENT_COOPERATIVE
 ```
