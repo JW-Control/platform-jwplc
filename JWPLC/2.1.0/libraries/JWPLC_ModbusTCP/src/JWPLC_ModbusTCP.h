@@ -78,9 +78,10 @@ public:
     // Server Modbus TCP. beginServer() no fuerza una inicialización Ethernet
     // síncrona: si el autoload todavía está obteniendo DHCP, task() espera
     // cooperativamente hasta que JWPLC_Ethernet esté READY.
+    // En A14.1 el servidor se configura una vez durante setup(). El cierre
+    // explícito de sockets se añadirá junto al backend cooperativo de A14.2.
     bool beginServer(uint8_t unitId = JWPLC_MODBUS_TCP_DEFAULT_UNIT_ID,
                      uint16_t port = JWPLC_MODBUS_TCP_DEFAULT_PORT);
-    void endServer();
 
     // Debe llamarse con alta frecuencia desde loop() mientras el servicio esté
     // habilitado. Cada pasada limita el trabajo de RX para no monopolizar SPI.
@@ -174,25 +175,25 @@ private:
                          uint16_t mapCount,
                          const uint8_t *pdu,
                          uint16_t pduLength,
-                         uint16_t &responsePduLength);
+                         uint16_t &responseLength);
     bool processReadRegisters(uint8_t functionCode,
                               const uint16_t *map,
                               uint16_t mapCount,
                               const uint8_t *pdu,
                               uint16_t pduLength,
-                              uint16_t &responsePduLength);
+                              uint16_t &responseLength);
     bool processWriteSingleCoil(const uint8_t *pdu,
                                 uint16_t pduLength,
-                                uint16_t &responsePduLength);
+                                uint16_t &responseLength);
     bool processWriteSingleRegister(const uint8_t *pdu,
                                     uint16_t pduLength,
-                                    uint16_t &responsePduLength);
+                                    uint16_t &responseLength);
     bool processWriteMultipleCoils(const uint8_t *pdu,
                                    uint16_t pduLength,
-                                   uint16_t &responsePduLength);
+                                   uint16_t &responseLength);
     bool processWriteMultipleRegisters(const uint8_t *pdu,
                                        uint16_t pduLength,
-                                       uint16_t &responsePduLength);
+                                       uint16_t &responseLength);
 
     static uint16_t readU16BE(const uint8_t *p);
     static void writeU16BE(uint8_t *p, uint16_t value);
