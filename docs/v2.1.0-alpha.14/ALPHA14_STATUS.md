@@ -14,13 +14,13 @@ ALPHA14_STATUS=IN_PROGRESS
 ## Gate actual
 
 ```text
-CURRENT_GATE=A14.1_FC06_PHYSICAL
+CURRENT_GATE=A14.1_SERVER_FUNCTION_MATRIX
 A14_1_IMPLEMENTATION=PASS_SOURCE_COMPLETE
 A14_1_COMPILE=PASS
 A14_1_EMPTY_SKETCH_REGRESSION=PASS
 A14_1_SERVER_LISTEN_SMOKE=PASS
 A14_1_FC03=PASS
-A14_1_FC06=NOT_EXECUTED
+A14_1_FC06=PASS
 A14_1_SERVER_RUNTIME=PARTIAL_PASS
 A14_2_CLIENT=NOT_STARTED
 RTU_TCP_SIMULTANEOUS=NOT_EXECUTED
@@ -167,7 +167,50 @@ HOLDING_0=0
 A14_1_FC03=PASS
 ```
 
-Este gate confirma procesamiento Modbus TCP end-to-end para una lectura FC03: conexión TCP, MBAP, PDU, acceso al mapa Holding Register, respuesta y cierre limpio del cliente. `A14_1_SERVER_RUNTIME` permanece `PARTIAL_PASS` hasta validar escritura FC06 y luego ampliar la matriz funcional.
+Este gate confirma procesamiento Modbus TCP end-to-end para una lectura FC03: conexión TCP, MBAP, PDU, acceso al mapa Holding Register, respuesta y cierre limpio del cliente.
+
+## Gate físico FC06
+
+Cliente: PowerShell sobre PC. Server: JWPLC Basic `192.168.0.31:502`, Unit ID `1`.
+
+Request:
+
+```text
+TX=00 02 00 00 00 06 01 06 00 00 30 39
+FUNCTION=FC06 Write Single Register
+ADDRESS=0
+VALUE=12345 (0x3039)
+```
+
+Response observada:
+
+```text
+RX=00 02 00 00 00 06 01 06 00 00 30 39
+TRANSACTION_ID=2
+PROTOCOL_ID=0
+UNIT_ID=1
+FUNCTION=0x06
+ADDRESS=0
+VALUE=12345
+EXACT_ECHO=PASS
+CLIENT_RESULT=PASS
+```
+
+Diagnóstico interno posterior del JWPLC:
+
+```text
+SERVER_STATE=READY
+CLIENT=NONE
+LAST_ERROR=OK
+RX_FRAMES=2
+TX_FRAMES=2
+REQUESTS_OK=2
+EXCEPTIONS=0
+HOLDING_0=12345
+A14_1_FC06=PASS
+```
+
+FC06 queda validado end-to-end: MBAP/PDU correctos, echo exacto exigido por la función, modificación efectiva del mapa Holding y cierre limpio del cliente. FC03 + FC06 demuestran lectura/escritura básica real sobre el mapa del Server.
 
 ## Implementado en A14.1
 
@@ -226,15 +269,15 @@ ROBOT_INTEROPERABILITY=PASS       -> NO
 
 ## Próximo gate
 
-Validar escritura FC06 sobre Holding Register 0 y confirmar el cambio tanto por echo de protocolo como por el diagnóstico periódico del JWPLC.
+Ejecutar una matriz automatizada sobre el mismo Server físico para las Function Codes todavía pendientes:
 
 ```text
-CLIENT=PC PowerShell
-SERVER=192.168.0.31:502
-UNIT_ID=1
-FUNCTION=FC06 Write Single Register
-ADDRESS=0
-VALUE=12345 (0x3039)
-EXPECTED_ECHO=00 02 00 00 00 06 01 06 00 00 30 39
-EXPECTED_HOLDING_0=12345
+FC01 Read Coils
+FC02 Read Discrete Inputs
+FC04 Read Input Registers
+FC05 Write Single Coil + FC01 readback
+FC15 Write Multiple Coils + FC01 readback
+FC16 Write Multiple Registers + FC03 readback
 ```
+
+La matriz debe mantener `Last error=OK`, no producir excepciones inesperadas y confirmar round-trip para todas las operaciones de escritura.
