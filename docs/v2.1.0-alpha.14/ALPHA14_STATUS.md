@@ -14,12 +14,36 @@ ALPHA14_STATUS=IN_PROGRESS
 ## Gate actual
 
 ```text
-CURRENT_GATE=A14.1_FOUNDATION_SERVER
-A14_1_IMPLEMENTATION=READY_FOR_COMPILE_GATE
-A14_1_COMPILE=NOT_EXECUTED
+CURRENT_GATE=A14.1_EMPTY_SKETCH_REGRESSION
+A14_1_IMPLEMENTATION=PASS_SOURCE_COMPLETE
+A14_1_COMPILE=PASS
 A14_1_SERVER_RUNTIME=NOT_EXECUTED
 A14_2_CLIENT=NOT_STARTED
 RTU_TCP_SIMULTANEOUS=NOT_EXECUTED
+```
+
+## Evidencia de compilación A14.1
+
+Validación ejecutada por el usuario sobre checkout local de la rama Alpha14:
+
+```text
+FQBN=jwplc_local:esp32:jwplcbasic
+PLATFORM=jwplc_local:esp32 2.1.0-dev
+JWPLC_ModbusTCP=0.1.0
+COMPILE_EXIT_CODE=0
+PROGRAM_BYTES=417893
+PROGRAM_PERCENT=10
+GLOBAL_VARIABLE_BYTES=28452
+GLOBAL_VARIABLE_PERCENT=8
+LOCAL_VARIABLE_BYTES_AVAILABLE=299228
+A14_1_COMPILE=PASS
+```
+
+La resolución de librerías confirmó que `JWPLC_ModbusTCP`, `JWPLC_Ethernet`, Display, RTC, FRAM, SD, botonera, RS-485 y Modbus RTU provinieron del árbol local `JWPLC/2.1.0/libraries`.
+
+```text
+LOCAL_PACKAGE_RESOLUTION=PASS
+UNEXPECTED_EXTERNAL_JWPLC_LIBRARY=NO
 ```
 
 ## Implementado en A14.1
@@ -79,4 +103,11 @@ MODBUS_RTU_TCP_SIMULTANEOUS=PASS -> NO
 ROBOT_INTEROPERABILITY=PASS       -> NO
 ```
 
-El siguiente paso es el compile gate A14.1 con `jwplc_local:esp32:jwplcbasic`.
+## Próximo gate
+
+Confirmar que un sketch vacío sigue sin resolver ni compilar `JWPLC_ModbusTCP` y conserva la estructura de compilación cerrada en Alpha11/Alpha10.
+
+```text
+EXPECTED_EMPTY_SKETCH_MODBUSTCP_DISCOVERY=NO
+EXPECTED_EMPTY_SKETCH_WARM_COMPILERS=1
+```
