@@ -14,7 +14,7 @@ ALPHA14_STATUS=IN_PROGRESS
 ## Gate actual
 
 ```text
-CURRENT_GATE=A14.2_ASYNC_TCP_ACK_CONFIRMATION
+CURRENT_GATE=A14.2_CLIENT_STATE_MACHINE_SOURCE
 A14_1_IMPLEMENTATION=PASS_SOURCE_COMPLETE
 A14_1_COMPILE=PASS
 A14_1_EMPTY_SKETCH_REGRESSION=PASS
@@ -35,7 +35,8 @@ A14_1=PASS
 A14_2_ASYNC_BACKEND_COMPILE=PASS
 A14_2_ASYNC_CONNECT_NONBLOCKING=PASS
 A14_2_TCP_ESTABLISHED=PASS
-A14_2_ASYNC_BACKEND_RUNTIME=PARTIAL_PASS
+A14_2_ASYNC_BACKEND_RUNTIME=PASS
+A14_2_CLIENT_STATE_MACHINE=IN_PROGRESS
 A14_2_CLIENT=IN_PROGRESS
 RTU_TCP_SIMULTANEOUS=NOT_EXECUTED
 ```
@@ -197,7 +198,9 @@ A14_2_ASYNC_BACKEND_COMPILE=PASS
 
 ### Runtime físico de conexión TCP cooperativa
 
-Primer intento: el JWPLC estaba `READY` y `beginConnectAsync()` retornó `pending` en `418 us`, pero el listener PowerShell lanzado en background no aceptó conexión y el probe terminó por timeout. Luego se repitió el gate con un listener TCP visible en primer plano sobre la PC.
+Primer intento: el JWPLC estaba `READY` y `beginConnectAsync()` retornó `pending` en `418 us`, pero el listener PowerShell lanzado en background no aceptó conexión y el probe terminó por timeout. Ese intento se clasifica como problema del harness/listener, no como fallo demostrado del backend.
+
+Se repitió el gate con un listener TCP visible en primer plano sobre la PC.
 
 Resultado PC:
 
@@ -211,32 +214,42 @@ TX=PC_ACK
 LISTENER_RESULT=PASS
 ```
 
-Interpretación:
+Resultado Serial del JWPLC:
 
 ```text
-ETHERNET_READY=PASS
-BEGIN_CONNECT_ASYNC_RESULT=PENDING
+ETHERNET_READY IP=192.168.0.31
+BEGIN_RESULT=0
+BEGIN_CALL_US=418
+JWPLC_ASYNC_CONNECTED begin_us=418 connect_ms=1 polls=9 loops_pending=10 max_poll_us=20
+ACK=PC_ACK
+TCP_LISTENER_ACCEPTED=PASS
+A14_2_ASYNC_BACKEND_RUNTIME=PASS
+```
+
+Conclusión:
+
+```text
+A14_2_ETHERNET_READY=PASS
+A14_2_ASYNC_CONNECT_NONBLOCKING=PASS
 BEGIN_CALL_US=418
 TCP_ESTABLISH_MS=1
 POLL_COUNT=9
 LOOPS_WHILE_PENDING=10
 MAX_POLL_US=20
-TCP_ACCEPT=PASS
-A14_2_ASYNC_CONNECT_NONBLOCKING=PASS
-A14_2_TCP_ESTABLISHED=PASS
+TCP_TX_PC_RX=PASS
+PC_TX_TCP_RX=PASS
+A14_2_ASYNC_BACKEND_RUNTIME=PASS
 ```
 
-La evidencia confirma que el establecimiento TCP no bloquea el `loop()`: el inicio retorna en microsegundos, la conexión se completa mediante múltiples polls cortos y el sketch ejecuta varias iteraciones mientras el socket sigue pendiente.
-
-El listener PC envió `PC_ACK`, pero todavía falta registrar la salida serie del JWPLC confirmando que recibió ese ACK y publicó `A14_2_ASYNC_BACKEND_RUNTIME=PASS`. Por eso el gate global del probe permanece temporalmente en `PARTIAL_PASS`, aunque el objetivo crítico de conexión TCP cooperativa ya está en `PASS`.
+El establecimiento TCP no bloquea el `loop()`: `beginConnectAsync()` retorna en microsegundos, el handshake progresa con polls cortos y el sketch ejecuta múltiples iteraciones mientras el socket está pendiente. Además, la sesión establecida permite tráfico bidireccional real.
 
 ## Siguientes pasos A14.2
 
-1. confirmar por Serial el `PC_ACK` y cerrar el runtime probe async;
-2. implementar state machine Client/Master en `JWPLC_ModbusTCP`;
-3. exponer FC01/02/03/04/05/06/15/16 cooperativas;
-4. añadir ejemplo Client;
-5. validar timeout, reconexión y matriz Client contra servidor de prueba.
+1. implementar state machine Client/Master en `JWPLC_ModbusTCP` sobre el backend async ya validado;
+2. exponer FC01/02/03/04/05/06/15/16 cooperativas;
+3. añadir ejemplo Client;
+4. validar compile/runtime de FC03 + FC06;
+5. ampliar a matriz Client completa, timeout y reconexión.
 
 ## Pendientes posteriores
 
