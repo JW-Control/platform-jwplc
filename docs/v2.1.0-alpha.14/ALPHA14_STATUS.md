@@ -14,11 +14,14 @@ ALPHA14_STATUS=IN_PROGRESS
 ## Gate actual
 
 ```text
-CURRENT_GATE=A14.1_SERVER_RUNTIME
+CURRENT_GATE=A14.1_FC03_PHYSICAL
 A14_1_IMPLEMENTATION=PASS_SOURCE_COMPLETE
 A14_1_COMPILE=PASS
 A14_1_EMPTY_SKETCH_REGRESSION=PASS
-A14_1_SERVER_RUNTIME=NOT_EXECUTED
+A14_1_SERVER_LISTEN_SMOKE=PASS
+A14_1_FC03=NOT_EXECUTED
+A14_1_FC06=NOT_EXECUTED
+A14_1_SERVER_RUNTIME=PARTIAL_PASS
 A14_2_CLIENT=NOT_STARTED
 RTU_TCP_SIMULTANEOUS=NOT_EXECUTED
 ```
@@ -99,6 +102,34 @@ A14_1_EXACT_SPEEDUP_CLAIM=NOT_USED
 
 La presencia de la nueva librería no incrementó el número de compiladores del flujo normal del sketch vacío. La variación de `+336 bytes` representa aproximadamente `+0.0073%` del agregado de binarios reportado por el benchmark y se clasifica como no material. No se interpreta el tiempo cold de una sola ejecución como regresión causal debido a la variación del host ya observada en Alpha10/Alpha11.
 
+## Smoke físico del Server
+
+Prueba ejecutada con `01.ModbusTCP_Server` sobre JWPLC Basic físico.
+
+Secuencia observada:
+
+```text
+BOOT=POWERON_RESET
+MODBUS_TCP_WAITING_ETHERNET=PASS
+DHCP_READY=PASS
+IP=192.168.0.31
+TCP_PORT=502
+UNIT_ID=1
+SERVER_STATE=READY
+LAST_ERROR=OK
+CLIENT=NONE
+RX_FRAMES=0
+TX_FRAMES=0
+REQUESTS_OK=0
+EXCEPTIONS=0
+UNEXPECTED_RESET=0
+A14_1_SERVER_LISTEN_SMOKE=PASS
+```
+
+El server pasó de espera de Ethernet a `READY` aproximadamente 2.3 s después del mensaje inicial y permaneció `READY` en múltiples impresiones periódicas sin error ni reset observado.
+
+Este gate confirma inicialización Ethernet/DHCP y socket de escucha. Todavía no confirma procesamiento de ninguna Function Code; por eso `A14_1_SERVER_RUNTIME` permanece como `PARTIAL_PASS` hasta ejecutar tráfico Modbus TCP real.
+
 ## Implementado en A14.1
 
 - nueva librería opt-in `JWPLC_ModbusTCP`;
@@ -156,16 +187,16 @@ ROBOT_INTEROPERABILITY=PASS       -> NO
 
 ## Próximo gate
 
-Subir `01.ModbusTCP_Server` al JWPLC Basic y validar:
+Validar una única operación real Modbus TCP de lectura:
 
 ```text
-Ethernet READY
-IP asignada
-Server TCP 502 LISTENING
-Unit ID 1
-lectura FC03
-escritura FC06
-estado/estadísticas sin errores
+CLIENT=PC PowerShell
+SERVER=192.168.0.31:502
+UNIT_ID=1
+FUNCTION=FC03 Read Holding Registers
+START_ADDRESS=0
+QUANTITY=1
+EXPECTED_VALUE=0
 ```
 
-Después de ese smoke físico se ampliará la matriz a FC01/02/04/05/15/16.
+Si FC03 pasa, el siguiente gate será FC06 sobre Holding Register 0 y lectura FC03 de confirmación.
