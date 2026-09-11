@@ -14,9 +14,10 @@ ALPHA14_STATUS=IN_PROGRESS
 ## Gate actual
 
 ```text
-CURRENT_GATE=A14.1_EMPTY_SKETCH_REGRESSION
+CURRENT_GATE=A14.1_SERVER_RUNTIME
 A14_1_IMPLEMENTATION=PASS_SOURCE_COMPLETE
 A14_1_COMPILE=PASS
+A14_1_EMPTY_SKETCH_REGRESSION=PASS
 A14_1_SERVER_RUNTIME=NOT_EXECUTED
 A14_2_CLIENT=NOT_STARTED
 RTU_TCP_SIMULTANEOUS=NOT_EXECUTED
@@ -46,6 +47,58 @@ LOCAL_PACKAGE_RESOLUTION=PASS
 UNEXPECTED_EXTERNAL_JWPLC_LIBRARY=NO
 ```
 
+## Regresión de sketch vacío / build speed
+
+Run:
+
+```text
+RUN=20260911_161448
+LABEL=alpha14-empty-regression
+TARGET=Basic
+SKETCH=01_empty
+```
+
+Resultados Alpha14:
+
+| Fase | Tiempo | Compiladores | Binarios |
+|---|---:|---:|---:|
+| managed cold | 65.517 s | 15 | n/a |
+| managed warm no-change | 24.070 s | 1 | n/a |
+| managed warm touch | 23.114 s | 1 | n/a |
+| explicit cold | 61.851 s | 15 | 4,619,056 bytes |
+| explicit warm no-change | 22.779 s | 1 | 4,619,056 bytes |
+| explicit warm touch | 22.624 s | 1 | 4,619,056 bytes |
+
+Baseline Alpha11 `Basic / 01_empty`:
+
+```text
+cold compilers=15
+warm compilers=1
+explicit binary bytes=4,618,720
+```
+
+Delta agregado de binarios del benchmark:
+
+```text
+ALPHA11_BYTES=4618720
+ALPHA14_BYTES=4619056
+DELTA_BYTES=+336
+DELTA_PERCENT≈+0.0073%
+```
+
+Conclusión:
+
+```text
+A14_1_COMPILER_STRUCTURE_PARITY=PASS
+A14_1_WARM_COMPILERS=1
+A14_1_EMPTY_SKETCH_BINARY_EXACT_PARITY=NO
+A14_1_EMPTY_SKETCH_BINARY_REGRESSION=MATERIAL_NO
+A14_1_EMPTY_SKETCH_REGRESSION=PASS
+A14_1_EXACT_SPEEDUP_CLAIM=NOT_USED
+```
+
+La presencia de la nueva librería no incrementó el número de compiladores del flujo normal del sketch vacío. La variación de `+336 bytes` representa aproximadamente `+0.0073%` del agregado de binarios reportado por el benchmark y se clasifica como no material. No se interpreta el tiempo cold de una sola ejecución como regresión causal debido a la variación del host ya observada en Alpha10/Alpha11.
+
 ## Implementado en A14.1
 
 - nueva librería opt-in `JWPLC_ModbusTCP`;
@@ -63,19 +116,17 @@ UNEXPECTED_EXTERNAL_JWPLC_LIBRARY=NO
 - ejemplo `01.ModbusTCP_Server`;
 - README específico.
 
-## Decisiones pendientes de validación
+## Decisiones de integración vigentes
 
-No se añade todavía `JWPLC_ModbusTCP` a `JWPLC_GlobalPeripherals` ni al autoload/discovery global.
-
-Motivo:
+`JWPLC_ModbusTCP` permanece opt-in durante Alpha14 y todavía no se añade a `JWPLC_GlobalPeripherals` ni al autoload/discovery global.
 
 ```text
 NEW_PROTOCOL_FEATURE=OPT_IN_DURING_ALPHA14
-ALPHA10_BUILD_SPEED_GATE=PRESERVE
-EMPTY_SKETCH_DISCOVERY_COST=DO_NOT_INCREASE_WITHOUT_EVIDENCE
+ALPHA10_BUILD_SPEED_GATE=PRESERVED
+EMPTY_SKETCH_COMPILER_STRUCTURE_PRESERVED=YES
 ```
 
-La librería todavía no usa `precompiled=full`. Esa decisión se toma después de compilar, medir y estabilizar la API.
+La librería todavía no usa `precompiled=full`. Esa decisión se tomará después de estabilizar la API y completar los gates funcionales.
 
 ## Hallazgo para A14.2
 
@@ -105,9 +156,16 @@ ROBOT_INTEROPERABILITY=PASS       -> NO
 
 ## Próximo gate
 
-Confirmar que un sketch vacío sigue sin resolver ni compilar `JWPLC_ModbusTCP` y conserva la estructura de compilación cerrada en Alpha11/Alpha10.
+Subir `01.ModbusTCP_Server` al JWPLC Basic y validar:
 
 ```text
-EXPECTED_EMPTY_SKETCH_MODBUSTCP_DISCOVERY=NO
-EXPECTED_EMPTY_SKETCH_WARM_COMPILERS=1
+Ethernet READY
+IP asignada
+Server TCP 502 LISTENING
+Unit ID 1
+lectura FC03
+escritura FC06
+estado/estadísticas sin errores
 ```
+
+Después de ese smoke físico se ampliará la matriz a FC01/02/04/05/15/16.
