@@ -39,33 +39,85 @@ int EthernetClient::connect(const char * host, uint16_t port)
 	return connect(remote_addr, port);
 }
 
-int EthernetClient::connect(IPAddress ip, uint16_t port)
+int EthernetClient::beginConnectAsync(IPAddress ip, uint16_t port)
 {
 	if (_sockindex < MAX_SOCK_NUM) {
 		if (Ethernet.socketStatus(_sockindex) != SnSR::CLOSED) {
-			Ethernet.socketDisconnect(_sockindex); // TODO: should we call stop()?
+			// El camino async no espera FIN/timeout: libera el socket previo y
+			// permite que el caller vuelva a task() inmediatamente.
+			Ethernet.socketClose(_sockindex);
 		}
 		_sockindex = MAX_SOCK_NUM;
 	}
+
 #if defined(ESP8266) || defined(ESP32)
-	if (ip == IPAddress((uint32_t)0) || ip == IPAddress(0xFFFFFFFFul)) return 0;
+	if (ip == IPAddress((uint32_t)0) || ip == IPAddress(0xFFFFFFFFul)) return -1;
 #else
-	if (ip == IPAddress(0ul) || ip == IPAddress(0xFFFFFFFFul)) return 0;
+	if (ip == IPAddress(0ul) || ip == IPAddress(0xFFFFFFFFul)) return -1;
 #endif
+	if (port == 0) return -1;
+
 	_sockindex = Ethernet.socketBegin(SnMR::TCP, 0);
-	if (_sockindex >= MAX_SOCK_NUM) return 0;
+	if (_sockindex >= MAX_SOCK_NUM) return -1;
+
+	// socketConnect() sólo configura destino y dispara Sock_CONNECT en el
+	// W5x00. La espera de ESTABLISHED se hace luego mediante pollConnectAsync().
 	Ethernet.socketConnect(_sockindex, rawIPAddress(ip), port);
+	return pollConnectAsync();
+}
+
+int EthernetClient::pollConnectAsync()
+{
+	if (_sockindex >= MAX_SOCK_NUM) return -1;
+
+	uint8_t stat = Ethernet.socketStatus(_sockindex);
+	if (stat == SnSR::ESTABLISHED || stat == SnSR::CLOSE_WAIT) return 1;
+
+	if (stat == SnSR::CLOSED) {
+		_sockindex = MAX_SOCK_NUM;
+		return -1;
+	}
+
+	return 0;
+}
+
+bool EthernetClient::connectAsyncInProgress()
+{
+	if (_sockindex >= MAX_SOCK_NUM) return false;
+
+	uint8_t stat = Ethernet.socketStatus(_sockindex);
+	return stat != SnSR::ESTABLISHED &&
+		stat != SnSR::CLOSE_WAIT &&
+		stat != SnSR::CLOSED;
+}
+
+void EthernetClient::cancelConnectAsync()
+{
+	if (_sockindex >= MAX_SOCK_NUM) return;
+
+	Ethernet.socketClose(_sockindex);
+	_sockindex = MAX_SOCK_NUM;
+}
+
+int EthernetClient::connect(IPAddress ip, uint16_t port)
+{
+	// Compatibilidad Arduino: esta API sigue siendo bloqueante y conserva el
+	// timeout configurado. Internamente usa el mismo motor cooperativo nuevo
+	// para evitar dos implementaciones distintas del establecimiento TCP.
+	int state = beginConnectAsync(ip, port);
+	if (state < 0) return 0;
+	if (state > 0) return 1;
+
 	uint32_t start = millis();
 	while (1) {
-		uint8_t stat = Ethernet.socketStatus(_sockindex);
-		if (stat == SnSR::ESTABLISHED) return 1;
-		if (stat == SnSR::CLOSE_WAIT) return 1;
-		if (stat == SnSR::CLOSED) return 0;
+		state = pollConnectAsync();
+		if (state > 0) return 1;
+		if (state < 0) return 0;
 		if (millis() - start > _timeout) break;
 		delay(1);
 	}
-	Ethernet.socketClose(_sockindex);
-	_sockindex = MAX_SOCK_NUM;
+
+	cancelConnectAsync();
 	return 0;
 }
 
