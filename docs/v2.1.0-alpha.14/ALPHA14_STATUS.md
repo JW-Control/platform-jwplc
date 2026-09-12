@@ -14,14 +14,14 @@ ALPHA14_STATUS=IN_PROGRESS
 ## Gate actual
 
 ```text
-CURRENT_GATE=A14.2_CLIENT_TIMEOUT_RECONNECT
+CURRENT_GATE=A14.2_CLIENT_EXAMPLE_SYNC_DECISION
 
 A14_1=PASS
 A14_2_CLIENT_FUNCTION_MATRIX=PASS_PHYSICAL
-A14_2_CLIENT_TIMEOUT_RECONNECT=NOT_EXECUTED
+A14_2_CLIENT_TIMEOUT_RECONNECT=PASS_PHYSICAL
 A14_2_CLIENT_EXAMPLE=NOT_FINAL
 A14_2_SYNC_API_DECISION=PENDING
-A14_2_ETHERNET_BACKEND_COMPAT_REVIEW=PENDING
+A14_2_ETHERNET_BACKEND_COMPAT_REVIEW=PASS
 A14_2=IN_PROGRESS
 
 A14_3_PERFORMANCE_BENCHMARK=PLANNED
@@ -257,19 +257,52 @@ A14_2_CLIENT_FC16=PASS_PHYSICAL
 A14_2_CLIENT_FUNCTION_MATRIX=PASS_PHYSICAL
 ```
 
+### Timeout, cierre graceful y reconexión
+
+Evidencia: `A14_2_CLIENT_TIMEOUT_RECONNECT_RUNTIME_20260912.md`.
+
+La primera petición FC03 se dejó deliberadamente sin respuesta. El Client agotó su timeout, cerró la sesión anterior y lanzó una segunda petición sin repetir `begin()`.
+
+Resultado final:
+
+```text
+FIRST_TID=1
+FIRST_TIMEOUT_OBSERVED=YES
+SESSION_CLOSED_AFTER_TIMEOUT=YES
+SECOND_TID=2
+SECOND_VALUE=9320
+CONNECTIONS=2
+TX_FRAMES=2
+RX_FRAMES=1
+REQUESTS_OK=1
+TIMEOUTS=1
+TRANSPORT_ERRORS=0
+PROTOCOL_ERRORS=0
+BUS_LOCK_TIMEOUTS=0
+A14_2_GRACEFUL_CLOSE_RETEST_RUNTIME=PASS
+A14_2_GRACEFUL_CLOSE_RETEST_PC=PASS
+```
+
+La corrección del backend quedó consolidada en:
+
+```text
+COMMIT=34e4762adfacecccf44f125daf8ae7dabc836ba5
+A14_2_CLIENT_TIMEOUT_RECONNECT=PASS_PHYSICAL
+A14_2_ETHERNET_BACKEND_COMPAT_REVIEW=PASS
+```
+
+Decisiones de compatibilidad del backend:
+
+- sesiones `ESTABLISHED` / `CLOSE_WAIT` se cierran mediante `socketDisconnect()` para notificar el cierre al peer;
+- conexiones todavía incompletas pueden abortarse mediante `socketClose()`;
+- se conserva la semántica histórica de `EthernetClient` respecto a `port == 0`, eliminando el rechazo temprano introducido durante el desarrollo async.
+
 ### Pendientes para cerrar A14.2
 
 ```text
-A14_2_CLIENT_TIMEOUT_RECONNECT=NOT_EXECUTED
-A14_2_ETHERNET_BACKEND_COMPAT_REVIEW=PENDING
 A14_2_CLIENT_EXAMPLE=NOT_FINAL
 A14_2_SYNC_API_DECISION=PENDING
 ```
-
-Revisión backend pendiente antes de congelar A14.2:
-
-- confirmar compatibilidad de `socketClose()` frente a la semántica previa de `socketDisconnect()` en `beginConnectAsync()`;
-- revisar el rechazo de `port == 0` frente a la semántica histórica de `EthernetClient::connect()`.
 
 ## A14.3 — Benchmark de rendimiento
 
@@ -340,10 +373,8 @@ Se retomará cuando exista acceso al robot y esté definida la integración/tool
 
 ## Próximos pasos
 
-1. validar Client timeout + reconexión;
-2. revisar compatibilidad final del backend Ethernet;
-3. cerrar ejemplo Client y decisión API Sync;
-4. marcar A14.2 `PASS`;
-5. ejecutar benchmark A14.3;
-6. ejecutar coexistencia A14.4 y benchmark reducido con runtime completo;
-7. ejecutar regresiones finales, documentación y cierre de Alpha14.
+1. cerrar ejemplo Client y decisión API Sync;
+2. marcar A14.2 `PASS`;
+3. ejecutar benchmark A14.3;
+4. ejecutar coexistencia A14.4 y benchmark reducido con runtime completo;
+5. ejecutar regresiones finales, documentación y cierre de Alpha14.
