@@ -883,6 +883,18 @@ bool JWPLC_ModbusTCPClientClass::processResponse()
             return false;
         }
     }
+    else if (_operation == OP_WRITE_MULTIPLE_COILS ||
+             _operation == OP_WRITE_MULTIPLE_REGISTERS)
+    {
+        // FC15/FC16 responden con echo de startAddress + quantity.
+        if (_expectedRxLength != 12 ||
+            readU16BE(&_rxBuffer[8]) != _startAddress ||
+            readU16BE(&_rxBuffer[10]) != _quantity)
+        {
+            fail(JWPLC_MODBUS_TCP_CLIENT_INVALID_RESPONSE, true);
+            return false;
+        }
+    }
     else
     {
         fail(JWPLC_MODBUS_TCP_CLIENT_INVALID_RESPONSE, true);
