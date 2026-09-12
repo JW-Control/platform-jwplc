@@ -80,6 +80,18 @@ public:
     void task();
     void poll();
 
+    // Lecturas de bits. Igual que JWPLC_ModbusRTU, el destino usa bytes
+    // empaquetados LSB-first y los bits sobrantes del último byte se limpian.
+    bool requestReadCoils(uint16_t startAddress,
+                          uint16_t quantity,
+                          uint8_t *destinationPacked,
+                          uint32_t timeoutMs = 1000);
+
+    bool requestReadDiscreteInputs(uint16_t startAddress,
+                                   uint16_t quantity,
+                                   uint8_t *destinationPacked,
+                                   uint32_t timeoutMs = 1000);
+
     // Lecturas de registros. FC03/FC04 comparten forma de respuesta.
     bool requestReadHoldingRegisters(uint16_t startAddress,
                                      uint16_t quantity,
@@ -123,6 +135,7 @@ private:
     enum Operation : uint8_t
     {
         OP_NONE = 0,
+        OP_READ_BITS,
         OP_READ_HOLDING_REGISTERS,
         OP_WRITE_SINGLE_REGISTER
     };
@@ -150,6 +163,7 @@ private:
     uint16_t _quantity;
     uint16_t _writeValue;
     uint16_t *_registerDestination;
+    uint8_t *_bitDestination;
 
     uint32_t _requestStartMs;
     uint32_t _timeoutMs;
