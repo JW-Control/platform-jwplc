@@ -1,6 +1,6 @@
 # v2.1.0-alpha.14 — Estado
 
-Actualizado: `2026-09-11`
+Actualizado: `2026-09-12`
 
 ## Identidad
 
@@ -14,42 +14,22 @@ ALPHA14_STATUS=IN_PROGRESS
 ## Gate actual
 
 ```text
-CURRENT_GATE=A14.2_CLIENT_FC04_FC05_COMPILE
-A14_1_IMPLEMENTATION=PASS_SOURCE_COMPLETE
-A14_1_COMPILE=PASS
-A14_1_EMPTY_SKETCH_REGRESSION=PASS
-A14_1_SERVER_LISTEN_SMOKE=PASS
-A14_1_FC01=PASS
-A14_1_FC02=PASS
-A14_1_FC03=PASS
-A14_1_FC04=PASS
-A14_1_FC05=PASS
-A14_1_FC06=PASS
-A14_1_FC15=PASS
-A14_1_FC16=PASS
-A14_1_SERVER_FUNCTION_MATRIX=PASS
-A14_1_EXCEPTION_RECOVERY=PASS
-A14_1_INVALID_MBAP_RECONNECT=PASS
-A14_1_SERVER_RUNTIME=PASS
+CURRENT_GATE=A14.2_CLIENT_TIMEOUT_RECONNECT
+
 A14_1=PASS
-A14_2_ASYNC_BACKEND_COMPILE=PASS
-A14_2_ASYNC_CONNECT_NONBLOCKING=PASS
-A14_2_TCP_ESTABLISHED=PASS
-A14_2_ASYNC_BACKEND_RUNTIME=PASS
-A14_2_SERVER_REGRESSION_COMPILE=PASS
-A14_2_ASYNC_TX_API_COMPILE=PASS
-A14_2_ASYNC_TX_RUNTIME=PASS
-A14_2_CLIENT_FC03_FC06_SOURCE=PASS
-A14_2_SERVER_AFTER_CLIENT_SOURCE=PASS
-A14_2_CLIENT_FC03_FC06_COMPILE=PASS
-A14_2_CLIENT_FC03_FC06_RUNTIME=PASS
-A14_2_CLIENT_STATE_MACHINE=PASS_CORE_FC03_FC06
-A14_2_CLIENT_FC04_FC05_SOURCE=PASS
-A14_2_CLIENT_FC04_FC05_COMPILE=NOT_EXECUTED
-A14_2_CLIENT=IN_PROGRESS
+A14_2_CLIENT_FUNCTION_MATRIX=PASS_PHYSICAL
+A14_2_CLIENT_TIMEOUT_RECONNECT=NOT_EXECUTED
+A14_2_CLIENT_EXAMPLE=NOT_FINAL
+A14_2_SYNC_API_DECISION=PENDING
+A14_2_ETHERNET_BACKEND_COMPAT_REVIEW=PENDING
+A14_2=IN_PROGRESS
+
 A14_3_PERFORMANCE_BENCHMARK=PLANNED
-RTU_TCP_SIMULTANEOUS=NOT_EXECUTED
+A14_4_RTU_TCP_COEXISTENCE=NOT_EXECUTED
+A14_5_ROBOT_INTEROPERABILITY=DEFERRED_NON_BLOCKING
 ```
+
+El caso robot/KUKA no es requisito de cierre de Alpha14. La validación queda diferida hasta disponer nuevamente del robot y completar el toolbox personalizado correspondiente.
 
 ## Build / regresión
 
@@ -57,10 +37,6 @@ RTU_TCP_SIMULTANEOUS=NOT_EXECUTED
 FQBN=jwplc_local:esp32:jwplcbasic
 PLATFORM=jwplc_local:esp32 2.1.0-dev
 JWPLC_ModbusTCP=0.1.0
-SERVER_COMPILE_EXIT=0
-CLIENT_FC03_FC06_COMPILE_EXIT=0
-CLIENT_PROBE_PROGRAM_BYTES=404317
-CLIENT_PROBE_GLOBAL_BYTES=29036
 LOCAL_PACKAGE_RESOLUTION=PASS
 ```
 
@@ -82,169 +58,76 @@ A14_1_EMPTY_SKETCH_BINARY_REGRESSION=MATERIAL_NO
 A14_1_EMPTY_SKETCH_REGRESSION=PASS
 ```
 
-`JWPLC_ModbusTCP` permanece opt-in durante Alpha14 y no se añade todavía a `JWPLC_GlobalPeripherals` ni al autoload global.
+`JWPLC_ModbusTCP` permanece opt-in durante Alpha14 y no se añade al autoload global mientras no se cierre la decisión final de integración.
 
 ## A14.1 — Foundation + Server
 
-### Smoke físico
+Estado: `PASS`.
 
 ```text
-BOOT=POWERON_RESET
-DHCP_READY=PASS
-IP=192.168.0.31
-TCP_PORT=502
-UNIT_ID=1
-SERVER_STATE=READY
-LAST_ERROR=OK
-UNEXPECTED_RESET=0
-```
-
-### FC03 / FC06 individuales
-
-```text
-FC03_READ_HOLDING_0=PASS
-FC06_WRITE_HOLDING_0_12345=PASS
-FC06_EXACT_ECHO=PASS
-HOLDING_0=12345
-```
-
-### Matriz completa
-
-Evidencia: `docs/v2.1.0-alpha.14/A14_1_SERVER_FUNCTION_MATRIX_20260911.md`.
-
-```text
-FC01=PASS
-FC02=PASS
-FC03=PASS
-FC04=PASS
-FC05=PASS
-FC06=PASS
-FC15=PASS
-FC16=PASS
-PERSISTENT_TCP_CONNECTION=PASS
-READBACK_WRITES=PASS
-RX_FRAMES=11
-TX_FRAMES=11
-REQUESTS_OK=11
-EXCEPTIONS=0
-LAST_ERROR=OK
-```
-
-### Excepciones + recuperación en la misma sesión
-
-```text
-EX01_ILLEGAL_FUNCTION=PASS
-EX02_ILLEGAL_DATA_ADDRESS=PASS
-EX03_ILLEGAL_DATA_VALUE=PASS
-VALID_REQUEST_AFTER_EXCEPTIONS=PASS
-SAME_TCP_CONNECTION_AFTER_EXCEPTIONS=PASS
-RX_FRAMES=15
-TX_FRAMES=15
-REQUESTS_OK=12
-EXCEPTIONS=3
-LAST_ERROR=OK
-```
-
-### Framing fatal + reconexión
-
-Evidencia: `docs/v2.1.0-alpha.14/A14_1_INVALID_MBAP_RECONNECT_20260911.md`.
-
-```text
-INVALID_MBAP_PROTOCOL_ID_1=DETECTED
-CLIENT_DROP_AFTER_FATAL_MBAP=PASS
-NEW_TCP_CONNECTION=PASS
-VALID_FC03_AFTER_RECONNECT=PASS
-MAP_STATE_PRESERVED=PASS
-RX_FRAMES=16
-TX_FRAMES=16
-REQUESTS_OK=13
-EXCEPTIONS=3
-LAST_ERROR=OK
-UNEXPECTED_RESET=0
+A14_1_IMPLEMENTATION=PASS_SOURCE_COMPLETE
+A14_1_COMPILE=PASS
+A14_1_EMPTY_SKETCH_REGRESSION=PASS
+A14_1_SERVER_LISTEN_SMOKE=PASS
+A14_1_FC01=PASS
+A14_1_FC02=PASS
+A14_1_FC03=PASS
+A14_1_FC04=PASS
+A14_1_FC05=PASS
+A14_1_FC06=PASS
+A14_1_FC15=PASS
+A14_1_FC16=PASS
+A14_1_SERVER_FUNCTION_MATRIX=PASS
+A14_1_EXCEPTION_RECOVERY=PASS
 A14_1_INVALID_MBAP_RECONNECT=PASS
-```
-
-Conclusión:
-
-```text
-MODBUS_TCP_SERVER_A14_1=PASS
 A14_1_SERVER_RUNTIME=PASS
-A14_1=PASS
 ```
+
+Evidencias principales:
+
+- `A14_1_SERVER_FUNCTION_MATRIX_20260911.md`
+- `A14_1_INVALID_MBAP_RECONNECT_20260911.md`
 
 ## A14.2 — Client cooperativo
 
-### Connect TCP cooperativo
-
-Se añadió a `EthernetClient`:
-
-```text
-beginConnectAsync(IP, port)
-pollConnectAsync()
-connectAsyncInProgress()
-cancelConnectAsync()
-```
-
-La API `connect()` existente conserva semántica bloqueante para compatibilidad Arduino.
-
-Compile/runtime físico:
+### Backend TCP cooperativo
 
 ```text
 A14_2_ASYNC_BACKEND_COMPILE=PASS
-ETHERNET_READY=PASS
+A14_2_ASYNC_CONNECT_NONBLOCKING=PASS
+A14_2_TCP_ESTABLISHED=PASS
+A14_2_ASYNC_BACKEND_RUNTIME=PASS
+A14_2_ASYNC_TX_API_COMPILE=PASS
+A14_2_ASYNC_TX_RUNTIME=PASS
+```
+
+Connect físico:
+
+```text
 BEGIN_CALL_US=418
 TCP_ESTABLISH_MS=1
 POLL_COUNT=9
 LOOPS_WHILE_PENDING=10
 MAX_POLL_US=20
-TCP_TX_PC_RX=PASS
-PC_TX_TCP_RX=PASS
-A14_2_ASYNC_BACKEND_RUNTIME=PASS
 ```
 
-### TX TCP cooperativo
-
-`EthernetClient::write()` legado espera espacio TX y `SEND_OK`, por lo que el Client Modbus TCP no lo usa como supuesto envío cooperativo. Se añadió `JWPLC_EthernetAsyncTx` para separar `load frame + Sock_SEND` de `poll SEND_OK/TIMEOUT`.
-
-Compile gate:
-
-```text
-A14_2_SERVER_REGRESSION_COMPILE=PASS
-A14_2_ASYNC_TX_API_COMPILE=PASS
-```
-
-Runtime físico con payload de 1024 bytes:
+TX cooperativo con 1024 bytes:
 
 ```text
 PC_RX_BYTES=1024
 PATTERN_MISMATCHES=0
 CHECKSUM=130560
-PAYLOAD_PATTERN=PASS
 TX_BEGIN_US=1612
 TX_COMPLETE_MS=2
 TX_POLLS=1
 TX_LOOPS_PENDING=2
 MAX_TX_POLL_US=42
-PC_ACK=PASS
 A14_2_ASYNC_TX_RUNTIME=PASS
 ```
 
-### Client/Master FC03 + FC06
+### FC03 + FC06
 
-Se implementó `JWPLC_ModbusTCPClient` como clase separada del Server A14.1 para evitar acoplar sockets/buffers del rol ya validado.
-
-Compile gate:
-
-```text
-SERVER_REGRESSION_EXIT=0
-CLIENT_API_COMPILE_EXIT=0
-A14_2_SERVER_AFTER_CLIENT_SOURCE=PASS
-A14_2_CLIENT_FC03_FC06_COMPILE=PASS
-CLIENT_PROBE_PROGRAM_BYTES=404317
-CLIENT_PROBE_GLOBAL_BYTES=29036
-```
-
-Runtime físico: `docs/v2.1.0-alpha.14/A14_2_CLIENT_FC03_FC06_RUNTIME_20260911.md`.
+Evidencia: `A14_2_CLIENT_FC03_FC06_RUNTIME_20260911.md`.
 
 ```text
 FC03_CLIENT=PASS
@@ -256,40 +139,149 @@ CONNECTIONS=1
 TX_FRAMES=3
 RX_FRAMES=3
 REQUESTS_OK=3
+ERRORS=0
+```
+
+### FC04 + FC05
+
+Evidencia: `A14_2_CLIENT_FC04_FC05_RUNTIME_20260911.md`.
+
+```text
+FC04_CLIENT=PASS
+FC05_CLIENT=PASS
+FC03_REGRESSION=PASS
+PERSISTENT_TCP_SESSION=PASS
+CONNECTIONS=1
+TX_FRAMES=4
+RX_FRAMES=4
+REQUESTS_OK=4
+ERRORS=0
+```
+
+### FC01 + FC02
+
+Evidencias:
+
+- `A14_2_CLIENT_FC01_FC02_CORE_20260911.md`
+- `A14_2_CLIENT_FC01_FC02_RUNTIME_20260912.md`
+
+```text
+FC01_CLIENT=PASS
+FC02_CLIENT=PASS
+PACKED_BITS_LSB_FIRST=PASS
+UNUSED_HIGH_BITS_MASKED=PASS
+FC03_REGRESSION=PASS
+PERSISTENT_TCP_SESSION=PASS
+CONNECTIONS=1
+TX_FRAMES=3
+RX_FRAMES=3
+REQUESTS_OK=3
+ERRORS=0
+```
+
+### FC15 + FC16
+
+Parser consolidado:
+
+```text
+COMMIT=c55eacde039f391b0c40ab1573ef474c4c6b5d5a
+A14_2_CLIENT_FC15_FC16_PARSER_COMPILE=PASS
+```
+
+Runtime físico:
+
+```text
+FC15_CLIENT=PASS
+FC16_CLIENT=PASS
+FC15_PADDING_MASK=PASS
+FC16_BIG_ENDIAN_PAYLOAD=PASS
+FC03_REGRESSION=PASS
+TID_SEQUENCE=1,2,3
+CONNECTIONS=1
+TX_FRAMES=3
+RX_FRAMES=3
+REQUESTS_OK=3
+ERRORS=0
+A14_2_CLIENT_FC15_FC16_RUNTIME=PASS
+```
+
+### Matriz Client completa
+
+Evidencia: `A14_2_CLIENT_FULL_MATRIX_RUNTIME_20260912.md`.
+
+Una única conexión TCP persistente ejecutó consecutivamente:
+
+```text
+TID1=FC01 PASS
+TID2=FC02 PASS
+TID3=FC03 PASS
+TID4=FC04 PASS
+TID5=FC05 PASS
+TID6=FC06 PASS
+TID7=FC15 PASS
+TID8=FC16 PASS
+```
+
+Resultado JWPLC:
+
+```text
+FC01_BYTES=A5,02
+FC02_BYTES=5A,01
+FC03_VALUES=4369,8738
+FC04_VALUES=4660,43981
+TID_SEQUENCE=1,2,3,4,5,6,7,8
+SESSION_CONNECTED=YES
+CONNECTIONS=1
+TX_FRAMES=8
+RX_FRAMES=8
+REQUESTS_OK=8
 EXCEPTIONS=0
 TIMEOUTS=0
 TRANSPORT_ERRORS=0
 PROTOCOL_ERRORS=0
 BUS_LOCK_TIMEOUTS=0
-A14_2_CLIENT_FC03_FC06_RUNTIME=PASS
+A14_2_CLIENT_FULL_MATRIX_RUNTIME=PASS
 ```
 
-### Client FC04 + FC05
-
-Siguiente incremento deliberadamente pequeño sobre la misma state machine:
+Conclusión funcional actual:
 
 ```text
-FC04 Read Input Registers
-FC05 Write Single Coil
+A14_2_CLIENT_FC01=PASS_PHYSICAL
+A14_2_CLIENT_FC02=PASS_PHYSICAL
+A14_2_CLIENT_FC03=PASS_PHYSICAL
+A14_2_CLIENT_FC04=PASS_PHYSICAL
+A14_2_CLIENT_FC05=PASS_PHYSICAL
+A14_2_CLIENT_FC06=PASS_PHYSICAL
+A14_2_CLIENT_FC15=PASS_PHYSICAL
+A14_2_CLIENT_FC16=PASS_PHYSICAL
+A14_2_CLIENT_FUNCTION_MATRIX=PASS_PHYSICAL
 ```
 
-Ambas funciones reutilizan formas de respuesta ya validadas:
+### Pendientes para cerrar A14.2
 
 ```text
-FC04 -> misma estructura de payload que FC03
-FC05 -> mismo echo address + value que FC06
+A14_2_CLIENT_TIMEOUT_RECONNECT=NOT_EXECUTED
+A14_2_ETHERNET_BACKEND_COMPAT_REVIEW=PENDING
+A14_2_CLIENT_EXAMPLE=NOT_FINAL
+A14_2_SYNC_API_DECISION=PENDING
 ```
 
-No se modifica el parser central ni el lifecycle TCP del núcleo FC03/FC06.
+Revisión backend pendiente antes de congelar A14.2:
+
+- confirmar compatibilidad de `socketClose()` frente a la semántica previa de `socketDisconnect()` en `beginConnectAsync()`;
+- revisar el rechazo de `port == 0` frente a la semántica histórica de `EthernetClient::connect()`.
+
+## A14.3 — Benchmark de rendimiento
+
+Plan: `A14_MODBUS_TCP_PERFORMANCE_BENCHMARK_PLAN.md`.
+
+Estado:
 
 ```text
-A14_2_CLIENT_FC04_FC05_SOURCE=PASS
-A14_2_CLIENT_FC04_FC05_COMPILE=NOT_EXECUTED
+A14_3_PERFORMANCE_BENCHMARK=READY_AFTER_A14_2_HARDENING
 ```
 
-## A14.3 — Benchmark de rendimiento planificado
-
-Plan detallado: `docs/v2.1.0-alpha.14/A14_MODBUS_TCP_PERFORMANCE_BENCHMARK_PLAN.md`.
+Sweep previsto:
 
 ```text
 10 req/s
@@ -302,35 +294,56 @@ Plan detallado: `docs/v2.1.0-alpha.14/A14_MODBUS_TCP_PERFORMANCE_BENCHMARK_PLAN.
 saturación sin espera
 ```
 
-Se medirán Server y Client, tamaños variables de FC01/03/15/16, throughput, latencias p50/p95/p99, timeouts, errores, reconexiones, service gap, contención SPI y resets. También habrá escenarios con runtime/periféricos normales activos y coexistencia RTU+TCP.
-
-Objetivos de salida:
+Resultados requeridos:
 
 ```text
 SERVER_MAX_STABLE_REQ_S
 SERVER_MAX_PEAK_REQ_S
 CLIENT_MAX_STABLE_REQ_S
 CLIENT_MAX_PEAK_REQ_S
+SERVER_RECOMMENDED_POLL_INTERVAL_MS
+CLIENT_RECOMMENDED_POLL_INTERVAL_MS
+FC03_125REG_MAX_STABLE_REQ_S
+FC16_123REG_MAX_STABLE_REQ_S
 FULL_RUNTIME_MAX_STABLE_REQ_S
 RTU_TCP_COEX_MAX_STABLE_REQ_S
-RECOMMENDED_POLL_INTERVAL_MS
 ```
 
-## Siguientes pasos A14.2
+## A14.4 — Coexistencia industrial
 
-1. compilar FC04 + FC05 y regresión FC03/FC06/Server;
-2. validar físicamente FC04 + FC05 sobre conexión persistente;
-3. ampliar a FC01/02;
-4. ampliar a FC15/16;
-5. añadir ejemplo Client y validar matriz completa;
-6. validar timeout y reconexión.
-
-## Pendientes posteriores
+Pendiente gate físico simultáneo con:
 
 ```text
-MODBUS_TCP_CLIENT=PASS                  -> NO, FC03/FC06 sí; FC04/05 en curso
-MODBUS_TCP_RECONNECT=PASS               -> PARCIAL: Server sí; Client pendiente
-MODBUS_TCP_PERFORMANCE_BENCHMARK=PASS  -> NO, planificado
-MODBUS_RTU_TCP_SIMULTANEOUS=PASS       -> NO
-ROBOT_INTEROPERABILITY=PASS             -> NO
+TFT
+RTC
+FRAM
+SD
+Ethernet
+Modbus RTU
+Modbus TCP
 ```
+
+```text
+MODBUS_RTU_TCP_SIMULTANEOUS=NOT_EXECUTED
+```
+
+## A14.5 — Robot / interoperabilidad
+
+```text
+ROBOT_INTEROPERABILITY=DEFERRED_NON_BLOCKING
+ROBOT_ACCESS=NEXT_WEEK
+CUSTOM_TOOLBOX=PENDING
+ALPHA14_CLOSE_BLOCKER=NO
+```
+
+Se retomará cuando exista acceso al robot y esté definida la integración/toolbox correspondiente. No se utilizará para bloquear el cierre de Alpha14.
+
+## Próximos pasos
+
+1. validar Client timeout + reconexión;
+2. revisar compatibilidad final del backend Ethernet;
+3. cerrar ejemplo Client y decisión API Sync;
+4. marcar A14.2 `PASS`;
+5. ejecutar benchmark A14.3;
+6. ejecutar coexistencia A14.4 y benchmark reducido con runtime completo;
+7. ejecutar regresiones finales, documentación y cierre de Alpha14.
