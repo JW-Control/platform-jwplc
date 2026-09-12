@@ -80,11 +80,21 @@ public:
     void task();
     void poll();
 
-    // Primer incremento A14.2: FC03 + FC06.
+    // Lecturas de registros. FC03/FC04 comparten forma de respuesta.
     bool requestReadHoldingRegisters(uint16_t startAddress,
                                      uint16_t quantity,
                                      uint16_t *destination,
                                      uint32_t timeoutMs = 1000);
+
+    bool requestReadInputRegisters(uint16_t startAddress,
+                                   uint16_t quantity,
+                                   uint16_t *destination,
+                                   uint32_t timeoutMs = 1000);
+
+    // Writes single. FC05/FC06 comparten respuesta echo address + value.
+    bool requestWriteSingleCoil(uint16_t address,
+                                bool value,
+                                uint32_t timeoutMs = 1000);
 
     bool requestWriteSingleRegister(uint16_t address,
                                     uint16_t value,
