@@ -50,6 +50,7 @@ JWPLC_ModbusTCP -> protocolo Modbus TCP
 9. Todo acceso al W5500 debe respetar el mutex SPI compartido JWPLC.
 10. No se declarará coexistencia RTU+TCP como PASS hasta completar gate físico simultáneo.
 11. Alpha14 incluirá un benchmark físico de rendimiento Modbus TCP para determinar tasa máxima estable, pico de saturación y polling recomendado, tanto aislado como bajo runtime normal del JWPLC.
+12. La interoperabilidad con robot/KUKA queda como validación complementaria y no bloquea el cierre de Alpha14 mientras no exista acceso físico al robot y siga pendiente el toolbox personalizado.
 
 ## Alcance funcional Alpha14
 
@@ -160,7 +161,16 @@ Además se repetirá un subconjunto del benchmark para conocer el throughput TCP
 
 ### A14.5 — Caso robot / interoperabilidad
 
-Validar contra el equipo real disponible cuando se confirme:
+Estado para el cierre de Alpha14:
+
+```text
+ROBOT_INTEROPERABILITY=DEFERRED_NON_BLOCKING
+ROBOT_ACCESS=NEXT_WEEK
+CUSTOM_TOOLBOX=PENDING
+ALPHA14_CLOSE_BLOCKER=NO
+```
+
+La validación se retomará cuando exista acceso al robot real y esté definido/completado el toolbox personalizado. En ese momento se confirmará:
 
 ```text
 robot/controller exacto
@@ -198,9 +208,11 @@ BUILD_SPEED_MATERIAL_REGRESSION=NO
 AUTOLOAD_PERIPHERALS_REMOVED=NO
 ```
 
+`ROBOT_INTEROPERABILITY` no forma parte de los criterios obligatorios de cierre de Alpha14.
+
 ## Estado
 
 ```text
 ALPHA14_STATUS=IN_PROGRESS
-CURRENT_GATE=A14.2_CLIENT_COOPERATIVE
+CURRENT_GATE=A14.2_CLIENT_TIMEOUT_RECONNECT
 ```
