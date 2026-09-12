@@ -14,7 +14,7 @@ ALPHA14_STATUS=IN_PROGRESS
 ## Gate actual
 
 ```text
-CURRENT_GATE=A14.2_CLIENT_FC03_FC06_RUNTIME
+CURRENT_GATE=A14.2_CLIENT_REMAINING_FC_SOURCE
 A14_1_IMPLEMENTATION=PASS_SOURCE_COMPLETE
 A14_1_COMPILE=PASS
 A14_1_EMPTY_SKETCH_REGRESSION=PASS
@@ -42,8 +42,8 @@ A14_2_ASYNC_TX_RUNTIME=PASS
 A14_2_CLIENT_FC03_FC06_SOURCE=PASS
 A14_2_SERVER_AFTER_CLIENT_SOURCE=PASS
 A14_2_CLIENT_FC03_FC06_COMPILE=PASS
-A14_2_CLIENT_FC03_FC06_RUNTIME=NOT_EXECUTED
-A14_2_CLIENT_STATE_MACHINE=IN_PROGRESS
+A14_2_CLIENT_FC03_FC06_RUNTIME=PASS
+A14_2_CLIENT_STATE_MACHINE=PASS_CORE_FC03_FC06
 A14_2_CLIENT=IN_PROGRESS
 A14_3_PERFORMANCE_BENCHMARK=PLANNED
 RTU_TCP_SIMULTANEOUS=NOT_EXECUTED
@@ -231,7 +231,7 @@ A14_2_ASYNC_TX_RUNTIME=PASS
 
 Se implementó `JWPLC_ModbusTCPClient` como clase separada del Server A14.1 para evitar acoplar sockets/buffers del rol ya validado.
 
-Primer alcance:
+Alcance validado:
 
 ```text
 FC03 Read Holding Registers
@@ -258,14 +258,54 @@ CLIENT_PROBE_PROGRAM_BYTES=404317
 CLIENT_PROBE_GLOBAL_BYTES=29036
 ```
 
-Siguiente runtime previsto sobre una sola sesión TCP:
+Runtime físico: `docs/v2.1.0-alpha.14/A14_2_CLIENT_FC03_FC06_RUNTIME_20260911.md`.
+
+Secuencia sobre una sola conexión TCP:
 
 ```text
-FC03 -> leer Holding[0..1]
-FC06 -> escribir 12345 en Holding[0]
-FC03 -> releer Holding[0] y confirmar 12345
-Transaction ID -> 1, 2, 3
-TCP_CONNECTIONS -> 1
+TID 1 -> FC03 -> Holding[0..1] = 0x1111, 0x2222
+TID 2 -> FC06 -> Holding[0] = 12345 / 0x3039
+TID 3 -> FC03 -> Holding[0] = 12345
+```
+
+Resultado PC:
+
+```text
+PASS_COUNT=3
+FAIL_COUNT=0
+TCP_CONNECTIONS=1
+A14_2_CLIENT_FC03_FC06_PC=PASS
+```
+
+Resultado JWPLC:
+
+```text
+INITIAL_HOLDING0=4369
+INITIAL_HOLDING1=8738
+READBACK_HOLDING0=12345
+TID_SEQUENCE=1,2,3
+SESSION_CONNECTED=YES
+CONNECTIONS=1
+TX_FRAMES=3
+RX_FRAMES=3
+REQUESTS_OK=3
+EXCEPTIONS=0
+TIMEOUTS=0
+TRANSPORT_ERRORS=0
+PROTOCOL_ERRORS=0
+BUS_LOCK_TIMEOUTS=0
+A14_2_CLIENT_FC03_FC06_RUNTIME=PASS
+```
+
+Conclusión:
+
+```text
+FC03_CLIENT=PASS
+FC06_CLIENT=PASS
+TRANSACTION_ID_INCREMENTAL=PASS
+PERSISTENT_TCP_SESSION=PASS
+FC06_READBACK=PASS
+A14_2_CLIENT_FC03_FC06_RUNTIME=PASS
 ```
 
 ## A14.3 — Benchmark de rendimiento planificado
@@ -299,8 +339,8 @@ RECOMMENDED_POLL_INTERVAL_MS
 
 ## Siguientes pasos A14.2
 
-1. validar físicamente Client FC03 + FC06 sobre una sola conexión TCP;
-2. ampliar Client a FC01/02/04/05/15/16 usando la misma state machine;
+1. ampliar Client a FC01/02/04/05/15/16 usando la misma state machine;
+2. compilar regresión Server + Client completo;
 3. añadir ejemplo Client;
 4. validar matriz Client completa;
 5. validar timeout y reconexión.
@@ -308,7 +348,7 @@ RECOMMENDED_POLL_INTERVAL_MS
 ## Pendientes posteriores
 
 ```text
-MODBUS_TCP_CLIENT=PASS                  -> NO
+MODBUS_TCP_CLIENT=PASS                  -> NO, FC03/FC06 sí; matriz restante pendiente
 MODBUS_TCP_RECONNECT=PASS               -> PARCIAL: Server sí; Client pendiente
 MODBUS_TCP_PERFORMANCE_BENCHMARK=PASS  -> NO, planificado
 MODBUS_RTU_TCP_SIMULTANEOUS=PASS       -> NO
