@@ -112,6 +112,17 @@ public:
                                     uint16_t value,
                                     uint32_t timeoutMs = 1000);
 
+    // Writes múltiples. Los bits de FC15 se reciben empaquetados LSB-first.
+    bool requestWriteMultipleCoils(uint16_t startAddress,
+                                   uint16_t quantity,
+                                   const uint8_t *sourcePacked,
+                                   uint32_t timeoutMs = 1000);
+
+    bool requestWriteMultipleRegisters(uint16_t startAddress,
+                                       uint16_t quantity,
+                                       const uint16_t *source,
+                                       uint32_t timeoutMs = 1000);
+
     bool configured() const;
     bool sessionConnected() const;
     bool busy() const;
@@ -137,7 +148,9 @@ private:
         OP_NONE = 0,
         OP_READ_BITS,
         OP_READ_HOLDING_REGISTERS,
-        OP_WRITE_SINGLE_REGISTER
+        OP_WRITE_SINGLE_REGISTER,
+        OP_WRITE_MULTIPLE_COILS,
+        OP_WRITE_MULTIPLE_REGISTERS
     };
 
     bool _configured;
@@ -191,6 +204,13 @@ private:
                       uint16_t writeValue,
                       uint16_t *destination,
                       uint32_t timeoutMs);
+
+    bool startWriteMultipleRequest(Operation operation,
+                                   uint8_t functionCode,
+                                   uint16_t startAddress,
+                                   uint16_t quantity,
+                                   uint8_t byteCount,
+                                   uint32_t timeoutMs);
 
     void serviceConnection();
     void serviceSend();
