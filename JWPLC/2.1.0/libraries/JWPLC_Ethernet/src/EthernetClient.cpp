@@ -42,9 +42,13 @@ int EthernetClient::connect(const char * host, uint16_t port)
 int EthernetClient::beginConnectAsync(IPAddress ip, uint16_t port)
 {
 	if (_sockindex < MAX_SOCK_NUM) {
-		if (Ethernet.socketStatus(_sockindex) != SnSR::CLOSED) {
-			// El camino async no espera FIN/timeout: libera el socket previo y
-			// permite que el caller vuelva a task() inmediatamente.
+		uint8_t stat = Ethernet.socketStatus(_sockindex);
+		if (stat == SnSR::ESTABLISHED || stat == SnSR::CLOSE_WAIT) {
+			// Inicia cierre TCP graceful sin esperar su finalización.
+			// El W5x00 continúa el handshake de cierre en hardware.
+			Ethernet.socketDisconnect(_sockindex);
+		} else if (stat != SnSR::CLOSED) {
+			// Una conexión todavía en progreso se aborta inmediatamente.
 			Ethernet.socketClose(_sockindex);
 		}
 		_sockindex = MAX_SOCK_NUM;
@@ -55,7 +59,6 @@ int EthernetClient::beginConnectAsync(IPAddress ip, uint16_t port)
 #else
 	if (ip == IPAddress(0ul) || ip == IPAddress(0xFFFFFFFFul)) return -1;
 #endif
-	if (port == 0) return -1;
 
 	_sockindex = Ethernet.socketBegin(SnMR::TCP, 0);
 	if (_sockindex >= MAX_SOCK_NUM) return -1;
@@ -95,7 +98,16 @@ void EthernetClient::cancelConnectAsync()
 {
 	if (_sockindex >= MAX_SOCK_NUM) return;
 
-	Ethernet.socketClose(_sockindex);
+	uint8_t stat = Ethernet.socketStatus(_sockindex);
+
+	if (stat == SnSR::ESTABLISHED || stat == SnSR::CLOSE_WAIT) {
+		// Notifica al peer mediante cierre TCP graceful.
+		Ethernet.socketDisconnect(_sockindex);
+	} else if (stat != SnSR::CLOSED) {
+		// Durante CONNECT/SYN se puede abortar directamente.
+		Ethernet.socketClose(_sockindex);
+	}
+
 	_sockindex = MAX_SOCK_NUM;
 }
 
