@@ -14,7 +14,7 @@ ALPHA14_STATUS=IN_PROGRESS
 ## Gate actual
 
 ```text
-CURRENT_GATE=A14.2_ASYNC_TX_RUNTIME
+CURRENT_GATE=A14.2_CLIENT_FC03_FC06_RUNTIME
 A14_1_IMPLEMENTATION=PASS_SOURCE_COMPLETE
 A14_1_COMPILE=PASS
 A14_1_EMPTY_SKETCH_REGRESSION=PASS
@@ -38,7 +38,11 @@ A14_2_TCP_ESTABLISHED=PASS
 A14_2_ASYNC_BACKEND_RUNTIME=PASS
 A14_2_SERVER_REGRESSION_COMPILE=PASS
 A14_2_ASYNC_TX_API_COMPILE=PASS
-A14_2_ASYNC_TX_RUNTIME=NOT_EXECUTED
+A14_2_ASYNC_TX_RUNTIME=PASS
+A14_2_CLIENT_FC03_FC06_SOURCE=PASS
+A14_2_SERVER_AFTER_CLIENT_SOURCE=PASS
+A14_2_CLIENT_FC03_FC06_COMPILE=PASS
+A14_2_CLIENT_FC03_FC06_RUNTIME=NOT_EXECUTED
 A14_2_CLIENT_STATE_MACHINE=IN_PROGRESS
 A14_2_CLIENT=IN_PROGRESS
 A14_3_PERFORMANCE_BENCHMARK=PLANNED
@@ -51,9 +55,10 @@ RTU_TCP_SIMULTANEOUS=NOT_EXECUTED
 FQBN=jwplc_local:esp32:jwplcbasic
 PLATFORM=jwplc_local:esp32 2.1.0-dev
 JWPLC_ModbusTCP=0.1.0
-COMPILE_EXIT_CODE=0
-PROGRAM_BYTES=417893
-GLOBAL_VARIABLE_BYTES=28452
+SERVER_COMPILE_EXIT=0
+CLIENT_FC03_FC06_COMPILE_EXIT=0
+CLIENT_PROBE_PROGRAM_BYTES=404317
+CLIENT_PROBE_GLOBAL_BYTES=29036
 LOCAL_PACKAGE_RESOLUTION=PASS
 ```
 
@@ -165,13 +170,11 @@ A14_1_SERVER_RUNTIME=PASS
 A14_1=PASS
 ```
 
-Esto cierra el alcance de A14.1 definido en `ALPHA14_PLAN.md`: librería, mapas, parser MBAP incremental, Server FC01/02/03/04/05/06/15/16, excepciones/estadísticas, ejemplo y compile/runtime físico.
-
 ## A14.2 — Client cooperativo
 
-### Backend async
+### Connect TCP cooperativo
 
-Se añadió a `EthernetClient` una extensión mínima compatible para conexión TCP cooperativa:
+Se añadió a `EthernetClient`:
 
 ```text
 beginConnectAsync(IP, port)
@@ -180,61 +183,13 @@ connectAsyncInProgress()
 cancelConnectAsync()
 ```
 
-Contrato:
+La API `connect()` existente conserva semántica bloqueante para compatibilidad Arduino.
+
+Compile/runtime físico:
 
 ```text
-beginConnectAsync: -1=falló al iniciar, 0=pending, 1=connected
-pollConnectAsync : -1=failed/closed, 0=pending, 1=connected
-```
-
-La API `connect()` existente conserva su semántica bloqueante para compatibilidad Arduino y se implementa sobre el mismo motor async.
-
-### Compile gate del connect async
-
-El primer intento de generar el probe falló por un error del harness PowerShell: una variable `$probe` conservaba tipo `Byte[]` de una prueba previa y el sketch temporal terminó conteniendo `0`. Se corrigió usando un nombre nuevo y escritura UTF-8 sin BOM.
-
-```text
-HARNESS_ERROR=YES
-PRODUCT_CODE_FAILURE=NO
-ASYNC_API_COMPILE_EXIT=0
 A14_2_ASYNC_BACKEND_COMPILE=PASS
-```
-
-### Runtime físico de conexión TCP cooperativa
-
-Primer intento: el JWPLC estaba `READY` y `beginConnectAsync()` retornó `pending` en `418 us`, pero el listener PowerShell lanzado en background no aceptó conexión y el probe terminó por timeout. Ese intento se clasifica como problema del harness/listener, no como fallo demostrado del backend.
-
-Se repitió el gate con un listener TCP visible en primer plano sobre la PC.
-
-Resultado PC:
-
-```text
-LISTENER_READY=PASS
-LISTENING=0.0.0.0:15020
-TCP_ACCEPT=PASS
-REMOTE=192.168.0.31:59018
-RX=JWPLC_ASYNC_CONNECTED begin_us=418 connect_ms=1 polls=9 loops_pending=10 max_poll_us=20
-TX=PC_ACK
-LISTENER_RESULT=PASS
-```
-
-Resultado Serial del JWPLC:
-
-```text
-ETHERNET_READY IP=192.168.0.31
-BEGIN_RESULT=0
-BEGIN_CALL_US=418
-JWPLC_ASYNC_CONNECTED begin_us=418 connect_ms=1 polls=9 loops_pending=10 max_poll_us=20
-ACK=PC_ACK
-TCP_LISTENER_ACCEPTED=PASS
-A14_2_ASYNC_BACKEND_RUNTIME=PASS
-```
-
-Conclusión:
-
-```text
-A14_2_ETHERNET_READY=PASS
-A14_2_ASYNC_CONNECT_NONBLOCKING=PASS
+ETHERNET_READY=PASS
 BEGIN_CALL_US=418
 TCP_ESTABLISH_MS=1
 POLL_COUNT=9
@@ -245,34 +200,77 @@ PC_TX_TCP_RX=PASS
 A14_2_ASYNC_BACKEND_RUNTIME=PASS
 ```
 
-El establecimiento TCP no bloquea el `loop()`: `beginConnectAsync()` retorna en microsegundos, el handshake progresa con polls cortos y el sketch ejecuta múltiples iteraciones mientras el socket está pendiente. Además, la sesión establecida permite tráfico bidireccional real.
-
 ### TX TCP cooperativo
 
-Se confirmó que `EthernetClient::write()` legado espera espacio TX y `SEND_OK`, por lo que no se usará como supuesto envío cooperativo dentro del nuevo Modbus TCP Client.
+`EthernetClient::write()` legado espera espacio TX y `SEND_OK`, por lo que el Client Modbus TCP no lo usa como supuesto envío cooperativo. Se añadió `JWPLC_EthernetAsyncTx` para separar `load frame + Sock_SEND` de `poll SEND_OK/TIMEOUT`.
 
-Se añadió un helper interno de TX asíncrono para separar:
-
-```text
-load frame + Sock_SEND
-poll SEND_OK / TIMEOUT
-```
-
-sin modificar `socket.cpp` ni cambiar la semántica pública de `EthernetClient::write()`.
-
-Compile gate posterior:
+Compile gate:
 
 ```text
 A14_2_SERVER_REGRESSION_COMPILE=PASS
 A14_2_ASYNC_TX_API_COMPILE=PASS
-A14_2_ASYNC_TX_RUNTIME=NOT_EXECUTED
+```
+
+Runtime físico con payload de 1024 bytes:
+
+```text
+PC_RX_BYTES=1024
+PATTERN_MISMATCHES=0
+CHECKSUM=130560
+PAYLOAD_PATTERN=PASS
+TX_BEGIN_US=1612
+TX_COMPLETE_MS=2
+TX_POLLS=1
+TX_LOOPS_PENDING=2
+MAX_TX_POLL_US=42
+PC_ACK=PASS
+A14_2_ASYNC_TX_RUNTIME=PASS
+```
+
+### Client/Master FC03 + FC06
+
+Se implementó `JWPLC_ModbusTCPClient` como clase separada del Server A14.1 para evitar acoplar sockets/buffers del rol ya validado.
+
+Primer alcance:
+
+```text
+FC03 Read Holding Registers
+FC06 Write Single Register
+conexión TCP persistente
+Transaction ID incremental
+MBAP validado
+timeout
+excepciones
+estadísticas
+connect async
+TX async
+RX cooperativo
+```
+
+Compile gate:
+
+```text
+SERVER_REGRESSION_EXIT=0
+CLIENT_API_COMPILE_EXIT=0
+A14_2_SERVER_AFTER_CLIENT_SOURCE=PASS
+A14_2_CLIENT_FC03_FC06_COMPILE=PASS
+CLIENT_PROBE_PROGRAM_BYTES=404317
+CLIENT_PROBE_GLOBAL_BYTES=29036
+```
+
+Siguiente runtime previsto sobre una sola sesión TCP:
+
+```text
+FC03 -> leer Holding[0..1]
+FC06 -> escribir 12345 en Holding[0]
+FC03 -> releer Holding[0] y confirmar 12345
+Transaction ID -> 1, 2, 3
+TCP_CONNECTIONS -> 1
 ```
 
 ## A14.3 — Benchmark de rendimiento planificado
 
 Plan detallado: `docs/v2.1.0-alpha.14/A14_MODBUS_TCP_PERFORMANCE_BENCHMARK_PLAN.md`.
-
-Se medirán Server y Client con conexión TCP persistente a:
 
 ```text
 10 req/s
@@ -285,9 +283,7 @@ Se medirán Server y Client con conexión TCP persistente a:
 saturación sin espera
 ```
 
-También se variará el tamaño de FC01/03/15/16 hasta sus máximos Modbus. Se registrarán throughput, latencias p50/p95/p99, timeouts, errores, reconexiones, service gap, contención SPI y resets.
-
-El benchmark tendrá escenarios aislados y escenarios con runtime/periféricos normales activos; no se retirarán periféricos del autoload para mejorar resultados.
+Se medirán Server y Client, tamaños variables de FC01/03/15/16, throughput, latencias p50/p95/p99, timeouts, errores, reconexiones, service gap, contención SPI y resets. También habrá escenarios con runtime/periféricos normales activos y coexistencia RTU+TCP.
 
 Objetivos de salida:
 
@@ -303,12 +299,11 @@ RECOMMENDED_POLL_INTERVAL_MS
 
 ## Siguientes pasos A14.2
 
-1. validar físicamente TX TCP cooperativo;
-2. implementar state machine Client/Master en `JWPLC_ModbusTCP` sobre connect + TX async ya validados;
-3. exponer FC01/02/03/04/05/06/15/16 cooperativas;
-4. añadir ejemplo Client;
-5. validar compile/runtime de FC03 + FC06;
-6. ampliar a matriz Client completa, timeout y reconexión.
+1. validar físicamente Client FC03 + FC06 sobre una sola conexión TCP;
+2. ampliar Client a FC01/02/04/05/15/16 usando la misma state machine;
+3. añadir ejemplo Client;
+4. validar matriz Client completa;
+5. validar timeout y reconexión.
 
 ## Pendientes posteriores
 
