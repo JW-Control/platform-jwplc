@@ -27,6 +27,7 @@ JWPLC_ModbusTCPClientClass::JWPLC_ModbusTCPClientClass()
       _quantity(0),
       _writeValue(0),
       _registerDestination(nullptr),
+      _bitDestination(nullptr),
       _requestStartMs(0),
       _timeoutMs(0),
       _txLength(0),
@@ -377,6 +378,7 @@ void JWPLC_ModbusTCPClientClass::resetTransactionContext()
     _quantity = 0;
     _writeValue = 0;
     _registerDestination = nullptr;
+    _bitDestination = nullptr;
     _requestStartMs = 0;
     _timeoutMs = 0;
     _txLength = 0;
@@ -486,6 +488,7 @@ bool JWPLC_ModbusTCPClientClass::startRequest(
     _quantity = quantity;
     _writeValue = writeValue;
     _registerDestination = destination;
+    _bitDestination = nullptr;
     _exceptionCode = 0;
     _activeTransactionId = _nextTransactionId++;
     _requestStartMs = millis();
@@ -494,9 +497,11 @@ bool JWPLC_ModbusTCPClientClass::startRequest(
     _sendStarted = false;
     resetRx();
 
-    if (operation == OP_READ_HOLDING_REGISTERS)
+    if (operation == OP_READ_HOLDING_REGISTERS ||
+        operation == OP_READ_BITS)
     {
         buildReadHoldingRequest();
+        _txBuffer[7] = functionCode;
     }
     else if (operation == OP_WRITE_SINGLE_REGISTER)
     {
@@ -820,7 +825,36 @@ bool JWPLC_ModbusTCPClientClass::processResponse()
         return false;
     }
 
-    if (_operation == OP_READ_HOLDING_REGISTERS)
+    if (_operation == OP_READ_BITS)
+    {
+        const uint16_t expectedByteCount =
+            (uint16_t)((_quantity + 7U) / 8U);
+        const uint16_t expectedLength =
+            (uint16_t)(9U + expectedByteCount);
+
+        if (_expectedRxLength != expectedLength ||
+            _rxBuffer[8] != (uint8_t)expectedByteCount ||
+            _bitDestination == nullptr)
+        {
+            fail(JWPLC_MODBUS_TCP_CLIENT_INVALID_RESPONSE, true);
+            return false;
+        }
+
+        for (uint16_t i = 0; i < expectedByteCount; ++i)
+        {
+            _bitDestination[i] = _rxBuffer[9 + i];
+        }
+
+        if ((_quantity & 0x07U) != 0)
+        {
+            const uint8_t validBits =
+                (uint8_t)(_quantity & 0x07U);
+
+            _bitDestination[expectedByteCount - 1] &=
+                (uint8_t)((1U << validBits) - 1U);
+        }
+    }
+    else if (_operation == OP_READ_HOLDING_REGISTERS)
     {
         const uint16_t expectedBytes = (uint16_t)(_quantity * 2U);
         const uint16_t expectedLength = (uint16_t)(9U + expectedBytes);
