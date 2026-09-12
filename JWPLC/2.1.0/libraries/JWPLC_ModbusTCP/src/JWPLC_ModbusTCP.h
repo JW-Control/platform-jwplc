@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <IPAddress.h>
 #include <JWPLC_Ethernet.h>
+#include "JWPLC_ModbusTCP_Client.h"
 
 #ifndef JWPLC_MODBUS_TCP_DEFAULT_PORT
 #define JWPLC_MODBUS_TCP_DEFAULT_PORT 502
