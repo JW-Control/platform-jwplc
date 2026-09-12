@@ -14,17 +14,18 @@ ALPHA14_STATUS=IN_PROGRESS
 ## Gate actual
 
 ```text
-CURRENT_GATE=A14.2_CLIENT_EXAMPLE_SYNC_DECISION
+CURRENT_GATE=A14.3_PERFORMANCE_BENCHMARK_PREP
 
 A14_1=PASS
 A14_2_CLIENT_FUNCTION_MATRIX=PASS_PHYSICAL
 A14_2_CLIENT_TIMEOUT_RECONNECT=PASS_PHYSICAL
-A14_2_CLIENT_EXAMPLE=NOT_FINAL
-A14_2_SYNC_API_DECISION=PENDING
+A14_2_CLIENT_EXAMPLE=PASS_COMPILE
+A14_2_UMBRELLA_API=PASS
+A14_2_SYNC_API_DECISION=DEFERRED_POST_ALPHA14
 A14_2_ETHERNET_BACKEND_COMPAT_REVIEW=PASS
-A14_2=IN_PROGRESS
+A14_2=PASS
 
-A14_3_PERFORMANCE_BENCHMARK=PLANNED
+A14_3_PERFORMANCE_BENCHMARK=READY
 A14_4_RTU_TCP_COEXISTENCE=NOT_EXECUTED
 A14_5_ROBOT_INTEROPERABILITY=DEFERRED_NON_BLOCKING
 ```
@@ -89,6 +90,12 @@ Evidencias principales:
 - `A14_1_INVALID_MBAP_RECONNECT_20260911.md`
 
 ## A14.2 — Client cooperativo
+
+Estado: `PASS`.
+
+Evidencia de cierre:
+
+- `A14_2_CLIENT_CLOSURE_20260912.md`
 
 ### Backend TCP cooperativo
 
@@ -163,7 +170,7 @@ ERRORS=0
 Evidencias:
 
 - `A14_2_CLIENT_FC01_FC02_CORE_20260911.md`
-- `A14_2_CLIENT_FC01_FC02_RUNTIME_20260912.md`
+- `A14_2_CLIENT_FC01_FC02_RUNTIME_20260911.md`
 
 ```text
 FC01_CLIENT=PASS
@@ -243,7 +250,7 @@ BUS_LOCK_TIMEOUTS=0
 A14_2_CLIENT_FULL_MATRIX_RUNTIME=PASS
 ```
 
-Conclusión funcional actual:
+Conclusión funcional:
 
 ```text
 A14_2_CLIENT_FC01=PASS_PHYSICAL
@@ -297,12 +304,39 @@ Decisiones de compatibilidad del backend:
 - conexiones todavía incompletas pueden abortarse mediante `socketClose()`;
 - se conserva la semántica histórica de `EthernetClient` respecto a `port == 0`, eliminando el rechazo temprano introducido durante el desarrollo async.
 
-### Pendientes para cerrar A14.2
+### Ejemplo Client oficial + umbrella API
+
+Commit:
 
 ```text
-A14_2_CLIENT_EXAMPLE=NOT_FINAL
-A14_2_SYNC_API_DECISION=PENDING
+COMMIT=3f55d80c436b601d326bdead34a7e71dd5b5af39
 ```
+
+Se añadió:
+
+```text
+JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/examples/02.ModbusTCP_Client/02.ModbusTCP_Client.ino
+```
+
+Y `JWPLC_ModbusTCP.h` expone ahora también `JWPLC_ModbusTCPClient`.
+
+Regresiones:
+
+```text
+CLIENT_EXAMPLE_COMPILE_EXIT=0
+SERVER_EXAMPLE_REGRESSION_EXIT=0
+EMPTY_REGRESSION_EXIT=0
+A14_2_CLIENT_EXAMPLE_COMPILE=PASS
+A14_2_EMPTY_REGRESSION=PASS
+```
+
+### Decisión API Sync
+
+```text
+A14_2_SYNC_API_DECISION=DEFERRED_POST_ALPHA14
+```
+
+No se añaden wrappers bloqueantes en Alpha14. El motor cooperativo validado permanece como API de referencia para rendimiento y coexistencia. Una capa Sync de conveniencia podrá evaluarse después de Alpha14 sin modificar el motor ya validado.
 
 ## A14.3 — Benchmark de rendimiento
 
@@ -311,7 +345,7 @@ Plan: `A14_MODBUS_TCP_PERFORMANCE_BENCHMARK_PLAN.md`.
 Estado:
 
 ```text
-A14_3_PERFORMANCE_BENCHMARK=READY_AFTER_A14_2_HARDENING
+A14_3_PERFORMANCE_BENCHMARK=READY
 ```
 
 Sweep previsto:
@@ -373,8 +407,9 @@ Se retomará cuando exista acceso al robot y esté definida la integración/tool
 
 ## Próximos pasos
 
-1. cerrar ejemplo Client y decisión API Sync;
-2. marcar A14.2 `PASS`;
-3. ejecutar benchmark A14.3;
-4. ejecutar coexistencia A14.4 y benchmark reducido con runtime completo;
-5. ejecutar regresiones finales, documentación y cierre de Alpha14.
+1. preparar harness y firmware del benchmark A14.3;
+2. ejecutar PERF-S1 Server;
+3. ejecutar PERF-C1 Client;
+4. repetir puntos representativos con runtime normal;
+5. ejecutar coexistencia A14.4 y benchmark reducido con RTU + TCP;
+6. ejecutar regresiones finales, documentación y cierre de Alpha14.
