@@ -818,10 +818,21 @@ static void sampleIo(
         return;
     }
 
+    // jwplcSystemTask actualiza last_scan_ms concurrentemente.
+    // Capturar primero el timestamp del runtime y millis()
+    // después evita un falso underflow de 1 ms.
+    const uint32_t lastScanMs =
+        io->last_scan_ms;
+
+    const uint32_t nowAfterSnapshot =
+        millis();
+
     const uint32_t age =
         (uint32_t)(
-            now -
-            io->last_scan_ms);
+            nowAfterSnapshot -
+            lastScanMs);
+
+    (void)now;
 
     updateMaxU32(
         age,
@@ -914,10 +925,21 @@ static void sampleRtc(
         return;
     }
 
+    // jwplcSystemTask actualiza last_update_ms concurrentemente.
+    // Capturar primero el timestamp del runtime y millis()
+    // después evita el mismo falso underflow de freshness.
+    const uint32_t lastUpdateMs =
+        rtc->last_update_ms;
+
+    const uint32_t nowAfterSnapshot =
+        millis();
+
     const uint32_t age =
         (uint32_t)(
-            now -
-            rtc->last_update_ms);
+            nowAfterSnapshot -
+            lastUpdateMs);
+
+    (void)now;
 
     updateMaxU32(
         age,
@@ -1191,6 +1213,25 @@ static void printSnapshot()
     const JWPLC_RTCState *rtc =
         jwplcGetRTCState();
 
+    // Los timestamps son publicados por jwplcSystemTask.
+    // Capturarlos antes de millis() evita observar un timestamp
+    // futuro por una actualización concurrente entre lecturas.
+    const uint32_t ioLastScanMs =
+        (
+            io != nullptr &&
+            io->initialized
+        )
+            ? io->last_scan_ms
+            : 0U;
+
+    const uint32_t rtcLastUpdateMs =
+        (
+            rtc != nullptr &&
+            rtc->present
+        )
+            ? rtc->last_update_ms
+            : 0U;
+
     const uint32_t now =
         millis();
 
@@ -1201,7 +1242,7 @@ static void printSnapshot()
         )
             ? (uint32_t)(
                   now -
-                  io->last_scan_ms)
+                  ioLastScanMs)
             : 0xFFFFFFFFUL;
 
     const uint32_t rtcAgeMs =
@@ -1211,7 +1252,7 @@ static void printSnapshot()
         )
             ? (uint32_t)(
                   now -
-                  rtc->last_update_ms)
+                  rtcLastUpdateMs)
             : 0xFFFFFFFFUL;
 
     Serial.println();
