@@ -9,7 +9,8 @@
   - Modbus TCP Server FC03 / 125 registros.
   - TFT USER con contenido dinamico cada 100 ms.
   - FRAM write/read/verify/restore cada 250 ms.
-  - microSD append cada 1 s.
+  - microSD append cada 1 s con archivo persistente.
+  - microSD flush cada 5 registros.
   - microSD read/verify cada 5 s.
   - RTC mediante runtime normal + freshness.
   - TCA/I/O mediante runtime normal + freshness.
@@ -66,6 +67,7 @@ static constexpr uint32_t RTC_STALE_LIMIT_MS = 2500;
 
 static constexpr size_t FRAM_BENCH_BYTES = 32;
 static constexpr size_t SD_RECORD_BYTES = 32;
+static constexpr uint8_t SD_FLUSH_EVERY_RECORDS = 5U;
 
 static const char SD_BENCH_PATH[] = "/A14S2.LOG";
 
@@ -89,6 +91,8 @@ static uint32_t framBenchAddress = 0;
 static uint8_t framBackup[FRAM_BENCH_BYTES];
 
 static bool sdReady = false;
+static JWPLCFile sdAppendFile;
+static uint8_t sdRecordsSinceFlush = 0;
 
 static uint8_t lastSdRecord[SD_RECORD_BYTES];
 static bool lastSdRecordValid = false;
@@ -132,6 +136,7 @@ struct RuntimeStats
     uint32_t sdAppendCycles;
     uint32_t sdAppendFails;
     uint32_t sdAppendMaxUs;
+    uint32_t sdFlushCycles;
 
     uint32_t sdVerifyCycles;
     uint32_t sdVerifyFails;
@@ -569,34 +574,37 @@ static void serviceSdAppend()
         record);
 
     bool ok =
+        sdReady &&
+        (bool)sdAppendFile &&
         JWPLCSD::isEnabled() &&
         JWPLCSD::isCardPresent() &&
         JWPLCSD::isReady();
 
     if (ok)
     {
-        JWPLCFile file =
-            JWPLC_SD.open(
-                SD_BENCH_PATH,
-                FILE_APPEND);
+        const size_t written =
+            sdAppendFile.write(
+                record,
+                sizeof(record));
 
-        if (!file)
+        ok =
+            written ==
+            sizeof(record);
+
+        if (ok)
         {
-            ok = false;
-        }
-        else
-        {
-            const size_t written =
-                file.write(
-                    record,
-                    sizeof(record));
+            ++sdRecordsSinceFlush;
 
-            file.flush();
-            file.close();
+            if (
+                sdRecordsSinceFlush >=
+                SD_FLUSH_EVERY_RECORDS)
+            {
+                sdAppendFile.flush();
 
-            ok =
-                written ==
-                sizeof(record);
+                sdRecordsSinceFlush = 0;
+
+                ++runtimeStats.sdFlushCycles;
+            }
         }
     }
 
@@ -1024,6 +1032,8 @@ static bool fullRuntimeReady()
     return
         JWPLC_Display.isReady() &&
         framReady &&
+        sdReady &&
+        (bool)sdAppendFile &&
         JWPLCSD::isEnabled() &&
         JWPLCSD::isCardPresent() &&
         JWPLCSD::isReady() &&
@@ -1059,6 +1069,15 @@ static void resetPerfCounters()
     lastLoopUs = micros();
 
     runtimeStats = RuntimeStats{};
+
+    // El reset estadístico ocurre fuera de la ventana medida.
+    // Se deja el archivo persistente durable y se reinicia el
+    // lote para que cada ventana comience alineada a 5 registros.
+    if (sdAppendFile)
+    {
+        sdAppendFile.flush();
+        sdRecordsSinceFlush = 0;
+    }
 
     const uint32_t now =
         millis();
@@ -1255,6 +1274,23 @@ static void printSnapshot()
     Serial.print("SD_APPEND_MAX_US=");
     Serial.println(
         runtimeStats.sdAppendMaxUs);
+
+    Serial.print("SD_APPEND_FILE_OPEN=");
+    Serial.println(
+        yesNo(
+            (bool)sdAppendFile));
+
+    Serial.print("SD_FLUSH_EVERY_RECORDS=");
+    Serial.println(
+        SD_FLUSH_EVERY_RECORDS);
+
+    Serial.print("SD_RECORDS_SINCE_FLUSH=");
+    Serial.println(
+        sdRecordsSinceFlush);
+
+    Serial.print("SD_FLUSH_CYCLES=");
+    Serial.println(
+        runtimeStats.sdFlushCycles);
 
     Serial.print("SD_VERIFY_CYCLES=");
     Serial.println(
@@ -1493,6 +1529,19 @@ void setup()
         sdReady =
             JWPLC_SD.remove(
                 SD_BENCH_PATH);
+    }
+
+    if (sdReady)
+    {
+        sdAppendFile =
+            JWPLC_SD.open(
+                SD_BENCH_PATH,
+                FILE_APPEND);
+
+        sdReady =
+            (bool)sdAppendFile;
+
+        sdRecordsSinceFlush = 0;
     }
 
     // --------------------------------------------------------
