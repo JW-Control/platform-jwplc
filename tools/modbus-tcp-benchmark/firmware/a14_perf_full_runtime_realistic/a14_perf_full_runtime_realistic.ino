@@ -653,9 +653,45 @@ static void serviceSdVerify()
         sizeof(readback));
 
     bool ok =
+        sdReady &&
+        (bool)sdAppendFile &&
         JWPLCSD::isEnabled() &&
         JWPLCSD::isCardPresent() &&
         JWPLCSD::isReady();
+
+    bool appendClosed = false;
+    bool reopenOk = false;
+
+    // --------------------------------------------------------
+    // No mantener dos handles simultáneos sobre el mismo archivo.
+    //
+    // El append se hace durable, se cierra temporalmente,
+    // se verifica mediante FILE_READ y luego se reabre.
+    // --------------------------------------------------------
+
+    if (ok)
+    {
+        if (sdRecordsSinceFlush > 0)
+        {
+            sdAppendFile.flush();
+
+            sdRecordsSinceFlush = 0;
+
+            ++runtimeStats.sdFlushCycles;
+        }
+
+        sdAppendFile.close();
+
+        appendClosed =
+            !(bool)sdAppendFile;
+
+        ok =
+            appendClosed;
+    }
+
+    // --------------------------------------------------------
+    // Leer y verificar el último registro.
+    // --------------------------------------------------------
 
     if (ok)
     {
@@ -721,6 +757,31 @@ static void serviceSdVerify()
     {
         ok = false;
     }
+
+    // --------------------------------------------------------
+    // Recuperar siempre el handle persistente de append
+    // después de haberlo cerrado.
+    // --------------------------------------------------------
+
+    if (appendClosed)
+    {
+        sdAppendFile =
+            JWPLC_SD.open(
+                SD_BENCH_PATH,
+                FILE_APPEND);
+
+        reopenOk =
+            (bool)sdAppendFile;
+
+        if (!reopenOk)
+        {
+            sdReady = false;
+        }
+    }
+
+    ok =
+        ok &&
+        reopenOk;
 
     if (!ok)
     {
