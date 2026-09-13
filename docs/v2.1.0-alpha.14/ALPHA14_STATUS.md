@@ -1,6 +1,6 @@
 # v2.1.0-alpha.14 — Estado
 
-Actualizado: `2026-09-12`
+Actualizado: `2026-09-13`
 
 ## Identidad
 
@@ -8,60 +8,24 @@ Actualizado: `2026-09-12`
 BRANCH=v2.1.0-alpha.14/feature/modbus-tcp
 BASE_BRANCH=release/v2.1.x
 BASE_SHA=165f94fb25617d3a6035fdfd9899bd38a1331583
-ALPHA14_STATUS=IN_PROGRESS
+ALPHA14_STATUS=READY_FOR_RELEASE_PR
 ```
 
-## Gate actual
+## Resultado global
 
 ```text
-CURRENT_GATE=A14.3_FC03_AUTOMATED_SWEEP
-
 A14_1=PASS
-A14_2_CLIENT_FUNCTION_MATRIX=PASS_PHYSICAL
-A14_2_CLIENT_TIMEOUT_RECONNECT=PASS_PHYSICAL
-A14_2_CLIENT_EXAMPLE=PASS_COMPILE
-A14_2_UMBRELLA_API=PASS
-A14_2_SYNC_API_DECISION=DEFERRED_POST_ALPHA14
-A14_2_ETHERNET_BACKEND_COMPAT_REVIEW=PASS
 A14_2=PASS
-
-A14_3_PERFORMANCE_BENCHMARK=IN_PROGRESS
-A14_3_PERF_S1_HARNESS=PASS_PHYSICAL_SMOKE
-A14_3_PERF_S1_FC03_1REG_10RPS_SMOKE=PASS_PHYSICAL
-A14_4_RTU_TCP_COEXISTENCE=NOT_EXECUTED
+A14_3=PASS_PHYSICAL
+A14_4=PASS_PHYSICAL
 A14_5_ROBOT_INTEROPERABILITY=DEFERRED_NON_BLOCKING
+ALPHA14_CLOSE_READINESS=PASS
+ALPHA14_TECHNICAL_CLOSURE=PASS
 ```
 
-El caso robot/KUKA no es requisito de cierre de Alpha14. La validación queda diferida hasta disponer nuevamente del robot y completar el toolbox personalizado correspondiente.
+Alpha14 incorpora y valida `JWPLC_ModbusTCP` como nueva librería del ecosistema JWPLC para servidor y cliente Modbus TCP cooperativos, manteniendo compatibilidad Arduino IDE y coexistencia con el runtime integrado del JWPLC Basic.
 
-## Build / regresión
-
-```text
-FQBN=jwplc_local:esp32:jwplcbasic
-PLATFORM=jwplc_local:esp32 2.1.0-dev
-JWPLC_ModbusTCP=0.1.0
-LOCAL_PACKAGE_RESOLUTION=PASS
-```
-
-Run de regresión `Basic / 01_empty`:
-
-```text
-RUN=20260911_161448
-LABEL=alpha14-empty-regression
-ALPHA11_COLD_COMPILERS=15
-ALPHA14_COLD_COMPILERS=15
-ALPHA11_WARM_COMPILERS=1
-ALPHA14_WARM_COMPILERS=1
-ALPHA11_EXPLICIT_BINARY_BYTES=4618720
-ALPHA14_EXPLICIT_BINARY_BYTES=4619056
-DELTA_BYTES=+336
-DELTA_PERCENT≈+0.0073%
-A14_1_COMPILER_STRUCTURE_PARITY=PASS
-A14_1_EMPTY_SKETCH_BINARY_REGRESSION=MATERIAL_NO
-A14_1_EMPTY_SKETCH_REGRESSION=PASS
-```
-
-`JWPLC_ModbusTCP` permanece opt-in durante Alpha14 y no se añade al autoload global mientras no se cierre la decisión final de integración.
+No se retiran periféricos del autoload normal.
 
 ## A14.1 — Foundation + Server
 
@@ -99,147 +63,17 @@ Evidencia de cierre:
 
 - `A14_2_CLIENT_CLOSURE_20260912.md`
 
-### Backend TCP cooperativo
+La matriz Client completa fue validada físicamente sobre una única conexión TCP persistente:
 
 ```text
-A14_2_ASYNC_BACKEND_COMPILE=PASS
-A14_2_ASYNC_CONNECT_NONBLOCKING=PASS
-A14_2_TCP_ESTABLISHED=PASS
-A14_2_ASYNC_BACKEND_RUNTIME=PASS
-A14_2_ASYNC_TX_API_COMPILE=PASS
-A14_2_ASYNC_TX_RUNTIME=PASS
-```
-
-Connect físico:
-
-```text
-BEGIN_CALL_US=418
-TCP_ESTABLISH_MS=1
-POLL_COUNT=9
-LOOPS_WHILE_PENDING=10
-MAX_POLL_US=20
-```
-
-TX cooperativo con 1024 bytes:
-
-```text
-PC_RX_BYTES=1024
-PATTERN_MISMATCHES=0
-CHECKSUM=130560
-TX_BEGIN_US=1612
-TX_COMPLETE_MS=2
-TX_POLLS=1
-TX_LOOPS_PENDING=2
-MAX_TX_POLL_US=42
-A14_2_ASYNC_TX_RUNTIME=PASS
-```
-
-### FC03 + FC06
-
-Evidencia: `A14_2_CLIENT_FC03_FC06_RUNTIME_20260911.md`.
-
-```text
-FC03_CLIENT=PASS
-FC06_CLIENT=PASS
-TRANSACTION_ID_INCREMENTAL=PASS
-PERSISTENT_TCP_SESSION=PASS
-FC06_READBACK=PASS
-CONNECTIONS=1
-TX_FRAMES=3
-RX_FRAMES=3
-REQUESTS_OK=3
-ERRORS=0
-```
-
-### FC04 + FC05
-
-Evidencia: `A14_2_CLIENT_FC04_FC05_RUNTIME_20260911.md`.
-
-```text
-FC04_CLIENT=PASS
-FC05_CLIENT=PASS
-FC03_REGRESSION=PASS
-PERSISTENT_TCP_SESSION=PASS
-CONNECTIONS=1
-TX_FRAMES=4
-RX_FRAMES=4
-REQUESTS_OK=4
-ERRORS=0
-```
-
-### FC01 + FC02
-
-Evidencias:
-
-- `A14_2_CLIENT_FC01_FC02_CORE_20260911.md`
-- `A14_2_CLIENT_FC01_FC02_RUNTIME_20260911.md`
-
-```text
-FC01_CLIENT=PASS
-FC02_CLIENT=PASS
-PACKED_BITS_LSB_FIRST=PASS
-UNUSED_HIGH_BITS_MASKED=PASS
-FC03_REGRESSION=PASS
-PERSISTENT_TCP_SESSION=PASS
-CONNECTIONS=1
-TX_FRAMES=3
-RX_FRAMES=3
-REQUESTS_OK=3
-ERRORS=0
-```
-
-### FC15 + FC16
-
-Parser consolidado:
-
-```text
-COMMIT=c55eacde039f391b0c40ab1573ef474c4c6b5d5a
-A14_2_CLIENT_FC15_FC16_PARSER_COMPILE=PASS
-```
-
-Runtime físico:
-
-```text
-FC15_CLIENT=PASS
-FC16_CLIENT=PASS
-FC15_PADDING_MASK=PASS
-FC16_BIG_ENDIAN_PAYLOAD=PASS
-FC03_REGRESSION=PASS
-TID_SEQUENCE=1,2,3
-CONNECTIONS=1
-TX_FRAMES=3
-RX_FRAMES=3
-REQUESTS_OK=3
-ERRORS=0
-A14_2_CLIENT_FC15_FC16_RUNTIME=PASS
-```
-
-### Matriz Client completa
-
-Evidencia: `A14_2_CLIENT_FULL_MATRIX_RUNTIME_20260912.md`.
-
-Una única conexión TCP persistente ejecutó consecutivamente:
-
-```text
-TID1=FC01 PASS
-TID2=FC02 PASS
-TID3=FC03 PASS
-TID4=FC04 PASS
-TID5=FC05 PASS
-TID6=FC06 PASS
-TID7=FC15 PASS
-TID8=FC16 PASS
-```
-
-Resultado JWPLC:
-
-```text
-FC01_BYTES=A5,02
-FC02_BYTES=5A,01
-FC03_VALUES=4369,8738
-FC04_VALUES=4660,43981
-TID_SEQUENCE=1,2,3,4,5,6,7,8
-SESSION_CONNECTED=YES
+FC01=PASS_PHYSICAL
+FC02=PASS_PHYSICAL
+FC03=PASS_PHYSICAL
+FC04=PASS_PHYSICAL
+FC05=PASS_PHYSICAL
+FC06=PASS_PHYSICAL
+FC15=PASS_PHYSICAL
+FC16=PASS_PHYSICAL
 CONNECTIONS=1
 TX_FRAMES=8
 RX_FRAMES=8
@@ -249,88 +83,9 @@ TIMEOUTS=0
 TRANSPORT_ERRORS=0
 PROTOCOL_ERRORS=0
 BUS_LOCK_TIMEOUTS=0
-A14_2_CLIENT_FULL_MATRIX_RUNTIME=PASS
 ```
 
-Conclusión funcional:
-
-```text
-A14_2_CLIENT_FC01=PASS_PHYSICAL
-A14_2_CLIENT_FC02=PASS_PHYSICAL
-A14_2_CLIENT_FC03=PASS_PHYSICAL
-A14_2_CLIENT_FC04=PASS_PHYSICAL
-A14_2_CLIENT_FC05=PASS_PHYSICAL
-A14_2_CLIENT_FC06=PASS_PHYSICAL
-A14_2_CLIENT_FC15=PASS_PHYSICAL
-A14_2_CLIENT_FC16=PASS_PHYSICAL
-A14_2_CLIENT_FUNCTION_MATRIX=PASS_PHYSICAL
-```
-
-### Timeout, cierre graceful y reconexión
-
-Evidencia: `A14_2_CLIENT_TIMEOUT_RECONNECT_RUNTIME_20260912.md`.
-
-La primera petición FC03 se dejó deliberadamente sin respuesta. El Client agotó su timeout, cerró la sesión anterior y lanzó una segunda petición sin repetir `begin()`.
-
-Resultado final:
-
-```text
-FIRST_TID=1
-FIRST_TIMEOUT_OBSERVED=YES
-SESSION_CLOSED_AFTER_TIMEOUT=YES
-SECOND_TID=2
-SECOND_VALUE=9320
-CONNECTIONS=2
-TX_FRAMES=2
-RX_FRAMES=1
-REQUESTS_OK=1
-TIMEOUTS=1
-TRANSPORT_ERRORS=0
-PROTOCOL_ERRORS=0
-BUS_LOCK_TIMEOUTS=0
-A14_2_GRACEFUL_CLOSE_RETEST_RUNTIME=PASS
-A14_2_GRACEFUL_CLOSE_RETEST_PC=PASS
-```
-
-La corrección del backend quedó consolidada en:
-
-```text
-COMMIT=34e4762adfacecccf44f125daf8ae7dabc836ba5
-A14_2_CLIENT_TIMEOUT_RECONNECT=PASS_PHYSICAL
-A14_2_ETHERNET_BACKEND_COMPAT_REVIEW=PASS
-```
-
-Decisiones de compatibilidad del backend:
-
-- sesiones `ESTABLISHED` / `CLOSE_WAIT` se cierran mediante `socketDisconnect()` para notificar el cierre al peer;
-- conexiones todavía incompletas pueden abortarse mediante `socketClose()`;
-- se conserva la semántica histórica de `EthernetClient` respecto a `port == 0`, eliminando el rechazo temprano introducido durante el desarrollo async.
-
-### Ejemplo Client oficial + umbrella API
-
-Commit:
-
-```text
-COMMIT=3f55d80c436b601d326bdead34a7e71dd5b5af39
-```
-
-Se añadió:
-
-```text
-JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/examples/02.ModbusTCP_Client/02.ModbusTCP_Client.ino
-```
-
-Y `JWPLC_ModbusTCP.h` expone ahora también `JWPLC_ModbusTCPClient`.
-
-Regresiones:
-
-```text
-CLIENT_EXAMPLE_COMPILE_EXIT=0
-SERVER_EXAMPLE_REGRESSION_EXIT=0
-EMPTY_REGRESSION_EXIT=0
-A14_2_CLIENT_EXAMPLE_COMPILE=PASS
-A14_2_EMPTY_REGRESSION=PASS
-```
+Timeout, cierre graceful y reconexión también quedaron validados físicamente.
 
 ### Decisión API Sync
 
@@ -338,130 +93,211 @@ A14_2_EMPTY_REGRESSION=PASS
 A14_2_SYNC_API_DECISION=DEFERRED_POST_ALPHA14
 ```
 
-No se añaden wrappers bloqueantes en Alpha14. El motor cooperativo validado permanece como API de referencia para rendimiento y coexistencia. Una capa Sync de conveniencia podrá evaluarse después de Alpha14 sin modificar el motor ya validado.
+No se añaden wrappers bloqueantes en Alpha14. El motor cooperativo permanece como API de referencia.
 
-## A14.3 — Benchmark de rendimiento
+## A14.3 — Performance
 
-Plan: `A14_MODBUS_TCP_PERFORMANCE_BENCHMARK_PLAN.md`.
+Estado final: `PASS_PHYSICAL`.
 
-Estado:
+Evidencia de cierre:
 
-```text
-A14_3_PERFORMANCE_BENCHMARK=IN_PROGRESS
-A14_3_PERF_S1_HARNESS=PASS_PHYSICAL_SMOKE
-A14_3_PERF_S1_FC03_1REG_10RPS_SMOKE=PASS_PHYSICAL
-```
+- `A14_3_PERFORMANCE_CLOSURE_20260913.md`
 
-### PERF-S1 — smoke físico inicial
+Hallazgo principal: la degradación inicial de rendimiento no correspondía a la TFT como periférico, sino al patrón de redraw manual periódico usado por el harness legacy.
 
-Evidencia: `A14_3_PERF_S1_SMOKE_20260912.md`.
+La API HMI declarativa Dirty / On-Demand recuperó prácticamente todo el rendimiento TCP-only.
 
-Harness consolidado:
+### Soak 30 min Full Runtime
 
 ```text
-COMMIT=11f394a04163c6645bdd800f2f8a0d08beaaa2ca
-```
-
-Caso validado:
-
-```text
-FUNCTION=FC03
-QUANTITY_REGISTERS=1
-REQUESTED_REQ_S=10.000
-ACHIEVED_REQ_S=9.998
-REQUESTS_TOTAL=50
-REQUESTS_OK=50
-ERRORS=0
+TCP_REQUESTED_REQ_S=1000
+TCP_ACHIEVED_REQ_S=999.34
+TCP_ACHIEVED_PCT=99.934
+REQUESTS_OK=1798804/1800000
+P95_US=1323.7
+P99_US=2406.6
+MAX_US=27319.1
 TIMEOUTS=0
-RECONNECTS=0
-PROTOCOL_ERRORS=0
 TRANSPORT_ERRORS=0
-UNEXPECTED_RESETS=0
-LATENCY_AVG_US=524.7
-LATENCY_P95_US=772.0
-LATENCY_P99_US=829.8
-LATENCY_MAX_US=849.5
-SERVER_LOOP_GAP_AVG_US=76
-SERVER_LOOP_GAP_MAX_US=1487
-SERVER_BUS_LOCK_TIMEOUTS=0
+PROTOCOL_ERRORS=0
+BUS_LOCK_TIMEOUTS=0
+PERIPHERAL_FAILURE_COUNT=0
+FULL_RUNTIME_30MIN_STRONG_PASS=YES
+A14_3=PASS_PHYSICAL
 ```
 
-Validación cruzada:
+Durante esta validación permanecieron activos Display/HMI, Ethernet, SD, FRAM, RTC, botonera, TCA/I/O y arbitraje SPI.
+
+### Referencia de rendimiento
+
+- `1000 req/s` se conserva como stress/frontier TCP.
+- No se establece como carga industrial obligatoria de coexistencia RTU+TCP.
+
+## A14.4 — RTU + TCP simultáneo
+
+Estado final: `PASS_PHYSICAL`.
+
+Evidencia de cierre:
+
+- `A14_4_RTU_TCP_SIMULTANEOUS_CLOSE_20260913.md`
+
+### Gate final G3 — 30 min
+
+Topología física:
 
 ```text
-SERVER_CLIENT_CONNECTIONS=1
-SERVER_RX_FRAMES=50
-SERVER_TX_FRAMES=50
-SERVER_REQUESTS_OK=50
-A14_3_PERF_S1_SMOKE_PC=PASS
-A14_3_PERF_S1_SMOKE_SERVER=PASS
-A14_3_PERF_S1_SMOKE=PASS
+COM4=JWPLC RTU Master
+COM14=DUT TCP Server + RTU Slave ID 2 + full runtime
 ```
 
-La sincronización Serial del harness se realiza mediante handshake activo con snapshot `S`; no depende de capturar un banner de arranque emitido una sola vez.
-
-### Sweep previsto
+Carga simultánea:
 
 ```text
-10 req/s
-20 req/s
-50 req/s
-100 req/s
-200 req/s
-500 req/s
-1000 req/s
-saturación sin espera
+TCP=FC03/125 @500 req/s
+RTU=FC03/16 @20ms target
+RTU_BAUD=115200
+RTU_FORMAT=8N1
+DURATION=1800s
 ```
 
-Resultados requeridos:
+TCP:
 
 ```text
-SERVER_MAX_STABLE_REQ_S
-SERVER_MAX_PEAK_REQ_S
-CLIENT_MAX_STABLE_REQ_S
-CLIENT_MAX_PEAK_REQ_S
-SERVER_RECOMMENDED_POLL_INTERVAL_MS
-CLIENT_RECOMMENDED_POLL_INTERVAL_MS
-FC03_125REG_MAX_STABLE_REQ_S
-FC16_123REG_MAX_STABLE_REQ_S
-FULL_RUNTIME_MAX_STABLE_REQ_S
-RTU_TCP_COEX_MAX_STABLE_REQ_S
+REQUESTS=900000/900000
+ACHIEVED_REQ_S=500.000
+ACHIEVED_PCT=100.0000
+P95_US=3725.2
+P99_US=4517.7
+MAX_US=30365.1
+TIMEOUTS=0
+TRANSPORT_ERRORS=0
+PROTOCOL_ERRORS=0
+BUS_LOCK_TIMEOUTS=0
 ```
 
-## A14.4 — Coexistencia industrial
-
-Pendiente gate físico simultáneo con:
+RTU Master:
 
 ```text
-TFT
-RTC
-FRAM
-SD
-Ethernet
-Modbus RTU
-Modbus TCP
+REQUESTS_STARTED=89875
+REQUESTS_COMPLETED=89875
+REQUESTS_SUCCESS=89875
+REQUESTS_FAILED=0
+REQUESTS_REJECTED=0
+VERIFY_FAILS=0
+SUCCESS_PCT=100.0000
+EFFECTIVE_HZ=49.907
+LATENCY_AVG_US=11190
+LATENCY_MAX_US=158436
+CRC_ERRORS=0
+MASTER_TIMEOUTS=0
 ```
 
+DUT / full runtime:
+
 ```text
-MODBUS_RTU_TCP_SIMULTANEOUS=NOT_EXECUTED
+DUT_RTU_OK=89873
+DUT_RTU_CRC_ERRORS=0
+DUT_RTU_EXCEPTIONS=0
+DUT_RTU_SERVICE_GAP_MAX_US=149013
+SD_APPEND_FAILS=0
+SD_VERIFY_FAILS=0
+FRAM_FAILS=0
+RTC_STALE=0
+IO_STALE=0
+BUTTON_NOT_READY=0
+SPI_PROBE_FAILS=0
+PERIPHERAL_FAILURE_COUNT=0
+FULL_RUNTIME_CLEAN=YES
+SIMULTANEOUS_30MIN_STRONG_PASS=YES
+A14_4=PASS_PHYSICAL
 ```
+
+500 req/s TCP equivale conceptualmente a unas 10 transacciones Modbus por cada scan de 20 ms y queda validado como referencia industrial fuerte para Alpha14.
+
+## Incidente de instrumentación IO/RTC
+
+Durante G2 apareció un falso `IO_STALE=1` con `IO_MAX_AGE_MS=4294967295`.
+
+Causa:
+
+- `jwplcSystemTask` actualiza timestamps de I/O y RTC concurrentemente;
+- el benchmark podía capturar `millis()` antes de que el runtime actualizara `last_scan_ms`;
+- una diferencia efectiva de `-1 ms` se convertía en `UINT32_MAX`.
+
+G2b/G3 demostraron físicamente que no existía congelación real de I/O.
+
+El harness versionado quedó robustecido en:
+
+```text
+COMMIT=8d41b8aa51282b4232e43cb0ccff3ac7c4f1ea85
+BENCHMARK_COMPILE=PASS
+PRODUCTION_RUNTIME_CHANGED=NO
+```
+
+La corrección afecta únicamente la instrumentación de freshness del benchmark.
 
 ## A14.5 — Robot / interoperabilidad
 
 ```text
 ROBOT_INTEROPERABILITY=DEFERRED_NON_BLOCKING
-ROBOT_ACCESS=NEXT_WEEK
 CUSTOM_TOOLBOX=PENDING
 ALPHA14_CLOSE_BLOCKER=NO
 ```
 
-Se retomará cuando exista acceso al robot y esté definida la integración/toolbox correspondiente. No se utilizará para bloquear el cierre de Alpha14.
+El caso robot/KUKA no es requisito de cierre de Alpha14. Se retomará cuando exista acceso al robot y esté definida la integración/toolbox correspondiente.
 
-## Próximos pasos
+## Build / compatibilidad
 
-1. ejecutar sweep automatizado FC03 en 1/16/64/125 registros;
-2. expandir PERF-S1 a FC16/FC01/FC15;
-3. ejecutar PERF-C1 Client;
-4. repetir puntos representativos con runtime normal;
-5. ejecutar coexistencia A14.4 y benchmark reducido con RTU + TCP;
-6. ejecutar regresiones finales, documentación y cierre de Alpha14.
+```text
+FQBN=jwplc_local:esp32:jwplcbasic
+PLATFORM=jwplc_local:esp32 2.1.0-dev
+JWPLC_ModbusTCP=0.1.0
+LOCAL_PACKAGE_RESOLUTION=PASS
+ARDUINO_IDE_COMPATIBILITY=PRESERVED
+AUTOLOAD_PERIPHERALS_REMOVED=NO
+```
+
+`JWPLC_ModbusTCP` permanece opt-in durante Alpha14 y no se añade al autoload global.
+
+## Readiness de cierre
+
+Auditoría final:
+
+```text
+GIT_DIFF_CHECK=PASS
+CONFLICT_MARKERS=PASS
+A14_1=PASS
+A14_2=PASS
+A14_3=PASS
+A14_4=PASS
+A14_5_DEFERRED=PASS
+MODBUS_TCP_LIBRARY=PASS
+BENCHMARK_ARTIFACTS=PASS
+READINESS_FAIL_COUNT=0
+ALPHA14_CLOSE_READINESS=PASS
+```
+
+Estado de rama al readiness:
+
+```text
+BASE_ONLY_COMMITS=0
+ALPHA14_ONLY_COMMITS=142
+```
+
+## Decisiones finales
+
+1. Alpha14 cierra con Modbus TCP Server + Client cooperativos validados.
+2. No se añaden wrappers Sync bloqueantes en este alpha.
+3. No se retira ningún periférico del autoload normal.
+4. La HMI declarativa Dirty / On-Demand es el camino recomendado para carga integrada.
+5. `1000 req/s` queda como stress/frontier TCP.
+6. `500 req/s TCP + RTU ~50 Hz` queda como referencia industrial fuerte validada físicamente durante 30 min.
+7. A14.5 robot/interoperabilidad permanece diferida y no bloqueante.
+8. El fix final de freshness modifica sólo el benchmark, no el runtime de producción.
+
+## Siguiente paso
+
+```text
+NEXT=OPEN_RELEASE_PR_TO_release/v2.1.x
+CI_REQUIRED_BEFORE_MERGE=YES
+```
