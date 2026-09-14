@@ -340,6 +340,13 @@ JW_SD::JW_SD()
       _enabled(true),
       _ready(false),
       _beginAttempted(false),
+      _cardStateInitialized(false),
+      _cardRawPresent(false),
+      _cardStablePresent(false),
+      _cardRecoveryRequired(false),
+      _cardRawChangedMs(0),
+      _lastRemountAttemptMs(0),
+      _mountGeneration(0),
       _lockCallback(nullptr),
       _unlockCallback(nullptr),
       _lockUserData(nullptr),
@@ -412,55 +419,299 @@ void JW_SD::configureDetectPinIfNeeded()
     pinMode((uint8_t)_detectPin, _detectUsePullup ? INPUT_PULLUP : INPUT);
 }
 
-bool JW_SD::begin()
+bool JW_SD::mountCard(
+    bool forceRemount)
 {
-    _beginAttempted = true;
     _ready = false;
 
     if (!_enabled)
     {
-        setError(JW_SD_ERR_DISABLED);
+        setError(
+            JW_SD_ERR_DISABLED);
+
         return false;
     }
-
-    setError(JW_SD_OK);
-
-    configureDetectPinIfNeeded();
 
     if (!isCardPresent())
     {
-        setError(JW_SD_ERR_NO_CARD);
+        setError(
+            JW_SD_ERR_NO_CARD);
+
         return false;
     }
 
-    if (!lock(_callbackTimeoutMs))
+    if (!lock(
+            _callbackTimeoutMs))
     {
-        setError(JW_SD_ERR_LOCK_TIMEOUT);
+        setError(
+            JW_SD_ERR_LOCK_TIMEOUT);
+
         return false;
     }
 
     if (_spi == nullptr)
     {
-        _spi = &SPI;
+        _spi =
+            &SPI;
     }
 
 #if defined(ESP32)
+    if (forceRemount)
+    {
+        // Invalida el VFS/FS anterior antes de registrar
+        // la tarjeta fisicamente reinsertada.
+        SD.end();
+    }
+
     _spi->begin();
-    _ready = SD.begin(_csPin, *_spi, _frequency);
+
+    _ready =
+        SD.begin(
+            _csPin,
+            *_spi,
+            _frequency);
 #else
-    _ready = SD.begin(_csPin);
+    (void)forceRemount;
+
+    _ready =
+        SD.begin(
+            _csPin);
 #endif
 
     unlock();
 
     if (!_ready)
     {
-        setError(JW_SD_ERR_BEGIN_FAILED);
+        setError(
+            JW_SD_ERR_BEGIN_FAILED);
+
         return false;
     }
 
+    ++_mountGeneration;
+
+    // Reservar 0 como "sin handle valido".
+    if (_mountGeneration == 0)
+    {
+        ++_mountGeneration;
+    }
+
     setError(JW_SD_OK);
+
     return true;
+}
+
+void JW_SD::unmountCard()
+{
+    _ready = false;
+
+#if defined(ESP32)
+    // SD.end() desmonta el filesystem anterior.
+    // No se exige que la tarjeta siga presente.
+    if (lock(
+            _callbackTimeoutMs))
+    {
+        SD.end();
+        unlock();
+    }
+#endif
+
+    setError(
+        JW_SD_ERR_NO_CARD);
+}
+
+void JW_SD::serviceCardLifecycle()
+{
+    if (!_enabled)
+    {
+        _ready = false;
+
+        setError(
+            JW_SD_ERR_DISABLED);
+
+        return;
+    }
+
+    const uint32_t now =
+        millis();
+
+    const bool present =
+        isCardPresent();
+
+    if (!_cardStateInitialized)
+    {
+        _cardStateInitialized =
+            true;
+
+        _cardRawPresent =
+            present;
+
+        _cardStablePresent =
+            present;
+
+        _cardRawChangedMs =
+            now;
+
+        _cardRecoveryRequired =
+            !present || !_ready;
+
+        if (!present)
+        {
+            _ready = false;
+
+            setError(
+                JW_SD_ERR_NO_CARD);
+        }
+
+        return;
+    }
+
+    if (present != _cardRawPresent)
+    {
+        _cardRawPresent =
+            present;
+
+        _cardRawChangedMs =
+            now;
+
+        // Seguridad primero:
+        // el primer flanco de ausencia invalida de inmediato
+        // el mount logico. Incluso si el contacto rebota,
+        // no se vuelve a escribir hasta completar un remount.
+        if (!present)
+        {
+            _cardRecoveryRequired =
+                true;
+
+            _ready =
+                false;
+
+            setError(
+                JW_SD_ERR_NO_CARD);
+        }
+
+        return;
+    }
+
+    const uint32_t stableForMs =
+        (uint32_t)(
+            now -
+            _cardRawChangedMs);
+
+    if (
+        stableForMs <
+        CARD_DEBOUNCE_MS)
+    {
+        return;
+    }
+
+    if (!present)
+    {
+        if (
+            _cardStablePresent ||
+            _ready)
+        {
+            _cardStablePresent =
+                false;
+
+            unmountCard();
+        }
+
+        _cardRecoveryRequired =
+            true;
+
+        return;
+    }
+
+    // Presencia fisica ya estable.
+    _cardStablePresent =
+        true;
+
+    if (
+        !_cardRecoveryRequired &&
+        _ready)
+    {
+        return;
+    }
+
+    if (
+        (uint32_t)(
+            now -
+            _lastRemountAttemptMs) <
+        REMOUNT_RETRY_MS)
+    {
+        return;
+    }
+
+    _lastRemountAttemptMs =
+        now;
+
+    if (mountCard(true))
+    {
+        _cardRecoveryRequired =
+            false;
+
+        return;
+    }
+
+    _cardRecoveryRequired =
+        true;
+}
+
+bool JW_SD::begin()
+{
+    _beginAttempted =
+        true;
+
+    _ready =
+        false;
+
+    if (!_enabled)
+    {
+        setError(
+            JW_SD_ERR_DISABLED);
+
+        return false;
+    }
+
+    configureDetectPinIfNeeded();
+
+    const bool present =
+        isCardPresent();
+
+    _cardStateInitialized =
+        true;
+
+    _cardRawPresent =
+        present;
+
+    _cardStablePresent =
+        present;
+
+    _cardRawChangedMs =
+        millis();
+
+    _lastRemountAttemptMs =
+        0;
+
+    _cardRecoveryRequired =
+        !present;
+
+    if (!present)
+    {
+        setError(
+            JW_SD_ERR_NO_CARD);
+
+        return false;
+    }
+
+    const bool mounted =
+        mountCard(false);
+
+    _cardRecoveryRequired =
+        !mounted;
+
+    return mounted;
 }
 
 bool JW_SD::begin(uint8_t csPin)
@@ -941,6 +1192,18 @@ void JW_SD::unregisterDataLog(
 
 void JW_SD::serviceDataLogs()
 {
+    // El ciclo de vida de la tarjeta se atiende incluso
+    // cuando aun no existen DataLogs registrados.
+    serviceCardLifecycle();
+
+    // Mientras la tarjeta esta ausente o esperando remount,
+    // los datos permanecen en RAM. No se generan cientos de
+    // intentos fallidos por segundo.
+    if (!_ready)
+    {
+        return;
+    }
+
     if (_dataLogRegistryMutex == nullptr)
     {
         return;
@@ -1545,10 +1808,17 @@ bool JWPLCDataLog::openFile()
     if (
         _storage == nullptr ||
         !_storage->isReady() ||
-        _path[0] == '\0')
+        _path[0] == ' ')
     {
         return false;
     }
+
+    // Nunca reutilizar un File de una generacion anterior.
+    _file =
+        JWPLCFile();
+
+    _fileGeneration =
+        0;
 
 #if defined(ESP32)
     _file =
@@ -1562,8 +1832,15 @@ bool JWPLCDataLog::openFile()
             FILE_WRITE);
 #endif
 
-    return static_cast<bool>(
-        _file);
+    if (!_file)
+    {
+        return false;
+    }
+
+    _fileGeneration =
+        _storage->_mountGeneration;
+
+    return true;
 }
 
 bool JWPLCDataLog::shouldCommitUnsafe(
@@ -1732,7 +2009,12 @@ bool JWPLCDataLog::commitInternal(
             JW_SD_ERR_NO_CARD);
     }
 
-    if (!_file)
+    // Un remount incrementa _mountGeneration. Aunque el File
+    // viejo siga evaluando true, nunca puede reutilizarse.
+    if (
+        !_file ||
+        _fileGeneration !=
+            storage->_mountGeneration)
     {
         if (!openFile())
         {
@@ -2322,6 +2604,9 @@ void JWPLCDataLog::resetState(
 
     _file =
         JWPLCFile();
+
+    _fileGeneration =
+        0;
 
     _path[0] =
         '\0';

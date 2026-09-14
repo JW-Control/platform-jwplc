@@ -237,6 +237,11 @@ private:
 
     JWPLCFile _file;
 
+    // Generacion del montaje con el que se abrio _file.
+    // Si JW_SD remonta la tarjeta, este valor queda obsoleto
+    // y el DataLog debe abrir un handle nuevo.
+    uint32_t _fileGeneration = 0;
+
     char _path[MAX_PATH] = {0};
 
     uint32_t _acceptedWrites = 0;
@@ -368,6 +373,29 @@ private:
     bool _ready;
     bool _beginAttempted;
 
+    // =================================================
+    // Ciclo de vida fisico de la microSD
+    // =================================================
+    //
+    // El primer flanco de ausencia invalida inmediatamente
+    // la disponibilidad logica. El remount solo ocurre tras
+    // una presencia estable durante CARD_DEBOUNCE_MS.
+    static constexpr uint32_t CARD_DEBOUNCE_MS = 300;
+    static constexpr uint32_t REMOUNT_RETRY_MS = 500;
+
+    bool _cardStateInitialized;
+    bool _cardRawPresent;
+    bool _cardStablePresent;
+    bool _cardRecoveryRequired;
+
+    uint32_t _cardRawChangedMs;
+    uint32_t _lastRemountAttemptMs;
+
+    // Se incrementa despues de cada montaje exitoso.
+    // Los DataLogs usan esta generacion para detectar
+    // handles persistentes pertenecientes a un mount viejo.
+    uint32_t _mountGeneration;
+
     LockCallback _lockCallback;
     UnlockCallback _unlockCallback;
     void *_lockUserData;
@@ -399,6 +427,10 @@ private:
     bool lockForOperation();
     void unlockForOperation();
     void configureDetectPinIfNeeded();
+
+    bool mountCard(bool forceRemount);
+    void unmountCard();
+    void serviceCardLifecycle();
 };
 
 #endif // JW_SD_H
