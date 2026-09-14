@@ -805,21 +805,74 @@ bool JW_SD::isEnabled() const
 
 
 // =====================================================
-// DataLog RAM -> microSD
+// JWPLCDataLog
 // =====================================================
 
-bool JW_SD::dataLogCreate(const char *path)
+JWPLCDataLog::JWPLCDataLog()
 {
-    JW_SDDataLogConfig config;
-    return dataLogCreate(path, config);
 }
 
-bool JW_SD::dataLogCreate(
+JWPLCDataLog::~JWPLCDataLog()
+{
+    if (_file)
+    {
+        _file.close();
+    }
+
+    resetState(true);
+}
+
+bool JWPLCDataLog::begin(
+    JW_SD &storage,
+    const char *path)
+{
+    JW_SDDataLogConfig config;
+
+    return begin(
+        storage,
+        path,
+        config);
+}
+
+bool JWPLCDataLog::begin(
+    JW_SD &storage,
+    const char *path,
+    size_t bufferSize,
+    size_t commitThresholdBytes,
+    uint32_t commitTimeoutMs)
+{
+    JW_SDDataLogConfig config(
+        bufferSize,
+        commitThresholdBytes,
+        commitTimeoutMs);
+
+    return begin(
+        storage,
+        path,
+        config);
+}
+
+bool JWPLCDataLog::begin(
+    JW_SD &storage,
     const char *path,
     const JW_SDDataLogConfig &config)
 {
-    if (!_ready)
+    if (_active)
     {
+        if (!close(true))
+        {
+            return false;
+        }
+    }
+
+    resetState(true);
+
+    _storage =
+        &storage;
+
+    if (!_storage->isReady())
+    {
+        _storage = nullptr;
         setError(JW_SD_ERR_NOT_READY);
         return false;
     }
@@ -827,88 +880,94 @@ bool JW_SD::dataLogCreate(
     if (
         path == nullptr ||
         path[0] == '\0' ||
-        strlen(path) >= DATALOG_MAX_PATH ||
+        strlen(path) >= MAX_PATH ||
         config.bufferSize == 0 ||
         config.commitThresholdBytes == 0 ||
-        config.commitThresholdBytes > config.bufferSize ||
+        config.commitThresholdBytes >
+            config.bufferSize ||
         config.commitTimeoutMs == 0)
     {
+        _storage = nullptr;
         setError(JW_SD_ERR_DATALOG_INVALID_CONFIG);
         return false;
     }
 
-    if (_dataLogActive)
-    {
-        if (!dataLogClose(true))
-        {
-            return false;
-        }
-    }
-
-    resetDataLogState(true);
-
-    _dataLogBuffer =
+    _buffer =
         static_cast<uint8_t *>(
             malloc(config.bufferSize));
 
-    if (_dataLogBuffer == nullptr)
+    if (_buffer == nullptr)
     {
+        _storage = nullptr;
         setError(JW_SD_ERR_DATALOG_ALLOC_FAILED);
         return false;
     }
 
-    _dataLogBufferSize =
+    _bufferSize =
         config.bufferSize;
 
-    _dataLogCommitThresholdBytes =
+    _commitThresholdBytes =
         config.commitThresholdBytes;
 
-    _dataLogCommitTimeoutMs =
+    _commitTimeoutMs =
         config.commitTimeoutMs;
 
     strncpy(
-        _dataLogPath,
+        _path,
         path,
-        DATALOG_MAX_PATH - 1);
+        MAX_PATH - 1);
 
-    _dataLogPath[DATALOG_MAX_PATH - 1] =
+    _path[MAX_PATH - 1] =
         '\0';
 
-    if (!openDataLogFile())
+    if (!openFile())
     {
-        resetDataLogState(true);
-        setError(JW_SD_ERR_OPEN_FAILED);
+        JW_SDError error =
+            (_storage != nullptr)
+                ? _storage->lastError()
+                : JW_SD_ERR_OPEN_FAILED;
+
+        if (error == JW_SD_OK)
+        {
+            error =
+                JW_SD_ERR_OPEN_FAILED;
+        }
+
+        resetState(true);
+        setError(error);
+
         return false;
     }
 
-    _dataLogActive = true;
+    _active = true;
     setError(JW_SD_OK);
 
     return true;
 }
 
-bool JW_SD::enqueueDataLogBytes(
+bool JWPLCDataLog::enqueue(
     const uint8_t *data,
     size_t size)
 {
     if (
-        _dataLogBuffer == nullptr ||
+        _buffer == nullptr ||
         data == nullptr ||
         size == 0 ||
-        size > dataLogFreeBytes())
+        size > freeBytes())
     {
         return false;
     }
 
+    const size_t remainingToEnd =
+        _bufferSize - _head;
+
     const size_t first =
-        min(
-            size,
-            _dataLogBufferSize -
-                _dataLogHead);
+        (size < remainingToEnd)
+            ? size
+            : remainingToEnd;
 
     memcpy(
-        _dataLogBuffer +
-            _dataLogHead,
+        _buffer + _head,
         data,
         first);
 
@@ -918,25 +977,25 @@ bool JW_SD::enqueueDataLogBytes(
     if (second > 0)
     {
         memcpy(
-            _dataLogBuffer,
+            _buffer,
             data + first,
             second);
     }
 
-    _dataLogHead =
-        (_dataLogHead + size) %
-        _dataLogBufferSize;
+    _head =
+        (_head + size) %
+        _bufferSize;
 
-    _dataLogCount += size;
+    _count += size;
 
     return true;
 }
 
-size_t JW_SD::dataLogWrite(
+size_t JWPLCDataLog::write(
     const uint8_t *data,
     size_t size)
 {
-    if (!_dataLogActive)
+    if (!_active)
     {
         setError(JW_SD_ERR_DATALOG_NOT_ACTIVE);
         return 0;
@@ -954,16 +1013,18 @@ size_t JW_SD::dataLogWrite(
         return 0;
     }
 
-    if (size > dataLogFreeBytes())
+    // Un write nunca fuerza I/O fisico inesperado.
+    // Si no entra completo, se rechaza completo.
+    if (size > freeBytes())
     {
         setError(JW_SD_ERR_DATALOG_BUFFER_FULL);
         return 0;
     }
 
     const bool wasEmpty =
-        (_dataLogCount == 0);
+        (_count == 0);
 
-    if (!enqueueDataLogBytes(
+    if (!enqueue(
             data,
             size))
     {
@@ -973,19 +1034,19 @@ size_t JW_SD::dataLogWrite(
 
     if (wasEmpty)
     {
-        _dataLogPendingSinceMs =
+        _pendingSinceMs =
             millis();
     }
 
-    ++_dataLogAcceptedWrites;
-    _dataLogAcceptedBytes += size;
+    ++_acceptedWrites;
+    _acceptedBytes += size;
 
     setError(JW_SD_OK);
 
     return size;
 }
 
-size_t JW_SD::dataLogWrite(
+size_t JWPLCDataLog::write(
     const char *text)
 {
     if (text == nullptr)
@@ -994,15 +1055,15 @@ size_t JW_SD::dataLogWrite(
         return 0;
     }
 
-    return dataLogWrite(
+    return write(
         reinterpret_cast<const uint8_t *>(text),
         strlen(text));
 }
 
-size_t JW_SD::dataLogWriteLine(
+size_t JWPLCDataLog::writeLine(
     const char *text)
 {
-    if (!_dataLogActive)
+    if (!_active)
     {
         setError(JW_SD_ERR_DATALOG_NOT_ACTIVE);
         return 0;
@@ -1020,18 +1081,19 @@ size_t JW_SD::dataLogWriteLine(
     const size_t totalSize =
         textSize + 1;
 
-    if (totalSize > dataLogFreeBytes())
+    // La linea se acepta completa o se rechaza completa.
+    if (totalSize > freeBytes())
     {
         setError(JW_SD_ERR_DATALOG_BUFFER_FULL);
         return 0;
     }
 
     const bool wasEmpty =
-        (_dataLogCount == 0);
+        (_count == 0);
 
     if (
         textSize > 0 &&
-        !enqueueDataLogBytes(
+        !enqueue(
             reinterpret_cast<const uint8_t *>(text),
             textSize))
     {
@@ -1042,7 +1104,7 @@ size_t JW_SD::dataLogWriteLine(
     static const uint8_t newline =
         '\n';
 
-    if (!enqueueDataLogBytes(
+    if (!enqueue(
             &newline,
             1))
     {
@@ -1052,56 +1114,57 @@ size_t JW_SD::dataLogWriteLine(
 
     if (wasEmpty)
     {
-        _dataLogPendingSinceMs =
+        _pendingSinceMs =
             millis();
     }
 
-    ++_dataLogAcceptedWrites;
-    _dataLogAcceptedBytes += totalSize;
+    ++_acceptedWrites;
+    _acceptedBytes += totalSize;
 
     setError(JW_SD_OK);
 
     return totalSize;
 }
 
-bool JW_SD::openDataLogFile()
+bool JWPLCDataLog::openFile()
 {
     if (
-        !_ready ||
-        _dataLogPath[0] == '\0')
+        _storage == nullptr ||
+        !_storage->isReady() ||
+        _path[0] == '\0')
     {
         return false;
     }
 
 #if defined(ESP32)
-    _dataLogFile =
-        open(
-            _dataLogPath,
+    _file =
+        _storage->open(
+            _path,
             FILE_APPEND);
 #else
-    _dataLogFile =
-        open(
-            _dataLogPath,
+    _file =
+        _storage->open(
+            _path,
             FILE_WRITE);
 #endif
 
     return static_cast<bool>(
-        _dataLogFile);
+        _file);
 }
 
-bool JW_SD::shouldCommitDataLog(
+bool JWPLCDataLog::shouldCommit(
     uint32_t now) const
 {
     if (
-        !_dataLogActive ||
-        _dataLogCount == 0)
+        !_active ||
+        _count == 0)
     {
         return false;
     }
 
     if (
-        _dataLogCount >=
-        _dataLogCommitThresholdBytes)
+        _count >=
+        _commitThresholdBytes)
     {
         return true;
     }
@@ -1109,77 +1172,101 @@ bool JW_SD::shouldCommitDataLog(
     return (
         (uint32_t)(
             now -
-            _dataLogPendingSinceMs) >=
-        _dataLogCommitTimeoutMs);
+            _pendingSinceMs) >=
+        _commitTimeoutMs);
 }
 
-void JW_SD::serviceDataLog()
+void JWPLCDataLog::service()
 {
-    if (!_dataLogActive)
+    if (!_active)
     {
         return;
     }
 
-    if (shouldCommitDataLog(millis()))
+    if (shouldCommit(millis()))
     {
-        dataLogCommit();
+        commit();
     }
 }
 
-bool JW_SD::dataLogCommit()
+bool JWPLCDataLog::commit()
 {
-    if (!_dataLogActive)
+    if (!_active)
     {
         setError(JW_SD_ERR_DATALOG_NOT_ACTIVE);
         return false;
     }
 
-    if (_dataLogCount == 0)
+    if (_storage == nullptr)
+    {
+        setError(JW_SD_ERR_NOT_READY);
+        return false;
+    }
+
+    if (_count == 0)
     {
         setError(JW_SD_OK);
         return true;
     }
 
-    if (!isCardPresent())
+    if (!_storage->isReady())
     {
-        ++_dataLogFailedCommits;
+        ++_failedCommits;
+        setError(JW_SD_ERR_NOT_READY);
+        return false;
+    }
+
+    if (!_storage->isCardPresent())
+    {
+        ++_failedCommits;
         setError(JW_SD_ERR_NO_CARD);
         return false;
     }
 
-    if (!_dataLogFile)
+    if (!_file)
     {
-        if (!openDataLogFile())
+        if (!openFile())
         {
-            ++_dataLogFailedCommits;
-            setError(JW_SD_ERR_DATALOG_COMMIT_FAILED);
+            ++_failedCommits;
+
+            JW_SDError error =
+                _storage->lastError();
+
+            if (error == JW_SD_OK)
+            {
+                error =
+                    JW_SD_ERR_DATALOG_COMMIT_FAILED;
+            }
+
+            setError(error);
             return false;
         }
     }
 
     size_t writtenThisCommit = 0;
 
-    while (_dataLogCount > 0)
+    while (_count > 0)
     {
+        const size_t remainingToEnd =
+            _bufferSize - _tail;
+
         const size_t contiguous =
-            min(
-                _dataLogCount,
-                _dataLogBufferSize -
-                    _dataLogTail);
+            (_count < remainingToEnd)
+                ? _count
+                : remainingToEnd;
 
         const size_t written =
-            _dataLogFile.write(
-                _dataLogBuffer +
-                    _dataLogTail,
+            _file.write(
+                _buffer + _tail,
                 contiguous);
 
         if (written > 0)
         {
-            _dataLogTail =
-                (_dataLogTail + written) %
-                _dataLogBufferSize;
+            _tail =
+                (_tail + written) %
+                _bufferSize;
 
-            _dataLogCount -= written;
+            _count -= written;
             writtenThisCommit += written;
         }
 
@@ -1187,39 +1274,48 @@ bool JW_SD::dataLogCommit()
         {
             if (writtenThisCommit > 0)
             {
-                _dataLogFile.flush();
+                _file.flush();
 
-                _dataLogCommittedBytes +=
+                _committedBytes +=
                     writtenThisCommit;
 
-                ++_dataLogCommitCount;
+                ++_commitCount;
             }
 
-            ++_dataLogFailedCommits;
-            setError(JW_SD_ERR_DATALOG_COMMIT_FAILED);
+            ++_failedCommits;
 
+            JW_SDError error =
+                _storage->lastError();
+
+            if (error == JW_SD_OK)
+            {
+                error =
+                    JW_SD_ERR_DATALOG_COMMIT_FAILED;
+            }
+
+            setError(error);
             return false;
         }
     }
 
-    _dataLogFile.flush();
+    _file.flush();
 
-    _dataLogCommittedBytes +=
+    _committedBytes +=
         writtenThisCommit;
 
-    ++_dataLogCommitCount;
+    ++_commitCount;
 
-    _dataLogPendingSinceMs = 0;
+    _pendingSinceMs = 0;
 
     setError(JW_SD_OK);
 
     return true;
 }
 
-bool JW_SD::dataLogClose(
+bool JWPLCDataLog::close(
     bool commitPending)
 {
-    if (!_dataLogActive)
+    if (!_active)
     {
         setError(JW_SD_ERR_DATALOG_NOT_ACTIVE);
         return false;
@@ -1227,121 +1323,216 @@ bool JW_SD::dataLogClose(
 
     if (
         commitPending &&
-        _dataLogCount > 0)
+        _count > 0)
     {
-        if (!dataLogCommit())
+        if (!commit())
         {
             return false;
         }
     }
 
-    if (_dataLogFile)
+    if (_file)
     {
-        _dataLogFile.close();
+        _file.close();
     }
 
-    resetDataLogState(true);
+    resetState(true);
 
     setError(JW_SD_OK);
 
     return true;
 }
 
-bool JW_SD::dataLogActive() const
+bool JWPLCDataLog::isActive() const
 {
-    return _dataLogActive;
+    return _active;
 }
 
-size_t JW_SD::dataLogPendingBytes() const
+const char *JWPLCDataLog::path() const
 {
-    return _dataLogCount;
+    return _path;
 }
 
-size_t JW_SD::dataLogFreeBytes() const
+size_t JWPLCDataLog::bufferSize() const
+{
+    return _bufferSize;
+}
+
+size_t JWPLCDataLog::pendingBytes() const
+{
+    return _count;
+}
+
+size_t JWPLCDataLog::freeBytes() const
 {
     if (
-        _dataLogBuffer == nullptr ||
-        _dataLogBufferSize <
-            _dataLogCount)
+        _buffer == nullptr ||
+        _bufferSize < _count)
     {
         return 0;
     }
 
     return (
-        _dataLogBufferSize -
-        _dataLogCount);
+        _bufferSize -
+        _count);
 }
 
-JW_SDDataLogStatus JW_SD::dataLogStatus() const
+size_t JWPLCDataLog::commitThreshold() const
 {
-    JW_SDDataLogStatus status{};
+    return _commitThresholdBytes;
+}
 
-    status.active =
-        _dataLogActive;
+uint32_t JWPLCDataLog::commitTimeout() const
+{
+    return _commitTimeoutMs;
+}
 
-    status.capacityBytes =
-        _dataLogBufferSize;
+uint32_t JWPLCDataLog::acceptedWrites() const
+{
+    return _acceptedWrites;
+}
 
-    status.pendingBytes =
-        _dataLogCount;
+uint64_t JWPLCDataLog::acceptedBytes() const
+{
+    return _acceptedBytes;
+}
 
-    status.freeBytes =
-        dataLogFreeBytes();
+uint64_t JWPLCDataLog::committedBytes() const
+{
+    return _committedBytes;
+}
 
-    status.commitThresholdBytes =
-        _dataLogCommitThresholdBytes;
+uint32_t JWPLCDataLog::commitCount() const
+{
+    return _commitCount;
+}
 
-    status.commitTimeoutMs =
-        _dataLogCommitTimeoutMs;
+uint32_t JWPLCDataLog::failedCommits() const
+{
+    return _failedCommits;
+}
 
-    status.acceptedWrites =
-        _dataLogAcceptedWrites;
+JW_SDError JWPLCDataLog::lastError() const
+{
+    return _lastError;
+}
 
-    status.acceptedBytes =
-        _dataLogAcceptedBytes;
+const char *JWPLCDataLog::lastErrorString() const
+{
+    switch (_lastError)
+    {
+    case JW_SD_OK:
+        return "OK";
+    case JW_SD_ERR_DISABLED:
+        return "SD disabled";
+    case JW_SD_ERR_NO_CARD:
+        return "No card";
+    case JW_SD_ERR_LOCK_TIMEOUT:
+        return "SPI lock timeout";
+    case JW_SD_ERR_BEGIN_FAILED:
+        return "SD begin failed";
+    case JW_SD_ERR_NOT_READY:
+        return "SD not ready";
+    case JW_SD_ERR_OPEN_FAILED:
+        return "Open failed";
+    case JW_SD_ERR_OPERATION_FAILED:
+        return "Operation failed";
+    case JW_SD_ERR_DATALOG_INVALID_CONFIG:
+        return "DataLog invalid config";
+    case JW_SD_ERR_DATALOG_ALLOC_FAILED:
+        return "DataLog RAM allocation failed";
+    case JW_SD_ERR_DATALOG_NOT_ACTIVE:
+        return "DataLog not active";
+    case JW_SD_ERR_DATALOG_BUFFER_FULL:
+        return "DataLog buffer full";
+    case JW_SD_ERR_DATALOG_COMMIT_FAILED:
+        return "DataLog commit failed";
+    default:
+        return "Unknown error";
+    }
+}
 
-    status.committedBytes =
-        _dataLogCommittedBytes;
+JW_SDDataLogStatus JWPLCDataLog::status() const
+{
+    JW_SDDataLogStatus result{};
 
-    status.commitCount =
-        _dataLogCommitCount;
+    result.active =
+        _active;
 
-    status.failedCommits =
-        _dataLogFailedCommits;
+    result.capacityBytes =
+        _bufferSize;
 
-    status.lastError =
+    result.pendingBytes =
+        _count;
+
+    result.freeBytes =
+        freeBytes();
+
+    result.commitThresholdBytes =
+        _commitThresholdBytes;
+
+    result.commitTimeoutMs =
+        _commitTimeoutMs;
+
+    result.acceptedWrites =
+        _acceptedWrites;
+
+    result.acceptedBytes =
+        _acceptedBytes;
+
+    result.committedBytes =
+        _committedBytes;
+
+    result.commitCount =
+        _commitCount;
+
+    result.failedCommits =
+        _failedCommits;
+
+    result.lastError =
         _lastError;
 
-    return status;
+    return result;
 }
 
-void JW_SD::resetDataLogState(
+void JWPLCDataLog::resetState(
     bool releaseBuffer)
 {
     if (
         releaseBuffer &&
-        _dataLogBuffer != nullptr)
+        _buffer != nullptr)
     {
-        free(_dataLogBuffer);
-        _dataLogBuffer = nullptr;
+        free(_buffer);
+        _buffer = nullptr;
     }
 
-    _dataLogBufferSize = 0;
-    _dataLogHead = 0;
-    _dataLogTail = 0;
-    _dataLogCount = 0;
+    _storage = nullptr;
 
-    _dataLogCommitThresholdBytes = 0;
-    _dataLogCommitTimeoutMs = 0;
-    _dataLogPendingSinceMs = 0;
+    _bufferSize = 0;
+    _head = 0;
+    _tail = 0;
+    _count = 0;
 
-    _dataLogActive = false;
-    _dataLogFile = JWPLCFile();
-    _dataLogPath[0] = '\0';
+    _commitThresholdBytes = 0;
+    _commitTimeoutMs = 0;
+    _pendingSinceMs = 0;
 
-    _dataLogAcceptedWrites = 0;
-    _dataLogAcceptedBytes = 0;
-    _dataLogCommittedBytes = 0;
-    _dataLogCommitCount = 0;
-    _dataLogFailedCommits = 0;
+    _active = false;
+    _file = JWPLCFile();
+
+    _path[0] = '\0';
+
+    _acceptedWrites = 0;
+    _acceptedBytes = 0;
+    _committedBytes = 0;
+
+    _commitCount = 0;
+    _failedCommits = 0;
+}
+
+void JWPLCDataLog::setError(
+    JW_SDError error)
+{
+    _lastError =
+        error;
 }

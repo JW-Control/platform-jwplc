@@ -34,14 +34,23 @@ enum JW_SDError : uint8_t
 
 struct JW_SDDataLogConfig
 {
-    // Se asigna solamente al crear el DataLog.
-    size_t bufferSize = 4096;
+    static constexpr size_t DEFAULT_BUFFER_SIZE = 4096;
+    static constexpr size_t DEFAULT_COMMIT_THRESHOLD_BYTES = 512;
+    static constexpr uint32_t DEFAULT_COMMIT_TIMEOUT_MS = 5000;
 
-    // Commit por ocupacion. El timeout actua como segunda condicion.
-    size_t commitThresholdBytes = 512;
+    size_t bufferSize;
+    size_t commitThresholdBytes;
+    uint32_t commitTimeoutMs;
 
-    // Evita que muestras poco frecuentes permanezcan indefinidamente en RAM.
-    uint32_t commitTimeoutMs = 5000;
+    JW_SDDataLogConfig(
+        size_t buffer = DEFAULT_BUFFER_SIZE,
+        size_t threshold = DEFAULT_COMMIT_THRESHOLD_BYTES,
+        uint32_t timeoutMs = DEFAULT_COMMIT_TIMEOUT_MS)
+        : bufferSize(buffer),
+          commitThresholdBytes(threshold),
+          commitTimeoutMs(timeoutMs)
+    {
+    }
 };
 
 struct JW_SDDataLogStatus
@@ -122,6 +131,130 @@ private:
 };
 
 // =====================================================
+// DataLog de alto nivel
+// =====================================================
+//
+// Cada objeto JWPLCDataLog representa un archivo independiente.
+// JW_SD sigue siendo responsable de la tarjeta, filesystem y SPI.
+//
+// El buffer se asigna solamente al ejecutar begin().
+// Los objetos no son copiables porque poseen RAM dinamica y un
+// handle persistente de archivo.
+
+class JWPLCDataLog
+{
+public:
+    JWPLCDataLog();
+    ~JWPLCDataLog();
+
+    JWPLCDataLog(const JWPLCDataLog &) = delete;
+    JWPLCDataLog &operator=(const JWPLCDataLog &) = delete;
+
+    // Uso simple: defaults de JW_SDDataLogConfig.
+    bool begin(
+        JW_SD &storage,
+        const char *path);
+
+    // Configuracion directa y comoda.
+    bool begin(
+        JW_SD &storage,
+        const char *path,
+        size_t bufferSize,
+        size_t commitThresholdBytes,
+        uint32_t commitTimeoutMs);
+
+    // Configuracion reutilizable/avanzada.
+    bool begin(
+        JW_SD &storage,
+        const char *path,
+        const JW_SDDataLogConfig &config);
+
+    size_t write(
+        const uint8_t *data,
+        size_t size);
+
+    size_t write(const char *text);
+    size_t writeLine(const char *text);
+
+    // En G1b se invoca manualmente.
+    // En G2 el runtime JWPLC registrara y servira los DataLogs.
+    void service();
+
+    bool commit();
+
+    // true  = persiste pendientes antes de cerrar.
+    // false = descarta lo que solo exista en RAM.
+    bool close(bool commitPending = true);
+
+    bool isActive() const;
+
+    const char *path() const;
+
+    size_t bufferSize() const;
+    size_t pendingBytes() const;
+    size_t freeBytes() const;
+
+    size_t commitThreshold() const;
+    uint32_t commitTimeout() const;
+
+    uint32_t acceptedWrites() const;
+    uint64_t acceptedBytes() const;
+    uint64_t committedBytes() const;
+
+    uint32_t commitCount() const;
+    uint32_t failedCommits() const;
+
+    JW_SDError lastError() const;
+    const char *lastErrorString() const;
+
+    JW_SDDataLogStatus status() const;
+
+private:
+    static constexpr size_t MAX_PATH = 96;
+
+    JW_SD *_storage = nullptr;
+
+    uint8_t *_buffer = nullptr;
+    size_t _bufferSize = 0;
+    size_t _head = 0;
+    size_t _tail = 0;
+    size_t _count = 0;
+
+    size_t _commitThresholdBytes = 0;
+    uint32_t _commitTimeoutMs = 0;
+    uint32_t _pendingSinceMs = 0;
+
+    bool _active = false;
+
+    JWPLCFile _file;
+    char _path[MAX_PATH] = {0};
+
+    uint32_t _acceptedWrites = 0;
+    uint64_t _acceptedBytes = 0;
+    uint64_t _committedBytes = 0;
+
+    uint32_t _commitCount = 0;
+    uint32_t _failedCommits = 0;
+
+    JW_SDError _lastError = JW_SD_OK;
+
+    bool enqueue(
+        const uint8_t *data,
+        size_t size);
+
+    bool openFile();
+
+    bool shouldCommit(
+        uint32_t now) const;
+
+    void resetState(
+        bool releaseBuffer);
+
+    void setError(
+        JW_SDError error);
+};
+
+// =====================================================
 // Clase principal JW_SD
 // =====================================================
 
@@ -174,44 +307,6 @@ public:
     JWPLCFile open(const char *path, uint8_t mode = FILE_READ);
     File openNative(const char *path, uint8_t mode = FILE_READ);
 #endif
-
-    // =================================================
-    // DataLog RAM -> microSD
-    // =================================================
-    //
-    // dataLogWrite() acepta datos en RAM y retorna sin forzar una
-    // escritura fisica a SD. serviceDataLog() decide el commit por
-    // threshold o timeout.
-    //
-    // Durante Alpha14.6 G1 el servicio se invoca manualmente para
-    // validar la libreria de forma aislada. El runtime JWPLC lo
-    // llamara automaticamente en el siguiente gate.
-
-    bool dataLogCreate(const char *path);
-    bool dataLogCreate(
-        const char *path,
-        const JW_SDDataLogConfig &config);
-
-    size_t dataLogWrite(
-        const uint8_t *data,
-        size_t size);
-
-    size_t dataLogWrite(const char *text);
-    size_t dataLogWriteLine(const char *text);
-
-    void serviceDataLog();
-
-    bool dataLogCommit();
-
-    // commitPending=true intenta persistir todo antes de cerrar.
-    // false descarta lo que permanezca solamente en RAM.
-    bool dataLogClose(bool commitPending = true);
-
-    bool dataLogActive() const;
-    size_t dataLogPendingBytes() const;
-    size_t dataLogFreeBytes() const;
-    JW_SDDataLogStatus dataLogStatus() const;
-
     // Herramientas avanzadas de bloqueo manual.
     // Normalmente no son necesarias si se usa JWPLCFile.
     bool lock(uint32_t timeoutMs);
@@ -242,45 +337,6 @@ private:
     uint32_t _operationTimeoutMs;
 
     JW_SDError _lastError;
-
-    // =================================================
-    // DataLog interno
-    // =================================================
-
-    static constexpr size_t DATALOG_MAX_PATH = 96;
-
-    uint8_t *_dataLogBuffer = nullptr;
-    size_t _dataLogBufferSize = 0;
-    size_t _dataLogHead = 0;
-    size_t _dataLogTail = 0;
-    size_t _dataLogCount = 0;
-
-    size_t _dataLogCommitThresholdBytes = 0;
-    uint32_t _dataLogCommitTimeoutMs = 0;
-    uint32_t _dataLogPendingSinceMs = 0;
-
-    bool _dataLogActive = false;
-    JWPLCFile _dataLogFile;
-    char _dataLogPath[DATALOG_MAX_PATH] = {0};
-
-    uint32_t _dataLogAcceptedWrites = 0;
-    uint64_t _dataLogAcceptedBytes = 0;
-    uint64_t _dataLogCommittedBytes = 0;
-    uint32_t _dataLogCommitCount = 0;
-    uint32_t _dataLogFailedCommits = 0;
-
-    bool enqueueDataLogBytes(
-        const uint8_t *data,
-        size_t size);
-
-    bool openDataLogFile();
-
-    bool shouldCommitDataLog(
-        uint32_t now) const;
-
-    void resetDataLogState(
-        bool releaseBuffer);
-
     void setError(JW_SDError error);
     bool lockForOperation();
     void unlockForOperation();
