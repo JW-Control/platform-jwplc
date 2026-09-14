@@ -228,6 +228,13 @@ void jwplcSystemTask(void *pvParameters)
       jwplcEthernetTickCallback();
     }
 
+#if JWPLC_HAS_SD
+    // DataLog usa buffer RAM. Este tick solo comprueba threshold/timeout
+    // y atiende como maximo un logger por vuelta del system task.
+    // En Basic Core esta ruta se elimina en compilacion.
+    jwplcDataLogTickCallback();
+#endif
+
     if ((uint32_t)(now - lastDisplayTick) >= getJWPLCDisplayPeriod_ms())
     {
       lastDisplayTick = now;
