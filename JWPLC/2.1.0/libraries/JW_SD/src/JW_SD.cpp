@@ -1685,41 +1685,51 @@ bool JWPLCDataLog::commitInternal(
     JW_SD *storage =
         _storage;
 
-    // Snapshot de pendientes al comenzar el commit.
-    // Nuevos write() pueden continuar agregando al ring.
-    size_t remaining =
+    // Snapshot del ring al iniciar el commit.
+    //
+    // Regla Alpha14:
+    // NO se avanza tail ni se reduce count mientras el
+    // almacenamiento fisico no haya terminado y la tarjeta
+    // siga confirmada como presente.
+    //
+    // Esto preserva los datos en RAM ante extraccion durante
+    // write()/flush().
+    const size_t snapshotTail =
+        _tail;
+
+    const size_t snapshotCount =
         _count;
 
     unlockState();
 
+    auto finishFailure =
+        [this](JW_SDError error) -> bool
+    {
+        lockState();
+
+        ++_failedCommits;
+
+        _commitInProgress =
+            false;
+
+        setError(error);
+
+        unlockState();
+
+        return false;
+    };
+
     if (!storage->isReady())
     {
-        lockState();
-
-        ++_failedCommits;
-        _commitInProgress = false;
-
-        setError(
+        return finishFailure(
             JW_SD_ERR_NOT_READY);
-
-        unlockState();
-
-        return false;
     }
 
+    // Primera barrera de presencia.
     if (!storage->isCardPresent())
     {
-        lockState();
-
-        ++_failedCommits;
-        _commitInProgress = false;
-
-        setError(
+        return finishFailure(
             JW_SD_ERR_NO_CARD);
-
-        unlockState();
-
-        return false;
     }
 
     if (!_file)
@@ -1735,85 +1745,48 @@ bool JWPLCDataLog::commitInternal(
                     JW_SD_ERR_DATALOG_COMMIT_FAILED;
             }
 
-            lockState();
-
-            ++_failedCommits;
-            _commitInProgress = false;
-
-            setError(error);
-
-            unlockState();
-
-            return false;
+            return finishFailure(
+                error);
         }
     }
 
-    size_t writtenThisCommit =
-        0;
+    size_t remaining =
+        snapshotCount;
+
+    size_t readIndex =
+        snapshotTail;
 
     while (remaining > 0)
     {
-        lockState();
+        // La tarjeta puede desaparecer despues de la
+        // comprobacion inicial. Revalidar antes de cada
+        // transaccion fisica.
+        if (!storage->isCardPresent())
+        {
+            return finishFailure(
+                JW_SD_ERR_NO_CARD);
+        }
 
         const size_t remainingToEnd =
             _bufferSize -
-            _tail;
+            readIndex;
 
-        size_t contiguous =
-            remaining;
-
-        if (contiguous > remainingToEnd)
-        {
-            contiguous =
-                remainingToEnd;
-        }
-
-        if (contiguous > _count)
-        {
-            contiguous =
-                _count;
-        }
-
-        uint8_t *writePtr =
-            _buffer +
-            _tail;
-
-        unlockState();
+        const size_t contiguous =
+            (remaining < remainingToEnd)
+                ? remaining
+                : remainingToEnd;
 
         const size_t written =
             _file.write(
-                writePtr,
+                _buffer + readIndex,
                 contiguous);
-
-        lockState();
-
-        if (written > 0)
-        {
-            _tail =
-                (_tail + written) %
-                _bufferSize;
-
-            _count -=
-                written;
-
-            remaining -=
-                written;
-
-            writtenThisCommit +=
-                written;
-        }
-
-        unlockState();
 
         if (written != contiguous)
         {
-            if (writtenThisCommit > 0)
-            {
-                _file.flush();
-            }
-
             JW_SDError error =
-                storage->lastError();
+                storage->isCardPresent()
+                    ? storage->lastError()
+                    : JW_SD_ERR_NO_CARD;
 
             if (error == JW_SD_OK)
             {
@@ -1821,40 +1794,73 @@ bool JWPLCDataLog::commitInternal(
                     JW_SD_ERR_DATALOG_COMMIT_FAILED;
             }
 
-            lockState();
-
-            _committedBytes +=
-                writtenThisCommit;
-
-            if (writtenThisCommit > 0)
-            {
-                ++_commitCount;
-            }
-
-            ++_failedCommits;
-
-            _commitInProgress =
-                false;
-
-            setError(error);
-
-            unlockState();
-
-            return false;
+            // El ring NO se consume.
+            //
+            // Una escritura fisica interrumpida puede haber
+            // alcanzado parcialmente al filesystem, por lo que
+            // la politica de recuperacion posterior se valida
+            // fisicamente en G3b-R.
+            return finishFailure(
+                error);
         }
+
+        readIndex =
+            (readIndex + written) %
+            _bufferSize;
+
+        remaining -=
+            written;
     }
 
+    // flush() no devuelve estado en JWPLCFile.
+    // Por eso no se considera durable hasta comprobar ademas
+    // que la tarjeta continua fisicamente presente.
     _file.flush();
+
+    // Segunda barrera: post-write / post-flush.
+    if (!storage->isCardPresent())
+    {
+        return finishFailure(
+            JW_SD_ERR_NO_CARD);
+    }
 
     lockState();
 
-    _committedBytes +=
-        writtenThisCommit;
+    // Ningun otro commit puede mover tail mientras
+    // _commitInProgress=true. Los productores solo pueden
+    // agregar por head, por lo que el snapshot original sigue
+    // retenido hasta este punto.
+    const bool snapshotStillValid =
+        _tail == snapshotTail &&
+        _count >= snapshotCount;
 
-    if (writtenThisCommit > 0)
+    if (!snapshotStillValid)
     {
-        ++_commitCount;
+        ++_failedCommits;
+
+        _commitInProgress =
+            false;
+
+        setError(
+            JW_SD_ERR_DATALOG_BUSY);
+
+        unlockState();
+
+        return false;
     }
+
+    // SOLO AHORA el snapshot pasa de PENDING a COMMITTED.
+    _tail =
+        (_tail + snapshotCount) %
+        _bufferSize;
+
+    _count -=
+        snapshotCount;
+
+    _committedBytes +=
+        snapshotCount;
+
+    ++_commitCount;
 
     if (_count == 0)
     {
@@ -1862,8 +1868,8 @@ bool JWPLCDataLog::commitInternal(
     }
     else
     {
-        // Los registros que entraron mientras se persistia
-        // comienzan una nueva ventana de timeout.
+        // Los registros añadidos durante el commit forman
+        // la siguiente ventana pendiente.
         _pendingSinceMs =
             millis();
     }
