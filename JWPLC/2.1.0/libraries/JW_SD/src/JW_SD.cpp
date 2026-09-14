@@ -109,6 +109,26 @@ int JWPLCFile::read()
     return value;
 }
 
+size_t JWPLCFile::read(uint8_t *buffer, size_t size)
+{
+    if (!_file || buffer == nullptr || size == 0)
+    {
+        return 0;
+    }
+
+    if (!lock())
+    {
+        return 0;
+    }
+
+    int value = _file.read(buffer, size);
+    unlock();
+
+    return (value > 0)
+               ? static_cast<size_t>(value)
+               : 0;
+}
+
 int JWPLCFile::peek()
 {
     if (!_file)
@@ -501,6 +521,16 @@ const char *JW_SD::lastErrorString() const
         return "Open failed";
     case JW_SD_ERR_OPERATION_FAILED:
         return "Operation failed";
+    case JW_SD_ERR_DATALOG_INVALID_CONFIG:
+        return "DataLog invalid config";
+    case JW_SD_ERR_DATALOG_ALLOC_FAILED:
+        return "DataLog RAM allocation failed";
+    case JW_SD_ERR_DATALOG_NOT_ACTIVE:
+        return "DataLog not active";
+    case JW_SD_ERR_DATALOG_BUFFER_FULL:
+        return "DataLog buffer full";
+    case JW_SD_ERR_DATALOG_COMMIT_FAILED:
+        return "DataLog commit failed";
     default:
         return "Unknown error";
     }
@@ -771,4 +801,547 @@ void JW_SD::setEnabled(bool enabled)
 bool JW_SD::isEnabled() const
 {
     return _enabled;
+}
+
+
+// =====================================================
+// DataLog RAM -> microSD
+// =====================================================
+
+bool JW_SD::dataLogCreate(const char *path)
+{
+    JW_SDDataLogConfig config;
+    return dataLogCreate(path, config);
+}
+
+bool JW_SD::dataLogCreate(
+    const char *path,
+    const JW_SDDataLogConfig &config)
+{
+    if (!_ready)
+    {
+        setError(JW_SD_ERR_NOT_READY);
+        return false;
+    }
+
+    if (
+        path == nullptr ||
+        path[0] == '\0' ||
+        strlen(path) >= DATALOG_MAX_PATH ||
+        config.bufferSize == 0 ||
+        config.commitThresholdBytes == 0 ||
+        config.commitThresholdBytes > config.bufferSize ||
+        config.commitTimeoutMs == 0)
+    {
+        setError(JW_SD_ERR_DATALOG_INVALID_CONFIG);
+        return false;
+    }
+
+    if (_dataLogActive)
+    {
+        if (!dataLogClose(true))
+        {
+            return false;
+        }
+    }
+
+    resetDataLogState(true);
+
+    _dataLogBuffer =
+        static_cast<uint8_t *>(
+            malloc(config.bufferSize));
+
+    if (_dataLogBuffer == nullptr)
+    {
+        setError(JW_SD_ERR_DATALOG_ALLOC_FAILED);
+        return false;
+    }
+
+    _dataLogBufferSize =
+        config.bufferSize;
+
+    _dataLogCommitThresholdBytes =
+        config.commitThresholdBytes;
+
+    _dataLogCommitTimeoutMs =
+        config.commitTimeoutMs;
+
+    strncpy(
+        _dataLogPath,
+        path,
+        DATALOG_MAX_PATH - 1);
+
+    _dataLogPath[DATALOG_MAX_PATH - 1] =
+        '\0';
+
+    if (!openDataLogFile())
+    {
+        resetDataLogState(true);
+        setError(JW_SD_ERR_OPEN_FAILED);
+        return false;
+    }
+
+    _dataLogActive = true;
+    setError(JW_SD_OK);
+
+    return true;
+}
+
+bool JW_SD::enqueueDataLogBytes(
+    const uint8_t *data,
+    size_t size)
+{
+    if (
+        _dataLogBuffer == nullptr ||
+        data == nullptr ||
+        size == 0 ||
+        size > dataLogFreeBytes())
+    {
+        return false;
+    }
+
+    const size_t first =
+        min(
+            size,
+            _dataLogBufferSize -
+                _dataLogHead);
+
+    memcpy(
+        _dataLogBuffer +
+            _dataLogHead,
+        data,
+        first);
+
+    const size_t second =
+        size - first;
+
+    if (second > 0)
+    {
+        memcpy(
+            _dataLogBuffer,
+            data + first,
+            second);
+    }
+
+    _dataLogHead =
+        (_dataLogHead + size) %
+        _dataLogBufferSize;
+
+    _dataLogCount += size;
+
+    return true;
+}
+
+size_t JW_SD::dataLogWrite(
+    const uint8_t *data,
+    size_t size)
+{
+    if (!_dataLogActive)
+    {
+        setError(JW_SD_ERR_DATALOG_NOT_ACTIVE);
+        return 0;
+    }
+
+    if (data == nullptr)
+    {
+        setError(JW_SD_ERR_DATALOG_INVALID_CONFIG);
+        return 0;
+    }
+
+    if (size == 0)
+    {
+        setError(JW_SD_OK);
+        return 0;
+    }
+
+    if (size > dataLogFreeBytes())
+    {
+        setError(JW_SD_ERR_DATALOG_BUFFER_FULL);
+        return 0;
+    }
+
+    const bool wasEmpty =
+        (_dataLogCount == 0);
+
+    if (!enqueueDataLogBytes(
+            data,
+            size))
+    {
+        setError(JW_SD_ERR_DATALOG_BUFFER_FULL);
+        return 0;
+    }
+
+    if (wasEmpty)
+    {
+        _dataLogPendingSinceMs =
+            millis();
+    }
+
+    ++_dataLogAcceptedWrites;
+    _dataLogAcceptedBytes += size;
+
+    setError(JW_SD_OK);
+
+    return size;
+}
+
+size_t JW_SD::dataLogWrite(
+    const char *text)
+{
+    if (text == nullptr)
+    {
+        setError(JW_SD_ERR_DATALOG_INVALID_CONFIG);
+        return 0;
+    }
+
+    return dataLogWrite(
+        reinterpret_cast<const uint8_t *>(text),
+        strlen(text));
+}
+
+size_t JW_SD::dataLogWriteLine(
+    const char *text)
+{
+    if (!_dataLogActive)
+    {
+        setError(JW_SD_ERR_DATALOG_NOT_ACTIVE);
+        return 0;
+    }
+
+    if (text == nullptr)
+    {
+        setError(JW_SD_ERR_DATALOG_INVALID_CONFIG);
+        return 0;
+    }
+
+    const size_t textSize =
+        strlen(text);
+
+    const size_t totalSize =
+        textSize + 1;
+
+    if (totalSize > dataLogFreeBytes())
+    {
+        setError(JW_SD_ERR_DATALOG_BUFFER_FULL);
+        return 0;
+    }
+
+    const bool wasEmpty =
+        (_dataLogCount == 0);
+
+    if (
+        textSize > 0 &&
+        !enqueueDataLogBytes(
+            reinterpret_cast<const uint8_t *>(text),
+            textSize))
+    {
+        setError(JW_SD_ERR_DATALOG_BUFFER_FULL);
+        return 0;
+    }
+
+    static const uint8_t newline =
+        '\n';
+
+    if (!enqueueDataLogBytes(
+            &newline,
+            1))
+    {
+        setError(JW_SD_ERR_DATALOG_BUFFER_FULL);
+        return 0;
+    }
+
+    if (wasEmpty)
+    {
+        _dataLogPendingSinceMs =
+            millis();
+    }
+
+    ++_dataLogAcceptedWrites;
+    _dataLogAcceptedBytes += totalSize;
+
+    setError(JW_SD_OK);
+
+    return totalSize;
+}
+
+bool JW_SD::openDataLogFile()
+{
+    if (
+        !_ready ||
+        _dataLogPath[0] == '\0')
+    {
+        return false;
+    }
+
+#if defined(ESP32)
+    _dataLogFile =
+        open(
+            _dataLogPath,
+            FILE_APPEND);
+#else
+    _dataLogFile =
+        open(
+            _dataLogPath,
+            FILE_WRITE);
+#endif
+
+    return static_cast<bool>(
+        _dataLogFile);
+}
+
+bool JW_SD::shouldCommitDataLog(
+    uint32_t now) const
+{
+    if (
+        !_dataLogActive ||
+        _dataLogCount == 0)
+    {
+        return false;
+    }
+
+    if (
+        _dataLogCount >=
+        _dataLogCommitThresholdBytes)
+    {
+        return true;
+    }
+
+    return (
+        (uint32_t)(
+            now -
+            _dataLogPendingSinceMs) >=
+        _dataLogCommitTimeoutMs);
+}
+
+void JW_SD::serviceDataLog()
+{
+    if (!_dataLogActive)
+    {
+        return;
+    }
+
+    if (shouldCommitDataLog(millis()))
+    {
+        dataLogCommit();
+    }
+}
+
+bool JW_SD::dataLogCommit()
+{
+    if (!_dataLogActive)
+    {
+        setError(JW_SD_ERR_DATALOG_NOT_ACTIVE);
+        return false;
+    }
+
+    if (_dataLogCount == 0)
+    {
+        setError(JW_SD_OK);
+        return true;
+    }
+
+    if (!isCardPresent())
+    {
+        ++_dataLogFailedCommits;
+        setError(JW_SD_ERR_NO_CARD);
+        return false;
+    }
+
+    if (!_dataLogFile)
+    {
+        if (!openDataLogFile())
+        {
+            ++_dataLogFailedCommits;
+            setError(JW_SD_ERR_DATALOG_COMMIT_FAILED);
+            return false;
+        }
+    }
+
+    size_t writtenThisCommit = 0;
+
+    while (_dataLogCount > 0)
+    {
+        const size_t contiguous =
+            min(
+                _dataLogCount,
+                _dataLogBufferSize -
+                    _dataLogTail);
+
+        const size_t written =
+            _dataLogFile.write(
+                _dataLogBuffer +
+                    _dataLogTail,
+                contiguous);
+
+        if (written > 0)
+        {
+            _dataLogTail =
+                (_dataLogTail + written) %
+                _dataLogBufferSize;
+
+            _dataLogCount -= written;
+            writtenThisCommit += written;
+        }
+
+        if (written != contiguous)
+        {
+            if (writtenThisCommit > 0)
+            {
+                _dataLogFile.flush();
+
+                _dataLogCommittedBytes +=
+                    writtenThisCommit;
+
+                ++_dataLogCommitCount;
+            }
+
+            ++_dataLogFailedCommits;
+            setError(JW_SD_ERR_DATALOG_COMMIT_FAILED);
+
+            return false;
+        }
+    }
+
+    _dataLogFile.flush();
+
+    _dataLogCommittedBytes +=
+        writtenThisCommit;
+
+    ++_dataLogCommitCount;
+
+    _dataLogPendingSinceMs = 0;
+
+    setError(JW_SD_OK);
+
+    return true;
+}
+
+bool JW_SD::dataLogClose(
+    bool commitPending)
+{
+    if (!_dataLogActive)
+    {
+        setError(JW_SD_ERR_DATALOG_NOT_ACTIVE);
+        return false;
+    }
+
+    if (
+        commitPending &&
+        _dataLogCount > 0)
+    {
+        if (!dataLogCommit())
+        {
+            return false;
+        }
+    }
+
+    if (_dataLogFile)
+    {
+        _dataLogFile.close();
+    }
+
+    resetDataLogState(true);
+
+    setError(JW_SD_OK);
+
+    return true;
+}
+
+bool JW_SD::dataLogActive() const
+{
+    return _dataLogActive;
+}
+
+size_t JW_SD::dataLogPendingBytes() const
+{
+    return _dataLogCount;
+}
+
+size_t JW_SD::dataLogFreeBytes() const
+{
+    if (
+        _dataLogBuffer == nullptr ||
+        _dataLogBufferSize <
+            _dataLogCount)
+    {
+        return 0;
+    }
+
+    return (
+        _dataLogBufferSize -
+        _dataLogCount);
+}
+
+JW_SDDataLogStatus JW_SD::dataLogStatus() const
+{
+    JW_SDDataLogStatus status{};
+
+    status.active =
+        _dataLogActive;
+
+    status.capacityBytes =
+        _dataLogBufferSize;
+
+    status.pendingBytes =
+        _dataLogCount;
+
+    status.freeBytes =
+        dataLogFreeBytes();
+
+    status.commitThresholdBytes =
+        _dataLogCommitThresholdBytes;
+
+    status.commitTimeoutMs =
+        _dataLogCommitTimeoutMs;
+
+    status.acceptedWrites =
+        _dataLogAcceptedWrites;
+
+    status.acceptedBytes =
+        _dataLogAcceptedBytes;
+
+    status.committedBytes =
+        _dataLogCommittedBytes;
+
+    status.commitCount =
+        _dataLogCommitCount;
+
+    status.failedCommits =
+        _dataLogFailedCommits;
+
+    status.lastError =
+        _lastError;
+
+    return status;
+}
+
+void JW_SD::resetDataLogState(
+    bool releaseBuffer)
+{
+    if (
+        releaseBuffer &&
+        _dataLogBuffer != nullptr)
+    {
+        free(_dataLogBuffer);
+        _dataLogBuffer = nullptr;
+    }
+
+    _dataLogBufferSize = 0;
+    _dataLogHead = 0;
+    _dataLogTail = 0;
+    _dataLogCount = 0;
+
+    _dataLogCommitThresholdBytes = 0;
+    _dataLogCommitTimeoutMs = 0;
+    _dataLogPendingSinceMs = 0;
+
+    _dataLogActive = false;
+    _dataLogFile = JWPLCFile();
+    _dataLogPath[0] = '\0';
+
+    _dataLogAcceptedWrites = 0;
+    _dataLogAcceptedBytes = 0;
+    _dataLogCommittedBytes = 0;
+    _dataLogCommitCount = 0;
+    _dataLogFailedCommits = 0;
 }
