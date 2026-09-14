@@ -214,13 +214,26 @@ public:
 
 class EthernetClient : public Client {
 public:
-	EthernetClient() : _sockindex(MAX_SOCK_NUM), _timeout(1000) { }
-	EthernetClient(uint8_t s) : _sockindex(s), _timeout(1000) { }
+	EthernetClient() : _sockindex(MAX_SOCK_NUM), _timeout(1000) {
+		_startMillis = 0;
+	}
+	EthernetClient(uint8_t s) : _sockindex(s), _timeout(1000) {
+		_startMillis = 0;
+	}
 	virtual ~EthernetClient() {};
 
 	uint8_t status();
 	virtual int connect(IPAddress ip, uint16_t port);
 	virtual int connect(const char *host, uint16_t port);
+
+	// JWPLC cooperative TCP-connect extension.
+	// begin/poll: -1 = failed, 0 = pending, 1 = connected.
+	// Legacy connect() remains blocking and source-compatible.
+	int beginConnectAsync(IPAddress ip, uint16_t port);
+	int pollConnectAsync();
+	bool connectAsyncInProgress();
+	void cancelConnectAsync();
+
 	virtual int availableForWrite(void);
 	virtual size_t write(uint8_t);
 	virtual size_t write(const uint8_t *buf, size_t size);

@@ -20,7 +20,55 @@ enum JW_SDError : uint8_t
     JW_SD_ERR_BEGIN_FAILED,
     JW_SD_ERR_NOT_READY,
     JW_SD_ERR_OPEN_FAILED,
-    JW_SD_ERR_OPERATION_FAILED
+    JW_SD_ERR_OPERATION_FAILED,
+    JW_SD_ERR_DATALOG_INVALID_CONFIG,
+    JW_SD_ERR_DATALOG_ALLOC_FAILED,
+    JW_SD_ERR_DATALOG_NOT_ACTIVE,
+    JW_SD_ERR_DATALOG_BUFFER_FULL,
+    JW_SD_ERR_DATALOG_COMMIT_FAILED,
+    JW_SD_ERR_DATALOG_NO_SLOT,
+    JW_SD_ERR_DATALOG_BUSY
+};
+
+// =====================================================
+// DataLog de alto nivel
+// =====================================================
+
+struct JW_SDDataLogConfig
+{
+    static constexpr size_t DEFAULT_BUFFER_SIZE = 4096;
+    static constexpr size_t DEFAULT_COMMIT_THRESHOLD_BYTES = 512;
+    static constexpr uint32_t DEFAULT_COMMIT_TIMEOUT_MS = 5000;
+
+    size_t bufferSize;
+    size_t commitThresholdBytes;
+    uint32_t commitTimeoutMs;
+
+    JW_SDDataLogConfig(
+        size_t buffer = DEFAULT_BUFFER_SIZE,
+        size_t threshold = DEFAULT_COMMIT_THRESHOLD_BYTES,
+        uint32_t timeoutMs = DEFAULT_COMMIT_TIMEOUT_MS)
+        : bufferSize(buffer),
+          commitThresholdBytes(threshold),
+          commitTimeoutMs(timeoutMs)
+    {
+    }
+};
+
+struct JW_SDDataLogStatus
+{
+    bool active;
+    size_t capacityBytes;
+    size_t pendingBytes;
+    size_t freeBytes;
+    size_t commitThresholdBytes;
+    uint32_t commitTimeoutMs;
+    uint32_t acceptedWrites;
+    uint64_t acceptedBytes;
+    uint64_t committedBytes;
+    uint32_t commitCount;
+    uint32_t failedCommits;
+    JW_SDError lastError;
 };
 
 // =====================================================
@@ -44,6 +92,10 @@ public:
     size_t write(const uint8_t *buffer, size_t size) override;
     int available() override;
     int read() override;
+
+    // Lectura bulk protegida por el mismo lock SPI que read() byte a byte.
+    size_t read(uint8_t *buffer, size_t size);
+
     int peek() override;
     void flush() override;
 
@@ -78,6 +130,156 @@ private:
 
     bool lock();
     void unlock();
+};
+
+// =====================================================
+// DataLog de alto nivel
+// =====================================================
+//
+// Cada objeto JWPLCDataLog representa un archivo independiente.
+// JW_SD sigue siendo responsable de la tarjeta, filesystem y SPI.
+//
+// El buffer se asigna solamente al ejecutar begin().
+// Los objetos no son copiables porque poseen RAM dinamica y un
+// handle persistente de archivo.
+
+class JWPLCDataLog
+{
+public:
+    JWPLCDataLog();
+    ~JWPLCDataLog();
+
+    JWPLCDataLog(
+        const JWPLCDataLog &) = delete;
+
+    JWPLCDataLog &operator=(
+        const JWPLCDataLog &) = delete;
+
+    bool begin(
+        JW_SD &storage,
+        const char *path);
+
+    bool begin(
+        JW_SD &storage,
+        const char *path,
+        size_t bufferSize,
+        size_t commitThresholdBytes,
+        uint32_t commitTimeoutMs);
+
+    bool begin(
+        JW_SD &storage,
+        const char *path,
+        const JW_SDDataLogConfig &config);
+
+    size_t write(
+        const uint8_t *data,
+        size_t size);
+
+    size_t write(
+        const char *text);
+
+    size_t writeLine(
+        const char *text);
+
+    // G2a: disponible manualmente.
+    // G2b: el runtime atendera el manager automaticamente.
+    void service();
+
+    bool commit();
+
+    bool close(
+        bool commitPending = true);
+
+    bool isActive() const;
+
+    const char *path() const;
+
+    size_t bufferSize() const;
+    size_t pendingBytes() const;
+    size_t freeBytes() const;
+
+    size_t commitThreshold() const;
+    uint32_t commitTimeout() const;
+
+    uint32_t acceptedWrites() const;
+    uint64_t acceptedBytes() const;
+    uint64_t committedBytes() const;
+
+    uint32_t commitCount() const;
+    uint32_t failedCommits() const;
+
+    JW_SDError lastError() const;
+    const char *lastErrorString() const;
+
+    JW_SDDataLogStatus status() const;
+
+private:
+    friend class JW_SD;
+
+    static constexpr size_t MAX_PATH = 96;
+
+    JW_SD *_storage = nullptr;
+
+    uint8_t *_buffer = nullptr;
+
+    size_t _bufferSize = 0;
+    size_t _head = 0;
+    size_t _tail = 0;
+    size_t _count = 0;
+
+    size_t _commitThresholdBytes = 0;
+    uint32_t _commitTimeoutMs = 0;
+    uint32_t _pendingSinceMs = 0;
+
+    bool _active = false;
+    bool _closing = false;
+    bool _commitInProgress = false;
+
+    JWPLCFile _file;
+
+    // Generacion del montaje con el que se abrio _file.
+    // Si JW_SD remonta la tarjeta, este valor queda obsoleto
+    // y el DataLog debe abrir un handle nuevo.
+    uint32_t _fileGeneration = 0;
+
+    char _path[MAX_PATH] = {0};
+
+    uint32_t _acceptedWrites = 0;
+    uint64_t _acceptedBytes = 0;
+    uint64_t _committedBytes = 0;
+
+    uint32_t _commitCount = 0;
+    uint32_t _failedCommits = 0;
+
+    JW_SDError _lastError = JW_SD_OK;
+
+    // void* evita exponer tipos FreeRTOS en la API publica.
+    mutable void *_stateMutex = nullptr;
+
+    bool ensureStateMutex();
+
+    void lockState() const;
+    void unlockState() const;
+
+    size_t freeBytesUnsafe() const;
+
+    bool enqueueUnsafe(
+        const uint8_t *data,
+        size_t size);
+
+    bool openFile();
+
+    bool shouldCommitUnsafe(
+        uint32_t now) const;
+
+    bool commitInternal(
+        bool allowClosing);
+
+    void resetState(
+        bool releaseBuffer);
+
+    void setError(
+        JW_SDError error);
 };
 
 // =====================================================
@@ -134,6 +336,19 @@ public:
     File openNative(const char *path, uint8_t mode = FILE_READ);
 #endif
 
+    // =================================================
+    // Manager de DataLogs
+    // =================================================
+    //
+    // Cada JWPLCDataLog se registra automaticamente.
+    // Se atiende como maximo un DataLog por llamada,
+    // mediante round-robin.
+    static constexpr uint8_t MAX_DATALOGS = 4;
+
+    void serviceDataLogs();
+
+    uint8_t activeDataLogs() const;
+
     // Herramientas avanzadas de bloqueo manual.
     // Normalmente no son necesarias si se usa JWPLCFile.
     bool lock(uint32_t timeoutMs);
@@ -144,6 +359,7 @@ public:
 
 private:
     friend class JWPLCFile;
+    friend class JWPLCDataLog;
 
     uint8_t _csPin;
     SPIClass *_spi;
@@ -157,6 +373,29 @@ private:
     bool _ready;
     bool _beginAttempted;
 
+    // =================================================
+    // Ciclo de vida fisico de la microSD
+    // =================================================
+    //
+    // El primer flanco de ausencia invalida inmediatamente
+    // la disponibilidad logica. El remount solo ocurre tras
+    // una presencia estable durante CARD_DEBOUNCE_MS.
+    static constexpr uint32_t CARD_DEBOUNCE_MS = 300;
+    static constexpr uint32_t REMOUNT_RETRY_MS = 500;
+
+    bool _cardStateInitialized;
+    bool _cardRawPresent;
+    bool _cardStablePresent;
+    bool _cardRecoveryRequired;
+
+    uint32_t _cardRawChangedMs;
+    uint32_t _lastRemountAttemptMs;
+
+    // Se incrementa despues de cada montaje exitoso.
+    // Los DataLogs usan esta generacion para detectar
+    // handles persistentes pertenecientes a un mount viejo.
+    uint32_t _mountGeneration;
+
     LockCallback _lockCallback;
     UnlockCallback _unlockCallback;
     void *_lockUserData;
@@ -165,10 +404,33 @@ private:
 
     JW_SDError _lastError;
 
+    JWPLCDataLog *_dataLogs[MAX_DATALOGS] =
+        {nullptr};
+
+    uint8_t _dataLogServiceCursor = 0;
+
+    mutable void *_dataLogRegistryMutex =
+        nullptr;
+
+    bool ensureDataLogRegistryMutex();
+
+    void lockDataLogRegistry() const;
+    void unlockDataLogRegistry() const;
+
+    bool registerDataLog(
+        JWPLCDataLog *dataLog);
+
+    void unregisterDataLog(
+        JWPLCDataLog *dataLog);
+
     void setError(JW_SDError error);
     bool lockForOperation();
     void unlockForOperation();
     void configureDetectPinIfNeeded();
+
+    bool mountCard(bool forceRemount);
+    void unmountCard();
+    void serviceCardLifecycle();
 };
 
 #endif // JW_SD_H

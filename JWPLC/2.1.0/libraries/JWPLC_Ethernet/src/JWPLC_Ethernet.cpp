@@ -23,7 +23,8 @@ JWPLC_EthernetClass::JWPLC_EthernetClass()
       _ready(false),
       _runtimeState(JWPLC_ETH_STATE_NOT_STARTED),
       _lastError(JWPLC_ETH_OK),
-      _lastAutoAttemptMs(0)
+      _lastAutoAttemptMs(0),
+      _lastL2RefreshMs(0)
 {
     generateDefaultMac();
 }
@@ -199,6 +200,24 @@ void JWPLC_EthernetClass::service()
             _lastAutoAttemptMs = now;
             return;
         }
+
+#if JWPLC_ETH_L2_REFRESH_PERIOD_MS > 0
+        const bool dhcpMaintenanceBusy =
+            _mode == JWPLC_ETH_MODE_DHCP &&
+            Ethernet.dhcpMaintenanceInProgress();
+
+        if (
+            !dhcpMaintenanceBusy &&
+            (uint32_t)(
+                now -
+                _lastL2RefreshMs) >=
+                JWPLC_ETH_L2_REFRESH_PERIOD_MS)
+        {
+            // Best-effort. Un refresh fallido no degrada READY
+            // ni reemplaza el diagnóstico real del backend.
+            (void)serviceL2RefreshLocked(now);
+        }
+#endif
 
         if (_mode != JWPLC_ETH_MODE_DHCP)
         {
@@ -958,10 +977,127 @@ bool JWPLC_EthernetClass::finishNetworkConfiguration()
     }
 
     _ready = true;
+    _lastL2RefreshMs = millis();
+
     clearError();
     setRuntimeState(JWPLC_ETH_STATE_READY);
     return true;
 }
+bool JWPLC_EthernetClass::serviceL2RefreshLocked(
+    uint32_t now)
+{
+#if !JWPLC_HAS_ETHERNET || \
+    JWPLC_ETH_L2_REFRESH_PERIOD_MS == 0
+
+    (void)now;
+    return false;
+
+#else
+
+    // Se marca el intento al entrar para garantizar que un fallo
+    // best-effort nunca genere un retry cerrado en cada tick.
+    _lastL2RefreshMs = now;
+
+    jwplcSPI_deselectAll();
+
+    const IPAddress local =
+        Ethernet.localIP();
+
+    const IPAddress subnet =
+        Ethernet.subnetMask();
+
+    // No emitir broadcast con una configuración todavía inválida
+    // ni con /0 o /32.
+    const bool networkValid =
+        local !=
+            IPAddress(0, 0, 0, 0) &&
+        local !=
+            IPAddress(
+                255,
+                255,
+                255,
+                255) &&
+        subnet !=
+            IPAddress(0, 0, 0, 0) &&
+        subnet !=
+            IPAddress(
+                255,
+                255,
+                255,
+                255);
+
+    if (!networkValid)
+    {
+        return false;
+    }
+
+    const IPAddress broadcast(
+        (uint8_t)(
+            local[0] |
+            (uint8_t)(~subnet[0])),
+        (uint8_t)(
+            local[1] |
+            (uint8_t)(~subnet[1])),
+        (uint8_t)(
+            local[2] |
+            (uint8_t)(~subnet[2])),
+        (uint8_t)(
+            local[3] |
+            (uint8_t)(~subnet[3])));
+
+    if (
+        broadcast ==
+            local ||
+        broadcast ==
+            IPAddress(0, 0, 0, 0))
+    {
+        return false;
+    }
+
+    EthernetUDP udp;
+
+    // Puerto local 0 => el backend selecciona un puerto efímero.
+    if (udp.begin(0) == 0)
+    {
+        // Ningún socket libre no es fallo de red. Si todos los
+        // sockets están ocupados ya existe actividad Ethernet.
+        return false;
+    }
+
+    static const uint8_t payload[] =
+    {
+        'J',
+        'W',
+        'L',
+        '2'
+    };
+
+    bool ok =
+        udp.beginPacket(
+            broadcast,
+            JWPLC_ETH_L2_REFRESH_UDP_PORT) != 0;
+
+    if (ok)
+    {
+        ok =
+            udp.write(
+                payload,
+                sizeof(payload)) ==
+            sizeof(payload);
+    }
+
+    if (ok)
+    {
+        ok =
+            udp.endPacket() != 0;
+    }
+
+    udp.stop();
+
+    return ok;
+#endif
+}
+
 // =====================================================
 // Hook automático del runtime JWPLC
 // =====================================================
