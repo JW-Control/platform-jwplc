@@ -1,5 +1,10 @@
 #include "JW_SD.h"
 
+#if defined(ESP32)
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+#endif
+
 // =====================================================
 // JWPLCFile
 // =====================================================
@@ -531,6 +536,10 @@ const char *JW_SD::lastErrorString() const
         return "DataLog buffer full";
     case JW_SD_ERR_DATALOG_COMMIT_FAILED:
         return "DataLog commit failed";
+    case JW_SD_ERR_DATALOG_NO_SLOT:
+        return "No free DataLog slot";
+    case JW_SD_ERR_DATALOG_BUSY:
+        return "DataLog busy";
     default:
         return "Unknown error";
     }
@@ -805,6 +814,199 @@ bool JW_SD::isEnabled() const
 
 
 // =====================================================
+// JW_SD - manager de DataLogs
+// =====================================================
+
+bool JW_SD::ensureDataLogRegistryMutex()
+{
+#if defined(ESP32)
+    if (_dataLogRegistryMutex == nullptr)
+    {
+        SemaphoreHandle_t mutex =
+            xSemaphoreCreateMutex();
+
+        if (mutex == nullptr)
+        {
+            return false;
+        }
+
+        _dataLogRegistryMutex =
+            static_cast<void *>(mutex);
+    }
+#endif
+
+    return true;
+}
+
+void JW_SD::lockDataLogRegistry() const
+{
+#if defined(ESP32)
+    if (_dataLogRegistryMutex != nullptr)
+    {
+        xSemaphoreTake(
+            static_cast<SemaphoreHandle_t>(
+                _dataLogRegistryMutex),
+            portMAX_DELAY);
+    }
+#endif
+}
+
+void JW_SD::unlockDataLogRegistry() const
+{
+#if defined(ESP32)
+    if (_dataLogRegistryMutex != nullptr)
+    {
+        xSemaphoreGive(
+            static_cast<SemaphoreHandle_t>(
+                _dataLogRegistryMutex));
+    }
+#endif
+}
+
+bool JW_SD::registerDataLog(
+    JWPLCDataLog *dataLog)
+{
+    if (dataLog == nullptr)
+    {
+        return false;
+    }
+
+    if (!ensureDataLogRegistryMutex())
+    {
+        return false;
+    }
+
+    lockDataLogRegistry();
+
+    for (
+        uint8_t i = 0;
+        i < MAX_DATALOGS;
+        ++i)
+    {
+        if (_dataLogs[i] == dataLog)
+        {
+            unlockDataLogRegistry();
+            return true;
+        }
+    }
+
+    for (
+        uint8_t i = 0;
+        i < MAX_DATALOGS;
+        ++i)
+    {
+        if (_dataLogs[i] == nullptr)
+        {
+            _dataLogs[i] =
+                dataLog;
+
+            unlockDataLogRegistry();
+            return true;
+        }
+    }
+
+    unlockDataLogRegistry();
+
+    return false;
+}
+
+void JW_SD::unregisterDataLog(
+    JWPLCDataLog *dataLog)
+{
+    if (
+        dataLog == nullptr ||
+        _dataLogRegistryMutex == nullptr)
+    {
+        return;
+    }
+
+    lockDataLogRegistry();
+
+    for (
+        uint8_t i = 0;
+        i < MAX_DATALOGS;
+        ++i)
+    {
+        if (_dataLogs[i] == dataLog)
+        {
+            _dataLogs[i] =
+                nullptr;
+
+            break;
+        }
+    }
+
+    unlockDataLogRegistry();
+}
+
+void JW_SD::serviceDataLogs()
+{
+    if (_dataLogRegistryMutex == nullptr)
+    {
+        return;
+    }
+
+    lockDataLogRegistry();
+
+    for (
+        uint8_t attempt = 0;
+        attempt < MAX_DATALOGS;
+        ++attempt)
+    {
+        const uint8_t index =
+            _dataLogServiceCursor;
+
+        _dataLogServiceCursor =
+            static_cast<uint8_t>(
+                (_dataLogServiceCursor + 1) %
+                MAX_DATALOGS);
+
+        JWPLCDataLog *dataLog =
+            _dataLogs[index];
+
+        if (dataLog != nullptr)
+        {
+            // El registry lock se conserva mientras service()
+            // usa el puntero. close()/destructor esperan.
+            dataLog->service();
+
+            unlockDataLogRegistry();
+            return;
+        }
+    }
+
+    unlockDataLogRegistry();
+}
+
+uint8_t JW_SD::activeDataLogs() const
+{
+    if (_dataLogRegistryMutex == nullptr)
+    {
+        return 0;
+    }
+
+    lockDataLogRegistry();
+
+    uint8_t active = 0;
+
+    for (
+        uint8_t i = 0;
+        i < MAX_DATALOGS;
+        ++i)
+    {
+        if (_dataLogs[i] != nullptr)
+        {
+            ++active;
+        }
+    }
+
+    unlockDataLogRegistry();
+
+    return active;
+}
+
+
+// =====================================================
 // JWPLCDataLog
 // =====================================================
 
@@ -814,12 +1016,78 @@ JWPLCDataLog::JWPLCDataLog()
 
 JWPLCDataLog::~JWPLCDataLog()
 {
+    JW_SD *storage =
+        _storage;
+
+    if (storage != nullptr)
+    {
+        storage->unregisterDataLog(
+            this);
+    }
+
     if (_file)
     {
         _file.close();
     }
 
     resetState(true);
+
+#if defined(ESP32)
+    if (_stateMutex != nullptr)
+    {
+        vSemaphoreDelete(
+            static_cast<SemaphoreHandle_t>(
+                _stateMutex));
+
+        _stateMutex = nullptr;
+    }
+#endif
+}
+
+bool JWPLCDataLog::ensureStateMutex()
+{
+#if defined(ESP32)
+    if (_stateMutex == nullptr)
+    {
+        SemaphoreHandle_t mutex =
+            xSemaphoreCreateMutex();
+
+        if (mutex == nullptr)
+        {
+            return false;
+        }
+
+        _stateMutex =
+            static_cast<void *>(mutex);
+    }
+#endif
+
+    return true;
+}
+
+void JWPLCDataLog::lockState() const
+{
+#if defined(ESP32)
+    if (_stateMutex != nullptr)
+    {
+        xSemaphoreTake(
+            static_cast<SemaphoreHandle_t>(
+                _stateMutex),
+            portMAX_DELAY);
+    }
+#endif
+}
+
+void JWPLCDataLog::unlockState() const
+{
+#if defined(ESP32)
+    if (_stateMutex != nullptr)
+    {
+        xSemaphoreGive(
+            static_cast<SemaphoreHandle_t>(
+                _stateMutex));
+    }
+#endif
 }
 
 bool JWPLCDataLog::begin(
@@ -857,13 +1125,23 @@ bool JWPLCDataLog::begin(
     const char *path,
     const JW_SDDataLogConfig &config)
 {
-    if (_active)
+    if (!ensureStateMutex())
+    {
+        setError(
+            JW_SD_ERR_DATALOG_ALLOC_FAILED);
+
+        return false;
+    }
+
+    if (isActive())
     {
         if (!close(true))
         {
             return false;
         }
     }
+
+    lockState();
 
     resetState(true);
 
@@ -873,7 +1151,12 @@ bool JWPLCDataLog::begin(
     if (!_storage->isReady())
     {
         _storage = nullptr;
-        setError(JW_SD_ERR_NOT_READY);
+
+        setError(
+            JW_SD_ERR_NOT_READY);
+
+        unlockState();
+
         return false;
     }
 
@@ -888,7 +1171,12 @@ bool JWPLCDataLog::begin(
         config.commitTimeoutMs == 0)
     {
         _storage = nullptr;
-        setError(JW_SD_ERR_DATALOG_INVALID_CONFIG);
+
+        setError(
+            JW_SD_ERR_DATALOG_INVALID_CONFIG);
+
+        unlockState();
+
         return false;
     }
 
@@ -899,7 +1187,12 @@ bool JWPLCDataLog::begin(
     if (_buffer == nullptr)
     {
         _storage = nullptr;
-        setError(JW_SD_ERR_DATALOG_ALLOC_FAILED);
+
+        setError(
+            JW_SD_ERR_DATALOG_ALLOC_FAILED);
+
+        unlockState();
+
         return false;
     }
 
@@ -920,12 +1213,12 @@ bool JWPLCDataLog::begin(
     _path[MAX_PATH - 1] =
         '\0';
 
+    unlockState();
+
     if (!openFile())
     {
         JW_SDError error =
-            (_storage != nullptr)
-                ? _storage->lastError()
-                : JW_SD_ERR_OPEN_FAILED;
+            storage.lastError();
 
         if (error == JW_SD_OK)
         {
@@ -933,19 +1226,62 @@ bool JWPLCDataLog::begin(
                 JW_SD_ERR_OPEN_FAILED;
         }
 
+        lockState();
+
         resetState(true);
         setError(error);
+
+        unlockState();
 
         return false;
     }
 
+    lockState();
+
     _active = true;
+
+    unlockState();
+
+    if (!storage.registerDataLog(this))
+    {
+        _file.close();
+
+        lockState();
+
+        resetState(true);
+
+        setError(
+            JW_SD_ERR_DATALOG_NO_SLOT);
+
+        unlockState();
+
+        return false;
+    }
+
+    lockState();
+
     setError(JW_SD_OK);
+
+    unlockState();
 
     return true;
 }
 
-bool JWPLCDataLog::enqueue(
+size_t JWPLCDataLog::freeBytesUnsafe() const
+{
+    if (
+        _buffer == nullptr ||
+        _bufferSize < _count)
+    {
+        return 0;
+    }
+
+    return (
+        _bufferSize -
+        _count);
+}
+
+bool JWPLCDataLog::enqueueUnsafe(
     const uint8_t *data,
     size_t size)
 {
@@ -953,13 +1289,14 @@ bool JWPLCDataLog::enqueue(
         _buffer == nullptr ||
         data == nullptr ||
         size == 0 ||
-        size > freeBytes())
+        size > freeBytesUnsafe())
     {
         return false;
     }
 
     const size_t remainingToEnd =
-        _bufferSize - _head;
+        _bufferSize -
+        _head;
 
     const size_t first =
         (size < remainingToEnd)
@@ -972,7 +1309,8 @@ bool JWPLCDataLog::enqueue(
         first);
 
     const size_t second =
-        size - first;
+        size -
+        first;
 
     if (second > 0)
     {
@@ -986,7 +1324,8 @@ bool JWPLCDataLog::enqueue(
         (_head + size) %
         _bufferSize;
 
-    _count += size;
+    _count +=
+        size;
 
     return true;
 }
@@ -995,40 +1334,75 @@ size_t JWPLCDataLog::write(
     const uint8_t *data,
     size_t size)
 {
+    if (!ensureStateMutex())
+    {
+        return 0;
+    }
+
+    lockState();
+
     if (!_active)
     {
-        setError(JW_SD_ERR_DATALOG_NOT_ACTIVE);
+        setError(
+            JW_SD_ERR_DATALOG_NOT_ACTIVE);
+
+        unlockState();
+
+        return 0;
+    }
+
+    if (_closing)
+    {
+        setError(
+            JW_SD_ERR_DATALOG_BUSY);
+
+        unlockState();
+
         return 0;
     }
 
     if (data == nullptr)
     {
-        setError(JW_SD_ERR_DATALOG_INVALID_CONFIG);
+        setError(
+            JW_SD_ERR_DATALOG_INVALID_CONFIG);
+
+        unlockState();
+
         return 0;
     }
 
     if (size == 0)
     {
         setError(JW_SD_OK);
+
+        unlockState();
+
         return 0;
     }
 
-    // Un write nunca fuerza I/O fisico inesperado.
-    // Si no entra completo, se rechaza completo.
-    if (size > freeBytes())
+    // Registro atomico: entra completo o no entra.
+    if (size > freeBytesUnsafe())
     {
-        setError(JW_SD_ERR_DATALOG_BUFFER_FULL);
+        setError(
+            JW_SD_ERR_DATALOG_BUFFER_FULL);
+
+        unlockState();
+
         return 0;
     }
 
     const bool wasEmpty =
         (_count == 0);
 
-    if (!enqueue(
+    if (!enqueueUnsafe(
             data,
             size))
     {
-        setError(JW_SD_ERR_DATALOG_BUFFER_FULL);
+        setError(
+            JW_SD_ERR_DATALOG_BUFFER_FULL);
+
+        unlockState();
+
         return 0;
     }
 
@@ -1039,9 +1413,13 @@ size_t JWPLCDataLog::write(
     }
 
     ++_acceptedWrites;
-    _acceptedBytes += size;
+
+    _acceptedBytes +=
+        size;
 
     setError(JW_SD_OK);
+
+    unlockState();
 
     return size;
 }
@@ -1051,27 +1429,47 @@ size_t JWPLCDataLog::write(
 {
     if (text == nullptr)
     {
-        setError(JW_SD_ERR_DATALOG_INVALID_CONFIG);
+        setError(
+            JW_SD_ERR_DATALOG_INVALID_CONFIG);
+
         return 0;
     }
 
     return write(
-        reinterpret_cast<const uint8_t *>(text),
+        reinterpret_cast<const uint8_t *>(
+            text),
         strlen(text));
 }
 
 size_t JWPLCDataLog::writeLine(
     const char *text)
 {
-    if (!_active)
+    if (
+        text == nullptr ||
+        !ensureStateMutex())
     {
-        setError(JW_SD_ERR_DATALOG_NOT_ACTIVE);
         return 0;
     }
 
-    if (text == nullptr)
+    lockState();
+
+    if (!_active)
     {
-        setError(JW_SD_ERR_DATALOG_INVALID_CONFIG);
+        setError(
+            JW_SD_ERR_DATALOG_NOT_ACTIVE);
+
+        unlockState();
+
+        return 0;
+    }
+
+    if (_closing)
+    {
+        setError(
+            JW_SD_ERR_DATALOG_BUSY);
+
+        unlockState();
+
         return 0;
     }
 
@@ -1081,10 +1479,13 @@ size_t JWPLCDataLog::writeLine(
     const size_t totalSize =
         textSize + 1;
 
-    // La linea se acepta completa o se rechaza completa.
-    if (totalSize > freeBytes())
+    if (totalSize > freeBytesUnsafe())
     {
-        setError(JW_SD_ERR_DATALOG_BUFFER_FULL);
+        setError(
+            JW_SD_ERR_DATALOG_BUFFER_FULL);
+
+        unlockState();
+
         return 0;
     }
 
@@ -1093,22 +1494,31 @@ size_t JWPLCDataLog::writeLine(
 
     if (
         textSize > 0 &&
-        !enqueue(
-            reinterpret_cast<const uint8_t *>(text),
+        !enqueueUnsafe(
+            reinterpret_cast<const uint8_t *>(
+                text),
             textSize))
     {
-        setError(JW_SD_ERR_DATALOG_BUFFER_FULL);
+        setError(
+            JW_SD_ERR_DATALOG_BUFFER_FULL);
+
+        unlockState();
+
         return 0;
     }
 
     static const uint8_t newline =
         '\n';
 
-    if (!enqueue(
+    if (!enqueueUnsafe(
             &newline,
             1))
     {
-        setError(JW_SD_ERR_DATALOG_BUFFER_FULL);
+        setError(
+            JW_SD_ERR_DATALOG_BUFFER_FULL);
+
+        unlockState();
+
         return 0;
     }
 
@@ -1119,9 +1529,13 @@ size_t JWPLCDataLog::writeLine(
     }
 
     ++_acceptedWrites;
-    _acceptedBytes += totalSize;
+
+    _acceptedBytes +=
+        totalSize;
 
     setError(JW_SD_OK);
+
+    unlockState();
 
     return totalSize;
 }
@@ -1152,11 +1566,13 @@ bool JWPLCDataLog::openFile()
         _file);
 }
 
-bool JWPLCDataLog::shouldCommit(
+bool JWPLCDataLog::shouldCommitUnsafe(
     uint32_t now) const
 {
     if (
         !_active ||
+        _closing ||
+        _commitInProgress ||
         _count == 0)
     {
         return false;
@@ -1178,48 +1594,131 @@ bool JWPLCDataLog::shouldCommit(
 
 void JWPLCDataLog::service()
 {
-    if (!_active)
+    if (!ensureStateMutex())
     {
         return;
     }
 
-    if (shouldCommit(millis()))
+    lockState();
+
+    const bool shouldCommit =
+        shouldCommitUnsafe(
+            millis());
+
+    unlockState();
+
+    if (shouldCommit)
     {
-        commit();
+        (void)commit();
     }
 }
 
 bool JWPLCDataLog::commit()
 {
+    return commitInternal(false);
+}
+
+bool JWPLCDataLog::commitInternal(
+    bool allowClosing)
+{
+    if (!ensureStateMutex())
+    {
+        return false;
+    }
+
+    lockState();
+
     if (!_active)
     {
-        setError(JW_SD_ERR_DATALOG_NOT_ACTIVE);
+        setError(
+            JW_SD_ERR_DATALOG_NOT_ACTIVE);
+
+        unlockState();
+
+        return false;
+    }
+
+    if (
+        _closing &&
+        !allowClosing)
+    {
+        setError(
+            JW_SD_ERR_DATALOG_BUSY);
+
+        unlockState();
+
+        return false;
+    }
+
+    if (_commitInProgress)
+    {
+        setError(
+            JW_SD_ERR_DATALOG_BUSY);
+
+        unlockState();
+
         return false;
     }
 
     if (_storage == nullptr)
     {
-        setError(JW_SD_ERR_NOT_READY);
+        setError(
+            JW_SD_ERR_NOT_READY);
+
+        unlockState();
+
         return false;
     }
 
     if (_count == 0)
     {
         setError(JW_SD_OK);
+
+        unlockState();
+
         return true;
     }
 
-    if (!_storage->isReady())
+    _commitInProgress =
+        true;
+
+    JW_SD *storage =
+        _storage;
+
+    // Snapshot de pendientes al comenzar el commit.
+    // Nuevos write() pueden continuar agregando al ring.
+    size_t remaining =
+        _count;
+
+    unlockState();
+
+    if (!storage->isReady())
     {
+        lockState();
+
         ++_failedCommits;
-        setError(JW_SD_ERR_NOT_READY);
+        _commitInProgress = false;
+
+        setError(
+            JW_SD_ERR_NOT_READY);
+
+        unlockState();
+
         return false;
     }
 
-    if (!_storage->isCardPresent())
+    if (!storage->isCardPresent())
     {
+        lockState();
+
         ++_failedCommits;
-        setError(JW_SD_ERR_NO_CARD);
+        _commitInProgress = false;
+
+        setError(
+            JW_SD_ERR_NO_CARD);
+
+        unlockState();
+
         return false;
     }
 
@@ -1227,10 +1726,8 @@ bool JWPLCDataLog::commit()
     {
         if (!openFile())
         {
-            ++_failedCommits;
-
             JW_SDError error =
-                _storage->lastError();
+                storage->lastError();
 
             if (error == JW_SD_OK)
             {
@@ -1238,27 +1735,57 @@ bool JWPLCDataLog::commit()
                     JW_SD_ERR_DATALOG_COMMIT_FAILED;
             }
 
+            lockState();
+
+            ++_failedCommits;
+            _commitInProgress = false;
+
             setError(error);
+
+            unlockState();
+
             return false;
         }
     }
 
-    size_t writtenThisCommit = 0;
+    size_t writtenThisCommit =
+        0;
 
-    while (_count > 0)
+    while (remaining > 0)
     {
-        const size_t remainingToEnd =
-            _bufferSize - _tail;
+        lockState();
 
-        const size_t contiguous =
-            (_count < remainingToEnd)
-                ? _count
-                : remainingToEnd;
+        const size_t remainingToEnd =
+            _bufferSize -
+            _tail;
+
+        size_t contiguous =
+            remaining;
+
+        if (contiguous > remainingToEnd)
+        {
+            contiguous =
+                remainingToEnd;
+        }
+
+        if (contiguous > _count)
+        {
+            contiguous =
+                _count;
+        }
+
+        uint8_t *writePtr =
+            _buffer +
+            _tail;
+
+        unlockState();
 
         const size_t written =
             _file.write(
-                _buffer + _tail,
+                writePtr,
                 contiguous);
+
+        lockState();
 
         if (written > 0)
         {
@@ -1266,26 +1793,27 @@ bool JWPLCDataLog::commit()
                 (_tail + written) %
                 _bufferSize;
 
-            _count -= written;
-            writtenThisCommit += written;
+            _count -=
+                written;
+
+            remaining -=
+                written;
+
+            writtenThisCommit +=
+                written;
         }
+
+        unlockState();
 
         if (written != contiguous)
         {
             if (writtenThisCommit > 0)
             {
                 _file.flush();
-
-                _committedBytes +=
-                    writtenThisCommit;
-
-                ++_commitCount;
             }
 
-            ++_failedCommits;
-
             JW_SDError error =
-                _storage->lastError();
+                storage->lastError();
 
             if (error == JW_SD_OK)
             {
@@ -1293,21 +1821,59 @@ bool JWPLCDataLog::commit()
                     JW_SD_ERR_DATALOG_COMMIT_FAILED;
             }
 
+            lockState();
+
+            _committedBytes +=
+                writtenThisCommit;
+
+            if (writtenThisCommit > 0)
+            {
+                ++_commitCount;
+            }
+
+            ++_failedCommits;
+
+            _commitInProgress =
+                false;
+
             setError(error);
+
+            unlockState();
+
             return false;
         }
     }
 
     _file.flush();
 
+    lockState();
+
     _committedBytes +=
         writtenThisCommit;
 
-    ++_commitCount;
+    if (writtenThisCommit > 0)
+    {
+        ++_commitCount;
+    }
 
-    _pendingSinceMs = 0;
+    if (_count == 0)
+    {
+        _pendingSinceMs = 0;
+    }
+    else
+    {
+        // Los registros que entraron mientras se persistia
+        // comienzan una nueva ventana de timeout.
+        _pendingSinceMs =
+            millis();
+    }
+
+    _commitInProgress =
+        false;
 
     setError(JW_SD_OK);
+
+    unlockState();
 
     return true;
 }
@@ -1315,18 +1881,72 @@ bool JWPLCDataLog::commit()
 bool JWPLCDataLog::close(
     bool commitPending)
 {
+    if (!ensureStateMutex())
+    {
+        return false;
+    }
+
+    lockState();
+
     if (!_active)
     {
-        setError(JW_SD_ERR_DATALOG_NOT_ACTIVE);
+        setError(
+            JW_SD_ERR_DATALOG_NOT_ACTIVE);
+
+        unlockState();
+
         return false;
+    }
+
+    // Nunca cerrar el File mientras otro commit fisico
+    // sigue usando el mismo handle.
+    if (_commitInProgress)
+    {
+        setError(
+            JW_SD_ERR_DATALOG_BUSY);
+
+        unlockState();
+
+        return false;
+    }
+
+    _closing =
+        true;
+
+    const bool hasPending =
+        (_count > 0);
+
+    JW_SD *storage =
+        _storage;
+
+    unlockState();
+
+    // Al desregistrarse, el runtime ya no puede iniciar
+    // otro service() sobre este objeto.
+    if (storage != nullptr)
+    {
+        storage->unregisterDataLog(
+            this);
     }
 
     if (
         commitPending &&
-        _count > 0)
+        hasPending)
     {
-        if (!commit())
+        if (!commitInternal(true))
         {
+            lockState();
+
+            _closing = false;
+
+            unlockState();
+
+            if (storage != nullptr)
+            {
+                (void)storage->registerDataLog(
+                    this);
+            }
+
             return false;
         }
     }
@@ -1336,16 +1956,32 @@ bool JWPLCDataLog::close(
         _file.close();
     }
 
+    lockState();
+
     resetState(true);
 
     setError(JW_SD_OK);
+
+    unlockState();
 
     return true;
 }
 
 bool JWPLCDataLog::isActive() const
 {
-    return _active;
+    if (_stateMutex == nullptr)
+    {
+        return false;
+    }
+
+    lockState();
+
+    const bool value =
+        _active;
+
+    unlockState();
+
+    return value;
 }
 
 const char *JWPLCDataLog::path() const
@@ -1355,98 +1991,240 @@ const char *JWPLCDataLog::path() const
 
 size_t JWPLCDataLog::bufferSize() const
 {
-    return _bufferSize;
-}
-
-size_t JWPLCDataLog::pendingBytes() const
-{
-    return _count;
-}
-
-size_t JWPLCDataLog::freeBytes() const
-{
-    if (
-        _buffer == nullptr ||
-        _bufferSize < _count)
+    if (_stateMutex == nullptr)
     {
         return 0;
     }
 
-    return (
-        _bufferSize -
-        _count);
+    lockState();
+
+    const size_t value =
+        _bufferSize;
+
+    unlockState();
+
+    return value;
+}
+
+size_t JWPLCDataLog::pendingBytes() const
+{
+    if (_stateMutex == nullptr)
+    {
+        return 0;
+    }
+
+    lockState();
+
+    const size_t value =
+        _count;
+
+    unlockState();
+
+    return value;
+}
+
+size_t JWPLCDataLog::freeBytes() const
+{
+    if (_stateMutex == nullptr)
+    {
+        return 0;
+    }
+
+    lockState();
+
+    const size_t value =
+        freeBytesUnsafe();
+
+    unlockState();
+
+    return value;
 }
 
 size_t JWPLCDataLog::commitThreshold() const
 {
-    return _commitThresholdBytes;
+    if (_stateMutex == nullptr)
+    {
+        return 0;
+    }
+
+    lockState();
+
+    const size_t value =
+        _commitThresholdBytes;
+
+    unlockState();
+
+    return value;
 }
 
 uint32_t JWPLCDataLog::commitTimeout() const
 {
-    return _commitTimeoutMs;
+    if (_stateMutex == nullptr)
+    {
+        return 0;
+    }
+
+    lockState();
+
+    const uint32_t value =
+        _commitTimeoutMs;
+
+    unlockState();
+
+    return value;
 }
 
 uint32_t JWPLCDataLog::acceptedWrites() const
 {
-    return _acceptedWrites;
+    if (_stateMutex == nullptr)
+    {
+        return 0;
+    }
+
+    lockState();
+
+    const uint32_t value =
+        _acceptedWrites;
+
+    unlockState();
+
+    return value;
 }
 
 uint64_t JWPLCDataLog::acceptedBytes() const
 {
-    return _acceptedBytes;
+    if (_stateMutex == nullptr)
+    {
+        return 0;
+    }
+
+    lockState();
+
+    const uint64_t value =
+        _acceptedBytes;
+
+    unlockState();
+
+    return value;
 }
 
 uint64_t JWPLCDataLog::committedBytes() const
 {
-    return _committedBytes;
+    if (_stateMutex == nullptr)
+    {
+        return 0;
+    }
+
+    lockState();
+
+    const uint64_t value =
+        _committedBytes;
+
+    unlockState();
+
+    return value;
 }
 
 uint32_t JWPLCDataLog::commitCount() const
 {
-    return _commitCount;
+    if (_stateMutex == nullptr)
+    {
+        return 0;
+    }
+
+    lockState();
+
+    const uint32_t value =
+        _commitCount;
+
+    unlockState();
+
+    return value;
 }
 
 uint32_t JWPLCDataLog::failedCommits() const
 {
-    return _failedCommits;
+    if (_stateMutex == nullptr)
+    {
+        return 0;
+    }
+
+    lockState();
+
+    const uint32_t value =
+        _failedCommits;
+
+    unlockState();
+
+    return value;
 }
 
 JW_SDError JWPLCDataLog::lastError() const
 {
-    return _lastError;
+    if (_stateMutex == nullptr)
+    {
+        return _lastError;
+    }
+
+    lockState();
+
+    const JW_SDError value =
+        _lastError;
+
+    unlockState();
+
+    return value;
 }
 
 const char *JWPLCDataLog::lastErrorString() const
 {
-    switch (_lastError)
+    switch (lastError())
     {
     case JW_SD_OK:
         return "OK";
+
     case JW_SD_ERR_DISABLED:
         return "SD disabled";
+
     case JW_SD_ERR_NO_CARD:
         return "No card";
+
     case JW_SD_ERR_LOCK_TIMEOUT:
         return "SPI lock timeout";
+
     case JW_SD_ERR_BEGIN_FAILED:
         return "SD begin failed";
+
     case JW_SD_ERR_NOT_READY:
         return "SD not ready";
+
     case JW_SD_ERR_OPEN_FAILED:
         return "Open failed";
+
     case JW_SD_ERR_OPERATION_FAILED:
         return "Operation failed";
+
     case JW_SD_ERR_DATALOG_INVALID_CONFIG:
         return "DataLog invalid config";
+
     case JW_SD_ERR_DATALOG_ALLOC_FAILED:
         return "DataLog RAM allocation failed";
+
     case JW_SD_ERR_DATALOG_NOT_ACTIVE:
         return "DataLog not active";
+
     case JW_SD_ERR_DATALOG_BUFFER_FULL:
         return "DataLog buffer full";
+
     case JW_SD_ERR_DATALOG_COMMIT_FAILED:
         return "DataLog commit failed";
+
+    case JW_SD_ERR_DATALOG_NO_SLOT:
+        return "No free DataLog slot";
+
+    case JW_SD_ERR_DATALOG_BUSY:
+        return "DataLog busy";
+
     default:
         return "Unknown error";
     }
@@ -1455,6 +2233,16 @@ const char *JWPLCDataLog::lastErrorString() const
 JW_SDDataLogStatus JWPLCDataLog::status() const
 {
     JW_SDDataLogStatus result{};
+
+    if (_stateMutex == nullptr)
+    {
+        result.lastError =
+            _lastError;
+
+        return result;
+    }
+
+    lockState();
 
     result.active =
         _active;
@@ -1466,7 +2254,7 @@ JW_SDDataLogStatus JWPLCDataLog::status() const
         _count;
 
     result.freeBytes =
-        freeBytes();
+        freeBytesUnsafe();
 
     result.commitThresholdBytes =
         _commitThresholdBytes;
@@ -1492,6 +2280,8 @@ JW_SDDataLogStatus JWPLCDataLog::status() const
     result.lastError =
         _lastError;
 
+    unlockState();
+
     return result;
 }
 
@@ -1503,12 +2293,15 @@ void JWPLCDataLog::resetState(
         _buffer != nullptr)
     {
         free(_buffer);
-        _buffer = nullptr;
+
+        _buffer =
+            nullptr;
     }
 
     _storage = nullptr;
 
     _bufferSize = 0;
+
     _head = 0;
     _tail = 0;
     _count = 0;
@@ -1518,9 +2311,14 @@ void JWPLCDataLog::resetState(
     _pendingSinceMs = 0;
 
     _active = false;
-    _file = JWPLCFile();
+    _closing = false;
+    _commitInProgress = false;
 
-    _path[0] = '\0';
+    _file =
+        JWPLCFile();
+
+    _path[0] =
+        '\0';
 
     _acceptedWrites = 0;
     _acceptedBytes = 0;

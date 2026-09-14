@@ -25,7 +25,9 @@ enum JW_SDError : uint8_t
     JW_SD_ERR_DATALOG_ALLOC_FAILED,
     JW_SD_ERR_DATALOG_NOT_ACTIVE,
     JW_SD_ERR_DATALOG_BUFFER_FULL,
-    JW_SD_ERR_DATALOG_COMMIT_FAILED
+    JW_SD_ERR_DATALOG_COMMIT_FAILED,
+    JW_SD_ERR_DATALOG_NO_SLOT,
+    JW_SD_ERR_DATALOG_BUSY
 };
 
 // =====================================================
@@ -147,15 +149,16 @@ public:
     JWPLCDataLog();
     ~JWPLCDataLog();
 
-    JWPLCDataLog(const JWPLCDataLog &) = delete;
-    JWPLCDataLog &operator=(const JWPLCDataLog &) = delete;
+    JWPLCDataLog(
+        const JWPLCDataLog &) = delete;
 
-    // Uso simple: defaults de JW_SDDataLogConfig.
+    JWPLCDataLog &operator=(
+        const JWPLCDataLog &) = delete;
+
     bool begin(
         JW_SD &storage,
         const char *path);
 
-    // Configuracion directa y comoda.
     bool begin(
         JW_SD &storage,
         const char *path,
@@ -163,7 +166,6 @@ public:
         size_t commitThresholdBytes,
         uint32_t commitTimeoutMs);
 
-    // Configuracion reutilizable/avanzada.
     bool begin(
         JW_SD &storage,
         const char *path,
@@ -173,18 +175,20 @@ public:
         const uint8_t *data,
         size_t size);
 
-    size_t write(const char *text);
-    size_t writeLine(const char *text);
+    size_t write(
+        const char *text);
 
-    // En G1b se invoca manualmente.
-    // En G2 el runtime JWPLC registrara y servira los DataLogs.
+    size_t writeLine(
+        const char *text);
+
+    // G2a: disponible manualmente.
+    // G2b: el runtime atendera el manager automaticamente.
     void service();
 
     bool commit();
 
-    // true  = persiste pendientes antes de cerrar.
-    // false = descarta lo que solo exista en RAM.
-    bool close(bool commitPending = true);
+    bool close(
+        bool commitPending = true);
 
     bool isActive() const;
 
@@ -210,11 +214,14 @@ public:
     JW_SDDataLogStatus status() const;
 
 private:
+    friend class JW_SD;
+
     static constexpr size_t MAX_PATH = 96;
 
     JW_SD *_storage = nullptr;
 
     uint8_t *_buffer = nullptr;
+
     size_t _bufferSize = 0;
     size_t _head = 0;
     size_t _tail = 0;
@@ -225,8 +232,11 @@ private:
     uint32_t _pendingSinceMs = 0;
 
     bool _active = false;
+    bool _closing = false;
+    bool _commitInProgress = false;
 
     JWPLCFile _file;
+
     char _path[MAX_PATH] = {0};
 
     uint32_t _acceptedWrites = 0;
@@ -238,14 +248,27 @@ private:
 
     JW_SDError _lastError = JW_SD_OK;
 
-    bool enqueue(
+    // void* evita exponer tipos FreeRTOS en la API publica.
+    mutable void *_stateMutex = nullptr;
+
+    bool ensureStateMutex();
+
+    void lockState() const;
+    void unlockState() const;
+
+    size_t freeBytesUnsafe() const;
+
+    bool enqueueUnsafe(
         const uint8_t *data,
         size_t size);
 
     bool openFile();
 
-    bool shouldCommit(
+    bool shouldCommitUnsafe(
         uint32_t now) const;
+
+    bool commitInternal(
+        bool allowClosing);
 
     void resetState(
         bool releaseBuffer);
@@ -307,6 +330,20 @@ public:
     JWPLCFile open(const char *path, uint8_t mode = FILE_READ);
     File openNative(const char *path, uint8_t mode = FILE_READ);
 #endif
+
+    // =================================================
+    // Manager de DataLogs
+    // =================================================
+    //
+    // Cada JWPLCDataLog se registra automaticamente.
+    // Se atiende como maximo un DataLog por llamada,
+    // mediante round-robin.
+    static constexpr uint8_t MAX_DATALOGS = 4;
+
+    void serviceDataLogs();
+
+    uint8_t activeDataLogs() const;
+
     // Herramientas avanzadas de bloqueo manual.
     // Normalmente no son necesarias si se usa JWPLCFile.
     bool lock(uint32_t timeoutMs);
@@ -317,6 +354,7 @@ public:
 
 private:
     friend class JWPLCFile;
+    friend class JWPLCDataLog;
 
     uint8_t _csPin;
     SPIClass *_spi;
@@ -337,6 +375,26 @@ private:
     uint32_t _operationTimeoutMs;
 
     JW_SDError _lastError;
+
+    JWPLCDataLog *_dataLogs[MAX_DATALOGS] =
+        {nullptr};
+
+    uint8_t _dataLogServiceCursor = 0;
+
+    mutable void *_dataLogRegistryMutex =
+        nullptr;
+
+    bool ensureDataLogRegistryMutex();
+
+    void lockDataLogRegistry() const;
+    void unlockDataLogRegistry() const;
+
+    bool registerDataLog(
+        JWPLCDataLog *dataLog);
+
+    void unregisterDataLog(
+        JWPLCDataLog *dataLog);
+
     void setError(JW_SDError error);
     bool lockForOperation();
     void unlockForOperation();
