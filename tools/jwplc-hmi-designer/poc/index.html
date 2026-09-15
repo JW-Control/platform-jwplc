@@ -26,18 +26,6 @@
       <span class="separator"></span>
       <button id="generateButton" class="primary-action">Generar C++</button>
       <button id="fitButton">Ajustar</button>
-      <label>
-        Zoom
-        <select id="zoomSelect">
-          <option value="2">2×</option>
-          <option value="3" selected>3×</option>
-          <option value="4">4×</option>
-          <option value="6">6×</option>
-          <option value="8">8×</option>
-        </select>
-      </label>
-      <label class="check"><input id="gridToggle" type="checkbox" checked /> Grid</label>
-      <label class="check"><input id="geometryToggle" type="checkbox" checked /> Geometría</label>
     </nav>
   </header>
 
@@ -65,29 +53,6 @@
         </button>
       </section>
 
-      <section class="nav-block">
-        <h2>Componentes</h2>
-        <button class="tool component-tool active" data-tool="textField">
-          <span class="component-icon">T</span><strong>TEXT</strong><span>Campo de texto</span>
-        </button>
-        <button class="tool component-tool" data-tool="valueField">
-          <span class="component-icon numeric">123</span><strong>VALUE</strong><span>Valor numérico</span>
-        </button>
-        <button class="component-tool" disabled>
-          <span class="component-icon">○</span><strong>BOOL</strong><span>A11-3C</span>
-        </button>
-        <button class="component-tool" disabled>
-          <span class="component-icon">▥</span><strong>BAR</strong><span>A11-3D</span>
-        </button>
-      </section>
-
-      <section class="nav-block">
-        <h2>Herramientas</h2>
-        <button class="tool utility-tool" data-tool="pixel"><strong>✎</strong><span>Píxel</span><small>Dibujar píxel</small></button>
-        <button class="tool utility-tool" data-tool="erase"><strong>◇</strong><span>Borrador</span><small>Borrar píxeles</small></button>
-        <button class="tool utility-tool" data-tool="rawText"><strong>A</strong><span>Texto GFX RAW</span><small>Referencia técnica</small></button>
-      </section>
-
       <section class="dev-actions">
         <h2>Desarrollo</h2>
         <div class="dev-buttons">
@@ -111,9 +76,41 @@
       </div>
 
       <div id="canvasViewport" class="canvas-viewport">
+        <div class="canvas-toolbar">
+          <button class="tool canvas-tool active" data-tool="pointer" title="Seleccionar"><strong>🡔</strong></button>
+          <button class="tool canvas-tool" data-tool="textField" title="TEXT - Campo de texto"><strong>T</strong></button>
+          <button class="tool canvas-tool" data-tool="valueField" title="VALUE - Valor numérico"><strong class="numeric">123</strong></button>
+          <button class="canvas-tool" disabled title="BOOL - A11-3C"><strong>○</strong></button>
+          <button class="tool canvas-tool" disabled title="BAR - A11-3D"><strong>▥</strong></button>
+          <span class="toolbar-divider"></span>
+          <button class="tool canvas-tool utility-tool-btn" data-tool="line" title="Línea"><strong>╱</strong></button>
+          <button class="tool canvas-tool utility-tool-btn" data-tool="rect" title="Rectángulo"><strong>□</strong></button>
+          <button class="tool canvas-tool utility-tool-btn" data-tool="ellipse" title="Elipse"><strong>⬭</strong></button>
+          <button class="tool canvas-tool utility-tool-btn" data-tool="triangle" title="Triángulo"><strong>△</strong></button>
+          <button class="tool canvas-tool utility-tool-btn" data-tool="polygon" title="Polígono"><strong>⎔</strong></button>
+          <input type="number" id="mainPolySidesInput" min="3" max="12" value="5" title="Lados del polígono" style="display:none; width:42px; height:32px; padding:0 4px; margin-left:4px; vertical-align:middle; border:1px solid #7697b0; border-radius:3px; background:#fff; color:#1f2937;" />
+          <span class="toolbar-divider"></span>
+          <button class="tool canvas-tool utility-tool-btn" data-tool="pixel" title="Pincel"><strong>✎</strong></button>
+          <button class="tool canvas-tool utility-tool-btn" data-tool="erase" title="Borrador"><strong>◇</strong></button>
+          <button class="tool canvas-tool utility-tool-btn" data-tool="rawText" title="Texto GFX RAW"><strong>A</strong></button>
+          <span id="pixelmapToolsDivider" class="toolbar-divider" style="display: none;"></span>
+          <div id="pixelmapWorkbenchTools" class="pixelmap-tools" style="display: none; align-items: center; gap: 4px;"></div>
+        </div>
+
+        <div class="right-vertical-toolbar">
+          <button id="zoomInBtn" class="vert-btn" title="Acercar (Zoom In)">+</button>
+          <button id="zoomOutBtn" class="vert-btn" title="Alejar (Zoom Out)">-</button>
+          <button id="fitCanvasBtn" class="vert-btn" title="Ajustar" style="margin-bottom:8px">1:1</button>
+          
+          <button id="vertGridToggle" class="vert-btn toggle-btn active" title="Ver Grid">?</button>
+          <button id="vertSnapToggle" class="vert-btn toggle-btn active" title="Snap to Grid">?</button>
+          <button id="vertGeoToggle" class="vert-btn toggle-btn active" title="Ver Geometr�a">??</button>
+        </div>
+
         <div id="canvasStage" class="canvas-stage">
           <canvas id="displayCanvas" aria-label="Canvas lógico JWPLC Basic 320 por 170"></canvas>
           <canvas id="geometryCanvas" aria-hidden="true"></canvas>
+          <canvas id="rulersCanvas" aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:50"></canvas>
         </div>
       </div>
 
@@ -125,16 +122,6 @@
     </section>
 
     <aside class="panel right-panel">
-      <section class="preview-section">
-        <div class="section-heading">
-          <h2>Vista previa 1:1</h2>
-          <span class="target-badge">ST7789 · 320×170</span>
-        </div>
-        <div class="device-preview">
-          <canvas id="previewCanvas" width="320" height="170"></canvas>
-        </div>
-        <p class="muted preview-note">Framebuffer lógico sin interpolación.</p>
-      </section>
 
       <section id="textFieldControlsSection" class="inspector-section">
         <div class="inspector-title">
@@ -213,14 +200,23 @@
         <details open>
           <summary>Geometría</summary>
           <div class="inspector-body two-cols">
-            <label class="field-label">X
+            <label class="field-label">X1
               <input id="fieldX" class="field-input" type="number" min="0" max="319" value="20" />
             </label>
-            <label class="field-label">Y
+            <label class="field-label">Y1
               <input id="fieldY" class="field-input" type="number" min="0" max="169" value="20" />
             </label>
+            <label id="fieldX2Wrap" class="field-label" hidden>X2
+              <input id="fieldX2" class="field-input" type="number" min="0" max="319" value="40" />
+            </label>
+            <label id="fieldY2Wrap" class="field-label" hidden>Y2
+              <input id="fieldY2" class="field-input" type="number" min="0" max="169" value="40" />
+            </label>
+            <label id="fieldSidesWrap" class="field-label" hidden>Lados
+              <input id="fieldSides" class="field-input" type="number" min="3" max="12" value="5" />
+            </label>
             <div class="readout"><span>Ancho/alto</span><strong id="fieldBoundsStatus">—</strong></div>
-            <div class="readout"><span>Región de valor</span><strong id="fieldValueBoundsStatus">—</strong></div>
+            <div id="fieldValueBoundsWrap" class="readout"><span>Región de valor</span><strong id="fieldValueBoundsStatus">—</strong></div>
             <div id="fieldMetricsSection" class="metrics-inline full">
               <span>Padding efectivo <strong id="fieldPadStatus">3 px</strong></span>
               <span>Gap <strong>4 px</strong></span>
@@ -379,3 +375,6 @@
   <script src="./designer-codegen.js"></script>
 </body>
 </html>
+
+
+

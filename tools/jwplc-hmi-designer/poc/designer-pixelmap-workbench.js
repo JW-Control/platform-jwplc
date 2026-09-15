@@ -168,6 +168,98 @@
     return changed;
   }
 
+  function drawEllipse(map, a, b, color, size) {
+    const rx = Math.abs(b.x - a.x) / 2;
+    const ry = Math.abs(b.y - a.y) / 2;
+    const cx = Math.min(a.x, b.x) + rx;
+    const cy = Math.min(a.y, b.y) + ry;
+
+    let changed = false;
+    let x = 0;
+    let y = Math.round(ry);
+    let rx2 = rx * rx;
+    let ry2 = ry * ry;
+    let tworx2 = 2 * rx2;
+    let twory2 = 2 * ry2;
+    let p;
+    let px = 0;
+    let py = tworx2 * y;
+
+    if (rx === 0 || ry === 0) {
+      return drawLine(map, a, b, color, size);
+    }
+
+    const plot = (cx, cy, x, y) => {
+      changed = putBrush(map, Math.round(cx + x), Math.round(cy + y), color, size) || changed;
+      changed = putBrush(map, Math.round(cx - x), Math.round(cy + y), color, size) || changed;
+      changed = putBrush(map, Math.round(cx + x), Math.round(cy - y), color, size) || changed;
+      changed = putBrush(map, Math.round(cx - x), Math.round(cy - y), color, size) || changed;
+    };
+
+    p = Math.round(ry2 - (rx2 * ry) + (0.25 * rx2));
+    while (px < py) {
+      plot(cx, cy, x, y);
+      x++;
+      px += twory2;
+      if (p < 0) {
+        p += ry2 + px;
+      } else {
+        y--;
+        py -= tworx2;
+        p += ry2 + px - py;
+      }
+    }
+    p = Math.round(ry2 * (x + 0.5) * (x + 0.5) + rx2 * (y - 1) * (y - 1) - rx2 * ry2);
+    while (y >= 0) {
+      plot(cx, cy, x, y);
+      y--;
+      py -= tworx2;
+      if (p > 0) {
+        p += rx2 - py;
+      } else {
+        x++;
+        px += twory2;
+        p += rx2 - py + px;
+      }
+    }
+    return changed;
+  }
+
+  function drawTriangle(map, a, b, color, size) {
+    let changed = false;
+    const top = { x: Math.round((a.x + b.x) / 2), y: a.y };
+    const bl = { x: a.x, y: b.y };
+    const br = { x: b.x, y: b.y };
+    changed = drawLine(map, top, bl, color, size) || changed;
+    changed = drawLine(map, bl, br, color, size) || changed;
+    changed = drawLine(map, br, top, color, size) || changed;
+    return changed;
+  }
+
+  function drawPolygon(map, a, b, sides, color, size) {
+    let changed = false;
+    const cx = (a.x + b.x) / 2;
+    const cy = (a.y + b.y) / 2;
+    const rx = Math.abs(b.x - a.x) / 2;
+    const ry = Math.abs(b.y - a.y) / 2;
+    const numSides = Math.max(3, Math.min(12, Math.trunc(Number(sides) || 5)));
+    
+    const pts = [];
+    for (let i = 0; i < numSides; i++) {
+      const angle = (i * 2 * Math.PI / numSides) - Math.PI / 2;
+      pts.push({
+        x: Math.round(cx + rx * Math.cos(angle)),
+        y: Math.round(cy + ry * Math.sin(angle))
+      });
+    }
+    for (let i = 0; i < numSides; i++) {
+      const p1 = pts[i];
+      const p2 = pts[(i + 1) % numSides];
+      changed = drawLine(map, p1, p2, color, size) || changed;
+    }
+    return changed;
+  }
+
   function floodFill(map, gx, gy, replacement) {
     if (!map?.pixels?.length) return false;
     const bounds = mapBounds(map);
@@ -383,22 +475,25 @@
     }
 
     function injectTools() {
-      const actions = document.querySelector('.a11-pixel-actions');
+      const actions = document.getElementById('pixelmapWorkbenchTools');
       if (!actions || actions.dataset.workbenchReady === '1') return false;
       actions.dataset.workbenchReady = '1';
+      actions.style.display = 'flex';
+      
+      const divider = document.getElementById('pixelmapToolsDivider');
+      if (divider) divider.style.display = 'block';
 
       const tools = [
-        ['FILL', '▨ Relleno', 'Rellenar región contigua (G)'],
-        ['PICK', '◉ Color', 'Cuentagotas RGB565 (I / Alt+clic)'],
-        ['LINE', '╱ Línea', 'Línea pixel-perfect (L)'],
-        ['RECT', '□ Rect.', 'Rectángulo sin relleno (R)']
+        ['FILL', '▨', 'Rellenar región contigua (G)'],
+        ['PICK', '◉', 'Cuentagotas RGB565 (I / Alt+clic)']
       ];
 
       tools.forEach(([mode, label, title]) => {
         const button = document.createElement('button');
         button.type = 'button';
+        button.className = 'tool canvas-tool utility-tool-btn';
         button.dataset.pmwMode = mode;
-        button.textContent = label;
+        button.innerHTML = `<strong>${label}</strong>`;
         button.title = title;
         button.addEventListener('click', () => {
           extraMode = mode;
@@ -408,10 +503,7 @@
         actions.appendChild(button);
       });
 
-      const note = document.createElement('p');
-      note.className = 'a11-pixel-note a11-pixel-workbench-note';
-      note.innerHTML = '<strong>Atajos:</strong> B pincel · E borrador · G relleno · I color · L línea · R rectángulo · V mover · Alt+clic toma color.';
-      actions.insertAdjacentElement('afterend', note);
+      // PolySides removed from pixel workbench
 
       updateToolButtons();
       return true;
@@ -422,9 +514,6 @@
       const style = document.createElement('style');
       style.id = 'a11-pixel-workbench-style';
       style.textContent = `
-        .a11-pixel-actions[data-workbench-ready="1"]{grid-template-columns:repeat(3,minmax(0,1fr))!important}
-        .a11-pixel-actions[data-workbench-ready="1"] button{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .a11-pixel-workbench-note{margin-top:7px!important}
         #pixelToolCursorCanvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:40}
       `;
       document.head.appendChild(style);
@@ -437,6 +526,10 @@
       document.querySelectorAll('[data-pm-mode]').forEach((button) => {
         if (extraMode) button.classList.remove('active');
       });
+      const polySides = document.getElementById('polySidesInput');
+      if (polySides) {
+        polySides.style.display = extraMode === 'POLYGON' ? 'inline-block' : 'none';
+      }
     }
 
     const cursorCanvas = document.createElement('canvas');
@@ -451,7 +544,7 @@
     }
 
     function activeFootprintSize() {
-      if (extraMode === 'LINE' || extraMode === 'RECT') return api.getBrushSize?.() || 1;
+      if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(extraMode)) return api.getBrushSize?.() || 1;
       if (extraMode === 'FILL' || extraMode === 'PICK') return 1;
       if (nativeMode === 'ERASE') return api.getEraserSize?.() || 1;
       if (nativeMode === 'DRAW') return api.getBrushSize?.() || 1;
@@ -494,6 +587,40 @@
         const right = Math.max(gesture.start.x, gesture.current.x);
         const bottom = Math.max(gesture.start.y, gesture.current.y);
         cursorCtx.strokeRect(left * zoom + 0.5, top * zoom + 0.5, (right - left + 1) * zoom - 1, (bottom - top + 1) * zoom - 1);
+      } else if (extraMode === 'ELLIPSE') {
+        const cx = (gesture.start.x + gesture.current.x) / 2;
+        const cy = (gesture.start.y + gesture.current.y) / 2;
+        const rx = Math.abs(gesture.current.x - gesture.start.x) / 2;
+        const ry = Math.abs(gesture.current.y - gesture.start.y) / 2;
+        cursorCtx.beginPath();
+        cursorCtx.ellipse((cx + 0.5) * zoom, (cy + 0.5) * zoom, rx * zoom, ry * zoom, 0, 0, 2 * Math.PI);
+        cursorCtx.stroke();
+      } else if (extraMode === 'TRIANGLE') {
+        const top = { x: (gesture.start.x + gesture.current.x) / 2, y: gesture.start.y };
+        const bl = { x: gesture.start.x, y: gesture.current.y };
+        const br = { x: gesture.current.x, y: gesture.current.y };
+        cursorCtx.beginPath();
+        cursorCtx.moveTo((top.x + 0.5) * zoom, (top.y + 0.5) * zoom);
+        cursorCtx.lineTo((bl.x + 0.5) * zoom, (bl.y + 0.5) * zoom);
+        cursorCtx.lineTo((br.x + 0.5) * zoom, (br.y + 0.5) * zoom);
+        cursorCtx.closePath();
+        cursorCtx.stroke();
+      } else if (extraMode === 'POLYGON') {
+        const cx = (gesture.start.x + gesture.current.x) / 2;
+        const cy = (gesture.start.y + gesture.current.y) / 2;
+        const rx = Math.abs(gesture.current.x - gesture.start.x) / 2;
+        const ry = Math.abs(gesture.current.y - gesture.start.y) / 2;
+        const sides = Math.max(3, Math.min(12, Math.trunc(Number(document.getElementById('polySidesInput')?.value) || 5)));
+        cursorCtx.beginPath();
+        for (let i = 0; i < sides; i++) {
+          const angle = (i * 2 * Math.PI / sides) - Math.PI / 2;
+          const px = cx + rx * Math.cos(angle);
+          const py = cy + ry * Math.sin(angle);
+          if (i === 0) cursorCtx.moveTo((px + 0.5) * zoom, (py + 0.5) * zoom);
+          else cursorCtx.lineTo((px + 0.5) * zoom, (py + 0.5) * zoom);
+        }
+        cursorCtx.closePath();
+        cursorCtx.stroke();
       }
       cursorCtx.restore();
     }
@@ -513,7 +640,7 @@
         drawGuideRect(point, 1, 'rgba(116,220,255,.95)', false);
         return;
       }
-      if (extraMode === 'LINE' || extraMode === 'RECT') {
+      if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(extraMode)) {
         drawGuideRect(point, activeFootprintSize(), 'rgba(255,154,67,.92)');
         return;
       }
@@ -551,19 +678,32 @@
       drawCursor(lastPointerPoint);
     }
 
+    function snapPoint(point, force = false) {
+      if (!force && !['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(extraMode)) return point;
+      const snapToggle = document.getElementById('snapToggle');
+      if (snapToggle && snapToggle.checked) {
+        const grid = Number(document.getElementById('gridSizeSelect')?.value) || 8;
+        return {
+          x: Math.round(point.x / grid) * grid,
+          y: Math.round(point.y / grid) * grid
+        };
+      }
+      return point;
+    }
+
     function handlePointerDown(event) {
       const map = selectedMap();
       if (!map || event.button !== 0) return;
       if (event.target !== displayCanvas && !displayCanvas.contains?.(event.target)) return;
 
-      const point = pointFromEvent(displayCanvas, event);
-      lastPointerPoint = point;
+      let point = pointFromEvent(displayCanvas, event);
+      lastPointerPoint = snapPoint(point, true); // Snap cursor if applicable
 
       if (event.altKey) {
         event.preventDefault();
         event.stopImmediatePropagation();
         pickColorAt(point);
-        drawCursor(point);
+        drawCursor(lastPointerPoint);
         return;
       }
 
@@ -586,7 +726,8 @@
         return;
       }
 
-      if (extraMode === 'LINE' || extraMode === 'RECT') {
+      if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(extraMode)) {
+        point = snapPoint(point);
         gesture = { pointerId: event.pointerId, start: point, current: point };
         try { displayCanvas.setPointerCapture(event.pointerId); } catch (_) { /* noop */ }
         drawCursor(point);
@@ -595,14 +736,15 @@
 
     function handlePointerMove(event) {
       if (event.target !== displayCanvas && !gesture) return;
-      const point = pointFromEvent(displayCanvas, event);
-      lastPointerPoint = point;
+      let point = pointFromEvent(displayCanvas, event);
+      lastPointerPoint = snapPoint(point, true); // Visual snap
+
       if (gesture && event.pointerId === gesture.pointerId) {
         event.preventDefault();
         event.stopImmediatePropagation();
-        gesture.current = point;
+        gesture.current = snapPoint(point);
       }
-      drawCursor(point);
+      drawCursor(lastPointerPoint);
     }
 
     function handlePointerUp(event) {
@@ -611,7 +753,8 @@
       event.stopImmediatePropagation();
 
       const map = selectedMap();
-      const end = pointFromEvent(displayCanvas, event);
+      let end = pointFromEvent(displayCanvas, event);
+      end = snapPoint(end);
       const start = gesture.start;
       const mode = extraMode;
       gesture = null;
@@ -627,7 +770,13 @@
       let changed = false;
       if (mode === 'LINE') changed = drawLine(map, start, end, color, size);
       if (mode === 'RECT') changed = drawRect(map, start, end, color, size);
-      if (changed) notifyChanged(mode === 'LINE' ? 'line' : 'rect');
+      if (mode === 'ELLIPSE') changed = drawEllipse(map, start, end, color, size);
+      if (mode === 'TRIANGLE') changed = drawTriangle(map, start, end, color, size);
+      if (mode === 'POLYGON') {
+        const sides = document.getElementById('polySidesInput')?.value || 5;
+        changed = drawPolygon(map, start, end, sides, color, size);
+      }
+      if (changed) notifyChanged('shape');
       drawCursor(end);
     }
 

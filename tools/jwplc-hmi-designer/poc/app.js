@@ -33,7 +33,9 @@
   const logicalCtx = logicalCanvas.getContext('2d', { alpha: false });
 
   const zoomSelect = document.getElementById('zoomSelect');
-  const gridToggle = document.getElementById('gridToggle');
+  const gridToggle = { checked: true }; document.getElementById('vertGridToggle')?.addEventListener('click', function() { gridToggle.checked = !gridToggle.checked; this.classList.toggle('active', gridToggle.checked); render(); });
+  const gridSizeSelect = { value: '8' };
+  const snapToggle = { checked: true }; document.getElementById('vertSnapToggle')?.addEventListener('click', function() { snapToggle.checked = !snapToggle.checked; this.classList.toggle('active', snapToggle.checked); render(); });
   const clearButton = document.getElementById('clearButton');
   const newProjectButton = document.getElementById('newProjectButton');
   const demoButton = document.getElementById('demoButton');
@@ -67,6 +69,12 @@
   const fieldCapacity = document.getElementById('fieldCapacity');
   const fieldX = document.getElementById('fieldX');
   const fieldY = document.getElementById('fieldY');
+  const fieldX2Wrap = document.getElementById('fieldX2Wrap');
+  const fieldX2 = document.getElementById('fieldX2');
+  const fieldY2Wrap = document.getElementById('fieldY2Wrap');
+  const fieldY2 = document.getElementById('fieldY2');
+  const fieldSidesWrap = document.getElementById('fieldSidesWrap');
+  const fieldSides = document.getElementById('fieldSides');
   const fieldPreview = document.getElementById('fieldPreview');
   const fieldLabel = document.getElementById('fieldLabel');
   const fieldUnit = document.getElementById('fieldUnit');
@@ -275,6 +283,7 @@
     if (field.type === 'VALUE') return 'valueField';
     if (field.type === 'BOOL') return 'boolField';
     if (field.type === 'BAR') return 'barField';
+    if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) return 'pointer';
     return 'textField';
   }
 
@@ -308,6 +317,28 @@
     fillBufferRect(buffer, x + width - 1, y, 1, height, value);
   }
 
+  function rasterLineBuffer(buffer, x0, y0, x1, y1, value, size = 1) {
+    let dx = Math.abs(x1 - x0);
+    const sx = x0 < x1 ? 1 : -1;
+    let dy = -Math.abs(y1 - y0);
+    const sy = y0 < y1 ? 1 : -1;
+    let error = dx + dy;
+    let changed = false;
+    while (true) {
+      for (let oy = 0; oy < size; oy++) {
+        for (let ox = 0; ox < size; ox++) {
+          setBufferPixel(buffer, x0 + ox - Math.floor(size/2), y0 + oy - Math.floor(size/2), value);
+        }
+      }
+      changed = true;
+      if (x0 === x1 && y0 === y1) break;
+      const e2 = 2 * error;
+      if (e2 >= dy) { error += dy; x0 += sx; }
+      if (e2 <= dx) { error += dx; y0 += sy; }
+    }
+    return changed;
+  }
+
   function rasterLine(x0, y0, x1, y1, value) {
     let dx = Math.abs(x1 - x0);
     const sx = x0 < x1 ? 1 : -1;
@@ -323,6 +354,103 @@
       if (e2 <= dx) { error += dx; y0 += sy; }
     }
     return changed;
+  }
+
+  function drawShapeEllipse(buffer, a, b, color, size) {
+    const rx = Math.abs(b.x - a.x) / 2;
+    const ry = Math.abs(b.y - a.y) / 2;
+    const cx = Math.min(a.x, b.x) + rx;
+    const cy = Math.min(a.y, b.y) + ry;
+
+    let x = 0;
+    let y = Math.round(ry);
+    let rx2 = rx * rx;
+    let ry2 = ry * ry;
+    let tworx2 = 2 * rx2;
+    let twory2 = 2 * ry2;
+    let p;
+    let px = 0;
+    let py = tworx2 * y;
+
+    if (rx === 0 || ry === 0) return rasterLineBuffer(buffer, a.x, a.y, b.x, b.y, color, size);
+
+    const plot = (cx, cy, x, y) => {
+      for (let oy = 0; oy < size; oy++) {
+        for (let ox = 0; ox < size; ox++) {
+          let cxo = ox - Math.floor(size/2);
+          let cyo = oy - Math.floor(size/2);
+          setBufferPixel(buffer, Math.round(cx + x) + cxo, Math.round(cy + y) + cyo, color);
+          setBufferPixel(buffer, Math.round(cx - x) + cxo, Math.round(cy + y) + cyo, color);
+          setBufferPixel(buffer, Math.round(cx + x) + cxo, Math.round(cy - y) + cyo, color);
+          setBufferPixel(buffer, Math.round(cx - x) + cxo, Math.round(cy - y) + cyo, color);
+        }
+      }
+    };
+
+    p = Math.round(ry2 - (rx2 * ry) + (0.25 * rx2));
+    while (px < py) {
+      plot(cx, cy, x, y);
+      x++;
+      px += twory2;
+      if (p < 0) p += ry2 + px;
+      else { y--; py -= tworx2; p += ry2 + px - py; }
+    }
+    p = Math.round(ry2 * (x + 0.5) * (x + 0.5) + rx2 * (y - 1) * (y - 1) - rx2 * ry2);
+    while (y >= 0) {
+      plot(cx, cy, x, y);
+      y--;
+      py -= tworx2;
+      if (p > 0) p += rx2 - py;
+      else { x++; px += twory2; p += rx2 - py + px; }
+    }
+  }
+
+  function drawShape(buffer, field) {
+    const color = field.frameColor || 0xFFFF;
+    const size = field.size || 1;
+    const a = { x: field.x, y: field.y };
+    const b = { x: field.x2, y: field.y2 };
+
+    if (field.type === 'LINE') {
+      rasterLineBuffer(buffer, a.x, a.y, b.x, b.y, color, size);
+    } else if (field.type === 'RECT') {
+      const left = Math.min(a.x, b.x);
+      const right = Math.max(a.x, b.x);
+      const top = Math.min(a.y, b.y);
+      const bottom = Math.max(a.y, b.y);
+      rasterLineBuffer(buffer, left, top, right, top, color, size);
+      rasterLineBuffer(buffer, right, top, right, bottom, color, size);
+      rasterLineBuffer(buffer, right, bottom, left, bottom, color, size);
+      rasterLineBuffer(buffer, left, bottom, left, top, color, size);
+    } else if (field.type === 'ELLIPSE') {
+      drawShapeEllipse(buffer, a, b, color, size);
+    } else if (field.type === 'TRIANGLE') {
+      const topPt = { x: Math.round((a.x + b.x) / 2), y: a.y };
+      const bl = { x: a.x, y: b.y };
+      const br = { x: b.x, y: b.y };
+      rasterLineBuffer(buffer, topPt.x, topPt.y, bl.x, bl.y, color, size);
+      rasterLineBuffer(buffer, bl.x, bl.y, br.x, br.y, color, size);
+      rasterLineBuffer(buffer, br.x, br.y, topPt.x, topPt.y, color, size);
+    } else if (field.type === 'POLYGON') {
+      const cx = (a.x + b.x) / 2;
+      const cy = (a.y + b.y) / 2;
+      const rx = Math.abs(b.x - a.x) / 2;
+      const ry = Math.abs(b.y - a.y) / 2;
+      const numSides = Math.max(3, Math.min(12, Math.trunc(Number(field.sides) || 5)));
+      const pts = [];
+      for (let i = 0; i < numSides; i++) {
+        const angle = (i * 2 * Math.PI / numSides) - Math.PI / 2;
+        pts.push({
+          x: Math.round(cx + rx * Math.cos(angle)),
+          y: Math.round(cy + ry * Math.sin(angle))
+        });
+      }
+      for (let i = 0; i < numSides; i++) {
+        const p1 = pts[i];
+        const p2 = pts[(i + 1) % numSides];
+        rasterLineBuffer(buffer, p1.x, p1.y, p2.x, p2.y, color, size);
+      }
+    }
   }
 
   function drawClassicChar(buffer, x, y, charCode, foreground, background, size) {
@@ -416,6 +544,21 @@
 
   function computeFieldGeometry(field) {
     if (!field) return null;
+    if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
+      return {
+        pad: 0,
+        fieldX: Math.min(field.x, field.x2),
+        fieldY: Math.min(field.y, field.y2),
+        fieldW: Math.abs(field.x2 - field.x),
+        fieldH: Math.abs(field.y2 - field.y),
+        valueX: 0,
+        valueY: 0,
+        valueW: 0,
+        valueH: 0,
+        labelBounds: { width: 0, height: 0 },
+        unitBounds: { width: 0, height: 0 }
+      };
+    }
     const pad = effectiveFieldPadding(field);
     const labelBounds = nominalTextBounds(field.label, field.labelSize);
     const unitBounds = nominalTextBounds(field.unit, field.labelSize);
@@ -483,7 +626,13 @@
 
   function composeFramebuffer() {
     framebuffer.set(pixelLayer);
-    fieldsForPage(activePage).forEach((field) => drawField(framebuffer, field));
+    fieldsForPage(activePage).forEach((field) => {
+      if (['TEXT', 'VALUE', 'BOOL', 'BAR'].includes(field.type)) {
+        drawField(framebuffer, field);
+      } else if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
+        drawShape(framebuffer, field);
+      }
+    });
     if (selectedTool === 'rawText') {
       drawClassicTextAt(framebuffer, rawState.value, rawState.x, rawState.y, rawState.foreground, rawState.background, rawState.size);
     }
@@ -505,22 +654,17 @@
   }
 
   function drawGrid() {
-    if (!gridToggle.checked || zoom < 3) return;
+    if (!gridToggle.checked || zoom < 2) return;
+    const gridSize = Number(gridSizeSelect.value) || 8;
     displayCtx.save();
-    displayCtx.strokeStyle = 'rgba(118, 151, 176, 0.18)';
-    displayCtx.lineWidth = 1;
-    displayCtx.beginPath();
-    for (let x = 0; x <= WIDTH; x += 1) {
-      const px = x * zoom + 0.5;
-      displayCtx.moveTo(px, 0);
-      displayCtx.lineTo(px, HEIGHT * zoom);
+    displayCtx.fillStyle = 'rgba(118, 151, 176, 0.4)';
+    const dotSize = Math.max(1, Math.floor(zoom / 3));
+    const offset = Math.floor(dotSize / 2);
+    for (let x = 0; x <= WIDTH; x += gridSize) {
+      for (let y = 0; y <= HEIGHT; y += gridSize) {
+        displayCtx.fillRect(Math.floor(x * zoom) - offset, Math.floor(y * zoom) - offset, dotSize, dotSize);
+      }
     }
-    for (let y = 0; y <= HEIGHT; y += 1) {
-      const py = y * zoom + 0.5;
-      displayCtx.moveTo(0, py);
-      displayCtx.lineTo(WIDTH * zoom, py);
-    }
-    displayCtx.stroke();
     displayCtx.restore();
   }
 
@@ -585,13 +729,14 @@
   }
 
   function buildContractText() {
-    if (hmiFields.length === 0) return '// Sin campos HMI. Agrega TEXT, VALUE, BOOL o BAR para comenzar.';
-    const enumLines = hmiFields
+    const validFields = hmiFields.filter(f => !['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(f.type));
+    if (validFields.length === 0) return '// Sin campos HMI. Agrega TEXT, VALUE, BOOL o BAR para comenzar.';
+    const enumLines = validFields
       .map((field, index) => `    ${sanitizeSymbol(field.id, fieldFallbackId(field, index))} = ${index + 1}`)
       .join(',\n');
-    const variables = hmiFields.map(variableDeclaration).join('\n');
-    const fields = hmiFields.map(fieldContract).join(',\n');
-    const setters = hmiFields.map(setterHint).join('\n');
+    const variables = validFields.map(variableDeclaration).join('\n');
+    const fields = validFields.map(fieldContract).join(',\n');
+    const setters = validFields.map(setterHint).join('\n');
 
     return `// Código generado por JWPLC HMI Designer\n// API pública JWPLC_UI · Alpha11 A11-3E\n\nenum HMIFieldId : uint8_t\n{\n${enumLines}\n};\n\n// Variables HMI\n${variables}\n\n// Definición declarativa\nstatic const JWPLC_UIField HMI_FIELDS[] =\n{\n${fields}\n};\n\nvoid jwplcHMISetup()\n{\n    JWPLC_Display.setFields(\n        HMI_FIELDS,\n        sizeof(HMI_FIELDS) / sizeof(HMI_FIELDS[0]));\n}\n\n// jwplcUIUpdate() NO se genera.\n// El usuario alimenta las variables anteriores dentro de su jwplcUIUpdate().\n// Setters públicos que corresponden a este diseño:\n${setters}`;
   }
@@ -643,7 +788,16 @@
       button.type = 'button';
       button.dataset.fieldKey = field.key;
       button.title = `${field.type} · ${field.name} · ${field.id}`;
-      const icon = field.type === 'VALUE' ? '123' : 'T';
+      let icon = 'T';
+      if (field.type === 'VALUE') icon = '123';
+      else if (field.type === 'BOOL') icon = '○';
+      else if (field.type === 'BAR') icon = '▥';
+      else if (field.type === 'LINE') icon = '╱';
+      else if (field.type === 'RECT') icon = '□';
+      else if (field.type === 'ELLIPSE') icon = '⬭';
+      else if (field.type === 'TRIANGLE') icon = '△';
+      else if (field.type === 'POLYGON') icon = '⎔';
+      
       button.innerHTML = `<span class="object-icon">${icon}</span><span class="object-type">${field.type}</span><span class="object-name"></span><span class="object-id"></span><span class="object-eye">●</span>`;
       if (field.type === 'VALUE') {
         const iconNode = button.querySelector('.object-icon');
@@ -652,7 +806,11 @@
         iconNode.style.color = '#52c9ff';
       }
       button.querySelector('.object-name').textContent = field.name || `${field.type} ${index + 1}`;
-      button.querySelector('.object-id').textContent = field.id || fieldFallbackId(field, index);
+      if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
+        button.querySelector('.object-id').textContent = '';
+      } else {
+        button.querySelector('.object-id').textContent = field.id || fieldFallbackId(field, index);
+      }
       button.addEventListener('click', () => {
         selectedFieldKey = field.key;
         selectedTool = toolForField(field);
@@ -689,6 +847,28 @@
     previewCtx.drawImage(logicalCanvas, 0, 0);
 
     renderObjectList();
+    
+    const sel = selectedField();
+    if (sel && sel.type !== 'PIXELMAP') {
+      const g = computeFieldGeometry(sel);
+      let left = g.fieldX;
+      let top = g.fieldY;
+      let w = g.fieldW;
+      let h = g.fieldH;
+      if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(sel.type)) {
+        left = Math.min(sel.x, sel.x2);
+        top = Math.min(sel.y, sel.y2);
+        w = Math.abs(sel.x2 - sel.x) || 1;
+        h = Math.abs(sel.y2 - sel.y) || 1;
+      }
+      displayCtx.save();
+      displayCtx.strokeStyle = '#00ff00';
+      displayCtx.lineWidth = 1;
+      displayCtx.setLineDash([4, 4]);
+      displayCtx.strokeRect(left * zoom - 1.5, top * zoom - 1.5, w * zoom + 3, h * zoom + 3);
+      displayCtx.restore();
+    }
+
     updateMetrics();
     updateCodePanel();
     updateHistoryButtons();
@@ -717,10 +897,92 @@
     if (!inside(point.x, point.y)) {
       cursorStatus.textContent = 'X: — · Y: —';
       pixelStatus.textContent = 'Pixel: —';
+      const rulersCanvas = document.getElementById('rulersCanvas');
+      if (rulersCanvas) {
+        const ctx = rulersCanvas.getContext('2d');
+        ctx.clearRect(0, 0, rulersCanvas.width, rulersCanvas.height);
+      }
       return;
     }
     cursorStatus.textContent = `X: ${point.x} · Y: ${point.y}`;
     pixelStatus.textContent = `Pixel: ${hex565(framebuffer[indexFor(point.x, point.y)])}`;
+    
+    const rulersCanvas = document.getElementById('rulersCanvas');
+    if (rulersCanvas) {
+      if (rulersCanvas.width !== displayCanvas.width) rulersCanvas.width = displayCanvas.width;
+      if (rulersCanvas.height !== displayCanvas.height) rulersCanvas.height = displayCanvas.height;
+      const ctx = rulersCanvas.getContext('2d');
+      ctx.clearRect(0, 0, rulersCanvas.width, rulersCanvas.height);
+      
+      const px = (point.x + 0.5) * zoom;
+      const py = (point.y + 0.5) * zoom;
+      
+      ctx.save();
+      
+      // Ruler ticks
+      ctx.fillStyle = '#a4b9c9';
+      ctx.strokeStyle = '#a4b9c9';
+      ctx.lineWidth = 1;
+      ctx.font = '10px monospace';
+      
+      // Top ruler
+      ctx.beginPath();
+      ctx.moveTo(0, 14);
+      ctx.lineTo(rulersCanvas.width, 14);
+      for(let x=0; x<=WIDTH; x+=10) {
+        let tickX = x * zoom;
+        if(x % 50 === 0) {
+          ctx.moveTo(tickX, 0);
+          ctx.lineTo(tickX, 14);
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+          ctx.fillText(x, tickX, 2);
+        } else {
+          ctx.moveTo(tickX, 8);
+          ctx.lineTo(tickX, 14);
+        }
+      }
+      // Left ruler
+      ctx.moveTo(14, 0);
+      ctx.lineTo(14, rulersCanvas.height);
+      for(let y=0; y<=HEIGHT; y+=10) {
+        let tickY = y * zoom;
+        if(y % 50 === 0) {
+          ctx.moveTo(0, tickY);
+          ctx.lineTo(14, tickY);
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(y, 16, tickY);
+        } else {
+          ctx.moveTo(8, tickY);
+          ctx.lineTo(14, tickY);
+        }
+      }
+      ctx.stroke();
+      
+      // Crosshairs
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.setLineDash([2, 4]);
+      ctx.beginPath();
+      ctx.moveTo(px, 14);
+      ctx.lineTo(px, rulersCanvas.height);
+      ctx.moveTo(14, py);
+      ctx.lineTo(rulersCanvas.width, py);
+      ctx.stroke();
+      
+      // Highlight on rulers
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(px - 14, 0, 28, 14);
+      ctx.fillRect(0, py - 7, 14, 14);
+      ctx.fillStyle = '#000';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillText(point.x, px, 2);
+      ctx.textBaseline = 'middle';
+      ctx.fillText(point.y, 7, py);
+      
+      ctx.restore();
+    }
   }
 
   function syncToolUI() {
@@ -729,7 +991,7 @@
     });
 
     const field = selectedField();
-    const fieldTools = ['textField', 'valueField', 'boolField', 'barField'];
+    const fieldTools = ['textField', 'valueField', 'boolField', 'barField', 'pointer'];
     rawSection.hidden = selectedTool !== 'rawText';
     fieldSection.hidden = !field || !fieldTools.includes(selectedTool);
     rawMetricsSection.hidden = selectedTool !== 'rawText';
@@ -737,10 +999,18 @@
 
     if (field) {
       const isValue = field.type === 'VALUE';
+      const isShape = ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type);
       if (fieldInspectorTitle) fieldInspectorTitle.textContent = `Inspector · ${field.type} field`;
       if (numericFormatDetails) numericFormatDetails.hidden = !isValue;
-      if (fieldCapacityWrap) fieldCapacityWrap.hidden = isValue;
-      if (fieldCppType) fieldCppType.value = isValue ? 'float' : 'char[]';
+      if (fieldCapacityWrap) fieldCapacityWrap.hidden = isValue || isShape;
+      if (fieldCppType) fieldCppType.value = isValue ? 'float' : (isShape ? 'none' : 'char[]');
+      
+      if (fieldX2Wrap) fieldX2Wrap.hidden = !isShape;
+      if (fieldY2Wrap) fieldY2Wrap.hidden = !isShape;
+      if (fieldSidesWrap) fieldSidesWrap.hidden = field.type !== 'POLYGON';
+      const fieldValueBoundsWrap = document.getElementById('fieldValueBoundsWrap');
+      if (fieldValueBoundsWrap) fieldValueBoundsWrap.hidden = isShape;
+      if (fieldMetricsSection) fieldMetricsSection.hidden = isShape || !fieldTools.includes(selectedTool);
     }
   }
 
@@ -794,24 +1064,27 @@
       return;
     }
 
-    fieldName.value = field.name;
-    fieldId.value = field.id;
-    fieldVariable.value = field.variable;
+    fieldName.value = field.name || '';
+    fieldId.value = field.id || '';
+    fieldVariable.value = field.variable || '';
     fieldCapacity.value = String(field.capacity || 12);
     fieldX.value = String(field.x);
     fieldY.value = String(field.y);
+    if (field.x2 !== undefined) fieldX2.value = String(field.x2);
+    if (field.y2 !== undefined) fieldY2.value = String(field.y2);
+    if (field.sides !== undefined) fieldSides.value = String(field.sides);
     fieldPreview.value = String(field.preview ?? '');
-    fieldLabel.value = field.label;
-    fieldUnit.value = field.unit;
-    fieldValueSize.value = String(field.valueSize);
-    fieldLabelSize.value = String(field.labelSize);
+    fieldLabel.value = field.label || '';
+    fieldUnit.value = field.unit || '';
+    fieldValueSize.value = String(field.valueSize || 1);
+    fieldLabelSize.value = String(field.labelSize || 1);
     fieldFrame.value = field.frame ? '1' : '0';
-    fieldLayout.value = field.layout;
-    fieldAlign.value = field.align;
-    fieldLabelColor.value = colorName(field.labelColor);
-    fieldValueColor.value = colorName(field.valueColor);
-    fieldBackgroundColor.value = colorName(field.backgroundColor);
-    fieldFrameColor.value = colorName(field.frameColor);
+    fieldLayout.value = field.layout || 'INLINE';
+    fieldAlign.value = field.align || 'LEFT';
+    fieldLabelColor.value = colorName(field.labelColor || 0xFFFF);
+    fieldValueColor.value = colorName(field.valueColor || 0xFFFF);
+    fieldBackgroundColor.value = colorName(field.backgroundColor || 0x0000);
+    fieldFrameColor.value = colorName(field.frameColor || 0xFFFF);
 
     if (field.type === 'VALUE') {
       if (fieldIntegerDigits) fieldIntegerDigits.value = String(field.integerDigits);
@@ -823,6 +1096,8 @@
       inspectorContract.textContent = `bool ${sanitizeSymbol(field.variable, 'estado')} = false;`;
     } else if (field.type === 'BAR') {
       inspectorContract.textContent = `float ${sanitizeSymbol(field.variable, 'nivel')} = 0.0f;`;
+    } else if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
+      inspectorContract.textContent = `// Objeto estático: no requiere variable de estado`;
     } else {
       inspectorContract.textContent = `char ${sanitizeSymbol(field.variable, 'texto')}[${field.capacity + 1}] = {};`;
     }
@@ -989,6 +1264,35 @@
     render();
     commitHistory();
     return true;
+  }
+
+  function addShapeField(type, startPoint, endPoint) {
+    if (hmiFields.length >= MAX_FIELDS) return;
+    fieldSerial += 1;
+    const typeLabel = type.charAt(0) + type.slice(1).toLowerCase();
+    const field = {
+      type: type,
+      key: `shape-${fieldSerial}`,
+      name: `${typeLabel} ${fieldSerial}`,
+      id: uniqueFieldSymbol(`FIELD_${type}_${fieldSerial}`),
+      variable: '',
+      x: startPoint.x,
+      y: startPoint.y,
+      x2: endPoint.x,
+      y2: endPoint.y,
+      page: activePage,
+      frameColor: selectedColor ? selectedColor.value : 0xFFFF,
+      backgroundColor: 0x0000,
+      fill: false,
+      size: 1,
+      sides: Number(document.getElementById('mainPolySidesInput')?.value || 5)
+    };
+    hmiFields.push(field);
+    selectedFieldKey = field.key;
+    syncInputsFromState();
+    syncToolUI();
+    render();
+    commitHistory();
   }
 
   function addTextField() {
@@ -1214,6 +1518,10 @@
         return;
       }
       selectedTool = tool;
+      if (!['pointer', 'textField', 'valueField', 'boolField', 'barField'].includes(tool)) {
+        selectedFieldKey = null;
+      }
+      syncInputsFromState();
       syncToolUI();
       render();
     });
@@ -1258,6 +1566,9 @@
   });
   bindFieldInput(fieldX, (field) => { field.x = clamp(Number(fieldX.value) || 0, 0, WIDTH - 1); });
   bindFieldInput(fieldY, (field) => { field.y = clamp(Number(fieldY.value) || 0, 0, HEIGHT - 1); });
+  bindFieldInput(fieldX2, (field) => { field.x2 = clamp(Number(fieldX2.value) || 0, 0, WIDTH - 1); });
+  bindFieldInput(fieldY2, (field) => { field.y2 = clamp(Number(fieldY2.value) || 0, 0, HEIGHT - 1); });
+  bindFieldInput(fieldSides, (field) => { field.sides = clamp(Number(fieldSides.value) || 5, 3, 12); });
   bindFieldInput(fieldPreview, (field) => {
     field.preview = field.type === 'TEXT'
       ? fieldPreview.value.slice(0, Math.max(1, field.capacity))
@@ -1305,16 +1616,73 @@
     for (let index = hmiFields.length - 1; index >= 0; index -= 1) {
       const field = hmiFields[index];
       if (Number(field.page || 0) !== activePage) continue;
-      const g = computeFieldGeometry(field);
-      if (
-        point.x >= field.x && point.x < field.x + g.fieldW &&
-        point.y >= field.y && point.y < field.y + g.fieldH
-      ) return field;
+      
+      if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
+        const left = Math.min(field.x, field.x2);
+        const right = Math.max(field.x, field.x2);
+        const top = Math.min(field.y, field.y2);
+        const bottom = Math.max(field.y, field.y2);
+        if (point.x >= left && point.x <= right && point.y >= top && point.y <= bottom) return field;
+      } else {
+        const g = computeFieldGeometry(field);
+        if (
+          point.x >= field.x && point.x < field.x + g.fieldW &&
+          point.y >= field.y && point.y < field.y + g.fieldH
+        ) return field;
+      }
     }
     return null;
   }
 
-  displayCanvas.addEventListener('pointerdown', (event) => {
+    const canvasViewport = document.getElementById('canvasViewport');
+  let isPanning = false;
+  let panStartX = 0;
+  let panStartY = 0;
+  let viewportScrollLeft = 0;
+  let viewportScrollTop = 0;
+
+  canvasViewport.addEventListener('pointerdown', (e) => {
+    if (e.button === 2 || e.button === 1) { // Right or Middle click
+      isPanning = true;
+      panStartX = e.clientX;
+      panStartY = e.clientY;
+      viewportScrollLeft = canvasViewport.scrollLeft;
+      viewportScrollTop = canvasViewport.scrollTop;
+      canvasViewport.style.cursor = 'grabbing';
+      e.preventDefault();
+    }
+  });
+
+  window.addEventListener('pointermove', (e) => {
+    if (isPanning) {
+      const dx = e.clientX - panStartX;
+      const dy = e.clientY - panStartY;
+      canvasViewport.scrollLeft = viewportScrollLeft - dx;
+      canvasViewport.scrollTop = viewportScrollTop - dy;
+      e.preventDefault();
+    }
+  });
+
+  window.addEventListener('pointerup', (e) => {
+    if ((e.button === 2 || e.button === 1) && isPanning) {
+      isPanning = false;
+      canvasViewport.style.cursor = '';
+    }
+  });
+
+  canvasViewport.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+  });
+
+  canvasViewport.addEventListener('wheel', (e) => {
+    if (e.ctrlKey) {
+      e.preventDefault();
+      
+      if (e.deltaY < 0) { zoom = Math.min(8, zoom + 1); } else { zoom = Math.max(1, zoom - 1); }
+      render();
+    }
+  }, { passive: false });
+displayCanvas.addEventListener('pointerdown', (event) => {
     const point = pointFromPointer(event);
     if (!inside(point.x, point.y)) return;
     displayCanvas.setPointerCapture(event.pointerId);
@@ -1328,21 +1696,25 @@
     } else if (selectedTool === 'rawText') {
       draggingObject = true;
       dragOffset = { x: point.x - rawState.x, y: point.y - rawState.y };
-    } else {
-      const hit = hitTestField(point);
-      if (hit) {
-        selectedFieldKey = hit.key;
-        selectedTool = toolForField(hit);
-        draggingObject = true;
-        dragOffset = { x: point.x - hit.x, y: point.y - hit.y };
-        syncInputsFromState();
-        syncToolUI();
+      } else if (['line', 'rect', 'ellipse', 'triangle', 'polygon'].includes(selectedTool)) {
+        const type = selectedTool.toUpperCase();
+        addShapeField(type, point, point);
+        drawing = true; // reusing drawing state for shape creation
       } else {
-        selectedFieldKey = null;
-        selectedTool = 'none';
-        syncToolUI();
+        const hit = hitTestField(point);
+        if (hit) {
+          selectedFieldKey = hit.key;
+          selectedTool = toolForField(hit);
+          draggingObject = true;
+          dragOffset = { x: point.x - hit.x, y: point.y - hit.y };
+          syncInputsFromState();
+          syncToolUI();
+        } else {
+          selectedFieldKey = null;
+          selectedTool = 'pointer';
+          syncToolUI();
+        }
       }
-    }
     render();
   });
 
@@ -1352,27 +1724,73 @@
     if (!inside(point.x, point.y)) return;
 
     if (drawing) {
-      const value = selectedTool === 'erase' ? 0x0000 : selectedColor.value;
-      if (lastPoint) gestureChanged = rasterLine(lastPoint.x, lastPoint.y, point.x, point.y, value) || gestureChanged;
-      else gestureChanged = setLayerPixel(point.x, point.y, value) || gestureChanged;
-      lastPoint = point;
-      render();
+      if (['line', 'rect', 'ellipse', 'triangle', 'polygon'].includes(selectedTool) || ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(selectedField()?.type)) {
+        const field = selectedField();
+        if (field) {
+          let nextX = point.x;
+          let nextY = point.y;
+          if (snapToggle && snapToggle.checked) {
+            const gridSize = Number(gridSizeSelect.value) || 8;
+            nextX = Math.round(nextX / gridSize) * gridSize;
+            nextY = Math.round(nextY / gridSize) * gridSize;
+          }
+          field.x2 = clamp(nextX, 0, WIDTH - 1);
+          field.y2 = clamp(nextY, 0, HEIGHT - 1);
+          gestureChanged = true;
+          syncInputsFromState();
+          render();
+        }
+      } else {
+        const value = selectedTool === 'erase' ? 0x0000 : selectedColor.value;
+        if (lastPoint) gestureChanged = rasterLine(lastPoint.x, lastPoint.y, point.x, point.y, value) || gestureChanged;
+        else gestureChanged = setLayerPixel(point.x, point.y, value) || gestureChanged;
+        lastPoint = point;
+        render();
+      }
     } else if (draggingObject) {
+      const isSnap = snapToggle && snapToggle.checked;
+      const gridSize = Number(gridSizeSelect.value) || 8;
+      
       if (selectedTool === 'rawText') {
-        const nextX = clamp(point.x - dragOffset.x, 0, WIDTH - 1);
-        const nextY = clamp(point.y - dragOffset.y, 0, HEIGHT - 1);
+        let nextX = point.x - dragOffset.x;
+        let nextY = point.y - dragOffset.y;
+        if (isSnap) {
+          nextX = Math.round(nextX / gridSize) * gridSize;
+          nextY = Math.round(nextY / gridSize) * gridSize;
+        }
+        nextX = clamp(nextX, 0, WIDTH - 1);
+        nextY = clamp(nextY, 0, HEIGHT - 1);
+        
         gestureChanged = gestureChanged || nextX !== rawState.x || nextY !== rawState.y;
         rawState.x = nextX;
         rawState.y = nextY;
       } else {
         const field = selectedField();
         if (!field || Number(field.page || 0) !== activePage) return;
-        const g = computeFieldGeometry(field);
-        const nextX = clamp(point.x - dragOffset.x, 0, Math.max(0, WIDTH - g.fieldW));
-        const nextY = clamp(point.y - dragOffset.y, 0, Math.max(0, HEIGHT - g.fieldH));
-        gestureChanged = gestureChanged || nextX !== field.x || nextY !== field.y;
-        field.x = nextX;
-        field.y = nextY;
+        
+        let nextX = point.x - dragOffset.x;
+        let nextY = point.y - dragOffset.y;
+        if (isSnap) {
+          nextX = Math.round(nextX / gridSize) * gridSize;
+          nextY = Math.round(nextY / gridSize) * gridSize;
+        }
+        
+        if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
+          const dx = nextX - field.x;
+          const dy = nextY - field.y;
+          field.x += dx;
+          field.y += dy;
+          field.x2 += dx;
+          field.y2 += dy;
+          gestureChanged = true;
+        } else {
+          const g = computeFieldGeometry(field);
+          nextX = clamp(nextX, 0, Math.max(0, WIDTH - g.fieldW));
+          nextY = clamp(nextY, 0, Math.max(0, HEIGHT - g.fieldH));
+          gestureChanged = gestureChanged || nextX !== field.x || nextY !== field.y;
+          field.x = nextX;
+          field.y = nextY;
+        }
       }
       syncInputsFromState();
       render();
@@ -1403,11 +1821,28 @@
   }
 
   function nudgeSelection(dx, dy) {
+    const isSnap = snapToggle && snapToggle.checked;
+    const gridSize = Number(gridSizeSelect.value) || 8;
+    
+    // Scale delta if snapping is enabled
+    if (isSnap) {
+      dx = Math.sign(dx) * Math.max(Math.abs(dx), gridSize);
+      dy = Math.sign(dy) * Math.max(Math.abs(dy), gridSize);
+    }
+
     const field = selectedField();
     if (field && Number(field.page || 0) === activePage && ['textField', 'valueField', 'boolField', 'barField'].includes(selectedTool)) {
       const g = computeFieldGeometry(field);
-      const nextX = clamp(field.x + dx, 0, Math.max(0, WIDTH - g.fieldW));
-      const nextY = clamp(field.y + dy, 0, Math.max(0, HEIGHT - g.fieldH));
+      let nextX = clamp(field.x + dx, 0, Math.max(0, WIDTH - g.fieldW));
+      let nextY = clamp(field.y + dy, 0, Math.max(0, HEIGHT - g.fieldH));
+      
+      if (isSnap) {
+        nextX = Math.round(nextX / gridSize) * gridSize;
+        nextY = Math.round(nextY / gridSize) * gridSize;
+        nextX = clamp(nextX, 0, Math.max(0, WIDTH - g.fieldW));
+        nextY = clamp(nextY, 0, Math.max(0, HEIGHT - g.fieldH));
+      }
+
       if (nextX === field.x && nextY === field.y) return false;
       field.x = nextX;
       field.y = nextY;
@@ -1417,8 +1852,16 @@
     }
 
     if (selectedTool === 'rawText') {
-      const nextX = clamp(rawState.x + dx, 0, WIDTH - 1);
-      const nextY = clamp(rawState.y + dy, 0, HEIGHT - 1);
+      let nextX = clamp(rawState.x + dx, 0, WIDTH - 1);
+      let nextY = clamp(rawState.y + dy, 0, HEIGHT - 1);
+      
+      if (isSnap) {
+        nextX = Math.round(nextX / gridSize) * gridSize;
+        nextY = Math.round(nextY / gridSize) * gridSize;
+        nextX = clamp(nextX, 0, WIDTH - 1);
+        nextY = clamp(nextY, 0, HEIGHT - 1);
+      }
+
       if (nextX === rawState.x && nextY === rawState.y) return false;
       rawState.x = nextX;
       rawState.y = nextY;
@@ -1523,3 +1966,6 @@
     addValueField
   };
 })();
+
+
+

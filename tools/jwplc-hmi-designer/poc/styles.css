@@ -141,7 +141,26 @@ h2 { margin: 0 0 7px; font-size: 12px; color: #d0dbe4; }
     linear-gradient(45deg, rgba(255,255,255,.012) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.012) 75%),
     #070d13;
   background-size: 24px 24px; background-position: 0 0, 12px 12px;
+  display: flex; justify-content: center; align-items: center;
 }
+.canvas-toolbar {
+  position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 4px; padding: 6px; background: #0f1c26;
+  border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  z-index: 100;
+}
+.canvas-tool {
+  min-width: 32px; height: 32px; padding: 0 8px; font-size: 13px; font-weight: bold;
+  display: flex; align-items: center; justify-content: center;
+  background: #152430; border: 1px solid transparent; border-radius: 4px;
+}
+.canvas-tool:hover:not(:disabled) { border-color: #486477; }
+.canvas-tool.active {
+  background: rgba(255,138,42,0.15); border-color: var(--orange); color: var(--orange);
+}
+.canvas-tool strong { font-size: 13px; font-weight: bold; }
+.canvas-tool .numeric { font-size: 10px; font-weight: 800; color: #52c9ff; }
+.toolbar-divider { width: 1px; background: var(--line); margin: 0 4px; }
 .canvas-stage { position: relative; width: max-content; height: max-content; }
 #displayCanvas {
   display: block; background: #000; border: 1px solid #536776;
@@ -237,3 +256,38 @@ body.bottom-collapsed .bottom-tabs { border-bottom: 0; }
   .toolbar button:nth-of-type(2), .toolbar button:nth-of-type(3) { display: none; }
   .object-id { display: none; }
 }
+.right-vertical-toolbar {
+  background: #1e1e1e;
+  border: none;
+
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #111b24;
+  border: 1px solid #233443;
+  padding: 8px;
+  border-radius: 6px;
+  z-index: 50;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+.vert-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #a4b9c9;
+}
+.vert-icon { font-size: 14px; }
+.vert-check { font-size: 11px; display: flex; align-items: center; gap: 4px; margin-top: 4px; }
+
+.canvas-viewport::-webkit-scrollbar { display: none; }
+.canvas-viewport { scrollbar-width: none; }
+
+.vert-btn { background: #2a2a2a; color: #ff9a43; border: none; border-radius: 8px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: pointer; transition: background 0.2s; }
+.vert-btn:hover { background: #3a3a3a; }
+.vert-btn.toggle-btn { color: #888; }
+.vert-btn.toggle-btn.active { color: #ff9a43; background: #332a22; }

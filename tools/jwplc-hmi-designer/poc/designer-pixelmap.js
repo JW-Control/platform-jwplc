@@ -305,17 +305,17 @@
   }
 
   function organizeLeftPanel() {
-    const components = document.querySelector('.tool[data-tool="textField"]')?.closest('.nav-block');
+    const components = document.querySelector('.tool[data-tool="textField"]')?.parentElement;
     const toolsSection = pixelTool?.closest('.nav-block') || eraseTool?.closest('.nav-block') || rawTool?.closest('.nav-block');
-    if (components && pixelTool) {
+    if (components && pixelTool && components.classList.contains('nav-block')) {
       pixelTool.classList.remove('utility-tool');
       pixelTool.classList.add('component-tool');
       pixelTool.innerHTML = '<span class="component-icon">▦</span><strong>PIXEL</strong><span>Mapa de píxeles</span>';
       pixelTool.title = 'Crear un objeto PIXEL';
       components.appendChild(pixelTool);
     }
-    eraseTool?.remove();
-    rawTool?.remove();
+    if (eraseTool && eraseTool.closest('.nav-block')) eraseTool.remove();
+    if (rawTool && rawTool.closest('.nav-block')) rawTool.remove();
     if (toolsSection && !toolsSection.querySelector('.tool')) toolsSection.remove();
   }
 
@@ -809,9 +809,22 @@
     event.preventDefault();
     event.stopImmediatePropagation();
     if (mode === 'MOVE' && dragStart && dragOrigin) {
-      const b = bounds(map);
-      map.x = Math.max(0, Math.min(WIDTH - b.width, dragOrigin.x + p.x - dragStart.x));
-      map.y = Math.max(0, Math.min(HEIGHT - b.height, dragOrigin.y + p.y - dragStart.y));
+      const dx = p.x - dragStart.x;
+      const dy = p.y - dragStart.y;
+      let nextX = dragOrigin.x + dx;
+      let nextY = dragOrigin.y + dy;
+      
+      const snapToggle = document.getElementById('snapToggle');
+      if (snapToggle && snapToggle.checked) {
+        const grid = Number(document.getElementById('gridSizeSelect')?.value) || 8;
+        nextX = Math.round(nextX / grid) * grid;
+        nextY = Math.round(nextY / grid) * grid;
+      }
+      
+      map.x = Math.max(0, Math.min(WIDTH - bounds(map).width, nextX));
+      map.y = Math.max(0, Math.min(HEIGHT - bounds(map).height, nextY));
+      syncInspector();
+      refreshBase();
     } else if (lastPoint) {
       rasterLine(lastPoint, p, (x, y) => {
         if (mode === 'ERASE') eraseBrush(map, x, y, eraserSize);

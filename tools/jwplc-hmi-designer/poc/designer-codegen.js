@@ -217,6 +217,7 @@
   }
 
   function variableDeclaration(field, index) {
+    if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) return '';
     const variable = canonicalFor(field, 'variable', field.variable, index);
     if (field.type === 'VALUE' || field.type === 'BAR') return `float ${variable} = 0.0f;`;
     if (field.type === 'BOOL') return `bool ${variable} = false;`;
@@ -225,6 +226,35 @@
   }
 
   function setterHint(field, index) {
+    if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
+      const c = `0x${(field.frameColor || 0xFFFF).toString(16).toUpperCase().padStart(4, '0')}`;
+      if (field.type === 'LINE') return `JWPLC_Display.getTFT()->drawLine(${field.x}, ${field.y}, ${field.x2}, ${field.y2}, ${c});`;
+      if (field.type === 'RECT') return `JWPLC_Display.getTFT()->drawRect(${Math.min(field.x, field.x2)}, ${Math.min(field.y, field.y2)}, ${Math.abs(field.x2 - field.x)}, ${Math.abs(field.y2 - field.y)}, ${c});`;
+      if (field.type === 'ELLIPSE') return `JWPLC_Display.getTFT()->drawCircle(${Math.min(field.x, field.x2) + Math.abs(field.x2 - field.x)/2}, ${Math.min(field.y, field.y2) + Math.abs(field.y2 - field.y)/2}, ${Math.max(Math.abs(field.x2 - field.x)/2, Math.abs(field.y2 - field.y)/2)}, ${c});`;
+      if (field.type === 'TRIANGLE') return `JWPLC_Display.getTFT()->drawTriangle(${Math.round((field.x + field.x2)/2)}, ${field.y}, ${field.x}, ${field.y2}, ${field.x2}, ${field.y2}, ${c});`;
+      if (field.type === 'POLYGON') {
+        const cx = (field.x + field.x2) / 2;
+        const cy = (field.y + field.y2) / 2;
+        const rx = Math.abs(field.x2 - field.x) / 2;
+        const ry = Math.abs(field.y2 - field.y) / 2;
+        const numSides = Math.max(3, Math.min(12, Math.trunc(Number(field.sides) || 5)));
+        const pts = [];
+        for (let i = 0; i < numSides; i++) {
+          const angle = (i * 2 * Math.PI / numSides) - Math.PI / 2;
+          pts.push({
+            x: Math.round(cx + rx * Math.cos(angle)),
+            y: Math.round(cy + ry * Math.sin(angle))
+          });
+        }
+        const cmds = [];
+        for (let i = 0; i < numSides; i++) {
+          const p1 = pts[i];
+          const p2 = pts[(i + 1) % numSides];
+          cmds.push(`JWPLC_Display.getTFT()->drawLine(${p1.x}, ${p1.y}, ${p2.x}, ${p2.y}, ${c});`);
+        }
+        return cmds.join('\\n        ');
+      }
+    }
     const id = canonicalFor(field, 'id', field.id, index);
     const variable = canonicalFor(field, 'variable', field.variable, index);
     if (field.type === 'VALUE') return `JWPLC_Display.setValue(${id}, ${variable});`;
@@ -242,7 +272,8 @@
         .map((field, index) => ({ field, index }))
         .filter(({ field }) => Number(field.page || 0) === Number(page.id));
       if (!entries.length) return;
-      const lines = entries.map(({ field, index }) => renderer(field, index));
+      const lines = entries.map(({ field, index }) => renderer(field, index)).filter(Boolean);
+      if (!lines.length) return;
       chunks.push(`${commentIndent}// ${pageComment(page)}\n${lines.join('\n')}`);
     });
 
@@ -303,6 +334,7 @@
 
   function groupGeneratedSections(text) {
     const enumLines = groupedChunks((field, index) => {
+      if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) return '';
       const id = canonicalFor(field, 'id', field.id, index);
       return `    ${id} = ${index + 1},`;
     }, '    ');

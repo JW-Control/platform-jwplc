@@ -36,8 +36,10 @@
   }
 
   window.addEventListener('jwplc:editor-refresh', syncFieldVisibility);
-  document.querySelector('.left-panel')?.addEventListener('click', () => {
-    setTimeout(syncFieldVisibility, 0);
+  document.body.addEventListener('click', (e) => {
+    if (e.target.closest('.left-panel') || e.target.closest('.canvas-toolbar')) {
+      setTimeout(syncFieldVisibility, 0);
+    }
   });
 
   syncFieldVisibility();
