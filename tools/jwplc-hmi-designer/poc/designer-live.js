@@ -18,7 +18,7 @@
   const previewCanvas = document.getElementById('previewCanvas');
   const toolbar = document.querySelector('.toolbar');
   const newProjectButton = document.getElementById('newProjectButton');
-  const componentTools = [...document.querySelectorAll('.component-tool[data-tool]')];
+  const componentTools = [...document.querySelectorAll('.canvas-tool[data-tool], .component-tool[data-tool]')];
   const demoButton = document.getElementById('demoButton');
   const demoValueButton = document.getElementById('demoValueButton');
   const codePanel = document.querySelector('.code-panel');

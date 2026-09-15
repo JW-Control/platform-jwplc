@@ -44,8 +44,8 @@
           '<link rel="icon" href="./icons/icon-48.png?v=alpha11-taskbar-raster-v3" type="image/png" sizes="48x48" />' +
           '<link rel="shortcut icon" href="./icons/icon-32.png?v=alpha11-taskbar-raster-v3" type="image/png" />' +
           '<link rel="manifest" href="./manifest.webmanifest?v=alpha11-taskbar-raster-v3" />' +
-          '<link rel="stylesheet" href="./desktop-responsive.css" />' +
-          '<link rel="stylesheet" href="./desktop-responsive-compat.css" />' +
+          '<link rel="stylesheet" href="./desktop-responsive.css?v=1789503011" />' +
+          '<link rel="stylesheet" href="./desktop-responsive-compat.css?v=1789503011" />' +
           '<style id="jwplcBootGuard">html{background:#101a21!important}body{opacity:0!important}</style>' +
           '</head>'
         );
@@ -53,12 +53,28 @@
         const closeScript = '<' + '/script>';
         html = html.replace(
           '</body>',
-          '<script src="./designer-project.js">' + closeScript +
-          '<script src="./designer-native-project.js">' + closeScript +
-          '<script src="./designer-pixelmap-workbench.js">' + closeScript +
-          '<script src="./designer-pixelmap-optimizer.js">' + closeScript +
-          '<script src="./designer-pixelmap-codegen-guard.js">' + closeScript +
-          '<script src="./designer-project-integration-fix.js">' + closeScript +
+          '
+<script>
+  window.addEventListener('error', function(e) {
+    var err = document.createElement('div');
+    err.style.position = 'fixed';
+    err.style.top = '0';
+    err.style.left = '0';
+    err.style.right = '0';
+    err.style.background = 'red';
+    err.style.color = 'white';
+    err.style.padding = '10px';
+    err.style.zIndex = '999999';
+    err.innerHTML = '<strong>CRITICAL JS ERROR:</strong> ' + e.message + ' en ' + e.filename + ':' + e.lineno;
+    document.body.appendChild(err);
+  });
+</script>
+<script src="./designer-project.js?v=1789503011">' + closeScript +
+          '<script src="./designer-native-project.js?v=1789503011">' + closeScript +
+          '<script src="./designer-pixelmap-workbench.js?v=1789503011">' + closeScript +
+          '<script src="./designer-pixelmap-optimizer.js?v=1789503011">' + closeScript +
+          '<script src="./designer-pixelmap-codegen-guard.js?v=1789503011">' + closeScript +
+          '<script src="./designer-project-integration-fix.js?v=1789503011">' + closeScript +
           '<script src="./desktop-responsive.js">' + closeScript +
           '<script>' +
           'window.addEventListener("load",function(){requestAnimationFrame(function(){var g=document.getElementById("jwplcBootGuard");if(g)g.remove();});},{once:true});' +

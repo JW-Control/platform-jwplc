@@ -8,7 +8,7 @@
   const DEFAULT_BAR_WIDTH = 80;
   const DEFAULT_BAR_HEIGHT = 12;
 
-  const barButton = [...document.querySelectorAll('.component-tool')]
+  const barButton = [...document.querySelectorAll('.component-tool, .canvas-tool')]
     .find((button) => button.querySelector('strong')?.textContent.trim() === 'BAR');
   const gate = document.querySelector('.page-tabs .gate');
   const bottomSummary = document.querySelector('.bottom-summary');
@@ -454,7 +454,7 @@
     if (fieldLayoutStatus) fieldLayoutStatus.textContent = field.layout;
     if (inspectorContract) inspectorContract.textContent = `float ${sanitizeSymbol(field.variable, 'nivel')} = 0.0f;`;
 
-    document.querySelectorAll('.component-tool').forEach((button) => button.classList.remove('active'));
+    document.querySelectorAll('.component-tool, .canvas-tool').forEach((button) => button.classList.remove('active'));
     barButton.classList.add('active');
   }
 

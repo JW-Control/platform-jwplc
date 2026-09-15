@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const boolButton = [...document.querySelectorAll('.component-tool')]
+  const boolButton = [...document.querySelectorAll('.component-tool, .canvas-tool')]
     .find((button) => button.querySelector('strong')?.textContent.trim() === 'BOOL');
   const gate = document.querySelector('.page-tabs .gate');
   const bottomSummary = document.querySelector('.bottom-summary');
@@ -195,7 +195,7 @@
       : (field.trueText || '—');
     inspectorContract.textContent = `bool ${sanitizeSymbol(field.variable, 'estado')} = false;`;
 
-    document.querySelectorAll('.component-tool').forEach((button) => button.classList.remove('active'));
+    document.querySelectorAll('.component-tool, .canvas-tool').forEach((button) => button.classList.remove('active'));
     boolButton.classList.add('active');
   }
 
