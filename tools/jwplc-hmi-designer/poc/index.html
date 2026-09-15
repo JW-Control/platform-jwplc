@@ -80,8 +80,8 @@
           <button class="tool canvas-tool active" data-tool="pointer" title="Seleccionar"><strong>↖</strong></button>
           <button class="tool canvas-tool" data-tool="textField" title="TEXT - Campo de texto"><strong>T</strong></button>
           <button class="tool canvas-tool" data-tool="valueField" title="VALUE - Valor numérico"><strong class="numeric">123</strong></button>
-          <button class="canvas-tool" disabled title="BOOL - A11-3C"><strong>○</strong></button>
-          <button class="tool canvas-tool" disabled title="BAR - A11-3D"><strong>▥</strong></button>
+          <button class="tool canvas-tool" data-tool="boolField" title="BOOL"><strong>○</strong></button>
+          <button class="tool canvas-tool" data-tool="barField" title="BAR"><strong>▥</strong></button>
           <span class="toolbar-divider"></span>
           <button class="tool canvas-tool utility-tool-btn" data-tool="line" title="Línea"><strong>╱</strong></button>
           <button class="tool canvas-tool utility-tool-btn" data-tool="rect" title="Rectángulo"><strong>□</strong></button>
@@ -370,11 +370,6 @@
     <span id="framebufferStatus" class="sr-only">Framebuffer: 54,400 px</span>
   </footer>
 
-  <script src="./gfx-classic-font.js?v=1789503011"></script>
-  <script src="./app.js?v=1789503011"></script>
-  <script src="./ux-foundation.js?v=1789503011"></script>
-  <script src="./designer-codegen.js?v=1789503011"></script>
-
   <div id="hiddenControlContainer" style="display:none !important;" aria-hidden="true">
     <canvas id="previewCanvas" width="320" height="170"></canvas>
     <select id="zoomSelect">
@@ -394,6 +389,13 @@
     <input id="snapToggle" type="checkbox" checked />
     <input id="geometryToggle" type="checkbox" checked />
   </div>
+
+    <script src="./gfx-classic-font.js?v=1789503011"></script>
+  <script src="./app.js?v=1789503011"></script>
+  <script src="./ux-foundation.js?v=1789503011"></script>
+  <script src="./designer-codegen.js?v=1789503011"></script>
+
+  
 
 </body>
 </html>
