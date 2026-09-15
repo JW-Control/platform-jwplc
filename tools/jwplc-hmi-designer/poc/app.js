@@ -155,6 +155,9 @@
   let fieldSerial = 1;
   let drawing = false;
   let draggingObject = false;
+  let isMarquee = false;
+  let marqueeStart = null;
+  let marqueeEnd = null;
   let dragOffset = { x: 0, y: 0 };
   let panX = 0;
   let panY = 0;
@@ -1716,6 +1719,11 @@ displayCanvas.addEventListener('pointerdown', (event) => {
         crosshairX.style.display = 'none';
         crosshairY.style.display = 'none';
       }
+    }
+
+    if (isMarquee && marqueeStart) {
+      marqueeEnd = point;
+      render();
     }
 
     if (drawing) {
