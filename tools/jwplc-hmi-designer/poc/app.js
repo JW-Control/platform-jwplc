@@ -26,16 +26,17 @@
   const displayCanvas = document.getElementById('displayCanvas');
   const displayCtx = displayCanvas.getContext('2d', { alpha: false });
   const previewCanvas = document.getElementById('previewCanvas');
-  const previewCtx = previewCanvas.getContext('2d', { alpha: false });
+  const previewCtx = previewCanvas ? previewCanvas.getContext('2d', { alpha: false }) : null;
   const logicalCanvas = document.createElement('canvas');
   logicalCanvas.width = WIDTH;
   logicalCanvas.height = HEIGHT;
   const logicalCtx = logicalCanvas.getContext('2d', { alpha: false });
 
   const zoomSelect = document.getElementById('zoomSelect');
-  const gridToggle = { checked: true }; document.getElementById('vertGridToggle')?.addEventListener('click', function() { gridToggle.checked = !gridToggle.checked; this.classList.toggle('active', gridToggle.checked); render(); });
-  const gridSizeSelect = { value: '8' };
-  const snapToggle = { checked: true }; document.getElementById('vertSnapToggle')?.addEventListener('click', function() { snapToggle.checked = !snapToggle.checked; this.classList.toggle('active', snapToggle.checked); render(); });
+  const gridToggle = document.getElementById('gridToggle');
+  const gridSizeSelect = document.getElementById('gridSizeSelect');
+  const snapToggle = document.getElementById('snapToggle');
+  const geometryToggle = document.getElementById('geometryToggle'); document.getElementById('vertSnapToggle')?.addEventListener('click', function() { snapToggle.checked = !snapToggle.checked; this.classList.toggle('active', snapToggle.checked); render(); });
   const clearButton = document.getElementById('clearButton');
   const newProjectButton = document.getElementById('newProjectButton');
   const demoButton = document.getElementById('demoButton');
@@ -842,32 +843,45 @@
     displayCtx.drawImage(logicalCanvas, 0, 0, WIDTH, HEIGHT, 0, 0, WIDTH * zoom, HEIGHT * zoom);
     drawGrid();
 
-    previewCtx.imageSmoothingEnabled = false;
-    previewCtx.clearRect(0, 0, WIDTH, HEIGHT);
-    previewCtx.drawImage(logicalCanvas, 0, 0);
+    if (previewCtx) {
+      previewCtx.imageSmoothingEnabled = false;
+      previewCtx.clearRect(0, 0, WIDTH, HEIGHT);
+      previewCtx.drawImage(logicalCanvas, 0, 0);
+    }
 
     renderObjectList();
-    
+
     const sel = selectedField();
     if (sel && sel.type !== 'PIXELMAP') {
-      const g = computeFieldGeometry(sel);
-      let left = g.fieldX;
-      let top = g.fieldY;
-      let w = g.fieldW;
-      let h = g.fieldH;
+      let left, top, w, h;
       if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(sel.type)) {
-        left = Math.min(sel.x, sel.x2);
-        top = Math.min(sel.y, sel.y2);
-        w = Math.abs(sel.x2 - sel.x) || 1;
-        h = Math.abs(sel.y2 - sel.y) || 1;
+        left = Math.min(sel.x, sel.x2 ?? sel.x);
+        top = Math.min(sel.y, sel.y2 ?? sel.y);
+        w = Math.max(1, Math.abs((sel.x2 ?? sel.x) - sel.x));
+        h = Math.max(1, Math.abs((sel.y2 ?? sel.y) - sel.y));
+      } else {
+        const g = computeFieldGeometry(sel);
+        left = g.fieldX;
+        top = g.fieldY;
+        w = g.fieldW;
+        h = g.fieldH;
       }
       displayCtx.save();
-      displayCtx.strokeStyle = '#00ff00';
+      displayCtx.strokeStyle = '#ff9a43';
       displayCtx.lineWidth = 1;
-      displayCtx.setLineDash([4, 4]);
+      displayCtx.setLineDash([3, 3]);
       displayCtx.strokeRect(left * zoom - 1.5, top * zoom - 1.5, w * zoom + 3, h * zoom + 3);
+      displayCtx.fillStyle = '#ff9a43';
+      const s = 4;
+      displayCtx.fillRect(left * zoom - 2, top * zoom - 2, s, s);
+      displayCtx.fillRect((left + w) * zoom - 2, top * zoom - 2, s, s);
+      displayCtx.fillRect(left * zoom - 2, (top + h) * zoom - 2, s, s);
+      displayCtx.fillRect((left + w) * zoom - 2, (top + h) * zoom - 2, s, s);
       displayCtx.restore();
     }
+  
+    
+
 
     updateMetrics();
     updateCodePanel();
@@ -1634,55 +1648,9 @@
     return null;
   }
 
-    const canvasViewport = document.getElementById('canvasViewport');
-  let isPanning = false;
-  let panStartX = 0;
-  let panStartY = 0;
-  let viewportScrollLeft = 0;
-  let viewportScrollTop = 0;
-
-  canvasViewport.addEventListener('pointerdown', (e) => {
-    if (e.button === 2 || e.button === 1) { // Right or Middle click
-      isPanning = true;
-      panStartX = e.clientX;
-      panStartY = e.clientY;
-      viewportScrollLeft = canvasViewport.scrollLeft;
-      viewportScrollTop = canvasViewport.scrollTop;
-      canvasViewport.style.cursor = 'grabbing';
-      e.preventDefault();
-    }
-  });
-
-  window.addEventListener('pointermove', (e) => {
-    if (isPanning) {
-      const dx = e.clientX - panStartX;
-      const dy = e.clientY - panStartY;
-      canvasViewport.scrollLeft = viewportScrollLeft - dx;
-      canvasViewport.scrollTop = viewportScrollTop - dy;
-      e.preventDefault();
-    }
-  });
-
-  window.addEventListener('pointerup', (e) => {
-    if ((e.button === 2 || e.button === 1) && isPanning) {
-      isPanning = false;
-      canvasViewport.style.cursor = '';
-    }
-  });
-
-  canvasViewport.addEventListener('contextmenu', (e) => {
-    e.preventDefault();
-  });
-
-  canvasViewport.addEventListener('wheel', (e) => {
-    if (e.ctrlKey) {
-      e.preventDefault();
-      
-      if (e.deltaY < 0) { zoom = Math.min(8, zoom + 1); } else { zoom = Math.max(1, zoom - 1); }
-      render();
-    }
-  }, { passive: false });
+    
 displayCanvas.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return;
     const point = pointFromPointer(event);
     if (!inside(point.x, point.y)) return;
     displayCanvas.setPointerCapture(event.pointerId);
@@ -1969,3 +1937,116 @@ displayCanvas.addEventListener('pointerdown', (event) => {
 
 
 
+
+// --- Viewport Panning & Vertical Toolbar Wire-up ---
+
+  // --- Viewport Panning (Right-click or Middle-click) and Zoom (Ctrl+Scroll) ---
+  const canvasViewport = document.getElementById('canvasViewport');
+  let isPanning = false;
+  let panStartX = 0;
+  let panStartY = 0;
+  let viewportScrollLeft = 0;
+  let viewportScrollTop = 0;
+
+  if (canvasViewport) {
+    canvasViewport.addEventListener('mousedown', (e) => {
+      if (e.button === 2 || e.button === 1) {
+        isPanning = true;
+        panStartX = e.clientX;
+        panStartY = e.clientY;
+        viewportScrollLeft = canvasViewport.scrollLeft;
+        viewportScrollTop = canvasViewport.scrollTop;
+        canvasViewport.style.cursor = 'grabbing';
+        e.preventDefault();
+      }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (isPanning) {
+        const dx = e.clientX - panStartX;
+        const dy = e.clientY - panStartY;
+        canvasViewport.scrollLeft = viewportScrollLeft - dx;
+        canvasViewport.scrollTop = viewportScrollTop - dy;
+        e.preventDefault();
+      }
+    });
+
+    window.addEventListener('mouseup', (e) => {
+      if (isPanning && (e.button === 2 || e.button === 1)) {
+        isPanning = false;
+        canvasViewport.style.cursor = '';
+      }
+    });
+
+    canvasViewport.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+    });
+
+    canvasViewport.addEventListener('wheel', (e) => {
+      if (e.ctrlKey) {
+        e.preventDefault();
+        const sel = document.getElementById('zoomSelect');
+        if (!sel) return;
+        let idx = sel.selectedIndex;
+        if (e.deltaY < 0) {
+          idx = Math.min(sel.options.length - 1, idx + 1);
+        } else {
+          idx = Math.max(0, idx - 1);
+        }
+        if (idx !== sel.selectedIndex) {
+          sel.selectedIndex = idx;
+          sel.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }
+    }, { passive: false });
+  }
+
+  // --- Vertical Toolbar Discrete Buttons Wire-up ---
+  document.getElementById('zoomInBtn')?.addEventListener('click', () => {
+    const sel = document.getElementById('zoomSelect');
+    if (sel && sel.selectedIndex < sel.options.length - 1) {
+      sel.selectedIndex += 1;
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  });
+
+  document.getElementById('zoomOutBtn')?.addEventListener('click', () => {
+    const sel = document.getElementById('zoomSelect');
+    if (sel && sel.selectedIndex > 0) {
+      sel.selectedIndex -= 1;
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  });
+
+  document.getElementById('fitCanvasBtn')?.addEventListener('click', () => {
+    document.getElementById('fitButton')?.click();
+  });
+
+  document.getElementById('vertGridToggle')?.addEventListener('click', function() {
+    const toggle = document.getElementById('gridToggle');
+    if (toggle) {
+      toggle.checked = !toggle.checked;
+      this.classList.toggle('active', toggle.checked);
+      toggle.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  });
+
+  document.getElementById('vertSnapToggle')?.addEventListener('click', function() {
+    const toggle = document.getElementById('snapToggle');
+    if (toggle) {
+      toggle.checked = !toggle.checked;
+      this.classList.toggle('active', toggle.checked);
+      toggle.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  });
+
+  document.getElementById('vertGeoToggle')?.addEventListener('click', function() {
+    const toggle = document.getElementById('geometryToggle');
+    if (toggle) {
+      toggle.checked = !toggle.checked;
+      this.classList.toggle('active', toggle.checked);
+      toggle.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  });
+
+// --- End PanZoom ---

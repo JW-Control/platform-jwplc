@@ -77,7 +77,7 @@
 
       <div id="canvasViewport" class="canvas-viewport">
         <div class="canvas-toolbar">
-          <button class="tool canvas-tool active" data-tool="pointer" title="Seleccionar"><strong>🡔</strong></button>
+          <button class="tool canvas-tool active" data-tool="pointer" title="Seleccionar"><strong>↖</strong></button>
           <button class="tool canvas-tool" data-tool="textField" title="TEXT - Campo de texto"><strong>T</strong></button>
           <button class="tool canvas-tool" data-tool="valueField" title="VALUE - Valor numérico"><strong class="numeric">123</strong></button>
           <button class="canvas-tool" disabled title="BOOL - A11-3C"><strong>○</strong></button>
@@ -97,14 +97,15 @@
           <div id="pixelmapWorkbenchTools" class="pixelmap-tools" style="display: none; align-items: center; gap: 4px;"></div>
         </div>
 
-        <div class="right-vertical-toolbar">
-          <button id="zoomInBtn" class="vert-btn" title="Acercar (Zoom In)">+</button>
-          <button id="zoomOutBtn" class="vert-btn" title="Alejar (Zoom Out)">-</button>
-          <button id="fitCanvasBtn" class="vert-btn" title="Ajustar" style="margin-bottom:8px">1:1</button>
-          
-          <button id="vertGridToggle" class="vert-btn toggle-btn active" title="Ver Grid">?</button>
-          <button id="vertSnapToggle" class="vert-btn toggle-btn active" title="Snap to Grid">?</button>
-          <button id="vertGeoToggle" class="vert-btn toggle-btn active" title="Ver Geometr�a">??</button>
+
+        <div class="right-vertical-toolbar" aria-label="Controles de Lienzo">
+          <button id="zoomInBtn" class="vert-btn" type="button" title="Acercar (Zoom In)">+</button>
+          <button id="zoomOutBtn" class="vert-btn" type="button" title="Alejar (Zoom Out)">−</button>
+          <button id="fitCanvasBtn" class="vert-btn" type="button" title="Ajustar">⛶</button>
+          <span class="vert-divider"></span>
+          <button id="vertGridToggle" class="vert-btn toggle-btn active" type="button" title="Alternar Grilla">▦</button>
+          <button id="vertSnapToggle" class="vert-btn toggle-btn active" type="button" title="Ajuste Magnético (Snap)">⧉</button>
+          <button id="vertGeoToggle" class="vert-btn toggle-btn active" type="button" title="Guías de Geometría">📐</button>
         </div>
 
         <div id="canvasStage" class="canvas-stage">
@@ -373,6 +374,27 @@
   <script src="./app.js"></script>
   <script src="./ux-foundation.js"></script>
   <script src="./designer-codegen.js"></script>
+
+  <div id="hiddenControlContainer" style="display:none !important;" aria-hidden="true">
+    <canvas id="previewCanvas" width="320" height="170"></canvas>
+    <select id="zoomSelect">
+      <option value="1">1�</option>
+      <option value="2">2�</option>
+      <option value="3" selected>3�</option>
+      <option value="4">4�</option>
+      <option value="6">6�</option>
+      <option value="8">8�</option>
+    </select>
+    <select id="gridSizeSelect">
+      <option value="4">4px</option>
+      <option value="8" selected>8px</option>
+      <option value="16">16px</option>
+    </select>
+    <input id="gridToggle" type="checkbox" checked />
+    <input id="snapToggle" type="checkbox" checked />
+    <input id="geometryToggle" type="checkbox" checked />
+  </div>
+
 </body>
 </html>
 
