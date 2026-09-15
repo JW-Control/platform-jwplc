@@ -53,7 +53,7 @@
         const closeScript = '<' + '/script>';
         html = html.replace(
           '</body>',
-          '<script>window.addEventListener(\'error\', function(e) { var err = document.createElement(\'div\'); err.style.position = \'fixed\'; err.style.top = \'0\'; err.style.left = \'0\'; err.style.right = \'0\'; err.style.background = \'red\'; err.style.color = \'white\'; err.style.padding = \'10px\'; err.style.zIndex = \'999999\'; err.innerHTML = \'<strong>CRITICAL JS ERROR:</strong> \' + e.message + \' en \' + e.filename + \':\' + e.lineno; document.body.appendChild(err); });</script>' +
+          '<script>window.addEventListener(\'error\', function(e) { var err = document.createElement(\'div\'); err.style.position = \'fixed\'; err.style.top = \'0\'; err.style.left = \'0\'; err.style.right = \'0\'; err.style.background = \'red\'; err.style.color = \'white\'; err.style.padding = \'10px\'; err.style.zIndex = \'999999\'; err.innerHTML = \'<strong>CRITICAL JS ERROR:</strong> \' + e.message + \' en \' + e.filename + \':\' + e.lineno; document.body.appendChild(err); });' + closeScript +
           '<script src="./designer-project.js?v=1789503402">' + closeScript +
           '<script src="./designer-native-project.js?v=1789503402">' + closeScript +
           '<script src="./designer-pixelmap-workbench.js?v=1789503402">' + closeScript +
