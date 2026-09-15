@@ -24,6 +24,7 @@
   const framebuffer = new Uint16Array(WIDTH * HEIGHT);
 
   const displayCanvas = document.getElementById('displayCanvas');
+  const canvasViewport = document.getElementById('canvasViewport');
   const displayCtx = displayCanvas.getContext('2d', { alpha: false });
   const previewCanvas = document.getElementById('previewCanvas');
   const previewCtx = previewCanvas ? previewCanvas.getContext('2d', { alpha: false }) : null;
@@ -155,6 +156,10 @@
   let drawing = false;
   let draggingObject = false;
   let dragOffset = { x: 0, y: 0 };
+  let panX = 0;
+  let panY = 0;
+  let isPanning = false;
+  let lastPanPointer = null;
   let lastPoint = null;
   let codeMode = 'status';
   let gestureChanged = false;
@@ -1691,7 +1696,30 @@ displayCanvas.addEventListener('pointerdown', (event) => {
     updateCursor(point);
     if (!inside(point.x, point.y)) return;
 
+
+    const crosshairX = document.getElementById('crosshairX');
+    const crosshairY = document.getElementById('crosshairY');
+    if (crosshairX && crosshairY) {
+      if (inside(point.x, point.y)) {
+        crosshairX.style.display = 'block';
+        crosshairY.style.display = 'block';
+        
+        // We position crosshairs relative to the viewport, not the canvas!
+        // We just use event.clientX and event.clientY minus the viewport offset.
+        const viewportRect = canvasViewport.getBoundingClientRect();
+        const cx = event.clientX - viewportRect.left;
+        const cy = event.clientY - viewportRect.top;
+        
+        crosshairX.style.left = `${cx}px`;
+        crosshairY.style.top = `${cy}px`;
+      } else {
+        crosshairX.style.display = 'none';
+        crosshairY.style.display = 'none';
+      }
+    }
+
     if (drawing) {
+
       if (['line', 'rect', 'ellipse', 'triangle', 'polygon'].includes(selectedTool) || ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(selectedField()?.type)) {
         const field = selectedField();
         if (field) {
@@ -1926,6 +1954,7 @@ displayCanvas.addEventListener('pointerdown', (event) => {
     moveSelectedFieldToPage,
     commitHistory,
     render,
+      setPan: (x, y) => { panX = x; panY = y; if (canvasStage) canvasStage.style.transform = `translate(${panX}px, ${panY}px)`; },
     undo,
     redo,
     duplicateSelectedField,
