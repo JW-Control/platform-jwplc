@@ -1139,17 +1139,43 @@ $ServiceGap =
         $DutText `
         "RTU_SERVICE_GAP_MAX_US"
 
-$MinSlaveFrames =
-    [Math]::Max(
-        $MinStarted,
-        $Success - 5
+# El snapshot de COM14 puede cerrarse antes de que COM4 procese
+# completamente el comando X. Send-MasterCommand espera 200 ms
+# antes de escribirlo; a 50 Hz eso equivale a ~10 requests.
+# Añadimos 2 frames de margen por polling/scheduling.
+#
+# Esta tolerancia SOLO aplica al cross-count entre snapshots.
+# Errores CRC, excepciones, timeouts y fallos del master siguen
+# siendo condiciones estrictas de fallo.
+$RtuSnapshotTailTolerance = 12
+
+$DutRxDelta =
+    [Math]::Abs(
+        [int64]$Success - [int64]$DutRx
     )
+
+$DutTxDelta =
+    [Math]::Abs(
+        [int64]$Success - [int64]$DutTx
+    )
+
+$DutOkDelta =
+    [Math]::Abs(
+        [int64]$Success - [int64]$DutOk
+    )
+
+$DutCrossCountPass = (
+    $DutRxDelta -le $RtuSnapshotTailTolerance -and
+    $DutTxDelta -le $RtuSnapshotTailTolerance -and
+    $DutOkDelta -le $RtuSnapshotTailTolerance
+)
 
 $DutRtuPass = (
     $RtuReady -and
-    $DutRx -ge $MinSlaveFrames -and
-    $DutTx -ge $MinSlaveFrames -and
-    $DutOk -ge $MinSlaveFrames -and
+    $DutRx -ge $MinStarted -and
+    $DutTx -ge $MinStarted -and
+    $DutOk -ge $MinStarted -and
+    $DutCrossCountPass -and
     $DutCrc -eq 0 -and
     $DutEx -eq 0 -and
     $DutLastOk
@@ -1179,6 +1205,11 @@ Write-Host "RTU_READY=$RtuReady"
 Write-Host "RTU_RX_FRAMES=$DutRx"
 Write-Host "RTU_TX_FRAMES=$DutTx"
 Write-Host "RTU_REQUESTS_OK=$DutOk"
+Write-Host "RTU_SNAPSHOT_TAIL_TOLERANCE=$RtuSnapshotTailTolerance"
+Write-Host "RTU_RX_MASTER_DELTA=$DutRxDelta"
+Write-Host "RTU_TX_MASTER_DELTA=$DutTxDelta"
+Write-Host "RTU_OK_MASTER_DELTA=$DutOkDelta"
+Write-Host "RTU_CROSS_COUNT_PASS=$DutCrossCountPass"
 Write-Host "RTU_CRC_ERRORS=$DutCrc"
 Write-Host "RTU_EXCEPTIONS_SENT=$DutEx"
 Write-Host "RTU_LAST_ERROR_OK=$DutLastOk"
