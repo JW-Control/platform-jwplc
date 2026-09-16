@@ -73,13 +73,22 @@ def main():
         required=True
     )
 
+    parser.add_argument(
+        "--snapshot-out",
+        default="",
+        help=(
+            "Ruta opcional donde persistir el snapshot final "
+            "capturado mientras COM14 sigue abierto"
+        )
+    )
+
     args = parser.parse_args()
 
     print()
     print("=" * 76)
     print(
         " A14.3 PERF-S2 FULL_RUNTIME_REALISTIC "
-        "@ 1000 req/s QUALIFICATION"
+        f"@ {args.rate:.0f} req/s QUALIFICATION"
     )
     print("=" * 76)
 
@@ -147,7 +156,7 @@ def main():
 
         print()
         print(
-            "=== RUN 60S FC03/125 @ 1000 req/s ==="
+            f"=== RUN {args.duration:.0f}S FC03/125 @ {args.rate:.0f} req/s ==="
         )
 
         row = frontier.run_case(
@@ -176,6 +185,35 @@ def main():
         smoke.print_peripheral_snapshot(
             final
         )
+
+        # Persistir opcionalmente el snapshot final mientras la
+        # sesión Serial de COM14 sigue abierta. Esto permite que
+        # harness externos validen RTU/full-runtime sin reabrir
+        # el puerto y sin provocar un reset del DUT.
+        if args.snapshot_out:
+            snapshot_path = Path(
+                args.snapshot_out
+            )
+
+            snapshot_path.parent.mkdir(
+                parents=True,
+                exist_ok=True
+            )
+
+            with snapshot_path.open(
+                "w",
+                encoding="utf-8",
+                newline="\n"
+            ) as f:
+                for key, value in final.items():
+                    f.write(
+                        f"{key}={value}\n"
+                    )
+
+            print(
+                "FINAL_SNAPSHOT_FILE="
+                f"{snapshot_path}"
+            )
 
     finally:
         ser.close()
@@ -395,7 +433,7 @@ def main():
     print()
     print("=" * 76)
     print(
-        " FULL_RUNTIME_REALISTIC 1000 req/s SUMMARY"
+        f" FULL_RUNTIME_REALISTIC {args.rate:.0f} req/s SUMMARY"
     )
     print("=" * 76)
 
