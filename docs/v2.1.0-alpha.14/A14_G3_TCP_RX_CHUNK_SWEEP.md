@@ -23,7 +23,7 @@ Configuración G2 en 26 MHz:
 - `TCP_SPI_HOLD_MAX_US <= 5000`: `PASS_PREFERRED`;
 - `5000 < TCP_SPI_HOLD_MAX_US <= 10000`: `REVIEW`;
 - `TCP_SPI_HOLD_MAX_US > 10000`: `FAIL`;
-- cualquier diagnóstico visual `SPI`: `FAIL`;
+- cualquier diagnóstico visual `SPI` confirmado por observación física: `FAIL`;
 - cualquier error de ownership/transporte o pérdida de integridad: `FAIL`.
 
 El límite de 10 ms es un techo experimental, no una relajación automática del criterio de convivencia SPI.
@@ -46,7 +46,7 @@ El límite de 10 ms es un techo experimental, no una relajación automática del
 
 ### G3-B — smoke físico exacto
 
-**FAIL observado**.
+**FAIL observado, pendiente de separar teardown TCP de trabajo normal.**
 
 | Modo | Throughput | Hold máx. | Clase |
 |---|---:|---:|---|
@@ -57,7 +57,7 @@ El límite de 10 ms es un techo experimental, no una relajación automática del
 
 Observación física:
 
-- se observó parpadeo rojo del diagnóstico `SPI` en la TFT;
+- en este smoke sí se observó parpadeo rojo del diagnóstico `SPI` en la TFT;
 - `VISUAL_SPI_EVENTS=1`;
 - `G3_PHYSICAL_SMOKE=FAIL`.
 
@@ -75,51 +75,92 @@ Resultado:
 - TCP_TX hold máximo global: **1000460 us**;
 - firma ~1 s en TCP_TX: **1/12**;
 - `LOOP_GAP_MAX_US` del evento: **1002922 us**;
-- se volvió a observar diagnóstico visual rojo `SPI`;
+- se volvió a reportar observación visual `SPI` durante el bloque;
 - `G3_STOP_TIMEOUT_SIGNATURE=REPRODUCED`.
 
 La firma de ~1 s no es una coincidencia aislada: fue reproducida por segunda vez y nuevamente quedó asociada a TCP_TX.
 
-### Hipótesis de causa — `EthernetClient::stop()`
+### Causa del hold extremo — confirmada por A/B
 
 La librería `JWPLC_Ethernet` inicializa `_timeout = 1000` ms en `EthernetClient`. Su método `stop()` inicia un cierre graceful y puede esperar hasta `_timeout`, con `delay(1)`, antes de forzar `socketClose()`.
 
-El benchmark llama `tcpClient.stop()` desde `acceptTcpClient()`, y esa ruta se ejecuta dentro de `serviceTcp()` después de adquirir el mutex SPI y antes de medir/liberar el hold. Por ello existe una ruta plausible y concreta para retener ownership SPI alrededor de 1 segundo durante el cierre de un cliente anterior.
+El benchmark llama `tcpClient.stop()` desde `acceptTcpClient()`, y esa ruta se ejecuta dentro de `serviceTcp()` después de adquirir el mutex SPI y antes de medir/liberar el hold. Por ello el tiempo de espera completo de `stop()` queda cargado a `TCP_SPI_HOLD_MAX_US` y mantiene bloqueado el SPI compartido.
 
-Clasificación actual:
+Se ejecutó un A/B diagnóstico con una copia temporal del sketch, sin modificar la fuente tracked:
 
-- `TCP_TX_1S_HOLD_REPRODUCED=YES`;
-- `STOP_TIMEOUT_1000MS_MATCH=YES`;
-- `STOP_TIMEOUT_CAUSALITY=HIGH_CONFIDENCE_HYPOTHESIS`;
-- `8_CHUNKS_CAUSED_1S_HOLD=NOT_ESTABLISHED`.
+- control: timeout por defecto **1000 ms**;
+- variante diagnóstica: `tcpClient.setConnectionTimeout(200)`;
+- misma frecuencia: 26 MHz;
+- mismos 8 chunks;
+- mismos 12 pares TCP_RX -> TCP_TX;
+- mismo runner/snapshot exacto.
 
-### A/B diagnóstico pendiente
+Resultado del A/B:
 
-Antes de rechazar definitivamente 8 chunks o pasar a 6 chunks, se ejecutará un A/B controlado:
+- firma ~1 s TCP_TX: **0/12** con timeout de 200 ms;
+- firma desplazada 150–300 ms TCP_TX: **1/12**;
+- hold TCP_TX máximo: **199547 us**;
+- loop gap asociado: **201061 us**;
+- hold TCP_RX máximo: **5424 us**;
+- firma desplazada en TCP_RX: **0/12**;
+- `G3_STOP_TIMEOUT_AB=SHIFTED_TO_DIAG_TIMEOUT`.
 
-- fuente tracked permanece intacta;
-- se crea una copia temporal del sketch;
-- sólo en esa copia se aplica `tcpClient.setConnectionTimeout(200)` al cliente aceptado;
-- se compila/sube esa variante diagnóstica;
-- se repiten 12 pares TCP_RX -> TCP_TX;
-- si la firma se desplaza de ~1.0 s a ~0.2 s, se considerará evidencia causal fuerte de `EthernetClient::stop()`.
+La relación observada es directa:
 
-Este cambio de timeout es exclusivamente diagnóstico y **no constituye todavía una corrección de producto**.
+| Timeout configurado | Hold extremo observado |
+|---:|---:|
+| 1000 ms | 1000460–1000754 us |
+| 200 ms | 199547 us |
 
-### Estado de decisión
+Por tanto se considera establecida experimentalmente la causalidad:
 
-`G3_26MHZ_8CHUNKS=FAIL_OBSERVED_PENDING_CAUSE_SEPARATION`
+- `TCP_EXTREME_HOLD_CAUSE=ETHERNETCLIENT_STOP_TIMEOUT`;
+- `STOP_TIMEOUT_CAUSALITY=CONFIRMED_BY_AB`;
+- `8_CHUNKS_CAUSED_1S_HOLD=NO`;
+- `TCP_RX_8_CHUNKS_NORMAL_HOLD≈5.1–5.4ms`.
 
-El smoke observado sigue siendo FAIL porque hubo evento visual `SPI` y un hold >10 ms. Sin embargo, la evidencia actual indica que el hold extremo puede pertenecer al cierre TCP legacy y no al tamaño del burst TCP_RX. Por ello se difiere el rechazo definitivo del candidato hasta completar el A/B de timeout.
+La observación física del A/B de 200 ms **no se usa como evidencia**, porque el operador indicó que no pudo estar atento a la TFT durante esa corrida. El dato válido del gate es el desplazamiento temporal medido en snapshot exacto.
 
-## Candidato 26 MHz / 6 chunks
+### Alcance de la causa
 
-Queda **diferido** hasta cerrar el A/B del timeout. Si se demuestra que el evento de ~1 s pertenece a `stop()`, se reevaluará 8 chunks usando telemetría que separe el cierre TCP de la ventana de trabajo normal antes de decidir si 6 chunks es necesario.
+El `stop()` bloqueante pertenece a la librería, pero el hold SPI de ~1 s observado aquí surge de la combinación de dos hechos:
+
+1. `EthernetClient::stop()` puede esperar hasta `_timeout`;
+2. el raw benchmark mantiene el mutex SPI global durante toda la llamada a `stop()`.
+
+Esto confirma un defecto de la ruta de benchmark/ownership actual. **Todavía no demuestra por sí solo que todo uso normal de `EthernetClient::stop()` en producto mantenga el SPI bloqueado durante 1 s.** Antes de cambiar la API o el comportamiento legacy se debe auditar el uso productivo y definir una estrategia cooperativa compatible.
+
+No se adopta `setConnectionTimeout(200)` como corrección de producto: sólo fue una sonda causal.
+
+### Estado de decisión del candidato 8 chunks
+
+El rechazo definitivo de 8 chunks queda suspendido hasta repetir el smoke con una ruta de teardown que no contamine el hold normal con la espera bloqueante de `stop()`.
+
+Lo que sí está demostrado para el burst de 8 chunks:
+
+- TCP_RX típico: ~13.5–13.8 Mbps;
+- hold TCP_RX típico máximo por corrida: ~5.0–5.4 ms;
+- TCP_RX >10 ms: 0/12 en el diagnóstico repetido;
+- el hold extremo de ~1 s no pertenece al burst RX.
+
+Por tanto:
+
+`G3_26MHZ_8CHUNKS=REVIEW_PENDING_TEARDOWN_FIX`
+
+## Siguiente gate
+
+Antes de pasar a 6 chunks:
+
+1. corregir únicamente la contaminación del teardown TCP en el benchmark/ownership de prueba;
+2. no reducir el timeout productivo para ocultar el problema;
+3. repetir smoke exacto 26 MHz / 8 chunks;
+4. observar físicamente la TFT;
+5. decidir 8 vs 6 chunks con telemetría de trabajo normal separada del cierre TCP.
 
 ## Estado
 
 | Frecuencia | Chunks | Estático | Smoke | Estado |
 |---:|---:|---|---|---|
 | 26 MHz | 4 | baseline G2 | PASS | BASELINE |
-| 26 MHz | 8 | PASS | FAIL observado | A/B TIMEOUT PENDING |
+| 26 MHz | 8 | PASS | contaminado por teardown | REVIEW / FIX TEARDOWN |
 | 26 MHz | 6 | pendiente | pendiente | DEFERRED |
