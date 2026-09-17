@@ -209,7 +209,7 @@ function Get-G2SpiHz {
     $text = [System.IO.File]::ReadAllText($path)
     $boundaryIndex = Get-G2SpiBaseBoundaryIndex -Text $text
     $baseRegion = $text.Substring(0, $boundaryIndex)
-    $matches = Get-G2SpiBaseMatches -BaseRegion $baseRegion
+    $matches = @(Get-G2SpiBaseMatches -BaseRegion $baseRegion)
 
     Write-Host "SPI_BASE_SETTINGS_COUNT=$($matches.Count)"
 
@@ -231,7 +231,7 @@ function Set-G2SpiHz {
     $boundaryIndex = Get-G2SpiBaseBoundaryIndex -Text $text
     $baseRegion = $text.Substring(0, $boundaryIndex)
     $conditionalRegion = $text.Substring($boundaryIndex)
-    $matches = Get-G2SpiBaseMatches -BaseRegion $baseRegion
+    $matches = @(Get-G2SpiBaseMatches -BaseRegion $baseRegion)
 
     if ($matches.Count -ne 1) {
         throw "G2_BASE_SPI_SETTINGS_COUNT=$($matches.Count)"
