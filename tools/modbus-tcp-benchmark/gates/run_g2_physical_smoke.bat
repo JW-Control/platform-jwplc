@@ -6,5 +6,5 @@ if "%~1"=="" (
   exit /b 2
 )
 
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0g2_physical_smoke.ps1" -MHz %~1
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0g2_physical_smoke_exact.ps1" -MHz %~1
 exit /b %errorlevel%
