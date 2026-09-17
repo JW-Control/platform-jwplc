@@ -1,27 +1,27 @@
 #include <JWPLC_Ethernet.h>
-#include <jwplc_ethernet_async_tx.h>
 #include <jwplc_spi_bus.h>
+#include <SPI.h>
+#include "utility/w5100.h"
 
 static constexpr uint16_t PROBE_PORT = 5003;
-static constexpr size_t TX_CHUNK_BYTES = 1024;
-static constexpr uint32_t BACKPRESSURE_CONFIRM_MS = 50;
-static constexpr uint32_t MIN_PREFILL_BYTES = 4096;
+static constexpr size_t CONTROLLED_PENDING_BYTES = 1024;
+static constexpr uint32_t CONTROLLED_RELEASE_MS = 300;
 
 EthernetServer probeServer(PROBE_PORT);
 EthernetClient probeClient;
-JWPLC_EthernetAsyncTx asyncTx;
 
-static uint8_t txBuffer[TX_CHUNK_BYTES];
+static uint8_t txBuffer[CONTROLLED_PENDING_BYTES];
 static bool serverStarted = false;
 static bool commandReceived = false;
 static bool flushActive = false;
 static bool flushPendingObserved = false;
+static bool controlledSendReleased = false;
 static bool stopActive = false;
+static bool resultReady = false;
 static bool resultPrinted = false;
 static bool probeFailed = false;
 static int probeResult = 0;
-static uint32_t txCompletedBytes = 0;
-static uint32_t txPendingSinceMs = 0;
+static uint32_t txBufferedBytes = 0;
 static uint32_t flushStartedAtMs = 0;
 static uint32_t flushCompletedAtMs = 0;
 static uint32_t flushPollCount = 0;
@@ -46,11 +46,12 @@ static void failProbe(int code)
 {
     probeFailed = true;
     probeResult = code;
+    resultReady = true;
 }
 
 static void printResultIfReady()
 {
-    if (resultPrinted || (!probeFailed && !stopActive && probeResult == 0))
+    if (resultPrinted || !resultReady)
     {
         return;
     }
@@ -59,8 +60,12 @@ static void printResultIfReady()
     Serial.println("NB1_FLUSH_PROBE_RESULT=BEGIN");
     Serial.print("RESULT_CODE=");
     Serial.println(probeResult);
-    Serial.print("TX_COMPLETED_BYTES_BEFORE_FLUSH=");
-    Serial.println(txCompletedBytes);
+    Serial.print("TX_BUFFERED_BYTES_BEFORE_FLUSH=");
+    Serial.println(txBufferedBytes);
+    Serial.print("CONTROLLED_RELEASE_MS=");
+    Serial.println(CONTROLLED_RELEASE_MS);
+    Serial.print("CONTROLLED_SEND_RELEASED=");
+    Serial.println(controlledSendReleased ? "YES" : "NO");
     Serial.print("FLUSH_PENDING_OBSERVED=");
     Serial.println(flushPendingObserved ? "YES" : "NO");
     Serial.print("FLUSH_DURATION_MS=");
@@ -91,6 +96,93 @@ static void startServerIfReadyLocked()
     }
 }
 
+static void beginControlledFlush()
+{
+    const uint8_t socket = probeClient.getSocketNumber();
+    if (socket >= MAX_SOCK_NUM)
+    {
+        failProbe(-20);
+        probeClient.cancelStopAsync();
+        return;
+    }
+
+    const uint16_t buffered = Ethernet.socketBufferData(
+        socket,
+        0,
+        txBuffer,
+        CONTROLLED_PENDING_BYTES);
+
+    if (buffered != CONTROLLED_PENDING_BYTES)
+    {
+        failProbe(-21);
+        probeClient.cancelStopAsync();
+        return;
+    }
+
+    txBufferedBytes = buffered;
+    controlledSendReleased = false;
+    flushStartedAtMs = millis();
+
+    // Aísla la métrica de loop a la ventana real de flush/stop.
+    loopGapMaxUs = 0;
+    lastLoopUs = micros();
+
+    const uint32_t pollStartUs = micros();
+    const int flushState = probeClient.beginFlushAsync();
+    const uint32_t pollHoldUs = (uint32_t)(micros() - pollStartUs);
+    ++flushPollCount;
+    if (pollHoldUs > flushPollHoldMaxUs)
+    {
+        flushPollHoldMaxUs = pollHoldUs;
+    }
+
+    if (flushState == 0)
+    {
+        flushPendingObserved = true;
+        flushActive = true;
+        return;
+    }
+
+    if (flushState > 0)
+    {
+        flushCompletedAtMs = millis();
+        failProbe(-30); // El TX buffered no produjo un flush pendiente observable.
+        probeClient.cancelStopAsync();
+        return;
+    }
+
+    failProbe(-31);
+    probeClient.cancelStopAsync();
+}
+
+static void releaseControlledSendIfDue()
+{
+    if (controlledSendReleased) return;
+
+    if ((uint32_t)(millis() - flushStartedAtMs) < CONTROLLED_RELEASE_MS)
+    {
+        return;
+    }
+
+    const uint8_t socket = probeClient.getSocketNumber();
+    if (socket >= MAX_SOCK_NUM)
+    {
+        failProbe(-32);
+        probeClient.cancelStopAsync();
+        flushActive = false;
+        return;
+    }
+
+    // Dispara el SEND sólo después de una ventana controlada de flush pendiente.
+    // El caller ya posee el mutex SPI compartido JWPLC.
+    SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
+    W5100.writeSnIR(socket, (uint8_t)(SnIR::SEND_OK | SnIR::TIMEOUT));
+    W5100.execCmdSn(socket, Sock_SEND);
+    SPI.endTransaction();
+
+    controlledSendReleased = true;
+}
+
 static void serviceProbeLocked()
 {
     startServerIfReadyLocked();
@@ -102,13 +194,20 @@ static void serviceProbeLocked()
         if (state != 0)
         {
             stopActive = false;
-            if (!probeFailed) probeResult = 1;
+            if (!probeFailed)
+            {
+                probeResult = 1;
+                resultReady = true;
+            }
         }
         return;
     }
 
     if (flushActive)
     {
+        releaseControlledSendIfDue();
+        if (!flushActive || probeFailed) return;
+
         const uint32_t pollStartUs = micros();
         const int state = probeClient.pollFlushAsync();
         const uint32_t pollHoldUs = (uint32_t)(micros() - pollStartUs);
@@ -130,17 +229,6 @@ static void serviceProbeLocked()
             return;
         }
 
-        if (asyncTx.inProgress())
-        {
-            const int txState = asyncTx.poll(probeClient);
-            if (txState < 0)
-            {
-                failProbe(-41);
-                probeClient.cancelStopAsync();
-                return;
-            }
-        }
-
         const int stopState = probeClient.beginStopAsync();
         if (stopState == 0)
         {
@@ -149,6 +237,7 @@ static void serviceProbeLocked()
         else if (!probeFailed)
         {
             probeResult = 1;
+            resultReady = true;
         }
         return;
     }
@@ -157,15 +246,22 @@ static void serviceProbeLocked()
     {
         probeClient = probeServer.accept();
         commandReceived = false;
-        txCompletedBytes = 0;
-        txPendingSinceMs = 0;
+        txBufferedBytes = 0;
+        controlledSendReleased = false;
         return;
     }
 
     if (!probeClient.connected())
     {
         const int stopState = probeClient.beginStopAsync();
-        if (stopState == 0) stopActive = true;
+        if (stopState == 0)
+        {
+            stopActive = true;
+        }
+        else
+        {
+            resultReady = true;
+        }
         return;
     }
 
@@ -177,87 +273,13 @@ static void serviceProbeLocked()
         if (command != 'F')
         {
             failProbe(-10);
-            const int stopState = probeClient.beginStopAsync();
-            if (stopState == 0) stopActive = true;
+            probeClient.cancelStopAsync();
             return;
         }
 
         commandReceived = true;
+        beginControlledFlush();
         return;
-    }
-
-    if (asyncTx.inProgress())
-    {
-        const int txState = asyncTx.poll(probeClient);
-        if (txState > 0)
-        {
-            txCompletedBytes += TX_CHUNK_BYTES;
-            txPendingSinceMs = 0;
-            return;
-        }
-
-        if (txState < 0)
-        {
-            failProbe(-20);
-            probeClient.cancelStopAsync();
-            return;
-        }
-
-        if (txPendingSinceMs == 0) txPendingSinceMs = millis();
-
-        if (
-            txCompletedBytes >= MIN_PREFILL_BYTES &&
-            (uint32_t)(millis() - txPendingSinceMs) >= BACKPRESSURE_CONFIRM_MS)
-        {
-            flushStartedAtMs = millis();
-
-            const uint32_t pollStartUs = micros();
-            const int flushState = probeClient.beginFlushAsync();
-            const uint32_t pollHoldUs = (uint32_t)(micros() - pollStartUs);
-            ++flushPollCount;
-            if (pollHoldUs > flushPollHoldMaxUs)
-            {
-                flushPollHoldMaxUs = pollHoldUs;
-            }
-
-            if (flushState == 0)
-            {
-                flushPendingObserved = true;
-                flushActive = true;
-                return;
-            }
-
-            if (flushState > 0)
-            {
-                flushCompletedAtMs = millis();
-                failProbe(-30);
-                probeClient.cancelStopAsync();
-                return;
-            }
-
-            failProbe(-31);
-            probeClient.cancelStopAsync();
-            return;
-        }
-
-        return;
-    }
-
-    const int beginState = asyncTx.begin(
-        probeClient,
-        txBuffer,
-        TX_CHUNK_BYTES);
-
-    if (beginState < 0)
-    {
-        failProbe(-21);
-        probeClient.cancelStopAsync();
-        return;
-    }
-
-    if (asyncTx.inProgress())
-    {
-        txPendingSinceMs = millis();
     }
 }
 
