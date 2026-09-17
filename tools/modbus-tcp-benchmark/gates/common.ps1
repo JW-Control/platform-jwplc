@@ -186,6 +186,19 @@ function Get-G2SpiBaseBoundaryIndex {
     return $markerIndex
 }
 
+function Get-G2SpiBaseMatches {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$BaseRegion
+    )
+
+    # Only horizontal whitespace is allowed around tokens.
+    # The look-ahead preserves CR/LF exactly and prevents the
+    # match from consuming the following blank line.
+    $pattern = '(?m)^[ \t]*#define[ \t]+SPI_ETHERNET_SETTINGS[ \t]+SPISettings\((\d+),[ \t]*MSBFIRST,[ \t]*SPI_MODE0\)[ \t]*(?=\r?$)'
+    return [regex]::Matches($BaseRegion, $pattern)
+}
+
 function Get-G2SpiHz {
     $path = Get-G2Path $script:G2SpiHeaderRelative
 
@@ -196,8 +209,7 @@ function Get-G2SpiHz {
     $text = [System.IO.File]::ReadAllText($path)
     $boundaryIndex = Get-G2SpiBaseBoundaryIndex -Text $text
     $baseRegion = $text.Substring(0, $boundaryIndex)
-    $pattern = '(?m)^\s*#define\s+SPI_ETHERNET_SETTINGS\s+SPISettings\((\d+),\s*MSBFIRST,\s*SPI_MODE0\)\s*$'
-    $matches = [regex]::Matches($baseRegion, $pattern)
+    $matches = Get-G2SpiBaseMatches -BaseRegion $baseRegion
 
     Write-Host "SPI_BASE_SETTINGS_COUNT=$($matches.Count)"
 
@@ -219,16 +231,21 @@ function Set-G2SpiHz {
     $boundaryIndex = Get-G2SpiBaseBoundaryIndex -Text $text
     $baseRegion = $text.Substring(0, $boundaryIndex)
     $conditionalRegion = $text.Substring($boundaryIndex)
-    $pattern = '(?m)^\s*#define\s+SPI_ETHERNET_SETTINGS\s+SPISettings\((\d+),\s*MSBFIRST,\s*SPI_MODE0\)\s*$'
-    $regex = [regex]::new($pattern)
-    $matches = $regex.Matches($baseRegion)
+    $matches = Get-G2SpiBaseMatches -BaseRegion $baseRegion
 
     if ($matches.Count -ne 1) {
         throw "G2_BASE_SPI_SETTINGS_COUNT=$($matches.Count)"
     }
 
-    $replacement = "#define SPI_ETHERNET_SETTINGS SPISettings($Hz, MSBFIRST, SPI_MODE0)"
-    $newBaseRegion = $regex.Replace($baseRegion, $replacement, 1)
+    # Replace only the numeric group. This preserves every other
+    # byte of the source, including indentation and line endings.
+    $hzGroup = $matches[0].Groups[1]
+    $newBaseRegion = (
+        $baseRegion.Substring(0, $hzGroup.Index) +
+        $Hz.ToString([System.Globalization.CultureInfo]::InvariantCulture) +
+        $baseRegion.Substring($hzGroup.Index + $hzGroup.Length)
+    )
+
     $newText = $newBaseRegion + $conditionalRegion
     $utf8NoBom = New-Object -TypeName System.Text.UTF8Encoding -ArgumentList $false
     [System.IO.File]::WriteAllText($path, $newText, $utf8NoBom)
