@@ -109,7 +109,7 @@ $privateReplacement = @'
 '@
 $headerText = $privateRegex.Replace($headerText, $privateReplacement, 1)
 
-$connectPattern = '(?m)^(int EthernetClient::beginConnectAsync\(IPAddress ip, uint16_t port\)[ \t]*\{)[ \t]*\r?$'
+$connectPattern = '(?m)^int EthernetClient::beginConnectAsync\(IPAddress ip, uint16_t port\)[ \t]*\r?\n\{[ \t]*\r?$'
 $connectRegex = [regex]::new($connectPattern)
 $connectMatches = @($connectRegex.Matches($cppText))
 Write-Host "CPP_CONNECT_ANCHOR_COUNT=$($connectMatches.Count)"
