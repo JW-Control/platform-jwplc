@@ -20,10 +20,18 @@ def parse_args():
     return p.parse_args()
 
 
+def make_socket(recv_buffer):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, recv_buffer)
+    sock.settimeout(1.5)
+    return sock
+
+
 def main():
     args = parse_args()
     serial_lines = []
     serial_lock = threading.Lock()
+    ready_event = threading.Event()
     result_end = threading.Event()
     stop_reader = threading.Event()
 
@@ -40,37 +48,54 @@ def main():
             with serial_lock:
                 serial_lines.append(line)
             print(line, flush=True)
+            if line.startswith("NB1_FLUSH_PROBE_READY=YES"):
+                ready_event.set()
             if line == "NB1_FLUSH_PROBE_RESULT=END":
                 result_end.set()
 
     thread = threading.Thread(target=reader, daemon=True)
     thread.start()
 
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, args.recv_buffer)
-    sock.settimeout(0.5)
+    # No intentamos TCP hasta que el propio DUT confirme que el servidor está
+    # levantado. Esto evita carreras entre el reset post-upload y connect().
+    if not ready_event.wait(timeout=args.ready_timeout_s):
+        print("NB1_FLUSH_CLIENT_READY_TIMEOUT=YES")
+        stop_reader.set()
+        thread.join(timeout=1.0)
+        ser.close()
+        return 2
 
+    sock = None
     connected = False
-    ready_deadline = time.monotonic() + args.ready_timeout_s
+    connect_deadline = time.monotonic() + args.ready_timeout_s
     last_error = None
-    while time.monotonic() < ready_deadline and not connected:
+
+    # Cada intento usa un socket nuevo. En Windows, un connect() que vence por
+    # timeout puede completar en segundo plano; reusar el mismo descriptor
+    # puede devolver WSAEISCONN (10056) en el siguiente intento.
+    while time.monotonic() < connect_deadline and not connected:
+        candidate = make_socket(args.recv_buffer)
         try:
-            sock.connect((args.host, args.port))
+            candidate.connect((args.host, args.port))
+            sock = candidate
             connected = True
         except OSError as exc:
             last_error = exc
+            try:
+                candidate.close()
+            except OSError:
+                pass
             time.sleep(0.2)
 
-    if not connected:
+    if not connected or sock is None:
         print(f"NB1_FLUSH_CLIENT_CONNECT_ERROR={last_error}")
         stop_reader.set()
         thread.join(timeout=1.0)
         ser.close()
-        sock.close()
         return 2
 
     actual_rcvbuf = sock.getsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF)
-    print(f"CLIENT_CONNECTED=YES")
+    print("CLIENT_CONNECTED=YES")
     print(f"CLIENT_SO_RCVBUF_REQUESTED={args.recv_buffer}")
     print(f"CLIENT_SO_RCVBUF_ACTUAL={actual_rcvbuf}")
     print(f"CLIENT_NO_READ_MS={args.no_read_ms}")
