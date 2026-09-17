@@ -115,9 +115,24 @@ function Get-G2Sha256 {
         throw "G2_REQUIRED_FILE_MISSING=$RelativePath"
     }
 
+    $stream = [System.IO.File]::OpenRead($path)
+    $sha256 = $null
+
+    try {
+        $sha256 = [System.Security.Cryptography.SHA256]::Create()
+        $hashBytes = $sha256.ComputeHash($stream)
+    }
+    finally {
+        if ($null -ne $sha256) {
+            $sha256.Dispose()
+        }
+
+        $stream.Dispose()
+    }
+
     return (
-        Get-FileHash -LiteralPath $path -Algorithm SHA256
-    ).Hash.ToUpperInvariant()
+        [System.BitConverter]::ToString($hashBytes)
+    ).Replace("-", "").ToUpperInvariant()
 }
 
 function Assert-G2ProtectedArtifacts {
