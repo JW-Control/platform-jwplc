@@ -62,8 +62,9 @@ if ($cppText.Contains("EthernetClient::beginStopAsync") -or $cppText.Contains("E
     throw "A14_NB1_CPP_ALREADY_PATCHED"
 }
 
-$declPattern = '(?m)^(\s*void cancelConnectAsync\(\);\s*)$'
-$declMatches = @([regex]::Matches($headerText, $declPattern))
+$declPattern = '(?m)^([ \t]*void cancelConnectAsync\(\);[ \t]*)\r?$'
+$declRegex = [regex]::new($declPattern)
+$declMatches = @($declRegex.Matches($headerText))
 Write-Host "HEADER_DECLARATION_ANCHOR_COUNT=$($declMatches.Count)"
 if ($declMatches.Count -ne 1) {
     throw "A14_NB1_HEADER_DECLARATION_ANCHOR_INVALID=$($declMatches.Count)"
@@ -89,10 +90,11 @@ $declReplacement = @'
 	bool flushAsyncInProgress() const;
 	void cancelFlushAsync();
 '@
-$headerText = [regex]::Replace($headerText, $declPattern, [System.Text.RegularExpressions.MatchEvaluator]{ param($m) $declReplacement }, 1)
+$headerText = $declRegex.Replace($headerText, $declReplacement, 1)
 
-$privatePattern = '(?m)^(\s*uint16_t _timeout;\s*)$'
-$privateMatches = @([regex]::Matches($headerText, $privatePattern))
+$privatePattern = '(?m)^([ \t]*uint16_t _timeout;[ \t]*)\r?$'
+$privateRegex = [regex]::new($privatePattern)
+$privateMatches = @($privateRegex.Matches($headerText))
 Write-Host "HEADER_PRIVATE_ANCHOR_COUNT=$($privateMatches.Count)"
 if ($privateMatches.Count -ne 1) {
     throw "A14_NB1_HEADER_PRIVATE_ANCHOR_INVALID=$($privateMatches.Count)"
@@ -105,10 +107,11 @@ $privateReplacement = @'
 	bool _flushPending = false;
 	uint32_t _flushStartedAtMs = 0;
 '@
-$headerText = [regex]::Replace($headerText, $privatePattern, [System.Text.RegularExpressions.MatchEvaluator]{ param($m) $privateReplacement }, 1)
+$headerText = $privateRegex.Replace($headerText, $privateReplacement, 1)
 
-$connectPattern = '(?m)^(int EthernetClient::beginConnectAsync\(IPAddress ip, uint16_t port\)\s*\{)\s*$'
-$connectMatches = @([regex]::Matches($cppText, $connectPattern))
+$connectPattern = '(?m)^(int EthernetClient::beginConnectAsync\(IPAddress ip, uint16_t port\)[ \t]*\{)[ \t]*\r?$'
+$connectRegex = [regex]::new($connectPattern)
+$connectMatches = @($connectRegex.Matches($cppText))
 Write-Host "CPP_CONNECT_ANCHOR_COUNT=$($connectMatches.Count)"
 if ($connectMatches.Count -ne 1) {
     throw "A14_NB1_CPP_CONNECT_ANCHOR_INVALID=$($connectMatches.Count)"
@@ -123,10 +126,11 @@ int EthernetClient::beginConnectAsync(IPAddress ip, uint16_t port)
 	_flushPending = false;
 	_flushStartedAtMs = 0;
 '@
-$cppText = [regex]::Replace($cppText, $connectPattern, [System.Text.RegularExpressions.MatchEvaluator]{ param($m) $connectReplacement }, 1)
+$cppText = $connectRegex.Replace($cppText, $connectReplacement, 1)
 
-$lifecyclePattern = '(?s)void EthernetClient::flush\(\)\s*\{.*?^\}\s*\r?\n\s*void EthernetClient::stop\(\)\s*\{.*?^\}'
-$lifecycleMatches = @([regex]::Matches($cppText, $lifecyclePattern, [System.Text.RegularExpressions.RegexOptions]::Multiline))
+$lifecyclePattern = '(?ms)^void EthernetClient::flush\(\)[ \t]*\r?\n\{.*?^\}[ \t]*\r?\n[ \t]*\r?\nvoid EthernetClient::stop\(\)[ \t]*\r?\n\{.*?^\}'
+$lifecycleRegex = [regex]::new($lifecyclePattern)
+$lifecycleMatches = @($lifecycleRegex.Matches($cppText))
 Write-Host "CPP_LIFECYCLE_ANCHOR_COUNT=$($lifecycleMatches.Count)"
 if ($lifecycleMatches.Count -ne 1) {
     throw "A14_NB1_CPP_LIFECYCLE_ANCHOR_INVALID=$($lifecycleMatches.Count)"
@@ -289,12 +293,7 @@ void EthernetClient::stop()
 	}
 }
 '@
-$cppText = [regex]::Replace(
-    $cppText,
-    $lifecyclePattern,
-    [System.Text.RegularExpressions.MatchEvaluator]{ param($m) $lifecycleReplacement },
-    [System.Text.RegularExpressions.RegexOptions]::Multiline
-)
+$cppText = $lifecycleRegex.Replace($cppText, $lifecycleReplacement, 1)
 
 $utf8NoBom = New-Object -TypeName System.Text.UTF8Encoding -ArgumentList $false
 [System.IO.File]::WriteAllText($headerPath, $headerText, $utf8NoBom)
