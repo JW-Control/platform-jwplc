@@ -188,6 +188,6 @@ function Set-G2SpiHz {
 
     $replacement = "#define SPI_ETHERNET_SETTINGS SPISettings($Hz, MSBFIRST, SPI_MODE0)"
     $newText = $regex.Replace($text, $replacement, 1)
-    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    $utf8NoBom = New-Object -TypeName System.Text.UTF8Encoding -ArgumentList $false
     [System.IO.File]::WriteAllText($path, $newText, $utf8NoBom)
 }
