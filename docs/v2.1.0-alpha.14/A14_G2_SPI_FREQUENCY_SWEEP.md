@@ -84,20 +84,102 @@ Las 12 corridas funcionales dieron PASS, sin errores de transporte, sin errores 
 
 20 MHz queda aceptado dentro del sweep y habilita avanzar a 24 MHz. No se interpreta aún como frecuencia final del producto; la decisión final se toma después de completar 24, 26 y 30 MHz.
 
+## 24 MHz
+
+### G2-A — cambio estático
+
+**PASS**.
+
+- Transición controlada desde 20 MHz.
+- Se validó primero el único dirty esperado en `w5100.h` con diff `1/1`.
+- Se restauró únicamente la variación experimental al baseline de 14 MHz.
+- Se aplicó 24 MHz como única variación.
+- Frecuencia efectiva: 24 MHz.
+- Diff final: 1 inserción / 1 eliminación.
+- Hashes protegidos intactos.
+
+### G2-B — smoke físico exacto
+
+**PASS** en dos corridas consecutivas.
+
+| Modo | Smoke 1 | Smoke 2 | Hold máx. peor observado |
+|---|---:|---:|---:|
+| TCP_RX | 13.186824 Mbps | 13.269746 Mbps | 3125 us |
+| TCP_TX | 4.661697 Mbps | 4.600297 Mbps | 2337 us |
+| UDP_RX DUT | 10.252936 Mbps | 10.328552 Mbps | 537 us |
+| UDP_TX | 5.032605 Mbps | 5.033194 Mbps | 157 us |
+
+En ambas corridas:
+
+- compile/upload: PASS;
+- READY / link / IP: PASS;
+- errores de transporte: 0;
+- errores de ownership SPI TCP/UDP: 0;
+- errores UDP begin/write/end: 0;
+- integridad de secuencia UDP_TX: PASS;
+- eventos visuales `SPI`: 0.
+
+### G2-C — calificación 3 × 10 s por modo
+
+**PASS**.
+
+| Modo | Métrica | Baseline 14 | Mín. 24 | Prom. 24 | Máx. 24 | Ganancia prom. | Hold máx. | Resultado |
+|---|---|---:|---:|---:|---:|---:|---:|---|
+| TCP_RX | PC Mbps | 9.756 | 13.049 | 13.119 | 13.192 | +34.5 % | 3146 us | PASS |
+| TCP_TX | PC Mbps | 3.707 | 4.621 | 4.638 | 4.651 | +25.1 % | 2477 us | PASS |
+| UDP_RX | DUT Mbps | 8.132 | 10.357 | 10.495 | 10.613 | +29.1 % | 204 us | PASS |
+| UDP_TX | PC Mbps | 4.163 | 5.035 | 5.036 | 5.037 | +21.0 % | 221 us | PASS |
+
+Las 12 corridas funcionales dieron PASS, sin errores de transporte, sin errores de lock SPI y sin eventos visuales `SPI`.
+
+### Comparación 20 vs 24 MHz
+
+24 MHz mejora ligeramente TCP_RX respecto a 20 MHz, pero los otros tres modos quedan ligeramente por debajo de 20 MHz. La diferencia es pequeña y apunta por ahora a una meseta de rendimiento, no a una regresión funcional.
+
+| Modo | Prom. 20 MHz | Prom. 24 MHz | Observación |
+|---|---:|---:|---|
+| TCP_RX | 12.860 | 13.119 | 24 MHz ligeramente mejor |
+| TCP_TX | 4.685 | 4.638 | 20 MHz ligeramente mejor |
+| UDP_RX DUT | 10.692 | 10.495 | 20 MHz ligeramente mejor |
+| UDP_TX | 5.104 | 5.036 | 20 MHz ligeramente mejor |
+
+### Decisión 24 MHz
+
+`G2_24MHZ=PASS`
+
+24 MHz queda aceptado dentro del sweep y habilita avanzar a 26 MHz. No se interpreta todavía como frecuencia final.
+
 ## Estado del sweep
 
 | Frecuencia | Estático | Smoke físico | Calificación | Estado |
 |---:|---|---|---|---|
 | 14 MHz | baseline | PASS | D40-R2 congelado | BASELINE |
 | 20 MHz | PASS | PASS | PASS | PASS |
-| 24 MHz | pendiente | pendiente | pendiente | PENDING |
+| 24 MHz | PASS | PASS ×2 | PASS | PASS |
 | 26 MHz | pendiente | pendiente | pendiente | PENDING |
 | 30 MHz | pendiente | pendiente | pendiente | PENDING |
 
+## Barrido posterior propuesto — chunks TCP RX
+
+Este experimento queda deliberadamente fuera de G2 para no mezclar frecuencia SPI y algoritmo.
+
+Una vez terminadas 26 y 30 MHz:
+
+1. ordenar las frecuencias por rendimiento global y estabilidad;
+2. escoger las **tres mejores frecuencias** del sweep G2;
+3. comparar al menos **4 chunks vs 8 chunks** por ownership window, manteniendo 1024 bytes máximos por chunk;
+4. mantener `5000 us` como objetivo preferido de hold;
+5. clasificar `5000 < HOLD_MAX_US <= 10000` como **REVIEW**, no PASS automático;
+6. considerar `HOLD_MAX_US > 10000`, error de ownership/transporte o cualquier evento visual `SPI` como **FAIL**;
+7. registrar throughput, hold promedio/máximo, loop gap y comportamiento visual de TFT.
+
+La intención es medir si el mayor burst amortiza overhead y mejora TCP_RX sin degradar de forma inaceptable la convivencia con TFT, SD y FRAM.
+
 ## Pendientes
 
-1. Ejecutar 24 MHz manteniendo las mismas invariantes.
-2. Si 24 MHz pasa smoke, ejecutar 3 × 10 s por modo.
-3. Repetir en 26 MHz y 30 MHz.
-4. No iniciar optimización TX hasta terminar todo el sweep.
-5. Mantener pendiente histórico `D24_OTHER_RAW_CALL_COUNT=1_PENDING` hasta cerrar completamente la auditoría G1A.
+1. Ejecutar 26 MHz manteniendo las mismas invariantes de G2.
+2. Si 26 MHz pasa smoke, ejecutar 3 × 10 s por modo.
+3. Repetir en 30 MHz.
+4. Al cerrar G2, seleccionar las tres mejores frecuencias para el barrido de chunks.
+5. No iniciar optimización TX hasta terminar todo el sweep de frecuencia y el análisis acordado de chunks.
+6. Mantener pendiente histórico `D24_OTHER_RAW_CALL_COUNT=1_PENDING` hasta cerrar completamente la auditoría G1A.
