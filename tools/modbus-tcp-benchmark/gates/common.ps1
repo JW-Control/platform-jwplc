@@ -167,6 +167,25 @@ function Assert-G2RawBaselineArtifacts {
     }
 }
 
+function Get-G2SpiBaseBoundaryIndex {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Text
+    )
+
+    $conditionalMarker = "#if defined(ARDUINO_ARCH_ARC32)"
+    $markerIndex = $Text.IndexOf(
+        $conditionalMarker,
+        [System.StringComparison]::Ordinal
+    )
+
+    if ($markerIndex -lt 0) {
+        throw "G2_SPI_BASE_BOUNDARY_NOT_FOUND"
+    }
+
+    return $markerIndex
+}
+
 function Get-G2SpiHz {
     $path = Get-G2Path $script:G2SpiHeaderRelative
 
@@ -175,11 +194,15 @@ function Get-G2SpiHz {
     }
 
     $text = [System.IO.File]::ReadAllText($path)
+    $boundaryIndex = Get-G2SpiBaseBoundaryIndex -Text $text
+    $baseRegion = $text.Substring(0, $boundaryIndex)
     $pattern = '(?m)^\s*#define\s+SPI_ETHERNET_SETTINGS\s+SPISettings\((\d+),\s*MSBFIRST,\s*SPI_MODE0\)\s*$'
-    $matches = [regex]::Matches($text, $pattern)
+    $matches = [regex]::Matches($baseRegion, $pattern)
+
+    Write-Host "SPI_BASE_SETTINGS_COUNT=$($matches.Count)"
 
     if ($matches.Count -ne 1) {
-        throw "G2_ACTIVE_SPI_SETTINGS_COUNT=$($matches.Count)"
+        throw "G2_BASE_SPI_SETTINGS_COUNT=$($matches.Count)"
     }
 
     return [int64]$matches[0].Groups[1].Value
@@ -193,16 +216,20 @@ function Set-G2SpiHz {
 
     $path = Get-G2Path $script:G2SpiHeaderRelative
     $text = [System.IO.File]::ReadAllText($path)
+    $boundaryIndex = Get-G2SpiBaseBoundaryIndex -Text $text
+    $baseRegion = $text.Substring(0, $boundaryIndex)
+    $conditionalRegion = $text.Substring($boundaryIndex)
     $pattern = '(?m)^\s*#define\s+SPI_ETHERNET_SETTINGS\s+SPISettings\((\d+),\s*MSBFIRST,\s*SPI_MODE0\)\s*$'
     $regex = [regex]::new($pattern)
-    $matches = $regex.Matches($text)
+    $matches = $regex.Matches($baseRegion)
 
     if ($matches.Count -ne 1) {
-        throw "G2_ACTIVE_SPI_SETTINGS_COUNT=$($matches.Count)"
+        throw "G2_BASE_SPI_SETTINGS_COUNT=$($matches.Count)"
     }
 
     $replacement = "#define SPI_ETHERNET_SETTINGS SPISettings($Hz, MSBFIRST, SPI_MODE0)"
-    $newText = $regex.Replace($text, $replacement, 1)
+    $newBaseRegion = $regex.Replace($baseRegion, $replacement, 1)
+    $newText = $newBaseRegion + $conditionalRegion
     $utf8NoBom = New-Object -TypeName System.Text.UTF8Encoding -ArgumentList $false
     [System.IO.File]::WriteAllText($path, $newText, $utf8NoBom)
 }
