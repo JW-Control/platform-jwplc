@@ -1,7 +1,7 @@
 param(
     [string]$SerialPort = "COM14",
     [string]$DutIp = "192.168.0.31",
-    [int]$NoReadMs = 750,
+    [int]$NoReadMs = 0,
     [int]$ReceiveBuffer = 4096
 )
 
@@ -15,7 +15,7 @@ Write-Host "============================================================"
 
 Assert-G2Branch
 
-if ($NoReadMs -lt 100 -or $NoReadMs -ge 950) {
+if ($NoReadMs -lt 0 -or $NoReadMs -ge 950) {
     throw "A14_NB1D2_NO_READ_MS_OUT_OF_RANGE=$NoReadMs"
 }
 if ($ReceiveBuffer -lt 1024) {
@@ -35,6 +35,8 @@ $hardHoldMaxUs = 10000L
 $preferredPollHoldMaxUs = 5000L
 $minObservedFlushMs = 100L
 $connectionTimeoutMs = 1000L
+$expectedControlledReleaseMs = 300L
+$expectedBufferedBytes = 1024L
 
 $dirty = @(Get-G2TrackedDirtyPaths)
 $expectedDirty = @(
@@ -49,8 +51,11 @@ Write-Host "EFFECTIVE_SPI_HZ=$(Get-G2SpiHz)"
 Write-Host "EXPECTED_SPI_HZ=26000000"
 Write-Host "SERIAL_PORT=$SerialPort"
 Write-Host "DUT_IP=$DutIp"
-Write-Host "NO_READ_MS=$NoReadMs"
+Write-Host "CLIENT_NO_READ_MS=$NoReadMs"
 Write-Host "RECEIVE_BUFFER_REQUESTED=$ReceiveBuffer"
+Write-Host "PENDING_MODE=CONTROLLED_TX_BUFFER_WITH_DELAYED_SEND"
+Write-Host "CONTROLLED_RELEASE_EXPECTED_MS=$expectedControlledReleaseMs"
+Write-Host "BUFFERED_BYTES_EXPECTED=$expectedBufferedBytes"
 Write-Host "CONNECTION_TIMEOUT_MS=$connectionTimeoutMs"
 Write-Host "MIN_OBSERVED_FLUSH_MS=$minObservedFlushMs"
 Write-Host "PREFERRED_POLL_HOLD_MAX_US=$preferredPollHoldMaxUs"
@@ -190,7 +195,7 @@ if ($uploadExit -ne 0) {
 Start-Sleep -Milliseconds 600
 
 Write-Host ""
-Write-Host "=== RUN SLOW-READER CLIENT / CAPTURE SERIAL ==="
+Write-Host "=== RUN CONTROLLED-PENDING CLIENT / CAPTURE SERIAL ==="
 $clientArgs = @(
     $clientPath,
     "--host", $DutIp,
@@ -234,7 +239,9 @@ $clientPass = Get-LogValue -Key "NB1_FLUSH_CLIENT_PASS"
 $resultCode = Get-LogInt64 -Key "RESULT_CODE"
 $probeFailed = Get-LogValue -Key "PROBE_FAILED"
 $pendingObserved = Get-LogValue -Key "FLUSH_PENDING_OBSERVED"
-$prefillBytes = Get-LogInt64 -Key "TX_COMPLETED_BYTES_BEFORE_FLUSH"
+$bufferedBytes = Get-LogInt64 -Key "TX_BUFFERED_BYTES_BEFORE_FLUSH"
+$controlledReleaseMs = Get-LogInt64 -Key "CONTROLLED_RELEASE_MS"
+$controlledSendReleased = Get-LogValue -Key "CONTROLLED_SEND_RELEASED"
 $flushDurationMs = Get-LogInt64 -Key "FLUSH_DURATION_MS"
 $flushPollCount = Get-LogInt64 -Key "FLUSH_POLL_COUNT"
 $flushPollHoldMaxUs = Get-LogInt64 -Key "FLUSH_POLL_HOLD_MAX_US"
@@ -248,7 +255,9 @@ Write-Host "=== NB1-D2 PHYSICAL SUMMARY ==="
 Write-Host "RESULT_CODE=$resultCode"
 Write-Host "PROBE_FAILED=$probeFailed"
 Write-Host "FLUSH_PENDING_OBSERVED=$pendingObserved"
-Write-Host "TX_COMPLETED_BYTES_BEFORE_FLUSH=$prefillBytes"
+Write-Host "TX_BUFFERED_BYTES_BEFORE_FLUSH=$bufferedBytes"
+Write-Host "CONTROLLED_RELEASE_MS=$controlledReleaseMs"
+Write-Host "CONTROLLED_SEND_RELEASED=$controlledSendReleased"
 Write-Host "FLUSH_DURATION_MS=$flushDurationMs"
 Write-Host "FLUSH_POLL_COUNT=$flushPollCount"
 Write-Host "FLUSH_POLL_HOLD_MAX_US=$flushPollHoldMaxUs"
@@ -260,7 +269,9 @@ Write-Host "CLIENT_RX_BYTES=$clientRxBytes"
 if ($clientPass -ne "YES") { throw "A14_NB1D2_CLIENT_PASS_MISSING" }
 if ($resultCode -ne 1 -or $probeFailed -ne "NO") { throw "A14_NB1D2_PROBE_FUNCTIONAL_FAIL" }
 if ($pendingObserved -ne "YES") { throw "A14_NB1D2_PENDING_NOT_OBSERVED" }
-if ($prefillBytes -lt 4096) { throw "A14_NB1D2_PREFILL_TOO_SMALL=$prefillBytes" }
+if ($bufferedBytes -ne $expectedBufferedBytes) { throw "A14_NB1D2_BUFFERED_BYTES_INVALID=$bufferedBytes" }
+if ($controlledReleaseMs -ne $expectedControlledReleaseMs) { throw "A14_NB1D2_RELEASE_MS_INVALID=$controlledReleaseMs" }
+if ($controlledSendReleased -ne "YES") { throw "A14_NB1D2_CONTROLLED_SEND_NOT_RELEASED" }
 if ($flushDurationMs -lt $minObservedFlushMs) { throw "A14_NB1D2_FLUSH_DURATION_TOO_SHORT=$flushDurationMs" }
 if ($flushDurationMs -ge $connectionTimeoutMs) { throw "A14_NB1D2_FLUSH_TIMEOUT_OR_TOO_LONG=$flushDurationMs" }
 if ($flushPollCount -lt 2) { throw "A14_NB1D2_FLUSH_POLL_COUNT_TOO_SMALL=$flushPollCount" }
@@ -301,7 +312,7 @@ for ($i = 0; $i -lt $expectedDirty.Count; ++$i) {
     }
 }
 
-Write-Host "NB1_FLUSH_ASYNC_BACKPRESSURE=REPRODUCED"
+Write-Host "NB1_FLUSH_ASYNC_CONTROLLED_PENDING=REPRODUCED"
 Write-Host "NB1_FLUSH_ASYNC_COOPERATIVE=PASS"
 Write-Host "NB1_FLUSH_TIMEOUT_MS=1000_PRESERVED"
 Write-Host "NB1_VISUAL_SPI=PASS"
