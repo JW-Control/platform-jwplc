@@ -10,22 +10,57 @@ function Get-FunctionBlock {
         [Parameter(Mandatory = $true)][string]$Signature
     )
 
-    $start = $Text.IndexOf($Signature, [System.StringComparison]::Ordinal)
-    if ($start -lt 0) { throw "A14_NB3A_FUNCTION_NOT_FOUND=$Signature" }
+    $searchOffset = 0
+    $start = -1
+    $braceStart = -1
 
-    $braceStart = $Text.IndexOf("{", $start)
-    if ($braceStart -lt 0) { throw "A14_NB3A_FUNCTION_BRACE_NOT_FOUND=$Signature" }
+    while ($true) {
+        $candidate = $Text.IndexOf(
+            $Signature,
+            $searchOffset,
+            [System.StringComparison]::Ordinal
+        )
+
+        if ($candidate -lt 0) {
+            break
+        }
+
+        $cursor = $candidate + $Signature.Length
+
+        while ($cursor -lt $Text.Length -and
+               [char]::IsWhiteSpace($Text[$cursor])) {
+            ++$cursor
+        }
+
+        if ($cursor -lt $Text.Length -and
+            $Text[$cursor] -eq "{") {
+            $start = $candidate
+            $braceStart = $cursor
+            break
+        }
+
+        # Skip forward declarations and any non-definition occurrence.
+        $searchOffset = $candidate + $Signature.Length
+    }
+
+    if ($start -lt 0 -or $braceStart -lt 0) {
+        throw "A14_NB3A_FUNCTION_DEFINITION_NOT_FOUND=$Signature"
+    }
 
     $depth = 0
     for ($i = $braceStart; $i -lt $Text.Length; ++$i) {
         $ch = $Text[$i]
+
         if ($ch -eq "{") {
             ++$depth
         }
         elseif ($ch -eq "}") {
             --$depth
             if ($depth -eq 0) {
-                return $Text.Substring($start, $i - $start + 1)
+                return $Text.Substring(
+                    $start,
+                    $i - $start + 1
+                )
             }
         }
     }
@@ -116,11 +151,11 @@ $asyncTxText = [System.IO.File]::ReadAllText((Get-G2Path $asyncTxRelative))
 
 $rxStableBlock = Get-FunctionBlock -Text $socketText -Signature "static uint16_t getSnRX_RSR(uint8_t s)"
 $txStableBlock = Get-FunctionBlock -Text $socketText -Signature "static uint16_t getSnTX_FSR(uint8_t s)"
-$socketSendBlock = Get-FunctionBlock -Text $socketText -Signature "uint16_t EthernetClass::socketSend(uint8_t s"
+$socketSendBlock = Get-FunctionBlock -Text $socketText -Signature "uint16_t EthernetClass::socketSend(uint8_t s, const uint8_t * buf, uint16_t len)"
 $socketSendUdpBlock = Get-FunctionBlock -Text $socketText -Signature "bool EthernetClass::socketSendUDP(uint8_t s)"
 $parsePacketBlock = Get-FunctionBlock -Text $udpText -Signature "int EthernetUDP::parsePacket()"
-$execCmdBlock = Get-FunctionBlock -Text $w5100CppText -Signature "void W5100Class::execCmdSn"
-$asyncStableBlock = Get-FunctionBlock -Text $asyncTxText -Signature "uint16_t JWPLC_EthernetAsyncTx::readTxFreeStable"
+$execCmdBlock = Get-FunctionBlock -Text $w5100CppText -Signature "void W5100Class::execCmdSn(SOCKET s, SockCMD _cmd)"
+$asyncStableBlock = Get-FunctionBlock -Text $asyncTxText -Signature "uint16_t JWPLC_EthernetAsyncTx::readTxFreeStable(uint8_t socket)"
 
 $rxStableWhileCount = Count-Literal -Text $rxStableBlock -Needle "while (1)"
 $txStableWhileCount = Count-Literal -Text $txStableBlock -Needle "while (1)"
@@ -169,4 +204,5 @@ Write-Host "NB3_PRIORITY_4=LEGACY_TCP_SEND_BOUNDS"
 Write-Host "NB3_DNS_BEGIN_HOLD_6033US=ATTRIBUTED_TO_UDP_SEND_PATH"
 Write-Host "NB3_RUNTIME_POLICY=COOPERATIVE_PATHS_ONLY"
 Write-Host "NB3_HASH_TYPE_CONFUSION=CORRECTED"
+Write-Host "NB3_FUNCTION_DEFINITION_MATCHING=ENFORCED"
 Write-Host "A14_NB3_SOCKET_BLOCKING_SOURCE_INVENTORY=PASS"
