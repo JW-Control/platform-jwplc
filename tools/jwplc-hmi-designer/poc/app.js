@@ -179,10 +179,17 @@
   let zoom = Number(zoomSelect.value);
   let selectedColor = COLORS.find((color) => color.name === 'ORANGE');
   let selectedTool = 'textField';
+  let selectedFieldKeys = ['text-1'];
   let selectedFieldKey = 'text-1';
   let fieldSerial = 1;
   let drawing = false;
   let draggingObject = false;
+  let resizingHandle = null;
+  let resizeInitialBounds = null;
+  let resizeInitialPointer = null;
+  let resizeInitialFields = null;
+  let dragInitialPointer = null;
+  let dragInitialFields = null;
   let isMarquee = false;
   let marqueeStart = null;
   let marqueeEnd = null;
@@ -345,8 +352,18 @@
     return hmiFields.filter((field) => Number(field.page || 0) === Number(page));
   }
 
+  function setSelectedKeys(keys) {
+    selectedFieldKeys = Array.isArray(keys) ? Array.from(new Set(keys.filter(Boolean))) : (keys ? [keys] : []);
+    selectedFieldKey = selectedFieldKeys[0] || null;
+  }
+
+  function selectedFields() {
+    return hmiFields.filter((field) => selectedFieldKeys.includes(field.key) && Number(field.page || 0) === activePage);
+  }
+
   function selectedField() {
-    return hmiFields.find((field) => field.key === selectedFieldKey) || null;
+    const list = selectedFields();
+    return list.length > 0 ? list[list.length - 1] : null;
   }
 
   function toolForField(field) {
@@ -873,7 +890,7 @@
     visibleFields.forEach((field) => {
       const index = hmiFields.indexOf(field);
       const button = document.createElement('button');
-      const active = field.key === selectedFieldKey && toolForField(field) === selectedTool;
+      const active = selectedFieldKeys.includes(field.key);
       button.className = `object-item${active ? ' active' : ''}`;
       button.type = 'button';
       button.dataset.fieldKey = field.key;
@@ -901,8 +918,16 @@
       } else {
         button.querySelector('.object-id').textContent = field.id || fieldFallbackId(field, index);
       }
-      button.addEventListener('click', () => {
-        selectedFieldKey = field.key;
+      button.addEventListener('click', (e) => {
+        if (e.shiftKey || e.ctrlKey) {
+          if (selectedFieldKeys.includes(field.key)) {
+            setSelectedKeys(selectedFieldKeys.filter((k) => k !== field.key));
+          } else {
+            setSelectedKeys([...selectedFieldKeys, field.key]);
+          }
+        } else {
+          setSelectedKeys([field.key]);
+        }
         selectedTool = toolForField(field);
         syncInputsFromState();
         syncToolUI();
@@ -973,11 +998,115 @@
     // Rendered via viewport DOM overlay #cadMarqueeBox for unclipped visibility across canvas and workspace
   }
 
-  function drawSelectionAndGuides() {
-    const sel = selectedField();
-    if (!sel || sel.type === 'PIXELMAP') return;
+  function getSelectionBounds(fields) {
+    if (!fields || fields.length === 0) return null;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const f of fields) {
+      let fMinX, fMaxX, fMinY, fMaxY;
+      if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(f.type)) {
+        fMinX = Math.min(f.x, f.x2 ?? f.x);
+        fMaxX = Math.max(f.x, f.x2 ?? f.x);
+        fMinY = Math.min(f.y, f.y2 ?? f.y);
+        fMaxY = Math.max(f.y, f.y2 ?? f.y);
+      } else {
+        const g = computeFieldGeometry(f);
+        fMinX = g.fieldX;
+        fMaxX = g.fieldX + g.fieldW - 1;
+        fMinY = g.fieldY;
+        fMaxY = g.fieldY + g.fieldH - 1;
+      }
+      if (fMinX < minX) minX = fMinX;
+      if (fMaxX > maxX) maxX = fMaxX;
+      if (fMinY < minY) minY = fMinY;
+      if (fMaxY > maxY) maxY = fMaxY;
+    }
+    if (minX > maxX || minY > maxY) return null;
 
-    if (sel.type === 'LINE') {
+    const screenX1 = minX * zoom;
+    const screenY1 = minY * zoom;
+    const screenX2 = (maxX + 1) * zoom;
+    const screenY2 = (maxY + 1) * zoom;
+    const screenW = screenX2 - screenX1;
+    const screenH = screenY2 - screenY1;
+
+    return {
+      minX,
+      minY,
+      maxX,
+      maxY,
+      screenX1,
+      screenY1,
+      screenX2,
+      screenY2,
+      screenW,
+      screenH
+    };
+  }
+
+  function getSelectionHandles(fields) {
+    if (!fields || fields.length === 0) return [];
+    if (fields.length === 1 && fields[0].type === 'LINE') {
+      const line = fields[0];
+      return [
+        { id: 'line-start', x: Math.round(line.x * zoom + zoom / 2), y: Math.round(line.y * zoom + zoom / 2), cursor: 'crosshair' },
+        { id: 'line-end', x: Math.round((line.x2 ?? line.x) * zoom + zoom / 2), y: Math.round((line.y2 ?? line.y) * zoom + zoom / 2), cursor: 'crosshair' }
+      ];
+    }
+
+    const b = getSelectionBounds(fields);
+    if (!b) return [];
+
+    return [
+      { id: 'tl', x: b.screenX1, y: b.screenY1, cursor: 'nwse-resize' },
+      { id: 'tc', x: b.screenX1 + b.screenW / 2, y: b.screenY1, cursor: 'ns-resize' },
+      { id: 'tr', x: b.screenX2, y: b.screenY1, cursor: 'nesw-resize' },
+      { id: 'rc', x: b.screenX2, y: b.screenY1 + b.screenH / 2, cursor: 'ew-resize' },
+      { id: 'br', x: b.screenX2, y: b.screenY2, cursor: 'nwse-resize' },
+      { id: 'bc', x: b.screenX1 + b.screenW / 2, y: b.screenY2, cursor: 'ns-resize' },
+      { id: 'bl', x: b.screenX1, y: b.screenY2, cursor: 'nesw-resize' },
+      { id: 'lc', x: b.screenX1, y: b.screenY1 + b.screenH / 2, cursor: 'ew-resize' }
+    ];
+  }
+
+  function hitTestHandle(event) {
+    const fields = selectedFields();
+    if (fields.length === 0) return null;
+    const rect = displayCanvas.getBoundingClientRect();
+    const scaleX = displayCanvas.width / rect.width;
+    const scaleY = displayCanvas.height / rect.height;
+    const mouseScreenX = (event.clientX - rect.left) * scaleX;
+    const mouseScreenY = (event.clientY - rect.top) * scaleY;
+
+    const handles = getSelectionHandles(fields);
+    const hitRadius = 8;
+    for (const h of handles) {
+      const dx = mouseScreenX - h.x;
+      const dy = mouseScreenY - h.y;
+      if (dx * dx + dy * dy <= hitRadius * hitRadius) {
+        return h;
+      }
+    }
+    return null;
+  }
+
+  function isPointInsideSelection(point) {
+    const fields = selectedFields();
+    if (fields.length === 0) return false;
+    if (fields.length === 1 && fields[0].type === 'LINE') {
+      const line = fields[0];
+      return distToSegment(point.x, point.y, line.x, line.y, line.x2 ?? line.x, line.y2 ?? line.y) <= 4;
+    }
+    const b = getSelectionBounds(fields);
+    if (!b) return false;
+    return (point.x >= b.minX && point.x <= b.maxX && point.y >= b.minY && point.y <= b.maxY);
+  }
+
+  function drawSelectionAndGuides() {
+    const fields = selectedFields();
+    if (fields.length === 0) return;
+
+    if (fields.length === 1 && fields[0].type === 'LINE') {
+      const sel = fields[0];
       const lx1 = Math.round(sel.x * zoom + zoom / 2) + 0.5;
       const ly1 = Math.round(sel.y * zoom + zoom / 2) + 0.5;
       const lx2 = Math.round((sel.x2 ?? sel.x) * zoom + zoom / 2) + 0.5;
@@ -1000,16 +1129,16 @@
       displayCtx.lineTo(displayCanvas.width, ly2);
       displayCtx.stroke();
 
-      // Highlight the line itself in blue (no bounding rectangle)
-      displayCtx.setLineDash([]);
+      // Discrete 1px dashed blue line indicator
       displayCtx.strokeStyle = '#0084ff';
-      displayCtx.lineWidth = Math.max(2, (sel.size || 1) * zoom + 1);
+      displayCtx.setLineDash([3, 3]);
+      displayCtx.lineWidth = 1;
       displayCtx.beginPath();
       displayCtx.moveTo(lx1, ly1);
       displayCtx.lineTo(lx2, ly2);
       displayCtx.stroke();
 
-      // Only 2 endpoint handles (at start and end of line)
+      // 2 endpoint handles
       const hs = 6;
       const points = [
         [lx1, ly1],
@@ -1030,26 +1159,8 @@
       return;
     }
 
-    let left, top, w, h;
-    if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(sel.type)) {
-      left = Math.min(sel.x, sel.x2 ?? sel.x);
-      top = Math.min(sel.y, sel.y2 ?? sel.y);
-      w = Math.max(1, Math.abs((sel.x2 ?? sel.x) - sel.x));
-      h = Math.max(1, Math.abs((sel.y2 ?? sel.y) - sel.y));
-    } else {
-      const g = computeFieldGeometry(sel);
-      left = g.fieldX;
-      top = g.fieldY;
-      w = g.fieldW;
-      h = g.fieldH;
-    }
-
-    const x1 = left * zoom;
-    const y1 = top * zoom;
-    const x2 = (left + w) * zoom;
-    const y2 = (top + h) * zoom;
-    const boxW = x2 - x1;
-    const boxH = y2 - y1;
+    const b = getSelectionBounds(fields);
+    if (!b) return;
 
     displayCtx.save();
 
@@ -1058,40 +1169,28 @@
     displayCtx.setLineDash([2, 3]);
     displayCtx.lineWidth = 1;
     displayCtx.beginPath();
-    // Vertical projection lines (full canvas height)
-    displayCtx.moveTo(x1 + 0.5, 0);
-    displayCtx.lineTo(x1 + 0.5, displayCanvas.height);
-    displayCtx.moveTo(x2 + 0.5, 0);
-    displayCtx.lineTo(x2 + 0.5, displayCanvas.height);
-    // Horizontal projection lines (full canvas width)
-    displayCtx.moveTo(0, y1 + 0.5);
-    displayCtx.lineTo(displayCanvas.width, y1 + 0.5);
-    displayCtx.moveTo(0, y2 + 0.5);
-    displayCtx.lineTo(displayCanvas.width, y2 + 0.5);
+    displayCtx.moveTo(b.screenX1 + 0.5, 0);
+    displayCtx.lineTo(b.screenX1 + 0.5, displayCanvas.height);
+    displayCtx.moveTo(b.screenX2 + 0.5, 0);
+    displayCtx.lineTo(b.screenX2 + 0.5, displayCanvas.height);
+    displayCtx.moveTo(0, b.screenY1 + 0.5);
+    displayCtx.lineTo(displayCanvas.width, b.screenY1 + 0.5);
+    displayCtx.moveTo(0, b.screenY2 + 0.5);
+    displayCtx.lineTo(displayCanvas.width, b.screenY2 + 0.5);
     displayCtx.stroke();
 
-    // 2. Solid Blue Bounding Box
+    // 2. Solid Blue Bounding Box enclosing all selected objects
     displayCtx.setLineDash([]);
     displayCtx.strokeStyle = '#0084ff';
     displayCtx.lineWidth = 1;
-    displayCtx.strokeRect(x1 + 0.5, y1 + 0.5, boxW, boxH);
+    displayCtx.strokeRect(b.screenX1 + 0.5, b.screenY1 + 0.5, b.screenW, b.screenH);
 
-    // 3. 8 Selection Handles (Blue bordered squares with dark center)
+    // 3. 8 Selection Handles
     const hs = 6;
-    const points = [
-      [x1, y1],                          // top-left
-      [x1 + boxW / 2, y1],               // top-center
-      [x2, y1],                          // top-right
-      [x2, y1 + boxH / 2],               // right-center
-      [x2, y2],                          // bottom-right
-      [x1 + boxW / 2, y2],               // bottom-center
-      [x1, y2],                          // bottom-left
-      [x1, y1 + boxH / 2]                // left-center
-    ];
-
-    points.forEach(([hx, hy]) => {
-      const rx = Math.round(hx - hs / 2);
-      const ry = Math.round(hy - hs / 2);
+    const handles = getSelectionHandles(fields);
+    handles.forEach((h) => {
+      const rx = Math.round(h.x - hs / 2);
+      const ry = Math.round(h.y - hs / 2);
       displayCtx.fillStyle = '#060d13';
       displayCtx.fillRect(rx, ry, hs, hs);
       displayCtx.strokeStyle = '#0084ff';
@@ -1368,6 +1467,7 @@
       fields: hmiFields.map((field) => ({ ...field })),
       pages: hmiPages.map((page) => ({ ...page })),
       activePage,
+      selectedFieldKeys: [...selectedFieldKeys],
       selectedFieldKey,
       selectedTool,
       raw: { ...rawState },
@@ -1385,6 +1485,7 @@
   function sameSnapshot(a, b) {
     if (!a || !b) return false;
     if (a.activePage !== b.activePage || a.selectedFieldKey !== b.selectedFieldKey || a.selectedTool !== b.selectedTool || a.serial !== b.serial) return false;
+    if (JSON.stringify(a.selectedFieldKeys || []) !== JSON.stringify(b.selectedFieldKeys || [])) return false;
     if (JSON.stringify(a.fields) !== JSON.stringify(b.fields)) return false;
     if (JSON.stringify(a.pages) !== JSON.stringify(b.pages)) return false;
     if (JSON.stringify(a.raw) !== JSON.stringify(b.raw)) return false;
@@ -1405,7 +1506,7 @@
     hmiFields = snapshot.fields.map((field) => ({ ...field }));
     hmiPages = (snapshot.pages || [{ id: 0, name: 'Principal' }]).map((page) => ({ ...page }));
     activePage = pageExists(snapshot.activePage) ? snapshot.activePage : 0;
-    selectedFieldKey = snapshot.selectedFieldKey;
+    setSelectedKeys(snapshot.selectedFieldKeys || (snapshot.selectedFieldKey ? [snapshot.selectedFieldKey] : []));
     selectedTool = snapshot.selectedTool;
     Object.assign(rawState, snapshot.raw);
     pixelLayer.set(snapshot.pixels);
@@ -1413,7 +1514,7 @@
     const selected = selectedField();
     if (!selected || Number(selected.page || 0) !== activePage) {
       const replacement = fieldsForPage(activePage)[0] || null;
-      selectedFieldKey = replacement?.key || null;
+      setSelectedKeys(replacement ? [replacement.key] : []);
       selectedTool = replacement ? toolForField(replacement) : 'none';
     } else if (!['rawText', 'pixel', 'erase'].includes(selectedTool)) {
       selectedTool = toolForField(selected);
@@ -1465,7 +1566,7 @@
 
   function selectFirstOnPage() {
     const first = fieldsForPage(activePage)[0] || null;
-    selectedFieldKey = first?.key || null;
+    setSelectedKeys(first ? [first.key] : []);
     selectedTool = first ? toolForField(first) : 'none';
   }
 
@@ -1490,7 +1591,7 @@
     hmiPages.push(page);
     hmiPages.sort((a, b) => a.id - b.id);
     activePage = id;
-    selectedFieldKey = null;
+    setSelectedKeys([]);
     selectedTool = 'none';
     syncInputsFromState();
     syncToolUI();
@@ -1517,7 +1618,7 @@
     if (Number(field.page || 0) === target) return true;
     field.page = target;
     activePage = target;
-    selectedFieldKey = field.key;
+    setSelectedKeys([field.key]);
     selectedTool = toolForField(field);
     syncInputsFromState();
     syncToolUI();
@@ -1548,7 +1649,7 @@
       sides: Number(document.getElementById('mainPolySidesInput')?.value || 5)
     };
     hmiFields.push(field);
-    selectedFieldKey = field.key;
+    setSelectedKeys([field.key]);
     syncInputsFromState();
     syncToolUI();
     render();
@@ -1569,7 +1670,7 @@
     field.y = 20 + ((fieldSerial - 1) * 8) % 60;
     placeNewField(field);
     hmiFields.push(field);
-    selectedFieldKey = field.key;
+    setSelectedKeys([field.key]);
     selectedTool = 'textField';
     syncInputsFromState();
     syncToolUI();
@@ -1590,7 +1691,7 @@
     field.y = 44 + ((fieldSerial - 1) * 8) % 70;
     placeNewField(field);
     hmiFields.push(field);
-    selectedFieldKey = field.key;
+    setSelectedKeys([field.key]);
     selectedTool = 'valueField';
     syncInputsFromState();
     syncToolUI();
@@ -1599,22 +1700,29 @@
   }
 
   function duplicateSelectedField() {
-    const source = selectedField();
-    if (!source || hmiFields.length >= MAX_FIELDS) return;
-    fieldSerial += 1;
-    const copy = { ...source };
-    const prefix = source.type.toLowerCase();
-    copy.key = `${prefix}-${fieldSerial}`;
-    copy.name = `${source.name || source.type} copia`;
-    copy.id = uniqueFieldSymbol(`${sanitizeSymbol(source.id, fieldFallbackId(source, 0))}_COPY`);
-    copy.variable = uniqueVariable(`${sanitizeSymbol(source.variable, variableFallback(source, 0))}Copy`);
-    copy.page = activePage;
-    copy.x = source.x + 8;
-    copy.y = source.y + 8;
-    placeNewField(copy);
-    hmiFields.push(copy);
-    selectedFieldKey = copy.key;
-    selectedTool = toolForField(copy);
+    const sources = selectedFields();
+    if (sources.length === 0 || hmiFields.length + sources.length > MAX_FIELDS) return;
+    const newKeys = [];
+    sources.forEach((source) => {
+      fieldSerial += 1;
+      const copy = { ...source };
+      const prefix = source.type.toLowerCase();
+      copy.key = `${prefix}-${fieldSerial}`;
+      copy.name = `${source.name || source.type} copia`;
+      copy.id = uniqueFieldSymbol(`${sanitizeSymbol(source.id, fieldFallbackId(source, 0))}_COPY`);
+      copy.variable = uniqueVariable(`${sanitizeSymbol(source.variable, variableFallback(source, 0))}Copy`);
+      copy.page = activePage;
+      copy.x = source.x + 8;
+      copy.y = source.y + 8;
+      if (source.x2 !== undefined) copy.x2 = source.x2 + 8;
+      if (source.y2 !== undefined) copy.y2 = source.y2 + 8;
+      placeNewField(copy);
+      hmiFields.push(copy);
+      newKeys.push(copy.key);
+    });
+    setSelectedKeys(newKeys);
+    const primary = selectedField();
+    selectedTool = primary ? toolForField(primary) : 'pointer';
     syncInputsFromState();
     syncToolUI();
     render();
@@ -1622,11 +1730,12 @@
   }
 
   function deleteSelectedField() {
-    const index = hmiFields.findIndex((field) => field.key === selectedFieldKey);
-    if (index < 0) return;
-    hmiFields.splice(index, 1);
-    const replacement = fieldsForPage(activePage)[0] || null;
-    selectedFieldKey = replacement?.key || null;
+    const keysToDelete = new Set(selectedFieldKeys);
+    if (keysToDelete.size === 0) return;
+    hmiFields = hmiFields.filter((field) => !keysToDelete.has(field.key));
+    const pageFields = fieldsForPage(activePage);
+    const replacement = pageFields[pageFields.length - 1] || null;
+    setSelectedKeys(replacement ? [replacement.key] : []);
     selectedTool = replacement ? toolForField(replacement) : 'none';
     syncInputsFromState();
     syncToolUI();
@@ -1640,7 +1749,7 @@
     hmiPages = [{ id: 0, name: 'Principal' }];
     activePage = 0;
     hmiFields = [defaultTextField('text-1')];
-    selectedFieldKey = 'text-1';
+    setSelectedKeys(['text-1']);
     selectedTool = 'textField';
     syncInputsFromState();
     syncToolUI();
@@ -1675,7 +1784,7 @@
     hmiPages = [{ id: 0, name: 'Principal' }];
     activePage = 0;
     hmiFields = [demo];
-    selectedFieldKey = demo.key;
+    setSelectedKeys([demo.key]);
     selectedTool = 'textField';
     syncInputsFromState();
     syncToolUI();
@@ -1714,7 +1823,7 @@
     hmiPages = [{ id: 0, name: 'Principal' }];
     activePage = 0;
     hmiFields = [demo];
-    selectedFieldKey = demo.key;
+    setSelectedKeys([demo.key]);
     selectedTool = 'valueField';
     syncInputsFromState();
     syncToolUI();
@@ -1779,7 +1888,7 @@
       }
       selectedTool = tool;
       if (!['pointer', 'textField', 'valueField', 'boolField', 'barField'].includes(tool)) {
-        selectedFieldKey = null;
+        setSelectedKeys([]);
       }
       syncInputsFromState();
       syncToolUI();
@@ -2019,27 +2128,69 @@
       return;
     }
 
+    // 1. Check if clicking on an active selection handle (to resize / deform)
+    const handle = hitTestHandle(event);
+    if (handle) {
+      resizingHandle = handle;
+      resizeInitialBounds = getSelectionBounds(selectedFields());
+      resizeInitialPointer = point;
+      resizeInitialFields = selectedFields().map((f) => ({ ...f }));
+      return;
+    }
+
+    // 2. Check if Shift or Ctrl is pressed: toggle selection on field contour click
+    if (event.shiftKey || event.ctrlKey) {
+      const hit = hitTestField(point);
+      if (hit) {
+        if (selectedFieldKeys.includes(hit.key)) {
+          setSelectedKeys(selectedFieldKeys.filter((k) => k !== hit.key));
+        } else {
+          setSelectedKeys([...selectedFieldKeys, hit.key]);
+        }
+        const primary = selectedField();
+        selectedTool = primary ? toolForField(primary) : 'pointer';
+        syncInputsFromState();
+        syncToolUI();
+        render();
+        return;
+      }
+    }
+
+    // 3. Check if clicking inside the current selection bounding box
+    // (Allows dragging without having to aim for the 1.5px contour)
+    if (isPointInsideSelection(point)) {
+      draggingObject = true;
+      dragInitialPointer = { ...point, rawX: point.x, rawY: point.y };
+      dragInitialFields = selectedFields().map((f) => ({ ...f }));
+      render();
+      return;
+    }
+
+    // 4. Check if clicking directly on any field's contour (1.5px tolerance)
     const hit = hitTestField(point);
     if (hit) {
-      selectedFieldKey = hit.key;
+      setSelectedKeys([hit.key]);
       selectedTool = toolForField(hit);
       draggingObject = true;
-      dragOffset = { x: point.x - hit.x, y: point.y - hit.y };
+      dragInitialPointer = { ...point, rawX: hit.x, rawY: hit.y };
+      dragInitialFields = [{ ...hit }];
       syncInputsFromState();
       syncToolUI();
       render();
-    } else {
-      selectedFieldKey = null;
-      selectedTool = 'pointer';
-      isMarquee = true;
-      marqueeStart = point;
-      marqueeEnd = point;
-      marqueeStartClient = { x: event.clientX, y: event.clientY };
-      marqueeEndClient = { x: event.clientX, y: event.clientY };
-      updateMarqueeOverlay(marqueeStartClient, marqueeEndClient);
-      syncToolUI();
-      render();
+      return;
     }
+
+    // 5. Empty space clicked: Clear selection and start CAD Marquee box
+    setSelectedKeys([]);
+    selectedTool = 'pointer';
+    isMarquee = true;
+    marqueeStart = point;
+    marqueeEnd = point;
+    marqueeStartClient = { x: event.clientX, y: event.clientY };
+    marqueeEndClient = { x: event.clientX, y: event.clientY };
+    updateMarqueeOverlay(marqueeStartClient, marqueeEndClient);
+    syncToolUI();
+    render();
   }
 
   function handlePointerMove(event) {
@@ -2053,7 +2204,121 @@
       render();
     }
 
-    if (!drawing && !draggingObject) return;
+    if (resizingHandle) {
+      const snapStep = getSnapStep();
+      let curX = rawPoint.x;
+      let curY = rawPoint.y;
+      if (snapStep > 0) {
+        curX = Math.round(curX / snapStep) * snapStep;
+        curY = Math.round(curY / snapStep) * snapStep;
+      }
+
+      const fields = selectedFields();
+      if (fields.length === 1 && fields[0].type === 'LINE') {
+        const line = fields[0];
+        if (resizingHandle.id === 'line-start') {
+          line.x = curX;
+          line.y = curY;
+        } else if (resizingHandle.id === 'line-end') {
+          line.x2 = curX;
+          line.y2 = curY;
+        }
+        gestureChanged = true;
+        syncInputsFromState();
+        render();
+        return;
+      }
+
+      const initB = resizeInitialBounds;
+      if (!initB) return;
+
+      const initMinX = initB.minX;
+      const initMaxX = initB.maxX;
+      const initMinY = initB.minY;
+      const initMaxY = initB.maxY;
+      const initW = Math.max(1, initMaxX - initMinX);
+      const initH = Math.max(1, initMaxY - initMinY);
+
+      let newMinX = initMinX;
+      let newMaxX = initMaxX;
+      let newMinY = initMinY;
+      let newMaxY = initMaxY;
+
+      const hid = resizingHandle.id;
+      if (hid === 'br') {
+        newMaxX = Math.max(initMinX + 1, curX);
+        newMaxY = Math.max(initMinY + 1, curY);
+      } else if (hid === 'bl') {
+        newMinX = Math.min(initMaxX - 1, curX);
+        newMaxY = Math.max(initMinY + 1, curY);
+      } else if (hid === 'tr') {
+        newMaxX = Math.max(initMinX + 1, curX);
+        newMinY = Math.min(initMaxY - 1, curY);
+      } else if (hid === 'tl') {
+        newMinX = Math.min(initMaxX - 1, curX);
+        newMinY = Math.min(initMaxY - 1, curY);
+      } else if (hid === 'tc') {
+        newMinY = Math.min(initMaxY - 1, curY);
+      } else if (hid === 'bc') {
+        newMaxY = Math.max(initMinY + 1, curY);
+      } else if (hid === 'lc') {
+        newMinX = Math.min(initMaxX - 1, curX);
+      } else if (hid === 'rc') {
+        newMaxX = Math.max(initMinX + 1, curX);
+      }
+
+      const newW = Math.max(1, newMaxX - newMinX);
+      const newH = Math.max(1, newMaxY - newMinY);
+      const scaleX = newW / initW;
+      const scaleY = newH / initH;
+
+      fields.forEach((f) => {
+        const orig = resizeInitialFields?.find((o) => o.key === f.key);
+        if (!orig) return;
+
+        if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(f.type)) {
+          const origRelX1 = orig.x - initMinX;
+          const origRelY1 = orig.y - initMinY;
+          const origRelX2 = (orig.x2 ?? orig.x) - initMinX;
+          const origRelY2 = (orig.y2 ?? orig.y) - initMinY;
+
+          f.x = Math.round(newMinX + origRelX1 * scaleX);
+          f.y = Math.round(newMinY + origRelY1 * scaleY);
+          f.x2 = Math.round(newMinX + origRelX2 * scaleX);
+          f.y2 = Math.round(newMinY + origRelY2 * scaleY);
+        } else {
+          const origRelX = orig.x - initMinX;
+          const origRelY = orig.y - initMinY;
+          f.x = Math.round(newMinX + origRelX * scaleX);
+          f.y = Math.round(newMinY + origRelY * scaleY);
+          if (orig.width !== undefined) {
+            f.width = Math.max(10, Math.round(orig.width * scaleX));
+          }
+          if (orig.height !== undefined) {
+            f.height = Math.max(4, Math.round(orig.height * scaleY));
+          }
+        }
+      });
+
+      gestureChanged = true;
+      syncInputsFromState();
+      render();
+      return;
+    }
+
+    if (!drawing && !draggingObject) {
+      if (!isMarquee) {
+        const hoveredHandle = hitTestHandle(event);
+        if (hoveredHandle) {
+          displayCanvas.style.cursor = hoveredHandle.cursor || 'pointer';
+        } else if (isPointInsideSelection(rawPoint)) {
+          displayCanvas.style.cursor = 'move';
+        } else {
+          displayCanvas.style.cursor = (['pixel', 'erase'].includes(selectedTool) ? 'crosshair' : 'default');
+        }
+      }
+      return;
+    }
 
     if (drawing) {
       if (['line', 'rect', 'ellipse', 'triangle', 'polygon'].includes(selectedTool) || ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(selectedField()?.type)) {
@@ -2082,43 +2347,37 @@
       }
     } else if (draggingObject) {
       const snapStep = getSnapStep();
+      let dx = rawPoint.x - (dragInitialPointer?.x ?? 0);
+      let dy = rawPoint.y - (dragInitialPointer?.y ?? 0);
+      if (snapStep > 0) {
+        dx = Math.round(dx / snapStep) * snapStep;
+        dy = Math.round(dy / snapStep) * snapStep;
+      }
+
       if (selectedTool === 'rawText') {
-        let nextX = rawPoint.x - dragOffset.x;
-        let nextY = rawPoint.y - dragOffset.y;
-        if (snapStep > 0) {
-          nextX = Math.round(nextX / snapStep) * snapStep;
-          nextY = Math.round(nextY / snapStep) * snapStep;
-        }
+        let nextX = (dragInitialPointer?.rawX ?? 0) + dx;
+        let nextY = (dragInitialPointer?.rawY ?? 0) + dy;
         nextX = clamp(nextX, 0, WIDTH - 1);
         nextY = clamp(nextY, 0, HEIGHT - 1);
         gestureChanged = gestureChanged || nextX !== rawState.x || nextY !== rawState.y;
         rawState.x = nextX;
         rawState.y = nextY;
       } else {
-        const field = selectedField();
-        if (!field || Number(field.page || 0) !== activePage) return;
-        let nextX = rawPoint.x - dragOffset.x;
-        let nextY = rawPoint.y - dragOffset.y;
-        if (snapStep > 0) {
-          nextX = Math.round(nextX / snapStep) * snapStep;
-          nextY = Math.round(nextY / snapStep) * snapStep;
-        }
-        if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
-          const dx = nextX - field.x;
-          const dy = nextY - field.y;
-          field.x += dx;
-          field.y += dy;
-          field.x2 += dx;
-          field.y2 += dy;
+        const fields = selectedFields();
+        fields.forEach((f) => {
+          const orig = dragInitialFields?.find((o) => o.key === f.key);
+          if (!orig) return;
+          if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(f.type)) {
+            f.x = orig.x + dx;
+            f.y = orig.y + dy;
+            if (orig.x2 !== undefined) f.x2 = orig.x2 + dx;
+            if (orig.y2 !== undefined) f.y2 = orig.y2 + dy;
+          } else {
+            f.x = orig.x + dx;
+            f.y = orig.y + dy;
+          }
           gestureChanged = true;
-        } else {
-          const g = computeFieldGeometry(field);
-          nextX = clamp(nextX, 0, Math.max(0, WIDTH - g.fieldW));
-          nextY = clamp(nextY, 0, Math.max(0, HEIGHT - g.fieldH));
-          gestureChanged = gestureChanged || nextX !== field.x || nextY !== field.y;
-          field.x = nextX;
-          field.y = nextY;
-        }
+        });
       }
       syncInputsFromState();
       render();
@@ -2236,6 +2495,12 @@
     const wasDrawingShape = drawing && ['line', 'rect', 'ellipse', 'triangle', 'polygon'].includes(selectedTool);
     drawing = false;
     draggingObject = false;
+    resizingHandle = null;
+    resizeInitialBounds = null;
+    resizeInitialPointer = null;
+    resizeInitialFields = null;
+    dragInitialPointer = null;
+    dragInitialFields = null;
     lastPoint = null;
     gestureChanged = false;
 
@@ -2250,8 +2515,8 @@
         const isLeftToRight = marqueeEnd.x >= marqueeStart.x;
 
         if (boxR - boxL >= 2 || boxB - boxT >= 2) {
-          let matched = null;
-          for (let i = hmiFields.length - 1; i >= 0; i--) {
+          const matchedList = [];
+          for (let i = 0; i < hmiFields.length; i++) {
             const f = hmiFields[i];
             if (Number(f.page || 0) !== activePage) continue;
 
@@ -2269,25 +2534,24 @@
                 fullyInside = (g.fieldX >= boxL && (g.fieldX + g.fieldW) <= boxR && g.fieldY >= boxT && (g.fieldY + g.fieldH) <= boxB);
               }
               if (fullyInside) {
-                matched = f;
-                break;
+                matchedList.push(f);
               }
             } else {
-              // SolidWorks Crossing: Touches or crosses the ACTUAL CONTOUR
+              // SolidWorks Crossing: Touches or crosses the ACTUAL CONTOUR or is enclosed
               if (doesBoxTouchContour(boxL, boxR, boxT, boxB, f)) {
-                matched = f;
-                break;
+                matchedList.push(f);
               }
             }
           }
 
-          if (matched) {
-            selectedFieldKey = matched.key;
-            selectedTool = toolForField(matched);
+          if (matchedList.length > 0) {
+            setSelectedKeys(matchedList.map((f) => f.key));
+            const primary = selectedField();
+            selectedTool = primary ? toolForField(primary) : 'pointer';
             syncInputsFromState();
             syncToolUI();
           } else {
-            selectedFieldKey = null;
+            setSelectedKeys([]);
             syncToolUI();
           }
         }
@@ -2335,38 +2599,31 @@
       dy = Math.sign(dy) * Math.max(Math.abs(dy), snapStep);
     }
 
-    const field = selectedField();
-    if (field && Number(field.page || 0) === activePage) {
-      if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
-        field.x += dx;
-        field.y += dy;
-        field.x2 += dx;
-        field.y2 += dy;
-        if (snapStep > 0) {
-          field.x = Math.round(field.x / snapStep) * snapStep;
-          field.y = Math.round(field.y / snapStep) * snapStep;
-          field.x2 = Math.round(field.x2 / snapStep) * snapStep;
-          field.y2 = Math.round(field.y2 / snapStep) * snapStep;
+    const fields = selectedFields();
+    if (fields.length > 0) {
+      let moved = false;
+      fields.forEach((field) => {
+        if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
+          field.x += dx;
+          field.y += dy;
+          if (field.x2 !== undefined) field.x2 += dx;
+          if (field.y2 !== undefined) field.y2 += dy;
+          moved = true;
+        } else {
+          const g = computeFieldGeometry(field);
+          let nextX = clamp(field.x + dx, 0, Math.max(0, WIDTH - g.fieldW));
+          let nextY = clamp(field.y + dy, 0, Math.max(0, HEIGHT - g.fieldH));
+          if (nextX !== field.x || nextY !== field.y) moved = true;
+          field.x = nextX;
+          field.y = nextY;
         }
+      });
+      if (moved) {
         syncInputsFromState();
         render();
         return true;
       }
-      const g = computeFieldGeometry(field);
-      let nextX = clamp(field.x + dx, 0, Math.max(0, WIDTH - g.fieldW));
-      let nextY = clamp(field.y + dy, 0, Math.max(0, HEIGHT - g.fieldH));
-      if (snapStep > 0) {
-        nextX = Math.round(nextX / snapStep) * snapStep;
-        nextY = Math.round(nextY / snapStep) * snapStep;
-        nextX = clamp(nextX, 0, Math.max(0, WIDTH - g.fieldW));
-        nextY = clamp(nextY, 0, Math.max(0, HEIGHT - g.fieldH));
-      }
-      if (nextX === field.x && nextY === field.y) return false;
-      field.x = nextX;
-      field.y = nextY;
-      syncInputsFromState();
-      render();
-      return true;
+      return false;
     }
 
     if (selectedTool === 'rawText') {
@@ -2413,7 +2670,7 @@
         return;
       }
       if (event.key === 'Escape') {
-        selectedFieldKey = null;
+        setSelectedKeys([]);
         selectedTool = 'none';
         syncToolUI();
         render();
@@ -2457,6 +2714,9 @@
 
   window.JWPLCHMIEditor = {
     getSelectedField: () => selectedField(),
+    getSelectedFields: () => selectedFields(),
+    getSelectedFieldKeys: () => [...selectedFieldKeys],
+    setSelectedFieldKeys: (keys) => setSelectedKeys(keys),
     getSelectedTool: () => selectedTool,
     getSelectedFieldType: () => selectedField()?.type || null,
     getAllFields: () => hmiFields,
