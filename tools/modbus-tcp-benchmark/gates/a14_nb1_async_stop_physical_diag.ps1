@@ -300,7 +300,7 @@ Write-Host "TCP_RX_OVER_10MS_COUNT=$tcpRxOver10ms"
 Write-Host "TCP_TX_OVER_10MS_COUNT=$tcpTxOver10ms"
 
 Write-Host ""
-Write-Host "OBSERVACION FISICA REQUERIDA: mira la TFT durante los 20 pares."
+Write-Host ("OBSERVACION FISICA REQUERIDA: mira la TFT durante los {0} pares." -f $Pairs)
 $visualAnswer = ""
 while ($visualAnswer -notin @("S", "N")) {
     $visualAnswer = (Read-Host 'Aparecio el diagnostico visual "SPI" durante NB1-C2? (S/N)').Trim().ToUpperInvariant()
