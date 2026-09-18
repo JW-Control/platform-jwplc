@@ -977,6 +977,59 @@
     const sel = selectedField();
     if (!sel || sel.type === 'PIXELMAP') return;
 
+    if (sel.type === 'LINE') {
+      const lx1 = Math.round(sel.x * zoom + zoom / 2) + 0.5;
+      const ly1 = Math.round(sel.y * zoom + zoom / 2) + 0.5;
+      const lx2 = Math.round((sel.x2 ?? sel.x) * zoom + zoom / 2) + 0.5;
+      const ly2 = Math.round((sel.y2 ?? sel.y) * zoom + zoom / 2) + 0.5;
+
+      displayCtx.save();
+
+      // Dotted projection lines to rulers from endpoints
+      displayCtx.strokeStyle = 'rgba(255, 255, 255, 0.40)';
+      displayCtx.setLineDash([2, 3]);
+      displayCtx.lineWidth = 1;
+      displayCtx.beginPath();
+      displayCtx.moveTo(lx1, 0);
+      displayCtx.lineTo(lx1, displayCanvas.height);
+      displayCtx.moveTo(lx2, 0);
+      displayCtx.lineTo(lx2, displayCanvas.height);
+      displayCtx.moveTo(0, ly1);
+      displayCtx.lineTo(displayCanvas.width, ly1);
+      displayCtx.moveTo(0, ly2);
+      displayCtx.lineTo(displayCanvas.width, ly2);
+      displayCtx.stroke();
+
+      // Highlight the line itself in blue (no bounding rectangle)
+      displayCtx.setLineDash([]);
+      displayCtx.strokeStyle = '#0084ff';
+      displayCtx.lineWidth = Math.max(2, (sel.size || 1) * zoom + 1);
+      displayCtx.beginPath();
+      displayCtx.moveTo(lx1, ly1);
+      displayCtx.lineTo(lx2, ly2);
+      displayCtx.stroke();
+
+      // Only 2 endpoint handles (at start and end of line)
+      const hs = 6;
+      const points = [
+        [lx1, ly1],
+        [lx2, ly2]
+      ];
+
+      points.forEach(([hx, hy]) => {
+        const rx = Math.round(hx - hs / 2);
+        const ry = Math.round(hy - hs / 2);
+        displayCtx.fillStyle = '#060d13';
+        displayCtx.fillRect(rx, ry, hs, hs);
+        displayCtx.strokeStyle = '#0084ff';
+        displayCtx.lineWidth = 1.5;
+        displayCtx.strokeRect(rx + 0.5, ry + 0.5, hs - 1, hs - 1);
+      });
+
+      displayCtx.restore();
+      return;
+    }
+
     let left, top, w, h;
     if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(sel.type)) {
       left = Math.min(sel.x, sel.x2 ?? sel.x);
@@ -1918,7 +1971,7 @@
   function hitTestField(point) {
     let bestField = null;
     let bestDist = Infinity;
-    const tolerance = 4;
+    const tolerance = 1.5;
 
     for (let index = hmiFields.length - 1; index >= 0; index -= 1) {
       const field = hmiFields[index];
@@ -2072,6 +2125,112 @@
     }
   }
 
+  function segmentsIntersect(x1, y1, x2, y2, x3, y3, x4, y4) {
+    function ccw(ax, ay, bx, by, cx, cy) {
+      return (cy - ay) * (bx - ax) > (by - ay) * (cx - ax);
+    }
+    return (ccw(x1, y1, x3, y3, x4, y4) !== ccw(x2, y2, x3, y3, x4, y4)) &&
+           (ccw(x1, y1, x2, y2, x3, y3) !== ccw(x1, y1, x2, y2, x4, y4));
+  }
+
+  function segmentIntersectsBox(x1, y1, x2, y2, L, R, T, B) {
+    if ((x1 >= L && x1 <= R && y1 >= T && y1 <= B) || (x2 >= L && x2 <= R && y2 >= T && y2 <= B)) {
+      return true;
+    }
+    return (
+      segmentsIntersect(x1, y1, x2, y2, L, T, R, T) ||
+      segmentsIntersect(x1, y1, x2, y2, L, B, R, B) ||
+      segmentsIntersect(x1, y1, x2, y2, L, T, L, B) ||
+      segmentsIntersect(x1, y1, x2, y2, R, T, R, B)
+    );
+  }
+
+  function doesBoxTouchContour(boxL, boxR, boxT, boxB, field) {
+    const a = { x: field.x, y: field.y };
+    const b = { x: field.x2 ?? field.x, y: field.y2 ?? field.y };
+
+    if (field.type === 'LINE') {
+      return segmentIntersectsBox(a.x, a.y, b.x, b.y, boxL, boxR, boxT, boxB);
+    }
+
+    if (field.type === 'RECT') {
+      const left = Math.min(a.x, b.x);
+      const right = Math.max(a.x, b.x);
+      const top = Math.min(a.y, b.y);
+      const bottom = Math.max(a.y, b.y);
+      return (
+        segmentIntersectsBox(left, top, right, top, boxL, boxR, boxT, boxB) ||
+        segmentIntersectsBox(right, top, right, bottom, boxL, boxR, boxT, boxB) ||
+        segmentIntersectsBox(right, bottom, left, bottom, boxL, boxR, boxT, boxB) ||
+        segmentIntersectsBox(left, bottom, left, top, boxL, boxR, boxT, boxB)
+      );
+    }
+
+    if (field.type === 'ELLIPSE') {
+      const cx = (a.x + b.x) / 2;
+      const cy = (a.y + b.y) / 2;
+      const rx = Math.max(0.5, Math.abs(b.x - a.x) / 2);
+      const ry = Math.max(0.5, Math.abs(b.y - a.y) / 2);
+      const steps = 24;
+      let prevX = cx + rx;
+      let prevY = cy;
+      for (let i = 1; i <= steps; i++) {
+        const angle = (i * 2 * Math.PI) / steps;
+        const curX = cx + rx * Math.cos(angle);
+        const curY = cy + ry * Math.sin(angle);
+        if (segmentIntersectsBox(prevX, prevY, curX, curY, boxL, boxR, boxT, boxB)) {
+          return true;
+        }
+        prevX = curX;
+        prevY = curY;
+      }
+      return false;
+    }
+
+    if (field.type === 'TRIANGLE') {
+      const topPt = { x: Math.round((a.x + b.x) / 2), y: a.y };
+      const bl = { x: a.x, y: b.y };
+      const br = { x: b.x, y: b.y };
+      return (
+        segmentIntersectsBox(topPt.x, topPt.y, bl.x, bl.y, boxL, boxR, boxT, boxB) ||
+        segmentIntersectsBox(bl.x, bl.y, br.x, br.y, boxL, boxR, boxT, boxB) ||
+        segmentIntersectsBox(br.x, br.y, topPt.x, topPt.y, boxL, boxR, boxT, boxB)
+      );
+    }
+
+    if (field.type === 'POLYGON') {
+      const cx = (a.x + b.x) / 2;
+      const cy = (a.y + b.y) / 2;
+      const rx = Math.abs(b.x - a.x) / 2;
+      const ry = Math.abs(b.y - a.y) / 2;
+      const numSides = Math.max(3, Math.min(12, Math.trunc(Number(field.sides) || 5)));
+      const pts = [];
+      for (let i = 0; i < numSides; i++) {
+        const angle = (i * 2 * Math.PI / numSides) - Math.PI / 2;
+        pts.push({
+          x: Math.round(cx + rx * Math.cos(angle)),
+          y: Math.round(cy + ry * Math.sin(angle))
+        });
+      }
+      for (let i = 0; i < numSides; i++) {
+        const p1 = pts[i];
+        const p2 = pts[(i + 1) % numSides];
+        if (segmentIntersectsBox(p1.x, p1.y, p2.x, p2.y, boxL, boxR, boxT, boxB)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    // For TEXT, VALUE, BOOL, BAR, etc.
+    const g = computeFieldGeometry(field);
+    const fL = g.fieldX;
+    const fR = g.fieldX + g.fieldW;
+    const fT = g.fieldY;
+    const fB = g.fieldY + g.fieldH;
+    return !(fR < boxL || fL > boxR || fB < boxT || fT > boxB);
+  }
+
   function endPointer() {
     const changed = gestureChanged;
     const wasDrawingShape = drawing && ['line', 'rect', 'ellipse', 'triangle', 'polygon'].includes(selectedTool);
@@ -2096,30 +2255,26 @@
             const f = hmiFields[i];
             if (Number(f.page || 0) !== activePage) continue;
 
-            let fL, fR, fT, fB;
-            if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(f.type)) {
-              fL = Math.min(f.x, f.x2 ?? f.x);
-              fR = Math.max(f.x, f.x2 ?? f.x);
-              fT = Math.min(f.y, f.y2 ?? f.y);
-              fB = Math.max(f.y, f.y2 ?? f.y);
-            } else {
-              const g = computeFieldGeometry(f);
-              fL = g.fieldX;
-              fR = g.fieldX + g.fieldW;
-              fT = g.fieldY;
-              fB = g.fieldY + g.fieldH;
-            }
-
             if (isLeftToRight) {
               // SolidWorks Window: Enclosed only (must be 100% inside)
-              if (fL >= boxL && fR <= boxR && fT >= boxT && fB <= boxB) {
+              let fullyInside = false;
+              if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(f.type)) {
+                const fL = Math.min(f.x, f.x2 ?? f.x);
+                const fR = Math.max(f.x, f.x2 ?? f.x);
+                const fT = Math.min(f.y, f.y2 ?? f.y);
+                const fB = Math.max(f.y, f.y2 ?? f.y);
+                fullyInside = (fL >= boxL && fR <= boxR && fT >= boxT && fB <= boxB);
+              } else {
+                const g = computeFieldGeometry(f);
+                fullyInside = (g.fieldX >= boxL && (g.fieldX + g.fieldW) <= boxR && g.fieldY >= boxT && (g.fieldY + g.fieldH) <= boxB);
+              }
+              if (fullyInside) {
                 matched = f;
                 break;
               }
             } else {
-              // SolidWorks Crossing: Touches or overlaps
-              const outside = (fR < boxL || fL > boxR || fB < boxT || fT > boxB);
-              if (!outside) {
+              // SolidWorks Crossing: Touches or crosses the ACTUAL CONTOUR
+              if (doesBoxTouchContour(boxL, boxR, boxT, boxB, f)) {
                 matched = f;
                 break;
               }
