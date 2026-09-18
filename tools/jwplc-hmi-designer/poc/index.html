@@ -25,7 +25,8 @@
       <button disabled>Rehacer</button>
       <span class="separator"></span>
       <button id="generateButton" class="primary-action">Generar C++</button>
-      <button id="fitButton">Ajustar</button>
+      <button id="fitButton" title="Ajustar Lienzo (Espacio)">Ajustar</button>
+      <button id="fitSelectionButton" title="Ajustar Selección (Shift+Espacio)">Ajustar selección</button>
     </nav>
   </header>
 
@@ -101,7 +102,8 @@
         <div class="right-vertical-toolbar" aria-label="Controles de Lienzo">
           <button id="zoomInBtn" class="vert-btn" type="button" title="Acercar (Zoom In)">+</button>
           <button id="zoomOutBtn" class="vert-btn" type="button" title="Alejar (Zoom Out)">−</button>
-          <button id="fitCanvasBtn" class="vert-btn" type="button" title="Ajustar">⛶</button>
+          <button id="fitCanvasBtn" class="vert-btn" type="button" title="Ajustar Lienzo (Espacio)">⛶</button>
+          <button id="fitSelectionBtn" class="vert-btn" type="button" title="Ajustar Selección (Shift+Espacio)">⊡</button>
           <span class="vert-divider"></span>
           <button id="vertGridToggle" class="vert-btn toggle-btn active" type="button" title="Alternar Grilla">▦</button>
           <button id="vertSnapToggle" class="vert-btn toggle-btn active" type="button" title="Ajuste Magnético (Snap)">⧉</button>
@@ -427,26 +429,26 @@
   <div id="hiddenControlContainer" style="display:none !important;" aria-hidden="true">
     <canvas id="previewCanvas" width="320" height="170"></canvas>
     <select id="zoomSelect">
-      <option value="1">1�</option>
-      <option value="2">2�</option>
-      <option value="3" selected>3�</option>
-      <option value="4">4�</option>
-      <option value="6">6�</option>
-      <option value="8">8�</option>
+      <option value="1">1×</option>
+      <option value="2">2×</option>
+      <option value="3" selected>3×</option>
+      <option value="4">4×</option>
+      <option value="6">6×</option>
+      <option value="8">8×</option>
+    </select>
     <input id="gridToggle" type="checkbox" checked />
     <input id="snapToggle" type="checkbox" checked />
     <input id="geometryToggle" type="checkbox" />
   </div>
 
-    <script src="./gfx-classic-font.js?v=1789742500"></script>
-  <script src="./app.js?v=1789745000"></script>
-  <script src="./ux-foundation.js?v=1789742500"></script>
-  <script src="./designer-codegen.js?v=1789742500"></script>
+  <script src="./gfx-classic-font.js?v=1789746000"></script>
+  <script src="./app.js?v=1789746000"></script>
+  <script src="./ux-foundation.js?v=1789746000"></script>
+  <script src="./designer-codegen.js?v=1789746000"></script>
 
   
 
 </body>
 </html>
-
 
 

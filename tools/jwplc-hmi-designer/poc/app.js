@@ -232,6 +232,110 @@
       canvasViewport.style.backgroundPosition = `${panX}px ${panY}px, ${panX + 12}px ${panY + 12}px`;
     }
   }
+
+  function applyZoom(nextZoom) {
+    const val = Math.max(0.25, Math.min(16, Math.round(nextZoom * 100) / 100));
+    zoom = val;
+    let opt = zoomSelect.querySelector(`option[value="${val}"]`);
+    if (!opt) {
+      opt = zoomSelect.querySelector('option[data-custom-zoom="1"]');
+      if (!opt) {
+        opt = document.createElement('option');
+        opt.dataset.customZoom = '1';
+        zoomSelect.appendChild(opt);
+      }
+      opt.value = String(val);
+      opt.textContent = `${val}×`;
+    }
+    zoomSelect.value = String(val);
+    render();
+    window.dispatchEvent(new CustomEvent('jwplc:zoom-change', { detail: { zoom: val } }));
+  }
+
+  function fitCanvas() {
+    if (!canvasViewport) return;
+    const vpRect = canvasViewport.getBoundingClientRect();
+    const vpW = vpRect.width;
+    const vpH = vpRect.height;
+    if (vpW <= 50 || vpH <= 50) return;
+
+    const topMargin = 72;
+    const bottomMargin = 28;
+    const leftMargin = 36;
+    const rightMargin = 56;
+
+    const rulerTopH = 22;
+    const rulerRightW = 36;
+
+    const availW = Math.max(80, vpW - leftMargin - rightMargin - rulerRightW);
+    const availH = Math.max(60, vpH - topMargin - bottomMargin - rulerTopH);
+
+    const rawZoom = Math.min(availW / WIDTH, availH / HEIGHT);
+    const targetZoom = Math.max(0.5, Math.min(10, Math.floor(rawZoom * 20) / 20));
+
+    applyZoom(targetZoom);
+
+    const desiredCenterX = leftMargin + (vpW - leftMargin - rightMargin) / 2;
+    const desiredCenterY = topMargin + (vpH - topMargin - bottomMargin) / 2;
+
+    const targetPanX = Math.round(desiredCenterX - ((vpW - WIDTH * targetZoom) / 2 - 18 + (WIDTH / 2) * targetZoom));
+    const targetPanY = Math.round(desiredCenterY - ((vpH - HEIGHT * targetZoom) / 2 + 11 + (HEIGHT / 2) * targetZoom));
+
+    panX = targetPanX;
+    panY = targetPanY;
+    updateStageTransform();
+  }
+
+  function fitSelection() {
+    if (!canvasViewport) return;
+    const fields = selectedFields();
+    if (!fields || fields.length === 0) {
+      fitCanvas();
+      return;
+    }
+
+    const b = getSelectionBounds(fields);
+    if (!b) {
+      fitCanvas();
+      return;
+    }
+
+    const vpRect = canvasViewport.getBoundingClientRect();
+    const vpW = vpRect.width;
+    const vpH = vpRect.height;
+    if (vpW <= 50 || vpH <= 50) return;
+
+    const topMargin = 72;
+    const bottomMargin = 28;
+    const leftMargin = 36;
+    const rightMargin = 56;
+
+    const availW = Math.max(80, vpW - leftMargin - rightMargin);
+    const availH = Math.max(60, vpH - topMargin - bottomMargin);
+
+    const selW = Math.max(4, (b.maxX - b.minX + 1));
+    const selH = Math.max(4, (b.maxY - b.minY + 1));
+    const selCenterX = (b.minX + b.maxX + 1) / 2;
+    const selCenterY = (b.minY + b.maxY + 1) / 2;
+
+    const zoomX = (availW * 0.75) / selW;
+    const zoomY = (availH * 0.75) / selH;
+    const rawZoom = Math.min(zoomX, zoomY);
+
+    const targetZoom = Math.max(0.5, Math.min(12, Math.floor(rawZoom * 20) / 20));
+
+    applyZoom(targetZoom);
+
+    const desiredCenterX = leftMargin + (vpW - leftMargin - rightMargin) / 2;
+    const desiredCenterY = topMargin + (vpH - topMargin - bottomMargin) / 2;
+
+    const targetPanX = Math.round(desiredCenterX - ((vpW - WIDTH * targetZoom) / 2 - 18 + selCenterX * targetZoom));
+    const targetPanY = Math.round(desiredCenterY - ((vpH - HEIGHT * targetZoom) / 2 + 11 + selCenterY * targetZoom));
+
+    panX = targetPanX;
+    panY = targetPanY;
+    updateStageTransform();
+  }
   let lastPoint = null;
   let codeMode = 'status';
   let gestureChanged = false;
@@ -2648,6 +2752,15 @@
   document.addEventListener('keydown', (event) => {
     const ctrl = event.ctrlKey || event.metaKey;
     if (!isEditingTarget(event.target)) {
+      if (event.code === 'Space' || event.key === ' ') {
+        event.preventDefault();
+        if (event.shiftKey) {
+          fitSelection();
+        } else {
+          fitCanvas();
+        }
+        return;
+      }
       if (ctrl && event.key.toLowerCase() === 'z') {
         event.preventDefault();
         if (event.shiftKey) redo();
@@ -2734,6 +2847,9 @@
     moveSelectedFieldToPage,
     commitHistory,
     render,
+    fitCanvas,
+    fitSelection,
+    applyZoom,
     setPan: (x, y) => {
       panX = x;
       panY = y;
@@ -2827,18 +2943,11 @@
       e.preventDefault();
       if (e.ctrlKey) {
         // Ctrl + Wheel = Zoom in / Zoom out
-        const sel = document.getElementById('zoomSelect');
-        if (!sel) return;
-        let idx = sel.selectedIndex;
-        if (e.deltaY < 0) {
-          idx = Math.min(sel.options.length - 1, idx + 1);
-        } else {
-          idx = Math.max(0, idx - 1);
-        }
-        if (idx !== sel.selectedIndex) {
-          sel.selectedIndex = idx;
-          sel.dispatchEvent(new Event('change', { bubbles: true }));
-        }
+        const curZoom = Number(document.getElementById('zoomSelect')?.value) || 1;
+        const factor = e.deltaY < 0 ? 1.15 : 0.87;
+        const rawNext = curZoom * factor;
+        const nextZoom = Math.max(0.5, Math.min(16, Math.round(rawNext * 20) / 20));
+        window.JWPLCHMIEditor?.applyZoom?.(nextZoom);
       } else if (e.shiftKey) {
         // Shift + Wheel = horizontal scroll
         const currentPan = window.JWPLCHMIEditor?.getPan?.() || { x: 0, y: 0 };
@@ -2856,23 +2965,25 @@
 
   // --- Vertical Toolbar Discrete Buttons Wire-up ---
   document.getElementById('zoomInBtn')?.addEventListener('click', () => {
-    const sel = document.getElementById('zoomSelect');
-    if (sel && sel.selectedIndex < sel.options.length - 1) {
-      sel.selectedIndex += 1;
-      sel.dispatchEvent(new Event('change', { bubbles: true }));
-    }
+    const curZoom = Number(document.getElementById('zoomSelect')?.value) || 1;
+    let nextZoom = Math.min(16, Math.floor((curZoom + 0.5) * 2) / 2);
+    if (nextZoom <= curZoom) nextZoom = Math.min(16, curZoom + 0.5);
+    window.JWPLCHMIEditor?.applyZoom?.(nextZoom);
   });
 
   document.getElementById('zoomOutBtn')?.addEventListener('click', () => {
-    const sel = document.getElementById('zoomSelect');
-    if (sel && sel.selectedIndex > 0) {
-      sel.selectedIndex -= 1;
-      sel.dispatchEvent(new Event('change', { bubbles: true }));
-    }
+    const curZoom = Number(document.getElementById('zoomSelect')?.value) || 1;
+    let nextZoom = Math.max(0.5, Math.ceil((curZoom - 0.5) * 2) / 2);
+    if (nextZoom >= curZoom) nextZoom = Math.max(0.5, curZoom - 0.5);
+    window.JWPLCHMIEditor?.applyZoom?.(nextZoom);
   });
 
   document.getElementById('fitCanvasBtn')?.addEventListener('click', () => {
-    document.getElementById('fitButton')?.click();
+    window.JWPLCHMIEditor?.fitCanvas?.();
+  });
+
+  document.getElementById('fitSelectionBtn')?.addEventListener('click', () => {
+    window.JWPLCHMIEditor?.fitSelection?.();
   });
 
   document.getElementById('vertGridToggle')?.addEventListener('click', function() {

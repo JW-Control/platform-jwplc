@@ -196,6 +196,7 @@ body.layout-medium:not(.bottom-collapsed) {
 .layout-medium .cmd-undo,
 .layout-medium .cmd-redo,
 .layout-medium #fitButton,
+.layout-medium #fitSelectionButton,
 .layout-medium #linkSketchButton,
 .layout-medium #installAppButton {
   display: none !important;
@@ -300,6 +301,7 @@ body.layout-compact {
 .layout-compact .cmd-undo,
 .layout-compact .cmd-redo,
 .layout-compact #fitButton,
+.layout-compact #fitSelectionButton,
 .layout-compact #linkSketchButton,
 .layout-compact #installAppButton,
 .layout-compact #saveProjectButton {

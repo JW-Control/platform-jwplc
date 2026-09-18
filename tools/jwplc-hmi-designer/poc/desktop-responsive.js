@@ -97,7 +97,7 @@
   function proxyTarget(key) {
     const selectors = {
       new: '#newProjectButton', open: '#openProjectButton', undo: '.cmd-undo',
-      redo: '.cmd-redo', fit: '#fitButton', sketch: '#linkSketchButton', install: '#installAppButton'
+      redo: '.cmd-redo', fit: '#fitButton', fitSelection: '#fitSelectionButton', sketch: '#linkSketchButton', install: '#installAppButton'
     };
     return selectors[key] ? $(selectors[key]) : null;
   }
@@ -116,6 +116,7 @@
         <button type="button" data-proxy="undo">Deshacer</button>
         <button type="button" data-proxy="redo">Rehacer</button>
         <button type="button" data-proxy="fit">Ajustar canvas</button>
+        <button type="button" data-proxy="fitSelection">Ajustar selección</button>
         <button type="button" data-proxy="sketch">Vincular sketch…</button>
         <button type="button" data-proxy="install">Instalar app</button>
       </div>`;
@@ -337,7 +338,15 @@
     const select = $('#zoomSelect');
     if (!select) return;
     ensureZoomOne();
-    const normalized = ZOOMS.includes(Number(value)) ? Number(value) : 1;
+    const num = Number(value);
+    const normalized = (Number.isFinite(num) && num > 0) ? Math.round(num * 100) / 100 : 1;
+    let opt = select.querySelector(`option[value="${normalized}"]`);
+    if (!opt) {
+      opt = document.createElement('option');
+      opt.value = String(normalized);
+      opt.textContent = `${normalized}×`;
+      select.appendChild(opt);
+    }
     applyingZoom = true;
     select.value = String(normalized);
     select.dispatchEvent(new Event('change', { bubbles: true }));
@@ -360,7 +369,16 @@
     const fit = $('#fitButton');
     if (fit && fit.dataset.responsiveBound !== '1') {
       fit.dataset.responsiveBound = '1';
-      fit.addEventListener('click', () => setTimeout(() => setZoom(bestFitZoom(mode === 'wide' ? 8 : 4), true), 0));
+      fit.addEventListener('click', () => {
+        window.JWPLCHMIEditor?.fitCanvas?.();
+      });
+    }
+    const fitSel = $('#fitSelectionButton');
+    if (fitSel && fitSel.dataset.responsiveBound !== '1') {
+      fitSel.dataset.responsiveBound = '1';
+      fitSel.addEventListener('click', () => {
+        window.JWPLCHMIEditor?.fitSelection?.();
+      });
     }
     const select = $('#zoomSelect');
     if (select && select.dataset.responsiveBound !== '1') {

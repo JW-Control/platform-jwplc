@@ -165,6 +165,12 @@
   }
 
   function applyExactFit() {
+    const editor = window.JWPLCHMIEditor || window.jwplc;
+    if (editor?.fitCanvas) {
+      editor.fitCanvas();
+      refreshUX();
+      return;
+    }
     const value = exactFitZoom();
     let option = zoomSelect.querySelector('option[data-fit-option="1"]');
     if (!option) {
@@ -186,37 +192,17 @@
     input.addEventListener('change', refreshUX);
   });
 
-    fitButton.addEventListener('click', (event) => {
+  fitButton?.addEventListener('click', (event) => {
     event.preventDefault();
-    const container = document.getElementById('canvasViewport');
-    if (!container) return;
-    
-    // Calculate best zoom level leaving 40px padding
-    const padding = 40;
-    const availW = container.clientWidth - (padding * 2);
-    const availH = container.clientHeight - (padding * 2);
-    
-    // We want discrete zooms: 1, 2, 3, 4, 6, 8
-    const maxZoomX = availW / 320;
-    const maxZoomY = availH / 170;
-    let idealZoom = Math.min(maxZoomX, maxZoomY);
-    
-    let selectedZoom = 1;
-    if (idealZoom >= 8) selectedZoom = 8;
-    else if (idealZoom >= 6) selectedZoom = 6;
-    else if (idealZoom >= 4) selectedZoom = 4;
-    else if (idealZoom >= 3) selectedZoom = 3;
-    else if (idealZoom >= 2) selectedZoom = 2;
-    else selectedZoom = 1;
-    
-    zoomSelect.value = String(selectedZoom);
-    zoomSelect.dispatchEvent(new Event('change', { bubbles: true }));
-    
-    // Center the canvasStage
     const editor = window.JWPLCHMIEditor || window.jwplc;
-    if (editor && editor.setPan) {
-      editor.setPan(0, 0);
-    }
+    editor?.fitCanvas?.();
+  });
+
+  const fitSelectionButton = document.getElementById('fitSelectionButton');
+  fitSelectionButton?.addEventListener('click', (event) => {
+    event.preventDefault();
+    const editor = window.JWPLCHMIEditor || window.jwplc;
+    editor?.fitSelection?.();
   });
 
   generateButton.addEventListener('click', () => {
