@@ -869,34 +869,8 @@
 
     renderObjectList();
 
-    const sel = selectedField();
-    if (sel && sel.type !== 'PIXELMAP') {
-      let left, top, w, h;
-      if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(sel.type)) {
-        left = Math.min(sel.x, sel.x2 ?? sel.x);
-        top = Math.min(sel.y, sel.y2 ?? sel.y);
-        w = Math.max(1, Math.abs((sel.x2 ?? sel.x) - sel.x));
-        h = Math.max(1, Math.abs((sel.y2 ?? sel.y) - sel.y));
-      } else {
-        const g = computeFieldGeometry(sel);
-        left = g.fieldX;
-        top = g.fieldY;
-        w = g.fieldW;
-        h = g.fieldH;
-      }
-      displayCtx.save();
-      displayCtx.strokeStyle = '#ff9a43';
-      displayCtx.lineWidth = 1;
-      displayCtx.setLineDash([3, 3]);
-      displayCtx.strokeRect(left * zoom - 1.5, top * zoom - 1.5, w * zoom + 3, h * zoom + 3);
-      displayCtx.fillStyle = '#ff9a43';
-      const s = 4;
-      displayCtx.fillRect(left * zoom - 2, top * zoom - 2, s, s);
-      displayCtx.fillRect((left + w) * zoom - 2, top * zoom - 2, s, s);
-      displayCtx.fillRect(left * zoom - 2, (top + h) * zoom - 2, s, s);
-      displayCtx.fillRect((left + w) * zoom - 2, (top + h) * zoom - 2, s, s);
-      displayCtx.restore();
-    }
+    drawSelectionAndGuides();
+    drawRulers();
   
     
 
@@ -925,96 +899,244 @@
     };
   }
 
+  function drawSelectionAndGuides() {
+    const sel = selectedField();
+    if (!sel || sel.type === 'PIXELMAP') return;
+
+    let left, top, w, h;
+    if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(sel.type)) {
+      left = Math.min(sel.x, sel.x2 ?? sel.x);
+      top = Math.min(sel.y, sel.y2 ?? sel.y);
+      w = Math.max(1, Math.abs((sel.x2 ?? sel.x) - sel.x));
+      h = Math.max(1, Math.abs((sel.y2 ?? sel.y) - sel.y));
+    } else {
+      const g = computeFieldGeometry(sel);
+      left = g.fieldX;
+      top = g.fieldY;
+      w = g.fieldW;
+      h = g.fieldH;
+    }
+
+    const x1 = left * zoom;
+    const y1 = top * zoom;
+    const x2 = (left + w) * zoom;
+    const y2 = (top + h) * zoom;
+    const boxW = x2 - x1;
+    const boxH = y2 - y1;
+
+    displayCtx.save();
+
+    // 1. Dotted projection lines extending across the canvas to the rulers
+    displayCtx.strokeStyle = 'rgba(255, 255, 255, 0.40)';
+    displayCtx.setLineDash([2, 3]);
+    displayCtx.lineWidth = 1;
+    displayCtx.beginPath();
+    // Vertical projection lines (full canvas height)
+    displayCtx.moveTo(x1 + 0.5, 0);
+    displayCtx.lineTo(x1 + 0.5, displayCanvas.height);
+    displayCtx.moveTo(x2 + 0.5, 0);
+    displayCtx.lineTo(x2 + 0.5, displayCanvas.height);
+    // Horizontal projection lines (full canvas width)
+    displayCtx.moveTo(0, y1 + 0.5);
+    displayCtx.lineTo(displayCanvas.width, y1 + 0.5);
+    displayCtx.moveTo(0, y2 + 0.5);
+    displayCtx.lineTo(displayCanvas.width, y2 + 0.5);
+    displayCtx.stroke();
+
+    // 2. Solid Blue Bounding Box
+    displayCtx.setLineDash([]);
+    displayCtx.strokeStyle = '#0084ff';
+    displayCtx.lineWidth = 1;
+    displayCtx.strokeRect(x1 + 0.5, y1 + 0.5, boxW, boxH);
+
+    // 3. 8 Selection Handles (Blue bordered squares with dark center)
+    const hs = 6;
+    const points = [
+      [x1, y1],                          // top-left
+      [x1 + boxW / 2, y1],               // top-center
+      [x2, y1],                          // top-right
+      [x2, y1 + boxH / 2],               // right-center
+      [x2, y2],                          // bottom-right
+      [x1 + boxW / 2, y2],               // bottom-center
+      [x1, y2],                          // bottom-left
+      [x1, y1 + boxH / 2]                // left-center
+    ];
+
+    points.forEach(([hx, hy]) => {
+      const rx = Math.round(hx - hs / 2);
+      const ry = Math.round(hy - hs / 2);
+      displayCtx.fillStyle = '#060d13';
+      displayCtx.fillRect(rx, ry, hs, hs);
+      displayCtx.strokeStyle = '#0084ff';
+      displayCtx.lineWidth = 1.5;
+      displayCtx.strokeRect(rx + 0.5, ry + 0.5, hs - 1, hs - 1);
+    });
+
+    displayCtx.restore();
+  }
+
+  function drawRulers() {
+    const topCanvas = document.getElementById('topRulerCanvas');
+    const rightCanvas = document.getElementById('rightRulerCanvas');
+    if (!topCanvas || !rightCanvas) return;
+
+    const targetTopW = WIDTH * zoom;
+    const targetRightH = HEIGHT * zoom;
+
+    if (topCanvas.width !== targetTopW || topCanvas.height !== 22) {
+      topCanvas.width = targetTopW;
+      topCanvas.height = 22;
+      topCanvas.style.width = `${targetTopW}px`;
+      topCanvas.style.height = '22px';
+    }
+    if (rightCanvas.width !== 36 || rightCanvas.height !== targetRightH) {
+      rightCanvas.width = 36;
+      rightCanvas.height = targetRightH;
+      rightCanvas.style.width = '36px';
+      rightCanvas.style.height = `${targetRightH}px`;
+    }
+
+    const topCtx = topCanvas.getContext('2d');
+    const rightCtx = rightCanvas.getContext('2d');
+
+    topCtx.clearRect(0, 0, topCanvas.width, topCanvas.height);
+    rightCtx.clearRect(0, 0, rightCanvas.width, rightCanvas.height);
+
+    // Background
+    topCtx.fillStyle = '#14181c';
+    topCtx.fillRect(0, 0, topCanvas.width, topCanvas.height);
+    rightCtx.fillStyle = '#14181c';
+    rightCtx.fillRect(0, 0, rightCanvas.width, rightCanvas.height);
+
+    // Baseline line separating ruler from the canvas
+    topCtx.strokeStyle = '#2d3741';
+    topCtx.lineWidth = 1;
+    topCtx.beginPath();
+    topCtx.moveTo(0, 21.5);
+    topCtx.lineTo(topCanvas.width, 21.5);
+    topCtx.stroke();
+
+    rightCtx.strokeStyle = '#2d3741';
+    rightCtx.lineWidth = 1;
+    rightCtx.beginPath();
+    rightCtx.moveTo(0.5, 0);
+    rightCtx.lineTo(0.5, rightCanvas.height);
+    rightCtx.stroke();
+
+    // Top ruler ticks
+    topCtx.strokeStyle = '#5a6b78';
+    topCtx.lineWidth = 1;
+    topCtx.beginPath();
+    for (let x = 0; x <= WIDTH; x += 2) {
+      const px = Math.round(x * zoom) + 0.5;
+      let tickLen = 0;
+      if (x % 50 === 0) tickLen = 8;
+      else if (x % 10 === 0) tickLen = 5;
+      else if (x % 2 === 0 && zoom >= 3) tickLen = 3;
+      if (tickLen > 0) {
+        topCtx.moveTo(px, 22 - tickLen);
+        topCtx.lineTo(px, 22);
+      }
+    }
+    topCtx.stroke();
+
+    // Right ruler ticks
+    rightCtx.strokeStyle = '#5a6b78';
+    rightCtx.lineWidth = 1;
+    rightCtx.beginPath();
+    for (let y = 0; y <= HEIGHT; y += 2) {
+      const py = Math.round(y * zoom) + 0.5;
+      let tickLen = 0;
+      if (y % 50 === 0) tickLen = 8;
+      else if (y % 10 === 0) tickLen = 5;
+      else if (y % 2 === 0 && zoom >= 3) tickLen = 3;
+      if (tickLen > 0) {
+        rightCtx.moveTo(0, py);
+        rightCtx.lineTo(tickLen, py);
+      }
+    }
+    rightCtx.stroke();
+
+    // Selected field coordinates
+    const sel = selectedField();
+    let selBounds = null;
+    if (sel && sel.type !== 'PIXELMAP') {
+      if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(sel.type)) {
+        const left = Math.min(sel.x, sel.x2 ?? sel.x);
+        const top = Math.min(sel.y, sel.y2 ?? sel.y);
+        const w = Math.max(1, Math.abs((sel.x2 ?? sel.x) - sel.x));
+        const h = Math.max(1, Math.abs((sel.y2 ?? sel.y) - sel.y));
+        selBounds = { x1: left, x2: left + w, y1: top, y2: top + h };
+      } else {
+        const g = computeFieldGeometry(sel);
+        selBounds = { x1: g.fieldX, x2: g.fieldX + g.fieldW, y1: g.fieldY, y2: g.fieldY + g.fieldH };
+      }
+    }
+
+    topCtx.font = '10px Consolas, monospace';
+    topCtx.fillStyle = '#9cb1c2';
+    topCtx.textAlign = 'center';
+    topCtx.textBaseline = 'top';
+
+    rightCtx.font = '10px Consolas, monospace';
+    rightCtx.fillStyle = '#9cb1c2';
+    rightCtx.textAlign = 'left';
+    rightCtx.textBaseline = 'middle';
+
+    if (selBounds) {
+      const px1 = selBounds.x1 * zoom;
+      const px2 = selBounds.x2 * zoom;
+      topCtx.fillStyle = '#dbe8f2';
+      topCtx.fillText(String(selBounds.x1), px1, 2);
+      if (px2 - px1 > 24) {
+        topCtx.fillText(String(selBounds.x2), px2, 2);
+      }
+
+      // Highlight ticks at x1 and x2
+      topCtx.strokeStyle = '#0084ff';
+      topCtx.lineWidth = 2;
+      topCtx.beginPath();
+      topCtx.moveTo(px1 + 0.5, 12);
+      topCtx.lineTo(px1 + 0.5, 22);
+      topCtx.moveTo(px2 + 0.5, 12);
+      topCtx.lineTo(px2 + 0.5, 22);
+      topCtx.stroke();
+
+      const py1 = selBounds.y1 * zoom;
+      const py2 = selBounds.y2 * zoom;
+      rightCtx.fillStyle = '#dbe8f2';
+      rightCtx.fillText(String(selBounds.y1), 12, py1);
+      if (py2 - py1 > 14) {
+        rightCtx.fillText(String(selBounds.y2), 12, py2);
+      }
+
+      // Highlight ticks at y1 and y2
+      rightCtx.strokeStyle = '#0084ff';
+      rightCtx.lineWidth = 2;
+      rightCtx.beginPath();
+      rightCtx.moveTo(0, py1 + 0.5);
+      rightCtx.lineTo(10, py1 + 0.5);
+      rightCtx.moveTo(0, py2 + 0.5);
+      rightCtx.lineTo(10, py2 + 0.5);
+      rightCtx.stroke();
+    } else {
+      for (let x = 50; x < WIDTH; x += 50) {
+        topCtx.fillText(String(x), x * zoom, 2);
+      }
+      for (let y = 50; y < HEIGHT; y += 50) {
+        rightCtx.fillText(String(y), 12, y * zoom);
+      }
+    }
+  }
+
   function updateCursor(point) {
     if (!inside(point.x, point.y)) {
       cursorStatus.textContent = 'X: — · Y: —';
       pixelStatus.textContent = 'Pixel: —';
-      const rulersCanvas = document.getElementById('rulersCanvas');
-      if (rulersCanvas) {
-        const ctx = rulersCanvas.getContext('2d');
-        ctx.clearRect(0, 0, rulersCanvas.width, rulersCanvas.height);
-      }
       return;
     }
     cursorStatus.textContent = `X: ${point.x} · Y: ${point.y}`;
     pixelStatus.textContent = `Pixel: ${hex565(framebuffer[indexFor(point.x, point.y)])}`;
-    
-    const rulersCanvas = document.getElementById('rulersCanvas');
-    if (rulersCanvas) {
-      if (rulersCanvas.width !== displayCanvas.width) rulersCanvas.width = displayCanvas.width;
-      if (rulersCanvas.height !== displayCanvas.height) rulersCanvas.height = displayCanvas.height;
-      const ctx = rulersCanvas.getContext('2d');
-      ctx.clearRect(0, 0, rulersCanvas.width, rulersCanvas.height);
-      
-      const px = (point.x + 0.5) * zoom;
-      const py = (point.y + 0.5) * zoom;
-      
-      ctx.save();
-      
-      // Ruler ticks
-      ctx.fillStyle = '#a4b9c9';
-      ctx.strokeStyle = '#a4b9c9';
-      ctx.lineWidth = 1;
-      ctx.font = '10px monospace';
-      
-      // Top ruler
-      ctx.beginPath();
-      ctx.moveTo(0, 14);
-      ctx.lineTo(rulersCanvas.width, 14);
-      for(let x=0; x<=WIDTH; x+=10) {
-        let tickX = x * zoom;
-        if(x % 50 === 0) {
-          ctx.moveTo(tickX, 0);
-          ctx.lineTo(tickX, 14);
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'top';
-          ctx.fillText(x, tickX, 2);
-        } else {
-          ctx.moveTo(tickX, 8);
-          ctx.lineTo(tickX, 14);
-        }
-      }
-      // Left ruler
-      ctx.moveTo(14, 0);
-      ctx.lineTo(14, rulersCanvas.height);
-      for(let y=0; y<=HEIGHT; y+=10) {
-        let tickY = y * zoom;
-        if(y % 50 === 0) {
-          ctx.moveTo(0, tickY);
-          ctx.lineTo(14, tickY);
-          ctx.textAlign = 'left';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(y, 16, tickY);
-        } else {
-          ctx.moveTo(8, tickY);
-          ctx.lineTo(14, tickY);
-        }
-      }
-      ctx.stroke();
-      
-      // Crosshairs
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-      ctx.setLineDash([2, 4]);
-      ctx.beginPath();
-      ctx.moveTo(px, 14);
-      ctx.lineTo(px, rulersCanvas.height);
-      ctx.moveTo(14, py);
-      ctx.lineTo(rulersCanvas.width, py);
-      ctx.stroke();
-      
-      // Highlight on rulers
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(px - 14, 0, 28, 14);
-      ctx.fillRect(0, py - 7, 14, 14);
-      ctx.fillStyle = '#000';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
-      ctx.fillText(point.x, px, 2);
-      ctx.textBaseline = 'middle';
-      ctx.fillText(point.y, 7, py);
-      
-      ctx.restore();
-    }
   }
 
   function syncToolUI() {

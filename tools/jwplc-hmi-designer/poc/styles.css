@@ -165,9 +165,48 @@ h2 { margin: 0 0 7px; font-size: 12px; color: #d0dbe4; }
 .canvas-tool strong { font-size: 13px; font-weight: bold; }
 .canvas-tool .numeric { font-size: 10px; font-weight: 800; color: #52c9ff; }
 .toolbar-divider { width: 1px; background: var(--line); margin: 0 4px; }
-.canvas-stage { position: relative; width: max-content; height: max-content; will-change: transform; }
+.canvas-stage {
+  position: relative;
+  width: max-content;
+  height: max-content;
+  will-change: transform;
+  display: flex;
+  flex-direction: column;
+}
+.canvas-stage-top {
+  display: flex;
+  height: 22px;
+  background: #14181c;
+}
+#topRulerCanvas {
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  pointer-events: none;
+}
+.canvas-stage-mid {
+  display: flex;
+  flex-direction: row;
+}
+.canvas-screen-wrap {
+  position: relative;
+  width: max-content;
+  height: max-content;
+  line-height: 0;
+}
+.canvas-stage-right {
+  width: 36px;
+  display: flex;
+  background: #14181c;
+}
+#rightRulerCanvas {
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  pointer-events: none;
+}
 #displayCanvas {
-  display: block; background: #000; border: 1px solid #536776;
+  display: block; background: #000; border: 1px solid #33434f;
   image-rendering: pixelated; image-rendering: crisp-edges; cursor: crosshair;
 }
 #geometryCanvas {
