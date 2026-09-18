@@ -327,6 +327,77 @@
         </details>
       </section>
 
+      <section id="shapeInspectorSection" class="inspector-section" hidden>
+        <!-- Header: icon + editable name -->
+        <div class="shape-inspector-header">
+          <span id="shapeInspectorIcon" class="shape-header-icon">&#9633;</span>
+          <input id="shapeInspectorName" class="shape-name-input" type="text" value="rect 1" maxlength="32" />
+          <button id="shapeDuplicateBtn" class="shape-hdr-btn" title="Duplicar (Ctrl+D)">&#8645;</button>
+          <button id="shapeDeleteBtn" class="shape-hdr-btn shape-hdr-danger" title="Eliminar (Del)">&#10005;</button>
+        </div>
+
+        <!-- Alignment toolbar -->
+        <div class="align-toolbar">
+          <button class="align-btn" data-align="left" title="Alinear izquierda"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="10" height="4" rx="1"/><rect x="3" y="13" width="16" height="4" rx="1"/><line x1="3" y1="2" x2="3" y2="22"/></svg></button>
+          <button class="align-btn" data-align="hcenter" title="Centrar horizontal"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="5" width="10" height="4" rx="1"/><rect x="4" y="13" width="16" height="4" rx="1"/><line x1="12" y1="2" x2="12" y2="22"/></svg></button>
+          <button class="align-btn" data-align="right" title="Alinear derecha"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="11" y="5" width="10" height="4" rx="1"/><rect x="5" y="13" width="16" height="4" rx="1"/><line x1="21" y1="2" x2="21" y2="22"/></svg></button>
+          <button class="align-btn" data-align="top" title="Alinear arriba"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="7" width="4" height="12" rx="1"/><rect x="13" y="7" width="4" height="8" rx="1"/><line x1="2" y1="3" x2="22" y2="3"/></svg></button>
+          <button class="align-btn" data-align="vcenter" title="Centrar vertical"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="4" width="4" height="16" rx="1"/><rect x="13" y="7" width="4" height="10" rx="1"/><line x1="2" y1="12" x2="22" y2="12"/></svg></button>
+          <button class="align-btn" data-align="bottom" title="Alinear abajo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="5" width="4" height="12" rx="1"/><rect x="13" y="9" width="4" height="8" rx="1"/><line x1="2" y1="21" x2="22" y2="21"/></svg></button>
+        </div>
+
+        <!-- Geometry: X Y W H -->
+        <div class="shape-geom-grid">
+          <label class="geom-label">X<input id="shapeX" class="geom-input" type="number" min="0" max="319" value="0" /></label>
+          <label class="geom-label">Y<input id="shapeY" class="geom-input" type="number" min="0" max="169" value="0" /></label>
+          <label class="geom-label">W<input id="shapeW" class="geom-input" type="number" min="1" max="320" value="100" /></label>
+          <label class="geom-label">H<input id="shapeH" class="geom-input" type="number" min="1" max="170" value="60" /></label>
+          <label class="geom-label sides-wrap" id="shapeSidesWrap2" hidden>Lados<input id="shapeSides2" class="geom-input" type="number" min="3" max="12" value="5" /></label>
+        </div>
+
+        <!-- Transform: rotation + flip -->
+        <div class="shape-transform-row">
+          <label class="geom-label" style="flex:1">R&deg;<input id="shapeRotation" class="geom-input" type="number" min="0" max="359" value="0" title="Rotaci&oacute;n en grados (0-359)" /></label>
+          <button class="transform-btn" id="shapeRotate90Btn" title="Girar 90&deg; horario"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M21 13a9 9 0 1 1-3-7.7L21 8"/></svg></button>
+          <button class="transform-btn" id="shapeFlipHBtn" title="Espejo Horizontal"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="8 6 2 12 8 18"/><polyline points="16 6 22 12 16 18"/><line x1="12" y1="4" x2="12" y2="20"/></svg></button>
+          <button class="transform-btn" id="shapeFlipVBtn" title="Espejo Vertical"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 8 12 2 18 8"/><polyline points="6 16 12 22 18 16"/><line x1="4" y1="12" x2="20" y2="12"/></svg></button>
+        </div>
+
+        <!-- Border + Fill style -->
+        <div class="shape-style-section">
+          <div class="shape-style-row">
+            <span class="style-label">Borde</span>
+            <label class="style-toggle-wrap">
+              <input id="shapeBorderEnabled" type="checkbox" checked />
+              <span class="style-toggle-slider"></span>
+            </label>
+            <div class="color-mini-wrap">
+              <div id="shapeBorderColorSwatch" class="color-mini-swatch" style="background:#ffffff" title="Clic para cambiar color"></div>
+              <input id="shapeBorderColorInput" type="color" value="#ffffff" class="color-mini-native" />
+              <code id="shapeBorderColorCode" class="color-mini-code">#FFFFFF</code>
+            </div>
+            <label class="geom-label" style="width:52px">px<input id="shapeBorderSize" class="geom-input" type="number" min="1" max="8" value="1" /></label>
+          </div>
+          <div class="shape-style-row">
+            <span class="style-label">Relleno</span>
+            <label class="style-toggle-wrap">
+              <input id="shapeFillEnabled" type="checkbox" />
+              <span class="style-toggle-slider"></span>
+            </label>
+            <div class="color-mini-wrap">
+              <div id="shapeFillColorSwatch" class="color-mini-swatch" style="background:#ffff00" title="Clic para cambiar color"></div>
+              <input id="shapeFillColorInput" type="color" value="#ffff00" class="color-mini-native" />
+              <code id="shapeFillColorCode" class="color-mini-code">#FFFF00</code>
+            </div>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="shape-actions-row">
+          <button id="shapeMergeBitmapBtn" class="shape-action-btn" type="button">RASTERIZAR</button>
+        </div>
+      </section>
+
       <section id="rawTextControlsSection" class="inspector-section" hidden>
         <div class="inspector-title"><h2>Inspector · Texto GFX RAW</h2></div>
         <details open>
@@ -523,14 +594,15 @@
     <input id="geometryToggle" type="checkbox" />
   </div>
 
-  <script src="./gfx-classic-font.js?v=1789753000"></script>
-  <script src="./app.js?v=1789753000"></script>
-  <script src="./ux-foundation.js?v=1789753000"></script>
-  <script src="./designer-codegen.js?v=1789753000"></script>
+  <script src="./gfx-classic-font.js?v=1789754000"></script>
+  <script src="./app.js?v=1789754000"></script>
+  <script src="./ux-foundation.js?v=1789754000"></script>
+  <script src="./designer-codegen.js?v=1789754000"></script>
 
   
 
 </body>
 </html>
+
 
 

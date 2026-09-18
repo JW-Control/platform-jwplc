@@ -93,9 +93,29 @@
   const clearRecentColorsBtn = document.getElementById('clearRecentColorsBtn');
 
   let recentColors = [0x0000, 0xFFFF, 0xF800, 0x07E0, 0x001F, 0x07FF, 0xFFE0, 0xFD20];
+  let clipboard = [];
 
   const rawSection = document.getElementById('rawTextControlsSection');
   const fieldSection = document.getElementById('textFieldControlsSection');
+  const shapeInspectorSection = document.getElementById('shapeInspectorSection');
+  const shapeInspectorIcon = document.getElementById('shapeInspectorIcon');
+  const shapeInspectorName = document.getElementById('shapeInspectorName');
+  const shapeX = document.getElementById('shapeX');
+  const shapeY = document.getElementById('shapeY');
+  const shapeW = document.getElementById('shapeW');
+  const shapeH = document.getElementById('shapeH');
+  const shapeSides2 = document.getElementById('shapeSides2');
+  const shapeSidesWrap2 = document.getElementById('shapeSidesWrap2');
+  const shapeRotation = document.getElementById('shapeRotation');
+  const shapeBorderEnabled = document.getElementById('shapeBorderEnabled');
+  const shapeBorderColorInput = document.getElementById('shapeBorderColorInput');
+  const shapeBorderColorSwatch = document.getElementById('shapeBorderColorSwatch');
+  const shapeBorderColorCode = document.getElementById('shapeBorderColorCode');
+  const shapeBorderSize = document.getElementById('shapeBorderSize');
+  const shapeFillEnabled = document.getElementById('shapeFillEnabled');
+  const shapeFillColorInput = document.getElementById('shapeFillColorInput');
+  const shapeFillColorSwatch = document.getElementById('shapeFillColorSwatch');
+  const shapeFillColorCode = document.getElementById('shapeFillColorCode');
   const rawMetricsSection = document.getElementById('rawMetricsSection');
   const fieldMetricsSection = document.getElementById('fieldMetricsSection');
   const numericFormatDetails = document.getElementById('numericFormatDetails');
@@ -500,6 +520,19 @@
 
   function indexFor(x, y) { return y * WIDTH + x; }
   function inside(x, y) { return x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT; }
+
+  function rotatePoint(px, py, cx, cy, angleDeg) {
+    if (!angleDeg) return { x: Math.round(px), y: Math.round(py) };
+    const rad = angleDeg * Math.PI / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    const dx = px - cx;
+    const dy = py - cy;
+    return {
+      x: Math.round(cx + dx * cos - dy * sin),
+      y: Math.round(cy + dx * sin + dy * cos)
+    };
+  }
 
   function addRecentColor(color565) {
     color565 = Number(color565) & 0xFFFF;
@@ -974,50 +1007,75 @@
   }
 
   function drawShape(buffer, field) {
+    if (field.borderEnabled === false) return;
     const color = field.frameColor || 0xFFFF;
     const fillColor = field.fillColor ?? color;
     const size = field.size || 1;
     const a = { x: field.x, y: field.y };
     const b = { x: field.x2, y: field.y2 };
+    const angleDeg = Number(field.rotation) || 0;
+    const cx = ((field.x ?? 0) + (field.x2 ?? field.x ?? 0)) / 2;
+    const cy = ((field.y ?? 0) + (field.y2 ?? field.y ?? 0)) / 2;
+    const rp = (px, py) => rotatePoint(px, py, cx, cy, angleDeg);
 
     if (field.type === 'LINE') {
-      rasterLineBuffer(buffer, a.x, a.y, b.x, b.y, color, size);
+      const ra = rp(a.x, a.y);
+      const rb = rp(b.x, b.y);
+      rasterLineBuffer(buffer, ra.x, ra.y, rb.x, rb.y, color, size);
     } else if (field.type === 'RECT') {
       const left = Math.min(a.x, b.x);
       const right = Math.max(a.x, b.x);
       const top = Math.min(a.y, b.y);
       const bottom = Math.max(a.y, b.y);
+      const tl = rp(left, top);
+      const tr = rp(right, top);
+      const br = rp(right, bottom);
+      const bl2 = rp(left, bottom);
       if (field.fill) {
-        fillBufferRect(buffer, left, top, right - left + 1, bottom - top + 1, fillColor);
+        if (angleDeg === 0) {
+          fillBufferRect(buffer, left, top, right - left + 1, bottom - top + 1, fillColor);
+        } else {
+          fillShapePolygon(buffer, [tl, tr, br, bl2], fillColor);
+        }
       }
-      rasterLineBuffer(buffer, left, top, right, top, color, size);
-      rasterLineBuffer(buffer, right, top, right, bottom, color, size);
-      rasterLineBuffer(buffer, right, bottom, left, bottom, color, size);
-      rasterLineBuffer(buffer, left, bottom, left, top, color, size);
+      rasterLineBuffer(buffer, tl.x, tl.y, tr.x, tr.y, color, size);
+      rasterLineBuffer(buffer, tr.x, tr.y, br.x, br.y, color, size);
+      rasterLineBuffer(buffer, br.x, br.y, bl2.x, bl2.y, color, size);
+      rasterLineBuffer(buffer, bl2.x, bl2.y, tl.x, tl.y, color, size);
     } else if (field.type === 'ELLIPSE') {
-      if (field.fill) {
-        fillShapeEllipse(buffer, a, b, fillColor);
+      if (angleDeg === 0) {
+        if (field.fill) fillShapeEllipse(buffer, a, b, fillColor);
+        drawShapeEllipse(buffer, a, b, color, size);
+      } else {
+        const minX = Math.min(a.x, b.x); const maxX = Math.max(a.x, b.x);
+        const minY = Math.min(a.y, b.y); const maxY = Math.max(a.y, b.y);
+        const ecx = (minX + maxX) / 2; const ecy = (minY + maxY) / 2;
+        const erx = (maxX - minX) / 2; const ery = (maxY - minY) / 2;
+        const N = 32;
+        const epts = [];
+        for (let i = 0; i < N; i++) {
+          const ang = i * 2 * Math.PI / N;
+          epts.push(rp(ecx + erx * Math.cos(ang), ecy + ery * Math.sin(ang)));
+        }
+        if (field.fill) fillShapePolygon(buffer, epts, fillColor);
+        for (let i = 0; i < N; i++) {
+          const p1 = epts[i]; const p2 = epts[(i + 1) % N];
+          rasterLineBuffer(buffer, p1.x, p1.y, p2.x, p2.y, color, size);
+        }
       }
-      drawShapeEllipse(buffer, a, b, color, size);
     } else if (field.type === 'TRIANGLE') {
-      const topPt = { x: Math.round((a.x + b.x) / 2), y: a.y };
-      const bl = { x: a.x, y: b.y };
-      const br = { x: b.x, y: b.y };
-      if (field.fill) {
-        fillShapeTriangle(buffer, topPt, bl, br, fillColor);
-      }
-      rasterLineBuffer(buffer, topPt.x, topPt.y, bl.x, bl.y, color, size);
-      rasterLineBuffer(buffer, bl.x, bl.y, br.x, br.y, color, size);
-      rasterLineBuffer(buffer, br.x, br.y, topPt.x, topPt.y, color, size);
+      const topPt = rp(Math.round((a.x + b.x) / 2), a.y);
+      const blp = rp(a.x, b.y);
+      const brp = rp(b.x, b.y);
+      if (field.fill) fillShapeTriangle(buffer, topPt, blp, brp, fillColor);
+      rasterLineBuffer(buffer, topPt.x, topPt.y, blp.x, blp.y, color, size);
+      rasterLineBuffer(buffer, blp.x, blp.y, brp.x, brp.y, color, size);
+      rasterLineBuffer(buffer, brp.x, brp.y, topPt.x, topPt.y, color, size);
     } else if (field.type === 'POLYGON') {
-      const pts = getPolygonVertices(field);
-      if (field.fill) {
-        fillShapePolygon(buffer, pts, fillColor);
-      }
-      const numSides = pts.length;
-      for (let i = 0; i < numSides; i++) {
-        const p1 = pts[i];
-        const p2 = pts[(i + 1) % numSides];
+      const pts = getPolygonVertices(field).map((p) => rp(p.x, p.y));
+      if (field.fill) fillShapePolygon(buffer, pts, fillColor);
+      for (let i = 0; i < pts.length; i++) {
+        const p1 = pts[i]; const p2 = pts[(i + 1) % pts.length];
         rasterLineBuffer(buffer, p1.x, p1.y, p2.x, p2.y, color, size);
       }
     }
@@ -1831,11 +1889,15 @@
     const isColorTool = (selectedTool === 'pick' || selectedTool === 'fill');
     const fieldTools = ['textField', 'valueField', 'boolField', 'barField', 'pointer'];
 
+    const SHAPE_TYPES = ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'];
+    const isShape = field && SHAPE_TYPES.includes(field.type);
+
     if (eyedropperSection) eyedropperSection.hidden = !isColorTool;
+    if (shapeInspectorSection) shapeInspectorSection.hidden = !isShape;
     rawSection.hidden = !isRaw;
-    fieldSection.hidden = !field || !fieldTools.includes(selectedTool) || field.type === 'RAW_TEXT';
+    fieldSection.hidden = !field || !fieldTools.includes(selectedTool) || field.type === 'RAW_TEXT' || isShape;
     rawMetricsSection.hidden = !isRaw;
-    fieldMetricsSection.hidden = !field || !fieldTools.includes(selectedTool) || field.type === 'RAW_TEXT';
+    fieldMetricsSection.hidden = !field || !fieldTools.includes(selectedTool) || field.type === 'RAW_TEXT' || isShape;
 
     if (isColorTool) {
       updateEyedropperActiveUI();
@@ -1978,6 +2040,36 @@
     });
   }
 
+  function syncShapeInspector() {
+    const field = selectedField();
+    if (!field) return;
+    const SHAPE_ICONS = { LINE: '\u2571', RECT: '\u25a1', ELLIPSE: '\u2b2d', TRIANGLE: '\u25b3', POLYGON: '\u2394' };
+    if (shapeInspectorIcon) shapeInspectorIcon.textContent = SHAPE_ICONS[field.type] || '\u25a1';
+    if (shapeInspectorName) shapeInspectorName.value = field.name || (field.type.toLowerCase());
+    const x1 = field.x ?? 0; const y1 = field.y ?? 0;
+    const x2 = field.x2 ?? x1; const y2 = field.y2 ?? y1;
+    if (shapeX) shapeX.value = Math.min(x1, x2);
+    if (shapeY) shapeY.value = Math.min(y1, y2);
+    if (shapeW) shapeW.value = Math.abs(x2 - x1) || 1;
+    if (shapeH) shapeH.value = Math.abs(y2 - y1) || 1;
+    if (shapeSidesWrap2) shapeSidesWrap2.hidden = field.type !== 'POLYGON';
+    if (shapeSides2) shapeSides2.value = field.sides || 5;
+    if (shapeRotation) shapeRotation.value = field.rotation || 0;
+    // Border
+    if (shapeBorderEnabled) shapeBorderEnabled.checked = field.borderEnabled !== false;
+    const fc = field.frameColor ?? 0xFFFF;
+    if (shapeBorderColorSwatch) shapeBorderColorSwatch.style.background = rgb565ToCss(fc);
+    if (shapeBorderColorInput) shapeBorderColorInput.value = rgb565ToHex888(fc);
+    if (shapeBorderColorCode) shapeBorderColorCode.textContent = rgb565ToHex888(fc).toUpperCase();
+    if (shapeBorderSize) shapeBorderSize.value = field.size || 1;
+    // Fill
+    if (shapeFillEnabled) shapeFillEnabled.checked = !!field.fill;
+    const fillC = field.fillColor ?? 0xFFE0;
+    if (shapeFillColorSwatch) shapeFillColorSwatch.style.background = rgb565ToCss(fillC);
+    if (shapeFillColorInput) shapeFillColorInput.value = rgb565ToHex888(fillC);
+    if (shapeFillColorCode) shapeFillColorCode.textContent = rgb565ToHex888(fillC).toUpperCase();
+  }
+
   function syncInputsFromState() {
     rawTextInput.value = rawState.value;
     rawTextX.value = String(rawState.x);
@@ -2046,7 +2138,8 @@
     } else if (field.type === 'BAR') {
       inspectorContract.textContent = `float ${sanitizeSymbol(field.variable, 'nivel')} = 0.0f;`;
     } else if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
-      inspectorContract.textContent = `// Objeto estático: no requiere variable de estado`;
+      inspectorContract.textContent = `// Objeto est\u00e1tico: no requiere variable de estado`;
+      syncShapeInspector();
     } else {
       inspectorContract.textContent = `char ${sanitizeSymbol(field.variable, 'texto')}[${field.capacity + 1}] = {};`;
     }
@@ -3383,6 +3476,30 @@
     return false;
   }
 
+  function alignSelectedShapes(alignType) {
+    const SHAPE_TYPES = ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'];
+    const fields = selectedFields().filter((f) => SHAPE_TYPES.includes(f.type));
+    if (fields.length === 0) return;
+    fields.forEach((f) => {
+      const w = Math.abs((f.x2 ?? f.x) - f.x);
+      const h = Math.abs((f.y2 ?? f.y) - f.y);
+      if (alignType === 'left') {
+        f.x = 0; if (f.x2 !== undefined) f.x2 = w;
+      } else if (alignType === 'hcenter') {
+        f.x = Math.round(WIDTH / 2 - w / 2); if (f.x2 !== undefined) f.x2 = f.x + w;
+      } else if (alignType === 'right') {
+        f.x = WIDTH - 1 - w; if (f.x2 !== undefined) f.x2 = WIDTH - 1;
+      } else if (alignType === 'top') {
+        f.y = 0; if (f.y2 !== undefined) f.y2 = h;
+      } else if (alignType === 'vcenter') {
+        f.y = Math.round(HEIGHT / 2 - h / 2); if (f.y2 !== undefined) f.y2 = f.y + h;
+      } else if (alignType === 'bottom') {
+        f.y = HEIGHT - 1 - h; if (f.y2 !== undefined) f.y2 = HEIGHT - 1;
+      }
+    });
+    syncShapeInspector(); render(); commitHistory();
+  }
+
   document.addEventListener('keydown', (event) => {
     const ctrl = event.ctrlKey || event.metaKey;
     if (!isEditingTarget(event.target)) {
@@ -3427,6 +3544,40 @@
         } else {
           fitCanvas();
         }
+        return;
+      }
+      if (ctrl && event.key.toLowerCase() === 'c') {
+        event.preventDefault();
+        const sources = selectedFields();
+        if (sources.length > 0) clipboard = sources.map((f) => JSON.parse(JSON.stringify(f)));
+        return;
+      }
+      if (ctrl && event.key.toLowerCase() === 'v') {
+        event.preventDefault();
+        if (clipboard.length === 0 || hmiFields.length + clipboard.length > MAX_FIELDS) return;
+        const newKeys = [];
+        clipboard.forEach((source) => {
+          fieldSerial += 1;
+          const copy = JSON.parse(JSON.stringify(source));
+          copy.key = `${source.type.toLowerCase()}-${fieldSerial}`;
+          copy.name = (source.name || source.type) + ' copia';
+          copy.page = activePage;
+          copy.x = (source.x || 0) + 10;
+          copy.y = (source.y || 0) + 10;
+          if (source.x2 !== undefined) copy.x2 = source.x2 + 10;
+          if (source.y2 !== undefined) copy.y2 = source.y2 + 10;
+          if (!['LINE','RECT','ELLIPSE','TRIANGLE','POLYGON','RAW_TEXT'].includes(source.type)) {
+            copy.id = uniqueFieldSymbol(sanitizeSymbol(source.id, fieldFallbackId(source, 0)) + '_COPY');
+            copy.variable = uniqueVariable(sanitizeSymbol(source.variable, variableFallback(source, 0)) + 'Copy');
+          }
+          placeNewField(copy);
+          hmiFields.push(copy);
+          newKeys.push(copy.key);
+        });
+        setSelectedKeys(newKeys);
+        const primary = selectedField();
+        selectedTool = primary ? toolForField(primary) : 'pointer';
+        syncInputsFromState(); syncToolUI(); render(); commitHistory();
         return;
       }
       if (ctrl && event.key.toLowerCase() === 'z') {
@@ -3547,6 +3698,100 @@
     syncToolUI();
     render();
   });
+
+  // ── Shape Inspector Events ──────────────────────────────────────────────
+  shapeInspectorName?.addEventListener('input', () => {
+    const f = selectedField(); if (!f) return;
+    f.name = shapeInspectorName.value;
+    syncInputsFromState(); render();
+  });
+  function shapeGeomUpdate() {
+    const f = selectedField(); if (!f) return;
+    const x = Number(shapeX?.value) || 0; const y = Number(shapeY?.value) || 0;
+    const w = Math.max(1, Number(shapeW?.value) || 1); const h = Math.max(1, Number(shapeH?.value) || 1);
+    f.x = x; f.y = y; f.x2 = x + w; f.y2 = y + h;
+    if (shapeSides2 && !shapeSidesWrap2?.hidden) f.sides = Number(shapeSides2.value);
+    render();
+  }
+  [shapeX, shapeY, shapeW, shapeH].forEach((el) => {
+    el?.addEventListener('input', shapeGeomUpdate);
+    el?.addEventListener('change', () => { shapeGeomUpdate(); commitHistory(); });
+  });
+  shapeSides2?.addEventListener('input', () => {
+    const f = selectedField(); if (!f) return; f.sides = Number(shapeSides2.value); render();
+  });
+  shapeSides2?.addEventListener('change', () => commitHistory());
+  shapeRotation?.addEventListener('input', () => {
+    const f = selectedField(); if (!f) return; f.rotation = Number(shapeRotation.value) % 360; render();
+  });
+  shapeRotation?.addEventListener('change', () => commitHistory());
+  document.getElementById('shapeRotate90Btn')?.addEventListener('click', () => {
+    const f = selectedField(); if (!f) return;
+    f.rotation = ((Number(f.rotation) || 0) + 90) % 360;
+    syncShapeInspector(); render(); commitHistory();
+  });
+  document.getElementById('shapeFlipHBtn')?.addEventListener('click', () => {
+    selectedFields().forEach((f) => {
+      if (!['LINE','RECT','ELLIPSE','TRIANGLE','POLYGON'].includes(f.type)) return;
+      const fcx = (f.x + f.x2) / 2;
+      const oldX = f.x; f.x = 2 * fcx - f.x2; f.x2 = 2 * fcx - oldX;
+    });
+    syncShapeInspector(); render(); commitHistory();
+  });
+  document.getElementById('shapeFlipVBtn')?.addEventListener('click', () => {
+    selectedFields().forEach((f) => {
+      if (!['LINE','RECT','ELLIPSE','TRIANGLE','POLYGON'].includes(f.type)) return;
+      const fcy = (f.y + f.y2) / 2;
+      const oldY = f.y; f.y = 2 * fcy - f.y2; f.y2 = 2 * fcy - oldY;
+    });
+    syncShapeInspector(); render(); commitHistory();
+  });
+  shapeBorderEnabled?.addEventListener('change', () => {
+    const f = selectedField(); if (!f) return; f.borderEnabled = shapeBorderEnabled.checked; render(); commitHistory();
+  });
+  shapeBorderColorSwatch?.addEventListener('click', () => shapeBorderColorInput?.click());
+  shapeBorderColorInput?.addEventListener('input', () => {
+    const f = selectedField(); if (!f) return;
+    const c = hex888ToRgb565(shapeBorderColorInput.value); f.frameColor = c;
+    if (shapeBorderColorSwatch) shapeBorderColorSwatch.style.background = rgb565ToCss(c);
+    if (shapeBorderColorCode) shapeBorderColorCode.textContent = rgb565ToHex888(c).toUpperCase();
+    render();
+  });
+  shapeBorderColorInput?.addEventListener('change', () => commitHistory());
+  shapeBorderSize?.addEventListener('input', () => {
+    const f = selectedField(); if (!f) return; f.size = Number(shapeBorderSize.value) || 1; render();
+  });
+  shapeBorderSize?.addEventListener('change', () => commitHistory());
+  shapeFillEnabled?.addEventListener('change', () => {
+    const f = selectedField(); if (!f) return; f.fill = shapeFillEnabled.checked;
+    syncShapeInspector(); render(); commitHistory();
+  });
+  shapeFillColorSwatch?.addEventListener('click', () => shapeFillColorInput?.click());
+  shapeFillColorInput?.addEventListener('input', () => {
+    const f = selectedField(); if (!f) return;
+    const c = hex888ToRgb565(shapeFillColorInput.value); f.fillColor = c;
+    if (shapeFillColorSwatch) shapeFillColorSwatch.style.background = rgb565ToCss(c);
+    if (shapeFillColorCode) shapeFillColorCode.textContent = rgb565ToHex888(c).toUpperCase();
+    render();
+  });
+  shapeFillColorInput?.addEventListener('change', () => commitHistory());
+  document.querySelectorAll('.align-btn[data-align]').forEach((btn) => {
+    btn.addEventListener('click', () => alignSelectedShapes(btn.dataset.align));
+  });
+  document.getElementById('shapeMergeBitmapBtn')?.addEventListener('click', () => {
+    const keys = [...selectedFieldKeys];
+    keys.forEach((key) => {
+      const f = hmiFields.find((x) => x.key === key);
+      if (f) drawShape(pixelLayer, f);
+    });
+    hmiFields = hmiFields.filter((f) => !keys.includes(f.key));
+    setSelectedKeys([]);
+    selectedTool = 'pointer';
+    syncInputsFromState(); syncToolUI(); render(); commitHistory();
+  });
+  document.getElementById('shapeDuplicateBtn')?.addEventListener('click', duplicateSelectedField);
+  document.getElementById('shapeDeleteBtn')?.addEventListener('click', deleteSelectedField);
+  // ── End Shape Inspector ─────────────────────────────────────────────────
 
   buildPalette();
   updateActiveColorUI();
