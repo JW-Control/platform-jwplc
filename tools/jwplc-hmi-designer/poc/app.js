@@ -2117,8 +2117,10 @@
     if (shapeInspectorName) shapeInspectorName.value = field.name || (field.type.toLowerCase());
     const x1 = field.x ?? 0; const y1 = field.y ?? 0;
     const x2 = field.x2 ?? x1; const y2 = field.y2 ?? y1;
-    if (shapeX) shapeX.value = Math.min(x1, x2);
-    if (shapeY) shapeY.value = Math.min(y1, y2);
+    // Show center position (invariant to rotation) and local width/height
+    const cx = (x1 + x2) / 2; const cy = (y1 + y2) / 2;
+    if (shapeX) shapeX.value = Math.round(cx);
+    if (shapeY) shapeY.value = Math.round(cy);
     if (shapeW) shapeW.value = Math.abs(x2 - x1) || 1;
     if (shapeH) shapeH.value = Math.abs(y2 - y1) || 1;
     if (shapeSidesWrap2) shapeSidesWrap2.hidden = field.type !== 'POLYGON';
@@ -3144,6 +3146,52 @@
       const initB = resizeInitialBounds;
       if (!initB) return;
 
+      // ---- Rotation-aware resize for a single rotated shape ----
+      if (fields.length === 1 && ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(fields[0].type)) {
+        const f = fields[0];
+        const orig = resizeInitialFields?.[0];
+        if (orig) {
+          const angleDeg = Number(orig.rotation) || 0;
+          if (angleDeg !== 0) {
+            // Shape center is fixed during resize (only size changes, unless moving an opposite corner)
+            const ox1 = orig.x ?? 0; const oy1 = orig.y ?? 0;
+            const ox2 = orig.x2 ?? ox1; const oy2 = orig.y2 ?? oy1;
+            const origCx = (ox1 + ox2) / 2;
+            const origCy = (oy1 + oy2) / 2;
+
+            // Un-rotate cursor into shape's local space
+            const local = inverseTransformShapePoint(curX, curY, origCx, origCy, angleDeg, false, false);
+            const lx = local.x; const ly = local.y;
+
+            const hid = resizingHandle.id;
+            let nx1 = ox1; let ny1 = oy1; let nx2 = ox2; let ny2 = oy2;
+
+            // Each handle controls which edge(s) move
+            if (hid === 'tl') { nx1 = lx; ny1 = ly; }
+            else if (hid === 'tc') { ny1 = ly; }
+            else if (hid === 'tr') { nx2 = lx; ny1 = ly; }
+            else if (hid === 'rc') { nx2 = lx; }
+            else if (hid === 'br') { nx2 = lx; ny2 = ly; }
+            else if (hid === 'bc') { ny2 = ly; }
+            else if (hid === 'bl') { nx1 = lx; ny2 = ly; }
+            else if (hid === 'lc') { nx1 = lx; }
+
+            // Ensure min size of 1px
+            if (Math.abs(nx2 - nx1) < 1) nx2 = nx1 + (nx2 >= nx1 ? 1 : -1);
+            if (Math.abs(ny2 - ny1) < 1) ny2 = ny1 + (ny2 >= ny1 ? 1 : -1);
+
+            f.x = Math.round(nx1); f.y = Math.round(ny1);
+            f.x2 = Math.round(nx2); f.y2 = Math.round(ny2);
+
+            gestureChanged = true;
+            syncShapeInspector();
+            render();
+            return;
+          }
+        }
+      }
+
+      // ---- Standard proportional resize (unrotated shapes or multi-selection) ----
       const initMinX = initB.minX;
       const initMaxX = initB.maxX;
       const initMinY = initB.minY;
@@ -3788,9 +3836,11 @@
   });
   function shapeGeomUpdate() {
     const f = selectedField(); if (!f) return;
-    const x = Number(shapeX?.value) || 0; const y = Number(shapeY?.value) || 0;
+    // shapeX/shapeY are CENTER coords; shapeW/shapeH are local width/height
+    const cx = Number(shapeX?.value) || 0; const cy = Number(shapeY?.value) || 0;
     const w = Math.max(1, Number(shapeW?.value) || 1); const h = Math.max(1, Number(shapeH?.value) || 1);
-    f.x = x; f.y = y; f.x2 = x + w; f.y2 = y + h;
+    const hw = Math.round(w / 2); const hh = Math.round(h / 2);
+    f.x = cx - hw; f.y = cy - hh; f.x2 = cx + hw; f.y2 = cy + hh;
     if (shapeSides2 && !shapeSidesWrap2?.hidden) f.sides = Number(shapeSides2.value);
     render();
   }
@@ -3861,23 +3911,6 @@
     render();
   });
   shapeFillColorInput?.addEventListener('change', () => commitHistory());
-  document.querySelectorAll('.shape-color-chip[data-color]').forEach((chip) => {
-    chip.addEventListener('click', () => {
-      const f = selectedField();
-      if (!f) return;
-      const c = Number(chip.dataset.color) & 0xFFFF;
-      if (f.fill && f.borderEnabled === false) {
-        f.fillColor = c;
-      } else {
-        f.frameColor = c;
-        if (f.fill) f.fillColor = c;
-      }
-      addRecentColor(c);
-      syncShapeInspector();
-      render();
-      commitHistory();
-    });
-  });
   document.querySelectorAll('.align-btn[data-align]').forEach((btn) => {
     btn.addEventListener('click', () => alignSelectedShapes(btn.dataset.align));
   });

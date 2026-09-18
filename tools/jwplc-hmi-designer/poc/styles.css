@@ -763,35 +763,6 @@ body.bottom-collapsed .bottom-tabs { border-bottom: 0; }
   user-select: all;
 }
 
-.shape-presets-row {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px 14px 10px;
-  border-bottom: 1px solid #1e3040;
-}
-.shape-presets-title {
-  font-size: 10px;
-  font-weight: 700;
-  color: #7890a2;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-right: 4px;
-}
-.shape-color-chip {
-  width: 18px;
-  height: 18px;
-  border-radius: 3px;
-  border: 1px solid #3d5466;
-  padding: 0;
-  cursor: pointer;
-  transition: transform 0.12s, border-color 0.12s;
-}
-.shape-color-chip:hover {
-  transform: scale(1.2);
-  border-color: #ff9a43;
-  z-index: 2;
-}
 
 .shape-actions-row {
   display: flex;

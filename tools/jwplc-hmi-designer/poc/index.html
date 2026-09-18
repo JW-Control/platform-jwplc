@@ -163,12 +163,12 @@
           <button class="align-btn" data-align="bottom" title="Alinear abajo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="5" width="4" height="12" rx="1"/><rect x="13" y="9" width="4" height="8" rx="1"/><line x1="2" y1="21" x2="22" y2="21"/></svg></button>
         </div>
 
-        <!-- Geometry: X Y W H -->
+        <!-- Geometry: CX CY W H -->
         <div class="shape-geom-grid">
-          <label class="geom-label">X<input id="shapeX" class="geom-input" type="number" min="0" max="319" value="0" /></label>
-          <label class="geom-label">Y<input id="shapeY" class="geom-input" type="number" min="0" max="169" value="0" /></label>
-          <label class="geom-label">W<input id="shapeW" class="geom-input" type="number" min="1" max="320" value="100" /></label>
-          <label class="geom-label">H<input id="shapeH" class="geom-input" type="number" min="1" max="170" value="60" /></label>
+          <label class="geom-label" title="Centro X (posición horizontal del centro de la figura)">CX<input id="shapeX" class="geom-input" type="number" min="-999" max="999" value="0" /></label>
+          <label class="geom-label" title="Centro Y (posición vertical del centro de la figura)">CY<input id="shapeY" class="geom-input" type="number" min="-999" max="999" value="0" /></label>
+          <label class="geom-label">W<input id="shapeW" class="geom-input" type="number" min="1" max="640" value="100" /></label>
+          <label class="geom-label">H<input id="shapeH" class="geom-input" type="number" min="1" max="640" value="60" /></label>
           <label class="geom-label sides-wrap" id="shapeSidesWrap2" hidden>Lados<input id="shapeSides2" class="geom-input" type="number" min="3" max="12" value="5" /></label>
         </div>
 
@@ -206,17 +206,6 @@
               <input id="shapeFillColorInput" type="color" value="#ffff00" class="color-mini-native" />
               <code id="shapeFillColorCode" class="color-mini-code">#FFFF00</code>
             </div>
-          </div>
-          <div class="shape-presets-row">
-            <span class="shape-presets-title">Colores</span>
-            <button type="button" class="shape-color-chip" data-color="0xFFFF" style="background:#FFFFFF" title="Blanco"></button>
-            <button type="button" class="shape-color-chip" data-color="0x0000" style="background:#000000" title="Negro"></button>
-            <button type="button" class="shape-color-chip" data-color="0xF800" style="background:#FF0000" title="Rojo"></button>
-            <button type="button" class="shape-color-chip" data-color="0x07E0" style="background:#00FF00" title="Verde"></button>
-            <button type="button" class="shape-color-chip" data-color="0x001F" style="background:#0000FF" title="Azul"></button>
-            <button type="button" class="shape-color-chip" data-color="0xFFE0" style="background:#FFFF00" title="Amarillo"></button>
-            <button type="button" class="shape-color-chip" data-color="0x07FF" style="background:#00FFFF" title="Cian"></button>
-            <button type="button" class="shape-color-chip" data-color="0xFD20" style="background:#FFA500" title="Naranja"></button>
           </div>
         </div>
 
@@ -605,10 +594,10 @@
     <input id="geometryToggle" type="checkbox" />
   </div>
 
-  <script src="./gfx-classic-font.js?v=1789756000"></script>
-  <script src="./app.js?v=1789756000"></script>
-  <script src="./ux-foundation.js?v=1789756000"></script>
-  <script src="./designer-codegen.js?v=1789756000"></script>
+  <script src="./gfx-classic-font.js?v=1789760000"></script>
+  <script src="./app.js?v=1789760000"></script>
+  <script src="./ux-foundation.js?v=1789760000"></script>
+  <script src="./designer-codegen.js?v=1789760000"></script>
 
   
 
