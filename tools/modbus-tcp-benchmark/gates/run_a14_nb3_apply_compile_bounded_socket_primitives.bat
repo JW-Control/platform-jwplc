@@ -1,3 +1,11 @@
 @echo off
-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0a14_nb3_apply_compile_bounded_socket_primitives.ps1" %*
+setlocal
+
+set "GATE=%~dp0a14_nb3_apply_compile_bounded_socket_primitives.ps1"
+set "VALIDATOR=%~dp0assert_ps1_syntax.ps1"
+
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%VALIDATOR%" -Path "%GATE%"
+if errorlevel 1 exit /b %errorlevel%
+
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%GATE%" %*
 exit /b %ERRORLEVEL%
