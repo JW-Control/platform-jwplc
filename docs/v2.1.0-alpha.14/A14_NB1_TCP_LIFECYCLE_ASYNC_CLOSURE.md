@@ -143,22 +143,52 @@ El cierre NB1 exige además prueba estática de que:
 
 Esto se verifica en `A14 NB1-E`.
 
-## Estado
+## Cierre NB1-E
 
-Hasta completar NB1-E:
-
-```text
-NB1_STOP=PHYSICAL_PASS
-NB1_FLUSH=PHYSICAL_PASS
-NB1_TIMEOUT_CONTRACT=PENDING_STATIC_CLOSURE
-NB1_OVERALL=PENDING_NB1_E
-```
-
-Después de NB1-E PASS:
+NB1-E verificó directamente sobre el working tree calificado:
 
 ```text
-NB1_OVERALL=PASS
+DEFAULT_TIMEOUT_1000_CONSTRUCTOR_COUNT=2
+RAW_SET_CONNECTION_TIMEOUT_COUNT=0
+
+RAW_BLOCKING_STOP_COUNT=0
+RAW_BEGIN_STOP_ASYNC_COUNT=2
+RAW_POLL_STOP_ASYNC_COUNT=1
+RAW_STOP_ASYNC_IN_PROGRESS_COUNT=1
+
+FLUSH_USES_SOCKET_SEND_AVAILABLE=True
+FLUSH_USES_W5100_SSIZE=True
+
+TRACKED_DIRTY_COUNT_FINAL=4
+STAGED_COUNT_FINAL=0
 ```
+
+Además se mantuvieron intactos los hashes protegidos de `core.a` y `libJW_SD.a`, y los hashes de header, implementación y firmware raw coincidieron con los candidatos previamente calificados.
+
+Marcadores finales del gate:
+
+```text
+NB1_DEFAULT_CONNECTION_TIMEOUT_MS=1000_SOURCE_PROVEN
+NB1_RAW_TIMEOUT_OVERRIDE=ABSENT
+NB1_RAW_BLOCKING_STOP=ABSENT
+NB1_LEGACY_API_COMPATIBILITY=PRESERVED
+NB1_STOP_ASYNC_PHYSICAL=PASS_REPRODUCED_40_PAIRS
+NB1_FLUSH_ASYNC_PHYSICAL=PASS_20_CYCLES
+NB1_FLUSH_SEMANTICS=TX_FSR_FULL
+A14_NB1_TCP_LIFECYCLE_CLOSURE=PASS
+```
+
+## Estado final
+
+```text
+NB1_STOP=PASS_REPRODUCED
+NB1_FLUSH=PASS
+NB1_TIMEOUT_CONTRACT=PASS
+NB1_LEGACY_COMPATIBILITY=PASS
+NB1_OVERALL=CLOSED_PASS
+```
+
+El siguiente paso operativo es restaurar el DUT desde el firmware especializado de diagnóstico D2S al raw candidate normal de Alpha14 (26 MHz / 8 chunks / async stop) y ejecutar una verificación mínima de un par TCP_RX → TCP_TX.
 
 ## Siguiente bloque
 
