@@ -93,8 +93,12 @@
           <span class="toolbar-divider"></span>
           <button class="tool canvas-tool utility-tool-btn" data-tool="pixel" title="Pincel (B)"><strong>✎</strong></button>
           <button class="tool canvas-tool utility-tool-btn" data-tool="erase" title="Borrador (E)"><strong>◇</strong></button>
-          <button class="tool canvas-tool utility-tool-btn" data-tool="fill" title="Rellenar región contigua (G)"><strong>▨</strong></button>
-          <button class="tool canvas-tool utility-tool-btn" data-tool="pick" title="Cuentagotas (I / Alt+clic)"><strong>◉</strong></button>
+          <button class="tool canvas-tool utility-tool-btn" data-tool="fill" title="Rellenar región contigua (G)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11Z"/><path d="m5 2 5 5"/><path d="M2 13h15"/><path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4Z" fill="currentColor"/></svg>
+          </button>
+          <button class="tool canvas-tool utility-tool-btn" data-tool="pick" title="Cuentagotas (I / Alt+clic)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 7 3 3"/><path d="M19 2a2.83 2.83 0 0 1 2 4l-1 1-5-5 1-1a2.83 2.83 0 0 1 3-1Z"/><path d="m16 8-8.5 8.5a2.12 2.12 0 0 0-.6 1.5V20l-4 2 2-4h2a2.12 2.12 0 0 0 1.5-.6L17 9Z"/></svg>
+          </button>
           <button class="tool canvas-tool utility-tool-btn" data-tool="rawText" title="Texto GFX RAW"><strong>A</strong></button>
           <div id="pixelmapWorkbenchTools" class="pixelmap-tools" style="display: none;"></div>
         </div>
@@ -365,6 +369,65 @@
         </details>
       </section>
 
+      <section id="eyedropperSection" class="inspector-section" hidden>
+        <div class="inspector-title"><h2>Inspector · Cuentagotas &amp; Relleno</h2></div>
+        <details open>
+          <summary>Color detectado en vivo (Cursor)</summary>
+          <div class="eyedropper-live-card">
+            <div class="eyedropper-preview-row">
+              <div id="eyedropperLiveSwatch" class="eyedropper-preview-box" style="background:#000000;" title="Muestra en vivo"></div>
+              <div class="eyedropper-live-info">
+                <div class="live-color-title" id="eyedropperLiveName">NEGRO</div>
+                <div class="live-color-values">
+                  <span>565: <code id="eyedropperLive565">0x0000</code></span>
+                  <span>HEX: <code id="eyedropperLiveHex">#000000</code></span>
+                  <span id="eyedropperLiveRgb">RGB(0, 0, 0)</span>
+                </div>
+              </div>
+            </div>
+            <div class="readout live-coords-row">
+              <span>Posición cursor:</span>
+              <strong id="eyedropperLiveCoords">X: — · Y: —</strong>
+            </div>
+            <p class="helper-text-live">Pasa el cursor sobre el lienzo para inspeccionar cualquier pixel en tiempo real. Haz clic para capturarlo.</p>
+          </div>
+        </details>
+
+        <details open>
+          <summary>Color capturado / activo</summary>
+          <div class="inspector-body">
+            <div class="eyedropper-preview-row">
+              <div id="eyedropperActiveSwatch" class="eyedropper-preview-box" style="background:#FD20;" title="Color actual"></div>
+              <div class="eyedropper-live-info">
+                <div class="live-color-title" id="eyedropperActiveName">ORANGE</div>
+                <div class="live-color-values">
+                  <span>565: <code id="eyedropperActive565">0xFD20</code></span>
+                  <span>HEX: <code id="eyedropperActiveHex">#FFA500</code></span>
+                </div>
+              </div>
+            </div>
+            <div class="eyedropper-actions-row">
+              <button id="eyedropperUseFillBtn" class="small-action-btn" type="button" title="Activar herramienta Rellenar con este color">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11Z"/><path d="m5 2 5 5"/><path d="M2 13h15"/><path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4Z" fill="currentColor"/></svg>
+                Usar en Rellenar (G)
+              </button>
+            </div>
+          </div>
+        </details>
+
+        <details open>
+          <summary>Colores previos / Recientes</summary>
+          <div class="inspector-body">
+            <div class="recent-colors-header">
+              <span class="label-sub">Historial de muestreo:</span>
+              <button id="clearRecentColorsBtn" class="link-btn" type="button">Limpiar</button>
+            </div>
+            <div id="recentColorsGrid" class="recent-colors-grid"></div>
+            <span class="helper-text-live">Haz clic en cualquier color para seleccionarlo y aplicarlo inmediatamente con el balde o al objeto seleccionado.</span>
+          </div>
+        </details>
+      </section>
+
       <section class="pixel-controls">
         <details>
           <summary>Paleta RGB565 / Pixel</summary>
@@ -460,10 +523,10 @@
     <input id="geometryToggle" type="checkbox" />
   </div>
 
-  <script src="./gfx-classic-font.js?v=1789751000"></script>
-  <script src="./app.js?v=1789751000"></script>
-  <script src="./ux-foundation.js?v=1789751000"></script>
-  <script src="./designer-codegen.js?v=1789751000"></script>
+  <script src="./gfx-classic-font.js?v=1789753000"></script>
+  <script src="./app.js?v=1789753000"></script>
+  <script src="./ux-foundation.js?v=1789753000"></script>
+  <script src="./designer-codegen.js?v=1789753000"></script>
 
   
 

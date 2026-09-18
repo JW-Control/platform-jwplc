@@ -77,6 +77,23 @@
   const activeColorName = document.getElementById('activeColorName');
   const activeColorValue = document.getElementById('activeColorValue');
 
+  const eyedropperSection = document.getElementById('eyedropperSection');
+  const eyedropperLiveSwatch = document.getElementById('eyedropperLiveSwatch');
+  const eyedropperLiveName = document.getElementById('eyedropperLiveName');
+  const eyedropperLive565 = document.getElementById('eyedropperLive565');
+  const eyedropperLiveHex = document.getElementById('eyedropperLiveHex');
+  const eyedropperLiveRgb = document.getElementById('eyedropperLiveRgb');
+  const eyedropperLiveCoords = document.getElementById('eyedropperLiveCoords');
+  const eyedropperActiveSwatch = document.getElementById('eyedropperActiveSwatch');
+  const eyedropperActiveName = document.getElementById('eyedropperActiveName');
+  const eyedropperActive565 = document.getElementById('eyedropperActive565');
+  const eyedropperActiveHex = document.getElementById('eyedropperActiveHex');
+  const eyedropperUseFillBtn = document.getElementById('eyedropperUseFillBtn');
+  const recentColorsGrid = document.getElementById('recentColorsGrid');
+  const clearRecentColorsBtn = document.getElementById('clearRecentColorsBtn');
+
+  let recentColors = [0x0000, 0xFFFF, 0xF800, 0x07E0, 0x001F, 0x07FF, 0xFFE0, 0xFD20];
+
   const rawSection = document.getElementById('rawTextControlsSection');
   const fieldSection = document.getElementById('textFieldControlsSection');
   const rawMetricsSection = document.getElementById('rawMetricsSection');
@@ -484,6 +501,87 @@
   function indexFor(x, y) { return y * WIDTH + x; }
   function inside(x, y) { return x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT; }
 
+  function addRecentColor(color565) {
+    color565 = Number(color565) & 0xFFFF;
+    recentColors = [color565, ...recentColors.filter((c) => (c & 0xFFFF) !== color565)].slice(0, 16);
+    renderRecentColors();
+  }
+
+  function updateEyedropperActiveUI() {
+    if (!eyedropperActiveSwatch || !selectedColor) return;
+    const val = selectedColor.value & 0xFFFF;
+    eyedropperActiveSwatch.style.backgroundColor = rgb565ToCss(val);
+    eyedropperActiveName.textContent = selectedColor.name;
+    eyedropperActive565.textContent = hex565(val);
+    if (eyedropperActiveHex) eyedropperActiveHex.textContent = rgb565ToHex888(val).toUpperCase();
+  }
+
+  function updateEyedropperLiveUI(point) {
+    if (!eyedropperLiveSwatch) return;
+    if (!point || !inside(point.x, point.y)) {
+      if (eyedropperLiveCoords) eyedropperLiveCoords.textContent = 'Fuera del lienzo';
+      if (eyedropperLiveName) eyedropperLiveName.textContent = '—';
+      if (eyedropperLive565) eyedropperLive565.textContent = '—';
+      if (eyedropperLiveHex) eyedropperLiveHex.textContent = '—';
+      if (eyedropperLiveRgb) eyedropperLiveRgb.textContent = '—';
+      eyedropperLiveSwatch.style.backgroundColor = 'transparent';
+      return;
+    }
+    const color565 = framebuffer[indexFor(point.x, point.y)];
+    const cName = colorName(color565);
+    const hexVal = hex565(color565);
+    const hex888 = rgb565ToHex888(color565).toUpperCase();
+    const rgb = rgb565ToRgb888(color565);
+
+    eyedropperLiveSwatch.style.backgroundColor = rgb565ToCss(color565);
+    if (eyedropperLiveName) eyedropperLiveName.textContent = cName;
+    if (eyedropperLive565) eyedropperLive565.textContent = hexVal;
+    if (eyedropperLiveHex) eyedropperLiveHex.textContent = hex888;
+    if (eyedropperLiveRgb) eyedropperLiveRgb.textContent = `R:${rgb.r} G:${rgb.g} B:${rgb.b}`;
+    if (eyedropperLiveCoords) eyedropperLiveCoords.textContent = `X: ${point.x} · Y: ${point.y}`;
+  }
+
+  function renderRecentColors() {
+    if (!recentColorsGrid) return;
+    recentColorsGrid.innerHTML = '';
+    recentColors.forEach((colorVal) => {
+      const btn = document.createElement('button');
+      btn.className = 'recent-color-chip';
+      btn.type = 'button';
+      btn.style.backgroundColor = rgb565ToCss(colorVal);
+      btn.title = `${colorName(colorVal)} (${hex565(colorVal)})`;
+      if (selectedColor && (selectedColor.value & 0xFFFF) === (colorVal & 0xFFFF)) {
+        btn.classList.add('active');
+      }
+      btn.addEventListener('click', () => {
+        const matched = COLORS.find((c) => c.value === colorVal);
+        selectedColor = matched || { name: hex565(colorVal), value: colorVal };
+        updateActiveColorUI();
+        buildPalette();
+        renderRecentColors();
+
+        const field = selectedField();
+        if (field) {
+          if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
+            if (field.fill) {
+              field.fillColor = selectedColor.value;
+            } else {
+              field.frameColor = selectedColor.value;
+            }
+          } else if (field.type === 'RAW_TEXT') {
+            field.textColor = selectedColor.value;
+          } else if (['TEXT', 'VALUE', 'BOOL', 'BAR'].includes(field.type)) {
+            field.valueColor = selectedColor.value;
+          }
+          syncInputsFromState();
+          render();
+          commitHistory();
+        }
+      });
+      recentColorsGrid.appendChild(btn);
+    });
+  }
+
   function pageExists(page) {
     return hmiPages.some((item) => item.id === Number(page));
   }
@@ -584,15 +682,20 @@
   function pickColorAt(point) {
     if (!inside(point.x, point.y)) return false;
     const color565 = framebuffer[indexFor(point.x, point.y)];
-    const matched = PALETTE_COLORS.find((c) => c.value === color565);
+    const matched = COLORS.find((c) => c.value === color565);
     selectedColor = matched || { name: hex565(color565), value: color565 };
+    addRecentColor(color565);
     updateActiveColorUI();
     buildPalette();
 
     const field = selectedField();
     if (field) {
       if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
-        field.frameColor = selectedColor.value;
+        if (field.fill) {
+          field.fillColor = selectedColor.value;
+        } else {
+          field.frameColor = selectedColor.value;
+        }
       } else if (field.type === 'RAW_TEXT') {
         field.textColor = selectedColor.value;
       } else if (['TEXT', 'VALUE', 'BOOL', 'BAR'].includes(field.type)) {
@@ -1710,10 +1813,12 @@
     if (!inside(point.x, point.y)) {
       cursorStatus.textContent = 'X: — · Y: —';
       pixelStatus.textContent = 'Pixel: —';
+      updateEyedropperLiveUI(point);
       return;
     }
     cursorStatus.textContent = `X: ${point.x} · Y: ${point.y}`;
     pixelStatus.textContent = `Pixel: ${hex565(framebuffer[indexFor(point.x, point.y)])}`;
+    updateEyedropperLiveUI(point);
   }
 
   function syncToolUI() {
@@ -1723,11 +1828,19 @@
 
     const field = selectedField();
     const isRaw = selectedTool === 'rawText' || field?.type === 'RAW_TEXT';
+    const isColorTool = (selectedTool === 'pick' || selectedTool === 'fill');
     const fieldTools = ['textField', 'valueField', 'boolField', 'barField', 'pointer'];
+
+    if (eyedropperSection) eyedropperSection.hidden = !isColorTool;
     rawSection.hidden = !isRaw;
     fieldSection.hidden = !field || !fieldTools.includes(selectedTool) || field.type === 'RAW_TEXT';
     rawMetricsSection.hidden = !isRaw;
     fieldMetricsSection.hidden = !field || !fieldTools.includes(selectedTool) || field.type === 'RAW_TEXT';
+
+    if (isColorTool) {
+      updateEyedropperActiveUI();
+      renderRecentColors();
+    }
 
     if (field) {
       const isValue = field.type === 'VALUE';
@@ -1753,6 +1866,8 @@
     activeColorSwatch.style.background = rgb565ToCss(selectedColor.value);
     activeColorName.textContent = selectedColor.name;
     activeColorValue.textContent = hex565(selectedColor.value);
+    updateEyedropperActiveUI();
+    renderRecentColors();
   }
 
   function buildColorSelect(select, selectedName) {
@@ -1807,6 +1922,7 @@
       const c565 = hex888ToRgb565(visual.value);
       setValue(c565);
       ensureSelectOption(select, c565);
+      addRecentColor(c565);
       sync();
       render();
       commitHistory();
@@ -1816,6 +1932,7 @@
       const matched = COLORS.find((c) => c.name === select.value);
       const val = matched ? matched.value : (Number(select.value) || 0);
       setValue(val);
+      addRecentColor(val);
       sync();
       render();
       commitHistory();
@@ -3194,6 +3311,7 @@
   canvasViewport?.addEventListener('pointerleave', () => {
     cursorStatus.textContent = 'X: — · Y: —';
     pixelStatus.textContent = 'Pixel: —';
+    updateEyedropperLiveUI({ x: -1, y: -1 });
   });
 
   function isEditingTarget(target) {
@@ -3420,8 +3538,19 @@
       if (f) f.frameColor = val;
     });
 
+  clearRecentColorsBtn?.addEventListener('click', () => {
+    recentColors = [0x0000, 0xFFFF, 0xF800, 0x07E0, 0x001F, 0x07FF, 0xFFE0, 0xFD20];
+    renderRecentColors();
+  });
+  eyedropperUseFillBtn?.addEventListener('click', () => {
+    selectedTool = 'fill';
+    syncToolUI();
+    render();
+  });
+
   buildPalette();
   updateActiveColorUI();
+  renderRecentColors();
   syncInputsFromState();
   syncToolUI();
   render();
