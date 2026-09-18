@@ -90,7 +90,10 @@
   const rawTextX = document.getElementById('rawTextX');
   const rawTextY = document.getElementById('rawTextY');
   const rawTextSize = document.getElementById('rawTextSize');
+  const rawTextTransparent = document.getElementById('rawTextTransparent');
+  const rawTextColor = document.getElementById('rawTextColor');
   const rawTextBackground = document.getElementById('rawTextBackground');
+  const rawTextBackgroundWrap = document.getElementById('rawTextBackgroundWrap');
   const rawBoundsStatus = document.getElementById('rawBoundsStatus');
 
   const fieldName = document.getElementById('fieldName');
@@ -105,6 +108,10 @@
   const fieldY2 = document.getElementById('fieldY2');
   const fieldSidesWrap = document.getElementById('fieldSidesWrap');
   const fieldSides = document.getElementById('fieldSides');
+  const fieldFillWrap = document.getElementById('fieldFillWrap');
+  const fieldFill = document.getElementById('fieldFill');
+  const fieldFillColorWrap = document.getElementById('fieldFillColorWrap');
+  const fieldFillColor = document.getElementById('fieldFillColor');
   const fieldPreview = document.getElementById('fieldPreview');
   const fieldLabel = document.getElementById('fieldLabel');
   const fieldUnit = document.getElementById('fieldUnit');
@@ -445,6 +452,35 @@
     return `rgb(${r}, ${g}, ${b})`;
   }
 
+  function rgb565ToHex888(value) {
+    const { r, g, b } = rgb565ToRgb888(value);
+    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+  }
+
+  function hex888ToRgb565(hex) {
+    const clean = String(hex || '').replace('#', '').trim();
+    if (clean.length < 6) return 0x0000;
+    const r = parseInt(clean.slice(0, 2), 16) || 0;
+    const g = parseInt(clean.slice(2, 4), 16) || 0;
+    const b = parseInt(clean.slice(4, 6), 16) || 0;
+    return (((r >> 3) & 0x1F) << 11) | (((g >> 2) & 0x3F) << 5) | ((b >> 3) & 0x1F);
+  }
+
+  function ensureSelectOption(select, value) {
+    if (!select) return;
+    const val565 = Number(value) & 0xFFFF;
+    const matched = COLORS.find((c) => c.value === val565);
+    const name = matched ? matched.name : hex565(val565);
+    let opt = [...select.options].find((o) => o.value === name || o.value === hex565(val565));
+    if (!opt) {
+      opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = `${name} · ${hex565(val565)}`;
+      select.appendChild(opt);
+    }
+    select.value = opt.value;
+  }
+
   function indexFor(x, y) { return y * WIDTH + x; }
   function inside(x, y) { return x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT; }
 
@@ -701,8 +737,142 @@
     return pts;
   }
 
+  function fillShapeEllipse(buffer, a, b, color) {
+    const minX = Math.min(a.x, b.x);
+    const maxX = Math.max(a.x, b.x);
+    const minY = Math.min(a.y, b.y);
+    const maxY = Math.max(a.y, b.y);
+    const rx = (maxX - minX) / 2;
+    const ry = (maxY - minY) / 2;
+    if (rx <= 0 || ry <= 0) return;
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+
+    const startY = Math.max(0, Math.ceil(minY));
+    const endY = Math.min(HEIGHT - 1, Math.floor(maxY));
+    for (let y = startY; y <= endY; y++) {
+      const dy = (y - cy) / ry;
+      const term = 1 - dy * dy;
+      if (term < 0) continue;
+      const dx = Math.round(rx * Math.sqrt(term));
+      const left = Math.max(0, Math.round(cx - dx));
+      const right = Math.min(WIDTH - 1, Math.round(cx + dx));
+      if (right >= left) {
+        fillBufferRect(buffer, left, y, right - left + 1, 1, color);
+      }
+    }
+  }
+
+  function fillShapeTriangle(buffer, p1, p2, p3, color) {
+    const pts = [p1, p2, p3].sort((m, n) => m.y - n.y);
+    const [v1, v2, v3] = pts;
+    if (v1.y === v3.y) return;
+
+    function interpolateX(y, ya, yb, xa, xb) {
+      if (ya === yb) return xa;
+      return xa + ((y - ya) * (xb - xa)) / (yb - ya);
+    }
+
+    const startY = Math.max(0, Math.ceil(v1.y));
+    const endY = Math.min(HEIGHT - 1, Math.floor(v3.y));
+
+    for (let y = startY; y <= endY; y++) {
+      const xA = interpolateX(y, v1.y, v3.y, v1.x, v3.x);
+      const xB = (y < v2.y)
+        ? interpolateX(y, v1.y, v2.y, v1.x, v2.x)
+        : interpolateX(y, v2.y, v3.y, v2.x, v3.x);
+
+      const left = Math.max(0, Math.round(Math.min(xA, xB)));
+      const right = Math.min(WIDTH - 1, Math.round(Math.max(xA, xB)));
+      if (right >= left) {
+        fillBufferRect(buffer, left, y, right - left + 1, 1, color);
+      }
+    }
+  }
+
+  function fillShapePolygon(buffer, pts, color) {
+    if (!pts || pts.length < 3) return;
+    let minY = Infinity, maxY = -Infinity;
+    for (const p of pts) {
+      if (p.y < minY) minY = p.y;
+      if (p.y > maxY) maxY = p.y;
+    }
+    const startY = Math.max(0, Math.ceil(minY));
+    const endY = Math.min(HEIGHT - 1, Math.floor(maxY));
+    const n = pts.length;
+
+    for (let y = startY; y <= endY; y++) {
+      const nodes = [];
+      for (let i = 0; i < n; i++) {
+        const pA = pts[i];
+        const pB = pts[(i + 1) % n];
+        if ((pA.y <= y && pB.y > y) || (pB.y <= y && pA.y > y)) {
+          const x = pA.x + ((y - pA.y) * (pB.x - pA.x)) / (pB.y - pA.y);
+          nodes.push(x);
+        }
+      }
+      nodes.sort((a, b) => a - b);
+      for (let i = 0; i < nodes.length; i += 2) {
+        if (i + 1 >= nodes.length) break;
+        const left = Math.max(0, Math.round(nodes[i]));
+        const right = Math.min(WIDTH - 1, Math.round(nodes[i + 1]));
+        if (right >= left) {
+          fillBufferRect(buffer, left, y, right - left + 1, 1, color);
+        }
+      }
+    }
+  }
+
+  function isPointInsideShapeArea(px, py, field) {
+    const a = { x: field.x, y: field.y };
+    const b = { x: field.x2 ?? field.x, y: field.y2 ?? field.y };
+    if (field.type === 'RECT') {
+      const left = Math.min(a.x, b.x);
+      const right = Math.max(a.x, b.x);
+      const top = Math.min(a.y, b.y);
+      const bottom = Math.max(a.y, b.y);
+      return px >= left && px <= right && py >= top && py <= bottom;
+    }
+    if (field.type === 'ELLIPSE') {
+      const rx = Math.abs(b.x - a.x) / 2;
+      const ry = Math.abs(b.y - a.y) / 2;
+      if (rx <= 0 || ry <= 0) return false;
+      const cx = (a.x + b.x) / 2;
+      const cy = (a.y + b.y) / 2;
+      const nx = (px - cx) / rx;
+      const ny = (py - cy) / ry;
+      return (nx * nx + ny * ny) <= 1.05;
+    }
+    if (field.type === 'TRIANGLE') {
+      const topPt = { x: Math.round((a.x + b.x) / 2), y: a.y };
+      const bl = { x: a.x, y: b.y };
+      const br = { x: b.x, y: b.y };
+      const d1 = (px - bl.x) * (topPt.y - bl.y) - (topPt.x - bl.x) * (py - bl.y);
+      const d2 = (px - br.x) * (bl.y - br.y) - (bl.x - br.x) * (py - br.y);
+      const d3 = (px - topPt.x) * (br.y - topPt.y) - (br.x - topPt.x) * (py - topPt.y);
+      const hasNeg = (d1 < 0) || (d2 < 0) || (d3 < 0);
+      const hasPos = (d1 > 0) || (d2 > 0) || (d3 > 0);
+      return !(hasNeg && hasPos);
+    }
+    if (field.type === 'POLYGON') {
+      const pts = getPolygonVertices(field);
+      let inside = false;
+      const n = pts.length;
+      for (let i = 0, j = n - 1; i < n; j = i++) {
+        const xi = pts[i].x, yi = pts[i].y;
+        const xj = pts[j].x, yj = pts[j].y;
+        const intersect = ((yi > py) !== (yj > py)) &&
+          (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+      }
+      return inside;
+    }
+    return false;
+  }
+
   function drawShape(buffer, field) {
     const color = field.frameColor || 0xFFFF;
+    const fillColor = field.fillColor ?? color;
     const size = field.size || 1;
     const a = { x: field.x, y: field.y };
     const b = { x: field.x2, y: field.y2 };
@@ -714,21 +884,33 @@
       const right = Math.max(a.x, b.x);
       const top = Math.min(a.y, b.y);
       const bottom = Math.max(a.y, b.y);
+      if (field.fill) {
+        fillBufferRect(buffer, left, top, right - left + 1, bottom - top + 1, fillColor);
+      }
       rasterLineBuffer(buffer, left, top, right, top, color, size);
       rasterLineBuffer(buffer, right, top, right, bottom, color, size);
       rasterLineBuffer(buffer, right, bottom, left, bottom, color, size);
       rasterLineBuffer(buffer, left, bottom, left, top, color, size);
     } else if (field.type === 'ELLIPSE') {
+      if (field.fill) {
+        fillShapeEllipse(buffer, a, b, fillColor);
+      }
       drawShapeEllipse(buffer, a, b, color, size);
     } else if (field.type === 'TRIANGLE') {
       const topPt = { x: Math.round((a.x + b.x) / 2), y: a.y };
       const bl = { x: a.x, y: b.y };
       const br = { x: b.x, y: b.y };
+      if (field.fill) {
+        fillShapeTriangle(buffer, topPt, bl, br, fillColor);
+      }
       rasterLineBuffer(buffer, topPt.x, topPt.y, bl.x, bl.y, color, size);
       rasterLineBuffer(buffer, bl.x, bl.y, br.x, br.y, color, size);
       rasterLineBuffer(buffer, br.x, br.y, topPt.x, topPt.y, color, size);
     } else if (field.type === 'POLYGON') {
       const pts = getPolygonVertices(field);
+      if (field.fill) {
+        fillShapePolygon(buffer, pts, fillColor);
+      }
       const numSides = pts.length;
       for (let i = 0; i < numSides; i++) {
         const p1 = pts[i];
@@ -742,11 +924,16 @@
     const font = window.JWPLCGfxClassicFont;
     const glyph = font.glyphFor(charCode);
     const scale = Math.max(1, Math.trunc(size));
+    const isTransparent = (background === null || background === undefined || background === -1);
     for (let column = 0; column < font.cellWidth; column += 1) {
       const bits = column < font.bytesPerGlyph ? glyph[column] : 0;
       for (let row = 0; row < font.cellHeight; row += 1) {
         const on = column < font.bytesPerGlyph && ((bits >> row) & 0x01) !== 0;
-        fillBufferRect(buffer, x + column * scale, y + row * scale, scale, scale, on ? foreground : background);
+        if (on) {
+          fillBufferRect(buffer, x + column * scale, y + row * scale, scale, scale, foreground);
+        } else if (!isTransparent) {
+          fillBufferRect(buffer, x + column * scale, y + row * scale, scale, scale, background);
+        }
       }
     }
   }
@@ -964,11 +1151,13 @@
       } else if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
         drawShape(framebuffer, field);
       } else if (field.type === 'RAW_TEXT') {
-        drawClassicTextAt(framebuffer, field.text || '', field.x, field.y, field.textColor ?? 0xFFFF, field.backgroundColor ?? 0x0000, field.size || 1);
+        const bg = field.transparentBackground ? null : (field.backgroundColor ?? 0x0000);
+        drawClassicTextAt(framebuffer, field.text || '', field.x, field.y, field.textColor ?? 0xFFFF, bg, field.size || 1);
       }
     });
     if (selectedTool === 'rawText' && !hmiFields.some((f) => f.type === 'RAW_TEXT' && Number(f.page || 0) === activePage)) {
-      drawClassicTextAt(framebuffer, rawState.value, rawState.x, rawState.y, rawState.foreground, rawState.background, rawState.size);
+      const bg = rawState.transparent ? null : rawState.background;
+      drawClassicTextAt(framebuffer, rawState.value, rawState.x, rawState.y, rawState.foreground, bg, rawState.size);
     }
   }
 
@@ -1543,6 +1732,7 @@
     if (field) {
       const isValue = field.type === 'VALUE';
       const isShape = ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type);
+      const isClosedShape = ['RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type);
       if (fieldInspectorTitle) fieldInspectorTitle.textContent = `Inspector · ${field.type} field`;
       if (numericFormatDetails) numericFormatDetails.hidden = !isValue;
       if (fieldCapacityWrap) fieldCapacityWrap.hidden = isValue || isShape;
@@ -1551,6 +1741,8 @@
       if (fieldX2Wrap) fieldX2Wrap.hidden = !isShape;
       if (fieldY2Wrap) fieldY2Wrap.hidden = !isShape;
       if (fieldSidesWrap) fieldSidesWrap.hidden = field.type !== 'POLYGON';
+      if (fieldFillWrap) fieldFillWrap.hidden = !isClosedShape;
+      if (fieldFillColorWrap) fieldFillColorWrap.hidden = !isClosedShape || !field.fill;
       const fieldValueBoundsWrap = document.getElementById('fieldValueBoundsWrap');
       if (fieldValueBoundsWrap) fieldValueBoundsWrap.hidden = isShape;
       if (fieldMetricsSection) fieldMetricsSection.hidden = isShape || !fieldTools.includes(selectedTool);
@@ -1564,6 +1756,7 @@
   }
 
   function buildColorSelect(select, selectedName) {
+    if (!select) return;
     select.innerHTML = '';
     COLORS.forEach((color) => {
       const option = document.createElement('option');
@@ -1572,6 +1765,69 @@
       option.selected = color.name === selectedName;
       select.appendChild(option);
     });
+  }
+
+  const visualColorSyncs = [];
+
+  function attachVisualColorPicker(select, getValue, setValue) {
+    const label = select?.closest('label');
+    if (!select || !label || label.dataset.hasPicker === '1') return () => {};
+    label.dataset.hasPicker = '1';
+
+    const host = document.createElement('div');
+    host.className = 'a11-custom-color';
+    const row = document.createElement('div');
+    row.className = 'a11-color-control';
+    const visual = document.createElement('input');
+    visual.type = 'color';
+    visual.title = 'Selector visual interactivo RGB';
+    const swatch = document.createElement('span');
+    swatch.className = 'a11-swatch';
+    row.append(visual, swatch);
+    host.appendChild(row);
+    select.insertAdjacentElement('afterend', host);
+
+    function sync() {
+      const val = Number(getValue()) & 0xFFFF;
+      const hex888 = rgb565ToHex888(val);
+      visual.value = hex888;
+      swatch.style.background = rgb565ToCss(val);
+      swatch.title = `${hex565(val)} · ${hex888.toUpperCase()}`;
+    }
+
+    visual.addEventListener('input', () => {
+      const c565 = hex888ToRgb565(visual.value);
+      setValue(c565);
+      ensureSelectOption(select, c565);
+      sync();
+      render();
+    });
+
+    visual.addEventListener('change', () => {
+      const c565 = hex888ToRgb565(visual.value);
+      setValue(c565);
+      ensureSelectOption(select, c565);
+      sync();
+      render();
+      commitHistory();
+    });
+
+    select.addEventListener('change', () => {
+      const matched = COLORS.find((c) => c.name === select.value);
+      const val = matched ? matched.value : (Number(select.value) || 0);
+      setValue(val);
+      sync();
+      render();
+      commitHistory();
+    });
+
+    visualColorSyncs.push(sync);
+    sync();
+    return sync;
+  }
+
+  function syncAllColorControls() {
+    visualColorSyncs.forEach((fn) => fn());
   }
 
   function buildPalette() {
@@ -1610,11 +1866,15 @@
     rawTextX.value = String(rawState.x);
     rawTextY.value = String(rawState.y);
     rawTextSize.value = String(rawState.size);
-    rawTextBackground.value = colorName(rawState.background);
+    if (rawTextTransparent) rawTextTransparent.value = rawState.transparent ? '1' : '0';
+    if (rawTextColor) ensureSelectOption(rawTextColor, rawState.foreground);
+    if (rawTextBackground) ensureSelectOption(rawTextBackground, rawState.background);
+    if (rawTextBackgroundWrap) rawTextBackgroundWrap.hidden = Boolean(rawState.transparent);
 
     const field = selectedField();
     if (!field) {
       inspectorContract.textContent = 'Sin objeto seleccionado';
+      syncAllColorControls();
       return;
     }
 
@@ -1623,7 +1883,11 @@
       rawTextX.value = String(field.x);
       rawTextY.value = String(field.y);
       rawTextSize.value = String(field.size || 1);
-      rawTextBackground.value = colorName(field.backgroundColor || 0x0000);
+      if (rawTextTransparent) rawTextTransparent.value = field.transparentBackground ? '1' : '0';
+      if (rawTextColor) ensureSelectOption(rawTextColor, field.textColor ?? 0xFFFF);
+      if (rawTextBackground) ensureSelectOption(rawTextBackground, field.backgroundColor ?? 0x0000);
+      if (rawTextBackgroundWrap) rawTextBackgroundWrap.hidden = Boolean(field.transparentBackground);
+      syncAllColorControls();
       inspectorContract.textContent = `// Texto RAW estático: JWPLC_Display.getTFT()->print(...)`;
       return;
     }
@@ -1637,6 +1901,9 @@
     if (field.x2 !== undefined) fieldX2.value = String(field.x2);
     if (field.y2 !== undefined) fieldY2.value = String(field.y2);
     if (field.sides !== undefined) fieldSides.value = String(field.sides);
+    if (fieldFill) fieldFill.value = field.fill ? '1' : '0';
+    if (fieldFillColor) ensureSelectOption(fieldFillColor, field.fillColor ?? field.frameColor ?? 0xFFFF);
+    if (fieldFillColorWrap) fieldFillColorWrap.hidden = !field.fill;
     fieldPreview.value = String(field.preview ?? '');
     fieldLabel.value = field.label || '';
     fieldUnit.value = field.unit || '';
@@ -1649,6 +1916,7 @@
     fieldValueColor.value = colorName(field.valueColor || 0xFFFF);
     fieldBackgroundColor.value = colorName(field.backgroundColor || 0x0000);
     fieldFrameColor.value = colorName(field.frameColor || 0xFFFF);
+    syncAllColorControls();
 
     if (field.type === 'VALUE') {
       if (fieldIntegerDigits) fieldIntegerDigits.value = String(field.integerDigits);
@@ -1848,6 +2116,7 @@
       y2: endPoint.y,
       page: activePage,
       frameColor: selectedColor ? selectedColor.value : 0xFFFF,
+      fillColor: selectedColor ? selectedColor.value : 0xFFFF,
       backgroundColor: 0x0000,
       fill: false,
       size: 1,
@@ -1875,6 +2144,7 @@
       x: px,
       y: py,
       size: rawState.size || 1,
+      transparentBackground: true,
       textColor: selectedColor ? selectedColor.value : (rawState.foreground ?? 0xFFFF),
       backgroundColor: rawState.background ?? 0x0000,
       page: activePage
@@ -2183,6 +2453,19 @@
     const field = selectedField();
     if (field && field.type === 'RAW_TEXT') field.size = rawState.size;
   });
+  bindRawInput(rawTextTransparent, () => {
+    const isTrans = rawTextTransparent.value === '1';
+    rawState.transparent = isTrans;
+    const field = selectedField();
+    if (field && field.type === 'RAW_TEXT') field.transparentBackground = isTrans;
+    if (rawTextBackgroundWrap) rawTextBackgroundWrap.hidden = isTrans;
+  });
+  bindRawInput(rawTextColor, () => {
+    const color = colorByName(rawTextColor.value).value;
+    rawState.foreground = color;
+    const field = selectedField();
+    if (field && field.type === 'RAW_TEXT') field.textColor = color;
+  });
   bindRawInput(rawTextBackground, () => {
     rawState.background = colorByName(rawTextBackground.value).value;
     const field = selectedField();
@@ -2202,6 +2485,13 @@
   bindFieldInput(fieldX2, (field) => { field.x2 = clamp(Number(fieldX2.value) || 0, 0, WIDTH - 1); });
   bindFieldInput(fieldY2, (field) => { field.y2 = clamp(Number(fieldY2.value) || 0, 0, HEIGHT - 1); });
   bindFieldInput(fieldSides, (field) => { field.sides = clamp(Number(fieldSides.value) || 5, 3, 12); });
+  bindFieldInput(fieldFill, (field) => {
+    field.fill = fieldFill.value === '1';
+    if (fieldFillColorWrap) fieldFillColorWrap.hidden = !field.fill;
+  });
+  bindFieldInput(fieldFillColor, (field) => {
+    field.fillColor = colorByName(fieldFillColor.value).value;
+  });
   bindFieldInput(fieldPreview, (field) => {
     field.preview = field.type === 'TEXT'
       ? fieldPreview.value.slice(0, Math.max(1, field.capacity))
@@ -2267,6 +2557,10 @@
     const py = point.y;
     const a = { x: field.x, y: field.y };
     const b = { x: field.x2 ?? field.x, y: field.y2 ?? field.y };
+
+    if (field.fill && isPointInsideShapeArea(px, py, field)) {
+      return 0.0;
+    }
 
     if (field.type === 'LINE') {
       return distToSegment(px, py, a.x, a.y, b.x, b.y);
@@ -2405,6 +2699,29 @@
     }
 
     if (isTargetDisplay && selectedTool === 'fill') {
+      let shapeHit = null;
+      for (let index = hmiFields.length - 1; index >= 0; index--) {
+        const f = hmiFields[index];
+        if (Number(f.page || 0) !== activePage) continue;
+        if (['RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(f.type)) {
+          if (isPointInsideShapeArea(point.x, point.y, f) || distanceToFieldBorder(point, f) <= 3.0) {
+            shapeHit = f;
+            break;
+          }
+        }
+      }
+
+      if (shapeHit) {
+        shapeHit.fill = true;
+        shapeHit.fillColor = selectedColor.value;
+        setSelectedKeys([shapeHit.key]);
+        syncInputsFromState();
+        syncToolUI();
+        render();
+        commitHistory();
+        return;
+      }
+
       if (floodFill(point.x, point.y, selectedColor.value)) {
         render();
         commitHistory();
@@ -3044,11 +3361,65 @@
     }
   });
 
-  buildColorSelect(rawTextBackground, 'WHITE');
+  buildColorSelect(rawTextColor, 'WHITE');
+  buildColorSelect(rawTextBackground, 'BLACK');
+  buildColorSelect(fieldFillColor, 'WHITE');
   buildColorSelect(fieldLabelColor, 'WHITE');
   buildColorSelect(fieldValueColor, 'CYAN');
   buildColorSelect(fieldBackgroundColor, 'BLACK');
   buildColorSelect(fieldFrameColor, 'WHITE');
+
+  attachVisualColorPicker(rawTextColor,
+    () => (selectedField()?.type === 'RAW_TEXT' ? (selectedField()?.textColor ?? 0xFFFF) : rawState.foreground),
+    (val) => {
+      const f = selectedField();
+      if (f && f.type === 'RAW_TEXT') f.textColor = val;
+      rawState.foreground = val;
+    });
+
+  attachVisualColorPicker(rawTextBackground,
+    () => (selectedField()?.type === 'RAW_TEXT' ? (selectedField()?.backgroundColor ?? 0x0000) : rawState.background),
+    (val) => {
+      const f = selectedField();
+      if (f && f.type === 'RAW_TEXT') f.backgroundColor = val;
+      rawState.background = val;
+    });
+
+  attachVisualColorPicker(fieldFillColor,
+    () => selectedField()?.fillColor ?? selectedColor.value,
+    (val) => {
+      const f = selectedField();
+      if (f) f.fillColor = val;
+    });
+
+  attachVisualColorPicker(fieldLabelColor,
+    () => selectedField()?.labelColor ?? 0xFFFF,
+    (val) => {
+      const f = selectedField();
+      if (f) f.labelColor = val;
+    });
+
+  attachVisualColorPicker(fieldValueColor,
+    () => selectedField()?.valueColor ?? 0x07FF,
+    (val) => {
+      const f = selectedField();
+      if (f) f.valueColor = val;
+    });
+
+  attachVisualColorPicker(fieldBackgroundColor,
+    () => selectedField()?.backgroundColor ?? 0x0000,
+    (val) => {
+      const f = selectedField();
+      if (f) f.backgroundColor = val;
+    });
+
+  attachVisualColorPicker(fieldFrameColor,
+    () => selectedField()?.frameColor ?? 0xFFFF,
+    (val) => {
+      const f = selectedField();
+      if (f) f.frameColor = val;
+    });
+
   buildPalette();
   updateActiveColorUI();
   syncInputsFromState();

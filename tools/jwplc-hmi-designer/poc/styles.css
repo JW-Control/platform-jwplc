@@ -365,3 +365,38 @@ body.bottom-collapsed .bottom-tabs { border-bottom: 0; }
   background: #283340;
   margin: 2px 0;
 }
+
+/* --- Visual RGB565 Color Picker Swatches --- */
+.a11-custom-color {
+  display: grid;
+  gap: 5px;
+  margin-top: 4px;
+}
+.a11-color-control {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 6px;
+  align-items: center;
+}
+.a11-color-control input[type="color"] {
+  width: 28px;
+  height: 26px;
+  border: 1px solid #526875;
+  border-radius: 4px;
+  padding: 0;
+  cursor: pointer;
+  background: transparent;
+}
+.a11-color-control input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.a11-color-control input[type="color"]::-webkit-color-swatch {
+  border: none;
+  border-radius: 3px;
+}
+.a11-color-control .a11-swatch {
+  height: 26px;
+  border: 1px solid #526875;
+  border-radius: 4px;
+  display: block;
+}

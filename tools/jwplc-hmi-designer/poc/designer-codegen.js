@@ -229,9 +229,43 @@
     if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT'].includes(field.type)) {
       const c = `0x${(field.frameColor || 0xFFFF).toString(16).toUpperCase().padStart(4, '0')}`;
       if (field.type === 'LINE') return `JWPLC_Display.getTFT()->drawLine(${field.x}, ${field.y}, ${field.x2}, ${field.y2}, ${c});`;
-      if (field.type === 'RECT') return `JWPLC_Display.getTFT()->drawRect(${Math.min(field.x, field.x2)}, ${Math.min(field.y, field.y2)}, ${Math.abs(field.x2 - field.x)}, ${Math.abs(field.y2 - field.y)}, ${c});`;
-      if (field.type === 'ELLIPSE') return `JWPLC_Display.getTFT()->drawCircle(${Math.min(field.x, field.x2) + Math.abs(field.x2 - field.x)/2}, ${Math.min(field.y, field.y2) + Math.abs(field.y2 - field.y)/2}, ${Math.max(Math.abs(field.x2 - field.x)/2, Math.abs(field.y2 - field.y)/2)}, ${c});`;
-      if (field.type === 'TRIANGLE') return `JWPLC_Display.getTFT()->drawTriangle(${Math.round((field.x + field.x2)/2)}, ${field.y}, ${field.x}, ${field.y2}, ${field.x2}, ${field.y2}, ${c});`;
+      if (field.type === 'RECT') {
+        const minX = Math.min(field.x, field.x2);
+        const minY = Math.min(field.y, field.y2);
+        const w = Math.abs(field.x2 - field.x);
+        const h = Math.abs(field.y2 - field.y);
+        const cmds = [];
+        if (field.fill) {
+          const fc = `0x${(field.fillColor || field.frameColor || 0xFFFF).toString(16).toUpperCase().padStart(4, '0')}`;
+          cmds.push(`JWPLC_Display.getTFT()->fillRect(${minX}, ${minY}, ${w}, ${h}, ${fc});`);
+        }
+        cmds.push(`JWPLC_Display.getTFT()->drawRect(${minX}, ${minY}, ${w}, ${h}, ${c});`);
+        return cmds.join('\n        ');
+      }
+      if (field.type === 'ELLIPSE') {
+        const cx = Math.min(field.x, field.x2) + Math.abs(field.x2 - field.x)/2;
+        const cy = Math.min(field.y, field.y2) + Math.abs(field.y2 - field.y)/2;
+        const r = Math.max(Math.abs(field.x2 - field.x)/2, Math.abs(field.y2 - field.y)/2);
+        const cmds = [];
+        if (field.fill) {
+          const fc = `0x${(field.fillColor || field.frameColor || 0xFFFF).toString(16).toUpperCase().padStart(4, '0')}`;
+          cmds.push(`JWPLC_Display.getTFT()->fillCircle(${cx}, ${cy}, ${r}, ${fc});`);
+        }
+        cmds.push(`JWPLC_Display.getTFT()->drawCircle(${cx}, ${cy}, ${r}, ${c});`);
+        return cmds.join('\n        ');
+      }
+      if (field.type === 'TRIANGLE') {
+        const x1 = Math.round((field.x + field.x2)/2), y1 = field.y;
+        const x2 = field.x, y2 = field.y2;
+        const x3 = field.x2, y3 = field.y2;
+        const cmds = [];
+        if (field.fill) {
+          const fc = `0x${(field.fillColor || field.frameColor || 0xFFFF).toString(16).toUpperCase().padStart(4, '0')}`;
+          cmds.push(`JWPLC_Display.getTFT()->fillTriangle(${x1}, ${y1}, ${x2}, ${y2}, ${x3}, ${y3}, ${fc});`);
+        }
+        cmds.push(`JWPLC_Display.getTFT()->drawTriangle(${x1}, ${y1}, ${x2}, ${y2}, ${x3}, ${y3}, ${c});`);
+        return cmds.join('\n        ');
+      }
       if (field.type === 'POLYGON') {
         const cx = (field.x + field.x2) / 2;
         const cy = (field.y + field.y2) / 2;
@@ -256,9 +290,13 @@
       }
       if (field.type === 'RAW_TEXT') {
         const fg = `0x${(field.textColor ?? 0xFFFF).toString(16).toUpperCase().padStart(4, '0')}`;
-        const bg = `0x${(field.backgroundColor ?? 0x0000).toString(16).toUpperCase().padStart(4, '0')}`;
         const text = String(field.text || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-        return `JWPLC_Display.getTFT()->setCursor(${field.x}, ${field.y});\n        JWPLC_Display.getTFT()->setTextSize(${field.size || 1});\n        JWPLC_Display.getTFT()->setTextColor(${fg}, ${bg});\n        JWPLC_Display.getTFT()->print("${text}");`;
+        if (field.transparentBackground) {
+          return `JWPLC_Display.getTFT()->setCursor(${field.x}, ${field.y});\n        JWPLC_Display.getTFT()->setTextSize(${field.size || 1});\n        JWPLC_Display.getTFT()->setTextColor(${fg});\n        JWPLC_Display.getTFT()->print("${text}");`;
+        } else {
+          const bg = `0x${(field.backgroundColor ?? 0x0000).toString(16).toUpperCase().padStart(4, '0')}`;
+          return `JWPLC_Display.getTFT()->setCursor(${field.x}, ${field.y});\n        JWPLC_Display.getTFT()->setTextSize(${field.size || 1});\n        JWPLC_Display.getTFT()->setTextColor(${fg}, ${bg});\n        JWPLC_Display.getTFT()->print("${text}");`;
+        }
       }
     }
     const id = canonicalFor(field, 'id', field.id, index);
