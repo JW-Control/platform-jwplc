@@ -1690,6 +1690,37 @@
   function getSelectionHandles(fields) {
     if (!fields || fields.length === 0) return [];
 
+    // Single rotated shape: place handles at actual transformed corners/midpoints
+    if (fields.length === 1) {
+      const f = fields[0];
+      const SHAPE_TYPES = ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'];
+      if (SHAPE_TYPES.includes(f.type) && (Number(f.rotation) || 0) !== 0) {
+        const x1 = f.x ?? 0; const y1 = f.y ?? 0;
+        const x2 = f.x2 ?? x1; const y2 = f.y2 ?? y1;
+        const cx = (x1 + x2) / 2; const cy = (y1 + y2) / 2;
+        const minX = Math.min(x1, x2); const maxX = Math.max(x1, x2);
+        const minY = Math.min(y1, y2); const maxY = Math.max(y1, y2);
+        const midX = (minX + maxX) / 2; const midY = (minY + maxY) / 2;
+        const angleDeg = Number(f.rotation) || 0;
+        const flipH = Boolean(f.flipH); const flipV = Boolean(f.flipV);
+        const tp = (px, py) => {
+          const r = transformShapePoint(px, py, cx, cy, angleDeg, flipH, flipV);
+          return { x: r.x * zoom, y: r.y * zoom };
+        };
+        return [
+          { id: 'tl', ...tp(minX, minY), cursor: 'crosshair' },
+          { id: 'tc', ...tp(midX, minY), cursor: 'crosshair' },
+          { id: 'tr', ...tp(maxX, minY), cursor: 'crosshair' },
+          { id: 'rc', ...tp(maxX, midY), cursor: 'crosshair' },
+          { id: 'br', ...tp(maxX, maxY), cursor: 'crosshair' },
+          { id: 'bc', ...tp(midX, maxY), cursor: 'crosshair' },
+          { id: 'bl', ...tp(minX, maxY), cursor: 'crosshair' },
+          { id: 'lc', ...tp(minX, midY), cursor: 'crosshair' },
+        ];
+      }
+    }
+
+    // Default: AABB handles for unrotated or multi-selection
     const b = getSelectionBounds(fields);
     if (!b) return [];
 
@@ -1749,7 +1780,7 @@
 
     displayCtx.save();
 
-    // 1. Dotted projection lines extending across the canvas to the rulers
+    // 1. Dotted projection lines to rulers (always use AABB for guides)
     displayCtx.strokeStyle = 'rgba(255, 255, 255, 0.40)';
     displayCtx.setLineDash([2, 3]);
     displayCtx.lineWidth = 1;
@@ -1763,12 +1794,35 @@
     displayCtx.moveTo(0, b.screenY2 + 0.5);
     displayCtx.lineTo(displayCanvas.width, b.screenY2 + 0.5);
     displayCtx.stroke();
-
-    // 2. Solid Blue Bounding Box enclosing all selected objects
     displayCtx.setLineDash([]);
+
+    // 2. Bounding outline — rotated rect for single rotated shape, AABB otherwise
     displayCtx.strokeStyle = '#0084ff';
     displayCtx.lineWidth = 1;
-    displayCtx.strokeRect(b.screenX1 + 0.5, b.screenY1 + 0.5, b.screenW, b.screenH);
+    const SHAPE_TYPES = ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'];
+    if (fields.length === 1 && SHAPE_TYPES.includes(fields[0].type) && (Number(fields[0].rotation) || 0) !== 0) {
+      const f = fields[0];
+      const x1 = f.x ?? 0; const y1 = f.y ?? 0;
+      const x2 = f.x2 ?? x1; const y2 = f.y2 ?? y1;
+      const cx = (x1 + x2) / 2; const cy = (y1 + y2) / 2;
+      const minX = Math.min(x1, x2); const maxX = Math.max(x1, x2);
+      const minY = Math.min(y1, y2); const maxY = Math.max(y1, y2);
+      const angleDeg = Number(f.rotation) || 0;
+      const flipH = Boolean(f.flipH); const flipV = Boolean(f.flipV);
+      const corners = [
+        [minX, minY], [maxX, minY], [maxX, maxY], [minX, maxY]
+      ].map(([px, py]) => {
+        const r = transformShapePoint(px, py, cx, cy, angleDeg, flipH, flipV);
+        return [r.x * zoom + 0.5, r.y * zoom + 0.5];
+      });
+      displayCtx.beginPath();
+      displayCtx.moveTo(corners[0][0], corners[0][1]);
+      for (let i = 1; i < corners.length; i++) displayCtx.lineTo(corners[i][0], corners[i][1]);
+      displayCtx.closePath();
+      displayCtx.stroke();
+    } else {
+      displayCtx.strokeRect(b.screenX1 + 0.5, b.screenY1 + 0.5, b.screenW, b.screenH);
+    }
 
     // 3. 8 Selection Handles
     const hs = 6;
@@ -2169,6 +2223,16 @@
       if (rawTextBackgroundWrap) rawTextBackgroundWrap.hidden = Boolean(field.transparentBackground);
       syncAllColorControls();
       inspectorContract.textContent = `// Texto RAW estático: JWPLC_Display.getTFT()->print(...)`;
+      return;
+    }
+
+    // Shape fields: hide old inspector immediately and sync shape inspector only
+    if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
+      if (fieldSection) { fieldSection.hidden = true; fieldSection.style.display = 'none'; }
+      if (fieldMetricsSection) fieldMetricsSection.hidden = true;
+      syncShapeInspector();
+      inspectorContract.textContent = `// Objeto estático: no requiere variable de estado`;
+      syncAllColorControls();
       return;
     }
 
