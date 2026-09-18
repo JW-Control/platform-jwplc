@@ -17,7 +17,6 @@ enum ProbeState : uint8_t
     WAIT_COMMAND,
     START_CYCLE,
     POLL_FLUSH,
-    STOP_CLIENT,
     DONE
 };
 
@@ -169,16 +168,10 @@ static void finishCycleLocked(uint8_t s)
     ++cyclesCompleted;
     if (cyclesCompleted >= TARGET_CYCLES)
     {
-        const int stopState = probeClient.beginStopAsync();
-        if (stopState == 0)
-        {
-            probeState = STOP_CLIENT;
-        }
-        else
-        {
-            resultCode = 1;
-            probeState = DONE;
-        }
+        // NB1-D2S valida exclusivamente flush. El cierre TCP async ya fue
+        // calificado en NB1-C2 y no se mezcla aquí como segundo objetivo.
+        resultCode = 1;
+        probeState = DONE;
         return;
     }
 
@@ -323,15 +316,6 @@ static void serviceProbeLocked()
         return;
     }
 
-    if (probeState == STOP_CLIENT)
-    {
-        const int state = probeClient.pollStopAsync();
-        if (state != 0)
-        {
-            resultCode = 1;
-            probeState = DONE;
-        }
-    }
 }
 
 static void printResultIfReady()
