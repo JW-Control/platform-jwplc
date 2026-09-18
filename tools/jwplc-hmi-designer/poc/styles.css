@@ -176,7 +176,7 @@ h2 { margin: 0 0 7px; font-size: 12px; color: #d0dbe4; }
 .canvas-stage-top {
   display: flex;
   height: 22px;
-  background: #14181c;
+  background: transparent;
 }
 #topRulerCanvas {
   display: block;
@@ -197,13 +197,28 @@ h2 { margin: 0 0 7px; font-size: 12px; color: #d0dbe4; }
 .canvas-stage-right {
   width: 36px;
   display: flex;
-  background: #14181c;
+  background: transparent;
 }
 #rightRulerCanvas {
   display: block;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   pointer-events: none;
+}
+.cad-marquee-box {
+  position: absolute;
+  pointer-events: none;
+  z-index: 95;
+  display: none;
+  box-sizing: border-box;
+}
+.cad-marquee-box.window-mode {
+  background: rgba(0, 132, 255, 0.18);
+  border: 1.5px dashed rgba(0, 132, 255, 0.95);
+}
+.cad-marquee-box.crossing-mode {
+  background: rgba(0, 230, 118, 0.18);
+  border: 1.5px dashed rgba(0, 230, 118, 0.95);
 }
 #displayCanvas {
   display: block; background: #000; border: 1px solid #33434f;

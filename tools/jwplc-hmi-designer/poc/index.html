@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>JWPLC HMI Designer — Alpha11</title>
-  <link rel="stylesheet" href="./styles.css?v=1789740500" />
+  <link rel="stylesheet" href="./styles.css?v=1789741500" />
 </head>
 <body>
   <header class="topbar">
@@ -111,6 +111,7 @@
         
           <div id="crosshairX" style="position:absolute;top:0;bottom:0;width:1px;border-left:1px dashed #304653;pointer-events:none;z-index:90;display:none;"></div>
           <div id="crosshairY" style="position:absolute;left:0;right:0;height:1px;border-top:1px dashed #304653;pointer-events:none;z-index:90;display:none;"></div>
+          <div id="cadMarqueeBox" class="cad-marquee-box"></div>
           <div id="canvasStage" class="canvas-stage">
             <div class="canvas-stage-top">
               <canvas id="topRulerCanvas" height="22"></canvas>
@@ -356,7 +357,7 @@
 
       <section class="inspector-section">
         <details open>
-          <summary>Grilla y Lienzo</summary>
+          <summary>Grilla y Ajuste (Snap)</summary>
           <div class="inspector-body two-cols">
             <label class="field-label full">Forma de la grilla
               <select id="gridStyleSelect" class="field-input">
@@ -364,10 +365,27 @@
                 <option value="dots">Puntos</option>
               </select>
             </label>
-            <label class="field-label full">Tamaño de celda (Paso)
+            <label class="field-label full">Paso de la grilla
               <select id="gridSizeSelect" class="field-input">
                 <option value="4">4 px</option>
                 <option value="8" selected>8 px</option>
+                <option value="10">10 px</option>
+                <option value="16">16 px</option>
+                <option value="20">20 px</option>
+                <option value="32">32 px</option>
+              </select>
+            </label>
+            <label class="field-label full" style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:4px;">
+              <input id="snapInspectorToggle" type="checkbox" checked style="margin:0;cursor:pointer;" />
+              <span>Ajuste Magnético (Snap)</span>
+            </label>
+            <label class="field-label full">Paso del Snap
+              <select id="snapSizeSelect" class="field-input">
+                <option value="grid" selected>Igual a la grilla</option>
+                <option value="1">1 px (Libre / Fino)</option>
+                <option value="2">2 px</option>
+                <option value="4">4 px</option>
+                <option value="8">8 px</option>
                 <option value="10">10 px</option>
                 <option value="16">16 px</option>
                 <option value="20">20 px</option>
@@ -420,10 +438,10 @@
     <input id="geometryToggle" type="checkbox" />
   </div>
 
-    <script src="./gfx-classic-font.js?v=1789740500"></script>
-  <script src="./app.js?v=1789740500"></script>
-  <script src="./ux-foundation.js?v=1789740500"></script>
-  <script src="./designer-codegen.js?v=1789740500"></script>
+    <script src="./gfx-classic-font.js?v=1789741500"></script>
+  <script src="./app.js?v=1789741500"></script>
+  <script src="./ux-foundation.js?v=1789741500"></script>
+  <script src="./designer-codegen.js?v=1789741500"></script>
 
   
 

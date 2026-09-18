@@ -39,7 +39,33 @@
   const gridSizeSelect = document.getElementById('gridSizeSelect');
   const gridStyleSelect = document.getElementById('gridStyleSelect');
   const snapToggle = document.getElementById('snapToggle');
-  const geometryToggle = document.getElementById('geometryToggle'); document.getElementById('vertSnapToggle')?.addEventListener('click', function() { snapToggle.checked = !snapToggle.checked; this.classList.toggle('active', snapToggle.checked); render(); });
+  const snapInspectorToggle = document.getElementById('snapInspectorToggle');
+  const snapSizeSelect = document.getElementById('snapSizeSelect');
+  const geometryToggle = document.getElementById('geometryToggle');
+
+  function getSnapStep() {
+    if (!snapToggle || !snapToggle.checked) return 0;
+    const snapVal = snapSizeSelect ? snapSizeSelect.value : 'grid';
+    if (snapVal === 'grid') {
+      return Number(gridSizeSelect?.value) || 8;
+    }
+    return Number(snapVal) || 8;
+  }
+
+  function setSnapEnabled(enabled) {
+    if (snapToggle) snapToggle.checked = enabled;
+    if (snapInspectorToggle) snapInspectorToggle.checked = enabled;
+    const vertSnap = document.getElementById('vertSnapToggle');
+    if (vertSnap) vertSnap.classList.toggle('active', enabled);
+    render();
+  }
+  document.getElementById('vertSnapToggle')?.addEventListener('click', function() {
+    setSnapEnabled(!snapToggle.checked);
+  });
+  snapInspectorToggle?.addEventListener('change', function() {
+    setSnapEnabled(this.checked);
+  });
+  snapSizeSelect?.addEventListener('change', render);
   const clearButton = document.getElementById('clearButton');
   const newProjectButton = document.getElementById('newProjectButton');
   const demoButton = document.getElementById('demoButton');
@@ -160,7 +186,32 @@
   let isMarquee = false;
   let marqueeStart = null;
   let marqueeEnd = null;
+  let marqueeStartClient = null;
+  let marqueeEndClient = null;
   let dragOffset = { x: 0, y: 0 };
+
+  function updateMarqueeOverlay(startClient, endClient) {
+    const boxEl = document.getElementById('cadMarqueeBox');
+    if (!boxEl || !canvasViewport) return;
+    if (!isMarquee || !startClient || !endClient) {
+      boxEl.style.display = 'none';
+      return;
+    }
+    const vpRect = canvasViewport.getBoundingClientRect();
+    const left = Math.min(startClient.x, endClient.x) - vpRect.left;
+    const top = Math.min(startClient.y, endClient.y) - vpRect.top;
+    const width = Math.abs(endClient.x - startClient.x);
+    const height = Math.abs(endClient.y - startClient.y);
+
+    const isLeftToRight = endClient.x >= startClient.x;
+    boxEl.style.left = `${left}px`;
+    boxEl.style.top = `${top}px`;
+    boxEl.style.width = `${width}px`;
+    boxEl.style.height = `${height}px`;
+    boxEl.className = 'cad-marquee-box ' + (isLeftToRight ? 'window-mode' : 'crossing-mode');
+    boxEl.style.display = 'block';
+  }
+
   let panX = 0;
   let panY = 0;
   let isPanning = false;
@@ -891,10 +942,8 @@
 
     drawSelectionAndGuides();
     drawRulers();
-    drawCADMarquee();
   
     
-
 
     updateMetrics();
     updateCodePanel();
@@ -921,38 +970,7 @@
   }
 
   function drawCADMarquee() {
-    if (!isMarquee || !marqueeStart || !marqueeEnd) return;
-    const x0 = marqueeStart.x * zoom;
-    const y0 = marqueeStart.y * zoom;
-    const x1 = marqueeEnd.x * zoom;
-    const y1 = marqueeEnd.y * zoom;
-
-    const left = Math.min(x0, x1);
-    const top = Math.min(y0, y1);
-    const w = Math.abs(x1 - x0);
-    const h = Math.abs(y1 - y0);
-
-    const isLeftToRight = marqueeEnd.x >= marqueeStart.x;
-
-    displayCtx.save();
-    if (isLeftToRight) {
-      // SolidWorks Left-to-Right: Window Selection (Blue, selects enclosed only)
-      displayCtx.fillStyle = 'rgba(0, 132, 255, 0.18)';
-      displayCtx.strokeStyle = 'rgba(0, 132, 255, 0.9)';
-      displayCtx.lineWidth = 1;
-      displayCtx.setLineDash([3, 3]);
-      displayCtx.fillRect(left, top, w, h);
-      displayCtx.strokeRect(left + 0.5, top + 0.5, w, h);
-    } else {
-      // SolidWorks Right-to-Left: Crossing Selection (Green, selects touched/crossed)
-      displayCtx.fillStyle = 'rgba(0, 230, 118, 0.18)';
-      displayCtx.strokeStyle = 'rgba(0, 230, 118, 0.95)';
-      displayCtx.lineWidth = 1.5;
-      displayCtx.setLineDash([4, 3]);
-      displayCtx.fillRect(left, top, w, h);
-      displayCtx.strokeRect(left + 0.5, top + 0.5, w, h);
-    }
-    displayCtx.restore();
+    // Rendered via viewport DOM overlay #cadMarqueeBox for unclipped visibility across canvas and workspace
   }
 
   function drawSelectionAndGuides() {
@@ -1057,27 +1075,6 @@
 
     topCtx.clearRect(0, 0, topCanvas.width, topCanvas.height);
     rightCtx.clearRect(0, 0, rightCanvas.width, rightCanvas.height);
-
-    // Background
-    topCtx.fillStyle = '#14181c';
-    topCtx.fillRect(0, 0, topCanvas.width, topCanvas.height);
-    rightCtx.fillStyle = '#14181c';
-    rightCtx.fillRect(0, 0, rightCanvas.width, rightCanvas.height);
-
-    // Baseline line separating ruler from the canvas
-    topCtx.strokeStyle = '#2d3741';
-    topCtx.lineWidth = 1;
-    topCtx.beginPath();
-    topCtx.moveTo(0, 21.5);
-    topCtx.lineTo(topCanvas.width, 21.5);
-    topCtx.stroke();
-
-    rightCtx.strokeStyle = '#2d3741';
-    rightCtx.lineWidth = 1;
-    rightCtx.beginPath();
-    rightCtx.moveTo(0.5, 0);
-    rightCtx.lineTo(0.5, rightCanvas.height);
-    rightCtx.stroke();
 
     // Top ruler ticks
     topCtx.strokeStyle = '#5a6b78';
@@ -1824,138 +1821,235 @@
     updateCodePanel();
   });
 
+  function distToSegment(px, py, x1, y1, x2, y2) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const l2 = dx * dx + dy * dy;
+    if (l2 === 0) return Math.hypot(px - x1, py - y1);
+    let t = ((px - x1) * dx + (py - y1) * dy) / l2;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+  }
+
+  function distanceToFieldBorder(point, field) {
+    const px = point.x;
+    const py = point.y;
+    const a = { x: field.x, y: field.y };
+    const b = { x: field.x2 ?? field.x, y: field.y2 ?? field.y };
+
+    if (field.type === 'LINE') {
+      return distToSegment(px, py, a.x, a.y, b.x, b.y);
+    }
+
+    if (field.type === 'RECT') {
+      const left = Math.min(a.x, b.x);
+      const right = Math.max(a.x, b.x);
+      const top = Math.min(a.y, b.y);
+      const bottom = Math.max(a.y, b.y);
+      return Math.min(
+        distToSegment(px, py, left, top, right, top),
+        distToSegment(px, py, right, top, right, bottom),
+        distToSegment(px, py, right, bottom, left, bottom),
+        distToSegment(px, py, left, bottom, left, top)
+      );
+    }
+
+    if (field.type === 'ELLIPSE') {
+      const cx = (a.x + b.x) / 2;
+      const cy = (a.y + b.y) / 2;
+      const rx = Math.max(0.5, Math.abs(b.x - a.x) / 2);
+      const ry = Math.max(0.5, Math.abs(b.y - a.y) / 2);
+      const angle = Math.atan2(py - cy, px - cx);
+      const bx = cx + rx * Math.cos(angle);
+      const by = cy + ry * Math.sin(angle);
+      return Math.hypot(px - bx, py - by);
+    }
+
+    if (field.type === 'TRIANGLE') {
+      const topPt = { x: Math.round((a.x + b.x) / 2), y: a.y };
+      const bl = { x: a.x, y: b.y };
+      const br = { x: b.x, y: b.y };
+      return Math.min(
+        distToSegment(px, py, topPt.x, topPt.y, bl.x, bl.y),
+        distToSegment(px, py, bl.x, bl.y, br.x, br.y),
+        distToSegment(px, py, br.x, br.y, topPt.x, topPt.y)
+      );
+    }
+
+    if (field.type === 'POLYGON') {
+      const cx = (a.x + b.x) / 2;
+      const cy = (a.y + b.y) / 2;
+      const rx = Math.abs(b.x - a.x) / 2;
+      const ry = Math.abs(b.y - a.y) / 2;
+      const numSides = Math.max(3, Math.min(12, Math.trunc(Number(field.sides) || 5)));
+      const pts = [];
+      for (let i = 0; i < numSides; i++) {
+        const angle = (i * 2 * Math.PI / numSides) - Math.PI / 2;
+        pts.push({
+          x: Math.round(cx + rx * Math.cos(angle)),
+          y: Math.round(cy + ry * Math.sin(angle))
+        });
+      }
+      let minDist = Infinity;
+      for (let i = 0; i < numSides; i++) {
+        const p1 = pts[i];
+        const p2 = pts[(i + 1) % numSides];
+        minDist = Math.min(minDist, distToSegment(px, py, p1.x, p1.y, p2.x, p2.y));
+      }
+      return minDist;
+    }
+
+    // For TEXT, VALUE, BOOL, BAR, etc.
+    const g = computeFieldGeometry(field);
+    if (
+      px >= g.fieldX && px <= g.fieldX + g.fieldW &&
+      py >= g.fieldY && py <= g.fieldY + g.fieldH
+    ) {
+      return 0;
+    }
+    return Math.min(
+      distToSegment(px, py, g.fieldX, g.fieldY, g.fieldX + g.fieldW, g.fieldY),
+      distToSegment(px, py, g.fieldX + g.fieldW, g.fieldY, g.fieldX + g.fieldW, g.fieldY + g.fieldH),
+      distToSegment(px, py, g.fieldX + g.fieldW, g.fieldY + g.fieldH, g.fieldX, g.fieldY + g.fieldH),
+      distToSegment(px, py, g.fieldX, g.fieldY + g.fieldH, g.fieldX, g.fieldY)
+    );
+  }
+
   function hitTestField(point) {
+    let bestField = null;
+    let bestDist = Infinity;
+    const tolerance = 4;
+
     for (let index = hmiFields.length - 1; index >= 0; index -= 1) {
       const field = hmiFields[index];
       if (Number(field.page || 0) !== activePage) continue;
-      
-      if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
-        const left = Math.min(field.x, field.x2);
-        const right = Math.max(field.x, field.x2);
-        const top = Math.min(field.y, field.y2);
-        const bottom = Math.max(field.y, field.y2);
-        if (point.x >= left && point.x <= right && point.y >= top && point.y <= bottom) return field;
-      } else {
-        const g = computeFieldGeometry(field);
-        if (
-          point.x >= field.x && point.x < field.x + g.fieldW &&
-          point.y >= field.y && point.y < field.y + g.fieldH
-        ) return field;
+
+      const dist = distanceToFieldBorder(point, field);
+      if (dist <= tolerance && dist < bestDist) {
+        bestDist = dist;
+        bestField = field;
       }
     }
-    return null;
+    return bestField;
   }
 
-    
-displayCanvas.addEventListener('pointerdown', (event) => {
+  function handlePointerDown(event) {
     if (event.button !== 0) return;
+    if (event.target.closest('.canvas-toolbar') || event.target.closest('.panel')) return;
+
     const point = pointFromPointer(event);
-    if (!inside(point.x, point.y)) return;
-    displayCanvas.setPointerCapture(event.pointerId);
+    const isTargetDisplay = (event.target === displayCanvas);
     gestureChanged = false;
 
-    if (selectedTool === 'pixel' || selectedTool === 'erase') {
+    if (isTargetDisplay && (selectedTool === 'pixel' || selectedTool === 'erase')) {
+      if (!inside(point.x, point.y)) return;
       drawing = true;
       lastPoint = point;
       const value = selectedTool === 'erase' ? 0x0000 : selectedColor.value;
       gestureChanged = setLayerPixel(point.x, point.y, value);
-    } else if (selectedTool === 'rawText') {
+      render();
+      return;
+    }
+
+    if (['line', 'rect', 'ellipse', 'triangle', 'polygon'].includes(selectedTool) && isTargetDisplay) {
+      const type = selectedTool.toUpperCase();
+      addShapeField(type, point, point);
+      drawing = true;
+      render();
+      return;
+    }
+
+    if (selectedTool === 'rawText' && isTargetDisplay) {
       draggingObject = true;
       dragOffset = { x: point.x - rawState.x, y: point.y - rawState.y };
-      } else if (['line', 'rect', 'ellipse', 'triangle', 'polygon'].includes(selectedTool)) {
-        const type = selectedTool.toUpperCase();
-        addShapeField(type, point, point);
-        drawing = true; // reusing drawing state for shape creation
-      } else {
-        const hit = hitTestField(point);
-        if (hit) {
-          selectedFieldKey = hit.key;
-          selectedTool = toolForField(hit);
-          draggingObject = true;
-          dragOffset = { x: point.x - hit.x, y: point.y - hit.y };
-          syncInputsFromState();
-          syncToolUI();
-        } else {
-          selectedFieldKey = null;
-          selectedTool = 'pointer';
-          isMarquee = true;
-          marqueeStart = point;
-          marqueeEnd = point;
-          syncToolUI();
-        }
-      }
-    render();
-  });
+      render();
+      return;
+    }
 
-  displayCanvas.addEventListener('pointermove', (event) => {
+    const hit = hitTestField(point);
+    if (hit) {
+      selectedFieldKey = hit.key;
+      selectedTool = toolForField(hit);
+      draggingObject = true;
+      dragOffset = { x: point.x - hit.x, y: point.y - hit.y };
+      syncInputsFromState();
+      syncToolUI();
+      render();
+    } else {
+      selectedFieldKey = null;
+      selectedTool = 'pointer';
+      isMarquee = true;
+      marqueeStart = point;
+      marqueeEnd = point;
+      marqueeStartClient = { x: event.clientX, y: event.clientY };
+      marqueeEndClient = { x: event.clientX, y: event.clientY };
+      updateMarqueeOverlay(marqueeStartClient, marqueeEndClient);
+      syncToolUI();
+      render();
+    }
+  }
+
+  function handlePointerMove(event) {
     const rawPoint = pointFromPointer(event);
     updateCursor(rawPoint);
 
-    const point = {
-      x: clamp(rawPoint.x, 0, WIDTH - 1),
-      y: clamp(rawPoint.y, 0, HEIGHT - 1)
-    };
-
     if (isMarquee && marqueeStart) {
-      marqueeEnd = point;
+      marqueeEnd = rawPoint;
+      marqueeEndClient = { x: event.clientX, y: event.clientY };
+      updateMarqueeOverlay(marqueeStartClient, marqueeEndClient);
       render();
     }
 
-    if (!inside(rawPoint.x, rawPoint.y) && !drawing && !draggingObject) return;
+    if (!drawing && !draggingObject) return;
 
     if (drawing) {
-
       if (['line', 'rect', 'ellipse', 'triangle', 'polygon'].includes(selectedTool) || ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(selectedField()?.type)) {
         const field = selectedField();
         if (field) {
-          let nextX = point.x;
-          let nextY = point.y;
-          if (snapToggle && snapToggle.checked) {
-            const gridSize = Number(gridSizeSelect.value) || 8;
-            nextX = Math.round(nextX / gridSize) * gridSize;
-            nextY = Math.round(nextY / gridSize) * gridSize;
+          const snapStep = getSnapStep();
+          let nextX = rawPoint.x;
+          let nextY = rawPoint.y;
+          if (snapStep > 0) {
+            nextX = Math.round(nextX / snapStep) * snapStep;
+            nextY = Math.round(nextY / snapStep) * snapStep;
           }
-          field.x2 = clamp(nextX, 0, WIDTH - 1);
-          field.y2 = clamp(nextY, 0, HEIGHT - 1);
+          field.x2 = nextX;
+          field.y2 = nextY;
           gestureChanged = true;
           syncInputsFromState();
           render();
         }
       } else {
+        if (!inside(rawPoint.x, rawPoint.y)) return;
         const value = selectedTool === 'erase' ? 0x0000 : selectedColor.value;
-        if (lastPoint) gestureChanged = rasterLine(lastPoint.x, lastPoint.y, point.x, point.y, value) || gestureChanged;
-        else gestureChanged = setLayerPixel(point.x, point.y, value) || gestureChanged;
-        lastPoint = point;
+        if (lastPoint) gestureChanged = rasterLine(lastPoint.x, lastPoint.y, rawPoint.x, rawPoint.y, value) || gestureChanged;
+        else gestureChanged = setLayerPixel(rawPoint.x, rawPoint.y, value) || gestureChanged;
+        lastPoint = rawPoint;
         render();
       }
     } else if (draggingObject) {
-      const isSnap = snapToggle && snapToggle.checked;
-      const gridSize = Number(gridSizeSelect.value) || 8;
-      
+      const snapStep = getSnapStep();
       if (selectedTool === 'rawText') {
-        let nextX = point.x - dragOffset.x;
-        let nextY = point.y - dragOffset.y;
-        if (isSnap) {
-          nextX = Math.round(nextX / gridSize) * gridSize;
-          nextY = Math.round(nextY / gridSize) * gridSize;
+        let nextX = rawPoint.x - dragOffset.x;
+        let nextY = rawPoint.y - dragOffset.y;
+        if (snapStep > 0) {
+          nextX = Math.round(nextX / snapStep) * snapStep;
+          nextY = Math.round(nextY / snapStep) * snapStep;
         }
         nextX = clamp(nextX, 0, WIDTH - 1);
         nextY = clamp(nextY, 0, HEIGHT - 1);
-        
         gestureChanged = gestureChanged || nextX !== rawState.x || nextY !== rawState.y;
         rawState.x = nextX;
         rawState.y = nextY;
       } else {
         const field = selectedField();
         if (!field || Number(field.page || 0) !== activePage) return;
-        
-        let nextX = point.x - dragOffset.x;
-        let nextY = point.y - dragOffset.y;
-        if (isSnap) {
-          nextX = Math.round(nextX / gridSize) * gridSize;
-          nextY = Math.round(nextY / gridSize) * gridSize;
+        let nextX = rawPoint.x - dragOffset.x;
+        let nextY = rawPoint.y - dragOffset.y;
+        if (snapStep > 0) {
+          nextX = Math.round(nextX / snapStep) * snapStep;
+          nextY = Math.round(nextY / snapStep) * snapStep;
         }
-        
         if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
           const dx = nextX - field.x;
           const dy = nextY - field.y;
@@ -1976,7 +2070,7 @@ displayCanvas.addEventListener('pointerdown', (event) => {
       syncInputsFromState();
       render();
     }
-  });
+  }
 
   function endPointer() {
     const changed = gestureChanged;
@@ -1986,58 +2080,61 @@ displayCanvas.addEventListener('pointerdown', (event) => {
     lastPoint = null;
     gestureChanged = false;
 
-    if (isMarquee && marqueeStart && marqueeEnd) {
-      const boxL = Math.min(marqueeStart.x, marqueeEnd.x);
-      const boxR = Math.max(marqueeStart.x, marqueeEnd.x);
-      const boxT = Math.min(marqueeStart.y, marqueeEnd.y);
-      const boxB = Math.max(marqueeStart.y, marqueeEnd.y);
+    if (isMarquee) {
+      updateMarqueeOverlay(null, null);
+      if (marqueeStart && marqueeEnd) {
+        const boxL = Math.min(marqueeStart.x, marqueeEnd.x);
+        const boxR = Math.max(marqueeStart.x, marqueeEnd.x);
+        const boxT = Math.min(marqueeStart.y, marqueeEnd.y);
+        const boxB = Math.max(marqueeStart.y, marqueeEnd.y);
 
-      const isLeftToRight = marqueeEnd.x >= marqueeStart.x;
+        const isLeftToRight = marqueeEnd.x >= marqueeStart.x;
 
-      if (boxR - boxL >= 2 || boxB - boxT >= 2) {
-        let matched = null;
-        for (let i = hmiFields.length - 1; i >= 0; i--) {
-          const f = hmiFields[i];
-          if (Number(f.page || 0) !== activePage) continue;
+        if (boxR - boxL >= 2 || boxB - boxT >= 2) {
+          let matched = null;
+          for (let i = hmiFields.length - 1; i >= 0; i--) {
+            const f = hmiFields[i];
+            if (Number(f.page || 0) !== activePage) continue;
 
-          let fL, fR, fT, fB;
-          if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(f.type)) {
-            fL = Math.min(f.x, f.x2 ?? f.x);
-            fR = Math.max(f.x, f.x2 ?? f.x);
-            fT = Math.min(f.y, f.y2 ?? f.y);
-            fB = Math.max(f.y, f.y2 ?? f.y);
-          } else {
-            const g = computeFieldGeometry(f);
-            fL = g.fieldX;
-            fR = g.fieldX + g.fieldW;
-            fT = g.fieldY;
-            fB = g.fieldY + g.fieldH;
+            let fL, fR, fT, fB;
+            if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(f.type)) {
+              fL = Math.min(f.x, f.x2 ?? f.x);
+              fR = Math.max(f.x, f.x2 ?? f.x);
+              fT = Math.min(f.y, f.y2 ?? f.y);
+              fB = Math.max(f.y, f.y2 ?? f.y);
+            } else {
+              const g = computeFieldGeometry(f);
+              fL = g.fieldX;
+              fR = g.fieldX + g.fieldW;
+              fT = g.fieldY;
+              fB = g.fieldY + g.fieldH;
+            }
+
+            if (isLeftToRight) {
+              // SolidWorks Window: Enclosed only (must be 100% inside)
+              if (fL >= boxL && fR <= boxR && fT >= boxT && fB <= boxB) {
+                matched = f;
+                break;
+              }
+            } else {
+              // SolidWorks Crossing: Touches or overlaps
+              const outside = (fR < boxL || fL > boxR || fB < boxT || fT > boxB);
+              if (!outside) {
+                matched = f;
+                break;
+              }
+            }
           }
 
-          if (isLeftToRight) {
-            // SolidWorks Window: Enclosed only (must be 100% inside)
-            if (fL >= boxL && fR <= boxR && fT >= boxT && fB <= boxB) {
-              matched = f;
-              break;
-            }
+          if (matched) {
+            selectedFieldKey = matched.key;
+            selectedTool = toolForField(matched);
+            syncInputsFromState();
+            syncToolUI();
           } else {
-            // SolidWorks Crossing: Touches or overlaps
-            const outside = (fR < boxL || fL > boxR || fB < boxT || fT > boxB);
-            if (!outside) {
-              matched = f;
-              break;
-            }
+            selectedFieldKey = null;
+            syncToolUI();
           }
-        }
-
-        if (matched) {
-          selectedFieldKey = matched.key;
-          selectedTool = toolForField(matched);
-          syncInputsFromState();
-          syncToolUI();
-        } else {
-          selectedFieldKey = null;
-          syncToolUI();
         }
       }
       isMarquee = false;
@@ -2055,9 +2152,16 @@ displayCanvas.addEventListener('pointerdown', (event) => {
     if (changed) commitHistory();
   }
 
-  displayCanvas.addEventListener('pointerup', endPointer);
-  displayCanvas.addEventListener('pointercancel', endPointer);
-  displayCanvas.addEventListener('pointerleave', () => {
+  if (canvasViewport) {
+    canvasViewport.addEventListener('pointerdown', handlePointerDown);
+  } else {
+    displayCanvas.addEventListener('pointerdown', handlePointerDown);
+  }
+  window.addEventListener('pointermove', handlePointerMove);
+  window.addEventListener('pointerup', endPointer);
+  window.addEventListener('pointercancel', endPointer);
+
+  canvasViewport?.addEventListener('pointerleave', () => {
     cursorStatus.textContent = 'X: — · Y: —';
     pixelStatus.textContent = 'Pixel: —';
   });
@@ -2070,28 +2174,38 @@ displayCanvas.addEventListener('pointerdown', (event) => {
   }
 
   function nudgeSelection(dx, dy) {
-    const isSnap = snapToggle && snapToggle.checked;
-    const gridSize = Number(gridSizeSelect.value) || 8;
-    
-    // Scale delta if snapping is enabled
-    if (isSnap) {
-      dx = Math.sign(dx) * Math.max(Math.abs(dx), gridSize);
-      dy = Math.sign(dy) * Math.max(Math.abs(dy), gridSize);
+    const snapStep = getSnapStep();
+    if (snapStep > 0) {
+      dx = Math.sign(dx) * Math.max(Math.abs(dx), snapStep);
+      dy = Math.sign(dy) * Math.max(Math.abs(dy), snapStep);
     }
 
     const field = selectedField();
-    if (field && Number(field.page || 0) === activePage && ['textField', 'valueField', 'boolField', 'barField'].includes(selectedTool)) {
+    if (field && Number(field.page || 0) === activePage) {
+      if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
+        field.x += dx;
+        field.y += dy;
+        field.x2 += dx;
+        field.y2 += dy;
+        if (snapStep > 0) {
+          field.x = Math.round(field.x / snapStep) * snapStep;
+          field.y = Math.round(field.y / snapStep) * snapStep;
+          field.x2 = Math.round(field.x2 / snapStep) * snapStep;
+          field.y2 = Math.round(field.y2 / snapStep) * snapStep;
+        }
+        syncInputsFromState();
+        render();
+        return true;
+      }
       const g = computeFieldGeometry(field);
       let nextX = clamp(field.x + dx, 0, Math.max(0, WIDTH - g.fieldW));
       let nextY = clamp(field.y + dy, 0, Math.max(0, HEIGHT - g.fieldH));
-      
-      if (isSnap) {
-        nextX = Math.round(nextX / gridSize) * gridSize;
-        nextY = Math.round(nextY / gridSize) * gridSize;
+      if (snapStep > 0) {
+        nextX = Math.round(nextX / snapStep) * snapStep;
+        nextY = Math.round(nextY / snapStep) * snapStep;
         nextX = clamp(nextX, 0, Math.max(0, WIDTH - g.fieldW));
         nextY = clamp(nextY, 0, Math.max(0, HEIGHT - g.fieldH));
       }
-
       if (nextX === field.x && nextY === field.y) return false;
       field.x = nextX;
       field.y = nextY;
@@ -2103,14 +2217,12 @@ displayCanvas.addEventListener('pointerdown', (event) => {
     if (selectedTool === 'rawText') {
       let nextX = clamp(rawState.x + dx, 0, WIDTH - 1);
       let nextY = clamp(rawState.y + dy, 0, HEIGHT - 1);
-      
-      if (isSnap) {
-        nextX = Math.round(nextX / gridSize) * gridSize;
-        nextY = Math.round(nextY / gridSize) * gridSize;
+      if (snapStep > 0) {
+        nextX = Math.round(nextX / snapStep) * snapStep;
+        nextY = Math.round(nextY / snapStep) * snapStep;
         nextX = clamp(nextX, 0, WIDTH - 1);
         nextY = clamp(nextY, 0, HEIGHT - 1);
       }
-
       if (nextX === rawState.x && nextY === rawState.y) return false;
       rawState.x = nextX;
       rawState.y = nextY;
@@ -2350,15 +2462,6 @@ displayCanvas.addEventListener('pointerdown', (event) => {
 
   document.getElementById('vertGridToggle')?.addEventListener('click', function() {
     const toggle = document.getElementById('gridToggle');
-    if (toggle) {
-      toggle.checked = !toggle.checked;
-      this.classList.toggle('active', toggle.checked);
-      toggle.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-  });
-
-  document.getElementById('vertSnapToggle')?.addEventListener('click', function() {
-    const toggle = document.getElementById('snapToggle');
     if (toggle) {
       toggle.checked = !toggle.checked;
       this.classList.toggle('active', toggle.checked);
