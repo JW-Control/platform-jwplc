@@ -31,8 +31,70 @@ function Invoke-G2CompileFinishedSound {
         [bool]$Success = $true
     )
 
-    # Aviso corto para pruebas interactivas: permite al operador volver
-    # al escritorio de validacion entre la compilacion y el upload/run.
+    # Aviso para pruebas interactivas. Se prioriza WAV directo porque no
+    # depende del esquema de "Eventos de sonido" configurado en Windows.
+    # El sonido es ergonomia del harness y nunca condicion de PASS/FAIL.
+    $mediaRoot = Join-Path $env:WINDIR "Media"
+
+    $candidates = if ($Success) {
+        @(
+            "Alarm01.wav",
+            "Windows Notify System Generic.wav",
+            "Windows Notify.wav"
+        )
+    }
+    else {
+        @(
+            "Alarm03.wav",
+            "Windows Critical Stop.wav",
+            "Windows Error.wav"
+        )
+    }
+
+    foreach ($name in $candidates) {
+        $wavPath = Join-Path $mediaRoot $name
+
+        if (-not (Test-Path -LiteralPath $wavPath)) {
+            continue
+        }
+
+        try {
+            $player = New-Object System.Media.SoundPlayer
+            $player.SoundLocation = $wavPath
+            $player.Load()
+            $player.PlaySync()
+            $player.Dispose()
+
+            Write-Host "COMPILE_FINISHED_SOUND_MODE=WAV_DIRECT"
+            Write-Host "COMPILE_FINISHED_SOUND_FILE=$wavPath"
+            return
+        }
+        catch {
+            # Try the next direct WAV candidate.
+        }
+    }
+
+    # Secondary fallback: text-to-speech through the normal audio device.
+    try {
+        Add-Type -AssemblyName System.Speech -ErrorAction Stop
+        $speaker = New-Object System.Speech.Synthesis.SpeechSynthesizer
+        $message = if ($Success) {
+            "Compilacion terminada"
+        }
+        else {
+            "Compilacion fallida"
+        }
+
+        $speaker.Speak($message)
+        $speaker.Dispose()
+
+        Write-Host "COMPILE_FINISHED_SOUND_MODE=VOICE"
+        return
+    }
+    catch {
+        # Last fallback for hosts without WAV playback / speech support.
+    }
+
     try {
         if ($Success) {
             [System.Console]::Beep(880, 140)
@@ -41,14 +103,12 @@ function Invoke-G2CompileFinishedSound {
         else {
             [System.Console]::Beep(440, 260)
         }
+
+        Write-Host "COMPILE_FINISHED_SOUND_MODE=BEEP"
+        return
     }
     catch {
-        try {
-            [System.Media.SystemSounds]::Asterisk.Play()
-        }
-        catch {
-            # El sonido es ergonomia del harness, nunca condicion de gate.
-        }
+        Write-Host "COMPILE_FINISHED_SOUND_MODE=NONE"
     }
 }
 
