@@ -25,6 +25,7 @@
 
   const displayCanvas = document.getElementById('displayCanvas');
   const canvasViewport = document.getElementById('canvasViewport');
+  const canvasStage = document.getElementById('canvasStage');
   const displayCtx = displayCanvas.getContext('2d', { alpha: false });
   const previewCanvas = document.getElementById('previewCanvas');
   const previewCtx = previewCanvas ? previewCanvas.getContext('2d', { alpha: false }) : null;
@@ -163,6 +164,15 @@
   let panY = 0;
   let isPanning = false;
   let lastPanPointer = null;
+
+  function updateStageTransform() {
+    if (canvasStage) {
+      canvasStage.style.transform = `translate(${panX}px, ${panY}px)`;
+    }
+    if (canvasViewport) {
+      canvasViewport.style.backgroundPosition = `${panX}px ${panY}px, ${panX + 12}px ${panY + 12}px`;
+    }
+  }
   let lastPoint = null;
   let codeMode = 'status';
   let gestureChanged = false;
@@ -1962,7 +1972,12 @@ displayCanvas.addEventListener('pointerdown', (event) => {
     moveSelectedFieldToPage,
     commitHistory,
     render,
-      setPan: (x, y) => { panX = x; panY = y; if (canvasStage) canvasStage.style.transform = `translate(${panX}px, ${panY}px)`; },
+    setPan: (x, y) => {
+      panX = x;
+      panY = y;
+      updateStageTransform();
+    },
+    getPan: () => ({ x: panX, y: panY }),
     undo,
     redo,
     duplicateSelectedField,
@@ -1970,6 +1985,7 @@ displayCanvas.addEventListener('pointerdown', (event) => {
     addTextField,
     addValueField
   };
+  window.jwplc = window.JWPLCHMIEditor;
 })();
 
 
@@ -1977,40 +1993,43 @@ displayCanvas.addEventListener('pointerdown', (event) => {
 
 // --- Viewport Panning & Vertical Toolbar Wire-up ---
 
-  // --- Viewport Panning (Right-click or Middle-click) and Zoom (Ctrl+Scroll) ---
+  // --- Viewport Infinite Panning (Right-click or Middle-click) and Wheel Scroll ---
   const canvasViewport = document.getElementById('canvasViewport');
   let isPanning = false;
   let panStartX = 0;
   let panStartY = 0;
-  let viewportScrollLeft = 0;
-  let viewportScrollTop = 0;
+  let startPanX = 0;
+  let startPanY = 0;
 
   if (canvasViewport) {
     canvasViewport.addEventListener('mousedown', (e) => {
+      // Right-click (button 2) or Middle-click (button 1) for free infinite pan
       if (e.button === 2 || e.button === 1) {
         isPanning = true;
         panStartX = e.clientX;
         panStartY = e.clientY;
-        viewportScrollLeft = canvasViewport.scrollLeft;
-        viewportScrollTop = canvasViewport.scrollTop;
+        const currentPan = window.JWPLCHMIEditor?.getPan?.() || { x: 0, y: 0 };
+        startPanX = currentPan.x;
+        startPanY = currentPan.y;
+        document.body.classList.add('is-panning');
         canvasViewport.style.cursor = 'grabbing';
         e.preventDefault();
       }
-    });
+    }, true);
 
     window.addEventListener('mousemove', (e) => {
       if (isPanning) {
+        e.preventDefault();
         const dx = e.clientX - panStartX;
         const dy = e.clientY - panStartY;
-        canvasViewport.scrollLeft = viewportScrollLeft - dx;
-        canvasViewport.scrollTop = viewportScrollTop - dy;
-        e.preventDefault();
+        window.JWPLCHMIEditor?.setPan?.(startPanX + dx, startPanY + dy);
       }
     });
 
     window.addEventListener('mouseup', (e) => {
       if (isPanning && (e.button === 2 || e.button === 1)) {
         isPanning = false;
+        document.body.classList.remove('is-panning');
         canvasViewport.style.cursor = '';
       }
     });
@@ -2019,9 +2038,33 @@ displayCanvas.addEventListener('pointerdown', (event) => {
       e.preventDefault();
     });
 
+    // Crosshairs tracking across the viewport
+    canvasViewport.addEventListener('pointermove', (e) => {
+      const crosshairX = document.getElementById('crosshairX');
+      const crosshairY = document.getElementById('crosshairY');
+      if (crosshairX && crosshairY) {
+        const rect = canvasViewport.getBoundingClientRect();
+        const cx = e.clientX - rect.left;
+        const cy = e.clientY - rect.top;
+        crosshairX.style.display = 'block';
+        crosshairY.style.display = 'block';
+        crosshairX.style.left = `${cx}px`;
+        crosshairY.style.top = `${cy}px`;
+      }
+    });
+
+    canvasViewport.addEventListener('pointerleave', () => {
+      const crosshairX = document.getElementById('crosshairX');
+      const crosshairY = document.getElementById('crosshairY');
+      if (crosshairX) crosshairX.style.display = 'none';
+      if (crosshairY) crosshairY.style.display = 'none';
+    });
+
+    // Mouse Wheel: Scroll up/down, Shift+Scroll left/right, Ctrl+Scroll Zoom
     canvasViewport.addEventListener('wheel', (e) => {
+      e.preventDefault();
       if (e.ctrlKey) {
-        e.preventDefault();
+        // Ctrl + Wheel = Zoom in / Zoom out
         const sel = document.getElementById('zoomSelect');
         if (!sel) return;
         let idx = sel.selectedIndex;
@@ -2034,6 +2077,17 @@ displayCanvas.addEventListener('pointerdown', (event) => {
           sel.selectedIndex = idx;
           sel.dispatchEvent(new Event('change', { bubbles: true }));
         }
+      } else if (e.shiftKey) {
+        // Shift + Wheel = horizontal scroll
+        const currentPan = window.JWPLCHMIEditor?.getPan?.() || { x: 0, y: 0 };
+        const delta = e.deltaY || e.deltaX;
+        window.JWPLCHMIEditor?.setPan?.(currentPan.x - delta, currentPan.y);
+      } else {
+        // Normal Wheel = vertical scroll (up/down) + horizontal scroll on trackpad
+        const currentPan = window.JWPLCHMIEditor?.getPan?.() || { x: 0, y: 0 };
+        const newX = e.deltaX ? currentPan.x - e.deltaX : currentPan.x;
+        const newY = currentPan.y - e.deltaY;
+        window.JWPLCHMIEditor?.setPan?.(newX, newY);
       }
     }, { passive: false });
   }

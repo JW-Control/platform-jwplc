@@ -135,13 +135,17 @@ h2 { margin: 0 0 7px; font-size: 12px; color: #d0dbe4; }
   padding: 0 14px; color: #9bb0bf; font-size: 10.5px; border-bottom: 1px solid #162733;
 }
 .canvas-viewport {
-  position: relative; flex: 1; min-height: 0; overflow: auto; padding: 12px 16px;
+  position: relative; flex: 1; min-height: 0; overflow: hidden; padding: 0;
   background:
     linear-gradient(45deg, rgba(255,255,255,.012) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.012) 75%),
     linear-gradient(45deg, rgba(255,255,255,.012) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.012) 75%),
     #070d13;
   background-size: 24px 24px; background-position: 0 0, 12px 12px;
   display: flex; justify-content: center; align-items: center;
+  user-select: none;
+}
+.is-panning, .is-panning * {
+  cursor: grabbing !important;
 }
 .canvas-toolbar {
   position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
@@ -161,7 +165,7 @@ h2 { margin: 0 0 7px; font-size: 12px; color: #d0dbe4; }
 .canvas-tool strong { font-size: 13px; font-weight: bold; }
 .canvas-tool .numeric { font-size: 10px; font-weight: 800; color: #52c9ff; }
 .toolbar-divider { width: 1px; background: var(--line); margin: 0 4px; }
-.canvas-stage { position: relative; width: max-content; height: max-content; }
+.canvas-stage { position: relative; width: max-content; height: max-content; will-change: transform; }
 #displayCanvas {
   display: block; background: #000; border: 1px solid #536776;
   image-rendering: pixelated; image-rendering: crisp-edges; cursor: crosshair;

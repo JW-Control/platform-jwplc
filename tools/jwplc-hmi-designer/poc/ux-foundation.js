@@ -213,10 +213,9 @@
     zoomSelect.dispatchEvent(new Event('change', { bubbles: true }));
     
     // Center the canvasStage
-    if (window.jwplc && window.jwplc.setPan) {
-      window.jwplc.setPan(0, 0); // pan=0 actually centers it because flex layout handles the natural centering!
-      // Wait, canvasViewport has display: grid; place-items: center;
-      // So panX=0, panY=0 naturally puts it perfectly in the center!
+    const editor = window.JWPLCHMIEditor || window.jwplc;
+    if (editor && editor.setPan) {
+      editor.setPan(0, 0);
     }
   });
 
