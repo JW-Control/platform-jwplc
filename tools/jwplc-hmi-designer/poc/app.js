@@ -597,6 +597,45 @@
     return [];
   }
 
+  function getShapeLocalBounds(field) {
+    const x1 = field.x ?? 0; const y1 = field.y ?? 0;
+    const x2 = field.x2 ?? x1; const y2 = field.y2 ?? y1;
+    const minX = Math.min(x1, x2); const maxX = Math.max(x1, x2);
+    const minY = Math.min(y1, y2); const maxY = Math.max(y1, y2);
+    if (field.type === 'POLYGON') {
+      const pts = getPolygonVertices(field);
+      if (pts && pts.length > 0) {
+        let pminX = Infinity, pmaxX = -Infinity, pminY = Infinity, pmaxY = -Infinity;
+        for (const p of pts) {
+          if (p.x < pminX) pminX = p.x;
+          if (p.x > pmaxX) pmaxX = p.x;
+          if (p.y < pminY) pminY = p.y;
+          if (p.y > pmaxY) pmaxY = p.y;
+        }
+        return {
+          minX: pminX,
+          maxX: pmaxX,
+          minY: pminY,
+          maxY: pmaxY,
+          cx: (pminX + pmaxX) / 2,
+          cy: (pminY + pmaxY) / 2,
+          width: Math.max(1, pmaxX - pminX),
+          height: Math.max(1, pmaxY - pminY)
+        };
+      }
+    }
+    return {
+      minX,
+      maxX,
+      minY,
+      maxY,
+      cx: (minX + maxX) / 2,
+      cy: (minY + maxY) / 2,
+      width: Math.max(1, maxX - minX),
+      height: Math.max(1, maxY - minY)
+    };
+  }
+
   function addRecentColor(color565) {
     color565 = Number(color565) & 0xFFFF;
     recentColors = [color565, ...recentColors.filter((c) => (c & 0xFFFF) !== color565)].slice(0, 16);
@@ -1690,37 +1729,50 @@
   function getSelectionHandles(fields) {
     if (!fields || fields.length === 0) return [];
 
-    // Single rotated shape: place handles at actual transformed corners/midpoints
     if (fields.length === 1) {
       const f = fields[0];
-      const SHAPE_TYPES = ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'];
-      if (SHAPE_TYPES.includes(f.type) && (Number(f.rotation) || 0) !== 0) {
+      if (f.type === 'LINE') {
         const x1 = f.x ?? 0; const y1 = f.y ?? 0;
         const x2 = f.x2 ?? x1; const y2 = f.y2 ?? y1;
         const cx = (x1 + x2) / 2; const cy = (y1 + y2) / 2;
-        const minX = Math.min(x1, x2); const maxX = Math.max(x1, x2);
-        const minY = Math.min(y1, y2); const maxY = Math.max(y1, y2);
-        const midX = (minX + maxX) / 2; const midY = (minY + maxY) / 2;
         const angleDeg = Number(f.rotation) || 0;
         const flipH = Boolean(f.flipH); const flipV = Boolean(f.flipV);
+        const p1 = transformShapePoint(x1, y1, cx, cy, angleDeg, flipH, flipV);
+        const p2 = transformShapePoint(x2, y2, cx, cy, angleDeg, flipH, flipV);
+        return [
+          { id: 'p1', x: p1.x * zoom, y: p1.y * zoom, cursor: 'crosshair' },
+          { id: 'p2', x: p2.x * zoom, y: p2.y * zoom, cursor: 'crosshair' }
+        ];
+      }
+      if (['RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(f.type)) {
+        const lb = getShapeLocalBounds(f);
+        const x1 = f.x ?? 0; const y1 = f.y ?? 0;
+        const x2 = f.x2 ?? x1; const y2 = f.y2 ?? y1;
+        const cx = (x1 + x2) / 2; const cy = (y1 + y2) / 2;
+        const angleDeg = Number(f.rotation) || 0;
+        const flipH = Boolean(f.flipH); const flipV = Boolean(f.flipV);
+        const midX = (lb.minX + lb.maxX) / 2;
+        const midY = (lb.minY + lb.maxY) / 2;
+
         const tp = (px, py) => {
           const r = transformShapePoint(px, py, cx, cy, angleDeg, flipH, flipV);
           return { x: r.x * zoom, y: r.y * zoom };
         };
+
         return [
-          { id: 'tl', ...tp(minX, minY), cursor: 'crosshair' },
-          { id: 'tc', ...tp(midX, minY), cursor: 'crosshair' },
-          { id: 'tr', ...tp(maxX, minY), cursor: 'crosshair' },
-          { id: 'rc', ...tp(maxX, midY), cursor: 'crosshair' },
-          { id: 'br', ...tp(maxX, maxY), cursor: 'crosshair' },
-          { id: 'bc', ...tp(midX, maxY), cursor: 'crosshair' },
-          { id: 'bl', ...tp(minX, maxY), cursor: 'crosshair' },
-          { id: 'lc', ...tp(minX, midY), cursor: 'crosshair' },
+          { id: 'tl', ...tp(lb.minX, lb.minY), cursor: angleDeg === 0 ? 'nwse-resize' : 'crosshair' },
+          { id: 'tc', ...tp(midX, lb.minY), cursor: angleDeg === 0 ? 'ns-resize' : 'crosshair' },
+          { id: 'tr', ...tp(lb.maxX, lb.minY), cursor: angleDeg === 0 ? 'nesw-resize' : 'crosshair' },
+          { id: 'rc', ...tp(lb.maxX, midY), cursor: angleDeg === 0 ? 'ew-resize' : 'crosshair' },
+          { id: 'br', ...tp(lb.maxX, lb.maxY), cursor: angleDeg === 0 ? 'nwse-resize' : 'crosshair' },
+          { id: 'bc', ...tp(midX, lb.maxY), cursor: angleDeg === 0 ? 'ns-resize' : 'crosshair' },
+          { id: 'bl', ...tp(lb.minX, lb.maxY), cursor: angleDeg === 0 ? 'nesw-resize' : 'crosshair' },
+          { id: 'lc', ...tp(lb.minX, midY), cursor: angleDeg === 0 ? 'ew-resize' : 'crosshair' }
         ];
       }
     }
 
-    // Default: AABB handles for unrotated or multi-selection
+    // Default: AABB handles for multi-selection or text fields
     const b = getSelectionBounds(fields);
     if (!b) return [];
 
@@ -1760,9 +1812,12 @@
   function isPointInsideSelection(point) {
     const fields = selectedFields();
     if (fields.length === 0) return false;
+    if (fields.length === 1 && ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(fields[0].type)) {
+      if (isPointInsideShapeArea(point.x, point.y, fields[0])) return true;
+    }
     const b = getSelectionBounds(fields);
     if (!b) return false;
-    const margin = 1;
+    const margin = 2;
     return (
       point.x >= b.minX - margin &&
       point.x <= b.maxX + margin &&
@@ -1796,21 +1851,33 @@
     displayCtx.stroke();
     displayCtx.setLineDash([]);
 
-    // 2. Bounding outline — rotated rect for single rotated shape, AABB otherwise
+    // 2. Bounding outline
     displayCtx.strokeStyle = '#0084ff';
     displayCtx.lineWidth = 1;
-    const SHAPE_TYPES = ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'];
-    if (fields.length === 1 && SHAPE_TYPES.includes(fields[0].type) && (Number(fields[0].rotation) || 0) !== 0) {
+
+    if (fields.length === 1 && fields[0].type === 'LINE') {
       const f = fields[0];
       const x1 = f.x ?? 0; const y1 = f.y ?? 0;
       const x2 = f.x2 ?? x1; const y2 = f.y2 ?? y1;
       const cx = (x1 + x2) / 2; const cy = (y1 + y2) / 2;
-      const minX = Math.min(x1, x2); const maxX = Math.max(x1, x2);
-      const minY = Math.min(y1, y2); const maxY = Math.max(y1, y2);
+      const angleDeg = Number(f.rotation) || 0;
+      const flipH = Boolean(f.flipH); const flipV = Boolean(f.flipV);
+      const p1 = transformShapePoint(x1, y1, cx, cy, angleDeg, flipH, flipV);
+      const p2 = transformShapePoint(x2, y2, cx, cy, angleDeg, flipH, flipV);
+      displayCtx.beginPath();
+      displayCtx.moveTo(p1.x * zoom + 0.5, p1.y * zoom + 0.5);
+      displayCtx.lineTo(p2.x * zoom + 0.5, p2.y * zoom + 0.5);
+      displayCtx.stroke();
+    } else if (fields.length === 1 && ['RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(fields[0].type)) {
+      const f = fields[0];
+      const lb = getShapeLocalBounds(f);
+      const x1 = f.x ?? 0; const y1 = f.y ?? 0;
+      const x2 = f.x2 ?? x1; const y2 = f.y2 ?? y1;
+      const cx = (x1 + x2) / 2; const cy = (y1 + y2) / 2;
       const angleDeg = Number(f.rotation) || 0;
       const flipH = Boolean(f.flipH); const flipV = Boolean(f.flipV);
       const corners = [
-        [minX, minY], [maxX, minY], [maxX, maxY], [minX, maxY]
+        [lb.minX, lb.minY], [lb.maxX, lb.minY], [lb.maxX, lb.maxY], [lb.minX, lb.maxY]
       ].map(([px, py]) => {
         const r = transformShapePoint(px, py, cx, cy, angleDeg, flipH, flipV);
         return [r.x * zoom + 0.5, r.y * zoom + 0.5];
@@ -1824,7 +1891,7 @@
       displayCtx.strokeRect(b.screenX1 + 0.5, b.screenY1 + 0.5, b.screenW, b.screenH);
     }
 
-    // 3. 8 Selection Handles
+    // 3. Selection Handles
     const hs = 6;
     const handles = getSelectionHandles(fields);
     handles.forEach((h) => {
@@ -3210,48 +3277,104 @@
       const initB = resizeInitialBounds;
       if (!initB) return;
 
-      // ---- Rotation-aware resize for a single rotated shape ----
+      // ---- Single shape deformation (rotation-aware & anchor-pinned) ----
       if (fields.length === 1 && ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(fields[0].type)) {
         const f = fields[0];
         const orig = resizeInitialFields?.[0];
         if (orig) {
-          const angleDeg = Number(orig.rotation) || 0;
-          if (angleDeg !== 0) {
-            // Shape center is fixed during resize (only size changes, unless moving an opposite corner)
+          const hid = resizingHandle.id;
+
+          // LINE deformation (endpoint dragging)
+          if (f.type === 'LINE') {
+            const angleDeg = Number(orig.rotation) || 0;
+            const flipH = Boolean(orig.flipH);
+            const flipV = Boolean(orig.flipV);
             const ox1 = orig.x ?? 0; const oy1 = orig.y ?? 0;
             const ox2 = orig.x2 ?? ox1; const oy2 = orig.y2 ?? oy1;
-            const origCx = (ox1 + ox2) / 2;
-            const origCy = (oy1 + oy2) / 2;
+            const ocx = (ox1 + ox2) / 2; const ocy = (oy1 + oy2) / 2;
 
-            // Un-rotate cursor into shape's local space
-            const local = inverseTransformShapePoint(curX, curY, origCx, origCy, angleDeg, false, false);
-            const lx = local.x; const ly = local.y;
-
-            const hid = resizingHandle.id;
-            let nx1 = ox1; let ny1 = oy1; let nx2 = ox2; let ny2 = oy2;
-
-            // Each handle controls which edge(s) move
-            if (hid === 'tl') { nx1 = lx; ny1 = ly; }
-            else if (hid === 'tc') { ny1 = ly; }
-            else if (hid === 'tr') { nx2 = lx; ny1 = ly; }
-            else if (hid === 'rc') { nx2 = lx; }
-            else if (hid === 'br') { nx2 = lx; ny2 = ly; }
-            else if (hid === 'bc') { ny2 = ly; }
-            else if (hid === 'bl') { nx1 = lx; ny2 = ly; }
-            else if (hid === 'lc') { nx1 = lx; }
-
-            // Ensure min size of 1px
-            if (Math.abs(nx2 - nx1) < 1) nx2 = nx1 + (nx2 >= nx1 ? 1 : -1);
-            if (Math.abs(ny2 - ny1) < 1) ny2 = ny1 + (ny2 >= ny1 ? 1 : -1);
-
-            f.x = Math.round(nx1); f.y = Math.round(ny1);
-            f.x2 = Math.round(nx2); f.y2 = Math.round(ny2);
-
+            if (hid === 'p1') {
+              const localP = inverseTransformShapePoint(curX, curY, ocx, ocy, angleDeg, flipH, flipV);
+              f.x = localP.x; f.y = localP.y;
+            } else if (hid === 'p2') {
+              const localP = inverseTransformShapePoint(curX, curY, ocx, ocy, angleDeg, flipH, flipV);
+              f.x2 = localP.x; f.y2 = localP.y;
+            }
             gestureChanged = true;
             syncShapeInspector();
             render();
             return;
           }
+
+          // 2D Shapes: RECT, ELLIPSE, TRIANGLE, POLYGON
+          const origX1 = orig.x ?? 0; const origY1 = orig.y ?? 0;
+          const origX2 = orig.x2 ?? origX1; const origY2 = orig.y2 ?? origY1;
+          const origW = Math.max(4, Math.abs(origX2 - origX1));
+          const origH = Math.max(4, Math.abs(origY2 - origY1));
+          const origCx = (origX1 + origX2) / 2;
+          const origCy = (origY1 + origY2) / 2;
+          const halfW = origW / 2;
+          const halfH = origH / 2;
+          const angleDeg = Number(orig.rotation) || 0;
+          const flipH = Boolean(orig.flipH);
+          const flipV = Boolean(orig.flipV);
+
+          // Local unit vectors in world space
+          const rad = angleDeg * Math.PI / 180;
+          const cos = Math.cos(rad);
+          const sin = Math.sin(rad);
+          let ux = cos, uy = sin;
+          if (flipH) ux = -ux;
+          if (flipV) uy = -uy;
+          let vx = -sin, vy = cos;
+          if (flipH) vx = -vx;
+          if (flipV) vy = -vy;
+
+          let anchorRelU = 0, anchorRelV = 0;
+          let handleDirU = 0, handleDirV = 0;
+
+          if (hid === 'br')      { anchorRelU = -halfW; anchorRelV = -halfH; handleDirU = 1;  handleDirV = 1;  }
+          else if (hid === 'tl') { anchorRelU = halfW;  anchorRelV = halfH;  handleDirU = -1; handleDirV = -1; }
+          else if (hid === 'tr') { anchorRelU = -halfW; anchorRelV = halfH;  handleDirU = 1;  handleDirV = -1; }
+          else if (hid === 'bl') { anchorRelU = halfW;  anchorRelV = -halfH; handleDirU = -1; handleDirV = 1;  }
+          else if (hid === 'rc') { anchorRelU = -halfW; anchorRelV = 0;      handleDirU = 1;  handleDirV = 0;  }
+          else if (hid === 'lc') { anchorRelU = halfW;  anchorRelV = 0;      handleDirU = -1; handleDirV = 0;  }
+          else if (hid === 'bc') { anchorRelU = 0;      anchorRelV = -halfH; handleDirU = 0;  handleDirV = 1;  }
+          else if (hid === 'tc') { anchorRelU = 0;      anchorRelV = halfH;  handleDirU = 0;  handleDirV = -1; }
+
+          const anchorX = origCx + anchorRelU * ux + anchorRelV * vx;
+          const anchorY = origCy + anchorRelU * uy + anchorRelV * vy;
+
+          const deltaX = curX - anchorX;
+          const deltaY = curY - anchorY;
+          const projU = deltaX * ux + deltaY * uy;
+          const projV = deltaX * vx + deltaY * vy;
+
+          let newW = origW;
+          let newH = origH;
+          if (handleDirU !== 0) newW = Math.max(4, projU * handleDirU);
+          if (handleDirV !== 0) newH = Math.max(4, projV * handleDirV);
+
+          let newCx = anchorX;
+          let newCy = anchorY;
+          if (handleDirU !== 0) {
+            newCx += (newW / 2) * handleDirU * ux;
+            newCy += (newW / 2) * handleDirU * uy;
+          }
+          if (handleDirV !== 0) {
+            newCx += (newH / 2) * handleDirV * vx;
+            newCy += (newH / 2) * handleDirV * vy;
+          }
+
+          f.x = Math.round(newCx - newW / 2);
+          f.y = Math.round(newCy - newH / 2);
+          f.x2 = Math.round(newCx + newW / 2);
+          f.y2 = Math.round(newCy + newH / 2);
+
+          gestureChanged = true;
+          syncShapeInspector();
+          render();
+          return;
         }
       }
 
