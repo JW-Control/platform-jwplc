@@ -37,6 +37,7 @@
   const zoomSelect = document.getElementById('zoomSelect');
   const gridToggle = document.getElementById('gridToggle');
   const gridSizeSelect = document.getElementById('gridSizeSelect');
+  const gridStyleSelect = document.getElementById('gridStyleSelect');
   const snapToggle = document.getElementById('snapToggle');
   const geometryToggle = document.getElementById('geometryToggle'); document.getElementById('vertSnapToggle')?.addEventListener('click', function() { snapToggle.checked = !snapToggle.checked; this.classList.toggle('active', snapToggle.checked); render(); });
   const clearButton = document.getElementById('clearButton');
@@ -675,13 +676,32 @@
   function drawGrid() {
     if (!gridToggle.checked || zoom < 2) return;
     const gridSize = Number(gridSizeSelect.value) || 8;
+    const gridStyle = gridStyleSelect ? gridStyleSelect.value : 'lines';
+
     displayCtx.save();
-    displayCtx.fillStyle = 'rgba(118, 151, 176, 0.4)';
-    const dotSize = Math.max(1, Math.floor(zoom / 3));
-    const offset = Math.floor(dotSize / 2);
-    for (let x = 0; x <= WIDTH; x += gridSize) {
+    if (gridStyle === 'lines') {
+      displayCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      displayCtx.lineWidth = 1;
+      displayCtx.beginPath();
+      for (let x = 0; x <= WIDTH; x += gridSize) {
+        const px = Math.floor(x * zoom) + 0.5;
+        displayCtx.moveTo(px, 0);
+        displayCtx.lineTo(px, displayCanvas.height);
+      }
       for (let y = 0; y <= HEIGHT; y += gridSize) {
-        displayCtx.fillRect(Math.floor(x * zoom) - offset, Math.floor(y * zoom) - offset, dotSize, dotSize);
+        const py = Math.floor(y * zoom) + 0.5;
+        displayCtx.moveTo(0, py);
+        displayCtx.lineTo(displayCanvas.width, py);
+      }
+      displayCtx.stroke();
+    } else {
+      displayCtx.fillStyle = 'rgba(118, 151, 176, 0.45)';
+      const dotSize = Math.max(1, Math.floor(zoom / 3));
+      const offset = Math.floor(dotSize / 2);
+      for (let x = 0; x <= WIDTH; x += gridSize) {
+        for (let y = 0; y <= HEIGHT; y += gridSize) {
+          displayCtx.fillRect(Math.floor(x * zoom) - offset, Math.floor(y * zoom) - offset, dotSize, dotSize);
+        }
       }
     }
     displayCtx.restore();
@@ -871,6 +891,7 @@
 
     drawSelectionAndGuides();
     drawRulers();
+    drawCADMarquee();
   
     
 
@@ -897,6 +918,41 @@
       x: Math.floor(((event.clientX - rect.left) * scaleX) / zoom),
       y: Math.floor(((event.clientY - rect.top) * scaleY) / zoom)
     };
+  }
+
+  function drawCADMarquee() {
+    if (!isMarquee || !marqueeStart || !marqueeEnd) return;
+    const x0 = marqueeStart.x * zoom;
+    const y0 = marqueeStart.y * zoom;
+    const x1 = marqueeEnd.x * zoom;
+    const y1 = marqueeEnd.y * zoom;
+
+    const left = Math.min(x0, x1);
+    const top = Math.min(y0, y1);
+    const w = Math.abs(x1 - x0);
+    const h = Math.abs(y1 - y0);
+
+    const isLeftToRight = marqueeEnd.x >= marqueeStart.x;
+
+    displayCtx.save();
+    if (isLeftToRight) {
+      // SolidWorks Left-to-Right: Window Selection (Blue, selects enclosed only)
+      displayCtx.fillStyle = 'rgba(0, 132, 255, 0.18)';
+      displayCtx.strokeStyle = 'rgba(0, 132, 255, 0.9)';
+      displayCtx.lineWidth = 1;
+      displayCtx.setLineDash([3, 3]);
+      displayCtx.fillRect(left, top, w, h);
+      displayCtx.strokeRect(left + 0.5, top + 0.5, w, h);
+    } else {
+      // SolidWorks Right-to-Left: Crossing Selection (Green, selects touched/crossed)
+      displayCtx.fillStyle = 'rgba(0, 230, 118, 0.18)';
+      displayCtx.strokeStyle = 'rgba(0, 230, 118, 0.95)';
+      displayCtx.lineWidth = 1.5;
+      displayCtx.setLineDash([4, 3]);
+      displayCtx.fillRect(left, top, w, h);
+      displayCtx.strokeRect(left + 0.5, top + 0.5, w, h);
+    }
+    displayCtx.restore();
   }
 
   function drawSelectionAndGuides() {
@@ -1686,6 +1742,8 @@
     render();
   });
   gridToggle.addEventListener('change', render);
+  gridSizeSelect?.addEventListener('change', render);
+  gridStyleSelect?.addEventListener('change', render);
   newProjectButton.addEventListener('click', resetProject);
   demoButton.addEventListener('click', demoTextField);
   if (demoValueButton) demoValueButton.addEventListener('click', demoValueField);
@@ -1820,6 +1878,9 @@ displayCanvas.addEventListener('pointerdown', (event) => {
         } else {
           selectedFieldKey = null;
           selectedTool = 'pointer';
+          isMarquee = true;
+          marqueeStart = point;
+          marqueeEnd = point;
           syncToolUI();
         }
       }
@@ -1827,36 +1888,20 @@ displayCanvas.addEventListener('pointerdown', (event) => {
   });
 
   displayCanvas.addEventListener('pointermove', (event) => {
-    const point = pointFromPointer(event);
-    updateCursor(point);
-    if (!inside(point.x, point.y)) return;
+    const rawPoint = pointFromPointer(event);
+    updateCursor(rawPoint);
 
-
-    const crosshairX = document.getElementById('crosshairX');
-    const crosshairY = document.getElementById('crosshairY');
-    if (crosshairX && crosshairY) {
-      if (inside(point.x, point.y)) {
-        crosshairX.style.display = 'block';
-        crosshairY.style.display = 'block';
-        
-        // We position crosshairs relative to the viewport, not the canvas!
-        // We just use event.clientX and event.clientY minus the viewport offset.
-        const viewportRect = canvasViewport.getBoundingClientRect();
-        const cx = event.clientX - viewportRect.left;
-        const cy = event.clientY - viewportRect.top;
-        
-        crosshairX.style.left = `${cx}px`;
-        crosshairY.style.top = `${cy}px`;
-      } else {
-        crosshairX.style.display = 'none';
-        crosshairY.style.display = 'none';
-      }
-    }
+    const point = {
+      x: clamp(rawPoint.x, 0, WIDTH - 1),
+      y: clamp(rawPoint.y, 0, HEIGHT - 1)
+    };
 
     if (isMarquee && marqueeStart) {
       marqueeEnd = point;
       render();
     }
+
+    if (!inside(rawPoint.x, rawPoint.y) && !drawing && !draggingObject) return;
 
     if (drawing) {
 
@@ -1935,10 +1980,78 @@ displayCanvas.addEventListener('pointerdown', (event) => {
 
   function endPointer() {
     const changed = gestureChanged;
+    const wasDrawingShape = drawing && ['line', 'rect', 'ellipse', 'triangle', 'polygon'].includes(selectedTool);
     drawing = false;
     draggingObject = false;
     lastPoint = null;
     gestureChanged = false;
+
+    if (isMarquee && marqueeStart && marqueeEnd) {
+      const boxL = Math.min(marqueeStart.x, marqueeEnd.x);
+      const boxR = Math.max(marqueeStart.x, marqueeEnd.x);
+      const boxT = Math.min(marqueeStart.y, marqueeEnd.y);
+      const boxB = Math.max(marqueeStart.y, marqueeEnd.y);
+
+      const isLeftToRight = marqueeEnd.x >= marqueeStart.x;
+
+      if (boxR - boxL >= 2 || boxB - boxT >= 2) {
+        let matched = null;
+        for (let i = hmiFields.length - 1; i >= 0; i--) {
+          const f = hmiFields[i];
+          if (Number(f.page || 0) !== activePage) continue;
+
+          let fL, fR, fT, fB;
+          if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(f.type)) {
+            fL = Math.min(f.x, f.x2 ?? f.x);
+            fR = Math.max(f.x, f.x2 ?? f.x);
+            fT = Math.min(f.y, f.y2 ?? f.y);
+            fB = Math.max(f.y, f.y2 ?? f.y);
+          } else {
+            const g = computeFieldGeometry(f);
+            fL = g.fieldX;
+            fR = g.fieldX + g.fieldW;
+            fT = g.fieldY;
+            fB = g.fieldY + g.fieldH;
+          }
+
+          if (isLeftToRight) {
+            // SolidWorks Window: Enclosed only (must be 100% inside)
+            if (fL >= boxL && fR <= boxR && fT >= boxT && fB <= boxB) {
+              matched = f;
+              break;
+            }
+          } else {
+            // SolidWorks Crossing: Touches or overlaps
+            const outside = (fR < boxL || fL > boxR || fB < boxT || fT > boxB);
+            if (!outside) {
+              matched = f;
+              break;
+            }
+          }
+        }
+
+        if (matched) {
+          selectedFieldKey = matched.key;
+          selectedTool = toolForField(matched);
+          syncInputsFromState();
+          syncToolUI();
+        } else {
+          selectedFieldKey = null;
+          syncToolUI();
+        }
+      }
+      isMarquee = false;
+      marqueeStart = null;
+      marqueeEnd = null;
+      render();
+    }
+
+    if (wasDrawingShape) {
+      selectedTool = 'pointer';
+      syncToolUI();
+      render();
+    }
+
     if (changed) commitHistory();
   }
 

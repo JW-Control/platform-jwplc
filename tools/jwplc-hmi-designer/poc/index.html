@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>JWPLC HMI Designer — Alpha11</title>
-  <link rel="stylesheet" href="./styles.css?v=1789739110" />
+  <link rel="stylesheet" href="./styles.css?v=1789740500" />
 </head>
 <body>
   <header class="topbar">
@@ -353,6 +353,30 @@
           </div>
         </details>
       </section>
+
+      <section class="inspector-section">
+        <details open>
+          <summary>Grilla y Lienzo</summary>
+          <div class="inspector-body two-cols">
+            <label class="field-label full">Forma de la grilla
+              <select id="gridStyleSelect" class="field-input">
+                <option value="lines" selected>Rejilla (Líneas / CAD)</option>
+                <option value="dots">Puntos</option>
+              </select>
+            </label>
+            <label class="field-label full">Tamaño de celda (Paso)
+              <select id="gridSizeSelect" class="field-input">
+                <option value="4">4 px</option>
+                <option value="8" selected>8 px</option>
+                <option value="10">10 px</option>
+                <option value="16">16 px</option>
+                <option value="20">20 px</option>
+                <option value="32">32 px</option>
+              </select>
+            </label>
+          </div>
+        </details>
+      </section>
     </aside>
   </main>
 
@@ -391,21 +415,15 @@
       <option value="4">4�</option>
       <option value="6">6�</option>
       <option value="8">8�</option>
-    </select>
-    <select id="gridSizeSelect">
-      <option value="4">4px</option>
-      <option value="8" selected>8px</option>
-      <option value="16">16px</option>
-    </select>
     <input id="gridToggle" type="checkbox" checked />
     <input id="snapToggle" type="checkbox" checked />
     <input id="geometryToggle" type="checkbox" />
   </div>
 
-    <script src="./gfx-classic-font.js?v=1789739110"></script>
-  <script src="./app.js?v=1789739110"></script>
-  <script src="./ux-foundation.js?v=1789739110"></script>
-  <script src="./designer-codegen.js?v=1789739110"></script>
+    <script src="./gfx-classic-font.js?v=1789740500"></script>
+  <script src="./app.js?v=1789740500"></script>
+  <script src="./ux-foundation.js?v=1789740500"></script>
+  <script src="./designer-codegen.js?v=1789740500"></script>
 
   
 
