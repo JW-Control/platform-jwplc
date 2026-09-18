@@ -132,8 +132,15 @@
     });
     $$('[data-proxy]', menu).forEach((button) => {
       button.addEventListener('click', () => {
-        const source = proxyTarget(button.dataset.proxy);
-        if (source && !source.disabled && !source.hidden) source.click();
+        const proxyKey = button.dataset.proxy;
+        if (proxyKey === 'fit') {
+          window.JWPLCHMIEditor?.fitCanvas?.();
+        } else if (proxyKey === 'fitSelection') {
+          window.JWPLCHMIEditor?.fitSelection?.();
+        } else {
+          const source = proxyTarget(proxyKey);
+          if (source && !source.disabled && !source.hidden) source.click();
+        }
         menu.hidden = true;
         toggle.setAttribute('aria-expanded', 'false');
       });

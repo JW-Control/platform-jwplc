@@ -2172,7 +2172,20 @@
 
   function handlePointerDown(event) {
     if (event.button !== 0) return;
-    if (event.target.closest('.canvas-toolbar') || event.target.closest('.panel')) return;
+    if (
+      event.target.closest('.canvas-toolbar') ||
+      event.target.closest('.right-vertical-toolbar') ||
+      event.target.closest('.panel') ||
+      event.target.closest('header') ||
+      event.target.closest('nav') ||
+      event.target.closest('button') ||
+      event.target.closest('input') ||
+      event.target.closest('select') ||
+      event.target.id === 'topRulerCanvas' ||
+      event.target.id === 'rightRulerCanvas'
+    ) {
+      return;
+    }
 
     const point = pointFromPointer(event);
     const isTargetDisplay = (event.target === displayCanvas);
@@ -2921,7 +2934,13 @@
     }, { passive: false });
   }
 
-  // --- Vertical Toolbar Discrete Buttons Wire-up ---
+  // --- Vertical Toolbar & Header Fit Buttons Wire-up ---
+  const vertToolbar = document.querySelector('.right-vertical-toolbar');
+  if (vertToolbar) {
+    vertToolbar.addEventListener('pointerdown', (e) => e.stopPropagation());
+    vertToolbar.addEventListener('mousedown', (e) => e.stopPropagation());
+  }
+
   document.getElementById('zoomInBtn')?.addEventListener('click', () => {
     const curZoom = Number(document.getElementById('zoomSelect')?.value) || 1;
     let nextZoom = Math.min(16, Math.floor((curZoom + 0.5) * 2) / 2);
@@ -2941,6 +2960,16 @@
   });
 
   document.getElementById('fitSelectionBtn')?.addEventListener('click', () => {
+    window.JWPLCHMIEditor?.fitSelection?.();
+  });
+
+  document.getElementById('fitButton')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    window.JWPLCHMIEditor?.fitCanvas?.();
+  });
+
+  document.getElementById('fitSelectionButton')?.addEventListener('click', (e) => {
+    e.preventDefault();
     window.JWPLCHMIEditor?.fitSelection?.();
   });
 
