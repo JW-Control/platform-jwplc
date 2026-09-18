@@ -960,6 +960,14 @@
   }
 
   function isPointInsideShapeArea(px, py, field) {
+    // Un-rotate the query point into the shape's local space
+    const angleDeg = Number(field.rotation) || 0;
+    if (angleDeg !== 0) {
+      const cx = ((field.x ?? 0) + (field.x2 ?? field.x ?? 0)) / 2;
+      const cy = ((field.y ?? 0) + (field.y2 ?? field.y ?? 0)) / 2;
+      const local = rotatePoint(px, py, cx, cy, -angleDeg);
+      px = local.x; py = local.y;
+    }
     const a = { x: field.x, y: field.y };
     const b = { x: field.x2 ?? field.x, y: field.y2 ?? field.y };
     if (field.type === 'RECT') {
@@ -1016,23 +1024,29 @@
     const angleDeg = Number(field.rotation) || 0;
     const cx = ((field.x ?? 0) + (field.x2 ?? field.x ?? 0)) / 2;
     const cy = ((field.y ?? 0) + (field.y2 ?? field.y ?? 0)) / 2;
-    const rp = (px, py) => rotatePoint(px, py, cx, cy, angleDeg);
+    // Apply flip then rotation: first flip the point around center, then rotate
+    const fp = (px, py) => {
+      let fx = field.flipH ? 2 * cx - px : px;
+      let fy = field.flipV ? 2 * cy - py : py;
+      return rotatePoint(fx, fy, cx, cy, angleDeg);
+    };
 
     if (field.type === 'LINE') {
-      const ra = rp(a.x, a.y);
-      const rb = rp(b.x, b.y);
+      const ra = fp(a.x, a.y);
+      const rb = fp(b.x, b.y);
       rasterLineBuffer(buffer, ra.x, ra.y, rb.x, rb.y, color, size);
     } else if (field.type === 'RECT') {
       const left = Math.min(a.x, b.x);
       const right = Math.max(a.x, b.x);
       const top = Math.min(a.y, b.y);
       const bottom = Math.max(a.y, b.y);
-      const tl = rp(left, top);
-      const tr = rp(right, top);
-      const br = rp(right, bottom);
-      const bl2 = rp(left, bottom);
+      const tl = fp(left, top);
+      const tr = fp(right, top);
+      const br = fp(right, bottom);
+      const bl2 = fp(left, bottom);
+      const noTransform = angleDeg === 0 && !field.flipH && !field.flipV;
       if (field.fill) {
-        if (angleDeg === 0) {
+        if (noTransform) {
           fillBufferRect(buffer, left, top, right - left + 1, bottom - top + 1, fillColor);
         } else {
           fillShapePolygon(buffer, [tl, tr, br, bl2], fillColor);
@@ -1043,19 +1057,20 @@
       rasterLineBuffer(buffer, br.x, br.y, bl2.x, bl2.y, color, size);
       rasterLineBuffer(buffer, bl2.x, bl2.y, tl.x, tl.y, color, size);
     } else if (field.type === 'ELLIPSE') {
-      if (angleDeg === 0) {
+      const minX = Math.min(a.x, b.x); const maxX = Math.max(a.x, b.x);
+      const minY = Math.min(a.y, b.y); const maxY = Math.max(a.y, b.y);
+      const ecx = (minX + maxX) / 2; const ecy = (minY + maxY) / 2;
+      const erx = (maxX - minX) / 2; const ery = (maxY - minY) / 2;
+      const noTransform = angleDeg === 0 && !field.flipH && !field.flipV;
+      if (noTransform) {
         if (field.fill) fillShapeEllipse(buffer, a, b, fillColor);
         drawShapeEllipse(buffer, a, b, color, size);
       } else {
-        const minX = Math.min(a.x, b.x); const maxX = Math.max(a.x, b.x);
-        const minY = Math.min(a.y, b.y); const maxY = Math.max(a.y, b.y);
-        const ecx = (minX + maxX) / 2; const ecy = (minY + maxY) / 2;
-        const erx = (maxX - minX) / 2; const ery = (maxY - minY) / 2;
         const N = 32;
         const epts = [];
         for (let i = 0; i < N; i++) {
           const ang = i * 2 * Math.PI / N;
-          epts.push(rp(ecx + erx * Math.cos(ang), ecy + ery * Math.sin(ang)));
+          epts.push(fp(ecx + erx * Math.cos(ang), ecy + ery * Math.sin(ang)));
         }
         if (field.fill) fillShapePolygon(buffer, epts, fillColor);
         for (let i = 0; i < N; i++) {
@@ -1064,15 +1079,15 @@
         }
       }
     } else if (field.type === 'TRIANGLE') {
-      const topPt = rp(Math.round((a.x + b.x) / 2), a.y);
-      const blp = rp(a.x, b.y);
-      const brp = rp(b.x, b.y);
+      const topPt = fp(Math.round((a.x + b.x) / 2), a.y);
+      const blp = fp(a.x, b.y);
+      const brp = fp(b.x, b.y);
       if (field.fill) fillShapeTriangle(buffer, topPt, blp, brp, fillColor);
       rasterLineBuffer(buffer, topPt.x, topPt.y, blp.x, blp.y, color, size);
       rasterLineBuffer(buffer, blp.x, blp.y, brp.x, brp.y, color, size);
       rasterLineBuffer(buffer, brp.x, brp.y, topPt.x, topPt.y, color, size);
     } else if (field.type === 'POLYGON') {
-      const pts = getPolygonVertices(field).map((p) => rp(p.x, p.y));
+      const pts = getPolygonVertices(field).map((p) => fp(p.x, p.y));
       if (field.fill) fillShapePolygon(buffer, pts, fillColor);
       for (let i = 0; i < pts.length; i++) {
         const p1 = pts[i]; const p2 = pts[(i + 1) % pts.length];
@@ -1192,8 +1207,14 @@
     }
     if (field.type === 'POLYGON') {
       const pts = getPolygonVertices(field);
+      const angleDeg = Number(field.rotation) || 0;
+      const allPts = angleDeg !== 0 ? pts.map((p) => {
+        const cx2 = (field.x + (field.x2 ?? field.x)) / 2;
+        const cy2 = (field.y + (field.y2 ?? field.y)) / 2;
+        return rotatePoint(p.x, p.y, cx2, cy2, angleDeg);
+      }) : pts;
       let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-      for (const p of pts) {
+      for (const p of allPts) {
         if (p.x < minX) minX = p.x;
         if (p.x > maxX) maxX = p.x;
         if (p.y < minY) minY = p.y;
@@ -1204,11 +1225,31 @@
     if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE'].includes(field.type)) {
       const x2 = field.x2 ?? field.x;
       const y2 = field.y2 ?? field.y;
-      const minX = Math.min(field.x, x2);
-      const maxX = Math.max(field.x, x2);
-      const minY = Math.min(field.y, y2);
-      const maxY = Math.max(field.y, y2);
-      return { minX, maxX, minY, maxY, width: Math.abs(x2 - field.x), height: Math.abs(y2 - field.y) };
+      const angleDeg = Number(field.rotation) || 0;
+      if (angleDeg === 0) {
+        const minX = Math.min(field.x, x2);
+        const maxX = Math.max(field.x, x2);
+        const minY = Math.min(field.y, y2);
+        const maxY = Math.max(field.y, y2);
+        return { minX, maxX, minY, maxY, width: Math.abs(x2 - field.x), height: Math.abs(y2 - field.y) };
+      }
+      // Compute AABB of rotated bounding corners
+      const cx = (field.x + x2) / 2;
+      const cy = (field.y + y2) / 2;
+      const left = Math.min(field.x, x2); const right = Math.max(field.x, x2);
+      const top = Math.min(field.y, y2); const bottom = Math.max(field.y, y2);
+      const corners = [
+        rotatePoint(left, top, cx, cy, angleDeg),
+        rotatePoint(right, top, cx, cy, angleDeg),
+        rotatePoint(right, bottom, cx, cy, angleDeg),
+        rotatePoint(left, bottom, cx, cy, angleDeg)
+      ];
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      for (const p of corners) {
+        if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
+      }
+      return { minX, maxX, minY, maxY, width: maxX - minX, height: maxY - minY };
     }
     const g = computeFieldGeometry(field);
     return {
@@ -2763,8 +2804,16 @@
   }
 
   function distanceToFieldBorder(point, field) {
-    const px = point.x;
-    const py = point.y;
+    let px = point.x;
+    let py = point.y;
+    // Un-rotate query point into shape's local space for correct hit-test
+    const rotAngle = Number(field.rotation) || 0;
+    if (rotAngle !== 0 && ['LINE','RECT','ELLIPSE','TRIANGLE','POLYGON'].includes(field.type)) {
+      const rcx = ((field.x ?? 0) + (field.x2 ?? field.x ?? 0)) / 2;
+      const rcy = ((field.y ?? 0) + (field.y2 ?? field.y ?? 0)) / 2;
+      const local = rotatePoint(px, py, rcx, rcy, -rotAngle);
+      px = local.x; py = local.y;
+    }
     const a = { x: field.x, y: field.y };
     const b = { x: field.x2 ?? field.x, y: field.y2 ?? field.y };
 
@@ -3733,16 +3782,14 @@
   document.getElementById('shapeFlipHBtn')?.addEventListener('click', () => {
     selectedFields().forEach((f) => {
       if (!['LINE','RECT','ELLIPSE','TRIANGLE','POLYGON'].includes(f.type)) return;
-      const fcx = (f.x + f.x2) / 2;
-      const oldX = f.x; f.x = 2 * fcx - f.x2; f.x2 = 2 * fcx - oldX;
+      f.flipH = !f.flipH;
     });
     syncShapeInspector(); render(); commitHistory();
   });
   document.getElementById('shapeFlipVBtn')?.addEventListener('click', () => {
     selectedFields().forEach((f) => {
       if (!['LINE','RECT','ELLIPSE','TRIANGLE','POLYGON'].includes(f.type)) return;
-      const fcy = (f.y + f.y2) / 2;
-      const oldY = f.y; f.y = 2 * fcy - f.y2; f.y2 = 2 * fcy - oldY;
+      f.flipV = !f.flipV;
     });
     syncShapeInspector(); render(); commitHistory();
   });
