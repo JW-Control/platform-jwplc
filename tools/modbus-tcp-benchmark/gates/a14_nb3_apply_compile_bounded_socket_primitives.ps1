@@ -113,13 +113,27 @@ if ((Get-G2SpiHz) -ne 26000000) {
     throw "A14_NB3B_SPI_FREQUENCY_MISMATCH"
 }
 
-if ($dirtyBefore.Count -ne $expectedDirtyBefore.Count) {
-    throw "A14_NB3B_DIRTY_COUNT_BEFORE_INVALID=$($dirtyBefore.Count)"
-}
-for ($i = 0; $i -lt $expectedDirtyBefore.Count; ++$i) {
-    if ($dirtyBefore[$i] -ne $expectedDirtyBefore[$i]) {
-        throw "A14_NB3B_DIRTY_PATH_BEFORE_INVALID=$($dirtyBefore[$i])"
+$resumePatched = $false
+
+if ($dirtyBefore.Count -eq $expectedDirtyBefore.Count) {
+    for ($i = 0; $i -lt $expectedDirtyBefore.Count; ++$i) {
+        if ($dirtyBefore[$i] -ne $expectedDirtyBefore[$i]) {
+            throw "A14_NB3B_DIRTY_PATH_BEFORE_INVALID=$($dirtyBefore[$i])"
+        }
     }
+}
+elseif ($dirtyBefore.Count -eq $expectedDirtyAfter.Count) {
+    for ($i = 0; $i -lt $expectedDirtyAfter.Count; ++$i) {
+        if ($dirtyBefore[$i] -ne $expectedDirtyAfter[$i]) {
+            throw "A14_NB3B_RESUME_DIRTY_PATH_INVALID=$($dirtyBefore[$i])"
+        }
+    }
+
+    $resumePatched = $true
+    Write-Host "NB3_B_RESUME_PATCHED_STATE=YES"
+}
+else {
+    throw "A14_NB3B_DIRTY_COUNT_BEFORE_INVALID=$($dirtyBefore.Count)"
 }
 
 $stagedBefore = @(& git -C $script:G2RepoRoot diff --cached --name-only)
@@ -128,23 +142,28 @@ if ($LASTEXITCODE -ne 0 -or $stagedBefore.Count -ne 0) {
 }
 Write-Host "STAGED_COUNT_BEFORE=0"
 
-foreach ($relative in @(
-    $w5100CppRelative,
-    $socketRelative,
-    $asyncHeaderRelative,
-    $asyncCppRelative
-)) {
-    $existingDiff = @(& git -C $script:G2RepoRoot diff --name-only -- $relative)
+if (-not $resumePatched) {
+    foreach ($relative in @(
+        $w5100CppRelative,
+        $socketRelative,
+        $asyncHeaderRelative,
+        $asyncCppRelative
+    )) {
+        $existingDiff = @(& git -C $script:G2RepoRoot diff --name-only -- $relative)
 
-    if ($LASTEXITCODE -ne 0) {
-        throw "A14_NB3B_DIFF_CHECK_FAILED=$relative"
+        if ($LASTEXITCODE -ne 0) {
+            throw "A14_NB3B_DIFF_CHECK_FAILED=$relative"
+        }
+        if ($existingDiff.Count -ne 0) {
+            throw "A14_NB3B_SOURCE_ALREADY_DIRTY=$relative"
+        }
     }
-    if ($existingDiff.Count -ne 0) {
-        throw "A14_NB3B_SOURCE_ALREADY_DIRTY=$relative"
-    }
+
+    Write-Host "NB3_NEW_SOURCES_TRACKED_CLEAN_BEFORE=YES"
 }
-
-Write-Host "NB3_NEW_SOURCES_TRACKED_CLEAN_BEFORE=YES"
+else {
+    Write-Host "NB3_NEW_SOURCES_TRACKED_CLEAN_BEFORE=RESUME_NOT_APPLICABLE"
+}
 
 Assert-G2ProtectedArtifacts
 
@@ -160,284 +179,290 @@ $socketCpp = [System.IO.File]::ReadAllText($socketPath)
 $asyncHeader = [System.IO.File]::ReadAllText($asyncHeaderPath)
 $asyncCpp = [System.IO.File]::ReadAllText($asyncCppPath)
 
-foreach ($marker in @(
-    "execCmdSnChecked",
-    "readSnTX_FSRStable",
-    "readSnRX_RSRStable"
-)) {
-    if ($w5100Header.Contains($marker) -or $w5100Cpp.Contains($marker)) {
-        throw "A14_NB3B_ALREADY_PATCHED=$marker"
-    }
-}
-
-$oldHeaderDecl = @'
-  static void execCmdSn(SOCKET s, SockCMD _cmd);
-'@
-
-$newHeaderDecl = @'
-  // JWPLC bounded W5x00 primitives.
-  // Existing execCmdSn() remains source-compatible. New cooperative code can
-  // use execCmdSnChecked() to observe a command-register timeout.
-  static bool execCmdSnChecked(
-      SOCKET s,
-      SockCMD _cmd,
-      uint32_t timeoutUs = 1000);
-  static void execCmdSn(SOCKET s, SockCMD _cmd);
-
-  // Stable 16-bit socket-register reads with an explicit comparison bound.
-  // On false, value contains the latest complete register sample.
-  static bool readSnTX_FSRStable(
-      SOCKET s,
-      uint16_t &value,
-      uint8_t maxComparisons = 8);
-  static bool readSnRX_RSRStable(
-      SOCKET s,
-      uint16_t &value,
-      uint8_t maxComparisons = 8);
-'@
-
-$w5100Header = Replace-ExactOnce -Text $w5100Header -Old $oldHeaderDecl -New $newHeaderDecl -Label "W5100_HEADER_DECL"
-
-$oldExec = @'
-void W5100Class::execCmdSn(SOCKET s, SockCMD _cmd)
-{
-	// Send command to socket
-	writeSnCR(s, _cmd);
-	// Wait for command to complete
-	while (readSnCR(s)) ;
-}
-'@
-
-$newExec = @'
-bool W5100Class::readSnTX_FSRStable(
-	SOCKET s,
-	uint16_t &value,
-	uint8_t maxComparisons)
-{
-	uint16_t previous = readSnTX_FSR(s);
-
-	for (uint8_t i = 0; i < maxComparisons; ++i) {
-		const uint16_t current = readSnTX_FSR(s);
-		if (current == previous) {
-			value = current;
-			return true;
-		}
-		previous = current;
-	}
-
-	value = previous;
-	return false;
-}
-
-bool W5100Class::readSnRX_RSRStable(
-	SOCKET s,
-	uint16_t &value,
-	uint8_t maxComparisons)
-{
-	uint16_t previous = readSnRX_RSR(s);
-
-	for (uint8_t i = 0; i < maxComparisons; ++i) {
-		const uint16_t current = readSnRX_RSR(s);
-		if (current == previous) {
-			value = current;
-			return true;
-		}
-		previous = current;
-	}
-
-	value = previous;
-	return false;
-}
-
-bool W5100Class::execCmdSnChecked(
-	SOCKET s,
-	SockCMD _cmd,
-	uint32_t timeoutUs)
-{
-	writeSnCR(s, _cmd);
-
-	const uint32_t startedUs = micros();
-
-	do {
-		if (readSnCR(s) == 0) {
-			return true;
-		}
-	} while ((uint32_t)(micros() - startedUs) < timeoutUs);
-
-	return false;
-}
-
-void W5100Class::execCmdSn(SOCKET s, SockCMD _cmd)
-{
-	(void)execCmdSnChecked(s, _cmd, 1000);
-}
-'@
-
-$w5100Cpp = Replace-ExactOnce -Text $w5100Cpp -Old $oldExec -New $newExec -Label "W5100_EXEC_CMD"
-
-$oldRxStable = @'
-static uint16_t getSnRX_RSR(uint8_t s)
-{
-#if 1
-        uint16_t val, prev;
-
-        prev = W5100.readSnRX_RSR(s);
-        while (1) {
-                val = W5100.readSnRX_RSR(s);
-                if (val == prev) {
-			return val;
-		}
-                prev = val;
-        }
-#else
-	uint16_t val = W5100.readSnRX_RSR(s);
-	return val;
-#endif
-}
-'@
-
-$newRxStable = @'
-static uint16_t getSnRX_RSR(uint8_t s)
-{
-	uint16_t value = 0;
-	(void)W5100.readSnRX_RSRStable(s, value);
-	return value;
-}
-'@
-
-$socketCpp = Replace-ExactOnce -Text $socketCpp -Old $oldRxStable -New $newRxStable -Label "SOCKET_RX_STABLE"
-
-$oldTxStable = @'
-static uint16_t getSnTX_FSR(uint8_t s)
-{
-        uint16_t val, prev;
-
-        prev = W5100.readSnTX_FSR(s);
-        while (1) {
-                val = W5100.readSnTX_FSR(s);
-                if (val == prev) {
-			state[s].TX_FSR = val;
-			return val;
-		}
-                prev = val;
-        }
-}
-'@
-
-$newTxStable = @'
-static uint16_t getSnTX_FSR(uint8_t s)
-{
-	uint16_t value = 0;
-	(void)W5100.readSnTX_FSRStable(s, value);
-	state[s].TX_FSR = value;
-	return value;
-}
-'@
-
-$socketCpp = Replace-ExactOnce -Text $socketCpp -Old $oldTxStable -New $newTxStable -Label "SOCKET_TX_STABLE"
-
-$oldAsyncHeader = @'
-    static uint16_t readTxFreeStable(uint8_t socket);
-'@
-
-$newAsyncHeader = @'
-    static bool readTxFreeStable(uint8_t socket, uint16_t &value);
-'@
-
-$asyncHeader = Replace-ExactOnce -Text $asyncHeader -Old $oldAsyncHeader -New $newAsyncHeader -Label "ASYNC_TX_HEADER"
-
-$oldAsyncStable = @'
-uint16_t JWPLC_EthernetAsyncTx::readTxFreeStable(uint8_t socket)
-{
-    uint16_t previous = W5100.readSnTX_FSR(socket);
-
-    while (true)
-    {
-        const uint16_t current = W5100.readSnTX_FSR(socket);
-        if (current == previous)
-        {
-            return current;
-        }
-        previous = current;
-    }
-}
-'@
-
-$newAsyncStable = @'
-bool JWPLC_EthernetAsyncTx::readTxFreeStable(
-    uint8_t socket,
-    uint16_t &value)
-{
-    return W5100.readSnTX_FSRStable(socket, value);
-}
-'@
-
-$asyncCpp = Replace-ExactOnce -Text $asyncCpp -Old $oldAsyncStable -New $newAsyncStable -Label "ASYNC_TX_STABLE"
-
-$oldAsyncUse = @'
-    const uint16_t freeBytes = readTxFreeStable(socket);
-    if (freeBytes < length)
-    {
-        SPI.endTransaction();
-        return 0;
-    }
-
-    // Elimina flags de un SEND anterior antes de disparar uno nuevo.
-    W5100.writeSnIR(socket, (uint8_t)(SnIR::SEND_OK | SnIR::TIMEOUT));
-
-    writeTxData(socket, data, length);
-    W5100.execCmdSn(socket, Sock_SEND);
-
-    SPI.endTransaction();
-
-    _socket = socket;
-    _pending = true;
-    return 0;
-'@
-
-$newAsyncUse = @'
-    uint16_t freeBytes = 0;
-    if (!readTxFreeStable(socket, freeBytes))
-    {
-        SPI.endTransaction();
-        reset();
-        return -1;
-    }
-
-    if (freeBytes < length)
-    {
-        SPI.endTransaction();
-        return 0;
-    }
-
-    // Elimina flags de un SEND anterior antes de disparar uno nuevo.
-    W5100.writeSnIR(socket, (uint8_t)(SnIR::SEND_OK | SnIR::TIMEOUT));
-
-    writeTxData(socket, data, length);
-
-    if (!W5100.execCmdSnChecked(socket, Sock_SEND))
-    {
-        SPI.endTransaction();
-        reset();
-        return -1;
-    }
-
-    SPI.endTransaction();
-
-    _socket = socket;
-    _pending = true;
-    return 0;
-'@
-
-$asyncCpp = Replace-ExactOnce -Text $asyncCpp -Old $oldAsyncUse -New $newAsyncUse -Label "ASYNC_TX_BEGIN_USE"
-
 $utf8NoBom = New-Object -TypeName System.Text.UTF8Encoding -ArgumentList $false
 
-[System.IO.File]::WriteAllText($w5100HeaderPath, $w5100Header, $utf8NoBom)
-[System.IO.File]::WriteAllText($w5100CppPath, $w5100Cpp, $utf8NoBom)
-[System.IO.File]::WriteAllText($socketPath, $socketCpp, $utf8NoBom)
-[System.IO.File]::WriteAllText($asyncHeaderPath, $asyncHeader, $utf8NoBom)
-[System.IO.File]::WriteAllText($asyncCppPath, $asyncCpp, $utf8NoBom)
+if (-not $resumePatched) {
+    foreach ($marker in @(
+        "execCmdSnChecked",
+        "readSnTX_FSRStable",
+        "readSnRX_RSRStable"
+    )) {
+        if ($w5100Header.Contains($marker) -or $w5100Cpp.Contains($marker)) {
+            throw "A14_NB3B_ALREADY_PATCHED=$marker"
+        }
+    }
+    
+    $oldHeaderDecl = @'
+      static void execCmdSn(SOCKET s, SockCMD _cmd);
+    '@
+    
+    $newHeaderDecl = @'
+      // JWPLC bounded W5x00 primitives.
+      // Existing execCmdSn() remains source-compatible. New cooperative code can
+      // use execCmdSnChecked() to observe a command-register timeout.
+      static bool execCmdSnChecked(
+          SOCKET s,
+          SockCMD _cmd,
+          uint32_t timeoutUs = 1000);
+      static void execCmdSn(SOCKET s, SockCMD _cmd);
+    
+      // Stable 16-bit socket-register reads with an explicit comparison bound.
+      // On false, value contains the latest complete register sample.
+      static bool readSnTX_FSRStable(
+          SOCKET s,
+          uint16_t &value,
+          uint8_t maxComparisons = 8);
+      static bool readSnRX_RSRStable(
+          SOCKET s,
+          uint16_t &value,
+          uint8_t maxComparisons = 8);
+    '@
+    
+    $w5100Header = Replace-ExactOnce -Text $w5100Header -Old $oldHeaderDecl -New $newHeaderDecl -Label "W5100_HEADER_DECL"
+    
+    $oldExec = @'
+    void W5100Class::execCmdSn(SOCKET s, SockCMD _cmd)
+    {
+    	// Send command to socket
+    	writeSnCR(s, _cmd);
+    	// Wait for command to complete
+    	while (readSnCR(s)) ;
+    }
+    '@
+    
+    $newExec = @'
+    bool W5100Class::readSnTX_FSRStable(
+    	SOCKET s,
+    	uint16_t &value,
+    	uint8_t maxComparisons)
+    {
+    	uint16_t previous = readSnTX_FSR(s);
+    
+    	for (uint8_t i = 0; i < maxComparisons; ++i) {
+    		const uint16_t current = readSnTX_FSR(s);
+    		if (current == previous) {
+    			value = current;
+    			return true;
+    		}
+    		previous = current;
+    	}
+    
+    	value = previous;
+    	return false;
+    }
+    
+    bool W5100Class::readSnRX_RSRStable(
+    	SOCKET s,
+    	uint16_t &value,
+    	uint8_t maxComparisons)
+    {
+    	uint16_t previous = readSnRX_RSR(s);
+    
+    	for (uint8_t i = 0; i < maxComparisons; ++i) {
+    		const uint16_t current = readSnRX_RSR(s);
+    		if (current == previous) {
+    			value = current;
+    			return true;
+    		}
+    		previous = current;
+    	}
+    
+    	value = previous;
+    	return false;
+    }
+    
+    bool W5100Class::execCmdSnChecked(
+    	SOCKET s,
+    	SockCMD _cmd,
+    	uint32_t timeoutUs)
+    {
+    	writeSnCR(s, _cmd);
+    
+    	const uint32_t startedUs = micros();
+    
+    	do {
+    		if (readSnCR(s) == 0) {
+    			return true;
+    		}
+    	} while ((uint32_t)(micros() - startedUs) < timeoutUs);
+    
+    	return false;
+    }
+    
+    void W5100Class::execCmdSn(SOCKET s, SockCMD _cmd)
+    {
+    	(void)execCmdSnChecked(s, _cmd, 1000);
+    }
+    '@
+    
+    $w5100Cpp = Replace-ExactOnce -Text $w5100Cpp -Old $oldExec -New $newExec -Label "W5100_EXEC_CMD"
+    
+    $oldRxStable = @'
+    static uint16_t getSnRX_RSR(uint8_t s)
+    {
+    #if 1
+            uint16_t val, prev;
+    
+            prev = W5100.readSnRX_RSR(s);
+            while (1) {
+                    val = W5100.readSnRX_RSR(s);
+                    if (val == prev) {
+    			return val;
+    		}
+                    prev = val;
+            }
+    #else
+    	uint16_t val = W5100.readSnRX_RSR(s);
+    	return val;
+    #endif
+    }
+    '@
+    
+    $newRxStable = @'
+    static uint16_t getSnRX_RSR(uint8_t s)
+    {
+    	uint16_t value = 0;
+    	(void)W5100.readSnRX_RSRStable(s, value);
+    	return value;
+    }
+    '@
+    
+    $socketCpp = Replace-ExactOnce -Text $socketCpp -Old $oldRxStable -New $newRxStable -Label "SOCKET_RX_STABLE"
+    
+    $oldTxStable = @'
+    static uint16_t getSnTX_FSR(uint8_t s)
+    {
+            uint16_t val, prev;
+    
+            prev = W5100.readSnTX_FSR(s);
+            while (1) {
+                    val = W5100.readSnTX_FSR(s);
+                    if (val == prev) {
+    			state[s].TX_FSR = val;
+    			return val;
+    		}
+                    prev = val;
+            }
+    }
+    '@
+    
+    $newTxStable = @'
+    static uint16_t getSnTX_FSR(uint8_t s)
+    {
+    	uint16_t value = 0;
+    	(void)W5100.readSnTX_FSRStable(s, value);
+    	state[s].TX_FSR = value;
+    	return value;
+    }
+    '@
+    
+    $socketCpp = Replace-ExactOnce -Text $socketCpp -Old $oldTxStable -New $newTxStable -Label "SOCKET_TX_STABLE"
+    
+    $oldAsyncHeader = @'
+        static uint16_t readTxFreeStable(uint8_t socket);
+    '@
+    
+    $newAsyncHeader = @'
+        static bool readTxFreeStable(uint8_t socket, uint16_t &value);
+    '@
+    
+    $asyncHeader = Replace-ExactOnce -Text $asyncHeader -Old $oldAsyncHeader -New $newAsyncHeader -Label "ASYNC_TX_HEADER"
+    
+    $oldAsyncStable = @'
+    uint16_t JWPLC_EthernetAsyncTx::readTxFreeStable(uint8_t socket)
+    {
+        uint16_t previous = W5100.readSnTX_FSR(socket);
+    
+        while (true)
+        {
+            const uint16_t current = W5100.readSnTX_FSR(socket);
+            if (current == previous)
+            {
+                return current;
+            }
+            previous = current;
+        }
+    }
+    '@
+    
+    $newAsyncStable = @'
+    bool JWPLC_EthernetAsyncTx::readTxFreeStable(
+        uint8_t socket,
+        uint16_t &value)
+    {
+        return W5100.readSnTX_FSRStable(socket, value);
+    }
+    '@
+    
+    $asyncCpp = Replace-ExactOnce -Text $asyncCpp -Old $oldAsyncStable -New $newAsyncStable -Label "ASYNC_TX_STABLE"
+    
+    $oldAsyncUse = @'
+        const uint16_t freeBytes = readTxFreeStable(socket);
+        if (freeBytes < length)
+        {
+            SPI.endTransaction();
+            return 0;
+        }
+    
+        // Elimina flags de un SEND anterior antes de disparar uno nuevo.
+        W5100.writeSnIR(socket, (uint8_t)(SnIR::SEND_OK | SnIR::TIMEOUT));
+    
+        writeTxData(socket, data, length);
+        W5100.execCmdSn(socket, Sock_SEND);
+    
+        SPI.endTransaction();
+    
+        _socket = socket;
+        _pending = true;
+        return 0;
+    '@
+    
+    $newAsyncUse = @'
+        uint16_t freeBytes = 0;
+        if (!readTxFreeStable(socket, freeBytes))
+        {
+            SPI.endTransaction();
+            reset();
+            return -1;
+        }
+    
+        if (freeBytes < length)
+        {
+            SPI.endTransaction();
+            return 0;
+        }
+    
+        // Elimina flags de un SEND anterior antes de disparar uno nuevo.
+        W5100.writeSnIR(socket, (uint8_t)(SnIR::SEND_OK | SnIR::TIMEOUT));
+    
+        writeTxData(socket, data, length);
+    
+        if (!W5100.execCmdSnChecked(socket, Sock_SEND))
+        {
+            SPI.endTransaction();
+            reset();
+            return -1;
+        }
+    
+        SPI.endTransaction();
+    
+        _socket = socket;
+        _pending = true;
+        return 0;
+    '@
+    
+    $asyncCpp = Replace-ExactOnce -Text $asyncCpp -Old $oldAsyncUse -New $newAsyncUse -Label "ASYNC_TX_BEGIN_USE"
+    
+    [System.IO.File]::WriteAllText($w5100HeaderPath, $w5100Header, $utf8NoBom)
+    [System.IO.File]::WriteAllText($w5100CppPath, $w5100Cpp, $utf8NoBom)
+    [System.IO.File]::WriteAllText($socketPath, $socketCpp, $utf8NoBom)
+    [System.IO.File]::WriteAllText($asyncHeaderPath, $asyncHeader, $utf8NoBom)
+    [System.IO.File]::WriteAllText($asyncCppPath, $asyncCpp, $utf8NoBom)
+}
+else {
+    Write-Host "NB3_B_PATCH_APPLICATION=SKIPPED_ALREADY_APPLIED"
+}
+
 
 & git -C $script:G2RepoRoot diff --check
 if ($LASTEXITCODE -ne 0) {
@@ -503,20 +528,26 @@ foreach ($marker in @(
     "readSnTX_FSRStable",
     "readSnRX_RSRStable"
 )) {
+    $headerPattern = '(?m)^[ 	]*static[ 	]+bool[ 	]+' +
+        [regex]::Escape($marker) + '[ 	]*\('
+
+    $cppPattern = '(?m)^[ 	]*bool[ 	]+W5100Class::' +
+        [regex]::Escape($marker) + '[ 	]*\('
+
     $headerCount = ([regex]::Matches(
         $w5100HeaderVerify,
-        [regex]::Escape($marker)
+        $headerPattern
     )).Count
 
     $cppCount = ([regex]::Matches(
         $w5100CppVerify,
-        [regex]::Escape("W5100Class::$marker")
+        $cppPattern
     )).Count
 
-    Write-Host "W5100_API=$marker HEADER_COUNT=$headerCount CPP_COUNT=$cppCount"
+    Write-Host "W5100_API=$marker HEADER_DECL_COUNT=$headerCount CPP_DEF_COUNT=$cppCount"
 
     if ($headerCount -ne 1 -or $cppCount -ne 1) {
-        throw "A14_NB3B_W5100_API_MARKER_INVALID=$marker"
+        throw "A14_NB3B_W5100_API_SIGNATURE_INVALID=$marker"
     }
 }
 
@@ -687,5 +718,6 @@ Write-Host "NB3_SOCKET_STABLE_READ_LOOPS=REMOVED"
 Write-Host "NB3_ASYNC_TX_STABLE_READ_LOOP=REMOVED"
 Write-Host "NB3_ASYNC_TX_COMMAND_FAILURE=OBSERVABLE"
 Write-Host "NB3_LEGACY_EXEC_CMD_API=PRESERVED"
+Write-Host "NB3_API_SIGNATURE_CHECK=EXACT_DECLARATION_DEFINITION"
 Write-Host "NB3_UPLOAD=NO"
 Write-Host "A14_NB3_BOUNDED_SOCKET_PRIMITIVES_COMPILE=PASS"
