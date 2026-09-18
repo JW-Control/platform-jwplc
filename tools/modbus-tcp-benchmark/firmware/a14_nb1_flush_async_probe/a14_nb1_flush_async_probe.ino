@@ -96,6 +96,53 @@ static void startServerIfReadyLocked()
     }
 }
 
+static uint16_t bufferTxWithoutSend(
+    uint8_t socket,
+    const uint8_t *data,
+    uint16_t length)
+{
+    if (data == nullptr || length == 0 || length > W5100.SSIZE)
+    {
+        return 0;
+    }
+
+    SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
+
+    const uint16_t freeBytes = W5100.readSnTX_FSR(socket);
+    if (freeBytes < length)
+    {
+        SPI.endTransaction();
+        return 0;
+    }
+
+    uint16_t ptr = W5100.readSnTX_WR(socket);
+    const uint16_t offset = ptr & W5100.SMASK;
+    const uint16_t destination = offset + W5100.SBASE(socket);
+
+    if (
+        W5100.hasOffsetAddressMapping() ||
+        (uint16_t)(offset + length) <= W5100.SSIZE
+    )
+    {
+        W5100.write(destination, data, length);
+    }
+    else
+    {
+        const uint16_t firstPart = W5100.SSIZE - offset;
+        W5100.write(destination, data, firstPart);
+        W5100.write(
+            W5100.SBASE(socket),
+            data + firstPart,
+            length - firstPart);
+    }
+
+    ptr = (uint16_t)(ptr + length);
+    W5100.writeSnTX_WR(socket, ptr);
+    SPI.endTransaction();
+
+    return length;
+}
+
 static void beginControlledFlush()
 {
     const uint8_t socket = probeClient.getSocketNumber();
@@ -106,9 +153,8 @@ static void beginControlledFlush()
         return;
     }
 
-    const uint16_t buffered = Ethernet.socketBufferData(
+    const uint16_t buffered = bufferTxWithoutSend(
         socket,
-        0,
         txBuffer,
         CONTROLLED_PENDING_BYTES);
 
