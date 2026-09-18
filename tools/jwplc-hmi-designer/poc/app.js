@@ -549,52 +549,76 @@
   }
 
   function drawShapeEllipse(buffer, a, b, color, size) {
-    const rx = Math.abs(b.x - a.x) / 2;
-    const ry = Math.abs(b.y - a.y) / 2;
-    const cx = Math.min(a.x, b.x) + rx;
-    const cy = Math.min(a.y, b.y) + ry;
+    let x0 = a.x, y0 = a.y, x1 = b.x, y1 = b.y;
+    let aDist = Math.abs(x1 - x0);
+    let bDist = Math.abs(y1 - y0);
+    let b1 = bDist & 1;
+    let dx = 4 * (1 - aDist) * bDist * bDist;
+    let dy = 4 * (b1 + 1) * aDist * aDist;
+    let err = dx + dy + b1 * aDist * aDist;
+    let e2;
 
-    let x = 0;
-    let y = Math.round(ry);
-    let rx2 = rx * rx;
-    let ry2 = ry * ry;
-    let tworx2 = 2 * rx2;
-    let twory2 = 2 * ry2;
-    let p;
-    let px = 0;
-    let py = tworx2 * y;
+    if (aDist === 0 || bDist === 0) {
+      return rasterLineBuffer(buffer, a.x, a.y, b.x, b.y, color, size);
+    }
 
-    if (rx === 0 || ry === 0) return rasterLineBuffer(buffer, a.x, a.y, b.x, b.y, color, size);
+    let left = Math.min(x0, x1), right = Math.max(x0, x1);
+    let top = Math.min(y0, y1), bottom = Math.max(y0, y1);
+    let curX0 = left, curX1 = right;
+    let curY0 = top + Math.floor((bDist + 1) / 2), curY1 = curY0 - b1;
+    aDist *= 8 * aDist;
+    b1 = 8 * bDist * bDist;
 
-    const plot = (cx, cy, x, y) => {
-      for (let oy = 0; oy < size; oy++) {
-        for (let ox = 0; ox < size; ox++) {
-          let cxo = ox - Math.floor(size/2);
-          let cyo = oy - Math.floor(size/2);
-          setBufferPixel(buffer, Math.round(cx + x) + cxo, Math.round(cy + y) + cyo, color);
-          setBufferPixel(buffer, Math.round(cx - x) + cxo, Math.round(cy + y) + cyo, color);
-          setBufferPixel(buffer, Math.round(cx + x) + cxo, Math.round(cy - y) + cyo, color);
-          setBufferPixel(buffer, Math.round(cx - x) + cxo, Math.round(cy - y) + cyo, color);
+    const plot = (px, py) => {
+      if (!size || size <= 1) {
+        setBufferPixel(buffer, px, py, color);
+      } else {
+        const half = Math.floor(size / 2);
+        for (let oy = 0; oy < size; oy++) {
+          for (let ox = 0; ox < size; ox++) {
+            setBufferPixel(buffer, px + ox - half, py + oy - half, color);
+          }
         }
       }
     };
 
-    p = Math.round(ry2 - (rx2 * ry) + (0.25 * rx2));
-    while (px < py) {
-      plot(cx, cy, x, y);
-      x++;
-      px += twory2;
-      if (p < 0) p += ry2 + px;
-      else { y--; py -= tworx2; p += ry2 + px - py; }
+    do {
+      plot(curX1, curY0);
+      plot(curX0, curY0);
+      plot(curX0, curY1);
+      plot(curX1, curY1);
+      e2 = 2 * err;
+      if (e2 <= dy) { curY0++; curY1--; err += dy += aDist; }
+      if (e2 >= dx || 2 * err > dy) { curX0++; curX1--; err += dx += b1; }
+    } while (curX0 <= curX1);
+
+    while (curY0 - curY1 <= bDist) {
+      plot(curX0 - 1, curY0);
+      plot(curX1 + 1, curY0++);
+      plot(curX0 - 1, curY1);
+      plot(curX1 + 1, curY1--);
     }
-    p = Math.round(ry2 * (x + 0.5) * (x + 0.5) + rx2 * (y - 1) * (y - 1) - rx2 * ry2);
-    while (y >= 0) {
-      plot(cx, cy, x, y);
-      y--;
-      py -= tworx2;
-      if (p > 0) p += rx2 - py;
-      else { x++; px += twory2; p += rx2 - py + px; }
+  }
+
+  function getPolygonVertices(field) {
+    const x1 = field.x;
+    const y1 = field.y;
+    const x2 = field.x2 ?? field.x;
+    const y2 = field.y2 ?? field.y;
+    const cx = (x1 + x2) / 2;
+    const cy = (y1 + y2) / 2;
+    const rx = Math.abs(x2 - x1) / 2;
+    const ry = Math.abs(y2 - y1) / 2;
+    const numSides = Math.max(3, Math.min(12, Math.trunc(Number(field.sides) || 5)));
+    const pts = [];
+    for (let i = 0; i < numSides; i++) {
+      const angle = (i * 2 * Math.PI / numSides) - Math.PI / 2;
+      pts.push({
+        x: Math.round(cx + rx * Math.cos(angle)),
+        y: Math.round(cy + ry * Math.sin(angle))
+      });
     }
+    return pts;
   }
 
   function drawShape(buffer, field) {
@@ -624,19 +648,8 @@
       rasterLineBuffer(buffer, bl.x, bl.y, br.x, br.y, color, size);
       rasterLineBuffer(buffer, br.x, br.y, topPt.x, topPt.y, color, size);
     } else if (field.type === 'POLYGON') {
-      const cx = (a.x + b.x) / 2;
-      const cy = (a.y + b.y) / 2;
-      const rx = Math.abs(b.x - a.x) / 2;
-      const ry = Math.abs(b.y - a.y) / 2;
-      const numSides = Math.max(3, Math.min(12, Math.trunc(Number(field.sides) || 5)));
-      const pts = [];
-      for (let i = 0; i < numSides; i++) {
-        const angle = (i * 2 * Math.PI / numSides) - Math.PI / 2;
-        pts.push({
-          x: Math.round(cx + rx * Math.cos(angle)),
-          y: Math.round(cy + ry * Math.sin(angle))
-        });
-      }
+      const pts = getPolygonVertices(field);
+      const numSides = pts.length;
       for (let i = 0; i < numSides; i++) {
         const p1 = pts[i];
         const p2 = pts[(i + 1) % numSides];
@@ -734,15 +747,49 @@
     return String(field.preview || '').slice(0, Math.max(1, field.capacity || 1));
   }
 
+  function getFieldBounds(field) {
+    if (!field) return { minX: 0, maxX: 0, minY: 0, maxY: 0, width: 0, height: 0 };
+    if (field.type === 'POLYGON') {
+      const pts = getPolygonVertices(field);
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      for (const p of pts) {
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.y > maxY) maxY = p.y;
+      }
+      return { minX, maxX, minY, maxY, width: Math.max(1, maxX - minX), height: Math.max(1, maxY - minY) };
+    }
+    if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE'].includes(field.type)) {
+      const x2 = field.x2 ?? field.x;
+      const y2 = field.y2 ?? field.y;
+      const minX = Math.min(field.x, x2);
+      const maxX = Math.max(field.x, x2);
+      const minY = Math.min(field.y, y2);
+      const maxY = Math.max(field.y, y2);
+      return { minX, maxX, minY, maxY, width: Math.abs(x2 - field.x), height: Math.abs(y2 - field.y) };
+    }
+    const g = computeFieldGeometry(field);
+    return {
+      minX: g.fieldX,
+      maxX: g.fieldX + g.fieldW - 1,
+      minY: g.fieldY,
+      maxY: g.fieldY + g.fieldH - 1,
+      width: g.fieldW,
+      height: g.fieldH
+    };
+  }
+
   function computeFieldGeometry(field) {
     if (!field) return null;
     if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
+      const b = getFieldBounds(field);
       return {
         pad: 0,
-        fieldX: Math.min(field.x, field.x2),
-        fieldY: Math.min(field.y, field.y2),
-        fieldW: Math.abs(field.x2 - field.x),
-        fieldH: Math.abs(field.y2 - field.y),
+        fieldX: b.minX,
+        fieldY: b.minY,
+        fieldW: b.width,
+        fieldH: b.height,
         valueX: 0,
         valueY: 0,
         valueW: 0,
@@ -1106,23 +1153,11 @@
     if (!fields || fields.length === 0) return null;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const f of fields) {
-      let fMinX, fMaxX, fMinY, fMaxY;
-      if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(f.type)) {
-        fMinX = Math.min(f.x, f.x2 ?? f.x);
-        fMaxX = Math.max(f.x, f.x2 ?? f.x);
-        fMinY = Math.min(f.y, f.y2 ?? f.y);
-        fMaxY = Math.max(f.y, f.y2 ?? f.y);
-      } else {
-        const g = computeFieldGeometry(f);
-        fMinX = g.fieldX;
-        fMaxX = g.fieldX + g.fieldW - 1;
-        fMinY = g.fieldY;
-        fMaxY = g.fieldY + g.fieldH - 1;
-      }
-      if (fMinX < minX) minX = fMinX;
-      if (fMaxX > maxX) maxX = fMaxX;
-      if (fMinY < minY) minY = fMinY;
-      if (fMaxY > maxY) maxY = fMaxY;
+      const b = getFieldBounds(f);
+      if (b.minX < minX) minX = b.minX;
+      if (b.maxX > maxX) maxX = b.maxX;
+      if (b.minY < minY) minY = b.minY;
+      if (b.maxY > maxY) maxY = b.maxY;
     }
     if (minX > maxX || minY > maxY) return null;
 
@@ -2114,20 +2149,9 @@
     }
 
     if (field.type === 'POLYGON') {
-      const cx = (a.x + b.x) / 2;
-      const cy = (a.y + b.y) / 2;
-      const rx = Math.abs(b.x - a.x) / 2;
-      const ry = Math.abs(b.y - a.y) / 2;
-      const numSides = Math.max(3, Math.min(12, Math.trunc(Number(field.sides) || 5)));
-      const pts = [];
-      for (let i = 0; i < numSides; i++) {
-        const angle = (i * 2 * Math.PI / numSides) - Math.PI / 2;
-        pts.push({
-          x: Math.round(cx + rx * Math.cos(angle)),
-          y: Math.round(cy + ry * Math.sin(angle))
-        });
-      }
+      const pts = getPolygonVertices(field);
       let minDist = Infinity;
+      const numSides = pts.length;
       for (let i = 0; i < numSides; i++) {
         const p1 = pts[i];
         const p2 = pts[(i + 1) % numSides];
@@ -2533,19 +2557,8 @@
     }
 
     if (field.type === 'POLYGON') {
-      const cx = (a.x + b.x) / 2;
-      const cy = (a.y + b.y) / 2;
-      const rx = Math.abs(b.x - a.x) / 2;
-      const ry = Math.abs(b.y - a.y) / 2;
-      const numSides = Math.max(3, Math.min(12, Math.trunc(Number(field.sides) || 5)));
-      const pts = [];
-      for (let i = 0; i < numSides; i++) {
-        const angle = (i * 2 * Math.PI / numSides) - Math.PI / 2;
-        pts.push({
-          x: Math.round(cx + rx * Math.cos(angle)),
-          y: Math.round(cy + ry * Math.sin(angle))
-        });
-      }
+      const pts = getPolygonVertices(field);
+      const numSides = pts.length;
       for (let i = 0; i < numSides; i++) {
         const p1 = pts[i];
         const p2 = pts[(i + 1) % numSides];
@@ -2596,18 +2609,8 @@
             if (Number(f.page || 0) !== activePage) continue;
 
             if (isLeftToRight) {
-              // SolidWorks Window: Enclosed only (must be 100% inside)
-              let fullyInside = false;
-              if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(f.type)) {
-                const fL = Math.min(f.x, f.x2 ?? f.x);
-                const fR = Math.max(f.x, f.x2 ?? f.x);
-                const fT = Math.min(f.y, f.y2 ?? f.y);
-                const fB = Math.max(f.y, f.y2 ?? f.y);
-                fullyInside = (fL >= boxL && fR <= boxR && fT >= boxT && fB <= boxB);
-              } else {
-                const g = computeFieldGeometry(f);
-                fullyInside = (g.fieldX >= boxL && (g.fieldX + g.fieldW) <= boxR && g.fieldY >= boxT && (g.fieldY + g.fieldH) <= boxB);
-              }
+              const fb = getFieldBounds(f);
+              const fullyInside = (fb.minX >= boxL && fb.maxX <= boxR && fb.minY >= boxT && fb.maxY <= boxB);
               if (fullyInside) {
                 matchedList.push(f);
               }

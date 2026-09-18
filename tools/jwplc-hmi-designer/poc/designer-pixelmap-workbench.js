@@ -169,58 +169,46 @@
   }
 
   function drawEllipse(map, a, b, color, size) {
-    const rx = Math.abs(b.x - a.x) / 2;
-    const ry = Math.abs(b.y - a.y) / 2;
-    const cx = Math.min(a.x, b.x) + rx;
-    const cy = Math.min(a.y, b.y) + ry;
+    let x0 = a.x, y0 = a.y, x1 = b.x, y1 = b.y;
+    let aDist = Math.abs(x1 - x0);
+    let bDist = Math.abs(y1 - y0);
+    let b1 = bDist & 1;
+    let dx = 4 * (1 - aDist) * bDist * bDist;
+    let dy = 4 * (b1 + 1) * aDist * aDist;
+    let err = dx + dy + b1 * aDist * aDist;
+    let e2;
 
-    let changed = false;
-    let x = 0;
-    let y = Math.round(ry);
-    let rx2 = rx * rx;
-    let ry2 = ry * ry;
-    let tworx2 = 2 * rx2;
-    let twory2 = 2 * ry2;
-    let p;
-    let px = 0;
-    let py = tworx2 * y;
-
-    if (rx === 0 || ry === 0) {
+    if (aDist === 0 || bDist === 0) {
       return drawLine(map, a, b, color, size);
     }
 
-    const plot = (cx, cy, x, y) => {
-      changed = putBrush(map, Math.round(cx + x), Math.round(cy + y), color, size) || changed;
-      changed = putBrush(map, Math.round(cx - x), Math.round(cy + y), color, size) || changed;
-      changed = putBrush(map, Math.round(cx + x), Math.round(cy - y), color, size) || changed;
-      changed = putBrush(map, Math.round(cx - x), Math.round(cy - y), color, size) || changed;
+    let changed = false;
+    let left = Math.min(x0, x1), right = Math.max(x0, x1);
+    let top = Math.min(y0, y1), bottom = Math.max(y0, y1);
+    let curX0 = left, curX1 = right;
+    let curY0 = top + Math.floor((bDist + 1) / 2), curY1 = curY0 - b1;
+    aDist *= 8 * aDist;
+    b1 = 8 * bDist * bDist;
+
+    const plot = (px, py) => {
+      changed = putBrush(map, px, py, color, size) || changed;
     };
 
-    p = Math.round(ry2 - (rx2 * ry) + (0.25 * rx2));
-    while (px < py) {
-      plot(cx, cy, x, y);
-      x++;
-      px += twory2;
-      if (p < 0) {
-        p += ry2 + px;
-      } else {
-        y--;
-        py -= tworx2;
-        p += ry2 + px - py;
-      }
-    }
-    p = Math.round(ry2 * (x + 0.5) * (x + 0.5) + rx2 * (y - 1) * (y - 1) - rx2 * ry2);
-    while (y >= 0) {
-      plot(cx, cy, x, y);
-      y--;
-      py -= tworx2;
-      if (p > 0) {
-        p += rx2 - py;
-      } else {
-        x++;
-        px += twory2;
-        p += rx2 - py + px;
-      }
+    do {
+      plot(curX1, curY0);
+      plot(curX0, curY0);
+      plot(curX0, curY1);
+      plot(curX1, curY1);
+      e2 = 2 * err;
+      if (e2 <= dy) { curY0++; curY1--; err += dy += aDist; }
+      if (e2 >= dx || 2 * err > dy) { curX0++; curX1--; err += dx += b1; }
+    } while (curX0 <= curX1);
+
+    while (curY0 - curY1 <= bDist) {
+      plot(curX0 - 1, curY0);
+      plot(curX1 + 1, curY0++);
+      plot(curX0 - 1, curY1);
+      plot(curX1 + 1, curY1--);
     }
     return changed;
   }
