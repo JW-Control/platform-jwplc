@@ -1149,13 +1149,6 @@
 
   function getSelectionHandles(fields) {
     if (!fields || fields.length === 0) return [];
-    if (fields.length === 1 && fields[0].type === 'LINE') {
-      const line = fields[0];
-      return [
-        { id: 'line-start', x: Math.round(line.x * zoom + zoom / 2), y: Math.round(line.y * zoom + zoom / 2), cursor: 'crosshair' },
-        { id: 'line-end', x: Math.round((line.x2 ?? line.x) * zoom + zoom / 2), y: Math.round((line.y2 ?? line.y) * zoom + zoom / 2), cursor: 'crosshair' }
-      ];
-    }
 
     const b = getSelectionBounds(fields);
     if (!b) return [];
@@ -1196,72 +1189,20 @@
   function isPointInsideSelection(point) {
     const fields = selectedFields();
     if (fields.length === 0) return false;
-    if (fields.length === 1 && fields[0].type === 'LINE') {
-      const line = fields[0];
-      return distToSegment(point.x, point.y, line.x, line.y, line.x2 ?? line.x, line.y2 ?? line.y) <= 4;
-    }
     const b = getSelectionBounds(fields);
     if (!b) return false;
-    return (point.x >= b.minX && point.x <= b.maxX && point.y >= b.minY && point.y <= b.maxY);
+    const margin = 1;
+    return (
+      point.x >= b.minX - margin &&
+      point.x <= b.maxX + margin &&
+      point.y >= b.minY - margin &&
+      point.y <= b.maxY + margin
+    );
   }
 
   function drawSelectionAndGuides() {
     const fields = selectedFields();
     if (fields.length === 0) return;
-
-    if (fields.length === 1 && fields[0].type === 'LINE') {
-      const sel = fields[0];
-      const lx1 = Math.round(sel.x * zoom + zoom / 2) + 0.5;
-      const ly1 = Math.round(sel.y * zoom + zoom / 2) + 0.5;
-      const lx2 = Math.round((sel.x2 ?? sel.x) * zoom + zoom / 2) + 0.5;
-      const ly2 = Math.round((sel.y2 ?? sel.y) * zoom + zoom / 2) + 0.5;
-
-      displayCtx.save();
-
-      // Dotted projection lines to rulers from endpoints
-      displayCtx.strokeStyle = 'rgba(255, 255, 255, 0.40)';
-      displayCtx.setLineDash([2, 3]);
-      displayCtx.lineWidth = 1;
-      displayCtx.beginPath();
-      displayCtx.moveTo(lx1, 0);
-      displayCtx.lineTo(lx1, displayCanvas.height);
-      displayCtx.moveTo(lx2, 0);
-      displayCtx.lineTo(lx2, displayCanvas.height);
-      displayCtx.moveTo(0, ly1);
-      displayCtx.lineTo(displayCanvas.width, ly1);
-      displayCtx.moveTo(0, ly2);
-      displayCtx.lineTo(displayCanvas.width, ly2);
-      displayCtx.stroke();
-
-      // Discrete 1px dashed blue line indicator
-      displayCtx.strokeStyle = '#0084ff';
-      displayCtx.setLineDash([3, 3]);
-      displayCtx.lineWidth = 1;
-      displayCtx.beginPath();
-      displayCtx.moveTo(lx1, ly1);
-      displayCtx.lineTo(lx2, ly2);
-      displayCtx.stroke();
-
-      // 2 endpoint handles
-      const hs = 6;
-      const points = [
-        [lx1, ly1],
-        [lx2, ly2]
-      ];
-
-      points.forEach(([hx, hy]) => {
-        const rx = Math.round(hx - hs / 2);
-        const ry = Math.round(hy - hs / 2);
-        displayCtx.fillStyle = '#060d13';
-        displayCtx.fillRect(rx, ry, hs, hs);
-        displayCtx.strokeStyle = '#0084ff';
-        displayCtx.lineWidth = 1.5;
-        displayCtx.strokeRect(rx + 0.5, ry + 0.5, hs - 1, hs - 1);
-      });
-
-      displayCtx.restore();
-      return;
-    }
 
     const b = getSelectionBounds(fields);
     if (!b) return;
@@ -2087,6 +2028,13 @@
     updateCodePanel();
   });
 
+  const ELLIPSE_SAMPLE_STEPS = 48;
+  const ELLIPSE_UNIT_SAMPLES = [];
+  for (let i = 0; i <= ELLIPSE_SAMPLE_STEPS; i++) {
+    const a = (i * 2 * Math.PI) / ELLIPSE_SAMPLE_STEPS;
+    ELLIPSE_UNIT_SAMPLES.push({ c: Math.cos(a), s: Math.sin(a) });
+  }
+
   function distToSegment(px, py, x1, y1, x2, y2) {
     const dx = x2 - x1;
     const dy = y2 - y1;
@@ -2121,14 +2069,37 @@
     }
 
     if (field.type === 'ELLIPSE') {
+      const rx = Math.abs(b.x - a.x) / 2;
+      const ry = Math.abs(b.y - a.y) / 2;
+      if (rx < 1 || ry < 1) {
+        return distToSegment(px, py, a.x, a.y, b.x, b.y);
+      }
+      const minX = Math.min(a.x, b.x);
+      const maxX = Math.max(a.x, b.x);
+      const minY = Math.min(a.y, b.y);
+      const maxY = Math.max(a.y, b.y);
+      const margin = 12;
+      if (px < minX - margin || px > maxX + margin || py < minY - margin || py > maxY + margin) {
+        const dx = Math.max(minX - px, 0, px - maxX);
+        const dy = Math.max(minY - py, 0, py - maxY);
+        return Math.hypot(dx, dy);
+      }
+
       const cx = (a.x + b.x) / 2;
       const cy = (a.y + b.y) / 2;
-      const rx = Math.max(0.5, Math.abs(b.x - a.x) / 2);
-      const ry = Math.max(0.5, Math.abs(b.y - a.y) / 2);
-      const angle = Math.atan2(py - cy, px - cx);
-      const bx = cx + rx * Math.cos(angle);
-      const by = cy + ry * Math.sin(angle);
-      return Math.hypot(px - bx, py - by);
+      let minDist = Infinity;
+      let prevX = cx + rx * ELLIPSE_UNIT_SAMPLES[0].c;
+      let prevY = cy + ry * ELLIPSE_UNIT_SAMPLES[0].s;
+
+      for (let i = 1; i <= ELLIPSE_SAMPLE_STEPS; i++) {
+        const curX = cx + rx * ELLIPSE_UNIT_SAMPLES[i].c;
+        const curY = cy + ry * ELLIPSE_UNIT_SAMPLES[i].s;
+        const d = distToSegment(px, py, prevX, prevY, curX, curY);
+        if (d < minDist) minDist = d;
+        prevX = curX;
+        prevY = curY;
+      }
+      return minDist;
     }
 
     if (field.type === 'TRIANGLE') {
@@ -2184,7 +2155,7 @@
   function hitTestField(point) {
     let bestField = null;
     let bestDist = Infinity;
-    const tolerance = 1.5;
+    const tolerance = 2.0;
 
     for (let index = hmiFields.length - 1; index >= 0; index -= 1) {
       const field = hmiFields[index];
@@ -2318,21 +2289,6 @@
       }
 
       const fields = selectedFields();
-      if (fields.length === 1 && fields[0].type === 'LINE') {
-        const line = fields[0];
-        if (resizingHandle.id === 'line-start') {
-          line.x = curX;
-          line.y = curY;
-        } else if (resizingHandle.id === 'line-end') {
-          line.x2 = curX;
-          line.y2 = curY;
-        }
-        gestureChanged = true;
-        syncInputsFromState();
-        render();
-        return;
-      }
-
       const initB = resizeInitialBounds;
       if (!initB) return;
 
@@ -2417,6 +2373,8 @@
           displayCanvas.style.cursor = hoveredHandle.cursor || 'pointer';
         } else if (isPointInsideSelection(rawPoint)) {
           displayCanvas.style.cursor = 'move';
+        } else if (hitTestField(rawPoint)) {
+          displayCanvas.style.cursor = 'pointer';
         } else {
           displayCanvas.style.cursor = (['pixel', 'erase'].includes(selectedTool) ? 'crosshair' : 'default');
         }
