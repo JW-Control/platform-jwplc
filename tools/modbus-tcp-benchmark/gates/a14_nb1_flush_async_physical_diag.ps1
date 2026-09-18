@@ -9,6 +9,27 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "common.ps1")
 
+function Invoke-A14NativeToLog {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath,
+        [Parameter(Mandatory = $true)]
+        [string[]]$Arguments,
+        [Parameter(Mandatory = $true)]
+        [string]$LogPath
+    )
+
+    $previousPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        & $FilePath @Arguments *> $LogPath
+        return [int]$LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousPreference
+    }
+}
+
 Write-Host "============================================================"
 Write-Host " A14 NB1-D2 - FLUSH ASYNC PHYSICAL DIAGNOSTIC"
 Write-Host "============================================================"
@@ -150,8 +171,7 @@ $compileArgs = @(
     "--libraries", $librariesRoot,
     $probeSketchDir
 )
-& $arduinoCli @compileArgs *> $compileLog
-$compileExit = [int]$LASTEXITCODE
+$compileExit = Invoke-A14NativeToLog -FilePath $arduinoCli -Arguments $compileArgs -LogPath $compileLog
 Write-Host "COMPILE_EXIT=$compileExit"
 Write-Host "COMPILE_LOG=$compileLog"
 if ($compileExit -ne 0) {
@@ -183,8 +203,7 @@ $uploadArgs = @(
     "--input-dir", $buildDir,
     $probeSketchDir
 )
-& $arduinoCli @uploadArgs *> $uploadLog
-$uploadExit = [int]$LASTEXITCODE
+$uploadExit = Invoke-A14NativeToLog -FilePath $arduinoCli -Arguments $uploadArgs -LogPath $uploadLog
 Write-Host "UPLOAD_EXIT=$uploadExit"
 Write-Host "UPLOAD_LOG=$uploadLog"
 if ($uploadExit -ne 0) {
@@ -206,8 +225,7 @@ $clientArgs = @(
     "--ready-timeout-s", "15",
     "--result-timeout-s", "8"
 )
-& $pythonExe @clientArgs *> $clientLog
-$clientExit = [int]$LASTEXITCODE
+$clientExit = Invoke-A14NativeToLog -FilePath $pythonExe -Arguments $clientArgs -LogPath $clientLog
 Write-Host "CLIENT_EXIT=$clientExit"
 Write-Host "CLIENT_LOG=$clientLog"
 Get-Content -LiteralPath $clientLog | ForEach-Object { Write-Host $_ }
