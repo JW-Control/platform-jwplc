@@ -217,7 +217,7 @@
   }
 
   function variableDeclaration(field, index) {
-    if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) return '';
+    if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT'].includes(field.type)) return '';
     const variable = canonicalFor(field, 'variable', field.variable, index);
     if (field.type === 'VALUE' || field.type === 'BAR') return `float ${variable} = 0.0f;`;
     if (field.type === 'BOOL') return `bool ${variable} = false;`;
@@ -226,7 +226,7 @@
   }
 
   function setterHint(field, index) {
-    if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
+    if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT'].includes(field.type)) {
       const c = `0x${(field.frameColor || 0xFFFF).toString(16).toUpperCase().padStart(4, '0')}`;
       if (field.type === 'LINE') return `JWPLC_Display.getTFT()->drawLine(${field.x}, ${field.y}, ${field.x2}, ${field.y2}, ${c});`;
       if (field.type === 'RECT') return `JWPLC_Display.getTFT()->drawRect(${Math.min(field.x, field.x2)}, ${Math.min(field.y, field.y2)}, ${Math.abs(field.x2 - field.x)}, ${Math.abs(field.y2 - field.y)}, ${c});`;
@@ -252,7 +252,13 @@
           const p2 = pts[(i + 1) % numSides];
           cmds.push(`JWPLC_Display.getTFT()->drawLine(${p1.x}, ${p1.y}, ${p2.x}, ${p2.y}, ${c});`);
         }
-        return cmds.join('\\n        ');
+        return cmds.join('\n        ');
+      }
+      if (field.type === 'RAW_TEXT') {
+        const fg = `0x${(field.textColor ?? 0xFFFF).toString(16).toUpperCase().padStart(4, '0')}`;
+        const bg = `0x${(field.backgroundColor ?? 0x0000).toString(16).toUpperCase().padStart(4, '0')}`;
+        const text = String(field.text || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        return `JWPLC_Display.getTFT()->setCursor(${field.x}, ${field.y});\n        JWPLC_Display.getTFT()->setTextSize(${field.size || 1});\n        JWPLC_Display.getTFT()->setTextColor(${fg}, ${bg});\n        JWPLC_Display.getTFT()->print("${text}");`;
       }
     }
     const id = canonicalFor(field, 'id', field.id, index);

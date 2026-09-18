@@ -463,37 +463,6 @@
     }
 
     function injectTools() {
-      const actions = document.getElementById('pixelmapWorkbenchTools');
-      if (!actions || actions.dataset.workbenchReady === '1') return false;
-      actions.dataset.workbenchReady = '1';
-      actions.style.display = 'flex';
-      
-      const divider = document.getElementById('pixelmapToolsDivider');
-      if (divider) divider.style.display = 'block';
-
-      const tools = [
-        ['FILL', '▨', 'Rellenar región contigua (G)'],
-        ['PICK', '◉', 'Cuentagotas RGB565 (I / Alt+clic)']
-      ];
-
-      tools.forEach(([mode, label, title]) => {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'tool canvas-tool utility-tool-btn';
-        button.dataset.pmwMode = mode;
-        button.innerHTML = `<strong>${label}</strong>`;
-        button.title = title;
-        button.addEventListener('click', () => {
-          extraMode = mode;
-          updateToolButtons();
-          drawCursor(lastPointerPoint);
-        });
-        actions.appendChild(button);
-      });
-
-      // PolySides removed from pixel workbench
-
-      updateToolButtons();
       return true;
     }
 

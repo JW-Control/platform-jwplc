@@ -475,6 +475,7 @@
     if (field.type === 'VALUE') return 'valueField';
     if (field.type === 'BOOL') return 'boolField';
     if (field.type === 'BAR') return 'barField';
+    if (field.type === 'RAW_TEXT') return 'rawText';
     if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) return 'pointer';
     return 'textField';
   }
@@ -484,6 +485,85 @@
     const index = indexFor(x, y);
     if (pixelLayer[index] === value) return false;
     pixelLayer[index] = value;
+    return true;
+  }
+
+  function floodFill(startX, startY, replacement) {
+    if (!inside(startX, startY)) return false;
+    const target = framebuffer[indexFor(startX, startY)];
+    if (target === replacement) return false;
+
+    const queue = new Int32Array(WIDTH * HEIGHT);
+    const visited = new Uint8Array(WIDTH * HEIGHT);
+    let head = 0;
+    let tail = 0;
+
+    const startIdx = indexFor(startX, startY);
+    queue[tail++] = (startX & 0xFFFF) | ((startY & 0xFFFF) << 16);
+    visited[startIdx] = 1;
+
+    let changed = false;
+    while (head < tail) {
+      const val = queue[head++];
+      const x = val & 0xFFFF;
+      const y = (val >> 16) & 0xFFFF;
+      const idx = indexFor(x, y);
+
+      pixelLayer[idx] = replacement;
+      changed = true;
+
+      // 4 neighbors
+      if (x > 0) {
+        const nIdx = idx - 1;
+        if (!visited[nIdx] && framebuffer[nIdx] === target) {
+          visited[nIdx] = 1;
+          queue[tail++] = ((x - 1) & 0xFFFF) | ((y & 0xFFFF) << 16);
+        }
+      }
+      if (x < WIDTH - 1) {
+        const nIdx = idx + 1;
+        if (!visited[nIdx] && framebuffer[nIdx] === target) {
+          visited[nIdx] = 1;
+          queue[tail++] = ((x + 1) & 0xFFFF) | ((y & 0xFFFF) << 16);
+        }
+      }
+      if (y > 0) {
+        const nIdx = idx - WIDTH;
+        if (!visited[nIdx] && framebuffer[nIdx] === target) {
+          visited[nIdx] = 1;
+          queue[tail++] = (x & 0xFFFF) | (((y - 1) & 0xFFFF) << 16);
+        }
+      }
+      if (y < HEIGHT - 1) {
+        const nIdx = idx + WIDTH;
+        if (!visited[nIdx] && framebuffer[nIdx] === target) {
+          visited[nIdx] = 1;
+          queue[tail++] = (x & 0xFFFF) | (((y + 1) & 0xFFFF) << 16);
+        }
+      }
+    }
+    return changed;
+  }
+
+  function pickColorAt(point) {
+    if (!inside(point.x, point.y)) return false;
+    const color565 = framebuffer[indexFor(point.x, point.y)];
+    const matched = PALETTE_COLORS.find((c) => c.value === color565);
+    selectedColor = matched || { name: hex565(color565), value: color565 };
+    updateActiveColorUI();
+    buildPalette();
+
+    const field = selectedField();
+    if (field) {
+      if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
+        field.frameColor = selectedColor.value;
+      } else if (field.type === 'RAW_TEXT') {
+        field.textColor = selectedColor.value;
+      } else if (['TEXT', 'VALUE', 'BOOL', 'BAR'].includes(field.type)) {
+        field.valueColor = selectedColor.value;
+      }
+      syncInputsFromState();
+    }
     return true;
   }
 
@@ -749,6 +829,19 @@
 
   function getFieldBounds(field) {
     if (!field) return { minX: 0, maxX: 0, minY: 0, maxY: 0, width: 0, height: 0 };
+    if (field.type === 'RAW_TEXT') {
+      const tb = nominalTextBounds(field.text || '', field.size || 1);
+      const w = Math.max(6, tb.width);
+      const h = Math.max(7, tb.height);
+      return {
+        minX: field.x,
+        maxX: field.x + w - 1,
+        minY: field.y,
+        maxY: field.y + h - 1,
+        width: w,
+        height: h
+      };
+    }
     if (field.type === 'POLYGON') {
       const pts = getPolygonVertices(field);
       let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
@@ -782,7 +875,7 @@
 
   function computeFieldGeometry(field) {
     if (!field) return null;
-    if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
+    if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT'].includes(field.type)) {
       const b = getFieldBounds(field);
       return {
         pad: 0,
@@ -870,9 +963,11 @@
         drawField(framebuffer, field);
       } else if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
         drawShape(framebuffer, field);
+      } else if (field.type === 'RAW_TEXT') {
+        drawClassicTextAt(framebuffer, field.text || '', field.x, field.y, field.textColor ?? 0xFFFF, field.backgroundColor ?? 0x0000, field.size || 1);
       }
     });
-    if (selectedTool === 'rawText') {
+    if (selectedTool === 'rawText' && !hmiFields.some((f) => f.type === 'RAW_TEXT' && Number(f.page || 0) === activePage)) {
       drawClassicTextAt(framebuffer, rawState.value, rawState.x, rawState.y, rawState.foreground, rawState.background, rawState.size);
     }
   }
@@ -987,7 +1082,7 @@
   }
 
   function buildContractText() {
-    const validFields = hmiFields.filter(f => !['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(f.type));
+    const validFields = hmiFields.filter(f => !['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT'].includes(f.type));
     if (validFields.length === 0) return '// Sin campos HMI. Agrega TEXT, VALUE, BOOL o BAR para comenzar.';
     const enumLines = validFields
       .map((field, index) => `    ${sanitizeSymbol(field.id, fieldFallbackId(field, index))} = ${index + 1}`)
@@ -1009,6 +1104,13 @@
   }
 
   function updateMetrics() {
+    const selF = selectedField();
+    if (selF && selF.type === 'RAW_TEXT') {
+      const width = selF.text ? selF.text.length * 6 * (selF.size || 1) : 0;
+      const height = selF.text ? 8 * (selF.size || 1) : 0;
+      rawBoundsStatus.textContent = `${width} × ${height} px`;
+      return;
+    }
     if (selectedTool === 'rawText') {
       const width = rawState.value ? rawState.value.length * 6 * rawState.size : 0;
       const height = rawState.value ? 8 * rawState.size : 0;
@@ -1055,6 +1157,7 @@
       else if (field.type === 'ELLIPSE') icon = '⬭';
       else if (field.type === 'TRIANGLE') icon = '△';
       else if (field.type === 'POLYGON') icon = '⎔';
+      else if (field.type === 'RAW_TEXT') icon = 'A';
       
       button.innerHTML = `<span class="object-icon">${icon}</span><span class="object-type">${field.type}</span><span class="object-name"></span><span class="object-id"></span><span class="object-eye">●</span>`;
       if (field.type === 'VALUE') {
@@ -1064,7 +1167,7 @@
         iconNode.style.color = '#52c9ff';
       }
       button.querySelector('.object-name').textContent = field.name || `${field.type} ${index + 1}`;
-      if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
+      if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT'].includes(field.type)) {
         button.querySelector('.object-id').textContent = '';
       } else {
         button.querySelector('.object-id').textContent = field.id || fieldFallbackId(field, index);
@@ -1430,11 +1533,12 @@
     });
 
     const field = selectedField();
+    const isRaw = selectedTool === 'rawText' || field?.type === 'RAW_TEXT';
     const fieldTools = ['textField', 'valueField', 'boolField', 'barField', 'pointer'];
-    rawSection.hidden = selectedTool !== 'rawText';
-    fieldSection.hidden = !field || !fieldTools.includes(selectedTool);
-    rawMetricsSection.hidden = selectedTool !== 'rawText';
-    fieldMetricsSection.hidden = !field || !fieldTools.includes(selectedTool);
+    rawSection.hidden = !isRaw;
+    fieldSection.hidden = !field || !fieldTools.includes(selectedTool) || field.type === 'RAW_TEXT';
+    rawMetricsSection.hidden = !isRaw;
+    fieldMetricsSection.hidden = !field || !fieldTools.includes(selectedTool) || field.type === 'RAW_TEXT';
 
     if (field) {
       const isValue = field.type === 'VALUE';
@@ -1481,6 +1585,17 @@
       button.addEventListener('click', () => {
         selectedColor = color;
         if (selectedTool === 'rawText') rawState.foreground = color.value;
+        const field = selectedField();
+        if (field) {
+          if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
+            field.frameColor = color.value;
+          } else if (field.type === 'RAW_TEXT') {
+            field.textColor = color.value;
+          } else if (['TEXT', 'VALUE', 'BOOL', 'BAR'].includes(field.type)) {
+            field.valueColor = color.value;
+          }
+          syncInputsFromState();
+        }
         updateActiveColorUI();
         buildPalette();
         render();
@@ -1500,6 +1615,16 @@
     const field = selectedField();
     if (!field) {
       inspectorContract.textContent = 'Sin objeto seleccionado';
+      return;
+    }
+
+    if (field.type === 'RAW_TEXT') {
+      rawTextInput.value = field.text || '';
+      rawTextX.value = String(field.x);
+      rawTextY.value = String(field.y);
+      rawTextSize.value = String(field.size || 1);
+      rawTextBackground.value = colorName(field.backgroundColor || 0x0000);
+      inspectorContract.textContent = `// Texto RAW estático: JWPLC_Display.getTFT()->print(...)`;
       return;
     }
 
@@ -1736,6 +1861,34 @@
     commitHistory();
   }
 
+  function addRawTextField(point) {
+    if (hmiFields.length >= MAX_FIELDS) return null;
+    fieldSerial += 1;
+    const px = point ? point.x : 20 + ((fieldSerial - 1) * 8) % 80;
+    const py = point ? point.y : 20 + ((fieldSerial - 1) * 8) % 60;
+    const field = {
+      type: 'RAW_TEXT',
+      key: `rawText-${fieldSerial}`,
+      name: `RAW TEXT ${fieldSerial}`,
+      id: uniqueFieldSymbol(`FIELD_RAW_${fieldSerial}`),
+      text: rawState.value || 'Texto RAW',
+      x: px,
+      y: py,
+      size: rawState.size || 1,
+      textColor: selectedColor ? selectedColor.value : (rawState.foreground ?? 0xFFFF),
+      backgroundColor: rawState.background ?? 0x0000,
+      page: activePage
+    };
+    hmiFields.push(field);
+    setSelectedKeys([field.key]);
+    selectedTool = 'rawText';
+    syncInputsFromState();
+    syncToolUI();
+    render();
+    commitHistory();
+    return field;
+  }
+
   function addTextField() {
     if (hmiFields.length >= MAX_FIELDS) return;
     fieldSerial += 1;
@@ -1966,8 +2119,17 @@
         }
         return;
       }
+      if (tool === 'rawText') {
+        if (!field || field.type !== 'RAW_TEXT') addRawTextField();
+        else {
+          selectedTool = 'rawText';
+          syncToolUI();
+          render();
+        }
+        return;
+      }
       selectedTool = tool;
-      if (!['pointer', 'textField', 'valueField', 'boolField', 'barField'].includes(tool)) {
+      if (!['pointer', 'textField', 'valueField', 'boolField', 'barField', 'rawText'].includes(tool)) {
         setSelectedKeys([]);
       }
       syncInputsFromState();
@@ -2001,11 +2163,31 @@
   duplicateButton.addEventListener('click', duplicateSelectedField);
   deleteButton.addEventListener('click', deleteSelectedField);
 
-  bindRawInput(rawTextInput, () => { rawState.value = rawTextInput.value; });
-  bindRawInput(rawTextX, () => { rawState.x = clamp(Number(rawTextX.value) || 0, 0, WIDTH - 1); });
-  bindRawInput(rawTextY, () => { rawState.y = clamp(Number(rawTextY.value) || 0, 0, HEIGHT - 1); });
-  bindRawInput(rawTextSize, () => { rawState.size = Number(rawTextSize.value) || 1; });
-  bindRawInput(rawTextBackground, () => { rawState.background = colorByName(rawTextBackground.value).value; });
+  bindRawInput(rawTextInput, () => {
+    rawState.value = rawTextInput.value;
+    const field = selectedField();
+    if (field && field.type === 'RAW_TEXT') field.text = rawTextInput.value;
+  });
+  bindRawInput(rawTextX, () => {
+    rawState.x = clamp(Number(rawTextX.value) || 0, 0, WIDTH - 1);
+    const field = selectedField();
+    if (field && field.type === 'RAW_TEXT') field.x = rawState.x;
+  });
+  bindRawInput(rawTextY, () => {
+    rawState.y = clamp(Number(rawTextY.value) || 0, 0, HEIGHT - 1);
+    const field = selectedField();
+    if (field && field.type === 'RAW_TEXT') field.y = rawState.y;
+  });
+  bindRawInput(rawTextSize, () => {
+    rawState.size = Number(rawTextSize.value) || 1;
+    const field = selectedField();
+    if (field && field.type === 'RAW_TEXT') field.size = rawState.size;
+  });
+  bindRawInput(rawTextBackground, () => {
+    rawState.background = colorByName(rawTextBackground.value).value;
+    const field = selectedField();
+    if (field && field.type === 'RAW_TEXT') field.backgroundColor = rawState.background;
+  });
 
   bindFieldInput(fieldName, (field) => { field.name = fieldName.value; });
   bindFieldInput(fieldId, (field) => { field.id = fieldId.value; });
@@ -2215,6 +2397,21 @@
     const isTargetDisplay = (event.target === displayCanvas);
     gestureChanged = false;
 
+    if (isTargetDisplay && (selectedTool === 'pick' || event.altKey)) {
+      if (pickColorAt(point)) {
+        render();
+      }
+      return;
+    }
+
+    if (isTargetDisplay && selectedTool === 'fill') {
+      if (floodFill(point.x, point.y, selectedColor.value)) {
+        render();
+        commitHistory();
+      }
+      return;
+    }
+
     if (isTargetDisplay && (selectedTool === 'pixel' || selectedTool === 'erase')) {
       if (!inside(point.x, point.y)) return;
       drawing = true;
@@ -2234,9 +2431,24 @@
     }
 
     if (selectedTool === 'rawText' && isTargetDisplay) {
-      draggingObject = true;
-      dragOffset = { x: point.x - rawState.x, y: point.y - rawState.y };
-      render();
+      const hit = hitTestField(point);
+      if (hit && hit.type === 'RAW_TEXT') {
+        setSelectedKeys([hit.key]);
+        draggingObject = true;
+        dragInitialPointer = { ...point, rawX: hit.x, rawY: hit.y };
+        dragInitialFields = [{ ...hit }];
+        syncInputsFromState();
+        syncToolUI();
+        render();
+        return;
+      }
+      const newField = addRawTextField(point);
+      if (newField) {
+        draggingObject = true;
+        dragInitialPointer = { ...point, rawX: newField.x, rawY: newField.y };
+        dragInitialFields = [{ ...newField }];
+        render();
+      }
       return;
     }
 
@@ -2413,7 +2625,7 @@
         } else if (hitTestField(rawPoint)) {
           displayCanvas.style.cursor = 'pointer';
         } else {
-          displayCanvas.style.cursor = (['pixel', 'erase'].includes(selectedTool) ? 'crosshair' : 'default');
+          displayCanvas.style.cursor = (['pixel', 'erase', 'fill', 'pick'].includes(selectedTool) ? 'crosshair' : 'default');
         }
       }
       return;
@@ -2453,7 +2665,7 @@
         dy = Math.round(dy / snapStep) * snapStep;
       }
 
-      if (selectedTool === 'rawText') {
+      if (selectedTool === 'rawText' && selectedFields().length === 0) {
         let nextX = (dragInitialPointer?.rawX ?? 0) + dx;
         let nextY = (dragInitialPointer?.rawY ?? 0) + dy;
         nextX = clamp(nextX, 0, WIDTH - 1);
@@ -2474,6 +2686,10 @@
           } else {
             f.x = orig.x + dx;
             f.y = orig.y + dy;
+          }
+          if (f.type === 'RAW_TEXT') {
+            rawState.x = f.x;
+            rawState.y = f.y;
           }
           gestureChanged = true;
         });
@@ -2687,6 +2903,15 @@
           if (field.x2 !== undefined) field.x2 += dx;
           if (field.y2 !== undefined) field.y2 += dy;
           moved = true;
+        } else if (field.type === 'RAW_TEXT') {
+          const b = getFieldBounds(field);
+          let nextX = clamp(field.x + dx, 0, Math.max(0, WIDTH - b.width));
+          let nextY = clamp(field.y + dy, 0, Math.max(0, HEIGHT - b.height));
+          if (nextX !== field.x || nextY !== field.y) moved = true;
+          field.x = nextX;
+          field.y = nextY;
+          rawState.x = nextX;
+          rawState.y = nextY;
         } else {
           const g = computeFieldGeometry(field);
           let nextX = clamp(field.x + dx, 0, Math.max(0, WIDTH - g.fieldW));
@@ -2726,6 +2951,40 @@
   document.addEventListener('keydown', (event) => {
     const ctrl = event.ctrlKey || event.metaKey;
     if (!isEditingTarget(event.target)) {
+      if (!ctrl && !event.altKey) {
+        const key = event.key.toLowerCase();
+        if (key === 'v') {
+          selectedTool = 'pointer';
+          syncToolUI();
+          render();
+          return;
+        }
+        if (key === 'b') {
+          selectedTool = 'pixel';
+          syncToolUI();
+          render();
+          return;
+        }
+        if (key === 'e') {
+          selectedTool = 'erase';
+          syncToolUI();
+          render();
+          return;
+        }
+        if (key === 'g') {
+          selectedTool = 'fill';
+          syncToolUI();
+          render();
+          return;
+        }
+        if (key === 'i') {
+          selectedTool = 'pick';
+          syncToolUI();
+          render();
+          return;
+        }
+      }
+
       if (event.code === 'Space' || event.key === ' ') {
         event.preventDefault();
         if (event.shiftKey) {
@@ -2835,7 +3094,10 @@
     duplicateSelectedField,
     deleteSelectedField,
     addTextField,
-    addValueField
+    addValueField,
+    addRawTextField,
+    floodFill,
+    pickColorAt
   };
   window.jwplc = window.JWPLCHMIEditor;
 })();
