@@ -179,6 +179,13 @@ $socketCpp = [System.IO.File]::ReadAllText($socketPath)
 $asyncHeader = [System.IO.File]::ReadAllText($asyncHeaderPath)
 $asyncCpp = [System.IO.File]::ReadAllText($asyncCppPath)
 
+# Shared state required by both fresh-apply and resume paths.
+$utf8NoBom = New-Object -TypeName System.Text.UTF8Encoding -ArgumentList $false
+if ($null -eq $utf8NoBom) {
+    throw "A14_NB3B_SHARED_RUNTIME_INIT_FAILED=UTF8_NO_BOM"
+}
+Write-Host "NB3_B_SHARED_RUNTIME_INIT=READY"
+
 if ($resumePatched) {
     Write-Host "NB3_B_PATCH_APPLICATION=SKIPPED_ALREADY_APPLIED"
 }
@@ -454,8 +461,6 @@ $newAsyncUse = @'
 
 $asyncCpp = Replace-ExactOnce -Text $asyncCpp -Old $oldAsyncUse -New $newAsyncUse -Label "ASYNC_TX_BEGIN_USE"
 
-$utf8NoBom = New-Object -TypeName System.Text.UTF8Encoding -ArgumentList $false
-
 [System.IO.File]::WriteAllText($w5100HeaderPath, $w5100Header, $utf8NoBom)
 [System.IO.File]::WriteAllText($w5100CppPath, $w5100Cpp, $utf8NoBom)
 [System.IO.File]::WriteAllText($socketPath, $socketCpp, $utf8NoBom)
@@ -719,5 +724,6 @@ Write-Host "NB3_ASYNC_TX_STABLE_READ_LOOP=REMOVED"
 Write-Host "NB3_ASYNC_TX_COMMAND_FAILURE=OBSERVABLE"
 Write-Host "NB3_LEGACY_EXEC_CMD_API=PRESERVED"
 Write-Host "NB3_API_SIGNATURE_CHECK=EXACT_DECLARATION_DEFINITION"
+Write-Host "NB3_RESUME_SHARED_INIT=UNCONDITIONAL"
 Write-Host "NB3_UPLOAD=NO"
 Write-Host "A14_NB3_BOUNDED_SOCKET_PRIMITIVES_COMPILE=PASS"
