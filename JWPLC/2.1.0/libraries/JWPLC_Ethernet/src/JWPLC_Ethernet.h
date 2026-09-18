@@ -28,6 +28,21 @@
 #define JWPLC_ETH_AUTO_RETRY_MS 5000UL
 #endif
 
+// Refresh L2 best-effort.
+//
+// Mantiene fresca la presencia de la MAC del JWPLC en la
+// infraestructura Ethernet durante periodos prolongados sin
+// tráfico saliente.
+//
+// 0 desactiva completamente el mecanismo.
+#ifndef JWPLC_ETH_L2_REFRESH_PERIOD_MS
+#define JWPLC_ETH_L2_REFRESH_PERIOD_MS 120000UL
+#endif
+
+#ifndef JWPLC_ETH_L2_REFRESH_UDP_PORT
+#define JWPLC_ETH_L2_REFRESH_UDP_PORT 9U
+#endif
+
 enum JWPLCEthernetError : uint8_t
 {
     JWPLC_ETH_OK = 0,
@@ -153,6 +168,7 @@ private:
     JWPLCEthernetRuntimeState _runtimeState;
     JWPLCEthernetError _lastError;
     uint32_t _lastAutoAttemptMs;
+    uint32_t _lastL2RefreshMs;
 
     void generateDefaultMac();
     void resetHardwareIfNeeded();
@@ -163,6 +179,10 @@ private:
     void clearError();
     void setRuntimeState(JWPLCEthernetRuntimeState state);
     bool finishNetworkConfiguration();
+
+    // Debe llamarse únicamente con ownership del mutex SPI.
+    // Es best-effort: un fallo no invalida el estado READY.
+    bool serviceL2RefreshLocked(uint32_t now);
 };
 
 extern JWPLC_EthernetClass JWPLC_Ethernet;

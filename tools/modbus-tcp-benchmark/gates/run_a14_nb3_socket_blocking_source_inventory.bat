@@ -1,0 +1,3 @@
+@echo off
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0a14_nb3_socket_blocking_source_inventory.ps1" %*
+exit /b %ERRORLEVEL%
