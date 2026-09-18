@@ -26,6 +26,32 @@ if ($LASTEXITCODE -ne 0 -or $repoRootOutput.Count -ne 1) {
 
 $script:G2RepoRoot = $repoRootOutput[0].Trim()
 
+function Invoke-G2CompileFinishedSound {
+    param(
+        [bool]$Success = $true
+    )
+
+    # Aviso corto para pruebas interactivas: permite al operador volver
+    # al escritorio de validacion entre la compilacion y el upload/run.
+    try {
+        if ($Success) {
+            [System.Console]::Beep(880, 140)
+            [System.Console]::Beep(1175, 160)
+        }
+        else {
+            [System.Console]::Beep(440, 260)
+        }
+    }
+    catch {
+        try {
+            [System.Media.SystemSounds]::Asterisk.Play()
+        }
+        catch {
+            # El sonido es ergonomia del harness, nunca condicion de gate.
+        }
+    }
+}
+
 function Get-G2Path {
     param(
         [Parameter(Mandatory = $true)]
