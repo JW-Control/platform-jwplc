@@ -152,6 +152,29 @@ VPP_SHA256=83fdd4b22d5193d31904959aceb72a86089996b836b4b2315671bfa7a3abfd20
 
 ## 9. Diferido fuera de Alpha12
 
-- Dispositivo esclavo "JWPLC BASIC Remote I/O" dentro del VPP (programar el esclavo desde OpenPLC).
 - Commissioning del Slave ID por el bus (registros 224–240).
 - Estado del slot visible desde IEC (Alpha17).
+
+## 10. Esclavo Remote I/O programable desde OpenPLC (VPP 2.1.0-alpha.22)
+
+Decisión del responsable (2026-09-23): se adelanta a Alpha12 para no depender del Arduino IDE en campo.
+
+Nuevo dispositivo **`JWPLC BASIC Remote I/O [2.0.0]`** en el mismo VPP:
+
+| Aspecto | Contrato |
+|---|---|
+| HAL | `hal/jwplcbasic-remoteio-slave.cpp`, con la misma lógica que el sketch validado `JWPLC_RemoteIO_Slave_RTU` (FC02 entradas, FC01 feedback, FC05/FC15 salidas) |
+| Pantalla | `Remote I/O Slave` (persistencia `remote_io_slave`): Slave ID 1..247, Baudrate, Formato serie, Failsafe 1000/2000/5000 ms |
+| Defaults | ID 2, 115200/8N1, 1000 ms (iguales al sketch) |
+| Validación | Slave ID no entero o fuera de rango, baud, formato o failsafe no soportado → **error de compilación** |
+| I/O | `pinMapping=false`: el programa IEC del esclavo no controla la I/O física; las salidas pertenecen al maestro |
+| Failsafe | Mínimo 1000 ms (ver §8); sin escritura del maestro → Q0_0..Q0_7 en LOW |
+| Carga | USB desde OpenPLC, como cualquier proyecto |
+
+Verificación: HAL compilado con `vpp_config.h` del editor. Por defecto, ID 3 y 7/38400/8E1/2000 → PASS. ID 0, ID 300, ID 2.5 y failsafe 100 → FAIL esperado. Firma `valid=true`.
+
+```text
+VPP_VERSION=2.1.0-alpha.22
+VPP_SHA256=7e58453090b322e04cd95cf325f102bde231038ae7b952306a20f6454907ef18
+REMOTE_IO_SLAVE_FROM_OPENPLC=PENDING_PHYSICAL
+```
