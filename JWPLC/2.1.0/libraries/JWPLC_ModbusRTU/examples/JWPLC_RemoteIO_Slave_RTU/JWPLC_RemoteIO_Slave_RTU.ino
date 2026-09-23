@@ -6,7 +6,7 @@
   - Exponer I0_0..I0_7 por FC02.
   - Exponer feedback Q0_0..Q0_7 por FC01.
   - Recibir Q por FC05 y FC15.
-  - Aplicar fail-safe: 100 ms sin escritura DO valida -> todas las Q OFF.
+  - Aplicar fail-safe: 1000 ms sin escritura DO valida -> todas las Q OFF.
   - No implementar parser RTU manual en el sketch.
 
   Banco:
@@ -23,7 +23,11 @@ static constexpr uint8_t REMOTE_SLAVE_ID = 2;
 static constexpr uint32_t MODBUS_BAUD = 115200UL;
 static constexpr uint32_t MODBUS_CONFIG = SERIAL_8N1;
 static constexpr uint16_t MODBUS_FRAME_GAP_MS = 2;
-static constexpr uint32_t OUTPUT_FAILSAFE_MS = 100UL;
+// Alpha12: 1000 ms. Debe superar el peor tiempo entre escrituras FC15 del
+// Master del Backplane a este modulo: ciclo de todos los slots en linea
+// (hasta 7, ~420 ms a 9600 baud) + un sondeo a un slot fuera de linea
+// (timeout 250 ms). Con 100 ms las salidas parpadeaban con varios slots.
+static constexpr uint32_t OUTPUT_FAILSAFE_MS = 1000UL;
 
 static uint8_t coilMap = 0x00;
 static uint8_t discreteInputMap = 0x00;
@@ -154,7 +158,7 @@ void setup()
 
     Serial.println(F("MODBUS_BEGIN=PASS"));
     Serial.println(F("SLAVE_ID=2"));
-    Serial.println(F("FAILSAFE_MS=100"));
+    Serial.print(F("FAILSAFE_MS=")); Serial.println(OUTPUT_FAILSAFE_MS);
     Serial.println(F("CMD: STATUS | CLEAR"));
 }
 
