@@ -1,0 +1,54 @@
+{
+  "sections": [
+    {
+      "id": "remote-io-slave",
+      "title": "Remote I/O Slave (RS-485 Backplane)",
+      "layout": "form",
+      "persistence": "remote_io_slave",
+      "fields": [
+        {
+          "id": "slave_id",
+          "label": "Slave ID",
+          "type": "number",
+          "default": 2,
+          "min": 1,
+          "max": 247,
+          "step": 1,
+          "help": "Direccion Modbus RTU de este modulo. Debe coincidir con el Slave ID del slot en la pantalla JWPLC Backplane del maestro (por defecto, el numero de slot)."
+        },
+        {
+          "id": "baud_rate",
+          "label": "Baudrate",
+          "type": "select",
+          "options": ["9600", "19200", "38400", "57600", "115200"],
+          "default": "115200",
+          "help": "Debe coincidir con el Baudrate de la seccion RS-485 Backplane del maestro."
+        },
+        {
+          "id": "serial_format",
+          "label": "Formato serie",
+          "type": "select",
+          "options": [
+            { "label": "8N1 (8 datos, sin paridad, 1 stop)", "value": "8N1" },
+            { "label": "8E1 (8 datos, paridad par, 1 stop)", "value": "8E1" },
+            { "label": "8O1 (8 datos, paridad impar, 1 stop)", "value": "8O1" }
+          ],
+          "default": "8N1",
+          "help": "Debe coincidir con el Formato serie de la seccion RS-485 Backplane del maestro."
+        },
+        {
+          "id": "failsafe_ms",
+          "label": "Failsafe de salidas",
+          "type": "select",
+          "options": [
+            { "label": "1000 ms (recomendado)", "value": "1000" },
+            { "label": "2000 ms", "value": "2000" },
+            { "label": "5000 ms", "value": "5000" }
+          ],
+          "default": "1000",
+          "help": "Si el maestro deja de escribir las salidas durante este tiempo (cable cortado, maestro detenido), todas las salidas Q0_0..Q0_7 pasan a LOW."
+        }
+      ]
+    }
+  ]
+}
