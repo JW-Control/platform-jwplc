@@ -24,40 +24,54 @@ function Replace-ExactOnce {
 function Get-CppFunctionBlock {
     param(
         [Parameter(Mandatory = $true)][string]$Text,
-        [Parameter(Mandatory = $true)][string]$Signature
+        [Parameter(Mandatory = $true)][string]$SignaturePrefix
     )
 
     $searchOffset = 0
 
     while ($true) {
-        $candidate = $Text.IndexOf($Signature, $searchOffset, [System.StringComparison]::Ordinal)
+        $candidate = $Text.IndexOf(
+            $SignaturePrefix,
+            $searchOffset,
+            [System.StringComparison]::Ordinal)
+
         if ($candidate -lt 0) { break }
 
-        $cursor = $candidate + $Signature.Length
-        while ($cursor -lt $Text.Length -and [char]::IsWhiteSpace($Text[$cursor])) {
-            ++$cursor
-        }
+        $cursor = $candidate + $SignaturePrefix.Length
+        $closeParen = $Text.IndexOf(")", $cursor, [System.StringComparison]::Ordinal)
+        $braceStart = $Text.IndexOf("{", $cursor, [System.StringComparison]::Ordinal)
+        $semicolon = $Text.IndexOf(";", $cursor, [System.StringComparison]::Ordinal)
 
-        if ($cursor -lt $Text.Length -and $Text[$cursor] -eq "{") {
+        $looksLikeDefinition = (
+            $closeParen -ge 0 -and
+            $braceStart -gt $closeParen -and
+            ($semicolon -lt 0 -or $braceStart -lt $semicolon)
+        )
+
+        if ($looksLikeDefinition) {
             $depth = 0
-            for ($i = $cursor; $i -lt $Text.Length; ++$i) {
+
+            for ($i = $braceStart; $i -lt $Text.Length; ++$i) {
                 if ($Text[$i] -eq "{") {
                     ++$depth
                 }
                 elseif ($Text[$i] -eq "}") {
                     --$depth
                     if ($depth -eq 0) {
-                        return $Text.Substring($candidate, $i - $candidate + 1)
+                        return $Text.Substring(
+                            $candidate,
+                            $i - $candidate + 1)
                     }
                 }
             }
-            throw "A14_NB3F_FUNCTION_END_NOT_FOUND=$Signature"
+
+            throw "A14_NB3F_FUNCTION_END_NOT_FOUND=$SignaturePrefix"
         }
 
-        $searchOffset = $candidate + $Signature.Length
+        $searchOffset = $candidate + $SignaturePrefix.Length
     }
 
-    throw "A14_NB3F_FUNCTION_DEFINITION_NOT_FOUND=$Signature"
+    throw "A14_NB3F_FUNCTION_DEFINITION_NOT_FOUND=$SignaturePrefix"
 }
 
 function Invoke-NB3NativeToLog {
@@ -365,7 +379,7 @@ Write-Host "GIT_DIFF_CHECK=PASS"
 $headerVerify = [System.IO.File]::ReadAllText($headerPath)
 $clientVerify = [System.IO.File]::ReadAllText($clientPath)
 $socketVerify = [System.IO.File]::ReadAllText($socketPath)
-$socketSendBlock = Get-CppFunctionBlock -Text $socketVerify -Signature "uint16_t EthernetClass::socketSend("
+$socketSendBlock = Get-CppFunctionBlock -Text $socketVerify -SignaturePrefix "uint16_t EthernetClass::socketSend("
 
 $oldFreeWaitCount = ([regex]::Matches($socketSendBlock, '}\s*while\s*\(\s*freesize\s*<\s*ret\s*\);')).Count
 $oldSendOkWaitCount = ([regex]::Matches($socketSendBlock, 'while\s*\(\s*\(W5100\.readSnIR\(s\).*SEND_OK')).Count
@@ -375,7 +389,7 @@ $hardwareTimeoutCount = ([regex]::Matches($socketSendBlock, 'interruptFlags\s*&\
 $clientTimeoutPassCount = ([regex]::Matches($clientVerify, 'Ethernet\.socketSend\(_sockindex, buf, size, _timeout\)')).Count
 $headerDefaultCount = ([regex]::Matches($headerVerify, 'uint32_t\s+timeoutMs\s*=\s*1000')).Count
 
-Write-Host "TCP_LEGACY_OLD_FREE_WAIT_COUNT=$oldFreeWaitCount"
+Write-Host "TCP_LEGACY_FUNCTION_EXTRACTOR=MULTILINE_SIGNATURE_AWARE"\nWrite-Host "TCP_LEGACY_OLD_FREE_WAIT_COUNT=$oldFreeWaitCount"
 Write-Host "TCP_LEGACY_OLD_SEND_OK_WAIT_COUNT=$oldSendOkWaitCount"
 Write-Host "TCP_LEGACY_TIMEOUT_BOUNDED_LOOP_COUNT=$timeoutLoopCount"
 Write-Host "TCP_LEGACY_CHECKED_SEND_COMMAND_COUNT=$checkedCommandCount"
