@@ -66,6 +66,13 @@ static constexpr uint8_t JWPLC_REMOTE_MAX_SLOTS = 7;
 // sondea con FC02 hasta que vuelva a responder.
 static constexpr uint8_t JWPLC_REMOTE_OFFLINE_FAILURES = 3;
 
+// Intervalo minimo entre sondeos a slots fuera de linea (uno por intervalo).
+// Cada sondeo fallido cuesta un timeout completo; limitarlo acota el tiempo
+// maximo entre escrituras FC15 a los modulos sanos, que deben mantenerse por
+// debajo del failsafe de salidas del esclavo (JWPLC_RemoteIO_Slave_RTU:
+// OUTPUT_FAILSAFE_MS = 1000). Peor caso: ciclo de slots en linea + 1 timeout.
+static constexpr uint32_t JWPLC_REMOTE_OFFLINE_PROBE_INTERVAL_MS = 1000UL;
+
 // ---------------------------------------------------------------------------
 // Configuracion del bus RS-485 del Backplane (Serial2).
 //
@@ -819,20 +826,48 @@ enum JWPLCRemoteRtuPhase : uint8_t
     JWPLC_REMOTE_FEEDBACK_START,
     JWPLC_REMOTE_FEEDBACK_WAIT,
     JWPLC_REMOTE_READ_START,
-    JWPLC_REMOTE_READ_WAIT
+    JWPLC_REMOTE_READ_WAIT,
+    // Todos los slots fuera de linea y aun no toca sondear: bus en reposo.
+    JWPLC_REMOTE_IDLE
 };
 
 static JWPLCRemoteRtuPhase jwplcRemotePhase = JWPLC_REMOTE_WRITE_START;
 
-// Pasa al siguiente slot. Un slot fuera de linea solo recibe un sondeo FC02
-// por vuelta, para que un modulo desconectado no multiplique los timeouts
-// del resto del bus.
+static uint32_t jwplcLastOfflineProbeMs = 0;
+static bool jwplcOfflineProbeStarted = false;
+
+// Pasa al siguiente slot en round-robin. Los slots en linea reciben su ciclo
+// completo; un slot fuera de linea solo recibe un sondeo FC02 y como maximo
+// uno por JWPLC_REMOTE_OFFLINE_PROBE_INTERVAL_MS en todo el bus, para que los
+// modulos desconectados no retrasen las escrituras a los modulos sanos.
 static void jwplcAdvanceRemoteSlot()
 {
-    jwplcRemoteCurrent = (uint8_t)((jwplcRemoteCurrent + 1U) % jwplcRemoteSlotCount);
-    jwplcRemotePhase = jwplcRemoteSlots[jwplcRemoteCurrent].online
-                           ? JWPLC_REMOTE_WRITE_START
-                           : JWPLC_REMOTE_READ_START;
+    const uint32_t nowMs = millis();
+    const bool probeDue =
+        !jwplcOfflineProbeStarted ||
+        (uint32_t)(nowMs - jwplcLastOfflineProbeMs) >= JWPLC_REMOTE_OFFLINE_PROBE_INTERVAL_MS;
+
+    for (uint8_t step = 1; step <= jwplcRemoteSlotCount; ++step)
+    {
+        const uint8_t index = (uint8_t)((jwplcRemoteCurrent + step) % jwplcRemoteSlotCount);
+        if (jwplcRemoteSlots[index].online)
+        {
+            jwplcRemoteCurrent = index;
+            jwplcRemotePhase = JWPLC_REMOTE_WRITE_START;
+            return;
+        }
+
+        if (probeDue)
+        {
+            jwplcRemoteCurrent = index;
+            jwplcRemotePhase = JWPLC_REMOTE_READ_START;
+            jwplcLastOfflineProbeMs = nowMs;
+            jwplcOfflineProbeStarted = true;
+            return;
+        }
+    }
+
+    jwplcRemotePhase = JWPLC_REMOTE_IDLE;
 }
 
 static void jwplcServiceRemoteRtu()
@@ -873,9 +908,16 @@ static void jwplcServiceRemoteRtu()
             JWPLC_ModbusRTU.clearMasterResult();
             jwplcRecordRemoteResult(remote, fc15Succeeded);
 
-            jwplcRemotePhase = remote.online
-                                   ? JWPLC_REMOTE_FEEDBACK_START
-                                   : JWPLC_REMOTE_READ_START;
+            // Un fallo corta el ciclo de este slot: no encadenar timeouts
+            // FC01/FC02 contra un modulo que no responde.
+            if (fc15Succeeded)
+            {
+                jwplcRemotePhase = JWPLC_REMOTE_FEEDBACK_START;
+            }
+            else
+            {
+                jwplcAdvanceRemoteSlot();
+            }
         }
         break;
 
@@ -908,7 +950,14 @@ static void jwplcServiceRemoteRtu()
             jwplcUpdateRemoteFeedback(remote, fc01Succeeded);
             jwplcRecordRemoteResult(remote, fc01Succeeded);
 
-            jwplcRemotePhase = JWPLC_REMOTE_READ_START;
+            if (fc01Succeeded)
+            {
+                jwplcRemotePhase = JWPLC_REMOTE_READ_START;
+            }
+            else
+            {
+                jwplcAdvanceRemoteSlot();
+            }
         }
         break;
 
@@ -942,6 +991,10 @@ static void jwplcServiceRemoteRtu()
 
             jwplcAdvanceRemoteSlot();
         }
+        break;
+
+    case JWPLC_REMOTE_IDLE:
+        jwplcAdvanceRemoteSlot();
         break;
 
     default:
