@@ -10,9 +10,12 @@ extern "C"
 #include "vpp_config.h"
 #include <JWPLC_ModbusRTU.h>
 
-// Probe temporal Alpha7.18: mide la nueva cadencia. No cambia parametros RTU.
+// Probe Alpha7.18: mide la cadencia del Backplane por Serial0.
+// Alpha12: desactivado por defecto en produccion. Solo para banco de pruebas:
+// definir JWPLC_ALPHA7_RTU_TIMING_DIAGNOSTICS=1 y mantener el Modbus RTU
+// local/debugger de Serial0 apagado.
 #ifndef JWPLC_ALPHA7_RTU_TIMING_DIAGNOSTICS
-#define JWPLC_ALPHA7_RTU_TIMING_DIAGNOSTICS 1
+#define JWPLC_ALPHA7_RTU_TIMING_DIAGNOSTICS 0
 #endif
 
 // JWPLC Basic v2.x usa pines virtuales uint16_t:
@@ -51,10 +54,77 @@ static constexpr int NUM_DISCRETE_OUTPUT =
 
 static constexpr uint8_t JWPLC_REMOTE_CHANNELS = 8;
 static constexpr uint8_t JWPLC_MODBUS_MASTER_LOCAL_ID = 247;
-static constexpr uint32_t JWPLC_MODBUS_BAUD = 115200UL;
-static constexpr uint32_t JWPLC_MODBUS_CONFIG = SERIAL_8N1;
 static constexpr uint32_t JWPLC_MODBUS_TIMEOUT_MS = 250UL;
 static constexpr uint16_t JWPLC_MODBUS_FRAME_GAP_MS = 2;
+
+// Slot 1 es el controlador fijo; los slots 2..8 alojan modulos Remote I/O.
+static constexpr uint8_t JWPLC_REMOTE_MAX_SLOTS = 7;
+
+// Fallos consecutivos (timeout/CRC/excepcion) antes de declarar un slot
+// fuera de linea. Mientras no se alcance, las entradas conservan el ultimo
+// valor valido; al alcanzarse pasan a 0 (estado seguro) y el slot solo se
+// sondea con FC02 hasta que vuelva a responder.
+static constexpr uint8_t JWPLC_REMOTE_OFFLINE_FAILURES = 3;
+
+// ---------------------------------------------------------------------------
+// Configuracion del bus RS-485 del Backplane (Serial2).
+//
+// La fuente de verdad es la seccion "RS-485 Backplane" de la pantalla
+// JWPLC Backplane (persistencia `backplane_rtu`), que el Editor exporta a
+// vpp_config.h como valores semanticos:
+//   VPP_BACKPLANE_RTU_BAUD_RATE      "115200"
+//   VPP_BACKPLANE_RTU_SERIAL_FORMAT  "8N1"
+// Si el proyecto no los define (proyectos Alpha9 o campos nunca editados)
+// se usa el perfil historico 115200 / 8N1. Un valor desconocido detiene la
+// compilacion: nunca se cae silenciosamente a otro perfil de bus.
+// ---------------------------------------------------------------------------
+static constexpr bool jwplcTextEquals(const char *a, const char *b)
+{
+    return (*a == *b) && (*a == '\0' || jwplcTextEquals(a + 1, b + 1));
+}
+
+static constexpr uint32_t jwplcBackplaneBaud(const char *text)
+{
+    return jwplcTextEquals(text, "9600")     ? 9600UL
+           : jwplcTextEquals(text, "19200")  ? 19200UL
+           : jwplcTextEquals(text, "38400")  ? 38400UL
+           : jwplcTextEquals(text, "57600")  ? 57600UL
+           : jwplcTextEquals(text, "115200") ? 115200UL
+                                             : 0UL;
+}
+
+static constexpr uint32_t jwplcBackplaneBaud(long value)
+{
+    return (value == 9600L || value == 19200L || value == 38400L ||
+            value == 57600L || value == 115200L)
+               ? (uint32_t)value
+               : 0UL;
+}
+
+static constexpr uint32_t jwplcBackplaneSerialConfig(const char *text)
+{
+    return jwplcTextEquals(text, "8N1")   ? (uint32_t)SERIAL_8N1
+           : jwplcTextEquals(text, "8E1") ? (uint32_t)SERIAL_8E1
+           : jwplcTextEquals(text, "8O1") ? (uint32_t)SERIAL_8O1
+                                          : 0UL;
+}
+
+#if defined(VPP_BACKPLANE_RTU_BAUD_RATE)
+static constexpr uint32_t JWPLC_MODBUS_BAUD = jwplcBackplaneBaud(VPP_BACKPLANE_RTU_BAUD_RATE);
+#else
+static constexpr uint32_t JWPLC_MODBUS_BAUD = 115200UL;
+#endif
+
+#if defined(VPP_BACKPLANE_RTU_SERIAL_FORMAT)
+static constexpr uint32_t JWPLC_MODBUS_CONFIG = jwplcBackplaneSerialConfig(VPP_BACKPLANE_RTU_SERIAL_FORMAT);
+#else
+static constexpr uint32_t JWPLC_MODBUS_CONFIG = (uint32_t)SERIAL_8N1;
+#endif
+
+static_assert(JWPLC_MODBUS_BAUD != 0UL,
+              "JWPLC Backplane: baudrate RS-485 no soportado (9600/19200/38400/57600/115200)");
+static_assert(JWPLC_MODBUS_CONFIG != 0UL,
+              "JWPLC Backplane: formato serie RS-485 no soportado (8N1/8E1/8O1)");
 
 struct JWPLCIecBitAddress
 {
@@ -115,23 +185,39 @@ static const JWPLCVppModuleConfigEntry jwplcVppModuleConfigEntries[] = {
 #undef JWPLC_VPP_MODULE_CONFIG_ENTRY
 #endif
 
-static JWPLCIecBitAddress jwplcRemoteInputMap[JWPLC_REMOTE_CHANNELS] = {};
-static JWPLCIecBitAddress jwplcRemoteOutputMap[JWPLC_REMOTE_CHANNELS] = {};
+// Estado por modulo Remote I/O. El Master atiende los slots en round-robin:
+// un ciclo completo FC15 -> FC01 -> FC02 por slot en linea, o solo un
+// sondeo FC02 por slot fuera de linea, y pasa al siguiente.
+struct JWPLCRemoteSlot
+{
+    uint8_t slot;
+    uint8_t slaveId;
+    JWPLCIecBitAddress inputMap[JWPLC_REMOTE_CHANNELS];
+    JWPLCIecBitAddress outputMap[JWPLC_REMOTE_CHANNELS];
+
+    // Buffer de recepcion FC02. Solo se aplica a %IX si FC02 tuvo exito.
+    uint8_t inputBits;
+
+    // Snapshot exacto entregado a FC15.
+    // Debe mantenerse separado del valor IEC actual porque el Ladder puede
+    // cambiar mientras la transaccion Modbus sigue en vuelo.
+    uint8_t outputBits;
+
+    // Feedback real de las coils del Slave leido por FC01.
+    // No modifica %QX ni cambia la semantica del comando IEC.
+    uint8_t feedbackBits;
+    uint8_t feedbackMismatchBits;
+    bool feedbackValid;
+    uint32_t feedbackMismatchCount;
+
+    bool online;
+    uint8_t consecutiveFailures;
+};
+
+static JWPLCRemoteSlot jwplcRemoteSlots[JWPLC_REMOTE_MAX_SLOTS] = {};
+static uint8_t jwplcRemoteSlotCount = 0;
+static uint8_t jwplcRemoteCurrent = 0;
 static bool jwplcRemoteEnabled = false;
-static uint8_t jwplcRemoteSlaveId = 0;
-static uint8_t jwplcRemoteInputBits = 0;
-
-// Snapshot exacto entregado a FC15.
-// Debe mantenerse separado del valor IEC actual porque el Ladder puede
-// cambiar mientras la transaccion Modbus sigue en vuelo.
-static uint8_t jwplcRemoteOutputBits = 0;
-
-// Feedback real de las coils del Slave leido por FC01.
-// No modifica %QX ni cambia la semantica del comando IEC.
-static uint8_t jwplcRemoteFeedbackBits = 0;
-static uint8_t jwplcRemoteFeedbackMismatchBits = 0;
-static bool jwplcRemoteFeedbackValid = false;
-static uint32_t jwplcRemoteFeedbackMismatchCount = 0;
 
 #if JWPLC_ALPHA7_RTU_TIMING_DIAGNOSTICS
 struct JWPLCRtuTimingStat
@@ -412,17 +498,29 @@ static void jwplcTimingMaybePrint()
         (unsigned long)jwplcTimingFc15Fail);
 
     Serial.printf(
-        "[RTU-FEEDBACK] fc01_rtt_us=%lu/%lu/%lu ok/fail=%lu/%lu valid=%u requested=0x%02X feedback=0x%02X mismatch=0x%02X mismatch_count=%lu\r\n",
+        "[RTU-FEEDBACK] fc01_rtt_us=%lu/%lu/%lu ok/fail=%lu/%lu slots=%u\r\n",
         (unsigned long)jwplcTimingFc01Rtt.lastUs,
         (unsigned long)jwplcTimingAverage(jwplcTimingFc01Rtt),
         (unsigned long)jwplcTimingFc01Rtt.maxUs,
         (unsigned long)jwplcTimingFc01Ok,
         (unsigned long)jwplcTimingFc01Fail,
-        jwplcRemoteFeedbackValid ? 1U : 0U,
-        (unsigned int)jwplcRemoteOutputBits,
-        (unsigned int)jwplcRemoteFeedbackBits,
-        (unsigned int)jwplcRemoteFeedbackMismatchBits,
-        (unsigned long)jwplcRemoteFeedbackMismatchCount);
+        (unsigned int)jwplcRemoteSlotCount);
+
+    for (uint8_t i = 0; i < jwplcRemoteSlotCount; ++i)
+    {
+        const JWPLCRemoteSlot &remote = jwplcRemoteSlots[i];
+        Serial.printf(
+            "[RTU-SLOT] slot=%u id=%u online=%u fails=%u valid=%u requested=0x%02X feedback=0x%02X mismatch=0x%02X mismatch_count=%lu\r\n",
+            (unsigned int)remote.slot,
+            (unsigned int)remote.slaveId,
+            remote.online ? 1U : 0U,
+            (unsigned int)remote.consecutiveFailures,
+            remote.feedbackValid ? 1U : 0U,
+            (unsigned int)remote.outputBits,
+            (unsigned int)remote.feedbackBits,
+            (unsigned int)remote.feedbackMismatchBits,
+            (unsigned long)remote.feedbackMismatchCount);
+    }
 }
 #else
 static inline void jwplcTimingInit() {}
@@ -439,18 +537,6 @@ static inline void jwplcTimingOnFc02Accepted() {}
 static inline void jwplcTimingOnFc02Done(bool) {}
 static inline void jwplcTimingMaybePrint() {}
 #endif
-
-enum JWPLCRemoteRtuPhase : uint8_t
-{
-    JWPLC_REMOTE_WRITE_START = 0,
-    JWPLC_REMOTE_WRITE_WAIT,
-    JWPLC_REMOTE_FEEDBACK_START,
-    JWPLC_REMOTE_FEEDBACK_WAIT,
-    JWPLC_REMOTE_READ_START,
-    JWPLC_REMOTE_READ_WAIT
-};
-
-static JWPLCRemoteRtuPhase jwplcRemotePhase = JWPLC_REMOTE_WRITE_START;
 
 static inline bool jwplcValidPin(uint16_t pin)
 {
@@ -518,11 +604,11 @@ static int8_t jwplcParseRemoteChannelIndex(const char *channelName, char directi
     return (int8_t)index;
 }
 
-static bool jwplcBuildRemoteMappingForSlot(uint8_t slot)
+static bool jwplcBuildRemoteMappingForSlot(JWPLCRemoteSlot &remote)
 {
 #if defined(VPP_IO_MAPPING_ENTRIES_COUNT) && (VPP_IO_MAPPING_ENTRIES_COUNT > 0)
-    memset(jwplcRemoteInputMap, 0, sizeof(jwplcRemoteInputMap));
-    memset(jwplcRemoteOutputMap, 0, sizeof(jwplcRemoteOutputMap));
+    memset(remote.inputMap, 0, sizeof(remote.inputMap));
+    memset(remote.outputMap, 0, sizeof(remote.outputMap));
 
     uint8_t inputCount = 0;
     uint8_t outputCount = 0;
@@ -530,7 +616,7 @@ static bool jwplcBuildRemoteMappingForSlot(uint8_t slot)
     for (size_t i = 0; i < sizeof(jwplcVppIoEntries) / sizeof(jwplcVppIoEntries[0]); ++i)
     {
         const JWPLCVppIoEntry &entry = jwplcVppIoEntries[i];
-        if (entry.slot != slot)
+        if (entry.slot != remote.slot)
         {
             continue;
         }
@@ -542,7 +628,7 @@ static bool jwplcBuildRemoteMappingForSlot(uint8_t slot)
             uint8_t bitIndex = 0;
             if (jwplcParseIecBitAddress(entry.iecAddress, 'I', byteIndex, bitIndex))
             {
-                JWPLCIecBitAddress &mapping = jwplcRemoteInputMap[(uint8_t)inputIndex];
+                JWPLCIecBitAddress &mapping = remote.inputMap[(uint8_t)inputIndex];
                 if (!mapping.valid)
                 {
                     ++inputCount;
@@ -561,7 +647,7 @@ static bool jwplcBuildRemoteMappingForSlot(uint8_t slot)
             uint8_t bitIndex = 0;
             if (jwplcParseIecBitAddress(entry.iecAddress, 'Q', byteIndex, bitIndex))
             {
-                JWPLCIecBitAddress &mapping = jwplcRemoteOutputMap[(uint8_t)outputIndex];
+                JWPLCIecBitAddress &mapping = remote.outputMap[(uint8_t)outputIndex];
                 if (!mapping.valid)
                 {
                     ++outputCount;
@@ -576,16 +662,36 @@ static bool jwplcBuildRemoteMappingForSlot(uint8_t slot)
     return inputCount == JWPLC_REMOTE_CHANNELS &&
            outputCount == JWPLC_REMOTE_CHANNELS;
 #else
-    (void)slot;
+    (void)remote;
     return false;
 #endif
 }
 
-static bool jwplcLoadFirstRemoteSlot()
+static bool jwplcSlaveIdInUse(uint8_t slaveId)
 {
+    for (uint8_t i = 0; i < jwplcRemoteSlotCount; ++i)
+    {
+        if (jwplcRemoteSlots[i].slaveId == slaveId)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Carga todos los slots Remote I/O validos del Backplane, en orden de slot.
+// Un slot se descarta si:
+//   - su Slave ID esta fuera de 1..247 o repite el de un slot anterior;
+//   - el allocator no dejo sus 8 DI + 8 DO resolubles a %IX/%QX.
+// El Editor valida ambos casos antes de compilar; esta es la defensa final.
+static bool jwplcLoadRemoteSlots()
+{
+    jwplcRemoteSlotCount = 0;
+
 #if defined(VPP_MODULE_CONFIG_ENTRIES_COUNT) && (VPP_MODULE_CONFIG_ENTRIES_COUNT > 0)
     for (size_t i = 0;
-         i < sizeof(jwplcVppModuleConfigEntries) / sizeof(jwplcVppModuleConfigEntries[0]);
+         i < sizeof(jwplcVppModuleConfigEntries) / sizeof(jwplcVppModuleConfigEntries[0]) &&
+         jwplcRemoteSlotCount < JWPLC_REMOTE_MAX_SLOTS;
          ++i)
     {
         const JWPLCVppModuleConfigEntry &entry = jwplcVppModuleConfigEntries[i];
@@ -595,46 +701,54 @@ static bool jwplcLoadFirstRemoteSlot()
         }
 
         const uint8_t slaveId = entry.bytes[0];
-        if (slaveId == 0 || slaveId > 247)
+        if (slaveId == 0 || slaveId > 247 || jwplcSlaveIdInUse(slaveId))
         {
             continue;
         }
 
-        if (!jwplcBuildRemoteMappingForSlot(entry.slot))
+        JWPLCRemoteSlot &remote = jwplcRemoteSlots[jwplcRemoteSlotCount];
+        memset(&remote, 0, sizeof(remote));
+        remote.slot = entry.slot;
+        remote.slaveId = slaveId;
+
+        if (!jwplcBuildRemoteMappingForSlot(remote))
         {
             continue;
         }
 
-        jwplcRemoteSlaveId = slaveId;
-        return true;
+        // Arranque optimista: el primer ciclo escribe salidas y lee entradas.
+        // Si el modulo no responde, pasa a fuera de linea tras
+        // JWPLC_REMOTE_OFFLINE_FAILURES intentos.
+        remote.online = true;
+        ++jwplcRemoteSlotCount;
     }
 #endif
 
-    return false;
+    return jwplcRemoteSlotCount > 0;
 }
 
-static void jwplcApplyRemoteInputs()
+static void jwplcApplyRemoteInputs(const JWPLCRemoteSlot &remote, uint8_t bits)
 {
     for (uint8_t i = 0; i < JWPLC_REMOTE_CHANNELS; ++i)
     {
-        const JWPLCIecBitAddress &mapping = jwplcRemoteInputMap[i];
+        const JWPLCIecBitAddress &mapping = remote.inputMap[i];
         if (!mapping.valid || bool_input[mapping.byteIndex][mapping.bitIndex] == NULL)
         {
             continue;
         }
 
         *bool_input[mapping.byteIndex][mapping.bitIndex] =
-            (jwplcRemoteInputBits & (uint8_t)(1U << i)) != 0;
+            (bits & (uint8_t)(1U << i)) != 0;
     }
 }
 
-static uint8_t jwplcPackRemoteOutputs()
+static uint8_t jwplcPackRemoteOutputs(const JWPLCRemoteSlot &remote)
 {
     uint8_t packed = 0;
 
     for (uint8_t i = 0; i < JWPLC_REMOTE_CHANNELS; ++i)
     {
-        const JWPLCIecBitAddress &mapping = jwplcRemoteOutputMap[i];
+        const JWPLCIecBitAddress &mapping = remote.outputMap[i];
         if (!mapping.valid || bool_output[mapping.byteIndex][mapping.bitIndex] == NULL)
         {
             continue;
@@ -649,27 +763,76 @@ static uint8_t jwplcPackRemoteOutputs()
     return packed;
 }
 
-static void jwplcUpdateRemoteFeedback(bool valid)
+static void jwplcUpdateRemoteFeedback(JWPLCRemoteSlot &remote, bool valid)
 {
-    jwplcRemoteFeedbackValid = valid;
+    remote.feedbackValid = valid;
 
     if (!valid)
     {
         // Si FC01 fallo, el ultimo bitmap no debe presentarse como una
         // comparacion nueva y valida.
-        jwplcRemoteFeedbackMismatchBits = 0;
+        remote.feedbackMismatchBits = 0;
         return;
     }
 
     // Comparar contra el snapshot que realmente fue enviado mediante FC15.
     // No leer bool_output nuevamente: puede corresponder ya al siguiente scan.
-    jwplcRemoteFeedbackMismatchBits =
-        (uint8_t)(jwplcRemoteFeedbackBits ^ jwplcRemoteOutputBits);
+    remote.feedbackMismatchBits =
+        (uint8_t)(remote.feedbackBits ^ remote.outputBits);
 
-    if (jwplcRemoteFeedbackMismatchBits != 0)
+    if (remote.feedbackMismatchBits != 0)
     {
-        ++jwplcRemoteFeedbackMismatchCount;
+        ++remote.feedbackMismatchCount;
     }
+}
+
+// Registra el resultado de una transaccion del slot actual.
+static void jwplcRecordRemoteResult(JWPLCRemoteSlot &remote, bool success)
+{
+    if (success)
+    {
+        remote.consecutiveFailures = 0;
+        remote.online = true;
+        return;
+    }
+
+    if (remote.consecutiveFailures < 0xFF)
+    {
+        ++remote.consecutiveFailures;
+    }
+
+    if (remote.online && remote.consecutiveFailures >= JWPLC_REMOTE_OFFLINE_FAILURES)
+    {
+        // Perdida de comunicacion: las entradas remotas pasan a estado
+        // seguro (0) para que el programa no actue sobre valores congelados.
+        remote.online = false;
+        remote.feedbackValid = false;
+        remote.feedbackMismatchBits = 0;
+        jwplcApplyRemoteInputs(remote, 0);
+    }
+}
+
+enum JWPLCRemoteRtuPhase : uint8_t
+{
+    JWPLC_REMOTE_WRITE_START = 0,
+    JWPLC_REMOTE_WRITE_WAIT,
+    JWPLC_REMOTE_FEEDBACK_START,
+    JWPLC_REMOTE_FEEDBACK_WAIT,
+    JWPLC_REMOTE_READ_START,
+    JWPLC_REMOTE_READ_WAIT
+};
+
+static JWPLCRemoteRtuPhase jwplcRemotePhase = JWPLC_REMOTE_WRITE_START;
+
+// Pasa al siguiente slot. Un slot fuera de linea solo recibe un sondeo FC02
+// por vuelta, para que un modulo desconectado no multiplique los timeouts
+// del resto del bus.
+static void jwplcAdvanceRemoteSlot()
+{
+    jwplcRemoteCurrent = (uint8_t)((jwplcRemoteCurrent + 1U) % jwplcRemoteSlotCount);
+    jwplcRemotePhase = jwplcRemoteSlots[jwplcRemoteCurrent].online
+                           ? JWPLC_REMOTE_WRITE_START
+                           : JWPLC_REMOTE_READ_START;
 }
 
 static void jwplcServiceRemoteRtu()
@@ -682,18 +845,22 @@ static void jwplcServiceRemoteRtu()
     JWPLC_ModbusRTU.task();
     jwplcTimingOnService();
 
+    JWPLCRemoteSlot &remote = jwplcRemoteSlots[jwplcRemoteCurrent];
+    // El probe de timing solo sigue al primer slot para conservar sus metricas.
+    const bool timingSlot = (jwplcRemoteCurrent == 0);
+
     switch (jwplcRemotePhase)
     {
     case JWPLC_REMOTE_WRITE_START:
-        jwplcRemoteOutputBits = jwplcPackRemoteOutputs();
+        remote.outputBits = jwplcPackRemoteOutputs(remote);
         if (JWPLC_ModbusRTU.requestWriteMultipleCoils(
-                jwplcRemoteSlaveId,
+                remote.slaveId,
                 0,
                 JWPLC_REMOTE_CHANNELS,
-                &jwplcRemoteOutputBits,
+                &remote.outputBits,
                 JWPLC_MODBUS_TIMEOUT_MS))
         {
-            jwplcTimingOnFc15Accepted();
+            if (timingSlot) jwplcTimingOnFc15Accepted();
             jwplcRemotePhase = JWPLC_REMOTE_WRITE_WAIT;
         }
         break;
@@ -701,13 +868,14 @@ static void jwplcServiceRemoteRtu()
     case JWPLC_REMOTE_WRITE_WAIT:
         if (JWPLC_ModbusRTU.masterDone())
         {
-            const bool jwplcFc15Succeeded =
-                JWPLC_ModbusRTU.masterSucceeded();
-
-            jwplcTimingOnFc15Done(jwplcFc15Succeeded);
-
+            const bool fc15Succeeded = JWPLC_ModbusRTU.masterSucceeded();
+            if (timingSlot) jwplcTimingOnFc15Done(fc15Succeeded);
             JWPLC_ModbusRTU.clearMasterResult();
-            jwplcRemotePhase = JWPLC_REMOTE_FEEDBACK_START;
+            jwplcRecordRemoteResult(remote, fc15Succeeded);
+
+            jwplcRemotePhase = remote.online
+                                   ? JWPLC_REMOTE_FEEDBACK_START
+                                   : JWPLC_REMOTE_READ_START;
         }
         break;
 
@@ -715,18 +883,18 @@ static void jwplcServiceRemoteRtu()
         // Cada FC01 debe volver a validar su propia muestra.
         // No conservar como valido un feedback de un ciclo anterior mientras
         // la nueva lectura esta pendiente o no pudo iniciarse.
-        jwplcRemoteFeedbackValid = false;
-        jwplcRemoteFeedbackMismatchBits = 0;
-        jwplcRemoteFeedbackBits = 0;
+        remote.feedbackValid = false;
+        remote.feedbackMismatchBits = 0;
+        remote.feedbackBits = 0;
 
         if (JWPLC_ModbusRTU.requestReadCoils(
-                jwplcRemoteSlaveId,
+                remote.slaveId,
                 0,
                 JWPLC_REMOTE_CHANNELS,
-                &jwplcRemoteFeedbackBits,
+                &remote.feedbackBits,
                 JWPLC_MODBUS_TIMEOUT_MS))
         {
-            jwplcTimingOnFc01Accepted();
+            if (timingSlot) jwplcTimingOnFc01Accepted();
             jwplcRemotePhase = JWPLC_REMOTE_FEEDBACK_WAIT;
         }
         break;
@@ -734,27 +902,26 @@ static void jwplcServiceRemoteRtu()
     case JWPLC_REMOTE_FEEDBACK_WAIT:
         if (JWPLC_ModbusRTU.masterDone())
         {
-            const bool jwplcFc01Succeeded =
-                JWPLC_ModbusRTU.masterSucceeded();
-
-            jwplcTimingOnFc01Done(jwplcFc01Succeeded);
-            jwplcUpdateRemoteFeedback(jwplcFc01Succeeded);
-
+            const bool fc01Succeeded = JWPLC_ModbusRTU.masterSucceeded();
+            if (timingSlot) jwplcTimingOnFc01Done(fc01Succeeded);
             JWPLC_ModbusRTU.clearMasterResult();
+            jwplcUpdateRemoteFeedback(remote, fc01Succeeded);
+            jwplcRecordRemoteResult(remote, fc01Succeeded);
+
             jwplcRemotePhase = JWPLC_REMOTE_READ_START;
         }
         break;
 
     case JWPLC_REMOTE_READ_START:
-        jwplcRemoteInputBits = 0;
+        remote.inputBits = 0;
         if (JWPLC_ModbusRTU.requestReadDiscreteInputs(
-                jwplcRemoteSlaveId,
+                remote.slaveId,
                 0,
                 JWPLC_REMOTE_CHANNELS,
-                &jwplcRemoteInputBits,
+                &remote.inputBits,
                 JWPLC_MODBUS_TIMEOUT_MS))
         {
-            jwplcTimingOnFc02Accepted();
+            if (timingSlot) jwplcTimingOnFc02Accepted();
             jwplcRemotePhase = JWPLC_REMOTE_READ_WAIT;
         }
         break;
@@ -762,16 +929,18 @@ static void jwplcServiceRemoteRtu()
     case JWPLC_REMOTE_READ_WAIT:
         if (JWPLC_ModbusRTU.masterDone())
         {
-            const bool jwplcFc02Succeeded = JWPLC_ModbusRTU.masterSucceeded();
-            jwplcTimingOnFc02Done(jwplcFc02Succeeded);
-            if (jwplcFc02Succeeded)
+            const bool fc02Succeeded = JWPLC_ModbusRTU.masterSucceeded();
+            if (timingSlot) jwplcTimingOnFc02Done(fc02Succeeded);
+            JWPLC_ModbusRTU.clearMasterResult();
+            jwplcRecordRemoteResult(remote, fc02Succeeded);
+
+            if (fc02Succeeded)
             {
-                jwplcTimingObserveRemoteInputs(jwplcRemoteInputBits);
-                jwplcApplyRemoteInputs();
+                if (timingSlot) jwplcTimingObserveRemoteInputs(remote.inputBits);
+                jwplcApplyRemoteInputs(remote, remote.inputBits);
             }
 
-            JWPLC_ModbusRTU.clearMasterResult();
-            jwplcRemotePhase = JWPLC_REMOTE_WRITE_START;
+            jwplcAdvanceRemoteSlot();
         }
         break;
 
@@ -816,10 +985,11 @@ void hardwareInit()
     // No repetir pinMode() aqui.
     // No reinicializar TCA6424A aqui.
 
-    // A7.3.1: solo se habilita el Master RTU si el VPP genero una
-    // configuracion de Remote I/O valida y el allocator dejo 8 DI + 8 DO
-    // resolubles para ese slot. El Backplane sigue siendo la fuente de verdad.
-    if (jwplcLoadFirstRemoteSlot() &&
+    // Alpha12: solo se habilita el Master RTU si el VPP genero al menos un
+    // slot Remote I/O valido (Slave ID unico y 8 DI + 8 DO resolubles).
+    // El Backplane sigue siendo la fuente de verdad; sin slots remotos
+    // Serial2 queda libre y el JWPLC se comporta como un controlador local.
+    if (jwplcLoadRemoteSlots() &&
         JWPLC_ModbusRTU.begin(
             JWPLC_MODBUS_MASTER_LOCAL_ID,
             JWPLC_MODBUS_BAUD,
@@ -827,17 +997,15 @@ void hardwareInit()
     {
         JWPLC_ModbusRTU.setFrameGapMs(JWPLC_MODBUS_FRAME_GAP_MS);
 
-        jwplcRemoteFeedbackBits = 0;
-        jwplcRemoteFeedbackMismatchBits = 0;
-        jwplcRemoteFeedbackValid = false;
-        jwplcRemoteFeedbackMismatchCount = 0;
-
+        jwplcRemoteCurrent = 0;
         jwplcRemotePhase = JWPLC_REMOTE_WRITE_START;
         jwplcRemoteEnabled = true;
 
 #if JWPLC_ALPHA7_RTU_TIMING_DIAGNOSTICS
-        Serial.println(
-            "[RTU-FEEDBACK] FC01 gate enabled; %QX remains command state");
+        Serial.printf(
+            "[RTU-FEEDBACK] Backplane master enabled: slots=%u baud=%lu; %%QX remains command state\r\n",
+            (unsigned int)jwplcRemoteSlotCount,
+            (unsigned long)JWPLC_MODBUS_BAUD);
 #endif
     }
 }
@@ -863,7 +1031,7 @@ void updateOutputBuffers()
     jwplcTimingOnOutputUpdate();
     if (jwplcRemoteEnabled)
     {
-        jwplcTimingObserveRemoteOutputs(jwplcPackRemoteOutputs());
+        jwplcTimingObserveRemoteOutputs(jwplcPackRemoteOutputs(jwplcRemoteSlots[0]));
     }
     for (int i = 0; i < NUM_DISCRETE_OUTPUT; i++)
     {
