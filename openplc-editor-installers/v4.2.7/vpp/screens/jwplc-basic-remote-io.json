@@ -16,7 +16,7 @@
                     "min": 1,
                     "max": 247,
                     "step": 1,
-                    "help": "Direccion Modbus RTU del JWPLC Basic remoto en este slot.",
+                    "help": "Direccion Modbus RTU del JWPLC Basic remoto en este slot. Programa el modulo con el dispositivo JWPLC BASIC Remote I/O [2.0.0] usando el mismo Slave ID, Baudrate y Formato serie.",
                     "encoding": {
                         "byteOffset": 0,
                         "size": 1
