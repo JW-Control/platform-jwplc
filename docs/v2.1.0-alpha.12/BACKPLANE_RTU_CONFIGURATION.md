@@ -134,9 +134,21 @@ REMOTE_IO_OFFLINE_SAFE_STATE=PENDING_PHYSICAL (desconectar un slave -> %IX a 0, 
 REMOTE_IO_MULTIBIT=PENDING_PHYSICAL (8 patrones)
 ```
 
-## 8. Limitación conocida antes del gate multi-slot
+## 8. Failsafe de salidas y tiempo entre escrituras (resuelto en VPP 2.1.0-alpha.21)
 
-El sketch `JWPLC_RemoteIO_Slave_RTU` apaga las salidas tras `OUTPUT_FAILSAFE_MS = 100` ms sin FC05/FC15. Con varios slots, a baud bajo o con un slot fuera de línea (timeout de 250 ms), el refresco por esclavo puede superar 100 ms y las salidas de los esclavos sanos parpadearían. Hay que subir o hacer configurable el failsafe del esclavo (unos 500–1000 ms) y limitar el sondeo de slots fuera de línea en el maestro.
+El sketch `JWPLC_RemoteIO_Slave_RTU` apagaba las salidas tras 100 ms sin FC05/FC15. Con varios slots, a baud bajo o con un slot fuera de línea, las salidas de los esclavos sanos podían parpadear.
+
+| Lado | Cambio |
+|---|---|
+| Maestro (HAL) | Un fallo corta el ciclo del slot actual (no encadena FC01/FC02 contra un módulo que no responde). Los slots fuera de línea se sondean de a uno y como máximo cada `JWPLC_REMOTE_OFFLINE_PROBE_INTERVAL_MS = 1000`. Si todos están fuera de línea, el bus queda en reposo entre sondeos. |
+| Esclavo (sketch) | `OUTPUT_FAILSAFE_MS = 1000`. |
+
+Peor caso entre escrituras FC15 a un módulo sano: ciclo de los slots en línea + 1 timeout (≈ 420 + 250 ms con 7 slots a 9600), por debajo de 1000 ms. Un esclavo desconectado se detecta en 3 vueltas y se reconecta en ≤ 1 s tras volver.
+
+```text
+VPP_VERSION=2.1.0-alpha.21
+VPP_SHA256=83fdd4b22d5193d31904959aceb72a86089996b836b4b2315671bfa7a3abfd20
+```
 
 ## 9. Diferido fuera de Alpha12
 
