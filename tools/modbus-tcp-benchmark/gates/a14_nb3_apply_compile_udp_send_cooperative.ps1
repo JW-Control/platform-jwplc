@@ -909,6 +909,8 @@ if ($probeSketchName -ne $probeMainBasename) {
     throw "A14_NB3D_ARDUINO_SKETCH_NAME_CONTRACT_INVALID"
 }
 Write-Host "API_PROBE_SKETCH_NAME_CONTRACT=PASS"
+Write-Host "API_PROBE_SCOPE=PUBLIC_UDP_AND_DNS_APIS_ONLY"
+Write-Host "SOCKET_PRIVATE_API_VERIFICATION=SOURCE_SIGNATURE_ONLY"
 
 $probeSketch = @'
 #include <JWPLC_Ethernet.h>
@@ -925,9 +927,10 @@ static void compileOnlyUdpSendProbe()
     nb3dSink += udp.endPacketAsyncInProgress() ? 1 : 0;
     udp.cancelEndPacketAsync();
 
-    nb3dSink += Ethernet.socketBeginSendUDP(0);
-    nb3dSink += Ethernet.socketPollSendUDP(0);
-
+    // socketBeginSendUDP()/socketPollSendUDP() are intentionally private
+    // EthernetClass backend primitives. Their declarations/definitions are
+    // verified structurally above; the Arduino-facing compile probe must only
+    // exercise public APIs.
     DNSClient dns;
     IPAddress server(192, 0, 2, 1);
     IPAddress result;
@@ -1053,6 +1056,7 @@ Write-Host "NB3_DNS_ASYNC_UDP_SEND=COOPERATIVE"
 Write-Host "NB3_DNS_RESPONSE_TIMER_START=AFTER_UDP_SEND_OK"
 Write-Host "NB3_GIT_DIFF_CHECK_AUTHORITY=EXIT_CODE"
 Write-Host "NB3_UDP_WAIT_VERIFICATION=FUNCTION_SCOPED"
+Write-Host "NB3_SOCKET_PRIVATE_API_COMPILE_PROBE=NOT_APPLICABLE"
 Write-Host "NB3_PARSE_PACKET_CHANGE=NO"
 Write-Host "NB3_SPI_FREQUENCY_CHANGE=NO"
 Write-Host "NB3_UPLOAD=NO"
