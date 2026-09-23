@@ -3,7 +3,7 @@
     "package": {
         "id": "com.jwcontrol.jwplc-basic",
         "name": "JWPLC Basic OpenPLC",
-        "version": "2.1.0-alpha.22",
+        "version": "2.1.0-alpha.23",
         "vendor": {
             "name": "JW Control",
             "url": "https://www.jw-control.com",
@@ -410,7 +410,7 @@
         },
         {
             "id": "jwplc-basic-remote-io-slave-2-0-0",
-            "name": "JWPLC BASIC Remote I/O [2.0.0]",
+            "name": "JWPLC BASIC Remote IO [2.0.0]",
             "category": "Arduino",
             "preview": "assets/jwplcbasic.png",
             "screens": {
