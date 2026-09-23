@@ -3,7 +3,7 @@
     "package": {
         "id": "com.jwcontrol.jwplc-basic",
         "name": "JWPLC Basic OpenPLC",
-        "version": "2.1.0-alpha.19",
+        "version": "2.1.0-alpha.20",
         "vendor": {
             "name": "JW Control",
             "url": "https://www.jw-control.com",
@@ -290,13 +290,13 @@
                         "id": "jwplc-basic-remote-io",
                         "name": "JWPLC Basic Remote I/O",
                         "image": "assets/jwplcbasic.png",
-                        "description": "Segundo JWPLC Basic usado como módulo remoto para la prueba inicial de expansión por Modbus.",
+                        "description": "JWPLC Basic configurado como módulo Remote I/O (8 DI / 8 DO) en el bus RS-485 del Backplane mediante Modbus RTU.",
                         "configScreen": "screens/jwplc-basic-remote-io.json",
                         "specs": {
                             "Inputs": "8 digital inputs",
                             "Outputs": "8 relay outputs",
-                            "Transport": "Modbus TCP / RTU",
-                            "Purpose": "Remote I/O PoC"
+                            "Transport": "Modbus RTU - RS-485 Backplane",
+                            "Purpose": "Remote I/O module"
                         },
                         "io": {
                             "digitalInputs": 8,
