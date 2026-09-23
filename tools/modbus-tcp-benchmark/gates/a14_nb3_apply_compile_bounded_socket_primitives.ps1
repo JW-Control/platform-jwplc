@@ -585,7 +585,22 @@ New-Item -ItemType Directory -Force -Path $rawBuildPath | Out-Null
 New-Item -ItemType Directory -Force -Path $probeSketchDir | Out-Null
 New-Item -ItemType Directory -Force -Path $probeBuildPath | Out-Null
 
-$probeSketchPath = Join-Path $probeSketchDir "nb3_bounded_primitives_probe.ino"
+# Arduino sketch contract: the primary .ino basename must match
+# the containing sketch directory name.
+$probeSketchName = Split-Path -Leaf $probeSketchDir
+$probeSketchPath = Join-Path $probeSketchDir ($probeSketchName + ".ino")
+
+$probeFolderName = Split-Path -Leaf $probeSketchDir
+$probeMainBasename = [System.IO.Path]::GetFileNameWithoutExtension($probeSketchPath)
+
+Write-Host "API_PROBE_SKETCH_FOLDER=$probeFolderName"
+Write-Host "API_PROBE_MAIN_BASENAME=$probeMainBasename"
+
+if ($probeFolderName -ne $probeMainBasename) {
+    throw "A14_NB3B_ARDUINO_SKETCH_NAME_CONTRACT_INVALID"
+}
+
+Write-Host "API_PROBE_SKETCH_NAME_CONTRACT=PASS"
 
 $probeSketch = @'
 #include <JWPLC_Ethernet.h>
@@ -725,5 +740,6 @@ Write-Host "NB3_ASYNC_TX_COMMAND_FAILURE=OBSERVABLE"
 Write-Host "NB3_LEGACY_EXEC_CMD_API=PRESERVED"
 Write-Host "NB3_API_SIGNATURE_CHECK=EXACT_DECLARATION_DEFINITION"
 Write-Host "NB3_RESUME_SHARED_INIT=UNCONDITIONAL"
+Write-Host "NB3_API_PROBE_SKETCH_NAME_CONTRACT=ENFORCED"
 Write-Host "NB3_UPLOAD=NO"
 Write-Host "A14_NB3_BOUNDED_SOCKET_PRIMITIVES_COMPILE=PASS"
