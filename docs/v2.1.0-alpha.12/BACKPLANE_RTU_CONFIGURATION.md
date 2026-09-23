@@ -159,7 +159,13 @@ VPP_SHA256=83fdd4b22d5193d31904959aceb72a86089996b836b4b2315671bfa7a3abfd20
 
 Decisión del responsable (2026-09-23): se adelanta a Alpha12 para no depender del Arduino IDE en campo.
 
-Nuevo dispositivo **`JWPLC BASIC Remote I/O [2.0.0]`** en el mismo VPP:
+Nuevo dispositivo **`JWPLC BASIC Remote IO [2.0.0]`** en el mismo VPP.
+
+> El nombre no lleva `/`: el editor usa el nombre del dispositivo como carpeta de build, y una `/` generaba `buildJWPLC BASIC Remote IO [2.0.0]` (corregido en alpha.23).
+>
+> OpenPLC exige al menos una variable en `main` (`xml2st: No variable defined in "main" POU`). En el proyecto del esclavo basta con declarar una variable local, por ejemplo `Vida : BOOL;`, aunque el programa no haga nada.
+>
+> Usa un **proyecto separado** para cada esclavo. Si cambias la placa del proyecto del maestro, el Backplane no se pierde (se guarda por placa), pero el `main` del maestro usa alias del Backplane que no existen en el esclavo.
 
 | Aspecto | Contrato |
 |---|---|
