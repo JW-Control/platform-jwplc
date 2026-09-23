@@ -18,7 +18,7 @@ enum ProbePhase : uint8_t
 
 static ProbePhase phase = WAIT_PARTIAL;
 static bool udpStarted = false;
-static bool readyPrinted = false;
+static uint32_t lastReadyPrintMs = 0;
 static bool resultPrinted = false;
 static bool probeFailed = false;
 static int resultCode = 0;
@@ -238,12 +238,21 @@ static void startUdpIfReady()
 
 static void announceReady()
 {
-    if (!udpStarted || readyPrinted)
+    if (!udpStarted || phase != WAIT_PARTIAL)
     {
         return;
     }
 
-    readyPrinted = true;
+    const uint32_t nowMs = millis();
+
+    if (
+        lastReadyPrintMs != 0 &&
+        (uint32_t)(nowMs - lastReadyPrintMs) < 500)
+    {
+        return;
+    }
+
+    lastReadyPrintMs = nowMs;
 
     Serial.print("NB3_E2_PROBE_READY=YES IP=");
     Serial.println(JWPLC_Ethernet.localIP());
