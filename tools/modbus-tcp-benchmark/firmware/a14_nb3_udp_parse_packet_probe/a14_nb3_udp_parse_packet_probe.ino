@@ -158,6 +158,11 @@ static void serviceProbe()
             return;
         }
 
+        // Start timing evidence at the exact hardening scenario. This avoids
+        // counting the earlier READY banner in LOOP_GAP_MAX_US.
+        loopGapMaxUs = 0;
+        lastLoopUs = micros();
+
         phase = DRAIN_PENDING;
         return;
     }
