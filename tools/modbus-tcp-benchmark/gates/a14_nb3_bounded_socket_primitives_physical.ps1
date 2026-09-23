@@ -208,6 +208,7 @@ $tempRoot = Join-Path $env:TEMP ("jwplc_a14_nb3c_physical_{0}" -f $timestamp)
 $buildPath = Join-Path $tempRoot "build"
 $compileLog = Join-Path $tempRoot "compile.log"
 $uploadLog = Join-Path $tempRoot "upload.log"
+$ipResolverSyntaxLog = Join-Path $tempRoot "ip_resolver_syntax.log"
 
 New-Item -ItemType Directory -Force -Path $buildPath | Out-Null
 
@@ -215,7 +216,27 @@ Write-Host "ARDUINO_CLI=$arduinoCli"
 Write-Host "PYTHON=$pythonExe"
 Write-Host "FQBN=$fqbn"
 Write-Host "BRIDGE=$bridgePath"
+Write-Host "IP_RESOLVER=$ipResolverPath"
 Write-Host "TEMP_ROOT=$tempRoot"
+
+Write-Host ""
+Write-Host "=== PYTHON RESOLVER SYNTAX PREFLIGHT ==="
+
+$ipResolverSyntaxExit = Invoke-NB3NativeToLog -FilePath $pythonExe -Arguments @(
+    "-m",
+    "py_compile",
+    $ipResolverPath
+) -LogPath $ipResolverSyntaxLog
+
+Write-Host "IP_RESOLVER_SYNTAX_EXIT=$ipResolverSyntaxExit"
+Write-Host "IP_RESOLVER_SYNTAX_LOG=$ipResolverSyntaxLog"
+
+if ($ipResolverSyntaxExit -ne 0) {
+    Get-Content -LiteralPath $ipResolverSyntaxLog -Tail 80 | ForEach-Object { Write-Host $_ }
+    throw "A14_NB3C_IP_RESOLVER_SYNTAX_FAILED"
+}
+
+Write-Host "IP_RESOLVER_SYNTAX=PASS"
 
 Write-Host ""
 Write-Host "=== COMPILE NB3-B RAW CANDIDATE ==="
@@ -500,5 +521,6 @@ Write-Host "NB3_HARD_HOLD_10MS=PASS"
 Write-Host "NB3_HARD_LOOP_GAP_15MS=PASS"
 Write-Host "NB3_PREFERRED_HOLD_5MS=$preferredState"
 Write-Host "NB3_DUT_IP_DISCOVERY=SERIAL_DYNAMIC"
+Write-Host "NB3_IP_RESOLVER_SYNTAX_PREFLIGHT=PASS"
 Write-Host "NB3_UDP_SEND_SYNC_PATH=UNCHANGED_PENDING_NEXT_GATE"
 Write-Host "A14_NB3_BOUNDED_SOCKET_PRIMITIVES_PHYSICAL=PASS"
