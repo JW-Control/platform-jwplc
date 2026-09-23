@@ -163,7 +163,7 @@ Nuevo dispositivo **`JWPLC BASIC Remote IO [2.0.0]`** en el mismo VPP.
 
 > El nombre no lleva `/`: el editor usa el nombre del dispositivo como carpeta de build, y una `/` generaba `buildJWPLC BASIC Remote IO [2.0.0]` (corregido en alpha.23).
 >
-> OpenPLC exige al menos una variable en `main` (`xml2st: No variable defined in "main" POU`). En el proyecto del esclavo basta con declarar una variable local, por ejemplo `Vida : BOOL;`, aunque el programa no haga nada.
+> Desde VPP 2.1.0-alpha.24 el dispositivo declara `capabilities.iecProgramOptional: true`, y el editor de la rama Alpha12 compila el esclavo **con `main` vacío**: completa en memoria una variable y un cuerpo ST no-op, sin modificar el proyecto. Con un editor sin ese cambio, `xml2st` exige al menos una variable y un rung en `main`.
 >
 > Usa un **proyecto separado** para cada esclavo. Si cambias la placa del proyecto del maestro, el Backplane no se pierde (se guarda por placa), pero el `main` del maestro usa alias del Backplane que no existen en el esclavo.
 
@@ -180,7 +180,7 @@ Nuevo dispositivo **`JWPLC BASIC Remote IO [2.0.0]`** en el mismo VPP.
 Verificación: HAL compilado con `vpp_config.h` del editor. Por defecto, ID 3 y 7/38400/8E1/2000 → PASS. ID 0, ID 300, ID 2.5 y failsafe 100 → FAIL esperado. Firma `valid=true`.
 
 ```text
-VPP_VERSION=2.1.0-alpha.22
-VPP_SHA256=7e58453090b322e04cd95cf325f102bde231038ae7b952306a20f6454907ef18
+VPP_VERSION=2.1.0-alpha.24
+VPP_SHA256=2670e80771133aa41b3494698fdabf647698f7b9ac5780e8446376a2597da0fd
 REMOTE_IO_SLAVE_FROM_OPENPLC=PENDING_PHYSICAL
 ```
