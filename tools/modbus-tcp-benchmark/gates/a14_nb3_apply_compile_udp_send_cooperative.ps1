@@ -589,11 +589,34 @@ $dnsCpp = Replace-ExactOnce -Text $dnsCpp -Old $oldDnsFinish -New $newDnsFinish 
 Write-Host "NB3_D1_PATCH_APPLICATION=APPLIED"
 }
 
-$diffCheck = @(& git -C $script:G2RepoRoot diff --check 2>&1)
-if ($LASTEXITCODE -ne 0) {
+$previousPreference = $ErrorActionPreference
+try {
+    # Native Git may emit benign LF/CRLF warnings on stderr even when
+    # 'git diff --check' succeeds. The authoritative result is the exit code.
+    $ErrorActionPreference = "Continue"
+    $diffCheck = @(& git -C $script:G2RepoRoot diff --check 2>&1)
+    $diffCheckExit = [int]$LASTEXITCODE
+}
+finally {
+    $ErrorActionPreference = $previousPreference
+}
+
+$diffCheckWarnings = @(
+    $diffCheck | Where-Object {
+        ([string]$_).StartsWith(
+            "warning:",
+            [System.StringComparison]::OrdinalIgnoreCase)
+    }
+)
+
+Write-Host "GIT_DIFF_CHECK_EXIT=$diffCheckExit"
+Write-Host "GIT_DIFF_CHECK_WARNING_COUNT=$($diffCheckWarnings.Count)"
+
+if ($diffCheckExit -ne 0) {
     $diffCheck | ForEach-Object { Write-Host $_ }
     throw "A14_NB3D_GIT_DIFF_CHECK_FAILED"
 }
+
 Write-Host "GIT_DIFF_CHECK=PASS"
 
 $dirtyAfterPatch = @(Get-G2TrackedDirtyPaths)
@@ -920,6 +943,7 @@ Write-Host "NB3_UDP_SEND_SOCKET_ENGINE=COOPERATIVE_BEGIN_POLL"
 Write-Host "NB3_UDP_ENDPACKET_LEGACY=WRAPPER_PRESERVED"
 Write-Host "NB3_DNS_ASYNC_UDP_SEND=COOPERATIVE"
 Write-Host "NB3_DNS_RESPONSE_TIMER_START=AFTER_UDP_SEND_OK"
+Write-Host "NB3_GIT_DIFF_CHECK_AUTHORITY=EXIT_CODE"
 Write-Host "NB3_PARSE_PACKET_CHANGE=NO"
 Write-Host "NB3_SPI_FREQUENCY_CHANGE=NO"
 Write-Host "NB3_UPLOAD=NO"
