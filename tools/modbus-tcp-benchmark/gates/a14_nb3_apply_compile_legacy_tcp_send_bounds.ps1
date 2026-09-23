@@ -389,7 +389,8 @@ $hardwareTimeoutCount = ([regex]::Matches($socketSendBlock, 'interruptFlags\s*&\
 $clientTimeoutPassCount = ([regex]::Matches($clientVerify, 'Ethernet\.socketSend\(_sockindex, buf, size, _timeout\)')).Count
 $headerDefaultCount = ([regex]::Matches($headerVerify, 'uint32_t\s+timeoutMs\s*=\s*1000')).Count
 
-Write-Host "TCP_LEGACY_FUNCTION_EXTRACTOR=MULTILINE_SIGNATURE_AWARE"\nWrite-Host "TCP_LEGACY_OLD_FREE_WAIT_COUNT=$oldFreeWaitCount"
+Write-Host "TCP_LEGACY_FUNCTION_EXTRACTOR=MULTILINE_SIGNATURE_AWARE"
+Write-Host "TCP_LEGACY_OLD_FREE_WAIT_COUNT=$oldFreeWaitCount"
 Write-Host "TCP_LEGACY_OLD_SEND_OK_WAIT_COUNT=$oldSendOkWaitCount"
 Write-Host "TCP_LEGACY_TIMEOUT_BOUNDED_LOOP_COUNT=$timeoutLoopCount"
 Write-Host "TCP_LEGACY_CHECKED_SEND_COMMAND_COUNT=$checkedCommandCount"
