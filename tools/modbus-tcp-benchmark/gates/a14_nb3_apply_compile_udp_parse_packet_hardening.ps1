@@ -21,6 +21,55 @@ function Replace-ExactOnce {
     return $Text.Substring(0, $first) + $New + $Text.Substring($first + $Old.Length)
 }
 
+function Get-CppFunctionBlock {
+    param(
+        [Parameter(Mandatory = $true)][string]$Text,
+        [Parameter(Mandatory = $true)][string]$Signature
+    )
+
+    $searchOffset = 0
+    $start = -1
+    $braceStart = -1
+
+    while ($true) {
+        $candidate = $Text.IndexOf($Signature, $searchOffset, [System.StringComparison]::Ordinal)
+        if ($candidate -lt 0) { break }
+
+        $cursor = $candidate + $Signature.Length
+        while ($cursor -lt $Text.Length -and [char]::IsWhiteSpace($Text[$cursor])) {
+            ++$cursor
+        }
+
+        if ($cursor -lt $Text.Length -and $Text[$cursor] -eq "{") {
+            $start = $candidate
+            $braceStart = $cursor
+            break
+        }
+
+        $searchOffset = $candidate + $Signature.Length
+    }
+
+    if ($start -lt 0 -or $braceStart -lt 0) {
+        throw "A14_NB3E_FUNCTION_DEFINITION_NOT_FOUND=$Signature"
+    }
+
+    $depth = 0
+    for ($i = $braceStart; $i -lt $Text.Length; ++$i) {
+        $ch = $Text[$i]
+        if ($ch -eq "{") {
+            ++$depth
+        }
+        elseif ($ch -eq "}") {
+            --$depth
+            if ($depth -eq 0) {
+                return $Text.Substring($start, $i - $start + 1)
+            }
+        }
+    }
+
+    throw "A14_NB3E_FUNCTION_END_NOT_FOUND=$Signature"
+}
+
 function Invoke-NB3NativeToLog {
     param(
         [Parameter(Mandatory = $true)][string]$FilePath,
@@ -168,10 +217,13 @@ if ($diffCheckExit -ne 0) {
 Write-Host "GIT_DIFF_CHECK=PASS"
 
 $udpVerify = [System.IO.File]::ReadAllText($udpCppPath)
-$oldLoopCount = ([regex]::Matches($udpVerify, 'while\s*\(\s*_remaining\s*\)')).Count
-$newGuardCount = ([regex]::Matches($udpVerify, 'if\s*\(\s*_remaining\s*>\s*0\s*\)\s*\{[\s\S]*?const int drained')).Count
-$returnGuardCount = ([regex]::Matches($udpVerify, 'if\s*\(\s*drained\s*<=\s*0\s*\|\|\s*_remaining\s*>\s*0\s*\)\s*\{[\s\S]*?return 0;')).Count
+$parsePacketBlock = Get-CppFunctionBlock -Text $udpVerify -Signature "int EthernetUDP::parsePacket()"
 
+$oldLoopCount = ([regex]::Matches($parsePacketBlock, 'while\s*\(\s*_remaining\s*\)')).Count
+$newGuardCount = ([regex]::Matches($parsePacketBlock, 'if\s*\(\s*_remaining\s*>\s*0\s*\)\s*\{[\s\S]*?const int drained')).Count
+$returnGuardCount = ([regex]::Matches($parsePacketBlock, 'if\s*\(\s*drained\s*<=\s*0\s*\|\|\s*_remaining\s*>\s*0\s*\)\s*\{[\s\S]*?return 0;')).Count
+
+Write-Host "UDP_PARSE_VERIFY_SCOPE=PARSE_PACKET_FUNCTION_BODY"
 Write-Host "UDP_PARSE_REMAINING_WHILE_COUNT=$oldLoopCount"
 Write-Host "UDP_PARSE_SINGLE_DRAIN_GUARD_COUNT=$newGuardCount"
 Write-Host "UDP_PARSE_RETRY_RETURN_GUARD_COUNT=$returnGuardCount"
@@ -331,6 +383,7 @@ for ($i = 0; $i -lt $expectedDirty.Count; ++$i) {
 }
 
 Write-Host "NB3_UDP_PARSE_UNBOUNDED_REMAINING_LOOP=REMOVED"
+Write-Host "NB3_UDP_PARSE_VERIFICATION=FUNCTION_SCOPED"
 Write-Host "NB3_UDP_PARSE_DRAIN_ATTEMPTS_PER_CALL=ONE"
 Write-Host "NB3_UDP_PARSE_RECV_FAILURE=RETURN_ZERO_RETRY_NEXT_CALL"
 Write-Host "NB3_UDP_PARSE_PARTIAL_DRAIN=RETURN_ZERO_RETRY_NEXT_CALL"
