@@ -32,6 +32,102 @@ function Replace-ExactOnce {
         $Text.Substring($first + $Old.Length)
 }
 
+function Get-CppFunctionBlock {
+    param(
+        [Parameter(Mandatory = $true)][string]$Text,
+        [Parameter(Mandatory = $true)][string]$Signature
+    )
+
+    $searchOffset = 0
+    $start = -1
+    $braceStart = -1
+
+    while ($true) {
+        $candidate = $Text.IndexOf(
+            $Signature,
+            $searchOffset,
+            [System.StringComparison]::Ordinal
+        )
+
+        if ($candidate -lt 0) {
+            break
+        }
+
+        $cursor = $candidate + $Signature.Length
+
+        while ($cursor -lt $Text.Length -and
+               [char]::IsWhiteSpace($Text[$cursor])) {
+            ++$cursor
+        }
+
+        if ($cursor -lt $Text.Length -and
+            $Text[$cursor] -eq "{") {
+            $start = $candidate
+            $braceStart = $cursor
+            break
+        }
+
+        $searchOffset = $candidate + $Signature.Length
+    }
+
+    if ($start -lt 0 -or $braceStart -lt 0) {
+        throw "A14_NB3D_FUNCTION_DEFINITION_NOT_FOUND=$Signature"
+    }
+
+    $depth = 0
+
+    for ($i = $braceStart; $i -lt $Text.Length; ++$i) {
+        $ch = $Text[$i]
+
+        if ($ch -eq "{") {
+            ++$depth
+        }
+        elseif ($ch -eq "}") {
+            --$depth
+
+            if ($depth -eq 0) {
+                return $Text.Substring(
+                    $start,
+                    $i - $start + 1
+                )
+            }
+        }
+    }
+
+    throw "A14_NB3D_FUNCTION_END_NOT_FOUND=$Signature"
+}
+
+function Count-Literal {
+    param(
+        [Parameter(Mandatory = $true)][string]$Text,
+        [Parameter(Mandatory = $true)][string]$Needle
+    )
+
+    if ([string]::IsNullOrEmpty($Needle)) {
+        return 0
+    }
+
+    $count = 0
+    $offset = 0
+
+    while ($true) {
+        $index = $Text.IndexOf(
+            $Needle,
+            $offset,
+            [System.StringComparison]::Ordinal
+        )
+
+        if ($index -lt 0) {
+            break
+        }
+
+        ++$count
+        $offset = $index + $Needle.Length
+    }
+
+    return $count
+}
+
 function Invoke-NB3NativeToLog {
     param(
         [Parameter(Mandatory = $true)][string]$FilePath,
@@ -644,15 +740,27 @@ $mainHeaderVerify = [System.IO.File]::ReadAllText($mainHeaderPath)
 $socketVerify = [System.IO.File]::ReadAllText($socketPath)
 $udpCppVerify = [System.IO.File]::ReadAllText($udpCppPath)
 
-$oldUdpWaitCount = ([regex]::Matches(
-    $socketVerify,
-    'while\s*\(\s*\(W5100\.readSnIR\(s\).*SEND_OK'
-)).Count
+$socketSendUdpBlock = Get-CppFunctionBlock -Text $socketVerify -Signature "bool EthernetClass::socketSendUDP(uint8_t s)"
+$socketSendTcpBlock = Get-CppFunctionBlock -Text $socketVerify -Signature "uint16_t EthernetClass::socketSend(uint8_t s, const uint8_t * buf, uint16_t len)"
 
-Write-Host "SOCKET_UDP_DIRECT_SEND_OK_WAIT_COUNT=$oldUdpWaitCount"
-if ($oldUdpWaitCount -ne 0) {
+$sendOkWaitNeedle = "while ( (W5100.readSnIR(s) & SnIR::SEND_OK) != SnIR::SEND_OK )"
+
+$udpDirectSendOkWaitCount = Count-Literal -Text $socketSendUdpBlock -Needle $sendOkWaitNeedle
+$tcpLegacySendOkWaitCount = Count-Literal -Text $socketSendTcpBlock -Needle $sendOkWaitNeedle
+
+Write-Host "SOCKET_UDP_DIRECT_SEND_OK_WAIT_COUNT=$udpDirectSendOkWaitCount"
+Write-Host "SOCKET_TCP_LEGACY_SEND_OK_WAIT_COUNT=$tcpLegacySendOkWaitCount"
+
+if ($udpDirectSendOkWaitCount -ne 0) {
     throw "A14_NB3D_DIRECT_UDP_SEND_OK_WAIT_REMAINS"
 }
+
+if ($tcpLegacySendOkWaitCount -ne 1) {
+    throw "A14_NB3D_TCP_LEGACY_SEND_WAIT_SCOPE_UNEXPECTED=$tcpLegacySendOkWaitCount"
+}
+
+Write-Host "SOCKET_UDP_WAIT_SCOPE=FUNCTION_BODY_ONLY"
+Write-Host "SOCKET_TCP_LEGACY_WAIT=EXPECTED_PENDING_NB3F"
 
 foreach ($marker in @(
     "socketBeginSendUDP",
@@ -944,6 +1052,7 @@ Write-Host "NB3_UDP_ENDPACKET_LEGACY=WRAPPER_PRESERVED"
 Write-Host "NB3_DNS_ASYNC_UDP_SEND=COOPERATIVE"
 Write-Host "NB3_DNS_RESPONSE_TIMER_START=AFTER_UDP_SEND_OK"
 Write-Host "NB3_GIT_DIFF_CHECK_AUTHORITY=EXIT_CODE"
+Write-Host "NB3_UDP_WAIT_VERIFICATION=FUNCTION_SCOPED"
 Write-Host "NB3_PARSE_PACKET_CHANGE=NO"
 Write-Host "NB3_SPI_FREQUENCY_CHANGE=NO"
 Write-Host "NB3_UPLOAD=NO"
