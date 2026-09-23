@@ -127,9 +127,19 @@ BACKPLANE_RTU_CONFIG_PERSISTENCE=PENDING (save -> cerrar -> reabrir)
 BACKPLANE_RTU_CONFIG_HAL=PASS (compilación)
 BACKPLANE_RTU_DEFAULT_COMPATIBILITY=PASS (compilación) / PENDING (hardware)
 SLAVE_ID_SAVE/REOPEN/RECOMPILE=PENDING
-RTU_DEFAULT_115200_8N1=PENDING_PHYSICAL
+RTU_DEFAULT_115200_8N1=PASS_PHYSICAL (2026-09-23, 1 esclavo con sketch JWPLC_RemoteIO_Slave_RTU, ID 2)
 RTU_ALTERNATE_PROFILE=PENDING_PHYSICAL (p. ej. 38400/8E1)
 REMOTE_IO_MULTISLOT=PENDING_PHYSICAL (>= 2 slaves)
 REMOTE_IO_OFFLINE_SAFE_STATE=PENDING_PHYSICAL (desconectar un slave -> %IX a 0, resto del bus sigue)
 REMOTE_IO_MULTIBIT=PENDING_PHYSICAL (8 patrones)
 ```
+
+## 8. Limitación conocida antes del gate multi-slot
+
+El sketch `JWPLC_RemoteIO_Slave_RTU` apaga las salidas tras `OUTPUT_FAILSAFE_MS = 100` ms sin FC05/FC15. Con varios slots, a baud bajo o con un slot fuera de línea (timeout de 250 ms), el refresco por esclavo puede superar 100 ms y las salidas de los esclavos sanos parpadearían. Hay que subir o hacer configurable el failsafe del esclavo (unos 500–1000 ms) y limitar el sondeo de slots fuera de línea en el maestro.
+
+## 9. Diferido fuera de Alpha12
+
+- Dispositivo esclavo "JWPLC BASIC Remote I/O" dentro del VPP (programar el esclavo desde OpenPLC).
+- Commissioning del Slave ID por el bus (registros 224–240).
+- Estado del slot visible desde IEC (Alpha17).
