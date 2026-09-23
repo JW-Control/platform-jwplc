@@ -29,7 +29,9 @@ El bitmap usa 8 bits y mantiene la correspondencia directa entre `I0_n` / `Q0_n`
 
 ## Fail-safe
 
-El ejemplo fuerza todas las salidas a OFF cuando transcurren más de **100 ms** sin una escritura válida de coils mediante FC05/FC15.
+El ejemplo fuerza todas las salidas a OFF cuando transcurren más de **1000 ms** sin una escritura válida de coils mediante FC05/FC15.
+
+Alpha12: el valor anterior (100 ms) era menor que el tiempo entre escrituras del Master del Backplane cuando atiende varios slots, trabaja a baud bajo o sondea un slot fuera de línea; las salidas de los módulos sanos podían parpadear. 1000 ms cubre el peor caso: 7 slots en línea a 9600 baud (unos 420 ms) + un timeout de 250 ms.
 
 Esto permite que una pérdida del Master o del enlace RTU lleve las salidas remotas a un estado seguro durante las pruebas de Backplane.
 
