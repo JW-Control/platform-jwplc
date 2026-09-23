@@ -414,7 +414,7 @@ for ($run = 1; $run -le 3; ++$run) {
         Write-Host "RUN=$run $_=$integrityValue"
 
         if ($integrityValue -ne 0) {
-            throw "A14_NB3D3_UDP_TX_INTEGRITY_FAIL_RUN$run_$($_)=$integrityValue"
+            throw "A14_NB3D3_UDP_TX_INTEGRITY_FAIL_RUN${run}_$($_)=$integrityValue"
         }
     }
 
