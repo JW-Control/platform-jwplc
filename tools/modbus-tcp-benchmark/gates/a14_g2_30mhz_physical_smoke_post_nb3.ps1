@@ -45,7 +45,14 @@ function Get-LogInt64 {
 }
 
 function Resolve-DutIp {
-    param([string]$PythonExe, [string]$ResolverPath, [string]$Port, [string]$LogPath, [string]$Phase)
+    param(
+        [string]$PythonExe,
+        [string]$ResolverPath,
+        [string]$Port,
+        [string]$LogPath,
+        [string]$Phase,
+        [bool]$Required = $true
+    )
 
     $exitCode = Invoke-NativeToLog -FilePath $PythonExe -Arguments @(
         $ResolverPath, "--serial", $Port, "--timeout", "15"
@@ -56,6 +63,13 @@ function Resolve-DutIp {
 
     if ($exitCode -ne 0) {
         Get-Content -LiteralPath $LogPath -Tail 120 | ForEach-Object { Write-Host $_ }
+
+        if (-not $Required) {
+            Write-Host ("{0}_IP_PREFLIGHT_REQUIRED=NO" -f $Phase)
+            Write-Host ("{0}_IP_PREFLIGHT_RESULT=UNAVAILABLE_PREVIOUS_FIRMWARE_CONTRACT" -f $Phase)
+            return ""
+        }
+
         throw ("A14_G2_30_{0}_IP_RESOLVER_FAILED={1}" -f $Phase, $exitCode)
     }
 
@@ -161,7 +175,8 @@ if ($pyExit -ne 0) { throw "A14_G2_30_PYTHON_SYNTAX_FAILED" }
 
 Write-Host ""
 Write-Host "=== PRE-UPLOAD CONNECTIVITY PREFLIGHT ==="
-$preUploadIp = Resolve-DutIp -PythonExe $pythonExe -ResolverPath $resolverPath -Port $SerialPort -LogPath (Join-Path $tempRoot "preupload_ip.log") -Phase "PREUPLOAD"
+$preUploadIp = Resolve-DutIp -PythonExe $pythonExe -ResolverPath $resolverPath -Port $SerialPort -LogPath (Join-Path $tempRoot "preupload_ip.log") -Phase "PREUPLOAD" -Required $false
+if ([string]::IsNullOrWhiteSpace($preUploadIp)) { $preUploadIp = "UNAVAILABLE" }
 
 Write-Host ""
 Write-Host "=== COMPILE 30 MHz ==="
@@ -220,8 +235,8 @@ Start-Sleep -Seconds 2
 
 Write-Host ""
 Write-Host "=== POST-UPLOAD IP RESOLUTION ==="
-$postUploadIp = Resolve-DutIp -PythonExe $pythonExe -ResolverPath $resolverPath -Port $SerialPort -LogPath (Join-Path $tempRoot "postupload_ip.log") -Phase "POSTUPLOAD"
-$ipChanged = if ($postUploadIp -eq $preUploadIp) { "NO" } else { "YES" }
+$postUploadIp = Resolve-DutIp -PythonExe $pythonExe -ResolverPath $resolverPath -Port $SerialPort -LogPath (Join-Path $tempRoot "postupload_ip.log") -Phase "POSTUPLOAD" -Required $true
+$ipChanged = if ($preUploadIp -eq "UNAVAILABLE") { "UNKNOWN_PREUPLOAD_UNAVAILABLE" } elseif ($postUploadIp -eq $preUploadIp) { "NO" } else { "YES" }
 Write-Host "IP_CHANGED_AFTER_UPLOAD=$ipChanged"
 
 $modeMap = @(
