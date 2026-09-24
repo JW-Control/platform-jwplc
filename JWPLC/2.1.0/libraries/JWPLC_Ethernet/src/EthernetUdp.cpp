@@ -52,6 +52,8 @@ int EthernetUDP::available()
 /* Release any resources being used by this EthernetUDP instance */
 void EthernetUDP::stop()
 {
+	_sendPending = false;
+
 	if (sockindex < MAX_SOCK_NUM) {
 		Ethernet.socketClose(sockindex);
 		sockindex = MAX_SOCK_NUM;
@@ -73,14 +75,75 @@ int EthernetUDP::beginPacket(const char *host, uint16_t port)
 
 int EthernetUDP::beginPacket(IPAddress ip, uint16_t port)
 {
+	if (_sendPending) {
+		return 0;
+	}
+
 	_offset = 0;
 	//Serial.printf("UDP beginPacket\n");
 	return Ethernet.socketStartUDP(sockindex, rawIPAddress(ip), port);
 }
 
+int EthernetUDP::beginEndPacketAsync()
+{
+	if (_sendPending) {
+		return 0;
+	}
+
+	if (sockindex >= MAX_SOCK_NUM) {
+		return -1;
+	}
+
+	const int state =
+		Ethernet.socketBeginSendUDP(sockindex);
+
+	if (state < 0) {
+		_sendPending = false;
+		return -1;
+	}
+
+	_sendPending = (state == 0);
+	return state;
+}
+
+int EthernetUDP::pollEndPacketAsync()
+{
+	if (!_sendPending || sockindex >= MAX_SOCK_NUM) {
+		return -1;
+	}
+
+	const int state =
+		Ethernet.socketPollSendUDP(sockindex);
+
+	if (state != 0) {
+		_sendPending = false;
+	}
+
+	return state;
+}
+
+bool EthernetUDP::endPacketAsyncInProgress() const
+{
+	return _sendPending;
+}
+
+void EthernetUDP::cancelEndPacketAsync()
+{
+	// A W5500 SEND already issued cannot be withdrawn here. Clearing local
+	// state is safe; the next begin clears stale SEND_OK/TIMEOUT flags.
+	_sendPending = false;
+}
+
 int EthernetUDP::endPacket()
 {
-	return Ethernet.socketSendUDP(sockindex);
+	int state = beginEndPacketAsync();
+
+	while (state == 0) {
+		yield();
+		state = pollEndPacketAsync();
+	}
+
+	return state == 1 ? 1 : 0;
 }
 
 size_t EthernetUDP::write(uint8_t byte)
@@ -98,12 +161,16 @@ size_t EthernetUDP::write(const uint8_t *buffer, size_t size)
 
 int EthernetUDP::parsePacket()
 {
-	// discard any remaining bytes in the last packet
-	while (_remaining) {
-		// could this fail (loop endlessly) if _remaining > 0 and recv in read fails?
-		// should only occur if recv fails after telling us the data is there, lets
-		// hope the w5100 always behaves :)
-		read((uint8_t *)NULL, _remaining);
+	// Discard remaining bytes from the previous packet cooperatively.
+	// Perform at most one drain attempt per parsePacket() call. If recv fails
+	// or returns only part of the payload, leave _remaining intact for the
+	// next call instead of risking an endless loop here.
+	if (_remaining > 0) {
+		const int drained = read((uint8_t *)NULL, _remaining);
+
+		if (drained <= 0 || _remaining > 0) {
+			return 0;
+		}
 	}
 
 	if (Ethernet.socketRecvAvailable(sockindex) > 0) {

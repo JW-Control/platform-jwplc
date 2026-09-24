@@ -386,6 +386,19 @@ static void announceReady()
 
 static void acceptTcpClient()
 {
+    // El cierre TCP se avanza de forma cooperativa. Cada poll realiza solo
+    // accesos breves al W5500 y retorna para liberar el ownership SPI.
+    if (tcpClient.stopAsyncInProgress())
+    {
+        const int stopState =
+            tcpClient.pollStopAsync();
+
+        if (stopState == 0)
+        {
+            return;
+        }
+    }
+
     if (
         tcpClient &&
         tcpClient.connected()
@@ -396,7 +409,13 @@ static void acceptTcpClient()
 
     if (tcpClient)
     {
-        tcpClient.stop();
+        const int stopState =
+            tcpClient.beginStopAsync();
+
+        if (stopState == 0)
+        {
+            return;
+        }
     }
 
     tcpClient = tcpServer.accept();
@@ -451,7 +470,7 @@ static void serviceTcpUnlocked()
         else
         {
             ++transportErrors;
-            tcpClient.stop();
+            (void)tcpClient.beginStopAsync();
         }
 
         return;
@@ -461,7 +480,7 @@ static void serviceTcpUnlocked()
     {
         // Keep SPI ownership bounded while amortizing mutex/socket
         // overhead: consume at most four W5500 RX chunks per pass.
-        static constexpr uint8_t TCP_RX_MAX_CHUNKS_PER_LOCK = 4;
+        static constexpr uint8_t TCP_RX_MAX_CHUNKS_PER_LOCK = 8;
 
         for (
             uint8_t rxChunkIndex = 0;

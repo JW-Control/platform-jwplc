@@ -18,7 +18,7 @@
 #include <SPI.h>
 
 // Safe for all chips
-#define SPI_ETHERNET_SETTINGS SPISettings(14000000, MSBFIRST, SPI_MODE0)
+#define SPI_ETHERNET_SETTINGS SPISettings(26000000, MSBFIRST, SPI_MODE0)
 
 // Safe for W5200 and W5500, but too fast for W5100
 // Uncomment this if you know you'll never need W5100 support.
@@ -143,7 +143,25 @@ public:
   inline void setRetransmissionTime(uint16_t timeout) { writeRTR(timeout); }
   inline void setRetransmissionCount(uint8_t retry) { writeRCR(retry); }
 
+  // JWPLC bounded W5x00 primitives.
+  // Existing execCmdSn() remains source-compatible. New cooperative code can
+  // use execCmdSnChecked() to observe a command-register timeout.
+  static bool execCmdSnChecked(
+      SOCKET s,
+      SockCMD _cmd,
+      uint32_t timeoutUs = 1000);
   static void execCmdSn(SOCKET s, SockCMD _cmd);
+
+  // Stable 16-bit socket-register reads with an explicit comparison bound.
+  // On false, value contains the latest complete register sample.
+  static bool readSnTX_FSRStable(
+      SOCKET s,
+      uint16_t &value,
+      uint8_t maxComparisons = 8);
+  static bool readSnRX_RSRStable(
+      SOCKET s,
+      uint16_t &value,
+      uint8_t maxComparisons = 8);
 
 
   // W5100 Registers

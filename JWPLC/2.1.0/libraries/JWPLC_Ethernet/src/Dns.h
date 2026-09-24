@@ -28,13 +28,35 @@ public:
 	*/
 	int getHostByName(const char* aHostname, IPAddress& aResult, uint16_t timeout=5000);
 
+	// JWPLC cooperative DNS extension.
+	// begin/poll: negative = failed, 0 = pending, 1 = resolved.
+	// The result object must remain alive while the request is pending.
+	int beginResolveAsync(const char* aHostname,
+	                     IPAddress& aResult,
+	                     uint16_t timeout=5000);
+	int pollResolveAsync();
+	bool resolveAsyncInProgress() const;
+	void cancelResolveAsync();
+
 protected:
 	uint16_t BuildRequest(const char* aName);
 	uint16_t ProcessResponse(uint16_t aTimeout, IPAddress& aAddress);
+	int ProcessResponsePacket(IPAddress& aAddress);
+	void finishResolveAsync(int result);
 
 	IPAddress iDNSServer;
 	uint16_t iRequestId;
 	EthernetUDP iUdp;
+
+	// Cooperative resolution state. The query is sent once, matching the
+	// legacy implementation; its three wait windows are preserved as polls.
+	IPAddress* iAsyncResult = nullptr;
+	uint16_t iAsyncTimeout = 0;
+	uint32_t iAsyncWaitStartMs = 0;
+	uint8_t iAsyncWaitAttempt = 0;
+	int iAsyncStatus = -4;
+	bool iAsyncActive = false;
+	bool iAsyncSendPending = false;
 };
 
 #endif

@@ -87,51 +87,161 @@ int DNSClient::inet_aton(const char* address, IPAddress& result)
 
 int DNSClient::getHostByName(const char* aHostname, IPAddress& aResult, uint16_t timeout)
 {
-	int ret = 0;
+	int state = beginResolveAsync(aHostname, aResult, timeout);
 
-	// See if it's a numeric IP address
+	// Preserve historical 0 for socket/transport setup failure.
+	if (state == -11) {
+		return 0;
+	}
+
+	while (state == 0) {
+		delay(1);
+		state = pollResolveAsync();
+	}
+
+	if (state == -11) {
+		return 0;
+	}
+
+	return state;
+}
+
+int DNSClient::beginResolveAsync(
+	const char* aHostname,
+	IPAddress& aResult,
+	uint16_t timeout)
+{
+	cancelResolveAsync();
+
+	if (aHostname == nullptr) {
+		iAsyncStatus = INVALID_RESPONSE;
+		return iAsyncStatus;
+	}
+
 	if (inet_aton(aHostname, aResult)) {
-		// It is, our work here is done
-		return 1;
+		iAsyncStatus = SUCCESS;
+		return iAsyncStatus;
 	}
 
-	// Check we've got a valid DNS server to use
 	if (iDNSServer == INADDR_NONE) {
-		return INVALID_SERVER;
+		iAsyncStatus = INVALID_SERVER;
+		return iAsyncStatus;
 	}
-	
-	// Find a socket to use
-	if (iUdp.begin(1024+(millis() & 0xF)) == 1) {
-		// Try up to three times
-		int retries = 0;
-		// while ((retries < 3) && (ret <= 0)) {
-		// Send DNS request
-		ret = iUdp.beginPacket(iDNSServer, DNS_PORT);
-		if (ret != 0) {
-			// Now output the request data
-			ret = BuildRequest(aHostname);
-			if (ret != 0) {
-				// And finally send the request
-				ret = iUdp.endPacket();
-				if (ret != 0) {
-					// Now wait for a response
-					int wait_retries = 0;
-					ret = TIMED_OUT;
-					while ((wait_retries < 3) && (ret == TIMED_OUT)) {
-						ret = ProcessResponse(timeout, aResult);
-						wait_retries++;
-					}
-				}
-			}
+
+	if (iUdp.begin(1024 + (millis() & 0xF)) != 1) {
+		iAsyncStatus = -11;
+		return iAsyncStatus;
+	}
+
+	int ret = iUdp.beginPacket(iDNSServer, DNS_PORT);
+	if (ret == 0) {
+		finishResolveAsync(-11);
+		return -11;
+	}
+
+	ret = BuildRequest(aHostname);
+	if (ret == 0) {
+		finishResolveAsync(-11);
+		return -11;
+	}
+
+	// Start UDP SEND without waiting for SEND_OK. The poll path below
+	// completes SEND cooperatively before starting the DNS response timer.
+	ret = iUdp.beginEndPacketAsync();
+	if (ret < 0) {
+		finishResolveAsync(-11);
+		return -11;
+	}
+
+	iAsyncResult = &aResult;
+	iAsyncTimeout = timeout;
+	iAsyncWaitStartMs = (ret == 1) ? millis() : 0;
+	iAsyncWaitAttempt = 1;
+	iAsyncStatus = 0;
+	iAsyncActive = true;
+	iAsyncSendPending = (ret == 0);
+	return 0;
+}
+
+int DNSClient::pollResolveAsync()
+{
+	if (!iAsyncActive) {
+		return iAsyncStatus;
+	}
+
+	if (iAsyncResult == nullptr) {
+		finishResolveAsync(INVALID_RESPONSE);
+		return INVALID_RESPONSE;
+	}
+
+	if (iAsyncSendPending) {
+		const int sendState =
+			iUdp.pollEndPacketAsync();
+
+		if (sendState < 0) {
+			finishResolveAsync(-11);
+			return -11;
 		}
-		retries++;
-		//}
 
-		// We're done with the socket now
-		iUdp.stop();
+		if (sendState == 0) {
+			return 0;
+		}
+
+		iAsyncSendPending = false;
+		iAsyncWaitStartMs = millis();
+
+		// Keep each poll bounded: response parsing starts on the next call.
+		return 0;
 	}
 
-	return ret;
+	const int packetSize = iUdp.parsePacket();
+	if (packetSize > 0) {
+		const int result = ProcessResponsePacket(*iAsyncResult);
+		finishResolveAsync(result);
+		return result;
+	}
+
+	if ((uint32_t)(millis() - iAsyncWaitStartMs) > iAsyncTimeout) {
+		if (iAsyncWaitAttempt < 3) {
+			++iAsyncWaitAttempt;
+			iAsyncWaitStartMs = millis();
+			return 0;
+		}
+
+		finishResolveAsync(TIMED_OUT);
+		return TIMED_OUT;
+	}
+
+	return 0;
+}
+
+bool DNSClient::resolveAsyncInProgress() const
+{
+	return iAsyncActive;
+}
+
+void DNSClient::cancelResolveAsync()
+{
+	iUdp.stop();
+	iAsyncResult = nullptr;
+	iAsyncTimeout = 0;
+	iAsyncWaitStartMs = 0;
+	iAsyncWaitAttempt = 0;
+	iAsyncStatus = INVALID_RESPONSE;
+	iAsyncActive = false;
+	iAsyncSendPending = false;
+}
+
+void DNSClient::finishResolveAsync(int result)
+{
+	iUdp.stop();
+	iAsyncResult = nullptr;
+	iAsyncTimeout = 0;
+	iAsyncWaitStartMs = 0;
+	iAsyncWaitAttempt = 0;
+	iAsyncStatus = result;
+	iAsyncActive = false;
+	iAsyncSendPending = false;
 }
 
 uint16_t DNSClient::BuildRequest(const char* aName)
@@ -215,7 +325,6 @@ uint16_t DNSClient::ProcessResponse(uint16_t aTimeout, IPAddress& aAddress)
 {
 	uint32_t startTime = millis();
 
-	// Wait for a response packet
 	while (iUdp.parsePacket() <= 0) {
 		if ((millis() - startTime) > aTimeout) {
 			return TIMED_OUT;
@@ -223,7 +332,11 @@ uint16_t DNSClient::ProcessResponse(uint16_t aTimeout, IPAddress& aAddress)
 		delay(50);
 	}
 
-	// We've had a reply!
+	return (uint16_t)ProcessResponsePacket(aAddress);
+}
+
+int DNSClient::ProcessResponsePacket(IPAddress& aAddress)
+{	// We've had a reply!
 	// Read the UDP header
 	//uint8_t header[DNS_HEADER_SIZE]; // Enough space to reuse for the DNS header
 	union {

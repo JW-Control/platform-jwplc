@@ -25,7 +25,7 @@ private:
     uint8_t _socket;
     bool _pending;
 
-    static uint16_t readTxFreeStable(uint8_t socket);
+    static bool readTxFreeStable(uint8_t socket, uint16_t &value);
     static void writeTxData(uint8_t socket,
                             const uint8_t *data,
                             uint16_t length);

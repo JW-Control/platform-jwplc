@@ -41,6 +41,11 @@ int EthernetClient::connect(const char * host, uint16_t port)
 
 int EthernetClient::beginConnectAsync(IPAddress ip, uint16_t port)
 {
+	// Una nueva conexiÃ³n invalida cualquier lifecycle cooperativo anterior.
+	_stopPending = false;
+	_stopStartedAtMs = 0;
+	_flushPending = false;
+	_flushStartedAtMs = 0;
 	if (_sockindex < MAX_SOCK_NUM) {
 		uint8_t stat = Ethernet.socketStatus(_sockindex);
 		if (stat == SnSR::ESTABLISHED || stat == SnSR::CLOSE_WAIT) {
@@ -147,7 +152,7 @@ size_t EthernetClient::write(uint8_t b)
 size_t EthernetClient::write(const uint8_t *buf, size_t size)
 {
 	if (_sockindex >= MAX_SOCK_NUM) return 0;
-	if (Ethernet.socketSend(_sockindex, buf, size)) return size;
+	if (Ethernet.socketSend(_sockindex, buf, size, _timeout)) return size;
 	setWriteError();
 	return 0;
 }
@@ -184,35 +189,160 @@ int EthernetClient::read()
 	return -1;
 }
 
+int EthernetClient::beginFlushAsync()
+{
+	if (_stopPending) return -1;
+
+	if (_sockindex >= MAX_SOCK_NUM) {
+		_flushPending = false;
+		_flushStartedAtMs = 0;
+		return 1;
+	}
+
+	_flushPending = true;
+	_flushStartedAtMs = millis();
+	return pollFlushAsync();
+}
+
+int EthernetClient::pollFlushAsync()
+{
+	if (!_flushPending) {
+		return (_sockindex >= MAX_SOCK_NUM) ? 1 : -1;
+	}
+
+	if (_sockindex >= MAX_SOCK_NUM) {
+		_flushPending = false;
+		_flushStartedAtMs = 0;
+		return 1;
+	}
+
+	const uint8_t stat = Ethernet.socketStatus(_sockindex);
+	if (stat != SnSR::ESTABLISHED && stat != SnSR::CLOSE_WAIT) {
+		_flushPending = false;
+		_flushStartedAtMs = 0;
+		return 1;
+	}
+
+	if (Ethernet.socketSendAvailable(_sockindex) >= W5100.SSIZE) {
+		_flushPending = false;
+		_flushStartedAtMs = 0;
+		return 1;
+	}
+
+	if ((uint32_t)(millis() - _flushStartedAtMs) >= _timeout) {
+		_flushPending = false;
+		_flushStartedAtMs = 0;
+		return -1;
+	}
+
+	return 0;
+}
+
+bool EthernetClient::flushAsyncInProgress() const
+{
+	return _flushPending;
+}
+
+void EthernetClient::cancelFlushAsync()
+{
+	_flushPending = false;
+	_flushStartedAtMs = 0;
+}
+
 void EthernetClient::flush()
 {
-	while (_sockindex < MAX_SOCK_NUM) {
-		uint8_t stat = Ethernet.socketStatus(_sockindex);
-		if (stat != SnSR::ESTABLISHED && stat != SnSR::CLOSE_WAIT) return;
-		if (Ethernet.socketSendAvailable(_sockindex) >= W5100.SSIZE) return;
+	int state = beginFlushAsync();
+	while (state == 0) {
+		delay(1);
+		state = pollFlushAsync();
 	}
+}
+
+int EthernetClient::beginStopAsync()
+{
+	cancelFlushAsync();
+
+	if (_sockindex >= MAX_SOCK_NUM) {
+		_stopPending = false;
+		_stopStartedAtMs = 0;
+		return 1;
+	}
+
+	if (_stopPending) {
+		return pollStopAsync();
+	}
+
+	const uint8_t stat = Ethernet.socketStatus(_sockindex);
+	if (stat == SnSR::CLOSED) {
+		_sockindex = MAX_SOCK_NUM;
+		_stopPending = false;
+		_stopStartedAtMs = 0;
+		return 1;
+	}
+
+	// Dispara FIN/DISCON una sola vez. La espera se realiza mediante poll.
+	Ethernet.socketDisconnect(_sockindex);
+	_stopStartedAtMs = millis();
+	_stopPending = true;
+	return 0;
+}
+
+int EthernetClient::pollStopAsync()
+{
+	if (!_stopPending) {
+		return (_sockindex >= MAX_SOCK_NUM) ? 1 : -1;
+	}
+
+	if (_sockindex >= MAX_SOCK_NUM) {
+		_stopPending = false;
+		_stopStartedAtMs = 0;
+		return 1;
+	}
+
+	if (Ethernet.socketStatus(_sockindex) == SnSR::CLOSED) {
+		_sockindex = MAX_SOCK_NUM;
+		_stopPending = false;
+		_stopStartedAtMs = 0;
+		return 1;
+	}
+
+	if ((uint32_t)(millis() - _stopStartedAtMs) >= _timeout) {
+		// Conserva la semÃ¡ntica legacy: al vencer timeout se fuerza CLOSE.
+		Ethernet.socketClose(_sockindex);
+		_sockindex = MAX_SOCK_NUM;
+		_stopPending = false;
+		_stopStartedAtMs = 0;
+		return -1;
+	}
+
+	return 0;
+}
+
+bool EthernetClient::stopAsyncInProgress() const
+{
+	return _stopPending;
+}
+
+void EthernetClient::cancelStopAsync()
+{
+	cancelFlushAsync();
+
+	if (_sockindex < MAX_SOCK_NUM) {
+		Ethernet.socketClose(_sockindex);
+	}
+
+	_sockindex = MAX_SOCK_NUM;
+	_stopPending = false;
+	_stopStartedAtMs = 0;
 }
 
 void EthernetClient::stop()
 {
-	if (_sockindex >= MAX_SOCK_NUM) return;
-
-	// attempt to close the connection gracefully (send a FIN to other side)
-	Ethernet.socketDisconnect(_sockindex);
-	unsigned long start = millis();
-
-	// wait up to a second for the connection to close
-	do {
-		if (Ethernet.socketStatus(_sockindex) == SnSR::CLOSED) {
-			_sockindex = MAX_SOCK_NUM;
-			return; // exit the loop
-		}
+	int state = beginStopAsync();
+	while (state == 0) {
 		delay(1);
-	} while (millis() - start < _timeout);
-
-	// if it hasn't closed, close it forcefully
-	Ethernet.socketClose(_sockindex);
-	_sockindex = MAX_SOCK_NUM;
+		state = pollStopAsync();
+	}
 }
 
 uint8_t EthernetClient::connected()

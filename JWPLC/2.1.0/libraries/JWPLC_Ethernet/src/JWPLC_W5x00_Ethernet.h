@@ -145,7 +145,11 @@ private:
 	// Establish TCP connection (Passive connection)
 	static uint8_t socketListen(uint8_t s);
 	// Send data (TCP)
-	static uint16_t socketSend(uint8_t s, const uint8_t * buf, uint16_t len);
+	static uint16_t socketSend(
+		uint8_t s,
+		const uint8_t *buf,
+		uint16_t len,
+		uint32_t timeoutMs = 1000);
 	static uint16_t socketSendAvailable(uint8_t s);
 	// Receive data (TCP)
 	static int socketRecv(uint8_t s, uint8_t * buf, int16_t len);
@@ -162,6 +166,12 @@ private:
 	// Send a UDP datagram built up from a sequence of startUDP followed by one or more
 	// calls to bufferData.
 	// return true if the datagram was successfully sent, or false if there was an error
+	// JWPLC cooperative UDP SEND backend.
+	// begin/poll: -1 = error/timeout, 0 = pending, 1 = SEND_OK.
+	static int socketBeginSendUDP(uint8_t s);
+	static int socketPollSendUDP(uint8_t s);
+
+	// Arduino-compatible blocking wrapper over the same cooperative engine.
 	static bool socketSendUDP(uint8_t s);
 	// Initialize the "random" source port number
 	static void socketPortRand(uint16_t n);
@@ -178,6 +188,7 @@ private:
 	IPAddress _remoteIP; // remote IP address for the incoming packet whilst it's being processed
 	uint16_t _remotePort; // remote port of the incoming packet whilst it's being processed
 	uint16_t _offset; // offset into the packet being sent
+	bool _sendPending = false; // JWPLC cooperative UDP SEND state
 
 protected:
 	uint8_t sockindex;
@@ -192,6 +203,13 @@ public:
 	// Sending UDP packets
 	virtual int beginPacket(IPAddress ip, uint16_t port);
 	virtual int beginPacket(const char *host, uint16_t port);
+	// JWPLC cooperative UDP SEND extension.
+	// begin/poll: -1 = failed, 0 = pending, 1 = SEND_OK.
+	int beginEndPacketAsync();
+	int pollEndPacketAsync();
+	bool endPacketAsyncInProgress() const;
+	void cancelEndPacketAsync();
+
 	virtual int endPacket();
 	virtual size_t write(uint8_t);
 	virtual size_t write(const uint8_t *buffer, size_t size);
@@ -234,6 +252,23 @@ public:
 	bool connectAsyncInProgress();
 	void cancelConnectAsync();
 
+	// JWPLC cooperative TCP-close extension.
+	// begin/poll: -1 = forced close after timeout/error, 0 = pending, 1 = closed.
+	// Legacy stop() remains blocking and source-compatible, but uses this engine.
+	int beginStopAsync();
+	int pollStopAsync();
+	bool stopAsyncInProgress() const;
+	void cancelStopAsync();
+
+	// JWPLC cooperative TX-flush extension.
+	// begin/poll: -1 = timeout/error, 0 = pending, 1 = flushed/not connected.
+	// Legacy flush() remains blocking and source-compatible, but is now bounded
+	// by the configured connection timeout and uses this engine.
+	int beginFlushAsync();
+	int pollFlushAsync();
+	bool flushAsyncInProgress() const;
+	void cancelFlushAsync();
+
 	virtual int availableForWrite(void);
 	virtual size_t write(uint8_t);
 	virtual size_t write(const uint8_t *buf, size_t size);
@@ -262,6 +297,10 @@ public:
 private:
 	uint8_t _sockindex; // MAX_SOCK_NUM means client not in use
 	uint16_t _timeout;
+	bool _stopPending = false;
+	uint32_t _stopStartedAtMs = 0;
+	bool _flushPending = false;
+	uint32_t _flushStartedAtMs = 0;
 };
 
 

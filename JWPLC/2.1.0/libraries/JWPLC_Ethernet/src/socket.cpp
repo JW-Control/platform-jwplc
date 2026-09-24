@@ -262,21 +262,9 @@ void EthernetClass::socketDisconnect(uint8_t s)
 
 static uint16_t getSnRX_RSR(uint8_t s)
 {
-#if 1
-        uint16_t val, prev;
-
-        prev = W5100.readSnRX_RSR(s);
-        while (1) {
-                val = W5100.readSnRX_RSR(s);
-                if (val == prev) {
-			return val;
-		}
-                prev = val;
-        }
-#else
-	uint16_t val = W5100.readSnRX_RSR(s);
-	return val;
-#endif
+	uint16_t value = 0;
+	(void)W5100.readSnRX_RSRStable(s, value);
+	return value;
 }
 
 static void read_data(uint8_t s, uint16_t src, uint8_t *dst, uint16_t len)
@@ -381,17 +369,10 @@ uint8_t EthernetClass::socketPeek(uint8_t s)
 
 static uint16_t getSnTX_FSR(uint8_t s)
 {
-        uint16_t val, prev;
-
-        prev = W5100.readSnTX_FSR(s);
-        while (1) {
-                val = W5100.readSnTX_FSR(s);
-                if (val == prev) {
-			state[s].TX_FSR = val;
-			return val;
-		}
-                prev = val;
-        }
+	uint16_t value = 0;
+	(void)W5100.readSnTX_FSRStable(s, value);
+	state[s].TX_FSR = value;
+	return value;
 }
 
 
@@ -419,51 +400,83 @@ static void write_data(uint8_t s, uint16_t data_offset, const uint8_t *data, uin
  * @brief	This function used to send the data in TCP mode
  * @return	1 for success else 0.
  */
-uint16_t EthernetClass::socketSend(uint8_t s, const uint8_t * buf, uint16_t len)
+uint16_t EthernetClass::socketSend(
+	uint8_t s,
+	const uint8_t *buf,
+	uint16_t len,
+	uint32_t timeoutMs)
 {
-	uint8_t status=0;
-	uint16_t ret=0;
-	uint16_t freesize=0;
+	uint8_t status = 0;
+	uint16_t ret = 0;
+	uint16_t freesize = 0;
+	const uint32_t startedMs = millis();
 
 	if (len > W5100.SSIZE) {
-		ret = W5100.SSIZE; // check size not to exceed MAX size.
+		ret = W5100.SSIZE;
 	} else {
 		ret = len;
 	}
 
-	// if freebuf is available, start.
 	do {
 		SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
 		freesize = getSnTX_FSR(s);
 		status = W5100.readSnSR(s);
 		SPI.endTransaction();
-		if ((status != SnSR::ESTABLISHED) && (status != SnSR::CLOSE_WAIT)) {
-			ret = 0;
+
+		if (status != SnSR::ESTABLISHED && status != SnSR::CLOSE_WAIT) {
+			return 0;
+		}
+
+		if (freesize >= ret) {
 			break;
 		}
+
 		yield();
-	} while (freesize < ret);
+	} while ((uint32_t)(millis() - startedMs) < timeoutMs);
 
-	// copy data
+	if (freesize < ret) {
+		return 0;
+	}
+
 	SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
+	W5100.writeSnIR(s, (uint8_t)(SnIR::SEND_OK | SnIR::TIMEOUT));
 	write_data(s, 0, (uint8_t *)buf, ret);
-	W5100.execCmdSn(s, Sock_SEND);
 
-	/* +2008.01 bj */
-	while ( (W5100.readSnIR(s) & SnIR::SEND_OK) != SnIR::SEND_OK ) {
-		/* m2008.01 [bj] : reduce code */
-		if ( W5100.readSnSR(s) == SnSR::CLOSED ) {
+	if (!W5100.execCmdSnChecked(s, Sock_SEND, 1000)) {
+		SPI.endTransaction();
+		return 0;
+	}
+
+	SPI.endTransaction();
+
+	do {
+		SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
+
+		const uint8_t interruptFlags = W5100.readSnIR(s);
+		status = W5100.readSnSR(s);
+
+		if ((interruptFlags & SnIR::SEND_OK) != 0) {
+			W5100.writeSnIR(s, SnIR::SEND_OK);
+			SPI.endTransaction();
+			return ret;
+		}
+
+		if ((interruptFlags & SnIR::TIMEOUT) != 0) {
+			W5100.writeSnIR(s, (uint8_t)(SnIR::SEND_OK | SnIR::TIMEOUT));
 			SPI.endTransaction();
 			return 0;
 		}
+
 		SPI.endTransaction();
+
+		if (status != SnSR::ESTABLISHED && status != SnSR::CLOSE_WAIT) {
+			return 0;
+		}
+
 		yield();
-		SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
-	}
-	/* +2008.01 bj */
-	W5100.writeSnIR(s, SnIR::SEND_OK);
-	SPI.endTransaction();
-	return ret;
+	} while ((uint32_t)(millis() - startedMs) < timeoutMs);
+
+	return 0;
 }
 
 uint16_t EthernetClass::socketSendAvailable(uint8_t s)
@@ -509,30 +522,71 @@ bool EthernetClass::socketStartUDP(uint8_t s, uint8_t* addr, uint16_t port)
 	return true;
 }
 
-bool EthernetClass::socketSendUDP(uint8_t s)
+int EthernetClass::socketBeginSendUDP(uint8_t s)
 {
-	SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
-	W5100.execCmdSn(s, Sock_SEND);
-
-	/* +2008.01 bj */
-	while ( (W5100.readSnIR(s) & SnIR::SEND_OK) != SnIR::SEND_OK ) {
-		if (W5100.readSnIR(s) & SnIR::TIMEOUT) {
-			/* +2008.01 [bj]: clear interrupt */
-			W5100.writeSnIR(s, (SnIR::SEND_OK|SnIR::TIMEOUT));
-			SPI.endTransaction();
-			//Serial.printf("sendUDP timeout\n");
-			return false;
-		}
-		SPI.endTransaction();
-		yield();
-		SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
+	if (s >= MAX_SOCK_NUM) {
+		return -1;
 	}
 
-	/* +2008.01 bj */
-	W5100.writeSnIR(s, SnIR::SEND_OK);
+	SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
+
+	// Clear stale terminal flags from a previous datagram before SEND.
+	W5100.writeSnIR(s, (uint8_t)(SnIR::SEND_OK | SnIR::TIMEOUT));
+
+	const bool commandAccepted =
+		W5100.execCmdSnChecked(
+			s,
+			Sock_SEND,
+			1000);
+
 	SPI.endTransaction();
 
-	//Serial.printf("sendUDP ok\n");
-	/* Sent ok */
-	return true;
+	return commandAccepted ? 0 : -1;
+}
+
+int EthernetClass::socketPollSendUDP(uint8_t s)
+{
+	if (s >= MAX_SOCK_NUM) {
+		return -1;
+	}
+
+	SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
+
+	const uint8_t interruptFlags =
+		W5100.readSnIR(s);
+
+	if ((interruptFlags & SnIR::SEND_OK) != 0) {
+		W5100.writeSnIR(s, SnIR::SEND_OK);
+		SPI.endTransaction();
+		return 1;
+	}
+
+	if ((interruptFlags & SnIR::TIMEOUT) != 0) {
+		W5100.writeSnIR(
+			s,
+			(uint8_t)(SnIR::SEND_OK | SnIR::TIMEOUT));
+		SPI.endTransaction();
+		return -1;
+	}
+
+	const uint8_t status = W5100.readSnSR(s);
+	SPI.endTransaction();
+
+	if (status != SnSR::UDP) {
+		return -1;
+	}
+
+	return 0;
+}
+
+bool EthernetClass::socketSendUDP(uint8_t s)
+{
+	int state = socketBeginSendUDP(s);
+
+	while (state == 0) {
+		yield();
+		state = socketPollSendUDP(s);
+	}
+
+	return state == 1;
 }

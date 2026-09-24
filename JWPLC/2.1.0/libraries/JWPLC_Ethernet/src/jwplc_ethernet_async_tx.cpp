@@ -9,19 +9,11 @@ JWPLC_EthernetAsyncTx::JWPLC_EthernetAsyncTx()
 {
 }
 
-uint16_t JWPLC_EthernetAsyncTx::readTxFreeStable(uint8_t socket)
+bool JWPLC_EthernetAsyncTx::readTxFreeStable(
+    uint8_t socket,
+    uint16_t &value)
 {
-    uint16_t previous = W5100.readSnTX_FSR(socket);
-
-    while (true)
-    {
-        const uint16_t current = W5100.readSnTX_FSR(socket);
-        if (current == previous)
-        {
-            return current;
-        }
-        previous = current;
-    }
+    return W5100.readSnTX_FSRStable(socket, value);
 }
 
 void JWPLC_EthernetAsyncTx::writeTxData(
@@ -90,7 +82,14 @@ int JWPLC_EthernetAsyncTx::begin(
         return -1;
     }
 
-    const uint16_t freeBytes = readTxFreeStable(socket);
+    uint16_t freeBytes = 0;
+    if (!readTxFreeStable(socket, freeBytes))
+    {
+        SPI.endTransaction();
+        reset();
+        return -1;
+    }
+
     if (freeBytes < length)
     {
         SPI.endTransaction();
@@ -101,7 +100,13 @@ int JWPLC_EthernetAsyncTx::begin(
     W5100.writeSnIR(socket, (uint8_t)(SnIR::SEND_OK | SnIR::TIMEOUT));
 
     writeTxData(socket, data, length);
-    W5100.execCmdSn(socket, Sock_SEND);
+
+    if (!W5100.execCmdSnChecked(socket, Sock_SEND))
+    {
+        SPI.endTransaction();
+        reset();
+        return -1;
+    }
 
     SPI.endTransaction();
 
