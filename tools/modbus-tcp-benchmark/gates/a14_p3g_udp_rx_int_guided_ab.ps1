@@ -13,7 +13,7 @@ $expectedW5100CppHash = "9F94AAC1BB25966C18EDFD6A5C5D5908A9DBD4CF11B6E9BC099E10B
 $expectedW5100HHash = "9A833532C44E0CFCD66429A764E8BDBF62A8871838B0355565BC0A63043455FC"
 
 $payloads = @(1472, 1016)
-$variants = @("POLLING", "INT_GUIDED")
+$variants = @("INT_GUIDED", "POLLING")
 
 function Invoke-NativeToLog {
     param([string]$FilePath, [string[]]$Arguments, [string]$LogPath)
@@ -184,6 +184,64 @@ $durationText = $DurationSeconds.ToString(
 $repoLibrariesRoot = Get-G2Path "JWPLC/2.1.0/libraries"
 $fqbn = "jwplc_local:esp32:jwplcbasic"
 $results = @{}
+
+Write-Host ""
+Write-Host "=== PATCH COMPOSITION PREFLIGHT ==="
+
+$preflightRoot = Join-Path $tempRoot "PATCH_PREFLIGHT"
+$preflightWorkRoot = Join-Path $preflightRoot "instrumented"
+$preflightInstrumentLog = Join-Path $preflightRoot "instrument_patch.log"
+$preflightBatch2Log = Join-Path $preflightRoot "batch2_patch.log"
+$preflightIntLog = Join-Path $preflightRoot "int_patch.log"
+
+New-Item -ItemType Directory -Force -Path $preflightRoot | Out-Null
+
+$preflightInstrumentArgs = @(
+    $instrumentPatchPath,
+    "--repo-root", $script:G2RepoRoot,
+    "--work-root", $preflightWorkRoot
+)
+
+$preflightInstrumentExit = Invoke-NativeToLog -FilePath $pythonExe -Arguments $preflightInstrumentArgs -LogPath $preflightInstrumentLog
+Write-Host "PREFLIGHT_INSTRUMENT_PATCH_EXIT=$preflightInstrumentExit"
+
+if ($preflightInstrumentExit -ne 0) {
+    Get-Content -LiteralPath $preflightInstrumentLog -Tail 160 | ForEach-Object { Write-Host $_ }
+    throw "P3G_PREFLIGHT_INSTRUMENT_PATCH_FAILED"
+}
+
+$preflightEthernetRoot = Join-Path $preflightWorkRoot "libraries\JWPLC_Ethernet"
+$preflightSketchPath = Join-Path $preflightWorkRoot "sketch\eth14_raw_transport_server\eth14_raw_transport_server.ino"
+
+$preflightBatch2Args = @(
+    $batch2PatchPath,
+    "--instrumented-sketch", $preflightSketchPath
+)
+
+$preflightBatch2Exit = Invoke-NativeToLog -FilePath $pythonExe -Arguments $preflightBatch2Args -LogPath $preflightBatch2Log
+Write-Host "PREFLIGHT_BATCH2_PATCH_EXIT=$preflightBatch2Exit"
+
+if ($preflightBatch2Exit -ne 0) {
+    Get-Content -LiteralPath $preflightBatch2Log -Tail 160 | ForEach-Object { Write-Host $_ }
+    throw "P3G_PREFLIGHT_BATCH2_PATCH_FAILED"
+}
+
+$preflightIntArgs = @(
+    $intPatchPath,
+    "--ethernet-root", $preflightEthernetRoot,
+    "--instrumented-sketch", $preflightSketchPath
+)
+
+$preflightIntExit = Invoke-NativeToLog -FilePath $pythonExe -Arguments $preflightIntArgs -LogPath $preflightIntLog
+Write-Host "PREFLIGHT_INT_PATCH_EXIT=$preflightIntExit"
+
+if ($preflightIntExit -ne 0) {
+    Get-Content -LiteralPath $preflightIntLog -Tail 200 | ForEach-Object { Write-Host $_ }
+    throw "P3G_PREFLIGHT_INT_PATCH_FAILED"
+}
+
+Get-Content -LiteralPath $preflightIntLog | ForEach-Object { Write-Host $_ }
+Write-Host "P3G_PATCH_COMPOSITION_PREFLIGHT=PASS"
 
 foreach ($variant in $variants) {
     Write-Host ""
