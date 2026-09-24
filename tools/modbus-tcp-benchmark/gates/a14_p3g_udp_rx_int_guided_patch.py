@@ -197,14 +197,6 @@ def main() -> int:
 
     service_anchor = """static void serviceUdp()
 {
-    // ETH14 G1A protected A/B:
-    // raw EthernetUDP access must respect the JWPLC
-    // shared-SPI ownership policy.
-    if (!jwplcSPI_acquire(50))
-    {
-        ++udpSpiLockErrors;
-        return;
-    }
 """
 
     service_block = """static void serviceUdp()
@@ -233,14 +225,6 @@ def main() -> int:
         ++udpRxIntWakeCount;
     }
 
-    // ETH14 G1A protected A/B:
-    // raw EthernetUDP access must respect the JWPLC
-    // shared-SPI ownership policy.
-    if (!jwplcSPI_acquire(50))
-    {
-        ++udpSpiLockErrors;
-        return;
-    }
 """
 
     ino = replace_once(
