@@ -158,8 +158,6 @@ $asyncTxText = [System.IO.File]::ReadAllText(
 $dnsText = [System.IO.File]::ReadAllText(
     (Get-G2Path "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/Dns.cpp"))
 
-$recvAvailable = Get-CppFunctionBlock -Text $socketText -SignaturePrefix "uint16_t EthernetClass::socketRecvAvailable("
-$sendAvailable = Get-CppFunctionBlock -Text $socketText -SignaturePrefix "uint16_t EthernetClass::socketSendAvailable("
 $tcpSend = Get-CppFunctionBlock -Text $socketText -SignaturePrefix "uint16_t EthernetClass::socketSend("
 $udpSend = Get-CppFunctionBlock -Text $socketText -SignaturePrefix "bool EthernetClass::socketSendUDP("
 $udpBegin = Get-CppFunctionBlock -Text $socketText -SignaturePrefix "int EthernetClass::socketBeginSendUDP("
@@ -168,12 +166,15 @@ $parsePacket = Get-CppFunctionBlock -Text $udpText -SignaturePrefix "int Etherne
 $udpLegacyEndPacket = Get-CppFunctionBlock -Text $udpText -SignaturePrefix "int EthernetUDP::endPacket("
 $w5100ExecLegacy = Get-CppFunctionBlock -Text $w5100Text -SignaturePrefix "void W5100Class::execCmdSn("
 $w5100ExecChecked = Get-CppFunctionBlock -Text $w5100Text -SignaturePrefix "bool W5100Class::execCmdSnChecked("
-$asyncStable = Get-CppFunctionBlock -Text $asyncTxText -SignaturePrefix "uint16_t JWPLC_EthernetAsyncTx::readTxFreeStable("
+$w5100TxStable = Get-CppFunctionBlock -Text $w5100Text -SignaturePrefix "bool W5100Class::readSnTX_FSRStable("
+$w5100RxStable = Get-CppFunctionBlock -Text $w5100Text -SignaturePrefix "bool W5100Class::readSnRX_RSRStable("
+$asyncStable = Get-CppFunctionBlock -Text $asyncTxText -SignaturePrefix "bool JWPLC_EthernetAsyncTx::readTxFreeStable("
 $dnsBegin = Get-CppFunctionBlock -Text $dnsText -SignaturePrefix "int DNSClient::beginResolveAsync("
 $dnsPoll = Get-CppFunctionBlock -Text $dnsText -SignaturePrefix "int DNSClient::pollResolveAsync("
 
-$rxWhile1 = Count-Regex -Text $recvAvailable -Pattern 'while\s*\(\s*1\s*\)'
-$txWhile1 = Count-Regex -Text $sendAvailable -Pattern 'while\s*\(\s*1\s*\)'
+$socketWhile1 = Count-Regex -Text $socketText -Pattern 'while\s*\(\s*1\s*\)'
+$socketRxStableCall = Count-Regex -Text $socketText -Pattern 'W5100\.readSnRX_RSRStable\(s,\s*value\)'
+$socketTxStableCall = Count-Regex -Text $socketText -Pattern 'W5100\.readSnTX_FSRStable\(s,\s*value\)'
 $tcpOldFree = Count-Regex -Text $tcpSend -Pattern 'while\s*\(\s*freesize\s*<\s*ret\s*\)'
 $tcpOldSendOk = Count-Regex -Text $tcpSend -Pattern 'while\s*\(\s*\(W5100\.readSnIR\(s\).*SEND_OK'
 $tcpTimeoutLoops = Count-Regex -Text $tcpSend -Pattern 'millis\(\)\s*-\s*startedMs\)\s*<\s*timeoutMs'
@@ -188,15 +189,18 @@ $legacyExecUnbounded = Count-Regex -Text $w5100ExecLegacy -Pattern 'while\s*\(\s
 $legacyExecDelegatesChecked = Count-Regex -Text $w5100ExecLegacy -Pattern 'execCmdSnChecked'
 $checkedExecDeadline = Count-Regex -Text $w5100ExecChecked -Pattern 'timeoutUs'
 $asyncWhileTrue = Count-Regex -Text $asyncStable -Pattern 'while\s*\(\s*true\s*\)'
-$asyncBoundedMarker = Count-Regex -Text $asyncStable -Pattern '8'
+$w5100TxStableBound = Count-Regex -Text $w5100TxStable -Pattern 'for\s*\([^;]+;\s*i\s*<\s*maxComparisons\s*;'
+$w5100RxStableBound = Count-Regex -Text $w5100RxStable -Pattern 'for\s*\([^;]+;\s*i\s*<\s*maxComparisons\s*;'
+$asyncStableDelegate = Count-Regex -Text $asyncStable -Pattern 'W5100\.readSnTX_FSRStable\(socket,\s*value\)'
 $dnsSyncEndPacket = Count-Regex -Text $dnsBegin -Pattern '\.endPacket\('
 $dnsAsyncBeginUdp = Count-Regex -Text $dnsBegin -Pattern 'beginEndPacketAsync\('
 $dnsAsyncPollUdp = Count-Regex -Text $dnsPoll -Pattern 'pollEndPacketAsync\('
 
 Write-Host ""
 Write-Host "=== ORIGINAL NB3 RISK INVENTORY - CURRENT STATE ==="
-Write-Host "NB3_CLOSE_RX_STABLE_WHILE1_COUNT=$rxWhile1"
-Write-Host "NB3_CLOSE_TX_STABLE_WHILE1_COUNT=$txWhile1"
+Write-Host "NB3_CLOSE_SOCKET_STABLE_WHILE1_COUNT=$socketWhile1"
+Write-Host "NB3_CLOSE_SOCKET_RX_STABLE_DELEGATE_COUNT=$socketRxStableCall"
+Write-Host "NB3_CLOSE_SOCKET_TX_STABLE_DELEGATE_COUNT=$socketTxStableCall"
 Write-Host "NB3_CLOSE_TCP_OLD_FREE_WAIT_COUNT=$tcpOldFree"
 Write-Host "NB3_CLOSE_TCP_OLD_SEND_OK_WAIT_COUNT=$tcpOldSendOk"
 Write-Host "NB3_CLOSE_TCP_TIMEOUT_CONDITION_COUNT=$tcpTimeoutLoops"
@@ -210,14 +214,17 @@ Write-Host "NB3_CLOSE_PARSE_SINGLE_DRAIN_COUNT=$parseDrainGuard"
 Write-Host "NB3_CLOSE_W5100_LEGACY_EXEC_UNBOUNDED_COUNT=$legacyExecUnbounded"
 Write-Host "NB3_CLOSE_W5100_LEGACY_EXEC_DELEGATES_CHECKED_COUNT=$legacyExecDelegatesChecked"
 Write-Host "NB3_CLOSE_W5100_CHECKED_TIMEOUT_MARKER_COUNT=$checkedExecDeadline"
+Write-Host "NB3_CLOSE_W5100_TX_STABLE_BOUND_COUNT=$w5100TxStableBound"
+Write-Host "NB3_CLOSE_W5100_RX_STABLE_BOUND_COUNT=$w5100RxStableBound"
 Write-Host "NB3_CLOSE_ASYNC_STABLE_WHILE_TRUE_COUNT=$asyncWhileTrue"
-Write-Host "NB3_CLOSE_ASYNC_STABLE_BOUND_MARKER_COUNT=$asyncBoundedMarker"
+Write-Host "NB3_CLOSE_ASYNC_STABLE_DELEGATE_COUNT=$asyncStableDelegate"
 Write-Host "NB3_CLOSE_DNS_SYNC_END_PACKET_COUNT=$dnsSyncEndPacket"
 Write-Host "NB3_CLOSE_DNS_ASYNC_UDP_BEGIN_COUNT=$dnsAsyncBeginUdp"
 Write-Host "NB3_CLOSE_DNS_ASYNC_UDP_POLL_COUNT=$dnsAsyncPollUdp"
 
-if ($rxWhile1 -ne 0) { throw "A14_NB3_CLOSE_RX_STABLE_LOOP_REMAINS" }
-if ($txWhile1 -ne 0) { throw "A14_NB3_CLOSE_TX_STABLE_LOOP_REMAINS" }
+if ($socketWhile1 -ne 0) { throw "A14_NB3_CLOSE_SOCKET_STABLE_LOOP_REMAINS=$socketWhile1" }
+if ($socketRxStableCall -ne 1) { throw "A14_NB3_CLOSE_RX_STABLE_DELEGATE_INVALID=$socketRxStableCall" }
+if ($socketTxStableCall -ne 1) { throw "A14_NB3_CLOSE_TX_STABLE_DELEGATE_INVALID=$socketTxStableCall" }
 if ($tcpOldFree -ne 0) { throw "A14_NB3_CLOSE_TCP_FREE_WAIT_REMAINS" }
 if ($tcpOldSendOk -ne 0) { throw "A14_NB3_CLOSE_TCP_SEND_OK_WAIT_REMAINS" }
 if ($tcpTimeoutLoops -lt 2) { throw "A14_NB3_CLOSE_TCP_TIMEOUT_BOUNDS_MISSING=$tcpTimeoutLoops" }
@@ -230,7 +237,10 @@ if ($parseDrainGuard -ne 1) { throw "A14_NB3_CLOSE_PARSE_DRAIN_GUARD_INVALID=$pa
 if ($legacyExecUnbounded -ne 0) { throw "A14_NB3_CLOSE_W5100_LEGACY_EXEC_UNBOUNDED_REMAINS" }
 if ($legacyExecDelegatesChecked -lt 1) { throw "A14_NB3_CLOSE_W5100_LEGACY_EXEC_NOT_DELEGATED" }
 if ($checkedExecDeadline -lt 1) { throw "A14_NB3_CLOSE_W5100_CHECKED_TIMEOUT_MISSING" }
+if ($w5100TxStableBound -ne 1) { throw "A14_NB3_CLOSE_W5100_TX_STABLE_BOUND_INVALID=$w5100TxStableBound" }
+if ($w5100RxStableBound -ne 1) { throw "A14_NB3_CLOSE_W5100_RX_STABLE_BOUND_INVALID=$w5100RxStableBound" }
 if ($asyncWhileTrue -ne 0) { throw "A14_NB3_CLOSE_ASYNC_STABLE_LOOP_REMAINS" }
+if ($asyncStableDelegate -ne 1) { throw "A14_NB3_CLOSE_ASYNC_STABLE_DELEGATE_INVALID=$asyncStableDelegate" }
 if ($dnsSyncEndPacket -ne 0) { throw "A14_NB3_CLOSE_DNS_SYNC_UDP_SEND_REMAINS" }
 if ($dnsAsyncBeginUdp -ne 1 -or $dnsAsyncPollUdp -ne 1) { throw "A14_NB3_CLOSE_DNS_ASYNC_SEND_CONTRACT_INVALID" }
 
@@ -316,6 +326,12 @@ Write-Host "STAGED_COUNT_FINAL=$($stagedFinal.Count)"
 
 if ($dirtyFinal.Count -ne $expectedDirty.Count -or $stagedFinal.Count -ne 0) {
     throw "A14_NB3_CLOSE_FINAL_WORKTREE_INVALID"
+}
+
+for ($i = 0; $i -lt $expectedDirty.Count; ++$i) {
+    if ($dirtyFinal[$i] -ne $expectedDirty[$i]) {
+        throw "A14_NB3_CLOSE_FINAL_DIRTY_PATH_INVALID=$($dirtyFinal[$i])"
+    }
 }
 
 Write-Host ""
