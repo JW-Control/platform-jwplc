@@ -59,11 +59,11 @@ static const JWPLC_UIField SLAVE_FIELDS[] = {
         JWPLC_UIValueFormat(7, 0, false, false)),
 
     JWPLC_UIValueField(
-        FIELD_CRC, 8, 144, "CRC", "",
+        FIELD_CRC, 165, 42, "CRC", "",
         JWPLC_UIValueFormat(5, 0, false, false)),
 
     JWPLC_UIValueField(
-        FIELD_HR0, 8, 178, "HR0", "",
+        FIELD_HR0, 165, 76, "HR0", "",
         JWPLC_UIValueFormat(5, 0, false, false))
 };
 
