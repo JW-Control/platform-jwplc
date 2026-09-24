@@ -118,6 +118,10 @@ def main() -> int:
         "    Serial.println((unsigned long long)udpRxBytesPerActiveHoldX1000);\n",
         '    Serial.print("UDP_RX_BYTES_PER_ACTIVE_HOLD_X1000=");\n'
         "    Serial.println((unsigned long long)udpRxBytesPerActiveHoldX1000);\n"
+        '    Serial.print("W5100_DIAG_READ_CALLS_TOTAL=");\n'
+        "    Serial.println((uint32_t)W5100.jwplcDiagReadCalls());\n"
+        '    Serial.print("W5100_DIAG_READ_BYTES_TOTAL=");\n'
+        "    Serial.println((unsigned long long)W5100.jwplcDiagReadBytes());\n"
         '    Serial.print("ETH_INT_CONFIGURED=");\n'
         '    Serial.println(ethIntConfigured ? "YES" : "NO");\n'
         '    Serial.print("ETH_INT_PIN=");\n'
