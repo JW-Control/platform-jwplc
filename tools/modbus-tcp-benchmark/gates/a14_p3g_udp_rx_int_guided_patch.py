@@ -241,17 +241,6 @@ def main() -> int:
         ++udpSpiLockErrors;
         return;
     }
-
-    // Clear RECV before draining. A datagram received while this hold is
-    // active can assert RECV again, so the next wakeup is not lost.
-    if (
-        ethIntConfigured &&
-        ethIntUdpSocket < MAX_SOCK_NUM)
-    {
-        W5100.writeSnIR(
-            ethIntUdpSocket,
-            SnIR::RECV);
-    }
 """
 
     ino = replace_once(
@@ -259,6 +248,35 @@ def main() -> int:
         service_anchor,
         service_block,
         "P3G_INT_GATE",
+    )
+
+    clear_anchor = """    jwplcSPI_deselectAll();
+
+    static constexpr uint8_t UDP_RX_MAX_PACKETS_PER_HOLD = 2;
+"""
+
+    clear_block = """    jwplcSPI_deselectAll();
+
+    // Clear RECV only after all shared-SPI chip selects are deselected.
+    // A datagram received while this hold is active can assert RECV again.
+    if (
+        mode == MODE_UDP_RX &&
+        ethIntConfigured &&
+        ethIntUdpSocket < MAX_SOCK_NUM)
+    {
+        W5100.writeSnIR(
+            ethIntUdpSocket,
+            SnIR::RECV);
+    }
+
+    static constexpr uint8_t UDP_RX_MAX_PACKETS_PER_HOLD = 2;
+"""
+
+    ino = replace_once(
+        ino,
+        clear_anchor,
+        clear_block,
+        "P3G_CLEAR_RECV_BEFORE_DRAIN",
     )
 
     release_anchor = """    jwplcSPI_release();
