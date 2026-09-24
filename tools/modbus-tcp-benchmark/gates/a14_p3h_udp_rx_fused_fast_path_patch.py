@@ -44,14 +44,41 @@ def main() -> int:
         "P3H_ETHERNETCLASS_DECL",
     )
 
+    udp_decl_anchor = (
+        "\tvirtual int read(uint8_t *buf, size_t len);\n"
+        "\tvirtual int read(char* buffer, size_t len) "
+        "{ return read((unsigned char*)buffer, len); };\n"
+    )
+
+    udp_decl_replacement = (
+        "\tvirtual int read(uint8_t *buf, size_t len);\n"
+        "\t// P3H diagnostic-only API in the isolated benchmark copy.\n"
+        "\tint jwplcDiagReadPacketFast(uint8_t *buffer, size_t len);\n"
+        "\tvirtual int read(char* buffer, size_t len) "
+        "{ return read((unsigned char*)buffer, len); };\n"
+    )
+
     h = replace_once(
         h,
-        "\tvirtual int read(uint8_t *buf, size_t size);\n",
-        "\tvirtual int read(uint8_t *buf, size_t size);\n"
-        "\t// P3H diagnostic-only API in the isolated benchmark copy.\n"
-        "\tint jwplcDiagReadPacketFast(uint8_t *buffer, size_t len);\n",
+        udp_decl_anchor,
+        udp_decl_replacement,
         "P3H_UDP_DECL",
     )
+
+    udp_class_start = h.index("class EthernetUDP : public UDP")
+    client_class_start = h.index("class EthernetClient : public Client")
+    udp_class_text = h[udp_class_start:client_class_start]
+
+    if udp_class_text.count("jwplcDiagReadPacketFast") != 1:
+        raise RuntimeError(
+            "P3H_UDP_DECL_NOT_INSIDE_ETHERNETUDP"
+        )
+
+    client_class_text = h[client_class_start:]
+    if "jwplcDiagReadPacketFast" in client_class_text:
+        raise RuntimeError(
+            "P3H_UDP_DECL_LEAKED_INTO_ETHERNETCLIENT"
+        )
 
     header.write_text(h, encoding="utf-8", newline="\n")
 
@@ -289,6 +316,7 @@ def main() -> int:
     print("P3H_FAST_PATH_HEADER_BYTES=8")
     print("P3H_FAST_PATH_SPI_TRANSACTION_PER_PACKET=1")
     print("P3H_LEGACY_UDP_API_REPLACED=NO")
+    print("P3H_UDP_DECL_CLASS_CHECK=PASS")
     print("P3H_PRODUCT_SOURCE_MUTATION=NO")
     print("P3H_UDP_RX_FUSED_FAST_PATH_PATCH=PASS")
     return 0
