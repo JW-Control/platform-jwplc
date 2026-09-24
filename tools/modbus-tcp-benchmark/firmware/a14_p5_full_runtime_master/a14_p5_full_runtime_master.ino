@@ -149,9 +149,9 @@ static const JWPLC_UIField MASTER_FIELDS[] = {
         JWPLC_UIValueFormat(7, 0, false, false)),
     JWPLC_UIValueField(FIELD_RTU_FAIL, 8, 110, "RTU FAIL", "",
         JWPLC_UIValueFormat(5, 0, false, false)),
-    JWPLC_UIBoolField(FIELD_SD_READY, 8, 144, "SD",
+    JWPLC_UIBoolField(FIELD_SD_READY, 165, 42, "SD",
         JWPLC_UIBoolText("FAIL", "OK")),
-    JWPLC_UIBoolField(FIELD_ETH_READY, 8, 178, "ETH",
+    JWPLC_UIBoolField(FIELD_ETH_READY, 165, 76, "ETH",
         JWPLC_UIBoolText("DOWN", "UP"))
 };
 
