@@ -106,7 +106,7 @@ function Get-Median {
 Write-Host "============================================================"
 Write-Host " A14 P3J-R1 - REPEATABILITY POST-COMMIT REARM VS FUSED @ 1016 B"
 Write-Host "============================================================"
-Write-Host "SEQUENCE=COMMIT2_R1_R1,FUSED,COMMIT2_R1_R1,FUSED"
+Write-Host "SEQUENCE=COMMIT2_R1,FUSED,COMMIT2_R1,FUSED"
 Write-Host "BLOCKS=2"
 Write-Host "RUNS_PER_VARIANT_PER_BLOCK=$Runs"
 Write-Host "TOTAL_RUNS_PER_VARIANT=$($Runs * 2)"
@@ -175,7 +175,7 @@ elseif ($aggregateGainPct -lt 0.5) {
 
 Write-Host ""
 Write-Host "============================================================"
-Write-Host " P3J REPEATABILITY SUMMARY"
+Write-Host " P3J-R1 REPEATABILITY SUMMARY"
 Write-Host "============================================================"
 Write-Host ("P3J_R1_COMMIT2_R1_BLOCK1_MEDIAN_MBPS={0:F6}" -f $commitBlock1)
 Write-Host ("P3J_R1_FUSED_BLOCK1_MEDIAN_MBPS={0:F6}" -f $fusedBlock1)
