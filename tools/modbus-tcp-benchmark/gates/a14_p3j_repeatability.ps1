@@ -27,8 +27,15 @@ function Invoke-Block {
         "-Runs", ([string]$Runs)
     )
 
-    & powershell.exe @args *> $log
-    $exit = [int]$LASTEXITCODE
+    $previousPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        & powershell.exe @args *> $log
+        $exit = [int]$LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousPreference
+    }
 
     Write-Host "P3J_BLOCK=$Index EXIT=$exit LOG=$log"
 
