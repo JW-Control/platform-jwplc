@@ -205,6 +205,17 @@ def main() -> int:
         ++udpSpiLockErrors;
         return;
     }
+
+    // Clear the event before draining. Any new datagram received while
+    // servicing can assert RECV again, avoiding a lost-wakeup race.
+    if (
+        ethIntConfigured &&
+        ethIntUdpSocket < MAX_SOCK_NUM)
+    {
+        W5100.writeSnIR(
+            ethIntUdpSocket,
+            SnIR::RECV);
+    }
 """
 
     service_block = """static void serviceUdp()
@@ -256,16 +267,7 @@ def main() -> int:
 void setup()
 """
 
-    release_block = """    if (
-        ethIntConfigured &&
-        ethIntUdpSocket < MAX_SOCK_NUM)
-    {
-        W5100.writeSnIR(
-            ethIntUdpSocket,
-            SnIR::RECV);
-    }
-
-    jwplcSPI_release();
+    release_block = """    jwplcSPI_release();
 
     if (
         ethIntConfigured &&
