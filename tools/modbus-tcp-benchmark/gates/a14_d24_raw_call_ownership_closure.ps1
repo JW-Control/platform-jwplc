@@ -190,11 +190,17 @@ $rawPath = Get-G2Path $rawRelative
 $rawText = [System.IO.File]::ReadAllText($rawPath)
 $codeText = Remove-CppCommentsPreserveStrings -Text $rawText
 
-$fullEthernetDotCount = Count-Literal -Text $rawText -Needle "Ethernet."
-$codeEthernetDotCount = Count-Literal -Text $codeText -Needle "Ethernet."
-$fullEthernetBeginCount = Count-Literal -Text $rawText -Needle "Ethernet.begin("
-$codeEthernetBeginCount = Count-Literal -Text $codeText -Needle "Ethernet.begin("
+$rawEthernetDotPattern = '(?<![A-Za-z0-9_])Ethernet\.'
+$rawEthernetBeginPattern = '(?<![A-Za-z0-9_])Ethernet\.begin\('
+
+$fullEthernetDotCount = @([regex]::Matches($rawText, $rawEthernetDotPattern)).Count
+$codeEthernetDotCount = @([regex]::Matches($codeText, $rawEthernetDotPattern)).Count
+$fullEthernetBeginCount = @([regex]::Matches($rawText, $rawEthernetBeginPattern)).Count
+$codeEthernetBeginCount = @([regex]::Matches($codeText, $rawEthernetBeginPattern)).Count
 $commentOnlyEthernetDotCount = $fullEthernetDotCount - $codeEthernetDotCount
+
+Write-Host "RAW_ETHERNET_DOT_PATTERN=$rawEthernetDotPattern"
+Write-Host "RAW_ETHERNET_BEGIN_PATTERN=$rawEthernetBeginPattern"
 
 Write-Host ""
 Write-Host "=== D24 OWNERSHIP EVIDENCE ==="
@@ -208,7 +214,7 @@ $rawLines = $rawText -split "\r?\n"
 $matches = New-Object System.Collections.Generic.List[string]
 
 for ($i = 0; $i -lt $rawLines.Count; ++$i) {
-    if ($rawLines[$i].Contains("Ethernet.")) {
+    if ([regex]::IsMatch($rawLines[$i], $rawEthernetDotPattern)) {
         $matches.Add(("{0}:{1}" -f ($i + 1), $rawLines[$i].Trim()))
     }
 }
