@@ -145,7 +145,7 @@ $instrumentPatchPath = Join-Path $PSScriptRoot "a14_p3_udp_rx_instrument_patch.p
 $batch2PatchPath = Join-Path $PSScriptRoot "a14_p3b_udp_rx_batch2_patch.py"
 $intPatchPath = Join-Path $PSScriptRoot "a14_p3g_udp_rx_int_guided_patch.py"
 $fastPatchPath = Join-Path $PSScriptRoot "a14_p3h_udp_rx_fused_fast_path_patch.py"
-$bridgePath = Join-Path $PSScriptRoot "a14_p3g_udp_rx_int_bridge.py"
+$bridgePath = Join-Path $PSScriptRoot "a14_p3h_udp_rx_reset_bridge.py"
 $resolverPath = Join-Path $PSScriptRoot "a14_nb3_resolve_dut_ip.py"
 
 $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
@@ -488,29 +488,41 @@ foreach ($variant in $variants) {
                 throw "P3G_FUNCTIONAL_FAIL_$variant" + "_P$payload" + "_R$run"
             }
 
-            if ((Get-LogValue -Text $text -Key "P3G_FINAL_SNAPSHOT_PRESENT") -ne "YES") {
+            if ((Get-LogValue -Text $text -Key "P3H_FINAL_SNAPSHOT_PRESENT") -ne "YES") {
                 throw "P3G_SNAPSHOT_MISSING_$variant" + "_P$payload" + "_R$run"
             }
 
-            if ((Get-LogValue -Text $text -Key "P3G_FINAL_ETH_READY") -ne "YES") {
+            if ((Get-LogValue -Text $text -Key "P3H_ARM_RESET_PASS") -ne "YES") {
+                throw "P3H_ARM_RESET_GUARD_FAILED_$variant" + "_P$payload" + "_R$run"
+            }
+
+            if ((Get-LogInt64 -Text $text -Key "P3H_ARM_RESET_RX_BYTES") -ne 0) {
+                throw "P3H_ARM_RESET_RX_BYTES_NONZERO_$variant" + "_P$payload" + "_R$run"
+            }
+
+            if ((Get-LogInt64 -Text $text -Key "P3H_ARM_RESET_RX_OPERATIONS") -ne 0) {
+                throw "P3H_ARM_RESET_RX_OPERATIONS_NONZERO_$variant" + "_P$payload" + "_R$run"
+            }
+
+            if ((Get-LogValue -Text $text -Key "P3H_FINAL_ETH_READY") -ne "YES") {
                 throw "P3G_ETH_NOT_READY_$variant" + "_P$payload" + "_R$run"
             }
 
-            if ((Get-LogValue -Text $text -Key "P3G_FINAL_ETH_LINK") -ne "UP") {
+            if ((Get-LogValue -Text $text -Key "P3H_FINAL_ETH_LINK") -ne "UP") {
                 throw "P3G_LINK_DOWN_$variant" + "_P$payload" + "_R$run"
             }
 
-            if ((Get-LogValue -Text $text -Key "P3G_FINAL_IP") -ne $dutIp) {
+            if ((Get-LogValue -Text $text -Key "P3H_FINAL_IP") -ne $dutIp) {
                 throw "P3G_IP_MISMATCH_$variant" + "_P$payload" + "_R$run"
             }
 
-            $transportErrors = Get-LogInt64 -Text $text -Key "P3G_FINAL_TRANSPORT_ERRORS"
-            $udpSpiLockErrors = Get-LogInt64 -Text $text -Key "P3G_FINAL_UDP_SPI_LOCK_ERRORS"
-            $packets = Get-LogInt64 -Text $text -Key "P3G_FINAL_UDP_RX_PACKETS"
-            $rxOperations = Get-LogInt64 -Text $text -Key "P3G_FINAL_RX_OPERATIONS"
-            $activeHolds = Get-LogInt64 -Text $text -Key "P3G_FINAL_UDP_RX_ACTIVE_HOLD_COUNT"
-            $serviceHolds = Get-LogInt64 -Text $text -Key "P3G_FINAL_UDP_RX_SERVICE_HOLD_COUNT"
-            $emptyHolds = Get-LogInt64 -Text $text -Key "P3G_FINAL_UDP_RX_EMPTY_HOLD_COUNT"
+            $transportErrors = Get-LogInt64 -Text $text -Key "P3H_FINAL_TRANSPORT_ERRORS"
+            $udpSpiLockErrors = Get-LogInt64 -Text $text -Key "P3H_FINAL_UDP_SPI_LOCK_ERRORS"
+            $packets = Get-LogInt64 -Text $text -Key "P3H_FINAL_UDP_RX_PACKETS"
+            $rxOperations = Get-LogInt64 -Text $text -Key "P3H_FINAL_RX_OPERATIONS"
+            $activeHolds = Get-LogInt64 -Text $text -Key "P3H_FINAL_UDP_RX_ACTIVE_HOLD_COUNT"
+            $serviceHolds = Get-LogInt64 -Text $text -Key "P3H_FINAL_UDP_RX_SERVICE_HOLD_COUNT"
+            $emptyHolds = Get-LogInt64 -Text $text -Key "P3H_FINAL_UDP_RX_EMPTY_HOLD_COUNT"
 
             if ($transportErrors -ne 0) {
                 throw "P3G_TRANSPORT_ERRORS_$variant" + "_P$payload" + "_R$run=$transportErrors"
@@ -544,14 +556,14 @@ foreach ($variant in $variants) {
                 throw "P3G_EMPTY_HOLD_INVALID_$variant" + "_P$payload" + "_R$run"
             }
 
-            if ((Get-LogValue -Text $text -Key "P3G_FINAL_ETH_INT_CONFIGURED") -ne "YES") {
+            if ((Get-LogValue -Text $text -Key "P3H_FINAL_ETH_INT_CONFIGURED") -ne "YES") {
                 throw "P3H_INT_NOT_CONFIGURED_$variant" + "_P$payload" + "_R$run"
             }
 
-            $intPin = Get-LogInt64 -Text $text -Key "P3G_FINAL_ETH_INT_PIN"
-            $intSocket = Get-LogInt64 -Text $text -Key "P3G_FINAL_ETH_INT_UDP_SOCKET"
-            $skipCount = Get-LogInt64 -Text $text -Key "P3G_FINAL_UDP_RX_INT_SKIP_COUNT"
-            $wakeCount = Get-LogInt64 -Text $text -Key "P3G_FINAL_UDP_RX_INT_WAKE_COUNT"
+            $intPin = Get-LogInt64 -Text $text -Key "P3H_FINAL_ETH_INT_PIN"
+            $intSocket = Get-LogInt64 -Text $text -Key "P3H_FINAL_ETH_INT_UDP_SOCKET"
+            $skipCount = Get-LogInt64 -Text $text -Key "P3H_FINAL_UDP_RX_INT_SKIP_COUNT"
+            $wakeCount = Get-LogInt64 -Text $text -Key "P3H_FINAL_UDP_RX_INT_WAKE_COUNT"
 
             if ($intPin -ne 15) {
                 throw "P3H_INT_PIN_MISMATCH=$intPin"
@@ -579,10 +591,10 @@ foreach ($variant in $variants) {
                 (100.0 * $emptyHolds) / $serviceHolds
 
             $dutMbps = Get-LogDouble -Text $text -Key "SUMMARY_UDP_RX_DUT_MBPS"
-            $activeHoldAvg = Get-LogInt64 -Text $text -Key "P3G_FINAL_UDP_RX_ACTIVE_HOLD_US_AVG"
-            $activeHoldMax = Get-LogInt64 -Text $text -Key "P3G_FINAL_UDP_RX_ACTIVE_HOLD_US_MAX"
-            $spiReadsPerPacketX1000 = Get-LogInt64 -Text $text -Key "P3G_FINAL_UDP_RX_SPI_READS_PER_PACKET_X1000"
-            $totalReadCalls = Get-LogInt64 -Text $text -Key "P3G_FINAL_W5100_DIAG_READ_CALLS_TOTAL"
+            $activeHoldAvg = Get-LogInt64 -Text $text -Key "P3H_FINAL_UDP_RX_ACTIVE_HOLD_US_AVG"
+            $activeHoldMax = Get-LogInt64 -Text $text -Key "P3H_FINAL_UDP_RX_ACTIVE_HOLD_US_MAX"
+            $spiReadsPerPacketX1000 = Get-LogInt64 -Text $text -Key "P3H_FINAL_UDP_RX_SPI_READS_PER_PACKET_X1000"
+            $totalReadCalls = Get-LogInt64 -Text $text -Key "P3H_FINAL_W5100_DIAG_READ_CALLS_TOTAL"
 
             $dutMbpsValues.Add($dutMbps)
             $packetsPerHoldValues.Add($packetsPerActiveHoldX1000)
@@ -751,12 +763,12 @@ Write-Host "FINAL_RAW_FIRMWARE_SHA256=$finalRawHash"
 Write-Host "FINAL_W5100_CPP_SHA256=$finalW5100CppHash"
 Write-Host "FINAL_W5100_H_SHA256=$finalW5100HHash"
 
-if ($finalHz -ne 26000000) { throw "P3G_FINAL_FREQ_CHANGED" }
+if ($finalHz -ne 26000000) { throw "P3H_FINAL_FREQ_CHANGED" }
 if ($finalDirty.Count -ne 0) { throw "P3G_PRODUCT_TREE_DIRTY" }
 if ($finalStaged.Count -ne 0) { throw "P3G_PRODUCT_INDEX_DIRTY" }
-if ($finalRawHash -ne $expectedRawHash) { throw "P3G_FINAL_RAW_HASH_CHANGED" }
-if ($finalW5100CppHash -ne $expectedW5100CppHash) { throw "P3G_FINAL_W5100_CPP_HASH_CHANGED" }
-if ($finalW5100HHash -ne $expectedW5100HHash) { throw "P3G_FINAL_W5100_H_HASH_CHANGED" }
+if ($finalRawHash -ne $expectedRawHash) { throw "P3H_FINAL_RAW_HASH_CHANGED" }
+if ($finalW5100CppHash -ne $expectedW5100CppHash) { throw "P3H_FINAL_W5100_CPP_HASH_CHANGED" }
+if ($finalW5100HHash -ne $expectedW5100HHash) { throw "P3H_FINAL_W5100_H_HASH_CHANGED" }
 
 Write-Host ""
 Write-Host "A14_P3H_SPI_HZ=26000000"
@@ -766,5 +778,6 @@ Write-Host "A14_P3H_ETH_INT_PIN=GPIO15"
 Write-Host "A14_P3H_ISR_SPI_ACCESS=NO"
 Write-Host "A14_P3H_PRODUCT_SOURCE_MUTATION=NO"
 Write-Host "A14_P3H_DIAGNOSTIC_COPY_ONLY=YES"
+Write-Host "A14_P3H_PER_RUN_SERIAL_RESET_GUARD=YES"
 Write-Host "A14_P3H_UDP_RX_FUSED_FAST_PATH_AB=PASS"
 Write-Host "NEXT_ACTION=RETURN_OUTPUT_TO_CHAT_FOR_FUSED_RX_DECISION"
