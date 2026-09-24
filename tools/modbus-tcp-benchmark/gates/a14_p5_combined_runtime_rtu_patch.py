@@ -205,6 +205,25 @@ static uint32_t peripheralFailureCount()
             JWPLC_ModbusTCP.clientConnected()));
 
     // --------------------------------------------------------
+    // Ethernet
+    // --------------------------------------------------------
+
+    Serial.print("ETH_READY=");
+    Serial.println(
+        yesNo(
+            JWPLC_Ethernet.isReady()));
+
+    Serial.print("ETH_LINK=");
+    Serial.println(
+        JWPLC_Ethernet.linkUp()
+            ? "UP"
+            : "DOWN");
+
+    Serial.print("ETH_IP=");
+    Serial.println(
+        JWPLC_Ethernet.localIP());
+
+    // --------------------------------------------------------
     // Modbus RTU
     // --------------------------------------------------------
 
@@ -444,6 +463,9 @@ static uint32_t peripheralFailureCount()
         "RTU_BAUD = 115200UL",
         "JWPLC_ModbusRTU.begin(",
         "JWPLC_ModbusRTU.task();",
+        "ETH_READY=",
+        "ETH_LINK=",
+        "ETH_IP=",
         "RTU_RX_FRAMES=",
         "RTU_REQUESTS_OK=",
         "RTU_SERVICE_GAP_MAX_US=",
