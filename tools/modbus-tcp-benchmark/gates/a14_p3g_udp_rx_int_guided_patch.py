@@ -205,17 +205,6 @@ def main() -> int:
         ++udpSpiLockErrors;
         return;
     }
-
-    // Clear the event before draining. Any new datagram received while
-    // servicing can assert RECV again, avoiding a lost-wakeup race.
-    if (
-        ethIntConfigured &&
-        ethIntUdpSocket < MAX_SOCK_NUM)
-    {
-        W5100.writeSnIR(
-            ethIntUdpSocket,
-            SnIR::RECV);
-    }
 """
 
     service_block = """static void serviceUdp()
@@ -251,6 +240,17 @@ def main() -> int:
     {
         ++udpSpiLockErrors;
         return;
+    }
+
+    // Clear RECV before draining. A datagram received while this hold is
+    // active can assert RECV again, so the next wakeup is not lost.
+    if (
+        ethIntConfigured &&
+        ethIntUdpSocket < MAX_SOCK_NUM)
+    {
+        W5100.writeSnIR(
+            ethIntUdpSocket,
+            SnIR::RECV);
     }
 """
 
