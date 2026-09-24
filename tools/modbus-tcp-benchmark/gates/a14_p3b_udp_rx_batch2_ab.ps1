@@ -365,7 +365,16 @@ for ($run = 1; $run -le $Runs; ++$run) {
     if ($packetParseCalls -ne $packets) { throw "P3_PACKET_PARSE_COUNT_MISMATCH_$run" }
     if ($readCalls -lt $packets) { throw "P3_READ_CALL_COUNT_INVALID_$run" }
     if ($spiReadCalls -le 0) { throw "P3_SPI_READ_COUNT_EMPTY_$run" }
-    if ($activeHolds -ne $packets) { throw "P3_ACTIVE_HOLD_COUNT_MISMATCH_$run" }
+    if ($activeHolds -le 0) { throw "P3B_ACTIVE_HOLD_COUNT_EMPTY_$run" }
+    if ($activeHolds -gt $packets) { throw "P3B_ACTIVE_HOLDS_GT_PACKETS_$run" }
+    if ($packets -gt (2 * $activeHolds)) { throw "P3B_PACKETS_GT_BATCH2_CAPACITY_$run" }
+
+    $packetsPerActiveHoldX1000 =
+        [int64][math]::Round(
+            (1000.0 * $packets) / $activeHolds,
+            0,
+            [System.MidpointRounding]::AwayFromZero
+        )
 
     $dutMbps = Get-LogDouble -Text $text -Key "SUMMARY_UDP_RX_DUT_MBPS"
     $parseAvg = Get-LogInt64 -Text $text -Key "P3_FINAL_UDP_RX_PACKET_PARSE_US_AVG"
@@ -391,7 +400,7 @@ for ($run = 1; $run -le $Runs; ++$run) {
     $bytesPerActiveHoldValues.Add($bytesPerActiveHoldX1000)
 
     Write-Host (
-        "P3_RUN={0} DUT_MBPS={1:F6} PACKETS={2} PACKET_PARSE_AVG_US={3} PACKET_PARSE_MAX_US={4} READ_AVG_US={5} READ_MAX_US={6} SPI_READS_PER_PACKET_X1000={7} SPI_READ_BYTES_PER_PACKET_X1000={8} SERVICE_HOLDS={9} EMPTY_HOLDS={10} ACTIVE_HOLD_AVG_US={11} ACTIVE_HOLD_MAX_US={12} BYTES_PER_ACTIVE_HOLD_X1000={13}" -f
+        "P3_RUN={0} DUT_MBPS={1:F6} PACKETS={2} PACKET_PARSE_AVG_US={3} PACKET_PARSE_MAX_US={4} READ_AVG_US={5} READ_MAX_US={6} SPI_READS_PER_PACKET_X1000={7} SPI_READ_BYTES_PER_PACKET_X1000={8} SERVICE_HOLDS={9} EMPTY_HOLDS={10} ACTIVE_HOLD_AVG_US={11} ACTIVE_HOLD_MAX_US={12} BYTES_PER_ACTIVE_HOLD_X1000={13} PACKETS_PER_ACTIVE_HOLD_X1000={14}" -f
         $run,
         $dutMbps,
         $packets,
@@ -405,7 +414,8 @@ for ($run = 1; $run -le $Runs; ++$run) {
         $emptyHolds,
         $activeHoldAvg,
         $activeHoldMax,
-        $bytesPerActiveHoldX1000
+        $bytesPerActiveHoldX1000,
+        $packetsPerActiveHoldX1000
     )
 }
 
