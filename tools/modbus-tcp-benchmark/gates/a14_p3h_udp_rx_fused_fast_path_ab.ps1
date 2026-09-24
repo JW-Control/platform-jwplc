@@ -13,7 +13,7 @@ $expectedW5100CppHash = "9F94AAC1BB25966C18EDFD6A5C5D5908A9DBD4CF11B6E9BC099E10B
 $expectedW5100HHash = "9A833532C44E0CFCD66429A764E8BDBF62A8871838B0355565BC0A63043455FC"
 
 $payloads = @(1472, 1016)
-$variants = @("INT_LEGACY", "INT_FUSED")
+$variants = @("INT_FUSED", "INT_LEGACY")
 
 function Invoke-NativeToLog {
     param([string]$FilePath, [string[]]$Arguments, [string]$LogPath)
@@ -371,7 +371,7 @@ foreach ($variant in $variants) {
     if ($compileExit -ne 0) {
         Invoke-G2CompileFinishedSound -Success $false
         Get-Content -LiteralPath $compileLog -Tail 180 | ForEach-Object { Write-Host $_ }
-        throw "P3G_COMPILE_FAILED_$variant"
+        throw "P3H_COMPILE_FAILED_$variant"
     }
 
     $compileText = [System.IO.File]::ReadAllText($compileLog)
@@ -415,7 +415,7 @@ foreach ($variant in $variants) {
 
     if ($uploadExit -ne 0) {
         Get-Content -LiteralPath $uploadLog -Tail 180 | ForEach-Object { Write-Host $_ }
-        throw "P3G_UPLOAD_FAILED_$variant"
+        throw "P3H_UPLOAD_FAILED_$variant"
     }
 
     Start-Sleep -Seconds 2
