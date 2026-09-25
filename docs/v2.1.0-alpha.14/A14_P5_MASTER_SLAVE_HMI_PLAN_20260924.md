@@ -1821,3 +1821,41 @@ Corrección:
 
 P5-F sigue siendo el único gate abierto; no se avanzó a upload ni probe físico.
 
+### P5-F intento 5 — el path es válido; aislar transporte de CompileDb
+
+El diagnóstico R2 sobre la corrida `20260925_084826` demostró que el valor real
+de `entry.file` es un path Windows normal y que las tres representaciones
+evaluadas cumplen la condición esperada:
+
+```txt
+HIT_COUNT=1
+RAW_REGEX=True
+FILE_REGEX=True
+CANDIDATE_REGEX=True
+RAW_ENDSWITH=True
+FILE_ENDSWITH=True
+CANDIDATE_ENDSWITH=True
+```
+
+El TU exacto termina en:
+
+```txt
+/cores/jwcontrol/peripherals_init.cpp
+```
+
+Por tanto queda descartado que el segundo `0` sea causado por el shape del path.
+
+La frontera restante está entre `Get-CompileDatabaseInfo()` y el objeto que
+retorna `Invoke-ArduinoCompile()`. Para eliminar esa ambigüedad, builder y
+verifier ahora:
+
+```txt
+1. capturan Get-CompileDatabaseInfo en $compileDbInfo;
+2. imprimen tipo y contadores inmediatamente;
+3. asignan CompileDb = $compileDbInfo;
+4. mantienen el gate posterior usando esa misma instancia.
+```
+
+No se crea todavía F054: la clase final se decide con la siguiente evidencia
+del mismo P5-F.
+

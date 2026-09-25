@@ -208,10 +208,23 @@ function Invoke-ArduinoCompile
         throw "Arduino CLI fallo. Revisar: $LogPath"
     }
 
+
+    $compileDbInfo = Get-CompileDatabaseInfo -BuildPath $BuildPath
+
+    Write-Host (
+        "compile_commands parser: type={0}, entries={1}, jwcontrol={2}, stub={3}, peripherals_init={4}, precompiled_stub={5}" -f
+        $compileDbInfo.GetType().FullName,
+        $compileDbInfo.Entries,
+        $compileDbInfo.SourceCount,
+        $compileDbInfo.StubCount,
+        $compileDbInfo.PeripheralsInitCount,
+        $compileDbInfo.PrecompiledStubCount
+    ) -ForegroundColor DarkGray
+
     return [PSCustomObject]@{
         DurationMs = [Math]::Round($sw.Elapsed.TotalMilliseconds, 3)
         Output = @($native.Output)
-        CompileDb = Get-CompileDatabaseInfo -BuildPath $BuildPath
+        CompileDb = $compileDbInfo
     }
 }
 
