@@ -25,6 +25,31 @@ if ([string]::IsNullOrWhiteSpace($OutputRoot))
     $OutputRoot = Join-Path $ScriptRoot "core-precompiled-work"
 }
 
+function Get-Sha256Hex
+{
+    param(
+        [Parameter(Mandatory = $true)][string]$Path
+    )
+
+    $fullPath = [System.IO.Path]::GetFullPath($Path)
+    $stream = [System.IO.File]::OpenRead($fullPath)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+
+    try
+    {
+        $hashBytes = $sha.ComputeHash($stream)
+    }
+    finally
+    {
+        $sha.Dispose()
+        $stream.Dispose()
+    }
+
+    return (
+        [System.BitConverter]::ToString($hashBytes)
+    ).Replace("-", "")
+}
+
 function Invoke-NativeCaptured
 {
     param(
@@ -262,7 +287,7 @@ $archiveBackupPath = Join-Path $runRoot "JWPLCBASIC-core-before.a"
 $summaryPath = Join-Path $runRoot "CORE_PRECOMPILED_BUILD_SUMMARY.md"
 New-Item -ItemType Directory -Path $runRoot -Force | Out-Null
 
-$archiveOriginalSha = (Get-FileHash -Path $ArchivePath -Algorithm SHA256).Hash.ToLowerInvariant()
+$archiveOriginalSha = (Get-Sha256Hex -Path $ArchivePath).ToLowerInvariant()
 $archiveOriginalBytes = (Get-Item $ArchivePath).Length
 Copy-Item -LiteralPath $ArchivePath -Destination $archiveBackupPath -Force
 
@@ -332,7 +357,7 @@ try
 
     Copy-Item -LiteralPath $builtCore -Destination $candidatePath -Force
 
-    $candidateSha = (Get-FileHash -Path $candidatePath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $candidateSha = (Get-Sha256Hex -Path $candidatePath).ToLowerInvariant()
     $candidateBytes = (Get-Item $candidatePath).Length
     $sameArchiveSha = ($candidateSha -eq $archiveOriginalSha)
 
@@ -348,7 +373,7 @@ try
     Copy-Item -LiteralPath $candidatePath -Destination $ArchivePath -Force
     $archiveReplaced = $true
 
-    $installedSha = (Get-FileHash -Path $ArchivePath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $installedSha = (Get-Sha256Hex -Path $ArchivePath).ToLowerInvariant()
     if ($installedSha -ne $candidateSha)
     {
         throw "El core.a instalado no coincide con el candidato generado."
