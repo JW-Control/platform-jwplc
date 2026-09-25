@@ -2382,3 +2382,36 @@ El runner reporta el máximo RTU observado conservando al menos 99%, 95% y 90%
 del throughput Ethernet sin RTU. La selección final se hará con la curva medida,
 no maximizando un bus a costa del otro.
 
+### P5-RTU/TCP BUDGET FRONTIER — presupuesto TCP vs techo RTU
+
+Objetivo: caracterizar cuánto RTU máximo queda disponible cuando Ethernet se
+reserva a un throughput fijo.
+
+\`\`\`txt
+TCP FC03/125:
+1000, 900, 800, 700, 600, 500 req/s y OFF
+
+RTU:
+UNPACED en todos los casos
+
+duration:
+60 s por punto
+
+full-runtime:
+TFT + SD + FRAM + RTC + I/O + buttons activos
+RTU 115200 8N1
+slave frame gap = 2 ms
+\`\`\`
+
+El cliente TCP usa pacing por deadline absoluto para minimizar deriva acumulada
+del host. Se reporta el porcentaje exacto del target. TCP_TARGET_PASS requiere
+>=99% del target y cero errores; la decisión final se hará con los valores
+exactos.
+
+500 req/s con FC03/125 equivale todavía a 62,500 registros/s y aproximadamente
+1.0 Mbps útil, por lo que sigue siendo una carga Ethernet alta para una
+aplicación HMI/SCADA típica.
+
+TCP OFF se incluye como referencia para medir el techo RTU absoluto bajo el
+mismo full-runtime.
+
