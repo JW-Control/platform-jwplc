@@ -44,3 +44,17 @@ adopta aun ningun valor como default de producto.
 TCP500: 170.432 Hz RTU
 TCP OFF: 190.275 Hz RTU
 ```
+
+## Gate versionado
+
+El gate fuerza una unica compilacion/upload desde fuente con RTU-F1, restaura
+el archive precompilado previo y luego cambia los gaps por Serial sin volver a
+compilar.
+
+El sweep conserva toda la evidencia aunque un gap agresivo falle. Para cerrar
+como PASS_CHARACTERIZED, 2000 us y 1750 us deben quedar limpios y el caso
+TCP500 a 1750 us debe alcanzar al menos 99 % del target.
+
+Los puntos 1500, 1250 y 1000 us son de caracterizacion. Su fallo no descarta el
+gate; su resultado define el limite del futuro perfil rapido.
+
