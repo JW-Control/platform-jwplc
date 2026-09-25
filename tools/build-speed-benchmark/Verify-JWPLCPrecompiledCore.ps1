@@ -20,6 +20,31 @@ $ArchivePath = Join-Path $PlatformRoot "precompiled\core\JWPLCBASIC\core.a"
 $SourceCoreRoot = Join-Path $PlatformRoot "cores\jwcontrol"
 $StubCorePath = Join-Path $PlatformRoot "cores\jwcontrol_precompiled_stub\precompiled_core_stub.c"
 
+function Get-Sha256Hex
+{
+    param(
+        [Parameter(Mandatory = $true)][string]$Path
+    )
+
+    $fullPath = [System.IO.Path]::GetFullPath($Path)
+    $stream = [System.IO.File]::OpenRead($fullPath)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+
+    try
+    {
+        $hashBytes = $sha.ComputeHash($stream)
+    }
+    finally
+    {
+        $sha.Dispose()
+        $stream.Dispose()
+    }
+
+    return (
+        [System.BitConverter]::ToString($hashBytes)
+    ).Replace("-", "")
+}
+
 function Invoke-NativeCaptured
 {
     param(
@@ -113,7 +138,7 @@ function Get-BoardsLocalState
     return [PSCustomObject]@{
         Exists = $true
         Length = [int64]$item.Length
-        SHA256 = (Get-FileHash -LiteralPath $BoardsLocalPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        SHA256 = (Get-Sha256Hex -Path $BoardsLocalPath).ToLowerInvariant()
     }
 }
 
