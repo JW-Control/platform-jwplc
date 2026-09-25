@@ -65,3 +65,28 @@ Si 300 us continua limpio, el gate declara que el piso no fue encontrado dentro
 del rango con sentido elegido para F2B y no baja automaticamente por debajo de
 300 us.
 
+## Resultado fisico RTU-F2B
+
+| Gap | RTU TCP OFF | Fallos | Timeouts | CRC Master | CRC Slave | Runtime |
+|---:|---:|---:|---:|---:|---:|---|
+| 1000 us | 252.374 Hz | 0 | 0 | 0 | 0 | limpio |
+| 750 us | 269.846 Hz | 0 | 0 | 0 | 0 | limpio |
+| 600 us | 287.899 Hz | 0 | 0 | 0 | 0 | limpio |
+| 500 us | 291.722 Hz | 0 | 0 | 0 | 0 | limpio |
+| 400 us | 301.373 Hz | 0 | 0 | 0 | 0 | limpio |
+| 350 us | 304.665 Hz | 0 | 0 | 0 | 0 | limpio |
+| 300 us | 311.761 Hz | 0 | 0 | 0 | 0 | limpio |
+
+El menor gap probado, 300 us, siguio limpio y fue tambien el punto mas rapido.
+El piso no se encontro dentro del alcance seleccionado:
+
+```txt
+RTUF2B_LOWEST_CLEAN_GAP_US=300
+RTUF2B_FASTEST_CLEAN_GAP_US=300
+RTUF2B_FLOOR_WITHIN_SCOPE=NOT_FOUND_AT_OR_ABOVE_300US
+A14_RTU_F2B=PASS_CHARACTERIZED
+```
+
+No se baja automaticamente de 300 us. Antes de modificar TX se confirma bajo
+TCP500 un conjunto reducido de candidatos: 600, 500 y 300 us.
+
