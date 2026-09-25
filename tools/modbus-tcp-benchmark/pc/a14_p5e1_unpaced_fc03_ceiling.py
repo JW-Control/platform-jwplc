@@ -192,10 +192,14 @@ def run_unpaced(
 
     buckets: list[dict[str, float | int]] = []
 
-    if bucket_seconds > 0.0 and elapsed > 0.0:
+    if bucket_seconds > 0.0 and duration_s > 0.0:
+        # Los buckets describen la ventana nominal solicitada, no el pequeño
+        # exceso de elapsed causado por el último request iniciado antes del
+        # deadline y completado unas fracciones después. Así 600 s / 60 s
+        # produce exactamente 10 buckets y 60 s produce exactamente uno.
         bucket_count = max(
             1,
-            int(math.ceil(elapsed / bucket_seconds)),
+            int(math.ceil(duration_s / bucket_seconds)),
         )
 
         bucket_ok = [0] * bucket_count
@@ -213,7 +217,7 @@ def run_unpaced(
         for index, count in enumerate(bucket_ok):
             bucket_start_s = index * bucket_seconds
             bucket_end_s = min(
-                elapsed,
+                duration_s,
                 (index + 1) * bucket_seconds,
             )
             bucket_duration_s = max(

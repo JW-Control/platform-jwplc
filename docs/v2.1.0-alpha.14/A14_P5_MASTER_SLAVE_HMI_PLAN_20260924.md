@@ -2233,3 +2233,39 @@ Corrección:
 
 El source del candidato P5-E2 no cambia.
 
+### P5-E2-R1 — autoservicio package-core long-run 600 s
+
+El candidato 2 alcanzó 1025.750 req/s durante 60 s con TCP limpio, RTU 50 Hz,
+DataLog sin fallos y TFT estable. Antes de adoptar el nuevo `core.a`, se exige
+una repetición larga con el mismo binario candidato:
+
+```txt
+CORE_SHA256=4BFF8C8241DA2E8BD0E1BBA99835ADDF91B9085A05C4DFBD05C339B824794566
+DURATION_S=600
+BUCKET_SECONDS=60
+FC03_QUANTITY=125
+TCP_PACING=NONE
+TCP_OUTSTANDING_REQUESTS=1
+RTU_TARGET_HZ=50
+W5500_SPI_HZ=26000000
+USER_MANUAL_TCP_TASK_REQUIRED=NO
+PRODUCT_ADOPTION=NOT_YET
+```
+
+Criterio:
+
+```txt
+>= 1020 req/s agregado : objetivo deseado cumplido.
+1000..1019 req/s       : meta Basic de 1000 sostenidos cumplida.
+< 1000 req/s           : mejora insuficiente para adopción por rendimiento.
+```
+
+Se mantienen como condiciones obligatorias cero errores TCP/Modbus, RTU sin
+timeout/CRC, DataLog sin failed commits, periféricos sin fallos y TFT física
+estable.
+
+El runner corrige además el artefacto de bucket extra: los buckets se basan en
+la duración nominal solicitada. Un request iniciado antes del deadline pero
+completado unas fracciones después queda en el último bucket válido. Por tanto,
+600 s / 60 s debe producir exactamente 10 buckets.
+
