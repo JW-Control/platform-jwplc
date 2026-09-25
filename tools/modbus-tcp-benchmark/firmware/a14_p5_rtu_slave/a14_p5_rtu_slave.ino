@@ -170,6 +170,9 @@ static void printSnapshot()
     Serial.print("RTU_BAUD=");
     Serial.println(RTU_BAUD);
 
+    Serial.print("RTU_FRAME_GAP_MS=");
+    Serial.println(JWPLC_ModbusRTU.frameGapMs());
+
     Serial.print("RTU_RX_FRAMES=");
     Serial.println(s.rxFrames);
 
@@ -232,6 +235,16 @@ static void serviceSerial()
 
             Serial.println(
                 "A14_P5_SLAVE_RESET=PASS");
+        }
+        else if (c == '2')
+        {
+            JWPLC_ModbusRTU.setFrameGapMs(2);
+            Serial.println("RTU_FRAME_GAP_MS=2");
+        }
+        else if (c == '5')
+        {
+            JWPLC_ModbusRTU.setFrameGapMs(5);
+            Serial.println("RTU_FRAME_GAP_MS=5");
         }
         else if (c == 'S' || c == 's')
         {

@@ -2359,3 +2359,26 @@ Objetivo: comprobar si el techo observado de aproximadamente 125k registros/s se
 mantiene al agrupar varios FC03 máximos en scans lógicos mayores. Este será el
 último test de capacidad antes del cierre P5.
 
+### P5-RTU/TCP BALANCE — techo RTU sin sacrificar Ethernet
+
+El baseline RTU de 50 Hz estaba impuesto por un periodo de 20 ms; no era un
+techo medido. Se añade instrumentación sólo al firmware de benchmark para variar
+el target RTU en runtime, manteniendo 50 Hz como default.
+
+Sweep conjunto:
+
+\`\`\`txt
+TCP = FC03/125 unpaced, 1 outstanding
+RTU = OFF, 50, 100, 150, 200, 250, 300 Hz y UNPACED
+baud = 115200 8N1
+slave frame gap = 2 ms durante el sweep
+duration = 30 s por punto
+\`\`\`
+
+Se registra RTU achieved Hz, TCP req/s, retención/caída TCP frente a RTU OFF,
+latencias TCP, RTU CRC/timeouts/failures, SD y periféricos.
+
+El runner reporta el máximo RTU observado conservando al menos 99%, 95% y 90%
+del throughput Ethernet sin RTU. La selección final se hará con la curva medida,
+no maximizando un bus a costa del otro.
+

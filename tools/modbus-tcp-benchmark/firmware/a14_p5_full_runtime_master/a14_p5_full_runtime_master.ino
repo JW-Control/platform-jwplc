@@ -62,17 +62,20 @@ static constexpr uint8_t RTU_MASTER_LOCAL_ID = 247;
 static constexpr uint8_t RTU_TARGET_SLAVE_ID = 2;
 static constexpr uint32_t RTU_BAUD = 115200UL;
 static constexpr uint32_t RTU_CONFIG = SERIAL_8N1;
-static constexpr uint32_t RTU_PERIOD_MS = 20UL;
+static constexpr uint32_t RTU_PERIOD_DEFAULT_US = 20000UL;
 static constexpr uint32_t RTU_TIMEOUT_MS = 25UL;
 static constexpr uint16_t RTU_VERIFY_MAGIC = 0x55AA;
 
 static bool rtuReady = false;
 static bool rtuTrafficEnabled = false;
+static bool rtuUnpaced = false;
+static uint32_t rtuTargetHz = 50UL;
+static uint32_t rtuPeriodUs = RTU_PERIOD_DEFAULT_US;
 static uint16_t rtuReadValues[2] = {0, 0};
 
 static uint32_t rtuTrafficStartMs = 0;
 static uint32_t rtuTrafficDurationMs = 0;
-static uint32_t rtuNextRequestMs = 0;
+static uint32_t rtuNextRequestUs = 0;
 
 static uint32_t rtuRequestsStarted = 0;
 static uint32_t rtuRequestsRejected = 0;
@@ -834,7 +837,28 @@ static void startRtuTraffic()
     rtuTrafficEnabled = true;
     rtuTrafficStartMs = millis();
     rtuTrafficDurationMs = 0;
-    rtuNextRequestMs = millis();
+    rtuNextRequestUs = micros();
+}
+
+static void setRtuTargetHz(uint32_t hz)
+{
+    if (hz == 0)
+    {
+        return;
+    }
+
+    rtuUnpaced = false;
+    rtuTargetHz = hz;
+    rtuPeriodUs = 1000000UL / hz;
+    rtuNextRequestUs = micros();
+}
+
+static void setRtuUnpaced()
+{
+    rtuUnpaced = true;
+    rtuTargetHz = 0;
+    rtuPeriodUs = 0;
+    rtuNextRequestUs = micros();
 }
 
 static void stopRtuTraffic()
@@ -898,30 +922,31 @@ static void serviceRtuMaster()
         return;
     }
 
-    const uint32_t now = millis();
-
-    if ((int32_t)(now - rtuNextRequestMs) < 0)
-    {
-        return;
-    }
-
     if (JWPLC_ModbusRTU.masterBusy())
     {
         return;
     }
 
-    uint32_t periodsAdvanced = 0;
-
-    do
+    if (!rtuUnpaced)
     {
-        rtuNextRequestMs += RTU_PERIOD_MS;
-        ++periodsAdvanced;
-    }
-    while ((int32_t)(now - rtuNextRequestMs) >= 0);
+        if ((int32_t)(nowUs - rtuNextRequestUs) < 0)
+        {
+            return;
+        }
 
-    if (periodsAdvanced > 1)
-    {
-        rtuPeriodsSkipped += periodsAdvanced - 1;
+        uint32_t periodsAdvanced = 0;
+
+        do
+        {
+            rtuNextRequestUs += rtuPeriodUs;
+            ++periodsAdvanced;
+        }
+        while ((int32_t)(nowUs - rtuNextRequestUs) >= 0);
+
+        if (periodsAdvanced > 1)
+        {
+            rtuPeriodsSkipped += periodsAdvanced - 1;
+        }
     }
 
     const bool accepted =
@@ -1331,6 +1356,15 @@ static void printSnapshot()
 
     Serial.print("RTU_TIMEOUT_MS=");
     Serial.println(RTU_TIMEOUT_MS);
+
+    Serial.print("RTU_RATE_MODE=");
+    Serial.println(rtuUnpaced ? "UNPACED" : "PACED");
+
+    Serial.print("RTU_TARGET_HZ=");
+    Serial.println(rtuTargetHz);
+
+    Serial.print("RTU_PERIOD_US=");
+    Serial.println(rtuPeriodUs);
 
     Serial.print("RTU_TRAFFIC_ENABLED=");
     Serial.println(yesNo(rtuTrafficEnabled));
@@ -1882,6 +1916,41 @@ static void serviceSerialCommands()
 
             Serial.println(
                 "RTU_MASTER_TRAFFIC=OFF");
+        }
+        else if (c == 'A' || c == 'a')
+        {
+            setRtuTargetHz(50);
+            Serial.println("RTU_RATE_HZ=50");
+        }
+        else if (c == 'B' || c == 'b')
+        {
+            setRtuTargetHz(100);
+            Serial.println("RTU_RATE_HZ=100");
+        }
+        else if (c == 'C' || c == 'c')
+        {
+            setRtuTargetHz(150);
+            Serial.println("RTU_RATE_HZ=150");
+        }
+        else if (c == 'D' || c == 'd')
+        {
+            setRtuTargetHz(200);
+            Serial.println("RTU_RATE_HZ=200");
+        }
+        else if (c == 'E' || c == 'e')
+        {
+            setRtuTargetHz(250);
+            Serial.println("RTU_RATE_HZ=250");
+        }
+        else if (c == 'F' || c == 'f')
+        {
+            setRtuTargetHz(300);
+            Serial.println("RTU_RATE_HZ=300");
+        }
+        else if (c == 'U' || c == 'u')
+        {
+            setRtuUnpaced();
+            Serial.println("RTU_RATE_MODE=UNPACED");
         }
         else if (
             c == 'P' ||
