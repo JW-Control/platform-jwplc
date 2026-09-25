@@ -324,6 +324,8 @@ def main():
         iv(final, "FRAM_CYCLES") >= 180 and
         iv(final, "SD_APPEND_CYCLES") >= 45 and
         iv(final, "SD_VERIFY_CYCLES") >= 8 and
+        iv(final, "SD_DATALOG_ACCEPTED_BYTES") >= (30 * 32) and
+        iv(final, "SD_DATALOG_COMMITTED_BYTES") > 0 and
         iv(final, "RTC_SAMPLES") >= 180 and
         iv(final, "IO_SAMPLES") >= 2000 and
         iv(final, "BUTTON_SAMPLES") >= 2000 and
