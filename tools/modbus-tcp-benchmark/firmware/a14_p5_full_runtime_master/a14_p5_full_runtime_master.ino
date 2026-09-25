@@ -65,9 +65,11 @@ static constexpr uint16_t RTU_VERIFY_MAGIC = 0x55AA;
 static bool rtuReady = false;
 static bool rtuTrafficEnabled = false;
 static uint16_t rtuReadValues[2] = {0, 0};
+
 static uint32_t rtuTrafficStartMs = 0;
 static uint32_t rtuTrafficDurationMs = 0;
 static uint32_t rtuNextRequestMs = 0;
+
 static uint32_t rtuRequestsStarted = 0;
 static uint32_t rtuRequestsRejected = 0;
 static uint32_t rtuRequestsCompleted = 0;
@@ -75,6 +77,7 @@ static uint32_t rtuRequestsSuccess = 0;
 static uint32_t rtuRequestsFailed = 0;
 static uint32_t rtuVerifyFails = 0;
 static uint32_t rtuPeriodsSkipped = 0;
+
 static uint32_t rtuLastServiceUs = 0;
 static uint32_t rtuServiceGapMaxUs = 0;
 
@@ -143,15 +146,20 @@ enum MasterFieldId : uint8_t
 
 static const JWPLC_UIField MASTER_FIELDS[] = {
     JWPLC_UITextField(FIELD_ROLE, 8, 8, "Rol", 10),
-    JWPLC_UIValueField(FIELD_TCP_OK, 8, 42, "TCP OK", "",
+    JWPLC_UIValueField(
+        FIELD_TCP_OK, 8, 42, "TCP OK", "",
         JWPLC_UIValueFormat(7, 0, false, false)),
-    JWPLC_UIValueField(FIELD_RTU_OK, 8, 76, "RTU OK", "",
+    JWPLC_UIValueField(
+        FIELD_RTU_OK, 8, 76, "RTU OK", "",
         JWPLC_UIValueFormat(7, 0, false, false)),
-    JWPLC_UIValueField(FIELD_RTU_FAIL, 8, 110, "RTU FAIL", "",
+    JWPLC_UIValueField(
+        FIELD_RTU_FAIL, 8, 110, "RTU FAIL", "",
         JWPLC_UIValueFormat(5, 0, false, false)),
-    JWPLC_UIBoolField(FIELD_SD_READY, 165, 42, "SD",
+    JWPLC_UIBoolField(
+        FIELD_SD_READY, 165, 42, "SD",
         JWPLC_UIBoolText("FAIL", "OK")),
-    JWPLC_UIBoolField(FIELD_ETH_READY, 165, 76, "ETH",
+    JWPLC_UIBoolField(
+        FIELD_ETH_READY, 165, 76, "ETH",
         JWPLC_UIBoolText("DOWN", "UP"))
 };
 
@@ -159,30 +167,133 @@ static uint32_t displayServiceCycles = 0;
 static uint32_t displayLastServiceMs = 0;
 static uint32_t displayServiceGapMaxMs = 0;
 
+// ============================================================================
+// Estadisticas runtime
+// ============================================================================
+// ============================================================================
+// Estadisticas runtime
+// ============================================================================
+
+struct RuntimeStats
+{
+    uint32_t ioSamples;
+    uint32_t ioStale;
+    uint32_t ioMaxAgeMs;
+
+    uint32_t buttonSamples;
+    uint32_t buttonNotReady;
+    uint32_t buttonSampleGapMaxMs;
+    uint32_t buttonLastSampleMs;
+    uint32_t buttonEventObservations;
+
+    uint32_t rtcSamples;
+    uint32_t rtcUnavailable;
+    uint32_t rtcStale;
+    uint32_t rtcMaxAgeMs;
+
+    uint32_t framCycles;
+    uint32_t framFails;
+    uint32_t framMaxUs;
+
+    uint32_t sdAppendCycles;
+    uint32_t sdAppendFails;
+    uint32_t sdAppendMaxUs;
+    uint32_t sdFlushCycles;
+
+    uint32_t sdVerifyCycles;
+    uint32_t sdVerifyFails;
+    uint32_t sdVerifyMaxUs;
+
+    uint32_t spiProbeSamples;
+    uint32_t spiProbeFails;
+    uint32_t spiProbeOver1ms;
+    uint32_t spiProbeOver10ms;
+    uint32_t spiProbeMaxWaitUs;
+};
+
+static RuntimeStats runtimeStats = {};
+
+// ============================================================================
+// Scheduler
+// ============================================================================
+
+static uint32_t lastIoSampleMs = 0;
+static uint32_t lastButtonSampleMs = 0;
+static uint32_t lastSpiProbeMs = 0;
+static uint32_t lastFramMs = 0;
+static uint32_t lastRtcSampleMs = 0;
+static uint32_t lastSdAppendMs = 0;
+static uint32_t lastSdVerifyMs = 0;
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+static void updateMaxU32(
+    uint32_t value,
+    uint32_t &currentMax)
+{
+    if (value > currentMax)
+    {
+        currentMax = value;
+    }
+}
+
+
+static const char *yesNo(bool value)
+{
+    return value ? "YES" : "NO";
+}
+
+// ============================================================================
+// Display USER - HMI declarativa
+// ============================================================================
+
 static void serviceDisplayTelemetry()
 {
     const uint32_t now = millis();
 
     if ((uint32_t)(now - displayLastServiceMs) < DISPLAY_PERIOD_MS)
+    {
         return;
+    }
 
     if (displayLastServiceMs != 0)
     {
-        const uint32_t gap = (uint32_t)(now - displayLastServiceMs);
-        updateMaxU32(gap, displayServiceGapMaxMs);
+        const uint32_t gap =
+            (uint32_t)(now - displayLastServiceMs);
+
+        updateMaxU32(
+            gap,
+            displayServiceGapMaxMs);
     }
 
     displayLastServiceMs = now;
     ++displayServiceCycles;
 
-    const JWPLCModbusTCPStats &tcp = JWPLC_ModbusTCP.stats();
-    const uint32_t rtuFailTotal =
-        rtuRequestsRejected + rtuRequestsFailed + rtuVerifyFails;
+    const JWPLCModbusTCPStats &tcp =
+        JWPLC_ModbusTCP.stats();
 
-    JWPLC_Display.setText(FIELD_ROLE, "MASTER");
-    JWPLC_Display.setValue(FIELD_TCP_OK, tcp.requestsOk);
-    JWPLC_Display.setValue(FIELD_RTU_OK, rtuRequestsSuccess);
-    JWPLC_Display.setValue(FIELD_RTU_FAIL, rtuFailTotal);
+    const uint32_t rtuFailTotal =
+        rtuRequestsRejected +
+        rtuRequestsFailed +
+        rtuVerifyFails;
+
+    JWPLC_Display.setText(
+        FIELD_ROLE,
+        "MASTER");
+
+    JWPLC_Display.setValue(
+        FIELD_TCP_OK,
+        tcp.requestsOk);
+
+    JWPLC_Display.setValue(
+        FIELD_RTU_OK,
+        rtuRequestsSuccess);
+
+    JWPLC_Display.setValue(
+        FIELD_RTU_FAIL,
+        rtuFailTotal);
 
     JWPLC_Display.setBool(
         FIELD_SD_READY,
@@ -196,6 +307,9 @@ static void serviceDisplayTelemetry()
         JWPLC_Ethernet.linkUp());
 }
 
+// ============================================================================
+// FRAM
+// ============================================================================
 // ============================================================================
 // FRAM
 // ============================================================================
@@ -821,6 +935,7 @@ static void probeSpiMutex()
 static void resetRtuTrafficCounters()
 {
     JWPLC_ModbusRTU.resetStats();
+
     rtuTrafficDurationMs = 0;
     rtuRequestsStarted = 0;
     rtuRequestsRejected = 0;
@@ -829,13 +944,18 @@ static void resetRtuTrafficCounters()
     rtuRequestsFailed = 0;
     rtuVerifyFails = 0;
     rtuPeriodsSkipped = 0;
+
     rtuLastServiceUs = micros();
     rtuServiceGapMaxUs = 0;
 }
 
 static void startRtuTraffic()
 {
-    if (!rtuReady) return;
+    if (!rtuReady)
+    {
+        return;
+    }
+
     rtuTrafficEnabled = true;
     rtuTrafficStartMs = millis();
     rtuTrafficDurationMs = 0;
@@ -845,21 +965,31 @@ static void startRtuTraffic()
 static void stopRtuTraffic()
 {
     if (rtuTrafficEnabled)
-        rtuTrafficDurationMs = (uint32_t)(millis() - rtuTrafficStartMs);
+    {
+        rtuTrafficDurationMs =
+            (uint32_t)(millis() - rtuTrafficStartMs);
+    }
+
     rtuTrafficEnabled = false;
 }
 
 static void completeRtuMasterResult()
 {
-    if (!JWPLC_ModbusRTU.masterDone()) return;
+    if (!JWPLC_ModbusRTU.masterDone())
+    {
+        return;
+    }
 
     ++rtuRequestsCompleted;
 
     if (JWPLC_ModbusRTU.masterSucceeded())
     {
         ++rtuRequestsSuccess;
+
         if (rtuReadValues[1] != RTU_VERIFY_MAGIC)
+        {
             ++rtuVerifyFails;
+        }
     }
     else
     {
@@ -875,8 +1005,12 @@ static void serviceRtuMaster()
 
     if (rtuLastServiceUs != 0)
     {
-        const uint32_t gapUs = (uint32_t)(nowUs - rtuLastServiceUs);
-        updateMaxU32(gapUs, rtuServiceGapMaxUs);
+        const uint32_t gapUs =
+            (uint32_t)(nowUs - rtuLastServiceUs);
+
+        updateMaxU32(
+            gapUs,
+            rtuServiceGapMaxUs);
     }
 
     rtuLastServiceUs = nowUs;
@@ -884,12 +1018,22 @@ static void serviceRtuMaster()
     JWPLC_ModbusRTU.task();
     completeRtuMasterResult();
 
-    if (!rtuTrafficEnabled) return;
+    if (!rtuTrafficEnabled)
+    {
+        return;
+    }
 
     const uint32_t now = millis();
 
-    if ((int32_t)(now - rtuNextRequestMs) < 0) return;
-    if (JWPLC_ModbusRTU.masterBusy()) return;
+    if ((int32_t)(now - rtuNextRequestMs) < 0)
+    {
+        return;
+    }
+
+    if (JWPLC_ModbusRTU.masterBusy())
+    {
+        return;
+    }
 
     uint32_t periodsAdvanced = 0;
 
@@ -901,7 +1045,9 @@ static void serviceRtuMaster()
     while ((int32_t)(now - rtuNextRequestMs) >= 0);
 
     if (periodsAdvanced > 1)
+    {
         rtuPeriodsSkipped += periodsAdvanced - 1;
+    }
 
     const bool accepted =
         JWPLC_ModbusRTU.requestReadHoldingRegisters(
@@ -911,8 +1057,14 @@ static void serviceRtuMaster()
             rtuReadValues,
             RTU_TIMEOUT_MS);
 
-    if (accepted) ++rtuRequestsStarted;
-    else ++rtuRequestsRejected;
+    if (accepted)
+    {
+        ++rtuRequestsStarted;
+    }
+    else
+    {
+        ++rtuRequestsRejected;
+    }
 }
 
 // ============================================================================
@@ -1232,47 +1384,75 @@ static void printSnapshot()
         yesNo(
             JWPLC_ModbusTCP.clientConnected()));
 
-    const JWPLCModbusRTUStats &rtu = JWPLC_ModbusRTU.stats();
+    // --------------------------------------------------------
+    // Modbus RTU Master
+    // --------------------------------------------------------
 
-    uint32_t rtuDurationMs = rtuTrafficDurationMs;
+    const JWPLCModbusRTUStats &rtu =
+        JWPLC_ModbusRTU.stats();
+
+    uint32_t rtuDurationMs =
+        rtuTrafficDurationMs;
+
     if (rtuTrafficEnabled)
-        rtuDurationMs = (uint32_t)(millis() - rtuTrafficStartMs);
+    {
+        rtuDurationMs =
+            (uint32_t)(millis() - rtuTrafficStartMs);
+    }
 
     Serial.print("RTU_READY=");
     Serial.println(yesNo(rtuReady));
+
     Serial.println("RTU_ROLE=MASTER");
+
     Serial.print("RTU_TARGET_SLAVE_ID=");
     Serial.println(RTU_TARGET_SLAVE_ID);
+
     Serial.print("RTU_BAUD=");
     Serial.println(RTU_BAUD);
+
     Serial.print("RTU_TRAFFIC_ENABLED=");
     Serial.println(yesNo(rtuTrafficEnabled));
+
     Serial.print("RTU_TRAFFIC_DURATION_MS=");
     Serial.println(rtuDurationMs);
+
     Serial.print("RTU_REQUESTS_STARTED=");
     Serial.println(rtuRequestsStarted);
+
     Serial.print("RTU_REQUESTS_REJECTED=");
     Serial.println(rtuRequestsRejected);
+
     Serial.print("RTU_REQUESTS_COMPLETED=");
     Serial.println(rtuRequestsCompleted);
+
     Serial.print("RTU_REQUESTS_SUCCESS=");
     Serial.println(rtuRequestsSuccess);
+
     Serial.print("RTU_REQUESTS_FAILED=");
     Serial.println(rtuRequestsFailed);
+
     Serial.print("RTU_VERIFY_FAILS=");
     Serial.println(rtuVerifyFails);
+
     Serial.print("RTU_PERIODS_SKIPPED=");
     Serial.println(rtuPeriodsSkipped);
+
     Serial.print("RTU_RX_FRAMES=");
     Serial.println(rtu.rxFrames);
+
     Serial.print("RTU_TX_FRAMES=");
     Serial.println(rtu.txFrames);
+
     Serial.print("RTU_CRC_ERRORS=");
     Serial.println(rtu.crcErrors);
+
     Serial.print("RTU_MASTER_TIMEOUTS=");
     Serial.println(rtu.masterTimeouts);
+
     Serial.print("RTU_LAST_ERROR=");
     Serial.println(JWPLC_ModbusRTU.lastErrorString());
+
     Serial.print("RTU_SERVICE_GAP_MAX_US=");
     Serial.println(rtuServiceGapMaxUs);
 
@@ -1285,10 +1465,15 @@ static void printSnapshot()
         yesNo(
             JWPLC_Display.isReady()));
 
-    Serial.println("DISPLAY_RENDER_MODE=HMI_ON_DEMAND_DIRTY");
-    Serial.println("DISPLAY_REFRESH_MODE=USER_REFRESH_ON_DEMAND");
+    Serial.println(
+        "DISPLAY_RENDER_MODE=HMI_ON_DEMAND_DIRTY");
+
+    Serial.println(
+        "DISPLAY_REFRESH_MODE=USER_REFRESH_ON_DEMAND");
+
     Serial.print("DISPLAY_FRAMES=");
     Serial.println(displayServiceCycles);
+
     Serial.print("DISPLAY_GAP_MAX_MS=");
     Serial.println(displayServiceGapMaxMs);
 
@@ -1493,17 +1678,26 @@ static void serviceSerialCommands()
             c == 'R' ||
             c == 'r')
         {
-            const bool wasEnabled = rtuTrafficEnabled;
+            const bool wasEnabled =
+                rtuTrafficEnabled;
+
             stopRtuTraffic();
             resetPerfCounters();
-            if (wasEnabled) startRtuTraffic();
-            Serial.println("A14_PERF_RESET=PASS");
+
+            if (wasEnabled)
+            {
+                startRtuTraffic();
+            }
+
+            Serial.println(
+                "A14_PERF_RESET=PASS");
         }
         else if (
             c == 'G' ||
             c == 'g')
         {
             startRtuTraffic();
+
             Serial.println(
                 rtuTrafficEnabled
                     ? "RTU_MASTER_TRAFFIC=ON"
@@ -1514,7 +1708,9 @@ static void serviceSerialCommands()
             c == 'x')
         {
             stopRtuTraffic();
-            Serial.println("RTU_MASTER_TRAFFIC=OFF");
+
+            Serial.println(
+                "RTU_MASTER_TRAFFIC=OFF");
         }
         else if (
             c == 'S' ||
@@ -1566,6 +1762,10 @@ void setup()
     JWPLC_ModbusTCP.setHoldingRegisters(
         holdingRegisters,
         HOLDING_COUNT);
+
+    // --------------------------------------------------------
+    // Modbus RTU Master
+    // --------------------------------------------------------
 
     rtuReady =
         JWPLC_ModbusRTU.begin(
@@ -1639,30 +1839,57 @@ void setup()
     // TFT / HMI Alpha11
     // --------------------------------------------------------
 
-    JWPLC_Display.setIdleWakeMode(IDLE_WAKE_DISABLED);
-    JWPLC_Display.setIdleReturnMode(IDLE_RETURN_DISABLED);
-    JWPLC_Display.setUserRefreshMode(USER_REFRESH_ON_DEMAND);
-    JWPLC_Display.setUserRefreshPeriodMs(DISPLAY_PERIOD_MS);
+    JWPLC_Display.setIdleWakeMode(
+        IDLE_WAKE_DISABLED);
+
+    JWPLC_Display.setIdleReturnMode(
+        IDLE_RETURN_DISABLED);
+
+    JWPLC_Display.setUserRefreshMode(
+        USER_REFRESH_ON_DEMAND);
+
+    JWPLC_Display.setUserRefreshPeriodMs(
+        DISPLAY_PERIOD_MS);
 
     if (!JWPLC_Display.setFields(
             MASTER_FIELDS,
-            sizeof(MASTER_FIELDS) / sizeof(MASTER_FIELDS[0])))
+            sizeof(MASTER_FIELDS) /
+                sizeof(MASTER_FIELDS[0])))
     {
-        Serial.println("A14_P5_MASTER_HMI_FIELDS=FAIL");
+        Serial.println(
+            "A14_P5_MASTER_HMI_FIELDS=FAIL");
     }
     else
     {
-        JWPLC_Display.setText(FIELD_ROLE, "MASTER");
-        JWPLC_Display.setValue(FIELD_TCP_OK, 0);
-        JWPLC_Display.setValue(FIELD_RTU_OK, 0);
-        JWPLC_Display.setValue(FIELD_RTU_FAIL, 0);
-        JWPLC_Display.setBool(FIELD_SD_READY, sdReady);
+        JWPLC_Display.setText(
+            FIELD_ROLE,
+            "MASTER");
+
+        JWPLC_Display.setValue(
+            FIELD_TCP_OK,
+            0);
+
+        JWPLC_Display.setValue(
+            FIELD_RTU_OK,
+            0);
+
+        JWPLC_Display.setValue(
+            FIELD_RTU_FAIL,
+            0);
+
+        JWPLC_Display.setBool(
+            FIELD_SD_READY,
+            sdReady);
+
         JWPLC_Display.setBool(
             FIELD_ETH_READY,
             JWPLC_Ethernet.isReady() &&
             JWPLC_Ethernet.linkUp());
+
         JWPLC_Display.enterUserUI();
-        Serial.println("A14_P5_MASTER_HMI_FIELDS=PASS");
+
+        Serial.println(
+            "A14_P5_MASTER_HMI_FIELDS=PASS");
     }
 
     // --------------------------------------------------------
@@ -1722,9 +1949,14 @@ void setup()
         yesNo(
             ioReady()));
 
-    Serial.print("RTU_READY_BOOT=");
-    Serial.println(yesNo(rtuReady));
-    Serial.println("DISPLAY_RENDER_MODE_BOOT=HMI_ON_DEMAND_DIRTY");
+    Serial.print(
+        "RTU_READY_BOOT=");
+    Serial.println(
+        yesNo(
+            rtuReady));
+
+    Serial.println(
+        "DISPLAY_RENDER_MODE_BOOT=HMI_ON_DEMAND_DIRTY");
 
     resetPerfCounters();
 }
@@ -1790,6 +2022,7 @@ void loop()
             yesNo(
                 fullRuntimeReady()));
 
-        Serial.println("A14_P5_ROLE=MASTER");
+        Serial.println(
+            "A14_P5_ROLE=MASTER");
     }
 }
