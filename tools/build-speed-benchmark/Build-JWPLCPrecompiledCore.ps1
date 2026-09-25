@@ -88,7 +88,43 @@ function Get-CompileDatabaseInfo
         throw "No se genero compile_commands.json: $compileDbPath"
     }
 
-    $entries = @(Get-Content -LiteralPath $compileDbPath -Raw | ConvertFrom-Json)
+    $parsedEntries = Get-Content -LiteralPath $compileDbPath -Raw | ConvertFrom-Json
+    $entries = New-Object System.Collections.Generic.List[object]
+
+    # Windows PowerShell / ConvertFrom-Json puede entregar el array JSON
+    # directamente o encapsulado como un único objeto array según el host.
+    # Aplanar explícitamente un nivel evita tratar compile_commands.json
+    # completo como una sola entrada.
+    foreach ($parsedEntry in @($parsedEntries))
+    {
+        if (
+            $parsedEntry -is [System.Array] -or
+            (
+                $parsedEntry -is [System.Collections.IEnumerable] -and
+                -not ($parsedEntry -is [string]) -and
+                -not (@($parsedEntry.PSObject.Properties.Name) -contains "file")
+            )
+        )
+        {
+            foreach ($nestedEntry in $parsedEntry)
+            {
+                if ($null -ne $nestedEntry)
+                {
+                    [void]$entries.Add($nestedEntry)
+                }
+            }
+        }
+        elseif ($null -ne $parsedEntry)
+        {
+            [void]$entries.Add($parsedEntry)
+        }
+    }
+
+    if ($entries.Count -lt 1)
+    {
+        throw "compile_commands.json no contiene entradas."
+    }
+
     $sourceFiles = New-Object System.Collections.Generic.List[string]
     $stubFiles = New-Object System.Collections.Generic.List[string]
     $peripheralsInitCount = 0

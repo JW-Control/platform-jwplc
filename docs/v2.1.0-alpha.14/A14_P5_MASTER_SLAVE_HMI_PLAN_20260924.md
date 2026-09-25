@@ -1859,3 +1859,69 @@ verifier ahora:
 No se crea todavía F054: la clase final se decide con la siguiente evidencia
 del mismo P5-F.
 
+### P5-F intento 6 — F054: array JSON encapsulado como una sola entrada
+
+La corrida sobre `1eac82d5` añadió observabilidad justo después de
+`Get-CompileDatabaseInfo()` y produjo:
+
+```txt
+compile_commands parser:
+type=System.Management.Automation.PSCustomObject
+entries=1
+jwcontrol=1
+stub=0
+peripherals_init=0
+precompiled_stub=0
+```
+
+Esto contradice la inspección directa del mismo tipo de artefacto, que había
+demostrado un `compile_commands.json` con 80 entradas y un
+`peripherals_init.cpp` real.
+
+Además, el diagnóstico exacto del path había demostrado:
+
+```txt
+RAW_ENDSWITH=True
+FILE_ENDSWITH=True
+CANDIDATE_ENDSWITH=True
+```
+
+Por tanto el fallo ya no pertenece a F052 de normalización de paths.
+
+Se crea:
+
+```txt
+F054=POWERSHELL_CONVERTFROMJSON_ARRAY_COLLAPSED_TO_SINGLE_COMPILE_DB_ENTRY
+```
+
+Causa:
+
+```txt
+La forma devuelta por ConvertFrom-Json en el host PowerShell usado por el gate
+puede llegar como colección directa o como array encapsulado dentro de una sola
+salida. El parser asumía una sola forma y terminó iterando el compile DB como
+una única entrada.
+```
+
+Corrección:
+
+```txt
+- capturar primero $parsedEntries;
+- normalizar explícitamente la colección;
+- aplanar un nivel cuando la salida sea Array/IEnumerable sin propiedad file;
+- exigir al menos una entrada normalizada;
+- mantener la clasificación textual portable de F052;
+- mantener los contadores directos de TU añadidos en P5-F.
+```
+
+Estado:
+
+```txt
+PRODUCT_FAILURE=NO_EVIDENCE
+CORE_A_REPLACED=NO
+UPLOAD_REACHED=NO
+F052=REMAINS_CORRECTED_FOR_PATHS
+F054=CONFIRMED_AND_CORRECTED
+P5F=READY_TO_RERUN
+```
+
