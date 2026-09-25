@@ -8,6 +8,7 @@ JWPLC_ModbusRTUClass::JWPLC_ModbusRTUClass()
       _baud(JWPLC_MODBUS_RTU_DEFAULT_BAUD),
       _config(JWPLC_MODBUS_RTU_DEFAULT_CONFIG),
       _frameGapMs(5),
+      _frameGapUs(5000UL),
       _coils(nullptr),
       _coilCount(0),
       _discreteInputs(nullptr),
@@ -21,7 +22,7 @@ JWPLC_ModbusRTUClass::JWPLC_ModbusRTUClass()
       _coilWriteSeen(false),
       _lastCoilWriteMs(0),
       _rxLength(0),
-      _lastByteMs(0),
+      _lastByteUs(0),
       _lastError(JWPLC_MODBUS_NOT_STARTED),
       _stats{0, 0, 0, 0, 0, 0},
       _masterState(JWPLC_MODBUS_MASTER_IDLE),
@@ -120,11 +121,37 @@ uint32_t JWPLC_ModbusRTUClass::config() const
 void JWPLC_ModbusRTUClass::setFrameGapMs(uint16_t gapMs)
 {
     _frameGapMs = gapMs;
+    _frameGapUs = (uint32_t)gapMs * 1000UL;
 }
 
 uint16_t JWPLC_ModbusRTUClass::frameGapMs() const
 {
     return _frameGapMs;
+}
+
+void JWPLC_ModbusRTUClass::setFrameGapUs(uint32_t gapUs)
+{
+    _frameGapUs = gapUs;
+
+    uint32_t roundedMs = gapUs / 1000UL;
+
+    if ((gapUs % 1000UL) != 0UL &&
+        roundedMs < 0xFFFFUL)
+    {
+        ++roundedMs;
+    }
+
+    if (roundedMs > 0xFFFFUL)
+    {
+        roundedMs = 0xFFFFUL;
+    }
+
+    _frameGapMs = (uint16_t)roundedMs;
+}
+
+uint32_t JWPLC_ModbusRTUClass::frameGapUs() const
+{
+    return _frameGapUs;
 }
 
 void JWPLC_ModbusRTUClass::setCoils(uint8_t *bits, uint16_t count)
@@ -311,11 +338,11 @@ void JWPLC_ModbusRTUClass::pollServer()
         }
 
         _rxBuffer[_rxLength++] = (uint8_t)value;
-        _lastByteMs = millis();
+        _lastByteUs = micros();
     }
 
     if (_rxLength == 0 ||
-        (uint32_t)(millis() - _lastByteMs) < _frameGapMs)
+        (uint32_t)(micros() - _lastByteUs) < _frameGapUs)
     {
         return;
     }
@@ -519,7 +546,7 @@ void JWPLC_ModbusRTUClass::pollMaster()
         }
 
         _rxBuffer[_rxLength++] = (uint8_t)value;
-        _lastByteMs = millis();
+        _lastByteUs = micros();
     }
 
     uint16_t expectedLength = 0;
@@ -567,7 +594,7 @@ void JWPLC_ModbusRTUClass::pollMaster()
         }
     }
     else if (_rxLength > 0 &&
-             (uint32_t)(millis() - _lastByteMs) >= _frameGapMs)
+             (uint32_t)(micros() - _lastByteUs) >= _frameGapUs)
     {
         processMasterFrame(_rxBuffer, _rxLength);
         clearRxBuffer();
@@ -1458,6 +1485,9 @@ void JWPLC_ModbusRTUClass::printStatus(Print &out) const
 
     out.print("Frame gap ms: ");
     out.println(_frameGapMs);
+
+    out.print("Frame gap us: ");
+    out.println(_frameGapUs);
 
     out.print("Coils: ");
     out.println(_coilCount);

@@ -20,6 +20,33 @@ JWPLC_ModbusRTU.begin(247, 115200, SERIAL_8N1);
 
 El ID `247` se usa en los ejemplos como ID local interno del Master; el ID destino se especifica en cada `request...()`.
 
+
+## Timing de trama
+
+Desde RTU-F1 la delimitacion temporal interna trabaja en **microsegundos**
+mediante `micros()`.
+
+Las APIs historicas se conservan:
+
+```cpp
+JWPLC_ModbusRTU.setFrameGapMs(2);
+uint16_t gapMs = JWPLC_ModbusRTU.frameGapMs();
+```
+
+Se anade una API fina:
+
+```cpp
+JWPLC_ModbusRTU.setFrameGapUs(2000);
+uint32_t gapUs = JWPLC_ModbusRTU.frameGapUs();
+```
+
+`setFrameGapMs()` conserva su contrato y actualiza internamente el valor en
+microsegundos. Si el gap se fija con `setFrameGapUs()`, `frameGapMs()`
+reporta el equivalente entero redondeado hacia arriba.
+
+El valor por defecto continua siendo **5 ms**. RTU-F1 no cambia aun la politica
+de gap segun baudrate.
+
 ## Funciones soportadas
 
 ### Slave / Server

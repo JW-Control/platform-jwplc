@@ -173,6 +173,9 @@ static void printSnapshot()
     Serial.print("RTU_FRAME_GAP_MS=");
     Serial.println(JWPLC_ModbusRTU.frameGapMs());
 
+    Serial.print("RTU_FRAME_GAP_US=");
+    Serial.println(JWPLC_ModbusRTU.frameGapUs());
+
     Serial.print("RTU_RX_FRAMES=");
     Serial.println(s.rxFrames);
 
@@ -238,7 +241,8 @@ static void serviceSerial()
         }
         else if (c == '2')
         {
-            JWPLC_ModbusRTU.setFrameGapMs(2);
+            JWPLC_ModbusRTU.setFrameGapUs(2000UL);
+            Serial.println("RTU_FRAME_GAP_US=2000");
             Serial.println("RTU_FRAME_GAP_MS=2");
         }
         else if (c == '5')

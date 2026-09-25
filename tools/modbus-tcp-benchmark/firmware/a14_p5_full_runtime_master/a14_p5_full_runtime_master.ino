@@ -1357,6 +1357,9 @@ static void printSnapshot()
     Serial.print("RTU_TIMEOUT_MS=");
     Serial.println(RTU_TIMEOUT_MS);
 
+    Serial.print("RTU_FRAME_GAP_US=");
+    Serial.println(JWPLC_ModbusRTU.frameGapUs());
+
     Serial.print("RTU_RATE_MODE=");
     Serial.println(rtuUnpaced ? "UNPACED" : "PACED");
 

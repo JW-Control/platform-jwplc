@@ -78,8 +78,13 @@ public:
     uint32_t baudRate() const;
     uint32_t config() const;
 
+    // Compatibilidad historica en milisegundos.
     void setFrameGapMs(uint16_t gapMs);
     uint16_t frameGapMs() const;
+
+    // Timing fino; el motor interno de framing usa microsegundos.
+    void setFrameGapUs(uint32_t gapUs);
+    uint32_t frameGapUs() const;
 
     // Mapas Slave. Coils y Discrete Inputs usan bits empaquetados LSB-first:
     // bit 0 del byte 0 = direccion 0, bit 1 = direccion 1, etc.
@@ -260,6 +265,7 @@ private:
     uint32_t _baud;
     uint32_t _config;
     uint16_t _frameGapMs;
+    uint32_t _frameGapUs;
 
     uint8_t *_coils;
     uint16_t _coilCount;
@@ -277,7 +283,7 @@ private:
 
     uint8_t _rxBuffer[JWPLC_MODBUS_RTU_MAX_FRAME];
     uint16_t _rxLength;
-    uint32_t _lastByteMs;
+    uint32_t _lastByteUs;
 
     JWPLCModbusRTUError _lastError;
     JWPLCModbusRTUStats _stats;
