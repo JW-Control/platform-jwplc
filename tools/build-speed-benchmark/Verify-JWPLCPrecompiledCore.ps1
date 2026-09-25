@@ -467,7 +467,248 @@ else
     $archiveLinked = Test-NativeOutputContains -Output $result.Output -Pattern '[\\/]precompiled[\\/]core[\\/]JWPLCBASIC[\\/]core\.a'
     $peripheralsCount = @(
         $result.CompileDb.SourceFiles | Where-Object {
-            [System.IO.Path]::GetFileName($_) -ieq "peripherals_init.cpp"
+            ([string]$_).Replace('\', '/') -match '/peripherals_init\.cpp    ).Count
+
+    Write-Host ""
+    Write-Host ("Tiempo: {0:N3} s" -f ($result.DurationMs / 1000.0)) -ForegroundColor Green
+    Write-Host ("compile_commands: total={0}, jwcontrol={1}, stub={2}" -f $result.CompileDb.Entries, $result.CompileDb.SourceCount, $result.CompileDb.StubCount)
+    Write-Host ("Using core fuente: {0}" -f $usesSource)
+    Write-Host ("Using stub normalizado: {0}" -f $usesStub)
+    Write-Host ("peripherals_init.cpp: {0}" -f $peripheralsCount)
+    Write-Host ("core.a JWPLCBASIC enlazado: {0}" -f $archiveLinked)
+    Write-Host ("App: {0} bytes" -f $result.AppBin.Length)
+
+    if (-not $usesSource) { throw "Basic Core no reporto Using core 'jwcontrol'." }
+    if ($usesStub) { throw "Basic Core uso inesperadamente el stub precompilado." }
+    if ($result.CompileDb.SourceCount -lt 1) { throw "Basic Core no compilo fuentes de cores/jwcontrol." }
+    if ($result.CompileDb.StubCount -ne 0) { throw "Basic Core compilo inesperadamente el stub precompilado." }
+    if ($peripheralsCount -ne 1) { throw ("Basic Core esperaba 1 peripherals_init.cpp; obtuvo {0}." -f $peripheralsCount) }
+    if ($archiveLinked) { throw "Basic Core enlazo inesperadamente core.a JWPLCBASIC." }
+
+    $summary = @(
+        "# Core JWPLC fuente - control inverso normalizado",
+        "",
+        ("Run: {0}" -f $runId),
+        "Target: Basic Core",
+        ("FQBN: {0}" -f $fqbn),
+        "",
+        ("Tiempo: {0:N3} s" -f ($result.DurationMs / 1000.0)),
+        ("Compile DB total: {0}" -f $result.CompileDb.Entries),
+        ("jwcontrol source TUs: {0}" -f $result.CompileDb.SourceCount),
+        ("stub TUs: {0}" -f $result.CompileDb.StubCount),
+        ("peripherals_init.cpp: {0}" -f $peripheralsCount),
+        ("Using jwcontrol: {0}" -f $usesSource),
+        ("core.a JWPLCBASIC enlazado: {0}" -f $archiveLinked),
+        "",
+        "CORE_PRECOMPILED_VERIFY_CORE=PASS"
+    )
+    $summary | Out-File -LiteralPath $summaryPath -Encoding utf8
+
+    Write-Host ""
+    Write-Host "CORE_PRECOMPILED_VERIFY_CORE=PASS" -ForegroundColor Green
+}
+
+Write-Host ("Resumen: {0}" -f $summaryPath)
+Write-Host ("Log: {0}" -f $logPath)
+
+        }
+    ).Count
+
+    Write-Host ""
+    Write-Host ("Tiempo: {0:N3} s" -f ($result.DurationMs / 1000.0)) -ForegroundColor Green
+    Write-Host ("compile_commands: total={0}, jwcontrol={1}, stub={2}" -f $result.CompileDb.Entries, $result.CompileDb.SourceCount, $result.CompileDb.StubCount)
+    Write-Host ("Using core fuente: {0}" -f $usesSource)
+    Write-Host ("Using stub normalizado: {0}" -f $usesStub)
+    Write-Host ("peripherals_init.cpp: {0}" -f $peripheralsCount)
+    Write-Host ("core.a JWPLCBASIC enlazado: {0}" -f $archiveLinked)
+    Write-Host ("App: {0} bytes" -f $result.AppBin.Length)
+
+    if (-not $usesSource) { throw "Basic Core no reporto Using core 'jwcontrol'." }
+    if ($usesStub) { throw "Basic Core uso inesperadamente el stub precompilado." }
+    if ($result.CompileDb.SourceCount -lt 1) { throw "Basic Core no compilo fuentes de cores/jwcontrol." }
+    if ($result.CompileDb.StubCount -ne 0) { throw "Basic Core compilo inesperadamente el stub precompilado." }
+    if ($peripheralsCount -ne 1) { throw ("Basic Core esperaba 1 peripherals_init.cpp; obtuvo {0}." -f $peripheralsCount) }
+    if ($archiveLinked) { throw "Basic Core enlazo inesperadamente core.a JWPLCBASIC." }
+
+    $summary = @(
+        "# Core JWPLC fuente - control inverso normalizado",
+        "",
+        ("Run: {0}" -f $runId),
+        "Target: Basic Core",
+        ("FQBN: {0}" -f $fqbn),
+        "",
+        ("Tiempo: {0:N3} s" -f ($result.DurationMs / 1000.0)),
+        ("Compile DB total: {0}" -f $result.CompileDb.Entries),
+        ("jwcontrol source TUs: {0}" -f $result.CompileDb.SourceCount),
+        ("stub TUs: {0}" -f $result.CompileDb.StubCount),
+        ("peripherals_init.cpp: {0}" -f $peripheralsCount),
+        ("Using jwcontrol: {0}" -f $usesSource),
+        ("core.a JWPLCBASIC enlazado: {0}" -f $archiveLinked),
+        "",
+        "CORE_PRECOMPILED_VERIFY_CORE=PASS"
+    )
+    $summary | Out-File -LiteralPath $summaryPath -Encoding utf8
+
+    Write-Host ""
+    Write-Host "CORE_PRECOMPILED_VERIFY_CORE=PASS" -ForegroundColor Green
+}
+
+Write-Host ("Resumen: {0}" -f $summaryPath)
+Write-Host ("Log: {0}" -f $logPath)
+
+        }
+    ).Count
+
+    Write-Host ""
+    Write-Host ("Tiempo: {0:N3} s" -f ($result.DurationMs / 1000.0)) -ForegroundColor Green
+    Write-Host ("compile_commands: total={0}, jwcontrol={1}, stub={2}" -f $result.CompileDb.Entries, $result.CompileDb.SourceCount, $result.CompileDb.StubCount)
+    Write-Host ("Using stub normalizado: {0}" -f $usesStub)
+    Write-Host ("Using core fuente: {0}" -f $usesSource)
+    Write-Host ("precompiled_core_stub.c: {0}" -f $stubNamedCount)
+    Write-Host ("core.a JWPLCBASIC enlazado: {0}" -f $archiveLinked)
+    Write-Host ("App: {0} bytes" -f $result.AppBin.Length)
+
+    if (-not $usesStub) { throw "Basic normal no reporto Using core 'jwcontrol_precompiled_stub'." }
+    if ($usesSource) { throw "Basic normal uso inesperadamente jwcontrol fuente." }
+    if ($result.CompileDb.SourceCount -ne 0) { throw "Basic normal compilo fuentes de cores/jwcontrol." }
+    if ($result.CompileDb.StubCount -ne 1) { throw ("Basic normal esperaba 1 TU de stub; obtuvo {0}." -f $result.CompileDb.StubCount) }
+    if ($stubNamedCount -ne 1) { throw "Basic normal no compilo exactamente precompiled_core_stub.c." }
+    if (-not $archiveLinked) { throw "Basic normal no mostro enlace del core.a oficial JWPLCBASIC." }
+
+    $summary = @(
+        "# Core JWPLC precompilado - verificacion normalizada",
+        "",
+        ("Run: {0}" -f $runId),
+        "Target: Basic normal",
+        ("FQBN: {0}" -f $fqbn),
+        "",
+        ("Tiempo: {0:N3} s" -f ($result.DurationMs / 1000.0)),
+        ("Compile DB total: {0}" -f $result.CompileDb.Entries),
+        ("jwcontrol source TUs: {0}" -f $result.CompileDb.SourceCount),
+        ("stub TUs: {0}" -f $result.CompileDb.StubCount),
+        ("precompiled_core_stub.c: {0}" -f $stubNamedCount),
+        ("Using jwcontrol_precompiled_stub: {0}" -f $usesStub),
+        ("core.a JWPLCBASIC enlazado: {0}" -f $archiveLinked),
+        "",
+        "Nota de reproducibilidad:",
+        "- chip-debug-report.cpp.o depende de __DATE__/__TIME__.",
+        "- firmware_msc_fat.c.o depende de __DATE__/__TIME__.",
+        "- No se exige SHA bit-a-bit entre builds fuente ejecutados en instantes distintos.",
+        "",
+        "CORE_PRECOMPILED_VERIFY_BASIC=PASS"
+    )
+    $summary | Out-File -LiteralPath $summaryPath -Encoding utf8
+
+    Write-Host ""
+    Write-Host "CORE_PRECOMPILED_VERIFY_BASIC=PASS" -ForegroundColor Green
+}
+else
+{
+    $fqbn = "jwplc_local:esp32:jwplcbasiccore"
+    Write-Host "Core JWPLC fuente - control inverso normalizado" -ForegroundColor Cyan
+    Write-Host "Target: Basic Core"
+    Write-Host "Esperado: cores/jwcontrol fuente; sin stub y sin core.a JWPLCBASIC"
+
+    $result = Invoke-VerificationBuild -Fqbn $fqbn -BuildPath $buildPath -LogPath $logPath
+    $boardsAfter = Get-BoardsLocalState
+    Assert-BoardsLocalUnchanged -Before $boardsBefore -After $boardsAfter
+
+    $usesSource = Test-NativeOutputContains -Output $result.Output -Pattern "Using core 'jwcontrol'"
+    $usesStub = Test-NativeOutputContains -Output $result.Output -Pattern "Using core 'jwcontrol_precompiled_stub'"
+    $archiveLinked = Test-NativeOutputContains -Output $result.Output -Pattern '[\\/]precompiled[\\/]core[\\/]JWPLCBASIC[\\/]core\.a'
+    $peripheralsCount = @(
+        $result.CompileDb.SourceFiles | Where-Object {
+            ([string]$_).Replace('\', '/') -match '/peripherals_init\.cpp
+        }
+    ).Count
+
+    Write-Host ""
+    Write-Host ("Tiempo: {0:N3} s" -f ($result.DurationMs / 1000.0)) -ForegroundColor Green
+    Write-Host ("compile_commands: total={0}, jwcontrol={1}, stub={2}" -f $result.CompileDb.Entries, $result.CompileDb.SourceCount, $result.CompileDb.StubCount)
+    Write-Host ("Using core fuente: {0}" -f $usesSource)
+    Write-Host ("Using stub normalizado: {0}" -f $usesStub)
+    Write-Host ("peripherals_init.cpp: {0}" -f $peripheralsCount)
+    Write-Host ("core.a JWPLCBASIC enlazado: {0}" -f $archiveLinked)
+    Write-Host ("App: {0} bytes" -f $result.AppBin.Length)
+
+    if (-not $usesSource) { throw "Basic Core no reporto Using core 'jwcontrol'." }
+    if ($usesStub) { throw "Basic Core uso inesperadamente el stub precompilado." }
+    if ($result.CompileDb.SourceCount -lt 1) { throw "Basic Core no compilo fuentes de cores/jwcontrol." }
+    if ($result.CompileDb.StubCount -ne 0) { throw "Basic Core compilo inesperadamente el stub precompilado." }
+    if ($peripheralsCount -ne 1) { throw ("Basic Core esperaba 1 peripherals_init.cpp; obtuvo {0}." -f $peripheralsCount) }
+    if ($archiveLinked) { throw "Basic Core enlazo inesperadamente core.a JWPLCBASIC." }
+
+    $summary = @(
+        "# Core JWPLC fuente - control inverso normalizado",
+        "",
+        ("Run: {0}" -f $runId),
+        "Target: Basic Core",
+        ("FQBN: {0}" -f $fqbn),
+        "",
+        ("Tiempo: {0:N3} s" -f ($result.DurationMs / 1000.0)),
+        ("Compile DB total: {0}" -f $result.CompileDb.Entries),
+        ("jwcontrol source TUs: {0}" -f $result.CompileDb.SourceCount),
+        ("stub TUs: {0}" -f $result.CompileDb.StubCount),
+        ("peripherals_init.cpp: {0}" -f $peripheralsCount),
+        ("Using jwcontrol: {0}" -f $usesSource),
+        ("core.a JWPLCBASIC enlazado: {0}" -f $archiveLinked),
+        "",
+        "CORE_PRECOMPILED_VERIFY_CORE=PASS"
+    )
+    $summary | Out-File -LiteralPath $summaryPath -Encoding utf8
+
+    Write-Host ""
+    Write-Host "CORE_PRECOMPILED_VERIFY_CORE=PASS" -ForegroundColor Green
+}
+
+Write-Host ("Resumen: {0}" -f $summaryPath)
+Write-Host ("Log: {0}" -f $logPath)
+
+        }
+    ).Count
+
+    Write-Host ""
+    Write-Host ("Tiempo: {0:N3} s" -f ($result.DurationMs / 1000.0)) -ForegroundColor Green
+    Write-Host ("compile_commands: total={0}, jwcontrol={1}, stub={2}" -f $result.CompileDb.Entries, $result.CompileDb.SourceCount, $result.CompileDb.StubCount)
+    Write-Host ("Using core fuente: {0}" -f $usesSource)
+    Write-Host ("Using stub normalizado: {0}" -f $usesStub)
+    Write-Host ("peripherals_init.cpp: {0}" -f $peripheralsCount)
+    Write-Host ("core.a JWPLCBASIC enlazado: {0}" -f $archiveLinked)
+    Write-Host ("App: {0} bytes" -f $result.AppBin.Length)
+
+    if (-not $usesSource) { throw "Basic Core no reporto Using core 'jwcontrol'." }
+    if ($usesStub) { throw "Basic Core uso inesperadamente el stub precompilado." }
+    if ($result.CompileDb.SourceCount -lt 1) { throw "Basic Core no compilo fuentes de cores/jwcontrol." }
+    if ($result.CompileDb.StubCount -ne 0) { throw "Basic Core compilo inesperadamente el stub precompilado." }
+    if ($peripheralsCount -ne 1) { throw ("Basic Core esperaba 1 peripherals_init.cpp; obtuvo {0}." -f $peripheralsCount) }
+    if ($archiveLinked) { throw "Basic Core enlazo inesperadamente core.a JWPLCBASIC." }
+
+    $summary = @(
+        "# Core JWPLC fuente - control inverso normalizado",
+        "",
+        ("Run: {0}" -f $runId),
+        "Target: Basic Core",
+        ("FQBN: {0}" -f $fqbn),
+        "",
+        ("Tiempo: {0:N3} s" -f ($result.DurationMs / 1000.0)),
+        ("Compile DB total: {0}" -f $result.CompileDb.Entries),
+        ("jwcontrol source TUs: {0}" -f $result.CompileDb.SourceCount),
+        ("stub TUs: {0}" -f $result.CompileDb.StubCount),
+        ("peripherals_init.cpp: {0}" -f $peripheralsCount),
+        ("Using jwcontrol: {0}" -f $usesSource),
+        ("core.a JWPLCBASIC enlazado: {0}" -f $archiveLinked),
+        "",
+        "CORE_PRECOMPILED_VERIFY_CORE=PASS"
+    )
+    $summary | Out-File -LiteralPath $summaryPath -Encoding utf8
+
+    Write-Host ""
+    Write-Host "CORE_PRECOMPILED_VERIFY_CORE=PASS" -ForegroundColor Green
+}
+
+Write-Host ("Resumen: {0}" -f $summaryPath)
+Write-Host ("Log: {0}" -f $logPath)
+
         }
     ).Count
 
