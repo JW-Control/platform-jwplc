@@ -629,3 +629,105 @@ P5B_ATTEMPT_1=HARNESS_OBSERVER_EFFECT
 P5B_ATTEMPT_2=RTU_TIMEOUT_CALIBRATION_REQUIRED
 P5C=READY_TO_RUN
 ```
+
+## P5-C — cierre PASS y selección de timeout
+
+El sweep de calibración produjo:
+
+```txt
+15 ms -> FAIL
+  47.986 Hz
+  31 timeouts
+  31 failed
+  service gap = 15153 us
+  headroom = -1 ms
+
+25 ms -> PASS
+  50.047 Hz
+  0 timeouts
+  0 failed
+  service gap = 17815 us
+  headroom = 7 ms
+  cross-count exacto
+
+35 ms -> PASS
+  50.017 Hz
+  0 timeouts
+  0 failed
+  service gap = 16915 us
+  headroom = 18 ms
+  cross-count exacto
+
+50 ms -> PASS
+  50.047 Hz
+  0 timeouts
+  0 failed
+  service gap = 18520 us
+  headroom = 31 ms
+  cross-count exacto
+```
+
+Resultado:
+
+```txt
+P5C_SELECTED_TIMEOUT_MS=25
+P5C_SELECTION_RULE=LOWEST_ZERO_ERROR_45TO52HZ_WITH_5MS_HEADROOM
+A14_P5C_RTU_TIMEOUT_CALIBRATION=PASS
+```
+
+La evidencia de 15 ms además confirma que el enlace físico no era la causa:
+
+```txt
+Master started=753
+Master success=722
+Master timeout=31
+
+Slave RX=753
+Slave TX=753
+Slave OK=753
+Slave CRC=0
+```
+
+El Slave recibió y contestó las 753 solicitudes; el Master declaró timeout en
+31 de ellas antes de volver a procesar la respuesta.
+
+Decisión:
+
+```txt
+P5_RTU_TIMEOUT_MS=25
+P5_RTU_PERIOD_MS=20
+P5C=CLOSED_PASS
+```
+
+25 ms se fija únicamente en el firmware diagnóstico P5. No se modifica la
+librería productiva `JWPLC_ModbusRTU`.
+
+## Próximo gate
+
+P5-B se repite con:
+
+```txt
+TCP FC03/125 @ 1000 req/s
+RTU period = 20 ms
+RTU timeout = 25 ms
+duration = 60 s
+full runtime = activo
+Master/Slave HMI = USER_REFRESH_ON_DEMAND
+W5500 SPI = 26 MHz
+```
+
+El gate P5-B ahora verifica explícitamente que el Master compilado contiene:
+
+```txt
+RTU_TIMEOUT_MS=25
+```
+
+y el qualification runner también exige ese mismo valor en el snapshot formal.
+
+Estado:
+
+```txt
+P5A=CLOSED_PASS
+P5C=CLOSED_PASS
+P5B=READY_TO_RERUN_WITH_25MS
+```
