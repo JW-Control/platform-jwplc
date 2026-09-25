@@ -24,6 +24,11 @@ RESPONSE_ADU_BYTES = 259
 TOTAL_ADU_BYTES = 271
 USEFUL_DATA_BYTES = 250
 
+# Hook diagnóstico opcional. Por defecto no altera el benchmark.
+# P5-B/P5-D lo usa para congelar RTU justo después de la ventana
+# formal y antes del snapshot serial completo.
+final_snapshot_hook = None
+
 
 def precise_wait_until(target):
     while True:
@@ -289,6 +294,11 @@ def run_case(
                 ser
             )
         )
+
+        if callable(final_snapshot_hook):
+            final_snapshot_hook(
+                ser
+            )
 
         ser.write(b"S\n")
         ser.flush()
