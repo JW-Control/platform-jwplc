@@ -1720,3 +1720,54 @@ F053=CONFIRMED_AND_CORRECTED
 CORE_A_REPLACED=NO
 P5F_R3=READY_TO_RERUN
 ```
+
+
+### Restauración estructural posterior
+
+Al revisar el estado posterior al intento 3 se detectó que
+`Verify-JWPLCPrecompiledCore.ps1` había quedado con bloques duplicados por las
+transformaciones textuales anteriores.
+
+Para evitar seguir parchando sobre una base corrupta se tomó como referencia la
+última versión estructuralmente sana:
+
+```txt
+d76fe851c811cbb422a0c12d59fe0296d0b998ba
+```
+
+y se reconstruyeron ambos scripts desde esa base:
+
+```txt
+Build-JWPLCPrecompiledCore.ps1
+Verify-JWPLCPrecompiledCore.ps1
+```
+
+Reaplicando únicamente:
+
+```txt
+- SHA-256 por .NET;
+- parser compile_commands textual/portable;
+- clasificación de TU mediante -like;
+- sin Get-FileHash;
+- sin GetFullPath(entry.file);
+- sin IsPathRooted(entry.file).
+```
+
+Estado estructural actual:
+
+```txt
+Build:
+  Get-Sha256Hex count = 1
+  Get-CompileDatabaseInfo count = 1
+  líneas ≈ 448
+
+Verify:
+  Get-Sha256Hex count = 1
+  Get-CompileDatabaseInfo count = 1
+  líneas ≈ 415
+
+Wrapper:
+  valida sintaxis de gate + builder + verifier
+```
+
+Esto se considera corrección de F053, no una clase nueva.
