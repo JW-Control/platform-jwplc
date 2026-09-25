@@ -651,11 +651,10 @@ def main() -> int:
         and master.get("RTU_ROLE") == "MASTER"
         and master.get("RTU_TARGET_SLAVE_ID") == "2"
         and rtu_timeout_ms == 25
-        and master.get("RTU_TRAFFIC_ENABLED") == "YES"
+        and master.get("RTU_TRAFFIC_ENABLED") == "NO"
         and started >= min_started
         and rejected == 0
-        and completed >= started - 1
-        and completed <= started
+        and completed == started
         and success == completed
         and failed == 0
         and verify_fails == 0
@@ -686,7 +685,9 @@ def main() -> int:
         "RTU_EXCEPTIONS_SENT",
     )
 
-    tail_tolerance = 12
+    # RTU queda congelado antes del snapshot Master y permanece detenido
+    # hasta después del snapshot Slave. Ya no existe una cola legítima.
+    tail_tolerance = 0
 
     rx_delta = abs(
         slave_rx - success
@@ -727,7 +728,7 @@ def main() -> int:
 
     master_runtime_pass = (
         master.get("FULL_RUNTIME_READY") == "YES"
-        and master.get("COMBINED_RUNTIME_READY") == "YES"
+        and master.get("COMBINED_RUNTIME_READY") == "NO"
         and master.get("SERVER_READY") == "YES"
         and master.get("ETH_READY") == "YES"
         and master.get("ETH_LINK") == "UP"
@@ -768,6 +769,9 @@ def main() -> int:
     )
     print(
         f"RTU_SNAPSHOT_TAIL_TOLERANCE={tail_tolerance}"
+    )
+    print(
+        "RTU_FINAL_SNAPSHOT_MODE=QUIESCED"
     )
     print(
         f"RTU_SLAVE_RX_MASTER_SUCCESS_DELTA={rx_delta}"
