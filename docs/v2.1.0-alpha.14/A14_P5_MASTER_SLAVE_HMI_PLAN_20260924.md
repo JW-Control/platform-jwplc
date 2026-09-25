@@ -1111,3 +1111,188 @@ P5B_60S=CLOSED_PASS
 P5D_ATTEMPT_1=SATURATION_FAIL_CLEAN
 P5D_R1=READY_TO_RERUN_SEGMENTED
 ```
+
+
+## P5-D-R1 — resultado segmentado
+
+La repetición de 600 s con lifecycle RTU quiescente produjo:
+
+```txt
+ACHIEVED_REQ_S=912.75
+ACHIEVED_PCT=91.275
+RESULT=SATURATION_FAIL_CLEAN
+
+TIMEOUTS=0
+TRANSPORT_ERRORS=0
+PROTOCOL_ERRORS=0
+BUS_LOCK_TIMEOUTS=0
+TCP_CLEAN=YES
+TCP_RATE_PASS=NO
+```
+
+Buckets de 60 s:
+
+```txt
+1  = 937.13 req/s
+2  = 922.48 req/s
+3  = 903.63 req/s
+4  = 895.53 req/s
+5  = 888.40 req/s
+6  = 911.67 req/s
+7  = 941.00 req/s
+8  = 921.05 req/s
+9  = 907.13 req/s
+10 = 899.47 req/s
+```
+
+Interpretación:
+
+```txt
+TIME_DEPENDENT_MONOTONIC_DEGRADATION=NO
+SESSION_LEVEL_1000RPS_SATURATION=YES
+PERIODIC_OR_RUNTIME_VARIABILITY=YES
+```
+
+La recuperación del minuto 7 descarta una degradación monotónica simple.
+
+### RTU después de corregir F045
+
+El lifecycle quiescente corrigió el contador contaminado:
+
+```txt
+STARTED=29975
+COMPLETED=29975
+```
+
+pero permanecieron tres timeouts reales:
+
+```txt
+SUCCESS=29972
+FAILED=3
+MASTER_TIMEOUTS=3
+MASTER_CRC=0
+VERIFY_FAILS=0
+
+SLAVE_RX=29975
+SLAVE_TX=29975
+SLAVE_OK=29975
+SLAVE_CRC=0
+SLAVE_EXCEPTIONS=0
+```
+
+Esto confirma recurrencia de F048 bajo ventana larga:
+
+```txt
+RTU_25MS_LONG_RUN=INSUFFICIENT_WITH_CURRENT_WORKLOAD
+F045_LIFECYCLE_CONTAMINATION=FIXED
+```
+
+No se crea una clase nueva para estos timeouts.
+
+## Hallazgo de workload SD
+
+Al auditar el firmware P5 se detectó que la prueba full-runtime todavía usaba:
+
+```cpp
+JWPLCFile
+write()
+flush()
+close()
+open(FILE_READ)
+seek()
+read()
+reopen(FILE_APPEND)
+```
+
+cada 1/5 s, en vez de la API bufferizada actual:
+
+```cpp
+JWPLCDataLog
+```
+
+El package ya integra el manager DataLog y lo atiende automáticamente desde
+`jwplcSystemTask()` mediante:
+
+```cpp
+jwplcDataLogTickCallback();
+JWPLC_SD.serviceDataLogs();
+```
+
+Por tanto, bajar el objetivo TCP o aumentar el timeout RTU antes de medir el
+runtime con la API SD actual sería prematuro.
+
+### P5-D-R2 — única variable
+
+Se cambia únicamente el workload microSD del firmware diagnóstico:
+
+```txt
+ANTES:
+JWPLCFile directo
+write cada 1 s
+flush cada 5 registros
+close/read/reopen cada 5 s
+
+AHORA:
+JWPLCDataLog
+buffer = 4096 B
+commit threshold = 512 B
+commit timeout = 5000 ms
+servicio automático por jwplcSystemTask
+```
+
+Se mantienen sin cambios:
+
+```txt
+TCP target = 1000 req/s
+duration = 600 s
+RTU period = 20 ms
+RTU timeout = 25 ms
+W5500 SPI = 26 MHz
+FRAM / RTC / buttons / TCA-I/O = activos
+HMI Master/Slave = dirty on-demand
+lifecycle RTU quiescente
+```
+
+La escritura lógica sigue ocurriendo a 32 B cada segundo. El loop ya no realiza
+el write/flush/readback físico síncrono. El manager DataLog agrupa y persiste los
+datos en segundo plano.
+
+El snapshot publica:
+
+```txt
+SD_WORKLOAD_MODE=BUFFERED_DATALOG
+SD_DATALOG_ACTIVE
+SD_DATALOG_BUFFER_BYTES
+SD_DATALOG_PENDING_BYTES
+SD_DATALOG_COMMIT_THRESHOLD_BYTES
+SD_DATALOG_COMMIT_TIMEOUT_MS
+SD_DATALOG_ACCEPTED_BYTES
+SD_DATALOG_COMMITTED_BYTES
+SD_DATALOG_FAILED_COMMITS
+```
+
+El gate exige actividad real y:
+
+```txt
+SD_DATALOG_FAILED_COMMITS=0
+SD_DATALOG_COMMITTED_BYTES>0
+```
+
+Objetivo de P5-D-R2:
+
+```txt
+determinar si el workload SD bloqueante explicaba:
+- la saturación sostenida ~913 req/s;
+- los service gaps >25 ms;
+- los 3 timeouts RTU del long-run.
+```
+
+Estado:
+
+```txt
+P5B_60S=CLOSED_PASS
+P5D_R1=SATURATION_FAIL_CLEAN
+F045_RECURRENCE=FIXED
+F048_25MS_LONG_RUN=REPRODUCED
+P5D_R2_BUFFERED_SD=READY_TO_RUN
+```
