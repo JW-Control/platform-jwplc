@@ -359,3 +359,169 @@ Estado:
 P5A=CLOSED_PASS
 P5B=READY_TO_RUN
 ```
+
+## P5-B intento 1 — preflight RTU perturbado por snapshot serial
+
+La primera ejecución física de P5-B llegó correctamente hasta el preflight:
+
+```txt
+SLAVE_UPLOAD_EXIT=0
+MASTER_UPLOAD_EXIT=0
+
+FULL_RUNTIME_READY=YES
+SERVER_READY=YES
+ETH_READY=YES
+ETH_LINK=UP
+ETH_IP=192.168.0.159
+COMBINED_RUNTIME_READY=YES
+
+DISPLAY_READY=YES
+DISPLAY_RENDER_MODE=HMI_ON_DEMAND_DIRTY
+DISPLAY_REFRESH_MODE=USER_REFRESH_ON_DEMAND
+
+FRAM_READY=YES
+FRAM_FAILS=0
+
+SD_READY=YES
+SD_APPEND_FAILS=0
+SD_VERIFY_FAILS=0
+
+RTC_PRESENT=YES
+RTC_UNAVAILABLE=0
+RTC_STALE=0
+
+IO_INITIALIZED=YES
+IO_STALE=0
+
+BUTTONS_READY=YES
+BUTTON_NOT_READY=0
+
+SPI_PROBE_FAILS=0
+PERIPHERAL_FAILURE_COUNT=0
+```
+
+Sin embargo, el preflight RTU mostró:
+
+```txt
+RTU_REQUESTS_STARTED=1688
+RTU_REQUESTS_SUCCESS=1636
+RTU_REQUESTS_FAILED=52
+RTU_CRC_ERRORS=1
+RTU_MASTER_TIMEOUTS=51
+RTU_PERIODS_SKIPPED=676
+
+LOOP_GAP_MAX_US=154316
+RTU_SERVICE_GAP_MAX_US=154323
+```
+
+El gate se detuvo antes de la ventana formal de 60 s.
+
+### Diagnóstico
+
+El resolver usaba repetidamente el snapshot completo `S` para polling de
+readiness.
+
+Ese snapshot imprime varios KB por Serial a 115200. Mientras se ejecuta
+`printSnapshot()`, el loop cooperativo no puede volver a:
+
+```cpp
+JWPLC_ModbusRTU.task();
+```
+
+La coincidencia entre:
+
+```txt
+LOOP_GAP_MAX_US=154316
+RTU_SERVICE_GAP_MAX_US=154323
+```
+
+es evidencia directa de que el mecanismo de observación estaba generando
+ventanas largas sin servicio RTU.
+
+Clasificación:
+
+```txt
+P5B_WINDOW_FORMAL_STARTED=NO
+SD_FAILURE=NO
+ETHERNET_FAILURE=NO
+DISPLAY_FAILURE=NO
+PERIPHERAL_FAILURE=NO
+RTU_PRODUCT_FAILURE=NOT_ESTABLISHED
+HARNESS_OBSERVER_EFFECT=YES
+```
+
+Los 51 timeouts y el CRC observado en este intento no se usan como resultado de
+producto. Debe repetirse con instrumentación no intrusiva.
+
+### Corrección
+
+Se añade al Master un comando:
+
+```txt
+P
+```
+
+que produce únicamente el contrato compacto:
+
+```txt
+FULL_RUNTIME_READY
+COMBINED_RUNTIME_READY
+SERVER_READY
+ETH_READY
+ETH_LINK
+ETH_IP
+SD_READY
+DISPLAY_READY
+DISPLAY_RENDER_MODE
+DISPLAY_REFRESH_MODE
+RTU_READY
+RTU_ROLE
+RTU_TARGET_SLAVE_ID
+RTU_TRAFFIC_ENABLED
+RTU_REQUESTS_SUCCESS
+RTU_REQUESTS_FAILED
+RTU_VERIFY_FAILS
+RTU_CRC_ERRORS
+RTU_MASTER_TIMEOUTS
+PERIPHERAL_FAILURE_COUNT
+A14_P5_PREFLIGHT=END
+```
+
+El resolver P5-B ahora realiza cada intento así:
+
+```txt
+R
+espera quieta 3 s sin snapshots
+P una sola vez
+evalúa
+```
+
+Si el intento falla, el siguiente vuelve a ejecutar `R`, por lo que cualquier
+perturbación causada por imprimir `P` queda fuera del siguiente periodo
+observado.
+
+### Snapshot limpio de fin de ventana
+
+El runner TCP histórico necesita snapshots completos al finalizar.
+
+El primer snapshot completo inmediatamente después de los 60 s contiene los
+contadores RTU capturados antes de que el propio print serial pueda perturbar el
+loop.
+
+P5-B ahora intercepta y conserva exactamente ese snapshot:
+
+```txt
+P5B_MASTER_MEASUREMENT_SNAPSHOT=
+CAPTURED_BEFORE_POST_SNAPSHOT_PERTURBATION
+```
+
+Snapshots completos posteriores siguen disponibles para compatibilidad del
+qualification runner, pero no se usan para calificar RTU.
+
+Estado:
+
+```txt
+P5B_ATTEMPT_1=HARNESS_OBSERVER_EFFECT
+P5B_FORMAL_WINDOW=NOT_RUN
+P5B_CORRECTED=READY_TO_RERUN
+```
