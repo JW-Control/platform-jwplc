@@ -2149,3 +2149,50 @@ Corrección:
 El candidato de producto P5-E2 no se modifica en este intento; se repite el
 mismo gate de 60 s después de corregir únicamente el preflight.
 
+### P5-E2 candidato 2 — autoservicio package-core pre/post loop
+
+El candidato `cached socket state` quedó funcionalmente PASS pero no confirmó
+ganancia frente al baseline corto:
+
+```txt
+P5-E1 baseline 60 s = 1017.170 req/s
+P5-E2 cached 60 s   = 1006.592 req/s
+GAIN_CONFIRMED=NO
+```
+
+Por aislamiento experimental, ese cambio de hot-path se revierte a la lógica
+baseline antes del candidato 2.
+
+Objetivo del candidato 2:
+
+```txt
+TARGET_BASIC=1020..1050 req/s sostenibles
+PUBLIC_API_CHANGE=NO
+USER_MANUAL_TASK_REQUIRED=NO
+CORE_INTEGRATION=YES
+```
+
+Diseño:
+
+```txt
+package-core loopTask:
+    jwplcModbusTCPLoopServiceCallback()
+    loop() del usuario
+    jwplcModbusTCPLoopServiceCallback()
+
+JWPLC_ModbusTCP enlazado:
+    callback fuerte -> JWPLC_ModbusTCP.task()
+
+JWPLC_ModbusTCP no enlazado:
+    callback débil vacío
+```
+
+El firmware full-runtime elimina su llamada manual a
+`JWPLC_ModbusTCP.task()`. Por tanto, la medición valida la experiencia deseada
+del package: el usuario configura mapas + `beginServer()` y el servicing
+queda a cargo del ecosistema JWPLC.
+
+Como `main.cpp` forma parte de `core.a`, el gate reconstruye y verifica un
+core candidato local. El binario queda dirty de forma controlada y NO se adopta
+ni se protege con nuevo hash hasta revisar el resultado físico.
+

@@ -2176,8 +2176,8 @@ void loop()
 
     lastLoopUs = nowUs;
 
-    // Comunicaciones reciben prioridad en cada vuelta.
-    JWPLC_ModbusTCP.task();
+    // Modbus TCP se atiende automáticamente desde el package-core
+    // antes y después de cada loop(). El sketch sólo mantiene su lógica RTU.
     serviceRtuMaster();
 
     serviceSerialCommands();

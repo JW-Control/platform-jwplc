@@ -6,6 +6,11 @@
 
 JWPLC_ModbusTCPClass JWPLC_ModbusTCP;
 
+extern "C" void jwplcModbusTCPLoopServiceCallback(void)
+{
+    JWPLC_ModbusTCP.task();
+}
+
 JWPLC_ModbusTCPClass::JWPLC_ModbusTCPClass()
     : _serverEnabled(false),
       _serverListening(false),
@@ -495,14 +500,10 @@ void JWPLC_ModbusTCPClass::serviceServer()
     JWPLCModbusTCPError fatalError = JWPLC_MODBUS_TCP_OK;
 
     int availableBytes = _client.available();
+    const bool connected = _client.connected() != 0;
 
     if (availableBytes <= 0)
     {
-        // P5-E2: connected() implica otra consulta al socket W5500. Cuando ya
-        // hay RX pendiente no aporta información para esta pasada, así que se
-        // consulta sólo en el camino realmente vacío.
-        const bool connected = _client.connected() != 0;
-
         releaseBus();
 
         if (!connected)
@@ -579,11 +580,6 @@ void JWPLC_ModbusTCPClass::serviceServer()
 
         _rxLength = (uint16_t)(_rxLength + received);
         budget = (uint16_t)(budget - received);
-
-        // P5-E2: availableBytes ya describe bytes confirmados en RX antes de
-        // este read(). Consumir primero ese saldo evita volver a consultar el
-        // registro RX_RSR del W5500 después de cada fragmento conocido.
-        availableBytes -= received;
         _lastRxMs = now;
 
         if (_expectedLength == 0 && _rxLength == 6)
@@ -619,12 +615,7 @@ void JWPLC_ModbusTCPClass::serviceServer()
             break;
         }
 
-        if (availableBytes <= 0)
-        {
-            // Sólo refrescar hardware cuando agotamos el saldo ya conocido y
-            // todavía falta completar el ADU.
-            availableBytes = _client.available();
-        }
+        availableBytes = _client.available();
     }
 
     releaseBus();

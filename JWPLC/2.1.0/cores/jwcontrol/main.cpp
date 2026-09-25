@@ -112,6 +112,12 @@ __attribute__((weak)) uint32_t getJWPLCSystemTaskSleep_ms(void)
   return 5;
 }
 
+extern "C" void jwplcModbusTCPLoopServiceCallback(void) __attribute__((weak));
+extern "C" void jwplcModbusTCPLoopServiceCallback(void)
+{
+}
+
+
 // loop1 por defecto: segura si el usuario no la redefine
 void loop1(void) __attribute__((weak));
 void loop1(void)
@@ -163,7 +169,14 @@ void loopTask(void *pvParameters)
     {
       esp_task_wdt_reset();
     }
+
+    // Alpha14 P5-E2: dos oportunidades automáticas de servicio Modbus TCP
+    // alrededor del loop del usuario. Si JWPLC_ModbusTCP no está enlazado,
+    // el hook débil queda vacío y no añade ninguna dependencia.
+    jwplcModbusTCPLoopServiceCallback();
     loop();
+    jwplcModbusTCPLoopServiceCallback();
+
     if (serialEventRun)
     {
       serialEventRun();

@@ -3,7 +3,8 @@ param(
     [string]$SlavePort = "COM4",
     [double]$TcpRate = 1000.0,
     [double]$DurationS = 60.0,
-    [switch]$SetupOnly
+    [switch]$SetupOnly,
+    [switch]$AllowDirtyCoreCandidate
 )
 
 Set-StrictMode -Version Latest
@@ -73,14 +74,46 @@ if ($spiHz -ne 26000000) {
     throw "P5B_EXPECTED_26MHZ"
 }
 
-if ($dirty.Count -ne 0) {
-    $dirty | ForEach-Object { Write-Host "DIRTY=$_" }
-    throw "P5B_TRACKED_TREE_NOT_CLEAN"
-}
+$candidateCoreHashInitial = $null
 
-if ($staged.Count -ne 0) {
-    $staged | ForEach-Object { Write-Host "STAGED=$_" }
-    throw "P5B_INDEX_NOT_CLEAN"
+if ($AllowDirtyCoreCandidate) {
+    Write-Host "P5B_CORE_MODE=CANDIDATE_DIRTY_ALLOWED"
+
+    if ($staged.Count -ne 0) {
+        $staged | ForEach-Object { Write-Host "STAGED=$_" }
+        throw "P5B_CANDIDATE_INDEX_NOT_CLEAN"
+    }
+
+    if (
+        $dirty.Count -ne 1 -or
+        $dirty[0].Replace("\", "/") -ne $script:G2CoreRelative
+    ) {
+        $dirty | ForEach-Object { Write-Host "DIRTY=$_" }
+        throw "P5B_CANDIDATE_DIRTY_SCOPE_INVALID"
+    }
+
+    $candidateCoreHashInitial = Get-G2Sha256 $script:G2CoreRelative
+    $candidateSdHashInitial = Get-G2Sha256 $script:G2SdRelative
+
+    Write-Host "CORE_A_SHA256=$candidateCoreHashInitial"
+    Write-Host "LIBJW_SD_A_SHA256=$candidateSdHashInitial"
+
+    if ($candidateSdHashInitial -ne $script:G2SdSha256) {
+        throw "P5B_CANDIDATE_LIBJW_SD_A_HASH_MISMATCH"
+    }
+}
+else {
+    if ($dirty.Count -ne 0) {
+        $dirty | ForEach-Object { Write-Host "DIRTY=$_" }
+        throw "P5B_TRACKED_TREE_NOT_CLEAN"
+    }
+
+    if ($staged.Count -ne 0) {
+        $staged | ForEach-Object { Write-Host "STAGED=$_" }
+        throw "P5B_INDEX_NOT_CLEAN"
+    }
+
+    Assert-G2ProtectedArtifacts
 }
 
 if ($TcpRate -le 0) {
@@ -90,8 +123,6 @@ if ($TcpRate -le 0) {
 if ($DurationS -lt 30.0) {
     throw "P5B_DURATION_TOO_SHORT"
 }
-
-Assert-G2ProtectedArtifacts
 
 $ports = @([System.IO.Ports.SerialPort]::GetPortNames() | Sort-Object)
 Write-Host "COM_PORTS=$($ports -join ',')"
@@ -320,11 +351,28 @@ if ($SetupOnly) {
     Write-Host ""
     Write-Host "=== SETUP-ONLY FINAL INVARIANTS ==="
 
-    Assert-G2ProtectedArtifacts
-
     $setupFinalHz = Get-G2SpiHz
     $setupFinalDirty = @(Get-G2TrackedDirtyPaths)
     $setupFinalStaged = @(& git -C $script:G2RepoRoot diff --cached --name-only)
+
+    if ($AllowDirtyCoreCandidate) {
+        $setupCoreHash = Get-G2Sha256 $script:G2CoreRelative
+        $setupSdHash = Get-G2Sha256 $script:G2SdRelative
+
+        Write-Host "CORE_A_SHA256=$setupCoreHash"
+        Write-Host "LIBJW_SD_A_SHA256=$setupSdHash"
+
+        if ($setupCoreHash -ne $candidateCoreHashInitial) {
+            throw "P5B_SETUP_CANDIDATE_CORE_CHANGED"
+        }
+
+        if ($setupSdHash -ne $script:G2SdSha256) {
+            throw "P5B_SETUP_CANDIDATE_SD_CHANGED"
+        }
+    }
+    else {
+        Assert-G2ProtectedArtifacts
+    }
 
     Write-Host "FINAL_SPI_HZ=$setupFinalHz"
     Write-Host "TRACKED_DIRTY_FINAL=$($setupFinalDirty.Count)"
@@ -334,7 +382,15 @@ if ($SetupOnly) {
         throw "P5B_SETUP_FINAL_SPI_CHANGED"
     }
 
-    if ($setupFinalDirty.Count -ne 0) {
+    if ($AllowDirtyCoreCandidate) {
+        if (
+            $setupFinalDirty.Count -ne 1 -or
+            $setupFinalDirty[0].Replace("\", "/") -ne $script:G2CoreRelative
+        ) {
+            throw "P5B_SETUP_CANDIDATE_DIRTY_SCOPE_INVALID"
+        }
+    }
+    elseif ($setupFinalDirty.Count -ne 0) {
         throw "P5B_SETUP_PRODUCT_TREE_DIRTY"
     }
 
@@ -414,7 +470,24 @@ if (-not $physicalPass) {
 Write-Host ""
 Write-Host "=== FINAL PRODUCT INVARIANTS ==="
 
-Assert-G2ProtectedArtifacts
+if ($AllowDirtyCoreCandidate) {
+    $finalCoreHash = Get-G2Sha256 $script:G2CoreRelative
+    $finalSdHash = Get-G2Sha256 $script:G2SdRelative
+
+    Write-Host "CORE_A_SHA256=$finalCoreHash"
+    Write-Host "LIBJW_SD_A_SHA256=$finalSdHash"
+
+    if ($finalCoreHash -ne $candidateCoreHashInitial) {
+        throw "P5B_FINAL_CANDIDATE_CORE_CHANGED"
+    }
+
+    if ($finalSdHash -ne $script:G2SdSha256) {
+        throw "P5B_FINAL_CANDIDATE_SD_CHANGED"
+    }
+}
+else {
+    Assert-G2ProtectedArtifacts
+}
 
 $finalHz = Get-G2SpiHz
 $finalDirty = @(Get-G2TrackedDirtyPaths)
@@ -432,7 +505,15 @@ if ($finalHz -ne 26000000) {
     throw "P5B_FINAL_SPI_CHANGED"
 }
 
-if ($finalDirty.Count -ne 0) {
+if ($AllowDirtyCoreCandidate) {
+    if (
+        $finalDirty.Count -ne 1 -or
+        $finalDirty[0].Replace("\", "/") -ne $script:G2CoreRelative
+    ) {
+        throw "P5B_FINAL_CANDIDATE_DIRTY_SCOPE_INVALID"
+    }
+}
+elseif ($finalDirty.Count -ne 0) {
     throw "P5B_PRODUCT_TREE_DIRTY"
 }
 
