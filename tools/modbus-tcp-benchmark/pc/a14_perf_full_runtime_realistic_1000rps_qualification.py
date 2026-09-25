@@ -249,6 +249,8 @@ def main():
         final.get("DISPLAY_READY") == "YES" and
         final.get("FRAM_READY") == "YES" and
         final.get("SD_READY") == "YES" and
+        final.get("SD_WORKLOAD_MODE") == "BUFFERED_DATALOG" and
+        final.get("SD_DATALOG_ACTIVE") == "YES" and
         final.get("RTC_PRESENT") == "YES" and
         final.get("IO_INITIALIZED") == "YES" and
         final.get("BUTTONS_READY") == "YES"
@@ -263,6 +265,7 @@ def main():
         iv(final, "FRAM_FAILS") == 0 and
         iv(final, "SD_APPEND_FAILS") == 0 and
         iv(final, "SD_VERIFY_FAILS") == 0 and
+        iv(final, "SD_DATALOG_FAILED_COMMITS") == 0 and
         iv(final, "RTC_UNAVAILABLE") == 0 and
         iv(final, "RTC_STALE") == 0 and
         iv(final, "IO_STALE") == 0 and
@@ -374,6 +377,22 @@ def main():
             iv(final, "SD_VERIFY_FAILS"),
         "sd_verify_max_us":
             iv(final, "SD_VERIFY_MAX_US"),
+        "sd_workload_mode":
+            final.get("SD_WORKLOAD_MODE", ""),
+        "sd_datalog_active":
+            final.get("SD_DATALOG_ACTIVE", ""),
+        "sd_datalog_pending_bytes":
+            iv(final, "SD_DATALOG_PENDING_BYTES"),
+        "sd_datalog_commit_threshold_bytes":
+            iv(final, "SD_DATALOG_COMMIT_THRESHOLD_BYTES"),
+        "sd_datalog_commit_timeout_ms":
+            iv(final, "SD_DATALOG_COMMIT_TIMEOUT_MS"),
+        "sd_datalog_accepted_bytes":
+            iv(final, "SD_DATALOG_ACCEPTED_BYTES"),
+        "sd_datalog_committed_bytes":
+            iv(final, "SD_DATALOG_COMMITTED_BYTES"),
+        "sd_datalog_failed_commits":
+            iv(final, "SD_DATALOG_FAILED_COMMITS"),
         "rtc_stale":
             iv(final, "RTC_STALE"),
         "rtc_max_age_ms":
