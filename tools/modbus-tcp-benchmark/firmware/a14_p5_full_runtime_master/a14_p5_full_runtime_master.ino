@@ -62,7 +62,7 @@ static constexpr uint8_t RTU_TARGET_SLAVE_ID = 2;
 static constexpr uint32_t RTU_BAUD = 115200UL;
 static constexpr uint32_t RTU_CONFIG = SERIAL_8N1;
 static constexpr uint32_t RTU_PERIOD_MS = 20UL;
-static constexpr uint32_t RTU_TIMEOUT_MS = 15UL;
+static constexpr uint32_t RTU_TIMEOUT_MS = 25UL;
 static constexpr uint16_t RTU_VERIFY_MAGIC = 0x55AA;
 
 static bool rtuReady = false;
@@ -1442,6 +1442,9 @@ static void printSnapshot()
 
     Serial.print("RTU_BAUD=");
     Serial.println(RTU_BAUD);
+
+    Serial.print("RTU_TIMEOUT_MS=");
+    Serial.println(RTU_TIMEOUT_MS);
 
     Serial.print("RTU_TRAFFIC_ENABLED=");
     Serial.println(yesNo(rtuTrafficEnabled));
