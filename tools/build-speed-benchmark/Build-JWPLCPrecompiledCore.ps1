@@ -100,24 +100,42 @@ function Get-CompileDatabaseInfo
             continue
         }
 
-        if (-not [System.IO.Path]::IsPathRooted($file))
+        # Arduino CLI puede emitir entry.file en varios formatos
+        # según la versión/host: absoluto, relativo, con comillas residuales,
+        # slash Unix o backslash Windows. Para clasificar el TU no hace falta
+        # resolver una ruta física absoluta; basta normalizar texto.
+        $fileText = $file.Trim().Trim('"').Trim("'")
+        $directoryText = [string]$entry.directory
+        $directoryText = $directoryText.Trim().Trim('"').Trim("'")
+
+        if (
+            -not [System.IO.Path]::IsPathRooted($fileText) -and
+            -not [string]::IsNullOrWhiteSpace($directoryText)
+        )
         {
-            $directory = [string]$entry.directory
-            $file = Join-Path $directory $file
+            $candidateText =
+                $directoryText.TrimEnd('\', '/') +
+                "/" +
+                $fileText.TrimStart('\', '/')
+        }
+        else
+        {
+            $candidateText =
+                $fileText
         }
 
-        $full = [System.IO.Path]::GetFullPath($file)
-        $normalized = $full.Replace('\', '/')
+        $normalized =
+            $candidateText.Replace('\', '/')
 
         # Se inspecciona el operando fuente real de compile_commands.json.
         # No se infieren TUs a partir de rutas -I del log verbose.
         if ($normalized -match '/cores/jwcontrol_precompiled_stub/')
         {
-            [void]$stubFiles.Add($full)
+            [void]$stubFiles.Add($candidateText)
         }
         elseif ($normalized -match '/cores/jwcontrol/')
         {
-            [void]$sourceFiles.Add($full)
+            [void]$sourceFiles.Add($candidateText)
         }
     }
 
