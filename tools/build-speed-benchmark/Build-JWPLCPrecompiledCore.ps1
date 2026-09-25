@@ -114,9 +114,9 @@ function Get-CompileDatabaseInfo
         )
         {
             $candidateText =
-                $directoryText.TrimEnd([char[]]"\/") +
+                $directoryText.TrimEnd([char]92, [char]47) +
                 "/" +
-                $fileText.TrimStart([char[]]"\/")
+                $fileText.TrimStart([char]92, [char]47)
         }
         else
         {
@@ -125,7 +125,7 @@ function Get-CompileDatabaseInfo
         }
 
         $normalized =
-            $candidateText.Replace('\', '/')
+            $candidateText.Replace([char]92, [char]47)
 
         # Se inspecciona el operando fuente real de compile_commands.json.
         # No se infieren TUs a partir de rutas -I del log verbose.
@@ -358,7 +358,11 @@ try
 
     $peripheralsCount = @(
         $result.CompileDb.SourceFiles | Where-Object {
-            ([string]$_).Replace('\', '/') -match '/peripherals_init\.cpp    ).Count
+            ([string]$_).
+                Replace([char]92, [char]47).
+                EndsWith("/peripherals_init.cpp")
+        }
+    ).Count
 
     if ($peripheralsCount -ne 1)
     {
