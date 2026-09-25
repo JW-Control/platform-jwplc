@@ -221,3 +221,141 @@ Estado:
 P5A=READY_TO_RUN
 P5B=PENDING_P5A
 ```
+
+## P5-A — resultado
+
+Gate:
+
+```txt
+run_a14_p5a_master_slave_hmi_compile.bat
+```
+
+Resultado físico/local reportado:
+
+```txt
+MASTER_SOURCE_CONTRACT=PASS
+SLAVE_SOURCE_CONTRACT=PASS
+
+MASTER_COMPILE_EXIT=0
+MASTER_BIN_COUNT=4
+
+SLAVE_COMPILE_EXIT=0
+SLAVE_BIN_COUNT=4
+
+FINAL_SPI_HZ=26000000
+TRACKED_DIRTY_FINAL=0
+STAGED_COUNT_FINAL=0
+
+A14_P5A_MASTER_HMI=USER_REFRESH_ON_DEMAND
+A14_P5A_SLAVE_HMI=USER_REFRESH_ON_DEMAND
+A14_P5A_MASTER_RTU=COOPERATIVE_50HZ_TARGET
+A14_P5A_SLAVE_ID=2
+A14_P5A_MASTER_SLAVE_HMI_COMPILE=PASS
+```
+
+Conclusión:
+
+```txt
+P5A=CLOSED_PASS
+```
+
+## P5-B — contrato físico final
+
+Después del PASS de P5-A se endurece el Master diagnóstico:
+
+```txt
+RTU Master auto-start desde boot
+R estadístico conserva RTU activo
+snapshot publica ETH_READY / ETH_LINK / ETH_IP
+snapshot publica COMBINED_RUNTIME_READY
+```
+
+El resolver exige antes de medir:
+
+```txt
+FULL_RUNTIME_READY=YES
+COMBINED_RUNTIME_READY=YES
+SERVER_READY=YES
+SD_READY=YES
+DISPLAY_READY=YES
+DISPLAY_RENDER_MODE=HMI_ON_DEMAND_DIRTY
+DISPLAY_REFRESH_MODE=USER_REFRESH_ON_DEMAND
+ETH_READY=YES
+ETH_LINK=UP
+RTU_READY=YES
+RTU_ROLE=MASTER
+RTU_TARGET_SLAVE_ID=2
+RTU_TRAFFIC_ENABLED=YES
+RTU_REQUESTS_SUCCESS>=10
+RTU_REQUESTS_FAILED=0
+RTU_VERIFY_FAILS=0
+RTU_CRC_ERRORS=0
+RTU_MASTER_TIMEOUTS=0
+```
+
+Esto convierte microSD, Ethernet, HMI y comunicación física RTU con el Slave 2
+en precondiciones obligatorias antes de abrir la ventana formal.
+
+### Sincronización de contadores
+
+El runner P5-B reutiliza el qualification runner TCP ya validado.
+
+Cuando el runner TCP ejecuta su `R` estadístico del Master, P5-B intercepta
+esa misma llamada y ejecuta inmediatamente:
+
+```txt
+MASTER RESET STATS
+SLAVE  RESET STATS
+```
+
+antes de iniciar el reloj de la medición TCP.
+
+No se abre COM14 desde dos procesos simultáneamente.
+
+### Ventana formal
+
+```txt
+DURATION=60 s
+TCP=FC03/125 @ 1000 req/s
+RTU=FC03 hacia Slave 2 @ periodo 20 ms
+TFT Master=dirty redraw on demand
+TFT Slave=dirty redraw on demand
+SD/FRAM/RTC/buttons/TCA-I/O=activos
+W5500 SPI=26 MHz
+```
+
+Criterios RTU principales:
+
+```txt
+Master started >= 45 * duration
+Master rejected=0
+Master failed=0
+Master verify fails=0
+Master CRC=0
+Master timeout=0
+RTU achieved=45..52 Hz
+
+Slave RX/TX/OK >= 45 * duration
+Slave CRC=0
+Slave exceptions=0
+Slave HR1=0x55AA
+Master/Slave cross-count delta <=12
+```
+
+`RTU_PERIODS_SKIPPED` se conserva como telemetría y no como gate.
+
+### Observación visual obligatoria
+
+Al terminar se pregunta por separado:
+
+```txt
+MASTER COM14 estable / sin flicker
+SLAVE  COM4  estable / sin flicker
+```
+
+Estado:
+
+```txt
+P5A=CLOSED_PASS
+P5B=READY_TO_RUN
+```
