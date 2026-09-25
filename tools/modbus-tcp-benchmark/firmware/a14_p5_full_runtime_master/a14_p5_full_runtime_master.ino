@@ -1277,6 +1277,365 @@ static void printSnapshot()
     Serial.println(rtuServiceGapMaxUs);
 
     // --------------------------------------------------------
+    // TFT
+    // --------------------------------------------------------
+
+    Serial.print("DISPLAY_READY=");
+    Serial.println(
+        yesNo(
+            JWPLC_Display.isReady()));
+
+    Serial.println("DISPLAY_RENDER_MODE=HMI_ON_DEMAND_DIRTY");
+    Serial.println("DISPLAY_REFRESH_MODE=USER_REFRESH_ON_DEMAND");
+    Serial.print("DISPLAY_FRAMES=");
+    Serial.println(displayServiceCycles);
+    Serial.print("DISPLAY_GAP_MAX_MS=");
+    Serial.println(displayServiceGapMaxMs);
+
+    // --------------------------------------------------------
+    // FRAM
+    // --------------------------------------------------------
+
+    Serial.print("FRAM_READY=");
+    Serial.println(
+        yesNo(
+            framReady));
+
+    Serial.print("FRAM_CYCLES=");
+    Serial.println(
+        runtimeStats.framCycles);
+
+    Serial.print("FRAM_FAILS=");
+    Serial.println(
+        runtimeStats.framFails);
+
+    Serial.print("FRAM_MAX_US=");
+    Serial.println(
+        runtimeStats.framMaxUs);
+
+    // --------------------------------------------------------
+    // SD
+    // --------------------------------------------------------
+
+    Serial.print("SD_READY=");
+    Serial.println(
+        yesNo(
+            JWPLCSD::isEnabled() &&
+            JWPLCSD::isCardPresent() &&
+            JWPLCSD::isReady()));
+
+    Serial.print("SD_APPEND_CYCLES=");
+    Serial.println(
+        runtimeStats.sdAppendCycles);
+
+    Serial.print("SD_APPEND_FAILS=");
+    Serial.println(
+        runtimeStats.sdAppendFails);
+
+    Serial.print("SD_APPEND_MAX_US=");
+    Serial.println(
+        runtimeStats.sdAppendMaxUs);
+
+    Serial.print("SD_APPEND_FILE_OPEN=");
+    Serial.println(
+        yesNo(
+            (bool)sdAppendFile));
+
+    Serial.print("SD_FLUSH_EVERY_RECORDS=");
+    Serial.println(
+        SD_FLUSH_EVERY_RECORDS);
+
+    Serial.print("SD_RECORDS_SINCE_FLUSH=");
+    Serial.println(
+        sdRecordsSinceFlush);
+
+    Serial.print("SD_FLUSH_CYCLES=");
+    Serial.println(
+        runtimeStats.sdFlushCycles);
+
+    Serial.print("SD_VERIFY_CYCLES=");
+    Serial.println(
+        runtimeStats.sdVerifyCycles);
+
+    Serial.print("SD_VERIFY_FAILS=");
+    Serial.println(
+        runtimeStats.sdVerifyFails);
+
+    Serial.print("SD_VERIFY_MAX_US=");
+    Serial.println(
+        runtimeStats.sdVerifyMaxUs);
+
+    // --------------------------------------------------------
+    // RTC
+    // --------------------------------------------------------
+
+    Serial.print("RTC_PRESENT=");
+    Serial.println(
+        yesNo(
+            rtc != nullptr &&
+            rtc->present));
+
+    Serial.print("RTC_SAMPLES=");
+    Serial.println(
+        runtimeStats.rtcSamples);
+
+    Serial.print("RTC_UNAVAILABLE=");
+    Serial.println(
+        runtimeStats.rtcUnavailable);
+
+    Serial.print("RTC_STALE=");
+    Serial.println(
+        runtimeStats.rtcStale);
+
+    Serial.print("RTC_MAX_AGE_MS=");
+    Serial.println(
+        runtimeStats.rtcMaxAgeMs);
+
+    Serial.print("RTC_CURRENT_AGE_MS=");
+    Serial.println(
+        rtcAgeMs);
+
+    // --------------------------------------------------------
+    // TCA / I-O
+    // --------------------------------------------------------
+
+    Serial.print("IO_INITIALIZED=");
+    Serial.println(
+        yesNo(
+            io != nullptr &&
+            io->initialized));
+
+    Serial.print("IO_SAMPLES=");
+    Serial.println(
+        runtimeStats.ioSamples);
+
+    Serial.print("IO_STALE=");
+    Serial.println(
+        runtimeStats.ioStale);
+
+    Serial.print("IO_MAX_AGE_MS=");
+    Serial.println(
+        runtimeStats.ioMaxAgeMs);
+
+    Serial.print("IO_CURRENT_AGE_MS=");
+    Serial.println(
+        ioAgeMs);
+
+    // --------------------------------------------------------
+    // Botonera
+    // --------------------------------------------------------
+
+    Serial.print("BUTTONS_READY=");
+    Serial.println(
+        yesNo(
+            JWPLCButtons::isReady()));
+
+    Serial.print("BUTTON_SAMPLES=");
+    Serial.println(
+        runtimeStats.buttonSamples);
+
+    Serial.print("BUTTON_NOT_READY=");
+    Serial.println(
+        runtimeStats.buttonNotReady);
+
+    Serial.print("BUTTON_SAMPLE_GAP_MAX_MS=");
+    Serial.println(
+        runtimeStats.buttonSampleGapMaxMs);
+
+    Serial.print("BUTTON_EVENT_OBSERVATIONS=");
+    Serial.println(
+        runtimeStats.buttonEventObservations);
+
+    // --------------------------------------------------------
+    // SPI ownership
+    // --------------------------------------------------------
+
+    Serial.print("SPI_PROBE_SAMPLES=");
+    Serial.println(
+        runtimeStats.spiProbeSamples);
+
+    Serial.print("SPI_PROBE_FAILS=");
+    Serial.println(
+        runtimeStats.spiProbeFails);
+
+    Serial.print("SPI_PROBE_MAX_WAIT_US=");
+    Serial.println(
+        runtimeStats.spiProbeMaxWaitUs);
+
+    Serial.print("SPI_PROBE_OVER_1MS=");
+    Serial.println(
+        runtimeStats.spiProbeOver1ms);
+
+    Serial.print("SPI_PROBE_OVER_10MS=");
+    Serial.println(
+        runtimeStats.spiProbeOver10ms);
+
+    Serial.print("PERIPHERAL_FAILURE_COUNT=");
+    Serial.println(
+        peripheralFailureCount());
+
+    Serial.println(
+        "A14_PERF_SNAPSHOT=END");
+}
+
+// ============================================================================
+// Serial
+// ============================================================================
+
+static void serviceSerialCommands()
+{
+    while (Serial.available() > 0)
+    {
+        const char c =
+            (char)Serial.read();
+
+        if (
+            c == 'R' ||
+            c == 'r')
+        {
+            const bool wasEnabled = rtuTrafficEnabled;
+            stopRtuTraffic();
+            resetPerfCounters();
+            if (wasEnabled) startRtuTraffic();
+            Serial.println("A14_PERF_RESET=PASS");
+        }
+        else if (
+            c == 'G' ||
+            c == 'g')
+        {
+            startRtuTraffic();
+            Serial.println(
+                rtuTrafficEnabled
+                    ? "RTU_MASTER_TRAFFIC=ON"
+                    : "RTU_MASTER_TRAFFIC=FAIL");
+        }
+        else if (
+            c == 'X' ||
+            c == 'x')
+        {
+            stopRtuTraffic();
+            Serial.println("RTU_MASTER_TRAFFIC=OFF");
+        }
+        else if (
+            c == 'S' ||
+            c == 's')
+        {
+            printSnapshot();
+        }
+    }
+}
+
+// ============================================================================
+// Setup
+// ============================================================================
+
+void setup()
+{
+    Serial.begin(115200);
+
+    // --------------------------------------------------------
+    // Modbus data
+    // --------------------------------------------------------
+
+    for (
+        uint16_t i = 0;
+        i < sizeof(coils);
+        ++i)
+    {
+        coils[i] =
+            (uint8_t)(
+                0xA5U ^
+                (uint8_t)i);
+    }
+
+    for (
+        uint16_t i = 0;
+        i < HOLDING_COUNT;
+        ++i)
+    {
+        holdingRegisters[i] =
+            (uint16_t)(
+                0x1000U +
+                i);
+    }
+
+    JWPLC_ModbusTCP.setCoils(
+        coils,
+        COIL_COUNT);
+
+    JWPLC_ModbusTCP.setHoldingRegisters(
+        holdingRegisters,
+        HOLDING_COUNT);
+
+    rtuReady =
+        JWPLC_ModbusRTU.begin(
+            RTU_MASTER_LOCAL_ID,
+            RTU_BAUD,
+            RTU_CONFIG);
+
+    if (rtuReady)
+    {
+        JWPLC_ModbusRTU.setFrameGapMs(2);
+        resetRtuTrafficCounters();
+    }
+
+    // --------------------------------------------------------
+    // FRAM no destructiva
+    // --------------------------------------------------------
+
+    const uint32_t framSize =
+        JWPLC_FRAM.size();
+
+    framReady =
+        framSize >=
+        (FRAM_BENCH_BYTES + 32U);
+
+    if (framReady)
+    {
+        framBenchAddress =
+            framSize -
+            64U;
+
+        framReady =
+            JWPLC_FRAM.read(
+                framBenchAddress,
+                framBackup,
+                sizeof(framBackup));
+    }
+
+    // --------------------------------------------------------
+    // microSD
+    // --------------------------------------------------------
+
+    sdReady =
+        JWPLCSD::isEnabled() &&
+        JWPLCSD::isCardPresent() &&
+        JWPLCSD::isReady();
+
+    if (
+        sdReady &&
+        JWPLC_SD.exists(
+            SD_BENCH_PATH))
+    {
+        sdReady =
+            JWPLC_SD.remove(
+                SD_BENCH_PATH);
+    }
+
+    if (sdReady)
+    {
+        sdAppendFile =
+            JWPLC_SD.open(
+                SD_BENCH_PATH,
+                FILE_APPEND);
+
+        sdReady =
+            (bool)sdAppendFile;
+
+        sdRecordsSinceFlush = 0;
+    }
+
+    // --------------------------------------------------------
     // TFT / HMI Alpha11
     // --------------------------------------------------------
 
