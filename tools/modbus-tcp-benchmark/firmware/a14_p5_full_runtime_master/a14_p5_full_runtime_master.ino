@@ -20,7 +20,9 @@
   - sin conmutacion ciclica de reles.
 
   Serial:
-    R -> reset de estadisticas
+    R -> reset de estadisticas; conserva RTU activo si ya estaba activo
+    G -> iniciar trafico RTU Master
+    X -> detener trafico RTU Master
     S -> snapshot
 */
 
@@ -1385,6 +1387,35 @@ static void printSnapshot()
             JWPLC_ModbusTCP.clientConnected()));
 
     // --------------------------------------------------------
+    // Ethernet
+    // --------------------------------------------------------
+
+    Serial.print("ETH_READY=");
+    Serial.println(
+        yesNo(
+            JWPLC_Ethernet.isReady()));
+
+    Serial.print("ETH_LINK=");
+    Serial.println(
+        JWPLC_Ethernet.linkUp()
+            ? "UP"
+            : "DOWN");
+
+    Serial.print("ETH_IP=");
+    Serial.println(
+        JWPLC_Ethernet.localIP());
+
+    Serial.print("COMBINED_RUNTIME_READY=");
+    Serial.println(
+        yesNo(
+            fullRuntimeReady() &&
+            JWPLC_ModbusTCP.serverReady() &&
+            JWPLC_Ethernet.isReady() &&
+            JWPLC_Ethernet.linkUp() &&
+            rtuReady &&
+            rtuTrafficEnabled));
+
+    // --------------------------------------------------------
     // Modbus RTU Master
     // --------------------------------------------------------
 
@@ -1959,6 +1990,17 @@ void setup()
         "DISPLAY_RENDER_MODE_BOOT=HMI_ON_DEMAND_DIRTY");
 
     resetPerfCounters();
+
+    // P5 final: el Master RTU queda activo desde boot.
+    // El runner vuelve a alinear los contadores con R justo antes
+    // de la ventana formal TCP; R conserva este estado activo.
+    startRtuTraffic();
+
+    Serial.print("RTU_TRAFFIC_AUTO_START=");
+    Serial.println(
+        rtuTrafficEnabled
+            ? "YES"
+            : "NO");
 }
 
 // ============================================================================
