@@ -17,6 +17,8 @@ import a14_perf_full_runtime_realistic_1000rps_qualification as qual
 
 SLAVE_SNAPSHOT_END = "A14_P5_SLAVE_SNAPSHOT=END"
 SLAVE_RESET_ACK = "A14_P5_SLAVE_RESET=PASS"
+MASTER_STOP_ACK = "RTU_MASTER_TRAFFIC=OFF"
+MASTER_START_ACK = "RTU_MASTER_TRAFFIC=ON"
 
 
 def open_serial_no_dtr(port: str) -> serial.Serial:
@@ -80,6 +82,27 @@ def request_slave_snapshot(
         ser,
         SLAVE_SNAPSHOT_END,
         timeout_s,
+    )
+
+
+def send_master_command(
+    ser: serial.Serial,
+    command: bytes,
+    ack: str,
+    timeout_s: float = 3.0,
+) -> None:
+    ser.reset_input_buffer()
+    ser.write(command)
+    ser.flush()
+
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        line = read_line(ser)
+        if line == ack:
+            return
+
+    raise TimeoutError(
+        f"master command sin ACK esperado={ack}"
     )
 
 
@@ -239,6 +262,9 @@ def main() -> int:
     original_reset_stats = q.reset_stats
     original_collect_snapshot = q.collect_snapshot
     original_frontier_run_case = qual.frontier.run_case
+    original_final_snapshot_hook = (
+        qual.frontier.final_snapshot_hook
+    )
 
     measurement_snapshot: dict[str, str] = {}
     capture_measurement = False
@@ -338,6 +364,19 @@ def main() -> int:
         ) -> None:
             nonlocal sync_reset_count
 
+            # F045 recurrence prevention:
+            # reset de contadores no equivale a barrera de quiescencia.
+            # Detener nuevas solicitudes, dejar resolver cualquier request
+            # pendiente, resetear ambos lados y recién rearmar RTU.
+            send_master_command(
+                master_ser,
+                b"X\n",
+                MASTER_STOP_ACK,
+                3.0,
+            )
+
+            time.sleep(0.10)
+
             original_reset_stats(
                 master_ser
             )
@@ -347,16 +386,49 @@ def main() -> int:
                 3.0,
             )
 
+            send_master_command(
+                master_ser,
+                b"G\n",
+                MASTER_START_ACK,
+                3.0,
+            )
+
             sync_reset_count += 1
 
             print(
                 "P5B_SYNC_RESET="
                 f"PASS COUNT={sync_reset_count}"
             )
+            print(
+                "P5B_SYNC_RESET_LIFECYCLE="
+                "X_WAIT100MS_R_SLAVE_R_G"
+            )
+
+        def quiesce_before_final_snapshot(
+            master_ser: serial.Serial,
+        ) -> None:
+            send_master_command(
+                master_ser,
+                b"X\n",
+                MASTER_STOP_ACK,
+                3.0,
+            )
+
+            # RTU task sigue ejecutándose aunque trafficEnabled sea false;
+            # 100 ms permite cerrar cualquier request pendiente antes del
+            # snapshot y congela Master/Slave sin cola posterior.
+            time.sleep(0.10)
+
+            print(
+                "P5B_FINAL_RTU_QUIESCENCE=PASS"
+            )
 
         q.reset_stats = combined_reset
         q.collect_snapshot = capture_collect_snapshot
         qual.frontier.run_case = capture_frontier_run_case
+        qual.frontier.final_snapshot_hook = (
+            quiesce_before_final_snapshot
+        )
 
         previous_argv = sys.argv[:]
 
@@ -432,6 +504,9 @@ def main() -> int:
         q.reset_stats = original_reset_stats
         q.collect_snapshot = original_collect_snapshot
         qual.frontier.run_case = original_frontier_run_case
+        qual.frontier.final_snapshot_hook = (
+            original_final_snapshot_hook
+        )
 
         if slave_ser.is_open:
             slave_ser.close()
