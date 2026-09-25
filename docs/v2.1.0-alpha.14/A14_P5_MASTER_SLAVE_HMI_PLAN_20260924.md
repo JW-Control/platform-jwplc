@@ -907,3 +907,207 @@ P5C=CLOSED_PASS
 P5B=CLOSED_PASS
 P5D=READY_TO_RUN
 ```
+
+
+## P5-D intento 1 — long run 600 s
+
+La primera corrida de 10 minutos se ejecutó con:
+
+```txt
+TCP target = 1000 req/s
+RTU target = 50 Hz
+RTU timeout = 25 ms
+W5500 SPI = 26 MHz
+full runtime = activo
+HMI dirty Master/Slave = activo
+```
+
+Resultado TCP:
+
+```txt
+ACHIEVED_REQ_S=912.95
+ACHIEVED_PCT=91.295
+RESULT=SATURATION_FAIL_CLEAN
+
+TIMEOUTS=0
+TRANSPORT_ERRORS=0
+PROTOCOL_ERRORS=0
+BUS_LOCK_TIMEOUTS=0
+
+LATENCY_AVG_US=1087.6
+LATENCY_P95_US=1571.2
+LATENCY_P99_US=14590.6
+LATENCY_MAX_US=35877.3
+LOOP_GAP_MAX_US=35375
+```
+
+Los periféricos permanecieron sanos:
+
+```txt
+FULL_RUNTIME_READY=YES
+FRAM_FAILS=0
+SD_APPEND_FAILS=0
+SD_VERIFY_FAILS=0
+RTC_STALE=0
+IO_STALE=0
+BUTTON_NOT_READY=0
+SPI_PROBE_FAILS=0
+PERIPHERAL_FAILURE_COUNT=0
+```
+
+RTU agregado:
+
+```txt
+RTU_TRAFFIC_DURATION_MS=600073
+RTU_REQUESTS_STARTED=29986
+RTU_REQUESTS_COMPLETED=29987
+RTU_REQUESTS_SUCCESS=29986
+RTU_REQUESTS_FAILED=1
+RTU_MASTER_TIMEOUTS=1
+RTU_CRC_ERRORS=0
+RTU_VERIFY_FAILS=0
+RTU_ACHIEVED_HZ=49.971
+```
+
+El Slave terminó con:
+
+```txt
+RTU_RX_FRAMES=30004
+RTU_TX_FRAMES=30004
+RTU_REQUESTS_OK=30004
+RTU_CRC_ERRORS=0
+RTU_EXCEPTIONS_SENT=0
+```
+
+### Interpretación
+
+P5-D no se cierra:
+
+```txt
+TCP_RATE_PASS=NO
+A14_P5B_AUTOMATED=REVIEW
+P5D_LONG_RUN=NOT_CLOSED
+```
+
+Sin embargo, el caso TCP fue limpio. La caída es de capacidad sostenida, no de
+integridad de transporte.
+
+La diferencia:
+
+```txt
+60 s previo = 985.34 req/s
+600 s intento 1 = 912.95 req/s
+```
+
+no permite decidir todavía entre:
+
+```txt
+A) degradación progresiva con el tiempo;
+B) variabilidad entre sesiones;
+C) interferencia periódica/ráfagas largas del full-runtime.
+```
+
+Se requiere segmentación temporal dentro de la misma conexión.
+
+### Recurrencia F045 en lifecycle RTU
+
+El resultado:
+
+```txt
+STARTED=29986
+COMPLETED=29987
+```
+
+demuestra que el reset estadístico pudo ocurrir con una transacción previa aún
+en vuelo.
+
+El comando `R` detenía/reiniciaba el generador de tráfico, pero no esperaba a
+que la transacción pendiente terminara antes de resetear contadores.
+
+Esto es una recurrencia del principio F045:
+
+```txt
+COUNTER_RESET_IS_NOT_A_QUIESCENCE_BARRIER
+```
+
+No se crea un nuevo número de falla.
+
+### Corrección P5-D-R1
+
+El lifecycle queda:
+
+```txt
+X
+wait 100 ms
+R Master
+R Slave
+G
+start formal window
+...
+end formal window
+X
+wait 100 ms
+snapshot Master
+snapshot Slave
+```
+
+Consecuencias:
+
+- no hay request RTU anterior contaminando el inicio;
+- RTU queda congelado antes de ambos snapshots;
+- el cross-count esperado pasa de tolerancia 12 a exactitud 0;
+- el snapshot serial completo ya no puede fabricar timeouts RTU posteriores.
+
+### Segmentación TCP
+
+El mismo long-run de 600 s ahora reporta, sin snapshots intermedios:
+
+```txt
+LONG_BUCKET INDEX=1  START_S=0   END_S=60  ...
+LONG_BUCKET INDEX=2  START_S=60  END_S=120 ...
+...
+LONG_BUCKET INDEX=10 START_S=540 END_S=600 ...
+```
+
+Cada bucket conserva:
+
+```txt
+REQ_S
+OK
+LAT_AVG_US
+P95_US
+P99_US
+MAX_US
+```
+
+Objetivo de la repetición:
+
+```txt
+si todos los buckets arrancan ~910:
+    session-level saturation / variabilidad
+
+si comienza ~980 y cae progresivamente:
+    time-dependent degradation
+
+si existen buckets altos/bajos aislados:
+    interferencia periódica / jitter de runtime
+```
+
+No se cambia:
+
+```txt
+W5500 SPI
+RTU timeout
+periféricos
+producto
+target TCP
+duración
+```
+
+Estado:
+
+```txt
+P5B_60S=CLOSED_PASS
+P5D_ATTEMPT_1=SATURATION_FAIL_CLEAN
+P5D_R1=READY_TO_RERUN_SEGMENTED
+```
