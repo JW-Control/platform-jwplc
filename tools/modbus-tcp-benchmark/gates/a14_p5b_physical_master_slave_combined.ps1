@@ -177,6 +177,7 @@ $sourceChecks = @(
     [PSCustomObject]@{ Label = "MASTER_HMI_ON_DEMAND"; Pass = $masterText.Contains("USER_REFRESH_ON_DEMAND") },
     [PSCustomObject]@{ Label = "MASTER_RTUMASTER"; Pass = $masterText.Contains("RTU_ROLE=MASTER") },
     [PSCustomObject]@{ Label = "MASTER_SLAVE2"; Pass = $masterText.Contains("RTU_TARGET_SLAVE_ID = 2") },
+    [PSCustomObject]@{ Label = "MASTER_RTU_TIMEOUT_25MS"; Pass = $masterText.Contains("RTU_TIMEOUT_MS = 25UL") },
     [PSCustomObject]@{ Label = "MASTER_AUTO_RTU"; Pass = $masterText.Contains("RTU_TRAFFIC_AUTO_START=") },
     [PSCustomObject]@{ Label = "MASTER_COMPACT_PREFLIGHT"; Pass = $masterText.Contains("A14_P5_PREFLIGHT=END") },
     [PSCustomObject]@{ Label = "MASTER_ETH_SNAPSHOT"; Pass = $masterText.Contains("COMBINED_RUNTIME_READY=") },
@@ -308,6 +309,7 @@ Write-Host "P5B_MASTER_IP=$dutIp"
 Write-Host "P5B_PREFLIGHT_SD=PASS"
 Write-Host "P5B_PREFLIGHT_ETHERNET=PASS"
 Write-Host "P5B_PREFLIGHT_RTU_SLAVE2=PASS"
+Write-Host "P5B_PREFLIGHT_RTU_TIMEOUT_MS=25"
 Write-Host "P5B_PREFLIGHT_HMI_DIRTY=PASS"
 Write-Host "P5B_PREFLIGHT_MODE=COMPACT_QUIET"
 
@@ -410,6 +412,7 @@ Write-Host " A14 P5-B FINAL SUMMARY"
 Write-Host "============================================================"
 Write-Host "A14_P5B_TCP_TARGET_REQ_S=$rateText"
 Write-Host "A14_P5B_RTU_TARGET_HZ=50"
+Write-Host "A14_P5B_RTU_TIMEOUT_MS=25"
 Write-Host "A14_P5B_MASTER_PORT=$MasterPort"
 Write-Host "A14_P5B_SLAVE_PORT=$SlavePort"
 Write-Host "A14_P5B_SLAVE_ID=2"
