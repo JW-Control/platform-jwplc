@@ -143,6 +143,12 @@ def main() -> int:
             ip = last.get("ETH_IP", "")
 
             try:
+                rtu_timeout_ms = int(
+                    last.get(
+                        "RTU_TIMEOUT_MS",
+                        "-1",
+                    )
+                )
                 rtu_success = int(
                     last.get(
                         "RTU_REQUESTS_SUCCESS",
@@ -180,6 +186,7 @@ def main() -> int:
                     )
                 )
             except ValueError:
+                rtu_timeout_ms = -1
                 rtu_success = 0
                 rtu_failed = -1
                 rtu_verify_fails = -1
@@ -197,6 +204,7 @@ def main() -> int:
                 last.get(
                     "RTU_TRAFFIC_ENABLED"
                 ) == "YES"
+                and rtu_timeout_ms == 25
                 and rtu_success >= 10
                 and rtu_failed == 0
                 and rtu_verify_fails == 0
@@ -265,6 +273,7 @@ def main() -> int:
                     "P5_DISPLAY_HMI_DIRTY=YES"
                 )
                 print("P5_RTU_READY=YES")
+                print("P5_RTU_TIMEOUT_MS=25")
                 print(
                     "P5_RTU_PEER_SLAVE2=PASS"
                 )
