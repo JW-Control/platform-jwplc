@@ -79,3 +79,26 @@ Como el firmware F1 ya fue cargado correctamente durante ese intento, se anade
 un gate `measure_loaded_firmware` que no compila ni sube: solo ejecuta los dos
 casos fisicos y verifica mediante snapshots que Master y Slave reporten
 `RTU_FRAME_GAP_US=2000`.
+
+## Resultado fisico RTU-F1
+
+```txt
+TCP500: TCP=499.920 req/s, RTU=170.432 Hz
+TCP OFF: RTU=190.275 Hz
+MASTER_GAP_US=2000
+SLAVE_GAP_US=2000
+TCP_CLEAN=YES
+RTU_CLEAN=YES
+RUNTIME_CLEAN=YES
+```
+
+Contra el baseline inmediato con GND:
+
+| Caso | Baseline millis + 2 ms | RTU-F1 micros + 2000 us exactos | Delta |
+|---|---:|---:|---:|
+| TCP500 | 198.274 Hz | 170.432 Hz | -14.04 % |
+| TCP OFF | 214.288 Hz | 190.275 Hz | -11.21 % |
+
+RTU-F1 queda como base de precision temporal, con regresion de rendimiento
+caracterizada. El archive precompilado no se adopta aun.
+

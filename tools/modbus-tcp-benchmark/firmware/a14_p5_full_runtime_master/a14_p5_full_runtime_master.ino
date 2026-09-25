@@ -861,6 +861,11 @@ static void setRtuUnpaced()
     rtuNextRequestUs = micros();
 }
 
+static void setRtuFrameGapUs(uint32_t gapUs)
+{
+    JWPLC_ModbusRTU.setFrameGapUs(gapUs);
+}
+
 static void stopRtuTraffic()
 {
     if (rtuTrafficEnabled)
@@ -1954,6 +1959,31 @@ static void serviceSerialCommands()
         {
             setRtuUnpaced();
             Serial.println("RTU_RATE_MODE=UNPACED");
+        }
+        else if (c == 'H' || c == 'h')
+        {
+            setRtuFrameGapUs(2000UL);
+            Serial.println("RTU_FRAME_GAP_US=2000");
+        }
+        else if (c == 'I' || c == 'i')
+        {
+            setRtuFrameGapUs(1750UL);
+            Serial.println("RTU_FRAME_GAP_US=1750");
+        }
+        else if (c == 'J' || c == 'j')
+        {
+            setRtuFrameGapUs(1500UL);
+            Serial.println("RTU_FRAME_GAP_US=1500");
+        }
+        else if (c == 'K' || c == 'k')
+        {
+            setRtuFrameGapUs(1250UL);
+            Serial.println("RTU_FRAME_GAP_US=1250");
+        }
+        else if (c == 'L' || c == 'l')
+        {
+            setRtuFrameGapUs(1000UL);
+            Serial.println("RTU_FRAME_GAP_US=1000");
         }
         else if (
             c == 'P' ||

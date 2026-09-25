@@ -250,6 +250,31 @@ static void serviceSerial()
             JWPLC_ModbusRTU.setFrameGapMs(5);
             Serial.println("RTU_FRAME_GAP_MS=5");
         }
+        else if (c == 'H' || c == 'h')
+        {
+            JWPLC_ModbusRTU.setFrameGapUs(2000UL);
+            Serial.println("RTU_FRAME_GAP_US=2000");
+        }
+        else if (c == 'I' || c == 'i')
+        {
+            JWPLC_ModbusRTU.setFrameGapUs(1750UL);
+            Serial.println("RTU_FRAME_GAP_US=1750");
+        }
+        else if (c == 'J' || c == 'j')
+        {
+            JWPLC_ModbusRTU.setFrameGapUs(1500UL);
+            Serial.println("RTU_FRAME_GAP_US=1500");
+        }
+        else if (c == 'K' || c == 'k')
+        {
+            JWPLC_ModbusRTU.setFrameGapUs(1250UL);
+            Serial.println("RTU_FRAME_GAP_US=1250");
+        }
+        else if (c == 'L' || c == 'l')
+        {
+            JWPLC_ModbusRTU.setFrameGapUs(1000UL);
+            Serial.println("RTU_FRAME_GAP_US=1000");
+        }
         else if (c == 'S' || c == 's')
         {
             printSnapshot();
