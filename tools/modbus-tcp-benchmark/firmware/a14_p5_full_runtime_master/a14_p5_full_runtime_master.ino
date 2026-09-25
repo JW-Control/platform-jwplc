@@ -23,7 +23,8 @@
     R -> reset de estadisticas; conserva RTU activo si ya estaba activo
     G -> iniciar trafico RTU Master
     X -> detener trafico RTU Master
-    S -> snapshot
+    P -> preflight compacto P5-B
+    S -> snapshot completo
 */
 
 #include <Arduino.h>
@@ -1695,6 +1696,130 @@ static void printSnapshot()
 }
 
 // ============================================================================
+// Preflight serial compacto
+// ============================================================================
+//
+// P5-B no debe usar el snapshot completo como polling de readiness:
+// imprimir varios KB por Serial a 115200 perturba el loop cooperativo y puede
+// fabricar timeouts RTU. Este bloque captura primero el estado y luego emite
+// sólo las claves necesarias. Cualquier perturbación causada por esta salida
+// queda fuera de la ventana formal y se limpia con R antes de medir.
+// ============================================================================
+
+static void printP5Preflight()
+{
+    const JWPLCModbusRTUStats &rtu =
+        JWPLC_ModbusRTU.stats();
+
+    const bool fullReady =
+        fullRuntimeReady();
+
+    const bool serverReady =
+        JWPLC_ModbusTCP.serverReady();
+
+    const bool ethReady =
+        JWPLC_Ethernet.isReady();
+
+    const bool ethLink =
+        JWPLC_Ethernet.linkUp();
+
+    const bool sdNowReady =
+        JWPLCSD::isEnabled() &&
+        JWPLCSD::isCardPresent() &&
+        JWPLCSD::isReady();
+
+    const bool displayReady =
+        JWPLC_Display.isReady();
+
+    const bool combinedReady =
+        fullReady &&
+        serverReady &&
+        ethReady &&
+        ethLink &&
+        rtuReady &&
+        rtuTrafficEnabled;
+
+    const uint32_t success =
+        rtuRequestsSuccess;
+
+    const uint32_t failed =
+        rtuRequestsFailed;
+
+    const uint32_t verifyFails =
+        rtuVerifyFails;
+
+    const uint32_t crcErrors =
+        rtu.crcErrors;
+
+    const uint32_t masterTimeouts =
+        rtu.masterTimeouts;
+
+    const uint32_t peripheralFailures =
+        peripheralFailureCount();
+
+    Serial.print("FULL_RUNTIME_READY=");
+    Serial.println(yesNo(fullReady));
+
+    Serial.print("COMBINED_RUNTIME_READY=");
+    Serial.println(yesNo(combinedReady));
+
+    Serial.print("SERVER_READY=");
+    Serial.println(yesNo(serverReady));
+
+    Serial.print("ETH_READY=");
+    Serial.println(yesNo(ethReady));
+
+    Serial.print("ETH_LINK=");
+    Serial.println(ethLink ? "UP" : "DOWN");
+
+    Serial.print("ETH_IP=");
+    Serial.println(JWPLC_Ethernet.localIP());
+
+    Serial.print("SD_READY=");
+    Serial.println(yesNo(sdNowReady));
+
+    Serial.print("DISPLAY_READY=");
+    Serial.println(yesNo(displayReady));
+
+    Serial.println(
+        "DISPLAY_RENDER_MODE=HMI_ON_DEMAND_DIRTY");
+
+    Serial.println(
+        "DISPLAY_REFRESH_MODE=USER_REFRESH_ON_DEMAND");
+
+    Serial.print("RTU_READY=");
+    Serial.println(yesNo(rtuReady));
+
+    Serial.println("RTU_ROLE=MASTER");
+
+    Serial.print("RTU_TARGET_SLAVE_ID=");
+    Serial.println(RTU_TARGET_SLAVE_ID);
+
+    Serial.print("RTU_TRAFFIC_ENABLED=");
+    Serial.println(yesNo(rtuTrafficEnabled));
+
+    Serial.print("RTU_REQUESTS_SUCCESS=");
+    Serial.println(success);
+
+    Serial.print("RTU_REQUESTS_FAILED=");
+    Serial.println(failed);
+
+    Serial.print("RTU_VERIFY_FAILS=");
+    Serial.println(verifyFails);
+
+    Serial.print("RTU_CRC_ERRORS=");
+    Serial.println(crcErrors);
+
+    Serial.print("RTU_MASTER_TIMEOUTS=");
+    Serial.println(masterTimeouts);
+
+    Serial.print("PERIPHERAL_FAILURE_COUNT=");
+    Serial.println(peripheralFailures);
+
+    Serial.println("A14_P5_PREFLIGHT=END");
+}
+
+// ============================================================================
 // Serial
 // ============================================================================
 
@@ -1742,6 +1867,12 @@ static void serviceSerialCommands()
 
             Serial.println(
                 "RTU_MASTER_TRAFFIC=OFF");
+        }
+        else if (
+            c == 'P' ||
+            c == 'p')
+        {
+            printP5Preflight();
         }
         else if (
             c == 'S' ||
