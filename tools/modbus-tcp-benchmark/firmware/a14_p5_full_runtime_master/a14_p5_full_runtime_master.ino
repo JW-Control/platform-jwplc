@@ -102,7 +102,9 @@ static constexpr uint32_t RTC_STALE_LIMIT_MS = 2500;
 
 static constexpr size_t FRAM_BENCH_BYTES = 32;
 static constexpr size_t SD_RECORD_BYTES = 32;
-static constexpr uint8_t SD_FLUSH_EVERY_RECORDS = 5U;
+static constexpr size_t SD_DATALOG_BUFFER_BYTES = 4096U;
+static constexpr size_t SD_DATALOG_COMMIT_THRESHOLD_BYTES = 512U;
+static constexpr uint32_t SD_DATALOG_COMMIT_TIMEOUT_MS = 5000UL;
 
 static const char SD_BENCH_PATH[] = "/A14S2.LOG";
 
@@ -126,12 +128,13 @@ static uint32_t framBenchAddress = 0;
 static uint8_t framBackup[FRAM_BENCH_BYTES];
 
 static bool sdReady = false;
-static JWPLCFile sdAppendFile;
-static uint8_t sdRecordsSinceFlush = 0;
+static JWPLCDataLog sdDataLog;
 
-static uint8_t lastSdRecord[SD_RECORD_BYTES];
-static bool lastSdRecordValid = false;
 static uint32_t sdSequence = 0;
+static uint32_t sdCommitCountBaseline = 0;
+static uint32_t sdFailedCommitBaseline = 0;
+static uint64_t sdAcceptedBytesBaseline = 0;
+static uint64_t sdCommittedBytesBaseline = 0;
 
 // ============================================================================
 // Display HMI Alpha11 - dirty redraw / on demand
@@ -511,7 +514,7 @@ static void serviceSdAppend()
 
     bool ok =
         sdReady &&
-        (bool)sdAppendFile &&
+        sdDataLog.isActive() &&
         JWPLCSD::isEnabled() &&
         JWPLCSD::isCardPresent() &&
         JWPLCSD::isReady();
@@ -519,42 +522,16 @@ static void serviceSdAppend()
     if (ok)
     {
         const size_t written =
-            sdAppendFile.write(
+            sdDataLog.write(
                 record,
                 sizeof(record));
 
         ok =
             written ==
             sizeof(record);
-
-        if (ok)
-        {
-            ++sdRecordsSinceFlush;
-
-            if (
-                sdRecordsSinceFlush >=
-                SD_FLUSH_EVERY_RECORDS)
-            {
-                sdAppendFile.flush();
-
-                sdRecordsSinceFlush = 0;
-
-                ++runtimeStats.sdFlushCycles;
-            }
-        }
     }
 
-    if (ok)
-    {
-        memcpy(
-            lastSdRecord,
-            record,
-            sizeof(record));
-
-        lastSdRecordValid = true;
-        sdReady = true;
-    }
-    else
+    if (!ok)
     {
         ++runtimeStats.sdAppendFails;
     }
@@ -571,153 +548,47 @@ static void serviceSdAppend()
 
 static void serviceSdVerify()
 {
-    if (!lastSdRecordValid)
-    {
-        return;
-    }
-
     ++runtimeStats.sdVerifyCycles;
 
     const uint32_t t0 =
         micros();
 
-    uint8_t readback[SD_RECORD_BYTES];
+    const JW_SDDataLogStatus status =
+        sdDataLog.status();
 
-    memset(
-        readback,
-        0,
-        sizeof(readback));
+    const uint32_t commitCount =
+        (
+            status.commitCount >=
+            sdCommitCountBaseline
+        )
+            ? (
+                status.commitCount -
+                sdCommitCountBaseline
+              )
+            : 0U;
 
-    bool ok =
+    const uint32_t failedCommits =
+        (
+            status.failedCommits >=
+            sdFailedCommitBaseline
+        )
+            ? (
+                status.failedCommits -
+                sdFailedCommitBaseline
+              )
+            : status.failedCommits;
+
+    runtimeStats.sdFlushCycles =
+        commitCount;
+
+    const bool ok =
         sdReady &&
-        (bool)sdAppendFile &&
+        status.active &&
         JWPLCSD::isEnabled() &&
         JWPLCSD::isCardPresent() &&
-        JWPLCSD::isReady();
-
-    bool appendClosed = false;
-    bool reopenOk = false;
-
-    // --------------------------------------------------------
-    // No mantener dos handles simultáneos sobre el mismo archivo.
-    //
-    // El append se hace durable, se cierra temporalmente,
-    // se verifica mediante FILE_READ y luego se reabre.
-    // --------------------------------------------------------
-
-    if (ok)
-    {
-        if (sdRecordsSinceFlush > 0)
-        {
-            sdAppendFile.flush();
-
-            sdRecordsSinceFlush = 0;
-
-            ++runtimeStats.sdFlushCycles;
-        }
-
-        sdAppendFile.close();
-
-        appendClosed =
-            !(bool)sdAppendFile;
-
-        ok =
-            appendClosed;
-    }
-
-    // --------------------------------------------------------
-    // Leer y verificar el último registro.
-    // --------------------------------------------------------
-
-    if (ok)
-    {
-        JWPLCFile file =
-            JWPLC_SD.open(
-                SD_BENCH_PATH,
-                FILE_READ);
-
-        if (!file)
-        {
-            ok = false;
-        }
-        else
-        {
-            const uint32_t fileSize =
-                file.size();
-
-            if (
-                fileSize <
-                SD_RECORD_BYTES)
-            {
-                ok = false;
-            }
-            else
-            {
-                ok =
-                    file.seek(
-                        fileSize -
-                        SD_RECORD_BYTES);
-            }
-
-            if (ok)
-            {
-                for (
-                    size_t i = 0;
-                    i < SD_RECORD_BYTES;
-                    ++i)
-                {
-                    const int value =
-                        file.read();
-
-                    if (value < 0)
-                    {
-                        ok = false;
-                        break;
-                    }
-
-                    readback[i] =
-                        (uint8_t)value;
-                }
-            }
-
-            file.close();
-        }
-    }
-
-    if (
-        ok &&
-        memcmp(
-            readback,
-            lastSdRecord,
-            sizeof(readback)) != 0)
-    {
-        ok = false;
-    }
-
-    // --------------------------------------------------------
-    // Recuperar siempre el handle persistente de append
-    // después de haberlo cerrado.
-    // --------------------------------------------------------
-
-    if (appendClosed)
-    {
-        sdAppendFile =
-            JWPLC_SD.open(
-                SD_BENCH_PATH,
-                FILE_APPEND);
-
-        reopenOk =
-            (bool)sdAppendFile;
-
-        if (!reopenOk)
-        {
-            sdReady = false;
-        }
-    }
-
-    ok =
-        ok &&
-        reopenOk;
+        JWPLCSD::isReady() &&
+        failedCommits == 0 &&
+        status.lastError == JW_SD_OK;
 
     if (!ok)
     {
@@ -1191,7 +1062,7 @@ static bool fullRuntimeReady()
         JWPLC_Display.isReady() &&
         framReady &&
         sdReady &&
-        (bool)sdAppendFile &&
+        sdDataLog.isActive() &&
         JWPLCSD::isEnabled() &&
         JWPLCSD::isCardPresent() &&
         JWPLCSD::isReady() &&
@@ -1235,13 +1106,27 @@ static void resetPerfCounters()
     runtimeStats = RuntimeStats{};
 
     // El reset estadístico ocurre fuera de la ventana medida.
-    // Se deja el archivo persistente durable y se reinicia el
-    // lote para que cada ventana comience alineada a 5 registros.
-    if (sdAppendFile)
+    // Drenar cualquier dato pendiente antes de capturar los baselines
+    // evita atribuir a la nueva ventana commits de la preparación.
+    if (sdDataLog.isActive())
     {
-        sdAppendFile.flush();
-        sdRecordsSinceFlush = 0;
+        (void)sdDataLog.commit();
     }
+
+    const JW_SDDataLogStatus sdStatus =
+        sdDataLog.status();
+
+    sdCommitCountBaseline =
+        sdStatus.commitCount;
+
+    sdFailedCommitBaseline =
+        sdStatus.failedCommits;
+
+    sdAcceptedBytesBaseline =
+        sdStatus.acceptedBytes;
+
+    sdCommittedBytesBaseline =
+        sdStatus.committedBytes;
 
     const uint32_t now =
         millis();
@@ -1537,12 +1422,66 @@ static void printSnapshot()
     // SD
     // --------------------------------------------------------
 
+    const JW_SDDataLogStatus sdStatus =
+        sdDataLog.status();
+
+    const uint32_t sdCommitCycles =
+        (
+            sdStatus.commitCount >=
+            sdCommitCountBaseline
+        )
+            ? (
+                sdStatus.commitCount -
+                sdCommitCountBaseline
+              )
+            : 0U;
+
+    const uint32_t sdFailedCommits =
+        (
+            sdStatus.failedCommits >=
+            sdFailedCommitBaseline
+        )
+            ? (
+                sdStatus.failedCommits -
+                sdFailedCommitBaseline
+              )
+            : sdStatus.failedCommits;
+
+    const uint64_t sdAcceptedBytes =
+        (
+            sdStatus.acceptedBytes >=
+            sdAcceptedBytesBaseline
+        )
+            ? (
+                sdStatus.acceptedBytes -
+                sdAcceptedBytesBaseline
+              )
+            : 0ULL;
+
+    const uint64_t sdCommittedBytes =
+        (
+            sdStatus.committedBytes >=
+            sdCommittedBytesBaseline
+        )
+            ? (
+                sdStatus.committedBytes -
+                sdCommittedBytesBaseline
+              )
+            : 0ULL;
+
+    runtimeStats.sdFlushCycles =
+        sdCommitCycles;
+
     Serial.print("SD_READY=");
     Serial.println(
         yesNo(
             JWPLCSD::isEnabled() &&
             JWPLCSD::isCardPresent() &&
-            JWPLCSD::isReady()));
+            JWPLCSD::isReady() &&
+            sdStatus.active));
+
+    Serial.println(
+        "SD_WORKLOAD_MODE=BUFFERED_DATALOG");
 
     Serial.print("SD_APPEND_CYCLES=");
     Serial.println(
@@ -1556,18 +1495,37 @@ static void printSnapshot()
     Serial.println(
         runtimeStats.sdAppendMaxUs);
 
-    Serial.print("SD_APPEND_FILE_OPEN=");
+    Serial.print("SD_DATALOG_ACTIVE=");
     Serial.println(
-        yesNo(
-            (bool)sdAppendFile));
+        yesNo(sdStatus.active));
 
-    Serial.print("SD_FLUSH_EVERY_RECORDS=");
+    Serial.print("SD_DATALOG_BUFFER_BYTES=");
     Serial.println(
-        SD_FLUSH_EVERY_RECORDS);
+        sdStatus.capacityBytes);
 
-    Serial.print("SD_RECORDS_SINCE_FLUSH=");
+    Serial.print("SD_DATALOG_PENDING_BYTES=");
     Serial.println(
-        sdRecordsSinceFlush);
+        sdStatus.pendingBytes);
+
+    Serial.print("SD_DATALOG_COMMIT_THRESHOLD_BYTES=");
+    Serial.println(
+        sdStatus.commitThresholdBytes);
+
+    Serial.print("SD_DATALOG_COMMIT_TIMEOUT_MS=");
+    Serial.println(
+        sdStatus.commitTimeoutMs);
+
+    Serial.print("SD_DATALOG_ACCEPTED_BYTES=");
+    Serial.println(
+        (unsigned long long)sdAcceptedBytes);
+
+    Serial.print("SD_DATALOG_COMMITTED_BYTES=");
+    Serial.println(
+        (unsigned long long)sdCommittedBytes);
+
+    Serial.print("SD_DATALOG_FAILED_COMMITS=");
+    Serial.println(
+        sdFailedCommits);
 
     Serial.print("SD_FLUSH_CYCLES=");
     Serial.println(
@@ -1790,7 +1748,13 @@ static void printP5Preflight()
     Serial.println(JWPLC_Ethernet.localIP());
 
     Serial.print("SD_READY=");
-    Serial.println(yesNo(sdNowReady));
+    Serial.println(
+        yesNo(
+            sdNowReady &&
+            sdDataLog.isActive()));
+
+    Serial.println(
+        "SD_WORKLOAD_MODE=BUFFERED_DATALOG");
 
     Serial.print("DISPLAY_READY=");
     Serial.println(yesNo(displayReady));
@@ -2036,15 +2000,16 @@ void setup()
 
     if (sdReady)
     {
-        sdAppendFile =
-            JWPLC_SD.open(
-                SD_BENCH_PATH,
-                FILE_APPEND);
+        const JW_SDDataLogConfig config(
+            SD_DATALOG_BUFFER_BYTES,
+            SD_DATALOG_COMMIT_THRESHOLD_BYTES,
+            SD_DATALOG_COMMIT_TIMEOUT_MS);
 
         sdReady =
-            (bool)sdAppendFile;
-
-        sdRecordsSinceFlush = 0;
+            sdDataLog.begin(
+                JWPLC_SD,
+                SD_BENCH_PATH,
+                config);
     }
 
     // --------------------------------------------------------
