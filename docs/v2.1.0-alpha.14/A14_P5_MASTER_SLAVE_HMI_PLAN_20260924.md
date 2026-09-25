@@ -1973,3 +1973,54 @@ CORE_PRECOMPILED_ADOPTED=YES
 NEXT=P5_D_RERUN_600S_WITH_PHYSICAL_DATALOG
 ```
 
+### P5-E — caracterización final de margen Modbus TCP
+
+Después de P5-D PASS, el objetivo deja de ser perseguir throughput por sí mismo.
+La prioridad es confirmar que el target industrial de 1000 req/s tiene margen y
+que cualquier optimización que se adopte quede dentro del package/core o una API
+JWPLC simple.
+
+Regla de diseño:
+
+```txt
+NO_USER_COMPLEX_SCHEDULER=YES
+NO_REQUIRED_DOUBLE_TASK_IN_SKETCH=YES
+PACKAGE_CORE_FIRST=YES
+PUBLIC_API_SIMPLE=YES
+```
+
+Secuencia definida:
+
+```txt
+P5-E1 = full-runtime FC03/125 unpaced ceiling, diagnóstico sin mutación.
+P5-E2 = A/B de servicio TCP interno sólo si E1 queda por debajo de 1000 req/s.
+P5-E3 = congelar objetivo soportado, API/configuración y documentación.
+Después = cierre P5 / cierre documental Alpha14.
+```
+
+Criterio P5-E1:
+
+```txt
+- mismo firmware full-runtime;
+- Display + FRAM + RTC + SD DataLog + botones + I/O;
+- RTU Master 50 Hz / timeout 25 ms;
+- W5500 26 MHz;
+- FC03 125 registros;
+- un único request TCP pendiente;
+- sin rate limiter/sleep;
+- ventana 60 s;
+- cero errores TCP/Modbus;
+- RTU y periféricos deben seguir PASS;
+- DataLog debe tener committed bytes > 0 y failed commits = 0.
+```
+
+Interpretación de headroom:
+
+```txt
+>= 1100 req/s  -> COMFORTABLE, cancelar P5-E2.
+1000..1099     -> POSITIVE, cancelar P5-E2.
+< 1000 req/s   -> BELOW_1000, revisar P5-E2 interno.
+```
+
+P5-E1 es de caracterización: no modifica producto ni cambia APIs.
+
