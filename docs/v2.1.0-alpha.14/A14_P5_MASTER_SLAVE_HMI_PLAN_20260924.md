@@ -525,3 +525,107 @@ P5B_ATTEMPT_1=HARNESS_OBSERVER_EFFECT
 P5B_FORMAL_WINDOW=NOT_RUN
 P5B_CORRECTED=READY_TO_RERUN
 ```
+
+## P5-B intento 2 — preflight compacto limpio pero timeout RTU insuficiente
+
+Con el preflight compacto `P` ya activo, la segunda ejecución física mostró:
+
+```txt
+FULL_RUNTIME_READY=YES
+COMBINED_RUNTIME_READY=YES
+SERVER_READY=YES
+ETH_READY=YES
+ETH_LINK=UP
+SD_READY=YES
+DISPLAY_READY=YES
+DISPLAY_RENDER_MODE=HMI_ON_DEMAND_DIRTY
+DISPLAY_REFRESH_MODE=USER_REFRESH_ON_DEMAND
+PERIPHERAL_FAILURE_COUNT=0
+```
+
+RTU durante la ventana quieta de preflight:
+
+```txt
+RTU_REQUESTS_SUCCESS=140
+RTU_REQUESTS_FAILED=10
+RTU_VERIFY_FAILS=0
+RTU_CRC_ERRORS=0
+RTU_MASTER_TIMEOUTS=10
+```
+
+Conclusión:
+
+```txt
+F047_OBSERVER_EFFECT=FIXED
+P5B_FORMAL_WINDOW_STARTED=NO
+PHYSICAL_LINK_RTU=WORKING
+CURRENT_RTU_TIMEOUT_15MS=TOO_AGGRESSIVE_FOR_FULL_RUNTIME
+```
+
+No se cambia aún el timeout por decisión manual.
+
+## P5-C — calibration sweep RTU timeout
+
+Objetivo:
+
+determinar el menor timeout RTU que mantenga el periodo objetivo de 20 ms sin
+errores bajo el full-runtime actual y con margen frente al peor service-gap
+observado.
+
+Variantes:
+
+```txt
+15 ms
+25 ms
+35 ms
+50 ms
+```
+
+Cada variante:
+
+- recompila únicamente una copia temporal del Master;
+- mantiene Slave ID 2;
+- conserva todos los periféricos del full-runtime;
+- mantiene RTU period = 20 ms;
+- no genera carga TCP todavía;
+- resetea Master y Slave;
+- mide 15 s sin snapshots durante la ventana;
+- detiene RTU antes de capturar telemetría;
+- cruza Master success contra Slave RX/TX/OK.
+
+Criterio de candidato:
+
+```txt
+rejected=0
+failed=0
+verify_fails=0
+crc_errors=0
+master_timeouts=0
+slave_crc=0
+slave_exceptions=0
+peripheral_failures=0
+achieved_hz=45..52
+cross_count_delta<=12
+timeout_headroom >= 5 ms
+```
+
+El headroom se calcula contra:
+
+```txt
+ceil(RTU_SERVICE_GAP_MAX_US / 1000)
+```
+
+Regla de selección:
+
+```txt
+LOWEST_ZERO_ERROR_45TO52HZ_WITH_5MS_HEADROOM
+```
+
+Estado:
+
+```txt
+P5A=CLOSED_PASS
+P5B_ATTEMPT_1=HARNESS_OBSERVER_EFFECT
+P5B_ATTEMPT_2=RTU_TIMEOUT_CALIBRATION_REQUIRED
+P5C=READY_TO_RUN
+```
