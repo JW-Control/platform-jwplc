@@ -50,3 +50,18 @@ de protocolo/perfil rapido.
 Despues de F2B, el siguiente cambio de firmware sera estudiar TX/flush a
 115200 con un gap seleccionado con margen. El baudrate se cambia despues para
 no mezclar optimizacion de CPU con velocidad fisica del enlace.
+
+## Gate versionado
+
+El gate fuerza una unica compilacion/upload desde fuente, comprueba que
+`JWPLC_ModbusRTU.cpp.o` exista tanto para Master como para Slave y restaura
+el archive precompilado previo con su mismo SHA-256 antes de medir.
+
+La medicion usa TCP OFF y 30 s por gap para localizar rapidamente el piso del
+framing. Un punto agresivo fallido no detiene el sweep; solo el control de
+1000 us debe permanecer limpio para considerar valida la corrida.
+
+Si 300 us continua limpio, el gate declara que el piso no fue encontrado dentro
+del rango con sentido elegido para F2B y no baja automaticamente por debajo de
+300 us.
+
