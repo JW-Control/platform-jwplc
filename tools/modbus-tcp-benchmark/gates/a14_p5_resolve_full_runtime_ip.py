@@ -82,11 +82,40 @@ def main() -> int:
             last = read_snapshot(ser)
             ip = last.get("ETH_IP", "")
 
+            try:
+                rtu_success = int(last.get("RTU_REQUESTS_SUCCESS", "0"))
+                rtu_failed = int(last.get("RTU_REQUESTS_FAILED", "0"))
+                rtu_verify_fails = int(last.get("RTU_VERIFY_FAILS", "0"))
+                rtu_crc_errors = int(last.get("RTU_CRC_ERRORS", "0"))
+                rtu_timeouts = int(last.get("RTU_MASTER_TIMEOUTS", "0"))
+            except ValueError:
+                rtu_success = 0
+                rtu_failed = -1
+                rtu_verify_fails = -1
+                rtu_crc_errors = -1
+                rtu_timeouts = -1
+
+            rtu_peer_ready = (
+                last.get("RTU_ROLE") == "MASTER"
+                and last.get("RTU_TARGET_SLAVE_ID") == "2"
+                and last.get("RTU_TRAFFIC_ENABLED") == "YES"
+                and rtu_success >= 10
+                and rtu_failed == 0
+                and rtu_verify_fails == 0
+                and rtu_crc_errors == 0
+                and rtu_timeouts == 0
+            )
+
             if (
                 last.get("FULL_RUNTIME_READY") == "YES"
                 and last.get("COMBINED_RUNTIME_READY") == "YES"
                 and last.get("SERVER_READY") == "YES"
+                and last.get("SD_READY") == "YES"
+                and last.get("DISPLAY_READY") == "YES"
+                and last.get("DISPLAY_RENDER_MODE") == "HMI_ON_DEMAND_DIRTY"
+                and last.get("DISPLAY_REFRESH_MODE") == "USER_REFRESH_ON_DEMAND"
                 and last.get("RTU_READY") == "YES"
+                and rtu_peer_ready
                 and last.get("ETH_READY") == "YES"
                 and last.get("ETH_LINK") == "UP"
                 and is_valid_ipv4(ip)
@@ -95,7 +124,11 @@ def main() -> int:
                 print(f"P5_DUT_IP_EFFECTIVE={ip}")
                 print("P5_FULL_RUNTIME_READY=YES")
                 print("P5_COMBINED_RUNTIME_READY=YES")
+                print("P5_SD_READY=YES")
+                print("P5_DISPLAY_HMI_DIRTY=YES")
                 print("P5_RTU_READY=YES")
+                print("P5_RTU_PEER_SLAVE2=PASS")
+                print(f"P5_RTU_PREFLIGHT_SUCCESS={rtu_success}")
                 return 0
 
             time.sleep(0.25)
