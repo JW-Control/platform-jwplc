@@ -241,18 +241,32 @@ def main() -> int:
     try:
         time.sleep(2.0)
 
-        initial_slave = request_slave_snapshot(
-            slave_ser,
-            5.0,
-        )
+        initial_slave: dict[str, str] = {}
+        initial_slave_ok = False
+        slave_deadline = time.monotonic() + 15.0
+
+        while time.monotonic() < slave_deadline:
+            try:
+                initial_slave = request_slave_snapshot(
+                    slave_ser,
+                    5.0,
+                )
+            except TimeoutError:
+                time.sleep(0.25)
+                continue
+
+            initial_slave_ok = slave_initial_pass(
+                initial_slave
+            )
+
+            if initial_slave_ok:
+                break
+
+            time.sleep(0.25)
 
         print()
         print("=== SLAVE INITIAL PREFLIGHT ===")
         print(initial_slave.get("_RAW", ""))
-
-        initial_slave_ok = slave_initial_pass(
-            initial_slave
-        )
 
         print(
             "P5B_SLAVE_INITIAL_READY="
