@@ -47,20 +47,40 @@ Assert-G2ProtectedArtifacts
 $source = Get-G2Path "JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP.cpp"
 $text = [System.IO.File]::ReadAllText($source)
 
+$availableCallCount = @(
+    [regex]::Matches(
+        $text,
+        [regex]::Escape("_client.available();")
+    )
+).Count
+
+$connectedCallCount = @(
+    [regex]::Matches(
+        $text,
+        [regex]::Escape("_client.connected()")
+    )
+).Count
+
 $checks = @(
     [PSCustomObject]@{
         Label = "DEFER_CONNECTED_WHEN_RX_PENDING"
-        Pass = $text.Contains("P5-E2: connected() implica otra consulta")
+        Pass = (
+            $connectedCallCount -eq 1 -and
+            $text.Contains("if (availableBytes <= 0)")
+        )
     },
     [PSCustomObject]@{
         Label = "CACHE_AVAILABLE_BYTES_AFTER_READ"
         Pass = $text.Contains("availableBytes -= received;")
     },
     [PSCustomObject]@{
-        Label = "REFRESH_AVAILABLE_ONLY_WHEN_EXHAUSTED"
-        Pass = $text.Contains("Sólo refrescar hardware cuando agotamos el saldo")
+        Label = "AVAILABLE_CALL_COUNT_EXPECTED_2"
+        Pass = $availableCallCount -eq 2
     }
 )
+
+Write-Host "AVAILABLE_CALL_COUNT=$availableCallCount"
+Write-Host "CONNECTED_CALL_COUNT=$connectedCallCount"
 
 foreach ($check in $checks) {
     Write-Host "$($check.Label)=$($check.Pass)"

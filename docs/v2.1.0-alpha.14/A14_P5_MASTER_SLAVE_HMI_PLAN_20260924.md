@@ -2112,3 +2112,40 @@ Si mejora claramente, repetir 600 s antes de adoptar/cerrar.
 Si no mejora, revisar/revertir el candidato antes de otra estrategia.
 ```
 
+### P5-E2 intento 1 — F055: preflight dependiente de comentario Unicode
+
+El primer intento P5-E2 se detuvo antes de compilar/medir:
+
+```txt
+DEFER_CONNECTED_WHEN_RX_PENDING=True
+CACHE_AVAILABLE_BYTES_AFTER_READ=True
+REFRESH_AVAILABLE_ONLY_WHEN_EXHAUSTED=False
+P5E2_SOURCE_CONTRACT_FAILED_REFRESH_AVAILABLE_ONLY_WHEN_EXHAUSTED
+```
+
+La inspección del source remoto confirmó que el bloque candidato sí estaba
+presente. El falso negativo provenía de validar una frase de comentario con
+carácter Unicode acentuado mediante `String.Contains()` en Windows PowerShell.
+
+Clasificación:
+
+```txt
+F055=COMMENT_UNICODE_DEPENDENT_PREFLIGHT_FALSE_NEGATIVE
+TYPE=TOOLING_FAILURE
+PRODUCT_FAILURE=NO
+P5E2_CANDIDATE_EXECUTED=NO
+```
+
+Corrección:
+
+```txt
+- dejar de validar comentarios;
+- contar exactamente dos llamadas _client.available();
+- exigir exactamente una llamada _client.connected();
+- exigir availableBytes -= received;
+- mantener el chequeo estructural if (availableBytes <= 0).
+```
+
+El candidato de producto P5-E2 no se modifica en este intento; se repite el
+mismo gate de 60 s después de corregir únicamente el preflight.
+
