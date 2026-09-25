@@ -2024,3 +2024,40 @@ Interpretación de headroom:
 
 P5-E1 es de caracterización: no modifica producto ni cambia APIs.
 
+### P5-E1-R1 — repeatability long-run
+
+Para descartar que el techo de 1017.170 req/s observado en P5-E1 sea una
+muestra aislada, se define una repetición continua de 600 s sin mutación de
+producto.
+
+```txt
+DURATION_S=600
+BUCKET_SECONDS=60
+TCP_PACING=NONE
+TCP_OUTSTANDING_REQUESTS=1
+FC03_QUANTITY_REGISTERS=125
+FULL_RUNTIME=YES
+RTU_TARGET_HZ=50
+SD_DATALOG=BUFFERED_AUTOSERVICE
+PRODUCT_SOURCE_MUTATION=NO
+```
+
+El runner P5-E1 conserva el resultado agregado y añade diez buckets de 60 s:
+
+```txt
+P5E1_BUCKET INDEX=n START_S=... END_S=... OK=... REQ_S=...
+```
+
+Criterio de interpretación:
+
+```txt
+- agregado >= 1000 req/s: capacidad sostenida positiva;
+- cero errores TCP/Modbus;
+- RTU 50 Hz sin timeout/CRC;
+- DataLog con commits y sin failed commits;
+- periféricos sin fallos;
+- revisar buckets para descartar degradación progresiva.
+```
+
+P5-E1-R1 no sustituye P5-D; confirma repetibilidad del techo unpaced.
+

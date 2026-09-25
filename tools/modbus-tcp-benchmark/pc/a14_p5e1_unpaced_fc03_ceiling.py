@@ -20,7 +20,8 @@ def run_unpaced(
     port: int,
     duration_s: float,
     quantity: int,
-) -> dict[str, float | int]:
+    bucket_seconds: float,
+) -> dict[str, object]:
     expected = q.expected_body(quantity)
 
     sock = socket.create_connection(
@@ -37,6 +38,7 @@ def run_unpaced(
     tx_bytes = 0
     rx_bytes = 0
     latencies_us: list[float] = []
+    success_elapsed_s: list[float] = []
 
     start = time.perf_counter()
     deadline = start + duration_s
@@ -113,6 +115,9 @@ def run_unpaced(
                     break
 
                 ok += 1
+                success_elapsed_s.append(
+                    time.perf_counter() - start
+                )
 
             except socket.timeout:
                 timeouts += 1
@@ -185,6 +190,52 @@ def run_unpaced(
         latency_p99 = 0.0
         latency_max = 0.0
 
+    buckets: list[dict[str, float | int]] = []
+
+    if bucket_seconds > 0.0 and elapsed > 0.0:
+        bucket_count = max(
+            1,
+            int(math.ceil(elapsed / bucket_seconds)),
+        )
+
+        bucket_ok = [0] * bucket_count
+
+        for success_elapsed in success_elapsed_s:
+            index = int(
+                success_elapsed // bucket_seconds
+            )
+
+            if index >= bucket_count:
+                index = bucket_count - 1
+
+            bucket_ok[index] += 1
+
+        for index, count in enumerate(bucket_ok):
+            bucket_start_s = index * bucket_seconds
+            bucket_end_s = min(
+                elapsed,
+                (index + 1) * bucket_seconds,
+            )
+            bucket_duration_s = max(
+                0.0,
+                bucket_end_s - bucket_start_s,
+            )
+            bucket_req_s = (
+                count / bucket_duration_s
+                if bucket_duration_s > 0.0
+                else 0.0
+            )
+
+            buckets.append(
+                {
+                    "index": index + 1,
+                    "start_s": bucket_start_s,
+                    "end_s": bucket_end_s,
+                    "ok": count,
+                    "req_s": bucket_req_s,
+                }
+            )
+
     return {
         "elapsed_s": elapsed,
         "sent": sent,
@@ -199,6 +250,7 @@ def run_unpaced(
         "latency_p95_us": latency_p95,
         "latency_p99_us": latency_p99,
         "latency_max_us": latency_max,
+        "buckets": buckets,
     }
 
 
@@ -232,6 +284,11 @@ def main() -> int:
         type=int,
         default=125,
     )
+    parser.add_argument(
+        "--bucket-seconds",
+        type=float,
+        default=60.0,
+    )
 
     args = parser.parse_args()
 
@@ -245,6 +302,11 @@ def main() -> int:
             "quantity debe estar entre 1 y 125"
         )
 
+    if args.bucket_seconds <= 0.0:
+        raise ValueError(
+            "bucket-seconds debe ser > 0"
+        )
+
     print("=" * 76)
     print(
         " A14 P5-E1 - FULL RUNTIME FC03/125 UNPACED CEILING"
@@ -254,6 +316,7 @@ def main() -> int:
     print(f"SLAVE_SERIAL={args.slave_serial}")
     print(f"TARGET={args.host}:{args.port}")
     print(f"DURATION_S={args.duration:.0f}")
+    print(f"BUCKET_SECONDS={args.bucket_seconds:.0f}")
     print(f"FC03_QUANTITY_REGISTERS={args.quantity}")
     print("TCP_PACING=NONE")
     print("TCP_OUTSTANDING_REQUESTS=1")
@@ -330,6 +393,7 @@ def main() -> int:
             args.port,
             args.duration,
             args.quantity,
+            args.bucket_seconds,
         )
 
         p5b.send_master_command(
@@ -610,6 +674,16 @@ def main() -> int:
     print("=" * 76)
     print(" P5-E1 UNPACED CEILING RESULT")
     print("=" * 76)
+    for bucket in result["buckets"]:
+        print(
+            "P5E1_BUCKET "
+            f"INDEX={int(bucket['index'])} "
+            f"START_S={float(bucket['start_s']):.0f} "
+            f"END_S={float(bucket['end_s']):.0f} "
+            f"OK={int(bucket['ok'])} "
+            f"REQ_S={float(bucket['req_s']):.3f}"
+        )
+
     print(
         "P5E1_ELAPSED_S="
         f"{float(result['elapsed_s']):.3f}"
