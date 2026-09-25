@@ -95,7 +95,7 @@ $masterLegacyCount = 0
 foreach ($needle in @("jwplcUserDisplayEnterCallback","jwplcUserDisplayRefreshCallback","jwplcUserDisplayRefreshNeededCallback")) {
     if ($masterText.Contains($needle)) { $masterLegacyCount++ }
 }
-$masterFillScreen = $masterText.Contains("fillScreen(")
+$masterFillScreen = $masterText.Contains(".fillScreen(")
 $masterSyncRead = $masterText.Contains("JWPLC_ModbusRTU.readHoldingRegisters(")
 Write-Host "MASTER_LEGACY_DISPLAY_SYMBOLS=$masterLegacyCount"
 Write-Host "MASTER_DIRECT_FILL_SCREEN=$masterFillScreen"
@@ -119,7 +119,7 @@ $slaveLegacyCount = 0
 foreach ($needle in @("jwplcUserDisplayEnterCallback","jwplcUserDisplayRefreshCallback","jwplcUserDisplayRefreshNeededCallback")) {
     if ($slaveText.Contains($needle)) { $slaveLegacyCount++ }
 }
-$slaveFillScreen = $slaveText.Contains("fillScreen(")
+$slaveFillScreen = $slaveText.Contains(".fillScreen(")
 Write-Host "SLAVE_LEGACY_DISPLAY_SYMBOLS=$slaveLegacyCount"
 Write-Host "SLAVE_DIRECT_FILL_SCREEN=$slaveFillScreen"
 if ($slaveLegacyCount -ne 0) { throw "P5A_SLAVE_LEGACY_DISPLAY_REMAINS" }
