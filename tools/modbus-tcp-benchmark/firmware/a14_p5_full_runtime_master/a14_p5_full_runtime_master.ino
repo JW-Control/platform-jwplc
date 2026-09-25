@@ -1985,6 +1985,36 @@ static void serviceSerialCommands()
             setRtuFrameGapUs(1000UL);
             Serial.println("RTU_FRAME_GAP_US=1000");
         }
+        else if (c == 'M' || c == 'm')
+        {
+            setRtuFrameGapUs(750UL);
+            Serial.println("RTU_FRAME_GAP_US=750");
+        }
+        else if (c == 'N' || c == 'n')
+        {
+            setRtuFrameGapUs(600UL);
+            Serial.println("RTU_FRAME_GAP_US=600");
+        }
+        else if (c == 'O' || c == 'o')
+        {
+            setRtuFrameGapUs(500UL);
+            Serial.println("RTU_FRAME_GAP_US=500");
+        }
+        else if (c == 'Q' || c == 'q')
+        {
+            setRtuFrameGapUs(400UL);
+            Serial.println("RTU_FRAME_GAP_US=400");
+        }
+        else if (c == 'V' || c == 'v')
+        {
+            setRtuFrameGapUs(350UL);
+            Serial.println("RTU_FRAME_GAP_US=350");
+        }
+        else if (c == 'W' || c == 'w')
+        {
+            setRtuFrameGapUs(300UL);
+            Serial.println("RTU_FRAME_GAP_US=300");
+        }
         else if (
             c == 'P' ||
             c == 'p')

@@ -58,3 +58,28 @@ TCP500 a 1750 us debe alcanzar al menos 99 % del target.
 Los puntos 1500, 1250 y 1000 us son de caracterizacion. Su fallo no descarta el
 gate; su resultado define el limite del futuro perfil rapido.
 
+## Resultado fisico RTU-F2
+
+| Gap | TCP500 req/s | RTU con TCP500 | RTU TCP OFF | Estado |
+|---:|---:|---:|---:|---|
+| 2000 us | 500.000 | 165.395 Hz | 181.642 Hz | limpio |
+| 1750 us | 500.000 | 177.382 Hz | 192.024 Hz | limpio |
+| 1500 us | 500.000 | 189.093 Hz | 204.556 Hz | limpio |
+| 1250 us | 500.000 | 195.188 Hz | 218.730 Hz | limpio |
+| 1000 us | 500.000 | 203.256 Hz | 233.073 Hz | limpio |
+
+En todos los puntos: RTU_FAILED=0, RTU_TIMEOUTS=0, RTU_CRC=0,
+SLAVE_CRC=0, TCP_CLEAN=YES, RTU_CLEAN=YES y RUNTIME_CLEAN=YES.
+
+Ganancia contra 2000 us dentro de la misma corrida:
+
+| Gap | TCP500 | TCP OFF |
+|---:|---:|---:|
+| 1750 us | +7.247 % | +5.716 % |
+| 1500 us | +14.328 % | +12.615 % |
+| 1250 us | +18.013 % | +20.418 % |
+| 1000 us | +22.891 % | +28.314 % |
+
+1000 us fue el menor gap probado y siguio completamente limpio, por lo que
+RTU-F2 no encontro aun el limite inferior.
+
