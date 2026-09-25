@@ -299,6 +299,8 @@ def main():
         iv(final, "FRAM_CYCLES") >= int(120 * scale) and
         iv(final, "SD_APPEND_CYCLES") >= int(30 * scale) and
         iv(final, "SD_VERIFY_CYCLES") >= int(6 * scale) and
+        iv(final, "SD_DATALOG_ACCEPTED_BYTES") >= int(15 * 32 * scale) and
+        iv(final, "SD_DATALOG_COMMITTED_BYTES") > 0 and
         iv(final, "RTC_SAMPLES") >= int(120 * scale) and
         iv(final, "IO_SAMPLES") >= int(1500 * scale) and
         iv(final, "BUTTON_SAMPLES") >= int(1500 * scale) and
