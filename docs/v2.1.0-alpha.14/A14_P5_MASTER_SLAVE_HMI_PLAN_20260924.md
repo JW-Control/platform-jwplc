@@ -1437,3 +1437,71 @@ F049=P5_DIAGNOSTIC_CORRECTED
 F050=CONFIRMED
 P5F=READY_TO_RUN
 ```
+
+
+## P5-F intento 1 — Get-FileHash no disponible
+
+El primer intento P5-F se detuvo antes de cualquier rebuild:
+
+```txt
+TRACKED_DIRTY_BEFORE=0
+STAGED_BEFORE=0
+
+Get-FileHash:
+CommandNotFoundException
+```
+
+El fallo ocurrió en la primera lectura del SHA baseline:
+
+```txt
+P5F_CORE_SHA_BEFORE=<no alcanzado>
+REBUILD_CORE=<no iniciado>
+CORE_A_MUTATION=NO
+```
+
+Clasificación:
+
+```txt
+F051=POWERSHELL_GET_FILEHASH_UNAVAILABLE_ON_LEGACY_HOST
+PRODUCT_FAILURE=NO
+CORE_REBUILD_STARTED=NO
+```
+
+### Corrección
+
+No se instala ningún módulo ni se exige actualizar PowerShell.
+
+Los tres scripts que participan en el camino P5-F dejan de depender de
+`Get-FileHash`:
+
+```txt
+tools/modbus-tcp-benchmark/gates/
+  a14_p5f_rebuild_core_datalog_autoservice.ps1
+
+tools/build-speed-benchmark/
+  Build-JWPLCPrecompiledCore.ps1
+  Verify-JWPLCPrecompiledCore.ps1
+```
+
+Se añade una función local basada únicamente en .NET:
+
+```powershell
+[System.Security.Cryptography.SHA256]::Create()
+[System.IO.File]::OpenRead(...)
+```
+
+La semántica se conserva:
+
+```txt
+SHA256 exacto del archivo
+comparación baseline/candidato
+sin dependencia de cmdlets opcionales
+```
+
+Estado:
+
+```txt
+P5F_ATTEMPT_1=TOOLING_COMPATIBILITY_FAIL
+CORE_A_MUTATION=NO
+P5F_R1=READY_TO_RERUN
+```
