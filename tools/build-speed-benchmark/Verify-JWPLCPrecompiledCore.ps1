@@ -105,9 +105,9 @@ function Get-CompileDatabaseInfo
         )
         {
             $candidateText =
-                $directoryText.TrimEnd([char[]]"\/") +
+                $directoryText.TrimEnd([char]92, [char]47) +
                 "/" +
-                $fileText.TrimStart([char[]]"\/")
+                $fileText.TrimStart([char]92, [char]47)
         }
         else
         {
@@ -116,7 +116,7 @@ function Get-CompileDatabaseInfo
         }
 
         $normalized =
-            $candidateText.Replace('\', '/')
+            $candidateText.Replace([char]92, [char]47)
 
         if ($normalized -match '/cores/jwcontrol_precompiled_stub/')
         {
@@ -296,7 +296,9 @@ if ($Target -eq "Basic")
     $archiveLinked = Test-NativeOutputContains -Output $result.Output -Pattern '[\\/]precompiled[\\/]core[\\/]JWPLCBASIC[\\/]core\.a'
     $stubNamedCount = @(
         $result.CompileDb.StubFiles | Where-Object {
-            ([string]$_).Replace('\', '/') -match '/precompiled_core_stub\.c
+            ([string]$_).
+                Replace([char]92, [char]47).
+                EndsWith("/precompiled_core_stub.c")
         }
     ).Count
 
@@ -359,7 +361,9 @@ else
     $archiveLinked = Test-NativeOutputContains -Output $result.Output -Pattern '[\\/]precompiled[\\/]core[\\/]JWPLCBASIC[\\/]core\.a'
     $peripheralsCount = @(
         $result.CompileDb.SourceFiles | Where-Object {
-            ([string]$_).Replace('\', '/') -match '/peripherals_init\.cpp
+            ([string]$_).
+                Replace([char]92, [char]47).
+                EndsWith("/peripherals_init.cpp")
         }
     ).Count
 
