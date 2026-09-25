@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import argparse
+import re
 from pathlib import Path
 
 
-ANCHOR = (
-    "static constexpr uint32_t "
-    "RTU_TIMEOUT_MS = 15UL;"
+PATTERN = re.compile(
+    r"static constexpr uint32_t "
+    r"RTU_TIMEOUT_MS = (\d+)UL;"
 )
 
 
@@ -29,24 +30,34 @@ def main() -> int:
         )
 
     text = path.read_text(encoding="utf-8")
+    matches = list(PATTERN.finditer(text))
 
-    count = text.count(ANCHOR)
-
-    if count != 1:
+    if len(matches) != 1:
         raise RuntimeError(
-            f"P5C_TIMEOUT_ANCHOR_COUNT={count}"
+            "P5C_TIMEOUT_ANCHOR_COUNT="
+            f"{len(matches)}"
         )
+
+    previous_timeout = int(
+        matches[0].group(1)
+    )
 
     replacement = (
         "static constexpr uint32_t "
         f"RTU_TIMEOUT_MS = {args.timeout_ms}UL;"
     )
 
-    text = text.replace(
-        ANCHOR,
+    text, count = PATTERN.subn(
         replacement,
-        1,
+        text,
+        count=1,
     )
+
+    if count != 1:
+        raise RuntimeError(
+            "P5C_TIMEOUT_REPLACE_COUNT="
+            f"{count}"
+        )
 
     if text.count(replacement) != 1:
         raise RuntimeError(
@@ -59,6 +70,10 @@ def main() -> int:
         newline="\n",
     )
 
+    print(
+        "P5C_PREVIOUS_TIMEOUT_MS="
+        f"{previous_timeout}"
+    )
     print(
         f"P5C_TIMEOUT_MS={args.timeout_ms}"
     )
