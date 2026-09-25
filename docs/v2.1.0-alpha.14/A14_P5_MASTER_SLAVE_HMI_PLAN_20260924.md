@@ -2196,3 +2196,40 @@ Como `main.cpp` forma parte de `core.a`, el gate reconstruye y verifica un
 core candidato local. El binario queda dirty de forma controlada y NO se adopta
 ni se protege con nuevo hash hasta revisar el resultado físico.
 
+### P5-E2 intento 2a — F056: escapes de backslash corrompieron wrapper BAT
+
+El primer lanzamiento del candidato `CORE_PRE_POST_LOOP_AUTOSERVICE` se detuvo
+durante la validación de sintaxis, antes de reconstruir `core.a`.
+
+Salida clave:
+
+```txt
+POWERSHELL_SYNTAX=PASS
+Resolve-Path : Caracteres no válidos en la ruta de acceso.
+```
+
+La inspección del wrapper remoto mostró que secuencias Windows con backslash
+habían sido interpretadas al generar el archivo: `\t` se convirtió en tab,
+`\b` en backspace y el tramo `..\..\..` quedó mutilado.
+
+Clasificación:
+
+```txt
+F056=GENERATED_BAT_BACKSLASH_ESCAPE_CORRUPTION
+TYPE=TOOLING_FAILURE
+PRODUCT_FAILURE=NO
+CORE_REBUILD_STARTED=NO
+P5E2_CANDIDATE_EXECUTED=NO
+```
+
+Corrección:
+
+```txt
+- regenerar el BAT preservando backslashes literalmente;
+- usar rutas directas desde %~dp0;
+- comprobar existencia de cada PS1 antes de invocar el parser;
+- verificar ausencia de caracteres de control en el wrapper generado.
+```
+
+El source del candidato P5-E2 no cambia.
+
