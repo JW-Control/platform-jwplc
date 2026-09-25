@@ -95,22 +95,36 @@ function Get-CompileDatabaseInfo
             continue
         }
 
-        if (-not [System.IO.Path]::IsPathRooted($file))
+        $fileText = $file.Trim().Trim('"').Trim("'")
+        $directoryText = [string]$entry.directory
+        $directoryText = $directoryText.Trim().Trim('"').Trim("'")
+
+        if (
+            -not [System.IO.Path]::IsPathRooted($fileText) -and
+            -not [string]::IsNullOrWhiteSpace($directoryText)
+        )
         {
-            $directory = [string]$entry.directory
-            $file = Join-Path $directory $file
+            $candidateText =
+                $directoryText.TrimEnd('\', '/') +
+                "/" +
+                $fileText.TrimStart('\', '/')
+        }
+        else
+        {
+            $candidateText =
+                $fileText
         }
 
-        $full = [System.IO.Path]::GetFullPath($file)
-        $normalized = $full.Replace('\', '/')
+        $normalized =
+            $candidateText.Replace('\', '/')
 
         if ($normalized -match '/cores/jwcontrol_precompiled_stub/')
         {
-            [void]$stubFiles.Add($full)
+            [void]$stubFiles.Add($candidateText)
         }
         elseif ($normalized -match '/cores/jwcontrol/')
         {
-            [void]$sourceFiles.Add($full)
+            [void]$sourceFiles.Add($candidateText)
         }
     }
 
