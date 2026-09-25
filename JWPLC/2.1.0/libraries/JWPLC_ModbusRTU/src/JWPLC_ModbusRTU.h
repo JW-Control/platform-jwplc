@@ -86,6 +86,12 @@ public:
     void setFrameGapUs(uint32_t gapUs);
     uint32_t frameGapUs() const;
 
+    // F3: seleccion de transporte TX. El default sigue siendo bloqueante
+    // para conservar compatibilidad hasta cerrar la qualification.
+    void setQueuedTxEnabled(bool enabled);
+    bool queuedTxEnabled() const;
+    bool queuedTxActive() const;
+
     // Mapas Slave. Coils y Discrete Inputs usan bits empaquetados LSB-first:
     // bit 0 del byte 0 = direccion 0, bit 1 = direccion 1, etc.
     void setCoils(uint8_t *bits, uint16_t count);
@@ -266,6 +272,7 @@ private:
     uint32_t _config;
     uint16_t _frameGapMs;
     uint32_t _frameGapUs;
+    bool _queuedTxEnabled;
 
     uint8_t *_coils;
     uint16_t _coilCount;
@@ -302,6 +309,7 @@ private:
     uint32_t _masterTimeoutMs;
 
     void clearRxBuffer();
+    size_t writeTransport(const uint8_t *buffer, size_t size);
     void setError(JWPLCModbusRTUError error);
     void clearError();
 

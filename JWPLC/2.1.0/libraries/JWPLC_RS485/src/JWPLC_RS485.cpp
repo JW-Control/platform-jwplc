@@ -26,6 +26,7 @@ JWPLC_RS485Class::JWPLC_RS485Class()
       _config(JWPLC_RS485_DEFAULT_CONFIG),
       _rxPin(JWPLC_RS485_RX_PIN),
       _txPin(JWPLC_RS485_TX_PIN),
+      _txBufferSize(0),
       _ready(false),
       _lastError(JWPLC_RS485_NOT_STARTED),
       _lastActivityMs(0),
@@ -62,6 +63,19 @@ bool JWPLC_RS485Class::begin(uint32_t baud, uint32_t config)
 
     _baud = baud;
     _config = config;
+
+#if JWPLC_RS485_AUTO_DIRECTION && (JWPLC_RS485_TX_BUFFER_SIZE > 0)
+    if (!_ready)
+    {
+        const size_t configured =
+            _serial->setTxBufferSize(JWPLC_RS485_TX_BUFFER_SIZE);
+
+        if (configured > 0)
+        {
+            _txBufferSize = configured;
+        }
+    }
+#endif
 
     _serial->begin(_baud, _config, _rxPin, _txPin);
     _ready = true;
@@ -116,6 +130,29 @@ uint32_t JWPLC_RS485Class::baudRate() const
 uint32_t JWPLC_RS485Class::config() const
 {
     return _config;
+}
+
+bool JWPLC_RS485Class::autoDirection() const
+{
+#if JWPLC_HAS_RS485 && JWPLC_RS485_AUTO_DIRECTION
+    return true;
+#else
+    return false;
+#endif
+}
+
+size_t JWPLC_RS485Class::txBufferSize() const
+{
+    return _txBufferSize;
+}
+
+bool JWPLC_RS485Class::queuedWriteSupported() const
+{
+#if JWPLC_HAS_RS485 && JWPLC_RS485_AUTO_DIRECTION
+    return _ready && _serial != nullptr && _txBufferSize > 0;
+#else
+    return false;
+#endif
 }
 
 int8_t JWPLC_RS485Class::rxPin() const
@@ -217,6 +254,42 @@ size_t JWPLC_RS485Class::write(const uint8_t *buffer, size_t size)
     }
 
     jwplcRs485PostTransmitCallback();
+
+    return written;
+#endif
+}
+
+size_t JWPLC_RS485Class::writeQueued(uint8_t data)
+{
+    return writeQueued(&data, 1);
+}
+
+size_t JWPLC_RS485Class::writeQueued(
+    const uint8_t *buffer,
+    size_t size)
+{
+#if !JWPLC_HAS_RS485
+    setError(JWPLC_RS485_DISABLED);
+    return 0;
+#else
+    if (!queuedWriteSupported())
+    {
+        // Conserva semantica y DE/RE manual en hardware no AutoDirection.
+        return write(buffer, size);
+    }
+
+    if (buffer == nullptr || size == 0)
+    {
+        return 0;
+    }
+
+    const size_t written =
+        _serial->write(buffer, size);
+
+    if (written > 0)
+    {
+        markTxActivity();
+    }
 
     return written;
 #endif
@@ -330,6 +403,15 @@ void JWPLC_RS485Class::printStatus(Print &out)
 
     out.print("TX pin: ");
     out.println(_txPin);
+
+    out.print("AutoDirection: ");
+    out.println(autoDirection() ? "yes" : "no");
+
+    out.print("TX buffer bytes: ");
+    out.println((unsigned long)_txBufferSize);
+
+    out.print("Queued TX supported: ");
+    out.println(queuedWriteSupported() ? "yes" : "no");
 
     out.print("Last error: ");
     out.println(lastErrorString());

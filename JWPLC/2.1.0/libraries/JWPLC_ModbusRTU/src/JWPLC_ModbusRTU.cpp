@@ -9,6 +9,7 @@ JWPLC_ModbusRTUClass::JWPLC_ModbusRTUClass()
       _config(JWPLC_MODBUS_RTU_DEFAULT_CONFIG),
       _frameGapMs(5),
       _frameGapUs(5000UL),
+      _queuedTxEnabled(false),
       _coils(nullptr),
       _coilCount(0),
       _discreteInputs(nullptr),
@@ -152,6 +153,22 @@ void JWPLC_ModbusRTUClass::setFrameGapUs(uint32_t gapUs)
 uint32_t JWPLC_ModbusRTUClass::frameGapUs() const
 {
     return _frameGapUs;
+}
+
+void JWPLC_ModbusRTUClass::setQueuedTxEnabled(bool enabled)
+{
+    _queuedTxEnabled = enabled;
+}
+
+bool JWPLC_ModbusRTUClass::queuedTxEnabled() const
+{
+    return _queuedTxEnabled;
+}
+
+bool JWPLC_ModbusRTUClass::queuedTxActive() const
+{
+    return _queuedTxEnabled &&
+           JWPLC_RS485.queuedWriteSupported();
 }
 
 void JWPLC_ModbusRTUClass::setCoils(uint8_t *bits, uint16_t count)
@@ -778,7 +795,7 @@ bool JWPLC_ModbusRTUClass::requestWriteMultipleCoils(
 
     appendCRC(request, 7 + byteCount);
 
-    const size_t written = JWPLC_RS485.write(request, requestLength);
+    const size_t written = writeTransport(request, requestLength);
 
     if (written != requestLength)
     {
@@ -848,7 +865,7 @@ bool JWPLC_ModbusRTUClass::startReadBitsRequest(
     request[5] = lowByte(quantity);
     appendCRC(request, 6);
 
-    const size_t written = JWPLC_RS485.write(request, sizeof(request));
+    const size_t written = writeTransport(request, sizeof(request));
 
     if (written != sizeof(request))
     {
@@ -918,7 +935,7 @@ bool JWPLC_ModbusRTUClass::startReadRegistersRequest(
     request[5] = lowByte(quantity);
     appendCRC(request, 6);
 
-    const size_t written = JWPLC_RS485.write(request, sizeof(request));
+    const size_t written = writeTransport(request, sizeof(request));
 
     if (written != sizeof(request))
     {
@@ -984,7 +1001,7 @@ bool JWPLC_ModbusRTUClass::startWriteSingleRequest(
     request[5] = lowByte(value);
     appendCRC(request, 6);
 
-    const size_t written = JWPLC_RS485.write(request, sizeof(request));
+    const size_t written = writeTransport(request, sizeof(request));
 
     if (written != sizeof(request))
     {
@@ -1489,6 +1506,15 @@ void JWPLC_ModbusRTUClass::printStatus(Print &out) const
     out.print("Frame gap us: ");
     out.println(_frameGapUs);
 
+    out.print("Queued TX requested: ");
+    out.println(_queuedTxEnabled ? "yes" : "no");
+
+    out.print("Queued TX active: ");
+    out.println(queuedTxActive() ? "yes" : "no");
+
+    out.print("RS485 TX buffer bytes: ");
+    out.println((unsigned long)JWPLC_RS485.txBufferSize());
+
     out.print("Coils: ");
     out.println(_coilCount);
 
@@ -1503,6 +1529,18 @@ void JWPLC_ModbusRTUClass::printStatus(Print &out) const
 
     out.print("Last error: ");
     out.println(lastErrorString());
+}
+
+size_t JWPLC_ModbusRTUClass::writeTransport(
+    const uint8_t *buffer,
+    size_t size)
+{
+    if (queuedTxActive())
+    {
+        return JWPLC_RS485.writeQueued(buffer, size);
+    }
+
+    return JWPLC_RS485.write(buffer, size);
 }
 
 void JWPLC_ModbusRTUClass::clearRxBuffer()
@@ -1633,7 +1671,7 @@ void JWPLC_ModbusRTUClass::sendException(
     response[2] = exceptionCode;
     appendCRC(response, 3);
 
-    JWPLC_RS485.write(response, sizeof(response));
+    writeTransport(response, sizeof(response));
     _stats.exceptionsSent++;
     _stats.txFrames++;
 }
@@ -1643,7 +1681,7 @@ void JWPLC_ModbusRTUClass::sendFrame(
     uint16_t payloadLength)
 {
     appendCRC(frame, payloadLength);
-    JWPLC_RS485.write(frame, payloadLength + 2);
+    writeTransport(frame, payloadLength + 2);
     _stats.txFrames++;
 }
 

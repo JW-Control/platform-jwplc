@@ -47,6 +47,29 @@ reporta el equivalente entero redondeado hacia arriba.
 El valor por defecto continua siendo **5 ms**. RTU-F1 no cambia aun la politica
 de gap segun baudrate.
 
+## Modo TX RTU-F3
+
+El default de Modbus RTU sigue siendo TX bloqueante para conservar
+compatibilidad. RTU-F3 anade una seleccion de package:
+
+```cpp
+JWPLC_ModbusRTU.setQueuedTxEnabled(false); // historico
+JWPLC_ModbusRTU.setQueuedTxEnabled(true);  // candidato AutoDirection
+```
+
+Estado:
+
+```cpp
+JWPLC_ModbusRTU.queuedTxEnabled();
+JWPLC_ModbusRTU.queuedTxActive();
+```
+
+Cuando la ruta encolada esta habilitada y `JWPLC_RS485` confirma soporte
+AutoDirection, Modbus usa `writeQueued()`. En hardware sin ese soporte se
+mantiene el transporte bloqueante.
+
+Esta ruta se encuentra en qualification y no cambia aun el default publico.
+
 ## Funciones soportadas
 
 ### Slave / Server

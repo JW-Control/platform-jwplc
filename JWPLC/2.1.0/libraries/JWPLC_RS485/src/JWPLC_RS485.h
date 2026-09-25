@@ -36,6 +36,9 @@ public:
 
     uint32_t baudRate() const;
     uint32_t config() const;
+    bool autoDirection() const;
+    size_t txBufferSize() const;
+    bool queuedWriteSupported() const;
 
     uint32_t lastActivityMs() const;
     uint32_t lastRxActivityMs() const;
@@ -51,6 +54,12 @@ public:
 
     size_t write(uint8_t data) override;
     size_t write(const uint8_t *buffer, size_t size) override;
+
+    // Ruta aditiva para hardware AutoDirection. Encola y retorna sin flush.
+    // Si el hardware no la soporta, cae de forma segura al write bloqueante.
+    size_t writeQueued(uint8_t data);
+    size_t writeQueued(const uint8_t *buffer, size_t size);
+
     using Print::write;
 
     void flush();
@@ -71,6 +80,7 @@ private:
     uint32_t _config;
     int8_t _rxPin;
     int8_t _txPin;
+    size_t _txBufferSize;
     bool _ready;
     JWPLCRS485Error _lastError;
 
