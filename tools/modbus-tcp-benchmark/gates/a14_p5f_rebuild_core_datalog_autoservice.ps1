@@ -50,8 +50,15 @@ function Invoke-NativeCaptured {
 
     try {
         $ErrorActionPreference = "Continue"
-        & $FilePath @Arguments *>&1 | Tee-Object -FilePath $LogPath
-        return $LASTEXITCODE
+
+        & $FilePath @Arguments *>&1 |
+            Tee-Object -FilePath $LogPath |
+            ForEach-Object {
+                Write-Host $_
+            }
+
+        $exitCode = [int]$LASTEXITCODE
+        return $exitCode
     }
     finally {
         $ErrorActionPreference = $previous
