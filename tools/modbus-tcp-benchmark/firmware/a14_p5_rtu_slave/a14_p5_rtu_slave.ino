@@ -176,6 +176,37 @@ static void printSnapshot()
     Serial.print("RTU_FRAME_GAP_US=");
     Serial.println(JWPLC_ModbusRTU.frameGapUs());
 
+    Serial.print("RTU_TX_MODE=");
+    Serial.println(
+        JWPLC_ModbusRTU.queuedTxActive()
+            ? "QUEUED"
+            : "BLOCKING");
+
+    Serial.print("RTU_TX_QUEUED_REQUESTED=");
+    Serial.println(
+        yesNo(
+            JWPLC_ModbusRTU.queuedTxEnabled()));
+
+    Serial.print("RTU_TX_QUEUED_ACTIVE=");
+    Serial.println(
+        yesNo(
+            JWPLC_ModbusRTU.queuedTxActive()));
+
+    Serial.print("RS485_AUTO_DIRECTION=");
+    Serial.println(
+        yesNo(
+            JWPLC_RS485.autoDirection()));
+
+    Serial.print("RS485_TX_BUFFER_BYTES=");
+    Serial.println(
+        (unsigned long)
+            JWPLC_RS485.txBufferSize());
+
+    Serial.print("RS485_QUEUED_TX_SUPPORTED=");
+    Serial.println(
+        yesNo(
+            JWPLC_RS485.queuedWriteSupported()));
+
     Serial.print("RTU_RX_FRAMES=");
     Serial.println(s.rxFrames);
 
@@ -304,6 +335,19 @@ static void serviceSerial()
         {
             JWPLC_ModbusRTU.setFrameGapUs(300UL);
             Serial.println("RTU_FRAME_GAP_US=300");
+        }
+        else if (c == 'Y' || c == 'y')
+        {
+            JWPLC_ModbusRTU.setQueuedTxEnabled(false);
+            Serial.println("RTU_TX_MODE=BLOCKING");
+        }
+        else if (c == 'Z' || c == 'z')
+        {
+            JWPLC_ModbusRTU.setQueuedTxEnabled(true);
+            Serial.println(
+                JWPLC_ModbusRTU.queuedTxActive()
+                    ? "RTU_TX_MODE=QUEUED"
+                    : "RTU_TX_MODE=QUEUED_UNAVAILABLE");
         }
         else if (c == 'S' || c == 's')
         {
