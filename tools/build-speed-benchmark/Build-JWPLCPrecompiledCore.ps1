@@ -91,6 +91,8 @@ function Get-CompileDatabaseInfo
     $entries = @(Get-Content -LiteralPath $compileDbPath -Raw | ConvertFrom-Json)
     $sourceFiles = New-Object System.Collections.Generic.List[string]
     $stubFiles = New-Object System.Collections.Generic.List[string]
+    $peripheralsInitCount = 0
+    $precompiledStubCount = 0
 
     foreach ($entry in $entries)
     {
@@ -134,10 +136,24 @@ function Get-CompileDatabaseInfo
         if ($candidateText -match '/cores/jwcontrol_precompiled_stub/')
         {
             [void]$stubFiles.Add($candidateText)
+
+            if ($candidateText.EndsWith(
+                    "/precompiled_core_stub.c",
+                    [System.StringComparison]::OrdinalIgnoreCase))
+            {
+                ++$precompiledStubCount
+            }
         }
         elseif ($candidateText -match '/cores/jwcontrol/')
         {
             [void]$sourceFiles.Add($candidateText)
+
+            if ($candidateText.EndsWith(
+                    "/peripherals_init.cpp",
+                    [System.StringComparison]::OrdinalIgnoreCase))
+            {
+                ++$peripheralsInitCount
+            }
         }
     }
 
@@ -147,6 +163,8 @@ function Get-CompileDatabaseInfo
         StubFiles = @($stubFiles)
         SourceCount = $sourceFiles.Count
         StubCount = $stubFiles.Count
+        PeripheralsInitCount = $peripheralsInitCount
+        PrecompiledStubCount = $precompiledStubCount
     }
 }
 
@@ -358,11 +376,7 @@ try
         throw "El build fuente compilo inesperadamente el stub precompilado."
     }
 
-    $peripheralsCount = @(
-        $result.CompileDb.SourceFiles | Where-Object {
-            ([string]$_).Replace([char]92, [char]47) -like "*/peripherals_init.cpp"
-        }
-    ).Count
+    $peripheralsCount = [int]$result.CompileDb.PeripheralsInitCount
 
     if ($peripheralsCount -ne 1)
     {

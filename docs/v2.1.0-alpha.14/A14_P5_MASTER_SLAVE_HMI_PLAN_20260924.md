@@ -1771,3 +1771,53 @@ Wrapper:
 ```
 
 Esto se considera corrección de F053, no una clase nueva.
+
+### P5-F intento 4 — recurrencia F052 en auditoría de TU
+
+La reejecución física sobre `fcf087f6` superó los tres preflights PowerShell y
+confirmó nuevamente el baseline stale, pero el builder abortó después del build
+fuente con:
+
+```txt
+Se esperaba exactamente 1 peripherals_init.cpp compilado; obtenido: 0
+P5F_CORE_REBUILD_EXIT=1
+```
+
+Diagnóstico sobre el `compile_commands.json` real de la misma corrida:
+
+```txt
+COMPILE_DB_ENTRIES=80
+FILE_CORE_COUNT=64
+COMMAND_CORE_COUNT=80
+PERIPHERALS_FILE_FIELD_COUNT=1
+PERIPHERALS_CANDIDATE_COUNT=1
+PERIPHERALS_COMMAND_COUNT=1
+PERIPHERALS_OBJECT_COUNT=2
+peripherals_init.cpp.o = PRESENT
+```
+
+Conclusión:
+
+```txt
+PRODUCT_FAILURE=NO_EVIDENCE
+SOURCE_BUILD_PERIPHERALS_INIT=CONFIRMED
+CORE_A_REPLACED=NO
+F054=NOT_CREATED
+F052=RECURRENCE_HARDENED
+```
+
+La causa fue una segunda interpretación de `SourceFiles` después de que
+`Get-CompileDatabaseInfo()` ya había clasificado correctamente los TUs.
+
+Corrección:
+
+```txt
+- contar peripherals_init.cpp dentro del mismo parser/candidateText;
+- contar precompiled_core_stub.c dentro del mismo parser/candidateText;
+- usar EndsWith(..., OrdinalIgnoreCase);
+- exponer PeripheralsInitCount y PrecompiledStubCount;
+- no volver a filtrar SourceFiles/StubFiles para esos invariantes.
+```
+
+P5-F sigue siendo el único gate abierto; no se avanzó a upload ni probe físico.
+
