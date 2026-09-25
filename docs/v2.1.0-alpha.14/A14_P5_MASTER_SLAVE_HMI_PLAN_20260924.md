@@ -2269,3 +2269,54 @@ la duración nominal solicitada. Un request iniciado antes del deadline pero
 completado unas fracciones después queda en el último bucket válido. Por tanto,
 600 s / 60 s debe producir exactamente 10 buckets.
 
+### P5-CAP1 — capacidad Ethernet con carga industrial activa
+
+Objetivo: separar dos métricas:
+
+```txt
+MAX_REQ_S = máximo de transacciones Modbus TCP por segundo.
+MAX_USEFUL_MBPS = máximo caudal útil de registros FC03 por segundo.
+```
+
+Se conserva el mismo full-runtime validado y el mismo core autoservice candidato.
+No se reduce carga de periféricos.
+
+Perfil:
+
+```txt
+TFT telemetry           = 10 Hz, USER_REFRESH_ON_DEMAND / dirty redraw
+I/O sample              = 50 Hz
+Buttons                 = 50 Hz
+Modbus RTU Master       = 50 Hz
+FRAM                    = 4 ciclos/s
+FRAM per cycle          = 32 B write + 32 B read + 32 B restore
+FRAM payload            = 384 B/s
+RTC cache sample        = 4 Hz
+microSD record          = 1 Hz x 32 B = 32 B/s lógicos
+DataLog buffer          = 4096 B
+DataLog threshold       = 512 B
+DataLog timeout         = 5000 ms
+SD verify/status        = 0.2 Hz
+SPI mutex probe         = 10 Hz
+W5500                   = 26 MHz
+```
+
+Sweep FC03 unpaced, un request pendiente:
+
+```txt
+Q = 1, 8, 16, 32, 64, 125 registers
+duration = 30 s por punto
+```
+
+Para FC03:
+
+```txt
+request application bytes      = 12 B
+response application bytes     = 9 + 2*Q B
+useful register bytes/response = 2*Q B
+transaction application bytes  = 21 + 2*Q B
+```
+
+Q pequeño favorece req/s; Q grande favorece Mbps útiles. P5-CAP1 caracteriza
+ambos máximos bajo carga periférica representativa sin modificar el producto.
+
