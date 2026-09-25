@@ -69,3 +69,47 @@ considerar margen y no solo el maximo throughput.
 Tras F2C se selecciona el gap candidato para RTU-F3. F3 mantiene 115200 y el
 mismo gap mientras compara la TX bloqueante actual frente a una estrategia que
 evite mantener la CPU esperando en `flush()`. El baudrate se cambia despues.
+
+## Resultado fisico RTU-F2C
+
+| Gap | TCP req/s | TCP target | RTU | RTU fail | Timeout | CRC M/S | Runtime |
+|---:|---:|---:|---:|---:|---:|---:|---|
+| 600 us | 499.679 | 99.936 % | 248.238 Hz | 0 | 0 | 0 / 0 | limpio |
+| 500 us | 500.000 | 100.000 % | 252.573 Hz | 0 | 0 | 0 / 0 | limpio |
+| 300 us | 499.998 | 100.000 % | 266.483 Hz | 0 | 0 | 0 / 0 | limpio |
+
+Latencia TCP:
+
+| Gap | AVG | P95 | P99 |
+|---:|---:|---:|---:|
+| 600 us | 1383.2 us | 2667.3 us | 9220.1 us |
+| 500 us | 1518.0 us | 4151.3 us | 10754.9 us |
+| 300 us | 1391.5 us | 2624.2 us | 9024.6 us |
+
+Comparacion entre candidatos:
+
+```txt
+500 vs 600 us = +1.746 % RTU
+300 vs 500 us = +5.507 % RTU
+```
+
+Los tres puntos mantienen TCP_CLEAN=YES, RTU_CLEAN=YES y RUNTIME_CLEAN=YES.
+
+### Decision para RTU-F3
+
+Se selecciona **500 us** como baseline de trabajo para F3:
+
+- conserva margen temporal respecto a 300 us;
+- supera levemente a 600 us;
+- mantiene TCP500 al 100 % en esta corrida;
+- deja solo 5.507 % de rendimiento RTU respecto al extremo de 300 us.
+
+300 us queda como punto rapido experimental, no como default de producto.
+
+Estado:
+
+```txt
+A14_RTU_F2C=PASS_CHARACTERIZED
+RTU_F3_BASELINE_GAP_US=500
+```
+
