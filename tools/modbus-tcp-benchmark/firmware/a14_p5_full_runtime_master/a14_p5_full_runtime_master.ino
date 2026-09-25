@@ -1757,6 +1757,17 @@ static void printP5Preflight()
     const uint32_t peripheralFailures =
         peripheralFailureCount();
 
+    uint32_t rtuDurationMs =
+        rtuTrafficDurationMs;
+
+    if (rtuTrafficEnabled)
+    {
+        rtuDurationMs =
+            (uint32_t)(
+                millis() -
+                rtuTrafficStartMs);
+    }
+
     Serial.print("FULL_RUNTIME_READY=");
     Serial.println(yesNo(fullReady));
 
@@ -1798,11 +1809,29 @@ static void printP5Preflight()
     Serial.print("RTU_TRAFFIC_ENABLED=");
     Serial.println(yesNo(rtuTrafficEnabled));
 
+    Serial.print("RTU_TRAFFIC_DURATION_MS=");
+    Serial.println(rtuDurationMs);
+
+    Serial.print("RTU_TIMEOUT_MS=");
+    Serial.println(RTU_TIMEOUT_MS);
+
+    Serial.print("RTU_REQUESTS_STARTED=");
+    Serial.println(rtuRequestsStarted);
+
+    Serial.print("RTU_REQUESTS_REJECTED=");
+    Serial.println(rtuRequestsRejected);
+
+    Serial.print("RTU_REQUESTS_COMPLETED=");
+    Serial.println(rtuRequestsCompleted);
+
     Serial.print("RTU_REQUESTS_SUCCESS=");
     Serial.println(success);
 
     Serial.print("RTU_REQUESTS_FAILED=");
     Serial.println(failed);
+
+    Serial.print("RTU_PERIODS_SKIPPED=");
+    Serial.println(rtuPeriodsSkipped);
 
     Serial.print("RTU_VERIFY_FAILS=");
     Serial.println(verifyFails);
@@ -1812,6 +1841,24 @@ static void printP5Preflight()
 
     Serial.print("RTU_MASTER_TIMEOUTS=");
     Serial.println(masterTimeouts);
+
+    Serial.print("RTU_SERVICE_GAP_MAX_US=");
+    Serial.println(rtuServiceGapMaxUs);
+
+    Serial.print("LOOP_GAP_MAX_US=");
+    Serial.println(loopGapMaxUs);
+
+    Serial.print("FRAM_MAX_US=");
+    Serial.println(runtimeStats.framMaxUs);
+
+    Serial.print("SD_APPEND_MAX_US=");
+    Serial.println(runtimeStats.sdAppendMaxUs);
+
+    Serial.print("SD_VERIFY_MAX_US=");
+    Serial.println(runtimeStats.sdVerifyMaxUs);
+
+    Serial.print("DISPLAY_GAP_MAX_MS=");
+    Serial.println(displayServiceGapMaxMs);
 
     Serial.print("PERIPHERAL_FAILURE_COUNT=");
     Serial.println(peripheralFailures);
