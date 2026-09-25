@@ -168,11 +168,39 @@ try {
         if (-not (Test-Path -LiteralPath $compileLog)) {
             throw ("RTUF1_COMPILE_LOG_MISSING={0}" -f $compileLog)
         }
+    }
 
-        $compileText = [System.IO.File]::ReadAllText($compileLog)
-        if (-not $compileText.Contains("JWPLC_ModbusRTU.cpp")) {
-            throw ("RTUF1_SOURCE_NOT_COMPILED={0}" -f $compileLog)
+    $tempRootMatch = [regex]::Match(
+        $setupText,
+        "(?m)^TEMP_ROOT=(.+?)\r?$"
+    )
+
+    if (-not $tempRootMatch.Success) {
+        throw "RTUF1_P5B_TEMP_ROOT_MISSING"
+    }
+
+    $p5bTempRoot = $tempRootMatch.Groups[1].Value.Trim()
+    $masterBuild = Join-Path $p5bTempRoot "build_master"
+    $slaveBuild = Join-Path $p5bTempRoot "build_slave"
+
+    foreach ($buildPath in @($masterBuild, $slaveBuild)) {
+        if (-not (Test-Path -LiteralPath $buildPath)) {
+            throw ("RTUF1_BUILD_PATH_MISSING={0}" -f $buildPath)
         }
+
+        $modbusObjects = @(
+            Get-ChildItem -LiteralPath $buildPath -Recurse -File |
+                Where-Object {
+                    $_.Name -like "JWPLC_ModbusRTU.cpp.o*" -or
+                    $_.Name -like "JWPLC_ModbusRTU.cpp.obj*"
+                }
+        )
+
+        if ($modbusObjects.Count -lt 1) {
+            throw ("RTUF1_SOURCE_OBJECT_MISSING={0}" -f $buildPath)
+        }
+
+        Write-Host ("RTUF1_SOURCE_OBJECT={0}" -f $modbusObjects[0].FullName)
     }
 
     Write-Host "RTUF1_MASTER_SOURCE_COMPILED=YES"

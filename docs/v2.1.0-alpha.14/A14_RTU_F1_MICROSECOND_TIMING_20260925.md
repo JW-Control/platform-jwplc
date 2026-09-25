@@ -63,3 +63,19 @@ Criterios minimos:
 - cero CRC/timeouts/fallos;
 - SD/perifericos limpios;
 - ambos TFT estables.
+
+
+## Correccion de tooling posterior al primer intento
+
+El primer RTU-F1 fisico compilo, enlazo, subio ambos firmwares y paso el
+preflight fisico, pero el gate se detuvo al buscar literalmente
+`JWPLC_ModbusRTU.cpp` dentro de un log de Arduino CLI no verbose.
+
+Esto es un falso negativo de tooling, no un fallo de producto. La verificacion
+se corrige para buscar el objeto de compilacion `JWPLC_ModbusRTU.cpp.o`
+dentro del build path temporal.
+
+Como el firmware F1 ya fue cargado correctamente durante ese intento, se anade
+un gate `measure_loaded_firmware` que no compila ni sube: solo ejecuta los dos
+casos fisicos y verifica mediante snapshots que Master y Slave reporten
+`RTU_FRAME_GAP_US=2000`.
