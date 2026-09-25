@@ -554,6 +554,14 @@ def main() -> int:
         "DISPLAY_RENDER_MODE",
         "DISPLAY_REFRESH_MODE",
         "SD_READY",
+        "SD_WORKLOAD_MODE",
+        "SD_DATALOG_ACTIVE",
+        "SD_DATALOG_PENDING_BYTES",
+        "SD_DATALOG_COMMIT_THRESHOLD_BYTES",
+        "SD_DATALOG_COMMIT_TIMEOUT_MS",
+        "SD_DATALOG_ACCEPTED_BYTES",
+        "SD_DATALOG_COMMITTED_BYTES",
+        "SD_DATALOG_FAILED_COMMITS",
         "PERIPHERAL_FAILURE_COUNT",
     ):
         print(
@@ -733,6 +741,9 @@ def main() -> int:
         and master.get("ETH_READY") == "YES"
         and master.get("ETH_LINK") == "UP"
         and master.get("SD_READY") == "YES"
+        and master.get("SD_WORKLOAD_MODE") == "BUFFERED_DATALOG"
+        and master.get("SD_DATALOG_ACTIVE") == "YES"
+        and master.get("SD_DATALOG_FAILED_COMMITS") == "0"
         and master.get("PERIPHERAL_FAILURE_COUNT") == "0"
         and master.get("DISPLAY_RENDER_MODE")
         == "HMI_ON_DEMAND_DIRTY"
