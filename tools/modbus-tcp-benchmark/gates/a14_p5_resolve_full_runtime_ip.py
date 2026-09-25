@@ -230,6 +230,10 @@ def main() -> int:
                 ) == "YES"
                 and
                 last.get(
+                    "SD_WORKLOAD_MODE"
+                ) == "BUFFERED_DATALOG"
+                and
+                last.get(
                     "DISPLAY_READY"
                 ) == "YES"
                 and
@@ -269,6 +273,9 @@ def main() -> int:
                     "P5_COMBINED_RUNTIME_READY=YES"
                 )
                 print("P5_SD_READY=YES")
+                print(
+                    "P5_SD_WORKLOAD_MODE=BUFFERED_DATALOG"
+                )
                 print(
                     "P5_DISPLAY_HMI_DIRTY=YES"
                 )
