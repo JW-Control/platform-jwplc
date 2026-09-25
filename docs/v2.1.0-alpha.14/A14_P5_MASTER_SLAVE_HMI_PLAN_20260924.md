@@ -1505,3 +1505,109 @@ P5F_ATTEMPT_1=TOOLING_COMPATIBILITY_FAIL
 CORE_A_MUTATION=NO
 P5F_R1=READY_TO_RERUN
 ```
+
+
+## P5-F intento 2 — compile_commands path format
+
+El segundo intento superó F051 y confirmó correctamente:
+
+```txt
+P5F_CORE_SHA_BEFORE=
+6EDF40D105936318A2FD8A84D7F0724571657910E8D92E8538640EC613F4DD68
+
+P5F_SOURCE_DATALOG_TICK_CALL_COUNT=1
+
+P5F_CORE_LAST_COMMIT=
+64ce22447e0a9b5852ed83cb5f3a1bd2de3aa218
+
+P5F_DATALOG_CALLBACK_INTRO_COMMIT=
+7e465e8e5e6efbbf0a15ef1c77c4042ed124825e
+
+P5F_CORE_COMMIT_BEFORE_CALLBACK_COMMIT=True
+P5F_CALLBACK_COMMIT_IN_CORE_HISTORY=False
+```
+
+Por tanto la hipótesis de F050 quedó nuevamente corroborada antes del rebuild.
+
+El build fuente sí comenzó, pero se detuvo en:
+
+```txt
+Get-CompileDatabaseInfo
+Path.GetFullPath(entry.file)
+NotSupportedException:
+"No se admite el formato proporcionado de la ruta de acceso."
+```
+
+El fallo ocurre durante la auditoría de `compile_commands.json`, antes de que
+el candidato se copie al archive oficial.
+
+Estado del artefacto:
+
+```txt
+SOURCE_BUILD_STARTED=YES
+COMPILE_DB_AUDIT=FAIL
+CORE_A_REPLACED=NO
+BOARDS_LOCAL_RESTORED=YES
+```
+
+### F052
+
+```txt
+F052=COMPILE_DB_PATH_NORMALIZATION_ASSUMED_WINDOWS_GETFULLPATH
+```
+
+La clasificación de TUs sólo necesita distinguir:
+
+```txt
+/cores/jwcontrol/
+/cores/jwcontrol_precompiled_stub/
+```
+
+No necesita resolver `entry.file` a una ruta física absoluta.
+
+Corrección:
+
+- no usar `Path.GetFullPath(entry.file)`;
+- no usar `Path.IsPathRooted(entry.file)`;
+- no usar `Path.GetFileName(entry.file)` para estos TUs;
+- limpiar comillas residuales;
+- normalizar `\` a `/`;
+- si el file es relativo, concatenar textualmente `directory/file`;
+- clasificar por regex sobre texto normalizado.
+
+Se aplica tanto a:
+
+```txt
+Build-JWPLCPrecompiledCore.ps1
+Verify-JWPLCPrecompiledCore.ps1
+```
+
+### Corrección adicional de observabilidad
+
+`Invoke-NativeCaptured` del gate P5-F enviaba el stdout del child PowerShell
+por el pipeline de retorno. Por ello:
+
+```txt
+P5F_CORE_REBUILD_EXIT=
+<log completo ...> 1
+```
+
+en lugar de un entero.
+
+No fue la causa del fallo, pero se corrige para que:
+
+```txt
+P5F_CORE_REBUILD_EXIT=<int>
+P5F_CORE_VERIFY_EXIT=<int>
+```
+
+y el stdout continúe visible y guardado en log sin contaminar el return value.
+
+Estado:
+
+```txt
+P5F_ATTEMPT_2=TOOLING_COMPILE_DB_COMPATIBILITY_FAIL
+CORE_A_REPLACED=NO
+F052=CONFIRMED_AND_CORRECTED
+P5F_R2=READY_TO_RERUN
+```
