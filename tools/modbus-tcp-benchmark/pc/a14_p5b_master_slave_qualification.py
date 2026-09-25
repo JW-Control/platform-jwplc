@@ -460,6 +460,7 @@ def main() -> int:
         "RTU_READY",
         "RTU_ROLE",
         "RTU_TARGET_SLAVE_ID",
+        "RTU_TIMEOUT_MS",
         "RTU_TRAFFIC_ENABLED",
         "RTU_TRAFFIC_DURATION_MS",
         "RTU_REQUESTS_STARTED",
@@ -511,6 +512,11 @@ def main() -> int:
         print(
             f"{key}={slave.get(key, 'MISSING')}"
         )
+
+    rtu_timeout_ms = int_value(
+        master,
+        "RTU_TIMEOUT_MS",
+    )
 
     started = int_value(
         master,
@@ -569,6 +575,7 @@ def main() -> int:
         master.get("RTU_READY") == "YES"
         and master.get("RTU_ROLE") == "MASTER"
         and master.get("RTU_TARGET_SLAVE_ID") == "2"
+        and rtu_timeout_ms == 25
         and master.get("RTU_TRAFFIC_ENABLED") == "YES"
         and started >= min_started
         and rejected == 0
@@ -695,6 +702,9 @@ def main() -> int:
     )
     print(
         f"RTU_SLAVE_OK_MASTER_SUCCESS_DELTA={ok_delta}"
+    )
+    print(
+        f"RTU_TIMEOUT_MS={rtu_timeout_ms}"
     )
     print(
         f"RTU_REQUESTS_STARTED={started}"
