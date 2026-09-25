@@ -83,3 +83,33 @@ Todos los casos deben mantener:
 
 La ganancia de rendimiento se caracteriza; no se exige una mejora minima para
 considerar valida la corrida.
+
+## Gate versionado
+
+El gate oculta temporalmente el archive precompilado de Modbus RTU, fuerza una
+unica compilacion/upload desde las fuentes actuales y verifica en los build
+paths la presencia de:
+
+```txt
+JWPLC_ModbusRTU.cpp.o
+JWPLC_RS485.cpp.o
+```
+
+Luego restaura el archive previo con el mismo SHA-256 y ejecuta el A/B sin
+recompilar entre modos.
+
+El runner valida en Master y Slave:
+
+```txt
+RTU_FRAME_GAP_US=500
+RS485_AUTO_DIRECTION=YES
+RS485_TX_BUFFER_BYTES>=257
+RS485_QUEUED_TX_SUPPORTED=YES
+```
+
+En BLOCKING, `RTU_TX_QUEUED_ACTIVE=NO`. En QUEUED debe ser `YES`.
+
+F3 es de caracterizacion: si ambos modos son estables se calcula la ganancia
+RTU y el cambio de latencia TCP antes de decidir si QUEUED pasa a ser el
+comportamiento recomendado del package.
+
