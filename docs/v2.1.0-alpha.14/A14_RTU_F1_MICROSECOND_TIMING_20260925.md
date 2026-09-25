@@ -41,3 +41,25 @@ productizado el cambio.
 TCP500 + RTU unpaced: TCP=500.000 req/s, RTU=198.274 Hz
 TCP OFF + RTU unpaced: RTU=214.288 Hz
 ```
+
+
+## Gate fisico RTU-F1
+
+El gate versionado fuerza build fuente ocultando temporalmente el archive
+precompilado y restaura su SHA al terminar.
+
+Casos:
+
+```txt
+TCP500 + RTU unpaced, 60 s
+TCP OFF + RTU unpaced, 60 s
+```
+
+Criterios minimos:
+
+- TCP500 >=99% del target;
+- RTU con TCP500 >=180 tx/s;
+- RTU con TCP OFF >=195 tx/s;
+- cero CRC/timeouts/fallos;
+- SD/perifericos limpios;
+- ambos TFT estables.

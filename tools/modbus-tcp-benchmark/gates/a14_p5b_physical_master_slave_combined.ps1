@@ -4,7 +4,8 @@ param(
     [double]$TcpRate = 1000.0,
     [double]$DurationS = 60.0,
     [switch]$SetupOnly,
-    [switch]$AllowDirtyCoreCandidate
+    [switch]$AllowDirtyCoreCandidate,
+    [switch]$AllowMissingModbusRtuArchiveCandidate
 )
 
 Set-StrictMode -Version Latest
@@ -37,6 +38,44 @@ function Get-LogValue {
     }
 
     return $matches[0].Groups[1].Value.Trim()
+}
+
+$modbusRtuArchiveRelative =
+    "JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/src/esp32/libJWPLC_ModbusRTU.a"
+
+function Assert-P5BCandidateDirtyScope {
+    param(
+        [string[]]$Paths,
+        [string]$Phase
+    )
+
+    $normalized = @(
+        $Paths |
+            ForEach-Object { $_.Replace("\", "/") } |
+            Sort-Object
+    )
+
+    $expected = @(
+        $script:G2CoreRelative.Replace("\", "/")
+    )
+
+    if ($AllowMissingModbusRtuArchiveCandidate) {
+        $expected += $modbusRtuArchiveRelative
+    }
+
+    $expected = @($expected | Sort-Object)
+
+    if ($normalized.Count -ne $expected.Count) {
+        $normalized | ForEach-Object { Write-Host "DIRTY=$_" }
+        throw ("P5B_{0}_CANDIDATE_DIRTY_COUNT_INVALID" -f $Phase)
+    }
+
+    for ($i = 0; $i -lt $expected.Count; ++$i) {
+        if ($normalized[$i] -ne $expected[$i]) {
+            $normalized | ForEach-Object { Write-Host "DIRTY=$_" }
+            throw ("P5B_{0}_CANDIDATE_DIRTY_SCOPE_INVALID" -f $Phase)
+        }
+    }
 }
 
 Write-Host "============================================================"
@@ -84,13 +123,7 @@ if ($AllowDirtyCoreCandidate) {
         throw "P5B_CANDIDATE_INDEX_NOT_CLEAN"
     }
 
-    if (
-        $dirty.Count -ne 1 -or
-        $dirty[0].Replace("\", "/") -ne $script:G2CoreRelative
-    ) {
-        $dirty | ForEach-Object { Write-Host "DIRTY=$_" }
-        throw "P5B_CANDIDATE_DIRTY_SCOPE_INVALID"
-    }
+    Assert-P5BCandidateDirtyScope -Paths $dirty -Phase "INITIAL"
 
     $candidateCoreHashInitial = Get-G2Sha256 $script:G2CoreRelative
     $candidateSdHashInitial = Get-G2Sha256 $script:G2SdRelative
@@ -383,12 +416,7 @@ if ($SetupOnly) {
     }
 
     if ($AllowDirtyCoreCandidate) {
-        if (
-            $setupFinalDirty.Count -ne 1 -or
-            $setupFinalDirty[0].Replace("\", "/") -ne $script:G2CoreRelative
-        ) {
-            throw "P5B_SETUP_CANDIDATE_DIRTY_SCOPE_INVALID"
-        }
+        Assert-P5BCandidateDirtyScope -Paths $setupFinalDirty -Phase "SETUP"
     }
     elseif ($setupFinalDirty.Count -ne 0) {
         throw "P5B_SETUP_PRODUCT_TREE_DIRTY"
@@ -506,12 +534,7 @@ if ($finalHz -ne 26000000) {
 }
 
 if ($AllowDirtyCoreCandidate) {
-    if (
-        $finalDirty.Count -ne 1 -or
-        $finalDirty[0].Replace("\", "/") -ne $script:G2CoreRelative
-    ) {
-        throw "P5B_FINAL_CANDIDATE_DIRTY_SCOPE_INVALID"
-    }
+    Assert-P5BCandidateDirtyScope -Paths $finalDirty -Phase "FINAL"
 }
 elseif ($finalDirty.Count -ne 0) {
     throw "P5B_PRODUCT_TREE_DIRTY"
