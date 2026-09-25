@@ -1925,3 +1925,51 @@ F054=CONFIRMED_AND_CORRECTED
 P5F=READY_TO_RERUN
 ```
 
+### P5-F cierre y adopción del core precompilado
+
+El gate P5-F completó PASS físico de punta a punta después de corregir F054.
+
+Resultado del core regenerado:
+
+```txt
+CORE_PRECOMPILED_BUILD=PASS
+CORE_PRECOMPILED_VERIFY_BASIC=PASS
+P5F_PROBE_COMPILE_EXIT=0
+P5F_PROBE_UPLOAD_EXIT=0
+P5F_COMMITTED_BYTES=12288
+P5F_COMMIT_COUNT=24
+P5F_FAILED_COMMITS=0
+P5F_WRITE_FAILS=0
+P5F_MANUAL_SERVICE_CALL=NO
+A14_P5F_DATALOG_RESULT=PASS
+P5F_AUTOSERVICE_PHYSICAL=PASS
+```
+
+SHA adoptado:
+
+```txt
+OLD_CORE_SHA256=6EDF40D105936318A2FD8A84D7F0724571657910E8D92E8538640EC613F4DD68
+NEW_CORE_SHA256=8BCE2CD02F93D6E303E91CB900E465BA36661196D37003E7FAF140D3DC5359FF
+```
+
+El candidato fue adoptado en:
+
+```txt
+1cd012be41fa27797fc28caf9f54b8eba480a94f
+fix(alpha14): actualizar core precompilado con autoservicio DataLog
+```
+
+El hash protegido de `common.ps1` se actualiza al nuevo core validado antes
+de repetir P5-D. El hash viejo se conserva únicamente como evidencia histórica
+del stale core que permitió confirmar F050.
+
+Estado:
+
+```txt
+P5_F_STATUS=CLOSED_PASS
+F050=ROOT_CAUSE_CONFIRMED
+F054=CLOSED
+CORE_PRECOMPILED_ADOPTED=YES
+NEXT=P5_D_RERUN_600S_WITH_PHYSICAL_DATALOG
+```
+
