@@ -1296,3 +1296,144 @@ F045_RECURRENCE=FIXED
 F048_25MS_LONG_RUN=REPRODUCED
 P5D_R2_BUFFERED_SD=READY_TO_RUN
 ```
+
+
+## P5-D-R2 — DataLog bufferizado expone core precompilado stale
+
+La corrida de 600 s con `JWPLCDataLog` produjo un contraste muy fuerte:
+
+```txt
+TCP:
+ACHIEVED_REQ_S=999.99
+ACHIEVED_PCT=99.999
+TCP_CLEAN=YES
+TCP_RATE_PASS=YES
+
+RTU:
+STARTED=30002
+COMPLETED=30002
+SUCCESS=30002
+FAILED=0
+TIMEOUTS=0
+CRC=0
+VERIFY_FAILS=0
+RTU_ACHIEVED_HZ=50.001
+RTU_CROSS_COUNT_PASS=YES
+```
+
+Los 10 buckets TCP quedaron aproximadamente en 1000 req/s:
+
+```txt
+999.97
+999.95
+1000.08
+1000.00
+998.48
+1001.38
+999.98
+1000.15
+999.97
+999.93
+```
+
+Sin embargo, la SD no realizó ningún commit físico:
+
+```txt
+SD_DATALOG_ACTIVE=YES
+SD_DATALOG_BUFFER_BYTES=4096
+SD_DATALOG_PENDING_BYTES=4096
+SD_DATALOG_ACCEPTED_BYTES=4096
+SD_DATALOG_COMMITTED_BYTES=0
+SD_DATALOG_FAILED_COMMITS=0
+
+SD_APPEND_CYCLES=600
+SD_APPEND_FAILS=472
+SD_VERIFY_CYCLES=120
+SD_VERIFY_FAILS=95
+```
+
+La aritmética es consistente con un ring de 4096 B que nunca se drena:
+
+```txt
+4096 B / 32 B por registro = 128 registros aceptados
+600 ciclos - 128 aceptados = 472 append fails
+```
+
+El manager DataLog no intentó commits: `failedCommits=0`, por lo que no se
+trata de una SD que rechaza writes, sino de ausencia de servicio automático.
+
+### Causa confirmada por historia de fuentes
+
+El `core.a` actualmente usado por JWPLC Basic fue actualizado por última vez
+en Alpha11:
+
+```txt
+core.a last commit:
+64ce22447e0a9b5852ed83cb5f3a1bd2de3aa218
+2026-09-09
+```
+
+En ese commit, `jwplcSystemTask()` no contiene:
+
+```cpp
+jwplcDataLogTickCallback();
+```
+
+La integración del servicio DataLog al runtime llegó después:
+
+```txt
+7e465e8e5e6efbbf0a15ef1c77c4042ed124825e
+2026-09-14
+feat(alpha14): integrar DataLog al runtime automatico
+```
+
+y añadió en `main.cpp`:
+
+```cpp
+#if JWPLC_HAS_SD
+    jwplcDataLogTickCallback();
+#endif
+```
+
+Por tanto el source actual y el archive precompilado divergen funcionalmente.
+
+### F050
+
+```txt
+F050=PRECOMPILED_CORE_STALE_AFTER_RUNTIME_SOURCE_CHANGE
+```
+
+El hash antiguo:
+
+```txt
+6EDF40D105936318A2FD8A84D7F0724571657910E8D92E8538640EC613F4DD68
+```
+
+deja de considerarse candidato final inmutable. Se conserva como baseline
+histórica de NB3/P3, pero P5 ha demostrado que no representa el runtime source
+actual.
+
+No se reemplaza silenciosamente. Primero se ejecutará P5-F:
+
+1. confirmar árbol limpio y hash baseline;
+2. comprobar que el commit del archive precede al commit que añadió el callback;
+3. regenerar `core.a` desde `cores/jwcontrol` con el mismo perfil
+   `jwplcbasic`;
+4. verificar el camino normal `jwcontrol_precompiled_stub + core.a`;
+5. subir un probe físico de DataLog;
+6. no llamar manualmente `JWPLC_SD.serviceDataLogs()`;
+7. exigir `commitCount>0`, `committedBytes>0`, cero failed commits y cero
+   write fails;
+8. dejar el nuevo `core.a` sólo como working-tree candidate, sin stage ni
+   commit, hasta revisar el resultado en chat.
+
+Estado:
+
+```txt
+P5D_R2_TCP_1000RPS=PASS
+P5D_R2_RTU50=PASS
+P5D_R2_SD_PHYSICAL_COMMIT=FAIL_NOT_SERVICED
+F049=P5_DIAGNOSTIC_CORRECTED
+F050=CONFIRMED
+P5F=READY_TO_RUN
+```
