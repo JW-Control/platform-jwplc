@@ -1,5 +1,6 @@
 import argparse
 import csv
+import math
 import socket
 import struct
 import sys
@@ -82,6 +83,26 @@ def run_case(
     )
 
     latencies_us = []
+
+    long_bucket_seconds = (
+        60.0
+        if duration >= 120.0
+        else 0.0
+    )
+
+    long_bucket_count = (
+        int(math.ceil(duration / long_bucket_seconds))
+        if long_bucket_seconds > 0
+        else 0
+    )
+
+    long_bucket_ok = [
+        0 for _ in range(long_bucket_count)
+    ]
+
+    long_bucket_latencies = [
+        [] for _ in range(long_bucket_count)
+    ]
 
     sent = 0
     ok = 0
@@ -176,10 +197,36 @@ def run_case(
                     time.perf_counter_ns()
                 )
 
-                latencies_us.append(
+                latency_us = (
                     (t1_ns - t0_ns) /
                     1000.0
                 )
+
+                latencies_us.append(
+                    latency_us
+                )
+
+                long_bucket_index = -1
+
+                if long_bucket_count > 0:
+                    elapsed_completion = (
+                        time.perf_counter() -
+                        start
+                    )
+
+                    long_bucket_index = min(
+                        int(
+                            elapsed_completion /
+                            long_bucket_seconds
+                        ),
+                        long_bucket_count - 1
+                    )
+
+                    long_bucket_latencies[
+                        long_bucket_index
+                    ].append(
+                        latency_us
+                    )
 
                 rx_bytes += (
                     len(header) +
@@ -196,6 +243,11 @@ def run_case(
 
                 if valid:
                     ok += 1
+
+                    if long_bucket_index >= 0:
+                        long_bucket_ok[
+                            long_bucket_index
+                        ] += 1
 
                     useful_data_bytes += (
                         USEFUL_DATA_BYTES
@@ -413,6 +465,79 @@ def run_case(
         rate_pass
     )
 
+    long_buckets = []
+
+    for bucket_index in range(
+        long_bucket_count
+    ):
+        bucket_start = (
+            bucket_index *
+            long_bucket_seconds
+        )
+
+        bucket_end = min(
+            (bucket_index + 1) *
+            long_bucket_seconds,
+            duration
+        )
+
+        bucket_duration = max(
+            0.000001,
+            bucket_end -
+            bucket_start
+        )
+
+        bucket_latencies = (
+            long_bucket_latencies[
+                bucket_index
+            ]
+        )
+
+        bucket_rate = (
+            long_bucket_ok[
+                bucket_index
+            ] /
+            bucket_duration
+        )
+
+        bucket_avg = (
+            sum(bucket_latencies) /
+            len(bucket_latencies)
+            if bucket_latencies
+            else 0.0
+        )
+
+        long_buckets.append({
+            "index":
+                bucket_index + 1,
+            "start_s":
+                bucket_start,
+            "end_s":
+                bucket_end,
+            "requests_ok":
+                long_bucket_ok[
+                    bucket_index
+                ],
+            "achieved_req_s":
+                bucket_rate,
+            "latency_avg_us":
+                bucket_avg,
+            "latency_p95_us":
+                q.percentile(
+                    bucket_latencies,
+                    0.95
+                ),
+            "latency_p99_us":
+                q.percentile(
+                    bucket_latencies,
+                    0.99
+                ),
+            "latency_max_us":
+                max(bucket_latencies)
+                if bucket_latencies
+                else 0.0,
+        })
+
     if stable_pass:
         classification = (
             "STABLE_PASS"
@@ -494,6 +619,8 @@ def run_case(
             stable_pass,
         "classification":
             classification,
+        "long_buckets":
+            long_buckets,
     }
 
 
@@ -544,6 +671,23 @@ def print_result(row):
         f"CROSS_COUNT_PASS="
         f"{'YES' if row['cross_count_pass'] else 'NO'}"
     )
+
+    for bucket in row.get(
+        "long_buckets",
+        []
+    ):
+        print(
+            "LONG_BUCKET "
+            f"INDEX={bucket['index']} "
+            f"START_S={bucket['start_s']:.0f} "
+            f"END_S={bucket['end_s']:.0f} "
+            f"REQ_S={bucket['achieved_req_s']:.2f} "
+            f"OK={bucket['requests_ok']} "
+            f"LAT_AVG_US={bucket['latency_avg_us']:.1f} "
+            f"P95_US={bucket['latency_p95_us']:.1f} "
+            f"P99_US={bucket['latency_p99_us']:.1f} "
+            f"MAX_US={bucket['latency_max_us']:.1f}"
+        )
 
 
 def main():
