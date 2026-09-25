@@ -100,23 +100,30 @@ function Get-CompileDatabaseInfo
             continue
         }
 
-        # Arduino CLI puede emitir entry.file en varios formatos
-        # según la versión/host: absoluto, relativo, con comillas residuales,
-        # slash Unix o backslash Windows. Para clasificar el TU no hace falta
-        # resolver una ruta física absoluta; basta normalizar texto.
-        $fileText = $file.Trim().Trim([char]34).Trim([char]39)
-        $directoryText = [string]$entry.directory
-        $directoryText = $directoryText.Trim().Trim([char]34).Trim([char]39)
+        $fileText =
+            $file.Trim().
+                Trim([char]34).
+                Trim([char]39).
+                Replace([char]92, [char]47)
+
+        $directoryText =
+            ([string]$entry.directory).Trim().
+                Trim([char]34).
+                Trim([char]39).
+                Replace([char]92, [char]47)
+
+        $isRooted =
+            $fileText -match '^(?:[A-Za-z]:/|/)'
 
         if (
-            $fileText -notmatch '^(?:[A-Za-z]:[\\/]|[\\/]{1,2})' -and
+            -not $isRooted -and
             -not [string]::IsNullOrWhiteSpace($directoryText)
         )
         {
             $candidateText =
-                $directoryText.TrimEnd([char]92, [char]47) +
+                $directoryText.TrimEnd([char]47) +
                 "/" +
-                $fileText.TrimStart([char]92, [char]47)
+                $fileText.TrimStart([char]47)
         }
         else
         {
@@ -124,16 +131,11 @@ function Get-CompileDatabaseInfo
                 $fileText
         }
 
-        $normalized =
-            $candidateText.Replace([char]92, [char]47)
-
-        # Se inspecciona el operando fuente real de compile_commands.json.
-        # No se infieren TUs a partir de rutas -I del log verbose.
-        if ($normalized -match '/cores/jwcontrol_precompiled_stub/')
+        if ($candidateText -match '/cores/jwcontrol_precompiled_stub/')
         {
             [void]$stubFiles.Add($candidateText)
         }
-        elseif ($normalized -match '/cores/jwcontrol/')
+        elseif ($candidateText -match '/cores/jwcontrol/')
         {
             [void]$sourceFiles.Add($candidateText)
         }
@@ -358,94 +360,7 @@ try
 
     $peripheralsCount = @(
         $result.CompileDb.SourceFiles | Where-Object {
-            ([string]$_).
-                Replace([char]92, [char]47).
-                EndsWith("/peripherals_init.cpp")
-        }
-    ).Count
-
-    if ($peripheralsCount -ne 1)
-    {
-        throw "Se esperaba exactamente 1 peripherals_init.cpp compilado; obtenido: $peripheralsCount"
-    }
-
-    $builtCore = Join-Path $buildPath "core\core.a"
-    if (-not (Test-Path $builtCore))
-    {
-        throw "No se genero core.a fuente: $builtCore"
-    }
-
-    Copy-Item -LiteralPath $builtCore -Destination $candidatePath -Force
-
-    $candidateSha = (Get-Sha256Hex -Path $candidatePath).ToLowerInvariant()
-    $candidateBytes = (Get-Item $candidatePath).Length
-    $sameArchiveSha = ($candidateSha -eq $archiveOriginalSha)
-
-    Write-Host ""
-    Write-Host ("Build fuente PASS en {0:N3} s" -f ($result.DurationMs / 1000.0)) -ForegroundColor Green
-    Write-Host ("compile_commands: total={0}, jwcontrol={1}, stub={2}" -f $result.CompileDb.Entries, $result.CompileDb.SourceCount, $result.CompileDb.StubCount) -ForegroundColor Green
-    Write-Host ("Candidato: {0} bytes" -f $candidateBytes) -ForegroundColor Green
-    Write-Host ("SHA256: {0}" -f $candidateSha) -ForegroundColor Green
-    Write-Host ("SHA reproducido respecto al archive previo: {0}" -f $sameArchiveSha) -ForegroundColor DarkGray
-
-    # Solo ahora se adopta el candidato. Verify-JWPLCPrecompiledCore.ps1 se
-    # encarga del gate separado con el target normal stub + core.a.
-    Copy-Item -LiteralPath $candidatePath -Destination $ArchivePath -Force
-    $archiveReplaced = $true
-
-    $installedSha = (Get-Sha256Hex -Path $ArchivePath).ToLowerInvariant()
-    if ($installedSha -ne $candidateSha)
-    {
-        throw "El core.a instalado no coincide con el candidato generado."
-    }
-
-    $lines = New-Object System.Collections.Generic.List[string]
-    $lines.Add("# Core JWPLC precompilado - build normalizado")
-    $lines.Add("")
-    $lines.Add(("Run: {0}" -f $runId))
-    $lines.Add("")
-    $lines.Add("Fuente canonica: cores/jwcontrol")
-    $lines.Add("Target de generacion: jwplc_local:esp32:jwplcbasic")
-    $lines.Add("Override temporal: build.core=jwcontrol; build.extra_libs vacio")
-    $lines.Add("")
-    $lines.Add(("Tiempo fuente: {0:N3} s" -f ($result.DurationMs / 1000.0)))
-    $lines.Add(("Compile DB total: {0}" -f $result.CompileDb.Entries))
-    $lines.Add(("jwcontrol TUs: {0}" -f $result.CompileDb.SourceCount))
-    $lines.Add(("stub TUs: {0}" -f $result.CompileDb.StubCount))
-    $lines.Add(("peripherals_init.cpp: {0}" -f $peripheralsCount))
-    $lines.Add("")
-    $lines.Add(("Archive anterior bytes: {0}" -f $archiveOriginalBytes))
-    $lines.Add(("Archive anterior SHA256: {0}" -f $archiveOriginalSha))
-    $lines.Add(("Archive candidato bytes: {0}" -f $candidateBytes))
-    $lines.Add(("Archive candidato SHA256: {0}" -f $candidateSha))
-    $lines.Add(("Archive SHA reproducido: {0}" -f $sameArchiveSha))
-    $lines.Add("")
-    $lines.Add("CORE_PRECOMPILED_BUILD=PASS")
-    $lines | Out-File -FilePath $summaryPath -Encoding utf8
-
-    Write-Host ""
-    Write-Host "CORE_PRECOMPILED_BUILD=PASS" -ForegroundColor Green
-    Write-Host ("Resumen: {0}" -f $summaryPath)
-    Write-Host ""
-    Write-Host "Siguiente gate: Verify-JWPLCPrecompiledCore.ps1" -ForegroundColor Cyan
-}
-catch
-{
-    Restore-BoardsLocal
-
-    if ($archiveReplaced)
-    {
-        Write-Host "Restaurando core.a previo por fallo posterior a la copia..." -ForegroundColor Yellow
-        Copy-Item -LiteralPath $archiveBackupPath -Destination $ArchivePath -Force
-    }
-
-    throw
-}
-finally
-{
-    Restore-BoardsLocal
-}
-
+            ([string]$_).Replace([char]92, [char]47) -like "*/peripherals_init.cpp"
         }
     ).Count
 
