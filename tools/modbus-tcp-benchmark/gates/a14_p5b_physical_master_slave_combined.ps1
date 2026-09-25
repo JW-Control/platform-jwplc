@@ -2,7 +2,8 @@ param(
     [string]$MasterPort = "COM14",
     [string]$SlavePort = "COM4",
     [double]$TcpRate = 1000.0,
-    [double]$DurationS = 60.0
+    [double]$DurationS = 60.0,
+    [switch]$SetupOnly
 )
 
 Set-StrictMode -Version Latest
@@ -312,6 +313,37 @@ Write-Host "P5B_PREFLIGHT_RTU_SLAVE2=PASS"
 Write-Host "P5B_PREFLIGHT_RTU_TIMEOUT_MS=25"
 Write-Host "P5B_PREFLIGHT_HMI_DIRTY=PASS"
 Write-Host "P5B_PREFLIGHT_MODE=COMPACT_QUIET"
+
+if ($SetupOnly) {
+    Write-Host ""
+    Write-Host "=== SETUP-ONLY FINAL INVARIANTS ==="
+
+    Assert-G2ProtectedArtifacts
+
+    $setupFinalHz = Get-G2SpiHz
+    $setupFinalDirty = @(Get-G2TrackedDirtyPaths)
+    $setupFinalStaged = @(& git -C $script:G2RepoRoot diff --cached --name-only)
+
+    Write-Host "FINAL_SPI_HZ=$setupFinalHz"
+    Write-Host "TRACKED_DIRTY_FINAL=$($setupFinalDirty.Count)"
+    Write-Host "STAGED_COUNT_FINAL=$($setupFinalStaged.Count)"
+
+    if ($setupFinalHz -ne 26000000) {
+        throw "P5B_SETUP_FINAL_SPI_CHANGED"
+    }
+
+    if ($setupFinalDirty.Count -ne 0) {
+        throw "P5B_SETUP_PRODUCT_TREE_DIRTY"
+    }
+
+    if ($setupFinalStaged.Count -ne 0) {
+        throw "P5B_SETUP_PRODUCT_INDEX_DIRTY"
+    }
+
+    Write-Host "A14_P5B_SETUP_ONLY=PASS"
+    Write-Host "P5B_SETUP_ONLY_MASTER_IP=$dutIp"
+    exit 0
+}
 
 Write-Host ""
 Write-Host "============================================================"
