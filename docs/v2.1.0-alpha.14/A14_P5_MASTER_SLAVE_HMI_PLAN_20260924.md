@@ -2320,3 +2320,42 @@ transaction application bytes  = 21 + 2*Q B
 Q pequeño favorece req/s; Q grande favorece Mbps útiles. P5-CAP1 caracteriza
 ambos máximos bajo carga periférica representativa sin modificar el producto.
 
+### P5-CAP2 — último test: bloques lógicos 125/250/500/1000
+
+CAP1 mostró una relación casi lineal entre cantidad de registros FC03 y tiempo de
+transacción. Ajuste descriptivo sobre los seis puntos medidos:
+
+```txt
+latencia media aproximada = 450.7 us + 4.25 us * registros
+R2 aproximado = 0.998
+```
+
+Como FC03 limita cada request a 125 registros, CAP2 mantiene requests estándar
+y construye bloques lógicos:
+
+```txt
+125 regs  = 1 x FC03(125)
+250 regs  = 2 x FC03(125)
+500 regs  = 4 x FC03(125)
+1000 regs = 8 x FC03(125)
+```
+
+El mapa Holding del firmware de benchmark se amplía de 125 a 1000 registros sólo
+para esta caracterización. No cambia la librería ni el producto.
+
+Métricas principales:
+
+```txt
+block scans/s
+requests/s
+registers/s
+useful Mbps
+latencia media/P95/P99 del scan lógico completo
+RTU Hz
+SD/periféricos
+```
+
+Objetivo: comprobar si el techo observado de aproximadamente 125k registros/s se
+mantiene al agrupar varios FC03 máximos en scans lógicos mayores. Este será el
+último test de capacidad antes del cierre P5.
+

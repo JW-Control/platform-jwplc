@@ -48,7 +48,8 @@ static constexpr uint8_t UNIT_ID = 1;
 static constexpr uint16_t SERVER_PORT = 502;
 
 static constexpr uint16_t COIL_COUNT = 2000;
-static constexpr uint16_t HOLDING_COUNT = 125;
+// P5-CAP2: mapa ampliado sólo para benchmark de bloques lógicos.
+static constexpr uint16_t HOLDING_COUNT = 1000;
 
 static uint8_t coils[(COIL_COUNT + 7U) / 8U];
 static uint16_t holdingRegisters[HOLDING_COUNT];
