@@ -91,6 +91,15 @@ def print_peripheral_snapshot(s):
         "FRAM_MAX_US",
 
         "SD_READY",
+        "SD_WORKLOAD_MODE",
+        "SD_DATALOG_ACTIVE",
+        "SD_DATALOG_BUFFER_BYTES",
+        "SD_DATALOG_PENDING_BYTES",
+        "SD_DATALOG_COMMIT_THRESHOLD_BYTES",
+        "SD_DATALOG_COMMIT_TIMEOUT_MS",
+        "SD_DATALOG_ACCEPTED_BYTES",
+        "SD_DATALOG_COMMITTED_BYTES",
+        "SD_DATALOG_FAILED_COMMITS",
         "SD_APPEND_CYCLES",
         "SD_APPEND_FAILS",
         "SD_APPEND_MAX_US",
@@ -279,6 +288,8 @@ def main():
         final.get("DISPLAY_READY") == "YES" and
         final.get("FRAM_READY") == "YES" and
         final.get("SD_READY") == "YES" and
+        final.get("SD_WORKLOAD_MODE") == "BUFFERED_DATALOG" and
+        final.get("SD_DATALOG_ACTIVE") == "YES" and
         final.get("RTC_PRESENT") == "YES" and
         final.get("IO_INITIALIZED") == "YES" and
         final.get("BUTTONS_READY") == "YES"
@@ -293,6 +304,7 @@ def main():
         iv(final, "FRAM_FAILS") == 0 and
         iv(final, "SD_APPEND_FAILS") == 0 and
         iv(final, "SD_VERIFY_FAILS") == 0 and
+        iv(final, "SD_DATALOG_FAILED_COMMITS") == 0 and
         iv(final, "RTC_UNAVAILABLE") == 0 and
         iv(final, "RTC_STALE") == 0 and
         iv(final, "IO_STALE") == 0 and
