@@ -347,7 +347,7 @@ if ($SetupOnly) {
 
 Write-Host ""
 Write-Host "============================================================"
-Write-Host " START 60S COMBINED WINDOW"
+Write-Host (" START {0:F0}S COMBINED WINDOW" -f $DurationS)
 Write-Host "============================================================"
 
 $rateText = $TcpRate.ToString([System.Globalization.CultureInfo]::InvariantCulture)
