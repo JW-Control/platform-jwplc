@@ -237,6 +237,58 @@ def main() -> int:
     )
 
     original_reset_stats = q.reset_stats
+    original_collect_snapshot = q.collect_snapshot
+    original_frontier_run_case = qual.frontier.run_case
+
+    measurement_snapshot: dict[str, str] = {}
+    capture_measurement = False
+    last_snapshot_during_run: dict[str, str] = {}
+
+    def capture_collect_snapshot(
+        ser: serial.Serial,
+        timeout_s: float = 5.0,
+        echo: bool = False,
+    ) -> dict[str, str]:
+        nonlocal last_snapshot_during_run
+
+        snapshot = original_collect_snapshot(
+            ser,
+            timeout_s,
+            echo,
+        )
+
+        if capture_measurement:
+            last_snapshot_during_run = dict(
+                snapshot
+            )
+
+        return snapshot
+
+    def capture_frontier_run_case(
+        *run_args,
+        **run_kwargs,
+    ):
+        nonlocal capture_measurement
+        nonlocal measurement_snapshot
+        nonlocal last_snapshot_during_run
+
+        last_snapshot_during_run = {}
+        capture_measurement = True
+
+        try:
+            result = original_frontier_run_case(
+                *run_args,
+                **run_kwargs,
+            )
+        finally:
+            capture_measurement = False
+
+        if last_snapshot_during_run:
+            measurement_snapshot = dict(
+                last_snapshot_during_run
+            )
+
+        return result
 
     try:
         time.sleep(2.0)
@@ -303,6 +355,8 @@ def main() -> int:
             )
 
         q.reset_stats = combined_reset
+        q.collect_snapshot = capture_collect_snapshot
+        qual.frontier.run_case = capture_frontier_run_case
 
         previous_argv = sys.argv[:]
 
@@ -341,6 +395,27 @@ def main() -> int:
             f"P5B_SYNC_RESET_COUNT={sync_reset_count}"
         )
 
+        if not measurement_snapshot:
+            print(
+                "A14_P5B_AUTOMATED="
+                "FAIL_MEASUREMENT_SNAPSHOT_MISSING"
+            )
+            return 2
+
+        # El primer snapshot completo al terminar la ventana formal contiene
+        # los contadores RTU limpios. El propio print serial puede bloquear
+        # después de capturarlos; por eso P5-B conserva esta copia y no usa
+        # snapshots posteriores para calificar RTU.
+        save_snapshot(
+            master_snapshot_path,
+            measurement_snapshot,
+        )
+
+        print(
+            "P5B_MASTER_MEASUREMENT_SNAPSHOT="
+            "CAPTURED_BEFORE_POST_SNAPSHOT_PERTURBATION"
+        )
+
         time.sleep(0.15)
 
         final_slave = request_slave_snapshot(
@@ -355,6 +430,8 @@ def main() -> int:
 
     finally:
         q.reset_stats = original_reset_stats
+        q.collect_snapshot = original_collect_snapshot
+        qual.frontier.run_case = original_frontier_run_case
 
         if slave_ser.is_open:
             slave_ser.close()
