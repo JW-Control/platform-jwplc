@@ -1611,3 +1611,112 @@ CORE_A_REPLACED=NO
 F052=CONFIRMED_AND_CORRECTED
 P5F_R2=READY_TO_RERUN
 ```
+
+
+## P5-F intento 3 — sintaxis rota en script anidado
+
+El tercer intento superó:
+
+```txt
+P5F_CORE_SHA_BEFORE=6EDF40D105936318A2FD8A84D7F0724571657910E8D92E8538640EC613F4DD68
+P5F_SOURCE_DATALOG_TICK_CALL_COUNT=1
+P5F_CORE_COMMIT_BEFORE_CALLBACK_COMMIT=True
+P5F_CALLBACK_COMMIT_IN_CORE_HISTORY=False
+```
+
+pero el script anidado:
+
+```txt
+tools/build-speed-benchmark/Build-JWPLCPrecompiledCore.ps1
+```
+
+no pudo parsearse.
+
+Error:
+
+```txt
+ParserError
+line 361
+cadena sin terminador
+llave de cierre faltante
+```
+
+La línea dañada provenía del patch textual que reemplazó la detección de
+`peripherals_init.cpp`:
+
+```txt
+.Replace('\', '/') -match '/peripherals_init\.cpp
+```
+
+y perdió terminadores durante la transformación.
+
+El fallo ocurre antes de ejecutar el cuerpo del builder, por lo que:
+
+```txt
+CORE_REBUILD_STARTED=NO
+CORE_A_REPLACED=NO
+PRODUCT_MUTATION=NO
+```
+
+### F053
+
+```txt
+F053=NESTED_POWERSHELL_SCRIPT_SYNTAX_REGRESSION_NOT_PREFLIGHTED
+```
+
+La debilidad principal no es sólo la línea mal transformada. El wrapper P5-F
+validaba sintaxis únicamente de:
+
+```txt
+a14_p5f_rebuild_core_datalog_autoservice.ps1
+```
+
+pero no de los dos scripts PowerShell que éste ejecuta:
+
+```txt
+Build-JWPLCPrecompiledCore.ps1
+Verify-JWPLCPrecompiledCore.ps1
+```
+
+### Corrección
+
+La clasificación de nombres de TU deja de usar regex construidas mediante
+patches frágiles y pasa a:
+
+```powershell
+([string]$_).
+    Replace([char]92, [char]47).
+    EndsWith("/peripherals_init.cpp")
+```
+
+y:
+
+```powershell
+([string]$_).
+    Replace([char]92, [char]47).
+    EndsWith("/precompiled_core_stub.c")
+```
+
+También se usan `[char]92` y `[char]47` para normalizar separadores, evitando
+escapes ambiguos al generar scripts.
+
+El wrapper P5-F ahora valida sintaxis, antes de cualquier ejecución, de los tres
+scripts:
+
+```txt
+a14_p5f_rebuild_core_datalog_autoservice.ps1
+Build-JWPLCPrecompiledCore.ps1
+Verify-JWPLCPrecompiledCore.ps1
+```
+
+Si cualquiera falla, el wrapper termina antes de que P5-F pueda tocar el
+archive.
+
+Estado:
+
+```txt
+P5F_ATTEMPT_3=NESTED_SCRIPT_SYNTAX_FAIL
+F053=CONFIRMED_AND_CORRECTED
+CORE_A_REPLACED=NO
+P5F_R3=READY_TO_RERUN
+```
