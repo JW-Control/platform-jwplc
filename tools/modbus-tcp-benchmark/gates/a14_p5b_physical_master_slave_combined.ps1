@@ -181,6 +181,7 @@ $sourceChecks = @(
     [PSCustomObject]@{ Label = "MASTER_RTU_TIMEOUT_25MS"; Pass = $masterText.Contains("RTU_TIMEOUT_MS = 25UL") },
     [PSCustomObject]@{ Label = "MASTER_AUTO_RTU"; Pass = $masterText.Contains("RTU_TRAFFIC_AUTO_START=") },
     [PSCustomObject]@{ Label = "MASTER_COMPACT_PREFLIGHT"; Pass = $masterText.Contains("A14_P5_PREFLIGHT=END") },
+    [PSCustomObject]@{ Label = "MASTER_SD_BUFFERED_DATALOG"; Pass = $masterText.Contains("SD_WORKLOAD_MODE=BUFFERED_DATALOG") -and $masterText.Contains("JWPLCDataLog sdDataLog") },
     [PSCustomObject]@{ Label = "MASTER_ETH_SNAPSHOT"; Pass = $masterText.Contains("COMBINED_RUNTIME_READY=") },
     [PSCustomObject]@{ Label = "SLAVE_HMI_ON_DEMAND"; Pass = $slaveText.Contains("USER_REFRESH_ON_DEMAND") },
     [PSCustomObject]@{ Label = "SLAVE_ID2"; Pass = $slaveText.Contains("SLAVE_ID = 2") },
@@ -308,6 +309,7 @@ Get-Content -LiteralPath $resolverLog | ForEach-Object { Write-Host $_ }
 Write-Host ""
 Write-Host "P5B_MASTER_IP=$dutIp"
 Write-Host "P5B_PREFLIGHT_SD=PASS"
+Write-Host "P5B_PREFLIGHT_SD_MODE=BUFFERED_DATALOG"
 Write-Host "P5B_PREFLIGHT_ETHERNET=PASS"
 Write-Host "P5B_PREFLIGHT_RTU_SLAVE2=PASS"
 Write-Host "P5B_PREFLIGHT_RTU_TIMEOUT_MS=25"
@@ -450,6 +452,7 @@ Write-Host "A14_P5B_SLAVE_PORT=$SlavePort"
 Write-Host "A14_P5B_SLAVE_ID=2"
 Write-Host "A14_P5B_DISPLAY_API=USER_REFRESH_ON_DEMAND_DIRTY"
 Write-Host "A14_P5B_MICROSD=QUALIFIED"
+Write-Host "A14_P5B_MICROSD_MODE=BUFFERED_DATALOG"
 Write-Host "A14_P5B_MASTER_SLAVE_CROSS_COUNT=QUALIFIED"
 Write-Host "A14_P5B_TFT_PHYSICAL=PASS"
 Write-Host "A14_P5B_PRODUCT_SOURCE_MUTATION=NO"
