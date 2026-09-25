@@ -2061,3 +2061,54 @@ Criterio de interpretación:
 
 P5-E1-R1 no sustituye P5-D; confirma repetibilidad del techo unpaced.
 
+### P5-E2 — candidato cached socket state
+
+P5-E1-R1 de 600 s confirmó un techo full-runtime sostenido de:
+
+```txt
+ACHIEVED_REQ_S=981.171
+USEFUL_MBPS=1.9623
+TOTAL_MODBUS_MBPS=2.1272
+TCP_CLEAN=YES
+RTU_ACHIEVED_HZ=50.000
+SD_FAILED_COMMITS=0
+PERIPHERAL_FAILURE_COUNT=0
+```
+
+El objetivo de producto para JWPLC Basic queda acotado a 1000 req/s sostenidos,
+con margen deseado aproximado de 1020..1050 req/s. No se persigue más throughput
+en Alpha14 una vez alcanzado ese rango.
+
+Candidato P5-E2:
+
+```txt
+SCOPE=JWPLC_ModbusTCP internal server RX hot path
+PUBLIC_API_CHANGE=NO
+USER_LOOP_COMPLEXITY_CHANGE=NO
+CORE_A_REBUILD_REQUIRED=NO
+W5500_SPI_HZ=26000000
+```
+
+Optimización:
+
+```txt
+1. No consultar EthernetClient::connected() cuando available() ya indicó RX.
+2. Después de read(), descontar bytes del available ya conocido.
+3. Volver a consultar available() sólo al agotar el saldo conocido y si el ADU
+   todavía no está completo.
+```
+
+Motivo: cada llamada de estado al socket implica trabajo SPI/W5500. El request
+FC03/125 del benchmark llega como un ADU pequeño de 12 bytes y el parser lo
+divide primero en MBAP de 6 bytes y luego PDU; evitar sondeos redundantes reduce
+overhead por transacción sin alterar framing, budgets, mutex ni API.
+
+Gate:
+
+```txt
+P5-E2 candidate qualification = 60 s unpaced full-runtime.
+Target deseado = 1020..1050 req/s.
+Si mejora claramente, repetir 600 s antes de adoptar/cerrar.
+Si no mejora, revisar/revertir el candidato antes de otra estrategia.
+```
+
