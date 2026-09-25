@@ -731,3 +731,179 @@ P5A=CLOSED_PASS
 P5C=CLOSED_PASS
 P5B=READY_TO_RERUN_WITH_25MS
 ```
+
+## P5-B — cierre PASS con TCP1000 + RTU50
+
+La repetición física con `RTU_TIMEOUT_MS=25` cerró en PASS.
+
+Preflight:
+
+```txt
+P5_DUT_READY=YES
+P5_FULL_RUNTIME_READY=YES
+P5_COMBINED_RUNTIME_READY=YES
+P5_SD_READY=YES
+P5_DISPLAY_HMI_DIRTY=YES
+P5_RTU_READY=YES
+P5_RTU_TIMEOUT_MS=25
+P5_RTU_PEER_SLAVE2=PASS
+P5_PREFLIGHT_MODE=COMPACT_QUIET
+```
+
+Ventana formal de 60 s:
+
+```txt
+TCP requested = 1000 req/s
+TCP achieved  = 985.34 req/s
+TCP achieved  = 98.534 %
+TCP result    = STABLE_PASS
+
+TCP timeouts          = 0
+TCP transport errors  = 0
+TCP protocol errors   = 0
+TCP bus lock timeouts = 0
+
+latency avg = 1007.7 us
+latency P95 = 1540.8 us
+latency P99 = 9058.5 us
+latency max = 30090.1 us
+
+loop gap avg = 798 us
+loop gap max = 29110 us
+```
+
+Periféricos:
+
+```txt
+DISPLAY_READY=YES
+FRAM_READY=YES
+FRAM_FAILS=0
+SD_READY=YES
+SD_APPEND_FAILS=0
+SD_VERIFY_FAILS=0
+RTC_PRESENT=YES
+RTC_UNAVAILABLE=0
+RTC_STALE=0
+IO_INITIALIZED=YES
+IO_STALE=0
+BUTTONS_READY=YES
+BUTTON_NOT_READY=0
+SPI_PROBE_FAILS=0
+PERIPHERAL_FAILURE_COUNT=0
+```
+
+RTU Master:
+
+```txt
+RTU_TIMEOUT_MS=25
+RTU_TRAFFIC_DURATION_MS=60062
+RTU_REQUESTS_STARTED=3001
+RTU_REQUESTS_REJECTED=0
+RTU_REQUESTS_COMPLETED=3001
+RTU_REQUESTS_SUCCESS=3001
+RTU_REQUESTS_FAILED=0
+RTU_VERIFY_FAILS=0
+RTU_CRC_ERRORS=0
+RTU_MASTER_TIMEOUTS=0
+RTU_LAST_ERROR=OK
+RTU_ACHIEVED_HZ=49.965
+```
+
+RTU Slave:
+
+```txt
+RTU_RX_FRAMES=3012
+RTU_TX_FRAMES=3012
+RTU_REQUESTS_OK=3012
+RTU_CRC_ERRORS=0
+RTU_EXCEPTIONS_SENT=0
+RTU_LAST_ERROR=OK
+```
+
+Cross-count:
+
+```txt
+tail tolerance = 12
+RX delta = 11
+TX delta = 11
+OK delta = 11
+RTU_CROSS_COUNT_PASS=YES
+```
+
+La diferencia de 11 frames entra dentro de la tolerancia de cola y corresponde
+al desfase entre el snapshot limpio del Master y el snapshot posterior del Slave.
+
+HMI:
+
+```txt
+MASTER_TFT_PHYSICAL_PASS=True
+SLAVE_TFT_PHYSICAL_PASS=True
+TFT_PHYSICAL_PASS=True
+```
+
+Invariantes finales:
+
+```txt
+FINAL_SPI_HZ=26000000
+TRACKED_DIRTY_FINAL=0
+STAGED_COUNT_FINAL=0
+A14_P5B_PRODUCT_SOURCE_MUTATION=NO
+A14_P5B_PHYSICAL_MASTER_SLAVE_COMBINED=PASS
+```
+
+Conclusión:
+
+```txt
+P5B=CLOSED_PASS
+F048_MITIGATION_WITH_25MS=VALIDATED_UNDER_TCP1000
+```
+
+### Nota sobre RTU_SERVICE_GAP_MAX_US
+
+Durante la ventana combinada se observó:
+
+```txt
+RTU_SERVICE_GAP_MAX_US=29958
+RTU_TIMEOUT_MS=25
+RTU_MASTER_TIMEOUTS=0
+```
+
+Esto no invalida el PASS: el service-gap máximo mide el intervalo entre dos
+ejecuciones consecutivas del servicio RTU en cualquier estado. Un gap >25 ms
+sólo produciría timeout si coincidiera con una transacción Master pendiente.
+La corrida formal demuestra que el peor gap observado no coincidió con una
+ventana pendiente que venciera.
+
+Por esa razón se mantiene 25 ms para el siguiente gate y se exige un long-run
+antes de cerrar definitivamente la fase full-runtime.
+
+## P5-D — long run
+
+Se añade un gate de 600 s que reutiliza exactamente P5-B:
+
+```txt
+duration = 600 s
+TCP = FC03/125 @ 1000 req/s
+RTU = ~50 Hz
+RTU timeout = 25 ms
+W5500 SPI = 26 MHz
+full runtime peripherals = activos
+Master + Slave HMI dirty = activos
+```
+
+No introduce nuevas variables ni modifica producto.
+
+Gate:
+
+```txt
+run_a14_p5d_full_runtime_long_run.bat
+```
+
+Estado:
+
+```txt
+P5A=CLOSED_PASS
+P5C=CLOSED_PASS
+P5B=CLOSED_PASS
+P5D=READY_TO_RUN
+```
