@@ -19,6 +19,26 @@ $probeReader = Join-Path $repoRoot "tools/modbus-tcp-benchmark/pc/a14_p5f_datalo
 $repoLibraries = Join-Path $repoRoot "JWPLC/2.1.0/libraries"
 $arduinoCli = "C:\Program Files\Arduino PLC IDE Tools\arduino-cli.exe"
 
+function Get-Sha256Hex {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path
+    )
+
+    $fullPath = [System.IO.Path]::GetFullPath($Path)
+    $stream = [System.IO.File]::OpenRead($fullPath)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+
+    try {
+        $hashBytes = $sha.ComputeHash($stream)
+    }
+    finally {
+        $sha.Dispose()
+        $stream.Dispose()
+    }
+
+    return ([System.BitConverter]::ToString($hashBytes)).Replace("-", "")
+}
+
 function Invoke-NativeCaptured {
     param(
         [Parameter(Mandatory = $true)][string]$FilePath,
@@ -70,7 +90,7 @@ foreach ($required in @($corePath, $sourcePath, $buildScript, $verifyScript, $pr
     }
 }
 
-$actualOldSha = (Get-FileHash -LiteralPath $corePath -Algorithm SHA256).Hash
+$actualOldSha = Get-Sha256Hex -Path $corePath
 Write-Host "P5F_CORE_SHA_BEFORE=$actualOldSha"
 
 if ($actualOldSha -ne $oldCoreSha) {
@@ -143,7 +163,7 @@ if ($buildExit -ne 0) {
     throw "P5F_CORE_REBUILD_FAILED"
 }
 
-$newCoreSha = (Get-FileHash -LiteralPath $corePath -Algorithm SHA256).Hash
+$newCoreSha = Get-Sha256Hex -Path $corePath
 Write-Host "P5F_CORE_SHA_AFTER=$newCoreSha"
 
 if ($newCoreSha -eq $oldCoreSha) {
