@@ -23,7 +23,7 @@ function Invoke-NativeToLog {
 }
 
 Write-Host "============================================================"
-Write-Host " A14 RTU-H3C1.1 - STRUCTURAL TAIL TIMING DIAGNOSTIC"
+Write-Host " A14 RTU-H3C.1 - STRUCTURAL TAIL TIMING DIAGNOSTIC"
 Write-Host "============================================================"
 
 Assert-G2Branch
