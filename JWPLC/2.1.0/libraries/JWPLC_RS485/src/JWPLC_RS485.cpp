@@ -77,6 +77,15 @@ bool JWPLC_RS485Class::begin(uint32_t baud, uint32_t config)
     }
 #endif
 
+#if JWPLC_RS485_FORCE_APB_CLOCK
+    if (!_serial->setClockSource(UART_CLK_SRC_APB))
+    {
+        _ready = false;
+        setError(JWPLC_RS485_CLOCK_SOURCE_FAILED);
+        return false;
+    }
+#endif
+
     _serial->begin(_baud, _config, _rxPin, _txPin);
     _ready = true;
     clearError();
@@ -151,6 +160,22 @@ bool JWPLC_RS485Class::autoDirection() const
 #else
     return false;
 #endif
+}
+
+bool JWPLC_RS485Class::apbClockForced() const
+{
+#if JWPLC_RS485_FORCE_APB_CLOCK
+    return true;
+#else
+    return false;
+#endif
+}
+
+const char *JWPLC_RS485Class::clockSourceString() const
+{
+    return apbClockForced()
+        ? "APB_FORCED"
+        : "AUTO";
 }
 
 size_t JWPLC_RS485Class::txBufferSize() const
@@ -344,6 +369,8 @@ const char *JWPLC_RS485Class::lastErrorString() const
         return "RS485 not started";
     case JWPLC_RS485_INVALID_SERIAL:
         return "Invalid Serial2";
+    case JWPLC_RS485_CLOCK_SOURCE_FAILED:
+        return "UART clock source setup failed";
     default:
         return "Unknown RS485 error";
     }
@@ -418,6 +445,9 @@ void JWPLC_RS485Class::printStatus(Print &out)
 
     out.print("AutoDirection: ");
     out.println(autoDirection() ? "yes" : "no");
+
+    out.print("UART clock source: ");
+    out.println(clockSourceString());
 
     out.print("TX buffer bytes: ");
     out.println((unsigned long)_txBufferSize);

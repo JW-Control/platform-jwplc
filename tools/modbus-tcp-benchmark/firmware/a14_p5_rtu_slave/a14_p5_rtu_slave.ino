@@ -27,7 +27,6 @@ static constexpr uint32_t DISPLAY_SERVICE_PERIOD_MS = 100UL;
 
 static uint16_t holding[16] = {};
 static bool rtuReady = false;
-static const char *rtuClockProfile = "AUTO";
 
 static uint32_t displayServiceCycles = 0;
 static uint32_t displayLastServiceMs = 0;
@@ -177,7 +176,7 @@ static void printSnapshot()
         JWPLC_ModbusRTU.effectiveBaudRate());
 
     Serial.print("RTU_CLOCK_PROFILE=");
-    Serial.println(rtuClockProfile);
+    Serial.println(JWPLC_RS485.clockSourceString());
 
     Serial.print("RTU_MOTOR=");
     Serial.println(
@@ -293,7 +292,6 @@ static bool setRtuBaud(uint32_t baud)
     }
 
     JWPLC_ModbusRTU.setFrameGapUs(500UL);
-    rtuClockProfile = "AUTO";
     return true;
 }
 
@@ -325,7 +323,6 @@ static bool setRtu230400ApbForced()
     }
 
     JWPLC_ModbusRTU.setFrameGapUs(500UL);
-    rtuClockProfile = "APB_FORCED";
     return true;
 }
 
