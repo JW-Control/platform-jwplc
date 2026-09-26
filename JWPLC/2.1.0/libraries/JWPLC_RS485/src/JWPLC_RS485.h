@@ -67,6 +67,10 @@ public:
     int peek();
     int read();
 
+    // Ruta RX por bloques. Lee hasta maxSize bytes actualmente disponibles
+    // y agrupa la telemetria de actividad en una sola actualizacion.
+    size_t readAvailable(uint8_t *buffer, size_t maxSize);
+
     size_t write(uint8_t data) override;
     size_t write(const uint8_t *buffer, size_t size) override;
 
