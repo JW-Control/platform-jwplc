@@ -123,3 +123,96 @@ TCP500 + RTU800
 ```
 
 El siguiente cuello se elegirá a partir de la telemetría medida; no se combinarán cambios antes de cerrar este long-run.
+
+
+## Resultado físico H3B.2
+
+El perfil permaneció correcto durante 600 s:
+
+```txt
+BAUD=500000
+FRAME_GAP_US=100
+RX_FIFO_FULL=1
+RX_MODE=BULK
+CLOCK=APB_FORCED
+TCP=500
+```
+
+TCP se mantuvo estable:
+
+```txt
+TCP_REQ_S=499.994
+TCP_TARGET_PCT=99.999
+TCP_BUCKET_MIN_REQ_S=499.967
+TCP_BUCKET_MAX_REQ_S=500.033
+TCP_HALF_RATE_DRIFT_PCT=-0.001
+TCP_AVG_US=1115.4
+TCP_P95_US=1544.3
+TCP_P99_US=9090.1
+```
+
+RTU mantuvo el rendimiento esperado pero registró dos timeouts:
+
+```txt
+RTU_HZ=679.481
+RTU_STARTED=407868
+RTU_COMPLETED=407868
+RTU_SUCCESS=407866
+RTU_FAILED=2
+RTU_TIMEOUTS=2
+MASTER_TX=407868
+MASTER_RX=407866
+SLAVE_RX=407866
+SLAVE_TX=407866
+SLAVE_OK=407866
+REQUEST_PATH_GAP=2
+RESPONSE_PATH_GAP=0
+MASTER_CRC=0
+SLAVE_CRC=0
+```
+
+Los dos fallos terminaron como timeout (error 5) cerca del límite configurado:
+
+```txt
+LAST_FAILURE_DURATION_US=24603
+MAX_FAILURE_DURATION_US=24658
+RTU_TIMEOUT_MS=25
+```
+
+El runtime restante quedó limpio:
+
+```txt
+RTU_FLOOR_PASS=YES
+TCP_CLEAN=YES
+TCP_TARGET_PASS=YES
+BUCKET_TARGET_PASS=YES
+SD_CLEAN=YES
+PERIPHERAL_FAILURE_COUNT=0
+```
+
+### Decisión
+
+H3B.2 no pasa estabilidad porque 2 de 407868 transacciones terminaron en timeout.
+La tasa observada es aproximadamente 4.9 ppm, demasiado baja para aparecer de
+forma confiable en pruebas cortas pero real en long-run.
+
+La evidencia apunta al lado request:
+
+```txt
+MASTER_TX - SLAVE_RX = 2
+SLAVE_TX - MASTER_RX = 0
+```
+
+Esto no prueba todavía pérdida física. En el Slave, `rxFrames` sólo incrementa
+cuando el parser entrega una trama local a `processServerFrame()`. Una request
+puede haber llegado parcialmente o completa al UART y ser descartada como tail
+ambiguo sin incrementar `rxFrames` ni `crcErrors`.
+
+Siguiente gate:
+
+```txt
+H3B.3 = RX-path accounting
+```
+
+Se instrumentarán bytes RX/TX observados por el motor RTU y tails/bytes
+descartados por `pollServer()`, sin cambiar timing ni comportamiento.
