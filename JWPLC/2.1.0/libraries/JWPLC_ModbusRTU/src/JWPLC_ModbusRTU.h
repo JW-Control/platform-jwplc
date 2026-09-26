@@ -62,6 +62,13 @@ struct JWPLCModbusRTUStats
     uint32_t crcErrors;
     uint32_t exceptionsSent;
     uint32_t masterTimeouts;
+
+    // H3B.3: contabilidad de transporte/framing para diagnostico.
+    // Aditivo: no altera la semantica de los contadores historicos.
+    uint64_t rxBytes;
+    uint64_t txBytes;
+    uint32_t serverDiscardedTails;
+    uint64_t serverDiscardedBytes;
 };
 
 class JWPLC_ModbusRTUClass
