@@ -92,7 +92,7 @@ try{
   $bp=Join-Path $p5root $build
   foreach($pat in @("JWPLC_ModbusRTU.cpp.o*","JWPLC_RS485.cpp.o*")){
    $objs=@(Get-ChildItem -LiteralPath $bp -Recurse -File|Where-Object{$_.Name -like $pat})
-   if($objs.Count -lt 1){throw "RTUH3A_SOURCE_OBJECT_MISSING=$bp:$pat"}
+   if($objs.Count -lt 1){throw ("RTUH3A_SOURCE_OBJECT_MISSING={0}:{1}" -f $bp, $pat)}
    Write-Host "RTUH3A_SOURCE_OBJECT=$($objs[0].FullName)"
   }
  }
