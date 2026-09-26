@@ -23,7 +23,7 @@ function Invoke-NativeToLog {
 }
 
 Write-Host "============================================================"
-Write-Host " A14 RTU-H3C.4 - MASTER FIFO16 / MASTER FIFO16 / SLAVE FIFO8 CAUSAL"
+Write-Host " A14 RTU-H3C.4 - MASTER FIFO16 / SLAVE FIFO8 CAUSAL"
 Write-Host "============================================================"
 
 Assert-G2Branch
@@ -66,7 +66,8 @@ Write-Host "MODBUS_RTU_ARCHIVE_SHA256_BEFORE=$archiveHashBefore"
 Write-Host "W5500_SPI_HZ=$(Get-G2SpiHz)"
 Write-Host "BAUD=500000"
 Write-Host "FRAME_GAP_US=100"
-Write-Host "MASTER_RX_FIFO_FULL=1"`nWrite-Host "SLAVE_RX_FIFO_FULL=8"
+Write-Host "MASTER_RX_FIFO_FULL=16"
+Write-Host "SLAVE_RX_FIFO_FULL=8"
 Write-Host "CLOCK=APB_FORCED"
 Write-Host "RX_MODE=BULK"
 Write-Host "MASTER_TX_MODE=QUEUED"
