@@ -265,6 +265,7 @@ static void printSnapshot()
     Serial.println(s.serverDiscardedTails);
 
     Serial.print("RTU_SERVER_DISCARDED_BYTES=");
+    Serial.println((unsigned long long)s.serverDiscardedBytes);
 
     Serial.print("RTU_SERVER_DISCARDED_LAST_LENGTH=");
     Serial.println(s.serverDiscardedLastLength);
@@ -293,7 +294,6 @@ static void printSnapshot()
     Serial.println(s.serverDiscardedLen8);
     Serial.print("RTU_SERVER_DISCARDED_LEN_GT8=");
     Serial.println(s.serverDiscardedLenGt8);
-    Serial.println((unsigned long long)s.serverDiscardedBytes);
 
     Serial.print("RTU_LAST_ERROR=");
     Serial.println(
