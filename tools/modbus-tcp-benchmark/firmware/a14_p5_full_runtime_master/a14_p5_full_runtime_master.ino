@@ -1615,6 +1615,7 @@ static void printSnapshot()
     Serial.println(rtu.serverDiscardedTails);
 
     Serial.print("RTU_SERVER_DISCARDED_BYTES=");
+    Serial.println((unsigned long long)rtu.serverDiscardedBytes);
 
     Serial.print("RTU_SERVER_DISCARDED_LAST_LENGTH=");
     Serial.println(rtu.serverDiscardedLastLength);
@@ -1643,7 +1644,6 @@ static void printSnapshot()
     Serial.println(rtu.serverDiscardedLen8);
     Serial.print("RTU_SERVER_DISCARDED_LEN_GT8=");
     Serial.println(rtu.serverDiscardedLenGt8);
-    Serial.println((unsigned long long)rtu.serverDiscardedBytes);
 
     Serial.print("RTU_LAST_ERROR=");
     Serial.println(JWPLC_ModbusRTU.lastErrorString());
