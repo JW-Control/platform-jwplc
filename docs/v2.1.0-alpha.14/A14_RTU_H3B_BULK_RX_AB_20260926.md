@@ -108,3 +108,37 @@ A14_RTU_H3B
 Si BULK supera al control de forma limpia, se evalúa adoptarlo como ruta
 interna por defecto del motor ASYNC. Si no aporta, se conserva BYTE y el
 siguiente candidato será early-frame dispatch del Slave.
+
+
+## Resultado físico H3B
+
+| RX | TCP | RTU tx/s | TCP req/s | TCP AVG us | TCP P95 us | Failed | Timeout | Estado |
+|---|---|---:|---:|---:|---:|---:|---:|---|
+| BYTE | TCP500 | 485.356 | 500.000 | 1243.4 | 1932.0 | 0 | 0 | limpio |
+| BULK | TCP500 | 670.637 | 500.000 | 1121.1 | 1587.4 | 1 | 1 | no limpio |
+| BYTE | OFF | 667.322 | 0 | 0 | 0 | 0 | 0 | limpio |
+| BULK | OFF | 983.969 | 0 | 0 | 0 | 0 | 0 | limpio |
+
+Resultados derivados:
+
+```txt
+BULK_GAIN_TCP500=+38.174%
+BULK_GAIN_TCP_OFF=+47.450%
+BYTE_TCP500_RTU=485.356 tx/s CLEAN
+BULK_TCP500_RTU=670.637 tx/s WITH_1_TIMEOUT
+BULK_TCP_OFF_RTU=983.969 tx/s CLEAN
+```
+
+### Decisión
+
+La meta experimental de 480 tx/s con TCP500 ya fue superada por la ruta
+histórica BYTE con FIFO=1 y runtime limpio.
+
+Bulk RX demuestra una mejora estructural muy grande, pero no se adopta como
+default todavía porque una de las transacciones TCP500 terminó por timeout
+(25 ms) pese a CRC=0.
+
+El siguiente gate es H3B.1: repetibilidad de Bulk RX con TCP500, sin cambiar
+timeout, baud, frame gap, FIFO ni W5500. Se agrega telemetría qualification-only
+para distinguir pérdida request-side, response-side y latencias cercanas al
+timeout.
