@@ -89,3 +89,18 @@ A14_RTU_H3C2=PASS_MASTER_BLOCKING_CAUSAL_1200S
 ```
 
 Este gate no cambia defaults de producto.
+
+
+## Resultado físico H3C.2
+
+MASTER_TX=BLOCKING y SLAVE_TX=QUEUED no resolvio la inestabilidad.
+
+Resultado: RTU=731.857 tx/s, 878499 iniciadas, 878489 exitosas, 10 timeouts, TCP=500.000 req/s.
+
+Request-side: REQUEST_PATH_GAP=7, REQUEST_BYTE_GAP=0, SLAVE_DISCARDED_TAILS=14, SLAVE_DISCARDED_BYTES=56. Histograma: LEN3=3, LEN4=8, LEN5=3. MAX_AGE_US=16242.
+
+Response-side tambien empeoro: RESPONSE_PATH_GAP=3 y RESPONSE_BYTE_GAP=10.
+
+Conclusion: el TX queued del Master no es la causa principal y BLOCKING no es una solucion valida para este perfil. Se restaura QUEUED en ambos lados.
+
+Siguiente gate H3C.3: mantener Master RX FIFO=1 y cambiar solo Slave RX FIFO=8 para probar si la granularidad del ISR/ring buffer esta fragmentando requests de 8 bytes antes del parser.
