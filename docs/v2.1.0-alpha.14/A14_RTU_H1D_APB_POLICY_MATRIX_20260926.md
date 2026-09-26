@@ -120,3 +120,47 @@ una seleccion mas acotada basada en baud.
 
 No aumentar timeout ni modificar frame gap para hacer pasar H1D: este gate solo
 califica la fuente de reloj.
+
+
+## Intento H1D-R1 — fallo de tooling/precompilado
+
+El primer intento H1D no ejecuto la matriz fisica. El Slave fallo durante
+el enlace porque `precompiled=full` selecciono el archive historico
+`libJWPLC_ModbusRTU.a`, mientras los headers y el firmware de qualification
+ya usan APIs incorporadas despues de ese archive, entre ellas:
+
+```txt
+motor(JWPLCModbusMotor)
+setFrameGapUs(unsigned long)
+setQueuedTxEnabled(bool)
+queuedTxActive() const
+effectiveBaudRate() const
+```
+
+Clasificacion:
+
+```txt
+H1D_R1_PRODUCT_RESULT=NOT_EXECUTED
+H1D_R1_FAILURE=STALE_MODBUS_PRECOMPILED_ARCHIVE
+APB_POLICY_RESULT=PENDING
+```
+
+Esto no es evidencia contra APB.
+
+## H1D-R2 — compilacion source controlada
+
+H1D-R2 reutiliza el mecanismo ya validado en F2/F3/H1/H1C:
+
+1. calcula y guarda el SHA-256 del archive Modbus RTU existente;
+2. copia el archive a un directorio temporal;
+3. lo oculta solo durante compile/upload;
+4. ejecuta P5B con `-AllowMissingModbusRtuArchiveCandidate`;
+5. exige objetos frescos de `JWPLC_ModbusRTU.cpp` y `JWPLC_RS485.cpp`
+   para Master y Slave;
+6. restaura el archive original en `finally`;
+7. exige que el SHA-256 restaurado sea identico al inicial;
+8. recien entonces ejecuta la matriz H1D.
+
+El archive historico no se adopta como artefacto final por este gate.
+Despues de cerrar la policy funcional sera necesario regenerar y calificar
+el precompilado antes de publicarlo.

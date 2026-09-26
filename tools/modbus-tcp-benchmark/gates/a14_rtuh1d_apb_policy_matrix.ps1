@@ -8,6 +8,24 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "common.ps1")
 
+function Invoke-NativeToLog {
+    param(
+        [string]$FilePath,
+        [string[]]$Arguments,
+        [string]$LogPath
+    )
+
+    $previousPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        & $FilePath @Arguments *> $LogPath
+        return [int]$LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousPreference
+    }
+}
+
 Write-Host "============================================================"
 Write-Host " A14 RTU-H1D - PACKAGE APB POLICY MATRIX"
 Write-Host "============================================================"
@@ -15,6 +33,8 @@ Write-Host "============================================================"
 Assert-G2Branch
 
 $expectedCoreHash = "4BFF8C8241DA2E8BD0E1BBA99835ADDF91B9085A05C4DFBD05C339B824794566"
+$archiveRelative = "JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/src/esp32/libJWPLC_ModbusRTU.a"
+$archivePath = Get-G2Path $archiveRelative
 $rs485Header = Get-G2Path "JWPLC/2.1.0/libraries/JWPLC_RS485/src/JWPLC_RS485.h"
 $rs485Source = Get-G2Path "JWPLC/2.1.0/libraries/JWPLC_RS485/src/JWPLC_RS485.cpp"
 $masterSketch = Get-G2Path "tools/modbus-tcp-benchmark/firmware/a14_p5_full_runtime_master/a14_p5_full_runtime_master.ino"
@@ -22,7 +42,7 @@ $slaveSketch = Get-G2Path "tools/modbus-tcp-benchmark/firmware/a14_p5_rtu_slave/
 $runner = Get-G2Path "tools/modbus-tcp-benchmark/pc/a14_rtuh1d_apb_policy_matrix.py"
 $p5bGate = Join-Path $PSScriptRoot "a14_p5b_physical_master_slave_combined.ps1"
 
-foreach ($required in @($rs485Header, $rs485Source, $masterSketch, $slaveSketch, $runner, $p5bGate)) {
+foreach ($required in @($archivePath, $rs485Header, $rs485Source, $masterSketch, $slaveSketch, $runner, $p5bGate)) {
     if (-not (Test-Path -LiteralPath $required)) {
         throw ("RTUH1D_REQUIRED_PATH_MISSING={0}" -f $required)
     }
@@ -44,12 +64,15 @@ if ($staged.Count -ne 0) {
 }
 
 $coreHash = Get-G2Sha256 $script:G2CoreRelative
+$archiveHashBefore = Get-G2Sha256 $archiveRelative
 if ($coreHash -ne $expectedCoreHash) {
     throw "RTUH1D_UNEXPECTED_CORE_HASH"
 }
 
 Write-Host "HEAD=$(Get-G2Head)"
 Write-Host "CORE_A_SHA256=$coreHash"
+Write-Host "MODBUS_RTU_ARCHIVE_SHA256_BEFORE=$archiveHashBefore"
+Write-Host "PRECOMPILED_RTU_ARCHIVE_FORCE_SOURCE=YES"
 Write-Host "W5500_SPI_HZ=$(Get-G2SpiHz)"
 Write-Host "CLOCK_POLICY=APB_FORCED"
 Write-Host "BAUDS=115200,230400,250000,460800,500000"
@@ -108,54 +131,88 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "RTUH1D_PYTHON_SYNTAX=PASS"
 
 $tempRoot = Join-Path $env:TEMP ("jwplc_a14_rtuh1d_{0}" -f (Get-Date -Format "yyyyMMdd_HHmmss"))
-$setupLog = Join-Path $tempRoot "setup.log"
+$archiveBackup = Join-Path $tempRoot "libJWPLC_ModbusRTU.before.a"
+$setupLog = Join-Path $tempRoot "setup_source.log"
 $runLog = Join-Path $tempRoot "rtuh1d.log"
 New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
+Copy-Item -LiteralPath $archivePath -Destination $archiveBackup -Force
 
 Write-Host ""
-Write-Host "=== COMPILE / UPLOAD FRESH H1D FIRMWARE ==="
+Write-Host "=== FORCE FRESH SOURCE COMPILE / UPLOAD H1D ==="
 Write-Host "RTUH1D_TEMP_ROOT=$tempRoot"
 Write-Host "RTUH1D_SETUP_LOG=$setupLog"
 
+$archiveHidden = $false
 try {
-    & $p5bGate -MasterPort $MasterPort -SlavePort $SlavePort -SetupOnly -AllowDirtyCoreCandidate *> $setupLog
-}
-catch {
-    Write-Host ""
-    Write-Host "=== H1D SETUP FAILURE DETAIL ==="
+    Remove-Item -LiteralPath $archivePath -Force
+    $archiveHidden = $true
+
+    $setupArgs = @(
+        "-NoLogo",
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", $p5bGate,
+        "-MasterPort", $MasterPort,
+        "-SlavePort", $SlavePort,
+        "-SetupOnly",
+        "-AllowDirtyCoreCandidate",
+        "-AllowMissingModbusRtuArchiveCandidate"
+    )
+
+    $setupExit = Invoke-NativeToLog -FilePath "powershell.exe" -Arguments $setupArgs -LogPath $setupLog
+    Write-Host "RTUH1D_SETUP_EXIT=$setupExit"
 
     if (Test-Path -LiteralPath $setupLog) {
         Get-Content -LiteralPath $setupLog | ForEach-Object { Write-Host $_ }
     }
-    else {
-        Write-Host "RTUH1D_SETUP_LOG_MISSING=$setupLog"
+
+    if ($setupExit -ne 0) {
+        throw "RTUH1D_FRESH_SETUP_FAILED"
     }
 
-    Write-Host ("RTUH1D_SETUP_EXCEPTION={0}" -f $_.Exception.Message)
-    throw "RTUH1D_FRESH_SETUP_FAILED"
-}
-
-Get-Content -LiteralPath $setupLog | ForEach-Object { Write-Host $_ }
-
-$setupText = [System.IO.File]::ReadAllText($setupLog)
-$tempRootMatch = [regex]::Match($setupText, "(?m)^TEMP_ROOT=(.+?)\r?$")
-if (-not $tempRootMatch.Success) {
-    throw "RTUH1D_P5B_TEMP_ROOT_MISSING"
-}
-$p5bTempRoot = $tempRootMatch.Groups[1].Value.Trim()
-
-foreach ($buildName in @("build_master", "build_slave")) {
-    $buildPath = Join-Path $p5bTempRoot $buildName
-    $objects = @(
-        Get-ChildItem -LiteralPath $buildPath -Recurse -File |
-        Where-Object { $_.Name -like "JWPLC_RS485.cpp.o*" }
-    )
-    if ($objects.Count -lt 1) {
-        throw ("RTUH1D_RS485_SOURCE_OBJECT_MISSING={0}" -f $buildPath)
+    $setupText = [System.IO.File]::ReadAllText($setupLog)
+    $tempRootMatch = [regex]::Match($setupText, "(?m)^TEMP_ROOT=(.+?)\r?$")
+    if (-not $tempRootMatch.Success) {
+        throw "RTUH1D_P5B_TEMP_ROOT_MISSING"
     }
-    Write-Host ("RTUH1D_RS485_SOURCE_OBJECT={0}" -f $objects[0].FullName)
+    $p5bTempRoot = $tempRootMatch.Groups[1].Value.Trim()
+
+    foreach ($buildName in @("build_master", "build_slave")) {
+        $buildPath = Join-Path $p5bTempRoot $buildName
+
+        foreach ($objectPattern in @("JWPLC_ModbusRTU.cpp.o*", "JWPLC_RS485.cpp.o*")) {
+            $objects = @(
+                Get-ChildItem -LiteralPath $buildPath -Recurse -File |
+                Where-Object { $_.Name -like $objectPattern }
+            )
+
+            if ($objects.Count -lt 1) {
+                throw ("RTUH1D_SOURCE_OBJECT_MISSING={0}:{1}" -f $buildPath, $objectPattern)
+            }
+
+            Write-Host ("RTUH1D_SOURCE_OBJECT={0}" -f $objects[0].FullName)
+        }
+    }
+
+    Write-Host "RTUH1D_FRESH_SOURCE_COMPILE=PASS"
 }
-Write-Host "RTUH1D_FRESH_RS485_SOURCE_COMPILE=PASS"
+finally {
+    if ($archiveHidden) {
+        Copy-Item -LiteralPath $archiveBackup -Destination $archivePath -Force
+    }
+}
+
+$archiveHashAfter = Get-G2Sha256 $archiveRelative
+Write-Host "MODBUS_RTU_ARCHIVE_SHA256_AFTER=$archiveHashAfter"
+if ($archiveHashAfter -ne $archiveHashBefore) {
+    throw "RTUH1D_ARCHIVE_RESTORE_HASH_MISMATCH"
+}
+
+$dirtyAfterRestore = @(Get-G2TrackedDirtyPaths)
+if ($dirtyAfterRestore.Count -ne 1 -or $dirtyAfterRestore[0].Replace("\", "/") -ne $script:G2CoreRelative) {
+    $dirtyAfterRestore | ForEach-Object { Write-Host "DIRTY=$_" }
+    throw "RTUH1D_DIRTY_SCOPE_AFTER_RESTORE_INVALID"
+}
 
 Write-Host ""
 Write-Host "=== PHYSICAL RTU-H1D MATRIX ==="
@@ -192,17 +249,22 @@ if (-not ($masterPhysical -and $slavePhysical)) {
 }
 
 $finalCoreHash = Get-G2Sha256 $script:G2CoreRelative
+$finalArchiveHash = Get-G2Sha256 $archiveRelative
 $finalDirty = @(Get-G2TrackedDirtyPaths)
 $finalStaged = @(& git -C $script:G2RepoRoot diff --cached --name-only)
 
 Write-Host ""
 Write-Host "=== FINAL CONTROLLED STATE ==="
 Write-Host "CORE_A_SHA256=$finalCoreHash"
+Write-Host "MODBUS_RTU_ARCHIVE_SHA256=$finalArchiveHash"
 Write-Host "TRACKED_DIRTY_FINAL=$($finalDirty.Count)"
 Write-Host "STAGED_COUNT_FINAL=$($finalStaged.Count)"
 
 if ($finalCoreHash -ne $expectedCoreHash) {
     throw "RTUH1D_CORE_HASH_CHANGED"
+}
+if ($finalArchiveHash -ne $archiveHashBefore) {
+    throw "RTUH1D_ARCHIVE_CHANGED"
 }
 if ($finalDirty.Count -ne 1 -or $finalDirty[0].Replace("\", "/") -ne $script:G2CoreRelative) {
     throw "RTUH1D_FINAL_DIRTY_SCOPE_INVALID"
