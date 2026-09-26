@@ -164,3 +164,26 @@ H1D-R2 reutiliza el mecanismo ya validado en F2/F3/H1/H1C:
 El archive historico no se adopta como artefacto final por este gate.
 Despues de cerrar la policy funcional sera necesario regenerar y calificar
 el precompilado antes de publicarlo.
+
+
+## Decisión adoptada
+
+Con la matriz H1D cerrada y los cinco baudrates limpios, se adopta para
+JWPLC Basic v2 sobre ESP32 clásico la siguiente política:
+
+```txt
+JWPLC_RS485_UART_CLOCK=APB_FORCED
+SCOPE=ESP32_CLASSIC
+```
+
+Motivos:
+
+- corrige el caso 230400 caracterizado en H1C;
+- 115200, 230400, 250000, 460800 y 500000 quedaron limpios;
+- no introduce selección condicional por baudrate;
+- deja una política determinista para el UART RS-485;
+- ESP32-S3 y otros SoC quedan fuera de esta decisión hasta qualification propia.
+
+La investigación de reloj queda cerrada para ESP32 clásico. El siguiente foco
+de Alpha14 vuelve a 500000 baud y al throughput de JWPLC_FAST bajo convivencia
+con TCP/full runtime.
