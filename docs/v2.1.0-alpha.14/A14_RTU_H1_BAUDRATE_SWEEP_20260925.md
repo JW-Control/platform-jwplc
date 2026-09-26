@@ -60,3 +60,39 @@ resultado y se identifica el baud mas alto que complete ambos casos sin
 CRC/timeouts/fallos y mantenga TCP500 >=99 %.
 
 No se cambia aun el baudrate default publico del package.
+
+## Gate versionado
+
+El gate fuerza una sola compilacion/upload desde las fuentes actuales,
+ocultando temporalmente el archive precompilado anterior de Modbus RTU.
+
+Verifica en Master y Slave los objetos:
+
+```txt
+JWPLC_ModbusRTU.cpp.o
+JWPLC_RS485.cpp.o
+```
+
+Antes del sweep restaura el archive previo con su mismo SHA-256.
+
+Durante la medicion el baudrate cambia por USB de diagnostico, con el trafico
+RTU detenido. El Slave se reconfigura primero y el Master despues; no se emite
+ninguna transaccion mientras los extremos tienen baudrates distintos.
+
+Cada snapshot debe confirmar:
+
+```txt
+RTU_MOTOR=ASYNC
+RTU_TX_MODE=QUEUED
+RTU_FRAME_GAP_US=500
+RS485_AUTO_DIRECTION=YES
+RS485_QUEUED_TX_SUPPORTED=YES
+```
+
+El runner muestra la salida en vivo y simultaneamente la guarda con
+`Tee-Object`, usando explicitamente `python.exe -u` para evitar buffering
+en pruebas largas.
+
+Si 115200 pasa, el gate conserva los resultados de 230400 y 500000 incluso si
+alguno falla. Al final reporta el baud mas alto limpio en TCP500 y TCP OFF.
+
