@@ -27,7 +27,7 @@ JWPLC_ModbusRTUClass::JWPLC_ModbusRTUClass()
       _rxLength(0),
       _lastByteUs(0),
       _lastError(JWPLC_MODBUS_NOT_STARTED),
-      _stats{0, 0, 0, 0, 0, 0},
+      _stats{0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
       _masterState(JWPLC_MODBUS_MASTER_IDLE),
       _masterOperation(JWPLC_MODBUS_MASTER_OP_NONE),
       _masterResult(JWPLC_MODBUS_OK),
@@ -407,6 +407,7 @@ void JWPLC_ModbusRTUClass::pollServer()
 
         if (readBytes > 0)
         {
+            _stats.rxBytes += (uint64_t)readBytes;
             _rxLength += (uint16_t)readBytes;
             _lastByteUs = micros();
         }
@@ -437,6 +438,8 @@ void JWPLC_ModbusRTUClass::pollServer()
                 return;
             }
 
+            _stats.rxBytes++;
+            _stats.rxBytes++;
             _rxBuffer[_rxLength++] = (uint8_t)value;
             _lastByteUs = micros();
         }
@@ -618,6 +621,10 @@ void JWPLC_ModbusRTUClass::pollServer()
             }
 
             // Trafico ajeno o tail ambiguo: no contaminar CRC del Slave local.
+            // H3B.3 contabiliza el descarte para distinguir perdida fisica
+            // de bytes recibidos que el parser no pudo clasificar.
+            _stats.serverDiscardedTails++;
+            _stats.serverDiscardedBytes += (uint64_t)remaining;
             break;
         }
 
@@ -648,6 +655,7 @@ void JWPLC_ModbusRTUClass::pollMaster()
 
         if (readBytes > 0)
         {
+            _stats.rxBytes += (uint64_t)readBytes;
             _rxLength += (uint16_t)readBytes;
             _lastByteUs = micros();
         }
@@ -1769,7 +1777,7 @@ const JWPLCModbusRTUStats &JWPLC_ModbusRTUClass::stats() const
 
 void JWPLC_ModbusRTUClass::resetStats()
 {
-    _stats = {0, 0, 0, 0, 0, 0};
+    _stats = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 }
 
 void JWPLC_ModbusRTUClass::printStatus(Print &out) const
@@ -1824,12 +1832,13 @@ size_t JWPLC_ModbusRTUClass::writeTransport(
     const uint8_t *buffer,
     size_t size)
 {
-    if (queuedTxActive())
-    {
-        return JWPLC_RS485.writeQueued(buffer, size);
-    }
+    const size_t written =
+        queuedTxActive()
+            ? JWPLC_RS485.writeQueued(buffer, size)
+            : JWPLC_RS485.write(buffer, size);
 
-    return JWPLC_RS485.write(buffer, size);
+    _stats.txBytes += (uint64_t)written;
+    return written;
 }
 
 void JWPLC_ModbusRTUClass::clearRxBuffer()
