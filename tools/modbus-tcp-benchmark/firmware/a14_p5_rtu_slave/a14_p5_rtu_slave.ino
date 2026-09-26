@@ -27,6 +27,7 @@ static constexpr uint32_t DISPLAY_SERVICE_PERIOD_MS = 100UL;
 
 static uint16_t holding[16] = {};
 static bool rtuReady = false;
+static const char *rtuClockProfile = "AUTO";
 
 static uint32_t displayServiceCycles = 0;
 static uint32_t displayLastServiceMs = 0;
@@ -175,6 +176,9 @@ static void printSnapshot()
     Serial.println(
         JWPLC_ModbusRTU.effectiveBaudRate());
 
+    Serial.print("RTU_CLOCK_PROFILE=");
+    Serial.println(rtuClockProfile);
+
     Serial.print("RTU_MOTOR=");
     Serial.println(
         JWPLC_ModbusRTU.motor() == ASYNC
@@ -289,6 +293,39 @@ static bool setRtuBaud(uint32_t baud)
     }
 
     JWPLC_ModbusRTU.setFrameGapUs(500UL);
+    rtuClockProfile = "AUTO";
+    return true;
+}
+
+static bool setRtu230400ApbForced()
+{
+    JWPLC_ModbusRTU.end();
+
+    if (!JWPLC_RS485.serial().setClockSource(UART_CLK_SRC_APB))
+    {
+        rtuReady = false;
+        return false;
+    }
+
+    rtuReady =
+        JWPLC_ModbusRTU.begin(
+            SLAVE_ID,
+            230400UL,
+            RTU_CONFIG);
+
+    if (!rtuReady)
+    {
+        return false;
+    }
+
+    if (!JWPLC_ModbusRTU.motor(ASYNC))
+    {
+        rtuReady = false;
+        return false;
+    }
+
+    JWPLC_ModbusRTU.setFrameGapUs(500UL);
+    rtuClockProfile = "APB_FORCED";
     return true;
 }
 
@@ -437,6 +474,13 @@ static void serviceSerial()
                 setRtuBaud(230400UL)
                     ? "RTU_BAUD_REQUESTED=230400"
                     : "RTU_BAUD_EFFECTIVE=FAIL");
+        }
+        else if (c == '@')
+        {
+            Serial.println(
+                setRtu230400ApbForced()
+                    ? "RTU_CLOCK_PROFILE=APB_FORCED"
+                    : "RTU_CLOCK_PROFILE=FAIL");
         }
         else if (c == '9')
         {

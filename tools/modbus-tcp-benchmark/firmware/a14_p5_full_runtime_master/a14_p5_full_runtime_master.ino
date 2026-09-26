@@ -67,6 +67,7 @@ static constexpr uint32_t RTU_TIMEOUT_MS = 25UL;
 static constexpr uint16_t RTU_VERIFY_MAGIC = 0x55AA;
 
 static bool rtuReady = false;
+static const char *rtuClockProfile = "AUTO";
 static bool rtuTrafficEnabled = false;
 static bool rtuUnpaced = false;
 static uint32_t rtuTargetHz = 50UL;
@@ -901,6 +902,43 @@ static bool setRtuBaud(uint32_t baud)
     }
 
     JWPLC_ModbusRTU.setFrameGapUs(500UL);
+    rtuClockProfile = "AUTO";
+    resetRtuTrafficCounters();
+
+    return true;
+}
+
+static bool setRtu230400ApbForced()
+{
+    stopRtuTraffic();
+
+    JWPLC_ModbusRTU.end();
+
+    if (!JWPLC_RS485.serial().setClockSource(UART_CLK_SRC_APB))
+    {
+        rtuReady = false;
+        return false;
+    }
+
+    rtuReady =
+        JWPLC_ModbusRTU.begin(
+            RTU_MASTER_LOCAL_ID,
+            230400UL,
+            RTU_CONFIG);
+
+    if (!rtuReady)
+    {
+        return false;
+    }
+
+    if (!JWPLC_ModbusRTU.motor(ASYNC))
+    {
+        rtuReady = false;
+        return false;
+    }
+
+    JWPLC_ModbusRTU.setFrameGapUs(500UL);
+    rtuClockProfile = "APB_FORCED";
     resetRtuTrafficCounters();
 
     return true;
@@ -1392,6 +1430,9 @@ static void printSnapshot()
     Serial.print("RTU_BAUD_EFFECTIVE=");
     Serial.println(
         JWPLC_ModbusRTU.effectiveBaudRate());
+
+    Serial.print("RTU_CLOCK_PROFILE=");
+    Serial.println(rtuClockProfile);
 
     Serial.print("RTU_MOTOR=");
     Serial.println(
@@ -2172,6 +2213,13 @@ static void serviceSerialCommands()
                 setRtuBaud(230400UL)
                     ? "RTU_BAUD_REQUESTED=230400"
                     : "RTU_BAUD_EFFECTIVE=FAIL");
+        }
+        else if (c == '@')
+        {
+            Serial.println(
+                setRtu230400ApbForced()
+                    ? "RTU_CLOCK_PROFILE=APB_FORCED"
+                    : "RTU_CLOCK_PROFILE=FAIL");
         }
         else if (c == '9')
         {
