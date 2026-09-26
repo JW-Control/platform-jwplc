@@ -372,6 +372,31 @@ static void serviceSerial()
             JWPLC_ModbusRTU.setFrameGapUs(300UL);
             Serial.println("RTU_FRAME_GAP_US=300");
         }
+        else if (c == '1')
+        {
+            JWPLC_ModbusRTU.setFrameGapUs(200UL);
+            Serial.println("RTU_FRAME_GAP_US=200");
+        }
+        else if (c == '3')
+        {
+            JWPLC_ModbusRTU.setFrameGapUs(150UL);
+            Serial.println("RTU_FRAME_GAP_US=150");
+        }
+        else if (c == '4')
+        {
+            JWPLC_ModbusRTU.setFrameGapUs(100UL);
+            Serial.println("RTU_FRAME_GAP_US=100");
+        }
+        else if (c == 'T' || c == 't')
+        {
+            JWPLC_ModbusRTU.setFrameGapUs(75UL);
+            Serial.println("RTU_FRAME_GAP_US=75");
+        }
+        else if (c == '!')
+        {
+            JWPLC_ModbusRTU.setFrameGapUs(50UL);
+            Serial.println("RTU_FRAME_GAP_US=50");
+        }
         else if (c == 'Y' || c == 'y')
         {
             JWPLC_ModbusRTU.setQueuedTxEnabled(false);
