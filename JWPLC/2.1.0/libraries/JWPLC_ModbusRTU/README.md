@@ -2,7 +2,18 @@
 
 Librería del package **JWPLC ESP32** para Modbus RTU sobre `JWPLC_RS485`.
 
-El Master recomendado usa un motor **cooperativo/no bloqueante**. Las variantes `...Sync()` se conservan para commissioning o sketches donde una espera bloqueante sea aceptable.
+El Master usa una API unificada por funcion con dos motores seleccionables.
+**ASYNC es el motor por defecto y recomendado** para runtime PLC. **SYNC** se
+conserva para compatibilidad, commissioning o sketches donde una espera
+bloqueante sea aceptable.
+
+```cpp
+JWPLC_ModbusRTU.motor(ASYNC); // default
+// o:
+JWPLC_ModbusRTU.motor(SYNC);
+```
+
+Los nombres de operacion no cambian al seleccionar motor.
 
 ## Configuración
 
@@ -47,28 +58,27 @@ reporta el equivalente entero redondeado hacia arriba.
 El valor por defecto continua siendo **5 ms**. RTU-F1 no cambia aun la politica
 de gap segun baudrate.
 
-## Modo TX RTU-F3
+## Motor SYNC / ASYNC y transporte RTU-F3
 
-El default de Modbus RTU sigue siendo TX bloqueante para conservar
-compatibilidad. RTU-F3 anade una seleccion de package:
+La seleccion publica recomendada es:
 
 ```cpp
-JWPLC_ModbusRTU.setQueuedTxEnabled(false); // historico
-JWPLC_ModbusRTU.setQueuedTxEnabled(true);  // candidato AutoDirection
+JWPLC_ModbusRTU.motor(ASYNC); // default
+JWPLC_ModbusRTU.motor(SYNC);  // compatibilidad bloqueante
 ```
 
-Estado:
+`ASYNC` habilita el motor cooperativo y, en JWPLC Basic con AutoDirection,
+aprovecha la ruta TX encolada validada en RTU-F3. `SYNC` mantiene la llamada
+bloqueante y el transporte historico.
+
+La seleccion de transporte de bajo nivel sigue disponible para qualification:
 
 ```cpp
-JWPLC_ModbusRTU.queuedTxEnabled();
+JWPLC_ModbusRTU.setQueuedTxEnabled(...);
 JWPLC_ModbusRTU.queuedTxActive();
 ```
 
-Cuando la ruta encolada esta habilitada y `JWPLC_RS485` confirma soporte
-AutoDirection, Modbus usa `writeQueued()`. En hardware sin ese soporte se
-mantiene el transporte bloqueante.
-
-Esta ruta se encuentra en qualification y no cambia aun el default publico.
+pero no es la API que debe usar un sketch normal.
 
 ## Funciones soportadas
 
@@ -144,6 +154,30 @@ JWPLC_ModbusRTU.hasCoilWrite();
 JWPLC_ModbusRTU.lastCoilWriteMs();
 ```
 
+## API Master unificada
+
+Los mismos nombres se usan en ambos motores:
+
+```cpp
+JWPLC_ModbusRTU.readCoils(...);
+JWPLC_ModbusRTU.readDiscreteInputs(...);
+JWPLC_ModbusRTU.readHoldingRegisters(...);
+JWPLC_ModbusRTU.readInputRegisters(...);
+JWPLC_ModbusRTU.writeSingleCoil(...);
+JWPLC_ModbusRTU.writeSingleRegister(...);
+JWPLC_ModbusRTU.writeMultipleCoils(...);
+```
+
+Con `motor(ASYNC)`, `true` significa que la solicitud fue aceptada/iniciada.
+La finalizacion se consulta con `masterDone()`, `masterSucceeded()` y
+`masterResult()`.
+
+Con `motor(SYNC)`, la misma llamada bloquea hasta terminar y `true` significa
+transaccion completada correctamente.
+
+Las APIs `request...()` y `...Sync()` permanecen como rutas explicitas y de
+compatibilidad.
+
 ## Master cooperativo
 
 Una solicitud cooperativa **inicia** la transacción y retorna. `true` significa que fue aceptada, no que la respuesta ya llegó.
@@ -187,7 +221,8 @@ writeSingleRegisterSync()
 writeMultipleCoilsSync()
 ```
 
-Los wrappers históricos `readHoldingRegisters()` y `writeSingleRegister()` continúan disponibles por compatibilidad, pero código nuevo debe preferir `request...()` o una variante `...Sync()` explícita.
+Las variantes `request...()` y `...Sync()` continúan disponibles. Para
+código nuevo se recomienda la API unificada junto con `motor(ASYNC/SYNC)`.
 
 ## Estado y estadísticas
 

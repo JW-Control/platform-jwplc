@@ -113,3 +113,25 @@ F3 es de caracterizacion: si ambos modos son estables se calcula la ganancia
 RTU y el cambio de latencia TCP antes de decidir si QUEUED pasa a ser el
 comportamiento recomendado del package.
 
+## Resultado fisico RTU-F3
+
+| Modo | TCP | RTU | TCP AVG | P95 | P99 | Estado |
+|---|---:|---:|---:|---:|---:|---|
+| BLOCKING | 500.000 req/s | 245.091 Hz | 1423.9 us | 2478.2 us | 11447.9 us | limpio |
+| BLOCKING | OFF | 279.353 Hz | - | - | - | limpio |
+| QUEUED | 499.907 req/s | 243.279 Hz | 1077.0 us | 1630.7 us | 10514.0 us | limpio |
+| QUEUED | OFF | 277.063 Hz | - | - | - | limpio |
+
+```txt
+QUEUED vs BLOCKING, TCP500 RTU = -0.739 %
+QUEUED vs BLOCKING, TCP OFF RTU = -0.820 %
+TCP500 AVG = -346.9 us
+TCP500 P95 = -847.5 us
+TCP500 P99 = -933.9 us
+```
+
+Interpretacion: la TX encolada no aumenta el techo RTU a 115200, pero reduce de
+forma clara el tiempo que Ethernet espera por CPU. Se conserva como transporte
+del motor ASYNC sobre hardware AutoDirection. El motor SYNC mantiene el
+transporte bloqueante por compatibilidad.
+

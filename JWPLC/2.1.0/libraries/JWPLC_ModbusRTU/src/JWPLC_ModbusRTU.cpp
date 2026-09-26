@@ -9,7 +9,8 @@ JWPLC_ModbusRTUClass::JWPLC_ModbusRTUClass()
       _config(JWPLC_MODBUS_RTU_DEFAULT_CONFIG),
       _frameGapMs(5),
       _frameGapUs(5000UL),
-      _queuedTxEnabled(false),
+      _motor(ASYNC),
+      _queuedTxEnabled(true),
       _coils(nullptr),
       _coilCount(0),
       _discreteInputs(nullptr),
@@ -117,6 +118,40 @@ uint32_t JWPLC_ModbusRTUClass::baudRate() const
 uint32_t JWPLC_ModbusRTUClass::config() const
 {
     return _config;
+}
+
+bool JWPLC_ModbusRTUClass::motor(JWPLCModbusMotor mode)
+{
+    if (masterBusy())
+    {
+        setError(JWPLC_MODBUS_BUSY);
+        return false;
+    }
+
+    if (mode != ASYNC && mode != SYNC)
+    {
+        setError(JWPLC_MODBUS_INVALID_RESPONSE);
+        return false;
+    }
+
+    _motor = mode;
+
+    // El motor ASYNC aprovecha la ruta TX encolada cuando el hardware
+    // AutoDirection la soporta. SYNC conserva el transporte historico.
+    _queuedTxEnabled = (_motor == ASYNC);
+
+    clearError();
+    return true;
+}
+
+JWPLCModbusMotor JWPLC_ModbusRTUClass::motor() const
+{
+    return _motor;
+}
+
+bool JWPLC_ModbusRTUClass::asyncMotor() const
+{
+    return _motor == ASYNC;
 }
 
 void JWPLC_ModbusRTUClass::setFrameGapMs(uint16_t gapMs)
@@ -1174,6 +1209,175 @@ bool JWPLC_ModbusRTUClass::writeMultipleCoilsSync(
         timeoutMs));
 }
 
+bool JWPLC_ModbusRTUClass::readCoils(
+    uint8_t targetSlaveId,
+    uint16_t startAddress,
+    uint16_t quantity,
+    uint8_t *destinationPacked,
+    uint32_t timeoutMs)
+{
+    if (_motor == SYNC)
+    {
+        return readCoilsSync(
+            targetSlaveId,
+            startAddress,
+            quantity,
+            destinationPacked,
+            timeoutMs);
+    }
+
+    return requestReadCoils(
+        targetSlaveId,
+        startAddress,
+        quantity,
+        destinationPacked,
+        timeoutMs);
+}
+
+bool JWPLC_ModbusRTUClass::readDiscreteInputs(
+    uint8_t targetSlaveId,
+    uint16_t startAddress,
+    uint16_t quantity,
+    uint8_t *destinationPacked,
+    uint32_t timeoutMs)
+{
+    if (_motor == SYNC)
+    {
+        return readDiscreteInputsSync(
+            targetSlaveId,
+            startAddress,
+            quantity,
+            destinationPacked,
+            timeoutMs);
+    }
+
+    return requestReadDiscreteInputs(
+        targetSlaveId,
+        startAddress,
+        quantity,
+        destinationPacked,
+        timeoutMs);
+}
+
+bool JWPLC_ModbusRTUClass::readHoldingRegisters(
+    uint8_t targetSlaveId,
+    uint16_t startAddress,
+    uint16_t quantity,
+    uint16_t *destination,
+    uint32_t timeoutMs)
+{
+    if (_motor == SYNC)
+    {
+        return readHoldingRegistersSync(
+            targetSlaveId,
+            startAddress,
+            quantity,
+            destination,
+            timeoutMs);
+    }
+
+    return requestReadHoldingRegisters(
+        targetSlaveId,
+        startAddress,
+        quantity,
+        destination,
+        timeoutMs);
+}
+
+bool JWPLC_ModbusRTUClass::readInputRegisters(
+    uint8_t targetSlaveId,
+    uint16_t startAddress,
+    uint16_t quantity,
+    uint16_t *destination,
+    uint32_t timeoutMs)
+{
+    if (_motor == SYNC)
+    {
+        return readInputRegistersSync(
+            targetSlaveId,
+            startAddress,
+            quantity,
+            destination,
+            timeoutMs);
+    }
+
+    return requestReadInputRegisters(
+        targetSlaveId,
+        startAddress,
+        quantity,
+        destination,
+        timeoutMs);
+}
+
+bool JWPLC_ModbusRTUClass::writeSingleCoil(
+    uint8_t targetSlaveId,
+    uint16_t address,
+    bool value,
+    uint32_t timeoutMs)
+{
+    if (_motor == SYNC)
+    {
+        return writeSingleCoilSync(
+            targetSlaveId,
+            address,
+            value,
+            timeoutMs);
+    }
+
+    return requestWriteSingleCoil(
+        targetSlaveId,
+        address,
+        value,
+        timeoutMs);
+}
+
+bool JWPLC_ModbusRTUClass::writeSingleRegister(
+    uint8_t targetSlaveId,
+    uint16_t address,
+    uint16_t value,
+    uint32_t timeoutMs)
+{
+    if (_motor == SYNC)
+    {
+        return writeSingleRegisterSync(
+            targetSlaveId,
+            address,
+            value,
+            timeoutMs);
+    }
+
+    return requestWriteSingleRegister(
+        targetSlaveId,
+        address,
+        value,
+        timeoutMs);
+}
+
+bool JWPLC_ModbusRTUClass::writeMultipleCoils(
+    uint8_t targetSlaveId,
+    uint16_t startAddress,
+    uint16_t quantity,
+    const uint8_t *sourcePacked,
+    uint32_t timeoutMs)
+{
+    if (_motor == SYNC)
+    {
+        return writeMultipleCoilsSync(
+            targetSlaveId,
+            startAddress,
+            quantity,
+            sourcePacked,
+            timeoutMs);
+    }
+
+    return requestWriteMultipleCoils(
+        targetSlaveId,
+        startAddress,
+        quantity,
+        sourcePacked,
+        timeoutMs);
+}
+
 void JWPLC_ModbusRTUClass::resetMasterContext()
 {
     _masterState = JWPLC_MODBUS_MASTER_IDLE;
@@ -1505,6 +1709,9 @@ void JWPLC_ModbusRTUClass::printStatus(Print &out) const
 
     out.print("Frame gap us: ");
     out.println(_frameGapUs);
+
+    out.print("Motor: ");
+    out.println(_motor == ASYNC ? "ASYNC" : "SYNC");
 
     out.print("Queued TX requested: ");
     out.println(_queuedTxEnabled ? "yes" : "no");

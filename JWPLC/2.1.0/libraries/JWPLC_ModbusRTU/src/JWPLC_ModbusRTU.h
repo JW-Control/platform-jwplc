@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <JWPLC_RS485.h>
+#include <jwplc_modbus_motor.h>
 
 #ifndef JWPLC_MODBUS_RTU_DEFAULT_BAUD
 #define JWPLC_MODBUS_RTU_DEFAULT_BAUD 19200UL
@@ -77,6 +78,12 @@ public:
     uint8_t slaveId() const;
     uint32_t baudRate() const;
     uint32_t config() const;
+
+    // Selector publico de motor. ASYNC es el default del package.
+    // Retorna false si se intenta cambiar durante una transaccion activa.
+    bool motor(JWPLCModbusMotor mode);
+    JWPLCModbusMotor motor() const;
+    bool asyncMotor() const;
 
     // Compatibilidad historica en milisegundos.
     void setFrameGapMs(uint16_t gapMs);
@@ -215,32 +222,48 @@ public:
                                 const uint8_t *sourcePacked,
                                 uint32_t timeoutMs = 1000);
 
-    // Compatibilidad temporal Alpha7 con sketches previos.
+    // API unificada por funcion. El nombre no cambia entre motores:
+    // ASYNC -> inicia la transaccion y retorna si fue aceptada.
+    // SYNC  -> retorna al completar la transaccion.
+    bool readCoils(uint8_t targetSlaveId,
+                   uint16_t startAddress,
+                   uint16_t quantity,
+                   uint8_t *destinationPacked,
+                   uint32_t timeoutMs = 1000);
+
+    bool readDiscreteInputs(uint8_t targetSlaveId,
+                            uint16_t startAddress,
+                            uint16_t quantity,
+                            uint8_t *destinationPacked,
+                            uint32_t timeoutMs = 1000);
+
     bool readHoldingRegisters(uint8_t targetSlaveId,
                               uint16_t startAddress,
                               uint16_t quantity,
                               uint16_t *destination,
-                              uint32_t timeoutMs = 1000)
-    {
-        return readHoldingRegistersSync(
-            targetSlaveId,
-            startAddress,
-            quantity,
-            destination,
-            timeoutMs);
-    }
+                              uint32_t timeoutMs = 1000);
+
+    bool readInputRegisters(uint8_t targetSlaveId,
+                            uint16_t startAddress,
+                            uint16_t quantity,
+                            uint16_t *destination,
+                            uint32_t timeoutMs = 1000);
+
+    bool writeSingleCoil(uint8_t targetSlaveId,
+                         uint16_t address,
+                         bool value,
+                         uint32_t timeoutMs = 1000);
 
     bool writeSingleRegister(uint8_t targetSlaveId,
                              uint16_t address,
                              uint16_t value,
-                             uint32_t timeoutMs = 1000)
-    {
-        return writeSingleRegisterSync(
-            targetSlaveId,
-            address,
-            value,
-            timeoutMs);
-    }
+                             uint32_t timeoutMs = 1000);
+
+    bool writeMultipleCoils(uint8_t targetSlaveId,
+                            uint16_t startAddress,
+                            uint16_t quantity,
+                            const uint8_t *sourcePacked,
+                            uint32_t timeoutMs = 1000);
 
     static uint16_t crc16(const uint8_t *data, size_t length);
     static bool checkCRC(const uint8_t *frame, size_t length);
@@ -272,6 +295,7 @@ private:
     uint32_t _config;
     uint16_t _frameGapMs;
     uint32_t _frameGapUs;
+    JWPLCModbusMotor _motor;
     bool _queuedTxEnabled;
 
     uint8_t *_coils;
