@@ -58,7 +58,8 @@ def main() -> int:
     print(f"BUCKET_SECONDS={args.bucket_seconds:.0f}")
     print("BAUD=500000")
     print("FRAME_GAP_US=100")
-    print("RX_FIFO_FULL=1")
+    print("MASTER_RX_FIFO_FULL=1")
+    print("SLAVE_RX_FIFO_FULL=8")
     print("CLOCK=APB_FORCED")
     print("RX_MODE=BULK")
     print("MOTOR=ASYNC")
@@ -374,7 +375,7 @@ def main() -> int:
 
         print()
         print("=" * 78)
-        print(" RTU-H3C.1 SLAVE FIFO8 CAUSAL SUMMARY")
+        print(" RTU-H3C.3 SLAVE FIFO8 CAUSAL SUMMARY")
         print("=" * 78)
 
         for bucket in buckets:
