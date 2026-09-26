@@ -105,7 +105,9 @@ $checks = @(
     [PSCustomObject]@{ Label="H3C1_SLAVE_COMMAND"; Pass=$slaveText.Contains('RTU_SERVER_FRAMING=STRUCTURAL') -and $slaveText.Contains('RTU_SERVER_FRAMING=GAP') },
     [PSCustomObject]@{ Label="H3C1_TAIL_STATS"; Pass=$rtuHeaderText.Contains("serverDiscardedLastLength") -and $rtuHeaderText.Contains("serverDiscardedMaxAgeUs") -and $rtuHeaderText.Contains("serverDiscardedLen4") },
     [PSCustomObject]@{ Label="H3C1_TAIL_IMPL"; Pass=$rtuCppText.Contains("_stats.serverDiscardedLastAgeUs = frameAgeUs") -and $rtuCppText.Contains("_stats.serverDiscardedLen4++") },
-    [PSCustomObject]@{ Label="H3C1_TAIL_SNAPSHOT"; Pass=$slaveText.Contains('RTU_SERVER_DISCARDED_MAX_AGE_US=') -and $slaveText.Contains('RTU_SERVER_DISCARDED_LEN4=') }
+    [PSCustomObject]@{ Label="H3C1_TAIL_SNAPSHOT"; Pass=$slaveText.Contains('RTU_SERVER_DISCARDED_MAX_AGE_US=') -and $slaveText.Contains('RTU_SERVER_DISCARDED_LEN4=') },
+    [PSCustomObject]@{ Label="H3C1_DISCARDED_BYTES_MASTER"; Pass=$masterText.Contains('Serial.print("RTU_SERVER_DISCARDED_BYTES=")') -and $masterText.Contains('Serial.println((unsigned long long)rtu.serverDiscardedBytes)') },
+    [PSCustomObject]@{ Label="H3C1_DISCARDED_BYTES_SLAVE"; Pass=$slaveText.Contains('Serial.print("RTU_SERVER_DISCARDED_BYTES=")') -and $slaveText.Contains('Serial.println((unsigned long long)s.serverDiscardedBytes)') }
 )
 foreach ($check in $checks) {
     Write-Host "$($check.Label)=$($check.Pass)"
