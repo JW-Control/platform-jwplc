@@ -107,3 +107,83 @@ RTUH3B3_DIAGNOSIS=TIMEOUT_WITHOUT_REQUEST_PATH_GAP
 ```
 
 No se adopta ninguna corrección hasta observar esta clasificación.
+
+
+## Resultado físico H3B.3
+
+El fallo se reprodujo con mayor claridad:
+
+```txt
+RTU_HZ=677.974
+RTU_STARTED=406909
+RTU_SUCCESS=406905
+RTU_FAILED=4
+RTU_TIMEOUTS=4
+REQUEST_PATH_GAP=4
+RESPONSE_PATH_GAP=0
+```
+
+La nueva contabilidad mostró:
+
+```txt
+MASTER_TX_BYTES=3255272
+SLAVE_RX_BYTES=3255272
+SLAVE_TX_BYTES=3662145
+MASTER_RX_BYTES=3662145
+REQUEST_BYTE_GAP=0
+RESPONSE_BYTE_GAP=0
+MASTER_DISCARDED_TAILS=0
+MASTER_DISCARDED_BYTES=0
+SLAVE_DISCARDED_TAILS=8
+SLAVE_DISCARDED_BYTES=32
+```
+
+La contabilidad TX también cerró exactamente:
+
+```txt
+EXPECTED_MASTER_TX_BYTES=3255272
+EXPECTED_SLAVE_TX_BYTES=3662145
+MASTER_TX_BYTE_ACCOUNTING_PASS=YES
+SLAVE_TX_BYTE_ACCOUNTING_PASS=YES
+```
+
+### Conclusión causal
+
+Los bytes no se perdieron antes del parser:
+
+```txt
+MASTER_TX_BYTES == SLAVE_RX_BYTES
+SLAVE_TX_BYTES == MASTER_RX_BYTES
+```
+
+El fallo está dentro del framing del Slave. Durante cuatro transacciones fallidas,
+`pollServer()` descartó 32 bytes distribuidos en 8 tails ambiguos.
+
+Como cada request FC03 del benchmark mide 8 bytes:
+
+```txt
+4 timeouts x 8 bytes = 32 bytes
+```
+
+La igualdad no prueba por sí sola una correspondencia evento-a-evento, pero junto
+con REQUEST_BYTE_GAP=0, RESPONSE_BYTE_GAP=0 y CRC=0 constituye evidencia fuerte de
+que requests completas fueron fragmentadas temporalmente y sus tails fueron
+descartados por el framing basado únicamente en frameGap=100 us.
+
+Resultado:
+
+```txt
+RTUH3B3_DIAGNOSIS=SERVER_PARSER_DISCARD_OBSERVED
+A14_RTU_H3B3=PASS_DIAGNOSTIC_CAPTURE_WITH_FAILURE
+```
+
+### Siguiente gate
+
+H3C prueba una única corrección:
+
+- dispatch inmediato cuando una request local está estructuralmente completa;
+- conservar un prefijo local incompleto en vez de descartarlo a los 100 us;
+- ventana de recuperación de prefijo incompleto: 1750 us;
+- sin cambiar baud, timeout, FIFO, Bulk RX, queued TX ni TCP500.
+
+La función queda desactivada por default hasta qualification.
