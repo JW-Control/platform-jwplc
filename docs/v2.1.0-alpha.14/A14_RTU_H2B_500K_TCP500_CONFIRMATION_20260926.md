@@ -76,3 +76,32 @@ La seleccion JWPLC_FAST/AUTO para 500 kbaud priorizara:
 
 El minimo absoluto de H2/H2B no se adopta automaticamente como valor de
 producto.
+
+## Gate versionado
+
+H2B no compila ni sube firmware. Reutiliza el firmware H2 que ya fue compilado
+desde source y validado fisicamente.
+
+Antes de medir exige:
+
+```txt
+CORE_A_SHA256=4BFF8C8241DA2E8BD0E1BBA99835ADDF91B9085A05C4DFBD05C339B824794566
+MODBUS_RTU_ARCHIVE_SHA256=444BE3A04079A579252B2737FE6070E00ADCA949FD176880588FE69561B2A79F
+TRACKED_DIRTY=solo core candidato
+STAGED_COUNT=0
+```
+
+El propio runner reconfigura y verifica por snapshot:
+
+```txt
+RTU_BAUD=500000
+RTU_BAUD_EFFECTIVE=500000
+RTU_MOTOR=ASYNC
+RTU_TX_MODE=QUEUED
+RS485_AUTO_DIRECTION=YES
+RS485_QUEUED_TX_SUPPORTED=YES
+```
+
+La salida se muestra en vivo con `python.exe -u` y se guarda simultaneamente.
+Al finalizar se comprueba TFT fisica, hashes, dirty scope e indice.
+
