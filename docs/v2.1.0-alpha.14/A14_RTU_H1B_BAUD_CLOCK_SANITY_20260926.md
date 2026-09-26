@@ -114,3 +114,36 @@ F059: backticks de PowerShell dentro de un template JavaScript. La ejecucion
 se detuvo antes de cualquier mutacion remota. El gate final evita
 deliberadamente continuaciones PowerShell con backtick.
 
+## Resultado fisico RTU-H1B
+
+| Baud solicitado | Baud efectivo | Error | Reloj esperado | RTU | Fallos | Timeout | CRC Master | CRC Slave | Estado |
+|---:|---:|---:|---|---:|---:|---:|---:|---:|---|
+| 230400 | 231884 | +0.6441 % | REF_TICK | 282.677 Hz | 4852 | 322 | 4530 | 322 | FAIL |
+| 250000 | 250000 | 0.0000 % | REF_TICK | 393.875 Hz | 0 | 0 | 0 | 0 | PASS |
+| 460800 | 460929 | +0.0280 % | APB | 450.543 Hz | 0 | 0 | 0 | 0 | PASS |
+| 500000 | 500000 | 0.0000 % | APB | 468.040 Hz | 0 | 0 | 0 | 0 | PASS |
+
+Resumen del runner:
+
+```txt
+RTUH1B_CLEAN_REQUESTED_BAUDS=250000,460800,500000
+RTUH1B_REF_TICK_CLEAN=250000
+RTUH1B_APB_CLEAN=460800,500000
+RTUH1B_REF_TICK_PATTERN=250000_PASS_230400_FAIL
+RTUH1B_APB_PATTERN=460800_AND_500000_PASS
+A14_RTU_H1B=PASS_CHARACTERIZED
+```
+
+### Conclusion de H1B
+
+El fallo de 230400 es reproducible, pero no representa una limitacion general
+de velocidad del hardware RS-485:
+
+- 250000 usa tambien REF_TICK y queda completamente limpio;
+- 460800 y 500000 quedan limpios sobre APB;
+- Master y Slave reportan el mismo baud efectivo en todos los puntos.
+
+230400 queda como configuracion problematica/no recomendada hasta completar la
+revision documental del UART ESP32/ESP-IDF y del MAX13487E. Esa investigacion
+se realizara despues del sweep H2 de gap a 500 kbaud.
+
