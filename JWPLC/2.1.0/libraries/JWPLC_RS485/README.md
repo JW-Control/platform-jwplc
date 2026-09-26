@@ -59,6 +59,39 @@ HardwareSerial &uart = JWPLC_RS485.serial();
 
 No se recomienda reconfigurar directamente la UART obtenida por `serial()` en un JWPLC Basic normal.
 
+## TX encolada / AutoDirection
+
+JWPLC Basic v2 usa MAX13487E con AutoDirection. El package reserva un buffer TX
+UART de 512 bytes antes de iniciar Serial2, suficiente para una ADU Modbus RTU
+maxima.
+
+La API historica conserva su semantica bloqueante:
+
+```cpp
+JWPLC_RS485.write(buffer, length); // espera flush
+```
+
+Se anade una ruta aditiva:
+
+```cpp
+JWPLC_RS485.writeQueued(buffer, length);
+```
+
+`writeQueued()` solo opera sin `flush()` cuando el hardware declara
+AutoDirection y el buffer TX fue configurado. En otro hardware cae de forma
+segura al `write()` bloqueante, preservando los hooks DE/RE existentes.
+
+Diagnostico:
+
+```cpp
+JWPLC_RS485.autoDirection();
+JWPLC_RS485.txBufferSize();
+JWPLC_RS485.queuedWriteSupported();
+```
+
+La ruta encolada se encuentra en qualification RTU-F3; el comportamiento
+historico sigue siendo el default hasta cerrar el gate.
+
 ## Estado
 
 ```cpp

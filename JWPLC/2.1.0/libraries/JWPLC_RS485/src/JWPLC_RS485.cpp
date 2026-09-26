@@ -26,6 +26,7 @@ JWPLC_RS485Class::JWPLC_RS485Class()
       _config(JWPLC_RS485_DEFAULT_CONFIG),
       _rxPin(JWPLC_RS485_RX_PIN),
       _txPin(JWPLC_RS485_TX_PIN),
+      _txBufferSize(0),
       _ready(false),
       _lastError(JWPLC_RS485_NOT_STARTED),
       _lastActivityMs(0),
@@ -62,6 +63,28 @@ bool JWPLC_RS485Class::begin(uint32_t baud, uint32_t config)
 
     _baud = baud;
     _config = config;
+
+#if JWPLC_RS485_AUTO_DIRECTION && (JWPLC_RS485_TX_BUFFER_SIZE > 0)
+    if (!_ready)
+    {
+        const size_t configured =
+            _serial->setTxBufferSize(JWPLC_RS485_TX_BUFFER_SIZE);
+
+        if (configured > 0)
+        {
+            _txBufferSize = configured;
+        }
+    }
+#endif
+
+#if JWPLC_RS485_FORCE_APB_CLOCK
+    if (!_serial->setClockSource(UART_CLK_SRC_APB))
+    {
+        _ready = false;
+        setError(JWPLC_RS485_CLOCK_SOURCE_FAILED);
+        return false;
+    }
+#endif
 
     _serial->begin(_baud, _config, _rxPin, _txPin);
     _ready = true;
@@ -113,9 +136,60 @@ uint32_t JWPLC_RS485Class::baudRate() const
     return _baud;
 }
 
+uint32_t JWPLC_RS485Class::effectiveBaudRate() const
+{
+#if JWPLC_HAS_RS485
+    if (_ready && _serial != nullptr)
+    {
+        return _serial->baudRate();
+    }
+#endif
+
+    return 0;
+}
+
 uint32_t JWPLC_RS485Class::config() const
 {
     return _config;
+}
+
+bool JWPLC_RS485Class::autoDirection() const
+{
+#if JWPLC_HAS_RS485 && JWPLC_RS485_AUTO_DIRECTION
+    return true;
+#else
+    return false;
+#endif
+}
+
+bool JWPLC_RS485Class::apbClockForced() const
+{
+#if JWPLC_RS485_FORCE_APB_CLOCK
+    return true;
+#else
+    return false;
+#endif
+}
+
+const char *JWPLC_RS485Class::clockSourceString() const
+{
+    return apbClockForced()
+        ? "APB_FORCED"
+        : "AUTO";
+}
+
+size_t JWPLC_RS485Class::txBufferSize() const
+{
+    return _txBufferSize;
+}
+
+bool JWPLC_RS485Class::queuedWriteSupported() const
+{
+#if JWPLC_HAS_RS485 && JWPLC_RS485_AUTO_DIRECTION
+    return _ready && _serial != nullptr && _txBufferSize > 0;
+#else
+    return false;
+#endif
 }
 
 int8_t JWPLC_RS485Class::rxPin() const
@@ -186,6 +260,46 @@ int JWPLC_RS485Class::read()
 #endif
 }
 
+size_t JWPLC_RS485Class::readAvailable(
+    uint8_t *buffer,
+    size_t maxSize)
+{
+#if !JWPLC_HAS_RS485
+    return 0;
+#else
+    if (!_ready ||
+        _serial == nullptr ||
+        buffer == nullptr ||
+        maxSize == 0)
+    {
+        return 0;
+    }
+
+    const int availableBytes =
+        _serial->available();
+
+    if (availableBytes <= 0)
+    {
+        return 0;
+    }
+
+    const size_t toRead =
+        (size_t)availableBytes < maxSize
+            ? (size_t)availableBytes
+            : maxSize;
+
+    const size_t readBytes =
+        _serial->read(buffer, toRead);
+
+    if (readBytes > 0)
+    {
+        markRxActivity();
+    }
+
+    return readBytes;
+#endif
+}
+
 size_t JWPLC_RS485Class::write(uint8_t data)
 {
     return write(&data, 1);
@@ -217,6 +331,42 @@ size_t JWPLC_RS485Class::write(const uint8_t *buffer, size_t size)
     }
 
     jwplcRs485PostTransmitCallback();
+
+    return written;
+#endif
+}
+
+size_t JWPLC_RS485Class::writeQueued(uint8_t data)
+{
+    return writeQueued(&data, 1);
+}
+
+size_t JWPLC_RS485Class::writeQueued(
+    const uint8_t *buffer,
+    size_t size)
+{
+#if !JWPLC_HAS_RS485
+    setError(JWPLC_RS485_DISABLED);
+    return 0;
+#else
+    if (!queuedWriteSupported())
+    {
+        // Conserva semantica y DE/RE manual en hardware no AutoDirection.
+        return write(buffer, size);
+    }
+
+    if (buffer == nullptr || size == 0)
+    {
+        return 0;
+    }
+
+    const size_t written =
+        _serial->write(buffer, size);
+
+    if (written > 0)
+    {
+        markTxActivity();
+    }
 
     return written;
 #endif
@@ -259,6 +409,8 @@ const char *JWPLC_RS485Class::lastErrorString() const
         return "RS485 not started";
     case JWPLC_RS485_INVALID_SERIAL:
         return "Invalid Serial2";
+    case JWPLC_RS485_CLOCK_SOURCE_FAILED:
+        return "UART clock source setup failed";
     default:
         return "Unknown RS485 error";
     }
@@ -330,6 +482,18 @@ void JWPLC_RS485Class::printStatus(Print &out)
 
     out.print("TX pin: ");
     out.println(_txPin);
+
+    out.print("AutoDirection: ");
+    out.println(autoDirection() ? "yes" : "no");
+
+    out.print("UART clock source: ");
+    out.println(clockSourceString());
+
+    out.print("TX buffer bytes: ");
+    out.println((unsigned long)_txBufferSize);
+
+    out.print("Queued TX supported: ");
+    out.println(queuedWriteSupported() ? "yes" : "no");
 
     out.print("Last error: ");
     out.println(lastErrorString());

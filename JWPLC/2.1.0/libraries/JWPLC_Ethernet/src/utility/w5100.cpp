@@ -473,10 +473,65 @@ uint16_t W5100Class::read(uint16_t addr, uint8_t *buf, uint16_t len)
 	return len;
 }
 
+bool W5100Class::readSnTX_FSRStable(
+	SOCKET s,
+	uint16_t &value,
+	uint8_t maxComparisons)
+{
+	uint16_t previous = readSnTX_FSR(s);
+
+	for (uint8_t i = 0; i < maxComparisons; ++i) {
+		const uint16_t current = readSnTX_FSR(s);
+		if (current == previous) {
+			value = current;
+			return true;
+		}
+		previous = current;
+	}
+
+	value = previous;
+	return false;
+}
+
+bool W5100Class::readSnRX_RSRStable(
+	SOCKET s,
+	uint16_t &value,
+	uint8_t maxComparisons)
+{
+	uint16_t previous = readSnRX_RSR(s);
+
+	for (uint8_t i = 0; i < maxComparisons; ++i) {
+		const uint16_t current = readSnRX_RSR(s);
+		if (current == previous) {
+			value = current;
+			return true;
+		}
+		previous = current;
+	}
+
+	value = previous;
+	return false;
+}
+
+bool W5100Class::execCmdSnChecked(
+	SOCKET s,
+	SockCMD _cmd,
+	uint32_t timeoutUs)
+{
+	writeSnCR(s, _cmd);
+
+	const uint32_t startedUs = micros();
+
+	do {
+		if (readSnCR(s) == 0) {
+			return true;
+		}
+	} while ((uint32_t)(micros() - startedUs) < timeoutUs);
+
+	return false;
+}
+
 void W5100Class::execCmdSn(SOCKET s, SockCMD _cmd)
 {
-	// Send command to socket
-	writeSnCR(s, _cmd);
-	// Wait for command to complete
-	while (readSnCR(s)) ;
+	(void)execCmdSnChecked(s, _cmd, 1000);
 }

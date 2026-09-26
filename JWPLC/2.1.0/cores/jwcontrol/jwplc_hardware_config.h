@@ -94,4 +94,16 @@
 #define JWPLC_RS485_TX_PIN 17
 #endif
 
+// JWPLC Basic v2 usa MAX13487E con AutoDirection. Al estar habilitado,
+// la UART puede encolar TX sin que el ESP32 tenga que gobernar DE/RE.
+#ifndef JWPLC_RS485_AUTO_DIRECTION
+#define JWPLC_RS485_AUTO_DIRECTION 1
+#endif
+
+// Buffer suficiente para encolar una ADU Modbus RTU maxima sin esperar
+// fisicamente a que cada byte abandone la UART.
+#ifndef JWPLC_RS485_TX_BUFFER_SIZE
+#define JWPLC_RS485_TX_BUFFER_SIZE 512U
+#endif
+
 #endif // JWCONTROL_JWPLC_HARDWARE_CONFIG_H

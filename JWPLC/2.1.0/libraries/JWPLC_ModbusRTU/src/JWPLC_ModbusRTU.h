@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <JWPLC_RS485.h>
+#include <jwplc_modbus_motor.h>
 
 #ifndef JWPLC_MODBUS_RTU_DEFAULT_BAUD
 #define JWPLC_MODBUS_RTU_DEFAULT_BAUD 19200UL
@@ -61,6 +62,27 @@ struct JWPLCModbusRTUStats
     uint32_t crcErrors;
     uint32_t exceptionsSent;
     uint32_t masterTimeouts;
+
+    // H3B.3: contabilidad de transporte/framing para diagnostico.
+    // Aditivo: no altera la semantica de los contadores historicos.
+    uint64_t rxBytes;
+    uint64_t txBytes;
+    uint32_t serverDiscardedTails;
+    uint64_t serverDiscardedBytes;
+
+    // H3C.1: forma temporal de los tails descartados.
+    uint32_t serverDiscardedLastLength;
+    uint32_t serverDiscardedLastAgeUs;
+    uint32_t serverDiscardedMaxAgeUs;
+    uint32_t serverDiscardedLen1;
+    uint32_t serverDiscardedLen2;
+    uint32_t serverDiscardedLen3;
+    uint32_t serverDiscardedLen4;
+    uint32_t serverDiscardedLen5;
+    uint32_t serverDiscardedLen6;
+    uint32_t serverDiscardedLen7;
+    uint32_t serverDiscardedLen8;
+    uint32_t serverDiscardedLenGt8;
 };
 
 class JWPLC_ModbusRTUClass
@@ -76,10 +98,39 @@ public:
     bool isReady() const;
     uint8_t slaveId() const;
     uint32_t baudRate() const;
+    uint32_t effectiveBaudRate() const;
     uint32_t config() const;
 
+    // Selector publico de motor. ASYNC es el default del package.
+    // Retorna false si se intenta cambiar durante una transaccion activa.
+    bool motor(JWPLCModbusMotor mode);
+    JWPLCModbusMotor motor() const;
+    bool asyncMotor() const;
+
+    // Compatibilidad historica en milisegundos.
     void setFrameGapMs(uint16_t gapMs);
     uint16_t frameGapMs() const;
+
+    // Timing fino; el motor interno de framing usa microsegundos.
+    void setFrameGapUs(uint32_t gapUs);
+    uint32_t frameGapUs() const;
+
+    // F3: seleccion de transporte TX. El default sigue siendo bloqueante
+    // para conservar compatibilidad hasta cerrar la qualification.
+    void setQueuedTxEnabled(bool enabled);
+    bool queuedTxEnabled() const;
+    bool queuedTxActive() const;
+
+    // H3B: ruta RX por bloques. Se mantiene desactivada por defecto hasta
+    // cerrar qualification; la ruta byte-a-byte histórica sigue disponible.
+    void setBulkRxEnabled(bool enabled);
+    bool bulkRxEnabled() const;
+
+    // H3C: framing estructural del Slave. Permite despachar requests locales
+    // completas sin esperar frameGap y conservar prefijos incompletos durante
+    // una ventana de recuperacion. Desactivado por defecto hasta qualification.
+    void setEarlyServerDispatchEnabled(bool enabled);
+    bool earlyServerDispatchEnabled() const;
 
     // Mapas Slave. Coils y Discrete Inputs usan bits empaquetados LSB-first:
     // bit 0 del byte 0 = direccion 0, bit 1 = direccion 1, etc.
@@ -204,32 +255,48 @@ public:
                                 const uint8_t *sourcePacked,
                                 uint32_t timeoutMs = 1000);
 
-    // Compatibilidad temporal Alpha7 con sketches previos.
+    // API unificada por funcion. El nombre no cambia entre motores:
+    // ASYNC -> inicia la transaccion y retorna si fue aceptada.
+    // SYNC  -> retorna al completar la transaccion.
+    bool readCoils(uint8_t targetSlaveId,
+                   uint16_t startAddress,
+                   uint16_t quantity,
+                   uint8_t *destinationPacked,
+                   uint32_t timeoutMs = 1000);
+
+    bool readDiscreteInputs(uint8_t targetSlaveId,
+                            uint16_t startAddress,
+                            uint16_t quantity,
+                            uint8_t *destinationPacked,
+                            uint32_t timeoutMs = 1000);
+
     bool readHoldingRegisters(uint8_t targetSlaveId,
                               uint16_t startAddress,
                               uint16_t quantity,
                               uint16_t *destination,
-                              uint32_t timeoutMs = 1000)
-    {
-        return readHoldingRegistersSync(
-            targetSlaveId,
-            startAddress,
-            quantity,
-            destination,
-            timeoutMs);
-    }
+                              uint32_t timeoutMs = 1000);
+
+    bool readInputRegisters(uint8_t targetSlaveId,
+                            uint16_t startAddress,
+                            uint16_t quantity,
+                            uint16_t *destination,
+                            uint32_t timeoutMs = 1000);
+
+    bool writeSingleCoil(uint8_t targetSlaveId,
+                         uint16_t address,
+                         bool value,
+                         uint32_t timeoutMs = 1000);
 
     bool writeSingleRegister(uint8_t targetSlaveId,
                              uint16_t address,
                              uint16_t value,
-                             uint32_t timeoutMs = 1000)
-    {
-        return writeSingleRegisterSync(
-            targetSlaveId,
-            address,
-            value,
-            timeoutMs);
-    }
+                             uint32_t timeoutMs = 1000);
+
+    bool writeMultipleCoils(uint8_t targetSlaveId,
+                            uint16_t startAddress,
+                            uint16_t quantity,
+                            const uint8_t *sourcePacked,
+                            uint32_t timeoutMs = 1000);
 
     static uint16_t crc16(const uint8_t *data, size_t length);
     static bool checkCRC(const uint8_t *frame, size_t length);
@@ -260,6 +327,11 @@ private:
     uint32_t _baud;
     uint32_t _config;
     uint16_t _frameGapMs;
+    uint32_t _frameGapUs;
+    JWPLCModbusMotor _motor;
+    bool _queuedTxEnabled;
+    bool _bulkRxEnabled;
+    bool _earlyServerDispatchEnabled;
 
     uint8_t *_coils;
     uint16_t _coilCount;
@@ -277,7 +349,7 @@ private:
 
     uint8_t _rxBuffer[JWPLC_MODBUS_RTU_MAX_FRAME];
     uint16_t _rxLength;
-    uint32_t _lastByteMs;
+    uint32_t _lastByteUs;
 
     JWPLCModbusRTUError _lastError;
     JWPLCModbusRTUStats _stats;
@@ -296,6 +368,7 @@ private:
     uint32_t _masterTimeoutMs;
 
     void clearRxBuffer();
+    size_t writeTransport(const uint8_t *buffer, size_t size);
     void setError(JWPLCModbusRTUError error);
     void clearError();
 
