@@ -81,3 +81,36 @@ Se mide requested baud, effective baud, error porcentual y estabilidad RTU.
 
 Despues de H1B, si 500000 se reafirma limpio, se pasa al tuning de gap a
 500 kbaud.
+
+## Gate versionado
+
+El gate fuerza una sola compilacion/upload desde las fuentes actuales,
+restaura luego el archive precompilado previo con el mismo SHA-256 y ejecuta
+cuatro ventanas de 30 s con TCP OFF.
+
+Para cada baud se registran por separado:
+
+```txt
+RTU_BAUD            = solicitado por el package
+RTU_BAUD_EFFECTIVE  = leido del driver UART
+ERROR_PCT           = diferencia efectiva vs solicitada
+```
+
+El resultado se agrupa tambien por la zona de reloj esperada segun el core:
+
+```txt
+REF_TICK: 230400,250000
+APB:      460800,500000
+```
+
+Un punto fallido no detiene el sweep; la finalidad es conservar la curva
+completa y aislar si el fallo de 230400 esta asociado al regimen de reloj o a
+un baud concreto.
+
+### Nota de tooling
+
+Durante la generacion inicial del gate reaparecio el patron ya catalogado
+F059: backticks de PowerShell dentro de un template JavaScript. La ejecucion
+se detuvo antes de cualquier mutacion remota. El gate final evita
+deliberadamente continuaciones PowerShell con backtick.
+
