@@ -89,6 +89,16 @@ static uint32_t rtuPeriodsSkipped = 0;
 static uint32_t rtuLastServiceUs = 0;
 static uint32_t rtuServiceGapMaxUs = 0;
 
+// H3B.1 qualification-only transaction latency telemetry.
+static uint32_t rtuRequestStartUs = 0;
+static uint32_t rtuTransactionMaxUs = 0;
+static uint32_t rtuTransactionsOver5ms = 0;
+static uint32_t rtuTransactionsOver10ms = 0;
+static uint32_t rtuTransactionsOver20ms = 0;
+static uint32_t rtuLastFailureDurationUs = 0;
+static uint32_t rtuMaxFailureDurationUs = 0;
+static int32_t rtuLastFailureResult = -1;
+
 // ============================================================================
 // Perfil FULL_RUNTIME_REALISTIC
 // ============================================================================
@@ -826,6 +836,15 @@ static void resetRtuTrafficCounters()
 
     rtuLastServiceUs = micros();
     rtuServiceGapMaxUs = 0;
+
+    rtuRequestStartUs = 0;
+    rtuTransactionMaxUs = 0;
+    rtuTransactionsOver5ms = 0;
+    rtuTransactionsOver10ms = 0;
+    rtuTransactionsOver20ms = 0;
+    rtuLastFailureDurationUs = 0;
+    rtuMaxFailureDurationUs = 0;
+    rtuLastFailureResult = -1;
 }
 
 static void startRtuTraffic()
@@ -966,6 +985,28 @@ static void completeRtuMasterResult()
         return;
     }
 
+    const uint32_t durationUs =
+        rtuRequestStartUs == 0
+            ? 0U
+            : (uint32_t)(micros() - rtuRequestStartUs);
+
+    updateMaxU32(
+        durationUs,
+        rtuTransactionMaxUs);
+
+    if (durationUs > 5000UL)
+    {
+        ++rtuTransactionsOver5ms;
+    }
+    if (durationUs > 10000UL)
+    {
+        ++rtuTransactionsOver10ms;
+    }
+    if (durationUs > 20000UL)
+    {
+        ++rtuTransactionsOver20ms;
+    }
+
     ++rtuRequestsCompleted;
 
     if (JWPLC_ModbusRTU.masterSucceeded())
@@ -980,8 +1021,16 @@ static void completeRtuMasterResult()
     else
     {
         ++rtuRequestsFailed;
+
+        rtuLastFailureDurationUs = durationUs;
+        updateMaxU32(
+            durationUs,
+            rtuMaxFailureDurationUs);
+        rtuLastFailureResult =
+            (int32_t)JWPLC_ModbusRTU.masterResult();
     }
 
+    rtuRequestStartUs = 0;
     JWPLC_ModbusRTU.clearMasterResult();
 }
 
@@ -1047,6 +1096,7 @@ static void serviceRtuMaster()
     if (accepted)
     {
         ++rtuRequestsStarted;
+        rtuRequestStartUs = micros();
     }
     else
     {
@@ -1554,6 +1604,27 @@ static void printSnapshot()
 
     Serial.print("RTU_SERVICE_GAP_MAX_US=");
     Serial.println(rtuServiceGapMaxUs);
+
+    Serial.print("RTU_TRANSACTION_MAX_US=");
+    Serial.println(rtuTransactionMaxUs);
+
+    Serial.print("RTU_TRANSACTIONS_OVER_5MS=");
+    Serial.println(rtuTransactionsOver5ms);
+
+    Serial.print("RTU_TRANSACTIONS_OVER_10MS=");
+    Serial.println(rtuTransactionsOver10ms);
+
+    Serial.print("RTU_TRANSACTIONS_OVER_20MS=");
+    Serial.println(rtuTransactionsOver20ms);
+
+    Serial.print("RTU_LAST_FAILURE_DURATION_US=");
+    Serial.println(rtuLastFailureDurationUs);
+
+    Serial.print("RTU_MAX_FAILURE_DURATION_US=");
+    Serial.println(rtuMaxFailureDurationUs);
+
+    Serial.print("RTU_LAST_FAILURE_RESULT=");
+    Serial.println(rtuLastFailureResult);
 
     // --------------------------------------------------------
     // TFT
