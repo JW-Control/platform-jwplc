@@ -77,6 +77,7 @@ public:
     bool isReady() const;
     uint8_t slaveId() const;
     uint32_t baudRate() const;
+    uint32_t effectiveBaudRate() const;
     uint32_t config() const;
 
     // Selector publico de motor. ASYNC es el default del package.

@@ -96,3 +96,24 @@ en pruebas largas.
 Si 115200 pasa, el gate conserva los resultados de 230400 y 500000 incluso si
 alguno falla. Al final reporta el baud mas alto limpio en TCP500 y TCP OFF.
 
+## Resultado fisico RTU-H1
+
+| Baud | TCP500 RTU | TCP OFF RTU | Fallos/CRC | Estado |
+|---:|---:|---:|---|---|
+| 115200 | 248.696 Hz | 280.367 Hz | 0 | limpio |
+| 230400 | 240.405 Hz | 276.101 Hz | miles | FALLA |
+| 500000 | 394.137 Hz | 452.040 Hz | 0 | limpio |
+
+A 230400 se observaron 8321 fallos con TCP500 y 9433 con TCP OFF, dominados
+por CRC. A 500000 hubo cero fallos, timeout y CRC en ambos casos.
+
+```txt
+RTUH1_CLEAN_BAUDS=115200,500000
+RTUH1_HIGHEST_CLEAN_BAUD=500000
+TCP500_GAIN_500K_VS_115200=+58.481 %
+OFF_GAIN_500K_VS_115200=+61.231 %
+```
+
+La discontinuidad 230400 FAIL / 500000 PASS obliga a diagnosticar reloj/divisor
+antes de fijar una politica de baudrate.
+

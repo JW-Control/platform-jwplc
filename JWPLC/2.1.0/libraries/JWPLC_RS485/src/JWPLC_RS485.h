@@ -35,6 +35,7 @@ public:
     bool isReady() const;
 
     uint32_t baudRate() const;
+    uint32_t effectiveBaudRate() const;
     uint32_t config() const;
     bool autoDirection() const;
     size_t txBufferSize() const;

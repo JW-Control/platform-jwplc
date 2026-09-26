@@ -171,6 +171,10 @@ static void printSnapshot()
     Serial.println(
         JWPLC_ModbusRTU.baudRate());
 
+    Serial.print("RTU_BAUD_EFFECTIVE=");
+    Serial.println(
+        JWPLC_ModbusRTU.effectiveBaudRate());
+
     Serial.print("RTU_MOTOR=");
     Serial.println(
         JWPLC_ModbusRTU.motor() == ASYNC
@@ -380,6 +384,20 @@ static void serviceSerial()
                 JWPLC_ModbusRTU.queuedTxActive()
                     ? "RTU_TX_MODE=QUEUED"
                     : "RTU_TX_MODE=QUEUED_UNAVAILABLE");
+        }
+        else if (c == '0')
+        {
+            Serial.println(
+                setRtuBaud(250000UL)
+                    ? "RTU_BAUD_REQUESTED=250000"
+                    : "RTU_BAUD_REQUESTED=FAIL");
+        }
+        else if (c == '6')
+        {
+            Serial.println(
+                setRtuBaud(460800UL)
+                    ? "RTU_BAUD_REQUESTED=460800"
+                    : "RTU_BAUD_REQUESTED=FAIL");
         }
         else if (c == '7')
         {

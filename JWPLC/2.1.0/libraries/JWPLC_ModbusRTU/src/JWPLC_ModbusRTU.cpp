@@ -115,6 +115,11 @@ uint32_t JWPLC_ModbusRTUClass::baudRate() const
     return _baud;
 }
 
+uint32_t JWPLC_ModbusRTUClass::effectiveBaudRate() const
+{
+    return JWPLC_RS485.effectiveBaudRate();
+}
+
 uint32_t JWPLC_ModbusRTUClass::config() const
 {
     return _config;

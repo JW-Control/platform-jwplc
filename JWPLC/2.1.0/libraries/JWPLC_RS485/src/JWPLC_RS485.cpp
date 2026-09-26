@@ -127,6 +127,18 @@ uint32_t JWPLC_RS485Class::baudRate() const
     return _baud;
 }
 
+uint32_t JWPLC_RS485Class::effectiveBaudRate() const
+{
+#if JWPLC_HAS_RS485
+    if (_ready && _serial != nullptr)
+    {
+        return _serial->baudRate();
+    }
+#endif
+
+    return 0;
+}
+
 uint32_t JWPLC_RS485Class::config() const
 {
     return _config;
