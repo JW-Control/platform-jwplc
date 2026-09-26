@@ -114,7 +114,27 @@ New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
 
 Write-Host ""
 Write-Host "=== COMPILE / UPLOAD FRESH H1D FIRMWARE ==="
-& $p5bGate -MasterPort $MasterPort -SlavePort $SlavePort -SetupOnly -AllowDirtyCoreCandidate *> $setupLog
+Write-Host "RTUH1D_TEMP_ROOT=$tempRoot"
+Write-Host "RTUH1D_SETUP_LOG=$setupLog"
+
+try {
+    & $p5bGate -MasterPort $MasterPort -SlavePort $SlavePort -SetupOnly -AllowDirtyCoreCandidate *> $setupLog
+}
+catch {
+    Write-Host ""
+    Write-Host "=== H1D SETUP FAILURE DETAIL ==="
+
+    if (Test-Path -LiteralPath $setupLog) {
+        Get-Content -LiteralPath $setupLog | ForEach-Object { Write-Host $_ }
+    }
+    else {
+        Write-Host "RTUH1D_SETUP_LOG_MISSING=$setupLog"
+    }
+
+    Write-Host ("RTUH1D_SETUP_EXCEPTION={0}" -f $_.Exception.Message)
+    throw "RTUH1D_FRESH_SETUP_FAILED"
+}
+
 Get-Content -LiteralPath $setupLog | ForEach-Object { Write-Host $_ }
 
 $setupText = [System.IO.File]::ReadAllText($setupLog)
