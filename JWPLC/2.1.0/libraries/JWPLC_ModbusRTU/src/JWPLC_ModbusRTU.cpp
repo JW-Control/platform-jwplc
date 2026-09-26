@@ -11,6 +11,7 @@ JWPLC_ModbusRTUClass::JWPLC_ModbusRTUClass()
       _frameGapUs(5000UL),
       _motor(ASYNC),
       _queuedTxEnabled(true),
+      _bulkRxEnabled(false),
       _coils(nullptr),
       _coilCount(0),
       _discreteInputs(nullptr),
@@ -211,6 +212,16 @@ bool JWPLC_ModbusRTUClass::queuedTxActive() const
            JWPLC_RS485.queuedWriteSupported();
 }
 
+void JWPLC_ModbusRTUClass::setBulkRxEnabled(bool enabled)
+{
+    _bulkRxEnabled = enabled;
+}
+
+bool JWPLC_ModbusRTUClass::bulkRxEnabled() const
+{
+    return _bulkRxEnabled;
+}
+
 void JWPLC_ModbusRTUClass::setCoils(uint8_t *bits, uint16_t count)
 {
     _coils = bits;
@@ -378,15 +389,8 @@ void JWPLC_ModbusRTUClass::poll()
 
 void JWPLC_ModbusRTUClass::pollServer()
 {
-    while (JWPLC_RS485.available() > 0)
+    if (_bulkRxEnabled)
     {
-        int value = JWPLC_RS485.read();
-
-        if (value < 0)
-        {
-            break;
-        }
-
         if (_rxLength >= JWPLC_MODBUS_RTU_MAX_FRAME)
         {
             clearRxBuffer();
@@ -394,8 +398,48 @@ void JWPLC_ModbusRTUClass::pollServer()
             return;
         }
 
-        _rxBuffer[_rxLength++] = (uint8_t)value;
-        _lastByteUs = micros();
+        const size_t room =
+            JWPLC_MODBUS_RTU_MAX_FRAME - _rxLength;
+        const size_t readBytes =
+            JWPLC_RS485.readAvailable(
+                &_rxBuffer[_rxLength],
+                room);
+
+        if (readBytes > 0)
+        {
+            _rxLength += (uint16_t)readBytes;
+            _lastByteUs = micros();
+        }
+
+        if (_rxLength >= JWPLC_MODBUS_RTU_MAX_FRAME &&
+            JWPLC_RS485.available() > 0)
+        {
+            clearRxBuffer();
+            setError(JWPLC_MODBUS_BUFFER_OVERFLOW);
+            return;
+        }
+    }
+    else
+    {
+        while (JWPLC_RS485.available() > 0)
+        {
+            int value = JWPLC_RS485.read();
+
+            if (value < 0)
+            {
+                break;
+            }
+
+            if (_rxLength >= JWPLC_MODBUS_RTU_MAX_FRAME)
+            {
+                clearRxBuffer();
+                setError(JWPLC_MODBUS_BUFFER_OVERFLOW);
+                return;
+            }
+
+            _rxBuffer[_rxLength++] = (uint8_t)value;
+            _lastByteUs = micros();
+        }
     }
 
     if (_rxLength == 0 ||
@@ -586,15 +630,8 @@ void JWPLC_ModbusRTUClass::pollServer()
 
 void JWPLC_ModbusRTUClass::pollMaster()
 {
-    while (JWPLC_RS485.available() > 0)
+    if (_bulkRxEnabled)
     {
-        int value = JWPLC_RS485.read();
-
-        if (value < 0)
-        {
-            break;
-        }
-
         if (_rxLength >= JWPLC_MODBUS_RTU_MAX_FRAME)
         {
             clearRxBuffer();
@@ -602,8 +639,48 @@ void JWPLC_ModbusRTUClass::pollMaster()
             return;
         }
 
-        _rxBuffer[_rxLength++] = (uint8_t)value;
-        _lastByteUs = micros();
+        const size_t room =
+            JWPLC_MODBUS_RTU_MAX_FRAME - _rxLength;
+        const size_t readBytes =
+            JWPLC_RS485.readAvailable(
+                &_rxBuffer[_rxLength],
+                room);
+
+        if (readBytes > 0)
+        {
+            _rxLength += (uint16_t)readBytes;
+            _lastByteUs = micros();
+        }
+
+        if (_rxLength >= JWPLC_MODBUS_RTU_MAX_FRAME &&
+            JWPLC_RS485.available() > 0)
+        {
+            clearRxBuffer();
+            completeMasterTransaction(JWPLC_MODBUS_BUFFER_OVERFLOW);
+            return;
+        }
+    }
+    else
+    {
+        while (JWPLC_RS485.available() > 0)
+        {
+            int value = JWPLC_RS485.read();
+
+            if (value < 0)
+            {
+                break;
+            }
+
+            if (_rxLength >= JWPLC_MODBUS_RTU_MAX_FRAME)
+            {
+                clearRxBuffer();
+                completeMasterTransaction(JWPLC_MODBUS_BUFFER_OVERFLOW);
+                return;
+            }
+
+            _rxBuffer[_rxLength++] = (uint8_t)value;
+            _lastByteUs = micros();
+        }
     }
 
     uint16_t expectedLength = 0;
