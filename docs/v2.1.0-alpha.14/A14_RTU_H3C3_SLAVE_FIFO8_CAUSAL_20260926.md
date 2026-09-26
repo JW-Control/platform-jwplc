@@ -93,3 +93,16 @@ A14_RTU_H3C3=PASS_SLAVE_FIFO8_CAUSAL_1200S
 ```
 
 No se modifican defaults de producto.
+
+
+## Resultado físico H3C.3
+
+H3C.3 elimino por completo el defecto request-side observado con FIFO1.
+
+Resultado: RTU=780.318 tx/s, 936681 iniciadas, 936680 exitosas, 1 timeout y TCP=500.000 req/s.
+
+Request-side: REQUEST_PATH_GAP=0, REQUEST_BYTE_GAP=0, SLAVE_DISCARDED_TAILS=0 y SLAVE_DISCARDED_BYTES=0. No se reprodujo ningun tail en el Slave.
+
+El unico fallo restante fue response-side: RESPONSE_PATH_GAP=1 y RESPONSE_BYTE_GAP=3. El Slave transmitio 8430129 bytes y el Master recibio 8430126.
+
+Conclusion: Slave RX FIFO=8 corrige fuertemente la fragmentacion request-side. Siguiente gate H3C.4 conserva Slave FIFO8 y cambia solamente Master RX FIFO 1->16 para que la respuesta FC03 de 9 bytes se transfiera al ring buffer como un bloque via RX timeout, evitando un umbral intermedio dentro del frame.
