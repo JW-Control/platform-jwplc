@@ -1,4 +1,7 @@
 #include "JWPLC_ModbusRTU.h"
+#include <string.h>
+
+static constexpr uint32_t JWPLC_MODBUS_FAST_PARTIAL_HOLD_US = 1750UL;
 
 JWPLC_ModbusRTUClass JWPLC_ModbusRTU;
 
@@ -12,6 +15,7 @@ JWPLC_ModbusRTUClass::JWPLC_ModbusRTUClass()
       _motor(ASYNC),
       _queuedTxEnabled(true),
       _bulkRxEnabled(false),
+      _earlyServerDispatchEnabled(false),
       _coils(nullptr),
       _coilCount(0),
       _discreteInputs(nullptr),
@@ -220,6 +224,16 @@ void JWPLC_ModbusRTUClass::setBulkRxEnabled(bool enabled)
 bool JWPLC_ModbusRTUClass::bulkRxEnabled() const
 {
     return _bulkRxEnabled;
+}
+
+void JWPLC_ModbusRTUClass::setEarlyServerDispatchEnabled(bool enabled)
+{
+    _earlyServerDispatchEnabled = enabled;
+}
+
+bool JWPLC_ModbusRTUClass::earlyServerDispatchEnabled() const
+{
+    return _earlyServerDispatchEnabled;
 }
 
 void JWPLC_ModbusRTUClass::setCoils(uint8_t *bits, uint16_t count)
@@ -445,8 +459,92 @@ void JWPLC_ModbusRTUClass::pollServer()
         }
     }
 
-    if (_rxLength == 0 ||
-        (uint32_t)(micros() - _lastByteUs) < _frameGapUs)
+    if (_rxLength == 0)
+    {
+        return;
+    }
+
+    const uint32_t frameAgeUs =
+        (uint32_t)(micros() - _lastByteUs);
+
+    bool parseNow =
+        frameAgeUs >= _frameGapUs;
+
+    if (_earlyServerDispatchEnabled)
+    {
+        if (_rxLength == 1 &&
+            (_rxBuffer[0] == _slaveId || _rxBuffer[0] == 0))
+        {
+            if (frameAgeUs < JWPLC_MODBUS_FAST_PARTIAL_HOLD_US)
+            {
+                return;
+            }
+        }
+        else if (_rxLength >= 2 &&
+                 (_rxBuffer[0] == _slaveId || _rxBuffer[0] == 0))
+        {
+            uint16_t expectedLength = 0;
+            bool knownLocalShape = true;
+
+            switch (_rxBuffer[1])
+            {
+            case 0x01:
+            case 0x02:
+            case 0x03:
+            case 0x04:
+            case 0x05:
+            case 0x06:
+                expectedLength = 8;
+                break;
+
+            case 0x0F:
+            case 0x10:
+                if (_rxLength < 7)
+                {
+                    if (frameAgeUs <
+                        JWPLC_MODBUS_FAST_PARTIAL_HOLD_US)
+                    {
+                        return;
+                    }
+                }
+                else
+                {
+                    const uint16_t candidateLength =
+                        (uint16_t)9 + _rxBuffer[6];
+
+                    if (candidateLength <=
+                        JWPLC_MODBUS_RTU_MAX_FRAME)
+                    {
+                        expectedLength = candidateLength;
+                    }
+                    else
+                    {
+                        knownLocalShape = false;
+                    }
+                }
+                break;
+
+            default:
+                knownLocalShape = false;
+                break;
+            }
+
+            if (knownLocalShape && expectedLength > 0)
+            {
+                if (_rxLength >= expectedLength)
+                {
+                    parseNow = true;
+                }
+                else if (frameAgeUs <
+                         JWPLC_MODBUS_FAST_PARTIAL_HOLD_US)
+                {
+                    return;
+                }
+            }
+        }
+    }
+
+    if (!parseNow)
     {
         return;
     }
@@ -618,6 +716,65 @@ void JWPLC_ModbusRTUClass::pollServer()
                 processServerFrame(frame, localRequestLength);
                 offset += localRequestLength;
                 continue;
+            }
+
+            if (_earlyServerDispatchEnabled &&
+                frameAgeUs < JWPLC_MODBUS_FAST_PARTIAL_HOLD_US &&
+                remaining > 0 &&
+                (frame[0] == _slaveId || frame[0] == 0))
+            {
+                bool preservePartial = remaining == 1;
+
+                if (remaining >= 2)
+                {
+                    switch (frame[1])
+                    {
+                    case 0x01:
+                    case 0x02:
+                    case 0x03:
+                    case 0x04:
+                    case 0x05:
+                    case 0x06:
+                        preservePartial = remaining < 8;
+                        break;
+
+                    case 0x0F:
+                    case 0x10:
+                        if (remaining < 7)
+                        {
+                            preservePartial = true;
+                        }
+                        else
+                        {
+                            const uint16_t expectedLength =
+                                (uint16_t)9 + frame[6];
+
+                            preservePartial =
+                                expectedLength <=
+                                    JWPLC_MODBUS_RTU_MAX_FRAME &&
+                                remaining < expectedLength;
+                        }
+                        break;
+
+                    default:
+                        preservePartial = false;
+                        break;
+                    }
+                }
+
+                if (preservePartial)
+                {
+                    if (offset > 0)
+                    {
+                        memmove(
+                            _rxBuffer,
+                            frame,
+                            remaining);
+                    }
+
+                    _rxLength = remaining;
+                    return;
+                }
             }
 
             // Trafico ajeno o tail ambiguo: no contaminar CRC del Slave local.
