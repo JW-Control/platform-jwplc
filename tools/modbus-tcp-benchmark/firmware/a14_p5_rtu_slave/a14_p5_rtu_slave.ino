@@ -182,6 +182,12 @@ static void printSnapshot()
     Serial.print("RTU_RX_FIFO_FULL=");
     Serial.println(rtuRxFifoFull);
 
+    Serial.print("RTU_RX_MODE=");
+    Serial.println(
+        JWPLC_ModbusRTU.bulkRxEnabled()
+            ? "BULK"
+            : "BYTE");
+
     Serial.print("RTU_MOTOR=");
     Serial.println(
         JWPLC_ModbusRTU.motor() == ASYNC
@@ -526,6 +532,16 @@ static void serviceSerial()
         else if (c == '?')
         {
             Serial.println(setRtuRxFifoFull(1U) ? "RTU_RX_FIFO_FULL=1" : "RTU_RX_FIFO_FULL=FAIL");
+        }
+        else if (c == '+')
+        {
+            JWPLC_ModbusRTU.setBulkRxEnabled(true);
+            Serial.println("RTU_RX_MODE=BULK");
+        }
+        else if (c == '-')
+        {
+            JWPLC_ModbusRTU.setBulkRxEnabled(false);
+            Serial.println("RTU_RX_MODE=BYTE");
         }
         else if (c == 'S' || c == 's')
         {
