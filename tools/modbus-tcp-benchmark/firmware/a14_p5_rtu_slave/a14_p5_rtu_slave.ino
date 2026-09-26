@@ -403,21 +403,21 @@ static void serviceSerial()
         {
             Serial.println(
                 setRtuBaud(115200UL)
-                    ? "RTU_BAUD_EFFECTIVE=115200"
+                    ? "RTU_BAUD_REQUESTED=115200"
                     : "RTU_BAUD_EFFECTIVE=FAIL");
         }
         else if (c == '8')
         {
             Serial.println(
                 setRtuBaud(230400UL)
-                    ? "RTU_BAUD_EFFECTIVE=230400"
+                    ? "RTU_BAUD_REQUESTED=230400"
                     : "RTU_BAUD_EFFECTIVE=FAIL");
         }
         else if (c == '9')
         {
             Serial.println(
                 setRtuBaud(500000UL)
-                    ? "RTU_BAUD_EFFECTIVE=500000"
+                    ? "RTU_BAUD_REQUESTED=500000"
                     : "RTU_BAUD_EFFECTIVE=FAIL");
         }
         else if (c == 'S' || c == 's')
