@@ -77,3 +77,16 @@ A14_RTU_H3C4=PASS_MASTER_FIFO16_SLAVE_FIFO8_1200S
 ```
 
 No se modifican defaults de producto.
+
+
+## Resultado físico H3C.4
+
+H3C.4 mantuvo request-side completamente limpio pero no elimino el unico fallo response-side.
+
+Resultado: RTU=767.026 tx/s, 920827 iniciadas, 920826 exitosas, 1 timeout y TCP=500.000 req/s.
+
+Request-side: REQUEST_PATH_GAP=0, REQUEST_BYTE_GAP=0, SLAVE_DISCARDED_TAILS=0 y SLAVE_DISCARDED_BYTES=0.
+
+Response-side: RESPONSE_PATH_GAP=1 y RESPONSE_BYTE_GAP=9. El Slave transmitio 8287443 bytes y el Master recibio 8287434, por lo que se perdio una respuesta FC03 completa de 9 bytes desde la perspectiva del ring buffer del Master.
+
+Conclusion: Master FIFO16 no es adecuado para una respuesta de 9 bytes porque no alcanza el threshold FIFO full y depende del RX timeout. Siguiente gate H3C.5 alinea Master RX FIFO=9 con el tamaño exacto de la respuesta.
