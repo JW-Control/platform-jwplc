@@ -265,6 +265,34 @@ static void printSnapshot()
     Serial.println(s.serverDiscardedTails);
 
     Serial.print("RTU_SERVER_DISCARDED_BYTES=");
+
+    Serial.print("RTU_SERVER_DISCARDED_LAST_LENGTH=");
+    Serial.println(s.serverDiscardedLastLength);
+
+    Serial.print("RTU_SERVER_DISCARDED_LAST_AGE_US=");
+    Serial.println(s.serverDiscardedLastAgeUs);
+
+    Serial.print("RTU_SERVER_DISCARDED_MAX_AGE_US=");
+    Serial.println(s.serverDiscardedMaxAgeUs);
+
+    Serial.print("RTU_SERVER_DISCARDED_LEN1=");
+    Serial.println(s.serverDiscardedLen1);
+    Serial.print("RTU_SERVER_DISCARDED_LEN2=");
+    Serial.println(s.serverDiscardedLen2);
+    Serial.print("RTU_SERVER_DISCARDED_LEN3=");
+    Serial.println(s.serverDiscardedLen3);
+    Serial.print("RTU_SERVER_DISCARDED_LEN4=");
+    Serial.println(s.serverDiscardedLen4);
+    Serial.print("RTU_SERVER_DISCARDED_LEN5=");
+    Serial.println(s.serverDiscardedLen5);
+    Serial.print("RTU_SERVER_DISCARDED_LEN6=");
+    Serial.println(s.serverDiscardedLen6);
+    Serial.print("RTU_SERVER_DISCARDED_LEN7=");
+    Serial.println(s.serverDiscardedLen7);
+    Serial.print("RTU_SERVER_DISCARDED_LEN8=");
+    Serial.println(s.serverDiscardedLen8);
+    Serial.print("RTU_SERVER_DISCARDED_LEN_GT8=");
+    Serial.println(s.serverDiscardedLenGt8);
     Serial.println((unsigned long long)s.serverDiscardedBytes);
 
     Serial.print("RTU_LAST_ERROR=");
