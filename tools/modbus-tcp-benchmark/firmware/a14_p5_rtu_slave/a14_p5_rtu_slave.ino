@@ -249,6 +249,18 @@ static void printSnapshot()
     Serial.print("RTU_MASTER_TIMEOUTS=");
     Serial.println(s.masterTimeouts);
 
+    Serial.print("RTU_RX_BYTES=");
+    Serial.println((unsigned long long)s.rxBytes);
+
+    Serial.print("RTU_TX_BYTES=");
+    Serial.println((unsigned long long)s.txBytes);
+
+    Serial.print("RTU_SERVER_DISCARDED_TAILS=");
+    Serial.println(s.serverDiscardedTails);
+
+    Serial.print("RTU_SERVER_DISCARDED_BYTES=");
+    Serial.println((unsigned long long)s.serverDiscardedBytes);
+
     Serial.print("RTU_LAST_ERROR=");
     Serial.println(
         JWPLC_ModbusRTU.lastErrorString());
