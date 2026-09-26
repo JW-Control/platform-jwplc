@@ -69,6 +69,7 @@ static constexpr uint16_t RTU_VERIFY_MAGIC = 0x55AA;
 static bool rtuReady = false;
 static bool rtuTrafficEnabled = false;
 static bool rtuUnpaced = false;
+static uint8_t rtuRxFifoFull = 120U;
 static uint32_t rtuTargetHz = 50UL;
 static uint32_t rtuPeriodUs = RTU_PERIOD_DEFAULT_US;
 static uint16_t rtuReadValues[2] = {0, 0};
@@ -866,6 +867,22 @@ static void setRtuFrameGapUs(uint32_t gapUs)
     JWPLC_ModbusRTU.setFrameGapUs(gapUs);
 }
 
+static bool setRtuRxFifoFull(uint8_t fifoBytes)
+{
+    if (!rtuReady || fifoBytes == 0)
+    {
+        return false;
+    }
+
+    if (!JWPLC_RS485.serial().setRxFIFOFull(fifoBytes))
+    {
+        return false;
+    }
+
+    rtuRxFifoFull = fifoBytes;
+    return true;
+}
+
 static void stopRtuTraffic()
 {
     if (rtuTrafficEnabled)
@@ -901,6 +918,7 @@ static bool setRtuBaud(uint32_t baud)
     }
 
     JWPLC_ModbusRTU.setFrameGapUs(500UL);
+    rtuRxFifoFull = 120U;
     resetRtuTrafficCounters();
 
     return true;
@@ -1430,6 +1448,9 @@ static void printSnapshot()
 
     Serial.print("RTU_CLOCK_PROFILE=");
     Serial.println(JWPLC_RS485.clockSourceString());
+
+    Serial.print("RTU_RX_FIFO_FULL=");
+    Serial.println(rtuRxFifoFull);
 
     Serial.print("RTU_MOTOR=");
     Serial.println(
@@ -2224,6 +2245,26 @@ static void serviceSerialCommands()
                 setRtuBaud(500000UL)
                     ? "RTU_BAUD_REQUESTED=500000"
                     : "RTU_BAUD_EFFECTIVE=FAIL");
+        }
+        else if (c == '[')
+        {
+            Serial.println(setRtuRxFifoFull(120U) ? "RTU_RX_FIFO_FULL=120" : "RTU_RX_FIFO_FULL=FAIL");
+        }
+        else if (c == ']')
+        {
+            Serial.println(setRtuRxFifoFull(32U) ? "RTU_RX_FIFO_FULL=32" : "RTU_RX_FIFO_FULL=FAIL");
+        }
+        else if (c == '{')
+        {
+            Serial.println(setRtuRxFifoFull(16U) ? "RTU_RX_FIFO_FULL=16" : "RTU_RX_FIFO_FULL=FAIL");
+        }
+        else if (c == '}')
+        {
+            Serial.println(setRtuRxFifoFull(8U) ? "RTU_RX_FIFO_FULL=8" : "RTU_RX_FIFO_FULL=FAIL");
+        }
+        else if (c == '?')
+        {
+            Serial.println(setRtuRxFifoFull(1U) ? "RTU_RX_FIFO_FULL=1" : "RTU_RX_FIFO_FULL=FAIL");
         }
         else if (
             c == 'P' ||
