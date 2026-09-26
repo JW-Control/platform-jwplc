@@ -188,6 +188,12 @@ static void printSnapshot()
             ? "BULK"
             : "BYTE");
 
+    Serial.print("RTU_SERVER_FRAMING=");
+    Serial.println(
+        JWPLC_ModbusRTU.earlyServerDispatchEnabled()
+            ? "STRUCTURAL"
+            : "GAP");
+
     Serial.print("RTU_MOTOR=");
     Serial.println(
         JWPLC_ModbusRTU.motor() == ASYNC
@@ -554,6 +560,16 @@ static void serviceSerial()
         {
             JWPLC_ModbusRTU.setBulkRxEnabled(false);
             Serial.println("RTU_RX_MODE=BYTE");
+        }
+        else if (c == '(')
+        {
+            JWPLC_ModbusRTU.setEarlyServerDispatchEnabled(true);
+            Serial.println("RTU_SERVER_FRAMING=STRUCTURAL");
+        }
+        else if (c == ')')
+        {
+            JWPLC_ModbusRTU.setEarlyServerDispatchEnabled(false);
+            Serial.println("RTU_SERVER_FRAMING=GAP");
         }
         else if (c == 'S' || c == 's')
         {
