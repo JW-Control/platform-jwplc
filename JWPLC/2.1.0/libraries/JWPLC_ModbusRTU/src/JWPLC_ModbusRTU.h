@@ -100,6 +100,11 @@ public:
     bool queuedTxEnabled() const;
     bool queuedTxActive() const;
 
+    // H3B: ruta RX por bloques. Se mantiene desactivada por defecto hasta
+    // cerrar qualification; la ruta byte-a-byte histórica sigue disponible.
+    void setBulkRxEnabled(bool enabled);
+    bool bulkRxEnabled() const;
+
     // Mapas Slave. Coils y Discrete Inputs usan bits empaquetados LSB-first:
     // bit 0 del byte 0 = direccion 0, bit 1 = direccion 1, etc.
     void setCoils(uint8_t *bits, uint16_t count);
@@ -298,6 +303,7 @@ private:
     uint32_t _frameGapUs;
     JWPLCModbusMotor _motor;
     bool _queuedTxEnabled;
+    bool _bulkRxEnabled;
 
     uint8_t *_coils;
     uint16_t _coilCount;
