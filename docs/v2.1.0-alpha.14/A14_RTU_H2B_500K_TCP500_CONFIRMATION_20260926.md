@@ -105,3 +105,50 @@ RS485_QUEUED_TX_SUPPORTED=YES
 La salida se muestra en vivo con `python.exe -u` y se guarda simultaneamente.
 Al finalizar se comprueba TFT fisica, hashes, dirty scope e indice.
 
+## Resultado fisico RTU-H2B
+
+| Gap | TCP req/s | TCP AVG | TCP P95 | TCP P99 | RTU | Ganancia RTU vs 500 us | Estado |
+|---:|---:|---:|---:|---:|---:|---:|---|
+| 500 us | 499.977 | 1165.2 us | 1921.1 us | 8230.9 us | 392.483 Hz | 0.000 % | limpio |
+| 150 us | 500.000 | 1137.5 us | 1862.5 us | 8259.1 us | 405.204 Hz | +3.241 % | limpio |
+| 100 us | 500.000 | 1173.3 us | 1934.2 us | 8234.5 us | 421.042 Hz | +7.277 % | limpio |
+| 75 us | 500.000 | 1189.0 us | 1942.8 us | 8414.0 us | 422.313 Hz | +7.600 % | limpio |
+| 50 us | 499.977 | 1208.5 us | 2027.5 us | 8283.4 us | 431.470 Hz | +9.934 % | limpio |
+
+Todos los puntos quedaron con:
+
+```txt
+TCP_CLEAN=YES
+RTU_CLEAN=YES
+RUNTIME_CLEAN=YES
+RTU_FAILED=0
+RTU_TIMEOUTS=0
+MASTER_CRC=0
+SLAVE_CRC=0
+```
+
+Resumen:
+
+```txt
+RTUH2B_LOWEST_CLEAN_GAP_US=50
+RTUH2B_FASTEST_CLEAN_GAP_US=50
+RTUH2B_FASTEST_CLEAN_RTU_HZ=431.470
+RTUH2B_CLEAN_PRODUCT_CANDIDATES_US=150,100,75,50
+A14_RTU_H2B=PASS_CHARACTERIZED
+```
+
+### Seleccion para H2C
+
+Se selecciona **100 us** como candidato JWPLC_FAST/AUTO a 500 kbaud.
+
+Motivos:
+
+- 100 us mantiene un margen temporal mayor que 75/50 us;
+- obtiene +7.277 % RTU frente a 500 us;
+- bajar de 100 a 75 us aporta solo ~0.30 % adicional de RTU en esta corrida;
+- 50 us queda como extremo experimental limpio, no como valor de producto;
+- la prioridad del package sigue siendo estabilidad y convivencia entre
+  periféricos, no throughput maximo.
+
+H2C confirmara 500000 + 100 us durante 600 s con TCP500/full runtime.
+
