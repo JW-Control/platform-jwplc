@@ -168,7 +168,14 @@ static void printSnapshot()
     Serial.println(SLAVE_ID);
 
     Serial.print("RTU_BAUD=");
-    Serial.println(RTU_BAUD);
+    Serial.println(
+        JWPLC_ModbusRTU.baudRate());
+
+    Serial.print("RTU_MOTOR=");
+    Serial.println(
+        JWPLC_ModbusRTU.motor() == ASYNC
+            ? "ASYNC"
+            : "SYNC");
 
     Serial.print("RTU_FRAME_GAP_MS=");
     Serial.println(JWPLC_ModbusRTU.frameGapMs());
@@ -254,6 +261,31 @@ static void printSnapshot()
 
     Serial.println(
         "A14_P5_SLAVE_SNAPSHOT=END");
+}
+
+static bool setRtuBaud(uint32_t baud)
+{
+    JWPLC_ModbusRTU.end();
+
+    rtuReady =
+        JWPLC_ModbusRTU.begin(
+            SLAVE_ID,
+            baud,
+            RTU_CONFIG);
+
+    if (!rtuReady)
+    {
+        return false;
+    }
+
+    if (!JWPLC_ModbusRTU.motor(ASYNC))
+    {
+        rtuReady = false;
+        return false;
+    }
+
+    JWPLC_ModbusRTU.setFrameGapUs(500UL);
+    return true;
 }
 
 static void serviceSerial()
@@ -349,6 +381,27 @@ static void serviceSerial()
                     ? "RTU_TX_MODE=QUEUED"
                     : "RTU_TX_MODE=QUEUED_UNAVAILABLE");
         }
+        else if (c == '7')
+        {
+            Serial.println(
+                setRtuBaud(115200UL)
+                    ? "RTU_BAUD_EFFECTIVE=115200"
+                    : "RTU_BAUD_EFFECTIVE=FAIL");
+        }
+        else if (c == '8')
+        {
+            Serial.println(
+                setRtuBaud(230400UL)
+                    ? "RTU_BAUD_EFFECTIVE=230400"
+                    : "RTU_BAUD_EFFECTIVE=FAIL");
+        }
+        else if (c == '9')
+        {
+            Serial.println(
+                setRtuBaud(500000UL)
+                    ? "RTU_BAUD_EFFECTIVE=500000"
+                    : "RTU_BAUD_EFFECTIVE=FAIL");
+        }
         else if (c == 'S' || c == 's')
         {
             printSnapshot();
@@ -380,6 +433,12 @@ void setup()
             SLAVE_ID,
             RTU_BAUD,
             RTU_CONFIG);
+
+    if (rtuReady)
+    {
+        rtuReady =
+            JWPLC_ModbusRTU.motor(ASYNC);
+    }
 
     JWPLC_Display.setIdleWakeMode(
         IDLE_WAKE_DISABLED);
