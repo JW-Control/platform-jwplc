@@ -83,3 +83,58 @@ H3C.1 es diagnóstico: si la infraestructura y el perfil son válidos, devuelve
 exit 0 aunque reproduzca timeouts, para conservar toda la evidencia.
 
 No se cambia el default de producto.
+
+
+## Resultado físico H3C.1
+
+La corrida de 600 s no reprodujo tails ni timeouts:
+
+```txt
+RTU_HZ=760.059
+RTU_STARTED=456177
+RTU_SUCCESS=456177
+RTU_FAILED=0
+RTU_TIMEOUTS=0
+REQUEST_PATH_GAP=0
+RESPONSE_PATH_GAP=0
+REQUEST_BYTE_GAP=0
+RESPONSE_BYTE_GAP=0
+SLAVE_DISCARDED_TAILS=0
+TAIL_HISTOGRAM_ALL_ZERO=YES
+MASTER_CRC=0
+SLAVE_CRC=0
+TCP_REQ_S=500.000
+```
+
+La salida mostró `MASTER_DISCARDED_BYTES=-1` y
+`SLAVE_DISCARDED_BYTES=-1`. Esto fue un bug del sketch de qualification:
+la clave `RTU_SERVER_DISCARDED_BYTES=` se imprimía sin valor y el valor real
+quedaba al final de otra línea. El runner interpretó la clave ausente como -1 y
+marcó falsamente `RTU_CLEAN=NO`.
+
+En la implementación, `serverDiscardedBytes` sólo se incrementa en el mismo
+bloque que `serverDiscardedTails++`. Como:
+
+```txt
+SLAVE_DISCARDED_TAILS=0
+LEN1..LEN8=0
+LEN_GT8=0
+```
+
+el valor real de `SLAVE_DISCARDED_BYTES` para esta corrida fue 0. Lo mismo
+aplica al Master.
+
+### Decisión
+
+La corrida H3C.1 fue funcionalmente limpia, pero no cierra todavía la causa
+intermitente porque no hubo cambios de comportamiento entre H3C y H3C.1:
+
+- H3C: 3 timeouts / 491448 transacciones.
+- H3C.1: 0 timeouts / 456177 transacciones.
+
+Por tanto, el defecto observado sigue siendo raro y H3C.1 simplemente no lo
+reprodujo.
+
+Se corrige primero el snapshot de `DISCARDED_BYTES` y se repite H3C.1 durante
+1200 s con el mismo `PARTIAL_HOLD_US=1750`, sin cambiar timing. El objetivo es
+capturar la edad y longitud del próximo tail si reaparece.
