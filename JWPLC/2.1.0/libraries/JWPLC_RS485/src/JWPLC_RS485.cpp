@@ -260,6 +260,46 @@ int JWPLC_RS485Class::read()
 #endif
 }
 
+size_t JWPLC_RS485Class::readAvailable(
+    uint8_t *buffer,
+    size_t maxSize)
+{
+#if !JWPLC_HAS_RS485
+    return 0;
+#else
+    if (!_ready ||
+        _serial == nullptr ||
+        buffer == nullptr ||
+        maxSize == 0)
+    {
+        return 0;
+    }
+
+    const int availableBytes =
+        _serial->available();
+
+    if (availableBytes <= 0)
+    {
+        return 0;
+    }
+
+    const size_t toRead =
+        (size_t)availableBytes < maxSize
+            ? (size_t)availableBytes
+            : maxSize;
+
+    const size_t readBytes =
+        _serial->read(buffer, toRead);
+
+    if (readBytes > 0)
+    {
+        markRxActivity();
+    }
+
+    return readBytes;
+#endif
+}
+
 size_t JWPLC_RS485Class::write(uint8_t data)
 {
     return write(&data, 1);
