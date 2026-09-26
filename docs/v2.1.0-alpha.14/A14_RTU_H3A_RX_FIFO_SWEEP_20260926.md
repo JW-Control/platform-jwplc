@@ -73,3 +73,51 @@ H2C dejó 420.916 tx/s a 500k + 100 us + TCP500 durante 600 s. H2B alcanzó
 
 La meta exploratoria es acercarse a 480 tx/s bajo TCP500. Ese nivel permitiría,
 si cada muestra usa una sola transacción, 8 módulos x 60 transacciones/s.
+
+
+## Resultado físico H3A
+
+La matriz completa quedó limpia en los diez escenarios.
+
+| RX FIFO | TCP | RTU tx/s | TCP req/s | TCP AVG us | TCP P95 us | Estado |
+|---:|---|---:|---:|---:|---:|---|
+| 120 | TCP500 | 428.938 | 500.000 | 1113.7 | 1777.6 | limpio |
+| 120 | OFF | 582.422 | 0 | 0 | 0 | limpio |
+| 32 | TCP500 | 425.847 | 500.000 | 1119.5 | 1770.0 | limpio |
+| 32 | OFF | 577.268 | 0 | 0 | 0 | limpio |
+| 16 | TCP500 | 429.833 | 500.000 | 1113.8 | 1768.0 | limpio |
+| 16 | OFF | 580.473 | 0 | 0 | 0 | limpio |
+| 8 | TCP500 | 456.269 | 500.000 | 1153.3 | 1812.3 | limpio |
+| 8 | OFF | 596.187 | 0 | 0 | 0 | limpio |
+| 1 | TCP500 | 476.854 | 500.000 | 1262.8 | 1914.1 | limpio |
+| 1 | OFF | 674.493 | 0 | 0 | 0 | limpio |
+
+Todos los puntos quedaron con:
+
+```txt
+FAILED=0
+TIMEOUTS=0
+MASTER_CRC=0
+SLAVE_CRC=0
+RUNTIME_CLEAN=YES
+```
+
+Resumen:
+
+```txt
+RTUH3A_FASTEST_CLEAN_TCP500_FIFO_BYTES=1
+RTUH3A_FASTEST_CLEAN_TCP500_RTU_HZ=476.854
+RTUH3A_FASTEST_CLEAN_OFF_FIFO_BYTES=1
+RTUH3A_FASTEST_CLEAN_OFF_RTU_HZ=674.493
+A14_RTU_H3A=PASS_CHARACTERIZED
+```
+
+FIFO=1 mejora RTU +11.171 % con TCP500 y +15.808 % con TCP OFF frente al
+threshold 120. TCP mantiene 500 req/s, aunque su latencia media aumenta.
+
+### Decisión
+
+FIFO=1 pasa a candidato experimental para H3B, pero todavía no se adopta como
+default de producto. H3B aislará el coste de la lectura RX byte-a-byte mediante
+una ruta BULK RX con actividad agrupada, manteniendo FIFO=1 y el resto del
+perfil sin cambios.
