@@ -69,6 +69,20 @@ struct JWPLCModbusRTUStats
     uint64_t txBytes;
     uint32_t serverDiscardedTails;
     uint64_t serverDiscardedBytes;
+
+    // H3C.1: forma temporal de los tails descartados.
+    uint32_t serverDiscardedLastLength;
+    uint32_t serverDiscardedLastAgeUs;
+    uint32_t serverDiscardedMaxAgeUs;
+    uint32_t serverDiscardedLen1;
+    uint32_t serverDiscardedLen2;
+    uint32_t serverDiscardedLen3;
+    uint32_t serverDiscardedLen4;
+    uint32_t serverDiscardedLen5;
+    uint32_t serverDiscardedLen6;
+    uint32_t serverDiscardedLen7;
+    uint32_t serverDiscardedLen8;
+    uint32_t serverDiscardedLenGt8;
 };
 
 class JWPLC_ModbusRTUClass
