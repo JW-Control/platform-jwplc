@@ -42,23 +42,23 @@ $runner = Get-G2Path "tools/modbus-tcp-benchmark/pc/a14_rtuh3c1_tail_timing_diag
 $p5bGate = Join-Path $PSScriptRoot "a14_p5b_physical_master_slave_combined.ps1"
 
 foreach ($required in @($archivePath,$rs485Header,$rs485Cpp,$rtuHeader,$rtuCpp,$masterSketch,$slaveSketch,$runner,$p5bGate)) {
-    if (-not (Test-Path -LiteralPath $required)) { throw "RTUH3C111_REQUIRED_PATH_MISSING=$required" }
+    if (-not (Test-Path -LiteralPath $required)) { throw "RTUH3C1_REQUIRED_PATH_MISSING=$required" }
 }
-if ($DurationS -lt 600.0) { throw "RTUH3C111_DURATION_MUST_BE_AT_LEAST_600S" }
-if ($BucketSeconds -le 0.0) { throw "RTUH3C111_BUCKET_SECONDS_INVALID" }
+if ($DurationS -lt 600.0) { throw "RTUH3C1_DURATION_MUST_BE_AT_LEAST_600S" }
+if ($BucketSeconds -le 0.0) { throw "RTUH3C1_BUCKET_SECONDS_INVALID" }
 
 $dirty = @(Get-G2TrackedDirtyPaths)
 $staged = @(& git -C $script:G2RepoRoot diff --cached --name-only)
 if ($dirty.Count -ne 1 -or $dirty[0].Replace("\", "/") -ne $script:G2CoreRelative) {
     $dirty | ForEach-Object { Write-Host "DIRTY=$_" }
-    throw "RTUH3C111_EXPECTED_ONLY_DIRTY_CORE_A"
+    throw "RTUH3C1_EXPECTED_ONLY_DIRTY_CORE_A"
 }
-if ($staged.Count -ne 0) { throw "RTUH3C111_INDEX_NOT_CLEAN" }
+if ($staged.Count -ne 0) { throw "RTUH3C1_INDEX_NOT_CLEAN" }
 
 $coreHash = Get-G2Sha256 $script:G2CoreRelative
 $archiveHashBefore = Get-G2Sha256 $archiveRelative
-if ($coreHash -ne $expectedCoreHash) { throw "RTUH3C111_UNEXPECTED_CORE_HASH" }
-if ($archiveHashBefore -ne $expectedArchiveHash) { throw "RTUH3C111_UNEXPECTED_ARCHIVE_HASH" }
+if ($coreHash -ne $expectedCoreHash) { throw "RTUH3C1_UNEXPECTED_CORE_HASH" }
+if ($archiveHashBefore -ne $expectedArchiveHash) { throw "RTUH3C1_UNEXPECTED_ARCHIVE_HASH" }
 
 Write-Host "HEAD=$(Get-G2Head)"
 Write-Host "CORE_A_SHA256=$coreHash"
@@ -109,17 +109,17 @@ $checks = @(
 )
 foreach ($check in $checks) {
     Write-Host "$($check.Label)=$($check.Pass)"
-    if (-not $check.Pass) { throw "RTUH3C111_SOURCE_CONTRACT_FAILED_$($check.Label)" }
+    if (-not $check.Pass) { throw "RTUH3C1_SOURCE_CONTRACT_FAILED_$($check.Label)" }
 }
-Write-Host "RTUH3C111_SOURCE_CONTRACT=PASS"
+Write-Host "RTUH3C1_SOURCE_CONTRACT=PASS"
 
 $pythonCommand = Get-Command python.exe -ErrorAction SilentlyContinue
 if ($null -eq $pythonCommand) { $pythonCommand = Get-Command python -ErrorAction SilentlyContinue }
-if ($null -eq $pythonCommand) { throw "RTUH3C111_PYTHON_NOT_FOUND" }
+if ($null -eq $pythonCommand) { throw "RTUH3C1_PYTHON_NOT_FOUND" }
 $pythonExe = $pythonCommand.Source
 & $pythonExe -m py_compile $runner
-if ($LASTEXITCODE -ne 0) { throw "RTUH3C111_PYTHON_SYNTAX_FAILED" }
-Write-Host "RTUH3C111_PYTHON_SYNTAX=PASS"
+if ($LASTEXITCODE -ne 0) { throw "RTUH3C1_PYTHON_SYNTAX_FAILED" }
+Write-Host "RTUH3C1_PYTHON_SYNTAX=PASS"
 
 $tempRoot = Join-Path $env:TEMP ("jwplc_a14_rtuh3c1_tailtiming_{0}" -f (Get-Date -Format "yyyyMMdd_HHmmss"))
 $archiveBackup = Join-Path $tempRoot "libJWPLC_ModbusRTU.before.a"
@@ -147,14 +147,14 @@ try {
     )
 
     $setupExit = Invoke-NativeToLog -FilePath "powershell.exe" -Arguments $setupArgs -LogPath $setupLog
-    Write-Host "RTUH3C111_SETUP_EXIT=$setupExit"
+    Write-Host "RTUH3C1_SETUP_EXIT=$setupExit"
     Get-Content -LiteralPath $setupLog | ForEach-Object { Write-Host $_ }
-    if ($setupExit -ne 0) { throw "RTUH3C111_SETUP_FAILED" }
+    if ($setupExit -ne 0) { throw "RTUH3C1_SETUP_FAILED" }
 
     $setupText = [IO.File]::ReadAllText($setupLog)
     $tempRootMatch = [regex]::Match($setupText, "(?m)^TEMP_ROOT=(.+?)\r?$")
     $ipMatch = [regex]::Match($setupText, "(?m)^P5B_SETUP_ONLY_MASTER_IP=(.+?)\r?$")
-    if (-not $tempRootMatch.Success -or -not $ipMatch.Success) { throw "RTUH3C111_SETUP_METADATA_MISSING" }
+    if (-not $tempRootMatch.Success -or -not $ipMatch.Success) { throw "RTUH3C1_SETUP_METADATA_MISSING" }
 
     $p5bTempRoot = $tempRootMatch.Groups[1].Value.Trim()
     $dutIp = $ipMatch.Groups[1].Value.Trim()
@@ -163,11 +163,11 @@ try {
         $buildPath = Join-Path $p5bTempRoot $buildName
         foreach ($objectPattern in @("JWPLC_ModbusRTU.cpp.o*","JWPLC_RS485.cpp.o*")) {
             $objects = @(Get-ChildItem -LiteralPath $buildPath -Recurse -File | Where-Object { $_.Name -like $objectPattern })
-            if ($objects.Count -lt 1) { throw ("RTUH3C111_SOURCE_OBJECT_MISSING={0}:{1}" -f $buildPath,$objectPattern) }
-            Write-Host ("RTUH3C111_SOURCE_OBJECT={0}" -f $objects[0].FullName)
+            if ($objects.Count -lt 1) { throw ("RTUH3C1_SOURCE_OBJECT_MISSING={0}:{1}" -f $buildPath,$objectPattern) }
+            Write-Host ("RTUH3C1_SOURCE_OBJECT={0}" -f $objects[0].FullName)
         }
     }
-    Write-Host "RTUH3C111_FRESH_SOURCE_COMPILE=PASS"
+    Write-Host "RTUH3C1_FRESH_SOURCE_COMPILE=PASS"
 }
 finally {
     if ($archiveHidden) { Copy-Item -LiteralPath $archiveBackup -Destination $archivePath -Force }
@@ -175,12 +175,12 @@ finally {
 
 $archiveHashAfter = Get-G2Sha256 $archiveRelative
 Write-Host "MODBUS_RTU_ARCHIVE_SHA256_AFTER=$archiveHashAfter"
-if ($archiveHashAfter -ne $archiveHashBefore) { throw "RTUH3C111_ARCHIVE_RESTORE_HASH_MISMATCH" }
+if ($archiveHashAfter -ne $archiveHashBefore) { throw "RTUH3C1_ARCHIVE_RESTORE_HASH_MISMATCH" }
 
 $dirtyAfterRestore = @(Get-G2TrackedDirtyPaths)
 if ($dirtyAfterRestore.Count -ne 1 -or $dirtyAfterRestore[0].Replace("\", "/") -ne $script:G2CoreRelative) {
     $dirtyAfterRestore | ForEach-Object { Write-Host "DIRTY=$_" }
-    throw "RTUH3C111_DIRTY_SCOPE_AFTER_RESTORE_INVALID"
+    throw "RTUH3C1_DIRTY_SCOPE_AFTER_RESTORE_INVALID"
 }
 
 Write-Host ""
@@ -197,9 +197,9 @@ finally {
     $ErrorActionPreference = $previousPreference
 }
 
-Write-Host "RTUH3C111_RUNNER_EXIT=$runExit"
-Write-Host "RTUH3C111_RUNNER_LOG=$runLog"
-if ($runExit -ne 0) { throw "RTUH3C111_RUN_FAILED" }
+Write-Host "RTUH3C1_RUNNER_EXIT=$runExit"
+Write-Host "RTUH3C1_RUNNER_LOG=$runLog"
+if ($runExit -ne 0) { throw "RTUH3C1_RUN_FAILED" }
 
 Write-Host ""
 Write-Host "============================================================"
@@ -211,7 +211,7 @@ $masterPhysical = $masterAnswer.Trim().ToUpper() -eq "S"
 $slavePhysical = $slaveAnswer.Trim().ToUpper() -eq "S"
 Write-Host "MASTER_TFT_PHYSICAL_PASS=$masterPhysical"
 Write-Host "SLAVE_TFT_PHYSICAL_PASS=$slavePhysical"
-if (-not ($masterPhysical -and $slavePhysical)) { throw "RTUH3C111_TFT_PHYSICAL_REVIEW" }
+if (-not ($masterPhysical -and $slavePhysical)) { throw "RTUH3C1_TFT_PHYSICAL_REVIEW" }
 
 $finalCoreHash = Get-G2Sha256 $script:G2CoreRelative
 $finalArchiveHash = Get-G2Sha256 $archiveRelative
@@ -225,10 +225,10 @@ Write-Host "MODBUS_RTU_ARCHIVE_SHA256=$finalArchiveHash"
 Write-Host "TRACKED_DIRTY_FINAL=$($finalDirty.Count)"
 Write-Host "STAGED_COUNT_FINAL=$($finalStaged.Count)"
 
-if ($finalCoreHash -ne $expectedCoreHash) { throw "RTUH3C111_CORE_HASH_CHANGED" }
-if ($finalArchiveHash -ne $archiveHashBefore) { throw "RTUH3C111_ARCHIVE_CHANGED" }
-if ($finalDirty.Count -ne 1 -or $finalDirty[0].Replace("\", "/") -ne $script:G2CoreRelative) { throw "RTUH3C111_FINAL_DIRTY_SCOPE_INVALID" }
-if ($finalStaged.Count -ne 0) { throw "RTUH3C111_FINAL_INDEX_NOT_CLEAN" }
+if ($finalCoreHash -ne $expectedCoreHash) { throw "RTUH3C1_CORE_HASH_CHANGED" }
+if ($finalArchiveHash -ne $archiveHashBefore) { throw "RTUH3C1_ARCHIVE_CHANGED" }
+if ($finalDirty.Count -ne 1 -or $finalDirty[0].Replace("\", "/") -ne $script:G2CoreRelative) { throw "RTUH3C1_FINAL_DIRTY_SCOPE_INVALID" }
+if ($finalStaged.Count -ne 0) { throw "RTUH3C1_FINAL_INDEX_NOT_CLEAN" }
 
 Write-Host "A14_RTU_H3C1_TAIL_TIMING_GATE=PASS"
 Write-Host "NEXT=RETURN_OUTPUT_TO_CHAT_FOR_TAIL_TIMING_DECISION"
