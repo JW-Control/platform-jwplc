@@ -31,7 +31,8 @@ JWPLC_ModbusRTUClass::JWPLC_ModbusRTUClass()
       _rxLength(0),
       _lastByteUs(0),
       _lastError(JWPLC_MODBUS_NOT_STARTED),
-      _stats{0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+      _stats{0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
       _masterState(JWPLC_MODBUS_MASTER_IDLE),
       _masterOperation(JWPLC_MODBUS_MASTER_OP_NONE),
       _masterResult(JWPLC_MODBUS_OK),
@@ -782,6 +783,27 @@ void JWPLC_ModbusRTUClass::pollServer()
             // de bytes recibidos que el parser no pudo clasificar.
             _stats.serverDiscardedTails++;
             _stats.serverDiscardedBytes += (uint64_t)remaining;
+            _stats.serverDiscardedLastLength = remaining;
+            _stats.serverDiscardedLastAgeUs = frameAgeUs;
+
+            if (frameAgeUs > _stats.serverDiscardedMaxAgeUs)
+            {
+                _stats.serverDiscardedMaxAgeUs = frameAgeUs;
+            }
+
+            switch (remaining)
+            {
+            case 1: _stats.serverDiscardedLen1++; break;
+            case 2: _stats.serverDiscardedLen2++; break;
+            case 3: _stats.serverDiscardedLen3++; break;
+            case 4: _stats.serverDiscardedLen4++; break;
+            case 5: _stats.serverDiscardedLen5++; break;
+            case 6: _stats.serverDiscardedLen6++; break;
+            case 7: _stats.serverDiscardedLen7++; break;
+            case 8: _stats.serverDiscardedLen8++; break;
+            default: _stats.serverDiscardedLenGt8++; break;
+            }
+
             break;
         }
 
@@ -1934,7 +1956,8 @@ const JWPLCModbusRTUStats &JWPLC_ModbusRTUClass::stats() const
 
 void JWPLC_ModbusRTUClass::resetStats()
 {
-    _stats = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    _stats = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 }
 
 void JWPLC_ModbusRTUClass::printStatus(Print &out) const
