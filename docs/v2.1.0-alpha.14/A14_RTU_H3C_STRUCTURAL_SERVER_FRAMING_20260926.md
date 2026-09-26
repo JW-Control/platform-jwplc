@@ -126,3 +126,69 @@ posterior, sin mezclarla con esta validación causal.
 Además, H3C puede aumentar throughput porque una request estructuralmente
 completa ya no espera los 100 us de frame gap antes de ser atendida. Ese aumento
 se medirá, pero no es requisito para declarar corregido el fallo.
+
+
+## Resultado físico H3C
+
+H3C alcanzó la meta de rendimiento:
+
+```txt
+RTU_HZ=818.740
+TCP_REQ_S=500.000
+TCP_TARGET_PCT=100.000
+```
+
+Con 8 módulos esto equivale a:
+
+```txt
+818.740 / 8 = 102.34 actualizaciones/s por módulo
+periodo medio ~= 9.77 ms
+```
+
+Sin embargo, el long-run no pasó estabilidad:
+
+```txt
+RTU_STARTED=491448
+RTU_SUCCESS=491445
+RTU_FAILED=3
+RTU_TIMEOUTS=3
+REQUEST_PATH_GAP=3
+RESPONSE_PATH_GAP=0
+```
+
+La contabilidad de bytes siguió cerrando exactamente:
+
+```txt
+MASTER_TX_BYTES=3931584
+SLAVE_RX_BYTES=3931584
+SLAVE_TX_BYTES=4423005
+MASTER_RX_BYTES=4423005
+REQUEST_BYTE_GAP=0
+RESPONSE_BYTE_GAP=0
+```
+
+Y el Slave volvió a descartar:
+
+```txt
+SLAVE_DISCARDED_TAILS=6
+SLAVE_DISCARDED_BYTES=24
+```
+
+Los 24 bytes descartados coinciden en magnitud con 3 requests FC03 completas de
+8 bytes, igual que los 3 timeouts observados. El framing estructural eliminó la
+espera de 100 us para requests completas y elevó throughput por encima de 800
+tx/s, pero la ventana de recuperación de 1750 us no eliminó todos los tails.
+
+### Decisión
+
+H3C no se adopta todavía como default.
+
+La siguiente prueba H3C.1 instrumenta exclusivamente la forma temporal de los
+tails descartados:
+
+- longitud del último tail;
+- edad del último tail al descarte;
+- edad máxima observada;
+- histograma de longitudes 1..8 y >8.
+
+No se cambia todavía la ventana de 1750 us.
