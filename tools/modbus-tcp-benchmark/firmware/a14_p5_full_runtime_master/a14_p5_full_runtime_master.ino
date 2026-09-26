@@ -2385,6 +2385,10 @@ static void serviceSerialCommands()
         {
             Serial.println(setRtuRxFifoFull(8U) ? "RTU_RX_FIFO_FULL=8" : "RTU_RX_FIFO_FULL=FAIL");
         }
+        else if (c == ':')
+        {
+            Serial.println(setRtuRxFifoFull(9U) ? "RTU_RX_FIFO_FULL=9" : "RTU_RX_FIFO_FULL=FAIL");
+        }
         else if (c == '?')
         {
             Serial.println(setRtuRxFifoFull(1U) ? "RTU_RX_FIFO_FULL=1" : "RTU_RX_FIFO_FULL=FAIL");
