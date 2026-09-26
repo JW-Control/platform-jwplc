@@ -112,6 +112,12 @@ public:
     void setBulkRxEnabled(bool enabled);
     bool bulkRxEnabled() const;
 
+    // H3C: framing estructural del Slave. Permite despachar requests locales
+    // completas sin esperar frameGap y conservar prefijos incompletos durante
+    // una ventana de recuperacion. Desactivado por defecto hasta qualification.
+    void setEarlyServerDispatchEnabled(bool enabled);
+    bool earlyServerDispatchEnabled() const;
+
     // Mapas Slave. Coils y Discrete Inputs usan bits empaquetados LSB-first:
     // bit 0 del byte 0 = direccion 0, bit 1 = direccion 1, etc.
     void setCoils(uint8_t *bits, uint16_t count);
@@ -311,6 +317,7 @@ private:
     JWPLCModbusMotor _motor;
     bool _queuedTxEnabled;
     bool _bulkRxEnabled;
+    bool _earlyServerDispatchEnabled;
 
     uint8_t *_coils;
     uint16_t _coilCount;
