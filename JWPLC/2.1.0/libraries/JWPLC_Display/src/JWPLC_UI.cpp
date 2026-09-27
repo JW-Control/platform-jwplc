@@ -879,7 +879,8 @@ namespace
                 alignUs,
                 printUs);
         }
-    }}
+    }
+}
 
 namespace JWPLCUI
 {
