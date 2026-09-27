@@ -1,6 +1,7 @@
 param(
     [string]$MasterPort = "COM14",
     [string]$SlavePort = "COM4",
+    [switch]$PreflightOnly,
     [double]$DurationS = 300.0,
     [double]$BucketSeconds = 60.0
 )
@@ -108,9 +109,20 @@ if ($null -eq $pythonCommand) { $pythonCommand = Get-Command python -ErrorAction
 if ($null -eq $pythonCommand) { throw "RTUH3E1_PYTHON_NOT_FOUND" }
 $pythonExe = $pythonCommand.Source
 
-& $pythonExe -m py_compile $runner
+$pythonAstScript = @'
+import ast
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+source = path.read_text(encoding="utf-8")
+ast.parse(source, filename=str(path))
+'@
+
+& $pythonExe -c $pythonAstScript $runner
 if ($LASTEXITCODE -ne 0) { throw "RTUH3E1_PYTHON_SYNTAX_FAILED" }
 Write-Host "RTUH3E1_PYTHON_SYNTAX=PASS"
+Write-Host "RTUH3E1_PYTHON_SYNTAX_METHOD=AST_NO_PYC"
 
 Write-Host "HEAD=$(Get-G2Head)"
 Write-Host "MASTER_RX_FIFO_FULL=9"
@@ -123,6 +135,31 @@ Write-Host "DISPLAY_MODE=SOURCE_TEMPORARY_MASTER_ONLY"
 Write-Host "TFT_SPI_HZ=80000000"
 Write-Host "PRECOMPILED_CORE_MUTATION=NO"
 Write-Host "PRECOMPILED_DISPLAY_MUTATION=NO"
+
+if ($PreflightOnly) {
+    Write-Host ""
+    Write-Host "=== H3E1 SETUP STATIC PREFLIGHT ==="
+
+    [object[]]$setupPreflightLines = @(
+        & $setupGate -MasterPort $MasterPort -SlavePort $SlavePort -PreflightOnly -AllowDirtyCoreCandidate 2>&1
+    )
+
+    $setupPreflightLines | ForEach-Object { Write-Host $_ }
+
+    $setupPreflightText =
+        ($setupPreflightLines | ForEach-Object { $_.ToString() }) -join [Environment]::NewLine
+
+    if (-not $setupPreflightText.Contains("A14_H3E1_PREFLIGHT_ONLY=PASS")) {
+        throw "RTUH3E1_SETUP_STATIC_PREFLIGHT_CONFIRMATION_MISSING"
+    }
+
+    Write-Host "RTUH3E1_PREFLIGHT=PASS"
+    Write-Host "PREFLIGHT_COMPILES=NO"
+    Write-Host "PREFLIGHT_UPLOADS=NO"
+    Write-Host "A14_RTU_H3E1_PREFLIGHT_ONLY=PASS"
+    return
+}
+
 Write-Host "RTUH3E1_PREFLIGHT=PASS"
 
 $tempRoot = Join-Path $env:TEMP ("jwplc_a14_h3e1_{0}" -f (Get-Date -Format "yyyyMMdd_HHmmss"))
