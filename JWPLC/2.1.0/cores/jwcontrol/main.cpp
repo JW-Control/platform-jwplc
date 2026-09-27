@@ -6,6 +6,8 @@
 #include "Arduino.h"
 #include "peripherals_init.h"
 #include "jwplc_peripherals.h"
+#include "jwplc_h3e0b_profile.h"
+#include <string.h>
 
 #if (ARDUINO_USB_CDC_ON_BOOT | ARDUINO_USB_MSC_ON_BOOT | ARDUINO_USB_DFU_ON_BOOT) && !ARDUINO_USB_MODE
 #include "USB.h"
@@ -28,6 +30,140 @@ TaskHandle_t loopTaskHandle = NULL;
 TaskHandle_t loop1TaskHandle = NULL;
 TaskHandle_t jwplcSystemTaskHandle = NULL;
 SemaphoreHandle_t initSemaphore = NULL;
+
+// ============================================================================
+// Alpha14 H3E.0B - profiler ligero del runtime fuera del loop()
+// ============================================================================
+
+static bool g_h3e0b_enabled = false;
+static JWPLCH3E0BStats g_h3e0b_stats = {};
+
+static uint32_t g_h3e0b_outside_start_us = 0;
+static uint32_t g_h3e0b_pending_tcp_post_us = 0;
+static uint32_t g_h3e0b_pending_serial_event_us = 0;
+static uint32_t g_h3e0b_pending_task_yield_us = 0;
+
+static uint32_t g_h3e0b_sys_active_start_total = 0;
+static uint32_t g_h3e0b_sys_io_start_total = 0;
+static uint32_t g_h3e0b_sys_rtc_start_total = 0;
+static uint32_t g_h3e0b_sys_eth_start_total = 0;
+static uint32_t g_h3e0b_sys_datalog_start_total = 0;
+static uint32_t g_h3e0b_sys_display_start_total = 0;
+
+extern "C" __attribute__((weak)) bool jwplcH3E0BProfilerEnabled(void)
+{
+  return false;
+}
+
+static inline void h3e0bAdd(
+    JWPLCH3E0BStageStats &stats,
+    uint32_t elapsed_us)
+{
+  ++stats.calls;
+  stats.total_us += elapsed_us;
+  if (elapsed_us > stats.max_us)
+  {
+    stats.max_us = elapsed_us;
+  }
+}
+
+static inline void h3e0bSnapshotSystemStarts(void)
+{
+  g_h3e0b_sys_active_start_total = g_h3e0b_stats.system_active.total_us;
+  g_h3e0b_sys_io_start_total = g_h3e0b_stats.system_io.total_us;
+  g_h3e0b_sys_rtc_start_total = g_h3e0b_stats.system_rtc.total_us;
+  g_h3e0b_sys_eth_start_total = g_h3e0b_stats.system_ethernet.total_us;
+  g_h3e0b_sys_datalog_start_total = g_h3e0b_stats.system_datalog.total_us;
+  g_h3e0b_sys_display_start_total = g_h3e0b_stats.system_display.total_us;
+}
+
+extern "C" void jwplcH3E0BReset(void)
+{
+  memset(&g_h3e0b_stats, 0, sizeof(g_h3e0b_stats));
+
+  g_h3e0b_outside_start_us = 0;
+  g_h3e0b_pending_tcp_post_us = 0;
+  g_h3e0b_pending_serial_event_us = 0;
+  g_h3e0b_pending_task_yield_us = 0;
+
+  h3e0bSnapshotSystemStarts();
+}
+
+extern "C" void jwplcH3E0BSnapshot(JWPLCH3E0BStats *out)
+{
+  if (out == nullptr)
+  {
+    return;
+  }
+
+  *out = g_h3e0b_stats;
+}
+
+static void h3e0bFinishOutside(
+    uint32_t tcp_pre_us,
+    uint32_t outside_end_us)
+{
+  if (!g_h3e0b_enabled ||
+      g_h3e0b_outside_start_us == 0)
+  {
+    return;
+  }
+
+  const uint32_t outside_us =
+      (uint32_t)(
+          outside_end_us -
+          g_h3e0b_outside_start_us);
+
+  h3e0bAdd(
+      g_h3e0b_stats.outside_total,
+      outside_us);
+
+  const uint32_t direct_sum_us =
+      g_h3e0b_pending_tcp_post_us +
+      g_h3e0b_pending_serial_event_us +
+      g_h3e0b_pending_task_yield_us +
+      tcp_pre_us;
+
+  const uint32_t residual_us =
+      outside_us > direct_sum_us
+          ? outside_us - direct_sum_us
+          : 0U;
+
+  if (outside_us > g_h3e0b_stats.worst_outside_us)
+  {
+    g_h3e0b_stats.worst_outside_us = outside_us;
+    g_h3e0b_stats.worst_tcp_pre_us = tcp_pre_us;
+    g_h3e0b_stats.worst_tcp_post_us =
+        g_h3e0b_pending_tcp_post_us;
+    g_h3e0b_stats.worst_serial_event_us =
+        g_h3e0b_pending_serial_event_us;
+    g_h3e0b_stats.worst_task_yield_us =
+        g_h3e0b_pending_task_yield_us;
+    g_h3e0b_stats.worst_direct_sum_us =
+        direct_sum_us;
+    g_h3e0b_stats.worst_residual_us =
+        residual_us;
+
+    g_h3e0b_stats.worst_system_active_delta_us =
+        g_h3e0b_stats.system_active.total_us -
+        g_h3e0b_sys_active_start_total;
+    g_h3e0b_stats.worst_system_io_delta_us =
+        g_h3e0b_stats.system_io.total_us -
+        g_h3e0b_sys_io_start_total;
+    g_h3e0b_stats.worst_system_rtc_delta_us =
+        g_h3e0b_stats.system_rtc.total_us -
+        g_h3e0b_sys_rtc_start_total;
+    g_h3e0b_stats.worst_system_ethernet_delta_us =
+        g_h3e0b_stats.system_ethernet.total_us -
+        g_h3e0b_sys_eth_start_total;
+    g_h3e0b_stats.worst_system_datalog_delta_us =
+        g_h3e0b_stats.system_datalog.total_us -
+        g_h3e0b_sys_datalog_start_total;
+    g_h3e0b_stats.worst_system_display_delta_us =
+        g_h3e0b_stats.system_display.total_us -
+        g_h3e0b_sys_display_start_total;
+  }
+}
 
 #if CONFIG_AUTOSTART_ARDUINO
 #if CONFIG_FREERTOS_UNICORE
@@ -146,6 +282,11 @@ void loopTask(void *pvParameters)
   jwplcSystemScanIO(); // dejar inputs ya disponibles antes de setup()
   setup();
 
+  // El hook fuerte del sketch de qualification activa H3E.0B.
+  // En cualquier build normal permanece false y no se cronometra el runtime.
+  g_h3e0b_enabled =
+      jwplcH3E0BProfilerEnabled();
+
 #if ARDUHAL_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_DEBUG
   printAfterSetupInfo();
 #else
@@ -170,22 +311,69 @@ void loopTask(void *pvParameters)
       esp_task_wdt_reset();
     }
 
-    // Alpha14 P5-E2: dos oportunidades automáticas de servicio Modbus TCP
-    // alrededor del loop del usuario. Si JWPLC_ModbusTCP no está enlazado,
-    // el hook débil queda vacío y no añade ninguna dependencia.
-    jwplcModbusTCPLoopServiceCallback();
-    loop();
-    jwplcModbusTCPLoopServiceCallback();
-
-    if (serialEventRun)
+    // H3E.0B: medir por separado el servicio TCP previo al loop.
+    uint32_t tcpPreUs = 0;
+    if (g_h3e0b_enabled)
     {
-      serialEventRun();
+      const uint32_t t0 = micros();
+      jwplcModbusTCPLoopServiceCallback();
+      tcpPreUs = (uint32_t)(micros() - t0);
+      h3e0bAdd(g_h3e0b_stats.tcp_pre, tcpPreUs);
+      h3e0bFinishOutside(tcpPreUs, micros());
+    }
+    else
+    {
+      jwplcModbusTCPLoopServiceCallback();
     }
 
-    // Un sketch JWPLC no debe necesitar delay(1) sólo para que el runtime
-    // mantenga sus periféricos. taskYIELD() no impone una espera fija: sólo
-    // entrega cooperativamente la CPU cuando existe otra tarea lista.
-    taskYIELD();
+    loop();
+
+    if (g_h3e0b_enabled)
+    {
+      // Desde aquí empieza exactamente el tramo invisible al sketch.
+      g_h3e0b_outside_start_us = micros();
+      h3e0bSnapshotSystemStarts();
+
+      uint32_t t0 = micros();
+      jwplcModbusTCPLoopServiceCallback();
+      g_h3e0b_pending_tcp_post_us =
+          (uint32_t)(micros() - t0);
+      h3e0bAdd(
+          g_h3e0b_stats.tcp_post,
+          g_h3e0b_pending_tcp_post_us);
+
+      t0 = micros();
+      if (serialEventRun)
+      {
+        serialEventRun();
+      }
+      g_h3e0b_pending_serial_event_us =
+          (uint32_t)(micros() - t0);
+      h3e0bAdd(
+          g_h3e0b_stats.serial_event,
+          g_h3e0b_pending_serial_event_us);
+
+      // El tiempo alrededor de taskYIELD incluye cuánto tarda loopTask
+      // en recuperar CPU después de cederla.
+      t0 = micros();
+      taskYIELD();
+      g_h3e0b_pending_task_yield_us =
+          (uint32_t)(micros() - t0);
+      h3e0bAdd(
+          g_h3e0b_stats.task_yield,
+          g_h3e0b_pending_task_yield_us);
+    }
+    else
+    {
+      jwplcModbusTCPLoopServiceCallback();
+
+      if (serialEventRun)
+      {
+        serialEventRun();
+      }
+
+      taskYIELD();
+    }
   }
 }
 
@@ -221,37 +409,109 @@ void jwplcSystemTask(void *pvParameters)
 
   for (;;)
   {
+    const uint32_t activeStartUs =
+        g_h3e0b_enabled
+            ? micros()
+            : 0U;
+
     uint32_t now = millis();
 
     if ((uint32_t)(now - lastIoScan) >= getJWPLCIoScanPeriod_ms())
     {
       lastIoScan = now;
-      jwplcSystemScanIO();
+
+      if (g_h3e0b_enabled)
+      {
+        const uint32_t t0 = micros();
+        jwplcSystemScanIO();
+        h3e0bAdd(
+            g_h3e0b_stats.system_io,
+            (uint32_t)(micros() - t0));
+      }
+      else
+      {
+        jwplcSystemScanIO();
+      }
     }
 
     if ((uint32_t)(now - lastRtcTick) >= getJWPLCRTCPeriod_ms())
     {
       lastRtcTick = now;
-      jwplcSystemTickRTC();
+
+      if (g_h3e0b_enabled)
+      {
+        const uint32_t t0 = micros();
+        jwplcSystemTickRTC();
+        h3e0bAdd(
+            g_h3e0b_stats.system_rtc,
+            (uint32_t)(micros() - t0));
+      }
+      else
+      {
+        jwplcSystemTickRTC();
+      }
     }
 
     if ((uint32_t)(now - lastEthernetTick) >= getJWPLCEthernetPeriod_ms())
     {
       lastEthernetTick = now;
-      jwplcEthernetTickCallback();
+
+      if (g_h3e0b_enabled)
+      {
+        const uint32_t t0 = micros();
+        jwplcEthernetTickCallback();
+        h3e0bAdd(
+            g_h3e0b_stats.system_ethernet,
+            (uint32_t)(micros() - t0));
+      }
+      else
+      {
+        jwplcEthernetTickCallback();
+      }
     }
 
 #if JWPLC_HAS_SD
     // DataLog usa buffer RAM. Este tick solo comprueba threshold/timeout
     // y atiende como maximo un logger por vuelta del system task.
-    // En Basic Core esta ruta se elimina en compilacion.
-    jwplcDataLogTickCallback();
+    if (g_h3e0b_enabled)
+    {
+      const uint32_t t0 = micros();
+      jwplcDataLogTickCallback();
+      h3e0bAdd(
+          g_h3e0b_stats.system_datalog,
+          (uint32_t)(micros() - t0));
+    }
+    else
+    {
+      jwplcDataLogTickCallback();
+    }
 #endif
 
     if ((uint32_t)(now - lastDisplayTick) >= getJWPLCDisplayPeriod_ms())
     {
       lastDisplayTick = now;
-      jwplcSystemDisplayHook();
+
+      if (g_h3e0b_enabled)
+      {
+        const uint32_t t0 = micros();
+        jwplcSystemDisplayHook();
+        h3e0bAdd(
+            g_h3e0b_stats.system_display,
+            (uint32_t)(micros() - t0));
+      }
+      else
+      {
+        jwplcSystemDisplayHook();
+      }
+    }
+
+    if (g_h3e0b_enabled)
+    {
+      h3e0bAdd(
+          g_h3e0b_stats.system_active,
+          (uint32_t)(
+              micros() -
+              activeStartUs));
     }
 
     vTaskDelay(pdMS_TO_TICKS(getJWPLCSystemTaskSleep_ms()));
