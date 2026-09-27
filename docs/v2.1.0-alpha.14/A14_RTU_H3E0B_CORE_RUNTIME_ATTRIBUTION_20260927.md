@@ -284,3 +284,62 @@ fallo mediante finally.
 Se añade además un preflight que compara el source core del repo con el source
 core realmente visible en el package instalado de Arduino. Si no son idénticos,
 el gate aborta antes de compilar.
+
+
+## Incidencia de setup 3
+
+El tercer intento fue deliberadamente sólo `-PreflightOnly` y falló antes de
+compilar:
+
+```txt
+PropertyNotFoundStrict
+$normalizedDirty.Count
+```
+
+Clasificación:
+
+```txt
+HARNESS_FAILURE=YES
+PRODUCT_FAILURE=NO
+HARDWARE_FAILURE=NO
+ENVIRONMENT_FAILURE=NO
+COMPILE_EXECUTED=NO
+UPLOAD_EXECUTED=NO
+BENCHMARK_EXECUTED=NO
+```
+
+Causa:
+
+`$expectedDirty = @(...) | Sort-Object` no garantizaba conservar un objeto
+array cuando sólo existía un elemento. Bajo `Set-StrictMode -Version Latest`,
+la posterior lectura de `.Count` produjo `PropertyNotFoundStrict`.
+
+Esta clase de fallo ya estaba cubierta por la regla histórica de no asumir la
+forma de colecciones PowerShell.
+
+Corrección:
+
+- `dirty`, `staged`, `expectedDirty` y `normalizedDirty` quedan tipados
+  explícitamente como `[string[]]`;
+- se revisaron todas las restantes lecturas de `.Count`;
+- se eliminó la suposición de que el source core instalado ya debía contener
+  el header H3E.0B;
+- para la compilación real se adopta una política determinista:
+  `backup core instalado -> overlay completo del core del repo -> compile ->
+  restore`;
+- si el core instalado es un reparse point/junction/symlink, el gate aborta
+  antes de mutarlo;
+- el overlay sólo se restaura si realmente llegó a iniciarse;
+- el gate exterior exige confirmación explícita de restore tanto de
+  `libJWPLC_ModbusRTU.a` como del core instalado.
+
+Regla preventiva reforzada:
+
+```txt
+Toda colección usada con .Count bajo StrictMode debe quedar materializada o
+tipada explícitamente.
+
+Un preflight no debe asumir sincronización repo <-> package instalado.
+La qualification debe hacer explícita la estrategia de source ownership y
+restaurar cualquier overlay temporal con finally.
+```
