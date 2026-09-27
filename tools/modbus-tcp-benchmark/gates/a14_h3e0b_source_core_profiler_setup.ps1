@@ -145,9 +145,9 @@ function Get-ReparseAncestorInfo {
         [Parameter(Mandatory = $true)][string]$StopPath
     )
 
-    $items = New-Object System.Collections.Generic.List[object]
     $current = Get-Item -LiteralPath $StartPath -Force
-    $stopFull = [IO.Path]::GetFullPath($StopPath).TrimEnd('\')
+    $stopItem = Get-Item -LiteralPath $StopPath -Force
+    $stopFull = $stopItem.FullName.TrimEnd('\')
 
     while ($null -ne $current) {
         $currentFull = $current.FullName.TrimEnd('\')
@@ -155,6 +155,8 @@ function Get-ReparseAncestorInfo {
 
         if ($isReparse) {
             $targetText = ""
+            $linkTypeText = ""
+
             if ($current.PSObject.Properties.Name -contains "Target") {
                 $targetValue = $current.Target
                 if ($null -ne $targetValue) {
@@ -162,11 +164,15 @@ function Get-ReparseAncestorInfo {
                 }
             }
 
-            $items.Add([PSCustomObject]@{
-                Path = $current.FullName
-                LinkType = [string]$current.LinkType
+            if ($current.PSObject.Properties.Name -contains "LinkType") {
+                $linkTypeText = [string]$current.LinkType
+            }
+
+            [PSCustomObject]@{
+                Path = [string]$current.FullName
+                LinkType = [string]$linkTypeText
                 Target = [string]$targetText
-            })
+            }
         }
 
         if ($currentFull.Equals($stopFull, [StringComparison]::OrdinalIgnoreCase)) {
@@ -175,10 +181,7 @@ function Get-ReparseAncestorInfo {
 
         $current = $current.Parent
     }
-
-    return @($items)
 }
-
 $packageStopRoot = Join-Path $env:LOCALAPPDATA "Arduino15\packages\jwplc_local"
 [object[]]$reparseAncestors = @(Get-ReparseAncestorInfo -StartPath $installedPlatformRoot -StopPath $packageStopRoot)
 
