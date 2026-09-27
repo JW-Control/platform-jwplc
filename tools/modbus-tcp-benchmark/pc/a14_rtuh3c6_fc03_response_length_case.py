@@ -128,10 +128,10 @@ def main() -> int:
         q.wait_server_disconnected(master, timeout_s=20.0)
 
         quantity_commands = {
-            1: (b"$\n", "RTU_READ_PROFILE=Q1"),
-            2: (b"%\n", "RTU_READ_PROFILE=Q2"),
-            4: (b"&\n", "RTU_READ_PROFILE=Q4"),
-            8: (b"=\n", "RTU_READ_PROFILE=Q8"),
+            1: (b"2\n", "RTU_READ_PROFILE=Q1"),
+            2: (b"5\n", "RTU_READ_PROFILE=Q2"),
+            4: (b"*\n", "RTU_READ_PROFILE=Q4"),
+            8: (b"^\n", "RTU_READ_PROFILE=Q8"),
         }
         quantity_command, quantity_ack = quantity_commands[args.rtu_quantity]
         budget.send_command_wait(
