@@ -5,6 +5,7 @@
 #include "JWPLC_Display_H3E1_Profile.h"
 
 #include <JWPLC_GlobalPeripherals.h>
+#include <Arduino.h>
 #include <Adafruit_ST7789.h>
 
 #include <cstdio>
