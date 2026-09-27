@@ -79,6 +79,8 @@ static inline void h3e0bSnapshotSystemStarts(void)
 
 extern "C" void jwplcH3E0BReset(void)
 {
+  vTaskSuspendAll();
+
   memset(&g_h3e0b_stats, 0, sizeof(g_h3e0b_stats));
 
   g_h3e0b_outside_start_us = 0;
@@ -87,6 +89,8 @@ extern "C" void jwplcH3E0BReset(void)
   g_h3e0b_pending_task_yield_us = 0;
 
   h3e0bSnapshotSystemStarts();
+
+  (void)xTaskResumeAll();
 }
 
 extern "C" void jwplcH3E0BSnapshot(JWPLCH3E0BStats *out)
@@ -96,7 +100,9 @@ extern "C" void jwplcH3E0BSnapshot(JWPLCH3E0BStats *out)
     return;
   }
 
+  vTaskSuspendAll();
   *out = g_h3e0b_stats;
+  (void)xTaskResumeAll();
 }
 
 static void h3e0bFinishOutside(
@@ -131,6 +137,10 @@ static void h3e0bFinishOutside(
 
   if (outside_us > g_h3e0b_stats.worst_outside_us)
   {
+    // Congelar el scheduler sólo durante la captura del nuevo récord evita
+    // mezclar trabajo del siguiente turno de jwplcSystemTask en este gap.
+    vTaskSuspendAll();
+
     g_h3e0b_stats.worst_outside_us = outside_us;
     g_h3e0b_stats.worst_tcp_pre_us = tcp_pre_us;
     g_h3e0b_stats.worst_tcp_post_us =
@@ -162,6 +172,8 @@ static void h3e0bFinishOutside(
     g_h3e0b_stats.worst_system_display_delta_us =
         g_h3e0b_stats.system_display.total_us -
         g_h3e0b_sys_display_start_total;
+
+    (void)xTaskResumeAll();
   }
 }
 
