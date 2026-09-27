@@ -498,7 +498,7 @@ static void serviceFramWorkload()
 
 static void buildSdRecord(
     uint32_t sequence,
-    uint8_t record[SD_RECORD_BYTES])
+    uint8_t *record)
 {
     memset(
         record,
