@@ -81,6 +81,19 @@ static const char *yesNo(bool value)
     return value ? "YES" : "NO";
 }
 
+static bool rtuCrcSelfTest()
+{
+    static const uint8_t vector[] = {
+        '1', '2', '3', '4', '5', '6', '7', '8', '9'
+    };
+
+    return
+        JWPLC_ModbusRTU.crc16(
+            vector,
+            sizeof(vector)) ==
+        0x4B37U;
+}
+
 static void serviceDisplayTelemetry()
 {
     const uint32_t now = millis();
@@ -187,6 +200,18 @@ static void printSnapshot()
         JWPLC_ModbusRTU.bulkRxEnabled()
             ? "BULK"
             : "BYTE");
+
+    Serial.print("RTU_CRC_MODE=");
+    Serial.println(
+        JWPLC_ModbusRTU.crcLookupEnabled()
+            ? "LOOKUP"
+            : "BITWISE");
+
+    Serial.print("RTU_CRC_SELFTEST=");
+    Serial.println(
+        rtuCrcSelfTest()
+            ? "PASS"
+            : "FAIL");
 
     Serial.print("RTU_SERVER_FRAMING=");
     Serial.println(
@@ -588,6 +613,16 @@ static void serviceSerial()
         {
             JWPLC_ModbusRTU.setBulkRxEnabled(false);
             Serial.println("RTU_RX_MODE=BYTE");
+        }
+        else if (c == '<')
+        {
+            JWPLC_ModbusRTU.setCrcLookupEnabled(false);
+            Serial.println("RTU_CRC_MODE=BITWISE");
+        }
+        else if (c == '>')
+        {
+            JWPLC_ModbusRTU.setCrcLookupEnabled(true);
+            Serial.println("RTU_CRC_MODE=LOOKUP");
         }
         else if (c == '(')
         {
