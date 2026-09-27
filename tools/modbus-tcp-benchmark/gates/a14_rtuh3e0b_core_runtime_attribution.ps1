@@ -123,6 +123,9 @@ if (-not $setupText.Contains("H3E0B_PRECOMPILED_CORE_PRESERVED=YES")) {
 if (-not $setupText.Contains("H3E0B_MODBUS_RTU_ARCHIVE_RESTORED=YES")) {
     throw "RTUH3E0B_MODBUS_RTU_ARCHIVE_RESTORE_CONFIRMATION_MISSING"
 }
+if (-not $setupText.Contains("H3E0B_INSTALLED_CORE_RESTORED=YES")) {
+    throw "RTUH3E0B_INSTALLED_CORE_RESTORE_CONFIRMATION_MISSING"
+}
 
 $dutIp = $ipMatch.Groups[1].Value.Trim()
 
