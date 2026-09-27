@@ -139,20 +139,88 @@ foreach ($requiredCoreSource in @(
     }
 }
 
-$installedCoreItem = Get-Item -LiteralPath $installedCoreRoot -Force
-$installedCoreIsReparsePoint =
-    (($installedCoreItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0)
+function Get-ReparseAncestorInfo {
+    param(
+        [Parameter(Mandatory = $true)][string]$StartPath,
+        [Parameter(Mandatory = $true)][string]$StopPath
+    )
 
-if ($installedCoreIsReparsePoint) {
-    throw "H3E0B_SETUP_INSTALLED_CORE_REPARSE_POINT_UNSUPPORTED"
+    $items = New-Object System.Collections.Generic.List[object]
+    $current = Get-Item -LiteralPath $StartPath -Force
+    $stopFull = [IO.Path]::GetFullPath($StopPath).TrimEnd('\')
+
+    while ($null -ne $current) {
+        $currentFull = $current.FullName.TrimEnd('\')
+        $isReparse = (($current.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0)
+
+        if ($isReparse) {
+            $targetText = ""
+            if ($current.PSObject.Properties.Name -contains "Target") {
+                $targetValue = $current.Target
+                if ($null -ne $targetValue) {
+                    $targetText = (@($targetValue) -join ";")
+                }
+            }
+
+            $items.Add([PSCustomObject]@{
+                Path = $current.FullName
+                LinkType = [string]$current.LinkType
+                Target = [string]$targetText
+            })
+        }
+
+        if ($currentFull.Equals($stopFull, [StringComparison]::OrdinalIgnoreCase)) {
+            break
+        }
+
+        $current = $current.Parent
+    }
+
+    return @($items)
 }
 
-$coreSourceStrategy = "TEMP_INSTALL_OVERLAY_BACKUP_RESTORE"
+$packageStopRoot = Join-Path $env:LOCALAPPDATA "Arduino15\packages\jwplc_local"
+[object[]]$reparseAncestors = @(Get-ReparseAncestorInfo -StartPath $installedPlatformRoot -StopPath $packageStopRoot)
+
+$installedCoreMain = Join-Path $installedCoreRoot "main.cpp"
+$installedCoreHeader = Join-Path $installedCoreRoot "jwplc_h3e0b_profile.h"
+$coreSourceIdentityPass = $false
+
+if ((Test-Path -LiteralPath $installedCoreMain) -and (Test-Path -LiteralPath $installedCoreHeader)) {
+    $repoCoreMainHash = (Get-FileHash -LiteralPath $repoCoreMain -Algorithm SHA256).Hash
+    $installedCoreMainHash = (Get-FileHash -LiteralPath $installedCoreMain -Algorithm SHA256).Hash
+    $repoCoreHeaderHash = (Get-FileHash -LiteralPath $repoCoreHeader -Algorithm SHA256).Hash
+    $installedCoreHeaderHash = (Get-FileHash -LiteralPath $installedCoreHeader -Algorithm SHA256).Hash
+    $coreSourceIdentityPass = $repoCoreMainHash -eq $installedCoreMainHash -and $repoCoreHeaderHash -eq $installedCoreHeaderHash
+}
+
+$hasReparseAncestor = $reparseAncestors.Count -gt 0
+
+if ($hasReparseAncestor -and -not $coreSourceIdentityPass) {
+    Write-Host "CORE_SOURCE_IDENTITY_PASS=False"
+    foreach ($link in $reparseAncestors) {
+        Write-Host "REPARSE_PATH=$($link.Path)"
+        Write-Host "REPARSE_LINKTYPE=$($link.LinkType)"
+        Write-Host "REPARSE_TARGET=$($link.Target)"
+    }
+    throw "H3E0B_SETUP_LINKED_PLATFORM_SOURCE_MISMATCH"
+}
+
+if ($hasReparseAncestor -and $coreSourceIdentityPass) {
+    $coreSourceStrategy = "SHARED_LINK_NO_OVERLAY"
+} else {
+    $coreSourceStrategy = "TEMP_INSTALL_OVERLAY_BACKUP_RESTORE"
+}
 
 Write-Host "INSTALLED_PLATFORM_ROOT=$installedPlatformRoot"
-Write-Host "INSTALLED_CORE_REPARSE_POINT=$installedCoreIsReparsePoint"
+Write-Host "REPARSE_ANCESTOR_COUNT=$($reparseAncestors.Count)"
+foreach ($link in $reparseAncestors) {
+    Write-Host "REPARSE_PATH=$($link.Path)"
+    Write-Host "REPARSE_LINKTYPE=$($link.LinkType)"
+    Write-Host "REPARSE_TARGET=$($link.Target)"
+}
+Write-Host "CORE_SOURCE_IDENTITY_PASS=$coreSourceIdentityPass"
 Write-Host "CORE_SOURCE_STRATEGY=$coreSourceStrategy"
-
 $masterDir = Get-G2Path "tools/modbus-tcp-benchmark/firmware/a14_h3e0b_core_profiler_master"
 $masterSketch = Join-Path $masterDir "a14_h3e0b_core_profiler_master.ino"
 $slaveDir = Get-G2Path "tools/modbus-tcp-benchmark/firmware/a14_p5_rtu_slave"
@@ -229,8 +297,9 @@ function Backup-And-Overlay-InstalledCore {
         [Parameter(Mandatory = $true)][string]$BackupRoot
     )
 
-    if ($installedCoreIsReparsePoint) {
-        throw "H3E0B_SETUP_REFUSE_OVERLAY_REPARSE_POINT"
+    if ($coreSourceStrategy -eq "SHARED_LINK_NO_OVERLAY") {
+        Write-Host "INSTALLED_CORE_OVERLAY=NOT_REQUIRED_SHARED_LINK"
+        return
     }
 
     if (Test-Path -LiteralPath $BackupRoot) {
@@ -303,6 +372,7 @@ function Restore-InstalledCore {
 Write-Host "MODBUS_RTU_ARCHIVE_SHA256=$archiveHashBefore"
 Write-Host "MODBUS_RTU_SOURCE_POLICY=HIDE_COMPILE_RESTORE"
 Write-Host "CORE_SOURCE_POLICY=$coreSourceStrategy"
+Write-Host "CORE_SOURCE_SHARED_LINK=$($coreSourceStrategy -eq 'SHARED_LINK_NO_OVERLAY')"
 Write-Host "PREFLIGHT_MUTATES_INSTALLED_PACKAGE=NO"
 Write-Host "PREFLIGHT_COMPILES=NO"
 Write-Host "PREFLIGHT_UPLOADS=NO"
@@ -376,7 +446,10 @@ try {
     Write-Host ""
     Write-Host "=== COMPILE MASTER FROM SOURCE CORE + MODBUS RTU SOURCE ==="
 
-    $installedCoreOverlayStarted = $true
+    if ($coreSourceStrategy -eq "TEMP_INSTALL_OVERLAY_BACKUP_RESTORE") {
+        $installedCoreOverlayStarted = $true
+    }
+
     Backup-And-Overlay-InstalledCore -BackupRoot $installedCoreBackupRoot
     Enable-SourceCoreOverride
 
@@ -564,6 +637,7 @@ Write-Host "H3E0B_SETUP_ONLY_MASTER_IP=$dutIp"
 Write-Host "H3E0B_PRECOMPILED_CORE_PRESERVED=YES"
 Write-Host "H3E0B_MODBUS_RTU_ARCHIVE_RESTORED=YES"
 Write-Host "H3E0B_INSTALLED_CORE_RESTORED=YES"
+Write-Host "H3E0B_CORE_SOURCE_STRATEGY_FINAL=$coreSourceStrategy"
 
 if (-not $SetupOnly) {
     throw "H3E0B_SETUP_ONLY_REQUIRED"
