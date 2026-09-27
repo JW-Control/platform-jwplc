@@ -292,6 +292,7 @@ static ServiceProfile h3eReadyProfile = {};
 static ServiceProfile h3eWorkItemProfiles[H3E_WORK_COUNT] = {};
 
 static H3EWorstGap h3eWorstGap = {};
+static bool h3eGapPrimed = false;
 
 static uint32_t h3eCurrentLoopEnterUs = 0;
 static uint32_t h3ePreviousVisibleAfterRtuUs = 0;
@@ -402,6 +403,7 @@ static void h3eResetProfiler()
     }
 
     h3eWorstGap = H3EWorstGap{};
+    h3eGapPrimed = false;
 
     h3eCurrentLoopEnterUs = 0;
     h3ePreviousVisibleAfterRtuUs = 0;
@@ -420,6 +422,12 @@ static void h3eCaptureWorstGap(
     uint32_t gapUs,
     uint32_t nowUs)
 {
+    if (!h3eGapPrimed)
+    {
+        h3eGapPrimed = true;
+        return;
+    }
+
     if (gapUs <= h3eWorstGap.gapUs)
         return;
 
