@@ -1930,6 +1930,8 @@ static void printSnapshot()
     printH3E1Stage("PRECHECK", h3e1.precheck);
     printH3E1Stage("REFRESH_NEEDED", h3e1.refresh_needed);
     printH3E1Stage("SPI_WAIT", h3e1.spi_wait);
+    printH3E1Stage("SPI_MUTEX", h3e1.spi_mutex);
+    printH3E1Stage("SPI_PREPARE", h3e1.spi_prepare);
     printH3E1Stage("PAGE_CLEAR", h3e1.page_clear);
     printH3E1Stage("PAGE_ENTER", h3e1.page_enter);
     printH3E1Stage("DRAW_STATIC", h3e1.draw_static);
