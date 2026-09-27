@@ -504,6 +504,8 @@ def main() -> int:
             "PRECHECK",
             "REFRESH_NEEDED",
             "SPI_WAIT",
+            "SPI_MUTEX",
+            "SPI_PREPARE",
             "PAGE_CLEAR",
             "PAGE_ENTER",
             "DRAW_STATIC",
@@ -548,7 +550,8 @@ def main() -> int:
         display_components = {
             name: h3e1_stages[name]["total_us"]
             for name in (
-                "SPI_WAIT",
+                "SPI_MUTEX",
+                "SPI_PREPARE",
                 "PAGE_CLEAR",
                 "PAGE_ENTER",
                 "DRAW_STATIC",
