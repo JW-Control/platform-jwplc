@@ -86,3 +86,16 @@ A14_RTU_H3C5=PASS_MASTER_FIFO9_SLAVE_FIFO8_1200S
 ```
 
 No se modifican defaults de producto.
+
+
+## Resultado físico H3C.5
+
+H3C.5 paso limpio durante 1200 s con Master RX FIFO=9 y Slave RX FIFO=8.
+
+RTU=785.147 tx/s; 942487 iniciadas; 942487 exitosas; 0 fallos; 0 timeouts; TCP=500.000 req/s.
+
+REQUEST_PATH_GAP=0; RESPONSE_PATH_GAP=0; REQUEST_BYTE_GAP=0; RESPONSE_BYTE_GAP=0; tails descartados=0; CRC=0.
+
+SD, perifericos y TFT quedaron limpios. El gate termino con RUNTIME_CLEAN=YES.
+
+Decision: validar generalidad antes de adoptar defaults. H3C.6 probara respuestas FC03 de 7, 9, 13 y 21 bytes con Master FIFO9 / Slave FIFO8.
