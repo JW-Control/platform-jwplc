@@ -210,7 +210,7 @@ $slaveArgs = @(
 $slaveExit = Invoke-NativeToLog -FilePath $arduinoCli -Arguments $slaveArgs -LogPath $slaveCompileLog
 Write-Host "SLAVE_COMPILE_EXIT=$slaveExit"
 if ($slaveExit -ne 0) {
-    Get-Content -LiteralPath $slaveCompileLog -Tail 220 | ForEach-Object { Write-Host $_ }
+    Get-Content -LiteralPath $slaveCompileLog -Tail 60 | ForEach-Object { Write-Host $_ }
     throw "H3E0B_SETUP_SLAVE_COMPILE_FAILED"
 }
 
@@ -236,7 +236,7 @@ finally {
 
 Write-Host "MASTER_COMPILE_EXIT=$masterExit"
 if ($masterExit -ne 0) {
-    Get-Content -LiteralPath $masterCompileLog -Tail 260 | ForEach-Object { Write-Host $_ }
+    Get-Content -LiteralPath $masterCompileLog -Tail 60 | ForEach-Object { Write-Host $_ }
     throw "H3E0B_SETUP_MASTER_COMPILE_FAILED"
 }
 
@@ -275,7 +275,7 @@ $slaveUploadArgs = @(
 $slaveUploadExit = Invoke-NativeToLog -FilePath $arduinoCli -Arguments $slaveUploadArgs -LogPath $slaveUploadLog
 Write-Host "SLAVE_UPLOAD_EXIT=$slaveUploadExit"
 if ($slaveUploadExit -ne 0) {
-    Get-Content -LiteralPath $slaveUploadLog -Tail 220 | ForEach-Object { Write-Host $_ }
+    Get-Content -LiteralPath $slaveUploadLog -Tail 80 | ForEach-Object { Write-Host $_ }
     throw "H3E0B_SETUP_SLAVE_UPLOAD_FAILED"
 }
 
@@ -294,7 +294,7 @@ $masterUploadArgs = @(
 $masterUploadExit = Invoke-NativeToLog -FilePath $arduinoCli -Arguments $masterUploadArgs -LogPath $masterUploadLog
 Write-Host "MASTER_UPLOAD_EXIT=$masterUploadExit"
 if ($masterUploadExit -ne 0) {
-    Get-Content -LiteralPath $masterUploadLog -Tail 220 | ForEach-Object { Write-Host $_ }
+    Get-Content -LiteralPath $masterUploadLog -Tail 80 | ForEach-Object { Write-Host $_ }
     throw "H3E0B_SETUP_MASTER_UPLOAD_FAILED"
 }
 
@@ -308,7 +308,7 @@ $resolverExit = Invoke-NativeToLog -FilePath $pythonExe -Arguments $resolverArgs
 Write-Host "H3E0B_SETUP_RESOLVER_EXIT=$resolverExit"
 
 if ($resolverExit -ne 0) {
-    Get-Content -LiteralPath $resolverLog -Tail 320 | ForEach-Object { Write-Host $_ }
+    Get-Content -LiteralPath $resolverLog -Tail 80 | ForEach-Object { Write-Host $_ }
     throw "H3E0B_SETUP_PREFLIGHT_FAILED"
 }
 
