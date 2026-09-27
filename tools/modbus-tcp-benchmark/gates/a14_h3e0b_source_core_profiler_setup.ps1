@@ -225,7 +225,6 @@ try {
         "--fqbn", $fqbn,
         "--build-path", $masterBuild,
         "--libraries", $repoLibrariesRoot,
-        "--verbose",
         $masterDir
     )
 
