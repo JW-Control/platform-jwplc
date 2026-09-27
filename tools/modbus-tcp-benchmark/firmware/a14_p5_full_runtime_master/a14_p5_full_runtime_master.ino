@@ -73,9 +73,9 @@ static uint8_t rtuRxFifoFull = 120U;
 static uint32_t rtuTargetHz = 50UL;
 static uint32_t rtuPeriodUs = RTU_PERIOD_DEFAULT_US;
 static uint16_t rtuReadValues[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-static uint16_t rtuReadStartAddress = 0;
-static uint16_t rtuReadQuantity = 2;
-static uint8_t rtuVerifyIndex = 1;
+static uint16_t rtuReadStartAddress = 0U;
+static uint16_t rtuReadQuantity = 2U;
+static uint8_t rtuVerifyIndex = 1U;
 
 static uint32_t rtuTrafficStartMs = 0;
 static uint32_t rtuTrafficDurationMs = 0;
@@ -921,8 +921,8 @@ static bool setRtuReadProfile(
     uint16_t quantity,
     uint8_t verifyIndex)
 {
-    if (quantity == 0 ||
-        quantity > 8 ||
+    if (quantity == 0U ||
+        quantity > 8U ||
         verifyIndex >= quantity ||
         rtuTrafficEnabled ||
         JWPLC_ModbusRTU.masterBusy())
@@ -934,9 +934,9 @@ static bool setRtuReadProfile(
     rtuReadQuantity = quantity;
     rtuVerifyIndex = verifyIndex;
 
-    for (uint8_t i = 0; i < 8; ++i)
+    for (uint8_t i = 0U; i < 8U; ++i)
     {
-        rtuReadValues[i] = 0;
+        rtuReadValues[i] = 0U;
     }
 
     resetRtuTrafficCounters();
@@ -1525,7 +1525,7 @@ static void printSnapshot()
     Serial.println(rtuReadQuantity);
 
     Serial.print("RTU_EXPECTED_RESPONSE_BYTES=");
-    Serial.println((uint16_t)(5U + 2U * rtuReadQuantity));
+    Serial.println((uint16_t)(5U + (2U * rtuReadQuantity)));
 
     Serial.print("RTU_BAUD=");
     Serial.println(
@@ -2452,360 +2452,28 @@ static void serviceSerialCommands()
             JWPLC_ModbusRTU.setEarlyServerDispatchEnabled(false);
             Serial.println("RTU_SERVER_FRAMING=GAP");
         }
-        else if (c == '        {
-            printP5Preflight();
-        }
-        else if (
-            c == 'S' ||
-            c == 's')
-        {
-            printSnapshot();
-        }
-    }
-}
-
-// ============================================================================
-// Setup
-// ============================================================================
-
-void setup()
-{
-    Serial.begin(115200);
-
-    // --------------------------------------------------------
-    // Modbus data
-    // --------------------------------------------------------
-
-    for (
-        uint16_t i = 0;
-        i < sizeof(coils);
-        ++i)
-    {
-        coils[i] =
-            (uint8_t)(
-                0xA5U ^
-                (uint8_t)i);
-    }
-
-    for (
-        uint16_t i = 0;
-        i < HOLDING_COUNT;
-        ++i)
-    {
-        holdingRegisters[i] =
-            (uint16_t)(
-                0x1000U +
-                i);
-    }
-
-    JWPLC_ModbusTCP.setCoils(
-        coils,
-        COIL_COUNT);
-
-    JWPLC_ModbusTCP.setHoldingRegisters(
-        holdingRegisters,
-        HOLDING_COUNT);
-
-    // --------------------------------------------------------
-    // Modbus RTU Master
-    // --------------------------------------------------------
-
-    rtuReady =
-        JWPLC_ModbusRTU.begin(
-            RTU_MASTER_LOCAL_ID,
-            RTU_BAUD,
-            RTU_CONFIG);
-
-    if (rtuReady)
-    {
-        rtuReady =
-            JWPLC_ModbusRTU.motor(ASYNC);
-
-        JWPLC_ModbusRTU.setFrameGapMs(2);
-        resetRtuTrafficCounters();
-    }
-
-    // --------------------------------------------------------
-    // FRAM no destructiva
-    // --------------------------------------------------------
-
-    const uint32_t framSize =
-        JWPLC_FRAM.size();
-
-    framReady =
-        framSize >=
-        (FRAM_BENCH_BYTES + 32U);
-
-    if (framReady)
-    {
-        framBenchAddress =
-            framSize -
-            64U;
-
-        framReady =
-            JWPLC_FRAM.read(
-                framBenchAddress,
-                framBackup,
-                sizeof(framBackup));
-    }
-
-    // --------------------------------------------------------
-    // microSD
-    // --------------------------------------------------------
-
-    sdReady =
-        JWPLCSD::isEnabled() &&
-        JWPLCSD::isCardPresent() &&
-        JWPLCSD::isReady();
-
-    if (
-        sdReady &&
-        JWPLC_SD.exists(
-            SD_BENCH_PATH))
-    {
-        sdReady =
-            JWPLC_SD.remove(
-                SD_BENCH_PATH);
-    }
-
-    if (sdReady)
-    {
-        const JW_SDDataLogConfig config(
-            SD_DATALOG_BUFFER_BYTES,
-            SD_DATALOG_COMMIT_THRESHOLD_BYTES,
-            SD_DATALOG_COMMIT_TIMEOUT_MS);
-
-        sdReady =
-            sdDataLog.begin(
-                JWPLC_SD,
-                SD_BENCH_PATH,
-                config);
-    }
-
-    // --------------------------------------------------------
-    // TFT / HMI Alpha11
-    // --------------------------------------------------------
-
-    JWPLC_Display.setIdleWakeMode(
-        IDLE_WAKE_DISABLED);
-
-    JWPLC_Display.setIdleReturnMode(
-        IDLE_RETURN_DISABLED);
-
-    JWPLC_Display.setUserRefreshMode(
-        USER_REFRESH_ON_DEMAND);
-
-    JWPLC_Display.setUserRefreshPeriodMs(
-        DISPLAY_PERIOD_MS);
-
-    if (!JWPLC_Display.setFields(
-            MASTER_FIELDS,
-            sizeof(MASTER_FIELDS) /
-                sizeof(MASTER_FIELDS[0])))
-    {
-        Serial.println(
-            "A14_P5_MASTER_HMI_FIELDS=FAIL");
-    }
-    else
-    {
-        JWPLC_Display.setText(
-            FIELD_ROLE,
-            "MASTER");
-
-        JWPLC_Display.setValue(
-            FIELD_TCP_OK,
-            0);
-
-        JWPLC_Display.setValue(
-            FIELD_RTU_OK,
-            0);
-
-        JWPLC_Display.setValue(
-            FIELD_RTU_FAIL,
-            0);
-
-        JWPLC_Display.setBool(
-            FIELD_SD_READY,
-            sdReady);
-
-        JWPLC_Display.setBool(
-            FIELD_ETH_READY,
-            JWPLC_Ethernet.isReady() &&
-            JWPLC_Ethernet.linkUp());
-
-        JWPLC_Display.enterUserUI();
-
-        Serial.println(
-            "A14_P5_MASTER_HMI_FIELDS=PASS");
-    }
-
-    // --------------------------------------------------------
-    // Modbus TCP Server
-    // --------------------------------------------------------
-
-    if (
-        !JWPLC_ModbusTCP.beginServer(
-            UNIT_ID,
-            SERVER_PORT))
-    {
-        Serial.println(
-            "A14_PERF_SERVER_CONFIG=FAIL");
-
-        return;
-    }
-
-    Serial.println(
-        "A14_PERF_SERVER_CONFIG=PASS");
-
-    Serial.println(
-        "FULL_RUNTIME_PROFILE=REALISTIC");
-
-    Serial.print(
-        "DISPLAY_READY_BOOT=");
-    Serial.println(
-        yesNo(
-            JWPLC_Display.isReady()));
-
-    Serial.print(
-        "FRAM_READY_BOOT=");
-    Serial.println(
-        yesNo(
-            framReady));
-
-    Serial.print(
-        "SD_READY_BOOT=");
-    Serial.println(
-        yesNo(
-            sdReady));
-
-    Serial.print(
-        "RTC_READY_BOOT=");
-    Serial.println(
-        yesNo(
-            rtcReady()));
-
-    Serial.print(
-        "BUTTONS_READY_BOOT=");
-    Serial.println(
-        yesNo(
-            JWPLCButtons::isReady()));
-
-    Serial.print(
-        "IO_READY_BOOT=");
-    Serial.println(
-        yesNo(
-            ioReady()));
-
-    Serial.print(
-        "RTU_READY_BOOT=");
-    Serial.println(
-        yesNo(
-            rtuReady));
-
-    Serial.println(
-        "DISPLAY_RENDER_MODE_BOOT=HMI_ON_DEMAND_DIRTY");
-
-    resetPerfCounters();
-
-    // P5 final: el Master RTU queda activo desde boot.
-    // El runner vuelve a alinear los contadores con R justo antes
-    // de la ventana formal TCP; R conserva este estado activo.
-    startRtuTraffic();
-
-    Serial.print("RTU_TRAFFIC_AUTO_START=");
-    Serial.println(
-        rtuTrafficEnabled
-            ? "YES"
-            : "NO");
-}
-
-// ============================================================================
-// Loop
-// ============================================================================
-
-void loop()
-{
-    const uint32_t nowUs =
-        micros();
-
-    if (lastLoopUs != 0)
-    {
-        const uint32_t gap =
-            (uint32_t)(
-                nowUs -
-                lastLoopUs);
-
-        loopGapSumUs += gap;
-        ++loopGapSamples;
-
-        if (gap > loopGapMaxUs)
-        {
-            loopGapMaxUs = gap;
-        }
-    }
-
-    lastLoopUs = nowUs;
-
-    // Modbus TCP se atiende automáticamente desde el package-core
-    // antes y después de cada loop(). El sketch sólo mantiene su lógica RTU.
-    serviceRtuMaster();
-
-    serviceSerialCommands();
-
-    serviceRealisticWorkload();
-    serviceDisplayTelemetry();
-
-    if (
-        !readyAnnounced &&
-        JWPLC_ModbusTCP.serverReady())
-    {
-        readyAnnounced = true;
-
-        Serial.print(
-            "A14_PERF_SERVER_READY=PASS IP=");
-
-        Serial.print(
-            JWPLC_Ethernet.localIP());
-
-        Serial.print(" PORT=");
-        Serial.print(SERVER_PORT);
-
-        Serial.print(" UNIT_ID=");
-        Serial.println(UNIT_ID);
-
-        Serial.print(
-            "FULL_RUNTIME_READY=");
-
-        Serial.println(
-            yesNo(
-                fullRuntimeReady()));
-
-        Serial.println(
-            "A14_P5_ROLE=MASTER");
-    }
-}
-)
+        else if (c == '2')
         {
             Serial.println(
                 setRtuReadProfile(1U, 1U, 0U)
                     ? "RTU_READ_PROFILE=Q1"
                     : "RTU_READ_PROFILE=FAIL");
         }
-        else if (c == '%')
+        else if (c == '5')
         {
             Serial.println(
                 setRtuReadProfile(0U, 2U, 1U)
                     ? "RTU_READ_PROFILE=Q2"
                     : "RTU_READ_PROFILE=FAIL");
         }
-        else if (c == '&')
+        else if (c == '*')
         {
             Serial.println(
                 setRtuReadProfile(0U, 4U, 1U)
                     ? "RTU_READ_PROFILE=Q4"
                     : "RTU_READ_PROFILE=FAIL");
         }
-        else if (c == '=')
+        else if (c == '^')
         {
             Serial.println(
                 setRtuReadProfile(0U, 8U, 1U)
