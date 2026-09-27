@@ -167,3 +167,164 @@ investigar overhead introducido en source actual antes de regenerar archive
 ```
 
 No se modifica TFT_eSPI/JW_TFT durante H3E.1B.1.
+
+
+## Resultado físico — Leg A / ARCHIVE
+
+El Leg A fue ejecutado con:
+
+```txt
+DISPLAY_LINKAGE=ARCHIVE
+TFT_SPI_HZ=80000000
+DURATION_S=300
+TCP=500 req/s
+RTU=500000 baud
+CRC=BITWISE
+```
+
+Prueba de linkage:
+
+```txt
+DISPLAY_ARCHIVE_HIDDEN=NO
+MASTER_DISPLAY_OBJECT JWPLC_Display.cpp.o=0
+MASTER_DISPLAY_OBJECT JWPLC_UI.cpp.o=0
+MASTER_DISPLAY_OBJECT JWPLC_UI_API.cpp.o=0
+MASTER_DISPLAY_OBJECT JWPLC_UI_Pages.cpp.o=0
+MASTER_DISPLAY_SOURCE_OBJECT_COUNT=0
+DISPLAY_LINKAGE_PROOF=ARCHIVE_NO_SOURCE_OBJECTS
+```
+
+Por tanto este leg utilizó inequívocamente `libJWPLC_Display.a`.
+
+### Display
+
+```txt
+SYS_DISPLAY_CALLS=2953
+SYS_DISPLAY_TOTAL_US=56252937
+SYS_DISPLAY_AVG_US=19049
+SYS_DISPLAY_MAX_US=23629
+```
+
+El peor gap mostró:
+
+```txt
+WORST_OUTSIDE_US=24538
+WORST_TASK_YIELD_US=23699
+WORST_SYS_ACTIVE_US=23674
+WORST_SYS_DISPLAY_US=23629
+DOMINANT_DIRECT=TASK_YIELD
+DOMINANT_SYSTEM=SYS_DISPLAY
+```
+
+Esto reproduce el patrón lento original de H3E.0B.
+
+### TCP
+
+```txt
+TCP_REQ_S=499.988
+TCP_TARGET_PCT=99.998
+TCP_AVG_US=1429.5
+TCP_P95_US=2042.2
+TCP_P99_US=19719.0
+TCP_MAX_US=35451.9
+```
+
+### RTU
+
+```txt
+RTU_HZ=756.558
+RTU_STARTED=227043
+RTU_COMPLETED=227043
+RTU_SUCCESS=227042
+RTU_FAILED=1
+RTU_TIMEOUTS=1
+REQUEST_PATH_GAP=0
+RESPONSE_PATH_GAP=1
+RESPONSE_BYTE_GAP=9
+MASTER_CRC=0
+SLAVE_CRC=0
+```
+
+El único fallo corresponde a una respuesta FC03 Q2 completa de 9 bytes no
+recibida/procesada por el Master dentro de la ventana de timeout.
+
+```txt
+LAST_FAILURE_DURATION_US=32334
+MAX_FAILURE_DURATION_US=32334
+RTU_SERVICE_GAP_MAX_US=24600
+LOOP_GAP_MAX_US=24598
+```
+
+El Slave reportó todas las requests recibidas y todas las responses
+transmitidas, sin tails descartadas ni errores CRC.
+
+### Runtime
+
+```txt
+PROFILER_PASS=YES
+RTU_FLOOR_PASS=YES
+TCP_CLEAN=YES
+TCP_TARGET_PASS=YES
+BUCKET_TARGET_PASS=YES
+SD_CLEAN=YES
+RTU_CLEAN=NO
+RUNTIME_CLEAN=NO
+DIAGNOSTIC_CAPTURE_PASS=YES
+```
+
+El runner cerró:
+
+```txt
+A14_RTU_H3E0B=PASS_CORE_ATTRIBUTION_WITH_RTU_FAILURE
+H3E1B1_RUNNER_EXIT=0
+```
+
+La observación física fue PASS para Master y Slave, con la misma HMI de
+referencia y sin parpadeo/cortes visibles.
+
+El leg completo cerró:
+
+```txt
+H3E1B1_DISPLAY_LINKAGE_FINAL=ARCHIVE
+A14_H3E1B1_DISPLAY_LINKAGE_LEG_GATE=PASS
+```
+
+### Comparación provisional contra H3E.1 source
+
+La corrida H3E.1 previa, que forzó source actual de `JWPLC_Display`, obtuvo:
+
+```txt
+SYS_DISPLAY_AVG_US ~= 8329
+SYS_DISPLAY_MAX_US ~= 9611
+```
+
+Frente al archive:
+
+```txt
+SYS_DISPLAY_AVG_US = 19049
+SYS_DISPLAY_MAX_US = 23629
+```
+
+Esto equivale provisionalmente a:
+
+```txt
+source / archive AVG ratio ~= 0.4372
+source AVG improvement ~= 56.276 %
+archive AVG ~= 2.287x source
+
+source / archive MAX ratio ~= 0.4067
+source MAX improvement ~= 59.325 %
+archive MAX ~= 2.459x source
+```
+
+Esta comparación todavía NO cierra la decisión porque H3E.1 incluía
+instrumentación interna Display adicional. El Leg B / SOURCE debe ejecutarse
+con el mismo Master H3E.0B y el mismo gate para obtener el A/B controlado.
+
+## Estado H3E.1B.1
+
+```txt
+LEG_A_ARCHIVE=PASS_DIAGNOSTIC_VALID
+LEG_B_SOURCE=PENDING
+A_B_DECISION=PENDING
+```
