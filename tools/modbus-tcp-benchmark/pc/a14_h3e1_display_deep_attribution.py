@@ -31,6 +31,47 @@ def yes(values: dict[str, str], key: str) -> bool:
     return sv(values, key).upper() == "YES"
 
 
+def request_master_snapshot_with_raw(
+    ser,
+    timeout_s: float = 5.0,
+) -> dict[str, str]:
+    values: dict[str, str] = {}
+    raw_lines: list[str] = []
+    deadline = time.monotonic() + timeout_s
+
+    ser.write(b"S\n")
+    ser.flush()
+
+    while time.monotonic() < deadline:
+        line = q.read_serial_line(ser)
+
+        if not line:
+            continue
+
+        raw_lines.append(line)
+
+        if "=" in line:
+            key, value = line.split("=", 1)
+            values[key.strip()] = value.strip()
+
+        if line == "A14_PERF_SNAPSHOT=END":
+            values["_RAW"] = "\n".join(raw_lines)
+            return values
+
+    values["_RAW"] = "\n".join(raw_lines)
+    raise TimeoutError(
+        "snapshot H3E1 Master incompleto; "
+        f"recibido={values['_RAW']!r}"
+    )
+
+
+def h3e1_snapshots(master, slave):
+    return (
+        request_master_snapshot_with_raw(master),
+        p5b.request_slave_snapshot(slave, 5.0),
+    )
+
+
 def parse_h3e1_fields(raw: str) -> dict[int, dict[str, int]]:
     fields: dict[int, dict[str, int]] = {}
 
@@ -152,7 +193,7 @@ def main() -> int:
         budget.send_command_wait(master, crc_command, crc_ack)
         budget.send_command_wait(slave, crc_command, crc_ack)
 
-        ms0, ss0 = h3b.snapshots(master, slave)
+        ms0, ss0 = h3e1_snapshots(master, slave)
 
         profile_checks = {
             "master_baud": iv(ms0, "RTU_BAUD_EFFECTIVE") == 500000,
@@ -218,7 +259,7 @@ def main() -> int:
         budget.send_command_wait(master, b"X\n", p5b.MASTER_STOP_ACK)
         time.sleep(0.10)
 
-        ms, ss = h3b.snapshots(master, slave)
+        ms, ss = h3e1_snapshots(master, slave)
 
         duration_ms = iv(ms, "RTU_TRAFFIC_DURATION_MS")
         started = iv(ms, "RTU_REQUESTS_STARTED")
