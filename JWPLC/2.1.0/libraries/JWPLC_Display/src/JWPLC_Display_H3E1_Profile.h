@@ -2,6 +2,7 @@
 #define JWPLC_DISPLAY_H3E1_PROFILE_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
