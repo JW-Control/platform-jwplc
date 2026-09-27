@@ -340,3 +340,55 @@ PREFLIGHT_COMPILES=NO
 PREFLIGHT_UPLOADS=NO
 A14_RTU_H3E1_PREFLIGHT_ONLY=PASS
 ```
+
+
+## Incidencia H3E.1 preflight — marker en Information stream
+
+El preflight interno cerró visualmente con:
+
+```txt
+H3E1_STATIC_PREFLIGHT=PASS
+A14_H3E1_PREFLIGHT_ONLY=PASS
+```
+
+pero el wrapper exterior terminó con:
+
+```txt
+RTUH3E1_SETUP_STATIC_PREFLIGHT_CONFIRMATION_MISSING
+```
+
+Clasificación:
+
+```txt
+HARNESS_FAILURE=YES
+PRODUCT_FAILURE=NO
+HARDWARE_FAILURE=NO
+COMPILE_EXECUTED=NO
+UPLOAD_EXECUTED=NO
+BENCHMARK_EXECUTED=NO
+```
+
+Causa:
+
+El subgate emitía el marker machine-readable mediante `Write-Host`.
+En Windows PowerShell 5.1 ese cmdlet utiliza el Information stream. El wrapper
+capturaba `2>&1`, por lo que el marker era visible para el usuario pero no
+formaba parte de la colección usada por el parser.
+
+Corrección:
+
+```powershell
+Write-Output "A14_H3E1_PREFLIGHT_ONLY=PASS"
+```
+
+El marker de contrato pasa al success stream. Los mensajes exclusivamente
+humanos continúan usando `Write-Host`.
+
+Regla:
+
+```txt
+Write-Host   = UI humana
+Write-Output = contrato machine-readable consumido por otro script
+```
+
+No se avanzará a compile/upload hasta repetir y cerrar el preflight exterior.
