@@ -96,41 +96,42 @@ Write-Host "RTUH3E0B_PREFLIGHT=PASS"
 $tempRoot = Join-Path $env:TEMP ("jwplc_a14_h3e0b_{0}" -f (Get-Date -Format "yyyyMMdd_HHmmss"))
 New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
 
-$archiveBackup = Join-Path $tempRoot "libJWPLC_ModbusRTU.before.a"
 $setupLog = Join-Path $tempRoot "setup.log"
 $runLog = Join-Path $tempRoot "h3e0b.log"
 
-Copy-Item -LiteralPath $archivePath -Destination $archiveBackup -Force
+Write-Host ""
+Write-Host "=== SOURCE CORE COMPILE / UPLOAD H3E0B ==="
 
-$archiveHidden = $false
-$dutIp = $null
+& $setupGate -MasterPort $MasterPort -SlavePort $SlavePort -SetupOnly -AllowDirtyCoreCandidate *>&1 |
+    Tee-Object -FilePath $setupLog
 
-try {
-    Remove-Item -LiteralPath $archivePath -Force
-    $archiveHidden = $true
+$setupText = [IO.File]::ReadAllText($setupLog)
+$ipMatch = [regex]::Match(
+    $setupText,
+    "(?m)^H3E0B_SETUP_ONLY_MASTER_IP=(.+?)\r?$"
+)
 
-    Write-Host ""
-    Write-Host "=== SOURCE CORE COMPILE / UPLOAD H3E0B ==="
-
-    & $setupGate -MasterPort $MasterPort -SlavePort $SlavePort -SetupOnly -AllowDirtyCoreCandidate -AllowMissingModbusRtuArchiveCandidate *>&1 | Tee-Object -FilePath $setupLog
-
-    $setupText = [IO.File]::ReadAllText($setupLog)
-    $ipMatch = [regex]::Match($setupText, "(?m)^H3E0B_SETUP_ONLY_MASTER_IP=(.+?)\r?$")
-
-    if (-not $ipMatch.Success) { throw "RTUH3E0B_SETUP_IP_MISSING" }
-    if (-not $setupText.Contains("MASTER_SOURCE_CORE_MAIN_COMPILED=True")) { throw "RTUH3E0B_SOURCE_CORE_CONFIRMATION_MISSING" }
-    if (-not $setupText.Contains("H3E0B_PRECOMPILED_CORE_PRESERVED=YES")) { throw "RTUH3E0B_PRECOMPILED_CORE_PRESERVATION_MISSING" }
-
-    $dutIp = $ipMatch.Groups[1].Value.Trim()
+if (-not $ipMatch.Success) {
+    throw "RTUH3E0B_SETUP_IP_MISSING"
 }
-finally {
-    if ($archiveHidden) {
-        Copy-Item -LiteralPath $archiveBackup -Destination $archivePath -Force
-    }
+if (-not $setupText.Contains("MASTER_SOURCE_CORE_MAIN_COMPILED=True")) {
+    throw "RTUH3E0B_SOURCE_CORE_CONFIRMATION_MISSING"
+}
+if (-not $setupText.Contains("H3E0B_PRECOMPILED_CORE_PRESERVED=YES")) {
+    throw "RTUH3E0B_PRECOMPILED_CORE_PRESERVATION_MISSING"
+}
+if (-not $setupText.Contains("H3E0B_MODBUS_RTU_ARCHIVE_RESTORED=YES")) {
+    throw "RTUH3E0B_MODBUS_RTU_ARCHIVE_RESTORE_CONFIRMATION_MISSING"
 }
 
-if ((Get-G2Sha256 $archiveRelative) -ne $archiveHashBefore) { throw "RTUH3E0B_ARCHIVE_RESTORE_HASH_MISMATCH" }
-if ((Get-G2Sha256 $script:G2CoreRelative) -ne $coreHashBefore) { throw "RTUH3E0B_PRECOMPILED_CORE_CHANGED_AFTER_SETUP" }
+$dutIp = $ipMatch.Groups[1].Value.Trim()
+
+if ((Get-G2Sha256 $archiveRelative) -ne $archiveHashBefore) {
+    throw "RTUH3E0B_ARCHIVE_CHANGED_AFTER_SETUP"
+}
+if ((Get-G2Sha256 $script:G2CoreRelative) -ne $coreHashBefore) {
+    throw "RTUH3E0B_PRECOMPILED_CORE_CHANGED_AFTER_SETUP"
+}
 
 $durationText = $DurationS.ToString([Globalization.CultureInfo]::InvariantCulture)
 $bucketText = $BucketSeconds.ToString([Globalization.CultureInfo]::InvariantCulture)
