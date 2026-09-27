@@ -191,3 +191,34 @@ SYS_ACTIVE bajo
 DOMINANT_DIRECT=RESIDUAL
 -> ampliar profiler en el core sólo alrededor del tramo residual
 ```
+
+
+## Incidencia de setup 1
+
+El primer intento físico no llegó a upload ni a la ventana de 300 s.
+
+Fallo:
+
+```txt
+a14_h3e0b_core_profiler_master.ino:499:62:
+error: 'SD_RECORD_BYTES' was not declared in this scope
+H3E0B_SETUP_MASTER_COMPILE_FAILED
+```
+
+Causa:
+
+El hook fuerte `jwplcH3E0BProfilerEnabled()` se había definido inmediatamente
+después de los includes del sketch. Esa nueva primera función desplazó el punto
+donde el preprocesador Arduino inserta prototipos automáticos y provocó que el
+prototipo de `buildSdRecord(... record[SD_RECORD_BYTES])` apareciera antes de
+la declaración global de `SD_RECORD_BYTES`.
+
+Corrección:
+
+- mover el hook H3E.0B al bloque de funciones, después de constantes, tipos y
+  estado global;
+- conservar la firma original de `buildSdRecord`;
+- retirar `--verbose` del compile source-core;
+- limitar el volcado de logs en caso de error.
+
+La incidencia no cambia el objetivo ni la hipótesis H3E.0B.
