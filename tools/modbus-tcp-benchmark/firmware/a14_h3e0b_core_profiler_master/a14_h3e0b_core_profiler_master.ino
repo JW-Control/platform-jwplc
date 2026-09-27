@@ -41,11 +41,6 @@ extern "C"
 #include "jwplc_h3e0b_profile.h"
 }
 
-extern "C" bool jwplcH3E0BProfilerEnabled(void)
-{
-    return true;
-}
-
 // ============================================================================
 // Modbus TCP
 // ============================================================================
@@ -254,6 +249,15 @@ static uint32_t lastFramMs = 0;
 static uint32_t lastRtcSampleMs = 0;
 static uint32_t lastSdAppendMs = 0;
 static uint32_t lastSdVerifyMs = 0;
+
+// ============================================================================
+// H3E.0B qualification hook
+// ============================================================================
+
+extern "C" bool jwplcH3E0BProfilerEnabled(void)
+{
+    return true;
+}
 
 // ============================================================================
 // Helpers
@@ -498,7 +502,7 @@ static void serviceFramWorkload()
 
 static void buildSdRecord(
     uint32_t sequence,
-    uint8_t *record)
+    uint8_t record[SD_RECORD_BYTES])
 {
     memset(
         record,
