@@ -308,3 +308,35 @@ Después de identificar el cuello exacto se evaluará:
 
 La decisión de migrar backend se tomará con benchmark Adafruit actual vs
 alternativa, no por percepción.
+
+
+## Preflight integral
+
+El gate exterior H3E.1 expone `-PreflightOnly`.
+
+En ese modo:
+
+```txt
+- valida dirty scope e invariantes de hashes;
+- valida contratos H3E.0B/H3E.1;
+- valida sintaxis Python mediante ast.parse sin crear __pycache__;
+- invoca el preflight estático del setup;
+- detecta el junction Arduino15 -> repo;
+- verifica políticas de source compile de ModbusRTU y Display;
+- NO compila firmware;
+- NO hace upload;
+- NO oculta archives;
+- NO modifica el package instalado.
+```
+
+El cierre requerido antes de cualquier compile físico es:
+
+```txt
+RTUH3E1_PYTHON_SYNTAX=PASS
+H3E1_DISPLAY_SOURCE_CONTRACT=PASS
+A14_H3E1_PREFLIGHT_ONLY=PASS
+RTUH3E1_PREFLIGHT=PASS
+PREFLIGHT_COMPILES=NO
+PREFLIGHT_UPLOADS=NO
+A14_RTU_H3E1_PREFLIGHT_ONLY=PASS
+```
