@@ -392,3 +392,67 @@ Write-Output = contrato machine-readable consumido por otro script
 ```
 
 No se avanzará a compile/upload hasta repetir y cerrar el preflight exterior.
+
+
+## Near miss preventivo — snapshot raw del Master
+
+Después del setup físico PASS y antes de ejecutar la ventana de 300 s se auditó
+el runner H3E.1.
+
+Se detectó que:
+
+```python
+parse_h3e1_fields(sv(ms, "_RAW"))
+```
+
+esperaba que el snapshot del Master conservara el bloque serial completo bajo
+`_RAW`.
+
+Sin embargo el parser histórico usado por:
+
+```txt
+a14_perf_fc03_qualification_sweep.py
+```
+
+sólo conservaba pares `KEY=VALUE` y no generaba `_RAW`.
+
+Consecuencia potencial si no se corregía:
+
+```txt
+benchmark físico de 300 s ejecutado correctamente
+-> fields H3E1 no encontrados
+-> len(h3e1_fields)=0
+-> H3E1_PROFILER_PASS=NO
+-> captura descartada después de cinco minutos
+```
+
+Clasificación:
+
+```txt
+PREVENTIVE_NEAR_MISS=YES
+USER_EXECUTION_FAILURE=NO
+PRODUCT_FAILURE=NO
+HARDWARE_FAILURE=NO
+BENCHMARK_WASTED=NO
+```
+
+Corrección:
+
+- H3E.1 implementa `request_master_snapshot_with_raw()` local;
+- conserva tanto `KEY=VALUE` como el bloque completo en `_RAW`;
+- no modifica parsers/runners históricos;
+- `h3e1_snapshots()` usa el nuevo parser sólo para H3E.1;
+- el preflight exige explícitamente el helper y la clave `_RAW`;
+- se añade un self-test funcional del parser con dos líneas
+  `H3E1_FIELD ...`;
+- el self-test se ejecuta sin hardware antes de permitir la qualification.
+
+Nueva regla:
+
+```txt
+Un preflight de un runner no debe limitarse a sintaxis.
+
+Si el resultado depende de parsing especial, cardinalidad, markers o raw text,
+el preflight debe ejecutar un fixture mínimo que pruebe el contrato real del
+parser antes de una corrida física larga.
+```
