@@ -38,7 +38,7 @@ $setupGate = Join-Path $PSScriptRoot "a14_h3e1b1_display_linkage_setup.ps1"
 
 foreach ($required in @($archivePath,$displayArchivePath,$coreMain,$coreHeader,$masterSketch,$runner,$setupGate)) {
     if (-not (Test-Path -LiteralPath $required)) {
-        throw "RTUH3E0B_REQUIRED_PATH_MISSING=$required"
+        throw "H3E1B1_REQUIRED_PATH_MISSING=$required"
     }
 }
 
@@ -47,9 +47,9 @@ foreach ($required in @($archivePath,$displayArchivePath,$coreMain,$coreHeader,$
 
 if ($dirty.Count -ne 1 -or $dirty[0].Replace("\", "/") -ne $script:G2CoreRelative) {
     $dirty | ForEach-Object { Write-Host "DIRTY=$_" }
-    throw "RTUH3E0B_EXPECTED_ONLY_DIRTY_CORE_A"
+    throw "H3E1B1_EXPECTED_ONLY_DIRTY_CORE_A"
 }
-if ($staged.Count -ne 0) { throw "RTUH3E0B_INDEX_NOT_CLEAN" }
+if ($staged.Count -ne 0) { throw "H3E1B1_INDEX_NOT_CLEAN" }
 
 $coreHashBefore = Get-G2Sha256 $script:G2CoreRelative
 $archiveHashBefore = Get-G2Sha256 $archiveRelative
@@ -79,13 +79,13 @@ $checks = @(
 
 foreach ($check in $checks) {
     Write-Host "$($check.Label)=$($check.Pass)"
-    if (-not $check.Pass) { throw "RTUH3E0B_SOURCE_CONTRACT_FAILED_$($check.Label)" }
+    if (-not $check.Pass) { throw "H3E1B1_SOURCE_CONTRACT_FAILED_$($check.Label)" }
 }
-Write-Host "RTUH3E0B_SOURCE_CONTRACT=PASS"
+Write-Host "H3E1B1_SOURCE_CONTRACT=PASS"
 
 $pythonCommand = Get-Command python.exe -ErrorAction SilentlyContinue
 if ($null -eq $pythonCommand) { $pythonCommand = Get-Command python -ErrorAction SilentlyContinue }
-if ($null -eq $pythonCommand) { throw "RTUH3E0B_PYTHON_NOT_FOUND" }
+if ($null -eq $pythonCommand) { throw "H3E1B1_PYTHON_NOT_FOUND" }
 $pythonExe = $pythonCommand.Source
 
 $pythonAstScript = @'
@@ -142,7 +142,7 @@ $tempRoot = Join-Path $env:TEMP ("jwplc_a14_h3e1b1_{0}" -f (Get-Date -Format "yy
 New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
 
 $setupLog = Join-Path $tempRoot "setup.log"
-$runLog = Join-Path $tempRoot "h3e0b.log"
+$runLog = Join-Path $tempRoot "h3e1b1.log"
 
 Write-Host ""
 Write-Host "=== H3E1B1 COMPILE / UPLOAD DISPLAY LINKAGE ==="
@@ -157,16 +157,16 @@ $ipMatch = [regex]::Match(
 )
 
 if (-not $ipMatch.Success) {
-    throw "RTUH3E0B_SETUP_IP_MISSING"
+    throw "H3E1B1_SETUP_IP_MISSING"
 }
 if (-not $setupText.Contains("MASTER_SOURCE_CORE_MAIN_COMPILED=True")) {
-    throw "RTUH3E0B_SOURCE_CORE_CONFIRMATION_MISSING"
+    throw "H3E1B1_SOURCE_CORE_CONFIRMATION_MISSING"
 }
 if (-not $setupText.Contains("H3E1B1_PRECOMPILED_CORE_PRESERVED=YES")) {
-    throw "RTUH3E0B_PRECOMPILED_CORE_PRESERVATION_MISSING"
+    throw "H3E1B1_PRECOMPILED_CORE_PRESERVATION_MISSING"
 }
 if (-not $setupText.Contains("H3E1B1_MODBUS_RTU_ARCHIVE_RESTORED=YES")) {
-    throw "RTUH3E0B_MODBUS_RTU_ARCHIVE_RESTORE_CONFIRMATION_MISSING"
+    throw "H3E1B1_MODBUS_RTU_ARCHIVE_RESTORE_CONFIRMATION_MISSING"
 }
 if (-not $setupText.Contains("H3E1B1_INSTALLED_CORE_PRESERVED=YES")) {
     throw "H3E1B1_INSTALLED_CORE_PRESERVATION_MISSING"
@@ -193,7 +193,7 @@ if (-not $setupText.Contains($expectedLinkageProof)) {
 $dutIp = $ipMatch.Groups[1].Value.Trim()
 
 if ((Get-G2Sha256 $archiveRelative) -ne $archiveHashBefore) {
-    throw "RTUH3E0B_ARCHIVE_CHANGED_AFTER_SETUP"
+    throw "H3E1B1_ARCHIVE_CHANGED_AFTER_SETUP"
 }
 if ((Get-G2Sha256 $script:G2CoreRelative) -ne $coreHashBefore) {
     throw "H3E1B1_PRECOMPILED_CORE_CHANGED_AFTER_SETUP"
@@ -218,11 +218,11 @@ finally {
     $ErrorActionPreference = $previousPreference
 }
 
-Write-Host "RTUH3E0B_RUNNER_EXIT=$runExit"
-Write-Host "RTUH3E0B_RUNNER_LOG=$runLog"
+Write-Host "H3E1B1_RUNNER_EXIT=$runExit"
+Write-Host "H3E1B1_RUNNER_LOG=$runLog"
 Write-Host "H3E1B1_DISPLAY_LINKAGE=$DisplayLinkage"
 
-if ($runExit -ne 0) { throw "RTUH3E0B_DIAGNOSTIC_CAPTURE_FAILED" }
+if ($runExit -ne 0) { throw "H3E1B1_DIAGNOSTIC_CAPTURE_FAILED" }
 
 Write-Host ""
 Write-Host "============================================================"
@@ -233,7 +233,7 @@ $masterAnswer = Read-Host "MASTER COM14 estable, misma HMI de referencia y sin p
 $slaveAnswer = Read-Host "SLAVE COM4 estable y sin parpadeo/cortes visibles? (S/N)"
 
 if ($masterAnswer.Trim().ToUpper() -ne "S" -or $slaveAnswer.Trim().ToUpper() -ne "S") {
-    throw "RTUH3E0B_TFT_PHYSICAL_REVIEW"
+    throw "H3E1B1_TFT_PHYSICAL_REVIEW"
 }
 
 $finalCoreHash = Get-G2Sha256 $script:G2CoreRelative
@@ -242,11 +242,11 @@ $finalDisplayArchiveHash = Get-G2Sha256 $displayArchiveRelative
 [string[]]$finalDirty = @(Get-G2TrackedDirtyPaths)
 [string[]]$finalStaged = @(& git -C $script:G2RepoRoot diff --cached --name-only)
 
-if ($finalCoreHash -ne $coreHashBefore) { throw "RTUH3E0B_PRECOMPILED_CORE_CHANGED" }
+if ($finalCoreHash -ne $coreHashBefore) { throw "H3E1B1_PRECOMPILED_CORE_CHANGED" }
 if ($finalArchiveHash -ne $archiveHashBefore) { throw "H3E1B1_RTU_ARCHIVE_CHANGED" }
 if ($finalDisplayArchiveHash -ne $displayArchiveHashBefore) { throw "H3E1B1_DISPLAY_ARCHIVE_CHANGED" }
-if ($finalDirty.Count -ne 1 -or $finalDirty[0].Replace("\", "/") -ne $script:G2CoreRelative) { throw "RTUH3E0B_FINAL_DIRTY_SCOPE_INVALID" }
-if ($finalStaged.Count -ne 0) { throw "RTUH3E0B_FINAL_INDEX_NOT_CLEAN" }
+if ($finalDirty.Count -ne 1 -or $finalDirty[0].Replace("\", "/") -ne $script:G2CoreRelative) { throw "H3E1B1_FINAL_DIRTY_SCOPE_INVALID" }
+if ($finalStaged.Count -ne 0) { throw "H3E1B1_FINAL_INDEX_NOT_CLEAN" }
 
 Write-Host "H3E1B1_DISPLAY_LINKAGE_FINAL=$DisplayLinkage"
 Write-Host "A14_H3E1B1_DISPLAY_LINKAGE_LEG_GATE=PASS"
