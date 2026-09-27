@@ -81,6 +81,7 @@ $displayProfileText = [IO.File]::ReadAllText($displayProfileSource)
 $displayMainText = [IO.File]::ReadAllText($displayMain)
 $displayUiText = [IO.File]::ReadAllText($displayUi)
 $masterText = [IO.File]::ReadAllText($masterSketch)
+$runnerText = [IO.File]::ReadAllText($runner)
 
 $checks = @(
     [PSCustomObject]@{ Label="H3E0B_CORE_ENABLE_HOOK"; Pass=$coreText.Contains("jwplcH3E0BProfilerEnabled") },
@@ -95,7 +96,10 @@ $checks = @(
     [PSCustomObject]@{ Label="H3E1_FIELD_DRAW"; Pass=$displayUiText.Contains("jwplcH3E1RecordFieldDraw") },
     [PSCustomObject]@{ Label="H3E1_MASTER_ENABLED"; Pass=$masterText.Contains("H3E1_PROFILER=ENABLED") },
     [PSCustomObject]@{ Label="H3E1_MASTER_HOOK"; Pass=$masterText.Contains("jwplcH3E1ProfilerEnabled") },
-    [PSCustomObject]@{ Label="H3E1_MASTER_RESET"; Pass=$masterText.Contains("jwplcH3E1Reset") }
+    [PSCustomObject]@{ Label="H3E1_MASTER_RESET"; Pass=$masterText.Contains("jwplcH3E1Reset") },
+    [PSCustomObject]@{ Label="H3E1_RUNNER_MASTER_RAW"; Pass=$runnerText.Contains("request_master_snapshot_with_raw") },
+    [PSCustomObject]@{ Label="H3E1_RUNNER_RAW_KEY"; Pass=$runnerText.Contains('values["_RAW"]') },
+    [PSCustomObject]@{ Label="H3E1_RUNNER_FIELD_PARSE"; Pass=$runnerText.Contains('parse_h3e1_fields(sv(ms, "_RAW"))') }
 )
 
 foreach ($check in $checks) {
@@ -126,6 +130,40 @@ $pythonAstScript | & $pythonExe - $runner
 if ($LASTEXITCODE -ne 0) { throw "RTUH3E1_PYTHON_SYNTAX_FAILED" }
 Write-Host "RTUH3E1_PYTHON_SYNTAX=PASS"
 Write-Host "RTUH3E1_PYTHON_SYNTAX_METHOD=AST_STDIN_NO_PYC"
+
+$runnerSelfTestScript = @'
+import importlib.util
+import pathlib
+import sys
+
+runner_path = pathlib.Path(sys.argv[1])
+spec = importlib.util.spec_from_file_location("h3e1_runner_test", runner_path)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+
+sample = """H3E1_FIELD ID=1 TYPE=0 SETTER_CALLS=10 CHANGED=2 UNCHANGED=8 DRAW_CALLS=2 VALUE_W=80 VALUE_H=16 TEXT_LEN=4 DRAW_TOTAL_US=200 CLEAR_TOTAL_US=40 ALIGN_TOTAL_US=10 PRINT_TOTAL_US=140
+H3E1_FIELD ID=2 TYPE=0 SETTER_CALLS=10 CHANGED=10 UNCHANGED=0 DRAW_CALLS=10 VALUE_W=80 VALUE_H=16 TEXT_LEN=6 DRAW_TOTAL_US=1000 CLEAR_TOTAL_US=200 ALIGN_TOTAL_US=50 PRINT_TOTAL_US=700"""
+
+fields = module.parse_h3e1_fields(sample)
+assert sorted(fields) == [1, 2]
+assert fields[1]["UNCHANGED"] == 8
+assert fields[2]["DRAW_CALLS"] == 10
+print("RTUH3E1_RUNNER_SELFTEST=PASS")
+'@
+
+$runnerSelfTestOutput = @(
+    $runnerSelfTestScript | & $pythonExe - $runner 2>&1
+)
+
+$runnerSelfTestOutput | ForEach-Object { Write-Host $_ }
+
+$runnerSelfTestText =
+    ($runnerSelfTestOutput | ForEach-Object { $_.ToString() }) -join [Environment]::NewLine
+
+if ($LASTEXITCODE -ne 0 -or
+    -not $runnerSelfTestText.Contains("RTUH3E1_RUNNER_SELFTEST=PASS")) {
+    throw "RTUH3E1_RUNNER_SELFTEST_FAILED"
+}
 
 Write-Host "HEAD=$(Get-G2Head)"
 Write-Host "MASTER_RX_FIFO_FULL=9"
