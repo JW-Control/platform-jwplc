@@ -1,5 +1,6 @@
 #include "JWPLC_UI.h"
 #include "JWPLC_Display_API.h"
+#include "JWPLC_Display_H3E1_Profile.h"
 
 #include <Adafruit_GFX.h>
 #include <Adafruit_ST7789.h>
@@ -372,6 +373,9 @@ namespace
         if (field.hasValue &&
             strncmp(field.value, value, sizeof(field.value)) == 0)
         {
+            jwplcH3E1RecordSetter(
+                field.def.meta.id,
+                false);
             return false;
         }
 
@@ -380,6 +384,10 @@ namespace
 
         field.hasValue = true;
         markFieldDirty(field);
+
+        jwplcH3E1RecordSetter(
+            field.def.meta.id,
+            true);
         return true;
     }
 
@@ -670,10 +678,31 @@ namespace
     void drawFieldValue(Adafruit_ST7789 &tft, FieldRuntime &field)
     {
         const JWPLC_UIField &def = field.def;
+        const bool profile = jwplcH3E1ProfilerEnabled();
+        const uint32_t totalStartUs = profile ? micros() : 0U;
+
+        uint32_t clearUs = 0U;
+        uint32_t alignUs = 0U;
+        uint32_t printUs = 0U;
 
         if (field.valueW <= 0 || field.valueH <= 0)
         {
             field.dirty = false;
+
+            if (profile)
+            {
+                jwplcH3E1RecordFieldDraw(
+                    def.meta.id,
+                    (uint8_t)def.meta.type,
+                    0U,
+                    0U,
+                    0U,
+                    (uint32_t)(micros() - totalStartUs),
+                    0U,
+                    0U,
+                    0U);
+            }
+
             return;
         }
 
@@ -697,6 +726,8 @@ namespace
             }
         }
 
+        const uint32_t clearStartUs = profile ? micros() : 0U;
+
         tft.fillRect(
             field.valueX,
             field.valueY,
@@ -704,9 +735,30 @@ namespace
             clearH,
             def.style.colors.background);
 
+        if (profile)
+        {
+            clearUs =
+                (uint32_t)(micros() - clearStartUs);
+        }
+
         if (!field.hasValue)
         {
             field.dirty = false;
+
+            if (profile)
+            {
+                jwplcH3E1RecordFieldDraw(
+                    def.meta.id,
+                    (uint8_t)def.meta.type,
+                    (uint16_t)field.valueW,
+                    (uint16_t)field.valueH,
+                    0U,
+                    (uint32_t)(micros() - totalStartUs),
+                    clearUs,
+                    0U,
+                    0U);
+            }
+
             return;
         }
 
@@ -735,6 +787,9 @@ namespace
             const int16_t fillW =
                 (int16_t)lroundf(normalized * field.valueW);
 
+            const uint32_t printStartUs =
+                profile ? micros() : 0U;
+
             if (fillW > 0)
             {
                 tft.fillRect(
@@ -745,7 +800,28 @@ namespace
                     def.style.colors.value);
             }
 
+            if (profile)
+            {
+                printUs =
+                    (uint32_t)(micros() - printStartUs);
+            }
+
             field.dirty = false;
+
+            if (profile)
+            {
+                jwplcH3E1RecordFieldDraw(
+                    def.meta.id,
+                    (uint8_t)def.meta.type,
+                    (uint16_t)field.valueW,
+                    (uint16_t)field.valueH,
+                    0U,
+                    (uint32_t)(micros() - totalStartUs),
+                    clearUs,
+                    0U,
+                    printUs);
+            }
+
             return;
         }
 
@@ -756,12 +832,54 @@ namespace
         tft.setTextColor(
             def.style.colors.value,
             def.style.colors.background);
-        tft.setCursor(alignedValueX(tft, field), field.valueY);
+
+        const uint32_t alignStartUs =
+            profile ? micros() : 0U;
+
+        const int16_t valueX =
+            alignedValueX(tft, field);
+
+        if (profile)
+        {
+            alignUs =
+                (uint32_t)(micros() - alignStartUs);
+        }
+
+        tft.setCursor(valueX, field.valueY);
+
+        const uint32_t printStartUs =
+            profile ? micros() : 0U;
+
         tft.print(field.value);
 
+        if (profile)
+        {
+            printUs =
+                (uint32_t)(micros() - printStartUs);
+        }
+
         field.dirty = false;
-    }
-}
+
+        if (profile)
+        {
+            const size_t length =
+                strlen(field.value);
+
+            jwplcH3E1RecordFieldDraw(
+                def.meta.id,
+                (uint8_t)def.meta.type,
+                (uint16_t)field.valueW,
+                (uint16_t)field.valueH,
+                (uint8_t)(
+                    (length > 255U)
+                        ? 255U
+                        : length),
+                (uint32_t)(micros() - totalStartUs),
+                clearUs,
+                alignUs,
+                printUs);
+        }
+    }}
 
 namespace JWPLCUI
 {
@@ -911,12 +1029,19 @@ namespace JWPLCUI
 
         if (field->hasValue && field->barValue == value)
         {
+            jwplcH3E1RecordSetter(
+                fieldId,
+                false);
             return true;
         }
 
         field->barValue = value;
         field->hasValue = true;
         markFieldDirty(*field);
+
+        jwplcH3E1RecordSetter(
+            fieldId,
+            true);
         return true;
     }
 
@@ -1049,6 +1174,14 @@ namespace JWPLCUI
 
     void drawDirty(Adafruit_ST7789 &tft)
     {
+        const bool profile =
+            jwplcH3E1ProfilerEnabled();
+
+        const uint32_t startUs =
+            profile ? micros() : 0U;
+
+        uint32_t dirtyCount = 0U;
+
         for (size_t i = 0; i < g_fieldCount; ++i)
         {
             FieldRuntime &field = g_fields[i];
@@ -1060,7 +1193,18 @@ namespace JWPLCUI
                 continue;
             }
 
+            ++dirtyCount;
             drawFieldValue(tft, field);
+        }
+
+        if (profile)
+        {
+            jwplcH3E1RecordDirtyPass(
+                dirtyCount);
+
+            jwplcH3E1RecordStage(
+                JWPLC_H3E1_STAGE_UI_DIRTY_CORE,
+                (uint32_t)(micros() - startUs));
         }
     }
 }
