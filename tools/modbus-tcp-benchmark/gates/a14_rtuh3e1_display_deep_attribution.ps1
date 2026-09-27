@@ -119,10 +119,13 @@ source = path.read_text(encoding="utf-8")
 ast.parse(source, filename=str(path))
 '@
 
-& $pythonExe -c $pythonAstScript $runner
+# Windows PowerShell 5.1 puede alterar las comillas internas al usar
+# python -c <script>. Entregar el script por stdin evita depender de
+# ese quoting y mantiene la validacion sin crear __pycache__.
+$pythonAstScript | & $pythonExe - $runner
 if ($LASTEXITCODE -ne 0) { throw "RTUH3E1_PYTHON_SYNTAX_FAILED" }
 Write-Host "RTUH3E1_PYTHON_SYNTAX=PASS"
-Write-Host "RTUH3E1_PYTHON_SYNTAX_METHOD=AST_NO_PYC"
+Write-Host "RTUH3E1_PYTHON_SYNTAX_METHOD=AST_STDIN_NO_PYC"
 
 Write-Host "HEAD=$(Get-G2Head)"
 Write-Host "MASTER_RX_FIFO_FULL=9"
