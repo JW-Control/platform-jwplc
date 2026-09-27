@@ -143,43 +143,14 @@ $installedCoreItem = Get-Item -LiteralPath $installedCoreRoot -Force
 $installedCoreIsReparsePoint =
     (($installedCoreItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0)
 
-$installedCoreMain = Join-Path $installedCoreRoot "main.cpp"
-$installedCoreHeader = Join-Path $installedCoreRoot "jwplc_h3e0b_profile.h"
-
-$coreSourceAlreadyMatches = $false
-if (
-    (Test-Path -LiteralPath $installedCoreMain) -and
-    (Test-Path -LiteralPath $installedCoreHeader)
-) {
-    $repoCoreMainHash =
-        (Get-FileHash -LiteralPath $repoCoreMain -Algorithm SHA256).Hash
-    $installedCoreMainHash =
-        (Get-FileHash -LiteralPath $installedCoreMain -Algorithm SHA256).Hash
-    $repoCoreHeaderHash =
-        (Get-FileHash -LiteralPath $repoCoreHeader -Algorithm SHA256).Hash
-    $installedCoreHeaderHash =
-        (Get-FileHash -LiteralPath $installedCoreHeader -Algorithm SHA256).Hash
-
-    $coreSourceAlreadyMatches =
-        $repoCoreMainHash -eq $installedCoreMainHash -and
-        $repoCoreHeaderHash -eq $installedCoreHeaderHash
+if ($installedCoreIsReparsePoint) {
+    throw "H3E0B_SETUP_INSTALLED_CORE_REPARSE_POINT_UNSUPPORTED"
 }
 
-if ($installedCoreIsReparsePoint -and -not $coreSourceAlreadyMatches) {
-    throw "H3E0B_SETUP_INSTALLED_CORE_REPARSE_POINT_MISMATCH"
-}
-
-$coreSourceStrategy =
-    if ($coreSourceAlreadyMatches) {
-        "INSTALLED_SOURCE_ALREADY_MATCHES"
-    }
-    else {
-        "TEMP_INSTALL_OVERLAY_BACKUP_RESTORE"
-    }
+$coreSourceStrategy = "TEMP_INSTALL_OVERLAY_BACKUP_RESTORE"
 
 Write-Host "INSTALLED_PLATFORM_ROOT=$installedPlatformRoot"
 Write-Host "INSTALLED_CORE_REPARSE_POINT=$installedCoreIsReparsePoint"
-Write-Host "CORE_SOURCE_ALREADY_MATCHES=$coreSourceAlreadyMatches"
 Write-Host "CORE_SOURCE_STRATEGY=$coreSourceStrategy"
 
 $masterDir = Get-G2Path "tools/modbus-tcp-benchmark/firmware/a14_h3e0b_core_profiler_master"
@@ -258,11 +229,6 @@ function Backup-And-Overlay-InstalledCore {
         [Parameter(Mandatory = $true)][string]$BackupRoot
     )
 
-    if ($coreSourceAlreadyMatches) {
-        Write-Host "INSTALLED_CORE_OVERLAY=NOT_REQUIRED"
-        return
-    }
-
     if ($installedCoreIsReparsePoint) {
         throw "H3E0B_SETUP_REFUSE_OVERLAY_REPARSE_POINT"
     }
@@ -313,10 +279,6 @@ function Restore-InstalledCore {
     param(
         [Parameter(Mandatory = $true)][string]$BackupRoot
     )
-
-    if ($coreSourceAlreadyMatches) {
-        return
-    }
 
     $backupCoreRoot = Join-Path $BackupRoot "jwcontrol_original"
 
@@ -414,10 +376,7 @@ try {
     Write-Host ""
     Write-Host "=== COMPILE MASTER FROM SOURCE CORE + MODBUS RTU SOURCE ==="
 
-    if (-not $coreSourceAlreadyMatches) {
-        $installedCoreOverlayStarted = $true
-    }
-
+    $installedCoreOverlayStarted = $true
     Backup-And-Overlay-InstalledCore -BackupRoot $installedCoreBackupRoot
     Enable-SourceCoreOverride
 
@@ -480,18 +439,6 @@ Write-Host "MODBUS_RTU_ARCHIVE_SHA256_AFTER_COMPILE=$archiveHashAfterCompile"
 
 if ($archiveHashAfterCompile -ne $archiveHashBefore) {
     throw "H3E0B_SETUP_MODBUS_RTU_ARCHIVE_RESTORE_HASH_MISMATCH"
-}
-
-if (-not $coreSourceAlreadyMatches) {
-    $installedHeaderAfterRestore =
-        Join-Path $installedCoreRoot "jwplc_h3e0b_profile.h"
-
-    if (Test-Path -LiteralPath $installedHeaderAfterRestore) {
-        Write-Host "INSTALLED_CORE_RESTORE_HEADER_PRESENT=YES"
-    }
-    else {
-        Write-Host "INSTALLED_CORE_RESTORE_HEADER_PRESENT=NO"
-    }
 }
 
 $slaveRtuObjects = @(
