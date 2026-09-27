@@ -233,6 +233,76 @@ foreach ($link in $reparseAncestors) {
 }
 Write-Host "CORE_SOURCE_IDENTITY_PASS=$coreSourceIdentityPass"
 Write-Host "CORE_SOURCE_STRATEGY=$coreSourceStrategy"
+$displaySourceRoot = Get-G2Path "JWPLC/2.1.0/libraries/JWPLC_Display/src"
+$displayMainSource = Join-Path $displaySourceRoot "JWPLC_Display.cpp"
+$displayUiSource = Join-Path $displaySourceRoot "JWPLC_UI.cpp"
+$displayUiApiSource = Join-Path $displaySourceRoot "JWPLC_UI_API.cpp"
+$displayPagesSource = Join-Path $displaySourceRoot "JWPLC_UI_Pages.cpp"
+$displayProfileHeader = Join-Path $displaySourceRoot "JWPLC_Display_H3E1_Profile.h"
+$displayProfileSource = Join-Path $displaySourceRoot "JWPLC_Display_H3E1_Profile.cpp"
+
+foreach ($requiredDisplaySource in @(
+    $displayMainSource,
+    $displayUiSource,
+    $displayUiApiSource,
+    $displayPagesSource,
+    $displayProfileHeader,
+    $displayProfileSource
+)) {
+    if (-not (Test-Path -LiteralPath $requiredDisplaySource)) {
+        throw "H3E1_SETUP_DISPLAY_SOURCE_MISSING=$requiredDisplaySource"
+    }
+}
+
+$displayMainText = [IO.File]::ReadAllText($displayMainSource)
+$displayUiText = [IO.File]::ReadAllText($displayUiSource)
+$displayPagesText = [IO.File]::ReadAllText($displayPagesSource)
+$displayProfileText = [IO.File]::ReadAllText($displayProfileSource)
+
+$displayContracts = @(
+    [PSCustomObject]@{
+        Label = "H3E1_DISPLAY_SPI_MUTEX"
+        Pass = $displayMainText.Contains("JWPLC_H3E1_STAGE_SPI_MUTEX")
+    },
+    [PSCustomObject]@{
+        Label = "H3E1_DISPLAY_SPI_PREPARE"
+        Pass = $displayMainText.Contains("JWPLC_H3E1_STAGE_SPI_PREPARE")
+    },
+    [PSCustomObject]@{
+        Label = "H3E1_DISPLAY_DRAW_DIRTY"
+        Pass = $displayMainText.Contains("JWPLC_H3E1_STAGE_DRAW_DIRTY")
+    },
+    [PSCustomObject]@{
+        Label = "H3E1_UI_SETTER_CACHE"
+        Pass = $displayUiText.Contains("jwplcH3E1RecordSetter")
+    },
+    [PSCustomObject]@{
+        Label = "H3E1_UI_FIELD_DRAW"
+        Pass = $displayUiText.Contains("jwplcH3E1RecordFieldDraw")
+    },
+    [PSCustomObject]@{
+        Label = "H3E1_UI_DIRTY_COUNT"
+        Pass = $displayUiText.Contains("jwplcH3E1RecordDirtyPass")
+    },
+    [PSCustomObject]@{
+        Label = "H3E1_INDICATOR_PROFILE"
+        Pass = $displayPagesText.Contains("JWPLC_H3E1_STAGE_INDICATOR")
+    },
+    [PSCustomObject]@{
+        Label = "H3E1_PROFILE_IMPLEMENTATION"
+        Pass = $displayProfileText.Contains("jwplcH3E1Snapshot")
+    }
+)
+
+foreach ($contract in $displayContracts) {
+    Write-Host "$($contract.Label)=$($contract.Pass)"
+    if (-not $contract.Pass) {
+        throw "H3E1_SETUP_DISPLAY_CONTRACT_FAILED_$($contract.Label)"
+    }
+}
+
+Write-Host "H3E1_DISPLAY_SOURCE_CONTRACT=PASS"
+
 $masterDir = Get-G2Path "tools/modbus-tcp-benchmark/firmware/a14_h3e1_display_deep_attribution_master"
 $masterSketch = Join-Path $masterDir "a14_h3e1_display_deep_attribution_master.ino"
 $slaveDir = Get-G2Path "tools/modbus-tcp-benchmark/firmware/a14_p5_rtu_slave"
