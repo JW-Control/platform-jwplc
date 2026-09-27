@@ -2,6 +2,7 @@
 
 #include "JWPLC_Display_API.h"
 #include "JWPLC_UI.h"
+#include "JWPLC_Display_H3E1_Profile.h"
 
 #include <JWPLC_GlobalPeripherals.h>
 #include <Adafruit_ST7789.h>
@@ -291,6 +292,12 @@ namespace JWPLCUIPages
             return;
         }
 
+        const bool profile =
+            jwplcH3E1ProfilerEnabled();
+
+        const uint32_t startUs =
+            profile ? micros() : 0U;
+
         const uint16_t background = g_selectionMode ? 0x0000 : 0xFFFF;
         const uint16_t foreground = g_selectionMode ? 0xFFFF : 0x0000;
 
@@ -322,6 +329,13 @@ namespace JWPLCUIPages
         tft.print(text);
 
         g_indicatorDirty = false;
+
+        if (profile)
+        {
+            jwplcH3E1RecordStage(
+                JWPLC_H3E1_STAGE_INDICATOR,
+                (uint32_t)(micros() - startUs));
+        }
     }
 }
 
