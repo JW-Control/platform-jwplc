@@ -51,6 +51,8 @@ typedef struct
     JWPLCH3E1StageStats precheck;
     JWPLCH3E1StageStats refresh_needed;
     JWPLCH3E1StageStats spi_wait;
+    JWPLCH3E1StageStats spi_mutex;
+    JWPLCH3E1StageStats spi_prepare;
     JWPLCH3E1StageStats page_clear;
     JWPLCH3E1StageStats page_enter;
     JWPLCH3E1StageStats draw_static;
@@ -81,6 +83,8 @@ typedef enum
     JWPLC_H3E1_STAGE_PRECHECK,
     JWPLC_H3E1_STAGE_REFRESH_NEEDED,
     JWPLC_H3E1_STAGE_SPI_WAIT,
+    JWPLC_H3E1_STAGE_SPI_MUTEX,
+    JWPLC_H3E1_STAGE_SPI_PREPARE,
     JWPLC_H3E1_STAGE_PAGE_CLEAR,
     JWPLC_H3E1_STAGE_PAGE_ENTER,
     JWPLC_H3E1_STAGE_DRAW_STATIC,
