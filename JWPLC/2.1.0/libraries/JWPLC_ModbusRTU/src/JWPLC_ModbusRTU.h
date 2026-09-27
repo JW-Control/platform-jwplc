@@ -298,6 +298,11 @@ public:
                             const uint8_t *sourcePacked,
                             uint32_t timeoutMs = 1000);
 
+    // H3D: selector CRC para qualification. BITWISE sigue siendo el
+    // default hasta cerrar el A/B de rendimiento.
+    static void setCrcLookupEnabled(bool enabled);
+    static bool crcLookupEnabled();
+
     static uint16_t crc16(const uint8_t *data, size_t length);
     static bool checkCRC(const uint8_t *frame, size_t length);
     static void appendCRC(uint8_t *frame, size_t payloadLength);
@@ -436,6 +441,10 @@ private:
 
     static bool packedBit(const uint8_t *map, uint16_t address);
     static void setPackedBit(uint8_t *map, uint16_t address, bool value);
+
+    static bool _crcLookupEnabled;
+    static uint16_t crc16Bitwise(const uint8_t *data, size_t length);
+    static uint16_t crc16Lookup(const uint8_t *data, size_t length);
 };
 
 extern JWPLC_ModbusRTUClass JWPLC_ModbusRTU;
