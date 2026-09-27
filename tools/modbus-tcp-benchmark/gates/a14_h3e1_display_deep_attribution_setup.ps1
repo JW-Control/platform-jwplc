@@ -472,7 +472,9 @@ Write-Host "PREFLIGHT_UPLOADS=NO"
 Write-Host "H3E1_STATIC_PREFLIGHT=PASS"
 
 if ($PreflightOnly) {
-    Write-Host "A14_H3E1_PREFLIGHT_ONLY=PASS"
+    # Contract marker consumed by parent gates: use success stream,
+    # not Write-Host / Information stream.
+    Write-Output "A14_H3E1_PREFLIGHT_ONLY=PASS"
     return
 }
 
