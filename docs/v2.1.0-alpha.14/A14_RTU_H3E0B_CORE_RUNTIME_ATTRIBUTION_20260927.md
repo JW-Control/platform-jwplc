@@ -343,3 +343,99 @@ Un preflight no debe asumir sincronización repo <-> package instalado.
 La qualification debe hacer explícita la estrategia de source ownership y
 restaurar cualquier overlay temporal con finally.
 ```
+
+
+## Incidencia de setup 4
+
+El siguiente intento llegó a:
+
+```txt
+SLAVE_COMPILE_EXIT=0
+```
+
+y falló antes del compile Master con:
+
+```txt
+Copy-Item:
+No se encuentra la ruta
+...\platform-jwplc\JWPLC\2.1.0\cores\jwcontrol
+```
+
+El `finally` sí restauró:
+
+```txt
+INSTALLED_CORE_RESTORE=PASS
+```
+
+Clasificación:
+
+```txt
+HARNESS_FAILURE=YES
+PRODUCT_FAILURE=NO
+HARDWARE_FAILURE=NO
+ENVIRONMENT_FAILURE=NO
+SLAVE_COMPILE=PASS
+MASTER_COMPILE_EXECUTED=NO
+UPLOAD_EXECUTED=NO
+BENCHMARK_EXECUTED=NO
+```
+
+Causa:
+
+La instalación local usa un enlace/junction entre el package `jwplc_local`
+visible bajo Arduino15 y el árbol de desarrollo del repositorio.
+
+El gate inspeccionaba únicamente si:
+
+```txt
+...\2.1.0-dev\cores\jwcontrol
+```
+
+era un reparse point.
+
+Un directorio hijo de un junction puede reportarse como directorio normal aunque
+un ancestro sea el punto de reparse. Por tanto el gate interpretó las rutas:
+
+```txt
+Arduino15\...\2.1.0-dev\cores\jwcontrol
+repo\JWPLC\2.1.0\cores\jwcontrol
+```
+
+como árboles independientes cuando podían ser dos rutas hacia el mismo árbol
+físico.
+
+La secuencia:
+
+```txt
+backup installed core
+Remove-Item installed core
+Copy-Item repo core -> installed core
+```
+
+eliminó el mismo árbol que luego intentaba usar como source, provocando
+`PathNotFound`.
+
+Corrección:
+
+- recorrer ancestros desde `2.1.0-dev` hasta `jwplc_local`;
+- registrar cada reparse point, LinkType y Target;
+- comparar hashes de `main.cpp` y `jwplc_h3e0b_profile.h` entre ambas vistas;
+- si existe reparse ancestor + identidad source exacta:
+  `CORE_SOURCE_STRATEGY=SHARED_LINK_NO_OVERLAY`;
+- en ese modo no hacer backup/remove/copy del core;
+- si existe reparse ancestor pero los sources no coinciden: abortar antes de
+  mutar;
+- mantener overlay temporal sólo para instalaciones realmente independientes;
+- el contrato final usa `H3E0B_INSTALLED_CORE_PRESERVED=YES`, distinguiendo
+  correctamente un core restaurado de un core compartido que nunca se tocó.
+
+Regla preventiva reforzada:
+
+```txt
+No detectar junction/symlink sólo en la hoja del path.
+Auditar ancestros antes de mutar un árbol instalado.
+
+Dos paths textualmente distintos no implican dos árboles físicos distintos.
+Antes de backup/remove/copy entre repo y package instalado, detectar aliasing
+por reparse ancestor y validar identidad source.
+```
