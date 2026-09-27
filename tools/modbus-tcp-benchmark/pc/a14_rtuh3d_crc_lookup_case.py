@@ -114,6 +114,10 @@ def main() -> int:
             "RTU_RX_FIFO_FULL=9",
         )
 
+        budget.send_command_wait(master, b"X\n", p5b.MASTER_STOP_ACK)
+        time.sleep(0.10)
+        q.wait_server_disconnected(master, timeout_s=20.0)
+
         budget.send_command_wait(
             master,
             b"5\n",
@@ -174,10 +178,6 @@ def main() -> int:
 
         if not profile_pass:
             raise RuntimeError("perfil fijo H3D invalido")
-
-        budget.send_command_wait(master, b"X\n", p5b.MASTER_STOP_ACK)
-        time.sleep(0.10)
-        q.wait_server_disconnected(master, timeout_s=20.0)
 
         q.reset_stats(master)
         p5b.reset_slave_stats(slave, 3.0)
