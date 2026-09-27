@@ -439,3 +439,57 @@ Dos paths textualmente distintos no implican dos árboles físicos distintos.
 Antes de backup/remove/copy entre repo y package instalado, detectar aliasing
 por reparse ancestor y validar identidad source.
 ```
+
+
+## Incidencia de setup 5
+
+El preflight de detección de junction falló antes de compilar:
+
+```txt
+Get-ReparseAncestorInfo:
+Los tipos de argumentos no coinciden
+System.ArgumentException
+```
+
+Clasificación:
+
+```txt
+HARNESS_FAILURE=YES
+PRODUCT_FAILURE=NO
+HARDWARE_FAILURE=NO
+ENVIRONMENT_FAILURE=NO
+COMPILE_EXECUTED=NO
+UPLOAD_EXECUTED=NO
+BENCHMARK_EXECUTED=NO
+```
+
+Causa:
+
+El helper `Get-ReparseAncestorInfo` construía un
+`System.Collections.Generic.List[object]` y devolvía `@($items)`.
+En Windows PowerShell 5.1 esa combinación introduce binding/enumeración
+innecesaria y puede producir `ArgumentException: Los tipos de argumentos no
+coinciden`.
+
+La clase del fallo es coherente con las reglas históricas F003/F010 sobre
+cardinalidad y enumeración PowerShell bajo `StrictMode`.
+
+Corrección:
+
+- eliminar `Generic.List[object]` del helper;
+- emitir cada `PSCustomObject` directamente al pipeline;
+- mantener la única materialización en el caller mediante
+  `[object[]]$reparseAncestors = @(...) `;
+- no acceder a `Target` ni `LinkType` sin comprobar primero que la
+  propiedad exista;
+- mantener `-PreflightOnly` antes de cualquier compile/upload.
+
+Regla preventiva reforzada:
+
+```txt
+Para helpers PowerShell 5.1 que producen 0/1/N objetos:
+- producir objetos simples al pipeline;
+- materializar una sola vez en el caller con @(...);
+- evitar wrappers Generic.List + return @(...);
+- no asumir propiedades extendidas de FileSystemInfo bajo StrictMode.
+```
