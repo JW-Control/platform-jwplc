@@ -222,3 +222,65 @@ Corrección:
 - limitar el volcado de logs en caso de error.
 
 La incidencia no cambia el objetivo ni la hipótesis H3E.0B.
+
+
+## Incidencia de setup 2
+
+El segundo intento tampoco llegó a la ventana física. Falló al enlazar el Slave:
+
+```txt
+undefined reference to JWPLC_ModbusRTUClass::effectiveBaudRate() const
+undefined reference to JWPLC_ModbusRTUClass::bulkRxEnabled() const
+undefined reference to JWPLC_ModbusRTUClass::crcLookupEnabled()
+...
+H3E0B_SETUP_SLAVE_COMPILE_FAILED
+```
+
+Clasificación:
+
+```txt
+HARNESS_FAILURE=YES
+PRODUCT_FAILURE=NO
+HARDWARE_FAILURE=NO
+ENVIRONMENT_FAILURE=NO
+BENCHMARK_EXECUTED=NO
+UPLOAD_EXECUTED=NO
+```
+
+Causa:
+
+El setup aislado compiló el Slave con el archive histórico
+`libJWPLC_ModbusRTU.a` presente. El header/source actual contiene APIs agregadas
+durante H3A-H3D, pero el archive congelado no las contiene.
+
+El gate completo anterior ocultaba externamente el archive, pero el setup
+aislado dependía de esa precondición implícita. El comando entregado al usuario
+ejecutó el setup directamente y expuso esa divergencia.
+
+Corrección:
+
+- el setup H3E.0B pasa a ser autocontenido;
+- exige el archive histórico presente y con SHA esperado al entrar;
+- lo respalda en TEMP;
+- lo oculta antes de compilar Slave y Master;
+- fuerza compilación de `JWPLC_ModbusRTU.cpp` desde fuente;
+- verifica que exista `JWPLC_ModbusRTU.cpp.o` en ambos builds;
+- restaura el archive en `finally`;
+- comprueba el SHA restaurado;
+- el gate exterior deja de ocultar el archive por su cuenta;
+- se añade `-PreflightOnly` para comprobar invariantes sin compilar.
+
+Regla preventiva específica:
+
+```txt
+Ningún subgate ejecutable por el usuario puede depender de una mutación temporal
+hecha por un wrapper superior.
+
+Si una qualification requiere HIDE -> COMPILE SOURCE -> RESTORE, esa secuencia
+debe pertenecer al componente que realiza el compile y debe ser segura ante
+fallo mediante finally.
+```
+
+Se añade además un preflight que compara el source core del repo con el source
+core realmente visible en el package instalado de Arduino. Si no son idénticos,
+el gate aborta antes de compilar.
