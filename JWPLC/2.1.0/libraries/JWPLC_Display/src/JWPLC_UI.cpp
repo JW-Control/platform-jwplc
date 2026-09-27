@@ -2,6 +2,7 @@
 #include "JWPLC_Display_API.h"
 #include "JWPLC_Display_H3E1_Profile.h"
 
+#include <Arduino.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_ST7789.h>
 
