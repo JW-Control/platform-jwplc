@@ -110,3 +110,30 @@ PERIPHERAL_FAILURE_COUNT=0
 
 H3D evalúa coste/beneficio de CRC lookup. No convierte LOOKUP en default de producto
 automáticamente.
+
+
+## Resultado físico
+
+Secuencia ABBA completada limpia:
+
+```txt
+RUN1 BITWISE = 760.850 tx/s
+RUN2 LOOKUP  = 764.325 tx/s
+RUN3 LOOKUP  = 770.985 tx/s
+RUN4 BITWISE = 750.951 tx/s
+
+BITWISE_AVG_HZ = 755.901
+LOOKUP_AVG_HZ  = 767.655
+LOOKUP_GAIN_PCT = 1.555
+```
+
+Las cuatro ventanas cerraron con 0 fallos, 0 timeouts, 0 CRC, 0 request/response
+path gaps, 0 byte gaps y 0 tails. TCP permaneció en aproximadamente 500 req/s,
+SD/periféricos limpios y ambas TFT estables.
+
+Conclusión: LOOKUP demuestra una mejora pequeña pero repetible de throughput RTU.
+Se conserva como implementación candidata; todavía no se cambia el default de producto.
+
+El resultado también confirma que los picos de service gap no provienen del algoritmo CRC:
+se observaron máximos de aproximadamente 11 a 21 ms en ambos modos. El siguiente gate
+H3E.0 instrumenta esos intervalos antes de modificar scheduling.
