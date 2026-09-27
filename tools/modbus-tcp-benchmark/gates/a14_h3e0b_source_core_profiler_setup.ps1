@@ -42,13 +42,13 @@ $archiveRelative = "JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/src/esp32/libJWPLC_Mod
 $archivePath = Get-G2Path $archiveRelative
 $coreRelative = $script:G2CoreRelative
 
-$dirty = @(Get-G2TrackedDirtyPaths)
-$staged = @(& git -C $script:G2RepoRoot diff --cached --name-only)
+[string[]]$dirty = @(Get-G2TrackedDirtyPaths)
+[string[]]$staged = @(& git -C $script:G2RepoRoot diff --cached --name-only)
 
-$expectedDirty = @(
+[string[]]$expectedDirty = @(
     $coreRelative.Replace("\", "/")
-) | Sort-Object
-$normalizedDirty = @(
+)
+[string[]]$normalizedDirty = @(
     $dirty |
         ForEach-Object { $_.Replace("\", "/") } |
         Sort-Object
@@ -122,41 +122,65 @@ if (-not (Test-Path -LiteralPath $installedPlatformRoot)) {
 
 $boardsLocalPath = Join-Path $installedPlatformRoot "boards.local.txt"
 
-$repoCoreMain = Join-Path $platformRoot "cores\jwcontrol\main.cpp"
-$repoCoreHeader = Join-Path $platformRoot "cores\jwcontrol\jwplc_h3e0b_profile.h"
-$installedCoreMain = Join-Path $installedPlatformRoot "cores\jwcontrol\main.cpp"
-$installedCoreHeader = Join-Path $installedPlatformRoot "cores\jwcontrol\jwplc_h3e0b_profile.h"
+$repoCoreRoot = Join-Path $platformRoot "cores\jwcontrol"
+$installedCoreRoot = Join-Path $installedPlatformRoot "cores\jwcontrol"
+
+$repoCoreMain = Join-Path $repoCoreRoot "main.cpp"
+$repoCoreHeader = Join-Path $repoCoreRoot "jwplc_h3e0b_profile.h"
 
 foreach ($requiredCoreSource in @(
+    $repoCoreRoot,
     $repoCoreMain,
     $repoCoreHeader,
-    $installedCoreMain,
-    $installedCoreHeader
+    $installedCoreRoot
 )) {
     if (-not (Test-Path -LiteralPath $requiredCoreSource)) {
         throw "H3E0B_SETUP_CORE_SOURCE_MISSING=$requiredCoreSource"
     }
 }
 
-$repoCoreMainHash = (Get-FileHash -LiteralPath $repoCoreMain -Algorithm SHA256).Hash
-$installedCoreMainHash = (Get-FileHash -LiteralPath $installedCoreMain -Algorithm SHA256).Hash
-$repoCoreHeaderHash = (Get-FileHash -LiteralPath $repoCoreHeader -Algorithm SHA256).Hash
-$installedCoreHeaderHash = (Get-FileHash -LiteralPath $installedCoreHeader -Algorithm SHA256).Hash
+$installedCoreItem = Get-Item -LiteralPath $installedCoreRoot -Force
+$installedCoreIsReparsePoint =
+    (($installedCoreItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0)
 
-$coreSourceIdentityPass =
-    $repoCoreMainHash -eq $installedCoreMainHash -and
-    $repoCoreHeaderHash -eq $installedCoreHeaderHash
+$installedCoreMain = Join-Path $installedCoreRoot "main.cpp"
+$installedCoreHeader = Join-Path $installedCoreRoot "jwplc_h3e0b_profile.h"
+
+$coreSourceAlreadyMatches = $false
+if (
+    (Test-Path -LiteralPath $installedCoreMain) -and
+    (Test-Path -LiteralPath $installedCoreHeader)
+) {
+    $repoCoreMainHash =
+        (Get-FileHash -LiteralPath $repoCoreMain -Algorithm SHA256).Hash
+    $installedCoreMainHash =
+        (Get-FileHash -LiteralPath $installedCoreMain -Algorithm SHA256).Hash
+    $repoCoreHeaderHash =
+        (Get-FileHash -LiteralPath $repoCoreHeader -Algorithm SHA256).Hash
+    $installedCoreHeaderHash =
+        (Get-FileHash -LiteralPath $installedCoreHeader -Algorithm SHA256).Hash
+
+    $coreSourceAlreadyMatches =
+        $repoCoreMainHash -eq $installedCoreMainHash -and
+        $repoCoreHeaderHash -eq $installedCoreHeaderHash
+}
+
+if ($installedCoreIsReparsePoint -and -not $coreSourceAlreadyMatches) {
+    throw "H3E0B_SETUP_INSTALLED_CORE_REPARSE_POINT_MISMATCH"
+}
+
+$coreSourceStrategy =
+    if ($coreSourceAlreadyMatches) {
+        "INSTALLED_SOURCE_ALREADY_MATCHES"
+    }
+    else {
+        "TEMP_INSTALL_OVERLAY_BACKUP_RESTORE"
+    }
 
 Write-Host "INSTALLED_PLATFORM_ROOT=$installedPlatformRoot"
-Write-Host "CORE_SOURCE_IDENTITY_PASS=$coreSourceIdentityPass"
-
-if (-not $coreSourceIdentityPass) {
-    Write-Host "REPO_CORE_MAIN_SHA256=$repoCoreMainHash"
-    Write-Host "INSTALLED_CORE_MAIN_SHA256=$installedCoreMainHash"
-    Write-Host "REPO_CORE_HEADER_SHA256=$repoCoreHeaderHash"
-    Write-Host "INSTALLED_CORE_HEADER_SHA256=$installedCoreHeaderHash"
-    throw "H3E0B_SETUP_INSTALLED_CORE_SOURCE_MISMATCH"
-}
+Write-Host "INSTALLED_CORE_REPARSE_POINT=$installedCoreIsReparsePoint"
+Write-Host "CORE_SOURCE_ALREADY_MATCHES=$coreSourceAlreadyMatches"
+Write-Host "CORE_SOURCE_STRATEGY=$coreSourceStrategy"
 
 $masterDir = Get-G2Path "tools/modbus-tcp-benchmark/firmware/a14_h3e0b_core_profiler_master"
 $masterSketch = Join-Path $masterDir "a14_h3e0b_core_profiler_master.ino"
@@ -229,8 +253,97 @@ function Enable-SourceCoreOverride {
     )
 }
 
+function Backup-And-Overlay-InstalledCore {
+    param(
+        [Parameter(Mandatory = $true)][string]$BackupRoot
+    )
+
+    if ($coreSourceAlreadyMatches) {
+        Write-Host "INSTALLED_CORE_OVERLAY=NOT_REQUIRED"
+        return
+    }
+
+    if ($installedCoreIsReparsePoint) {
+        throw "H3E0B_SETUP_REFUSE_OVERLAY_REPARSE_POINT"
+    }
+
+    if (Test-Path -LiteralPath $BackupRoot) {
+        Remove-Item -LiteralPath $BackupRoot -Recurse -Force
+    }
+
+    New-Item -ItemType Directory -Force -Path $BackupRoot | Out-Null
+
+    $backupCoreRoot = Join-Path $BackupRoot "jwcontrol_original"
+    Copy-Item -LiteralPath $installedCoreRoot -Destination $backupCoreRoot -Recurse -Force
+
+    Remove-Item -LiteralPath $installedCoreRoot -Recurse -Force
+    Copy-Item -LiteralPath $repoCoreRoot -Destination $installedCoreRoot -Recurse -Force
+
+    $overlayMain = Join-Path $installedCoreRoot "main.cpp"
+    $overlayHeader = Join-Path $installedCoreRoot "jwplc_h3e0b_profile.h"
+
+    if (
+        -not (Test-Path -LiteralPath $overlayMain) -or
+        -not (Test-Path -LiteralPath $overlayHeader)
+    ) {
+        throw "H3E0B_SETUP_INSTALLED_CORE_OVERLAY_INCOMPLETE"
+    }
+
+    $repoMainHash =
+        (Get-FileHash -LiteralPath $repoCoreMain -Algorithm SHA256).Hash
+    $overlayMainHash =
+        (Get-FileHash -LiteralPath $overlayMain -Algorithm SHA256).Hash
+    $repoHeaderHash =
+        (Get-FileHash -LiteralPath $repoCoreHeader -Algorithm SHA256).Hash
+    $overlayHeaderHash =
+        (Get-FileHash -LiteralPath $overlayHeader -Algorithm SHA256).Hash
+
+    if (
+        $repoMainHash -ne $overlayMainHash -or
+        $repoHeaderHash -ne $overlayHeaderHash
+    ) {
+        throw "H3E0B_SETUP_INSTALLED_CORE_OVERLAY_HASH_MISMATCH"
+    }
+
+    Write-Host "INSTALLED_CORE_OVERLAY=APPLIED"
+    Write-Host "INSTALLED_CORE_OVERLAY_IDENTITY=PASS"
+}
+
+function Restore-InstalledCore {
+    param(
+        [Parameter(Mandatory = $true)][string]$BackupRoot
+    )
+
+    if ($coreSourceAlreadyMatches) {
+        return
+    }
+
+    $backupCoreRoot = Join-Path $BackupRoot "jwcontrol_original"
+
+    if (-not (Test-Path -LiteralPath $backupCoreRoot)) {
+        throw "H3E0B_SETUP_INSTALLED_CORE_BACKUP_MISSING"
+    }
+
+    if (Test-Path -LiteralPath $installedCoreRoot) {
+        Remove-Item -LiteralPath $installedCoreRoot -Recurse -Force
+    }
+
+    Move-Item -LiteralPath $backupCoreRoot -Destination $installedCoreRoot
+
+    $restoredMain = Join-Path $installedCoreRoot "main.cpp"
+    if (-not (Test-Path -LiteralPath $restoredMain)) {
+        throw "H3E0B_SETUP_INSTALLED_CORE_RESTORE_FAILED"
+    }
+
+    Write-Host "INSTALLED_CORE_RESTORE=PASS"
+}
+
 Write-Host "MODBUS_RTU_ARCHIVE_SHA256=$archiveHashBefore"
 Write-Host "MODBUS_RTU_SOURCE_POLICY=HIDE_COMPILE_RESTORE"
+Write-Host "CORE_SOURCE_POLICY=$coreSourceStrategy"
+Write-Host "PREFLIGHT_MUTATES_INSTALLED_PACKAGE=NO"
+Write-Host "PREFLIGHT_COMPILES=NO"
+Write-Host "PREFLIGHT_UPLOADS=NO"
 Write-Host "H3E0B_STATIC_PREFLIGHT=PASS"
 
 if ($PreflightOnly) {
@@ -248,6 +361,7 @@ $masterUploadLog = Join-Path $tempRoot "upload_master.log"
 $slaveUploadLog = Join-Path $tempRoot "upload_slave.log"
 $resolverLog = Join-Path $tempRoot "resolver.log"
 $archiveBackup = Join-Path $tempRoot "libJWPLC_ModbusRTU.before.a"
+$installedCoreBackupRoot = Join-Path $tempRoot "installed_core_backup"
 
 New-Item -ItemType Directory -Force -Path $masterBuild | Out-Null
 New-Item -ItemType Directory -Force -Path $slaveBuild | Out-Null
@@ -299,6 +413,7 @@ try {
     Write-Host ""
     Write-Host "=== COMPILE MASTER FROM SOURCE CORE + MODBUS RTU SOURCE ==="
 
+    Backup-And-Overlay-InstalledCore -BackupRoot $installedCoreBackupRoot
     Enable-SourceCoreOverride
 
     $masterArgs = @(
@@ -318,10 +433,36 @@ try {
     }
 }
 finally {
-    Restore-BoardsLocal
+    $restoreErrors = New-Object System.Collections.Generic.List[string]
 
-    if ($archiveHidden) {
-        Copy-Item -LiteralPath $archiveBackup -Destination $archivePath -Force
+    try {
+        Restore-BoardsLocal
+    }
+    catch {
+        $restoreErrors.Add("boards.local.txt: $($_.Exception.Message)")
+    }
+
+    try {
+        if (-not $coreSourceAlreadyMatches) {
+            Restore-InstalledCore -BackupRoot $installedCoreBackupRoot
+        }
+    }
+    catch {
+        $restoreErrors.Add("installed core: $($_.Exception.Message)")
+    }
+
+    try {
+        if ($archiveHidden) {
+            Copy-Item -LiteralPath $archiveBackup -Destination $archivePath -Force
+        }
+    }
+    catch {
+        $restoreErrors.Add("ModbusRTU archive: $($_.Exception.Message)")
+    }
+
+    if ($restoreErrors.Count -gt 0) {
+        $restoreErrors | ForEach-Object { Write-Host "RESTORE_ERROR=$_" }
+        throw "H3E0B_SETUP_RESTORE_FAILURE"
     }
 }
 
@@ -334,6 +475,18 @@ Write-Host "MODBUS_RTU_ARCHIVE_SHA256_AFTER_COMPILE=$archiveHashAfterCompile"
 
 if ($archiveHashAfterCompile -ne $archiveHashBefore) {
     throw "H3E0B_SETUP_MODBUS_RTU_ARCHIVE_RESTORE_HASH_MISMATCH"
+}
+
+if (-not $coreSourceAlreadyMatches) {
+    $installedHeaderAfterRestore =
+        Join-Path $installedCoreRoot "jwplc_h3e0b_profile.h"
+
+    if (Test-Path -LiteralPath $installedHeaderAfterRestore) {
+        Write-Host "INSTALLED_CORE_RESTORE_HEADER_PRESENT=YES"
+    }
+    else {
+        Write-Host "INSTALLED_CORE_RESTORE_HEADER_PRESENT=NO"
+    }
 }
 
 $slaveRtuObjects = @(
@@ -458,6 +611,7 @@ Write-Host "A14_H3E0B_SETUP_ONLY=PASS"
 Write-Host "H3E0B_SETUP_ONLY_MASTER_IP=$dutIp"
 Write-Host "H3E0B_PRECOMPILED_CORE_PRESERVED=YES"
 Write-Host "H3E0B_MODBUS_RTU_ARCHIVE_RESTORED=YES"
+Write-Host "H3E0B_INSTALLED_CORE_RESTORED=YES"
 
 if (-not $SetupOnly) {
     throw "H3E0B_SETUP_ONLY_REQUIRED"
