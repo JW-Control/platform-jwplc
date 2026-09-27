@@ -36,6 +36,10 @@ static JWPLCH3E1StageStats *stageForId(
         return &g_h3e1.refresh_needed;
     case JWPLC_H3E1_STAGE_SPI_WAIT:
         return &g_h3e1.spi_wait;
+    case JWPLC_H3E1_STAGE_SPI_MUTEX:
+        return &g_h3e1.spi_mutex;
+    case JWPLC_H3E1_STAGE_SPI_PREPARE:
+        return &g_h3e1.spi_prepare;
     case JWPLC_H3E1_STAGE_PAGE_CLEAR:
         return &g_h3e1.page_clear;
     case JWPLC_H3E1_STAGE_PAGE_ENTER:
