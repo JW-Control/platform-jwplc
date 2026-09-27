@@ -382,6 +382,7 @@ Write-Host "=== FORCE MODBUS RTU SOURCE COMPILE ==="
 Copy-Item -LiteralPath $archivePath -Destination $archiveBackup -Force
 
 $archiveHidden = $false
+$installedCoreOverlayStarted = $false
 $masterExit = -1
 $slaveExit = -1
 
@@ -413,6 +414,10 @@ try {
     Write-Host ""
     Write-Host "=== COMPILE MASTER FROM SOURCE CORE + MODBUS RTU SOURCE ==="
 
+    if (-not $coreSourceAlreadyMatches) {
+        $installedCoreOverlayStarted = $true
+    }
+
     Backup-And-Overlay-InstalledCore -BackupRoot $installedCoreBackupRoot
     Enable-SourceCoreOverride
 
@@ -443,7 +448,7 @@ finally {
     }
 
     try {
-        if (-not $coreSourceAlreadyMatches) {
+        if ($installedCoreOverlayStarted) {
             Restore-InstalledCore -BackupRoot $installedCoreBackupRoot
         }
     }
