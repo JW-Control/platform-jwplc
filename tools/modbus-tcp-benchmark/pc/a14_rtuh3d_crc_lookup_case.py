@@ -173,7 +173,7 @@ def main() -> int:
         )
 
         if not profile_pass:
-            raise RuntimeError("perfil fijo H3C invalido")
+            raise RuntimeError("perfil fijo H3D invalido")
 
         budget.send_command_wait(master, b"X\n", p5b.MASTER_STOP_ACK)
         time.sleep(0.10)
@@ -413,7 +413,7 @@ def main() -> int:
 
         print()
         print("=" * 78)
-        print(" RTU-H3C.3 CRC LOOKUP A/B CASE SUMMARY")
+        print(" RTU-H3D CRC LOOKUP A/B CASE SUMMARY")
         print("=" * 78)
 
         for bucket in buckets:
