@@ -107,12 +107,39 @@ static void deselectAllSPI()
 
 static bool acquireTFTBus(uint32_t timeoutMs = 50)
 {
-    if (!jwplcSPI_acquire(timeoutMs))
+    const bool profile =
+        jwplcH3E1ProfilerEnabled();
+
+    const uint32_t mutexStartUs =
+        profile ? micros() : 0U;
+
+    const bool acquired =
+        jwplcSPI_acquire(timeoutMs);
+
+    if (profile)
+    {
+        jwplcH3E1RecordStage(
+            JWPLC_H3E1_STAGE_SPI_MUTEX,
+            (uint32_t)(micros() - mutexStartUs));
+    }
+
+    if (!acquired)
     {
         return false;
     }
 
+    const uint32_t prepareStartUs =
+        profile ? micros() : 0U;
+
     jwplcSPI_prepareForTFT();
+
+    if (profile)
+    {
+        jwplcH3E1RecordStage(
+            JWPLC_H3E1_STAGE_SPI_PREPARE,
+            (uint32_t)(micros() - prepareStartUs));
+    }
+
     return true;
 }
 
