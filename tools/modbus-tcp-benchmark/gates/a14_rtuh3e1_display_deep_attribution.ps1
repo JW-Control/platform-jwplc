@@ -143,6 +143,8 @@ if ($PreflightOnly) {
     Write-Host ""
     Write-Host "=== H3E1 SETUP STATIC PREFLIGHT ==="
 
+    # The child emits A14_H3E1_PREFLIGHT_ONLY=PASS through
+    # the success stream (Write-Output). Human diagnostics remain Write-Host.
     [object[]]$setupPreflightLines = @(
         & $setupGate -MasterPort $MasterPort -SlavePort $SlavePort -PreflightOnly -AllowDirtyCoreCandidate 2>&1
     )
