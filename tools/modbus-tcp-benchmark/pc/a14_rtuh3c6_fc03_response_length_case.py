@@ -15,9 +15,6 @@ import a14_rtuh2c_500k_100us_longrun as h2c
 import a14_rtuh3b_bulk_rx_ab as h3b
 
 
-RTU_STRUCTURAL_FLOOR_HZ = 650.0
-
-
 def iv(values: dict[str, str], key: str) -> int:
     return p5b.int_value(values, key, -1)
 
@@ -422,7 +419,7 @@ def main() -> int:
 
         print()
         print("=" * 78)
-        print(" RTU-H3C.3 FC03 RESPONSE-LENGTH MATRIX CASE SUMMARY")
+        print(" RTU-H3C.6 FC03 RESPONSE-LENGTH MATRIX CASE SUMMARY")
         print("=" * 78)
 
         for bucket in buckets:
