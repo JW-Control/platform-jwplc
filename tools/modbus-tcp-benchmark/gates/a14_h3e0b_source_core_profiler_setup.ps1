@@ -2,6 +2,7 @@ param(
     [string]$MasterPort = "COM14",
     [string]$SlavePort = "COM4",
     [switch]$SetupOnly,
+    [switch]$PreflightOnly,
     [switch]$AllowDirtyCoreCandidate,
     [switch]$AllowMissingModbusRtuArchiveCandidate
 )
@@ -31,6 +32,12 @@ Write-Host "============================================================"
 Assert-G2Branch
 
 $expectedCoreHash = "4BFF8C8241DA2E8BD0E1BBA99835ADDF91B9085A05C4DFBD05C339B824794566"
+$expectedArchiveHash = "444BE3A04079A579252B2737FE6070E00ADCA949FD176880588FE69561B2A79F"
+
+if ($AllowMissingModbusRtuArchiveCandidate) {
+    throw "H3E0B_SETUP_EXTERNAL_ARCHIVE_HIDE_NOT_SUPPORTED"
+}
+
 $archiveRelative = "JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/src/esp32/libJWPLC_ModbusRTU.a"
 $archivePath = Get-G2Path $archiveRelative
 $coreRelative = $script:G2CoreRelative
@@ -38,11 +45,9 @@ $coreRelative = $script:G2CoreRelative
 $dirty = @(Get-G2TrackedDirtyPaths)
 $staged = @(& git -C $script:G2RepoRoot diff --cached --name-only)
 
-$expectedDirty = @($coreRelative.Replace("\", "/"))
-if ($AllowMissingModbusRtuArchiveCandidate) {
-    $expectedDirty += $archiveRelative
-}
-$expectedDirty = @($expectedDirty | Sort-Object)
+$expectedDirty = @(
+    $coreRelative.Replace("\", "/")
+) | Sort-Object
 $normalizedDirty = @(
     $dirty |
         ForEach-Object { $_.Replace("\", "/") } |
@@ -74,6 +79,15 @@ if ($coreHashBefore -ne $expectedCoreHash) {
     throw "H3E0B_SETUP_CORE_HASH_INVALID"
 }
 
+if (-not (Test-Path -LiteralPath $archivePath)) {
+    throw "H3E0B_SETUP_MODBUS_RTU_ARCHIVE_MISSING_AT_ENTRY"
+}
+
+$archiveHashBefore = Get-G2Sha256 $archiveRelative
+if ($archiveHashBefore -ne $expectedArchiveHash) {
+    throw "H3E0B_SETUP_MODBUS_RTU_ARCHIVE_HASH_INVALID"
+}
+
 $ports = @([System.IO.Ports.SerialPort]::GetPortNames() | Sort-Object)
 Write-Host "COM_PORTS=$($ports -join ',')"
 
@@ -99,8 +113,50 @@ if ($null -eq $pythonCommand) {
 $pythonExe = $pythonCommand.Source
 
 $platformRoot = Get-G2Path "JWPLC/2.1.0"
-$boardsLocalPath = Join-Path $platformRoot "boards.local.txt"
 $repoLibrariesRoot = Get-G2Path "JWPLC/2.1.0/libraries"
+
+$installedPlatformRoot = Join-Path $env:LOCALAPPDATA "Arduino15\packages\jwplc_local\hardware\esp32\2.1.0-dev"
+if (-not (Test-Path -LiteralPath $installedPlatformRoot)) {
+    throw "H3E0B_SETUP_INSTALLED_PLATFORM_MISSING=$installedPlatformRoot"
+}
+
+$boardsLocalPath = Join-Path $installedPlatformRoot "boards.local.txt"
+
+$repoCoreMain = Join-Path $platformRoot "cores\jwcontrol\main.cpp"
+$repoCoreHeader = Join-Path $platformRoot "cores\jwcontrol\jwplc_h3e0b_profile.h"
+$installedCoreMain = Join-Path $installedPlatformRoot "cores\jwcontrol\main.cpp"
+$installedCoreHeader = Join-Path $installedPlatformRoot "cores\jwcontrol\jwplc_h3e0b_profile.h"
+
+foreach ($requiredCoreSource in @(
+    $repoCoreMain,
+    $repoCoreHeader,
+    $installedCoreMain,
+    $installedCoreHeader
+)) {
+    if (-not (Test-Path -LiteralPath $requiredCoreSource)) {
+        throw "H3E0B_SETUP_CORE_SOURCE_MISSING=$requiredCoreSource"
+    }
+}
+
+$repoCoreMainHash = (Get-FileHash -LiteralPath $repoCoreMain -Algorithm SHA256).Hash
+$installedCoreMainHash = (Get-FileHash -LiteralPath $installedCoreMain -Algorithm SHA256).Hash
+$repoCoreHeaderHash = (Get-FileHash -LiteralPath $repoCoreHeader -Algorithm SHA256).Hash
+$installedCoreHeaderHash = (Get-FileHash -LiteralPath $installedCoreHeader -Algorithm SHA256).Hash
+
+$coreSourceIdentityPass =
+    $repoCoreMainHash -eq $installedCoreMainHash -and
+    $repoCoreHeaderHash -eq $installedCoreHeaderHash
+
+Write-Host "INSTALLED_PLATFORM_ROOT=$installedPlatformRoot"
+Write-Host "CORE_SOURCE_IDENTITY_PASS=$coreSourceIdentityPass"
+
+if (-not $coreSourceIdentityPass) {
+    Write-Host "REPO_CORE_MAIN_SHA256=$repoCoreMainHash"
+    Write-Host "INSTALLED_CORE_MAIN_SHA256=$installedCoreMainHash"
+    Write-Host "REPO_CORE_HEADER_SHA256=$repoCoreHeaderHash"
+    Write-Host "INSTALLED_CORE_HEADER_SHA256=$installedCoreHeaderHash"
+    throw "H3E0B_SETUP_INSTALLED_CORE_SOURCE_MISMATCH"
+}
 
 $masterDir = Get-G2Path "tools/modbus-tcp-benchmark/firmware/a14_h3e0b_core_profiler_master"
 $masterSketch = Join-Path $masterDir "a14_h3e0b_core_profiler_master.ino"
@@ -173,6 +229,15 @@ function Enable-SourceCoreOverride {
     )
 }
 
+Write-Host "MODBUS_RTU_ARCHIVE_SHA256=$archiveHashBefore"
+Write-Host "MODBUS_RTU_SOURCE_POLICY=HIDE_COMPILE_RESTORE"
+Write-Host "H3E0B_STATIC_PREFLIGHT=PASS"
+
+if ($PreflightOnly) {
+    Write-Host "A14_H3E0B_PREFLIGHT_ONLY=PASS"
+    return
+}
+
 $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $tempRoot = Join-Path $env:TEMP ("jwplc_a14_h3e0b_setup_{0}" -f $timestamp)
 $masterBuild = Join-Path $tempRoot "build_master_source_core"
@@ -182,6 +247,7 @@ $slaveCompileLog = Join-Path $tempRoot "compile_slave.log"
 $masterUploadLog = Join-Path $tempRoot "upload_master.log"
 $slaveUploadLog = Join-Path $tempRoot "upload_slave.log"
 $resolverLog = Join-Path $tempRoot "resolver.log"
+$archiveBackup = Join-Path $tempRoot "libJWPLC_ModbusRTU.before.a"
 
 New-Item -ItemType Directory -Force -Path $masterBuild | Out-Null
 New-Item -ItemType Directory -Force -Path $slaveBuild | Out-Null
@@ -197,27 +263,42 @@ Write-Host "H3E0B_CORE_MODE=SOURCE_TEMPORARY"
 Write-Host "H3E0B_PRECOMPILED_CORE_MUTATION=NO"
 
 Write-Host ""
-Write-Host "=== COMPILE SLAVE NORMAL ==="
+Write-Host "=== FORCE MODBUS RTU SOURCE COMPILE ==="
 
-$slaveArgs = @(
-    "compile",
-    "--fqbn", $fqbn,
-    "--build-path", $slaveBuild,
-    "--libraries", $repoLibrariesRoot,
-    $slaveDir
-)
+Copy-Item -LiteralPath $archivePath -Destination $archiveBackup -Force
 
-$slaveExit = Invoke-NativeToLog -FilePath $arduinoCli -Arguments $slaveArgs -LogPath $slaveCompileLog
-Write-Host "SLAVE_COMPILE_EXIT=$slaveExit"
-if ($slaveExit -ne 0) {
-    Get-Content -LiteralPath $slaveCompileLog -Tail 60 | ForEach-Object { Write-Host $_ }
-    throw "H3E0B_SETUP_SLAVE_COMPILE_FAILED"
-}
-
-Write-Host ""
-Write-Host "=== COMPILE MASTER FROM SOURCE CORE ==="
+$archiveHidden = $false
+$masterExit = -1
+$slaveExit = -1
 
 try {
+    Remove-Item -LiteralPath $archivePath -Force
+    $archiveHidden = $true
+
+    Write-Host "MODBUS_RTU_ARCHIVE_HIDDEN=YES"
+
+    Write-Host ""
+    Write-Host "=== COMPILE SLAVE FROM MODBUS RTU SOURCE ==="
+
+    $slaveArgs = @(
+        "compile",
+        "--fqbn", $fqbn,
+        "--build-path", $slaveBuild,
+        "--libraries", $repoLibrariesRoot,
+        $slaveDir
+    )
+
+    $slaveExit = Invoke-NativeToLog -FilePath $arduinoCli -Arguments $slaveArgs -LogPath $slaveCompileLog
+    Write-Host "SLAVE_COMPILE_EXIT=$slaveExit"
+
+    if ($slaveExit -ne 0) {
+        Get-Content -LiteralPath $slaveCompileLog -Tail 60 | ForEach-Object { Write-Host $_ }
+        throw "H3E0B_SETUP_SLAVE_COMPILE_FAILED"
+    }
+
+    Write-Host ""
+    Write-Host "=== COMPILE MASTER FROM SOURCE CORE + MODBUS RTU SOURCE ==="
+
     Enable-SourceCoreOverride
 
     $masterArgs = @(
@@ -229,15 +310,49 @@ try {
     )
 
     $masterExit = Invoke-NativeToLog -FilePath $arduinoCli -Arguments $masterArgs -LogPath $masterCompileLog
+    Write-Host "MASTER_COMPILE_EXIT=$masterExit"
+
+    if ($masterExit -ne 0) {
+        Get-Content -LiteralPath $masterCompileLog -Tail 60 | ForEach-Object { Write-Host $_ }
+        throw "H3E0B_SETUP_MASTER_COMPILE_FAILED"
+    }
 }
 finally {
     Restore-BoardsLocal
+
+    if ($archiveHidden) {
+        Copy-Item -LiteralPath $archiveBackup -Destination $archivePath -Force
+    }
 }
 
-Write-Host "MASTER_COMPILE_EXIT=$masterExit"
-if ($masterExit -ne 0) {
-    Get-Content -LiteralPath $masterCompileLog -Tail 60 | ForEach-Object { Write-Host $_ }
-    throw "H3E0B_SETUP_MASTER_COMPILE_FAILED"
+if (-not (Test-Path -LiteralPath $archivePath)) {
+    throw "H3E0B_SETUP_MODBUS_RTU_ARCHIVE_RESTORE_MISSING"
+}
+
+$archiveHashAfterCompile = Get-G2Sha256 $archiveRelative
+Write-Host "MODBUS_RTU_ARCHIVE_SHA256_AFTER_COMPILE=$archiveHashAfterCompile"
+
+if ($archiveHashAfterCompile -ne $archiveHashBefore) {
+    throw "H3E0B_SETUP_MODBUS_RTU_ARCHIVE_RESTORE_HASH_MISMATCH"
+}
+
+$slaveRtuObjects = @(
+    Get-ChildItem -LiteralPath $slaveBuild -Recurse -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -eq "JWPLC_ModbusRTU.cpp.o" }
+)
+$masterRtuObjects = @(
+    Get-ChildItem -LiteralPath $masterBuild -Recurse -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -eq "JWPLC_ModbusRTU.cpp.o" }
+)
+
+Write-Host "SLAVE_MODBUS_RTU_SOURCE_OBJECT_COUNT=$($slaveRtuObjects.Count)"
+Write-Host "MASTER_MODBUS_RTU_SOURCE_OBJECT_COUNT=$($masterRtuObjects.Count)"
+
+if ($slaveRtuObjects.Count -lt 1) {
+    throw "H3E0B_SETUP_SLAVE_MODBUS_RTU_SOURCE_OBJECT_MISSING"
+}
+if ($masterRtuObjects.Count -lt 1) {
+    throw "H3E0B_SETUP_MASTER_MODBUS_RTU_SOURCE_OBJECT_MISSING"
 }
 
 $compileDbPath = Join-Path $masterBuild "compile_commands.json"
@@ -325,9 +440,16 @@ $dutIp = $ipMatch.Groups[1].Value.Trim()
 Get-Content -LiteralPath $resolverLog | ForEach-Object { Write-Host $_ }
 
 $coreHashFinal = Get-G2Sha256 $coreRelative
+$archiveHashFinal = Get-G2Sha256 $archiveRelative
+
 Write-Host "CORE_A_SHA256_FINAL=$coreHashFinal"
+Write-Host "MODBUS_RTU_ARCHIVE_SHA256_FINAL=$archiveHashFinal"
+
 if ($coreHashFinal -ne $coreHashBefore) {
     throw "H3E0B_SETUP_PRECOMPILED_CORE_FINAL_CHANGED"
+}
+if ($archiveHashFinal -ne $archiveHashBefore) {
+    throw "H3E0B_SETUP_MODBUS_RTU_ARCHIVE_FINAL_CHANGED"
 }
 
 Restore-BoardsLocal
@@ -335,6 +457,7 @@ Restore-BoardsLocal
 Write-Host "A14_H3E0B_SETUP_ONLY=PASS"
 Write-Host "H3E0B_SETUP_ONLY_MASTER_IP=$dutIp"
 Write-Host "H3E0B_PRECOMPILED_CORE_PRESERVED=YES"
+Write-Host "H3E0B_MODBUS_RTU_ARCHIVE_RESTORED=YES"
 
 if (-not $SetupOnly) {
     throw "H3E0B_SETUP_ONLY_REQUIRED"
