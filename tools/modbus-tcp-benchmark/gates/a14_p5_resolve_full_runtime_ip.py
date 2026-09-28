@@ -93,6 +93,10 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--serial", default="COM14")
     parser.add_argument("--timeout", type=float, default=45.0)
+    parser.add_argument(
+        "--display-render-mode",
+        default="HMI_ON_DEMAND_DIRTY",
+    )
     args = parser.parse_args()
 
     ser = serial.Serial()
@@ -239,7 +243,7 @@ def main() -> int:
                 and
                 last.get(
                     "DISPLAY_RENDER_MODE"
-                ) == "HMI_ON_DEMAND_DIRTY"
+                ) == args.display_render_mode
                 and
                 last.get(
                     "DISPLAY_REFRESH_MODE"
@@ -279,6 +283,10 @@ def main() -> int:
                 print(
                     "P5_DISPLAY_HMI_DIRTY=YES"
                 )
+                print(
+                    "P5_DISPLAY_RENDER_MODE="
+                    f"{args.display_render_mode}"
+                )
                 print("P5_RTU_READY=YES")
                 print("P5_RTU_TIMEOUT_MS=25")
                 print(
@@ -305,6 +313,10 @@ def main() -> int:
             ser.close()
 
     print("P5_DUT_READY=NO")
+    print(
+        "P5_EXPECTED_DISPLAY_RENDER_MODE="
+        f"{args.display_render_mode}"
+    )
     print("P5_PREFLIGHT_MODE=COMPACT_QUIET")
     print("P5_LAST_PREFLIGHT_BEGIN")
     print(last.get("_RAW", ""))

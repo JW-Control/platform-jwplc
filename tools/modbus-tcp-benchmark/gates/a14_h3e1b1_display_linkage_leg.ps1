@@ -10,6 +10,7 @@ param(
     [string]$MasterDirRelative = "tools/modbus-tcp-benchmark/firmware/a14_h3e0b_core_profiler_master",
     [string]$MasterSketchName = "a14_h3e0b_core_profiler_master.ino",
     [string[]]$MasterBuildProperties = @(),
+    [string]$ExpectedDisplayRenderMode = "HMI_ON_DEMAND_DIRTY",
     [switch]$PreflightOnly,
     [double]$DurationS = 300.0,
     [double]$BucketSeconds = 60.0
@@ -148,10 +149,11 @@ Write-Host "TFT_SPI_HZ=$TftSpiHz"
 Write-Host "MASTER_DIR_RELATIVE=$MasterDirRelative"
 Write-Host "MASTER_SKETCH_NAME=$MasterSketchName"
 Write-Host "MASTER_BUILD_PROPERTY_COUNT=$($MasterBuildProperties.Count)"
+Write-Host "EXPECTED_DISPLAY_RENDER_MODE=$ExpectedDisplayRenderMode"
 
 if ($PreflightOnly) {
     [object[]]$setupPreflight = @(
-        & $setupGate -MasterPort $MasterPort -SlavePort $SlavePort -DisplayLinkage $DisplayLinkage -ExpectedDisplayArchiveHash $expectedDisplayArchiveHash -AdditionalAllowedDirtyPaths $AdditionalAllowedDirtyPaths -TftSpiHz $TftSpiHz -MasterDirRelative $MasterDirRelative -MasterSketchName $MasterSketchName -MasterBuildProperties $MasterBuildProperties -PreflightOnly -AllowDirtyCoreCandidate *>&1
+        & $setupGate -MasterPort $MasterPort -SlavePort $SlavePort -DisplayLinkage $DisplayLinkage -ExpectedDisplayArchiveHash $expectedDisplayArchiveHash -AdditionalAllowedDirtyPaths $AdditionalAllowedDirtyPaths -TftSpiHz $TftSpiHz -MasterDirRelative $MasterDirRelative -MasterSketchName $MasterSketchName -MasterBuildProperties $MasterBuildProperties -ExpectedDisplayRenderMode $ExpectedDisplayRenderMode -PreflightOnly -AllowDirtyCoreCandidate *>&1
     )
     $setupPreflight | ForEach-Object { Write-Host $_ }
 
@@ -183,7 +185,7 @@ $runLog = Join-Path $tempRoot "h3e1b1.log"
 Write-Host ""
 Write-Host "=== H3E1B1 COMPILE / UPLOAD DISPLAY LINKAGE ==="
 
-& $setupGate -MasterPort $MasterPort -SlavePort $SlavePort -DisplayLinkage $DisplayLinkage -ExpectedDisplayArchiveHash $expectedDisplayArchiveHash -AdditionalAllowedDirtyPaths $AdditionalAllowedDirtyPaths -TftSpiHz $TftSpiHz -MasterDirRelative $MasterDirRelative -MasterSketchName $MasterSketchName -MasterBuildProperties $MasterBuildProperties -SetupOnly -AllowDirtyCoreCandidate *>&1 |
+& $setupGate -MasterPort $MasterPort -SlavePort $SlavePort -DisplayLinkage $DisplayLinkage -ExpectedDisplayArchiveHash $expectedDisplayArchiveHash -AdditionalAllowedDirtyPaths $AdditionalAllowedDirtyPaths -TftSpiHz $TftSpiHz -MasterDirRelative $MasterDirRelative -MasterSketchName $MasterSketchName -MasterBuildProperties $MasterBuildProperties -ExpectedDisplayRenderMode $ExpectedDisplayRenderMode -SetupOnly -AllowDirtyCoreCandidate *>&1 |
     Tee-Object -FilePath $setupLog
 
 $setupText = [IO.File]::ReadAllText($setupLog)

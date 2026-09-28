@@ -82,6 +82,7 @@ Write-Host "H3E1D3_BASELINE_TCP_P99_US=$baselineTcpP99Us"
 Write-Host "H3E1D3_BASELINE_SERVICE_GAP_MAX_US=$baselineServiceGapUs"
 Write-Host "H3E1D3_ONE_PRIMARY_VARIABLE=DISPLAY_BACKEND_RENDERER"
 Write-Host "H3E1D3_MASTER_BUILD_PROPERTY=$diagDefine"
+Write-Host "H3E1D3_EXPECTED_DISPLAY_RENDER_MODE=HMI_ON_DEMAND_DIRTY_TFT_ESPI"
 
 $commonArgs = @{
     MasterPort = $MasterPort
@@ -92,6 +93,7 @@ $commonArgs = @{
     MasterDirRelative = $masterDirRelative
     MasterSketchName = $masterSketchName
     MasterBuildProperties = $masterBuildProperties
+    ExpectedDisplayRenderMode = "HMI_ON_DEMAND_DIRTY_TFT_ESPI"
 }
 
 if ($PreflightOnly) {

@@ -10,6 +10,7 @@ param(
     [string]$MasterDirRelative = "tools/modbus-tcp-benchmark/firmware/a14_h3e0b_core_profiler_master",
     [string]$MasterSketchName = "a14_h3e0b_core_profiler_master.ino",
     [string[]]$MasterBuildProperties = @(),
+    [string]$ExpectedDisplayRenderMode = "HMI_ON_DEMAND_DIRTY",
     [switch]$SetupOnly,
     [switch]$PreflightOnly,
     [switch]$AllowDirtyCoreCandidate
@@ -290,6 +291,7 @@ Write-Host "DISPLAY_TFT_SPI_HZ=$actualTftSpiHz"
 Write-Host "MASTER_DIR_RELATIVE=$MasterDirRelative"
 Write-Host "MASTER_SKETCH_NAME=$MasterSketchName"
 Write-Host "MASTER_BUILD_PROPERTY_COUNT=$($MasterBuildProperties.Count)"
+Write-Host "EXPECTED_DISPLAY_RENDER_MODE=$ExpectedDisplayRenderMode"
 
 $masterDir = Get-G2Path $MasterDirRelative
 $masterSketch = Join-Path $masterDir $MasterSketchName
@@ -746,7 +748,12 @@ Start-Sleep -Seconds 2
 Write-Host ""
 Write-Host "=== PHYSICAL READY PREFLIGHT ==="
 
-$resolverArgs = @($resolver, "--serial", $MasterPort, "--timeout", "45")
+$resolverArgs = @(
+    $resolver,
+    "--serial", $MasterPort,
+    "--timeout", "45",
+    "--display-render-mode", $ExpectedDisplayRenderMode
+)
 $resolverExit = Invoke-NativeToLog -FilePath $pythonExe -Arguments $resolverArgs -LogPath $resolverLog
 Write-Host "H3E1B1_SETUP_RESOLVER_EXIT=$resolverExit"
 
@@ -756,6 +763,10 @@ if ($resolverExit -ne 0) {
 }
 
 $resolverText = [IO.File]::ReadAllText($resolverLog)
+if (-not $resolverText.Contains("P5_DISPLAY_RENDER_MODE=$ExpectedDisplayRenderMode")) {
+    throw "H3E1B1_SETUP_DISPLAY_RENDER_MODE_NOT_PROVEN"
+}
+
 $ipMatch = [regex]::Match(
     $resolverText,
     "(?m)^P5_DUT_IP_EFFECTIVE=(.+?)\r?$"
