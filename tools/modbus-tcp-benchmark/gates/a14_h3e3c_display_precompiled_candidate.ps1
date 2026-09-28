@@ -65,6 +65,112 @@ if ($entryStaged.Count -ne 0) {
     throw "H3E3C_ENTRY_INDEX_NOT_CLEAN"
 }
 
+function Resolve-H3E3CNativeTool {
+    param([string]$Candidate)
+
+    if ([string]::IsNullOrWhiteSpace($Candidate)) {
+        return $null
+    }
+
+    $normalized =
+        $Candidate.Trim().Trim('"')
+
+    while ($normalized.Contains("\\")) {
+        $normalized =
+            $normalized.Replace("\\", "\")
+    }
+
+    [string[]]$paths = @(
+        $normalized
+    )
+
+    if (-not [IO.Path]::HasExtension($normalized)) {
+        $paths += @(
+            ($normalized + ".exe"),
+            ($normalized + ".cmd"),
+            ($normalized + ".bat")
+        )
+    }
+
+    foreach ($candidatePath in $paths) {
+        if (Test-Path -LiteralPath $candidatePath) {
+            return (Resolve-Path -LiteralPath $candidatePath).Path
+        }
+    }
+
+    return $null
+}
+
+function Resolve-H3E3CArchiver {
+    param([string[]]$Lines)
+
+    foreach ($line in $Lines) {
+        $candidate = $null
+
+        if ($line -match '"(?<exe>[^"]*xtensa-esp32-elf-gcc-ar(?:\.exe)?)"') {
+            $candidate =
+                $Matches["exe"]
+        }
+        elseif ($line -match '(?<exe>\S*xtensa-esp32-elf-gcc-ar(?:\.exe)?)\s+(?:cr|crs)') {
+            $candidate =
+                $Matches["exe"]
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($candidate)) {
+            $resolved =
+                Resolve-H3E3CNativeTool -Candidate $candidate
+
+            if (-not [string]::IsNullOrWhiteSpace($resolved)) {
+                return $resolved
+            }
+        }
+    }
+
+    foreach ($line in $Lines) {
+        $compilerCandidate = $null
+
+        if ($line -match '"(?<exe>[^"]*xtensa-esp32-elf-g\+\+(?:\.exe)?)"') {
+            $compilerCandidate =
+                $Matches["exe"]
+        }
+        elseif ($line -match '(?<exe>\S*xtensa-esp32-elf-g\+\+(?:\.exe)?)\s+') {
+            $compilerCandidate =
+                $Matches["exe"]
+        }
+
+        if ([string]::IsNullOrWhiteSpace($compilerCandidate)) {
+            continue
+        }
+
+        $resolvedCompiler =
+            Resolve-H3E3CNativeTool -Candidate $compilerCandidate
+
+        if ([string]::IsNullOrWhiteSpace($resolvedCompiler)) {
+            continue
+        }
+
+        $toolDir =
+            Split-Path -Parent $resolvedCompiler
+
+        foreach ($name in @(
+            "xtensa-esp32-elf-gcc-ar.exe",
+            "xtensa-esp32-elf-gcc-ar"
+        )) {
+            $candidatePath =
+                Join-Path $toolDir $name
+
+            $resolved =
+                Resolve-H3E3CNativeTool -Candidate $candidatePath
+
+            if (-not [string]::IsNullOrWhiteSpace($resolved)) {
+                return $resolved
+            }
+        }
+    }
+
+    throw "H3E3C_ARCHIVER_NOT_FOUND"
+}
+
 $runRoot =
     Join-Path $env:TEMP (
         "jwplc_a14_h3e3c_{0}" -f
@@ -208,35 +314,18 @@ if ($expectedObjects.Count -ne 7 -or
     throw "H3E3C_SOURCE_OBJECT_PARITY_FAILED"
 }
 
-$sourceText =
-    ($sourceOutput | ForEach-Object { $_.ToString() }) -join [Environment]::NewLine
-
-$archiverMatch =
-    [regex]::Match(
-        $sourceText,
-        '"(?<exe>[^"]*xtensa-esp32-elf-gcc-ar(?:\.exe)?)"'
-    )
-
-if (-not $archiverMatch.Success) {
-    $archiverMatch =
-        [regex]::Match(
-            $sourceText,
-            '(?<exe>\S*xtensa-esp32-elf-gcc-ar(?:\.exe)?)\s+'
-        )
-}
-
-if (-not $archiverMatch.Success) {
-    throw "H3E3C_ARCHIVER_NOT_FOUND"
-}
+[string[]]$sourceLines = @(
+    $sourceOutput |
+        ForEach-Object {
+            $_.ToString()
+        }
+)
 
 $archiver =
-    $archiverMatch.Groups["exe"].Value.Trim()
-
-if (-not (Test-Path -LiteralPath $archiver)) {
-    throw "H3E3C_ARCHIVER_PATH_INVALID=$archiver"
-}
+    Resolve-H3E3CArchiver -Lines $sourceLines
 
 Write-Host "H3E3C_ARCHIVER=$archiver"
+Write-Host "H3E3C_ARCHIVER_RESOLUTION=NORMALIZED_NATIVE_TOOL"
 
 $candidateArchiveDir =
     Join-Path $candidateDisplay "src\esp32"
