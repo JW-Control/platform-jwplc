@@ -94,6 +94,55 @@ Evidencia consolidada:
 
 - `A14_H3E_CLOSURE_20260928.md`
 
+
+### P5 final / core autoservice — reconciliación de pendientes históricos
+
+También quedan cerrados los pendientes que el checklist del 24-sep todavía
+mostraba como abiertos.
+
+P5-D final con DataLog físico, 600 s:
+
+```text
+TCP_ACHIEVED_REQ_S=979.68
+RTU_REQUESTS=30002/30002
+RTU_ACHIEVED_HZ=50.001
+RTU_FAILED=0
+RTU_TIMEOUTS=0
+SD_DATALOG_ACCEPTED_BYTES=19200
+SD_DATALOG_COMMITTED_BYTES=19136
+SD_DATALOG_PENDING_BYTES=64
+SD_DATALOG_FAILED_COMMITS=0
+SD_APPEND_FAILS=0
+PERIPHERAL_FAILURE_COUNT=0
+```
+
+P5-E2-R1, mismo core final `4BFF...`, 600 s:
+
+```text
+TCP_UNPACED_ACHIEVED_REQ_S=1006.066
+RTU_ACHIEVED_HZ=50.002
+SD_FAILED_COMMITS=0
+PERIPHERAL_FAILURE_COUNT=0
+TFT_MASTER_SLAVE=PASS
+USER_MANUAL_TCP_TASK_REQUIRED=NO
+PUBLIC_API_CHANGE=NO
+```
+
+Por tanto:
+
+```text
+P5_D_FINAL_600S=PASS
+SD_DATALOG_PHYSICAL_AUTOSERVICE=PASS
+P5_F_CORE_AUTOSERVICE=PASS
+P5_E2_R1_CORE_AUTOSERVICE_600S=PASS
+ALL_PERIPHERAL_600S_SOAK=PASS
+CORE_FINAL_SHA256=4BFF8C8241DA2E8BD0E1BBA99835ADDF91B9085A05C4DFBD05C339B824794566
+```
+
+El hash protegido de `common.ps1` se actualiza a este core final antes del
+readiness global.
+
+
 La readiness de PR debe auditarse nuevamente contra el estado actual completo del
 branch; no reutilizar automáticamente el readiness del 13-sep.
 
