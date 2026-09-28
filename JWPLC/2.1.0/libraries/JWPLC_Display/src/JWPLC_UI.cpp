@@ -4,7 +4,6 @@
 #include "JWPLC_Display_H3E1_Profile.h"
 
 #include <Arduino.h>
-#include <JWPLC_TFTClass.h>
 
 #include <cmath>
 #include <cstdio>

@@ -4,7 +4,6 @@
 #include "JWPLC_Display_API.h"
 #include "JWPLC_UI.h"
 
-#include <JWPLC_TFTClass.h>
 
 namespace
 {

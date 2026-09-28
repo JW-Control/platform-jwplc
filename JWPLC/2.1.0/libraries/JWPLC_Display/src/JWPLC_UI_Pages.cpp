@@ -7,7 +7,6 @@
 
 #include <JWPLC_GlobalPeripherals.h>
 #include <Arduino.h>
-#include <JWPLC_TFTClass.h>
 
 #include <cstdio>
 

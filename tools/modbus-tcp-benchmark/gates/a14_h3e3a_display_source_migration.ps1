@@ -68,14 +68,19 @@ $legacySt = ([regex]::Matches($sourceText, "Adafruit_ST7789")).Count
 $legacyGfx = ([regex]::Matches($sourceText, "Adafruit_GFX")).Count
 $legacyColor = ([regex]::Matches($sourceText, "ST77XX_")).Count
 $newType = ([regex]::Matches($sourceText, "JWPLC_TFTClass")).Count
+$phantomHeader = ([regex]::Matches($sourceText, "JWPLC_TFTClass\.h")).Count
 
 Write-Host "H3E3A_SOURCE_ADAFRUIT_ST7789_COUNT=$legacySt"
 Write-Host "H3E3A_SOURCE_ADAFRUIT_GFX_COUNT=$legacyGfx"
 Write-Host "H3E3A_SOURCE_ST77XX_COUNT=$legacyColor"
 Write-Host "H3E3A_SOURCE_JWPLC_TFT_TYPE_COUNT=$newType"
+Write-Host "H3E3A_SOURCE_PHANTOM_TFT_HEADER_COUNT=$phantomHeader"
 
-if ($legacySt -ne 0 -or $legacyGfx -ne 0 -or $legacyColor -ne 0) {
-    throw "H3E3A_SOURCE_LEGACY_BACKEND_REMAINS"
+if ($legacySt -ne 0 -or
+    $legacyGfx -ne 0 -or
+    $legacyColor -ne 0 -or
+    $phantomHeader -ne 0) {
+    throw "H3E3A_SOURCE_LEGACY_OR_PHANTOM_BACKEND_REMAINS"
 }
 if ($newType -lt 1) {
     throw "H3E3A_SOURCE_JWPLC_TFT_MISSING"

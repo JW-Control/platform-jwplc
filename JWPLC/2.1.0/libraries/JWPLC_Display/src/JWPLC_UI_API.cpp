@@ -4,7 +4,6 @@
 #include "JWPLC_UI_PixelMap.h"
 #include "JWPLC_UI_RuntimeHooks.h"
 
-#include <JWPLC_TFTClass.h>
 
 JWPLC_UIFieldMeta::JWPLC_UIFieldMeta(
     uint8_t idValue,
