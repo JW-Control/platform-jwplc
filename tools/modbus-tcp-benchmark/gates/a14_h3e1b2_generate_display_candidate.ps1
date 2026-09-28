@@ -126,11 +126,8 @@ function Resolve-ArchiverFromLog {
         [string]$LogPath
     )
 
-    if (-not (Test-Path -LiteralPath $LogPath)) {
-        throw "H3E1B2_SOURCE_COMPILE_LOG_MISSING"
-    }
-
-    foreach ($line in Get-Content -LiteralPath $LogPath) {
+    if (Test-Path -LiteralPath $LogPath) {
+        foreach ($line in Get-Content -LiteralPath $LogPath) {
         $candidate = $null
 
         if ($line -match '"(?<exe>[^"]*xtensa-esp32-elf-gcc-ar(?:\.exe)?)"') {
@@ -149,7 +146,10 @@ function Resolve-ArchiverFromLog {
         }
     }
 
-    foreach ($line in Get-Content -LiteralPath $LogPath) {
+    }
+
+    if (Test-Path -LiteralPath $LogPath) {
+        foreach ($line in Get-Content -LiteralPath $LogPath) {
         $compilerCandidate = $null
 
         if ($line -match '"(?<exe>[^"]*xtensa-esp32-elf-g\+\+(?:\.exe)?)"') {
@@ -176,6 +176,8 @@ function Resolve-ArchiverFromLog {
                 return (Resolve-Path -LiteralPath $sibling).Path
             }
         }
+    }
+
     }
 
     if (-not [string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) {
@@ -253,6 +255,24 @@ if (-not $sourcePreflightText.Contains("DISPLAY_LINKAGE=SOURCE")) {
     throw "H3E1B2_SOURCE_SETUP_LINKAGE_MISMATCH"
 }
 
+Write-Host ""
+Write-Host "=== ARCHIVER STATIC PREFLIGHT ==="
+
+$archiverPreflight = Resolve-ArchiverFromLog -LogPath (Join-Path $env:TEMP "__jwplc_h3e1b2_no_compile_log__")
+Write-Host "H3E1B2_ARCHIVER_PREFLIGHT=$archiverPreflight"
+
+$archiverVersion = Invoke-NativeCaptured -FilePath $archiverPreflight -Arguments @("--version")
+$archiverVersion.Lines | Select-Object -First 3 | ForEach-Object { Write-Host "ARCHIVER_VERSION=$_" }
+
+if ($archiverVersion.ExitCode -ne 0) {
+    throw "H3E1B2_ARCHIVER_PREFLIGHT_EXEC_FAILED"
+}
+
+if ([IO.Path]::GetFileName($archiverPreflight) -ne "xtensa-esp32-elf-gcc-ar.exe") {
+    throw "H3E1B2_ARCHIVER_PREFLIGHT_FILENAME_INVALID"
+}
+
+Write-Host "H3E1B2_ARCHIVER_PREFLIGHT=PASS"
 Write-Host "H3E1B2_STATIC_PREFLIGHT=PASS"
 Write-Host "CANDIDATE_MUTATES_REPO_ARCHIVE=NO"
 
