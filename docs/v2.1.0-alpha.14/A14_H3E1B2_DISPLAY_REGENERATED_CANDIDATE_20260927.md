@@ -167,3 +167,85 @@ H3E1B2_CANDIDATE_MEMBER_BYTE_PARITY=PASS
 H3E1B2_HISTORICAL_ARCHIVE_PRESERVED=YES
 A14_H3E1B2_CANDIDATE_GENERATION=PASS
 ```
+
+
+## Incidencia B2-A — archiver no localizado desde log
+
+La primera generación B2-A llegó correctamente hasta:
+
+```txt
+SOURCE_OBJECT JWPLC_Display.cpp.o=1
+SOURCE_OBJECT JWPLC_Display_H3E1_Profile.cpp.o=1
+SOURCE_OBJECT JWPLC_IdleScreen.cpp.o=1
+SOURCE_OBJECT JWPLC_UI.cpp.o=1
+SOURCE_OBJECT JWPLC_UI_API.cpp.o=1
+SOURCE_OBJECT JWPLC_UI_Pages.cpp.o=1
+SOURCE_OBJECT JWPLC_UI_PixelMap.cpp.o=1
+```
+
+y luego falló con:
+
+```txt
+H3E1B2_ARCHIVER_NOT_FOUND
+```
+
+Clasificación:
+
+```txt
+HARNESS_FAILURE=YES
+PRODUCT_FAILURE=NO
+HARDWARE_FAILURE=NO
+SOURCE_COMPILE=PASS
+UPLOAD=PASS
+SOURCE_OBJECT_SET=PASS
+CANDIDATE_GENERATED=NO
+HISTORICAL_ARCHIVE_PRESERVED=YES
+```
+
+Causa:
+
+El generador nuevo intentaba obtener
+`xtensa-esp32-elf-gcc-ar.exe` únicamente desde el compile log o como sibling
+de una línea explícita de `g++`.
+
+El log usado por el setup no garantizaba contener esas líneas, aunque la
+toolchain sí estaba instalada y Arduino la había utilizado correctamente.
+
+La fuente de verdad del package es:
+
+```txt
+platform.txt:
+tools.xtensa-esp-elf-gcc.path={runtime.tools.esp-x32.path}
+compiler.ar.cmd={compiler.prefix}gcc-ar
+
+installed.json:
+esp-x32@2601
+```
+
+Corrección:
+
+1. mantener búsqueda en compile log como primera opción;
+2. mantener sibling de compiler como segunda opción;
+3. añadir fallback determinista al árbol real de Arduino15:
+   `jwplc_local/tools/esp-x32/2601`;
+4. mantener fallback secundario al namespace `jwplc`;
+5. ejecutar `gcc-ar --version` ya en preflight;
+6. no permitir una compilación física larga si el archiver no está resuelto;
+7. permitir reusar un `TEMP_ROOT` source ya validado mediante
+   `-ReuseSourceSetupRoot`, evitando recompilar/uploadar por un fallo posterior.
+
+El build source válido de la incidencia fue:
+
+```txt
+C:\Users\jeykc\AppData\Local\Temp\jwplc_a14_h3e1b1_setup_20260927_191633
+```
+
+Regla preventiva:
+
+```txt
+No inferir herramientas Arduino únicamente desde verbose logs.
+
+Para toolchains del package:
+platform.txt / installed.json / Arduino15 tools tree
+son fuentes más fuertes que la presencia opcional de una línea en el log.
+```
