@@ -27,8 +27,9 @@ $expectedCoreHash = "4BFF8C8241DA2E8BD0E1BBA99835ADDF91B9085A05C4DFBD05C339B8247
 $expectedArchiveHash = "444BE3A04079A579252B2737FE6070E00ADCA949FD176880588FE69561B2A79F"
 $expectedDisplayArchiveHash = $ExpectedDisplayArchiveHash.Trim().ToUpperInvariant()
 
-if ($expectedDisplayArchiveHash -notmatch '^[0-9A-F]{64}
-
+if ($expectedDisplayArchiveHash -notmatch '^[0-9A-F]{64}$') {
+    throw "H3E1B1_EXPECTED_DISPLAY_HASH_INVALID"
+}
 $archiveRelative = "JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/src/esp32/libJWPLC_ModbusRTU.a"
 $archivePath = Get-G2Path $archiveRelative
 $displayArchiveRelative = "JWPLC/2.1.0/libraries/JWPLC_Display/src/esp32/libJWPLC_Display.a"
