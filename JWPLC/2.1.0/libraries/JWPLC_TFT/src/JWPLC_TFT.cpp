@@ -540,7 +540,7 @@ size_t JWPLC_TFTClass::write(
     }
 
     const size_t written =
-        g_backend.write(
+        static_cast<Print &>(g_backend).write(
             buffer,
             size);
 
