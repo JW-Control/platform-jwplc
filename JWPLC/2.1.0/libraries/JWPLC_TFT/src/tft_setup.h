@@ -1,9 +1,10 @@
 #pragma once
 
-// H3E.2A: configuracion privada temporal del backend TFT_eSPI.
-// H3E.2B debe eliminar la dependencia de configuracion externa/global.
+// Configuracion de mantenimiento para regenerar el backend JWPLC_TFT.
+// Los builds normales del package usan src/esp32/libJWPLC_TFT.a y no
+// requieren TFT_eSPI instalado ni User_Setup.h del usuario.
 
-#define USER_SETUP_INFO "JWPLC_TFT Basic v2 H3E2A"
+#define USER_SETUP_INFO "JWPLC_TFT Basic v2"
 #define JWPLC_TFT_BACKEND_SETUP 1
 
 #define ST7789_DRIVER
