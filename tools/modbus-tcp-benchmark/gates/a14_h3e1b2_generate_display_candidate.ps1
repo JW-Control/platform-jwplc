@@ -1,6 +1,7 @@
 param(
     [string]$MasterPort = "COM14",
     [string]$SlavePort = "COM4",
+    [string]$ReuseSourceSetupRoot = "",
     [switch]$PreflightOnly,
     [switch]$AllowDirtyCoreCandidate
 )
@@ -142,22 +143,66 @@ function Resolve-ArchiverFromLog {
         if (-not [string]::IsNullOrWhiteSpace($candidate)) {
             $resolved = Resolve-NativeToolPath -Candidate $candidate
             if (-not [string]::IsNullOrWhiteSpace($resolved)) {
+                Write-Host "ARCHIVER_RESOLUTION=COMPILE_LOG"
                 return $resolved
             }
         }
     }
 
     foreach ($line in Get-Content -LiteralPath $LogPath) {
+        $compilerCandidate = $null
+
         if ($line -match '"(?<exe>[^"]*xtensa-esp32-elf-g\+\+(?:\.exe)?)"') {
-            $compiler = Resolve-NativeToolPath -Candidate $Matches["exe"]
-            if ($compiler) {
-                $dir = Split-Path -Parent $compiler
-                foreach ($name in @("xtensa-esp32-elf-gcc-ar.exe", "xtensa-esp32-elf-gcc-ar")) {
-                    $candidate = Join-Path $dir $name
-                    if (Test-Path -LiteralPath $candidate) {
-                        return (Resolve-Path -LiteralPath $candidate).Path
-                    }
+            $compilerCandidate = $Matches["exe"]
+        }
+        elseif ($line -match '(?<exe>\S*xtensa-esp32-elf-g\+\+(?:\.exe)?)\s') {
+            $compilerCandidate = $Matches["exe"]
+        }
+
+        if ([string]::IsNullOrWhiteSpace($compilerCandidate)) {
+            continue
+        }
+
+        $compiler = Resolve-NativeToolPath -Candidate $compilerCandidate
+        if ([string]::IsNullOrWhiteSpace($compiler)) {
+            continue
+        }
+
+        $toolDir = Split-Path -Parent $compiler
+        foreach ($leaf in @("xtensa-esp32-elf-gcc-ar.exe", "xtensa-esp32-elf-gcc-ar")) {
+            $sibling = Join-Path $toolDir $leaf
+            if (Test-Path -LiteralPath $sibling) {
+                Write-Host "ARCHIVER_RESOLUTION=COMPILER_SIBLING"
+                return (Resolve-Path -LiteralPath $sibling).Path
+            }
+        }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) {
+        $packagesRoot = Join-Path $env:LOCALAPPDATA "Arduino15\packages"
+
+        foreach ($namespace in @("jwplc_local", "jwplc")) {
+            $espX32Root = Join-Path $packagesRoot ($namespace + "\tools\esp-x32")
+            if (-not (Test-Path -LiteralPath $espX32Root)) {
+                continue
+            }
+
+            $preferredRoot = Join-Path $espX32Root "2601"
+            if (Test-Path -LiteralPath $preferredRoot) {
+                $preferred = Get-ChildItem -LiteralPath $preferredRoot -Recurse -File -Filter "xtensa-esp32-elf-gcc-ar.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+                if ($null -ne $preferred) {
+                    Write-Host "ARCHIVER_RESOLUTION=ARDUINO15_ESP_X32_2601"
+                    Write-Host "ARCHIVER_NAMESPACE=$namespace"
+                    Write-Host "ARCHIVER_TOOL_VERSION=2601"
+                    return $preferred.FullName
                 }
+            }
+
+            $found = Get-ChildItem -LiteralPath $espX32Root -Recurse -File -Filter "xtensa-esp32-elf-gcc-ar.exe" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+            if ($null -ne $found) {
+                Write-Host "ARCHIVER_RESOLUTION=ARDUINO15_ESP_X32_FALLBACK"
+                Write-Host "ARCHIVER_NAMESPACE=$namespace"
+                return $found.FullName
             }
         }
     }
@@ -234,39 +279,58 @@ $extractRoot = Join-Path $candidateRoot "members"
 New-Item -ItemType Directory -Force -Path $extractRoot | Out-Null
 
 Write-Host ""
-Write-Host "=== PRODUCE VALIDATED SOURCE OBJECTS ==="
+Write-Host "=== RESOLVE VALIDATED SOURCE OBJECTS ==="
 
-[object[]]$setupLines = @(
-    & $sourceSetup -MasterPort $MasterPort -SlavePort $SlavePort -DisplayLinkage SOURCE -SetupOnly -AllowDirtyCoreCandidate *>&1
-)
+$sourceSetupRoot = $null
 
-$setupLines | ForEach-Object { Write-Host $_ }
+if (-not [string]::IsNullOrWhiteSpace($ReuseSourceSetupRoot)) {
+    $sourceSetupRoot = [IO.Path]::GetFullPath($ReuseSourceSetupRoot)
+    Write-Host "SOURCE_OBJECT_ORIGIN=REUSE_EXISTING_SETUP"
+    Write-Host "SOURCE_SETUP_ROOT=$sourceSetupRoot"
 
-$setupText = ($setupLines | ForEach-Object { $_.ToString() }) -join [Environment]::NewLine
-
-if (-not $setupText.Contains("A14_H3E1B1_SETUP_ONLY=PASS")) {
-    throw "H3E1B2_SOURCE_SETUP_FAILED"
+    if (-not (Test-Path -LiteralPath $sourceSetupRoot)) {
+        throw "H3E1B2_REUSE_SOURCE_SETUP_ROOT_MISSING"
+    }
 }
-if (-not $setupText.Contains("DISPLAY_LINKAGE_PROOF=SOURCE_OBJECTS_PRESENT")) {
-    throw "H3E1B2_SOURCE_OBJECT_PROOF_MISSING"
-}
-if (-not $setupText.Contains("H3E1B1_DISPLAY_ARCHIVE_RESTORED=YES")) {
-    throw "H3E1B2_HISTORICAL_ARCHIVE_RESTORE_CONFIRMATION_MISSING"
+else {
+    Write-Host "SOURCE_OBJECT_ORIGIN=NEW_SOURCE_SETUP"
+
+    [object[]]$setupLines = @(
+        & $sourceSetup -MasterPort $MasterPort -SlavePort $SlavePort -DisplayLinkage SOURCE -SetupOnly -AllowDirtyCoreCandidate *>&1
+    )
+
+    $setupLines | ForEach-Object { Write-Host $_ }
+    $setupText = ($setupLines | ForEach-Object { $_.ToString() }) -join [Environment]::NewLine
+
+    if (-not $setupText.Contains("A14_H3E1B1_SETUP_ONLY=PASS")) {
+        throw "H3E1B2_SOURCE_SETUP_FAILED"
+    }
+    if (-not $setupText.Contains("DISPLAY_LINKAGE_PROOF=SOURCE_OBJECTS_PRESENT")) {
+        throw "H3E1B2_SOURCE_OBJECT_PROOF_MISSING"
+    }
+    if (-not $setupText.Contains("H3E1B1_DISPLAY_ARCHIVE_RESTORED=YES")) {
+        throw "H3E1B2_HISTORICAL_ARCHIVE_RESTORE_CONFIRMATION_MISSING"
+    }
+
+    $rootMatch = [regex]::Match($setupText, '(?m)^TEMP_ROOT=(.+?)\r?$')
+    if (-not $rootMatch.Success) {
+        throw "H3E1B2_SOURCE_TEMP_ROOT_MISSING"
+    }
+
+    $sourceSetupRoot = $rootMatch.Groups[1].Value.Trim()
 }
 
-$rootMatch = [regex]::Match($setupText, '(?m)^TEMP_ROOT=(.+?)\r?$')
-
-if (-not $rootMatch.Success) {
-    throw "H3E1B2_SOURCE_TEMP_ROOT_MISSING"
-}
-
-$sourceSetupRoot = $rootMatch.Groups[1].Value.Trim()
 $sourceBuild = Join-Path $sourceSetupRoot "build_master_source_core"
 $sourceCompileLog = Join-Path $sourceSetupRoot "compile_master_source_core.log"
-
 if (-not (Test-Path -LiteralPath $sourceBuild)) {
     throw "H3E1B2_SOURCE_BUILD_MISSING"
 }
+if (-not (Test-Path -LiteralPath $sourceCompileLog)) {
+    throw "H3E1B2_SOURCE_COMPILE_LOG_MISSING"
+}
+
+Write-Host "SOURCE_BUILD=$sourceBuild"
+Write-Host "SOURCE_COMPILE_LOG=$sourceCompileLog"
 
 [string[]]$objectPaths = @()
 [hashtable]$objectHashes = @{}
@@ -376,6 +440,14 @@ $manifest = [ordered]@{
     source_tus = $sourceNames
     source_object_sha256 = $objectHashes
     source_setup_root = $sourceSetupRoot
+    source_object_origin = $(
+        if ([string]::IsNullOrWhiteSpace($ReuseSourceSetupRoot)) {
+            "NEW_SOURCE_SETUP"
+        }
+        else {
+            "REUSE_EXISTING_SETUP"
+        }
+    )
     archiver = $archiver
 }
 
