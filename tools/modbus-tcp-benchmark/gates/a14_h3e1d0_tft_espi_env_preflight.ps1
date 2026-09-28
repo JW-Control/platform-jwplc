@@ -9,7 +9,8 @@ Write-Host "============================================================"
 Assert-G2Branch
 
 $expectedTftHz = 80000000
-$expectedTftEsPiVersion = [Version]"2.5.44"
+$expectedTftEsPiVersion = [Version]"2.5.43"
+$expectedTftEsPiSource = "ARDUINO_LIBRARY_MANAGER_RELEASE"
 
 $spiHeaderRelative = "JWPLC/2.1.0/cores/jwcontrol/peripherals/include/jwplc_spi_bus.h"
 $displayHeaderRelative = "JWPLC/2.1.0/libraries/JWPLC_Display/src/JWPLC_Display.h"
@@ -115,6 +116,7 @@ $tftLine = @(
 if ($null -eq $tftLine) {
     Write-Host "H3E1D0_TFT_ESPI_FOUND=NO"
     Write-Host "H3E1D0_TFT_ESPI_EXPECTED_VERSION=$expectedTftEsPiVersion"
+Write-Host "H3E1D0_TFT_ESPI_EXPECTED_SOURCE=$expectedTftEsPiSource"
     throw "H3E1D0_TFT_ESPI_NOT_INSTALLED"
 }
 
