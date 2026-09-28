@@ -239,48 +239,85 @@ if ($legacySelections.Count -ne 0) {
 }
 
 $db = Join-Path $build "compile_commands.json"
-if (-not (Test-Path -LiteralPath $db)) {
-    throw "H3E3A_COMPILE_DB_MISSING"
+if (Test-Path -LiteralPath $db) {
+    [object[]]$entries = @(
+        Get-Content -LiteralPath $db -Raw | ConvertFrom-Json
+    )
+
+    Write-Host "H3E3A_COMPILE_DB_ENTRY_COUNT=$($entries.Count)"
+    Write-Host "H3E3A_COMPILE_DB_CLASSIFICATION=INFORMATIONAL_ONLY"
+}
+else {
+    Write-Host "H3E3A_COMPILE_DB_ENTRY_COUNT=0"
+    Write-Host "H3E3A_COMPILE_DB_CLASSIFICATION=NOT_REQUIRED"
 }
 
-[object[]]$entries = @(
-    Get-Content -LiteralPath $db -Raw | ConvertFrom-Json
+$displayBuildRoot =
+    Join-Path $build "libraries\JWPLC_Display"
+
+[string[]]$expectedDisplayObjectNames = @(
+    Get-ChildItem -LiteralPath (Join-Path $tempDisplay "src") -File -Filter "*.cpp" -ErrorAction Stop |
+        ForEach-Object {
+            "$($_.Name).o"
+        } |
+        Sort-Object
 )
-[string[]]$tuFiles = @(
-    foreach ($entry in $entries) {
-        $f = [string]$entry.file
-        if (-not [string]::IsNullOrWhiteSpace($f)) {
-            $f.Trim().Trim('"').Replace([char]92, [char]47)
-        }
+
+[string[]]$actualDisplayObjectNames = @(
+    if (Test-Path -LiteralPath $displayBuildRoot) {
+        Get-ChildItem -LiteralPath $displayBuildRoot -File -Filter "*.cpp.o" -ErrorAction Stop |
+            ForEach-Object {
+                $_.Name
+            } |
+            Sort-Object
     }
 )
 
-[int]$displayTus = @(
-    $tuFiles |
-        Where-Object { $_ -match '/JWPLC_Display/src/.+\.cpp$' }
-).Count
-[int]$jwplcTftTus = @(
-    $tuFiles |
-        Where-Object {
-            $_.EndsWith("/JWPLC_TFT.cpp", [StringComparison]::OrdinalIgnoreCase)
-        }
-).Count
-[int]$tftEspiTus = @(
-    $tuFiles |
-        Where-Object {
-            $_.EndsWith("/TFT_eSPI.cpp", [StringComparison]::OrdinalIgnoreCase)
-        }
-).Count
+[object[]]$displayObjectDiff = @(
+    Compare-Object -ReferenceObject $expectedDisplayObjectNames -DifferenceObject $actualDisplayObjectNames
+)
 
-Write-Host "H3E3A_COMPILE_DB_ENTRY_COUNT=$($entries.Count)"
-Write-Host "H3E3A_DISPLAY_SOURCE_TU_COUNT=$displayTus"
-Write-Host "H3E3A_JWPLC_TFT_SOURCE_TU_COUNT=$jwplcTftTus"
-Write-Host "H3E3A_TFT_ESPI_SOURCE_TU_COUNT=$tftEspiTus"
+Write-Host "H3E3A_DISPLAY_EXPECTED_OBJECT_COUNT=$($expectedDisplayObjectNames.Count)"
+Write-Host "H3E3A_DISPLAY_ACTUAL_OBJECT_COUNT=$($actualDisplayObjectNames.Count)"
+Write-Host "H3E3A_DISPLAY_OBJECT_PARITY=$(
+    if ($displayObjectDiff.Count -eq 0) { 'PASS' } else { 'FAIL' }
+)"
 
-if ($displayTus -lt 6) {
-    throw "H3E3A_DISPLAY_SOURCE_TU_COUNT_INVALID"
+$expectedDisplayObjectNames |
+    ForEach-Object {
+        Write-Host "H3E3A_DISPLAY_EXPECTED_OBJECT=$_"
+    }
+
+$actualDisplayObjectNames |
+    ForEach-Object {
+        Write-Host "H3E3A_DISPLAY_ACTUAL_OBJECT=$_"
+    }
+
+if ($expectedDisplayObjectNames.Count -lt 6 -or
+    $displayObjectDiff.Count -ne 0) {
+    throw "H3E3A_DISPLAY_SOURCE_OBJECT_PARITY_FAILED"
 }
-if ($jwplcTftTus -ne 0 -or $tftEspiTus -ne 0) {
+
+[int]$jwplcTftSourceObjectCount = @(
+    Get-ChildItem -LiteralPath $build -Recurse -File -ErrorAction SilentlyContinue |
+        Where-Object {
+            $_.Name -eq "JWPLC_TFT.cpp.o"
+        }
+).Count
+
+[int]$tftEsPiSourceObjectCount = @(
+    Get-ChildItem -LiteralPath $build -Recurse -File -ErrorAction SilentlyContinue |
+        Where-Object {
+            $_.Name -eq "TFT_eSPI.cpp.o"
+        }
+).Count
+
+Write-Host "H3E3A_JWPLC_TFT_SOURCE_OBJECT_COUNT=$jwplcTftSourceObjectCount"
+Write-Host "H3E3A_TFT_ESPI_SOURCE_OBJECT_COUNT=$tftEsPiSourceObjectCount"
+Write-Host "H3E3A_SOURCE_COMPILE_CLASSIFICATION=BUILD_OBJECT_PARITY"
+
+if ($jwplcTftSourceObjectCount -ne 0 -or
+    $tftEsPiSourceObjectCount -ne 0) {
     throw "H3E3A_JWPLC_TFT_PRECOMPILED_POLICY_FAILED"
 }
 
