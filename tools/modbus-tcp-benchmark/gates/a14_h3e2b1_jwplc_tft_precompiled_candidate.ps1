@@ -362,7 +362,13 @@ depends=SPI
     $candidatePropertiesText,
     (New-Object Text.UTF8Encoding($false)))
 
-if ((Get-ChildItem -LiteralPath $candidateSrc -Recurse -File -Filter "*.cpp" -ErrorAction SilentlyContinue).Count -ne 0) {
+[object[]]$candidateCppFiles = @(
+    Get-ChildItem -LiteralPath $candidateSrc -Recurse -File -Filter "*.cpp" -ErrorAction SilentlyContinue
+)
+
+Write-Host "H3E2B1_CANDIDATE_CPP_COUNT=$($candidateCppFiles.Count)"
+
+if ($candidateCppFiles.Count -ne 0) {
     throw "H3E2B1_CANDIDATE_SOURCE_CPP_PRESENT"
 }
 
@@ -370,7 +376,6 @@ if ((Get-Content -LiteralPath $candidateProperties -Raw).Contains("TFT_eSPI")) {
     throw "H3E2B1_CANDIDATE_PROPERTIES_BACKEND_LEAK"
 }
 
-Write-Host "H3E2B1_CANDIDATE_CPP_COUNT=0"
 Write-Host "H3E2B1_CANDIDATE_DEPENDS_TFT_ESPI=NO"
 Write-Host "H3E2B1_CANDIDATE_PRECOMPILED_FULL=YES"
 
