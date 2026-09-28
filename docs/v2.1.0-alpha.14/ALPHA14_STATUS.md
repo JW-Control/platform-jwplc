@@ -1,6 +1,6 @@
 # v2.1.0-alpha.14 — Estado
 
-Actualizado: `2026-09-13`
+Actualizado: `2026-09-28`
 
 ## Identidad
 
@@ -8,7 +8,9 @@ Actualizado: `2026-09-13`
 BRANCH=v2.1.0-alpha.14/feature/modbus-tcp
 BASE_BRANCH=release/v2.1.x
 BASE_SHA=165f94fb25617d3a6035fdfd9899bd38a1331583
-ALPHA14_STATUS=READY_FOR_RELEASE_PR
+ALPHA14_STATUS=POST_CLOSURE_HARDENING_VALIDATED
+ALPHA14_H3E=CLOSED_PASS
+ALPHA14_RELEASE_PR_READY=PENDING_FINAL_REAUDIT
 ```
 
 ## Resultado global
@@ -20,12 +22,81 @@ A14_3=PASS_PHYSICAL
 A14_4=PASS_PHYSICAL
 A14_5_ROBOT_INTEROPERABILITY=DEFERRED_NON_BLOCKING
 ALPHA14_CLOSE_READINESS=PASS
-ALPHA14_TECHNICAL_CLOSURE=PASS
+ALPHA14_TECHNICAL_CLOSURE_20260913=PASS_HISTORICAL
+A14_H3E=PASS
+ALPHA14_CURRENT_RELEASE_READINESS=PENDING_FINAL_REAUDIT
 ```
 
 Alpha14 incorpora y valida `JWPLC_ModbusTCP` como nueva librería del ecosistema JWPLC para servidor y cliente Modbus TCP cooperativos, manteniendo compatibilidad Arduino IDE y coexistencia con el runtime integrado del JWPLC Basic.
 
 No se retiran periféricos del autoload normal.
+
+
+## Actualización posterior al cierre histórico — H3E (2026-09-28)
+
+El cierre del 13-sep se conserva como evidencia histórica de A14.1-A14.5, pero
+dejó de ser el estado final del branch cuando Alpha14 continuó con DataLog,
+core precompilado, hardening RTU y Display.
+
+H3E queda cerrado:
+
+```text
+A14_H3E=CLOSED_PASS
+H3E_PRODUCT_FAILURE=NO
+H3E_HARDWARE_FAILURE=NO
+```
+
+Hallazgos cerrados:
+
+```text
+ORIGINAL_SYSTEMTASK_GAP_DOMINANT=DISPLAY
+DISPLAY_ALPHA11_ARCHIVE=STALE_PERFORMANCE
+PRECOMPILED_FULL_STRATEGY=VALID
+W5500_SPI_HZ=26000000
+```
+
+Artifacts finales usados en la regresión full runtime:
+
+```text
+JWPLC_Display.a
+SHA256=52B9BC617FACB77705161B4F07E6D45571043E4473934EFE19A1F5444BB5D986
+
+libJWPLC_TFT.a
+SHA256=5D860A131811DD9A7EB6FA55F5674B1D78B0DE7DFAF8748CE18A60CEED2D3738
+
+core.a
+SHA256=4BFF8C8241DA2E8BD0E1BBA99835ADDF91B9085A05C4DFBD05C339B824794566
+
+libJWPLC_ModbusRTU.a
+SHA256=486BE38AE088B94898E516FFBC125855F22C2EC5EE8A6FA9E10F35D7CAC3A3BE
+```
+
+Regresión H3E.5:
+
+```text
+TCP=120000/120000 @ 1000.00 req/s
+RTU=6001/6001 @ 50.004 Hz
+RTU_TIMEOUTS=0
+RTU_CRC_ERRORS=0
+SD_DATALOG_FAILED_COMMITS=0
+PERIPHERAL_FAILURE_COUNT=0
+TFT_MASTER_SLAVE_PHYSICAL=PASS
+A14_H3E5_EXISTING_RUN_REVALIDATION=PASS
+```
+
+Core y Modbus RTU fueron adoptados en:
+
+```text
+f1648654eac265de64aefd1ea601c28f01db9db8
+```
+
+Evidencia consolidada:
+
+- `A14_H3E_CLOSURE_20260928.md`
+
+La readiness de PR debe auditarse nuevamente contra el estado actual completo del
+branch; no reutilizar automáticamente el readiness del 13-sep.
+
 
 ## A14.1 — Foundation + Server
 
@@ -298,6 +369,7 @@ ALPHA14_ONLY_COMMITS=142
 ## Siguiente paso
 
 ```text
-NEXT=OPEN_RELEASE_PR_TO_release/v2.1.x
+NEXT=RECONCILE_FINAL_ALPHA14_CHECKLIST_AND_REMAINING_GATES
 CI_REQUIRED_BEFORE_MERGE=YES
+HISTORICAL_READY_FOR_RELEASE_PR_20260913=SUPERSEDED_BY_POST_CLOSURE_HARDENING
 ```
