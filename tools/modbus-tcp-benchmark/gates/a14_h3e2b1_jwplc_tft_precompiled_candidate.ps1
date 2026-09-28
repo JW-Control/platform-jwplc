@@ -459,28 +459,80 @@ if ($backendSelection.Count -ne 0) {
     throw "H3E2B1_EXTERNAL_TFT_ESPI_SELECTED"
 }
 
-[string[]]$candidateCompileLines = @(
-    $candidateRun.Output |
-        Where-Object { $_ -match '-MMD\s+-c\s' }
+$candidateCompileDbPath = Join-Path $candidateBuild "compile_commands.json"
+
+if (-not (Test-Path -LiteralPath $candidateCompileDbPath)) {
+    throw "H3E2B1_CANDIDATE_COMPILE_DB_MISSING"
+}
+
+[object[]]$candidateCompileDbEntries = @(
+    Get-Content -LiteralPath $candidateCompileDbPath -Raw |
+        ConvertFrom-Json
+)
+
+[string[]]$candidateTuFiles = @(
+    foreach ($entry in $candidateCompileDbEntries) {
+        $fileText = [string]$entry.file
+
+        if ([string]::IsNullOrWhiteSpace($fileText)) {
+            continue
+        }
+
+        $fileText.
+            Trim().
+            Trim('"').
+            Replace([char]92, [char]47)
+    }
 )
 
 [int]$jwplcSourceCompiles = @(
-    $candidateCompileLines |
-        Where-Object { $_ -match '[\\/]JWPLC_TFT[\\/].*\.cpp' }
+    $candidateTuFiles |
+        Where-Object {
+            $_.EndsWith(
+                "/JWPLC_TFT.cpp",
+                [StringComparison]::OrdinalIgnoreCase)
+        }
 ).Count
 
 [int]$backendSourceCompiles = @(
-    $candidateCompileLines |
-        Where-Object { $_ -match '[\\/]TFT_eSPI[\\/].*\.cpp' }
+    $candidateTuFiles |
+        Where-Object {
+            $_.EndsWith(
+                "/TFT_eSPI.cpp",
+                [StringComparison]::OrdinalIgnoreCase)
+        }
 ).Count
 
+Write-Host "H3E2B1_CANDIDATE_COMPILE_DB_ENTRY_COUNT=$($candidateCompileDbEntries.Count)"
 Write-Host "H3E2B1_CANDIDATE_JWPLC_TFT_SOURCE_COMPILES=$jwplcSourceCompiles"
 Write-Host "H3E2B1_CANDIDATE_TFT_ESPI_SOURCE_COMPILES=$backendSourceCompiles"
+Write-Host "H3E2B1_SOURCE_COMPILE_CLASSIFICATION=COMPILE_DB_ENTRY_FILE"
 
 if ($jwplcSourceCompiles -ne 0) {
+    $candidateTuFiles |
+        Where-Object {
+            $_.EndsWith(
+                "/JWPLC_TFT.cpp",
+                [StringComparison]::OrdinalIgnoreCase)
+        } |
+        ForEach-Object {
+            Write-Host "H3E2B1_UNEXPECTED_JWPLC_TFT_TU=$_"
+        }
+
     throw "H3E2B1_JWPLC_TFT_SOURCE_COMPILED"
 }
+
 if ($backendSourceCompiles -ne 0) {
+    $candidateTuFiles |
+        Where-Object {
+            $_.EndsWith(
+                "/TFT_eSPI.cpp",
+                [StringComparison]::OrdinalIgnoreCase)
+        } |
+        ForEach-Object {
+            Write-Host "H3E2B1_UNEXPECTED_TFT_ESPI_TU=$_"
+        }
+
     throw "H3E2B1_TFT_ESPI_SOURCE_COMPILED"
 }
 
