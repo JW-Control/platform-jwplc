@@ -42,7 +42,81 @@ R1_ARDUINO_IDE_PHYSICAL=PASS_RETAINED
 PR99_MERGE_READINESS=PAUSED
 ```
 
-## H4A — TCP-only post-H3E
+## H4A0 — RAW Ethernet post-H3E
+
+Objetivo: volver a medir el techo bruto de transporte Ethernet con el package
+final, separando claramente transporte RAW de Modbus TCP.
+
+Firmware:
+
+```text
+tools/modbus-tcp-benchmark/firmware/
+eth14_raw_transport_server/
+eth14_raw_transport_server.ino
+```
+
+Runner:
+
+```text
+tools/modbus-tcp-benchmark/pc/
+eth14_raw_transport_benchmark.py
+```
+
+Modos:
+
+```text
+TCP_RX
+TCP_TX
+UDP_RX
+UDP_TX
+```
+
+Baseline histórica a 26 MHz:
+
+```text
+G2:
+TCP_RX ~= 13.798 Mbps
+TCP_TX ~= 4.900 Mbps
+UDP_RX ~= 11.411 Mbps
+UDP_TX ~= 5.178 Mbps
+```
+
+Otra sesión optimizada RAW dejó:
+
+```text
+TCP_RX median ~= 13.412507 Mbps
+UDP_RX median ~= 13.866349 Mbps
+UDP_RX vs TCP_RX ~= +3.38 %
+```
+
+Estas cifras pertenecen a gates/direcciones/workloads distintos; por tanto no
+se mezclan como un único techo universal.
+
+La repetición post-H3E usará:
+
+```text
+W5500 SPI=26 MHz
+autoload normal
+JWPLC_Display + JWPLC_TFT finales
+external TFT_eSPI=NO
+TCP chunk comparable
+UDP payload comparable
+```
+
+Se medirán primero los cuatro modos con el mismo runner histórico y luego, si
+alguno muestra una mejora clara, se hará una pequeña exploración de chunk/batch
+sin cambiar librería Ethernet de producto.
+
+El dato de datasheet debe declarar dirección y protocolo, por ejemplo:
+
+```text
+RAW TCP RX throughput = X Mbps
+RAW TCP TX throughput = Y Mbps
+RAW UDP RX throughput = Z Mbps
+RAW UDP TX throughput = W Mbps
+```
+
+## H4A1 — Modbus TCP-only post-H3E
 
 Objetivo: redescubrir el techo de Modbus TCP con el runtime final y RTU
 deshabilitado, manteniendo autoload normal y artifacts H3E finales.
@@ -167,6 +241,75 @@ posteriormente al Display.
 
 No se adoptará FIFO1 como default aunque un gate corto quede limpio.
 
+
+## H4E — Coexistencia extrema TCP + RTU
+
+Objetivo: construir una frontera 2D de rendimiento simultáneo para obtener un
+dato defendible de datasheet.
+
+No se fija de antemano un target como PASS obligatorio. Se exploran pares:
+
+```text
+TCP req/s x RTU tx/s
+```
+
+partiendo de puntos ya demostrados y subiendo gradualmente.
+
+Ejemplos de zonas objetivo:
+
+```text
+TCP 1000 + RTU 50
+TCP 1000 + RTU 200
+TCP 1000 + RTU 500
+TCP 1000 + RTU 800
+TCP 1000 + RTU 1000   <-- sólo si el hardware/runtime lo sostiene
+```
+
+Si el techo RTU con TCP=1000 queda por debajo, se construye la frontera inversa:
+
+```text
+RTU target alto + TCP variable
+```
+
+Cada candidato de datasheet exige:
+
+```text
+duration >= 600 s
+TCP achieved >= 99% target
+RTU achieved >= 99% target
+TCP errors=0
+RTU failed=0
+RTU timeouts=0
+CRC=0
+SD failed commits=0
+peripheral failures=0
+TFT physical=PASS
+unexpected resets=0
+```
+
+La cifra publicada debe incluir el perfil exacto:
+
+```text
+Modbus TCP:
+  FC/function
+  quantity
+  req/s
+
+Modbus RTU:
+  baud
+  frame gap
+  FIFO
+  RX mode
+  tx/s
+
+Runtime:
+  Display mode
+  Ethernet SPI
+  periféricos activos
+```
+
+Esto evita publicar un número ambiguo o no reproducible.
+
 ## Reglas de adopción
 
 - No cambiar defaults por un único pico corto.
@@ -182,10 +325,12 @@ No se adoptará FIFO1 como default aunque un gate corto quede limpio.
 ## Orden
 
 ```text
-H4A TCP-only
+H4A0 RAW Ethernet TCP/UDP Mbps
+-> H4A1 Modbus TCP-only req/s
 -> H4B TCP + RTU50
--> H4C 100/75 us
+-> H4C RTU FAST 100/75 us
 -> H4D SFIFO/BULK
+-> H4E coexistencia extrema TCP+RTU / datasheet
 -> decisión final
 -> R0/R1 siguen válidos
 -> PR99 + CI
