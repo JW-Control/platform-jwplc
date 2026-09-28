@@ -414,7 +414,7 @@ extern "C" void jwplcDisplayRefreshCallback(
     {
         h3e1d3DrawValue(
             h3e1d3TcpOk,
-            44, 45, 82, 16, 2,
+            50, 45, 82, 16, 2,
             H3E1D3_ALIGN_RIGHT);
         h3e1d3DirtyTcpOk = false;
     }
@@ -423,7 +423,7 @@ extern "C" void jwplcDisplayRefreshCallback(
     {
         h3e1d3DrawValue(
             h3e1d3RtuOk,
-            44, 79, 82, 16, 2,
+            50, 79, 82, 16, 2,
             H3E1D3_ALIGN_RIGHT);
         h3e1d3DirtyRtuOk = false;
     }
