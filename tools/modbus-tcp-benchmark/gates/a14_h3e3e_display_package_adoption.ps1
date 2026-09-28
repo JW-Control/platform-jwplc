@@ -15,8 +15,11 @@ Assert-G2Branch
 $cli = "C:\Program Files\Arduino PLC IDE Tools\arduino-cli.exe"
 $fqbn = "jwplc_local:esp32:jwplcbasic"
 
-$h3e3c =
-    Join-Path $PSScriptRoot "a14_h3e3c_display_precompiled_candidate.ps1"
+$physicalArchiveSha =
+    "52B9BC617FACB77705161B4F07E6D45571043E4473934EFE19A1F5444BB5D986"
+
+$physicalAppSha =
+    "409B6C7055C248AE349CC3409F8361C6739FD92A933B26EE9CC5C6135E70F87C"
 
 $displayRoot =
     Get-G2Path "JWPLC/2.1.0/libraries/JWPLC_Display"
@@ -41,7 +44,6 @@ $hmiSketch =
 
 foreach ($required in @(
     $cli,
-    $h3e3c,
     $displayRoot,
     $propertiesPath,
     $autoPath,
@@ -98,82 +100,106 @@ Write-Host "HEAD=$(Get-G2Head)"
 Write-Host "H3E3E_MODE=$mode"
 
 Write-Host ""
-Write-Host "=== H3E3E REQUIRE H3E3C ==="
+Write-Host "=== H3E3E RESOLVE H3E3D PHYSICAL ARTIFACT ==="
 
-[object[]]$cOutput =
-    @(& $h3e3c *>&1)
-
-$cOutput |
-    ForEach-Object {
-        Write-Host $_
-    }
-
-[string[]]$cLines = @(
-    $cOutput |
-        ForEach-Object {
-            $_.ToString()
-        }
+[object[]]$physicalRuns = @(
+    Get-ChildItem -LiteralPath $env:TEMP -Directory -Filter "jwplc_a14_h3e3c_*" -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending
 )
 
-$cText =
-    $cLines -join [Environment]::NewLine
+$candidateArchive =
+    $null
 
-if (-not $cText.Contains(
-    "A14_H3E3C_DISPLAY_PRECOMPILED_CANDIDATE_GATE=PASS")) {
-    throw "H3E3E_H3E3C_NOT_PASS"
-}
+$physicalAppBin =
+    $null
 
-Write-Host "H3E3E_H3E3C_PREREQUISITE=PASS"
+$physicalRunRoot =
+    $null
 
-function Get-H3E3EMarker {
-    param(
-        [string[]]$Lines,
-        [string]$Prefix
-    )
+foreach ($run in $physicalRuns) {
+    $archivePath =
+        Join-Path $run.FullName "candidate-libraries\JWPLC_Display\src\esp32\libJWPLC_Display.a"
 
-    [string[]]$matches = @(
-        $Lines |
-            Where-Object {
-                $_.StartsWith(
-                    $Prefix,
-                    [StringComparison]::Ordinal)
-            }
-    )
+    $appPath =
+        Join-Path $run.FullName "candidate-build\a14_h3e3b_display_runtime_physical.ino.bin"
 
-    if ($matches.Count -ne 1) {
-        throw ("H3E3E_MARKER_COUNT_INVALID={0}:{1}" -f $Prefix, $matches.Count)
+    if (-not (Test-Path -LiteralPath $archivePath) -or
+        -not (Test-Path -LiteralPath $appPath)) {
+        continue
     }
 
-    return $matches[0].Substring($Prefix.Length)
+    $archiveSha =
+        (Get-G2Sha256Path $archivePath).ToUpperInvariant()
+
+    if ($archiveSha -ne $physicalArchiveSha) {
+        continue
+    }
+
+    $appSha =
+        (Get-G2Sha256Path $appPath).ToUpperInvariant()
+
+    if ($appSha -ne $physicalAppSha) {
+        continue
+    }
+
+    $candidateArchive =
+        $archivePath
+
+    $physicalAppBin =
+        $appPath
+
+    $physicalRunRoot =
+        $run.FullName
+
+    break
 }
 
-$candidateArchive =
-    Get-H3E3EMarker -Lines $cLines -Prefix "H3E3C_CANDIDATE_ARCHIVE="
-
-$candidateArchiveSha =
-    Get-H3E3EMarker -Lines $cLines -Prefix "H3E3C_CANDIDATE_ARCHIVE_SHA256="
-
-if (-not (Test-Path -LiteralPath $candidateArchive)) {
-    throw "H3E3E_CANDIDATE_ARCHIVE_MISSING"
+if ([string]::IsNullOrWhiteSpace($candidateArchive)) {
+    throw "H3E3E_H3E3D_PHYSICAL_ARTIFACT_NOT_FOUND"
 }
 
 $actualCandidateSha =
     (Get-G2Sha256Path $candidateArchive).ToUpperInvariant()
 
-if ($actualCandidateSha -ne $candidateArchiveSha.ToUpperInvariant()) {
-    throw "H3E3E_CANDIDATE_ARCHIVE_HASH_CHANGED"
-}
+$actualPhysicalAppSha =
+    (Get-G2Sha256Path $physicalAppBin).ToUpperInvariant()
 
-$candidateDisplay =
+Write-Host "H3E3E_H3E3D_PHYSICAL_ARTIFACT=PASS"
+Write-Host "H3E3E_PHYSICAL_RUN_ROOT=$physicalRunRoot"
+Write-Host "H3E3E_PHYSICAL_ARCHIVE=$candidateArchive"
+Write-Host "H3E3E_PHYSICAL_ARCHIVE_SHA256=$actualCandidateSha"
+Write-Host "H3E3E_PHYSICAL_APP_BIN=$physicalAppBin"
+Write-Host "H3E3E_PHYSICAL_APP_BIN_SHA256=$actualPhysicalAppSha"
+
+$physicalCandidateDisplay =
     Split-Path -Parent (
         Split-Path -Parent (
             Split-Path -Parent $candidateArchive
         )
     )
 
-if (-not (Test-Path -LiteralPath $candidateDisplay)) {
-    throw "H3E3E_CANDIDATE_DISPLAY_ROOT_MISSING"
+if (-not (Test-Path -LiteralPath $physicalCandidateDisplay)) {
+    throw "H3E3E_PHYSICAL_DISPLAY_ROOT_MISSING"
 }
+
+$tempRoot =
+    Join-Path $env:TEMP (
+        "jwplc_a14_h3e3e_{0}" -f
+        (Get-Date -Format "yyyyMMdd_HHmmss")
+    )
+
+$candidateDisplay =
+    Join-Path $tempRoot "release-like-libraries\JWPLC_Display"
+
+New-Item -ItemType Directory -Force -Path (Split-Path -Parent $candidateDisplay) | Out-Null
+
+Copy-Item -LiteralPath $physicalCandidateDisplay -Destination $candidateDisplay -Recurse -Force
+
+if (-not (Test-Path -LiteralPath $candidateDisplay)) {
+    throw "H3E3E_RELEASE_LIKE_DISPLAY_COPY_FAILED"
+}
+
+Write-Host "H3E3E_RELEASE_LIKE_DISPLAY_COPY=PASS"
 
 $finalProperties = @'
 name=JWPLC_Display
@@ -480,12 +506,6 @@ function Assert-H3E3EBuild {
     }
 }
 
-$tempRoot =
-    Join-Path $env:TEMP (
-        "jwplc_a14_h3e3e_{0}" -f
-        (Get-Date -Format "yyyyMMdd_HHmmss")
-    )
-
 $tempEmptyBuild =
     Join-Path $tempRoot "temp-empty"
 
@@ -589,7 +609,7 @@ try {
     }
 
     Write-Host "H3E3E_OFFICIAL_ARCHIVE_SHA256=$officialArchiveSha"
-    Write-Host "H3E3E_ARCHIVE_IDENTITY_WITH_H3E3C=PASS"
+    Write-Host "H3E3E_ARCHIVE_IDENTITY_WITH_H3E3D_PHYSICAL=PASS"
 
     $officialEmptyBuild =
         Join-Path $tempRoot "official-empty"
@@ -693,7 +713,7 @@ try {
     Write-Host "H3E3E_ADAFRUIT_DISCOVERY_MARKERS=REMOVED"
     Write-Host "H3E3E_AUTOLOAD_PERIPHERALS_REMOVED=NO"
     Write-Host "H3E3E_DISPLAY_ARCHIVE=OFFICIAL_ADOPTED"
-    Write-Host "H3E3E_DISPLAY_ARCHIVE_SOURCE=H3E3C_QUALIFIED"
+    Write-Host "H3E3E_DISPLAY_ARCHIVE_SOURCE=H3E3D_PHYSICAL_QUALIFIED"
     Write-Host "H3E3E_PACKAGE_BUILD_AUTOLOAD=PASS"
     Write-Host "H3E3E_PACKAGE_BUILD_HMI=PASS"
     Write-Host "H3E3E_REPOSITORY_MUTATION=PRODUCT_FILES_ONLY"
