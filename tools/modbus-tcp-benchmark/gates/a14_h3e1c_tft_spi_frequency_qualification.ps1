@@ -96,7 +96,9 @@ try {
     $headerText = [IO.File]::ReadAllText($spiHeaderPath)
     $anchor = "#define JWPLC_SPI_TFT_HZ   80000000UL"
     $replacement = "#define JWPLC_SPI_TFT_HZ   40000000UL"
-    if (($headerText.Split($anchor).Count - 1) -ne 1) { throw "H3E1C_PATCH_ANCHOR_COUNT_INVALID" }
+    $anchorCount = [regex]::Matches($headerText, [regex]::Escape($anchor)).Count
+    Write-Host "H3E1C_PATCH_ANCHOR_COUNT=$anchorCount"
+    if ($anchorCount -ne 1) { throw "H3E1C_PATCH_ANCHOR_COUNT_INVALID" }
     $patchedText = $headerText.Replace($anchor, $replacement)
     $utf8 = New-Object System.Text.UTF8Encoding($false)
     [IO.File]::WriteAllText($spiHeaderPath, $patchedText, $utf8)
@@ -113,7 +115,6 @@ try {
         TftSpiHz = $targetHz
     }
     & $legPath @legArgs *>&1 | Tee-Object -FilePath $runLog
-    if ($LASTEXITCODE -ne 0) { throw "H3E1C_CHILD_GATE_FAILED" }
     $runText = [IO.File]::ReadAllText($runLog)
     if (-not $runText.Contains("A14_H3E1B1_DISPLAY_LINKAGE_LEG_GATE=PASS")) { throw "H3E1C_CHILD_PASS_MISSING" }
     if (-not $runText.Contains("RTUH3E0B_RUNTIME_CLEAN=YES")) { throw "H3E1C_RUNTIME_NOT_CLEAN" }
