@@ -8,9 +8,9 @@ Actualizado: `2026-09-28`
 BRANCH=v2.1.0-alpha.14/feature/modbus-tcp
 BASE_BRANCH=release/v2.1.x
 BASE_SHA=165f94fb25617d3a6035fdfd9899bd38a1331583
-ALPHA14_STATUS=POST_CLOSURE_HARDENING_VALIDATED
+ALPHA14_STATUS=READY_FOR_RELEASE_PR_PENDING_CI
 ALPHA14_H3E=CLOSED_PASS
-ALPHA14_RELEASE_PR_READY=PENDING_FINAL_REAUDIT
+ALPHA14_RELEASE_PR_READY=YES_PENDING_CI
 ```
 
 ## Resultado global
@@ -24,7 +24,7 @@ A14_5_ROBOT_INTEROPERABILITY=DEFERRED_NON_BLOCKING
 ALPHA14_CLOSE_READINESS=PASS
 ALPHA14_TECHNICAL_CLOSURE_20260913=PASS_HISTORICAL
 A14_H3E=PASS
-ALPHA14_CURRENT_RELEASE_READINESS=PENDING_FINAL_REAUDIT
+ALPHA14_CURRENT_RELEASE_READINESS=READY_PENDING_CI
 ```
 
 Alpha14 incorpora y valida `JWPLC_ModbusTCP` como nueva librería del ecosistema JWPLC para servidor y cliente Modbus TCP cooperativos, manteniendo compatibilidad Arduino IDE y coexistencia con el runtime integrado del JWPLC Basic.
@@ -188,6 +188,61 @@ PORT = COM14
 ```
 
 No abrir PR hasta cerrar R1.
+
+
+
+## Readiness final R1 — Arduino IDE / físico
+
+R1 está cerrado:
+
+```text
+A14_R1_ARDUINO_IDE_COMPILE=PASS
+A14_R1_ARDUINO_IDE_UPLOAD=PASS
+A14_R1_NORMAL_AUTOLOAD_PHYSICAL=PASS
+A14_FINAL_ARDUINO_IDE_GATE=PASS
+```
+
+Gate reutilizado:
+
+```text
+06_alpha4_local_physical_gate.ino
+Board=JWPLC Basic
+Port=COM14
+Serial=115200
+```
+
+Resultado físico:
+
+```text
+DISPLAY_READY=PASS
+RTC=PASS
+FRAM=PASS
+SD=PASS
+BUTTONS_6_OF_6=PASS
+DIGITAL_INPUTS_8_OF_8=PASS
+DIGITAL_OUTPUTS_8_OF_8=PASS
+TFT_VISUAL=PASS
+LOCAL_PHYSICAL_GATE=PASS
+```
+
+Boot observado post-upload:
+
+```text
+POWERON_RESET
+SPI_FAST_FLASH_BOOT
+mode:DIO
+clock div:2
+```
+
+Esto es evidencia del perfil ejecutado; no redefine una FlashFreq universal
+final ni autoriza publicar un `bootloader.bin` definitivo.
+
+Con R0 + R1:
+
+```text
+FINAL_REAUDIT=PASS
+ALPHA14_RELEASE_PR_READY=YES_PENDING_CI
+```
 
 
 ## A14.1 — Foundation + Server
@@ -461,7 +516,7 @@ ALPHA14_ONLY_COMMITS=142
 ## Siguiente paso
 
 ```text
-NEXT=RUN_R1_ARDUINO_IDE_COMPILE_UPLOAD_PHYSICAL_GATE
+NEXT=UPDATE_PR99_AND_VALIDATE_CI
 CI_REQUIRED_BEFORE_MERGE=YES
 HISTORICAL_READY_FOR_RELEASE_PR_20260913=SUPERSEDED_BY_POST_CLOSURE_HARDENING
 ```
