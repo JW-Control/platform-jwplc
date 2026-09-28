@@ -328,3 +328,146 @@ LEG_A_ARCHIVE=PASS_DIAGNOSTIC_VALID
 LEG_B_SOURCE=PENDING
 A_B_DECISION=PENDING
 ```
+
+
+## Resultado físico — Leg B / SOURCE
+
+El Leg B fue ejecutado con:
+
+```txt
+DISPLAY_LINKAGE=SOURCE
+TFT_SPI_HZ=80000000
+DURATION_S=300
+TCP=500 req/s
+RTU=500000 baud
+CRC=BITWISE
+```
+
+Prueba de linkage:
+
+```txt
+DISPLAY_ARCHIVE_HIDDEN=YES
+MASTER_DISPLAY_OBJECT JWPLC_Display.cpp.o=1
+MASTER_DISPLAY_OBJECT JWPLC_UI.cpp.o=1
+MASTER_DISPLAY_OBJECT JWPLC_UI_API.cpp.o=1
+MASTER_DISPLAY_OBJECT JWPLC_UI_Pages.cpp.o=1
+MASTER_DISPLAY_SOURCE_OBJECT_COUNT=4
+DISPLAY_LINKAGE_PROOF=SOURCE_OBJECTS_PRESENT
+```
+
+Por tanto este leg utilizó inequívocamente el source actual de
+`JWPLC_Display`.
+
+### Display
+
+```txt
+SYS_DISPLAY_CALLS=2946
+SYS_DISPLAY_TOTAL_US=25264126
+SYS_DISPLAY_AVG_US=8575
+SYS_DISPLAY_MAX_US=9840
+```
+
+### TCP
+
+```txt
+TCP_REQ_S=500.002
+TCP_TARGET_PCT=100.000
+TCP_AVG_US=1219.3
+TCP_P95_US=2089.8
+TCP_P99_US=9817.5
+TCP_MAX_US=22335.1
+```
+
+### RTU
+
+```txt
+RTU_HZ=772.962
+RTU_STARTED=231959
+RTU_COMPLETED=231959
+RTU_SUCCESS=231959
+RTU_FAILED=0
+RTU_TIMEOUTS=0
+REQUEST_PATH_GAP=0
+RESPONSE_PATH_GAP=0
+REQUEST_BYTE_GAP=0
+RESPONSE_BYTE_GAP=0
+MASTER_CRC=0
+SLAVE_CRC=0
+```
+
+```txt
+RTU_SERVICE_GAP_MAX_US=17315
+LOOP_GAP_MAX_US=17306
+```
+
+### Runtime
+
+```txt
+PROFILER_PASS=YES
+RTU_CLEAN=YES
+RTU_FLOOR_PASS=YES
+TCP_CLEAN=YES
+TCP_TARGET_PASS=YES
+BUCKET_TARGET_PASS=YES
+SD_CLEAN=YES
+RUNTIME_CLEAN=YES
+DIAGNOSTIC_CAPTURE_PASS=YES
+```
+
+La observación física fue PASS para Master y Slave, conservando la misma HMI
+de referencia sin cortes/parpadeo visible.
+
+El leg completo cerró:
+
+```txt
+H3E1B1_DISPLAY_LINKAGE_FINAL=SOURCE
+A14_H3E1B1_DISPLAY_LINKAGE_LEG_GATE=PASS
+```
+
+## A/B controlado — cierre H3E.1B.1
+
+| Métrica | Archive | Source | Cambio source |
+|---|---:|---:|---:|
+| SYS_DISPLAY AVG | 19049 us | 8575 us | -54.985 % |
+| SYS_DISPLAY MAX | 23629 us | 9840 us | -58.356 % |
+| RTU | 756.558 Hz | 772.962 Hz | +2.168 % |
+| TCP AVG | 1429.5 us | 1219.3 us | -14.704 % |
+| TCP P99 | 19719.0 us | 9817.5 us | -50.213 % |
+| TCP MAX | 35451.9 us | 22335.1 us | -36.999 % |
+| RTU service gap MAX | 24600 us | 17315 us | -29.614 % |
+| loop gap MAX | 24598 us | 17306 us | -29.645 % |
+| RTU failures | 1 | 0 | clean |
+| runtime clean | NO | YES | improved |
+
+Conclusión:
+
+```txt
+El archive JWPLC_Display versionado NO es rendimiento-equivalente al source
+actual.
+
+La diferencia H3E.0B/H3E.1 queda explicada por el linkage de JWPLC_Display.
+
+No se debe continuar usando el archive actual como artefacto final sin
+regenerarlo y recalificarlo.
+```
+
+Estado:
+
+```txt
+LEG_A_ARCHIVE=PASS_DIAGNOSTIC_VALID
+LEG_B_SOURCE=PASS_CLEAN
+A_B_DECISION=SOURCE_CURRENT_SIGNIFICANTLY_FASTER
+CURRENT_DISPLAY_ARCHIVE_FINAL_STATUS=STALE_OR_OUT_OF_SYNC_PENDING_REBUILD
+```
+
+Siguiente gate:
+
+```txt
+H3E.1B.2
+Generar archive candidato temporal desde source actual y verificar:
+1. miembros exactos;
+2. linkage archive real;
+3. paridad estructural;
+4. rendimiento físico equivalente a source;
+5. restore del archive histórico al terminar.
+```
