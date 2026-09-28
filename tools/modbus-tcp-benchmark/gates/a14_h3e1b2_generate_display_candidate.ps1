@@ -367,8 +367,8 @@ $candidateHash = (Get-FileHash -LiteralPath $candidatePath -Algorithm SHA256).Ha
 
 $manifest = [ordered]@{
     schema = "jwplc-a14-h3e1b2-display-candidate-v1"
-    branch = Get-G2Branch
-    head = Get-G2Head
+    branch = (Get-G2Branch)
+    head = (Get-G2Head)
     historical_display_sha256 = $historicalDisplayHash
     candidate_sha256 = $candidateHash
     candidate_bytes = [int64]$candidateFile.Length
