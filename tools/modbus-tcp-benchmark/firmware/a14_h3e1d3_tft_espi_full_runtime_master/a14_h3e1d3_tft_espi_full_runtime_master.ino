@@ -355,6 +355,11 @@ extern "C" bool jwplcDisplayBeginCallback(void)
         return true;
     }
 
+    if (!jwplcSPI_begin())
+    {
+        return false;
+    }
+
     if (!jwplcSPI_acquire(2000))
     {
         return false;
