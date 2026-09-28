@@ -110,7 +110,29 @@ def find_repo_root(start: Path) -> Path:
 def read_text(path: Path) -> str:
     if not path.is_file():
         fail(f"MISSING_FILE={path}")
-    return path.read_text(encoding="utf-8", errors="replace")
+
+    data = path.read_bytes()
+
+    if data.startswith(b"\xef\xbb\xbf"):
+        return data.decode("utf-8-sig")
+    if data.startswith(b"\xff\xfe") or data.startswith(b"\xfe\xff"):
+        return data.decode("utf-16")
+
+    sample = data[:4096]
+    if sample:
+        even_nuls = sample[0::2].count(0)
+        odd_nuls = sample[1::2].count(0)
+        pairs = max(1, len(sample) // 2)
+
+        if odd_nuls / pairs > 0.30 and even_nuls / pairs < 0.05:
+            return data.decode("utf-16-le")
+        if even_nuls / pairs > 0.30 and odd_nuls / pairs < 0.05:
+            return data.decode("utf-16-be")
+
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        return data.decode("cp1252", errors="replace")
 
 
 def library_selected(lines, name: str) -> bool:
