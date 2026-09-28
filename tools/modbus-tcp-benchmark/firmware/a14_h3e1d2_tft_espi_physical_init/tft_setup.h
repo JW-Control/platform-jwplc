@@ -1,0 +1,29 @@
+#pragma once
+
+// A14 H3E.1D.2 - setup local reproducible TFT_eSPI 2.5.43.
+// Debe permanecer equivalente al contrato validado en H3E.1D.1.
+
+#define USER_SETUP_INFO "JWPLC Basic v2 H3E1D2"
+#define JWPLC_H3E1D2_SETUP 1
+
+#define ST7789_DRIVER
+
+#define TFT_WIDTH  170
+#define TFT_HEIGHT 320
+
+#define TFT_RGB_ORDER TFT_RGB
+#define TFT_INVERSION_ON
+
+#define TFT_MOSI 23
+#define TFT_MISO 19
+#define TFT_SCLK 18
+
+#define TFT_CS   33
+#define TFT_DC   25
+#define TFT_RST  14
+
+#define TFT_SPI_MODE SPI_MODE0
+#define SPI_FREQUENCY 80000000
+
+#define LOAD_GLCD
+#define SUPPORT_TRANSACTIONS
