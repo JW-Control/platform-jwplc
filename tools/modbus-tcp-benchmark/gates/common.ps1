@@ -189,19 +189,17 @@ function Get-G2TrackedDirtyPaths {
     )
 }
 
-function Get-G2Sha256 {
+function Get-G2Sha256Path {
     param(
         [Parameter(Mandatory = $true)]
-        [string]$RelativePath
+        [string]$Path
     )
 
-    $path = Get-G2Path $RelativePath
-
-    if (-not (Test-Path -LiteralPath $path)) {
-        throw "G2_REQUIRED_FILE_MISSING=$RelativePath"
+    if (-not (Test-Path -LiteralPath $Path)) {
+        throw "G2_REQUIRED_FILE_MISSING=$Path"
     }
 
-    $stream = [System.IO.File]::OpenRead($path)
+    $stream = [System.IO.File]::OpenRead($Path)
     $sha256 = $null
 
     try {
@@ -219,6 +217,21 @@ function Get-G2Sha256 {
     return (
         [System.BitConverter]::ToString($hashBytes)
     ).Replace("-", "").ToUpperInvariant()
+}
+
+function Get-G2Sha256 {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$RelativePath
+    )
+
+    $path = Get-G2Path $RelativePath
+
+    if (-not (Test-Path -LiteralPath $path)) {
+        throw "G2_REQUIRED_FILE_MISSING=$RelativePath"
+    }
+
+    return Get-G2Sha256Path -Path $path
 }
 
 function Assert-G2ProtectedArtifacts {

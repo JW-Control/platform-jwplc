@@ -211,10 +211,10 @@ $installedCoreHeader = Join-Path $installedCoreRoot "jwplc_h3e0b_profile.h"
 $coreSourceIdentityPass = $false
 
 if ((Test-Path -LiteralPath $installedCoreMain) -and (Test-Path -LiteralPath $installedCoreHeader)) {
-    $repoCoreMainHash = (Get-FileHash -LiteralPath $repoCoreMain -Algorithm SHA256).Hash
-    $installedCoreMainHash = (Get-FileHash -LiteralPath $installedCoreMain -Algorithm SHA256).Hash
-    $repoCoreHeaderHash = (Get-FileHash -LiteralPath $repoCoreHeader -Algorithm SHA256).Hash
-    $installedCoreHeaderHash = (Get-FileHash -LiteralPath $installedCoreHeader -Algorithm SHA256).Hash
+    $repoCoreMainHash = Get-G2Sha256Path -Path $repoCoreMain
+    $installedCoreMainHash = Get-G2Sha256Path -Path $installedCoreMain
+    $repoCoreHeaderHash = Get-G2Sha256Path -Path $repoCoreHeader
+    $installedCoreHeaderHash = Get-G2Sha256Path -Path $installedCoreHeader
     $coreSourceIdentityPass = $repoCoreMainHash -eq $installedCoreMainHash -and $repoCoreHeaderHash -eq $installedCoreHeaderHash
 }
 
@@ -374,13 +374,13 @@ function Backup-And-Overlay-InstalledCore {
     }
 
     $repoMainHash =
-        (Get-FileHash -LiteralPath $repoCoreMain -Algorithm SHA256).Hash
+        Get-G2Sha256Path -Path $repoCoreMain
     $overlayMainHash =
-        (Get-FileHash -LiteralPath $overlayMain -Algorithm SHA256).Hash
+        Get-G2Sha256Path -Path $overlayMain
     $repoHeaderHash =
-        (Get-FileHash -LiteralPath $repoCoreHeader -Algorithm SHA256).Hash
+        Get-G2Sha256Path -Path $repoCoreHeader
     $overlayHeaderHash =
-        (Get-FileHash -LiteralPath $overlayHeader -Algorithm SHA256).Hash
+        Get-G2Sha256Path -Path $overlayHeader
 
     if (
         $repoMainHash -ne $overlayMainHash -or

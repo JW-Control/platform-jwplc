@@ -130,7 +130,7 @@ if ($historicalDisplayHashBefore -ne $expectedHistoricalDisplayHash) {
 }
 
 $candidateFile = Get-Item -LiteralPath $CandidatePath
-$candidateHash = (Get-FileHash -LiteralPath $CandidatePath -Algorithm SHA256).Hash.ToUpperInvariant()
+$candidateHash = Get-G2Sha256Path -Path $CandidatePath
 
 Write-Host "CANDIDATE_PATH=$CandidatePath"
 Write-Host "CANDIDATE_MANIFEST_PATH=$CandidateManifestPath"
@@ -339,7 +339,7 @@ $legOutputLog = Join-Path $tempRoot "candidate_leg_output.log"
     [IO.File]::ReadAllBytes($displayArchivePath)
 )
 
-$backupHash = (Get-FileHash -LiteralPath $historicalBackup -Algorithm SHA256).Hash.ToUpperInvariant()
+$backupHash = Get-G2Sha256Path -Path $historicalBackup
 
 if ($backupHash -ne $expectedHistoricalDisplayHash) {
     throw "H3E1B2B_HISTORICAL_BACKUP_HASH_INVALID"
