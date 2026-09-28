@@ -4,7 +4,7 @@
 #include <Arduino.h>
 #include <stddef.h>
 
-class Adafruit_ST7789;
+class JWPLC_TFTClass;
 
 static constexpr int16_t JWPLC_UI_AUTO = -1;
 static constexpr uint8_t JWPLC_UI_MAX_FIELDS = 32;
@@ -317,8 +317,8 @@ namespace JWPLCUI
 
     void prepareEnter();
 
-    void drawStatic(Adafruit_ST7789 &tft);
-    void drawDirty(Adafruit_ST7789 &tft);
+    void drawStatic(JWPLC_TFTClass &tft);
+    void drawDirty(JWPLC_TFTClass &tft);
 }
 
 #endif // JWPLC_UI_H

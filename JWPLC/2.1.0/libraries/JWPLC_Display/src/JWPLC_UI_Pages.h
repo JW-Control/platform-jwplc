@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 
-class Adafruit_ST7789;
+class JWPLC_TFTClass;
 
 namespace JWPLCUIPages
 {
@@ -25,7 +25,7 @@ namespace JWPLCUIPages
 
     // Overlay global NN/TT. Se dibuja al final del refresh para quedar siempre
     // por encima de los fields de la página.
-    void drawIndicator(Adafruit_ST7789 &tft);
+    void drawIndicator(JWPLC_TFTClass &tft);
 }
 
 #endif // JWPLC_UI_PAGES_H
