@@ -111,7 +111,7 @@ function Get-H3E3DMarker {
     )
 
     if ($matches.Count -ne 1) {
-        throw "H3E3D_MARKER_COUNT_INVALID=$Prefix:$($matches.Count)"
+        throw ("H3E3D_MARKER_COUNT_INVALID={0}:{1}" -f $Prefix, $matches.Count)
     }
 
     return $matches[0].Substring($Prefix.Length)
