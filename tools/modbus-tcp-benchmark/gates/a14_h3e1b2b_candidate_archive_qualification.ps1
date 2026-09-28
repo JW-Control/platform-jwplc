@@ -67,6 +67,41 @@ foreach ($required in @(
     }
 }
 
+function Assert-H3E1B2BChildSyntax {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$Label
+    )
+
+    $tokens = $null
+    $parseErrors = $null
+
+    [System.Management.Automation.Language.Parser]::ParseFile(
+        $Path,
+        [ref]$tokens,
+        [ref]$parseErrors
+    ) | Out-Null
+
+    [object[]]$errors = @($parseErrors)
+
+    Write-Host "$($Label)_SYNTAX_ERROR_COUNT=$($errors.Count)"
+
+    foreach ($parseError in $errors) {
+        $extent = $parseError.Extent
+        Write-Host "$($Label)_SYNTAX_ERROR Line=$($extent.StartLineNumber) Column=$($extent.StartColumnNumber) Message=$($parseError.Message)"
+    }
+
+    if ($errors.Count -ne 0) {
+        throw "H3E1B2B_CHILD_SYNTAX_INVALID=$Label"
+    }
+
+    Write-Host "$($Label)_SYNTAX=PASS"
+}
+
+Assert-H3E1B2BChildSyntax -Path $setupGate -Label "SETUP"
+Assert-H3E1B2BChildSyntax -Path $legGate -Label "LEG"
+Write-Host "H3E1B2B_CHILD_SYNTAX_CONTRACT=PASS"
+
 [string[]]$dirty = @(Get-G2TrackedDirtyPaths)
 [string[]]$staged = @(& git -C $script:G2RepoRoot diff --cached --name-only)
 
