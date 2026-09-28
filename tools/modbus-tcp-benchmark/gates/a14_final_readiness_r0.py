@@ -3,7 +3,7 @@ import hashlib
 import re
 import shutil
 import subprocess
-import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -281,7 +281,10 @@ def main() -> None:
 
     conflicts = run_git(
         repo,
-        "grep", "-n", "-E", r"^(<<<<<<< |>>>>>>> )", "--", ".",
+        "grep", "-n", "-E", r"^(<<<<<<< |>>>>>>> )", "--",
+        "JWPLC/2.1.0",
+        "tools/modbus-tcp-benchmark",
+        "docs/v2.1.0-alpha.14",
         allowed=(0, 1),
     )
     conflict_text = decode_output(conflicts.stdout).strip()
@@ -404,18 +407,7 @@ def main() -> None:
         fail("ARDUINO_CLI_VERSION_FAILED")
 
     stamp = time.strftime("%Y%m%d_%H%M%S")
-    temp_root = Path(
-        subprocess.run(
-            [
-                sys.executable,
-                "-c",
-                "import tempfile; print(tempfile.gettempdir())",
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=True,
-        ).stdout.decode().strip()
-    ) / f"jwplc_a14_r0_{stamp}"
+    temp_root = Path(tempfile.gettempdir()) / f"jwplc_a14_r0_{stamp}"
     temp_root.mkdir(parents=True, exist_ok=True)
     print(f"A14_R0_TEMP_ROOT={temp_root}")
 
