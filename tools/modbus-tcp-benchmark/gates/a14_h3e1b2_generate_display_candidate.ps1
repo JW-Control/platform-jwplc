@@ -273,6 +273,45 @@ if ([IO.Path]::GetFileName($archiverPreflight) -ne "xtensa-esp32-elf-gcc-ar.exe"
 }
 
 Write-Host "H3E1B2_ARCHIVER_PREFLIGHT=PASS"
+
+if (-not [string]::IsNullOrWhiteSpace($ReuseSourceSetupRoot)) {
+    $reuseRoot = [IO.Path]::GetFullPath($ReuseSourceSetupRoot)
+    $reuseBuild = Join-Path $reuseRoot "build_master_source_core"
+    $reuseLog = Join-Path $reuseRoot "compile_master_source_core.log"
+
+    Write-Host "REUSE_SOURCE_SETUP_ROOT=$reuseRoot"
+
+    if (-not (Test-Path -LiteralPath $reuseRoot)) {
+        throw "H3E1B2_REUSE_PREFLIGHT_ROOT_MISSING"
+    }
+    if (-not (Test-Path -LiteralPath $reuseBuild)) {
+        throw "H3E1B2_REUSE_PREFLIGHT_BUILD_MISSING"
+    }
+    if (-not (Test-Path -LiteralPath $reuseLog)) {
+        throw "H3E1B2_REUSE_PREFLIGHT_LOG_MISSING"
+    }
+
+    foreach ($sourceName in $sourceNames) {
+        $objectName = $sourceName + ".o"
+
+        [object[]]$reuseMatches = @(
+            Get-ChildItem -LiteralPath $reuseBuild -Recurse -File -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -eq $objectName }
+        )
+
+        Write-Host "REUSE_SOURCE_OBJECT $objectName=$($reuseMatches.Count)"
+
+        if ($reuseMatches.Count -ne 1) {
+            throw "H3E1B2_REUSE_PREFLIGHT_OBJECT_CARDINALITY_INVALID=$objectName"
+        }
+    }
+
+    Write-Host "H3E1B2_REUSE_SOURCE_SETUP_PREFLIGHT=PASS"
+}
+else {
+    Write-Host "H3E1B2_REUSE_SOURCE_SETUP_PREFLIGHT=NOT_REQUESTED"
+}
+
 Write-Host "H3E1B2_STATIC_PREFLIGHT=PASS"
 Write-Host "CANDIDATE_MUTATES_REPO_ARCHIVE=NO"
 
