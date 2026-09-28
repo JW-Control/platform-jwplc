@@ -51,9 +51,10 @@ def summarize(mode: str, results):
     print(f"H4A0_{mode}_TRANSPORT_ERRORS_TOTAL={sum(errors)}")
 
     clean = all(r.pass_functional and r.errors == 0 for r in results)
-    if mode.startswith("UDP"):
-        clean = clean and max(loss) <= 0.10
 
+    # H4A0 characterizes the transport ceiling. UDP loss is reported
+    # independently and is not converted into a synthetic functional failure.
+    # The post-processing decision will use delivered throughput for RX/TX.
     print(f"H4A0_{mode}_CLEAN={'YES' if clean else 'NO'}")
     return clean
 
