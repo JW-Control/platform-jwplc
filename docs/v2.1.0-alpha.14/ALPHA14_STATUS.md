@@ -147,6 +147,49 @@ La readiness de PR debe auditarse nuevamente contra el estado actual completo de
 branch; no reutilizar automáticamente el readiness del 13-sep.
 
 
+## Readiness final R0 — 2026-09-28
+
+R0 está cerrado:
+
+```text
+A14_FINAL_READINESS_R0=PASS
+GIT_STATE=PASS
+ARTIFACT_INVARIANTS=PASS
+ETHERNET_NB3_PRODUCT_HASHES=PASS
+W5500_SPI_HZ=26000000
+MODBUS_TCP_AUTOSERVICE_CONTRACT=PASS
+MODBUS_TCP_SERVER_CLI=PASS
+MODBUS_TCP_CLIENT_CLI=PASS
+FULL_RUNTIME_MASTER_CLI=PASS
+RTU_SLAVE_CLI=PASS
+REPOSITORY_MUTATION=NO
+```
+
+Arduino CLI observada:
+
+```text
+1.0.2 / 33dfa8e8 / 2024-07-02
+```
+
+F068 quedó clasificado como falso negativo de harness por contar 4 llamadas
+textuales del callback de autoservicio en vez de los 2 puntos lógicos
+pre-loop/post-loop.
+
+Evidencia:
+
+- `A14_FINAL_READINESS_R0_R1_20260928.md`
+
+Próximo gate:
+
+```text
+R1 = ARDUINO IDE REAL COMPILE + UPLOAD + NORMAL AUTOLOAD PHYSICAL
+SKETCH = 06_alpha4_local_physical_gate
+PORT = COM14
+```
+
+No abrir PR hasta cerrar R1.
+
+
 ## A14.1 — Foundation + Server
 
 Estado: `PASS`.
@@ -418,7 +461,7 @@ ALPHA14_ONLY_COMMITS=142
 ## Siguiente paso
 
 ```text
-NEXT=RECONCILE_FINAL_ALPHA14_CHECKLIST_AND_REMAINING_GATES
+NEXT=RUN_R1_ARDUINO_IDE_COMPILE_UPLOAD_PHYSICAL_GATE
 CI_REQUIRED_BEFORE_MERGE=YES
 HISTORICAL_READY_FOR_RELEASE_PR_20260913=SUPERSEDED_BY_POST_CLOSURE_HARDENING
 ```
