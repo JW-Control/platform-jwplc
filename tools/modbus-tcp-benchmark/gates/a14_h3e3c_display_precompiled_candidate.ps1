@@ -23,11 +23,15 @@ $repoLibraries =
 $sketch =
     Get-G2Path "tools/modbus-tcp-benchmark/firmware/a14_h3e3b_display_runtime_physical"
 
+$structuralVerifier =
+    Join-Path $PSScriptRoot "a14_h3e3c_verify_structural_equivalence.ps1"
+
 foreach ($required in @(
     $cli,
     $displayRoot,
     $repoLibraries,
-    $sketch
+    $sketch,
+    $structuralVerifier
 )) {
     if (-not (Test-Path -LiteralPath $required)) {
         throw "H3E3C_REQUIRED_PATH_MISSING=$required"
@@ -640,290 +644,26 @@ if ($sourceFlash -lt 0 -or
     throw "H3E3C_USAGE_MARKERS_MISSING"
 }
 
-if ($candidateRam -ne $sourceRam) {
+if ($ramDelta -ne 0) {
     throw "H3E3C_RAM_PARITY_FAILED"
 }
 
-# -------------------------------------------------------------------------
-# Equivalencia estructural source vs precompiled.
-#
-# precompiled=full puede cambiar el orden/layout de link aun cuando el archive
-# y todos sus miembros sean identicos. Por eso Flash total se registra pero no
-# se usa aisladamente como equivalencia funcional.
-# -------------------------------------------------------------------------
-function Get-H3E3CMapPath {
-    param([string]$BuildRoot)
+Write-Host ""
+Write-Host "=== H3E3C STRUCTURAL EQUIVALENCE ==="
 
-    [object[]]$maps = @(
-        Get-ChildItem -LiteralPath $BuildRoot -File -Filter "*.map" -ErrorAction SilentlyContinue
-    )
-
-    if ($maps.Count -ne 1) {
-        throw "H3E3C_MAP_COUNT_INVALID=$($maps.Count):$BuildRoot"
-    }
-
-    return $maps[0].FullName
+$structuralArgs = @{
+    SourceBuild = $sourceBuild
+    CandidateBuild = $candidateBuild
+    SourceLog = $sourceLog
+    CandidateLog = $candidateLog
+    Archiver = $archiver
+    FlashDelta = $flashDelta
 }
 
-function Get-H3E3CElfPath {
-    param([string]$BuildRoot)
+& $structuralVerifier @structuralArgs
 
-    [object[]]$elfs = @(
-        Get-ChildItem -LiteralPath $BuildRoot -File -Filter "*.elf" -ErrorAction SilentlyContinue
-    )
+Write-Host "H3E3C_STRUCTURAL_VERIFIER_COMPLETED=PASS"
 
-    if ($elfs.Count -ne 1) {
-        throw "H3E3C_ELF_COUNT_INVALID=$($elfs.Count):$BuildRoot"
-    }
-
-    return $elfs[0].FullName
-}
-
-function Get-H3E3CLibraryNames {
-    param([object[]]$Lines)
-
-    [string[]]$names = @(
-        foreach ($lineObject in $Lines) {
-            $line =
-                [string]$lineObject
-
-            if ($line -match '^Using library (?<name>.+?) at version ') {
-                $name =
-                    $Matches["name"].Trim()
-
-                if ($name -ne "JWPLC_Display") {
-                    $name
-                }
-            }
-        }
-    )
-
-    return @(
-        $names |
-            Sort-Object -Unique
-    )
-}
-
-function Get-H3E3CExternalObjectTable {
-    param([string]$BuildRoot)
-
-    $libraryRoot =
-        Join-Path $BuildRoot "libraries"
-
-    $table = @{}
-
-    if (-not (Test-Path -LiteralPath $libraryRoot)) {
-        return $table
-    }
-
-    [object[]]$objects = @(
-        Get-ChildItem -LiteralPath $libraryRoot -Recurse -File -Filter "*.o" -ErrorAction SilentlyContinue
-    )
-
-    foreach ($object in $objects) {
-        $relative =
-            $object.FullName.Substring(
-                $libraryRoot.Length
-            ).TrimStart([char[]]"\/")
-
-        $normalized =
-            $relative.Replace("\", "/")
-
-        if ($normalized -match '^JWPLC_Display/') {
-            continue
-        }
-
-        $table[$normalized] =
-            (Get-G2Sha256Path $object.FullName).ToUpperInvariant()
-    }
-
-    return $table
-}
-
-function Get-H3E3CDisplayLinkedMembers {
-    param([string]$MapText)
-
-    [string[]]$members = @(
-        [regex]::Matches(
-            $MapText,
-            '(?:lib)?JWPLC_Display\.a\((?<member>[^)]+\.cpp\.o)\)'
-        ) |
-            ForEach-Object {
-                $_.Groups["member"].Value
-            } |
-            Sort-Object -Unique
-    )
-
-    return $members
-}
-
-$sourceMap =
-    Get-H3E3CMapPath -BuildRoot $sourceBuild
-
-$candidateMap =
-    Get-H3E3CMapPath -BuildRoot $candidateBuild
-
-$sourceMapText =
-    [IO.File]::ReadAllText($sourceMap)
-
-$candidateMapText =
-    [IO.File]::ReadAllText($candidateMap)
-
-[string[]]$sourceLinkedMembers =
-    @(Get-H3E3CDisplayLinkedMembers -MapText $sourceMapText)
-
-[string[]]$candidateLinkedMembers =
-    @(Get-H3E3CDisplayLinkedMembers -MapText $candidateMapText)
-
-[object[]]$linkedMemberDiff = @(
-    Compare-Object -ReferenceObject $sourceLinkedMembers -DifferenceObject $candidateLinkedMembers
-)
-
-Write-Host "H3E3C_SOURCE_LINKED_DISPLAY_MEMBER_COUNT=$($sourceLinkedMembers.Count)"
-Write-Host "H3E3C_CANDIDATE_LINKED_DISPLAY_MEMBER_COUNT=$($candidateLinkedMembers.Count)"
-Write-Host "H3E3C_LINKED_DISPLAY_MEMBER_PARITY=$(
-    if ($linkedMemberDiff.Count -eq 0) { 'PASS' } else { 'FAIL' }
-)"
-
-$sourceLinkedMembers |
-    ForEach-Object {
-        Write-Host "H3E3C_SOURCE_LINKED_DISPLAY_MEMBER=$_"
-    }
-
-$candidateLinkedMembers |
-    ForEach-Object {
-        Write-Host "H3E3C_CANDIDATE_LINKED_DISPLAY_MEMBER=$_"
-    }
-
-if ($sourceLinkedMembers.Count -lt 1 -or
-    $linkedMemberDiff.Count -ne 0) {
-    throw "H3E3C_LINKED_DISPLAY_MEMBER_PARITY_FAILED"
-}
-
-$sourceExternalObjects =
-    Get-H3E3CExternalObjectTable -BuildRoot $sourceBuild
-
-$candidateExternalObjects =
-    Get-H3E3CExternalObjectTable -BuildRoot $candidateBuild
-
-[string[]]$sourceExternalKeys = @(
-    $sourceExternalObjects.Keys |
-        Sort-Object
-)
-
-[string[]]$candidateExternalKeys = @(
-    $candidateExternalObjects.Keys |
-        Sort-Object
-)
-
-[object[]]$externalKeyDiff = @(
-    Compare-Object -ReferenceObject $sourceExternalKeys -DifferenceObject $candidateExternalKeys
-)
-
-[string[]]$externalHashDiff = @(
-    foreach ($key in $sourceExternalKeys) {
-        if ($candidateExternalObjects.ContainsKey($key) -and
-            $sourceExternalObjects[$key] -ne $candidateExternalObjects[$key]) {
-            $key
-        }
-    }
-)
-
-Write-Host "H3E3C_EXTERNAL_OBJECT_SOURCE_COUNT=$($sourceExternalKeys.Count)"
-Write-Host "H3E3C_EXTERNAL_OBJECT_CANDIDATE_COUNT=$($candidateExternalKeys.Count)"
-Write-Host "H3E3C_EXTERNAL_OBJECT_SET_PARITY=$(
-    if ($externalKeyDiff.Count -eq 0) { 'PASS' } else { 'FAIL' }
-)"
-Write-Host "H3E3C_EXTERNAL_OBJECT_HASH_MISMATCH_COUNT=$($externalHashDiff.Count)"
-
-if ($externalKeyDiff.Count -ne 0 -or
-    $externalHashDiff.Count -ne 0) {
-    throw "H3E3C_EXTERNAL_OBJECT_PARITY_FAILED"
-}
-
-[string[]]$sourceLibraryNames =
-    @(Get-H3E3CLibraryNames -Lines $sourceOutput)
-
-[string[]]$candidateLibraryNames =
-    @(Get-H3E3CLibraryNames -Lines $candidateOutput)
-
-[object[]]$libraryNameDiff = @(
-    Compare-Object -ReferenceObject $sourceLibraryNames -DifferenceObject $candidateLibraryNames
-)
-
-Write-Host "H3E3C_NON_DISPLAY_LIBRARY_SOURCE_COUNT=$($sourceLibraryNames.Count)"
-Write-Host "H3E3C_NON_DISPLAY_LIBRARY_CANDIDATE_COUNT=$($candidateLibraryNames.Count)"
-Write-Host "H3E3C_NON_DISPLAY_LIBRARY_SELECTION_PARITY=$(
-    if ($libraryNameDiff.Count -eq 0) { 'PASS' } else { 'FAIL' }
-)"
-
-if ($libraryNameDiff.Count -ne 0) {
-    throw "H3E3C_LIBRARY_SELECTION_PARITY_FAILED"
-}
-
-$toolDir =
-    Split-Path -Parent $archiver
-
-$nm = $null
-
-foreach ($nmName in @(
-    "xtensa-esp32-elf-nm.exe",
-    "xtensa-esp32-elf-nm"
-)) {
-    $nmCandidate =
-        Join-Path $toolDir $nmName
-
-    if (Test-Path -LiteralPath $nmCandidate) {
-        $nm =
-            (Resolve-Path -LiteralPath $nmCandidate).Path
-        break
-    }
-}
-
-if ([string]::IsNullOrWhiteSpace($nm)) {
-    throw "H3E3C_NM_NOT_FOUND"
-}
-
-$sourceElf =
-    Get-H3E3CElfPath -BuildRoot $sourceBuild
-
-$candidateElf =
-    Get-H3E3CElfPath -BuildRoot $candidateBuild
-
-function Get-H3E3CNormalizedSymbols {
-    param(
-        [string]$NmPath,
-        [string]$ElfPath
-    )
-
-    $previousPreference =
-        $ErrorActionPreference
-
-    try {
-        $ErrorActionPreference =
-            "Continue"
-
-        [object[]]$nmOutput =
-            @(& $NmPath "-S" "--defined-only" $ElfPath 2>&1)
-
-        $nmExit =
-            [int]$LASTEXITCODE
-    }
-    finally {
-        $ErrorActionPreference =
-            $previousPreference
-    }
-
-    if ($nmExit -ne 0) {
-        throw "H3E3C_NM_FAILED=$ElfPath"
-    }
-
-    [string[]]$normalized = @(
-        foreach ($lineObject in $nmOutput) {
-            $line =
-                ([string]$lineObject).Trim()
-
-            if ($line -match '^[0-9A-Fa-f]+\s+(?<size>[0-9A-Fa-f]+)\s+(?<type>\S)\s+(?<name>.+)
 [string[]]$finalDirty =
     @(Get-G2TrackedDirtyPaths)
 
@@ -954,92 +694,6 @@ Write-Host "H3E3C_ARCHIVE_MEMBER_BYTE_PARITY=PASS"
 Write-Host "H3E3C_SOURCE_PRECOMPILED_FLASH_LAYOUT_REVIEW=PASS"
 Write-Host "H3E3C_SOURCE_PRECOMPILED_RAM_PARITY=PASS"
 Write-Host "H3E3C_STRUCTURAL_EQUIVALENCE=PASS"
-Write-Host "H3E3C_REPOSITORY_MUTATION=NO"
-Write-Host "H3E3C_UPLOADS=NO"
-Write-Host "A14_H3E3C_DISPLAY_PRECOMPILED_CANDIDATE_GATE=PASS"
-Write-Host "NEXT=RETURN_OUTPUT_TO_CHAT_FOR_H3E3D_DISPLAY_PRECOMPILED_PHYSICAL"
-) {
-                $size =
-                    $Matches["size"].ToUpperInvariant()
-
-                $type =
-                    $Matches["type"]
-
-                $name =
-                    $Matches["name"]
-
-                "$size|$type|$name"
-            }
-        }
-    )
-
-    return @(
-        $normalized |
-            Sort-Object
-    )
-}
-
-[string[]]$sourceSymbols =
-    @(Get-H3E3CNormalizedSymbols -NmPath $nm -ElfPath $sourceElf)
-
-[string[]]$candidateSymbols =
-    @(Get-H3E3CNormalizedSymbols -NmPath $nm -ElfPath $candidateElf)
-
-[object[]]$symbolDiff = @(
-    Compare-Object -ReferenceObject $sourceSymbols -DifferenceObject $candidateSymbols
-)
-
-Write-Host "H3E3C_NM=$nm"
-Write-Host "H3E3C_SOURCE_DEFINED_SYMBOL_COUNT=$($sourceSymbols.Count)"
-Write-Host "H3E3C_CANDIDATE_DEFINED_SYMBOL_COUNT=$($candidateSymbols.Count)"
-Write-Host "H3E3C_DEFINED_SYMBOL_NAME_TYPE_SIZE_PARITY=$(
-    if ($symbolDiff.Count -eq 0) { 'PASS' } else { 'FAIL' }
-)"
-
-if ($symbolDiff.Count -ne 0) {
-    $symbolDiff |
-        Select-Object -First 40 |
-        ForEach-Object {
-            Write-Host "H3E3C_SYMBOL_DIFF=$($_.SideIndicator):$($_.InputObject)"
-        }
-
-    throw "H3E3C_DEFINED_SYMBOL_PARITY_FAILED"
-}
-
-Write-Host "H3E3C_FLASH_DELTA_CLASSIFICATION=$(
-    if ($flashDelta -eq 0) { 'EXACT' } else { 'LINK_LAYOUT_ONLY' }
-)"
-Write-Host "H3E3C_STRUCTURAL_EQUIVALENCE=PASS"
-
-[string[]]$finalDirty =
-    @(Get-G2TrackedDirtyPaths)
-
-[string[]]$finalStaged =
-    @(& git -C $script:G2RepoRoot diff --cached --name-only)
-
-[string[]]$normalizedFinalDirty = @(
-    $finalDirty |
-        ForEach-Object {
-            $_.Replace("\", "/")
-        } |
-        Sort-Object
-)
-
-if ($normalizedFinalDirty.Count -ne 1 -or
-    $normalizedFinalDirty[0] -ne $expectedCoreDirty) {
-    throw "H3E3C_FINAL_DIRTY_SCOPE_INVALID"
-}
-
-if ($finalStaged.Count -ne 0) {
-    throw "H3E3C_FINAL_INDEX_NOT_CLEAN"
-}
-
-Write-Host "H3E3C_RUNTIME_ARCHITECTURE=JWPLC_Display_PRECOMPILED_OVER_JWPLC_TFT_PRECOMPILED"
-Write-Host "H3E3C_EXTERNAL_GRAPHICS_BACKEND_REQUIRED=NO"
-Write-Host "H3E3C_ARCHIVE_MEMBER_COUNT=7"
-Write-Host "H3E3C_ARCHIVE_MEMBER_BYTE_PARITY=PASS"
-Write-Host "H3E3C_SOURCE_PRECOMPILED_FLASH_PARITY=PASS"
-Write-Host "H3E3C_SOURCE_PRECOMPILED_RAM_PARITY=PASS"
 Write-Host "H3E3C_REPOSITORY_MUTATION=NO"
 Write-Host "H3E3C_UPLOADS=NO"
 Write-Host "A14_H3E3C_DISPLAY_PRECOMPILED_CANDIDATE_GATE=PASS"
