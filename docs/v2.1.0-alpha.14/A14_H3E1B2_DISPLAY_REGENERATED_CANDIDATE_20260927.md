@@ -249,3 +249,131 @@ Para toolchains del package:
 platform.txt / installed.json / Arduino15 tools tree
 son fuentes más fuertes que la presencia opcional de una línea en el log.
 ```
+
+
+## Resultado B2-A — candidate generado
+
+La generación reutilizando el source build validado cerró:
+
+```txt
+SOURCE_OBJECT_ORIGIN=REUSE_EXISTING_SETUP
+SOURCE_SETUP_ROOT=C:\Users\jeykc\AppData\Local\Temp\jwplc_a14_h3e1b1_setup_20260927_191633
+
+SOURCE_OBJECT JWPLC_Display.cpp.o=1
+SOURCE_OBJECT JWPLC_Display_H3E1_Profile.cpp.o=1
+SOURCE_OBJECT JWPLC_IdleScreen.cpp.o=1
+SOURCE_OBJECT JWPLC_UI.cpp.o=1
+SOURCE_OBJECT JWPLC_UI_API.cpp.o=1
+SOURCE_OBJECT JWPLC_UI_Pages.cpp.o=1
+SOURCE_OBJECT JWPLC_UI_PixelMap.cpp.o=1
+```
+
+Toolchain:
+
+```txt
+ARCHIVER_RESOLUTION=ARDUINO15_ESP_X32_2601
+ARCHIVER_NAMESPACE=jwplc_local
+ARCHIVER_TOOL_VERSION=2601
+GNU ar 2.43.1
+```
+
+Candidate:
+
+```txt
+PATH=C:\Users\jeykc\AppData\Local\Temp\jwplc_a14_h3e1b2_candidate_current\libJWPLC_Display.candidate.a
+SHA256=B451A055E983B12B9BB2FBF134B8311B88E4CAB36B11EB89611CC36FAAF02BD0
+BYTES=970776
+MEMBERS=7
+```
+
+Miembros:
+
+```txt
+JWPLC_Display.cpp.o
+JWPLC_Display_H3E1_Profile.cpp.o
+JWPLC_IdleScreen.cpp.o
+JWPLC_UI.cpp.o
+JWPLC_UI_API.cpp.o
+JWPLC_UI_Pages.cpp.o
+JWPLC_UI_PixelMap.cpp.o
+```
+
+Validaciones:
+
+```txt
+H3E1B2_CANDIDATE_MEMBERS_EXACT=PASS
+H3E1B2_CANDIDATE_MEMBER_BYTE_PARITY=PASS
+H3E1B2_HISTORICAL_ARCHIVE_PRESERVED=YES
+A14_H3E1B2_CANDIDATE_GENERATION=PASS
+```
+
+Estado:
+
+```txt
+B2_A_CANDIDATE_GENERATION=PASS
+CANDIDATE_FOR_DIAGNOSTIC=YES
+FINAL_RELEASE_ARCHIVE=NO
+B2_B_PHYSICAL_QUALIFICATION=PENDING
+```
+
+## B2-B — qualification física del candidate como archive real
+
+El leg H3E.1B.1 y su setup fueron parametrizados sin cambiar sus defaults para
+aceptar:
+
+```txt
+ExpectedDisplayArchiveHash
+AdditionalAllowedDirtyPaths
+```
+
+B2-B utiliza esos parámetros para:
+
+1. verificar el candidate por SHA/tamaño/manifest;
+2. verificar que el source Display no cambió desde el build del candidate;
+3. respaldar el archive histórico Alpha11;
+4. instalar temporalmente el candidate en la ruta precompiled real;
+5. ejecutar el leg ARCHIVE ya validado;
+6. exigir:
+   ```txt
+   DISPLAY_LINKAGE_PROOF=ARCHIVE_NO_SOURCE_OBJECTS
+   MASTER_DISPLAY_SOURCE_OBJECT_COUNT=0
+   ```
+7. ejecutar la ventana H3E.0B de 300 s;
+8. restaurar el archive Alpha11 en `finally`;
+9. comparar contra el baseline source B1:
+   ```txt
+   SYS_DISPLAY AVG = 8575 us
+   SYS_DISPLAY MAX = 9840 us
+   RTU = 772.962 Hz
+   TCP AVG = 1219.3 us
+   TCP P99 = 9817.5 us
+   SERVICE GAP MAX = 17315 us
+   ```
+10. declarar equivalencia de rendimiento si el AVG Display queda dentro de
+    ±10 % del source y reportar por separado si el runtime fue completamente
+    limpio.
+
+El candidate permanece instalado únicamente alrededor del leg validado.
+El archive histórico se restaura siempre mediante `finally`.
+
+Marker preflight esperado:
+
+```txt
+H3E1B2B_STATIC_PREFLIGHT=PASS
+PREFLIGHT_INSTALLS_CANDIDATE=NO
+PREFLIGHT_COMPILES=NO
+PREFLIGHT_UPLOADS=NO
+PREFLIGHT_RUNS_300S=NO
+A14_H3E1B2B_CANDIDATE_ARCHIVE_PREFLIGHT_ONLY=PASS
+```
+
+Markers finales de qualification:
+
+```txt
+H3E1B2_PERFORMANCE_EQUIVALENT=YES|NO
+H3E1B2_RUNTIME_CLEAN=YES|NO
+H3E1B2_RELEASE_EQUIVALENT=YES|NO
+H3E1B2_CANDIDATE_INSTALLED_PERMANENTLY=NO
+H3E1B2_DIAGNOSTIC_CAPTURE_VALID=YES
+A14_H3E1B2B_CANDIDATE_ARCHIVE_QUALIFICATION_GATE=PASS
+```
