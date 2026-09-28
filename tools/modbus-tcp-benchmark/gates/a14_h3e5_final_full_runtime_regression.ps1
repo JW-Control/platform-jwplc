@@ -29,12 +29,19 @@ $tftArchive =
 $displayArchive =
     Get-G2Path "JWPLC/2.1.0/libraries/JWPLC_Display/src/esp32/libJWPLC_Display.a"
 
+$modbusRtuArchive =
+    Get-G2Path "JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/src/esp32/libJWPLC_ModbusRTU.a"
+
+$staleModbusRtuSha =
+    "444BE3A04079A579252B2737FE6070E00ADCA949FD176880588FE69561B2A79F"
+
 $p5bGate =
     Join-Path $PSScriptRoot "a14_p5b_physical_master_slave_combined.ps1"
 
 foreach ($required in @(
     $tftArchive,
     $displayArchive,
+    $modbusRtuArchive,
     $p5bGate
 )) {
     if (-not (Test-Path -LiteralPath $required)) {
@@ -67,8 +74,20 @@ if ($DurationS -lt 120.0) {
 $expectedCoreDirty =
     $script:G2CoreRelative.Replace("\", "/")
 
-if ($normalizedEntryDirty.Count -ne 1 -or
-    $normalizedEntryDirty[0] -ne $expectedCoreDirty) {
+$expectedModbusDirty =
+    "JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/src/esp32/libJWPLC_ModbusRTU.a"
+
+[string[]]$expectedEntryDirty = @(
+    $expectedCoreDirty,
+    $expectedModbusDirty
+) |
+    Sort-Object
+
+[object[]]$entryDirtyDiff = @(
+    Compare-Object -ReferenceObject $expectedEntryDirty -DifferenceObject $normalizedEntryDirty
+)
+
+if ($entryDirtyDiff.Count -ne 0) {
     $normalizedEntryDirty |
         ForEach-Object {
             Write-Host "ENTRY_DIRTY=$_"
@@ -86,6 +105,13 @@ $tftSha =
 
 $displaySha =
     (Get-G2Sha256Path $displayArchive).ToUpperInvariant()
+
+$modbusRtuSha =
+    (Get-G2Sha256Path $modbusRtuArchive).ToUpperInvariant()
+
+if ($modbusRtuSha -eq $staleModbusRtuSha) {
+    throw "H3E5_MODBUS_RTU_ARCHIVE_STILL_STALE_ALPHA7"
+}
 
 $tcpRateText =
     $TcpRate.ToString(
@@ -108,6 +134,7 @@ Write-Host "H3E5_RTU_CONFIG=8N1"
 Write-Host "H3E5_W5500_SPI_HZ=$(Get-G2SpiHz)"
 Write-Host "H3E5_TFT_ARCHIVE_SHA256=$tftSha"
 Write-Host "H3E5_DISPLAY_ARCHIVE_SHA256=$displaySha"
+Write-Host "H3E5_MODBUS_RTU_ARCHIVE_SHA256=$modbusRtuSha"
 
 if ($tftSha -ne $expectedTftSha) {
     throw "H3E5_TFT_ARCHIVE_NOT_H3E4A2_PHYSICAL"
@@ -208,6 +235,9 @@ function Assert-H3E5Build {
     $tftSelected =
         $text.Contains("Using library JWPLC_TFT")
 
+    $modbusRtuSelected =
+        $text.Contains("Using library JWPLC_ModbusRTU")
+
     $displayPrecompiled =
         @(
             $lines |
@@ -223,6 +253,15 @@ function Assert-H3E5Build {
                 Where-Object {
                     ($_ -match 'Using precompiled library|Usando libreria precompilada|Usando biblioteca precompilada') -and
                     ($_ -match 'JWPLC_TFT')
+                }
+        ).Count -gt 0
+
+    $modbusRtuPrecompiled =
+        @(
+            $lines |
+                Where-Object {
+                    ($_ -match 'Using precompiled library|Usando libreria precompilada|Usando biblioteca precompilada') -and
+                    ($_ -match 'JWPLC_ModbusRTU')
                 }
         ).Count -gt 0
 
@@ -254,23 +293,36 @@ function Assert-H3E5Build {
             }
     ).Count
 
+    [int]$modbusRtuSourceObjects = @(
+        Get-ChildItem -LiteralPath $BuildPath -Recurse -File -ErrorAction SilentlyContinue |
+            Where-Object {
+                $_.Name -eq "JWPLC_ModbusRTU.cpp.o"
+            }
+    ).Count
+
     Write-Host ("{0}_DISPLAY_SELECTED={1}" -f $Label, $displaySelected)
     Write-Host ("{0}_DISPLAY_PRECOMPILED={1}" -f $Label, $displayPrecompiled)
     Write-Host ("{0}_JWPLC_TFT_SELECTED={1}" -f $Label, $tftSelected)
     Write-Host ("{0}_JWPLC_TFT_PRECOMPILED={1}" -f $Label, $tftPrecompiled)
+    Write-Host ("{0}_MODBUS_RTU_SELECTED={1}" -f $Label, $modbusRtuSelected)
+    Write-Host ("{0}_MODBUS_RTU_PRECOMPILED={1}" -f $Label, $modbusRtuPrecompiled)
     Write-Host ("{0}_EXTERNAL_TFT_ESPI_SELECTION_COUNT={1}" -f $Label, $externalTftEspi.Count)
     Write-Host ("{0}_DISPLAY_SOURCE_OBJECT_COUNT={1}" -f $Label, $displaySourceObjects)
     Write-Host ("{0}_JWPLC_TFT_SOURCE_OBJECT_COUNT={1}" -f $Label, $tftSourceObjects)
     Write-Host ("{0}_TFT_ESPI_SOURCE_OBJECT_COUNT={1}" -f $Label, $tftEspiSourceObjects)
+    Write-Host ("{0}_MODBUS_RTU_SOURCE_OBJECT_COUNT={1}" -f $Label, $modbusRtuSourceObjects)
 
     if (-not $displaySelected -or
         -not $displayPrecompiled -or
         -not $tftSelected -or
         -not $tftPrecompiled -or
+        -not $modbusRtuSelected -or
+        -not $modbusRtuPrecompiled -or
         $externalTftEspi.Count -ne 0 -or
         $displaySourceObjects -ne 0 -or
         $tftSourceObjects -ne 0 -or
-        $tftEspiSourceObjects -ne 0) {
+        $tftEspiSourceObjects -ne 0 -or
+        $modbusRtuSourceObjects -ne 0) {
         throw ("H3E5_{0}_BUILD_POLICY_FAILED" -f $Label)
     }
 }
@@ -299,6 +351,7 @@ $p5bArgs = @{
     TcpRate = $TcpRate
     DurationS = $DurationS
     AllowDirtyCoreCandidate = $true
+    AllowMissingModbusRtuArchiveCandidate = $true
 }
 
 [object[]]$p5bOutput =
@@ -474,12 +527,19 @@ $tftShaFinal =
 $displayShaFinal =
     (Get-G2Sha256Path $displayArchive).ToUpperInvariant()
 
+$modbusRtuShaFinal =
+    (Get-G2Sha256Path $modbusRtuArchive).ToUpperInvariant()
+
 if ($tftShaFinal -ne $expectedTftSha) {
     throw "H3E5_TFT_ARCHIVE_CHANGED"
 }
 
 if ($displayShaFinal -ne $expectedDisplaySha) {
     throw "H3E5_DISPLAY_ARCHIVE_CHANGED"
+}
+
+if ($modbusRtuShaFinal -ne $modbusRtuSha) {
+    throw "H3E5_MODBUS_RTU_ARCHIVE_CHANGED"
 }
 
 [string[]]$finalDirty =
@@ -496,8 +556,17 @@ if ($displayShaFinal -ne $expectedDisplaySha) {
         Sort-Object
 )
 
-if ($normalizedFinalDirty.Count -ne 1 -or
-    $normalizedFinalDirty[0] -ne $expectedCoreDirty) {
+[string[]]$expectedFinalDirty = @(
+    $expectedCoreDirty,
+    $expectedModbusDirty
+) |
+    Sort-Object
+
+[object[]]$finalDirtyDiff = @(
+    Compare-Object -ReferenceObject $expectedFinalDirty -DifferenceObject $normalizedFinalDirty
+)
+
+if ($finalDirtyDiff.Count -ne 0) {
     throw "H3E5_FINAL_DIRTY_SCOPE_INVALID"
 }
 
@@ -522,6 +591,8 @@ Write-Host "H3E5_RTC=PASS"
 Write-Host "H3E5_TCA_IO=PASS"
 Write-Host "H3E5_BUTTONS=PASS"
 Write-Host "H3E5_SPI_OWNERSHIP=PASS"
+Write-Host "H3E5_MODBUS_RTU_PRECOMPILED=PASS"
+Write-Host "H3E5_MODBUS_RTU_ARCHIVE_SHA256=$modbusRtuShaFinal"
 Write-Host "H3E5_EXTERNAL_TFT_ESPI_AT_USER_BUILD=NO"
 Write-Host "H3E5_PRODUCT_SOURCE_MUTATION=NO"
 Write-Host "H3E5_REPOSITORY_MUTATION=NO"
