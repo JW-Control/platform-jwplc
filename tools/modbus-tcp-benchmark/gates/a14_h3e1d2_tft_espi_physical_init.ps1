@@ -85,7 +85,7 @@ foreach ($contract in @(
     '#define ST7789_DRIVER',
     '#define TFT_WIDTH  170',
     '#define TFT_HEIGHT 320',
-    '#define TFT_RGB_ORDER TFT_RGB',
+    '#define TFT_RGB_ORDER TFT_BGR',
     '#define TFT_INVERSION_ON',
     '#define TFT_MOSI 23',
     '#define TFT_MISO 19',
@@ -219,8 +219,8 @@ if ($uploadExit -ne 0) {
 
 Write-Host ""
 Write-Host "Observe la TFT del Master antes de responder."
-Write-Host "Debe verse en landscape 320x170 con marco blanco completo,"
-Write-Host "esquinas TL/TR/BL/BR y barras centrales R-G-B."
+Write-Host "Debe verse en landscape 320x170 (ROT=1) con marco blanco completo,"
+Write-Host "esquinas TL/TR/BL/BR y barras centrales R-G-B usando orden BGR del panel."
 Write-Host ""
 
 function Read-H3E1D2YesNo {
@@ -267,6 +267,8 @@ if ($finalStaged.Count -ne 0) {
 }
 
 Write-Host "H3E1D2_RUNTIME_BACKEND=TFT_eSPI_2.5.43"
+Write-Host "H3E1D2_ROTATION=1"
+Write-Host "H3E1D2_COLOR_ORDER=BGR"
 Write-Host "H3E1D2_LOGICAL_GEOMETRY_EXPECTED=320x170"
 Write-Host "H3E1D2_SPI=80MHz_MODE0"
 Write-Host "H3E1D2_DISPLAY_AUTOLOAD_SUPPRESSED=PASS"

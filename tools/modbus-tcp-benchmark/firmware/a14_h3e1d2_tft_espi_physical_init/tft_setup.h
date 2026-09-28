@@ -11,7 +11,7 @@
 #define TFT_WIDTH  170
 #define TFT_HEIGHT 320
 
-#define TFT_RGB_ORDER TFT_RGB
+#define TFT_RGB_ORDER TFT_BGR
 #define TFT_INVERSION_ON
 
 #define TFT_MOSI 23

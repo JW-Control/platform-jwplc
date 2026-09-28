@@ -33,8 +33,8 @@
 #error "H3E1D2: SPI MODE0 requerido"
 #endif
 
-#if TFT_RGB_ORDER != TFT_RGB
-#error "H3E1D2: RGB requerido"
+#if TFT_RGB_ORDER != TFT_BGR
+#error "H3E1D2: BGR requerido para este panel ST7789"
 #endif
 
 #ifndef TFT_INVERSION_ON
@@ -79,7 +79,7 @@ static void drawQualificationScreen()
 
     tft.setTextSize(1);
     tft.setCursor(94, 70);
-    tft.print("320x170  ROT=3");
+    tft.print("320x170  ROT=1");
     tft.setCursor(84, 84);
     tft.print("80MHz  SPI MODE0");
 
@@ -125,7 +125,7 @@ void setup()
     jwplcSPI_prepareForTFT();
 
     tft.init();
-    tft.setRotation(3);
+    tft.setRotation(1);
 
     Serial.printf("H3E1D2_LOGICAL_WIDTH=%d\n", tft.width());
     Serial.printf("H3E1D2_LOGICAL_HEIGHT=%d\n", tft.height());
