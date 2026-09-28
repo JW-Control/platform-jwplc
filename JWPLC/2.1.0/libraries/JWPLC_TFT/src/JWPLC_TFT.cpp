@@ -273,6 +273,102 @@ bool JWPLC_TFTClass::drawRect(
     return true;
 }
 
+bool JWPLC_TFTClass::fillRoundRect(
+    int16_t x,
+    int16_t y,
+    int16_t w,
+    int16_t h,
+    int16_t radius,
+    uint16_t color,
+    uint32_t timeoutMs)
+{
+    if (!acquireForOperation(timeoutMs))
+    {
+        return false;
+    }
+
+    g_backend.fillRoundRect(
+        x,
+        y,
+        w,
+        h,
+        radius,
+        color);
+
+    releaseAfterOperation();
+    return true;
+}
+
+bool JWPLC_TFTClass::drawRoundRect(
+    int16_t x,
+    int16_t y,
+    int16_t w,
+    int16_t h,
+    int16_t radius,
+    uint16_t color,
+    uint32_t timeoutMs)
+{
+    if (!acquireForOperation(timeoutMs))
+    {
+        return false;
+    }
+
+    g_backend.drawRoundRect(
+        x,
+        y,
+        w,
+        h,
+        radius,
+        color);
+
+    releaseAfterOperation();
+    return true;
+}
+
+bool JWPLC_TFTClass::fillCircle(
+    int16_t x,
+    int16_t y,
+    int16_t radius,
+    uint16_t color,
+    uint32_t timeoutMs)
+{
+    if (!acquireForOperation(timeoutMs))
+    {
+        return false;
+    }
+
+    g_backend.fillCircle(
+        x,
+        y,
+        radius,
+        color);
+
+    releaseAfterOperation();
+    return true;
+}
+
+bool JWPLC_TFTClass::drawCircle(
+    int16_t x,
+    int16_t y,
+    int16_t radius,
+    uint16_t color,
+    uint32_t timeoutMs)
+{
+    if (!acquireForOperation(timeoutMs))
+    {
+        return false;
+    }
+
+    g_backend.drawCircle(
+        x,
+        y,
+        radius,
+        color);
+
+    releaseAfterOperation();
+    return true;
+}
+
 bool JWPLC_TFTClass::drawFastHLine(
     int16_t x,
     int16_t y,

@@ -78,6 +78,34 @@ public:
         int16_t h,
         uint16_t color,
         uint32_t timeoutMs = 50);
+    bool fillRoundRect(
+        int16_t x,
+        int16_t y,
+        int16_t w,
+        int16_t h,
+        int16_t radius,
+        uint16_t color,
+        uint32_t timeoutMs = 50);
+    bool drawRoundRect(
+        int16_t x,
+        int16_t y,
+        int16_t w,
+        int16_t h,
+        int16_t radius,
+        uint16_t color,
+        uint32_t timeoutMs = 50);
+    bool fillCircle(
+        int16_t x,
+        int16_t y,
+        int16_t radius,
+        uint16_t color,
+        uint32_t timeoutMs = 50);
+    bool drawCircle(
+        int16_t x,
+        int16_t y,
+        int16_t radius,
+        uint16_t color,
+        uint32_t timeoutMs = 50);
     bool drawFastHLine(
         int16_t x,
         int16_t y,
