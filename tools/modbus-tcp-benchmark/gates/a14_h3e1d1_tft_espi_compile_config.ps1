@@ -69,7 +69,7 @@ $setupContracts = @(
     '#define ST7789_DRIVER',
     '#define TFT_WIDTH  170',
     '#define TFT_HEIGHT 320',
-    '#define TFT_RGB_ORDER TFT_RGB',
+    '#define TFT_RGB_ORDER TFT_BGR',
     '#define TFT_INVERSION_ON',
     '#define TFT_MOSI 23',
     '#define TFT_MISO 19',
@@ -115,8 +115,8 @@ foreach ($forbidden in @(
 Write-Host "H3E1D1_LOCAL_TFT_SETUP_CONTRACT=PASS"
 Write-Host "H3E1D1_DRIVER=ST7789"
 Write-Host "H3E1D1_GEOMETRY=170x320"
-Write-Host "H3E1D1_ROTATION_COMPILED=3"
-Write-Host "H3E1D1_COLOR_ORDER=RGB"
+Write-Host "H3E1D1_ROTATION_COMPILED=1"
+Write-Host "H3E1D1_COLOR_ORDER=BGR"
 Write-Host "H3E1D1_INVERSION=ON"
 Write-Host "H3E1D1_SPI_MODE=MODE0"
 Write-Host "H3E1D1_SPI_HZ=80000000"

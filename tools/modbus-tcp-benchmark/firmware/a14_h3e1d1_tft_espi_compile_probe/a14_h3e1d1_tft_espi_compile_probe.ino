@@ -72,8 +72,8 @@
 #error "H3E1D1: TFT_SPI_MODE esperado = SPI_MODE0"
 #endif
 
-#if TFT_RGB_ORDER != TFT_RGB
-#error "H3E1D1: TFT_RGB_ORDER esperado = TFT_RGB"
+#if TFT_RGB_ORDER != TFT_BGR
+#error "H3E1D1: TFT_RGB_ORDER esperado = TFT_BGR"
 #endif
 
 #ifndef TFT_INVERSION_ON
@@ -123,7 +123,7 @@ void setup()
     // Estas llamadas fuerzan compilacion y link de los caminos que usara
     // el renderer experimental. Este gate NO realiza upload.
     h3e1d1Tft.init();
-    h3e1d1Tft.setRotation(3);
+    h3e1d1Tft.setRotation(1);
 
     h3e1d1Tft.fillRect(
         8,

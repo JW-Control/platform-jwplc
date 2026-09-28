@@ -13,7 +13,7 @@
 #define TFT_HEIGHT 320
 
 // Paridad con el backend Adafruit actual.
-#define TFT_RGB_ORDER TFT_RGB
+#define TFT_RGB_ORDER TFT_BGR
 #define TFT_INVERSION_ON
 
 // Bus SPI compartido JWPLC Basic v2.
