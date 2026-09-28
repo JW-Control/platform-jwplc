@@ -331,6 +331,7 @@ Write-Host "H3E2B1_ARCHIVE_MEMBER_BYTE_PARITY=PASS"
 $archiveSha = Get-G2Sha256Path $candidateArchive
 $archiveBytes = (Get-Item -LiteralPath $candidateArchive).Length
 
+Write-Host "H3E2B1_CANDIDATE_LIBRARY_ROOT=$candidateLibraryRoot"
 Write-Host "H3E2B1_CANDIDATE_ARCHIVE=$candidateArchive"
 Write-Host "H3E2B1_CANDIDATE_ARCHIVE_BYTES=$archiveBytes"
 Write-Host "H3E2B1_CANDIDATE_ARCHIVE_SHA256=$archiveSha"
