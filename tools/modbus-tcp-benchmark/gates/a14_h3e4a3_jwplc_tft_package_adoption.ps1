@@ -188,7 +188,7 @@ function Invoke-H3E4A3Compile {
 
     New-Item -ItemType Directory -Force -Path $BuildPath | Out-Null
 
-    [string[]]$args = @(
+    [string[]]$compileArgs = @(
         "compile",
         "--fqbn", $fqbn,
         "-j", "0",
@@ -200,13 +200,13 @@ function Invoke-H3E4A3Compile {
     )
 
     if ($DiagnosticDisplayBypass) {
-        $args += @(
+        $compileArgs += @(
             "--build-property",
             "compiler.cpp.extra_flags=$diagDefine"
         )
     }
 
-    $args += $SketchPath
+    $compileArgs += $SketchPath
 
     Write-Host ""
     Write-Host ("=== {0} ===" -f $Label)
@@ -218,7 +218,7 @@ function Invoke-H3E4A3Compile {
         $ErrorActionPreference = "Continue"
 
         [object[]]$output =
-            @(& $cli @args 2>&1)
+            @(& $cli @compileArgs 2>&1)
 
         $exitCode =
             [int]$LASTEXITCODE
