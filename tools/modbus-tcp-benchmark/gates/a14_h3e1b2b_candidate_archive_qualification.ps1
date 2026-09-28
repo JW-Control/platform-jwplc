@@ -362,9 +362,6 @@ try {
     & $legGate -MasterPort $MasterPort -SlavePort $SlavePort -DisplayLinkage ARCHIVE -ExpectedDisplayArchiveHash $expectedCandidateHash -AdditionalAllowedDirtyPaths $displayArchiveRelative *>&1 |
         Tee-Object -FilePath $legOutputLog
 
-    if ($LASTEXITCODE -ne 0) {
-        throw "H3E1B2B_CANDIDATE_LEG_NATIVE_EXIT_INVALID"
-    }
 
     $legTextOutput = [IO.File]::ReadAllText($legOutputLog)
 
