@@ -279,3 +279,142 @@ A14_FINAL_ARDUINO_IDE_GATE=PASS
 
 No declarar los últimos cuatro markers hasta observar la compilación/upload de
 Arduino IDE y el resultado físico final.
+
+
+## R1 — resultado físico Arduino IDE
+
+R1 fue ejecutado desde Arduino IDE con JWPLC Basic en `COM14`, compilando y
+subiendo el gate integral de autoload normal.
+
+Arranque observado después del upload:
+
+```text
+rst:0x1 (POWERON_RESET)
+boot:0x17 (SPI_FAST_FLASH_BOOT)
+mode:DIO, clock div:2
+```
+
+El hecho de que el firmware nuevo arranque y ejecute el gate confirma:
+
+```text
+A14_R1_ARDUINO_IDE_COMPILE=PASS
+A14_R1_ARDUINO_IDE_UPLOAD=PASS
+```
+
+Pruebas automáticas:
+
+```text
+ALPHA4_DISPLAY_READY=PASS
+ALPHA4_RTC=PASS
+ALPHA4_FRAM=PASS
+ALPHA4_SD=PASS
+```
+
+RTC observada:
+
+```text
+2026-09-28 16:06:26
+```
+
+FRAM:
+
+```text
+SIZE_BYTES=8192
+READ_1=OK
+READ_2=OK
+CONSISTENT_READS=YES
+```
+
+microSD:
+
+```text
+READBACK=JWPLC_ALPHA4_SD_OK
+REMOVE=OK
+```
+
+Botonera física:
+
+```text
+UP=PASS
+DOWN=PASS
+LEFT=PASS
+RIGHT=PASS
+CANCEL=PASS
+OK=PASS
+ALPHA4_BUTTONS=PASS
+```
+
+Entradas:
+
+```text
+I0_0=PASS
+I0_1=PASS
+I0_2=PASS
+I0_3=PASS
+I0_4=PASS
+I0_5=PASS
+I0_6=PASS
+I0_7=PASS
+ALPHA4_INPUTS=PASS
+```
+
+Salidas / relés:
+
+```text
+Q0_0=PASS_PHYSICAL
+Q0_1=PASS_PHYSICAL
+Q0_2=PASS_PHYSICAL
+Q0_3=PASS_PHYSICAL
+Q0_4=PASS_PHYSICAL
+Q0_5=PASS_PHYSICAL
+Q0_6=PASS_PHYSICAL
+Q0_7=PASS_PHYSICAL
+ALPHA4_OUTPUTS=PASS
+```
+
+TFT:
+
+```text
+ALPHA4_DISPLAY_VISUAL=PASS
+```
+
+Cierre emitido por el sketch:
+
+```text
+ALPHA4_DISPLAY_READY=PASS
+ALPHA4_RTC=PASS
+ALPHA4_FRAM=PASS
+ALPHA4_SD=PASS
+ALPHA4_BUTTONS=PASS
+ALPHA4_INPUTS=PASS
+ALPHA4_OUTPUTS=PASS
+ALPHA4_DISPLAY_VISUAL=PASS
+ALPHA4_LOCAL_PHYSICAL_GATE=PASS
+```
+
+Interpretación Alpha14:
+
+```text
+A14_R1_NORMAL_AUTOLOAD_PHYSICAL=PASS
+A14_FINAL_ARDUINO_IDE_GATE=PASS
+A14_R1_PRODUCT_FAILURE=NO
+A14_R1_HARDWARE_FAILURE=NO
+```
+
+Ethernet y RS-485/Modbus no se repitieron en este sketch porque permanecen
+cubiertos por H3E.5 y el cierre físico posterior de Alpha14. R0 confirmó que
+sus fuentes/artifacts de producto no cambiaron después de esa evidencia.
+
+## Readiness combinada R0 + R1
+
+```text
+A14_FINAL_READINESS_R0=PASS
+A14_FINAL_ARDUINO_IDE_GATE=PASS
+A14_FINAL_STATIC_CLI=PASS
+A14_FINAL_PHYSICAL_AUTOLOAD=PASS
+A14_FINAL_RELEASE_PR_READY=YES_PENDING_CI
+```
+
+R0 y R1 cierran la reauditoría requerida después del hardening posterior al
+cierre histórico del 13-sep.
+
