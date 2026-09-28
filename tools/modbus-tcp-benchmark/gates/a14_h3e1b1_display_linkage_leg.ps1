@@ -5,6 +5,8 @@ param(
     [string]$DisplayLinkage = "ARCHIVE",
     [string]$ExpectedDisplayArchiveHash = "2974D42C847C1B7C7AB3A7B74DA42E2F17969FB852B47A8D434F57F70DA924AF",
     [string[]]$AdditionalAllowedDirtyPaths = @(),
+    [ValidateSet(40000000, 80000000)]
+    [int]$TftSpiHz = 80000000,
     [switch]$PreflightOnly,
     [double]$DurationS = 300.0,
     [double]$BucketSeconds = 60.0
@@ -138,11 +140,11 @@ Write-Host "PRECOMPILED_CORE_MUTATION=NO"
 Write-Host "DISPLAY_LINKAGE=$DisplayLinkage"
 Write-Host "DISPLAY_EXPECTED_ARCHIVE_SHA256=$expectedDisplayArchiveHash"
 Write-Host "DISPLAY_ADDITIONAL_ALLOWED_DIRTY_COUNT=$($AdditionalAllowedDirtyPaths.Count)"
-Write-Host "TFT_SPI_HZ=80000000"
+Write-Host "TFT_SPI_HZ=$TftSpiHz"
 
 if ($PreflightOnly) {
     [object[]]$setupPreflight = @(
-        & $setupGate -MasterPort $MasterPort -SlavePort $SlavePort -DisplayLinkage $DisplayLinkage -ExpectedDisplayArchiveHash $expectedDisplayArchiveHash -AdditionalAllowedDirtyPaths $AdditionalAllowedDirtyPaths -PreflightOnly -AllowDirtyCoreCandidate *>&1
+        & $setupGate -MasterPort $MasterPort -SlavePort $SlavePort -DisplayLinkage $DisplayLinkage -ExpectedDisplayArchiveHash $expectedDisplayArchiveHash -AdditionalAllowedDirtyPaths $AdditionalAllowedDirtyPaths -TftSpiHz $TftSpiHz -PreflightOnly -AllowDirtyCoreCandidate *>&1
     )
     $setupPreflight | ForEach-Object { Write-Host $_ }
 
@@ -174,7 +176,7 @@ $runLog = Join-Path $tempRoot "h3e1b1.log"
 Write-Host ""
 Write-Host "=== H3E1B1 COMPILE / UPLOAD DISPLAY LINKAGE ==="
 
-& $setupGate -MasterPort $MasterPort -SlavePort $SlavePort -DisplayLinkage $DisplayLinkage -ExpectedDisplayArchiveHash $expectedDisplayArchiveHash -AdditionalAllowedDirtyPaths $AdditionalAllowedDirtyPaths -SetupOnly -AllowDirtyCoreCandidate *>&1 |
+& $setupGate -MasterPort $MasterPort -SlavePort $SlavePort -DisplayLinkage $DisplayLinkage -ExpectedDisplayArchiveHash $expectedDisplayArchiveHash -AdditionalAllowedDirtyPaths $AdditionalAllowedDirtyPaths -TftSpiHz $TftSpiHz -SetupOnly -AllowDirtyCoreCandidate *>&1 |
     Tee-Object -FilePath $setupLog
 
 $setupText = [IO.File]::ReadAllText($setupLog)

@@ -5,6 +5,8 @@ param(
     [string]$DisplayLinkage = "ARCHIVE",
     [string]$ExpectedDisplayArchiveHash = "2974D42C847C1B7C7AB3A7B74DA42E2F17969FB852B47A8D434F57F70DA924AF",
     [string[]]$AdditionalAllowedDirtyPaths = @(),
+    [ValidateSet(40000000, 80000000)]
+    [int]$TftSpiHz = 80000000,
     [switch]$SetupOnly,
     [switch]$PreflightOnly,
     [switch]$AllowDirtyCoreCandidate
@@ -264,11 +266,24 @@ foreach ($requiredDisplaySource in @(
     }
 }
 
+$spiHeaderPath = Get-G2Path "JWPLC/2.1.0/cores/jwcontrol/peripherals/include/jwplc_spi_bus.h"
+if (-not (Test-Path -LiteralPath $spiHeaderPath)) {
+    throw "H3E1B1_SETUP_SPI_HEADER_MISSING"
+}
+$spiHeaderText = [IO.File]::ReadAllText($spiHeaderPath)
+$spiHzMatches = @([regex]::Matches($spiHeaderText, '(?m)^[ \t]*#define[ \t]+JWPLC_SPI_TFT_HZ[ \t]+(\d+)UL[ \t]*(?=\r?$)'))
+if ($spiHzMatches.Count -ne 1) {
+    throw "H3E1B1_SETUP_TFT_SPI_DEFINE_COUNT_INVALID"
+}
+$actualTftSpiHz = [int]$spiHzMatches[0].Groups[1].Value
+if ($actualTftSpiHz -ne $TftSpiHz) {
+    throw "H3E1B1_SETUP_TFT_SPI_HZ_MISMATCH"
+}
 Write-Host "DISPLAY_LINKAGE=$DisplayLinkage"
 Write-Host "DISPLAY_ARCHIVE_SHA256=$displayArchiveHashBefore"
 Write-Host "DISPLAY_EXPECTED_ARCHIVE_SHA256=$expectedDisplayArchiveHash"
 Write-Host "DISPLAY_ADDITIONAL_ALLOWED_DIRTY_COUNT=$($AdditionalAllowedDirtyPaths.Count)"
-Write-Host "DISPLAY_TFT_SPI_HZ=80000000"
+Write-Host "DISPLAY_TFT_SPI_HZ=$actualTftSpiHz"
 
 $masterDir = Get-G2Path "tools/modbus-tcp-benchmark/firmware/a14_h3e0b_core_profiler_master"
 $masterSketch = Join-Path $masterDir "a14_h3e0b_core_profiler_master.ino"
