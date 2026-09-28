@@ -266,12 +266,26 @@ def main() -> None:
         ).splitlines() if x.strip()
     ]
 
+    product_untracked_prefixes = (
+        "JWPLC/2.1.0/",
+        "tools/modbus-tcp-benchmark/firmware/",
+    )
+    product_untracked = [
+        path for path in untracked
+        if path.replace("\\", "/").startswith(product_untracked_prefixes)
+    ]
+
     print(f"A14_R0_TRACKED_DIRTY_COUNT={len(unstaged)}")
     print(f"A14_R0_STAGED_COUNT={len(staged)}")
     print(f"A14_R0_UNTRACKED_COUNT={len(untracked)}")
+    print(f"A14_R0_UNTRACKED_PRODUCT_COUNT={len(product_untracked)}")
+    for path in product_untracked:
+        print(f"A14_R0_UNTRACKED_PRODUCT_PATH={path}")
 
     if unstaged or staged:
         fail("TRACKED_WORKTREE_NOT_CLEAN")
+    if product_untracked:
+        fail("UNTRACKED_PRODUCT_OR_QUALIFICATION_SOURCE_FOUND")
 
     diff_check = run_git(repo, "diff", "--check")
     cached_check = run_git(repo, "diff", "--cached", "--check")
