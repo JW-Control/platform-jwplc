@@ -213,7 +213,7 @@ try {
     $utf8NoBom =
         New-Object System.Text.UTF8Encoding($false)
 
-    $propertiesText = @"
+    $propertiesText = @'
 name=JWPLC_TFT
 version=0.1.0
 author=JW Control
@@ -227,9 +227,9 @@ includes=JWPLC_TFT.h
 dot_a_linkage=true
 precompiled=full
 depends=SPI
-"@
+'@
 
-    $readmeText = @"
+    $readmeText = @'
 # JWPLC_TFT
 
 Backend grafico propio del ecosistema JWPLC.
@@ -304,9 +304,9 @@ conservan en:
 ```text
 licenses/TFT_eSPI-2.5.43-license.txt
 ```
-"@
+'@
 
-    $setupText = @"
+    $setupText = @'
 #pragma once
 
 // Configuracion de mantenimiento para regenerar el backend JWPLC_TFT.
@@ -337,7 +337,7 @@ licenses/TFT_eSPI-2.5.43-license.txt
 
 #define LOAD_GLCD
 #define SUPPORT_TRANSACTIONS
-"@
+'@
 
     [IO.File]::WriteAllText(
         $propertiesPath,
