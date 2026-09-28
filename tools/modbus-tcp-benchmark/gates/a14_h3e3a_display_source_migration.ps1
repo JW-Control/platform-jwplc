@@ -67,18 +67,21 @@ $sourceText = (
 $legacySt = ([regex]::Matches($sourceText, "Adafruit_ST7789")).Count
 $legacyGfx = ([regex]::Matches($sourceText, "Adafruit_GFX")).Count
 $legacyColor = ([regex]::Matches($sourceText, "ST77XX_")).Count
+$legacyBusIo = ([regex]::Matches($sourceText, "Adafruit_BusIO")).Count
 $newType = ([regex]::Matches($sourceText, "JWPLC_TFTClass")).Count
 $phantomHeader = ([regex]::Matches($sourceText, "JWPLC_TFTClass\.h")).Count
 
 Write-Host "H3E3A_SOURCE_ADAFRUIT_ST7789_COUNT=$legacySt"
 Write-Host "H3E3A_SOURCE_ADAFRUIT_GFX_COUNT=$legacyGfx"
 Write-Host "H3E3A_SOURCE_ST77XX_COUNT=$legacyColor"
+Write-Host "H3E3A_SOURCE_ADAFRUIT_BUSIO_COUNT=$legacyBusIo"
 Write-Host "H3E3A_SOURCE_JWPLC_TFT_TYPE_COUNT=$newType"
 Write-Host "H3E3A_SOURCE_PHANTOM_TFT_HEADER_COUNT=$phantomHeader"
 
 if ($legacySt -ne 0 -or
     $legacyGfx -ne 0 -or
     $legacyColor -ne 0 -or
+    $legacyBusIo -ne 0 -or
     $phantomHeader -ne 0) {
     throw "H3E3A_SOURCE_LEGACY_OR_PHANTOM_BACKEND_REMAINS"
 }
@@ -209,11 +212,27 @@ if (-not $displaySelected) {
     $output |
         ForEach-Object { $_.ToString() } |
         Where-Object {
-            $_ -match '^Using library (Adafruit ST7735 and ST7789 Library|Adafruit GFX Library|Adafruit BusIO|TFT_eSPI) at version '
+            $_ -match '^Using library (Adafruit ST7735 and ST7789 Library|Adafruit GFX Library|TFT_eSPI) at version '
+        }
+)
+
+[string[]]$busIoSelections = @(
+    $output |
+        ForEach-Object { $_.ToString() } |
+        Where-Object {
+            $_ -match '^Using library Adafruit BusIO at version '
         }
 )
 
 Write-Host "H3E3A_EXTERNAL_GRAPHICS_BACKEND_SELECTION_COUNT=$($legacySelections.Count)"
+Write-Host "H3E3A_ADAFRUIT_BUSIO_SELECTION_COUNT=$($busIoSelections.Count)"
+Write-Host "H3E3A_ADAFRUIT_BUSIO_CLASSIFICATION=NON_GRAPHICS_DEPENDENCY"
+
+$busIoSelections |
+    ForEach-Object {
+        Write-Host "H3E3A_ADAFRUIT_BUSIO_SELECTION=$_"
+    }
+
 if ($legacySelections.Count -ne 0) {
     $legacySelections | ForEach-Object { Write-Host "H3E3A_UNEXPECTED_BACKEND=$_" }
     throw "H3E3A_EXTERNAL_GRAPHICS_BACKEND_SELECTED"
