@@ -1,10 +1,10 @@
 #include "JWPLC_UI.h"
+#include <JWPLC_TFT.h>
 #include "JWPLC_Display_API.h"
 #include "JWPLC_Display_H3E1_Profile.h"
 
 #include <Arduino.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_ST7789.h>
+#include <JWPLC_TFTClass.h>
 
 #include <cmath>
 #include <cstdio>
@@ -126,7 +126,7 @@ namespace
     }
 
     void textBounds(
-        Adafruit_ST7789 &tft,
+        JWPLC_TFTClass &tft,
         const char *text,
         uint8_t textSize,
         uint16_t &w,
@@ -393,7 +393,7 @@ namespace
     }
 
     int16_t alignedValueX(
-        Adafruit_ST7789 &tft,
+        JWPLC_TFTClass &tft,
         const FieldRuntime &field)
     {
         if (field.def.meta.type == JWPLC_UI_FIELD_BAR)
@@ -431,7 +431,7 @@ namespace
         }
     }
 
-    void computeFieldGeometry(Adafruit_ST7789 &tft, FieldRuntime &field)
+    void computeFieldGeometry(JWPLC_TFTClass &tft, FieldRuntime &field)
     {
         const JWPLC_UIField &def = field.def;
         const int16_t pad = effectiveFieldPadding(def);
@@ -616,7 +616,7 @@ namespace
                                  : valueH);
     }
 
-    void drawFieldStatic(Adafruit_ST7789 &tft, FieldRuntime &field)
+    void drawFieldStatic(JWPLC_TFTClass &tft, FieldRuntime &field)
     {
         computeFieldGeometry(tft, field);
 
@@ -676,7 +676,7 @@ namespace
         field.dirty = true;
     }
 
-    void drawFieldValue(Adafruit_ST7789 &tft, FieldRuntime &field)
+    void drawFieldValue(JWPLC_TFTClass &tft, FieldRuntime &field)
     {
         const JWPLC_UIField &def = field.def;
         const bool profile = jwplcH3E1ProfilerEnabled();
@@ -1159,7 +1159,7 @@ namespace JWPLCUI
         g_refreshRequested = true;
     }
 
-    void drawStatic(Adafruit_ST7789 &tft)
+    void drawStatic(JWPLC_TFTClass &tft)
     {
         for (size_t i = 0; i < g_fieldCount; ++i)
         {
@@ -1174,7 +1174,7 @@ namespace JWPLCUI
         }
     }
 
-    void drawDirty(Adafruit_ST7789 &tft)
+    void drawDirty(JWPLC_TFTClass &tft)
     {
         const bool profile =
             jwplcH3E1ProfilerEnabled();

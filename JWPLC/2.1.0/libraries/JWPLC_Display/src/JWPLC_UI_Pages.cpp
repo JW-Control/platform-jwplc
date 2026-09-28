@@ -1,4 +1,5 @@
 #include "JWPLC_UI_Pages.h"
+#include <JWPLC_TFT.h>
 
 #include "JWPLC_Display_API.h"
 #include "JWPLC_UI.h"
@@ -6,7 +7,7 @@
 
 #include <JWPLC_GlobalPeripherals.h>
 #include <Arduino.h>
-#include <Adafruit_ST7789.h>
+#include <JWPLC_TFTClass.h>
 
 #include <cstdio>
 
@@ -286,7 +287,7 @@ namespace JWPLCUIPages
         JWPLCUI::requestRefresh();
     }
 
-    void drawIndicator(Adafruit_ST7789 &tft)
+    void drawIndicator(JWPLC_TFTClass &tft)
     {
         if (!navigationEnabled() || !g_indicatorDirty)
         {
