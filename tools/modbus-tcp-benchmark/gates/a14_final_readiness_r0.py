@@ -359,20 +359,43 @@ def main() -> None:
     provider_signature = 'extern "C" void jwplcModbusTCPLoopServiceCallback(void)'
     provider_count = modbus_tcp_cpp.count(provider_signature)
     provider_task_count = modbus_tcp_cpp.count("JWPLC_ModbusTCP.task();")
-    core_hook_calls = core_main.count("jwplcModbusTCPLoopServiceCallback();")
     master_manual_calls = master_sketch.count("JWPLC_ModbusTCP.task();")
+
+    loop_task_start = core_main.find("void loopTask(void *pvParameters)")
+    loop1_task_start = core_main.find("void loop1Task(void *pvParameters)")
+    if loop_task_start < 0 or loop1_task_start <= loop_task_start:
+        fail("CORE_LOOP_TASK_BOUNDARY_NOT_FOUND")
+
+    loop_task_text = core_main[loop_task_start:loop1_task_start]
+    user_loop_marker = "    loop();"
+    user_loop_count = loop_task_text.count(user_loop_marker)
+    if user_loop_count != 1:
+        fail(f"CORE_USER_LOOP_MARKER_COUNT_INVALID={user_loop_count}")
+
+    user_loop_index = loop_task_text.find(user_loop_marker)
+    pre_loop_text = loop_task_text[:user_loop_index]
+    post_loop_text = loop_task_text[user_loop_index + len(user_loop_marker):]
+    callback_call = "jwplcModbusTCPLoopServiceCallback();"
+    pre_loop_branch_calls = pre_loop_text.count(callback_call)
+    post_loop_branch_calls = post_loop_text.count(callback_call)
+    core_hook_calls = pre_loop_branch_calls + post_loop_branch_calls
 
     print(f"A14_R0_MODBUS_TCP_PROVIDER_COUNT={provider_count}")
     print(f"A14_R0_MODBUS_TCP_PROVIDER_TASK_CALL_COUNT={provider_task_count}")
-    print(f"A14_R0_CORE_AUTOSERVICE_HOOK_CALL_COUNT={core_hook_calls}")
+    print(f"A14_R0_CORE_AUTOSERVICE_TEXT_CALL_COUNT={core_hook_calls}")
+    print(f"A14_R0_CORE_AUTOSERVICE_PRE_LOOP_BRANCH_CALL_COUNT={pre_loop_branch_calls}")
+    print(f"A14_R0_CORE_AUTOSERVICE_POST_LOOP_BRANCH_CALL_COUNT={post_loop_branch_calls}")
+    print("A14_R0_CORE_AUTOSERVICE_LOGICAL_SERVICE_POINTS=2")
     print(f"A14_R0_MASTER_MANUAL_TCP_TASK_CALL_COUNT={master_manual_calls}")
 
     if provider_count != 1:
         fail("MODBUS_TCP_AUTOSERVICE_PROVIDER_COUNT_INVALID")
     if provider_task_count < 1:
         fail("MODBUS_TCP_AUTOSERVICE_PROVIDER_TASK_MISSING")
-    if core_hook_calls != 2:
-        fail("CORE_AUTOSERVICE_HOOK_CALL_COUNT_INVALID")
+    if pre_loop_branch_calls != 2:
+        fail("CORE_AUTOSERVICE_PRE_LOOP_BRANCH_CONTRACT_INVALID")
+    if post_loop_branch_calls != 2:
+        fail("CORE_AUTOSERVICE_POST_LOOP_BRANCH_CONTRACT_INVALID")
     if master_manual_calls != 0:
         fail("MASTER_STILL_REQUIRES_MANUAL_MODBUS_TCP_TASK")
 
