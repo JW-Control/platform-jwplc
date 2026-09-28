@@ -65,112 +65,6 @@ if ($entryStaged.Count -ne 0) {
     throw "H3E3C_ENTRY_INDEX_NOT_CLEAN"
 }
 
-function Resolve-H3E3CNativeTool {
-    param([string]$Candidate)
-
-    if ([string]::IsNullOrWhiteSpace($Candidate)) {
-        return $null
-    }
-
-    $normalized =
-        $Candidate.Trim().Trim('"')
-
-    while ($normalized.Contains("\\")) {
-        $normalized =
-            $normalized.Replace("\\", "\")
-    }
-
-    [string[]]$paths = @(
-        $normalized
-    )
-
-    if (-not [IO.Path]::HasExtension($normalized)) {
-        $paths += @(
-            ($normalized + ".exe"),
-            ($normalized + ".cmd"),
-            ($normalized + ".bat")
-        )
-    }
-
-    foreach ($candidatePath in $paths) {
-        if (Test-Path -LiteralPath $candidatePath) {
-            return (Resolve-Path -LiteralPath $candidatePath).Path
-        }
-    }
-
-    return $null
-}
-
-function Resolve-H3E3CArchiver {
-    param([string[]]$Lines)
-
-    foreach ($line in $Lines) {
-        $candidate = $null
-
-        if ($line -match '"(?<exe>[^"]*xtensa-esp32-elf-gcc-ar(?:\.exe)?)"') {
-            $candidate =
-                $Matches["exe"]
-        }
-        elseif ($line -match '(?<exe>\S*xtensa-esp32-elf-gcc-ar(?:\.exe)?)\s+(?:cr|crs)') {
-            $candidate =
-                $Matches["exe"]
-        }
-
-        if (-not [string]::IsNullOrWhiteSpace($candidate)) {
-            $resolved =
-                Resolve-H3E3CNativeTool -Candidate $candidate
-
-            if (-not [string]::IsNullOrWhiteSpace($resolved)) {
-                return $resolved
-            }
-        }
-    }
-
-    foreach ($line in $Lines) {
-        $compilerCandidate = $null
-
-        if ($line -match '"(?<exe>[^"]*xtensa-esp32-elf-g\+\+(?:\.exe)?)"') {
-            $compilerCandidate =
-                $Matches["exe"]
-        }
-        elseif ($line -match '(?<exe>\S*xtensa-esp32-elf-g\+\+(?:\.exe)?)\s+') {
-            $compilerCandidate =
-                $Matches["exe"]
-        }
-
-        if ([string]::IsNullOrWhiteSpace($compilerCandidate)) {
-            continue
-        }
-
-        $resolvedCompiler =
-            Resolve-H3E3CNativeTool -Candidate $compilerCandidate
-
-        if ([string]::IsNullOrWhiteSpace($resolvedCompiler)) {
-            continue
-        }
-
-        $toolDir =
-            Split-Path -Parent $resolvedCompiler
-
-        foreach ($name in @(
-            "xtensa-esp32-elf-gcc-ar.exe",
-            "xtensa-esp32-elf-gcc-ar"
-        )) {
-            $candidatePath =
-                Join-Path $toolDir $name
-
-            $resolved =
-                Resolve-H3E3CNativeTool -Candidate $candidatePath
-
-            if (-not [string]::IsNullOrWhiteSpace($resolved)) {
-                return $resolved
-            }
-        }
-    }
-
-    throw "H3E3C_ARCHIVER_NOT_FOUND"
-}
-
 $runRoot =
     Join-Path $env:TEMP (
         "jwplc_a14_h3e3c_{0}" -f
@@ -314,18 +208,33 @@ if ($expectedObjects.Count -ne 7 -or
     throw "H3E3C_SOURCE_OBJECT_PARITY_FAILED"
 }
 
-[string[]]$sourceLines = @(
-    $sourceOutput |
-        ForEach-Object {
-            $_.ToString()
-        }
+[object[]]$sourceArchives = @(
+    Get-ChildItem -LiteralPath $sourceDisplayBuild -File -Filter "*.a" -ErrorAction SilentlyContinue
 )
 
-$archiver =
-    Resolve-H3E3CArchiver -Lines $sourceLines
+Write-Host "H3E3C_SOURCE_ARCHIVE_COUNT=$($sourceArchives.Count)"
 
-Write-Host "H3E3C_ARCHIVER=$archiver"
-Write-Host "H3E3C_ARCHIVER_RESOLUTION=NORMALIZED_NATIVE_TOOL"
+$sourceArchives |
+    ForEach-Object {
+        Write-Host "H3E3C_SOURCE_ARCHIVE=$($_.FullName)"
+    }
+
+if ($sourceArchives.Count -ne 1) {
+    throw "H3E3C_SOURCE_ARCHIVE_COUNT_INVALID"
+}
+
+$sourceArchive =
+    $sourceArchives[0].FullName
+
+$sourceArchiveBytes =
+    (Get-Item -LiteralPath $sourceArchive).Length
+
+$sourceArchiveSha =
+    (Get-G2Sha256Path $sourceArchive).ToUpperInvariant()
+
+Write-Host "H3E3C_SOURCE_ARCHIVE_BYTES=$sourceArchiveBytes"
+Write-Host "H3E3C_SOURCE_ARCHIVE_SHA256=$sourceArchiveSha"
+Write-Host "H3E3C_ARCHIVE_ORIGIN=ARDUINO_SOURCE_DOT_A_LINKAGE"
 
 $candidateArchiveDir =
     Join-Path $candidateDisplay "src\esp32"
@@ -334,32 +243,72 @@ $candidateArchive =
     Join-Path $candidateArchiveDir "libJWPLC_Display.a"
 
 New-Item -ItemType Directory -Force -Path $candidateArchiveDir | Out-Null
+Copy-Item -LiteralPath $sourceArchive -Destination $candidateArchive -Force
 
-$archiveArgs = @("crs", $candidateArchive) +
-    @($sourceObjectFiles | ForEach-Object { $_.FullName })
+$candidateArchiveSha =
+    (Get-G2Sha256Path $candidateArchive).ToUpperInvariant()
 
-$oldPreference = $ErrorActionPreference
-try {
-    $ErrorActionPreference = "Continue"
-    [object[]]$archiveOutput = @(& $archiver @archiveArgs 2>&1)
-    $archiveExit = [int]$LASTEXITCODE
-}
-finally {
-    $ErrorActionPreference = $oldPreference
+if ($candidateArchiveSha -ne $sourceArchiveSha) {
+    throw "H3E3C_SOURCE_ARCHIVE_COPY_HASH_MISMATCH"
 }
 
-$archiveOutput |
-    ForEach-Object { Write-Host $_ }
+Write-Host "H3E3C_SOURCE_TO_CANDIDATE_ARCHIVE_IDENTITY=PASS"
 
-Write-Host "H3E3C_ARCHIVE_CREATE_EXIT=$archiveExit"
+# Resolve ar only for inspection/extraction, not for reconstruction.
+[string[]]$sourceLines = @(
+    $sourceOutput |
+        ForEach-Object {
+            $_.ToString()
+        }
+)
 
-if ($archiveExit -ne 0 -or
-    -not (Test-Path -LiteralPath $candidateArchive)) {
-    throw "H3E3C_ARCHIVE_CREATE_FAILED"
+$archiverCandidate = $null
+
+foreach ($line in $sourceLines) {
+    if ($line -match '"(?<exe>[^"]*xtensa-esp32-elf-gcc-ar(?:\.exe)?)"') {
+        $archiverCandidate =
+            $Matches["exe"]
+        break
+    }
 }
 
-[object[]]$memberOutput = @(& $archiver "t" $candidateArchive)
-$memberExit = [int]$LASTEXITCODE
+if ([string]::IsNullOrWhiteSpace($archiverCandidate)) {
+    throw "H3E3C_ARCHIVER_NOT_FOUND_FOR_INSPECTION"
+}
+
+$archiverNormalized =
+    $archiverCandidate.Trim().Trim('"')
+
+while ($archiverNormalized.Contains("\\")) {
+    $archiverNormalized =
+        $archiverNormalized.Replace("\\", "\")
+}
+
+$archiver = $null
+
+foreach ($candidatePath in @(
+    $archiverNormalized,
+    ($archiverNormalized + ".exe")
+)) {
+    if (Test-Path -LiteralPath $candidatePath) {
+        $archiver =
+            (Resolve-Path -LiteralPath $candidatePath).Path
+        break
+    }
+}
+
+if ([string]::IsNullOrWhiteSpace($archiver)) {
+    throw "H3E3C_ARCHIVER_NOT_FOUND_FOR_INSPECTION"
+}
+
+Write-Host "H3E3C_ARCHIVER=$archiver"
+Write-Host "H3E3C_ARCHIVER_ROLE=INSPECTION_ONLY"
+
+[object[]]$memberOutput =
+    @(& $archiver "t" $candidateArchive)
+
+$memberExit =
+    [int]$LASTEXITCODE
 
 if ($memberExit -ne 0) {
     throw "H3E3C_ARCHIVE_LIST_FAILED"
@@ -367,11 +316,16 @@ if ($memberExit -ne 0) {
 
 [string[]]$memberNames = @(
     $memberOutput |
-        ForEach-Object { $_.ToString().Trim() } |
-        Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+        ForEach-Object {
+            $_.ToString().Trim()
+        } |
+        Where-Object {
+            -not [string]::IsNullOrWhiteSpace($_)
+        }
 )
 
 Write-Host "H3E3C_ARCHIVE_MEMBER_COUNT=$($memberNames.Count)"
+
 $memberNames |
     ForEach-Object {
         Write-Host "H3E3C_ARCHIVE_MEMBER=$_"
@@ -407,7 +361,9 @@ finally {
 
 if ($extractExit -ne 0) {
     $extractOutput |
-        ForEach-Object { Write-Host $_ }
+        ForEach-Object {
+            Write-Host $_
+        }
 
     throw "H3E3C_ARCHIVE_EXTRACT_FAILED"
 }
