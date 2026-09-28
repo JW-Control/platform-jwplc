@@ -1,0 +1,169 @@
+# Alpha14 — H3E.1B.2 — Candidate archive Display regenerado
+
+Fecha: 2026-09-27
+
+## Objetivo
+
+Demostrar que el problema observado en H3E.1B.1 pertenece al archive histórico
+de `JWPLC_Display` y no al uso de `precompiled=full` como estrategia.
+
+H3E.1B.1 cerró:
+
+```txt
+Archive Alpha11
+SYS_DISPLAY AVG = 19049 us
+SYS_DISPLAY MAX = 23629 us
+
+Source actual
+SYS_DISPLAY AVG = 8575 us
+SYS_DISPLAY MAX = 9840 us
+```
+
+El source actual fue además limpio en RTU/TCP/SD.
+
+## Evidencia histórica
+
+El archive actual:
+
+```txt
+SHA256=2974D42C847C1B7C7AB3A7B74DA42E2F17969FB852B47A8D434F57F70DA924AF
+```
+
+es exactamente el archive publicado en Alpha11.
+
+En Alpha11 estaba documentado con:
+
+```txt
+DISPLAY_TUS=6
+```
+
+El source actual H3E.1B.2 contiene 7 TUs:
+
+```txt
+JWPLC_Display.cpp
+JWPLC_Display_H3E1_Profile.cpp
+JWPLC_IdleScreen.cpp
+JWPLC_UI.cpp
+JWPLC_UI_API.cpp
+JWPLC_UI_Pages.cpp
+JWPLC_UI_PixelMap.cpp
+```
+
+Por tanto el archive histórico no representa el source actual.
+
+## Estrategia
+
+H3E.1B.2 se divide en dos pasos.
+
+### B2-A — generar candidate fuera del repo
+
+El generador:
+
+1. valida branch, dirty scope y hashes protegidos;
+2. ejecuta el preflight del source setup ya validado;
+3. produce nuevamente los objetos Display usando el mismo setup SOURCE de B1;
+4. localiza `xtensa-esp32-elf-gcc-ar` desde el log real de compilación;
+5. genera:
+
+```txt
+%TEMP%\jwplc_a14_h3e1b2_candidate_current\libJWPLC_Display.candidate.a
+```
+
+6. exige exactamente los 7 miembros esperados;
+7. extrae cada miembro;
+8. compara SHA de cada miembro contra su `.o` source;
+9. escribe manifest JSON con HEAD, SHA del candidate, TUs y hashes;
+10. confirma que el archive Alpha11, ModbusRTU y core.a permanecen intactos.
+
+B2-A NO adopta ni reemplaza el archive versionado.
+
+### B2-B — qualification física del candidate como archive
+
+Pendiente después de cerrar B2-A.
+
+El candidate se instalará temporalmente como:
+
+```txt
+JWPLC/2.1.0/libraries/JWPLC_Display/src/esp32/libJWPLC_Display.a
+```
+
+sólo durante la compilación del Master.
+
+Luego:
+
+- se verificará 0 source TUs Display en el build candidate;
+- se restaurará el archive histórico byte por byte;
+- se subirá el binario ya enlazado con el candidate;
+- se ejecutarán 300 s H3E.0B;
+- se comparará contra Source B.
+
+Objetivo de equivalencia:
+
+```txt
+candidate archive ~= source actual
+```
+
+No se exige byte-identidad de la aplicación completa, porque el linker puede
+introducir padding/orden distinto entre source directo y archive. La validación
+fuerte usa:
+
+- miembros exactos;
+- byte parity de cada miembro con su source object;
+- prueba de linkage archive real;
+- comportamiento físico;
+- equivalencia de rendimiento.
+
+## Candidate no final
+
+El candidate H3E.1B.2 incluye el estado source actual, incluida la
+instrumentación diagnóstica H3E.1 deshabilitada por default.
+
+Por tanto:
+
+```txt
+CANDIDATE_FOR_DIAGNOSTIC=YES
+FINAL_RELEASE_ARCHIVE=NO
+```
+
+El archive final de release se regenerará después de retirar/cerrar la
+instrumentación diagnóstica correspondiente y repetir los gates de paridad.
+
+## Invariantes protegidos
+
+```txt
+core.a
+4BFF8C8241DA2E8BD0E1BBA99835ADDF91B9085A05C4DFBD05C339B824794566
+
+libJWPLC_ModbusRTU.a
+444BE3A04079A579252B2737FE6070E00ADCA949FD176880588FE69561B2A79F
+
+libJWPLC_Display.a histórico
+2974D42C847C1B7C7AB3A7B74DA42E2F17969FB852B47A8D434F57F70DA924AF
+```
+
+## Contrato preflight B2-A
+
+Debe cerrar:
+
+```txt
+DISPLAY_SOURCE_TU_COUNT=7
+H3E1B2_STATIC_PREFLIGHT=PASS
+CANDIDATE_MUTATES_REPO_ARCHIVE=NO
+PREFLIGHT_COMPILES=NO
+PREFLIGHT_UPLOADS=NO
+PREFLIGHT_GENERATES_CANDIDATE=NO
+A14_H3E1B2_CANDIDATE_PREFLIGHT_ONLY=PASS
+```
+
+## Contrato generación B2-A
+
+Debe cerrar:
+
+```txt
+SOURCE_OBJECT <cada TU>.o=1
+CANDIDATE_MEMBER_COUNT=7
+H3E1B2_CANDIDATE_MEMBERS_EXACT=PASS
+H3E1B2_CANDIDATE_MEMBER_BYTE_PARITY=PASS
+H3E1B2_HISTORICAL_ARCHIVE_PRESERVED=YES
+A14_H3E1B2_CANDIDATE_GENERATION=PASS
+```
