@@ -7,6 +7,9 @@ param(
     [string[]]$AdditionalAllowedDirtyPaths = @(),
     [ValidateSet(40000000, 80000000)]
     [int]$TftSpiHz = 80000000,
+    [string]$MasterDirRelative = "tools/modbus-tcp-benchmark/firmware/a14_h3e0b_core_profiler_master",
+    [string]$MasterSketchName = "a14_h3e0b_core_profiler_master.ino",
+    [string[]]$MasterBuildProperties = @(),
     [switch]$PreflightOnly,
     [double]$DurationS = 300.0,
     [double]$BucketSeconds = 60.0
@@ -39,7 +42,8 @@ $displayArchivePath = Get-G2Path $displayArchiveRelative
 
 $coreMain = Get-G2Path "JWPLC/2.1.0/cores/jwcontrol/main.cpp"
 $coreHeader = Get-G2Path "JWPLC/2.1.0/cores/jwcontrol/jwplc_h3e0b_profile.h"
-$masterSketch = Get-G2Path "tools/modbus-tcp-benchmark/firmware/a14_h3e0b_core_profiler_master/a14_h3e0b_core_profiler_master.ino"
+$masterDir = Get-G2Path $MasterDirRelative
+$masterSketch = Join-Path $masterDir $MasterSketchName
 $runner = Get-G2Path "tools/modbus-tcp-benchmark/pc/a14_h3e0b_core_runtime_attribution.py"
 $setupGate = Join-Path $PSScriptRoot "a14_h3e1b1_display_linkage_setup.ps1"
 
@@ -141,10 +145,13 @@ Write-Host "DISPLAY_LINKAGE=$DisplayLinkage"
 Write-Host "DISPLAY_EXPECTED_ARCHIVE_SHA256=$expectedDisplayArchiveHash"
 Write-Host "DISPLAY_ADDITIONAL_ALLOWED_DIRTY_COUNT=$($AdditionalAllowedDirtyPaths.Count)"
 Write-Host "TFT_SPI_HZ=$TftSpiHz"
+Write-Host "MASTER_DIR_RELATIVE=$MasterDirRelative"
+Write-Host "MASTER_SKETCH_NAME=$MasterSketchName"
+Write-Host "MASTER_BUILD_PROPERTY_COUNT=$($MasterBuildProperties.Count)"
 
 if ($PreflightOnly) {
     [object[]]$setupPreflight = @(
-        & $setupGate -MasterPort $MasterPort -SlavePort $SlavePort -DisplayLinkage $DisplayLinkage -ExpectedDisplayArchiveHash $expectedDisplayArchiveHash -AdditionalAllowedDirtyPaths $AdditionalAllowedDirtyPaths -TftSpiHz $TftSpiHz -PreflightOnly -AllowDirtyCoreCandidate *>&1
+        & $setupGate -MasterPort $MasterPort -SlavePort $SlavePort -DisplayLinkage $DisplayLinkage -ExpectedDisplayArchiveHash $expectedDisplayArchiveHash -AdditionalAllowedDirtyPaths $AdditionalAllowedDirtyPaths -TftSpiHz $TftSpiHz -MasterDirRelative $MasterDirRelative -MasterSketchName $MasterSketchName -MasterBuildProperties $MasterBuildProperties -PreflightOnly -AllowDirtyCoreCandidate *>&1
     )
     $setupPreflight | ForEach-Object { Write-Host $_ }
 
@@ -176,7 +183,7 @@ $runLog = Join-Path $tempRoot "h3e1b1.log"
 Write-Host ""
 Write-Host "=== H3E1B1 COMPILE / UPLOAD DISPLAY LINKAGE ==="
 
-& $setupGate -MasterPort $MasterPort -SlavePort $SlavePort -DisplayLinkage $DisplayLinkage -ExpectedDisplayArchiveHash $expectedDisplayArchiveHash -AdditionalAllowedDirtyPaths $AdditionalAllowedDirtyPaths -TftSpiHz $TftSpiHz -SetupOnly -AllowDirtyCoreCandidate *>&1 |
+& $setupGate -MasterPort $MasterPort -SlavePort $SlavePort -DisplayLinkage $DisplayLinkage -ExpectedDisplayArchiveHash $expectedDisplayArchiveHash -AdditionalAllowedDirtyPaths $AdditionalAllowedDirtyPaths -TftSpiHz $TftSpiHz -MasterDirRelative $MasterDirRelative -MasterSketchName $MasterSketchName -MasterBuildProperties $MasterBuildProperties -SetupOnly -AllowDirtyCoreCandidate *>&1 |
     Tee-Object -FilePath $setupLog
 
 $setupText = [IO.File]::ReadAllText($setupLog)

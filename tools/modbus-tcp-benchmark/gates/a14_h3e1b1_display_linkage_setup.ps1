@@ -7,6 +7,9 @@ param(
     [string[]]$AdditionalAllowedDirtyPaths = @(),
     [ValidateSet(40000000, 80000000)]
     [int]$TftSpiHz = 80000000,
+    [string]$MasterDirRelative = "tools/modbus-tcp-benchmark/firmware/a14_h3e0b_core_profiler_master",
+    [string]$MasterSketchName = "a14_h3e0b_core_profiler_master.ino",
+    [string[]]$MasterBuildProperties = @(),
     [switch]$SetupOnly,
     [switch]$PreflightOnly,
     [switch]$AllowDirtyCoreCandidate
@@ -284,9 +287,12 @@ Write-Host "DISPLAY_ARCHIVE_SHA256=$displayArchiveHashBefore"
 Write-Host "DISPLAY_EXPECTED_ARCHIVE_SHA256=$expectedDisplayArchiveHash"
 Write-Host "DISPLAY_ADDITIONAL_ALLOWED_DIRTY_COUNT=$($AdditionalAllowedDirtyPaths.Count)"
 Write-Host "DISPLAY_TFT_SPI_HZ=$actualTftSpiHz"
+Write-Host "MASTER_DIR_RELATIVE=$MasterDirRelative"
+Write-Host "MASTER_SKETCH_NAME=$MasterSketchName"
+Write-Host "MASTER_BUILD_PROPERTY_COUNT=$($MasterBuildProperties.Count)"
 
-$masterDir = Get-G2Path "tools/modbus-tcp-benchmark/firmware/a14_h3e0b_core_profiler_master"
-$masterSketch = Join-Path $masterDir "a14_h3e0b_core_profiler_master.ino"
+$masterDir = Get-G2Path $MasterDirRelative
+$masterSketch = Join-Path $masterDir $MasterSketchName
 $slaveDir = Get-G2Path "tools/modbus-tcp-benchmark/firmware/a14_p5_rtu_slave"
 $slaveSketch = Join-Path $slaveDir "a14_p5_rtu_slave.ino"
 $resolver = Join-Path $PSScriptRoot "a14_p5_resolve_full_runtime_ip.py"
@@ -542,9 +548,16 @@ try {
         "compile",
         "--fqbn", $fqbn,
         "--build-path", $masterBuild,
-        "--libraries", $repoLibrariesRoot,
-        $masterDir
+        "--libraries", $repoLibrariesRoot
     )
+
+    foreach ($property in $MasterBuildProperties) {
+        if (-not [string]::IsNullOrWhiteSpace($property)) {
+            $masterArgs += @("--build-property", $property)
+        }
+    }
+
+    $masterArgs += $masterDir
 
     $masterExit = Invoke-NativeToLog -FilePath $arduinoCli -Arguments $masterArgs -LogPath $masterCompileLog
     Write-Host "MASTER_COMPILE_EXIT=$masterExit"
