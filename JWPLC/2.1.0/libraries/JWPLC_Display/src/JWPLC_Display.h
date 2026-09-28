@@ -4,7 +4,6 @@
 #include <Arduino.h>
 #include <JWPLC_Display_API.h>
 #include <JWPLC_TFT.h>
-#include <JWPLC_TFTClass.h>
 #include <JWPLC_GlobalPeripherals.h>
 
 extern "C"

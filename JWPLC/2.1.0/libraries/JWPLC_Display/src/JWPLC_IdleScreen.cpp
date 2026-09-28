@@ -1,7 +1,6 @@
 #include "JWPLC_IdleScreen.h"
 #include <JWPLC_TFT.h>
 
-#include <JWPLC_TFTClass.h>
 #include <cstring>
 #include <cstdio>
 

@@ -4,7 +4,6 @@
 #include <Arduino.h>
 
 class JWPLC_TFTClass;
-#include <JWPLC_TFTClass.h>
 
 extern "C"
 {

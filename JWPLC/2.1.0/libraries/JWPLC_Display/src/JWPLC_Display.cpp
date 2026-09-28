@@ -3,7 +3,6 @@
 #include "JWPLC_UI_RuntimeHooks.h"
 #include "JWPLC_Display_H3E1_Profile.h"
 
-#include <JWPLC_TFTClass.h>
 #include <cstring>
 
 
