@@ -1,5 +1,14 @@
 # v2.1.0-alpha.14 — Cierre técnico
 
+> **Nota de vigencia — 2026-09-28**
+>
+> Este documento conserva el cierre técnico histórico alcanzado el 13-sep para
+> A14.1-A14.5. Alpha14 continuó después con DataLog, core precompilado,
+> hardening RTU/Display y H3E; por tanto ya no debe usarse como snapshot final
+> del branch. El cierre complementario actual de H3E está en
+> `A14_H3E_CLOSURE_20260928.md` y la readiness de PR requiere una auditoría
+> final nueva sobre el estado completo de la rama.
+
 Fecha: `2026-09-13`
 
 Rama:
@@ -27,7 +36,7 @@ A14_5=DEFERRED_NON_BLOCKING
 ALPHA14_CLOSE_READINESS=PASS
 ```
 
-Alpha14 queda técnicamente cerrada y lista para PR hacia `release/v2.1.x`.
+En el snapshot del 13-sep, Alpha14 quedó técnicamente cerrada para el alcance A14.1-A14.5. Este estado fue posteriormente ampliado por hardening adicional y no representa por sí solo la readiness actual de PR.
 
 ## Objetivo del alpha
 
@@ -361,8 +370,10 @@ ALPHA14_CLOSE_READINESS=PASS
 ## Estado para PR
 
 ```text
-ALPHA14_TECHNICAL_CLOSURE=PASS
-ALPHA14_STATUS=READY_FOR_RELEASE_PR
+ALPHA14_TECHNICAL_CLOSURE_20260913=PASS_HISTORICAL
+ALPHA14_STATUS_20260913=READY_FOR_RELEASE_PR_HISTORICAL
+CURRENT_STATUS_SOURCE=ALPHA14_STATUS.md
+H3E_CLOSURE_SOURCE=A14_H3E_CLOSURE_20260928.md
 CI_REQUIRED_BEFORE_MERGE=YES
 PR_TARGET=release/v2.1.x
 ```
