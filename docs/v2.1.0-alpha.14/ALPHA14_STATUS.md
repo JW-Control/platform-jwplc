@@ -278,10 +278,12 @@ POST_H3E_THRESHOLD_REQUALIFICATION=OPEN
 
 Plan:
 
-- H4A: nuevo frontier TCP-only.
+- H4A0: nuevo ceiling RAW Ethernet TCP/UDP en Mbps.
+- H4A1: nuevo frontier Modbus TCP-only en req/s.
 - H4B: frontier TCP con RTU fijo a 50 Hz.
 - H4C: RTU FAST 500 kbaud, 100 us vs 75 us; 50 us excluido.
 - H4D: SFIFO/BULK post-H3E, incluyendo perfil estable FIFO9/FIFO8.
+- H4E: coexistencia extrema TCP+RTU para cifra reproducible de datasheet.
 
 Documento:
 
@@ -559,7 +561,7 @@ ALPHA14_ONLY_COMMITS=142
 ## Siguiente paso
 
 ```text
-NEXT=RUN_H4A_POST_H3E_TCP_ONLY_FRONTIER
+NEXT=RUN_H4A0_POST_H3E_RAW_ETHERNET_CEILING
 CI_REQUIRED_BEFORE_MERGE=YES
 HISTORICAL_READY_FOR_RELEASE_PR_20260913=SUPERSEDED_BY_POST_CLOSURE_HARDENING
 ```
