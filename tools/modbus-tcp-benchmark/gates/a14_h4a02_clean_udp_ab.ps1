@@ -396,124 +396,129 @@ $fastValues = New-Object System.Collections.Generic.List[double]
 $legacyLoopMax = New-Object System.Collections.Generic.List[double]
 $fastLoopMax = New-Object System.Collections.Generic.List[double]
 
-function Invoke-H4A02Variant {
+function Invoke-H4A02Case {
     param(
         [string]$Variant,
+        [int]$RunNumber,
         [string]$BuildPath,
         [string]$SketchDir,
         [System.Collections.Generic.List[double]]$Values,
         [System.Collections.Generic.List[double]]$LoopMaxValues
     )
 
-    for ($run = 1; $run -le $Runs; ++$run) {
-        Write-Host ""
-        Write-Host "============================================================"
-        Write-Host (" H4A0.2 {0} RUN {1}/{2}" -f $Variant, $run, $Runs)
-        Write-Host "============================================================"
+    Write-Host ""
+    Write-Host "============================================================"
+    Write-Host (" H4A0.2 {0} RUN {1}/{2}" -f $Variant, $RunNumber, $Runs)
+    Write-Host "============================================================"
 
-        $uploadLog = Join-Path $tempRoot ("{0}_run{1}_upload.log" -f $Variant.ToLower(), $run)
-        $uploadExit = Invoke-NativeToLog -FilePath $arduinoCli -Arguments @(
-            "upload",
-            "--fqbn", $fqbn,
-            "--port", $SerialPort,
-            "--input-dir", $BuildPath,
-            $SketchDir
-        ) -LogPath $uploadLog
+    $uploadLog = Join-Path $tempRoot ("{0}_run{1}_upload.log" -f $Variant.ToLower(), $RunNumber)
+    $uploadExit = Invoke-NativeToLog -FilePath $arduinoCli -Arguments @(
+        "upload",
+        "--fqbn", $fqbn,
+        "--port", $SerialPort,
+        "--input-dir", $BuildPath,
+        $SketchDir
+    ) -LogPath $uploadLog
 
-        Write-Host ("H4A02_{0}_RUN{1}_UPLOAD_EXIT={2}" -f $Variant, $run, $uploadExit)
+    Write-Host ("H4A02_{0}_RUN{1}_UPLOAD_EXIT={2}" -f $Variant, $RunNumber, $uploadExit)
 
-        if ($uploadExit -ne 0) {
-            Get-Content -LiteralPath $uploadLog -Tail 220 | ForEach-Object { Write-Host $_ }
-            throw ("H4A02_{0}_RUN{1}_UPLOAD_FAILED" -f $Variant, $run)
-        }
+    if ($uploadExit -ne 0) {
+        Get-Content -LiteralPath $uploadLog -Tail 220 | ForEach-Object { Write-Host $_ }
+        throw ("H4A02_{0}_RUN{1}_UPLOAD_FAILED" -f $Variant, $RunNumber)
+    }
 
-        Start-Sleep -Seconds 3
+    Start-Sleep -Seconds 3
 
-        $caseLog = Join-Path $tempRoot ("{0}_run{1}_udp_rx.log" -f $Variant.ToLower(), $run)
-        $durationText = $DurationSeconds.ToString(
+    $caseLog = Join-Path $tempRoot ("{0}_run{1}_udp_rx.log" -f $Variant.ToLower(), $RunNumber)
+    $durationText = $DurationSeconds.ToString(
+        [System.Globalization.CultureInfo]::InvariantCulture
+    )
+
+    $caseExit = Invoke-NativeToLog -FilePath $pythonExe -Arguments @(
+        "-u", $caseRunner,
+        "--serial", $SerialPort,
+        "--duration", $durationText,
+        "--udp-payload", $UdpPayload.ToString(),
+        "--variant", $Variant
+    ) -LogPath $caseLog
+
+    Write-Host ("H4A02_{0}_RUN{1}_CASE_EXIT={2}" -f $Variant, $RunNumber, $caseExit)
+    Write-Host ("H4A02_{0}_RUN{1}_LOG={2}" -f $Variant, $RunNumber, $caseLog)
+
+    Get-Content -LiteralPath $caseLog | ForEach-Object { Write-Host $_ }
+
+    if ($caseExit -ne 0) {
+        throw ("H4A02_{0}_RUN{1}_CASE_FAILED" -f $Variant, $RunNumber)
+    }
+
+    $caseText = [System.IO.File]::ReadAllText($caseLog)
+
+    if ((Get-LogValue -Text $caseText -Key "H4A02_FUNCTIONAL_PASS") -ne "YES") {
+        throw ("H4A02_{0}_RUN{1}_FUNCTIONAL_FAIL" -f $Variant, $RunNumber)
+    }
+
+    $mbps = Get-LogDouble -Text $caseText -Key "H4A02_DUT_MBPS"
+    $Values.Add($mbps)
+
+    $loopPattern = "(?m)^H4A02_SNAPSHOT_LOOP_GAP_MAX_US=(.*)\r?$"
+    $loopMatch = [regex]::Match($caseText, $loopPattern)
+    if ($loopMatch.Success) {
+        $loopValue = [double]::Parse(
+            $loopMatch.Groups[1].Value.Trim(),
             [System.Globalization.CultureInfo]::InvariantCulture
         )
+        $LoopMaxValues.Add($loopValue)
+    }
 
-        $caseExit = Invoke-NativeToLog -FilePath $pythonExe -Arguments @(
-            "-u", $caseRunner,
-            "--serial", $SerialPort,
-            "--duration", $durationText,
-            "--udp-payload", $UdpPayload.ToString(),
-            "--variant", $Variant
-        ) -LogPath $caseLog
-
-        Write-Host ("H4A02_{0}_RUN{1}_CASE_EXIT={2}" -f $Variant, $run, $caseExit)
-        Write-Host ("H4A02_{0}_RUN{1}_LOG={2}" -f $Variant, $run, $caseLog)
-
-        Get-Content -LiteralPath $caseLog | ForEach-Object { Write-Host $_ }
-
-        if ($caseExit -ne 0) {
-            throw ("H4A02_{0}_RUN{1}_CASE_FAILED" -f $Variant, $run)
+    if ($Variant -eq "FAST") {
+        foreach ($key in @(
+            "H4A02_SNAPSHOT_ETH_INT_CONFIGURED",
+            "H4A02_SNAPSHOT_UDP_RX_PACKETS",
+            "H4A02_SNAPSHOT_UDP_RX_SERVICE_HOLD_COUNT",
+            "H4A02_SNAPSHOT_UDP_RX_ACTIVE_HOLD_COUNT",
+            "H4A02_SNAPSHOT_UDP_RX_EMPTY_HOLD_COUNT",
+            "H4A02_SNAPSHOT_UDP_RX_SPI_READS_PER_PACKET_X1000"
+        )) {
+            if (-not [regex]::IsMatch($caseText, "(?m)^" + [regex]::Escape($key) + "=")) {
+                throw ("H4A02_FAST_RUNTIME_MARKER_MISSING={0}" -f $key)
+            }
         }
 
-        $caseText = [System.IO.File]::ReadAllText($caseLog)
-
-        if ((Get-LogValue -Text $caseText -Key "H4A02_FUNCTIONAL_PASS") -ne "YES") {
-            throw ("H4A02_{0}_RUN{1}_FUNCTIONAL_FAIL" -f $Variant, $run)
+        if ((Get-LogValue -Text $caseText -Key "H4A02_SNAPSHOT_ETH_INT_CONFIGURED") -ne "YES") {
+            throw "H4A02_FAST_INT_NOT_CONFIGURED"
         }
 
-        $mbps = Get-LogDouble -Text $caseText -Key "H4A02_DUT_MBPS"
-        $Values.Add($mbps)
+        $packets = Get-LogDouble -Text $caseText -Key "H4A02_SNAPSHOT_UDP_RX_PACKETS"
+        $holds = Get-LogDouble -Text $caseText -Key "H4A02_SNAPSHOT_UDP_RX_ACTIVE_HOLD_COUNT"
+        $emptyHolds = Get-LogDouble -Text $caseText -Key "H4A02_SNAPSHOT_UDP_RX_EMPTY_HOLD_COUNT"
 
-        $loopPattern = "(?m)^H4A02_SNAPSHOT_LOOP_GAP_MAX_US=(.*)\r?$"
-        $loopMatch = [regex]::Match($caseText, $loopPattern)
-        if ($loopMatch.Success) {
-            $loopValue = [double]::Parse(
-                $loopMatch.Groups[1].Value.Trim(),
-                [System.Globalization.CultureInfo]::InvariantCulture
-            )
-            $LoopMaxValues.Add($loopValue)
+        if ($holds -le 0) {
+            throw "H4A02_FAST_ACTIVE_HOLDS_ZERO"
         }
 
-        if ($Variant -eq "FAST") {
-            foreach ($key in @(
-                "H4A02_SNAPSHOT_ETH_INT_CONFIGURED",
-                "H4A02_SNAPSHOT_UDP_RX_PACKETS",
-                "H4A02_SNAPSHOT_UDP_RX_SERVICE_HOLD_COUNT",
-                "H4A02_SNAPSHOT_UDP_RX_ACTIVE_HOLD_COUNT",
-                "H4A02_SNAPSHOT_UDP_RX_EMPTY_HOLD_COUNT",
-                "H4A02_SNAPSHOT_UDP_RX_SPI_READS_PER_PACKET_X1000"
-            )) {
-                if (-not [regex]::IsMatch($caseText, "(?m)^" + [regex]::Escape($key) + "=")) {
-                    throw ("H4A02_FAST_RUNTIME_MARKER_MISSING={0}" -f $key)
-                }
-            }
+        $packetsPerHold = $packets / $holds
 
-            if ((Get-LogValue -Text $caseText -Key "H4A02_SNAPSHOT_ETH_INT_CONFIGURED") -ne "YES") {
-                throw "H4A02_FAST_INT_NOT_CONFIGURED"
-            }
+        Write-Host ("H4A02_FAST_RUN{0}_PACKETS_PER_ACTIVE_HOLD={1:F6}" -f $RunNumber, $packetsPerHold)
 
-            $packets = Get-LogDouble -Text $caseText -Key "H4A02_SNAPSHOT_UDP_RX_PACKETS"
-            $holds = Get-LogDouble -Text $caseText -Key "H4A02_SNAPSHOT_UDP_RX_ACTIVE_HOLD_COUNT"
-            $emptyHolds = Get-LogDouble -Text $caseText -Key "H4A02_SNAPSHOT_UDP_RX_EMPTY_HOLD_COUNT"
+        if ($packetsPerHold -lt 1.95 -or $packetsPerHold -gt 2.05) {
+            throw "H4A02_FAST_BATCH2_RUNTIME_NOT_OBSERVED"
+        }
 
-            if ($holds -le 0) {
-                throw "H4A02_FAST_ACTIVE_HOLDS_ZERO"
-            }
-
-            $packetsPerHold = $packets / $holds
-
-            Write-Host ("H4A02_FAST_RUN{0}_PACKETS_PER_ACTIVE_HOLD={1:F6}" -f $run, $packetsPerHold)
-
-            if ($packetsPerHold -lt 1.95 -or $packetsPerHold -gt 2.05) {
-                throw "H4A02_FAST_BATCH2_RUNTIME_NOT_OBSERVED"
-            }
-
-            if ($emptyHolds -ne 0) {
-                throw "H4A02_FAST_EMPTY_HOLDS_NONZERO"
-            }
+        if ($emptyHolds -ne 0) {
+            throw "H4A02_FAST_EMPTY_HOLDS_NONZERO"
         }
     }
 }
 
-# Legacy first, then fast. Every individual run starts from a fresh upload.
-Invoke-H4A02Variant -Variant "LEGACY" -BuildPath $legacyBuild -SketchDir $repoFirmwareDir -Values $legacyValues -LoopMaxValues $legacyLoopMax
-Invoke-H4A02Variant -Variant "FAST" -BuildPath $fastBuild -SketchDir $fastSketchDir -Values $fastValues -LoopMaxValues $fastLoopMax
+Write-Host ""
+Write-Host "H4A02_EXECUTION_ORDER=LEGACY1,FAST1,FAST2,LEGACY2,LEGACY3,FAST3"
+
+Invoke-H4A02Case -Variant "LEGACY" -RunNumber 1 -BuildPath $legacyBuild -SketchDir $repoFirmwareDir -Values $legacyValues -LoopMaxValues $legacyLoopMax
+Invoke-H4A02Case -Variant "FAST" -RunNumber 1 -BuildPath $fastBuild -SketchDir $fastSketchDir -Values $fastValues -LoopMaxValues $fastLoopMax
+Invoke-H4A02Case -Variant "FAST" -RunNumber 2 -BuildPath $fastBuild -SketchDir $fastSketchDir -Values $fastValues -LoopMaxValues $fastLoopMax
+Invoke-H4A02Case -Variant "LEGACY" -RunNumber 2 -BuildPath $legacyBuild -SketchDir $repoFirmwareDir -Values $legacyValues -LoopMaxValues $legacyLoopMax
+Invoke-H4A02Case -Variant "LEGACY" -RunNumber 3 -BuildPath $legacyBuild -SketchDir $repoFirmwareDir -Values $legacyValues -LoopMaxValues $legacyLoopMax
+Invoke-H4A02Case -Variant "FAST" -RunNumber 3 -BuildPath $fastBuild -SketchDir $fastSketchDir -Values $fastValues -LoopMaxValues $fastLoopMax
 
 $legacyMedian = Get-Median -Values $legacyValues.ToArray()
 $fastMedian = Get-Median -Values $fastValues.ToArray()
