@@ -11,10 +11,10 @@ v2.1.0-alpha.14/feature/modbus-tcp
 ## CURRENT_STATE
 
 ```text
-LAST_COMPLETED_GATE=H4A0.4-P6
-LAST_RESULT=PASS_DATA_ONLY_SMALL_OR_INCONCLUSIVE_EFFECT
-CURRENT_GATE=H4A0.4-P7
-CURRENT_ACTION=DESIGN_ADDITIVE_TCP_RX_COMMIT_COALESCING
+LAST_COMPLETED_GATE=H4A0.4-P7
+LAST_RESULT=PASS_DATA_ONLY_CANDIDATE_REJECTED_RX_PATH_REGRESSION
+CURRENT_GATE=H4A0.4-P8
+CURRENT_ACTION=DESIGN_SOCKET_STATUS_REDUNDANCY_GATE
 FIFO_REUSE_DEFAULT=OFF
 FIFO_REUSE_VALIDATED_PENDING_PHYSICAL=YES
 PHYSICAL_STABILITY=PENDING_USER
@@ -30,6 +30,7 @@ ALPHA14_CLOSED=NO
 | H4A0.4-P4 | FIFO_REUSE sin profiler | FIFO_REUSE + microperfil | — | — | locator only | 0 | PASS | 0 | PENDING_USER | START_WAIT_EXCESS dominante; evaluar DMA segura |
 | H4A0.4-P5 | SPIClass/VSPI compartido | DMA ESP-IDF | — | — | no ejecutado | — | — | — | PENDING_USER | Bloqueado: DMA exige segundo ownership/rearquitectura |
 | H4A0.4-P6 | available()+read() | read() directo | 16.853677 | 13.424499 | +0.348% payload; −0.887% path RX | 0 | PASS | 0 | PENDING_USER | Efecto pequeño/inconcluso; pasar a commit RX |
+| H4A0.4-P7 | commit inmediato | commit coalescido | 16.883698 | 9.727778 | +0.513% payload; +11.266% path RX | 0 | PASS | 0 | PENDING_USER | Rechazar: regresión path RX/hold SPI; pasar a socketStatus |
 
 ## HEAD y commits de la sesión
 
@@ -39,7 +40,7 @@ HEAD inicial sincronizado:
 9569be3f2d4bd0f9daeb6d02f9989c15b28b498f
 ```
 
-Commits creados hasta P3R:
+Commits creados hasta P7:
 
 ```text
 c9666d0d docs(alpha14): registrar resultado P3 FIFO reuse
@@ -49,6 +50,9 @@ bd38f7c5 test(alpha14): añadir confirmación P3R FIFO reuse
 1b6abff1 docs(alpha14): registrar microperfil P4 W5500
 6b3e9a3d docs(alpha14): cerrar factibilidad DMA P5
 d13df201 test(alpha14): medir fusión TCP available read
+0d81daa6 docs(alpha14): registrar resultado P6 available read
+59fb264a test(alpha14): medir commit TCP RX coalescido
+3a043347 test(alpha14): aislar reconexiones P7
 ```
 
 ## Gates ejecutados
@@ -200,9 +204,41 @@ C:\Users\jeykc\AppData\Local\Temp\jwplc_a14_h4a04p6_available_read_p7e0qvmt\SUMM
 docs/v2.1.0-alpha.14/A14_H4A04P6_TCP_AVAILABLE_READ_20260929.md
 ```
 
+### H4A0.4-P7
+
+```text
+ONLY_VARIABLE=TCP_RX_HARDWARE_COMMIT_FREQUENCY
+IMMEDIATE_COMMIT_PAYLOAD=16.797465 Mbps
+BATCH_COMMIT_PAYLOAD=16.883698 Mbps
+PAYLOAD_DELTA=+0.513%
+IMMEDIATE_COMMIT_RX_PATH=0.534275 us/B
+BATCH_COMMIT_RX_PATH=0.594464 us/B
+RX_PATH_DELTA=+11.266%
+HOLD_DELTA=+30.859%
+COMMIT_CALLS_DELTA=-33.952%
+PAYLOAD_REPEATABILITY_OK=False
+PAYLOAD_INTEGRITY=PASS
+RECONNECT_CASE_1=PASS
+RECONNECT_CASE_2=PASS
+TCP_SPI_LOCK_ERRORS=0
+TRANSPORT_ERRORS=0
+UNEXPECTED_RESETS=0
+CANDIDATE_DECISION=REJECT_FOR_PROMOTION_RX_PATH_REGRESSION
+PHYSICAL_STABILITY=PENDING_USER
+```
+
+Evidencia:
+
+```text
+C:\Users\jeykc\AppData\Local\Temp\jwplc_a14_h4a04p7_tcp_commit_yxz9nmq9
+C:\Users\jeykc\AppData\Local\Temp\jwplc_a14_h4a04p7_tcp_commit_yxz9nmq9\SUMMARY.log
+docs/v2.1.0-alpha.14/A14_H4A04P7_TCP_RX_COMMIT_COALESCING_20260929.md
+```
+
 ## Candidatos
 
-- Rechazados en esta sesión: ninguno.
+- Rechazado: commit TCP RX coalescido P7 por `+11.266%` en path RX,
+  `+30.859%` en hold SPI y dispersión de payload fuera del límite.
 - No implementado por seguridad: DMA P5 sobre el bus Arduino compartido.
 - Validado por datos, pendiente de revisión física:
   `JWPLC_W5500_RX_FIFO_REUSE=1` por P3/P3R.
@@ -215,6 +251,7 @@ docs/v2.1.0-alpha.14/A14_H4A04P6_TCP_AVAILABLE_READ_20260929.md
 STALE_PYTHON_311_PATH=YES
 SANDBOX_ARDUINO_CONFIG_ACCESS_DENIED=YES
 MISSING_PYSERIAL_IN_WORKSPACE_RUNTIME=YES
+P7_RECONNECT_RESIDUAL_ZERO_ARM=YES_CORRECTED
 PRODUCT_TRAFFIC_REACHED_BY_FAILED_ATTEMPTS=NO
 ```
 
@@ -235,9 +272,9 @@ No se extrapola un ceiling teórico nuevo.
 
 ## Optimización restante
 
-1. diseñar y medir commit RX diferido/coalescido;
-2. revisar lecturas redundantes de `socketStatus()`;
-3. abordar TX async solo después de cerrar el frente RX.
+1. revisar lecturas redundantes de `socketStatus()`;
+2. medir batch raw y/o topología RX solo si el gate anterior lo justifica;
+3. abordar TX async después de cerrar el frente RX.
 
 ## Verificación física pendiente del usuario
 
@@ -257,11 +294,11 @@ PHYSICAL_STABILITY=PENDING_USER
 
 ## Comando exacto para continuar
 
-Para repetir el último gate cerrado mientras se prepara P7:
+Para repetir el último gate cerrado mientras se prepara P8:
 
 ```powershell
 $env:PYTHONPATH='C:\Users\jeykc\AppData\Local\Temp\jwplc-codex-pydeps'
 & 'C:\Users\jeykc\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -B `
-  tools\modbus-tcp-benchmark\gates\a14_h4a04p6_tcp_available_read_ab.py `
+  tools\modbus-tcp-benchmark\gates\a14_h4a04p7_tcp_rx_commit_ab.py `
   --defer-physical-review
 ```
