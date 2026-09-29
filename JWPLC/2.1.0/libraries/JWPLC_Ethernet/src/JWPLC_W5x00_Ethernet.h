@@ -154,6 +154,18 @@ private:
 	// Receive data (TCP)
 	static int socketRecv(uint8_t s, uint8_t * buf, int16_t len);
 	static uint16_t socketRecvAvailable(uint8_t s);
+
+	// JWPLC high-throughput UDP RX backend.
+	// Reads one complete W5500 UDP record (8-byte pseudo-header + payload)
+	// while deferring RX_RD/Sock_RECV so a cooperative caller can commit
+	// several records at once. Legacy Arduino UDP semantics are untouched.
+	static int socketRecvUDPFastDeferred(
+		uint8_t s,
+		uint8_t *header,
+		uint8_t *buf,
+		uint16_t len);
+	static bool socketCommitUDPFast(uint8_t s);
+
 	static uint8_t socketPeek(uint8_t s);
 	// sets up a UDP datagram, the data for which will be provided by one
 	// or more calls to bufferData and then finally sent with sendUDP.
@@ -221,6 +233,14 @@ public:
 	virtual int read();
 	virtual int read(uint8_t *buf, size_t len);
 	virtual int read(char* buffer, size_t len) { return read((unsigned char*)buffer, len); };
+
+	// JWPLC additive/internal high-throughput RX extension.
+	// It does NOT replace parsePacket()/read(). A cooperative caller may read
+	// complete datagrams with deferred hardware commit and then commit once
+	// after processing its chosen batch.
+	int jwplcReadPacketFastDeferred(uint8_t *buffer, size_t len);
+	bool jwplcCommitRxFast();
+
 	virtual int peek();
 	virtual void flush();
 
