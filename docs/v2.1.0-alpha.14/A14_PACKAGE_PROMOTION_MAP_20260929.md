@@ -64,7 +64,8 @@ precompilado mientras el alpha siga abierto.
 
 ## 2. Marca física de JWPLC_TFT/TFT_eSPI
 
-Se cambió el título del IDLE:
+Se cambió el título del IDLE para que use un bloque de fondo explícito y un
+color de texto independiente.
 
 ### Antes
 
@@ -74,9 +75,13 @@ Se cambió el título del IDLE:
 
 ### Ahora
 
-- rectángulo azul sólido;
-- texto blanco;
+- rectángulo de fondo configurable;
+- color de texto configurable;
 - título `JWPLC Basic`.
+
+Los valores exactos de posición, dimensiones y color quedan deliberadamente
+fuera del contrato de validación para poder ajustarlos visualmente sin romper
+los gates de Ethernet.
 
 Objetivo:
 
