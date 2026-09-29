@@ -31,6 +31,10 @@
 #define JWPLC_H4A04P7_DEFER_TCP_COMMIT 0
 #endif
 
+#ifndef JWPLC_H4A04P8_REUSE_CONNECTED_RESULT
+#define JWPLC_H4A04P8_REUSE_CONNECTED_RESULT 0
+#endif
+
 static constexpr uint16_t TCP_PORT = 5001;
 static constexpr size_t TCP_BUFFER_BYTES = 1024;
 static constexpr uint8_t TCP_RX_MAX_CHUNKS_PER_LOCK = 8;
@@ -306,7 +310,7 @@ static void announceReady()
     Serial.println(TCP_PORT);
 }
 
-static void acceptTcpClient()
+static bool acceptTcpClient()
 {
     // This deliberately exercises the existing cooperative server-side
     // stop lifecycle used by the current RAW benchmark.
@@ -317,13 +321,13 @@ static void acceptTcpClient()
 
         if (stopState == 0)
         {
-            return;
+            return false;
         }
     }
 
     if (tcpClient && tcpClient.connected())
     {
-        return;
+        return true;
     }
 
     if (tcpClient)
@@ -333,7 +337,7 @@ static void acceptTcpClient()
 
         if (stopState == 0)
         {
-            return;
+            return false;
         }
     }
 
@@ -343,14 +347,23 @@ static void acceptTcpClient()
     {
         mode = MODE_IDLE;
         resetCounters();
+        return true;
     }
+
+    return false;
 }
 
 static void serviceTcpUnlocked()
 {
+#if JWPLC_H4A04P8_REUSE_CONNECTED_RESULT
+    // acceptTcpClient() already resolved socket usability in this cooperative
+    // pass. Reuse only that result; no TCP state survives into a later pass.
+    if (!acceptTcpClient())
+#else
     acceptTcpClient();
 
     if (!tcpClient || !tcpClient.connected())
+#endif
     {
         if (mode == MODE_TCP_RX)
         {
