@@ -23,6 +23,10 @@
 #define JWPLC_H4A04P3_VERIFY_PAYLOAD 0
 #endif
 
+#ifndef JWPLC_H4A04P6_DIRECT_READ
+#define JWPLC_H4A04P6_DIRECT_READ 0
+#endif
+
 static constexpr uint16_t TCP_PORT = 5001;
 static constexpr size_t TCP_BUFFER_BYTES = 1024;
 static constexpr uint8_t TCP_RX_MAX_CHUNKS_PER_LOCK = 8;
@@ -385,6 +389,19 @@ static void serviceTcpUnlocked()
         index < TCP_RX_MAX_CHUNKS_PER_LOCK;
         ++index)
     {
+#if JWPLC_H4A04P6_DIRECT_READ
+        // socketRecv() is already non-blocking. Calling read() directly lets
+        // it refresh Sn_RX_RSR and consume data in one SPI transaction.
+        const int got =
+            tcpClient.read(
+                tcpBuffer,
+                sizeof(tcpBuffer));
+
+        if (got <= 0)
+        {
+            return;
+        }
+#else
         const int availableBytes =
             tcpClient.available();
 
@@ -410,6 +427,7 @@ static void serviceTcpUnlocked()
             ++transportErrors;
             return;
         }
+#endif
 
 #if JWPLC_H4A04P3_VERIFY_PAYLOAD
         for (int i = 0; i < got; ++i)
