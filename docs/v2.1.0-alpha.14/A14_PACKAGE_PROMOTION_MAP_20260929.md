@@ -47,6 +47,10 @@ Resultado:
 
 - el source `.cpp` vuelve a ser la fuente autoritativa durante las pruebas;
 - cambios visuales/API no pueden quedar ocultos detrás de un `.a` antiguo;
+- los archives históricos pueden permanecer físicamente en `src/esp32`,
+  pero no se habilita su uso mientras `precompiled` esté ausente;
+- el smoke de compilación debe comprobar además que los nombres
+  `libJWPLC_Display.a` / `libJWPLC_TFT.a` no aparezcan en el build;
 - la precompilación se restaurará únicamente al cerrar el alpha.
 
 ### JWPLC_TFT
@@ -443,6 +447,7 @@ El profiling TCP se implementará **package-first**:
 
 No se aceptará una optimización TCP como cerrada hasta que:
 
+0. el smoke `a14_package_promotion_compile_smoke.py` confirme source-first;
 1. esté integrada en `JWPLC/2.1.0`;
 2. compile en Arduino CLI/IDE;
 3. pase benchmark BASE;
