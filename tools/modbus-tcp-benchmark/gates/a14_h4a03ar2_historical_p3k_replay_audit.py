@@ -110,23 +110,100 @@ def parse_p3k_expected_hashes(gate_text: str) -> dict[str, str]:
     return values
 
 
+def collect_historical_commit_candidates(
+    repo: Path,
+    closure_commit: str,
+) -> list[tuple[str, str]]:
+    ordered: list[tuple[str, str]] = []
+    seen: set[str] = set()
+
+    def add(source: str, values: list[str]) -> None:
+        for value in values:
+            commit = value.strip()
+            if not re.fullmatch(r"[0-9a-fA-F]{40}", commit):
+                continue
+            commit = commit.lower()
+            if commit in seen:
+                continue
+            seen.add(commit)
+            ordered.append((source, commit))
+
+    # 1) First-parent/ancestor history around the documented closure.
+    add(
+        "CLOSURE_ANCESTRY",
+        git(repo, "rev-list", closure_commit).splitlines(),
+    )
+
+    # 2) Every currently reachable ref in the local clone.
+    add(
+        "ALL_REFS",
+        git(repo, "rev-list", "--all").splitlines(),
+    )
+
+    # 3) Reflogs preserve force-pushed/rebased commits for a retention window.
+    reflog = subprocess.run(
+        [
+            "git", "-C", str(repo), "reflog", "show", "--all",
+            "--format=%H",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if reflog.returncode == 0:
+        add("REFLOG", decode(reflog.stdout).splitlines())
+        emit("H4A03AR2_REFLOG_SCAN", "AVAILABLE")
+    else:
+        emit("H4A03AR2_REFLOG_SCAN", "UNAVAILABLE")
+
+    # 4) Last resort: commits still present in .git but unreachable from refs
+    # and reflogs. These are exactly the objects commonly left by rebases.
+    fsck = subprocess.run(
+        [
+            "git", "-C", str(repo), "fsck", "--full", "--no-reflogs",
+            "--unreachable",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if fsck.returncode in (0, 1):
+        unreachable: list[str] = []
+        for line in decode(fsck.stdout).splitlines():
+            match = re.match(
+                r"^unreachable commit ([0-9a-fA-F]{40})$",
+                line.strip(),
+            )
+            if match:
+                unreachable.append(match.group(1))
+        add("UNREACHABLE", unreachable)
+        emit("H4A03AR2_UNREACHABLE_COMMIT_COUNT", len(unreachable))
+    else:
+        emit("H4A03AR2_UNREACHABLE_SCAN", "UNAVAILABLE")
+
+    return ordered
+
+
 def find_exact_p3k_snapshot(
     repo: Path,
     closure_commit: str,
     expected: dict[str, str],
-    limit: int = 300,
-) -> tuple[str, int]:
+) -> tuple[str, int, str, dict[str, int]]:
     raw_path = "tools/modbus-tcp-benchmark/firmware/eth14_raw_transport_server/eth14_raw_transport_server.ino"
     wcpp_path = "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/utility/w5100.cpp"
     wh_path = "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/utility/w5100.h"
 
-    commits = [
-        line.strip()
-        for line in git(repo, "rev-list", f"--max-count={limit}", closure_commit).splitlines()
-        if line.strip()
-    ]
+    candidates = collect_historical_commit_candidates(repo, closure_commit)
+    source_counts: dict[str, int] = {}
+    for source, _ in candidates:
+        source_counts[source] = source_counts.get(source, 0) + 1
 
-    for checked, commit in enumerate(commits, 1):
+    emit("H4A03AR2_HISTORICAL_CANDIDATE_COUNT", len(candidates))
+    for source in ("CLOSURE_ANCESTRY", "ALL_REFS", "REFLOG", "UNREACHABLE"):
+        emit(
+            f"H4A03AR2_CANDIDATES_{source}",
+            source_counts.get(source, 0),
+        )
+
+    for checked, (source, commit) in enumerate(candidates, 1):
         raw_hash = sha256_git_path(repo, commit, raw_path)
         if raw_hash != expected["raw"]:
             continue
@@ -139,17 +216,22 @@ def find_exact_p3k_snapshot(
 
         gate_bytes = git_show_bytes(repo, commit, P3K_GATE)
         bridge_bytes = git_show_bytes(repo, commit, P3K_BRIDGE)
-        if gate_bytes is None or bridge_bytes is None:
+        common_bytes = git_show_bytes(repo, commit, COMMON)
+        if gate_bytes is None or bridge_bytes is None or common_bytes is None:
             continue
 
         gate_text = decode(gate_bytes)
         if parse_p3k_expected_hashes(gate_text) != expected:
             continue
 
-        return commit, checked
+        # The original gate had a clean-tree invariant and protected-artifact
+        # checks. Keep the complete historical gate/common pair from this same
+        # commit; do not synthesize a hybrid snapshot.
+        return commit, checked, source, source_counts
 
     raise RuntimeError(
-        f"H4A03AR2_EXACT_P3K_SNAPSHOT_NOT_FOUND_WITHIN_{limit}_ANCESTORS"
+        "H4A03AR2_EXACT_P3K_SNAPSHOT_NOT_FOUND_IN_"
+        "ANCESTRY_REFS_REFLOG_OR_UNREACHABLE_OBJECTS"
     )
 
 
@@ -315,12 +397,18 @@ def main() -> int:
     emit("H4A03AR2_EXPECTED_W5100_CPP_SHA256", expected_hashes["w5100_cpp"])
     emit("H4A03AR2_EXPECTED_W5100_H_SHA256", expected_hashes["w5100_h"])
 
-    replay_commit, history_checked = find_exact_p3k_snapshot(
+    (
+        replay_commit,
+        history_checked,
+        replay_source,
+        candidate_source_counts,
+    ) = find_exact_p3k_snapshot(
         repo,
         closure_commit,
         expected_hashes,
     )
     emit("H4A03AR2_HISTORY_COMMITS_CHECKED", history_checked)
+    emit("H4A03AR2_EXACT_P3K_REPLAY_SOURCE", replay_source)
     emit("H4A03AR2_EXACT_P3K_REPLAY_COMMIT", replay_commit)
 
     result_root = Path(tempfile.mkdtemp(prefix="jwplc_a14_h4a03ar2_"))
@@ -587,6 +675,7 @@ def main() -> int:
                 "A14_H4A03AR2_HISTORICAL_P3K_REPLAY_AUDIT=PASS",
                 f"CURRENT_HEAD={current_head}",
                 f"P3_CLOSURE_COMMIT={closure_commit}",
+                f"EXACT_P3K_REPLAY_SOURCE={replay_source}",
                 f"EXACT_P3K_REPLAY_COMMIT={replay_commit}",
                 "REPLAY_SCOPE=EXACT_P3K_HASH_MATCHED_REPO_TREE_CURRENT_HOST_TOOLCHAIN",
                 f"H4A03AR2_HISTORICAL_REPORTED_UDP_MBPS={HIST['udp_all']:.6f}",
