@@ -196,6 +196,16 @@ def main() -> int:
         and "#if JWPLC_W5500_RX_FIFO_REUSE" in w5100_impl,
         "ETH_W5500_FIFO_REUSE_CANDIDATE_PRESENT",
     )
+
+    require(
+        "#define JWPLC_W5500_RX_FIFO_REUSE 0" in w5100,
+        "ETH_W5500_FIFO_REUSE_DEFAULT_OFF",
+    )
+    require(
+        "SPI.jwplcReadBytesReuseFifo(buf, len);" in w5100_impl
+        and "#if JWPLC_W5500_RX_FIFO_REUSE" in w5100_impl,
+        "ETH_W5500_FIFO_REUSE_CANDIDATE_PRESENT",
+    )
     require(
         "void jwplcReadBytesReuseFifo(uint8_t *out, uint32_t size);" in spi_header
         and "SPIClass::jwplcReadBytesReuseFifo" in spi_impl
