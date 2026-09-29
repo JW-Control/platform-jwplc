@@ -320,6 +320,70 @@ Por tanto H4A0.1 repetirá exactamente P3K sobre el package post-H3E antes de
 decidir una productización aditiva/interna.
 
 
+
+## H4A0.1 — replay P3K post-H3E
+
+El replay confirmó que el candidato diagnóstico sí fue compuesto y compilado:
+
+```text
+BATCH2=APPLIED
+INT_GPIO15=APPLIED
+FUSED_RX=APPLIED
+COMMIT2=APPLIED
+POSTCOMMIT_R1=APPLIED
+DIAGNOSTIC_ETHERNET_LIBRARY_USED=YES
+PRODUCT_SOURCE_MUTATION=NO
+```
+
+Resultado:
+
+```text
+UDP_MEDIAN=13.331017 Mbps
+TCP_MEDIAN=12.047901 Mbps
+UDP_VS_HISTORICAL_P3K=-3.86 %
+UDP_VS_H4A0_LEGACY=+20.61 %
+UDP_RECOVERY_OF_HISTORICAL=96.14 %
+```
+
+Pero TCP mostró fuerte dispersión entre corridas (~10.99 a ~13.43 Mbps), mientras
+UDP permaneció estable (~13.32 a ~13.34 Mbps). El diseño old P3K alternaba TCP/UDP
+en ventanas de 5 s dentro del mismo firmware/session y usa instrumentación W5100.
+
+Conclusión:
+
+```text
+H4A01_PATCH_APPLICATION=CONFIRMED
+H4A01_UDP_FAST_PATH_VALUE=PROMISING
+H4A01_TCP_PARITY_RESULT=INVALID_FOR_CURRENT_CEILING
+H4A01_METHOD_REUSE_FOR_FINAL_DECISION=NO
+```
+
+Se abre H4A0.2 como A/B limpio desde el HEAD actual:
+
+```text
+LEGACY_CURRENT vs FAST_CANDIDATE
+UDP only
+payload=1016 B
+3 x 15 s por variante
+fresh upload por corrida
+balanced order:
+LEGACY1 FAST1 FAST2 LEGACY2 LEGACY3 FAST3
+TCP interleaving=NO
+```
+
+Además H4A0.2 verifica en source y runtime que el candidato FAST realmente use:
+
+```text
+batch2
+INT GPIO15
+fused deferred read
+coalesced commit
+post-commit rearm
+~2 packets per active hold
+0 empty holds
+```
+
+
 ## A14.1 — Foundation + Server
 
 Estado: `PASS`.
@@ -591,7 +655,7 @@ ALPHA14_ONLY_COMMITS=142
 ## Siguiente paso
 
 ```text
-NEXT=RUN_H4A01_EXACT_P3K_POST_H3E_REPLAY
+NEXT=RUN_H4A02_CLEAN_UDP_AB
 CI_REQUIRED_BEFORE_MERGE=YES
 HISTORICAL_READY_FOR_RELEASE_PR_20260913=SUPERSEDED_BY_POST_CLOSURE_HARDENING
 ```
