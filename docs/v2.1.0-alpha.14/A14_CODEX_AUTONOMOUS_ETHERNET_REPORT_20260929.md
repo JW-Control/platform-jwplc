@@ -11,10 +11,10 @@ v2.1.0-alpha.14/feature/modbus-tcp
 ## CURRENT_STATE
 
 ```text
-LAST_COMPLETED_GATE=H4A0.4-P5
-LAST_RESULT=BLOCKED_SAFELY_NO_PRODUCT_CANDIDATE
-CURRENT_GATE=H4A0.4-P6
-CURRENT_ACTION=DESIGN_ADDITIVE_AVAILABLE_READ_FUSION
+LAST_COMPLETED_GATE=H4A0.4-P6
+LAST_RESULT=PASS_DATA_ONLY_SMALL_OR_INCONCLUSIVE_EFFECT
+CURRENT_GATE=H4A0.4-P7
+CURRENT_ACTION=DESIGN_ADDITIVE_TCP_RX_COMMIT_COALESCING
 FIFO_REUSE_DEFAULT=OFF
 FIFO_REUSE_VALIDATED_PENDING_PHYSICAL=YES
 PHYSICAL_STABILITY=PENDING_USER
@@ -29,6 +29,7 @@ ALPHA14_CLOSED=NO
 | H4A0.4-P3R | DIRECT_RX 15.965 / 12.830344 | FIFO_REUSE | 16.785 | 12.976148 | +5.141% payload | 0 | PASS | 0 | PENDING_USER | FIFO_REUSE_VALIDATED_PENDING_PHYSICAL=YES; pasar a P4 |
 | H4A0.4-P4 | FIFO_REUSE sin profiler | FIFO_REUSE + microperfil | — | — | locator only | 0 | PASS | 0 | PENDING_USER | START_WAIT_EXCESS dominante; evaluar DMA segura |
 | H4A0.4-P5 | SPIClass/VSPI compartido | DMA ESP-IDF | — | — | no ejecutado | — | — | — | PENDING_USER | Bloqueado: DMA exige segundo ownership/rearquitectura |
+| H4A0.4-P6 | available()+read() | read() directo | 16.853677 | 13.424499 | +0.348% payload; −0.887% path RX | 0 | PASS | 0 | PENDING_USER | Efecto pequeño/inconcluso; pasar a commit RX |
 
 ## HEAD y commits de la sesión
 
@@ -46,6 +47,8 @@ bd38f7c5 test(alpha14): añadir confirmación P3R FIFO reuse
 47958b90 docs(alpha14): confirmar P3R FIFO reuse
 115e8b07 test(alpha14): perfilar overhead por chunk SPI W5500
 1b6abff1 docs(alpha14): registrar microperfil P4 W5500
+6b3e9a3d docs(alpha14): cerrar factibilidad DMA P5
+d13df201 test(alpha14): medir fusión TCP available read
 ```
 
 ## Gates ejecutados
@@ -167,6 +170,36 @@ C:\Users\jeykc\AppData\Local\Arduino15\packages\jwplc_local\tools\esp32-libs\3.3
 C:\Users\jeykc\AppData\Local\Arduino15\packages\jwplc_local\tools\esp32-libs\3.3.8\include\esp_driver_spi\include\driver\spi_master.h
 ```
 
+### H4A0.4-P6
+
+```text
+ONLY_VARIABLE=PRE_READ_AVAILABLE_PROBE
+AVAILABLE_READ_PAYLOAD=16.795211 Mbps
+READ_DIRECT_PAYLOAD=16.853677 Mbps
+PAYLOAD_DELTA=+0.348%
+AVAILABLE_READ_RX_PATH=0.544076 us/B
+READ_DIRECT_RX_PATH=0.539249 us/B
+RX_PATH_DELTA=-0.887%
+AVAILABLE_READ_HOLD=0.568248 us/B
+READ_DIRECT_HOLD=0.569987 us/B
+HOLD_DELTA=+0.306%
+AVAILABLE_CALLS=33930 -> 0
+PAYLOAD_INTEGRITY=PASS
+TCP_SPI_LOCK_ERRORS=0
+TRANSPORT_ERRORS=0
+UNEXPECTED_RESETS=0
+INTERPRETATION=AVAILABLE_READ_SMALL_OR_INCONCLUSIVE_EFFECT
+PHYSICAL_STABILITY=PENDING_USER
+```
+
+Evidencia:
+
+```text
+C:\Users\jeykc\AppData\Local\Temp\jwplc_a14_h4a04p6_available_read_p7e0qvmt
+C:\Users\jeykc\AppData\Local\Temp\jwplc_a14_h4a04p6_available_read_p7e0qvmt\SUMMARY.log
+docs/v2.1.0-alpha.14/A14_H4A04P6_TCP_AVAILABLE_READ_20260929.md
+```
+
 ## Candidatos
 
 - Rechazados en esta sesión: ninguno.
@@ -202,10 +235,9 @@ No se extrapola un ceiling teórico nuevo.
 
 ## Optimización restante
 
-1. diseñar y medir fusión aditiva `available()/read`;
-2. revisar commit RX diferido/coalescido;
-3. revisar lecturas redundantes de `socketStatus()`;
-4. abordar TX async solo después de cerrar el frente RX.
+1. diseñar y medir commit RX diferido/coalescido;
+2. revisar lecturas redundantes de `socketStatus()`;
+3. abordar TX async solo después de cerrar el frente RX.
 
 ## Verificación física pendiente del usuario
 
@@ -225,11 +257,11 @@ PHYSICAL_STABILITY=PENDING_USER
 
 ## Comando exacto para continuar
 
-El último gate físico repetible continúa siendo P4 mientras se prepara P6:
+Para repetir el último gate cerrado mientras se prepara P7:
 
 ```powershell
 $env:PYTHONPATH='C:\Users\jeykc\AppData\Local\Temp\jwplc-codex-pydeps'
 & 'C:\Users\jeykc\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -B `
-  tools\modbus-tcp-benchmark\gates\a14_h4a04p4_w5500_chunk_profile.py `
+  tools\modbus-tcp-benchmark\gates\a14_h4a04p6_tcp_available_read_ab.py `
   --defer-physical-review
 ```
