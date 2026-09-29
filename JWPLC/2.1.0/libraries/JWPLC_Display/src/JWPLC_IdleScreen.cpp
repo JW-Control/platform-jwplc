@@ -71,6 +71,10 @@ namespace JWPLCIdleScreen
 
     static constexpr int TITLE_X = 6;
     static constexpr int TITLE_Y = 4;
+    static constexpr int TITLE_BOX_X = 4;
+    static constexpr int TITLE_BOX_Y = 2;
+    static constexpr int TITLE_BOX_W = 110;
+    static constexpr int TITLE_BOX_H = 12;
 
     static constexpr int LEFT_DIV_X = 122;
 
@@ -120,7 +124,11 @@ namespace JWPLCIdleScreen
     static constexpr uint16_t C_TEXT = JWPLC_TFT_WHITE;
     static constexpr uint16_t C_BORDER = JWPLC_TFT_WHITE;
     static constexpr uint16_t C_DIVIDER = 0x39E7;
-    static constexpr uint16_t C_TITLE = 0x7DFF;
+    // Marca visual de la pila JWPLC_TFT/TFT_eSPI:
+    // título blanco sobre bloque azul. La implementación anterior
+    // dibujaba únicamente texto azul/celeste sobre fondo negro.
+    static constexpr uint16_t C_TITLE_BG = JWPLC_TFT_BLUE;
+    static constexpr uint16_t C_TITLE_TEXT = JWPLC_TFT_WHITE;
     static constexpr uint16_t C_IN_ACTIVE = 0x867D;
     static constexpr uint16_t C_OK_GREEN = 0x5FE0;
     static constexpr uint16_t C_ERR_RED = JWPLC_TFT_RED;
@@ -384,8 +392,18 @@ namespace JWPLCIdleScreen
         g_profBaseDividersUs = micros() - t0;
 
         t0 = micros();
+
+        // Visual marker for the current JWPLC_TFT-backed display stack.
+        // Keep it inside the left panel so it is unmistakable on hardware
+        // without changing the public display API.
+        tft->fillRect(
+            TITLE_BOX_X,
+            TITLE_BOX_Y,
+            TITLE_BOX_W,
+            TITLE_BOX_H,
+            C_TITLE_BG);
         tft->setTextSize(1);
-        tft->setTextColor(C_TITLE, C_BG);
+        tft->setTextColor(C_TITLE_TEXT, C_TITLE_BG);
         tft->setCursor(TITLE_X, TITLE_Y);
         tft->print(g_title);
 
