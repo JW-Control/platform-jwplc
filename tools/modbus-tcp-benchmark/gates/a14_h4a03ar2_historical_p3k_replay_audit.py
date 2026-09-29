@@ -276,11 +276,21 @@ def find_exact_p3k_snapshot(
     )
 
 
+def values(text: str, key: str) -> list[str]:
+    return [
+        match.strip()
+        for match in re.findall(
+            rf"(?m)^{re.escape(key)}=(.*)\r?$",
+            text,
+        )
+    ]
+
+
 def unique(text: str, key: str) -> str:
-    matches = re.findall(rf"(?m)^{re.escape(key)}=(.*)\r?$", text)
+    matches = values(text, key)
     if len(matches) != 1:
         raise RuntimeError(f"H4A03AR2_KEY_COUNT_{key}={len(matches)}")
-    return matches[0].strip()
+    return matches[0]
 
 
 def as_float(text: str, key: str) -> float:
@@ -340,7 +350,23 @@ def inspect_run(path: Path, mode: str) -> dict[str, float]:
     if unique(text, "RAW_BENCH_FUNCTIONAL_PASS") != "YES":
         raise RuntimeError(f"H4A03AR2_FUNCTIONAL_FAIL={path}")
 
-    duration = as_float(text, "DURATION_S")
+    duration_values = values(text, "DURATION_S")
+    if len(duration_values) != 2:
+        raise RuntimeError(
+            f"H4A03AR2_DURATION_KEY_COUNT={len(duration_values)} PATH={path}"
+        )
+
+    requested_duration = float(duration_values[0])
+    duration = float(duration_values[1])
+    if requested_duration <= 0.0 or duration <= 0.0:
+        raise RuntimeError(f"H4A03AR2_INVALID_DURATION={path}")
+
+    if abs(requested_duration - 5.0) > 0.000001:
+        raise RuntimeError(
+            f"H4A03AR2_UNEXPECTED_REQUESTED_DURATION="
+            f"{requested_duration:.6f} PATH={path}"
+        )
+
     dut_bytes = as_float(text, "DUT_BYTES")
     summary_key = (
         "SUMMARY_UDP_RX_DUT_MBPS"
@@ -360,6 +386,7 @@ def inspect_run(path: Path, mode: str) -> dict[str, float]:
     corrected = dut_bytes * 8.0 / (duration + tail) / 1_000_000.0
 
     return {
+        "requested_duration": requested_duration,
         "duration": duration,
         "bytes": dut_bytes,
         "reported": reported,
