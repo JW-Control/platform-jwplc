@@ -19,6 +19,10 @@
 
 #include <JWPLC_Ethernet.h>
 
+#ifndef JWPLC_H4A04P3_VERIFY_PAYLOAD
+#define JWPLC_H4A04P3_VERIFY_PAYLOAD 0
+#endif
+
 static constexpr uint16_t TCP_PORT = 5001;
 static constexpr size_t TCP_BUFFER_BYTES = 1024;
 static constexpr uint8_t TCP_RX_MAX_CHUNKS_PER_LOCK = 8;
@@ -47,6 +51,10 @@ static uint32_t tcpSpiHoldCount = 0;
 static uint64_t tcpSpiHoldTotalUs = 0;
 static uint32_t tcpSpiHoldMaxUs = 0;
 
+#if JWPLC_H4A04P3_VERIFY_PAYLOAD
+static uint32_t rxFnv1a32 = 2166136261UL;
+#endif
+
 static const char *modeName()
 {
     return mode == MODE_TCP_RX
@@ -64,6 +72,10 @@ static void resetCounters()
     tcpSpiHoldTotalUs = 0;
     tcpSpiHoldMaxUs = 0;
     tcpRxFrozen = false;
+
+#if JWPLC_H4A04P3_VERIFY_PAYLOAD
+    rxFnv1a32 = 2166136261UL;
+#endif
 
 #if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
     Ethernet.jwplcProfileResetTcpRx();
@@ -169,6 +181,14 @@ static void printSnapshot()
 
     Serial.print("TCP_SPI_HOLD_MAX_US=");
     Serial.println(tcpSpiHoldMaxUs);
+
+#if JWPLC_H4A04P3_VERIFY_PAYLOAD
+    Serial.println("PAYLOAD_VERIFY_ENABLED=YES");
+    Serial.print("RX_FNV1A32=");
+    Serial.println(rxFnv1a32);
+#else
+    Serial.println("PAYLOAD_VERIFY_ENABLED=NO");
+#endif
 
     printProfile();
 
@@ -361,6 +381,14 @@ static void serviceTcpUnlocked()
             ++transportErrors;
             return;
         }
+
+#if JWPLC_H4A04P3_VERIFY_PAYLOAD
+        for (int i = 0; i < got; ++i)
+        {
+            rxFnv1a32 ^= tcpBuffer[i];
+            rxFnv1a32 *= 16777619UL;
+        }
+#endif
 
         rxBytes += (uint32_t)got;
         ++rxOperations;
