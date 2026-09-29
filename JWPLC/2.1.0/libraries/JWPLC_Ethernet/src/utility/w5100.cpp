@@ -466,7 +466,11 @@ uint16_t W5100Class::read(uint16_t addr, uint8_t *buf, uint16_t len)
 			#endif
 		}
 		SPI.transfer(cmd, 3);
-#if JWPLC_W5500_RX_DIRECT_TRANSFER_BYTES
+#if JWPLC_W5500_RX_FIFO_REUSE
+		// Classic ESP32 experimental path: during W5500 payload reads MOSI
+		// is don't-care, so skip refilling the 64-byte FIFO with dummy data.
+		SPI.jwplcReadBytesReuseFifo(buf, len);
+#elif JWPLC_W5500_RX_DIRECT_TRANSFER_BYTES
 		// Read-only bulk transfer: MOSI payload is dummy data and the
 		// received bytes go directly into the destination buffer.
 		SPI.transferBytes(nullptr, buf, len);
