@@ -348,10 +348,27 @@ foreach ($patch in $patches) {
     Get-Content -LiteralPath $logPath | ForEach-Object { Write-Host $_ }
 }
 
-Write-Host ""
-Write-Host "=== FAST SOURCE CONTRACT ==="
+$fastSerialLog = Join-Path $tempRoot "fast_serial_idle_patch.log"
+$fastSerialExit = Invoke-NativeToLog -FilePath $pythonExe -Arguments @(
+    $serialIdlePatch,
+    "--instrumented-sketch", $fastSketch
+) -LogPath $fastSerialLog
 
+Write-Host "H4A02_FAST_SERIAL_IDLE_PATCH_EXIT=$fastSerialExit"
+if ($fastSerialExit -ne 0) {
+    Get-Content -LiteralPath $fastSerialLog -Tail 200 | ForEach-Object { Write-Host $_ }
+    throw "H4A02_FAST_SERIAL_IDLE_PATCH_FAILED"
+}
+
+Write-Host ""
+Write-Host "=== MATCHED SOURCE CONTRACT ==="
+
+$legacySketchText = [System.IO.File]::ReadAllText($legacySketch)
 $fastSketchText = [System.IO.File]::ReadAllText($fastSketch)
+
+Assert-ContainsExactly -Text $legacySketchText -Needle "ETH14_RAW_IDLE=PASS" -Expected 1 -Label "H4A02_VERIFY_LEGACY_SERIAL_IDLE_COUNT"
+Assert-ContainsExactly -Text $fastSketchText -Needle "ETH14_RAW_IDLE=PASS" -Expected 1 -Label "H4A02_VERIFY_FAST_SERIAL_IDLE_COUNT"
+Assert-ContainsExactly -Text $legacySketchText -Needle "UDP_RX_MAX_PACKETS_PER_HOLD = 2" -Expected 0 -Label "H4A02_VERIFY_LEGACY_BATCH2_COUNT"
 $fastHeader = Join-Path $fastEthernetRoot "src\JWPLC_W5x00_Ethernet.h"
 $fastHeaderText = [System.IO.File]::ReadAllText($fastHeader)
 $fastW5100H = Join-Path $fastEthernetRoot "src\utility\w5100.h"
@@ -374,7 +391,7 @@ Assert-ContainsAtLeast -Text $fastW5100HText -Needle "SIR_W5500" -Minimum 1 -Lab
 Assert-ContainsAtLeast -Text $fastW5100HText -Needle "SIMR_W5500" -Minimum 1 -Label "H4A02_VERIFY_SIMR_COUNT"
 Assert-ContainsAtLeast -Text $fastW5100HText -Needle "SnIMR" -Minimum 1 -Label "H4A02_VERIFY_SNIMR_COUNT"
 
-Write-Host "H4A02_FAST_SOURCE_CONTRACT=PASS"
+Write-Host "H4A02_MATCHED_SOURCE_CONTRACT=PASS"
 
 $fqbn = "jwplc_local:esp32:jwplcbasic"
 
