@@ -275,6 +275,38 @@ if ($syntaxExit -ne 0) {
 Write-Host "H4A02_PYTHON_SYNTAX=PASS"
 
 Write-Host ""
+Write-Host "=== PREPARE MATCHED LEGACY DIAGNOSTIC COPY ==="
+
+$legacyInstrumentLog = Join-Path $tempRoot "legacy_instrument_patch.log"
+$legacyInstrumentExit = Invoke-NativeToLog -FilePath $pythonExe -Arguments @(
+    $instrumentPatch,
+    "--repo-root", $script:G2RepoRoot,
+    "--work-root", $legacyWork
+) -LogPath $legacyInstrumentLog
+
+Write-Host "H4A02_LEGACY_INSTRUMENT_PATCH_EXIT=$legacyInstrumentExit"
+if ($legacyInstrumentExit -ne 0) {
+    Get-Content -LiteralPath $legacyInstrumentLog -Tail 200 | ForEach-Object { Write-Host $_ }
+    throw "H4A02_LEGACY_INSTRUMENT_PATCH_FAILED"
+}
+
+$legacySketch = Join-Path $legacyWork "sketch\eth14_raw_transport_server\eth14_raw_transport_server.ino"
+$legacyEthernetRoot = Join-Path $legacyWork "libraries\JWPLC_Ethernet"
+$legacyLibrariesRoot = Join-Path $legacyWork "libraries"
+
+$legacySerialLog = Join-Path $tempRoot "legacy_serial_idle_patch.log"
+$legacySerialExit = Invoke-NativeToLog -FilePath $pythonExe -Arguments @(
+    $serialIdlePatch,
+    "--instrumented-sketch", $legacySketch
+) -LogPath $legacySerialLog
+
+Write-Host "H4A02_LEGACY_SERIAL_IDLE_PATCH_EXIT=$legacySerialExit"
+if ($legacySerialExit -ne 0) {
+    Get-Content -LiteralPath $legacySerialLog -Tail 200 | ForEach-Object { Write-Host $_ }
+    throw "H4A02_LEGACY_SERIAL_IDLE_PATCH_FAILED"
+}
+
+Write-Host ""
 Write-Host "=== PREPARE FAST CANDIDATE FROM CURRENT HEAD ==="
 
 $instrumentLog = Join-Path $tempRoot "instrument_patch.log"
