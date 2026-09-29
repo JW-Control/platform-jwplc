@@ -16,6 +16,7 @@ CLOSURE_DOC = "docs/v2.1.0-alpha.14/A14_P3_UDP_RX_CLOSURE_20260924.md"
 P3K_GATE = "tools/modbus-tcp-benchmark/gates/a14_p3k_tcp_udp_same_session_parity.ps1"
 P3K_BRIDGE = "tools/modbus-tcp-benchmark/gates/a14_p3k_transport_parity_bridge.py"
 RAW_RUNNER = "tools/modbus-tcp-benchmark/pc/eth14_raw_transport_benchmark.py"
+RAW_FIRMWARE = "tools/modbus-tcp-benchmark/firmware/eth14_raw_transport_server/eth14_raw_transport_server.ino"
 COMMON = "tools/modbus-tcp-benchmark/gates/common.ps1"
 VALIDATOR = "tools/modbus-tcp-benchmark/gates/assert_ps1_syntax.ps1"
 
@@ -385,7 +386,7 @@ def main() -> int:
     emit("BRANCH", branch)
     emit("HEAD", current_head)
     emit("SERIAL_PORT", args.serial)
-    emit("H4A03AR2_REPLAY_SCOPE", "EXACT_P3K_HASH_MATCHED_REPO_TREE_CURRENT_HOST_TOOLCHAIN")
+    emit("H4A03AR2_REPLAY_SCOPE", "P3_PRE_CLOSURE_TREE_PLUS_VERIFIED_RAW_WORKTREE_BYTES_CURRENT_HOST_TOOLCHAIN")
     emit("H4A03AR2_PRODUCT_SOURCE_MUTATION", "NO")
     emit("H4A03AR2_COMPONENT_ABLATION", "NO")
 
@@ -437,19 +438,63 @@ def main() -> int:
     emit("H4A03AR2_EXPECTED_W5100_CPP_SHA256", expected_hashes["w5100_cpp"])
     emit("H4A03AR2_EXPECTED_W5100_H_SHA256", expected_hashes["w5100_h"])
 
-    (
-        replay_commit,
-        history_checked,
-        replay_source,
-        candidate_source_counts,
-    ) = find_exact_p3k_snapshot(
-        repo,
-        closure_commit,
-        expected_hashes,
+    replay_commit = git(repo, "rev-parse", f"{closure_commit}^")
+    replay_source = "P3_CLOSURE_PARENT"
+    emit("H4A03AR2_REPLAY_SOURCE", replay_source)
+    emit("H4A03AR2_REPLAY_COMMIT", replay_commit)
+
+    closure_delta = [
+        line.strip().replace("\\", "/")
+        for line in git(
+            repo,
+            "diff",
+            "--name-only",
+            replay_commit,
+            closure_commit,
+        ).splitlines()
+        if line.strip()
+    ]
+    emit("H4A03AR2_CLOSURE_DELTA_COUNT", len(closure_delta))
+    emit("H4A03AR2_CLOSURE_DELTA", ",".join(closure_delta))
+    if closure_delta != [CLOSURE_DOC]:
+        raise RuntimeError(
+            "H4A03AR2_CLOSURE_PARENT_NOT_PURE_DOC_ADD="
+            + ",".join(closure_delta)
+        )
+
+    current_raw_path = repo / RAW_FIRMWARE
+    if not current_raw_path.is_file():
+        raise RuntimeError("H4A03AR2_CURRENT_RAW_FILE_MISSING")
+
+    current_raw_bytes = current_raw_path.read_bytes()
+    current_raw_sha = hashlib.sha256(current_raw_bytes).hexdigest().upper()
+    emit("H4A03AR2_CURRENT_RAW_WORKTREE_SHA256", current_raw_sha)
+    if current_raw_sha != expected_hashes["raw"]:
+        raise RuntimeError(
+            "H4A03AR2_CURRENT_RAW_NO_LONGER_MATCHES_P3K_EXPECTED"
+        )
+
+    replay_raw_blob = git_show_bytes(repo, replay_commit, RAW_FIRMWARE)
+    if replay_raw_blob is None:
+        raise RuntimeError("H4A03AR2_REPLAY_RAW_BLOB_MISSING")
+
+    def normalize_eol(data: bytes) -> bytes:
+        return data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+
+    raw_semantic_match = (
+        normalize_eol(current_raw_bytes)
+        == normalize_eol(replay_raw_blob)
     )
-    emit("H4A03AR2_HISTORY_COMMITS_CHECKED", history_checked)
-    emit("H4A03AR2_EXACT_P3K_REPLAY_SOURCE", replay_source)
-    emit("H4A03AR2_EXACT_P3K_REPLAY_COMMIT", replay_commit)
+    emit("H4A03AR2_RAW_SEMANTIC_MATCH_TO_REPLAY_TREE", raw_semantic_match)
+    if not raw_semantic_match:
+        raise RuntimeError(
+            "H4A03AR2_CURRENT_RAW_SEMANTICS_DIFFER_FROM_REPLAY_TREE"
+        )
+
+    emit(
+        "H4A03AR2_RAW_RESTORATION_REASON",
+        "PRESERVE_HISTORICAL_GET_FILE_HASH_EOL_REPRESENTATION_ONLY",
+    )
 
     result_root = Path(tempfile.mkdtemp(prefix="jwplc_a14_h4a03ar2_"))
     worktree = result_root / "historical_worktree"
@@ -488,57 +533,53 @@ def main() -> int:
         if replay_expected != expected_hashes:
             raise RuntimeError("H4A03AR2_REPLAY_EXPECTED_HASH_CONTRACT_DRIFT")
 
-        replay_variants = {
-            "raw": sha256_git_path_variants(
-                repo,
-                replay_commit,
-                "tools/modbus-tcp-benchmark/firmware/eth14_raw_transport_server/eth14_raw_transport_server.ino",
-            ),
-            "w5100_cpp": sha256_git_path_variants(
-                repo,
-                replay_commit,
-                "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/utility/w5100.cpp",
-            ),
-            "w5100_h": sha256_git_path_variants(
-                repo,
-                replay_commit,
-                "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/utility/w5100.h",
-            ),
-        }
-
-        replay_representations = {
-            key: hash_variant_match(replay_variants[key], expected_hashes[key])
-            for key in ("raw", "w5100_cpp", "w5100_h")
-        }
-
-        for key in ("raw", "w5100_cpp", "w5100_h"):
-            variants = replay_variants[key]
-            if variants is None:
-                raise RuntimeError(
-                    f"H4A03AR2_REPLAY_HASH_SOURCE_MISSING={key}"
-                )
-            emit(
-                f"H4A03AR2_REPLAY_{key.upper()}_BLOB_SHA256",
-                variants["BLOB"],
-            )
-            emit(
-                f"H4A03AR2_REPLAY_{key.upper()}_CRLF_SHA256",
-                variants["CRLF"],
-            )
-            emit(
-                f"H4A03AR2_REPLAY_{key.upper()}_MATCH_REPRESENTATION",
-                replay_representations[key],
+        historical_raw_path = worktree / RAW_FIRMWARE
+        historical_raw_before = historical_raw_path.read_bytes()
+        semantic_before = (
+            normalize_eol(historical_raw_before)
+            == normalize_eol(current_raw_bytes)
+        )
+        emit(
+            "H4A03AR2_WORKTREE_RAW_SEMANTIC_MATCH_BEFORE_RESTORE",
+            semantic_before,
+        )
+        if not semantic_before:
+            raise RuntimeError(
+                "H4A03AR2_WORKTREE_RAW_SEMANTICS_NOT_EQUIVALENT"
             )
 
-        if any(
-            replay_representations[key] is None
-            for key in ("raw", "w5100_cpp", "w5100_h")
-        ):
-            raise RuntimeError("H4A03AR2_REPLAY_HASH_CONTRACT_FAILED")
+        historical_raw_path.write_bytes(current_raw_bytes)
+        restored_raw_sha = hashlib.sha256(
+            historical_raw_path.read_bytes()
+        ).hexdigest().upper()
+        emit(
+            "H4A03AR2_WORKTREE_RAW_RESTORED_SHA256",
+            restored_raw_sha,
+        )
+        if restored_raw_sha != expected_hashes["raw"]:
+            raise RuntimeError(
+                "H4A03AR2_WORKTREE_RAW_RESTORE_HASH_MISMATCH"
+            )
+
+        raw_visible_diff = git(
+            worktree,
+            "diff",
+            "--name-only",
+            "--",
+            RAW_FIRMWARE,
+        )
+        emit(
+            "H4A03AR2_RAW_RESTORE_GIT_DIFF_VISIBLE",
+            bool(raw_visible_diff),
+        )
+        if raw_visible_diff:
+            raise RuntimeError(
+                "H4A03AR2_RAW_EOL_RESTORE_CHANGED_GIT_SEMANTICS"
+            )
 
         emit(
             "H4A03AR2_REPLAY_HASH_CONTRACT",
-            "PASS_BLOB_OR_WINDOWS_CRLF_REPRESENTATION",
+            "DEFERRED_TO_ORIGINAL_P3K_GET_FILE_HASH_AFTER_EOL_RESTORE",
         )
 
         common_path = worktree / COMMON
@@ -756,9 +797,9 @@ def main() -> int:
                 "A14_H4A03AR2_HISTORICAL_P3K_REPLAY_AUDIT=PASS",
                 f"CURRENT_HEAD={current_head}",
                 f"P3_CLOSURE_COMMIT={closure_commit}",
-                f"EXACT_P3K_REPLAY_SOURCE={replay_source}",
-                f"EXACT_P3K_REPLAY_COMMIT={replay_commit}",
-                "REPLAY_SCOPE=EXACT_P3K_HASH_MATCHED_REPO_TREE_CURRENT_HOST_TOOLCHAIN",
+                f"P3_REPLAY_SOURCE={replay_source}",
+                f"P3_REPLAY_COMMIT={replay_commit}",
+                "REPLAY_SCOPE=P3_PRE_CLOSURE_TREE_PLUS_VERIFIED_RAW_WORKTREE_BYTES_CURRENT_HOST_TOOLCHAIN",
                 f"H4A03AR2_HISTORICAL_REPORTED_UDP_MBPS={HIST['udp_all']:.6f}",
                 f"H4A03AR2_HISTORICAL_REPORTED_TCP_MBPS={HIST['tcp_all']:.6f}",
                 f"H4A03AR2_REPLAY_RAW_UDP_MEDIAN_MBPS={raw_udp_all:.6f}",
