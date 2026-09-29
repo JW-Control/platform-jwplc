@@ -11,10 +11,10 @@ v2.1.0-alpha.14/feature/modbus-tcp
 ## CURRENT_STATE
 
 ```text
-LAST_COMPLETED_GATE=H4A0.4-P4
-LAST_RESULT=PASS_DATA_ONLY
-CURRENT_GATE=H4A0.4-P5
-CURRENT_ACTION=DMA_SHARED_BUS_FEASIBILITY
+LAST_COMPLETED_GATE=H4A0.4-P5
+LAST_RESULT=BLOCKED_SAFELY_NO_PRODUCT_CANDIDATE
+CURRENT_GATE=H4A0.4-P6
+CURRENT_ACTION=DESIGN_ADDITIVE_AVAILABLE_READ_FUSION
 FIFO_REUSE_DEFAULT=OFF
 FIFO_REUSE_VALIDATED_PENDING_PHYSICAL=YES
 PHYSICAL_STABILITY=PENDING_USER
@@ -28,6 +28,7 @@ ALPHA14_CLOSED=NO
 | H4A0.4-P3 | DIRECT_RX 15.970 / 12.887425 | FIFO_REUSE | 16.804 | 13.736151 | +5.226% payload | 0 | PASS | 0 observados | PENDING_USER | FIFO_REUSE_GAIN_CONFIRMED; abrir P3R |
 | H4A0.4-P3R | DIRECT_RX 15.965 / 12.830344 | FIFO_REUSE | 16.785 | 12.976148 | +5.141% payload | 0 | PASS | 0 | PENDING_USER | FIFO_REUSE_VALIDATED_PENDING_PHYSICAL=YES; pasar a P4 |
 | H4A0.4-P4 | FIFO_REUSE sin profiler | FIFO_REUSE + microperfil | — | — | locator only | 0 | PASS | 0 | PENDING_USER | START_WAIT_EXCESS dominante; evaluar DMA segura |
+| H4A0.4-P5 | SPIClass/VSPI compartido | DMA ESP-IDF | — | — | no ejecutado | — | — | — | PENDING_USER | Bloqueado: DMA exige segundo ownership/rearquitectura |
 
 ## HEAD y commits de la sesión
 
@@ -44,6 +45,7 @@ c9666d0d docs(alpha14): registrar resultado P3 FIFO reuse
 bd38f7c5 test(alpha14): añadir confirmación P3R FIFO reuse
 47958b90 docs(alpha14): confirmar P3R FIFO reuse
 115e8b07 test(alpha14): perfilar overhead por chunk SPI W5500
+1b6abff1 docs(alpha14): registrar microperfil P4 W5500
 ```
 
 ## Gates ejecutados
@@ -140,9 +142,35 @@ C:\Users\jeykc\AppData\Local\Temp\jwplc_a14_h4a04p4_chunk_profile_o0jaj78t\SUMMA
 docs/v2.1.0-alpha.14/A14_H4A04P4_W5500_CHUNK_PROFILE_20260929.md
 ```
 
+### H4A0.4-P5
+
+```text
+P5_DMA_CANDIDATE_IMPLEMENTED=NO
+ARDUINO_HAL_DMA_REUSE_API=ABSENT
+IDF_DMA_REQUIRES_SPI_BUS_INITIALIZE=YES
+IDF_DMA_REQUIRES_SPI_DEVICE_HANDLE=YES
+SECOND_SPI_OWNER_ALLOWED=NO
+SPI_BUS_REINITIALIZATION_ALLOWED=NO
+P5_DMA_BLOCK_REASON=NO_SHARED_OWNERSHIP_BRIDGE_BETWEEN_ARDUINO_HAL_AND_IDF_DMA
+PRODUCT_FAILURE=NO
+PHYSICAL_STABILITY=PENDING_USER
+NEXT=PHASE4_AVAILABLE_READ
+```
+
+Evidencia:
+
+```text
+docs/v2.1.0-alpha.14/A14_H4A04P5_DMA_SHARED_BUS_FEASIBILITY_20260929.md
+C:\Users\jeykc\AppData\Local\Arduino15\packages\jwplc_local\hardware\esp32\2.1.0-dev\cores\jwcontrol\esp32-hal-spi.c
+C:\Users\jeykc\AppData\Local\Arduino15\packages\jwplc_local\hardware\esp32\2.1.0-dev\cores\jwcontrol\esp32-hal-spi.h
+C:\Users\jeykc\AppData\Local\Arduino15\packages\jwplc_local\tools\esp32-libs\3.3.8\include\esp_driver_spi\include\driver\spi_common.h
+C:\Users\jeykc\AppData\Local\Arduino15\packages\jwplc_local\tools\esp32-libs\3.3.8\include\esp_driver_spi\include\driver\spi_master.h
+```
+
 ## Candidatos
 
 - Rechazados en esta sesión: ninguno.
+- No implementado por seguridad: DMA P5 sobre el bus Arduino compartido.
 - Validado por datos, pendiente de revisión física:
   `JWPLC_W5500_RX_FIFO_REUSE=1` por P3/P3R.
 - Aún OFF: `JWPLC_W5500_RX_FIFO_REUSE`,
@@ -174,9 +202,9 @@ No se extrapola un ceiling teórico nuevo.
 
 ## Optimización restante
 
-1. cerrar la factibilidad DMA/shared-bus de P5;
-2. aplicar una sola mejora P5 solo si existe integración segura;
-3. revisar `available()/read`, commit RX y `socketStatus()`;
+1. diseñar y medir fusión aditiva `available()/read`;
+2. revisar commit RX diferido/coalescido;
+3. revisar lecturas redundantes de `socketStatus()`;
 4. abordar TX async solo después de cerrar el frente RX.
 
 ## Verificación física pendiente del usuario
@@ -197,7 +225,7 @@ PHYSICAL_STABILITY=PENDING_USER
 
 ## Comando exacto para continuar
 
-Para repetir el último gate cerrado mientras se evalúa P5:
+El último gate físico repetible continúa siendo P4 mientras se prepara P6:
 
 ```powershell
 $env:PYTHONPATH='C:\Users\jeykc\AppData\Local\Temp\jwplc-codex-pydeps'
