@@ -466,8 +466,14 @@ uint16_t W5100Class::read(uint16_t addr, uint8_t *buf, uint16_t len)
 			#endif
 		}
 		SPI.transfer(cmd, 3);
+#if JWPLC_W5500_RX_DIRECT_TRANSFER_BYTES
+		// Read-only bulk transfer: MOSI payload is dummy data and the
+		// received bytes go directly into the destination buffer.
+		SPI.transferBytes(nullptr, buf, len);
+#else
 		memset(buf, 0, len);
 		SPI.transfer(buf, len);
+#endif
 		resetSS();
 	}
 	return len;
