@@ -40,6 +40,20 @@ typedef struct {
 
 static socketstate_t state[MAX_SOCK_NUM];
 
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+static JWPLCEthernetTcpRxProfile jwplcTcpRxProfile;
+
+void EthernetClass::jwplcProfileResetTcpRx()
+{
+	jwplcTcpRxProfile = JWPLCEthernetTcpRxProfile();
+}
+
+JWPLCEthernetTcpRxProfile EthernetClass::jwplcProfileGetTcpRx()
+{
+	return jwplcTcpRxProfile;
+}
+#endif
+
 
 static uint16_t getSnTX_FSR(uint8_t s);
 static uint16_t getSnRX_RSR(uint8_t s);
@@ -198,9 +212,20 @@ makesocket:
 //
 uint8_t EthernetClass::socketStatus(uint8_t s)
 {
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+	const uint32_t profileStartUs = micros();
+#endif
+
 	SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
 	uint8_t status = W5100.readSnSR(s);
 	SPI.endTransaction();
+
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+	++jwplcTcpRxProfile.socketStatusCalls;
+	jwplcTcpRxProfile.socketStatusTotalUs +=
+		(uint32_t)(micros() - profileStartUs);
+#endif
+
 	return status;
 }
 
@@ -291,11 +316,23 @@ static void read_data(uint8_t s, uint16_t src, uint8_t *dst, uint16_t len)
 //
 int EthernetClass::socketRecv(uint8_t s, uint8_t *buf, int16_t len)
 {
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+	const uint32_t profileRecvStartUs = micros();
+#endif
+
 	// Check how much data is available
 	int ret = state[s].RX_RSR;
 	SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
 	if (ret < len) {
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+		const uint32_t profileRsrStartUs = micros();
+#endif
 		uint16_t rsr = getSnRX_RSR(s);
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+		++jwplcTcpRxProfile.recvRsrRefreshCalls;
+		jwplcTcpRxProfile.recvRsrRefreshTotalUs +=
+			(uint32_t)(micros() - profileRsrStartUs);
+#endif
 		ret = rsr - state[s].RX_inc;
 		state[s].RX_RSR = ret;
 		//Serial.printf("Sock_RECV, RX_RSR=%d, RX_inc=%d\n", ret, state[s].RX_inc);
@@ -315,15 +352,35 @@ int EthernetClass::socketRecv(uint8_t s, uint8_t *buf, int16_t len)
 	} else {
 		if (ret > len) ret = len; // more data available than buffer length
 		uint16_t ptr = state[s].RX_RD;
-		if (buf) read_data(s, ptr, buf, ret);
+		if (buf) {
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+			const uint32_t profilePayloadStartUs = micros();
+#endif
+			read_data(s, ptr, buf, ret);
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+			++jwplcTcpRxProfile.recvPayloadReadCalls;
+			jwplcTcpRxProfile.recvPayloadReadTotalUs +=
+				(uint32_t)(micros() - profilePayloadStartUs);
+			jwplcTcpRxProfile.recvPayloadBytes +=
+				(uint32_t)ret;
+#endif
+		}
 		ptr += ret;
 		state[s].RX_RD = ptr;
 		state[s].RX_RSR -= ret;
 		uint16_t inc = state[s].RX_inc + ret;
 		if (inc >= 250 || state[s].RX_RSR == 0) {
 			state[s].RX_inc = 0;
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+			const uint32_t profileCommitStartUs = micros();
+#endif
 			W5100.writeSnRX_RD(s, ptr);
 			W5100.execCmdSn(s, Sock_RECV);
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+			++jwplcTcpRxProfile.recvCommitCalls;
+			jwplcTcpRxProfile.recvCommitTotalUs +=
+				(uint32_t)(micros() - profileCommitStartUs);
+#endif
 			//Serial.printf("Sock_RECV cmd, RX_RD=%d, RX_RSR=%d\n",
 			//  state[s].RX_RD, state[s].RX_RSR);
 		} else {
@@ -331,6 +388,13 @@ int EthernetClass::socketRecv(uint8_t s, uint8_t *buf, int16_t len)
 		}
 	}
 	SPI.endTransaction();
+
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+	++jwplcTcpRxProfile.recvCalls;
+	jwplcTcpRxProfile.recvTotalUs +=
+		(uint32_t)(micros() - profileRecvStartUs);
+#endif
+
 	//Serial.printf("socketRecv, ret=%d\n", ret);
 	return ret;
 }
@@ -453,15 +517,34 @@ bool EthernetClass::socketCommitUDPFast(uint8_t s)
 
 uint16_t EthernetClass::socketRecvAvailable(uint8_t s)
 {
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+	const uint32_t profileAvailableStartUs = micros();
+#endif
+
 	uint16_t ret = state[s].RX_RSR;
 	if (ret == 0) {
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+		const uint32_t profileRsrStartUs = micros();
+#endif
 		SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
 		uint16_t rsr = getSnRX_RSR(s);
 		SPI.endTransaction();
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+		++jwplcTcpRxProfile.recvAvailableRsrRefreshCalls;
+		jwplcTcpRxProfile.recvAvailableRsrRefreshTotalUs +=
+			(uint32_t)(micros() - profileRsrStartUs);
+#endif
 		ret = rsr - state[s].RX_inc;
 		state[s].RX_RSR = ret;
 		//Serial.printf("sockRecvAvailable s=%d, RX_RSR=%d\n", s, ret);
 	}
+
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+	++jwplcTcpRxProfile.recvAvailableCalls;
+	jwplcTcpRxProfile.recvAvailableTotalUs +=
+		(uint32_t)(micros() - profileAvailableStartUs);
+#endif
+
 	return ret;
 }
 
