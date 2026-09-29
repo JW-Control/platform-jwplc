@@ -195,6 +195,49 @@ int EthernetUDP::parsePacket()
 	return 0;
 }
 
+int EthernetUDP::jwplcReadPacketFastDeferred(
+	uint8_t *buffer,
+	size_t len)
+{
+	if (
+		sockindex >= MAX_SOCK_NUM ||
+		buffer == nullptr ||
+		len == 0)
+	{
+		return -1;
+	}
+
+	uint8_t header[8];
+
+	const int got =
+		Ethernet.socketRecvUDPFastDeferred(
+			sockindex,
+			header,
+			buffer,
+			(uint16_t)len);
+
+	if (got > 0) {
+		_remoteIP = header;
+		_remotePort =
+			((uint16_t)header[4] << 8) |
+			(uint16_t)header[5];
+		_remaining = 0;
+	}
+
+	return got;
+}
+
+bool EthernetUDP::jwplcCommitRxFast()
+{
+	if (sockindex >= MAX_SOCK_NUM) {
+		return false;
+	}
+
+	return Ethernet.socketCommitUDPFast(
+		sockindex);
+}
+
+
 int EthernetUDP::read()
 {
 	uint8_t byte;
