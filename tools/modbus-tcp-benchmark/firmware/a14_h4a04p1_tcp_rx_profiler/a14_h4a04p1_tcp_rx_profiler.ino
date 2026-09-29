@@ -369,6 +369,13 @@ static void serviceTcpUnlocked()
 
 static void serviceTcp()
 {
+    // Freeze is the accounting barrier for both throughput and profiling.
+    // Do not add status/available/read/profile work after the F ACK.
+    if (tcpRxFrozen && mode == MODE_TCP_RX)
+    {
+        return;
+    }
+
     if (!jwplcSPI_acquire(50))
     {
         ++tcpSpiLockErrors;
