@@ -35,7 +35,7 @@ typedef struct {
 	uint16_t RX_RSR; // Number of bytes received
 	uint16_t RX_RD;  // Address to read
 	uint16_t TX_FSR; // Free space ready for transmit
-	uint8_t  RX_inc; // how much have we advanced RX_RD
+	uint16_t RX_inc; // bytes advanced in RX_RD but not yet committed to W5500
 } socketstate_t;
 
 static socketstate_t state[MAX_SOCK_NUM];
