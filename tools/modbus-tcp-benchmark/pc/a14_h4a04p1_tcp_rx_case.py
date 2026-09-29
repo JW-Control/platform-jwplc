@@ -187,6 +187,8 @@ def main() -> int:
                 f"EXPECTED={expected_profile} ACTUAL={actual_profile}"
             )
 
+        print(f"TCP_PROFILE_ENABLED={actual_profile}")
+
         sock = socket.create_connection(
             (host, 5001),
             timeout=3.0,
