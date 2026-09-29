@@ -716,7 +716,7 @@ def main() -> int:
         # The historical worktree is intentionally dirty only in the matched
         # display overlay. Those files are not product mutations in the
         # canonical repository and exist solely inside the disposable worktree.
-        hist_overlay_dirty = [
+        hist_overlay_tracked = [
             line.strip().replace("\\", "/")
             for line in git(
                 historical_worktree,
@@ -725,6 +725,19 @@ def main() -> int:
             ).splitlines()
             if line.strip()
         ]
+        hist_overlay_untracked = [
+            line.strip().replace("\\", "/")
+            for line in git(
+                historical_worktree,
+                "ls-files",
+                "--others",
+                "--exclude-standard",
+            ).splitlines()
+            if line.strip()
+        ]
+        hist_overlay_dirty = sorted(
+            set(hist_overlay_tracked + hist_overlay_untracked)
+        )
         allowed_prefixes = tuple(
             f"JWPLC/2.1.0/libraries/{library}/"
             for library in MATCHED_DISPLAY_LIBRARIES
@@ -734,6 +747,14 @@ def main() -> int:
             for line in hist_overlay_dirty
             if not line.startswith(allowed_prefixes)
         ]
+        emit(
+            "H4A03AR3_HIST_DISPLAY_OVERLAY_TRACKED_COUNT",
+            len(hist_overlay_tracked),
+        )
+        emit(
+            "H4A03AR3_HIST_DISPLAY_OVERLAY_UNTRACKED_COUNT",
+            len(hist_overlay_untracked),
+        )
         emit(
             "H4A03AR3_HIST_DISPLAY_OVERLAY_DIRTY_COUNT",
             len(hist_overlay_dirty),
