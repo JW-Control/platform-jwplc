@@ -243,6 +243,14 @@ def main() -> int:
 
         print("H4A04P1_ZERO_ARM=PASS")
 
+        # Reset once more immediately before the timed flood so PROFILE does
+        # not include the idle status/available calls spent producing the
+        # zero snapshot above.
+        dut.command_ack(
+            b"R",
+            b"H4A04P1_RESET=PASS",
+        )
+
         payload = bytes(
             (i & 0xFF)
             for i in range(args.chunk)
