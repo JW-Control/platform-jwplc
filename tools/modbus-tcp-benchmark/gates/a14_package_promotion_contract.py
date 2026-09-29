@@ -121,10 +121,20 @@ def main() -> int:
         )
 
     require(
-        "C_TITLE_BG = JWPLC_TFT_BLUE" in idle
-        and "C_TITLE_TEXT = JWPLC_TFT_WHITE" in idle
-        and "TITLE_BOX_W = 110" in idle,
-        "DISPLAY_TFT_VISUAL_MARKER_BLUE_WHITE",
+        "static constexpr int TITLE_BOX_X =" in idle
+        and "static constexpr int TITLE_BOX_Y =" in idle
+        and "static constexpr int TITLE_BOX_W =" in idle
+        and "static constexpr int TITLE_BOX_H =" in idle
+        and "static constexpr uint16_t C_TITLE_BG =" in idle
+        and "static constexpr uint16_t C_TITLE_TEXT =" in idle
+        and "TITLE_BOX_X," in idle
+        and "TITLE_BOX_Y," in idle
+        and "TITLE_BOX_W," in idle
+        and "TITLE_BOX_H," in idle
+        and "C_TITLE_BG);" in idle
+        and "tft->setTextColor(C_TITLE_TEXT, C_TITLE_BG);" in idle
+        and "tft->print(g_title);" in idle,
+        "DISPLAY_TFT_TITLE_BACKGROUND_MARKER",
     )
 
     require(
