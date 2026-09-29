@@ -71,9 +71,9 @@ namespace JWPLCIdleScreen
 
     static constexpr int TITLE_X = 6;
     static constexpr int TITLE_Y = 4;
-    static constexpr int TITLE_BOX_X = 4;
+    static constexpr int TITLE_BOX_X = 2;
     static constexpr int TITLE_BOX_Y = 2;
-    static constexpr int TITLE_BOX_W = 110;
+    static constexpr int TITLE_BOX_W = 115;
     static constexpr int TITLE_BOX_H = 12;
 
     static constexpr int LEFT_DIV_X = 122;
@@ -127,7 +127,7 @@ namespace JWPLCIdleScreen
     // Marca visual de la pila JWPLC_TFT/TFT_eSPI:
     // título blanco sobre bloque azul. La implementación anterior
     // dibujaba únicamente texto azul/celeste sobre fondo negro.
-    static constexpr uint16_t C_TITLE_BG = JWPLC_TFT_BLUE;
+    static constexpr uint16_t C_TITLE_BG = 0x39E7;
     static constexpr uint16_t C_TITLE_TEXT = JWPLC_TFT_WHITE;
     static constexpr uint16_t C_IN_ACTIVE = 0x867D;
     static constexpr uint16_t C_OK_GREEN = 0x5FE0;
