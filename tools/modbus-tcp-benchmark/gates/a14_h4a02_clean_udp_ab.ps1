@@ -213,6 +213,7 @@ $intPatch = Join-Path $PSScriptRoot "a14_p3g_udp_rx_int_guided_patch.py"
 $fastPatch = Join-Path $PSScriptRoot "a14_p3h_udp_rx_fused_fast_path_patch.py"
 $commitPatch = Join-Path $PSScriptRoot "a14_p3j_udp_rx_coalesced_commit_patch.py"
 $r1Patch = Join-Path $PSScriptRoot "a14_p3j_r1_postcommit_rearm_patch.py"
+$serialIdlePatch = Join-Path $PSScriptRoot "a14_p3j_r2_serial_idle_patch.py"
 
 $required = @(
     $repoFirmwareDir,
@@ -223,7 +224,8 @@ $required = @(
     $intPatch,
     $fastPatch,
     $commitPatch,
-    $r1Patch
+    $r1Patch,
+    $serialIdlePatch
 )
 
 foreach ($path in $required) {
@@ -236,6 +238,7 @@ $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $tempRoot = Join-Path $env:TEMP ("jwplc_a14_h4a02_{0}" -f $timestamp)
 $legacyBuild = Join-Path $tempRoot "legacy_build"
 $fastBuild = Join-Path $tempRoot "fast_build"
+$legacyWork = Join-Path $tempRoot "legacy_work"
 $fastWork = Join-Path $tempRoot "fast_work"
 
 New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
@@ -257,7 +260,8 @@ $syntaxArgs = @(
     $intPatch,
     $fastPatch,
     $commitPatch,
-    $r1Patch
+    $r1Patch,
+    $serialIdlePatch
 )
 
 $syntaxExit = Invoke-NativeToLog -FilePath $pythonExe -Arguments $syntaxArgs -LogPath $syntaxLog
