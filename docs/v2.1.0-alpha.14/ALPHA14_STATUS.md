@@ -290,6 +290,36 @@ Documento:
 - `A14_POST_H3E_THRESHOLD_REQUALIFICATION_20260928.md`
 
 
+
+## H4A0 — RAW Ethernet post-H3E
+
+Baseline ejecutado con package final, W5500 a 26 MHz, autoload normal,
+Display/TFT finales, RTU OFF y sin mutación de producto:
+
+```text
+TCP_RX_MEDIAN=13.577425 Mbps
+TCP_TX_MEDIAN=4.723816 Mbps
+UDP_RX_EFFECTIVE_MEDIAN=11.052889 Mbps
+UDP_TX_MEDIAN=5.056589 Mbps
+TRANSPORT_ERRORS=0
+TFT_PHYSICAL=PASS
+A14_H4A0_RAW_ETHERNET_BASELINE_GATE=PASS
+```
+
+La comparación contra P3 reveló que el mejor UDP RX histórico (~13.866 Mbps)
+pertenecía al candidato diagnóstico:
+
+```text
+BATCH2 + INT GPIO15 + FUSED + COMMIT2 + R1
+PAYLOAD=1016 B
+DIAGNOSTIC_COPY_ONLY=YES
+PRODUCT_SOURCE_MUTATION=NO
+```
+
+Por tanto H4A0.1 repetirá exactamente P3K sobre el package post-H3E antes de
+decidir una productización aditiva/interna.
+
+
 ## A14.1 — Foundation + Server
 
 Estado: `PASS`.
@@ -561,7 +591,7 @@ ALPHA14_ONLY_COMMITS=142
 ## Siguiente paso
 
 ```text
-NEXT=RUN_H4A0_POST_H3E_RAW_ETHERNET_CEILING
+NEXT=RUN_H4A01_EXACT_P3K_POST_H3E_REPLAY
 CI_REQUIRED_BEFORE_MERGE=YES
 HISTORICAL_READY_FOR_RELEASE_PR_20260913=SUPERSEDED_BY_POST_CLOSURE_HARDENING
 ```
