@@ -25,6 +25,73 @@
 #include "io_pin_remap.h"
 #include "esp32-hal-log.h"
 
+#if CONFIG_IDF_TARGET_ESP32
+#include "soc/spi_struct.h"
+#endif
+
+#if CONFIG_IDF_TARGET_ESP32
+// esp32-hal-spi.h intentionally keeps spi_t opaque. In the matching Arduino
+// core used by this package, the first member of spi_t is the SPI device
+// register pointer. This prefix mirrors only that stable first member so the
+// JWPLC read-only experiment can access the FIFO without changing the core.
+struct JWPLCSpiBusPrefix {
+  volatile spi_dev_t *dev;
+};
+
+static void jwplcSpiReadBytesReuseFifoNL(
+  spi_t *spi,
+  uint8_t *out,
+  uint32_t len
+) {
+  if (!spi || !out || len == 0) {
+    return;
+  }
+
+  volatile spi_dev_t *dev =
+    reinterpret_cast<JWPLCSpiBusPrefix *>(spi)->dev;
+
+  while (len) {
+    const uint32_t c_len = (len > 64U) ? 64U : len;
+    const uint32_t c_longs = (c_len + 3U) >> 2;
+
+    dev->mosi_dlen.usr_mosi_dbitlen = (c_len * 8U) - 1U;
+    dev->miso_dlen.usr_miso_dbitlen = (c_len * 8U) - 1U;
+
+    // Deliberately do not preload data_buf[].
+    // During W5500 read payload clocks, MOSI is don't-care. The FIFO may
+    // therefore transmit whatever it already contains while MISO is sampled.
+    dev->cmd.usr = 1;
+    while (dev->cmd.usr) {
+    }
+
+    uint32_t *result = reinterpret_cast<uint32_t *>(out);
+
+    if (c_len & 3U) {
+      for (uint32_t i = 0; i + 1U < c_longs; ++i) {
+        result[i] = dev->data_buf[i];
+      }
+
+      const uint32_t lastData = dev->data_buf[c_longs - 1U];
+      uint8_t *lastOut8 =
+        reinterpret_cast<uint8_t *>(&result[c_longs - 1U]);
+      const uint8_t *lastData8 =
+        reinterpret_cast<const uint8_t *>(&lastData);
+
+      for (uint32_t i = 0; i < (c_len & 3U); ++i) {
+        lastOut8[i] = lastData8[i];
+      }
+    } else {
+      for (uint32_t i = 0; i < c_longs; ++i) {
+        result[i] = dev->data_buf[i];
+      }
+    }
+
+    out += c_len;
+    len -= c_len;
+  }
+}
+#endif
+
 #if !CONFIG_DISABLE_HAL_LOCKS
 #define SPI_PARAM_LOCK() \
   do {                   \
@@ -305,6 +372,23 @@ void SPIClass::transferBytes(const uint8_t *data, uint8_t *out, uint32_t size) {
     return spiTransferBytesNL(_spi, data, out, size);
   }
   spiTransferBytes(_spi, data, out, size);
+}
+
+void SPIClass::jwplcReadBytesReuseFifo(uint8_t *out, uint32_t size) {
+#if CONFIG_IDF_TARGET_ESP32
+  if (_inTransaction) {
+    return jwplcSpiReadBytesReuseFifoNL(_spi, out, size);
+  }
+
+  spiSimpleTransaction(_spi);
+  jwplcSpiReadBytesReuseFifoNL(_spi, out, size);
+  spiEndTransaction(_spi);
+#else
+  // Keep the helper source-compatible on future JWPLC targets. The
+  // optimization is intentionally classic-ESP32-only until separately
+  // qualified on those targets.
+  transferBytes(nullptr, out, size);
+#endif
 }
 
 /**
