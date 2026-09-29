@@ -53,6 +53,36 @@
 #include "Server.h"
 #include "Udp.h"
 
+#ifndef JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+#define JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS 0
+#endif
+
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+struct JWPLCEthernetTcpRxProfile
+{
+	uint32_t socketStatusCalls = 0;
+	uint64_t socketStatusTotalUs = 0;
+
+	uint32_t recvAvailableCalls = 0;
+	uint64_t recvAvailableTotalUs = 0;
+	uint32_t recvAvailableRsrRefreshCalls = 0;
+	uint64_t recvAvailableRsrRefreshTotalUs = 0;
+
+	uint32_t recvCalls = 0;
+	uint64_t recvTotalUs = 0;
+
+	uint32_t recvRsrRefreshCalls = 0;
+	uint64_t recvRsrRefreshTotalUs = 0;
+
+	uint32_t recvPayloadReadCalls = 0;
+	uint64_t recvPayloadReadTotalUs = 0;
+	uint64_t recvPayloadBytes = 0;
+
+	uint32_t recvCommitCalls = 0;
+	uint64_t recvCommitTotalUs = 0;
+};
+#endif
+
 enum EthernetLinkStatus {
 	Unknown,
 	LinkON,
@@ -106,6 +136,12 @@ public:
 	static int maintain();
 	static EthernetLinkStatus linkStatus();
 	static EthernetHardwareStatus hardwareStatus();
+
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+	// Alpha14 diagnostic-only TCP RX profiling. Compiled out by default.
+	static void jwplcProfileResetTcpRx();
+	static JWPLCEthernetTcpRxProfile jwplcProfileGetTcpRx();
+#endif
 
 	// Manual configuration
 	static void begin(uint8_t *mac, IPAddress ip);
