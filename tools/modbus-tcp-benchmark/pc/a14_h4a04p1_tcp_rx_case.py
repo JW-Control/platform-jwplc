@@ -399,6 +399,18 @@ def main() -> int:
             f"H4A04P1_TCP_SPI_HOLD_MAX_US={hold_max_us}"
         )
 
+        if "PAYLOAD_VERIFY_ENABLED" in measured:
+            print(
+                "H4A04P1_PAYLOAD_VERIFY_ENABLED="
+                f"{measured['PAYLOAD_VERIFY_ENABLED']}"
+            )
+
+        if "RX_FNV1A32" in measured:
+            print(
+                "H4A04P1_RX_FNV1A32="
+                f"{measured['RX_FNV1A32']}"
+            )
+
         if args.variant == "PROFILE":
             profile_keys = (
                 "TCP_PROF_SOCKET_STATUS_CALLS",
