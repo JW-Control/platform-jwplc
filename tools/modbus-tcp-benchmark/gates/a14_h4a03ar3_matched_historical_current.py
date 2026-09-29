@@ -22,6 +22,10 @@ RAW_REL = Path(
 EXPECTED_RAW_SHA256 = (
     "9A0C6CF27E44A61DC97686FB1A769EBBBB34D036CDF8D0CA0EEAB597E699AB6B"
 )
+MATCHED_DISPLAY_LIBRARIES = (
+    "JWPLC_Display",
+    "JWPLC_TFT",
+)
 DURATION_S = 15.0
 RUNS_PER_VARIANT = 3
 UDP_PAYLOAD = 1016
@@ -115,6 +119,78 @@ def semantic_fingerprint(paths: list[Path]) -> str:
         h.update(normalize_eol(path.read_bytes()))
         h.update(b"\0")
     return h.hexdigest().upper()
+
+
+def directory_fingerprint(root: Path) -> str:
+    if not root.is_dir():
+        raise RuntimeError(f"H4A03AR3_LIBRARY_DIR_MISSING={root}")
+
+    h = hashlib.sha256()
+    files = sorted(
+        (p for p in root.rglob("*") if p.is_file()),
+        key=lambda p: p.relative_to(root).as_posix().lower(),
+    )
+    if not files:
+        raise RuntimeError(f"H4A03AR3_LIBRARY_DIR_EMPTY={root}")
+
+    for path in files:
+        rel = path.relative_to(root).as_posix()
+        h.update(rel.encode("utf-8"))
+        h.update(b"\0")
+        h.update(path.read_bytes())
+        h.update(b"\0")
+
+    return h.hexdigest().upper()
+
+
+def overlay_current_display_stack(
+    historical_root: Path,
+    current_root: Path,
+) -> dict[str, str]:
+    current_libs = current_root / "JWPLC" / "2.1.0" / "libraries"
+    historical_libs = historical_root / "JWPLC" / "2.1.0" / "libraries"
+
+    fingerprints: dict[str, str] = {}
+
+    for library in MATCHED_DISPLAY_LIBRARIES:
+        src = current_libs / library
+        dst = historical_libs / library
+
+        if not src.is_dir():
+            raise RuntimeError(
+                f"H4A03AR3_CURRENT_DISPLAY_LIBRARY_MISSING={src}"
+            )
+
+        if dst.exists():
+            shutil.rmtree(dst)
+        shutil.copytree(src, dst)
+
+        src_fp = directory_fingerprint(src)
+        dst_fp = directory_fingerprint(dst)
+
+        emit(f"H4A03AR3_CURRENT_{library}_FINGERPRINT", src_fp)
+        emit(f"H4A03AR3_HIST_{library}_OVERLAY_FINGERPRINT", dst_fp)
+
+        if src_fp != dst_fp:
+            raise RuntimeError(
+                f"H4A03AR3_{library}_OVERLAY_FINGERPRINT_MISMATCH"
+            )
+
+        fingerprints[library] = src_fp
+
+    emit(
+        "H4A03AR3_DISPLAY_STACK_MATCHED",
+        "PASS",
+    )
+    emit(
+        "H4A03AR3_DISPLAY_STACK_SOURCE",
+        "CURRENT_HEAD_FOR_BOTH_VARIANTS",
+    )
+    emit(
+        "H4A03AR3_DISPLAY_STACK_LIBRARIES",
+        "+".join(MATCHED_DISPLAY_LIBRARIES),
+    )
+    return fingerprints
 
 
 def median(values_: list[float]) -> float:
@@ -239,6 +315,7 @@ def build_candidate(
     temp_root: Path,
     python: str,
     arduino_cli: Path,
+    matched_display_fingerprints: dict[str, str],
 ) -> dict[str, Path | str]:
     gates = current_repo / "tools" / "modbus-tcp-benchmark" / "gates"
 
@@ -256,6 +333,18 @@ def build_candidate(
     for script in scripts.values():
         if not script.is_file():
             raise RuntimeError(f"H4A03AR3_PATCH_SCRIPT_MISSING={script}")
+
+    source_libraries = source_root / "JWPLC" / "2.1.0" / "libraries"
+    for library, expected_fp in matched_display_fingerprints.items():
+        actual_fp = directory_fingerprint(source_libraries / library)
+        emit(
+            f"H4A03AR3_{variant}_{library}_SOURCE_FINGERPRINT",
+            actual_fp,
+        )
+        if actual_fp != expected_fp:
+            raise RuntimeError(
+                f"H4A03AR3_{variant}_{library}_SOURCE_NOT_MATCHED"
+            )
 
     work_root = temp_root / f"{variant.lower()}_work"
     build_root = temp_root / f"{variant.lower()}_build"
@@ -364,6 +453,24 @@ def build_candidate(
         raise RuntimeError(
             f"H4A03AR3_{variant}_DIAG_ETHERNET_NOT_SELECTED"
         )
+
+    for library in MATCHED_DISPLAY_LIBRARIES:
+        expected_library_path = (
+            source_root / "JWPLC" / "2.1.0" / "libraries" / library
+        )
+        used = (
+            str(expected_library_path).lower()
+            in compile_text.lower()
+        )
+        emit(
+            f"H4A03AR3_{variant}_{library}_COMPILE_PATH_USED",
+            used,
+        )
+        if not used:
+            raise RuntimeError(
+                f"H4A03AR3_{variant}_{library}_NOT_SELECTED_BY_BUILD"
+            )
+
     emit(f"H4A03AR3_{variant}_COMPILE", "PASS")
 
     return {
@@ -446,6 +553,10 @@ def main() -> int:
     emit(
         "H4A03AR3_ACCOUNTING",
         "FREEZE_REQUEST_TO_ACK_BOUNDED_NO_POST_FREEZE_RX_ACCOUNTING",
+    )
+    emit(
+        "H4A03AR3_DISPLAY_STACK_POLICY",
+        "CURRENT_JWPLC_DISPLAY_PLUS_JWPLC_TFT_FOR_BOTH_VARIANTS",
     )
 
     if branch != BRANCH:
@@ -597,6 +708,46 @@ def main() -> int:
         ):
             raise RuntimeError("H4A03AR3_HIST_RAW_RESTORE_GIT_DIFF_VISIBLE")
 
+        matched_display_fingerprints = overlay_current_display_stack(
+            historical_worktree,
+            repo,
+        )
+
+        # The historical worktree is intentionally dirty only in the matched
+        # display overlay. Those files are not product mutations in the
+        # canonical repository and exist solely inside the disposable worktree.
+        hist_overlay_dirty = [
+            line.strip().replace("\\", "/")
+            for line in git(
+                historical_worktree,
+                "diff",
+                "--name-only",
+            ).splitlines()
+            if line.strip()
+        ]
+        allowed_prefixes = tuple(
+            f"JWPLC/2.1.0/libraries/{library}/"
+            for library in MATCHED_DISPLAY_LIBRARIES
+        )
+        unexpected_overlay_dirty = [
+            line
+            for line in hist_overlay_dirty
+            if not line.startswith(allowed_prefixes)
+        ]
+        emit(
+            "H4A03AR3_HIST_DISPLAY_OVERLAY_DIRTY_COUNT",
+            len(hist_overlay_dirty),
+        )
+        if unexpected_overlay_dirty:
+            raise RuntimeError(
+                "H4A03AR3_HIST_OVERLAY_SCOPE_INVALID="
+                + ",".join(unexpected_overlay_dirty)
+            )
+        emit(
+            "H4A03AR3_HIST_DISPLAY_OVERLAY_SCOPE",
+            "JWPLC_Display+JWPLC_TFT_ONLY",
+        )
+
         hist_candidate = build_candidate(
             variant="HIST",
             source_root=historical_worktree,
@@ -604,6 +755,7 @@ def main() -> int:
             temp_root=temp_root,
             python=python,
             arduino_cli=arduino_cli,
+            matched_display_fingerprints=matched_display_fingerprints,
         )
         current_candidate = build_candidate(
             variant="CURRENT",
@@ -612,6 +764,7 @@ def main() -> int:
             temp_root=temp_root,
             python=python,
             arduino_cli=arduino_cli,
+            matched_display_fingerprints=matched_display_fingerprints,
         )
 
         hist_fp = str(hist_candidate["fingerprint"])
@@ -873,6 +1026,9 @@ def main() -> int:
                     f"H4A03AR3_GUARANTEED_DIRECTION={direction}",
                     f"H4A03AR3_GUARANTEED_GAP_PCT={guaranteed_gap:.3f}",
                     f"H4A03AR3_INTERPRETATION={interpretation}",
+                    "H4A03AR3_DISPLAY_STACK_MATCHED=PASS",
+                    "H4A03AR3_DISPLAY_STACK_SOURCE=CURRENT_HEAD_FOR_BOTH_VARIANTS",
+                    "H4A03AR3_DISPLAY_STACK_LIBRARIES=JWPLC_Display+JWPLC_TFT",
                     "HARNESS_FAILURE=NO",
                     "PRODUCT_FAILURE=NO_EVIDENCE",
                     "HARDWARE_FAILURE=NO_EVIDENCE",
