@@ -437,9 +437,134 @@ El residual de empty holds se mide como porcentaje; el gate sólo falla si super
 H4A02_FIRST_RUN_CLASSIFICATION=HARNESS_FAILURE
 PRODUCT_FAILURE=NO
 HARDWARE_FAILURE=NO
-NEXT=RERUN_H4A02_MATCHED_CLEAN_UDP_AB
+NEXT=H4A03A_MINIMAL_INSTRUMENTATION_DURATION_SWEEP
 ```
 
+
+
+## H4A0.2 — resultado matched clean UDP A/B
+
+La repetición corregida cerró PASS con variantes matched:
+
+```text
+LEGACY_DIAG:
+  instrumentación común
+  + P3J-R2 SERIAL IDLE / quiescence
+
+FAST_DIAG:
+  misma instrumentación común
+  + BATCH2 + INT GPIO15 + FUSED + COMMIT2 + R1
+  + P3J-R2 SERIAL IDLE / quiescence
+```
+
+Perfil:
+
+```text
+UDP_PAYLOAD=1016
+DURATION=15 s por corrida
+RUNS=3 por variante
+FRESH_UPLOAD_PER_CASE=YES
+ORDER=LEGACY1,FAST1,FAST2,LEGACY2,LEGACY3,FAST3
+TCP_INTERLEAVING=NO
+PRODUCT_SOURCE_MUTATION=NO
+```
+
+Resultado:
+
+```text
+LEGACY_MEDIAN_MBPS=11.025638
+LEGACY_MIN_MBPS=10.332888
+LEGACY_MAX_MBPS=11.294668
+
+FAST_MEDIAN_MBPS=12.669195
+FAST_MIN_MBPS=12.664120
+FAST_MAX_MBPS=12.675336
+
+FAST_VS_LEGACY_GAIN_PCT=14.91
+FAST_GAIN_GE_10PCT=True
+TRANSPORT_ERRORS=0
+SPI_LOCK_ERRORS=0
+TFT_PHYSICAL=PASS
+A14_H4A02_CLEAN_UDP_AB=PASS
+```
+
+FAST runtime:
+
+```text
+PACKETS_PER_ACTIVE_HOLD=2.000000
+EMPTY_HOLD_COUNT=0
+SPI_READS_PER_PACKET=3.000
+```
+
+Legacy:
+
+```text
+SPI_READS_PER_PACKET ~= 4.42
+EMPTY_HOLDS = altos/variables
+```
+
+Conclusión válida:
+
+```text
+H4A02_UDP_FAST_PATH_VALUE=CONFIRMED
+H4A02_FAST_PATH_STABILITY=EXCELLENT
+H4A02_BATCH2_RUNTIME=CONFIRMED
+H4A02_PRODUCT_SOURCE_MUTATION=NO
+```
+
+Conclusión todavía NO válida:
+
+```text
+12.669195 Mbps = ceiling final
+```
+
+El candidato P3K histórico alcanzó:
+
+```text
+UDP_MEDIAN=13.866349 Mbps
+```
+
+por lo que falta aproximadamente 8.63 % frente al mejor histórico.
+
+La hipótesis principal a resolver es intrusión de instrumentación en el hot path.
+
+También se invalida como métrica de latencia del runtime el `LOOP_GAP_MAX`
+observado en H4A0.2 (~115-126 ms), porque el mismo harness mezcla snapshots
+Serial y profiling con el benchmark de throughput.
+
+Siguiente gate:
+
+```text
+H4A0.3A = FAST minimal-instrumentation duration sweep
+5 s x 3
+15 s x 3
+30 s x 3
+```
+
+Objetivo: recuperar/explicar el histórico ~13.87 Mbps antes de component ablation.
+
+Después:
+
+```text
+H4A0.3B = Component Ablation
+A LEGACY
+B +BATCH2
+C +INT
+D +FUSED
+E +COMMIT2
+F +R1
+```
+
+El gate PERFORMANCE debe medir mínimamente:
+
+```text
+rxBytes
+rxPackets
+transportErrors
+spiLockErrors
+```
+
+y separar el profiling de latencia a un gate posterior.
 
 ## A14.1 — Foundation + Server
 
@@ -712,7 +837,7 @@ ALPHA14_ONLY_COMMITS=142
 ## Siguiente paso
 
 ```text
-NEXT=RUN_H4A02_CLEAN_UDP_AB
+NEXT=H4A03A_MINIMAL_INSTRUMENTATION_DURATION_SWEEP
 CI_REQUIRED_BEFORE_MERGE=YES
 HISTORICAL_READY_FOR_RELEASE_PR_20260913=SUPERSEDED_BY_POST_CLOSURE_HARDENING
 ```
