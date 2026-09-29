@@ -1,0 +1,18 @@
+============================================================
+ JWPLC MBLOCK POC - GATE 2N
+ REMOTE DEBUG TARGETS
+============================================================
+
+MBLOCK_EXE=C:\Users\Public\Programs\mblock\mBlock.exe
+MBLOCK_PID=26596
+REMOTE_DEBUG_PORT=9222
+TARGET_COUNT=1
+
+------------------------------------------------------------
+TARGET=1
+TYPE=page
+TITLE=mBlock v5.4.3
+URL=http://127.0.0.1:3003/renderer/dist/mblock/index.html
+ID=53BE7DAB8F5CAFD1BE1B9B9687A0506F
+DEVTOOLS=/devtools/inspector.html?ws=127.0.0.1:9222/devtools/page/53BE7DAB8F5CAFD1BE1B9B9687A0506F
+WS=ws://127.0.0.1:9222/devtools/page/53BE7DAB8F5CAFD1BE1B9B9687A0506F
