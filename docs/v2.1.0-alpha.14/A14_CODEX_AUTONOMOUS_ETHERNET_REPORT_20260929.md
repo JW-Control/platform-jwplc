@@ -11,10 +11,10 @@ v2.1.0-alpha.14/feature/modbus-tcp
 ## CURRENT_STATE
 
 ```text
-LAST_COMPLETED_GATE=H4A0.4-P3R
+LAST_COMPLETED_GATE=H4A0.4-P4
 LAST_RESULT=PASS_DATA_ONLY
-CURRENT_GATE=H4A0.4-P4
-CURRENT_ACTION=DESIGN_CHUNK_64B_MICROPROFILE
+CURRENT_GATE=H4A0.4-P5
+CURRENT_ACTION=DMA_SHARED_BUS_FEASIBILITY
 FIFO_REUSE_DEFAULT=OFF
 FIFO_REUSE_VALIDATED_PENDING_PHYSICAL=YES
 PHYSICAL_STABILITY=PENDING_USER
@@ -27,6 +27,7 @@ ALPHA14_CLOSED=NO
 |---|---|---|---:|---:|---:|---:|---|---:|---|---|
 | H4A0.4-P3 | DIRECT_RX 15.970 / 12.887425 | FIFO_REUSE | 16.804 | 13.736151 | +5.226% payload | 0 | PASS | 0 observados | PENDING_USER | FIFO_REUSE_GAIN_CONFIRMED; abrir P3R |
 | H4A0.4-P3R | DIRECT_RX 15.965 / 12.830344 | FIFO_REUSE | 16.785 | 12.976148 | +5.141% payload | 0 | PASS | 0 | PENDING_USER | FIFO_REUSE_VALIDATED_PENDING_PHYSICAL=YES; pasar a P4 |
+| H4A0.4-P4 | FIFO_REUSE sin profiler | FIFO_REUSE + microperfil | — | — | locator only | 0 | PASS | 0 | PENDING_USER | START_WAIT_EXCESS dominante; evaluar DMA segura |
 
 ## HEAD y commits de la sesión
 
@@ -41,6 +42,8 @@ Commits creados hasta P3R:
 ```text
 c9666d0d docs(alpha14): registrar resultado P3 FIFO reuse
 bd38f7c5 test(alpha14): añadir confirmación P3R FIFO reuse
+47958b90 docs(alpha14): confirmar P3R FIFO reuse
+115e8b07 test(alpha14): perfilar overhead por chunk SPI W5500
 ```
 
 ## Gates ejecutados
@@ -105,6 +108,38 @@ C:\Users\jeykc\AppData\Local\Temp\jwplc_a14_h4a04p3r_fifo_reuse_xp83g134\SUMMARY
 docs/v2.1.0-alpha.14/A14_H4A04P3R_W5500_FIFO_REUSE_CONFIRMATION_20260929.md
 ```
 
+### H4A0.4-P4
+
+```text
+ONLY_VARIABLE=CHUNK_TIMING_INSTRUMENTATION
+CHUNK_COUNT=87227
+BYTES=4504177
+AVG_CHUNK_BYTES=51.637
+SETUP_TOTAL_US=72830
+WIRE_WAIT_TOTAL_US=2051640
+COPY_OUT_TOTAL_US=157270
+OTHER_TOTAL_US=52038
+IDEAL_WIRE_US=1385900.615
+EXCESS_OVER_WIRE_US=947877.385
+WIRE_WAIT_EXCESS_US=665739.385
+DOMINANT_TOTAL_BLOCK=WIRE_WAIT
+DOMINANT_ACTIONABLE_BLOCK=START_WAIT_EXCESS
+PAYLOAD_INTEGRITY=PASS
+TCP_SPI_LOCK_ERRORS=0
+TRANSPORT_ERRORS=0
+UNEXPECTED_RESETS=0
+PHYSICAL_STABILITY=PENDING_USER
+RESULT=PASS_DATA_ONLY
+```
+
+Evidencia:
+
+```text
+C:\Users\jeykc\AppData\Local\Temp\jwplc_a14_h4a04p4_chunk_profile_o0jaj78t
+C:\Users\jeykc\AppData\Local\Temp\jwplc_a14_h4a04p4_chunk_profile_o0jaj78t\SUMMARY.log
+docs/v2.1.0-alpha.14/A14_H4A04P4_W5500_CHUNK_PROFILE_20260929.md
+```
+
 ## Candidatos
 
 - Rechazados en esta sesión: ninguno.
@@ -139,8 +174,8 @@ No se extrapola un ceiling teórico nuevo.
 
 ## Optimización restante
 
-1. perfilar el chunk SPI de 64 B en P4;
-2. aplicar una sola mejora P5 al bloque dominante;
+1. cerrar la factibilidad DMA/shared-bus de P5;
+2. aplicar una sola mejora P5 solo si existe integración segura;
 3. revisar `available()/read`, commit RX y `socketStatus()`;
 4. abordar TX async solo después de cerrar el frente RX.
 
@@ -162,11 +197,11 @@ PHYSICAL_STABILITY=PENDING_USER
 
 ## Comando exacto para continuar
 
-Para repetir el último gate cerrado mientras se prepara P4:
+Para repetir el último gate cerrado mientras se evalúa P5:
 
 ```powershell
 $env:PYTHONPATH='C:\Users\jeykc\AppData\Local\Temp\jwplc-codex-pydeps'
 & 'C:\Users\jeykc\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -B `
-  tools\modbus-tcp-benchmark\gates\a14_h4a04p3_w5500_fifo_reuse_ab.py `
-  --confirmation --defer-physical-review
+  tools\modbus-tcp-benchmark\gates\a14_h4a04p4_w5500_chunk_profile.py `
+  --defer-physical-review
 ```
