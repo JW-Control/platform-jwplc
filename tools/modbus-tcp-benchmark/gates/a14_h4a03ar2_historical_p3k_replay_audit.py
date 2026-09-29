@@ -60,11 +60,20 @@ def read_auto(path: Path) -> str:
 
 
 def git(repo: Path, *args: str) -> str:
-    p = run(["git", "-C", str(repo), *args])
-    text = decode(p.stdout)
+    # Git machine-readable data belongs to stdout. Keep stderr separate so
+    # Windows line-ending warnings (for example LF -> CRLF) cannot be parsed
+    # as paths or hashes by source-contract checks.
+    p = subprocess.run(
+        ["git", "-C", str(repo), *args],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    stdout_text = decode(p.stdout)
+    stderr_text = decode(p.stderr)
     if p.returncode != 0:
-        raise RuntimeError(f"GIT_FAILED {' '.join(args)} :: {text[-1200:]}")
-    return text.strip()
+        detail = (stdout_text + "\n" + stderr_text).strip()
+        raise RuntimeError(f"GIT_FAILED {' '.join(args)} :: {detail[-1200:]}")
+    return stdout_text.strip()
 
 
 def unique(text: str, key: str) -> str:
