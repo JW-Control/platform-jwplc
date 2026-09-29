@@ -396,21 +396,34 @@ Write-Host "H4A02_MATCHED_SOURCE_CONTRACT=PASS"
 $fqbn = "jwplc_local:esp32:jwplcbasic"
 
 Write-Host ""
-Write-Host "=== COMPILE LEGACY CURRENT PRODUCT ==="
+Write-Host "=== COMPILE MATCHED LEGACY DIAGNOSTIC COPY ==="
 
+$legacySketchDir = Split-Path -Parent $legacySketch
 $legacyCompileLog = Join-Path $tempRoot "legacy_compile.log"
 $legacyCompileExit = Invoke-NativeToLog -FilePath $arduinoCli -Arguments @(
     "compile",
     "--fqbn", $fqbn,
     "--build-path", $legacyBuild,
+    "--libraries", $legacyLibrariesRoot,
     "--libraries", $repoLibrariesRoot,
-    $repoFirmwareDir
+    $legacySketchDir
 ) -LogPath $legacyCompileLog
 
 Write-Host "H4A02_LEGACY_COMPILE_EXIT=$legacyCompileExit"
 if ($legacyCompileExit -ne 0) {
     Get-Content -LiteralPath $legacyCompileLog -Tail 240 | ForEach-Object { Write-Host $_ }
     throw "H4A02_LEGACY_COMPILE_FAILED"
+}
+
+$legacyCompileText = [System.IO.File]::ReadAllText($legacyCompileLog)
+$legacyDiagUsed = $legacyCompileText.IndexOf(
+    $legacyEthernetRoot,
+    [System.StringComparison]::OrdinalIgnoreCase
+) -ge 0
+
+Write-Host "H4A02_LEGACY_DIAGNOSTIC_ETHERNET_LIBRARY_USED=$legacyDiagUsed"
+if (-not $legacyDiagUsed) {
+    throw "H4A02_LEGACY_DIAGNOSTIC_LIBRARY_NOT_SELECTED"
 }
 
 Write-Host ""
@@ -566,11 +579,11 @@ function Invoke-H4A02Case {
 Write-Host ""
 Write-Host "H4A02_EXECUTION_ORDER=LEGACY1,FAST1,FAST2,LEGACY2,LEGACY3,FAST3"
 
-Invoke-H4A02Case -Variant "LEGACY" -RunNumber 1 -BuildPath $legacyBuild -SketchDir $repoFirmwareDir -Values $legacyValues -LoopMaxValues $legacyLoopMax
+Invoke-H4A02Case -Variant "LEGACY" -RunNumber 1 -BuildPath $legacyBuild -SketchDir $legacySketchDir -Values $legacyValues -LoopMaxValues $legacyLoopMax
 Invoke-H4A02Case -Variant "FAST" -RunNumber 1 -BuildPath $fastBuild -SketchDir $fastSketchDir -Values $fastValues -LoopMaxValues $fastLoopMax
 Invoke-H4A02Case -Variant "FAST" -RunNumber 2 -BuildPath $fastBuild -SketchDir $fastSketchDir -Values $fastValues -LoopMaxValues $fastLoopMax
-Invoke-H4A02Case -Variant "LEGACY" -RunNumber 2 -BuildPath $legacyBuild -SketchDir $repoFirmwareDir -Values $legacyValues -LoopMaxValues $legacyLoopMax
-Invoke-H4A02Case -Variant "LEGACY" -RunNumber 3 -BuildPath $legacyBuild -SketchDir $repoFirmwareDir -Values $legacyValues -LoopMaxValues $legacyLoopMax
+Invoke-H4A02Case -Variant "LEGACY" -RunNumber 2 -BuildPath $legacyBuild -SketchDir $legacySketchDir -Values $legacyValues -LoopMaxValues $legacyLoopMax
+Invoke-H4A02Case -Variant "LEGACY" -RunNumber 3 -BuildPath $legacyBuild -SketchDir $legacySketchDir -Values $legacyValues -LoopMaxValues $legacyLoopMax
 Invoke-H4A02Case -Variant "FAST" -RunNumber 3 -BuildPath $fastBuild -SketchDir $fastSketchDir -Values $fastValues -LoopMaxValues $fastLoopMax
 
 $legacyMedian = Get-Median -Values $legacyValues.ToArray()
