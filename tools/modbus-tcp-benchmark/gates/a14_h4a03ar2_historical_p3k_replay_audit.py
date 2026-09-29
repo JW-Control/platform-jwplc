@@ -88,11 +88,40 @@ def git_show_bytes(repo: Path, commit: str, path: str) -> bytes | None:
     return p.stdout
 
 
-def sha256_git_path(repo: Path, commit: str, path: str) -> str | None:
+def sha256_git_path_variants(
+    repo: Path,
+    commit: str,
+    path: str,
+) -> dict[str, str] | None:
     data = git_show_bytes(repo, commit, path)
     if data is None:
         return None
-    return hashlib.sha256(data).hexdigest().upper()
+
+    # Historical P3K froze hashes with Get-FileHash over a Windows checkout.
+    # Git blobs are stored with repository bytes (normally LF for text), while
+    # the checkout used for the physical gate can be CRLF via core.autocrlf.
+    # Compare both representations during historical discovery; the original
+    # P3K gate will later validate the actual checked-out working-tree hash.
+    lf = data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    crlf = lf.replace(b"\n", b"\r\n")
+
+    return {
+        "BLOB": hashlib.sha256(data).hexdigest().upper(),
+        "LF": hashlib.sha256(lf).hexdigest().upper(),
+        "CRLF": hashlib.sha256(crlf).hexdigest().upper(),
+    }
+
+
+def hash_variant_match(
+    variants: dict[str, str] | None,
+    expected: str,
+) -> str | None:
+    if variants is None:
+        return None
+    for representation in ("BLOB", "LF", "CRLF"):
+        if variants[representation] == expected:
+            return representation
+    return None
 
 
 def parse_p3k_expected_hashes(gate_text: str) -> dict[str, str]:
@@ -204,14 +233,22 @@ def find_exact_p3k_snapshot(
         )
 
     for checked, (source, commit) in enumerate(candidates, 1):
-        raw_hash = sha256_git_path(repo, commit, raw_path)
-        if raw_hash != expected["raw"]:
+        raw_variants = sha256_git_path_variants(repo, commit, raw_path)
+        raw_repr = hash_variant_match(raw_variants, expected["raw"])
+        if raw_repr is None:
             continue
-        wcpp_hash = sha256_git_path(repo, commit, wcpp_path)
-        if wcpp_hash != expected["w5100_cpp"]:
+
+        wcpp_variants = sha256_git_path_variants(repo, commit, wcpp_path)
+        wcpp_repr = hash_variant_match(
+            wcpp_variants,
+            expected["w5100_cpp"],
+        )
+        if wcpp_repr is None:
             continue
-        wh_hash = sha256_git_path(repo, commit, wh_path)
-        if wh_hash != expected["w5100_h"]:
+
+        wh_variants = sha256_git_path_variants(repo, commit, wh_path)
+        wh_repr = hash_variant_match(wh_variants, expected["w5100_h"])
+        if wh_repr is None:
             continue
 
         gate_bytes = git_show_bytes(repo, commit, P3K_GATE)
@@ -227,6 +264,9 @@ def find_exact_p3k_snapshot(
         # The original gate had a clean-tree invariant and protected-artifact
         # checks. Keep the complete historical gate/common pair from this same
         # commit; do not synthesize a hybrid snapshot.
+        emit("H4A03AR2_MATCH_RAW_REPRESENTATION", raw_repr)
+        emit("H4A03AR2_MATCH_W5100_CPP_REPRESENTATION", wcpp_repr)
+        emit("H4A03AR2_MATCH_W5100_H_REPRESENTATION", wh_repr)
         return commit, checked, source, source_counts
 
     raise RuntimeError(
@@ -448,17 +488,58 @@ def main() -> int:
         if replay_expected != expected_hashes:
             raise RuntimeError("H4A03AR2_REPLAY_EXPECTED_HASH_CONTRACT_DRIFT")
 
-        replay_actual = {
-            "raw": sha256_git_path(repo, replay_commit, "tools/modbus-tcp-benchmark/firmware/eth14_raw_transport_server/eth14_raw_transport_server.ino"),
-            "w5100_cpp": sha256_git_path(repo, replay_commit, "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/utility/w5100.cpp"),
-            "w5100_h": sha256_git_path(repo, replay_commit, "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/utility/w5100.h"),
+        replay_variants = {
+            "raw": sha256_git_path_variants(
+                repo,
+                replay_commit,
+                "tools/modbus-tcp-benchmark/firmware/eth14_raw_transport_server/eth14_raw_transport_server.ino",
+            ),
+            "w5100_cpp": sha256_git_path_variants(
+                repo,
+                replay_commit,
+                "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/utility/w5100.cpp",
+            ),
+            "w5100_h": sha256_git_path_variants(
+                repo,
+                replay_commit,
+                "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/utility/w5100.h",
+            ),
         }
-        emit("H4A03AR2_REPLAY_RAW_SHA256", replay_actual["raw"])
-        emit("H4A03AR2_REPLAY_W5100_CPP_SHA256", replay_actual["w5100_cpp"])
-        emit("H4A03AR2_REPLAY_W5100_H_SHA256", replay_actual["w5100_h"])
-        if replay_actual != expected_hashes:
+
+        replay_representations = {
+            key: hash_variant_match(replay_variants[key], expected_hashes[key])
+            for key in ("raw", "w5100_cpp", "w5100_h")
+        }
+
+        for key in ("raw", "w5100_cpp", "w5100_h"):
+            variants = replay_variants[key]
+            if variants is None:
+                raise RuntimeError(
+                    f"H4A03AR2_REPLAY_HASH_SOURCE_MISSING={key}"
+                )
+            emit(
+                f"H4A03AR2_REPLAY_{key.upper()}_BLOB_SHA256",
+                variants["BLOB"],
+            )
+            emit(
+                f"H4A03AR2_REPLAY_{key.upper()}_CRLF_SHA256",
+                variants["CRLF"],
+            )
+            emit(
+                f"H4A03AR2_REPLAY_{key.upper()}_MATCH_REPRESENTATION",
+                replay_representations[key],
+            )
+
+        if any(
+            replay_representations[key] is None
+            for key in ("raw", "w5100_cpp", "w5100_h")
+        ):
             raise RuntimeError("H4A03AR2_REPLAY_HASH_CONTRACT_FAILED")
-        emit("H4A03AR2_REPLAY_HASH_CONTRACT", "PASS")
+
+        emit(
+            "H4A03AR2_REPLAY_HASH_CONTRACT",
+            "PASS_BLOB_OR_WINDOWS_CRLF_REPRESENTATION",
+        )
 
         common_path = worktree / COMMON
         common_text = common_path.read_text(encoding="utf-8")
