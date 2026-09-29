@@ -230,6 +230,9 @@ def main() -> int:
     errors = get_int(measured, "TRANSPORT_ERRORS")
     tcp_locks = get_int(measured, "TCP_SPI_LOCK_ERRORS")
     udp_locks = get_int(measured, "UDP_SPI_LOCK_ERRORS")
+    tcp_hold_count = get_int(measured, "TCP_SPI_HOLD_COUNT")
+    tcp_hold_total_us = get_int(measured, "TCP_SPI_HOLD_TOTAL_US")
+    tcp_hold_max_us = get_int(measured, "TCP_SPI_HOLD_MAX_US")
 
     upper_window = elapsed_send + max(0.0, freeze_request_tail)
     lower_window = elapsed_send + max(0.0, freeze_ack_tail)
@@ -259,6 +262,9 @@ def main() -> int:
     print(f"H4A04P1_TRANSPORT_ERRORS={errors}")
     print(f"H4A04P1_TCP_SPI_LOCK_ERRORS={tcp_locks}")
     print(f"H4A04P1_UDP_SPI_LOCK_ERRORS={udp_locks}")
+    print(f"H4A04P1_TCP_SPI_HOLD_COUNT={tcp_hold_count}")
+    print(f"H4A04P1_TCP_SPI_HOLD_TOTAL_US={tcp_hold_total_us}")
+    print(f"H4A04P1_TCP_SPI_HOLD_MAX_US={tcp_hold_max_us}")
 
     profile_present = all(key in measured for key in PROFILE_KEYS)
     print(
