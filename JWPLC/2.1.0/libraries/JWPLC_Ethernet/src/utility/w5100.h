@@ -215,6 +215,10 @@ public:
   __GP_REGISTER_N(SIPR,   0x000F, 4); // Source IP address
   __GP_REGISTER8 (IR,     0x0015);    // Interrupt
   __GP_REGISTER8 (IMR,    0x0016);    // Interrupt Mask
+  // W5500 socket interrupt summary/mask registers.
+  // Additive support used by the JWPLC cooperative high-throughput path.
+  __GP_REGISTER8 (SIR_W5500,  0x0017); // Socket Interrupt
+  __GP_REGISTER8 (SIMR_W5500, 0x0018); // Socket Interrupt Mask
   __GP_REGISTER16(RTR,    0x0017);    // Timeout address
   __GP_REGISTER8 (RCR,    0x0019);    // Retry count
   __GP_REGISTER8 (RMSR,   0x001A);    // Receive memory size (W5100 only)
@@ -307,6 +311,7 @@ public:
   __SOCKET_REGISTER16(SnRX_RSR,   0x0026)        // RX Free Size
   __SOCKET_REGISTER16(SnRX_RD,    0x0028)        // RX Read Pointer
   __SOCKET_REGISTER16(SnRX_WR,    0x002A)        // RX Write Pointer (supported?)
+  __SOCKET_REGISTER8(SnIMR,       0x002C)        // W5500 Socket Interrupt Mask
 
 #undef __SOCKET_REGISTER8
 #undef __SOCKET_REGISTER16
