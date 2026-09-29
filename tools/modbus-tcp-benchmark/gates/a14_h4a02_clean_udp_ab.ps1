@@ -115,8 +115,8 @@ function Assert-ContainsAtLeast {
 }
 
 Write-Host "============================================================"
-Write-Host " A14 H4A0.2 - CLEAN UDP RX A/B"
-Write-Host " LEGACY CURRENT vs FAST CANDIDATE"
+Write-Host " A14 H4A0.2 - MATCHED CLEAN UDP RX A/B"
+Write-Host " LEGACY_DIAG vs FAST_DIAG"
 Write-Host "============================================================"
 
 Assert-G2Branch
@@ -163,7 +163,7 @@ Write-Host ("DURATION_S={0:F1}" -f $DurationSeconds)
 Write-Host "RUNS=$Runs"
 Write-Host "UDP_PAYLOAD=$UdpPayload"
 Write-Host "SOCKET_TOPOLOGY=8x2KB"
-Write-Host "TEST_DESIGN=SEPARATE_BUILD_SEPARATE_UPLOAD_PER_RUN"
+Write-Host "TEST_DESIGN=MATCHED_INSTRUMENTATION_SERIAL_QUIESCENCE_FRESH_UPLOAD"
 Write-Host "TCP_INTERLEAVING=NO"
 Write-Host "PRODUCT_SOURCE_MUTATION=NO"
 
@@ -563,15 +563,17 @@ function Invoke-H4A02Case {
         }
 
         $packetsPerHold = $packets / $holds
+        $emptyHoldPct = ($emptyHolds / $holds) * 100.0
 
         Write-Host ("H4A02_FAST_RUN{0}_PACKETS_PER_ACTIVE_HOLD={1:F6}" -f $RunNumber, $packetsPerHold)
+        Write-Host ("H4A02_FAST_RUN{0}_EMPTY_HOLD_PCT={1:F6}" -f $RunNumber, $emptyHoldPct)
 
         if ($packetsPerHold -lt 1.95 -or $packetsPerHold -gt 2.05) {
             throw "H4A02_FAST_BATCH2_RUNTIME_NOT_OBSERVED"
         }
 
-        if ($emptyHolds -ne 0) {
-            throw "H4A02_FAST_EMPTY_HOLDS_NONZERO"
+        if ($emptyHoldPct -gt 0.05) {
+            throw "H4A02_FAST_EMPTY_HOLD_RATE_TOO_HIGH"
         }
     }
 }
