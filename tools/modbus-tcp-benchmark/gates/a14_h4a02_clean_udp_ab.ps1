@@ -300,7 +300,8 @@ $patches = @(
 
 foreach ($patch in $patches) {
     $logPath = Join-Path $tempRoot (($patch.Name.ToLower()) + "_patch.log")
-    $patchExit = Invoke-NativeToLog -FilePath $pythonExe -Arguments @($patch.Script) + $patch.Args -LogPath $logPath
+    $patchArguments = @($patch.Script) + @($patch.Args)
+    $patchExit = Invoke-NativeToLog -FilePath $pythonExe -Arguments $patchArguments -LogPath $logPath
     Write-Host ("H4A02_{0}_PATCH_EXIT={1}" -f $patch.Name, $patchExit)
 
     if ($patchExit -ne 0) {
