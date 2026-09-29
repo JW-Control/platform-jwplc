@@ -1,0 +1,167 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+from pathlib import Path
+
+
+def require(condition: bool, label: str) -> None:
+    print(f"{label}={'PASS' if condition else 'FAIL'}")
+    if not condition:
+        raise RuntimeError(label)
+
+
+def main() -> int:
+    repo = Path(__file__).resolve().parents[3]
+
+    display_props = (
+        repo
+        / "JWPLC"
+        / "2.1.0"
+        / "libraries"
+        / "JWPLC_Display"
+        / "library.properties"
+    )
+    tft_props = (
+        repo
+        / "JWPLC"
+        / "2.1.0"
+        / "libraries"
+        / "JWPLC_TFT"
+        / "library.properties"
+    )
+    idle_cpp = (
+        repo
+        / "JWPLC"
+        / "2.1.0"
+        / "libraries"
+        / "JWPLC_Display"
+        / "src"
+        / "JWPLC_IdleScreen.cpp"
+    )
+    eth_header = (
+        repo
+        / "JWPLC"
+        / "2.1.0"
+        / "libraries"
+        / "JWPLC_Ethernet"
+        / "src"
+        / "JWPLC_W5x00_Ethernet.h"
+    )
+    udp_cpp = (
+        repo
+        / "JWPLC"
+        / "2.1.0"
+        / "libraries"
+        / "JWPLC_Ethernet"
+        / "src"
+        / "EthernetUdp.cpp"
+    )
+    socket_cpp = (
+        repo
+        / "JWPLC"
+        / "2.1.0"
+        / "libraries"
+        / "JWPLC_Ethernet"
+        / "src"
+        / "socket.cpp"
+    )
+    w5100_h = (
+        repo
+        / "JWPLC"
+        / "2.1.0"
+        / "libraries"
+        / "JWPLC_Ethernet"
+        / "src"
+        / "utility"
+        / "w5100.h"
+    )
+
+    for path in (
+        display_props,
+        tft_props,
+        idle_cpp,
+        eth_header,
+        udp_cpp,
+        socket_cpp,
+        w5100_h,
+    ):
+        require(path.is_file(), f"PACKAGE_FILE_{path.name}")
+
+    display = display_props.read_text(encoding="utf-8")
+    tft = tft_props.read_text(encoding="utf-8")
+    idle = idle_cpp.read_text(encoding="utf-8")
+    header = eth_header.read_text(encoding="utf-8")
+    udp = udp_cpp.read_text(encoding="utf-8")
+    socket = socket_cpp.read_text(encoding="utf-8")
+    w5100 = w5100_h.read_text(encoding="utf-8")
+
+    for name, props in (
+        ("DISPLAY", display),
+        ("TFT", tft),
+    ):
+        require(
+            "precompiled=full" not in props,
+            f"{name}_PRECOMPILED_FULL_DISABLED",
+        )
+        require(
+            "dot_a_linkage=true" not in props,
+            f"{name}_DOT_A_LINKAGE_DISABLED",
+        )
+
+    require(
+        "C_TITLE_BG = JWPLC_TFT_BLUE" in idle
+        and "C_TITLE_TEXT = JWPLC_TFT_WHITE" in idle
+        and "TITLE_BOX_W = 110" in idle,
+        "DISPLAY_TFT_VISUAL_MARKER_BLUE_WHITE",
+    )
+
+    require(
+        "SIR_W5500" in w5100
+        and "SIMR_W5500" in w5100
+        and "SnIMR" in w5100,
+        "ETH_W5500_INT_REGISTERS",
+    )
+
+    require(
+        "socketRecvUDPFastDeferred" in header
+        and "socketCommitUDPFast" in header
+        and "jwplcReadPacketFastDeferred" in header
+        and "jwplcCommitRxFast" in header,
+        "ETH_FAST_UDP_DECLARATIONS",
+    )
+    require(
+        "EthernetClass::socketRecvUDPFastDeferred" in socket
+        and "EthernetClass::socketCommitUDPFast" in socket,
+        "ETH_FAST_UDP_BACKEND",
+    )
+    require(
+        "EthernetUDP::jwplcReadPacketFastDeferred" in udp
+        and "EthernetUDP::jwplcCommitRxFast" in udp,
+        "ETH_FAST_UDP_ADDITIVE_API",
+    )
+
+    package_text = "\n".join((header, udp, socket))
+    require(
+        "jwplcDiag" not in package_text,
+        "ETH_NO_DIAGNOSTIC_API_PROMOTED",
+    )
+
+    # The Arduino-compatible legacy API must remain present.
+    require(
+        "virtual int parsePacket();" in header
+        and "virtual int read(uint8_t *buf, size_t len);" in header,
+        "ETH_LEGACY_UDP_API_PRESERVED",
+    )
+
+    print("PACKAGE_DEVELOPMENT_MODE=SOURCE_FIRST")
+    print("PACKAGE_FAST_UDP_POLICY=ADDITIVE_INTERNAL_LEGACY_PRESERVED")
+    print("A14_PACKAGE_PROMOTION_CONTRACT=PASS")
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except Exception as exc:
+        print(f"A14_PACKAGE_PROMOTION_CONTRACT_EXCEPTION={exc}")
+        raise SystemExit(1)
