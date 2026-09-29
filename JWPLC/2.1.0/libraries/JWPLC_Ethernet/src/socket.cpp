@@ -335,6 +335,122 @@ int EthernetClass::socketRecv(uint8_t s, uint8_t *buf, int16_t len)
 	return ret;
 }
 
+int EthernetClass::socketRecvUDPFastDeferred(
+	uint8_t s,
+	uint8_t *header,
+	uint8_t *buf,
+	uint16_t len)
+{
+	if (
+		s >= MAX_SOCK_NUM ||
+		header == nullptr ||
+		buf == nullptr)
+	{
+		return -1;
+	}
+
+	SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
+
+	uint16_t available = state[s].RX_RSR;
+
+	if (available < 8) {
+		uint16_t rsr = 0;
+		(void)W5100.readSnRX_RSRStable(s, rsr);
+
+		available =
+			rsr >= state[s].RX_inc
+				? (uint16_t)(rsr - state[s].RX_inc)
+				: 0;
+
+		state[s].RX_RSR = available;
+	}
+
+	if (available < 8) {
+		SPI.endTransaction();
+		return 0;
+	}
+
+	const uint16_t ptr = state[s].RX_RD;
+	read_data(s, ptr, header, 8);
+
+	const uint16_t payloadLen =
+		((uint16_t)header[6] << 8) |
+		(uint16_t)header[7];
+
+	const uint32_t recordLen =
+		8U + (uint32_t)payloadLen;
+
+	if (
+		payloadLen > len ||
+		recordLen > available ||
+		recordLen > W5100.SSIZE)
+	{
+		SPI.endTransaction();
+		return 0;
+	}
+
+	if (payloadLen > 0) {
+		read_data(
+			s,
+			(uint16_t)(ptr + 8U),
+			buf,
+			payloadLen);
+	}
+
+	const uint16_t nextPtr =
+		(uint16_t)(ptr + recordLen);
+
+	const uint32_t pending =
+		(uint32_t)state[s].RX_inc +
+		recordLen;
+
+	if (pending > W5100.SSIZE) {
+		SPI.endTransaction();
+		return -1;
+	}
+
+	state[s].RX_RD = nextPtr;
+	state[s].RX_RSR =
+		(uint16_t)(available - recordLen);
+	state[s].RX_inc =
+		(uint16_t)pending;
+
+	SPI.endTransaction();
+	return (int)payloadLen;
+}
+
+bool EthernetClass::socketCommitUDPFast(uint8_t s)
+{
+	if (s >= MAX_SOCK_NUM) {
+		return false;
+	}
+
+	SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
+
+	if (state[s].RX_inc == 0) {
+		SPI.endTransaction();
+		return true;
+	}
+
+	W5100.writeSnRX_RD(
+		s,
+		state[s].RX_RD);
+
+	const bool accepted =
+		W5100.execCmdSnChecked(
+			s,
+			Sock_RECV,
+			1000);
+
+	if (accepted) {
+		state[s].RX_inc = 0;
+	}
+
+	SPI.endTransaction();
+	return accepted;
+}
+
+
 uint16_t EthernetClass::socketRecvAvailable(uint8_t s)
 {
 	uint16_t ret = state[s].RX_RSR;
