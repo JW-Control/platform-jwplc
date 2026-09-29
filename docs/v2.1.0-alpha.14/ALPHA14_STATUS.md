@@ -384,6 +384,63 @@ post-commit rearm
 ```
 
 
+
+## H4A0.2 — corrección metodológica tras falso negativo
+
+La primera ejecución H4A0.2 abortó en FAST RUN1 con:
+
+```text
+FAST_DUT_MBPS=12.525180
+PACKETS_PER_ACTIVE_HOLD=2.000000
+UDP_SPI_LOCK_ERRORS=0
+TRANSPORT_ERRORS=0
+UDP_RX_EMPTY_HOLD_COUNT=1
+```
+
+El fallo fue del harness, no del producto.
+
+Causa identificada:
+
+- H4A0.2 había omitido `P3J-R2 serial idle` en la variante FAST.
+- El fast path FUSED consume datagramas directamente en `MODE_UDP_RX`.
+- El `STOP` UDP del runner legacy no atraviesa el parser de comandos en ese modo.
+- El snapshot quedó todavía en `MODE=UDP_RX` y siguió recibiendo datagramas después
+  de la ventana medida.
+- Exigir exactamente cero empty holds convirtió ese residual de lifecycle en un
+  falso negativo.
+
+Corrección aplicada:
+
+```text
+LEGACY_DIAG =
+  instrumentación común
+  + P3J-R2 SERIAL IDLE
+
+FAST_DIAG =
+  misma instrumentación común
+  + BATCH2 + INT + FUSED + COMMIT2 + R1
+  + P3J-R2 SERIAL IDLE
+```
+
+Ambas variantes:
+
+- usan payload 1016 B;
+- usan quiescencia serial antes/después de cada corrida;
+- arrancan desde upload fresco;
+- se ejecutan en orden balanceado;
+- conservan el package productivo sin mutación.
+
+El residual de empty holds se mide como porcentaje; el gate sólo falla si supera
+0.05 %, no por un único hold aislado.
+
+```text
+H4A02_FIRST_RUN_CLASSIFICATION=HARNESS_FAILURE
+PRODUCT_FAILURE=NO
+HARDWARE_FAILURE=NO
+NEXT=RERUN_H4A02_MATCHED_CLEAN_UDP_AB
+```
+
+
 ## A14.1 — Foundation + Server
 
 Estado: `PASS`.
