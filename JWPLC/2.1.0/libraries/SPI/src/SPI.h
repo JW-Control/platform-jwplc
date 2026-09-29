@@ -81,6 +81,13 @@ public:
   uint32_t transfer32(uint32_t data);
 
   void transferBytes(const uint8_t *data, uint8_t *out, uint32_t size);
+
+  // JWPLC experimental read-only helper.
+  // On classic ESP32 this reuses the SPI FIFO contents as don't-care MOSI
+  // data instead of refilling 16 dummy words for every 64-byte RX chunk.
+  // Existing SPI.transfer()/transferBytes() semantics are unchanged.
+  void jwplcReadBytesReuseFifo(uint8_t *out, uint32_t size);
+
   void transferBits(uint32_t data, uint32_t *out, uint8_t bits);
 
   void write(uint8_t data);
