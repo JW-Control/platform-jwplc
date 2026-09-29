@@ -77,6 +77,10 @@ static void resetCounters()
     rxFnv1a32 = 2166136261UL;
 #endif
 
+#if JWPLC_SPI_PROFILE_FIFO_REUSE_CHUNKS
+    SPI.jwplcResetReadBytesReuseFifoProfile();
+#endif
+
 #if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
     Ethernet.jwplcProfileResetTcpRx();
 #endif
@@ -127,6 +131,30 @@ static void printProfile()
     Serial.println((unsigned long long)p.recvCommitTotalUs);
 #else
     Serial.println("TCP_PROFILE_ENABLED=NO");
+#endif
+}
+
+static void printSpiChunkProfile()
+{
+#if JWPLC_SPI_PROFILE_FIFO_REUSE_CHUNKS
+    const JWPLCSpiFifoReuseChunkProfile p =
+        SPI.jwplcGetReadBytesReuseFifoProfile();
+
+    Serial.println("SPI_CHUNK_PROFILE_ENABLED=YES");
+    Serial.print("SPI_CHUNK_COUNT=");
+    Serial.println((unsigned long long)p.chunkCount);
+    Serial.print("SPI_CHUNK_BYTES=");
+    Serial.println((unsigned long long)p.bytes);
+    Serial.print("SPI_CHUNK_SETUP_TOTAL_US=");
+    Serial.println((unsigned long long)p.setupTotalUs);
+    Serial.print("SPI_CHUNK_WIRE_WAIT_TOTAL_US=");
+    Serial.println((unsigned long long)p.wireWaitTotalUs);
+    Serial.print("SPI_CHUNK_COPY_OUT_TOTAL_US=");
+    Serial.println((unsigned long long)p.copyOutTotalUs);
+    Serial.print("SPI_CHUNK_OTHER_TOTAL_US=");
+    Serial.println((unsigned long long)p.otherTotalUs);
+#else
+    Serial.println("SPI_CHUNK_PROFILE_ENABLED=NO");
 #endif
 }
 
@@ -191,6 +219,7 @@ static void printSnapshot()
 #endif
 
     printProfile();
+    printSpiChunkProfile();
 
     Serial.println("H4A04P1_SNAPSHOT=END");
 }

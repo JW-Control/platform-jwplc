@@ -29,6 +29,10 @@
 #include "soc/spi_struct.h"
 #endif
 
+#if JWPLC_SPI_PROFILE_FIFO_REUSE_CHUNKS
+static JWPLCSpiFifoReuseChunkProfile jwplcFifoReuseChunkProfile;
+#endif
+
 #if CONFIG_IDF_TARGET_ESP32
 // esp32-hal-spi.h intentionally keeps spi_t opaque. In the matching Arduino
 // core used by this package, the first member of spi_t is the SPI device
@@ -51,11 +55,18 @@ static void jwplcSpiReadBytesReuseFifoNL(
     reinterpret_cast<JWPLCSpiBusPrefix *>(spi)->dev;
 
   while (len) {
+#if JWPLC_SPI_PROFILE_FIFO_REUSE_CHUNKS
+    const uint32_t chunkStartedUs = micros();
+#endif
     const uint32_t c_len = (len > 64U) ? 64U : len;
     const uint32_t c_longs = (c_len + 3U) >> 2;
 
     dev->mosi_dlen.usr_mosi_dbitlen = (c_len * 8U) - 1U;
     dev->miso_dlen.usr_miso_dbitlen = (c_len * 8U) - 1U;
+
+#if JWPLC_SPI_PROFILE_FIFO_REUSE_CHUNKS
+    const uint32_t setupFinishedUs = micros();
+#endif
 
     // Deliberately do not preload data_buf[].
     // During W5500 read payload clocks, MOSI is don't-care. The FIFO may
@@ -63,6 +74,10 @@ static void jwplcSpiReadBytesReuseFifoNL(
     dev->cmd.usr = 1;
     while (dev->cmd.usr) {
     }
+
+#if JWPLC_SPI_PROFILE_FIFO_REUSE_CHUNKS
+    const uint32_t wireWaitFinishedUs = micros();
+#endif
 
     uint32_t *result = reinterpret_cast<uint32_t *>(out);
 
@@ -86,8 +101,31 @@ static void jwplcSpiReadBytesReuseFifoNL(
       }
     }
 
+#if JWPLC_SPI_PROFILE_FIFO_REUSE_CHUNKS
+    const uint32_t copyOutFinishedUs = micros();
+#endif
+
     out += c_len;
     len -= c_len;
+
+#if JWPLC_SPI_PROFILE_FIFO_REUSE_CHUNKS
+    const uint32_t chunkFinishedUs = micros();
+    const uint32_t setupUs = setupFinishedUs - chunkStartedUs;
+    const uint32_t wireWaitUs =
+      wireWaitFinishedUs - setupFinishedUs;
+    const uint32_t copyOutUs =
+      copyOutFinishedUs - wireWaitFinishedUs;
+    const uint32_t accountedUs = setupUs + wireWaitUs + copyOutUs;
+    const uint32_t chunkUs = chunkFinishedUs - chunkStartedUs;
+
+    ++jwplcFifoReuseChunkProfile.chunkCount;
+    jwplcFifoReuseChunkProfile.bytes += c_len;
+    jwplcFifoReuseChunkProfile.setupTotalUs += setupUs;
+    jwplcFifoReuseChunkProfile.wireWaitTotalUs += wireWaitUs;
+    jwplcFifoReuseChunkProfile.copyOutTotalUs += copyOutUs;
+    jwplcFifoReuseChunkProfile.otherTotalUs +=
+      chunkUs > accountedUs ? chunkUs - accountedUs : 0U;
+#endif
   }
 }
 #endif
@@ -390,6 +428,23 @@ void SPIClass::jwplcReadBytesReuseFifo(uint8_t *out, uint32_t size) {
   transferBytes(nullptr, out, size);
 #endif
 }
+
+#if JWPLC_SPI_PROFILE_FIFO_REUSE_CHUNKS
+void SPIClass::jwplcResetReadBytesReuseFifoProfile() {
+  SPI_PARAM_LOCK();
+  jwplcFifoReuseChunkProfile = JWPLCSpiFifoReuseChunkProfile();
+  SPI_PARAM_UNLOCK();
+}
+
+JWPLCSpiFifoReuseChunkProfile
+SPIClass::jwplcGetReadBytesReuseFifoProfile() {
+  SPI_PARAM_LOCK();
+  const JWPLCSpiFifoReuseChunkProfile snapshot =
+    jwplcFifoReuseChunkProfile;
+  SPI_PARAM_UNLOCK();
+  return snapshot;
+}
+#endif
 
 /**
  * @param data uint8_t *

@@ -202,6 +202,17 @@ def main() -> int:
         and "jwplcSpiReadBytesReuseFifoNL" in spi_impl,
         "SPI_JWPLC_FIFO_REUSE_HELPER_PRESENT",
     )
+    require(
+        "#define JWPLC_SPI_PROFILE_FIFO_REUSE_CHUNKS 0" in spi_header,
+        "SPI_JWPLC_CHUNK_PROFILE_DEFAULT_OFF",
+    )
+    require(
+        "JWPLCSpiFifoReuseChunkProfile" in spi_header
+        and "jwplcResetReadBytesReuseFifoProfile" in spi_header
+        and "jwplcGetReadBytesReuseFifoProfile" in spi_header
+        and "jwplcFifoReuseChunkProfile" in spi_impl,
+        "SPI_JWPLC_CHUNK_PROFILE_PRESENT",
+    )
 
     require(
         "socketRecvUDPFastDeferred" in header

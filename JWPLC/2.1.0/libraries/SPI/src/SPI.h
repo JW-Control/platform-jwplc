@@ -32,6 +32,21 @@
 
 #define SPI_HAS_TRANSACTION
 
+#ifndef JWPLC_SPI_PROFILE_FIFO_REUSE_CHUNKS
+#define JWPLC_SPI_PROFILE_FIFO_REUSE_CHUNKS 0
+#endif
+
+#if JWPLC_SPI_PROFILE_FIFO_REUSE_CHUNKS
+struct JWPLCSpiFifoReuseChunkProfile {
+  uint64_t chunkCount = 0;
+  uint64_t bytes = 0;
+  uint64_t setupTotalUs = 0;
+  uint64_t wireWaitTotalUs = 0;
+  uint64_t copyOutTotalUs = 0;
+  uint64_t otherTotalUs = 0;
+};
+#endif
+
 class SPISettings {
 public:
   SPISettings() : _clock(1000000), _bitOrder(SPI_MSBFIRST), _dataMode(SPI_MODE0) {}
@@ -87,6 +102,12 @@ public:
   // data instead of refilling 16 dummy words for every 64-byte RX chunk.
   // Existing SPI.transfer()/transferBytes() semantics are unchanged.
   void jwplcReadBytesReuseFifo(uint8_t *out, uint32_t size);
+
+#if JWPLC_SPI_PROFILE_FIFO_REUSE_CHUNKS
+  // H4A0.4-P4 compile-time-only profiler. It is absent from normal builds.
+  void jwplcResetReadBytesReuseFifoProfile();
+  JWPLCSpiFifoReuseChunkProfile jwplcGetReadBytesReuseFifoProfile();
+#endif
 
   void transferBits(uint32_t data, uint32_t *out, uint8_t bits);
 

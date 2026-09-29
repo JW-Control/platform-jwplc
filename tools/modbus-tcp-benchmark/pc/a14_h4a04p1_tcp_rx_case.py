@@ -411,6 +411,31 @@ def main() -> int:
                 f"{measured['RX_FNV1A32']}"
             )
 
+        if "SPI_CHUNK_PROFILE_ENABLED" in measured:
+            chunk_profile_enabled = measured[
+                "SPI_CHUNK_PROFILE_ENABLED"
+            ]
+            print(
+                "H4A04P1_SPI_CHUNK_PROFILE_ENABLED="
+                f"{chunk_profile_enabled}"
+            )
+
+            if chunk_profile_enabled == "YES":
+                chunk_profile_keys = (
+                    "SPI_CHUNK_COUNT",
+                    "SPI_CHUNK_BYTES",
+                    "SPI_CHUNK_SETUP_TOTAL_US",
+                    "SPI_CHUNK_WIRE_WAIT_TOTAL_US",
+                    "SPI_CHUNK_COPY_OUT_TOTAL_US",
+                    "SPI_CHUNK_OTHER_TOTAL_US",
+                )
+
+                for key in chunk_profile_keys:
+                    print(
+                        f"H4A04P1_{key}="
+                        f"{intval(measured, key)}"
+                    )
+
         if args.variant == "PROFILE":
             profile_keys = (
                 "TCP_PROF_SOCKET_STATUS_CALLS",
