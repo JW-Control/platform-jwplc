@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import socket
+import statistics
 import threading
 import time
 from dataclasses import dataclass
@@ -364,6 +365,7 @@ def main() -> int:
         print("H4A04A1_DUT_READY=PASS")
 
         expected_connections = 0
+        run_results: list[dict[str, str]] = []
 
         for index in range(1, args.run_cycles + 1):
             result = dut.command_case(
@@ -378,6 +380,8 @@ def main() -> int:
                 closed=expected_connections,
                 timeout_s=3.0,
             )
+
+            run_results.append(result)
 
             print_run_summary(
                 f"H4A04A1_RUN_RESULT=RUN={index}",
@@ -440,6 +444,111 @@ def main() -> int:
         )
 
         final_stats = server.snapshot()
+
+        connect_begin = [
+            ivalue(item, "ASYNC_CONNECT_BEGIN_US")
+            for item in run_results
+        ]
+        connect_poll_max = [
+            ivalue(item, "ASYNC_CONNECT_POLL_MAX_US")
+            for item in run_results
+        ]
+        connect_total = [
+            ivalue(item, "ASYNC_CONNECT_TOTAL_MS")
+            for item in run_results
+        ]
+        flush_begin = [
+            ivalue(item, "ASYNC_FLUSH_BEGIN_US")
+            for item in run_results
+        ]
+        flush_poll_max = [
+            ivalue(item, "ASYNC_FLUSH_POLL_MAX_US")
+            for item in run_results
+        ]
+        flush_total = [
+            ivalue(item, "ASYNC_FLUSH_TOTAL_MS")
+            for item in run_results
+        ]
+        stop_begin = [
+            ivalue(item, "ASYNC_STOP_BEGIN_US")
+            for item in run_results
+        ]
+        stop_poll_max = [
+            ivalue(item, "ASYNC_STOP_POLL_MAX_US")
+            for item in run_results
+        ]
+        stop_total = [
+            ivalue(item, "ASYNC_STOP_TOTAL_MS")
+            for item in run_results
+        ]
+        loop_ticks = [
+            ivalue(item, "ASYNC_LOOP_TICKS")
+            for item in run_results
+        ]
+
+        print(
+            "H4A04A1_CONNECT_BEGIN_MAX_US="
+            f"{max(connect_begin)}"
+        )
+        print(
+            "H4A04A1_CONNECT_POLL_MAX_US="
+            f"{max(connect_poll_max)}"
+        )
+        print(
+            "H4A04A1_CONNECT_TOTAL_MEDIAN_MS="
+            f"{statistics.median(connect_total):.1f}"
+        )
+        print(
+            "H4A04A1_CONNECT_PENDING_SEEN_RUNS="
+            f"{sum(item.get('ASYNC_CONNECT_PENDING_OBSERVED') == 'YES' for item in run_results)}"
+        )
+
+        print(
+            "H4A04A1_FLUSH_BEGIN_MAX_US="
+            f"{max(flush_begin)}"
+        )
+        print(
+            "H4A04A1_FLUSH_POLL_MAX_US="
+            f"{max(flush_poll_max)}"
+        )
+        print(
+            "H4A04A1_FLUSH_TOTAL_MEDIAN_MS="
+            f"{statistics.median(flush_total):.1f}"
+        )
+        print(
+            "H4A04A1_FLUSH_PENDING_SEEN_RUNS="
+            f"{sum(item.get('ASYNC_FLUSH_PENDING_OBSERVED') == 'YES' for item in run_results)}"
+        )
+
+        print(
+            "H4A04A1_STOP_BEGIN_MAX_US="
+            f"{max(stop_begin)}"
+        )
+        print(
+            "H4A04A1_STOP_POLL_MAX_US="
+            f"{max(stop_poll_max)}"
+        )
+        print(
+            "H4A04A1_STOP_TOTAL_MEDIAN_MS="
+            f"{statistics.median(stop_total):.1f}"
+        )
+        print(
+            "H4A04A1_STOP_PENDING_SEEN_RUNS="
+            f"{sum(item.get('ASYNC_STOP_PENDING_OBSERVED') == 'YES' for item in run_results)}"
+        )
+
+        print(
+            "H4A04A1_LOOP_TICKS_MIN="
+            f"{min(loop_ticks)}"
+        )
+        print(
+            "H4A04A1_CANCEL_CONNECT_CALL_US="
+            f"{ivalue(cancel_connect, 'ASYNC_CANCEL_CALL_US')}"
+        )
+        print(
+            "H4A04A1_CANCEL_STOP_CALL_US="
+            f"{ivalue(cancel_stop, 'ASYNC_CANCEL_CALL_US')}"
+        )
 
         print(
             "H4A04A1_PC_ACCEPTED="
