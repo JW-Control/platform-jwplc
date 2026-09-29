@@ -11,10 +11,10 @@ v2.1.0-alpha.14/feature/modbus-tcp
 ## CURRENT_STATE
 
 ```text
-LAST_COMPLETED_GATE=H4A0.4-P7
-LAST_RESULT=PASS_DATA_ONLY_CANDIDATE_REJECTED_RX_PATH_REGRESSION
-CURRENT_GATE=H4A0.4-P8
-CURRENT_ACTION=DESIGN_SOCKET_STATUS_REDUNDANCY_GATE
+LAST_COMPLETED_GATE=H4A0.4-P8
+LAST_RESULT=PASS_DATA_ONLY_SINGLE_STATUS_GAIN_CONFIRMED
+CURRENT_GATE=H4A0.4-P9
+CURRENT_ACTION=DESIGN_RX_BATCH_RAW_8_16_32_GATE
 FIFO_REUSE_DEFAULT=OFF
 FIFO_REUSE_VALIDATED_PENDING_PHYSICAL=YES
 PHYSICAL_STABILITY=PENDING_USER
@@ -31,6 +31,7 @@ ALPHA14_CLOSED=NO
 | H4A0.4-P5 | SPIClass/VSPI compartido | DMA ESP-IDF | — | — | no ejecutado | — | — | — | PENDING_USER | Bloqueado: DMA exige segundo ownership/rearquitectura |
 | H4A0.4-P6 | available()+read() | read() directo | 16.853677 | 13.424499 | +0.348% payload; −0.887% path RX | 0 | PASS | 0 | PENDING_USER | Efecto pequeño/inconcluso; pasar a commit RX |
 | H4A0.4-P7 | commit inmediato | commit coalescido | 16.883698 | 9.727778 | +0.513% payload; +11.266% path RX | 0 | PASS | 0 | PENDING_USER | Rechazar: regresión path RX/hold SPI; pasar a socketStatus |
+| H4A0.4-P8 | doble connected() | resultado reutilizado en la misma pasada | 16.770394 | 14.129575 | −0.305% payload; −4.556% scheduler | 0 | PASS | 0 | PENDING_USER | Ganancia confirmada; pasar a batch raw |
 
 ## HEAD y commits de la sesión
 
@@ -53,6 +54,8 @@ d13df201 test(alpha14): medir fusión TCP available read
 0d81daa6 docs(alpha14): registrar resultado P6 available read
 59fb264a test(alpha14): medir commit TCP RX coalescido
 3a043347 test(alpha14): aislar reconexiones P7
+de5cf907 docs(alpha14): registrar resultado P7 commit RX
+526690c2 test(alpha14): medir redundancia socketStatus TCP
 ```
 
 ## Gates ejecutados
@@ -235,6 +238,39 @@ C:\Users\jeykc\AppData\Local\Temp\jwplc_a14_h4a04p7_tcp_commit_yxz9nmq9\SUMMARY.
 docs/v2.1.0-alpha.14/A14_H4A04P7_TCP_RX_COMMIT_COALESCING_20260929.md
 ```
 
+### H4A0.4-P8
+
+```text
+ONLY_VARIABLE=SECOND_CONNECTED_PROBE_SAME_PASS
+STATUS_CACHE_SCOPE=CURRENT_SCHEDULER_PASS_ONLY
+DOUBLE_STATUS_PAYLOAD=16.821631 Mbps
+SINGLE_STATUS_PAYLOAD=16.770394 Mbps
+PAYLOAD_DELTA=-0.305%
+DOUBLE_STATUS_SCHEDULER=0.569412 us/B
+SINGLE_STATUS_SCHEDULER=0.543472 us/B
+SCHEDULER_DELTA=-4.556%
+HOLD_DELTA=-4.619%
+STATUS_CALLS_DELTA=-70.521%
+STATUS_TIME_DELTA=-64.431%
+PAYLOAD_REPEATABILITY_OK=True
+PAYLOAD_INTEGRITY=PASS
+RECONNECT_CASE_1=PASS
+RECONNECT_CASE_2=PASS
+TCP_SPI_LOCK_ERRORS=0
+TRANSPORT_ERRORS=0
+UNEXPECTED_RESETS=0
+INTERPRETATION=SINGLE_STATUS_GAIN_CONFIRMED
+PHYSICAL_STABILITY=PENDING_USER
+```
+
+Evidencia:
+
+```text
+C:\Users\jeykc\AppData\Local\Temp\jwplc_a14_h4a04p8_socket_status_sib9cl9k
+C:\Users\jeykc\AppData\Local\Temp\jwplc_a14_h4a04p8_socket_status_sib9cl9k\SUMMARY.log
+docs/v2.1.0-alpha.14/A14_H4A04P8_SOCKET_STATUS_REDUNDANCY_20260929.md
+```
+
 ## Candidatos
 
 - Rechazado: commit TCP RX coalescido P7 por `+11.266%` en path RX,
@@ -242,6 +278,8 @@ docs/v2.1.0-alpha.14/A14_H4A04P7_TCP_RX_COMMIT_COALESCING_20260929.md
 - No implementado por seguridad: DMA P5 sobre el bus Arduino compartido.
 - Validado por datos, pendiente de revisión física:
   `JWPLC_W5500_RX_FIFO_REUSE=1` por P3/P3R.
+- Validado en el scheduler del profiler, pendiente de revisión física:
+  reutilizar el resultado de `connected()` solo dentro de la misma pasada P8.
 - Aún OFF: `JWPLC_W5500_RX_FIFO_REUSE`,
   `JWPLC_W5500_RX_DIRECT_TRANSFER_BYTES`.
 
@@ -272,8 +310,8 @@ No se extrapola un ceiling teórico nuevo.
 
 ## Optimización restante
 
-1. revisar lecturas redundantes de `socketStatus()`;
-2. medir batch raw y/o topología RX solo si el gate anterior lo justifica;
+1. medir batch raw 8/16/32 con hold máximo y fairness;
+2. evaluar topología de buffer RX solo si el ceiling justifica el riesgo;
 3. abordar TX async después de cerrar el frente RX.
 
 ## Verificación física pendiente del usuario
@@ -294,11 +332,11 @@ PHYSICAL_STABILITY=PENDING_USER
 
 ## Comando exacto para continuar
 
-Para repetir el último gate cerrado mientras se prepara P8:
+Para repetir el último gate cerrado mientras se prepara P9:
 
 ```powershell
 $env:PYTHONPATH='C:\Users\jeykc\AppData\Local\Temp\jwplc-codex-pydeps'
 & 'C:\Users\jeykc\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -B `
-  tools\modbus-tcp-benchmark\gates\a14_h4a04p7_tcp_rx_commit_ab.py `
+  tools\modbus-tcp-benchmark\gates\a14_h4a04p8_socket_status_ab.py `
   --defer-physical-review
 ```
