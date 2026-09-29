@@ -17,6 +17,10 @@
 #include <Arduino.h>
 #include <SPI.h>
 
+#ifndef JWPLC_W5500_RX_DIRECT_TRANSFER_BYTES
+#define JWPLC_W5500_RX_DIRECT_TRANSFER_BYTES 0
+#endif
+
 // Safe for all chips
 #define SPI_ETHERNET_SETTINGS SPISettings(26000000, MSBFIRST, SPI_MODE0)
 
