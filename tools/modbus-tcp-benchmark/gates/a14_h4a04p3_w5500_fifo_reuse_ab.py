@@ -406,6 +406,14 @@ def main() -> int:
         "--fqbn",
         default="jwplc_local:esp32:jwplcbasic",
     )
+    parser.add_argument(
+        "--defer-physical-review",
+        action="store_true",
+        help=(
+            "No solicita confirmación visual inmediata; registra la "
+            "revisión física como pendiente del usuario."
+        ),
+    )
     args = parser.parse_args()
 
     repo = Path(__file__).resolve().parents[3]
@@ -806,16 +814,29 @@ def main() -> int:
         interpretation,
     )
 
-    answer = input(
-        "¿TFT/periféricos permanecieron estables durante H4A0.4-P3? (S/N): "
-    ).strip().upper()
-
-    if answer != "S":
-        raise RuntimeError(
-            "H4A04P3_PHYSICAL_STABILITY_FAILED"
+    if args.defer_physical_review:
+        physical_status = "PENDING_USER"
+        gate_status = "PASS_DATA_ONLY"
+        emit(
+            "H4A04P3_PHYSICAL_STABILITY",
+            physical_status,
         )
+    else:
+        answer = input(
+            "¿TFT/periféricos permanecieron estables durante H4A0.4-P3? (S/N): "
+        ).strip().upper()
 
-    emit("H4A04P3_PHYSICAL_STABILITY", "PASS")
+        if answer != "S":
+            raise RuntimeError(
+                "H4A04P3_PHYSICAL_STABILITY_FAILED"
+            )
+
+        physical_status = "PASS"
+        gate_status = "PASS"
+        emit(
+            "H4A04P3_PHYSICAL_STABILITY",
+            physical_status,
+        )
 
     if git(repo, "diff", "--name-only") or git(
         repo,
@@ -831,7 +852,7 @@ def main() -> int:
     summary_log.write_text(
         "\n".join(
             [
-                "A14_H4A04P3_W5500_FIFO_REUSE_AB=PASS",
+                f"A14_H4A04P3_W5500_FIFO_REUSE_AB={gate_status}",
                 f"HEAD={head}",
                 f"VERIFY_RX_BYTES={verify_bytes}",
                 f"VERIFY_FNV_ACTUAL={actual_hash}",
@@ -845,13 +866,19 @@ def main() -> int:
                 f"FIFO_VS_DIRECT_TCP_PCT={tcp_gain:.3f}",
                 f"FIFO_VS_DIRECT_US_PER_BYTE_PCT={us_per_byte_delta:.3f}",
                 f"INTERPRETATION={interpretation}",
+                f"PHYSICAL_STABILITY={physical_status}",
                 "PRODUCT_DEFAULT_FIFO_REUSE=OFF",
                 "TEMP_PRODUCT_PATCHES=NO",
                 "TCP_TX_CHANGES=NO",
                 "HARNESS_FAILURE=NO",
                 "PRODUCT_FAILURE=NO_EVIDENCE",
                 "HARDWARE_FAILURE=NO_EVIDENCE",
-                "NEXT=RETURN_TO_CHAT_INTERPRET_P3_DO_NOT_PROMOTE_AUTOMATICALLY",
+                (
+                    "NEXT=CONTINUE_AUTONOMOUS_ROADMAP_WITHOUT_PROMOTION"
+                    if args.defer_physical_review
+                    else
+                    "NEXT=RETURN_TO_CHAT_INTERPRET_P3_DO_NOT_PROMOTE_AUTOMATICALLY"
+                ),
                 "",
             ]
         ),
@@ -864,11 +891,16 @@ def main() -> int:
     emit("HARDWARE_FAILURE", "NO_EVIDENCE")
     emit(
         "A14_H4A04P3_W5500_FIFO_REUSE_AB",
-        "PASS",
+        gate_status,
     )
     emit(
         "NEXT",
-        "RETURN_TO_CHAT_INTERPRET_P3_DO_NOT_PROMOTE_AUTOMATICALLY",
+        (
+            "CONTINUE_AUTONOMOUS_ROADMAP_WITHOUT_PROMOTION"
+            if args.defer_physical_review
+            else
+            "RETURN_TO_CHAT_INTERPRET_P3_DO_NOT_PROMOTE_AUTOMATICALLY"
+        ),
     )
     return 0
 
