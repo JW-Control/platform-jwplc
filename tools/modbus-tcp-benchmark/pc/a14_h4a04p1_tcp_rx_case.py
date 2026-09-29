@@ -143,6 +143,14 @@ def main() -> int:
         choices=("BASE", "PROFILE"),
         required=True,
     )
+    parser.add_argument(
+        "--prepare-next-reconnect",
+        action="store_true",
+        help=(
+            "Cierra el socket, libera la barrera F y espera MODE=IDLE "
+            "antes de terminar. Solo se usa entre intentos de reconexion."
+        ),
+    )
     args = parser.parse_args()
 
     if args.duration <= 0.0:
@@ -475,6 +483,38 @@ def main() -> int:
             "H4A04P1_FUNCTIONAL_PASS="
             f"{'YES' if functional else 'NO'}"
         )
+
+        if args.prepare_next_reconnect and functional:
+            try:
+                sock.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            sock.close()
+            sock = None
+
+            # F is an accounting barrier: explicitly release it after the
+            # measured socket is closed so the DUT can drain any queued TCP
+            # bytes, observe CLOSE_WAIT, and return to IDLE before the next
+            # connection attempt. Counters after this point are not measured.
+            dut.command_ack(
+                b"R",
+                b"H4A04P1_RESET=PASS",
+            )
+            cleanup_deadline = time.perf_counter() + 12.0
+            cleanup_snapshot: dict[str, str] = {}
+
+            while time.perf_counter() < cleanup_deadline:
+                cleanup_snapshot = dut.snapshot()
+                if cleanup_snapshot.get("MODE") == "IDLE":
+                    break
+                time.sleep(0.10)
+            else:
+                raise RuntimeError(
+                    "H4A04P1_RECONNECT_CLEANUP_TIMEOUT "
+                    f"MODE={cleanup_snapshot.get('MODE')}"
+                )
+
+            print("H4A04P1_RECONNECT_CLEANUP=PASS")
 
         return 0 if functional else 2
 

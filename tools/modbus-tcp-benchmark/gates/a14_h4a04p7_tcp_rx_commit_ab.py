@@ -159,22 +159,27 @@ def run_case(
     duration_s: float,
     variant_arg: str,
     log: Path,
+    prepare_next_reconnect: bool = False,
 ) -> str:
+    cmd = [
+        sys.executable,
+        "-B",
+        "-u",
+        str(runner),
+        "--serial",
+        serial_port,
+        "--duration",
+        f"{duration_s:.1f}",
+        "--chunk",
+        "4096",
+        "--variant",
+        variant_arg,
+    ]
+    if prepare_next_reconnect:
+        cmd.append("--prepare-next-reconnect")
+
     exit_code = p3.run_logged(
-        [
-            sys.executable,
-            "-B",
-            "-u",
-            str(runner),
-            "--serial",
-            serial_port,
-            "--duration",
-            f"{duration_s:.1f}",
-            "--chunk",
-            "4096",
-            "--variant",
-            variant_arg,
-        ],
+        cmd,
         log,
         repo,
     )
@@ -437,8 +442,14 @@ def main() -> int:
             duration_s=RECONNECT_DURATION_S,
             variant_arg="PROFILE",
             log=result_root / f"reconnect_case_{attempt}.log",
+            prepare_next_reconnect=(attempt == 1),
         )
         require_clean_case(reconnect_text, f"RECONNECT_{attempt}")
+        if attempt == 1 and p3.one(
+            reconnect_text,
+            "H4A04P1_RECONNECT_CLEANUP",
+        ) != "PASS":
+            raise RuntimeError("H4A04P7_RECONNECT_CLEANUP_FAILED")
         emit(f"H4A04P7_RECONNECT_CASE_{attempt}", "PASS")
 
     summary: dict[str, dict[str, float]] = {}
