@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import re
 import shutil
@@ -76,6 +77,82 @@ def git(repo: Path, *args: str) -> str:
     return stdout_text.strip()
 
 
+def git_show_bytes(repo: Path, commit: str, path: str) -> bytes | None:
+    p = subprocess.run(
+        ["git", "-C", str(repo), "show", f"{commit}:{path}"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if p.returncode != 0:
+        return None
+    return p.stdout
+
+
+def sha256_git_path(repo: Path, commit: str, path: str) -> str | None:
+    data = git_show_bytes(repo, commit, path)
+    if data is None:
+        return None
+    return hashlib.sha256(data).hexdigest().upper()
+
+
+def parse_p3k_expected_hashes(gate_text: str) -> dict[str, str]:
+    patterns = {
+        "raw": r'\$expectedRawHash\s*=\s*"([0-9A-F]{64})"',
+        "w5100_cpp": r'\$expectedW5100CppHash\s*=\s*"([0-9A-F]{64})"',
+        "w5100_h": r'\$expectedW5100HHash\s*=\s*"([0-9A-F]{64})"',
+    }
+    values: dict[str, str] = {}
+    for key, pattern in patterns.items():
+        match = re.search(pattern, gate_text)
+        if not match:
+            raise RuntimeError(f"H4A03AR2_EXPECTED_HASH_NOT_FOUND={key}")
+        values[key] = match.group(1)
+    return values
+
+
+def find_exact_p3k_snapshot(
+    repo: Path,
+    closure_commit: str,
+    expected: dict[str, str],
+    limit: int = 300,
+) -> tuple[str, int]:
+    raw_path = "tools/modbus-tcp-benchmark/firmware/eth14_raw_transport_server/eth14_raw_transport_server.ino"
+    wcpp_path = "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/utility/w5100.cpp"
+    wh_path = "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/utility/w5100.h"
+
+    commits = [
+        line.strip()
+        for line in git(repo, "rev-list", f"--max-count={limit}", closure_commit).splitlines()
+        if line.strip()
+    ]
+
+    for checked, commit in enumerate(commits, 1):
+        raw_hash = sha256_git_path(repo, commit, raw_path)
+        if raw_hash != expected["raw"]:
+            continue
+        wcpp_hash = sha256_git_path(repo, commit, wcpp_path)
+        if wcpp_hash != expected["w5100_cpp"]:
+            continue
+        wh_hash = sha256_git_path(repo, commit, wh_path)
+        if wh_hash != expected["w5100_h"]:
+            continue
+
+        gate_bytes = git_show_bytes(repo, commit, P3K_GATE)
+        bridge_bytes = git_show_bytes(repo, commit, P3K_BRIDGE)
+        if gate_bytes is None or bridge_bytes is None:
+            continue
+
+        gate_text = decode(gate_bytes)
+        if parse_p3k_expected_hashes(gate_text) != expected:
+            continue
+
+        return commit, checked
+
+    raise RuntimeError(
+        f"H4A03AR2_EXACT_P3K_SNAPSHOT_NOT_FOUND_WITHIN_{limit}_ANCESTORS"
+    )
+
+
 def unique(text: str, key: str) -> str:
     matches = re.findall(rf"(?m)^{re.escape(key)}=(.*)\r?$", text)
     if len(matches) != 1:
@@ -97,11 +174,10 @@ def pct(current: float, reference: float) -> float:
     return (current / reference - 1.0) * 100.0
 
 
-def source_contract(worktree: Path) -> None:
+def source_contract(worktree: Path, closure_text: str) -> None:
     gate_text = (worktree / P3K_GATE).read_text(encoding="utf-8")
     bridge_text = (worktree / P3K_BRIDGE).read_text(encoding="utf-8")
     raw_text = (worktree / RAW_RUNNER).read_text(encoding="utf-8")
-    closure_text = (worktree / CLOSURE_DOC).read_text(encoding="utf-8")
 
     checks = {
         "CLOSURE_UDP_13P866349": "UDP median = 13.866349 Mbps" in closure_text,
@@ -187,7 +263,7 @@ def main() -> int:
     emit("BRANCH", branch)
     emit("HEAD", current_head)
     emit("SERIAL_PORT", args.serial)
-    emit("H4A03AR2_REPLAY_SCOPE", "HISTORICAL_P3_CLOSURE_REPO_TREE_CURRENT_HOST_TOOLCHAIN")
+    emit("H4A03AR2_REPLAY_SCOPE", "EXACT_P3K_HASH_MATCHED_REPO_TREE_CURRENT_HOST_TOOLCHAIN")
     emit("H4A03AR2_PRODUCT_SOURCE_MUTATION", "NO")
     emit("H4A03AR2_COMPONENT_ABLATION", "NO")
 
@@ -228,9 +304,28 @@ def main() -> int:
     closure_commit = closure_candidates[0]
     emit("H4A03AR2_P3_CLOSURE_COMMIT", closure_commit)
 
+    closure_doc_bytes = git_show_bytes(repo, closure_commit, CLOSURE_DOC)
+    closure_gate_bytes = git_show_bytes(repo, closure_commit, P3K_GATE)
+    if closure_doc_bytes is None or closure_gate_bytes is None:
+        raise RuntimeError("H4A03AR2_CLOSURE_EVIDENCE_MISSING")
+
+    closure_text = decode(closure_doc_bytes)
+    expected_hashes = parse_p3k_expected_hashes(decode(closure_gate_bytes))
+    emit("H4A03AR2_EXPECTED_RAW_SHA256", expected_hashes["raw"])
+    emit("H4A03AR2_EXPECTED_W5100_CPP_SHA256", expected_hashes["w5100_cpp"])
+    emit("H4A03AR2_EXPECTED_W5100_H_SHA256", expected_hashes["w5100_h"])
+
+    replay_commit, history_checked = find_exact_p3k_snapshot(
+        repo,
+        closure_commit,
+        expected_hashes,
+    )
+    emit("H4A03AR2_HISTORY_COMMITS_CHECKED", history_checked)
+    emit("H4A03AR2_EXACT_P3K_REPLAY_COMMIT", replay_commit)
+
     result_root = Path(tempfile.mkdtemp(prefix="jwplc_a14_h4a03ar2_"))
     worktree = result_root / "historical_worktree"
-    temp_branch = f"h4a03ar2-p3k-{closure_commit[:8]}-{os.getpid()}"
+    temp_branch = f"h4a03ar2-p3k-{replay_commit[:8]}-{os.getpid()}"
     emit("H4A03AR2_RESULT_ROOT", result_root)
     emit("H4A03AR2_TEMP_BRANCH", temp_branch)
 
@@ -240,7 +335,7 @@ def main() -> int:
     try:
         add = run([
             "git", "-C", str(repo), "worktree", "add",
-            "-b", temp_branch, str(worktree), closure_commit
+            "-b", temp_branch, str(worktree), replay_commit
         ])
         if add.returncode != 0:
             raise RuntimeError(
@@ -251,14 +346,31 @@ def main() -> int:
 
         historical_head = git(worktree, "rev-parse", "HEAD")
         emit("H4A03AR2_HISTORICAL_WORKTREE_HEAD", historical_head)
-        if historical_head != closure_commit:
+        if historical_head != replay_commit:
             raise RuntimeError("H4A03AR2_HISTORICAL_HEAD_MISMATCH")
 
-        for relative in (CLOSURE_DOC, P3K_GATE, P3K_BRIDGE, RAW_RUNNER, COMMON, VALIDATOR):
+        for relative in (P3K_GATE, P3K_BRIDGE, RAW_RUNNER, COMMON, VALIDATOR):
             if not (worktree / relative).is_file():
                 raise RuntimeError(f"H4A03AR2_HISTORICAL_FILE_MISSING={relative}")
 
-        source_contract(worktree)
+        source_contract(worktree, closure_text)
+
+        replay_gate_text = (worktree / P3K_GATE).read_text(encoding="utf-8")
+        replay_expected = parse_p3k_expected_hashes(replay_gate_text)
+        if replay_expected != expected_hashes:
+            raise RuntimeError("H4A03AR2_REPLAY_EXPECTED_HASH_CONTRACT_DRIFT")
+
+        replay_actual = {
+            "raw": sha256_git_path(repo, replay_commit, "tools/modbus-tcp-benchmark/firmware/eth14_raw_transport_server/eth14_raw_transport_server.ino"),
+            "w5100_cpp": sha256_git_path(repo, replay_commit, "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/utility/w5100.cpp"),
+            "w5100_h": sha256_git_path(repo, replay_commit, "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/utility/w5100.h"),
+        }
+        emit("H4A03AR2_REPLAY_RAW_SHA256", replay_actual["raw"])
+        emit("H4A03AR2_REPLAY_W5100_CPP_SHA256", replay_actual["w5100_cpp"])
+        emit("H4A03AR2_REPLAY_W5100_H_SHA256", replay_actual["w5100_h"])
+        if replay_actual != expected_hashes:
+            raise RuntimeError("H4A03AR2_REPLAY_HASH_CONTRACT_FAILED")
+        emit("H4A03AR2_REPLAY_HASH_CONTRACT", "PASS")
 
         common_path = worktree / COMMON
         common_text = common_path.read_text(encoding="utf-8")
@@ -475,7 +587,8 @@ def main() -> int:
                 "A14_H4A03AR2_HISTORICAL_P3K_REPLAY_AUDIT=PASS",
                 f"CURRENT_HEAD={current_head}",
                 f"P3_CLOSURE_COMMIT={closure_commit}",
-                "REPLAY_SCOPE=HISTORICAL_P3_CLOSURE_REPO_TREE_CURRENT_HOST_TOOLCHAIN",
+                f"EXACT_P3K_REPLAY_COMMIT={replay_commit}",
+                "REPLAY_SCOPE=EXACT_P3K_HASH_MATCHED_REPO_TREE_CURRENT_HOST_TOOLCHAIN",
                 f"H4A03AR2_HISTORICAL_REPORTED_UDP_MBPS={HIST['udp_all']:.6f}",
                 f"H4A03AR2_HISTORICAL_REPORTED_TCP_MBPS={HIST['tcp_all']:.6f}",
                 f"H4A03AR2_REPLAY_RAW_UDP_MEDIAN_MBPS={raw_udp_all:.6f}",
