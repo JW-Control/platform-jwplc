@@ -75,6 +75,16 @@ def main() -> int:
         / "utility"
         / "w5100.h"
     )
+    w5100_cpp = (
+        repo
+        / "JWPLC"
+        / "2.1.0"
+        / "libraries"
+        / "JWPLC_Ethernet"
+        / "src"
+        / "utility"
+        / "w5100.cpp"
+    )
 
     for path in (
         display_props,
@@ -84,6 +94,7 @@ def main() -> int:
         udp_cpp,
         socket_cpp,
         w5100_h,
+        w5100_cpp,
     ):
         require(path.is_file(), f"PACKAGE_FILE_{path.name}")
 
@@ -94,6 +105,7 @@ def main() -> int:
     udp = udp_cpp.read_text(encoding="utf-8")
     socket = socket_cpp.read_text(encoding="utf-8")
     w5100 = w5100_h.read_text(encoding="utf-8")
+    w5100_impl = w5100_cpp.read_text(encoding="utf-8")
 
     for name, props in (
         ("DISPLAY", display),
@@ -120,6 +132,16 @@ def main() -> int:
         and "SIMR_W5500" in w5100
         and "SnIMR" in w5100,
         "ETH_W5500_INT_REGISTERS",
+    )
+
+    require(
+        "#define JWPLC_W5500_RX_DIRECT_TRANSFER_BYTES 0" in w5100,
+        "ETH_W5500_DIRECT_RX_DEFAULT_OFF",
+    )
+    require(
+        "SPI.transferBytes(nullptr, buf, len);" in w5100_impl
+        and "#if JWPLC_W5500_RX_DIRECT_TRANSFER_BYTES" in w5100_impl,
+        "ETH_W5500_DIRECT_RX_CANDIDATE_PRESENT",
     )
 
     require(
