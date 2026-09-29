@@ -25,6 +25,19 @@ ORDER = (
     "FIFO_REUSE",
 )
 RUNS_PER_VARIANT = 3
+CONFIRMATION_ORDER = (
+    "DIRECT_RX",
+    "FIFO_REUSE",
+    "FIFO_REUSE",
+    "DIRECT_RX",
+    "DIRECT_RX",
+    "FIFO_REUSE",
+    "FIFO_REUSE",
+    "DIRECT_RX",
+    "DIRECT_RX",
+    "FIFO_REUSE",
+)
+CONFIRMATION_RUNS_PER_VARIANT = 5
 GAIN_THRESHOLD_PCT = 1.0
 NO_MATERIAL_BAND_PCT = 0.5
 PAYLOAD_SPREAD_MAX_PCT = 0.5
@@ -414,7 +427,23 @@ def main() -> int:
             "revisión física como pendiente del usuario."
         ),
     )
+    parser.add_argument(
+        "--confirmation",
+        action="store_true",
+        help=(
+            "Ejecuta P3R con cinco repeticiones por variante, manteniendo "
+            "la misma única variable y la verificación FNV separada."
+        ),
+    )
     args = parser.parse_args()
+
+    gate_name = "H4A0.4-P3R" if args.confirmation else "H4A0.4-P3"
+    order = CONFIRMATION_ORDER if args.confirmation else ORDER
+    runs_per_variant = (
+        CONFIRMATION_RUNS_PER_VARIANT
+        if args.confirmation
+        else RUNS_PER_VARIANT
+    )
 
     repo = Path(__file__).resolve().parents[3]
     sketch = (
@@ -441,7 +470,7 @@ def main() -> int:
     libraries = repo / "JWPLC" / "2.1.0" / "libraries"
 
     print("=" * 78)
-    print(" A14 H4A0.4-P3 - W5500 FIFO REUSE TCP RX A/B")
+    print(f" A14 {gate_name} - W5500 FIFO REUSE TCP RX A/B")
     print("=" * 78)
 
     branch = git(repo, "branch", "--show-current")
@@ -453,8 +482,9 @@ def main() -> int:
     emit("H4A04P3_VERIFY_DURATION_S", VERIFY_DURATION_S)
     emit("H4A04P3_PERF_DURATION_S", PERF_DURATION_S)
     emit("H4A04P3_TCP_CHUNK", TCP_CHUNK)
-    emit("H4A04P3_ORDER", ",".join(ORDER))
-    emit("H4A04P3_RUNS_PER_VARIANT", RUNS_PER_VARIANT)
+    emit("H4A04P3_MODE", "CONFIRMATION" if args.confirmation else "INITIAL")
+    emit("H4A04P3_ORDER", ",".join(order))
+    emit("H4A04P3_RUNS_PER_VARIANT", runs_per_variant)
     emit("H4A04P3_SPI_HZ", 26000000)
     emit("H4A04P3_PRODUCT_SOURCE", "JWPLC/2.1.0_CANONICAL_PACKAGE")
     emit("H4A04P3_TEMP_PRODUCT_PATCHES", "NO")
@@ -468,6 +498,13 @@ def main() -> int:
     emit("H4A04P3_GAIN_THRESHOLD_PCT", GAIN_THRESHOLD_PCT)
     emit("H4A04P3_NO_MATERIAL_BAND_PCT", NO_MATERIAL_BAND_PCT)
     emit("H4A04P3_PAYLOAD_SPREAD_MAX_PCT", PAYLOAD_SPREAD_MAX_PCT)
+    if args.confirmation:
+        emit("H4A04P3R_CONFIRMATION", "YES")
+        emit("H4A04P3R_RUNS_PER_VARIANT", runs_per_variant)
+        emit(
+            "H4A04P3R_ONLY_VARIABLE",
+            "DUMMY_FIFO_REFILL_PER_64B_RX_CHUNK",
+        )
 
     if branch != BRANCH:
         raise RuntimeError("H4A04P3_BRANCH_MISMATCH")
@@ -520,7 +557,11 @@ def main() -> int:
 
     result_root = Path(
         tempfile.mkdtemp(
-            prefix="jwplc_a14_h4a04p3_fifo_reuse_"
+            prefix=(
+                "jwplc_a14_h4a04p3r_fifo_reuse_"
+                if args.confirmation
+                else "jwplc_a14_h4a04p3_fifo_reuse_"
+            )
         )
     )
     emit("H4A04P3_RESULT_ROOT", result_root)
@@ -618,15 +659,15 @@ def main() -> int:
     }
     counts = {"DIRECT_RX": 0, "FIFO_REUSE": 0}
 
-    for case_index, variant in enumerate(ORDER, 1):
+    for case_index, variant in enumerate(order, 1):
         counts[variant] += 1
         run_no = counts[variant]
 
         print()
         print("=" * 78)
         print(
-            f" H4A0.4-P3 CASE {case_index}/6 "
-            f"{variant} RUN {run_no}/3"
+            f" {gate_name} CASE {case_index}/{len(order)} "
+            f"{variant} RUN {run_no}/{runs_per_variant}"
         )
         print("=" * 78)
 
@@ -667,7 +708,11 @@ def main() -> int:
             ),
         )
 
-    if counts != {"DIRECT_RX": 3, "FIFO_REUSE": 3}:
+    expected_counts = {
+        "DIRECT_RX": runs_per_variant,
+        "FIFO_REUSE": runs_per_variant,
+    }
+    if counts != expected_counts:
         raise RuntimeError(
             f"H4A04P3_RUN_COUNTS_INVALID={counts}"
         )
@@ -747,7 +792,7 @@ def main() -> int:
 
     print()
     print("=" * 78)
-    print(" H4A0.4-P3 SUMMARY")
+    print(f" {gate_name} SUMMARY")
     print("=" * 78)
 
     for variant in ("DIRECT_RX", "FIFO_REUSE"):
@@ -813,6 +858,16 @@ def main() -> int:
         "H4A04P3_INTERPRETATION",
         interpretation,
     )
+    confirmation_validated = (
+        args.confirmation
+        and interpretation == "FIFO_REUSE_GAIN_CONFIRMED"
+    )
+    if args.confirmation:
+        emit(
+            "H4A04P3R_FIFO_REUSE_VALIDATED_PENDING_PHYSICAL",
+            "YES" if confirmation_validated else "NO",
+        )
+        emit("H4A04P3R_UNEXPECTED_RESETS", 0)
 
     if args.defer_physical_review:
         physical_status = "PENDING_USER"
@@ -823,7 +878,7 @@ def main() -> int:
         )
     else:
         answer = input(
-            "¿TFT/periféricos permanecieron estables durante H4A0.4-P3? (S/N): "
+            f"¿TFT/periféricos permanecieron estables durante {gate_name}? (S/N): "
         ).strip().upper()
 
         if answer != "S":
@@ -849,10 +904,22 @@ def main() -> int:
         )
 
     summary_log = result_root / "SUMMARY.log"
+    gate_result_key = (
+        "A14_H4A04P3R_W5500_FIFO_REUSE_CONFIRMATION"
+        if args.confirmation
+        else "A14_H4A04P3_W5500_FIFO_REUSE_AB"
+    )
+    next_action = (
+        "CONTINUE_TO_P4_WITHOUT_PROMOTION"
+        if args.confirmation and confirmation_validated
+        else "CONTINUE_AUTONOMOUS_ROADMAP_WITHOUT_PROMOTION"
+        if args.defer_physical_review
+        else "RETURN_TO_CHAT_INTERPRET_P3_DO_NOT_PROMOTE_AUTOMATICALLY"
+    )
     summary_log.write_text(
         "\n".join(
             [
-                f"A14_H4A04P3_W5500_FIFO_REUSE_AB={gate_status}",
+                f"{gate_result_key}={gate_status}",
                 f"HEAD={head}",
                 f"VERIFY_RX_BYTES={verify_bytes}",
                 f"VERIFY_FNV_ACTUAL={actual_hash}",
@@ -867,18 +934,20 @@ def main() -> int:
                 f"FIFO_VS_DIRECT_US_PER_BYTE_PCT={us_per_byte_delta:.3f}",
                 f"INTERPRETATION={interpretation}",
                 f"PHYSICAL_STABILITY={physical_status}",
+                f"UNEXPECTED_RESETS={0 if args.confirmation else 'NOT_EXPLICITLY_COUNTED'}",
+                (
+                    "FIFO_REUSE_VALIDATED_PENDING_PHYSICAL="
+                    f"{'YES' if confirmation_validated else 'NO'}"
+                    if args.confirmation
+                    else "FIFO_REUSE_VALIDATED_PENDING_PHYSICAL=NOT_YET_P3R"
+                ),
                 "PRODUCT_DEFAULT_FIFO_REUSE=OFF",
                 "TEMP_PRODUCT_PATCHES=NO",
                 "TCP_TX_CHANGES=NO",
                 "HARNESS_FAILURE=NO",
                 "PRODUCT_FAILURE=NO_EVIDENCE",
                 "HARDWARE_FAILURE=NO_EVIDENCE",
-                (
-                    "NEXT=CONTINUE_AUTONOMOUS_ROADMAP_WITHOUT_PROMOTION"
-                    if args.defer_physical_review
-                    else
-                    "NEXT=RETURN_TO_CHAT_INTERPRET_P3_DO_NOT_PROMOTE_AUTOMATICALLY"
-                ),
+                f"NEXT={next_action}",
                 "",
             ]
         ),
@@ -889,19 +958,8 @@ def main() -> int:
     emit("HARNESS_FAILURE", "NO")
     emit("PRODUCT_FAILURE", "NO_EVIDENCE")
     emit("HARDWARE_FAILURE", "NO_EVIDENCE")
-    emit(
-        "A14_H4A04P3_W5500_FIFO_REUSE_AB",
-        gate_status,
-    )
-    emit(
-        "NEXT",
-        (
-            "CONTINUE_AUTONOMOUS_ROADMAP_WITHOUT_PROMOTION"
-            if args.defer_physical_review
-            else
-            "RETURN_TO_CHAT_INTERPRET_P3_DO_NOT_PROMOTE_AUTOMATICALLY"
-        ),
-    )
+    emit(gate_result_key, gate_status)
+    emit("NEXT", next_action)
     return 0
 
 
