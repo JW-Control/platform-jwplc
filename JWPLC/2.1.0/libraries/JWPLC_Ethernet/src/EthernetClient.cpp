@@ -175,6 +175,21 @@ int EthernetClient::read(uint8_t *buf, size_t size)
 	return Ethernet.socketRecv(_sockindex, buf, size);
 }
 
+int EthernetClient::jwplcReadTcpFastDeferred(uint8_t *buf, size_t size)
+{
+	if (_sockindex >= MAX_SOCK_NUM || size > UINT16_MAX) return -1;
+	return Ethernet.socketRecvTCPFastDeferred(
+		_sockindex,
+		buf,
+		(uint16_t)size);
+}
+
+bool EthernetClient::jwplcCommitRxFast()
+{
+	if (_sockindex >= MAX_SOCK_NUM) return false;
+	return Ethernet.socketCommitTCPFast(_sockindex);
+}
+
 int EthernetClient::peek()
 {
 	if (_sockindex >= MAX_SOCK_NUM) return -1;

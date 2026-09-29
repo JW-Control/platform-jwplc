@@ -232,7 +232,35 @@ def main() -> int:
         "ETH_FAST_UDP_ADDITIVE_API",
     )
 
-    package_text = "\n".join((header, udp, socket))
+    require(
+        "socketRecvTCPFastDeferred" in header
+        and "socketCommitTCPFast" in header
+        and "jwplcReadTcpFastDeferred" in header
+        and "jwplcCommitRxFast" in header,
+        "ETH_FAST_TCP_RX_DECLARATIONS",
+    )
+    require(
+        "EthernetClass::socketRecvTCPFastDeferred" in socket
+        and "EthernetClass::socketCommitTCPFast" in socket,
+        "ETH_FAST_TCP_RX_BACKEND",
+    )
+
+    client_cpp = (
+        repo
+        / "JWPLC"
+        / "2.1.0"
+        / "libraries"
+        / "JWPLC_Ethernet"
+        / "src"
+        / "EthernetClient.cpp"
+    ).read_text(encoding="utf-8")
+    require(
+        "EthernetClient::jwplcReadTcpFastDeferred" in client_cpp
+        and "EthernetClient::jwplcCommitRxFast" in client_cpp,
+        "ETH_FAST_TCP_RX_ADDITIVE_API",
+    )
+
+    package_text = "\n".join((header, udp, socket, client_cpp))
     require(
         "jwplcDiag" not in package_text,
         "ETH_NO_DIAGNOSTIC_API_PROMOTED",

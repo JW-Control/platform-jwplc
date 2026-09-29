@@ -314,7 +314,11 @@ static void read_data(uint8_t s, uint16_t src, uint8_t *dst, uint16_t len)
 
 // Receive data.  Returns size, or -1 for no data, or 0 if connection closed
 //
-int EthernetClass::socketRecv(uint8_t s, uint8_t *buf, int16_t len)
+static int socketRecvInternal(
+	uint8_t s,
+	uint8_t *buf,
+	int16_t len,
+	bool deferCommit)
 {
 #if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
 	const uint32_t profileRecvStartUs = micros();
@@ -369,7 +373,7 @@ int EthernetClass::socketRecv(uint8_t s, uint8_t *buf, int16_t len)
 		state[s].RX_RD = ptr;
 		state[s].RX_RSR -= ret;
 		uint16_t inc = state[s].RX_inc + ret;
-		if (inc >= 250 || state[s].RX_RSR == 0) {
+		if (!deferCommit && (inc >= 250 || state[s].RX_RSR == 0)) {
 			state[s].RX_inc = 0;
 #if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
 			const uint32_t profileCommitStartUs = micros();
@@ -397,6 +401,57 @@ int EthernetClass::socketRecv(uint8_t s, uint8_t *buf, int16_t len)
 
 	//Serial.printf("socketRecv, ret=%d\n", ret);
 	return ret;
+}
+
+int EthernetClass::socketRecv(uint8_t s, uint8_t *buf, int16_t len)
+{
+	return socketRecvInternal(s, buf, len, false);
+}
+
+int EthernetClass::socketRecvTCPFastDeferred(
+	uint8_t s,
+	uint8_t *buf,
+	uint16_t len)
+{
+	if (s >= MAX_SOCK_NUM || buf == nullptr || len == 0 || len > INT16_MAX) {
+		return -1;
+	}
+
+	return socketRecvInternal(s, buf, (int16_t)len, true);
+}
+
+bool EthernetClass::socketCommitTCPFast(uint8_t s)
+{
+	if (s >= MAX_SOCK_NUM || state[s].RX_inc > W5100.SSIZE) {
+		return false;
+	}
+
+	SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
+
+	if (state[s].RX_inc == 0) {
+		SPI.endTransaction();
+		return true;
+	}
+
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+	const uint32_t profileCommitStartUs = micros();
+#endif
+
+	W5100.writeSnRX_RD(s, state[s].RX_RD);
+	const bool accepted = W5100.execCmdSnChecked(s, Sock_RECV);
+
+	if (accepted) {
+		state[s].RX_inc = 0;
+	}
+
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+	++jwplcTcpRxProfile.recvCommitCalls;
+	jwplcTcpRxProfile.recvCommitTotalUs +=
+		(uint32_t)(micros() - profileCommitStartUs);
+#endif
+
+	SPI.endTransaction();
+	return accepted;
 }
 
 int EthernetClass::socketRecvUDPFastDeferred(

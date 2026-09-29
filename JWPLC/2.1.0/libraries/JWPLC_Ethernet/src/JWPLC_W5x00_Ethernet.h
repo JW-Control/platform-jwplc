@@ -190,6 +190,11 @@ private:
 	// Receive data (TCP)
 	static int socketRecv(uint8_t s, uint8_t * buf, int16_t len);
 	static uint16_t socketRecvAvailable(uint8_t s);
+	static int socketRecvTCPFastDeferred(
+		uint8_t s,
+		uint8_t *buf,
+		uint16_t len);
+	static bool socketCommitTCPFast(uint8_t s);
 
 	// JWPLC high-throughput UDP RX backend.
 	// Reads one complete W5500 UDP record (8-byte pseudo-header + payload)
@@ -331,6 +336,13 @@ public:
 	virtual int available();
 	virtual int read();
 	virtual int read(uint8_t *buf, size_t size);
+
+	// JWPLC additive high-throughput TCP RX extension. The deferred read
+	// advances only the software RX pointer. Call jwplcCommitRxFast() at the
+	// end of every cooperative batch to release W5500 RX memory.
+	int jwplcReadTcpFastDeferred(uint8_t *buf, size_t size);
+	bool jwplcCommitRxFast();
+
 	virtual int peek();
 	virtual void flush();
 	virtual void stop();
