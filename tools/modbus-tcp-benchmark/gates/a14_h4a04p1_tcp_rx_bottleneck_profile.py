@@ -548,9 +548,9 @@ def main() -> int:
         )
 
         case_text = decode(case_log.read_bytes())
-        print(case_text)
 
         if case_exit != 0:
+            print(case_text[-6000:])
             raise RuntimeError(
                 f"H4A04P1_{variant}_RUN{run_no}_CASE_FAILED"
             )
@@ -562,10 +562,10 @@ def main() -> int:
             "H4A04P1_RUN_RESULT",
             (
                 f"VARIANT={variant} RUN={run_no} "
-                f"MID={row['mid']:.6f} "
-                f"LOWER={row['lower']:.6f} "
-                f"UPPER={row['upper']:.6f} "
-                f"HOLD_TOTAL_MS={row['hold_total_us']/1000.0:.3f}"
+                f"MID={row['mid']:.6f}Mbps "
+                f"HOLD={row['hold_total_us']/1000.0:.3f}ms "
+                f"FREEZE_ACK={row['freeze_ack_s']*1000.0:.3f}ms "
+                f"PASS=YES"
             ),
         )
 
