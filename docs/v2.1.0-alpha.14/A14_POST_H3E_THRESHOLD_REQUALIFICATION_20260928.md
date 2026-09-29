@@ -116,6 +116,174 @@ RAW UDP RX throughput = Z Mbps
 RAW UDP TX throughput = W Mbps
 ```
 
+
+## H4A0 — resultados post-H3E obtenidos
+
+### H4A0 baseline RAW final package
+
+```text
+TCP_RX_MEDIAN=13.577425 Mbps
+TCP_TX_MEDIAN=4.723816 Mbps
+UDP_RX_EFFECTIVE_MEDIAN=11.052889 Mbps
+UDP_TX_MEDIAN=5.056589 Mbps
+TRANSPORT_ERRORS=0
+TFT_PHYSICAL=PASS
+```
+
+La ruta UDP RX productiva sigue siendo legacy. El mejor candidato UDP histórico
+no fue productizado.
+
+### H4A0.1 replay P3K
+
+```text
+UDP_MEDIAN=13.331017 Mbps
+TCP_MEDIAN=12.047901 Mbps
+UDP_RECOVERY_OF_HISTORICAL=96.14 %
+```
+
+El replay confirmó composición de patches, pero TCP mostró fuerte dispersión.
+No usar este gate como ceiling actual.
+
+### H4A0.2 matched clean UDP A/B
+
+```text
+payload=1016 B
+3 x 15 s por variante
+fresh upload por corrida
+matched instrumentation
+serial idle + quiescence en ambos
+```
+
+Resultado:
+
+```text
+LEGACY_MEDIAN=11.025638 Mbps
+FAST_MEDIAN=12.669195 Mbps
+FAST_GAIN=+14.91 %
+FAST_MIN=12.664120 Mbps
+FAST_MAX=12.675336 Mbps
+TRANSPORT_ERRORS=0
+SPI_LOCK_ERRORS=0
+TFT_PHYSICAL=PASS
+```
+
+FAST runtime:
+
+```text
+BATCH2=CONFIRMED
+PACKETS_PER_ACTIVE_HOLD=2.000000
+EMPTY_HOLD_COUNT=0
+SPI_READS_PER_PACKET=3.000
+```
+
+La ganancia y repetibilidad del fast path quedan confirmadas, pero H4A0.2 NO
+fija el ceiling final porque la instrumentación sigue siendo invasiva.
+
+Histórico P3K:
+
+```text
+UDP_MEDIAN=13.866349 Mbps
+```
+
+Diferencia actual:
+
+```text
+H4A02_FAST_VS_HISTORICAL ~= -8.63 %
+```
+
+Con H3E reduciendo drásticamente latencia de Display/TFT, no se acepta una
+regresión de ceiling sin causa identificada.
+
+Hipótesis principal:
+
+```text
+HOT_PATH_MEASUREMENT_INTRUSION
+```
+
+La instrumentación actual cuenta y temporiza operaciones W5100/holds dentro del
+path medido. El profiling de loop también queda contaminado por snapshots Serial.
+
+## H4A0.3A — minimal-instrumentation duration sweep
+
+Antes de component ablation se resolverá si el techo histórico es recuperable
+sin instrumentación invasiva.
+
+Mismo candidato FAST:
+
+```text
+5 s x 3
+15 s x 3
+30 s x 3
+```
+
+Durante la ventana PERFORMANCE conservar sólo:
+
+```text
+rxBytes
+rxPackets
+transportErrors
+spiLockErrors
+```
+
+Evitar:
+
+```text
+Serial en hot path
+micros() por hold
+W5100 read-call/read-byte counters
+hold timing
+loop-gap profiling
+instrumentación INT detallada
+```
+
+Interpretación:
+
+```text
+>= ~13.87 Mbps en 5/15/30 s:
+  histórico recuperado; instrumentación era la causa probable
+
+5 s ~=13.87 y 15/30 s ~=12.7:
+  degradación dependiente de duración
+
+5/15/30 s ~=12.7:
+  regresión real post-P3; aislar antes de avanzar
+```
+
+## H4A0.3B — Component Ablation
+
+Sólo después de H4A0.3A:
+
+```text
+A = LEGACY
+B = + BATCH2
+C = + INT
+D = + FUSED
+E = + COMMIT2
+F = + R1
+```
+
+Primera pasada:
+
+```text
+5 s x 3 por variante
+```
+
+Candidatos relevantes:
+
+```text
+15 s x 3
+30 s x 3
+```
+
+Candidato final:
+
+```text
+60 s
+300 s
+```
+
+Separar PERFORMANCE de LATENCY.
+
 ## H4A1 — Modbus TCP-only post-H3E
 
 Objetivo: redescubrir el techo de Modbus TCP con el runtime final y RTU
@@ -313,8 +481,9 @@ Esto evita publicar un número ambiguo o no reproducible.
 ## Reglas de adopción
 
 - No cambiar defaults por un único pico corto.
-- Primero 60-120 s para localizar frontera.
-- Sólo el candidato final se confirma 5-10 min.
+- Para H4A0.3A usar 5/15/30 s para comparar duración e instrumentación.
+- Para H4A0.3B usar 5 s x3 por variante y ampliar sólo candidatos relevantes.
+- Sólo el candidato final se confirma 60/300 s o más según el gate.
 - 50 us queda excluido.
 - W5500 30 MHz no se reabre.
 - No se retiran periféricos del autoload.
@@ -325,7 +494,9 @@ Esto evita publicar un número ambiguo o no reproducible.
 ## Orden
 
 ```text
-H4A0 RAW Ethernet TCP/UDP Mbps
+H4A0.3A minimal-instrumentation duration sweep
+-> H4A0.3B component ablation
+-> cerrar H4A0 RAW Ethernet
 -> H4A1 Modbus TCP-only req/s
 -> H4B TCP + RTU50
 -> H4C RTU FAST 100/75 us
