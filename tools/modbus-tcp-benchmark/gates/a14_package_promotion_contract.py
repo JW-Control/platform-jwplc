@@ -29,6 +29,32 @@ def main() -> int:
         / "JWPLC_TFT"
         / "library.properties"
     )
+    spi_props = (
+        repo
+        / "JWPLC"
+        / "2.1.0"
+        / "libraries"
+        / "SPI"
+        / "library.properties"
+    )
+    spi_h = (
+        repo
+        / "JWPLC"
+        / "2.1.0"
+        / "libraries"
+        / "SPI"
+        / "src"
+        / "SPI.h"
+    )
+    spi_cpp = (
+        repo
+        / "JWPLC"
+        / "2.1.0"
+        / "libraries"
+        / "SPI"
+        / "src"
+        / "SPI.cpp"
+    )
     idle_cpp = (
         repo
         / "JWPLC"
@@ -89,6 +115,9 @@ def main() -> int:
     for path in (
         display_props,
         tft_props,
+        spi_props,
+        spi_h,
+        spi_cpp,
         idle_cpp,
         eth_header,
         udp_cpp,
@@ -100,6 +129,9 @@ def main() -> int:
 
     display = display_props.read_text(encoding="utf-8")
     tft = tft_props.read_text(encoding="utf-8")
+    spi_props_text = spi_props.read_text(encoding="utf-8")
+    spi_header = spi_h.read_text(encoding="utf-8")
+    spi_impl = spi_cpp.read_text(encoding="utf-8")
     idle = idle_cpp.read_text(encoding="utf-8")
     header = eth_header.read_text(encoding="utf-8")
     udp = udp_cpp.read_text(encoding="utf-8")
@@ -110,6 +142,7 @@ def main() -> int:
     for name, props in (
         ("DISPLAY", display),
         ("TFT", tft),
+        ("SPI", spi_props_text),
     ):
         require(
             "precompiled=full" not in props,
@@ -152,6 +185,22 @@ def main() -> int:
         "SPI.transferBytes(nullptr, buf, len);" in w5100_impl
         and "#if JWPLC_W5500_RX_DIRECT_TRANSFER_BYTES" in w5100_impl,
         "ETH_W5500_DIRECT_RX_CANDIDATE_PRESENT",
+    )
+
+    require(
+        "#define JWPLC_W5500_RX_FIFO_REUSE 0" in w5100,
+        "ETH_W5500_FIFO_REUSE_DEFAULT_OFF",
+    )
+    require(
+        "SPI.jwplcReadBytesReuseFifo(buf, len);" in w5100_impl
+        and "#if JWPLC_W5500_RX_FIFO_REUSE" in w5100_impl,
+        "ETH_W5500_FIFO_REUSE_CANDIDATE_PRESENT",
+    )
+    require(
+        "void jwplcReadBytesReuseFifo(uint8_t *out, uint32_t size);" in spi_header
+        and "SPIClass::jwplcReadBytesReuseFifo" in spi_impl
+        and "jwplcSpiReadBytesReuseFifoNL" in spi_impl,
+        "SPI_JWPLC_FIFO_REUSE_HELPER_PRESENT",
     )
 
     require(
