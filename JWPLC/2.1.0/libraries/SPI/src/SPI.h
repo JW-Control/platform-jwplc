@@ -37,8 +37,9 @@
 #endif
 
 #ifndef JWPLC_SPI_FIFO_REUSE_DLEN_CACHE
-// Alpha14 P4.1 candidate. Keep OFF until A/B + physical validation.
-#define JWPLC_SPI_FIFO_REUSE_DLEN_CACHE 0
+// Alpha14 P4.1: promoted after FNV, microprofile, A/B repeatability
+// and physical validation. Cache scope is one FIFO-read helper call.
+#define JWPLC_SPI_FIFO_REUSE_DLEN_CACHE 1
 #endif
 
 #if JWPLC_SPI_PROFILE_FIFO_REUSE_CHUNKS
