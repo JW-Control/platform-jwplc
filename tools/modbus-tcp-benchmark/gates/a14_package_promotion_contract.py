@@ -207,6 +207,15 @@ def main() -> int:
         "SPI_JWPLC_CHUNK_PROFILE_DEFAULT_OFF",
     )
     require(
+        "#define JWPLC_SPI_FIFO_REUSE_DLEN_CACHE 0" in spi_header,
+        "SPI_JWPLC_DLEN_CACHE_DEFAULT_OFF",
+    )
+    require(
+        "JWPLC_SPI_FIFO_REUSE_DLEN_CACHE" in spi_impl
+        and "programmedLen" in spi_impl,
+        "SPI_JWPLC_DLEN_CACHE_CANDIDATE_PRESENT",
+    )
+    require(
         "JWPLCSpiFifoReuseChunkProfile" in spi_header
         and "jwplcResetReadBytesReuseFifoProfile" in spi_header
         and "jwplcGetReadBytesReuseFifoProfile" in spi_header
