@@ -645,6 +645,46 @@ if ($peripheralFailures -ne 0) {
     throw "H3ER_PERIPHERAL_FAILURES=$peripheralFailures"
 }
 
+# Baseline inmediato antes de promover P4.1 (HEAD 413a570b, 2026-09-30).
+# Protegemos P95/P99; MAX se reporta como diagnóstico por su alta varianza
+# histórica y no veta por sí solo un gate limpio.
+$preP41P95Us = 1275.5
+$preP41P99Us = 3781.0
+$preP41MaxUs = 28179.8
+
+$p95DeltaPct =
+    (($p95Us / $preP41P95Us) - 1.0) * 100.0
+$p99DeltaPct =
+    (($p99Us / $preP41P99Us) - 1.0) * 100.0
+$maxDeltaPct =
+    (($maxUs / $preP41MaxUs) - 1.0) * 100.0
+
+$p95GuardUs = $preP41P95Us * 1.10
+$p99GuardUs = $preP41P99Us * 1.15
+
+$p95GuardPass = $p95Us -le $p95GuardUs
+$p99GuardPass = $p99Us -le $p99GuardUs
+
+Write-Host ("H3ER_PRE_P4_1_P95_US={0:F1}" -f $preP41P95Us)
+Write-Host ("H3ER_PRE_P4_1_P99_US={0:F1}" -f $preP41P99Us)
+Write-Host ("H3ER_PRE_P4_1_MAX_US={0:F1}" -f $preP41MaxUs)
+Write-Host ("H3ER_P95_DELTA_VS_PRE_P4_1_PCT={0:F3}" -f $p95DeltaPct)
+Write-Host ("H3ER_P99_DELTA_VS_PRE_P4_1_PCT={0:F3}" -f $p99DeltaPct)
+Write-Host ("H3ER_MAX_DELTA_VS_PRE_P4_1_PCT={0:F3}" -f $maxDeltaPct)
+Write-Host ("H3ER_P95_GUARD_US={0:F1}" -f $p95GuardUs)
+Write-Host ("H3ER_P99_GUARD_US={0:F1}" -f $p99GuardUs)
+Write-Host "H3ER_P95_GUARD_PASS=$($p95GuardPass.ToString().ToUpperInvariant())"
+Write-Host "H3ER_P99_GUARD_PASS=$($p99GuardPass.ToString().ToUpperInvariant())"
+Write-Host "H3ER_MAX_POLICY=DIAGNOSTIC_ONLY"
+
+if (-not $p95GuardPass) {
+    throw "H3ER_P4_1_P95_REGRESSION=$p95Us"
+}
+
+if (-not $p99GuardPass) {
+    throw "H3ER_P4_1_P99_REGRESSION=$p99Us"
+}
+
 $compileText =
     [IO.File]::ReadAllText($masterCompileLog)
 
@@ -733,8 +773,12 @@ Write-Host "H3ER_DATALOG_PENDING_BYTES=$sdPending"
 Write-Host "H3ER_DATALOG_FAILED_COMMITS=$sdFailed"
 Write-Host "H3ER_PERIPHERAL_FAILURE_COUNT=$peripheralFailures"
 Write-Host "H3ER_FIFO_REUSE_DEFAULT=PASS"
+Write-Host "H3ER_DLEN_REUSE_DEFAULT=PASS"
 Write-Host "H3ER_SINGLE_STATUS_POLICY=PASS"
 Write-Host "H3ER_DATALOG_POLICY=PASS"
+Write-Host "H3ER_DISPLAY_DIRTY_POLICY=PASS"
+Write-Host "H3ER_RTU_ASYNC_POLICY=PASS"
+Write-Host "H3ER_P4_1_LATENCY_GUARD=PASS"
 Write-Host "H3ER_HISTORICAL_TCP_REQ_S=1000.00"
 Write-Host "H3ER_HISTORICAL_RTU_HZ=50.004"
 Write-Host "H3ER_HISTORICAL_TOTAL_MBPS=2.1680"
@@ -746,5 +790,6 @@ Write-Host "HARNESS_FAILURE=NO"
 Write-Host "PRODUCT_FAILURE=NO_EVIDENCE"
 Write-Host "HARDWARE_FAILURE=NO_EVIDENCE"
 Write-Host "A14_H3E_R_CURRENT_PACKAGE=PASS"
+Write-Host "A14_H3E_R_P4_1_REGRESSION=PASS"
 Write-Host "H3ER_TEMP_ROOT=$tempRoot"
-Write-Host "NEXT=RETURN_TO_CHAT_BEFORE_P4_1"
+Write-Host "NEXT=RETURN_TO_CHAT_BEFORE_P4_2"
