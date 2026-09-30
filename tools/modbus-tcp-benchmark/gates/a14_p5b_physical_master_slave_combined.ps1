@@ -252,14 +252,20 @@ $slaveText = [System.IO.File]::ReadAllText($slaveSketch)
 
 $sourceChecks = @(
     [PSCustomObject]@{ Label = "MASTER_HMI_ON_DEMAND"; Pass = $masterText.Contains("USER_REFRESH_ON_DEMAND") },
+    [PSCustomObject]@{ Label = "MASTER_HMI_FIELDS"; Pass = $masterText.Contains("JWPLC_Display.setFields(") -and $masterText.Contains("JWPLC_Display.setValue(") -and $masterText.Contains("JWPLC_Display.setBool(") },
     [PSCustomObject]@{ Label = "MASTER_RTUMASTER"; Pass = $masterText.Contains("RTU_ROLE=MASTER") },
+    [PSCustomObject]@{ Label = "MASTER_RTU_ASYNC_MOTOR"; Pass = $masterText.Contains("JWPLC_ModbusRTU.motor(ASYNC)") },
+    [PSCustomObject]@{ Label = "MASTER_RTU_ASYNC_REQUEST"; Pass = $masterText.Contains("JWPLC_ModbusRTU.requestReadHoldingRegisters(") -and $masterText.Contains("JWPLC_ModbusRTU.masterBusy()") -and $masterText.Contains("JWPLC_ModbusRTU.masterDone()") },
     [PSCustomObject]@{ Label = "MASTER_SLAVE2"; Pass = $masterText.Contains("RTU_TARGET_SLAVE_ID = 2") },
     [PSCustomObject]@{ Label = "MASTER_RTU_TIMEOUT_25MS"; Pass = $masterText.Contains("RTU_TIMEOUT_MS = 25UL") },
     [PSCustomObject]@{ Label = "MASTER_AUTO_RTU"; Pass = $masterText.Contains("RTU_TRAFFIC_AUTO_START=") },
     [PSCustomObject]@{ Label = "MASTER_COMPACT_PREFLIGHT"; Pass = $masterText.Contains("A14_P5_PREFLIGHT=END") },
     [PSCustomObject]@{ Label = "MASTER_SD_BUFFERED_DATALOG"; Pass = $masterText.Contains("SD_WORKLOAD_MODE=BUFFERED_DATALOG") -and $masterText.Contains("JWPLCDataLog sdDataLog") },
+    [PSCustomObject]@{ Label = "MASTER_DATALOG_AUTOSERVICE_ONLY"; Pass = -not $masterText.Contains("sdDataLog.service(") -and -not $masterText.Contains("JWPLC_SD.serviceDataLogs(") },
     [PSCustomObject]@{ Label = "MASTER_ETH_SNAPSHOT"; Pass = $masterText.Contains("COMBINED_RUNTIME_READY=") },
     [PSCustomObject]@{ Label = "SLAVE_HMI_ON_DEMAND"; Pass = $slaveText.Contains("USER_REFRESH_ON_DEMAND") },
+    [PSCustomObject]@{ Label = "SLAVE_HMI_FIELDS"; Pass = $slaveText.Contains("JWPLC_Display.setFields(") -and $slaveText.Contains("JWPLC_Display.setValue(") },
+    [PSCustomObject]@{ Label = "SLAVE_RTU_ASYNC_MOTOR"; Pass = $slaveText.Contains("JWPLC_ModbusRTU.motor(ASYNC)") },
     [PSCustomObject]@{ Label = "SLAVE_ID2"; Pass = $slaveText.Contains("SLAVE_ID = 2") },
     [PSCustomObject]@{ Label = "SLAVE_VERIFY_MAGIC"; Pass = $slaveText.Contains("VERIFY_MAGIC = 0x55AA") }
 )
@@ -288,7 +294,7 @@ $fqbn = "jwplc_local:esp32:jwplcbasic"
 Write-Host ""
 Write-Host "=== COMPILE SLAVE ==="
 
-$slaveCompileArgs = @("compile", "--fqbn", $fqbn, "--build-path", $slaveBuild, "--libraries", $repoLibrariesRoot, $slaveDir)
+$slaveCompileArgs = @("compile", "--verbose", "--fqbn", $fqbn, "--build-path", $slaveBuild, "--libraries", $repoLibrariesRoot, $slaveDir)
 $slaveCompileExit = Invoke-NativeToLog -FilePath $arduinoCli -Arguments $slaveCompileArgs -LogPath $slaveCompileLog
 
 Write-Host "SLAVE_COMPILE_EXIT=$slaveCompileExit"
@@ -310,7 +316,7 @@ if ($slaveBinCount -lt 1) {
 Write-Host ""
 Write-Host "=== COMPILE MASTER ==="
 
-$masterCompileArgs = @("compile", "--fqbn", $fqbn, "--build-path", $masterBuild, "--libraries", $repoLibrariesRoot, $masterDir)
+$masterCompileArgs = @("compile", "--verbose", "--fqbn", $fqbn, "--build-path", $masterBuild, "--libraries", $repoLibrariesRoot, $masterDir)
 $masterCompileExit = Invoke-NativeToLog -FilePath $arduinoCli -Arguments $masterCompileArgs -LogPath $masterCompileLog
 
 Write-Host "MASTER_COMPILE_EXIT=$masterCompileExit"
