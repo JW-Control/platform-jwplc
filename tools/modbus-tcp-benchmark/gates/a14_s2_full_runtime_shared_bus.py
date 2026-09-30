@@ -267,8 +267,15 @@ def main() -> int:
     if branch != BRANCH:
         raise RuntimeError("S2_BRANCH_MISMATCH")
 
-    if git(repo, "status", "--porcelain"):
+    tree_status = git(repo, "status", "--porcelain")
+    if tree_status:
+        emit("S2_TREE_CLEAN", "NO")
+        print("S2_DIRTY_BEGIN")
+        print(tree_status)
+        print("S2_DIRTY_END")
         raise RuntimeError("S2_TREE_NOT_CLEAN")
+
+    emit("S2_TREE_CLEAN", "YES")
 
     ast.parse(
         runner.read_text(encoding="utf-8"),
