@@ -54,6 +54,12 @@ static void jwplcSpiReadBytesReuseFifoNL(
   volatile spi_dev_t *dev =
     reinterpret_cast<JWPLCSpiBusPrefix *>(spi)->dev;
 
+#if JWPLC_SPI_FIFO_REUSE_DLEN_CACHE
+  // P4.1: cache only within this helper invocation. No state survives to
+  // another SPI transaction or peripheral owner.
+  uint32_t programmedLen = 0U;
+#endif
+
   while (len) {
 #if JWPLC_SPI_PROFILE_FIFO_REUSE_CHUNKS
     const uint32_t chunkStartedUs = micros();
@@ -61,8 +67,16 @@ static void jwplcSpiReadBytesReuseFifoNL(
     const uint32_t c_len = (len > 64U) ? 64U : len;
     const uint32_t c_longs = (c_len + 3U) >> 2;
 
+#if JWPLC_SPI_FIFO_REUSE_DLEN_CACHE
+    if (c_len != programmedLen) {
+      dev->mosi_dlen.usr_mosi_dbitlen = (c_len * 8U) - 1U;
+      dev->miso_dlen.usr_miso_dbitlen = (c_len * 8U) - 1U;
+      programmedLen = c_len;
+    }
+#else
     dev->mosi_dlen.usr_mosi_dbitlen = (c_len * 8U) - 1U;
     dev->miso_dlen.usr_miso_dbitlen = (c_len * 8U) - 1U;
+#endif
 
 #if JWPLC_SPI_PROFILE_FIFO_REUSE_CHUNKS
     const uint32_t setupFinishedUs = micros();
