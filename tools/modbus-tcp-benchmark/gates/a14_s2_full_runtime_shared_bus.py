@@ -90,14 +90,17 @@ def compile_role(
     libraries: Path,
     build_dir: Path,
     role_master: bool,
+    sd_mode_datalog: bool,
     log: Path,
 ) -> None:
     role = "MASTER" if role_master else "SLAVE"
     role_value = "1" if role_master else "0"
+    sd_mode_value = "1" if (role_master and sd_mode_datalog) else "0"
 
     extra_flags = " ".join(
         (
             f"-DJWPLC_S2_ROLE_MASTER={role_value}",
+            f"-DJWPLC_S2_SD_MODE_DATALOG={sd_mode_value}",
             "-DJWPLC_W5500_RX_FIFO_REUSE=1",
             "-DJWPLC_W5500_RX_DIRECT_TRANSFER_BYTES=0",
         )
@@ -132,6 +135,7 @@ def compile_role(
 
     required = (
         f"-djwplc_s2_role_master={role_value}",
+        f"-djwplc_s2_sd_mode_datalog={sd_mode_value}",
         "-djwplc_w5500_rx_fifo_reuse=1",
         "-djwplc_w5500_rx_direct_transfer_bytes=0",
         "ethernetclient.cpp",
@@ -210,6 +214,12 @@ def main() -> int:
         default="jwplc_local:esp32:jwplcbasic",
     )
     parser.add_argument(
+        "--sd-mode",
+        choices=("direct", "datalog"),
+        default="direct",
+        help="Política SD del Master; direct reproduce S2, datalog usa JWPLCDataLog.",
+    )
+    parser.add_argument(
         "--defer-physical-review",
         action="store_true",
     )
@@ -254,6 +264,11 @@ def main() -> int:
     emit("S2_MASTER_PORT", args.master)
     emit("S2_SLAVE_PORT", args.slave)
     emit("S2_DURATION_S", args.duration)
+    emit("S2_SD_MODE_REQUESTED", args.sd_mode.upper())
+    emit(
+        "S2_ONLY_VARIABLE",
+        "SD_ACCESS_POLICY" if args.sd_mode == "datalog" else "BASELINE_DIRECT_SD",
+    )
     emit("S2_MODBUS_PROFILE", "115200_8N1_SLAVE_ID_2")
     emit("S2_ETH_SPI_HZ", 26000000)
     emit("S2_FIFO_REUSE", "ON_FOR_GATE")
@@ -310,6 +325,7 @@ def main() -> int:
         libraries=libraries,
         build_dir=slave_build,
         role_master=False,
+        sd_mode_datalog=False,
         log=result_root / "compile_slave.log",
     )
     compile_role(
@@ -320,6 +336,7 @@ def main() -> int:
         libraries=libraries,
         build_dir=master_build,
         role_master=True,
+        sd_mode_datalog=(args.sd_mode == "datalog"),
         log=result_root / "compile_master.log",
     )
 
@@ -423,6 +440,30 @@ def main() -> int:
         if integer(case_text, key) <= 0:
             raise RuntimeError(f"S2_NOT_POSITIVE_{key}")
 
+    if args.sd_mode == "datalog":
+        if one(case_text, "S2_SD_MODE") != "DATALOG":
+            raise RuntimeError("S2_DATALOG_MODE_NOT_ACTIVE")
+        if one(case_text, "S2_DATALOG_ACTIVE") != "YES":
+            raise RuntimeError("S2_DATALOG_NOT_ACTIVE")
+        if one(case_text, "S2_DATALOG_MANUAL_SERVICE_CALL") != "NO":
+            raise RuntimeError("S2_DATALOG_MANUAL_SERVICE_FORBIDDEN")
+        for key in (
+            "S2_DATALOG_ACCEPTED_WRITES",
+            "S2_DATALOG_ACCEPTED_BYTES",
+            "S2_DATALOG_COMMITTED_BYTES",
+            "S2_DATALOG_COMMIT_COUNT",
+        ):
+            if integer(case_text, key) <= 0:
+                raise RuntimeError(f"S2_DATALOG_NOT_POSITIVE_{key}")
+        if integer(case_text, "S2_DATALOG_FAILED_COMMITS") != 0:
+            raise RuntimeError(
+                "S2_DATALOG_FAILED_COMMITS="
+                f"{one(case_text, 'S2_DATALOG_FAILED_COMMITS')}"
+            )
+    else:
+        if one(case_text, "S2_SD_MODE") != "DIRECT":
+            raise RuntimeError("S2_DIRECT_SD_MODE_NOT_ACTIVE")
+
     if integer(case_text, "S2_BUTTON_DOWN_SAMPLES") <= 0:
         raise RuntimeError(
             "S2_MASTER_BUTTON_NOT_OBSERVED_HOLD_OK_FOR_1S"
@@ -474,7 +515,12 @@ def main() -> int:
                 f"MODBUS_MAX_TRANSACTION_US={one(case_text, 'S2_MODBUS_MAX_TRANSACTION_US')}",
                 f"FRAM_OK={one(case_text, 'S2_FRAM_OK')}",
                 f"RTC_OK={one(case_text, 'S2_RTC_OK')}",
+                f"SD_MODE={one(case_text, 'S2_SD_MODE')}",
                 f"SD_OK={one(case_text, 'S2_SD_OK')}",
+                f"DATALOG_ACCEPTED_WRITES={one(case_text, 'S2_DATALOG_ACCEPTED_WRITES')}",
+                f"DATALOG_COMMITTED_BYTES={one(case_text, 'S2_DATALOG_COMMITTED_BYTES')}",
+                f"DATALOG_COMMIT_COUNT={one(case_text, 'S2_DATALOG_COMMIT_COUNT')}",
+                f"DATALOG_FAILED_COMMITS={one(case_text, 'S2_DATALOG_FAILED_COMMITS')}",
                 f"MASTER_MAX_LOOP_US={one(case_text, 'S2_MAX_LOOP_US')}",
                 f"SLAVE_MAX_LOOP_US={one(case_text, 'S2_SLAVE_MAX_LOOP_US')}",
                 f"PHYSICAL_STABILITY={physical}",
@@ -483,7 +529,12 @@ def main() -> int:
                 "HARNESS_FAILURE=NO",
                 "PRODUCT_FAILURE=NO_EVIDENCE",
                 "HARDWARE_FAILURE=NO_EVIDENCE",
-                "NEXT=RETURN_TO_CHAT_PROMOTION_DECISION_BEFORE_P4_1",
+                (
+                    "NEXT=RETURN_TO_CHAT_COMPARE_DATALOG_JITTER"
+                    if args.sd_mode == "datalog"
+                    else
+                    "NEXT=RETURN_TO_CHAT_PROMOTION_DECISION_BEFORE_P4_1"
+                ),
                 "",
             ]
         ),
@@ -495,7 +546,11 @@ def main() -> int:
     emit("PRODUCT_FAILURE", "NO_EVIDENCE")
     emit("HARDWARE_FAILURE", "NO_EVIDENCE")
     emit("A14_S2_FULL_RUNTIME_SHARED_BUS", gate)
-    emit("NEXT", "RETURN_TO_CHAT_PROMOTION_DECISION_BEFORE_P4_1")
+    if args.sd_mode == "datalog":
+        emit("A14_S2D_DATALOG_FULL_RUNTIME", gate)
+        emit("NEXT", "RETURN_TO_CHAT_COMPARE_DATALOG_JITTER")
+    else:
+        emit("NEXT", "RETURN_TO_CHAT_PROMOTION_DECISION_BEFORE_P4_1")
     return 0
 
 
