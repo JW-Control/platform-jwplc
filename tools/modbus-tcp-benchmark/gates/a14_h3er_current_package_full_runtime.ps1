@@ -84,8 +84,12 @@ Write-Host "H3ER_RTU_TARGET_HZ=50"
 Write-Host "H3ER_RTU_PERIOD_US=20000"
 Write-Host "H3ER_W5500_SPI_HZ=$(Get-G2SpiHz)"
 Write-Host "H3ER_FIFO_REUSE_SOURCE=PACKAGE_DEFAULT"
+Write-Host "H3ER_DLEN_REUSE_SOURCE=PACKAGE_DEFAULT"
 Write-Host "H3ER_DATALOG_POLICY=MANDATORY_PRODUCT_PATH"
+Write-Host "H3ER_DISPLAY_POLICY=JWPLC_DISPLAY_HMI_ON_DEMAND_DIRTY"
+Write-Host "H3ER_TFT_POLICY=JWPLC_TFT_SOURCE_PRIVATE_BACKEND"
 Write-Host "H3ER_SINGLE_STATUS_POLICY=SAME_PASS_REUSE_NO_PERSISTENT_CACHE"
+Write-Host "H3ER_TCP_ASYNC_POLICY=AUDIT_PRESENCE_AND_APPLICABILITY"
 
 if ($dirty.Count -ne 0) {
     $dirty | ForEach-Object { Write-Host "DIRTY=$_" }
@@ -157,8 +161,42 @@ $masterSketch =
 $p5bGate =
     Join-Path $PSScriptRoot "a14_p5b_physical_master_slave_combined.ps1"
 
+$spiHeaderPath =
+    Get-G2Path "JWPLC/2.1.0/libraries/SPI/src/SPI.h"
+$displayPropsPath =
+    Get-G2Path "JWPLC/2.1.0/libraries/JWPLC_Display/library.properties"
+$tftPropsPath =
+    Get-G2Path "JWPLC/2.1.0/libraries/JWPLC_TFT/library.properties"
+$tftImplPath =
+    Get-G2Path "JWPLC/2.1.0/libraries/JWPLC_TFT/src/JWPLC_TFT.cpp"
+$displayImplPath =
+    Get-G2Path "JWPLC/2.1.0/libraries/JWPLC_Display/src/JWPLC_Display.cpp"
+$uiImplPath =
+    Get-G2Path "JWPLC/2.1.0/libraries/JWPLC_Display/src/JWPLC_UI.cpp"
+$ethernetClientPath =
+    Get-G2Path "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/EthernetClient.cpp"
+$modbusTcpImplPath =
+    Get-G2Path "JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP.cpp"
+$modbusRtuPropsPath =
+    Get-G2Path "JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/library.properties"
+$coreMainPath =
+    Get-G2Path "JWPLC/2.1.0/cores/jwcontrol/main.cpp"
+$slaveSketch =
+    Get-G2Path "tools/modbus-tcp-benchmark/firmware/a14_p5_rtu_slave/a14_p5_rtu_slave.ino"
+
 $w5100Text = [IO.File]::ReadAllText($w5100Path)
+$spiHeaderText = [IO.File]::ReadAllText($spiHeaderPath)
+$displayPropsText = [IO.File]::ReadAllText($displayPropsPath)
+$tftPropsText = [IO.File]::ReadAllText($tftPropsPath)
+$tftImplText = [IO.File]::ReadAllText($tftImplPath)
+$displayImplText = [IO.File]::ReadAllText($displayImplPath)
+$uiImplText = [IO.File]::ReadAllText($uiImplPath)
+$ethernetClientText = [IO.File]::ReadAllText($ethernetClientPath)
+$modbusTcpImplText = [IO.File]::ReadAllText($modbusTcpImplPath)
+$modbusRtuPropsText = [IO.File]::ReadAllText($modbusRtuPropsPath)
+$coreMainText = [IO.File]::ReadAllText($coreMainPath)
 $masterText = [IO.File]::ReadAllText($masterSketch)
+$slaveText = [IO.File]::ReadAllText($slaveSketch)
 $p5bText = [IO.File]::ReadAllText($p5bGate)
 
 if (-not $w5100Text.Contains("#define JWPLC_W5500_RX_FIFO_REUSE 1")) {
@@ -168,6 +206,140 @@ if (-not $w5100Text.Contains("#define JWPLC_W5500_RX_FIFO_REUSE 1")) {
 if (-not $w5100Text.Contains("#define JWPLC_W5500_RX_DIRECT_TRANSFER_BYTES 0")) {
     throw "H3ER_DIRECT_RX_DEFAULT_NOT_OFF"
 }
+
+if (-not $spiHeaderText.Contains("#define JWPLC_SPI_FIFO_REUSE_DLEN_CACHE 1")) {
+    throw "H3ER_DLEN_REUSE_DEFAULT_NOT_ON"
+}
+
+Write-Host ""
+Write-Host "=== H3E-R COMPOSITION AUDIT ==="
+
+if ($displayPropsText -match '(?m)^precompiled\s*=') {
+    throw "H3ER_DISPLAY_MUST_BUILD_FROM_SOURCE"
+}
+Write-Host "H3ER_DISPLAY_LINKAGE_POLICY=SOURCE"
+
+if ($tftPropsText -match '(?m)^precompiled\s*=') {
+    throw "H3ER_TFT_MUST_BUILD_FROM_SOURCE"
+}
+Write-Host "H3ER_TFT_LINKAGE_POLICY=SOURCE"
+
+foreach ($token in @(
+    "#include <TFT_eSPI.h>",
+    "jwplcSPI_acquire",
+    "jwplcSPI_prepareForTFT",
+    "SPI_FREQUENCY != 80000000"
+)) {
+    if (-not $tftImplText.Contains($token)) {
+        throw "H3ER_JWPLC_TFT_CONTRACT_MISSING=$token"
+    }
+}
+Write-Host "H3ER_JWPLC_TFT_WRAPPER=PASS"
+Write-Host "H3ER_TFT_BACKEND=TFT_ESPI_PRIVATE"
+Write-Host "H3ER_TFT_SPI_HZ=80000000"
+
+foreach ($token in @(
+    "USER_REFRESH_ON_DEMAND",
+    "jwplcUIRuntimeDrawDirty",
+    "jwplcUserDisplayRefreshNeededCallback"
+)) {
+    if (-not $displayImplText.Contains($token)) {
+        throw "H3ER_DISPLAY_DIRTY_CONTRACT_MISSING=$token"
+    }
+}
+
+foreach ($token in @(
+    "field.dirty",
+    "setValueString",
+    "drawDirty",
+    "refreshNeeded"
+)) {
+    if (-not $uiImplText.Contains($token)) {
+        throw "H3ER_UI_DIRTY_ENGINE_MISSING=$token"
+    }
+}
+Write-Host "H3ER_DISPLAY_DIRTY_ENGINE=PASS"
+
+foreach ($token in @(
+    "JWPLC_Display.setUserRefreshMode(",
+    "USER_REFRESH_ON_DEMAND",
+    "JWPLC_Display.setFields(",
+    "JWPLC_Display.setValue(",
+    "JWPLC_Display.setBool("
+)) {
+    if (-not $masterText.Contains($token)) {
+        throw "H3ER_MASTER_HMI_CONTRACT_MISSING=$token"
+    }
+}
+Write-Host "H3ER_MASTER_HMI_ON_DEMAND_DIRTY=PASS"
+
+foreach ($token in @(
+    "jwplcModbusTCPLoopServiceCallback();",
+    "jwplcDataLogTickCallback();",
+    "jwplcEthernetTickCallback();",
+    "jwplcSystemDisplayHook();"
+)) {
+    if (-not $coreMainText.Contains($token)) {
+        throw "H3ER_CORE_RUNTIME_HOOK_MISSING=$token"
+    }
+}
+Write-Host "H3ER_CORE_AUTO_SERVICES=PASS"
+
+foreach ($token in @(
+    "beginConnectAsync",
+    "pollConnectAsync",
+    "beginWriteAsync",
+    "pollWriteAsync",
+    "beginFlushAsync",
+    "pollFlushAsync",
+    "beginStopAsync",
+    "pollStopAsync"
+)) {
+    if (-not $ethernetClientText.Contains($token)) {
+        throw "H3ER_TCP_ASYNC_API_MISSING=$token"
+    }
+}
+Write-Host "H3ER_TCP_ASYNC_API_SET=PASS"
+
+if (-not $modbusTcpImplText.Contains("_client.write(_txBuffer, responseLength)")) {
+    throw "H3ER_MODBUS_TCP_RESPONSE_PATH_CHANGED_UNEXPECTEDLY"
+}
+if ($modbusTcpImplText.Contains("beginWriteAsync(")) {
+    throw "H3ER_MODBUS_TCP_ASYNC_TX_UNEXPECTED_FOR_P4_1_CAUSAL_GATE"
+}
+Write-Host "H3ER_TCP_ASYNC_CONNECT=PRESENT_NOT_EXERCISED_INBOUND_SERVER"
+Write-Host "H3ER_TCP_ASYNC_WRITE=PRESENT_NOT_INTEGRATED_IN_MODBUS_TCP"
+Write-Host "H3ER_TCP_ASYNC_FLUSH=PRESENT_NOT_USED_BY_MODBUS_TCP"
+Write-Host "H3ER_TCP_ASYNC_STOP=PRESENT_LEGACY_WRAPPER_USES_ASYNC_ENGINE"
+Write-Host "H3ER_MODBUS_TCP_TX_PATH=LEGACY_BLOCKING_WRITE"
+Write-Host "H3ER_MODBUS_TCP_ASYNC_INTEGRATION=DEFERRED_SEPARATE_VARIABLE_GATE"
+
+if (-not $modbusRtuPropsText.Contains("precompiled=full")) {
+    throw "H3ER_MODBUS_RTU_PRECOMPILED_POLICY_CHANGED"
+}
+Write-Host "H3ER_MODBUS_RTU_LINKAGE_POLICY=QUALIFIED_PRECOMPILED"
+
+foreach ($token in @(
+    "JWPLC_ModbusRTU.motor(ASYNC)",
+    "JWPLC_ModbusRTU.requestReadHoldingRegisters(",
+    "JWPLC_ModbusRTU.masterBusy()",
+    "JWPLC_ModbusRTU.masterDone()",
+    "JWPLC_ModbusRTU.task()"
+)) {
+    if (-not $masterText.Contains($token)) {
+        throw "H3ER_RTU_MASTER_ASYNC_CONTRACT_MISSING=$token"
+    }
+}
+
+foreach ($token in @(
+    "JWPLC_ModbusRTU.motor(ASYNC)",
+    "JWPLC_ModbusRTU.task()"
+)) {
+    if (-not $slaveText.Contains($token)) {
+        throw "H3ER_RTU_SLAVE_ASYNC_CONTRACT_MISSING=$token"
+    }
+}
+Write-Host "H3ER_RTU_ASYNC_SOURCE_CONTRACT=PASS"
 
 foreach ($token in @(
     "JWPLCDataLog sdDataLog",
@@ -186,12 +358,18 @@ if ($masterText.Contains("sdDataLog.service(") -or
     throw "H3ER_DATALOG_MANUAL_SERVICE_FORBIDDEN"
 }
 
+if (-not $coreMainText.Contains("jwplcDataLogTickCallback();")) {
+    throw "H3ER_DATALOG_AUTOSERVICE_CORE_MISSING"
+}
+
 if ($p5bText.Contains("JWPLC_W5500_RX_FIFO_REUSE=")) {
     throw "H3ER_P5B_MUST_NOT_OVERRIDE_FIFO_REUSE_DEFAULT"
 }
 
 Write-Host "H3ER_FIFO_REUSE_DEFAULT_CONTRACT=PASS"
+Write-Host "H3ER_DLEN_REUSE_DEFAULT_CONTRACT=PASS"
 Write-Host "H3ER_DATALOG_SOURCE_CONTRACT=PASS"
+Write-Host "H3ER_DATALOG_AUTOSERVICE=CORE_SYSTEM_TASK"
 Write-Host "H3ER_MANUAL_DATALOG_SERVICE=NO"
 
 $p5bArgs = @{
