@@ -186,6 +186,15 @@ private:
 		const uint8_t *buf,
 		uint16_t len,
 		uint32_t timeoutMs = 1000);
+	// JWPLC cooperative TCP SEND backend. begin copies the payload and emits
+	// SEND only when enough TX space exists. Return values:
+	// begin: -1 = error, 0 = no TX space, 1 = SEND issued;
+	// poll:  -1 = error/timeout/closed, 0 = pending, 1 = SEND_OK.
+	static int socketBeginSendTCP(
+		uint8_t s,
+		const uint8_t *buf,
+		uint16_t len);
+	static int socketPollSendTCP(uint8_t s);
 	static uint16_t socketSendAvailable(uint8_t s);
 	// Receive data (TCP)
 	static int socketRecv(uint8_t s, uint8_t * buf, int16_t len);
@@ -330,6 +339,17 @@ public:
 	bool flushAsyncInProgress() const;
 	void cancelFlushAsync();
 
+	// JWPLC cooperative TCP-write extension.
+	// begin/poll: -1 = failed/timeout, 0 = pending, 1 = SEND_OK.
+	// The caller must keep buf valid and unchanged while the engine waits for
+	// TX space. Once SEND has been issued, the W5500 owns its copied payload.
+	// Cancelling after SEND closes the socket so a stale SEND_OK cannot be
+	// consumed by a later write. Legacy write() remains blocking.
+	int beginWriteAsync(const uint8_t *buf, size_t size);
+	int pollWriteAsync();
+	bool writeAsyncInProgress() const;
+	void cancelWriteAsync();
+
 	virtual int availableForWrite(void);
 	virtual size_t write(uint8_t);
 	virtual size_t write(const uint8_t *buf, size_t size);
@@ -369,6 +389,10 @@ private:
 	uint32_t _stopStartedAtMs = 0;
 	bool _flushPending = false;
 	uint32_t _flushStartedAtMs = 0;
+	uint8_t _writeAsyncState = 0;
+	const uint8_t *_writeAsyncBuffer = nullptr;
+	uint16_t _writeAsyncLength = 0;
+	uint32_t _writeAsyncStartedAtMs = 0;
 };
 
 

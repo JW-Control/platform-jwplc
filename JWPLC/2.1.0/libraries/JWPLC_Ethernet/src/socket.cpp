@@ -733,6 +733,72 @@ uint16_t EthernetClass::socketSend(
 	return 0;
 }
 
+int EthernetClass::socketBeginSendTCP(
+	uint8_t s,
+	const uint8_t *buf,
+	uint16_t len)
+{
+	if (s >= MAX_SOCK_NUM || buf == nullptr || len == 0 || len > W5100.SSIZE) {
+		return -1;
+	}
+
+	SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
+
+	const uint8_t status = W5100.readSnSR(s);
+	uint16_t freeBytes = 0;
+	const bool stable = W5100.readSnTX_FSRStable(s, freeBytes);
+
+	if (!stable || (status != SnSR::ESTABLISHED && status != SnSR::CLOSE_WAIT)) {
+		SPI.endTransaction();
+		return -1;
+	}
+
+	if (freeBytes < len) {
+		SPI.endTransaction();
+		return 0;
+	}
+
+	W5100.writeSnIR(s, (uint8_t)(SnIR::SEND_OK | SnIR::TIMEOUT));
+	write_data(s, 0, buf, len);
+
+	const bool commandAccepted = W5100.execCmdSnChecked(s, Sock_SEND, 1000);
+	SPI.endTransaction();
+
+	return commandAccepted ? 1 : -1;
+}
+
+int EthernetClass::socketPollSendTCP(uint8_t s)
+{
+	if (s >= MAX_SOCK_NUM) {
+		return -1;
+	}
+
+	SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
+
+	const uint8_t interruptFlags = W5100.readSnIR(s);
+	const uint8_t status = W5100.readSnSR(s);
+
+	if ((interruptFlags & SnIR::SEND_OK) != 0) {
+		W5100.writeSnIR(s, SnIR::SEND_OK);
+		SPI.endTransaction();
+		return 1;
+	}
+
+	if ((interruptFlags & SnIR::TIMEOUT) != 0) {
+		W5100.writeSnIR(s, (uint8_t)(SnIR::SEND_OK | SnIR::TIMEOUT));
+		SPI.endTransaction();
+		return -1;
+	}
+
+	SPI.endTransaction();
+
+	if (status != SnSR::ESTABLISHED && status != SnSR::CLOSE_WAIT) {
+		return -1;
+	}
+
+	return 0;
+}
+
 uint16_t EthernetClass::socketSendAvailable(uint8_t s)
 {
 	uint8_t status=0;

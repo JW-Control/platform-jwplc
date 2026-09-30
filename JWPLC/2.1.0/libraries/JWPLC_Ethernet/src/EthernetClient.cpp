@@ -42,6 +42,7 @@ int EthernetClient::connect(const char * host, uint16_t port)
 int EthernetClient::beginConnectAsync(IPAddress ip, uint16_t port)
 {
 	// Una nueva conexiÃ³n invalida cualquier lifecycle cooperativo anterior.
+	cancelWriteAsync();
 	_stopPending = false;
 	_stopStartedAtMs = 0;
 	_flushPending = false;
@@ -152,9 +153,89 @@ size_t EthernetClient::write(uint8_t b)
 size_t EthernetClient::write(const uint8_t *buf, size_t size)
 {
 	if (_sockindex >= MAX_SOCK_NUM) return 0;
+	if (writeAsyncInProgress()) {
+		setWriteError();
+		return 0;
+	}
 	if (Ethernet.socketSend(_sockindex, buf, size, _timeout)) return size;
 	setWriteError();
 	return 0;
+}
+
+int EthernetClient::beginWriteAsync(const uint8_t *buf, size_t size)
+{
+	if (_writeAsyncState != 0 || _stopPending || _flushPending) return -1;
+	if (size == 0) return 1;
+	if (_sockindex >= MAX_SOCK_NUM || buf == nullptr ||
+		size > UINT16_MAX || size > W5100.SSIZE) {
+		return -1;
+	}
+
+	_writeAsyncBuffer = buf;
+	_writeAsyncLength = (uint16_t)size;
+	_writeAsyncStartedAtMs = millis();
+	_writeAsyncState = 1; // waiting for TX free space
+	return pollWriteAsync();
+}
+
+int EthernetClient::pollWriteAsync()
+{
+	if (_writeAsyncState == 0 || _sockindex >= MAX_SOCK_NUM) return -1;
+
+	if ((uint32_t)(millis() - _writeAsyncStartedAtMs) >= _timeout) {
+		cancelWriteAsync();
+		return -1;
+	}
+
+	if (_writeAsyncState == 1) {
+		const int state = Ethernet.socketBeginSendTCP(
+			_sockindex,
+			_writeAsyncBuffer,
+			_writeAsyncLength);
+
+		if (state < 0) {
+			_writeAsyncState = 0;
+			_writeAsyncBuffer = nullptr;
+			_writeAsyncLength = 0;
+			_writeAsyncStartedAtMs = 0;
+			return -1;
+		}
+
+		if (state == 0) return 0;
+
+		_writeAsyncState = 2; // payload copied; waiting for SEND_OK
+		_writeAsyncBuffer = nullptr;
+		return 0;
+	}
+
+	const int state = Ethernet.socketPollSendTCP(_sockindex);
+	if (state == 0) return 0;
+
+	_writeAsyncState = 0;
+	_writeAsyncBuffer = nullptr;
+	_writeAsyncLength = 0;
+	_writeAsyncStartedAtMs = 0;
+	return state;
+}
+
+bool EthernetClient::writeAsyncInProgress() const
+{
+	return _writeAsyncState != 0;
+}
+
+void EthernetClient::cancelWriteAsync()
+{
+	const bool sendWasIssued = _writeAsyncState == 2;
+
+	_writeAsyncState = 0;
+	_writeAsyncBuffer = nullptr;
+	_writeAsyncLength = 0;
+	_writeAsyncStartedAtMs = 0;
+
+	if (sendWasIssued && _sockindex < MAX_SOCK_NUM) {
+		Ethernet.socketClose(_sockindex);
+		_sockindex = MAX_SOCK_NUM;
+	}
 }
 
 int EthernetClient::available()
@@ -216,6 +297,9 @@ int EthernetClient::beginFlushAsync()
 
 	_flushPending = true;
 	_flushStartedAtMs = millis();
+	// Preserve a real cooperative boundary when a SEND is already pending.
+	// The first flush poll will advance that write and then verify TX_FSR.
+	if (writeAsyncInProgress()) return 0;
 	return pollFlushAsync();
 }
 
@@ -229,6 +313,16 @@ int EthernetClient::pollFlushAsync()
 		_flushPending = false;
 		_flushStartedAtMs = 0;
 		return 1;
+	}
+
+	if (writeAsyncInProgress()) {
+		const int writeState = pollWriteAsync();
+		if (writeState < 0) {
+			_flushPending = false;
+			_flushStartedAtMs = 0;
+			return -1;
+		}
+		if (writeState == 0) return 0;
 	}
 
 	const uint8_t stat = Ethernet.socketStatus(_sockindex);
@@ -276,6 +370,7 @@ void EthernetClient::flush()
 int EthernetClient::beginStopAsync()
 {
 	cancelFlushAsync();
+	cancelWriteAsync();
 
 	if (_sockindex >= MAX_SOCK_NUM) {
 		_stopPending = false;
@@ -341,6 +436,7 @@ bool EthernetClient::stopAsyncInProgress() const
 void EthernetClient::cancelStopAsync()
 {
 	cancelFlushAsync();
+	cancelWriteAsync();
 
 	if (_sockindex < MAX_SOCK_NUM) {
 		Ethernet.socketClose(_sockindex);
