@@ -11,10 +11,10 @@ v2.1.0-alpha.14/feature/modbus-tcp
 ## CURRENT_STATE
 
 ```text
-LAST_COMPLETED_GATE=H4A0.4-P9
-LAST_RESULT=PASS_DATA_ONLY_LARGER_BATCH_REJECTED_FAIRNESS
-CURRENT_GATE=A2
-CURRENT_ACTION=DESIGN_TCP_ASYNC_TX_WITHOUT_RX_CHANGES
+LAST_COMPLETED_GATE=A2
+LAST_RESULT=PASS_DATA_ONLY_FLUSH_PENDING_PATH_PASS
+CURRENT_GATE=S1
+CURRENT_ACTION=RUN_10MIN_ETHERNET_STABILITY_SOAK
 FIFO_REUSE_DEFAULT=OFF
 FIFO_REUSE_VALIDATED_PENDING_PHYSICAL=YES
 PHYSICAL_STABILITY=PENDING_USER
@@ -33,6 +33,7 @@ ALPHA14_CLOSED=NO
 | H4A0.4-P7 | commit inmediato | commit coalescido | 16.883698 | 9.727778 | +0.513% payload; +11.266% path RX | 0 | PASS | 0 | PENDING_USER | Rechazar: regresión path RX/hold SPI; pasar a socketStatus |
 | H4A0.4-P8 | doble connected() | resultado reutilizado en la misma pasada | 16.770394 | 14.129575 | −0.305% payload; −4.556% scheduler | 0 | PASS | 0 | PENDING_USER | Ganancia confirmada; pasar a batch raw |
 | H4A0.4-P9 | batch 8 | batch 16/32 | 16.834180 máx. | 14.913620 máx. | +0.176% payload; +84.099% hold máx. (16) | 0 | PASS | 0 | PENDING_USER | Rechazar 16/32 por fairness; cerrar RX |
+| A2 | `write()` legacy | TX cooperativo aditivo | — | — | begin máx. 2,536 us; poll máx. 124 us | 0 | PASS, 3 casos | 0 | PENDING_USER | `FLUSH_PENDING_PATH=PASS`; conservar API; abrir soak S1 |
 
 ## HEAD y commits de la sesión
 
@@ -59,6 +60,8 @@ de5cf907 docs(alpha14): registrar resultado P7 commit RX
 526690c2 test(alpha14): medir redundancia socketStatus TCP
 e968afdf docs(alpha14): registrar resultado P8 socketStatus
 abdb5ab0 test(alpha14): medir batch raw TCP RX
+5b309c98 docs(alpha14): cerrar P9 y comparar benchmarks
+a9471e13 feat(alpha14): agregar TX TCP asincrono cooperativo
 ```
 
 ## Gates ejecutados
@@ -310,6 +313,38 @@ docs/v2.1.0-alpha.14/A14_H4A04P9_RX_BATCH_RAW_20260929.md
 docs/v2.1.0-alpha.14/A14_ETHERNET_BENCHMARK_COMPARISON_20260929.md
 ```
 
+### A2
+
+```text
+APIS=beginWriteAsync/pollWriteAsync/writeAsyncInProgress/cancelWriteAsync
+LEGACY_WRITE_CHANGED=NO
+RX_CHANGED=NO
+NORMAL_INITIAL=PASS
+FLUSH_WITH_TX_PENDING=PASS
+CANCEL_AFTER_SEND=PASS
+PEER_CLOSE=PASS
+NATURAL_TIMEOUT=PASS
+NORMAL_AFTER_RECOVERY=PASS
+INTEGRITY_CASES_PASS=3
+BEGIN_WRITE_MAX=2536 us
+POLL_MAX=124 us
+FLUSH_POLL_MAX=88 us
+TCP_SPI_LOCK_ERRORS=0
+CORRUPTION_ERRORS=0
+DEVICE_RESETS=0
+LINK_FINAL=UP
+FLUSH_PENDING_PATH=PASS
+PHYSICAL_STABILITY=PENDING_USER
+```
+
+Evidencia:
+
+```text
+C:\Users\jeykc\AppData\Local\Temp\jwplc_a14_a2_tcp_tx_plj5fpl3
+C:\Users\jeykc\AppData\Local\Temp\jwplc_a14_a2_tcp_tx_plj5fpl3\case.log
+docs/v2.1.0-alpha.14/A14_A2_TCP_ASYNC_TX_20260930.md
+```
+
 ## Candidatos
 
 - Rechazado: commit TCP RX coalescido P7 por `+11.266%` en path RX,
@@ -352,11 +387,12 @@ P3R_TCP_MEDIAN=12.976148 Mbps
 
 No se extrapola un ceiling teórico nuevo.
 
-## Optimización restante
+## Trabajo restante
 
-1. diseñar TX async aditivo sin modificar RX;
-2. probar pending real, cancel, timeout, peer close y reconnect;
-3. cerrar `FLUSH_PENDING_PATH` con TX realmente pendiente.
+1. ejecutar soak Ethernet continuo de al menos 10 minutos;
+2. verificar integridad, 0 fallos SPI, 0 errores de transporte y 0 resets;
+3. cerrar recuperación tras conexión cerrada/reabierta;
+4. mantener la revisión física en `PENDING_USER`.
 
 ## Verificación física pendiente del usuario
 
@@ -376,11 +412,11 @@ PHYSICAL_STABILITY=PENDING_USER
 
 ## Comando exacto para continuar
 
-Para repetir el último gate cerrado mientras se prepara A2:
+Para repetir el último gate cerrado mientras se prepara S1:
 
 ```powershell
 $env:PYTHONPATH='C:\Users\jeykc\AppData\Local\Temp\jwplc-codex-pydeps'
-& 'C:\Users\jeykc\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -B `
-  tools\modbus-tcp-benchmark\gates\a14_h4a04p9_rx_batch_raw.py `
-  --defer-physical-review
+& 'C:\Users\jeykc\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -B -u `
+  tools\modbus-tcp-benchmark\gates\a14_a2_tcp_async_tx.py `
+  --serial COM14
 ```
