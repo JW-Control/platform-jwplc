@@ -259,10 +259,18 @@ def main() -> int:
     master = SerialPeer(args.master)
     slave = SerialPeer(args.slave)
     traffic: BidirectionalTraffic | None = None
+    master_open = False
+    slave_open = False
+    master_started = False
+    slave_started = False
+    master_cleanup_done = False
+    slave_cleanup_done = False
 
     try:
         slave.open()
+        slave_open = True
         master.open()
+        master_open = True
 
         slave_ready = wait_ready(
             slave,
@@ -288,11 +296,13 @@ def main() -> int:
         slave.command("START")
         slave_start = slave.read_until("S2_SLAVE_START=PASS", 3.0)
         print("S2_SLAVE_START=PASS")
+        slave_started = True
 
         master.ser.reset_input_buffer()
         master.command(f"START {args.duration}")
         master_start = master.read_until("S2_MASTER_START=PASS", 3.0)
         print("S2_MASTER_START=PASS")
+        master_started = True
 
         traffic = BidirectionalTraffic(dut_ip, 5002)
         traffic.connect()
@@ -346,6 +356,7 @@ def main() -> int:
 
         master.command("STOP")
         master.read_until("S2_MASTER_CLEANUP=PASS", 5.0)
+        master_cleanup_done = True
         print("S2_MASTER_CLEANUP=PASS")
 
         slave.ser.reset_input_buffer()
@@ -355,6 +366,8 @@ def main() -> int:
             8.0,
         )
         slave_values = parse_values(slave_result_text)
+
+        slave_cleanup_done = True
 
         if slave_values.get("S2_SLAVE_RESULT") != "PASS":
             raise RuntimeError(
@@ -458,6 +471,26 @@ def main() -> int:
     finally:
         if traffic is not None:
             traffic.abort()
+
+        # Best-effort cleanup is mandatory even when a later assertion fails.
+        # This restores the FRAM scratch backup and removes the temporary SD
+        # file while the backup is still alive in device RAM.
+        if master_open and master_started and not master_cleanup_done:
+            try:
+                master.ser.reset_input_buffer()
+                master.command("STOP")
+                master.read_until("S2_MASTER_CLEANUP=PASS", 3.0)
+            except Exception:
+                pass
+
+        if slave_open and slave_started and not slave_cleanup_done:
+            try:
+                slave.ser.reset_input_buffer()
+                slave.command("STOP")
+                slave.read_until(SLAVE_CASE_END, 4.0)
+            except Exception:
+                pass
+
         master.close()
         slave.close()
 
