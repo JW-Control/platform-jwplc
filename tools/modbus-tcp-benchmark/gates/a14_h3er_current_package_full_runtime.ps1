@@ -286,17 +286,25 @@ $p99Us =
 $maxUs =
     Get-H3ERDouble -Text $qualificationText -Key "LATENCY_MAX_US"
 
-$rtuHz =
-    Get-H3ERDouble -Text $qualificationText -Key "RTU_ACHIEVED_HZ"
-
 $rtuStarted =
-    Get-H3ERInt -Text $qualificationText -Key "RTU_REQUESTS_STARTED"
+    Get-H3ERInt -Text $masterTextResult -Key "RTU_REQUESTS_STARTED"
 
 $rtuSuccess =
-    Get-H3ERInt -Text $qualificationText -Key "RTU_REQUESTS_SUCCESS"
+    Get-H3ERInt -Text $masterTextResult -Key "RTU_REQUESTS_SUCCESS"
 
 $rtuSkipped =
-    Get-H3ERInt -Text $qualificationText -Key "RTU_PERIODS_SKIPPED"
+    Get-H3ERInt -Text $masterTextResult -Key "RTU_PERIODS_SKIPPED"
+
+$rtuDurationMs =
+    Get-H3ERInt -Text $masterTextResult -Key "RTU_TRAFFIC_DURATION_MS"
+
+if ($rtuDurationMs -le 0) {
+    throw "H3ER_RTU_DURATION_INVALID=$rtuDurationMs"
+}
+
+$rtuHz =
+    [double]$rtuSuccess /
+    ([double]$rtuDurationMs / 1000.0)
 
 $sdActive =
     Get-H3ERValue -Text $masterTextResult -Key "SD_DATALOG_ACTIVE"
