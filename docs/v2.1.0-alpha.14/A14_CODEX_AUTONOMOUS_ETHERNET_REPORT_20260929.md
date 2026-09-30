@@ -11,10 +11,10 @@ v2.1.0-alpha.14/feature/modbus-tcp
 ## CURRENT_STATE
 
 ```text
-LAST_COMPLETED_GATE=A2
-LAST_RESULT=PASS_DATA_ONLY_FLUSH_PENDING_PATH_PASS
-CURRENT_GATE=S1
-CURRENT_ACTION=RUN_10MIN_ETHERNET_STABILITY_SOAK
+LAST_COMPLETED_GATE=S1
+LAST_RESULT=PASS_DATA_ONLY_10MIN_ZERO_ERRORS
+CURRENT_GATE=S2_OPTIONAL
+CURRENT_ACTION=AUDIT_SHARED_SPI_PERIPHERAL_SOAK_ENVIRONMENT
 FIFO_REUSE_DEFAULT=OFF
 FIFO_REUSE_VALIDATED_PENDING_PHYSICAL=YES
 PHYSICAL_STABILITY=PENDING_USER
@@ -34,6 +34,7 @@ ALPHA14_CLOSED=NO
 | H4A0.4-P8 | doble connected() | resultado reutilizado en la misma pasada | 16.770394 | 14.129575 | −0.305% payload; −4.556% scheduler | 0 | PASS | 0 | PENDING_USER | Ganancia confirmada; pasar a batch raw |
 | H4A0.4-P9 | batch 8 | batch 16/32 | 16.834180 máx. | 14.913620 máx. | +0.176% payload; +84.099% hold máx. (16) | 0 | PASS | 0 | PENDING_USER | Rechazar 16/32 por fairness; cerrar RX |
 | A2 | `write()` legacy | TX cooperativo aditivo | — | — | begin máx. 2,536 us; poll máx. 124 us | 0 | PASS, 3 casos | 0 | PENDING_USER | `FLUSH_PENDING_PATH=PASS`; conservar API; abrir soak S1 |
+| S1 | A2 corto | TX persistente 600.002 s | — | 4.959973 | 371,999,232 bytes íntegros | 0 | PASS exacto | 0 | PENDING_USER | Aceptación automática de estabilidad PASS; auditar soak compartido opcional |
 
 ## HEAD y commits de la sesión
 
@@ -62,6 +63,8 @@ e968afdf docs(alpha14): registrar resultado P8 socketStatus
 abdb5ab0 test(alpha14): medir batch raw TCP RX
 5b309c98 docs(alpha14): cerrar P9 y comparar benchmarks
 a9471e13 feat(alpha14): agregar TX TCP asincrono cooperativo
+e17fce87 docs(alpha14): cerrar gate A2 TX asincrono
+766334b7 test(alpha14): agregar soak TX TCP de diez minutos
 ```
 
 ## Gates ejecutados
@@ -345,6 +348,35 @@ C:\Users\jeykc\AppData\Local\Temp\jwplc_a14_a2_tcp_tx_plj5fpl3\case.log
 docs/v2.1.0-alpha.14/A14_A2_TCP_ASYNC_TX_20260930.md
 ```
 
+### S1
+
+```text
+TRAFFIC_DURATION_MS=600002
+PERSISTENT_TCP_CONNECTION=YES
+WRITES_COMPLETED=242187
+BYTES_VERIFIED=371999232
+SUSTAINED_TCP_TX=4.959973 Mbps
+BEGIN_WRITE_MAX=3159 us
+POLL_WRITE_MAX=3258 us
+RECOVERY_BYTES=1271808
+RECOVERY_RECONNECT=PASS
+PAYLOAD_INTEGRITY=PASS
+CORRUPTION_ERRORS=0
+TCP_SPI_LOCK_ERRORS=0
+TRANSPORT_ERRORS=0
+DEVICE_RESETS=0
+LINK_FINAL=UP
+PHYSICAL_STABILITY=PENDING_USER
+```
+
+Evidencia:
+
+```text
+C:\Users\jeykc\AppData\Local\Temp\jwplc_a14_s1_tcp_soak_4o3x73a1
+C:\Users\jeykc\AppData\Local\Temp\jwplc_a14_s1_tcp_soak_4o3x73a1\case.log
+docs/v2.1.0-alpha.14/A14_S1_TCP_ASYNC_TX_SOAK_20260930.md
+```
+
 ## Candidatos
 
 - Rechazado: commit TCP RX coalescido P7 por `+11.266%` en path RX,
@@ -389,10 +421,11 @@ No se extrapola un ceiling teórico nuevo.
 
 ## Trabajo restante
 
-1. ejecutar soak Ethernet continuo de al menos 10 minutos;
-2. verificar integridad, 0 fallos SPI, 0 errores de transporte y 0 resets;
-3. cerrar recuperación tras conexión cerrada/reabierta;
-4. mantener la revisión física en `PENDING_USER`.
+1. auditar si el entorno permite el soak compartido opcional con actividad
+   real de otros periféricos SPI y tooling existente;
+2. ejecutar ese soak solo si no exige retirar autoload ni inventar hardware;
+3. mantener la revisión física en `PENDING_USER`;
+4. no cambiar candidatos OFF por default sin la revisión del usuario.
 
 ## Verificación física pendiente del usuario
 
@@ -412,11 +445,11 @@ PHYSICAL_STABILITY=PENDING_USER
 
 ## Comando exacto para continuar
 
-Para repetir el último gate cerrado mientras se prepara S1:
+Para repetir el último gate cerrado mientras se audita S2:
 
 ```powershell
 $env:PYTHONPATH='C:\Users\jeykc\AppData\Local\Temp\jwplc-codex-pydeps'
 & 'C:\Users\jeykc\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -B -u `
-  tools\modbus-tcp-benchmark\gates\a14_a2_tcp_async_tx.py `
-  --serial COM14
+  tools\modbus-tcp-benchmark\gates\a14_s1_tcp_async_tx_soak.py `
+  --serial COM14 --duration 600
 ```
