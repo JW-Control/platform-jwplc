@@ -35,9 +35,14 @@
 #define JWPLC_H4A04P8_REUSE_CONNECTED_RESULT 0
 #endif
 
+#ifndef JWPLC_H4A04P9_RX_MAX_CHUNKS
+#define JWPLC_H4A04P9_RX_MAX_CHUNKS 8
+#endif
+
 static constexpr uint16_t TCP_PORT = 5001;
 static constexpr size_t TCP_BUFFER_BYTES = 1024;
-static constexpr uint8_t TCP_RX_MAX_CHUNKS_PER_LOCK = 8;
+static constexpr uint8_t TCP_RX_MAX_CHUNKS_PER_LOCK =
+    JWPLC_H4A04P9_RX_MAX_CHUNKS;
 
 enum BenchMode : uint8_t
 {
@@ -191,6 +196,9 @@ static void printSnapshot()
 
     Serial.print("MODE=");
     Serial.println(modeName());
+
+    Serial.print("TCP_RX_MAX_CHUNKS_PER_LOCK=");
+    Serial.println(TCP_RX_MAX_CHUNKS_PER_LOCK);
 
     Serial.print("TCP_RX_FROZEN=");
     Serial.println(tcpRxFrozen ? "YES" : "NO");

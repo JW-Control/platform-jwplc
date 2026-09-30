@@ -138,6 +138,7 @@ def main() -> int:
     parser.add_argument("--serial", default="COM14")
     parser.add_argument("--duration", type=float, default=15.0)
     parser.add_argument("--chunk", type=int, default=4096)
+    parser.add_argument("--max-chunks", type=int, default=8)
     parser.add_argument(
         "--variant",
         choices=("BASE", "PROFILE"),
@@ -157,6 +158,8 @@ def main() -> int:
         raise SystemExit("H4A04P1_DURATION_MUST_BE_POSITIVE")
     if args.chunk != 4096:
         raise SystemExit("H4A04P1_TCP_CHUNK_MUST_BE_4096")
+    if args.max_chunks not in (8, 16, 32):
+        raise SystemExit("H4A04P1_RX_MAX_CHUNKS_MUST_BE_8_16_OR_32")
 
     print("=" * 72)
     print(" A14 H4A0.4-P1 - PACKAGE-FIRST TCP RX CASE")
@@ -165,7 +168,7 @@ def main() -> int:
     print(f"H4A04P1_SERIAL={args.serial}")
     print(f"H4A04P1_DURATION_TARGET_S={args.duration}")
     print(f"H4A04P1_TCP_CHUNK={args.chunk}")
-    print("H4A04P1_TCP_RX_MAX_CHUNKS_PER_LOCK=8")
+    print(f"H4A04P1_TCP_RX_MAX_CHUNKS_PER_LOCK={args.max_chunks}")
     print("H4A04P1_STOP_BARRIER=SERIAL_FREEZE_NO_RESET")
     print("H4A04P1_PRODUCT_SOURCE=JWPLC/2.1.0_CANONICAL_PACKAGE")
 
@@ -178,6 +181,16 @@ def main() -> int:
 
         print(f"H4A04P1_DUT_IP={host}")
         print("H4A04P1_DUT_READY=PASS")
+
+        actual_max_chunks = intval(
+            ready,
+            "TCP_RX_MAX_CHUNKS_PER_LOCK",
+        )
+        if actual_max_chunks != args.max_chunks:
+            raise RuntimeError(
+                "H4A04P1_RX_MAX_CHUNKS_MISMATCH "
+                f"EXPECTED={args.max_chunks} ACTUAL={actual_max_chunks}"
+            )
 
         expected_profile = (
             "YES"

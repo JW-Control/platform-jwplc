@@ -160,6 +160,7 @@ def run_case(
     variant_arg: str,
     log: Path,
     prepare_next_reconnect: bool = False,
+    max_chunks: int = 8,
 ) -> str:
     cmd = [
         sys.executable,
@@ -172,6 +173,8 @@ def run_case(
         f"{duration_s:.1f}",
         "--chunk",
         "4096",
+        "--max-chunks",
+        str(max_chunks),
         "--variant",
         variant_arg,
     ]
