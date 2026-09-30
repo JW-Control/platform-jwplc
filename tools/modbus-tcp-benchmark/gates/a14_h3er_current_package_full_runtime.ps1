@@ -239,7 +239,6 @@ Write-Host "H3ER_TFT_BACKEND=TFT_ESPI_PRIVATE"
 Write-Host "H3ER_TFT_SPI_HZ=80000000"
 
 foreach ($token in @(
-    "USER_REFRESH_ON_DEMAND",
     "jwplcUIRuntimeDrawDirty",
     "jwplcUserDisplayRefreshNeededCallback"
 )) {
@@ -249,6 +248,7 @@ foreach ($token in @(
 }
 
 foreach ($token in @(
+    "USER_REFRESH_ON_DEMAND",
     "field.dirty",
     "setValueString",
     "drawDirty",
