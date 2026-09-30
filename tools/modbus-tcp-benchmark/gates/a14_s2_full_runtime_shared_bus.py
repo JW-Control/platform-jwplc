@@ -91,20 +91,25 @@ def compile_role(
     build_dir: Path,
     role_master: bool,
     sd_mode_datalog: bool,
+    fifo_mode: str,
     log: Path,
 ) -> None:
     role = "MASTER" if role_master else "SLAVE"
     role_value = "1" if role_master else "0"
     sd_mode_value = "1" if (role_master and sd_mode_datalog) else "0"
 
-    extra_flags = " ".join(
-        (
-            f"-DJWPLC_S2_ROLE_MASTER={role_value}",
-            f"-DJWPLC_S2_SD_MODE_DATALOG={sd_mode_value}",
-            "-DJWPLC_W5500_RX_FIFO_REUSE=1",
-            "-DJWPLC_W5500_RX_DIRECT_TRANSFER_BYTES=0",
-        )
-    )
+    extra_flag_parts = [
+        f"-DJWPLC_S2_ROLE_MASTER={role_value}",
+        f"-DJWPLC_S2_SD_MODE_DATALOG={sd_mode_value}",
+        "-DJWPLC_W5500_RX_DIRECT_TRANSFER_BYTES=0",
+    ]
+
+    if fifo_mode == "force-on":
+        extra_flag_parts.append("-DJWPLC_W5500_RX_FIFO_REUSE=1")
+    elif fifo_mode != "default":
+        raise RuntimeError(f"S2_UNKNOWN_FIFO_MODE={fifo_mode}")
+
+    extra_flags = " ".join(extra_flag_parts)
 
     result = run(
         [
@@ -133,10 +138,9 @@ def compile_role(
 
     normalized = decode(result.stdout).replace("\\", "/").lower()
 
-    required = (
+    required = [
         f"-djwplc_s2_role_master={role_value}",
         f"-djwplc_s2_sd_mode_datalog={sd_mode_value}",
-        "-djwplc_w5500_rx_fifo_reuse=1",
         "-djwplc_w5500_rx_direct_transfer_bytes=0",
         "ethernetclient.cpp",
         "socket.cpp",
@@ -144,7 +148,15 @@ def compile_role(
         "spi.cpp",
         "jwplc_idlescreen.cpp",
         "jwplc_tft.cpp",
-    )
+    ]
+
+    if fifo_mode == "force-on":
+        required.append("-djwplc_w5500_rx_fifo_reuse=1")
+    else:
+        if "-djwplc_w5500_rx_fifo_reuse=" in normalized:
+            raise RuntimeError(
+                f"S2_{role}_FIFO_DEFAULT_WAS_OVERRIDDEN"
+            )
 
     for token in required:
         ok = token in normalized
@@ -220,13 +232,33 @@ def main() -> int:
         help="Política SD del Master; direct reproduce S2, datalog usa JWPLCDataLog.",
     )
     parser.add_argument(
+        "--fifo-mode",
+        choices=("force-on", "default"),
+        default="force-on",
+        help="force-on reproduce gates previos; default prueba el comportamiento promovido del package.",
+    )
+    parser.add_argument(
+        "--promotion-short",
+        action="store_true",
+        help="Permite duración de 120 s para revalidación corta de promoción.",
+    )
+    parser.add_argument(
         "--defer-physical-review",
         action="store_true",
     )
     args = parser.parse_args()
 
-    if args.duration < 600:
-        raise RuntimeError("S2_DURATION_MUST_BE_AT_LEAST_600_SECONDS")
+    minimum_duration = 120 if args.promotion_short else 600
+    if args.duration < minimum_duration:
+        raise RuntimeError(
+            f"S2_DURATION_MUST_BE_AT_LEAST_{minimum_duration}_SECONDS"
+        )
+
+    if args.promotion_short:
+        if args.sd_mode != "datalog":
+            raise RuntimeError("S2_PROMOTION_SHORT_REQUIRES_DATALOG")
+        if args.fifo_mode != "default":
+            raise RuntimeError("S2_PROMOTION_SHORT_REQUIRES_FIFO_DEFAULT")
 
     repo = Path(__file__).resolve().parents[3]
     sketch = (
@@ -265,13 +297,18 @@ def main() -> int:
     emit("S2_SLAVE_PORT", args.slave)
     emit("S2_DURATION_S", args.duration)
     emit("S2_SD_MODE_REQUESTED", args.sd_mode.upper())
+    emit("S2_FIFO_MODE_REQUESTED", args.fifo_mode.upper().replace("-", "_"))
+    emit("S2_PROMOTION_SHORT", "YES" if args.promotion_short else "NO")
     emit(
         "S2_ONLY_VARIABLE",
         "SD_ACCESS_POLICY" if args.sd_mode == "datalog" else "BASELINE_DIRECT_SD",
     )
     emit("S2_MODBUS_PROFILE", "115200_8N1_SLAVE_ID_2")
     emit("S2_ETH_SPI_HZ", 26000000)
-    emit("S2_FIFO_REUSE", "ON_FOR_GATE")
+    emit(
+        "S2_FIFO_REUSE",
+        "PACKAGE_DEFAULT" if args.fifo_mode == "default" else "ON_FOR_GATE",
+    )
     emit("S2_DIRECT_RX", "OFF")
     emit("S2_RX_BATCH_POLICY", "FAIRNESS_CONSERVATIVE")
     emit("S2_MODBUS_FUNCTIONS", "FC15_FC01_FC02")
@@ -326,6 +363,7 @@ def main() -> int:
         build_dir=slave_build,
         role_master=False,
         sd_mode_datalog=False,
+        fifo_mode=args.fifo_mode,
         log=result_root / "compile_slave.log",
     )
     compile_role(
@@ -337,6 +375,7 @@ def main() -> int:
         build_dir=master_build,
         role_master=True,
         sd_mode_datalog=(args.sd_mode == "datalog"),
+        fifo_mode=args.fifo_mode,
         log=result_root / "compile_master.log",
     )
 
@@ -524,8 +563,8 @@ def main() -> int:
                 f"MASTER_MAX_LOOP_US={one(case_text, 'S2_MAX_LOOP_US')}",
                 f"SLAVE_MAX_LOOP_US={one(case_text, 'S2_SLAVE_MAX_LOOP_US')}",
                 f"PHYSICAL_STABILITY={physical}",
-                "FIFO_REUSE_GATE=ON",
-                "FIFO_REUSE_DEFAULT=OFF",
+                f"FIFO_REUSE_GATE={args.fifo_mode}",
+                "FIFO_REUSE_DEFAULT=ON",
                 "HARNESS_FAILURE=NO",
                 "PRODUCT_FAILURE=NO_EVIDENCE",
                 "HARDWARE_FAILURE=NO_EVIDENCE",
@@ -546,6 +585,8 @@ def main() -> int:
     emit("PRODUCT_FAILURE", "NO_EVIDENCE")
     emit("HARDWARE_FAILURE", "NO_EVIDENCE")
     emit("A14_S2_FULL_RUNTIME_SHARED_BUS", gate)
+    if args.promotion_short:
+        emit("A14_FIFO_REUSE_DEFAULT_PROMOTION", gate)
     if args.sd_mode == "datalog":
         emit("A14_S2D_DATALOG_FULL_RUNTIME", gate)
         emit("NEXT", "RETURN_TO_CHAT_COMPARE_DATALOG_JITTER")
