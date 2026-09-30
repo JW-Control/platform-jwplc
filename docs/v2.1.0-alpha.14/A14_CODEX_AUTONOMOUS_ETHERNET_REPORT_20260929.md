@@ -11,10 +11,10 @@ v2.1.0-alpha.14/feature/modbus-tcp
 ## CURRENT_STATE
 
 ```text
-LAST_COMPLETED_GATE=H4A0.4-P8
-LAST_RESULT=PASS_DATA_ONLY_SINGLE_STATUS_GAIN_CONFIRMED
-CURRENT_GATE=H4A0.4-P9
-CURRENT_ACTION=DESIGN_RX_BATCH_RAW_8_16_32_GATE
+LAST_COMPLETED_GATE=H4A0.4-P9
+LAST_RESULT=PASS_DATA_ONLY_LARGER_BATCH_REJECTED_FAIRNESS
+CURRENT_GATE=A2
+CURRENT_ACTION=DESIGN_TCP_ASYNC_TX_WITHOUT_RX_CHANGES
 FIFO_REUSE_DEFAULT=OFF
 FIFO_REUSE_VALIDATED_PENDING_PHYSICAL=YES
 PHYSICAL_STABILITY=PENDING_USER
@@ -32,6 +32,7 @@ ALPHA14_CLOSED=NO
 | H4A0.4-P6 | available()+read() | read() directo | 16.853677 | 13.424499 | +0.348% payload; −0.887% path RX | 0 | PASS | 0 | PENDING_USER | Efecto pequeño/inconcluso; pasar a commit RX |
 | H4A0.4-P7 | commit inmediato | commit coalescido | 16.883698 | 9.727778 | +0.513% payload; +11.266% path RX | 0 | PASS | 0 | PENDING_USER | Rechazar: regresión path RX/hold SPI; pasar a socketStatus |
 | H4A0.4-P8 | doble connected() | resultado reutilizado en la misma pasada | 16.770394 | 14.129575 | −0.305% payload; −4.556% scheduler | 0 | PASS | 0 | PENDING_USER | Ganancia confirmada; pasar a batch raw |
+| H4A0.4-P9 | batch 8 | batch 16/32 | 16.834180 máx. | 14.913620 máx. | +0.176% payload; +84.099% hold máx. (16) | 0 | PASS | 0 | PENDING_USER | Rechazar 16/32 por fairness; cerrar RX |
 
 ## HEAD y commits de la sesión
 
@@ -56,6 +57,8 @@ d13df201 test(alpha14): medir fusión TCP available read
 3a043347 test(alpha14): aislar reconexiones P7
 de5cf907 docs(alpha14): registrar resultado P7 commit RX
 526690c2 test(alpha14): medir redundancia socketStatus TCP
+e968afdf docs(alpha14): registrar resultado P8 socketStatus
+abdb5ab0 test(alpha14): medir batch raw TCP RX
 ```
 
 ## Gates ejecutados
@@ -271,6 +274,42 @@ C:\Users\jeykc\AppData\Local\Temp\jwplc_a14_h4a04p8_socket_status_sib9cl9k\SUMMA
 docs/v2.1.0-alpha.14/A14_H4A04P8_SOCKET_STATUS_REDUNDANCY_20260929.md
 ```
 
+### H4A0.4-P9
+
+```text
+ONLY_VARIABLE=TCP_RX_MAX_CHUNKS_PER_SPI_OWNERSHIP
+BATCH8_TCP=13.109531 Mbps
+BATCH16_TCP=14.913620 Mbps
+BATCH32_TCP=14.699033 Mbps
+BATCH8_PAYLOAD=16.804584 Mbps
+BATCH16_PAYLOAD=16.834180 Mbps
+BATCH32_PAYLOAD=16.824562 Mbps
+BATCH8_HOLD_MAX=5138 us
+BATCH16_HOLD_MAX=9459 us
+BATCH32_HOLD_MAX=18134 us
+BATCH16_VS_8_HOLD_MAX=+84.099%
+BATCH32_VS_8_HOLD_MAX=+252.939%
+PAYLOAD_REPEATABILITY_OK=False
+PAYLOAD_INTEGRITY=PASS
+RECONNECT_CASE_1=PASS
+RECONNECT_CASE_2=PASS
+TCP_SPI_LOCK_ERRORS=0
+TRANSPORT_ERRORS=0
+UNEXPECTED_RESETS=0
+AUTO_PROMOTION=NO
+LARGER_BATCH_DECISION=REJECT_FOR_PROMOTION_FAIRNESS
+PHYSICAL_STABILITY=PENDING_USER
+```
+
+Evidencia:
+
+```text
+C:\Users\jeykc\AppData\Local\Temp\jwplc_a14_h4a04p9_rx_batch_nwemy_7g
+C:\Users\jeykc\AppData\Local\Temp\jwplc_a14_h4a04p9_rx_batch_nwemy_7g\SUMMARY.log
+docs/v2.1.0-alpha.14/A14_H4A04P9_RX_BATCH_RAW_20260929.md
+docs/v2.1.0-alpha.14/A14_ETHERNET_BENCHMARK_COMPARISON_20260929.md
+```
+
 ## Candidatos
 
 - Rechazado: commit TCP RX coalescido P7 por `+11.266%` en path RX,
@@ -280,6 +319,8 @@ docs/v2.1.0-alpha.14/A14_H4A04P8_SOCKET_STATUS_REDUNDANCY_20260929.md
   `JWPLC_W5500_RX_FIFO_REUSE=1` por P3/P3R.
 - Validado en el scheduler del profiler, pendiente de revisión física:
   reutilizar el resultado de `connected()` solo dentro de la misma pasada P8.
+- Rechazados: batch RX 16/32 por aumentar hold máximo `+84.099%` y
+  `+252.939%`, respectivamente.
 - Aún OFF: `JWPLC_W5500_RX_FIFO_REUSE`,
   `JWPLC_W5500_RX_DIRECT_TRANSFER_BYTES`.
 
@@ -301,7 +342,10 @@ El runner válido usó el Python del workspace y `pyserial==3.5` aislado en
 El mayor payload efectivo confirmado en esta sesión es:
 
 ```text
-MEASURED_PAYLOAD_CEILING=16.804 Mbps
+MEASURED_REPEATABLE_PAYLOAD_CEILING=16.804 Mbps
+OBSERVED_EXPERIMENTAL_PAYLOAD_CEILING=16.834180 Mbps
+OBSERVED_EXPERIMENTAL_TCP_CEILING=14.913620 Mbps
+DEFENSIBLE_P8_TCP=14.129575 Mbps
 P3R_CONFIRMED_PAYLOAD=16.785 Mbps
 P3R_TCP_MEDIAN=12.976148 Mbps
 ```
@@ -310,9 +354,9 @@ No se extrapola un ceiling teórico nuevo.
 
 ## Optimización restante
 
-1. medir batch raw 8/16/32 con hold máximo y fairness;
-2. evaluar topología de buffer RX solo si el ceiling justifica el riesgo;
-3. abordar TX async después de cerrar el frente RX.
+1. diseñar TX async aditivo sin modificar RX;
+2. probar pending real, cancel, timeout, peer close y reconnect;
+3. cerrar `FLUSH_PENDING_PATH` con TX realmente pendiente.
 
 ## Verificación física pendiente del usuario
 
@@ -332,11 +376,11 @@ PHYSICAL_STABILITY=PENDING_USER
 
 ## Comando exacto para continuar
 
-Para repetir el último gate cerrado mientras se prepara P9:
+Para repetir el último gate cerrado mientras se prepara A2:
 
 ```powershell
 $env:PYTHONPATH='C:\Users\jeykc\AppData\Local\Temp\jwplc-codex-pydeps'
 & 'C:\Users\jeykc\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -B `
-  tools\modbus-tcp-benchmark\gates\a14_h4a04p8_socket_status_ab.py `
+  tools\modbus-tcp-benchmark\gates\a14_h4a04p9_rx_batch_raw.py `
   --defer-physical-review
 ```
