@@ -22,7 +22,10 @@
 #endif
 
 #ifndef JWPLC_W5500_RX_FIFO_REUSE
-#define JWPLC_W5500_RX_FIFO_REUSE 0
+// Alpha14: promoted after P3/P3R plus S2/S2D full-runtime validation.
+// Reuses the already loaded SPI TX FIFO contents for W5500 read clocks,
+// avoiding a redundant dummy refill per 64-byte RX chunk.
+#define JWPLC_W5500_RX_FIFO_REUSE 1
 #endif
 
 // Safe for all chips
