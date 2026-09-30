@@ -1095,6 +1095,9 @@ void loop()
 
     serviceFram();
     serviceRtc();
+#if JWPLC_S2_ROLE_MASTER
+    serviceSd();
+#endif
     serviceInputsButtons();
     serviceDisplay();
 
