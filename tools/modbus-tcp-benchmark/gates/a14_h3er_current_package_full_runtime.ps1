@@ -24,11 +24,27 @@ function Get-H3ERValue {
     [object[]]$matches =
         @([regex]::Matches($Text, $pattern))
 
-    if ($matches.Count -ne 1) {
-        throw ("H3ER_KEY_COUNT_INVALID={0}:{1}" -f $Key, $matches.Count)
+    if ($matches.Count -lt 1) {
+        throw ("H3ER_KEY_MISSING={0}" -f $Key)
     }
 
-    return $matches[0].Groups[1].Value.Trim()
+    [string[]]$values = @(
+        $matches |
+            ForEach-Object {
+                $_.Groups[1].Value.Trim()
+            } |
+            Select-Object -Unique
+    )
+
+    if ($values.Count -ne 1) {
+        throw (
+            "H3ER_KEY_VALUES_CONFLICT={0}:{1}" -f
+            $Key,
+            ($values -join ",")
+        )
+    }
+
+    return $values[0]
 }
 
 function Get-H3ERDouble {
