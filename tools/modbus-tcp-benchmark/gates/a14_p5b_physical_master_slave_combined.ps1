@@ -3,6 +3,7 @@ param(
     [string]$SlavePort = "COM4",
     [double]$TcpRate = 1000.0,
     [double]$DurationS = 60.0,
+    [string]$PythonExe = "",
     [switch]$SetupOnly,
     [switch]$AllowDirtyCoreCandidate,
     [switch]$AllowMissingModbusRtuArchiveCandidate
@@ -168,17 +169,28 @@ if ($SlavePort -notin $ports) {
     throw "P5B_SLAVE_COM_NOT_PRESENT"
 }
 
-$pythonCommand = Get-Command python.exe -ErrorAction SilentlyContinue
+if (-not [string]::IsNullOrWhiteSpace($PythonExe)) {
+    if (-not (Test-Path -LiteralPath $PythonExe)) {
+        throw "P5B_PYTHON_EXPLICIT_NOT_FOUND=$PythonExe"
+    }
 
-if ($null -eq $pythonCommand) {
-    $pythonCommand = Get-Command python -ErrorAction SilentlyContinue
+    $pythonExe = (Resolve-Path -LiteralPath $PythonExe).Path
+}
+else {
+    $pythonCommand = Get-Command python.exe -ErrorAction SilentlyContinue
+
+    if ($null -eq $pythonCommand) {
+        $pythonCommand = Get-Command python -ErrorAction SilentlyContinue
+    }
+
+    if ($null -eq $pythonCommand) {
+        throw "P5B_PYTHON_NOT_FOUND"
+    }
+
+    $pythonExe = $pythonCommand.Source
 }
 
-if ($null -eq $pythonCommand) {
-    throw "P5B_PYTHON_NOT_FOUND"
-}
-
-$pythonExe = $pythonCommand.Source
+Write-Host "PYTHON_EXE=$pythonExe"
 
 $arduinoCli = "C:\Program Files\Arduino PLC IDE Tools\arduino-cli.exe"
 
