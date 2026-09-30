@@ -188,8 +188,8 @@ def main() -> int:
     )
 
     require(
-        "#define JWPLC_W5500_RX_FIFO_REUSE 0" in w5100,
-        "ETH_W5500_FIFO_REUSE_DEFAULT_OFF",
+        "#define JWPLC_W5500_RX_FIFO_REUSE 1" in w5100,
+        "ETH_W5500_FIFO_REUSE_DEFAULT_ON",
     )
     require(
         "SPI.jwplcReadBytesReuseFifo(buf, len);" in w5100_impl
