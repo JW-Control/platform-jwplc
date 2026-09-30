@@ -420,13 +420,21 @@ $qualificationLog =
 $masterSnapshot =
     Join-Path $tempRoot "master_final.txt"
 
+$slaveSnapshot =
+    Join-Path $tempRoot "slave_final.txt"
+
 $masterCompileLog =
     Join-Path $tempRoot "compile_master.log"
+
+$slaveCompileLog =
+    Join-Path $tempRoot "compile_slave.log"
 
 foreach ($required in @(
     $qualificationLog,
     $masterSnapshot,
-    $masterCompileLog
+    $slaveSnapshot,
+    $masterCompileLog,
+    $slaveCompileLog
 )) {
     if (-not (Test-Path -LiteralPath $required)) {
         throw "H3ER_REQUIRED_RESULT_MISSING=$required"
@@ -438,6 +446,9 @@ $qualificationText =
 
 $masterTextResult =
     [IO.File]::ReadAllText($masterSnapshot)
+
+$slaveTextResult =
+    [IO.File]::ReadAllText($slaveSnapshot)
 
 foreach ($requiredLine in @(
     "TCP_FULL_RUNTIME_PASS=YES",
@@ -521,6 +532,79 @@ $sdFailed =
 $peripheralFailures =
     Get-H3ERInt -Text $masterTextResult -Key "PERIPHERAL_FAILURE_COUNT"
 
+$masterRtuMotor =
+    Get-H3ERValue -Text $masterTextResult -Key "RTU_MOTOR"
+$masterRtuTxMode =
+    Get-H3ERValue -Text $masterTextResult -Key "RTU_TX_MODE"
+$masterRtuQueuedActive =
+    Get-H3ERValue -Text $masterTextResult -Key "RTU_TX_QUEUED_ACTIVE"
+$masterRtuRxMode =
+    Get-H3ERValue -Text $masterTextResult -Key "RTU_RX_MODE"
+$masterRtuCrcMode =
+    Get-H3ERValue -Text $masterTextResult -Key "RTU_CRC_MODE"
+$masterRtuFraming =
+    Get-H3ERValue -Text $masterTextResult -Key "RTU_SERVER_FRAMING"
+
+$slaveRtuMotor =
+    Get-H3ERValue -Text $slaveTextResult -Key "RTU_MOTOR"
+$slaveRtuTxMode =
+    Get-H3ERValue -Text $slaveTextResult -Key "RTU_TX_MODE"
+$slaveRtuQueuedActive =
+    Get-H3ERValue -Text $slaveTextResult -Key "RTU_TX_QUEUED_ACTIVE"
+$slaveRtuRxMode =
+    Get-H3ERValue -Text $slaveTextResult -Key "RTU_RX_MODE"
+$slaveRtuCrcMode =
+    Get-H3ERValue -Text $slaveTextResult -Key "RTU_CRC_MODE"
+$slaveRtuFraming =
+    Get-H3ERValue -Text $slaveTextResult -Key "RTU_SERVER_FRAMING"
+
+$masterDisplayMode =
+    Get-H3ERValue -Text $masterTextResult -Key "DISPLAY_RENDER_MODE"
+$masterDisplayRefresh =
+    Get-H3ERValue -Text $masterTextResult -Key "DISPLAY_REFRESH_MODE"
+
+$slaveDisplayMode =
+    Get-H3ERValue -Text $slaveTextResult -Key "DISPLAY_RENDER_MODE"
+$slaveDisplayRefresh =
+    Get-H3ERValue -Text $slaveTextResult -Key "DISPLAY_REFRESH_MODE"
+
+foreach ($item in @(
+    [PSCustomObject]@{ Key = "MASTER_RTU_MOTOR"; Value = $masterRtuMotor; Expected = "ASYNC" },
+    [PSCustomObject]@{ Key = "MASTER_RTU_TX_MODE"; Value = $masterRtuTxMode; Expected = "QUEUED" },
+    [PSCustomObject]@{ Key = "MASTER_RTU_TX_QUEUED_ACTIVE"; Value = $masterRtuQueuedActive; Expected = "YES" },
+    [PSCustomObject]@{ Key = "SLAVE_RTU_MOTOR"; Value = $slaveRtuMotor; Expected = "ASYNC" },
+    [PSCustomObject]@{ Key = "SLAVE_RTU_TX_MODE"; Value = $slaveRtuTxMode; Expected = "QUEUED" },
+    [PSCustomObject]@{ Key = "SLAVE_RTU_TX_QUEUED_ACTIVE"; Value = $slaveRtuQueuedActive; Expected = "YES" },
+    [PSCustomObject]@{ Key = "MASTER_DISPLAY_MODE"; Value = $masterDisplayMode; Expected = "HMI_ON_DEMAND_DIRTY" },
+    [PSCustomObject]@{ Key = "MASTER_DISPLAY_REFRESH"; Value = $masterDisplayRefresh; Expected = "USER_REFRESH_ON_DEMAND" },
+    [PSCustomObject]@{ Key = "SLAVE_DISPLAY_MODE"; Value = $slaveDisplayMode; Expected = "HMI_ON_DEMAND_DIRTY" },
+    [PSCustomObject]@{ Key = "SLAVE_DISPLAY_REFRESH"; Value = $slaveDisplayRefresh; Expected = "USER_REFRESH_ON_DEMAND" }
+)) {
+    if ($item.Value -ne $item.Expected) {
+        throw ("H3ER_RUNTIME_COMPOSITION_MISMATCH_{0}={1}" -f $item.Key, $item.Value)
+    }
+}
+
+# Estos modos permanecen deliberadamente en el baseline seguro de producto.
+# BULK/LOOKUP/STRUCTURAL fueron candidatos experimentales y no se promocionan
+# silenciosamente dentro de una regresión P4.1.
+foreach ($item in @(
+    [PSCustomObject]@{ Key = "MASTER_RTU_RX_MODE"; Value = $masterRtuRxMode; Expected = "BYTE" },
+    [PSCustomObject]@{ Key = "MASTER_RTU_CRC_MODE"; Value = $masterRtuCrcMode; Expected = "BITWISE" },
+    [PSCustomObject]@{ Key = "MASTER_RTU_FRAMING"; Value = $masterRtuFraming; Expected = "GAP" },
+    [PSCustomObject]@{ Key = "SLAVE_RTU_RX_MODE"; Value = $slaveRtuRxMode; Expected = "BYTE" },
+    [PSCustomObject]@{ Key = "SLAVE_RTU_CRC_MODE"; Value = $slaveRtuCrcMode; Expected = "BITWISE" },
+    [PSCustomObject]@{ Key = "SLAVE_RTU_FRAMING"; Value = $slaveRtuFraming; Expected = "GAP" }
+)) {
+    if ($item.Value -ne $item.Expected) {
+        throw ("H3ER_SAFE_RTU_BASELINE_CHANGED_{0}={1}" -f $item.Key, $item.Value)
+    }
+}
+
+Write-Host "H3ER_RTU_ASYNC_RUNTIME=PASS"
+Write-Host "H3ER_RTU_SAFE_BASELINE=BYTE_BITWISE_GAP"
+Write-Host "H3ER_DISPLAY_RUNTIME_DIRTY=PASS"
+
 if ($requestedReqS -ne 1000.0) {
     throw "H3ER_REQUESTED_RATE_CHANGED=$requestedReqS"
 }
@@ -564,9 +648,67 @@ if ($peripheralFailures -ne 0) {
 $compileText =
     [IO.File]::ReadAllText($masterCompileLog)
 
+$slaveCompileText =
+    [IO.File]::ReadAllText($slaveCompileLog)
+
+$compileNormalized =
+    $compileText.Replace("\", "/").ToLowerInvariant()
+
+$slaveCompileNormalized =
+    $slaveCompileText.Replace("\", "/").ToLowerInvariant()
+
 if ($compileText -match '(?i)-DJWPLC_W5500_RX_FIFO_REUSE=') {
     throw "H3ER_FIFO_REUSE_WAS_OVERRIDDEN_AT_BUILD"
 }
+
+if ($compileText -match '(?i)-DJWPLC_SPI_FIFO_REUSE_DLEN_CACHE=') {
+    throw "H3ER_DLEN_REUSE_WAS_OVERRIDDEN_AT_BUILD"
+}
+
+foreach ($token in @(
+    "jwplc_display.cpp",
+    "jwplc_ui.cpp",
+    "jwplc_ui_api.cpp",
+    "jwplc_ui_pages.cpp",
+    "jwplc_tft.cpp",
+    "spi.cpp",
+    "jw_sd.cpp",
+    "jwplc_modbustcp.cpp",
+    "jwplc_ethernet.cpp",
+    "ethernetclient.cpp",
+    "socket.cpp",
+    "w5100.cpp"
+)) {
+    if (-not $compileNormalized.Contains($token)) {
+        throw "H3ER_MASTER_SOURCE_LINKAGE_MISSING=$token"
+    }
+}
+
+foreach ($archive in @(
+    "libjwplc_display.a",
+    "libjwplc_tft.a",
+    "libspi.a"
+)) {
+    if ($compileNormalized.Contains($archive)) {
+        throw "H3ER_UNEXPECTED_STALE_ARCHIVE_LINKAGE=$archive"
+    }
+}
+
+if (-not $compileNormalized.Contains("libjwplc_modbusrtu.a")) {
+    throw "H3ER_MASTER_MODBUS_RTU_ARCHIVE_NOT_LINKED"
+}
+
+if (-not $slaveCompileNormalized.Contains("libjwplc_modbusrtu.a")) {
+    throw "H3ER_SLAVE_MODBUS_RTU_ARCHIVE_NOT_LINKED"
+}
+
+Write-Host "H3ER_DISPLAY_SOURCE_LINKAGE=PASS"
+Write-Host "H3ER_TFT_SOURCE_LINKAGE=PASS"
+Write-Host "H3ER_SPI_SOURCE_LINKAGE=PASS"
+Write-Host "H3ER_ETHERNET_SOURCE_LINKAGE=PASS"
+Write-Host "H3ER_MODBUS_TCP_SOURCE_LINKAGE=PASS"
+Write-Host "H3ER_DATALOG_SOURCE_LINKAGE=PASS"
+Write-Host "H3ER_MODBUS_RTU_QUALIFIED_ARCHIVE_LINKAGE=PASS"
 
 Write-Host ""
 Write-Host "=============================================================================="
