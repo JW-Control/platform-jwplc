@@ -37,6 +37,10 @@
 #error "Define JWPLC_S2_ROLE_MASTER=1 for Master or 0 for Slave"
 #endif
 
+#ifndef JWPLC_S2_SD_MODE_DATALOG
+#define JWPLC_S2_SD_MODE_DATALOG 0
+#endif
+
 static constexpr uint32_t SERIAL_BAUD = 115200UL;
 static constexpr uint32_t MODBUS_BAUD = 115200UL;
 static constexpr uint32_t MODBUS_CONFIG = SERIAL_8N1;
@@ -52,7 +56,15 @@ static constexpr uint32_t ETH_LOCK_TIMEOUT_MS = 50UL;
 
 static constexpr uint32_t FRAM_PERIOD_MS = 500UL;
 static constexpr uint32_t RTC_PERIOD_MS = 1000UL;
+#if JWPLC_S2_SD_MODE_DATALOG
+static constexpr uint32_t SD_PERIOD_MS = 20UL;
+static constexpr size_t DATALOG_RECORD_BYTES = 32U;
+static constexpr size_t DATALOG_BUFFER_BYTES = 4096U;
+static constexpr size_t DATALOG_COMMIT_THRESHOLD_BYTES = 512U;
+static constexpr uint32_t DATALOG_COMMIT_TIMEOUT_MS = 5000UL;
+#else
 static constexpr uint32_t SD_PERIOD_MS = 2000UL;
+#endif
 static constexpr uint32_t IO_PERIOD_MS = 20UL;
 static constexpr uint32_t DISPLAY_PERIOD_MS = 250UL;
 static constexpr uint32_t MODBUS_CYCLE_GAP_MS = 20UL;
@@ -61,7 +73,11 @@ static constexpr uint32_t LONG_LOOP_CRIT_US = 250000UL;
 
 static constexpr uint16_t FRAM_SCRATCH_BYTES = 128;
 static constexpr uint8_t FRAM_RECORD_VERSION = 1;
+#if JWPLC_S2_SD_MODE_DATALOG
+static const char SD_TEST_PATH[] = "/A14_S2D.LOG";
+#else
 static const char SD_TEST_PATH[] = "/A14_S2.TMP";
+#endif
 
 struct FramBackup
 {
@@ -126,6 +142,10 @@ static FramBackup framBackup;
 static uint32_t framSequence = 0;
 
 static bool sdReady = false;
+#if JWPLC_S2_ROLE_MASTER && JWPLC_S2_SD_MODE_DATALOG
+static JWPLCDataLog s2DataLog;
+static uint32_t s2DataLogSequence = 0;
+#endif
 static uint8_t inputMap = 0;
 
 static uint8_t coilMap = 0;
@@ -357,17 +377,108 @@ static bool prepareSd()
         return false;
 
     if (JWPLC_SD.exists(SD_TEST_PATH))
-        (void)JWPLC_SD.remove(SD_TEST_PATH);
+    {
+        if (!JWPLC_SD.remove(SD_TEST_PATH))
+            return false;
+    }
+
+#if JWPLC_S2_SD_MODE_DATALOG
+    const JW_SDDataLogConfig config(
+        DATALOG_BUFFER_BYTES,
+        DATALOG_COMMIT_THRESHOLD_BYTES,
+        DATALOG_COMMIT_TIMEOUT_MS);
+
+    if (!s2DataLog.begin(
+            JWPLC_SD,
+            SD_TEST_PATH,
+            config))
+    {
+        return false;
+    }
+
+    s2DataLogSequence = 0;
+#endif
 
     sdReady = true;
     return true;
 }
 
-static void cleanupSd()
+static bool cleanupSd()
 {
-    if (sdReady && JWPLC_SD.exists(SD_TEST_PATH))
-        (void)JWPLC_SD.remove(SD_TEST_PATH);
+    if (!sdReady)
+        return true;
+
+    bool ok = true;
+
+#if JWPLC_S2_SD_MODE_DATALOG
+    if (s2DataLog.isActive())
+    {
+        if (!s2DataLog.commit())
+            ok = false;
+
+        if (!s2DataLog.close(false))
+            ok = false;
+    }
+#endif
+
+    if (JWPLC_SD.exists(SD_TEST_PATH) &&
+        !JWPLC_SD.remove(SD_TEST_PATH))
+    {
+        ok = false;
+    }
+
+    if (!ok)
+        ++sdFail;
+
+    return ok;
 }
+
+#if JWPLC_S2_SD_MODE_DATALOG
+static void buildDataLogRecord(
+    uint8_t record[DATALOG_RECORD_BYTES],
+    uint32_t now)
+{
+    memset(record, 0, DATALOG_RECORD_BYTES);
+
+    record[0] = 'S';
+    record[1] = '2';
+    record[2] = 'D';
+
+    const uint32_t sequence = ++s2DataLogSequence;
+
+    record[4] = (uint8_t)(sequence >> 24);
+    record[5] = (uint8_t)(sequence >> 16);
+    record[6] = (uint8_t)(sequence >> 8);
+    record[7] = (uint8_t)sequence;
+
+    record[8] = (uint8_t)(now >> 24);
+    record[9] = (uint8_t)(now >> 16);
+    record[10] = (uint8_t)(now >> 8);
+    record[11] = (uint8_t)now;
+
+    const uint32_t mb = mbCyclesOk;
+    record[12] = (uint8_t)(mb >> 24);
+    record[13] = (uint8_t)(mb >> 16);
+    record[14] = (uint8_t)(mb >> 8);
+    record[15] = (uint8_t)mb;
+
+    const uint32_t eth = (uint32_t)(ethRxBytes & 0xFFFFFFFFULL);
+    record[16] = (uint8_t)(eth >> 24);
+    record[17] = (uint8_t)(eth >> 16);
+    record[18] = (uint8_t)(eth >> 8);
+    record[19] = (uint8_t)eth;
+
+    record[20] = inputMap;
+
+    for (size_t i = 21; i < DATALOG_RECORD_BYTES; ++i)
+    {
+        record[i] = (uint8_t)(
+            0x5AU ^
+            (uint8_t)i ^
+            (uint8_t)sequence);
+    }
+}
+#endif
 
 static void serviceSd()
 {
@@ -380,6 +491,24 @@ static void serviceSd()
 
     lastSdMs = now;
 
+#if JWPLC_S2_SD_MODE_DATALOG
+    uint8_t record[DATALOG_RECORD_BYTES];
+    buildDataLogRecord(record, now);
+
+    const size_t written =
+        s2DataLog.write(
+            record,
+            sizeof(record));
+
+    if (written == sizeof(record))
+        ++sdOk;
+    else
+        ++sdFail;
+
+    // Deliberately NO manual service()/commit() here.
+    // jwplcSystemTask -> jwplcDataLogTickCallback()
+    // -> JWPLC_SD.serviceDataLogs() owns auto-commit.
+#else
     if (JWPLC_SD.exists(SD_TEST_PATH) &&
         !JWPLC_SD.remove(SD_TEST_PATH))
     {
@@ -423,6 +552,7 @@ static void serviceSd()
         ++sdOk;
     else
         ++sdFail;
+#endif
 }
 
 static bool acquireEthernet()
@@ -808,11 +938,28 @@ static void printMasterResult()
 
     const JWPLCModbusRTUStats &mb = JWPLC_ModbusRTU.stats();
 
-    const bool pass =
-        commonRuntimePass() &&
+#if JWPLC_S2_SD_MODE_DATALOG
+    const JW_SDDataLogStatus dataLogStatus =
+        s2DataLog.status();
+
+    const bool sdPathPass =
         sdReady &&
         sdOk > 0 &&
         sdFail == 0 &&
+        dataLogStatus.active &&
+        dataLogStatus.commitCount > 0 &&
+        dataLogStatus.committedBytes > 0 &&
+        dataLogStatus.failedCommits == 0;
+#else
+    const bool sdPathPass =
+        sdReady &&
+        sdOk > 0 &&
+        sdFail == 0;
+#endif
+
+    const bool pass =
+        commonRuntimePass() &&
+        sdPathPass &&
         ethRxBytes > 0 &&
         ethEchoBytes == ethRxBytes &&
         ethCorruptionErrors == 0 &&
@@ -859,6 +1006,27 @@ static void printMasterResult()
     Serial.print("S2_RTC_FAIL="); Serial.println(rtcFail);
     Serial.print("S2_SD_OK="); Serial.println(sdOk);
     Serial.print("S2_SD_FAIL="); Serial.println(sdFail);
+#if JWPLC_S2_SD_MODE_DATALOG
+    Serial.println("S2_SD_MODE=DATALOG");
+    Serial.print("S2_DATALOG_ACTIVE="); Serial.println(dataLogStatus.active ? "YES" : "NO");
+    Serial.print("S2_DATALOG_ACCEPTED_WRITES="); Serial.println(dataLogStatus.acceptedWrites);
+    Serial.print("S2_DATALOG_ACCEPTED_BYTES="); Serial.println((unsigned long long)dataLogStatus.acceptedBytes);
+    Serial.print("S2_DATALOG_PENDING_BYTES="); Serial.println(dataLogStatus.pendingBytes);
+    Serial.print("S2_DATALOG_COMMITTED_BYTES="); Serial.println((unsigned long long)dataLogStatus.committedBytes);
+    Serial.print("S2_DATALOG_COMMIT_COUNT="); Serial.println(dataLogStatus.commitCount);
+    Serial.print("S2_DATALOG_FAILED_COMMITS="); Serial.println(dataLogStatus.failedCommits);
+    Serial.println("S2_DATALOG_MANUAL_SERVICE_CALL=NO");
+#else
+    Serial.println("S2_SD_MODE=DIRECT");
+    Serial.println("S2_DATALOG_ACTIVE=NO");
+    Serial.println("S2_DATALOG_ACCEPTED_WRITES=0");
+    Serial.println("S2_DATALOG_ACCEPTED_BYTES=0");
+    Serial.println("S2_DATALOG_PENDING_BYTES=0");
+    Serial.println("S2_DATALOG_COMMITTED_BYTES=0");
+    Serial.println("S2_DATALOG_COMMIT_COUNT=0");
+    Serial.println("S2_DATALOG_FAILED_COMMITS=0");
+    Serial.println("S2_DATALOG_MANUAL_SERVICE_CALL=NO");
+#endif
     Serial.print("S2_IO_SAMPLES="); Serial.println(ioSamples);
     Serial.print("S2_BUTTON_DOWN_SAMPLES="); Serial.println(buttonDownSamples);
     Serial.print("S2_MAX_LOOP_US="); Serial.println(maxLoopUs);
@@ -879,7 +1047,8 @@ static void cleanupMaster()
     }
 
     restoreFram();
-    cleanupSd();
+    const bool sdCleanupOk = cleanupSd();
+    Serial.print("S2_SD_CLEANUP="); Serial.println(sdCleanupOk ? "PASS" : "FAIL");
     JWPLC_Display.setRunLed(true);
 }
 #else
@@ -949,7 +1118,7 @@ static void stopRun()
 
 #if JWPLC_S2_ROLE_MASTER
     cleanupMaster();
-    Serial.println("S2_MASTER_CLEANUP=PASS");
+    Serial.println(sdFail == 0 ? "S2_MASTER_CLEANUP=PASS" : "S2_MASTER_CLEANUP=FAIL");
 #else
     restoreFram();
     printSlaveResult();
