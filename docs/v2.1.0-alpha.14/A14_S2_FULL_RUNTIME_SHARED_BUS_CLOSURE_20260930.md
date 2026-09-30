@@ -127,7 +127,24 @@ SD_OK=299
 SD_FAIL=0
 ```
 
-El gate crea, escribe, lee, compara y elimina un archivo temporal propio.
+El gate S2 cerrado valida la API de bajo nivel protegida `JWPLC_SD/JWPLCFile`:
+crea, escribe, lee, compara y elimina un archivo temporal propio.
+
+**S2 no usa `JWPLCDataLog`.**
+
+Por tanto:
+
+```text
+S2_LOW_LEVEL_SD_PATH=PASS
+S2_DATALOG_HIGH_LEVEL_PATH=NOT_TESTED_IN_S2
+```
+
+La API DataLog real de producto usa `JWPLCDataLog`, ring buffer RAM,
+archivo persistente y auto-servicio desde
+`jwplcSystemTask -> jwplcDataLogTickCallback() -> JWPLC_SD.serviceDataLogs()`.
+
+Se abre S2D como gate separado, manteniendo el mismo full runtime y cambiando
+solo la política de acceso SD.
 
 ## TCA / I/O
 
@@ -239,15 +256,16 @@ Se conserva como base:
 
 ## Próxima secuencia
 
-1. Gate de promoción de `FIFO_REUSE` como default.
-2. Integración productiva mínima de `SINGLE_STATUS`.
-3. Revalidación corta de promoción.
-4. H3E-R:
+1. S2D — repetir full runtime con `JWPLCDataLog` y comparar jitter contra S2.
+2. Gate de promoción de `FIFO_REUSE` como default.
+3. Integración productiva mínima de `SINGLE_STATUS`.
+4. Revalidación corta de promoción.
+5. H3E-R:
    - 1000 TCP requests/s;
    - RTU ~50 Hz / scan ~20 ms;
    - periféricos activos;
    - 0 fallos.
-5. P4.1 DLEN_REUSE.
-6. P4.2 COPY_OUT 64 B.
-7. Combinar solo winners.
-8. Evaluar SAME-OWNER DMA solo si sigue justificado.
+6. P4.1 DLEN_REUSE.
+7. P4.2 COPY_OUT 64 B.
+8. Combinar solo winners.
+9. Evaluar SAME-OWNER DMA solo si sigue justificado.
