@@ -253,8 +253,8 @@ def main() -> int:
     parser.add_argument("--duration", type=int, default=600)
     args = parser.parse_args()
 
-    if args.duration < 600:
-        raise RuntimeError("S2_DURATION_MUST_BE_AT_LEAST_600_SECONDS")
+    if args.duration < 120:
+        raise RuntimeError("S2_DURATION_MUST_BE_AT_LEAST_120_SECONDS")
 
     master = SerialPeer(args.master)
     slave = SerialPeer(args.slave)
