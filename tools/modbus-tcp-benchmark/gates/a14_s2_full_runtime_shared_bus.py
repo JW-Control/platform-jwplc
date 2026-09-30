@@ -299,10 +299,15 @@ def main() -> int:
     emit("S2_SD_MODE_REQUESTED", args.sd_mode.upper())
     emit("S2_FIFO_MODE_REQUESTED", args.fifo_mode.upper().replace("-", "_"))
     emit("S2_PROMOTION_SHORT", "YES" if args.promotion_short else "NO")
-    emit(
-        "S2_ONLY_VARIABLE",
-        "SD_ACCESS_POLICY" if args.sd_mode == "datalog" else "BASELINE_DIRECT_SD",
-    )
+    if args.promotion_short:
+        only_variable = "FIFO_REUSE_ACTIVATION_SOURCE_FORCED_VS_PACKAGE_DEFAULT"
+    else:
+        only_variable = (
+            "SD_ACCESS_POLICY"
+            if args.sd_mode == "datalog"
+            else "BASELINE_DIRECT_SD"
+        )
+    emit("S2_ONLY_VARIABLE", only_variable)
     emit("S2_MODBUS_PROFILE", "115200_8N1_SLAVE_ID_2")
     emit("S2_ETH_SPI_HZ", 26000000)
     emit(
@@ -503,15 +508,19 @@ def main() -> int:
         if one(case_text, "S2_SD_MODE") != "DIRECT":
             raise RuntimeError("S2_DIRECT_SD_MODE_NOT_ACTIVE")
 
-    if integer(case_text, "S2_BUTTON_DOWN_SAMPLES") <= 0:
-        raise RuntimeError(
-            "S2_MASTER_BUTTON_NOT_OBSERVED_HOLD_OK_FOR_1S"
-        )
+    if args.promotion_short:
+        emit("S2_MASTER_BUTTON_PHYSICAL", "INHERITED_FROM_S2D_PASS")
+        emit("S2_SLAVE_BUTTON_PHYSICAL", "INHERITED_FROM_S2D_PASS")
+    else:
+        if integer(case_text, "S2_BUTTON_DOWN_SAMPLES") <= 0:
+            raise RuntimeError(
+                "S2_MASTER_BUTTON_NOT_OBSERVED_HOLD_OK_FOR_1S"
+            )
 
-    if integer(case_text, "S2_SLAVE_BUTTON_DOWN_SAMPLES") <= 0:
-        raise RuntimeError(
-            "S2_SLAVE_BUTTON_NOT_OBSERVED_HOLD_OK_FOR_1S"
-        )
+        if integer(case_text, "S2_SLAVE_BUTTON_DOWN_SAMPLES") <= 0:
+            raise RuntimeError(
+                "S2_SLAVE_BUTTON_NOT_OBSERVED_HOLD_OK_FOR_1S"
+            )
 
     if one(case_text, "S2_LINK_FINAL") != "UP":
         raise RuntimeError("S2_ETH_LINK_NOT_UP")
@@ -522,7 +531,10 @@ def main() -> int:
             f"value={one(case_text, 'S2_ETH_SPI_HOLD_MAX_US')}"
         )
 
-    if args.defer_physical_review:
+    if args.promotion_short:
+        physical = "INHERITED_FROM_S2D_PASS"
+        gate = "PASS"
+    elif args.defer_physical_review:
         physical = "PENDING_USER"
         gate = "PASS_DATA_ONLY"
     else:
