@@ -160,6 +160,42 @@ def intval(values: dict[str, str], key: str) -> int:
         ) from exc
 
 
+def warmup_transaction(sock: socket.socket) -> None:
+    tid = 0xA14A
+    request = struct.pack(
+        ">HHHBBHH",
+        tid,
+        0,
+        6,
+        1,
+        3,
+        0,
+        QUANTITY,
+    )
+
+    sock.sendall(request)
+
+    header = q.recv_exact(sock, 7)
+    rx_tid, pid, length, unit = struct.unpack(
+        ">HHHB",
+        header,
+    )
+
+    if length < 2:
+        raise RuntimeError("G3A_WARMUP_INVALID_MBAP_LENGTH")
+
+    body = q.recv_exact(sock, length - 1)
+
+    if not (
+        rx_tid == tid
+        and pid == 0
+        and unit == 1
+        and length == 253
+        and body == q.expected_body(QUANTITY)
+    ):
+        raise RuntimeError("G3A_WARMUP_RESPONSE_MISMATCH")
+
+
 def run_case(
     *,
     serial_port: str,
@@ -206,9 +242,13 @@ def run_case(
             1,
         )
 
-        # La aceptación/configuración INT queda explícitamente fuera de la
-        # ventana medida. El snapshot de confirmación también se excluye al
-        # resetear inmediatamente después.
+        # EthernetServer.available() sólo entrega el cliente cuando ya existe
+        # payload RX. Por eso una conexión TCP vacía no basta para que
+        # JWPLC_ModbusTCP marque CLIENT_CONNECTED=YES. Se ejecuta una transacción
+        # válida de warmup para forzar accept/configuración INT fuera de la
+        # ventana medida; después se confirma el estado y se resetean contadores.
+        warmup_transaction(sock)
+
         accepted = wait_connected(ser)
 
         if accepted.get("INT_GUIDED_RX_BUILD") != expected_build:
