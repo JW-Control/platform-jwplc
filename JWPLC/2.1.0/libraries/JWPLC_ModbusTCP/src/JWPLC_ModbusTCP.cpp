@@ -896,6 +896,7 @@ void JWPLC_ModbusTCPClass::serviceServer()
         _rxLength = (uint16_t)(_rxLength + received);
         budget = (uint16_t)(budget - received);
         _lastRxMs = now;
+        noteRxIntActivity();
 
 #if JWPLC_MODBUS_TCP_INT_GUIDED_RX
         // availableBytes es la cantidad conocida antes de este read().
