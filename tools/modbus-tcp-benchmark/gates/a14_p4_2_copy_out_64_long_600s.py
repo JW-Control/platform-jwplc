@@ -31,6 +31,19 @@ SPI_HZ = 26_000_000
 BUCKET_SPREAD_MAX_PCT = 0.75
 DRIFT_REVIEW_LIMIT_PCT = 0.75
 
+ZERO_ARM_FUNCTIONAL_FIELDS = (
+    "RX_BYTES",
+    "RX_OPERATIONS",
+    "TRANSPORT_ERRORS",
+    "TCP_SPI_LOCK_ERRORS",
+)
+ZERO_ARM_HOLD_EVIDENCE_FIELDS = (
+    "TCP_SPI_HOLD_COUNT",
+    "TCP_SPI_HOLD_TOTAL_US",
+    "TCP_SPI_HOLD_AVG_US",
+    "TCP_SPI_HOLD_MAX_US",
+)
+
 P4_2_SHORT_PAYLOAD_MBPS = 17.113
 P4_2_SHORT_US_PER_BYTE = 0.467481
 P4_2_SHORT_TCP_SECONDARY_MBPS = 14.203710
@@ -103,6 +116,48 @@ def preflight_pyserial() -> ModuleType:
         getattr(serial_module, "__version__", "UNKNOWN"),
     )
     return serial_module
+
+
+def functional_zero_values(snapshot: dict[str, str]) -> dict[str, int]:
+    try:
+        return {
+            field: int(snapshot[field])
+            for field in ZERO_ARM_FUNCTIONAL_FIELDS
+        }
+    except (KeyError, TypeError, ValueError) as exc:
+        raise RuntimeError("P4_2_LR600_ZERO_ARM_FIELD_INVALID") from exc
+
+
+def functional_zero_arm_pass(snapshot: dict[str, str]) -> bool:
+    return not any(functional_zero_values(snapshot).values())
+
+
+def validate_zero_arm_regression() -> None:
+    hold_activity_after_snapshot = {
+        "RX_BYTES": "0",
+        "RX_OPERATIONS": "0",
+        "TRANSPORT_ERRORS": "0",
+        "TCP_SPI_LOCK_ERRORS": "0",
+        "TCP_SPI_HOLD_COUNT": "231",
+        "TCP_SPI_HOLD_TOTAL_US": "16135",
+        "TCP_SPI_HOLD_AVG_US": "69",
+        "TCP_SPI_HOLD_MAX_US": "218",
+    }
+    if not functional_zero_arm_pass(hold_activity_after_snapshot):
+        raise RuntimeError("P4_2_LR600_ZERO_ARM_HOLD_REGRESSION")
+
+    for field in ZERO_ARM_FUNCTIONAL_FIELDS:
+        invalid = dict(hold_activity_after_snapshot)
+        invalid[field] = "1"
+        if functional_zero_arm_pass(invalid):
+            raise RuntimeError(
+                f"P4_2_LR600_ZERO_ARM_FALSE_PASS={field}"
+            )
+
+    emit("P4_2_LR600_ZERO_ARM_REGRESSION", "PASS")
+    emit("P4_2_LR600_ZERO_ARM_FIX", "PASS")
+    emit("P4_2_LR600_FUNCTIONAL_ZERO_CONTRACT", "PASS")
+    emit("P4_2_LR600_HOLD_COUNTERS_ZERO_REQUIRED", "NO")
 
 
 def audit_source_contract(repo: Path) -> None:
@@ -438,35 +493,31 @@ def run_long_case(
         time.sleep(0.02)
 
         zero = dut.snapshot()
-        zero_fields = (
-            "RX_BYTES",
-            "RX_OPERATIONS",
-            "TRANSPORT_ERRORS",
-            "TCP_SPI_LOCK_ERRORS",
-            "TCP_SPI_HOLD_COUNT",
-            "TCP_SPI_HOLD_TOTAL_US",
-            "TCP_SPI_HOLD_AVG_US",
-            "TCP_SPI_HOLD_MAX_US",
-        )
-        zero_values = {
-            field: rx.intval(zero, field)
-            for field in zero_fields
+        zero_values = functional_zero_values(zero)
+        hold_evidence = {
+            field: zero.get(field, "UNAVAILABLE")
+            for field in ZERO_ARM_HOLD_EVIDENCE_FIELDS
         }
-        if zero.get("MODE") != "TCP_RX" or any(zero_values.values()):
+        if (
+            zero.get("MODE") != "TCP_RX"
+            or not functional_zero_arm_pass(zero)
+        ):
             raise RuntimeError(
                 f"P4_2_LR600_ZERO_ARM_FAILED={zero_values}"
             )
 
         emit("P4_2_LR600_PREFLIGHT", "PASS")
         emit("P4_2_LR600_ZERO_ARM", "PASS")
+        emit("P4_2_LR600_ZERO_ARM_HOLD_EVIDENCE", hold_evidence)
 
-        # No Serial I/O is allowed between this reset and the freeze ACK.
-        dut.command_ack(b"R", b"H4A04P1_RESET=PASS")
-
+        # Prepare every host-side object before the final DUT reset.
         payload = bytes((index & 0xFF) for index in range(TCP_CHUNK))
         pc_bytes = 0
         pc_operations = 0
 
+        # Final reset: after its ACK, start timing immediately. No snapshot,
+        # readiness polling, Serial access or artificial wait is permitted.
+        dut.command_ack(b"R", b"H4A04P1_RESET=PASS")
         start = time.perf_counter()
         deadline = start + PERF_DURATION_S
 
@@ -844,6 +895,8 @@ def main() -> int:
         "ON_STRICTLY_FOR_COMPARABLE_AGGREGATE_PAYLOAD_COST",
     )
     emit("P4_2_LR600_RAW_PC_SEND_IS_H3ER_LATENCY", "NO")
+
+    validate_zero_arm_regression()
 
     # Mandatory environment preflight precedes CLI discovery and every build.
     preflight_pyserial()

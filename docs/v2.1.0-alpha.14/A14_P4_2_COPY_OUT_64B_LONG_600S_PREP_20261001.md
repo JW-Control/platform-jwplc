@@ -31,6 +31,38 @@ tools/modbus-tcp-benchmark/firmware/a14_h4a04p1_tcp_rx_profiler/
 tools/modbus-tcp-benchmark/pc/a14_h4a04p1_tcp_rx_case.py
 ~~~
 
+## Attempt 1 y corrección del zero-arm
+
+El primer intento terminó antes de iniciar la ventana formal. VERIFY FNV y
+los builds/uploads VERIFY y PERF fueron correctos; no existe evidencia de
+fallo de producto ni de hardware.
+
+~~~text
+ATTEMPT_1=HARNESS_FAIL_PRE_WINDOW
+PRODUCT_FAILURE=NO_EVIDENCE
+HARDWARE_FAILURE=NO_EVIDENCE
+FORMAL_WINDOW_STARTED=NO
+ROOT_CAUSE=SPI_HOLD_COUNTERS_WRONGLY_INCLUDED_IN_ZERO_ARM
+FIX=ZERO_FUNCTIONAL_COUNTERS_ONLY_PLUS_FINAL_RESET_BEFORE_PERF
+~~~
+
+El snapshot zero puede causar actividad Ethernet/SPI después del reset. Por
+eso `TCP_SPI_HOLD_COUNT/TOTAL/AVG/MAX` son evidencia pre-window válida pero no
+forman parte del contrato zero. Sólo se exige cero para:
+
+~~~text
+RX_BYTES
+RX_OPERATIONS
+TRANSPORT_ERRORS
+TCP_SPI_LOCK_ERRORS
+~~~
+
+Después de validar esos cuatro campos se prepara todo el estado PC, se hace
+un reset final y, tras su ACK, comienza inmediatamente la ventana. No existe
+snapshot, polling, acceso Serial ni espera artificial entre ese ACK y el
+inicio del cronómetro. Los contadores `TCP_SPI_HOLD_*` del snapshot final
+corresponden así a la ventana formal.
+
 ## Contrato productivo
 
 El harness audita en el source del package:
@@ -313,6 +345,14 @@ DURATION=600S
 BUCKETS=10X60S
 CONNECTION=SINGLE_CONTINUOUS
 SENDALL_SAMPLING=1_OF_256
+ZERO_ARM_FUNCTIONAL_COUNTERS_ONLY=PASS
+ZERO_ARM_HOLD_ACTIVITY_CASE=PASS
+ZERO_ARM_RX_BYTES_NONZERO_FAILS=PASS
+ZERO_ARM_TRANSPORT_ERROR_FAILS=PASS
+ZERO_ARM_SPI_LOCK_ERROR_FAILS=PASS
+FINAL_RESET_TO_PERF_HAS_NO_DUT_SNAPSHOT=PASS
+NO_PERIODIC_SERIAL_DURING_600S=PASS
+FINAL_SNAPSHOT_ONLY_AFTER_FREEZE=PASS
 SERIAL_DURING_WINDOW=NONE
 FINAL_SEQUENCE=FREEZE_THEN_ONE_SNAPSHOT
 SPI_CHUNK_PROFILE=OFF
@@ -332,5 +372,16 @@ P4_2_LR600_BUCKET_POLICY=10X60S_PC_SIDE
 P4_2_LR600_SPI_TELEMETRY=FINAL_SNAPSHOT_ONLY
 P4_2_LR600_LATENCY_POLICY=SAMPLED_PC_SEND_BACKPRESSURE
 P4_2_LR600_COPY_OUT_SOURCE=PACKAGE_DEFAULT
+P4_2_LR600_PHYSICAL_RUN=NOT_RUN
+~~~
+
+Corrección de zero-arm validada offline:
+
+~~~text
+P4_2_LR600_ZERO_ARM_FIX=PASS
+P4_2_LR600_FUNCTIONAL_ZERO_CONTRACT=PASS
+P4_2_LR600_HOLD_COUNTERS_ZERO_REQUIRED=NO
+P4_2_LR600_FINAL_RESET_BEFORE_PERF=PASS
+P4_2_LR600_SERIAL_POLICY=QUIET
 P4_2_LR600_PHYSICAL_RUN=NOT_RUN
 ~~~
