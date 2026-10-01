@@ -67,6 +67,9 @@ static uint32_t tcpSpiLockErrors = 0;
 static uint32_t tcpSpiHoldCount = 0;
 static uint64_t tcpSpiHoldTotalUs = 0;
 static uint32_t tcpSpiHoldMaxUs = 0;
+static uint32_t tcpServicePasses = 0;
+static uint32_t tcpServiceActivePasses = 0;
+static uint32_t tcpServiceEmptyPasses = 0;
 
 #if JWPLC_H4A04P3_VERIFY_PAYLOAD
 static uint32_t rxFnv1a32 = 2166136261UL;
@@ -88,6 +91,9 @@ static void resetCounters()
     tcpSpiHoldCount = 0;
     tcpSpiHoldTotalUs = 0;
     tcpSpiHoldMaxUs = 0;
+    tcpServicePasses = 0;
+    tcpServiceActivePasses = 0;
+    tcpServiceEmptyPasses = 0;
     tcpRxFrozen = false;
 
 #if JWPLC_H4A04P3_VERIFY_PAYLOAD
@@ -120,6 +126,10 @@ static void printProfile()
     Serial.println(p.recvAvailableCalls);
     Serial.print("TCP_PROF_AVAILABLE_TOTAL_US=");
     Serial.println((unsigned long long)p.recvAvailableTotalUs);
+    Serial.print("TCP_PROF_AVAILABLE_ZERO_CALLS=");
+    Serial.println(p.recvAvailableZeroCalls);
+    Serial.print("TCP_PROF_AVAILABLE_NONZERO_CALLS=");
+    Serial.println(p.recvAvailableNonzeroCalls);
     Serial.print("TCP_PROF_AVAILABLE_RSR_REFRESH_CALLS=");
     Serial.println(p.recvAvailableRsrRefreshCalls);
     Serial.print("TCP_PROF_AVAILABLE_RSR_REFRESH_TOTAL_US=");
@@ -229,6 +239,15 @@ static void printSnapshot()
 
     Serial.print("TCP_SPI_HOLD_MAX_US=");
     Serial.println(tcpSpiHoldMaxUs);
+
+    Serial.print("TCP_SERVICE_PASSES=");
+    Serial.println(tcpServicePasses);
+
+    Serial.print("TCP_SERVICE_ACTIVE_PASSES=");
+    Serial.println(tcpServiceActivePasses);
+
+    Serial.print("TCP_SERVICE_EMPTY_PASSES=");
+    Serial.println(tcpServiceEmptyPasses);
 
 #if JWPLC_H4A04P3_VERIFY_PAYLOAD
     Serial.println("PAYLOAD_VERIFY_ENABLED=YES");
@@ -500,9 +519,25 @@ static void serviceTcp()
     }
 
     const uint32_t holdStartUs = micros();
+    const bool countServicePass = (mode == MODE_TCP_RX);
+    const uint64_t rxBytesBefore = rxBytes;
 
     jwplcSPI_deselectAll();
     serviceTcpUnlocked();
+
+    if (countServicePass)
+    {
+        ++tcpServicePasses;
+
+        if (rxBytes > rxBytesBefore)
+        {
+            ++tcpServiceActivePasses;
+        }
+        else
+        {
+            ++tcpServiceEmptyPasses;
+        }
+    }
 
     const uint32_t holdUs =
         (uint32_t)(micros() - holdStartUs);

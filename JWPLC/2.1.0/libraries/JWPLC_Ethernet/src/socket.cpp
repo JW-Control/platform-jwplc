@@ -596,6 +596,11 @@ uint16_t EthernetClass::socketRecvAvailable(uint8_t s)
 
 #if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
 	++jwplcTcpRxProfile.recvAvailableCalls;
+	if (ret == 0) {
+		++jwplcTcpRxProfile.recvAvailableZeroCalls;
+	} else {
+		++jwplcTcpRxProfile.recvAvailableNonzeroCalls;
+	}
 	jwplcTcpRxProfile.recvAvailableTotalUs +=
 		(uint32_t)(micros() - profileAvailableStartUs);
 #endif

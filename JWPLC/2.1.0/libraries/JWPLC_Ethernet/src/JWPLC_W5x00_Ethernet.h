@@ -65,6 +65,8 @@ struct JWPLCEthernetTcpRxProfile
 
 	uint32_t recvAvailableCalls = 0;
 	uint64_t recvAvailableTotalUs = 0;
+	uint32_t recvAvailableZeroCalls = 0;
+	uint32_t recvAvailableNonzeroCalls = 0;
 	uint32_t recvAvailableRsrRefreshCalls = 0;
 	uint64_t recvAvailableRsrRefreshTotalUs = 0;
 
