@@ -517,7 +517,13 @@ if (-not $modbusTcpHeaderText.Contains(
     throw "H3ER_INT_GUIDED_RX_PACKAGE_DEFAULT_NOT_OFF"
 }
 
+if (-not $modbusTcpHeaderText.Contains(
+    "#define JWPLC_MODBUS_TCP_INT_HOT_POLL_US 0UL")) {
+    throw "H3ER_INT_HOT_POLL_PACKAGE_DEFAULT_NOT_ZERO"
+}
+
 Write-Host "H3ER_INT_GUIDED_RX_PACKAGE_DEFAULT=0"
+Write-Host "H3ER_INT_HOT_POLL_US_PACKAGE_DEFAULT=0"
 
 if ($modbusRtuPropsText -match '(?m)^\s*precompiled\s*=') {
     throw "H3ER_MODBUS_RTU_SOURCE_FIRST_POLICY_CHANGED"
