@@ -615,6 +615,18 @@ void JWPLC_ModbusTCPClass::ackRxIntLocked()
 #endif
 }
 
+void JWPLC_ModbusTCPClass::noteRxIntActivity()
+{
+#if JWPLC_MODBUS_TCP_INT_GUIDED_RX && JWPLC_MODBUS_TCP_INT_HOT_POLL_US > 0
+    _rxIntHotPolling = true;
+    _rxIntHotUntilUs =
+        micros() +
+        (uint32_t)JWPLC_MODBUS_TCP_INT_HOT_POLL_US;
+
+    g_jwplcModbusTcpIntPending = false;
+#endif
+}
+
 void JWPLC_ModbusTCPClass::finishRxIntService(bool rxDataKnownPending)
 {
 #if JWPLC_MODBUS_TCP_INT_GUIDED_RX
@@ -622,6 +634,13 @@ void JWPLC_ModbusTCPClass::finishRxIntService(bool rxDataKnownPending)
     {
         return;
     }
+
+#if JWPLC_MODBUS_TCP_INT_HOT_POLL_US > 0
+    if (_rxIntHotPolling)
+    {
+        return;
+    }
+#endif
 
     if (rxDataKnownPending ||
         digitalRead(JWPLC_ETH_INT_PIN) == LOW)
