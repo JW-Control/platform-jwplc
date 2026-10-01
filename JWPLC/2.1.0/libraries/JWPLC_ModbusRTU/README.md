@@ -260,17 +260,23 @@ Los ejemplos avanzados Remote I/O existentes se conservan para esa validación.
 TMO CRC EXC RSP OVF FUN
 ```
 
-## Precompilación
+## Política de compilación
 
-Al cierre de Alpha7 se restauró `precompiled=full` y se regeneró el archive final:
+Durante el desarrollo de Alpha14, `JWPLC_ModbusRTU` se compila desde source.
+`library.properties` no activa `precompiled=full`, de modo que los cambios del
+motor RTU entran inmediatamente en los builds de desarrollo.
+
+El archive cualificado se conserva como artefacto histórico/release y no se
+borra:
 
 ```text
 Archivo : src/esp32/libJWPLC_ModbusRTU.a
-Bytes   : 231062
-SHA256  : 444BE3A04079A579252B2737FE6070E00ADCA949FD176880588FE69561B2A79F
+SHA256  : 486BE38AE088B94898E516FFBC125855F22C2EC5EE8A6FA9E10F35D7CAC3A3BE
+Uso     : histórico/release; no desarrollo Alpha14
 ```
 
-Alpha8 no modifica la fuente de `JWPLC_ModbusRTU`, por lo que ese archive continúa siendo la base validada.
+Antes de una promoción release se debe regenerar y recalificar el archive a
+partir del source aprobado, y sólo entonces restaurar la política precompilada.
 
 ## Ejemplos numerados para taller
 
