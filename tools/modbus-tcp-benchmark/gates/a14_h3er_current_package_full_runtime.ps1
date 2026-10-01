@@ -63,6 +63,35 @@ function Get-H3ERInt {
         [Globalization.CultureInfo]::InvariantCulture)
 }
 
+function Get-H3ERModbusRtuArchiveLinkForm {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$NormalizedCompileText
+    )
+
+    $archiveDirectory =
+        "/libraries/jwplc_modbusrtu/src/esp32"
+
+    if ($NormalizedCompileText.Contains(
+        "$archiveDirectory/libjwplc_modbusrtu.a")) {
+        return "DIRECT_ARCHIVE_PATH"
+    }
+
+    $usesArchiveDirectory =
+        $NormalizedCompileText.Contains($archiveDirectory)
+
+    $usesGccLibraryFlag =
+        [regex]::IsMatch(
+            $NormalizedCompileText,
+            '(?m)(?:^|\s)"?-ljwplc_modbusrtu"?(?=\s|$)')
+
+    if ($usesArchiveDirectory -and $usesGccLibraryFlag) {
+        return "GCC_LIBRARY_FLAG"
+    }
+
+    return "NONE"
+}
+
 Write-Host "=============================================================================="
 Write-Host " A14 H3E-R - CURRENT PACKAGE FULL RUNTIME"
 Write-Host " TCP 1000 req/s + RTU 50 Hz + DATALOG + FULL PERIPHERALS"
@@ -738,11 +767,19 @@ foreach ($archive in @(
     }
 }
 
-if (-not $compileNormalized.Contains("libjwplc_modbusrtu.a")) {
+$masterModbusRtuArchiveLinkForm =
+    Get-H3ERModbusRtuArchiveLinkForm `
+        -NormalizedCompileText $compileNormalized
+
+$slaveModbusRtuArchiveLinkForm =
+    Get-H3ERModbusRtuArchiveLinkForm `
+        -NormalizedCompileText $slaveCompileNormalized
+
+if ($masterModbusRtuArchiveLinkForm -eq "NONE") {
     throw "H3ER_MASTER_MODBUS_RTU_ARCHIVE_NOT_LINKED"
 }
 
-if (-not $slaveCompileNormalized.Contains("libjwplc_modbusrtu.a")) {
+if ($slaveModbusRtuArchiveLinkForm -eq "NONE") {
     throw "H3ER_SLAVE_MODBUS_RTU_ARCHIVE_NOT_LINKED"
 }
 
@@ -752,6 +789,8 @@ Write-Host "H3ER_SPI_SOURCE_LINKAGE=PASS"
 Write-Host "H3ER_ETHERNET_SOURCE_LINKAGE=PASS"
 Write-Host "H3ER_MODBUS_TCP_SOURCE_LINKAGE=PASS"
 Write-Host "H3ER_DATALOG_SOURCE_LINKAGE=PASS"
+Write-Host "H3ER_MASTER_MODBUS_RTU_ARCHIVE_LINK_FORM=$masterModbusRtuArchiveLinkForm"
+Write-Host "H3ER_SLAVE_MODBUS_RTU_ARCHIVE_LINK_FORM=$slaveModbusRtuArchiveLinkForm"
 Write-Host "H3ER_MODBUS_RTU_QUALIFIED_ARCHIVE_LINKAGE=PASS"
 
 Write-Host ""
