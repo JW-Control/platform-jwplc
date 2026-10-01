@@ -552,6 +552,24 @@ bool JWPLC_ModbusTCPClass::shouldServiceRxInt(uint32_t nowMs)
         return true;
     }
 
+#if JWPLC_MODBUS_TCP_INT_HOT_POLL_US > 0
+    if (_rxIntHotPolling)
+    {
+        const uint32_t nowUs = micros();
+        const int32_t remainingUs =
+            (int32_t)(_rxIntHotUntilUs - nowUs);
+
+        if (remainingUs > 0)
+        {
+            _rxIntLastServiceMs = nowMs;
+            return true;
+        }
+
+        _rxIntHotPolling = false;
+        g_jwplcModbusTcpIntPending = true;
+    }
+#endif
+
     if (g_jwplcModbusTcpIntPending ||
         digitalRead(JWPLC_ETH_INT_PIN) == LOW)
     {
