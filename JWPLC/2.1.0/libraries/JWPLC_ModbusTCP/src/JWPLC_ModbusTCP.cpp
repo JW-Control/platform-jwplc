@@ -515,6 +515,8 @@ void JWPLC_ModbusTCPClass::disableRxIntLocked()
     _rxIntConfigured = false;
     _rxIntSocket = MAX_SOCK_NUM;
     _rxIntLastServiceMs = 0;
+    _rxIntHotPolling = false;
+    _rxIntHotUntilUs = 0;
     g_jwplcModbusTcpIntPending = false;
 #endif
 }
