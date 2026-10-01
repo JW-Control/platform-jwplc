@@ -536,6 +536,8 @@ void JWPLC_ModbusTCPClass::resetRxIntSoftware()
     _rxIntConfigured = false;
     _rxIntSocket = MAX_SOCK_NUM;
     _rxIntLastServiceMs = 0;
+    _rxIntHotPolling = false;
+    _rxIntHotUntilUs = 0;
 }
 
 bool JWPLC_ModbusTCPClass::shouldServiceRxInt(uint32_t nowMs)
