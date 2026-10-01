@@ -111,6 +111,31 @@ def wait_ready(
     )
 
 
+def wait_connected(
+    ser: serial.Serial,
+    timeout_s: float = 5.0,
+) -> dict[str, str]:
+    deadline = time.perf_counter() + timeout_s
+    last: dict[str, str] = {}
+
+    while time.perf_counter() < deadline:
+        last = snapshot(ser)
+
+        if (
+            last.get("SERVER_READY") == "YES"
+            and last.get("CLIENT_CONNECTED") == "YES"
+        ):
+            return last
+
+        time.sleep(0.05)
+
+    raise TimeoutError(
+        "G3A_CLIENT_ACCEPT_TIMEOUT "
+        f"READY={last.get('SERVER_READY')} "
+        f"CLIENT={last.get('CLIENT_CONNECTED')}"
+    )
+
+
 def reset_stats(ser: serial.Serial) -> None:
     ser.reset_input_buffer()
     ser.write(b"R\n")
@@ -181,8 +206,14 @@ def run_case(
             1,
         )
 
-        # La aceptación/configuración queda fuera de la ventana medida.
-        time.sleep(0.05)
+        # La aceptación/configuración INT queda explícitamente fuera de la
+        # ventana medida. El snapshot de confirmación también se excluye al
+        # resetear inmediatamente después.
+        accepted = wait_connected(ser)
+
+        if accepted.get("INT_GUIDED_RX_BUILD") != expected_build:
+            raise RuntimeError("G3A_ACCEPTED_VARIANT_MISMATCH")
+
         reset_stats(ser)
 
         expected_body = q.expected_body(QUANTITY)
@@ -332,8 +363,11 @@ def run_case(
         p99 = q.percentile(latencies, 0.99)
         max_us = max(latencies) if latencies else 0.0
 
+        # clientConnections se reinicia después de aceptar la sesión, por lo
+        # que debe permanecer en cero durante la ventana medida: una subida
+        # indicaría reconnect inesperado.
         cross = (
-            server_connections == 1
+            server_connections == 0
             and server_rx == sent
             and server_tx == ok
             and server_ok == ok
