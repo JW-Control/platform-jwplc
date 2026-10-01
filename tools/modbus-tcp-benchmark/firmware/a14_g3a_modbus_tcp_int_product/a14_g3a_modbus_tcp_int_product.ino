@@ -100,6 +100,8 @@ static void printSnapshot()
 
     Serial.print("INT_GUIDED_RX_BUILD=");
     Serial.println(JWPLC_MODBUS_TCP_INT_GUIDED_RX ? "YES" : "NO");
+    Serial.print("INT_HOT_POLL_US_BUILD=");
+    Serial.println(JWPLC_MODBUS_TCP_INT_HOT_POLL_US);
 
 #if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
     const JWPLCEthernetTcpRxProfile p = Ethernet.jwplcProfileGetTcpRx();
