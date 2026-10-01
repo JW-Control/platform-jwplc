@@ -214,17 +214,28 @@ Write-Host "H3ER_TCP_ASYNC_POLICY=AUDIT_PRESENCE_AND_APPLICABILITY"
 
 $intCandidateFlag =
     "-DJWPLC_MODBUS_TCP_INT_GUIDED_RX=1"
+$adaptiveCandidateFlags =
+    "-DJWPLC_MODBUS_TCP_INT_GUIDED_RX=1 -DJWPLC_MODBUS_TCP_INT_HOT_POLL_US=1500"
+
+$normalizedMasterExtraCppFlags =
+    $MasterExtraCppFlags.Trim()
 
 if (-not [string]::IsNullOrWhiteSpace($MasterExtraCppFlags) -and
-    $MasterExtraCppFlags.Trim() -ne $intCandidateFlag) {
+    $normalizedMasterExtraCppFlags -ne $intCandidateFlag -and
+    $normalizedMasterExtraCppFlags -ne $adaptiveCandidateFlags) {
     throw "H3ER_MASTER_EXTRA_CPP_FLAGS_UNSUPPORTED=$MasterExtraCppFlags"
 }
 
 $intCandidateEnabled =
-    $MasterExtraCppFlags.Trim() -eq $intCandidateFlag
+    $normalizedMasterExtraCppFlags -eq $intCandidateFlag -or
+    $normalizedMasterExtraCppFlags -eq $adaptiveCandidateFlags
+$adaptiveCandidateEnabled =
+    $normalizedMasterExtraCppFlags -eq $adaptiveCandidateFlags
 
 Write-Host "H3ER_INT_GUIDED_RX_BUILD=$(
     if ($intCandidateEnabled) { "ON" } else { "OFF" })"
+Write-Host "H3ER_INT_HOT_POLL_US_BUILD=$(
+    if ($adaptiveCandidateEnabled) { "1500" } else { "0" })"
 Write-Host "H3ER_MASTER_EXTRA_CPP_FLAGS=$(
     if ([string]::IsNullOrWhiteSpace($MasterExtraCppFlags)) {
         "NONE"
