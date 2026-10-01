@@ -730,6 +730,18 @@ else {
     Write-Host "H3ER_INT_GUIDED_RX_BUILD_FLAG=NOT_REQUESTED"
 }
 
+if ($adaptiveCandidateEnabled) {
+    if (-not $masterCompileText.Contains(
+        "-djwplc_modbus_tcp_int_hot_poll_us=1500")) {
+        throw "H3ER_INT_HOT_POLL_BUILD_FLAG_MISSING"
+    }
+
+    Write-Host "H3ER_INT_HOT_POLL_BUILD_FLAG=PASS"
+}
+else {
+    Write-Host "H3ER_INT_HOT_POLL_BUILD_FLAG=NOT_REQUESTED"
+}
+
 $qualificationText =
     [IO.File]::ReadAllText($qualificationLog)
 
