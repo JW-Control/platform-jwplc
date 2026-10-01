@@ -179,7 +179,8 @@ private:
     void disableRxIntLocked();
     void resetRxIntSoftware();
     bool shouldServiceRxInt(uint32_t nowMs);
-    void rearmRxIntLocked();
+    void ackRxIntLocked();
+    void finishRxIntService(bool rxDataKnownPending);
 
     void dropClient();
     void ensureServerListening();

@@ -564,7 +564,7 @@ bool JWPLC_ModbusTCPClass::shouldServiceRxInt(uint32_t nowMs)
 #endif
 }
 
-void JWPLC_ModbusTCPClass::rearmRxIntLocked()
+void JWPLC_ModbusTCPClass::ackRxIntLocked()
 {
 #if JWPLC_MODBUS_TCP_INT_GUIDED_RX
     if (!_rxIntConfigured ||
@@ -574,40 +574,36 @@ void JWPLC_ModbusTCPClass::rearmRxIntLocked()
         return;
     }
 
-    // Limpiar pending antes de tocar el W5500 evita borrar un flanco nuevo que
-    // llegue durante la secuencia. RSR y el nivel físico reconstruyen el
-    // estado si RECV continúa activo.
+    // G3B-D1: reconocer RECV al inicio de la pasada, antes de drenar RX.
+    // Así, cualquier RECV que llegue durante el servicio vuelve a generar
+    // estado pendiente sin necesitar readSnIR()+readSnRX_RSRStable() al final.
+    // DISCON/TIMEOUT NO se limpian aquí: deben mantener INTn activo para que
+    // el lifecycle normal los observe en la siguiente pasada.
     g_jwplcModbusTcpIntPending = false;
 
     SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
+    W5100.writeSnIR(
+        _rxIntSocket,
+        SnIR::RECV);
+    SPI.endTransaction();
+#endif
+}
 
-    const uint8_t ir =
-        W5100.readSnIR(_rxIntSocket);
-
-    const uint8_t clearMask =
-        (uint8_t)(
-            ir &
-            JWPLC_MODBUS_TCP_INT_MASK);
-
-    if (clearMask != 0)
+void JWPLC_ModbusTCPClass::finishRxIntService(bool rxDataKnownPending)
+{
+#if JWPLC_MODBUS_TCP_INT_GUIDED_RX
+    if (!_rxIntConfigured)
     {
-        W5100.writeSnIR(
-            _rxIntSocket,
-            clearMask);
+        return;
     }
 
-    uint16_t rsr = 0;
-    (void)W5100.readSnRX_RSRStable(
-        _rxIntSocket,
-        rsr);
-
-    SPI.endTransaction();
-
-    if (rsr > 0 ||
+    if (rxDataKnownPending ||
         digitalRead(JWPLC_ETH_INT_PIN) == LOW)
     {
         g_jwplcModbusTcpIntPending = true;
     }
+#else
+    (void)rxDataKnownPending;
 #endif
 }
 
@@ -755,6 +751,10 @@ void JWPLC_ModbusTCPClass::serviceServer()
     bool fatalFrame = false;
     JWPLCModbusTCPError fatalError = JWPLC_MODBUS_TCP_OK;
 
+    // ACK del RECV actual antes de leer. Esto mantiene la semántica INT
+    // edge-guided y reduce el costo por request del rearmado anterior.
+    ackRxIntLocked();
+
     int availableBytes = _client.available();
     const bool connected = _client.connected() != 0;
 
@@ -766,7 +766,7 @@ void JWPLC_ModbusTCPClass::serviceServer()
         }
         else
         {
-            rearmRxIntLocked();
+            finishRxIntService(false);
         }
 
         releaseBus();
@@ -847,6 +847,21 @@ void JWPLC_ModbusTCPClass::serviceServer()
         budget = (uint16_t)(budget - received);
         _lastRxMs = now;
 
+#if JWPLC_MODBUS_TCP_INT_GUIDED_RX
+        // availableBytes es la cantidad conocida antes de este read().
+        // Mantenerla localmente evita una lectura RSR extra al cerrar una
+        // trama completa y permite rearmar inmediatamente si ya había bytes
+        // adicionales (por ejemplo, requests TCP pipelined).
+        if (received >= availableBytes)
+        {
+            availableBytes = 0;
+        }
+        else
+        {
+            availableBytes -= received;
+        }
+#endif
+
         if (_expectedLength == 0 && _rxLength == 6)
         {
             const uint16_t protocolId = readU16BE(&_rxBuffer[2]);
@@ -889,7 +904,7 @@ void JWPLC_ModbusTCPClass::serviceServer()
     }
     else
     {
-        rearmRxIntLocked();
+        finishRxIntService(availableBytes > 0);
     }
 
     releaseBus();
