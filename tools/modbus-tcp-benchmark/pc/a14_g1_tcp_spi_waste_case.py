@@ -119,17 +119,16 @@ def main() -> int:
         time.sleep(0.02)
         zero = dut.snapshot()
 
-        for key in (
-            "RX_BYTES",
-            "RX_OPERATIONS",
-            "TCP_SERVICE_PASSES",
-            "TCP_SERVICE_ACTIVE_PASSES",
-            "TCP_SERVICE_EMPTY_PASSES",
-        ):
+        # RX accounting must still be zero. Service-pass counters are allowed
+        # to advance while the DUT is connected and idle between the reset ACK
+        # and this diagnostic snapshot; they are reset again immediately below
+        # before the timed window.
+        for key in ("RX_BYTES", "RX_OPERATIONS"):
             if intval(zero, key) != 0:
-                raise RuntimeError(f"G1_ZERO_COUNTER_NONZERO {key}={zero.get(key)}")
+                raise RuntimeError(f"G1_ZERO_RX_COUNTER_NONZERO {key}={zero.get(key)}")
 
-        # Exclude the zero snapshot itself from the measured accounting.
+        # Exclude the zero snapshot and its idle polling from the measured
+        # accounting.
         dut.command_ack(b"R", b"H4A04P1_RESET=PASS")
 
         pc_bytes, pc_operations, send_elapsed = run_load(
