@@ -18,6 +18,7 @@
 */
 
 #include <JWPLC_Ethernet.h>
+#include <utility/w5100.h>
 
 #ifndef JWPLC_H4A04P3_VERIFY_PAYLOAD
 #define JWPLC_H4A04P3_VERIFY_PAYLOAD 0
@@ -39,7 +40,14 @@
 #define JWPLC_H4A04P9_RX_MAX_CHUNKS 8
 #endif
 
+#ifndef JWPLC_G2_TCP_INT_GUIDED
+#define JWPLC_G2_TCP_INT_GUIDED 0
+#endif
+
 static constexpr uint16_t TCP_PORT = 5001;
+static constexpr uint8_t ETH_INT_PIN = 15;
+static constexpr uint8_t TCP_INT_MASK =
+    SnIR::RECV | SnIR::DISCON | SnIR::TIMEOUT;
 static constexpr size_t TCP_BUFFER_BYTES = 1024;
 static constexpr uint8_t TCP_RX_MAX_CHUNKS_PER_LOCK =
     JWPLC_H4A04P9_RX_MAX_CHUNKS;
@@ -71,6 +79,16 @@ static uint32_t tcpServicePasses = 0;
 static uint32_t tcpServiceActivePasses = 0;
 static uint32_t tcpServiceEmptyPasses = 0;
 
+static volatile bool ethIntPending = false;
+static volatile uint32_t ethIntIsrCount = 0;
+static bool ethIntConfigured = false;
+static uint8_t ethIntSocket = MAX_SOCK_NUM;
+static uint32_t tcpIntSkipCount = 0;
+static uint32_t tcpIntWakeCount = 0;
+static uint32_t tcpIntLowFallbackCount = 0;
+static uint32_t tcpIntRsrRearmCount = 0;
+static uint32_t tcpIntPinRearmCount = 0;
+
 #if JWPLC_H4A04P3_VERIFY_PAYLOAD
 static uint32_t rxFnv1a32 = 2166136261UL;
 #endif
@@ -94,6 +112,12 @@ static void resetCounters()
     tcpServicePasses = 0;
     tcpServiceActivePasses = 0;
     tcpServiceEmptyPasses = 0;
+    ethIntIsrCount = 0;
+    tcpIntSkipCount = 0;
+    tcpIntWakeCount = 0;
+    tcpIntLowFallbackCount = 0;
+    tcpIntRsrRearmCount = 0;
+    tcpIntPinRearmCount = 0;
     tcpRxFrozen = false;
 
 #if JWPLC_H4A04P3_VERIFY_PAYLOAD
@@ -249,6 +273,36 @@ static void printSnapshot()
     Serial.print("TCP_SERVICE_EMPTY_PASSES=");
     Serial.println(tcpServiceEmptyPasses);
 
+    Serial.print("TCP_G2_INT_GUIDED=");
+    Serial.println(JWPLC_G2_TCP_INT_GUIDED ? "YES" : "NO");
+
+    Serial.print("ETH_INT_CONFIGURED=");
+    Serial.println(ethIntConfigured ? "YES" : "NO");
+
+    Serial.print("ETH_INT_PIN=");
+    Serial.println(ETH_INT_PIN);
+
+    Serial.print("ETH_INT_SOCKET=");
+    Serial.println(ethIntSocket);
+
+    Serial.print("ETH_INT_ISR_COUNT=");
+    Serial.println((uint32_t)ethIntIsrCount);
+
+    Serial.print("TCP_INT_SKIP_COUNT=");
+    Serial.println(tcpIntSkipCount);
+
+    Serial.print("TCP_INT_WAKE_COUNT=");
+    Serial.println(tcpIntWakeCount);
+
+    Serial.print("TCP_INT_LOW_FALLBACK_COUNT=");
+    Serial.println(tcpIntLowFallbackCount);
+
+    Serial.print("TCP_INT_RSR_REARM_COUNT=");
+    Serial.println(tcpIntRsrRearmCount);
+
+    Serial.print("TCP_INT_PIN_REARM_COUNT=");
+    Serial.println(tcpIntPinRearmCount);
+
 #if JWPLC_H4A04P3_VERIFY_PAYLOAD
     Serial.println("PAYLOAD_VERIFY_ENABLED=YES");
     Serial.print("RX_FNV1A32=");
@@ -337,6 +391,162 @@ static void announceReady()
     Serial.println(TCP_PORT);
 }
 
+#if JWPLC_G2_TCP_INT_GUIDED
+static void IRAM_ATTR onEthernetInterrupt()
+{
+    ethIntPending = true;
+    ++ethIntIsrCount;
+}
+
+static void disableTcpIntUnlocked()
+{
+    if (!ethIntConfigured)
+    {
+        return;
+    }
+
+    detachInterrupt(digitalPinToInterrupt(ETH_INT_PIN));
+
+    if (ethIntSocket < MAX_SOCK_NUM && W5100.getChip() == 55)
+    {
+        SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
+
+        W5100.writeSnIMR(ethIntSocket, 0);
+
+        const uint8_t simr =
+            W5100.readSIMR_W5500();
+
+        W5100.writeSIMR_W5500(
+            (uint8_t)(simr & ~(1U << ethIntSocket)));
+
+        W5100.writeSnIR(
+            ethIntSocket,
+            TCP_INT_MASK);
+
+        SPI.endTransaction();
+    }
+
+    ethIntConfigured = false;
+    ethIntSocket = MAX_SOCK_NUM;
+    ethIntPending = false;
+}
+
+static bool configureTcpIntUnlocked()
+{
+    const uint8_t socketNumber =
+        tcpClient.getSocketNumber();
+
+    if (
+        W5100.getChip() != 55 ||
+        socketNumber >= MAX_SOCK_NUM)
+    {
+        return false;
+    }
+
+    disableTcpIntUnlocked();
+
+    pinMode(ETH_INT_PIN, INPUT);
+
+    SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
+
+    W5100.writeSnIMR(socketNumber, 0);
+
+    uint8_t simr =
+        W5100.readSIMR_W5500();
+
+    W5100.writeSIMR_W5500(
+        (uint8_t)(simr & ~(1U << socketNumber)));
+
+    W5100.writeSnIR(
+        socketNumber,
+        TCP_INT_MASK);
+
+    W5100.writeSnIMR(
+        socketNumber,
+        TCP_INT_MASK);
+
+    W5100.writeSIMR_W5500(
+        (uint8_t)(simr | (1U << socketNumber)));
+
+    uint16_t rsr = 0;
+    (void)W5100.readSnRX_RSRStable(
+        socketNumber,
+        rsr);
+
+    SPI.endTransaction();
+
+    ethIntSocket = socketNumber;
+    ethIntPending = false;
+    ethIntIsrCount = 0;
+
+    attachInterrupt(
+        digitalPinToInterrupt(ETH_INT_PIN),
+        onEthernetInterrupt,
+        FALLING);
+
+    ethIntConfigured = true;
+
+    if (rsr > 0)
+    {
+        ethIntPending = true;
+        ++tcpIntRsrRearmCount;
+    }
+
+    if (digitalRead(ETH_INT_PIN) == LOW)
+    {
+        ethIntPending = true;
+        ++tcpIntPinRearmCount;
+    }
+
+    return true;
+}
+
+static void rearmTcpIntUnlocked()
+{
+    if (
+        !ethIntConfigured ||
+        ethIntSocket >= MAX_SOCK_NUM ||
+        W5100.getChip() != 55)
+    {
+        return;
+    }
+
+    SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
+
+    const uint8_t ir =
+        W5100.readSnIR(ethIntSocket);
+
+    const uint8_t clearMask =
+        (uint8_t)(ir & TCP_INT_MASK);
+
+    if (clearMask != 0)
+    {
+        W5100.writeSnIR(
+            ethIntSocket,
+            clearMask);
+    }
+
+    uint16_t rsr = 0;
+    (void)W5100.readSnRX_RSRStable(
+        ethIntSocket,
+        rsr);
+
+    SPI.endTransaction();
+
+    if (rsr > 0)
+    {
+        ethIntPending = true;
+        ++tcpIntRsrRearmCount;
+    }
+
+    if (digitalRead(ETH_INT_PIN) == LOW)
+    {
+        ethIntPending = true;
+        ++tcpIntPinRearmCount;
+    }
+}
+#endif
+
 static bool acceptTcpClient()
 {
     // This deliberately exercises the existing cooperative server-side
@@ -394,6 +604,9 @@ static void serviceTcpUnlocked()
     {
         if (mode == MODE_TCP_RX)
         {
+#if JWPLC_G2_TCP_INT_GUIDED
+            disableTcpIntUnlocked();
+#endif
             mode = MODE_IDLE;
         }
 
@@ -413,6 +626,14 @@ static void serviceTcpUnlocked()
         {
             mode = MODE_TCP_RX;
             resetCounters();
+
+#if JWPLC_G2_TCP_INT_GUIDED
+            if (!configureTcpIntUnlocked())
+            {
+                ++transportErrors;
+                mode = MODE_IDLE;
+            }
+#endif
         }
         else
         {
@@ -512,6 +733,30 @@ static void serviceTcp()
         return;
     }
 
+#if JWPLC_G2_TCP_INT_GUIDED
+    if (
+        mode == MODE_TCP_RX &&
+        ethIntConfigured)
+    {
+        const bool pinLow =
+            digitalRead(ETH_INT_PIN) == LOW;
+
+        if (!ethIntPending && !pinLow)
+        {
+            ++tcpIntSkipCount;
+            return;
+        }
+
+        if (!ethIntPending && pinLow)
+        {
+            ++tcpIntLowFallbackCount;
+        }
+
+        ethIntPending = false;
+        ++tcpIntWakeCount;
+    }
+#endif
+
     if (!jwplcSPI_acquire(50))
     {
         ++tcpSpiLockErrors;
@@ -524,6 +769,16 @@ static void serviceTcp()
 
     jwplcSPI_deselectAll();
     serviceTcpUnlocked();
+
+#if JWPLC_G2_TCP_INT_GUIDED
+    if (
+        countServicePass &&
+        mode == MODE_TCP_RX &&
+        ethIntConfigured)
+    {
+        rearmTcpIntUnlocked();
+    }
+#endif
 
     if (countServicePass)
     {
