@@ -464,6 +464,8 @@ bool JWPLC_ModbusTCPClass::configureRxIntLocked(uint8_t socket)
     _rxIntConfigured = true;
     _rxIntSocket = socket;
     _rxIntLastServiceMs = millis();
+    _rxIntHotPolling = false;
+    _rxIntHotUntilUs = 0;
 
     if (rsr > 0 ||
         digitalRead(JWPLC_ETH_INT_PIN) == LOW)
