@@ -1,6 +1,6 @@
 # v2.1.0-alpha.14 — Estado
 
-Actualizado: `2026-09-28`
+Actualizado: `2026-10-01`
 
 ## Identidad
 
@@ -834,10 +834,44 @@ ALPHA14_ONLY_COMMITS=142
 7. A14.5 robot/interoperabilidad permanece diferida y no bloqueante.
 8. El fix final de freshness modifica sólo el benchmark, no el runtime de producción.
 
-## Siguiente paso
+## Checklist actual — cierre G0 H3E-R post-P4.2 LR600
+
+- [x] H3E-R post-P4.2 120 s PASS
+- [x] H3E-R post-P4.2 LR600 physical complete
+- [x] H3E-R LR600 classifier false positive corrected
+- [x] TCP1000 + RTU50 + full runtime 600 s PASS
+
+La corrida LR600 completó `600000/600000` requests TCP a `1000.00 req/s`,
+RTU `30002/30002` a `50.000 Hz`, sin errores funcionales, y preservó los
+guards P95/P99. El `FAIL` RTU inicial fue un falso positivo del wrapper por
+comparar el baud efectivo APB `115201` contra el baud solicitado `115200`.
+
+Evidencia:
+
+- `A14_H3ER_POST_P4_2_LONG_600S_RESULT_20261001.md`
+
+### Ethernet/Modbus productization closure
+
+- [ ] TCP SPI waste baseline
+- [ ] INT GPIO15 TCP A/B
+- [ ] INT scheduler global productization decision
+- [ ] DIRECT_RX final decision
+- [ ] UDP FUSED productization
+- [ ] UDP COMMIT2/R1 productization
+- [ ] UDP batching policy
+- [ ] Fast TCP RX internal integration decision
+- [ ] Modbus TCP async-TX decision
+- [ ] RTU FAST decision
+- [ ] final TCP/UDP/RTU ceilings
+- [ ] final coexistence LR600
+- [ ] final R0/R1 after product changes
+
+Ninguno de estos subpendientes queda promovido por G0.
 
 ```text
-NEXT=H4A03A_MINIMAL_INSTRUMENTATION_DURATION_SWEEP
+G0_STATUS=PASS
+A14_H3ER_LR600=PASS
+NEXT_GATE=G1_TCP_SPI_WASTE_BASELINE
 CI_REQUIRED_BEFORE_MERGE=YES
 HISTORICAL_READY_FOR_RELEASE_PR_20260913=SUPERSEDED_BY_POST_CLOSURE_HARDENING
 ```

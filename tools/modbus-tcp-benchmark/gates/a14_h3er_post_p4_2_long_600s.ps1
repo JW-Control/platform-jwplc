@@ -205,6 +205,49 @@ function Get-LR600ModbusRtuBuildEvidence {
     }
 }
 
+function Get-LR600RtuFunctionalResult {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Collections.IDictionary]$Evidence
+    )
+
+    $corePass =
+        $Evidence.ProducerMasterPass -eq $true -and
+        $Evidence.ProducerSlavePass -eq $true -and
+        $Evidence.AchievedHz -ge 49.5 -and
+        $Evidence.AchievedHz -le 50.5 -and
+        $Evidence.Rejected -eq 0 -and
+        $Evidence.Failed -eq 0 -and
+        $Evidence.VerifyFails -eq 0 -and
+        $Evidence.PeriodsSkipped -eq 0 -and
+        $Evidence.CrcErrors -eq 0 -and
+        $Evidence.Timeouts -eq 0 -and
+        $Evidence.Started -eq $Evidence.Completed -and
+        $Evidence.Completed -eq $Evidence.Success -and
+        $Evidence.MasterBaudRequested -eq 115200 -and
+        $Evidence.SlaveBaudRequested -eq 115200 -and
+        $Evidence.PeriodUs -eq 20000 -and
+        $Evidence.TimeoutMs -eq 25 -and
+        $Evidence.MasterMotor -eq "ASYNC" -and
+        $Evidence.SlaveMotor -eq "ASYNC" -and
+        $Evidence.MasterTxMode -eq "QUEUED" -and
+        $Evidence.SlaveTxMode -eq "QUEUED" -and
+        $Evidence.MasterTxQueued -eq "YES" -and
+        $Evidence.SlaveTxQueued -eq "YES"
+
+    $crossCountPass =
+        $Evidence.ProducerCrossCountPass -eq $true -and
+        $Evidence.SlaveRx -eq $Evidence.Success -and
+        $Evidence.SlaveTx -eq $Evidence.Success -and
+        $Evidence.SlaveOk -eq $Evidence.Success
+
+    return [PSCustomObject]@{
+        CorePass = $corePass
+        CrossCountPass = $crossCountPass
+        Pass = $corePass -and $crossCountPass
+    }
+}
+
 function Copy-LR600Artifacts {
     param(
         [Parameter(Mandatory = $true)][string]$SourceRoot,
@@ -746,6 +789,8 @@ $rtuServiceGapMaxUs =
     Get-LR600Int $masterSnapshotText "RTU_SERVICE_GAP_MAX_US"
 $rtuDurationMs =
     Get-LR600Int $masterSnapshotText "RTU_TRAFFIC_DURATION_MS"
+$rtuBaudRequested =
+    Get-LR600Int $masterSnapshotText "RTU_BAUD"
 $rtuBaudEffective =
     Get-LR600Int $masterSnapshotText "RTU_BAUD_EFFECTIVE"
 $rtuPeriodUs = Get-LR600Int $masterSnapshotText "RTU_PERIOD_US"
@@ -764,12 +809,20 @@ $rtuHz =
 $slaveRtuRx = Get-LR600Int $slaveSnapshotText "RTU_RX_FRAMES"
 $slaveRtuTx = Get-LR600Int $slaveSnapshotText "RTU_TX_FRAMES"
 $slaveRtuOk = Get-LR600Int $slaveSnapshotText "RTU_REQUESTS_OK"
+$slaveRtuBaudRequested =
+    Get-LR600Int $slaveSnapshotText "RTU_BAUD"
 $slaveRtuBaudEffective =
     Get-LR600Int $slaveSnapshotText "RTU_BAUD_EFFECTIVE"
 $slaveRtuMotor = Get-LR600Value $slaveSnapshotText "RTU_MOTOR"
 $slaveRtuTxMode = Get-LR600Value $slaveSnapshotText "RTU_TX_MODE"
 $slaveRtuQueued =
     Get-LR600Value $slaveSnapshotText "RTU_TX_QUEUED_ACTIVE"
+$rtuMasterProducerPass =
+    (Get-LR600Value $qualificationText "RTU_MASTER_PASS") -eq "YES"
+$rtuSlaveProducerPass =
+    (Get-LR600Value $qualificationText "RTU_SLAVE_PASS") -eq "YES"
+$rtuCrossCountProducerPass =
+    (Get-LR600Value $qualificationText "RTU_CROSS_COUNT_PASS") -eq "YES"
 
 $sdActive = Get-LR600Value $masterSnapshotText "SD_DATALOG_ACTIVE"
 $sdBufferBytes =
@@ -995,67 +1048,100 @@ $shortLoopMaxUs = 12012.0
 $shortReqS = 1000.0
 
 $functionalFailures = New-Object System.Collections.Generic.List[string]
-$rtuCrossCountPass =
-    $slaveRtuRx -eq $rtuSuccess -and
-    $slaveRtuTx -eq $rtuSuccess -and
-    $slaveRtuOk -eq $rtuSuccess -and
-    $qualificationText.Contains("RTU_CROSS_COUNT_PASS=YES")
+$tcpRatePass = $requestedReqS -eq 1000.0 -and $achievedPct -ge 99.9
+$tcpCountPass = $tcpRequestsSent -eq $tcpRequestsOk
+$tcpErrorsPass =
+    $tcpTimeouts -eq 0 -and
+    $tcpTransportErrors -eq 0 -and
+    $tcpProtocolErrors -eq 0 -and
+    $tcpBusLockTimeouts -eq 0
+$tcpFunctionalPass = $tcpRatePass -and $tcpCountPass -and $tcpErrorsPass
 
-if ($requestedReqS -ne 1000.0 -or $achievedPct -lt 99.9) {
+$rtuFunctionalResult = Get-LR600RtuFunctionalResult -Evidence @{
+    ProducerMasterPass = $rtuMasterProducerPass
+    ProducerSlavePass = $rtuSlaveProducerPass
+    ProducerCrossCountPass = $rtuCrossCountProducerPass
+    AchievedHz = $rtuHz
+    Started = $rtuStarted
+    Rejected = $rtuRejected
+    Completed = $rtuCompleted
+    Success = $rtuSuccess
+    Failed = $rtuFailed
+    VerifyFails = $rtuVerifyFails
+    PeriodsSkipped = $rtuSkipped
+    CrcErrors = $rtuCrcErrors
+    Timeouts = $rtuTimeouts
+    MasterBaudRequested = $rtuBaudRequested
+    SlaveBaudRequested = $slaveRtuBaudRequested
+    PeriodUs = $rtuPeriodUs
+    TimeoutMs = $rtuTimeoutMs
+    MasterMotor = $masterRtuMotor
+    SlaveMotor = $slaveRtuMotor
+    MasterTxMode = $masterRtuTxMode
+    SlaveTxMode = $slaveRtuTxMode
+    MasterTxQueued = $masterRtuQueued
+    SlaveTxQueued = $slaveRtuQueued
+    SlaveRx = $slaveRtuRx
+    SlaveTx = $slaveRtuTx
+    SlaveOk = $slaveRtuOk
+}
+$rtuFunctionalPass = $rtuFunctionalResult.Pass
+$rtuCrossCountPass = $rtuFunctionalResult.CrossCountPass
+
+$datalogFunctionalPass =
+    $sdActive -eq "YES" -and
+    $sdCommittedBytes -gt 0 -and
+    $sdFailedCommits -eq 0 -and
+    $sdAppendFails -eq 0 -and
+    $sdVerifyFails -eq 0 -and
+    $sdWorkloadMode -eq "BUFFERED_DATALOG"
+
+$peripheralRuntimePass =
+    $peripheralFailures -eq 0 -and
+    $framReady -eq "YES" -and
+    $framFails -eq 0 -and
+    $rtcPresent -eq "YES" -and
+    $rtcUnavailable -eq 0 -and
+    $rtcStale -eq 0 -and
+    $ioInitialized -eq "YES" -and
+    $ioStale -eq 0 -and
+    $buttonsReady -eq "YES" -and
+    $buttonNotReady -eq 0 -and
+    $spiProbeFails -eq 0 -and
+    $displayRenderMode -eq "HMI_ON_DEMAND_DIRTY" -and
+    $displayRefreshMode -eq "USER_REFRESH_ON_DEMAND" -and
+    $slaveDisplayRenderMode -eq "HMI_ON_DEMAND_DIRTY" -and
+    $slaveDisplayRefreshMode -eq "USER_REFRESH_ON_DEMAND"
+$masterResetPass = $masterUnexpectedResets -eq 0
+$tftFunctionalPass = $masterTftPass -and $slaveTftPass
+$peripheralsFunctionalPass =
+    $peripheralRuntimePass -and $masterResetPass -and $tftFunctionalPass
+
+if (-not $tcpRatePass) {
     [void]$functionalFailures.Add("TCP_RATE")
 }
-if ($tcpRequestsSent -ne $tcpRequestsOk) {
+if (-not $tcpCountPass) {
     [void]$functionalFailures.Add("TCP_REQUEST_COUNT")
 }
-if ($tcpTimeouts -ne 0 -or
-    $tcpTransportErrors -ne 0 -or
-    $tcpProtocolErrors -ne 0 -or
-    $tcpBusLockTimeouts -ne 0) {
+if (-not $tcpErrorsPass) {
     [void]$functionalFailures.Add("TCP_ERRORS")
 }
-if ($rtuHz -lt 49.5 -or $rtuHz -gt 50.5 -or
-    $rtuRejected -ne 0 -or $rtuFailed -ne 0 -or
-    $rtuVerifyFails -ne 0 -or $rtuSkipped -ne 0 -or
-    $rtuCrcErrors -ne 0 -or $rtuTimeouts -ne 0 -or
-    $rtuStarted -ne $rtuCompleted -or
-    $rtuCompleted -ne $rtuSuccess -or
-    $rtuBaudEffective -ne 115200 -or
-    $slaveRtuBaudEffective -ne 115200 -or
-    $rtuPeriodUs -ne 20000 -or $rtuTimeoutMs -ne 25 -or
-    $masterRtuMotor -ne "ASYNC" -or
-    $slaveRtuMotor -ne "ASYNC" -or
-    $masterRtuTxMode -ne "QUEUED" -or
-    $slaveRtuTxMode -ne "QUEUED" -or
-    $masterRtuQueued -ne "YES" -or
-    $slaveRtuQueued -ne "YES") {
+if (-not $rtuFunctionalResult.CorePass) {
     [void]$functionalFailures.Add("RTU")
 }
 if (-not $rtuCrossCountPass) {
     [void]$functionalFailures.Add("RTU_CROSS_COUNT")
 }
-if ($sdActive -ne "YES" -or $sdCommittedBytes -le 0 -or
-    $sdFailedCommits -ne 0 -or $sdAppendFails -ne 0 -or
-    $sdVerifyFails -ne 0 -or
-    $sdWorkloadMode -ne "BUFFERED_DATALOG") {
+if (-not $datalogFunctionalPass) {
     [void]$functionalFailures.Add("DATALOG")
 }
-if ($peripheralFailures -ne 0 -or
-    $framReady -ne "YES" -or $framFails -ne 0 -or
-    $rtcPresent -ne "YES" -or
-    $rtcUnavailable -ne 0 -or $rtcStale -ne 0 -or
-    $ioInitialized -ne "YES" -or $ioStale -ne 0 -or
-    $buttonsReady -ne "YES" -or $buttonNotReady -ne 0 -or
-    $spiProbeFails -ne 0 -or
-    $displayRenderMode -ne "HMI_ON_DEMAND_DIRTY" -or
-    $displayRefreshMode -ne "USER_REFRESH_ON_DEMAND" -or
-    $slaveDisplayRenderMode -ne "HMI_ON_DEMAND_DIRTY" -or
-    $slaveDisplayRefreshMode -ne "USER_REFRESH_ON_DEMAND") {
+if (-not $peripheralRuntimePass) {
     [void]$functionalFailures.Add("PERIPHERALS")
 }
-if ($masterUnexpectedResets -ne 0) {
+if (-not $masterResetPass) {
     [void]$functionalFailures.Add("MASTER_RESET")
 }
-if (-not $masterTftPass -or -not $slaveTftPass) {
+if (-not $tftFunctionalPass) {
     [void]$functionalFailures.Add("TFT_PHYSICAL")
 }
 
@@ -1163,7 +1249,10 @@ foreach ($line in @(
     "H3ER_LR600_RTU_PERIODS_SKIPPED=$rtuSkipped",
     "H3ER_LR600_RTU_CRC_ERRORS=$rtuCrcErrors",
     "H3ER_LR600_RTU_TIMEOUTS=$rtuTimeouts",
+    "H3ER_LR600_RTU_BAUD_REQUESTED=$rtuBaudRequested",
     "H3ER_LR600_RTU_BAUD_EFFECTIVE=$rtuBaudEffective",
+    "H3ER_LR600_SLAVE_RTU_BAUD_REQUESTED=$slaveRtuBaudRequested",
+    "H3ER_LR600_SLAVE_RTU_BAUD_EFFECTIVE=$slaveRtuBaudEffective",
     "H3ER_LR600_RTU_CONFIG=8N1",
     "H3ER_LR600_RTU_PERIOD_US=$rtuPeriodUs",
     "H3ER_LR600_RTU_TIMEOUT_MS=$rtuTimeoutMs",
@@ -1178,6 +1267,9 @@ foreach ($line in @(
     "H3ER_LR600_SLAVE_RTU_TX=$slaveRtuTx",
     "H3ER_LR600_SLAVE_RTU_OK=$slaveRtuOk",
     "H3ER_LR600_RTU_CROSS_COUNT=$(if($rtuCrossCountPass){'PASS'}else{'FAIL'})",
+    "H3ER_LR600_RTU_MASTER_PRODUCER_PASS=$(if($rtuMasterProducerPass){'PASS'}else{'FAIL'})",
+    "H3ER_LR600_RTU_SLAVE_PRODUCER_PASS=$(if($rtuSlaveProducerPass){'PASS'}else{'FAIL'})",
+    "H3ER_LR600_RTU_CROSS_COUNT_PRODUCER_PASS=$(if($rtuCrossCountProducerPass){'PASS'}else{'FAIL'})",
     "H3ER_LR600_DATALOG_ACTIVE=$sdActive",
     "H3ER_LR600_DATALOG_BUFFER_BYTES=$sdBufferBytes",
     "H3ER_LR600_DATALOG_PENDING_BYTES=$sdPendingBytes",
@@ -1240,6 +1332,10 @@ foreach ($line in @(
     "H3ER_LR600_TAIL_GUARD=$(if($tailGuardCrossed){'REVIEW'}else{'PASS'})",
     "H3ER_LR600_SUSTAINED_TAIL_WORSENING=$(if($clearSustainedTailWorsening){'YES'}else{'NO'})",
     "H3ER_LR600_TEMPORAL_DEGRADATION=$temporalDegradation",
+    "H3ER_LR600_TCP_FUNCTIONAL=$(if($tcpFunctionalPass){'PASS'}else{'FAIL'})",
+    "H3ER_LR600_RTU_FUNCTIONAL=$(if($rtuFunctionalPass){'PASS'}else{'FAIL'})",
+    "H3ER_LR600_DATALOG_FUNCTIONAL=$(if($datalogFunctionalPass){'PASS'}else{'FAIL'})",
+    "H3ER_LR600_PERIPHERALS_FUNCTIONAL=$(if($peripheralsFunctionalPass){'PASS'}else{'FAIL'})",
     "H3ER_LR600_FUNCTIONAL_FAILURE_COUNT=$($functionalFailures.Count)",
     "H3ER_LR600_RESULT_ROOT=$resultRoot"
 )) {
@@ -1247,6 +1343,7 @@ foreach ($line in @(
 }
 
 if ($functionalFailures.Count -eq 0) {
+    Write-LR600SummaryLine "H3ER_LR600_FUNCTIONAL_FAILURES=NONE"
     Write-LR600SummaryLine "H3ER_LR600_FUNCTIONAL=PASS"
 
     if ($temporalDegradation -eq "REVIEW") {
