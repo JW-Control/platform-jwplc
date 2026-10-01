@@ -63,6 +63,68 @@ function Get-H3ERInt {
         [Globalization.CultureInfo]::InvariantCulture)
 }
 
+function Convert-H3ERDouble {
+    param([Parameter(Mandatory = $true)][string]$Value)
+
+    return [double]::Parse(
+        $Value,
+        [Globalization.CultureInfo]::InvariantCulture)
+}
+
+function Convert-H3ERInt {
+    param([Parameter(Mandatory = $true)][string]$Value)
+
+    return [int64]::Parse(
+        $Value,
+        [Globalization.CultureInfo]::InvariantCulture)
+}
+
+function Get-H3ERDeltaPct {
+    param(
+        [Parameter(Mandatory = $true)][double]$Value,
+        [Parameter(Mandatory = $true)][double]$Reference
+    )
+
+    if ($Reference -eq 0.0) {
+        throw "H3ER_DELTA_REFERENCE_ZERO"
+    }
+
+    return (($Value / $Reference) - 1.0) * 100.0
+}
+
+function Get-H3ERLongBuckets {
+    param([Parameter(Mandatory = $true)][string]$Text)
+
+    $pattern =
+        '(?m)^LONG_BUCKET ' +
+        'INDEX=(\d+) ' +
+        'START_S=([0-9.]+) ' +
+        'END_S=([0-9.]+) ' +
+        'REQ_S=([0-9.]+) ' +
+        'OK=(\d+) ' +
+        'LAT_AVG_US=([0-9.]+) ' +
+        'P95_US=([0-9.]+) ' +
+        'P99_US=([0-9.]+) ' +
+        'MAX_US=([0-9.]+)\r?$'
+
+    return @(
+        [regex]::Matches($Text, $pattern) |
+            ForEach-Object {
+                [PSCustomObject]@{
+                    Index = (Convert-H3ERInt -Value $_.Groups[1].Value)
+                    StartS = (Convert-H3ERDouble -Value $_.Groups[2].Value)
+                    EndS = (Convert-H3ERDouble -Value $_.Groups[3].Value)
+                    ReqS = (Convert-H3ERDouble -Value $_.Groups[4].Value)
+                    Ok = (Convert-H3ERInt -Value $_.Groups[5].Value)
+                    AvgUs = (Convert-H3ERDouble -Value $_.Groups[6].Value)
+                    P95Us = (Convert-H3ERDouble -Value $_.Groups[7].Value)
+                    P99Us = (Convert-H3ERDouble -Value $_.Groups[8].Value)
+                    MaxUs = (Convert-H3ERDouble -Value $_.Groups[9].Value)
+                }
+            }
+    )
+}
+
 function Get-H3ERModbusRtuArchiveLinkForm {
     param(
         [Parameter(Mandatory = $true)]
@@ -93,7 +155,7 @@ function Get-H3ERModbusRtuArchiveLinkForm {
 }
 
 Write-Host "=============================================================================="
-Write-Host " A14 H3E-R - CURRENT PACKAGE FULL RUNTIME"
+Write-Host " A14 H3E-R - POST-P4.2 CURRENT PACKAGE FULL RUNTIME"
 Write-Host " TCP 1000 req/s + RTU 50 Hz + DATALOG + FULL PERIPHERALS"
 Write-Host "=============================================================================="
 
@@ -105,6 +167,7 @@ $dirty = @(Get-G2TrackedDirtyPaths)
 $staged = @(& git -C $repo diff --cached --name-only)
 
 Write-Host "H3ER_HEAD=$head"
+Write-Host "H3ER_PHASE=POST_P4_2"
 Write-Host "H3ER_MASTER_PORT=$MasterPort"
 Write-Host "H3ER_SLAVE_PORT=$SlavePort"
 Write-Host ("H3ER_TCP_TARGET_REQ_S={0:F0}" -f $TcpRate)
@@ -114,6 +177,10 @@ Write-Host "H3ER_RTU_PERIOD_US=20000"
 Write-Host "H3ER_W5500_SPI_HZ=$(Get-G2SpiHz)"
 Write-Host "H3ER_FIFO_REUSE_SOURCE=PACKAGE_DEFAULT"
 Write-Host "H3ER_DLEN_REUSE_SOURCE=PACKAGE_DEFAULT"
+Write-Host "H3ER_COPY_OUT_64_SOURCE=PACKAGE_DEFAULT"
+Write-Host "H3ER_DIRECT_RX_SOURCE=PACKAGE_DEFAULT"
+Write-Host "H3ER_RX_COMMIT=IMMEDIATE"
+Write-Host "H3ER_RX_COMMIT_PATH=LEGACY"
 Write-Host "H3ER_DATALOG_POLICY=MANDATORY_PRODUCT_PATH"
 Write-Host "H3ER_DISPLAY_POLICY=JWPLC_DISPLAY_HMI_ON_DEMAND_DIRTY"
 Write-Host "H3ER_TFT_POLICY=JWPLC_TFT_SOURCE_PRIVATE_BACKEND"
@@ -134,8 +201,8 @@ if ($TcpRate -ne 1000.0) {
     throw "H3ER_TCP_RATE_MUST_BE_1000"
 }
 
-if ($DurationS -lt 120.0) {
-    throw "H3ER_DURATION_MUST_BE_AT_LEAST_120S"
+if ($DurationS -ne 120.0) {
+    throw "H3ER_DURATION_MUST_BE_120S"
 }
 
 if ((Get-G2SpiHz) -ne 26000000) {
@@ -189,6 +256,10 @@ $masterSketch =
 
 $p5bGate =
     Join-Path $PSScriptRoot "a14_p5b_physical_master_slave_combined.ps1"
+$qualificationRunnerPath =
+    Get-G2Path "tools/modbus-tcp-benchmark/pc/a14_perf_full_runtime_realistic_1000rps_qualification.py"
+$frontierRunnerPath =
+    Get-G2Path "tools/modbus-tcp-benchmark/pc/a14_perf_fc03_125_formal_frontier.py"
 
 $spiHeaderPath =
     Get-G2Path "JWPLC/2.1.0/libraries/SPI/src/SPI.h"
@@ -227,6 +298,10 @@ $coreMainText = [IO.File]::ReadAllText($coreMainPath)
 $masterText = [IO.File]::ReadAllText($masterSketch)
 $slaveText = [IO.File]::ReadAllText($slaveSketch)
 $p5bText = [IO.File]::ReadAllText($p5bGate)
+$qualificationRunnerText =
+    [IO.File]::ReadAllText($qualificationRunnerPath)
+$frontierRunnerText =
+    [IO.File]::ReadAllText($frontierRunnerPath)
 
 if (-not $w5100Text.Contains("#define JWPLC_W5500_RX_FIFO_REUSE 1")) {
     throw "H3ER_FIFO_REUSE_DEFAULT_NOT_ON"
@@ -239,6 +314,12 @@ if (-not $w5100Text.Contains("#define JWPLC_W5500_RX_DIRECT_TRANSFER_BYTES 0")) 
 if (-not $spiHeaderText.Contains("#define JWPLC_SPI_FIFO_REUSE_DLEN_CACHE 1")) {
     throw "H3ER_DLEN_REUSE_DEFAULT_NOT_ON"
 }
+
+if (-not $spiHeaderText.Contains("#define JWPLC_SPI_FIFO_REUSE_COPY_OUT_64 1")) {
+    throw "H3ER_COPY_OUT_64_DEFAULT_NOT_ON"
+}
+
+Write-Host "H3ER_COPY_OUT_64_DEFAULT=1"
 
 Write-Host ""
 Write-Host "=== H3E-R COMPOSITION AUDIT ==="
@@ -303,6 +384,24 @@ foreach ($token in @(
 Write-Host "H3ER_MASTER_HMI_ON_DEMAND_DIRTY=PASS"
 
 foreach ($token in @(
+    "JWPLC_FRAM.read(",
+    "JWPLCDataLog sdDataLog",
+    "jwplcGetRTCState()",
+    "jwplcGetIOState()",
+    "JWPLCButtons::isReady()",
+    "probeSpiMutex()"
+)) {
+    if (-not $masterText.Contains($token)) {
+        throw "H3ER_FULL_RUNTIME_PERIPHERAL_SOURCE_MISSING=$token"
+    }
+}
+Write-Host "H3ER_FRAM_WORKLOAD=EXERCISED"
+Write-Host "H3ER_RTC_WORKLOAD=EXERCISED"
+Write-Host "H3ER_TCA_IO_WORKLOAD=EXERCISED_VIA_GLOBAL_PERIPHERALS"
+Write-Host "H3ER_BUTTON_WORKLOAD=EXERCISED"
+Write-Host "H3ER_SPI_PROBE_WORKLOAD=EXERCISED"
+
+foreach ($token in @(
     "jwplcModbusTCPLoopServiceCallback();",
     "jwplcDataLogTickCallback();",
     "jwplcEthernetTickCallback();",
@@ -333,14 +432,20 @@ Write-Host "H3ER_TCP_ASYNC_API_SET=PASS"
 if (-not $modbusTcpImplText.Contains("_client.write(_txBuffer, responseLength)")) {
     throw "H3ER_MODBUS_TCP_RESPONSE_PATH_CHANGED_UNEXPECTEDLY"
 }
-if ($modbusTcpImplText.Contains("beginWriteAsync(")) {
-    throw "H3ER_MODBUS_TCP_ASYNC_TX_UNEXPECTED_FOR_P4_1_CAUSAL_GATE"
+if (-not $modbusTcpImplText.Contains("_client.read(") -or
+    -not $ethernetClientText.Contains(
+        "return Ethernet.socketRecv(_sockindex, buf, size);")) {
+    throw "H3ER_RX_COMMIT_IMMEDIATE_LEGACY_PATH_CHANGED"
 }
-Write-Host "H3ER_TCP_ASYNC_CONNECT=PRESENT_NOT_EXERCISED_INBOUND_SERVER"
-Write-Host "H3ER_TCP_ASYNC_WRITE=PRESENT_NOT_INTEGRATED_IN_MODBUS_TCP"
-Write-Host "H3ER_TCP_ASYNC_FLUSH=PRESENT_NOT_USED_BY_MODBUS_TCP"
+if ($modbusTcpImplText.Contains("beginWriteAsync(")) {
+    throw "H3ER_MODBUS_TCP_ASYNC_TX_UNEXPECTED_FOR_POST_P4_2_GATE"
+}
+Write-Host "H3ER_TCP_ASYNC_CONNECT=PRESENT_BUT_NOT_EXERCISED_INBOUND_SERVER"
+Write-Host "H3ER_TCP_ASYNC_WRITE=PRESENT_BUT_NOT_EXERCISED_NOT_INTEGRATED_IN_MODBUS_TCP"
+Write-Host "H3ER_TCP_ASYNC_FLUSH=PRESENT_BUT_NOT_EXERCISED_BY_MODBUS_TCP"
 Write-Host "H3ER_TCP_ASYNC_STOP=PRESENT_LEGACY_WRAPPER_USES_ASYNC_ENGINE"
 Write-Host "H3ER_MODBUS_TCP_TX_PATH=LEGACY_BLOCKING_WRITE"
+Write-Host "H3ER_RX_COMMIT=IMMEDIATE"
 Write-Host "H3ER_MODBUS_TCP_ASYNC_INTEGRATION=DEFERRED_SEPARATE_VARIABLE_GATE"
 
 if (-not $modbusRtuPropsText.Contains("precompiled=full")) {
@@ -399,11 +504,53 @@ if ($p5bText.Contains("JWPLC_SPI_FIFO_REUSE_DLEN_CACHE=")) {
     throw "H3ER_P5B_MUST_NOT_OVERRIDE_DLEN_REUSE_DEFAULT"
 }
 
+if ($p5bText.Contains("JWPLC_SPI_FIFO_REUSE_COPY_OUT_64=")) {
+    throw "H3ER_P5B_MUST_NOT_OVERRIDE_COPY_OUT_64_DEFAULT"
+}
+
+$formalLoopIndex =
+    $frontierRunnerText.IndexOf("for i in range(target_requests):")
+$formalWindowEndIndex =
+    $frontierRunnerText.IndexOf("unexpected_resets += (", $formalLoopIndex)
+$finalSnapshotIndex =
+    $frontierRunnerText.IndexOf('ser.write(b"S\n")', $formalWindowEndIndex)
+
+if ($formalLoopIndex -lt 0 -or
+    $formalWindowEndIndex -le $formalLoopIndex -or
+    $finalSnapshotIndex -le $formalWindowEndIndex) {
+    throw "H3ER_SERIAL_WINDOW_LIFECYCLE_NOT_PROVEN"
+}
+
+$formalLoopText =
+    $frontierRunnerText.Substring(
+        $formalLoopIndex,
+        $formalWindowEndIndex - $formalLoopIndex)
+
+if ($formalLoopText.Contains("collect_snapshot(") -or
+    $formalLoopText.Contains('ser.write(b"S')) {
+    throw "H3ER_PERIODIC_SERIAL_SNAPSHOT_FORBIDDEN"
+}
+
+if (-not $qualificationRunnerText.Contains("frontier.print_result(") -or
+    -not $frontierRunnerText.Contains('"LONG_BUCKET "') -or
+    -not $frontierRunnerText.Contains("QUANTITY = 125")) {
+    throw "H3ER_LONG_BUCKET_PRODUCER_CONTRACT_MISSING"
+}
+
+Write-Host "H3ER_TCP_FUNCTION=FC03"
+Write-Host "H3ER_TCP_QUANTITY_REGISTERS=125"
+
 Write-Host "H3ER_FIFO_REUSE_DEFAULT_CONTRACT=PASS"
 Write-Host "H3ER_DLEN_REUSE_DEFAULT_CONTRACT=PASS"
+Write-Host "H3ER_COPY_OUT_64_DEFAULT_CONTRACT=PASS"
+Write-Host "H3ER_COPY_OUT_64_BUILD_OVERRIDE=NO"
 Write-Host "H3ER_DATALOG_SOURCE_CONTRACT=PASS"
 Write-Host "H3ER_DATALOG_AUTOSERVICE=CORE_SYSTEM_TASK"
 Write-Host "H3ER_MANUAL_DATALOG_SERVICE=NO"
+Write-Host "H3ER_SERIAL_POLICY=COMPACT_QUIET"
+Write-Host "H3ER_PERIODIC_SERIAL_FORMAL_WINDOW=NO"
+Write-Host "H3ER_FINAL_SNAPSHOT=POST_FORMAL_WINDOW"
+Write-Host "H3ER_BUCKET_PRODUCER=LONG_BUCKET_60S"
 
 $p5bArgs = @{
     MasterPort = $MasterPort
@@ -450,6 +597,9 @@ $tempRoot =
 $qualificationLog =
     Join-Path $tempRoot "qualification.log"
 
+$tcpCsv =
+    Join-Path $tempRoot "tcp_result.csv"
+
 $masterSnapshot =
     Join-Path $tempRoot "master_final.txt"
 
@@ -464,6 +614,7 @@ $slaveCompileLog =
 
 foreach ($required in @(
     $qualificationLog,
+    $tcpCsv,
     $masterSnapshot,
     $slaveSnapshot,
     $masterCompileLog,
@@ -482,6 +633,14 @@ $masterTextResult =
 
 $slaveTextResult =
     [IO.File]::ReadAllText($slaveSnapshot)
+
+[object[]]$tcpCsvRows = @(Import-Csv -LiteralPath $tcpCsv)
+
+if ($tcpCsvRows.Count -ne 1) {
+    throw "H3ER_TCP_CSV_ROW_COUNT_INVALID=$($tcpCsvRows.Count)"
+}
+
+$tcpRow = $tcpCsvRows[0]
 
 foreach ($requiredLine in @(
     "TCP_FULL_RUNTIME_PASS=YES",
@@ -524,6 +683,53 @@ $p99Us =
 $maxUs =
     Get-H3ERDouble -Text $qualificationText -Key "LATENCY_MAX_US"
 
+$latencyAvgUs =
+    Get-H3ERDouble -Text $qualificationText -Key "LATENCY_AVG_US"
+
+$loopAvgUs =
+    Get-H3ERDouble -Text $qualificationText -Key "LOOP_GAP_AVG_US"
+
+$loopMaxUs =
+    Get-H3ERDouble -Text $qualificationText -Key "LOOP_GAP_MAX_US"
+
+$tcpTargetRequests =
+    Convert-H3ERInt -Value $tcpRow.target_requests
+$tcpRequestsSent =
+    Convert-H3ERInt -Value $tcpRow.requests_sent
+$tcpRequestsOk =
+    Convert-H3ERInt -Value $tcpRow.requests_ok
+$tcpTimeouts =
+    Convert-H3ERInt -Value $tcpRow.timeouts
+$tcpTransportErrors =
+    Convert-H3ERInt -Value $tcpRow.transport_errors
+$tcpProtocolErrors =
+    Convert-H3ERInt -Value $tcpRow.protocol_errors
+$tcpBusLockTimeouts =
+    Convert-H3ERInt -Value $tcpRow.server_bus_lock_timeouts
+$masterUnexpectedResets =
+    Convert-H3ERInt -Value $tcpRow.unexpected_resets
+
+[object[]]$longBuckets =
+    @(Get-H3ERLongBuckets -Text $qualificationText)
+
+if ($longBuckets.Count -ne 2) {
+    Write-Host "TAIL_REGRESSION=INCONCLUSIVE"
+    throw "H3ER_LONG_BUCKET_COUNT_INVALID=$($longBuckets.Count)"
+}
+
+$bucket0To60 = $longBuckets[0]
+$bucket60To120 = $longBuckets[1]
+
+if ($bucket0To60.Index -ne 1 -or
+    $bucket0To60.StartS -ne 0.0 -or
+    $bucket0To60.EndS -ne 60.0 -or
+    $bucket60To120.Index -ne 2 -or
+    $bucket60To120.StartS -ne 60.0 -or
+    $bucket60To120.EndS -ne 120.0) {
+    Write-Host "TAIL_REGRESSION=INCONCLUSIVE"
+    throw "H3ER_LONG_BUCKET_BOUNDARIES_INVALID"
+}
+
 $rtuStarted =
     Get-H3ERInt -Text $masterTextResult -Key "RTU_REQUESTS_STARTED"
 
@@ -532,6 +738,18 @@ $rtuSuccess =
 
 $rtuSkipped =
     Get-H3ERInt -Text $masterTextResult -Key "RTU_PERIODS_SKIPPED"
+
+$rtuFailed =
+    Get-H3ERInt -Text $masterTextResult -Key "RTU_REQUESTS_FAILED"
+
+$rtuCrcErrors =
+    Get-H3ERInt -Text $masterTextResult -Key "RTU_CRC_ERRORS"
+
+$rtuTimeouts =
+    Get-H3ERInt -Text $masterTextResult -Key "RTU_MASTER_TIMEOUTS"
+
+$rtuTimeoutMs =
+    Get-H3ERInt -Text $masterTextResult -Key "RTU_TIMEOUT_MS"
 
 $rtuDurationMs =
     Get-H3ERInt -Text $masterTextResult -Key "RTU_TRAFFIC_DURATION_MS"
@@ -561,6 +779,35 @@ $sdThreshold =
 
 $sdFailed =
     Get-H3ERInt -Text $masterTextResult -Key "SD_DATALOG_FAILED_COMMITS"
+
+$sdCommitCount =
+    Get-H3ERInt -Text $masterTextResult -Key "SD_FLUSH_CYCLES"
+
+$framReady =
+    Get-H3ERValue -Text $masterTextResult -Key "FRAM_READY"
+$framFails =
+    Get-H3ERInt -Text $masterTextResult -Key "FRAM_FAILS"
+$rtcPresent =
+    Get-H3ERValue -Text $masterTextResult -Key "RTC_PRESENT"
+$rtcUnavailable =
+    Get-H3ERInt -Text $masterTextResult -Key "RTC_UNAVAILABLE"
+$rtcStale =
+    Get-H3ERInt -Text $masterTextResult -Key "RTC_STALE"
+$ioInitialized =
+    Get-H3ERValue -Text $masterTextResult -Key "IO_INITIALIZED"
+$ioStale =
+    Get-H3ERInt -Text $masterTextResult -Key "IO_STALE"
+$buttonsReady =
+    Get-H3ERValue -Text $masterTextResult -Key "BUTTONS_READY"
+$buttonsNotReady =
+    Get-H3ERInt -Text $masterTextResult -Key "BUTTON_NOT_READY"
+$spiProbeFails =
+    Get-H3ERInt -Text $masterTextResult -Key "SPI_PROBE_FAILS"
+
+$masterTftPhysical =
+    Get-H3ERValue -Text $p5bOutputText -Key "MASTER_TFT_PHYSICAL_PASS"
+$slaveTftPhysical =
+    Get-H3ERValue -Text $p5bOutputText -Key "SLAVE_TFT_PHYSICAL_PASS"
 
 $peripheralFailures =
     Get-H3ERInt -Text $masterTextResult -Key "PERIPHERAL_FAILURE_COUNT"
@@ -646,6 +893,34 @@ if ($achievedPct -lt 99.9) {
     throw "H3ER_TCP_RATE_BELOW_99_9_PCT=$achievedPct"
 }
 
+if ($tcpTargetRequests -ne 120000 -or
+    $tcpRequestsSent -ne $tcpTargetRequests -or
+    $tcpRequestsOk -ne $tcpTargetRequests) {
+    throw (
+        "H3ER_TCP_REQUEST_COUNTS_INVALID={0}/{1}/{2}" -f
+        $tcpTargetRequests,
+        $tcpRequestsSent,
+        $tcpRequestsOk
+    )
+}
+
+if ($tcpTimeouts -ne 0 -or
+    $tcpTransportErrors -ne 0 -or
+    $tcpProtocolErrors -ne 0 -or
+    $tcpBusLockTimeouts -ne 0) {
+    throw (
+        "H3ER_TCP_ERRORS_PRESENT=TIMEOUTS:{0},TRANSPORT:{1},PROTOCOL:{2},BUS_LOCK:{3}" -f
+        $tcpTimeouts,
+        $tcpTransportErrors,
+        $tcpProtocolErrors,
+        $tcpBusLockTimeouts
+    )
+}
+
+if ($masterUnexpectedResets -ne 0) {
+    throw "H3ER_MASTER_UNEXPECTED_RESETS=$masterUnexpectedResets"
+}
+
 if ($rtuHz -lt 49.5 -or $rtuHz -gt 50.5) {
     throw "H3ER_RTU_NOT_50HZ=$rtuHz"
 }
@@ -658,11 +933,28 @@ if ($rtuStarted -ne $rtuSuccess) {
     throw "H3ER_RTU_SUCCESS_MISMATCH=$rtuSuccess/$rtuStarted"
 }
 
+if ($rtuFailed -ne 0 -or
+    $rtuCrcErrors -ne 0 -or
+    $rtuTimeouts -ne 0) {
+    throw (
+        "H3ER_RTU_ERRORS_PRESENT=FAILED:{0},CRC:{1},TIMEOUTS:{2}" -f
+        $rtuFailed,
+        $rtuCrcErrors,
+        $rtuTimeouts
+    )
+}
+
+if ($rtuTimeoutMs -ne 25) {
+    throw "H3ER_RTU_TIMEOUT_DIAGNOSTIC_CHANGED=$rtuTimeoutMs"
+}
+
 if ($sdActive -ne "YES") {
     throw "H3ER_DATALOG_NOT_ACTIVE"
 }
 
-if ($sdAccepted -le 0 -or $sdCommitted -le 0) {
+if ($sdAccepted -le 0 -or
+    $sdCommitted -le 0 -or
+    $sdCommitCount -le 0) {
     throw "H3ER_DATALOG_NO_ACTIVITY"
 }
 
@@ -678,45 +970,114 @@ if ($peripheralFailures -ne 0) {
     throw "H3ER_PERIPHERAL_FAILURES=$peripheralFailures"
 }
 
-# Baseline inmediato antes de promover P4.1 (HEAD 413a570b, 2026-09-30).
-# Protegemos P95/P99; MAX se reporta como diagnóstico por su alta varianza
-# histórica y no veta por sí solo un gate limpio.
-$preP41P95Us = 1275.5
-$preP41P99Us = 3781.0
-$preP41MaxUs = 28179.8
+if ($framReady -ne "YES" -or $framFails -ne 0) {
+    throw "H3ER_FRAM_INVALID=READY:$framReady,FAILS:$framFails"
+}
+
+if ($rtcPresent -ne "YES" -or
+    $rtcUnavailable -ne 0 -or
+    $rtcStale -ne 0) {
+    throw (
+        "H3ER_RTC_INVALID=PRESENT:{0},UNAVAILABLE:{1},STALE:{2}" -f
+        $rtcPresent,
+        $rtcUnavailable,
+        $rtcStale
+    )
+}
+
+if ($ioInitialized -ne "YES" -or $ioStale -ne 0) {
+    throw "H3ER_IO_INVALID=INITIALIZED:$ioInitialized,STALE:$ioStale"
+}
+
+if ($buttonsReady -ne "YES" -or $buttonsNotReady -ne 0) {
+    throw (
+        "H3ER_BUTTONS_INVALID=READY:{0},NOT_READY:{1}" -f
+        $buttonsReady,
+        $buttonsNotReady
+    )
+}
+
+if ($spiProbeFails -ne 0) {
+    throw "H3ER_SPI_PROBE_FAILURES=$spiProbeFails"
+}
+
+if ($masterTftPhysical.ToUpperInvariant() -ne "TRUE" -or
+    $slaveTftPhysical.ToUpperInvariant() -ne "TRUE") {
+    throw (
+        "H3ER_TFT_PHYSICAL_FAIL=MASTER:{0},SLAVE:{1}" -f
+        $masterTftPhysical,
+        $slaveTftPhysical
+    )
+}
+
+# Baseline full-runtime comparable inmediatamente anterior, medido POST-P4.1.
+# Conservamos los guards historicos del gate (+10 % P95, +15 % P99). MAX y
+# loop max se reportan como diagnostico por su variabilidad y no vetan solos.
+$postP41ReqS = 1000.0
+$postP41P95Us = 1270.8
+$postP41P99Us = 3666.0
+$postP41MaxUs = 22676.2
+$postP41LoopAvgUs = 641.0
+$postP41LoopMaxUs = 9498.0
+$postP41TotalMbps = 2.1680
+$postP41UsefulMbps = 2.0000
 
 $p95DeltaPct =
-    (($p95Us / $preP41P95Us) - 1.0) * 100.0
+    Get-H3ERDeltaPct -Value $p95Us -Reference $postP41P95Us
 $p99DeltaPct =
-    (($p99Us / $preP41P99Us) - 1.0) * 100.0
+    Get-H3ERDeltaPct -Value $p99Us -Reference $postP41P99Us
 $maxDeltaPct =
-    (($maxUs / $preP41MaxUs) - 1.0) * 100.0
+    Get-H3ERDeltaPct -Value $maxUs -Reference $postP41MaxUs
+$loopMaxDeltaPct =
+    Get-H3ERDeltaPct -Value $loopMaxUs -Reference $postP41LoopMaxUs
+$reqSDeltaPct =
+    Get-H3ERDeltaPct -Value $achievedReqS -Reference $postP41ReqS
 
-$p95GuardUs = $preP41P95Us * 1.10
-$p99GuardUs = $preP41P99Us * 1.15
+$p95GuardUs = $postP41P95Us * 1.10
+$p99GuardUs = $postP41P99Us * 1.15
 
 $p95GuardPass = $p95Us -le $p95GuardUs
 $p99GuardPass = $p99Us -le $p99GuardUs
+$bucket0To60P95Pass = $bucket0To60.P95Us -le $p95GuardUs
+$bucket0To60P99Pass = $bucket0To60.P99Us -le $p99GuardUs
+$bucket60To120P95Pass = $bucket60To120.P95Us -le $p95GuardUs
+$bucket60To120P99Pass = $bucket60To120.P99Us -le $p99GuardUs
 
-Write-Host ("H3ER_PRE_P4_1_P95_US={0:F1}" -f $preP41P95Us)
-Write-Host ("H3ER_PRE_P4_1_P99_US={0:F1}" -f $preP41P99Us)
-Write-Host ("H3ER_PRE_P4_1_MAX_US={0:F1}" -f $preP41MaxUs)
-Write-Host ("H3ER_P95_DELTA_VS_PRE_P4_1_PCT={0:F3}" -f $p95DeltaPct)
-Write-Host ("H3ER_P99_DELTA_VS_PRE_P4_1_PCT={0:F3}" -f $p99DeltaPct)
-Write-Host ("H3ER_MAX_DELTA_VS_PRE_P4_1_PCT={0:F3}" -f $maxDeltaPct)
+$tailRegression = "NOT_PRESENT"
+if (-not $p95GuardPass -or
+    -not $p99GuardPass -or
+    -not $bucket0To60P95Pass -or
+    -not $bucket0To60P99Pass -or
+    -not $bucket60To120P95Pass -or
+    -not $bucket60To120P99Pass) {
+    $tailRegression = "PRESENT"
+}
+
+Write-Host "H3ER_BASELINE=POST_P4_1_H3ER"
+Write-Host ("H3ER_POST_P4_1_REQ_S={0:F2}" -f $postP41ReqS)
+Write-Host ("H3ER_POST_P4_1_TOTAL_MBPS={0:F4}" -f $postP41TotalMbps)
+Write-Host ("H3ER_POST_P4_1_USEFUL_MBPS={0:F4}" -f $postP41UsefulMbps)
+Write-Host ("H3ER_POST_P4_1_P95_US={0:F1}" -f $postP41P95Us)
+Write-Host ("H3ER_POST_P4_1_P99_US={0:F1}" -f $postP41P99Us)
+Write-Host ("H3ER_POST_P4_1_MAX_US={0:F1}" -f $postP41MaxUs)
+Write-Host ("H3ER_POST_P4_1_LOOP_AVG_US={0:F1}" -f $postP41LoopAvgUs)
+Write-Host ("H3ER_POST_P4_1_LOOP_MAX_US={0:F1}" -f $postP41LoopMaxUs)
+Write-Host ("H3ER_POST_P4_2_DELTA_P95_PCT={0:F3}" -f $p95DeltaPct)
+Write-Host ("H3ER_POST_P4_2_DELTA_P99_PCT={0:F3}" -f $p99DeltaPct)
+Write-Host ("H3ER_POST_P4_2_DELTA_MAX_PCT={0:F3}" -f $maxDeltaPct)
+Write-Host ("H3ER_POST_P4_2_DELTA_LOOP_MAX_PCT={0:F3}" -f $loopMaxDeltaPct)
+Write-Host ("H3ER_POST_P4_2_DELTA_REQ_S_PCT={0:F3}" -f $reqSDeltaPct)
 Write-Host ("H3ER_P95_GUARD_US={0:F1}" -f $p95GuardUs)
 Write-Host ("H3ER_P99_GUARD_US={0:F1}" -f $p99GuardUs)
 Write-Host "H3ER_P95_GUARD_PASS=$($p95GuardPass.ToString().ToUpperInvariant())"
 Write-Host "H3ER_P99_GUARD_PASS=$($p99GuardPass.ToString().ToUpperInvariant())"
+Write-Host "H3ER_BUCKET_0_60_P95_GUARD_PASS=$($bucket0To60P95Pass.ToString().ToUpperInvariant())"
+Write-Host "H3ER_BUCKET_0_60_P99_GUARD_PASS=$($bucket0To60P99Pass.ToString().ToUpperInvariant())"
+Write-Host "H3ER_BUCKET_60_120_P95_GUARD_PASS=$($bucket60To120P95Pass.ToString().ToUpperInvariant())"
+Write-Host "H3ER_BUCKET_60_120_P99_GUARD_PASS=$($bucket60To120P99Pass.ToString().ToUpperInvariant())"
+Write-Host "TAIL_REGRESSION=$tailRegression"
+Write-Host "H3ER_LOOP_MAX_POLICY=DIAGNOSTIC_ONLY"
 Write-Host "H3ER_MAX_POLICY=DIAGNOSTIC_ONLY"
-
-if (-not $p95GuardPass) {
-    throw "H3ER_P4_1_P95_REGRESSION=$p95Us"
-}
-
-if (-not $p99GuardPass) {
-    throw "H3ER_P4_1_P99_REGRESSION=$p99Us"
-}
 
 $compileText =
     [IO.File]::ReadAllText($masterCompileLog)
@@ -737,6 +1098,14 @@ if ($compileText -match '(?i)-DJWPLC_W5500_RX_FIFO_REUSE=') {
 if ($compileText -match '(?i)-DJWPLC_SPI_FIFO_REUSE_DLEN_CACHE=') {
     throw "H3ER_DLEN_REUSE_WAS_OVERRIDDEN_AT_BUILD"
 }
+
+$combinedCompileText = $compileText + "`n" + $slaveCompileText
+
+if ($combinedCompileText -match '(?i)-DJWPLC_SPI_FIFO_REUSE_COPY_OUT_64=') {
+    throw "H3ER_COPY_OUT_64_WAS_OVERRIDDEN_AT_BUILD"
+}
+
+Write-Host "H3ER_COPY_OUT_64_BUILD_OVERRIDE=NO"
 
 foreach ($token in @(
     "jwplc_display.cpp",
@@ -802,37 +1171,90 @@ Write-Host ("H3ER_TCP_ACHIEVED_REQ_S={0:F2}" -f $achievedReqS)
 Write-Host ("H3ER_TCP_ACHIEVED_PCT={0:F3}" -f $achievedPct)
 Write-Host ("H3ER_TCP_TOTAL_MBPS={0:F4}" -f $totalMbps)
 Write-Host ("H3ER_TCP_USEFUL_MBPS={0:F4}" -f $usefulMbps)
+Write-Host ("H3ER_TCP_LATENCY_AVG_US={0:F1}" -f $latencyAvgUs)
 Write-Host ("H3ER_TCP_P95_US={0:F1}" -f $p95Us)
 Write-Host ("H3ER_TCP_P99_US={0:F1}" -f $p99Us)
 Write-Host ("H3ER_TCP_MAX_US={0:F1}" -f $maxUs)
+Write-Host "H3ER_TCP_TARGET_REQUESTS=$tcpTargetRequests"
+Write-Host "H3ER_TCP_REQUESTS_SENT=$tcpRequestsSent"
+Write-Host "H3ER_TCP_REQUESTS_OK=$tcpRequestsOk"
+Write-Host "H3ER_TCP_TIMEOUTS=$tcpTimeouts"
+Write-Host "H3ER_TCP_TRANSPORT_ERRORS=$tcpTransportErrors"
+Write-Host "H3ER_TCP_PROTOCOL_ERRORS=$tcpProtocolErrors"
+Write-Host "H3ER_TCP_BUS_LOCK_TIMEOUTS=$tcpBusLockTimeouts"
+Write-Host ("H3ER_BUCKET_0_60_REQ_S={0:F2}" -f $bucket0To60.ReqS)
+Write-Host "H3ER_BUCKET_0_60_OK=$($bucket0To60.Ok)"
+Write-Host ("H3ER_BUCKET_0_60_AVG_US={0:F1}" -f $bucket0To60.AvgUs)
+Write-Host ("H3ER_BUCKET_0_60_P95_US={0:F1}" -f $bucket0To60.P95Us)
+Write-Host ("H3ER_BUCKET_0_60_P99_US={0:F1}" -f $bucket0To60.P99Us)
+Write-Host ("H3ER_BUCKET_0_60_MAX_US={0:F1}" -f $bucket0To60.MaxUs)
+Write-Host ("H3ER_BUCKET_60_120_REQ_S={0:F2}" -f $bucket60To120.ReqS)
+Write-Host "H3ER_BUCKET_60_120_OK=$($bucket60To120.Ok)"
+Write-Host ("H3ER_BUCKET_60_120_AVG_US={0:F1}" -f $bucket60To120.AvgUs)
+Write-Host ("H3ER_BUCKET_60_120_P95_US={0:F1}" -f $bucket60To120.P95Us)
+Write-Host ("H3ER_BUCKET_60_120_P99_US={0:F1}" -f $bucket60To120.P99Us)
+Write-Host ("H3ER_BUCKET_60_120_MAX_US={0:F1}" -f $bucket60To120.MaxUs)
+Write-Host ("H3ER_LOOP_AVG_US={0:F1}" -f $loopAvgUs)
+Write-Host ("H3ER_LOOP_MAX_US={0:F1}" -f $loopMaxUs)
 Write-Host ("H3ER_RTU_ACHIEVED_HZ={0:F3}" -f $rtuHz)
 Write-Host "H3ER_RTU_REQUESTS_STARTED=$rtuStarted"
 Write-Host "H3ER_RTU_REQUESTS_SUCCESS=$rtuSuccess"
+Write-Host "H3ER_RTU_REQUESTS_FAILED=$rtuFailed"
 Write-Host "H3ER_RTU_PERIODS_SKIPPED=$rtuSkipped"
+Write-Host "H3ER_RTU_CRC_ERRORS=$rtuCrcErrors"
+Write-Host "H3ER_RTU_TIMEOUTS=$rtuTimeouts"
+Write-Host "H3ER_RTU_TIMEOUT_MS=$rtuTimeoutMs"
 Write-Host "H3ER_DATALOG_ACTIVE=$sdActive"
 Write-Host "H3ER_DATALOG_ACCEPTED_BYTES=$sdAccepted"
 Write-Host "H3ER_DATALOG_COMMITTED_BYTES=$sdCommitted"
 Write-Host "H3ER_DATALOG_PENDING_BYTES=$sdPending"
+Write-Host "H3ER_DATALOG_COMMIT_COUNT=$sdCommitCount"
 Write-Host "H3ER_DATALOG_FAILED_COMMITS=$sdFailed"
+Write-Host "H3ER_DATALOG_MANUAL_SERVICE=NO"
+Write-Host "H3ER_FRAM_READY=$framReady"
+Write-Host "H3ER_FRAM_FAILS=$framFails"
+Write-Host "H3ER_RTC_PRESENT=$rtcPresent"
+Write-Host "H3ER_RTC_UNAVAILABLE=$rtcUnavailable"
+Write-Host "H3ER_RTC_STALE=$rtcStale"
+Write-Host "H3ER_IO_INITIALIZED=$ioInitialized"
+Write-Host "H3ER_IO_STALE=$ioStale"
+Write-Host "H3ER_BUTTONS_READY=$buttonsReady"
+Write-Host "H3ER_BUTTON_NOT_READY=$buttonsNotReady"
+Write-Host "H3ER_SPI_PROBE_FAILS=$spiProbeFails"
 Write-Host "H3ER_PERIPHERAL_FAILURE_COUNT=$peripheralFailures"
+Write-Host "H3ER_MASTER_UNEXPECTED_RESETS=$masterUnexpectedResets"
+Write-Host "H3ER_SLAVE_RESET_DIRECT_COUNTER=NOT_EXPOSED"
+Write-Host "H3ER_SLAVE_RESET_GUARD=RTU_CROSS_COUNT_AND_QUIESCED_FINAL_SNAPSHOT"
+Write-Host "H3ER_MASTER_TFT_PHYSICAL=PASS"
+Write-Host "H3ER_SLAVE_TFT_PHYSICAL=PASS"
 Write-Host "H3ER_FIFO_REUSE_DEFAULT=PASS"
 Write-Host "H3ER_DLEN_REUSE_DEFAULT=PASS"
+Write-Host "H3ER_COPY_OUT_64_DEFAULT=1"
+Write-Host "H3ER_COPY_OUT_64_SOURCE=PACKAGE_DEFAULT"
+Write-Host "H3ER_COPY_OUT_64_BUILD_OVERRIDE=NO"
+Write-Host "H3ER_DIRECT_RX_DEFAULT=OFF"
+Write-Host "H3ER_RX_COMMIT=IMMEDIATE"
 Write-Host "H3ER_SINGLE_STATUS_POLICY=PASS"
 Write-Host "H3ER_DATALOG_POLICY=PASS"
 Write-Host "H3ER_DISPLAY_DIRTY_POLICY=PASS"
 Write-Host "H3ER_RTU_ASYNC_POLICY=PASS"
-Write-Host "H3ER_P4_1_LATENCY_GUARD=PASS"
-Write-Host "H3ER_HISTORICAL_TCP_REQ_S=1000.00"
-Write-Host "H3ER_HISTORICAL_RTU_HZ=50.004"
-Write-Host "H3ER_HISTORICAL_TOTAL_MBPS=2.1680"
-Write-Host "H3ER_HISTORICAL_USEFUL_MBPS=2.0000"
-Write-Host "H3ER_HISTORICAL_P95_US=1197.2"
-Write-Host "H3ER_HISTORICAL_P99_US=3423.3"
-Write-Host "H3ER_HISTORICAL_MAX_US=18823.7"
+Write-Host "H3ER_H3E5_SECONDARY_P95_US=1197.2"
+Write-Host "H3ER_H3E5_SECONDARY_P99_US=3423.3"
+Write-Host "H3ER_H3E5_SECONDARY_MAX_US=18823.7"
 Write-Host "HARNESS_FAILURE=NO"
-Write-Host "PRODUCT_FAILURE=NO_EVIDENCE"
 Write-Host "HARDWARE_FAILURE=NO_EVIDENCE"
-Write-Host "A14_H3E_R_CURRENT_PACKAGE=PASS"
-Write-Host "A14_H3E_R_P4_1_REGRESSION=PASS"
+Write-Host "H3ER_POST_P4_2_COMPOSITION_AUDIT=PASS"
 Write-Host "H3ER_TEMP_ROOT=$tempRoot"
-Write-Host "NEXT=RETURN_TO_CHAT_BEFORE_P4_2"
+
+if ($tailRegression -eq "PRESENT") {
+    Write-Host "H3ER_POST_P4_2_LATENCY_GUARD=FAIL"
+    Write-Host "PRODUCT_FAILURE=REGRESSION_EVIDENCE"
+    Write-Host "A14_H3E_R_POST_P4_2=FAIL"
+    Write-Host "NEXT=RETURN_REGRESSION_FOR_REVIEW"
+    throw "H3ER_POST_P4_2_TAIL_REGRESSION_PRESENT"
+}
+
+Write-Host "H3ER_POST_P4_2_LATENCY_GUARD=PASS"
+Write-Host "PRODUCT_FAILURE=NO_EVIDENCE"
+Write-Host "A14_H3E_R_POST_P4_2=PASS"
+Write-Host "NEXT=RETURN_RESULT_FOR_REVIEW_BEFORE_P4_2_CLOSURE"
