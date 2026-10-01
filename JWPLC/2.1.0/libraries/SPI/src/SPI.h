@@ -42,6 +42,11 @@
 #define JWPLC_SPI_FIFO_REUSE_DLEN_CACHE 1
 #endif
 
+#ifndef JWPLC_SPI_FIFO_REUSE_COPY_OUT_64
+// Alpha14 P4.2 candidate: keep OFF until physical A/B validation.
+#define JWPLC_SPI_FIFO_REUSE_COPY_OUT_64 0
+#endif
+
 #if JWPLC_SPI_PROFILE_FIFO_REUSE_CHUNKS
 struct JWPLCSpiFifoReuseChunkProfile {
   uint64_t chunkCount = 0;

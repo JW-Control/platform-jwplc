@@ -95,6 +95,26 @@ static void jwplcSpiReadBytesReuseFifoNL(
 
     uint32_t *result = reinterpret_cast<uint32_t *>(out);
 
+#if JWPLC_SPI_FIFO_REUSE_COPY_OUT_64
+    if (c_len == 64U) {
+      result[0] = dev->data_buf[0];
+      result[1] = dev->data_buf[1];
+      result[2] = dev->data_buf[2];
+      result[3] = dev->data_buf[3];
+      result[4] = dev->data_buf[4];
+      result[5] = dev->data_buf[5];
+      result[6] = dev->data_buf[6];
+      result[7] = dev->data_buf[7];
+      result[8] = dev->data_buf[8];
+      result[9] = dev->data_buf[9];
+      result[10] = dev->data_buf[10];
+      result[11] = dev->data_buf[11];
+      result[12] = dev->data_buf[12];
+      result[13] = dev->data_buf[13];
+      result[14] = dev->data_buf[14];
+      result[15] = dev->data_buf[15];
+    } else
+#endif
     if (c_len & 3U) {
       for (uint32_t i = 0; i + 1U < c_longs; ++i) {
         result[i] = dev->data_buf[i];
