@@ -201,6 +201,7 @@ def run_case(
     serial_port: str,
     duration_s: float,
     expected_int: bool,
+    expected_hot_poll_us: int = 0,
 ) -> dict[str, object]:
     ser = serial.Serial()
     ser.port = serial_port
