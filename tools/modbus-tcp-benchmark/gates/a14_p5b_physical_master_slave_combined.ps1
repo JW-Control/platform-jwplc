@@ -4,6 +4,7 @@ param(
     [double]$TcpRate = 1000.0,
     [double]$DurationS = 60.0,
     [string]$PythonExe = "",
+    [string]$MasterExtraCppFlags = "",
     [switch]$SetupOnly,
     [switch]$AllowDirtyCoreCandidate,
     [switch]$AllowMissingModbusRtuArchiveCandidate
@@ -109,6 +110,13 @@ Write-Host "RTU_BAUD=115200"
 Write-Host "RTU_CONFIG=8N1"
 Write-Host "DISPLAY_API=USER_REFRESH_ON_DEMAND_DIRTY"
 Write-Host "PRODUCT_SOURCE_MUTATION=NO"
+Write-Host "MASTER_EXTRA_CPP_FLAGS=$(
+    if ([string]::IsNullOrWhiteSpace($MasterExtraCppFlags)) {
+        "NONE"
+    }
+    else {
+        $MasterExtraCppFlags
+    })"
 
 if ($spiHz -ne 26000000) {
     throw "P5B_EXPECTED_26MHZ"
@@ -316,7 +324,23 @@ if ($slaveBinCount -lt 1) {
 Write-Host ""
 Write-Host "=== COMPILE MASTER ==="
 
-$masterCompileArgs = @("compile", "--verbose", "--fqbn", $fqbn, "--build-path", $masterBuild, "--libraries", $repoLibrariesRoot, $masterDir)
+$masterCompileArgs = @(
+    "compile",
+    "--verbose",
+    "--fqbn", $fqbn,
+    "--build-path", $masterBuild,
+    "--libraries", $repoLibrariesRoot
+)
+
+if (-not [string]::IsNullOrWhiteSpace($MasterExtraCppFlags)) {
+    $masterCompileArgs += @(
+        "--build-property",
+        ("compiler.cpp.extra_flags={0}" -f $MasterExtraCppFlags)
+    )
+}
+
+$masterCompileArgs += $masterDir
+
 $masterCompileExit = Invoke-NativeToLog -FilePath $arduinoCli -Arguments $masterCompileArgs -LogPath $masterCompileLog
 
 Write-Host "MASTER_COMPILE_EXIT=$masterCompileExit"

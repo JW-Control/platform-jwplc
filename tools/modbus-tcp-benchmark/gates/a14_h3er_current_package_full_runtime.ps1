@@ -3,7 +3,8 @@ param(
     [string]$SlavePort = "COM4",
     [double]$TcpRate = 1000.0,
     [double]$DurationS = 120.0,
-    [string]$PythonExe = ""
+    [string]$PythonExe = "",
+    [string]$MasterExtraCppFlags = ""
 )
 
 Set-StrictMode -Version Latest
@@ -211,6 +212,27 @@ Write-Host "H3ER_TFT_POLICY=JWPLC_TFT_SOURCE_PRIVATE_BACKEND"
 Write-Host "H3ER_SINGLE_STATUS_POLICY=SAME_PASS_REUSE_NO_PERSISTENT_CACHE"
 Write-Host "H3ER_TCP_ASYNC_POLICY=AUDIT_PRESENCE_AND_APPLICABILITY"
 
+$intCandidateFlag =
+    "-DJWPLC_MODBUS_TCP_INT_GUIDED_RX=1"
+
+if (-not [string]::IsNullOrWhiteSpace($MasterExtraCppFlags) -and
+    $MasterExtraCppFlags.Trim() -ne $intCandidateFlag) {
+    throw "H3ER_MASTER_EXTRA_CPP_FLAGS_UNSUPPORTED=$MasterExtraCppFlags"
+}
+
+$intCandidateEnabled =
+    $MasterExtraCppFlags.Trim() -eq $intCandidateFlag
+
+Write-Host "H3ER_INT_GUIDED_RX_BUILD=$(
+    if ($intCandidateEnabled) { "ON" } else { "OFF" })"
+Write-Host "H3ER_MASTER_EXTRA_CPP_FLAGS=$(
+    if ([string]::IsNullOrWhiteSpace($MasterExtraCppFlags)) {
+        "NONE"
+    }
+    else {
+        $MasterExtraCppFlags
+    })"
+
 if ($dirty.Count -ne 0) {
     $dirty | ForEach-Object { Write-Host "DIRTY=$_" }
     throw "H3ER_TREE_NOT_CLEAN"
@@ -301,6 +323,8 @@ $ethernetClientPath =
     Get-G2Path "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/EthernetClient.cpp"
 $modbusTcpImplPath =
     Get-G2Path "JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP.cpp"
+$modbusTcpHeaderPath =
+    Get-G2Path "JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP.h"
 $modbusRtuPropsPath =
     Get-G2Path "JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/library.properties"
 $modbusRtuSourcePath =
@@ -321,6 +345,7 @@ $displayImplText = [IO.File]::ReadAllText($displayImplPath)
 $uiImplText = [IO.File]::ReadAllText($uiImplPath)
 $ethernetClientText = [IO.File]::ReadAllText($ethernetClientPath)
 $modbusTcpImplText = [IO.File]::ReadAllText($modbusTcpImplPath)
+$modbusTcpHeaderText = [IO.File]::ReadAllText($modbusTcpHeaderPath)
 $modbusRtuPropsText = [IO.File]::ReadAllText($modbusRtuPropsPath)
 $coreMainText = [IO.File]::ReadAllText($coreMainPath)
 $masterText = [IO.File]::ReadAllText($masterSketch)
@@ -476,6 +501,13 @@ Write-Host "H3ER_MODBUS_TCP_TX_PATH=LEGACY_BLOCKING_WRITE"
 Write-Host "H3ER_RX_COMMIT=IMMEDIATE"
 Write-Host "H3ER_MODBUS_TCP_ASYNC_INTEGRATION=DEFERRED_SEPARATE_VARIABLE_GATE"
 
+if (-not $modbusTcpHeaderText.Contains(
+    "#define JWPLC_MODBUS_TCP_INT_GUIDED_RX 0")) {
+    throw "H3ER_INT_GUIDED_RX_PACKAGE_DEFAULT_NOT_OFF"
+}
+
+Write-Host "H3ER_INT_GUIDED_RX_PACKAGE_DEFAULT=0"
+
 if ($modbusRtuPropsText -match '(?m)^\s*precompiled\s*=') {
     throw "H3ER_MODBUS_RTU_SOURCE_FIRST_POLICY_CHANGED"
 }
@@ -598,6 +630,7 @@ $p5bArgs = @{
     TcpRate = $TcpRate
     DurationS = $DurationS
     PythonExe = $pythonExeResolved
+    MasterExtraCppFlags = $MasterExtraCppFlags
 }
 
 [object[]]$p5bOutput =
@@ -663,6 +696,21 @@ foreach ($required in @(
     if (-not (Test-Path -LiteralPath $required)) {
         throw "H3ER_REQUIRED_RESULT_MISSING=$required"
     }
+}
+
+$masterCompileText =
+    [IO.File]::ReadAllText($masterCompileLog).ToLowerInvariant()
+
+if ($intCandidateEnabled) {
+    if (-not $masterCompileText.Contains(
+        "-djwplc_modbus_tcp_int_guided_rx=1")) {
+        throw "H3ER_INT_GUIDED_RX_BUILD_FLAG_MISSING"
+    }
+
+    Write-Host "H3ER_INT_GUIDED_RX_BUILD_FLAG=PASS"
+}
+else {
+    Write-Host "H3ER_INT_GUIDED_RX_BUILD_FLAG=NOT_REQUESTED"
 }
 
 $qualificationText =
