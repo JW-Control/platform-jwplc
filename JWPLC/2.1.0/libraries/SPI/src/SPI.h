@@ -43,8 +43,9 @@
 #endif
 
 #ifndef JWPLC_SPI_FIFO_REUSE_COPY_OUT_64
-// Alpha14 P4.2 candidate: keep OFF until physical A/B validation.
-#define JWPLC_SPI_FIFO_REUSE_COPY_OUT_64 0
+// Alpha14 P4.2: promoted after FNV, microprofile, A/B repeatability
+// and physical validation. The explicit path applies only to 64-byte chunks.
+#define JWPLC_SPI_FIFO_REUSE_COPY_OUT_64 1
 #endif
 
 #if JWPLC_SPI_PROFILE_FIFO_REUSE_CHUNKS

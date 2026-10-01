@@ -211,6 +211,10 @@ def main() -> int:
         "SPI_JWPLC_DLEN_CACHE_DEFAULT_ON",
     )
     require(
+        "#define JWPLC_SPI_FIFO_REUSE_COPY_OUT_64 1" in spi_header,
+        "SPI_JWPLC_COPY_OUT_64_DEFAULT_ON",
+    )
+    require(
         "JWPLC_SPI_FIFO_REUSE_DLEN_CACHE" in spi_impl
         and "programmedLen" in spi_impl,
         "SPI_JWPLC_DLEN_CACHE_CANDIDATE_PRESENT",
