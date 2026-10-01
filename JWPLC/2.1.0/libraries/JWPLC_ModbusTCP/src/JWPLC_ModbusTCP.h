@@ -33,6 +33,12 @@
 #define JWPLC_MODBUS_TCP_INT_GUIDED_RX 0
 #endif
 
+// Ventana adaptativa de polling posterior a RX útil.
+// 0 = INT puro. G3B-D2 la evalúa mediante build override; no es default aún.
+#ifndef JWPLC_MODBUS_TCP_INT_HOT_POLL_US
+#define JWPLC_MODBUS_TCP_INT_HOT_POLL_US 0UL
+#endif
+
 enum JWPLCModbusTCPError : uint8_t
 {
     JWPLC_MODBUS_TCP_OK = 0,
@@ -145,6 +151,8 @@ private:
     bool _rxIntConfigured;
     uint8_t _rxIntSocket;
     uint32_t _rxIntLastServiceMs;
+    bool _rxIntHotPolling;
+    uint32_t _rxIntHotUntilUs;
 
     EthernetServer _server;
     EthernetClient _client;
@@ -180,6 +188,7 @@ private:
     void resetRxIntSoftware();
     bool shouldServiceRxInt(uint32_t nowMs);
     void ackRxIntLocked();
+    void noteRxIntActivity();
     void finishRxIntService(bool rxDataKnownPending);
 
     void dropClient();
