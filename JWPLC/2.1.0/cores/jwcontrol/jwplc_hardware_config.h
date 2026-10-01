@@ -72,6 +72,14 @@
 #define JWPLC_HAS_ETHERNET 1
 #endif
 
+// INTn del W5500 está cableado al GPIO15 en JWPLC Basic v2.
+// Es una línea activa en LOW reservada al runtime Ethernet; no forma parte
+// de la API de E/S de usuario aunque el core ESP32 conserve aliases genéricos
+// para GPIO15 por compatibilidad.
+#ifndef JWPLC_ETH_INT_PIN
+#define JWPLC_ETH_INT_PIN 15
+#endif
+
 // =====================================================
 // RS-485
 // =====================================================

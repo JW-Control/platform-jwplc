@@ -26,6 +26,13 @@
 #define JWPLC_MODBUS_TCP_RX_BUDGET 64
 #endif
 
+// Candidato Alpha14 G3: scheduler RX guiado por INTn del W5500.
+// Permanece OFF hasta superar el A/B Modbus real y la regresión full-runtime.
+// No cambia EthernetClient ni las APIs Arduino legacy.
+#ifndef JWPLC_MODBUS_TCP_INT_GUIDED_RX
+#define JWPLC_MODBUS_TCP_INT_GUIDED_RX 0
+#endif
+
 enum JWPLCModbusTCPError : uint8_t
 {
     JWPLC_MODBUS_TCP_OK = 0,
@@ -135,6 +142,10 @@ private:
     uint32_t _lastRxMs;
     uint32_t _lastListenAttemptMs;
 
+    bool _rxIntConfigured;
+    uint8_t _rxIntSocket;
+    uint32_t _rxIntLastServiceMs;
+
     EthernetServer _server;
     EthernetClient _client;
 
@@ -161,6 +172,15 @@ private:
     void setError(JWPLCModbusTCPError error);
     void clearError();
     void resetRx();
+
+    // Política interna W5500 INTn. Estas funciones no forman parte de la API
+    // pública y sólo afectan al scheduler JWPLC_ModbusTCP.
+    bool configureRxIntLocked(uint8_t socket);
+    void disableRxIntLocked();
+    void resetRxIntSoftware();
+    bool shouldServiceRxInt(uint32_t nowMs);
+    void rearmRxIntLocked();
+
     void dropClient();
     void ensureServerListening();
     void serviceServer();

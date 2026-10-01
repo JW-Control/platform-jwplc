@@ -4,6 +4,26 @@
 
 #include "jwplc_spi_bus.h"
 
+#if JWPLC_MODBUS_TCP_INT_GUIDED_RX
+#include <SPI.h>
+#include <utility/w5100.h>
+
+static volatile bool g_jwplcModbusTcpIntPending = false;
+
+static void IRAM_ATTR jwplcModbusTcpEthernetIntISR()
+{
+    g_jwplcModbusTcpIntPending = true;
+}
+
+static constexpr uint8_t JWPLC_MODBUS_TCP_INT_MASK =
+    SnIR::RECV | SnIR::DISCON | SnIR::TIMEOUT;
+
+// Safety net: INT es la ruta normal, pero un poll acotado evita que una
+// interrupción perdida o una condición eléctrica transitoria deje el socket
+// sin servicio indefinidamente.
+static constexpr uint32_t JWPLC_MODBUS_TCP_INT_FALLBACK_MS = 10U;
+#endif
+
 JWPLC_ModbusTCPClass JWPLC_ModbusTCP;
 
 extern "C" void jwplcModbusTCPLoopServiceCallback(void)
@@ -20,6 +40,9 @@ JWPLC_ModbusTCPClass::JWPLC_ModbusTCPClass()
       _frameTimeoutMs(JWPLC_MODBUS_TCP_FRAME_TIMEOUT_MS),
       _lastRxMs(0),
       _lastListenAttemptMs(0),
+      _rxIntConfigured(false),
+      _rxIntSocket(MAX_SOCK_NUM),
+      _rxIntLastServiceMs(0),
       _server(JWPLC_MODBUS_TCP_DEFAULT_PORT),
       _client(),
       _coils(nullptr),
@@ -71,6 +94,7 @@ bool JWPLC_ModbusTCPClass::beginServer(uint8_t unitId, uint16_t port)
     _client = EthernetClient();
     _lastListenAttemptMs = 0;
     resetRx();
+    resetRxIntSoftware();
 
     if (JWPLC_Ethernet.isReady())
     {
@@ -103,6 +127,7 @@ void JWPLC_ModbusTCPClass::task()
         _clientActive = false;
         _client = EthernetClient();
         resetRx();
+        resetRxIntSoftware();
         _serverState = JWPLC_MODBUS_TCP_SERVER_WAIT_ETHERNET;
         setError(JWPLC_MODBUS_TCP_ETHERNET_NOT_READY);
         return;
@@ -378,10 +403,220 @@ void JWPLC_ModbusTCPClass::resetRx()
     _lastRxMs = 0;
 }
 
+
+bool JWPLC_ModbusTCPClass::configureRxIntLocked(uint8_t socket)
+{
+#if !JWPLC_MODBUS_TCP_INT_GUIDED_RX
+    (void)socket;
+    return false;
+#else
+    if (socket >= MAX_SOCK_NUM || W5100.getChip() != 55)
+    {
+        return false;
+    }
+
+    if (_rxIntConfigured)
+    {
+        disableRxIntLocked();
+    }
+
+    pinMode(JWPLC_ETH_INT_PIN, INPUT);
+
+    // Instalar primero la ISR. Si la línea ya estuviera LOW, el chequeo
+    // posterior de RSR/pin recupera igualmente el estado sin depender de un
+    // nuevo flanco.
+    g_jwplcModbusTcpIntPending = false;
+    attachInterrupt(
+        digitalPinToInterrupt(JWPLC_ETH_INT_PIN),
+        jwplcModbusTcpEthernetIntISR,
+        FALLING);
+
+    SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
+
+    W5100.writeSnIMR(socket, 0);
+
+    uint8_t simr =
+        W5100.readSIMR_W5500();
+
+    W5100.writeSIMR_W5500(
+        (uint8_t)(simr & ~(1U << socket)));
+
+    W5100.writeSnIR(
+        socket,
+        JWPLC_MODBUS_TCP_INT_MASK);
+
+    W5100.writeSnIMR(
+        socket,
+        JWPLC_MODBUS_TCP_INT_MASK);
+
+    W5100.writeSIMR_W5500(
+        (uint8_t)(simr | (1U << socket)));
+
+    uint16_t rsr = 0;
+    (void)W5100.readSnRX_RSRStable(
+        socket,
+        rsr);
+
+    SPI.endTransaction();
+
+    _rxIntConfigured = true;
+    _rxIntSocket = socket;
+    _rxIntLastServiceMs = millis();
+
+    if (rsr > 0 ||
+        digitalRead(JWPLC_ETH_INT_PIN) == LOW)
+    {
+        g_jwplcModbusTcpIntPending = true;
+    }
+
+    return true;
+#endif
+}
+
+void JWPLC_ModbusTCPClass::disableRxIntLocked()
+{
+#if JWPLC_MODBUS_TCP_INT_GUIDED_RX
+    if (!_rxIntConfigured)
+    {
+        return;
+    }
+
+    if (_rxIntSocket < MAX_SOCK_NUM &&
+        W5100.getChip() == 55)
+    {
+        SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
+
+        W5100.writeSnIMR(
+            _rxIntSocket,
+            0);
+
+        const uint8_t simr =
+            W5100.readSIMR_W5500();
+
+        W5100.writeSIMR_W5500(
+            (uint8_t)(
+                simr &
+                ~(1U << _rxIntSocket)));
+
+        W5100.writeSnIR(
+            _rxIntSocket,
+            JWPLC_MODBUS_TCP_INT_MASK);
+
+        SPI.endTransaction();
+    }
+
+    detachInterrupt(
+        digitalPinToInterrupt(JWPLC_ETH_INT_PIN));
+
+    _rxIntConfigured = false;
+    _rxIntSocket = MAX_SOCK_NUM;
+    _rxIntLastServiceMs = 0;
+    g_jwplcModbusTcpIntPending = false;
+#endif
+}
+
+void JWPLC_ModbusTCPClass::resetRxIntSoftware()
+{
+#if JWPLC_MODBUS_TCP_INT_GUIDED_RX
+    if (_rxIntConfigured)
+    {
+        detachInterrupt(
+            digitalPinToInterrupt(JWPLC_ETH_INT_PIN));
+    }
+
+    g_jwplcModbusTcpIntPending = false;
+#endif
+
+    _rxIntConfigured = false;
+    _rxIntSocket = MAX_SOCK_NUM;
+    _rxIntLastServiceMs = 0;
+}
+
+bool JWPLC_ModbusTCPClass::shouldServiceRxInt(uint32_t nowMs)
+{
+#if !JWPLC_MODBUS_TCP_INT_GUIDED_RX
+    (void)nowMs;
+    return true;
+#else
+    if (!_rxIntConfigured ||
+        _rxIntSocket >= MAX_SOCK_NUM)
+    {
+        return true;
+    }
+
+    if (g_jwplcModbusTcpIntPending ||
+        digitalRead(JWPLC_ETH_INT_PIN) == LOW)
+    {
+        _rxIntLastServiceMs = nowMs;
+        return true;
+    }
+
+    if ((uint32_t)(
+            nowMs -
+            _rxIntLastServiceMs) >=
+        JWPLC_MODBUS_TCP_INT_FALLBACK_MS)
+    {
+        _rxIntLastServiceMs = nowMs;
+        return true;
+    }
+
+    return false;
+#endif
+}
+
+void JWPLC_ModbusTCPClass::rearmRxIntLocked()
+{
+#if JWPLC_MODBUS_TCP_INT_GUIDED_RX
+    if (!_rxIntConfigured ||
+        _rxIntSocket >= MAX_SOCK_NUM ||
+        W5100.getChip() != 55)
+    {
+        return;
+    }
+
+    // Limpiar pending antes de tocar el W5500 evita borrar un flanco nuevo que
+    // llegue durante la secuencia. RSR y el nivel físico reconstruyen el
+    // estado si RECV continúa activo.
+    g_jwplcModbusTcpIntPending = false;
+
+    SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
+
+    const uint8_t ir =
+        W5100.readSnIR(_rxIntSocket);
+
+    const uint8_t clearMask =
+        (uint8_t)(
+            ir &
+            JWPLC_MODBUS_TCP_INT_MASK);
+
+    if (clearMask != 0)
+    {
+        W5100.writeSnIR(
+            _rxIntSocket,
+            clearMask);
+    }
+
+    uint16_t rsr = 0;
+    (void)W5100.readSnRX_RSRStable(
+        _rxIntSocket,
+        rsr);
+
+    SPI.endTransaction();
+
+    if (rsr > 0 ||
+        digitalRead(JWPLC_ETH_INT_PIN) == LOW)
+    {
+        g_jwplcModbusTcpIntPending = true;
+    }
+#endif
+}
+
 void JWPLC_ModbusTCPClass::dropClient()
 {
     if (_clientActive && acquireBus(20))
     {
+        disableRxIntLocked();
+
         // timeout 0 mantiene el cierre forzado acotado. stop() puede ejecutar
         // una única cesión de scheduler, pero sólo se usa para tramas inválidas
         // o timeout, no en el camino normal de cada request.
@@ -474,6 +709,15 @@ void JWPLC_ModbusTCPClass::serviceServer()
         }
 
         EthernetClient candidate = _server.available();
+
+        bool intConfigured = false;
+        if (candidate)
+        {
+            intConfigured =
+                configureRxIntLocked(
+                    candidate.getSocketNumber());
+        }
+
         releaseBus();
 
         if (candidate)
@@ -483,12 +727,24 @@ void JWPLC_ModbusTCPClass::serviceServer()
             _stats.clientConnections++;
             _serverState = JWPLC_MODBUS_TCP_SERVER_CLIENT_ACTIVE;
             resetRx();
+
+            // INT es una optimización interna. Si el W5500/pin no permite
+            // armarla, el scheduler continúa en polling sin degradar servicio.
+            if (!intConfigured)
+            {
+                resetRxIntSoftware();
+            }
         }
         else
         {
             _serverState = JWPLC_MODBUS_TCP_SERVER_LISTENING;
             return;
         }
+    }
+
+    if (!shouldServiceRxInt(now))
+    {
+        return;
     }
 
     if (!acquireBus(20))
@@ -504,6 +760,15 @@ void JWPLC_ModbusTCPClass::serviceServer()
 
     if (availableBytes <= 0)
     {
+        if (!connected)
+        {
+            disableRxIntLocked();
+        }
+        else
+        {
+            rearmRxIntLocked();
+        }
+
         releaseBus();
 
         if (!connected)
@@ -616,6 +881,15 @@ void JWPLC_ModbusTCPClass::serviceServer()
         }
 
         availableBytes = _client.available();
+    }
+
+    if (fatalFrame)
+    {
+        disableRxIntLocked();
+    }
+    else
+    {
+        rearmRxIntLocked();
     }
 
     releaseBus();
