@@ -125,33 +125,57 @@ function Get-H3ERLongBuckets {
     )
 }
 
-function Get-H3ERModbusRtuArchiveLinkForm {
+function Get-H3ERModbusRtuBuildEvidence {
     param(
         [Parameter(Mandatory = $true)]
         [string]$NormalizedCompileText
     )
 
+    $sourcePath =
+        "/libraries/jwplc_modbusrtu/src/jwplc_modbusrtu.cpp"
+    $sourceObject =
+        "/libraries/jwplc_modbusrtu/jwplc_modbusrtu.cpp.o"
     $archiveDirectory =
         "/libraries/jwplc_modbusrtu/src/esp32"
+    $canonicalText =
+        [regex]::Replace($NormalizedCompileText, '/+', '/')
 
-    if ($NormalizedCompileText.Contains(
-        "$archiveDirectory/libjwplc_modbusrtu.a")) {
-        return "DIRECT_ARCHIVE_PATH"
-    }
+    [string[]]$linkLines = @(
+        [regex]::Matches(
+            $canonicalText,
+            '(?m)^.*-wl,--start-group.*$') |
+            ForEach-Object { $_.Value }
+    )
 
-    $usesArchiveDirectory =
-        $NormalizedCompileText.Contains($archiveDirectory)
-
-    $usesGccLibraryFlag =
+    $linkText = $linkLines -join "`n"
+    $sourceCompiled =
+        $canonicalText.Contains($sourcePath) -and
         [regex]::IsMatch(
-            $NormalizedCompileText,
+            $canonicalText,
+            '(?m)^.*jwplc_modbusrtu\.cpp"?\s+-o\s+"?.*jwplc_modbusrtu\.cpp\.o"?.*$')
+    $sourceLinked =
+        $linkLines.Count -eq 1 -and
+        $linkText.Contains($sourceObject)
+    $archiveLinkedDirect =
+        $linkText.Contains(
+            "$archiveDirectory/libjwplc_modbusrtu.a")
+    $archiveLinkedByFlag =
+        $linkText.Contains($archiveDirectory) -and
+        [regex]::IsMatch(
+            $linkText,
             '(?m)(?:^|\s)"?-ljwplc_modbusrtu"?(?=\s|$)')
+    $precompiledMarker =
+        [regex]::IsMatch(
+            $canonicalText,
+            '(?m)^using precompiled library .*jwplc_modbusrtu.*$')
 
-    if ($usesArchiveDirectory -and $usesGccLibraryFlag) {
-        return "GCC_LIBRARY_FLAG"
+    return [PSCustomObject]@{
+        SourceCompiled = $sourceCompiled
+        SourceLinked = $sourceLinked
+        ArchiveLinked =
+            $archiveLinkedDirect -or $archiveLinkedByFlag
+        PrecompiledMarker = $precompiledMarker
     }
-
-    return "NONE"
 }
 
 Write-Host "=============================================================================="
@@ -279,6 +303,10 @@ $modbusTcpImplPath =
     Get-G2Path "JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP.cpp"
 $modbusRtuPropsPath =
     Get-G2Path "JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/library.properties"
+$modbusRtuSourcePath =
+    Get-G2Path "JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/src/JWPLC_ModbusRTU.cpp"
+$modbusRtuArchivePath =
+    Get-G2Path "JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/src/esp32/libJWPLC_ModbusRTU.a"
 $coreMainPath =
     Get-G2Path "JWPLC/2.1.0/cores/jwcontrol/main.cpp"
 $slaveSketch =
@@ -448,10 +476,22 @@ Write-Host "H3ER_MODBUS_TCP_TX_PATH=LEGACY_BLOCKING_WRITE"
 Write-Host "H3ER_RX_COMMIT=IMMEDIATE"
 Write-Host "H3ER_MODBUS_TCP_ASYNC_INTEGRATION=DEFERRED_SEPARATE_VARIABLE_GATE"
 
-if (-not $modbusRtuPropsText.Contains("precompiled=full")) {
-    throw "H3ER_MODBUS_RTU_PRECOMPILED_POLICY_CHANGED"
+if ($modbusRtuPropsText -match '(?m)^\s*precompiled\s*=') {
+    throw "H3ER_MODBUS_RTU_SOURCE_FIRST_POLICY_CHANGED"
 }
-Write-Host "H3ER_MODBUS_RTU_LINKAGE_POLICY=QUALIFIED_PRECOMPILED"
+
+if (-not (Test-Path -LiteralPath $modbusRtuSourcePath)) {
+    throw "H3ER_MODBUS_RTU_SOURCE_MISSING"
+}
+
+$modbusRtuArchivePresent =
+    Test-Path -LiteralPath $modbusRtuArchivePath
+
+Write-Host "H3ER_MODBUS_RTU_POLICY=SOURCE_FIRST"
+Write-Host "H3ER_MODBUS_RTU_PRECOMPILED_REQUIRED=NO"
+Write-Host "H3ER_MODBUS_RTU_ARCHIVE_PRESENT=$($modbusRtuArchivePresent.ToString().ToUpperInvariant())"
+Write-Host "H3ER_MODBUS_RTU_ARCHIVE_PRESENCE_NOT_EQUAL_LINKAGE=PASS"
+Write-Host "H3ER_MODBUS_RTU_POLICY_FIX=PASS"
 
 foreach ($token in @(
     "JWPLC_ModbusRTU.motor(ASYNC)",
@@ -1136,20 +1176,30 @@ foreach ($archive in @(
     }
 }
 
-$masterModbusRtuArchiveLinkForm =
-    Get-H3ERModbusRtuArchiveLinkForm `
+$masterModbusRtuEvidence =
+    Get-H3ERModbusRtuBuildEvidence `
         -NormalizedCompileText $compileNormalized
 
-$slaveModbusRtuArchiveLinkForm =
-    Get-H3ERModbusRtuArchiveLinkForm `
+$slaveModbusRtuEvidence =
+    Get-H3ERModbusRtuBuildEvidence `
         -NormalizedCompileText $slaveCompileNormalized
 
-if ($masterModbusRtuArchiveLinkForm -eq "NONE") {
-    throw "H3ER_MASTER_MODBUS_RTU_ARCHIVE_NOT_LINKED"
-}
-
-if ($slaveModbusRtuArchiveLinkForm -eq "NONE") {
-    throw "H3ER_SLAVE_MODBUS_RTU_ARCHIVE_NOT_LINKED"
+foreach ($item in @(
+    [PSCustomObject]@{ Label = "MASTER"; Evidence = $masterModbusRtuEvidence },
+    [PSCustomObject]@{ Label = "SLAVE"; Evidence = $slaveModbusRtuEvidence }
+)) {
+    if (-not $item.Evidence.SourceCompiled) {
+        throw "H3ER_$($item.Label)_MODBUS_RTU_SOURCE_NOT_COMPILED"
+    }
+    if (-not $item.Evidence.SourceLinked) {
+        throw "H3ER_$($item.Label)_MODBUS_RTU_SOURCE_NOT_LINKED"
+    }
+    if ($item.Evidence.ArchiveLinked) {
+        throw "H3ER_$($item.Label)_MODBUS_RTU_ARCHIVE_LINKED"
+    }
+    if ($item.Evidence.PrecompiledMarker) {
+        throw "H3ER_$($item.Label)_MODBUS_RTU_PRECOMPILED_MARKER_PRESENT"
+    }
 }
 
 Write-Host "H3ER_DISPLAY_SOURCE_LINKAGE=PASS"
@@ -1158,9 +1208,13 @@ Write-Host "H3ER_SPI_SOURCE_LINKAGE=PASS"
 Write-Host "H3ER_ETHERNET_SOURCE_LINKAGE=PASS"
 Write-Host "H3ER_MODBUS_TCP_SOURCE_LINKAGE=PASS"
 Write-Host "H3ER_DATALOG_SOURCE_LINKAGE=PASS"
-Write-Host "H3ER_MASTER_MODBUS_RTU_ARCHIVE_LINK_FORM=$masterModbusRtuArchiveLinkForm"
-Write-Host "H3ER_SLAVE_MODBUS_RTU_ARCHIVE_LINK_FORM=$slaveModbusRtuArchiveLinkForm"
-Write-Host "H3ER_MODBUS_RTU_QUALIFIED_ARCHIVE_LINKAGE=PASS"
+Write-Host "H3ER_MASTER_MODBUS_RTU_SOURCE_COMPILED=YES"
+Write-Host "H3ER_MASTER_MODBUS_RTU_SOURCE_LINKED=YES"
+Write-Host "H3ER_MASTER_MODBUS_RTU_ARCHIVE_LINKED=NO"
+Write-Host "H3ER_SLAVE_MODBUS_RTU_SOURCE_COMPILED=YES"
+Write-Host "H3ER_SLAVE_MODBUS_RTU_SOURCE_LINKED=YES"
+Write-Host "H3ER_SLAVE_MODBUS_RTU_ARCHIVE_LINKED=NO"
+Write-Host "H3ER_MODBUS_RTU_SOURCE_FIRST_LINKAGE=PASS"
 
 Write-Host ""
 Write-Host "=============================================================================="
@@ -1238,6 +1292,8 @@ Write-Host "H3ER_SINGLE_STATUS_POLICY=PASS"
 Write-Host "H3ER_DATALOG_POLICY=PASS"
 Write-Host "H3ER_DISPLAY_DIRTY_POLICY=PASS"
 Write-Host "H3ER_RTU_ASYNC_POLICY=PASS"
+Write-Host "H3ER_MODBUS_RTU_POLICY=SOURCE_FIRST"
+Write-Host "H3ER_MODBUS_RTU_PRECOMPILED_REQUIRED=NO"
 Write-Host "H3ER_H3E5_SECONDARY_P95_US=1197.2"
 Write-Host "H3ER_H3E5_SECONDARY_P99_US=3423.3"
 Write-Host "H3ER_H3E5_SECONDARY_MAX_US=18823.7"
