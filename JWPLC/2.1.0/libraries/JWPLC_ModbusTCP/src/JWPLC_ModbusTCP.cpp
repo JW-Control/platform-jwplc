@@ -796,9 +796,14 @@ void JWPLC_ModbusTCPClass::serviceServer()
     bool fatalFrame = false;
     JWPLCModbusTCPError fatalError = JWPLC_MODBUS_TCP_OK;
 
-    // ACK del RECV actual antes de leer. Esto mantiene la semántica INT
-    // edge-guided y reduce el costo por request del rearmado anterior.
+#if JWPLC_MODBUS_TCP_INT_GUIDED_RX && JWPLC_MODBUS_TCP_INT_HOT_POLL_US > 0
+    if (!_rxIntHotPolling)
+    {
+        ackRxIntLocked();
+    }
+#else
     ackRxIntLocked();
+#endif
 
     int availableBytes = _client.available();
     const bool connected = _client.connected() != 0;
