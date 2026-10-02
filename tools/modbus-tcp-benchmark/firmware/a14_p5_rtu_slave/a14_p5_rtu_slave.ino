@@ -16,6 +16,7 @@
 */
 
 #include <Arduino.h>
+#include <esp_system.h>
 #include <JWPLC_Display.h>
 #include <JWPLC_ModbusRTU.h>
 
@@ -25,6 +26,7 @@ static constexpr uint32_t RTU_CONFIG = SERIAL_8N1;
 static constexpr uint16_t VERIFY_MAGIC = 0x55AA;
 static constexpr uint32_t DISPLAY_SERVICE_PERIOD_MS = 100UL;
 
+static uint32_t benchmarkBootMarker = 0;
 static uint16_t holding[16] = {};
 static bool rtuReady = false;
 static uint8_t rtuRxFifoFull = 120U;
@@ -166,6 +168,12 @@ static void printSnapshot()
         " A14 P5 RTU SLAVE SNAPSHOT");
     Serial.println(
         "========================================");
+
+    Serial.print("BOOT_MARKER=");
+    Serial.println(benchmarkBootMarker);
+
+    Serial.print("UPTIME_MS=");
+    Serial.println(millis());
 
     Serial.print("SLAVE_READY=");
     Serial.println(
@@ -644,6 +652,7 @@ static void serviceSerial()
 void setup()
 {
     Serial.begin(115200);
+    benchmarkBootMarker = (uint32_t)esp_random();
 
     holding[0] = 0;
     holding[1] = VERIFY_MAGIC;
