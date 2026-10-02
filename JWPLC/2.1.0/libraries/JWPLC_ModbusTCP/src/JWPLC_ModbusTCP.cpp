@@ -61,6 +61,7 @@ JWPLC_ModbusTCPClass::JWPLC_ModbusTCPClass()
       _rxIntConfigured(false),
       _rxIntSocket(MAX_SOCK_NUM),
       _rxIntLastServiceMs(0),
+      _rxIntDrainActive(false),
       _rxIntHotPolling(false),
       _rxIntHotUntilUs(0),
       _rxLoadState(JWPLC_MODBUS_TCP_LOAD_IDLE_INT),
@@ -550,6 +551,7 @@ bool JWPLC_ModbusTCPClass::configureRxIntLocked(uint8_t socket)
     _rxIntConfigured = true;
     _rxIntSocket = socket;
     _rxIntLastServiceMs = millis();
+    _rxIntDrainActive = false;
     _rxIntHotPolling = false;
     _rxIntHotUntilUs = 0;
     resetRxLoadAdaptiveState();
@@ -602,6 +604,7 @@ void JWPLC_ModbusTCPClass::disableRxIntLocked()
     _rxIntConfigured = false;
     _rxIntSocket = MAX_SOCK_NUM;
     _rxIntLastServiceMs = 0;
+    _rxIntDrainActive = false;
     _rxIntHotPolling = false;
     _rxIntHotUntilUs = 0;
     resetRxLoadAdaptiveState();
@@ -624,6 +627,7 @@ void JWPLC_ModbusTCPClass::resetRxIntSoftware()
     _rxIntConfigured = false;
     _rxIntSocket = MAX_SOCK_NUM;
     _rxIntLastServiceMs = 0;
+    _rxIntDrainActive = false;
     _rxIntHotPolling = false;
     _rxIntHotUntilUs = 0;
     resetRxLoadAdaptiveState();
@@ -640,6 +644,14 @@ bool JWPLC_ModbusTCPClass::shouldServiceRxInt(uint32_t nowMs)
     {
         return true;
     }
+
+#if JWPLC_MODBUS_TCP_INT_RSR_DRAIN
+    if (_rxIntDrainActive)
+    {
+        _rxIntLastServiceMs = nowMs;
+        return true;
+    }
+#endif
 
 #if JWPLC_MODBUS_TCP_INT_LOAD_ADAPTIVE
     // D3-B-R1: el hot path ya recibe nowMs desde serviceServer(). Evitar
@@ -712,6 +724,9 @@ bool JWPLC_ModbusTCPClass::shouldServiceRxInt(uint32_t nowMs)
         digitalRead(JWPLC_ETH_INT_PIN) == LOW)
     {
         _rxIntLastServiceMs = nowMs;
+#if JWPLC_MODBUS_TCP_INT_RSR_DRAIN
+        _rxIntDrainActive = true;
+#endif
         return true;
     }
 
@@ -721,6 +736,9 @@ bool JWPLC_ModbusTCPClass::shouldServiceRxInt(uint32_t nowMs)
         JWPLC_MODBUS_TCP_INT_FALLBACK_MS)
     {
         _rxIntLastServiceMs = nowMs;
+#if JWPLC_MODBUS_TCP_INT_RSR_DRAIN
+        _rxIntDrainActive = true;
+#endif
 #if JWPLC_MODBUS_TCP_ENABLE_PROFILE_HOOKS
         _rxLoadProfile.fallbackPasses++;
 #endif
@@ -753,6 +771,45 @@ void JWPLC_ModbusTCPClass::ackRxIntLocked()
         _rxIntSocket,
         SnIR::RECV);
     SPI.endTransaction();
+#endif
+}
+
+void JWPLC_ModbusTCPClass::finishRxIntRsrDrainLocked()
+{
+#if JWPLC_MODBUS_TCP_INT_GUIDED_RX && JWPLC_MODBUS_TCP_INT_RSR_DRAIN
+    if (!_rxIntConfigured ||
+        _rxIntSocket >= MAX_SOCK_NUM)
+    {
+        _rxIntDrainActive = false;
+        return;
+    }
+
+    // RX se observó vacío antes de entrar aquí. Reconocer RECV recién ahora.
+    // ackRxIntLocked() limpia el flag software antes del W5500 write; una ISR
+    // posterior vuelve a levantarlo y no se pierde.
+    ackRxIntLocked();
+
+    // Cerrar la carrera: si llegaron bytes justo antes/durante el ACK, RECV
+    // pudo quedar solapado. Sn_RX_RSR es la verdad para decidir si seguimos
+    // drenando, tal como recomienda WIZnet para hosts que no procesan cada
+    // evento RECV individualmente.
+    const int postAckAvailable = _client.available();
+    const bool intStillPending =
+        g_jwplcModbusTcpIntPending ||
+        digitalRead(JWPLC_ETH_INT_PIN) == LOW;
+
+    if (postAckAvailable > 0 || intStillPending)
+    {
+        _rxIntDrainActive = true;
+        g_jwplcModbusTcpIntPending = true;
+        return;
+    }
+
+    // No escribir el flag software aquí: si una ISR ocurre después del check
+    // anterior, debe conservarse para la siguiente pasada.
+    _rxIntDrainActive = false;
+#else
+    // El helper sólo se usa por E1.
 #endif
 }
 
@@ -860,6 +917,15 @@ void JWPLC_ModbusTCPClass::finishRxIntService(bool rxDataKnownPending)
     {
         return;
     }
+
+#if JWPLC_MODBUS_TCP_INT_RSR_DRAIN
+    // Una pasada con datos mantiene el drain activo aunque el snapshot local
+    // haya llegado a cero. La siguiente pasada confirma RX vacío y recién allí
+    // reconoce RECV, evitando depender de un evento por cada DATA packet.
+    (void)rxDataKnownPending;
+    _rxIntDrainActive = true;
+    return;
+#endif
 
 #if JWPLC_MODBUS_TCP_INT_HOT_POLL_US > 0
     if (_rxIntHotPolling)
@@ -1022,7 +1088,10 @@ void JWPLC_ModbusTCPClass::serviceServer()
     bool fatalFrame = false;
     JWPLCModbusTCPError fatalError = JWPLC_MODBUS_TCP_OK;
 
-#if JWPLC_MODBUS_TCP_INT_GUIDED_RX && JWPLC_MODBUS_TCP_INT_LOAD_ADAPTIVE
+#if JWPLC_MODBUS_TCP_INT_GUIDED_RX && JWPLC_MODBUS_TCP_INT_RSR_DRAIN
+    // E1 conserva RECV latched mientras drena. El ACK se hace únicamente al
+    // observar RX vacío y se valida de nuevo Sn_RX_RSR después del ACK.
+#elif JWPLC_MODBUS_TCP_INT_GUIDED_RX && JWPLC_MODBUS_TCP_INT_LOAD_ADAPTIVE
     if (_rxLoadState != JWPLC_MODBUS_TCP_LOAD_ACTIVE_POLL ||
         g_jwplcModbusTcpIntPending ||
         digitalRead(JWPLC_ETH_INT_PIN) == LOW)
@@ -1049,7 +1118,11 @@ void JWPLC_ModbusTCPClass::serviceServer()
         }
         else
         {
+#if JWPLC_MODBUS_TCP_INT_GUIDED_RX && JWPLC_MODBUS_TCP_INT_RSR_DRAIN
+            finishRxIntRsrDrainLocked();
+#else
             finishRxIntService(false);
+#endif
         }
 
         releaseBus();

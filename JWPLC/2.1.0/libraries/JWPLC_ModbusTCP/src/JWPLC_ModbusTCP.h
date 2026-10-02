@@ -69,12 +69,28 @@
 #error "JWPLC_MODBUS_TCP_ACTIVE_SLOW_STREAK must be 1..255"
 #endif
 
+// G3B-E1: candidato final INT para v2. INTn sólo despierta el servicio y RX
+// se drena por estado real Sn_RX_RSR. RECV se reconoce únicamente al observar
+// RX vacío y se valida otra vez RSR para cerrar la carrera de rearmado.
+#ifndef JWPLC_MODBUS_TCP_INT_RSR_DRAIN
+#define JWPLC_MODBUS_TCP_INT_RSR_DRAIN 0
+#endif
+
 #if JWPLC_MODBUS_TCP_INT_LOAD_ADAPTIVE && !JWPLC_MODBUS_TCP_INT_GUIDED_RX
 #error "JWPLC_MODBUS_TCP_INT_LOAD_ADAPTIVE requires INT guided RX"
 #endif
 
+#if JWPLC_MODBUS_TCP_INT_RSR_DRAIN && !JWPLC_MODBUS_TCP_INT_GUIDED_RX
+#error "JWPLC_MODBUS_TCP_INT_RSR_DRAIN requires INT guided RX"
+#endif
+
 #if JWPLC_MODBUS_TCP_INT_LOAD_ADAPTIVE && (JWPLC_MODBUS_TCP_INT_HOT_POLL_US > 0)
 #error "Load-adaptive D3 and fixed D2 hot-poll cannot be enabled together"
+#endif
+
+#if JWPLC_MODBUS_TCP_INT_RSR_DRAIN && \
+    (JWPLC_MODBUS_TCP_INT_LOAD_ADAPTIVE || (JWPLC_MODBUS_TCP_INT_HOT_POLL_US > 0))
+#error "RSR-drain E1 is exclusive with D2/D3 policies"
 #endif
 
 enum JWPLCModbusTCPError : uint8_t
@@ -213,6 +229,7 @@ private:
     bool _rxIntConfigured;
     uint8_t _rxIntSocket;
     uint32_t _rxIntLastServiceMs;
+    bool _rxIntDrainActive;
     bool _rxIntHotPolling;
     uint32_t _rxIntHotUntilUs;
 
@@ -260,6 +277,7 @@ private:
     void resetRxIntSoftware();
     bool shouldServiceRxInt(uint32_t nowMs);
     void ackRxIntLocked();
+    void finishRxIntRsrDrainLocked();
     void noteRxIntChunkActivity();
     void noteRxIntFrameActivity(uint32_t nowMs);
     void finishRxIntService(bool rxDataKnownPending);
