@@ -934,6 +934,7 @@ void JWPLC_ModbusRTUClass::pollMaster()
         case JWPLC_MODBUS_MASTER_OP_WRITE_SINGLE_COIL:
         case JWPLC_MODBUS_MASTER_OP_WRITE_SINGLE_REGISTER:
         case JWPLC_MODBUS_MASTER_OP_WRITE_MULTIPLE_COILS:
+        case JWPLC_MODBUS_MASTER_OP_WRITE_MULTIPLE_REGISTERS:
             expectedLength = 8;
             break;
 
@@ -1135,6 +1136,86 @@ bool JWPLC_ModbusRTUClass::requestWriteMultipleCoils(
     }
 
     appendCRC(request, 7 + byteCount);
+
+    const size_t written = writeTransport(request, requestLength);
+
+    if (written != requestLength)
+    {
+        completeMasterTransaction(JWPLC_MODBUS_TRANSPORT_ERROR);
+        return false;
+    }
+
+    _stats.txFrames++;
+    _masterStartMs = millis();
+    clearError();
+    return true;
+}
+
+bool JWPLC_ModbusRTUClass::requestWriteMultipleRegisters(
+    uint8_t targetSlaveId,
+    uint16_t startAddress,
+    uint16_t quantity,
+    const uint16_t *source,
+    uint32_t timeoutMs)
+{
+    if (masterBusy())
+    {
+        setError(JWPLC_MODBUS_BUSY);
+        return false;
+    }
+
+    const uint16_t byteCount = (uint16_t)(quantity * 2U);
+    const uint16_t requestLength = (uint16_t)(9U + byteCount);
+
+    if (!isReady() ||
+        source == nullptr ||
+        targetSlaveId == 0 ||
+        targetSlaveId > 247 ||
+        quantity == 0 ||
+        quantity > 123 ||
+        requestLength > JWPLC_MODBUS_RTU_MAX_FRAME ||
+        timeoutMs == 0)
+    {
+        setError(JWPLC_MODBUS_INVALID_RESPONSE);
+        return false;
+    }
+
+    if (masterDone())
+    {
+        clearMasterResult();
+    }
+
+    drainRs485();
+    clearRxBuffer();
+
+    _masterOperation = JWPLC_MODBUS_MASTER_OP_WRITE_MULTIPLE_REGISTERS;
+    _masterTargetSlaveId = targetSlaveId;
+    _masterExpectedFunction = 0x10;
+    _masterStartAddress = startAddress;
+    _masterQuantity = quantity;
+    _masterRegisterDestination = nullptr;
+    _masterBitDestination = nullptr;
+    _masterWriteValue = 0;
+    _masterTimeoutMs = timeoutMs;
+    _masterResult = JWPLC_MODBUS_OK;
+    _masterState = JWPLC_MODBUS_MASTER_WAIT_RESPONSE;
+
+    uint8_t request[JWPLC_MODBUS_RTU_MAX_FRAME];
+    request[0] = targetSlaveId;
+    request[1] = 0x10;
+    request[2] = highByte(startAddress);
+    request[3] = lowByte(startAddress);
+    request[4] = highByte(quantity);
+    request[5] = lowByte(quantity);
+    request[6] = (uint8_t)byteCount;
+
+    for (uint16_t i = 0; i < quantity; i++)
+    {
+        request[7 + i * 2U] = highByte(source[i]);
+        request[8 + i * 2U] = lowByte(source[i]);
+    }
+
+    appendCRC(request, (size_t)(7U + byteCount));
 
     const size_t written = writeTransport(request, requestLength);
 
@@ -1515,6 +1596,21 @@ bool JWPLC_ModbusRTUClass::writeMultipleCoilsSync(
         timeoutMs));
 }
 
+bool JWPLC_ModbusRTUClass::writeMultipleRegistersSync(
+    uint8_t targetSlaveId,
+    uint16_t startAddress,
+    uint16_t quantity,
+    const uint16_t *source,
+    uint32_t timeoutMs)
+{
+    return finishSyncRequest(requestWriteMultipleRegisters(
+        targetSlaveId,
+        startAddress,
+        quantity,
+        source,
+        timeoutMs));
+}
+
 bool JWPLC_ModbusRTUClass::readCoils(
     uint8_t targetSlaveId,
     uint16_t startAddress,
@@ -1684,6 +1780,31 @@ bool JWPLC_ModbusRTUClass::writeMultipleCoils(
         timeoutMs);
 }
 
+bool JWPLC_ModbusRTUClass::writeMultipleRegisters(
+    uint8_t targetSlaveId,
+    uint16_t startAddress,
+    uint16_t quantity,
+    const uint16_t *source,
+    uint32_t timeoutMs)
+{
+    if (_motor == SYNC)
+    {
+        return writeMultipleRegistersSync(
+            targetSlaveId,
+            startAddress,
+            quantity,
+            source,
+            timeoutMs);
+    }
+
+    return requestWriteMultipleRegisters(
+        targetSlaveId,
+        startAddress,
+        quantity,
+        source,
+        timeoutMs);
+}
+
 void JWPLC_ModbusRTUClass::resetMasterContext()
 {
     _masterState = JWPLC_MODBUS_MASTER_IDLE;
@@ -1844,6 +1965,7 @@ bool JWPLC_ModbusRTUClass::processMasterFrame(
         return true;
 
     case JWPLC_MODBUS_MASTER_OP_WRITE_MULTIPLE_COILS:
+    case JWPLC_MODBUS_MASTER_OP_WRITE_MULTIPLE_REGISTERS:
         if (length != 8 ||
             frame[2] != highByte(_masterStartAddress) ||
             frame[3] != lowByte(_masterStartAddress) ||

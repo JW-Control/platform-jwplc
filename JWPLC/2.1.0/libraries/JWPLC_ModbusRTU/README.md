@@ -106,6 +106,7 @@ pero no es la API que debe usar un sketch normal.
 | `0x05` | `requestWriteSingleCoil()` |
 | `0x06` | `requestWriteSingleRegister()` |
 | `0x0F` | `requestWriteMultipleCoils()` |
+| `0x10` | `requestWriteMultipleRegisters()` |
 
 ## Mapas Slave
 

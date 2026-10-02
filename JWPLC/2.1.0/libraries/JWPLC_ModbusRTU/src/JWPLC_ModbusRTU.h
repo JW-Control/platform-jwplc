@@ -206,6 +206,12 @@ public:
                                    const uint8_t *sourcePacked,
                                    uint32_t timeoutMs = 1000);
 
+    bool requestWriteMultipleRegisters(uint8_t targetSlaveId,
+                                       uint16_t startAddress,
+                                       uint16_t quantity,
+                                       const uint16_t *source,
+                                       uint32_t timeoutMs = 1000);
+
     bool masterBusy() const;
     bool masterDone() const;
     bool masterSucceeded() const;
@@ -255,6 +261,12 @@ public:
                                 const uint8_t *sourcePacked,
                                 uint32_t timeoutMs = 1000);
 
+    bool writeMultipleRegistersSync(uint8_t targetSlaveId,
+                                    uint16_t startAddress,
+                                    uint16_t quantity,
+                                    const uint16_t *source,
+                                    uint32_t timeoutMs = 1000);
+
     // API unificada por funcion. El nombre no cambia entre motores:
     // ASYNC -> inicia la transaccion y retorna si fue aceptada.
     // SYNC  -> retorna al completar la transaccion.
@@ -298,6 +310,12 @@ public:
                             const uint8_t *sourcePacked,
                             uint32_t timeoutMs = 1000);
 
+    bool writeMultipleRegisters(uint8_t targetSlaveId,
+                                uint16_t startAddress,
+                                uint16_t quantity,
+                                const uint16_t *source,
+                                uint32_t timeoutMs = 1000);
+
     // H3D: selector CRC para qualification. BITWISE sigue siendo el
     // default hasta cerrar el A/B de rendimiento.
     static void setCrcLookupEnabled(bool enabled);
@@ -324,7 +342,8 @@ private:
         JWPLC_MODBUS_MASTER_OP_READ_INPUT_REGISTERS,
         JWPLC_MODBUS_MASTER_OP_WRITE_SINGLE_COIL,
         JWPLC_MODBUS_MASTER_OP_WRITE_SINGLE_REGISTER,
-        JWPLC_MODBUS_MASTER_OP_WRITE_MULTIPLE_COILS
+        JWPLC_MODBUS_MASTER_OP_WRITE_MULTIPLE_COILS,
+        JWPLC_MODBUS_MASTER_OP_WRITE_MULTIPLE_REGISTERS
     };
 
     bool _ready;
