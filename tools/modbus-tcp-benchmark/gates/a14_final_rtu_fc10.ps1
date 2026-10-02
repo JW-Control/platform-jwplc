@@ -98,18 +98,29 @@ $compileText = (
     [IO.File]::ReadAllText((Join-Path $resultRoot "compile_slave.log"))
 )
 
-$sourceLinked = $compileText.Contains("JWPLC_ModbusRTU.cpp")
-$archiveLinked = $compileText.Contains("libJWPLC_ModbusRTU.a")
+$masterSourceObjects = @(
+    Get-ChildItem -LiteralPath $masterBuild -Recurse -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -eq "JWPLC_ModbusRTU.cpp.o" }
+)
 
-Write-Host "SOURCE_CPP_PRESENT=$(if ($sourceLinked) { 'YES' } else { 'NO' })"
-Write-Host "PRECOMPILED_ARCHIVE_PRESENT=$(if ($archiveLinked) { 'YES' } else { 'NO' })"
+$slaveSourceObjects = @(
+    Get-ChildItem -LiteralPath $slaveBuild -Recurse -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -eq "JWPLC_ModbusRTU.cpp.o" }
+)
 
-if (-not $sourceLinked) {
+$precompiledMarker = [regex]::IsMatch(
+    $compileText,
+    '(?im)using precompiled library .*JWPLC_ModbusRTU|usando .*precompilad.*JWPLC_ModbusRTU'
+)
+
+Write-Host "MASTER_RTU_SOURCE_OBJECT_COUNT=$($masterSourceObjects.Count)"
+Write-Host "SLAVE_RTU_SOURCE_OBJECT_COUNT=$($slaveSourceObjects.Count)"
+Write-Host "MODBUS_RTU_PRECOMPILED_MARKER=$(if ($precompiledMarker) { 'YES' } else { 'NO' })"
+
+if ($masterSourceObjects.Count -ne 1 -or
+    $slaveSourceObjects.Count -ne 1 -or
+    $precompiledMarker) {
     throw "R_FC10_SOURCE_FIRST_NOT_PROVEN"
-}
-
-if ($archiveLinked) {
-    throw "R_FC10_ARCHIVE_UNEXPECTEDLY_LINKED"
 }
 
 & $arduinoCli upload --fqbn $fqbn --port $SlavePort --input-dir $slaveBuild $slaveSketch *> (Join-Path $resultRoot "upload_slave.log")
