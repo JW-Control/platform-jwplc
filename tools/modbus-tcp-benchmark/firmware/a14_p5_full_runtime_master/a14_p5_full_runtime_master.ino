@@ -28,6 +28,7 @@
 */
 
 #include <Arduino.h>
+#include <esp_system.h>
 #include <JWPLC_ModbusTCP.h>
 #include <JWPLC_GlobalPeripherals.h>
 #include <JWPLC_Display.h>
@@ -39,6 +40,8 @@ extern "C"
 #include "jwplc_peripherals.h"
 #include "jwplc_spi_bus.h"
 }
+
+static uint32_t benchmarkBootMarker = 0;
 
 // ============================================================================
 // Modbus TCP
@@ -1431,6 +1434,12 @@ static void printSnapshot()
     Serial.println(
         "FULL_RUNTIME_PROFILE=REALISTIC");
 
+    Serial.print("BOOT_MARKER=");
+    Serial.println(benchmarkBootMarker);
+
+    Serial.print("UPTIME_MS=");
+    Serial.println(now);
+
     Serial.print(
         "FULL_RUNTIME_READY=");
     Serial.println(
@@ -2570,6 +2579,7 @@ static void serviceSerialCommands()
 void setup()
 {
     Serial.begin(115200);
+    benchmarkBootMarker = (uint32_t)esp_random();
 
     // --------------------------------------------------------
     // Modbus data
