@@ -25,6 +25,7 @@ static constexpr uint8_t CASE_COUNT =
 static uint32_t bootMarker = 0;
 static bool ready = false;
 static bool running = false;
+static bool stopRequested = false;
 static uint16_t txValues[123] = {};
 static uint16_t rxValues[123] = {};
 
@@ -108,6 +109,7 @@ static void resetCounters()
     phase = PHASE_WRITE_START;
     caseIndex = 0;
     transactionStartUs = 0;
+    stopRequested = false;
 }
 
 static void completeTransaction(bool success, bool writePhase)
@@ -141,6 +143,19 @@ static void serviceTraffic()
         return;
 
     JWPLC_ModbusRTU.task();
+
+    // Graceful stop: do not cut an in-flight write/read pair. Once the
+    // current FC10 + FC03 verification pair has returned to WRITE_START,
+    // stop before starting another write and acknowledge the runner.
+    if (stopRequested &&
+        phase == PHASE_WRITE_START &&
+        !JWPLC_ModbusRTU.masterBusy())
+    {
+        running = false;
+        stopRequested = false;
+        Serial.println("A14_RTU_FC10_MASTER_STOP=PASS");
+        return;
+    }
 
     const uint16_t quantity = QUANTITIES[caseIndex];
 
@@ -249,6 +264,8 @@ static void printSnapshot()
     Serial.println(ready ? "YES" : "NO");
     Serial.print("RUNNING=");
     Serial.println(running ? "YES" : "NO");
+    Serial.print("STOP_REQUESTED=");
+    Serial.println(stopRequested ? "YES" : "NO");
     Serial.print("FC10_BOUNDARY_SELFTEST=");
     Serial.println(boundarySelfTestPass ? "PASS" : "FAIL");
     Serial.print("RTU_BAUD_EFFECTIVE=");
@@ -332,8 +349,15 @@ static void serviceSerial()
         }
         else if (c == 'X' || c == 'x')
         {
-            running = false;
-            Serial.println("A14_RTU_FC10_MASTER_STOP=PASS");
+            if (running)
+            {
+                stopRequested = true;
+            }
+            else
+            {
+                stopRequested = false;
+                Serial.println("A14_RTU_FC10_MASTER_STOP=PASS");
+            }
         }
         else if (c == 'S' || c == 's')
         {
