@@ -328,6 +328,8 @@ def run_case(
         and iv(post_master, "RTU_MASTER_TIMEOUTS", 0) == 0
         and iv(post_slave, "RTU_CRC_ERRORS", 0) == 0
         and iv(post_slave, "RTU_EXCEPTIONS_SENT", 0) == 0
+        and iv(post_slave, "RTU_SERVER_DISCARDED_TAILS", 0) == 0
+        and iv(post_slave, "RTU_SERVER_DISCARDED_BYTES", 0) == 0
         and slave_rx == success
         and slave_tx == success
         and slave_ok == success
@@ -460,6 +462,9 @@ def run_case(
         f"DO_FAIL={iv(post_master, 'RTU_MIX_DO_FAILED', 0)} "
         f"AI_FAIL={iv(post_master, 'RTU_MIX_AI_FAILED', 0)} "
         f"AO_FAIL={iv(post_master, 'RTU_MIX_AO_FAILED', 0)} "
+        f"SLAVE_TAILS={iv(post_slave, 'RTU_SERVER_DISCARDED_TAILS', 0)} "
+        f"SLAVE_TAIL_BYTES={iv(post_slave, 'RTU_SERVER_DISCARDED_BYTES', 0)} "
+        f"SLAVE_TAIL_MAX_AGE_US={iv(post_slave, 'RTU_SERVER_DISCARDED_MAX_AGE_US', 0)} "
         f"PERIPH_FAIL={iv(post_master, 'PERIPHERAL_FAILURE_COUNT', 0)} "
         f"SPI_FAIL={iv(post_master, 'SPI_PROBE_FAILS', 0)}",
         flush=True,
