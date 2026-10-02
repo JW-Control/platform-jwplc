@@ -107,6 +107,8 @@ def main() -> int:
         (root / "preflight_snapshot.txt").write_text(
             before.get("_RAW", ""), encoding="utf-8"
         )
+        pre_boot = iv(before, "BOOT_MARKER")
+        pre_uptime = iv(before, "UPTIME_MS")
 
         reset(ser)
         time.sleep(0.10)
@@ -146,6 +148,15 @@ def main() -> int:
         if elapsed > 0.0 else 0.0
     )
 
+    post_boot = iv(after, "BOOT_MARKER")
+    post_uptime = iv(after, "UPTIME_MS")
+    unexpected_reset = not (
+        pre_boot > 0
+        and pre_boot == post_boot
+        and post_uptime >= pre_uptime
+        and (post_uptime - pre_uptime) >= int(elapsed * 1000.0 * 0.90)
+    )
+
     row = {
         "mode": "UDP_RX_FAST",
         "duration_s": elapsed,
@@ -165,6 +176,7 @@ def main() -> int:
         "spi_occupancy_pct": occupancy_pct,
         "loop_gap_avg_us": iv(after, "LOOP_GAP_AVG_US"),
         "loop_gap_max_us": iv(after, "LOOP_GAP_MAX_US"),
+        "unexpected_reset": unexpected_reset,
     }
 
     (root / "udp_rx_fast.json").write_text(
@@ -182,7 +194,12 @@ def main() -> int:
         f"ERRORS={errors} SPI_ERRORS={spi_errors}"
     )
 
-    return 0 if errors == 0 and spi_errors == 0 and dut_packets > 0 else 2
+    return 0 if (
+        errors == 0
+        and spi_errors == 0
+        and dut_packets > 0
+        and not unexpected_reset
+    ) else 2
 
 
 if __name__ == "__main__":
