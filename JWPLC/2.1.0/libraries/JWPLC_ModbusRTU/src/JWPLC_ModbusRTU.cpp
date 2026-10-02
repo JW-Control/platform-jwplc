@@ -1,7 +1,7 @@
 #include "JWPLC_ModbusRTU.h"
 #include <string.h>
 
-static constexpr uint32_t JWPLC_MODBUS_FAST_PARTIAL_HOLD_US = 1750UL;
+static constexpr uint32_t JWPLC_MODBUS_FAST_PARTIAL_HOLD_US = 15000UL;
 
 static constexpr uint16_t JWPLC_MODBUS_CRC16_TABLE[256] = {
     0x0000U, 0xC0C1U, 0xC181U, 0x0140U, 0xC301U, 0x03C0U, 0x0280U, 0xC241U,
