@@ -84,6 +84,13 @@ def main() -> int:
         ]
 
         for label, fn in cases:
+            pre = dut.snapshot()
+            pre_boot = rawbench.intval(pre, "BOOT_MARKER", -1)
+            pre_uptime = rawbench.intval(pre, "UPTIME_MS", -1)
+            (root / f"{label.lower()}_pre_snapshot.txt").write_text(
+                pre.get("_RAW", ""), encoding="utf-8"
+            )
+
             print(f"CASE_BEGIN={label}", flush=True)
             result = fn()
             row = row_from_result(result)
@@ -107,6 +114,15 @@ def main() -> int:
                 100.0 * row["tcp_spi_hold_total_us"] / (result.duration_s * 1_000_000.0)
                 if result.duration_s > 0.0 else 0.0
             )
+            post_boot = rawbench.intval(post, "BOOT_MARKER", -1)
+            post_uptime = rawbench.intval(post, "UPTIME_MS", -1)
+            row["unexpected_reset"] = not (
+                pre_boot >= 0
+                and pre_boot == post_boot
+                and pre_uptime >= 0
+                and post_uptime >= pre_uptime
+                and (post_uptime - pre_uptime) >= int(result.duration_s * 1000.0 * 0.90)
+            )
 
             rows.append(row)
             (root / f"{label.lower()}.json").write_text(
@@ -127,7 +143,14 @@ def main() -> int:
         writer.writeheader()
         writer.writerows(rows)
 
-    hard_fail = any(not bool(r["pass_functional"]) or int(r["errors"]) != 0 for r in rows)
+    hard_fail = any(
+        not bool(r["pass_functional"])
+        or int(r["errors"]) != 0
+        or int(r["tcp_spi_lock_errors"]) != 0
+        or int(r["udp_spi_lock_errors"]) != 0
+        or bool(r["unexpected_reset"])
+        for r in rows
+    )
     print(f"A14_FINAL_RAW_LEGACY={'FAIL' if hard_fail else 'PASS'}")
     return 2 if hard_fail else 0
 
