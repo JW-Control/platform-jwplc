@@ -37,6 +37,9 @@
 */
 
 #include <JWPLC_Ethernet.h>
+#include <esp_system.h>
+
+static uint32_t benchmarkBootMarker = 0;
 
 static constexpr uint16_t TCP_PORT = 5001;
 static constexpr uint16_t UDP_PORT = 5002;
@@ -172,6 +175,12 @@ static void printSnapshot()
 
     Serial.println(
         "========================================");
+
+    Serial.print("BOOT_MARKER=");
+    Serial.println(benchmarkBootMarker);
+
+    Serial.print("UPTIME_MS=");
+    Serial.println(millis());
 
     Serial.print("RAW_SERVER_READY=");
     Serial.println(
@@ -761,6 +770,7 @@ static void serviceUdp()
 void setup()
 {
     Serial.begin(115200);
+    benchmarkBootMarker = (uint32_t)esp_random();
 
     for (
         size_t i = 0;
