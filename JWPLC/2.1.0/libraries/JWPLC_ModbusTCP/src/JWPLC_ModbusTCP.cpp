@@ -15,6 +15,8 @@ static constexpr uint8_t JWPLC_MODBUS_TCP_LOAD_FAST_STREAK = 3U;
 static constexpr uint32_t JWPLC_MODBUS_TCP_LOAD_SLOW_GAP_US = 1800U;
 static constexpr uint8_t JWPLC_MODBUS_TCP_LOAD_SLOW_STREAK = 2U;
 static constexpr uint32_t JWPLC_MODBUS_TCP_LOAD_IDLE_EXIT_US = 5000U;
+static constexpr uint32_t JWPLC_MODBUS_TCP_LOAD_IDLE_EXIT_MS =
+    (JWPLC_MODBUS_TCP_LOAD_IDLE_EXIT_US + 999U) / 1000U;
 #endif
 
 #if JWPLC_MODBUS_TCP_INT_GUIDED_RX
@@ -62,6 +64,7 @@ JWPLC_ModbusTCPClass::JWPLC_ModbusTCPClass()
       _rxLoadFastStreak(0),
       _rxLoadSlowStreak(0),
       _rxLoadLastFrameUs(0),
+      _rxLoadLastFrameMs(0),
       _server(JWPLC_MODBUS_TCP_DEFAULT_PORT),
       _client(),
       _coils(nullptr),
@@ -447,6 +450,7 @@ void JWPLC_ModbusTCPClass::resetRxLoadAdaptiveState()
     _rxLoadFastStreak = 0;
     _rxLoadSlowStreak = 0;
     _rxLoadLastFrameUs = 0;
+    _rxLoadLastFrameMs = 0;
 
 #if JWPLC_MODBUS_TCP_ENABLE_PROFILE_HOOKS
     _rxLoadProfile.state = _rxLoadState;
@@ -635,16 +639,27 @@ bool JWPLC_ModbusTCPClass::shouldServiceRxInt(uint32_t nowMs)
     }
 
 #if JWPLC_MODBUS_TCP_INT_LOAD_ADAPTIVE
-    const uint32_t nowUs = micros();
-
+    // D3-B-R1: el hot path ya recibe nowMs desde serviceServer(). Evitar
+    // micros() en cada pasada ACTIVE_POLL; los gaps rápidos/lentos siguen
+    // midiéndose en noteRxIntFrameActivity(), una vez por ADU completa.
     if (_rxLoadState != JWPLC_MODBUS_TCP_LOAD_IDLE_INT &&
         _rxLoadLastFrameUs != 0 &&
-        (uint32_t)(nowUs - _rxLoadLastFrameUs) >=
-            JWPLC_MODBUS_TCP_LOAD_IDLE_EXIT_US)
+        (uint32_t)(nowMs - _rxLoadLastFrameMs) >=
+            JWPLC_MODBUS_TCP_LOAD_IDLE_EXIT_MS)
     {
         _rxLoadFastStreak = 0;
         _rxLoadSlowStreak = 0;
         setRxLoadState(JWPLC_MODBUS_TCP_LOAD_IDLE_INT);
+
+        // El fallback es una red de seguridad, no parte del selector de carga.
+        // Al entrar deliberadamente en IDLE_INT, su fase debe comenzar aquí y
+        // no desde el último servicio RX. Evita que FALLBACK=10 ms se alinee
+        // con una carga periódica de 100 req/s (también 10 ms).
+        _rxIntLastServiceMs = nowMs;
+
+#if JWPLC_MODBUS_TCP_ENABLE_PROFILE_HOOKS
+        _rxLoadProfile.idleFallbackRealigns++;
+#endif
     }
 
     if (_rxLoadState == JWPLC_MODBUS_TCP_LOAD_ACTIVE_POLL)
@@ -688,6 +703,9 @@ bool JWPLC_ModbusTCPClass::shouldServiceRxInt(uint32_t nowMs)
         JWPLC_MODBUS_TCP_INT_FALLBACK_MS)
     {
         _rxIntLastServiceMs = nowMs;
+#if JWPLC_MODBUS_TCP_ENABLE_PROFILE_HOOKS
+        _rxLoadProfile.fallbackPasses++;
+#endif
         return true;
     }
 
@@ -732,7 +750,7 @@ void JWPLC_ModbusTCPClass::noteRxIntChunkActivity()
 #endif
 }
 
-void JWPLC_ModbusTCPClass::noteRxIntFrameActivity()
+void JWPLC_ModbusTCPClass::noteRxIntFrameActivity(uint32_t nowMs)
 {
 #if JWPLC_MODBUS_TCP_INT_GUIDED_RX && JWPLC_MODBUS_TCP_INT_LOAD_ADAPTIVE
     const uint32_t nowUs = micros();
@@ -744,6 +762,7 @@ void JWPLC_ModbusTCPClass::noteRxIntFrameActivity()
     }
 
     _rxLoadLastFrameUs = nowUs;
+    _rxLoadLastFrameMs = nowMs;
 
 #if JWPLC_MODBUS_TCP_ENABLE_PROFILE_HOOKS
     _rxLoadProfile.completeFrames++;
@@ -811,6 +830,8 @@ void JWPLC_ModbusTCPClass::noteRxIntFrameActivity()
     {
         _rxLoadSlowStreak = 0;
     }
+#else
+    (void)nowMs;
 #endif
 }
 
@@ -1168,7 +1189,7 @@ void JWPLC_ModbusTCPClass::serviceServer()
     }
 
     _stats.rxFrames++;
-    noteRxIntFrameActivity();
+    noteRxIntFrameActivity(now);
 
     uint16_t responseLength = 0;
     const bool responseReady = processRequest(_expectedLength, responseLength);

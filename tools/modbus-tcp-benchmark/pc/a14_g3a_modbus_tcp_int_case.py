@@ -441,6 +441,8 @@ def run_case(
             "to_cooldown": 0,
             "to_idle_int": 0,
             "active_poll_passes": 0,
+            "fallback_passes": 0,
+            "idle_fallback_realigns": 0,
             "last_frame_gap_us": 0,
         }
 
@@ -470,6 +472,14 @@ def run_case(
                     "active_poll_passes": intval(
                         measured,
                         "D3_ACTIVE_POLL_PASSES",
+                    ),
+                    "fallback_passes": intval(
+                        measured,
+                        "D3_FALLBACK_PASSES",
+                    ),
+                    "idle_fallback_realigns": intval(
+                        measured,
+                        "D3_IDLE_FALLBACK_REALIGNS",
                     ),
                     "last_frame_gap_us": intval(
                         measured,
@@ -703,6 +713,14 @@ def main() -> int:
         emit(
             "G3A_D3_ACTIVE_POLL_PASSES",
             d3["active_poll_passes"],
+        )
+        emit(
+            "G3A_D3_FALLBACK_PASSES",
+            d3["fallback_passes"],
+        )
+        emit(
+            "G3A_D3_IDLE_FALLBACK_REALIGNS",
+            d3["idle_fallback_realigns"],
         )
         emit(
             "G3A_D3_LAST_FRAME_GAP_US",

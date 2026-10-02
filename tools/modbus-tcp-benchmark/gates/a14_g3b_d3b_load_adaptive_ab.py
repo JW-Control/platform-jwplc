@@ -162,6 +162,7 @@ def main() -> int:
     common.emit("D3B_SLOW_GAP_US", SLOW_GAP_US)
     common.emit("D3B_SLOW_STREAK", SLOW_STREAK)
     common.emit("D3B_IDLE_EXIT_US", IDLE_EXIT_US)
+    common.emit("D3B_REVISION", "R1_FALLBACK_PHASE_AND_HOTPATH")
     common.emit("D3B_PRODUCT_DEFAULT_CHANGED", "NO")
 
     if branch != BRANCH:
@@ -362,6 +363,14 @@ def main() -> int:
                     text,
                     "G3A_D3_ACTIVE_POLL_PASSES",
                 ),
+                "d3_fallback": d2.num(
+                    text,
+                    "G3A_D3_FALLBACK_PASSES",
+                ),
+                "d3_realigns": d2.num(
+                    text,
+                    "G3A_D3_IDLE_FALLBACK_REALIGNS",
+                ),
                 "d3_last_gap": d2.num(
                     text,
                     "G3A_D3_LAST_FRAME_GAP_US",
@@ -545,6 +554,14 @@ def main() -> int:
         emit(
             f"D3B_{int(rate)}_D3_ACTIVE_POLL_PASSES",
             f"{d3row['d3_passes']:.0f}",
+        )
+        emit(
+            f"D3B_{int(rate)}_D3_FALLBACK_PASSES",
+            f"{d3row['d3_fallback']:.0f}",
+        )
+        emit(
+            f"D3B_{int(rate)}_D3_IDLE_FALLBACK_REALIGNS",
+            f"{d3row['d3_realigns']:.0f}",
         )
         emit(
             f"D3B_{int(rate)}_D3_LAST_FRAME_GAP_US",

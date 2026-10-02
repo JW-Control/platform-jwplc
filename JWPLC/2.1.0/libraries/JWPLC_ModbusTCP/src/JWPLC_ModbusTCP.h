@@ -114,6 +114,8 @@ struct JWPLCModbusTCPSchedulerProfile
     uint32_t toCooldown;
     uint32_t toIdleInt;
     uint32_t activePollPasses;
+    uint32_t fallbackPasses;
+    uint32_t idleFallbackRealigns;
     uint32_t lastFrameGapUs;
 };
 #endif
@@ -198,6 +200,7 @@ private:
     uint8_t _rxLoadFastStreak;
     uint8_t _rxLoadSlowStreak;
     uint32_t _rxLoadLastFrameUs;
+    uint32_t _rxLoadLastFrameMs;
 
 #if JWPLC_MODBUS_TCP_ENABLE_PROFILE_HOOKS
     JWPLCModbusTCPSchedulerProfile _rxLoadProfile;
@@ -238,7 +241,7 @@ private:
     bool shouldServiceRxInt(uint32_t nowMs);
     void ackRxIntLocked();
     void noteRxIntChunkActivity();
-    void noteRxIntFrameActivity();
+    void noteRxIntFrameActivity(uint32_t nowMs);
     void finishRxIntService(bool rxDataKnownPending);
     void resetRxLoadAdaptiveState();
     void setRxLoadState(uint8_t state);

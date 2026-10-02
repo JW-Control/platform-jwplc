@@ -158,6 +158,12 @@ static void printSnapshot()
     Serial.print("D3_ACTIVE_POLL_PASSES=");
     Serial.println(scheduler.activePollPasses);
 
+    Serial.print("D3_FALLBACK_PASSES=");
+    Serial.println(scheduler.fallbackPasses);
+
+    Serial.print("D3_IDLE_FALLBACK_REALIGNS=");
+    Serial.println(scheduler.idleFallbackRealigns);
+
     Serial.print("D3_LAST_FRAME_GAP_US=");
     Serial.println(scheduler.lastFrameGapUs);
 #else
