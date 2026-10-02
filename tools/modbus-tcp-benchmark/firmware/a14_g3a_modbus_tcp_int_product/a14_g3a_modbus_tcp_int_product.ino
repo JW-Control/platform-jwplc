@@ -31,6 +31,25 @@ static uint16_t holdingRegisters[HOLDING_COUNT];
 
 static bool readyAnnounced = false;
 
+#if JWPLC_MODBUS_TCP_ENABLE_PROFILE_HOOKS
+static const char *schedulerStateName(uint8_t state)
+{
+    switch (state)
+    {
+    case 0:
+        return "IDLE_INT";
+    case 1:
+        return "WARM";
+    case 2:
+        return "ACTIVE_POLL";
+    case 3:
+        return "COOLDOWN";
+    default:
+        return "UNKNOWN";
+    }
+}
+#endif
+
 static uint32_t lastLoopUs = 0;
 static uint64_t loopGapSumUs = 0;
 static uint32_t loopGapSamples = 0;
@@ -39,6 +58,10 @@ static uint32_t loopGapMaxUs = 0;
 static void resetPerfCounters()
 {
     JWPLC_ModbusTCP.resetStats();
+
+#if JWPLC_MODBUS_TCP_ENABLE_PROFILE_HOOKS
+    JWPLC_ModbusTCP.jwplcSchedulerProfileReset();
+#endif
 
 #if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
     Ethernet.jwplcProfileResetTcpRx();
@@ -102,6 +125,44 @@ static void printSnapshot()
     Serial.println(JWPLC_MODBUS_TCP_INT_GUIDED_RX ? "YES" : "NO");
     Serial.print("INT_HOT_POLL_US_BUILD=");
     Serial.println(JWPLC_MODBUS_TCP_INT_HOT_POLL_US);
+    Serial.print("LOAD_ADAPTIVE_BUILD=");
+    Serial.println(
+        JWPLC_MODBUS_TCP_INT_LOAD_ADAPTIVE
+            ? "YES"
+            : "NO");
+
+#if JWPLC_MODBUS_TCP_ENABLE_PROFILE_HOOKS
+    const JWPLCModbusTCPSchedulerProfile scheduler =
+        JWPLC_ModbusTCP.jwplcSchedulerProfile();
+
+    Serial.println("D3_PROFILE_ENABLED=YES");
+
+    Serial.print("D3_STATE=");
+    Serial.println(schedulerStateName(scheduler.state));
+
+    Serial.print("D3_COMPLETE_FRAMES=");
+    Serial.println(scheduler.completeFrames);
+
+    Serial.print("D3_TO_WARM=");
+    Serial.println(scheduler.toWarm);
+
+    Serial.print("D3_TO_ACTIVE_POLL=");
+    Serial.println(scheduler.toActivePoll);
+
+    Serial.print("D3_TO_COOLDOWN=");
+    Serial.println(scheduler.toCooldown);
+
+    Serial.print("D3_TO_IDLE_INT=");
+    Serial.println(scheduler.toIdleInt);
+
+    Serial.print("D3_ACTIVE_POLL_PASSES=");
+    Serial.println(scheduler.activePollPasses);
+
+    Serial.print("D3_LAST_FRAME_GAP_US=");
+    Serial.println(scheduler.lastFrameGapUs);
+#else
+    Serial.println("D3_PROFILE_ENABLED=NO");
+#endif
 
 #if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
     const JWPLCEthernetTcpRxProfile p = Ethernet.jwplcProfileGetTcpRx();

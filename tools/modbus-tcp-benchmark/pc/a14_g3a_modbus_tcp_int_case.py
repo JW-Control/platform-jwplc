@@ -202,6 +202,8 @@ def run_case(
     duration_s: float,
     expected_int: bool,
     expected_hot_poll_us: int = 0,
+    expected_load_adaptive: bool | None = None,
+    require_scheduler_profile: bool = False,
     rate: float = RATE,
 ) -> dict[str, object]:
     ser = serial.Serial()
@@ -230,6 +232,27 @@ def run_case(
                 f"ACTUAL={ready.get('INT_GUIDED_RX_BUILD')}"
             )
 
+        expected_load_build = None
+        if expected_load_adaptive is not None:
+            expected_load_build = (
+                "YES" if expected_load_adaptive else "NO"
+            )
+            if (
+                ready.get("LOAD_ADAPTIVE_BUILD")
+                != expected_load_build
+            ):
+                raise RuntimeError(
+                    "G3A_LOAD_ADAPTIVE_VARIANT_MISMATCH "
+                    f"EXPECTED={expected_load_build} "
+                    f"ACTUAL={ready.get('LOAD_ADAPTIVE_BUILD')}"
+                )
+
+        if (
+            require_scheduler_profile
+            and ready.get("D3_PROFILE_ENABLED") != "YES"
+        ):
+            raise RuntimeError("G3A_D3_PROFILE_NOT_ENABLED")
+
         if ready.get("TCP_PROFILE_ENABLED") != "YES":
             raise RuntimeError("G3A_PROFILE_NOT_ENABLED")
 
@@ -255,6 +278,21 @@ def run_case(
 
         if accepted.get("INT_GUIDED_RX_BUILD") != expected_build:
             raise RuntimeError("G3A_ACCEPTED_VARIANT_MISMATCH")
+
+        if (
+            expected_load_build is not None
+            and accepted.get("LOAD_ADAPTIVE_BUILD")
+            != expected_load_build
+        ):
+            raise RuntimeError(
+                "G3A_ACCEPTED_LOAD_ADAPTIVE_MISMATCH"
+            )
+
+        if (
+            require_scheduler_profile
+            and accepted.get("D3_PROFILE_ENABLED") != "YES"
+        ):
+            raise RuntimeError("G3A_ACCEPTED_D3_PROFILE_MISSING")
 
         reset_stats(ser)
 
@@ -387,6 +425,59 @@ def run_case(
             "TCP_PROF_PAYLOAD_BYTES",
         )
 
+        d3_profile_enabled = (
+            measured.get("D3_PROFILE_ENABLED") == "YES"
+        )
+
+        if require_scheduler_profile and not d3_profile_enabled:
+            raise RuntimeError("G3A_D3_PROFILE_MISSING_AT_RESULT")
+
+        d3_profile: dict[str, object] = {
+            "enabled": d3_profile_enabled,
+            "state": measured.get("D3_STATE", "DISABLED"),
+            "complete_frames": 0,
+            "to_warm": 0,
+            "to_active_poll": 0,
+            "to_cooldown": 0,
+            "to_idle_int": 0,
+            "active_poll_passes": 0,
+            "last_frame_gap_us": 0,
+        }
+
+        if d3_profile_enabled:
+            d3_profile.update(
+                {
+                    "complete_frames": intval(
+                        measured,
+                        "D3_COMPLETE_FRAMES",
+                    ),
+                    "to_warm": intval(
+                        measured,
+                        "D3_TO_WARM",
+                    ),
+                    "to_active_poll": intval(
+                        measured,
+                        "D3_TO_ACTIVE_POLL",
+                    ),
+                    "to_cooldown": intval(
+                        measured,
+                        "D3_TO_COOLDOWN",
+                    ),
+                    "to_idle_int": intval(
+                        measured,
+                        "D3_TO_IDLE_INT",
+                    ),
+                    "active_poll_passes": intval(
+                        measured,
+                        "D3_ACTIVE_POLL_PASSES",
+                    ),
+                    "last_frame_gap_us": intval(
+                        measured,
+                        "D3_LAST_FRAME_GAP_US",
+                    ),
+                }
+            )
+
         if (
             available_zero + available_nonzero
             != available_calls
@@ -455,6 +546,9 @@ def run_case(
             "payload_bytes": payload_bytes,
             "functional": clean,
             "host": host,
+            "load_adaptive_build":
+                measured.get("LOAD_ADAPTIVE_BUILD", "UNKNOWN"),
+            "d3_profile": d3_profile,
         }
 
     finally:
@@ -497,6 +591,15 @@ def main() -> int:
         type=int,
         default=0,
     )
+    parser.add_argument(
+        "--expected-load-adaptive",
+        choices=("YES", "NO"),
+        default=None,
+    )
+    parser.add_argument(
+        "--require-scheduler-profile",
+        action="store_true",
+    )
     args = parser.parse_args()
 
     if args.duration <= 0:
@@ -516,11 +619,19 @@ def main() -> int:
     emit("G3A_TARGET_REQ_S", f"{args.rate:.3f}")
     emit("G3A_QUANTITY", QUANTITY)
 
+    expected_load_adaptive = (
+        None
+        if args.expected_load_adaptive is None
+        else args.expected_load_adaptive == "YES"
+    )
+
     row = run_case(
         serial_port=args.serial,
         duration_s=args.duration,
         expected_int=expected_int,
         expected_hot_poll_us=args.expected_hot_poll_us,
+        expected_load_adaptive=expected_load_adaptive,
+        require_scheduler_profile=args.require_scheduler_profile,
         rate=args.rate,
     )
 
@@ -559,6 +670,45 @@ def main() -> int:
         row["available_nonzero"],
     )
     emit("G3A_PAYLOAD_BYTES", row["payload_bytes"])
+    emit(
+        "G3A_LOAD_ADAPTIVE_BUILD",
+        row["load_adaptive_build"],
+    )
+
+    d3 = row["d3_profile"]
+    emit(
+        "G3A_D3_PROFILE_ENABLED",
+        "YES" if d3["enabled"] else "NO",
+    )
+
+    if d3["enabled"]:
+        emit("G3A_D3_STATE", d3["state"])
+        emit(
+            "G3A_D3_COMPLETE_FRAMES",
+            d3["complete_frames"],
+        )
+        emit("G3A_D3_TO_WARM", d3["to_warm"])
+        emit(
+            "G3A_D3_TO_ACTIVE_POLL",
+            d3["to_active_poll"],
+        )
+        emit(
+            "G3A_D3_TO_COOLDOWN",
+            d3["to_cooldown"],
+        )
+        emit(
+            "G3A_D3_TO_IDLE_INT",
+            d3["to_idle_int"],
+        )
+        emit(
+            "G3A_D3_ACTIVE_POLL_PASSES",
+            d3["active_poll_passes"],
+        )
+        emit(
+            "G3A_D3_LAST_FRAME_GAP_US",
+            d3["last_frame_gap_us"],
+        )
+
     emit(
         "G3A_FUNCTIONAL_PASS",
         "YES" if row["functional"] else "NO",

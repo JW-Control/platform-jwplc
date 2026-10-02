@@ -14,6 +14,15 @@ def main():
     p.add_argument("--duration",type=float,default=15.0)
     p.add_argument("--variant",choices=("POLLING","ADAPTIVE"),required=True)
     p.add_argument("--expected-hot-poll-us",type=int,default=0)
+    p.add_argument(
+        "--expected-load-adaptive",
+        choices=("YES","NO"),
+        default=None,
+    )
+    p.add_argument(
+        "--require-scheduler-profile",
+        action="store_true",
+    )
     a=p.parse_args()
     expected="YES" if a.variant=="ADAPTIVE" else "NO"
     ser=serial.Serial()
@@ -27,6 +36,11 @@ def main():
             raise RuntimeError("D2_IDLE_INT_VARIANT_MISMATCH")
         if int(ready.get("INT_HOT_POLL_US_BUILD","-1"))!=a.expected_hot_poll_us:
             raise RuntimeError("D2_IDLE_HOT_POLL_VARIANT_MISMATCH")
+        if a.expected_load_adaptive is not None:
+            if ready.get("LOAD_ADAPTIVE_BUILD") != a.expected_load_adaptive:
+                raise RuntimeError("D2_IDLE_LOAD_ADAPTIVE_MISMATCH")
+        if a.require_scheduler_profile and ready.get("D3_PROFILE_ENABLED")!="YES":
+            raise RuntimeError("D2_IDLE_D3_PROFILE_NOT_ENABLED")
         sock=socket.create_connection((host,502),timeout=3.0)
         sock.settimeout(1.0)
         sock.setsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY,1)
@@ -50,6 +64,20 @@ def main():
         emit("D2_IDLE_AVAILABLE_ZERO",zero)
         emit("D2_IDLE_LOOP_AVG_US",g3a.intval(s,"LOOP_GAP_AVG_US"))
         emit("D2_IDLE_LOOP_MAX_US",g3a.intval(s,"LOOP_GAP_MAX_US"))
+        emit("D2_IDLE_LOAD_ADAPTIVE_BUILD",s.get("LOAD_ADAPTIVE_BUILD","UNKNOWN"))
+        d3_enabled=s.get("D3_PROFILE_ENABLED")=="YES"
+        emit("D2_IDLE_D3_PROFILE_ENABLED","YES" if d3_enabled else "NO")
+        if a.require_scheduler_profile and not d3_enabled:
+            raise RuntimeError("D2_IDLE_D3_PROFILE_MISSING_AT_RESULT")
+        if d3_enabled:
+            emit("D2_IDLE_D3_STATE",s.get("D3_STATE","UNKNOWN"))
+            emit("D2_IDLE_D3_COMPLETE_FRAMES",g3a.intval(s,"D3_COMPLETE_FRAMES"))
+            emit("D2_IDLE_D3_TO_WARM",g3a.intval(s,"D3_TO_WARM"))
+            emit("D2_IDLE_D3_TO_ACTIVE_POLL",g3a.intval(s,"D3_TO_ACTIVE_POLL"))
+            emit("D2_IDLE_D3_TO_COOLDOWN",g3a.intval(s,"D3_TO_COOLDOWN"))
+            emit("D2_IDLE_D3_TO_IDLE_INT",g3a.intval(s,"D3_TO_IDLE_INT"))
+            emit("D2_IDLE_D3_ACTIVE_POLL_PASSES",g3a.intval(s,"D3_ACTIVE_POLL_PASSES"))
+            emit("D2_IDLE_D3_LAST_FRAME_GAP_US",g3a.intval(s,"D3_LAST_FRAME_GAP_US"))
         emit("D2_IDLE_FUNCTIONAL_PASS","YES" if clean else "NO")
         return 0 if clean else 2
     finally:
