@@ -167,6 +167,7 @@ JWPLC_ModbusRTU.readInputRegisters(...);
 JWPLC_ModbusRTU.writeSingleCoil(...);
 JWPLC_ModbusRTU.writeSingleRegister(...);
 JWPLC_ModbusRTU.writeMultipleCoils(...);
+JWPLC_ModbusRTU.writeMultipleRegisters(...);
 ```
 
 Con `motor(ASYNC)`, `true` significa que la solicitud fue aceptada/iniciada.
@@ -220,6 +221,7 @@ readInputRegistersSync()
 writeSingleCoilSync()
 writeSingleRegisterSync()
 writeMultipleCoilsSync()
+writeMultipleRegistersSync()
 ```
 
 Las variantes `request...()` y `...Sync()` continúan disponibles. Para
