@@ -513,13 +513,15 @@ def main() -> int:
         "G3A_DURATION_TARGET_S",
         f"{args.duration:.3f}",
     )
-    emit("G3A_TARGET_REQ_S", f"{RATE:.3f}")
+    emit("G3A_TARGET_REQ_S", f"{args.rate:.3f}")
     emit("G3A_QUANTITY", QUANTITY)
 
     row = run_case(
         serial_port=args.serial,
         duration_s=args.duration,
         expected_int=expected_int,
+        expected_hot_poll_us=args.expected_hot_poll_us,
+        rate=args.rate,
     )
 
     emit("G3A_DUT_IP", row["host"])
