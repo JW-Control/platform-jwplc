@@ -148,6 +148,9 @@ def collect_case(
     tcp_raw: dict[str, object],
     target: float | None,
     rtu_expected: str,
+    duration_s: float,
+    pre_ms: dict[str, str],
+    pre_ss: dict[str, str],
 ) -> dict[str, object]:
     time.sleep(0.10)
     ms = q.request_snapshot(master, echo=False)
@@ -206,7 +209,51 @@ def collect_case(
 
     peripheral_failures = iv(ms, "PERIPHERAL_FAILURE_COUNT", 0)
     sd_failed = iv(ms, "SD_DATALOG_FAILED_COMMITS", 0)
-    runtime_clean = tcp_clean and rtu_clean and peripheral_failures == 0 and sd_failed == 0
+    spi_probe_fails = iv(ms, "SPI_PROBE_FAILS", 0)
+
+    pre_master_boot = iv(pre_ms, "BOOT_MARKER", -1)
+    post_master_boot = iv(ms, "BOOT_MARKER", -1)
+    pre_slave_boot = iv(pre_ss, "BOOT_MARKER", -1)
+    post_slave_boot = iv(ss, "BOOT_MARKER", -1)
+
+    pre_master_uptime = iv(pre_ms, "UPTIME_MS", -1)
+    post_master_uptime = iv(ms, "UPTIME_MS", -1)
+    pre_slave_uptime = iv(pre_ss, "UPTIME_MS", -1)
+    post_slave_uptime = iv(ss, "UPTIME_MS", -1)
+
+    min_delta_ms = int(duration_s * 1000.0 * 0.90)
+    boot_markers_stable = (
+        pre_master_boot >= 0
+        and pre_slave_boot >= 0
+        and pre_master_boot == post_master_boot
+        and pre_slave_boot == post_slave_boot
+    )
+    uptime_stable = (
+        pre_master_uptime >= 0
+        and pre_slave_uptime >= 0
+        and post_master_uptime >= pre_master_uptime
+        and post_slave_uptime >= pre_slave_uptime
+        and (post_master_uptime - pre_master_uptime) >= min_delta_ms
+        and (post_slave_uptime - pre_slave_uptime) >= min_delta_ms
+    )
+    no_reset = boot_markers_stable and uptime_stable
+
+    ready_clean = (
+        sv(ms, "FULL_RUNTIME_READY") == "YES"
+        and sv(ss, "SLAVE_READY") == "YES"
+        and sv(ss, "RTU_READY") == "YES"
+        and sv(ss, "DISPLAY_READY") == "YES"
+    )
+
+    runtime_clean = (
+        tcp_clean
+        and rtu_clean
+        and peripheral_failures == 0
+        and sd_failed == 0
+        and spi_probe_fails == 0
+        and no_reset
+        and ready_clean
+    )
 
     target_pass = target is None or float(tcp["target_pct"]) >= 99.0
     classification = (
@@ -245,13 +292,27 @@ def collect_case(
         "rtu_service_gap_max_us": iv(ms, "RTU_SERVICE_GAP_MAX_US", 0),
         "rtu_transaction_max_us": iv(ms, "RTU_TRANSACTION_MAX_US", 0),
         "spi_probe_samples": iv(ms, "SPI_PROBE_SAMPLES", 0),
-        "spi_probe_fails": iv(ms, "SPI_PROBE_FAILS", 0),
+        "spi_probe_fails": spi_probe_fails,
         "spi_probe_max_wait_us": iv(ms, "SPI_PROBE_MAX_WAIT_US", 0),
         "spi_probe_over_1ms": iv(ms, "SPI_PROBE_OVER_1MS", 0),
         "spi_probe_over_10ms": iv(ms, "SPI_PROBE_OVER_10MS", 0),
         "tcp_clean": tcp_clean,
         "rtu_clean": rtu_clean,
         "runtime_clean": runtime_clean,
+        "ready_clean": ready_clean,
+        "unexpected_reset": not no_reset,
+        "master_boot_marker": post_master_boot,
+        "slave_boot_marker": post_slave_boot,
+        "master_uptime_delta_ms": (
+            post_master_uptime - pre_master_uptime
+            if post_master_uptime >= pre_master_uptime >= 0
+            else -1
+        ),
+        "slave_uptime_delta_ms": (
+            post_slave_uptime - pre_slave_uptime
+            if post_slave_uptime >= pre_slave_uptime >= 0
+            else -1
+        ),
         "tcp_target_pass": target_pass,
         "classification": classification,
     }
@@ -277,18 +338,27 @@ def run_case(
     case_root.mkdir(parents=True, exist_ok=True)
 
     stop_and_quiesce(master)
-    reset_case(master, slave)
 
     if rtu_mode == "OFF":
         pass
     elif rtu_mode == "50HZ":
         configure_rtu50(master)
-        send(master, b"G\n", p5b.MASTER_START_ACK)
     elif rtu_mode == "FAST_UNPACED":
         send(master, b"U\n", "RTU_RATE_MODE=UNPACED")
-        send(master, b"G\n", p5b.MASTER_START_ACK)
     else:
         raise ValueError(f"rtu_mode desconocido: {rtu_mode}")
+
+    # Outside the measured window: record boot/readiness before final counter reset.
+    pre_ms = q.request_snapshot(master, echo=False)
+    pre_ss = p5b.request_slave_snapshot(slave, 5.0)
+    write_snapshot(case_root / "master_pre.txt", pre_ms)
+    write_snapshot(case_root / "slave_pre.txt", pre_ss)
+
+    # Reset after pre-snapshot so Serial work is excluded from PERFORMANCE.
+    reset_case(master, slave)
+
+    if rtu_mode != "OFF":
+        send(master, b"G\n", p5b.MASTER_START_ACK)
 
     print(
         f"CASE_BEGIN={label} DURATION_S={duration_s:.0f} "
@@ -317,6 +387,9 @@ def run_case(
         tcp_raw,
         target,
         rtu_mode,
+        duration_s,
+        pre_ms,
+        pre_ss,
     )
 
     print(
@@ -399,13 +472,20 @@ def main() -> int:
         rows.append(profile_industrial)
         profile_rows.append(profile_industrial)
 
+        # F5A: 115200 industrial-profile unpaced reference.
+        rows.append(run_case(
+            "F5A_RTU_ONLY_115200_UNPACED",
+            root, master, slave, args.host,
+            args.full_duration, None, "OFF", "FAST_UNPACED",
+        ))
+
         # Capacity profile: validated for FC03, not a universal RTU default.
         stop_and_quiesce(master)
         configure_fast_capacity(master, slave)
 
-        # F5: absolute RTU ceiling in the validated FC03 capacity profile.
+        # F5B: absolute RTU ceiling in the validated FC03 capacity profile.
         f5 = run_case(
-            "F5_RTU_ONLY_FAST_CEILING",
+            "F5B_RTU_ONLY_FAST_CEILING",
             root, master, slave, args.host,
             args.full_duration, None, "OFF", "FAST_UNPACED",
         )
