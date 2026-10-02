@@ -203,7 +203,7 @@ def main() -> int:
             "JWPLC_MODBUS_TCP_LOAD_IDLE_EXIT_US = 5000U"
             in source_text,
         "FRAME_ACTIVITY":
-            "_stats.rxFrames++;\n    noteRxIntFrameActivity();"
+            "_stats.rxFrames++;\n    noteRxIntFrameActivity(now);"
             in source_text,
     }
 
