@@ -388,6 +388,17 @@ def main() -> int:
             args.full_duration, 500.0, "PACED", "50HZ",
         ))
 
+        # First PROFILE point must still use the industrial 115200/RTU50
+        # state loaded by P5B. Run it before switching the UARTs to FAST.
+        profile_rows: list[dict[str, object]] = []
+        profile_industrial = run_case(
+            "F7P_TCP1000_RTU50",
+            root, master, slave, args.host,
+            args.profile_duration, 1000.0, "PACED", "50HZ",
+        )
+        rows.append(profile_industrial)
+        profile_rows.append(profile_industrial)
+
         # Capacity profile: validated for FC03, not a universal RTU default.
         stop_and_quiesce(master)
         configure_fast_capacity(master, slave)
@@ -446,21 +457,18 @@ def main() -> int:
             encoding="utf-8",
         )
 
-        # F7: separate light-profile runs. Serial remains silent during windows;
-        # profile data comes from counters accumulated in RAM and one final snapshot.
-        profile_rows: list[dict[str, object]] = []
-        for label, target, rtu_mode in (
-            ("F7P_TCP1000_RTU50", 1000.0, "50HZ"),
-            ("F7P_TCP500_RTU_FAST", 500.0, "FAST_UNPACED"),
-            ("F7P_TCP1000_RTU_FAST", 1000.0, "FAST_UNPACED"),
+        # F7 continued: FAST profile points. Serial remains silent during
+        # each window; counters are dumped only after the case finishes.
+        for label, target in (
+            ("F7P_TCP500_RTU_FAST", 500.0),
+            ("F7P_TCP1000_RTU_FAST", 1000.0),
         ):
-            if rtu_mode == "FAST_UNPACED":
-                stop_and_quiesce(master)
-                configure_fast_capacity(master, slave)
+            stop_and_quiesce(master)
+            configure_fast_capacity(master, slave)
             row = run_case(
                 label,
                 root, master, slave, args.host,
-                args.profile_duration, target, "PACED", rtu_mode,
+                args.profile_duration, target, "PACED", "FAST_UNPACED",
             )
             rows.append(row)
             profile_rows.append(row)

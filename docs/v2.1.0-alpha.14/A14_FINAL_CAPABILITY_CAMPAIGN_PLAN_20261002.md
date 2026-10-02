@@ -177,3 +177,27 @@ Los números PERFORMANCE se obtienen con source/product package actual y sin
 overrides de INT. El perfil FAST RTU debe publicarse siempre etiquetado con su
 configuración exacta y alcance FC03; no presentarlo como default universal de
 Modbus RTU.
+
+
+## Tiempo esperado de la campaña
+
+Ventanas puras con la configuración actual:
+
+```text
+F1 legacy RAW 4 x 300 s  = 20 min
+F1 UDP FAST 1 x 300 s    =  5 min
+F2 TCP ceiling 600 s      = 10 min
+F3 TCP1000+RTU50 600 s    = 10 min
+F4 TCP500+RTU50 600 s     = 10 min
+F7 profile industrial     =  5 min
+F5 RTU ceiling 600 s      = 10 min
+F6 matrix 5 x 300 s       = 25 min
+F7 profile FAST 2 x 300 s = 10 min
+F8 confirmation 600 s     = 10 min
+----------------------------------
+MEASUREMENT_WINDOWS         = 115 min
+```
+
+Con tres etapas de compile/upload, boot/DHCP, snapshots y persistencia de logs,
+se espera aproximadamente 2.5–3.5 h en una ejecución limpia. Dejarlo toda la
+noche proporciona margen amplio para variaciones de compilación o entorno.

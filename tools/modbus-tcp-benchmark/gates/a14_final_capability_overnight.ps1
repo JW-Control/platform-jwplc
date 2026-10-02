@@ -116,7 +116,7 @@ try {
     $f1Legacy = Join-Path $ResultRoot "F1_raw_legacy"
     New-Item -ItemType Directory -Force -Path $f1Legacy | Out-Null
     $rawDir = Get-G2Path "tools/modbus-tcp-benchmark/firmware/eth14_raw_transport_server"
-    $rawBuild = Join-Path $f1Legacy "build"
+    $rawBuild = Join-Path $env:TEMP ("jwplc_a14_final_raw_" + (Get-Date -Format "yyyyMMdd_HHmmss"))
     New-Item -ItemType Directory -Force -Path $rawBuild | Out-Null
 
     Write-Host "F1A=COMPILE_UPLOAD_RAW_LEGACY"
@@ -151,7 +151,7 @@ try {
     $f1Fast = Join-Path $ResultRoot "F1_udp_fast"
     New-Item -ItemType Directory -Force -Path $f1Fast | Out-Null
     $fastDir = Get-G2Path "tools/modbus-tcp-benchmark/firmware/a14_final_udp_fast_server"
-    $fastBuild = Join-Path $f1Fast "build"
+    $fastBuild = Join-Path $env:TEMP ("jwplc_a14_final_udp_fast_" + (Get-Date -Format "yyyyMMdd_HHmmss"))
     New-Item -ItemType Directory -Force -Path $fastBuild | Out-Null
 
     Write-Host "F1B=COMPILE_UPLOAD_UDP_FAST"
@@ -207,7 +207,11 @@ try {
 
     $tempMatch = [regex]::Match($setupText, "(?m)^TEMP_ROOT=(.+?)\r?$")
     if ($tempMatch.Success -and (Test-Path -LiteralPath $tempMatch.Groups[1].Value.Trim())) {
-        Copy-Item -LiteralPath $tempMatch.Groups[1].Value.Trim() -Destination (Join-Path $setupDir "p5b_artifacts") -Recurse -Force
+        $p5bArtifacts = Join-Path $setupDir "p5b_artifacts"
+        New-Item -ItemType Directory -Force -Path $p5bArtifacts | Out-Null
+        Get-ChildItem -LiteralPath $tempMatch.Groups[1].Value.Trim() -File |
+            Where-Object { $_.Extension -in @(".log", ".txt", ".csv") } |
+            Copy-Item -Destination $p5bArtifacts -Force
     }
 
     # ------------------------------------------------------------------

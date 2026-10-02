@@ -88,6 +88,26 @@ def main() -> int:
             result = fn()
             row = row_from_result(result)
             row["mode"] = label
+
+            # A second post-case snapshot is outside the PERFORMANCE window.
+            # It preserves loop/SPI telemetry without printing during traffic.
+            post = dut.snapshot()
+            (root / f"{label.lower()}_snapshot.txt").write_text(
+                post.get("_RAW", ""),
+                encoding="utf-8",
+            )
+            row["loop_gap_avg_us"] = rawbench.intval(post, "LOOP_GAP_AVG_US")
+            row["loop_gap_max_us"] = rawbench.intval(post, "LOOP_GAP_MAX_US")
+            row["tcp_spi_lock_errors"] = rawbench.intval(post, "TCP_SPI_LOCK_ERRORS")
+            row["udp_spi_lock_errors"] = rawbench.intval(post, "UDP_SPI_LOCK_ERRORS")
+            row["tcp_spi_hold_total_us"] = rawbench.intval(post, "TCP_SPI_HOLD_TOTAL_US")
+            row["tcp_spi_hold_avg_us"] = rawbench.intval(post, "TCP_SPI_HOLD_AVG_US")
+            row["tcp_spi_hold_max_us"] = rawbench.intval(post, "TCP_SPI_HOLD_MAX_US")
+            row["tcp_spi_occupancy_pct"] = (
+                100.0 * row["tcp_spi_hold_total_us"] / (result.duration_s * 1_000_000.0)
+                if result.duration_s > 0.0 else 0.0
+            )
+
             rows.append(row)
             (root / f"{label.lower()}.json").write_text(
                 json.dumps(row, indent=2),
