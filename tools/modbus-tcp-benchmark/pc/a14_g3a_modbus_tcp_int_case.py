@@ -259,7 +259,7 @@ def run_case(
         reset_stats(ser)
 
         expected_body = q.expected_body(QUANTITY)
-        target = int(round(RATE * duration_s))
+        target = int(round(rate * duration_s))
 
         latencies: list[float] = []
         sent = 0
@@ -272,7 +272,7 @@ def run_case(
         deadline = start + duration_s
 
         for index in range(target):
-            scheduled = start + index / RATE
+            scheduled = start + index / rate
 
             if scheduled >= deadline:
                 break
