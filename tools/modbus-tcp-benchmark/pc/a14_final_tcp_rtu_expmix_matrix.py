@@ -326,6 +326,9 @@ def run_case(
 
     peripheral_clean = (
         sv(post_master, "FULL_RUNTIME_READY") == "YES"
+        and sv(post_master, "SERVER_READY") == "YES"
+        and sv(post_master, "ETH_READY") == "YES"
+        and sv(post_master, "ETH_LINK") == "UP"
         and sv(post_master, "DISPLAY_READY") == "YES"
         and sv(post_master, "FRAM_READY") == "YES"
         and sv(post_master, "SD_READY") == "YES"
