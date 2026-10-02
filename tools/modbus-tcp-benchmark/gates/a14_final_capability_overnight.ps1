@@ -96,9 +96,28 @@ try {
     & git -C $script:G2RepoRoot diff --check *> (Join-Path $manifestDir "git_diff_check.log")
     if ($LASTEXITCODE -ne 0) { throw "FINAL_CAMPAIGN_GIT_DIFF_CHECK_FAILED" }
 
+    $promotions = @(
+        [PSCustomObject]@{ Label="FIFO_REUSE"; Sha="ee4b1f1cd97e0c20c9bdb478713546a5af3dde93" },
+        [PSCustomObject]@{ Label="DLEN_REUSE"; Sha="082c6b57be93bb7afe71d3af75f2217be6529759" },
+        [PSCustomObject]@{ Label="COPY_OUT_64"; Sha="ebf0982ad0121db7ed9febdc2ca6870f1c77bf7f" },
+        [PSCustomObject]@{ Label="UDP_FAST_API"; Sha="87d7678a9560af61c766da0fb9bfd71ead9b47f2" }
+    )
+    foreach ($promotion in $promotions) {
+        & git -C $script:G2RepoRoot merge-base --is-ancestor $promotion.Sha $head
+        $promotionPass = $LASTEXITCODE -eq 0
+        Write-Host "PROMOTION_$($promotion.Label)=$(if ($promotionPass) { 'PASS' } else { 'FAIL' })"
+        Add-Content -LiteralPath $manifest -Value "PROMOTION_$($promotion.Label)=$(if ($promotionPass) { 'PASS' } else { 'FAIL' })"
+        if (-not $promotionPass) { throw "FINAL_CAMPAIGN_PROMOTION_MISSING_$($promotion.Label)" }
+    }
+
     $w5100h = Get-G2Path "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/utility/w5100.h"
     $tcpH = Get-G2Path "JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP.h"
+    $spiH = Get-G2Path "JWPLC/2.1.0/libraries/SPI/src/SPI.h"
+    $ethH = Get-G2Path "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/JWPLC_W5x00_Ethernet.h"
     Require-Token $w5100h "#define JWPLC_W5500_RX_FIFO_REUSE 1" "FIFO_REUSE_DEFAULT_ON"
+    Require-Token $spiH "#define JWPLC_SPI_FIFO_REUSE_DLEN_CACHE 1" "DLEN_REUSE_DEFAULT_ON"
+    Require-Token $spiH "#define JWPLC_SPI_FIFO_REUSE_COPY_OUT_64 1" "COPY_OUT_64_DEFAULT_ON"
+    Require-Token $ethH "jwplcReadPacketFastDeferred" "UDP_FAST_API_PRESENT"
     Require-Token $w5100h "SPISettings(26000000, MSBFIRST, SPI_MODE0)" "W5500_26MHZ"
     Require-Token $tcpH "#define JWPLC_MODBUS_TCP_INT_GUIDED_RX 0" "INT_DEFAULT_OFF"
     Require-Token $tcpH "#define JWPLC_MODBUS_TCP_INT_HOT_POLL_US 0UL" "D2_DEFAULT_OFF"
@@ -109,6 +128,16 @@ try {
     if (-not (Test-Path -LiteralPath $arduinoCli)) { throw "FINAL_CAMPAIGN_ARDUINO_CLI_NOT_FOUND" }
     $fqbn = "jwplc_local:esp32:jwplcbasic"
     $repoLibraries = Get-G2Path "JWPLC/2.1.0/libraries"
+
+    $rawRunner = Get-G2Path "tools/modbus-tcp-benchmark/pc/a14_final_raw_legacy.py"
+    $fastRunner = Get-G2Path "tools/modbus-tcp-benchmark/pc/a14_final_udp_fast_ceiling.py"
+    $fullRunner = Get-G2Path "tools/modbus-tcp-benchmark/pc/a14_final_full_runtime_campaign.py"
+    $pyCompileLog = Join-Path $manifestDir "python_py_compile.log"
+    $pyCompileExit = Invoke-NativeToLog $PythonExe @(
+        "-m","py_compile",$rawRunner,$fastRunner,$fullRunner
+    ) $pyCompileLog
+    Write-Host "PYTHON_SYNTAX_PREFLIGHT_EXIT=$pyCompileExit"
+    if ($pyCompileExit -ne 0) { throw "FINAL_CAMPAIGN_PYTHON_SYNTAX_FAILED" }
 
     # ------------------------------------------------------------------
     # F1A: RAW legacy TCP RX/TX + UDP RX/TX, one 5 minute case each.
@@ -135,7 +164,6 @@ try {
     if ($uploadLegacy -ne 0) { throw "F1A_UPLOAD_FAILED" }
     Start-Sleep -Seconds 3
 
-    $rawRunner = Get-G2Path "tools/modbus-tcp-benchmark/pc/a14_final_raw_legacy.py"
     $rawRun = Invoke-NativeToLog $PythonExe @(
         "-u",$rawRunner,
         "--serial",$MasterPort,
@@ -170,7 +198,6 @@ try {
     if ($uploadFast -ne 0) { throw "F1B_UPLOAD_FAILED" }
     Start-Sleep -Seconds 3
 
-    $fastRunner = Get-G2Path "tools/modbus-tcp-benchmark/pc/a14_final_udp_fast_ceiling.py"
     $fastRun = Invoke-NativeToLog $PythonExe @(
         "-u",$fastRunner,
         "--serial",$MasterPort,
@@ -219,7 +246,6 @@ try {
     # ------------------------------------------------------------------
     $fullRoot = Join-Path $ResultRoot "FULL_RUNTIME"
     New-Item -ItemType Directory -Force -Path $fullRoot | Out-Null
-    $fullRunner = Get-G2Path "tools/modbus-tcp-benchmark/pc/a14_final_full_runtime_campaign.py"
     $fullLog = Join-Path $fullRoot "campaign.log"
 
     Write-Host "FULL_RUNTIME_CAMPAIGN=START"
