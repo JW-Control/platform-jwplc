@@ -148,6 +148,7 @@ def collect_case(
     tcp_raw: dict[str, object],
     target: float | None,
     rtu_expected: str,
+    tcp_mode: str,
     duration_s: float,
     pre_ms: dict[str, str],
     pre_ss: dict[str, str],
@@ -266,7 +267,14 @@ def collect_case(
 
     row: dict[str, object] = {
         "case": label,
-        "tcp_target_req_s": "OFF" if target is None else target,
+        "tcp_mode": tcp_mode,
+        "tcp_target_req_s": (
+            "OFF"
+            if tcp_mode == "OFF"
+            else "UNPACED"
+            if tcp_mode == "UNPACED"
+            else target
+        ),
         "tcp_req_s": tcp["achieved_req_s"],
         "tcp_target_pct": tcp["target_pct"],
         "tcp_avg_us": tcp["avg_us"],
@@ -277,6 +285,15 @@ def collect_case(
         "tcp_transport_errors": tcp["transport_errors"],
         "tcp_protocol_errors": tcp["protocol_errors"],
         "rtu_profile": rtu_expected,
+        "rtu_baud_effective": iv(ms, "RTU_BAUD_EFFECTIVE", 0),
+        "rtu_frame_gap_us": iv(ms, "RTU_FRAME_GAP_US", 0),
+        "rtu_master_fifo": iv(ms, "RTU_RX_FIFO_FULL", 0),
+        "rtu_slave_fifo": iv(ss, "RTU_RX_FIFO_FULL", 0),
+        "rtu_master_rx_mode": sv(ms, "RTU_RX_MODE"),
+        "rtu_slave_rx_mode": sv(ss, "RTU_RX_MODE"),
+        "rtu_master_framing": sv(ms, "RTU_SERVER_FRAMING"),
+        "rtu_slave_framing": sv(ss, "RTU_SERVER_FRAMING"),
+        "rtu_crc_mode": sv(ms, "RTU_CRC_MODE"),
         "rtu_hz": rtu_hz,
         "rtu_started": started,
         "rtu_completed": completed,
@@ -343,7 +360,7 @@ def run_case(
         pass
     elif rtu_mode == "50HZ":
         configure_rtu50(master)
-    elif rtu_mode == "FAST_UNPACED":
+    elif rtu_mode == "UNPACED":
         send(master, b"U\n", "RTU_RATE_MODE=UNPACED")
     else:
         raise ValueError(f"rtu_mode desconocido: {rtu_mode}")
@@ -387,6 +404,7 @@ def run_case(
         tcp_raw,
         target,
         rtu_mode,
+        tcp_mode,
         duration_s,
         pre_ms,
         pre_ss,
@@ -476,7 +494,7 @@ def main() -> int:
         rows.append(run_case(
             "F5A_RTU_ONLY_115200_UNPACED",
             root, master, slave, args.host,
-            args.full_duration, None, "OFF", "FAST_UNPACED",
+            args.full_duration, None, "OFF", "UNPACED",
         ))
 
         # Capacity profile: validated for FC03, not a universal RTU default.
@@ -487,7 +505,7 @@ def main() -> int:
         f5 = run_case(
             "F5B_RTU_ONLY_FAST_CEILING",
             root, master, slave, args.host,
-            args.full_duration, None, "OFF", "FAST_UNPACED",
+            args.full_duration, None, "OFF", "UNPACED",
         )
         rows.append(f5)
         rtu_ceiling = float(f5["rtu_hz"])
@@ -498,7 +516,7 @@ def main() -> int:
             row = run_case(
                 f"F6_TCP{int(target)}_RTU_FAST",
                 root, master, slave, args.host,
-                args.sweep_duration, target, "PACED", "FAST_UNPACED",
+                args.sweep_duration, target, "PACED", "UNPACED",
             )
             rows.append(row)
             matrix.append(row)
@@ -548,7 +566,7 @@ def main() -> int:
             row = run_case(
                 label,
                 root, master, slave, args.host,
-                args.profile_duration, target, "PACED", "FAST_UNPACED",
+                args.profile_duration, target, "PACED", "UNPACED",
             )
             rows.append(row)
             profile_rows.append(row)
@@ -560,7 +578,7 @@ def main() -> int:
         f8 = run_case(
             f"F8_CONFIRM_TCP{int(selected_target)}_RTU_FAST",
             root, master, slave, args.host,
-            args.full_duration, selected_target, "PACED", "FAST_UNPACED",
+            args.full_duration, selected_target, "PACED", "UNPACED",
         )
         rows.append(f8)
 
