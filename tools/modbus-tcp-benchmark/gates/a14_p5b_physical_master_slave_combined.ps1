@@ -6,6 +6,8 @@ param(
     [string]$PythonExe = "",
     [string]$MasterExtraCppFlags = "",
     [switch]$SetupOnly,
+    [switch]$ReturnOnQualificationFailure,
+    [switch]$AutomatedOnly,
     [switch]$AllowDirtyCoreCandidate,
     [switch]$AllowMissingModbusRtuArchiveCandidate
 )
@@ -502,7 +504,21 @@ Write-Host ""
 Get-Content -LiteralPath $qualificationLog | ForEach-Object { Write-Host $_ }
 
 if ($qualificationExit -ne 0) {
+    Write-Host "A14_P5B_PHYSICAL_MASTER_SLAVE_COMBINED=FAIL_AUTOMATED"
+    Write-Host "P5B_TEMP_ROOT=$tempRoot"
+
+    if ($ReturnOnQualificationFailure) {
+        return
+    }
+
     throw "P5B_AUTOMATED_QUALIFICATION_FAILED"
+}
+
+if ($AutomatedOnly) {
+    Write-Host ""
+    Write-Host "A14_P5B_AUTOMATED_ONLY=PASS"
+    Write-Host "P5B_TEMP_ROOT=$tempRoot"
+    return
 }
 
 Write-Host ""

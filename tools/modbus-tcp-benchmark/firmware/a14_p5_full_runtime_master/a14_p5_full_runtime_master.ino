@@ -1298,6 +1298,9 @@ static uint32_t peripheralFailureCount()
 static void resetPerfCounters()
 {
     JWPLC_ModbusTCP.resetStats();
+#if JWPLC_MODBUS_TCP_ENABLE_PROFILE_HOOKS
+    JWPLC_ModbusTCP.jwplcSchedulerProfileReset();
+#endif
     resetRtuTrafficCounters();
 
     displayServiceCycles = 0;
@@ -1461,6 +1464,32 @@ static void printSnapshot()
 
     Serial.print("BUS_LOCK_TIMEOUTS=");
     Serial.println(s.busLockTimeouts);
+
+#if JWPLC_MODBUS_TCP_ENABLE_PROFILE_HOOKS
+    const JWPLCModbusTCPSchedulerProfile d3Profile =
+        JWPLC_ModbusTCP.jwplcSchedulerProfile();
+
+    Serial.print("D3_PROFILE_STATE=");
+    Serial.println(d3Profile.state);
+    Serial.print("D3_PROFILE_COMPLETE_FRAMES=");
+    Serial.println(d3Profile.completeFrames);
+    Serial.print("D3_PROFILE_TO_WARM=");
+    Serial.println(d3Profile.toWarm);
+    Serial.print("D3_PROFILE_TO_ACTIVE_POLL=");
+    Serial.println(d3Profile.toActivePoll);
+    Serial.print("D3_PROFILE_TO_COOLDOWN=");
+    Serial.println(d3Profile.toCooldown);
+    Serial.print("D3_PROFILE_TO_IDLE_INT=");
+    Serial.println(d3Profile.toIdleInt);
+    Serial.print("D3_PROFILE_ACTIVE_POLL_PASSES=");
+    Serial.println(d3Profile.activePollPasses);
+    Serial.print("D3_PROFILE_FALLBACK_PASSES=");
+    Serial.println(d3Profile.fallbackPasses);
+    Serial.print("D3_PROFILE_IDLE_FALLBACK_REALIGNS=");
+    Serial.println(d3Profile.idleFallbackRealigns);
+    Serial.print("D3_PROFILE_LAST_FRAME_GAP_US=");
+    Serial.println(d3Profile.lastFrameGapUs);
+#endif
 
     Serial.print("LOOP_GAP_AVG_US=");
     Serial.println(loopGapAvgUs);
