@@ -216,26 +216,47 @@ $intCandidateFlag =
     "-DJWPLC_MODBUS_TCP_INT_GUIDED_RX=1"
 $adaptiveCandidateFlags =
     "-DJWPLC_MODBUS_TCP_INT_GUIDED_RX=1 -DJWPLC_MODBUS_TCP_INT_HOT_POLL_US=1500"
+$loadAdaptiveCandidateFlags =
+    "-DJWPLC_MODBUS_TCP_INT_GUIDED_RX=1 -DJWPLC_MODBUS_TCP_INT_LOAD_ADAPTIVE=1"
 
 $normalizedMasterExtraCppFlags =
     $MasterExtraCppFlags.Trim()
 
 if (-not [string]::IsNullOrWhiteSpace($MasterExtraCppFlags) -and
     $normalizedMasterExtraCppFlags -ne $intCandidateFlag -and
-    $normalizedMasterExtraCppFlags -ne $adaptiveCandidateFlags) {
+    $normalizedMasterExtraCppFlags -ne $adaptiveCandidateFlags -and
+    $normalizedMasterExtraCppFlags -ne $loadAdaptiveCandidateFlags) {
     throw "H3ER_MASTER_EXTRA_CPP_FLAGS_UNSUPPORTED=$MasterExtraCppFlags"
 }
 
 $intCandidateEnabled =
     $normalizedMasterExtraCppFlags -eq $intCandidateFlag -or
-    $normalizedMasterExtraCppFlags -eq $adaptiveCandidateFlags
+    $normalizedMasterExtraCppFlags -eq $adaptiveCandidateFlags -or
+    $normalizedMasterExtraCppFlags -eq $loadAdaptiveCandidateFlags
 $adaptiveCandidateEnabled =
     $normalizedMasterExtraCppFlags -eq $adaptiveCandidateFlags
+$loadAdaptiveCandidateEnabled =
+    $normalizedMasterExtraCppFlags -eq $loadAdaptiveCandidateFlags
 
 Write-Host "H3ER_INT_GUIDED_RX_BUILD=$(
     if ($intCandidateEnabled) { "ON" } else { "OFF" })"
 Write-Host "H3ER_INT_HOT_POLL_US_BUILD=$(
     if ($adaptiveCandidateEnabled) { "1500" } else { "0" })"
+Write-Host "H3ER_INT_LOAD_ADAPTIVE_BUILD=$(
+    if ($loadAdaptiveCandidateEnabled) { "ON" } else { "OFF" })"
+Write-Host "H3ER_VARIANT=$(
+    if ($loadAdaptiveCandidateEnabled) {
+        "D3_LOAD_ADAPTIVE"
+    }
+    elseif ($adaptiveCandidateEnabled) {
+        "D2_FIXED_HOT_POLL"
+    }
+    elseif ($intCandidateEnabled) {
+        "INT_PURE"
+    }
+    else {
+        "POLLING"
+    })"
 Write-Host "H3ER_MASTER_EXTRA_CPP_FLAGS=$(
     if ([string]::IsNullOrWhiteSpace($MasterExtraCppFlags)) {
         "NONE"
@@ -522,8 +543,14 @@ if (-not $modbusTcpHeaderText.Contains(
     throw "H3ER_INT_HOT_POLL_PACKAGE_DEFAULT_NOT_ZERO"
 }
 
+if (-not $modbusTcpHeaderText.Contains(
+    "#define JWPLC_MODBUS_TCP_INT_LOAD_ADAPTIVE 0")) {
+    throw "H3ER_INT_LOAD_ADAPTIVE_PACKAGE_DEFAULT_NOT_ZERO"
+}
+
 Write-Host "H3ER_INT_GUIDED_RX_PACKAGE_DEFAULT=0"
 Write-Host "H3ER_INT_HOT_POLL_US_PACKAGE_DEFAULT=0"
+Write-Host "H3ER_INT_LOAD_ADAPTIVE_PACKAGE_DEFAULT=0"
 
 if ($modbusRtuPropsText -match '(?m)^\s*precompiled\s*=') {
     throw "H3ER_MODBUS_RTU_SOURCE_FIRST_POLICY_CHANGED"
@@ -740,6 +767,23 @@ if ($adaptiveCandidateEnabled) {
 }
 else {
     Write-Host "H3ER_INT_HOT_POLL_BUILD_FLAG=NOT_REQUESTED"
+}
+
+if ($loadAdaptiveCandidateEnabled) {
+    if (-not $masterCompileText.Contains(
+        "-djwplc_modbus_tcp_int_load_adaptive=1")) {
+        throw "H3ER_INT_LOAD_ADAPTIVE_BUILD_FLAG_MISSING"
+    }
+
+    if ($masterCompileText.Contains(
+        "-djwplc_modbus_tcp_int_hot_poll_us=1500")) {
+        throw "H3ER_D3_UNEXPECTED_FIXED_HOT_POLL_FLAG"
+    }
+
+    Write-Host "H3ER_INT_LOAD_ADAPTIVE_BUILD_FLAG=PASS"
+}
+else {
+    Write-Host "H3ER_INT_LOAD_ADAPTIVE_BUILD_FLAG=NOT_REQUESTED"
 }
 
 $qualificationText =
