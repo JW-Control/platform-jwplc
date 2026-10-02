@@ -15,14 +15,27 @@ import a14_p5b_master_slave_qualification as p5b
 import a14_p5rtu_tcp_budget_frontier as budget
 
 
-TARGETS: tuple[float | None, ...] = (
-    None,
-    100.0,
-    250.0,
-    500.0,
-    750.0,
-    1000.0,
-)
+DEFAULT_TARGETS = "off,100,250,500,750,1000"
+
+
+def parse_targets(spec: str) -> tuple[float | None, ...]:
+    values: list[float | None] = []
+
+    for token in spec.split(","):
+        item = token.strip().lower()
+
+        if not item:
+            continue
+
+        if item in ("off", "none", "0"):
+            values.append(None)
+        else:
+            values.append(float(item))
+
+    if not values:
+        raise ValueError("targets vacíos")
+
+    return tuple(values)
 
 
 def iv(values: dict[str, str], key: str, default: int = -1) -> int:
@@ -34,7 +47,18 @@ def sv(values: dict[str, str], key: str) -> str:
 
 
 def write_snapshot(path: Path, values: dict[str, str]) -> None:
-    path.write_text(values.get("_RAW", ""), encoding="utf-8")
+    raw = values.get("_RAW")
+
+    if raw:
+        text = raw
+    else:
+        text = "\n".join(
+            f"{key}={value}"
+            for key, value in values.items()
+            if not key.startswith("_")
+        ) + "\n"
+
+    path.write_text(text, encoding="utf-8")
 
 
 def send(ser, command: bytes, ack: str, timeout_s: float = 4.0) -> None:
@@ -209,6 +233,12 @@ def run_case(
 
     if not fast_profile_pass(pre_master, pre_slave):
         raise RuntimeError(f"R4_FAST_PROFILE_DRIFT_{label}")
+
+    # Los snapshots completos por Serial son deliberadamente fuera de ventana,
+    # pero pueden inflar LOOP_GAP/RTU_SERVICE_GAP. Re-alinear contadores y mapas
+    # después de capturarlos evita contaminar las métricas formales.
+    p5b.reset_slave_stats(slave, 3.0)
+    q.reset_stats(master)
 
     send(master, b"U\n", "RTU_RATE_MODE=UNPACED")
     send(master, b"G\n", p5b.MASTER_START_ACK)
@@ -416,6 +446,25 @@ def run_case(
         flush=True,
     )
 
+    print(
+        "R4_DIAG "
+        f"RTU_STARTED={started} "
+        f"RTU_SUCCESS={success} "
+        f"RTU_FAILED={failed} "
+        f"RTU_REJECTED={rejected} "
+        f"RTU_VERIFY={verify} "
+        f"RTU_TIMEOUTS={iv(post_master, 'RTU_MASTER_TIMEOUTS', 0)} "
+        f"RTU_MAX_US={iv(post_master, 'RTU_TRANSACTION_MAX_US', 0)} "
+        f"RTU_OVER20MS={iv(post_master, 'RTU_TRANSACTIONS_OVER_20MS', 0)} "
+        f"DI_FAIL={iv(post_master, 'RTU_MIX_DI_FAILED', 0)} "
+        f"DO_FAIL={iv(post_master, 'RTU_MIX_DO_FAILED', 0)} "
+        f"AI_FAIL={iv(post_master, 'RTU_MIX_AI_FAILED', 0)} "
+        f"AO_FAIL={iv(post_master, 'RTU_MIX_AO_FAILED', 0)} "
+        f"PERIPH_FAIL={iv(post_master, 'PERIPHERAL_FAILURE_COUNT', 0)} "
+        f"SPI_FAIL={iv(post_master, 'SPI_PROBE_FAILS', 0)}",
+        flush=True,
+    )
+
     if classification == "PRODUCT_FAILURE":
         raise RuntimeError(f"R4_PRODUCT_FAILURE_{label}")
 
@@ -427,6 +476,7 @@ def main() -> int:
     parser.add_argument("--master-serial", default="COM14")
     parser.add_argument("--slave-serial", default="COM4")
     parser.add_argument("--duration", type=float, default=300.0)
+    parser.add_argument("--targets", default=DEFAULT_TARGETS)
     parser.add_argument("--output-root", required=True)
     args = parser.parse_args()
 
@@ -460,7 +510,9 @@ def main() -> int:
         if not fast_profile_pass(fast_master, fast_slave):
             raise RuntimeError("R4_FAST_PROFILE_PREFLIGHT_FAIL")
 
-        for target in TARGETS:
+        targets = parse_targets(args.targets)
+
+        for target in targets:
             rows.append(
                 run_case(
                     root,
