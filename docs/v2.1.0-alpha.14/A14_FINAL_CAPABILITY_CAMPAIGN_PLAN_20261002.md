@@ -201,3 +201,56 @@ MEASUREMENT_WINDOWS         = 115 min
 Con tres etapas de compile/upload, boot/DHCP, snapshots y persistencia de logs,
 se espera aproximadamente 2.5–3.5 h en una ejecución limpia. Dejarlo toda la
 noche proporciona margen amplio para variaciones de compilación o entorno.
+
+
+## Guards endurecidos
+
+Cada firmware final expone `BOOT_MARKER` y `UPTIME_MS` sólo en snapshots
+fuera de la ventana medida. En full-runtime se guarda un snapshot pre/post por
+caso y se exige:
+
+```text
+BOOT_MARKER estable Master/Slave
+UPTIME monotónico con delta >= 90 % de la ventana
+SPI_PROBE_FAILS=0
+FULL_RUNTIME_READY=YES
+SLAVE_READY=YES
+RTU_READY=YES
+DISPLAY_READY=YES
+```
+
+La campaña verifica además por ancestry que el HEAD contiene las promociones
+de FIFO_REUSE, DLEN_REUSE, COPY_OUT_64 y UDP FAST, y comprueba los defaults de
+source antes de compilar.
+
+## Nota sobre uso SPI
+
+PERFORMANCE no añade instrumentación global al mutex SPI. En full-runtime se
+reporta contención mediante `SPI_PROBE_MAX_WAIT_US`,
+`SPI_PROBE_OVER_1MS`, `SPI_PROBE_OVER_10MS` y `SPI_PROBE_FAILS`.
+RAW TCP y UDP FAST sí reportan occupancy de su propio ownership SPI.
+
+No se debe interpretar el probe full-runtime como porcentaje absoluto de
+ocupación global del bus.
+
+## F5A y F5B
+
+Antes del perfil FAST se añade:
+
+```text
+F5A_RTU_ONLY_115200_UNPACED = 600 s
+```
+
+Luego:
+
+```text
+F5B_RTU_ONLY_FAST_CEILING = 600 s
+```
+
+Esto separa la capacidad del perfil industrial 115200 de la capacidad extrema
+FC03 con 500 kbaud/FIFO9-FIFO8/BULK.
+
+Con F5A el total de ventanas de medición pasa de 115 a aproximadamente
+125 minutos. Incluyendo compilaciones/uploads, boot/DHCP y persistencia de
+evidencia, la ejecución limpia debería quedar alrededor de 2.5–4 horas; dejarla
+toda la noche da margen suficiente.
