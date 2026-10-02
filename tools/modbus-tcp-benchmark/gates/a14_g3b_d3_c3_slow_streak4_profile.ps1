@@ -93,24 +93,24 @@ foreach ($flag in @("-djwplc_modbus_tcp_int_guided_rx=1", "-djwplc_modbus_tcp_in
 }
 Write-Host "D3C3_BUILD_FLAGS=PASS"
 
-function Get-D3C2Int([string]$Key) {
+function Get-D3C3Int([string]$Key) {
     $m = [regex]::Matches($masterText, "(?m)^" + [regex]::Escape($Key) + "=(\d+)\r?$")
     if ($m.Count -ne 1) { throw "D3C3_PROFILE_KEY_INVALID=$Key COUNT=$($m.Count)" }
     return [int64]::Parse($m[0].Groups[1].Value, [Globalization.CultureInfo]::InvariantCulture)
 }
 
-$state = Get-D3C2Int "D3_PROFILE_STATE"
-$frames = Get-D3C2Int "D3_PROFILE_COMPLETE_FRAMES"
-$warm = Get-D3C2Int "D3_PROFILE_TO_WARM"
-$active = Get-D3C2Int "D3_PROFILE_TO_ACTIVE_POLL"
-$cooldown = Get-D3C2Int "D3_PROFILE_TO_COOLDOWN"
-$idle = Get-D3C2Int "D3_PROFILE_TO_IDLE_INT"
-$activePasses = Get-D3C2Int "D3_PROFILE_ACTIVE_POLL_PASSES"
-$fallback = Get-D3C2Int "D3_PROFILE_FALLBACK_PASSES"
-$realigns = Get-D3C2Int "D3_PROFILE_IDLE_FALLBACK_REALIGNS"
-$activeIdleExits = Get-D3C2Int "D3_PROFILE_ACTIVE_IDLE_EXITS"
-$nonActiveIdleExits = Get-D3C2Int "D3_PROFILE_NONACTIVE_IDLE_EXITS"
-$lastGap = Get-D3C2Int "D3_PROFILE_LAST_FRAME_GAP_US"
+$state = Get-D3C3Int "D3_PROFILE_STATE"
+$frames = Get-D3C3Int "D3_PROFILE_COMPLETE_FRAMES"
+$warm = Get-D3C3Int "D3_PROFILE_TO_WARM"
+$active = Get-D3C3Int "D3_PROFILE_TO_ACTIVE_POLL"
+$cooldown = Get-D3C3Int "D3_PROFILE_TO_COOLDOWN"
+$idle = Get-D3C3Int "D3_PROFILE_TO_IDLE_INT"
+$activePasses = Get-D3C3Int "D3_PROFILE_ACTIVE_POLL_PASSES"
+$fallback = Get-D3C3Int "D3_PROFILE_FALLBACK_PASSES"
+$realigns = Get-D3C3Int "D3_PROFILE_IDLE_FALLBACK_REALIGNS"
+$activeIdleExits = Get-D3C3Int "D3_PROFILE_ACTIVE_IDLE_EXITS"
+$nonActiveIdleExits = Get-D3C3Int "D3_PROFILE_NONACTIVE_IDLE_EXITS"
+$lastGap = Get-D3C3Int "D3_PROFILE_LAST_FRAME_GAP_US"
 
 $req = [double]::Parse($row.achieved_req_s, [Globalization.CultureInfo]::InvariantCulture)
 $p95 = [double]::Parse($row.latency_p95_us, [Globalization.CultureInfo]::InvariantCulture)
