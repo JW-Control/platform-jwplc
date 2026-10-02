@@ -4,6 +4,19 @@
 
 #include "jwplc_spi_bus.h"
 
+static constexpr uint8_t JWPLC_MODBUS_TCP_LOAD_IDLE_INT = 0U;
+static constexpr uint8_t JWPLC_MODBUS_TCP_LOAD_WARM = 1U;
+static constexpr uint8_t JWPLC_MODBUS_TCP_LOAD_ACTIVE_POLL = 2U;
+static constexpr uint8_t JWPLC_MODBUS_TCP_LOAD_COOLDOWN = 3U;
+
+#if JWPLC_MODBUS_TCP_INT_LOAD_ADAPTIVE
+static constexpr uint32_t JWPLC_MODBUS_TCP_LOAD_FAST_GAP_US = 1600U;
+static constexpr uint8_t JWPLC_MODBUS_TCP_LOAD_FAST_STREAK = 3U;
+static constexpr uint32_t JWPLC_MODBUS_TCP_LOAD_SLOW_GAP_US = 1800U;
+static constexpr uint8_t JWPLC_MODBUS_TCP_LOAD_SLOW_STREAK = 2U;
+static constexpr uint32_t JWPLC_MODBUS_TCP_LOAD_IDLE_EXIT_US = 5000U;
+#endif
+
 #if JWPLC_MODBUS_TCP_INT_GUIDED_RX
 #include <SPI.h>
 #include <utility/w5100.h>
@@ -45,6 +58,10 @@ JWPLC_ModbusTCPClass::JWPLC_ModbusTCPClass()
       _rxIntLastServiceMs(0),
       _rxIntHotPolling(false),
       _rxIntHotUntilUs(0),
+      _rxLoadState(JWPLC_MODBUS_TCP_LOAD_IDLE_INT),
+      _rxLoadFastStreak(0),
+      _rxLoadSlowStreak(0),
+      _rxLoadLastFrameUs(0),
       _server(JWPLC_MODBUS_TCP_DEFAULT_PORT),
       _client(),
       _coils(nullptr),
@@ -63,6 +80,10 @@ JWPLC_ModbusTCPClass::JWPLC_ModbusTCPClass()
     memset(_rxBuffer, 0, sizeof(_rxBuffer));
     memset(_txBuffer, 0, sizeof(_txBuffer));
     memset(&_stats, 0, sizeof(_stats));
+#if JWPLC_MODBUS_TCP_ENABLE_PROFILE_HOOKS
+    memset(&_rxLoadProfile, 0, sizeof(_rxLoadProfile));
+    _rxLoadProfile.state = _rxLoadState;
+#endif
 }
 
 bool JWPLC_ModbusTCPClass::beginServer(uint8_t unitId, uint16_t port)
@@ -348,6 +369,21 @@ void JWPLC_ModbusTCPClass::resetStats()
     memset(&_stats, 0, sizeof(_stats));
 }
 
+#if JWPLC_MODBUS_TCP_ENABLE_PROFILE_HOOKS
+JWPLCModbusTCPSchedulerProfile JWPLC_ModbusTCPClass::jwplcSchedulerProfile() const
+{
+    JWPLCModbusTCPSchedulerProfile profile = _rxLoadProfile;
+    profile.state = _rxLoadState;
+    return profile;
+}
+
+void JWPLC_ModbusTCPClass::jwplcSchedulerProfileReset()
+{
+    memset(&_rxLoadProfile, 0, sizeof(_rxLoadProfile));
+    _rxLoadProfile.state = _rxLoadState;
+}
+#endif
+
 void JWPLC_ModbusTCPClass::printStatus(Print &out) const
 {
     out.print("ModbusTCP server: ");
@@ -405,6 +441,49 @@ void JWPLC_ModbusTCPClass::resetRx()
     _lastRxMs = 0;
 }
 
+void JWPLC_ModbusTCPClass::resetRxLoadAdaptiveState()
+{
+    _rxLoadState = JWPLC_MODBUS_TCP_LOAD_IDLE_INT;
+    _rxLoadFastStreak = 0;
+    _rxLoadSlowStreak = 0;
+    _rxLoadLastFrameUs = 0;
+
+#if JWPLC_MODBUS_TCP_ENABLE_PROFILE_HOOKS
+    _rxLoadProfile.state = _rxLoadState;
+#endif
+}
+
+void JWPLC_ModbusTCPClass::setRxLoadState(uint8_t state)
+{
+    if (_rxLoadState == state)
+    {
+        return;
+    }
+
+    _rxLoadState = state;
+
+#if JWPLC_MODBUS_TCP_ENABLE_PROFILE_HOOKS
+    _rxLoadProfile.state = state;
+
+    switch (state)
+    {
+    case JWPLC_MODBUS_TCP_LOAD_WARM:
+        _rxLoadProfile.toWarm++;
+        break;
+    case JWPLC_MODBUS_TCP_LOAD_ACTIVE_POLL:
+        _rxLoadProfile.toActivePoll++;
+        break;
+    case JWPLC_MODBUS_TCP_LOAD_COOLDOWN:
+        _rxLoadProfile.toCooldown++;
+        break;
+    case JWPLC_MODBUS_TCP_LOAD_IDLE_INT:
+        _rxLoadProfile.toIdleInt++;
+        break;
+    default:
+        break;
+    }
+#endif
+}
 
 bool JWPLC_ModbusTCPClass::configureRxIntLocked(uint8_t socket)
 {
@@ -466,6 +545,7 @@ bool JWPLC_ModbusTCPClass::configureRxIntLocked(uint8_t socket)
     _rxIntLastServiceMs = millis();
     _rxIntHotPolling = false;
     _rxIntHotUntilUs = 0;
+    resetRxLoadAdaptiveState();
 
     if (rsr > 0 ||
         digitalRead(JWPLC_ETH_INT_PIN) == LOW)
@@ -517,6 +597,7 @@ void JWPLC_ModbusTCPClass::disableRxIntLocked()
     _rxIntLastServiceMs = 0;
     _rxIntHotPolling = false;
     _rxIntHotUntilUs = 0;
+    resetRxLoadAdaptiveState();
     g_jwplcModbusTcpIntPending = false;
 #endif
 }
@@ -538,6 +619,7 @@ void JWPLC_ModbusTCPClass::resetRxIntSoftware()
     _rxIntLastServiceMs = 0;
     _rxIntHotPolling = false;
     _rxIntHotUntilUs = 0;
+    resetRxLoadAdaptiveState();
 }
 
 bool JWPLC_ModbusTCPClass::shouldServiceRxInt(uint32_t nowMs)
@@ -551,6 +633,29 @@ bool JWPLC_ModbusTCPClass::shouldServiceRxInt(uint32_t nowMs)
     {
         return true;
     }
+
+#if JWPLC_MODBUS_TCP_INT_LOAD_ADAPTIVE
+    const uint32_t nowUs = micros();
+
+    if (_rxLoadState != JWPLC_MODBUS_TCP_LOAD_IDLE_INT &&
+        _rxLoadLastFrameUs != 0 &&
+        (uint32_t)(nowUs - _rxLoadLastFrameUs) >=
+            JWPLC_MODBUS_TCP_LOAD_IDLE_EXIT_US)
+    {
+        _rxLoadFastStreak = 0;
+        _rxLoadSlowStreak = 0;
+        setRxLoadState(JWPLC_MODBUS_TCP_LOAD_IDLE_INT);
+    }
+
+    if (_rxLoadState == JWPLC_MODBUS_TCP_LOAD_ACTIVE_POLL)
+    {
+        _rxIntLastServiceMs = nowMs;
+#if JWPLC_MODBUS_TCP_ENABLE_PROFILE_HOOKS
+        _rxLoadProfile.activePollPasses++;
+#endif
+        return true;
+    }
+#endif
 
 #if JWPLC_MODBUS_TCP_INT_HOT_POLL_US > 0
     if (_rxIntHotPolling)
@@ -615,7 +720,7 @@ void JWPLC_ModbusTCPClass::ackRxIntLocked()
 #endif
 }
 
-void JWPLC_ModbusTCPClass::noteRxIntActivity()
+void JWPLC_ModbusTCPClass::noteRxIntChunkActivity()
 {
 #if JWPLC_MODBUS_TCP_INT_GUIDED_RX && JWPLC_MODBUS_TCP_INT_HOT_POLL_US > 0
     _rxIntHotPolling = true;
@@ -624,6 +729,88 @@ void JWPLC_ModbusTCPClass::noteRxIntActivity()
         (uint32_t)JWPLC_MODBUS_TCP_INT_HOT_POLL_US;
 
     g_jwplcModbusTcpIntPending = false;
+#endif
+}
+
+void JWPLC_ModbusTCPClass::noteRxIntFrameActivity()
+{
+#if JWPLC_MODBUS_TCP_INT_GUIDED_RX && JWPLC_MODBUS_TCP_INT_LOAD_ADAPTIVE
+    const uint32_t nowUs = micros();
+    uint32_t gapUs = 0;
+
+    if (_rxLoadLastFrameUs != 0)
+    {
+        gapUs = (uint32_t)(nowUs - _rxLoadLastFrameUs);
+    }
+
+    _rxLoadLastFrameUs = nowUs;
+
+#if JWPLC_MODBUS_TCP_ENABLE_PROFILE_HOOKS
+    _rxLoadProfile.completeFrames++;
+    _rxLoadProfile.lastFrameGapUs = gapUs;
+#endif
+
+    if (_rxLoadState == JWPLC_MODBUS_TCP_LOAD_IDLE_INT)
+    {
+        _rxLoadFastStreak = 0;
+        _rxLoadSlowStreak = 0;
+        setRxLoadState(JWPLC_MODBUS_TCP_LOAD_WARM);
+        return;
+    }
+
+    if (gapUs == 0)
+    {
+        return;
+    }
+
+    if (_rxLoadState == JWPLC_MODBUS_TCP_LOAD_ACTIVE_POLL)
+    {
+        if (gapUs >= JWPLC_MODBUS_TCP_LOAD_SLOW_GAP_US)
+        {
+            if (_rxLoadSlowStreak < 0xFFU)
+            {
+                _rxLoadSlowStreak++;
+            }
+
+            if (_rxLoadSlowStreak >= JWPLC_MODBUS_TCP_LOAD_SLOW_STREAK)
+            {
+                _rxLoadSlowStreak = 0;
+                _rxLoadFastStreak = 0;
+                setRxLoadState(JWPLC_MODBUS_TCP_LOAD_COOLDOWN);
+            }
+        }
+        else
+        {
+            _rxLoadSlowStreak = 0;
+        }
+
+        return;
+    }
+
+    if (gapUs <= JWPLC_MODBUS_TCP_LOAD_FAST_GAP_US)
+    {
+        _rxLoadSlowStreak = 0;
+
+        if (_rxLoadFastStreak < 0xFFU)
+        {
+            _rxLoadFastStreak++;
+        }
+
+        if (_rxLoadFastStreak >= JWPLC_MODBUS_TCP_LOAD_FAST_STREAK)
+        {
+            _rxLoadFastStreak = 0;
+            setRxLoadState(JWPLC_MODBUS_TCP_LOAD_ACTIVE_POLL);
+        }
+
+        return;
+    }
+
+    _rxLoadFastStreak = 0;
+
+    if (gapUs >= JWPLC_MODBUS_TCP_LOAD_SLOW_GAP_US)
+    {
+        _rxLoadSlowStreak = 0;
+    }
 #endif
 }
 
@@ -796,7 +983,14 @@ void JWPLC_ModbusTCPClass::serviceServer()
     bool fatalFrame = false;
     JWPLCModbusTCPError fatalError = JWPLC_MODBUS_TCP_OK;
 
-#if JWPLC_MODBUS_TCP_INT_GUIDED_RX && JWPLC_MODBUS_TCP_INT_HOT_POLL_US > 0
+#if JWPLC_MODBUS_TCP_INT_GUIDED_RX && JWPLC_MODBUS_TCP_INT_LOAD_ADAPTIVE
+    if (_rxLoadState != JWPLC_MODBUS_TCP_LOAD_ACTIVE_POLL ||
+        g_jwplcModbusTcpIntPending ||
+        digitalRead(JWPLC_ETH_INT_PIN) == LOW)
+    {
+        ackRxIntLocked();
+    }
+#elif JWPLC_MODBUS_TCP_INT_GUIDED_RX && JWPLC_MODBUS_TCP_INT_HOT_POLL_US > 0
     if (!_rxIntHotPolling)
     {
         ackRxIntLocked();
@@ -896,7 +1090,7 @@ void JWPLC_ModbusTCPClass::serviceServer()
         _rxLength = (uint16_t)(_rxLength + received);
         budget = (uint16_t)(budget - received);
         _lastRxMs = now;
-        noteRxIntActivity();
+        noteRxIntChunkActivity();
 
 #if JWPLC_MODBUS_TCP_INT_GUIDED_RX
         // availableBytes es la cantidad conocida antes de este read().
@@ -974,6 +1168,7 @@ void JWPLC_ModbusTCPClass::serviceServer()
     }
 
     _stats.rxFrames++;
+    noteRxIntFrameActivity();
 
     uint16_t responseLength = 0;
     const bool responseReady = processRequest(_expectedLength, responseLength);

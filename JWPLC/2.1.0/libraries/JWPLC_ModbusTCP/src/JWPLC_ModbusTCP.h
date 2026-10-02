@@ -39,6 +39,26 @@
 #define JWPLC_MODBUS_TCP_INT_HOT_POLL_US 0UL
 #endif
 
+// Candidato D3 load-adaptive. OFF por defecto: sólo los gates Alpha14 lo
+// activan hasta cerrar D3-B/D3-C y decidir promoción.
+#ifndef JWPLC_MODBUS_TCP_INT_LOAD_ADAPTIVE
+#define JWPLC_MODBUS_TCP_INT_LOAD_ADAPTIVE 0
+#endif
+
+// Hooks de observabilidad exclusivos para benchmarks internos. No forman parte
+// del build productivo normal.
+#ifndef JWPLC_MODBUS_TCP_ENABLE_PROFILE_HOOKS
+#define JWPLC_MODBUS_TCP_ENABLE_PROFILE_HOOKS 0
+#endif
+
+#if JWPLC_MODBUS_TCP_INT_LOAD_ADAPTIVE && !JWPLC_MODBUS_TCP_INT_GUIDED_RX
+#error "JWPLC_MODBUS_TCP_INT_LOAD_ADAPTIVE requires INT guided RX"
+#endif
+
+#if JWPLC_MODBUS_TCP_INT_LOAD_ADAPTIVE && (JWPLC_MODBUS_TCP_INT_HOT_POLL_US > 0)
+#error "Load-adaptive D3 and fixed D2 hot-poll cannot be enabled together"
+#endif
+
 enum JWPLCModbusTCPError : uint8_t
 {
     JWPLC_MODBUS_TCP_OK = 0,
@@ -83,6 +103,20 @@ struct JWPLCModbusTCPStats
     uint32_t frameTimeouts;
     uint32_t busLockTimeouts;
 };
+
+#if JWPLC_MODBUS_TCP_ENABLE_PROFILE_HOOKS
+struct JWPLCModbusTCPSchedulerProfile
+{
+    uint8_t state;
+    uint32_t completeFrames;
+    uint32_t toWarm;
+    uint32_t toActivePoll;
+    uint32_t toCooldown;
+    uint32_t toIdleInt;
+    uint32_t activePollPasses;
+    uint32_t lastFrameGapUs;
+};
+#endif
 
 class JWPLC_ModbusTCPClass
 {
@@ -136,6 +170,12 @@ public:
     const char *lastErrorString() const;
     const JWPLCModbusTCPStats &stats() const;
     void resetStats();
+
+#if JWPLC_MODBUS_TCP_ENABLE_PROFILE_HOOKS
+    JWPLCModbusTCPSchedulerProfile jwplcSchedulerProfile() const;
+    void jwplcSchedulerProfileReset();
+#endif
+
     void printStatus(Print &out) const;
 
 private:
@@ -153,6 +193,15 @@ private:
     uint32_t _rxIntLastServiceMs;
     bool _rxIntHotPolling;
     uint32_t _rxIntHotUntilUs;
+
+    uint8_t _rxLoadState;
+    uint8_t _rxLoadFastStreak;
+    uint8_t _rxLoadSlowStreak;
+    uint32_t _rxLoadLastFrameUs;
+
+#if JWPLC_MODBUS_TCP_ENABLE_PROFILE_HOOKS
+    JWPLCModbusTCPSchedulerProfile _rxLoadProfile;
+#endif
 
     EthernetServer _server;
     EthernetClient _client;
@@ -188,8 +237,11 @@ private:
     void resetRxIntSoftware();
     bool shouldServiceRxInt(uint32_t nowMs);
     void ackRxIntLocked();
-    void noteRxIntActivity();
+    void noteRxIntChunkActivity();
+    void noteRxIntFrameActivity();
     void finishRxIntService(bool rxDataKnownPending);
+    void resetRxLoadAdaptiveState();
+    void setRxLoadState(uint8_t state);
 
     void dropClient();
     void ensureServerListening();
