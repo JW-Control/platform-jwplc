@@ -487,10 +487,24 @@ def main() -> int:
         choices=("POLLING", "INT_GUIDED"),
         required=True,
     )
+    parser.add_argument(
+        "--rate",
+        type=float,
+        default=RATE,
+    )
+    parser.add_argument(
+        "--expected-hot-poll-us",
+        type=int,
+        default=0,
+    )
     args = parser.parse_args()
 
     if args.duration <= 0:
         raise RuntimeError("G3A_DURATION_INVALID")
+    if args.rate <= 0:
+        raise RuntimeError("G3A_RATE_INVALID")
+    if args.expected_hot_poll_us < 0:
+        raise RuntimeError("G3A_HOT_POLL_INVALID")
 
     expected_int = args.variant == "INT_GUIDED"
 
