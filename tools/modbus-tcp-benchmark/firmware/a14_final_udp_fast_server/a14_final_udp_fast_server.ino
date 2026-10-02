@@ -6,6 +6,9 @@
   - batch2 matches the validated 2 KB W5500 RX topology at payload 1016 B
 */
 #include <JWPLC_Ethernet.h>
+#include <esp_system.h>
+
+static uint32_t benchmarkBootMarker = 0;
 
 static constexpr uint16_t UDP_PORT = 5002;
 static constexpr size_t UDP_PAYLOAD_BYTES = 1016;
@@ -64,6 +67,10 @@ static void printSnapshot()
         spiHoldCount > 0 ? (uint32_t)(spiHoldTotalUs / spiHoldCount) : 0;
 
     Serial.println("A14_FINAL_UDP_FAST_SNAPSHOT=BEGIN");
+    Serial.print("BOOT_MARKER=");
+    Serial.println(benchmarkBootMarker);
+    Serial.print("UPTIME_MS=");
+    Serial.println(millis());
     Serial.print("UDP_FAST_READY=");
     Serial.println(started ? "YES" : "NO");
     Serial.print("ETH_READY=");
@@ -182,6 +189,7 @@ static void serviceUdpFast()
 void setup()
 {
     Serial.begin(115200);
+    benchmarkBootMarker = (uint32_t)esp_random();
     resetCounters();
     Serial.println("A14_FINAL_UDP_FAST_CONFIG=PASS");
 }
