@@ -37,10 +37,12 @@ if (-not (Test-Path -LiteralPath $PythonExe)) {
 
 $w5100h = Get-G2Path "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/utility/w5100.h"
 $tcpH = Get-G2Path "JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP.h"
+$rtuCpp = Get-G2Path "JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/src/JWPLC_ModbusRTU.cpp"
 $spiH = Get-G2Path "JWPLC/2.1.0/libraries/SPI/src/SPI.h"
 
 $w5100Text = [IO.File]::ReadAllText($w5100h)
 $tcpText = [IO.File]::ReadAllText($tcpH)
+$rtuText = [IO.File]::ReadAllText($rtuCpp)
 $spiText = [IO.File]::ReadAllText($spiH)
 
 $sourceChecks = [ordered]@{
@@ -60,6 +62,8 @@ $sourceChecks = [ordered]@{
         $tcpText.Contains("#define JWPLC_MODBUS_TCP_INT_LOAD_ADAPTIVE 0")
     "E1_DEFAULT_OFF" =
         $tcpText.Contains("#define JWPLC_MODBUS_TCP_INT_RSR_DRAIN 0")
+    "RTU_PARTIAL_HOLD_15MS" =
+        $rtuText.Contains("JWPLC_MODBUS_FAST_PARTIAL_HOLD_US = 15000UL")
 }
 
 foreach ($entry in $sourceChecks.GetEnumerator()) {
