@@ -67,7 +67,10 @@ static constexpr uint8_t RTU_TARGET_SLAVE_ID = 2;
 static constexpr uint32_t RTU_BAUD = 115200UL;
 static constexpr uint32_t RTU_CONFIG = SERIAL_8N1;
 static constexpr uint32_t RTU_PERIOD_DEFAULT_US = 20000UL;
-static constexpr uint32_t RTU_TIMEOUT_MS = 25UL;
+// R4-R2: 25 ms quedó demasiado cerca de los outliers del full-runtime
+// (24.7-25.0 ms). 50 ms mantiene detección rápida de fallo sin convertir
+// jitter esporádico del runtime en timeout falso. Sólo aplica al benchmark.
+static constexpr uint32_t RTU_TIMEOUT_MS = 50UL;
 static constexpr uint16_t RTU_VERIFY_MAGIC = 0x55AA;
 
 static bool rtuReady = false;
