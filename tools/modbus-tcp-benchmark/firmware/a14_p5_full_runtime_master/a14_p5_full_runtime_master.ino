@@ -1487,6 +1487,10 @@ static void printSnapshot()
     Serial.println(d3Profile.fallbackPasses);
     Serial.print("D3_PROFILE_IDLE_FALLBACK_REALIGNS=");
     Serial.println(d3Profile.idleFallbackRealigns);
+    Serial.print("D3_PROFILE_ACTIVE_IDLE_EXITS=");
+    Serial.println(d3Profile.activeIdleExits);
+    Serial.print("D3_PROFILE_NONACTIVE_IDLE_EXITS=");
+    Serial.println(d3Profile.nonActiveIdleExits);
     Serial.print("D3_PROFILE_LAST_FRAME_GAP_US=");
     Serial.println(d3Profile.lastFrameGapUs);
 #endif

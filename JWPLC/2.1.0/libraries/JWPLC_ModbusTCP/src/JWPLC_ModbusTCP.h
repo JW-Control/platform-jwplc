@@ -51,6 +51,13 @@
 #define JWPLC_MODBUS_TCP_ENABLE_PROFILE_HOOKS 0
 #endif
 
+// D3-C2 candidate-only knob. Default preserves D3-C1 behavior; benchmark
+// overrides may extend only ACTIVE_POLL hard-idle exit without changing
+// WARM/COOLDOWN idle behavior.
+#ifndef JWPLC_MODBUS_TCP_ACTIVE_IDLE_EXIT_US
+#define JWPLC_MODBUS_TCP_ACTIVE_IDLE_EXIT_US 5000UL
+#endif
+
 #if JWPLC_MODBUS_TCP_INT_LOAD_ADAPTIVE && !JWPLC_MODBUS_TCP_INT_GUIDED_RX
 #error "JWPLC_MODBUS_TCP_INT_LOAD_ADAPTIVE requires INT guided RX"
 #endif
@@ -116,6 +123,8 @@ struct JWPLCModbusTCPSchedulerProfile
     uint32_t activePollPasses;
     uint32_t fallbackPasses;
     uint32_t idleFallbackRealigns;
+    uint32_t activeIdleExits;
+    uint32_t nonActiveIdleExits;
     uint32_t lastFrameGapUs;
 };
 #endif

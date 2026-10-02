@@ -17,6 +17,8 @@ static constexpr uint8_t JWPLC_MODBUS_TCP_LOAD_SLOW_STREAK = 2U;
 static constexpr uint32_t JWPLC_MODBUS_TCP_LOAD_IDLE_EXIT_US = 5000U;
 static constexpr uint32_t JWPLC_MODBUS_TCP_LOAD_IDLE_EXIT_MS =
     (JWPLC_MODBUS_TCP_LOAD_IDLE_EXIT_US + 999U) / 1000U;
+static constexpr uint32_t JWPLC_MODBUS_TCP_LOAD_ACTIVE_IDLE_EXIT_MS =
+    (JWPLC_MODBUS_TCP_ACTIVE_IDLE_EXIT_US + 999U) / 1000U;
 #endif
 
 #if JWPLC_MODBUS_TCP_INT_GUIDED_RX
@@ -642,11 +644,26 @@ bool JWPLC_ModbusTCPClass::shouldServiceRxInt(uint32_t nowMs)
     // D3-B-R1: el hot path ya recibe nowMs desde serviceServer(). Evitar
     // micros() en cada pasada ACTIVE_POLL; los gaps rápidos/lentos siguen
     // midiéndose en noteRxIntFrameActivity(), una vez por ADU completa.
+    const uint32_t idleExitMs =
+        (_rxLoadState == JWPLC_MODBUS_TCP_LOAD_ACTIVE_POLL)
+            ? JWPLC_MODBUS_TCP_LOAD_ACTIVE_IDLE_EXIT_MS
+            : JWPLC_MODBUS_TCP_LOAD_IDLE_EXIT_MS;
+
     if (_rxLoadState != JWPLC_MODBUS_TCP_LOAD_IDLE_INT &&
         _rxLoadLastFrameUs != 0 &&
-        (uint32_t)(nowMs - _rxLoadLastFrameMs) >=
-            JWPLC_MODBUS_TCP_LOAD_IDLE_EXIT_MS)
+        (uint32_t)(nowMs - _rxLoadLastFrameMs) >= idleExitMs)
     {
+#if JWPLC_MODBUS_TCP_ENABLE_PROFILE_HOOKS
+        if (_rxLoadState == JWPLC_MODBUS_TCP_LOAD_ACTIVE_POLL)
+        {
+            _rxLoadProfile.activeIdleExits++;
+        }
+        else
+        {
+            _rxLoadProfile.nonActiveIdleExits++;
+        }
+#endif
+
         _rxLoadFastStreak = 0;
         _rxLoadSlowStreak = 0;
         setRxLoadState(JWPLC_MODBUS_TCP_LOAD_IDLE_INT);
