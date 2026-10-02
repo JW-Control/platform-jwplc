@@ -13,7 +13,8 @@ static constexpr uint8_t JWPLC_MODBUS_TCP_LOAD_COOLDOWN = 3U;
 static constexpr uint32_t JWPLC_MODBUS_TCP_LOAD_FAST_GAP_US = 1600U;
 static constexpr uint8_t JWPLC_MODBUS_TCP_LOAD_FAST_STREAK = 3U;
 static constexpr uint32_t JWPLC_MODBUS_TCP_LOAD_SLOW_GAP_US = 1800U;
-static constexpr uint8_t JWPLC_MODBUS_TCP_LOAD_SLOW_STREAK = 2U;
+static constexpr uint8_t JWPLC_MODBUS_TCP_LOAD_SLOW_STREAK =
+    (uint8_t)JWPLC_MODBUS_TCP_ACTIVE_SLOW_STREAK;
 static constexpr uint32_t JWPLC_MODBUS_TCP_LOAD_IDLE_EXIT_US = 5000U;
 static constexpr uint32_t JWPLC_MODBUS_TCP_LOAD_IDLE_EXIT_MS =
     (JWPLC_MODBUS_TCP_LOAD_IDLE_EXIT_US + 999U) / 1000U;

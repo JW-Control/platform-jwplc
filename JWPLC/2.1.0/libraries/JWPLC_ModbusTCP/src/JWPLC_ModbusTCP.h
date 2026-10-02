@@ -58,6 +58,17 @@
 #define JWPLC_MODBUS_TCP_ACTIVE_IDLE_EXIT_US 5000UL
 #endif
 
+// D3-C3 candidate-only hysteresis for leaving ACTIVE_POLL because of slow
+// complete-frame gaps. Default preserves the original D3 value.
+#ifndef JWPLC_MODBUS_TCP_ACTIVE_SLOW_STREAK
+#define JWPLC_MODBUS_TCP_ACTIVE_SLOW_STREAK 2U
+#endif
+
+#if (JWPLC_MODBUS_TCP_ACTIVE_SLOW_STREAK < 1) || \
+    (JWPLC_MODBUS_TCP_ACTIVE_SLOW_STREAK > 255)
+#error "JWPLC_MODBUS_TCP_ACTIVE_SLOW_STREAK must be 1..255"
+#endif
+
 #if JWPLC_MODBUS_TCP_INT_LOAD_ADAPTIVE && !JWPLC_MODBUS_TCP_INT_GUIDED_RX
 #error "JWPLC_MODBUS_TCP_INT_LOAD_ADAPTIVE requires INT guided RX"
 #endif
