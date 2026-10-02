@@ -2,7 +2,8 @@ param(
     [string]$MasterPort = "COM14",
     [string]$SlavePort = "COM4",
     [string]$PythonExe = "C:\\Users\\jeykc\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
-    [double]$DurationS = 300.0
+    [double]$DurationS = 300.0,
+    [string]$Targets = "off,100,250,500,750,1000"
 )
 
 Set-StrictMode -Version Latest
@@ -94,7 +95,7 @@ Write-Host " ALPHA14 FINAL R4 - FULL RUNTIME TCP x RTU EXP-MIX"
 Write-Host "=============================================================================="
 Write-Host "HEAD=$head"
 Write-Host "DURATION_PER_CASE_S=$DurationS"
-Write-Host "TCP_TARGETS=OFF,100,250,500,750,1000"
+Write-Host "TCP_TARGETS=$Targets"
 Write-Host "RTU_WORKLOAD=2DI_2DO_2AI_2AO_UNPACED"
 Write-Host "RTU_PROFILE=500K_FIFO9_8_BULK_QUEUED_STRUCTURAL_SLAVE"
 Write-Host "FULL_RUNTIME=DISPLAY_SD_FRAM_RTC_IO_BUTTONS"
@@ -176,7 +177,7 @@ Start-Sleep -Seconds 3
 
 $runnerLog = Join-Path $resultRoot "runner.log"
 
-& $PythonExe -u $runner --master-serial $MasterPort --slave-serial $SlavePort --duration $DurationS --output-root $resultRoot *> $runnerLog
+& $PythonExe -u $runner --master-serial $MasterPort --slave-serial $SlavePort --duration $DurationS --targets $Targets --output-root $resultRoot *> $runnerLog
 $runnerExit = $LASTEXITCODE
 
 Get-Content -LiteralPath $runnerLog -Tail 120 |
