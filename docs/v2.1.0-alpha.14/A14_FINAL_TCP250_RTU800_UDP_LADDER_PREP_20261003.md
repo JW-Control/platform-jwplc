@@ -200,6 +200,28 @@ Gate:
 
 `tools/modbus-tcp-benchmark/gates/a14_final_tcp250_rtu800_udp_ladder.ps1`
 
+### Preflight no destructivo
+
+Antes de la corrida física larga se ejecuta el mismo gate con:
+
+`-PreflightOnly`
+
+Ese modo valida:
+
+- contratos de source;
+- sintaxis Python;
+- compile Master;
+- compile Slave;
+- objetos source-first para RTU/TCP/Ethernet/UDP/SPI.
+
+No realiza upload ni benchmark físico.
+
+Sólo después de:
+
+`A14_FINAL_TRIPLE_PREFLIGHT=PASS`
+
+se ejecuta la campaña completa.
+
 ## Tiempo de prueba
 
 Ladder:
