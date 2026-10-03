@@ -3,12 +3,12 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import multiprocessing as mp
 import socket
 import struct
 import sys
 import threading
 import time
-from collections import deque
 from pathlib import Path
 
 THIS_DIR = Path(__file__).resolve().parent
@@ -22,8 +22,9 @@ UDP_PORT = 5002
 TCP_TARGET_REQ_S = 250.0
 RTU_TARGET_REQ_S = 800
 DEFAULT_UDP_LADDER = "0,1,2,4,6,8,10,12"
-UDP_HOST_PACING_MODE = "ONE_PACKET_DEADLINE_NO_CATCHUP"
-UDP_HOST_BURST_WINDOW_S = 0.001
+UDP_HOST_PACING_MODE = "DEDICATED_PROCESS_ACTUAL_SEND_INTERVAL"
+UDP_HOST_SPIN_THRESHOLD_NS = 250_000
+UDP_HOST_MIN_GAP_RATIO = 0.90
 
 
 def parse_ladder(spec: str) -> list[float]:
@@ -118,8 +119,8 @@ def wait_udp_ready(master, slave) -> tuple[str, dict[str, str], dict[str, str]]:
 def udp_sender(
     host: str,
     target_mbps: float,
-    start_event: threading.Event,
-    stop_event: threading.Event,
+    start_event,
+    stop_event,
     out: dict[str, object],
 ) -> None:
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -132,48 +133,51 @@ def udp_sender(
     pacing_deadlines_skipped = 0
     max_late_us = 0.0
     min_interpacket_us = 0.0
-    max_packets_in_1ms = 0
-    recent_sends: deque[float] = deque()
-    last_send_time: float | None = None
+    too_close_packets = 0
+    last_send_ns: int | None = None
 
     try:
         start_event.wait()
-        started = time.perf_counter()
+        started_ns = time.perf_counter_ns()
 
         if target_mbps <= 0.0:
             stop_event.wait()
-            elapsed = time.perf_counter() - started
+            elapsed = (
+                time.perf_counter_ns() - started_ns
+            ) / 1_000_000_000.0
         else:
-            interval_s = (
-                UDP_PAYLOAD_BYTES * 8.0
+            interval_ns = int(
+                UDP_PAYLOAD_BYTES * 8.0 * 1_000_000_000.0
                 / (target_mbps * 1_000_000.0)
             )
-            deadline = started + interval_s
+            min_allowed_gap_ns = int(
+                interval_ns * UDP_HOST_MIN_GAP_RATIO
+            )
+            next_send_ns = started_ns + interval_ns
 
             while not stop_event.is_set():
-                now = time.perf_counter()
+                while True:
+                    now_ns = time.perf_counter_ns()
+                    remaining_ns = next_send_ns - now_ns
 
-                if now < deadline:
-                    time.sleep(deadline - now)
-                    now = time.perf_counter()
+                    if remaining_ns <= 0:
+                        break
 
-                # Do not catch up by emitting a burst after host scheduling
-                # jitter. If a deadline is more than half an interval late,
-                # discard that host slot and wait for the next future slot.
-                # This preserves packet spacing instead of converting scheduler
-                # jitter into a burst that can overflow the 2 KB W5500 RX ring.
-                lateness_s = now - deadline
-                if lateness_s > (interval_s * 0.5):
-                    missed = int(lateness_s // interval_s) + 1
-                    pacing_deadlines_skipped += missed
-                    deadline += missed * interval_s
+                    if remaining_ns > UDP_HOST_SPIN_THRESHOLD_NS:
+                        sleep_ns = (
+                            remaining_ns
+                            - UDP_HOST_SPIN_THRESHOLD_NS
+                        )
+                        time.sleep(sleep_ns / 1_000_000_000.0)
+                    else:
+                        # Dedicated process: high-resolution final wait.
+                        pass
 
-                    now = time.perf_counter()
-                    if now < deadline:
-                        time.sleep(deadline - now)
-                        now = time.perf_counter()
-
-                lateness_us = max(0.0, (now - deadline) * 1_000_000.0)
+                send_begin_ns = time.perf_counter_ns()
+                lateness_us = max(
+                    0.0,
+                    (send_begin_ns - next_send_ns) / 1000.0,
+                )
                 if lateness_us > max_late_us:
                     max_late_us = lateness_us
 
@@ -185,40 +189,37 @@ def udp_sender(
 
                 try:
                     n = sock.sendto(payload, (host, UDP_PORT))
-                    send_time = time.perf_counter()
+                    send_ns = time.perf_counter_ns()
 
                     if n == UDP_PAYLOAD_BYTES:
                         sent_packets += 1
                         sent_bytes += n
 
-                        if last_send_time is not None:
-                            gap_us = (
-                                send_time - last_send_time
-                            ) * 1_000_000.0
+                        if last_send_ns is not None:
+                            gap_ns = send_ns - last_send_ns
+                            gap_us = gap_ns / 1000.0
                             if (
                                 min_interpacket_us == 0.0
                                 or gap_us < min_interpacket_us
                             ):
                                 min_interpacket_us = gap_us
+                            if gap_ns < min_allowed_gap_ns:
+                                too_close_packets += 1
 
-                        last_send_time = send_time
-
-                        cutoff = (
-                            send_time - UDP_HOST_BURST_WINDOW_S
-                        )
-                        while recent_sends and recent_sends[0] <= cutoff:
-                            recent_sends.popleft()
-                        recent_sends.append(send_time)
-                        if len(recent_sends) > max_packets_in_1ms:
-                            max_packets_in_1ms = len(recent_sends)
+                        last_send_ns = send_ns
                     else:
                         send_errors += 1
                 except OSError:
                     send_errors += 1
+                    send_ns = time.perf_counter_ns()
 
-                deadline += interval_s
+                # Schedule from the actual send instant. This intentionally
+                # forbids catch-up bursts after host scheduling jitter.
+                next_send_ns = send_ns + interval_ns
 
-            elapsed = time.perf_counter() - started
+            elapsed = (
+                time.perf_counter_ns() - started_ns
+            ) / 1_000_000_000.0
 
     finally:
         sock.close()
@@ -227,6 +228,18 @@ def udp_sender(
         sent_bytes * 8.0 / elapsed / 1_000_000.0
         if elapsed > 0.0
         else 0.0
+    )
+
+    target_interval_us = (
+        UDP_PAYLOAD_BYTES * 8.0 / target_mbps
+        if target_mbps > 0.0
+        else 0.0
+    )
+    min_gap_target_pct = (
+        min_interpacket_us / target_interval_us * 100.0
+        if target_interval_us > 0.0
+        and min_interpacket_us > 0.0
+        else 100.0
     )
 
     out.update(
@@ -240,9 +253,52 @@ def udp_sender(
             "pacing_deadlines_skipped": pacing_deadlines_skipped,
             "max_late_us": max_late_us,
             "min_interpacket_us": min_interpacket_us,
-            "max_packets_in_1ms": max_packets_in_1ms,
+            "target_interval_us": target_interval_us,
+            "min_gap_target_pct": min_gap_target_pct,
+            "too_close_packets": too_close_packets,
         }
     )
+
+
+def udp_sender_process_entry(
+    host: str,
+    target_mbps: float,
+    start_event,
+    stop_event,
+    result_queue,
+) -> None:
+    out: dict[str, object] = {}
+    udp_sender(
+        host,
+        target_mbps,
+        start_event,
+        stop_event,
+        out,
+    )
+    result_queue.put(out)
+
+
+def start_udp_sender_process(
+    host: str,
+    target_mbps: float,
+):
+    ctx = mp.get_context("spawn")
+    start_event = ctx.Event()
+    stop_event = ctx.Event()
+    result_queue = ctx.Queue()
+    process = ctx.Process(
+        target=udp_sender_process_entry,
+        args=(
+            host,
+            target_mbps,
+            start_event,
+            stop_event,
+            result_queue,
+        ),
+        daemon=True,
+    )
+    process.start()
+    return process, start_event, stop_event, result_queue
 
 
 
