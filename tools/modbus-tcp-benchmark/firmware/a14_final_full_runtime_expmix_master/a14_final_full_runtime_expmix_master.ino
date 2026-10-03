@@ -2559,6 +2559,603 @@ static void serviceSerialCommands()
             setRtuTargetHz(300);
             Serial.println("RTU_RATE_HZ=300");
         }
+        else if (c == ';')
+        {
+            setRtuTargetHz(350);
+            Serial.println("RTU_RATE_HZ=350");
+        }
+        else if (c == ',')
+        {
+            setRtuTargetHz(400);
+            Serial.println("RTU_RATE_HZ=400");
+        }
+        else if (c == '.')
+        {
+            setRtuTargetHz(450);
+            Serial.println("RTU_RATE_HZ=450");
+        }
+        else if (c == '/')
+        {
+            setRtuTargetHz(500);
+            Serial.println("RTU_RATE_HZ=500");
+        }
+        else if (c == '=')
+        {
+            setRtuTargetHz(550);
+            Serial.println("RTU_RATE_HZ=550");
+        }
+        else if (c == '_')
+        {
+            setRtuTargetHz(600);
+            Serial.println("RTU_RATE_HZ=600");
+        }
+        else if (c == '        {
+            setRtuUnpaced();
+            Serial.println("RTU_RATE_MODE=UNPACED");
+        }
+        else if (c == 'H' || c == 'h')
+        {
+            setRtuFrameGapUs(2000UL);
+            Serial.println("RTU_FRAME_GAP_US=2000");
+        }
+        else if (c == 'I' || c == 'i')
+        {
+            setRtuFrameGapUs(1750UL);
+            Serial.println("RTU_FRAME_GAP_US=1750");
+        }
+        else if (c == 'J' || c == 'j')
+        {
+            setRtuFrameGapUs(1500UL);
+            Serial.println("RTU_FRAME_GAP_US=1500");
+        }
+        else if (c == 'K' || c == 'k')
+        {
+            setRtuFrameGapUs(1250UL);
+            Serial.println("RTU_FRAME_GAP_US=1250");
+        }
+        else if (c == 'L' || c == 'l')
+        {
+            setRtuFrameGapUs(1000UL);
+            Serial.println("RTU_FRAME_GAP_US=1000");
+        }
+        else if (c == 'M' || c == 'm')
+        {
+            setRtuFrameGapUs(750UL);
+            Serial.println("RTU_FRAME_GAP_US=750");
+        }
+        else if (c == 'N' || c == 'n')
+        {
+            setRtuFrameGapUs(600UL);
+            Serial.println("RTU_FRAME_GAP_US=600");
+        }
+        else if (c == 'O' || c == 'o')
+        {
+            setRtuFrameGapUs(500UL);
+            Serial.println("RTU_FRAME_GAP_US=500");
+        }
+        else if (c == 'Q' || c == 'q')
+        {
+            setRtuFrameGapUs(400UL);
+            Serial.println("RTU_FRAME_GAP_US=400");
+        }
+        else if (c == 'V' || c == 'v')
+        {
+            setRtuFrameGapUs(350UL);
+            Serial.println("RTU_FRAME_GAP_US=350");
+        }
+        else if (c == 'W' || c == 'w')
+        {
+            setRtuFrameGapUs(300UL);
+            Serial.println("RTU_FRAME_GAP_US=300");
+        }
+        else if (c == '1')
+        {
+            setRtuFrameGapUs(200UL);
+            Serial.println("RTU_FRAME_GAP_US=200");
+        }
+        else if (c == '3')
+        {
+            setRtuFrameGapUs(150UL);
+            Serial.println("RTU_FRAME_GAP_US=150");
+        }
+        else if (c == '4')
+        {
+            setRtuFrameGapUs(100UL);
+            Serial.println("RTU_FRAME_GAP_US=100");
+        }
+        else if (c == 'T' || c == 't')
+        {
+            setRtuFrameGapUs(75UL);
+            Serial.println("RTU_FRAME_GAP_US=75");
+        }
+        else if (c == '!')
+        {
+            setRtuFrameGapUs(50UL);
+            Serial.println("RTU_FRAME_GAP_US=50");
+        }
+        else if (c == 'Y' || c == 'y')
+        {
+            JWPLC_ModbusRTU.setQueuedTxEnabled(false);
+            Serial.println("RTU_TX_MODE=BLOCKING");
+        }
+        else if (c == 'Z' || c == 'z')
+        {
+            JWPLC_ModbusRTU.setQueuedTxEnabled(true);
+            Serial.println(
+                JWPLC_ModbusRTU.queuedTxActive()
+                    ? "RTU_TX_MODE=QUEUED"
+                    : "RTU_TX_MODE=QUEUED_UNAVAILABLE");
+        }
+        else if (c == '0')
+        {
+            Serial.println(
+                setRtuBaud(250000UL)
+                    ? "RTU_BAUD_REQUESTED=250000"
+                    : "RTU_BAUD_REQUESTED=FAIL");
+        }
+        else if (c == '6')
+        {
+            Serial.println(
+                setRtuBaud(460800UL)
+                    ? "RTU_BAUD_REQUESTED=460800"
+                    : "RTU_BAUD_REQUESTED=FAIL");
+        }
+        else if (c == '7')
+        {
+            Serial.println(
+                setRtuBaud(115200UL)
+                    ? "RTU_BAUD_REQUESTED=115200"
+                    : "RTU_BAUD_EFFECTIVE=FAIL");
+        }
+        else if (c == '8')
+        {
+            Serial.println(
+                setRtuBaud(230400UL)
+                    ? "RTU_BAUD_REQUESTED=230400"
+                    : "RTU_BAUD_EFFECTIVE=FAIL");
+        }
+        else if (c == '@')
+        {
+            Serial.println(
+                setRtu230400ApbForced()
+                    ? "RTU_CLOCK_PROFILE=APB_FORCED"
+                    : "RTU_CLOCK_PROFILE=FAIL");
+        }
+        else if (c == '9')
+        {
+            Serial.println(
+                setRtuBaud(500000UL)
+                    ? "RTU_BAUD_REQUESTED=500000"
+                    : "RTU_BAUD_EFFECTIVE=FAIL");
+        }
+        else if (c == '[')
+        {
+            Serial.println(setRtuRxFifoFull(120U) ? "RTU_RX_FIFO_FULL=120" : "RTU_RX_FIFO_FULL=FAIL");
+        }
+        else if (c == ']')
+        {
+            Serial.println(setRtuRxFifoFull(32U) ? "RTU_RX_FIFO_FULL=32" : "RTU_RX_FIFO_FULL=FAIL");
+        }
+        else if (c == '{')
+        {
+            Serial.println(setRtuRxFifoFull(16U) ? "RTU_RX_FIFO_FULL=16" : "RTU_RX_FIFO_FULL=FAIL");
+        }
+        else if (c == '}')
+        {
+            Serial.println(setRtuRxFifoFull(8U) ? "RTU_RX_FIFO_FULL=8" : "RTU_RX_FIFO_FULL=FAIL");
+        }
+        else if (c == ':')
+        {
+            Serial.println(setRtuRxFifoFull(9U) ? "RTU_RX_FIFO_FULL=9" : "RTU_RX_FIFO_FULL=FAIL");
+        }
+        else if (c == '?')
+        {
+            Serial.println(setRtuRxFifoFull(1U) ? "RTU_RX_FIFO_FULL=1" : "RTU_RX_FIFO_FULL=FAIL");
+        }
+        else if (c == '+')
+        {
+            JWPLC_ModbusRTU.setBulkRxEnabled(true);
+            Serial.println("RTU_RX_MODE=BULK");
+        }
+        else if (c == '-')
+        {
+            JWPLC_ModbusRTU.setBulkRxEnabled(false);
+            Serial.println("RTU_RX_MODE=BYTE");
+        }
+        else if (c == '<')
+        {
+            JWPLC_ModbusRTU.setCrcLookupEnabled(false);
+            Serial.println("RTU_CRC_MODE=BITWISE");
+        }
+        else if (c == '>')
+        {
+            JWPLC_ModbusRTU.setCrcLookupEnabled(true);
+            Serial.println("RTU_CRC_MODE=LOOKUP");
+        }
+        else if (c == '(')
+        {
+            JWPLC_ModbusRTU.setEarlyServerDispatchEnabled(true);
+            Serial.println("RTU_SERVER_FRAMING=STRUCTURAL");
+        }
+        else if (c == ')')
+        {
+            JWPLC_ModbusRTU.setEarlyServerDispatchEnabled(false);
+            Serial.println("RTU_SERVER_FRAMING=GAP");
+        }
+        else if (c == '2')
+        {
+            Serial.println(
+                setRtuReadProfile(1U, 1U, 0U)
+                    ? "RTU_READ_PROFILE=Q1"
+                    : "RTU_READ_PROFILE=FAIL");
+        }
+        else if (c == '5')
+        {
+            Serial.println(
+                setRtuReadProfile(0U, 2U, 1U)
+                    ? "RTU_READ_PROFILE=Q2"
+                    : "RTU_READ_PROFILE=FAIL");
+        }
+        else if (c == '*')
+        {
+            Serial.println(
+                setRtuReadProfile(0U, 4U, 1U)
+                    ? "RTU_READ_PROFILE=Q4"
+                    : "RTU_READ_PROFILE=FAIL");
+        }
+        else if (c == '^')
+        {
+            Serial.println(
+                setRtuReadProfile(0U, 8U, 1U)
+                    ? "RTU_READ_PROFILE=Q8"
+                    : "RTU_READ_PROFILE=FAIL");
+        }
+        else if (
+            c == 'P' ||
+            c == 'p')
+        {
+            printP5Preflight();
+        }
+        else if (
+            c == 'S' ||
+            c == 's')
+        {
+            printSnapshot();
+        }
+    }
+}
+
+// ============================================================================
+// Setup
+// ============================================================================
+
+void setup()
+{
+    Serial.begin(115200);
+    benchmarkBootMarker = (uint32_t)esp_random();
+
+    // --------------------------------------------------------
+    // Modbus data
+    // --------------------------------------------------------
+
+    for (
+        uint16_t i = 0;
+        i < sizeof(coils);
+        ++i)
+    {
+        coils[i] =
+            (uint8_t)(
+                0xA5U ^
+                (uint8_t)i);
+    }
+
+    for (
+        uint16_t i = 0;
+        i < HOLDING_COUNT;
+        ++i)
+    {
+        holdingRegisters[i] =
+            (uint16_t)(
+                0x1000U +
+                i);
+    }
+
+    JWPLC_ModbusTCP.setCoils(
+        coils,
+        COIL_COUNT);
+
+    JWPLC_ModbusTCP.setHoldingRegisters(
+        holdingRegisters,
+        HOLDING_COUNT);
+
+    // --------------------------------------------------------
+    // Modbus RTU Master
+    // --------------------------------------------------------
+
+    rtuReady =
+        JWPLC_ModbusRTU.begin(
+            RTU_MASTER_LOCAL_ID,
+            RTU_BAUD,
+            RTU_CONFIG);
+
+    if (rtuReady)
+    {
+        rtuReady =
+            JWPLC_ModbusRTU.motor(ASYNC);
+
+        JWPLC_ModbusRTU.setFrameGapMs(2);
+        resetRtuTrafficCounters();
+    }
+
+    // --------------------------------------------------------
+    // FRAM no destructiva
+    // --------------------------------------------------------
+
+    const uint32_t framSize =
+        JWPLC_FRAM.size();
+
+    framReady =
+        framSize >=
+        (FRAM_BENCH_BYTES + 32U);
+
+    if (framReady)
+    {
+        framBenchAddress =
+            framSize -
+            64U;
+
+        framReady =
+            JWPLC_FRAM.read(
+                framBenchAddress,
+                framBackup,
+                sizeof(framBackup));
+    }
+
+    // --------------------------------------------------------
+    // microSD
+    // --------------------------------------------------------
+
+    sdReady =
+        JWPLCSD::isEnabled() &&
+        JWPLCSD::isCardPresent() &&
+        JWPLCSD::isReady();
+
+    if (
+        sdReady &&
+        JWPLC_SD.exists(
+            SD_BENCH_PATH))
+    {
+        sdReady =
+            JWPLC_SD.remove(
+                SD_BENCH_PATH);
+    }
+
+    if (sdReady)
+    {
+        const JW_SDDataLogConfig config(
+            SD_DATALOG_BUFFER_BYTES,
+            SD_DATALOG_COMMIT_THRESHOLD_BYTES,
+            SD_DATALOG_COMMIT_TIMEOUT_MS);
+
+        sdReady =
+            sdDataLog.begin(
+                JWPLC_SD,
+                SD_BENCH_PATH,
+                config);
+    }
+
+    // --------------------------------------------------------
+    // TFT / HMI Alpha11
+    // --------------------------------------------------------
+
+    JWPLC_Display.setIdleWakeMode(
+        IDLE_WAKE_DISABLED);
+
+    JWPLC_Display.setIdleReturnMode(
+        IDLE_RETURN_DISABLED);
+
+    JWPLC_Display.setUserRefreshMode(
+        USER_REFRESH_ON_DEMAND);
+
+    JWPLC_Display.setUserRefreshPeriodMs(
+        DISPLAY_PERIOD_MS);
+
+    if (!JWPLC_Display.setFields(
+            MASTER_FIELDS,
+            sizeof(MASTER_FIELDS) /
+                sizeof(MASTER_FIELDS[0])))
+    {
+        Serial.println(
+            "A14_P5_MASTER_HMI_FIELDS=FAIL");
+    }
+    else
+    {
+        JWPLC_Display.setText(
+            FIELD_ROLE,
+            "MASTER");
+
+        JWPLC_Display.setValue(
+            FIELD_TCP_OK,
+            0);
+
+        JWPLC_Display.setValue(
+            FIELD_RTU_OK,
+            0);
+
+        JWPLC_Display.setValue(
+            FIELD_RTU_FAIL,
+            0);
+
+        JWPLC_Display.setBool(
+            FIELD_SD_READY,
+            sdReady);
+
+        JWPLC_Display.setBool(
+            FIELD_ETH_READY,
+            JWPLC_Ethernet.isReady() &&
+            JWPLC_Ethernet.linkUp());
+
+        JWPLC_Display.enterUserUI();
+
+        Serial.println(
+            "A14_P5_MASTER_HMI_FIELDS=PASS");
+    }
+
+    // --------------------------------------------------------
+    // Modbus TCP Server
+    // --------------------------------------------------------
+
+    if (
+        !JWPLC_ModbusTCP.beginServer(
+            UNIT_ID,
+            SERVER_PORT))
+    {
+        Serial.println(
+            "A14_PERF_SERVER_CONFIG=FAIL");
+
+        return;
+    }
+
+    Serial.println(
+        "A14_PERF_SERVER_CONFIG=PASS");
+
+    Serial.println(
+        "FULL_RUNTIME_PROFILE=REALISTIC");
+
+    Serial.print(
+        "DISPLAY_READY_BOOT=");
+    Serial.println(
+        yesNo(
+            JWPLC_Display.isReady()));
+
+    Serial.print(
+        "FRAM_READY_BOOT=");
+    Serial.println(
+        yesNo(
+            framReady));
+
+    Serial.print(
+        "SD_READY_BOOT=");
+    Serial.println(
+        yesNo(
+            sdReady));
+
+    Serial.print(
+        "RTC_READY_BOOT=");
+    Serial.println(
+        yesNo(
+            rtcReady()));
+
+    Serial.print(
+        "BUTTONS_READY_BOOT=");
+    Serial.println(
+        yesNo(
+            JWPLCButtons::isReady()));
+
+    Serial.print(
+        "IO_READY_BOOT=");
+    Serial.println(
+        yesNo(
+            ioReady()));
+
+    Serial.print(
+        "RTU_READY_BOOT=");
+    Serial.println(
+        yesNo(
+            rtuReady));
+
+    Serial.println(
+        "DISPLAY_RENDER_MODE_BOOT=HMI_ON_DEMAND_DIRTY");
+
+    resetPerfCounters();
+
+    // P5 final: el Master RTU queda activo desde boot.
+    // El runner vuelve a alinear los contadores con R justo antes
+    // de la ventana formal TCP; R conserva este estado activo.
+    startRtuTraffic();
+
+    Serial.print("RTU_TRAFFIC_AUTO_START=");
+    Serial.println(
+        rtuTrafficEnabled
+            ? "YES"
+            : "NO");
+}
+
+// ============================================================================
+// Loop
+// ============================================================================
+
+void loop()
+{
+    const uint32_t nowUs =
+        micros();
+
+    if (lastLoopUs != 0)
+    {
+        const uint32_t gap =
+            (uint32_t)(
+                nowUs -
+                lastLoopUs);
+
+        loopGapSumUs += gap;
+        ++loopGapSamples;
+
+        if (gap > loopGapMaxUs)
+        {
+            loopGapMaxUs = gap;
+        }
+    }
+
+    lastLoopUs = nowUs;
+
+    // Modbus TCP se atiende automáticamente desde el package-core
+    // antes y después de cada loop(). El sketch sólo mantiene su lógica RTU.
+    serviceRtuMaster();
+
+    serviceSerialCommands();
+
+    serviceRealisticWorkload();
+    serviceDisplayTelemetry();
+
+    if (
+        !readyAnnounced &&
+        JWPLC_ModbusTCP.serverReady())
+    {
+        readyAnnounced = true;
+
+        Serial.print(
+            "A14_PERF_SERVER_READY=PASS IP=");
+
+        Serial.print(
+            JWPLC_Ethernet.localIP());
+
+        Serial.print(" PORT=");
+        Serial.print(SERVER_PORT);
+
+        Serial.print(" UNIT_ID=");
+        Serial.println(UNIT_ID);
+
+        Serial.print(
+            "FULL_RUNTIME_READY=");
+
+        Serial.println(
+            yesNo(
+                fullRuntimeReady()));
+
+        Serial.println(
+            "A14_P5_ROLE=MASTER");
+    }
+}
+)
+        {
+            setRtuTargetHz(650);
+            Serial.println("RTU_RATE_HZ=650");
+        }
+        else if (c == '%')
+        {
+            setRtuTargetHz(700);
+            Serial.println("RTU_RATE_HZ=700");
+        }
         else if (c == 'U' || c == 'u')
         {
             setRtuUnpaced();
