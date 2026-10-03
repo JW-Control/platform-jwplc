@@ -4,6 +4,7 @@ import argparse
 import csv
 import json
 import multiprocessing as mp
+import queue as pyqueue
 import socket
 import struct
 import sys
@@ -301,6 +302,32 @@ def start_udp_sender_process(
     return process, start_event, stop_event, result_queue
 
 
+def stop_udp_sender_process(
+    process,
+    stop_event,
+    result_queue,
+    timeout_s: float = 10.0,
+) -> dict[str, object]:
+    stop_event.set()
+    process.join(timeout=timeout_s)
+
+    if process.is_alive():
+        process.terminate()
+        process.join(timeout=2.0)
+        raise RuntimeError("UDP_SENDER_PROCESS_STUCK")
+
+    if process.exitcode != 0:
+        raise RuntimeError(
+            f"UDP_SENDER_PROCESS_EXIT_{process.exitcode}"
+        )
+
+    try:
+        return result_queue.get(timeout=2.0)
+    except pyqueue.Empty as exc:
+        raise RuntimeError(
+            "UDP_SENDER_PROCESS_RESULT_MISSING"
+        ) from exc
+
 
 def run_host_pacing_self_test() -> int:
     sink = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -335,31 +362,30 @@ def run_host_pacing_self_test() -> int:
         )
 
         for target_mbps in (1.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0):
-            start_event = threading.Event()
-            stop_event = threading.Event()
-            out: dict[str, object] = {}
-
-            sender = threading.Thread(
-                target=udp_sender,
-                args=(
-                    "127.0.0.1",
-                    target_mbps,
-                    start_event,
-                    stop_event,
-                    out,
-                ),
-                daemon=True,
+            (
+                sender,
+                start_event,
+                stop_event,
+                result_queue,
+            ) = start_udp_sender_process(
+                "127.0.0.1",
+                target_mbps,
             )
-            sender.start()
+
             start_event.set()
             time.sleep(3.0)
-            stop_event.set()
-            sender.join(timeout=5.0)
 
-            if sender.is_alive():
+            try:
+                out = stop_udp_sender_process(
+                    sender,
+                    stop_event,
+                    result_queue,
+                    timeout_s=5.0,
+                )
+            except RuntimeError as exc:
                 print(
                     f"HOST_PACING_TARGET={target_mbps:g} "
-                    "RESULT=FAIL_THREAD_STUCK",
+                    f"RESULT=FAIL_{exc}",
                     flush=True,
                 )
                 overall_pass = False
@@ -367,17 +393,26 @@ def run_host_pacing_self_test() -> int:
 
             offered = float(out.get("offered_mbps", 0.0))
             offered_pct = offered / target_mbps * 100.0
-            max_packets_1ms = int(
-                out.get("max_packets_in_1ms", 0)
+            min_gap_us = float(
+                out.get("min_interpacket_us", 0.0)
+            )
+            target_interval_us = float(
+                out.get("target_interval_us", 0.0)
+            )
+            min_gap_pct = float(
+                out.get("min_gap_target_pct", 0.0)
+            )
+            too_close = int(
+                out.get("too_close_packets", 0)
             )
             send_errors = int(out.get("send_errors", 0))
-            pacing_skips = int(
-                out.get("pacing_deadlines_skipped", 0)
-            )
 
             case_pass = (
                 offered_pct >= 98.5
-                and max_packets_1ms <= 2
+                and min_gap_pct >= (
+                    UDP_HOST_MIN_GAP_RATIO * 100.0
+                )
+                and too_close == 0
                 and send_errors == 0
             )
             overall_pass = overall_pass and case_pass
@@ -386,8 +421,10 @@ def run_host_pacing_self_test() -> int:
                 f"HOST_PACING_TARGET={target_mbps:g} "
                 f"OFFERED={offered:.3f} "
                 f"PCT={offered_pct:.3f} "
-                f"MAX_PKT_1MS={max_packets_1ms} "
-                f"PACING_SKIPS={pacing_skips} "
+                f"TARGET_GAP_US={target_interval_us:.1f} "
+                f"MIN_GAP_US={min_gap_us:.1f} "
+                f"MIN_GAP_PCT={min_gap_pct:.2f} "
+                f"TOO_CLOSE={too_close} "
                 f"SEND_ERRORS={send_errors} "
                 f"RESULT={'PASS' if case_pass else 'FAIL'}",
                 flush=True,
@@ -444,21 +481,15 @@ def run_case(
     exp.q.reset_stats(master)
     exp.send(master, b"G\n", exp.p5b.MASTER_START_ACK)
 
-    start_event = threading.Event()
-    stop_event = threading.Event()
-    udp_result: dict[str, object] = {}
-    udp_thread = threading.Thread(
-        target=udp_sender,
-        args=(
-            host,
-            udp_target_mbps,
-            start_event,
-            stop_event,
-            udp_result,
-        ),
-        daemon=True,
+    (
+        udp_process,
+        start_event,
+        stop_event,
+        result_queue,
+    ) = start_udp_sender_process(
+        host,
+        udp_target_mbps,
     )
-    udp_thread.start()
 
     print(
         f"CASE_BEGIN={label} DURATION_S={duration_s:.0f} "
@@ -476,11 +507,17 @@ def run_case(
         TCP_TARGET_REQ_S,
         125,
     )
-    stop_event.set()
-    udp_thread.join(timeout=10.0)
-
-    if udp_thread.is_alive():
-        raise RuntimeError(f"UDP_SENDER_THREAD_STUCK_{label}")
+    try:
+        udp_result = stop_udp_sender_process(
+            udp_process,
+            stop_event,
+            result_queue,
+            timeout_s=10.0,
+        )
+    except RuntimeError as exc:
+        raise RuntimeError(
+            f"{exc}_{label}"
+        ) from exc
 
     exp.send(master, b"X\n", exp.p5b.MASTER_STOP_ACK, 8.0)
 
