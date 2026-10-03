@@ -150,3 +150,86 @@ Antes de otra corrida larga:
 
 El gate final dispone de `-PreflightOnly` para ejecutar todas las validaciones
 no destructivas sin upload ni benchmark físico.
+
+
+## F081 — UDP host pacing quantized in 10 ms bursts overflowed the 2 KB RX ring
+
+### Síntoma
+
+La primera campaña completa TCP250 + RTU800 + UDP FAST produjo:
+
+- UDP target 1 Mbps -> DUT ~0.864 Mbps.
+- UDP target 2 Mbps -> DUT ~1.036 Mbps.
+- UDP target 4 Mbps -> DUT ~1.038 Mbps.
+- UDP target 12 Mbps -> DUT ~1.647 Mbps.
+
+Al mismo tiempo:
+
+- TCP permaneció en ~250 req/s.
+- RTU permaneció operacional hasta 10 Mbps ofrecidos.
+- UDP wrong-size/decode/duplicate/reorder = 0.
+- UDP transport errors = 0.
+- SPI lock errors = 0.
+- runtime/periféricos = clean.
+
+### Causa confirmada
+
+El sender del PC usaba un tick de 10 ms y acumulaba el número de datagramas
+correspondiente a ese tick, emitiéndolos back-to-back.
+
+Con:
+
+- payload UDP = 1016 bytes;
+- header W5500 UDP = 8 bytes;
+- record RX = 1024 bytes;
+- RX socket W5500 = 2048 bytes;
+
+sólo caben dos records completos simultáneamente en el RX ring.
+
+A 12 Mbps:
+
+- ~1476 datagramas/s;
+- ~14.76 datagramas por tick de 10 ms;
+- el sender generaba ráfagas de ~14-15;
+- el W5500 sólo podía almacenar 2 antes del drenaje.
+
+El techo artificial impuesto por ese patrón es:
+
+`2 * 1016 * 8 / 0.010 = 1.6256 Mbps`
+
+La medición real fue ~1.6466 Mbps, confirmando la firma del overflow por burst.
+Por tanto, esa campaña no mide el techo coexistente UDP del producto.
+
+### Clasificación
+
+- HARNESS_FAILURE=YES
+- PRODUCT_FAILURE=NO
+- HARDWARE_FAILURE=NO
+- UDP_COEXISTENCE_CEILING=NOT_ESTABLISHED
+
+### Corrección
+
+El sender se cambia a:
+
+`UDP_HOST_PACING_MODE=ONE_PACKET_DEADLINE_NO_CATCHUP`
+
+Reglas:
+
+1. un datagrama por deadline;
+2. no emitir catch-up bursts después de jitter del host;
+3. si un deadline está demasiado atrasado, omitir ese slot del host;
+4. registrar host pacing skips;
+5. registrar máximo de paquetes emitidos en cualquier ventana de 1 ms;
+6. rechazar como source válido un host que genere >2 paquetes/1 ms;
+7. exigir >=99 % del target ofrecido en la campaña física.
+
+### Prevención automatizada
+
+El preflight ejecuta un self-test localhost para 1/2/4/6/8/10/12 Mbps y exige:
+
+- pacing mode correcto;
+- >=98.5 % del target en el self-test corto;
+- máximo 2 paquetes/1 ms;
+- cero send errors.
+
+Sólo después se permite upload y medición física.
