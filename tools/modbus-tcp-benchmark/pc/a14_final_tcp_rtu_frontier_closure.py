@@ -448,7 +448,7 @@ def main() -> int:
         print(f"CONFIRM_DURATION_S={args.confirm_duration:.0f}")
         print(f"TCP_TARGET_REQ_S={args.tcp_target:.0f}")
         print("RTU_RATES=" + ",".join(str(x) for x in rates))
-        print("STRICT_TCP_COMPATIBILITY=99.5_PERCENT")
+        print("STRICT_TCP_COMPATIBILITY=99.9_PERCENT")
         print("RTU_TARGET_PASS=99.0_PERCENT_AND_NO_SKIPS")
 
         r7_root = root / "R7_UNPACED_FRONTIER"
@@ -503,11 +503,17 @@ def main() -> int:
         best_995 = best_rate(fixed_rows, 99.5)
         best_999 = best_rate(fixed_rows, 99.9)
 
-        selection = best_995 if best_995 is not None else best_990
+        selection = (
+            best_999
+            if best_999 is not None
+            else best_995
+            if best_995 is not None
+            else best_990
+        )
 
         selection_doc = {
             "tcp_target_req_s": args.tcp_target,
-            "strict_threshold_pct": 99.5,
+            "strict_threshold_pct": 99.9,
             "best_rtu_at_tcp_99_0": (
                 None if best_990 is None else int(best_990["rtu_target_req_s"])
             ),
@@ -521,7 +527,9 @@ def main() -> int:
                 None if selection is None else int(selection["rtu_target_req_s"])
             ),
             "selection_policy": (
-                "BEST_99_5"
+                "BEST_99_9"
+                if best_999 is not None
+                else "BEST_99_5_FALLBACK"
                 if best_995 is not None
                 else "BEST_99_0_FALLBACK"
                 if best_990 is not None
@@ -555,20 +563,20 @@ def main() -> int:
     if r7_rows:
         write_csv(root / "R7_UNPACED_FRONTIER.csv", r7_rows)
 
-    strict_found = best_995 is not None
+    strict_found = best_999 is not None
     confirmation_strict = (
         confirmation is not None
         and bool(confirmation["runtime_clean"])
         and bool(confirmation["rtu_target_pass"])
-        and float(confirmation["tcp_target_pct"]) >= 99.5
+        and float(confirmation["tcp_target_pct"]) >= 99.9
     )
 
     status = (
         "PASS_STRICT_CONFIRMED"
         if strict_found and confirmation_strict
-        else "REVIEW_STRICT_NOT_CONFIRMED"
+        else "REVIEW_STRICT_CONFIRMATION_NOT_MET"
         if strict_found
-        else "REVIEW_NO_POSITIVE_RTU_AT_TCP_99_5"
+        else "REVIEW_NO_POSITIVE_RTU_AT_TCP_99_9"
     )
 
     summary = {
