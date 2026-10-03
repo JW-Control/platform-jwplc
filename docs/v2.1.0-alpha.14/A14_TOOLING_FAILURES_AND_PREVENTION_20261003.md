@@ -295,3 +295,65 @@ El preflight debe demostrar pacing suficiente antes del upload.
 - F082=CONFIRMED_AND_CORRECTED_IN_HARNESS.
 - PRODUCT_SOURCE_MUTATION=NO.
 - NEXT_STEP=HOST_PACING_PREFLIGHT_ONLY.
+
+
+## F083 — pacing guard medía retorno de sendto en vez de inicio de envío
+
+### Síntoma
+
+El sender dedicado sostuvo prácticamente el rate completo:
+
+- 4 Mbps: 99.915 %.
+- 6 Mbps: 99.881 %.
+- 8 Mbps: 99.941 %.
+- 10 Mbps: 99.929 %.
+- 12 Mbps: 99.885 %.
+
+Sin embargo el preflight falló por mínimos de separación calculados entre los
+timestamps tomados después de que `sendto()` retornaba.
+
+### Causa
+
+El scheduler ya mantenía el siguiente deadline desde `send_begin_ns`, es decir,
+desde el inicio real de cada llamada de envío. Pero el guard calculaba spacing
+entre `send_ns`, tomado después del retorno de `sendto()`.
+
+Como la duración de `sendto()` varía, dos retornos consecutivos pueden quedar
+más cerca aunque los inicios de ambas llamadas hayan conservado correctamente
+el intervalo objetivo.
+
+Por tanto:
+
+- `send-start gap` representa el pacing generado por el harness;
+- `send-completion gap` mezcla pacing + duración variable de la syscall.
+
+### Clasificación
+
+- HARNESS_FAILURE=YES.
+- PRODUCT_FAILURE=NO.
+- HARDWARE_FAILURE=NO.
+- PHYSICAL_RUN_STARTED=NO.
+
+### Corrección
+
+1. medir y validar `send_begin_ns[n] - send_begin_ns[n-1]`;
+2. conservar completion-gap como telemetría diagnóstica;
+3. registrar `send_call_max_us`;
+4. source PASS usa:
+   - offered rate;
+   - mínimo start-gap relativo al target;
+   - cero start-gap too-close;
+   - cero send errors;
+5. completion-gap nunca decide por sí solo el PASS del source.
+
+### Prevención
+
+Para generadores de tráfico, validar el instante que representa realmente la
+política de pacing. No usar el retorno de una syscall como proxy del instante de
+emisión cuando la latencia de la syscall forma parte de la medición.
+
+### Estado
+
+- F083=CONFIRMED_AND_CORRECTED_IN_HARNESS.
+- PRODUCT_SOURCE_MUTATION=NO.
+- NEXT_STEP=HOST_PACING_PREFLIGHT_ONLY.
