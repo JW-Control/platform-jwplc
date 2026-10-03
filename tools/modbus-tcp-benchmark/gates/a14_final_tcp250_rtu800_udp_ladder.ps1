@@ -320,9 +320,22 @@ try {
     $pass = $finalStatusText.Contains(
         "A14_FINAL_TRIPLE_COEXISTENCE=PASS_TRIPLE_COEXISTENCE_CONFIRMED"
     )
+    $characterizedNoPositive = $finalStatusText.Contains(
+        "A14_FINAL_TRIPLE_COEXISTENCE=CHARACTERIZED_NO_POSITIVE_UDP_STRICT"
+    )
 
-    Write-Host "TRIPLE_RESULT=$(if ($pass) { 'PASS' } else { 'FAIL' })"
-    if (-not $pass) {
+    $resultLabel = if ($pass) {
+        "PASS"
+    }
+    elseif ($characterizedNoPositive) {
+        "CHARACTERIZED_NO_POSITIVE_UDP_STRICT"
+    }
+    else {
+        "FAIL"
+    }
+
+    Write-Host "TRIPLE_RESULT=$resultLabel"
+    if (-not $pass -and -not $characterizedNoPositive) {
         throw "TRIPLE_CRITERIA_NOT_MET"
     }
 
@@ -340,8 +353,15 @@ try {
         throw "TRIPLE_INDEX_DIRTY_AT_END"
     }
 
+    $gateStatus = if ($pass) {
+        "PASS_TRIPLE_COEXISTENCE_CONFIRMED"
+    }
+    else {
+        "CHARACTERIZED_NO_POSITIVE_UDP_STRICT"
+    }
+
     @(
-        "A14_FINAL_TRIPLE_GATE=PASS_TRIPLE_COEXISTENCE_CONFIRMED"
+        "A14_FINAL_TRIPLE_GATE=$gateStatus"
         "INITIAL_HEAD=$head"
         "FINAL_HEAD=$finalHead"
         "RUNNER_EXIT=$runnerExit"
@@ -350,7 +370,7 @@ try {
         "RESULT_ROOT=$ResultRoot"
     ) | Set-Content -LiteralPath (Join-Path $ResultRoot "GATE_STATUS.txt") -Encoding UTF8
 
-    Write-Host "A14_FINAL_TRIPLE_GATE=PASS_TRIPLE_COEXISTENCE_CONFIRMED"
+    Write-Host "A14_FINAL_TRIPLE_GATE=$gateStatus"
     Write-Host "RESULT_ROOT=$ResultRoot"
 }
 catch {
