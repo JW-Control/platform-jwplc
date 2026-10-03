@@ -233,3 +233,65 @@ El preflight ejecuta un self-test localhost para 1/2/4/6/8/10/12 Mbps y exige:
 - cero send errors.
 
 Sólo después se permite upload y medición física.
+
+
+## F082 — Python thread/time.sleep pacing insufficient for sub-2ms UDP slots
+
+### Síntoma
+
+El preflight de pacing corrigió el burst de 10 ms, pero el sender todavía
+ejecutado como thread Python con `time.sleep()` no sostuvo los targets altos:
+
+- 4 Mbps: ~98.41 %.
+- 6 Mbps: ~70.60 %.
+- 8 Mbps: ~87.83 %.
+- 10 Mbps: ~70.69 %.
+- 12 Mbps: ~67.68 %.
+
+También reaparecieron agrupaciones temporales en los targets altos.
+
+### Causa
+
+Con payload 1016 B, los intervalos objetivo son aproximadamente:
+
+- 4 Mbps: 2.032 ms.
+- 6 Mbps: 1.355 ms.
+- 8 Mbps: 1.016 ms.
+- 10 Mbps: 0.813 ms.
+- 12 Mbps: 0.677 ms.
+
+Un thread Python que comparte proceso/GIL y depende de `time.sleep()` no ofrece
+precisión suficiente y estable en esas ventanas bajo Windows.
+
+### Clasificación
+
+- HARNESS_FAILURE=YES.
+- PRODUCT_FAILURE=NO.
+- HARDWARE_FAILURE=NO.
+- PHYSICAL_RUN_STARTED=NO.
+
+### Corrección
+
+1. Mover el sender UDP a un proceso dedicado mediante `multiprocessing spawn`.
+2. Usar `perf_counter_ns()`.
+3. Usar espera híbrida sleep + spin.
+4. Para ventanas <=~2.5 ms, priorizar spin de alta resolución.
+5. Programar el siguiente slot desde el inicio real del envío.
+6. Si el envío invade el siguiente slot, descartar ese slot; nunca catch-up.
+7. Validar spacing relativo al intervalo objetivo:
+   - `MIN_GAP >= 90 %` del intervalo objetivo.
+   - `TOO_CLOSE_PACKETS == 0`.
+8. Mantener target ofrecido >=98.5 % en self-test y >=99 % en campaña física.
+
+### Regla preventiva
+
+No usar un thread Python con sleep periódico como generador de tráfico de
+validación para intervalos sub-2 ms sin un self-test previo del host real.
+
+El preflight debe demostrar pacing suficiente antes del upload.
+
+### Estado
+
+- F082=CONFIRMED_AND_CORRECTED_IN_HARNESS.
+- PRODUCT_SOURCE_MUTATION=NO.
+- NEXT_STEP=HOST_PACING_PREFLIGHT_ONLY.
