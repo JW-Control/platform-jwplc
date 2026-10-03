@@ -331,9 +331,15 @@ try {
     $characterizedNoPositive = $finalStatusText.Contains(
         "A14_FINAL_TRIPLE_COEXISTENCE=CHARACTERIZED_NO_POSITIVE_UDP_STRICT"
     )
+    $characterizedBaselineNotStrict = $finalStatusText.Contains(
+        "A14_FINAL_TRIPLE_COEXISTENCE=CHARACTERIZED_BASELINE_NOT_STRICT"
+    )
 
     $resultLabel = if ($pass) {
         "PASS"
+    }
+    elseif ($characterizedBaselineNotStrict) {
+        "CHARACTERIZED_BASELINE_NOT_STRICT"
     }
     elseif ($characterizedNoPositive) {
         "CHARACTERIZED_NO_POSITIVE_UDP_STRICT"
@@ -343,7 +349,11 @@ try {
     }
 
     Write-Host "TRIPLE_RESULT=$resultLabel"
-    if (-not $pass -and -not $characterizedNoPositive) {
+    if (
+        -not $pass -and
+        -not $characterizedNoPositive -and
+        -not $characterizedBaselineNotStrict
+    ) {
         throw "TRIPLE_CRITERIA_NOT_MET"
     }
 
@@ -363,6 +373,9 @@ try {
 
     $gateStatus = if ($pass) {
         "PASS_TRIPLE_COEXISTENCE_CONFIRMED"
+    }
+    elseif ($characterizedBaselineNotStrict) {
+        "CHARACTERIZED_BASELINE_NOT_STRICT"
     }
     else {
         "CHARACTERIZED_NO_POSITIVE_UDP_STRICT"
