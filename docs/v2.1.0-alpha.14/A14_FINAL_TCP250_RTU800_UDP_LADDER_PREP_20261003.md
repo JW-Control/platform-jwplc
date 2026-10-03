@@ -60,6 +60,33 @@ Por tanto, 800 req/s sigue siendo la carga media equivalente, pero la garantía
 se mide como 100 scans/s de ocho expansiones y no como ocho deadlines
 independientes de 1.25 ms.
 
+## Hallazgo de campaña completa: pacing UDP del host inválido
+
+La primera campaña completa del ladder no estableció el techo coexistente UDP.
+
+El sender del PC cuantizaba la carga en ticks de 10 ms y emitía los datagramas
+del tick back-to-back. Con payload 1016 B y header UDP W5500 de 8 B, cada record
+ocupa 1024 B; el socket RX de 2048 B sólo puede contener dos records completos.
+
+A 12 Mbps el host generaba aproximadamente 14-15 datagramas por tick de 10 ms.
+El techo artificial de dos records por burst es 1.6256 Mbps y el DUT midió
+~1.6466 Mbps, confirmando overflow inducido por el harness.
+
+Clasificación:
+
+- HARNESS_FAILURE=YES.
+- PRODUCT_FAILURE=NO.
+- UDP_COEXISTENCE_CEILING=NOT_ESTABLISHED.
+
+Corrección:
+
+- `UDP_HOST_PACING_MODE=ONE_PACKET_DEADLINE_NO_CATCHUP`.
+- no se permiten catch-up bursts;
+- se registran deadlines del host omitidos;
+- se registra el máximo de paquetes emitidos en cualquier ventana de 1 ms;
+- un source con más de 2 paquetes/1 ms no puede validar un caso;
+- el preflight incluye self-test localhost de pacing antes del hardware.
+
 ## UDP ladder
 
 Cada escalón dura 300 s:
