@@ -78,6 +78,13 @@ static uint32_t udpFastSpiLockErrors = 0;
 static uint32_t udpFastSpiHoldCount = 0;
 static uint64_t udpFastSpiHoldTotalUs = 0;
 static uint32_t udpFastSpiHoldMaxUs = 0;
+static uint32_t udpFastWrongSizePackets = 0;
+static uint32_t udpFastSequenceDecodeErrors = 0;
+static uint32_t udpFastSequenceDuplicates = 0;
+static uint32_t udpFastSequenceReorders = 0;
+static uint32_t udpFastSequenceRangeMissing = 0;
+static uint32_t udpFastSequenceLast = 0;
+static bool udpFastSequenceSeen = false;
 
 static void resetUdpFastCounters()
 {
@@ -88,6 +95,13 @@ static void resetUdpFastCounters()
     udpFastSpiHoldCount = 0;
     udpFastSpiHoldTotalUs = 0;
     udpFastSpiHoldMaxUs = 0;
+    udpFastWrongSizePackets = 0;
+    udpFastSequenceDecodeErrors = 0;
+    udpFastSequenceDuplicates = 0;
+    udpFastSequenceReorders = 0;
+    udpFastSequenceRangeMissing = 0;
+    udpFastSequenceLast = 0;
+    udpFastSequenceSeen = false;
 }
 
 static void startUdpFastIfReady()
@@ -145,6 +159,55 @@ static void serviceUdpFast()
         udpFastRxBytes += (uint32_t)got;
         ++udpFastRxPackets;
         ++readCount;
+
+        if ((size_t)got != UDP_FAST_PAYLOAD_BYTES)
+        {
+            ++udpFastWrongSizePackets;
+        }
+
+        if (got < 4)
+        {
+            ++udpFastSequenceDecodeErrors;
+        }
+        else
+        {
+            const uint32_t sequence =
+                ((uint32_t)udpFastBuffer[0] << 24) |
+                ((uint32_t)udpFastBuffer[1] << 16) |
+                ((uint32_t)udpFastBuffer[2] << 8) |
+                (uint32_t)udpFastBuffer[3];
+
+            if (sequence == 0U)
+            {
+                ++udpFastSequenceDecodeErrors;
+            }
+            else if (!udpFastSequenceSeen)
+            {
+                if (sequence > 1U)
+                    udpFastSequenceRangeMissing += sequence - 1U;
+
+                udpFastSequenceSeen = true;
+                udpFastSequenceLast = sequence;
+            }
+            else if (sequence == udpFastSequenceLast)
+            {
+                ++udpFastSequenceDuplicates;
+            }
+            else if (sequence < udpFastSequenceLast)
+            {
+                ++udpFastSequenceReorders;
+            }
+            else
+            {
+                if (sequence > udpFastSequenceLast + 1U)
+                {
+                    udpFastSequenceRangeMissing +=
+                        sequence - udpFastSequenceLast - 1U;
+                }
+
+                udpFastSequenceLast = sequence;
+            }
+        }
     }
 
     if (readCount > 0U && !udpFast.jwplcCommitRxFast())
@@ -1854,6 +1917,18 @@ static void printSnapshot()
     Serial.println((unsigned long long)udpFastSpiHoldTotalUs);
     Serial.print("UDP_FAST_SPI_HOLD_MAX_US=");
     Serial.println(udpFastSpiHoldMaxUs);
+    Serial.print("UDP_FAST_WRONG_SIZE_PACKETS=");
+    Serial.println(udpFastWrongSizePackets);
+    Serial.print("UDP_FAST_SEQUENCE_DECODE_ERRORS=");
+    Serial.println(udpFastSequenceDecodeErrors);
+    Serial.print("UDP_FAST_SEQUENCE_DUPLICATES=");
+    Serial.println(udpFastSequenceDuplicates);
+    Serial.print("UDP_FAST_SEQUENCE_REORDERS=");
+    Serial.println(udpFastSequenceReorders);
+    Serial.print("UDP_FAST_SEQUENCE_RANGE_MISSING=");
+    Serial.println(udpFastSequenceRangeMissing);
+    Serial.print("UDP_FAST_SEQUENCE_LAST=");
+    Serial.println(udpFastSequenceLast);
 
     // --------------------------------------------------------
     // Modbus RTU Master
