@@ -447,26 +447,44 @@ def run_host_pacing_self_test() -> int:
 
             offered = float(out.get("offered_mbps", 0.0))
             offered_pct = offered / target_mbps * 100.0
-            min_gap_us = float(
-                out.get("min_interpacket_us", 0.0)
+            min_start_gap_us = float(
+                out.get("min_start_gap_us", 0.0)
             )
             target_interval_us = float(
                 out.get("target_interval_us", 0.0)
             )
-            min_gap_pct = float(
-                out.get("min_gap_target_pct", 0.0)
+            min_start_gap_pct = float(
+                out.get("min_start_gap_target_pct", 0.0)
             )
-            too_close = int(
-                out.get("too_close_packets", 0)
+            start_too_close = int(
+                out.get("start_too_close_packets", 0)
+            )
+            completion_min_gap_us = float(
+                out.get("min_completion_gap_us", 0.0)
+            )
+            completion_min_gap_pct = float(
+                out.get(
+                    "min_completion_gap_target_pct",
+                    0.0,
+                )
+            )
+            completion_too_close = int(
+                out.get(
+                    "completion_too_close_packets",
+                    0,
+                )
+            )
+            send_call_max_us = float(
+                out.get("send_call_max_us", 0.0)
             )
             send_errors = int(out.get("send_errors", 0))
 
             case_pass = (
                 offered_pct >= 98.5
-                and min_gap_pct >= (
+                and min_start_gap_pct >= (
                     UDP_HOST_MIN_GAP_RATIO * 100.0
                 )
-                and too_close == 0
+                and start_too_close == 0
                 and send_errors == 0
             )
             overall_pass = overall_pass and case_pass
@@ -476,9 +494,13 @@ def run_host_pacing_self_test() -> int:
                 f"OFFERED={offered:.3f} "
                 f"PCT={offered_pct:.3f} "
                 f"TARGET_GAP_US={target_interval_us:.1f} "
-                f"MIN_GAP_US={min_gap_us:.1f} "
-                f"MIN_GAP_PCT={min_gap_pct:.2f} "
-                f"TOO_CLOSE={too_close} "
+                f"MIN_START_GAP_US={min_start_gap_us:.1f} "
+                f"MIN_START_GAP_PCT={min_start_gap_pct:.2f} "
+                f"START_TOO_CLOSE={start_too_close} "
+                f"MIN_COMPLETION_GAP_US={completion_min_gap_us:.1f} "
+                f"MIN_COMPLETION_GAP_PCT={completion_min_gap_pct:.2f} "
+                f"COMPLETION_TOO_CLOSE={completion_too_close} "
+                f"SEND_CALL_MAX_US={send_call_max_us:.1f} "
                 f"SEND_ERRORS={send_errors} "
                 f"RESULT={'PASS' if case_pass else 'FAIL'}",
                 flush=True,
@@ -695,17 +717,35 @@ def run_case(
     udp_host_max_late_us = float(
         udp_result.get("max_late_us", 0.0)
     )
-    udp_host_min_interpacket_us = float(
-        udp_result.get("min_interpacket_us", 0.0)
-    )
     udp_host_target_interval_us = float(
         udp_result.get("target_interval_us", 0.0)
     )
-    udp_host_min_gap_target_pct = float(
-        udp_result.get("min_gap_target_pct", 0.0)
+    udp_host_min_start_gap_us = float(
+        udp_result.get("min_start_gap_us", 0.0)
     )
-    udp_host_too_close_packets = int(
-        udp_result.get("too_close_packets", 0)
+    udp_host_min_start_gap_target_pct = float(
+        udp_result.get("min_start_gap_target_pct", 0.0)
+    )
+    udp_host_start_too_close_packets = int(
+        udp_result.get("start_too_close_packets", 0)
+    )
+    udp_host_min_completion_gap_us = float(
+        udp_result.get("min_completion_gap_us", 0.0)
+    )
+    udp_host_min_completion_gap_target_pct = float(
+        udp_result.get(
+            "min_completion_gap_target_pct",
+            0.0,
+        )
+    )
+    udp_host_completion_too_close_packets = int(
+        udp_result.get(
+            "completion_too_close_packets",
+            0,
+        )
+    )
+    udp_host_send_call_max_us = float(
+        udp_result.get("send_call_max_us", 0.0)
     )
 
     udp_rx_packets = exp.iv(post_master, "UDP_FAST_RX_PACKETS", 0)
@@ -767,9 +807,9 @@ def run_case(
     udp_host_spacing_pass = (
         udp_target_mbps == 0.0
         or (
-            udp_host_min_gap_target_pct
+            udp_host_min_start_gap_target_pct
             >= UDP_HOST_MIN_GAP_RATIO * 100.0
-            and udp_host_too_close_packets == 0
+            and udp_host_start_too_close_packets == 0
         )
     )
     udp_source_pass = (
@@ -874,10 +914,19 @@ def run_case(
         "udp_host_pacing_mode": UDP_HOST_PACING_MODE,
         "udp_host_pacing_deadlines_skipped": udp_host_pacing_skips,
         "udp_host_max_late_us": udp_host_max_late_us,
-        "udp_host_min_interpacket_us": udp_host_min_interpacket_us,
         "udp_host_target_interval_us": udp_host_target_interval_us,
-        "udp_host_min_gap_target_pct": udp_host_min_gap_target_pct,
-        "udp_host_too_close_packets": udp_host_too_close_packets,
+        "udp_host_min_start_gap_us": udp_host_min_start_gap_us,
+        "udp_host_min_start_gap_target_pct":
+            udp_host_min_start_gap_target_pct,
+        "udp_host_start_too_close_packets":
+            udp_host_start_too_close_packets,
+        "udp_host_min_completion_gap_us":
+            udp_host_min_completion_gap_us,
+        "udp_host_min_completion_gap_target_pct":
+            udp_host_min_completion_gap_target_pct,
+        "udp_host_completion_too_close_packets":
+            udp_host_completion_too_close_packets,
+        "udp_host_send_call_max_us": udp_host_send_call_max_us,
         "udp_host_spacing_pass": udp_host_spacing_pass,
         "udp_range_missing": udp_range_missing,
         "udp_wrong_size_packets": udp_wrong_size,
@@ -939,8 +988,8 @@ def run_case(
         f"UDP_OFFERED={row['udp_offered_mbps']:.3f} "
         f"UDP_DUT={row['udp_delivered_mbps']:.3f} "
         f"UDP_DELIVERY={row['udp_delivery_pct']:.3f}% "
-        f"HOST_MIN_GAP_PCT={row['udp_host_min_gap_target_pct']:.2f} "
-        f"HOST_TOO_CLOSE={row['udp_host_too_close_packets']} "
+        f"HOST_MIN_START_GAP_PCT={row['udp_host_min_start_gap_target_pct']:.2f} "
+        f"HOST_START_TOO_CLOSE={row['udp_host_start_too_close_packets']} "
         f"RUNTIME_CLEAN={row['runtime_clean']} "
         f"TCP_PASS={row['tcp_target_pass']} "
         f"RTU_OPERATIONAL_PASS={row['rtu_operational_pass']} "
