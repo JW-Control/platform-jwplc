@@ -49,8 +49,8 @@ def write_csv(path: Path, rows: list[dict[str, object]]) -> None:
         writer.writerows(rows)
 
 
-def set_rtu_800(master) -> None:
-    exp.send(master, b"&\n", "RTU_RATE_HZ=800", 4.0)
+def set_rtu_scan_100(master) -> None:
+    exp.send(master, b"&\n", "RTU_SCAN_RATE_HZ=100", 4.0)
 
 
 def set_udp_service(master, enabled: bool) -> None:
@@ -67,8 +67,10 @@ def profile_pass(
 ) -> bool:
     return (
         exp.fast_profile_pass(master_values, slave_values)
-        and exp.sv(master_values, "RTU_RATE_MODE") == "PACED"
+        and exp.sv(master_values, "RTU_RATE_MODE") == "SCAN_PACED"
         and exp.iv(master_values, "RTU_TARGET_HZ", -1) == RTU_TARGET_REQ_S
+        and exp.iv(master_values, "RTU_SCAN_TARGET_HZ", -1) == 100
+        and exp.iv(master_values, "RTU_SCAN_PERIOD_US", -1) == 10000
         and exp.sv(master_values, "UDP_FAST_READY") == "YES"
         and exp.sv(master_values, "UDP_FAST_SERVICE_ENABLED")
         == ("YES" if udp_enabled else "NO")
@@ -212,7 +214,7 @@ def run_case(
     exp.send(master, b"X\n", exp.p5b.MASTER_STOP_ACK, 8.0)
     exp.q.wait_server_disconnected(master, timeout_s=20.0)
 
-    set_rtu_800(master)
+    set_rtu_scan_100(master)
     set_udp_service(master, udp_target_mbps > 0.0)
 
     pre_master = exp.q.request_snapshot(master, echo=False)
@@ -462,9 +464,11 @@ def run_case(
         and reset_clean
         and udp_integrity_clean
         and exp.fast_profile_pass(post_master, post_slave)
-        and exp.sv(post_master, "RTU_RATE_MODE") == "PACED"
+        and exp.sv(post_master, "RTU_RATE_MODE") == "SCAN_PACED"
         and exp.iv(post_master, "RTU_TARGET_HZ", -1)
         == RTU_TARGET_REQ_S
+        and exp.iv(post_master, "RTU_SCAN_TARGET_HZ", -1) == 100
+        and exp.iv(post_master, "RTU_SCAN_PERIOD_US", -1) == 10000
         and exp.sv(post_master, "UDP_FAST_READY") == "YES"
     )
 
@@ -625,7 +629,7 @@ def main() -> int:
         (root / "dut_ip.txt").write_text(host + "\n", encoding="utf-8")
 
         exp.configure_fast(master, slave)
-        set_rtu_800(master)
+        set_rtu_scan_100(master)
         set_udp_service(master, False)
 
         profile_master = exp.q.request_snapshot(master, echo=False)
@@ -643,6 +647,7 @@ def main() -> int:
         print("TCP_TARGET_REQ_S=250")
         print("RTU_TARGET_REQ_S=800")
         print("RTU_SCAN_TARGET_HZ=100")
+        print("RTU_SCHEDULER_MODE=SCAN_PACED_8_PER_10MS")
         print("UDP_PAYLOAD_BYTES=1016")
         print("UDP_LADDER_MBPS=" + ",".join(f"{x:g}" for x in udp_ladder))
         print(f"LADDER_DURATION_S={args.ladder_duration:.0f}")
