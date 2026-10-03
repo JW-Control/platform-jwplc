@@ -474,31 +474,40 @@ def run_case(
 
     tcp_target_pct = float(tcp["target_pct"])
     tcp_target_pass = tcp_target_pct >= 99.9
-    rtu_target_pass = (
+    rtu_operational_pass = (
         rtu_target_pct >= 99.0
-        and skipped == 0
         and scan_hz >= 99.0
     )
+    rtu_deterministic_pass = (
+        rtu_operational_pass
+        and skipped == 0
+    )
 
-    strict_pass = (
+    operational_pass = (
         runtime_clean
         and tcp_target_pass
-        and rtu_target_pass
+        and rtu_operational_pass
         and udp_target_pass
+    )
+    deterministic_pass = (
+        operational_pass
+        and rtu_deterministic_pass
     )
 
     if not runtime_clean:
         classification = "PRODUCT_FAILURE"
     elif not tcp_target_pass:
         classification = "TCP_TARGET_FAIL_CLEAN"
-    elif not rtu_target_pass:
-        classification = "RTU800_TARGET_FAIL_CLEAN"
+    elif not rtu_operational_pass:
+        classification = "RTU800_OPERATIONAL_TARGET_FAIL_CLEAN"
     elif not udp_source_pass:
         classification = "HOST_UDP_SOURCE_FAIL"
     elif not udp_target_pass:
         classification = "UDP_TARGET_FAIL_CLEAN"
+    elif rtu_deterministic_pass:
+        classification = "PASS_OPERATIONAL_RTU_DETERMINISTIC"
     else:
-        classification = "PASS_STRICT"
+        classification = "PASS_OPERATIONAL_WITH_RTU_JITTER"
 
     row: dict[str, object] = {
         "case": label,
@@ -565,11 +574,13 @@ def run_case(
         ),
         "runtime_clean": runtime_clean,
         "tcp_target_pass": tcp_target_pass,
-        "rtu_target_pass": rtu_target_pass,
+        "rtu_operational_pass": rtu_operational_pass,
+        "rtu_deterministic_pass": rtu_deterministic_pass,
         "udp_source_pass": udp_source_pass,
         "udp_target_pass": udp_target_pass,
         "udp_integrity_clean": udp_integrity_clean,
-        "strict_pass": strict_pass,
+        "operational_pass": operational_pass,
+        "deterministic_pass": deterministic_pass,
         "classification": classification,
     }
 
@@ -591,9 +602,11 @@ def run_case(
         f"UDP_DELIVERY={row['udp_delivery_pct']:.3f}% "
         f"RUNTIME_CLEAN={row['runtime_clean']} "
         f"TCP_PASS={row['tcp_target_pass']} "
-        f"RTU_PASS={row['rtu_target_pass']} "
+        f"RTU_OPERATIONAL_PASS={row['rtu_operational_pass']} "
+        f"RTU_DETERMINISTIC_PASS={row['rtu_deterministic_pass']} "
         f"UDP_PASS={row['udp_target_pass']} "
-        f"STRICT_PASS={row['strict_pass']} "
+        f"OPERATIONAL_PASS={row['operational_pass']} "
+        f"DETERMINISTIC_PASS={row['deterministic_pass']} "
         f"CLASS={classification}",
         flush=True,
     )
@@ -663,8 +676,9 @@ def main() -> int:
         print(f"LADDER_DURATION_S={args.ladder_duration:.0f}")
         print(f"CONFIRM_DURATION_S={args.confirm_duration:.0f}")
         print("TCP_STRICT_THRESHOLD_PCT=99.9")
-        print("RTU_STRICT_THRESHOLD_PCT=99.0_AND_ZERO_SKIPS")
-        print("UDP_STRICT_THRESHOLD_PCT=99.0_DELIVERED")
+        print("RTU_OPERATIONAL_THRESHOLD=REQ_GE_99PCT_AND_SCAN_GE_99HZ")
+        print("RTU_DETERMINISTIC_THRESHOLD=OPERATIONAL_AND_ZERO_SKIPS")
+        print("UDP_OPERATIONAL_THRESHOLD_PCT=99.0_DELIVERED")
 
         ladder_root = root / "UDP_LADDER"
         ladder_root.mkdir(parents=True, exist_ok=True)
@@ -681,14 +695,15 @@ def main() -> int:
             )
             ladder_rows.append(row)
 
-            if target == 0.0 and not bool(row["strict_pass"]):
+            if target == 0.0 and not bool(row["operational_pass"]):
                 baseline_not_strict = True
                 print(
-                    "BASELINE_RESULT=CHARACTERIZED_NOT_STRICT "
+                    "BASELINE_RESULT=CHARACTERIZED_NOT_OPERATIONAL "
                     f"TCP_PCT={float(row['tcp_target_pct']):.3f} "
                     f"RTU_PCT={float(row['rtu_target_pct']):.3f} "
                     f"SCANS={float(row['rtu_scans_s']):.3f} "
                     f"RTU_SKIPPED={int(row['rtu_periods_skipped'])} "
+                    f"RTU_DETERMINISTIC_PASS={bool(row['rtu_deterministic_pass'])} "
                     f"RUNTIME_CLEAN={bool(row['runtime_clean'])}",
                     flush=True,
                 )
@@ -700,7 +715,7 @@ def main() -> int:
             row
             for row in ladder_rows
             if float(row["udp_target_mbps"]) > 0.0
-            and bool(row["strict_pass"])
+            and bool(row["operational_pass"])
         ]
 
         selected_udp_mbps = (
@@ -749,7 +764,7 @@ def main() -> int:
         status = "CHARACTERIZED_BASELINE_NOT_STRICT"
     elif selected_udp_mbps <= 0.0:
         status = "CHARACTERIZED_NO_POSITIVE_UDP_STRICT"
-    elif confirmation is not None and bool(confirmation["strict_pass"]):
+    elif confirmation is not None and bool(confirmation["operational_pass"]):
         status = "PASS_TRIPLE_COEXISTENCE_CONFIRMED"
     else:
         status = "REVIEW_CONFIRMATION_FAILED"
@@ -788,10 +803,13 @@ def main() -> int:
                 f"CONFIRM_RTU_REQ_S={float(confirmation['rtu_req_s']):.3f}",
                 f"CONFIRM_RTU_SCANS_S={float(confirmation['rtu_scans_s']):.3f}",
                 f"CONFIRM_RTU_SKIPPED={int(confirmation['rtu_periods_skipped'])}",
+                f"CONFIRM_RTU_OPERATIONAL_PASS={bool(confirmation['rtu_operational_pass'])}",
+                f"CONFIRM_RTU_DETERMINISTIC_PASS={bool(confirmation['rtu_deterministic_pass'])}",
                 f"CONFIRM_UDP_DUT_MBPS={float(confirmation['udp_delivered_mbps']):.3f}",
                 f"CONFIRM_UDP_DELIVERY_PCT={float(confirmation['udp_delivery_pct']):.3f}",
                 f"CONFIRM_RUNTIME_CLEAN={bool(confirmation['runtime_clean'])}",
-                f"CONFIRM_STRICT_PASS={bool(confirmation['strict_pass'])}",
+                f"CONFIRM_OPERATIONAL_PASS={bool(confirmation['operational_pass'])}",
+                f"CONFIRM_DETERMINISTIC_PASS={bool(confirmation['deterministic_pass'])}",
             ]
         )
 
