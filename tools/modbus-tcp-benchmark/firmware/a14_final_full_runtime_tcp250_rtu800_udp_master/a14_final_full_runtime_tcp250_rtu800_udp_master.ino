@@ -365,6 +365,15 @@ static constexpr uint32_t SD_DATALOG_COMMIT_TIMEOUT_MS = 5000UL;
 
 static const char SD_BENCH_PATH[] = "/A14S2.LOG";
 
+// Prototipos explícitos para evitar que el preprocesador Arduino genere
+// declaraciones adelantadas antes de SD_RECORD_BYTES / RtuMixSlot.
+static void buildSdRecord(
+    uint32_t sequence,
+    uint8_t record[SD_RECORD_BYTES]);
+
+static bool verifyRtuMixRead(
+    const RtuMixSlot &slot);
+
 // ============================================================================
 // Estado general
 // ============================================================================
