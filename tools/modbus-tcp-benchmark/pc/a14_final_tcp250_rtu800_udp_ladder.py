@@ -763,7 +763,7 @@ def main() -> int:
     if baseline_not_operational:
         status = "CHARACTERIZED_BASELINE_NOT_OPERATIONAL"
     elif selected_udp_mbps <= 0.0:
-        status = "CHARACTERIZED_NO_POSITIVE_UDP_STRICT"
+        status = "CHARACTERIZED_NO_POSITIVE_UDP_OPERATIONAL"
     elif confirmation is not None and bool(confirmation["operational_pass"]):
         status = "PASS_TRIPLE_COEXISTENCE_CONFIRMED"
     else:
@@ -827,7 +827,7 @@ def main() -> int:
 
     return 0 if status in (
         "PASS_TRIPLE_COEXISTENCE_CONFIRMED",
-        "CHARACTERIZED_NO_POSITIVE_UDP_STRICT",
+        "CHARACTERIZED_NO_POSITIVE_UDP_OPERATIONAL",
         "CHARACTERIZED_BASELINE_NOT_OPERATIONAL",
     ) else 2
 
