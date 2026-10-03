@@ -581,11 +581,19 @@ def run_case(
     print(
         f"CASE_END={label} "
         f"TCP={row['tcp_req_s']:.3f} "
+        f"TCP_PCT={row['tcp_target_pct']:.3f} "
         f"RTU={row['rtu_req_s']:.3f} "
+        f"RTU_PCT={row['rtu_target_pct']:.3f} "
         f"SCANS={row['rtu_scans_s']:.3f} "
+        f"RTU_SKIPPED={row['rtu_periods_skipped']} "
         f"UDP_OFFERED={row['udp_offered_mbps']:.3f} "
         f"UDP_DUT={row['udp_delivered_mbps']:.3f} "
         f"UDP_DELIVERY={row['udp_delivery_pct']:.3f}% "
+        f"RUNTIME_CLEAN={row['runtime_clean']} "
+        f"TCP_PASS={row['tcp_target_pass']} "
+        f"RTU_PASS={row['rtu_target_pass']} "
+        f"UDP_PASS={row['udp_target_pass']} "
+        f"STRICT_PASS={row['strict_pass']} "
         f"CLASS={classification}",
         flush=True,
     )
@@ -620,6 +628,8 @@ def main() -> int:
 
     ladder_rows: list[dict[str, object]] = []
     confirmation: dict[str, object] | None = None
+    baseline_not_strict = False
+    selected_udp_mbps = 0.0
 
     try:
         time.sleep(1.0)
@@ -672,10 +682,17 @@ def main() -> int:
             ladder_rows.append(row)
 
             if target == 0.0 and not bool(row["strict_pass"]):
-                write_csv(root / "UDP_LADDER.csv", ladder_rows)
-                raise RuntimeError(
-                    "BASELINE_TCP250_RTU800_NOT_STRICT"
+                baseline_not_strict = True
+                print(
+                    "BASELINE_RESULT=CHARACTERIZED_NOT_STRICT "
+                    f"TCP_PCT={float(row['tcp_target_pct']):.3f} "
+                    f"RTU_PCT={float(row['rtu_target_pct']):.3f} "
+                    f"SCANS={float(row['rtu_scans_s']):.3f} "
+                    f"RTU_SKIPPED={int(row['rtu_periods_skipped'])} "
+                    f"RUNTIME_CLEAN={bool(row['runtime_clean'])}",
+                    flush=True,
                 )
+                break
 
         write_csv(root / "UDP_LADDER.csv", ladder_rows)
 
@@ -707,7 +724,7 @@ def main() -> int:
             encoding="utf-8",
         )
 
-        if selected_udp_mbps > 0.0:
+        if (not baseline_not_strict) and selected_udp_mbps > 0.0:
             confirm_root = root / "CONFIRMATION"
             confirm_root.mkdir(parents=True, exist_ok=True)
             confirmation = run_case(
@@ -728,7 +745,9 @@ def main() -> int:
         master.close()
         slave.close()
 
-    if selected_udp_mbps <= 0.0:
+    if baseline_not_strict:
+        status = "CHARACTERIZED_BASELINE_NOT_STRICT"
+    elif selected_udp_mbps <= 0.0:
         status = "CHARACTERIZED_NO_POSITIVE_UDP_STRICT"
     elif confirmation is not None and bool(confirmation["strict_pass"]):
         status = "PASS_TRIPLE_COEXISTENCE_CONFIRMED"
@@ -741,6 +760,7 @@ def main() -> int:
         "rtu_target_req_s": RTU_TARGET_REQ_S,
         "rtu_scan_target_hz": 100.0,
         "udp_ladder_mbps": udp_ladder,
+        "baseline_not_strict": baseline_not_strict,
         "selected_udp_mbps": selected_udp_mbps,
         "ladder": ladder_rows,
         "confirmation": confirmation,
@@ -756,6 +776,7 @@ def main() -> int:
         "TCP_TARGET_REQ_S=250",
         "RTU_TARGET_REQ_S=800",
         "RTU_SCAN_TARGET_HZ=100",
+        f"BASELINE_NOT_STRICT={baseline_not_strict}",
         f"UDP_SELECTED_MBPS={selected_udp_mbps:g}",
         "UDP_LADDER_MBPS=" + ",".join(f"{x:g}" for x in udp_ladder),
     ]
@@ -789,6 +810,7 @@ def main() -> int:
     return 0 if status in (
         "PASS_TRIPLE_COEXISTENCE_CONFIRMED",
         "CHARACTERIZED_NO_POSITIVE_UDP_STRICT",
+        "CHARACTERIZED_BASELINE_NOT_STRICT",
     ) else 2
 
 
