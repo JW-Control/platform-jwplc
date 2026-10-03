@@ -30,6 +30,36 @@ La campaña previa mostró:
 
 Para la carga final se fija TCP en 250 req/s y RTU en 800 req/s. Esto representa una carga TCP alta pero más cercana a un uso industrial real y conserva el requisito de 8 expansiones a 100 Hz.
 
+## Hallazgo de preflight: pacing por request no representa el requisito real
+
+La primera ejecución del baseline, todavía con pacing individual de 800 req/s,
+produjo:
+
+- TCP: 250.000 req/s.
+- RTU: 731.975 req/s.
+- scans: 91.497 scans/s.
+- UDP: 0 Mbps.
+- clasificación: RTU800_TARGET_FAIL_CLEAN.
+
+El resultado no indica falta de capacidad media del RTU. La evidencia previa
+unpaced mostró aproximadamente 900 req/s aun con TCP500. El problema fue el
+criterio temporal usado: exigir una transacción exactamente cada 1.25 ms hace
+que cualquier transacción ligeramente más larga marque un periodo perdido.
+
+Para el requisito de expansiones, el contrato correcto es por scan:
+
+- 100 scans/s.
+- periodo de scan: 10 ms.
+- 8 transacciones por scan.
+- los 8 slots se ejecutan back-to-back dentro de la ventana.
+- al terminar el scan se espera la siguiente frontera de 10 ms.
+- un skip sólo se registra si no se puede iniciar el siguiente scan dentro de
+  su ventana temporal.
+
+Por tanto, 800 req/s sigue siendo la carga media equivalente, pero la garantía
+se mide como 100 scans/s de ocho expansiones y no como ocho deadlines
+independientes de 1.25 ms.
+
 ## UDP ladder
 
 Cada escalón dura 300 s:
