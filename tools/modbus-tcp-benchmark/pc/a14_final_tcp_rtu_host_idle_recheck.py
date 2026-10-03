@@ -350,7 +350,7 @@ def main() -> int:
         "tcp_only_controls": tcp_only_rows,
     }
     (root / "FINAL_SUMMARY.json").write_text(
-        json.dump3(summary, indent=2),
+        json.dumps(summary, indent=2),
         encoding="utf-8",
     )
 
