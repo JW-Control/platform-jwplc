@@ -655,17 +655,22 @@ def main() -> int:
         ladder_root.mkdir(parents=True, exist_ok=True)
 
         for target in udp_ladder:
-            ladder_rows.append(
-                run_case(
-                    ladder_root,
-                    master,
-                    slave,
-                    host,
-                    target,
-                    args.ladder_duration,
-                    "LADDER",
-                )
+            row = run_case(
+                ladder_root,
+                master,
+                slave,
+                host,
+                target,
+                args.ladder_duration,
+                "LADDER",
             )
+            ladder_rows.append(row)
+
+            if target == 0.0 and not bool(row["strict_pass"]):
+                write_csv(root / "UDP_LADDER.csv", ladder_rows)
+                raise RuntimeError(
+                    "BASELINE_TCP250_RTU800_NOT_STRICT"
+                )
 
         write_csv(root / "UDP_LADDER.csv", ladder_rows)
 
@@ -776,7 +781,10 @@ def main() -> int:
         print(line)
     print(f"RESULT_ROOT={root}")
 
-    return 0 if status == "PASS_TRIPLE_COEXISTENCE_CONFIRMED" else 2
+    return 0 if status in (
+        "PASS_TRIPLE_COEXISTENCE_CONFIRMED",
+        "CHARACTERIZED_NO_POSITIVE_UDP_STRICT",
+    ) else 2
 
 
 if __name__ == "__main__":
