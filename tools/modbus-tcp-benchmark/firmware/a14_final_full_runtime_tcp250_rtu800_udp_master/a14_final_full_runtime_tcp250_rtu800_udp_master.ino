@@ -372,7 +372,8 @@ static void buildSdRecord(
     uint8_t record[SD_RECORD_BYTES]);
 
 static bool verifyRtuMixRead(
-    const RtuMixSlot &slot);
+    uint8_t type,
+    uint8_t logicalIndex);
 
 // ============================================================================
 // Estado general
@@ -1295,16 +1296,18 @@ static bool setRtu230400ApbForced()
     return true;
 }
 
-static bool verifyRtuMixRead(const RtuMixSlot &slot)
+static bool verifyRtuMixRead(
+    uint8_t type,
+    uint8_t logicalIndex)
 {
-    if (slot.type == RTU_MIX_DI)
+    if (type == (uint8_t)RTU_MIX_DI)
     {
-        return rtuMixDiRead == RTU_MIX_DI_EXPECTED[slot.logicalIndex];
+        return rtuMixDiRead == RTU_MIX_DI_EXPECTED[logicalIndex];
     }
 
-    if (slot.type == RTU_MIX_AI)
+    if (type == (uint8_t)RTU_MIX_AI)
     {
-        const uint8_t base = (uint8_t)(slot.logicalIndex * 4U);
+        const uint8_t base = (uint8_t)(logicalIndex * 4U);
 
         for (uint8_t i = 0U; i < 4U; ++i)
         {
@@ -1417,8 +1420,12 @@ static void completeRtuMasterResult()
         ++rtuRequestsSuccess;
         ++rtuMixSuccess[(uint8_t)slot.type];
 
-        if (!verifyRtuMixRead(slot))
+        if (!verifyRtuMixRead(
+                (uint8_t)slot.type,
+                slot.logicalIndex))
+        {
             ++rtuVerifyFails;
+        }
     }
     else
     {
