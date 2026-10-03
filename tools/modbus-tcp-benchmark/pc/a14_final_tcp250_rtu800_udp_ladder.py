@@ -644,8 +644,14 @@ def run_case(
     udp_host_min_interpacket_us = float(
         udp_result.get("min_interpacket_us", 0.0)
     )
-    udp_host_max_packets_in_1ms = int(
-        udp_result.get("max_packets_in_1ms", 0)
+    udp_host_target_interval_us = float(
+        udp_result.get("target_interval_us", 0.0)
+    )
+    udp_host_min_gap_target_pct = float(
+        udp_result.get("min_gap_target_pct", 0.0)
+    )
+    udp_host_too_close_packets = int(
+        udp_result.get("too_close_packets", 0)
     )
 
     udp_rx_packets = exp.iv(post_master, "UDP_FAST_RX_PACKETS", 0)
@@ -704,15 +710,19 @@ def run_case(
         and udp_reorders == 0
     )
 
-    udp_host_burst_pass = (
+    udp_host_spacing_pass = (
         udp_target_mbps == 0.0
-        or udp_host_max_packets_in_1ms <= 2
+        or (
+            udp_host_min_gap_target_pct
+            >= UDP_HOST_MIN_GAP_RATIO * 100.0
+            and udp_host_too_close_packets == 0
+        )
     )
     udp_source_pass = (
         udp_target_mbps == 0.0
         or (
             udp_offered_target_pct >= 99.0
-            and udp_host_burst_pass
+            and udp_host_spacing_pass
         )
     )
     udp_target_pass = (
@@ -811,8 +821,10 @@ def run_case(
         "udp_host_pacing_deadlines_skipped": udp_host_pacing_skips,
         "udp_host_max_late_us": udp_host_max_late_us,
         "udp_host_min_interpacket_us": udp_host_min_interpacket_us,
-        "udp_host_max_packets_in_1ms": udp_host_max_packets_in_1ms,
-        "udp_host_burst_pass": udp_host_burst_pass,
+        "udp_host_target_interval_us": udp_host_target_interval_us,
+        "udp_host_min_gap_target_pct": udp_host_min_gap_target_pct,
+        "udp_host_too_close_packets": udp_host_too_close_packets,
+        "udp_host_spacing_pass": udp_host_spacing_pass,
         "udp_range_missing": udp_range_missing,
         "udp_wrong_size_packets": udp_wrong_size,
         "udp_sequence_decode_errors": udp_decode_errors,
@@ -873,8 +885,8 @@ def run_case(
         f"UDP_OFFERED={row['udp_offered_mbps']:.3f} "
         f"UDP_DUT={row['udp_delivered_mbps']:.3f} "
         f"UDP_DELIVERY={row['udp_delivery_pct']:.3f}% "
-        f"HOST_MAX_PKT_1MS={row['udp_host_max_packets_in_1ms']} "
-        f"HOST_PACING_SKIPS={row['udp_host_pacing_deadlines_skipped']} "
+        f"HOST_MIN_GAP_PCT={row['udp_host_min_gap_target_pct']:.2f} "
+        f"HOST_TOO_CLOSE={row['udp_host_too_close_packets']} "
         f"RUNTIME_CLEAN={row['runtime_clean']} "
         f"TCP_PASS={row['tcp_target_pass']} "
         f"RTU_OPERATIONAL_PASS={row['rtu_operational_pass']} "
@@ -958,7 +970,7 @@ def main() -> int:
         print("RTU_SCHEDULER_MODE=SCAN_PACED_8_PER_10MS")
         print("UDP_PAYLOAD_BYTES=1016")
         print(f"UDP_HOST_PACING_MODE={UDP_HOST_PACING_MODE}")
-        print("UDP_HOST_BURST_GUARD=MAX_2_PACKETS_PER_1MS")
+        print("UDP_HOST_SPACING_GUARD=MIN_GAP_GE_90PCT_TARGET")
         print("UDP_LADDER_MBPS=" + ",".join(f"{x:g}" for x in udp_ladder))
         print(f"LADDER_DURATION_S={args.ladder_duration:.0f}")
         print(f"CONFIRM_DURATION_S={args.confirm_duration:.0f}")
