@@ -24,7 +24,7 @@ TCP_TARGET_REQ_S = 250.0
 RTU_TARGET_REQ_S = 800
 DEFAULT_UDP_LADDER = "0,1,2,4,6,8,10,12"
 UDP_HOST_PACING_MODE = "DEDICATED_PROCESS_ACTUAL_SEND_INTERVAL"
-UDP_HOST_SPIN_THRESHOLD_NS = 250_000
+UDP_HOST_SPIN_THRESHOLD_NS = 2_500_000
 UDP_HOST_MIN_GAP_RATIO = 0.90
 
 
@@ -214,9 +214,16 @@ def udp_sender(
                     send_errors += 1
                     send_ns = time.perf_counter_ns()
 
-                # Schedule from the actual send instant. This intentionally
-                # forbids catch-up bursts after host scheduling jitter.
-                next_send_ns = send_ns + interval_ns
+                # Preserve the requested start-to-start spacing without
+                # accumulating sendto() cost. If the send itself overruns the
+                # next slot, drop that slot instead of catching up in a burst.
+                candidate_next_ns = send_begin_ns + interval_ns
+                now_after_send_ns = time.perf_counter_ns()
+                if candidate_next_ns <= now_after_send_ns:
+                    pacing_deadlines_skipped += 1
+                    next_send_ns = now_after_send_ns + interval_ns
+                else:
+                    next_send_ns = candidate_next_ns
 
             elapsed = (
                 time.perf_counter_ns() - started_ns
