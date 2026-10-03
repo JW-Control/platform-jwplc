@@ -8,6 +8,7 @@ import struct
 import sys
 import threading
 import time
+from collections import deque
 from pathlib import Path
 
 THIS_DIR = Path(__file__).resolve().parent
@@ -21,6 +22,8 @@ UDP_PORT = 5002
 TCP_TARGET_REQ_S = 250.0
 RTU_TARGET_REQ_S = 800
 DEFAULT_UDP_LADDER = "0,1,2,4,6,8,10,12"
+UDP_HOST_PACING_MODE = "ONE_PACKET_DEADLINE_NO_CATCHUP"
+UDP_HOST_BURST_WINDOW_S = 0.001
 
 
 def parse_ladder(spec: str) -> list[float]:
@@ -126,6 +129,12 @@ def udp_sender(
     sent_bytes = 0
     send_errors = 0
     sequence = 0
+    pacing_deadlines_skipped = 0
+    max_late_us = 0.0
+    min_interpacket_us = 0.0
+    max_packets_in_1ms = 0
+    recent_sends: deque[float] = deque()
+    last_send_time: float | None = None
 
     try:
         start_event.wait()
@@ -135,43 +144,71 @@ def udp_sender(
             stop_event.wait()
             elapsed = time.perf_counter() - started
         else:
-            packets_per_second = (
-                target_mbps * 1_000_000.0
-                / (UDP_PAYLOAD_BYTES * 8.0)
+            interval_s = (
+                UDP_PAYLOAD_BYTES * 8.0
+                / (target_mbps * 1_000_000.0)
             )
-            tick_s = 0.010
-            packets_per_tick = packets_per_second * tick_s
-            carry = 0.0
-            next_tick = started
+            deadline = started + interval_s
 
             while not stop_event.is_set():
-                next_tick += tick_s
-                carry += packets_per_tick
-                count = int(carry)
-                carry -= count
+                now = time.perf_counter()
 
-                for _ in range(count):
-                    if stop_event.is_set():
-                        break
+                if now < deadline:
+                    time.sleep(deadline - now)
+                    now = time.perf_counter()
 
-                    sequence += 1
-                    struct.pack_into(">I", payload, 0, sequence)
+                # Do not catch up by emitting a burst after host scheduling
+                # jitter. Skip expired packet slots and preserve one packet
+                # per future deadline instead.
+                if now - deadline >= interval_s:
+                    missed = int((now - deadline) // interval_s)
+                    pacing_deadlines_skipped += missed
+                    deadline += missed * interval_s
 
-                    try:
-                        n = sock.sendto(payload, (host, UDP_PORT))
-                        if n == UDP_PAYLOAD_BYTES:
-                            sent_packets += 1
-                            sent_bytes += n
-                        else:
-                            send_errors += 1
-                    except OSError:
+                lateness_us = max(0.0, (now - deadline) * 1_000_000.0)
+                if lateness_us > max_late_us:
+                    max_late_us = lateness_us
+
+                if stop_event.is_set():
+                    break
+
+                sequence += 1
+                struct.pack_into(">I", payload, 0, sequence)
+
+                try:
+                    n = sock.sendto(payload, (host, UDP_PORT))
+                    send_time = time.perf_counter()
+
+                    if n == UDP_PAYLOAD_BYTES:
+                        sent_packets += 1
+                        sent_bytes += n
+
+                        if last_send_time is not None:
+                            gap_us = (
+                                send_time - last_send_time
+                            ) * 1_000_000.0
+                            if (
+                                min_interpacket_us == 0.0
+                                or gap_us < min_interpacket_us
+                            ):
+                                min_interpacket_us = gap_us
+
+                        last_send_time = send_time
+
+                        cutoff = (
+                            send_time - UDP_HOST_BURST_WINDOW_S
+                        )
+                        while recent_sends and recent_sends[0] <= cutoff:
+                            recent_sends.popleft()
+                        recent_sends.append(send_time)
+                        if len(recent_sends) > max_packets_in_1ms:
+                            max_packets_in_1ms = len(recent_sends)
+                    else:
                         send_errors += 1
+                except OSError:
+                    send_errors += 1
 
-                remaining = next_tick - time.perf_counter()
-                if remaining > 0.0:
-                    stop_event.wait(remaining)
-                elif remaining < -0.050:
-                    next_tick = time.perf_counter()
+                deadline += interval_s
 
             elapsed = time.perf_counter() - started
 
@@ -191,8 +228,14 @@ def udp_sender(
             "sent_bytes": sent_bytes,
             "send_errors": send_errors,
             "offered_mbps": offered_mbps,
+            "pacing_mode": UDP_HOST_PACING_MODE,
+            "pacing_deadlines_skipped": pacing_deadlines_skipped,
+            "max_late_us": max_late_us,
+            "min_interpacket_us": min_interpacket_us,
+            "max_packets_in_1ms": max_packets_in_1ms,
         }
     )
+
 
 
 def run_case(
@@ -387,6 +430,18 @@ def run_case(
     udp_sent_bytes = int(udp_result.get("sent_bytes", 0))
     udp_send_errors = int(udp_result.get("send_errors", 0))
     udp_offered_mbps = float(udp_result.get("offered_mbps", 0.0))
+    udp_host_pacing_skips = int(
+        udp_result.get("pacing_deadlines_skipped", 0)
+    )
+    udp_host_max_late_us = float(
+        udp_result.get("max_late_us", 0.0)
+    )
+    udp_host_min_interpacket_us = float(
+        udp_result.get("min_interpacket_us", 0.0)
+    )
+    udp_host_max_packets_in_1ms = int(
+        udp_result.get("max_packets_in_1ms", 0)
+    )
 
     udp_rx_packets = exp.iv(post_master, "UDP_FAST_RX_PACKETS", 0)
     udp_rx_bytes = exp.iv(post_master, "UDP_FAST_RX_BYTES", 0)
@@ -444,9 +499,16 @@ def run_case(
         and udp_reorders == 0
     )
 
+    udp_host_burst_pass = (
+        udp_target_mbps == 0.0
+        or udp_host_max_packets_in_1ms <= 2
+    )
     udp_source_pass = (
         udp_target_mbps == 0.0
-        or udp_offered_target_pct >= 99.0
+        or (
+            udp_offered_target_pct >= 99.0
+            and udp_host_burst_pass
+        )
     )
     udp_target_pass = (
         udp_target_mbps == 0.0
@@ -540,6 +602,12 @@ def run_case(
         "udp_delivery_pct": udp_delivery_pct,
         "udp_sent_packets": udp_sent_packets,
         "udp_rx_packets": udp_rx_packets,
+        "udp_host_pacing_mode": UDP_HOST_PACING_MODE,
+        "udp_host_pacing_deadlines_skipped": udp_host_pacing_skips,
+        "udp_host_max_late_us": udp_host_max_late_us,
+        "udp_host_min_interpacket_us": udp_host_min_interpacket_us,
+        "udp_host_max_packets_in_1ms": udp_host_max_packets_in_1ms,
+        "udp_host_burst_pass": udp_host_burst_pass,
         "udp_range_missing": udp_range_missing,
         "udp_wrong_size_packets": udp_wrong_size,
         "udp_sequence_decode_errors": udp_decode_errors,
@@ -600,6 +668,8 @@ def run_case(
         f"UDP_OFFERED={row['udp_offered_mbps']:.3f} "
         f"UDP_DUT={row['udp_delivered_mbps']:.3f} "
         f"UDP_DELIVERY={row['udp_delivery_pct']:.3f}% "
+        f"HOST_MAX_PKT_1MS={row['udp_host_max_packets_in_1ms']} "
+        f"HOST_PACING_SKIPS={row['udp_host_pacing_deadlines_skipped']} "
         f"RUNTIME_CLEAN={row['runtime_clean']} "
         f"TCP_PASS={row['tcp_target_pass']} "
         f"RTU_OPERATIONAL_PASS={row['rtu_operational_pass']} "
@@ -672,6 +742,8 @@ def main() -> int:
         print("RTU_SCAN_TARGET_HZ=100")
         print("RTU_SCHEDULER_MODE=SCAN_PACED_8_PER_10MS")
         print("UDP_PAYLOAD_BYTES=1016")
+        print(f"UDP_HOST_PACING_MODE={UDP_HOST_PACING_MODE}")
+        print("UDP_HOST_BURST_GUARD=MAX_2_PACKETS_PER_1MS")
         print("UDP_LADDER_MBPS=" + ",".join(f"{x:g}" for x in udp_ladder))
         print(f"LADDER_DURATION_S={args.ladder_duration:.0f}")
         print(f"CONFIRM_DURATION_S={args.confirm_duration:.0f}")
