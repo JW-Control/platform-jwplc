@@ -95,6 +95,7 @@ Require-Token $masterIno "UDP_FAST_SEQUENCE_RANGE_MISSING" "TRIPLE_UDP_SEQUENCE_
 Require-Token $runner 'DEFAULT_UDP_LADDER = "0,1,2,4,6,8,10,12"' "TRIPLE_UDP_LADDER"
 Require-Token $runner "TCP_TARGET_REQ_S = 250.0" "TRIPLE_TCP250"
 Require-Token $runner "RTU_TARGET_REQ_S = 800" "TRIPLE_RTU800"
+Require-Token $runner 'UDP_HOST_PACING_MODE = "ONE_PACKET_DEADLINE_NO_CATCHUP"' "UDP_HOST_PACING_NO_BURST"
 
 $arduinoCli = "C:\Program Files\Arduino PLC IDE Tools\arduino-cli.exe"
 if (-not (Test-Path -LiteralPath $arduinoCli)) {
@@ -166,6 +167,20 @@ try {
     Write-Host "PYTHON_SYNTAX_EXIT=$syntaxExit"
     if ($syntaxExit -ne 0) {
         throw "TRIPLE_PYTHON_SYNTAX_FAILED"
+    }
+
+    $pacingLog = Join-Path $ResultRoot "udp_host_pacing_selftest.log"
+    $pacingExit = Invoke-NativeToLog $PythonExe @(
+        "-u", $runner,
+        "--host-pacing-self-test"
+    ) $pacingLog
+
+    Get-Content -LiteralPath $pacingLog |
+        ForEach-Object { Write-Host $_ }
+
+    Write-Host "UDP_HOST_PACING_SELFTEST_EXIT=$pacingExit"
+    if ($pacingExit -ne 0) {
+        throw "TRIPLE_UDP_HOST_PACING_SELFTEST_FAILED"
     }
 
     $masterBuild = Join-Path $env:TEMP ("a14_triple_master_" + $stamp)
@@ -281,6 +296,7 @@ try {
             "A14_FINAL_TRIPLE_PREFLIGHT=PASS"
             "HEAD=$head"
             "PYTHON_SYNTAX=PASS"
+            "UDP_HOST_PACING_SELFTEST=PASS"
             "MASTER_COMPILE=PASS"
             "SLAVE_COMPILE=PASS"
             "SOURCE_FIRST=PASS"
