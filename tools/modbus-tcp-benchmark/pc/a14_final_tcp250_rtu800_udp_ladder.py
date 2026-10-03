@@ -133,9 +133,13 @@ def udp_sender(
     sequence = 0
     pacing_deadlines_skipped = 0
     max_late_us = 0.0
-    min_interpacket_us = 0.0
-    too_close_packets = 0
-    last_send_ns: int | None = None
+    min_start_gap_us = 0.0
+    start_too_close_packets = 0
+    min_completion_gap_us = 0.0
+    completion_too_close_packets = 0
+    send_call_max_us = 0.0
+    last_send_begin_ns: int | None = None
+    last_send_end_ns: int | None = None
 
     try:
         start_event.wait()
@@ -175,6 +179,20 @@ def udp_sender(
                         pass
 
                 send_begin_ns = time.perf_counter_ns()
+
+                if last_send_begin_ns is not None:
+                    start_gap_ns = (
+                        send_begin_ns - last_send_begin_ns
+                    )
+                    start_gap_us = start_gap_ns / 1000.0
+                    if (
+                        min_start_gap_us == 0.0
+                        or start_gap_us < min_start_gap_us
+                    ):
+                        min_start_gap_us = start_gap_us
+                    if start_gap_ns < min_allowed_gap_ns:
+                        start_too_close_packets += 1
+
                 lateness_us = max(
                     0.0,
                     (send_begin_ns - next_send_ns) / 1000.0,
@@ -192,22 +210,39 @@ def udp_sender(
                     n = sock.sendto(payload, (host, UDP_PORT))
                     send_ns = time.perf_counter_ns()
 
+                    send_call_us = (
+                        send_ns - send_begin_ns
+                    ) / 1000.0
+                    if send_call_us > send_call_max_us:
+                        send_call_max_us = send_call_us
+
                     if n == UDP_PAYLOAD_BYTES:
                         sent_packets += 1
                         sent_bytes += n
 
-                        if last_send_ns is not None:
-                            gap_ns = send_ns - last_send_ns
-                            gap_us = gap_ns / 1000.0
+                        if last_send_end_ns is not None:
+                            completion_gap_ns = (
+                                send_ns - last_send_end_ns
+                            )
+                            completion_gap_us = (
+                                completion_gap_ns / 1000.0
+                            )
                             if (
-                                min_interpacket_us == 0.0
-                                or gap_us < min_interpacket_us
+                                min_completion_gap_us == 0.0
+                                or completion_gap_us
+                                < min_completion_gap_us
                             ):
-                                min_interpacket_us = gap_us
-                            if gap_ns < min_allowed_gap_ns:
-                                too_close_packets += 1
+                                min_completion_gap_us = (
+                                    completion_gap_us
+                                )
+                            if (
+                                completion_gap_ns
+                                < min_allowed_gap_ns
+                            ):
+                                completion_too_close_packets += 1
 
-                        last_send_ns = send_ns
+                        last_send_begin_ns = send_begin_ns
+                        last_send_end_ns = send_ns
                     else:
                         send_errors += 1
                 except OSError:
@@ -243,10 +278,16 @@ def udp_sender(
         if target_mbps > 0.0
         else 0.0
     )
-    min_gap_target_pct = (
-        min_interpacket_us / target_interval_us * 100.0
+    min_start_gap_target_pct = (
+        min_start_gap_us / target_interval_us * 100.0
         if target_interval_us > 0.0
-        and min_interpacket_us > 0.0
+        and min_start_gap_us > 0.0
+        else 100.0
+    )
+    min_completion_gap_target_pct = (
+        min_completion_gap_us / target_interval_us * 100.0
+        if target_interval_us > 0.0
+        and min_completion_gap_us > 0.0
         else 100.0
     )
 
@@ -260,10 +301,16 @@ def udp_sender(
             "pacing_mode": UDP_HOST_PACING_MODE,
             "pacing_deadlines_skipped": pacing_deadlines_skipped,
             "max_late_us": max_late_us,
-            "min_interpacket_us": min_interpacket_us,
             "target_interval_us": target_interval_us,
-            "min_gap_target_pct": min_gap_target_pct,
-            "too_close_packets": too_close_packets,
+            "min_start_gap_us": min_start_gap_us,
+            "min_start_gap_target_pct": min_start_gap_target_pct,
+            "start_too_close_packets": start_too_close_packets,
+            "min_completion_gap_us": min_completion_gap_us,
+            "min_completion_gap_target_pct":
+                min_completion_gap_target_pct,
+            "completion_too_close_packets":
+                completion_too_close_packets,
+            "send_call_max_us": send_call_max_us,
         }
     )
 
