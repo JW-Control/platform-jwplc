@@ -8,8 +8,14 @@ Cerrar la caracterización de coexistencia simultánea del JWPLC Basic con una c
 - Modbus RTU: 800 req/s.
 - RTU EXP-MIX: 8 transacciones por scan.
 - objetivo de scan RTU: 100 scans/s.
-- interpretación: 8 módulos atendidos una vez cada 10 ms.
+- interpretación temporal: 8 transacciones de expansión por scan, equivalentes a atender 8 módulos una vez cada 10 ms.
 - UDP FAST RX: variable a escalar.
+
+La bancada física usa un único Slave ID 2 que emula las ocho operaciones lógicas
+(2 DI + 2 DO + 2 AI + 2 AO). A nivel de tiempo de bus, cada operación conserva
+su trama RTU completa; por tanto sirve para caracterizar el presupuesto de
+comunicación de ocho módulos. No constituye por sí sola una prueba multidrop
+con ocho placas físicas diferentes.
 - full runtime activo: Display + SD/DataLog + FRAM + RTC + TCA/I/O + botonera.
 
 Este gate es diagnóstico y aditivo. No cambia las APIs productivas.
