@@ -83,8 +83,11 @@ Corrección:
 - `UDP_HOST_PACING_MODE=ONE_PACKET_DEADLINE_NO_CATCHUP`.
 - no se permiten catch-up bursts;
 - se registran deadlines del host omitidos;
-- se registra el máximo de paquetes emitidos en cualquier ventana de 1 ms;
-- un source con más de 2 paquetes/1 ms no puede validar un caso;
+- el sender corre en un proceso dedicado con reloj de alta resolución;
+- el pacing se valida sobre separación start-to-start de las llamadas `sendto()`;
+- el completion-gap queda sólo como telemetría de latencia de syscall;
+- el start-gap mínimo debe ser >=90 % del intervalo objetivo;
+- no puede haber start-gaps marcados como too-close;
 - el preflight incluye self-test localhost de pacing antes del hardware.
 
 ## UDP ladder
