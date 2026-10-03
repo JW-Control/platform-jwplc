@@ -5,6 +5,7 @@ param(
     [double]$LadderDurationS = 300.0,
     [double]$ConfirmDurationS = 600.0,
     [string]$UdpLadderMbps = "0,1,2,4,6,8,10,12",
+    [switch]$PreflightOnly,
     [string]$ResultRoot = ""
 )
 
@@ -273,6 +274,26 @@ try {
         $precompiledSpi
     ) {
         throw "TRIPLE_SOURCE_FIRST_NOT_PROVEN"
+    }
+
+    if ($PreflightOnly) {
+        @(
+            "A14_FINAL_TRIPLE_PREFLIGHT=PASS"
+            "HEAD=$head"
+            "PYTHON_SYNTAX=PASS"
+            "MASTER_COMPILE=PASS"
+            "SLAVE_COMPILE=PASS"
+            "SOURCE_FIRST=PASS"
+            "UPLOAD_PERFORMED=NO"
+            "PHYSICAL_MEASUREMENT_PERFORMED=NO"
+            "RESULT_ROOT=$ResultRoot"
+        ) | Set-Content -LiteralPath (Join-Path $ResultRoot "PREFLIGHT_STATUS.txt") -Encoding UTF8
+
+        Write-Host "A14_FINAL_TRIPLE_PREFLIGHT=PASS"
+        Write-Host "UPLOAD_PERFORMED=NO"
+        Write-Host "PHYSICAL_MEASUREMENT_PERFORMED=NO"
+        Write-Host "RESULT_ROOT=$ResultRoot"
+        return
     }
 
     Write-Host "TRIPLE_UPLOAD_SLAVE=START"
