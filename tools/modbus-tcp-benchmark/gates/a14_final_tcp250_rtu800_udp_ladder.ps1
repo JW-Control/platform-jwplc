@@ -329,20 +329,20 @@ try {
         "A14_FINAL_TRIPLE_COEXISTENCE=PASS_TRIPLE_COEXISTENCE_CONFIRMED"
     )
     $characterizedNoPositive = $finalStatusText.Contains(
-        "A14_FINAL_TRIPLE_COEXISTENCE=CHARACTERIZED_NO_POSITIVE_UDP_STRICT"
+        "A14_FINAL_TRIPLE_COEXISTENCE=CHARACTERIZED_NO_POSITIVE_UDP_OPERATIONAL"
     )
     $characterizedBaselineNotStrict = $finalStatusText.Contains(
-        "A14_FINAL_TRIPLE_COEXISTENCE=CHARACTERIZED_BASELINE_NOT_STRICT"
+        "A14_FINAL_TRIPLE_COEXISTENCE=CHARACTERIZED_BASELINE_NOT_OPERATIONAL"
     )
 
     $resultLabel = if ($pass) {
         "PASS"
     }
     elseif ($characterizedBaselineNotStrict) {
-        "CHARACTERIZED_BASELINE_NOT_STRICT"
+        "CHARACTERIZED_BASELINE_NOT_OPERATIONAL"
     }
     elseif ($characterizedNoPositive) {
-        "CHARACTERIZED_NO_POSITIVE_UDP_STRICT"
+        "CHARACTERIZED_NO_POSITIVE_UDP_OPERATIONAL"
     }
     else {
         "FAIL"
@@ -375,10 +375,10 @@ try {
         "PASS_TRIPLE_COEXISTENCE_CONFIRMED"
     }
     elseif ($characterizedBaselineNotStrict) {
-        "CHARACTERIZED_BASELINE_NOT_STRICT"
+        "CHARACTERIZED_BASELINE_NOT_OPERATIONAL"
     }
     else {
-        "CHARACTERIZED_NO_POSITIVE_UDP_STRICT"
+        "CHARACTERIZED_NO_POSITIVE_UDP_OPERATIONAL"
     }
 
     @(
