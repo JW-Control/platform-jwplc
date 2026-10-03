@@ -1,6 +1,6 @@
 param(
     [string]$MasterPort = "COM14",
-    [string]$PythonExe = "C:\\Users\\jeykc\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+    [string]$PythonExe = "C:\Users\jeykc\AppData\Local\Programs\Python\Python311\python.exe",
     [double]$DurationS = 300.0,
     [string]$ResultRoot = ""
 )
@@ -48,7 +48,7 @@ Require-Token $spiH "#define JWPLC_SPI_FIFO_REUSE_DLEN_CACHE 1" "DLEN_REUSE_ON"
 Require-Token $spiH "#define JWPLC_SPI_FIFO_REUSE_COPY_OUT_64 1" "COPY_OUT_64_ON"
 Require-Token $ethH "jwplcReadPacketFastDeferred" "UDP_FAST_API_PRESENT"
 
-$arduinoCli = "C:\\Program Files\\Arduino PLC IDE Tools\\arduino-cli.exe"
+$arduinoCli = "C:\Program Files\Arduino PLC IDE Tools\arduino-cli.exe"
 if (-not (Test-Path -LiteralPath $arduinoCli)) { throw "RAW_UDP_ARDUINO_CLI_NOT_FOUND" }
 $fqbn = "jwplc_local:esp32:jwplcbasic"
 $libraries = Get-G2Path "JWPLC/2.1.0/libraries"
