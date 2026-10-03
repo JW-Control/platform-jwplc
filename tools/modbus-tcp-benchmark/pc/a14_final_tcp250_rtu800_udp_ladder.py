@@ -641,7 +641,7 @@ def main() -> int:
 
     ladder_rows: list[dict[str, object]] = []
     confirmation: dict[str, object] | None = None
-    baseline_not_strict = False
+    baseline_not_operational = False
     selected_udp_mbps = 0.0
 
     try:
@@ -696,7 +696,7 @@ def main() -> int:
             ladder_rows.append(row)
 
             if target == 0.0 and not bool(row["operational_pass"]):
-                baseline_not_strict = True
+                baseline_not_operational = True
                 print(
                     "BASELINE_RESULT=CHARACTERIZED_NOT_OPERATIONAL "
                     f"TCP_PCT={float(row['tcp_target_pct']):.3f} "
@@ -711,7 +711,7 @@ def main() -> int:
 
         write_csv(root / "UDP_LADDER.csv", ladder_rows)
 
-        strict_positive = [
+        operational_positive = [
             row
             for row in ladder_rows
             if float(row["udp_target_mbps"]) > 0.0
@@ -719,8 +719,8 @@ def main() -> int:
         ]
 
         selected_udp_mbps = (
-            max(float(row["udp_target_mbps"]) for row in strict_positive)
-            if strict_positive
+            max(float(row["udp_target_mbps"]) for row in operational_positive)
+            if operational_positive
             else 0.0
         )
 
@@ -729,9 +729,9 @@ def main() -> int:
             "rtu_target_req_s": RTU_TARGET_REQ_S,
             "rtu_scan_target_hz": 100.0,
             "udp_selected_mbps": selected_udp_mbps,
-            "strict_positive_points": [
+            "operational_positive_points": [
                 float(row["udp_target_mbps"])
-                for row in strict_positive
+                for row in operational_positive
             ],
         }
         (root / "SELECTION.json").write_text(
@@ -739,7 +739,7 @@ def main() -> int:
             encoding="utf-8",
         )
 
-        if (not baseline_not_strict) and selected_udp_mbps > 0.0:
+        if (not baseline_not_operational) and selected_udp_mbps > 0.0:
             confirm_root = root / "CONFIRMATION"
             confirm_root.mkdir(parents=True, exist_ok=True)
             confirmation = run_case(
@@ -760,8 +760,8 @@ def main() -> int:
         master.close()
         slave.close()
 
-    if baseline_not_strict:
-        status = "CHARACTERIZED_BASELINE_NOT_STRICT"
+    if baseline_not_operational:
+        status = "CHARACTERIZED_BASELINE_NOT_OPERATIONAL"
     elif selected_udp_mbps <= 0.0:
         status = "CHARACTERIZED_NO_POSITIVE_UDP_STRICT"
     elif confirmation is not None and bool(confirmation["operational_pass"]):
@@ -775,7 +775,7 @@ def main() -> int:
         "rtu_target_req_s": RTU_TARGET_REQ_S,
         "rtu_scan_target_hz": 100.0,
         "udp_ladder_mbps": udp_ladder,
-        "baseline_not_strict": baseline_not_strict,
+        "baseline_not_operational": baseline_not_operational,
         "selected_udp_mbps": selected_udp_mbps,
         "ladder": ladder_rows,
         "confirmation": confirmation,
@@ -791,7 +791,7 @@ def main() -> int:
         "TCP_TARGET_REQ_S=250",
         "RTU_TARGET_REQ_S=800",
         "RTU_SCAN_TARGET_HZ=100",
-        f"BASELINE_NOT_STRICT={baseline_not_strict}",
+        f"BASELINE_NOT_OPERATIONAL={baseline_not_operational}",
         f"UDP_SELECTED_MBPS={selected_udp_mbps:g}",
         "UDP_LADDER_MBPS=" + ",".join(f"{x:g}" for x in udp_ladder),
     ]
@@ -828,7 +828,7 @@ def main() -> int:
     return 0 if status in (
         "PASS_TRIPLE_COEXISTENCE_CONFIRMED",
         "CHARACTERIZED_NO_POSITIVE_UDP_STRICT",
-        "CHARACTERIZED_BASELINE_NOT_STRICT",
+        "CHARACTERIZED_BASELINE_NOT_OPERATIONAL",
     ) else 2
 
 
