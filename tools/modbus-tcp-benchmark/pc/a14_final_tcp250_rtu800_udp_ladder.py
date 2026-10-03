@@ -246,6 +246,110 @@ def udp_sender(
 
 
 
+def run_host_pacing_self_test() -> int:
+    sink = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sink.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sink.bind(("127.0.0.1", UDP_PORT))
+    sink.settimeout(0.05)
+
+    sink_stop = threading.Event()
+
+    def drain_sink() -> None:
+        while not sink_stop.is_set():
+            try:
+                sink.recvfrom(65535)
+            except socket.timeout:
+                continue
+            except OSError:
+                break
+
+    sink_thread = threading.Thread(
+        target=drain_sink,
+        daemon=True,
+    )
+    sink_thread.start()
+
+    overall_pass = True
+
+    try:
+        print("UDP_HOST_PACING_SELF_TEST=BEGIN", flush=True)
+        print(
+            f"UDP_HOST_PACING_MODE={UDP_HOST_PACING_MODE}",
+            flush=True,
+        )
+
+        for target_mbps in (1.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0):
+            start_event = threading.Event()
+            stop_event = threading.Event()
+            out: dict[str, object] = {}
+
+            sender = threading.Thread(
+                target=udp_sender,
+                args=(
+                    "127.0.0.1",
+                    target_mbps,
+                    start_event,
+                    stop_event,
+                    out,
+                ),
+                daemon=True,
+            )
+            sender.start()
+            start_event.set()
+            time.sleep(3.0)
+            stop_event.set()
+            sender.join(timeout=5.0)
+
+            if sender.is_alive():
+                print(
+                    f"HOST_PACING_TARGET={target_mbps:g} "
+                    "RESULT=FAIL_THREAD_STUCK",
+                    flush=True,
+                )
+                overall_pass = False
+                continue
+
+            offered = float(out.get("offered_mbps", 0.0))
+            offered_pct = offered / target_mbps * 100.0
+            max_packets_1ms = int(
+                out.get("max_packets_in_1ms", 0)
+            )
+            send_errors = int(out.get("send_errors", 0))
+            pacing_skips = int(
+                out.get("pacing_deadlines_skipped", 0)
+            )
+
+            case_pass = (
+                offered_pct >= 98.5
+                and max_packets_1ms <= 2
+                and send_errors == 0
+            )
+            overall_pass = overall_pass and case_pass
+
+            print(
+                f"HOST_PACING_TARGET={target_mbps:g} "
+                f"OFFERED={offered:.3f} "
+                f"PCT={offered_pct:.3f} "
+                f"MAX_PKT_1MS={max_packets_1ms} "
+                f"PACING_SKIPS={pacing_skips} "
+                f"SEND_ERRORS={send_errors} "
+                f"RESULT={'PASS' if case_pass else 'FAIL'}",
+                flush=True,
+            )
+
+        print(
+            "UDP_HOST_PACING_SELF_TEST="
+            + ("PASS" if overall_pass else "FAIL"),
+            flush=True,
+        )
+    finally:
+        sink_stop.set()
+        sink.close()
+        sink_thread.join(timeout=1.0)
+
+    return 0 if overall_pass else 3
+
+
 def run_case(
     root: Path,
     master,
@@ -699,11 +803,21 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--master-serial", default="COM14")
     parser.add_argument("--slave-serial", default="COM4")
-    parser.add_argument("--output-root", required=True)
+    parser.add_argument("--output-root", default="")
+    parser.add_argument(
+        "--host-pacing-self-test",
+        action="store_true",
+    )
     parser.add_argument("--ladder-duration", type=float, default=300.0)
     parser.add_argument("--confirm-duration", type=float, default=600.0)
     parser.add_argument("--udp-ladder", default=DEFAULT_UDP_LADDER)
     args = parser.parse_args()
+
+    if args.host_pacing_self_test:
+        return run_host_pacing_self_test()
+
+    if not args.output_root:
+        raise ValueError("--output-root es requerido para la campaña")
 
     if args.ladder_duration < 300.0:
         raise ValueError("ladder-duration debe ser >=300 s")
