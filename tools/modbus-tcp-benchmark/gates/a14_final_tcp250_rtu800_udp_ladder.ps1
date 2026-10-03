@@ -95,7 +95,7 @@ Require-Token $masterIno "UDP_FAST_SEQUENCE_RANGE_MISSING" "TRIPLE_UDP_SEQUENCE_
 Require-Token $runner 'DEFAULT_UDP_LADDER = "0,1,2,4,6,8,10,12"' "TRIPLE_UDP_LADDER"
 Require-Token $runner "TCP_TARGET_REQ_S = 250.0" "TRIPLE_TCP250"
 Require-Token $runner "RTU_TARGET_REQ_S = 800" "TRIPLE_RTU800"
-Require-Token $runner 'UDP_HOST_PACING_MODE = "ONE_PACKET_DEADLINE_NO_CATCHUP"' "UDP_HOST_PACING_NO_BURST"
+Require-Token $runner 'UDP_HOST_PACING_MODE = "DEDICATED_PROCESS_ACTUAL_SEND_INTERVAL"' "UDP_HOST_PACING_DEDICATED"
 
 $arduinoCli = "C:\Program Files\Arduino PLC IDE Tools\arduino-cli.exe"
 if (-not (Test-Path -LiteralPath $arduinoCli)) {
