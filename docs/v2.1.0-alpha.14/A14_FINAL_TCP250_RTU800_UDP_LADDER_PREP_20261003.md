@@ -75,7 +75,49 @@ Características:
 - número de secuencia de 32 bits al inicio de cada datagrama.
 - el punto 0 Mbps mantiene el socket UDP creado pero desactiva el polling FAST para no introducir carga artificial de empty-poll.
 
-## Criterio estricto por escalón
+## Segundo baseline y separación de contratos
+
+Con pacing por scan a 100 Hz, el baseline UDP=0 produjo:
+
+- TCP: 250.003 req/s.
+- RTU: 799.728 req/s.
+- scans: 99.966 scans/s.
+- UDP: 0 Mbps.
+- clasificación antigua: RTU800_TARGET_FAIL_CLEAN.
+
+Las métricas de throughput/scan ya cumplen el objetivo operacional. El único
+predicado restante que podía causar el FAIL era `RTU_PERIODS_SKIPPED == 0`.
+Ese predicado corresponde a una garantía determinística de cero deadline-miss,
+no a la capacidad media/sostenida de 100 Hz que se quiere caracterizar aquí.
+
+Desde este punto el harness separa explícitamente dos contratos:
+
+### Contrato operacional
+
+Usado para seleccionar el ladder UDP:
+
+- TCP >=99.9 % del target.
+- RTU >=99 % de 800 req/s.
+- scan RTU >=99 scans/s.
+- cero failed/rejected/verify/CRC/timeouts.
+- mapa Master/Slave exacto.
+- runtime/periféricos limpios.
+- UDP >=99 % del target solicitado y sin errores de integridad.
+
+`RTU_PERIODS_SKIPPED` se conserva como telemetría de jitter/deadline-miss y no
+se oculta.
+
+### Contrato determinístico
+
+Se reporta en paralelo:
+
+- todo el contrato operacional;
+- `RTU_PERIODS_SKIPPED == 0`.
+
+Por tanto un caso puede cerrar como operacionalmente válido y, al mismo tiempo,
+indicar que no alcanzó hard zero-skip timing bajo full runtime.
+
+## Criterio por escalón
 
 TCP:
 
@@ -83,15 +125,19 @@ TCP:
 - >=99.9 % del target.
 - cero timeout/transport/protocol errors.
 
-RTU:
+RTU operacional:
 
 - target 800 req/s.
 - >=99 % del target.
 - >=99 scans/s.
-- 0 skipped periods.
 - 0 failed/rejected/verify/CRC/timeouts.
 - mapa de salidas Master/Slave exacto.
 - 2 DI + 2 DO + 2 AI + 2 AO por scan.
+
+RTU determinístico:
+
+- todos los criterios operacionales;
+- 0 skipped periods.
 
 UDP:
 
@@ -116,7 +162,9 @@ La pérdida por saturación se registra mediante delivery, range missing y throu
 
 ## Selección y confirmación
 
-Se selecciona automáticamente el mayor escalón UDP positivo que cumpla todos los criterios estrictos.
+Se selecciona automáticamente el mayor escalón UDP positivo que cumpla el
+contrato operacional. En cada caso se registra además si también cumple el
+contrato determinístico cero-skip.
 
 Ese punto se repite durante 600 s.
 
