@@ -240,6 +240,7 @@ static constexpr uint16_t RTU_VERIFY_MAGIC = 0x55AA;
 static bool rtuReady = false;
 static bool rtuTrafficEnabled = false;
 static bool rtuUnpaced = false;
+static bool rtuScanPaced100Hz = false;
 static uint8_t rtuRxFifoFull = 120U;
 static uint32_t rtuTargetHz = 50UL;
 static uint32_t rtuPeriodUs = RTU_PERIOD_DEFAULT_US;
@@ -319,6 +320,9 @@ static uint32_t rtuMixFailed[RTU_MIX_TYPE_COUNT] = {};
 static uint32_t rtuTrafficStartMs = 0;
 static uint32_t rtuTrafficDurationMs = 0;
 static uint32_t rtuNextRequestUs = 0;
+static uint32_t rtuNextScanUs = 0;
+static constexpr uint32_t RTU_SCAN_TARGET_HZ = 100UL;
+static constexpr uint32_t RTU_SCAN_PERIOD_US = 10000UL;
 
 static uint32_t rtuRequestsStarted = 0;
 static uint32_t rtuRequestsRejected = 0;
@@ -1146,6 +1150,7 @@ static void startRtuTraffic()
     rtuTrafficStartMs = millis();
     rtuTrafficDurationMs = 0;
     rtuNextRequestUs = micros();
+    rtuNextScanUs = micros();
     rtuMixSlotIndex = 0U;
     rtuMixStopRequested = false;
     rtuMixTransactionPending = false;
@@ -1159,14 +1164,25 @@ static void setRtuTargetHz(uint32_t hz)
     }
 
     rtuUnpaced = false;
+    rtuScanPaced100Hz = false;
     rtuTargetHz = hz;
     rtuPeriodUs = 1000000UL / hz;
     rtuNextRequestUs = micros();
 }
 
+static void setRtuScanPaced100Hz()
+{
+    rtuUnpaced = false;
+    rtuScanPaced100Hz = true;
+    rtuTargetHz = 800UL;
+    rtuPeriodUs = 0UL;
+    rtuNextScanUs = micros();
+}
+
 static void setRtuUnpaced()
 {
     rtuUnpaced = true;
+    rtuScanPaced100Hz = false;
     rtuTargetHz = 0;
     rtuPeriodUs = 0;
     rtuNextRequestUs = micros();
@@ -1476,7 +1492,30 @@ static void serviceRtuMaster()
     if (JWPLC_ModbusRTU.masterBusy() || rtuMixTransactionPending)
         return;
 
-    if (!rtuUnpaced)
+    if (rtuScanPaced100Hz)
+    {
+        // El requisito industrial es un scan completo de 8 expansiones
+        // cada 10 ms, no una transacción perfectamente espaciada cada
+        // 1.25 ms. Los slots 1..7 se ejecutan back-to-back y sólo el
+        // inicio de cada scan se alinea a 100 Hz.
+        if (rtuMixSlotIndex == 0U)
+        {
+            if ((int32_t)(nowUs - rtuNextScanUs) < 0)
+                return;
+
+            uint32_t scansAdvanced = 0U;
+            do
+            {
+                rtuNextScanUs += RTU_SCAN_PERIOD_US;
+                ++scansAdvanced;
+            }
+            while ((int32_t)(nowUs - rtuNextScanUs) >= 0);
+
+            if (scansAdvanced > 1U)
+                rtuPeriodsSkipped += scansAdvanced - 1U;
+        }
+    }
+    else if (!rtuUnpaced)
     {
         if ((int32_t)(nowUs - rtuNextRequestUs) < 0)
             return;
@@ -2061,13 +2100,24 @@ static void printSnapshot()
             JWPLC_RS485.queuedWriteSupported()));
 
     Serial.print("RTU_RATE_MODE=");
-    Serial.println(rtuUnpaced ? "UNPACED" : "PACED");
+    if (rtuUnpaced)
+        Serial.println("UNPACED");
+    else if (rtuScanPaced100Hz)
+        Serial.println("SCAN_PACED");
+    else
+        Serial.println("PACED");
 
     Serial.print("RTU_TARGET_HZ=");
     Serial.println(rtuTargetHz);
 
     Serial.print("RTU_PERIOD_US=");
     Serial.println(rtuPeriodUs);
+
+    Serial.print("RTU_SCAN_TARGET_HZ=");
+    Serial.println(rtuScanPaced100Hz ? RTU_SCAN_TARGET_HZ : 0UL);
+
+    Serial.print("RTU_SCAN_PERIOD_US=");
+    Serial.println(rtuScanPaced100Hz ? RTU_SCAN_PERIOD_US : 0UL);
 
     Serial.print("RTU_TRAFFIC_ENABLED=");
     Serial.println(yesNo(rtuTrafficEnabled));
@@ -2819,8 +2869,8 @@ static void serviceSerialCommands()
         }
         else if (c == '&')
         {
-            setRtuTargetHz(800);
-            Serial.println("RTU_RATE_HZ=800");
+            setRtuScanPaced100Hz();
+            Serial.println("RTU_SCAN_RATE_HZ=100");
         }
         else if (c == '~')
         {
