@@ -158,12 +158,20 @@ def udp_sender(
                     now = time.perf_counter()
 
                 # Do not catch up by emitting a burst after host scheduling
-                # jitter. Skip expired packet slots and preserve one packet
-                # per future deadline instead.
-                if now - deadline >= interval_s:
-                    missed = int((now - deadline) // interval_s)
+                # jitter. If a deadline is more than half an interval late,
+                # discard that host slot and wait for the next future slot.
+                # This preserves packet spacing instead of converting scheduler
+                # jitter into a burst that can overflow the 2 KB W5500 RX ring.
+                lateness_s = now - deadline
+                if lateness_s > (interval_s * 0.5):
+                    missed = int(lateness_s // interval_s) + 1
                     pacing_deadlines_skipped += missed
                     deadline += missed * interval_s
+
+                    now = time.perf_counter()
+                    if now < deadline:
+                        time.sleep(deadline - now)
+                        now = time.perf_counter()
 
                 lateness_us = max(0.0, (now - deadline) * 1_000_000.0)
                 if lateness_us > max_late_us:
