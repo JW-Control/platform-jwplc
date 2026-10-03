@@ -179,6 +179,9 @@ try {
         $masterSketch
     ) (Join-Path $ResultRoot "compile_master.log")
     if ($masterCompile -ne 0) {
+        Write-Host "=== TRIPLE MASTER COMPILE LOG TAIL ==="
+        Get-Content -LiteralPath (Join-Path $ResultRoot "compile_master.log") -Tail 220 |
+            ForEach-Object { Write-Host $_ }
         throw "TRIPLE_MASTER_COMPILE_FAILED"
     }
 
@@ -191,6 +194,9 @@ try {
         $slaveSketch
     ) (Join-Path $ResultRoot "compile_slave.log")
     if ($slaveCompile -ne 0) {
+        Write-Host "=== TRIPLE SLAVE COMPILE LOG TAIL ==="
+        Get-Content -LiteralPath (Join-Path $ResultRoot "compile_slave.log") -Tail 220 |
+            ForEach-Object { Write-Host $_ }
         throw "TRIPLE_SLAVE_COMPILE_FAILED"
     }
 
