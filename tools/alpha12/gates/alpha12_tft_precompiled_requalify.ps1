@@ -88,38 +88,18 @@ function Resolve-ToolSibling {
     foreach ($line in $Lines) {
         if ($line -match '"(?<exe>[^"]*xtensa-esp32-elf-g\+\+(?:\.exe)?)"') {
             $toolDir = Split-Path -Parent $Matches["exe"]
-            foreach ($name in @($Leaf + ".exe", $Leaf)) {
-                $candidate = Join-Path $toolDir $name
-                if (Test-Path -LiteralPath $candidate) {
-                    return (Resolve-Path -LiteralPath $candidate).Path
+            $candidateExe = Join-Path $toolDir ($Leaf + ".exe")
+            $candidateBare = Join-Path $toolDir $Leaf
+
+            foreach ($candidatePath in @($candidateExe, $candidateBare)) {
+                if (Test-Path -LiteralPath $candidatePath) {
+                    return (Resolve-Path -LiteralPath $candidatePath).Path
                 }
             }
         }
     }
 
     throw ("A12_TFT_REQUAL_TOOL_NOT_FOUND=" + $Leaf)
-}
-
-function Resolve-ToolBesidePath {
-    param(
-        [string]$KnownToolPath,
-        [string]$Leaf
-    )
-
-    if ([string]::IsNullOrWhiteSpace($KnownToolPath)) {
-        throw ("A12_TFT_REQUAL_KNOWN_TOOL_PATH_EMPTY=" + $Leaf)
-    }
-
-    $toolDir = Split-Path -Parent $KnownToolPath
-
-    foreach ($name in @($Leaf + ".exe", $Leaf)) {
-        $candidate = Join-Path $toolDir $name
-        if (Test-Path -LiteralPath $candidate) {
-            return (Resolve-Path -LiteralPath $candidate).Path
-        }
-    }
-
-    throw ("A12_TFT_REQUAL_SIBLING_TOOL_NOT_FOUND=" + $Leaf + " base=" + $toolDir)
 }
 
 function Resolve-Archiver {
@@ -545,7 +525,7 @@ depends=SPI
 ) | Set-Content -LiteralPath (Join-Path $ResultRoot "MANIFEST.txt") -Encoding UTF8
 
 Write-Host "=============================================================================="
-Write-Host " ALPHA12 - JWPLC_TFT PRECOMPILED REQUALIFICATION R3"
+Write-Host " ALPHA12 - JWPLC_TFT PRECOMPILED REQUALIFICATION R4"
 Write-Host "=============================================================================="
 Write-Host ("BRANCH=" + $branch)
 Write-Host ("HEAD=" + $head)
@@ -613,8 +593,28 @@ Write-Host ("SOURCE_TFT_ESPI_FOLDER=" + $tftEspiSelection.Folder)
 Write-Host "SOURCE_FIRST_CURRENT_SOURCE=PASS"
 
 $archiver = Resolve-Archiver -Lines $sourceRun.Output
-$nm = Resolve-ToolBesidePath -KnownToolPath $archiver -Leaf "xtensa-esp32-elf-nm"
 Write-Host ("ARCHIVER=" + $archiver)
+
+$toolDir = Split-Path -Parent $archiver
+$nmCandidateExe = Join-Path $toolDir "xtensa-esp32-elf-nm.exe"
+$nmCandidateBare = Join-Path $toolDir "xtensa-esp32-elf-nm"
+
+Write-Host ("NM_TOOL_DIR=" + $toolDir)
+Write-Host ("NM_CANDIDATE_EXE=" + $nmCandidateExe)
+Write-Host ("NM_CANDIDATE_EXE_EXISTS=" + [string](Test-Path -LiteralPath $nmCandidateExe))
+Write-Host ("NM_CANDIDATE_BARE=" + $nmCandidateBare)
+Write-Host ("NM_CANDIDATE_BARE_EXISTS=" + [string](Test-Path -LiteralPath $nmCandidateBare))
+
+if (Test-Path -LiteralPath $nmCandidateExe) {
+    $nm = (Resolve-Path -LiteralPath $nmCandidateExe).Path
+}
+elseif (Test-Path -LiteralPath $nmCandidateBare) {
+    $nm = (Resolve-Path -LiteralPath $nmCandidateBare).Path
+}
+else {
+    throw ("A12_TFT_REQUAL_NM_NOT_FOUND_IN_TOOL_DIR=" + $toolDir)
+}
+
 Write-Host ("NM=" + $nm)
 
 Write-Host ""
