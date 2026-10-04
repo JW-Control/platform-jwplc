@@ -393,3 +393,69 @@ P1_CORE=PASS_ADOPTED
 P2_MODBUS_RTU=READY_TO_RUN
 PHYSICAL_GATE_REQUIRED_FOR_P2=NO
 ```
+
+
+## P2 precompilado — Modbus RTU cerrado
+
+Commit de adopción:
+
+```text
+b1cd40901de77e00bb486fc19288ebb6ad35f7ff
+```
+
+Artifact:
+
+```text
+JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/src/esp32/libJWPLC_ModbusRTU.a
+BYTES=292390
+SHA256=424ed3f462bb57cce0019d690486e612d5f243c40ae62d44d3ad973b0a521085
+```
+
+Gate previo:
+
+```text
+SOURCE_OBJECT_COUNT=1
+SOURCE_PRECOMPILED_MARKER=NO
+ARCHIVE_MEMBER_COUNT=1
+ARCHIVE_MEMBER=JWPLC_ModbusRTU.cpp.o
+ARCHIVE_MEMBER_BYTE_PARITY=PASS
+CANDIDATE_SLAVE_LINK=PASS
+CANDIDATE_MASTER_LINK=PASS
+FINAL_TRACKED_DIRTY_SCOPE=libJWPLC_ModbusRTU.a_ONLY
+```
+
+P2 queda adoptado en remoto/local.
+
+## P3 precompilado — SPI preparado
+
+Gate:
+
+```text
+tools/alpha12/gates/alpha12_spi_precompiled_refresh.ps1
+```
+
+Contrato:
+
+- exige branch Alpha12 y tracked/index clean;
+- confirma `JWPLC_SPI_FIFO_REUSE_DLEN_CACHE=1`;
+- confirma `JWPLC_SPI_FIFO_REUSE_COPY_OUT_64=1`;
+- compila SPI source-only mediante sketch temporal aislado;
+- exige exactamente un `SPI.cpp.o`;
+- crea `libSPI.a` de un único miembro;
+- extrae el miembro y exige SHA-256 byte-parity con el objeto fuente;
+- compila el mismo sketch contra candidato `precompiled=full`;
+- exige cero `SPI.cpp.o` recompilados desde source en modo candidato;
+- sólo al PASS copia el candidate al worktree oficial;
+- rollback automático ante cualquier fallo;
+- no realiza upload físico.
+
+Estado:
+
+```text
+P1_CORE=PASS_ADOPTED
+P2_MODBUS_RTU=PASS_ADOPTED
+P3_SPI=READY_TO_RUN
+P4_JW_SD=PENDING
+P5_DISPLAY=PENDING
+P6_TFT_REQUALIFICATION=PENDING
+```
