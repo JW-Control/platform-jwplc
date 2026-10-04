@@ -96,16 +96,79 @@ ALPHA12_PACKAGE_CLOSURE=IN_PROGRESS
 - [x] determinar qué libraries/core requieren regeneración.
 - [x] P1: regenerar y verificar `core.a` actual.
 - [x] P2: regenerar y verificar `libJWPLC_ModbusRTU.a` actual.
-- [ ] P3: regenerar y verificar `libSPI.a` actual.
-- [ ] regenerar archives.
-- [ ] registrar SHA-256.
-- [ ] registrar tamaños.
+- [x] P3: regenerar y verificar `libSPI.a` actual.
+- [x] P4: regenerar y verificar `libJW_SD.a` actual.
+- [x] P5: regenerar y verificar `libJWPLC_Display.a` actual.
+- [ ] P6: requalificar `libJWPLC_TFT.a` y demostrar selección autocontenida del backend TFT.
+- [ ] cerrar P6 y congelar el conjunto final de archives.
+- [ ] registrar tabla consolidada SHA-256 de todos los archives finales.
+- [ ] registrar tabla consolidada de tamaños de todos los archives finales.
 - [ ] restaurar `precompiled=full` sólo donde corresponda.
 - [ ] verificar source/archive parity.
 - [ ] comprobar que build final enlaza los nuevos archives.
 - [ ] evitar archive stale tras cualquier cambio posterior.
 
-## 8. Gates finales
+## 8. Benchmark final de tiempos de compilación
+
+Ubicación obligatoria en la secuencia:
+
+```text
+P6_TFT_REQUALIFICATION
+-> PRECOMPILED_FREEZE
+-> FINAL_BUILD_SPEED_BENCHMARK
+-> FINAL_CLI_IDE_UPLOAD_GATES
+-> RELEASE
+```
+
+No ejecutar el benchmark oficial antes de P6: cualquier cambio posterior en un
+archive invalidaría la tabla de tiempos.
+
+Metodología a reutilizar:
+
+```text
+tools/build-speed-benchmark/Run-JWPLCBuildBenchmark.ps1
+```
+
+Matriz mínima Alpha12:
+
+- [ ] HEAD funcional/precompilados congelados antes de medir.
+- [ ] working tree tracked limpio.
+- [ ] sketch `01_empty` con autoload normal completo.
+- [ ] target `JWPLC Basic`.
+- [ ] target `JWPLC Basic Core` como control source.
+- [ ] `Jobs=0`.
+- [ ] `managed_cold`.
+- [ ] `managed_warm_nochange`.
+- [ ] `managed_warm_touch`.
+- [ ] `explicit_cold`.
+- [ ] `explicit_warm_nochange`.
+- [ ] `explicit_warm_touch`.
+- [ ] registrar `CompilerInvocations`/TUs.
+- [ ] registrar tamaño de binarios.
+- [ ] registrar Arduino CLI, CPU/RAM, host y commit exacto.
+- [ ] generar tabla final Alpha12.
+- [ ] comparar contra referencias históricas Alpha4/Alpha5 sólo cuando host/metodología sean comparables.
+- [ ] documentar por separado cualquier resultado de upload; no mezclar tiempo de compilación con tiempo de carga.
+- [ ] confirmar que la mejora no proviene de retirar periféricos del autoload.
+
+Referencias históricas de metodología:
+
+```text
+tools/build-speed-benchmark/README.md
+tools/build-speed-benchmark/BASELINE_ALPHA3_INSTALLED_20260809.md
+docs/v2.1.0-alpha.5/BUILD_SPEED_COMPARISON_ALPHA4_ALPHA5_FINAL_20260824.md
+```
+
+Resultado requerido antes de avanzar a gates finales:
+
+```text
+ALPHA12_FINAL_BUILD_SPEED_BENCHMARK=PASS
+ALPHA12_BUILD_SPEED_TABLE=RECORDED
+```
+
+---
+
+## 9. Gates finales
 
 - [x] ceilings TCP/UDP/RTU.
 - [x] coexistencia final >=600 s.
@@ -118,7 +181,7 @@ ALPHA12_PACKAGE_CLOSURE=IN_PROGRESS
 - [ ] regresión Modbus RTU mínima.
 - [ ] working tree / diff / conflict markers clean.
 
-## 9. Release
+## 10. Release
 
 - [ ] conclusión técnica Alpha12.
 - [ ] PRE_RELEASE.md en español.
@@ -137,7 +200,7 @@ ALPHA12_PACKAGE_CLOSURE=IN_PROGRESS
 - [ ] registrar topología release/main.
 - [ ] cierre documental final.
 
-## 10. Regla de cierre
+## 11. Regla de cierre
 
 No avanzar formalmente a Alpha13 hasta:
 
