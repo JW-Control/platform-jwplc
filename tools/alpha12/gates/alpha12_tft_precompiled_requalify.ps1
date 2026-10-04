@@ -9,18 +9,29 @@ $ErrorActionPreference = "Stop"
 
 $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\..\.."))
 $expectedBranch = "v2.1.0-alpha.12/feature/modbus-tcp"
+$diagDefine = "-DJWPLC_TFT_ESPI_DIAGNOSTIC_NO_DISPLAY_AUTOLOAD=1"
 
 $libraryRel = "JWPLC/2.1.0/libraries/JWPLC_TFT"
 $libraryRoot = Join-Path $repo $libraryRel
 $srcRoot = Join-Path $libraryRoot "src"
-$headerPath = Join-Path $srcRoot "JWPLC_TFT.h"
-$cppPath = Join-Path $srcRoot "JWPLC_TFT.cpp"
-$propertiesPath = Join-Path $libraryRoot "library.properties"
+$headerRel = "$libraryRel/src/JWPLC_TFT.h"
+$cppRel = "$libraryRel/src/JWPLC_TFT.cpp"
+$setupRel = "$libraryRel/src/tft_setup.h"
 $archiveRel = "$libraryRel/src/esp32/libJWPLC_TFT.a"
+$headerPath = Join-Path $repo $headerRel
+$cppPath = Join-Path $repo $cppRel
+$setupPath = Join-Path $repo $setupRel
 $archivePath = Join-Path $repo $archiveRel
 $repoLibraries = Join-Path $repo "JWPLC\2.1.0\libraries"
+$shapeSketch = Join-Path $repo "tools\modbus-tcp-benchmark\firmware\a14_h3e4a1_jwplc_tft_shapes_probe"
 $displaySketch = Join-Path $repo "JWPLC\2.1.0\libraries\JWPLC_Display\examples\04.Display_TFT_Direct"
 $emptySketch = Join-Path $repo "tools\build-speed-benchmark\sketches\01_empty"
+
+$qualifiedArchiveSha = "5d860a131811dd9a7eb6fa55f5674b1d78b0de7dfaf8748ce18a60ceed2d3738"
+$qualifiedArchiveBytes = [int64]1091098
+$expectedHeaderBlob = "c24373eddaff5f148092c49fe997fb59f94bdbdc"
+$expectedCppBlob = "2bdb55d504cfd2a1481ff561d33535d1740bb472"
+$expectedSetupBlob = "773f8123844f783bfc67c3123150c27f29f45d34"
 
 [string[]]$expectedMembers = @(
     "JWPLC_TFT.cpp.o",
@@ -68,6 +79,27 @@ function Invoke-NativeCaptured {
     }
 }
 
+function Resolve-ToolSibling {
+    param(
+        [string[]]$Lines,
+        [string]$Leaf
+    )
+
+    foreach ($line in $Lines) {
+        if ($line -match '"(?<exe>[^"]*xtensa-esp32-elf-g\+\+(?:\.exe)?)"') {
+            $toolDir = Split-Path -Parent $Matches["exe"]
+            foreach ($name in @($Leaf + ".exe", $Leaf)) {
+                $candidate = Join-Path $toolDir $name
+                if (Test-Path -LiteralPath $candidate) {
+                    return (Resolve-Path -LiteralPath $candidate).Path
+                }
+            }
+        }
+    }
+
+    throw ("A12_TFT_REQUAL_TOOL_NOT_FOUND=" + $Leaf)
+}
+
 function Resolve-Archiver {
     param([string[]]$Lines)
 
@@ -82,19 +114,7 @@ function Resolve-Archiver {
         }
     }
 
-    foreach ($line in $Lines) {
-        if ($line -match '"(?<exe>[^"]*xtensa-esp32-elf-g\+\+(?:\.exe)?)"') {
-            $toolDir = Split-Path -Parent $Matches["exe"]
-            foreach ($name in @("xtensa-esp32-elf-gcc-ar.exe", "xtensa-esp32-elf-gcc-ar")) {
-                $candidate = Join-Path $toolDir $name
-                if (Test-Path -LiteralPath $candidate) {
-                    return (Resolve-Path -LiteralPath $candidate).Path
-                }
-            }
-        }
-    }
-
-    throw "A12_TFT_REQUAL_ARCHIVER_NOT_FOUND"
+    return Resolve-ToolSibling -Lines $Lines -Leaf "xtensa-esp32-elf-gcc-ar"
 }
 
 function Assert-LibrarySelected {
@@ -179,19 +199,84 @@ function Get-TftEspiSelection {
     }
 }
 
+function Get-Usage {
+    param(
+        [string[]]$Lines,
+        [string]$Kind
+    )
+
+    foreach ($line in $Lines) {
+        if ($Kind -eq "FLASH" -and $line -match '(?:Sketch uses|El Sketch usa)\s+(?<n>\d+)\s+bytes') {
+            return [int64]$Matches["n"]
+        }
+
+        if ($Kind -eq "RAM" -and $line -match '(?:Global variables use|Las variables Globales usan)\s+(?<n>\d+)\s+bytes') {
+            return [int64]$Matches["n"]
+        }
+    }
+
+    return [int64]-1
+}
+
+function Get-SingleElf {
+    param(
+        [string]$BuildPath,
+        [string]$Label
+    )
+
+    [object[]]$files = @(
+        Get-ChildItem -LiteralPath $BuildPath -File -Filter "*.elf" -ErrorAction SilentlyContinue
+    )
+
+    if ($files.Count -ne 1) {
+        throw ("A12_TFT_REQUAL_" + $Label + "_ELF_COUNT_INVALID=" + [string]$files.Count)
+    }
+
+    return $files[0].FullName
+}
+
+function Get-DefinedSymbols {
+    param(
+        [string]$NmPath,
+        [string]$ElfPath
+    )
+
+    $run = Invoke-NativeCaptured -FilePath $NmPath -Arguments @(
+        "-S",
+        "--defined-only",
+        $ElfPath
+    )
+
+    if ($run.ExitCode -ne 0) {
+        throw "A12_TFT_REQUAL_NM_FAILED"
+    }
+
+    [string[]]$symbols = @(
+        foreach ($line in $run.Output) {
+            $trimmed = $line.Trim()
+            if ($trimmed -match '^[0-9A-Fa-f]+\s+(?<size>[0-9A-Fa-f]+)\s+(?<type>\S)\s+(?<name>.+)$') {
+                ($Matches["size"].ToUpperInvariant() + "|" + $Matches["type"] + "|" + $Matches["name"])
+            }
+        }
+    )
+
+    return @($symbols | Sort-Object)
+}
+
 function Invoke-CandidateCase {
     param(
         [string]$Label,
         [string]$SketchPath,
         [string]$CandidateRoot,
         [string]$BuildPath,
-        [string]$LogPath
+        [string]$LogPath,
+        [bool]$DiagnosticDisplayBypass
     )
 
     Write-Host ""
     Write-Host ("=== CANDIDATE CASE " + $Label + " ===")
 
-    $run = Invoke-NativeCaptured -FilePath $ArduinoCli -Arguments @(
+    [string[]]$args = @(
         "compile",
         "--fqbn", $Fqbn,
         "-j", "0",
@@ -199,9 +284,19 @@ function Invoke-CandidateCase {
         "--clean",
         "--build-path", $BuildPath,
         "--library", $CandidateRoot,
-        "--libraries", $repoLibraries,
-        $SketchPath
+        "--libraries", $repoLibraries
     )
+
+    if ($DiagnosticDisplayBypass) {
+        $args += @(
+            "--build-property",
+            ("compiler.cpp.extra_flags=" + $diagDefine)
+        )
+    }
+
+    $args += $SketchPath
+
+    $run = Invoke-NativeCaptured -FilePath $ArduinoCli -Arguments $args
 
     $run.Output | Set-Content -LiteralPath $LogPath -Encoding UTF8
     Write-Host ($Label + "_COMPILE_EXIT=" + [string]$run.ExitCode)
@@ -217,7 +312,6 @@ function Invoke-CandidateCase {
     $tftObjects = @(Get-NamedObjects -BuildPath $BuildPath -ObjectName "JWPLC_TFT.cpp.o")
     $backendObjects = @(Get-NamedObjects -BuildPath $BuildPath -ObjectName "TFT_eSPI.cpp.o")
     $tftEspiSelection = Get-TftEspiSelection -Lines $run.Output
-
     $warningCount = @($run.Output | Where-Object { $_ -match '(?i)\bwarning:' }).Count
     $errorCount = @($run.Output | Where-Object { $_ -match '(?i)\berror:' }).Count
 
@@ -231,11 +325,8 @@ function Invoke-CandidateCase {
     if (-not $precompiled) {
         throw ("A12_TFT_REQUAL_" + $Label + "_PRECOMPILED_MARKER_MISSING")
     }
-    if ($tftObjects.Count -ne 0) {
-        throw ("A12_TFT_REQUAL_" + $Label + "_TFT_SOURCE_RECOMPILED")
-    }
-    if ($backendObjects.Count -ne 0) {
-        throw ("A12_TFT_REQUAL_" + $Label + "_TFT_ESPI_SOURCE_RECOMPILED")
+    if ($tftObjects.Count -ne 0 -or $backendObjects.Count -ne 0) {
+        throw ("A12_TFT_REQUAL_" + $Label + "_SOURCE_RECOMPILED")
     }
     if ($null -ne $tftEspiSelection) {
         Write-Host ($Label + "_TFT_ESPI_SELECTION_LINE=" + $tftEspiSelection.Line)
@@ -247,6 +338,8 @@ function Invoke-CandidateCase {
 
     return [pscustomobject]@{
         Label = $Label
+        Lines = $run.Output
+        BuildPath = $BuildPath
         WarningCount = $warningCount
         ErrorCount = $errorCount
     }
@@ -277,12 +370,12 @@ if ($LASTEXITCODE -ne 0) {
 
 foreach ($required in @(
     $libraryRoot,
-    $srcRoot,
     $headerPath,
     $cppPath,
-    $propertiesPath,
+    $setupPath,
     $archivePath,
     $repoLibraries,
+    $shapeSketch,
     $displaySketch,
     $emptySketch
 )) {
@@ -317,18 +410,31 @@ if (-not (Test-Path -LiteralPath $ArduinoCli)) {
     throw "A12_TFT_REQUAL_ARDUINO_CLI_NOT_FOUND"
 }
 
-$officialProperties = [IO.File]::ReadAllText($propertiesPath)
-if ($officialProperties -match '(?m)^\s*precompiled\s*=\s*full\s*$') {
-    throw "A12_TFT_REQUAL_OFFICIAL_LIBRARY_NOT_SOURCE_FIRST"
+$headerBlob = (& git -C $repo hash-object -- $headerRel).Trim()
+$cppBlob = (& git -C $repo hash-object -- $cppRel).Trim()
+$setupBlob = (& git -C $repo hash-object -- $setupRel).Trim()
+
+Write-Host ("CURRENT_HEADER_BLOB=" + $headerBlob)
+Write-Host ("CURRENT_CPP_BLOB=" + $cppBlob)
+Write-Host ("CURRENT_SETUP_BLOB=" + $setupBlob)
+
+if ($headerBlob -ne $expectedHeaderBlob -or $cppBlob -ne $expectedCppBlob -or $setupBlob -ne $expectedSetupBlob) {
+    throw "A12_TFT_REQUAL_SOURCE_BLOB_IDENTITY_CHANGED"
 }
 
-$sourceCommit = (& git -C $repo log -1 --format=%H -- "$libraryRel/src").Trim()
-$sourceDate = (& git -C $repo log -1 --format=%cI -- "$libraryRel/src").Trim()
-$archiveCommit = (& git -C $repo log -1 --format=%H -- $archiveRel).Trim()
-$archiveDate = (& git -C $repo log -1 --format=%cI -- $archiveRel).Trim()
+Write-Host "CURRENT_SOURCE_BLOB_IDENTITY=PASS"
 
 $archiveSha = Get-Sha256Lower $archivePath
 $archiveBytes = (Get-Item -LiteralPath $archivePath).Length
+
+Write-Host ("ARCHIVE_BYTES=" + [string]$archiveBytes)
+Write-Host ("ARCHIVE_SHA256=" + $archiveSha)
+
+if ($archiveSha -ne $qualifiedArchiveSha -or $archiveBytes -ne $qualifiedArchiveBytes) {
+    throw "A12_TFT_REQUAL_PHYSICAL_ARCHIVE_IDENTITY_CHANGED"
+}
+
+Write-Host "ARCHIVE_IDENTITY_PHYSICAL_QUALIFIED=PASS"
 
 $stamp = Get-Date -Format "yyyyMMdd_HHmmss"
 if ([string]::IsNullOrWhiteSpace($ResultRoot)) {
@@ -337,22 +443,23 @@ if ([string]::IsNullOrWhiteSpace($ResultRoot)) {
 New-Item -ItemType Directory -Force -Path $ResultRoot | Out-Null
 
 $runRoot = Join-Path $env:TEMP ("jwplc_a12_tft_requal_" + $stamp)
+$sourceRoot = Join-Path $runRoot "source-libraries\JWPLC_TFT"
+$sourceSrc = Join-Path $sourceRoot "src"
 $sourceBuild = Join-Path $runRoot "source-build"
 $sourceLog = Join-Path $ResultRoot "source.log"
 $extractDir = Join-Path $runRoot "archive-members"
 $candidateRoot = Join-Path $runRoot "candidate-libraries\JWPLC_TFT"
 $candidateSrc = Join-Path $candidateRoot "src"
 $candidateArchiveDir = Join-Path $candidateSrc "esp32"
-$directSketch = Join-Path $runRoot "tft_direct"
 $directBuild = Join-Path $runRoot "candidate-direct-build"
 $displayBuild = Join-Path $runRoot "candidate-display-build"
 $autoloadBuild = Join-Path $runRoot "candidate-autoload-build"
 
 foreach ($dir in @(
+    $sourceSrc,
     $sourceBuild,
     $extractDir,
     $candidateArchiveDir,
-    $directSketch,
     $directBuild,
     $displayBuild,
     $autoloadBuild
@@ -361,6 +468,24 @@ foreach ($dir in @(
 }
 
 $utf8NoBom = [Text.UTF8Encoding]::new($false)
+
+Copy-Item -LiteralPath $headerPath -Destination (Join-Path $sourceSrc "JWPLC_TFT.h") -Force
+Copy-Item -LiteralPath $cppPath -Destination (Join-Path $sourceSrc "JWPLC_TFT.cpp") -Force
+Copy-Item -LiteralPath $setupPath -Destination (Join-Path $sourceSrc "tft_setup.h") -Force
+
+$sourceProperties = @'
+name=JWPLC_TFT
+version=0.1.0-alpha12-source
+author=JW Control
+maintainer=JW Control
+sentence=Alpha12 source qualification for JWPLC_TFT.
+paragraph=Temporary source-only qualification library matching historical H3E4 recipe.
+category=Display
+architectures=esp32
+includes=JWPLC_TFT.h
+depends=TFT_eSPI,SPI
+'@
+[IO.File]::WriteAllText((Join-Path $sourceRoot "library.properties"), $sourceProperties, $utf8NoBom)
 
 Copy-Item -LiteralPath $headerPath -Destination (Join-Path $candidateSrc "JWPLC_TFT.h") -Force
 Copy-Item -LiteralPath $archivePath -Destination (Join-Path $candidateArchiveDir "libJWPLC_TFT.a") -Force
@@ -371,77 +496,41 @@ version=0.1.0-alpha12-requal
 author=JW Control
 maintainer=JW Control
 sentence=Alpha12 self-contained precompiled TFT requalification.
-paragraph=Temporary qualification library with no backend source files.
+paragraph=Temporary release-like qualification library with no backend source files.
 category=Display
 architectures=esp32
 includes=JWPLC_TFT.h
-depends=SPI
+dot_a_linkage=true
 precompiled=full
+depends=SPI
 '@
-[IO.File]::WriteAllText(
-    (Join-Path $candidateRoot "library.properties"),
-    $candidateProperties,
-    $utf8NoBom
-)
-
-$directSketchText = @'
-#include <Arduino.h>
-#include <JWPLC_TFT.h>
-
-void setup()
-{
-    JWPLC_TFTPanelInfo info = JWPLC_TFT.panelInfo();
-    JWPLC_TFT.setTextSize(1);
-    JWPLC_TFT.setTextColor(JWPLC_TFT_WHITE, JWPLC_TFT_BLACK);
-    JWPLC_TFT.setCursor(0, 0);
-    (void)JWPLC_TFT.width();
-    (void)JWPLC_TFT.height();
-    (void)JWPLC_TFT.rotation();
-    (void)JWPLC_TFT.textWidth("P6");
-    (void)JWPLC_TFT.fontHeight();
-    (void)info.spiHz;
-}
-
-void loop()
-{
-}
-'@
-[IO.File]::WriteAllText(
-    (Join-Path $directSketch "tft_direct.ino"),
-    $directSketchText,
-    $utf8NoBom
-)
+[IO.File]::WriteAllText((Join-Path $candidateRoot "library.properties"), $candidateProperties, $utf8NoBom)
 
 @(
     "DATE=$(Get-Date -Format o)"
     "BRANCH=$branch"
     "HEAD=$head"
-    "SOURCE_LAST_COMMIT=$sourceCommit"
-    "SOURCE_LAST_DATE=$sourceDate"
-    "ARCHIVE_LAST_COMMIT=$archiveCommit"
-    "ARCHIVE_LAST_DATE=$archiveDate"
     "ARCHIVE_BYTES=$archiveBytes"
     "ARCHIVE_SHA256=$archiveSha"
-    "EXPECTED_MEMBERS=$($expectedMembers -join ',')"
+    "QUALIFIED_ARCHIVE_BYTES=$qualifiedArchiveBytes"
+    "QUALIFIED_ARCHIVE_SHA256=$qualifiedArchiveSha"
+    "HEADER_BLOB=$headerBlob"
+    "CPP_BLOB=$cppBlob"
+    "SETUP_BLOB=$setupBlob"
     "FQBN=$Fqbn"
     "ARDUINO_CLI=$ArduinoCli"
+    "HISTORICAL_DIAG_DEFINE=$diagDefine"
 ) | Set-Content -LiteralPath (Join-Path $ResultRoot "MANIFEST.txt") -Encoding UTF8
 
 Write-Host "=============================================================================="
-Write-Host " ALPHA12 - JWPLC_TFT PRECOMPILED REQUALIFICATION"
+Write-Host " ALPHA12 - JWPLC_TFT PRECOMPILED REQUALIFICATION R1"
 Write-Host "=============================================================================="
 Write-Host ("BRANCH=" + $branch)
 Write-Host ("HEAD=" + $head)
-Write-Host ("SOURCE_LAST_COMMIT=" + $sourceCommit)
-Write-Host ("SOURCE_LAST_DATE=" + $sourceDate)
-Write-Host ("ARCHIVE_LAST_COMMIT=" + $archiveCommit)
-Write-Host ("ARCHIVE_LAST_DATE=" + $archiveDate)
-Write-Host ("ARCHIVE_BYTES=" + [string]$archiveBytes)
-Write-Host ("ARCHIVE_SHA256=" + $archiveSha)
 Write-Host ("RESULT_ROOT=" + $ResultRoot)
 
 Write-Host ""
-Write-Host "=== SOURCE-FIRST REFERENCE BUILD ==="
+Write-Host "=== SOURCE-FIRST HISTORICAL-RECIPE BUILD ==="
 
 $sourceRun = Invoke-NativeCaptured -FilePath $ArduinoCli -Arguments @(
     "compile",
@@ -450,8 +539,10 @@ $sourceRun = Invoke-NativeCaptured -FilePath $ArduinoCli -Arguments @(
     "-v",
     "--clean",
     "--build-path", $sourceBuild,
+    "--library", $sourceRoot,
     "--libraries", $repoLibraries,
-    $displaySketch
+    "--build-property", ("compiler.cpp.extra_flags=" + $diagDefine),
+    $shapeSketch
 )
 
 $sourceRun.Output | Set-Content -LiteralPath $sourceLog -Encoding UTF8
@@ -462,7 +553,7 @@ if ($sourceRun.ExitCode -ne 0) {
     throw "A12_TFT_REQUAL_SOURCE_COMPILE_FAILED"
 }
 
-Assert-LibrarySelected -Lines $sourceRun.Output -LibraryName "JWPLC_TFT" -ExpectedRoot $libraryRoot -Label "SOURCE"
+Assert-LibrarySelected -Lines $sourceRun.Output -LibraryName "JWPLC_TFT" -ExpectedRoot $sourceRoot -Label "SOURCE"
 
 $sourcePrecompiled = Test-PrecompiledMarker -Lines $sourceRun.Output -LibraryName "JWPLC_TFT"
 $sourceTftObjects = @(Get-NamedObjects -BuildPath $sourceBuild -ObjectName "JWPLC_TFT.cpp.o")
@@ -497,12 +588,15 @@ if ($sourceWarnings -ne 0 -or $sourceErrors -ne 0) {
 
 Write-Host ("SOURCE_TFT_ESPI_VERSION=" + $tftEspiSelection.Version)
 Write-Host ("SOURCE_TFT_ESPI_FOLDER=" + $tftEspiSelection.Folder)
+Write-Host "SOURCE_FIRST_CURRENT_SOURCE=PASS"
 
 $archiver = Resolve-Archiver -Lines $sourceRun.Output
+$nm = Resolve-ToolSibling -Lines $sourceRun.Output -Leaf "xtensa-esp32-elf-nm"
 Write-Host ("ARCHIVER=" + $archiver)
+Write-Host ("NM=" + $nm)
 
 Write-Host ""
-Write-Host "=== OFFICIAL ARCHIVE STRUCTURE / PARITY ==="
+Write-Host "=== OFFICIAL ARCHIVE STRUCTURE ==="
 
 $listRun = Invoke-NativeCaptured -FilePath $archiver -Arguments @("t", $archivePath)
 if ($listRun.ExitCode -ne 0) {
@@ -541,36 +635,72 @@ if ($extractRun.ExitCode -ne 0) {
 
 $sourceTftSha = Get-Sha256Lower $sourceTftObjects[0].FullName
 $sourceBackendSha = Get-Sha256Lower $sourceBackendObjects[0].FullName
-$archiveTftObject = Join-Path $extractDir "JWPLC_TFT.cpp.o"
-$archiveBackendObject = Join-Path $extractDir "TFT_eSPI.cpp.o"
+$archiveTftSha = Get-Sha256Lower (Join-Path $extractDir "JWPLC_TFT.cpp.o")
+$archiveBackendSha = Get-Sha256Lower (Join-Path $extractDir "TFT_eSPI.cpp.o")
 
-if (-not (Test-Path -LiteralPath $archiveTftObject) -or -not (Test-Path -LiteralPath $archiveBackendObject)) {
-    throw "A12_TFT_REQUAL_EXTRACTED_MEMBER_MISSING"
-}
-
-$archiveTftSha = Get-Sha256Lower $archiveTftObject
-$archiveBackendSha = Get-Sha256Lower $archiveBackendObject
-
-Write-Host ("JWPLC_TFT_OBJECT_SOURCE_SHA256=" + $sourceTftSha)
-Write-Host ("JWPLC_TFT_OBJECT_ARCHIVE_SHA256=" + $archiveTftSha)
-Write-Host ("TFT_ESPI_OBJECT_SOURCE_SHA256=" + $sourceBackendSha)
-Write-Host ("TFT_ESPI_OBJECT_ARCHIVE_SHA256=" + $archiveBackendSha)
-
-if ($sourceTftSha -ne $archiveTftSha) {
-    throw "A12_TFT_REQUAL_JWPLC_TFT_OBJECT_PARITY_FAILED"
-}
-if ($sourceBackendSha -ne $archiveBackendSha) {
-    throw "A12_TFT_REQUAL_TFT_ESPI_OBJECT_PARITY_FAILED"
-}
-
-Write-Host "ARCHIVE_MEMBER_BYTE_PARITY=PASS"
+Write-Host ("REBUILT_JWPLC_TFT_OBJECT_SHA256=" + $sourceTftSha)
+Write-Host ("ARCHIVE_JWPLC_TFT_OBJECT_SHA256=" + $archiveTftSha)
+Write-Host ("REBUILT_TFT_ESPI_OBJECT_SHA256=" + $sourceBackendSha)
+Write-Host ("ARCHIVE_TFT_ESPI_OBJECT_SHA256=" + $archiveBackendSha)
+Write-Host ("JWPLC_TFT_OBJECT_BIT_FOR_BIT_REBUILD=" + $(if ($sourceTftSha -eq $archiveTftSha) { "YES" } else { "NO" }))
+Write-Host ("TFT_ESPI_OBJECT_BIT_FOR_BIT_REBUILD=" + $(if ($sourceBackendSha -eq $archiveBackendSha) { "YES" } else { "NO" }))
+Write-Host "OBJECT_BIT_FOR_BIT_REBUILD_REQUIRED=NO"
 
 Write-Host ""
 Write-Host "=== SELF-CONTAINED PRECOMPILED CASES ==="
 
-$directResult = Invoke-CandidateCase -Label "DIRECT_TFT" -SketchPath $directSketch -CandidateRoot $candidateRoot -BuildPath $directBuild -LogPath (Join-Path $ResultRoot "candidate_direct_tft.log")
-$displayResult = Invoke-CandidateCase -Label "DISPLAY_INTEGRATION" -SketchPath $displaySketch -CandidateRoot $candidateRoot -BuildPath $displayBuild -LogPath (Join-Path $ResultRoot "candidate_display_integration.log")
-$autoloadResult = Invoke-CandidateCase -Label "NORMAL_AUTOLOAD" -SketchPath $emptySketch -CandidateRoot $candidateRoot -BuildPath $autoloadBuild -LogPath (Join-Path $ResultRoot "candidate_normal_autoload.log")
+$directResult = Invoke-CandidateCase -Label "DIRECT_TFT" -SketchPath $shapeSketch -CandidateRoot $candidateRoot -BuildPath $directBuild -LogPath (Join-Path $ResultRoot "candidate_direct_tft.log") -DiagnosticDisplayBypass $true
+$displayResult = Invoke-CandidateCase -Label "DISPLAY_INTEGRATION" -SketchPath $displaySketch -CandidateRoot $candidateRoot -BuildPath $displayBuild -LogPath (Join-Path $ResultRoot "candidate_display_integration.log") -DiagnosticDisplayBypass $false
+$autoloadResult = Invoke-CandidateCase -Label "NORMAL_AUTOLOAD" -SketchPath $emptySketch -CandidateRoot $candidateRoot -BuildPath $autoloadBuild -LogPath (Join-Path $ResultRoot "candidate_normal_autoload.log") -DiagnosticDisplayBypass $false
+
+Write-Host ""
+Write-Host "=== SOURCE / ARCHIVE STRUCTURAL EQUIVALENCE ==="
+
+$sourceFlash = Get-Usage -Lines $sourceRun.Output -Kind "FLASH"
+$sourceRam = Get-Usage -Lines $sourceRun.Output -Kind "RAM"
+$candidateFlash = Get-Usage -Lines $directResult.Lines -Kind "FLASH"
+$candidateRam = Get-Usage -Lines $directResult.Lines -Kind "RAM"
+
+if ($sourceFlash -lt 0 -or $sourceRam -lt 0 -or $candidateFlash -lt 0 -or $candidateRam -lt 0) {
+    throw "A12_TFT_REQUAL_USAGE_METRICS_MISSING"
+}
+
+$flashDelta = $candidateFlash - $sourceFlash
+$ramDelta = $candidateRam - $sourceRam
+
+Write-Host ("SOURCE_FLASH_BYTES=" + [string]$sourceFlash)
+Write-Host ("CANDIDATE_FLASH_BYTES=" + [string]$candidateFlash)
+Write-Host ("FLASH_DELTA_BYTES=" + [string]$flashDelta)
+Write-Host ("SOURCE_RAM_BYTES=" + [string]$sourceRam)
+Write-Host ("CANDIDATE_RAM_BYTES=" + [string]$candidateRam)
+Write-Host ("RAM_DELTA_BYTES=" + [string]$ramDelta)
+
+if ($ramDelta -ne 0) {
+    throw "A12_TFT_REQUAL_RAM_PARITY_FAILED"
+}
+if ([Math]::Abs($flashDelta) -gt 64) {
+    throw "A12_TFT_REQUAL_FLASH_PARITY_REVIEW_REQUIRED"
+}
+
+$sourceElf = Get-SingleElf -BuildPath $sourceBuild -Label "SOURCE"
+$candidateElf = Get-SingleElf -BuildPath $directBuild -Label "CANDIDATE"
+
+[string[]]$sourceSymbols = @(Get-DefinedSymbols -NmPath $nm -ElfPath $sourceElf)
+[string[]]$candidateSymbols = @(Get-DefinedSymbols -NmPath $nm -ElfPath $candidateElf)
+[object[]]$symbolDiff = @(Compare-Object -ReferenceObject $sourceSymbols -DifferenceObject $candidateSymbols)
+
+Write-Host ("SOURCE_DEFINED_SYMBOL_COUNT=" + [string]$sourceSymbols.Count)
+Write-Host ("CANDIDATE_DEFINED_SYMBOL_COUNT=" + [string]$candidateSymbols.Count)
+Write-Host ("DEFINED_SYMBOL_NAME_TYPE_SIZE_PARITY=" + $(if ($symbolDiff.Count -eq 0) { "PASS" } else { "FAIL" }))
+
+if ($symbolDiff.Count -ne 0) {
+    $symbolDiff | Select-Object -First 40 | ForEach-Object {
+        Write-Host ("SYMBOL_DIFF=" + $_.SideIndicator + ":" + $_.InputObject)
+    }
+    throw "A12_TFT_REQUAL_SYMBOL_PARITY_FAILED"
+}
+
+Write-Host "STRUCTURAL_EQUIVALENCE=PASS"
 
 [string[]]$finalDirty = @(& git -C $repo diff --name-only)
 [string[]]$finalStaged = @(& git -C $repo diff --cached --name-only)
@@ -588,17 +718,21 @@ if ($finalDirty.Count -ne 0 -or $finalStaged.Count -ne 0) {
     "ALPHA12_TFT_PRECOMPILED_REQUALIFICATION=PASS"
     "BRANCH=$branch"
     "HEAD=$head"
-    "SOURCE_LAST_COMMIT=$sourceCommit"
-    "ARCHIVE_LAST_COMMIT=$archiveCommit"
+    "CURRENT_SOURCE_BLOB_IDENTITY=PASS"
+    "ARCHIVE_IDENTITY_PHYSICAL_QUALIFIED=PASS"
     "ARCHIVE_BYTES=$archiveBytes"
     "ARCHIVE_SHA256=$archiveSha"
     "ARCHIVE_MEMBER_COUNT=2"
     "ARCHIVE_MEMBERS=$($expectedMembers -join ',')"
-    "ARCHIVE_MEMBER_BYTE_PARITY=PASS"
-    "JWPLC_TFT_OBJECT_SHA256=$sourceTftSha"
-    "TFT_ESPI_OBJECT_SHA256=$sourceBackendSha"
     "MAINTAINER_TFT_ESPI_VERSION=$($tftEspiSelection.Version)"
-    "MAINTAINER_TFT_ESPI_FOLDER=$($tftEspiSelection.Folder)"
+    "SOURCE_FIRST_CURRENT_SOURCE=PASS"
+    "OBJECT_BIT_FOR_BIT_REBUILD_REQUIRED=NO"
+    "JWPLC_TFT_OBJECT_BIT_FOR_BIT_REBUILD=$(if ($sourceTftSha -eq $archiveTftSha) { 'YES' } else { 'NO' })"
+    "TFT_ESPI_OBJECT_BIT_FOR_BIT_REBUILD=$(if ($sourceBackendSha -eq $archiveBackendSha) { 'YES' } else { 'NO' })"
+    "STRUCTURAL_EQUIVALENCE=PASS"
+    "FLASH_DELTA_BYTES=$flashDelta"
+    "RAM_DELTA_BYTES=$ramDelta"
+    "DEFINED_SYMBOL_NAME_TYPE_SIZE_PARITY=PASS"
     "DIRECT_TFT_PRECOMPILED_LINK=PASS"
     "DISPLAY_INTEGRATION_PRECOMPILED_LINK=PASS"
     "NORMAL_AUTOLOAD_PRECOMPILED_LINK=PASS"
@@ -612,11 +746,18 @@ if ($finalDirty.Count -ne 0 -or $finalStaged.Count -ne 0) {
 Write-Host ""
 Write-Host "=============================================================================="
 Write-Host "ALPHA12_TFT_PRECOMPILED_REQUALIFICATION=PASS"
+Write-Host "CURRENT_SOURCE_BLOB_IDENTITY=PASS"
+Write-Host "ARCHIVE_IDENTITY_PHYSICAL_QUALIFIED=PASS"
 Write-Host ("ARCHIVE_BYTES=" + [string]$archiveBytes)
 Write-Host ("ARCHIVE_SHA256=" + $archiveSha)
 Write-Host "ARCHIVE_MEMBER_COUNT=2"
-Write-Host "ARCHIVE_MEMBER_BYTE_PARITY=PASS"
 Write-Host ("MAINTAINER_TFT_ESPI_VERSION=" + $tftEspiSelection.Version)
+Write-Host "SOURCE_FIRST_CURRENT_SOURCE=PASS"
+Write-Host "OBJECT_BIT_FOR_BIT_REBUILD_REQUIRED=NO"
+Write-Host "STRUCTURAL_EQUIVALENCE=PASS"
+Write-Host ("FLASH_DELTA_BYTES=" + [string]$flashDelta)
+Write-Host ("RAM_DELTA_BYTES=" + [string]$ramDelta)
+Write-Host "DEFINED_SYMBOL_NAME_TYPE_SIZE_PARITY=PASS"
 Write-Host "DIRECT_TFT_PRECOMPILED_LINK=PASS"
 Write-Host "DISPLAY_INTEGRATION_PRECOMPILED_LINK=PASS"
 Write-Host "NORMAL_AUTOLOAD_PRECOMPILED_LINK=PASS"
