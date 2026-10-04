@@ -21,7 +21,7 @@ JWPLC_LogicRuntime
 └── motor, programas, validación y almacenamiento
 
 JWPLC_Display
-└── TFT, IDLE/USER, SPI y callbacks gráficos
+└── TFT, IDLE/USER, SPI y callbacks gráficos sobre JWPLC_TFT
 
 JWPLC_LogicRuntime_UI
 └── navegación USER, vistas del runtime y editor FBD
@@ -181,6 +181,35 @@ Cambiar la base de presentación no debe alterar silenciosamente el tiempo efect
 
 La edición TON utiliza actualizaciones parciales para evitar barridos completos y parpadeo durante repeat de botonera.
 
+## Backend gráfico Alpha12
+
+La librería ya no debe tiparse contra `Adafruit_ST7789`.
+
+El contrato gráfico actual es:
+
+```cpp
+JWPLC_TFTClass &tft = JWPLC_Display.tft();
+```
+
+y los colores base provienen de:
+
+```text
+JWPLC_TFT_BLACK
+JWPLC_TFT_WHITE
+JWPLC_TFT_RED
+JWPLC_TFT_GREEN
+JWPLC_TFT_BLUE
+JWPLC_TFT_YELLOW
+JWPLC_TFT_CYAN
+JWPLC_TFT_MAGENTA
+```
+
+La migración se realizó sin cambiar la lógica de navegación/FBD: sólo se
+sustituyó la dependencia de tipo/backend por la API gráfica del package.
+
+El smoke CI Alpha12 compila ejemplos de esta librería para impedir que una
+futura migración de backend deje consumers distribuidos desalineados.
+
 ## Renderizado y SPI
 
 Regla central:
@@ -269,14 +298,22 @@ No documentar como resuelto o estable sin un gate específico:
 
 El editor FBD sigue siendo una línea experimental dentro del package.
 
-## Estado
+## Estado Alpha12
 
 ```text
-JWPLC ESP32 2.1.0-alpha.6
+JWPLC ESP32 2.1.0-alpha.12
 JWPLC_LogicRuntime_UI: metadata 0.5.8
 runtime v1: compatible
 editor v2: RAM-only / experimental
-renderer FBD unificado: migración en curso
+renderer FBD unificado: migración funcional en curso
+graphics backend: JWPLC_TFT
+Adafruit_ST7789 consumers actuales: 0
+source-first compile gate: pendiente
 ```
 
-El README debe avanzar junto con el contrato del motor y con los gates físicos; no usar números de revisión interna del renderer como API pública.
+La migración de backend gráfico no promueve el editor FBD experimental a API
+estable. Sólo garantiza que la librería distribuida siga siendo compatible con
+el backend gráfico actual del package.
+
+El README debe avanzar junto con el contrato del motor y con los gates físicos;
+no usar números de revisión interna del renderer como API pública.
