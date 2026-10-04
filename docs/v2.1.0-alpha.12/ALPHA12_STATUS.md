@@ -1,6 +1,6 @@
 # v2.1.0-alpha.12 — Estado de cierre
 
-Actualizado: 2026-10-03
+Actualizado: 2026-10-04
 
 ## Identidad
 
@@ -454,8 +454,68 @@ Estado:
 ```text
 P1_CORE=PASS_ADOPTED
 P2_MODBUS_RTU=PASS_ADOPTED
-P3_SPI=READY_TO_RUN
-P4_JW_SD=PENDING
+P3_SPI=PASS_ADOPTED
+P4_JW_SD=READY_TO_RUN
 P5_DISPLAY=PENDING
 P6_TFT_REQUALIFICATION=PENDING
+```
+
+## P3 precompilado — SPI cerrado
+
+Commit de adopción:
+
+```text
+15c1bd1108038c59d0c07230911e4d5d0b653499
+```
+
+Artifact:
+
+```text
+JWPLC/2.1.0/libraries/SPI/src/esp32/libSPI.a
+BYTES=103412
+SHA256=b433758b746380bf8d1ea102aca1d1637b5a8cab50616b56024f4b022a916445
+```
+
+Gate validado:
+
+```text
+SOURCE_OBJECT_COUNT=1
+ARCHIVE_MEMBER_COUNT=1
+ARCHIVE_MEMBER=SPI.cpp.o
+ARCHIVE_MEMBER_BYTE_PARITY=PASS
+CANDIDATE_SOURCE_OBJECT_COUNT=0
+CANDIDATE_PRECOMPILED_MARKER=YES
+CANDIDATE_LINK=PASS
+```
+
+P3 queda adoptado en remoto/local.
+
+## P4 precompilado — JW_SD preparado
+
+Gate:
+
+```text
+tools/alpha12/gates/alpha12_jw_sd_precompiled_refresh.ps1
+```
+
+Contrato:
+
+- exige branch Alpha12 y tracked/index clean;
+- verifica contratos actuales de DataLog, lifecycle/remount y SPI lock callbacks;
+- compila JW_SD desde source-only temporal;
+- exige exactamente un `JW_SD.cpp.o`;
+- crea `libJW_SD.a` con un único miembro;
+- extrae el miembro y exige SHA-256 byte-parity con el objeto fuente;
+- compila el mismo sketch contra candidato temporal `precompiled=full`;
+- exige cero `JW_SD.cpp.o` compilados desde source en modo candidato;
+- sólo al PASS copia el candidate al worktree oficial;
+- rollback automático ante cualquier fallo;
+- guarda logs verbosos en `tools/alpha12/results/` y deja terminal resumido;
+- no realiza upload físico.
+
+Estado:
+
+```text
+P4_JW_SD=READY_TO_RUN
+PHYSICAL_GATE_REQUIRED_FOR_P4=NO
 ```
