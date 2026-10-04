@@ -1393,3 +1393,71 @@ P7A_RERUN=READY
 PRECOMPILED_FREEZE=BLOCKED_UNTIL_P7B
 FINAL_BUILD_SPEED_BENCHMARK=BLOCKED_UNTIL_PRECOMPILED_FREEZE
 ```
+
+
+## P7A rerun — parser failure causado por reemplazo destructivo desde host
+
+El runner seguro detuvo P7A antes de ejecutar producto:
+
+```text
+P7_GATE_POWERSHELL_SYNTAX_ERROR_COUNT=4
+A12_P7_RUNNER_GATE_SYNTAX_INVALID
+```
+
+Clasificación:
+
+```text
+HARNESS_GENERATION_FAILURE=YES
+PRODUCT_FAILURE=NO
+P7_PRODUCT_EXECUTION_STARTED=NO
+REPOSITORY_PRODUCT_MUTATION=NO
+```
+
+Causa raíz:
+
+Al insertar un regex PowerShell mediante `String.replace()` de JavaScript,
+la secuencia PowerShell `$'` fue interpretada por JavaScript como sintaxis
+especial del replacement string. Eso duplicó/desplazó contenido y dejó el
+`.ps1` corrupto.
+
+La corrección se hizo restaurando el gate desde la versión que ya había pasado
+`Parser::ParseFile` en el primer P7A:
+
+```text
+BASE_PARSEABLE_COMMIT=e63fdafbbae6c8e525eac3af10af3ffd687d7b1d
+```
+
+y aplicando únicamente:
+
+1. SHA correcto de Display, 64 hex:
+   `c960d718433e29a40e3cc55bc745c9a2e121ee1ee598ec72c04872327592dc02`;
+2. guard de formato sin quantifier `{64}`;
+3. reemplazo host por función para tratar el PowerShell literalmente.
+
+Commit restaurado/corregido:
+
+```text
+e8d9bd5105478f04d42326fe401a2ce4900a3643
+fix(alpha12): restaurar P7A desde base parseable sin reemplazo destructivo
+```
+
+Comparación contra la base parseable:
+
+```text
+BASE_LINES=591
+FINAL_LINES=602
+REMOVED_OR_REPLACED_LINES=0
+INSERTED_GUARD_LINES=11
+DISPLAY_SHA_LENGTH=64
+STATIC_ISSUES=0
+```
+
+Estado:
+
+```text
+P7A_PARSE_FAILURE=HARNESS_GENERATION_FAILURE
+P7A_PRODUCT_FAILURE=NO
+P7A_RERUN=READY_THROUGH_SAFE_RUNNER
+PRECOMPILED_FREEZE=BLOCKED
+FINAL_BUILD_SPEED_BENCHMARK=BLOCKED
+```
