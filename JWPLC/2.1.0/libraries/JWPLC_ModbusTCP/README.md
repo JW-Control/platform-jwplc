@@ -542,3 +542,166 @@ ETHERNET_AUTOLOAD=YES
 Durante la qualification de Alpha12 se validó coexistencia prolongada de
 Modbus TCP, Modbus RTU, UDP y el full runtime. Esos benchmarks son evidencia
 de capacidad del sistema y no un SLA hard-real-time.
+
+
+---
+
+# Referencia completa de API pública
+
+Objetos globales:
+
+```cpp
+JWPLC_ModbusTCP
+JWPLC_ModbusTCPClient
+```
+
+## Server: inicialización y servicio
+
+| Función | Qué hace | Ejemplo |
+|---|---|---|
+| `beginServer(unitId, port)` | Configura el Server. | `JWPLC_ModbusTCP.beginServer(1, 502);` |
+| `task()` | Ejecuta una pasada de servicio. | `JWPLC_ModbusTCP.task();` |
+| `poll()` | Alias de servicio. | `JWPLC_ModbusTCP.poll();` |
+
+El autoservicio del package hace que `task()` no sea obligatorio en el uso
+normal del Server, pero sigue siendo una API pública soportada.
+
+## Server: estado
+
+| Función | Qué devuelve | Ejemplo |
+|---|---|---|
+| `serverEnabled()` | Si el Server fue habilitado. | `if (JWPLC_ModbusTCP.serverEnabled()) { ... }` |
+| `serverReady()` | Si ya está escuchando/listo. | `if (JWPLC_ModbusTCP.serverReady()) { ... }` |
+| `clientConnected()` | Si hay Client activo. | `bool c = JWPLC_ModbusTCP.clientConnected();` |
+| `unitId()` | Unit ID activo. | `uint8_t id = JWPLC_ModbusTCP.unitId();` |
+| `port()` | Puerto activo. | `uint16_t p = JWPLC_ModbusTCP.port();` |
+| `serverState()` | Estado detallado. | `auto s = JWPLC_ModbusTCP.serverState();` |
+
+## Server: timeout
+
+| Función | Ejemplo |
+|---|---|
+| `setFrameTimeoutMs(timeoutMs)` | `JWPLC_ModbusTCP.setFrameTimeoutMs(1000);` |
+| `frameTimeoutMs()` | `uint32_t t = JWPLC_ModbusTCP.frameTimeoutMs();` |
+
+## Server: Coils
+
+| Función | Ejemplo |
+|---|---|
+| `setCoils(bits, count)` | `JWPLC_ModbusTCP.setCoils(coils, 16);` |
+| `coilCount()` | `uint16_t n = JWPLC_ModbusTCP.coilCount();` |
+| `getCoil(address, value)` | `bool v; JWPLC_ModbusTCP.getCoil(0, v);` |
+| `setCoil(address, value)` | `JWPLC_ModbusTCP.setCoil(0, true);` |
+
+## Server: Discrete Inputs
+
+| Función | Ejemplo |
+|---|---|
+| `setDiscreteInputs(bits, count)` | `JWPLC_ModbusTCP.setDiscreteInputs(inputs, 16);` |
+| `discreteInputCount()` | `uint16_t n = JWPLC_ModbusTCP.discreteInputCount();` |
+| `getDiscreteInput(address, value)` | `bool v; JWPLC_ModbusTCP.getDiscreteInput(0, v);` |
+
+## Server: Holding Registers
+
+| Función | Ejemplo |
+|---|---|
+| `setHoldingRegisters(registers, count)` | `JWPLC_ModbusTCP.setHoldingRegisters(holding, 16);` |
+| `holdingRegisterCount()` | `uint16_t n = JWPLC_ModbusTCP.holdingRegisterCount();` |
+| `getHoldingRegister(address, value)` | `uint16_t v; JWPLC_ModbusTCP.getHoldingRegister(0, v);` |
+| `setHoldingRegister(address, value)` | `JWPLC_ModbusTCP.setHoldingRegister(0, 1234);` |
+
+## Server: Input Registers
+
+| Función | Ejemplo |
+|---|---|
+| `setInputRegisters(registers, count)` | `JWPLC_ModbusTCP.setInputRegisters(inputRegs, 16);` |
+| `inputRegisterCount()` | `uint16_t n = JWPLC_ModbusTCP.inputRegisterCount();` |
+| `getInputRegister(address, value)` | `uint16_t v; JWPLC_ModbusTCP.getInputRegister(0, v);` |
+
+## Server: diagnóstico
+
+| Función | Ejemplo |
+|---|---|
+| `lastError()` | `auto e = JWPLC_ModbusTCP.lastError();` |
+| `lastErrorString()` | `Serial.println(JWPLC_ModbusTCP.lastErrorString());` |
+| `stats()` | `const auto &s = JWPLC_ModbusTCP.stats();` |
+| `resetStats()` | `JWPLC_ModbusTCP.resetStats();` |
+| `printStatus(out)` | `JWPLC_ModbusTCP.printStatus(Serial);` |
+
+## Client: configuración y servicio
+
+| Función | Qué hace | Ejemplo |
+|---|---|---|
+| `begin(serverIP, unitId, port)` | Configura el endpoint. | `JWPLC_ModbusTCPClient.begin(IPAddress(192,168,1,50), 1, 502);` |
+| `end()` | Cierra la sesión/configuración activa. | `JWPLC_ModbusTCPClient.end();` |
+| `task()` | Avanza la state machine. | `JWPLC_ModbusTCPClient.task();` |
+| `poll()` | Alias de servicio. | `JWPLC_ModbusTCPClient.poll();` |
+
+## Client: lecturas
+
+| Función | Ejemplo |
+|---|---|
+| `requestReadCoils()` | `JWPLC_ModbusTCPClient.requestReadCoils(0, 8, bits, 1000);` |
+| `requestReadDiscreteInputs()` | `JWPLC_ModbusTCPClient.requestReadDiscreteInputs(0, 8, bits, 1000);` |
+| `requestReadHoldingRegisters()` | `JWPLC_ModbusTCPClient.requestReadHoldingRegisters(0, 4, regs, 1000);` |
+| `requestReadInputRegisters()` | `JWPLC_ModbusTCPClient.requestReadInputRegisters(0, 4, regs, 1000);` |
+
+## Client: escrituras
+
+| Función | Ejemplo |
+|---|---|
+| `requestWriteSingleCoil()` | `JWPLC_ModbusTCPClient.requestWriteSingleCoil(0, true, 1000);` |
+| `requestWriteSingleRegister()` | `JWPLC_ModbusTCPClient.requestWriteSingleRegister(0, 1234, 1000);` |
+| `requestWriteMultipleCoils()` | `JWPLC_ModbusTCPClient.requestWriteMultipleCoils(0, 8, bits, 1000);` |
+| `requestWriteMultipleRegisters()` | `JWPLC_ModbusTCPClient.requestWriteMultipleRegisters(0, 4, regs, 1000);` |
+
+## Client: estado
+
+| Función | Qué devuelve | Ejemplo |
+|---|---|---|
+| `configured()` | Endpoint configurado. | `if (JWPLC_ModbusTCPClient.configured()) { ... }` |
+| `sessionConnected()` | Sesión TCP conectada. | `bool c = JWPLC_ModbusTCPClient.sessionConnected();` |
+| `busy()` | Request en curso. | `if (JWPLC_ModbusTCPClient.busy()) { ... }` |
+| `done()` | Resultado pendiente. | `if (JWPLC_ModbusTCPClient.done()) { ... }` |
+| `succeeded()` | Última request terminó OK. | `if (JWPLC_ModbusTCPClient.succeeded()) { ... }` |
+| `state()` | Estado de state machine. | `auto s = JWPLC_ModbusTCPClient.state();` |
+| `result()` | Resultado/código de error. | `auto r = JWPLC_ModbusTCPClient.result();` |
+| `exceptionCode()` | Exception Modbus remota. | `uint8_t e = JWPLC_ModbusTCPClient.exceptionCode();` |
+| `transactionId()` | TID de la request activa/final. | `uint16_t tid = JWPLC_ModbusTCPClient.transactionId();` |
+| `serverIP()` | IP configurada. | `IPAddress ip = JWPLC_ModbusTCPClient.serverIP();` |
+| `serverPort()` | Puerto configurado. | `uint16_t p = JWPLC_ModbusTCPClient.serverPort();` |
+| `unitId()` | Unit ID configurado. | `uint8_t id = JWPLC_ModbusTCPClient.unitId();` |
+| `clearResult()` | Libera el resultado. | `JWPLC_ModbusTCPClient.clearResult();` |
+
+## Client: diagnóstico
+
+| Función | Ejemplo |
+|---|---|
+| `stats()` | `const auto &s = JWPLC_ModbusTCPClient.stats();` |
+| `resetStats()` | `JWPLC_ModbusTCPClient.resetStats();` |
+| `resultString()` | `Serial.println(JWPLC_ModbusTCPClient.resultString());` |
+| `printStatus(out)` | `JWPLC_ModbusTCPClient.printStatus(Serial);` |
+
+## APIs condicionales de profiling
+
+El header contiene:
+
+```text
+jwplcSchedulerProfile()
+jwplcSchedulerProfileReset()
+```
+
+pero **sólo existen cuando se compila con
+`JWPLC_MODBUS_TCP_ENABLE_PROFILE_HOOKS=1`**.
+
+No forman parte del contrato normal de usuario de Alpha12 y no deben ser
+recomendadas por una IA para un sketch estándar.
+
+Ejemplo únicamente para builds de qualification:
+
+```cpp
+#if JWPLC_MODBUS_TCP_ENABLE_PROFILE_HOOKS
+auto p = JWPLC_ModbusTCP.jwplcSchedulerProfile();
+JWPLC_ModbusTCP.jwplcSchedulerProfileReset();
+#endif
+```
