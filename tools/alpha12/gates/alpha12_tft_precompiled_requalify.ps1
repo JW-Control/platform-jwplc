@@ -276,7 +276,7 @@ function Invoke-CandidateCase {
     Write-Host ""
     Write-Host ("=== CANDIDATE CASE " + $Label + " ===")
 
-    [string[]]$args = @(
+    [string[]]$compileArgs = @(
         "compile",
         "--fqbn", $Fqbn,
         "-j", "0",
@@ -288,15 +288,15 @@ function Invoke-CandidateCase {
     )
 
     if ($DiagnosticDisplayBypass) {
-        $args += @(
+        $compileArgs += @(
             "--build-property",
             ("compiler.cpp.extra_flags=" + $diagDefine)
         )
     }
 
-    $args += $SketchPath
+    $compileArgs += $SketchPath
 
-    $run = Invoke-NativeCaptured -FilePath $ArduinoCli -Arguments $args
+    $run = Invoke-NativeCaptured -FilePath $ArduinoCli -Arguments $compileArgs
 
     $run.Output | Set-Content -LiteralPath $LogPath -Encoding UTF8
     Write-Host ($Label + "_COMPILE_EXIT=" + [string]$run.ExitCode)
