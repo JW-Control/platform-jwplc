@@ -81,7 +81,7 @@ ALPHA12_PACKAGE_CLOSURE=IN_PROGRESS
 - [x] auditar `JWPLC_Display/src` contra referencias Adafruit/ST77XX obsoletas.
 - [x] auditar `JWPLC_LogicRuntime_UI` contra referencias Adafruit/ST77XX obsoletas.
 - [x] añadir `JWPLC_LogicRuntime_UI` al smoke CI.
-- [ ] ejecutar `alpha12_tft_backend_compile.ps1` source-first.
+- [x] ejecutar `alpha12_tft_backend_compile.ps1` source-first.
 - [ ] compilar ejemplos ModbusTCP Server.
 - [ ] compilar ejemplos ModbusTCP Client.
 - [ ] revisar ejemplos ModbusRTU.
@@ -92,8 +92,9 @@ ALPHA12_PACKAGE_CLOSURE=IN_PROGRESS
 ## 7. Precompilados
 
 - [ ] congelar source final.
-- [ ] bloquear regeneración de Display/TFT hasta PASS del gate source-first.
-- [ ] determinar qué libraries/core requieren regeneración.
+- [x] bloquear regeneración de Display/TFT hasta PASS del gate source-first.
+- [x] determinar qué libraries/core requieren regeneración.
+- [ ] P1: regenerar y verificar `core.a` actual.
 - [ ] regenerar archives.
 - [ ] registrar SHA-256.
 - [ ] registrar tamaños.
