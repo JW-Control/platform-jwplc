@@ -395,7 +395,9 @@ Write-Host ("ARCHIVE_INVENTORY_COUNT=" + [string]$entries.Count)
 
 foreach ($entry in $entries) {
     if (-not [string]::IsNullOrWhiteSpace($entry.ExpectedSha)) {
-        if ($entry.ExpectedSha -notmatch '^[0-9a-fA-F]{64}
+        $expectedShaFormatPass = (
+            $entry.ExpectedSha.Length -eq 64 -and
+            $entry.ExpectedSha -match '^[0-9a-fA-F]+
     if (-not (Test-Path -LiteralPath $archivePath)) {
         $failures += ("MISSING_ARCHIVE:" + $entry.Name)
         continue
@@ -588,7 +590,10 @@ Write-Host "PRECOMPILED_FREEZE=NOT_YET"
 Write-Host "NEXT=P7B_RELEASE_LIKE_PRECOMPILED_ACTIVATION"
 Write-Host "FINAL_TRACKED_DIRTY_COUNT=0"
 Write-Host ("RESULT_ROOT=" + $ResultRoot)
-) {
+
+        )
+
+        if (-not $expectedShaFormatPass) {
             throw ("A12_P7_EXPECTED_SHA_LITERAL_INVALID:" + $entry.Name + ":" + $entry.ExpectedSha)
         }
     }
