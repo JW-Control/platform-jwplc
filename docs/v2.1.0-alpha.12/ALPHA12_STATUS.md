@@ -1073,3 +1073,74 @@ P6_TFT_R3=HARNESS_RUNTIME_FAILURE
 P6_TFT_PRODUCT_FAILURE=NO
 P6_TFT_R4=READY_FOR_SYNTAX_PREFLIGHT
 ```
+
+
+## P6-R4 preflight manual — error de formato en consola interactiva
+
+El preflight manual sí confirmó:
+
+```text
+POWERSHELL_SYNTAX_ERROR_COUNT=0
+NM_EXE_EXISTS=True
+NM_RESOLVED=C:\Users\jeykc\AppData\Local\Arduino15\packages\jwplc_local\tools\esp-x32\2601\bin\xtensa-esp32-elf-nm.exe
+```
+
+Los errores posteriores:
+
+```text
+elseif: El término "elseif" no se reconoce...
+else: El término "else" no se reconoce...
+```
+
+fueron causados por entregar un bloque `if / elseif / else` para pegar en
+PowerShell interactivo. El `if` se ejecutó como sentencia completa al cerrar
+su primer bloque y los `elseif/else` posteriores quedaron separados.
+
+Clasificación:
+
+```text
+MANUAL_PREFLIGHT_FORMAT_FAILURE=YES
+PRODUCT_FAILURE=NO
+P6_GATE_EXECUTED=NO
+NM_EXISTENCE=PROVEN
+POWERSHELL_GATE_SYNTAX=PASS
+```
+
+Cambio de proceso:
+
+```text
+NO_MORE_MULTI_STEP_INTERACTIVE_PREFLIGHT_SNIPPETS
+ONE_SELF_CONTAINED_RUNNER_PER_GATE
+```
+
+Se agregó:
+
+```text
+tools/alpha12/gates/run_alpha12_tft_precompiled_requalify.ps1
+```
+
+El runner ejecuta internamente:
+
+```text
+Parser::ParseFile
+-> require 0 syntax errors
+-> verify gcc-ar
+-> verify nm
+-> invoke P6 gate
+-> stop automatically on any failure
+```
+
+Commit:
+
+```text
+5166274cf45e612bc76bce8686da5dff979558df
+test(alpha12): agregar runner seguro para P6 TFT
+```
+
+Estado:
+
+```text
+P6_TFT_R4_PREFLIGHT_CORE_CHECKS=PASS
+P6_TFT_MANUAL_PREFLIGHT_FORMAT=HARNESS_INSTRUCTION_FAILURE
+P6_TFT_SAFE_RUNNER=READY
+```
