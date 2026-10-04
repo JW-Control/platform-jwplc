@@ -1,105 +1,519 @@
 # JWPLC_TFT
 
-Backend gráfico propio del ecosistema JWPLC.
+API de dibujo directo para la TFT integrada del **JWPLC Basic**.
 
-## Arquitectura
+`JWPLC_TFT` permite dibujar texto, líneas, rectángulos, círculos y píxeles sin
+depender públicamente de TFT_eSPI ni de Adafruit.
 
-`JWPLC_TFT` expone una API pública independiente del motor gráfico.
+Para interfaces HMI normales se recomienda usar **JWPLC_Display**. Use
+`JWPLC_TFT` cuando necesite dibujo directo o una pantalla personalizada.
 
-Durante el cierre Alpha12 se compila **source-first** para que las fuentes actuales sean autoritativas. Antes de publicar Alpha12 se regenerará y recalificará el archive precompilado correspondiente.
+---
 
-El usuario no necesita instalar ni configurar TFT_eSPI.
+## ¿JWPLC_Display o JWPLC_TFT?
 
-La API publica no expone tipos de TFT_eSPI ni Adafruit.
+### Use JWPLC_Display cuando quiera
 
-## Hardware activo â€” JWPLC Basic v2
+- páginas HMI;
+- campos TEXT / VALUE / BOOL / BAR;
+- HMI Designer;
+- modo IDLE;
+- indicadores RUN / ERR / BUS / ETH;
+- refresco y dirty-cache gestionados por el package.
 
-- controlador: ST7789;
-- panel fisico: 170x320;
-- geometria logica landscape: 320x170;
-- rotation: 1;
-- orden de color: BGR;
-- inversion: ON;
-- SPI: MODE0;
-- frecuencia TFT: 80 MHz;
-- bus compartido protegido mediante el mutex SPI del JWPLC.
+### Use JWPLC_TFT cuando quiera
 
-## API
+- dibujar primitivas manualmente;
+- posicionar texto libre;
+- crear una interfaz gráfica propia;
+- acceder al renderer desde `JWPLC_Display.tft()`.
 
-El objeto global es:
+---
+
+## Inicio rápido
 
 ```cpp
-JWPLC_TFT
+#include <JWPLC_TFT.h>
+
+void setup()
+{
+    JWPLC_TFT.begin();
+
+    JWPLC_TFT.fillScreen(JWPLC_TFT_BLACK);
+
+    JWPLC_TFT.setCursor(10, 10);
+    JWPLC_TFT.setTextColor(JWPLC_TFT_WHITE);
+    JWPLC_TFT.setTextSize(2);
+
+    JWPLC_TFT.println("Hola JWPLC");
+}
+
+void loop()
+{
+}
 ```
 
-La API incluye primitivas de dibujo, texto, geometria y batching. El batching
-`beginBatch()/endBatch()` permite que `JWPLC_Display` agrupe un dirty pass
-completo bajo una sola transaccion del backend.
+`begin()` es idempotente: puede llamarse aunque el runtime ya haya
+inicializado la pantalla.
 
-## Backend
+---
 
-Fuentes autoritativas:
+## Estado y dimensiones
+
+```cpp
+JWPLC_TFT.begin();
+JWPLC_TFT.isReady();
+
+JWPLC_TFT.width();
+JWPLC_TFT.height();
+JWPLC_TFT.rotation();
+```
+
+En JWPLC Basic v2 la geometría lógica normal es:
 
 ```text
-src/JWPLC_TFT.cpp
-src/tft_setup.h
+320 x 170
 ```
 
-Archive destinado al package final:
+También están disponibles:
+
+```cpp
+JWPLC_TFT.panel();
+JWPLC_TFT.panelInfo();
+```
+
+para consultar información del perfil activo.
+
+---
+
+## Colores básicos
+
+Constantes RGB565 incluidas:
+
+```cpp
+JWPLC_TFT_BLACK
+JWPLC_TFT_WHITE
+JWPLC_TFT_RED
+JWPLC_TFT_GREEN
+JWPLC_TFT_BLUE
+JWPLC_TFT_YELLOW
+JWPLC_TFT_CYAN
+JWPLC_TFT_MAGENTA
+```
+
+Ejemplo:
+
+```cpp
+JWPLC_TFT.fillScreen(JWPLC_TFT_BLACK);
+
+JWPLC_TFT.fillRect(
+    10, 10,
+    80, 40,
+    JWPLC_TFT_BLUE);
+```
+
+También puede usarse cualquier valor RGB565 propio:
+
+```cpp
+uint16_t myColor = 0x7BEF;
+
+JWPLC_TFT.fillScreen(myColor);
+```
+
+---
+
+## Limpiar o rellenar la pantalla
+
+```cpp
+JWPLC_TFT.fillScreen(color);
+```
+
+Ejemplo:
+
+```cpp
+JWPLC_TFT.fillScreen(JWPLC_TFT_BLACK);
+```
+
+---
+
+# Rectángulos
+
+## Rectángulo relleno
+
+```cpp
+JWPLC_TFT.fillRect(
+    x,
+    y,
+    width,
+    height,
+    color);
+```
+
+Ejemplo:
+
+```cpp
+JWPLC_TFT.fillRect(
+    20, 30,
+    100, 50,
+    JWPLC_TFT_GREEN);
+```
+
+## Contorno de rectángulo
+
+```cpp
+JWPLC_TFT.drawRect(
+    x,
+    y,
+    width,
+    height,
+    color);
+```
+
+## Rectángulos redondeados
+
+```cpp
+JWPLC_TFT.fillRoundRect(
+    x, y,
+    width, height,
+    radius,
+    color);
+
+JWPLC_TFT.drawRoundRect(
+    x, y,
+    width, height,
+    radius,
+    color);
+```
+
+---
+
+# Círculos
+
+## Círculo relleno
+
+```cpp
+JWPLC_TFT.fillCircle(
+    x,
+    y,
+    radius,
+    color);
+```
+
+## Contorno
+
+```cpp
+JWPLC_TFT.drawCircle(
+    x,
+    y,
+    radius,
+    color);
+```
+
+Ejemplo:
+
+```cpp
+JWPLC_TFT.fillCircle(
+    160,
+    85,
+    20,
+    JWPLC_TFT_RED);
+```
+
+---
+
+# Líneas y píxeles
+
+Línea libre:
+
+```cpp
+JWPLC_TFT.drawLine(
+    x0, y0,
+    x1, y1,
+    color);
+```
+
+Horizontal:
+
+```cpp
+JWPLC_TFT.drawFastHLine(
+    x,
+    y,
+    width,
+    color);
+```
+
+Vertical:
+
+```cpp
+JWPLC_TFT.drawFastVLine(
+    x,
+    y,
+    height,
+    color);
+```
+
+Píxel:
+
+```cpp
+JWPLC_TFT.drawPixel(
+    x,
+    y,
+    color);
+```
+
+---
+
+# Texto
+
+## Posición
+
+```cpp
+JWPLC_TFT.setCursor(20, 20);
+```
+
+Consulta:
+
+```cpp
+JWPLC_TFT.cursorX();
+JWPLC_TFT.cursorY();
+```
+
+## Tamaño
+
+```cpp
+JWPLC_TFT.setTextSize(2);
+```
+
+Consulta:
+
+```cpp
+JWPLC_TFT.textSize();
+```
+
+## Color
+
+Sólo foreground:
+
+```cpp
+JWPLC_TFT.setTextColor(
+    JWPLC_TFT_WHITE);
+```
+
+Foreground + background:
+
+```cpp
+JWPLC_TFT.setTextColor(
+    JWPLC_TFT_WHITE,
+    JWPLC_TFT_BLUE);
+```
+
+## Imprimir texto
+
+`JWPLC_TFT` hereda de `Print`, por lo que puede usarse:
+
+```cpp
+JWPLC_TFT.print("Temperatura: ");
+JWPLC_TFT.println(25.4);
+```
+
+Ejemplo completo:
+
+```cpp
+JWPLC_TFT.setCursor(20, 20);
+JWPLC_TFT.setTextSize(2);
+JWPLC_TFT.setTextColor(JWPLC_TFT_YELLOW);
+
+JWPLC_TFT.print("T = ");
+JWPLC_TFT.print(24.8);
+JWPLC_TFT.println(" C");
+```
+
+---
+
+## Ajuste de línea
+
+```cpp
+JWPLC_TFT.setTextWrap(
+    true,
+    false);
+```
+
+Parámetros:
 
 ```text
-src/esp32/libJWPLC_TFT.a
+wrapX
+wrapY
 ```
 
-El backend incorpora TFT_eSPI 2.5.43 detrás de la API `JWPLC_TFT`.
-`library.properties` no declara TFT_eSPI como dependencia de usuario.
+---
 
-Estado durante el cierre Alpha12:
+## Medir texto
 
-```text
-SOURCE_FIRST=YES
-PRECOMPILED_FINAL_ALPHA12=PENDING_REGEN
+Ancho:
+
+```cpp
+int16_t w =
+    JWPLC_TFT.textWidth("RUN");
 ```
 
-No se debe reutilizar un archive histórico como si representara las fuentes actuales.
+Altura de fuente:
 
-## JWPLC Basic v3
-
-El target planificado usa tambien ST7789 con panel 240x320. Ese perfil no se
-activa en 2.1.x hasta fijar y calificar board target, pinout, offsets,
-orientacion y configuracion fisica final.
-
-## Relacion con JWPLC_Display
-
-`JWPLC_TFT` es la capa de hardware/renderer. La HMI declarativa, paginas,
-modo IDLE, dirty cache y contrato del JWPLC HMI Designer pertenecen a
-`JWPLC_Display`.
-
-La migración de `JWPLC_Display` a este backend ya fue completada durante H3E y validada bajo full runtime.
-
-Alpha13 será el ciclo dedicado a continuar la evolución funcional de TFT/Display sobre esta arquitectura, sin volver a exponer TFT_eSPI como dependencia pública.
-
-## Licencias de terceros
-
-El backend precompilado incorpora TFT_eSPI 2.5.43. Los avisos originales se
-conservan en:
-
-```text
-licenses/TFT_eSPI-2.5.43-license.txt
+```cpp
+int16_t h =
+    JWPLC_TFT.fontHeight();
 ```
+
+Bounds completos:
+
+```cpp
+int16_t x1;
+int16_t y1;
+uint16_t w;
+uint16_t h;
+
+JWPLC_TFT.getTextBounds(
+    "JWPLC",
+    10,
+    10,
+    &x1,
+    &y1,
+    &w,
+    &h);
+```
+
+Esto es útil para centrar texto o construir layouts propios.
+
+---
+
+# Batching
+
+Para varias operaciones consecutivas puede agruparse el acceso a la pantalla:
+
+```cpp
+if (JWPLC_TFT.beginBatch())
+{
+    JWPLC_TFT.fillRect(
+        0, 0,
+        100, 50,
+        JWPLC_TFT_BLUE);
+
+    JWPLC_TFT.drawCircle(
+        50, 25,
+        15,
+        JWPLC_TFT_WHITE);
+
+    JWPLC_TFT.endBatch();
+}
+```
+
+Consulta:
+
+```cpp
+JWPLC_TFT.batchActive();
+```
+
+El batching es opcional. Para operaciones aisladas no es necesario usarlo.
+
+---
+
+# Acceder a la TFT desde JWPLC_Display
+
+Cuando ya se está usando `JWPLC_Display`, puede obtenerse el renderer:
+
+```cpp
+JWPLC_TFTClass &tft =
+    JWPLC_Display.tft();
+
+tft.fillCircle(
+    160,
+    85,
+    10,
+    JWPLC_TFT_GREEN);
+```
+
+Alias equivalente:
+
+```cpp
+JWPLC_TFTClass &tft =
+    JWPLC_Display.display();
+```
+
+Para código que quiera evitar depender del tipo explícito:
+
+```cpp
+auto &tft = JWPLC_Display.tft();
+```
+
+Este último patrón es especialmente útil para mantener el código desacoplado
+del backend gráfico.
+
+---
+
+## Compatibilidad con código anterior
+
+El backend actual ya no expone `Adafruit_ST7789&` como tipo público.
+
+Código anterior como:
+
+```cpp
+Adafruit_ST7789 &tft =
+    JWPLC_Display.raw();
+```
+
+debe migrarse.
+
+Patrón recomendado:
+
+```cpp
+auto &tft =
+    JWPLC_Display.tft();
+```
+
+o usar directamente `JWPLC_TFT`.
+
+---
+
+## Qué no necesita configurar el usuario
+
+El package gestiona internamente:
+
+- controlador ST7789;
+- orientación y offsets del panel;
+- frecuencia SPI;
+- arbitraje del bus compartido;
+- backend TFT_eSPI incorporado al archive.
+
+No es necesario instalar ni configurar TFT_eSPI.
+
+---
+
+## Relación con el SPI compartido
+
+La TFT comparte bus con otros periféricos del JWPLC Basic. La librería utiliza
+el arbitraje del package para convivir con Ethernet, microSD y otros dispositivos
+del mismo bus.
+
+El sketch no debe manipular manualmente el CS o el SPI de la pantalla para
+usar la API normal.
+
+---
 
 ## Estado Alpha12
 
 ```text
-JWPLC ESP32 v2.1.0-alpha.12
 JWPLC_TFT 0.1.0
 JWPLC_DISPLAY_BACKEND_MIGRATION=COMPLETE
-FULL_RUNTIME_TFT=PASS_PHYSICAL
 TFT_ESPI_USER_DEPENDENCY=NO
-PRECOMPILED_ALPHA12=PENDING_REGEN
-NEXT_DISPLAY_ALPHA=13
+PRECOMPILED_RELEASE_LIKE=ACTIVE
+FULL_RUNTIME_TFT=VALIDATED
 ```
 
-La API raw histórica basada en tipo explícito `Adafruit_ST7789&` no forma parte
-del backend actual. El patrón recomendado es obtener `JWPLC_TFTClass&` mediante
-`JWPLC_Display.tft()` o usar directamente las APIs HMI de alto nivel.
+Archive cualificado:
+
+```text
+Bytes  : 1091098
+SHA256 : 5d860a131811dd9a7eb6fa55f5674b1d78b0de7dfaf8748ce18a60ceed2d3738
+```
+
+Alpha13 continuará la evolución funcional de TFT/Display sobre esta API sin
+volver a exponer TFT_eSPI como dependencia pública.
