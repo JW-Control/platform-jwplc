@@ -43,6 +43,7 @@ ALPHA12_PACKAGE_CLOSURE=IN_PROGRESS
 - [x] separar APIs internas/qualification de APIs de usuario.
 - [ ] confirmar backward compatibility.
 - [ ] decidir/documentar compatibilidad raw TFT: `Adafruit_ST7789&` explícito -> `JWPLC_TFTClass&`.
+  - Estado: consumers internos/oficiales migrados; compatibilidad de sketches externos con tipo explícito sigue siendo decisión de release.
 
 ## 4. Decisiones técnicas finales
 
@@ -76,6 +77,11 @@ ALPHA12_PACKAGE_CLOSURE=IN_PROGRESS
 
 ## 6. Ejemplos
 
+- [x] migrar ejemplos Display actuales de `ST77XX_*` a `JWPLC_TFT_*`.
+- [x] auditar `JWPLC_Display/src` contra referencias Adafruit/ST77XX obsoletas.
+- [x] auditar `JWPLC_LogicRuntime_UI` contra referencias Adafruit/ST77XX obsoletas.
+- [x] añadir `JWPLC_LogicRuntime_UI` al smoke CI.
+- [ ] ejecutar `alpha12_tft_backend_compile.ps1` source-first.
 - [ ] compilar ejemplos ModbusTCP Server.
 - [ ] compilar ejemplos ModbusTCP Client.
 - [ ] revisar ejemplos ModbusRTU.
@@ -86,6 +92,7 @@ ALPHA12_PACKAGE_CLOSURE=IN_PROGRESS
 ## 7. Precompilados
 
 - [ ] congelar source final.
+- [ ] bloquear regeneración de Display/TFT hasta PASS del gate source-first.
 - [ ] determinar qué libraries/core requieren regeneración.
 - [ ] regenerar archives.
 - [ ] registrar SHA-256.
