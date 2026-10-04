@@ -13,7 +13,8 @@ El objetivo es mantener una experiencia cercana a Arduino, con las E/S industria
 | Canal | Versión | Estado |
 |---|---|---|
 | Estable | `v2.0.0` | Release pública estable. |
-| Dev / PreRelease | `v2.1.0-alpha.11` | **Publicada, instalada, compilada, subida y validada en hardware real.** |
+| Dev / PreRelease publicada | `v2.1.0-alpha.11` | **Publicada, instalada, compilada, subida y validada en hardware real.** |
+| Próximo release | `v2.1.0-alpha.12` | **Cierre de package en curso; todavía no publicada.** |
 
 ```text
 ALPHA11_TECHNICAL_CLOSURE=PASS
@@ -47,6 +48,76 @@ https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_j
 ```
 
 El índice estable no cambia en Alpha11.
+
+---
+
+## Alpha12 — comunicaciones y runtime en cierre
+
+El próximo release real después de Alpha11 será:
+
+```text
+v2.1.0-alpha.12
+```
+
+Alpha12 consolida el trabajo de comunicaciones/runtime desarrollado
+históricamente en una rama que llevaba la etiqueta interna Alpha14.
+
+Incluye, entre otros:
+
+- `JWPLC_ModbusTCP` Server + Client cooperativos;
+- FC01/02/03/04/05/06/15/16;
+- hardening Ethernet/W5500;
+- primitives TCP/UDP cooperativas;
+- W5500 a 26 MHz en el perfil validado actual;
+- política TCP RX `POLLING_C0`;
+- Modbus RTU con motor `ASYNC/SYNC`;
+- TX queued sobre RS-485 AutoDirection;
+- timing RTU en microsegundos;
+- DataLog buffered con autoservicio;
+- backend gráfico `JWPLC_TFT`;
+- requalification full-runtime con Display, SD, FRAM, RTC, I/O y botonera.
+
+Perfil final de coexistencia confirmado durante 600 s:
+
+```text
+TCP Modbus = 250.001 req/s
+RTU        = 796.953 req/s
+RTU scan   = 99.619 scans/s
+UDP FAST   = 0.998 Mbps
+UDP delivery = 100.000 %
+FULL_RUNTIME_CLEAN=YES
+```
+
+El perfil RTU de ~100 Hz es operacional, no una garantía hard-real-time
+cero-jitter.
+
+Alpha12 todavía no se considera publicada hasta completar:
+
+- documentación final;
+- regeneración/requalification de precompilados;
+- CLI/IDE/upload final;
+- CI;
+- PR/merge;
+- PreRelease e índice dev;
+- instalación/compilación/upload aislados del package publicado.
+
+Documentación canónica de cierre:
+
+```text
+docs/v2.1.0-alpha.12/ALPHA12_STATUS.md
+docs/v2.1.0-alpha.12/ALPHA12_PACKAGE_INVENTORY_20261003.md
+docs/v2.1.0-alpha.12/ALPHA12_PACKAGE_CLOSURE_CHECKLIST.md
+```
+
+### Numeración posterior
+
+```text
+Alpha13 = TFT / Display update
+Alpha14 = OpenPLC + mejoras de integración sobre TCP/RTU optimizados
+```
+
+La evidencia histórica etiquetada como Alpha14/Modbus TCP se conserva para
+trazabilidad y no representa el número final de release.
 
 ---
 
