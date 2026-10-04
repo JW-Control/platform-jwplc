@@ -42,17 +42,17 @@ static const bool ENABLE_SERIAL_DEBUG = true;
 // Colores
 // =====================================================
 
-static const uint16_t COLOR_BG = ST77XX_BLACK;
-static const uint16_t COLOR_SKY = ST77XX_BLUE;
-static const uint16_t COLOR_GROUND = ST77XX_GREEN;
-static const uint16_t COLOR_PIPE = ST77XX_GREEN;
-static const uint16_t COLOR_PIPE_B = ST77XX_WHITE;
-static const uint16_t COLOR_BIRD = ST77XX_YELLOW;
-static const uint16_t COLOR_BIRD_B = ST77XX_BLACK;
-static const uint16_t COLOR_BEAK = ST77XX_RED;
-static const uint16_t COLOR_WING = ST77XX_ORANGE;
-static const uint16_t COLOR_TEXT = ST77XX_WHITE;
-static const uint16_t COLOR_TITLE = ST77XX_CYAN;
+static const uint16_t COLOR_BG = JWPLC_TFT_BLACK;
+static const uint16_t COLOR_SKY = JWPLC_TFT_BLUE;
+static const uint16_t COLOR_GROUND = JWPLC_TFT_GREEN;
+static const uint16_t COLOR_PIPE = JWPLC_TFT_GREEN;
+static const uint16_t COLOR_PIPE_B = JWPLC_TFT_WHITE;
+static const uint16_t COLOR_BIRD = JWPLC_TFT_YELLOW;
+static const uint16_t COLOR_BIRD_B = JWPLC_TFT_BLACK;
+static const uint16_t COLOR_BEAK = JWPLC_TFT_RED;
+static const uint16_t COLOR_WING = 0xFD20U;
+static const uint16_t COLOR_TEXT = JWPLC_TFT_WHITE;
+static const uint16_t COLOR_TITLE = JWPLC_TFT_CYAN;
 
 // =====================================================
 // Configuracion del juego
@@ -927,8 +927,8 @@ static void drawBirdAt(int16_t y) {
     COLOR_BIRD_B);
 
   // Ojo
-  tft.fillCircle(x + 3, y - 3, 2, ST77XX_WHITE);
-  tft.drawPixel(x + 4, y - 3, ST77XX_BLACK);
+  tft.fillCircle(x + 3, y - 3, 2, JWPLC_TFT_WHITE);
+  tft.drawPixel(x + 4, y - 3, JWPLC_TFT_BLACK);
 }
 
 static void restoreGameBackgroundRect(const RectI &dirty) {
@@ -1079,7 +1079,7 @@ static void drawStartHint() {
   tft.setCursor(10, 12);
   tft.print("JWPLC FLAPPY");
 
-  tft.drawFastHLine(0, 38, screenW, ST77XX_BLUE);
+  tft.drawFastHLine(0, 38, screenW, JWPLC_TFT_BLUE);
 
   tft.setTextSize(1);
   tft.setTextColor(COLOR_TEXT, COLOR_BG);
@@ -1116,7 +1116,7 @@ static void drawGameOver() {
   tft.fillRect(boxX, boxY, boxW, boxH, COLOR_BG);
   tft.drawRect(boxX, boxY, boxW, boxH, COLOR_PIPE_B);
 
-  drawCenteredText("GAME OVER", boxY + 10, 2, ST77XX_RED);
+  drawCenteredText("GAME OVER", boxY + 10, 2, JWPLC_TFT_RED);
 
   tft.setTextSize(1);
   tft.setTextColor(COLOR_TEXT, COLOR_BG);

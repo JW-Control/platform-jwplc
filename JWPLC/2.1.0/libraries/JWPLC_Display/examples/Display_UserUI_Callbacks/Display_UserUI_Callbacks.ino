@@ -5,7 +5,7 @@
   JWPLC_Display.tft().
 
   Este ejemplo sí incluye JWPLC_Display.h porque usa dibujo directo con
-  JWPLC_TFTClass y constantes ST77XX_*.
+  JWPLC_TFTClass y constantes de color JWPLC_TFT_*.
 
   Valida:
   - JWPLC_Display.tft()
