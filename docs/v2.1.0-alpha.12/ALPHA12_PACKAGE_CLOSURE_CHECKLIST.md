@@ -42,7 +42,7 @@ ALPHA12_PACKAGE_CLOSURE=IN_PROGRESS
 - [x] listar APIs UDP fast que sí son soportadas.
 - [x] separar APIs internas/qualification de APIs de usuario.
 - [ ] confirmar backward compatibility.
-- [ ] decidir/documentar compatibilidad raw TFT: `Adafruit_ST7789&` explícito -> `JWPLC_TFTClass&`.
+- [x] decidir/documentar compatibilidad raw TFT: `Adafruit_ST7789&` explícito -> `JWPLC_TFTClass&`.
   - Estado: consumers internos/oficiales migrados; compatibilidad de sketches externos con tipo explícito sigue siendo decisión de release.
 
 ## 4. Decisiones técnicas finales
@@ -73,7 +73,9 @@ ALPHA12_PACKAGE_CLOSURE=IN_PROGRESS
 - [x] JWPLC_TFT README: actualizar migración H3E ya completada.
 - [x] JW_SD README: separar contenido futuro Alpha31 del cierre Alpha12.
 - [x] revisar encoding/acentos de README nuevos.
-- [ ] revisar ejemplos mostrados en README contra headers reales.
+- [x] revisar ejemplos mostrados en README contra headers reales.
+- [x] cobertura exhaustiva de API pública en README para RTU/TCP/UDP/TFT/Display (`missing=0`).
+- [x] separar en README API recomendada, compatibilidad, avanzada e interna/no contrato.
 
 ## 6. Ejemplos
 
