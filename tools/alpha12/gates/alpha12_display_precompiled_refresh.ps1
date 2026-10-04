@@ -265,7 +265,7 @@ Get-ChildItem -LiteralPath $srcRoot -File |
         Get-Content -LiteralPath $file.FullName | ForEach-Object {
             $lineNo++
             if ($_ -match 'Adafruit_ST7789|ST77XX_') {
-                $legacyHits += "$($file.Name):$lineNo:$($_.Trim())"
+                $legacyHits += ($file.Name + ":" + [string]$lineNo + ":" + $_.Trim())
             }
         }
     }
