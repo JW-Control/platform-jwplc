@@ -89,8 +89,16 @@ JWPLC_RS485.txBufferSize();
 JWPLC_RS485.queuedWriteSupported();
 ```
 
-La ruta encolada se encuentra en qualification RTU-F3; el comportamiento
-historico sigue siendo el default hasta cerrar el gate.
+La ruta encolada fue cualificada físicamente durante el hardening RTU que se
+publicará en Alpha12.
+
+`write()` conserva el comportamiento histórico bloqueante para compatibilidad.
+`writeQueued()` es una extensión aditiva y es la ruta utilizada por el motor
+RTU `ASYNC` cuando el hardware confirma AutoDirection.
+
+La cualificación mostró que queued TX no aumenta por sí sola el ceiling RTU,
+pero reduce el tiempo de CPU retenido esperando a que termine físicamente la
+UART, mejorando la convivencia con Ethernet/full runtime.
 
 ## Estado
 
@@ -162,11 +170,20 @@ JWPLC_ModbusRTU.begin(2, 115200, SERIAL_8N1);
 
 Los ejemplos históricos de bridge/native permanecen disponibles como material avanzado.
 
-## Estado Alpha8
+## Estado Alpha12
 
 ```text
-JWPLC ESP32 2.1.0-alpha.8
+JWPLC ESP32 2.1.0-alpha.12
 JWPLC_RS485 1.0.1
+AUTO_DIRECTION=YES
+TX_BUFFER_BYTES=512
+QUEUED_TX=QUALIFIED
+LEGACY_WRITE_BLOCKING=PRESERVED
 ```
 
-Alpha8 no cambia el protocolo físico RS-485; actualiza la documentación de la API real y añade una serie compacta de ejemplos de usuario.
+Alpha12 no cambia el protocolo físico RS-485 ni exige manejar DE/RE en el
+JWPLC Basic v2. Añade/valida la ruta queued y telemetría avanzada sin romper
+`Stream` ni la semántica histórica de `write()`.
+
+Los baudrates usados en qualification (incluido 500 kbaud) no sustituyen los
+parámetros que el sketch configure explícitamente mediante `begin()`.
