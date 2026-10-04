@@ -19,28 +19,28 @@ ALPHA12_PACKAGE_CLOSURE=IN_PROGRESS
 
 ## 2. Inventario productivo
 
-- [ ] inventariar cambios de core.
-- [ ] inventariar JWPLC_Ethernet/W5500.
-- [ ] inventariar JWPLC_ModbusTCP.
-- [ ] inventariar JWPLC_ModbusRTU.
-- [ ] inventariar JWPLC_RS485.
-- [ ] inventariar SPI.
-- [ ] inventariar JW_SD/DataLog.
-- [ ] inventariar JWPLC_Display/JWPLC_TFT.
-- [ ] marcar cada cambio PRODUCT / INTERNAL / BENCHMARK_ONLY / DEFERRED.
-- [ ] confirmar defaults finales.
-- [ ] confirmar autoload final.
+- [x] inventariar cambios de core.
+- [x] inventariar JWPLC_Ethernet/W5500.
+- [x] inventariar JWPLC_ModbusTCP.
+- [x] inventariar JWPLC_ModbusRTU.
+- [x] inventariar JWPLC_RS485.
+- [x] inventariar SPI.
+- [x] inventariar JW_SD/DataLog.
+- [x] inventariar JWPLC_Display/JWPLC_TFT.
+- [x] marcar cada cambio PRODUCT / INTERNAL / BENCHMARK_ONLY / DEFERRED.
+- [x] confirmar defaults finales.
+- [x] confirmar autoload final.
 
 ## 3. API pública y configuración
 
-- [ ] listar APIs nuevas de Modbus TCP Server.
-- [ ] listar APIs nuevas de Modbus TCP Client.
-- [ ] listar APIs RTU ASYNC/SYNC.
-- [ ] listar API RTU microsecond frame gap.
-- [ ] listar API RS485 queued TX y diagnóstico.
-- [ ] listar APIs Ethernet/W5500 aditivas expuestas.
-- [ ] listar APIs UDP fast que sí son soportadas.
-- [ ] separar APIs internas/qualification de APIs de usuario.
+- [x] listar APIs nuevas de Modbus TCP Server.
+- [x] listar APIs nuevas de Modbus TCP Client.
+- [x] listar APIs RTU ASYNC/SYNC.
+- [x] listar API RTU microsecond frame gap.
+- [x] listar API RS485 queued TX y diagnóstico.
+- [x] listar APIs Ethernet/W5500 aditivas expuestas.
+- [x] listar APIs UDP fast que sí son soportadas.
+- [x] separar APIs internas/qualification de APIs de usuario.
 - [ ] confirmar backward compatibility.
 
 ## 4. Decisiones técnicas finales
@@ -62,8 +62,8 @@ ALPHA12_PACKAGE_CLOSURE=IN_PROGRESS
 ## 5. README/library.properties
 
 - [ ] README raíz: pasar estado Alpha11 -> Alpha12 en cierre/publicación.
-- [ ] JWPLC_ModbusTCP README: Server/Client/FC/coexistencia reales.
-- [ ] JWPLC_ModbusTCP library.properties: eliminar texto “evolucionará a Client”.
+- [x] JWPLC_ModbusTCP README: Server/Client/FC/coexistencia reales.
+- [x] JWPLC_ModbusTCP library.properties: eliminar texto “evolucionará a Client”.
 - [ ] JWPLC_ModbusRTU README: estado Alpha12 y defaults finales.
 - [ ] JWPLC_RS485 README: queued TX ya cualificado.
 - [ ] JWPLC_Ethernet README: hardening Alpha12 + L2 refresh + backend actual.
