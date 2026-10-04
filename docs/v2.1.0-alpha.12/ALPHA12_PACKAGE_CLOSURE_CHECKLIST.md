@@ -42,6 +42,7 @@ ALPHA12_PACKAGE_CLOSURE=IN_PROGRESS
 - [x] listar APIs UDP fast que sí son soportadas.
 - [x] separar APIs internas/qualification de APIs de usuario.
 - [ ] confirmar backward compatibility.
+- [ ] decidir/documentar compatibilidad raw TFT: `Adafruit_ST7789&` explícito -> `JWPLC_TFTClass&`.
 
 ## 4. Decisiones técnicas finales
 
@@ -64,12 +65,12 @@ ALPHA12_PACKAGE_CLOSURE=IN_PROGRESS
 - [ ] README raíz: pasar estado Alpha11 -> Alpha12 en cierre/publicación.
 - [x] JWPLC_ModbusTCP README: Server/Client/FC/coexistencia reales.
 - [x] JWPLC_ModbusTCP library.properties: eliminar texto “evolucionará a Client”.
-- [ ] JWPLC_ModbusRTU README: estado Alpha12 y defaults finales.
-- [ ] JWPLC_RS485 README: queued TX ya cualificado.
-- [ ] JWPLC_Ethernet README: hardening Alpha12 + L2 refresh + backend actual.
-- [ ] JWPLC_Display README: separar estado Alpha11 histórico de cambios Alpha12.
-- [ ] JWPLC_TFT README: actualizar migración H3E ya completada.
-- [ ] JW_SD README: separar contenido futuro Alpha31 del cierre Alpha12.
+- [x] JWPLC_ModbusRTU README: estado Alpha12 y defaults finales.
+- [x] JWPLC_RS485 README: queued TX ya cualificado.
+- [x] JWPLC_Ethernet README: hardening Alpha12 + L2 refresh + backend actual.
+- [x] JWPLC_Display README: separar estado Alpha11 histórico de cambios Alpha12.
+- [x] JWPLC_TFT README: actualizar migración H3E ya completada.
+- [x] JW_SD README: separar contenido futuro Alpha31 del cierre Alpha12.
 - [ ] revisar encoding/acentos de README nuevos.
 - [ ] revisar ejemplos mostrados en README contra headers reales.
 
