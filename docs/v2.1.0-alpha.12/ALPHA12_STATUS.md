@@ -609,7 +609,23 @@ Corrección versionada:
 ```text
 ae758a1c70f441fb8f0c4e628df7691159e73f12
 fix(alpha12): corregir interpolacion PowerShell en gate Display
+
+70e060391cc7562d2bb4a39afcba9efcda91c2ca
+fix(alpha12): endurecer compatibilidad PowerShell del gate Display
 ```
+
+Auditoría preventiva adicional antes del rerun:
+
+```text
+AMBIGUOUS_VARIABLE_COLON_HITS=0
+GET_FILE_HASH_OCCURRENCES=0
+HERE_STRING_DELIMITERS=BALANCED
+WRITE_HOST_F_AMBIGUITY=0
+ARDUINO_TEMP_SKETCH_NAME_CONTRACT=PASS
+```
+
+El rerun debe ejecutar primero `System.Management.Automation.Language.Parser::ParseFile()`
+en el host Windows y sólo continuar si el parser devuelve cero errores.
 
 Prevención reforzada:
 
