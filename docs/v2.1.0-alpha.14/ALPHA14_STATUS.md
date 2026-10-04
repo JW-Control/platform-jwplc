@@ -862,8 +862,8 @@ Evidencia:
 - [ ] Fast TCP RX internal integration decision
 - [ ] Modbus TCP async-TX decision
 - [ ] RTU FAST decision
-- [ ] final TCP/UDP/RTU ceilings
-- [ ] final coexistence LR600
+- [x] final TCP/UDP/RTU ceilings
+- [x] final coexistence LR600
 - [ ] final R0/R1 after product changes
 
 Ninguno de estos subpendientes queda promovido por G0.
@@ -875,3 +875,62 @@ NEXT_GATE=G1_TCP_SPI_WASTE_BASELINE
 CI_REQUIRED_BEFORE_MERGE=YES
 HISTORICAL_READY_FOR_RELEASE_PR_20260913=SUPERSEDED_BY_POST_CLOSURE_HARDENING
 ```
+
+
+## Cierre final de coexistencia TCP250 + RTU800 + UDP FAST — 2026-10-03
+
+Evidencia:
+
+- `A14_FINAL_TRIPLE_COEXISTENCE_CLOSURE_20261003.md`
+
+Perfil confirmado físicamente durante 600 s:
+
+```text
+TCP=250.001 req/s
+RTU=796.953 req/s
+RTU_SCAN=99.619 scans/s
+RTU_OPS_PER_SCAN=8
+UDP_FAST_RX=0.998 Mbps
+UDP_DELIVERY=100.000 %
+FULL_RUNTIME_CLEAN=YES
+```
+
+Integridad:
+
+```text
+TCP_TIMEOUTS=0
+TCP_TRANSPORT_ERRORS=0
+TCP_PROTOCOL_ERRORS=0
+RTU_FAILED=0
+RTU_REJECTED=0
+RTU_VERIFY_FAILS=0
+RTU_CRC_ERRORS=0
+RTU_SLAVE_EXCEPTIONS=0
+UDP_RANGE_MISSING=0
+UDP_WRONG_SIZE=0
+UDP_DECODE_ERRORS=0
+UDP_DUPLICATES=0
+UDP_REORDERS=0
+UDP_TRANSPORT_ERRORS=0
+UDP_SPI_LOCK_ERRORS=0
+PERIPHERAL_FAILURE_COUNT=0
+SD_DATALOG_FAILED_COMMITS=0
+SPI_PROBE_FAILS=0
+```
+
+Resultado:
+
+```text
+FINAL_TRIPLE_PROFILE=TCP250_RTU800_UDP1M_FULL_RUNTIME
+UDP1M_CONFIRM_600S=PASS
+UDP2M_300S=PASS
+UDP2M_CONFIRM_600S=NOT_OPERATIONAL_RTU_98.530HZ
+RTU100HZ_CONTRACT=OPERATIONAL_NOT_HARD_REALTIME
+RTU_PERIODS_SKIPPED_600S=229
+```
+
+No publicar el perfil como 100 Hz determinísticos/cero-jitter.
+
+El punto UDP 2 Mbps sostuvo UDP correctamente en 600 s, pero RTU cayó a
+788.239 req/s / 98.530 scans/s. Por tanto 2 Mbps queda como punto de 300 s no
+confirmado y 1 Mbps como contrato coexistente confirmado de 600 s.
