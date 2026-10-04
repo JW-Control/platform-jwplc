@@ -331,3 +331,41 @@ Conclusión:
 
 El resultado 2 Mbps no se clasifica como fallo de UDP: la entrega UDP permaneció
 prácticamente perfecta y el criterio que cayó fue el throughput/scan RTU.
+
+
+## Cierre final — 2026-10-03
+
+La confirmación descendente de UDP 1 Mbps completó 600 s con PASS operacional:
+
+```text
+TCP=250.001 req/s
+RTU=796.953 req/s
+RTU=99.619 scans/s
+UDP_DUT=0.998 Mbps
+UDP_DELIVERY=100.000 %
+RUNTIME_CLEAN=True
+OPERATIONAL_PASS=True
+```
+
+Resultado:
+
+```text
+FINAL_TRIPLE_PROFILE=TCP250_RTU800_UDP1M_FULL_RUNTIME
+UDP1M_CONFIRM_600S=PASS
+UDP2M_300S=PASS
+UDP2M_CONFIRM_600S=NOT_OPERATIONAL
+```
+
+El contrato RTU es operacional, no hard real-time:
+
+```text
+RTU_PERIODS_SKIPPED=229
+RTU_DETERMINISTIC_PASS=False
+```
+
+Documento de cierre:
+
+`A14_FINAL_TRIPLE_COEXISTENCE_CLOSURE_20261003.md`
+
+Esta campaña queda cerrada. No repetir el ladder salvo cambio de producto,
+configuración, scheduler o política de tráfico.
