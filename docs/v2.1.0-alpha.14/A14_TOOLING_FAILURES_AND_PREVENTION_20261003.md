@@ -357,3 +357,78 @@ emisión cuando la latencia de la syscall forma parte de la medición.
 - F083=CONFIRMED_AND_CORRECTED_IN_HARNESS.
 - PRODUCT_SOURCE_MUTATION=NO.
 - NEXT_STEP=HOST_PACING_PREFLIGHT_ONLY.
+
+
+## Recurrencia F080 — confirmation miss volvió a etiquetarse como runner failure
+
+La campaña válida seleccionó UDP 2 Mbps tras PASS operacional de 300 s, pero la
+confirmación de 600 s cerró con:
+
+- TCP: 250.001 req/s.
+- RTU: 788.239 req/s.
+- scans: 98.530/s.
+- UDP DUT: 1.996 Mbps.
+- UDP delivery: 99.988 %.
+- runtime clean: YES.
+- operational pass: NO por RTU <99 %.
+
+Ese resultado es una caracterización válida, no un fallo de ejecución. Sin
+embargo el runner devolvió exit code 2 para `REVIEW_CONFIRMATION_FAILED` y el
+gate volvió a reportar `TRIPLE_RUNNER_FAILED`.
+
+### Corrección F080 reforzada
+
+1. Todo outcome interpretable de criterio devuelve exit code 0.
+2. `TRIPLE_RUNNER_FAILED` queda reservado para fallo real del runner/tooling.
+3. Estados estructurados nuevos:
+   - `CHARACTERIZED_CONFIRMATION_NOT_OPERATIONAL`.
+   - `CHARACTERIZED_CONFIRMATION_ONLY_NOT_OPERATIONAL`.
+   - `PASS_CONFIRMATION_ONLY`.
+4. El gate reconoce explícitamente esos estados y los persiste en
+   `GATE_STATUS.txt`.
+
+## F084 — confirmación fallida obligaba a repetir todo el ladder
+
+### Síntoma
+
+Después de invertir 8 x 300 s en el ladder, el candidato 2 Mbps falló sólo en
+su confirmación de 600 s. El harness no ofrecía una ruta para confirmar el
+siguiente punto ya caracterizado (1 Mbps) sin repetir toda la campaña.
+
+### Causa
+
+El runner tenía un único flujo:
+
+`ladder completo -> seleccionar máximo -> una confirmación -> terminar`.
+
+No existía modo reanudable de confirmación.
+
+### Corrección
+
+Se añade:
+
+- runner: `--confirm-only-mbps X`;
+- gate: `-ConfirmOnlyMbps X`.
+
+Ese modo mantiene exactamente:
+
+- TCP250;
+- RTU800 scan-paced;
+- full runtime;
+- UDP FAST;
+- host pacing validado;
+- duración de confirmación >=600 s;
+
+pero omite el ladder ya cerrado.
+
+### Prevención F084
+
+Después de un ladder costoso, los pasos de confirmación deben ser reanudables.
+Un candidato que falla confirmación no debe forzar repetir evidencia válida.
+
+### Estado
+
+- F080_RECURRENCE=CORRECTED.
+- F084=CONFIRMED_AND_CORRECTED.
+- PRODUCT_SOURCE_MUTATION=NO.
+- NEXT_GATE=CONFIRM_ONLY_UDP1_MBPS_600S.
