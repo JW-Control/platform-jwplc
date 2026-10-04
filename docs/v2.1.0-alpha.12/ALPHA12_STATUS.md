@@ -935,3 +935,74 @@ P6_TFT_R1_PARSE_ATTEMPT=HARNESS_FAILURE
 P6_TFT_PRODUCT_FAILURE=NO
 P6_TFT_R2=READY_TO_RUN
 ```
+
+
+## P6-R2 — fallo de resolución del tool `nm`
+
+P6-R2 alcanzó y validó correctamente:
+
+```text
+CURRENT_SOURCE_BLOB_IDENTITY=PASS
+ARCHIVE_IDENTITY_PHYSICAL_QUALIFIED=PASS
+SOURCE_COMPILE_EXIT=0
+SOURCE_TFT_OBJECT_COUNT=1
+SOURCE_TFT_ESPI_OBJECT_COUNT=1
+SOURCE_TFT_PRECOMPILED_MARKER=NO
+SOURCE_WARNING_LINES=0
+SOURCE_ERROR_LINES=0
+SOURCE_TFT_ESPI_VERSION=2.5.43
+SOURCE_FIRST_CURRENT_SOURCE=PASS
+```
+
+El gate se detuvo antes de auditar el archive/candidates por:
+
+```text
+A12_TFT_REQUAL_TOOL_NOT_FOUND=xtensa-esp32-elf-nm
+```
+
+Clasificación:
+
+```text
+HARNESS_RUNTIME_FAILURE=YES
+PRODUCT_FAILURE=NO
+ARCHIVE_STALE=NOT_PROVEN
+OFFICIAL_ARCHIVE_MUTATED=NO
+PHYSICAL_UPLOAD=NO
+```
+
+Causa:
+
+El gate intentó localizar `xtensa-esp32-elf-nm` reparseando una línea de
+`g++`. Sin embargo, la corrida ya había resuelto de forma confiable:
+
+```text
+...\bin\xtensa-esp32-elf-gcc-ar.exe
+```
+
+El proceso histórico H3E4 resolvía `nm` desde el mismo directorio del
+archiver. P6 debe reutilizar ese criterio.
+
+Corrección:
+
+```text
+3044e9ae69bc787884aa0160b043486748454c86
+fix(alpha12): resolver nm desde toolchain ya identificado en P6
+```
+
+Nueva regla:
+
+```text
+RESOLVE_ONE_TRUSTED_TOOLCHAIN_BINARY
+-> DERIVE_SIBLING_TOOLS_FROM_SAME_DIRECTORY
+-> VERIFY_PATH_EXISTS
+-> DO_NOT_REPARSE_UNRELATED_COMPILER_OUTPUT
+```
+
+Estado:
+
+```text
+P6_TFT_R2=HARNESS_RUNTIME_FAILURE
+P6_TFT_PRODUCT_FAILURE=NO
+P6_TFT_R3=READY_FOR_SYNTAX_PREFLIGHT
+FINAL_BUILD_SPEED_BENCHMARK=BLOCKED_UNTIL_P6
+```
