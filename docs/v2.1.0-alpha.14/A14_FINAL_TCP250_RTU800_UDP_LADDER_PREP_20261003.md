@@ -295,3 +295,39 @@ La cifra final debe expresarse como coexistencia bajo configuración explícita,
 `TCP 250 req/s + RTU 800 req/s (100 scans/s, 8 módulos) + UDP FAST X Mbps + full runtime`
 
 No sustituye los ceilings RAW individuales ya caracterizados.
+
+
+## Resultado de ladder con pacing host validado — 2026-10-03
+
+Puntos operacionales de 300 s:
+
+- UDP 0 Mbps: TCP 250.003, RTU 799.899, scan 99.987 Hz.
+- UDP 1 Mbps: TCP 250.003, RTU 797.659, scan 99.707 Hz, UDP 0.997 Mbps, delivery 100 %.
+- UDP 2 Mbps: TCP 250.003, RTU 793.007, scan 99.126 Hz, UDP 1.996 Mbps, delivery 99.996 %.
+- UDP 4 Mbps: RTU 727.840 / scan 90.980 Hz; no operacional.
+- UDP 6 Mbps: RTU 641.024 / scan 80.128 Hz; no operacional.
+- UDP 8 Mbps: RTU 562.457 / scan 70.307 Hz; no operacional.
+- UDP 10 Mbps: RTU 525.831 / scan 65.729 Hz; no operacional.
+- UDP 12 Mbps: RTU 500.290 / scan 62.536 Hz; no operacional.
+
+El candidato más alto del ladder fue 2 Mbps.
+
+### Confirmación 2 Mbps — 600 s
+
+Resultado:
+
+- TCP 250.001 req/s: PASS.
+- UDP DUT 1.996 Mbps: PASS.
+- UDP delivery 99.988 %: PASS.
+- runtime clean: PASS.
+- RTU 788.239 req/s / 98.530 scans/s: no cumple el umbral operacional >=99 % / >=99 Hz.
+
+Conclusión:
+
+- UDP 2 Mbps = PASS 300 s, NOT CONFIRMED 600 s.
+- UDP 1 Mbps = PASS 300 s, pendiente confirmación 600 s.
+- no repetir ladder completo;
+- siguiente gate: confirm-only UDP 1 Mbps, 600 s.
+
+El resultado 2 Mbps no se clasifica como fallo de UDP: la entrega UDP permaneció
+prácticamente perfecta y el criterio que cayó fue el throughput/scan RTU.
