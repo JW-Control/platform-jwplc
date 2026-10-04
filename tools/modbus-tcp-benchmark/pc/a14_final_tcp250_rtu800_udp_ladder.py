@@ -1090,66 +1090,8 @@ def main() -> int:
         print("RTU_DETERMINISTIC_THRESHOLD=OPERATIONAL_AND_ZERO_SKIPS")
         print("UDP_OPERATIONAL_THRESHOLD_PCT=99.0_DELIVERED")
 
-        ladder_root = root / "UDP_LADDER"
-        ladder_root.mkdir(parents=True, exist_ok=True)
-
-        for target in udp_ladder:
-            row = run_case(
-                ladder_root,
-                master,
-                slave,
-                host,
-                target,
-                args.ladder_duration,
-                "LADDER",
-            )
-            ladder_rows.append(row)
-
-            if target == 0.0 and not bool(row["operational_pass"]):
-                baseline_not_operational = True
-                print(
-                    "BASELINE_RESULT=CHARACTERIZED_NOT_OPERATIONAL "
-                    f"TCP_PCT={float(row['tcp_target_pct']):.3f} "
-                    f"RTU_PCT={float(row['rtu_target_pct']):.3f} "
-                    f"SCANS={float(row['rtu_scans_s']):.3f} "
-                    f"RTU_SKIPPED={int(row['rtu_periods_skipped'])} "
-                    f"RTU_DETERMINISTIC_PASS={bool(row['rtu_deterministic_pass'])} "
-                    f"RUNTIME_CLEAN={bool(row['runtime_clean'])}",
-                    flush=True,
-                )
-                break
-
-        write_csv(root / "UDP_LADDER.csv", ladder_rows)
-
-        operational_positive = [
-            row
-            for row in ladder_rows
-            if float(row["udp_target_mbps"]) > 0.0
-            and bool(row["operational_pass"])
-        ]
-
-        selected_udp_mbps = (
-            max(float(row["udp_target_mbps"]) for row in operational_positive)
-            if operational_positive
-            else 0.0
-        )
-
-        selection = {
-            "tcp_target_req_s": TCP_TARGET_REQ_S,
-            "rtu_target_req_s": RTU_TARGET_REQ_S,
-            "rtu_scan_target_hz": 100.0,
-            "udp_selected_mbps": selected_udp_mbps,
-            "operational_positive_points": [
-                float(row["udp_target_mbps"])
-                for row in operational_positive
-            ],
-        }
-        (root / "SELECTION.json").write_text(
-            json.dumps(selection, indent=2),
-            encoding="utf-8",
-        )
-
-        if (not baseline_not_operational) and selected_udp_mbps > 0.0:
+        if confirm_only:
+            selected_udp_mbps = float(args.confirm_only_mbps)
             confirm_root = root / "CONFIRMATION"
             confirm_root.mkdir(parents=True, exist_ok=True)
             confirmation = run_case(
@@ -1161,6 +1103,84 @@ def main() -> int:
                 args.confirm_duration,
                 "CONFIRM",
             )
+        else:
+            ladder_root = root / "UDP_LADDER"
+            ladder_root.mkdir(parents=True, exist_ok=True)
+
+            for target in udp_ladder:
+                row = run_case(
+                    ladder_root,
+                    master,
+                    slave,
+                    host,
+                    target,
+                    args.ladder_duration,
+                    "LADDER",
+                )
+                ladder_rows.append(row)
+
+                if target == 0.0 and not bool(row["operational_pass"]):
+                    baseline_not_operational = True
+                    print(
+                        "BASELINE_RESULT=CHARACTERIZED_NOT_OPERATIONAL "
+                        f"TCP_PCT={float(row['tcp_target_pct']):.3f} "
+                        f"RTU_PCT={float(row['rtu_target_pct']):.3f} "
+                        f"SCANS={float(row['rtu_scans_s']):.3f} "
+                        f"RTU_SKIPPED={int(row['rtu_periods_skipped'])} "
+                        f"RTU_DETERMINISTIC_PASS={bool(row['rtu_deterministic_pass'])} "
+                        f"RUNTIME_CLEAN={bool(row['runtime_clean'])}",
+                        flush=True,
+                    )
+                    break
+
+            write_csv(root / "UDP_LADDER.csv", ladder_rows)
+
+            operational_positive = [
+                row
+                for row in ladder_rows
+                if float(row["udp_target_mbps"]) > 0.0
+                and bool(row["operational_pass"])
+            ]
+
+            selected_udp_mbps = (
+                max(
+                    float(row["udp_target_mbps"])
+                    for row in operational_positive
+                )
+                if operational_positive
+                else 0.0
+            )
+
+            selection = {
+                "tcp_target_req_s": TCP_TARGET_REQ_S,
+                "rtu_target_req_s": RTU_TARGET_REQ_S,
+                "rtu_scan_target_hz": 100.0,
+                "udp_selected_mbps": selected_udp_mbps,
+                "operational_positive_points": [
+                    float(row["udp_target_mbps"])
+                    for row in operational_positive
+                ],
+            }
+            (root / "SELECTION.json").write_text(
+                json.dumps(selection, indent=2),
+                encoding="utf-8",
+            )
+
+            if (
+                not baseline_not_operational
+                and selected_udp_mbps > 0.0
+            ):
+                confirm_root = root / "CONFIRMATION"
+                confirm_root.mkdir(parents=True, exist_ok=True)
+                confirmation = run_case(
+                    confirm_root,
+                    master,
+                    slave,
+                    host,
+                    selected_udp_mbps,
+                    args.confirm_duration,
+                    "CONFIRM",
+                )
 
     finally:
         try:
