@@ -5,6 +5,7 @@ param(
     [double]$LadderDurationS = 300.0,
     [double]$ConfirmDurationS = 600.0,
     [string]$UdpLadderMbps = "0,1,2,4,6,8,10,12",
+    [double]$ConfirmOnlyMbps = -1.0,
     [switch]$PreflightOnly,
     [string]$ResultRoot = ""
 )
@@ -63,6 +64,9 @@ if ($LadderDurationS -lt 300.0) {
 }
 if ($ConfirmDurationS -lt 600.0) {
     throw "TRIPLE_CONFIRM_DURATION_LT_600"
+}
+if ($ConfirmOnlyMbps -eq 0.0) {
+    throw "TRIPLE_CONFIRM_ONLY_MBPS_MUST_BE_POSITIVE_OR_NEGATIVE_DISABLED"
 }
 if (-not (Test-Path -LiteralPath $PythonExe)) {
     throw "TRIPLE_PYTHON_NOT_FOUND"
@@ -126,7 +130,13 @@ try {
     Write-Host "RTU_TARGET_REQ_S=800"
     Write-Host "RTU_SCHEDULER_MODE=SCAN_PACED_100HZ"
     Write-Host "RTU_SCAN_TARGET_HZ=100"
-    Write-Host "UDP_LADDER_MBPS=$UdpLadderMbps"
+    Write-Host "RUN_MODE=$(if ($ConfirmOnlyMbps -gt 0.0) { 'CONFIRM_ONLY' } else { 'LADDER' })"
+    if ($ConfirmOnlyMbps -gt 0.0) {
+        Write-Host "CONFIRM_ONLY_MBPS=$ConfirmOnlyMbps"
+    }
+    else {
+        Write-Host "UDP_LADDER_MBPS=$UdpLadderMbps"
+    }
     Write-Host "UDP_PAYLOAD_BYTES=1016"
     Write-Host "LADDER_DURATION_S=$LadderDurationS"
     Write-Host "CONFIRM_DURATION_S=$ConfirmDurationS"
@@ -147,7 +157,9 @@ try {
         "RTU_SCHEDULER_MODE=SCAN_PACED_100HZ"
         "RTU_SCAN_TARGET_HZ=100"
         "RTU_WORKLOAD=EXP_MIX_2DI_2DO_2AI_2AO"
+        "RUN_MODE=$(if ($ConfirmOnlyMbps -gt 0.0) { 'CONFIRM_ONLY' } else { 'LADDER' })"
         "UDP_LADDER_MBPS=$UdpLadderMbps"
+        "CONFIRM_ONLY_MBPS=$ConfirmOnlyMbps"
         "UDP_PAYLOAD_BYTES=1016"
         "UDP_MODE=FAST_ADDITIVE_BATCH2"
         "LADDER_DURATION_S=$LadderDurationS"
@@ -339,7 +351,7 @@ try {
     Start-Sleep -Seconds 3
 
     $runnerLog = Join-Path $ResultRoot "runner.log"
-    $runnerExit = Invoke-NativeToLog $PythonExe @(
+    $runnerArgs = @(
         "-u", $runner,
         "--master-serial", $MasterPort,
         "--slave-serial", $SlavePort,
@@ -347,7 +359,14 @@ try {
         "--ladder-duration", $LadderDurationS.ToString([Globalization.CultureInfo]::InvariantCulture),
         "--confirm-duration", $ConfirmDurationS.ToString([Globalization.CultureInfo]::InvariantCulture),
         "--udp-ladder", $UdpLadderMbps
-    ) $runnerLog
+    )
+    if ($ConfirmOnlyMbps -gt 0.0) {
+        $runnerArgs += @(
+            "--confirm-only-mbps",
+            $ConfirmOnlyMbps.ToString([Globalization.CultureInfo]::InvariantCulture)
+        )
+    }
+    $runnerExit = Invoke-NativeToLog $PythonExe $runnerArgs $runnerLog
 
     Get-Content -LiteralPath $runnerLog -Tail 160 |
         ForEach-Object { Write-Host $_ }
@@ -371,15 +390,33 @@ try {
     $characterizedBaselineNotStrict = $finalStatusText.Contains(
         "A14_FINAL_TRIPLE_COEXISTENCE=CHARACTERIZED_BASELINE_NOT_OPERATIONAL"
     )
+    $passConfirmOnly = $finalStatusText.Contains(
+        "A14_FINAL_TRIPLE_COEXISTENCE=PASS_CONFIRMATION_ONLY"
+    )
+    $characterizedConfirm = $finalStatusText.Contains(
+        "A14_FINAL_TRIPLE_COEXISTENCE=CHARACTERIZED_CONFIRMATION_NOT_OPERATIONAL"
+    )
+    $characterizedConfirmOnly = $finalStatusText.Contains(
+        "A14_FINAL_TRIPLE_COEXISTENCE=CHARACTERIZED_CONFIRMATION_ONLY_NOT_OPERATIONAL"
+    )
 
     $resultLabel = if ($pass) {
         "PASS"
+    }
+    elseif ($passConfirmOnly) {
+        "PASS_CONFIRMATION_ONLY"
     }
     elseif ($characterizedBaselineNotStrict) {
         "CHARACTERIZED_BASELINE_NOT_OPERATIONAL"
     }
     elseif ($characterizedNoPositive) {
         "CHARACTERIZED_NO_POSITIVE_UDP_OPERATIONAL"
+    }
+    elseif ($characterizedConfirm) {
+        "CHARACTERIZED_CONFIRMATION_NOT_OPERATIONAL"
+    }
+    elseif ($characterizedConfirmOnly) {
+        "CHARACTERIZED_CONFIRMATION_ONLY_NOT_OPERATIONAL"
     }
     else {
         "FAIL"
@@ -388,8 +425,11 @@ try {
     Write-Host "TRIPLE_RESULT=$resultLabel"
     if (
         -not $pass -and
+        -not $passConfirmOnly -and
         -not $characterizedNoPositive -and
-        -not $characterizedBaselineNotStrict
+        -not $characterizedBaselineNotStrict -and
+        -not $characterizedConfirm -and
+        -not $characterizedConfirmOnly
     ) {
         throw "TRIPLE_CRITERIA_NOT_MET"
     }
@@ -411,8 +451,17 @@ try {
     $gateStatus = if ($pass) {
         "PASS_TRIPLE_COEXISTENCE_CONFIRMED"
     }
+    elseif ($passConfirmOnly) {
+        "PASS_CONFIRMATION_ONLY"
+    }
     elseif ($characterizedBaselineNotStrict) {
         "CHARACTERIZED_BASELINE_NOT_OPERATIONAL"
+    }
+    elseif ($characterizedConfirm) {
+        "CHARACTERIZED_CONFIRMATION_NOT_OPERATIONAL"
+    }
+    elseif ($characterizedConfirmOnly) {
+        "CHARACTERIZED_CONFIRMATION_ONLY_NOT_OPERATIONAL"
     }
     else {
         "CHARACTERIZED_NO_POSITIVE_UDP_OPERATIONAL"
