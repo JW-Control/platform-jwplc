@@ -35,7 +35,7 @@ namespace
       "LISTA",
       "VOLVER"};
 
-  void drawWireSegment(Adafruit_ST7789 &tft,
+  void drawWireSegment(JWPLC_TFTClass &tft,
                        int16_t x0,
                        int16_t y0,
                        int16_t x1,
@@ -229,7 +229,7 @@ void RuntimeUIDiagram::drawCurrentMode()
 
 void RuntimeUIDiagram::drawGraphStatic()
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   clearScreen(tft);
   drawHeaderStatic(tft, "DIAGRAMA");
   updateHeaderState(tft, runtimeStateText(), runtimeStateColor());
@@ -250,7 +250,7 @@ void RuntimeUIDiagram::drawGraph(bool clearViewport)
     return;
   }
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   if (clearViewport)
   {
     tft.fillRect(GRAPH_X, GRAPH_Y, GRAPH_W, GRAPH_H, COLOR_PANEL);
@@ -431,7 +431,7 @@ void RuntimeUIDiagram::drawGraph(bool clearViewport)
 
 void RuntimeUIDiagram::drawNoProgram()
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.fillRect(GRAPH_X, GRAPH_Y, GRAPH_W, GRAPH_H, COLOR_PANEL);
   updateTextField(tft,
                   78,
@@ -464,7 +464,7 @@ void RuntimeUIDiagram::drawGraphCommands()
     _selectedCommand = 2;
   }
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   for (uint8_t command = 0; command < COMMAND_COUNT; ++command)
   {
     drawMenuButton(tft,
@@ -485,7 +485,7 @@ void RuntimeUIDiagram::redrawGraphCommand(uint8_t previousCommand,
     return;
   }
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   drawMenuButton(tft,
                  COMMAND_X[previousCommand],
                  COMMAND_Y,
@@ -633,7 +633,7 @@ void RuntimeUIDiagram::updateGraphValues(bool force)
 
 void RuntimeUIDiagram::drawDetailStatic()
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   clearScreen(tft);
   drawHeaderStatic(tft, "DETALLE BLOQUE");
   updateHeaderState(tft, runtimeStateText(), runtimeStateColor());
@@ -753,7 +753,7 @@ void RuntimeUIDiagram::handleDetailInput()
 void RuntimeUIDiagram::drawMainBlock(const LogicBlockDefinition &block,
                                      bool value)
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   const uint16_t border = value ? COLOR_OK : COLOR_ACCENT;
 
   tft.fillRoundRect(MAIN_X, MAIN_Y, MAIN_W, MAIN_H, 5, COLOR_SELECTED);
@@ -804,7 +804,7 @@ void RuntimeUIDiagram::drawMiniBlock(int16_t x,
     return;
   }
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   const uint16_t background = value ? COLOR_SELECTED : COLOR_BACKGROUND;
   const uint16_t border = value ? COLOR_OK : COLOR_BORDER;
   tft.fillRoundRect(x, y, MINI_W, MINI_H, 3, background);
@@ -833,7 +833,7 @@ void RuntimeUIDiagram::drawEndpoint(int16_t x,
                                     const char *subtitle,
                                     bool value)
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   const uint16_t background = value ? COLOR_SELECTED : COLOR_BACKGROUND;
   const uint16_t border = value ? COLOR_OK : COLOR_BORDER;
   tft.fillRoundRect(x, y, MINI_W, MINI_H, 3, background);
@@ -854,7 +854,7 @@ void RuntimeUIDiagram::drawLeftConnection(int16_t sourceY,
                                           bool active,
                                           const char *portLabel)
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   const uint16_t color = active ? COLOR_OK : COLOR_BORDER;
   const int16_t bendX = 109;
 
@@ -873,7 +873,7 @@ void RuntimeUIDiagram::drawRightConnection(int16_t sourceY,
                                            int16_t destinationY,
                                            bool active)
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   const uint16_t color = active ? COLOR_OK : COLOR_BORDER;
   const int16_t bendX = 211;
 

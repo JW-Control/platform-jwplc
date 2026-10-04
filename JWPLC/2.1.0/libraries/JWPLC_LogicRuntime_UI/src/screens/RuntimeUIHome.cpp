@@ -184,7 +184,7 @@ void RuntimeUIHome::drawStaticLayout()
     return;
   }
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   clearScreen(tft);
   drawHeaderStatic(tft, "JWPLC LOGIC");
   drawPanel(tft, 4, 28, 312, 57, "ESTADO DEL PROGRAMA");
@@ -388,7 +388,7 @@ void RuntimeUIHome::updateScanField(bool force)
 
 void RuntimeUIHome::drawMenu()
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
 
   for (uint8_t index = 0; index < MENU_COUNT; ++index)
   {
@@ -410,7 +410,7 @@ void RuntimeUIHome::redrawMenuSelection(uint8_t previousSelection,
     return;
   }
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   drawMenuButton(tft,
                  MENU_X[previousSelection],
                  MENU_Y[previousSelection],
