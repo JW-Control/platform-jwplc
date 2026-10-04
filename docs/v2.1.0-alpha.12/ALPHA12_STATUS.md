@@ -641,3 +641,83 @@ P5_DISPLAY_ATTEMPT_1=HARNESS_PARSE_FAILURE
 P5_DISPLAY_PRODUCT_EVIDENCE=NOT_STARTED
 P5_DISPLAY=READY_TO_RERUN_AFTER_SYNTAX_PREFLIGHT
 ```
+
+
+## P5 precompilado — JWPLC_Display cerrado
+
+Commit de adopción:
+
+```text
+c30bc01897fcba055921b58a2506ea7aa4ba6c70
+```
+
+Artifact:
+
+```text
+JWPLC/2.1.0/libraries/JWPLC_Display/src/esp32/libJWPLC_Display.a
+BYTES=941228
+SHA256=c960d718433e29a40e3cc55bc745c9a2e121ee1ee598ec72c04872327592dc02
+```
+
+Gate validado:
+
+```text
+POWERSHELL_SYNTAX_ERROR_COUNT=0
+SOURCE_OBJECT_COUNT=7
+ARCHIVE_MEMBER_COUNT=7
+ARCHIVE_MEMBER_BYTE_PARITY=PASS
+CANDIDATE_SOURCE_OBJECT_COUNT=0
+CANDIDATE_PRECOMPILED_MARKER=YES
+CANDIDATE_LINK=PASS
+SOURCE_WARNING_LINES=0
+CANDIDATE_WARNING_LINES=0
+SOURCE_ERROR_LINES=0
+CANDIDATE_ERROR_LINES=0
+TFT_BACKEND=JWPLC_TFT
+LEGACY_BACKEND_REFS=0
+```
+
+P5 queda adoptado en remoto/local.
+
+## Secuencia restante de cierre técnico
+
+```text
+P6 = JWPLC_TFT requalification / backend self-contained
+THEN = freeze de precompilados
+THEN = benchmark final de tiempos de compilacion
+THEN = Arduino CLI / Arduino IDE / upload fisico final
+THEN = release
+```
+
+El benchmark final reutilizará la metodología histórica de
+`tools/build-speed-benchmark/Run-JWPLCBuildBenchmark.ps1` y no debe ejecutarse
+antes de P6, porque cualquier cambio posterior de archive invalidaría la tabla.
+
+Matriz mínima:
+
+```text
+TARGETS=Basic,Basic Core
+SKETCH=01_empty
+JOBS=0
+managed_cold
+managed_warm_nochange
+managed_warm_touch
+explicit_cold
+explicit_warm_nochange
+explicit_warm_touch
+```
+
+Debe registrar tiempos, invocaciones de compilador/TUs, tamaños, host, Arduino CLI
+y commit exacto; la tabla Alpha12 será un artefacto obligatorio del cierre.
+
+Estado:
+
+```text
+P1_CORE=PASS_ADOPTED
+P2_MODBUS_RTU=PASS_ADOPTED
+P3_SPI=PASS_ADOPTED
+P4_JW_SD=PASS_ADOPTED
+P5_DISPLAY=PASS_ADOPTED
+P6_TFT_REQUALIFICATION=NEXT
+FINAL_BUILD_SPEED_BENCHMARK=BLOCKED_UNTIL_P6
+```
