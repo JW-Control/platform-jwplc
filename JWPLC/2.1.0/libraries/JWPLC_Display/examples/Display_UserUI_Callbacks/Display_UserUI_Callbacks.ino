@@ -5,7 +5,7 @@
   JWPLC_Display.tft().
 
   Este ejemplo sí incluye JWPLC_Display.h porque usa dibujo directo con
-  Adafruit_ST7789 y constantes ST77XX_*.
+  JWPLC_TFTClass y constantes ST77XX_*.
 
   Valida:
   - JWPLC_Display.tft()
@@ -26,9 +26,9 @@ static void drawDynamicValues(unsigned long now)
     auto &tft = JWPLC_Display.tft();
 
     // Redibujar solo la zona que cambia.
-    tft.fillRect(10, 100, 250, 45, ST77XX_BLACK);
+    tft.fillRect(10, 100, 250, 45, JWPLC_TFT_BLACK);
 
-    tft.setTextColor(ST77XX_WHITE);
+    tft.setTextColor(JWPLC_TFT_WHITE);
     tft.setTextSize(1);
 
     tft.setCursor(10, 100);
@@ -49,14 +49,14 @@ extern "C" void jwplcUIEnter()
 
     auto &tft = JWPLC_Display.tft();
 
-    tft.fillScreen(ST77XX_BLACK);
+    tft.fillScreen(JWPLC_TFT_BLACK);
 
-    tft.setTextColor(ST77XX_CYAN);
+    tft.setTextColor(JWPLC_TFT_CYAN);
     tft.setTextSize(2);
     tft.setCursor(10, 20);
     tft.print("USER DOT API");
 
-    tft.setTextColor(ST77XX_WHITE);
+    tft.setTextColor(JWPLC_TFT_WHITE);
     tft.setTextSize(1);
     tft.setCursor(10, 55);
     tft.print("Dibujando con:");
