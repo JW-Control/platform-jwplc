@@ -1019,6 +1019,7 @@ def main() -> int:
     parser.add_argument("--ladder-duration", type=float, default=300.0)
     parser.add_argument("--confirm-duration", type=float, default=600.0)
     parser.add_argument("--udp-ladder", default=DEFAULT_UDP_LADDER)
+    parser.add_argument("--confirm-only-mbps", type=float, default=None)
     args = parser.parse_args()
 
     if args.host_pacing_self_test:
@@ -1031,8 +1032,11 @@ def main() -> int:
         raise ValueError("ladder-duration debe ser >=300 s")
     if args.confirm_duration < 600.0:
         raise ValueError("confirm-duration debe ser >=600 s")
+    if args.confirm_only_mbps is not None and args.confirm_only_mbps <= 0.0:
+        raise ValueError("--confirm-only-mbps debe ser >0")
 
-    udp_ladder = parse_ladder(args.udp_ladder)
+    confirm_only = args.confirm_only_mbps is not None
+    udp_ladder = [] if confirm_only else parse_ladder(args.udp_ladder)
     root = Path(args.output_root)
     root.mkdir(parents=True, exist_ok=True)
 
@@ -1074,8 +1078,12 @@ def main() -> int:
         print("UDP_PAYLOAD_BYTES=1016")
         print(f"UDP_HOST_PACING_MODE={UDP_HOST_PACING_MODE}")
         print("UDP_HOST_SPACING_GUARD=MIN_GAP_GE_90PCT_TARGET")
-        print("UDP_LADDER_MBPS=" + ",".join(f"{x:g}" for x in udp_ladder))
-        print(f"LADDER_DURATION_S={args.ladder_duration:.0f}")
+        print("RUN_MODE=" + ("CONFIRM_ONLY" if confirm_only else "LADDER"))
+        if confirm_only:
+            print(f"CONFIRM_ONLY_MBPS={args.confirm_only_mbps:g}")
+        else:
+            print("UDP_LADDER_MBPS=" + ",".join(f"{x:g}" for x in udp_ladder))
+            print(f"LADDER_DURATION_S={args.ladder_duration:.0f}")
         print(f"CONFIRM_DURATION_S={args.confirm_duration:.0f}")
         print("TCP_STRICT_THRESHOLD_PCT=99.9")
         print("RTU_OPERATIONAL_THRESHOLD=REQ_GE_99PCT_AND_SCAN_GE_99HZ")
