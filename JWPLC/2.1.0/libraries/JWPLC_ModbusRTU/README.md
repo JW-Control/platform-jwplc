@@ -528,3 +528,211 @@ SHA256 : 424ed3f462bb57cce0019d690486e612d5f243c40ae62d44d3ad973b0a521085
 El perfil de coexistencia de Alpha12 validó RTU simultáneo con Modbus TCP,
 UDP, Display y demás periféricos. Las cifras de benchmark son evidencia de
 capacidad, no una garantía hard-real-time.
+
+
+---
+
+# Referencia completa de API pública
+
+Esta sección enumera **todos los métodos públicos soportados para el usuario**
+de `JWPLC_ModbusRTU`. Los métodos avanzados se documentan también, pero están
+marcados para evitar que se usen por accidente.
+
+El objeto global es:
+
+```cpp
+JWPLC_ModbusRTU
+```
+
+## Inicialización y cierre
+
+| Función | Qué hace | Ejemplo |
+|---|---|---|
+| `begin()` | Inicia con defaults públicos. | `JWPLC_ModbusRTU.begin();` |
+| `begin(slaveId)` | Inicia con ID indicado y baud/config por defecto. | `JWPLC_ModbusRTU.begin(2);` |
+| `begin(slaveId, baud, config)` | Inicia con configuración completa. | `JWPLC_ModbusRTU.begin(2, 115200, SERIAL_8N1);` |
+| `end()` | Detiene Modbus RTU. | `JWPLC_ModbusRTU.end();` |
+
+## Consulta de configuración
+
+| Función | Qué devuelve | Ejemplo |
+|---|---|---|
+| `isReady()` | Si la librería está lista. | `if (JWPLC_ModbusRTU.isReady()) { ... }` |
+| `slaveId()` | ID local configurado. | `uint8_t id = JWPLC_ModbusRTU.slaveId();` |
+| `baudRate()` | Baud configurado. | `uint32_t baud = JWPLC_ModbusRTU.baudRate();` |
+| `effectiveBaudRate()` | Baud efectivo del transporte. | `uint32_t baud = JWPLC_ModbusRTU.effectiveBaudRate();` |
+| `config()` | Configuración serial activa. | `uint32_t cfg = JWPLC_ModbusRTU.config();` |
+
+## Selección de motor
+
+| Función | Uso | Ejemplo |
+|---|---|---|
+| `motor(mode)` | Selecciona ASYNC o SYNC. | `JWPLC_ModbusRTU.motor(ASYNC);` |
+| `motor()` | Consulta el motor activo. | `JWPLCModbusMotor m = JWPLC_ModbusRTU.motor();` |
+| `asyncMotor()` | Indica si el motor activo es ASYNC. | `if (JWPLC_ModbusRTU.asyncMotor()) { ... }` |
+
+## Timing de trama
+
+| Función | Uso | Ejemplo |
+|---|---|---|
+| `setFrameGapMs(ms)` | Define gap en milisegundos. | `JWPLC_ModbusRTU.setFrameGapMs(5);` |
+| `frameGapMs()` | Lee el gap en ms. | `uint16_t gap = JWPLC_ModbusRTU.frameGapMs();` |
+| `setFrameGapUs(us)` | Define gap fino en microsegundos. | `JWPLC_ModbusRTU.setFrameGapUs(5000);` |
+| `frameGapUs()` | Lee el gap en µs. | `uint32_t gap = JWPLC_ModbusRTU.frameGapUs();` |
+
+## Mapas Slave: Coils
+
+| Función | Uso | Ejemplo |
+|---|---|---|
+| `setCoils(bits, count)` | Publica mapa de Coils. | `JWPLC_ModbusRTU.setCoils(coils, 16);` |
+| `coilCount()` | Cantidad publicada. | `uint16_t n = JWPLC_ModbusRTU.coilCount();` |
+| `getCoil(address, value)` | Lee un Coil local. | `bool v; JWPLC_ModbusRTU.getCoil(0, v);` |
+| `setCoil(address, value)` | Escribe un Coil local. | `JWPLC_ModbusRTU.setCoil(0, true);` |
+
+## Mapas Slave: Discrete Inputs
+
+| Función | Uso | Ejemplo |
+|---|---|---|
+| `setDiscreteInputs(bits, count)` | Publica mapa de entradas discretas. | `JWPLC_ModbusRTU.setDiscreteInputs(inputs, 16);` |
+| `discreteInputCount()` | Cantidad publicada. | `uint16_t n = JWPLC_ModbusRTU.discreteInputCount();` |
+| `getDiscreteInput(address, value)` | Lee una entrada local. | `bool v; JWPLC_ModbusRTU.getDiscreteInput(0, v);` |
+
+## Mapas Slave: Holding Registers
+
+| Función | Uso | Ejemplo |
+|---|---|---|
+| `setHoldingRegisters(registers, count)` | Publica Holding Registers. | `JWPLC_ModbusRTU.setHoldingRegisters(holding, 16);` |
+| `holdingRegisterCount()` | Cantidad publicada. | `uint16_t n = JWPLC_ModbusRTU.holdingRegisterCount();` |
+| `getHoldingRegister(address, value)` | Lee un Holding local. | `uint16_t v; JWPLC_ModbusRTU.getHoldingRegister(0, v);` |
+| `setHoldingRegister(address, value)` | Escribe un Holding local. | `JWPLC_ModbusRTU.setHoldingRegister(0, 1234);` |
+
+## Mapas Slave: Input Registers
+
+| Función | Uso | Ejemplo |
+|---|---|---|
+| `setInputRegisters(registers, count)` | Publica Input Registers. | `JWPLC_ModbusRTU.setInputRegisters(inputs16, 16);` |
+| `inputRegisterCount()` | Cantidad publicada. | `uint16_t n = JWPLC_ModbusRTU.inputRegisterCount();` |
+| `getInputRegister(address, value)` | Lee un Input Register local. | `uint16_t v; JWPLC_ModbusRTU.getInputRegister(0, v);` |
+
+## Actividad Slave / fail-safe
+
+| Función | Uso | Ejemplo |
+|---|---|---|
+| `hasValidRequest()` | Indica si hubo al menos una request válida. | `if (JWPLC_ModbusRTU.hasValidRequest()) { ... }` |
+| `lastValidRequestMs()` | Timestamp de última request válida. | `uint32_t t = JWPLC_ModbusRTU.lastValidRequestMs();` |
+| `hasCoilWrite()` | Indica si hubo escritura de Coil. | `if (JWPLC_ModbusRTU.hasCoilWrite()) { ... }` |
+| `lastCoilWriteMs()` | Timestamp de última escritura de Coil. | `uint32_t t = JWPLC_ModbusRTU.lastCoilWriteMs();` |
+
+## Servicio cooperativo
+
+| Función | Uso | Ejemplo |
+|---|---|---|
+| `task()` | Avanza Slave/Master. Recomendada. | `JWPLC_ModbusRTU.task();` |
+| `poll()` | Alias de servicio. | `JWPLC_ModbusRTU.poll();` |
+
+## Master ASYNC explícito: lecturas
+
+| Función | Ejemplo |
+|---|---|
+| `requestReadCoils()` | `JWPLC_ModbusRTU.requestReadCoils(2, 0, 8, bits, 1000);` |
+| `requestReadDiscreteInputs()` | `JWPLC_ModbusRTU.requestReadDiscreteInputs(2, 0, 8, bits, 1000);` |
+| `requestReadHoldingRegisters()` | `JWPLC_ModbusRTU.requestReadHoldingRegisters(2, 0, 4, regs, 1000);` |
+| `requestReadInputRegisters()` | `JWPLC_ModbusRTU.requestReadInputRegisters(2, 0, 4, regs, 1000);` |
+
+## Master ASYNC explícito: escrituras
+
+| Función | Ejemplo |
+|---|---|
+| `requestWriteSingleCoil()` | `JWPLC_ModbusRTU.requestWriteSingleCoil(2, 0, true, 1000);` |
+| `requestWriteSingleRegister()` | `JWPLC_ModbusRTU.requestWriteSingleRegister(2, 0, 1234, 1000);` |
+| `requestWriteMultipleCoils()` | `JWPLC_ModbusRTU.requestWriteMultipleCoils(2, 0, 8, bits, 1000);` |
+| `requestWriteMultipleRegisters()` | `JWPLC_ModbusRTU.requestWriteMultipleRegisters(2, 0, 4, regs, 1000);` |
+
+## Estado Master
+
+| Función | Uso | Ejemplo |
+|---|---|---|
+| `masterBusy()` | Transacción en curso. | `if (JWPLC_ModbusRTU.masterBusy()) { ... }` |
+| `masterDone()` | Resultado pendiente de consumir. | `if (JWPLC_ModbusRTU.masterDone()) { ... }` |
+| `masterSucceeded()` | Última transacción terminó OK. | `if (JWPLC_ModbusRTU.masterSucceeded()) { ... }` |
+| `masterState()` | Estado detallado del motor. | `auto s = JWPLC_ModbusRTU.masterState();` |
+| `masterResult()` | Código final de la transacción. | `auto r = JWPLC_ModbusRTU.masterResult();` |
+| `clearMasterResult()` | Libera el resultado para la siguiente operación. | `JWPLC_ModbusRTU.clearMasterResult();` |
+
+## Master SYNC explícito: lecturas
+
+| Función | Ejemplo |
+|---|---|
+| `readCoilsSync()` | `bool ok = JWPLC_ModbusRTU.readCoilsSync(2, 0, 8, bits, 1000);` |
+| `readDiscreteInputsSync()` | `bool ok = JWPLC_ModbusRTU.readDiscreteInputsSync(2, 0, 8, bits, 1000);` |
+| `readHoldingRegistersSync()` | `bool ok = JWPLC_ModbusRTU.readHoldingRegistersSync(2, 0, 4, regs, 1000);` |
+| `readInputRegistersSync()` | `bool ok = JWPLC_ModbusRTU.readInputRegistersSync(2, 0, 4, regs, 1000);` |
+
+## Master SYNC explícito: escrituras
+
+| Función | Ejemplo |
+|---|---|
+| `writeSingleCoilSync()` | `bool ok = JWPLC_ModbusRTU.writeSingleCoilSync(2, 0, true, 1000);` |
+| `writeSingleRegisterSync()` | `bool ok = JWPLC_ModbusRTU.writeSingleRegisterSync(2, 0, 1234, 1000);` |
+| `writeMultipleCoilsSync()` | `bool ok = JWPLC_ModbusRTU.writeMultipleCoilsSync(2, 0, 8, bits, 1000);` |
+| `writeMultipleRegistersSync()` | `bool ok = JWPLC_ModbusRTU.writeMultipleRegistersSync(2, 0, 4, regs, 1000);` |
+
+## API unificada por motor: lecturas
+
+| Función | Ejemplo |
+|---|---|
+| `readCoils()` | `JWPLC_ModbusRTU.readCoils(2, 0, 8, bits, 1000);` |
+| `readDiscreteInputs()` | `JWPLC_ModbusRTU.readDiscreteInputs(2, 0, 8, bits, 1000);` |
+| `readHoldingRegisters()` | `JWPLC_ModbusRTU.readHoldingRegisters(2, 0, 4, regs, 1000);` |
+| `readInputRegisters()` | `JWPLC_ModbusRTU.readInputRegisters(2, 0, 4, regs, 1000);` |
+
+## API unificada por motor: escrituras
+
+| Función | Ejemplo |
+|---|---|
+| `writeSingleCoil()` | `JWPLC_ModbusRTU.writeSingleCoil(2, 0, true, 1000);` |
+| `writeSingleRegister()` | `JWPLC_ModbusRTU.writeSingleRegister(2, 0, 1234, 1000);` |
+| `writeMultipleCoils()` | `JWPLC_ModbusRTU.writeMultipleCoils(2, 0, 8, bits, 1000);` |
+| `writeMultipleRegisters()` | `JWPLC_ModbusRTU.writeMultipleRegisters(2, 0, 4, regs, 1000);` |
+
+## Diagnóstico general
+
+| Función | Uso | Ejemplo |
+|---|---|---|
+| `lastError()` | Código del último error. | `auto e = JWPLC_ModbusRTU.lastError();` |
+| `lastErrorString()` | Texto del último error. | `Serial.println(JWPLC_ModbusRTU.lastErrorString());` |
+| `configString()` | Resumen de configuración. | `Serial.println(JWPLC_ModbusRTU.configString());` |
+| `stats()` | Referencia a estadísticas. | `const auto &s = JWPLC_ModbusRTU.stats();` |
+| `resetStats()` | Reinicia contadores. | `JWPLC_ModbusRTU.resetStats();` |
+| `printStatus(out)` | Imprime diagnóstico completo. | `JWPLC_ModbusRTU.printStatus(Serial);` |
+
+## API avanzada de transporte
+
+Estas funciones son públicas por compatibilidad/qualification, pero **no son
+necesarias para un sketch normal**.
+
+| Función | Ejemplo | Recomendación |
+|---|---|---|
+| `setQueuedTxEnabled(enabled)` | `JWPLC_ModbusRTU.setQueuedTxEnabled(true);` | Avanzada |
+| `queuedTxEnabled()` | `bool x = JWPLC_ModbusRTU.queuedTxEnabled();` | Diagnóstico |
+| `queuedTxActive()` | `bool x = JWPLC_ModbusRTU.queuedTxActive();` | Diagnóstico |
+| `setBulkRxEnabled(enabled)` | `JWPLC_ModbusRTU.setBulkRxEnabled(true);` | Qualification |
+| `bulkRxEnabled()` | `bool x = JWPLC_ModbusRTU.bulkRxEnabled();` | Qualification |
+| `setEarlyServerDispatchEnabled(enabled)` | `JWPLC_ModbusRTU.setEarlyServerDispatchEnabled(true);` | Qualification |
+| `earlyServerDispatchEnabled()` | `bool x = JWPLC_ModbusRTU.earlyServerDispatchEnabled();` | Qualification |
+
+Para aplicación normal mantenga los defaults del package.
+
+## Helpers CRC
+
+También existen helpers públicos para herramientas o protocolos auxiliares:
+
+| Función | Ejemplo |
+|---|---|
+| `setCrcLookupEnabled(enabled)` | `JWPLC_ModbusRTU.setCrcLookupEnabled(true);` |
+| `crcLookupEnabled()` | `bool x = JWPLC_ModbusRTU.crcLookupEnabled();` |
+| `crc16(data, length)` | `uint16_t crc = JWPLC_ModbusRTU.crc16(data, len);` |
+| `checkCRC(frame, length)` | `bool ok = JWPLC_ModbusRTU.checkCRC(frame, len);` |
+| `appendCRC(frame, payloadLength)` | `JWPLC_ModbusRTU.appendCRC(frame, payloadLen);` |
+
+Estos helpers no son necesarios al usar las operaciones Modbus de alto nivel.
