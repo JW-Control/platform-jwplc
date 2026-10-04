@@ -100,6 +100,28 @@ function Resolve-ToolSibling {
     throw ("A12_TFT_REQUAL_TOOL_NOT_FOUND=" + $Leaf)
 }
 
+function Resolve-ToolBesidePath {
+    param(
+        [string]$KnownToolPath,
+        [string]$Leaf
+    )
+
+    if ([string]::IsNullOrWhiteSpace($KnownToolPath)) {
+        throw ("A12_TFT_REQUAL_KNOWN_TOOL_PATH_EMPTY=" + $Leaf)
+    }
+
+    $toolDir = Split-Path -Parent $KnownToolPath
+
+    foreach ($name in @($Leaf + ".exe", $Leaf)) {
+        $candidate = Join-Path $toolDir $name
+        if (Test-Path -LiteralPath $candidate) {
+            return (Resolve-Path -LiteralPath $candidate).Path
+        }
+    }
+
+    throw ("A12_TFT_REQUAL_SIBLING_TOOL_NOT_FOUND=" + $Leaf + " base=" + $toolDir)
+}
+
 function Resolve-Archiver {
     param([string[]]$Lines)
 
@@ -523,7 +545,7 @@ depends=SPI
 ) | Set-Content -LiteralPath (Join-Path $ResultRoot "MANIFEST.txt") -Encoding UTF8
 
 Write-Host "=============================================================================="
-Write-Host " ALPHA12 - JWPLC_TFT PRECOMPILED REQUALIFICATION R1"
+Write-Host " ALPHA12 - JWPLC_TFT PRECOMPILED REQUALIFICATION R3"
 Write-Host "=============================================================================="
 Write-Host ("BRANCH=" + $branch)
 Write-Host ("HEAD=" + $head)
@@ -591,7 +613,7 @@ Write-Host ("SOURCE_TFT_ESPI_FOLDER=" + $tftEspiSelection.Folder)
 Write-Host "SOURCE_FIRST_CURRENT_SOURCE=PASS"
 
 $archiver = Resolve-Archiver -Lines $sourceRun.Output
-$nm = Resolve-ToolSibling -Lines $sourceRun.Output -Leaf "xtensa-esp32-elf-nm"
+$nm = Resolve-ToolBesidePath -KnownToolPath $archiver -Leaf "xtensa-esp32-elf-nm"
 Write-Host ("ARCHIVER=" + $archiver)
 Write-Host ("NM=" + $nm)
 
