@@ -2,7 +2,9 @@
 
 Librería del package **JWPLC ESP32** para la TFT ST7789 integrada del **JWPLC Basic**.
 
-Estado documentado: **v2.1.0-alpha.11**.
+Estado documentado: **v2.1.0-alpha.12 en cierre**.
+
+La API HMI de usuario validada en Alpha11 se conserva. Alpha12 cambia la arquitectura interna de renderizado/runtime para mejorar coexistencia y rendimiento bajo carga.
 
 `JWPLC_Display` integra:
 
@@ -12,7 +14,7 @@ Estado documentado: **v2.1.0-alpha.11**.
 4. navegación multipágina;
 5. PixelMap RGB565 y `PACKED_SPAN16`;
 6. dirty refresh / on-demand refresh;
-7. acceso raw opcional a `Adafruit_ST7789`.
+7. acceso gráfico avanzado mediante `JWPLC_TFT`.
 
 La API pública recomendada usa el objeto global:
 
@@ -394,17 +396,41 @@ JWPLC_Display.setEthLedAuto(true);
 
 ---
 
-## Acceso raw a TFT
+## Acceso gráfico avanzado
 
-Forma canónica:
+Forma recomendada:
 
 ```cpp
 auto &tft = JWPLC_Display.tft();
 ```
 
-`display()` existe como alias compatible, pero el autocompletado Alpha11 no lo prioriza para evitar dos nombres equivalentes.
+`display()` continúa como alias:
 
-El acceso raw es para casos avanzados; una HMI generada por Designer no necesita llamadas manuales a Adafruit GFX.
+```cpp
+auto &tft2 = JWPLC_Display.display();
+```
+
+En Alpha12 ambos retornan:
+
+```cpp
+JWPLC_TFTClass &
+```
+
+y no `Adafruit_ST7789&`.
+
+La API recomendada desde Alpha11 ya usaba `auto &`, por lo que ese patrón se
+mantiene compatible si las primitivas utilizadas existen en `JWPLC_TFT`.
+
+Un sketch que haya declarado explícitamente:
+
+```cpp
+Adafruit_ST7789 &tft = JWPLC_Display.tft();
+```
+
+requiere migración. Este caso se considera compatibilidad avanzada/raw y queda
+registrado en el checklist Alpha12 antes del freeze.
+
+La HMI generada por Designer no necesita acceso directo al backend.
 
 ---
 
@@ -453,33 +479,31 @@ Reglas:
 
 ---
 
-## Precompilación Alpha11
+## Precompilación en el cierre Alpha12
 
-`JWPLC_Display` usa:
+Durante el desarrollo y la consolidación Alpha12, `JWPLC_Display` está en
+modo source-first: `library.properties` no declara todavía
+`precompiled=full`.
+
+El archive Alpha11 se conserva sólo como evidencia histórica. No se debe
+publicar reutilizando su SHA como si representara las fuentes actuales.
+
+Antes de publicar Alpha12:
+
+1. congelar las fuentes;
+2. regenerar `libJWPLC_Display.a`;
+3. regenerar/validar también `libJWPLC_TFT.a`;
+4. registrar SHA-256/tamaños nuevos;
+5. restaurar la política precompilada sólo si la paridad source/archive pasa;
+6. repetir compile/upload/runtime final.
+
+Estado actual:
 
 ```text
-precompiled=full
+DISPLAY_SOURCE_FIRST=YES
+DISPLAY_ALPHA11_ARCHIVE_FINAL_FOR_ALPHA12=NO
+DISPLAY_ALPHA12_ARCHIVE_REGEN=PENDING
 ```
-
-Archive final:
-
-```text
-src/esp32/libJWPLC_Display.a
-```
-
-Identidad:
-
-```text
-ARCHIVE_BYTES=849596
-ARCHIVE_SHA256=2974d42c847c1b7c7ab3a7b74da42e2f17969fb852b47a8d434f57f70da924af
-DISPLAY_TUS=6
-ARCHIVE_MEMBERS_EXACT=PASS
-PRECOMPILED_DISPLAY_SOURCE_TUS=0
-SOURCE_ARCHIVE_EMPTY_PARITY=PASS
-SOURCE_ARCHIVE_HMI_PARITY=PASS
-```
-
-El objetivo verificable es evitar recompilar las TUs de Display conservando paridad funcional/estructural con source.
 
 ---
 
@@ -502,24 +526,19 @@ Para código nuevo se recomienda seguir la API curada mostrada por el autocomple
 
 ---
 
-## Estado Alpha11
+## Estado Alpha12
 
 ```text
-JWPLC_DISPLAY_ALPHA11=PASS
-HMI_DESIGNER_V1=PASS_USER
-MULTIPAGE=PASS
-PIXELMAP=PASS
-LIVE_PREVIEW=PASS
-BUTTON_RUNTIME=PASS_PHYSICAL
-CLOSED_LOOP_RUNTIME=PASS_PHYSICAL
-DISPLAY_PRECOMPILED=PASS
+JWPLC ESP32 v2.1.0-alpha.12
+JWPLC_Display 1.0.1
+HMI_DESIGNER_V1=RETAINED_FROM_ALPHA11
+BACKEND=JWPLC_TFT
 AUTOLOAD_DISPLAY=YES
+FULL_RUNTIME_DISPLAY=PASS_PHYSICAL
+PRECOMPILED_FINAL_ALPHA12=PENDING_REGEN
+RAW_BACKEND_EXPLICIT_ADAFRUIT_TYPE_COMPATIBILITY=REVIEW
 ```
 
-Documentación de cierre:
-
-```text
-docs/v2.1.0-alpha.11/ALPHA11_STATUS.md
-docs/v2.1.0-alpha.11/ALPHA11_CLOSURE_CHECKLIST.md
-docs/v2.1.0-alpha.11/ALPHA11_BUILD_BENCHMARK.md
-```
+Alpha13 será el ciclo dedicado a continuar la evolución funcional de TFT/Display.
+Alpha12 sólo consolida la arquitectura que ya fue necesaria y validada durante
+el hardening de comunicaciones/full runtime.
