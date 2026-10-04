@@ -783,3 +783,92 @@ P5_DISPLAY=PASS_ADOPTED
 P6_TFT_REQUALIFICATION=READY_TO_RUN
 FINAL_BUILD_SPEED_BENCHMARK=BLOCKED_UNTIL_P6
 ```
+
+
+## P6 intento 1 — criterio de paridad bit-for-bit inválido para requalification
+
+La primera corrida de P6 pasó:
+
+```text
+POWERSHELL_SYNTAX_ERROR_COUNT=0
+SOURCE_COMPILE_EXIT=0
+SOURCE_TFT_OBJECT_COUNT=1
+SOURCE_TFT_ESPI_OBJECT_COUNT=1
+SOURCE_TFT_PRECOMPILED_MARKER=NO
+SOURCE_WARNING_LINES=0
+SOURCE_ERROR_LINES=0
+SOURCE_TFT_ESPI_VERSION=2.5.43
+ARCHIVE_MEMBER_COUNT=2
+```
+
+pero el gate exigió igualdad SHA-256 entre objetos recompilados hoy y los
+miembros históricos del archive físico cualificado.
+
+Resultado:
+
+```text
+JWPLC_TFT_OBJECT_SOURCE_SHA256=16fe072b...
+JWPLC_TFT_OBJECT_ARCHIVE_SHA256=37f0723f...
+
+TFT_ESPI_OBJECT_SOURCE_SHA256=5f98cc18...
+TFT_ESPI_OBJECT_ARCHIVE_SHA256=821abac2...
+```
+
+Clasificación:
+
+```text
+HARNESS_CRITERION_FAILURE=YES
+PRODUCT_FAILURE=NOT_PROVEN
+ARCHIVE_STALE=NOT_PROVEN
+OFFICIAL_ARCHIVE_MUTATED=NO
+PHYSICAL_UPLOAD=NO
+```
+
+Causa del criterio incorrecto:
+
+- el archive actual fue creado/adoptado mediante H3E4A1/H3E4A2/H3E4A3;
+- la receta histórica usaba
+  `-DJWPLC_TFT_ESPI_DIAGNOSTIC_NO_DISPLAY_AUTOLOAD=1`;
+- la primera versión de P6 no reprodujo esa receta;
+- además, el proceso histórico nunca declaró reproducibilidad bit-for-bit entre
+  recompilaciones futuras como contrato de cierre;
+- la adopción histórica se basó en identidad del archive físicamente cualificado,
+  link release-like, ausencia de TFT_eSPI externo y equivalencia estructural.
+
+Identidad histórica cualificada del archive actual:
+
+```text
+BYTES=1091098
+SHA256=5d860a131811dd9a7eb6fa55f5674b1d78b0de7dfaf8748ce18a60ceed2d3738
+```
+
+P6-R1 pasa a exigir:
+
+```text
+CURRENT_SOURCE_BLOB_IDENTITY=PASS
+ARCHIVE_IDENTITY_PHYSICAL_QUALIFIED=PASS
+SOURCE_FIRST_CURRENT_SOURCE=PASS
+STRUCTURAL_EQUIVALENCE=PASS
+DEFINED_SYMBOL_NAME_TYPE_SIZE_PARITY=PASS
+GLOBAL_TFT_ESPI_REQUIRED_AT_USER_BUILD=NO
+OFFICIAL_ARCHIVE_CHANGED=NO
+```
+
+La diferencia bit-for-bit de objetos reconstruidos se conserva como
+observabilidad, pero deja de ser un requisito de PASS.
+
+Gate corregido:
+
+```text
+b21ecaf5683b30d381cd72cbb4dc3a2da5e82efa
+fix(alpha12): alinear P6 TFT con criterio historico cualificado
+```
+
+Estado:
+
+```text
+P6_TFT_ATTEMPT_1=HARNESS_CRITERION_FAILURE
+P6_TFT_PRODUCT_FAILURE=NOT_PROVEN
+P6_TFT_R1=READY_TO_RUN
+FINAL_BUILD_SPEED_BENCHMARK=BLOCKED_UNTIL_P6
+```
