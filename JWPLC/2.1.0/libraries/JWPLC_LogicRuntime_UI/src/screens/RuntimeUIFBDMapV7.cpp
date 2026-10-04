@@ -742,7 +742,7 @@ void RuntimeUIFBDMapV7::drawDetailInputPinLive(uint8_t inputIndex,
       DETAIL_BLOCK_Y + 17 + visibleRow * 18);
   const bool active = _model->inputValue(_selectedIndex, inputIndex);
   const uint16_t pinColor = active ? COLOR_OK : COLOR_MUTED;
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
 
   if (input->inverted())
   {
@@ -785,7 +785,7 @@ void RuntimeUIFBDMapV7::drawDetailBlockStateLive()
 
   const bool active = _model->blockValue(_selectedIndex);
   const uint16_t border = active ? COLOR_OK : COLOR_BORDER;
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
 
   tft.drawRect(DETAIL_BLOCK_X,
                DETAIL_BLOCK_Y,
@@ -846,7 +846,7 @@ void RuntimeUIFBDMapV7::drawTonDetailElapsedLive(bool force)
     return;
   }
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.fillRect(TON_PANEL_X + 3,
                TON_PANEL_Y + 16,
                TON_PANEL_W - 6,

@@ -392,7 +392,7 @@ void RuntimeUIFBDMapV11::drawDisabledButton(int16_t x,
                                             int16_t height,
                                             const char *label)
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.fillRect(x, y, width, height, COLOR_PANEL);
   tft.drawRect(x, y, width, height, COLOR_MUTED);
   tft.setTextWrap(false);
@@ -440,7 +440,7 @@ void RuntimeUIFBDMapV11::drawMainGroup(MainFocus focus)
 
 void RuntimeUIFBDMapV11::drawConfigHeader(const char *subtitle)
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   clearScreen(tft);
   drawHeaderStatic(tft, "CONFIGURAR");
   _headerStateValid = false;
@@ -1030,7 +1030,7 @@ void RuntimeUIFBDMapV11::drawFixedContextForCurrent()
 void RuntimeUIFBDMapV11::drawFixedContextMessage(const char *message,
                                                   uint16_t color)
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.fillRect(FIXED_CONTEXT_X,
                FIXED_CONTEXT_Y,
                FIXED_CONTEXT_W,
@@ -1069,7 +1069,7 @@ void RuntimeUIFBDMapV11::drawFixedContext(uint16_t source)
     buildLayout();
   }
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.fillRect(FIXED_CONTEXT_X,
                FIXED_CONTEXT_Y,
                FIXED_CONTEXT_W,

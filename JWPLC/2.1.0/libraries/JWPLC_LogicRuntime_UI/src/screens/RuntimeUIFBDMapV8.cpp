@@ -217,7 +217,7 @@ void RuntimeUIFBDMapV8::drawAddNode(bool selected,
                                     int16_t width,
                                     int16_t height)
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   const uint16_t border = selected ? COLOR_WARNING : COLOR_BORDER;
 
   tft.fillRect(x, y, width, height, COLOR_BACKGROUND);
@@ -1211,7 +1211,7 @@ void RuntimeUIFBDMapV8::requestWizardCreate()
 
 void RuntimeUIFBDMapV8::drawWizardTypeScreen()
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   clearScreen(tft);
   drawHeaderStatic(tft, "NUEVO BLOQUE");
   _headerStateValid = false;
@@ -1241,7 +1241,7 @@ void RuntimeUIFBDMapV8::drawWizardTypeScreen()
 
 void RuntimeUIFBDMapV8::drawWizardConfigScreen()
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   clearScreen(tft);
   drawHeaderStatic(tft, "CONFIGURAR");
   _headerStateValid = false;
@@ -1267,7 +1267,7 @@ void RuntimeUIFBDMapV8::drawWizardConfigScreen()
 
 void RuntimeUIFBDMapV8::drawWizardConfigFields()
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   const uint8_t count = wizardFieldCount();
 
   for (uint8_t field = 0; field < count; ++field)
