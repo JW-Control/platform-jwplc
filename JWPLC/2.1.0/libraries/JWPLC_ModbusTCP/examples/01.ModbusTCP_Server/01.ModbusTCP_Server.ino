@@ -1,7 +1,7 @@
 /*
   01.ModbusTCP_Server
 
-  Primer ejemplo Server de JWPLC_ModbusTCP para Alpha14.
+  Ejemplo Server de JWPLC_ModbusTCP para Alpha12.
 
   Mapa:
   - Coils            00001..00008 -> 8 bits modificables
@@ -16,7 +16,8 @@
   Importante:
   - Ethernet se inicializa y mantiene desde el runtime JWPLC.
   - No llamar Ethernet.begin() ni JWPLC_Ethernet.begin() aquí.
-  - task() debe ejecutarse frecuentemente.
+  - Al enlazar JWPLC_ModbusTCP, el Server recibe autoservicio cooperativo
+    desde el core. task()/poll() siguen disponibles para servicio explícito.
 */
 
 #include <JWPLC_ModbusTCP.h>
@@ -50,9 +51,8 @@ void setup()
 
 void loop()
 {
-    JWPLC_ModbusTCP.task();
-
     // Datos de ejemplo de solo lectura para verificar FC02/FC04.
+    // El Server se atiende mediante el hook cooperativo del package.
     discreteInputs[0] = (uint8_t)((millis() / 1000UL) & 0xFFU);
     inputRegisters[0] = (uint16_t)(millis() / 1000UL);
     inputRegisters[1] = JWPLC_ModbusTCP.stats().requestsOk & 0xFFFFU;
