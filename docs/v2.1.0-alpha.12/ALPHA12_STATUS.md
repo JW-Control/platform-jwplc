@@ -721,3 +721,65 @@ P5_DISPLAY=PASS_ADOPTED
 P6_TFT_REQUALIFICATION=NEXT
 FINAL_BUILD_SPEED_BENCHMARK=BLOCKED_UNTIL_P6
 ```
+
+
+## P6 precompilado — JWPLC_TFT preparado
+
+Gate:
+
+```text
+tools/alpha12/gates/alpha12_tft_precompiled_requalify.ps1
+```
+
+Objetivo:
+
+- requalificar el archive histórico sin regenerarlo si la paridad sigue vigente;
+- exigir miembros exactos `JWPLC_TFT.cpp.o` + `TFT_eSPI.cpp.o`;
+- recompilar source-first con TFT_eSPI 2.5.43 del entorno de mantenimiento;
+- comparar SHA-256 byte a byte de ambos objetos source vs archive;
+- crear un `JWPLC_TFT` temporal `precompiled=full` sin fuentes backend;
+- compilar tres casos contra ese candidate:
+  - acceso directo JWPLC_TFT;
+  - integración Display;
+  - `01_empty` con autoload normal;
+- exigir cero `JWPLC_TFT.cpp.o` y cero `TFT_eSPI.cpp.o` compilados desde source en los casos candidate;
+- exigir que Arduino CLI NO seleccione ninguna librería global `TFT_eSPI` en los casos candidate;
+- no modificar el archive oficial;
+- no realizar upload físico.
+
+Contrato esperado:
+
+```text
+ARCHIVE_MEMBER_COUNT=2
+ARCHIVE_MEMBER_BYTE_PARITY=PASS
+MAINTAINER_TFT_ESPI_VERSION=2.5.43
+DIRECT_TFT_PRECOMPILED_LINK=PASS
+DISPLAY_INTEGRATION_PRECOMPILED_LINK=PASS
+NORMAL_AUTOLOAD_PRECOMPILED_LINK=PASS
+GLOBAL_TFT_ESPI_REQUIRED_AT_USER_BUILD=NO
+OFFICIAL_ARCHIVE_CHANGED=NO
+FINAL_TRACKED_DIRTY_COUNT=0
+```
+
+Auditoría estática previa a publicación del gate:
+
+```text
+AMBIGUOUS_VARIABLE_COLON_HITS=0
+GET_FILE_HASH_OCCURRENCES=0
+POWERSHELL_CONTINUATION_BACKTICKS=0
+HERE_STRING_DELIMITERS=BALANCED
+EXPECTED_ARCHIVE_MEMBERS=PASS
+SELF_CONTAINED_CASES=3
+```
+
+Estado:
+
+```text
+P1_CORE=PASS_ADOPTED
+P2_MODBUS_RTU=PASS_ADOPTED
+P3_SPI=PASS_ADOPTED
+P4_JW_SD=PASS_ADOPTED
+P5_DISPLAY=PASS_ADOPTED
+P6_TFT_REQUALIFICATION=READY_TO_RUN
+FINAL_BUILD_SPEED_BENCHMARK=BLOCKED_UNTIL_P6
+```
