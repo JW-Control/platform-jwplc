@@ -1,12 +1,26 @@
 # JWPLC_Ethernet
 
-Librería del package **JWPLC ESP32** para el W5500 integrado del **JWPLC Basic**.
+Librería Ethernet del package **JWPLC ESP32** para el W5500 integrado del
+**JWPLC Basic**.
 
-El autoload usa un runtime **cooperativo/no bloqueante** para detectar hardware, revisar link, adquirir DHCP, recuperar la red y mantener el lease.
+El runtime del JWPLC inicializa y mantiene Ethernet de forma cooperativa. En un
+sketch normal no es necesario gestionar manualmente el W5500 ni llamar
+`Ethernet.begin()`.
+
+Esta librería cubre:
+
+- DHCP;
+- IP estática;
+- estado de red y diagnóstico;
+- TCP Client;
+- TCP Server;
+- UDP.
+
+---
 
 ## Uso normal
 
-En JWPLC Basic no es necesario llamar `begin()` ni `maintain()` desde el sketch.
+### DHCP
 
 ```cpp
 #include <JWPLC_Ethernet.h>
@@ -14,85 +28,45 @@ En JWPLC Basic no es necesario llamar `begin()` ni `maintain()` desde el sketch.
 void setup()
 {
     Serial.begin(115200);
+
     JWPLC_Ethernet.useDHCP();
 }
 
 void loop()
 {
-    Serial.println(JWPLC_Ethernet.statusString());
+    if (JWPLC_Ethernet.isReady())
+    {
+        Serial.print("IP: ");
+        Serial.println(JWPLC_Ethernet.localIP());
+    }
+
     delay(1000);
 }
 ```
 
-El task del sistema llama periódicamente:
+El runtime del package llama internamente a:
 
 ```cpp
 JWPLC_Ethernet.service();
 ```
 
-Cada llamada ejecuta un paso corto y retorna.
+por lo que el usuario no necesita hacerlo en el caso normal.
 
-## Estados del runtime
-
-```text
-JWPLC_ETH_STATE_NOT_STARTED
-JWPLC_ETH_STATE_PROBING
-JWPLC_ETH_STATE_PHY_READY
-JWPLC_ETH_STATE_LINK_OFF
-JWPLC_ETH_STATE_DHCP_PENDING
-JWPLC_ETH_STATE_READY
-JWPLC_ETH_STATE_ERROR
-```
-
-Flujo típico DHCP:
-
-```text
-NOT_STARTED -> PROBING -> PHY_READY -> DHCP_PENDING -> READY
-```
-
-La desconexión de RJ45 lleva a `LINK_OFF`; el runtime puede recuperarse al volver el link sin resetear el ESP32.
-
-## DHCP
-
-```cpp
-JWPLC_Ethernet.useDHCP();
-```
-
-El mantenimiento T1/T2 se ejecuta cooperativamente. Un lease vigente no se invalida sólo por haber iniciado una renovación.
+---
 
 ## IP estática
 
-Configurar en `setup()` antes de que finalice y arranque el task automático de sistema:
+Configurar en `setup()`:
 
 ```cpp
 JWPLC_Ethernet.setStaticIP(
-    IPAddress(192, 168, 1, 50),
-    IPAddress(192, 168, 1, 1),
-    IPAddress(192, 168, 1, 1),
-    IPAddress(255, 255, 255, 0));
+    IPAddress(192, 168, 1, 50),  // IP local
+    IPAddress(192, 168, 1, 1),   // DNS
+    IPAddress(192, 168, 1, 1),   // Gateway
+    IPAddress(255, 255, 255, 0)); // Subnet
 ```
 
-## API principal
-
-Estado:
-
-```cpp
-JWPLC_Ethernet.isEnabled();
-JWPLC_Ethernet.isBeginAttempted();
-JWPLC_Ethernet.isReady();
-JWPLC_Ethernet.isBusy();
-JWPLC_Ethernet.hardwarePresent();
-JWPLC_Ethernet.linkUp();
-JWPLC_Ethernet.hardwareStatus();
-JWPLC_Ethernet.linkStatus();
-JWPLC_Ethernet.runtimeState();
-JWPLC_Ethernet.lastError();
-JWPLC_Ethernet.lastErrorString();
-JWPLC_Ethernet.statusString();
-JWPLC_Ethernet.diagnosticCode();
-```
-
-Red:
+Consultar datos de red:
 
 ```cpp
 JWPLC_Ethernet.localIP();
@@ -102,150 +76,434 @@ JWPLC_Ethernet.dnsServerIP();
 JWPLC_Ethernet.mac();
 ```
 
+---
+
+## Estado de Ethernet
+
+Las consultas más útiles para un sketch son:
+
+```cpp
+JWPLC_Ethernet.isReady();
+JWPLC_Ethernet.isBusy();
+
+JWPLC_Ethernet.hardwarePresent();
+JWPLC_Ethernet.linkUp();
+
+JWPLC_Ethernet.runtimeState();
+
+JWPLC_Ethernet.lastError();
+JWPLC_Ethernet.lastErrorString();
+JWPLC_Ethernet.statusString();
+JWPLC_Ethernet.diagnosticCode();
+```
+
+Ejemplo:
+
+```cpp
+if (!JWPLC_Ethernet.linkUp())
+{
+    Serial.println("Cable Ethernet desconectado");
+}
+
+if (JWPLC_Ethernet.isReady())
+{
+    Serial.println("Ethernet listo");
+}
+```
+
 Diagnóstico agrupado:
 
 ```cpp
 JWPLC_Ethernet.printStatus(Serial);
 ```
 
-Configuración:
+---
+
+# TCP Client
+
+La API es compatible con el estilo Arduino Ethernet.
+
+Objeto:
+
+```cpp
+EthernetClient client;
+```
+
+## Ejemplo
+
+```cpp
+#include <JWPLC_Ethernet.h>
+
+EthernetClient client;
+bool connected = false;
+
+void setup()
+{
+    Serial.begin(115200);
+    JWPLC_Ethernet.useDHCP();
+}
+
+void loop()
+{
+    if (!JWPLC_Ethernet.isReady())
+    {
+        return;
+    }
+
+    if (!connected)
+    {
+        connected = client.connect(
+            IPAddress(192, 168, 1, 100),
+            5000);
+
+        if (!connected)
+        {
+            delay(500);
+            return;
+        }
+
+        client.println("Hola desde JWPLC");
+    }
+
+    while (client.available())
+    {
+        char c = client.read();
+        Serial.write(c);
+    }
+
+    if (!client.connected())
+    {
+        client.stop();
+        connected = false;
+    }
+}
+```
+
+Funciones habituales:
+
+```cpp
+client.connect(ip, port);
+client.connected();
+
+client.available();
+client.read();
+
+client.write(data);
+client.print(...);
+client.println(...);
+
+client.flush();
+client.stop();
+
+client.remoteIP();
+client.remotePort();
+client.localPort();
+```
+
+---
+
+# TCP Server
+
+Objeto:
+
+```cpp
+EthernetServer server(5000);
+```
+
+## Ejemplo
+
+```cpp
+#include <JWPLC_Ethernet.h>
+
+EthernetServer server(5000);
+bool serverStarted = false;
+
+void setup()
+{
+    Serial.begin(115200);
+    JWPLC_Ethernet.useDHCP();
+}
+
+void loop()
+{
+    if (!JWPLC_Ethernet.isReady())
+    {
+        return;
+    }
+
+    if (!serverStarted)
+    {
+        server.begin();
+        serverStarted = true;
+
+        Serial.print("Server en ");
+        Serial.println(JWPLC_Ethernet.localIP());
+    }
+
+    EthernetClient client = server.available();
+
+    if (client)
+    {
+        while (client.available())
+        {
+            char c = client.read();
+            Serial.write(c);
+        }
+
+        client.println("JWPLC TCP Server");
+    }
+}
+```
+
+Funciones principales:
+
+```cpp
+server.begin();
+server.available();
+server.accept();
+server.write(...);
+server.print(...);
+server.println(...);
+```
+
+Para protocolos industriales sobre TCP se recomienda usar la librería
+`JWPLC_ModbusTCP` en lugar de implementar Modbus manualmente.
+
+---
+
+# UDP
+
+La clase pública es:
+
+```cpp
+EthernetUDP udp;
+```
+
+La API recomendada es la API UDP clásica de Arduino.
+
+---
+
+## Escuchar UDP
+
+```cpp
+#include <JWPLC_Ethernet.h>
+
+EthernetUDP udp;
+
+bool udpStarted = false;
+const uint16_t LOCAL_PORT = 5000;
+
+void setup()
+{
+    Serial.begin(115200);
+    JWPLC_Ethernet.useDHCP();
+}
+
+void loop()
+{
+    if (!JWPLC_Ethernet.isReady())
+    {
+        return;
+    }
+
+    if (!udpStarted)
+    {
+        udpStarted = udp.begin(LOCAL_PORT);
+
+        if (!udpStarted)
+        {
+            Serial.println("No se pudo abrir UDP");
+            return;
+        }
+    }
+
+    int packetSize = udp.parsePacket();
+
+    if (packetSize > 0)
+    {
+        char buffer[64];
+
+        int n = udp.read(
+            buffer,
+            sizeof(buffer) - 1);
+
+        if (n > 0)
+        {
+            buffer[n] = '\0';
+
+            Serial.print("RX de ");
+            Serial.print(udp.remoteIP());
+            Serial.print(':');
+            Serial.print(udp.remotePort());
+            Serial.print(" -> ");
+            Serial.println(buffer);
+        }
+    }
+}
+```
+
+Funciones de recepción:
+
+```cpp
+udp.begin(localPort);
+udp.beginMulticast(groupIP, port);
+
+udp.parsePacket();
+udp.available();
+udp.read(...);
+udp.peek();
+udp.flush();
+
+udp.remoteIP();
+udp.remotePort();
+udp.localPort();
+
+udp.stop();
+```
+
+---
+
+## Enviar UDP
+
+```cpp
+IPAddress destination(192, 168, 1, 100);
+
+udp.beginPacket(destination, 5000);
+udp.print("JWPLC UDP");
+udp.endPacket();
+```
+
+También puede enviarse un buffer:
+
+```cpp
+uint8_t data[] = {1, 2, 3, 4};
+
+udp.beginPacket(destination, 5000);
+udp.write(data, sizeof(data));
+udp.endPacket();
+```
+
+Funciones de envío:
+
+```cpp
+udp.beginPacket(ip, port);
+udp.beginPacket(host, port);
+
+udp.write(...);
+udp.print(...);
+udp.println(...);
+
+udp.endPacket();
+```
+
+UDP no garantiza entrega, orden ni retransmisión. Si el protocolo necesita
+confirmación, debe implementarse a nivel de aplicación o usarse TCP.
+
+---
+
+## TCP/UDP cooperativo y fast-path
+
+Alpha12 incorpora internamente rutas cooperativas y fast-path para librerías
+como `JWPLC_ModbusTCP` y para perfiles de alto rendimiento.
+
+Existen extensiones como:
+
+```text
+beginConnectAsync()
+beginWriteAsync()
+beginEndPacketAsync()
+jwplcReadTcpFastDeferred()
+jwplcReadPacketFastDeferred()
+```
+
+pero **no son necesarias para un sketch normal**.
+
+Para aplicaciones de usuario se recomienda mantener las APIs estándar
+`EthernetClient`, `EthernetServer` y `EthernetUDP` mostradas arriba.
+
+---
+
+## Recuperación de red
+
+El runtime JWPLC gestiona de forma cooperativa:
+
+- detección del W5500;
+- link RJ45;
+- DHCP;
+- mantenimiento del lease;
+- recuperación después de desconexión/reconexión.
+
+El usuario puede comprobar:
+
+```cpp
+JWPLC_Ethernet.isReady();
+JWPLC_Ethernet.linkUp();
+JWPLC_Ethernet.statusString();
+```
+
+sin reiniciar el ESP32 para recuperar el enlace.
+
+---
+
+## Códigos ETH en la TFT
+
+El indicador Ethernet del Display puede gestionarse automáticamente:
+
+```cpp
+JWPLC_Display.setEthLedAuto(true);
+```
+
+Códigos habituales:
+
+| Código | Significado |
+|---|---|
+| `DIS` | Ethernet deshabilitado |
+| `INI` | Inicializando |
+| `PHY` | Preparando W5500 |
+| `LNK` | Sin link RJ45 |
+| `DHC` | DHCP en progreso |
+| `HW` | W5500 no detectado |
+| `IP` | Configuración IP inválida |
+| `SPI` | Problema temporal de acceso al bus |
+| `---` | Operativo |
+
+---
+
+## Configuración adicional
+
+Disponible cuando se necesita:
 
 ```cpp
 JWPLC_Ethernet.setMac(mac);
 JWPLC_Ethernet.useDefaultMac();
-JWPLC_Ethernet.useDHCP();
-JWPLC_Ethernet.setStaticIP(localIP, dnsIP, gatewayIP, subnetMask);
-JWPLC_Ethernet.setTimeouts(dhcpTimeoutMs, responseTimeoutMs);
+
+JWPLC_Ethernet.setTimeouts(
+    dhcpTimeoutMs,
+    responseTimeoutMs);
+
 JWPLC_Ethernet.setRetransmissionCount(count);
 ```
 
-`configure()`/CS/reset pertenecen al hardware del JWPLC Basic y normalmente no deben cambiarse.
+La configuración física del CS/reset del W5500 pertenece al board JWPLC y no
+debería modificarse en un sketch normal.
 
-## Compatibilidad síncrona
+---
 
-Se conservan:
+## Compatibilidad
+
+Se conservan las rutas síncronas históricas:
 
 ```cpp
 JWPLC_Ethernet.begin();
 JWPLC_Ethernet.maintain();
 ```
 
-Son rutas explícitas/legacy. El autoload normal no depende de ellas.
+Son útiles para compatibilidad o pruebas manuales. El autoload normal usa el
+runtime cooperativo.
 
-## Extensiones cooperativas Alpha12
+---
 
-El backend Ethernet incorpora primitives aditivas para que librerías como
-`JWPLC_ModbusTCP` puedan trabajar sin bloquear largos periodos.
-
-`EthernetClient`:
-
-```text
-beginConnectAsync()
-pollConnectAsync()
-connectAsyncInProgress()
-cancelConnectAsync()
-
-beginStopAsync()
-pollStopAsync()
-stopAsyncInProgress()
-cancelStopAsync()
-
-beginFlushAsync()
-pollFlushAsync()
-flushAsyncInProgress()
-cancelFlushAsync()
-
-beginWriteAsync()
-pollWriteAsync()
-writeAsyncInProgress()
-cancelWriteAsync()
-```
-
-UDP:
-
-```text
-beginEndPacketAsync()
-pollEndPacketAsync()
-endPacketAsyncInProgress()
-cancelEndPacketAsync()
-```
-
-Estas extensiones no sustituyen ni cambian la semántica de las APIs Arduino
-legacy.
-
-## Fast RX aditivo/interno
-
-Para consumers cooperativos de alto rendimiento existen extensiones JWPLC:
-
-UDP:
-
-```text
-jwplcReadPacketFastDeferred()
-jwplcCommitRxFast()
-```
-
-TCP:
-
-```text
-jwplcReadTcpFastDeferred()
-jwplcCommitRxFast()
-```
-
-Estas rutas son aditivas. No reemplazan transparentemente
-`parsePacket()/read()` ni `EthernetClient::read()`.
-
-## Refresh L2
-
-El runtime incluye un refresh L2 best-effort para mantener fresca la presencia
-de la MAC durante periodos largos sin tráfico saliente.
-
-Defaults:
-
-```text
-JWPLC_ETH_L2_REFRESH_PERIOD_MS=120000
-JWPLC_ETH_L2_REFRESH_UDP_PORT=9
-```
-
-Un fallo de este refresh no invalida por sí solo el estado `READY`.
-
-## Perfil W5500 validado en Alpha12
-
-```text
-SPI_W5500=26 MHz
-RX_FIFO_REUSE=ON
-RX_DIRECT_TRANSFER=OFF
-```
-
-Las optimizaciones de SPI compartido como DLEN cache y COPY_OUT_64 pertenecen al
-backend interno y no requieren cambios en sketches de usuario.
-
-## Códigos ETH
-
-| Código | Significado |
-|---|---|
-| `DIS` | Ethernet deshabilitado por la variante. |
-| `INI` | Runtime aún no iniciado. |
-| `PHY` | Sondeo/preparación del W5500. |
-| `LNK` | Sin link RJ45. |
-| `DHC` | Adquisición/mantenimiento DHCP. |
-| `HW` | W5500 no detectado. |
-| `IP` | Configuración/IP inválida. |
-| `SPI` | Timeout del mutex SPI. |
-| `---` | Operativo. |
-
-El Display puede consumir estos códigos automáticamente con:
-
-```cpp
-JWPLC_Display.setEthLedAuto(true);
-```
-
-## SPI compartido
-
-W5500 comparte SPI con TFT, FRAM y microSD. `JWPLC_Ethernet` usa el mutex global antes de acceder al W5500.
-
-Alpha7 corrigió el caso donde una contención temporal del mutex podía interpretarse erróneamente como `LINK_OFF`. Un timeout SPI ya no equivale automáticamente a cable desconectado.
-
-## Ejemplos numerados para taller
+## Ejemplos incluidos
 
 ```text
 01.Ethernet_DHCP_Basic
@@ -253,20 +511,36 @@ Alpha7 corrigió el caso donde una contención temporal del mutex podía interpr
 03.Ethernet_Diagnostics
 ```
 
-Los ejemplos de stress, HTTP/TFT y coexistencia SPI existentes permanecen como material avanzado.
+Además, este README incluye ejemplos mínimos de TCP Client, TCP Server y UDP.
+
+---
+
+## Qué no necesita configurar el usuario
+
+Alpha12 optimiza internamente:
+
+- acceso al W5500;
+- recepción TCP/UDP;
+- envío cooperativo;
+- arbitraje del SPI compartido;
+- mantenimiento de red.
+
+No es necesario configurar políticas RX, FIFO, INT, caches SPI ni otros knobs
+internos para usar Ethernet normalmente.
+
+---
 
 ## Estado Alpha12
 
 ```text
-JWPLC ESP32 2.1.0-alpha.12
 JWPLC_Ethernet 1.0.0
 AUTOLOAD_COOPERATIVE=YES
-W5500_SPI_HZ=26000000
+DHCP_RECOVERY=VALIDATED
+STATIC_IP=SUPPORTED
+TCP_CLIENT_SERVER=SUPPORTED
+UDP=SUPPORTED
 LEGACY_API_PRESERVED=YES
-ASYNC_BACKEND=QUALIFIED
-FAST_RX_PATH=ADDITIVE_INTERNAL
 ```
 
-Alpha12 conserva Ethernet dentro del autoload normal y mantiene la API Arduino
-legacy. Las nuevas primitives cooperativas/fast-path se añaden para librerías y
-consumers JWPLC sin obligar a sketches existentes a cambiar.
+Alpha12 conserva Ethernet dentro del autoload normal y mantiene compatibilidad
+con las APIs Arduino Ethernet de uso habitual.
