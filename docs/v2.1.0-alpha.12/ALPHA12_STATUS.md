@@ -213,3 +213,53 @@ Siguiente bloque de cierre:
 3. freeze funcional;
 4. regenerar/recalificar precompilados;
 5. ejecutar gates finales CLI/IDE/hardware.
+
+
+## Blocker TFT resuelto estáticamente
+
+Se detectó y corrigió una incompatibilidad interna posterior a la migración
+`JWPLC_Display -> JWPLC_TFT`:
+
+```text
+JWPLC_LogicRuntime_UI consumers Adafruit_ST7789 -> JWPLC_TFTClass
+Display examples ST77XX_* -> JWPLC_TFT_*
+```
+
+Auditoría actual:
+
+```text
+JWPLC_DISPLAY_SRC_ADAFRUIT_ST7789_REFS=0
+JWPLC_DISPLAY_SRC_ST77XX_REFS=0
+JWPLC_LOGICRUNTIME_UI_CURRENT_CONSUMER_ADAFRUIT_REFS=0
+JWPLC_LOGICRUNTIME_UI_CURRENT_CONSUMER_ST77XX_REFS=0
+DISPLAY_CURRENT_EXAMPLES_ADAFRUIT_REFS=0
+DISPLAY_CURRENT_EXAMPLES_ST77XX_REFS=0
+STATIC_TFT_BACKEND_MIGRATION=PASS
+```
+
+Prevención:
+
+```text
+F081=BACKEND_MIGRATION_LEFT_DISTRIBUTED_CONSUMERS_STALE
+CI_LOGICRUNTIME_UI_COVERAGE=ADDED
+```
+
+Gate preparado:
+
+```text
+tools/alpha12/gates/alpha12_tft_backend_compile.ps1
+```
+
+Estado:
+
+```text
+TFT_SOURCE_FIRST_COMPILE=PENDING
+PRECOMPILED_DISPLAY_TFT_REGEN=BLOCKED_UNTIL_GATE_PASS
+PHYSICAL_UPLOAD_REQUIRED_FOR_THIS_GATE=NO
+```
+
+Documento:
+
+```text
+docs/v2.1.0-alpha.12/ALPHA12_TFT_BACKEND_MIGRATION_20261003.md
+```
