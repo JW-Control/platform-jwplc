@@ -1224,3 +1224,101 @@ P7_GLOBAL_PRECOMPILED_ARCHIVE_AUDIT=NEXT
 PRECOMPILED_FREEZE=BLOCKED_UNTIL_P7
 FINAL_BUILD_SPEED_BENCHMARK=BLOCKED_UNTIL_PRECOMPILED_FREEZE
 ```
+
+
+## P7A preparado — auditoría global de precompilados
+
+P6 quedó cerrado antes de preparar P7A.
+
+Gate:
+
+```text
+tools/alpha12/gates/alpha12_precompiled_global_audit.ps1
+```
+
+Runner seguro:
+
+```text
+tools/alpha12/gates/run_alpha12_precompiled_global_audit.ps1
+```
+
+Objetivo P7A:
+
+- inventariar todos los archives del package;
+- verificar SHA-256/tamaño;
+- comprobar identidades congeladas de P1-P6;
+- detectar source más nuevo que archive;
+- validar la política de archives retenidos;
+- validar la política source-only intencional del autoload;
+- identificar exactamente qué librerías requieren reactivar `precompiled=full`;
+- no modificar el árbol tracked.
+
+Identidades P1-P6 exigidas:
+
+```text
+core.a              78d0c0ab14f156b96116529e88872340d51877af40d24ba3559f6081e0bf34fb
+JWPLC_ModbusRTU.a   424ed3f462bb57cce0019d690486e612d5f243c40ae62d44d3ad973b0a521085
+SPI.a               b433758b746380bf8d1ea102aca1d1637b5a8cab50616b56024f4b022a916445
+JW_SD.a             1b9619ba37295782ade1edc6f06439a38e7e534fc08f5b05757c9af7a645acc0
+JWPLC_Display.a     c960d718433e29a40e3cc55bc745c9a2e121ee1ee598ec72c04872327592dc
+JWPLC_TFT.a         5d860a131811dd9a7eb6fa55f5674b1d78b0de7dfaf8748ce18a60ceed2d3738
+```
+
+Source-only intencional validado por política/historia:
+
+```text
+JW_RTC
+JWPLC_GlobalPeripherals
+JWPLC_Ethernet
+JWPLC_RS485
+```
+
+En particular, `JW_RTC` volvió explícitamente a source en:
+
+```text
+74c202ecaf24e4df41b63fd9e83f8f24a65da63c
+fix(rtc): volver a compilacion desde fuente tras auditoria completa
+```
+
+Set esperado de activación pendiente antes del freeze:
+
+```text
+JWPLC_Display
+JWPLC_ModbusRTU
+JWPLC_TFT
+JW_SD
+SPI
+```
+
+P7A debe terminar con:
+
+```text
+ALPHA12_P7A_GLOBAL_PRECOMPILED_ARCHIVE_AUDIT=PASS
+KNOWN_REGENERATED_IDENTITIES=PASS
+SOURCE_FRESHNESS=PASS
+RETAINED_ARCHIVE_POLICY=PASS
+SOURCE_ONLY_POLICY=PASS
+CORE_PRECOMPILED_POLICY=PASS
+ACTIVATION_PENDING_COUNT=5
+PRECOMPILED_FREEZE=NOT_YET
+NEXT=P7B_RELEASE_LIKE_PRECOMPILED_ACTIVATION
+FINAL_TRACKED_DIRTY_COUNT=0
+```
+
+Commits de preparación:
+
+```text
+e086b00cd2f15e6cd7bdf05d4d39b6e0235f74ff  gate P7A
+2b0d0c221430bbb8f522c1d599b3bfe6a6779267  runner seguro P7A
+e63fdafbbae6c8e525eac3af10af3ffd687d7b1d  política source-only P7A
+```
+
+Estado:
+
+```text
+P6_TFT_REQUALIFICATION=PASS_CLOSED
+P7A_GLOBAL_PRECOMPILED_ARCHIVE_AUDIT=READY_TO_RUN
+P7B_RELEASE_LIKE_PRECOMPILED_ACTIVATION=BLOCKED_UNTIL_P7A
+PRECOMPILED_FREEZE=BLOCKED_UNTIL_P7B
+FINAL_BUILD_SPEED_BENCHMARK=BLOCKED_UNTIL_PRECOMPILED_FREEZE
+```
