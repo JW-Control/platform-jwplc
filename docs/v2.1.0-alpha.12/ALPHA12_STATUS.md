@@ -1722,3 +1722,115 @@ PRECOMPILED_FREEZE=PASS
 FINAL_BUILD_SPEED_BENCHMARK=READY_TO_RUN
 FINAL_CLI_IDE_UPLOAD_GATES=BLOCKED_UNTIL_BUILD_SPEED_BENCHMARK
 ```
+
+
+## Benchmark final Alpha12 — PASS y comparación histórica
+
+Run:
+
+```text
+tools/alpha12/results/final_build_speed_benchmark/20261004_135521
+```
+
+Entorno:
+
+```text
+Host=PC-MASTER-RACE
+CPU=13th Gen Intel Core i5-13400F
+LogicalCores=16
+RAM=25593896960
+OS=Windows 10 Pro 10.0.19045
+PowerShell=7.6.6
+ArduinoCLI=1.0.2
+HEAD=1cd1c576e4050476bda5b864ab6b006379a27337
+Jobs=0
+```
+
+Resultado:
+
+```text
+ALPHA12_FINAL_BUILD_SPEED_BENCHMARK=PASS
+ALPHA12_BUILD_SPEED_MATRIX_COMPLETE=YES
+RESULT_ROW_COUNT=12
+UPLOADS=SKIPPED
+PRECOMPILED_FREEZE=PASS
+FINAL_TRACKED_DIRTY_COUNT=0
+```
+
+Basic:
+
+```text
+managed_cold         66.983 s / 20 compilers
+managed_warm         18.004 s / 1
+managed_touch        17.988 s / 1
+explicit_cold        66.986 s / 20
+explicit_warm        17.893 s / 1
+explicit_touch       17.663 s / 1
+```
+
+Core:
+
+```text
+managed_cold         75.242 s / 83 compilers
+managed_warm         17.277 s / 1
+managed_touch        17.143 s / 1
+explicit_cold        71.672 s / 83
+explicit_warm        17.282 s / 1
+explicit_touch       17.215 s / 1
+```
+
+Comparación principal en la misma PC principal:
+
+```text
+Alpha4 P6 explicit cold  67.322 s / 12 TUs
+Alpha5 explicit cold     55.387 s / 8 TUs
+Alpha6 explicit cold     60.369 s / 15 TUs
+Alpha12 explicit cold    66.986 s / 20 TUs
+```
+
+Warm Alpha12 mejora consistentemente frente a Alpha5/Alpha6.
+
+Promedio agregado:
+
+```text
+Alpha5 cold  57.329 s
+Alpha6 cold  62.991 s
+Alpha12 cold 70.221 s
+
+Alpha5 warm  22.235 s
+Alpha6 warm  21.249 s
+Alpha12 warm 17.558 s
+```
+
+Lectura:
+
+```text
+ALPHA12_COLD_VS_ALPHA5=+22.49_PERCENT
+ALPHA12_COLD_VS_ALPHA6=+11.48_PERCENT
+ALPHA12_WARM_VS_ALPHA5=-21.03_PERCENT
+ALPHA12_WARM_VS_ALPHA6=-17.37_PERCENT
+ALPHA12_WARM_BEST_FORMAL_SERIES=YES
+```
+
+Documento detallado:
+
+```text
+docs/v2.1.0-alpha.12/ALPHA12_BUILD_SPEED_COMPARISON_20261004.md
+```
+
+ZIP externo del run:
+
+```text
+20261004_135521.zip
+BYTES=1033555
+SHA256=3cf1e9a3f3c5fafdd1f01d283d73d54d3ec2a05becc07452b1b9d8553ec16c19
+```
+
+Estado:
+
+```text
+PRECOMPILED_FREEZE=PASS
+FINAL_BUILD_SPEED_BENCHMARK=PASS_CLOSED
+ALPHA12_BUILD_SPEED_TABLE=RECORDED
+FINAL_CLI_IDE_UPLOAD_GATES=NEXT
+```
