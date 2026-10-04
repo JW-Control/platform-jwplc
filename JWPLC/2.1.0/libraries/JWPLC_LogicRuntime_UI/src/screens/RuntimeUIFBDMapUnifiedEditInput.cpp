@@ -23,7 +23,7 @@ void drawInputValueRegion(int16_t x,
 {
   const uint16_t background = selected ? COLOR_SELECTED : COLOR_PANEL;
   const uint16_t foreground = selected ? COLOR_WARNING : COLOR_TEXT;
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
 
   const int16_t valueY = static_cast<int16_t>(y + 22);
   tft.fillRect(x + 5, valueY, w - 10, 10, background);
@@ -238,7 +238,7 @@ void RuntimeUIFBDMapUnified::drawInputEditorField(InputEditField field)
   const uint16_t fill = selected ? COLOR_SELECTED : COLOR_PANEL;
   const uint16_t border = selected ? COLOR_WARNING : COLOR_BORDER;
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.fillRoundRect(x, EDIT_FIELD_Y, w, EDIT_FIELD_H, 4, fill);
   tft.drawRoundRect(x, EDIT_FIELD_Y, w, EDIT_FIELD_H, 4, border);
   if (selected)
@@ -297,7 +297,7 @@ void RuntimeUIFBDMapUnified::drawInputEditorFull()
 {
   clearContentArea();
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   updateTextField(tft,
                   CONTENT_X + 8,
                   CONTENT_Y + 10,

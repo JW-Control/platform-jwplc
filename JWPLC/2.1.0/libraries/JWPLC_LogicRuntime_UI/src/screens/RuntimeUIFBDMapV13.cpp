@@ -669,7 +669,7 @@ void RuntimeUIFBDMapV13::drawExistingElapsed(bool force)
       sizeof(elapsed));
   std::snprintf(line, sizeof(line), "Ta LECTURA %s", elapsed);
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.fillRect(22, 70, 276, 12, COLOR_PANEL);
   drawFieldLabel(tft,
                  22,
@@ -696,7 +696,7 @@ void RuntimeUIFBDMapV13::drawExistingFooter(const char *text,
 
 void RuntimeUIFBDMapV13::drawExistingLogoScreen()
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   clearScreen(tft);
   drawHeaderStatic(tft, "EDITAR T LOGO");
   tft.fillRect(PANEL_X_V13,
@@ -843,7 +843,7 @@ void RuntimeUIFBDMapV13::drawDetailLogoOverlay(bool force)
                      elapsed,
                      sizeof(elapsed));
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.fillRect(TON_PANEL_X_V13 + 3,
                TON_PANEL_Y_V13 + 3,
                TON_PANEL_W_V13 - 6,
