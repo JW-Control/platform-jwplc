@@ -538,3 +538,199 @@ RAW_BACKEND_EXPLICIT_ADAFRUIT_TYPE_COMPATIBILITY=BREAK_DOCUMENTED
 ```
 
 Alpha13 continuará la evolución funcional de TFT/Display sobre esta arquitectura.
+
+
+---
+
+# Referencia completa de API pública
+
+Objeto global:
+
+```cpp
+JWPLC_Display
+```
+
+## Estado general
+
+| Función | Ejemplo |
+|---|---|
+| `isReady()` | `if (JWPLC_Display.isReady()) { ... }` |
+| `isIdleMode()` | `bool x = JWPLC_Display.isIdleMode();` |
+| `buttonsReady()` | `bool x = JWPLC_Display.buttonsReady();` |
+| `forceRedraw()` | `JWPLC_Display.forceRedraw();` |
+
+## Cambio de modo / actividad
+
+| Función | Ejemplo |
+|---|---|
+| `enterUserUI()` | `JWPLC_Display.enterUserUI();` |
+| `goIdle()` | `JWPLC_Display.goIdle();` |
+| `notifyActivity()` | `JWPLC_Display.notifyActivity();` |
+
+## Wake del modo IDLE
+
+| Función | Ejemplo |
+|---|---|
+| `setIdleWakeMode(mode)` | `JWPLC_Display.setIdleWakeMode(IDLE_WAKE_ANY_BUTTON);` |
+| `idleWakeMode()` | `auto m = JWPLC_Display.idleWakeMode();` |
+| `setIdleWakeButton(buttonId)` | `JWPLC_Display.setIdleWakeButton(BTN_OK);` |
+| `idleWakeButton()` | `uint8_t b = JWPLC_Display.idleWakeButton();` |
+
+Modos públicos:
+
+```text
+IDLE_WAKE_ANY_BUTTON
+IDLE_WAKE_BUTTON_ONLY
+IDLE_WAKE_DISABLED
+```
+
+## Retorno a IDLE
+
+| Función | Ejemplo |
+|---|---|
+| `setIdleReturnMode(mode)` | `JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);` |
+| `idleReturnMode()` | `auto m = JWPLC_Display.idleReturnMode();` |
+| `setIdleReturnButton(buttonId)` | `JWPLC_Display.setIdleReturnButton(BTN_ESC);` |
+| `idleReturnButton()` | `uint8_t b = JWPLC_Display.idleReturnButton();` |
+| `setIdleTimeoutMs(timeoutMs)` | `JWPLC_Display.setIdleTimeoutMs(30000);` |
+| `idleTimeoutMs()` | `uint32_t t = JWPLC_Display.idleTimeoutMs();` |
+
+Modos públicos:
+
+```text
+IDLE_RETURN_TIMEOUT
+IDLE_RETURN_ESC_ONLY
+IDLE_RETURN_DISABLED
+IDLE_RETURN_BUTTON_ONLY
+```
+
+## Periodos de refresco
+
+| Función | Ejemplo |
+|---|---|
+| `setIdleRefreshPeriodMs(ms)` | `JWPLC_Display.setIdleRefreshPeriodMs(500);` |
+| `idleRefreshPeriodMs()` | `uint32_t t = JWPLC_Display.idleRefreshPeriodMs();` |
+| `setUserRefreshPeriodMs(ms)` | `JWPLC_Display.setUserRefreshPeriodMs(100);` |
+| `userRefreshPeriodMs()` | `uint32_t t = JWPLC_Display.userRefreshPeriodMs();` |
+| `setUserRefreshMode(mode)` | `JWPLC_Display.setUserRefreshMode(USER_REFRESH_AUTO);` |
+| `userRefreshMode()` | `auto m = JWPLC_Display.userRefreshMode();` |
+| `requestUserRefresh()` | `JWPLC_Display.requestUserRefresh();` |
+
+Los valores válidos de `JWPLC_UIRefreshMode` se documentan junto a la API HMI
+y son sugeridos por el autocompletado del package.
+
+## Páginas
+
+| Función | Ejemplo |
+|---|---|
+| `setUserPage(page)` | `JWPLC_Display.setUserPage(0);` |
+| `userPage()` | `uint8_t p = JWPLC_Display.userPage();` |
+| `setUserPageCount(count)` | `JWPLC_Display.setUserPageCount(3);` |
+| `userPageCount()` | `uint8_t n = JWPLC_Display.userPageCount();` |
+| `isUserPageSelection()` | `bool x = JWPLC_Display.isUserPageSelection();` |
+
+## Campos HMI
+
+| Función | Ejemplo |
+|---|---|
+| `setFields(fields,count)` | `JWPLC_Display.setFields(fields, fieldCount);` |
+| `clearFields()` | `JWPLC_Display.clearFields();` |
+| `fieldCount()` | `size_t n = JWPLC_Display.fieldCount();` |
+
+## PixelMaps
+
+| Función | Ejemplo |
+|---|---|
+| `setPixelMaps(maps,count)` | `JWPLC_Display.setPixelMaps(maps, mapCount);` |
+| `setPackedPixelMaps(maps,count)` | `JWPLC_Display.setPackedPixelMaps(packedMaps, mapCount);` |
+| `clearPixelMaps()` | `JWPLC_Display.clearPixelMaps();` |
+| `pixelMapCount()` | `size_t n = JWPLC_Display.pixelMapCount();` |
+| `setPixelMapVisible(index,visible)` | `JWPLC_Display.setPixelMapVisible(0, true);` |
+| `isPixelMapVisible(index)` | `bool x = JWPLC_Display.isPixelMapVisible(0);` |
+
+## Actualizar valores
+
+API genérica recomendada:
+
+```cpp
+JWPLC_Display.setValue(fieldId, value);
+```
+
+Ejemplos por tipo:
+
+```cpp
+JWPLC_Display.setValue(0, 25);
+JWPLC_Display.setValue(1, 12.5f);
+JWPLC_Display.setValue(2, true);
+JWPLC_Display.setValue(3, "RUN");
+```
+
+Variantes explícitas:
+
+| Función | Ejemplo |
+|---|---|
+| `setText(fieldId,value)` | `JWPLC_Display.setText(0, "RUN");` |
+| `setBool(fieldId,value)` | `JWPLC_Display.setBool(1, true);` |
+| `setBar(fieldId,value)` | `JWPLC_Display.setBar(2, 75.0f);` |
+
+`setNumericValue()` existe internamente como helper privado y no forma parte
+de la API de usuario.
+
+## Invalidación / redraw selectivo
+
+| Función | Ejemplo |
+|---|---|
+| `invalidateField(fieldId)` | `JWPLC_Display.invalidateField(0);` |
+| `invalidateAllFields()` | `JWPLC_Display.invalidateAllFields();` |
+
+## Entrada pendiente
+
+| Función | Ejemplo |
+|---|---|
+| `clearPendingInput()` | `JWPLC_Display.clearPendingInput();` |
+
+## Acceso gráfico
+
+| Función | Ejemplo |
+|---|---|
+| `tft()` | `auto &tft = JWPLC_Display.tft();` |
+| `display()` | `auto &tft = JWPLC_Display.display();` |
+
+Ambas retornan `JWPLC_TFTClass&`.
+
+## Indicador RUN
+
+| Función | Ejemplo |
+|---|---|
+| `setRunLed(state)` | `JWPLC_Display.setRunLed(true);` |
+| `runLed()` | `bool x = JWPLC_Display.runLed();` |
+
+## Indicador ERR
+
+| Función | Ejemplo |
+|---|---|
+| `setErrLed(state)` | `JWPLC_Display.setErrLed(true);` |
+| `errLed()` | `bool x = JWPLC_Display.errLed();` |
+| `setErrCode(code)` | `JWPLC_Display.setErrCode("A01");` |
+| `errCode()` | `Serial.println(JWPLC_Display.errCode());` |
+
+## Indicador BUS
+
+| Función | Ejemplo |
+|---|---|
+| `setBusLed(state)` | `JWPLC_Display.setBusLed(true);` |
+| `busLed()` | `bool x = JWPLC_Display.busLed();` |
+| `setBusLedAuto(enabled)` | `JWPLC_Display.setBusLedAuto(true);` |
+| `busLedAuto()` | `bool x = JWPLC_Display.busLedAuto();` |
+
+## Indicador ETH
+
+| Función | Ejemplo |
+|---|---|
+| `setEthLed(state)` | `JWPLC_Display.setEthLed(true);` |
+| `ethLed()` | `bool x = JWPLC_Display.ethLed();` |
+| `setEthLedAuto(enabled)` | `JWPLC_Display.setEthLedAuto(true);` |
+| `ethLedAuto()` | `bool x = JWPLC_Display.ethLedAuto();` |
+
+La guía de dibujo directo de la referencia devuelta por `tft()`/`display()`
+está en `JWPLC_TFT/README.md`.
