@@ -32,7 +32,21 @@ $repoLibraries = Join-Path $repo "JWPLC\2.1.0\libraries"
 
 function Get-Sha256Lower {
     param([string]$Path)
-    return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+
+    $stream = [System.IO.File]::OpenRead($Path)
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+
+    try {
+        return (
+            [System.BitConverter]::ToString(
+                $sha256.ComputeHash($stream)
+            ).Replace("-", "").ToLowerInvariant()
+        )
+    }
+    finally {
+        $stream.Dispose()
+        $sha256.Dispose()
+    }
 }
 
 function Invoke-NativeCaptured {
