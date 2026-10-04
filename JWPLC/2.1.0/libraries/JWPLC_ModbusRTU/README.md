@@ -17,6 +17,17 @@ Los nombres de operacion no cambian al seleccionar motor.
 
 ## Configuración
 
+Defaults reales de la librería:
+
+```text
+DEFAULT_BAUD=19200
+DEFAULT_CONFIG=SERIAL_8E1
+DEFAULT_SLAVE_ID=1
+```
+
+Para perfiles industriales se recomienda configurar los parámetros de forma
+explícita.
+
 Ejemplo Slave:
 
 ```cpp
@@ -29,7 +40,11 @@ Ejemplo Master:
 JWPLC_ModbusRTU.begin(247, 115200, SERIAL_8N1);
 ```
 
-El ID `247` se usa en los ejemplos como ID local interno del Master; el ID destino se especifica en cada `request...()`.
+El ID `247` se usa en los ejemplos como ID local interno del Master; el ID
+destino se especifica en cada `request...()`.
+
+Los perfiles de qualification de 115200 y 500 kbaud no cambian el default
+público de `begin()`.
 
 
 ## Timing de trama
@@ -227,6 +242,28 @@ writeMultipleRegistersSync()
 Las variantes `request...()` y `...Sync()` continúan disponibles. Para
 código nuevo se recomienda la API unificada junto con `motor(ASYNC/SYNC)`.
 
+## Controles avanzados / qualification
+
+Existen controles usados durante la caracterización Alpha12:
+
+```cpp
+JWPLC_ModbusRTU.setQueuedTxEnabled(...);
+JWPLC_ModbusRTU.queuedTxEnabled();
+JWPLC_ModbusRTU.queuedTxActive();
+
+JWPLC_ModbusRTU.setBulkRxEnabled(...);
+JWPLC_ModbusRTU.bulkRxEnabled();
+
+JWPLC_ModbusRTU.setEarlyServerDispatchEnabled(...);
+JWPLC_ModbusRTU.earlyServerDispatchEnabled();
+
+JWPLC_ModbusRTU.setCrcLookupEnabled(...);
+JWPLC_ModbusRTU.crcLookupEnabled();
+```
+
+`setBulkRxEnabled()`, Early Server Dispatch y selección CRC son knobs
+avanzados/qualification. No son configuración obligatoria de un sketch normal.
+
 ## Estado y estadísticas
 
 ```cpp
@@ -265,7 +302,11 @@ TMO CRC EXC RSP OVF FUN
 
 ## Política de compilación
 
-Durante el desarrollo de Alpha14, `JWPLC_ModbusRTU` se compila desde source.
+Durante la consolidación del release Alpha12, `JWPLC_ModbusRTU` se compila
+desde source para evitar archives stale durante cambios funcionales.
+
+El desarrollo histórico de esta línea ocurrió bajo una rama etiquetada
+Alpha14; la identidad de release final es Alpha12.
 `library.properties` no activa `precompiled=full`, de modo que los cambios del
 motor RTU entran inmediatamente en los builds de desarrollo.
 
@@ -298,12 +339,23 @@ Slave ID = 2
 
 `02` y `03` pueden probarse directamente contra `01` cargado en otro JWPLC Basic.
 
-## Estado Alpha8
+## Estado Alpha12
 
 ```text
-JWPLC ESP32 2.1.0-alpha.8
+JWPLC ESP32 2.1.0-alpha.12
 JWPLC_ModbusRTU 1.0.0
-Master cooperativo: recomendado
-Master Sync: explícito
-Remote I/O digital: validado en Alpha7
+MOTOR_DEFAULT=ASYNC
+SYNC_COMPATIBILITY=PRESERVED
+QUEUED_TX_ASYNC=QUALIFIED
+FRAME_GAP_US_API=AVAILABLE
+REMOTE_IO_DIGITAL=VALIDATED
 ```
+
+Perfiles rápidos como 500 kbaud, Bulk RX, FIFO específicos o Early Server
+Dispatch pertenecen a qualification avanzada y no se deben confundir con
+defaults universales de la API.
+
+El cierre de coexistencia Alpha12 confirmó un perfil operacional de
+aproximadamente 800 transacciones RTU/s, equivalente a ~100 scans/s de ocho
+operaciones, simultáneo con TCP250 y UDP FAST 1 Mbps durante 600 s. Esa cifra
+no constituye una garantía hard-real-time cero-jitter.
