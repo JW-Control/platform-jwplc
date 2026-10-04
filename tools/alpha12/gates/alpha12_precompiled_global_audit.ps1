@@ -315,6 +315,33 @@ if (-not $coreStubEnabled -or -not $coreArchiveLinked) {
     }
 )
 
+[object[]]$sourceOnlyEntries = @(
+    [pscustomobject]@{
+        Name = "JW_RTC"
+        PropertiesRel = "JWPLC/2.1.0/libraries/JW_RTC/library.properties"
+        UnexpectedArchiveRel = "JWPLC/2.1.0/libraries/JW_RTC/src/esp32/libJW_RTC.a"
+        Decision = "SOURCE_ONLY_INTENTIONAL_RTC_AUDIT"
+    },
+    [pscustomobject]@{
+        Name = "JWPLC_GlobalPeripherals"
+        PropertiesRel = "JWPLC/2.1.0/libraries/JWPLC_GlobalPeripherals/library.properties"
+        UnexpectedArchiveRel = "JWPLC/2.1.0/libraries/JWPLC_GlobalPeripherals/src/esp32/libJWPLC_GlobalPeripherals.a"
+        Decision = "SOURCE_ONLY_INTENTIONAL_P4_NOT_ADOPTED"
+    },
+    [pscustomobject]@{
+        Name = "JWPLC_Ethernet"
+        PropertiesRel = "JWPLC/2.1.0/libraries/JWPLC_Ethernet/library.properties"
+        UnexpectedArchiveRel = "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/esp32/libJWPLC_Ethernet.a"
+        Decision = "SOURCE_ONLY_CURRENT_ALPHA12_IMPLEMENTATION"
+    },
+    [pscustomobject]@{
+        Name = "JWPLC_RS485"
+        PropertiesRel = "JWPLC/2.1.0/libraries/JWPLC_RS485/library.properties"
+        UnexpectedArchiveRel = "JWPLC/2.1.0/libraries/JWPLC_RS485/src/esp32/libJWPLC_RS485.a"
+        Decision = "SOURCE_ONLY_CURRENT_ALPHA12_IMPLEMENTATION"
+    }
+)
+
 $stamp = Get-Date -Format "yyyyMMdd_HHmmss"
 
 if ([string]::IsNullOrWhiteSpace($ResultRoot)) {
@@ -326,6 +353,37 @@ New-Item -ItemType Directory -Force -Path $ResultRoot | Out-Null
 [object[]]$rows = @()
 [string[]]$activationPending = @()
 [string[]]$failures = @()
+
+[object[]]$sourceOnlyRows = @()
+
+foreach ($sourceOnlyEntry in $sourceOnlyEntries) {
+    $propertiesPath = Join-Path $repo $sourceOnlyEntry.PropertiesRel
+    $unexpectedArchivePath = Join-Path $repo $sourceOnlyEntry.UnexpectedArchiveRel
+
+    if (-not (Test-Path -LiteralPath $propertiesPath)) {
+        $failures += ("SOURCE_ONLY_PROPERTIES_MISSING:" + $sourceOnlyEntry.Name)
+        continue
+    }
+
+    $precompiledFull = Read-PropertyFlag -PropertiesPath $propertiesPath -Key "precompiled" -ExpectedValue "full"
+    $unexpectedArchiveExists = Test-Path -LiteralPath $unexpectedArchivePath
+
+    if ($precompiledFull) {
+        $failures += ("SOURCE_ONLY_PRECOMPILED_FLAG_PRESENT:" + $sourceOnlyEntry.Name)
+    }
+
+    if ($unexpectedArchiveExists) {
+        $failures += ("SOURCE_ONLY_UNEXPECTED_ARCHIVE_PRESENT:" + $sourceOnlyEntry.Name)
+    }
+
+    $sourceOnlyRows += [pscustomobject]@{
+        Name = $sourceOnlyEntry.Name
+        Decision = $sourceOnlyEntry.Decision
+        PrecompiledFull = $precompiledFull
+        UnexpectedArchiveExists = $unexpectedArchiveExists
+        PolicyPass = (-not $precompiledFull -and -not $unexpectedArchiveExists)
+    }
+}
 
 Write-Host "=============================================================================="
 Write-Host " ALPHA12 - P7A GLOBAL PRECOMPILED ARCHIVE AUDIT"
@@ -446,6 +504,11 @@ $activationPending = @($activationPending | Sort-Object -Unique)
 $failures = @($failures | Sort-Object -Unique)
 
 Write-Host ""
+Write-Host ("SOURCE_ONLY_POLICY_COUNT=" + [string]$sourceOnlyRows.Count)
+$sourceOnlyRows | ForEach-Object {
+    Write-Host ("SOURCE_ONLY=" + $_.Name + " DECISION=" + $_.Decision + " PASS=" + [string]$_.PolicyPass)
+}
+
 Write-Host ("AUDITED_ARCHIVE_COUNT=" + [string]$rows.Count)
 Write-Host ("ACTIVATION_PENDING_COUNT=" + [string]$activationPending.Count)
 $activationPending | ForEach-Object { Write-Host ("ACTIVATION_PENDING=" + $_) }
@@ -454,6 +517,10 @@ $failures | ForEach-Object { Write-Host ("P7_FAILURE=" + $_) }
 
 if ($rows.Count -ne $entries.Count) {
     throw "A12_P7_ARCHIVE_INVENTORY_INCOMPLETE"
+}
+
+if ($sourceOnlyRows.Count -ne $sourceOnlyEntries.Count) {
+    throw "A12_P7_SOURCE_ONLY_INVENTORY_INCOMPLETE"
 }
 
 if ($failures.Count -ne 0) {
@@ -492,6 +559,9 @@ if ($finalDirty.Count -ne 0 -or $finalStaged.Count -ne 0) {
     "KNOWN_REGENERATED_IDENTITIES=PASS"
     "SOURCE_FRESHNESS=PASS"
     "RETAINED_ARCHIVE_POLICY=PASS"
+    "SOURCE_ONLY_POLICY=PASS"
+    "SOURCE_ONLY_POLICY_COUNT=$($sourceOnlyRows.Count)"
+    "SOURCE_ONLY=$($sourceOnlyRows.Name -join ',')"
     "CORE_PRECOMPILED_POLICY=PASS"
     "ACTIVATION_PENDING_COUNT=$($activationPending.Count)"
     "ACTIVATION_PENDING=$($activationPending -join ',')"
@@ -508,6 +578,9 @@ Write-Host ("AUDITED_ARCHIVE_COUNT=" + [string]$rows.Count)
 Write-Host "KNOWN_REGENERATED_IDENTITIES=PASS"
 Write-Host "SOURCE_FRESHNESS=PASS"
 Write-Host "RETAINED_ARCHIVE_POLICY=PASS"
+Write-Host "SOURCE_ONLY_POLICY=PASS"
+Write-Host ("SOURCE_ONLY_POLICY_COUNT=" + [string]$sourceOnlyRows.Count)
+Write-Host ("SOURCE_ONLY=" + ($sourceOnlyRows.Name -join ","))
 Write-Host "CORE_PRECOMPILED_POLICY=PASS"
 Write-Host ("ACTIVATION_PENDING_COUNT=" + [string]$activationPending.Count)
 Write-Host ("ACTIVATION_PENDING=" + ($activationPending -join ","))
