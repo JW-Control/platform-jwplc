@@ -872,3 +872,66 @@ P6_TFT_PRODUCT_FAILURE=NOT_PROVEN
 P6_TFT_R1=READY_TO_RUN
 FINAL_BUILD_SPEED_BENCHMARK=BLOCKED_UNTIL_P6
 ```
+
+
+## P6-R1 intento de parseo — variable automática `$args`
+
+El preflight obligatorio detectó antes de ejecutar el gate:
+
+```text
+POWERSHELL_SYNTAX_ERROR_COUNT=1
+No se puede asignar una variable automática "args" con el tipo "System.Object[]"
+LINE=279
+```
+
+Clasificación:
+
+```text
+HARNESS_PARSE_FAILURE=YES
+PRODUCT_FAILURE=NO
+P6_PRODUCT_EXECUTION_STARTED=NO
+ARCHIVE_MUTATION=NO
+PHYSICAL_UPLOAD=NO
+```
+
+Causa:
+
+```powershell
+[string[]]$args = @(...)
+```
+
+`$args` es una variable automática de PowerShell. Se reemplazó por
+`$compileArgs`.
+
+Corrección:
+
+```text
+3cb97e4504c9accc36a5cbde005e601f39d53232
+fix(alpha12): evitar variable automatica args en P6 TFT
+```
+
+Auditoría preventiva después de la corrección:
+
+```text
+ARGS_ASSIGNMENT_HITS=0
+RESERVED_AUTOMATIC_VARIABLE_ASSIGNMENT_HITS=0
+AMBIGUOUS_VARIABLE_COLON_HITS=0
+GET_FILE_HASH_OCCURRENCES=0
+POWERSHELL_CONTINUATION_BACKTICKS=0
+```
+
+Nota operativa:
+
+Si se pegan varias sentencias consecutivas en una consola interactiva,
+un `throw` de un bloque anterior no impide necesariamente que las líneas
+posteriores ya pegadas sean procesadas. Por tanto, el texto posterior
+`POWERSHELL_SYNTAX=PASS` de ese intento no invalida el error real:
+`POWERSHELL_SYNTAX_ERROR_COUNT=1`.
+
+Estado:
+
+```text
+P6_TFT_R1_PARSE_ATTEMPT=HARNESS_FAILURE
+P6_TFT_PRODUCT_FAILURE=NO
+P6_TFT_R2=READY_TO_RUN
+```
