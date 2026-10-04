@@ -1834,3 +1834,58 @@ FINAL_BUILD_SPEED_BENCHMARK=PASS_CLOSED
 ALPHA12_BUILD_SPEED_TABLE=RECORDED
 FINAL_CLI_IDE_UPLOAD_GATES=NEXT
 ```
+
+
+## README/API — auditoría exhaustiva cerrada
+
+Documento:
+
+```text
+docs/v2.1.0-alpha.12/ALPHA12_README_API_COVERAGE_20261004.md
+```
+
+Cobertura contra headers:
+
+```text
+JWPLC_ModbusRTU=81 / missing 0
+JWPLC_ModbusTCP_Server=32 / missing 0
+JWPLC_ModbusTCP_Client=29 / missing 0
+JWPLC_TFT=34 / missing 0
+JWPLC_Ethernet=34 / missing 0
+EthernetClient=33 / missing 0
+EthernetServer=4 / missing 0
+EthernetUDP=20 / missing 0
+Ethernet_compat=28 / missing 0
+JWPLC_Display=58 / missing 0
+```
+
+Resultado:
+
+```text
+ALPHA12_README_API_AUDIT=PASS
+README_PUBLIC_API_NAME_COVERAGE=PASS
+README_PUBLIC_API_MISSING_COUNT=0
+README_EXAMPLES_POLICY=ALL_SUPPORTED_PUBLIC_FUNCTIONS
+ROOT_README_ALPHA12_CONTENT=PASS
+```
+
+Criterio documental:
+
+- tutorial/quick start primero;
+- referencia completa después;
+- cada función soportada incluye ejemplo mínimo;
+- las funciones avanzadas/qualification se identifican explícitamente;
+- clases de implementación como `DhcpClass` no se presentan como contrato de
+  aplicación;
+- `Adafruit_ST7789& -> JWPLC_TFTClass&` queda documentado;
+- patrón recomendado: `auto &tft = JWPLC_Display.tft();`.
+
+El marcador raíz `JWPLC_RELEASE_VERSION` permanece en Alpha11 hasta
+publicación porque activa el workflow automático de release.
+
+Estos cambios son exclusivamente documentales y no invalidan:
+
+```text
+PRECOMPILED_FREEZE=PASS
+FINAL_BUILD_SPEED_BENCHMARK=PASS_CLOSED
+```
