@@ -1190,17 +1190,23 @@ def main() -> int:
         master.close()
         slave.close()
 
-    if baseline_not_operational:
+    if confirm_only:
+        if confirmation is not None and bool(confirmation["operational_pass"]):
+            status = "PASS_CONFIRMATION_ONLY"
+        else:
+            status = "CHARACTERIZED_CONFIRMATION_ONLY_NOT_OPERATIONAL"
+    elif baseline_not_operational:
         status = "CHARACTERIZED_BASELINE_NOT_OPERATIONAL"
     elif selected_udp_mbps <= 0.0:
         status = "CHARACTERIZED_NO_POSITIVE_UDP_OPERATIONAL"
     elif confirmation is not None and bool(confirmation["operational_pass"]):
         status = "PASS_TRIPLE_COEXISTENCE_CONFIRMED"
     else:
-        status = "REVIEW_CONFIRMATION_FAILED"
+        status = "CHARACTERIZED_CONFIRMATION_NOT_OPERATIONAL"
 
     summary = {
         "status": status,
+        "run_mode": "CONFIRM_ONLY" if confirm_only else "LADDER",
         "tcp_target_req_s": TCP_TARGET_REQ_S,
         "rtu_target_req_s": RTU_TARGET_REQ_S,
         "rtu_scan_target_hz": 100.0,
@@ -1218,12 +1224,18 @@ def main() -> int:
 
     final_lines = [
         f"A14_FINAL_TRIPLE_COEXISTENCE={status}",
+        "RUN_MODE=" + ("CONFIRM_ONLY" if confirm_only else "LADDER"),
         "TCP_TARGET_REQ_S=250",
         "RTU_TARGET_REQ_S=800",
         "RTU_SCAN_TARGET_HZ=100",
         f"BASELINE_NOT_OPERATIONAL={baseline_not_operational}",
         f"UDP_SELECTED_MBPS={selected_udp_mbps:g}",
-        "UDP_LADDER_MBPS=" + ",".join(f"{x:g}" for x in udp_ladder),
+        (
+            f"CONFIRM_ONLY_MBPS={selected_udp_mbps:g}"
+            if confirm_only
+            else "UDP_LADDER_MBPS="
+            + ",".join(f"{x:g}" for x in udp_ladder)
+        ),
     ]
 
     if confirmation is not None:
@@ -1257,8 +1269,11 @@ def main() -> int:
 
     return 0 if status in (
         "PASS_TRIPLE_COEXISTENCE_CONFIRMED",
+        "PASS_CONFIRMATION_ONLY",
         "CHARACTERIZED_NO_POSITIVE_UDP_OPERATIONAL",
         "CHARACTERIZED_BASELINE_NOT_OPERATIONAL",
+        "CHARACTERIZED_CONFIRMATION_NOT_OPERATIONAL",
+        "CHARACTERIZED_CONFIRMATION_ONLY_NOT_OPERATIONAL",
     ) else 2
 
 
