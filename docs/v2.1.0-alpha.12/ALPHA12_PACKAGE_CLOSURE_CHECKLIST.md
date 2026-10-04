@@ -101,7 +101,9 @@ ALPHA12_PACKAGE_CLOSURE=IN_PROGRESS
 - [x] P5: regenerar y verificar `libJWPLC_Display.a` actual.
 - [x] P6: requalificar `libJWPLC_TFT.a` y demostrar selección autocontenida del backend TFT.
 - [x] cerrar P6 sin regenerar el archive histórico físicamente cualificado.
-- [ ] P7: auditar globalmente archives retenidos/regenerados y congelar el conjunto final.
+- [x] P7A: auditar globalmente archives retenidos/regenerados, freshness y policy source-only.
+- [ ] P7B: activar release-like los cinco precompilados cualificados y demostrar link real.
+- [ ] congelar el conjunto final de archives/precompiled policy.
 - [ ] registrar tabla consolidada SHA-256 de todos los archives finales.
 - [ ] registrar tabla consolidada de tamaños de todos los archives finales.
 - [ ] restaurar `precompiled=full` sólo donde corresponda.
