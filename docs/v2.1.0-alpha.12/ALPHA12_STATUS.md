@@ -168,3 +168,48 @@ Pendiente antes de publicación Alpha12:
 ALPHA13=TFT_DISPLAY_UPDATE
 ALPHA14=OPENPLC_PLUS_OPTIMIZED_TCP_RTU_INTEGRATION
 ```
+
+
+## Avance de consolidación documental
+
+Completado en la rama canónica Alpha12:
+
+```text
+RENUMBERING_MAP=PASS
+PACKAGE_INVENTORY=PASS
+ROADMAP_RENUMBERED=PASS
+ROOT_README_ALPHA12_IN_CLOSURE=PASS
+
+README_MODBUS_TCP=UPDATED
+README_MODBUS_RTU=UPDATED
+README_RS485=UPDATED
+README_ETHERNET=UPDATED
+README_JW_SD=UPDATED
+README_DISPLAY=UPDATED
+README_TFT=UPDATED
+
+LIBRARY_PROPERTIES_MODBUS_TCP=UPDATED
+LIBRARY_PROPERTIES_RS485=UPDATED
+LIBRARY_PROPERTIES_JW_SD=UPDATED
+```
+
+Hallazgo de compatibilidad todavía abierto:
+
+```text
+DISPLAY_RAW_RETURN_TYPE_ALPHA11=Adafruit_ST7789&
+DISPLAY_RAW_RETURN_TYPE_ALPHA12=JWPLC_TFTClass&
+RECOMMENDED_AUTO_REFERENCE_PATTERN=COMPATIBLE_CANDIDATE
+EXPLICIT_ADAFRUIT_REFERENCE=BREAKS
+DECISION=PENDING_BEFORE_FREEZE
+```
+
+El marker automático del README raíz permanece deliberadamente en Alpha11
+mientras Alpha12 no esté listo para disparar release.
+
+Siguiente bloque de cierre:
+
+1. auditar ejemplos contra firmas reales;
+2. decidir compatibilidad raw TFT;
+3. freeze funcional;
+4. regenerar/recalificar precompilados;
+5. ejecutar gates finales CLI/IDE/hardware.
