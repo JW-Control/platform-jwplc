@@ -354,3 +354,42 @@ Siguiente artifact:
 ```text
 P2=JWPLC_ModbusRTU/src/esp32/libJWPLC_ModbusRTU.a
 ```
+
+
+## P2 precompilado — Modbus RTU preparado
+
+Gate versionado:
+
+```text
+tools/alpha12/gates/alpha12_modbus_rtu_precompiled_refresh.ps1
+```
+
+Contrato:
+
+1. exige branch Alpha12 y tracked/index clean;
+2. verifica que las APIs RTU actuales existan en header y source;
+3. compila un Slave RTU desde una librería temporal source-only;
+4. exige exactamente un `JWPLC_ModbusRTU.cpp.o`;
+5. crea `libJWPLC_ModbusRTU.a` con un único miembro;
+6. extrae el miembro y exige SHA-256 idéntico al objeto fuente;
+7. compila Slave y Master contra una librería temporal `precompiled=full`;
+8. exige marker precompiled y cero objetos RTU compilados desde source;
+9. copia el mismo candidato al worktree oficial;
+10. al PASS deja únicamente `libJWPLC_ModbusRTU.a` como tracked dirty;
+11. rollback automático al archive previo si cualquier paso falla;
+12. no realiza upload físico.
+
+Sketches de link:
+
+```text
+01.ModbusRTU_Slave_Holding
+02.ModbusRTU_Master_Read
+```
+
+Estado:
+
+```text
+P1_CORE=PASS_ADOPTED
+P2_MODBUS_RTU=READY_TO_RUN
+PHYSICAL_GATE_REQUIRED_FOR_P2=NO
+```
