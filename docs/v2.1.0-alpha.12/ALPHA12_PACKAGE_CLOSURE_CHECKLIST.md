@@ -62,7 +62,7 @@ ALPHA12_PACKAGE_CLOSURE=IN_PROGRESS
 
 ## 5. README/library.properties
 
-- [ ] README raíz: pasar estado Alpha11 -> Alpha12 en cierre/publicación.
+- [x] README raíz: pasar estado Alpha11 -> Alpha12 en cierre/publicación.
 - [x] JWPLC_ModbusTCP README: Server/Client/FC/coexistencia reales.
 - [x] JWPLC_ModbusTCP library.properties: eliminar texto “evolucionará a Client”.
 - [x] JWPLC_ModbusRTU README: estado Alpha12 y defaults finales.
@@ -71,7 +71,7 @@ ALPHA12_PACKAGE_CLOSURE=IN_PROGRESS
 - [x] JWPLC_Display README: separar estado Alpha11 histórico de cambios Alpha12.
 - [x] JWPLC_TFT README: actualizar migración H3E ya completada.
 - [x] JW_SD README: separar contenido futuro Alpha31 del cierre Alpha12.
-- [ ] revisar encoding/acentos de README nuevos.
+- [x] revisar encoding/acentos de README nuevos.
 - [ ] revisar ejemplos mostrados en README contra headers reales.
 
 ## 6. Ejemplos
