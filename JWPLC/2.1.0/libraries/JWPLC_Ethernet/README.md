@@ -132,6 +132,93 @@ JWPLC_Ethernet.maintain();
 
 Son rutas explícitas/legacy. El autoload normal no depende de ellas.
 
+## Extensiones cooperativas Alpha12
+
+El backend Ethernet incorpora primitives aditivas para que librerías como
+`JWPLC_ModbusTCP` puedan trabajar sin bloquear largos periodos.
+
+`EthernetClient`:
+
+```text
+beginConnectAsync()
+pollConnectAsync()
+connectAsyncInProgress()
+cancelConnectAsync()
+
+beginStopAsync()
+pollStopAsync()
+stopAsyncInProgress()
+cancelStopAsync()
+
+beginFlushAsync()
+pollFlushAsync()
+flushAsyncInProgress()
+cancelFlushAsync()
+
+beginWriteAsync()
+pollWriteAsync()
+writeAsyncInProgress()
+cancelWriteAsync()
+```
+
+UDP:
+
+```text
+beginEndPacketAsync()
+pollEndPacketAsync()
+endPacketAsyncInProgress()
+cancelEndPacketAsync()
+```
+
+Estas extensiones no sustituyen ni cambian la semántica de las APIs Arduino
+legacy.
+
+## Fast RX aditivo/interno
+
+Para consumers cooperativos de alto rendimiento existen extensiones JWPLC:
+
+UDP:
+
+```text
+jwplcReadPacketFastDeferred()
+jwplcCommitRxFast()
+```
+
+TCP:
+
+```text
+jwplcReadTcpFastDeferred()
+jwplcCommitRxFast()
+```
+
+Estas rutas son aditivas. No reemplazan transparentemente
+`parsePacket()/read()` ni `EthernetClient::read()`.
+
+## Refresh L2
+
+El runtime incluye un refresh L2 best-effort para mantener fresca la presencia
+de la MAC durante periodos largos sin tráfico saliente.
+
+Defaults:
+
+```text
+JWPLC_ETH_L2_REFRESH_PERIOD_MS=120000
+JWPLC_ETH_L2_REFRESH_UDP_PORT=9
+```
+
+Un fallo de este refresh no invalida por sí solo el estado `READY`.
+
+## Perfil W5500 validado en Alpha12
+
+```text
+SPI_W5500=26 MHz
+RX_FIFO_REUSE=ON
+RX_DIRECT_TRANSFER=OFF
+```
+
+Las optimizaciones de SPI compartido como DLEN cache y COPY_OUT_64 pertenecen al
+backend interno y no requieren cambios en sketches de usuario.
+
 ## Códigos ETH
 
 | Código | Significado |
@@ -168,12 +255,18 @@ Alpha7 corrigió el caso donde una contención temporal del mutex podía interpr
 
 Los ejemplos de stress, HTTP/TFT y coexistencia SPI existentes permanecen como material avanzado.
 
-## Estado Alpha8
+## Estado Alpha12
 
 ```text
-JWPLC ESP32 2.1.0-alpha.8
+JWPLC ESP32 2.1.0-alpha.12
 JWPLC_Ethernet 1.0.0
-Autoload cooperativo: activo
+AUTOLOAD_COOPERATIVE=YES
+W5500_SPI_HZ=26000000
+LEGACY_API_PRESERVED=YES
+ASYNC_BACKEND=QUALIFIED
+FAST_RX_PATH=ADDITIVE_INTERNAL
 ```
 
-Alpha8 no retira Ethernet del autoload normal ni cambia la API pública validada.
+Alpha12 conserva Ethernet dentro del autoload normal y mantiene la API Arduino
+legacy. Las nuevas primitives cooperativas/fast-path se añaden para librerías y
+consumers JWPLC sin obligar a sketches existentes a cambiar.
