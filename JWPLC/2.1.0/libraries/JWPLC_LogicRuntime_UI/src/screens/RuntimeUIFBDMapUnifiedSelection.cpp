@@ -84,7 +84,7 @@ void RuntimeUIFBDMapUnified::drawMapSelectionFrame(uint16_t blockIndex)
   const bool selected = blockIndex == _selectedIndex;
   const uint16_t border =
       selected ? COLOR_WARNING : (active ? COLOR_OK : COLOR_BORDER);
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
 
   if (isFullLevel(_levels[blockIndex]))
   {

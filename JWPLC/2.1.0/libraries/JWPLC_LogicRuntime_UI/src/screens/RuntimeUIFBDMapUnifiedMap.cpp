@@ -876,7 +876,7 @@ void RuntimeUIFBDMapUnified::drawFullNode(
   const LogicV2BlockRecord *definition = _model->block(blockIndex);
   if (definition == nullptr) return;
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.fillRect(x, y, NODE_W, NODE_H, COLOR_BACKGROUND);
   tft.drawRect(x, y, NODE_W, NODE_H, border);
   if (selected)
@@ -954,7 +954,7 @@ void RuntimeUIFBDMapUnified::drawEdgeHint(
   const int16_t hintY =
       static_cast<int16_t>(nodeScreenY + EDGE_HINT_Y_OFFSET);
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.fillRect(hintX, hintY, EDGE_HINT_W, EDGE_HINT_H, COLOR_BACKGROUND);
   tft.drawRect(hintX, hintY, EDGE_HINT_W, EDGE_HINT_H, border);
 
@@ -984,7 +984,7 @@ void RuntimeUIFBDMapUnified::drawNodePorts(
   const LogicV2BlockRecord *definition = _model->block(blockIndex);
   if (definition == nullptr) return;
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   for (uint8_t inputIndex = 0;
        inputIndex < definition->inputCount;
        ++inputIndex)

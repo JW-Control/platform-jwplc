@@ -79,7 +79,7 @@ void drawMiniMap(const RuntimeUIV2ReadModel *model,
         y + (lanes[block] - firstRow) * cellH + (cellH - miniH) / 2);
   };
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   for (uint16_t consumer = 0; consumer < count; ++consumer)
   {
     if (!visible(consumer)) continue;

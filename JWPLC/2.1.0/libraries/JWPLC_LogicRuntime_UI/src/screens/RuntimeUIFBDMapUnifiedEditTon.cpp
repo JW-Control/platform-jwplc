@@ -25,7 +25,7 @@ void drawTonValueRegion(uint8_t index,
   const uint16_t foreground = selected ? COLOR_WARNING : COLOR_TEXT;
   const int16_t valueY = FIELD_Y + 22;
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.fillRect(x + 5, valueY, w - 10, 10, background);
 
   const size_t length = std::strlen(value != nullptr ? value : "");
@@ -50,7 +50,7 @@ void drawTonFieldContent(uint8_t index,
   const uint16_t labelColor = selected ? COLOR_WARNING : COLOR_MUTED;
   const int16_t labelY = FIELD_Y + 5;
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
 
   // El rótulo puede cambiar de SEG/CENT a MIN/SEG o HORA/MIN. Se limpia
   // únicamente su banda interior para evitar residuos sin tocar borde ni fondo.
@@ -364,7 +364,7 @@ void RuntimeUIFBDMapUnified::drawTonEditorField(TonField field)
     std::snprintf(value, sizeof(value), "%s", baseText);
   }
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.fillRoundRect(x, FIELD_Y, w, FIELD_H, 4, fill);
   tft.drawRoundRect(x, FIELD_Y, w, FIELD_H, 4, border);
 
@@ -427,7 +427,7 @@ void RuntimeUIFBDMapUnified::drawTonEditorFull()
 {
   clearContentArea();
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   updateTextField(tft,
                   CONTENT_X + 8,
                   CONTENT_Y + 9,
