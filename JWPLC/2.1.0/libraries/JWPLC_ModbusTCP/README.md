@@ -1,83 +1,52 @@
 # JWPLC_ModbusTCP
 
-Librería Modbus TCP nativa para JWPLC Basic sobre `JWPLC_Ethernet` y el W5500
-integrado.
+Librería Modbus TCP nativa para **JWPLC Basic** sobre el W5500 integrado y
+`JWPLC_Ethernet`.
 
-Estado para el próximo release:
+La librería ofrece:
 
-```text
-JWPLC ESP32 v2.1.0-alpha.12
-JWPLC_ModbusTCP 0.1.0
-SERVER=PASS_PHYSICAL
-CLIENT=PASS_PHYSICAL
-FC01_02_03_04_05_06_15_16=PASS
-RTU_TCP_COEXISTENCE=PASS_PHYSICAL
-```
+- **Server Modbus TCP** cooperativo;
+- **Client Modbus TCP** cooperativo;
+- FC01, FC02, FC03, FC04, FC05, FC06, FC15 y FC16;
+- reutilización automática de la conexión del Client;
+- recuperación frente a timeout o pérdida de sesión;
+- coexistencia con Modbus RTU y el resto del runtime JWPLC.
 
-La librería fue desarrollada históricamente bajo una rama etiquetada Alpha14,
-pero su release real es Alpha12. La evidencia histórica se conserva en
-`docs/v2.1.0-alpha.14/`.
+---
 
 ## Uso y autoload
 
-La librería es **opt-in**:
+Modbus TCP es **opt-in**:
 
 ```cpp
 #include <JWPLC_ModbusTCP.h>
 ```
 
-No se incluye automáticamente en todos los sketches del JWPLC Basic.
+El Ethernet del JWPLC Basic ya se inicializa y mantiene desde el runtime normal
+del package.
 
-El Ethernet integrado sí continúa siendo inicializado/mantenido por el runtime
-normal del package. Un sketch normal no debe repetir `Ethernet.begin()` ni
-`JWPLC_Ethernet.begin()` salvo que esté ejecutando una prueba manual
-deliberada.
-
-### Server autoservido cuando la librería está enlazada
-
-Al enlazar `JWPLC_ModbusTCP`, la librería proporciona un callback cooperativo
-que ejecuta `JWPLC_ModbusTCP.task()` alrededor del ciclo de usuario.
-
-Por tanto, en el uso normal del Server no es obligatorio añadir un
-`task()` manual en cada `loop()`.
-
-Las APIs:
+No es necesario llamar:
 
 ```cpp
-JWPLC_ModbusTCP.task();
-JWPLC_ModbusTCP.poll();
+Ethernet.begin();
+JWPLC_Ethernet.begin();
 ```
 
-permanecen disponibles para servicio explícito, diagnóstico o arquitecturas
-especiales.
+en un sketch Modbus TCP normal.
 
-### Client
+---
 
-El Client usa su propio objeto:
+# Server Modbus TCP
 
-```cpp
-JWPLC_ModbusTCPClient
-```
-
-y su state machine se avanza explícitamente con:
-
-```cpp
-JWPLC_ModbusTCPClient.task();
-// o
-JWPLC_ModbusTCPClient.poll();
-```
-
-## Server
-
-Ejemplo mínimo:
+## Ejemplo mínimo
 
 ```cpp
 #include <JWPLC_ModbusTCP.h>
 
-uint8_t coils[1] = {0};
-uint8_t discreteInputs[1] = {0};
-uint16_t holding[16] = {0};
-uint16_t inputRegisters[16] = {0};
+uint8_t coils[1] = {};
+uint8_t discreteInputs[1] = {};
+uint16_t holding[16] = {};
+uint16_t inputRegisters[16] = {};
 
 void setup()
 {
@@ -91,56 +60,187 @@ void setup()
 
 void loop()
 {
-    // Lógica de aplicación.
-    // El Server queda atendido por el hook cooperativo cuando la librería
-    // está enlazada.
+    // El Server se atiende automáticamente cuando la librería está enlazada.
+
+    inputRegisters[0] = millis() / 1000;
 }
 ```
 
-`beginServer()` acepta la configuración aunque DHCP todavía esté en progreso.
-El Server espera cooperativamente a que `JWPLC_Ethernet` alcance `READY`.
+Configuración del ejemplo:
 
-Estado:
+```text
+Unit ID = 1
+Puerto  = 502
+```
+
+`beginServer()` puede llamarse aunque DHCP todavía esté en progreso. El
+Server esperará a que Ethernet esté listo.
+
+---
+
+## Estado del Server
 
 ```cpp
 JWPLC_ModbusTCP.serverEnabled();
 JWPLC_ModbusTCP.serverReady();
 JWPLC_ModbusTCP.clientConnected();
+
 JWPLC_ModbusTCP.serverState();
 JWPLC_ModbusTCP.unitId();
 JWPLC_ModbusTCP.port();
 ```
 
-Timeout de frame:
+Ejemplo:
 
 ```cpp
-JWPLC_ModbusTCP.setFrameTimeoutMs(1000);
-uint32_t timeoutMs = JWPLC_ModbusTCP.frameTimeoutMs();
+if (JWPLC_ModbusTCP.serverReady())
+{
+    Serial.print("IP: ");
+    Serial.println(JWPLC_Ethernet.localIP());
+}
 ```
 
-Defaults:
+---
+
+## Servicio manual opcional
+
+Normalmente el Server recibe autoservicio cooperativo desde el package.
+
+También están disponibles:
+
+```cpp
+JWPLC_ModbusTCP.task();
+JWPLC_ModbusTCP.poll();
+```
+
+para arquitecturas donde se quiera servicio explícito.
+
+---
+
+# Mapas del Server
+
+## Coils
+
+```cpp
+uint8_t coils[2] = {};
+
+JWPLC_ModbusTCP.setCoils(coils, 16);
+```
+
+Helpers:
+
+```cpp
+bool value;
+
+JWPLC_ModbusTCP.getCoil(0, value);
+JWPLC_ModbusTCP.setCoil(0, true);
+JWPLC_ModbusTCP.coilCount();
+```
+
+## Discrete Inputs
+
+```cpp
+uint8_t inputs[2] = {};
+
+JWPLC_ModbusTCP.setDiscreteInputs(inputs, 16);
+```
+
+Consulta:
+
+```cpp
+bool value;
+
+JWPLC_ModbusTCP.getDiscreteInput(0, value);
+JWPLC_ModbusTCP.discreteInputCount();
+```
+
+## Holding Registers
+
+```cpp
+uint16_t holding[16] = {};
+
+JWPLC_ModbusTCP.setHoldingRegisters(holding, 16);
+```
+
+Helpers:
+
+```cpp
+uint16_t value;
+
+JWPLC_ModbusTCP.getHoldingRegister(0, value);
+JWPLC_ModbusTCP.setHoldingRegister(0, 1234);
+JWPLC_ModbusTCP.holdingRegisterCount();
+```
+
+## Input Registers
+
+```cpp
+uint16_t inputRegisters[16] = {};
+
+JWPLC_ModbusTCP.setInputRegisters(inputRegisters, 16);
+```
+
+Consulta:
+
+```cpp
+uint16_t value;
+
+JWPLC_ModbusTCP.getInputRegister(0, value);
+JWPLC_ModbusTCP.inputRegisterCount();
+```
+
+Coils y Discrete Inputs usan bits empaquetados LSB-first.
+
+---
+
+# Client Modbus TCP
+
+El Client utiliza el objeto global:
+
+```cpp
+JWPLC_ModbusTCPClient
+```
+
+## Configuración
+
+```cpp
+JWPLC_ModbusTCPClient.begin(
+    IPAddress(192, 168, 1, 50),
+    1,
+    502);
+```
+
+Parámetros:
 
 ```text
-PORT=502
-UNIT_ID=1
-MAX_ADU=260
-FRAME_TIMEOUT_MS=1000
-RX_BUDGET=64 bytes por servicio
+Server IP
+Unit ID
+Puerto
 ```
 
-## Client cooperativo
+El puerto por defecto es 502.
 
-Configuración:
+La conexión TCP se abre cuando se inicia la primera solicitud y puede
+reutilizarse para las siguientes.
+
+---
+
+## Ejemplo Client FC03
 
 ```cpp
 #include <JWPLC_ModbusTCP.h>
 
-uint16_t regs[4];
+IPAddress serverIP(192, 168, 1, 50);
+
+uint16_t regs[4] = {};
+uint32_t nextRead = 0;
 
 void setup()
 {
+    Serial.begin(115200);
+
     JWPLC_ModbusTCPClient.begin(
-        IPAddress(192, 168, 1, 50),
+        serverIP,
         1,
         502);
 }
@@ -149,8 +249,24 @@ void loop()
 {
     JWPLC_ModbusTCPClient.task();
 
+    if (JWPLC_ModbusTCPClient.done())
+    {
+        if (JWPLC_ModbusTCPClient.succeeded())
+        {
+            Serial.println(regs[0]);
+        }
+        else
+        {
+            Serial.println(JWPLC_ModbusTCPClient.resultString());
+        }
+
+        JWPLC_ModbusTCPClient.clearResult();
+        nextRead = millis() + 1000;
+    }
+
     if (!JWPLC_ModbusTCPClient.busy() &&
-        !JWPLC_ModbusTCPClient.done())
+        !JWPLC_ModbusTCPClient.done() &&
+        (int32_t)(millis() - nextRead) >= 0)
     {
         JWPLC_ModbusTCPClient.requestReadHoldingRegisters(
             0,
@@ -158,125 +274,116 @@ void loop()
             regs,
             1000);
     }
-
-    if (JWPLC_ModbusTCPClient.done())
-    {
-        if (JWPLC_ModbusTCPClient.succeeded())
-        {
-            // regs[] actualizado
-        }
-
-        JWPLC_ModbusTCPClient.clearResult();
-    }
 }
 ```
 
-Una llamada `request...` aceptada inicia la transacción y retorna. No implica
-que la respuesta ya haya llegado.
+Una función `request...()` que devuelve `true` significa que la transacción
+fue aceptada e iniciada. No significa que ya haya terminado.
 
-Contrato recomendado:
-
-1. mantener `task()/poll()` ejecutándose;
-2. no iniciar otro request mientras `busy()` sea true;
-3. esperar `done()`;
-4. comprobar `succeeded()` / `result()`;
-5. leer `exceptionCode()` cuando corresponda;
-6. llamar `clearResult()` antes del siguiente ciclo.
-
-Estado Client:
-
-```cpp
-configured();
-sessionConnected();
-busy();
-done();
-succeeded();
-state();
-result();
-exceptionCode();
-transactionId();
-serverIP();
-serverPort();
-unitId();
-clearResult();
-```
-
-Alpha12 no añade wrappers Sync bloqueantes de alto nivel para Modbus TCP.
+---
 
 ## Funciones soportadas
 
 | FC | Función | Server | Client |
 |---:|---|:---:|:---:|
-| 01 | Read Coils | PASS | PASS |
-| 02 | Read Discrete Inputs | PASS | PASS |
-| 03 | Read Holding Registers | PASS | PASS |
-| 04 | Read Input Registers | PASS | PASS |
-| 05 | Write Single Coil | PASS | PASS |
-| 06 | Write Single Register | PASS | PASS |
-| 15 | Write Multiple Coils | PASS | PASS |
-| 16 | Write Multiple Registers | PASS | PASS |
+| 01 | Read Coils | Sí | Sí |
+| 02 | Read Discrete Inputs | Sí | Sí |
+| 03 | Read Holding Registers | Sí | Sí |
+| 04 | Read Input Registers | Sí | Sí |
+| 05 | Write Single Coil | Sí | Sí |
+| 06 | Write Single Register | Sí | Sí |
+| 15 | Write Multiple Coils | Sí | Sí |
+| 16 | Write Multiple Registers | Sí | Sí |
 
-## Mapas Server
+---
 
-Coils y Discrete Inputs usan bits empaquetados LSB-first:
+## API del Client
+
+### Lecturas
 
 ```text
-bit 0 byte 0 = dirección 0
-bit 1 byte 0 = dirección 1
-...
-bit 7 byte 0 = dirección 7
-bit 0 byte 1 = dirección 8
+requestReadCoils()
+requestReadDiscreteInputs()
+requestReadHoldingRegisters()
+requestReadInputRegisters()
 ```
 
-APIs:
+### Escrituras
+
+```text
+requestWriteSingleCoil()
+requestWriteSingleRegister()
+requestWriteMultipleCoils()
+requestWriteMultipleRegisters()
+```
+
+Ejemplos:
 
 ```cpp
-JWPLC_ModbusTCP.setCoils(...);
-JWPLC_ModbusTCP.getCoil(...);
-JWPLC_ModbusTCP.setCoil(...);
+uint16_t regs[4];
 
-JWPLC_ModbusTCP.setDiscreteInputs(...);
-JWPLC_ModbusTCP.getDiscreteInput(...);
+JWPLC_ModbusTCPClient.requestReadHoldingRegisters(
+    0, 4, regs, 1000);
 
-JWPLC_ModbusTCP.setHoldingRegisters(...);
-JWPLC_ModbusTCP.getHoldingRegister(...);
-JWPLC_ModbusTCP.setHoldingRegister(...);
+JWPLC_ModbusTCPClient.requestWriteSingleRegister(
+    10, 1234, 1000);
 
-JWPLC_ModbusTCP.setInputRegisters(...);
-JWPLC_ModbusTCP.getInputRegister(...);
+uint16_t data[3] = {100, 200, 300};
+
+JWPLC_ModbusTCPClient.requestWriteMultipleRegisters(
+    20, 3, data, 1000);
 ```
 
-Holding Registers son modificables.
+Para FC01/FC02/FC15 los bits se almacenan empaquetados LSB-first.
 
-Input Registers son de sólo lectura desde Modbus.
+---
 
-## MBAP y límites
+## Estado del Client
 
-La implementación valida:
+La secuencia normal es:
 
-```text
-Transaction ID = conservado en respuesta
-Protocol ID    = 0
-Length         = Unit ID + PDU válido
-Unit ID        = coincide con el configurado
-ADU máxima     = 260 bytes
+1. llamar `task()` frecuentemente;
+2. no iniciar otra operación mientras `busy()` sea `true`;
+3. esperar `done()`;
+4. consultar `succeeded()`;
+5. procesar el resultado;
+6. llamar `clearResult()`.
+
+API:
+
+```cpp
+JWPLC_ModbusTCPClient.configured();
+JWPLC_ModbusTCPClient.sessionConnected();
+
+JWPLC_ModbusTCPClient.busy();
+JWPLC_ModbusTCPClient.done();
+JWPLC_ModbusTCPClient.succeeded();
+
+JWPLC_ModbusTCPClient.state();
+JWPLC_ModbusTCPClient.result();
+JWPLC_ModbusTCPClient.resultString();
+
+JWPLC_ModbusTCPClient.exceptionCode();
+JWPLC_ModbusTCPClient.transactionId();
+
+JWPLC_ModbusTCPClient.serverIP();
+JWPLC_ModbusTCPClient.serverPort();
+JWPLC_ModbusTCPClient.unitId();
+
+JWPLC_ModbusTCPClient.clearResult();
 ```
 
-Límites Modbus:
+Para cerrar el Client:
 
-```text
-FC01 / FC02 = 1..2000 bits
-FC03 / FC04 = 1..125 registers
-FC15        = 1..1968 coils
-FC16        = 1..123 registers
+```cpp
+JWPLC_ModbusTCPClient.end();
 ```
 
-Una cabecera MBAP inválida cierra la conexión cuando continuar podría dejar el
-stream desalineado.
+---
 
-## Excepciones
+## Excepciones Modbus
 
-Server implementa:
+El Server implementa:
 
 ```text
 0x01 Illegal Function
@@ -285,36 +392,56 @@ Server implementa:
 0x04 Server Device Failure
 ```
 
-El Client reporta excepciones mediante:
+En el Client:
 
 ```cpp
-JWPLC_ModbusTCPClient.result();
-JWPLC_ModbusTCPClient.exceptionCode();
+if (JWPLC_ModbusTCPClient.result() ==
+    JWPLC_MODBUS_TCP_CLIENT_EXCEPTION)
+{
+    uint8_t code =
+        JWPLC_ModbusTCPClient.exceptionCode();
+}
 ```
 
-## Estado, errores y estadísticas
+---
 
-Server:
+## Timeout
+
+### Server
+
+```cpp
+JWPLC_ModbusTCP.setFrameTimeoutMs(1000);
+JWPLC_ModbusTCP.frameTimeoutMs();
+```
+
+### Client
+
+El timeout se indica en cada operación:
+
+```cpp
+JWPLC_ModbusTCPClient.requestReadHoldingRegisters(
+    0, 4, regs, 1000);
+```
+
+---
+
+## Diagnóstico
+
+### Server
 
 ```cpp
 JWPLC_ModbusTCP.lastError();
 JWPLC_ModbusTCP.lastErrorString();
-JWPLC_ModbusTCP.stats();
-JWPLC_ModbusTCP.resetStats();
+
 JWPLC_ModbusTCP.printStatus(Serial);
+
+const JWPLCModbusTCPStats &s =
+    JWPLC_ModbusTCP.stats();
+
+JWPLC_ModbusTCP.resetStats();
 ```
 
-Client:
-
-```cpp
-JWPLC_ModbusTCPClient.result();
-JWPLC_ModbusTCPClient.resultString();
-JWPLC_ModbusTCPClient.stats();
-JWPLC_ModbusTCPClient.resetStats();
-JWPLC_ModbusTCPClient.printStatus(Serial);
-```
-
-Entre los contadores del Server se incluyen:
+Contadores principales:
 
 ```text
 clientConnections
@@ -327,103 +454,91 @@ frameTimeouts
 busLockTimeouts
 ```
 
-## Modelo cooperativo y SPI compartido
+### Client
 
-El W5500 comparte SPI con TFT, FRAM y microSD.
+```cpp
+JWPLC_ModbusTCPClient.result();
+JWPLC_ModbusTCPClient.resultString();
 
-Las operaciones W5500 del runtime JWPLC usan el mutex SPI global. El trabajo de
-procesamiento de Modbus se mantiene fuera del ownership SPI siempre que es
-posible.
+JWPLC_ModbusTCPClient.printStatus(Serial);
 
-El Client usa primitives cooperativas del backend Ethernet para:
+const JWPLCModbusTCPClientStats &s =
+    JWPLC_ModbusTCPClient.stats();
 
-- connect;
-- TX;
-- cierre/recovery;
-
-sin convertir `EthernetClient::write()` legacy en otra API.
-
-## Política RX de Alpha12
-
-Después de evaluar polling, INT puro y variantes adaptativas bajo full runtime,
-JWPLC Basic v2 conserva:
-
-```text
-TCP_RX_POLICY=POLLING_C0
-INT_DEFAULT=OFF
-D2_DEFAULT=OFF
-D3_DEFAULT=OFF
-E1_RSR_DRAIN_DEFAULT=OFF
+JWPLC_ModbusTCPClient.resetStats();
 ```
 
-La infraestructura INT permanece disponible para qualification y futura
-reevaluación en hardware posterior, pero no es la política productiva de
-JWPLC Basic v2.
+---
 
-## Rendimiento validado
+## Configuración de Ethernet
 
-Las cifras dependen del FC, tamaño de trama, carga RTU, runtime y duración.
-No deben interpretarse como garantía universal.
+DHCP:
 
-Referencias de Alpha12:
-
-```text
-TCP-only stress/full-runtime:
-~1000 req/s validado en perfiles específicos
-
-Coexistencia confirmada 600 s:
-TCP Modbus = 250.001 req/s
-RTU        = 796.953 req/s
-RTU scan   = 99.619 scans/s
-UDP FAST   = 0.998 Mbps
-Full runtime = clean
+```cpp
+JWPLC_Ethernet.useDHCP();
 ```
 
-El perfil RTU de ~100 Hz es **operacional**, no una garantía hard-real-time
-cero-jitter.
+IP estática:
 
-## Compatibilidad
-
-Alpha12 conserva:
-
-- APIs Arduino Ethernet legacy;
-- autoload Ethernet;
-- periféricos normales del JWPLC Basic;
-- separación entre Modbus TCP y Modbus RTU;
-- puerto 502 estándar configurable;
-- API Server y Client cooperativas.
-
-No se asume:
-
-```text
-OPENPLC_AUTOLOAD=NO
-OTA_DEFINED=NO
-HARD_REALTIME_100HZ=NO
+```cpp
+JWPLC_Ethernet.setStaticIP(
+    IPAddress(192, 168, 1, 20),
+    IPAddress(192, 168, 1, 1),
+    IPAddress(192, 168, 1, 1),
+    IPAddress(255, 255, 255, 0));
 ```
 
-## Ejemplos
+Consultar IP:
 
-Incluidos:
+```cpp
+JWPLC_Ethernet.localIP();
+JWPLC_Ethernet.isReady();
+```
+
+El runtime JWPLC mantiene Ethernet automáticamente.
+
+---
+
+## Funciones internas que el usuario no necesita configurar
+
+Alpha12 incluye optimizaciones internas para:
+
+- recepción TCP;
+- envío cooperativo;
+- W5500;
+- arbitraje SPI;
+- coexistencia con RTU/UDP/Display.
+
+No es necesario seleccionar políticas de polling, INT, FIFO o fast-path para
+usar Modbus TCP desde un sketch normal.
+
+---
+
+## Ejemplos incluidos
 
 ```text
 01.ModbusTCP_Server
 02.ModbusTCP_Client
 ```
 
-Ambos deben formar parte del gate final de compilación Alpha12 antes de
-publicación.
+El Server publica Coils, Discrete Inputs, Holding Registers e Input Registers.
 
-## Evidencia
+El Client incluido muestra FC03 con reconexión automática de la sesión cuando
+sea necesario.
 
-Cierre técnico principal:
+---
 
-```text
-docs/v2.1.0-alpha.12/ALPHA12_STATUS.md
-docs/v2.1.0-alpha.12/ALPHA12_PACKAGE_INVENTORY_20261003.md
-```
-
-Evidencia histórica detallada de implementación/gates:
+## Estado Alpha12
 
 ```text
-docs/v2.1.0-alpha.14/
+JWPLC_ModbusTCP 0.1.0
+SERVER=VALIDATED
+CLIENT=VALIDATED
+FC01_02_03_04_05_06_15_16=SUPPORTED
+RTU_TCP_COEXISTENCE=VALIDATED
+ETHERNET_AUTOLOAD=YES
 ```
+
+Durante la qualification de Alpha12 se validó coexistencia prolongada de
+Modbus TCP, Modbus RTU, UDP y el full runtime. Esos benchmarks son evidencia
+de capacidad del sistema y no un SLA hard-real-time.
