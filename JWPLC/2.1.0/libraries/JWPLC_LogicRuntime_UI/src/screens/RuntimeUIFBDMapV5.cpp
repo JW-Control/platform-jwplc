@@ -447,7 +447,7 @@ void RuntimeUIFBDMapV5::drawTonParameterPanel(bool selected)
     return;
   }
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.fillRect(TON_PANEL_X,
                TON_PANEL_Y,
                TON_PANEL_W,
@@ -686,7 +686,7 @@ void RuntimeUIFBDMapV5::handleParameterEditInput()
 
 void RuntimeUIFBDMapV5::drawParameterEditStatic()
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   clearScreen(tft);
   drawHeaderStatic(tft, "EDITAR T");
   _headerStateValid = false;
@@ -704,7 +704,7 @@ void RuntimeUIFBDMapV5::drawParameterEdit()
     return;
   }
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.fillRect(MAP_X, MAP_Y, MAP_W, MAP_H, COLOR_PANEL);
 
   char headerInfo[24];
