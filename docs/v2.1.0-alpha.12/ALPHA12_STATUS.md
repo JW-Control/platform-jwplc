@@ -263,3 +263,60 @@ Documento:
 ```text
 docs/v2.1.0-alpha.12/ALPHA12_TFT_BACKEND_MIGRATION_20261003.md
 ```
+
+
+## Gate TFT source-first cerrado y refresh precompilado abierto
+
+Resultado validado desde ZIP:
+
+```text
+ALPHA12_TFT_BACKEND_COMPILE=PASS
+PASS=4
+FAIL=0
+SOURCE_FIRST=PASS
+COMPILER_WARNINGS=0
+COMPILER_ERRORS=0
+```
+
+Documento:
+
+```text
+ALPHA12_TFT_BACKEND_SOURCE_FIRST_RESULT_20261003.md
+```
+
+Matriz de precompilados:
+
+```text
+STALE_REQUIRED_REBUILD:
+- core.a
+- libJWPLC_Display.a
+- libJWPLC_ModbusRTU.a
+- libJW_SD.a
+- libSPI.a
+
+REQUALIFY_NO_FUNCTIONAL_REBUILD:
+- libJWPLC_TFT.a
+
+RETAIN_AND_AUDIT:
+- libJW_FRAM.a
+- libJW_MatrixButtons.a
+- libSD.a
+- libFS.a
+- libWire.a
+- Adafruit base archives
+```
+
+Siguiente único gate:
+
+```text
+tools/alpha12/gates/alpha12_core_precompiled_refresh.ps1
+```
+
+Contrato del gate:
+
+- genera `core.a` desde `cores/jwcontrol` actual;
+- verifica Basic normal con stub + nuevo archive;
+- verifica Basic Core como control source;
+- rollback automático si falla;
+- al PASS deja sólo `precompiled/core/JWPLCBASIC/core.a` como tracked dirty;
+- no hace upload físico.
