@@ -2,7 +2,18 @@
 
 Librería del package **JWPLC ESP32** para Modbus RTU sobre `JWPLC_RS485`.
 
-El Master recomendado usa un motor **cooperativo/no bloqueante**. Las variantes `...Sync()` se conservan para commissioning o sketches donde una espera bloqueante sea aceptable.
+El Master usa una API unificada por funcion con dos motores seleccionables.
+**ASYNC es el motor por defecto y recomendado** para runtime PLC. **SYNC** se
+conserva para compatibilidad, commissioning o sketches donde una espera
+bloqueante sea aceptable.
+
+```cpp
+JWPLC_ModbusRTU.motor(ASYNC); // default
+// o:
+JWPLC_ModbusRTU.motor(SYNC);
+```
+
+Los nombres de operacion no cambian al seleccionar motor.
 
 ## Configuración
 
@@ -19,6 +30,55 @@ JWPLC_ModbusRTU.begin(247, 115200, SERIAL_8N1);
 ```
 
 El ID `247` se usa en los ejemplos como ID local interno del Master; el ID destino se especifica en cada `request...()`.
+
+
+## Timing de trama
+
+Desde RTU-F1 la delimitacion temporal interna trabaja en **microsegundos**
+mediante `micros()`.
+
+Las APIs historicas se conservan:
+
+```cpp
+JWPLC_ModbusRTU.setFrameGapMs(2);
+uint16_t gapMs = JWPLC_ModbusRTU.frameGapMs();
+```
+
+Se anade una API fina:
+
+```cpp
+JWPLC_ModbusRTU.setFrameGapUs(2000);
+uint32_t gapUs = JWPLC_ModbusRTU.frameGapUs();
+```
+
+`setFrameGapMs()` conserva su contrato y actualiza internamente el valor en
+microsegundos. Si el gap se fija con `setFrameGapUs()`, `frameGapMs()`
+reporta el equivalente entero redondeado hacia arriba.
+
+El valor por defecto continua siendo **5 ms**. RTU-F1 no cambia aun la politica
+de gap segun baudrate.
+
+## Motor SYNC / ASYNC y transporte RTU-F3
+
+La seleccion publica recomendada es:
+
+```cpp
+JWPLC_ModbusRTU.motor(ASYNC); // default
+JWPLC_ModbusRTU.motor(SYNC);  // compatibilidad bloqueante
+```
+
+`ASYNC` habilita el motor cooperativo y, en JWPLC Basic con AutoDirection,
+aprovecha la ruta TX encolada validada en RTU-F3. `SYNC` mantiene la llamada
+bloqueante y el transporte historico.
+
+La seleccion de transporte de bajo nivel sigue disponible para qualification:
+
+```cpp
+JWPLC_ModbusRTU.setQueuedTxEnabled(...);
+JWPLC_ModbusRTU.queuedTxActive();
+```
+
+pero no es la API que debe usar un sketch normal.
 
 ## Funciones soportadas
 
@@ -46,6 +106,7 @@ El ID `247` se usa en los ejemplos como ID local interno del Master; el ID desti
 | `0x05` | `requestWriteSingleCoil()` |
 | `0x06` | `requestWriteSingleRegister()` |
 | `0x0F` | `requestWriteMultipleCoils()` |
+| `0x10` | `requestWriteMultipleRegisters()` |
 
 ## Mapas Slave
 
@@ -94,6 +155,31 @@ JWPLC_ModbusRTU.hasCoilWrite();
 JWPLC_ModbusRTU.lastCoilWriteMs();
 ```
 
+## API Master unificada
+
+Los mismos nombres se usan en ambos motores:
+
+```cpp
+JWPLC_ModbusRTU.readCoils(...);
+JWPLC_ModbusRTU.readDiscreteInputs(...);
+JWPLC_ModbusRTU.readHoldingRegisters(...);
+JWPLC_ModbusRTU.readInputRegisters(...);
+JWPLC_ModbusRTU.writeSingleCoil(...);
+JWPLC_ModbusRTU.writeSingleRegister(...);
+JWPLC_ModbusRTU.writeMultipleCoils(...);
+JWPLC_ModbusRTU.writeMultipleRegisters(...);
+```
+
+Con `motor(ASYNC)`, `true` significa que la solicitud fue aceptada/iniciada.
+La finalizacion se consulta con `masterDone()`, `masterSucceeded()` y
+`masterResult()`.
+
+Con `motor(SYNC)`, la misma llamada bloquea hasta terminar y `true` significa
+transaccion completada correctamente.
+
+Las APIs `request...()` y `...Sync()` permanecen como rutas explicitas y de
+compatibilidad.
+
 ## Master cooperativo
 
 Una solicitud cooperativa **inicia** la transacción y retorna. `true` significa que fue aceptada, no que la respuesta ya llegó.
@@ -135,9 +221,11 @@ readInputRegistersSync()
 writeSingleCoilSync()
 writeSingleRegisterSync()
 writeMultipleCoilsSync()
+writeMultipleRegistersSync()
 ```
 
-Los wrappers históricos `readHoldingRegisters()` y `writeSingleRegister()` continúan disponibles por compatibilidad, pero código nuevo debe preferir `request...()` o una variante `...Sync()` explícita.
+Las variantes `request...()` y `...Sync()` continúan disponibles. Para
+código nuevo se recomienda la API unificada junto con `motor(ASYNC/SYNC)`.
 
 ## Estado y estadísticas
 
@@ -175,17 +263,23 @@ Los ejemplos avanzados Remote I/O existentes se conservan para esa validación.
 TMO CRC EXC RSP OVF FUN
 ```
 
-## Precompilación
+## Política de compilación
 
-Al cierre de Alpha7 se restauró `precompiled=full` y se regeneró el archive final:
+Durante el desarrollo de Alpha14, `JWPLC_ModbusRTU` se compila desde source.
+`library.properties` no activa `precompiled=full`, de modo que los cambios del
+motor RTU entran inmediatamente en los builds de desarrollo.
+
+El archive cualificado se conserva como artefacto histórico/release y no se
+borra:
 
 ```text
 Archivo : src/esp32/libJWPLC_ModbusRTU.a
-Bytes   : 231062
-SHA256  : 444BE3A04079A579252B2737FE6070E00ADCA949FD176880588FE69561B2A79F
+SHA256  : 486BE38AE088B94898E516FFBC125855F22C2EC5EE8A6FA9E10F35D7CAC3A3BE
+Uso     : histórico/release; no desarrollo Alpha14
 ```
 
-Alpha8 no modifica la fuente de `JWPLC_ModbusRTU`, por lo que ese archive continúa siendo la base validada.
+Antes de una promoción release se debe regenerar y recalificar el archive a
+partir del source aprobado, y sólo entonces restaurar la política precompilada.
 
 ## Ejemplos numerados para taller
 

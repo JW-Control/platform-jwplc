@@ -1,9 +1,9 @@
 #include "JWPLC_UI_PixelMap.h"
+#include <JWPLC_TFT.h>
 
 #include "JWPLC_Display_API.h"
 #include "JWPLC_UI.h"
 
-#include <Adafruit_ST7789.h>
 
 namespace
 {
@@ -54,7 +54,7 @@ namespace
     }
 
     void drawHorizontalClipped(
-        Adafruit_ST7789 &tft,
+        JWPLC_TFTClass &tft,
         int16_t x,
         int16_t y,
         int16_t width,
@@ -91,7 +91,7 @@ namespace
     }
 
     void drawVerticalClipped(
-        Adafruit_ST7789 &tft,
+        JWPLC_TFTClass &tft,
         int16_t x,
         int16_t y,
         int16_t height,
@@ -254,7 +254,7 @@ namespace JWPLCUI
         return index < activePixelMapCount() && g_pixelMapVisible[index];
     }
 
-    void drawPixelMapsStatic(Adafruit_ST7789 &tft)
+    void drawPixelMapsStatic(JWPLC_TFTClass &tft)
     {
         const uint8_t page = JWPLCUI::currentPage();
 

@@ -2,7 +2,8 @@
 #define JWPLC_IDLESCREEN_H
 
 #include <Arduino.h>
-#include <Adafruit_ST7789.h>
+
+class JWPLC_TFTClass;
 
 extern "C"
 {
@@ -34,7 +35,7 @@ namespace JWPLCIdleScreen
         char ethCode[4] = {'-', '-', '-', '\0'};
     };
 
-    void begin(Adafruit_ST7789 *display);
+    void begin(JWPLC_TFTClass *display);
     void setTitle(const char *title);
     void setStatusPanel(const StatusPanel &panel);
     const StatusPanel &statusPanel();

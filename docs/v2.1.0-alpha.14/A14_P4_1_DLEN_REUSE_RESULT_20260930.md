@@ -1,0 +1,97 @@
+# Alpha14 — P4.1 DLEN_REUSE — resultado 2026-09-30
+
+## Resultado
+
+```text
+A14_P4_1_DLEN_REUSE=PASS
+PHYSICAL_STABILITY=PASS
+HARNESS_FAILURE=NO
+PRODUCT_FAILURE=NO_EVIDENCE
+HARDWARE_FAILURE=NO_EVIDENCE
+```
+
+Única variable:
+
+```text
+BASELINE=DLEN_WRITE_EVERY_CHUNK
+CANDIDATE=DLEN_CACHE_WITHIN_HELPER_CALL
+FIFO_REUSE=ON_BOTH_VARIANTS
+DIRECT_RX=OFF_BOTH_VARIANTS
+SPI_HZ=26000000
+```
+
+Integridad:
+
+```text
+VERIFY_RX_BYTES=1156056
+FNV_ACTUAL=3806455469
+FNV_EXPECTED=3806455469
+PAYLOAD_INTEGRITY=PASS
+```
+
+Microperfil:
+
+```text
+SETUP_US_PER_CHUNK_BASELINE=0.836740
+SETUP_US_PER_CHUNK_CANDIDATE=0.726498
+SETUP_DELTA_PCT=-13.175
+
+PROFILED_US_PER_BYTE_BASELINE=0.530244
+PROFILED_US_PER_BYTE_CANDIDATE=0.527640
+MICRO_US_PER_BYTE_DELTA_PCT=-0.491
+```
+
+A/B sin microperfil:
+
+```text
+BASELINE_PAYLOAD_MBPS=16.762
+DLEN_REUSE_PAYLOAD_MBPS=16.879
+PAYLOAD_DELTA_PCT=+0.702
+
+BASELINE_US_PER_BYTE=0.477281
+DLEN_REUSE_US_PER_BYTE=0.473952
+US_PER_BYTE_DELTA_PCT=-0.698
+
+BASELINE_TCP_MBPS=11.016869
+DLEN_REUSE_TCP_MBPS=11.310154
+TCP_DELTA_PCT=+2.662
+```
+
+El TCP end-to-end mostró dispersión alta y se mantiene como métrica secundaria:
+
+```text
+BASELINE_TCP_SPREAD_PCT=15.446
+DLEN_REUSE_TCP_SPREAD_PCT=9.048
+```
+
+El payload interno sí fue repetible:
+
+```text
+BASELINE_PAYLOAD_SPREAD_PCT=0.248
+DLEN_REUSE_PAYLOAD_SPREAD_PCT=0.147
+REPEATABILITY_OK=YES
+MECHANISM_CONFIRMED=YES
+INTERPRETATION=DLEN_REUSE_GAIN_CONFIRMED
+```
+
+## Decisión
+
+P4.1 se promueve al comportamiento normal del helper FIFO_REUSE.
+
+La promoción no cambia API pública ni crea estado persistente entre
+transacciones/periféricos. El cache de longitud existe únicamente durante una
+invocación de `jwplcSpiReadBytesReuseFifoNL()`.
+
+Antes de P4.2 se ejecuta H3E-R de regresión full-runtime para proteger:
+
+- 1000 req/s Modbus TCP;
+- RTU 50 Hz;
+- P95/P99;
+- DataLog;
+- Display HMI dirty/on-demand;
+- periféricos y estabilidad física.
+
+```text
+NEXT=H3E_R_P4_1_REGRESSION
+P4_2_BLOCKED=YES
+```

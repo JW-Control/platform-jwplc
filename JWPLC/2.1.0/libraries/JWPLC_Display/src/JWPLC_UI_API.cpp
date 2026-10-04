@@ -1,9 +1,9 @@
 #include "JWPLC_UI.h"
+#include <JWPLC_TFT.h>
 #include "JWPLC_UI_Pages.h"
 #include "JWPLC_UI_PixelMap.h"
 #include "JWPLC_UI_RuntimeHooks.h"
 
-#include <Adafruit_ST7789.h>
 
 JWPLC_UIFieldMeta::JWPLC_UIFieldMeta(
     uint8_t idValue,
@@ -367,7 +367,7 @@ extern "C" void jwplcUIRuntimeConsumeRefreshRequest(void)
     JWPLCUI::consumeRefreshRequest();
 }
 
-extern "C" void jwplcUIRuntimeDrawStatic(Adafruit_ST7789 *tft)
+extern "C" void jwplcUIRuntimeDrawStatic(JWPLC_TFTClass *tft)
 {
     if (tft != nullptr)
     {
@@ -378,7 +378,7 @@ extern "C" void jwplcUIRuntimeDrawStatic(Adafruit_ST7789 *tft)
     }
 }
 
-extern "C" void jwplcUIRuntimeDrawDirty(Adafruit_ST7789 *tft)
+extern "C" void jwplcUIRuntimeDrawDirty(JWPLC_TFTClass *tft)
 {
     if (tft != nullptr)
     {

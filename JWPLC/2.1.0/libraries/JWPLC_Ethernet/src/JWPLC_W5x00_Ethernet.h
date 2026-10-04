@@ -53,6 +53,38 @@
 #include "Server.h"
 #include "Udp.h"
 
+#ifndef JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+#define JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS 0
+#endif
+
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+struct JWPLCEthernetTcpRxProfile
+{
+	uint32_t socketStatusCalls = 0;
+	uint64_t socketStatusTotalUs = 0;
+
+	uint32_t recvAvailableCalls = 0;
+	uint64_t recvAvailableTotalUs = 0;
+	uint32_t recvAvailableZeroCalls = 0;
+	uint32_t recvAvailableNonzeroCalls = 0;
+	uint32_t recvAvailableRsrRefreshCalls = 0;
+	uint64_t recvAvailableRsrRefreshTotalUs = 0;
+
+	uint32_t recvCalls = 0;
+	uint64_t recvTotalUs = 0;
+
+	uint32_t recvRsrRefreshCalls = 0;
+	uint64_t recvRsrRefreshTotalUs = 0;
+
+	uint32_t recvPayloadReadCalls = 0;
+	uint64_t recvPayloadReadTotalUs = 0;
+	uint64_t recvPayloadBytes = 0;
+
+	uint32_t recvCommitCalls = 0;
+	uint64_t recvCommitTotalUs = 0;
+};
+#endif
+
 enum EthernetLinkStatus {
 	Unknown,
 	LinkON,
@@ -107,6 +139,12 @@ public:
 	static EthernetLinkStatus linkStatus();
 	static EthernetHardwareStatus hardwareStatus();
 
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+	// Alpha14 diagnostic-only TCP RX profiling. Compiled out by default.
+	static void jwplcProfileResetTcpRx();
+	static JWPLCEthernetTcpRxProfile jwplcProfileGetTcpRx();
+#endif
+
 	// Manual configuration
 	static void begin(uint8_t *mac, IPAddress ip);
 	static void begin(uint8_t *mac, IPAddress ip, IPAddress dns);
@@ -145,11 +183,41 @@ private:
 	// Establish TCP connection (Passive connection)
 	static uint8_t socketListen(uint8_t s);
 	// Send data (TCP)
-	static uint16_t socketSend(uint8_t s, const uint8_t * buf, uint16_t len);
+	static uint16_t socketSend(
+		uint8_t s,
+		const uint8_t *buf,
+		uint16_t len,
+		uint32_t timeoutMs = 1000);
+	// JWPLC cooperative TCP SEND backend. begin copies the payload and emits
+	// SEND only when enough TX space exists. Return values:
+	// begin: -1 = error, 0 = no TX space, 1 = SEND issued;
+	// poll:  -1 = error/timeout/closed, 0 = pending, 1 = SEND_OK.
+	static int socketBeginSendTCP(
+		uint8_t s,
+		const uint8_t *buf,
+		uint16_t len);
+	static int socketPollSendTCP(uint8_t s);
 	static uint16_t socketSendAvailable(uint8_t s);
 	// Receive data (TCP)
 	static int socketRecv(uint8_t s, uint8_t * buf, int16_t len);
 	static uint16_t socketRecvAvailable(uint8_t s);
+	static int socketRecvTCPFastDeferred(
+		uint8_t s,
+		uint8_t *buf,
+		uint16_t len);
+	static bool socketCommitTCPFast(uint8_t s);
+
+	// JWPLC high-throughput UDP RX backend.
+	// Reads one complete W5500 UDP record (8-byte pseudo-header + payload)
+	// while deferring RX_RD/Sock_RECV so a cooperative caller can commit
+	// several records at once. Legacy Arduino UDP semantics are untouched.
+	static int socketRecvUDPFastDeferred(
+		uint8_t s,
+		uint8_t *header,
+		uint8_t *buf,
+		uint16_t len);
+	static bool socketCommitUDPFast(uint8_t s);
+
 	static uint8_t socketPeek(uint8_t s);
 	// sets up a UDP datagram, the data for which will be provided by one
 	// or more calls to bufferData and then finally sent with sendUDP.
@@ -162,6 +230,12 @@ private:
 	// Send a UDP datagram built up from a sequence of startUDP followed by one or more
 	// calls to bufferData.
 	// return true if the datagram was successfully sent, or false if there was an error
+	// JWPLC cooperative UDP SEND backend.
+	// begin/poll: -1 = error/timeout, 0 = pending, 1 = SEND_OK.
+	static int socketBeginSendUDP(uint8_t s);
+	static int socketPollSendUDP(uint8_t s);
+
+	// Arduino-compatible blocking wrapper over the same cooperative engine.
 	static bool socketSendUDP(uint8_t s);
 	// Initialize the "random" source port number
 	static void socketPortRand(uint16_t n);
@@ -178,6 +252,7 @@ private:
 	IPAddress _remoteIP; // remote IP address for the incoming packet whilst it's being processed
 	uint16_t _remotePort; // remote port of the incoming packet whilst it's being processed
 	uint16_t _offset; // offset into the packet being sent
+	bool _sendPending = false; // JWPLC cooperative UDP SEND state
 
 protected:
 	uint8_t sockindex;
@@ -192,6 +267,13 @@ public:
 	// Sending UDP packets
 	virtual int beginPacket(IPAddress ip, uint16_t port);
 	virtual int beginPacket(const char *host, uint16_t port);
+	// JWPLC cooperative UDP SEND extension.
+	// begin/poll: -1 = failed, 0 = pending, 1 = SEND_OK.
+	int beginEndPacketAsync();
+	int pollEndPacketAsync();
+	bool endPacketAsyncInProgress() const;
+	void cancelEndPacketAsync();
+
 	virtual int endPacket();
 	virtual size_t write(uint8_t);
 	virtual size_t write(const uint8_t *buffer, size_t size);
@@ -203,6 +285,14 @@ public:
 	virtual int read();
 	virtual int read(uint8_t *buf, size_t len);
 	virtual int read(char* buffer, size_t len) { return read((unsigned char*)buffer, len); };
+
+	// JWPLC additive/internal high-throughput RX extension.
+	// It does NOT replace parsePacket()/read(). A cooperative caller may read
+	// complete datagrams with deferred hardware commit and then commit once
+	// after processing its chosen batch.
+	int jwplcReadPacketFastDeferred(uint8_t *buffer, size_t len);
+	bool jwplcCommitRxFast();
+
 	virtual int peek();
 	virtual void flush();
 
@@ -214,19 +304,67 @@ public:
 
 class EthernetClient : public Client {
 public:
-	EthernetClient() : _sockindex(MAX_SOCK_NUM), _timeout(1000) { }
-	EthernetClient(uint8_t s) : _sockindex(s), _timeout(1000) { }
+	EthernetClient() : _sockindex(MAX_SOCK_NUM), _timeout(1000) {
+		_startMillis = 0;
+	}
+	EthernetClient(uint8_t s) : _sockindex(s), _timeout(1000) {
+		_startMillis = 0;
+	}
 	virtual ~EthernetClient() {};
 
 	uint8_t status();
 	virtual int connect(IPAddress ip, uint16_t port);
 	virtual int connect(const char *host, uint16_t port);
+
+	// JWPLC cooperative TCP-connect extension.
+	// begin/poll: -1 = failed, 0 = pending, 1 = connected.
+	// Legacy connect() remains blocking and source-compatible.
+	int beginConnectAsync(IPAddress ip, uint16_t port);
+	int pollConnectAsync();
+	bool connectAsyncInProgress();
+	void cancelConnectAsync();
+
+	// JWPLC cooperative TCP-close extension.
+	// begin/poll: -1 = forced close after timeout/error, 0 = pending, 1 = closed.
+	// Legacy stop() remains blocking and source-compatible, but uses this engine.
+	int beginStopAsync();
+	int pollStopAsync();
+	bool stopAsyncInProgress() const;
+	void cancelStopAsync();
+
+	// JWPLC cooperative TX-flush extension.
+	// begin/poll: -1 = timeout/error, 0 = pending, 1 = flushed/not connected.
+	// Legacy flush() remains blocking and source-compatible, but is now bounded
+	// by the configured connection timeout and uses this engine.
+	int beginFlushAsync();
+	int pollFlushAsync();
+	bool flushAsyncInProgress() const;
+	void cancelFlushAsync();
+
+	// JWPLC cooperative TCP-write extension.
+	// begin/poll: -1 = failed/timeout, 0 = pending, 1 = SEND_OK.
+	// The caller must keep buf valid and unchanged while the engine waits for
+	// TX space. Once SEND has been issued, the W5500 owns its copied payload.
+	// Cancelling after SEND closes the socket so a stale SEND_OK cannot be
+	// consumed by a later write. Legacy write() remains blocking.
+	int beginWriteAsync(const uint8_t *buf, size_t size);
+	int pollWriteAsync();
+	bool writeAsyncInProgress() const;
+	void cancelWriteAsync();
+
 	virtual int availableForWrite(void);
 	virtual size_t write(uint8_t);
 	virtual size_t write(const uint8_t *buf, size_t size);
 	virtual int available();
 	virtual int read();
 	virtual int read(uint8_t *buf, size_t size);
+
+	// JWPLC additive high-throughput TCP RX extension. The deferred read
+	// advances only the software RX pointer. Call jwplcCommitRxFast() at the
+	// end of every cooperative batch to release W5500 RX memory.
+	int jwplcReadTcpFastDeferred(uint8_t *buf, size_t size);
+	bool jwplcCommitRxFast();
+
 	virtual int peek();
 	virtual void flush();
 	virtual void stop();
@@ -249,6 +387,14 @@ public:
 private:
 	uint8_t _sockindex; // MAX_SOCK_NUM means client not in use
 	uint16_t _timeout;
+	bool _stopPending = false;
+	uint32_t _stopStartedAtMs = 0;
+	bool _flushPending = false;
+	uint32_t _flushStartedAtMs = 0;
+	uint8_t _writeAsyncState = 0;
+	const uint8_t *_writeAsyncBuffer = nullptr;
+	uint16_t _writeAsyncLength = 0;
+	uint32_t _writeAsyncStartedAtMs = 0;
 };
 
 
