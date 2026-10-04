@@ -95,7 +95,8 @@ ALPHA12_PACKAGE_CLOSURE=IN_PROGRESS
 - [x] bloquear regeneración de Display/TFT hasta PASS del gate source-first.
 - [x] determinar qué libraries/core requieren regeneración.
 - [x] P1: regenerar y verificar `core.a` actual.
-- [ ] P2: regenerar y verificar `libJWPLC_ModbusRTU.a` actual.
+- [x] P2: regenerar y verificar `libJWPLC_ModbusRTU.a` actual.
+- [ ] P3: regenerar y verificar `libSPI.a` actual.
 - [ ] regenerar archives.
 - [ ] registrar SHA-256.
 - [ ] registrar tamaños.
