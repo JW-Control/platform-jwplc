@@ -320,3 +320,37 @@ Contrato del gate:
 - rollback automático si falla;
 - al PASS deja sólo `precompiled/core/JWPLCBASIC/core.a` como tracked dirty;
 - no hace upload físico.
+
+
+## P1 precompilado — core.a cerrado
+
+Commit de adopción:
+
+```text
+bedc551a00e784c2561d23df58c14c2390267384
+```
+
+Artifact:
+
+```text
+JWPLC/2.1.0/precompiled/core/JWPLCBASIC/core.a
+BYTES=3042444
+SHA256=78d0c0ab14f156b96116529e88872340d51877af40d24ba3559f6081e0bf34fb
+```
+
+Gate:
+
+```text
+CORE_PRECOMPILED_BUILD=PASS
+CORE_PRECOMPILED_VERIFY_BASIC=PASS
+CORE_PRECOMPILED_VERIFY_CORE=PASS
+FINAL_TRACKED_DIRTY_SCOPE=core.a_ONLY
+```
+
+El archive anterior quedó invalidado por F050 y ya no es el artifact de cierre.
+
+Siguiente artifact:
+
+```text
+P2=JWPLC_ModbusRTU/src/esp32/libJWPLC_ModbusRTU.a
+```
