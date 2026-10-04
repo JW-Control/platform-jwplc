@@ -167,25 +167,25 @@ tools/build-speed-benchmark/Run-JWPLCBuildBenchmark.ps1
 
 Matriz mínima Alpha12:
 
-- [ ] HEAD funcional/precompilados congelados antes de medir.
-- [ ] working tree tracked limpio.
-- [ ] sketch `01_empty` con autoload normal completo.
-- [ ] target `JWPLC Basic`.
-- [ ] target `JWPLC Basic Core` como control source.
-- [ ] `Jobs=0`.
-- [ ] `managed_cold`.
-- [ ] `managed_warm_nochange`.
-- [ ] `managed_warm_touch`.
-- [ ] `explicit_cold`.
-- [ ] `explicit_warm_nochange`.
-- [ ] `explicit_warm_touch`.
-- [ ] registrar `CompilerInvocations`/TUs.
-- [ ] registrar tamaño de binarios.
-- [ ] registrar Arduino CLI, CPU/RAM, host y commit exacto.
-- [ ] generar tabla final Alpha12.
-- [ ] comparar contra referencias históricas Alpha4/Alpha5 sólo cuando host/metodología sean comparables.
-- [ ] documentar por separado cualquier resultado de upload; no mezclar tiempo de compilación con tiempo de carga.
-- [ ] confirmar que la mejora no proviene de retirar periféricos del autoload.
+- [x] HEAD funcional/precompilados congelados antes de medir.
+- [x] working tree tracked limpio.
+- [x] sketch `01_empty` con autoload normal completo.
+- [x] target `JWPLC Basic`.
+- [x] target `JWPLC Basic Core` como control source.
+- [x] `Jobs=0`.
+- [x] `managed_cold`.
+- [x] `managed_warm_nochange`.
+- [x] `managed_warm_touch`.
+- [x] `explicit_cold`.
+- [x] `explicit_warm_nochange`.
+- [x] `explicit_warm_touch`.
+- [x] registrar `CompilerInvocations`/TUs.
+- [x] registrar tamaño de binarios.
+- [x] registrar Arduino CLI, CPU/RAM, host y commit exacto.
+- [x] generar tabla final Alpha12.
+- [x] comparar contra referencias históricas Alpha4/Alpha5 sólo cuando host/metodología sean comparables.
+- [x] documentar por separado cualquier resultado de upload; no mezclar tiempo de compilación con tiempo de carga.
+- [x] confirmar que la mejora no proviene de retirar periféricos del autoload.
 
 Referencias históricas de metodología:
 
@@ -201,6 +201,25 @@ Resultado requerido antes de avanzar a gates finales:
 ALPHA12_FINAL_BUILD_SPEED_BENCHMARK=PASS
 ALPHA12_BUILD_SPEED_TABLE=RECORDED
 ```
+
+
+Resultado final benchmark:
+
+```text
+ALPHA12_FINAL_BUILD_SPEED_BENCHMARK=PASS
+ALPHA12_BUILD_SPEED_TABLE=RECORDED
+RESULT_ROW_COUNT=12
+PRECOMPILED_FREEZE=PASS
+```
+
+Comparación:
+
+```text
+docs/v2.1.0-alpha.12/ALPHA12_BUILD_SPEED_COMPARISON_20261004.md
+```
+
+Upload permanece deliberadamente fuera de esta medición y se ejecuta en los
+gates finales.
 
 ---
 
