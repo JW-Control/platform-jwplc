@@ -99,8 +99,9 @@ ALPHA12_PACKAGE_CLOSURE=IN_PROGRESS
 - [x] P3: regenerar y verificar `libSPI.a` actual.
 - [x] P4: regenerar y verificar `libJW_SD.a` actual.
 - [x] P5: regenerar y verificar `libJWPLC_Display.a` actual.
-- [ ] P6: requalificar `libJWPLC_TFT.a` y demostrar selección autocontenida del backend TFT.
-- [ ] cerrar P6 y congelar el conjunto final de archives.
+- [x] P6: requalificar `libJWPLC_TFT.a` y demostrar selección autocontenida del backend TFT.
+- [x] cerrar P6 sin regenerar el archive histórico físicamente cualificado.
+- [ ] P7: auditar globalmente archives retenidos/regenerados y congelar el conjunto final.
 - [ ] registrar tabla consolidada SHA-256 de todos los archives finales.
 - [ ] registrar tabla consolidada de tamaños de todos los archives finales.
 - [ ] restaurar `precompiled=full` sólo donde corresponda.
@@ -108,12 +109,28 @@ ALPHA12_PACKAGE_CLOSURE=IN_PROGRESS
 - [ ] comprobar que build final enlaza los nuevos archives.
 - [ ] evitar archive stale tras cualquier cambio posterior.
 
+
+
+Resultado P6:
+
+```text
+P6_TFT_REQUALIFICATION=PASS_CLOSED
+ARCHIVE_SHA256=5d860a131811dd9a7eb6fa55f5674b1d78b0de7dfaf8748ce18a60ceed2d3738
+STRUCTURAL_EQUIVALENCE=PASS
+GLOBAL_TFT_ESPI_REQUIRED_AT_USER_BUILD=NO
+OFFICIAL_ARCHIVE_CHANGED=NO
+```
+
+El benchmark final permanece bloqueado hasta completar P7 y declarar el freeze
+global de precompilados.
+
 ## 8. Benchmark final de tiempos de compilación
 
 Ubicación obligatoria en la secuencia:
 
 ```text
 P6_TFT_REQUALIFICATION
+-> P7_GLOBAL_PRECOMPILED_ARCHIVE_AUDIT
 -> PRECOMPILED_FREEZE
 -> FINAL_BUILD_SPEED_BENCHMARK
 -> FINAL_CLI_IDE_UPLOAD_GATES
