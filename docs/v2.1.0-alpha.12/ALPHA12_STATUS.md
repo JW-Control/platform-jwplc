@@ -571,3 +571,57 @@ P5_DISPLAY=READY_TO_RUN
 P6_TFT_REQUALIFICATION=PENDING
 PHYSICAL_GATE_REQUIRED_FOR_P5=NO
 ```
+
+
+## P5 intento 1 — fallo de sintaxis del harness
+
+La primera ejecución de `alpha12_display_precompiled_refresh.ps1` no llegó a ejecutar el gate.
+PowerShell rechazó el archivo durante parsing por una interpolación ambigua:
+
+```text
+ParserError
+$lineNo:
+La referencia de variable no es válida
+```
+
+Clasificación:
+
+```text
+HARNESS_FAILURE=YES
+PRODUCT_FAILURE=NO
+HARDWARE_FAILURE=NO
+SOURCE_BUILD_STARTED=NO
+ARCHIVE_MUTATION=NO
+PHYSICAL_UPLOAD=NO
+```
+
+Causa:
+
+```powershell
+"$($file.Name):$lineNo:$($_.Trim())"
+```
+
+En una cadena expandible, PowerShell interpreta `$lineNo:` como referencia de variable/scope inválida.
+Se reemplazó por concatenación explícita sin ambigüedad.
+
+Corrección versionada:
+
+```text
+ae758a1c70f441fb8f0c4e628df7691159e73f12
+fix(alpha12): corregir interpolacion PowerShell en gate Display
+```
+
+Prevención reforzada:
+
+- no ejecutar directamente un gate PowerShell nuevo/modificado;
+- ejecutar `System.Management.Automation.Language.Parser::ParseFile()` y exigir cero errores antes del gate;
+- tratar un ParserError previo a ejecución como fallo del harness, nunca del producto;
+- buscar interpolaciones ambiguas `$variable:` en strings expandibles y preferir concatenación o `${variable}` cuando corresponda.
+
+Estado:
+
+```text
+P5_DISPLAY_ATTEMPT_1=HARNESS_PARSE_FAILURE
+P5_DISPLAY_PRODUCT_EVIDENCE=NOT_STARTED
+P5_DISPLAY=READY_TO_RERUN_AFTER_SYNTAX_PREFLIGHT
+```
