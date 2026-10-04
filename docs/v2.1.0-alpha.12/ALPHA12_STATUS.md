@@ -1461,3 +1461,118 @@ P7A_RERUN=READY_THROUGH_SAFE_RUNNER
 PRECOMPILED_FREEZE=BLOCKED
 FINAL_BUILD_SPEED_BENCHMARK=BLOCKED
 ```
+
+
+## P7A — auditoría global de precompilados cerrada
+
+Runner:
+
+```text
+tools/alpha12/gates/run_alpha12_precompiled_global_audit.ps1
+```
+
+Resultado final:
+
+```text
+P7_GATE_POWERSHELL_SYNTAX_ERROR_COUNT=0
+P7_RUNNER_PREFLIGHT=PASS
+ALPHA12_P7A_GLOBAL_PRECOMPILED_ARCHIVE_AUDIT=PASS
+AUDITED_ARCHIVE_COUNT=14
+KNOWN_REGENERATED_IDENTITIES=PASS
+SOURCE_FRESHNESS=PASS
+RETAINED_ARCHIVE_POLICY=PASS
+SOURCE_ONLY_POLICY=PASS
+CORE_PRECOMPILED_POLICY=PASS
+FAILURE_COUNT=0
+FINAL_TRACKED_DIRTY_COUNT=0
+P7A_SAFE_RUNNER=PASS
+```
+
+Política source-only preservada:
+
+```text
+JW_RTC
+JWPLC_GlobalPeripherals
+JWPLC_Ethernet
+JWPLC_RS485
+```
+
+Activación release-like pendiente identificada:
+
+```text
+JW_SD
+JWPLC_Display
+JWPLC_ModbusRTU
+JWPLC_TFT
+SPI
+```
+
+P7A confirma que los archives existen, están frescos respecto a sus fuentes y
+que los identities P1-P6 siguen siendo los cualificados.
+
+Estado:
+
+```text
+P7A_GLOBAL_PRECOMPILED_ARCHIVE_AUDIT=PASS_CLOSED
+P7B_RELEASE_LIKE_PRECOMPILED_ACTIVATION=READY_TO_RUN
+PRECOMPILED_FREEZE=BLOCKED_UNTIL_P7B
+FINAL_BUILD_SPEED_BENCHMARK=BLOCKED_UNTIL_PRECOMPILED_FREEZE
+```
+
+## P7B preparado — activación release-like y link real
+
+Se reactivó únicamente la política de las cinco librerías ya cualificadas:
+
+```text
+JWPLC_Display   precompiled=full + dot_a_linkage=true
+JWPLC_ModbusRTU precompiled=full
+JWPLC_TFT       precompiled=full + dot_a_linkage=true
+JW_SD           precompiled=full
+SPI             precompiled=full
+```
+
+No se modificaron archives ni sources.
+
+Commits de activación:
+
+```text
+7e31911ca255c5107578313b828dd026f7b7e393  JWPLC_Display
+c5675d0bfedaf00c3142fcb8ebd35696b28f90b0  JWPLC_ModbusRTU
+f15e674d5d3598aeffe441ff6ecb972a54c75c55  JWPLC_TFT
+d278aebd2138ca024d6f2869804589206415f66f  JW_SD
+7dbd6accfdf31ab12c6919b05f4f1b905f5441ea  SPI
+```
+
+Gate:
+
+```text
+tools/alpha12/gates/alpha12_precompiled_release_activation.ps1
+```
+
+Runner:
+
+```text
+tools/alpha12/gates/run_alpha12_precompiled_release_activation.ps1
+```
+
+P7B exige:
+
+```text
+01_empty normal autoload compile = PASS
+5 precompiled libraries selected
+5 precompiled markers present
+0 source objects recompilados para esas 5
+4 source-only libraries selected desde source
+GLOBAL_TFT_ESPI_SELECTED=NO
+normal autoload completo
+warnings=0
+errors=0
+tracked dirty=0
+```
+
+Sólo un P7B PASS habilita:
+
+```text
+PRECOMPILED_FREEZE=PASS
+-> FINAL_BUILD_SPEED_BENCHMARK
+```
