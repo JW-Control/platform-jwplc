@@ -517,3 +517,229 @@ SHA256 : 5d860a131811dd9a7eb6fa55f5674b1d78b0de7dfaf8748ce18a60ceed2d3738
 
 Alpha13 continuará la evolución funcional de TFT/Display sobre esta API sin
 volver a exponer TFT_eSPI como dependencia pública.
+
+
+---
+
+# Referencia completa de API pública
+
+Objeto global:
+
+```cpp
+JWPLC_TFT
+```
+
+## Inicialización y estado
+
+| Función | Qué hace | Ejemplo |
+|---|---|---|
+| `begin(timeoutMs)` | Inicializa el backend gráfico. | `JWPLC_TFT.begin();` |
+| `isReady()` | Indica si está listo. | `if (JWPLC_TFT.isReady()) { ... }` |
+| `panel()` | Devuelve el perfil de panel activo. | `auto p = JWPLC_TFT.panel();` |
+| `panelInfo()` | Devuelve geometría/configuración del panel. | `auto info = JWPLC_TFT.panelInfo();` |
+| `width()` | Ancho lógico. | `int16_t w = JWPLC_TFT.width();` |
+| `height()` | Alto lógico. | `int16_t h = JWPLC_TFT.height();` |
+| `rotation()` | Rotación lógica activa. | `uint8_t r = JWPLC_TFT.rotation();` |
+
+## Batching
+
+| Función | Ejemplo |
+|---|---|
+| `beginBatch(timeoutMs)` | `if (JWPLC_TFT.beginBatch()) { ... }` |
+| `endBatch()` | `JWPLC_TFT.endBatch();` |
+| `batchActive()` | `bool x = JWPLC_TFT.batchActive();` |
+
+Ejemplo:
+
+```cpp
+if (JWPLC_TFT.beginBatch())
+{
+    JWPLC_TFT.fillRect(
+        10, 10, 50, 20,
+        JWPLC_TFT_BLUE);
+
+    JWPLC_TFT.drawLine(
+        10, 40,
+        100, 40,
+        JWPLC_TFT_WHITE);
+
+    JWPLC_TFT.endBatch();
+}
+```
+
+## Primitivas de pantalla y rectángulos
+
+| Función | Ejemplo |
+|---|---|
+| `fillScreen(color, timeoutMs)` | `JWPLC_TFT.fillScreen(JWPLC_TFT_BLACK);` |
+| `fillRect(x,y,w,h,color,timeoutMs)` | `JWPLC_TFT.fillRect(10,10,80,30,JWPLC_TFT_BLUE);` |
+| `drawRect(x,y,w,h,color,timeoutMs)` | `JWPLC_TFT.drawRect(10,10,80,30,JWPLC_TFT_WHITE);` |
+| `fillRoundRect(x,y,w,h,radius,color,timeoutMs)` | `JWPLC_TFT.fillRoundRect(10,10,80,30,6,JWPLC_TFT_GREEN);` |
+| `drawRoundRect(x,y,w,h,radius,color,timeoutMs)` | `JWPLC_TFT.drawRoundRect(10,10,80,30,6,JWPLC_TFT_WHITE);` |
+
+Todos los `timeoutMs` son opcionales; el default actual es 50 ms.
+
+## Círculos
+
+| Función | Ejemplo |
+|---|---|
+| `fillCircle(x,y,radius,color,timeoutMs)` | `JWPLC_TFT.fillCircle(160,85,20,JWPLC_TFT_RED);` |
+| `drawCircle(x,y,radius,color,timeoutMs)` | `JWPLC_TFT.drawCircle(160,85,20,JWPLC_TFT_WHITE);` |
+
+## Líneas y píxeles
+
+| Función | Ejemplo |
+|---|---|
+| `drawFastHLine(x,y,w,color,timeoutMs)` | `JWPLC_TFT.drawFastHLine(10,20,100,JWPLC_TFT_WHITE);` |
+| `drawFastVLine(x,y,h,color,timeoutMs)` | `JWPLC_TFT.drawFastVLine(10,20,80,JWPLC_TFT_WHITE);` |
+| `drawLine(x0,y0,x1,y1,color,timeoutMs)` | `JWPLC_TFT.drawLine(0,0,319,169,JWPLC_TFT_YELLOW);` |
+| `drawPixel(x,y,color,timeoutMs)` | `JWPLC_TFT.drawPixel(10,10,JWPLC_TFT_RED);` |
+
+## Cursor
+
+| Función | Ejemplo |
+|---|---|
+| `setCursor(x,y)` | `JWPLC_TFT.setCursor(20,20);` |
+| `cursorX()` | `int16_t x = JWPLC_TFT.cursorX();` |
+| `cursorY()` | `int16_t y = JWPLC_TFT.cursorY();` |
+
+## Tamaño y color de texto
+
+| Función | Ejemplo |
+|---|---|
+| `setTextSize(size)` | `JWPLC_TFT.setTextSize(2);` |
+| `textSize()` | `uint8_t s = JWPLC_TFT.textSize();` |
+| `setTextColor(foreground)` | `JWPLC_TFT.setTextColor(JWPLC_TFT_WHITE);` |
+| `setTextColor(foreground, background)` | `JWPLC_TFT.setTextColor(JWPLC_TFT_WHITE, JWPLC_TFT_BLUE);` |
+| `textColor()` | `uint16_t c = JWPLC_TFT.textColor();` |
+| `textBackground()` | `uint16_t c = JWPLC_TFT.textBackground();` |
+| `setTextWrap(wrapX, wrapY)` | `JWPLC_TFT.setTextWrap(true, false);` |
+
+## Medición de texto
+
+| Función | Ejemplo |
+|---|---|
+| `textWidth(text)` | `int16_t w = JWPLC_TFT.textWidth("RUN");` |
+| `fontHeight()` | `int16_t h = JWPLC_TFT.fontHeight();` |
+| `getTextBounds(...)` | Ver ejemplo siguiente. |
+
+```cpp
+int16_t x1;
+int16_t y1;
+uint16_t w;
+uint16_t h;
+
+JWPLC_TFT.getTextBounds(
+    "JWPLC",
+    10,
+    10,
+    &x1,
+    &y1,
+    &w,
+    &h);
+```
+
+## Escritura directa
+
+`JWPLC_TFT` hereda de `Print`.
+
+Los overloads públicos propios son:
+
+| Función | Ejemplo |
+|---|---|
+| `write(uint8_t value)` | `JWPLC_TFT.write((uint8_t)'A');` |
+| `write(const uint8_t *buffer, size_t size)` | `JWPLC_TFT.write(data, len);` |
+
+Además, por herencia de `Print`, puede usarse:
+
+```cpp
+JWPLC_TFT.print("Temperatura: ");
+JWPLC_TFT.println(25.4);
+```
+
+## Colores públicos incluidos
+
+```text
+JWPLC_TFT_BLACK
+JWPLC_TFT_WHITE
+JWPLC_TFT_RED
+JWPLC_TFT_GREEN
+JWPLC_TFT_BLUE
+JWPLC_TFT_YELLOW
+JWPLC_TFT_CYAN
+JWPLC_TFT_MAGENTA
+```
+
+Ejemplo:
+
+```cpp
+JWPLC_TFT.fillScreen(
+    JWPLC_TFT_BLACK);
+
+JWPLC_TFT.setTextColor(
+    JWPLC_TFT_CYAN);
+```
+
+## Tipos públicos
+
+### JWPLC_TFTPanel
+
+```cpp
+JWPLC_TFTPanel panel =
+    JWPLC_TFT.panel();
+```
+
+Perfil productivo Alpha12:
+
+```text
+BASIC_V2_ST7789_170X320
+```
+
+El valor `BASIC_V3_ST7789_240X320_RESERVED` está reservado y no representa un
+target productivo de 2.1.x.
+
+### JWPLC_TFTPanelInfo
+
+```cpp
+JWPLC_TFTPanelInfo info =
+    JWPLC_TFT.panelInfo();
+
+Serial.println(info.name);
+Serial.println(info.logicalWidth);
+Serial.println(info.logicalHeight);
+Serial.println(info.spiHz);
+```
+
+Campos disponibles:
+
+```text
+name
+nativeWidth
+nativeHeight
+logicalWidth
+logicalHeight
+rotation
+bgr
+inverted
+spiHz
+```
+
+## Acceso equivalente desde JWPLC_Display
+
+```cpp
+JWPLC_TFTClass &tft =
+    JWPLC_Display.tft();
+```
+
+o:
+
+```cpp
+JWPLC_TFTClass &tft =
+    JWPLC_Display.display();
+```
+
+Para mantener un sketch desacoplado del tipo concreto:
+
+```cpp
+auto &tft = JWPLC_Display.tft();
+```
