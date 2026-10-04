@@ -410,31 +410,46 @@ auto &tft = JWPLC_Display.tft();
 auto &tft2 = JWPLC_Display.display();
 ```
 
-En Alpha12 ambos retornan:
+Ambos retornan:
 
 ```cpp
 JWPLC_TFTClass &
 ```
 
-y no `Adafruit_ST7789&`.
+La API gráfica pública ya no expone `Adafruit_ST7789&`.
 
-La API recomendada desde Alpha11 ya usaba `auto &`, por lo que ese patrón se
-mantiene compatible si las primitivas utilizadas existen en `JWPLC_TFT`.
-
-Un sketch que haya declarado explícitamente:
+Un sketch anterior con tipo explícito:
 
 ```cpp
-Adafruit_ST7789 &tft = JWPLC_Display.tft();
+Adafruit_ST7789 &tft =
+    JWPLC_Display.tft();
 ```
 
-requiere migración. Este caso se considera compatibilidad avanzada/raw y queda
-registrado en el checklist Alpha12 antes del freeze.
+debe migrarse a:
+
+```cpp
+auto &tft =
+    JWPLC_Display.tft();
+```
+
+o:
+
+```cpp
+JWPLC_TFTClass &tft =
+    JWPLC_Display.tft();
+```
 
 La HMI generada por Designer no necesita acceso directo al backend.
 
+La referencia completa de primitivas de dibujo está en:
+
+```text
+JWPLC/2.1.0/libraries/JWPLC_TFT/README.md
+```
+
 ---
 
-## Autocompletado Arduino IDE Alpha11
+## Autocompletado Arduino IDE
 
 La extensión JWPLC HMI para Arduino IDE 2.3.4 ofrece sugerencias contextuales.
 
@@ -446,17 +461,11 @@ JWPLC_Display.
 
 se muestra una lista curada de API recomendada.
 
-Dentro de setters se proponen valores válidos:
+Dentro de setters se proponen valores válidos para modos IDLE, botones y
+configuración HMI.
 
-```text
-setIdleWakeMode(    -> IDLE_WAKE_*
-setIdleWakeButton(  -> BTN_*
-setIdleReturnMode(  -> IDLE_RETURN_*
-setIdleReturnButton(-> BTN_*
-setUserRefreshMode( -> USER_REFRESH_*
-```
-
-Los getters/aliases compatibles no se eliminan de la API; simplemente no se priorizan cuando pueden confundir al usuario.
+Los getters/aliases compatibles no se eliminan de la API; simplemente no se
+priorizan cuando pueden confundir al usuario.
 
 ---
 
@@ -468,61 +477,49 @@ La TFT comparte SPI con:
 - FRAM;
 - microSD.
 
-El runtime utiliza el mutex SPI global JWPLC.
-
-Reglas:
-
-1. usar snapshots/cache cuando sea posible;
-2. evitar operaciones SPI largas durante dibujo;
-3. actualizar regiones dirty;
-4. dejar que `JWPLC_Display` gestione el bus para la HMI normal.
+El runtime utiliza el arbitraje SPI del package. Para la HMI normal se
+recomienda dejar que `JWPLC_Display` gestione el backend y usar
+`JWPLC_TFT` sólo cuando sea necesario dibujo directo.
 
 ---
 
-## Precompilación en el cierre Alpha12
+## Precompilación Alpha12
 
-Durante el desarrollo y la consolidación Alpha12, `JWPLC_Display` está en
-modo source-first: `library.properties` no declara todavía
-`precompiled=full`.
-
-El archive Alpha11 se conserva sólo como evidencia histórica. No se debe
-publicar reutilizando su SHA como si representara las fuentes actuales.
-
-Antes de publicar Alpha12:
-
-1. congelar las fuentes;
-2. regenerar `libJWPLC_Display.a`;
-3. regenerar/validar también `libJWPLC_TFT.a`;
-4. registrar SHA-256/tamaños nuevos;
-5. restaurar la política precompilada sólo si la paridad source/archive pasa;
-6. repetir compile/upload/runtime final.
-
-Estado actual:
+`JWPLC_Display` ya fue regenerada, cualificada y activada en modo
+release-like:
 
 ```text
-DISPLAY_SOURCE_FIRST=YES
-DISPLAY_ALPHA11_ARCHIVE_FINAL_FOR_ALPHA12=NO
-DISPLAY_ALPHA12_ARCHIVE_REGEN=PENDING
+PRECOMPILED_FULL=YES
+DOT_A_LINKAGE=YES
+SOURCE_OBJECT_COUNT_IN_RELEASE_LIKE_BUILD=0
 ```
+
+Archive final Alpha12:
+
+```text
+Archivo : src/esp32/libJWPLC_Display.a
+Bytes   : 941228
+SHA256  : c960d718433e29a40e3cc55bc745c9a2e121ee1ee598ec72c04872327592dc02
+```
+
+El backend `JWPLC_TFT` también quedó cualificado y autocontenido; el usuario
+no necesita instalar TFT_eSPI.
 
 ---
 
 ## Compatibilidad
 
-Se conservan APIs históricas cuando no existe motivo para romper sketches ya probados.
+Se conservan APIs históricas cuando no existe motivo para romper sketches ya
+probados.
 
-Eso incluye, entre otras:
+La excepción documentada es el tipo gráfico explícito de backend:
 
 ```text
-JWPLCDisplay::
-setText()
-setBool()
-display()
-getters de configuración
-callbacks USER legacy
+Adafruit_ST7789& -> JWPLC_TFTClass&
 ```
 
-Para código nuevo se recomienda seguir la API curada mostrada por el autocompletado y por JWPLC HMI Designer.
+El patrón `auto &tft = JWPLC_Display.tft();` es el recomendado para reducir
+acoplamiento.
 
 ---
 
@@ -535,10 +532,9 @@ HMI_DESIGNER_V1=RETAINED_FROM_ALPHA11
 BACKEND=JWPLC_TFT
 AUTOLOAD_DISPLAY=YES
 FULL_RUNTIME_DISPLAY=PASS_PHYSICAL
-PRECOMPILED_FINAL_ALPHA12=PENDING_REGEN
-RAW_BACKEND_EXPLICIT_ADAFRUIT_TYPE_COMPATIBILITY=REVIEW
+PRECOMPILED_RELEASE_LIKE=ACTIVE
+TFT_ESPI_USER_DEPENDENCY=NO
+RAW_BACKEND_EXPLICIT_ADAFRUIT_TYPE_COMPATIBILITY=BREAK_DOCUMENTED
 ```
 
-Alpha13 será el ciclo dedicado a continuar la evolución funcional de TFT/Display.
-Alpha12 sólo consolida la arquitectura que ya fue necesaria y validada durante
-el hardening de comunicaciones/full runtime.
+Alpha13 continuará la evolución funcional de TFT/Display sobre esta arquitectura.
