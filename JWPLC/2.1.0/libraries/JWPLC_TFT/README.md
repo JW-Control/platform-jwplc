@@ -1,12 +1,14 @@
 # JWPLC_TFT
 
-Backend grafico propio del ecosistema JWPLC.
+Backend gráfico propio del ecosistema JWPLC.
 
 ## Arquitectura
 
-`JWPLC_TFT` expone una API publica independiente del motor grafico. El
-backend calificado para JWPLC Basic v2 se distribuye precompilado dentro del
-package, por lo que el usuario no necesita instalar ni configurar TFT_eSPI.
+`JWPLC_TFT` expone una API pública independiente del motor gráfico.
+
+Durante el cierre Alpha12 se compila **source-first** para que las fuentes actuales sean autoritativas. Antes de publicar Alpha12 se regenerará y recalificará el archive precompilado correspondiente.
+
+El usuario no necesita instalar ni configurar TFT_eSPI.
 
 La API publica no expone tipos de TFT_eSPI ni Adafruit.
 
@@ -36,19 +38,30 @@ completo bajo una sola transaccion del backend.
 
 ## Backend
 
-Para ESP32 el package usa:
+Fuentes autoritativas:
+
+```text
+src/JWPLC_TFT.cpp
+src/tft_setup.h
+```
+
+Archive destinado al package final:
 
 ```text
 src/esp32/libJWPLC_TFT.a
 ```
 
-El archive contiene el wrapper `JWPLC_TFT` y el backend TFT_eSPI 2.5.43
-calificado. `library.properties` no declara TFT_eSPI como dependencia de
-usuario.
+El backend incorpora TFT_eSPI 2.5.43 detrás de la API `JWPLC_TFT`.
+`library.properties` no declara TFT_eSPI como dependencia de usuario.
 
-Los sources `JWPLC_TFT.cpp` y `tft_setup.h` permanecen versionados para
-mantenimiento y regeneracion del archive. Los builds normales del package
-deben seleccionar `precompiled=full` y no compilar esos sources.
+Estado durante el cierre Alpha12:
+
+```text
+SOURCE_FIRST=YES
+PRECOMPILED_FINAL_ALPHA12=PENDING_REGEN
+```
+
+No se debe reutilizar un archive histórico como si representara las fuentes actuales.
 
 ## JWPLC Basic v3
 
@@ -62,7 +75,9 @@ orientacion y configuracion fisica final.
 modo IDLE, dirty cache y contrato del JWPLC HMI Designer pertenecen a
 `JWPLC_Display`.
 
-La migracion de `JWPLC_Display` a este backend se realiza en H3E.3.
+La migración de `JWPLC_Display` a este backend ya fue completada durante H3E y validada bajo full runtime.
+
+Alpha13 será el ciclo dedicado a continuar la evolución funcional de TFT/Display sobre esta arquitectura, sin volver a exponer TFT_eSPI como dependencia pública.
 
 ## Licencias de terceros
 
@@ -72,3 +87,19 @@ conservan en:
 ```text
 licenses/TFT_eSPI-2.5.43-license.txt
 ```
+
+## Estado Alpha12
+
+```text
+JWPLC ESP32 v2.1.0-alpha.12
+JWPLC_TFT 0.1.0
+JWPLC_DISPLAY_BACKEND_MIGRATION=COMPLETE
+FULL_RUNTIME_TFT=PASS_PHYSICAL
+TFT_ESPI_USER_DEPENDENCY=NO
+PRECOMPILED_ALPHA12=PENDING_REGEN
+NEXT_DISPLAY_ALPHA=13
+```
+
+La API raw histórica basada en tipo explícito `Adafruit_ST7789&` no forma parte
+del backend actual. El patrón recomendado es obtener `JWPLC_TFTClass&` mediante
+`JWPLC_Display.tft()` o usar directamente las APIs HMI de alto nivel.
