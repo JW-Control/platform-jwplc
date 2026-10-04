@@ -490,32 +490,84 @@ CANDIDATE_LINK=PASS
 
 P3 queda adoptado en remoto/local.
 
-## P4 precompilado — JW_SD preparado
+## P4 precompilado — JW_SD cerrado
+
+Commit de adopción:
+
+```text
+6c6c0eb250cea930fba4da1fd3c4306d649a9b5a
+```
+
+Artifact:
+
+```text
+JWPLC/2.1.0/libraries/JW_SD/src/esp32/libJW_SD.a
+BYTES=362316
+SHA256=1b9619ba37295782ade1edc6f06439a38e7e534fc08f5b05757c9af7a645acc0
+```
+
+Gate validado:
+
+```text
+SOURCE_OBJECT_COUNT=1
+SOURCE_PRECOMPILED_MARKER=NO
+ARCHIVE_MEMBER_COUNT=1
+ARCHIVE_MEMBER=JW_SD.cpp.o
+ARCHIVE_MEMBER_BYTE_PARITY=PASS
+CANDIDATE_SOURCE_OBJECT_COUNT=0
+CANDIDATE_PRECOMPILED_MARKER=YES
+CANDIDATE_LINK=PASS
+DATALOG_MANAGER=ON
+CARD_LIFECYCLE_RECOVERY=ON
+SPI_LOCK_CALLBACKS=ON
+```
+
+P4 queda adoptado en remoto/local.
+
+## P5 precompilado — JWPLC_Display preparado
 
 Gate:
 
 ```text
-tools/alpha12/gates/alpha12_jw_sd_precompiled_refresh.ps1
+tools/alpha12/gates/alpha12_display_precompiled_refresh.ps1
 ```
 
 Contrato:
 
 - exige branch Alpha12 y tracked/index clean;
-- verifica contratos actuales de DataLog, lifecycle/remount y SPI lock callbacks;
-- compila JW_SD desde source-only temporal;
-- exige exactamente un `JW_SD.cpp.o`;
-- crea `libJW_SD.a` con un único miembro;
-- extrae el miembro y exige SHA-256 byte-parity con el objeto fuente;
-- compila el mismo sketch contra candidato temporal `precompiled=full`;
-- exige cero `JW_SD.cpp.o` compilados desde source en modo candidato;
+- exige el conjunto actual de 7 translation units de Display;
+- rechaza referencias actuales a `Adafruit_ST7789` o `ST77XX_*`;
+- confirma que la API pública retorna `JWPLC_TFTClass&`;
+- compila `JWPLC_Display` source-only con sus dependencias reales;
+- crea `libJWPLC_Display.a` con exactamente 7 miembros;
+- extrae cada miembro y exige SHA-256 byte-parity contra su objeto fuente;
+- compila un sketch que usa Display, HMI y acceso `JWPLC_TFTClass` contra candidato temporal `precompiled=full`;
+- exige cero objetos Display recompilados desde source en modo candidato;
 - sólo al PASS copia el candidate al worktree oficial;
 - rollback automático ante cualquier fallo;
 - guarda logs verbosos en `tools/alpha12/results/` y deja terminal resumido;
 - no realiza upload físico.
 
+Miembros esperados:
+
+```text
+JWPLC_Display.cpp.o
+JWPLC_Display_H3E1_Profile.cpp.o
+JWPLC_IdleScreen.cpp.o
+JWPLC_UI.cpp.o
+JWPLC_UI_API.cpp.o
+JWPLC_UI_Pages.cpp.o
+JWPLC_UI_PixelMap.cpp.o
+```
+
 Estado:
 
 ```text
-P4_JW_SD=READY_TO_RUN
-PHYSICAL_GATE_REQUIRED_FOR_P4=NO
+P1_CORE=PASS_ADOPTED
+P2_MODBUS_RTU=PASS_ADOPTED
+P3_SPI=PASS_ADOPTED
+P4_JW_SD=PASS_ADOPTED
+P5_DISPLAY=READY_TO_RUN
+P6_TFT_REQUALIFICATION=PENDING
+PHYSICAL_GATE_REQUIRED_FOR_P5=NO
 ```
