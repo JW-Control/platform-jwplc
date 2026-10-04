@@ -1006,3 +1006,70 @@ P6_TFT_PRODUCT_FAILURE=NO
 P6_TFT_R3=READY_FOR_SYNTAX_PREFLIGHT
 FINAL_BUILD_SPEED_BENCHMARK=BLOCKED_UNTIL_P6
 ```
+
+
+## P6-R3 — resolución genérica de `nm` no reprodujo el patrón histórico
+
+P6-R3 volvió a confirmar antes del fallo:
+
+```text
+CURRENT_SOURCE_BLOB_IDENTITY=PASS
+ARCHIVE_IDENTITY_PHYSICAL_QUALIFIED=PASS
+SOURCE_COMPILE_EXIT=0
+SOURCE_TFT_OBJECT_COUNT=1
+SOURCE_TFT_ESPI_OBJECT_COUNT=1
+SOURCE_TFT_PRECOMPILED_MARKER=NO
+SOURCE_WARNING_LINES=0
+SOURCE_ERROR_LINES=0
+SOURCE_TFT_ESPI_VERSION=2.5.43
+SOURCE_FIRST_CURRENT_SOURCE=PASS
+```
+
+El fallo fue únicamente del harness:
+
+```text
+A12_TFT_REQUAL_SIBLING_TOOL_NOT_FOUND=xtensa-esp32-elf-nm
+base=C:\Users\jeykc\AppData\Local\Arduino15\packages\jwplc_local\tools\esp-x32\2601\bin
+```
+
+El preflight manual había demostrado:
+
+```text
+NM_EXISTS=True
+```
+
+Por tanto:
+
+```text
+HARNESS_RUNTIME_FAILURE=YES
+PRODUCT_FAILURE=NO
+ARCHIVE_STALE=NOT_PROVEN
+OFFICIAL_ARCHIVE_MUTATED=NO
+PHYSICAL_UPLOAD=NO
+```
+
+Corrección R4:
+
+- eliminar el helper genérico `Resolve-ToolBesidePath`;
+- reproducir el patrón histórico H3E4;
+- derivar `$toolDir` desde el archiver ya resuelto;
+- probar literalmente:
+  - `xtensa-esp32-elf-nm.exe`;
+  - fallback `xtensa-esp32-elf-nm`;
+- imprimir candidatos y `Test-Path` antes de resolver;
+- mantener auditoría de variables reservadas/sintaxis.
+
+Commit:
+
+```text
+b23ef32e4e8135a3018e6b9730866ab0d61b8f3e
+fix(alpha12): usar resolucion literal probada para nm en P6
+```
+
+Estado:
+
+```text
+P6_TFT_R3=HARNESS_RUNTIME_FAILURE
+P6_TFT_PRODUCT_FAILURE=NO
+P6_TFT_R4=READY_FOR_SYNTAX_PREFLIGHT
+```
