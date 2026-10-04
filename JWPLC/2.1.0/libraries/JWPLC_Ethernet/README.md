@@ -544,3 +544,444 @@ LEGACY_API_PRESERVED=YES
 
 Alpha12 conserva Ethernet dentro del autoload normal y mantiene compatibilidad
 con las APIs Arduino Ethernet de uso habitual.
+
+
+---
+
+# Referencia completa de API pública
+
+Esta sección enumera la API soportada que un usuario puede encontrar en los
+headers Ethernet del package.
+
+Se divide en:
+
+- `JWPLC_Ethernet`: configuración/runtime JWPLC;
+- `EthernetClient`: TCP Client compatible con Arduino;
+- `EthernetServer`: TCP Server compatible con Arduino;
+- `EthernetUDP`: UDP compatible con Arduino;
+- `Ethernet`: objeto de compatibilidad de bajo nivel.
+
+Las extensiones cooperativas y fast-path también se documentan, pero se marcan
+como **AVANZADAS** porque una aplicación normal no las necesita.
+
+## JWPLC_Ethernet — hardware y configuración
+
+| Función | Ejemplo |
+|---|---|
+| `configure(csPin, resetPin)` | `JWPLC_Ethernet.configure(JWPLC_ETH_CS, JWPLC_ETH_RESET_PIN);` |
+| `setResetPin(pin)` | `JWPLC_Ethernet.setResetPin(5);` |
+| `setMac(mac)` | `JWPLC_Ethernet.setMac(mac);` |
+| `useDefaultMac()` | `JWPLC_Ethernet.useDefaultMac();` |
+| `useDHCP()` | `JWPLC_Ethernet.useDHCP();` |
+| `setStaticIP(local,dns,gateway,subnet)` | `JWPLC_Ethernet.setStaticIP(ip, dns, gw, mask);` |
+| `setTimeouts(dhcp,response)` | `JWPLC_Ethernet.setTimeouts(5000, 1000);` |
+| `setRetransmissionCount(count)` | `JWPLC_Ethernet.setRetransmissionCount(3);` |
+| `probeHardware()` | `bool ok = JWPLC_Ethernet.probeHardware();` |
+| `service()` | `JWPLC_Ethernet.service();` |
+
+`configure()`, `setResetPin()` y `probeHardware()` son principalmente para
+diagnóstico/bring-up; el board JWPLC ya define su hardware.
+
+## JWPLC_Ethernet — inicialización síncrona de compatibilidad
+
+| Función | Ejemplo |
+|---|---|
+| `begin()` | `bool ok = JWPLC_Ethernet.begin();` |
+| `begin(mac)` | `bool ok = JWPLC_Ethernet.begin(mac);` |
+| `begin(local,dns,gateway,subnet)` | `bool ok = JWPLC_Ethernet.begin(ip, dns, gw, mask);` |
+| `maintain()` | `int r = JWPLC_Ethernet.maintain();` |
+
+Estas rutas son soportadas por compatibilidad. Para el autoload normal se
+prefieren `useDHCP()` / `setStaticIP()`.
+
+## JWPLC_Ethernet — estado
+
+| Función | Ejemplo |
+|---|---|
+| `isEnabled()` | `bool x = JWPLC_Ethernet.isEnabled();` |
+| `isBeginAttempted()` | `bool x = JWPLC_Ethernet.isBeginAttempted();` |
+| `isReady()` | `bool x = JWPLC_Ethernet.isReady();` |
+| `isBusy()` | `bool x = JWPLC_Ethernet.isBusy();` |
+| `hardwarePresent()` | `bool x = JWPLC_Ethernet.hardwarePresent();` |
+| `linkUp()` | `bool x = JWPLC_Ethernet.linkUp();` |
+| `hardwareStatus()` | `auto s = JWPLC_Ethernet.hardwareStatus();` |
+| `linkStatus()` | `auto s = JWPLC_Ethernet.linkStatus();` |
+| `mode()` | `auto m = JWPLC_Ethernet.mode();` |
+| `runtimeState()` | `auto s = JWPLC_Ethernet.runtimeState();` |
+| `lastError()` | `auto e = JWPLC_Ethernet.lastError();` |
+| `lastErrorString()` | `Serial.println(JWPLC_Ethernet.lastErrorString());` |
+| `statusString()` | `Serial.println(JWPLC_Ethernet.statusString());` |
+| `diagnosticCode()` | `Serial.println(JWPLC_Ethernet.diagnosticCode());` |
+
+## JWPLC_Ethernet — datos de red/hardware
+
+| Función | Ejemplo |
+|---|---|
+| `localIP()` | `IPAddress ip = JWPLC_Ethernet.localIP();` |
+| `subnetMask()` | `IPAddress mask = JWPLC_Ethernet.subnetMask();` |
+| `gatewayIP()` | `IPAddress gw = JWPLC_Ethernet.gatewayIP();` |
+| `dnsServerIP()` | `IPAddress dns = JWPLC_Ethernet.dnsServerIP();` |
+| `mac()` | `const uint8_t *mac = JWPLC_Ethernet.mac();` |
+| `csPin()` | `uint8_t pin = JWPLC_Ethernet.csPin();` |
+| `resetPin()` | `uint8_t pin = JWPLC_Ethernet.resetPin();` |
+| `printStatus(out)` | `JWPLC_Ethernet.printStatus(Serial);` |
+
+---
+
+# EthernetClient — referencia completa
+
+## Construcción
+
+```cpp
+EthernetClient client;
+```
+
+La variante con número de socket existe para uso interno/compatibilidad:
+
+```cpp
+EthernetClient clientFromSocket(socketIndex);
+```
+
+No se recomienda crear Clients desde un socket manual en código normal.
+
+## Conexión
+
+| Función | Ejemplo |
+|---|---|
+| `status()` | `uint8_t s = client.status();` |
+| `connect(ip, port)` | `client.connect(IPAddress(192,168,1,10), 5000);` |
+| `connect(host, port)` | `client.connect("example.local", 5000);` |
+| `connected()` | `if (client.connected()) { ... }` |
+| `stop()` | `client.stop();` |
+| `setConnectionTimeout(ms)` | `client.setConnectionTimeout(1000);` |
+
+## Escritura
+
+| Función | Ejemplo |
+|---|---|
+| `availableForWrite()` | `int n = client.availableForWrite();` |
+| `write(byte)` | `client.write((uint8_t)0x55);` |
+| `write(buffer, size)` | `client.write(data, sizeof(data));` |
+| `print(...)` | `client.print("TEMP=");` |
+| `println(...)` | `client.println(25.0);` |
+| `flush()` | `client.flush();` |
+
+`print()` y `println()` vienen de `Print` y están disponibles porque
+`EthernetClient` hereda de esa interfaz.
+
+## Lectura
+
+| Función | Ejemplo |
+|---|---|
+| `available()` | `int n = client.available();` |
+| `read()` | `int b = client.read();` |
+| `read(buffer, size)` | `int n = client.read(buf, sizeof(buf));` |
+| `peek()` | `int b = client.peek();` |
+
+## Endpoint/socket
+
+| Función | Ejemplo |
+|---|---|
+| `localPort()` | `uint16_t p = client.localPort();` |
+| `remoteIP()` | `IPAddress ip = client.remoteIP();` |
+| `remotePort()` | `uint16_t p = client.remotePort();` |
+| `getSocketNumber()` | `uint8_t s = client.getSocketNumber();` |
+| `operator bool()` | `if (client) { ... }` |
+| `operator==(bool)` | `bool valid = (client == true);` |
+| `operator!=(bool)` | `bool invalid = (client != true);` |
+| `operator==(EthernetClient)` | `bool same = (clientA == clientB);` |
+| `operator!=(EthernetClient)` | `bool different = (clientA != clientB);` |
+
+## EthernetClient — extensiones cooperativas AVANZADAS
+
+Estas funciones son soportadas, pero están pensadas para librerías/runtime que
+necesitan state machines no bloqueantes.
+
+### Connect
+
+| Función | Ejemplo |
+|---|---|
+| `beginConnectAsync(ip, port)` | `int r = client.beginConnectAsync(ip, 5000);` |
+| `pollConnectAsync()` | `int r = client.pollConnectAsync();` |
+| `connectAsyncInProgress()` | `bool x = client.connectAsyncInProgress();` |
+| `cancelConnectAsync()` | `client.cancelConnectAsync();` |
+
+Patrón:
+
+```cpp
+int r = client.beginConnectAsync(ip, 5000);
+
+while (r == 0)
+{
+    r = client.pollConnectAsync();
+}
+```
+
+### Stop
+
+| Función | Ejemplo |
+|---|---|
+| `beginStopAsync()` | `int r = client.beginStopAsync();` |
+| `pollStopAsync()` | `int r = client.pollStopAsync();` |
+| `stopAsyncInProgress()` | `bool x = client.stopAsyncInProgress();` |
+| `cancelStopAsync()` | `client.cancelStopAsync();` |
+
+### Flush
+
+| Función | Ejemplo |
+|---|---|
+| `beginFlushAsync()` | `int r = client.beginFlushAsync();` |
+| `pollFlushAsync()` | `int r = client.pollFlushAsync();` |
+| `flushAsyncInProgress()` | `bool x = client.flushAsyncInProgress();` |
+| `cancelFlushAsync()` | `client.cancelFlushAsync();` |
+
+### Write
+
+| Función | Ejemplo |
+|---|---|
+| `beginWriteAsync(buf, size)` | `int r = client.beginWriteAsync(data, len);` |
+| `pollWriteAsync()` | `int r = client.pollWriteAsync();` |
+| `writeAsyncInProgress()` | `bool x = client.writeAsyncInProgress();` |
+| `cancelWriteAsync()` | `client.cancelWriteAsync();` |
+
+El buffer pasado a `beginWriteAsync()` debe permanecer válido mientras la
+operación esté esperando espacio TX.
+
+## EthernetClient — fast RX AVANZADO
+
+| Función | Ejemplo |
+|---|---|
+| `jwplcReadTcpFastDeferred(buf, size)` | `int n = client.jwplcReadTcpFastDeferred(buf, len);` |
+| `jwplcCommitRxFast()` | `bool ok = client.jwplcCommitRxFast();` |
+
+Contrato mínimo:
+
+```cpp
+int n = client.jwplcReadTcpFastDeferred(buf, sizeof(buf));
+
+if (n > 0)
+{
+    // Procesar buf[0..n-1]
+    client.jwplcCommitRxFast();
+}
+```
+
+No usar esta ruta como sustituto casual de `read()`; está destinada a
+consumers cooperativos que entienden el commit diferido.
+
+---
+
+# EthernetServer — referencia completa
+
+Construcción:
+
+```cpp
+EthernetServer server(5000);
+```
+
+| Función | Ejemplo |
+|---|---|
+| `begin()` | `server.begin();` |
+| `available()` | `EthernetClient c = server.available();` |
+| `accept()` | `EthernetClient c = server.accept();` |
+| `write(byte)` | `server.write((uint8_t)0x55);` |
+| `write(buffer,size)` | `server.write(data, sizeof(data));` |
+| `print(...)` | `server.print("RUN");` |
+| `println(...)` | `server.println("OK");` |
+| `operator bool()` | `if (server) { ... }` |
+
+---
+
+# EthernetUDP — referencia completa
+
+Construcción:
+
+```cpp
+EthernetUDP udp;
+```
+
+## Apertura/cierre
+
+| Función | Ejemplo |
+|---|---|
+| `begin(port)` | `udp.begin(5000);` |
+| `beginMulticast(ip, port)` | `udp.beginMulticast(groupIP, 5000);` |
+| `stop()` | `udp.stop();` |
+| `localPort()` | `uint16_t p = udp.localPort();` |
+
+## Envío
+
+| Función | Ejemplo |
+|---|---|
+| `beginPacket(ip, port)` | `udp.beginPacket(IPAddress(192,168,1,10), 5000);` |
+| `beginPacket(host, port)` | `udp.beginPacket("host.local", 5000);` |
+| `write(byte)` | `udp.write((uint8_t)0x01);` |
+| `write(buffer,size)` | `udp.write(data, sizeof(data));` |
+| `print(...)` | `udp.print("JWPLC");` |
+| `println(...)` | `udp.println("RUN");` |
+| `endPacket()` | `udp.endPacket();` |
+
+## Recepción
+
+| Función | Ejemplo |
+|---|---|
+| `parsePacket()` | `int size = udp.parsePacket();` |
+| `available()` | `int n = udp.available();` |
+| `read()` | `int b = udp.read();` |
+| `read(uint8_t*,len)` | `int n = udp.read(buf, sizeof(buf));` |
+| `read(char*,len)` | `int n = udp.read(text, sizeof(text));` |
+| `peek()` | `int b = udp.peek();` |
+| `flush()` | `udp.flush();` |
+| `remoteIP()` | `IPAddress ip = udp.remoteIP();` |
+| `remotePort()` | `uint16_t p = udp.remotePort();` |
+
+## UDP TX cooperativo AVANZADO
+
+| Función | Ejemplo |
+|---|---|
+| `beginEndPacketAsync()` | `int r = udp.beginEndPacketAsync();` |
+| `pollEndPacketAsync()` | `int r = udp.pollEndPacketAsync();` |
+| `endPacketAsyncInProgress()` | `bool x = udp.endPacketAsyncInProgress();` |
+| `cancelEndPacketAsync()` | `udp.cancelEndPacketAsync();` |
+
+Patrón:
+
+```cpp
+udp.beginPacket(ip, 5000);
+udp.write(data, len);
+
+int r = udp.beginEndPacketAsync();
+
+while (r == 0)
+{
+    r = udp.pollEndPacketAsync();
+}
+```
+
+## UDP fast RX AVANZADO
+
+| Función | Ejemplo |
+|---|---|
+| `jwplcReadPacketFastDeferred(buf,len)` | `int n = udp.jwplcReadPacketFastDeferred(buf, len);` |
+| `jwplcCommitRxFast()` | `bool ok = udp.jwplcCommitRxFast();` |
+
+Contrato mínimo:
+
+```cpp
+int n = udp.jwplcReadPacketFastDeferred(buf, sizeof(buf));
+
+if (n > 0)
+{
+    // Procesar datagrama.
+    udp.jwplcCommitRxFast();
+}
+```
+
+---
+
+# Objeto Ethernet — compatibilidad Arduino
+
+El package conserva el objeto:
+
+```cpp
+Ethernet
+```
+
+para compatibilidad con código Arduino Ethernet.
+
+Para proyectos JWPLC nuevos se recomienda `JWPLC_Ethernet`, pero estas
+funciones continúan disponibles.
+
+## Inicialización DHCP
+
+| Función | Ejemplo |
+|---|---|
+| `Ethernet.begin(mac, timeout, responseTimeout)` | `int ok = Ethernet.begin(mac, 5000, 1000);` |
+| `Ethernet.maintain()` | `int r = Ethernet.maintain();` |
+
+## Inicialización IP estática
+
+| Función | Ejemplo |
+|---|---|
+| `Ethernet.begin(mac, ip)` | `Ethernet.begin(mac, ip);` |
+| `Ethernet.begin(mac, ip, dns)` | `Ethernet.begin(mac, ip, dns);` |
+| `Ethernet.begin(mac, ip, dns, gateway)` | `Ethernet.begin(mac, ip, dns, gw);` |
+| `Ethernet.begin(mac, ip, dns, gateway, subnet)` | `Ethernet.begin(mac, ip, dns, gw, mask);` |
+| `Ethernet.init(csPin)` | `Ethernet.init(5);` |
+
+`Ethernet.init()` no debería usarse para cambiar el CS del JWPLC Basic en un
+sketch normal.
+
+## Estado/datos
+
+| Función | Ejemplo |
+|---|---|
+| `Ethernet.linkStatus()` | `auto s = Ethernet.linkStatus();` |
+| `Ethernet.hardwareStatus()` | `auto s = Ethernet.hardwareStatus();` |
+| `Ethernet.MACAddress(mac)` | `Ethernet.MACAddress(mac);` |
+| `Ethernet.localIP()` | `IPAddress ip = Ethernet.localIP();` |
+| `Ethernet.subnetMask()` | `IPAddress m = Ethernet.subnetMask();` |
+| `Ethernet.gatewayIP()` | `IPAddress g = Ethernet.gatewayIP();` |
+| `Ethernet.dnsServerIP()` | `IPAddress d = Ethernet.dnsServerIP();` |
+
+## Setters de compatibilidad
+
+| Función | Ejemplo |
+|---|---|
+| `setMACAddress(mac)` | `Ethernet.setMACAddress(mac);` |
+| `setLocalIP(ip)` | `Ethernet.setLocalIP(ip);` |
+| `setSubnetMask(mask)` | `Ethernet.setSubnetMask(mask);` |
+| `setGatewayIP(gateway)` | `Ethernet.setGatewayIP(gw);` |
+| `setDnsServerIP(dns)` | `Ethernet.setDnsServerIP(dns);` |
+| `setRetransmissionTimeout(ms)` | `Ethernet.setRetransmissionTimeout(1000);` |
+| `setRetransmissionCount(num)` | `Ethernet.setRetransmissionCount(3);` |
+
+## DHCP cooperativo AVANZADO
+
+Estas funciones existen para el runtime JWPLC:
+
+| Función | Ejemplo |
+|---|---|
+| `beginDHCPAsync(mac,...)` | `int r = Ethernet.beginDHCPAsync(mac, 5000, 1000);` |
+| `pollDHCP()` | `int r = Ethernet.pollDHCP();` |
+| `dhcpInProgress()` | `bool x = Ethernet.dhcpInProgress();` |
+| `cancelDHCP()` | `Ethernet.cancelDHCP();` |
+| `maintainAsync()` | `int r = Ethernet.maintainAsync();` |
+| `dhcpMaintenanceInProgress()` | `bool x = Ethernet.dhcpMaintenanceInProgress();` |
+
+No se recomienda controlar DHCP con estas primitivas cuando se utiliza
+`JWPLC_Ethernet`.
+
+## APIs de test/profiling condicionales
+
+Los nombres `testSetDhcpLeaseTimers()`, `testGetDhcpLeaseTimers()`,
+`testDhcpLeaseMaintenanceMode()`, `jwplcProfileResetTcpRx()` y
+`jwplcProfileGetTcpRx()` sólo existen cuando se activan macros de test/profile.
+
+Ejemplo válido únicamente en un build de qualification:
+
+```cpp
+#ifdef JWPLC_ETHERNET_ENABLE_TEST_HOOKS
+Ethernet.testSetDhcpLeaseTimers(10, 20);
+#endif
+
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+Ethernet.jwplcProfileResetTcpRx();
+auto p = Ethernet.jwplcProfileGetTcpRx();
+#endif
+```
+
+No forman parte del contrato normal de usuario.
+
+## DhcpClass
+
+`DhcpClass` aparece en el header por implementación de la librería Ethernet.
+**No se considera API de aplicación soportada del JWPLC**.
+
+Una IA o usuario debe preferir:
+
+```cpp
+JWPLC_Ethernet.useDHCP();
+```
+
+y no instanciar `DhcpClass` directamente.
