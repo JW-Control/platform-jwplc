@@ -58,7 +58,7 @@ ALPHA12_PACKAGE_CLOSURE=IN_PROGRESS
 - [x] RTU ASYNC recomendado / SYNC compatibilidad.
 - [x] coexistencia TCP250 + RTU800 + UDP1M LR600 confirmada.
 - [x] RTU100Hz = contrato operacional, no hard real-time.
-- [ ] decisión final sobre policy de precompilación por librería.
+- [x] decisión final sobre policy de precompilación por librería.
 - [ ] registrar cualquier decisión aún diferida explícitamente.
 
 ## 5. README/library.properties
@@ -102,14 +102,14 @@ ALPHA12_PACKAGE_CLOSURE=IN_PROGRESS
 - [x] P6: requalificar `libJWPLC_TFT.a` y demostrar selección autocontenida del backend TFT.
 - [x] cerrar P6 sin regenerar el archive histórico físicamente cualificado.
 - [x] P7A: auditar globalmente archives retenidos/regenerados, freshness y policy source-only.
-- [ ] P7B: activar release-like los cinco precompilados cualificados y demostrar link real.
-- [ ] congelar el conjunto final de archives/precompiled policy.
-- [ ] registrar tabla consolidada SHA-256 de todos los archives finales.
-- [ ] registrar tabla consolidada de tamaños de todos los archives finales.
-- [ ] restaurar `precompiled=full` sólo donde corresponda.
-- [ ] verificar source/archive parity.
-- [ ] comprobar que build final enlaza los nuevos archives.
-- [ ] evitar archive stale tras cualquier cambio posterior.
+- [x] P7B: activar release-like los cinco precompilados cualificados y demostrar link real.
+- [x] congelar el conjunto final de archives/precompiled policy.
+- [x] registrar tabla consolidada SHA-256 de todos los archives finales.
+- [x] registrar tabla consolidada de tamaños de todos los archives finales.
+- [x] restaurar `precompiled=full` sólo donde corresponda.
+- [x] verificar source/archive parity / equivalencia según contrato de cada artifact.
+- [x] comprobar que build final enlaza los nuevos archives.
+- [x] fijar regla de invalidación/requalificación si existe cambio posterior al freeze.
 
 
 
@@ -125,6 +125,23 @@ OFFICIAL_ARCHIVE_CHANGED=NO
 
 El benchmark final permanece bloqueado hasta completar P7 y declarar el freeze
 global de precompilados.
+
+
+
+Resultado P7 / freeze:
+
+```text
+P7A_GLOBAL_PRECOMPILED_ARCHIVE_AUDIT=PASS_CLOSED
+P7B_RELEASE_LIKE_PRECOMPILED_ACTIVATION=PASS_CLOSED
+PRECOMPILED_FREEZE=PASS
+FINAL_BUILD_SPEED_BENCHMARK=READY
+```
+
+Inventario SHA/tamaños:
+
+```text
+docs/v2.1.0-alpha.12/ALPHA12_PRECOMPILED_FREEZE_20261004.md
+```
 
 ## 8. Benchmark final de tiempos de compilación
 
