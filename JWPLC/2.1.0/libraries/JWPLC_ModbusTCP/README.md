@@ -141,8 +141,8 @@ void setup()
 {
     JWPLC_ModbusTCPClient.begin(
         IPAddress(192, 168, 1, 50),
-        502,
-        1);
+        1,
+        502);
 }
 
 void loop()
