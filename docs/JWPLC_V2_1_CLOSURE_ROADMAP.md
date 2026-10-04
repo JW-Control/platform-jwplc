@@ -42,166 +42,156 @@ FlashFreq universal futura definida.
 bootloader.bin definitivo.
 ```
 
-## 2. Estrategia general
+## 2. Estrategia general — revisión 2026-10-03
 
-Los alphas `12` a `17` pueden desarrollarse por tracks parcialmente independientes, pero la publicación debe conservar una secuencia controlada y evidencia acumulativa.
+La numeración original definida el 11-sep queda supersedida por la decisión de
+release tomada después del cierre técnico de comunicaciones.
 
-```text
-                         ┌─ A12 OpenPLC Closure ───────┐
-                         │                             ↓
-Alpha11 ─────────────────┼────────────────────────── A13 HMI ↔ OpenPLC
-                         │
-                         ├─ A14 Modbus TCP ────────────┐
-                         │                             │
-                         ├─ A15 Retain / FRAM ─────┐   │
-                         │                         │   │
-                         └─ A16 DataLogger / Time ─┤   │
-                                                   ↓   ↓
-                                                A17 Diagnostics
-                                                     │
-                                                     ↓
-                                                A18 Qualification
-                                                     │
-                                                     ↓
-                                                2.1.0-rc.1
-                                                     │
-                                                     ↓
-                                                   2.1.0
-```
-
-Desarrollo paralelo permitido:
+La secuencia canónica pasa a ser:
 
 ```text
-Track A — IEC / HMI       : A12 -> A13
-Track B — Comunicaciones  : A14
-Track C — Servicios PLC   : A15 + A16
-Track D — Sistema         : A17 transversal
+Alpha11 = CLOSED / PUBLISHED
+   |
+   v
+Alpha12 = Communications + Runtime Consolidation
+           Ethernet/W5500
+           Modbus TCP
+           Modbus RTU hardening/optimization
+           full-runtime + coexistence
+   |
+   v
+Alpha13 = TFT / Display Update
+           actualizar el alpha originalmente orientado a TFT
+           sobre JWPLC_TFT/JWPLC_Display reales post-H3E
+   |
+   v
+Alpha14 = OpenPLC + Integration Improvements
+           cerrar deuda OpenPLC
+           integrar el nuevo estado de TCP/RTU optimizados
+           reauditar bindings/Remote I/O/HMI que correspondan
+   |
+   v
+Alpha15 = Retain / FRAM
+Alpha16 = DataLogger / Time
+Alpha17 = Diagnostics
+Alpha18 = Qualification / Freeze
+   |
+   v
+2.1.0-rc.1 -> 2.1.0
 ```
 
-A18 es un alpha de congelamiento e integración. No debe introducir features nuevas.
+La evidencia histórica desarrollada bajo
+`v2.1.0-alpha.14/feature/modbus-tcp` se preserva y se promociona como release
+real `v2.1.0-alpha.12`. Ver
+`docs/v2.1.0-alpha.12/ALPHA12_RENUMBERING_MAP_20261003.md`.
 
-## 3. Alpha12 — OpenPLC Engineering Closure
+## 3. Alpha12 — Communications + Runtime Consolidation
+
+Branch canónico de cierre:
+
+```text
+v2.1.0-alpha.12/feature/modbus-tcp
+```
+
+Objetivo: publicar como siguiente alpha real todo el trabajo de comunicaciones
+y runtime cerrado después de Alpha11.
+
+Alcance consolidado:
+
+- `JWPLC_ModbusTCP` Server/Client cooperativos;
+- FC01/02/03/04/05/06/15/16;
+- lifecycle TCP cooperativo;
+- TX TCP asíncrono interno;
+- Ethernet/W5500 hardening;
+- W5500 26 MHz en perfil actual validado;
+- fast-path UDP aditivo/interno;
+- política TCP RX C0 POLLING;
+- optimización/hardening Modbus RTU;
+- motor RTU ASYNC/SYNC;
+- queued TX sobre AutoDirection;
+- timing RTU en microsegundos;
+- full runtime con Display/SD/FRAM/RTC/I/O/buttons;
+- ceilings TCP/UDP/RTU;
+- coexistencia TCP+RTU+UDP.
+
+Perfil coexistente confirmado 600 s:
+
+```text
+TCP=250.001 req/s
+RTU=796.953 req/s
+RTU_SCAN=99.619 scans/s
+UDP_FAST=0.998 Mbps
+UDP_DELIVERY=100 %
+FULL_RUNTIME_CLEAN=YES
+```
+
+El contrato RTU es operacional y no hard-real-time cero-skip.
+
+Gate de cierre del release:
+
+```text
+PACKAGE_DOCS=PASS
+PRECOMPILED_ARTIFACTS=REQUALIFIED
+ARDUINO_CLI_FINAL=PASS
+ARDUINO_IDE_FINAL=PASS
+PHYSICAL_UPLOAD_FINAL=PASS
+CI_FINAL=PASS
+PUBLISHED_PACKAGE_ISOLATED_VALIDATION=PASS
+ALPHA12_STATUS=CLOSED_PUBLISHED
+```
+
+## 4. Alpha13 — TFT / Display Update
 
 Branch previsto:
 
 ```text
-v2.1.0-alpha.12/feature/openplc-engineering-closure
+v2.1.0-alpha.13/feature/tft-display-update
 ```
 
-Objetivo: cerrar la deuda de ingeniería conocida de Alpha9/OpenPLC antes de ampliar nuevas capacidades IEC.
+Objetivo: retomar el alpha originalmente planificado para TFT, pero
+actualizándolo al estado real del package después de Alpha12.
 
-Alcance previsto:
+Debe partir de:
 
-- selector de baudrate del Backplane RTU;
-- selector de formato serie;
-- propagación completa UI -> proyecto -> HAL;
-- persistencia de configuración del Backplane;
-- resolución de miembros de Function Blocks como `TON0.Q`, `TOF0.Q`, `TP0.Q`;
-- autocomplete tipado de miembros FB;
-- gate físico de Remote I/O multibit simultáneo;
-- freeze reproducible del fork `openplc-editor` utilizado por JWPLC Edition;
-- generación reproducible del instalador JWPLC Edition;
-- reapertura/rebuild del proyecto sin pérdida de configuración.
+- `JWPLC_TFT` ya creado;
+- migración H3E ya realizada;
+- `JWPLC_Display` post-H3E;
+- batching/dirty refresh actuales;
+- coexistencia SPI ya requalificada con Ethernet/RTU;
+- compatibilidad con HMI Designer Alpha11.
 
-Gate de cierre:
+Antes de implementar features nuevas se debe reauditar el alcance original de
+TFT y eliminar tareas que ya hayan sido resueltas incidentalmente durante el
+trabajo de Alpha12.
 
-```text
-OPENPLC_ENGINEERING_DEBT_ALPHA9=CLOSED
-BACKPLANE_CONFIGURATION_PERSISTENCE=PASS
-REMOTE_IO_MULTIBIT=PASS_PHYSICAL
-JWPLC_EDITOR_REPRODUCIBLE=PASS
-```
+No se debe volver a introducir TFT_eSPI como dependencia pública del usuario.
 
-## 4. Alpha13 — HMI Designer ↔ OpenPLC
+## 5. Alpha14 — OpenPLC + mejoras de integración
 
 Branch previsto:
 
 ```text
-v2.1.0-alpha.13/feature/hmi-openplc-binding
+v2.1.0-alpha.14/feature/openplc-integration
 ```
 
-Objetivo: permitir que la HMI integrada consuma símbolos IEC/OpenPLC sin glue manual en C++.
+Objetivo: retomar el alpha originalmente orientado a OpenPLC, actualizando su
+arquitectura al package publicado de Alpha12.
 
-Alcance previsto:
+El nuevo baseline debe considerar explícitamente:
 
-- tabla de símbolos compartida Ladder/HMI;
-- binding de `TEXT`, `VALUE`, `BOOL` y `BAR` a variables OpenPLC;
-- resolución de tipos y miembros FB;
-- LIVE Preview con variables OpenPLC;
-- persistencia de bindings en proyecto;
-- errores explícitos para símbolo inexistente o tipo incompatible.
+- `JWPLC_ModbusTCP` nativo ya disponible;
+- `JWPLC_ModbusRTU` ASYNC/SYNC actualizado;
+- RTU fast/500 kbaud sólo donde el perfil validado aplique;
+- coexistencia TCP/RTU medida;
+- Ethernet cooperativo;
+- Remote I/O existente;
+- configuración/persistencia del Backplane;
+- integración HMI/OpenPLC pendiente que siga siendo relevante.
 
-Dependencia:
+No asumir OpenPLC dentro del autoload Arduino normal.
 
-```text
-A13_IMPLEMENTATION_FINAL depends_on A12_SYMBOL_CONTRACT
-```
-
-El diseño de UX puede avanzar en paralelo con A12, pero el contrato de símbolos no debe duplicarse.
-
-## 5. Alpha14 — JWPLC_ModbusTCP
-
-Branch previsto:
-
-```text
-v2.1.0-alpha.14/feature/modbus-tcp
-```
-
-Objetivo: añadir una API Arduino nativa de Modbus TCP sobre `JWPLC_Ethernet`/W5500 y cerrar la deuda histórica de coexistencia RTU + TCP.
-
-Arquitectura objetivo:
-
-```text
-JWPLC_ModbusTCP
-    -> JWPLC_Ethernet
-        -> EthernetClient / EthernetServer
-            -> W5500
-```
-
-No se reutiliza `JWPLC_ModbusRTU` como transporte TCP. Se comparten conceptos y semántica Modbus cuando sea útil, manteniendo separadas las capas:
-
-```text
-JWPLC_RS485     -> transporte RS-485
-JWPLC_ModbusRTU -> Modbus RTU
-JWPLC_Ethernet  -> Ethernet/W5500
-JWPLC_ModbusTCP -> Modbus TCP
-```
-
-Alcance inicial previsto:
-
-- modo Server/Slave;
-- modo Client/Master cooperativo;
-- puerto estándar `502` configurable;
-- MBAP Transaction ID / Protocol ID / Length / Unit ID;
-- FC01 Read Coils;
-- FC02 Read Discrete Inputs;
-- FC03 Read Holding Registers;
-- FC04 Read Input Registers;
-- FC05 Write Single Coil;
-- FC06 Write Single Register;
-- FC15 Write Multiple Coils;
-- FC16 Write Multiple Registers;
-- excepciones Modbus;
-- timeouts y reconexión;
-- estadísticas y diagnóstico;
-- ejemplos Arduino;
-- gate simultáneo Ethernet + TFT + RTC + FRAM + SD + RTU + TCP.
-
-La API principal debe ser cooperativa/no bloqueante. Las APIs síncronas, si se conservan, deben construirse sobre el mismo motor para evitar semánticas divergentes, siguiendo el criterio ya usado en `JWPLC_ModbusRTU`.
-
-Gate de cierre mínimo:
-
-```text
-MODBUS_TCP_SERVER=PASS
-MODBUS_TCP_CLIENT=PASS
-FC01_02_03_04_05_06_15_16=PASS
-MODBUS_TCP_RECONNECT=PASS
-MODBUS_RTU_TCP_SIMULTANEOUS=PASS_PHYSICAL
-SPI_SHARED_BUS_REGRESSION=0
-AUTOLOAD_PERIPHERALS_REMOVED=NO
-```
-
-No publicar métricas de transacciones por segundo hasta guardar cliente/script, FC, tamaño de trama, número de clientes, duración, commit, logs y errores.
+El alcance exacto se congela sólo después de publicar Alpha13 y reauditar el
+fork/editor/HAL contra las APIs reales de Alpha12/Alpha13.
 
 ## 6. Alpha15 — Retentividad industrial / FRAM
 
@@ -389,22 +379,22 @@ v2.1.0-alpha.18
 
 Crear `alpha.19` únicamente si el RC descubre una modificación arquitectónica que no corresponda a un simple fix de estabilización.
 
-## 11. Reglas de paralelización
+## 11. Reglas de secuencia
 
-Pueden abrirse desde el cierre canónico de Alpha11:
+La publicación queda deliberadamente secuencial:
 
 ```text
-A12 OpenPLC Engineering Closure
-A14 Modbus TCP
-A15 Retain/FRAM
-A16 DataLogger/Time
+Alpha12 -> Alpha13 -> Alpha14
 ```
 
-A13 puede avanzar en UX/diseño, pero su binding final espera el contrato de símbolos de A12.
+No iniciar formalmente Alpha13 hasta que Alpha12 esté
+`CLOSED_PUBLISHED`.
 
-A17 puede definir desde temprano el modelo común de diagnóstico, pero debe integrar productores reales de A12/A14/A15/A16 antes del cierre.
+No iniciar formalmente Alpha14 hasta reauditar el resultado publicado de
+Alpha13, porque Display/TFT y OpenPLC comparten superficie de integración HMI.
 
-A18 no puede comenzar como cierre formal hasta que A12–A17 hayan convergido.
+Alpha15/16/17 pueden conservar ideas o prototipos paralelos, pero sus releases
+no deben saltar pendientes del cierre anterior.
 
 ## 12. Regla de integración Git
 
@@ -431,12 +421,16 @@ La numeración expresa el orden de publicación, no obliga a desarrollar todo se
 ## 13. Estado de esta hoja de ruta
 
 ```text
-ROADMAP_V2_1_CLOSURE=DEFINED
-ROADMAP_PARALLEL_TRACKS=DEFINED
+ROADMAP_V2_1_CLOSURE=RENUMBERED_20261003
 ALPHA11_STATUS=CLOSED_PUBLISHED
-ALPHA12=READY_TO_START
-ALPHA14=READY_TO_START_IN_PARALLEL
-ALPHA15=READY_TO_START_IN_PARALLEL
-ALPHA16=READY_TO_START_IN_PARALLEL
+ALPHA12=PACKAGE_CLOSURE_IN_PROGRESS
+ALPHA13=TFT_DISPLAY_UPDATE_AFTER_ALPHA12
+ALPHA14=OPENPLC_INTEGRATION_AFTER_ALPHA13
+ALPHA15=PLANNED_RETAIN_FRAM
+ALPHA16=PLANNED_DATALOGGER_TIME
+ALPHA17=PLANNED_DIAGNOSTICS
 ALPHA18=BLOCKED_BY_INTEGRATION
 ```
+
+La numeración original del documento se conserva en Git history, pero esta
+versión es la fuente canónica para próximos releases.
