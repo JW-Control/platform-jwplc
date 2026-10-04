@@ -1652,3 +1652,73 @@ SOURCE_OR_ARCHIVE_OR_PRECOMPILED_POLICY_CHANGE
 -> RERUN_P7
 -> RERUN_BUILD_SPEED_BENCHMARK
 ```
+
+
+## Benchmark final de compilación — runner preparado
+
+Runner:
+
+```text
+tools/alpha12/gates/run_alpha12_final_build_speed_benchmark.ps1
+```
+
+Contrato del runner:
+
+```text
+PRECOMPILED_FREEZE_PREFLIGHT=PASS requerido
+TARGETS=Basic,Core
+SKETCH=01_empty
+JOBS=0
+UPLOADS=SKIPPED
+
+PHASES:
+managed_cold
+managed_warm_nochange
+managed_warm_touch
+explicit_cold
+explicit_warm_nochange
+explicit_warm_touch
+```
+
+Validaciones posteriores automáticas:
+
+```text
+RESULT_ROW_COUNT=12
+2 targets x 6 phases
+all Success=True
+environment.gitBranch = rama Alpha12
+environment.gitCommit = HEAD de la corrida
+packageNamespace=jwplc_local
+jobs=0
+tracked dirty=0
+```
+
+Commit del runner:
+
+```text
+5de69db743cbcbcd22c5027d1a8b694fcc135eb3
+test(alpha12): agregar runner final de benchmark de compilacion
+```
+
+Auditoría estática:
+
+```text
+ARGS_OCCURRENCES=0
+GET_FILE_HASH_OCCURRENCES=0
+POWERSHELL_CONTINUATION_BACKTICKS=0
+BENCHMARK_PARSER_GUARD=YES
+FREEZE_PREFLIGHT=YES
+BASIC_CORE_MATRIX=YES
+SKETCH_01_EMPTY=YES
+SKIP_UPLOADS=YES
+JOBS_ZERO=YES
+ROW_COUNT_GUARD=12
+```
+
+Estado:
+
+```text
+PRECOMPILED_FREEZE=PASS
+FINAL_BUILD_SPEED_BENCHMARK=READY_TO_RUN
+FINAL_CLI_IDE_UPLOAD_GATES=BLOCKED_UNTIL_BUILD_SPEED_BENCHMARK
+```
