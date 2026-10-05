@@ -94,14 +94,14 @@ if ($unmergedIndex.Count -ne 0) {
     throw "A12_FINAL_CLI_UNMERGED_INDEX_FOUND"
 }
 
-# Scan textual defensivo del scope Alpha12. Los marcadores se construyen
-# dinamicamente para que el propio harness no contenga secuencias de merge.
+# Scan textual defensivo SOLO del package activo. Los docs/harness pueden
+# citar marcadores como texto y no forman parte del source productivo a liberar.
+# Los marcadores se construyen dinamicamente para que el propio harness no los
+# contenga de forma literal.
 $leftMarker = ("<" * 7) + " "
 $rightMarker = (">" * 7) + " "
 [string[]]$conflictScope = @(
-    "JWPLC/2.1.0",
-    "docs/v2.1.0-alpha.12",
-    "tools/alpha12"
+    "JWPLC/2.1.0"
 )
 
 [object[]]$leftHits = @(& git -C $repo grep -n -F -- $leftMarker @conflictScope)
