@@ -1072,7 +1072,7 @@ Para código nuevo se recomienda `setErrCode()`, porque permite representar
 un error identificable.
 
 El tipo gráfico público actual es `JWPLC_TFTClass&`. Código antiguo que
-declaraba explícitamente otro tipo de backend gráfico debe migrarse a:
+declaraba explícitamente otro tipo gráfico debe migrarse a:
 
 ```cpp
 auto &tft =
@@ -1088,5 +1088,3 @@ JWPLC ESP32 v2.1.0-alpha.12
 JWPLC_Display 1.0.1
 ```
 
-Esta guía documenta el flujo de usuario. La arquitectura interna del renderer,
-buses, precompilación y pruebas del package se mantiene fuera del tutorial.
