@@ -1,5 +1,7 @@
 param(
-    [string]$ResultRoot = ""
+    [string]$ResultRoot = "",
+    [ValidateSet("Pending", "Active")]
+    [string]$ExpectedActivationState = "Pending"
 )
 
 Set-StrictMode -Version Latest
@@ -392,6 +394,7 @@ Write-Host ("BRANCH=" + $branch)
 Write-Host ("HEAD=" + $head)
 Write-Host ("RESULT_ROOT=" + $ResultRoot)
 Write-Host ("ARCHIVE_INVENTORY_COUNT=" + [string]$entries.Count)
+Write-Host ("EXPECTED_ACTIVATION_STATE=" + $ExpectedActivationState)
 
 foreach ($entry in $entries) {
     if (-not [string]::IsNullOrWhiteSpace($entry.ExpectedSha)) {
@@ -546,10 +549,30 @@ if ($failures.Count -ne 0) {
     "SPI"
 ) | Sort-Object
 
-if (Compare-Object -ReferenceObject $expectedPending -DifferenceObject $activationPending) {
-    Write-Host ("EXPECTED_ACTIVATION_PENDING=" + ($expectedPending -join ","))
-    Write-Host ("ACTUAL_ACTIVATION_PENDING=" + ($activationPending -join ","))
-    throw "A12_P7_ACTIVATION_PENDING_SET_UNEXPECTED"
+if ($ExpectedActivationState -eq "Pending") {
+    if (Compare-Object -ReferenceObject $expectedPending -DifferenceObject $activationPending) {
+        Write-Host ("EXPECTED_ACTIVATION_PENDING=" + ($expectedPending -join ","))
+        Write-Host ("ACTUAL_ACTIVATION_PENDING=" + ($activationPending -join ","))
+        throw "A12_P7_ACTIVATION_PENDING_SET_UNEXPECTED"
+    }
+}
+else {
+    if ($activationPending.Count -ne 0) {
+        Write-Host ("EXPECTED_ACTIVATION_PENDING=")
+        Write-Host ("ACTUAL_ACTIVATION_PENDING=" + ($activationPending -join ","))
+        throw "A12_P7_POST_FREEZE_ACTIVATION_NOT_ACTIVE"
+    }
+
+    [string[]]$notActive = @(
+        $rows |
+            Where-Object { $_.ActivationState -notin @("ACTIVE", "CORE_ACTIVE") } |
+            ForEach-Object { $_.Name }
+    )
+
+    if ($notActive.Count -ne 0) {
+        Write-Host ("P7_POST_FREEZE_NOT_ACTIVE=" + ($notActive -join ","))
+        throw "A12_P7_POST_FREEZE_POLICY_NOT_ACTIVE"
+    }
 }
 
 [string[]]$finalDirty = @(& git -C $repo diff --name-only)
