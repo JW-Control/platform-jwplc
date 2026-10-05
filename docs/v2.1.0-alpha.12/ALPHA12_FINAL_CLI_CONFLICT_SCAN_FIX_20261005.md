@@ -107,3 +107,56 @@ SOURCE_FAILURE=NO
 PRECOMPILED_FAILURE=NO
 SOURCE_FINAL_FREEZE=UNCHANGED
 ```
+
+
+## Tercera corrección: scope productivo
+
+El runner restaurado parseó correctamente y confirmó:
+
+```text
+UNMERGED_INDEX_COUNT=0
+```
+
+pero el scan textual aún incluyó `docs/v2.1.0-alpha.12`. Como este mismo
+documento reproduce ejemplos de marcadores de merge, el gate se auto-detectó y
+reportó cuatro coincidencias documentales.
+
+Clasificación:
+
+```text
+HARNESS_FAILURE=YES
+SELF_MATCHING_AUDIT_SCOPE=YES
+PRODUCT_FAILURE=NO
+SOURCE_FAILURE=NO
+```
+
+La comprobación textual defensiva queda limitada exclusivamente al package
+productivo actual:
+
+```text
+JWPLC/2.1.0
+```
+
+La comprobación global autoritativa de conflictos Git sigue siendo:
+
+```text
+git ls-files -u
+```
+
+De este modo, `docs/` y `tools/` pueden registrar marcadores de conflicto
+como evidencia sin bloquear falsamente el release.
+
+Commit del fix:
+
+```text
+d58b93c86d609770252012ec478fea8edc6b9306
+```
+
+Estado:
+
+```text
+SOURCE_FINAL_FREEZE=UNCHANGED
+P7_POST_P8_REVALIDATION=STILL_VALID
+FINAL_BUILD_SPEED_BENCHMARK_POST_P8=STILL_VALID
+NEXT=RERUN_FINAL_ARDUINO_CLI_GATE
+```
