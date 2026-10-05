@@ -346,7 +346,7 @@ gates finales.
 - [x] isolated compile. — PASS
 - [x] isolated physical upload. — COM4 PASS
 - [x] runtime/TFT post-upload. — `DISPLAY_READY=1`, `RTC_OK=1`, `Q0_0` alternando
-- [ ] registrar topología release/main. — sync final en curso
+- [x] registrar topología release/main. — PR #103; tree parity PASS
 - [x] cierre documental final. — docs/status/PreRelease actualizados
 
 ## 11. Regla de cierre
@@ -380,5 +380,8 @@ ALPHA12_PUBLISHED_PACKAGE_GATE=PASS
 Pendiente exclusivo para completar la topología:
 
 ```text
-RELEASE_MAIN_TREE_PARITY=NEXT
+RELEASE_MAIN_TREE_PARITY=PASS
+MAIN_HEAD_AFTER_SYNC=c40be967ec9b948cc6cc8c497b407d1acf849c8d
+RELEASE_HEAD_AFTER_CLOSURE=30397a09aa07c3837426253d03dc9180de92efd7
+TREE_SHA=e8d7caf91ef2ac475513f28131255db02ca7c7d2
 ```
