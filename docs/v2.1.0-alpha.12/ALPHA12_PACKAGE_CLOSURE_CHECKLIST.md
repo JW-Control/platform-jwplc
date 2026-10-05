@@ -84,12 +84,13 @@ ALPHA12_PACKAGE_CLOSURE=IN_PROGRESS
 - [x] auditar `JWPLC_LogicRuntime_UI` contra referencias Adafruit/ST77XX obsoletas.
 - [x] añadir `JWPLC_LogicRuntime_UI` al smoke CI.
 - [x] ejecutar `alpha12_tft_backend_compile.ps1` source-first.
-- [ ] compilar ejemplos ModbusTCP Server.
-- [ ] compilar ejemplos ModbusTCP Client.
-- [ ] revisar ejemplos ModbusRTU.
-- [ ] revisar ejemplos Ethernet.
-- [ ] revisar ejemplos RS485.
-- [ ] asegurar que ninguno exige APIs experimentales desactivadas.
+- [x] compilar ejemplos ModbusTCP Server.
+- [x] compilar ejemplos ModbusTCP Client.
+- [x] revisar ejemplos ModbusRTU.
+- [x] revisar ejemplos Ethernet.
+- [x] revisar ejemplos RS485.
+- [x] asegurar que ninguno exige APIs experimentales desactivadas.
+  - Evidencia: series cortas recomendadas TCP/RTU/Ethernet/RS485 compilan con FQBN normal; sin flags experimentales ni macros especiales.
 
 ## 7. Precompilados
 
