@@ -1,0 +1,97 @@
+# Alpha12 — Revalidación P7 post-P8
+
+Fecha: 2026-10-05
+
+## Identidad
+
+```text
+BRANCH=v2.1.0-alpha.12/feature/modbus-tcp
+HEAD=f1c6af8bf9d47537575b0b0538b7dbbfd85af613
+ENTRY_DIRTY_COUNT=0
+```
+
+## P7A — auditoría global post-freeze
+
+```text
+ALPHA12_P7A_GLOBAL_PRECOMPILED_ARCHIVE_AUDIT=PASS
+AUDITED_ARCHIVE_COUNT=14
+KNOWN_REGENERATED_IDENTITIES=PASS
+SOURCE_FRESHNESS=PASS
+RETAINED_ARCHIVE_POLICY=PASS
+SOURCE_ONLY_POLICY=PASS
+CORE_PRECOMPILED_POLICY=PASS
+ACTIVATION_PENDING_COUNT=0
+FINAL_TRACKED_DIRTY_COUNT=0
+```
+
+Los cinco artifacts release-like estaban activos:
+
+```text
+JWPLC_Display
+JWPLC_ModbusRTU
+JWPLC_TFT
+JW_SD
+SPI
+```
+
+Las librerías intencionalmente source-only permanecieron source-only:
+
+```text
+JW_RTC
+JWPLC_GlobalPeripherals
+JWPLC_Ethernet
+JWPLC_RS485
+```
+
+## P7B — enlace release-like y autoload
+
+```text
+COMPILE_EXIT=0
+WARNING_LINES=0
+ERROR_LINES=0
+```
+
+Para los cinco precompilados:
+
+```text
+SELECTED=True
+PRECOMPILED_MARKER=YES
+SOURCE_OBJECT_COUNT=0
+```
+
+Para las cuatro librerías source-only:
+
+```text
+SELECTED=True
+PRECOMPILED_MARKER=NO
+SOURCE_OBJECT_COUNT>=1
+```
+
+También:
+
+```text
+GLOBAL_TFT_ESPI_REQUIRED_AT_USER_BUILD=NO
+NORMAL_AUTOLOAD_COMPLETE=PASS
+FINAL_TRACKED_DIRTY_COUNT=0
+```
+
+## Cierre
+
+```text
+P7A_POST_FREEZE_GLOBAL_AUDIT=PASS
+P7B_RELEASE_LIKE_ACTIVATION=PASS
+PRECOMPILED_ARCHIVE_IDENTITIES=PASS
+PRECOMPILED_POLICY_ACTIVE=PASS
+NORMAL_AUTOLOAD_COMPLETE=PASS
+FINAL_DIRTY_COUNT=0
+ALPHA12_P7_POST_P8_REVALIDATION=PASS
+```
+
+No hubo modificación del package source ni de los archives durante esta
+revalidación.
+
+Siguiente gate:
+
+```text
+FINAL_BUILD_SPEED_BENCHMARK
+```
