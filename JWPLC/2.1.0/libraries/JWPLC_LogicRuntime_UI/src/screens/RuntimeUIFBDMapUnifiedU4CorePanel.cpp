@@ -20,7 +20,7 @@ void drawContextPanel(const uint8_t *levels,
                       const char *message,
                       uint16_t messageColor)
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.fillRect(CONTEXT_X, panelY, CONTEXT_W, panelH, COLOR_PANEL);
   tft.drawRect(CONTEXT_X, panelY, CONTEXT_W, panelH, COLOR_BORDER);
 
@@ -82,7 +82,7 @@ void drawTonField(uint8_t index,
                   bool selected,
                   bool full)
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   const int16_t x = TON_FIELD_X[index];
   const int16_t w = TON_FIELD_W[index];
   const uint16_t background = selected ? COLOR_SELECTED : COLOR_PANEL;

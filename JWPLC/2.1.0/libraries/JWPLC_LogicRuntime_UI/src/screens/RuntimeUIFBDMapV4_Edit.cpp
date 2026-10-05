@@ -34,7 +34,7 @@ namespace
 
 void RuntimeUIFBDMapV4::drawInputEditStatic()
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   clearScreen(tft);
   drawHeaderStatic(tft, "EDITAR IN");
   _headerStateValid = false;
@@ -101,7 +101,7 @@ void RuntimeUIFBDMapV4::drawInputEdit()
     return;
   }
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.fillRect(MAP_X, MAP_Y, MAP_W, MAP_H, COLOR_PANEL);
 
   char headerInfo[28];

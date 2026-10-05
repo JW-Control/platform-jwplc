@@ -328,7 +328,7 @@ protected:
 
     // Durante repeat no se reconstruye el botón de 145 x 38 px. Solo se limpia
     // y repinta la línea de texto dentro de la superficie ya seleccionada.
-    Adafruit_ST7789 &tft = JWPLC_Display.tft();
+    JWPLC_TFTClass &tft = JWPLC_Display.tft();
     static constexpr int16_t valueX = 10;
     static constexpr int16_t valueY = 103;
     static constexpr int16_t valueW = 145;

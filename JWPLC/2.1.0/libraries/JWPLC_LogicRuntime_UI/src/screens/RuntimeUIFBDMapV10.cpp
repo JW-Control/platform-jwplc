@@ -296,7 +296,7 @@ int16_t RuntimeUIFBDMapV10::wizardContextHeight() const
 
 void RuntimeUIFBDMapV10::drawWizardConfigScreenV10()
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   clearScreen(tft);
   drawHeaderStatic(tft, "CONFIGURAR");
   _headerStateValid = false;
@@ -591,7 +591,7 @@ bool RuntimeUIFBDMapV10::wizardContextSource(uint16_t &source) const
 
 void RuntimeUIFBDMapV10::drawWizardContextPanel()
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   const int16_t y = wizardContextY();
   const int16_t height = wizardContextHeight();
 
@@ -770,7 +770,7 @@ void RuntimeUIFBDMapV10::drawMiniFBD(uint16_t selectedSource,
            _lanes[block] < static_cast<uint8_t>(firstRow + visibleRows);
   };
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
 
   // Enlaces primero; los mini bloques se reponen encima.
   for (uint16_t consumer = 0; consumer < count; ++consumer)

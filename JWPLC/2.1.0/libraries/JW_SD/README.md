@@ -342,6 +342,132 @@ Advertencia:
 
 ---
 
+## DataLog buffered — Alpha12
+
+Alpha12 añade un logger de alto nivel diseñado para no escribir cada registro
+directamente sobre la microSD desde el camino caliente de la aplicación.
+
+Clase:
+
+```cpp
+JWPLCDataLog
+```
+
+Ejemplo:
+
+```cpp
+#include <JW_SD.h>
+
+JWPLCDataLog logProceso;
+
+void setup()
+{
+    logProceso.begin(
+        JWPLC_SD,
+        "/proceso.csv",
+        4096,   // buffer RAM
+        1024,   // commit threshold
+        1000);  // commit timeout ms
+
+    logProceso.writeLine("time_ms,temp,state");
+}
+
+void loop()
+{
+    char line[64];
+
+    snprintf(
+        line,
+        sizeof(line),
+        "%lu,%.1f,%u",
+        millis(),
+        42.5f,
+        1u);
+
+    logProceso.writeLine(line);
+
+    // En JWPLC Basic normal no es obligatorio llamar service()
+    // continuamente: el runtime atiende el manager de DataLogs.
+}
+```
+
+El buffer se reserva al ejecutar `begin()`. Cada objeto representa un archivo
+independiente.
+
+APIs principales:
+
+```cpp
+begin(...)
+write(...)
+writeLine(...)
+service()
+commit()
+close()
+
+isActive()
+path()
+bufferSize()
+pendingBytes()
+freeBytes()
+commitThreshold()
+commitTimeout()
+
+acceptedWrites()
+acceptedBytes()
+committedBytes()
+commitCount()
+failedCommits()
+
+lastError()
+lastErrorString()
+status()
+```
+
+El manager de `JW_SD` admite actualmente:
+
+```text
+MAX_DATALOGS=4
+```
+
+Diagnóstico global:
+
+```cpp
+JWPLC_SD.serviceDataLogs();
+JWPLC_SD.activeDataLogs();
+```
+
+### Autoservicio en JWPLC Basic
+
+El core expone un callback de DataLog y el `jwplcSystemTask` llama
+periódicamente al manager.
+
+Por tanto:
+
+```text
+DATALOG_BUFFERED_API=PRODUCT
+DATALOG_SYSTEM_AUTOSERVICE=YES
+```
+
+`service()` sigue disponible para uso explícito/standalone.
+
+### Reglas de uso
+
+- `write()/writeLine()` aceptan datos en RAM antes del commit físico;
+- el commit ocurre por threshold/timeout o llamada explícita;
+- revisar `failedCommits()` / `lastError()` en aplicaciones críticas;
+- `close(true)` intenta confirmar datos pendientes;
+- no asumir que un dato aceptado en RAM ya fue persistido físicamente.
+
+La regresión full-runtime Alpha12 validó DataLog con:
+
+```text
+SD_DATALOG_FAILED_COMMITS=0
+```
+
+durante las campañas de coexistencia cerradas.
+
+---
+
 ## Recomendaciones para microSD
 
 Para JWPLC Basic se recomienda:
@@ -411,27 +537,16 @@ auto file = JWPLC_SD.open("/log.txt", FILE_READ);
 
 ---
 
-## Validación recomendada para alpha31
+## Estado Alpha12
 
-Para alpha31 se recomienda probar:
-
-- SD detectada.
-- SD ausente sin bloqueo.
-- Lectura de archivo.
-- Escritura de archivo.
-- Listado de directorio.
-- FAT32/MBR.
-- Coexistencia con TFT, W5500 y FRAM.
-- Uso normal desde `JWPLC Basic`.
-- Estado `disabled` esperado en `JWPLC Basic Core`.
-
----
-
-## Estado
-
-Documentación propuesta para revisión de:
-
-```txt
-JWPLC Basic v2.0.0-alpha.31
-JW_SD
+```text
+JWPLC ESP32 v2.1.0-alpha.12
+JW_SD 1.0.2
+SPI_SHARED_BUS_PROTECTION=YES
+DATALOG_BUFFERED_API=YES
+DATALOG_SYSTEM_AUTOSERVICE=YES
+FULL_RUNTIME_DATALOG=PASS_PHYSICAL
 ```
+
+La documentación futura de otros ciclos debe mantenerse fuera de este README
+de cierre cuando todavía no corresponda al package publicado.

@@ -1,13 +1,10 @@
 #include "JWPLC_Display.h"
 #include "JWPLC_IdleScreen.h"
 #include "JWPLC_UI_RuntimeHooks.h"
+#include "JWPLC_Display_H3E1_Profile.h"
 
-#include <SPI.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_ST7789.h>
 #include <cstring>
 
-#include "jwplc_spi_bus.h"
 
 extern "C"
 {
@@ -20,7 +17,6 @@ enum DisplayMode : uint8_t
     DISPLAY_MODE_USER = 1
 };
 
-static Adafruit_ST7789 tft(JWPLC_TFT_CS, JWPLC_TFT_DC, JWPLC_TFT_RST);
 
 static bool g_tftReady = false;
 static DisplayMode g_displayMode = DISPLAY_MODE_IDLE;
@@ -81,8 +77,8 @@ extern "C" uint8_t __attribute__((weak)) jwplcUIRuntimeCurrentPage(void) { retur
 extern "C" bool __attribute__((weak)) jwplcUIRuntimePageRedrawPending(void) { return false; }
 extern "C" void __attribute__((weak)) jwplcUIRuntimeConsumePageRedrawPending(void) {}
 extern "C" void __attribute__((weak)) jwplcUIRuntimeConsumeRefreshRequest(void) {}
-extern "C" void __attribute__((weak)) jwplcUIRuntimeDrawStatic(Adafruit_ST7789 *display) { (void)display; }
-extern "C" void __attribute__((weak)) jwplcUIRuntimeDrawDirty(Adafruit_ST7789 *display) { (void)display; }
+extern "C" void __attribute__((weak)) jwplcUIRuntimeDrawStatic(JWPLC_TFTClass *display) { (void)display; }
+extern "C" void __attribute__((weak)) jwplcUIRuntimeDrawDirty(JWPLC_TFTClass *display) { (void)display; }
 
 // Callbacks legacy conservados sin romper sketches existentes.
 extern "C" void __attribute__((weak)) jwplcUserDisplayEnterCallback(void) {}
@@ -99,25 +95,34 @@ extern "C" void __attribute__((weak)) jwplcUserDisplayRefreshCallback(const JWPL
 }
 extern "C" void __attribute__((weak)) jwplcUserDisplayExitCallback(void) {}
 
-static void deselectAllSPI()
-{
-    jwplcSPI_deselectAll();
-}
-
 static bool acquireTFTBus(uint32_t timeoutMs = 50)
 {
-    if (!jwplcSPI_acquire(timeoutMs))
+    const bool profile =
+        jwplcH3E1ProfilerEnabled();
+
+    const uint32_t acquireStartUs =
+        profile ? micros() : 0U;
+
+    const bool acquired =
+        JWPLC_TFT.beginBatch(timeoutMs);
+
+    if (profile)
     {
-        return false;
+        jwplcH3E1RecordStage(
+            JWPLC_H3E1_STAGE_SPI_MUTEX,
+            (uint32_t)(micros() - acquireStartUs));
+
+        jwplcH3E1RecordStage(
+            JWPLC_H3E1_STAGE_SPI_PREPARE,
+            0U);
     }
 
-    jwplcSPI_prepareForTFT();
-    return true;
+    return acquired;
 }
 
 static void releaseTFTBus()
 {
-    jwplcSPI_release();
+    JWPLC_TFT.endBatch();
 }
 
 static void resetDisplayState()
@@ -613,14 +618,14 @@ namespace JWPLCDisplay
 
         if (acquireTFTBus(100))
         {
-            tft.fillScreen(ST77XX_BLACK);
+            JWPLC_TFT.fillScreen(JWPLC_TFT_BLACK);
 
             jwplcUserDisplayEnterCallback();
             jwplcUIEnter();
             jwplcUIPageEnter(jwplcUIRuntimeCurrentPage());
 
-            jwplcUIRuntimeDrawStatic(&tft);
-            jwplcUIRuntimeDrawDirty(&tft);
+            jwplcUIRuntimeDrawStatic(&JWPLC_TFT);
+            jwplcUIRuntimeDrawDirty(&JWPLC_TFT);
             jwplcUIRuntimeConsumePageRedrawPending();
             jwplcUIRuntimeConsumeRefreshRequest();
 
@@ -724,9 +729,9 @@ namespace JWPLCDisplay
         JWPLCButtons::clearPendingInput();
     }
 
-    Adafruit_ST7789 &display()
+    JWPLC_TFTClass &display()
     {
-        return tft;
+        return JWPLC_TFT;
     }
 
     void setRunLed(bool state)
@@ -884,28 +889,12 @@ extern "C" bool jwplcDisplayBeginCallback(void)
         return true;
     }
 
-    if (!jwplcSPI_begin())
+    if (!JWPLC_TFT.begin(100))
     {
         return false;
     }
 
-    deselectAllSPI();
-    SPI.begin(JWPLC_SPI_SCK, JWPLC_SPI_MISO, JWPLC_SPI_MOSI);
-
-    if (!acquireTFTBus(100))
-    {
-        return false;
-    }
-
-    digitalWrite(JWPLC_TFT_CS, LOW);
-    tft.init(170, 320);
-    tft.setRotation(3);
-    tft.setSPISpeed(JWPLC_SPI_TFT_HZ);
-    digitalWrite(JWPLC_TFT_CS, HIGH);
-
-    releaseTFTBus();
-
-    JWPLCIdleScreen::begin(&tft);
+    JWPLCIdleScreen::begin(&JWPLC_TFT);
     JWPLCIdleScreen::setTitle("JWPLC Basic");
 
     g_tftReady = true;
@@ -943,6 +932,15 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC
         return;
     }
 
+    const bool profile =
+        jwplcH3E1ProfilerEnabled();
+
+    const uint32_t refreshStartUs =
+        profile ? micros() : 0U;
+
+    const uint32_t precheckStartUs =
+        profile ? micros() : 0U;
+
     handleIdleWakeAndTimeout();
 
     if (g_displayMode == DISPLAY_MODE_USER)
@@ -956,18 +954,71 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC
     updateAutomaticBusLed();
     updateAutomaticEthLed();
 
+    if (profile)
+    {
+        jwplcH3E1RecordStage(
+            JWPLC_H3E1_STAGE_PRECHECK,
+            (uint32_t)(micros() - precheckStartUs));
+    }
+
     // La consulta USER ocurre antes del lock SPI. Sin HMI de campos el hook
     // weak devuelve true y preserva el comportamiento legacy. Con HMI enlazada
     // se usa dirty/refreshNeeded sin obligar al sketch vacío a cargar el motor.
     if (g_displayMode == DISPLAY_MODE_USER &&
-        !g_userRefreshForced &&
-        !jwplcUserDisplayRefreshNeededCallback(io, rtc))
+        !g_userRefreshForced)
     {
-        return;
+        const uint32_t neededStartUs =
+            profile ? micros() : 0U;
+
+        const bool refreshNeeded =
+            jwplcUserDisplayRefreshNeededCallback(io, rtc);
+
+        if (profile)
+        {
+            jwplcH3E1RecordStage(
+                JWPLC_H3E1_STAGE_REFRESH_NEEDED,
+                (uint32_t)(micros() - neededStartUs));
+        }
+
+        if (!refreshNeeded)
+        {
+            if (profile)
+            {
+                jwplcH3E1RecordRefreshSkippedClean();
+
+                jwplcH3E1RecordStage(
+                    JWPLC_H3E1_STAGE_REFRESH_TOTAL,
+                    (uint32_t)(micros() - refreshStartUs));
+            }
+
+            return;
+        }
     }
 
-    if (!acquireTFTBus(20))
+    const uint32_t spiWaitStartUs =
+        profile ? micros() : 0U;
+
+    const bool acquired =
+        acquireTFTBus(20);
+
+    if (profile)
     {
+        jwplcH3E1RecordStage(
+            JWPLC_H3E1_STAGE_SPI_WAIT,
+            (uint32_t)(micros() - spiWaitStartUs));
+    }
+
+    if (!acquired)
+    {
+        if (profile)
+        {
+            jwplcH3E1RecordSpiAcquireFailure();
+
+            jwplcH3E1RecordStage(
+                JWPLC_H3E1_STAGE_REFRESH_TOTAL,
+                (uint32_t)(micros() - refreshStartUs));
+        }
+
         return;
     }
 
@@ -987,31 +1038,126 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC
         JWPLCIdleScreen::setStatusPanel(panel);
         JWPLCIdleScreen::draw(io, rtc);
 
+        const uint32_t releaseStartUs =
+            profile ? micros() : 0U;
+
         releaseTFTBus();
+
+        if (profile)
+        {
+            jwplcH3E1RecordStage(
+                JWPLC_H3E1_STAGE_RELEASE_BUS,
+                (uint32_t)(micros() - releaseStartUs));
+
+            jwplcH3E1RecordStage(
+                JWPLC_H3E1_STAGE_REFRESH_TOTAL,
+                (uint32_t)(micros() - refreshStartUs));
+        }
+
         return;
     }
 
     if (jwplcUIRuntimePageRedrawPending())
     {
-        tft.fillScreen(ST77XX_BLACK);
+        const uint32_t clearStartUs =
+            profile ? micros() : 0U;
 
-        jwplcUIPageEnter(jwplcUIRuntimeCurrentPage());
+        JWPLC_TFT.fillScreen(JWPLC_TFT_BLACK);
 
-        jwplcUIRuntimeDrawStatic(&tft);
+        if (profile)
+        {
+            jwplcH3E1RecordStage(
+                JWPLC_H3E1_STAGE_PAGE_CLEAR,
+                (uint32_t)(micros() - clearStartUs));
+        }
+
+        const uint32_t enterStartUs =
+            profile ? micros() : 0U;
+
+        jwplcUIPageEnter(
+            jwplcUIRuntimeCurrentPage());
+
+        if (profile)
+        {
+            jwplcH3E1RecordStage(
+                JWPLC_H3E1_STAGE_PAGE_ENTER,
+                (uint32_t)(micros() - enterStartUs));
+        }
+
+        const uint32_t staticStartUs =
+            profile ? micros() : 0U;
+
+        jwplcUIRuntimeDrawStatic(&JWPLC_TFT);
+
+        if (profile)
+        {
+            jwplcH3E1RecordStage(
+                JWPLC_H3E1_STAGE_DRAW_STATIC,
+                (uint32_t)(micros() - staticStartUs));
+        }
+
         jwplcUIRuntimeConsumePageRedrawPending();
     }
 
     // Legacy y API corta se ejecutan con el bus TFT adquirido.
     // Para HMI basada en campos no es obligatorio implementar callbacks:
     // setValue()/setText()/setBool()/setBar() disparan el refresh por si solos.
+    const uint32_t callbackStartUs =
+        profile ? micros() : 0U;
+
     jwplcUserDisplayRefreshCallback(io, rtc);
+
+    if (profile)
+    {
+        jwplcH3E1RecordStage(
+            JWPLC_H3E1_STAGE_USER_CALLBACK,
+            (uint32_t)(micros() - callbackStartUs));
+    }
+
+    const uint32_t updateStartUs =
+        profile ? micros() : 0U;
+
     jwplcUIUpdate();
+
+    if (profile)
+    {
+        jwplcH3E1RecordStage(
+            JWPLC_H3E1_STAGE_UI_UPDATE,
+            (uint32_t)(micros() - updateStartUs));
+    }
+
     // Solo las regiones VALUE marcadas dirty se redibujan.
-    jwplcUIRuntimeDrawDirty(&tft);
+    const uint32_t dirtyStartUs =
+        profile ? micros() : 0U;
+
+    jwplcUIRuntimeDrawDirty(&JWPLC_TFT);
+
+    if (profile)
+    {
+        jwplcH3E1RecordStage(
+            JWPLC_H3E1_STAGE_DRAW_DIRTY,
+            (uint32_t)(micros() - dirtyStartUs));
+    }
+
     jwplcUIRuntimeConsumeRefreshRequest();
 
     g_userRefreshForced = false;
+
+    const uint32_t releaseStartUs =
+        profile ? micros() : 0U;
+
     releaseTFTBus();
+
+    if (profile)
+    {
+        jwplcH3E1RecordStage(
+            JWPLC_H3E1_STAGE_RELEASE_BUS,
+            (uint32_t)(micros() - releaseStartUs));
+
+        jwplcH3E1RecordStage(
+            JWPLC_H3E1_STAGE_REFRESH_TOTAL,
+            (uint32_t)(micros() - refreshStartUs));
+    }
 }
 
 JWPLC_DisplayClass JWPLC_Display;
@@ -1058,8 +1204,8 @@ uint32_t JWPLC_DisplayClass::idleRefreshPeriodMs() const { return JWPLCDisplay::
 void JWPLC_DisplayClass::setUserRefreshPeriodMs(uint32_t ms) { JWPLCDisplay::setUserRefreshPeriodMs(ms); }
 uint32_t JWPLC_DisplayClass::userRefreshPeriodMs() const { return JWPLCDisplay::userRefreshPeriodMs(); }
 void JWPLC_DisplayClass::clearPendingInput() { JWPLCDisplay::clearPendingInput(); }
-Adafruit_ST7789 &JWPLC_DisplayClass::tft() { return JWPLCDisplay::display(); }
-Adafruit_ST7789 &JWPLC_DisplayClass::display() { return JWPLCDisplay::display(); }
+JWPLC_TFTClass &JWPLC_DisplayClass::tft() { return JWPLCDisplay::display(); }
+JWPLC_TFTClass &JWPLC_DisplayClass::display() { return JWPLCDisplay::display(); }
 void JWPLC_DisplayClass::setRunLed(bool state) { JWPLCDisplay::setRunLed(state); }
 bool JWPLC_DisplayClass::runLed() const { return JWPLCDisplay::runLed(); }
 void JWPLC_DisplayClass::setErrLed(bool state) { JWPLCDisplay::setErrLed(state); }

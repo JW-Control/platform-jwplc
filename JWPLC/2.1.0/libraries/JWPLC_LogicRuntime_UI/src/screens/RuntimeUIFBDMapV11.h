@@ -266,7 +266,7 @@ protected:
     drawMapFull();
     noteMapFullRendered();
 
-    Adafruit_ST7789 &tft = JWPLC_Display.tft();
+    JWPLC_TFTClass &tft = JWPLC_Display.tft();
     tft.fillRect(0, 0, 112, 23,
                  JWPLCLogicRuntimeUIWidgets::COLOR_PANEL);
     tft.setTextWrap(false);

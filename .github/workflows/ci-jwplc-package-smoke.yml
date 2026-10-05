@@ -117,6 +117,8 @@ jobs:
             "JWPLC/2.1.0/libraries/JWPLC_Display/examples/Display_UserUI_Callbacks"
             "JWPLC/2.1.0/libraries/JWPLC_Display/examples/Display_Tetris"
             "JWPLC/2.1.0/libraries/JWPLC_Display/examples/Display_FlappyBird"
+            "JWPLC/2.1.0/libraries/JWPLC_LogicRuntime_UI/examples/JWPLC_LogicRuntime_UI_Home"
+            "JWPLC/2.1.0/libraries/JWPLC_LogicRuntime_UI/examples/JWPLC_LogicRuntime_UI_FBD_Unified_Map_Detail_RAM"
             "JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/03.Ethernet_Diagnostics"
             "JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/Ethernet_SPI_Coexistence"
             "JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/Ethernet_HTTP_TFT_Diagnostics"

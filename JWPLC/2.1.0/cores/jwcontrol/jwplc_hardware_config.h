@@ -72,6 +72,14 @@
 #define JWPLC_HAS_ETHERNET 1
 #endif
 
+// INTn del W5500 está cableado al GPIO15 en JWPLC Basic v2.
+// Es una línea activa en LOW reservada al runtime Ethernet; no forma parte
+// de la API de E/S de usuario aunque el core ESP32 conserve aliases genéricos
+// para GPIO15 por compatibilidad.
+#ifndef JWPLC_ETH_INT_PIN
+#define JWPLC_ETH_INT_PIN 15
+#endif
+
 // =====================================================
 // RS-485
 // =====================================================
@@ -92,6 +100,18 @@
 
 #ifndef JWPLC_RS485_TX_PIN
 #define JWPLC_RS485_TX_PIN 17
+#endif
+
+// JWPLC Basic v2 usa MAX13487E con AutoDirection. Al estar habilitado,
+// la UART puede encolar TX sin que el ESP32 tenga que gobernar DE/RE.
+#ifndef JWPLC_RS485_AUTO_DIRECTION
+#define JWPLC_RS485_AUTO_DIRECTION 1
+#endif
+
+// Buffer suficiente para encolar una ADU Modbus RTU maxima sin esperar
+// fisicamente a que cada byte abandone la UART.
+#ifndef JWPLC_RS485_TX_BUFFER_SIZE
+#define JWPLC_RS485_TX_BUFFER_SIZE 512U
 #endif
 
 #endif // JWCONTROL_JWPLC_HARDWARE_CONFIG_H

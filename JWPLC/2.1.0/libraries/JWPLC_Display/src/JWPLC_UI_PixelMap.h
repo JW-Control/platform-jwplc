@@ -4,7 +4,7 @@
 #include <Arduino.h>
 #include <stddef.h>
 
-class Adafruit_ST7789;
+class JWPLC_TFTClass;
 
 static constexpr uint8_t JWPLC_UI_MAX_PIXEL_MAPS = 16;
 static constexpr uint8_t JWPLC_UI_PIXEL_PACKED_MAX_COLORS = 16;
@@ -88,7 +88,7 @@ namespace JWPLCUI
 
     // Hook interno invocado antes de drawStatic(fields), de modo que los
     // campos declarativos permanezcan por encima del PixelMap.
-    void drawPixelMapsStatic(Adafruit_ST7789 &tft);
+    void drawPixelMapsStatic(JWPLC_TFTClass &tft);
 }
 
 #endif // JWPLC_UI_PIXELMAP_H

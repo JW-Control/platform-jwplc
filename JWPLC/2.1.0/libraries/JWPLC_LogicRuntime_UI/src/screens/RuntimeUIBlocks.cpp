@@ -150,7 +150,7 @@ void RuntimeUIBlocks::drawCurrentMode()
 
 void RuntimeUIBlocks::drawListStatic()
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   clearScreen(tft);
   drawHeaderStatic(tft, "BLOQUES");
   updateHeaderState(tft, runtimeStateText(), runtimeStateColor());
@@ -176,7 +176,7 @@ void RuntimeUIBlocks::drawListRows(bool force)
 
   if (blockCount == 0)
   {
-    Adafruit_ST7789 &tft = JWPLC_Display.tft();
+    JWPLC_TFTClass &tft = JWPLC_Display.tft();
     tft.fillRect(ROW_X, ROW_Y[0], ROW_W, 58, COLOR_PANEL);
     updateTextField(tft,
                     18,
@@ -222,7 +222,7 @@ void RuntimeUIBlocks::drawListRow(uint8_t visibleRow,
     return;
   }
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   const uint16_t background = selected ? COLOR_SELECTED : COLOR_PANEL;
   const uint16_t foreground = selected ? COLOR_ACCENT : COLOR_TEXT;
   tft.fillRect(ROW_X, ROW_Y[visibleRow], ROW_W, 10, background);
@@ -266,7 +266,7 @@ void RuntimeUIBlocks::drawListRow(uint8_t visibleRow,
 
 void RuntimeUIBlocks::drawListCommands()
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   for (uint8_t command = 0; command < 2; ++command)
   {
     drawMenuButton(tft,
@@ -287,7 +287,7 @@ void RuntimeUIBlocks::redrawListCommand(uint8_t previousCommand,
     return;
   }
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   drawMenuButton(tft,
                  COMMAND_X[previousCommand],
                  COMMAND_Y,
@@ -427,7 +427,7 @@ void RuntimeUIBlocks::handleListInput()
 
 void RuntimeUIBlocks::drawDetailStatic()
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   clearScreen(tft);
   drawHeaderStatic(tft, "DETALLE BLOQUE");
   updateHeaderState(tft, runtimeStateText(), runtimeStateColor());

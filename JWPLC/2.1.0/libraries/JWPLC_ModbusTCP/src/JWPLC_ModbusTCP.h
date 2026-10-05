@@ -1,0 +1,331 @@
+#ifndef JWPLC_MODBUS_TCP_H
+#define JWPLC_MODBUS_TCP_H
+
+#include <Arduino.h>
+#include <IPAddress.h>
+#include <JWPLC_Ethernet.h>
+#include "JWPLC_ModbusTCP_Client.h"
+
+#ifndef JWPLC_MODBUS_TCP_DEFAULT_PORT
+#define JWPLC_MODBUS_TCP_DEFAULT_PORT 502
+#endif
+
+#ifndef JWPLC_MODBUS_TCP_DEFAULT_UNIT_ID
+#define JWPLC_MODBUS_TCP_DEFAULT_UNIT_ID 1
+#endif
+
+#ifndef JWPLC_MODBUS_TCP_MAX_ADU
+#define JWPLC_MODBUS_TCP_MAX_ADU 260
+#endif
+
+#ifndef JWPLC_MODBUS_TCP_FRAME_TIMEOUT_MS
+#define JWPLC_MODBUS_TCP_FRAME_TIMEOUT_MS 1000UL
+#endif
+
+#ifndef JWPLC_MODBUS_TCP_RX_BUDGET
+#define JWPLC_MODBUS_TCP_RX_BUDGET 64
+#endif
+
+// Candidato Alpha14 G3: scheduler RX guiado por INTn del W5500.
+// Permanece OFF hasta superar el A/B Modbus real y la regresión full-runtime.
+// No cambia EthernetClient ni las APIs Arduino legacy.
+#ifndef JWPLC_MODBUS_TCP_INT_GUIDED_RX
+#define JWPLC_MODBUS_TCP_INT_GUIDED_RX 0
+#endif
+
+// Ventana adaptativa de polling posterior a RX útil.
+// 0 = INT puro. G3B-D2 la evalúa mediante build override; no es default aún.
+#ifndef JWPLC_MODBUS_TCP_INT_HOT_POLL_US
+#define JWPLC_MODBUS_TCP_INT_HOT_POLL_US 0UL
+#endif
+
+// Candidato D3 load-adaptive. OFF por defecto: sólo los gates Alpha14 lo
+// activan hasta cerrar D3-B/D3-C y decidir promoción.
+#ifndef JWPLC_MODBUS_TCP_INT_LOAD_ADAPTIVE
+#define JWPLC_MODBUS_TCP_INT_LOAD_ADAPTIVE 0
+#endif
+
+// Hooks de observabilidad exclusivos para benchmarks internos. No forman parte
+// del build productivo normal.
+#ifndef JWPLC_MODBUS_TCP_ENABLE_PROFILE_HOOKS
+#define JWPLC_MODBUS_TCP_ENABLE_PROFILE_HOOKS 0
+#endif
+
+// D3-C2 candidate-only knob. Default preserves D3-C1 behavior; benchmark
+// overrides may extend only ACTIVE_POLL hard-idle exit without changing
+// WARM/COOLDOWN idle behavior.
+#ifndef JWPLC_MODBUS_TCP_ACTIVE_IDLE_EXIT_US
+#define JWPLC_MODBUS_TCP_ACTIVE_IDLE_EXIT_US 5000UL
+#endif
+
+// D3-C3 candidate-only hysteresis for leaving ACTIVE_POLL because of slow
+// complete-frame gaps. Default preserves the original D3 value.
+#ifndef JWPLC_MODBUS_TCP_ACTIVE_SLOW_STREAK
+#define JWPLC_MODBUS_TCP_ACTIVE_SLOW_STREAK 2U
+#endif
+
+#if (JWPLC_MODBUS_TCP_ACTIVE_SLOW_STREAK < 1) || \
+    (JWPLC_MODBUS_TCP_ACTIVE_SLOW_STREAK > 255)
+#error "JWPLC_MODBUS_TCP_ACTIVE_SLOW_STREAK must be 1..255"
+#endif
+
+// G3B-E1: candidato final INT para v2. INTn sólo despierta el servicio y RX
+// se drena por estado real Sn_RX_RSR. RECV se reconoce únicamente al observar
+// RX vacío y se valida otra vez RSR para cerrar la carrera de rearmado.
+#ifndef JWPLC_MODBUS_TCP_INT_RSR_DRAIN
+#define JWPLC_MODBUS_TCP_INT_RSR_DRAIN 0
+#endif
+
+#if JWPLC_MODBUS_TCP_INT_LOAD_ADAPTIVE && !JWPLC_MODBUS_TCP_INT_GUIDED_RX
+#error "JWPLC_MODBUS_TCP_INT_LOAD_ADAPTIVE requires INT guided RX"
+#endif
+
+#if JWPLC_MODBUS_TCP_INT_RSR_DRAIN && !JWPLC_MODBUS_TCP_INT_GUIDED_RX
+#error "JWPLC_MODBUS_TCP_INT_RSR_DRAIN requires INT guided RX"
+#endif
+
+#if JWPLC_MODBUS_TCP_INT_LOAD_ADAPTIVE && (JWPLC_MODBUS_TCP_INT_HOT_POLL_US > 0)
+#error "Load-adaptive D3 and fixed D2 hot-poll cannot be enabled together"
+#endif
+
+#if JWPLC_MODBUS_TCP_INT_RSR_DRAIN && \
+    (JWPLC_MODBUS_TCP_INT_LOAD_ADAPTIVE || (JWPLC_MODBUS_TCP_INT_HOT_POLL_US > 0))
+#error "RSR-drain E1 is exclusive with D2/D3 policies"
+#endif
+
+enum JWPLCModbusTCPError : uint8_t
+{
+    JWPLC_MODBUS_TCP_OK = 0,
+    JWPLC_MODBUS_TCP_NOT_STARTED,
+    JWPLC_MODBUS_TCP_ETHERNET_NOT_READY,
+    JWPLC_MODBUS_TCP_BUS_LOCK_TIMEOUT,
+    JWPLC_MODBUS_TCP_INVALID_MBAP,
+    JWPLC_MODBUS_TCP_INVALID_LENGTH,
+    JWPLC_MODBUS_TCP_UNIT_ID_MISMATCH,
+    JWPLC_MODBUS_TCP_INVALID_REGISTER_MAP,
+    JWPLC_MODBUS_TCP_EXCEPTION,
+    JWPLC_MODBUS_TCP_TIMEOUT,
+    JWPLC_MODBUS_TCP_TRANSPORT_ERROR,
+    JWPLC_MODBUS_TCP_BUSY
+};
+
+enum JWPLCModbusTCPServerState : uint8_t
+{
+    JWPLC_MODBUS_TCP_SERVER_STOPPED = 0,
+    JWPLC_MODBUS_TCP_SERVER_WAIT_ETHERNET,
+    JWPLC_MODBUS_TCP_SERVER_LISTENING,
+    JWPLC_MODBUS_TCP_SERVER_CLIENT_ACTIVE,
+    JWPLC_MODBUS_TCP_SERVER_ERROR
+};
+
+enum JWPLCModbusTCPExceptionCode : uint8_t
+{
+    JWPLC_MODBUS_TCP_EX_ILLEGAL_FUNCTION = 0x01,
+    JWPLC_MODBUS_TCP_EX_ILLEGAL_DATA_ADDRESS = 0x02,
+    JWPLC_MODBUS_TCP_EX_ILLEGAL_DATA_VALUE = 0x03,
+    JWPLC_MODBUS_TCP_EX_SERVER_DEVICE_FAILURE = 0x04
+};
+
+struct JWPLCModbusTCPStats
+{
+    uint32_t clientConnections;
+    uint32_t rxFrames;
+    uint32_t txFrames;
+    uint32_t requestsOk;
+    uint32_t exceptionsSent;
+    uint32_t protocolErrors;
+    uint32_t frameTimeouts;
+    uint32_t busLockTimeouts;
+};
+
+#if JWPLC_MODBUS_TCP_ENABLE_PROFILE_HOOKS
+struct JWPLCModbusTCPSchedulerProfile
+{
+    uint8_t state;
+    uint32_t completeFrames;
+    uint32_t toWarm;
+    uint32_t toActivePoll;
+    uint32_t toCooldown;
+    uint32_t toIdleInt;
+    uint32_t activePollPasses;
+    uint32_t fallbackPasses;
+    uint32_t idleFallbackRealigns;
+    uint32_t activeIdleExits;
+    uint32_t nonActiveIdleExits;
+    uint32_t lastFrameGapUs;
+};
+#endif
+
+class JWPLC_ModbusTCPClass
+{
+public:
+    JWPLC_ModbusTCPClass();
+
+    // Server Modbus TCP. beginServer() no fuerza una inicialización Ethernet
+    // síncrona: si el autoload todavía está obteniendo DHCP, task() espera
+    // cooperativamente hasta que JWPLC_Ethernet esté READY.
+    // En A14.1 el servidor se configura una vez durante setup(). El cierre
+    // explícito de sockets se añadirá junto al backend cooperativo de A14.2.
+    bool beginServer(uint8_t unitId = JWPLC_MODBUS_TCP_DEFAULT_UNIT_ID,
+                     uint16_t port = JWPLC_MODBUS_TCP_DEFAULT_PORT);
+
+    // Debe llamarse con alta frecuencia desde loop() mientras el servicio esté
+    // habilitado. Cada pasada limita el trabajo de RX para no monopolizar SPI.
+    void task();
+    void poll();
+
+    bool serverEnabled() const;
+    bool serverReady() const;
+    bool clientConnected() const;
+    uint8_t unitId() const;
+    uint16_t port() const;
+    JWPLCModbusTCPServerState serverState() const;
+
+    void setFrameTimeoutMs(uint32_t timeoutMs);
+    uint32_t frameTimeoutMs() const;
+
+    // Mapas Server. Coils y Discrete Inputs usan bits empaquetados LSB-first:
+    // bit 0 del byte 0 = dirección 0, bit 1 = dirección 1, etc.
+    void setCoils(uint8_t *bits, uint16_t count);
+    uint16_t coilCount() const;
+    bool getCoil(uint16_t address, bool &value) const;
+    bool setCoil(uint16_t address, bool value);
+
+    void setDiscreteInputs(const uint8_t *bits, uint16_t count);
+    uint16_t discreteInputCount() const;
+    bool getDiscreteInput(uint16_t address, bool &value) const;
+
+    void setHoldingRegisters(uint16_t *registers, uint16_t count);
+    uint16_t holdingRegisterCount() const;
+    bool getHoldingRegister(uint16_t address, uint16_t &value) const;
+    bool setHoldingRegister(uint16_t address, uint16_t value);
+
+    void setInputRegisters(const uint16_t *registers, uint16_t count);
+    uint16_t inputRegisterCount() const;
+    bool getInputRegister(uint16_t address, uint16_t &value) const;
+
+    JWPLCModbusTCPError lastError() const;
+    const char *lastErrorString() const;
+    const JWPLCModbusTCPStats &stats() const;
+    void resetStats();
+
+#if JWPLC_MODBUS_TCP_ENABLE_PROFILE_HOOKS
+    JWPLCModbusTCPSchedulerProfile jwplcSchedulerProfile() const;
+    void jwplcSchedulerProfileReset();
+#endif
+
+    void printStatus(Print &out) const;
+
+private:
+    bool _serverEnabled;
+    bool _serverListening;
+    bool _clientActive;
+    uint8_t _unitId;
+    uint16_t _port;
+    uint32_t _frameTimeoutMs;
+    uint32_t _lastRxMs;
+    uint32_t _lastListenAttemptMs;
+
+    bool _rxIntConfigured;
+    uint8_t _rxIntSocket;
+    uint32_t _rxIntLastServiceMs;
+    bool _rxIntDrainActive;
+    bool _rxIntHotPolling;
+    uint32_t _rxIntHotUntilUs;
+
+    uint8_t _rxLoadState;
+    uint8_t _rxLoadFastStreak;
+    uint8_t _rxLoadSlowStreak;
+    uint32_t _rxLoadLastFrameUs;
+    uint32_t _rxLoadLastFrameMs;
+
+#if JWPLC_MODBUS_TCP_ENABLE_PROFILE_HOOKS
+    JWPLCModbusTCPSchedulerProfile _rxLoadProfile;
+#endif
+
+    EthernetServer _server;
+    EthernetClient _client;
+
+    uint8_t *_coils;
+    uint16_t _coilCount;
+    const uint8_t *_discreteInputs;
+    uint16_t _discreteInputCount;
+    uint16_t *_holdingRegisters;
+    uint16_t _holdingCount;
+    const uint16_t *_inputRegisters;
+    uint16_t _inputCount;
+
+    uint8_t _rxBuffer[JWPLC_MODBUS_TCP_MAX_ADU];
+    uint16_t _rxLength;
+    uint16_t _expectedLength;
+    uint8_t _txBuffer[JWPLC_MODBUS_TCP_MAX_ADU];
+
+    JWPLCModbusTCPServerState _serverState;
+    JWPLCModbusTCPError _lastError;
+    JWPLCModbusTCPStats _stats;
+
+    bool acquireBus(uint32_t timeoutMs);
+    void releaseBus();
+    void setError(JWPLCModbusTCPError error);
+    void clearError();
+    void resetRx();
+
+    // Política interna W5500 INTn. Estas funciones no forman parte de la API
+    // pública y sólo afectan al scheduler JWPLC_ModbusTCP.
+    bool configureRxIntLocked(uint8_t socket);
+    void disableRxIntLocked();
+    void resetRxIntSoftware();
+    bool shouldServiceRxInt(uint32_t nowMs);
+    void ackRxIntLocked();
+    void finishRxIntRsrDrainLocked();
+    void noteRxIntChunkActivity();
+    void noteRxIntFrameActivity(uint32_t nowMs);
+    void finishRxIntService(bool rxDataKnownPending);
+    void resetRxLoadAdaptiveState();
+    void setRxLoadState(uint8_t state);
+
+    void dropClient();
+    void ensureServerListening();
+    void serviceServer();
+
+    bool processRequest(uint16_t aduLength, uint16_t &responseLength);
+    bool buildException(uint8_t functionCode,
+                        JWPLCModbusTCPExceptionCode exceptionCode,
+                        uint16_t &responseLength);
+    bool sendResponse(uint16_t responseLength);
+
+    bool processReadBits(uint8_t functionCode,
+                         const uint8_t *map,
+                         uint16_t mapCount,
+                         const uint8_t *pdu,
+                         uint16_t pduLength,
+                         uint16_t &responseLength);
+    bool processReadRegisters(uint8_t functionCode,
+                              const uint16_t *map,
+                              uint16_t mapCount,
+                              const uint8_t *pdu,
+                              uint16_t pduLength,
+                              uint16_t &responseLength);
+    bool processWriteSingleCoil(const uint8_t *pdu,
+                                uint16_t pduLength,
+                                uint16_t &responseLength);
+    bool processWriteSingleRegister(const uint8_t *pdu,
+                                    uint16_t pduLength,
+                                    uint16_t &responseLength);
+    bool processWriteMultipleCoils(const uint8_t *pdu,
+                                   uint16_t pduLength,
+                                   uint16_t &responseLength);
+    bool processWriteMultipleRegisters(const uint8_t *pdu,
+                                       uint16_t pduLength,
+                                       uint16_t &responseLength);
+
+    static uint16_t readU16BE(const uint8_t *p);
+    static void writeU16BE(uint8_t *p, uint16_t value);
+    static bool rangeValid(uint16_t start, uint16_t quantity, uint16_t count);
+    static bool getPackedBit(const uint8_t *bits, uint16_t address);
+    static void setPackedBit(uint8_t *bits, uint16_t address, bool value);
+};
+
+extern JWPLC_ModbusTCPClass JWPLC_ModbusTCP;
+
+#endif // JWPLC_MODBUS_TCP_H

@@ -32,6 +32,33 @@
 
 #define SPI_HAS_TRANSACTION
 
+#ifndef JWPLC_SPI_PROFILE_FIFO_REUSE_CHUNKS
+#define JWPLC_SPI_PROFILE_FIFO_REUSE_CHUNKS 0
+#endif
+
+#ifndef JWPLC_SPI_FIFO_REUSE_DLEN_CACHE
+// Alpha14 P4.1: promoted after FNV, microprofile, A/B repeatability
+// and physical validation. Cache scope is one FIFO-read helper call.
+#define JWPLC_SPI_FIFO_REUSE_DLEN_CACHE 1
+#endif
+
+#ifndef JWPLC_SPI_FIFO_REUSE_COPY_OUT_64
+// Alpha14 P4.2: promoted after FNV, microprofile, A/B repeatability
+// and physical validation. The explicit path applies only to 64-byte chunks.
+#define JWPLC_SPI_FIFO_REUSE_COPY_OUT_64 1
+#endif
+
+#if JWPLC_SPI_PROFILE_FIFO_REUSE_CHUNKS
+struct JWPLCSpiFifoReuseChunkProfile {
+  uint64_t chunkCount = 0;
+  uint64_t bytes = 0;
+  uint64_t setupTotalUs = 0;
+  uint64_t wireWaitTotalUs = 0;
+  uint64_t copyOutTotalUs = 0;
+  uint64_t otherTotalUs = 0;
+};
+#endif
+
 class SPISettings {
 public:
   SPISettings() : _clock(1000000), _bitOrder(SPI_MSBFIRST), _dataMode(SPI_MODE0) {}
@@ -81,6 +108,19 @@ public:
   uint32_t transfer32(uint32_t data);
 
   void transferBytes(const uint8_t *data, uint8_t *out, uint32_t size);
+
+  // JWPLC experimental read-only helper.
+  // On classic ESP32 this reuses the SPI FIFO contents as don't-care MOSI
+  // data instead of refilling 16 dummy words for every 64-byte RX chunk.
+  // Existing SPI.transfer()/transferBytes() semantics are unchanged.
+  void jwplcReadBytesReuseFifo(uint8_t *out, uint32_t size);
+
+#if JWPLC_SPI_PROFILE_FIFO_REUSE_CHUNKS
+  // H4A0.4-P4 compile-time-only profiler. It is absent from normal builds.
+  void jwplcResetReadBytesReuseFifoProfile();
+  JWPLCSpiFifoReuseChunkProfile jwplcGetReadBytesReuseFifoProfile();
+#endif
+
   void transferBits(uint32_t data, uint32_t *out, uint8_t bits);
 
   void write(uint8_t data);

@@ -12,7 +12,7 @@ namespace JWPLCUnifiedU4
 {
 void drawFooter(const char *text, uint16_t color)
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.drawFastHLine(5, FOOTER_Y - 4, 308, COLOR_BORDER);
   updateTextField(tft, 10, FOOTER_Y, 48, text, color, COLOR_PANEL);
 }
@@ -31,7 +31,7 @@ void drawTypeChoice(U4Type type, bool selected)
 
 void drawDisabledGroup(uint8_t index, const char *label)
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   const int16_t x = GROUP_X[index];
   tft.fillRoundRect(x, GROUP_Y, GROUP_W, GROUP_H, 4, COLOR_PANEL);
   tft.drawRoundRect(x, GROUP_Y, GROUP_W, GROUP_H, 4, COLOR_BACKGROUND);

@@ -33,7 +33,7 @@ compilación.
 | Canal | Versión | Estado |
 |---|---|---|
 | Estable | `v2.0.0` | Release pública estable |
-| Dev / PreRelease publicada | `v2.1.0-alpha.12` | Publicada; validación aislada post-publicación pendiente |
+| Dev / PreRelease publicada | `v2.1.0-alpha.12` | Publicada y validada |
 | PreRelease anterior | `v2.1.0-alpha.11` | Publicada y validada |
 
 Alpha11 permanece como última versión completamente cerrada y validada:
@@ -55,14 +55,21 @@ PHYSICAL_RETEST=NOT_REQUIRED_BY_SCOPE
 ALPHA12_TECHNICAL_CLOSURE=PASS
 ALPHA12_RELEASE_PUBLICATION=PASS
 ALPHA12_GITHUB_PRERELEASE=PASS
-ALPHA12_INDEX_DEV_PR=OPEN
-ALPHA12_ISOLATED_INSTALL=PENDING
-ALPHA12_ISOLATED_COMPILE=PENDING
-ALPHA12_STATUS=PUBLISHED_VALIDATION_PENDING
+ALPHA12_INDEX_DEV_PR=MERGED
+ALPHA12_PUBLISHED_INDEX=PASS
+ALPHA12_PUBLISHED_INSTALL=PASS
+ALPHA12_PUBLISHED_AUTOCONTAINMENT=PASS
+ALPHA12_PUBLISHED_ARCHIVE_PARITY=PASS
+ALPHA12_PUBLISHED_CI_FIXES_PRESENT=PASS
+ALPHA12_PUBLISHED_COMPILE=PASS
+ALPHA12_PUBLISHED_UPLOAD=PASS
+ALPHA12_PUBLISHED_RUNTIME=PASS
+ALPHA12_STATUS=CLOSED_PUBLISHED
 ```
 
-Alpha12 ya está publicada como PreRelease. El cierre formal queda pendiente de
-la instalación/compilación aislada desde el índice dev publicado en `main`.
+Alpha12 ya está publicada y validada desde el package distribuido por el índice
+dev. La instalación, compilación, upload y runtime post-publicación quedaron en
+PASS sin usar `jwplc_local`.
 
 ---
 
@@ -80,8 +87,8 @@ https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_j
 https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index.json
 ```
 
-El índice dev se actualiza mediante el PR automático de publicación. Alpha12 no
-se considera cerrada hasta validar una instalación aislada desde ese índice.
+El índice dev incluye `v2.1.0-alpha.12` y fue validado mediante instalación
+aislada desde `main`.
 
 ---
 
@@ -692,7 +699,11 @@ SHA256=412079a9e01cb0eaccdf6ec530b04183db1c245eb043e846fe9f0f7e2d5eb1b5
 PACKAGE_ROOT=2.1.0/
 GITHUB_PRERELEASE=PASS
 INDEX_DEV_PR=#101
-ISOLATED_VALIDATION=PENDING
+INDEX_DEV_PR_STATUS=MERGED
+ISOLATED_INSTALL=PASS
+ISOLATED_COMPILE=PASS
+PUBLISHED_UPLOAD=PASS
+PUBLISHED_RUNTIME=PASS
 ```
 
 Alpha11 continúa siendo la última versión con cierre físico post-publicación
@@ -710,6 +721,7 @@ docs/v2.1.0-alpha.12/ALPHA12_PRECOMPILED_FREEZE_20261004.md
 docs/v2.1.0-alpha.12/ALPHA12_BUILD_SPEED_COMPARISON_20261004.md
 docs/v2.1.0-alpha.12/ALPHA12_TECHNICAL_CONCLUSION_20261005.md
 docs/v2.1.0-alpha.12/PRE_RELEASE.md
+docs/v2.1.0-alpha.12/ALPHA12_PUBLISHED_VALIDATION_20261005.md
 ```
 
 ---

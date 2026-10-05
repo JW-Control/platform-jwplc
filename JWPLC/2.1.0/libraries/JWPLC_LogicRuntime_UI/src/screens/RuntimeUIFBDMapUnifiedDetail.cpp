@@ -348,7 +348,7 @@ void RuntimeUIFBDMapUnified::drawDetailSource(
   const uint16_t border =
       selected ? COLOR_WARNING : (active ? COLOR_OK : COLOR_BORDER);
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.fillRect(
       DETAIL_SOURCE_X, y, DETAIL_SOURCE_W, DETAIL_SOURCE_H, COLOR_BACKGROUND);
   tft.drawRect(
@@ -423,7 +423,7 @@ void RuntimeUIFBDMapUnified::drawDetailBlock()
 
   const bool active = _model->blockValue(_selectedIndex);
   const uint16_t border = active ? COLOR_OK : COLOR_BORDER;
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
 
   tft.fillRect(DETAIL_BLOCK_X,
                DETAIL_BLOCK_Y,
@@ -538,7 +538,7 @@ void RuntimeUIFBDMapUnified::drawDetailBlock()
 
 void RuntimeUIFBDMapUnified::drawTonPanelFrame(bool selected)
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.fillRect(TON_PANEL_X,
                TON_PANEL_Y,
                TON_PANEL_W,
@@ -566,7 +566,7 @@ void RuntimeUIFBDMapUnified::drawTonTextLine(
     const char *value,
     uint16_t color)
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.fillRect(TON_PANEL_X + 3,
                y,
                TON_PANEL_W - 6,
