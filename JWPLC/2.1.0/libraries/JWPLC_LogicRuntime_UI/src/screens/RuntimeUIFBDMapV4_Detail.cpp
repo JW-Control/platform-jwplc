@@ -9,7 +9,7 @@ using namespace JWPLCLogicRuntimeUIWidgets;
 
 void RuntimeUIFBDMapV4::drawDetailStatic()
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
 
   // MAPA y DETALLE comparten el mismo panel exterior. No se borra toda la TFT:
   // drawDetail(true) limpia únicamente el interior común mediante clearMapArea()
@@ -103,7 +103,7 @@ void RuntimeUIFBDMapV4::drawDetailSource(uint8_t inputIndex,
                               ? COLOR_WARNING
                               : (active ? COLOR_OK : COLOR_BORDER);
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.fillRect(DETAIL_SOURCE_X,
                y,
                DETAIL_SOURCE_W,
@@ -221,7 +221,7 @@ void RuntimeUIFBDMapV4::drawDetailBlock()
 
   const bool active = _model->blockValue(_selectedIndex);
   const uint16_t border = active ? COLOR_OK : COLOR_BORDER;
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
 
   tft.fillRect(DETAIL_BLOCK_X,
                DETAIL_BLOCK_Y,

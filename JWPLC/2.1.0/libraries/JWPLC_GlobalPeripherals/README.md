@@ -1,49 +1,84 @@
 # JWPLC_GlobalPeripherals
 
-Capa interna del package **JWPLC ESP32** que conecta los periféricos globales del **JWPLC Basic** con el runtime del core.
+`JWPLC_GlobalPeripherals` reúne varios objetos que el JWPLC Basic deja listos
+para usar desde tu sketch: botonera, RTC, FRAM, microSD y vistas rápidas de las
+entradas, salidas y hora del sistema.
 
-No reemplaza a los drivers individuales. Su función es ofrecer:
+Si estás empezando, piensa en esta librería como el punto de acceso a los
+periféricos que el JWPLC ya inicializa por ti.
 
-- objetos globales ya conocidos por el sketch;
-- autoload coherente;
-- IDs de botonera;
-- integración con el mutex SPI;
-- snapshots cacheados de I/O y RTC;
-- helpers internos utilizados por otras capas del package.
+## ¿Para qué sirve?
 
----
+Te permite, entre otras cosas:
 
-## Objetos globales
+- leer la botonera frontal;
+- consultar rápidamente entradas y salidas;
+- consultar la fecha y hora que el runtime ya mantiene actualizada;
+- acceder a los objetos globales `JWPLC_RTC`, `JWPLC_FRAM` y `JWPLC_SD`;
+- usar esos periféricos sin crear nuevas instancias ni reasignar pines.
 
-La capa expone:
+Los objetos globales más importantes son:
 
 ```cpp
+JWPLC_Buttons
+JWPLC_IO
+JWPLC_Time
 JWPLC_RTC
 JWPLC_FRAM
-JWPLC_Buttons
 JWPLC_SD
 ```
 
-También incluye las APIs de:
+## Qué hace automáticamente el JWPLC
+
+En un JWPLC Basic normal no tienes que:
+
+- crear otra instancia de la botonera;
+- escanear manualmente la matriz de botones;
+- volver a inicializar RTC, FRAM o microSD;
+- conocer los pines internos de esos periféricos;
+- leer nuevamente el hardware cada vez que consultas `JWPLC_IO` o `JWPLC_Time`.
+
+El runtime mantiene esos recursos y expone una vista lista para el sketch.
+
+## Inicio rápido
+
+Este ejemplo enciende o apaga `Q0_0` cada vez que pulsas el botón `OK`.
 
 ```cpp
-JWPLC_Ethernet
-JWPLC_RS485
-JWPLC_ModbusRTU
+#include <JWPLC_GlobalPeripherals.h>
+
+bool salida = false;
+
+void setup()
+{
+    pinMode(Q0_0, OUTPUT);
+
+    JWPLC_Buttons.clearPendingInput();
+
+    digitalWrite(Q0_0, LOW);
+}
+
+void loop()
+{
+    if (JWPLC_Buttons.pressed(BTN_OK))
+    {
+        salida = !salida;
+
+        digitalWrite(
+            Q0_0,
+            salida ? HIGH : LOW);
+    }
+}
 ```
 
-Alpha8 añade dos fachadas de lectura cacheada:
+No necesitas llamar `JWPLC_Buttons.update()`: el JWPLC escanea la botonera
+automáticamente.
 
-```cpp
-JWPLC_IO
-JWPLC_Time
-```
+## Conceptos básicos
 
----
+### Botones físicos
 
-# Botonera JWPLC
-
-IDs físicos:
+Los IDs disponibles son:
 
 ```text
 BTN_LEFT
@@ -54,179 +89,445 @@ BTN_OK
 BTN_DOWN
 ```
 
-API pública recomendada en sketches:
+Las tres consultas más útiles son:
 
 ```cpp
 JWPLC_Buttons.pressed(BTN_OK);
 JWPLC_Buttons.released(BTN_OK);
 JWPLC_Buttons.isDown(BTN_OK);
-JWPLC_Buttons.eventCount();
-JWPLC_Buttons.getEvent(...);
-JWPLC_Buttons.clearPendingInput();
 ```
 
-El runtime del JWPLC Basic mantiene el scan automáticamente desde un task interno. Un sketch normal no debe llamar `JWPLC_Buttons.update()` ni iniciar un segundo task sobre la misma instancia.
+- `pressed()`: devuelve `true` una vez por pulsación.
+- `released()`: devuelve `true` una vez al soltar.
+- `isDown()`: indica el estado físico actual mientras el botón siga presionado.
 
-Los helpers `JWPLCButtons::` continúan disponibles para integración interna/legacy, pero no son la API recomendada para ejemplos de usuario.
+`pressed()` y `released()` son eventos consumibles: si ya los leíste, no
+vuelven a ser `true` hasta que ocurra un nuevo evento.
 
-### Cambio Alpha8
+### Vista de entradas y salidas
 
-Antes de Alpha8, los eventos de botonera podían disparar refresh/navegación del Display usando la cola compartida de eventos.
-
-Alpha8 separa responsabilidades:
-
-```text
-Task de botonera
-  -> actualiza estado físico y latches
-
-Display
-  -> observa cambios físicos / flancos propios
-
-Sketch
-  -> consume pressed()/released() de aplicación
-```
-
-El router de refresh del Display se activa por cambio de máscara física, no por cualquier contenido residual de `eventCount()`.
-
-`anyPressedOrRepeated()` conserva semántica `PRESS/REPEAT` sin tratar `RELEASE` como actividad válida.
-
----
-
-# Vistas cacheadas Alpha8
-
-## `JWPLC_IO`
-
-`JWPLC_IO` lee el snapshot ya mantenido por el runtime y no genera una nueva transacción I2C.
+`JWPLC_IO` permite consultar el último estado que ya conoce el runtime.
 
 ```cpp
-uint8_t inputs = JWPLC_IO.inputs();
-uint8_t outputs = JWPLC_IO.outputs();
-
 bool i0 = JWPLC_IO.input(0);
 bool q0 = JWPLC_IO.output(0);
 
-bool ready = JWPLC_IO.ready();
-uint32_t ageBase = JWPLC_IO.lastScanMs();
+uint8_t entradas = JWPLC_IO.inputs();
+uint8_t salidas = JWPLC_IO.outputs();
 ```
 
-En JWPLC Basic:
+Los índices válidos de `input()` y `output()` para JWPLC Basic son `0..7`.
+
+### Vista de fecha y hora
+
+`JWPLC_Time` consulta el último snapshot del RTC.
+
+```cpp
+if (JWPLC_Time.valid())
+{
+    uint8_t hora = JWPLC_Time.hour();
+    uint8_t minuto = JWPLC_Time.minute();
+    uint8_t segundo = JWPLC_Time.second();
+}
+```
+
+Esto es ideal para HMI, registro de datos y lógica que consulta la hora
+frecuentemente.
+
+## Ejemplo 1 — Básico: botonera y salida
+
+En este ejemplo:
+
+- `OK` enciende `Q0_0`;
+- `ESC` apaga `Q0_0`;
+- `UP` informa por Serial mientras permanece presionado.
+
+```cpp
+#include <JWPLC_GlobalPeripherals.h>
+
+void setup()
+{
+    Serial.begin(115200);
+
+    pinMode(Q0_0, OUTPUT);
+    digitalWrite(Q0_0, LOW);
+
+    JWPLC_Buttons.clearPendingInput();
+}
+
+void loop()
+{
+    if (JWPLC_Buttons.pressed(BTN_OK))
+    {
+        digitalWrite(Q0_0, HIGH);
+        Serial.println("Salida ON");
+    }
+
+    if (JWPLC_Buttons.pressed(BTN_ESC))
+    {
+        digitalWrite(Q0_0, LOW);
+        Serial.println("Salida OFF");
+    }
+
+    static uint32_t ultimoMensaje = 0;
+
+    if (JWPLC_Buttons.isDown(BTN_UP) &&
+        millis() - ultimoMensaje >= 250)
+    {
+        ultimoMensaje = millis();
+        Serial.println("UP sigue presionado");
+    }
+}
+```
+
+## Ejemplo 2 — Intermedio: entradas, salidas y hora
+
+Este ejemplo refleja `I0_0` en `Q0_0` y, cada segundo, imprime un resumen.
+
+```cpp
+#include <JWPLC_GlobalPeripherals.h>
+
+void setup()
+{
+    Serial.begin(115200);
+
+    pinMode(I0_0, INPUT);
+    pinMode(Q0_0, OUTPUT);
+}
+
+void loop()
+{
+    const bool entrada =
+        digitalRead(I0_0);
+
+    digitalWrite(
+        Q0_0,
+        entrada ? HIGH : LOW);
+
+    static uint32_t ultimoReporte = 0;
+
+    if (millis() - ultimoReporte >= 1000)
+    {
+        ultimoReporte = millis();
+
+        Serial.print("I0_0=");
+        Serial.print(JWPLC_IO.input(0));
+
+        Serial.print(" Q0_0=");
+        Serial.print(JWPLC_IO.output(0));
+
+        if (JWPLC_Time.valid())
+        {
+            Serial.print(" Hora=");
+            Serial.print(JWPLC_Time.hour());
+            Serial.print(':');
+            Serial.print(JWPLC_Time.minute());
+            Serial.print(':');
+            Serial.print(JWPLC_Time.second());
+        }
+
+        Serial.println();
+    }
+}
+```
+
+Observa que no usamos `delay(1000)`. El resto del programa puede seguir
+ejecutándose mientras esperamos el siguiente reporte.
+
+## Ejemplo 3 — Aplicación real: START / STOP con horario visible
+
+Supongamos una máquina sencilla:
+
+- `OK` funciona como START;
+- `ESC` funciona como STOP;
+- `Q0_0` representa el contactor o relé de marcha;
+- el estado se muestra por Serial junto con la hora.
+
+```cpp
+#include <JWPLC_GlobalPeripherals.h>
+
+bool enMarcha = false;
+
+void setup()
+{
+    Serial.begin(115200);
+
+    pinMode(Q0_0, OUTPUT);
+    digitalWrite(Q0_0, LOW);
+
+    JWPLC_Buttons.clearPendingInput();
+}
+
+void loop()
+{
+    if (JWPLC_Buttons.pressed(BTN_OK))
+    {
+        enMarcha = true;
+    }
+
+    if (JWPLC_Buttons.pressed(BTN_ESC))
+    {
+        enMarcha = false;
+    }
+
+    digitalWrite(
+        Q0_0,
+        enMarcha ? HIGH : LOW);
+
+    static uint32_t ultimoReporte = 0;
+
+    if (millis() - ultimoReporte >= 1000)
+    {
+        ultimoReporte = millis();
+
+        Serial.print(enMarcha ? "MARCHA" : "PARADO");
+
+        if (JWPLC_Time.valid())
+        {
+            Serial.print(" | ");
+            Serial.print(JWPLC_Time.hour());
+            Serial.print(':');
+            Serial.print(JWPLC_Time.minute());
+            Serial.print(':');
+            Serial.print(JWPLC_Time.second());
+        }
+
+        Serial.println();
+    }
+}
+```
+
+## Ejemplo 4 — Avanzado de usuario: leer y escribir las 8 E/S como un byte
+
+Cuando necesitas procesar las ocho entradas o salidas juntas puedes usar la API
+de bloque del core JWPLC:
+
+```cpp
+#include <JWPLC_GlobalPeripherals.h>
+
+void setup()
+{
+}
+
+void loop()
+{
+    uint8_t entradas =
+        JWPLC_readInputs();
+
+    JWPLC_writeOutputs(entradas);
+}
+```
+
+Correspondencia:
 
 ```text
-inputs()  -> I0.0..I0.7
-outputs() -> Q0.0..Q0.7
+bit 0 -> I0_0 / Q0_0
+bit 1 -> I0_1 / Q0_1
+...
+bit 7 -> I0_7 / Q0_7
 ```
 
-`outputs()` representa el banco lógico de las 8 salidas expuestas al usuario por el JWPLC Basic. No pretende exponer bancos internos adicionales del expansor.
+Úsalo cuando trabajar con un bitmap sea más cómodo que ocho llamadas
+individuales.
 
----
+## API de usuario
 
-## `JWPLC_Time`
+### Botonera — Básico
 
-`JWPLC_Time` consume el snapshot RTC ya actualizado por el runtime.
+| Función | Qué hace | Cuándo usarla |
+|---|---|---|
+| `pressed(id)` | Detecta una nueva pulsación y consume ese evento. | Botones tipo START, OK, navegación |
+| `released(id)` | Detecta una nueva liberación y consume ese evento. | Acciones al soltar |
+| `isDown(id)` | Consulta si el botón sigue físicamente presionado. | Mantener una acción mientras se sostiene |
+| `clearPendingInput()` | Descarta eventos anteriores. | Al iniciar una pantalla o modo |
+
+Ejemplo:
 
 ```cpp
-JWPLC_Time.present();
-JWPLC_Time.valid();
-JWPLC_Time.lostPower();
-
-JWPLC_Time.second();
-JWPLC_Time.minute();
-JWPLC_Time.hour();
-
-JWPLC_Time.day();
-JWPLC_Time.month();
-JWPLC_Time.year();
-JWPLC_Time.dayOfWeek();
-
-JWPLC_Time.lastUpdateMs();
+if (JWPLC_Buttons.pressed(BTN_OK))
+{
+    // Nueva pulsación
+}
 ```
 
-Estas llamadas no ejecutan una lectura RTC adicional y son adecuadas para HMI, logging ligero y lógica que sólo necesita el último snapshot del sistema.
+### Botonera — Intermedio
 
----
+| Función | Qué hace |
+|---|---|
+| `eventCount()` | Cantidad de eventos disponibles en la cola actual |
+| `getEvent(index, event)` | Obtiene un evento `PRESS`, `RELEASE` o `REPEAT` |
+| `clearPendingPresses()` | Limpia pulsaciones pendientes |
+| `clearPendingReleases()` | Limpia liberaciones pendientes |
+| `clearPendingRepeats()` | Limpia repeats pendientes |
+| `clearEventQueue()` | Limpia la cola de eventos |
 
-# microSD
+Estas funciones son útiles cuando quieres construir una navegación más
+elaborada.
 
-Helpers internos/legacy:
+### Botonera — Avanzado de usuario
+
+`applyAxis()` ayuda a modificar un valor con dos botones:
 
 ```cpp
-JWPLCSD::begin();
-JWPLCSD::isEnabled();
-JWPLCSD::isReady();
-JWPLCSD::isCardPresent();
-JWPLCSD::lastErrorString();
+uint32_t setpoint = 50;
+
+JWPLC_Buttons.applyAxis(
+    setpoint,
+    0,
+    100,
+    BTN_DOWN,
+    BTN_UP);
 ```
 
-La API de aplicación permanece en el objeto:
+La configuración física de la matriz, `begin()`, `update()`,
+`startTask()`, `setScanDelays()` y el perfil interno de repeat ya son
+administrados por el JWPLC Basic y no deben reconfigurarse en un sketch normal.
+
+### JWPLC_IO — Básico
+
+| Función | Retorno | Uso |
+|---|---|---|
+| `inputs()` | `uint8_t` | Estado de I0_0..I0_7 como bitmap |
+| `outputs()` | `uint8_t` | Estado lógico de Q0_0..Q0_7 como bitmap |
+| `input(index)` | `bool` | Estado de una entrada 0..7 |
+| `output(index)` | `bool` | Estado de una salida 0..7 |
+| `ready()` | `bool` | Indica si el snapshot de I/O está disponible |
+| `lastScanMs()` | `uint32_t` | Momento del último scan registrado |
+
+### JWPLC_Time — Básico / Intermedio
+
+| Función | Retorno |
+|---|---|
+| `present()` | RTC detectado |
+| `valid()` | Fecha/hora válida |
+| `lostPower()` | El RTC reportó pérdida de alimentación |
+| `second()` | Segundo |
+| `minute()` | Minuto |
+| `hour()` | Hora |
+| `day()` | Día |
+| `month()` | Mes |
+| `year()` | Año |
+| `dayOfWeek()` | Día de semana |
+| `lastUpdateMs()` | Momento de la última actualización del snapshot |
+
+Ejemplo:
 
 ```cpp
+if (JWPLC_Time.present() &&
+    JWPLC_Time.valid())
+{
+    Serial.println(
+        JWPLC_Time.hour());
+}
+```
+
+### Objetos globales de periféricos
+
+También están disponibles:
+
+```cpp
+JWPLC_RTC
+JWPLC_FRAM
 JWPLC_SD
 ```
 
----
+Úsalos cuando necesitas funciones específicas del periférico, por ejemplo leer
+la temperatura interna del RTC o guardar datos en FRAM/SD.
 
-# Includes automáticos
+No crees una segunda instancia del mismo hardware.
 
-En el perfil JWPLC Basic, los periféricos principales forman parte del ecosistema disponible por el package.
+## Errores comunes
 
-Para sketches simples puede aprovecharse el autoload. Para librerías reutilizables o código que deba compilar fuera del perfil JWPLC, se recomienda incluir explícitamente el header del periférico utilizado.
+### Llamar `JWPLC_Buttons.update()` dentro de `loop()`
 
----
+No es necesario en JWPLC Basic. El runtime ya escanea la botonera.
 
-# Separación de responsabilidades
+### Crear otra instancia de RTC, FRAM o SD
 
-```text
-JWPLC_GlobalPeripherals
-├── objetos globales
-├── integración de autoload
-├── botonera física
-├── snapshots JWPLC_IO / JWPLC_Time
-└── bridges internos de runtime
+Evítalo. Usa los objetos globales que ya pertenecen al package.
 
-JWPLC_Display
-├── TFT
-├── IDLE/USER
-├── HMI declarativa Alpha8
-└── diagnósticos visuales
+### Usar `delay()` para esperar botones
 
-JWPLC_Ethernet
-└── W5500 / red
+No necesitas frenar el programa para detectar una pulsación.
 
-JWPLC_RS485
-└── transporte RS-485
+Esto:
 
-JWPLC_ModbusRTU
-└── protocolo Modbus RTU
-
-JW_* / JW_Libraries
-└── drivers reutilizables
+```cpp
+if (JWPLC_Buttons.pressed(BTN_OK))
+{
+    // acción
+}
 ```
 
----
+puede convivir con el resto de tu lógica sin pausas artificiales.
 
-# Consideraciones de rendimiento
+### Confundir `pressed()` con `isDown()`
 
-Las clases `JWPLC_IOView` y `JWPLC_TimeView` se implementan dentro del mismo TU de `JWPLC_GlobalPeripherals.cpp`.
+- `pressed()`: una vez por pulsación.
+- `isDown()`: verdadero durante todo el tiempo que el botón permanezca abajo.
 
-La decisión es intencional: Alpha8 había introducido temporalmente un TU adicional para estas fachadas y el benchmark detectó una compilación extra en cold build.
+## API avanzada
 
-La implementación se reintegró al TU existente conservando la API pública:
+### Eventos con repeat
 
-```text
-Basic cold compiler invocations: 15
-Core cold compiler invocations:  78
-Warm compiler invocations:        1
+Si necesitas conocer un repeat y su multiplicador puedes leer la cola:
+
+```cpp
+for (uint8_t i = 0;
+     i < JWPLC_Buttons.eventCount();
+     ++i)
+{
+    JW_MatrixButtons::BtnEvent event;
+
+    if (JWPLC_Buttons.getEvent(i, event))
+    {
+        if (event.type ==
+            JW_MatrixButtons::EV_REPEAT)
+        {
+            Serial.println(event.mult);
+        }
+    }
+}
 ```
 
-Esto recupera la paridad estructural de Alpha6 sin retirar funcionalidad.
+### Acceso en bloque a I/O
 
----
+```cpp
+uint8_t entradas = JWPLC_readInputs();
+uint8_t salidas = JWPLC_readOutputs();
 
-# Estado Alpha8
+JWPLC_writeOutputs(0b00000001);
+```
+
+Estas funciones son útiles para protocolos, Remote I/O o lógica basada en
+bitmaps.
+
+## Compatibilidad
+
+Los namespaces:
+
+```cpp
+JWPLCButtons::
+JWPLCSD::
+```
+
+siguen existiendo para integración histórica del package.
+
+Para código nuevo se recomienda:
+
+```cpp
+JWPLC_Buttons
+JWPLC_SD
+```
+
+No uses `JWPLCButtons::begin()` ni `JWPLCSD::begin()` para reinicializar
+periféricos que el runtime ya administra.
+
+## Versión
+
+Documentado para:
 
 ```text
-JWPLC ESP32 2.1.0-alpha.8
+JWPLC ESP32 v2.1.0-alpha.12
 JWPLC_GlobalPeripherals 1.0.0
 ```
-
-Alpha8 mantiene todos los periféricos del autoload normal, separa correctamente botonera/Display y añade vistas cacheadas de runtime sin añadir un TU permanente al cold build.

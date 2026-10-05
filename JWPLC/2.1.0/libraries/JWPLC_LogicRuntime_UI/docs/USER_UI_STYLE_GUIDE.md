@@ -21,8 +21,8 @@ src/widgets/RuntimeUIWidgets.h
 ```
 
 ```cpp
-COLOR_BACKGROUND = ST77XX_BLACK;
-COLOR_TEXT       = ST77XX_WHITE;
+COLOR_BACKGROUND = JWPLC_TFT_BLACK;
+COLOR_TEXT       = JWPLC_TFT_WHITE;
 COLOR_ACCENT     = 0x5FE0;  // verde de acento JW Control
 COLOR_OK         = 0x07E0;  // verde de estado activo
 COLOR_SELECTED   = 0x0200;  // verde oscuro de selección
@@ -30,7 +30,7 @@ COLOR_PANEL      = 0x1082;  // panel casi negro
 COLOR_BORDER     = 0x7BEF;  // borde gris claro
 COLOR_MUTED      = 0x9CF3;  // texto secundario
 COLOR_WARNING    = 0xFFE0;  // amarillo
-COLOR_ERROR      = ST77XX_RED;
+COLOR_ERROR      = JWPLC_TFT_RED;
 ```
 
 ## Uso semántico

@@ -311,7 +311,15 @@ void tone(uint8_t _pin, unsigned int frequency, unsigned long duration = 0);
 void noTone(uint8_t _pin);
 
 #if defined(JWPLC_BASIC) && !defined(ARDUINO_CORE_BUILD) && (__INCLUDE_LEVEL__ <= 1)
+#if defined(JWPLC_TFT_ESPI_DIAGNOSTIC_NO_DISPLAY_AUTOLOAD)
+// Gate diagnostico H3E.1D: conserva el autoload de perifericos globales,
+// pero evita enlazar JWPLC_Display/Adafruit para permitir un unico owner
+// fisico de la TFT durante la calificacion de TFT_eSPI.
+// El autoload normal permanece sin cambios cuando la macro no esta definida.
+#include <JWPLC_GlobalPeripherals_Auto.h>
+#else
 #include <JWPLC_Display_Auto.h>
+#endif
 #endif
 
 #endif /* __cplusplus */

@@ -162,7 +162,7 @@ void RuntimeUIFBDMapUnified::renderMap(bool force)
       if (y > MAP_Y + MAP_H - NODE_H - 2)
         y = static_cast<int16_t>(MAP_Y + MAP_H - NODE_H - 2);
       const int16_t x = static_cast<int16_t>(SLOT_X0 + slot * SLOT_STEP);
-      Adafruit_ST7789 &tft = JWPLC_Display.tft();
+      JWPLC_TFTClass &tft = JWPLC_Display.tft();
       tft.fillRect(x, y, NODE_W, NODE_H, COLOR_BACKGROUND);
       tft.drawRect(x, y, NODE_W, NODE_H, COLOR_WARNING);
       tft.drawRect(x + 1, y + 1, NODE_W - 2, NODE_H - 2, COLOR_WARNING);
@@ -219,7 +219,7 @@ void RuntimeUIFBDMapUnified::renderMap(bool force)
     if (y > MAP_Y + MAP_H - 26)
       y = static_cast<int16_t>(MAP_Y + MAP_H - 26);
 
-    Adafruit_ST7789 &tft = JWPLC_Display.tft();
+    JWPLC_TFTClass &tft = JWPLC_Display.tft();
     tft.fillRect(x, y, 28, 24, COLOR_BACKGROUND);
     tft.drawRect(x, y, 28, 24, COLOR_BORDER);
     tft.setTextWrap(false);

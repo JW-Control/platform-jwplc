@@ -1,0 +1,48 @@
+# Alpha12 — Gate final Arduino CLI post-freeze
+
+Fecha: 2026-10-05
+
+## Identidad
+
+```text
+BRANCH=v2.1.0-alpha.12/feature/modbus-tcp
+HEAD=38c9d8cf30f77ef51e060b6e00d84c219beb0bc7
+FQBN=jwplc_local:esp32:jwplcbasic
+```
+
+## Higiene de repositorio
+
+```text
+ENTRY_DIRTY_COUNT=0
+UNMERGED_INDEX_COUNT=0
+CONFLICT_MARKER_COUNT=0
+FINAL_DIRTY_COUNT=0
+FINAL_REPO_HYGIENE=PASS
+```
+
+## Compilaciones
+
+```text
+EMPTY_AUTOLOAD=PASS EXIT=0 WARNINGS=0 ERRORS=0
+MODBUS_TCP_SERVER=PASS EXIT=0 WARNINGS=0 ERRORS=0
+MODBUS_TCP_CLIENT=PASS EXIT=0 WARNINGS=0 ERRORS=0
+MODBUS_RTU_SLAVE=PASS EXIT=0 WARNINGS=0 ERRORS=0
+MODBUS_RTU_MASTER_READ=PASS EXIT=0 WARNINGS=0 ERRORS=0
+MODBUS_RTU_MASTER_WRITE=PASS EXIT=0 WARNINGS=0 ERRORS=0
+
+PASS_COUNT=6
+FAIL_COUNT=0
+FINAL_ARDUINO_CLI_GATE=PASS
+```
+
+## Clasificación
+
+```text
+PRODUCT_FAILURE=NO
+PACKAGE_COMPILE_REGRESSION=NO
+REPO_HYGIENE=PASS
+FINAL_ARDUINO_CLI_GATE=PASS
+```
+
+Este gate se ejecutó después de la corrección de autocontención, regeneración
+de `libJW_FRAM.a`, revalidación P7 y benchmark final post-autocontención.

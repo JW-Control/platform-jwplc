@@ -202,7 +202,7 @@ void RuntimeUIFBDMapV14::drawCompactDetailHeader(bool force)
     line2[0] = '\0';
   }
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.fillRect(DETAIL_HEADER_X_V14,
                3,
                static_cast<int16_t>(DETAIL_HEADER_COLUMNS_V14) * 6,
@@ -273,7 +273,7 @@ void RuntimeUIFBDMapV14::drawExistingElapsed(bool force)
     return;
   }
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.fillRect(22, 70, 276, 12, COLOR_PANEL);
   drawFieldLabel(tft,
                  22,
@@ -292,7 +292,7 @@ void RuntimeUIFBDMapV14::drawExistingElapsed(bool force)
 
 void RuntimeUIFBDMapV14::drawExistingLogoScreen()
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   invalidateExistingElapsedCache();
   invalidateCompactDetailHeader();
 
@@ -421,7 +421,7 @@ void RuntimeUIFBDMapV14::drawDetailLogoOverlay(bool force)
     return;
   }
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.setTextWrap(false);
   tft.setTextSize(1);
 

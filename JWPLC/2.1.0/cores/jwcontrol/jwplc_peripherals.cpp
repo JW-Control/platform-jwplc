@@ -167,6 +167,13 @@ void jwplcEthernetTickCallback(void)
 {
 }
 
+#if JWPLC_HAS_SD
+void jwplcDataLogTickCallback(void) __attribute__((weak));
+void jwplcDataLogTickCallback(void)
+{
+}
+#endif
+
 const JWPLC_IOState *jwplcGetIOState(void)
 {
     return &g_ioState;
