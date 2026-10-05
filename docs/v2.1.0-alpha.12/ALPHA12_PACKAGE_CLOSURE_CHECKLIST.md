@@ -309,12 +309,15 @@ gates finales.
   - `UNMERGED_INDEX_COUNT=0`, `CONFLICT_MARKER_COUNT=0`.
   - `FINAL_DIRTY_COUNT=0`, `FINAL_REPO_HYGIENE=PASS`.
   - `FINAL_ARDUINO_CLI_GATE=PASS`.
-- [ ] Arduino IDE final del HEAD congelado.
+- [x] Arduino IDE final del HEAD congelado.
   - PASS en Arduino IDE 2.3.4 con board `JWPLC Basic`.
   - Sketch: `06_alpha4_local_physical_gate`.
-  - Flash: 439617 / 4063232 bytes (10%).
-  - RAM global: 29692 / 327680 bytes (9%).
-  - Alcance reducido cumplido: compilación/Verify únicamente; upload no requerido por scope.
+  - Verify/Compile únicamente; upload no requerido por scope.
+  - `Adafruit BusIO` seleccionado desde `JWPLC/2.1.0/libraries/Adafruit_BusIO`.
+  - Copia externa de sketchbook no seleccionada.
+  - Flash: 431957 / 4063232 bytes (10%).
+  - RAM global: 29396 bytes (8%); libres 298284 bytes.
+  - Autocontención Arduino IDE confirmada post-freeze.
 - [x] upload físico final.
   - NOT_REQUIRED_BY_SCOPE: no se repite upload para periféricos ya validados físicamente; evidencia heredada Alpha10/Alpha11.
 - [x] normal autoload: Display/RTC/FRAM/SD/buttons/DI/DO/Ethernet/RS485.
