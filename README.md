@@ -1,6 +1,6 @@
 # JWPLC Platform for Arduino IDE
 
-<!-- JWPLC_RELEASE_VERSION: 2.1.0-alpha.11 -->
+<!-- JWPLC_RELEASE_VERSION: 2.1.0-alpha.12 -->
 
 Package personalizado de **JW Control** para programar **JWPLC Basic** desde
 Arduino IDE y Arduino CLI.
@@ -23,9 +23,9 @@ No se retiran periféricos del autoload normal sólo para reducir tiempos de
 compilación.
 
 > **Nota de publicación:** el marcador oculto
-> `JWPLC_RELEASE_VERSION: 2.1.0-alpha.11` sigue apuntando a la última
-> PreRelease publicada. El workflow de Auto Release lo consume, por lo que no
-> debe cambiarse a Alpha12 hasta el cierre/merge de publicación.
+> `JWPLC_RELEASE_VERSION: 2.1.0-alpha.12` queda preparado para el PR de cierre.
+> El workflow de Auto Release lo consume después del merge; este cambio no
+> implica que Alpha12 ya esté publicada.
 
 ---
 
@@ -35,7 +35,7 @@ compilación.
 |---|---|---|
 | Estable | `v2.0.0` | Release pública estable |
 | Dev / PreRelease publicada | `v2.1.0-alpha.11` | Publicada y validada |
-| En desarrollo | `v2.1.0-alpha.12` | Cierre técnico/package en curso |
+| Release candidate | `v2.1.0-alpha.12` | Cierre técnico PASS; pendiente PR/merge/publicación |
 
 Alpha11 permanece como última versión publicada:
 
@@ -51,14 +51,19 @@ ALPHA11_PUBLISHED_RUNTIME=PASS
 Estado actual de Alpha12:
 
 ```text
-P7A_GLOBAL_PRECOMPILED_ARCHIVE_AUDIT=PASS_CLOSED
-P7B_RELEASE_LIKE_PRECOMPILED_ACTIVATION=PASS_CLOSED
+AUTOCONTAINMENT=PASS
+P7_POST_AUTOCONTAINMENT=PASS
 PRECOMPILED_FREEZE=PASS
-FINAL_BUILD_SPEED_BENCHMARK=PASS_CLOSED
-FINAL_CLI_IDE_UPLOAD_GATES=NEXT
+FINAL_BUILD_SPEED_BENCHMARK=PASS
+FINAL_ARDUINO_CLI_GATE=PASS
+FINAL_ARDUINO_IDE_GATE=PASS
+PHYSICAL_RETEST=NOT_REQUIRED_BY_SCOPE
+ALPHA12_TECHNICAL_CLOSURE=PASS
+ALPHA12_RELEASE_PUBLICATION=PENDING
 ```
 
-Alpha12 todavía **no está publicada**.
+Alpha12 todavía **no está publicada**. El siguiente paso es el PR técnico contra
+`release/v2.1.x`.
 
 ---
 
@@ -130,7 +135,7 @@ JWPLC_ModbusTCP
 Incluye:
 
 - Server cooperativo con FC01, FC02, FC03, FC04, FC05, FC06, FC15 y FC16;
-- Client cooperativo con FC03 y FC06 disponibles en la implementación actual;
+- Client cooperativo con FC01, FC02, FC03, FC04, FC05, FC06, FC15 y FC16;
 - recuperación de sesión;
 - coexistencia con RTU/UDP/Display;
 - integración con el Ethernet autoload del JWPLC.
@@ -557,6 +562,7 @@ Artifacts principales:
 | `libJW_SD.a` | 362316 | `1b9619ba37295782ade1edc6f06439a38e7e534fc08f5b05757c9af7a645acc0` |
 | `libJWPLC_Display.a` | 941228 | `c960d718433e29a40e3cc55bc745c9a2e121ee1ee598ec72c04872327592dc02` |
 | `libJWPLC_TFT.a` | 1091098 | `5d860a131811dd9a7eb6fa55f5674b1d78b0de7dfaf8748ce18a60ceed2d3738` |
+| `libJW_FRAM.a` | 126440 | `b8734763bfa1287167feda72a5c9b30df97340d41ca0c3fd000321e218632ceb` |
 
 Inventario completo:
 
@@ -568,51 +574,57 @@ docs/v2.1.0-alpha.12/ALPHA12_PRECOMPILED_FREEZE_20261004.md
 
 # Benchmark final Alpha12
 
-Ejecutado en la PC principal:
+Medición final post-autocontención:
 
 ```text
-Host        = PC-MASTER-RACE
-CPU         = Intel Core i5-13400F
-Logical CPU = 16
-RAM         = ~23.8 GiB
-Arduino CLI = 1.0.2
-Jobs        = 0
+RESULT_ROOT=tools/alpha12/results/final_build_speed_benchmark/20261005_123241
+JOBS=0
+UPLOADS=SKIPPED
+RESULT_ROW_COUNT=12
+PRECOMPILED_FREEZE=PASS
 ```
 
 ## JWPLC Basic
 
 | Fase | Tiempo | Compiladores |
 |---|---:|---:|
-| managed cold | 66.983 s | 20 |
-| managed warm no-change | 18.004 s | 1 |
-| managed warm touch | 17.988 s | 1 |
-| explicit cold | 66.986 s | 20 |
-| explicit warm no-change | 17.893 s | 1 |
-| explicit warm touch | 17.663 s | 1 |
+| managed cold | 69.528 s | 16 |
+| managed warm no-change | 17.856 s | 1 |
+| managed warm touch | 17.799 s | 1 |
+| explicit cold | 59.336 s | 16 |
+| explicit warm no-change | 17.781 s | 1 |
+| explicit warm touch | 17.751 s | 1 |
 
 ## JWPLC Basic Core
 
 | Fase | Tiempo | Compiladores |
 |---|---:|---:|
-| managed cold | 75.242 s | 83 |
-| managed warm no-change | 17.277 s | 1 |
-| managed warm touch | 17.143 s | 1 |
-| explicit cold | 71.672 s | 83 |
-| explicit warm no-change | 17.282 s | 1 |
-| explicit warm touch | 17.215 s | 1 |
+| managed cold | 67.009 s | 79 |
+| managed warm no-change | 17.013 s | 1 |
+| managed warm touch | 17.037 s | 1 |
+| explicit cold | 63.289 s | 79 |
+| explicit warm no-change | 17.003 s | 1 |
+| explicit warm touch | 17.196 s | 1 |
 
-Conclusión:
+Respecto al rerun post-P8 anterior:
 
 ```text
-ALPHA12_FINAL_BUILD_SPEED_BENCHMARK=PASS
-ALPHA12_WARM_BEST_FORMAL_SERIES=YES
+BASIC_COLD_COMPILER_INVOCATIONS=20 -> 16
+CORE_COLD_COMPILER_INVOCATIONS=83 -> 79
+COMBINED_COLD_AVG_DELTA=-7.94%
+COMBINED_WARM_AVG_DELTA=-2.53%
 AUTOLOAD_PERIPHERALS_REMOVED=NO
 ```
 
-Comparación:
+La reducción de cuatro translation units en ambos targets es estructural y
+proviene de retirar del package activo los backends gráficos Adafruit legacy,
+manteniendo `JWPLC_TFT` como backend del Display. Los tiempos individuales
+siguen sujetos al ruido normal del host.
+
+Evidencia:
 
 ```text
-docs/v2.1.0-alpha.12/ALPHA12_BUILD_SPEED_COMPARISON_20261004.md
+docs/v2.1.0-alpha.12/ALPHA12_FINAL_BUILD_SPEED_POST_AUTOCONTAINMENT_20261005.md
 ```
 
 ---
@@ -695,6 +707,8 @@ docs/v2.1.0-alpha.12/ALPHA12_PACKAGE_INVENTORY_20261003.md
 docs/v2.1.0-alpha.12/ALPHA12_PACKAGE_CLOSURE_CHECKLIST.md
 docs/v2.1.0-alpha.12/ALPHA12_PRECOMPILED_FREEZE_20261004.md
 docs/v2.1.0-alpha.12/ALPHA12_BUILD_SPEED_COMPARISON_20261004.md
+docs/v2.1.0-alpha.12/ALPHA12_TECHNICAL_CONCLUSION_20261005.md
+docs/v2.1.0-alpha.12/PRE_RELEASE.md
 ```
 
 ---
