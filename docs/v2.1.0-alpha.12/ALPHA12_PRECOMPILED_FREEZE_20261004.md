@@ -79,10 +79,8 @@ No se retiran periféricos del autoload normal para ganar velocidad.
 | `libJWPLC_Display.a` | REGENERATED | 941228 | `c960d718433e29a40e3cc55bc745c9a2e121ee1ee598ec72c04872327592dc02` |
 | `libJWPLC_TFT.a` | REQUALIFIED | 1091098 | `5d860a131811dd9a7eb6fa55f5674b1d78b0de7dfaf8748ce18a60ceed2d3738` |
 | `libAdafruit_BusIO.a` | RETAINED | 209912 | `4ef73785e114afb14d69b77701defa2b8f07c9a3b1c561cef974824d471369bf` |
-| `libAdafruit_GFX_Library.a` | RETAINED | 548540 | `1a2f8c805ee31c83ed673fa6233d46a872d16fad3b2c333d1abd742c75d8f505` |
-| `libAdafruit_ST7735_and_ST7789_Library.a` | RETAINED | 241924 | `f22e578b44cdd48b51831b8ed151ad797d716f63da904af4fd944cb38a672710` |
 | `libFS.a` | RETAINED | 415104 | `cbea33c505d28e9b3a6a2e3abddea6cb4c384b8be919ed456c00ed0d8a31c327` |
-| `libJW_FRAM.a` | RETAINED | 126304 | `5f40ae66b0100bbc449a33af310d51befdcea8d48aa194fdb57d2cb0d47b24a5` |
+| `libJW_FRAM.a` | REGENERATED | 126440 | `b8734763bfa1287167feda72a5c9b30df97340d41ca0c3fd000321e218632ceb` |
 | `libJW_MatrixButtons.a` | RETAINED | 129506 | `55be8d7791ddad79d613dbb199c10a504de0f20cdf3330b6679a35dd64e25c81` |
 | `libSD.a` | RETAINED | 275694 | `45d1d9b27701403ce7d380838ad723194a3730db5f2859b90d0d01d75fa040fd` |
 | `libWire.a` | RETAINED | 166980 | `a864851ebfcb8cd3fee55d3d7834b81254ad4ebe0d75f6ed9ebc846355f9c4aa` |
@@ -103,6 +101,26 @@ JWPLC_ModbusRTU=SELECTED
 SPI=SELECTED
 SD=SELECTED
 ```
+
+
+## Revalidación post-autocontención — 2026-10-05
+
+Tras retirar las librerías gráficas legacy y forzar el discovery de BusIO bundled desde JW_FRAM:
+
+```text
+AUDITED_ARCHIVE_COUNT=12
+JW_FRAM_CLASS=REGENERATED
+JW_FRAM_SHA256=b8734763bfa1287167feda72a5c9b30df97340d41ca0c3fd000321e218632ceb
+JW_FRAM_SOURCE_FRESHNESS_PASS=True
+FAILURE_COUNT=0
+P7A_POST_FREEZE_GLOBAL_AUDIT=PASS
+P7B_RELEASE_LIKE_ACTIVATION=PASS
+NORMAL_AUTOLOAD_COMPLETE=PASS
+PRECOMPILED_FREEZE=PASS
+```
+
+El package content freeze efectivo queda en `f060d0d88c57b473d94b55955b265b58d2f9fe1f`.
+El HEAD `909858cd422914593f25bf67782e8bc16202ffc7` corresponde a la revalidación P7 sobre ese contenido.
 
 ## Regla del freeze
 
