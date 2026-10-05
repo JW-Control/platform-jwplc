@@ -41,9 +41,11 @@ ALPHA12_PACKAGE_CLOSURE=IN_PROGRESS
 - [x] listar APIs Ethernet/W5500 aditivas expuestas.
 - [x] listar APIs UDP fast que sí son soportadas.
 - [x] separar APIs internas/qualification de APIs de usuario.
-- [ ] confirmar backward compatibility.
-- [x] decidir/documentar compatibilidad raw TFT: `Adafruit_ST7789&` explícito -> `JWPLC_TFTClass&`.
-  - Estado: consumers internos/oficiales migrados; compatibilidad de sketches externos con tipo explícito sigue siendo decisión de release.
+- [x] confirmar backward compatibility y documentar excepción aceptada.
+  - APIs de uso normal preservadas.
+  - Excepción aceptada antes de adopción externa: `Adafruit_ST7789&` explícito -> `JWPLC_TFTClass&`.
+  - Patrón recomendado compatible: `auto &tft = JWPLC_Display.tft();`.
+  - No reintroducir backend Adafruit sólo para preservar el tipo legacy.
 
 ## 4. Decisiones técnicas finales
 
@@ -59,7 +61,12 @@ ALPHA12_PACKAGE_CLOSURE=IN_PROGRESS
 - [x] coexistencia TCP250 + RTU800 + UDP1M LR600 confirmada.
 - [x] RTU100Hz = contrato operacional, no hard real-time.
 - [x] decisión final sobre policy de precompilación por librería.
-- [ ] registrar cualquier decisión aún diferida explícitamente.
+- [x] registrar cualquier decisión aún diferida explícitamente.
+  - OpenPLC runtime autoload: NO.
+  - OTA: NOT_DEFINED.
+  - configuración Flash universal final: PENDING.
+  - bootloader.bin definitivo: NO hasta fijar configuración.
+  - app-only: herramienta de desarrollo validada, no default.
 
 ## 5. README/library.properties
 
@@ -94,7 +101,10 @@ ALPHA12_PACKAGE_CLOSURE=IN_PROGRESS
 
 ## 7. Precompilados
 
-- [ ] congelar source final.
+- [x] congelar source final.
+  - PACKAGE_SOURCE_HEAD=`ab4379a177492ee851c1afccf5398e649c55dd4f`.
+  - Desde ese commit hasta el cierre de P8 sólo cambiaron `docs/` y `tools/`.
+  - Cualquier cambio posterior bajo `JWPLC/2.1.0/` invalida este freeze.
 - [x] bloquear regeneración de Display/TFT hasta PASS del gate source-first.
 - [x] determinar qué libraries/core requieren regeneración.
 - [x] P1: regenerar y verificar `core.a` actual.
