@@ -396,8 +396,6 @@ try {
         throw "A12_JW_FRAM_ARCHIVE_MEMBER_PARITY_FAILED"
     }
 
-    Copy-Item -LiteralPath $candidateArchive -Destination (Join-Path $candidateArchiveDir "libJW_FRAM.a") -Force
-
     $candidateSha = Get-Sha256Lower $candidateArchive
     $candidateBytes = (Get-Item -LiteralPath $candidateArchive).Length
     $archiveChanged = $candidateSha -ne $oldSha
