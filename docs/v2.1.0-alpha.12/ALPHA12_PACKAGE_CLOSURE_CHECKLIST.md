@@ -302,7 +302,13 @@ gates finales.
 - [x] coexistencia final >=600 s.
 - [x] Arduino IDE físico histórico post-H3E.
 - [x] Arduino CLI final del HEAD congelado.
-  - Evidencia: 6/6 compilaciones PASS, warnings=0, errors=0, autoload normal PASS.
+  - Revalidado post-autocontención/post-JW_FRAM en HEAD `38c9d8cf30f77ef51e060b6e00d84c219beb0bc7`.
+  - 6/6 compilaciones PASS.
+  - `EMPTY_AUTOLOAD`, Modbus TCP Server/Client y Modbus RTU Slave/Master Read/Master Write = PASS.
+  - warnings=0, errors=0.
+  - `UNMERGED_INDEX_COUNT=0`, `CONFLICT_MARKER_COUNT=0`.
+  - `FINAL_DIRTY_COUNT=0`, `FINAL_REPO_HYGIENE=PASS`.
+  - `FINAL_ARDUINO_CLI_GATE=PASS`.
 - [ ] Arduino IDE final del HEAD congelado.
   - PASS en Arduino IDE 2.3.4 con board `JWPLC Basic`.
   - Sketch: `06_alpha4_local_physical_gate`.
