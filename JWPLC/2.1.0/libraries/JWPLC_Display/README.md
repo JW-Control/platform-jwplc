@@ -922,6 +922,18 @@ La API histórica `JWPLCDisplay::` continúa existiendo para compatibilidad con
 sketches anteriores, pero no debe usarse como punto de partida para código
 nuevo.
 
+También se conservan los controles históricos del LED ERR:
+
+```cpp
+JWPLC_Display.setErrLed(true);
+
+bool err =
+    JWPLC_Display.errLed();
+```
+
+Para código nuevo se recomienda `setErrCode()`, porque además de indicar que
+existe un error permite mostrar un código identificable.
+
 El tipo gráfico público actual es `JWPLC_TFTClass&`. Código antiguo que
 declaraba explícitamente `Adafruit_ST7789&` debe migrarse.
 
