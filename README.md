@@ -129,10 +129,8 @@ JWPLC_ModbusTCP
 
 Incluye:
 
-- Server cooperativo;
-- Client cooperativo;
-- FC01, FC02, FC03, FC04;
-- FC05, FC06, FC15, FC16;
+- Server cooperativo con FC01, FC02, FC03, FC04, FC05, FC06, FC15 y FC16;
+- Client cooperativo con FC03 y FC06 disponibles en la implementación actual;
 - recuperación de sesión;
 - coexistencia con RTU/UDP/Display;
 - integración con el Ethernet autoload del JWPLC.
