@@ -242,6 +242,10 @@ ALPHA12_FINAL_BUILD_SPEED_BENCHMARK=PASS
 ALPHA12_BUILD_SPEED_TABLE=RECORDED
 RESULT_ROW_COUNT=12
 PRECOMPILED_FREEZE=PASS
+FINAL_BUILD_SPEED_BENCHMARK_POST_AUTOCONTAINMENT=PASS
+BUILD_STRUCTURE_IMPROVED=YES
+BASIC_COLD_TU_DELTA=-4
+CORE_COLD_TU_DELTA=-4
 ```
 
 Rerun obligatorio post-P8:
@@ -283,8 +287,14 @@ gates finales.
   - `ALPHA12_P7_POST_P8_REVALIDATION=PASS`.
   - `AUDITED_ARCHIVE_COUNT=12`.
   - `JW_FRAM=REGENERATED`, SHA-256 `b8734763bfa1287167feda72a5c9b30df97340d41ca0c3fd000321e218632ceb`.
-- [ ] repetir benchmark final post-autocontención.
-  - Requerido por la regla de freeze porque cambió `libJW_FRAM.a`, aunque no se espera cambio de TU count.
+- [x] repetir benchmark final post-autocontención.
+  - `ALPHA12_FINAL_BUILD_SPEED_BENCHMARK=PASS`.
+  - 12/12 filas válidas, `FINAL_TRACKED_DIRTY_COUNT=0`.
+  - Basic cold compiler invocations: 20 -> 16.
+  - Core cold compiler invocations: 83 -> 79.
+  - Mejora estructural confirmada: 4 translation units menos en ambos targets.
+  - Combined cold avg: -7.94 %; combined warm avg: -2.53 %.
+  - Evidencia: `ALPHA12_FINAL_BUILD_SPEED_POST_AUTOCONTAINMENT_20261005.md`.
 
 ## 9. Gates finales
 
