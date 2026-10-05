@@ -621,6 +621,116 @@ static void drawRectClip(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t co
   drawVLineClip(x + w - 1, y, h, color);
 }
 
+static void swapInt16(int16_t &a, int16_t &b) {
+  int16_t tmp = a;
+  a = b;
+  b = tmp;
+}
+
+static void drawTriangleCompat(
+  int16_t x0, int16_t y0,
+  int16_t x1, int16_t y1,
+  int16_t x2, int16_t y2,
+  uint16_t color) {
+  auto &tft = JWPLC_Display.tft();
+
+  tft.drawLine(x0, y0, x1, y1, color);
+  tft.drawLine(x1, y1, x2, y2, color);
+  tft.drawLine(x2, y2, x0, y0, color);
+}
+
+static void fillTriangleCompat(
+  int16_t x0, int16_t y0,
+  int16_t x1, int16_t y1,
+  int16_t x2, int16_t y2,
+  uint16_t color) {
+  if (y0 > y1) {
+    swapInt16(y0, y1);
+    swapInt16(x0, x1);
+  }
+
+  if (y1 > y2) {
+    swapInt16(y1, y2);
+    swapInt16(x1, x2);
+  }
+
+  if (y0 > y1) {
+    swapInt16(y0, y1);
+    swapInt16(x0, x1);
+  }
+
+  if (y0 == y2) {
+    int16_t minX = x0;
+    int16_t maxX = x0;
+
+    if (x1 < minX) minX = x1;
+    if (x2 < minX) minX = x2;
+    if (x1 > maxX) maxX = x1;
+    if (x2 > maxX) maxX = x2;
+
+    drawHLineClip(
+      minX,
+      y0,
+      maxX - minX + 1,
+      color);
+
+    return;
+  }
+
+  auto edgeX = [](
+    int16_t xa,
+    int16_t ya,
+    int16_t xb,
+    int16_t yb,
+    int16_t y) -> int16_t {
+    if (ya == yb) {
+      return xa;
+    }
+
+    int32_t numerator =
+      (int32_t)(xb - xa) *
+      (int32_t)(y - ya);
+
+    return (int16_t)(
+      xa +
+      numerator / (yb - ya));
+  };
+
+  for (int16_t y = y0; y <= y2; ++y) {
+    int16_t xa =
+      edgeX(
+        x0, y0,
+        x2, y2,
+        y);
+
+    int16_t xb;
+
+    if (y < y1) {
+      xb =
+        edgeX(
+          x0, y0,
+          x1, y1,
+          y);
+    } else {
+      xb =
+        edgeX(
+          x1, y1,
+          x2, y2,
+          y);
+    }
+
+    if (xa > xb) {
+      swapInt16(xa, xb);
+    }
+
+    drawHLineClip(
+      xa,
+      y,
+      xb - xa + 1,
+      color);
+  }
+}
+
 // =====================================================
 // FPS / Header
 // =====================================================
@@ -884,13 +994,13 @@ static void drawBirdAt(int16_t y) {
   }
 
   // Cola pequena
-  tft.fillTriangle(
+  fillTriangleCompat(
     x - BIRD_DRAW_R + 1, y,
     x - BIRD_DRAW_R - 4, y - 3,
     x - BIRD_DRAW_R - 4, y + 3,
     COLOR_BEAK);
 
-  tft.drawTriangle(
+  drawTriangleCompat(
     x - BIRD_DRAW_R + 1, y,
     x - BIRD_DRAW_R - 4, y - 3,
     x - BIRD_DRAW_R - 4, y + 3,
@@ -901,26 +1011,26 @@ static void drawBirdAt(int16_t y) {
   tft.drawCircle(x, y, BIRD_DRAW_R, COLOR_BIRD_B);
 
   // Ala centrada dentro del cuerpo
-  tft.fillTriangle(
+  fillTriangleCompat(
     x - 2, y,
     x - 6, y + wingOffsetY,
     x - 3, y + 5,
     COLOR_WING);
 
-  tft.drawTriangle(
+  drawTriangleCompat(
     x - 2, y,
     x - 6, y + wingOffsetY,
     x - 3, y + 5,
     COLOR_BIRD_B);
 
   // Pico pequeno
-  tft.fillTriangle(
+  fillTriangleCompat(
     x + BIRD_DRAW_R - 1, y - 2,
     x + BIRD_DRAW_R + 6, y,
     x + BIRD_DRAW_R - 1, y + 3,
     COLOR_BEAK);
 
-  tft.drawTriangle(
+  drawTriangleCompat(
     x + BIRD_DRAW_R - 1, y - 2,
     x + BIRD_DRAW_R + 6, y,
     x + BIRD_DRAW_R - 1, y + 3,
