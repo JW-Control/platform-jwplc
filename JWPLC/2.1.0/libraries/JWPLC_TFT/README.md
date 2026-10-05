@@ -1,36 +1,48 @@
 # JWPLC_TFT
 
-API de dibujo directo para la TFT integrada del **JWPLC Basic**.
+`JWPLC_TFT` es la API de dibujo directo de la pantalla integrada del
+**JWPLC Basic**.
 
-`JWPLC_TFT` permite dibujar texto, líneas, rectángulos, círculos y píxeles sin
-depender públicamente de TFT_eSPI ni de Adafruit.
+Úsala cuando necesitas colocar texto, líneas, rectángulos, círculos o píxeles
+manualmente. Para una HMI industrial normal, páginas y Fields, normalmente es
+más sencillo usar `JWPLC_Display`.
 
-Para interfaces HMI normales se recomienda usar **JWPLC_Display**. Use
-`JWPLC_TFT` cuando necesite dibujo directo o una pantalla personalizada.
+## ¿Para qué sirve?
 
----
+Con `JWPLC_TFT` puedes:
 
-## ¿JWPLC_Display o JWPLC_TFT?
+- limpiar la pantalla;
+- dibujar figuras geométricas;
+- mostrar texto en posiciones libres;
+- medir texto para centrarlo;
+- crear indicadores gráficos personalizados;
+- construir una interfaz que no encaja en los Fields de `JWPLC_Display`.
 
-### Use JWPLC_Display cuando quiera
+Es una API de usuario **avanzada**, pero no requiere conocer el controlador
+físico de la TFT.
 
-- páginas HMI;
-- campos TEXT / VALUE / BOOL / BAR;
-- HMI Designer;
-- modo IDLE;
-- indicadores RUN / ERR / BUS / ETH;
-- refresco y dirty-cache gestionados por el package.
+## Qué hace automáticamente el JWPLC
 
-### Use JWPLC_TFT cuando quiera
+No necesitas:
 
-- dibujar primitivas manualmente;
-- posicionar texto libre;
-- crear una interfaz gráfica propia;
-- acceder al renderer desde `JWPLC_Display.tft()`.
+- crear un objeto ST7789;
+- configurar pines;
+- elegir frecuencia del bus;
+- controlar el chip select;
+- instalar o configurar otro backend gráfico.
 
----
+La pantalla ya forma parte del JWPLC.
+
+Si usas `JWPLC_Display`, puedes obtener el mismo objeto gráfico con:
+
+```cpp
+auto &tft =
+    JWPLC_Display.tft();
+```
 
 ## Inicio rápido
+
+Este ejemplo muestra un título y un círculo.
 
 ```cpp
 #include <JWPLC_TFT.h>
@@ -39,13 +51,25 @@ void setup()
 {
     JWPLC_TFT.begin();
 
-    JWPLC_TFT.fillScreen(JWPLC_TFT_BLACK);
+    JWPLC_TFT.fillScreen(
+        JWPLC_TFT_BLACK);
 
-    JWPLC_TFT.setCursor(10, 10);
-    JWPLC_TFT.setTextColor(JWPLC_TFT_WHITE);
+    JWPLC_TFT.setCursor(
+        20, 20);
+
+    JWPLC_TFT.setTextColor(
+        JWPLC_TFT_WHITE);
+
     JWPLC_TFT.setTextSize(2);
 
-    JWPLC_TFT.println("Hola JWPLC");
+    JWPLC_TFT.println(
+        "Hola JWPLC");
+
+    JWPLC_TFT.fillCircle(
+        160,
+        100,
+        20,
+        JWPLC_TFT_GREEN);
 }
 
 void loop()
@@ -53,44 +77,32 @@ void loop()
 }
 ```
 
-`begin()` es idempotente: puede llamarse aunque el runtime ya haya
-inicializado la pantalla.
+## Conceptos básicos
 
----
+### Coordenadas
 
-## Estado y dimensiones
-
-```cpp
-JWPLC_TFT.begin();
-JWPLC_TFT.isReady();
-
-JWPLC_TFT.width();
-JWPLC_TFT.height();
-JWPLC_TFT.rotation();
-```
-
-En JWPLC Basic v2 la geometría lógica normal es:
+La esquina superior izquierda es:
 
 ```text
-320 x 170
+x = 0
+y = 0
 ```
 
-También están disponibles:
+- `x` aumenta hacia la derecha;
+- `y` aumenta hacia abajo.
+
+Puedes consultar el tamaño lógico actual con:
 
 ```cpp
-JWPLC_TFT.panel();
-JWPLC_TFT.panelInfo();
+JWPLC_TFT.width();
+JWPLC_TFT.height();
 ```
 
-para consultar información del perfil activo.
+### Colores
 
----
+La librería incluye colores RGB565 listos para usar:
 
-## Colores básicos
-
-Constantes RGB565 incluidas:
-
-```cpp
+```text
 JWPLC_TFT_BLACK
 JWPLC_TFT_WHITE
 JWPLC_TFT_RED
@@ -104,72 +116,357 @@ JWPLC_TFT_MAGENTA
 Ejemplo:
 
 ```cpp
-JWPLC_TFT.fillScreen(JWPLC_TFT_BLACK);
-
-JWPLC_TFT.fillRect(
-    10, 10,
-    80, 40,
+JWPLC_TFT.fillScreen(
     JWPLC_TFT_BLUE);
 ```
 
-También puede usarse cualquier valor RGB565 propio:
+### Relleno y contorno
 
-```cpp
-uint16_t myColor = 0x7BEF;
+Muchas figuras tienen dos variantes:
 
-JWPLC_TFT.fillScreen(myColor);
+```text
+fill...  -> figura rellena
+draw...  -> sólo contorno
 ```
 
----
+Por ejemplo:
 
-## Limpiar o rellenar la pantalla
+```cpp
+JWPLC_TFT.fillCircle(...);
+JWPLC_TFT.drawCircle(...);
+```
+
+### Texto
+
+Antes de imprimir puedes elegir:
+
+- posición;
+- tamaño;
+- color.
+
+```cpp
+JWPLC_TFT.setCursor(20, 20);
+JWPLC_TFT.setTextSize(2);
+JWPLC_TFT.setTextColor(JWPLC_TFT_WHITE);
+
+JWPLC_TFT.println("RUN");
+```
+
+## Ejemplo 1 — Básico: texto y estado
+
+Este ejemplo muestra `RUN` o `STOP` según `I0_0`.
+
+```cpp
+#include <JWPLC_TFT.h>
+
+bool ultimoEstado = false;
+bool primeraVez = true;
+
+void setup()
+{
+    pinMode(I0_0, INPUT);
+
+    JWPLC_TFT.begin();
+
+    JWPLC_TFT.fillScreen(
+        JWPLC_TFT_BLACK);
+}
+
+void loop()
+{
+    const bool estado =
+        digitalRead(I0_0);
+
+    if (primeraVez ||
+        estado != ultimoEstado)
+    {
+        primeraVez = false;
+        ultimoEstado = estado;
+
+        JWPLC_TFT.fillRect(
+            20, 40,
+            180, 50,
+            JWPLC_TFT_BLACK);
+
+        JWPLC_TFT.setCursor(
+            20, 50);
+
+        JWPLC_TFT.setTextSize(3);
+
+        JWPLC_TFT.setTextColor(
+            estado
+                ? JWPLC_TFT_GREEN
+                : JWPLC_TFT_RED);
+
+        JWPLC_TFT.println(
+            estado ? "RUN" : "STOP");
+    }
+}
+```
+
+Sólo redibujamos cuando cambia el estado.
+
+## Ejemplo 2 — Intermedio: figuras e indicador de nivel
+
+```cpp
+#include <JWPLC_TFT.h>
+
+uint8_t nivel = 0;
+uint32_t ultimaActualizacion = 0;
+
+void dibujarNivel(uint8_t valor)
+{
+    JWPLC_TFT.drawRect(
+        20, 80,
+        200, 30,
+        JWPLC_TFT_WHITE);
+
+    JWPLC_TFT.fillRect(
+        22, 82,
+        196, 26,
+        JWPLC_TFT_BLACK);
+
+    const int16_t ancho =
+        (196 * valor) / 100;
+
+    JWPLC_TFT.fillRect(
+        22, 82,
+        ancho, 26,
+        JWPLC_TFT_GREEN);
+}
+
+void setup()
+{
+    JWPLC_TFT.begin();
+
+    JWPLC_TFT.fillScreen(
+        JWPLC_TFT_BLACK);
+
+    JWPLC_TFT.setCursor(
+        20, 30);
+
+    JWPLC_TFT.setTextColor(
+        JWPLC_TFT_WHITE);
+
+    JWPLC_TFT.setTextSize(2);
+
+    JWPLC_TFT.println("Nivel");
+
+    dibujarNivel(nivel);
+}
+
+void loop()
+{
+    if (millis() - ultimaActualizacion >= 500)
+    {
+        ultimaActualizacion = millis();
+
+        nivel += 10;
+
+        if (nivel > 100)
+        {
+            nivel = 0;
+        }
+
+        dibujarNivel(nivel);
+    }
+}
+```
+
+## Ejemplo 3 — Aplicación real: pequeño panel de proceso
+
+El ejemplo muestra:
+
+- entrada I0_0;
+- salida Q0_0;
+- un indicador circular;
+- un contador de segundos.
+
+```cpp
+#include <JWPLC_TFT.h>
+
+bool ultimoInput = false;
+bool primeraVez = true;
+uint32_t ultimoSegundo = 0;
+
+void dibujarEstado(bool estado)
+{
+    JWPLC_TFT.fillCircle(
+        40, 90,
+        15,
+        estado
+            ? JWPLC_TFT_GREEN
+            : JWPLC_TFT_RED);
+
+    JWPLC_TFT.fillRect(
+        70, 75,
+        120, 30,
+        JWPLC_TFT_BLACK);
+
+    JWPLC_TFT.setCursor(
+        70, 82);
+
+    JWPLC_TFT.setTextColor(
+        JWPLC_TFT_WHITE);
+
+    JWPLC_TFT.setTextSize(2);
+
+    JWPLC_TFT.print(
+        estado ? "ACTIVO" : "PARADO");
+}
+
+void setup()
+{
+    pinMode(I0_0, INPUT);
+    pinMode(Q0_0, OUTPUT);
+
+    JWPLC_TFT.begin();
+
+    JWPLC_TFT.fillScreen(
+        JWPLC_TFT_BLACK);
+
+    JWPLC_TFT.setCursor(
+        20, 20);
+
+    JWPLC_TFT.setTextColor(
+        JWPLC_TFT_CYAN);
+
+    JWPLC_TFT.setTextSize(2);
+
+    JWPLC_TFT.println(
+        "Panel de proceso");
+}
+
+void loop()
+{
+    const bool entrada =
+        digitalRead(I0_0);
+
+    digitalWrite(
+        Q0_0,
+        entrada ? HIGH : LOW);
+
+    if (primeraVez ||
+        entrada != ultimoInput)
+    {
+        primeraVez = false;
+        ultimoInput = entrada;
+
+        dibujarEstado(entrada);
+    }
+
+    const uint32_t segundos =
+        millis() / 1000;
+
+    if (segundos != ultimoSegundo)
+    {
+        ultimoSegundo = segundos;
+
+        JWPLC_TFT.fillRect(
+            20, 125,
+            200, 25,
+            JWPLC_TFT_BLACK);
+
+        JWPLC_TFT.setCursor(
+            20, 130);
+
+        JWPLC_TFT.setTextSize(1);
+        JWPLC_TFT.setTextColor(
+            JWPLC_TFT_YELLOW);
+
+        JWPLC_TFT.print("Tiempo: ");
+        JWPLC_TFT.print(segundos);
+        JWPLC_TFT.print(" s");
+    }
+}
+```
+
+## Ejemplo 4 — Avanzado de usuario: batching y texto centrado
+
+Un **batch** agrupa varias operaciones gráficas.
+
+Es útil cuando quieres dibujar una vista completa con varias primitivas
+consecutivas.
+
+```cpp
+#include <JWPLC_TFT.h>
+
+void setup()
+{
+    JWPLC_TFT.begin();
+
+    const char *titulo =
+        "JWPLC";
+
+    const int16_t anchoTexto =
+        JWPLC_TFT.textWidth(titulo);
+
+    const int16_t x =
+        (JWPLC_TFT.width() -
+         anchoTexto) / 2;
+
+    if (JWPLC_TFT.beginBatch())
+    {
+        JWPLC_TFT.fillScreen(
+            JWPLC_TFT_BLACK);
+
+        JWPLC_TFT.drawRoundRect(
+            20, 20,
+            280, 120,
+            10,
+            JWPLC_TFT_BLUE);
+
+        JWPLC_TFT.setCursor(
+            x, 65);
+
+        JWPLC_TFT.setTextColor(
+            JWPLC_TFT_WHITE);
+
+        JWPLC_TFT.print(titulo);
+
+        JWPLC_TFT.endBatch();
+    }
+}
+
+void loop()
+{
+}
+```
+
+No necesitas batching para dibujos aislados.
+
+## API de usuario
+
+### Inicialización y estado — Básico
+
+| Función | Qué hace | Nivel |
+|---|---|---|
+| `begin(timeoutMs)` | Prepara la API gráfica | Básico |
+| `isReady()` | Indica si la TFT está lista | Básico |
+| `width()` | Ancho lógico | Básico |
+| `height()` | Alto lógico | Básico |
+| `rotation()` | Rotación actual | Intermedio |
+
+`begin()` puede llamarse aunque la plataforma ya haya inicializado la
+pantalla.
+
+### Pantalla y rectángulos — Básico
 
 ```cpp
 JWPLC_TFT.fillScreen(color);
-```
 
-Ejemplo:
-
-```cpp
-JWPLC_TFT.fillScreen(JWPLC_TFT_BLACK);
-```
-
----
-
-# Rectángulos
-
-## Rectángulo relleno
-
-```cpp
 JWPLC_TFT.fillRect(
-    x,
-    y,
-    width,
-    height,
+    x, y,
+    width, height,
     color);
-```
 
-Ejemplo:
-
-```cpp
-JWPLC_TFT.fillRect(
-    20, 30,
-    100, 50,
-    JWPLC_TFT_GREEN);
-```
-
-## Contorno de rectángulo
-
-```cpp
 JWPLC_TFT.drawRect(
-    x,
-    y,
-    width,
-    height,
+    x, y,
+    width, height,
     color);
 ```
 
-## Rectángulos redondeados
+Rectángulos redondeados:
 
 ```cpp
 JWPLC_TFT.fillRoundRect(
@@ -185,121 +482,58 @@ JWPLC_TFT.drawRoundRect(
     color);
 ```
 
----
-
-# Círculos
-
-## Círculo relleno
+### Círculos — Básico
 
 ```cpp
 JWPLC_TFT.fillCircle(
-    x,
-    y,
+    x, y,
     radius,
     color);
-```
 
-## Contorno
-
-```cpp
 JWPLC_TFT.drawCircle(
-    x,
-    y,
+    x, y,
     radius,
     color);
 ```
 
-Ejemplo:
-
-```cpp
-JWPLC_TFT.fillCircle(
-    160,
-    85,
-    20,
-    JWPLC_TFT_RED);
-```
-
----
-
-# Líneas y píxeles
-
-Línea libre:
+### Líneas y píxeles — Básico / Intermedio
 
 ```cpp
 JWPLC_TFT.drawLine(
     x0, y0,
     x1, y1,
     color);
-```
 
-Horizontal:
-
-```cpp
 JWPLC_TFT.drawFastHLine(
-    x,
-    y,
+    x, y,
     width,
     color);
-```
 
-Vertical:
-
-```cpp
 JWPLC_TFT.drawFastVLine(
-    x,
-    y,
+    x, y,
     height,
     color);
-```
 
-Píxel:
-
-```cpp
 JWPLC_TFT.drawPixel(
-    x,
-    y,
+    x, y,
     color);
 ```
 
----
-
-# Texto
-
-## Posición
+### Cursor y texto — Básico
 
 ```cpp
-JWPLC_TFT.setCursor(20, 20);
-```
-
-Consulta:
-
-```cpp
+JWPLC_TFT.setCursor(x, y);
 JWPLC_TFT.cursorX();
 JWPLC_TFT.cursorY();
-```
 
-## Tamaño
-
-```cpp
 JWPLC_TFT.setTextSize(2);
-```
-
-Consulta:
-
-```cpp
 JWPLC_TFT.textSize();
-```
 
-## Color
-
-Sólo foreground:
-
-```cpp
 JWPLC_TFT.setTextColor(
     JWPLC_TFT_WHITE);
 ```
 
-Foreground + background:
+Color de texto con fondo:
 
 ```cpp
 JWPLC_TFT.setTextColor(
@@ -307,30 +541,14 @@ JWPLC_TFT.setTextColor(
     JWPLC_TFT_BLUE);
 ```
 
-## Imprimir texto
-
-`JWPLC_TFT` hereda de `Print`, por lo que puede usarse:
+Consultar:
 
 ```cpp
-JWPLC_TFT.print("Temperatura: ");
-JWPLC_TFT.println(25.4);
+JWPLC_TFT.textColor();
+JWPLC_TFT.textBackground();
 ```
 
-Ejemplo completo:
-
-```cpp
-JWPLC_TFT.setCursor(20, 20);
-JWPLC_TFT.setTextSize(2);
-JWPLC_TFT.setTextColor(JWPLC_TFT_YELLOW);
-
-JWPLC_TFT.print("T = ");
-JWPLC_TFT.print(24.8);
-JWPLC_TFT.println(" C");
-```
-
----
-
-## Ajuste de línea
+Ajuste de línea:
 
 ```cpp
 JWPLC_TFT.setTextWrap(
@@ -338,28 +556,33 @@ JWPLC_TFT.setTextWrap(
     false);
 ```
 
-Parámetros:
+### Imprimir — Básico
 
-```text
-wrapX
-wrapY
-```
-
----
-
-## Medir texto
-
-Ancho:
+Como `JWPLC_TFT` hereda de `Print`:
 
 ```cpp
-int16_t w =
+JWPLC_TFT.print("Temperatura: ");
+JWPLC_TFT.println(25.4);
+```
+
+También están disponibles los overloads de `write()`:
+
+```cpp
+JWPLC_TFT.write(
+    (uint8_t)'A');
+
+JWPLC_TFT.write(
+    buffer,
+    length);
+```
+
+### Medir texto — Intermedio
+
+```cpp
+int16_t ancho =
     JWPLC_TFT.textWidth("RUN");
-```
 
-Altura de fuente:
-
-```cpp
-int16_t h =
+int16_t alto =
     JWPLC_TFT.fontHeight();
 ```
 
@@ -381,365 +604,140 @@ JWPLC_TFT.getTextBounds(
     &h);
 ```
 
-Esto es útil para centrar texto o construir layouts propios.
-
----
-
-# Batching
-
-Para varias operaciones consecutivas puede agruparse el acceso a la pantalla:
+### Batching — Avanzado de usuario
 
 ```cpp
 if (JWPLC_TFT.beginBatch())
 {
-    JWPLC_TFT.fillRect(
-        0, 0,
-        100, 50,
-        JWPLC_TFT_BLUE);
-
-    JWPLC_TFT.drawCircle(
-        50, 25,
-        15,
-        JWPLC_TFT_WHITE);
-
+    // varias operaciones
     JWPLC_TFT.endBatch();
 }
 ```
 
-Consulta:
+Consultar:
 
 ```cpp
 JWPLC_TFT.batchActive();
 ```
 
-El batching es opcional. Para operaciones aisladas no es necesario usarlo.
+`beginBatch(timeoutMs)` devuelve `false` si no puede comenzar dentro del
+timeout indicado.
 
----
-
-# Acceder a la TFT desde JWPLC_Display
-
-Cuando ya se está usando `JWPLC_Display`, puede obtenerse el renderer:
+### Información del panel — Avanzado de usuario
 
 ```cpp
-JWPLC_TFTClass &tft =
-    JWPLC_Display.tft();
+JWPLC_TFTPanel panel =
+    JWPLC_TFT.panel();
 
-tft.fillCircle(
-    160,
-    85,
-    10,
-    JWPLC_TFT_GREEN);
+JWPLC_TFTPanelInfo info =
+    JWPLC_TFT.panelInfo();
 ```
 
-Alias equivalente:
+`panelInfo()` permite consultar datos como dimensiones lógicas del panel.
+
+No uses esa información para reconfigurar físicamente la pantalla.
+
+## Errores comunes
+
+### Redibujar toda la pantalla en cada `loop()`
+
+Evita:
 
 ```cpp
-JWPLC_TFTClass &tft =
-    JWPLC_Display.display();
+void loop()
+{
+    JWPLC_TFT.fillScreen(
+        JWPLC_TFT_BLACK);
+
+    // volver a dibujar todo siempre
+}
 ```
 
-Para código que quiera evitar depender del tipo explícito:
+Actualiza sólo cuando cambia el dato o sólo la región necesaria.
+
+### Usar `delay()` para animaciones o indicadores
+
+Prefiere `millis()` para programar actualizaciones periódicas.
+
+### Mezclar `JWPLC_Display` y dibujo directo sin una estrategia
+
+Si tu proyecto usa una HMI con Fields, deja a `JWPLC_Display` gestionar la
+interfaz principal. Usa dibujo directo sólo donde realmente lo necesites.
+
+### Crear otro driver de pantalla
+
+No crees otra instancia para el mismo panel integrado.
+
+### Dibujar fuera de las dimensiones
+
+Consulta:
 
 ```cpp
-auto &tft = JWPLC_Display.tft();
+JWPLC_TFT.width();
+JWPLC_TFT.height();
 ```
 
-Este último patrón es especialmente útil para mantener el código desacoplado
-del backend gráfico.
+antes de calcular layouts dinámicos.
 
----
+## API avanzada
 
-## Compatibilidad con código anterior
-
-El backend actual ya no expone `Adafruit_ST7789&` como tipo público.
-
-Código anterior como:
-
-```cpp
-Adafruit_ST7789 &tft =
-    JWPLC_Display.raw();
-```
-
-debe migrarse.
-
-Patrón recomendado:
+### Acceso desde JWPLC_Display
 
 ```cpp
 auto &tft =
     JWPLC_Display.tft();
 ```
 
-o usar directamente `JWPLC_TFT`.
+Es el camino recomendado cuando tu aplicación ya usa `JWPLC_Display` y sólo
+necesita algunas primitivas gráficas adicionales.
 
----
+### Colores personalizados
 
-## Qué no necesita configurar el usuario
+Las funciones reciben un `uint16_t` RGB565.
 
-El package gestiona internamente:
-
-- controlador ST7789;
-- orientación y offsets del panel;
-- frecuencia SPI;
-- arbitraje del bus compartido;
-- backend TFT_eSPI incorporado al archive.
-
-No es necesario instalar ni configurar TFT_eSPI.
-
----
-
-## Relación con el SPI compartido
-
-La TFT comparte bus con otros periféricos del JWPLC Basic. La librería utiliza
-el arbitraje del package para convivir con Ethernet, microSD y otros dispositivos
-del mismo bus.
-
-El sketch no debe manipular manualmente el CS o el SPI de la pantalla para
-usar la API normal.
-
----
-
-## Estado Alpha12
-
-```text
-JWPLC_TFT 0.1.0
-JWPLC_DISPLAY_BACKEND_MIGRATION=COMPLETE
-TFT_ESPI_USER_DEPENDENCY=NO
-PRECOMPILED_RELEASE_LIKE=ACTIVE
-FULL_RUNTIME_TFT=VALIDATED
-```
-
-Archive cualificado:
-
-```text
-Bytes  : 1091098
-SHA256 : 5d860a131811dd9a7eb6fa55f5674b1d78b0de7dfaf8748ce18a60ceed2d3738
-```
-
-Alpha13 continuará la evolución funcional de TFT/Display sobre esta API sin
-volver a exponer TFT_eSPI como dependencia pública.
-
-
----
-
-# Referencia completa de API pública
-
-Objeto global:
+Puedes usar un valor propio:
 
 ```cpp
-JWPLC_TFT
+uint16_t miColor = 0x7BEF;
+
+JWPLC_TFT.fillCircle(
+    100, 80,
+    15,
+    miColor);
 ```
 
-## Inicialización y estado
+## Compatibilidad
 
-| Función | Qué hace | Ejemplo |
-|---|---|---|
-| `begin(timeoutMs)` | Inicializa el backend gráfico. | `JWPLC_TFT.begin();` |
-| `isReady()` | Indica si está listo. | `if (JWPLC_TFT.isReady()) { ... }` |
-| `panel()` | Devuelve el perfil de panel activo. | `auto p = JWPLC_TFT.panel();` |
-| `panelInfo()` | Devuelve geometría/configuración del panel. | `auto info = JWPLC_TFT.panelInfo();` |
-| `width()` | Ancho lógico. | `int16_t w = JWPLC_TFT.width();` |
-| `height()` | Alto lógico. | `int16_t h = JWPLC_TFT.height();` |
-| `rotation()` | Rotación lógica activa. | `uint8_t r = JWPLC_TFT.rotation();` |
-
-## Batching
-
-| Función | Ejemplo |
-|---|---|
-| `beginBatch(timeoutMs)` | `if (JWPLC_TFT.beginBatch()) { ... }` |
-| `endBatch()` | `JWPLC_TFT.endBatch();` |
-| `batchActive()` | `bool x = JWPLC_TFT.batchActive();` |
-
-Ejemplo:
+`JWPLC_Display.display()` sigue devolviendo la misma API gráfica como alias
+histórico:
 
 ```cpp
-if (JWPLC_TFT.beginBatch())
-{
-    JWPLC_TFT.fillRect(
-        10, 10, 50, 20,
-        JWPLC_TFT_BLUE);
-
-    JWPLC_TFT.drawLine(
-        10, 40,
-        100, 40,
-        JWPLC_TFT_WHITE);
-
-    JWPLC_TFT.endBatch();
-}
-```
-
-## Primitivas de pantalla y rectángulos
-
-| Función | Ejemplo |
-|---|---|
-| `fillScreen(color, timeoutMs)` | `JWPLC_TFT.fillScreen(JWPLC_TFT_BLACK);` |
-| `fillRect(x,y,w,h,color,timeoutMs)` | `JWPLC_TFT.fillRect(10,10,80,30,JWPLC_TFT_BLUE);` |
-| `drawRect(x,y,w,h,color,timeoutMs)` | `JWPLC_TFT.drawRect(10,10,80,30,JWPLC_TFT_WHITE);` |
-| `fillRoundRect(x,y,w,h,radius,color,timeoutMs)` | `JWPLC_TFT.fillRoundRect(10,10,80,30,6,JWPLC_TFT_GREEN);` |
-| `drawRoundRect(x,y,w,h,radius,color,timeoutMs)` | `JWPLC_TFT.drawRoundRect(10,10,80,30,6,JWPLC_TFT_WHITE);` |
-
-Todos los `timeoutMs` son opcionales; el default actual es 50 ms.
-
-## Círculos
-
-| Función | Ejemplo |
-|---|---|
-| `fillCircle(x,y,radius,color,timeoutMs)` | `JWPLC_TFT.fillCircle(160,85,20,JWPLC_TFT_RED);` |
-| `drawCircle(x,y,radius,color,timeoutMs)` | `JWPLC_TFT.drawCircle(160,85,20,JWPLC_TFT_WHITE);` |
-
-## Líneas y píxeles
-
-| Función | Ejemplo |
-|---|---|
-| `drawFastHLine(x,y,w,color,timeoutMs)` | `JWPLC_TFT.drawFastHLine(10,20,100,JWPLC_TFT_WHITE);` |
-| `drawFastVLine(x,y,h,color,timeoutMs)` | `JWPLC_TFT.drawFastVLine(10,20,80,JWPLC_TFT_WHITE);` |
-| `drawLine(x0,y0,x1,y1,color,timeoutMs)` | `JWPLC_TFT.drawLine(0,0,319,169,JWPLC_TFT_YELLOW);` |
-| `drawPixel(x,y,color,timeoutMs)` | `JWPLC_TFT.drawPixel(10,10,JWPLC_TFT_RED);` |
-
-## Cursor
-
-| Función | Ejemplo |
-|---|---|
-| `setCursor(x,y)` | `JWPLC_TFT.setCursor(20,20);` |
-| `cursorX()` | `int16_t x = JWPLC_TFT.cursorX();` |
-| `cursorY()` | `int16_t y = JWPLC_TFT.cursorY();` |
-
-## Tamaño y color de texto
-
-| Función | Ejemplo |
-|---|---|
-| `setTextSize(size)` | `JWPLC_TFT.setTextSize(2);` |
-| `textSize()` | `uint8_t s = JWPLC_TFT.textSize();` |
-| `setTextColor(foreground)` | `JWPLC_TFT.setTextColor(JWPLC_TFT_WHITE);` |
-| `setTextColor(foreground, background)` | `JWPLC_TFT.setTextColor(JWPLC_TFT_WHITE, JWPLC_TFT_BLUE);` |
-| `textColor()` | `uint16_t c = JWPLC_TFT.textColor();` |
-| `textBackground()` | `uint16_t c = JWPLC_TFT.textBackground();` |
-| `setTextWrap(wrapX, wrapY)` | `JWPLC_TFT.setTextWrap(true, false);` |
-
-## Medición de texto
-
-| Función | Ejemplo |
-|---|---|
-| `textWidth(text)` | `int16_t w = JWPLC_TFT.textWidth("RUN");` |
-| `fontHeight()` | `int16_t h = JWPLC_TFT.fontHeight();` |
-| `getTextBounds(...)` | Ver ejemplo siguiente. |
-
-```cpp
-int16_t x1;
-int16_t y1;
-uint16_t w;
-uint16_t h;
-
-JWPLC_TFT.getTextBounds(
-    "JWPLC",
-    10,
-    10,
-    &x1,
-    &y1,
-    &w,
-    &h);
-```
-
-## Escritura directa
-
-`JWPLC_TFT` hereda de `Print`.
-
-Los overloads públicos propios son:
-
-| Función | Ejemplo |
-|---|---|
-| `write(uint8_t value)` | `JWPLC_TFT.write((uint8_t)'A');` |
-| `write(const uint8_t *buffer, size_t size)` | `JWPLC_TFT.write(data, len);` |
-
-Además, por herencia de `Print`, puede usarse:
-
-```cpp
-JWPLC_TFT.print("Temperatura: ");
-JWPLC_TFT.println(25.4);
-```
-
-## Colores públicos incluidos
-
-```text
-JWPLC_TFT_BLACK
-JWPLC_TFT_WHITE
-JWPLC_TFT_RED
-JWPLC_TFT_GREEN
-JWPLC_TFT_BLUE
-JWPLC_TFT_YELLOW
-JWPLC_TFT_CYAN
-JWPLC_TFT_MAGENTA
-```
-
-Ejemplo:
-
-```cpp
-JWPLC_TFT.fillScreen(
-    JWPLC_TFT_BLACK);
-
-JWPLC_TFT.setTextColor(
-    JWPLC_TFT_CYAN);
-```
-
-## Tipos públicos
-
-### JWPLC_TFTPanel
-
-```cpp
-JWPLC_TFTPanel panel =
-    JWPLC_TFT.panel();
-```
-
-Perfil productivo Alpha12:
-
-```text
-BASIC_V2_ST7789_170X320
-```
-
-El valor `BASIC_V3_ST7789_240X320_RESERVED` está reservado y no representa un
-target productivo de 2.1.x.
-
-### JWPLC_TFTPanelInfo
-
-```cpp
-JWPLC_TFTPanelInfo info =
-    JWPLC_TFT.panelInfo();
-
-Serial.println(info.name);
-Serial.println(info.logicalWidth);
-Serial.println(info.logicalHeight);
-Serial.println(info.spiHz);
-```
-
-Campos disponibles:
-
-```text
-name
-nativeWidth
-nativeHeight
-logicalWidth
-logicalHeight
-rotation
-bgr
-inverted
-spiHz
-```
-
-## Acceso equivalente desde JWPLC_Display
-
-```cpp
-JWPLC_TFTClass &tft =
-    JWPLC_Display.tft();
-```
-
-o:
-
-```cpp
-JWPLC_TFTClass &tft =
+auto &tft =
     JWPLC_Display.display();
 ```
 
-Para mantener un sketch desacoplado del tipo concreto:
+Para código nuevo se recomienda:
 
 ```cpp
-auto &tft = JWPLC_Display.tft();
+JWPLC_Display.tft();
 ```
+
+Código antiguo que esperaba explícitamente otro tipo gráfico debe migrar a
+`JWPLC_TFTClass&` o, preferiblemente:
+
+```cpp
+auto &tft =
+    JWPLC_Display.tft();
+```
+
+## Versión
+
+Documentado para:
+
+```text
+JWPLC ESP32 v2.1.0-alpha.12
+JWPLC_TFT 0.1.0
+```
+
+Esta guía documenta la API gráfica de usuario. Los detalles del controlador
+físico y de la arquitectura interna pertenecen a la documentación del package.
