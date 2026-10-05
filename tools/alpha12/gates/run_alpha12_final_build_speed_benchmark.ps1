@@ -159,6 +159,12 @@ Write-Host "BENCHMARK_SCRIPT_SYNTAX=PASS"
         Path = "JWPLC\2.1.0\libraries\SPI\src\esp32\libSPI.a"
         Sha = "b433758b746380bf8d1ea102aca1d1637b5a8cab50616b56024f4b022a916445"
         DotA = $false
+    },
+    [pscustomobject]@{
+        Name = "JW_FRAM"
+        Path = "JWPLC\2.1.0\libraries\JW_FRAM\src\esp32\libJW_FRAM.a"
+        Sha = "b8734763bfa1287167feda72a5c9b30df97340d41ca0c3fd000321e218632ceb"
+        DotA = $false
     }
 )
 
