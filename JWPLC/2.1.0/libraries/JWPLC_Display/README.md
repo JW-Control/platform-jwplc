@@ -452,61 +452,125 @@ void loop()
 
 ## Ejemplo 4 — Avanzado de usuario: dibujo directo
 
-Cuando una interfaz no puede expresarse con Fields puedes obtener el renderer
-`JWPLC_TFT`.
+Para una pantalla USER completamente personalizada, el patrón público
+recomendado es dibujar dentro de los callbacks cortos de USER.
+
+`jwplcUIEnter()` se ejecuta al entrar a USER y `jwplcUIUpdate()` durante sus
+actualizaciones.
 
 ```cpp
 #include <JWPLC_Display.h>
 
+uint8_t ultimoSegundo = 255;
+
+extern "C" void jwplcUIEnter()
+{
+    auto &tft =
+        JWPLC_Display.tft();
+
+    tft.fillScreen(
+        JWPLC_TFT_BLACK);
+
+    tft.setCursor(
+        20, 20);
+
+    tft.setTextColor(
+        JWPLC_TFT_CYAN);
+
+    tft.setTextSize(2);
+
+    tft.println(
+        "JWPLC USER");
+
+    ultimoSegundo = 255;
+}
+
+extern "C" void jwplcUIUpdate()
+{
+    if (!JWPLC_Time.valid() ||
+        JWPLC_Time.second() ==
+            ultimoSegundo)
+    {
+        return;
+    }
+
+    ultimoSegundo =
+        JWPLC_Time.second();
+
+    auto &tft =
+        JWPLC_Display.tft();
+
+    tft.fillRect(
+        20, 70,
+        180, 30,
+        JWPLC_TFT_BLACK);
+
+    tft.setCursor(
+        20, 75);
+
+    tft.setTextColor(
+        JWPLC_TFT_YELLOW);
+
+    if (JWPLC_Time.hour() < 10)
+    {
+        tft.print('0');
+    }
+
+    tft.print(
+        JWPLC_Time.hour());
+
+    tft.print(':');
+
+    if (JWPLC_Time.minute() < 10)
+    {
+        tft.print('0');
+    }
+
+    tft.print(
+        JWPLC_Time.minute());
+
+    tft.print(':');
+
+    if (JWPLC_Time.second() < 10)
+    {
+        tft.print('0');
+    }
+
+    tft.print(
+        JWPLC_Time.second());
+}
+
+extern "C" void jwplcUIExit()
+{
+    // Opcional: liberar estado propio de tu pantalla.
+}
+
 void setup()
 {
-    JWPLC_Display.setIdleWakeMode(
-        IDLE_WAKE_BUTTON_ONLY);
-
     JWPLC_Display.setIdleWakeButton(
         BTN_OK);
 
+    JWPLC_Display.setIdleWakeMode(
+        IDLE_WAKE_BUTTON_ONLY);
+
     JWPLC_Display.setIdleReturnMode(
         IDLE_RETURN_ESC_ONLY);
+
+    JWPLC_Display.setUserRefreshPeriodMs(
+        100);
 }
 
 void loop()
 {
-    static bool dibujado = false;
-
-    if (!JWPLC_Display.isIdleMode() &&
-        !dibujado)
-    {
-        dibujado = true;
-
-        auto &tft =
-            JWPLC_Display.tft();
-
-        tft.fillScreen(
-            JWPLC_TFT_BLACK);
-
-        tft.setCursor(
-            20, 20);
-
-        tft.setTextColor(
-            JWPLC_TFT_CYAN);
-
-        tft.setTextSize(2);
-
-        tft.println(
-            "JWPLC USER");
-    }
-
-    if (JWPLC_Display.isIdleMode())
-    {
-        dibujado = false;
-    }
+    // La pantalla USER se actualiza desde los callbacks.
 }
 ```
 
-Para dibujo continuo o animaciones revisa el README de `JWPLC_TFT` y los
-ejemplos oficiales de Display. Una HMI normal debería seguir usando Fields o
-HMI Designer.
+Este patrón evita dibujar desde cualquier punto del `loop()` mientras Display
+también está gestionando USER.
+
+No mezcles este enfoque manual con Fields/HMI Designer salvo que realmente
+entiendas cómo quieres coordinar ambos modelos.
 
 ## API de usuario
 
@@ -897,7 +961,23 @@ auto &tft =
     JWPLC_Display.tft();
 ```
 
-La API completa está documentada en:
+Para una USER manual, los callbacks públicos cortos son:
+
+```cpp
+extern "C" void jwplcUIEnter();
+extern "C" void jwplcUIPageEnter(uint8_t page);
+extern "C" void jwplcUIUpdate();
+extern "C" void jwplcUIExit();
+```
+
+- `jwplcUIEnter()`: dibuja/inicializa al entrar a USER.
+- `jwplcUIPageEnter(page)`: notifica entrada a una página.
+- `jwplcUIUpdate()`: actualiza contenido dinámico.
+- `jwplcUIExit()`: limpieza al salir hacia IDLE.
+
+Nivel: **Avanzado de usuario**.
+
+La API completa de dibujo está documentada en:
 
 ```text
 JWPLC_TFT/README.md
