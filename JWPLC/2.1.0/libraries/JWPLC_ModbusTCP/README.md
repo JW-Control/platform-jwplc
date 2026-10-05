@@ -640,12 +640,20 @@ JWPLCModbusTCPClientError result =
     JWPLC_ModbusTCPClient.result();
 ```
 
-### Hooks de profiling
+### Hooks internos/condicionales de profiling
 
-El código contiene hooks condicionales de profiling del scheduler del Server.
+El header puede exponer condicionalmente:
 
-No están destinados al sketch normal y sólo existen cuando el package se
-compila con la macro de profiling correspondiente.
+```text
+jwplcSchedulerProfile()
+jwplcSchedulerProfileReset()
+```
+
+Sólo existen cuando el package se compila con la opción de profiling
+correspondiente.
+
+Son herramientas de desarrollo/qualification y **no forman parte de la API de
+aplicación que debe usar un sketch normal**.
 
 ## Compatibilidad
 
@@ -662,8 +670,3 @@ Documentado para:
 JWPLC ESP32 v2.1.0-alpha.12
 JWPLC_ModbusTCP 0.1.0
 ```
-
-Nota de mantenimiento: el header actual del Client declara operaciones
-adicionales que todavía no tienen implementación completa en la rama. Esa
-inconsistencia se registra en la documentación técnica de Alpha12 y no se
-presenta aquí como capacidad de usuario.
