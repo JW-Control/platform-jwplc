@@ -102,11 +102,9 @@ ALPHA12_PACKAGE_CLOSURE=IN_PROGRESS
 ## 7. Precompilados
 
 - [ ] congelar source final.
-  - FREEZE_PREVIO_INVALIDADO por corrección de autocontención pre-release.
-  - Cambio productivo: `17be4204223f6c5c3dde0f079debd31533abe167`.
-  - `JW_FRAM` fuerza `JWPLC_Bundled_Adafruit_BusIO.h` antes de `Adafruit_SPIDevice.h`.
-  - Se retiraron `Adafruit_GFX_Library` y `Adafruit_ST7735_and_ST7789_Library` del package activo.
-  - Nuevo freeze pendiente de PASS del gate de autocontención y revalidación afectada.
+  - Nuevo candidate source: `17be4204223f6c5c3dde0f079debd31533abe167`.
+  - Gate de autocontención=PASS.
+  - Pendiente únicamente revalidación P7 afectada antes de declarar freeze final.
 - [x] bloquear regeneración de Display/TFT hasta PASS del gate source-first.
 - [x] determinar qué libraries/core requieren regeneración.
 - [x] P1: regenerar y verificar `core.a` actual.
@@ -273,7 +271,11 @@ gates finales.
 - [x] retirar Adafruit ST7735/ST7789 legacy del package activo.
 - [x] conservar Adafruit BusIO porque JW_FRAM usa Adafruit_SPIDevice.
 - [x] forzar discovery de BusIO bundled desde JW_FRAM.
-- [ ] gate de autocontención: BusIO bundled seleccionado incluso con copia externa instalada.
+- [x] gate de autocontención: BusIO bundled seleccionado incluso con copia externa instalada.
+  - `BUNDLED_BUSIO_SELECTED=True`.
+  - `LEGACY_GFX_SELECTED=False`.
+  - `LEGACY_ST77XX_SELECTED=False`.
+  - `COMPILE_EXIT=0`, warnings=0, errors=0.
 - [ ] revalidar P7 tras cambio del inventario de archives.
 - [ ] repetir benchmark final si cambia la estructura/selección del build.
 
