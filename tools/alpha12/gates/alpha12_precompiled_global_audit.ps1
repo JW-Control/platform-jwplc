@@ -239,28 +239,6 @@ if (-not $coreStubEnabled -or -not $coreArchiveLinked) {
         Class = "RETAINED"
     },
     [pscustomobject]@{
-        Name = "Adafruit_GFX_Library"
-        ArchiveRel = "JWPLC/2.1.0/libraries/Adafruit_GFX_Library/src/esp32/libAdafruit_GFX_Library.a"
-        SourceRel = "JWPLC/2.1.0/libraries/Adafruit_GFX_Library/src"
-        PropertiesRel = "JWPLC/2.1.0/libraries/Adafruit_GFX_Library/library.properties"
-        ExpectedSha = ""
-        FinalPrecompiled = $true
-        FinalDotA = $false
-        ActivationPendingAllowed = $false
-        Class = "RETAINED"
-    },
-    [pscustomobject]@{
-        Name = "Adafruit_ST7735_and_ST7789_Library"
-        ArchiveRel = "JWPLC/2.1.0/libraries/Adafruit_ST7735_and_ST7789_Library/src/esp32/libAdafruit_ST7735_and_ST7789_Library.a"
-        SourceRel = "JWPLC/2.1.0/libraries/Adafruit_ST7735_and_ST7789_Library/src"
-        PropertiesRel = "JWPLC/2.1.0/libraries/Adafruit_ST7735_and_ST7789_Library/library.properties"
-        ExpectedSha = ""
-        FinalPrecompiled = $true
-        FinalDotA = $false
-        ActivationPendingAllowed = $false
-        Class = "RETAINED"
-    },
-    [pscustomobject]@{
         Name = "FS"
         ArchiveRel = "JWPLC/2.1.0/libraries/FS/src/esp32/libFS.a"
         SourceRel = "JWPLC/2.1.0/libraries/FS/src"
