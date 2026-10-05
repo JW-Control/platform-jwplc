@@ -5,7 +5,7 @@ Fecha: 2026-10-03
 Estado:
 
 ```text
-ALPHA12_PACKAGE_CLOSURE=IN_PROGRESS
+ALPHA12_PACKAGE_CLOSURE=CLOSED_PUBLISHED
 ```
 
 ## 1. Identidad y alcance
@@ -335,19 +335,19 @@ gates finales.
 - [x] conclusión técnica Alpha12.
 - [x] PRE_RELEASE.md en español.
 - [x] README release marker = 2.1.0-alpha.12.
-- [ ] PR Alpha12 en español.
-- [ ] CI final HEAD.
-- [ ] merge a release/v2.1.x.
-- [ ] artefacto ZIP.
-- [ ] SHA-256 + size.
-- [ ] GitHub PreRelease.
-- [ ] package_jwplc_index_dev.json.
-- [ ] isolated install desde índice dev.
-- [ ] isolated compile.
-- [ ] isolated physical upload.
-- [ ] runtime/TFT post-upload.
-- [ ] registrar topología release/main.
-- [ ] cierre documental final.
+- [x] PR Alpha12 en español. — #100
+- [x] CI final HEAD. — Package Smoke #944 PASS
+- [x] merge a release/v2.1.x. — `1011f2588fe02bdc67b14bef8c33ad3624426cb6`
+- [x] artefacto ZIP. — `jwplc-esp32-2.1.0-alpha.12.zip`
+- [x] SHA-256 + size. — `412079a9e01cb0eaccdf6ec530b04183db1c245eb043e846fe9f0f7e2d5eb1b5`, 24383662 bytes
+- [x] GitHub PreRelease. — `v2.1.0-alpha.12`
+- [x] package_jwplc_index_dev.json. — PR #101 merged
+- [x] isolated install desde índice dev. — PASS
+- [x] isolated compile. — PASS
+- [x] isolated physical upload. — COM4 PASS
+- [x] runtime/TFT post-upload. — `DISPLAY_READY=1`, `RTC_OK=1`, `Q0_0` alternando
+- [ ] registrar topología release/main. — sync final en curso
+- [x] cierre documental final. — docs/status/PreRelease actualizados
 
 ## 11. Regla de cierre
 
@@ -360,3 +360,25 @@ ALPHA12_STATUS=CLOSED_PUBLISHED
 Los experimentos no productizados deben permanecer documentados, pero no deben
 bloquear el release si ya existe una decisión explícita de NO PROMOTION o
 DEFERRED.
+
+
+## 12. Validación publicada final
+
+```text
+ALPHA12_PUBLISHED_INDEX=PASS
+ALPHA12_PUBLISHED_INSTALL=PASS
+ALPHA12_PUBLISHED_AUTOCONTAINMENT=PASS
+ALPHA12_PUBLISHED_ARCHIVE_PARITY=PASS
+ALPHA12_PUBLISHED_CI_FIXES_PRESENT=PASS
+ALPHA12_PUBLISHED_COMPILE=PASS
+ALPHA12_PUBLISHED_UPLOAD=PASS
+ALPHA12_PUBLISHED_RUNTIME=PASS
+JWPLC_LOCAL_SELECTED=False
+ALPHA12_PUBLISHED_PACKAGE_GATE=PASS
+```
+
+Pendiente exclusivo para completar la topología:
+
+```text
+RELEASE_MAIN_TREE_PARITY=NEXT
+```
