@@ -271,8 +271,12 @@ gates finales.
 - [x] Arduino IDE físico histórico post-H3E.
 - [x] Arduino CLI final del HEAD congelado.
   - Evidencia: 6/6 compilaciones PASS, warnings=0, errors=0, autoload normal PASS.
-- [ ] Arduino IDE final del HEAD congelado.
-  - Alcance reducido: compilación/Verify del sketch `06_alpha4_local_physical_gate`; no requiere upload.
+- [x] Arduino IDE final del HEAD congelado.
+  - PASS en Arduino IDE 2.3.4 con board `JWPLC Basic`.
+  - Sketch: `06_alpha4_local_physical_gate`.
+  - Flash: 439617 / 4063232 bytes (10%).
+  - RAM global: 29692 / 327680 bytes (9%).
+  - Alcance reducido cumplido: compilación/Verify únicamente; upload no requerido por scope.
 - [x] upload físico final.
   - NOT_REQUIRED_BY_SCOPE: no se repite upload para periféricos ya validados físicamente; evidencia heredada Alpha10/Alpha11.
 - [x] normal autoload: Display/RTC/FRAM/SD/buttons/DI/DO/Ethernet/RS485.
