@@ -1976,5 +1976,14 @@ BOOTLOADER_BIN_FINAL=NO
 APP_ONLY=VALIDATED_DEVELOPMENT_TOOL_NOT_DEFAULT
 ```
 
-Alpha13 queda desbloqueada únicamente después de completar la sincronización
-final del árbol publicado hacia `main`.
+Sincronización final completada:
+
+```text
+SYNC_PR=#103 MERGED
+MAIN_HEAD=c40be967ec9b948cc6cc8c497b407d1acf849c8d
+RELEASE_HEAD=30397a09aa07c3837426253d03dc9180de92efd7
+TREE_SHA=e8d7caf91ef2ac475513f28131255db02ca7c7d2
+RELEASE_MAIN_TREE_PARITY=PASS
+```
+
+Alpha13 queda desbloqueada.
