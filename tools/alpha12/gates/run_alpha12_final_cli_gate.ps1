@@ -80,8 +80,177 @@ if ($LASTEXITCODE -ne 0) {
     throw "A12_FINAL_CLI_GIT_DIFF_CHECK_FAILED"
 }
 
+# Autoritativo para conflictos Git no resueltos: entradas unmerged del index.
+[string[]]$unmergedIndex = @(& git -C $repo ls-files -u)
+
+if ($LASTEXITCODE -ne 0) {
+    throw "A12_FINAL_CLI_UNMERGED_INDEX_SCAN_FAILED"
+}
+
+Write-Host ("UNMERGED_INDEX_COUNT=" + [string]$unmergedIndex.Count)
+
+if ($unmergedIndex.Count -ne 0) {
+    $unmergedIndex | ForEach-Object { Write-Host ("UNMERGED_INDEX=" + $_) }
+    throw "A12_FINAL_CLI_UNMERGED_INDEX_FOUND"
+}
+
+# Defensa adicional contra marcadores de merge accidentalmente commiteados.
+# Se limita al scope actual de Alpha12 y exige marcadores exactos; no confunde
+# separadores decorativos como "====================" ni material histórico.
+[string[]]$conflictScope = @(
+    "JWPLC/2.1.0",
+    "docs/v2.1.0-alpha.12",
+    "tools/alpha12"
+)
+
 [object[]]$conflictMarkers = @(
-    & git -C $repo grep -n -E '^(<<<<<<< |=======|>>>>>>> )' -- .
+    & git -C $repo grep -n -E '^(<<<<<<< .+|=======|>>>>>>> .+)
+
+New-Item -ItemType Directory -Path $resultRoot -Force | Out-Null
+
+[object[]]$tests = @(
+    [pscustomobject]@{
+        Id = "EMPTY_AUTOLOAD"
+        Sketch = Join-Path $repo "tools\build-speed-benchmark\sketches\01_empty"
+        VerifyAutoload = $true
+    },
+    [pscustomobject]@{
+        Id = "MODBUS_TCP_SERVER"
+        Sketch = Join-Path $libraries "JWPLC_ModbusTCP\examples\01.ModbusTCP_Server"
+        VerifyAutoload = $false
+    },
+    [pscustomobject]@{
+        Id = "MODBUS_TCP_CLIENT"
+        Sketch = Join-Path $libraries "JWPLC_ModbusTCP\examples\02.ModbusTCP_Client"
+        VerifyAutoload = $false
+    },
+    [pscustomobject]@{
+        Id = "MODBUS_RTU_SLAVE"
+        Sketch = Join-Path $libraries "JWPLC_ModbusRTU\examples\01.ModbusRTU_Slave_Holding"
+        VerifyAutoload = $false
+    },
+    [pscustomobject]@{
+        Id = "MODBUS_RTU_MASTER_READ"
+        Sketch = Join-Path $libraries "JWPLC_ModbusRTU\examples\02.ModbusRTU_Master_Read"
+        VerifyAutoload = $false
+    },
+    [pscustomobject]@{
+        Id = "MODBUS_RTU_MASTER_WRITE"
+        Sketch = Join-Path $libraries "JWPLC_ModbusRTU\examples\03.ModbusRTU_Master_Write"
+        VerifyAutoload = $false
+    }
+)
+
+[string[]]$requiredAutoload = @(
+    "JWPLC_Display",
+    "JWPLC_TFT",
+    "JW_MatrixButtons",
+    "JWPLC_GlobalPeripherals",
+    "JW_RTC",
+    "JW_FRAM",
+    "JW_SD",
+    "JWPLC_Ethernet",
+    "JWPLC_RS485",
+    "JWPLC_ModbusRTU",
+    "SPI",
+    "SD"
+)
+
+[object[]]$results = @()
+
+foreach ($test in $tests) {
+    if (-not (Test-Path -LiteralPath $test.Sketch)) {
+        throw ("A12_FINAL_CLI_SKETCH_MISSING:" + $test.Id)
+    }
+
+    $buildPath = Join-Path $resultRoot ("build_" + $test.Id)
+    $logPath = Join-Path $resultRoot ($test.Id + ".log")
+
+    $args = @(
+        "compile",
+        "--fqbn", $Fqbn,
+        "-j", "0",
+        "-v",
+        "--clean",
+        "--build-path", $buildPath,
+        "--libraries", $libraries,
+        $test.Sketch
+    )
+
+    $run = Invoke-Captured -FilePath $ArduinoCli -Arguments $args
+    $run.Output | Set-Content -LiteralPath $logPath -Encoding UTF8
+
+    $warnings = @($run.Output | Where-Object { $_ -match '(?i)\bwarning:' }).Count
+    $errors = @($run.Output | Where-Object { $_ -match '(?i)\berror:' }).Count
+
+    $status = "PASS"
+    if ($run.ExitCode -ne 0 -or $warnings -ne 0 -or $errors -ne 0) {
+        $status = "FAIL"
+    }
+
+    if ($test.VerifyAutoload -and $status -eq "PASS") {
+        foreach ($libraryName in $requiredAutoload) {
+            if (-not (Test-LibrarySelected -Lines $run.Output -LibraryName $libraryName)) {
+                Write-Host ("AUTOLOAD_MISSING=" + $libraryName)
+                $status = "FAIL"
+            }
+        }
+    }
+
+    $results += [pscustomobject]@{
+        Id = $test.Id
+        Exit = $run.ExitCode
+        Warnings = $warnings
+        Errors = $errors
+        Result = $status
+        Log = $logPath
+    }
+
+    Write-Host (
+        $test.Id +
+        "=" + $status +
+        " EXIT=" + $run.ExitCode +
+        " WARNINGS=" + $warnings +
+        " ERRORS=" + $errors
+    )
+}
+
+$failCount = @($results | Where-Object { $_.Result -ne "PASS" }).Count
+
+[string[]]$finalDirty = @(& git -C $repo status --short)
+
+Write-Host ""
+Write-Host "=============================================================================="
+Write-Host " SUMMARY"
+Write-Host "=============================================================================="
+
+foreach ($result in $results) {
+    Write-Host (
+        $result.Id +
+        "=" + $result.Result +
+        " EXIT=" + $result.Exit +
+        " WARNINGS=" + $result.Warnings +
+        " ERRORS=" + $result.Errors
+    )
+}
+
+Write-Host ("PASS_COUNT=" + [string](@($results | Where-Object { $_.Result -eq "PASS" }).Count))
+Write-Host ("FAIL_COUNT=" + [string]$failCount)
+Write-Host ("FINAL_DIRTY_COUNT=" + [string]$finalDirty.Count)
+Write-Host ("RESULT_ROOT=" + $resultRoot)
+
+if ($failCount -ne 0) {
+    throw "A12_FINAL_CLI_COMPILE_FAILURE"
+}
+
+if ($finalDirty.Count -ne 0) {
+    $finalDirty | ForEach-Object { Write-Host ("FINAL_DIRTY=" + $_) }
+    throw "A12_FINAL_CLI_REPOSITORY_MUTATED"
+}
+
+Write-Host "FINAL_REPO_HYGIENE=PASS"
+Write-Host "FINAL_ARDUINO_CLI_GATE=PASS"
+ -- $conflictScope
 )
 
 if ($LASTEXITCODE -notin @(0,1)) {
