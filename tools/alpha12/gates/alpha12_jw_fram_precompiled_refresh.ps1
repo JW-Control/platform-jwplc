@@ -112,7 +112,31 @@ function Assert-BundledBusIo {
     $expected = [IO.Path]::GetFullPath($bundledBusIoRoot).TrimEnd('\', '/')
     [object[]]$selectionLines = @(
         $Lines | Where-Object {
-            $_ -match '^Using library Adafruit BusIO at version .+ in folder: (.+)    $bundled = $actual -ieq $expected
+            $_ -match '^Using library Adafruit BusIO at version .+ in folder: (.+)$'
+        }
+    )
+
+    Write-Host "$($Label)_BUSIO_SELECTION_COUNT=$($selectionLines.Count)"
+
+    if ($selectionLines.Count -ne 1) {
+        throw "A12_JW_FRAM_$($Label)_BUSIO_SELECTION_AMBIGUOUS"
+    }
+
+    $line = $selectionLines[0].ToString()
+    $selectionMatch = [regex]::Match(
+        $line,
+        '^Using library Adafruit BusIO at version .+ in folder: (.+)$'
+    )
+
+    if (-not $selectionMatch.Success -or $selectionMatch.Groups.Count -lt 2) {
+        throw "A12_JW_FRAM_$($Label)_BUSIO_SELECTION_PARSE_FAILED"
+    }
+
+    $actual = [IO.Path]::GetFullPath(
+        $selectionMatch.Groups[1].Value.Trim()
+    ).TrimEnd('\', '/')
+
+    $bundled = $actual -ieq $expected
 
     Write-Host "$($Label)_BUNDLED_BUSIO_SELECTED=$bundled"
     Write-Host "$($Label)_BUSIO_FOLDER=$actual"
