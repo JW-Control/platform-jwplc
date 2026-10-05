@@ -440,6 +440,29 @@ JWPLC_ModbusRTU.begin(
     SERIAL_8N1);
 ```
 
+Consultar la configuración activa:
+
+```cpp
+uint8_t id =
+    JWPLC_ModbusRTU.slaveId();
+
+uint32_t baud =
+    JWPLC_ModbusRTU.baudRate();
+
+uint32_t baudReal =
+    JWPLC_ModbusRTU.effectiveBaudRate();
+
+uint32_t formato =
+    JWPLC_ModbusRTU.config();
+```
+
+- `slaveId()`: ID local configurado.
+- `baudRate()`: velocidad solicitada.
+- `effectiveBaudRate()`: velocidad efectiva reportada por el transporte.
+- `config()`: formato serial activo.
+
+Nivel: **Intermedio**.
+
 ### Selección de motor Master — Básico / Avanzado
 
 ```cpp
