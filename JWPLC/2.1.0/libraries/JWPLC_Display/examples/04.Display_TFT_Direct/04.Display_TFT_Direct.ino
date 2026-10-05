@@ -1,7 +1,7 @@
 /*
   04.Display_TFT_Direct
 
-  Acceso directo a Adafruit_ST7789 mediante:
+  Acceso gráfico directo mediante JWPLC_TFT:
 
       auto &tft = JWPLC_Display.tft();
 
@@ -24,14 +24,14 @@ extern "C" void jwplcUIEnter()
 {
     auto &tft = JWPLC_Display.tft();
 
-    tft.fillScreen(ST77XX_BLACK);
+    tft.fillScreen(JWPLC_TFT_BLACK);
     tft.setTextWrap(false);
-    tft.setTextColor(ST77XX_CYAN, ST77XX_BLACK);
+    tft.setTextColor(JWPLC_TFT_CYAN, JWPLC_TFT_BLACK);
     tft.setTextSize(2);
     tft.setCursor(20, 20);
     tft.print("JWPLC TFT");
 
-    tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
+    tft.setTextColor(JWPLC_TFT_WHITE, JWPLC_TFT_BLACK);
     tft.setTextSize(1);
     tft.setCursor(20, 55);
     tft.print("Dibujo directo en USER");
@@ -49,8 +49,8 @@ extern "C" void jwplcUIUpdate()
     auto &tft = JWPLC_Display.tft();
 
     // Limpiar sólo la región dinámica evita parpadeos de pantalla completa.
-    tft.fillRect(20, 85, 180, 30, ST77XX_BLACK);
-    tft.setTextColor(ST77XX_YELLOW, ST77XX_BLACK);
+    tft.fillRect(20, 85, 180, 30, JWPLC_TFT_BLACK);
+    tft.setTextColor(JWPLC_TFT_YELLOW, JWPLC_TFT_BLACK);
     tft.setTextSize(2);
     tft.setCursor(20, 90);
 

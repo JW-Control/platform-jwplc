@@ -389,7 +389,7 @@ void RuntimeUIFBDMapActiveRenderer::drawExistingFieldValueOnly(
   const uint16_t background = selected ? COLOR_SELECTED : COLOR_PANEL;
   const uint16_t foreground = selected ? COLOR_ACCENT : COLOR_TEXT;
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.fillRect(valueX, textY, valueWidth, 8, background);
   tft.setTextWrap(false);
   tft.setTextSize(1);
@@ -649,7 +649,7 @@ void RuntimeUIFBDMapActiveRenderer::drawUnifiedHeader(bool force)
   const bool stateChanged =
       !_unifiedHeaderCacheValid || _unifiedHeaderStateCache != state;
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
 
   if (force || viewChanged)
   {
@@ -720,7 +720,7 @@ void RuntimeUIFBDMapActiveRenderer::drawExistingLogoScreen()
   invalidateActiveEditorCaches();
   invalidateUnifiedHeaderCache();
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
 
   // El cuerpo se sustituye por bandas y cada banda recibe su contenido final de
   // inmediato. Nunca se dibuja el editor histórico de dos campos.

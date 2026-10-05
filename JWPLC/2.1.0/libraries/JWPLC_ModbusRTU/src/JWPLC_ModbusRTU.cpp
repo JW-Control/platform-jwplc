@@ -1,4 +1,44 @@
 #include "JWPLC_ModbusRTU.h"
+#include <string.h>
+
+static constexpr uint32_t JWPLC_MODBUS_FAST_PARTIAL_HOLD_US = 15000UL;
+
+static constexpr uint16_t JWPLC_MODBUS_CRC16_TABLE[256] = {
+    0x0000U, 0xC0C1U, 0xC181U, 0x0140U, 0xC301U, 0x03C0U, 0x0280U, 0xC241U,
+    0xC601U, 0x06C0U, 0x0780U, 0xC741U, 0x0500U, 0xC5C1U, 0xC481U, 0x0440U,
+    0xCC01U, 0x0CC0U, 0x0D80U, 0xCD41U, 0x0F00U, 0xCFC1U, 0xCE81U, 0x0E40U,
+    0x0A00U, 0xCAC1U, 0xCB81U, 0x0B40U, 0xC901U, 0x09C0U, 0x0880U, 0xC841U,
+    0xD801U, 0x18C0U, 0x1980U, 0xD941U, 0x1B00U, 0xDBC1U, 0xDA81U, 0x1A40U,
+    0x1E00U, 0xDEC1U, 0xDF81U, 0x1F40U, 0xDD01U, 0x1DC0U, 0x1C80U, 0xDC41U,
+    0x1400U, 0xD4C1U, 0xD581U, 0x1540U, 0xD701U, 0x17C0U, 0x1680U, 0xD641U,
+    0xD201U, 0x12C0U, 0x1380U, 0xD341U, 0x1100U, 0xD1C1U, 0xD081U, 0x1040U,
+    0xF001U, 0x30C0U, 0x3180U, 0xF141U, 0x3300U, 0xF3C1U, 0xF281U, 0x3240U,
+    0x3600U, 0xF6C1U, 0xF781U, 0x3740U, 0xF501U, 0x35C0U, 0x3480U, 0xF441U,
+    0x3C00U, 0xFCC1U, 0xFD81U, 0x3D40U, 0xFF01U, 0x3FC0U, 0x3E80U, 0xFE41U,
+    0xFA01U, 0x3AC0U, 0x3B80U, 0xFB41U, 0x3900U, 0xF9C1U, 0xF881U, 0x3840U,
+    0x2800U, 0xE8C1U, 0xE981U, 0x2940U, 0xEB01U, 0x2BC0U, 0x2A80U, 0xEA41U,
+    0xEE01U, 0x2EC0U, 0x2F80U, 0xEF41U, 0x2D00U, 0xEDC1U, 0xEC81U, 0x2C40U,
+    0xE401U, 0x24C0U, 0x2580U, 0xE541U, 0x2700U, 0xE7C1U, 0xE681U, 0x2640U,
+    0x2200U, 0xE2C1U, 0xE381U, 0x2340U, 0xE101U, 0x21C0U, 0x2080U, 0xE041U,
+    0xA001U, 0x60C0U, 0x6180U, 0xA141U, 0x6300U, 0xA3C1U, 0xA281U, 0x6240U,
+    0x6600U, 0xA6C1U, 0xA781U, 0x6740U, 0xA501U, 0x65C0U, 0x6480U, 0xA441U,
+    0x6C00U, 0xACC1U, 0xAD81U, 0x6D40U, 0xAF01U, 0x6FC0U, 0x6E80U, 0xAE41U,
+    0xAA01U, 0x6AC0U, 0x6B80U, 0xAB41U, 0x6900U, 0xA9C1U, 0xA881U, 0x6840U,
+    0x7800U, 0xB8C1U, 0xB981U, 0x7940U, 0xBB01U, 0x7BC0U, 0x7A80U, 0xBA41U,
+    0xBE01U, 0x7EC0U, 0x7F80U, 0xBF41U, 0x7D00U, 0xBDC1U, 0xBC81U, 0x7C40U,
+    0xB401U, 0x74C0U, 0x7580U, 0xB541U, 0x7700U, 0xB7C1U, 0xB681U, 0x7640U,
+    0x7200U, 0xB2C1U, 0xB381U, 0x7340U, 0xB101U, 0x71C0U, 0x7080U, 0xB041U,
+    0x5000U, 0x90C1U, 0x9181U, 0x5140U, 0x9301U, 0x53C0U, 0x5280U, 0x9241U,
+    0x9601U, 0x56C0U, 0x5780U, 0x9741U, 0x5500U, 0x95C1U, 0x9481U, 0x5440U,
+    0x9C01U, 0x5CC0U, 0x5D80U, 0x9D41U, 0x5F00U, 0x9FC1U, 0x9E81U, 0x5E40U,
+    0x5A00U, 0x9AC1U, 0x9B81U, 0x5B40U, 0x9901U, 0x59C0U, 0x5880U, 0x9841U,
+    0x8801U, 0x48C0U, 0x4980U, 0x8941U, 0x4B00U, 0x8BC1U, 0x8A81U, 0x4A40U,
+    0x4E00U, 0x8EC1U, 0x8F81U, 0x4F40U, 0x8D01U, 0x4DC0U, 0x4C80U, 0x8C41U,
+    0x4400U, 0x84C1U, 0x8581U, 0x4540U, 0x8701U, 0x47C0U, 0x4680U, 0x8641U,
+    0x8201U, 0x42C0U, 0x4380U, 0x8341U, 0x4100U, 0x81C1U, 0x8081U, 0x4040U,
+};
+
+bool JWPLC_ModbusRTUClass::_crcLookupEnabled = false;
 
 JWPLC_ModbusRTUClass JWPLC_ModbusRTU;
 
@@ -8,6 +48,11 @@ JWPLC_ModbusRTUClass::JWPLC_ModbusRTUClass()
       _baud(JWPLC_MODBUS_RTU_DEFAULT_BAUD),
       _config(JWPLC_MODBUS_RTU_DEFAULT_CONFIG),
       _frameGapMs(5),
+      _frameGapUs(5000UL),
+      _motor(ASYNC),
+      _queuedTxEnabled(true),
+      _bulkRxEnabled(false),
+      _earlyServerDispatchEnabled(false),
       _coils(nullptr),
       _coilCount(0),
       _discreteInputs(nullptr),
@@ -21,9 +66,10 @@ JWPLC_ModbusRTUClass::JWPLC_ModbusRTUClass()
       _coilWriteSeen(false),
       _lastCoilWriteMs(0),
       _rxLength(0),
-      _lastByteMs(0),
+      _lastByteUs(0),
       _lastError(JWPLC_MODBUS_NOT_STARTED),
-      _stats{0, 0, 0, 0, 0, 0},
+      _stats{0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
       _masterState(JWPLC_MODBUS_MASTER_IDLE),
       _masterOperation(JWPLC_MODBUS_MASTER_OP_NONE),
       _masterResult(JWPLC_MODBUS_OK),
@@ -112,19 +158,120 @@ uint32_t JWPLC_ModbusRTUClass::baudRate() const
     return _baud;
 }
 
+uint32_t JWPLC_ModbusRTUClass::effectiveBaudRate() const
+{
+    return JWPLC_RS485.effectiveBaudRate();
+}
+
 uint32_t JWPLC_ModbusRTUClass::config() const
 {
     return _config;
 }
 
+bool JWPLC_ModbusRTUClass::motor(JWPLCModbusMotor mode)
+{
+    if (masterBusy())
+    {
+        setError(JWPLC_MODBUS_BUSY);
+        return false;
+    }
+
+    if (mode != ASYNC && mode != SYNC)
+    {
+        setError(JWPLC_MODBUS_INVALID_RESPONSE);
+        return false;
+    }
+
+    _motor = mode;
+
+    // El motor ASYNC aprovecha la ruta TX encolada cuando el hardware
+    // AutoDirection la soporta. SYNC conserva el transporte historico.
+    _queuedTxEnabled = (_motor == ASYNC);
+
+    clearError();
+    return true;
+}
+
+JWPLCModbusMotor JWPLC_ModbusRTUClass::motor() const
+{
+    return _motor;
+}
+
+bool JWPLC_ModbusRTUClass::asyncMotor() const
+{
+    return _motor == ASYNC;
+}
+
 void JWPLC_ModbusRTUClass::setFrameGapMs(uint16_t gapMs)
 {
     _frameGapMs = gapMs;
+    _frameGapUs = (uint32_t)gapMs * 1000UL;
 }
 
 uint16_t JWPLC_ModbusRTUClass::frameGapMs() const
 {
     return _frameGapMs;
+}
+
+void JWPLC_ModbusRTUClass::setFrameGapUs(uint32_t gapUs)
+{
+    _frameGapUs = gapUs;
+
+    uint32_t roundedMs = gapUs / 1000UL;
+
+    if ((gapUs % 1000UL) != 0UL &&
+        roundedMs < 0xFFFFUL)
+    {
+        ++roundedMs;
+    }
+
+    if (roundedMs > 0xFFFFUL)
+    {
+        roundedMs = 0xFFFFUL;
+    }
+
+    _frameGapMs = (uint16_t)roundedMs;
+}
+
+uint32_t JWPLC_ModbusRTUClass::frameGapUs() const
+{
+    return _frameGapUs;
+}
+
+void JWPLC_ModbusRTUClass::setQueuedTxEnabled(bool enabled)
+{
+    _queuedTxEnabled = enabled;
+}
+
+bool JWPLC_ModbusRTUClass::queuedTxEnabled() const
+{
+    return _queuedTxEnabled;
+}
+
+bool JWPLC_ModbusRTUClass::queuedTxActive() const
+{
+    return _queuedTxEnabled &&
+           JWPLC_RS485.queuedWriteSupported();
+}
+
+void JWPLC_ModbusRTUClass::setBulkRxEnabled(bool enabled)
+{
+    _bulkRxEnabled = enabled;
+}
+
+bool JWPLC_ModbusRTUClass::bulkRxEnabled() const
+{
+    return _bulkRxEnabled;
+}
+
+void JWPLC_ModbusRTUClass::setEarlyServerDispatchEnabled(bool enabled)
+{
+    _earlyServerDispatchEnabled = enabled;
+}
+
+bool JWPLC_ModbusRTUClass::earlyServerDispatchEnabled() const
+{
+    return _earlyServerDispatchEnabled;
 }
 
 void JWPLC_ModbusRTUClass::setCoils(uint8_t *bits, uint16_t count)
@@ -294,15 +441,8 @@ void JWPLC_ModbusRTUClass::poll()
 
 void JWPLC_ModbusRTUClass::pollServer()
 {
-    while (JWPLC_RS485.available() > 0)
+    if (_bulkRxEnabled)
     {
-        int value = JWPLC_RS485.read();
-
-        if (value < 0)
-        {
-            break;
-        }
-
         if (_rxLength >= JWPLC_MODBUS_RTU_MAX_FRAME)
         {
             clearRxBuffer();
@@ -310,12 +450,139 @@ void JWPLC_ModbusRTUClass::pollServer()
             return;
         }
 
-        _rxBuffer[_rxLength++] = (uint8_t)value;
-        _lastByteMs = millis();
+        const size_t room =
+            JWPLC_MODBUS_RTU_MAX_FRAME - _rxLength;
+        const size_t readBytes =
+            JWPLC_RS485.readAvailable(
+                &_rxBuffer[_rxLength],
+                room);
+
+        if (readBytes > 0)
+        {
+            _stats.rxBytes += (uint64_t)readBytes;
+            _rxLength += (uint16_t)readBytes;
+            _lastByteUs = micros();
+        }
+
+        if (_rxLength >= JWPLC_MODBUS_RTU_MAX_FRAME &&
+            JWPLC_RS485.available() > 0)
+        {
+            clearRxBuffer();
+            setError(JWPLC_MODBUS_BUFFER_OVERFLOW);
+            return;
+        }
+    }
+    else
+    {
+        while (JWPLC_RS485.available() > 0)
+        {
+            int value = JWPLC_RS485.read();
+
+            if (value < 0)
+            {
+                break;
+            }
+
+            if (_rxLength >= JWPLC_MODBUS_RTU_MAX_FRAME)
+            {
+                clearRxBuffer();
+                setError(JWPLC_MODBUS_BUFFER_OVERFLOW);
+                return;
+            }
+
+            _stats.rxBytes++;
+            _stats.rxBytes++;
+            _rxBuffer[_rxLength++] = (uint8_t)value;
+            _lastByteUs = micros();
+        }
     }
 
-    if (_rxLength == 0 ||
-        (uint32_t)(millis() - _lastByteMs) < _frameGapMs)
+    if (_rxLength == 0)
+    {
+        return;
+    }
+
+    const uint32_t frameAgeUs =
+        (uint32_t)(micros() - _lastByteUs);
+
+    bool parseNow =
+        frameAgeUs >= _frameGapUs;
+
+    if (_earlyServerDispatchEnabled)
+    {
+        if (_rxLength == 1 &&
+            (_rxBuffer[0] == _slaveId || _rxBuffer[0] == 0))
+        {
+            if (frameAgeUs < JWPLC_MODBUS_FAST_PARTIAL_HOLD_US)
+            {
+                return;
+            }
+        }
+        else if (_rxLength >= 2 &&
+                 (_rxBuffer[0] == _slaveId || _rxBuffer[0] == 0))
+        {
+            uint16_t expectedLength = 0;
+            bool knownLocalShape = true;
+
+            switch (_rxBuffer[1])
+            {
+            case 0x01:
+            case 0x02:
+            case 0x03:
+            case 0x04:
+            case 0x05:
+            case 0x06:
+                expectedLength = 8;
+                break;
+
+            case 0x0F:
+            case 0x10:
+                if (_rxLength < 7)
+                {
+                    if (frameAgeUs <
+                        JWPLC_MODBUS_FAST_PARTIAL_HOLD_US)
+                    {
+                        return;
+                    }
+                }
+                else
+                {
+                    const uint16_t candidateLength =
+                        (uint16_t)9 + _rxBuffer[6];
+
+                    if (candidateLength <=
+                        JWPLC_MODBUS_RTU_MAX_FRAME)
+                    {
+                        expectedLength = candidateLength;
+                    }
+                    else
+                    {
+                        knownLocalShape = false;
+                    }
+                }
+                break;
+
+            default:
+                knownLocalShape = false;
+                break;
+            }
+
+            if (knownLocalShape && expectedLength > 0)
+            {
+                if (_rxLength >= expectedLength)
+                {
+                    parseNow = true;
+                }
+                else if (frameAgeUs <
+                         JWPLC_MODBUS_FAST_PARTIAL_HOLD_US)
+                {
+                    return;
+                }
+            }
+        }
+    }
+
+    if (!parseNow)
     {
         return;
     }
@@ -489,7 +756,91 @@ void JWPLC_ModbusRTUClass::pollServer()
                 continue;
             }
 
+            if (_earlyServerDispatchEnabled &&
+                frameAgeUs < JWPLC_MODBUS_FAST_PARTIAL_HOLD_US &&
+                remaining > 0 &&
+                (frame[0] == _slaveId || frame[0] == 0))
+            {
+                bool preservePartial = remaining == 1;
+
+                if (remaining >= 2)
+                {
+                    switch (frame[1])
+                    {
+                    case 0x01:
+                    case 0x02:
+                    case 0x03:
+                    case 0x04:
+                    case 0x05:
+                    case 0x06:
+                        preservePartial = remaining < 8;
+                        break;
+
+                    case 0x0F:
+                    case 0x10:
+                        if (remaining < 7)
+                        {
+                            preservePartial = true;
+                        }
+                        else
+                        {
+                            const uint16_t expectedLength =
+                                (uint16_t)9 + frame[6];
+
+                            preservePartial =
+                                expectedLength <=
+                                    JWPLC_MODBUS_RTU_MAX_FRAME &&
+                                remaining < expectedLength;
+                        }
+                        break;
+
+                    default:
+                        preservePartial = false;
+                        break;
+                    }
+                }
+
+                if (preservePartial)
+                {
+                    if (offset > 0)
+                    {
+                        memmove(
+                            _rxBuffer,
+                            frame,
+                            remaining);
+                    }
+
+                    _rxLength = remaining;
+                    return;
+                }
+            }
+
             // Trafico ajeno o tail ambiguo: no contaminar CRC del Slave local.
+            // H3B.3 contabiliza el descarte para distinguir perdida fisica
+            // de bytes recibidos que el parser no pudo clasificar.
+            _stats.serverDiscardedTails++;
+            _stats.serverDiscardedBytes += (uint64_t)remaining;
+            _stats.serverDiscardedLastLength = remaining;
+            _stats.serverDiscardedLastAgeUs = frameAgeUs;
+
+            if (frameAgeUs > _stats.serverDiscardedMaxAgeUs)
+            {
+                _stats.serverDiscardedMaxAgeUs = frameAgeUs;
+            }
+
+            switch (remaining)
+            {
+            case 1: _stats.serverDiscardedLen1++; break;
+            case 2: _stats.serverDiscardedLen2++; break;
+            case 3: _stats.serverDiscardedLen3++; break;
+            case 4: _stats.serverDiscardedLen4++; break;
+            case 5: _stats.serverDiscardedLen5++; break;
+            case 6: _stats.serverDiscardedLen6++; break;
+            case 7: _stats.serverDiscardedLen7++; break;
+            case 8: _stats.serverDiscardedLen8++; break;
+            default: _stats.serverDiscardedLenGt8++; break;
+            }
+
             break;
         }
 
@@ -502,15 +853,8 @@ void JWPLC_ModbusRTUClass::pollServer()
 
 void JWPLC_ModbusRTUClass::pollMaster()
 {
-    while (JWPLC_RS485.available() > 0)
+    if (_bulkRxEnabled)
     {
-        int value = JWPLC_RS485.read();
-
-        if (value < 0)
-        {
-            break;
-        }
-
         if (_rxLength >= JWPLC_MODBUS_RTU_MAX_FRAME)
         {
             clearRxBuffer();
@@ -518,8 +862,49 @@ void JWPLC_ModbusRTUClass::pollMaster()
             return;
         }
 
-        _rxBuffer[_rxLength++] = (uint8_t)value;
-        _lastByteMs = millis();
+        const size_t room =
+            JWPLC_MODBUS_RTU_MAX_FRAME - _rxLength;
+        const size_t readBytes =
+            JWPLC_RS485.readAvailable(
+                &_rxBuffer[_rxLength],
+                room);
+
+        if (readBytes > 0)
+        {
+            _stats.rxBytes += (uint64_t)readBytes;
+            _rxLength += (uint16_t)readBytes;
+            _lastByteUs = micros();
+        }
+
+        if (_rxLength >= JWPLC_MODBUS_RTU_MAX_FRAME &&
+            JWPLC_RS485.available() > 0)
+        {
+            clearRxBuffer();
+            completeMasterTransaction(JWPLC_MODBUS_BUFFER_OVERFLOW);
+            return;
+        }
+    }
+    else
+    {
+        while (JWPLC_RS485.available() > 0)
+        {
+            int value = JWPLC_RS485.read();
+
+            if (value < 0)
+            {
+                break;
+            }
+
+            if (_rxLength >= JWPLC_MODBUS_RTU_MAX_FRAME)
+            {
+                clearRxBuffer();
+                completeMasterTransaction(JWPLC_MODBUS_BUFFER_OVERFLOW);
+                return;
+            }
+
+            _rxBuffer[_rxLength++] = (uint8_t)value;
+            _lastByteUs = micros();
+        }
     }
 
     uint16_t expectedLength = 0;
@@ -549,6 +934,7 @@ void JWPLC_ModbusRTUClass::pollMaster()
         case JWPLC_MODBUS_MASTER_OP_WRITE_SINGLE_COIL:
         case JWPLC_MODBUS_MASTER_OP_WRITE_SINGLE_REGISTER:
         case JWPLC_MODBUS_MASTER_OP_WRITE_MULTIPLE_COILS:
+        case JWPLC_MODBUS_MASTER_OP_WRITE_MULTIPLE_REGISTERS:
             expectedLength = 8;
             break;
 
@@ -567,7 +953,7 @@ void JWPLC_ModbusRTUClass::pollMaster()
         }
     }
     else if (_rxLength > 0 &&
-             (uint32_t)(millis() - _lastByteMs) >= _frameGapMs)
+             (uint32_t)(micros() - _lastByteUs) >= _frameGapUs)
     {
         processMasterFrame(_rxBuffer, _rxLength);
         clearRxBuffer();
@@ -751,7 +1137,87 @@ bool JWPLC_ModbusRTUClass::requestWriteMultipleCoils(
 
     appendCRC(request, 7 + byteCount);
 
-    const size_t written = JWPLC_RS485.write(request, requestLength);
+    const size_t written = writeTransport(request, requestLength);
+
+    if (written != requestLength)
+    {
+        completeMasterTransaction(JWPLC_MODBUS_TRANSPORT_ERROR);
+        return false;
+    }
+
+    _stats.txFrames++;
+    _masterStartMs = millis();
+    clearError();
+    return true;
+}
+
+bool JWPLC_ModbusRTUClass::requestWriteMultipleRegisters(
+    uint8_t targetSlaveId,
+    uint16_t startAddress,
+    uint16_t quantity,
+    const uint16_t *source,
+    uint32_t timeoutMs)
+{
+    if (masterBusy())
+    {
+        setError(JWPLC_MODBUS_BUSY);
+        return false;
+    }
+
+    const uint16_t byteCount = (uint16_t)(quantity * 2U);
+    const uint16_t requestLength = (uint16_t)(9U + byteCount);
+
+    if (!isReady() ||
+        source == nullptr ||
+        targetSlaveId == 0 ||
+        targetSlaveId > 247 ||
+        quantity == 0 ||
+        quantity > 123 ||
+        requestLength > JWPLC_MODBUS_RTU_MAX_FRAME ||
+        timeoutMs == 0)
+    {
+        setError(JWPLC_MODBUS_INVALID_RESPONSE);
+        return false;
+    }
+
+    if (masterDone())
+    {
+        clearMasterResult();
+    }
+
+    drainRs485();
+    clearRxBuffer();
+
+    _masterOperation = JWPLC_MODBUS_MASTER_OP_WRITE_MULTIPLE_REGISTERS;
+    _masterTargetSlaveId = targetSlaveId;
+    _masterExpectedFunction = 0x10;
+    _masterStartAddress = startAddress;
+    _masterQuantity = quantity;
+    _masterRegisterDestination = nullptr;
+    _masterBitDestination = nullptr;
+    _masterWriteValue = 0;
+    _masterTimeoutMs = timeoutMs;
+    _masterResult = JWPLC_MODBUS_OK;
+    _masterState = JWPLC_MODBUS_MASTER_WAIT_RESPONSE;
+
+    uint8_t request[JWPLC_MODBUS_RTU_MAX_FRAME];
+    request[0] = targetSlaveId;
+    request[1] = 0x10;
+    request[2] = highByte(startAddress);
+    request[3] = lowByte(startAddress);
+    request[4] = highByte(quantity);
+    request[5] = lowByte(quantity);
+    request[6] = (uint8_t)byteCount;
+
+    for (uint16_t i = 0; i < quantity; i++)
+    {
+        request[7 + i * 2U] = highByte(source[i]);
+        request[8 + i * 2U] = lowByte(source[i]);
+    }
+
+    appendCRC(request, (size_t)(7U + byteCount));
+
+    const size_t written = writeTransport(request, requestLength);
 
     if (written != requestLength)
     {
@@ -821,7 +1287,7 @@ bool JWPLC_ModbusRTUClass::startReadBitsRequest(
     request[5] = lowByte(quantity);
     appendCRC(request, 6);
 
-    const size_t written = JWPLC_RS485.write(request, sizeof(request));
+    const size_t written = writeTransport(request, sizeof(request));
 
     if (written != sizeof(request))
     {
@@ -891,7 +1357,7 @@ bool JWPLC_ModbusRTUClass::startReadRegistersRequest(
     request[5] = lowByte(quantity);
     appendCRC(request, 6);
 
-    const size_t written = JWPLC_RS485.write(request, sizeof(request));
+    const size_t written = writeTransport(request, sizeof(request));
 
     if (written != sizeof(request))
     {
@@ -957,7 +1423,7 @@ bool JWPLC_ModbusRTUClass::startWriteSingleRequest(
     request[5] = lowByte(value);
     appendCRC(request, 6);
 
-    const size_t written = JWPLC_RS485.write(request, sizeof(request));
+    const size_t written = writeTransport(request, sizeof(request));
 
     if (written != sizeof(request))
     {
@@ -1130,6 +1596,215 @@ bool JWPLC_ModbusRTUClass::writeMultipleCoilsSync(
         timeoutMs));
 }
 
+bool JWPLC_ModbusRTUClass::writeMultipleRegistersSync(
+    uint8_t targetSlaveId,
+    uint16_t startAddress,
+    uint16_t quantity,
+    const uint16_t *source,
+    uint32_t timeoutMs)
+{
+    return finishSyncRequest(requestWriteMultipleRegisters(
+        targetSlaveId,
+        startAddress,
+        quantity,
+        source,
+        timeoutMs));
+}
+
+bool JWPLC_ModbusRTUClass::readCoils(
+    uint8_t targetSlaveId,
+    uint16_t startAddress,
+    uint16_t quantity,
+    uint8_t *destinationPacked,
+    uint32_t timeoutMs)
+{
+    if (_motor == SYNC)
+    {
+        return readCoilsSync(
+            targetSlaveId,
+            startAddress,
+            quantity,
+            destinationPacked,
+            timeoutMs);
+    }
+
+    return requestReadCoils(
+        targetSlaveId,
+        startAddress,
+        quantity,
+        destinationPacked,
+        timeoutMs);
+}
+
+bool JWPLC_ModbusRTUClass::readDiscreteInputs(
+    uint8_t targetSlaveId,
+    uint16_t startAddress,
+    uint16_t quantity,
+    uint8_t *destinationPacked,
+    uint32_t timeoutMs)
+{
+    if (_motor == SYNC)
+    {
+        return readDiscreteInputsSync(
+            targetSlaveId,
+            startAddress,
+            quantity,
+            destinationPacked,
+            timeoutMs);
+    }
+
+    return requestReadDiscreteInputs(
+        targetSlaveId,
+        startAddress,
+        quantity,
+        destinationPacked,
+        timeoutMs);
+}
+
+bool JWPLC_ModbusRTUClass::readHoldingRegisters(
+    uint8_t targetSlaveId,
+    uint16_t startAddress,
+    uint16_t quantity,
+    uint16_t *destination,
+    uint32_t timeoutMs)
+{
+    if (_motor == SYNC)
+    {
+        return readHoldingRegistersSync(
+            targetSlaveId,
+            startAddress,
+            quantity,
+            destination,
+            timeoutMs);
+    }
+
+    return requestReadHoldingRegisters(
+        targetSlaveId,
+        startAddress,
+        quantity,
+        destination,
+        timeoutMs);
+}
+
+bool JWPLC_ModbusRTUClass::readInputRegisters(
+    uint8_t targetSlaveId,
+    uint16_t startAddress,
+    uint16_t quantity,
+    uint16_t *destination,
+    uint32_t timeoutMs)
+{
+    if (_motor == SYNC)
+    {
+        return readInputRegistersSync(
+            targetSlaveId,
+            startAddress,
+            quantity,
+            destination,
+            timeoutMs);
+    }
+
+    return requestReadInputRegisters(
+        targetSlaveId,
+        startAddress,
+        quantity,
+        destination,
+        timeoutMs);
+}
+
+bool JWPLC_ModbusRTUClass::writeSingleCoil(
+    uint8_t targetSlaveId,
+    uint16_t address,
+    bool value,
+    uint32_t timeoutMs)
+{
+    if (_motor == SYNC)
+    {
+        return writeSingleCoilSync(
+            targetSlaveId,
+            address,
+            value,
+            timeoutMs);
+    }
+
+    return requestWriteSingleCoil(
+        targetSlaveId,
+        address,
+        value,
+        timeoutMs);
+}
+
+bool JWPLC_ModbusRTUClass::writeSingleRegister(
+    uint8_t targetSlaveId,
+    uint16_t address,
+    uint16_t value,
+    uint32_t timeoutMs)
+{
+    if (_motor == SYNC)
+    {
+        return writeSingleRegisterSync(
+            targetSlaveId,
+            address,
+            value,
+            timeoutMs);
+    }
+
+    return requestWriteSingleRegister(
+        targetSlaveId,
+        address,
+        value,
+        timeoutMs);
+}
+
+bool JWPLC_ModbusRTUClass::writeMultipleCoils(
+    uint8_t targetSlaveId,
+    uint16_t startAddress,
+    uint16_t quantity,
+    const uint8_t *sourcePacked,
+    uint32_t timeoutMs)
+{
+    if (_motor == SYNC)
+    {
+        return writeMultipleCoilsSync(
+            targetSlaveId,
+            startAddress,
+            quantity,
+            sourcePacked,
+            timeoutMs);
+    }
+
+    return requestWriteMultipleCoils(
+        targetSlaveId,
+        startAddress,
+        quantity,
+        sourcePacked,
+        timeoutMs);
+}
+
+bool JWPLC_ModbusRTUClass::writeMultipleRegisters(
+    uint8_t targetSlaveId,
+    uint16_t startAddress,
+    uint16_t quantity,
+    const uint16_t *source,
+    uint32_t timeoutMs)
+{
+    if (_motor == SYNC)
+    {
+        return writeMultipleRegistersSync(
+            targetSlaveId,
+            startAddress,
+            quantity,
+            source,
+            timeoutMs);
+    }
+
+    return requestWriteMultipleRegisters(
+        targetSlaveId,
+        startAddress,
+        quantity,
+        source,
+        timeoutMs);
+}
+
 void JWPLC_ModbusRTUClass::resetMasterContext()
 {
     _masterState = JWPLC_MODBUS_MASTER_IDLE;
@@ -1290,6 +1965,7 @@ bool JWPLC_ModbusRTUClass::processMasterFrame(
         return true;
 
     case JWPLC_MODBUS_MASTER_OP_WRITE_MULTIPLE_COILS:
+    case JWPLC_MODBUS_MASTER_OP_WRITE_MULTIPLE_REGISTERS:
         if (length != 8 ||
             frame[2] != highByte(_masterStartAddress) ||
             frame[3] != lowByte(_masterStartAddress) ||
@@ -1317,7 +1993,17 @@ void JWPLC_ModbusRTUClass::drainRs485()
     }
 }
 
-uint16_t JWPLC_ModbusRTUClass::crc16(
+void JWPLC_ModbusRTUClass::setCrcLookupEnabled(bool enabled)
+{
+    _crcLookupEnabled = enabled;
+}
+
+bool JWPLC_ModbusRTUClass::crcLookupEnabled()
+{
+    return _crcLookupEnabled;
+}
+
+uint16_t JWPLC_ModbusRTUClass::crc16Bitwise(
     const uint8_t *data,
     size_t length)
 {
@@ -1341,6 +2027,36 @@ uint16_t JWPLC_ModbusRTUClass::crc16(
     }
 
     return crc;
+}
+
+uint16_t JWPLC_ModbusRTUClass::crc16Lookup(
+    const uint8_t *data,
+    size_t length)
+{
+    uint16_t crc = 0xFFFF;
+
+    for (size_t i = 0; i < length; i++)
+    {
+        const uint8_t index =
+            (uint8_t)((crc ^ data[i]) & 0x00FFU);
+
+        crc =
+            (uint16_t)(
+                (crc >> 8) ^
+                JWPLC_MODBUS_CRC16_TABLE[index]);
+    }
+
+    return crc;
+}
+
+uint16_t JWPLC_ModbusRTUClass::crc16(
+    const uint8_t *data,
+    size_t length)
+{
+    return
+        _crcLookupEnabled
+            ? crc16Lookup(data, length)
+            : crc16Bitwise(data, length);
 }
 
 bool JWPLC_ModbusRTUClass::checkCRC(
@@ -1439,7 +2155,8 @@ const JWPLCModbusRTUStats &JWPLC_ModbusRTUClass::stats() const
 
 void JWPLC_ModbusRTUClass::resetStats()
 {
-    _stats = {0, 0, 0, 0, 0, 0};
+    _stats = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 }
 
 void JWPLC_ModbusRTUClass::printStatus(Print &out) const
@@ -1459,6 +2176,21 @@ void JWPLC_ModbusRTUClass::printStatus(Print &out) const
     out.print("Frame gap ms: ");
     out.println(_frameGapMs);
 
+    out.print("Frame gap us: ");
+    out.println(_frameGapUs);
+
+    out.print("Motor: ");
+    out.println(_motor == ASYNC ? "ASYNC" : "SYNC");
+
+    out.print("Queued TX requested: ");
+    out.println(_queuedTxEnabled ? "yes" : "no");
+
+    out.print("Queued TX active: ");
+    out.println(queuedTxActive() ? "yes" : "no");
+
+    out.print("RS485 TX buffer bytes: ");
+    out.println((unsigned long)JWPLC_RS485.txBufferSize());
+
     out.print("Coils: ");
     out.println(_coilCount);
 
@@ -1473,6 +2205,19 @@ void JWPLC_ModbusRTUClass::printStatus(Print &out) const
 
     out.print("Last error: ");
     out.println(lastErrorString());
+}
+
+size_t JWPLC_ModbusRTUClass::writeTransport(
+    const uint8_t *buffer,
+    size_t size)
+{
+    const size_t written =
+        queuedTxActive()
+            ? JWPLC_RS485.writeQueued(buffer, size)
+            : JWPLC_RS485.write(buffer, size);
+
+    _stats.txBytes += (uint64_t)written;
+    return written;
 }
 
 void JWPLC_ModbusRTUClass::clearRxBuffer()
@@ -1603,7 +2348,7 @@ void JWPLC_ModbusRTUClass::sendException(
     response[2] = exceptionCode;
     appendCRC(response, 3);
 
-    JWPLC_RS485.write(response, sizeof(response));
+    writeTransport(response, sizeof(response));
     _stats.exceptionsSent++;
     _stats.txFrames++;
 }
@@ -1613,7 +2358,7 @@ void JWPLC_ModbusRTUClass::sendFrame(
     uint16_t payloadLength)
 {
     appendCRC(frame, payloadLength);
-    JWPLC_RS485.write(frame, payloadLength + 2);
+    writeTransport(frame, payloadLength + 2);
     _stats.txFrames++;
 }
 

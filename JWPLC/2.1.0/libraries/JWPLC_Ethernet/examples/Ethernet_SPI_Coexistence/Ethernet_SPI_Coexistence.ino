@@ -79,7 +79,7 @@ static const JWPLC_UIField SPI_FIELDS[] = {
         JWPLC_UIText(nullptr, nullptr, 24),
         JWPLC_UITextFieldStyle(2, 1, false, JWPLC_UI_LAYOUT_INLINE, JWPLC_UI_ALIGN_LEFT),
         0,
-        JWPLC_UIColors(ST77XX_CYAN, ST77XX_CYAN, ST77XX_BLACK, ST77XX_CYAN)),
+        JWPLC_UIColors(JWPLC_TFT_CYAN, JWPLC_TFT_CYAN, JWPLC_TFT_BLACK, JWPLC_TFT_CYAN)),
     JWPLC_UITextField(SPI_FIELD_ETH, 8, 34, "ETH", 31),
     JWPLC_UITextField(SPI_FIELD_IP, 8, 54, "IP", 20),
     JWPLC_UITextField(SPI_FIELD_SD, 8, 74, "SD", 31),

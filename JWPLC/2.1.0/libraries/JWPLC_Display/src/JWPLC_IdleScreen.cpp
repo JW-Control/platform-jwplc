@@ -1,13 +1,12 @@
 #include "JWPLC_IdleScreen.h"
+#include <JWPLC_TFT.h>
 
-#include <Adafruit_GFX.h>
-#include <Adafruit_ST7789.h>
 #include <cstring>
 #include <cstdio>
 
 namespace JWPLCIdleScreen
 {
-    static Adafruit_ST7789 *tft = nullptr;
+    static JWPLC_TFTClass *tft = nullptr;
 
     static StatusPanel g_panel;
     static StatusPanel g_lastPanel;
@@ -72,6 +71,10 @@ namespace JWPLCIdleScreen
 
     static constexpr int TITLE_X = 6;
     static constexpr int TITLE_Y = 4;
+    static constexpr int TITLE_BOX_X = 2;
+    static constexpr int TITLE_BOX_Y = 2;
+    static constexpr int TITLE_BOX_W = 115;
+    static constexpr int TITLE_BOX_H = 12;
 
     static constexpr int LEFT_DIV_X = 122;
 
@@ -87,7 +90,7 @@ namespace JWPLCIdleScreen
     static constexpr int RTC_DATE_X = 8;
     static constexpr int RTC_DATE_Y = 156;
 
-    static constexpr int RTC_TIME_CHAR_W = 12; // fuente base Adafruit_GFX con textSize(2)
+    static constexpr int RTC_TIME_CHAR_W = 12; // fuente base GLCD con textSize(2)
     static constexpr int RTC_HH_X = RTC_TIME_X;
     static constexpr int RTC_COLON1_X = RTC_HH_X + (2 * RTC_TIME_CHAR_W);
     static constexpr int RTC_MM_X = RTC_COLON1_X + RTC_TIME_CHAR_W;
@@ -117,14 +120,18 @@ namespace JWPLCIdleScreen
     // =====================================================
     // Colores
     // =====================================================
-    static constexpr uint16_t C_BG = ST77XX_BLACK;
-    static constexpr uint16_t C_TEXT = ST77XX_WHITE;
-    static constexpr uint16_t C_BORDER = ST77XX_WHITE;
+    static constexpr uint16_t C_BG = JWPLC_TFT_BLACK;
+    static constexpr uint16_t C_TEXT = JWPLC_TFT_WHITE;
+    static constexpr uint16_t C_BORDER = JWPLC_TFT_WHITE;
     static constexpr uint16_t C_DIVIDER = 0x39E7;
-    static constexpr uint16_t C_TITLE = 0x7DFF;
+    // Marca visual de la pila JWPLC_TFT/TFT_eSPI:
+    // título blanco sobre bloque azul. La implementación anterior
+    // dibujaba únicamente texto azul/celeste sobre fondo negro.
+    static constexpr uint16_t C_TITLE_BG = 0x39E7;
+    static constexpr uint16_t C_TITLE_TEXT = JWPLC_TFT_WHITE;
     static constexpr uint16_t C_IN_ACTIVE = 0x867D;
     static constexpr uint16_t C_OK_GREEN = 0x5FE0;
-    static constexpr uint16_t C_ERR_RED = ST77XX_RED;
+    static constexpr uint16_t C_ERR_RED = JWPLC_TFT_RED;
     static constexpr uint16_t C_DISABLED_GRAY = 0xCE59;
 
     // =====================================================
@@ -252,7 +259,7 @@ namespace JWPLCIdleScreen
         tft->setTextSize(1);
         tft->setTextColor(C_TEXT, C_ERR_RED);
 
-        // Fuente base Adafruit_GFX: ~6 px por carácter.
+        // Fuente base GLCD: ~6 px por carácter.
         const int textWidth = length * 6;
         const int textX =
             STATUS_BOX_X + ((STATUS_BOX_W - textWidth) / 2);
@@ -385,8 +392,18 @@ namespace JWPLCIdleScreen
         g_profBaseDividersUs = micros() - t0;
 
         t0 = micros();
+
+        // Visual marker for the current JWPLC_TFT-backed display stack.
+        // Keep it inside the left panel so it is unmistakable on hardware
+        // without changing the public display API.
+        tft->fillRect(
+            TITLE_BOX_X,
+            TITLE_BOX_Y,
+            TITLE_BOX_W,
+            TITLE_BOX_H,
+            C_TITLE_BG);
         tft->setTextSize(1);
-        tft->setTextColor(C_TITLE, C_BG);
+        tft->setTextColor(C_TITLE_TEXT, C_TITLE_BG);
         tft->setCursor(TITLE_X, TITLE_Y);
         tft->print(g_title);
 
@@ -727,7 +744,7 @@ namespace JWPLCIdleScreen
     // =====================================================
     // API pública
     // =====================================================
-    void begin(Adafruit_ST7789 *display)
+    void begin(JWPLC_TFTClass *display)
     {
         tft = display;
         g_forceFullRedraw = true;

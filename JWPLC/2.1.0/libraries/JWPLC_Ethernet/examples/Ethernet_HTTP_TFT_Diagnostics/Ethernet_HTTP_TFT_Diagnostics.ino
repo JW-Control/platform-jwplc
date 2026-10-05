@@ -584,7 +584,7 @@ static const JWPLC_UIField DIAGNOSTIC_FIELDS[] = {
     JWPLC_UITextField(
         DIAG_P0_TITLE, JWPLC_UIRect(6, 4), JWPLC_UIText(nullptr, nullptr, 28),
         JWPLC_UITextFieldStyle(2, 1, false, JWPLC_UI_LAYOUT_INLINE, JWPLC_UI_ALIGN_LEFT),
-        0, JWPLC_UIColors(ST77XX_CYAN, ST77XX_CYAN, ST77XX_BLACK, ST77XX_CYAN)),
+        0, JWPLC_UIColors(JWPLC_TFT_CYAN, JWPLC_TFT_CYAN, JWPLC_TFT_BLACK, JWPLC_TFT_CYAN)),
     JWPLC_UITextField(DIAG_P0_USB, 6, 28, "USB", 24, 0),
     JWPLC_UITextField(DIAG_P0_ETH, 6, 44, "ETH", 31, 0),
     JWPLC_UITextField(DIAG_P0_IP, 6, 60, "IP", 20, 0),
@@ -598,7 +598,7 @@ static const JWPLC_UIField DIAGNOSTIC_FIELDS[] = {
     JWPLC_UITextField(
         DIAG_P1_TITLE, JWPLC_UIRect(6, 4), JWPLC_UIText(nullptr, nullptr, 28),
         JWPLC_UITextFieldStyle(2, 1, false, JWPLC_UI_LAYOUT_INLINE, JWPLC_UI_ALIGN_LEFT),
-        1, JWPLC_UIColors(ST77XX_CYAN, ST77XX_CYAN, ST77XX_BLACK, ST77XX_CYAN)),
+        1, JWPLC_UIColors(JWPLC_TFT_CYAN, JWPLC_TFT_CYAN, JWPLC_TFT_BLACK, JWPLC_TFT_CYAN)),
     JWPLC_UITextField(DIAG_P1_BUTTONS_A, 6, 34, nullptr, 39, 1),
     JWPLC_UITextField(DIAG_P1_BUTTONS_B, 6, 52, nullptr, 39, 1),
     JWPLC_UITextField(DIAG_P1_LAST, 6, 70, "Ultimo", 16, 1),

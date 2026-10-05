@@ -304,7 +304,7 @@ void RuntimeUIFBDMapUnified::clearTransitionRegions(View previousView,
 
 void RuntimeUIFBDMapUnified::clearContentArea()
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.fillRect(CONTENT_X, CONTENT_Y, CONTENT_W, CONTENT_H, COLOR_PANEL);
   tft.drawRect(PANEL_X, PANEL_Y, PANEL_W, PANEL_H, COLOR_BORDER);
 }
@@ -601,7 +601,7 @@ void RuntimeUIFBDMapUnified::renderHeaderTitle(const HeaderModel &model,
     return;
   }
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   clearHeaderTitleArea();
   tft.drawFastHLine(0, HEADER_H - 1, SCREEN_W, COLOR_BORDER);
   tft.setTextWrap(false);
@@ -621,7 +621,7 @@ void RuntimeUIFBDMapUnified::renderHeaderContext(
     return;
   }
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.drawFastHLine(HEADER_CONTEXT_X,
                     HEADER_H - 1,
                     HEADER_CONTEXT_W,
@@ -658,7 +658,7 @@ void RuntimeUIFBDMapUnified::renderHeaderState(const HeaderModel &model,
     return;
   }
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   clearHeaderStateArea();
   tft.drawFastHLine(HEADER_STATE_X,
                     HEADER_H - 1,

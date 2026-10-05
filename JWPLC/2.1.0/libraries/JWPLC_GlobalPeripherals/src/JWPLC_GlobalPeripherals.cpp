@@ -470,6 +470,15 @@ extern "C" bool jwplcSDBeginCallback(void)
     return initSD();
 }
 
+#if JWPLC_HAS_SD
+// Servicio cooperativo de los DataLogs registrados.
+// El core llama este hook automaticamente desde jwplcSystemTask().
+extern "C" void jwplcDataLogTickCallback(void)
+{
+    JWPLC_SD.serviceDataLogs();
+}
+#endif
+
 // =====================================================
 // Hooks RTC provider
 // =====================================================

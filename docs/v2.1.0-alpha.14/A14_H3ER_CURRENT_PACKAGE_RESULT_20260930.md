@@ -1,0 +1,191 @@
+# Alpha14 — H3E-R current package — resultado 2026-09-30
+
+## Clasificación
+
+La ejecución física principal fue válida y completó P5-B/H3E-R sobre el package
+actual. El wrapper H3E-R falló únicamente durante el postprocesado final porque
+el parser exigía un único `REQUESTED_REQ_S` y el log contenía dos marcadores
+idénticos.
+
+```text
+UNDERLYING_PHYSICAL_RUN=PASS
+P5B_AUTOMATED=PASS
+TFT_PHYSICAL=PASS
+PRODUCT_FAILURE=NO_EVIDENCE
+HARDWARE_FAILURE=NO_EVIDENCE
+HARNESS_POSTPROCESS_FAILURE=YES
+PHYSICAL_RERUN_REQUIRED=NO
+```
+
+El parser fue corregido para aceptar marcadores repetidos únicamente si sus
+valores coinciden.
+
+## Package / preflight
+
+```text
+HEAD_TESTED=413a570b4d8c6996c6456dc0ffc8c82eb56f8c06
+W5500_SPI_HZ=26000000
+FIFO_REUSE_SOURCE=PACKAGE_DEFAULT
+FIFO_REUSE_DEFAULT_CONTRACT=PASS
+DATALOG_SOURCE_CONTRACT=PASS
+MANUAL_DATALOG_SERVICE=NO
+TRACKED_DIRTY_COUNT=0
+STAGED_COUNT=0
+```
+
+## TCP full runtime
+
+Perfil:
+
+```text
+FC03_QUANTITY_REGISTERS=125
+TARGET_REQ_S=1000
+DURATION_S=120
+```
+
+Resultado:
+
+```text
+OK=119987/120000
+ACHIEVED_REQ_S=999.88
+ACHIEVED_PCT=99.988
+TOTAL_TCP_PAYLOAD_MBPS=2.1677
+USEFUL_DATA_MBPS=1.9998
+LATENCY_AVG_US=906.7
+LATENCY_P95_US=1275.5
+LATENCY_P99_US=3781.0
+LATENCY_MAX_US=28179.8
+LOOP_GAP_AVG_US=640
+LOOP_GAP_MAX_US=9855
+TIMEOUTS=0
+TRANSPORT_ERRORS=0
+PROTOCOL_ERRORS=0
+BUS_LOCK_TIMEOUTS=0
+TCP_CLEAN=YES
+```
+
+## RTU 50 Hz
+
+```text
+RTU_TRAFFIC_DURATION_MS=120011
+RTU_REQUESTS_STARTED=6001
+RTU_REQUESTS_COMPLETED=6001
+RTU_REQUESTS_SUCCESS=6001
+RTU_REQUESTS_FAILED=0
+RTU_REQUESTS_REJECTED=0
+RTU_VERIFY_FAILS=0
+RTU_PERIODS_SKIPPED=0
+RTU_RX_FRAMES=6001
+RTU_TX_FRAMES=6001
+RTU_CRC_ERRORS=0
+RTU_MASTER_TIMEOUTS=0
+RTU_LAST_ERROR=OK
+RTU_SERVICE_GAP_MAX_US=9852
+RTU_ACHIEVED_HZ=50.004
+```
+
+Slave:
+
+```text
+RTU_RX_FRAMES=6001
+RTU_TX_FRAMES=6001
+RTU_REQUESTS_OK=6001
+RTU_CRC_ERRORS=0
+RTU_EXCEPTIONS_SENT=0
+RTU_LAST_ERROR=OK
+CROSS_COUNT_DELTA_RX=0
+CROSS_COUNT_DELTA_TX=0
+CROSS_COUNT_DELTA_OK=0
+```
+
+## DataLog / microSD
+
+```text
+SD_WORKLOAD_MODE=BUFFERED_DATALOG
+SD_DATALOG_ACTIVE=YES
+SD_DATALOG_BUFFER_BYTES=4096
+SD_DATALOG_COMMIT_THRESHOLD_BYTES=512
+SD_DATALOG_COMMIT_TIMEOUT_MS=5000
+SD_DATALOG_ACCEPTED_BYTES=3840
+SD_DATALOG_COMMITTED_BYTES=3808
+SD_DATALOG_PENDING_BYTES=32
+SD_DATALOG_FAILED_COMMITS=0
+```
+
+## Otros periféricos
+
+```text
+FRAM_CYCLES=480
+FRAM_FAILS=0
+FRAM_MAX_US=3792
+
+RTC_SAMPLES=480
+RTC_UNAVAILABLE=0
+RTC_STALE=0
+RTC_MAX_AGE_MS=938
+
+IO_SAMPLES=5911
+IO_STALE=0
+IO_MAX_AGE_MS=25
+
+BUTTON_SAMPLES=5884
+BUTTON_NOT_READY=0
+BUTTON_SAMPLE_GAP_MAX_MS=284
+
+SPI_PROBE_SAMPLES=1179
+SPI_PROBE_FAILS=0
+SPI_PROBE_MAX_WAIT_US=438
+SPI_PROBE_OVER_1MS=0
+SPI_PROBE_OVER_10MS=0
+
+PERIPHERAL_FAILURE_COUNT=0
+```
+
+## TFT física
+
+```text
+MASTER_TFT_PHYSICAL_PASS=True
+SLAVE_TFT_PHYSICAL_PASS=True
+TFT_PHYSICAL_PASS=True
+```
+
+## Comparación contra H3E.5 histórico
+
+| Métrica | H3E.5 histórico | H3E-R actual | Cambio |
+|---|---:|---:|---:|
+| TCP req/s | 1000.00 | 999.88 | -0.012 % |
+| Total Mbps | 2.1680 | 2.1677 | -0.014 % |
+| Useful Mbps | 2.0000 | 1.9998 | -0.010 % |
+| P95 | 1197.2 us | 1275.5 us | +6.54 % |
+| P99 | 3423.3 us | 3781.0 us | +10.45 % |
+| Max | 18823.7 us | 28179.8 us | +49.70 % |
+| RTU Hz | 50.004 | 50.004 | ~0 % |
+| RTU success | 6001/6001 | 6001/6001 | igual |
+| RTU periods skipped | 0 | 0 | igual |
+| DataLog accepted | 3840 B | 3840 B | igual |
+| DataLog committed | 3744 B | 3808 B | +64 B |
+| DataLog pending | 96 B | 32 B | -66.7 % |
+| DataLog failed commits | 0 | 0 | igual |
+
+Interpretación:
+
+- throughput y cadencia permanecen esencialmente idénticos;
+- P95/P99 empeoran moderadamente;
+- el peor outlier TCP aumenta materialmente, pero sin timeout, error de
+  transporte, error de protocolo, lock timeout ni pérdida de periodo RTU;
+- RTU conserva exactamente 50 Hz y 6001/6001;
+- DataLog conserva cero fallos y termina con menor pending.
+
+## Decisión técnica
+
+```text
+H3ER_TCP_TARGET=PASS
+H3ER_RTU_50HZ=PASS
+H3ER_DATALOG=PASS
+H3ER_PERIPHERALS=PASS
+H3ER_TFT_PHYSICAL=PASS
+FIFO_REUSE_DEFAULT_RUNTIME=PASS
+H3ER_PRODUCT_RESULT=PASS
+H3ER_HARNESS_POSTPROCESS=FIXED
+NEXT=P4_1_DLEN_REUSE
+```

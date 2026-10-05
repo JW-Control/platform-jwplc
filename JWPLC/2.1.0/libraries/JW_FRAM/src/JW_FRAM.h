@@ -1,6 +1,7 @@
 #ifndef _JW_FRAM_H_
 #define _JW_FRAM_H_
 
+#include <JWPLC_Bundled_Adafruit_BusIO.h>
 #include <Adafruit_SPIDevice.h>
 #include <Arduino.h>
 #include <SPI.h>

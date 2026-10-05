@@ -28,15 +28,15 @@ extern "C" void jwplcUIEnter()
     auto &tft = JWPLC_Display.tft();
 
     // fillScreen() está bien al entrar a una pantalla nueva.
-    tft.fillScreen(ST77XX_BLACK);
+    tft.fillScreen(JWPLC_TFT_BLACK);
 
     tft.setTextSize(2);
-    tft.setTextColor(ST77XX_CYAN);
+    tft.setTextColor(JWPLC_TFT_CYAN);
     tft.setCursor(10, 15);
     tft.print("Proceso");
 
     tft.setTextSize(1);
-    tft.setTextColor(ST77XX_WHITE);
+    tft.setTextColor(JWPLC_TFT_WHITE);
 
     tft.setCursor(10, 55);
     tft.print("Estado:");
@@ -63,9 +63,9 @@ extern "C" void jwplcUIUpdate()
         g_lastRunState = g_runState;
 
         // Solo limpiar el campo del estado, no toda la pantalla.
-        tft.fillRect(90, 55, 120, 14, ST77XX_BLACK);
+        tft.fillRect(90, 55, 120, 14, JWPLC_TFT_BLACK);
         tft.setCursor(90, 55);
-        tft.setTextColor(g_runState ? ST77XX_GREEN : ST77XX_RED);
+        tft.setTextColor(g_runState ? JWPLC_TFT_GREEN : JWPLC_TFT_RED);
         tft.print(g_runState ? "RUN" : "STOP");
     }
 
@@ -77,9 +77,9 @@ extern "C" void jwplcUIUpdate()
         snprintf(buffer, sizeof(buffer), "%lu", (unsigned long)g_processCounter);
 
         // Solo limpiar el campo del contador.
-        tft.fillRect(90, 80, 120, 14, ST77XX_BLACK);
+        tft.fillRect(90, 80, 120, 14, JWPLC_TFT_BLACK);
         tft.setCursor(90, 80);
-        tft.setTextColor(ST77XX_WHITE);
+        tft.setTextColor(JWPLC_TFT_WHITE);
         tft.print(buffer);
     }
 

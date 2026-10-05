@@ -41,12 +41,12 @@ namespace
 
 namespace JWPLCLogicRuntimeUIWidgets
 {
-  void clearScreen(Adafruit_ST7789 &tft)
+  void clearScreen(JWPLC_TFTClass &tft)
   {
     tft.fillScreen(COLOR_BACKGROUND);
   }
 
-  void drawHeaderStatic(Adafruit_ST7789 &tft,
+  void drawHeaderStatic(JWPLC_TFTClass &tft,
                         const char *title)
   {
     tft.fillRect(0, 0, SCREEN_W, 24, COLOR_PANEL);
@@ -59,7 +59,7 @@ namespace JWPLCLogicRuntimeUIWidgets
     tft.print(title ? title : "JWPLC LOGIC");
   }
 
-  void updateHeaderState(Adafruit_ST7789 &tft,
+  void updateHeaderState(JWPLC_TFTClass &tft,
                          const char *stateText,
                          uint16_t stateColor)
   {
@@ -77,7 +77,7 @@ namespace JWPLCLogicRuntimeUIWidgets
     tft.print(visibleState);
   }
 
-  void drawHeader(Adafruit_ST7789 &tft,
+  void drawHeader(JWPLC_TFTClass &tft,
                   const char *title,
                   const char *stateText,
                   uint16_t stateColor)
@@ -86,7 +86,7 @@ namespace JWPLCLogicRuntimeUIWidgets
     updateHeaderState(tft, stateText, stateColor);
   }
 
-  void drawPanel(Adafruit_ST7789 &tft,
+  void drawPanel(JWPLC_TFTClass &tft,
                  int16_t x,
                  int16_t y,
                  int16_t w,
@@ -106,7 +106,7 @@ namespace JWPLCLogicRuntimeUIWidgets
     }
   }
 
-  void drawFieldLabel(Adafruit_ST7789 &tft,
+  void drawFieldLabel(JWPLC_TFTClass &tft,
                       int16_t x,
                       int16_t y,
                       const char *label,
@@ -122,7 +122,7 @@ namespace JWPLCLogicRuntimeUIWidgets
     tft.print(label ? label : "");
   }
 
-  void updateTextField(Adafruit_ST7789 &tft,
+  void updateTextField(JWPLC_TFTClass &tft,
                        int16_t x,
                        int16_t y,
                        uint8_t columns,
@@ -158,7 +158,7 @@ namespace JWPLCLogicRuntimeUIWidgets
     tft.print(visibleText);
   }
 
-  void drawLabelValue(Adafruit_ST7789 &tft,
+  void drawLabelValue(JWPLC_TFTClass &tft,
                       int16_t x,
                       int16_t y,
                       const char *label,
@@ -177,7 +177,7 @@ namespace JWPLCLogicRuntimeUIWidgets
                     value);
   }
 
-  void drawMenuButton(Adafruit_ST7789 &tft,
+  void drawMenuButton(JWPLC_TFTClass &tft,
                       int16_t x,
                       int16_t y,
                       int16_t w,
@@ -207,7 +207,7 @@ namespace JWPLCLogicRuntimeUIWidgets
     tft.print(label ? label : "");
   }
 
-  void drawFooter(Adafruit_ST7789 &tft, const char *text)
+  void drawFooter(JWPLC_TFTClass &tft, const char *text)
   {
     tft.drawFastHLine(0, 156, SCREEN_W, COLOR_BORDER);
     updateTextField(tft,
