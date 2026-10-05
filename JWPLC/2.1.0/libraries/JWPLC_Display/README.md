@@ -1,582 +1,548 @@
 # JWPLC_Display
 
-Librería del package **JWPLC ESP32** para la TFT ST7789 integrada del **JWPLC Basic**.
+`JWPLC_Display` es la librería de alto nivel para usar la pantalla TFT
+integrada del **JWPLC Basic**.
 
-Estado documentado: **v2.1.0-alpha.12 en cierre**.
+Con ella puedes usar la pantalla de estado del equipo, crear una interfaz
+`USER`, mostrar valores y estados, trabajar con varias páginas y controlar los
+indicadores `RUN`, `ERR`, `BUS` y `ETH`.
 
-La API HMI de usuario validada en Alpha11 se conserva. Alpha12 cambia la arquitectura interna de renderizado/runtime para mejorar coexistencia y rendimiento bajo carga.
+## ¿Para qué sirve?
 
-`JWPLC_Display` integra:
+El JWPLC Basic tiene dos vistas principales:
 
-1. pantalla automática `IDLE` del sistema;
-2. pantalla `USER`;
-3. HMI declarativa `JWPLC_UI`;
-4. navegación multipágina;
-5. PixelMap RGB565 y `PACKED_SPAN16`;
-6. dirty refresh / on-demand refresh;
-7. acceso gráfico avanzado mediante `JWPLC_TFT`.
+- **IDLE**: pantalla de estado del propio JWPLC;
+- **USER**: pantalla de tu aplicación.
 
-La API pública recomendada usa el objeto global:
+En `USER` puedes mostrar, por ejemplo:
 
-```cpp
-JWPLC_Display
+```text
+Temperatura   62.5 °C
+Motor         ON
+Estado        CALENTANDO
+Carga         75 %
 ```
 
-La API histórica `JWPLCDisplay::` y algunos aliases/getters continúan por compatibilidad, pero no son la forma recomendada para código nuevo.
+Para una HMI normal se recomienda usar `JWPLC_Display` y, cuando corresponda,
+**JWPLC HMI Designer**.
 
----
+Si necesitas dibujar píxeles, líneas o figuras manualmente, utiliza
+`JWPLC_TFT` desde la sección avanzada.
 
-## Inicialización automática
+## Qué hace automáticamente el JWPLC
 
-En `JWPLC Basic` la TFT forma parte del autoload normal.
+La pantalla se inicializa como parte del runtime.
 
-El sketch no debe:
+En un sketch normal no tienes que:
 
-- crear otra instancia `Adafruit_ST7789` para la TFT integrada;
-- reinicializar sus pines;
-- llamar un `begin()` paralelo;
-- apropiarse del SPI compartido sin la coordinación del runtime.
+- crear un driver para el ST7789;
+- configurar los pines de la TFT;
+- reinicializar la pantalla;
+- administrar el bus compartido;
+- refrescar toda la pantalla continuamente.
 
-Consulta básica:
+Puedes comprobar disponibilidad con:
 
 ```cpp
 if (JWPLC_Display.isReady())
 {
-    // TFT lista
+    // Display disponible
 }
 ```
 
-Alpha11 estabiliza además el arranque manteniendo `TFT_RST` controlado durante autoload y dibujando el primer IDLE inmediatamente después de inicializar la TFT.
+pero en la mayoría de sketches ni siquiera necesitas hacer esta comprobación.
 
----
+## Inicio rápido
 
-## Configuración IDLE / USER
-
-### Wake desde IDLE
+Este ejemplo utiliza la pantalla `IDLE`.
 
 ```cpp
-JWPLC_Display.setIdleWakeMode(IDLE_WAKE_BUTTON_ONLY);
-JWPLC_Display.setIdleWakeButton(BTN_OK);
+#include <JWPLC_Display.h>
+
+void setup()
+{
+    JWPLC_Display.setRunLed(true);
+    JWPLC_Display.setErrCode("");
+
+    JWPLC_Display.setBusLedAuto(true);
+    JWPLC_Display.setEthLedAuto(true);
+}
+
+void loop()
+{
+}
 ```
 
-Modos:
+Resultado esperado:
 
-```text
-IDLE_WAKE_ANY_BUTTON
-IDLE_WAKE_BUTTON_ONLY
-IDLE_WAKE_DISABLED
-```
+- `RUN` activo;
+- sin código de error;
+- `BUS` y `ETH` administrados automáticamente por la plataforma.
 
-### Retorno a IDLE
+## Conceptos básicos
+
+### IDLE
+
+Es la pantalla de estado del JWPLC.
+
+Puede mostrar:
+
+- `RUN`;
+- `ERR`;
+- actividad `BUS`;
+- estado `ETH`;
+- entradas y salidas;
+- RTC.
+
+No tienes que programarla desde cero.
+
+### USER
+
+Es la pantalla de tu aplicación.
+
+Puedes entrar a ella por botones o desde el sketch:
 
 ```cpp
-JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
-JWPLC_Display.setIdleReturnButton(BTN_ESC);
+JWPLC_Display.enterUserUI();
 ```
 
-Modos:
-
-```text
-IDLE_RETURN_TIMEOUT
-IDLE_RETURN_ESC_ONLY
-IDLE_RETURN_BUTTON_ONLY
-IDLE_RETURN_DISABLED
-```
-
-Para retorno por tiempo:
+y regresar a IDLE:
 
 ```cpp
-JWPLC_Display.setIdleTimeoutMs(15000);
+JWPLC_Display.goIdle();
 ```
 
-Entrada/salida manual:
+### Fields
+
+Un **Field** es un elemento de la HMI.
+
+La librería soporta cuatro tipos principales:
+
+- `VALUE`: un número;
+- `TEXT`: texto;
+- `BOOL`: estado tipo ON/OFF;
+- `BAR`: barra de nivel.
+
+### Páginas
+
+Una interfaz puede tener varias páginas.
+
+Los IDs de página empiezan en `0`.
+
+### Actualización ON_DEMAND
+
+`USER_REFRESH_ON_DEMAND` significa que la HMI sólo solicita redibujar los
+elementos cuyo contenido realmente cambió.
+
+No necesitas llamar `requestUserRefresh()` después de cada `setValue()`.
+
+### PixelMap
+
+Un **PixelMap** es una imagen registrada en la HMI.
+
+Si utilizas HMI Designer, el archivo generado se encarga de registrar las
+imágenes y sus IDs. Esos nombres dependen de cada proyecto; no son constantes
+universales del package.
+
+## Ejemplo 1 — Básico: IDLE y botonera
+
+- `OK`: alterna un error de prueba;
+- `DOWN`: alterna `RUN`.
+
+```cpp
+#include <JWPLC_Display.h>
+
+bool run = true;
+bool errorActivo = false;
+
+void setup()
+{
+    JWPLC_Display.setIdleWakeMode(
+        IDLE_WAKE_DISABLED);
+
+    JWPLC_Display.setRunLed(run);
+    JWPLC_Display.setErrCode("");
+
+    JWPLC_Display.setBusLedAuto(true);
+    JWPLC_Display.setEthLedAuto(true);
+
+    JWPLC_Buttons.clearPendingInput();
+}
+
+void loop()
+{
+    if (JWPLC_Buttons.pressed(BTN_OK))
+    {
+        errorActivo = !errorActivo;
+
+        JWPLC_Display.setErrCode(
+            errorActivo ? "TST" : "");
+    }
+
+    if (JWPLC_Buttons.pressed(BTN_DOWN))
+    {
+        run = !run;
+
+        JWPLC_Display.setRunLed(run);
+    }
+}
+```
+
+`setErrCode()` acepta de 1 a 4 caracteres alfanuméricos. Una cadena vacía
+elimina el error.
+
+## Ejemplo 2 — Intermedio: primera HMI con Fields
+
+Este ejemplo crea manualmente cuatro Fields. Es útil para entender el modelo
+antes de utilizar HMI Designer.
+
+```cpp
+#include <JWPLC_Display.h>
+
+enum FieldId : uint8_t
+{
+    FIELD_CONTADOR = 1,
+    FIELD_ESTADO,
+    FIELD_MOTOR,
+    FIELD_NIVEL
+};
+
+static const JWPLC_UIField FIELDS[] =
+{
+    JWPLC_UIValueField(
+        FIELD_CONTADOR,
+        10, 18,
+        "Contador", "",
+        JWPLC_UIValueFormat(
+            5, 0, false, false)),
+
+    JWPLC_UITextField(
+        FIELD_ESTADO,
+        10, 52,
+        "Estado",
+        12),
+
+    JWPLC_UIBoolField(
+        FIELD_MOTOR,
+        10, 86,
+        "Motor",
+        JWPLC_UIBoolText(
+            "OFF", "ON")),
+
+    JWPLC_UIBarField(
+        FIELD_NIVEL,
+        10, 120,
+        "Nivel",
+        JWPLC_UIRange(
+            0.0f, 100.0f),
+        200, 28)
+};
+
+uint32_t contador = 0;
+bool motor = false;
+float nivel = 40.0f;
+
+void setup()
+{
+    JWPLC_Display.setIdleWakeMode(
+        IDLE_WAKE_BUTTON_ONLY);
+
+    JWPLC_Display.setIdleWakeButton(
+        BTN_OK);
+
+    JWPLC_Display.setIdleReturnMode(
+        IDLE_RETURN_ESC_ONLY);
+
+    JWPLC_Display.setUserRefreshMode(
+        USER_REFRESH_ON_DEMAND);
+
+    JWPLC_Display.setFields(
+        FIELDS,
+        sizeof(FIELDS) /
+        sizeof(FIELDS[0]));
+
+    JWPLC_Display.setValue(
+        FIELD_CONTADOR,
+        contador);
+
+    JWPLC_Display.setValue(
+        FIELD_ESTADO,
+        "LISTO");
+
+    JWPLC_Display.setValue(
+        FIELD_MOTOR,
+        motor);
+
+    JWPLC_Display.setBar(
+        FIELD_NIVEL,
+        nivel);
+}
+
+void loop()
+{
+    static uint32_t ultimaActualizacion = 0;
+
+    if (millis() - ultimaActualizacion >= 1000)
+    {
+        ultimaActualizacion = millis();
+
+        contador++;
+
+        motor =
+            (contador % 2) != 0;
+
+        nivel += 10.0f;
+
+        if (nivel > 100.0f)
+        {
+            nivel = 0.0f;
+        }
+
+        JWPLC_Display.setValue(
+            FIELD_CONTADOR,
+            contador);
+
+        JWPLC_Display.setValue(
+            FIELD_ESTADO,
+            motor ? "MARCHA" : "PARADO");
+
+        JWPLC_Display.setValue(
+            FIELD_MOTOR,
+            motor);
+
+        JWPLC_Display.setBar(
+            FIELD_NIVEL,
+            nivel);
+    }
+}
+```
+
+No hay `delay(1000)`: la lógica del programa puede seguir ejecutándose.
+
+## Ejemplo 3 — Aplicación real: HMI con dos páginas
+
+Página 0 muestra entradas. Página 1 muestra la hora.
+
+```cpp
+#include <JWPLC_Display.h>
+
+enum FieldId : uint8_t
+{
+    FIELD_ENTRADAS = 1,
+    FIELD_I0,
+    FIELD_HORA,
+    FIELD_RTC_OK
+};
+
+static const JWPLC_UIField FIELDS[] =
+{
+    JWPLC_UIValueField(
+        FIELD_ENTRADAS,
+        20, 45,
+        "Entradas", "",
+        JWPLC_UIValueFormat(
+            3, 0, false, false),
+        0),
+
+    JWPLC_UIBoolField(
+        FIELD_I0,
+        20, 90,
+        "I0_0",
+        JWPLC_UIBoolText(
+            "LOW", "HIGH"),
+        0),
+
+    JWPLC_UITextField(
+        FIELD_HORA,
+        20, 45,
+        "Hora",
+        12,
+        1),
+
+    JWPLC_UIBoolField(
+        FIELD_RTC_OK,
+        20, 90,
+        "RTC",
+        JWPLC_UIBoolText(
+            "INVALID", "OK"),
+        1)
+};
+
+char hora[12] = "--:--:--";
+
+void setup()
+{
+    JWPLC_Display.setIdleWakeMode(
+        IDLE_WAKE_BUTTON_ONLY);
+
+    JWPLC_Display.setIdleWakeButton(
+        BTN_OK);
+
+    JWPLC_Display.setIdleReturnMode(
+        IDLE_RETURN_ESC_ONLY);
+
+    JWPLC_Display.setUserRefreshMode(
+        USER_REFRESH_ON_DEMAND);
+
+    JWPLC_Display.setFields(
+        FIELDS,
+        sizeof(FIELDS) /
+        sizeof(FIELDS[0]));
+
+    JWPLC_Display.setUserPageCount(2);
+    JWPLC_Display.setUserPage(0);
+
+    JWPLC_Buttons.clearPendingInput();
+}
+
+void loop()
+{
+    if (JWPLC_Buttons.pressed(BTN_LEFT))
+    {
+        JWPLC_Display.setUserPage(0);
+    }
+
+    if (JWPLC_Buttons.pressed(BTN_RIGHT))
+    {
+        JWPLC_Display.setUserPage(1);
+    }
+
+    static uint32_t ultimaActualizacion = 0;
+
+    if (millis() - ultimaActualizacion >= 500)
+    {
+        ultimaActualizacion = millis();
+
+        JWPLC_Display.setValue(
+            FIELD_ENTRADAS,
+            JWPLC_IO.inputs());
+
+        JWPLC_Display.setValue(
+            FIELD_I0,
+            JWPLC_IO.input(0));
+
+        if (JWPLC_Time.valid())
+        {
+            snprintf(
+                hora,
+                sizeof(hora),
+                "%02u:%02u:%02u",
+                JWPLC_Time.hour(),
+                JWPLC_Time.minute(),
+                JWPLC_Time.second());
+        }
+        else
+        {
+            snprintf(
+                hora,
+                sizeof(hora),
+                "--:--:--");
+        }
+
+        JWPLC_Display.setValue(
+            FIELD_HORA,
+            hora);
+
+        JWPLC_Display.setValue(
+            FIELD_RTC_OK,
+            JWPLC_Time.valid());
+    }
+}
+```
+
+## Ejemplo 4 — Avanzado de usuario: dibujo directo
+
+Cuando una interfaz no puede expresarse con Fields puedes obtener el renderer
+`JWPLC_TFT`.
+
+```cpp
+#include <JWPLC_Display.h>
+
+void setup()
+{
+    JWPLC_Display.setIdleWakeMode(
+        IDLE_WAKE_BUTTON_ONLY);
+
+    JWPLC_Display.setIdleWakeButton(
+        BTN_OK);
+
+    JWPLC_Display.setIdleReturnMode(
+        IDLE_RETURN_ESC_ONLY);
+}
+
+void loop()
+{
+    static bool dibujado = false;
+
+    if (!JWPLC_Display.isIdleMode() &&
+        !dibujado)
+    {
+        dibujado = true;
+
+        auto &tft =
+            JWPLC_Display.tft();
+
+        tft.fillScreen(
+            JWPLC_TFT_BLACK);
+
+        tft.setCursor(
+            20, 20);
+
+        tft.setTextColor(
+            JWPLC_TFT_CYAN);
+
+        tft.setTextSize(2);
+
+        tft.println(
+            "JWPLC USER");
+    }
+
+    if (JWPLC_Display.isIdleMode())
+    {
+        dibujado = false;
+    }
+}
+```
+
+Para dibujo continuo o animaciones revisa el README de `JWPLC_TFT` y los
+ejemplos oficiales de Display. Una HMI normal debería seguir usando Fields o
+HMI Designer.
+
+## API de usuario
+
+### Estado — Básico
+
+| Función | Qué hace | Nivel |
+|---|---|---|
+| `isReady()` | Indica si Display está disponible | Básico |
+| `isIdleMode()` | Indica si se muestra IDLE | Básico |
+| `buttonsReady()` | Indica si la botonera usada por Display está lista | Intermedio |
+| `forceRedraw()` | Solicita redibujar completamente la vista actual | Avanzado |
+
+### Entrar y salir de USER — Básico
 
 ```cpp
 JWPLC_Display.enterUserUI();
 JWPLC_Display.goIdle();
 ```
 
----
-
-## Refresh
-
-Refresh IDLE:
+Si utilizas un timeout de actividad:
 
 ```cpp
-JWPLC_Display.setIdleRefreshPeriodMs(50);
+JWPLC_Display.notifyActivity();
 ```
 
-Refresh USER:
+### Wake desde IDLE — Básico / Intermedio
 
 ```cpp
-JWPLC_Display.setUserRefreshMode(USER_REFRESH_ON_DEMAND);
-JWPLC_Display.requestUserRefresh();
+JWPLC_Display.setIdleWakeMode(
+    IDLE_WAKE_ANY_BUTTON);
+
+JWPLC_Display.setIdleWakeButton(
+    BTN_OK);
 ```
 
-O periódico:
-
-```cpp
-JWPLC_Display.setUserRefreshMode(USER_REFRESH_PERIODIC);
-JWPLC_Display.setUserRefreshPeriodMs(50);
-```
-
-Modos:
-
-```text
-USER_REFRESH_ON_DEMAND
-USER_REFRESH_PERIODIC
-```
-
----
-
-## HMI Designer Alpha11
-
-JWPLC HMI Designer genera:
-
-```text
-JWPLC_HMI_Generated.h
-```
-
-El header contiene la capa de presentación:
-
-```text
-HMIPageId
-HMIFieldId
-variables HMI
-JWPLC_UIField[]
-PixelMaps
-jwplcHMISetup()
-jwplcUIUpdate()
-```
-
-El `.ino` conserva la lógica del programa.
-
-Ejemplo:
-
-```cpp
-#include <JWPLC_Display.h>
-#include <JWPLC_HMI_Generated.h>
-
-void setup()
-{
-    jwplcHMISetup();
-
-    JWPLC_Display.setIdleWakeMode(IDLE_WAKE_BUTTON_ONLY);
-    JWPLC_Display.setIdleWakeButton(BTN_OK);
-    JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
-}
-
-void loop()
-{
-    // lógica de proceso
-}
-```
-
-Proyecto recomendado:
-
-```text
-MiProyecto/
-├─ MiProyecto.ino
-├─ MiProyecto.jwhmi
-└─ JWPLC_HMI_Generated.h
-```
-
----
-
-## Fields declarativos
-
-Tipos V1:
-
-```text
-TEXT
-VALUE
-BOOL
-BAR
-```
-
-Límite actual:
-
-```text
-JWPLC_UI_MAX_FIELDS=32
-```
-
-Helpers:
-
-```cpp
-JWPLC_UITextField(...)
-JWPLC_UIValueField(...)
-JWPLC_UIBoolField(...)
-JWPLC_UIBarField(...)
-```
-
-Registro manual/avanzado:
-
-```cpp
-JWPLC_Display.setFields(fields, count);
-JWPLC_Display.clearFields();
-```
-
-El flujo normal con Designer genera este registro automáticamente.
-
----
-
-## Actualizar valores
-
-API recomendada general:
-
-```cpp
-JWPLC_Display.setValue(FIELD_TEMP, temperatura);
-JWPLC_Display.setValue(FIELD_RUN, true);
-JWPLC_Display.setValue(FIELD_STATUS, "READY");
-```
-
-`setValue()` dispone de overloads para valores numéricos, `bool` y `const char *`.
-
-Para barra:
-
-```cpp
-JWPLC_Display.setBar(FIELD_LOAD, 75.0f);
-```
-
-También existen por compatibilidad/especialización:
-
-```cpp
-JWPLC_Display.setText(...);
-JWPLC_Display.setBool(...);
-```
-
-pero el autocompletado Alpha11 prioriza `setValue()` para no presentar múltiples caminos equivalentes al usuario.
-
----
-
-## Navegación multipágina
-
-Página actual:
-
-```cpp
-JWPLC_Display.setUserPage(0);
-```
-
-El Designer configura el conteo total y genera IDs simbólicos.
-
-Semántica física Alpha11:
-
-```text
-PAGE_SELECT
-  LEFT / RIGHT -> cambiar página
-  OK           -> entrar a contenido
-
-PAGE_CONTENT
-  LEFT / RIGHT / UP / DOWN / OK -> aplicación
-  ESC                            -> selector
-```
-
-El indicador visible usa formato:
-
-```text
-NN/TT
-```
-
-El retorno desde CONTENT limpia input pendiente para evitar reingresos fantasma.
-
----
-
-## PixelMap
-
-Alpha11 soporta PixelMaps estáticos agrupados por página.
-
-Formatos:
-
-```text
-RGB565_RUN
-PACKED_SPAN16
-```
-
-Registro manual/avanzado:
-
-```cpp
-JWPLC_Display.setPixelMaps(maps, count);
-JWPLC_Display.setPackedPixelMaps(maps, count);
-```
-
-El Designer elige automáticamente `PACKED_SPAN16` cuando resulta más compacto y la paleta cabe en 16 colores.
-
-Visibilidad runtime:
-
-```cpp
-JWPLC_Display.setPixelMapVisible(PIXELMAP_INDEX, true);
-JWPLC_Display.setPixelMapVisible(PIXELMAP_INDEX, false);
-```
-
----
-
-## Botonera y Display
-
-Display y aplicación son consumidores independientes.
-
-El sketch puede usar:
-
-```cpp
-JWPLC_Buttons.pressed(BTN_OK);
-JWPLC_Buttons.released(BTN_ESC);
-JWPLC_Buttons.isDown(BTN_UP);
-```
-
-sin añadir `delay()` ni Serial para estabilizar el runtime.
-
-Alpha11 validó físicamente loops cerrados y corrigió la priorización/servicio interno necesario para que la interfaz no dependa de pausas artificiales del usuario.
-
----
-
-## Runtime cerrado y `digitalWrite()`
-
-También se validó el caso habitual:
-
-```cpp
-void loop()
-{
-    bool q0 = /* condición */;
-    digitalWrite(Q0_0, q0);
-}
-```
-
-No es necesario escribir sólo cuando cambia ni añadir `delay(1)`.
-
-El core Alpha11 usa shadow de salida TCA6424A para que una escritura redundante del mismo estado no genere una transacción I2C innecesaria, y mantiene el servicio periódico de IO/RTC/Display.
-
-```text
-ALPHA11_USER_DELAY_REQUIRED=NO
-ALPHA11_DIGITALWRITE_REPEATED_STATE=PASS_PHYSICAL
-```
-
----
-
-## Pantalla IDLE
-
-La pantalla base muestra información del sistema, incluyendo:
-
-- `PWR`;
-- `RUN`;
-- `ERR`;
-- `BUS`;
-- `ETH`;
-- entradas `I0.0..I0.7`;
-- salidas `Q0.0..Q0.7`;
-- RTC cuando está disponible.
-
-El runtime usa snapshots internos y no obliga al sketch a repetir lecturas físicas sólo para mantener el IDLE.
-
----
-
-## Indicadores
-
-RUN:
-
-```cpp
-JWPLC_Display.setRunLed(true);
-```
-
-ERR recomendado:
-
-```cpp
-JWPLC_Display.setErrCode("A01");
-```
-
-BUS automático:
-
-```cpp
-JWPLC_Display.setBusLedAuto(true);
-```
-
-ETH automático:
-
-```cpp
-JWPLC_Display.setEthLedAuto(true);
-```
-
----
-
-## Acceso gráfico avanzado
-
-Forma recomendada:
-
-```cpp
-auto &tft = JWPLC_Display.tft();
-```
-
-`display()` continúa como alias:
-
-```cpp
-auto &tft2 = JWPLC_Display.display();
-```
-
-Ambos retornan:
-
-```cpp
-JWPLC_TFTClass &
-```
-
-La API gráfica pública ya no expone `Adafruit_ST7789&`.
-
-Un sketch anterior con tipo explícito:
-
-```cpp
-Adafruit_ST7789 &tft =
-    JWPLC_Display.tft();
-```
-
-debe migrarse a:
-
-```cpp
-auto &tft =
-    JWPLC_Display.tft();
-```
-
-o:
-
-```cpp
-JWPLC_TFTClass &tft =
-    JWPLC_Display.tft();
-```
-
-La HMI generada por Designer no necesita acceso directo al backend.
-
-La referencia completa de primitivas de dibujo está en:
-
-```text
-JWPLC/2.1.0/libraries/JWPLC_TFT/README.md
-```
-
----
-
-## Autocompletado Arduino IDE
-
-La extensión JWPLC HMI para Arduino IDE 2.3.4 ofrece sugerencias contextuales.
-
-Al escribir:
-
-```cpp
-JWPLC_Display.
-```
-
-se muestra una lista curada de API recomendada.
-
-Dentro de setters se proponen valores válidos para modos IDLE, botones y
-configuración HMI.
-
-Los getters/aliases compatibles no se eliminan de la API; simplemente no se
-priorizan cuando pueden confundir al usuario.
-
----
-
-## Coexistencia SPI
-
-La TFT comparte SPI con:
-
-- W5500;
-- FRAM;
-- microSD.
-
-El runtime utiliza el arbitraje SPI del package. Para la HMI normal se
-recomienda dejar que `JWPLC_Display` gestione el backend y usar
-`JWPLC_TFT` sólo cuando sea necesario dibujo directo.
-
----
-
-## Precompilación Alpha12
-
-`JWPLC_Display` ya fue regenerada, cualificada y activada en modo
-release-like:
-
-```text
-PRECOMPILED_FULL=YES
-DOT_A_LINKAGE=YES
-SOURCE_OBJECT_COUNT_IN_RELEASE_LIKE_BUILD=0
-```
-
-Archive final Alpha12:
-
-```text
-Archivo : src/esp32/libJWPLC_Display.a
-Bytes   : 941228
-SHA256  : c960d718433e29a40e3cc55bc745c9a2e121ee1ee598ec72c04872327592dc02
-```
-
-El backend `JWPLC_TFT` también quedó cualificado y autocontenido; el usuario
-no necesita instalar TFT_eSPI.
-
----
-
-## Compatibilidad
-
-Se conservan APIs históricas cuando no existe motivo para romper sketches ya
-probados.
-
-La excepción documentada es el tipo gráfico explícito de backend:
-
-```text
-Adafruit_ST7789& -> JWPLC_TFTClass&
-```
-
-El patrón `auto &tft = JWPLC_Display.tft();` es el recomendado para reducir
-acoplamiento.
-
----
-
-## Estado Alpha12
-
-```text
-JWPLC ESP32 v2.1.0-alpha.12
-JWPLC_Display 1.0.1
-HMI_DESIGNER_V1=RETAINED_FROM_ALPHA11
-BACKEND=JWPLC_TFT
-AUTOLOAD_DISPLAY=YES
-FULL_RUNTIME_DISPLAY=PASS_PHYSICAL
-PRECOMPILED_RELEASE_LIKE=ACTIVE
-TFT_ESPI_USER_DEPENDENCY=NO
-RAW_BACKEND_EXPLICIT_ADAFRUIT_TYPE_COMPATIBILITY=BREAK_DOCUMENTED
-```
-
-Alpha13 continuará la evolución funcional de TFT/Display sobre esta arquitectura.
-
-
----
-
-# Referencia completa de API pública
-
-Objeto global:
-
-```cpp
-JWPLC_Display
-```
-
-## Estado general
-
-| Función | Ejemplo |
-|---|---|
-| `isReady()` | `if (JWPLC_Display.isReady()) { ... }` |
-| `isIdleMode()` | `bool x = JWPLC_Display.isIdleMode();` |
-| `buttonsReady()` | `bool x = JWPLC_Display.buttonsReady();` |
-| `forceRedraw()` | `JWPLC_Display.forceRedraw();` |
-
-## Cambio de modo / actividad
-
-| Función | Ejemplo |
-|---|---|
-| `enterUserUI()` | `JWPLC_Display.enterUserUI();` |
-| `goIdle()` | `JWPLC_Display.goIdle();` |
-| `notifyActivity()` | `JWPLC_Display.notifyActivity();` |
-
-## Wake del modo IDLE
-
-| Función | Ejemplo |
-|---|---|
-| `setIdleWakeMode(mode)` | `JWPLC_Display.setIdleWakeMode(IDLE_WAKE_ANY_BUTTON);` |
-| `idleWakeMode()` | `auto m = JWPLC_Display.idleWakeMode();` |
-| `setIdleWakeButton(buttonId)` | `JWPLC_Display.setIdleWakeButton(BTN_OK);` |
-| `idleWakeButton()` | `uint8_t b = JWPLC_Display.idleWakeButton();` |
-
-Modos públicos:
+Modos válidos:
 
 ```text
 IDLE_WAKE_ANY_BUTTON
@@ -584,18 +550,16 @@ IDLE_WAKE_BUTTON_ONLY
 IDLE_WAKE_DISABLED
 ```
 
-## Retorno a IDLE
+Getters:
 
-| Función | Ejemplo |
-|---|---|
-| `setIdleReturnMode(mode)` | `JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);` |
-| `idleReturnMode()` | `auto m = JWPLC_Display.idleReturnMode();` |
-| `setIdleReturnButton(buttonId)` | `JWPLC_Display.setIdleReturnButton(BTN_ESC);` |
-| `idleReturnButton()` | `uint8_t b = JWPLC_Display.idleReturnButton();` |
-| `setIdleTimeoutMs(timeoutMs)` | `JWPLC_Display.setIdleTimeoutMs(30000);` |
-| `idleTimeoutMs()` | `uint32_t t = JWPLC_Display.idleTimeoutMs();` |
+```cpp
+JWPLC_Display.idleWakeMode();
+JWPLC_Display.idleWakeButton();
+```
 
-Modos públicos:
+### Retorno a IDLE — Básico / Intermedio
+
+Modos válidos:
 
 ```text
 IDLE_RETURN_TIMEOUT
@@ -604,133 +568,371 @@ IDLE_RETURN_DISABLED
 IDLE_RETURN_BUTTON_ONLY
 ```
 
-## Periodos de refresco
-
-| Función | Ejemplo |
-|---|---|
-| `setIdleRefreshPeriodMs(ms)` | `JWPLC_Display.setIdleRefreshPeriodMs(500);` |
-| `idleRefreshPeriodMs()` | `uint32_t t = JWPLC_Display.idleRefreshPeriodMs();` |
-| `setUserRefreshPeriodMs(ms)` | `JWPLC_Display.setUserRefreshPeriodMs(100);` |
-| `userRefreshPeriodMs()` | `uint32_t t = JWPLC_Display.userRefreshPeriodMs();` |
-| `setUserRefreshMode(mode)` | `JWPLC_Display.setUserRefreshMode(USER_REFRESH_AUTO);` |
-| `userRefreshMode()` | `auto m = JWPLC_Display.userRefreshMode();` |
-| `requestUserRefresh()` | `JWPLC_Display.requestUserRefresh();` |
-
-Los valores válidos de `JWPLC_UIRefreshMode` se documentan junto a la API HMI
-y son sugeridos por el autocompletado del package.
-
-## Páginas
-
-| Función | Ejemplo |
-|---|---|
-| `setUserPage(page)` | `JWPLC_Display.setUserPage(0);` |
-| `userPage()` | `uint8_t p = JWPLC_Display.userPage();` |
-| `setUserPageCount(count)` | `JWPLC_Display.setUserPageCount(3);` |
-| `userPageCount()` | `uint8_t n = JWPLC_Display.userPageCount();` |
-| `isUserPageSelection()` | `bool x = JWPLC_Display.isUserPageSelection();` |
-
-## Campos HMI
-
-| Función | Ejemplo |
-|---|---|
-| `setFields(fields,count)` | `JWPLC_Display.setFields(fields, fieldCount);` |
-| `clearFields()` | `JWPLC_Display.clearFields();` |
-| `fieldCount()` | `size_t n = JWPLC_Display.fieldCount();` |
-
-## PixelMaps
-
-| Función | Ejemplo |
-|---|---|
-| `setPixelMaps(maps,count)` | `JWPLC_Display.setPixelMaps(maps, mapCount);` |
-| `setPackedPixelMaps(maps,count)` | `JWPLC_Display.setPackedPixelMaps(packedMaps, mapCount);` |
-| `clearPixelMaps()` | `JWPLC_Display.clearPixelMaps();` |
-| `pixelMapCount()` | `size_t n = JWPLC_Display.pixelMapCount();` |
-| `setPixelMapVisible(index,visible)` | `JWPLC_Display.setPixelMapVisible(0, true);` |
-| `isPixelMapVisible(index)` | `bool x = JWPLC_Display.isPixelMapVisible(0);` |
-
-## Actualizar valores
-
-API genérica recomendada:
+Configurar:
 
 ```cpp
-JWPLC_Display.setValue(fieldId, value);
+JWPLC_Display.setIdleReturnMode(
+    IDLE_RETURN_TIMEOUT);
+
+JWPLC_Display.setIdleTimeoutMs(
+    15000);
 ```
 
-Ejemplos por tipo:
+Botón personalizado:
 
 ```cpp
-JWPLC_Display.setValue(0, 25);
-JWPLC_Display.setValue(1, 12.5f);
-JWPLC_Display.setValue(2, true);
-JWPLC_Display.setValue(3, "RUN");
+JWPLC_Display.setIdleReturnMode(
+    IDLE_RETURN_BUTTON_ONLY);
+
+JWPLC_Display.setIdleReturnButton(
+    BTN_DOWN);
 ```
+
+Consultar:
+
+```cpp
+JWPLC_Display.idleReturnMode();
+JWPLC_Display.idleReturnButton();
+JWPLC_Display.idleTimeoutMs();
+```
+
+### Refresco de USER — Intermedio
+
+Modo recomendado para HMIs normales:
+
+```cpp
+JWPLC_Display.setUserRefreshMode(
+    USER_REFRESH_ON_DEMAND);
+```
+
+Modo periódico:
+
+```cpp
+JWPLC_Display.setUserRefreshMode(
+    USER_REFRESH_PERIODIC);
+
+JWPLC_Display.setUserRefreshPeriodMs(
+    100);
+```
+
+Consultar:
+
+```cpp
+JWPLC_Display.userRefreshMode();
+JWPLC_Display.userRefreshPeriodMs();
+```
+
+Forzar una solicitud:
+
+```cpp
+JWPLC_Display.requestUserRefresh();
+```
+
+No la llames después de cada `setValue()` en modo ON_DEMAND.
+
+El periodo de IDLE también puede consultarse/configurarse:
+
+```cpp
+JWPLC_Display.setIdleRefreshPeriodMs(
+    500);
+
+JWPLC_Display.idleRefreshPeriodMs();
+```
+
+Nivel: **Avanzado de usuario**.
+
+### Páginas — Intermedio
+
+```cpp
+JWPLC_Display.setUserPage(0);
+
+uint8_t pagina =
+    JWPLC_Display.userPage();
+```
+
+Para navegación multipágina:
+
+```cpp
+JWPLC_Display.setUserPageCount(3);
+
+uint8_t total =
+    JWPLC_Display.userPageCount();
+
+bool seleccionando =
+    JWPLC_Display.isUserPageSelection();
+```
+
+HMI Designer puede configurar el número de páginas por ti.
+
+### Fields — Básico / Intermedio
+
+Registrar manualmente:
+
+```cpp
+JWPLC_Display.setFields(
+    FIELDS,
+    count);
+```
+
+Consultar:
+
+```cpp
+JWPLC_Display.fieldCount();
+```
+
+Eliminar:
+
+```cpp
+JWPLC_Display.clearFields();
+```
+
+Actualizar un Field:
+
+```cpp
+JWPLC_Display.setValue(
+    FIELD_ID,
+    valor);
+```
+
+`setValue()` admite valores numéricos, `bool` y texto.
 
 Variantes explícitas:
 
-| Función | Ejemplo |
-|---|---|
-| `setText(fieldId,value)` | `JWPLC_Display.setText(0, "RUN");` |
-| `setBool(fieldId,value)` | `JWPLC_Display.setBool(1, true);` |
-| `setBar(fieldId,value)` | `JWPLC_Display.setBar(2, 75.0f);` |
+```cpp
+JWPLC_Display.setText(
+    FIELD_ID,
+    "RUN");
 
-`setNumericValue()` existe internamente como helper privado y no forma parte
-de la API de usuario.
+JWPLC_Display.setBool(
+    FIELD_ID,
+    true);
 
-## Invalidación / redraw selectivo
+JWPLC_Display.setBar(
+    FIELD_ID,
+    75.0f);
+```
 
-| Función | Ejemplo |
-|---|---|
-| `invalidateField(fieldId)` | `JWPLC_Display.invalidateField(0);` |
-| `invalidateAllFields()` | `JWPLC_Display.invalidateAllFields();` |
+Para código nuevo se recomienda `setValue()` cuando representa correctamente
+el tipo de Field. Las barras usan `setBar()`.
 
-## Entrada pendiente
+### Invalidación — Avanzado de usuario
 
-| Función | Ejemplo |
-|---|---|
-| `clearPendingInput()` | `JWPLC_Display.clearPendingInput();` |
+```cpp
+JWPLC_Display.invalidateField(
+    FIELD_ID);
 
-## Acceso gráfico
+JWPLC_Display.invalidateAllFields();
+```
 
-| Función | Ejemplo |
-|---|---|
-| `tft()` | `auto &tft = JWPLC_Display.tft();` |
-| `display()` | `auto &tft = JWPLC_Display.display();` |
+Úsalas cuando necesitas forzar el redibujado de Fields sin cambiar su valor.
 
-Ambas retornan `JWPLC_TFTClass&`.
+### PixelMaps — Intermedio / Avanzado
 
-## Indicador RUN
+Si HMI Designer registró PixelMaps, el sketch normalmente sólo necesita:
 
-| Función | Ejemplo |
-|---|---|
-| `setRunLed(state)` | `JWPLC_Display.setRunLed(true);` |
-| `runLed()` | `bool x = JWPLC_Display.runLed();` |
+```cpp
+JWPLC_Display.setPixelMapVisible(
+    indice,
+    true);
 
-## Indicador ERR
+bool visible =
+    JWPLC_Display.isPixelMapVisible(
+        indice);
+```
 
-| Función | Ejemplo |
-|---|---|
-| `setErrLed(state)` | `JWPLC_Display.setErrLed(true);` |
-| `errLed()` | `bool x = JWPLC_Display.errLed();` |
-| `setErrCode(code)` | `JWPLC_Display.setErrCode("A01");` |
-| `errCode()` | `Serial.println(JWPLC_Display.errCode());` |
+Registro manual:
 
-## Indicador BUS
+```cpp
+JWPLC_Display.setPixelMaps(
+    maps,
+    count);
 
-| Función | Ejemplo |
-|---|---|
-| `setBusLed(state)` | `JWPLC_Display.setBusLed(true);` |
-| `busLed()` | `bool x = JWPLC_Display.busLed();` |
-| `setBusLedAuto(enabled)` | `JWPLC_Display.setBusLedAuto(true);` |
-| `busLedAuto()` | `bool x = JWPLC_Display.busLedAuto();` |
+JWPLC_Display.setPackedPixelMaps(
+    packedMaps,
+    count);
 
-## Indicador ETH
+JWPLC_Display.clearPixelMaps();
 
-| Función | Ejemplo |
-|---|---|
-| `setEthLed(state)` | `JWPLC_Display.setEthLed(true);` |
-| `ethLed()` | `bool x = JWPLC_Display.ethLed();` |
-| `setEthLedAuto(enabled)` | `JWPLC_Display.setEthLedAuto(true);` |
-| `ethLedAuto()` | `bool x = JWPLC_Display.ethLedAuto();` |
+size_t total =
+    JWPLC_Display.pixelMapCount();
+```
 
-La guía de dibujo directo de la referencia devuelta por `tft()`/`display()`
-está en `JWPLC_TFT/README.md`.
+El registro manual es **Avanzado de usuario**. Si utilizas HMI Designer, deja
+que el archivo generado elija la representación.
+
+### Indicador RUN — Básico
+
+```cpp
+JWPLC_Display.setRunLed(true);
+
+bool run =
+    JWPLC_Display.runLed();
+```
+
+### Indicador ERR — Básico
+
+Recomendado:
+
+```cpp
+JWPLC_Display.setErrCode("A01");
+
+const char *codigo =
+    JWPLC_Display.errCode();
+```
+
+Para limpiar:
+
+```cpp
+JWPLC_Display.setErrCode("");
+```
+
+### Indicadores BUS y ETH — Básico
+
+Automático:
+
+```cpp
+JWPLC_Display.setBusLedAuto(true);
+JWPLC_Display.setEthLedAuto(true);
+```
+
+Consultar:
+
+```cpp
+JWPLC_Display.busLed();
+JWPLC_Display.busLedAuto();
+
+JWPLC_Display.ethLed();
+JWPLC_Display.ethLedAuto();
+```
+
+Control manual:
+
+```cpp
+JWPLC_Display.setBusLed(false);
+JWPLC_Display.setEthLed(false);
+```
+
+Para una aplicación normal se recomienda el modo automático.
+
+### Entrada pendiente — Avanzado de usuario
+
+```cpp
+JWPLC_Display.clearPendingInput();
+```
+
+Limpia eventos pendientes usados por la navegación del Display. Normalmente no
+es necesario llamarla continuamente.
+
+## Errores comunes
+
+### Forzar un redraw en cada vuelta
+
+Evita:
+
+```cpp
+void loop()
+{
+    JWPLC_Display.forceRedraw();
+}
+```
+
+Actualiza los valores y deja que Display decida qué necesita redibujarse.
+
+### Llamar `requestUserRefresh()` después de cada `setValue()`
+
+En `USER_REFRESH_ON_DEMAND`, `setValue()` ya detecta el cambio del Field.
+
+### Usar `setIdleReturnButton()` con `IDLE_RETURN_ESC_ONLY`
+
+No hace falta. El botón personalizado sólo aplica con:
+
+```text
+IDLE_RETURN_BUTTON_ONLY
+```
+
+### Inventar IDs de Fields, páginas o PixelMaps
+
+Los IDs deben estar definidos en tu sketch o en el archivo generado por HMI
+Designer.
+
+No asumas que nombres como `FIELD_TEMP` o `PAGE_ALARMAS` existen en todos
+los proyectos.
+
+### Crear otro driver para la misma TFT
+
+No crees una segunda instancia de ST7789/TFT para la pantalla integrada.
+
+## API avanzada
+
+### Crear Fields manualmente
+
+Helpers disponibles en `JWPLC_UI.h`:
+
+```text
+JWPLC_UIValueField(...)
+JWPLC_UITextField(...)
+JWPLC_UIBoolField(...)
+JWPLC_UIBarField(...)
+```
+
+También existen estructuras de estilo/configuración como:
+
+```text
+JWPLC_UIValueFormat
+JWPLC_UIBoolText
+JWPLC_UIRange
+JWPLC_UIRect
+JWPLC_UIText
+JWPLC_UIColors
+```
+
+Para un usuario que está empezando, HMI Designer suele ser más sencillo.
+
+### Dibujo directo
+
+Acceso recomendado:
+
+```cpp
+auto &tft =
+    JWPLC_Display.tft();
+```
+
+La API completa está documentada en:
+
+```text
+JWPLC_TFT/README.md
+```
+
+## Compatibilidad
+
+`display()` se conserva como alias:
+
+```cpp
+auto &tft =
+    JWPLC_Display.display();
+```
+
+Para código nuevo se recomienda:
+
+```cpp
+JWPLC_Display.tft();
+```
+
+La API histórica `JWPLCDisplay::` continúa existiendo para compatibilidad con
+sketches anteriores, pero no debe usarse como punto de partida para código
+nuevo.
+
+El tipo gráfico público actual es `JWPLC_TFTClass&`. Código antiguo que
+declaraba explícitamente `Adafruit_ST7789&` debe migrarse.
+
+## Versión
+
+Documentado para:
+
+```text
+JWPLC ESP32 v2.1.0-alpha.12
+JWPLC_Display 1.0.1
+```
+
+Los detalles de arquitectura interna, precompilación, pruebas y backend se
+mantienen en la documentación para desarrolladores, no en esta guía de usuario.
