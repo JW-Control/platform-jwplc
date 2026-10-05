@@ -101,10 +101,13 @@ ALPHA12_PACKAGE_CLOSURE=IN_PROGRESS
 
 ## 7. Precompilados
 
-- [ ] congelar source final.
-  - Nuevo candidate source: `17be4204223f6c5c3dde0f079debd31533abe167`.
+- [x] congelar package/source final.
+  - Último cambio de source productivo: `17be4204223f6c5c3dde0f079debd31533abe167`.
+  - Último cambio de artifact productivo: `f060d0d88c57b473d94b55955b265b58d2f9fe1f` (`libJW_FRAM.a` regenerado).
   - Gate de autocontención=PASS.
-  - Pendiente únicamente revalidación P7 afectada antes de declarar freeze final.
+  - P7 post-autocontención=PASS.
+  - Package content freeze efectivo: `f060d0d88c57b473d94b55955b265b58d2f9fe1f`.
+  - Commits posteriores pueden ser documentación/harness sin invalidar el freeze mientras no cambien `JWPLC/2.1.0`.
 - [x] bloquear regeneración de Display/TFT hasta PASS del gate source-first.
 - [x] determinar qué libraries/core requieren regeneración.
 - [x] P1: regenerar y verificar `core.a` actual.
@@ -162,9 +165,9 @@ FINAL_DIRTY_COUNT=0
 ALPHA12_P7_POST_P8_REVALIDATION=PASS
 ```
 
-Evidencia local: HEAD `f1c6af8bf9d47537575b0b0538b7dbbfd85af613`, 14 archives auditados,
-cinco precompilados enlazados sin recompilar sus sources y cuatro librerías
-source-only preservadas.
+Evidencia post-autocontención: HEAD `909858cd422914593f25bf67782e8bc16202ffc7`, 12 archives auditados,
+`JW_FRAM` regenerado y fresco, cinco precompilados principales enlazados sin recompilar sus sources,
+autoload normal completo y cuatro librerías source-only preservadas.
 
 Inventario SHA/tamaños:
 
@@ -276,8 +279,12 @@ gates finales.
   - `LEGACY_GFX_SELECTED=False`.
   - `LEGACY_ST77XX_SELECTED=False`.
   - `COMPILE_EXIT=0`, warnings=0, errors=0.
-- [ ] revalidar P7 tras cambio del inventario de archives.
-- [ ] repetir benchmark final si cambia la estructura/selección del build.
+- [x] revalidar P7 tras cambio del inventario de archives.
+  - `ALPHA12_P7_POST_P8_REVALIDATION=PASS`.
+  - `AUDITED_ARCHIVE_COUNT=12`.
+  - `JW_FRAM=REGENERATED`, SHA-256 `b8734763bfa1287167feda72a5c9b30df97340d41ca0c3fd000321e218632ceb`.
+- [ ] repetir benchmark final post-autocontención.
+  - Requerido por la regla de freeze porque cambió `libJW_FRAM.a`, aunque no se espera cambio de TU count.
 
 ## 9. Gates finales
 
