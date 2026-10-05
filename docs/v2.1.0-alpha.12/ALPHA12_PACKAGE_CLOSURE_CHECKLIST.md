@@ -269,13 +269,15 @@ gates finales.
 - [x] ceilings TCP/UDP/RTU.
 - [x] coexistencia final >=600 s.
 - [x] Arduino IDE físico histórico post-H3E.
-- [ ] Arduino CLI final del HEAD congelado.
+- [x] Arduino CLI final del HEAD congelado.
+  - Evidencia: 6/6 compilaciones PASS, warnings=0, errors=0, autoload normal PASS.
 - [ ] Arduino IDE final del HEAD congelado.
 - [ ] upload físico final.
 - [ ] normal autoload: Display/RTC/FRAM/SD/buttons/DI/DO/Ethernet/RS485.
 - [ ] regresión Modbus TCP Server/Client mínima.
 - [ ] regresión Modbus RTU mínima.
-- [ ] working tree / diff / conflict markers clean.
+- [x] working tree / diff / conflict markers clean.
+  - Evidencia: ENTRY_DIRTY_COUNT=0, UNMERGED_INDEX_COUNT=0, CONFLICT_MARKER_COUNT=0, FINAL_DIRTY_COUNT=0.
 
 ## 10. Release
 
