@@ -332,9 +332,9 @@ gates finales.
 
 ## 10. Release
 
-- [ ] conclusión técnica Alpha12.
-- [ ] PRE_RELEASE.md en español.
-- [ ] README release marker = 2.1.0-alpha.12.
+- [x] conclusión técnica Alpha12.
+- [x] PRE_RELEASE.md en español.
+- [x] README release marker = 2.1.0-alpha.12.
 - [ ] PR Alpha12 en español.
 - [ ] CI final HEAD.
 - [ ] merge a release/v2.1.x.
