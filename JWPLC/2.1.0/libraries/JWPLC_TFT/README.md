@@ -31,7 +31,10 @@ No necesitas:
 - controlar el chip select;
 - instalar ni configurar otra librería gráfica para la TFT integrada.
 
-La pantalla ya forma parte del JWPLC.
+La pantalla ya forma parte del JWPLC y normalmente queda inicializada antes de
+que empiece tu `setup()`.
+
+Por eso, en un sketch normal **no debes llamar `JWPLC_TFT.begin()`**.
 
 Si usas `JWPLC_Display`, puedes obtener el mismo objeto gráfico con:
 
@@ -49,7 +52,6 @@ Este ejemplo muestra un título y un círculo.
 
 void setup()
 {
-    JWPLC_TFT.begin();
 
     JWPLC_TFT.fillScreen(
         JWPLC_TFT_BLACK);
@@ -166,8 +168,6 @@ void setup()
 {
     pinMode(I0_0, INPUT);
 
-    JWPLC_TFT.begin();
-
     JWPLC_TFT.fillScreen(
         JWPLC_TFT_BLACK);
 }
@@ -237,7 +237,6 @@ void dibujarNivel(uint8_t valor)
 
 void setup()
 {
-    JWPLC_TFT.begin();
 
     JWPLC_TFT.fillScreen(
         JWPLC_TFT_BLACK);
@@ -320,8 +319,6 @@ void setup()
     pinMode(I0_0, INPUT);
     pinMode(Q0_0, OUTPUT);
 
-    JWPLC_TFT.begin();
-
     JWPLC_TFT.fillScreen(
         JWPLC_TFT_BLACK);
 
@@ -393,7 +390,6 @@ consecutivas.
 
 void setup()
 {
-    JWPLC_TFT.begin();
 
     const char *titulo =
         "JWPLC";
@@ -437,18 +433,16 @@ No necesitas batching para dibujos aislados.
 
 ## API de usuario
 
-### Inicialización y estado — Básico
+### Estado y geometría — Básico
 
 | Función | Qué hace | Nivel |
 |---|---|---|
-| `begin(timeoutMs)` | Prepara la API gráfica | Básico |
 | `isReady()` | Indica si la TFT está lista | Básico |
 | `width()` | Ancho lógico | Básico |
 | `height()` | Alto lógico | Básico |
 | `rotation()` | Rotación actual | Intermedio |
 
-`begin()` puede llamarse aunque la plataforma ya haya inicializado la
-pantalla.
+En JWPLC Basic normal la inicialización pertenece a la plataforma.
 
 ### Pantalla y rectángulos — Básico
 
@@ -639,6 +633,10 @@ No uses esa información para reconfigurar físicamente la pantalla.
 
 ## Errores comunes
 
+### Llamar `JWPLC_TFT.begin()` desde un sketch normal
+
+No es necesario. La plataforma inicializa la TFT antes de `setup()`.
+
 ### Redibujar toda la pantalla en cada `loop()`
 
 Evita:
@@ -707,6 +705,12 @@ JWPLC_TFT.fillCircle(
 ```
 
 ## Compatibilidad
+
+`JWPLC_TFT.begin(timeoutMs)` sigue siendo público para escenarios de
+integración aislada o pruebas donde la TFT no haya sido inicializada por el
+autoload normal.
+
+Para un sketch normal de JWPLC Basic **no se recomienda llamarlo**.
 
 `JWPLC_Display.display()` sigue devolviendo la misma API gráfica como alias
 histórico:
