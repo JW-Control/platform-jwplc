@@ -193,26 +193,38 @@ LIBRARY_PROPERTIES_RS485=UPDATED
 LIBRARY_PROPERTIES_JW_SD=UPDATED
 ```
 
-Hallazgo de compatibilidad todavía abierto:
+Compatibilidad TFT resuelta antes del freeze:
 
 ```text
 DISPLAY_RAW_RETURN_TYPE_ALPHA11=Adafruit_ST7789&
 DISPLAY_RAW_RETURN_TYPE_ALPHA12=JWPLC_TFTClass&
-RECOMMENDED_AUTO_REFERENCE_PATTERN=COMPATIBLE_CANDIDATE
-EXPLICIT_ADAFRUIT_REFERENCE=BREAKS
-DECISION=PENDING_BEFORE_FREEZE
+RECOMMENDED_AUTO_REFERENCE_PATTERN=COMPATIBLE
+EXPLICIT_ADAFRUIT_REFERENCE=BREAKS_ACCEPTED
+LEGACY_ADAFRUIT_BACKEND_REINTRODUCED=NO
+DECISION=ACCEPTED_BEFORE_EXTERNAL_PROGRAMMER_ADOPTION
 ```
+
+La excepción se acepta de forma explícita porque Alpha12 todavía no tiene una
+base externa de clientes programando contra el tipo `Adafruit_ST7789&`.
+Consumers internos/oficiales ya están migrados al backend `JWPLC_TFT`.
 
 El marker automático del README raíz permanece deliberadamente en Alpha11
 mientras Alpha12 no esté listo para disparar release.
 
+P8 de ejemplos/API queda cerrado:
+
+```text
+P8_EXAMPLES_API_REVIEW=PASS
+P8_EXPERIMENTAL_API_DEPENDENCY=NO
+PACKAGE_SOURCE_HEAD=ab4379a177492ee851c1afccf5398e649c55dd4f
+SOURCE_FINAL_FREEZE=PASS
+```
+
 Siguiente bloque de cierre:
 
-1. auditar ejemplos contra firmas reales;
-2. decidir compatibilidad raw TFT;
-3. freeze funcional;
-4. regenerar/recalificar precompilados;
-5. ejecutar gates finales CLI/IDE/hardware.
+1. revalidar P7 release-like sobre el source congelado;
+2. repetir FINAL_BUILD_SPEED_BENCHMARK;
+3. ejecutar gates finales CLI/IDE/hardware.
 
 
 ## Blocker TFT resuelto estáticamente
