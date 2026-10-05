@@ -1,29 +1,47 @@
 # JWPLC_Ethernet
 
-Librería Ethernet del package **JWPLC ESP32** para el W5500 integrado del
+`JWPLC_Ethernet` permite usar el puerto Ethernet W5500 integrado del
 **JWPLC Basic**.
 
-El runtime del JWPLC inicializa y mantiene Ethernet de forma cooperativa. En un
-sketch normal no es necesario gestionar manualmente el W5500 ni llamar
-`Ethernet.begin()`.
+La plataforma se encarga de inicializar y mantener el hardware de red. Tu
+sketch normalmente sólo decide si usará DHCP o una IP fija y luego trabaja con
+`EthernetClient`, `EthernetServer` o `EthernetUDP`.
 
-Esta librería cubre:
+## ¿Para qué sirve?
 
-- DHCP;
-- IP estática;
-- estado de red y diagnóstico;
-- TCP Client;
-- TCP Server;
-- UDP.
+Con Ethernet puedes:
 
----
+- conectar el JWPLC a una red local;
+- obtener una IP automáticamente por DHCP;
+- usar una IP estática;
+- crear clientes TCP;
+- crear servidores TCP;
+- enviar y recibir UDP;
+- usar protocolos construidos sobre Ethernet, como Modbus TCP.
 
-## Uso normal
+Si tu objetivo es Modbus TCP, usa `JWPLC_ModbusTCP`. Esta librería es la base
+de red.
 
-### DHCP
+## Qué hace automáticamente el JWPLC
+
+En un sketch normal no tienes que:
+
+- llamar `Ethernet.begin()`;
+- configurar el pin CS del W5500;
+- reiniciar manualmente el chip;
+- administrar el bus SPI compartido;
+- llamar continuamente a `JWPLC_Ethernet.service()`.
+
+El runtime mantiene Ethernet en segundo plano.
+
+## Inicio rápido
+
+Este sketch solicita una dirección por DHCP y la imprime cuando esté lista.
 
 ```cpp
 #include <JWPLC_Ethernet.h>
+
+bool ipMostrada = false;
 
 void setup()
 {
@@ -34,954 +52,596 @@ void setup()
 
 void loop()
 {
-    if (JWPLC_Ethernet.isReady())
+    if (JWPLC_Ethernet.isReady() &&
+        !ipMostrada)
     {
-        Serial.print("IP: ");
-        Serial.println(JWPLC_Ethernet.localIP());
-    }
+        ipMostrada = true;
 
-    delay(1000);
+        Serial.print("IP: ");
+        Serial.println(
+            JWPLC_Ethernet.localIP());
+    }
 }
 ```
 
-El runtime del package llama internamente a:
+Conecta el cable Ethernet a una red con DHCP y abre el Monitor Serie.
 
-```cpp
-JWPLC_Ethernet.service();
-```
+## Conceptos básicos
 
-por lo que el usuario no necesita hacerlo en el caso normal.
+### Dirección IP
 
----
-
-## IP estática
-
-Configurar en `setup()`:
-
-```cpp
-JWPLC_Ethernet.setStaticIP(
-    IPAddress(192, 168, 1, 50),  // IP local
-    IPAddress(192, 168, 1, 1),   // DNS
-    IPAddress(192, 168, 1, 1),   // Gateway
-    IPAddress(255, 255, 255, 0)); // Subnet
-```
-
-Consultar datos de red:
-
-```cpp
-JWPLC_Ethernet.localIP();
-JWPLC_Ethernet.gatewayIP();
-JWPLC_Ethernet.subnetMask();
-JWPLC_Ethernet.dnsServerIP();
-JWPLC_Ethernet.mac();
-```
-
----
-
-## Estado de Ethernet
-
-Las consultas más útiles para un sketch son:
-
-```cpp
-JWPLC_Ethernet.isReady();
-JWPLC_Ethernet.isBusy();
-
-JWPLC_Ethernet.hardwarePresent();
-JWPLC_Ethernet.linkUp();
-
-JWPLC_Ethernet.runtimeState();
-
-JWPLC_Ethernet.lastError();
-JWPLC_Ethernet.lastErrorString();
-JWPLC_Ethernet.statusString();
-JWPLC_Ethernet.diagnosticCode();
-```
+Una IP identifica un equipo dentro de una red.
 
 Ejemplo:
 
-```cpp
-if (!JWPLC_Ethernet.linkUp())
-{
-    Serial.println("Cable Ethernet desconectado");
-}
-
-if (JWPLC_Ethernet.isReady())
-{
-    Serial.println("Ethernet listo");
-}
-```
-
-Diagnóstico agrupado:
-
-```cpp
-JWPLC_Ethernet.printStatus(Serial);
-```
-
----
-
-# TCP Client
-
-La API es compatible con el estilo Arduino Ethernet.
-
-Objeto:
-
-```cpp
-EthernetClient client;
-```
-
-## Ejemplo
-
-```cpp
-#include <JWPLC_Ethernet.h>
-
-EthernetClient client;
-bool connected = false;
-
-void setup()
-{
-    Serial.begin(115200);
-    JWPLC_Ethernet.useDHCP();
-}
-
-void loop()
-{
-    if (!JWPLC_Ethernet.isReady())
-    {
-        return;
-    }
-
-    if (!connected)
-    {
-        connected = client.connect(
-            IPAddress(192, 168, 1, 100),
-            5000);
-
-        if (!connected)
-        {
-            delay(500);
-            return;
-        }
-
-        client.println("Hola desde JWPLC");
-    }
-
-    while (client.available())
-    {
-        char c = client.read();
-        Serial.write(c);
-    }
-
-    if (!client.connected())
-    {
-        client.stop();
-        connected = false;
-    }
-}
-```
-
-Funciones habituales:
-
-```cpp
-client.connect(ip, port);
-client.connected();
-
-client.available();
-client.read();
-
-client.write(data);
-client.print(...);
-client.println(...);
-
-client.flush();
-client.stop();
-
-client.remoteIP();
-client.remotePort();
-client.localPort();
-```
-
----
-
-# TCP Server
-
-Objeto:
-
-```cpp
-EthernetServer server(5000);
-```
-
-## Ejemplo
-
-```cpp
-#include <JWPLC_Ethernet.h>
-
-EthernetServer server(5000);
-bool serverStarted = false;
-
-void setup()
-{
-    Serial.begin(115200);
-    JWPLC_Ethernet.useDHCP();
-}
-
-void loop()
-{
-    if (!JWPLC_Ethernet.isReady())
-    {
-        return;
-    }
-
-    if (!serverStarted)
-    {
-        server.begin();
-        serverStarted = true;
-
-        Serial.print("Server en ");
-        Serial.println(JWPLC_Ethernet.localIP());
-    }
-
-    EthernetClient client = server.available();
-
-    if (client)
-    {
-        while (client.available())
-        {
-            char c = client.read();
-            Serial.write(c);
-        }
-
-        client.println("JWPLC TCP Server");
-    }
-}
-```
-
-Funciones principales:
-
-```cpp
-server.begin();
-server.available();
-server.accept();
-server.write(...);
-server.print(...);
-server.println(...);
-```
-
-Para protocolos industriales sobre TCP se recomienda usar la librería
-`JWPLC_ModbusTCP` en lugar de implementar Modbus manualmente.
-
----
-
-# UDP
-
-La clase pública es:
-
-```cpp
-EthernetUDP udp;
-```
-
-La API recomendada es la API UDP clásica de Arduino.
-
----
-
-## Escuchar UDP
-
-```cpp
-#include <JWPLC_Ethernet.h>
-
-EthernetUDP udp;
-
-bool udpStarted = false;
-const uint16_t LOCAL_PORT = 5000;
-
-void setup()
-{
-    Serial.begin(115200);
-    JWPLC_Ethernet.useDHCP();
-}
-
-void loop()
-{
-    if (!JWPLC_Ethernet.isReady())
-    {
-        return;
-    }
-
-    if (!udpStarted)
-    {
-        udpStarted = udp.begin(LOCAL_PORT);
-
-        if (!udpStarted)
-        {
-            Serial.println("No se pudo abrir UDP");
-            return;
-        }
-    }
-
-    int packetSize = udp.parsePacket();
-
-    if (packetSize > 0)
-    {
-        char buffer[64];
-
-        int n = udp.read(
-            buffer,
-            sizeof(buffer) - 1);
-
-        if (n > 0)
-        {
-            buffer[n] = '\0';
-
-            Serial.print("RX de ");
-            Serial.print(udp.remoteIP());
-            Serial.print(':');
-            Serial.print(udp.remotePort());
-            Serial.print(" -> ");
-            Serial.println(buffer);
-        }
-    }
-}
-```
-
-Funciones de recepción:
-
-```cpp
-udp.begin(localPort);
-udp.beginMulticast(groupIP, port);
-
-udp.parsePacket();
-udp.available();
-udp.read(...);
-udp.peek();
-udp.flush();
-
-udp.remoteIP();
-udp.remotePort();
-udp.localPort();
-
-udp.stop();
-```
-
----
-
-## Enviar UDP
-
-```cpp
-IPAddress destination(192, 168, 1, 100);
-
-udp.beginPacket(destination, 5000);
-udp.print("JWPLC UDP");
-udp.endPacket();
-```
-
-También puede enviarse un buffer:
-
-```cpp
-uint8_t data[] = {1, 2, 3, 4};
-
-udp.beginPacket(destination, 5000);
-udp.write(data, sizeof(data));
-udp.endPacket();
-```
-
-Funciones de envío:
-
-```cpp
-udp.beginPacket(ip, port);
-udp.beginPacket(host, port);
-
-udp.write(...);
-udp.print(...);
-udp.println(...);
-
-udp.endPacket();
-```
-
-UDP no garantiza entrega, orden ni retransmisión. Si el protocolo necesita
-confirmación, debe implementarse a nivel de aplicación o usarse TCP.
-
----
-
-## TCP/UDP cooperativo y fast-path
-
-Alpha12 incorpora internamente rutas cooperativas y fast-path para librerías
-como `JWPLC_ModbusTCP` y para perfiles de alto rendimiento.
-
-Existen extensiones como:
-
 ```text
-beginConnectAsync()
-beginWriteAsync()
-beginEndPacketAsync()
-jwplcReadTcpFastDeferred()
-jwplcReadPacketFastDeferred()
+192.168.1.50
 ```
 
-pero **no son necesarias para un sketch normal**.
+### DHCP
 
-Para aplicaciones de usuario se recomienda mantener las APIs estándar
-`EthernetClient`, `EthernetServer` y `EthernetUDP` mostradas arriba.
+DHCP permite que el router o servidor de red asigne automáticamente:
 
----
+- IP;
+- gateway;
+- máscara;
+- DNS.
 
-## Recuperación de red
-
-El runtime JWPLC gestiona de forma cooperativa:
-
-- detección del W5500;
-- link RJ45;
-- DHCP;
-- mantenimiento del lease;
-- recuperación después de desconexión/reconexión.
-
-El usuario puede comprobar:
-
-```cpp
-JWPLC_Ethernet.isReady();
-JWPLC_Ethernet.linkUp();
-JWPLC_Ethernet.statusString();
-```
-
-sin reiniciar el ESP32 para recuperar el enlace.
-
----
-
-## Códigos ETH en la TFT
-
-El indicador Ethernet del Display puede gestionarse automáticamente:
-
-```cpp
-JWPLC_Display.setEthLedAuto(true);
-```
-
-Códigos habituales:
-
-| Código | Significado |
-|---|---|
-| `DIS` | Ethernet deshabilitado |
-| `INI` | Inicializando |
-| `PHY` | Preparando W5500 |
-| `LNK` | Sin link RJ45 |
-| `DHC` | DHCP en progreso |
-| `HW` | W5500 no detectado |
-| `IP` | Configuración IP inválida |
-| `SPI` | Problema temporal de acceso al bus |
-| `---` | Operativo |
-
----
-
-## Configuración adicional
-
-Disponible cuando se necesita:
-
-```cpp
-JWPLC_Ethernet.setMac(mac);
-JWPLC_Ethernet.useDefaultMac();
-
-JWPLC_Ethernet.setTimeouts(
-    dhcpTimeoutMs,
-    responseTimeoutMs);
-
-JWPLC_Ethernet.setRetransmissionCount(count);
-```
-
-La configuración física del CS/reset del W5500 pertenece al board JWPLC y no
-debería modificarse en un sketch normal.
-
----
-
-## Compatibilidad
-
-Se conservan las rutas síncronas históricas:
-
-```cpp
-JWPLC_Ethernet.begin();
-JWPLC_Ethernet.maintain();
-```
-
-Son útiles para compatibilidad o pruebas manuales. El autoload normal usa el
-runtime cooperativo.
-
----
-
-## Ejemplos incluidos
-
-```text
-01.Ethernet_DHCP_Basic
-02.Ethernet_StaticIP_Basic
-03.Ethernet_Diagnostics
-```
-
-Además, este README incluye ejemplos mínimos de TCP Client, TCP Server y UDP.
-
----
-
-## Qué no necesita configurar el usuario
-
-Alpha12 optimiza internamente:
-
-- acceso al W5500;
-- recepción TCP/UDP;
-- envío cooperativo;
-- arbitraje del SPI compartido;
-- mantenimiento de red.
-
-No es necesario configurar políticas RX, FIFO, INT, caches SPI ni otros knobs
-internos para usar Ethernet normalmente.
-
----
-
-## Estado Alpha12
-
-```text
-JWPLC_Ethernet 1.0.0
-AUTOLOAD_COOPERATIVE=YES
-DHCP_RECOVERY=VALIDATED
-STATIC_IP=SUPPORTED
-TCP_CLIENT_SERVER=SUPPORTED
-UDP=SUPPORTED
-LEGACY_API_PRESERVED=YES
-```
-
-Alpha12 conserva Ethernet dentro del autoload normal y mantiene compatibilidad
-con las APIs Arduino Ethernet de uso habitual.
-
-
----
-
-# Referencia completa de API pública
-
-Esta sección enumera la API soportada que un usuario puede encontrar en los
-headers Ethernet del package.
-
-Se divide en:
-
-- `JWPLC_Ethernet`: configuración/runtime JWPLC;
-- `EthernetClient`: TCP Client compatible con Arduino;
-- `EthernetServer`: TCP Server compatible con Arduino;
-- `EthernetUDP`: UDP compatible con Arduino;
-- `Ethernet`: objeto de compatibilidad de bajo nivel.
-
-Las extensiones cooperativas y fast-path también se documentan, pero se marcan
-como **AVANZADAS** porque una aplicación normal no las necesita.
-
-## JWPLC_Ethernet — hardware y configuración
-
-| Función | Ejemplo |
-|---|---|
-| `configure(csPin, resetPin)` | `JWPLC_Ethernet.configure(JWPLC_ETH_CS, JWPLC_ETH_RESET_PIN);` |
-| `setResetPin(pin)` | `JWPLC_Ethernet.setResetPin(5);` |
-| `setMac(mac)` | `JWPLC_Ethernet.setMac(mac);` |
-| `useDefaultMac()` | `JWPLC_Ethernet.useDefaultMac();` |
-| `useDHCP()` | `JWPLC_Ethernet.useDHCP();` |
-| `setStaticIP(local,dns,gateway,subnet)` | `JWPLC_Ethernet.setStaticIP(ip, dns, gw, mask);` |
-| `setTimeouts(dhcp,response)` | `JWPLC_Ethernet.setTimeouts(5000, 1000);` |
-| `setRetransmissionCount(count)` | `JWPLC_Ethernet.setRetransmissionCount(3);` |
-| `probeHardware()` | `bool ok = JWPLC_Ethernet.probeHardware();` |
-| `service()` | `JWPLC_Ethernet.service();` |
-
-`configure()`, `setResetPin()` y `probeHardware()` son principalmente para
-diagnóstico/bring-up; el board JWPLC ya define su hardware.
-
-## JWPLC_Ethernet — inicialización síncrona de compatibilidad
-
-| Función | Ejemplo |
-|---|---|
-| `begin()` | `bool ok = JWPLC_Ethernet.begin();` |
-| `begin(mac)` | `bool ok = JWPLC_Ethernet.begin(mac);` |
-| `begin(local,dns,gateway,subnet)` | `bool ok = JWPLC_Ethernet.begin(ip, dns, gw, mask);` |
-| `maintain()` | `int r = JWPLC_Ethernet.maintain();` |
-
-Estas rutas son soportadas por compatibilidad. Para el autoload normal se
-prefieren `useDHCP()` / `setStaticIP()`.
-
-## JWPLC_Ethernet — estado
-
-| Función | Ejemplo |
-|---|---|
-| `isEnabled()` | `bool x = JWPLC_Ethernet.isEnabled();` |
-| `isBeginAttempted()` | `bool x = JWPLC_Ethernet.isBeginAttempted();` |
-| `isReady()` | `bool x = JWPLC_Ethernet.isReady();` |
-| `isBusy()` | `bool x = JWPLC_Ethernet.isBusy();` |
-| `hardwarePresent()` | `bool x = JWPLC_Ethernet.hardwarePresent();` |
-| `linkUp()` | `bool x = JWPLC_Ethernet.linkUp();` |
-| `hardwareStatus()` | `auto s = JWPLC_Ethernet.hardwareStatus();` |
-| `linkStatus()` | `auto s = JWPLC_Ethernet.linkStatus();` |
-| `mode()` | `auto m = JWPLC_Ethernet.mode();` |
-| `runtimeState()` | `auto s = JWPLC_Ethernet.runtimeState();` |
-| `lastError()` | `auto e = JWPLC_Ethernet.lastError();` |
-| `lastErrorString()` | `Serial.println(JWPLC_Ethernet.lastErrorString());` |
-| `statusString()` | `Serial.println(JWPLC_Ethernet.statusString());` |
-| `diagnosticCode()` | `Serial.println(JWPLC_Ethernet.diagnosticCode());` |
-
-## JWPLC_Ethernet — datos de red/hardware
-
-| Función | Ejemplo |
-|---|---|
-| `localIP()` | `IPAddress ip = JWPLC_Ethernet.localIP();` |
-| `subnetMask()` | `IPAddress mask = JWPLC_Ethernet.subnetMask();` |
-| `gatewayIP()` | `IPAddress gw = JWPLC_Ethernet.gatewayIP();` |
-| `dnsServerIP()` | `IPAddress dns = JWPLC_Ethernet.dnsServerIP();` |
-| `mac()` | `const uint8_t *mac = JWPLC_Ethernet.mac();` |
-| `csPin()` | `uint8_t pin = JWPLC_Ethernet.csPin();` |
-| `resetPin()` | `uint8_t pin = JWPLC_Ethernet.resetPin();` |
-| `printStatus(out)` | `JWPLC_Ethernet.printStatus(Serial);` |
-
----
-
-# EthernetClient — referencia completa
-
-## Construcción
-
-```cpp
-EthernetClient client;
-```
-
-La variante con número de socket existe para uso interno/compatibilidad:
-
-```cpp
-EthernetClient clientFromSocket(socketIndex);
-```
-
-No se recomienda crear Clients desde un socket manual en código normal.
-
-## Conexión
-
-| Función | Ejemplo |
-|---|---|
-| `status()` | `uint8_t s = client.status();` |
-| `connect(ip, port)` | `client.connect(IPAddress(192,168,1,10), 5000);` |
-| `connect(host, port)` | `client.connect("example.local", 5000);` |
-| `connected()` | `if (client.connected()) { ... }` |
-| `stop()` | `client.stop();` |
-| `setConnectionTimeout(ms)` | `client.setConnectionTimeout(1000);` |
-
-## Escritura
-
-| Función | Ejemplo |
-|---|---|
-| `availableForWrite()` | `int n = client.availableForWrite();` |
-| `write(byte)` | `client.write((uint8_t)0x55);` |
-| `write(buffer, size)` | `client.write(data, sizeof(data));` |
-| `print(...)` | `client.print("TEMP=");` |
-| `println(...)` | `client.println(25.0);` |
-| `flush()` | `client.flush();` |
-
-`print()` y `println()` vienen de `Print` y están disponibles porque
-`EthernetClient` hereda de esa interfaz.
-
-## Lectura
-
-| Función | Ejemplo |
-|---|---|
-| `available()` | `int n = client.available();` |
-| `read()` | `int b = client.read();` |
-| `read(buffer, size)` | `int n = client.read(buf, sizeof(buf));` |
-| `peek()` | `int b = client.peek();` |
-
-## Endpoint/socket
-
-| Función | Ejemplo |
-|---|---|
-| `localPort()` | `uint16_t p = client.localPort();` |
-| `remoteIP()` | `IPAddress ip = client.remoteIP();` |
-| `remotePort()` | `uint16_t p = client.remotePort();` |
-| `getSocketNumber()` | `uint8_t s = client.getSocketNumber();` |
-| `operator bool()` | `if (client) { ... }` |
-| `operator==(bool)` | `bool valid = (client == true);` |
-| `operator!=(bool)` | `bool invalid = (client != true);` |
-| `operator==(EthernetClient)` | `bool same = (clientA == clientB);` |
-| `operator!=(EthernetClient)` | `bool different = (clientA != clientB);` |
-
-## EthernetClient — extensiones cooperativas AVANZADAS
-
-Estas funciones son soportadas, pero están pensadas para librerías/runtime que
-necesitan state machines no bloqueantes.
-
-### Connect
-
-| Función | Ejemplo |
-|---|---|
-| `beginConnectAsync(ip, port)` | `int r = client.beginConnectAsync(ip, 5000);` |
-| `pollConnectAsync()` | `int r = client.pollConnectAsync();` |
-| `connectAsyncInProgress()` | `bool x = client.connectAsyncInProgress();` |
-| `cancelConnectAsync()` | `client.cancelConnectAsync();` |
-
-Patrón:
-
-```cpp
-int r = client.beginConnectAsync(ip, 5000);
-
-while (r == 0)
-{
-    r = client.pollConnectAsync();
-}
-```
-
-### Stop
-
-| Función | Ejemplo |
-|---|---|
-| `beginStopAsync()` | `int r = client.beginStopAsync();` |
-| `pollStopAsync()` | `int r = client.pollStopAsync();` |
-| `stopAsyncInProgress()` | `bool x = client.stopAsyncInProgress();` |
-| `cancelStopAsync()` | `client.cancelStopAsync();` |
-
-### Flush
-
-| Función | Ejemplo |
-|---|---|
-| `beginFlushAsync()` | `int r = client.beginFlushAsync();` |
-| `pollFlushAsync()` | `int r = client.pollFlushAsync();` |
-| `flushAsyncInProgress()` | `bool x = client.flushAsyncInProgress();` |
-| `cancelFlushAsync()` | `client.cancelFlushAsync();` |
-
-### Write
-
-| Función | Ejemplo |
-|---|---|
-| `beginWriteAsync(buf, size)` | `int r = client.beginWriteAsync(data, len);` |
-| `pollWriteAsync()` | `int r = client.pollWriteAsync();` |
-| `writeAsyncInProgress()` | `bool x = client.writeAsyncInProgress();` |
-| `cancelWriteAsync()` | `client.cancelWriteAsync();` |
-
-El buffer pasado a `beginWriteAsync()` debe permanecer válido mientras la
-operación esté esperando espacio TX.
-
-## EthernetClient — fast RX AVANZADO
-
-| Función | Ejemplo |
-|---|---|
-| `jwplcReadTcpFastDeferred(buf, size)` | `int n = client.jwplcReadTcpFastDeferred(buf, len);` |
-| `jwplcCommitRxFast()` | `bool ok = client.jwplcCommitRxFast();` |
-
-Contrato mínimo:
-
-```cpp
-int n = client.jwplcReadTcpFastDeferred(buf, sizeof(buf));
-
-if (n > 0)
-{
-    // Procesar buf[0..n-1]
-    client.jwplcCommitRxFast();
-}
-```
-
-No usar esta ruta como sustituto casual de `read()`; está destinada a
-consumers cooperativos que entienden el commit diferido.
-
----
-
-# EthernetServer — referencia completa
-
-Construcción:
-
-```cpp
-EthernetServer server(5000);
-```
-
-| Función | Ejemplo |
-|---|---|
-| `begin()` | `server.begin();` |
-| `available()` | `EthernetClient c = server.available();` |
-| `accept()` | `EthernetClient c = server.accept();` |
-| `write(byte)` | `server.write((uint8_t)0x55);` |
-| `write(buffer,size)` | `server.write(data, sizeof(data));` |
-| `print(...)` | `server.print("RUN");` |
-| `println(...)` | `server.println("OK");` |
-| `operator bool()` | `if (server) { ... }` |
-
----
-
-# EthernetUDP — referencia completa
-
-Construcción:
-
-```cpp
-EthernetUDP udp;
-```
-
-## Apertura/cierre
-
-| Función | Ejemplo |
-|---|---|
-| `begin(port)` | `udp.begin(5000);` |
-| `beginMulticast(ip, port)` | `udp.beginMulticast(groupIP, 5000);` |
-| `stop()` | `udp.stop();` |
-| `localPort()` | `uint16_t p = udp.localPort();` |
-
-## Envío
-
-| Función | Ejemplo |
-|---|---|
-| `beginPacket(ip, port)` | `udp.beginPacket(IPAddress(192,168,1,10), 5000);` |
-| `beginPacket(host, port)` | `udp.beginPacket("host.local", 5000);` |
-| `write(byte)` | `udp.write((uint8_t)0x01);` |
-| `write(buffer,size)` | `udp.write(data, sizeof(data));` |
-| `print(...)` | `udp.print("JWPLC");` |
-| `println(...)` | `udp.println("RUN");` |
-| `endPacket()` | `udp.endPacket();` |
-
-## Recepción
-
-| Función | Ejemplo |
-|---|---|
-| `parsePacket()` | `int size = udp.parsePacket();` |
-| `available()` | `int n = udp.available();` |
-| `read()` | `int b = udp.read();` |
-| `read(uint8_t*,len)` | `int n = udp.read(buf, sizeof(buf));` |
-| `read(char*,len)` | `int n = udp.read(text, sizeof(text));` |
-| `peek()` | `int b = udp.peek();` |
-| `flush()` | `udp.flush();` |
-| `remoteIP()` | `IPAddress ip = udp.remoteIP();` |
-| `remotePort()` | `uint16_t p = udp.remotePort();` |
-
-## UDP TX cooperativo AVANZADO
-
-| Función | Ejemplo |
-|---|---|
-| `beginEndPacketAsync()` | `int r = udp.beginEndPacketAsync();` |
-| `pollEndPacketAsync()` | `int r = udp.pollEndPacketAsync();` |
-| `endPacketAsyncInProgress()` | `bool x = udp.endPacketAsyncInProgress();` |
-| `cancelEndPacketAsync()` | `udp.cancelEndPacketAsync();` |
-
-Patrón:
-
-```cpp
-udp.beginPacket(ip, 5000);
-udp.write(data, len);
-
-int r = udp.beginEndPacketAsync();
-
-while (r == 0)
-{
-    r = udp.pollEndPacketAsync();
-}
-```
-
-## UDP fast RX AVANZADO
-
-| Función | Ejemplo |
-|---|---|
-| `jwplcReadPacketFastDeferred(buf,len)` | `int n = udp.jwplcReadPacketFastDeferred(buf, len);` |
-| `jwplcCommitRxFast()` | `bool ok = udp.jwplcCommitRxFast();` |
-
-Contrato mínimo:
-
-```cpp
-int n = udp.jwplcReadPacketFastDeferred(buf, sizeof(buf));
-
-if (n > 0)
-{
-    // Procesar datagrama.
-    udp.jwplcCommitRxFast();
-}
-```
-
----
-
-# Objeto Ethernet — compatibilidad Arduino
-
-El package conserva el objeto:
-
-```cpp
-Ethernet
-```
-
-para compatibilidad con código Arduino Ethernet.
-
-Para proyectos JWPLC nuevos se recomienda `JWPLC_Ethernet`, pero estas
-funciones continúan disponibles.
-
-## Inicialización DHCP
-
-| Función | Ejemplo |
-|---|---|
-| `Ethernet.begin(mac, timeout, responseTimeout)` | `int ok = Ethernet.begin(mac, 5000, 1000);` |
-| `Ethernet.maintain()` | `int r = Ethernet.maintain();` |
-
-## Inicialización IP estática
-
-| Función | Ejemplo |
-|---|---|
-| `Ethernet.begin(mac, ip)` | `Ethernet.begin(mac, ip);` |
-| `Ethernet.begin(mac, ip, dns)` | `Ethernet.begin(mac, ip, dns);` |
-| `Ethernet.begin(mac, ip, dns, gateway)` | `Ethernet.begin(mac, ip, dns, gw);` |
-| `Ethernet.begin(mac, ip, dns, gateway, subnet)` | `Ethernet.begin(mac, ip, dns, gw, mask);` |
-| `Ethernet.init(csPin)` | `Ethernet.init(5);` |
-
-`Ethernet.init()` no debería usarse para cambiar el CS del JWPLC Basic en un
-sketch normal.
-
-## Estado/datos
-
-| Función | Ejemplo |
-|---|---|
-| `Ethernet.linkStatus()` | `auto s = Ethernet.linkStatus();` |
-| `Ethernet.hardwareStatus()` | `auto s = Ethernet.hardwareStatus();` |
-| `Ethernet.MACAddress(mac)` | `Ethernet.MACAddress(mac);` |
-| `Ethernet.localIP()` | `IPAddress ip = Ethernet.localIP();` |
-| `Ethernet.subnetMask()` | `IPAddress m = Ethernet.subnetMask();` |
-| `Ethernet.gatewayIP()` | `IPAddress g = Ethernet.gatewayIP();` |
-| `Ethernet.dnsServerIP()` | `IPAddress d = Ethernet.dnsServerIP();` |
-
-## Setters de compatibilidad
-
-| Función | Ejemplo |
-|---|---|
-| `setMACAddress(mac)` | `Ethernet.setMACAddress(mac);` |
-| `setLocalIP(ip)` | `Ethernet.setLocalIP(ip);` |
-| `setSubnetMask(mask)` | `Ethernet.setSubnetMask(mask);` |
-| `setGatewayIP(gateway)` | `Ethernet.setGatewayIP(gw);` |
-| `setDnsServerIP(dns)` | `Ethernet.setDnsServerIP(dns);` |
-| `setRetransmissionTimeout(ms)` | `Ethernet.setRetransmissionTimeout(1000);` |
-| `setRetransmissionCount(num)` | `Ethernet.setRetransmissionCount(3);` |
-
-## DHCP cooperativo AVANZADO
-
-Estas funciones existen para el runtime JWPLC:
-
-| Función | Ejemplo |
-|---|---|
-| `beginDHCPAsync(mac,...)` | `int r = Ethernet.beginDHCPAsync(mac, 5000, 1000);` |
-| `pollDHCP()` | `int r = Ethernet.pollDHCP();` |
-| `dhcpInProgress()` | `bool x = Ethernet.dhcpInProgress();` |
-| `cancelDHCP()` | `Ethernet.cancelDHCP();` |
-| `maintainAsync()` | `int r = Ethernet.maintainAsync();` |
-| `dhcpMaintenanceInProgress()` | `bool x = Ethernet.dhcpMaintenanceInProgress();` |
-
-No se recomienda controlar DHCP con estas primitivas cuando se utiliza
-`JWPLC_Ethernet`.
-
-## APIs de test/profiling condicionales
-
-Los nombres `testSetDhcpLeaseTimers()`, `testGetDhcpLeaseTimers()`,
-`testDhcpLeaseMaintenanceMode()`, `jwplcProfileResetTcpRx()` y
-`jwplcProfileGetTcpRx()` sólo existen cuando se activan macros de test/profile.
-
-Ejemplo válido únicamente en un build de qualification:
-
-```cpp
-#ifdef JWPLC_ETHERNET_ENABLE_TEST_HOOKS
-Ethernet.testSetDhcpLeaseTimers(10, 20);
-#endif
-
-#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
-Ethernet.jwplcProfileResetTcpRx();
-auto p = Ethernet.jwplcProfileGetTcpRx();
-#endif
-```
-
-No forman parte del contrato normal de usuario.
-
-## DhcpClass
-
-`DhcpClass` aparece en el header por implementación de la librería Ethernet.
-**No se considera API de aplicación soportada del JWPLC**.
-
-Una IA o usuario debe preferir:
+En JWPLC:
 
 ```cpp
 JWPLC_Ethernet.useDHCP();
 ```
 
-y no instanciar `DhcpClass` directamente.
+### IP estática
+
+Puedes fijar una dirección manualmente:
+
+```cpp
+JWPLC_Ethernet.setStaticIP(
+    IPAddress(192, 168, 1, 50),
+    IPAddress(192, 168, 1, 1),
+    IPAddress(192, 168, 1, 1),
+    IPAddress(255, 255, 255, 0));
+```
+
+### TCP
+
+TCP crea una conexión entre dos equipos.
+
+Normalmente tendrás:
+
+- un **Server**, que escucha en un puerto;
+- un **Client**, que se conecta al Server.
+
+### UDP
+
+UDP envía datagramas sin crear una conexión permanente.
+
+Es simple y rápido, pero no garantiza que cada datagrama llegue.
+
+### Puerto
+
+Un puerto identifica un servicio dentro de una IP.
+
+Ejemplo:
+
+```text
+IP    = 192.168.1.50
+Port  = 5000
+```
+
+## Ejemplo 1 — Básico: DHCP y estado de red
+
+```cpp
+#include <JWPLC_Ethernet.h>
+
+uint32_t ultimoReporte = 0;
+
+void setup()
+{
+    Serial.begin(115200);
+
+    JWPLC_Ethernet.useDHCP();
+}
+
+void loop()
+{
+    if (millis() - ultimoReporte < 1000)
+    {
+        return;
+    }
+
+    ultimoReporte = millis();
+
+    Serial.print("Estado: ");
+    Serial.print(
+        JWPLC_Ethernet.statusString());
+
+    if (JWPLC_Ethernet.isReady())
+    {
+        Serial.print(" | IP: ");
+        Serial.print(
+            JWPLC_Ethernet.localIP());
+    }
+
+    Serial.println();
+}
+```
+
+Estados como “esperando link” o “DHCP en progreso” pueden aparecer durante el
+arranque.
+
+## Ejemplo 2 — Intermedio: IP estática
+
+Cambia estos valores según tu red.
+
+```cpp
+#include <JWPLC_Ethernet.h>
+
+const IPAddress IP_LOCAL(
+    192, 168, 1, 50);
+
+const IPAddress DNS(
+    192, 168, 1, 1);
+
+const IPAddress GATEWAY(
+    192, 168, 1, 1);
+
+const IPAddress MASCARA(
+    255, 255, 255, 0);
+
+void setup()
+{
+    Serial.begin(115200);
+
+    JWPLC_Ethernet.setStaticIP(
+        IP_LOCAL,
+        DNS,
+        GATEWAY,
+        MASCARA);
+}
+
+void loop()
+{
+    static bool mostrado = false;
+
+    if (JWPLC_Ethernet.isReady() &&
+        !mostrado)
+    {
+        mostrado = true;
+
+        Serial.print("IP: ");
+        Serial.println(
+            JWPLC_Ethernet.localIP());
+
+        Serial.print("Gateway: ");
+        Serial.println(
+            JWPLC_Ethernet.gatewayIP());
+    }
+}
+```
+
+La configuración debe hacerse en `setup()`, antes de que el runtime termine
+de levantar Ethernet.
+
+## Ejemplo 3 — Aplicación real: servidor TCP de comandos
+
+Este Server escucha en el puerto 5000.
+
+Comandos:
+
+- `1` -> enciende `Q0_0`;
+- `0` -> apaga `Q0_0`;
+- `?` -> responde el estado.
+
+```cpp
+#include <JWPLC_Ethernet.h>
+
+EthernetServer server(5000);
+
+bool serverIniciado = false;
+bool salida = false;
+
+void setup()
+{
+    pinMode(Q0_0, OUTPUT);
+    digitalWrite(Q0_0, LOW);
+
+    JWPLC_Ethernet.useDHCP();
+}
+
+void loop()
+{
+    if (!JWPLC_Ethernet.isReady())
+    {
+        return;
+    }
+
+    if (!serverIniciado)
+    {
+        server.begin();
+        serverIniciado = true;
+    }
+
+    EthernetClient client =
+        server.available();
+
+    if (!client)
+    {
+        return;
+    }
+
+    while (client.available() > 0)
+    {
+        const int comando =
+            client.read();
+
+        if (comando == '1')
+        {
+            salida = true;
+            digitalWrite(Q0_0, HIGH);
+            client.println("ON");
+        }
+        else if (comando == '0')
+        {
+            salida = false;
+            digitalWrite(Q0_0, LOW);
+            client.println("OFF");
+        }
+        else if (comando == '?')
+        {
+            client.println(
+                salida ? "ON" : "OFF");
+        }
+    }
+}
+```
+
+## Ejemplo 4 — Avanzado de usuario: telemetría UDP
+
+Este ejemplo envía el estado de las entradas una vez por segundo.
+
+```cpp
+#include <JWPLC_Ethernet.h>
+
+EthernetUDP udp;
+
+const IPAddress DESTINO(
+    192, 168, 1, 100);
+
+const uint16_t PUERTO_LOCAL = 5001;
+const uint16_t PUERTO_DESTINO = 5000;
+
+bool udpIniciado = false;
+uint32_t ultimoEnvio = 0;
+
+void setup()
+{
+    JWPLC_Ethernet.useDHCP();
+}
+
+void loop()
+{
+    if (!JWPLC_Ethernet.isReady())
+    {
+        return;
+    }
+
+    if (!udpIniciado)
+    {
+        udpIniciado =
+            udp.begin(PUERTO_LOCAL);
+
+        if (!udpIniciado)
+        {
+            return;
+        }
+    }
+
+    if (millis() - ultimoEnvio >= 1000)
+    {
+        ultimoEnvio = millis();
+
+        udp.beginPacket(
+            DESTINO,
+            PUERTO_DESTINO);
+
+        udp.print("IN=");
+        udp.println(
+            JWPLC_readInputs(),
+            HEX);
+
+        udp.endPacket();
+    }
+}
+```
+
+## API de usuario
+
+### Elegir configuración de red — Básico
+
+| Función | Qué hace | Nivel |
+|---|---|---|
+| `useDHCP()` | Selecciona configuración automática | Básico |
+| `setStaticIP(local,dns,gateway,subnet)` | Define una IP fija | Intermedio |
+
+Recomendación: configura DHCP o IP estática en `setup()`.
+
+### Consultar el estado — Básico
+
+| Función | Retorno / uso |
+|---|---|
+| `isReady()` | `true` cuando la red está utilizable |
+| `isBusy()` | El runtime está trabajando en la configuración |
+| `hardwarePresent()` | W5500 detectado |
+| `linkUp()` | Cable/link Ethernet activo |
+| `statusString()` | Estado legible |
+| `diagnosticCode()` | Código corto de diagnóstico |
+
+### Consultar parámetros de red — Básico / Intermedio
+
+```cpp
+JWPLC_Ethernet.localIP();
+JWPLC_Ethernet.subnetMask();
+JWPLC_Ethernet.gatewayIP();
+JWPLC_Ethernet.dnsServerIP();
+```
+
+### Diagnóstico — Intermedio
+
+```cpp
+JWPLC_Ethernet.lastError();
+JWPLC_Ethernet.lastErrorString();
+JWPLC_Ethernet.runtimeState();
+JWPLC_Ethernet.printStatus(Serial);
+```
+
+`printStatus()` es la forma más sencilla de obtener un resumen durante
+commissioning.
+
+### EthernetClient — Básico / Intermedio
+
+Crear:
+
+```cpp
+EthernetClient client;
+```
+
+Conectar:
+
+```cpp
+client.connect(
+    IPAddress(192, 168, 1, 100),
+    5000);
+```
+
+Funciones principales:
+
+| Función | Uso |
+|---|---|
+| `connect(ip,port)` | Conectar a un Server |
+| `connect(host,port)` | Conectar usando nombre |
+| `connected()` | Consultar si sigue conectado |
+| `available()` | Bytes recibidos disponibles |
+| `read()` / `read(buffer,size)` | Leer |
+| `write()` | Enviar bytes |
+| `print()` / `println()` | Enviar texto |
+| `flush()` | Esperar TX pendiente |
+| `stop()` | Cerrar la conexión |
+| `remoteIP()` | IP remota |
+| `remotePort()` | Puerto remoto |
+| `localPort()` | Puerto local |
+
+Ejemplo típico:
+
+```cpp
+if (client.connect(serverIP, 5000))
+{
+    client.println("Hola");
+}
+```
+
+### EthernetServer — Intermedio
+
+Crear:
+
+```cpp
+EthernetServer server(5000);
+```
+
+Funciones principales:
+
+| Función | Uso |
+|---|---|
+| `begin()` | Empieza a escuchar |
+| `available()` | Obtiene un Client con datos disponibles |
+| `accept()` | Acepta un Client |
+| `write()` / `print()` / `println()` | Envía a Clients conectados |
+
+### EthernetUDP — Intermedio
+
+Crear:
+
+```cpp
+EthernetUDP udp;
+```
+
+Recibir:
+
+```cpp
+udp.begin(5000);
+
+int tamano = udp.parsePacket();
+
+if (tamano > 0)
+{
+    uint8_t buffer[64];
+
+    int n = udp.read(
+        buffer,
+        sizeof(buffer));
+}
+```
+
+Enviar:
+
+```cpp
+udp.beginPacket(destino, 5000);
+udp.print("Hola");
+udp.endPacket();
+```
+
+Funciones principales:
+
+| Función | Uso |
+|---|---|
+| `begin(port)` | Abre un puerto local |
+| `beginMulticast(ip,port)` | Escucha multicast |
+| `stop()` | Cierra el socket UDP |
+| `beginPacket(ip,port)` | Inicia un datagrama |
+| `write()` / `print()` | Agrega datos |
+| `endPacket()` | Envía el datagrama |
+| `parsePacket()` | Detecta un datagrama recibido |
+| `available()` | Bytes aún disponibles |
+| `read()` | Lee los datos |
+| `peek()` | Mira el siguiente byte |
+| `flush()` | Descarta/termina lectura pendiente según la API Ethernet |
+| `remoteIP()` | IP del emisor |
+| `remotePort()` | Puerto del emisor |
+| `localPort()` | Puerto local |
+
+## Errores comunes
+
+### Llamar `Ethernet.begin()` en un sketch JWPLC normal
+
+No es necesario. Usa:
+
+```cpp
+JWPLC_Ethernet.useDHCP();
+```
+
+o:
+
+```cpp
+JWPLC_Ethernet.setStaticIP(...);
+```
+
+### Esperar la IP con un `while` bloqueante
+
+Evita congelar `setup()` hasta que haya red.
+
+Mejor consulta:
+
+```cpp
+if (JWPLC_Ethernet.isReady())
+{
+    // Red lista
+}
+```
+
+desde `loop()`.
+
+### Crear un Server antes de saber que la red está lista
+
+Para un Server TCP genérico es más claro esperar:
+
+```cpp
+JWPLC_Ethernet.isReady()
+```
+
+antes de llamar `server.begin()`.
+
+### Confundir TCP con UDP
+
+TCP crea una conexión. UDP envía datagramas independientes.
+
+### Usar `delay()` para mantener conexiones
+
+No es necesario. Procesa red periódicamente dentro del flujo normal de
+`loop()`.
+
+## API avanzada
+
+### Timeouts y retransmisiones del runtime
+
+```cpp
+JWPLC_Ethernet.setTimeouts(
+    5000,
+    1000);
+
+JWPLC_Ethernet.setRetransmissionCount(3);
+```
+
+Úsalos sólo si tu red requiere ajustes específicos.
+
+### Estado detallado
+
+```cpp
+JWPLCEthernetRuntimeState estado =
+    JWPLC_Ethernet.runtimeState();
+
+JWPLCEthernetError error =
+    JWPLC_Ethernet.lastError();
+```
+
+Los enums exactos están definidos en `JWPLC_Ethernet.h`.
+
+### Funciones públicas de bajo nivel no recomendadas para sketches normales
+
+El código del backend también expone funciones async/fast como:
+
+```text
+beginConnectAsync()
+pollConnectAsync()
+beginWriteAsync()
+pollWriteAsync()
+beginEndPacketAsync()
+pollEndPacketAsync()
+jwplcReadTcpFastDeferred()
+jwplcReadPacketFastDeferred()
+```
+
+Estas funciones existen para state machines de librerías del package y
+consumers muy especializados.
+
+**No son el camino recomendado para una aplicación Arduino normal.**
+
+Prefiere `connect()`, `write()`, `read()` y `endPacket()`.
+
+## Compatibilidad
+
+Se conservan rutas Arduino Ethernet históricas como:
+
+```cpp
+Ethernet.begin(...);
+Ethernet.maintain();
+JWPLC_Ethernet.begin();
+JWPLC_Ethernet.maintain();
+```
+
+Para código nuevo en JWPLC Basic se recomienda el runtime administrado:
+
+```cpp
+JWPLC_Ethernet.useDHCP();
+```
+
+o:
+
+```cpp
+JWPLC_Ethernet.setStaticIP(...);
+```
+
+Métodos como `configure()`, `setResetPin()`, `probeHardware()`,
+`csPin()`, `resetPin()` y los hooks de profiling/test son de
+bring-up/diagnóstico del package y no deben utilizarse para reconfigurar el
+hardware del producto desde un sketch normal.
+
+## Versión
+
+Documentado para:
+
+```text
+JWPLC ESP32 v2.1.0-alpha.12
+JWPLC_Ethernet 1.0.0
+```
