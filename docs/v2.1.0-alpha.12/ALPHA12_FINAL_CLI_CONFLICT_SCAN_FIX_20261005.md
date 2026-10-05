@@ -56,3 +56,54 @@ P7_POST_P8_REVALIDATION=STILL_VALID
 FINAL_BUILD_SPEED_BENCHMARK_POST_P8=STILL_VALID
 NEXT=RERUN_FINAL_ARDUINO_CLI_GATE
 ```
+
+
+## Corrección de segundo orden
+
+El primer intento de corregir el scan textual introdujo una corrupción del
+propio runner durante la escritura del archivo:
+
+```text
+FIRST_FIX_RESULT=HARNESS_PARSE_FAILURE
+PRODUCT_CODE_EXECUTED=NO
+PACKAGE_SOURCE_TOUCHED=NO
+```
+
+La versión dañada quedó con el comando de `git grep` truncado y una sección
+posterior duplicada. Se restauró el runner desde el commit sano anterior
+`057454248dd66b339bd190e061e37ad8172da9ec` y se reaplicó únicamente la
+corrección del scan.
+
+La versión restaurada evita contener secuencias literales de merge y construye
+los prefijos dinámicamente:
+
+```powershell
+$leftMarker = ("<" * 7) + " "
+$rightMarker = (">" * 7) + " "
+```
+
+Verificación post-write:
+
+```text
+RUNNER_HEADER_COUNT=1
+RUNNER_FINAL_PASS_COUNT=1
+UNMERGED_INDEX_SCAN=PRESENT
+DYNAMIC_LEFT_MARKER=PRESENT
+DYNAMIC_RIGHT_MARKER=PRESENT
+```
+
+Commit de corrección:
+
+```text
+50434822d3bc987832a773f803c8731368693098
+```
+
+Clasificación final:
+
+```text
+HARNESS_FAILURE=YES
+PRODUCT_FAILURE=NO
+SOURCE_FAILURE=NO
+PRECOMPILED_FAILURE=NO
+SOURCE_FINAL_FREEZE=UNCHANGED
+```
