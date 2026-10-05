@@ -22,10 +22,9 @@ El package integra al runtime del JWPLC los periféricos principales del equipo:
 No se retiran periféricos del autoload normal sólo para reducir tiempos de
 compilación.
 
-> **Nota de publicación:** el marcador oculto
-> `JWPLC_RELEASE_VERSION: 2.1.0-alpha.12` queda preparado para el PR de cierre.
-> El workflow de Auto Release lo consume después del merge; este cambio no
-> implica que Alpha12 ya esté publicada.
+> **Nota de publicación:** `v2.1.0-alpha.12` ya fue publicada como GitHub
+> PreRelease. El índice dev se integra a `main` mediante el PR automático de
+> publicación antes de ejecutar la validación aislada post-publicación.
 
 ---
 
@@ -34,18 +33,13 @@ compilación.
 | Canal | Versión | Estado |
 |---|---|---|
 | Estable | `v2.0.0` | Release pública estable |
-| Dev / PreRelease publicada | `v2.1.0-alpha.11` | Publicada y validada |
-| Release candidate | `v2.1.0-alpha.12` | Cierre técnico PASS; pendiente PR/merge/publicación |
+| Dev / PreRelease publicada | `v2.1.0-alpha.12` | Publicada y validada |
+| PreRelease anterior | `v2.1.0-alpha.11` | Publicada y validada |
 
-Alpha11 permanece como última versión publicada:
+Alpha11 permanece como última versión completamente cerrada y validada:
 
 ```text
 ALPHA11_STATUS=CLOSED_PUBLISHED
-ALPHA11_RELEASE_PUBLICATION=PASS
-ALPHA11_PUBLISHED_INSTALL=PASS
-ALPHA11_PUBLISHED_COMPILE=PASS
-ALPHA11_PUBLISHED_UPLOAD=PASS
-ALPHA11_PUBLISHED_RUNTIME=PASS
 ```
 
 Estado actual de Alpha12:
@@ -59,11 +53,23 @@ FINAL_ARDUINO_CLI_GATE=PASS
 FINAL_ARDUINO_IDE_GATE=PASS
 PHYSICAL_RETEST=NOT_REQUIRED_BY_SCOPE
 ALPHA12_TECHNICAL_CLOSURE=PASS
-ALPHA12_RELEASE_PUBLICATION=PENDING
+ALPHA12_RELEASE_PUBLICATION=PASS
+ALPHA12_GITHUB_PRERELEASE=PASS
+ALPHA12_INDEX_DEV_PR=MERGED
+ALPHA12_PUBLISHED_INDEX=PASS
+ALPHA12_PUBLISHED_INSTALL=PASS
+ALPHA12_PUBLISHED_AUTOCONTAINMENT=PASS
+ALPHA12_PUBLISHED_ARCHIVE_PARITY=PASS
+ALPHA12_PUBLISHED_CI_FIXES_PRESENT=PASS
+ALPHA12_PUBLISHED_COMPILE=PASS
+ALPHA12_PUBLISHED_UPLOAD=PASS
+ALPHA12_PUBLISHED_RUNTIME=PASS
+ALPHA12_STATUS=CLOSED_PUBLISHED
 ```
 
-Alpha12 todavía **no está publicada**. El siguiente paso es el PR técnico contra
-`release/v2.1.x`.
+Alpha12 ya está publicada y validada desde el package distribuido por el índice
+dev. La instalación, compilación, upload y runtime post-publicación quedaron en
+PASS sin usar `jwplc_local`.
 
 ---
 
@@ -81,8 +87,8 @@ https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_j
 https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index.json
 ```
 
-El índice dev no debe apuntar a Alpha12 hasta cerrar package, PR, merge,
-PreRelease e instalación aislada.
+El índice dev incluye `v2.1.0-alpha.12` y fue validado mediante instalación
+aislada desde `main`.
 
 ---
 
@@ -684,18 +690,24 @@ con una API recomendada de aplicación.
 
 # Última PreRelease publicada
 
-Hasta cerrar Alpha12:
-
 ```text
-TAG=v2.1.0-alpha.11
-PUBLISHED_PACKAGE_SOURCE_SHA=64ce22447e0a9b5852ed83cb5f3a1bd2de3aa218
-ZIP=jwplc-esp32-2.1.0-alpha.11.zip
-SIZE=24547524
-SHA256=465440cf92491b3c9050aa44b6184afae7bfa8e52993d6bc777487d203a97474
+TAG=v2.1.0-alpha.12
+PUBLISHED_PACKAGE_SOURCE_SHA=1011f2588fe02bdc67b14bef8c33ad3624426cb6
+ZIP=jwplc-esp32-2.1.0-alpha.12.zip
+SIZE=24383662
+SHA256=412079a9e01cb0eaccdf6ec530b04183db1c245eb043e846fe9f0f7e2d5eb1b5
 PACKAGE_ROOT=2.1.0/
+GITHUB_PRERELEASE=PASS
+INDEX_DEV_PR=#101
+INDEX_DEV_PR_STATUS=MERGED
+ISOLATED_INSTALL=PASS
+ISOLATED_COMPILE=PASS
+PUBLISHED_UPLOAD=PASS
+PUBLISHED_RUNTIME=PASS
 ```
 
-Alpha11 fue instalada, compilada, subida y validada en hardware real.
+Alpha11 continúa siendo la última versión con cierre físico post-publicación
+completo hasta terminar los gates de Alpha12.
 
 ---
 
@@ -709,6 +721,7 @@ docs/v2.1.0-alpha.12/ALPHA12_PRECOMPILED_FREEZE_20261004.md
 docs/v2.1.0-alpha.12/ALPHA12_BUILD_SPEED_COMPARISON_20261004.md
 docs/v2.1.0-alpha.12/ALPHA12_TECHNICAL_CONCLUSION_20261005.md
 docs/v2.1.0-alpha.12/PRE_RELEASE.md
+docs/v2.1.0-alpha.12/ALPHA12_PUBLISHED_VALIDATION_20261005.md
 ```
 
 ---
