@@ -587,28 +587,6 @@ JWPLCEthernetError error =
 
 Los enums exactos están definidos en `JWPLC_Ethernet.h`.
 
-### Funciones públicas de bajo nivel no recomendadas para sketches normales
-
-El código del backend también expone funciones async/fast como:
-
-```text
-beginConnectAsync()
-pollConnectAsync()
-beginWriteAsync()
-pollWriteAsync()
-beginEndPacketAsync()
-pollEndPacketAsync()
-jwplcReadTcpFastDeferred()
-jwplcReadPacketFastDeferred()
-```
-
-Estas funciones existen para state machines de librerías del package y
-consumers muy especializados.
-
-**No son el camino recomendado para una aplicación Arduino normal.**
-
-Prefiere `connect()`, `write()`, `read()` y `endPacket()`.
-
 ## Compatibilidad
 
 Se conservan rutas Arduino Ethernet históricas como:
