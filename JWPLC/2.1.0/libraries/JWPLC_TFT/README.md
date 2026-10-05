@@ -29,7 +29,7 @@ No necesitas:
 - configurar pines;
 - elegir frecuencia del bus;
 - controlar el chip select;
-- instalar o configurar otro backend gráfico.
+- instalar ni configurar otra librería gráfica para la TFT integrada.
 
 La pantalla ya forma parte del JWPLC.
 
