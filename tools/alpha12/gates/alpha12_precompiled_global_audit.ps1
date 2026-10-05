@@ -254,11 +254,11 @@ if (-not $coreStubEnabled -or -not $coreArchiveLinked) {
         ArchiveRel = "JWPLC/2.1.0/libraries/JW_FRAM/src/esp32/libJW_FRAM.a"
         SourceRel = "JWPLC/2.1.0/libraries/JW_FRAM/src"
         PropertiesRel = "JWPLC/2.1.0/libraries/JW_FRAM/library.properties"
-        ExpectedSha = ""
+        ExpectedSha = "b8734763bfa1287167feda72a5c9b30df97340d41ca0c3fd000321e218632ceb"
         FinalPrecompiled = $true
         FinalDotA = $false
         ActivationPendingAllowed = $false
-        Class = "RETAINED"
+        Class = "REGENERATED"
     },
     [pscustomobject]@{
         Name = "JW_MatrixButtons"
