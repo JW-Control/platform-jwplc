@@ -101,10 +101,12 @@ ALPHA12_PACKAGE_CLOSURE=IN_PROGRESS
 
 ## 7. Precompilados
 
-- [x] congelar source final.
-  - PACKAGE_SOURCE_HEAD=`ab4379a177492ee851c1afccf5398e649c55dd4f`.
-  - Desde ese commit hasta el cierre de P8 sólo cambiaron `docs/` y `tools/`.
-  - Cualquier cambio posterior bajo `JWPLC/2.1.0/` invalida este freeze.
+- [ ] congelar source final.
+  - FREEZE_PREVIO_INVALIDADO por corrección de autocontención pre-release.
+  - Cambio productivo: `17be4204223f6c5c3dde0f079debd31533abe167`.
+  - `JW_FRAM` fuerza `JWPLC_Bundled_Adafruit_BusIO.h` antes de `Adafruit_SPIDevice.h`.
+  - Se retiraron `Adafruit_GFX_Library` y `Adafruit_ST7735_and_ST7789_Library` del package activo.
+  - Nuevo freeze pendiente de PASS del gate de autocontención y revalidación afectada.
 - [x] bloquear regeneración de Display/TFT hasta PASS del gate source-first.
 - [x] determinar qué libraries/core requieren regeneración.
 - [x] P1: regenerar y verificar `core.a` actual.
@@ -264,6 +266,17 @@ gates finales.
 
 ---
 
+
+### Corrección de autocontención pre-release
+
+- [x] retirar Adafruit GFX legacy del package activo.
+- [x] retirar Adafruit ST7735/ST7789 legacy del package activo.
+- [x] conservar Adafruit BusIO porque JW_FRAM usa Adafruit_SPIDevice.
+- [x] forzar discovery de BusIO bundled desde JW_FRAM.
+- [ ] gate de autocontención: BusIO bundled seleccionado incluso con copia externa instalada.
+- [ ] revalidar P7 tras cambio del inventario de archives.
+- [ ] repetir benchmark final si cambia la estructura/selección del build.
+
 ## 9. Gates finales
 
 - [x] ceilings TCP/UDP/RTU.
@@ -271,7 +284,7 @@ gates finales.
 - [x] Arduino IDE físico histórico post-H3E.
 - [x] Arduino CLI final del HEAD congelado.
   - Evidencia: 6/6 compilaciones PASS, warnings=0, errors=0, autoload normal PASS.
-- [x] Arduino IDE final del HEAD congelado.
+- [ ] Arduino IDE final del HEAD congelado.
   - PASS en Arduino IDE 2.3.4 con board `JWPLC Basic`.
   - Sketch: `06_alpha4_local_physical_gate`.
   - Flash: 439617 / 4063232 bytes (10%).
