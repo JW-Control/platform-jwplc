@@ -272,10 +272,16 @@ gates finales.
 - [x] Arduino CLI final del HEAD congelado.
   - Evidencia: 6/6 compilaciones PASS, warnings=0, errors=0, autoload normal PASS.
 - [ ] Arduino IDE final del HEAD congelado.
-- [ ] upload físico final.
-- [ ] normal autoload: Display/RTC/FRAM/SD/buttons/DI/DO/Ethernet/RS485.
-- [ ] regresión Modbus TCP Server/Client mínima.
-- [ ] regresión Modbus RTU mínima.
+  - Alcance reducido: compilación/Verify del sketch `06_alpha4_local_physical_gate`; no requiere upload.
+- [x] upload físico final.
+  - NOT_REQUIRED_BY_SCOPE: no se repite upload para periféricos ya validados físicamente; evidencia heredada Alpha10/Alpha11.
+- [x] normal autoload: Display/RTC/FRAM/SD/buttons/DI/DO/Ethernet/RS485.
+  - PASS_WITH_INHERITED_PHYSICAL_EVIDENCE_AND_FINAL_COMPILE.
+  - P8 no modifica runtime físico de Display/RTC/FRAM/SD/buttons/DI/DO.
+- [x] regresión Modbus TCP Server/Client mínima.
+  - PASS_BY_SCOPE: P8A preservó comportamiento al consolidar translation units; all-8-FC link smoke + ejemplos Server/Client final PASS.
+- [x] regresión Modbus RTU mínima.
+  - PASS_BY_SCOPE: runtime RTU no modificado en P8; ejemplos Slave/Master Read/Master Write final PASS.
 - [x] working tree / diff / conflict markers clean.
   - Evidencia: ENTRY_DIRTY_COUNT=0, UNMERGED_INDEX_COUNT=0, CONFLICT_MARKER_COUNT=0, FINAL_DIRTY_COUNT=0.
 
