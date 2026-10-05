@@ -150,6 +150,22 @@ PRECOMPILED_FREEZE=PASS
 FINAL_BUILD_SPEED_BENCHMARK=READY
 ```
 
+Revalidación obligatoria posterior a P8:
+
+```text
+P7A_POST_FREEZE_GLOBAL_AUDIT=PASS
+P7B_RELEASE_LIKE_ACTIVATION=PASS
+PRECOMPILED_ARCHIVE_IDENTITIES=PASS
+PRECOMPILED_POLICY_ACTIVE=PASS
+NORMAL_AUTOLOAD_COMPLETE=PASS
+FINAL_DIRTY_COUNT=0
+ALPHA12_P7_POST_P8_REVALIDATION=PASS
+```
+
+Evidencia local: HEAD `f1c6af8bf9d47537575b0b0538b7dbbfd85af613`, 14 archives auditados,
+cinco precompilados enlazados sin recompilar sus sources y cuatro librerías
+source-only preservadas.
+
 Inventario SHA/tamaños:
 
 ```text
