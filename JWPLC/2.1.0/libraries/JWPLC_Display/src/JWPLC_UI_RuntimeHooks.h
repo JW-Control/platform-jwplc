@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 
-class Adafruit_ST7789;
+class JWPLC_TFTClass;
 
 // Hooks internos entre el runtime base del Display y el motor HMI Alpha11.
 //
@@ -28,8 +28,8 @@ uint8_t jwplcUIRuntimeCurrentPage(void);
 bool jwplcUIRuntimePageRedrawPending(void);
 void jwplcUIRuntimeConsumePageRedrawPending(void);
 void jwplcUIRuntimeConsumeRefreshRequest(void);
-void jwplcUIRuntimeDrawStatic(Adafruit_ST7789 *tft);
-void jwplcUIRuntimeDrawDirty(Adafruit_ST7789 *tft);
+void jwplcUIRuntimeDrawStatic(JWPLC_TFTClass *tft);
+void jwplcUIRuntimeDrawDirty(JWPLC_TFTClass *tft);
 
 #ifdef __cplusplus
 }

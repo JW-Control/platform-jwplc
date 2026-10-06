@@ -106,11 +106,11 @@ static int16_t sideX = 110;
 // Colores
 // =====================================================
 
-static const uint16_t COLOR_BG = ST77XX_BLACK;
-static const uint16_t COLOR_BOARD_BG = ST77XX_BLACK;
-static const uint16_t COLOR_TEXT = ST77XX_WHITE;
-static const uint16_t COLOR_TITLE = ST77XX_CYAN;
-static const uint16_t COLOR_BORDER = ST77XX_WHITE;
+static const uint16_t COLOR_BG = JWPLC_TFT_BLACK;
+static const uint16_t COLOR_BOARD_BG = JWPLC_TFT_BLACK;
+static const uint16_t COLOR_TEXT = JWPLC_TFT_WHITE;
+static const uint16_t COLOR_TITLE = JWPLC_TFT_CYAN;
+static const uint16_t COLOR_BORDER = JWPLC_TFT_WHITE;
 
 // =====================================================
 // Estado del juego
@@ -572,13 +572,13 @@ static uint16_t colorForCell(uint8_t v)
 {
   switch (v)
   {
-    case 1: return ST77XX_CYAN;
-    case 2: return ST77XX_YELLOW;
-    case 3: return ST77XX_MAGENTA;
-    case 4: return ST77XX_GREEN;
-    case 5: return ST77XX_RED;
-    case 6: return ST77XX_BLUE;
-    case 7: return ST77XX_WHITE;
+    case 1: return JWPLC_TFT_CYAN;
+    case 2: return JWPLC_TFT_YELLOW;
+    case 3: return JWPLC_TFT_MAGENTA;
+    case 4: return JWPLC_TFT_GREEN;
+    case 5: return JWPLC_TFT_RED;
+    case 6: return JWPLC_TFT_BLUE;
+    case 7: return JWPLC_TFT_WHITE;
     default: return COLOR_BOARD_BG;
   }
 }
@@ -634,8 +634,8 @@ static void drawCell(uint8_t row, uint8_t col, uint8_t value)
   tft.fillRect(x, y, CELL, CELL, COLOR_BOARD_BG);
   tft.fillRect(x + 1, y + 1, CELL - 2, CELL - 2, c);
 
-  tft.drawFastHLine(x + 1, y + 1, CELL - 2, ST77XX_WHITE);
-  tft.drawFastVLine(x + 1, y + 1, CELL - 2, ST77XX_WHITE);
+  tft.drawFastHLine(x + 1, y + 1, CELL - 2, JWPLC_TFT_WHITE);
+  tft.drawFastVLine(x + 1, y + 1, CELL - 2, JWPLC_TFT_WHITE);
 }
 
 static void drawBoardFrame()
@@ -1134,7 +1134,7 @@ static void drawStartHint()
   tft.setCursor(12, 12);
   tft.print("JWPLC TETRIS");
 
-  tft.drawFastHLine(0, 40, screenW, ST77XX_BLUE);
+  tft.drawFastHLine(0, 40, screenW, JWPLC_TFT_BLUE);
 
   tft.setTextSize(1);
   tft.setTextColor(COLOR_TEXT, COLOR_BG);
@@ -1193,7 +1193,7 @@ static void drawGameOver()
   tft.fillRect(boxX, boxY, boxW, boxH, COLOR_BG);
   tft.drawRect(boxX, boxY, boxW, boxH, COLOR_BORDER);
 
-  drawCenteredText("GAME OVER", boxY + 10, 2, ST77XX_RED);
+  drawCenteredText("GAME OVER", boxY + 10, 2, JWPLC_TFT_RED);
 
   tft.setTextSize(1);
   tft.setTextColor(COLOR_TEXT, COLOR_BG);

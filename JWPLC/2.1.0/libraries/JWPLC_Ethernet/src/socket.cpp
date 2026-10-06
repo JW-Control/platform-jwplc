@@ -35,10 +35,24 @@ typedef struct {
 	uint16_t RX_RSR; // Number of bytes received
 	uint16_t RX_RD;  // Address to read
 	uint16_t TX_FSR; // Free space ready for transmit
-	uint8_t  RX_inc; // how much have we advanced RX_RD
+	uint16_t RX_inc; // bytes advanced in RX_RD but not yet committed to W5500
 } socketstate_t;
 
 static socketstate_t state[MAX_SOCK_NUM];
+
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+static JWPLCEthernetTcpRxProfile jwplcTcpRxProfile;
+
+void EthernetClass::jwplcProfileResetTcpRx()
+{
+	jwplcTcpRxProfile = JWPLCEthernetTcpRxProfile();
+}
+
+JWPLCEthernetTcpRxProfile EthernetClass::jwplcProfileGetTcpRx()
+{
+	return jwplcTcpRxProfile;
+}
+#endif
 
 
 static uint16_t getSnTX_FSR(uint8_t s);
@@ -198,9 +212,20 @@ makesocket:
 //
 uint8_t EthernetClass::socketStatus(uint8_t s)
 {
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+	const uint32_t profileStartUs = micros();
+#endif
+
 	SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
 	uint8_t status = W5100.readSnSR(s);
 	SPI.endTransaction();
+
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+	++jwplcTcpRxProfile.socketStatusCalls;
+	jwplcTcpRxProfile.socketStatusTotalUs +=
+		(uint32_t)(micros() - profileStartUs);
+#endif
+
 	return status;
 }
 
@@ -262,21 +287,9 @@ void EthernetClass::socketDisconnect(uint8_t s)
 
 static uint16_t getSnRX_RSR(uint8_t s)
 {
-#if 1
-        uint16_t val, prev;
-
-        prev = W5100.readSnRX_RSR(s);
-        while (1) {
-                val = W5100.readSnRX_RSR(s);
-                if (val == prev) {
-			return val;
-		}
-                prev = val;
-        }
-#else
-	uint16_t val = W5100.readSnRX_RSR(s);
-	return val;
-#endif
+	uint16_t value = 0;
+	(void)W5100.readSnRX_RSRStable(s, value);
+	return value;
 }
 
 static void read_data(uint8_t s, uint16_t src, uint8_t *dst, uint16_t len)
@@ -301,13 +314,29 @@ static void read_data(uint8_t s, uint16_t src, uint8_t *dst, uint16_t len)
 
 // Receive data.  Returns size, or -1 for no data, or 0 if connection closed
 //
-int EthernetClass::socketRecv(uint8_t s, uint8_t *buf, int16_t len)
+static int socketRecvInternal(
+	uint8_t s,
+	uint8_t *buf,
+	int16_t len,
+	bool deferCommit)
 {
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+	const uint32_t profileRecvStartUs = micros();
+#endif
+
 	// Check how much data is available
 	int ret = state[s].RX_RSR;
 	SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
 	if (ret < len) {
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+		const uint32_t profileRsrStartUs = micros();
+#endif
 		uint16_t rsr = getSnRX_RSR(s);
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+		++jwplcTcpRxProfile.recvRsrRefreshCalls;
+		jwplcTcpRxProfile.recvRsrRefreshTotalUs +=
+			(uint32_t)(micros() - profileRsrStartUs);
+#endif
 		ret = rsr - state[s].RX_inc;
 		state[s].RX_RSR = ret;
 		//Serial.printf("Sock_RECV, RX_RSR=%d, RX_inc=%d\n", ret, state[s].RX_inc);
@@ -327,15 +356,35 @@ int EthernetClass::socketRecv(uint8_t s, uint8_t *buf, int16_t len)
 	} else {
 		if (ret > len) ret = len; // more data available than buffer length
 		uint16_t ptr = state[s].RX_RD;
-		if (buf) read_data(s, ptr, buf, ret);
+		if (buf) {
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+			const uint32_t profilePayloadStartUs = micros();
+#endif
+			read_data(s, ptr, buf, ret);
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+			++jwplcTcpRxProfile.recvPayloadReadCalls;
+			jwplcTcpRxProfile.recvPayloadReadTotalUs +=
+				(uint32_t)(micros() - profilePayloadStartUs);
+			jwplcTcpRxProfile.recvPayloadBytes +=
+				(uint32_t)ret;
+#endif
+		}
 		ptr += ret;
 		state[s].RX_RD = ptr;
 		state[s].RX_RSR -= ret;
 		uint16_t inc = state[s].RX_inc + ret;
-		if (inc >= 250 || state[s].RX_RSR == 0) {
+		if (!deferCommit && (inc >= 250 || state[s].RX_RSR == 0)) {
 			state[s].RX_inc = 0;
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+			const uint32_t profileCommitStartUs = micros();
+#endif
 			W5100.writeSnRX_RD(s, ptr);
 			W5100.execCmdSn(s, Sock_RECV);
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+			++jwplcTcpRxProfile.recvCommitCalls;
+			jwplcTcpRxProfile.recvCommitTotalUs +=
+				(uint32_t)(micros() - profileCommitStartUs);
+#endif
 			//Serial.printf("Sock_RECV cmd, RX_RD=%d, RX_RSR=%d\n",
 			//  state[s].RX_RD, state[s].RX_RSR);
 		} else {
@@ -343,21 +392,219 @@ int EthernetClass::socketRecv(uint8_t s, uint8_t *buf, int16_t len)
 		}
 	}
 	SPI.endTransaction();
+
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+	++jwplcTcpRxProfile.recvCalls;
+	jwplcTcpRxProfile.recvTotalUs +=
+		(uint32_t)(micros() - profileRecvStartUs);
+#endif
+
 	//Serial.printf("socketRecv, ret=%d\n", ret);
 	return ret;
 }
 
+int EthernetClass::socketRecv(uint8_t s, uint8_t *buf, int16_t len)
+{
+	return socketRecvInternal(s, buf, len, false);
+}
+
+int EthernetClass::socketRecvTCPFastDeferred(
+	uint8_t s,
+	uint8_t *buf,
+	uint16_t len)
+{
+	if (s >= MAX_SOCK_NUM || buf == nullptr || len == 0 || len > INT16_MAX) {
+		return -1;
+	}
+
+	return socketRecvInternal(s, buf, (int16_t)len, true);
+}
+
+bool EthernetClass::socketCommitTCPFast(uint8_t s)
+{
+	if (s >= MAX_SOCK_NUM || state[s].RX_inc > W5100.SSIZE) {
+		return false;
+	}
+
+	SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
+
+	if (state[s].RX_inc == 0) {
+		SPI.endTransaction();
+		return true;
+	}
+
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+	const uint32_t profileCommitStartUs = micros();
+#endif
+
+	W5100.writeSnRX_RD(s, state[s].RX_RD);
+	const bool accepted = W5100.execCmdSnChecked(s, Sock_RECV);
+
+	if (accepted) {
+		state[s].RX_inc = 0;
+	}
+
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+	++jwplcTcpRxProfile.recvCommitCalls;
+	jwplcTcpRxProfile.recvCommitTotalUs +=
+		(uint32_t)(micros() - profileCommitStartUs);
+#endif
+
+	SPI.endTransaction();
+	return accepted;
+}
+
+int EthernetClass::socketRecvUDPFastDeferred(
+	uint8_t s,
+	uint8_t *header,
+	uint8_t *buf,
+	uint16_t len)
+{
+	if (
+		s >= MAX_SOCK_NUM ||
+		header == nullptr ||
+		buf == nullptr)
+	{
+		return -1;
+	}
+
+	SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
+
+	uint16_t available = state[s].RX_RSR;
+
+	if (available < 8) {
+		uint16_t rsr = 0;
+		(void)W5100.readSnRX_RSRStable(s, rsr);
+
+		available =
+			rsr >= state[s].RX_inc
+				? (uint16_t)(rsr - state[s].RX_inc)
+				: 0;
+
+		state[s].RX_RSR = available;
+	}
+
+	if (available < 8) {
+		SPI.endTransaction();
+		return 0;
+	}
+
+	const uint16_t ptr = state[s].RX_RD;
+	read_data(s, ptr, header, 8);
+
+	const uint16_t payloadLen =
+		((uint16_t)header[6] << 8) |
+		(uint16_t)header[7];
+
+	const uint32_t recordLen =
+		8U + (uint32_t)payloadLen;
+
+	if (
+		payloadLen > len ||
+		recordLen > available ||
+		recordLen > W5100.SSIZE)
+	{
+		SPI.endTransaction();
+		return 0;
+	}
+
+	if (payloadLen > 0) {
+		read_data(
+			s,
+			(uint16_t)(ptr + 8U),
+			buf,
+			payloadLen);
+	}
+
+	const uint16_t nextPtr =
+		(uint16_t)(ptr + recordLen);
+
+	const uint32_t pending =
+		(uint32_t)state[s].RX_inc +
+		recordLen;
+
+	if (pending > W5100.SSIZE) {
+		SPI.endTransaction();
+		return -1;
+	}
+
+	state[s].RX_RD = nextPtr;
+	state[s].RX_RSR =
+		(uint16_t)(available - recordLen);
+	state[s].RX_inc =
+		(uint16_t)pending;
+
+	SPI.endTransaction();
+	return (int)payloadLen;
+}
+
+bool EthernetClass::socketCommitUDPFast(uint8_t s)
+{
+	if (s >= MAX_SOCK_NUM) {
+		return false;
+	}
+
+	SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
+
+	if (state[s].RX_inc == 0) {
+		SPI.endTransaction();
+		return true;
+	}
+
+	W5100.writeSnRX_RD(
+		s,
+		state[s].RX_RD);
+
+	const bool accepted =
+		W5100.execCmdSnChecked(
+			s,
+			Sock_RECV,
+			1000);
+
+	if (accepted) {
+		state[s].RX_inc = 0;
+	}
+
+	SPI.endTransaction();
+	return accepted;
+}
+
+
 uint16_t EthernetClass::socketRecvAvailable(uint8_t s)
 {
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+	const uint32_t profileAvailableStartUs = micros();
+#endif
+
 	uint16_t ret = state[s].RX_RSR;
 	if (ret == 0) {
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+		const uint32_t profileRsrStartUs = micros();
+#endif
 		SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
 		uint16_t rsr = getSnRX_RSR(s);
 		SPI.endTransaction();
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+		++jwplcTcpRxProfile.recvAvailableRsrRefreshCalls;
+		jwplcTcpRxProfile.recvAvailableRsrRefreshTotalUs +=
+			(uint32_t)(micros() - profileRsrStartUs);
+#endif
 		ret = rsr - state[s].RX_inc;
 		state[s].RX_RSR = ret;
 		//Serial.printf("sockRecvAvailable s=%d, RX_RSR=%d\n", s, ret);
 	}
+
+#if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
+	++jwplcTcpRxProfile.recvAvailableCalls;
+	if (ret == 0) {
+		++jwplcTcpRxProfile.recvAvailableZeroCalls;
+	} else {
+		++jwplcTcpRxProfile.recvAvailableNonzeroCalls;
+	}
+	jwplcTcpRxProfile.recvAvailableTotalUs +=
+		(uint32_t)(micros() - profileAvailableStartUs);
+#endif
+
 	return ret;
 }
 
@@ -381,17 +628,10 @@ uint8_t EthernetClass::socketPeek(uint8_t s)
 
 static uint16_t getSnTX_FSR(uint8_t s)
 {
-        uint16_t val, prev;
-
-        prev = W5100.readSnTX_FSR(s);
-        while (1) {
-                val = W5100.readSnTX_FSR(s);
-                if (val == prev) {
-			state[s].TX_FSR = val;
-			return val;
-		}
-                prev = val;
-        }
+	uint16_t value = 0;
+	(void)W5100.readSnTX_FSRStable(s, value);
+	state[s].TX_FSR = value;
+	return value;
 }
 
 
@@ -419,51 +659,149 @@ static void write_data(uint8_t s, uint16_t data_offset, const uint8_t *data, uin
  * @brief	This function used to send the data in TCP mode
  * @return	1 for success else 0.
  */
-uint16_t EthernetClass::socketSend(uint8_t s, const uint8_t * buf, uint16_t len)
+uint16_t EthernetClass::socketSend(
+	uint8_t s,
+	const uint8_t *buf,
+	uint16_t len,
+	uint32_t timeoutMs)
 {
-	uint8_t status=0;
-	uint16_t ret=0;
-	uint16_t freesize=0;
+	uint8_t status = 0;
+	uint16_t ret = 0;
+	uint16_t freesize = 0;
+	const uint32_t startedMs = millis();
 
 	if (len > W5100.SSIZE) {
-		ret = W5100.SSIZE; // check size not to exceed MAX size.
+		ret = W5100.SSIZE;
 	} else {
 		ret = len;
 	}
 
-	// if freebuf is available, start.
 	do {
 		SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
 		freesize = getSnTX_FSR(s);
 		status = W5100.readSnSR(s);
 		SPI.endTransaction();
-		if ((status != SnSR::ESTABLISHED) && (status != SnSR::CLOSE_WAIT)) {
-			ret = 0;
+
+		if (status != SnSR::ESTABLISHED && status != SnSR::CLOSE_WAIT) {
+			return 0;
+		}
+
+		if (freesize >= ret) {
 			break;
 		}
+
 		yield();
-	} while (freesize < ret);
+	} while ((uint32_t)(millis() - startedMs) < timeoutMs);
 
-	// copy data
+	if (freesize < ret) {
+		return 0;
+	}
+
 	SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
+	W5100.writeSnIR(s, (uint8_t)(SnIR::SEND_OK | SnIR::TIMEOUT));
 	write_data(s, 0, (uint8_t *)buf, ret);
-	W5100.execCmdSn(s, Sock_SEND);
 
-	/* +2008.01 bj */
-	while ( (W5100.readSnIR(s) & SnIR::SEND_OK) != SnIR::SEND_OK ) {
-		/* m2008.01 [bj] : reduce code */
-		if ( W5100.readSnSR(s) == SnSR::CLOSED ) {
+	if (!W5100.execCmdSnChecked(s, Sock_SEND, 1000)) {
+		SPI.endTransaction();
+		return 0;
+	}
+
+	SPI.endTransaction();
+
+	do {
+		SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
+
+		const uint8_t interruptFlags = W5100.readSnIR(s);
+		status = W5100.readSnSR(s);
+
+		if ((interruptFlags & SnIR::SEND_OK) != 0) {
+			W5100.writeSnIR(s, SnIR::SEND_OK);
+			SPI.endTransaction();
+			return ret;
+		}
+
+		if ((interruptFlags & SnIR::TIMEOUT) != 0) {
+			W5100.writeSnIR(s, (uint8_t)(SnIR::SEND_OK | SnIR::TIMEOUT));
 			SPI.endTransaction();
 			return 0;
 		}
+
 		SPI.endTransaction();
+
+		if (status != SnSR::ESTABLISHED && status != SnSR::CLOSE_WAIT) {
+			return 0;
+		}
+
 		yield();
-		SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
+	} while ((uint32_t)(millis() - startedMs) < timeoutMs);
+
+	return 0;
+}
+
+int EthernetClass::socketBeginSendTCP(
+	uint8_t s,
+	const uint8_t *buf,
+	uint16_t len)
+{
+	if (s >= MAX_SOCK_NUM || buf == nullptr || len == 0 || len > W5100.SSIZE) {
+		return -1;
 	}
-	/* +2008.01 bj */
-	W5100.writeSnIR(s, SnIR::SEND_OK);
+
+	SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
+
+	const uint8_t status = W5100.readSnSR(s);
+	uint16_t freeBytes = 0;
+	const bool stable = W5100.readSnTX_FSRStable(s, freeBytes);
+
+	if (!stable || (status != SnSR::ESTABLISHED && status != SnSR::CLOSE_WAIT)) {
+		SPI.endTransaction();
+		return -1;
+	}
+
+	if (freeBytes < len) {
+		SPI.endTransaction();
+		return 0;
+	}
+
+	W5100.writeSnIR(s, (uint8_t)(SnIR::SEND_OK | SnIR::TIMEOUT));
+	write_data(s, 0, buf, len);
+
+	const bool commandAccepted = W5100.execCmdSnChecked(s, Sock_SEND, 1000);
 	SPI.endTransaction();
-	return ret;
+
+	return commandAccepted ? 1 : -1;
+}
+
+int EthernetClass::socketPollSendTCP(uint8_t s)
+{
+	if (s >= MAX_SOCK_NUM) {
+		return -1;
+	}
+
+	SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
+
+	const uint8_t interruptFlags = W5100.readSnIR(s);
+	const uint8_t status = W5100.readSnSR(s);
+
+	if ((interruptFlags & SnIR::SEND_OK) != 0) {
+		W5100.writeSnIR(s, SnIR::SEND_OK);
+		SPI.endTransaction();
+		return 1;
+	}
+
+	if ((interruptFlags & SnIR::TIMEOUT) != 0) {
+		W5100.writeSnIR(s, (uint8_t)(SnIR::SEND_OK | SnIR::TIMEOUT));
+		SPI.endTransaction();
+		return -1;
+	}
+
+	SPI.endTransaction();
+
+	if (status != SnSR::ESTABLISHED && status != SnSR::CLOSE_WAIT) {
+		return -1;
+	}
+
+	return 0;
 }
 
 uint16_t EthernetClass::socketSendAvailable(uint8_t s)
@@ -509,30 +847,71 @@ bool EthernetClass::socketStartUDP(uint8_t s, uint8_t* addr, uint16_t port)
 	return true;
 }
 
-bool EthernetClass::socketSendUDP(uint8_t s)
+int EthernetClass::socketBeginSendUDP(uint8_t s)
 {
-	SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
-	W5100.execCmdSn(s, Sock_SEND);
-
-	/* +2008.01 bj */
-	while ( (W5100.readSnIR(s) & SnIR::SEND_OK) != SnIR::SEND_OK ) {
-		if (W5100.readSnIR(s) & SnIR::TIMEOUT) {
-			/* +2008.01 [bj]: clear interrupt */
-			W5100.writeSnIR(s, (SnIR::SEND_OK|SnIR::TIMEOUT));
-			SPI.endTransaction();
-			//Serial.printf("sendUDP timeout\n");
-			return false;
-		}
-		SPI.endTransaction();
-		yield();
-		SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
+	if (s >= MAX_SOCK_NUM) {
+		return -1;
 	}
 
-	/* +2008.01 bj */
-	W5100.writeSnIR(s, SnIR::SEND_OK);
+	SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
+
+	// Clear stale terminal flags from a previous datagram before SEND.
+	W5100.writeSnIR(s, (uint8_t)(SnIR::SEND_OK | SnIR::TIMEOUT));
+
+	const bool commandAccepted =
+		W5100.execCmdSnChecked(
+			s,
+			Sock_SEND,
+			1000);
+
 	SPI.endTransaction();
 
-	//Serial.printf("sendUDP ok\n");
-	/* Sent ok */
-	return true;
+	return commandAccepted ? 0 : -1;
+}
+
+int EthernetClass::socketPollSendUDP(uint8_t s)
+{
+	if (s >= MAX_SOCK_NUM) {
+		return -1;
+	}
+
+	SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
+
+	const uint8_t interruptFlags =
+		W5100.readSnIR(s);
+
+	if ((interruptFlags & SnIR::SEND_OK) != 0) {
+		W5100.writeSnIR(s, SnIR::SEND_OK);
+		SPI.endTransaction();
+		return 1;
+	}
+
+	if ((interruptFlags & SnIR::TIMEOUT) != 0) {
+		W5100.writeSnIR(
+			s,
+			(uint8_t)(SnIR::SEND_OK | SnIR::TIMEOUT));
+		SPI.endTransaction();
+		return -1;
+	}
+
+	const uint8_t status = W5100.readSnSR(s);
+	SPI.endTransaction();
+
+	if (status != SnSR::UDP) {
+		return -1;
+	}
+
+	return 0;
+}
+
+bool EthernetClass::socketSendUDP(uint8_t s)
+{
+	int state = socketBeginSendUDP(s);
+
+	while (state == 0) {
+		yield();
+		state = socketPollSendUDP(s);
+	}
+
+	return state == 1;
 }

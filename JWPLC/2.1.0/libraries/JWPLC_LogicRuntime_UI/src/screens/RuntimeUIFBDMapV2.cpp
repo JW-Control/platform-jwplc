@@ -470,7 +470,7 @@ void RuntimeUIFBDMapV2::handleDetailInput()
 
 void RuntimeUIFBDMapV2::drawMapStatic()
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   clearScreen(tft);
   drawHeaderStatic(tft, "MAPA FBD");
   drawMapHeaderInfo();
@@ -862,7 +862,7 @@ void RuntimeUIFBDMapV2::drawFullNode(uint16_t blockIndex,
     return;
   }
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.fillRect(x, y, NODE_W, NODE_H, COLOR_BACKGROUND);
   tft.drawRect(x, y, NODE_W, NODE_H, border);
   if (selected)
@@ -918,7 +918,7 @@ void RuntimeUIFBDMapV2::drawPartialNode(uint16_t blockIndex,
     return;
   }
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.fillRect(visibleLeft,
                visibleTop,
                visibleWidth,
@@ -1035,7 +1035,7 @@ void RuntimeUIFBDMapV2::drawEdgeHint(uint16_t blockIndex,
     return;
   }
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.fillRect(hintX,
                hintY,
                EDGE_HINT_W,
@@ -1087,7 +1087,7 @@ void RuntimeUIFBDMapV2::drawNodePorts(uint16_t blockIndex,
     return;
   }
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   for (uint8_t inputIndex = 0;
        inputIndex < definition->inputCount;
        ++inputIndex)
@@ -1146,7 +1146,7 @@ void RuntimeUIFBDMapV2::drawNodePorts(uint16_t blockIndex,
 
 void RuntimeUIFBDMapV2::drawDetailStatic()
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   clearScreen(tft);
   drawHeaderStatic(tft, "DETALLE FBD");
   updateHeaderState(tft, stateText(), stateColor());
@@ -1200,7 +1200,7 @@ void RuntimeUIFBDMapV2::drawDetail(bool force)
     return;
   }
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   char value[32];
 
   std::snprintf(value,

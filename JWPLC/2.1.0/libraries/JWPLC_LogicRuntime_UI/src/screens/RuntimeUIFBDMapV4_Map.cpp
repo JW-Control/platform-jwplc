@@ -21,7 +21,7 @@ namespace
 
 void RuntimeUIFBDMapV4::drawMapStatic()
 {
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   clearScreen(tft);
   drawHeaderStatic(tft, "MAPA FBD");
   _headerStateValid = false;
@@ -330,7 +330,7 @@ void RuntimeUIFBDMapV4::drawFullNode(uint16_t blockIndex,
     return;
   }
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.fillRect(x, y, NODE_W, NODE_H, COLOR_BACKGROUND);
   tft.drawRect(x, y, NODE_W, NODE_H, border);
   if (selected)
@@ -408,7 +408,7 @@ void RuntimeUIFBDMapV4::drawEdgeHint(uint16_t blockIndex,
   const int16_t hintY = static_cast<int16_t>(
       nodeScreenY + EDGE_HINT_Y_OFFSET);
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.fillRect(hintX,
                hintY,
                EDGE_HINT_W,
@@ -452,7 +452,7 @@ void RuntimeUIFBDMapV4::drawNodePorts(uint16_t blockIndex,
     return;
   }
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   for (uint8_t inputIndex = 0;
        inputIndex < definition->inputCount;
        ++inputIndex)

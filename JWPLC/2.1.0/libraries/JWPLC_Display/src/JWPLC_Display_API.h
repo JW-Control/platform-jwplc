@@ -4,8 +4,7 @@
 #include <Arduino.h>
 #include <JWPLC_UI.h>
 #include <JWPLC_UI_PixelMap.h>
-
-class Adafruit_ST7789;
+#include <JWPLC_TFT.h>
 
 // =====================================================
 // JWPLC_DisplayClass
@@ -124,10 +123,10 @@ public:
     void clearPendingInput();
 
     // Alias principal recomendado.
-    Adafruit_ST7789 &tft();
+    JWPLC_TFTClass &tft();
 
     // Alias compatible/legible.
-    Adafruit_ST7789 &display();
+    JWPLC_TFTClass &display();
 
     // Indicadores laterales de la pantalla IDLE.
     void setRunLed(bool state);

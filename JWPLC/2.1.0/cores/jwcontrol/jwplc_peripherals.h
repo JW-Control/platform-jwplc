@@ -93,6 +93,12 @@ bool jwplcButtonsBeginCallback(void);
 // Hook de Ethernet para proveedor interno del ecosistema
 void jwplcEthernetTickCallback(void);
 
+// Hook DataLog solo para variantes con microSD.
+// En JWPLC Basic Core JWPLC_HAS_SD=0 y esta ruta no existe.
+#if JWPLC_HAS_SD
+void jwplcDataLogTickCallback(void);
+#endif
+
 #ifdef __cplusplus
 }
 #endif

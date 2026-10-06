@@ -46,7 +46,7 @@ void RuntimeUIFBDMapUnified::drawEditorFooter()
     break;
   }
 
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
   tft.drawFastHLine(CONTENT_X + 2,
                     EDIT_FOOTER_Y - 4,
                     CONTENT_W - 4,

@@ -25,6 +25,31 @@ if ([string]::IsNullOrWhiteSpace($OutputRoot))
     $OutputRoot = Join-Path $ScriptRoot "core-precompiled-work"
 }
 
+function Get-Sha256Hex
+{
+    param(
+        [Parameter(Mandatory = $true)][string]$Path
+    )
+
+    $fullPath = [System.IO.Path]::GetFullPath($Path)
+    $stream = [System.IO.File]::OpenRead($fullPath)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+
+    try
+    {
+        $hashBytes = $sha.ComputeHash($stream)
+    }
+    finally
+    {
+        $sha.Dispose()
+        $stream.Dispose()
+    }
+
+    return (
+        [System.BitConverter]::ToString($hashBytes)
+    ).Replace("-", "")
+}
+
 function Invoke-NativeCaptured
 {
     param(
@@ -63,9 +88,47 @@ function Get-CompileDatabaseInfo
         throw "No se genero compile_commands.json: $compileDbPath"
     }
 
-    $entries = @(Get-Content -LiteralPath $compileDbPath -Raw | ConvertFrom-Json)
+    $parsedEntries = Get-Content -LiteralPath $compileDbPath -Raw | ConvertFrom-Json
+    $entries = New-Object System.Collections.Generic.List[object]
+
+    # Windows PowerShell / ConvertFrom-Json puede entregar el array JSON
+    # directamente o encapsulado como un único objeto array según el host.
+    # Aplanar explícitamente un nivel evita tratar compile_commands.json
+    # completo como una sola entrada.
+    foreach ($parsedEntry in @($parsedEntries))
+    {
+        if (
+            $parsedEntry -is [System.Array] -or
+            (
+                $parsedEntry -is [System.Collections.IEnumerable] -and
+                -not ($parsedEntry -is [string]) -and
+                -not (@($parsedEntry.PSObject.Properties.Name) -contains "file")
+            )
+        )
+        {
+            foreach ($nestedEntry in $parsedEntry)
+            {
+                if ($null -ne $nestedEntry)
+                {
+                    [void]$entries.Add($nestedEntry)
+                }
+            }
+        }
+        elseif ($null -ne $parsedEntry)
+        {
+            [void]$entries.Add($parsedEntry)
+        }
+    }
+
+    if ($entries.Count -lt 1)
+    {
+        throw "compile_commands.json no contiene entradas."
+    }
+
     $sourceFiles = New-Object System.Collections.Generic.List[string]
     $stubFiles = New-Object System.Collections.Generic.List[string]
+    $peripheralsInitCount = 0
+    $precompiledStubCount = 0
 
     foreach ($entry in $entries)
     {
@@ -75,24 +138,58 @@ function Get-CompileDatabaseInfo
             continue
         }
 
-        if (-not [System.IO.Path]::IsPathRooted($file))
+        $fileText =
+            $file.Trim().
+                Trim([char]34).
+                Trim([char]39).
+                Replace([char]92, [char]47)
+
+        $directoryText =
+            ([string]$entry.directory).Trim().
+                Trim([char]34).
+                Trim([char]39).
+                Replace([char]92, [char]47)
+
+        $isRooted =
+            $fileText -match '^(?:[A-Za-z]:/|/)'
+
+        if (
+            -not $isRooted -and
+            -not [string]::IsNullOrWhiteSpace($directoryText)
+        )
         {
-            $directory = [string]$entry.directory
-            $file = Join-Path $directory $file
+            $candidateText =
+                $directoryText.TrimEnd([char]47) +
+                "/" +
+                $fileText.TrimStart([char]47)
+        }
+        else
+        {
+            $candidateText =
+                $fileText
         }
 
-        $full = [System.IO.Path]::GetFullPath($file)
-        $normalized = $full.Replace('\', '/')
+        if ($candidateText -match '/cores/jwcontrol_precompiled_stub/')
+        {
+            [void]$stubFiles.Add($candidateText)
 
-        # Se inspecciona el operando fuente real de compile_commands.json.
-        # No se infieren TUs a partir de rutas -I del log verbose.
-        if ($normalized -match '/cores/jwcontrol_precompiled_stub/')
-        {
-            [void]$stubFiles.Add($full)
+            if ($candidateText.EndsWith(
+                    "/precompiled_core_stub.c",
+                    [System.StringComparison]::OrdinalIgnoreCase))
+            {
+                ++$precompiledStubCount
+            }
         }
-        elseif ($normalized -match '/cores/jwcontrol/')
+        elseif ($candidateText -match '/cores/jwcontrol/')
         {
-            [void]$sourceFiles.Add($full)
+            [void]$sourceFiles.Add($candidateText)
+
+            if ($candidateText.EndsWith(
+                    "/peripherals_init.cpp",
+                    [System.StringComparison]::OrdinalIgnoreCase))
+            {
+                ++$peripheralsInitCount
+            }
         }
     }
 
@@ -102,6 +199,8 @@ function Get-CompileDatabaseInfo
         StubFiles = @($stubFiles)
         SourceCount = $sourceFiles.Count
         StubCount = $stubFiles.Count
+        PeripheralsInitCount = $peripheralsInitCount
+        PrecompiledStubCount = $precompiledStubCount
     }
 }
 
@@ -145,10 +244,23 @@ function Invoke-ArduinoCompile
         throw "Arduino CLI fallo. Revisar: $LogPath"
     }
 
+
+    $compileDbInfo = Get-CompileDatabaseInfo -BuildPath $BuildPath
+
+    Write-Host (
+        "compile_commands parser: type={0}, entries={1}, jwcontrol={2}, stub={3}, peripherals_init={4}, precompiled_stub={5}" -f
+        $compileDbInfo.GetType().FullName,
+        $compileDbInfo.Entries,
+        $compileDbInfo.SourceCount,
+        $compileDbInfo.StubCount,
+        $compileDbInfo.PeripheralsInitCount,
+        $compileDbInfo.PrecompiledStubCount
+    ) -ForegroundColor DarkGray
+
     return [PSCustomObject]@{
         DurationMs = [Math]::Round($sw.Elapsed.TotalMilliseconds, 3)
         Output = @($native.Output)
-        CompileDb = Get-CompileDatabaseInfo -BuildPath $BuildPath
+        CompileDb = $compileDbInfo
     }
 }
 
@@ -262,7 +374,7 @@ $archiveBackupPath = Join-Path $runRoot "JWPLCBASIC-core-before.a"
 $summaryPath = Join-Path $runRoot "CORE_PRECOMPILED_BUILD_SUMMARY.md"
 New-Item -ItemType Directory -Path $runRoot -Force | Out-Null
 
-$archiveOriginalSha = (Get-FileHash -Path $ArchivePath -Algorithm SHA256).Hash.ToLowerInvariant()
+$archiveOriginalSha = (Get-Sha256Hex -Path $ArchivePath).ToLowerInvariant()
 $archiveOriginalBytes = (Get-Item $ArchivePath).Length
 Copy-Item -LiteralPath $ArchivePath -Destination $archiveBackupPath -Force
 
@@ -313,11 +425,7 @@ try
         throw "El build fuente compilo inesperadamente el stub precompilado."
     }
 
-    $peripheralsCount = @(
-        $result.CompileDb.SourceFiles | Where-Object {
-            [System.IO.Path]::GetFileName($_) -ieq "peripherals_init.cpp"
-        }
-    ).Count
+    $peripheralsCount = [int]$result.CompileDb.PeripheralsInitCount
 
     if ($peripheralsCount -ne 1)
     {
@@ -332,7 +440,7 @@ try
 
     Copy-Item -LiteralPath $builtCore -Destination $candidatePath -Force
 
-    $candidateSha = (Get-FileHash -Path $candidatePath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $candidateSha = (Get-Sha256Hex -Path $candidatePath).ToLowerInvariant()
     $candidateBytes = (Get-Item $candidatePath).Length
     $sameArchiveSha = ($candidateSha -eq $archiveOriginalSha)
 
@@ -348,7 +456,7 @@ try
     Copy-Item -LiteralPath $candidatePath -Destination $ArchivePath -Force
     $archiveReplaced = $true
 
-    $installedSha = (Get-FileHash -Path $ArchivePath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $installedSha = (Get-Sha256Hex -Path $ArchivePath).ToLowerInvariant()
     if ($installedSha -ne $candidateSha)
     {
         throw "El core.a instalado no coincide con el candidato generado."

@@ -111,16 +111,16 @@ extern "C" void jwplcUIEnter()
 
     auto &tft = JWPLC_Display.tft();
 
-    tft.fillScreen(ST77XX_BLACK);
+    tft.fillScreen(JWPLC_TFT_BLACK);
     tft.setTextWrap(false);
 
     tft.setTextSize(2);
-    tft.setTextColor(ST77XX_CYAN, ST77XX_BLACK);
+    tft.setTextColor(JWPLC_TFT_CYAN, JWPLC_TFT_BLACK);
     tft.setCursor(10, 12);
     tft.print("USER MODE");
 
     tft.setTextSize(1);
-    tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
+    tft.setTextColor(JWPLC_TFT_WHITE, JWPLC_TFT_BLACK);
 
     tft.setCursor(10, 50);
     tft.print("Modo:");
@@ -152,9 +152,9 @@ extern "C" void jwplcUIUpdate()
 
     tft.setTextSize(1);
 
-    tft.fillRect(80, 50, 220, 16, ST77XX_BLACK);
+    tft.fillRect(80, 50, 220, 16, JWPLC_TFT_BLACK);
     tft.setCursor(80, 50);
-    tft.setTextColor(ST77XX_GREEN, ST77XX_BLACK);
+    tft.setTextColor(JWPLC_TFT_GREEN, JWPLC_TFT_BLACK);
 
     if (CURRENT_MODE == IDLE_RETURN_TIMEOUT)
     {
@@ -169,9 +169,9 @@ extern "C" void jwplcUIUpdate()
         tft.print("IDLE_RETURN_DISABLED");
     }
 
-    tft.fillRect(80, 80, 120, 16, ST77XX_BLACK);
+    tft.fillRect(80, 80, 120, 16, JWPLC_TFT_BLACK);
     tft.setCursor(80, 80);
-    tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
+    tft.setTextColor(JWPLC_TFT_WHITE, JWPLC_TFT_BLACK);
     tft.print(userCounter);
 }
 

@@ -1,0 +1,117 @@
+# Alpha14 — P4.2 COPY_OUT 64 B — promoción 2026-10-01
+
+## Decisión
+
+```text
+P4_2_AB=PASS
+P4_2_GAIN_CONFIRMED=YES
+P4_2_DEFAULT_PROMOTED=YES
+P4_2_DEFAULT_VALUE=1
+P4_2_H3ER_REGRESSION=NOT_RUN
+P4_2_PROMOTION_STATUS=PENDING_FULL_RUNTIME_GUARD
+```
+
+La validación física A/B confirmó el candidato
+`JWPLC_SPI_FIFO_REUSE_COPY_OUT_64=1`. Se promueve al default del package sin
+cambiar el fast path, las APIs ni otras políticas del transporte.
+
+## Evidencia física
+
+Integridad:
+
+```text
+FNV_ACTUAL=FNV_EXPECTED
+PAYLOAD_INTEGRITY=PASS
+TRANSPORT_ERRORS=0
+TCP_SPI_LOCK_ERRORS=0
+UNEXPECTED_RESETS=0
+PHYSICAL_STABILITY=PASS
+```
+
+Microperfil:
+
+```text
+COPY_OUT_US_PER_64B_CHUNK_BASELINE=2.186546
+COPY_OUT_US_PER_64B_CHUNK_CANDIDATE=1.697276
+COPY_OUT_64B_DELTA_PCT=-22.376
+MECHANISM_CONFIRMED=YES
+```
+
+Sistema:
+
+```text
+BASELINE_PAYLOAD_MBPS=16.821
+CANDIDATE_PAYLOAD_MBPS=17.113
+PAYLOAD_DELTA_PCT=+1.737
+
+BASELINE_US_PER_BYTE=0.475601
+CANDIDATE_US_PER_BYTE=0.467481
+US_PER_BYTE_DELTA_PCT=-1.707
+
+REPEATABILITY_OK=YES
+INTERPRETATION=P4_2_GAIN_CONFIRMED
+```
+
+TCP end-to-end se conserva como métrica secundaria por su dispersión:
+
+```text
+TCP_DELTA_PCT=-0.545
+BASELINE_TCP_SPREAD_PCT=2.167
+CANDIDATE_TCP_SPREAD_PCT=4.127
+```
+
+La métrica TCP aislada no invalida las métricas primarias de payload,
+`us/byte`, integridad y microperfil clasificadas por el harness.
+
+## Scope promovido
+
+```text
+ONLY_PRODUCT_VARIABLE=COPY_OUT_64_DEFAULT
+COPY_OUT_64_DEFAULT_BEFORE=0
+COPY_OUT_64_DEFAULT_AFTER=1
+
+W5500_SPI_HZ=26000000
+FIFO_REUSE_DEFAULT=ON
+DLEN_REUSE_DEFAULT=ON
+DIRECT_RX_DEFAULT=OFF
+RX_COMMIT=IMMEDIATE
+LEGACY_APIS=UNCHANGED
+RTU=UNCHANGED
+MODBUS_TCP_ASYNC=UNCHANGED
+BATCH_FAIRNESS=UNCHANGED
+```
+
+La condición permanece `c_len == 64U`, con 16 pares explícitos de copia,
+sin `memcpy` sobre MMIO y con la ruta tail de 1–63 B intacta.
+
+## Build source-first de promoción
+
+```text
+PROFILE=smoke
+FQBN=jwplc_local:esp32:jwplcbasic
+CLEAN=true
+STATUS=PASS
+EXIT_CODE=0
+WARNINGS=0
+ERRORS=0
+
+SPI_SOURCE_COMPILED=true
+SPI_SOURCE_LINKED=true
+SPI_PRECOMPILED_ARCHIVE_PRESENT=true
+SPI_PRECOMPILED_ARCHIVE_LINKED=false
+SPI_CONFIDENCE=high
+EVIDENCE_MISSING=[]
+
+P4_2_PROMOTION_BUILD=PASS
+```
+
+## Siguiente guard obligatorio
+
+La promoción queda pendiente del gate de regresión full-runtime H3E-R. No se
+abre P4.3/H4A1 antes de cerrar ese guard.
+
+```text
+NEXT=H3E_R_FULL_RUNTIME_POST_P4_2
+P4_2_H3ER_REGRESSION=NOT_RUN
+P4_2_PROMOTION_STATUS=PENDING_FULL_RUNTIME_GUARD
+```

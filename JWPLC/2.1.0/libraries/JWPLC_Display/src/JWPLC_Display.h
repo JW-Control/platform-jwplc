@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 #include <JWPLC_Display_API.h>
-#include <Adafruit_ST7789.h>
+#include <JWPLC_TFT.h>
 #include <JWPLC_GlobalPeripherals.h>
 
 extern "C"
@@ -61,7 +61,7 @@ namespace JWPLCDisplay
 
     void clearPendingInput();
 
-    Adafruit_ST7789 &display();
+    JWPLC_TFTClass &display();
 
     // Indicadores laterales
     void setRunLed(bool state);

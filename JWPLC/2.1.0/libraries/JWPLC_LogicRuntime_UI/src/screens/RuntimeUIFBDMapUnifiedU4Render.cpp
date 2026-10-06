@@ -18,7 +18,7 @@ void RuntimeUIFBDMapUnified::renderWizard(bool force)
     return;
 
   clearContentArea();
-  Adafruit_ST7789 &tft = JWPLC_Display.tft();
+  JWPLC_TFTClass &tft = JWPLC_Display.tft();
 
   if (_view == View::AddType)
   {
