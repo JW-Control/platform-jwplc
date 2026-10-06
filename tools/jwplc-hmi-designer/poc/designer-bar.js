@@ -8,8 +8,9 @@
   const DEFAULT_BAR_WIDTH = 80;
   const DEFAULT_BAR_HEIGHT = 12;
 
-  const barButton = [...document.querySelectorAll('.component-tool, .canvas-tool')]
-    .find((button) => button.querySelector('strong')?.textContent.trim() === 'BAR');
+  const barButton = document.querySelector('[data-tool="barField"]') ||
+    [...document.querySelectorAll('.component-tool, .canvas-tool')]
+      .find((button) => button.querySelector('strong')?.textContent.trim() === 'BAR');
   const gate = document.querySelector('.page-tabs .gate');
   const bottomSummary = document.querySelector('.bottom-summary');
   const fieldSection = document.getElementById('textFieldControlsSection');

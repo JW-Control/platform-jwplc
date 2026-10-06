@@ -1,8 +1,9 @@
 (() => {
   'use strict';
 
-  const boolButton = [...document.querySelectorAll('.component-tool, .canvas-tool')]
-    .find((button) => button.querySelector('strong')?.textContent.trim() === 'BOOL');
+  const boolButton = document.querySelector('[data-tool="boolField"]') ||
+    [...document.querySelectorAll('.component-tool, .canvas-tool')]
+      .find((button) => button.querySelector('strong')?.textContent.trim() === 'BOOL');
   const gate = document.querySelector('.page-tabs .gate');
   const bottomSummary = document.querySelector('.bottom-summary');
   const fieldSection = document.getElementById('textFieldControlsSection');

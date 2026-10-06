@@ -744,9 +744,8 @@
     if (field.type === 'VALUE') return 'valueField';
     if (field.type === 'BOOL') return 'boolField';
     if (field.type === 'BAR') return 'barField';
-    if (field.type === 'RAW_TEXT') return 'rawText';
-    if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) return 'pointer';
-    return 'textField';
+    if (field.type === 'TEXT') return 'textField';
+    return 'pointer';
   }
 
   function setLayerPixel(x, y, value) {
@@ -2057,6 +2056,24 @@
       button.classList.toggle('active', button.dataset.tool === selectedTool);
     });
 
+    const isVarTool = ['valueField', 'boolField', 'barField'].includes(selectedTool);
+    const varToolBtn = document.getElementById('variableToolBtn');
+    if (varToolBtn) {
+      varToolBtn.classList.toggle('active', isVarTool);
+      if (isVarTool && typeof updateVariableButtonDisplay === 'function') {
+        updateVariableButtonDisplay(selectedTool);
+      }
+    }
+
+    const isTextTool = ['textField', 'rawText'].includes(selectedTool);
+    const textToolBtn = document.getElementById('textToolBtn');
+    if (textToolBtn) {
+      textToolBtn.classList.toggle('active', isTextTool);
+      if (isTextTool && typeof updateTextButtonDisplay === 'function') {
+        updateTextButtonDisplay(selectedTool);
+      }
+    }
+
     const field = selectedField();
     const isRaw = selectedTool === 'rawText' || field?.type === 'RAW_TEXT';
     const isColorTool = (selectedTool === 'pick' || selectedTool === 'fill');
@@ -2563,9 +2580,10 @@
     };
     hmiFields.push(field);
     setSelectedKeys([field.key]);
-    selectedTool = 'rawText';
+    selectedTool = 'pointer';
     syncInputsFromState();
     syncToolUI();
+    window.dispatchEvent(new CustomEvent('jwplc:tool-changed', { detail: { tool: 'pointer' } }));
     render();
     commitHistory();
     return field;
@@ -2802,22 +2820,124 @@
         return;
       }
       if (tool === 'rawText') {
-        if (!field || field.type !== 'RAW_TEXT') addRawTextField();
-        else {
-          selectedTool = 'rawText';
-          syncToolUI();
-          render();
-        }
+        addRawTextField();
         return;
       }
       selectedTool = tool;
-      if (!['pointer', 'textField', 'valueField', 'boolField', 'barField', 'rawText'].includes(tool)) {
+      if (!['pointer', 'textField', 'valueField', 'boolField', 'barField'].includes(tool)) {
         setSelectedKeys([]);
       }
+      window.dispatchEvent(new CustomEvent('jwplc:tool-changed', { detail: { tool } }));
       syncInputsFromState();
       syncToolUI();
       render();
     });
+  });
+
+  const varDropdownContainer = document.getElementById('variableDropdownContainer');
+  const varToolBtn = document.getElementById('variableToolBtn');
+  const varDropdownMenu = document.getElementById('variableDropdownMenu');
+  const varActiveIcon = document.getElementById('variableToolActiveIcon');
+
+  const textDropdownContainer = document.getElementById('textDropdownContainer');
+  const textToolBtn = document.getElementById('textToolBtn');
+  const textDropdownMenu = document.getElementById('textDropdownMenu');
+  const textActiveIcon = document.getElementById('textToolActiveIcon');
+
+  const VAR_ICONS = {
+    valueField: '<svg width="18" height="16" viewBox="0 0 24 24"><text x="12" y="16.5" text-anchor="middle" font-size="11.5" font-weight="800" font-family="\'Segoe UI\', -apple-system, sans-serif" fill="currentColor" letter-spacing="-0.5px">123</text></svg>',
+    boolField: '<svg width="18" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="6"/><circle cx="16" cy="12" r="3" fill="currentColor"/></svg>',
+    barField: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="10" rx="2.5"/><rect x="5" y="10" width="7" height="4" rx="1" fill="currentColor"/></svg>'
+  };
+
+  const VAR_TITLES = {
+    valueField: 'Variables del PLC · Valor Numérico (VALUE)',
+    boolField: 'Variables del PLC · Booleano (BOOL)',
+    barField: 'Variables del PLC · Barra de Nivel (BAR)'
+  };
+
+  const TEXT_ICONS = {
+    textField: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3"/><path d="M12 4v16"/><path d="M8 20h8"/></svg>',
+    rawText: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5L12 3.5l8 16"/><line x1="7" y1="14.5" x2="17" y2="14.5"/></svg>'
+  };
+
+  const TEXT_TITLES = {
+    textField: 'Herramientas de Texto · Texto Dinámico (TEXT)',
+    rawText: 'Herramientas de Texto · Texto RAW (A)'
+  };
+
+  function updateVariableButtonDisplay(tool) {
+    if (!VAR_ICONS[tool]) return;
+    if (varActiveIcon) varActiveIcon.innerHTML = VAR_ICONS[tool];
+    if (varToolBtn) varToolBtn.title = VAR_TITLES[tool] || 'Variables del PLC';
+    document.querySelectorAll('.var-dropdown-item').forEach((item) => {
+      item.classList.toggle('active', item.dataset.tool === tool);
+    });
+  }
+
+  function updateTextButtonDisplay(tool) {
+    if (!TEXT_ICONS[tool]) return;
+    if (textActiveIcon) textActiveIcon.innerHTML = TEXT_ICONS[tool];
+    if (textToolBtn) textToolBtn.title = TEXT_TITLES[tool] || 'Herramientas de Texto';
+    document.querySelectorAll('.text-dropdown-item').forEach((item) => {
+      item.classList.toggle('active', item.dataset.tool === tool);
+    });
+  }
+
+  function closeAllDropdowns() {
+    if (varDropdownMenu) varDropdownMenu.style.display = 'none';
+    varDropdownContainer?.classList.remove('open');
+    if (textDropdownMenu) textDropdownMenu.style.display = 'none';
+    textDropdownContainer?.classList.remove('open');
+  }
+
+  if (varToolBtn && varDropdownMenu) {
+    varToolBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = varDropdownMenu.style.display !== 'none';
+      closeAllDropdowns();
+      if (!isOpen) {
+        varDropdownMenu.style.display = 'flex';
+        varDropdownContainer?.classList.add('open');
+      }
+    });
+
+    document.querySelectorAll('.var-dropdown-item').forEach((item) => {
+      item.addEventListener('click', () => {
+        const tool = item.dataset.tool;
+        updateVariableButtonDisplay(tool);
+        closeAllDropdowns();
+      });
+    });
+  }
+
+  if (textToolBtn && textDropdownMenu) {
+    textToolBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = textDropdownMenu.style.display !== 'none';
+      closeAllDropdowns();
+      if (!isOpen) {
+        textDropdownMenu.style.display = 'flex';
+        textDropdownContainer?.classList.add('open');
+      }
+    });
+
+    document.querySelectorAll('.text-dropdown-item').forEach((item) => {
+      item.addEventListener('click', () => {
+        const tool = item.dataset.tool;
+        updateTextButtonDisplay(tool);
+        closeAllDropdowns();
+      });
+    });
+  }
+
+  document.addEventListener('click', (e) => {
+    if (
+      (varDropdownContainer && !varDropdownContainer.contains(e.target)) &&
+      (textDropdownContainer && !textDropdownContainer.contains(e.target))
+    ) {
+      closeAllDropdowns();
+    }
   });
 
   zoomSelect.addEventListener('change', () => {
@@ -3697,6 +3817,7 @@
     if (wasDrawingShape) {
       selectedTool = 'pointer';
       syncToolUI();
+      window.dispatchEvent(new CustomEvent('jwplc:tool-changed', { detail: { tool: 'pointer' } }));
       render();
     }
 
@@ -4130,7 +4251,13 @@
     getSelectedField: () => selectedField(),
     getSelectedFields: () => selectedFields(),
     getSelectedFieldKeys: () => [...selectedFieldKeys],
-    setSelectedFieldKeys: (keys) => setSelectedKeys(keys),
+    setSelectedFieldKeys: (keys) => {
+      setSelectedKeys(keys);
+      syncInputsFromState();
+      syncToolUI();
+      render();
+    },
+    getZoom: () => zoom,
     getSelectedTool: () => selectedTool,
     getSelectedFieldType: () => selectedField()?.type || null,
     getAllFields: () => hmiFields,
@@ -4139,7 +4266,7 @@
     getActivePage: () => activePage,
     getMaxPages: () => MAX_PAGES,
     computeSelectedGeometry: () => computeFieldGeometry(selectedField()),
-    hasFieldSelection: () => Boolean(selectedField()) && ['textField', 'valueField', 'boolField', 'barField'].includes(selectedTool),
+    hasFieldSelection: () => selectedFields().length > 0,
     hasTextSelection: () => selectedField()?.type === 'TEXT' && selectedTool === 'textField',
     hasValueSelection: () => selectedField()?.type === 'VALUE' && selectedTool === 'valueField',
     setActivePage,

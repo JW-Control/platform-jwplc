@@ -97,7 +97,7 @@
     }
 
     const pixel = document.createElement('script');
-    pixel.src = './designer-pixelmap.js';
+    pixel.src = './designer-pixelmap.js?v=1789765004';
     pixel.async = false;
     pixel.dataset.a11Pixelmap = '1';
     pixel.onload = () => {

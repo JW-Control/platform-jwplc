@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>JWPLC HMI Designer — Alpha11</title>
-  <link rel="stylesheet" href="./styles.css?v=1789756000" />
+  <link rel="stylesheet" href="./styles.css?v=1789765004" />
 </head>
 <body>
   <header class="topbar">
@@ -78,28 +78,167 @@
 
       <div id="canvasViewport" class="canvas-viewport">
         <div class="canvas-toolbar">
-          <button class="tool canvas-tool active" data-tool="pointer" title="Seleccionar"><strong>↖</strong></button>
-          <button class="tool canvas-tool" data-tool="textField" title="TEXT - Campo de texto"><strong>T</strong></button>
-          <button class="tool canvas-tool" data-tool="valueField" title="VALUE - Valor numérico"><strong class="numeric">123</strong></button>
-          <button class="tool canvas-tool" data-tool="boolField" title="BOOL"><strong>○</strong></button>
-          <button class="tool canvas-tool" data-tool="barField" title="BAR"><strong>▥</strong></button>
+          <button class="tool canvas-tool active" data-tool="pointer" title="Seleccionar (V)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M4 2l12 11.5-6 .6 3.6 6.8-2.5 1.3-3.6-6.9-3.5 3.7V2z"/>
+            </svg>
+          </button>
+
+          <!-- Variable Dropdown Group (VALUE, BOOL, BAR) -->
+          <div class="variable-dropdown-container" id="variableDropdownContainer">
+            <button class="canvas-tool variable-tool-btn" id="variableToolBtn" type="button" title="Variables del PLC (clic para ver tipos)">
+              <span id="variableToolActiveIcon">
+                <svg width="18" height="16" viewBox="0 0 24 24">
+                  <text x="12" y="16.5" text-anchor="middle" font-size="11.5" font-weight="800" font-family="'Segoe UI', -apple-system, sans-serif" fill="currentColor" letter-spacing="-0.5px">123</text>
+                </svg>
+              </span>
+              <svg class="dropdown-chevron" width="7" height="6" viewBox="0 0 8 6" fill="currentColor">
+                <path d="M0 1l4 4 4-4z"/>
+              </svg>
+            </button>
+            <div class="variable-dropdown-menu" id="variableDropdownMenu" style="display: none;">
+              <div class="var-menu-header">Tipos de Variable (PLC)</div>
+              <button type="button" class="tool var-dropdown-item active" data-tool="valueField">
+                <div class="var-item-icon">
+                  <svg width="18" height="16" viewBox="0 0 24 24">
+                    <text x="12" y="16.5" text-anchor="middle" font-size="11.5" font-weight="800" font-family="'Segoe UI', -apple-system, sans-serif" fill="currentColor" letter-spacing="-0.5px">123</text>
+                  </svg>
+                </div>
+                <div class="var-item-text">
+                  <strong>Valor Numérico (VALUE)</strong>
+                  <span>float, int · Mediciones analógicas, temp, RPM</span>
+                </div>
+              </button>
+              <button type="button" class="tool var-dropdown-item" data-tool="boolField">
+                <div class="var-item-icon">
+                  <svg width="18" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="6" width="20" height="12" rx="6"/><circle cx="16" cy="12" r="3" fill="currentColor"/>
+                  </svg>
+                </div>
+                <div class="var-item-text">
+                  <strong>Booleano (BOOL)</strong>
+                  <span>bool · Indicador ON/OFF, bit digital, testigo</span>
+                </div>
+              </button>
+              <button type="button" class="tool var-dropdown-item" data-tool="barField">
+                <div class="var-item-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="7" width="20" height="10" rx="2.5"/><rect x="5" y="10" width="7" height="4" rx="1" fill="currentColor"/>
+                  </svg>
+                </div>
+                <div class="var-item-text">
+                  <strong>Barra de Nivel (BAR)</strong>
+                  <span>0–100% · Gráfico de tanque o progreso analógico</span>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <!-- Text Dropdown Group (TEXT, RAW) -->
+          <div class="text-dropdown-container" id="textDropdownContainer">
+            <button class="canvas-tool text-tool-btn" id="textToolBtn" type="button" title="Herramientas de Texto (clic para ver opciones)">
+              <span id="textToolActiveIcon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 7V4h16v3"/><path d="M12 4v16"/><path d="M8 20h8"/>
+                </svg>
+              </span>
+              <svg class="dropdown-chevron" width="7" height="6" viewBox="0 0 8 6" fill="currentColor">
+                <path d="M0 1l4 4 4-4z"/>
+              </svg>
+            </button>
+            <div class="text-dropdown-menu" id="textDropdownMenu" style="display: none;">
+              <div class="var-menu-header">Herramientas de Texto</div>
+              <button type="button" class="tool text-dropdown-item" data-tool="textField">
+                <div class="var-item-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 7V4h16v3"/><path d="M12 4v16"/><path d="M8 20h8"/>
+                  </svg>
+                </div>
+                <div class="var-item-text">
+                  <strong>Texto Dinámico (TEXT)</strong>
+                  <span>char* · Estados, cadenas alfanuméricas, alarmas (PLC)</span>
+                </div>
+              </button>
+              <button type="button" class="tool text-dropdown-item" data-tool="rawText">
+                <div class="var-item-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 19.5L12 3.5l8 16"/>
+                    <line x1="7" y1="14.5" x2="17" y2="14.5"/>
+                  </svg>
+                </div>
+                <div class="var-item-text">
+                  <strong>Texto RAW (A)</strong>
+                  <span>Texto GFX estático directo en pantalla</span>
+                </div>
+              </button>
+              <div class="var-menu-footer">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                <span>Próximamente: Selector y carga de fuentes tipográficas</span>
+              </div>
+            </div>
+          </div>
+
           <span class="toolbar-divider"></span>
-          <button class="tool canvas-tool utility-tool-btn" data-tool="line" title="Línea"><strong>╱</strong></button>
-          <button class="tool canvas-tool utility-tool-btn" data-tool="rect" title="Rectángulo"><strong>□</strong></button>
-          <button class="tool canvas-tool utility-tool-btn" data-tool="ellipse" title="Elipse"><strong>⬭</strong></button>
-          <button class="tool canvas-tool utility-tool-btn" data-tool="triangle" title="Triángulo"><strong>△</strong></button>
-          <button class="tool canvas-tool utility-tool-btn" data-tool="polygon" title="Polígono"><strong>⎔</strong></button>
+
+          <!-- Formas Vectoriales -->
+          <button class="tool canvas-tool utility-tool-btn" data-tool="line" title="Línea">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="4" y1="20" x2="20" y2="4"/>
+            </svg>
+          </button>
+          <button class="tool canvas-tool utility-tool-btn" data-tool="rect" title="Rectángulo">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="5" width="18" height="14" rx="2"/>
+            </svg>
+          </button>
+          <button class="tool canvas-tool utility-tool-btn" data-tool="ellipse" title="Elipse">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <ellipse cx="12" cy="12" rx="9" ry="6.5"/>
+            </svg>
+          </button>
+          <button class="tool canvas-tool utility-tool-btn" data-tool="triangle" title="Triángulo">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 4L3.5 19.5h17L12 4z"/>
+            </svg>
+          </button>
+          <button class="tool canvas-tool utility-tool-btn" data-tool="polygon" title="Polígono">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3l7.5 4.5v9L12 21l-7.5-4.5v-9L12 3z"/>
+            </svg>
+          </button>
           <input type="number" id="mainPolySidesInput" min="3" max="12" value="5" title="Lados del polígono" style="display:none; width:42px; height:32px; padding:0 4px; margin-left:4px; vertical-align:middle; border:1px solid #7697b0; border-radius:3px; background:#fff; color:#1f2937;" />
+
           <span class="toolbar-divider"></span>
-          <button class="tool canvas-tool utility-tool-btn" data-tool="pixel" title="Pincel (B)"><strong>✎</strong></button>
-          <button class="tool canvas-tool utility-tool-btn" data-tool="erase" title="Borrador (E)"><strong>◇</strong></button>
+
+          <!-- Herramientas Pixel / Bitmap -->
+          <button class="tool canvas-tool utility-tool-btn" data-tool="pixel" title="Pincel / Lápiz (B)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+              <path d="m15 5 4 4"/>
+            </svg>
+          </button>
+          <button class="tool canvas-tool utility-tool-btn" data-tool="erase" title="Borrador (E)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/>
+              <path d="M22 21H7"/>
+              <path d="m5 11 9 9"/>
+            </svg>
+          </button>
           <button class="tool canvas-tool utility-tool-btn" data-tool="fill" title="Rellenar región contigua (G)">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11Z"/><path d="m5 2 5 5"/><path d="M2 13h15"/><path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4Z" fill="currentColor"/></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11Z"/>
+              <path d="m5 2 5 5"/>
+              <path d="M2 13h15"/>
+              <path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4Z" fill="currentColor"/>
+            </svg>
           </button>
           <button class="tool canvas-tool utility-tool-btn" data-tool="pick" title="Cuentagotas (I / Alt+clic)">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 7 3 3"/><path d="M19 2a2.83 2.83 0 0 1 2 4l-1 1-5-5 1-1a2.83 2.83 0 0 1 3-1Z"/><path d="m16 8-8.5 8.5a2.12 2.12 0 0 0-.6 1.5V20l-4 2 2-4h2a2.12 2.12 0 0 0 1.5-.6L17 9Z"/></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m14 7 3 3"/>
+              <path d="M19 2a2.83 2.83 0 0 1 2 4l-1 1-5-5 1-1a2.83 2.83 0 0 1 3-1Z"/>
+              <path d="m16 8-8.5 8.5a2.12 2.12 0 0 0-.6 1.5V20l-4 2 2-4h2a2.12 2.12 0 0 0 1.5-.6L17 9Z"/>
+            </svg>
           </button>
-          <button class="tool canvas-tool utility-tool-btn" data-tool="rawText" title="Texto GFX RAW"><strong>A</strong></button>
           <div id="pixelmapWorkbenchTools" class="pixelmap-tools" style="display: none;"></div>
         </div>
 
@@ -595,7 +734,7 @@
   </div>
 
   <script src="./gfx-classic-font.js?v=1789765000"></script>
-  <script src="./app.js?v=1789765000"></script>
+  <script src="./app.js?v=1789765004"></script>
   <script src="./ux-foundation.js?v=1789765000"></script>
   <script src="./designer-codegen.js?v=1789765000"></script>
 
