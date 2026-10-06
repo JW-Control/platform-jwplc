@@ -248,3 +248,41 @@ ALPHA12_CORE_COMPILE=PASS (maestro, esclavo OpenPLC y sketch esclavo)
 ALPHA12_CORE_PHYSICAL=PASS (2026-10-06, maestro <-> esclavo con core Alpha12 y HAL alpha.24)
 VPP_ALPHA25_PHYSICAL=PENDING (importar alpha.25 y repetir maestro <-> esclavo)
 ```
+
+## 12. Debugger y bus del Backplane: Serial2 exclusivo (VPP 2.1.0-alpha.26)
+
+El debugger usa el servidor Modbus RTU de `Device > Modbus`, que es independiente del Master RTU del Backplane. La pantalla ofrece dos interfaces:
+
+- **USB (Serial0):** la correcta para el debugger. Es otro UART, así que no toca el bus de los módulos.
+- **RS-485 (Serial2):** es el UART del Backplane. El sketch generado llama a `JWPLC_RS485.begin(MBSERIAL_BAUD)` después de `hardwareInit()`. Reabre el puerto con el baudrate del debugger y consume las respuestas de los módulos, así que todos quedan fuera de línea con sus salidas en fail-safe. Antes de esta versión **compilaba sin aviso**.
+
+Protección en dos capas:
+
+| Capa | Mecanismo | Cuándo actúa |
+|---|---|---|
+| Editor (`openplc-editor` `f4cece27b`) | El módulo `jwplc-basic-remote-io` declara `"exclusiveSerialPort": "Serial2"` en el manifest. `validateExclusiveSerialPorts()` detiene la compilación si Modbus RTU está activo en ese puerto y hay un slot con el módulo. Muestra un mensaje por slot. | Antes de generar código |
+| HAL (`hal/jwplcbasic.cpp`) | `static_assert` sobre `VPP_MODBUS_RTU_ENABLED` / `VPP_MODBUS_RTU_RTU_INTERFACE` (vienen en `vpp_config.h`) cuando `VPP_MODULE_CONFIG_ENTRIES_COUNT > 0` | En `arduino-cli`, también con un editor que no valida |
+
+Siguen permitidos el debugger por USB (explícito o por defecto), Modbus RTU desactivado y Modbus RTU en Serial2 **sin** módulos Remote I/O (JWPLC como esclavo RS-485 de un SCADA).
+
+### Verificación
+
+| Caso (HAL contra `jwplc:esp32 2.1.0-alpha.12`) | Resultado |
+|---|---|
+| Debugger activo, interfaz por defecto (USB) | PASS |
+| Debugger en `Serial` (USB) | PASS |
+| Modbus RTU desactivado con interfaz `Serial2` | PASS |
+| `Serial2` sin módulos Remote I/O | PASS |
+| `Serial2` con Remote I/O en el slot 2 | FAIL esperado: `static_assert` "no puede usar RS-485 (Serial2) con modulos Remote I/O; usar USB (Serial0)" |
+
+Editor: 72 tests en `generate-vendor-plugin-config` y `modbus-defines` (100 % de líneas y statements en ambos archivos), `tsc` limpio. Firma del `.vpp`: `valid=true`; HAL alterado: `Tampered file detected`.
+
+```text
+VPP_VERSION=2.1.0-alpha.26
+VPP_SHA256=0992c24cfc6b416d30dd0011aecf617a8d449d25cb145e2fd836bb3503c78918
+VPP_FILE=jwplc-basic-openplc-2.1.0-alpha.26.jwcontrol-signed.vpp
+SERIAL2_EXCLUSIVE_EDITOR=PASS (tests)
+SERIAL2_EXCLUSIVE_HAL=PASS (compilación)
+VPP_ALPHA26_PHYSICAL=PENDING (importar y comprobar que el debugger por USB sigue funcionando)
+```
+
