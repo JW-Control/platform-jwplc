@@ -139,6 +139,17 @@ static_assert(JWPLC_MODBUS_BAUD != 0UL,
 static_assert(JWPLC_MODBUS_CONFIG != 0UL,
               "JWPLC Backplane: formato serie RS-485 no soportado (8N1/8E1/8O1)");
 
+// El RS-485 del Backplane (Serial2) es exclusivo del Master RTU. Un servidor
+// Modbus RTU de Device > Modbus en Serial2 reabriria el mismo UART con su
+// propio baudrate y consumiria las respuestas de los modulos: todos quedarian
+// fuera de linea y sus salidas en fail-safe. El editor lo rechaza antes de
+// compilar (exclusiveSerialPort del modulo); esto cubre editores que no lo
+// validan. El debugger va por USB (Serial0).
+#if defined(VPP_MODULE_CONFIG_ENTRIES_COUNT) && (VPP_MODULE_CONFIG_ENTRIES_COUNT > 0) &&     defined(VPP_MODBUS_RTU_ENABLED) && defined(VPP_MODBUS_RTU_RTU_INTERFACE)
+static_assert(!(VPP_MODBUS_RTU_ENABLED) || !jwplcTextEquals(VPP_MODBUS_RTU_RTU_INTERFACE, "Serial2"),
+              "JWPLC Backplane: Modbus RTU (Device > Modbus) no puede usar RS-485 (Serial2) con modulos Remote I/O; usar USB (Serial0)");
+#endif
+
 struct JWPLCIecBitAddress
 {
     bool valid;
