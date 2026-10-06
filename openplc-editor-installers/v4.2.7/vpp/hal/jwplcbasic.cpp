@@ -10,6 +10,12 @@ extern "C"
 #include "vpp_config.h"
 #include <JWPLC_ModbusRTU.h>
 
+// El Master usa motor(ASYNC) y la API unificada read...()/write...(), que
+// llegan con el package Alpha12 (jwplc_modbus_motor.h).
+#ifndef JWPLC_MODBUS_MOTOR_H
+#error "JWPLC Backplane: requiere el package jwplc:esp32 2.1.0-alpha.12 o superior. Actualizar desde el Board Manager."
+#endif
+
 // Probe Alpha7.18: mide la cadencia del Backplane por Serial0.
 // Alpha12: desactivado por defecto en produccion. Solo para banco de pruebas:
 // definir JWPLC_ALPHA7_RTU_TIMING_DIAGNOSTICS=1 y mantener el Modbus RTU
@@ -888,7 +894,7 @@ static void jwplcServiceRemoteRtu()
     {
     case JWPLC_REMOTE_WRITE_START:
         remote.outputBits = jwplcPackRemoteOutputs(remote);
-        if (JWPLC_ModbusRTU.requestWriteMultipleCoils(
+        if (JWPLC_ModbusRTU.writeMultipleCoils(
                 remote.slaveId,
                 0,
                 JWPLC_REMOTE_CHANNELS,
@@ -929,7 +935,7 @@ static void jwplcServiceRemoteRtu()
         remote.feedbackMismatchBits = 0;
         remote.feedbackBits = 0;
 
-        if (JWPLC_ModbusRTU.requestReadCoils(
+        if (JWPLC_ModbusRTU.readCoils(
                 remote.slaveId,
                 0,
                 JWPLC_REMOTE_CHANNELS,
@@ -963,7 +969,7 @@ static void jwplcServiceRemoteRtu()
 
     case JWPLC_REMOTE_READ_START:
         remote.inputBits = 0;
-        if (JWPLC_ModbusRTU.requestReadDiscreteInputs(
+        if (JWPLC_ModbusRTU.readDiscreteInputs(
                 remote.slaveId,
                 0,
                 JWPLC_REMOTE_CHANNELS,
@@ -1048,6 +1054,15 @@ void hardwareInit()
             JWPLC_MODBUS_BAUD,
             JWPLC_MODBUS_CONFIG))
     {
+        // Alpha12: read...()/write...() bloquean o no segun el motor. El scan
+        // PLC nunca debe esperar al bus, asi que ASYNC se fija explicitamente
+        // aunque ya sea el default del package.
+        if (!JWPLC_ModbusRTU.motor(ASYNC))
+        {
+            JWPLC_ModbusRTU.end();
+            return;
+        }
+
         JWPLC_ModbusRTU.setFrameGapMs(JWPLC_MODBUS_FRAME_GAP_MS);
 
         jwplcRemoteCurrent = 0;
