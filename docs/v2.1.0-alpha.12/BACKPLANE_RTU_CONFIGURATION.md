@@ -5,7 +5,8 @@
 ```text
 platform-jwplc
   rama:  v2.1.0-alpha.12/feature/openplc-engineering-closure
-  base:  release/v2.1.x @ 165f94fb (alpha11 publicado + roadmap v2.1.x)
+  base:  main @ aa0bfed1 (Alpha12 publicada, 2026-10-05)
+  base anterior: release/v2.1.x @ 165f94fb (alpha11); rebase el 2026-10-06, ver §11
 
 openplc-editor
   rama:  develop/alpha12-backplane-closure
@@ -183,4 +184,67 @@ Verificación: HAL compilado con `vpp_config.h` del editor. Por defecto, ID 3 y 
 VPP_VERSION=2.1.0-alpha.24
 VPP_SHA256=2670e80771133aa41b3494698fdabf647698f7b9ac5780e8446376a2597da0fd
 REMOTE_IO_SLAVE_FROM_OPENPLC=PASS_PHYSICAL (2026-09-23, 1 esclavo ID 2, 115200/8N1, main vacío, VPP alpha.24)
+```
+
+## 11. Rebase sobre la Alpha12 publicada y adaptación (2026-10-06)
+
+La rama se rebasó de `release/v2.1.x @ 165f94fb` (alpha11) a **`main @ aa0bfed1`**, la Alpha12 publicada (#100 "cerrar comunicaciones, runtime y autocontención", sincronizada a `main` en #103/#104). El árbol de `main` es idéntico al de `release/v2.1.x @ 20f1b660` (`TREE_PARITY=True`, ver `ALPHA12_RELEASE_MAIN_TOPOLOGY_20261005.md`).
+
+```text
+BASE_BEFORE=165f94fb (release/v2.1.x, alpha11)
+BASE_AFTER=aa0bfed1 (main, Alpha12 publicada)
+CONFLICTS=0 (ningún archivo tocado por ambos lados)
+ALPHA12_CODE_MODIFIED=0 (core y librerías intactos; del ejemplo JWPLC_RemoteIO_Slave_RTU solo el failsafe previo)
+BACKUP=backup/openplc-engineering-closure-alpha11-0da901ae (local)
+```
+
+### Qué cambió en Alpha12 que afecta al Backplane
+
+- `JWPLC_ModbusRTU`: selector de motor `SYNC`/`ASYNC` (`ASYNC` por defecto). La API unificada `read...()/write...()` bloquea o no según el motor; `request...()` queda como API explícita de compatibilidad. Timing interno en microsegundos. TX encolado, RX por bloques y despacho temprano del Slave quedan desactivados por defecto ("qualification").
+- `JWPLC_RS485`: dirección del bus por hardware (`JWPLC_RS485_AUTO_DIRECTION=1`), buffer TX de 512 B y reloj APB forzado en ESP32.
+- El core no usa `Serial2` ni `JWPLC_ModbusRTU` por su cuenta: el bus del Backplane sigue siendo exclusivo del HAL.
+
+### Adaptación del HAL maestro (VPP 2.1.0-alpha.25)
+
+| Cambio | Motivo |
+|---|---|
+| `motor(ASYNC)` explícito tras `begin()`; si falla, `end()` y el Master no se habilita | El scan PLC nunca debe esperar al bus. No depender del default del package |
+| `requestWriteMultipleCoils` / `requestReadCoils` / `requestReadDiscreteInputs` → `writeMultipleCoils` / `readCoils` / `readDiscreteInputs` | API recomendada por Alpha12 para código nuevo. En `ASYNC` llama a la misma `request...()`: el comportamiento en el bus no cambia |
+| `#error` si falta `jwplc_modbus_motor.h` | Con un package anterior a Alpha12 la compilación se detiene con un mensaje claro ("Actualizar desde el Board Manager") en vez de un error críptico |
+
+Se mantiene sin cambios, a propósito:
+
+- **Frame gap de 2 ms.** El Master cierra cada respuesta por longitud esperada (el gap solo se usa en excepciones), y el ESP32 entrega las tramas cortas del Remote I/O (≤ 10 bytes) en una sola ráfaga. Es el valor validado en banco. La librería indica cambiarlo solo si un equipo lo requiere.
+- **TX encolado, RX por bloques y despacho temprano:** siguen en *qualification* en Alpha12; no se activan en un producto.
+- **HAL esclavo y sketch `JWPLC_RemoteIO_Slave_RTU`:** usan `setCoils` / `setDiscreteInputs` / `task()` / `hasCoilWrite()` / `lastCoilWriteMs()`, que Alpha12 conserva y recomienda para fail-safe. Del sketch, la rama solo conserva el cambio previo del failsafe a 1000 ms (§5.2/§8); la adaptación a Alpha12 no lo toca.
+
+```text
+VPP_VERSION=2.1.0-alpha.25
+VPP_KEY_ID=jwcontrol-2026
+VPP_SHA256=11082e859cb0deaaf810d161c12d82cee02d480dd71de40d917ee6065dffe7ca
+VPP_FILE=jwplc-basic-openplc-2.1.0-alpha.25.jwcontrol-signed.vpp
+REQUIRES=jwplc:esp32 2.1.0-alpha.12 o superior
+```
+
+### Verificación
+
+`arduino-cli` del editor con `jwplc:esp32 2.1.0-alpha.12` instalado desde el índice dev (contenido igual al árbol del repo, salvo fin de línea), sobre los builds reales del banco (`PruebasBlackplane/build`, generados por el editor):
+
+| Caso | Resultado |
+|---|---|
+| Maestro: slot 2 Remote I/O, 115200/8N1 por defecto | PASS |
+| Maestro: `38400` / `8E1` | PASS |
+| Maestro: `38400` / `8E1` con probe de timing (`-DJWPLC_ALPHA7_RTU_TIMING_DIAGNOSTICS=1`) | PASS |
+| Maestro: baud `250000` | FAIL esperado: `static_assert` baudrate |
+| Maestro con la librería `JWPLC_ModbusRTU` de alpha11 | FAIL esperado: `#error` "requiere ... 2.1.0-alpha.12" |
+| Esclavo OpenPLC: `main` vacío, valores por defecto | PASS |
+| Esclavo OpenPLC: ID 3, `38400` / `8E1`, failsafe `"1000"` | PASS |
+| Sketch Arduino `JWPLC_RemoteIO_Slave_RTU` | PASS |
+| Firma del `.vpp` con `verifyPackageSignature` del editor | `valid=true` |
+| `hal/jwplcbasic.cpp` alterado después de firmar | Rechazado (`Tampered file detected`) |
+
+```text
+ALPHA12_CORE_COMPILE=PASS (maestro, esclavo OpenPLC y sketch esclavo)
+ALPHA12_CORE_PHYSICAL=PASS (2026-10-06, maestro <-> esclavo con core Alpha12 y HAL alpha.24)
+VPP_ALPHA25_PHYSICAL=PENDING (importar alpha.25 y repetir maestro <-> esclavo)
 ```
