@@ -93,6 +93,7 @@ try {
         'tools/alpha13/gates/a13_g1_p3_dns_physical.ps1',
         'tools/alpha13/gates/run_a13_g1_p3_dns_physical.bat',
         'tools/alpha13/firmware/a13_g1_p3_dns_physical_probe/a13_g1_p3_dns_physical_probe.ino',
+        'tools/alpha13/results/.gitignore',
         'tools/alpha13/results/.gitkeep'
     )
     $UnexpectedCommitted = @(
@@ -233,7 +234,7 @@ try {
         Finish-Gate -Status 'REVIEW' -Reason 'DNS_NORMAL_PATH_CONTRACT_CHANGED' -HarnessFailure 'YES' -ExitCode 17
     }
 
-    $BuildPath = Join-Path $RunRoot 'build'
+    $BuildPath = Join-Path $env:TEMP ("jwplc_a13_g1_p3_{0}_build" -f $RunId)
     $CompileLog = Join-Path $RunRoot 'compile.log'
     $UploadLog = Join-Path $RunRoot 'upload.log'
     $ClientLog = Join-Path $RunRoot 'client.log'

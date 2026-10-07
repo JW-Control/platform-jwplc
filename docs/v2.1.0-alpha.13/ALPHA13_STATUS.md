@@ -171,6 +171,17 @@ diagnosticCode
 Esto permite separar LINK_OFF / DHCP / SPI / HW / otro estado antes de
 atribuir cualquier regresión a Dns.cpp.
 
+Higiene de evidencia R4:
+
+```text
+BUILD_PATH=%TEMP%
+RESULTS=logs locales ignorados por Git
+GITHUB_DESKTOP=no debe listar objetos .o/.d/.bin/.elf/.map del build
+```
+
+Se recupera así el patrón de los gates físicos Alpha14, que compilaban fuera
+del working tree.
+
 ## Infraestructura G1-P3-R4
 
 Versionada en commits de tooling/docs descendientes de `BASELINE_HEAD`. El gate
@@ -182,6 +193,7 @@ tools/alpha13/gates/common.ps1
 tools/alpha13/gates/a13_g1_p3_dns_physical.ps1
 tools/alpha13/gates/run_a13_g1_p3_dns_physical.bat
 tools/alpha13/firmware/a13_g1_p3_dns_physical_probe/a13_g1_p3_dns_physical_probe.ino
+tools/alpha13/results/.gitignore
 tools/alpha13/results/.gitkeep
 ```
 
