@@ -126,9 +126,54 @@ en gates Ethernet declarar/preflight:
 USB serial + RJ45 link + DHCP/LAN cuando aplique
 ```
 
+## F097 — usar digitalRead como readback contractual de un GPIO output-only
+
+Síntoma:
+
+```text
+G2-P1 control leg
+EN_IO_HIGH_REQUESTED=YES
+OP_OK_MASK=31
+digitalRead(EN_IO)=LOW
+```
+
+Las cinco piernas de fallo sí reprodujeron el defecto esperado, pero la pierna
+control quedó REVIEW porque el harness interpretó ese LOW como estado físico
+contractual.
+
+Causa:
+
+`initPeripherals()` configura GPIO27 mediante:
+
+```cpp
+gpio_set_direction((gpio_num_t)EN_IO, GPIO_MODE_OUTPUT);
+```
+
+Ese modo no habilita necesariamente el camino de entrada del pad. El propio
+HAL Arduino advierte que `digitalRead()` / `gpio_get_level()` puede dar una
+lectura inconsistente cuando el pin no está configurado como GPIO input.
+
+Clasificación:
+
+```text
+HARNESS_FAILURE=YES
+PRODUCT_FAILURE=NO
+G2_BASELINE_DEFECT_EVIDENCE_LOST=NO
+```
+
+Prevención:
+
+```text
+para verificar una salida configurada output-only:
+- comprobar GPIO_ENABLE_REG;
+- comprobar el latch GPIO_OUT_REG;
+- tratar gpio_get_level/digitalRead sólo como diagnóstico no contractual;
+- no cambiar la configuración productiva del GPIO para satisfacer al harness.
+```
+
 ## Estado
 
 ```text
-NEXT_FAILURE_ID=F097
+NEXT_FAILURE_ID=F098
 SYNC_TO_PROJECT_FAILURES_SOURCE=PENDING
 ```

@@ -304,10 +304,10 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=G2-P1 / A13-002
-OBJECTIVE=baseline fault injection TCA startup / EN_IO
+NEXT_GATE=G2-P1-R2 / A13-002
+OBJECTIVE=close baseline fault injection using GPIO output latch semantics
 STATE=READY_TO_RUN
-PREREQUISITE=G2_PRE1_PASS
+PREREQUISITE=G2_P1_R1_REVIEW_HARNESS
 ```
 
 No modificar todavía código productivo de G2 hasta completar su preflight
@@ -423,6 +423,96 @@ builds=%TEMP%
 failure legs physical EN_IO=FORCED_LOW
 control leg physical EN_IO=normal
 ```
+
+G2-P1 R1 — evidencia:
+
+```text
+6/6 source-core compiles=PASS
+source profile full jwplcbasic=PASS
+peripherals_init.cpp count=1
+stub core=0
+versioned core.a linked=NO
+source restore=PASS
+boards.local restore=PASS
+core.a SHA preserved=PASS
+failure legs 1..5 contract=PASS
+control leg contract=REVIEW
+```
+
+Las cinco piernas inyectadas reprodujeron de forma consistente:
+
+```text
+EN_IO_HIGH_REQUESTED=YES
+IO_VIEW_READY=YES
+OP_OK_MASK=30/29/27/23/15
+```
+
+El único fallo de contrato fue la pierna control porque `digitalRead(EN_IO)`
+devolvió LOW pese a que el baseline había solicitado HIGH y toda la
+configuración TCA era correcta. Esto se clasifica como F097: el harness usó
+readback de pad para un GPIO configurado `GPIO_MODE_OUTPUT` sin input-enable.
+
+R2 corrige sólo la observabilidad:
+
+```text
+EN_IO_OUTPUT_ENABLE <- GPIO_ENABLE_REG
+EN_IO_OUTPUT_LATCH  <- GPIO_OUT_REG
+EN_IO_PAD_READBACK  <- diagnóstico no contractual
+PRODUCT_CHANGE=NO
+```
+
+## Observación mapeada — delay() y temporización no bloqueante
+
+No forma parte del fix A13-002 ni abre un gate nuevo en Alpha13.
+
+Estado actual del core:
+
+```text
+delay(ms) -> vTaskDelay(ms / portTICK_PERIOD_MS)
+BLOCKS_ENTIRE_ESP32=NO
+BLOCKS_USER_LOOP_TASK=YES
+JWPLC_SYSTEM_TASK_CONTINUES=YES
+```
+
+Mientras el sketch está dentro de `delay(ms)`, la tarea independiente
+`jwplcSystemTask` puede seguir atendiendo:
+
+```text
+I/O scan
+RTC
+Ethernet service
+DataLog service
+Display
+```
+
+La botonera también tiene su propia tarea de escaneo.
+
+Sí quedan pausados hasta que retorna el `loop()` del usuario:
+
+```text
+código secuencial restante del loop
+serialEventRun
+JWPLC_ModbusTCP.task() autoservice pre/post-loop
+JWPLC_ModbusRTU.task() si el usuario lo atiende desde loop
+cualquier máquina de estados del sketch
+```
+
+Decisión de diseño:
+
+```text
+DO_NOT_OVERRIDE_ARDUINO_DELAY=YES
+ASYNC_DELAY_API=CANDIDATE_BACKLOG
+CURRENT_ALPHA_PRODUCT_SCOPE=NO_CHANGE
+```
+
+Dirección propuesta futura: una API de temporizadores no bloqueantes, por
+ejemplo `JWPLC_Timer`, basada en `millis()` y segura ante rollover, con
+`start()`, `done()`, `every()`, `restart()`, `cancel()` y
+`remaining()`. Evitar callbacks/tareas por defecto para no introducir
+concurrencia innecesaria en sketches de PLC.
+
+`delayMicroseconds()` merece una revisión separada porque su implementación
+espera activamente y no tiene la misma semántica cooperativa de `delay(ms)`.
 
 ## Gates restantes
 

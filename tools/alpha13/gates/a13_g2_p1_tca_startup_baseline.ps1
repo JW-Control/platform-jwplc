@@ -379,6 +379,7 @@ try
     $allowed = @(
         'docs/v2.1.0-alpha.13/ALPHA13_STATUS.md',
         'docs/v2.1.0-alpha.13/A13_G2_TCA_EN_IO_PREFLIGHT_20261006.md',
+        'docs/v2.1.0-alpha.13/A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md',
         'tools/alpha13/gates/a13_g2_p1_tca_startup_baseline.ps1',
         'tools/alpha13/gates/a13_g2_tca_startup_client.py',
         'tools/alpha13/gates/run_a13_g2_p1_tca_startup_baseline.bat',
@@ -693,7 +694,9 @@ try
         $faultStep = Get-A13LogInt -Text $text -Key 'FAULT_STEP'
         $mask = Get-A13LogInt -Text $text -Key 'OP_OK_MASK'
         $highRequested = Get-A13LogValue -Text $text -Key 'EN_IO_HIGH_REQUESTED'
-        $actual = Get-A13LogValue -Text $text -Key 'EN_IO_ACTUAL'
+        $outputEnable = Get-A13LogValue -Text $text -Key 'EN_IO_OUTPUT_ENABLE'
+        $outputLatch = Get-A13LogValue -Text $text -Key 'EN_IO_OUTPUT_LATCH'
+        $padReadback = Get-A13LogValue -Text $text -Key 'EN_IO_PAD_READBACK'
         $peripheralsInitialized = Get-A13LogValue -Text $text -Key 'PERIPHERALS_INITIALIZED'
         $ioStateInitialized = Get-A13LogValue -Text $text -Key 'IO_STATE_INITIALIZED'
         $ioViewReady = Get-A13LogValue -Text $text -Key 'IO_VIEW_READY'
@@ -722,7 +725,8 @@ try
                 $faultStep -eq 0 -and
                 $mask -eq 31 -and
                 $highRequested -eq 'YES' -and
-                $actual -eq 'HIGH' -and
+                $outputEnable -eq 'YES' -and
+                $outputLatch -eq 'HIGH' -and
                 $peripheralsInitialized -eq 'YES' -and
                 $ioStateInitialized -eq 'YES' -and
                 $ioViewReady -eq 'YES' -and
@@ -742,7 +746,8 @@ try
                 $faultStep -eq $step -and
                 $mask -eq $expectedMask -and
                 $highRequested -eq 'YES' -and
-                $actual -eq 'LOW' -and
+                $outputEnable -eq 'YES' -and
+                $outputLatch -eq 'LOW' -and
                 $peripheralsInitialized -eq 'YES' -and
                 $ioStateInitialized -eq 'YES' -and
                 $ioViewReady -eq 'YES' -and
@@ -754,7 +759,9 @@ try
 
         [void]$extra.Add("STEP$($step)_OP_OK_MASK=$mask")
         [void]$extra.Add("STEP$($step)_EN_IO_HIGH_REQUESTED=$highRequested")
-        [void]$extra.Add("STEP$($step)_EN_IO_ACTUAL=$actual")
+        [void]$extra.Add("STEP$($step)_EN_IO_OUTPUT_ENABLE=$outputEnable")
+        [void]$extra.Add("STEP$($step)_EN_IO_OUTPUT_LATCH=$outputLatch")
+        [void]$extra.Add("STEP$($step)_EN_IO_PAD_READBACK=$padReadback")
         [void]$extra.Add("STEP$($step)_IO_READY=$ioViewReady")
         [void]$extra.Add("STEP$($step)_CONTRACT_PASS=$legPass")
         [void]$extra.Add("STEP$($step)_CLIENT_LOG=$clientLog")

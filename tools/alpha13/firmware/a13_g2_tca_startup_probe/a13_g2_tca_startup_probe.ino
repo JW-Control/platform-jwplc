@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <JWPLC_GlobalPeripherals.h>
+#include "soc/gpio_reg.h"
 
 extern "C"
 {
@@ -53,7 +54,21 @@ static void printResult()
     Serial.println(a13G2OpOkMask());
     Serial.print("EN_IO_HIGH_REQUESTED=");
     Serial.println(a13G2EnIoHighRequested() ? "YES" : "NO");
-    Serial.print("EN_IO_ACTUAL=");
+    const uint32_t enIoMask = (uint32_t)(1UL << EN_IO);
+    const bool enIoOutputEnabled =
+        (REG_READ(GPIO_ENABLE_REG) & enIoMask) != 0;
+    const bool enIoOutputLatch =
+        (REG_READ(GPIO_OUT_REG) & enIoMask) != 0;
+
+    Serial.print("EN_IO_OUTPUT_ENABLE=");
+    Serial.println(enIoOutputEnabled ? "YES" : "NO");
+    Serial.print("EN_IO_OUTPUT_LATCH=");
+    Serial.println(enIoOutputLatch ? "HIGH" : "LOW");
+
+    // Diagnóstico únicamente. initPeripherals() configura GPIO27 con
+    // GPIO_MODE_OUTPUT (sin input enable), por lo que gpio_get_level()/
+    // digitalRead() no es un readback contractual del latch de salida.
+    Serial.print("EN_IO_PAD_READBACK=");
     Serial.println(digitalRead(EN_IO) == HIGH ? "HIGH" : "LOW");
     Serial.print("PERIPHERALS_INITIALIZED=");
     Serial.println(a13G2PeripheralsInitialized() ? "YES" : "NO");
