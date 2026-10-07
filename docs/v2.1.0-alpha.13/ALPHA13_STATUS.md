@@ -304,19 +304,109 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=G2 / A13-002
-OBJECTIVE=TCA startup / EN_IO
-STATE=READY_FOR_READ_ONLY_PREFLIGHT
-PREREQUISITE=G1_CLOSED_PASS
+NEXT_GATE=G2-P1 / A13-002
+OBJECTIVE=baseline fault injection TCA startup / EN_IO
+STATE=READY_FOR_VERSIONED_HARNESS
+PREREQUISITE=G2_PRE1_PASS
 ```
 
 No modificar todavía código productivo de G2 hasta completar su preflight
 dirigido y fijar el contrato del gate.
 
+## G2 — A13-002 TCA startup / EN_IO
+
+```text
+G2_PRE1=PASS
+G2_CLASSIFICATION=ROBUSTNESS_FIX
+G2_PRIORITY=P0
+G2_CONFIDENCE=HIGH
+G2_STATUS=REVIEW_CONFIRMED_RISK
+PRODUCT_CHANGE=NO
+```
+
+Preflight read-only confirmado sobre HEAD:
+
+```text
+HEAD=690ca995bbced130f389b2432814fb85f7feb59b
+SOURCE=JWPLC/2.1.0/cores/jwcontrol/peripherals_init.cpp
+```
+
+Hallazgos:
+
+```text
+EN_IO starts LOW=YES
+TCA connection failure keeps EN_IO LOW=YES
+five post-probe TCA configuration results ignored=YES
+EN_IO goes HIGH after those calls regardless of result=YES
+g_ioState.initialized becomes true before I2C/TCA completion=YES
+JWPLC_IO.ready() consumes that initialized flag=YES
+```
+
+Operaciones cuyo resultado se ignora actualmente:
+
+```text
+1 TCA6424A_writeBank(bank1, 0x00)
+2 TCA6424A_writeBank(bank2, 0x00)
+3 TCA6424A_setBankDirection(bank0, 0xFF)
+4 TCA6424A_setBankDirection(bank1, 0x00)
+5 TCA6424A_setBankDirection(bank2, 0xFF)
+```
+
+Dependencia de build:
+
+```text
+normal jwplcbasic -> jwcontrol_precompiled_stub + precompiled/core/JWPLCBASIC/core.a
+jwplcbasic source core direct at normal build=NO
+core.a changed since Alpha13 baseline=NO
+inherited Alpha12 core.a bytes=3042444
+inherited Alpha12 core.a SHA256=78d0c0ab14f156b96116529e88872340d51877af40d24ba3559f6081e0bf34fb
+```
+
+Política obligatoria si A13-002 modifica `cores/jwcontrol`:
+
+```text
+SOURCE_CHANGE
+-> ARCHIVE_INVALIDATED
+-> SOURCE-FIRST PASS
+-> REBUILD core.a
+-> VERIFY normal jwplcbasic stub + archive
+-> physical gate
+-> product commit
+```
+
+G2-P1 debe reproducir baseline mediante instrumentación temporal y segura:
+
+```text
+5 failure legs + 1 normal/control leg
+compile real peripherals_init.cpp from source using full jwplcbasic profile
+do not mutate versioned core.a
+temporary build under %TEMP%
+restore any temporary source/boards.local mutation byte-for-byte
+during failure legs intercept EN_IO HIGH request and keep physical EN_IO LOW
+record requested EN_IO state, actual EN_IO state, operation result,
+TCA register snapshot and JWPLC_IO.ready()
+```
+
+Criterio de reproducción baseline:
+
+```text
+for each injected failed operation:
+OP_RESULT=FAIL
+EN_IO_HIGH_REQUESTED=YES
+EN_IO_ACTUAL=LOW   # safety interlock of harness
+IO_READY=TRUE      # demonstrates current false-ready behavior
+PRODUCT_FAILURE=REPRODUCED_BASELINE_DEFECT
+```
+
+La lectura de registros se conserva como evidencia, pero no se exige energizar
+salidas para demostrar el defecto.
+
+No implementar todavía el fix A13-002 hasta cerrar G2-P1.
+
 ## Gates restantes
 
 ```text
-G2  A13-002 TCA startup / EN_IO                  READY
+G2  A13-002 TCA startup / EN_IO                  REVIEW_CONFIRMED_RISK
 G3  A13-004 TCA RMW/shadow atomicity             PENDING
 G4  A13-003 TFT batch task ownership             PENDING
 G5  A13-005 + A13-006 TCP correctness            PENDING
