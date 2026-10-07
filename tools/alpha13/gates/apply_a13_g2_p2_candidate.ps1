@@ -6,7 +6,15 @@ $ErrorActionPreference = 'Stop'
 $ExpectedBranch = 'v2.1.0-alpha.13/feature/cleanup-robustness'
 $RepoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
 $PatchPath = Join-Path $PSScriptRoot '..\candidates\a13_g2_p2_tca_startup.patch'
+$CommonPath = Join-Path $PSScriptRoot 'common.ps1'
 $CorePath = Join-Path $RepoRoot 'JWPLC\2.1.0\precompiled\core\JWPLCBASIC\core.a'
+
+if (-not (Test-Path -LiteralPath $CommonPath))
+{
+    throw "COMMON_PS1_NOT_FOUND=$CommonPath"
+}
+
+. $CommonPath
 
 $ExpectedBaseline = @{
     'JWPLC/2.1.0/cores/jwcontrol/peripherals_init.cpp' = '9ab559459bee69917f78297dd496db346c0bf27c'
@@ -30,11 +38,6 @@ function Get-Blob([string]$RelativePath)
         throw "git hash-object fallo para $RelativePath"
     }
     return ([string]$value[0]).Trim()
-}
-
-function Get-Sha256([string]$Path)
-{
-    return (Get-FileHash -Algorithm SHA256 -LiteralPath $Path).Hash.ToLowerInvariant()
 }
 
 Push-Location $RepoRoot
@@ -63,7 +66,7 @@ try
         }
     }
 
-    $coreSha = Get-Sha256 $CorePath
+    $coreSha = Get-A13Sha256 -Path $CorePath
     if ($coreSha -ne $ExpectedCoreSha256)
     {
         throw "CORE_ARCHIVE_BASELINE_MISMATCH actual=$coreSha expected=$ExpectedCoreSha256"

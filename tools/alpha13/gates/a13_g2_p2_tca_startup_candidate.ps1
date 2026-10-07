@@ -746,17 +746,6 @@ try
         {
             $legPass = (
                 $faultStep -eq 0 -and
-                $mask -eq 31 -and
-                $highRequested -eq 'YES' -and
-                $outputEnable -eq 'YES' -and
-                $outputLatch -eq 'HIGH' -and
-                $peripheralsInitialized -eq 'YES' -and
-                $ioStateInitialized -eq 'YES' -and
-                $ioViewReady -eq 'YES' -and
-                      if ($step -eq 0)
-        {
-            $legPass = (
-                $faultStep -eq 0 -and
                 $attemptMask -eq 31 -and
                 $mask -eq 31 -and
                 $highRequested -eq 'YES' -and

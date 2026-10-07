@@ -304,9 +304,9 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=G2-P2 / A13-002
-OBJECTIVE=minimal source candidate for safe TCA startup and truthful IO readiness
-STATE=READY_TO_APPLY_AND_RUN_SOURCE_FIRST
+NEXT_GATE=G2-P2-R2 / A13-002
+OBJECTIVE=apply minimal candidate and run source-first contract
+STATE=READY_TO_RETRY_AFTER_HARNESS_FIX
 PREREQUISITE=G2_P1_PASS
 ```
 
@@ -583,6 +583,31 @@ IO ready=NO
 El gate vuelve a compilar las seis piernas desde `cores/jwcontrol` con el
 perfil completo `jwplcbasic`, preserva el `core.a` versionado y restaura la
 instrumentación temporal al candidato exacto antes de cualquier upload.
+
+G2-P2 R1 — REVIEW_HARNESS antes de ejecutar producto:
+
+```text
+APPLY_SYNTAX=PASS
+APPLY_RESULT=FAIL
+APPLY_REASON=Get-FileHash unavailable in local PowerShell environment
+PATCH_APPLIED=NO
+PRODUCT_CHANGE_EXECUTED=NO
+
+CANDIDATE_GATE_SYNTAX=FAIL
+PHYSICAL_GATE_EXECUTED=NO
+PRODUCT_FAILURE=NO
+HARNESS_FAILURE=YES
+```
+
+Corrección R2:
+
+```text
+SHA helper -> Get-A13Sha256 from versioned common.ps1
+Get-FileHash dependency -> removed
+duplicate malformed contract block in candidate gate -> removed
+BAT parser preflight -> retained
+candidate still must start from clean baseline
+```
 
 ## Observación mapeada — delay() y temporización no bloqueante
 

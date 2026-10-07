@@ -188,9 +188,73 @@ CONTRACT_PASS=True
 F097_RESOLVED=YES
 ```
 
+## F098 — depender de Get-FileHash en un gate cuando ya existe helper portable
+
+Síntoma:
+
+```text
+A13_G2_CANDIDATE_APPLY=FAIL
+Get-FileHash no se reconoce como cmdlet
+```
+
+Causa:
+
+El aplicador G2-P2 introdujo una dependencia nueva del cmdlet
+`Get-FileHash` en lugar de reutilizar `Get-A13Sha256` de
+`tools/alpha13/gates/common.ps1`, ya validado en gates anteriores.
+
+Clasificación:
+
+```text
+HARNESS_FAILURE=YES
+PRODUCT_FAILURE=NO
+PATCH_APPLIED=NO
+```
+
+Prevención:
+
+```text
+reutilizar helpers versionados ya validados;
+evitar introducir cmdlets nuevos sin preflight de disponibilidad;
+hashes del harness Alpha13 -> Get-A13Sha256.
+```
+
+## F099 — gate versionado con PowerShell sintácticamente inválido
+
+Síntoma:
+
+```text
+A13-G2-P2 parser preflight=FAIL
+ValueExpressionRequired after -and
+UnexpectedToken if
+missing closing parenthesis/brace
+```
+
+Causa:
+
+Una transformación automática dejó simultáneamente el fragmento antiguo del
+contrato y el bloque nuevo, produciendo `... -and if (...)`.
+
+Clasificación:
+
+```text
+HARNESS_FAILURE=YES
+PRODUCT_FAILURE=NO
+PHYSICAL_GATE_EXECUTED=NO
+```
+
+Prevención:
+
+```text
+BAT parser preflight remains mandatory;
+after generated text replacements, inspect the replaced range for duplicate
+control-flow fragments before publication;
+parser failure before compile/upload never counts against product.
+```
+
 ## Estado
 
 ```text
-NEXT_FAILURE_ID=F098
+NEXT_FAILURE_ID=F100
 SYNC_TO_PROJECT_FAILURES_SOURCE=PENDING
 ```
