@@ -336,131 +336,174 @@ uint16_t DNSClient::ProcessResponse(uint16_t aTimeout, IPAddress& aAddress)
 }
 
 int DNSClient::ProcessResponsePacket(IPAddress& aAddress)
-{	// We've had a reply!
-	// Read the UDP header
-	//uint8_t header[DNS_HEADER_SIZE]; // Enough space to reuse for the DNS header
-	union {
-		uint8_t  byte[DNS_HEADER_SIZE]; // Enough space to reuse for the DNS header
-		uint16_t word[DNS_HEADER_SIZE/2];
-	} header;
+{
+// We've had a reply!
+union {
+uint8_t  byte[DNS_HEADER_SIZE];
+uint16_t word[DNS_HEADER_SIZE/2];
+} header;
 
-	// Check that it's a response from the right server and the right port
-	if ( (iDNSServer != iUdp.remoteIP()) || (iUdp.remotePort() != DNS_PORT) ) {
-		// It's not from who we expected
-		return INVALID_SERVER;
-	}
+// Check that it's a response from the right server and the right port.
+if ((iDNSServer != iUdp.remoteIP()) || (iUdp.remotePort() != DNS_PORT)) {
+return INVALID_SERVER;
+}
 
-	// Read through the rest of the response
-	if (iUdp.available() < DNS_HEADER_SIZE) {
-		return TRUNCATED;
-	}
-	iUdp.read(header.byte, DNS_HEADER_SIZE);
+// Every packet read must either make forward progress or fail.
+// EthernetUDP::read() may return -1 on a truncated datagram without
+// modifying the destination buffer, so unchecked reads can otherwise
+// leave stale parser state inside the name loops.
+auto readExact = [this](uint8_t* buffer, size_t length) -> bool {
+size_t offset = 0;
 
-	uint16_t header_flags = htons(header.word[1]);
-	// Check that it's a response to this request
-	if ((iRequestId != (header.word[0])) ||
-	  ((header_flags & QUERY_RESPONSE_MASK) != (uint16_t)RESPONSE_FLAG) ) {
-		// Mark the entire packet as read
-		iUdp.flush(); // FIXME
-		return INVALID_RESPONSE;
-	}
-	// Check for any errors in the response (or in our request)
-	// although we don't do anything to get round these
-	if ( (header_flags & TRUNCATION_FLAG) || (header_flags & RESP_MASK) ) {
-		// Mark the entire packet as read
-		iUdp.flush(); // FIXME
-		return -5; //INVALID_RESPONSE;
-	}
+while (offset < length) {
+uint8_t* target =
+(buffer == nullptr) ? nullptr : buffer + offset;
 
-	// And make sure we've got (at least) one answer
-	uint16_t answerCount = htons(header.word[3]);
-	if (answerCount == 0) {
-		// Mark the entire packet as read
-		iUdp.flush(); // FIXME
-		return -6; //INVALID_RESPONSE;
-	}
+const int got =
+iUdp.read(target, length - offset);
 
-	// Skip over any questions
-	for (uint16_t i=0; i < htons(header.word[2]); i++) {
-		// Skip over the name
-		uint8_t len;
-		do {
-			iUdp.read(&len, sizeof(len));
-			if (len > 0) {
-				// Don't need to actually read the data out for the string, just
-				// advance ptr to beyond it
-				iUdp.read((uint8_t *)NULL, (size_t)len);
-			}
-		} while (len != 0);
+if (got <= 0) {
+return false;
+}
 
-		// Now jump over the type and class
-		iUdp.read((uint8_t *)NULL, 4);
-	}
+offset += (size_t)got;
+}
 
-	// Now we're up to the bit we're interested in, the answer
-	// There might be more than one answer (although we'll just use the first
-	// type A answer) and some authority and additional resource records but
-	// we're going to ignore all of them.
+return true;
+};
 
-	for (uint16_t i=0; i < answerCount; i++) {
-		// Skip the name
-		uint8_t len;
-		do {
-			iUdp.read(&len, sizeof(len));
-			if ((len & LABEL_COMPRESSION_MASK) == 0) {
-				// It's just a normal label
-				if (len > 0) {
-					// And it's got a length
-					// Don't need to actually read the data out for the string,
-					// just advance ptr to beyond it
-					iUdp.read((uint8_t *)NULL, len);
-				}
-			} else {
-				// This is a pointer to a somewhere else in the message for the
-				// rest of the name.  We don't care about the name, and RFC1035
-				// says that a name is either a sequence of labels ended with a
-				// 0 length octet or a pointer or a sequence of labels ending in
-				// a pointer.  Either way, when we get here we're at the end of
-				// the name
-				// Skip over the pointer
-				iUdp.read((uint8_t *)NULL, 1); // we don't care about the byte
-				// And set len so that we drop out of the name loop
-				len = 0;
-			}
-		} while (len != 0);
+if (iUdp.available() < DNS_HEADER_SIZE) {
+return TRUNCATED;
+}
 
-		// Check the type and class
-		uint16_t answerType;
-		uint16_t answerClass;
-		iUdp.read((uint8_t*)&answerType, sizeof(answerType));
-		iUdp.read((uint8_t*)&answerClass, sizeof(answerClass));
+if (!readExact(header.byte, DNS_HEADER_SIZE)) {
+return TRUNCATED;
+}
 
-		// Ignore the Time-To-Live as we don't do any caching
-		iUdp.read((uint8_t *)NULL, TTL_SIZE); // don't care about the returned bytes
+uint16_t header_flags = htons(header.word[1]);
 
-		// And read out the length of this answer
-		// Don't need header_flags anymore, so we can reuse it here
-		iUdp.read((uint8_t*)&header_flags, sizeof(header_flags));
+// Check that it's a response to this request.
+if ((iRequestId != header.word[0]) ||
+    ((header_flags & QUERY_RESPONSE_MASK) != (uint16_t)RESPONSE_FLAG)) {
+iUdp.flush();
+return INVALID_RESPONSE;
+}
 
-		if ( (htons(answerType) == TYPE_A) && (htons(answerClass) == CLASS_IN) ) {
-			if (htons(header_flags) != 4) {
-				// It's a weird size
-				// Mark the entire packet as read
-				iUdp.flush(); // FIXME
-				return -9;//INVALID_RESPONSE;
-			}
-			// FIXME: seems to lock up here on ESP8266, but why??
-			iUdp.read(aAddress.raw_address(), 4);
-			return SUCCESS;
-		} else {
-			// This isn't an answer type we're after, move onto the next one
-			iUdp.read((uint8_t *)NULL, htons(header_flags));
-		}
-	}
+if ((header_flags & TRUNCATION_FLAG) ||
+    (header_flags & RESP_MASK)) {
+iUdp.flush();
+return -5;
+}
 
-	// Mark the entire packet as read
-	iUdp.flush(); // FIXME
+uint16_t answerCount = htons(header.word[3]);
 
-	// If we get here then we haven't found an answer
-	return -10; //INVALID_RESPONSE;
+if (answerCount == 0) {
+iUdp.flush();
+return -6;
+}
+
+// Skip over any questions.
+for (uint16_t i = 0; i < htons(header.word[2]); i++) {
+uint8_t len = 0;
+
+do {
+if (!readExact(&len, sizeof(len))) {
+return TRUNCATED;
+}
+
+if (len > 0) {
+if (!readExact(nullptr, (size_t)len)) {
+return TRUNCATED;
+}
+}
+} while (len != 0);
+
+// TYPE + CLASS.
+if (!readExact(nullptr, 4)) {
+return TRUNCATED;
+}
+}
+
+// Walk answers until the first A/IN record is found.
+for (uint16_t i = 0; i < answerCount; i++) {
+uint8_t len = 0;
+
+do {
+if (!readExact(&len, sizeof(len))) {
+return TRUNCATED;
+}
+
+if ((len & LABEL_COMPRESSION_MASK) == 0) {
+if (len > 0) {
+if (!readExact(nullptr, (size_t)len)) {
+return TRUNCATED;
+}
+}
+}
+else {
+// Compressed name pointer: consume its second byte.
+if (!readExact(nullptr, 1)) {
+return TRUNCATED;
+}
+
+len = 0;
+}
+} while (len != 0);
+
+uint16_t answerType;
+uint16_t answerClass;
+
+if (!readExact(
+        reinterpret_cast<uint8_t*>(&answerType),
+        sizeof(answerType))) {
+return TRUNCATED;
+}
+
+if (!readExact(
+        reinterpret_cast<uint8_t*>(&answerClass),
+        sizeof(answerClass))) {
+return TRUNCATED;
+}
+
+// TTL.
+if (!readExact(nullptr, TTL_SIZE)) {
+return TRUNCATED;
+}
+
+// RDLENGTH. Reuse header_flags as in the historical implementation.
+if (!readExact(
+        reinterpret_cast<uint8_t*>(&header_flags),
+        sizeof(header_flags))) {
+return TRUNCATED;
+}
+
+const uint16_t answerLength =
+htons(header_flags);
+
+if ((htons(answerType) == TYPE_A) &&
+    (htons(answerClass) == CLASS_IN)) {
+
+if (answerLength != 4) {
+iUdp.flush();
+return -9;
+}
+
+if (!readExact(
+        aAddress.raw_address(),
+        4)) {
+return TRUNCATED;
+}
+
+return SUCCESS;
+}
+
+// Not an A/IN answer: consume exactly this RDATA payload.
+if (!readExact(nullptr, answerLength)) {
+return TRUNCATED;
+}
+}
+
+iUdp.flush();
+
+return -10;
 }
