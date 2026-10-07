@@ -304,10 +304,10 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=G2-P2-R5 / A13-002
-OBJECTIVE=close source-first candidate using canonical client summary
-STATE=READY_TO_RERUN_WITH_EXISTING_DIRTY_CANDIDATE
-PREREQUISITE=G2_P1_PASS
+NEXT_GATE=G2-P3 / A13-002
+OBJECTIVE=refresh core.a from qualified source and verify normal jwplcbasic link
+STATE=READY_TO_RUN
+PREREQUISITE=G2_P2_CLOSED_PASS
 ```
 
 No modificar todavía código productivo de G2 hasta completar su preflight
@@ -766,6 +766,36 @@ IO ready=NO
 R5 cambia sólo el harness: el cliente emite claves canónicas
 `A13_G2_CLIENT_*` del único bloque que ya validó y el gate consume sólo esas
 claves. El candidato productivo local no cambia.
+
+G2-P2 R5 — cierre source-first:
+
+```text
+STATUS=PASS
+REASON=CANDIDATE_SOURCE_FIRST_PASS
+6/6 COMPILE=PASS
+6/6 UPLOAD=PASS
+6/6 CLIENT=PASS
+6/6 CONTRACT=PASS
+SOURCE_CORE=True
+STUB_CORE=False
+ARCHIVE_LINKED=False
+FULL_PROFILE=True
+TRACKED_DIRTY_FINAL=3
+STAGED_FINAL=0
+DIFF_CHECK_FINAL=True
+PRODUCT_FAILURE=NO
+HARNESS_FAILURE=NO
+HARDWARE_FAILURE=NO
+ENVIRONMENT_FAILURE=NO
+```
+
+G2-P3 queda desbloqueado. Debe regenerar `core.a` desde los tres blobs
+candidatos exactos, usar `%TEMP%` para outputs de build/verify, y demostrar
+que el FQBN normal `jwplcbasic` compila con
+`jwcontrol_precompiled_stub + core.a`.
+
+Ante cualquier fallo de build/verify, el gate debe restaurar el archive
+anterior y dejar sólo los tres sources candidatos dirty.
 
 ## Observación mapeada — delay() y temporización no bloqueante
 

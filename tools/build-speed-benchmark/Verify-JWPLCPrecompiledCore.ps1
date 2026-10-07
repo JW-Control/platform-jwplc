@@ -4,7 +4,8 @@ param(
     [string]$Target = "Basic",
     [string]$ArduinoCli = "arduino-cli",
     [int]$Jobs = 0,
-    [string]$ReferenceRunPath = ""
+    [string]$ReferenceRunPath = "",
+    [string]$OutputRoot = ""
 )
 
 Set-StrictMode -Version 2.0
@@ -14,7 +15,14 @@ $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = [System.IO.Path]::GetFullPath((Join-Path $ScriptRoot "..\.."))
 $PlatformRoot = Join-Path $RepoRoot "JWPLC\2.1.0"
 $SketchPath = Join-Path $ScriptRoot "sketches\01_empty"
-$VerifyRoot = Join-Path $ScriptRoot "core-precompiled-verify-work"
+if ([string]::IsNullOrWhiteSpace($OutputRoot))
+{
+    $VerifyRoot = Join-Path $ScriptRoot "core-precompiled-verify-work"
+}
+else
+{
+    $VerifyRoot = [System.IO.Path]::GetFullPath($OutputRoot)
+}
 $BoardsLocalPath = Join-Path $PlatformRoot "boards.local.txt"
 $ArchivePath = Join-Path $PlatformRoot "precompiled\core\JWPLCBASIC\core.a"
 $SourceCoreRoot = Join-Path $PlatformRoot "cores\jwcontrol"
