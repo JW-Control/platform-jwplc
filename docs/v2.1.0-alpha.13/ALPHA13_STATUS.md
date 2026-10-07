@@ -304,9 +304,9 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=G2-P2-R3 / A13-002
+NEXT_GATE=G2-P2-R4 / A13-002
 OBJECTIVE=apply minimal candidate and run source-first contract
-STATE=READY_TO_RETRY_AFTER_HARNESS_FIX
+STATE=READY_AFTER_BYTE_IDENTITY_PREFLIGHT
 PREREQUISITE=G2_P1_PASS
 ```
 
@@ -542,7 +542,7 @@ Identidad esperada del candidato local:
 
 ```text
 peripherals_init.cpp blob=23efb3935a34e6b5649875b57c804e60538827cd
-jwplc_peripherals.cpp blob=875a50fd64552e8c4a4300e07b9494d2c32605d7
+jwplc_peripherals.cpp blob=c3d53566d274e95b7dda111327140b5393f7db35
 jwplc_peripherals.h blob=288667f1caa08142e2a155b8c85f24b2aa5beb44
 staged=0
 commit=NO
@@ -640,6 +640,39 @@ core.a SHA guard -> retained
 allowlist -> completed with all G2-P2 tooling/docs paths
 combined apply+test runner -> added
 test cannot start if apply fails
+```
+G2-P2 R3 — REVIEW_HARNESS:
+
+```text
+A13_APPLY_SYNTAX=PASS
+CANDIDATE_BLOB_MISMATCH=YES
+FILE=jwplc_peripherals.cpp
+ACTUAL=2e54c7950e2d23db2c19548e56f5b81fd483f92f
+EXPECTED=875a50fd64552e8c4a4300e07b9494d2c32605d7
+CATCH_RESTORE=EXECUTED
+PHYSICAL_GATE_EXECUTED=NO
+PRODUCT_FAILURE=NO
+HARNESS_FAILURE=YES
+```
+
+Diagnóstico byte-a-byte:
+
+```text
+Windows PowerShell 5 + UTF-8 without BOM
+todavía -> todavÃ­a
+están   -> estÃ¡n
+MOJIBAKE_VARIANT_BLOB=2e54c7950e2d23db2c19548e56f5b81fd483f92f
+MATCHES_OBSERVED_ACTUAL=YES
+```
+
+Corrección R4:
+
+```text
+product-generating PS1 literals -> ASCII-only
+new expected jwplc_peripherals.cpp blob=c3d53566d274e95b7dda111327140b5393f7db35
+candidate bytes are generated and hashed under %TEMP% first
+repo product files are not touched unless all 3 temp blobs match
+combined BAT parses common + apply + physical gate before apply
 ```
 
 ## Observación mapeada — delay() y temporización no bloqueante

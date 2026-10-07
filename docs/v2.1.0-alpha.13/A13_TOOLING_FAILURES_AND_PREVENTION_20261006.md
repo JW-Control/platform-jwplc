@@ -319,9 +319,60 @@ antes de publicar un gate con topología cerrada:
 - si el apply falla, no ejecutar manualmente el test físico.
 ```
 
+## F102 — generar bytes productivos desde literales UTF-8 no ASCII en Windows PowerShell 5
+
+Síntoma:
+
+```text
+A13_G2_CANDIDATE_APPLY=FAIL
+FILE=jwplc_peripherals.cpp
+actual=2e54c7950e2d23db2c19548e56f5b81fd483f92f
+expected=875a50fd64552e8c4a4300e07b9494d2c32605d7
+```
+
+Causa demostrada:
+
+El `.ps1` versionado estaba en UTF-8 sin BOM y contenía literales acentuados
+que se usaban para construir bytes del archivo productivo. Windows PowerShell
+5 interpretó esos literales con la code page local:
+
+```text
+todavía -> todavÃ­a
+están   -> estÃ¡n
+```
+
+La variante mojibake produce exactamente:
+
+```text
+SHA=2e54c7950e2d23db2c19548e56f5b81fd483f92f
+```
+
+igual al hash observado en el host.
+
+Clasificación:
+
+```text
+HARNESS_FAILURE=YES
+PRODUCT_FAILURE=NO
+PHYSICAL_GATE_EXECUTED=NO
+WORKTREE_RESTORED_BY_CATCH=YES
+```
+
+Prevención:
+
+```text
+si un script PowerShell genera bytes productivos:
+- usar literales ASCII-only o construir Unicode explícitamente;
+- no depender de UTF-8 sin BOM en Windows PowerShell 5;
+- generar primero el candidato bajo %TEMP%;
+- verificar allí los blob SHA exactos;
+- sólo después copiar bytes al working tree;
+- parsear todos los .ps1 del flujo antes de tocar producto.
+```
+
 ## Estado
 
 ```text
-NEXT_FAILURE_ID=F102
+NEXT_FAILURE_ID=F103
 SYNC_TO_PROJECT_FAILURES_SOURCE=PENDING
 ```
