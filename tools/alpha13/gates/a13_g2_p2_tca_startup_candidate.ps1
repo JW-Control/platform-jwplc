@@ -396,10 +396,12 @@ try
     $allowed = @(
         'docs/v2.1.0-alpha.13/ALPHA13_STATUS.md',
         'docs/v2.1.0-alpha.13/A13_G2_P2_CANDIDATE_DESIGN_20261007.md',
-        'tools/alpha13/candidates/a13_g2_p2_tca_startup.patch',
+        'docs/v2.1.0-alpha.13/A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md',
         'tools/alpha13/gates/apply_a13_g2_p2_candidate.ps1',
         'tools/alpha13/gates/a13_g2_p2_tca_startup_candidate.ps1',
         'tools/alpha13/gates/a13_g2_tca_startup_candidate_client.py',
+        'tools/alpha13/gates/run_a13_g2_p2_apply_candidate.bat',
+        'tools/alpha13/gates/run_a13_g2_p2_apply_and_test.bat',
         'tools/alpha13/gates/run_a13_g2_p2_tca_startup_candidate.bat',
         'tools/alpha13/firmware/a13_g2_tca_startup_candidate_probe/a13_g2_tca_startup_candidate_probe.ino'
     )
