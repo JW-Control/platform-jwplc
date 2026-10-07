@@ -377,9 +377,52 @@ si un script PowerShell genera bytes productivos:
 - parsear todos los .ps1 del flujo antes de tocar producto.
 ```
 
+## F103 — parsear todo el ruido serial en vez del bloque validado por el cliente
+
+Síntoma:
+
+```text
+G2-P2 R4
+STEP0_CLIENT_EXIT=0
+STEP2_CLIENT_EXIT=0
+A13_G2_CLIENT_BLOCK=PASS
+pero STEP0_CONTRACT_PASS=False y STEP2_CONTRACT_PASS=False
+summary keys vacíos
+```
+
+Causa demostrada:
+
+El cliente serial sí encontró y validó un bloque completo. Sin embargo, el gate
+PowerShell volvió a parsear toda la salida del cliente, incluyendo líneas de
+boot y bloques parciales/repetidos impresos antes del bloque aceptado.
+
+`Get-A13LogValue()` exige exactamente una ocurrencia por clave. Cuando el
+stream contenía dos `OP_OK_MASK`, `EN_IO_*` o `IO_VIEW_READY`, el helper
+devolvía `null` aunque el cliente hubiera cerrado `PASS`.
+
+Clasificación:
+
+```text
+HARNESS_FAILURE=YES
+PRODUCT_FAILURE=NO
+CLIENT_VALIDATED_BLOCK=PASS
+SOURCE_FIRST_BEHAVIOR_VISIBLE=PASS
+FORMAL_G2_P2=REVIEW_UNTIL_R5
+```
+
+Prevención:
+
+```text
+el cliente que valida framing serial debe emitir un resumen canónico con
+prefijo único A13_G2_CLIENT_*;
+el gate debe consumir sólo ese resumen normalizado;
+el ruido serial bruto permanece en logs como evidencia, pero no como fuente
+contractual para parsear resultados.
+```
+
 ## Estado
 
 ```text
-NEXT_FAILURE_ID=F103
+NEXT_FAILURE_ID=F104
 SYNC_TO_PROJECT_FAILURES_SOURCE=PENDING
 ```

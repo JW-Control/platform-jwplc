@@ -733,16 +733,16 @@ try
         }
 
         $text = $clientRun.Output -join [Environment]::NewLine
-        $faultStep = Get-A13LogInt -Text $text -Key 'FAULT_STEP'
-        $attemptMask = Get-A13LogInt -Text $text -Key 'OP_ATTEMPT_MASK'
-        $mask = Get-A13LogInt -Text $text -Key 'OP_OK_MASK'
-        $highRequested = Get-A13LogValue -Text $text -Key 'EN_IO_HIGH_REQUESTED'
-        $outputEnable = Get-A13LogValue -Text $text -Key 'EN_IO_OUTPUT_ENABLE'
-        $outputLatch = Get-A13LogValue -Text $text -Key 'EN_IO_OUTPUT_LATCH'
-        $padReadback = Get-A13LogValue -Text $text -Key 'EN_IO_PAD_READBACK'
-        $peripheralsInitialized = Get-A13LogValue -Text $text -Key 'PERIPHERALS_INITIALIZED'
-        $ioStateInitialized = Get-A13LogValue -Text $text -Key 'IO_STATE_INITIALIZED'
-        $ioViewReady = Get-A13LogValue -Text $text -Key 'IO_VIEW_READY'
+        $faultStep = Get-A13LogInt -Text $text -Key 'A13_G2_CLIENT_FAULT_STEP'
+        $attemptMask = Get-A13LogInt -Text $text -Key 'A13_G2_CLIENT_OP_ATTEMPT_MASK'
+        $mask = Get-A13LogInt -Text $text -Key 'A13_G2_CLIENT_OP_OK_MASK'
+        $highRequested = Get-A13LogValue -Text $text -Key 'A13_G2_CLIENT_EN_IO_HIGH_REQUESTED'
+        $outputEnable = Get-A13LogValue -Text $text -Key 'A13_G2_CLIENT_EN_IO_OUTPUT_ENABLE'
+        $outputLatch = Get-A13LogValue -Text $text -Key 'A13_G2_CLIENT_EN_IO_OUTPUT_LATCH'
+        $padReadback = Get-A13LogValue -Text $text -Key 'A13_G2_CLIENT_EN_IO_PAD_READBACK'
+        $peripheralsInitialized = Get-A13LogValue -Text $text -Key 'A13_G2_CLIENT_PERIPHERALS_INITIALIZED'
+        $ioStateInitialized = Get-A13LogValue -Text $text -Key 'A13_G2_CLIENT_IO_STATE_INITIALIZED'
+        $ioViewReady = Get-A13LogValue -Text $text -Key 'A13_G2_CLIENT_IO_VIEW_READY'
 
         if ($step -eq 0)
         {

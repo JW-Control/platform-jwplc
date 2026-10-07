@@ -304,9 +304,9 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=G2-P2-R4 / A13-002
-OBJECTIVE=apply minimal candidate and run source-first contract
-STATE=READY_AFTER_BYTE_IDENTITY_PREFLIGHT
+NEXT_GATE=G2-P2-R5 / A13-002
+OBJECTIVE=close source-first candidate using canonical client summary
+STATE=READY_TO_RERUN_WITH_EXISTING_DIRTY_CANDIDATE
 PREREQUISITE=G2_P1_PASS
 ```
 
@@ -691,6 +691,82 @@ no silent fallback to powershell.exe
 wrapper prints resolved pwsh version before parser/apply/gate
 ```
 
+G2-P2 R4 — REVIEW_HARNESS por parser de evidencia:
+
+```text
+PWSH_VERSION=7.6.6
+CANDIDATE_APPLY=PASS
+DIRTY_COUNT=3
+STAGED_COUNT=0
+6/6 COMPILE=PASS
+SOURCE_CORE=True
+STUB_CORE=False
+ARCHIVE_LINKED=False
+FULL_PROFILE=True
+6/6 UPLOAD=PASS
+6/6 CLIENT_EXIT=0
+FAULT_STEPS_1_3_4_5 CONTRACT=PASS
+STEP0/STEP2 FALSE_NEGATIVE=YES
+PRODUCT_FAILURE=NO
+HARNESS_FAILURE=YES
+```
+
+Evidencia visible del producto en R4:
+
+```text
+CONTROL:
+attempt=31
+ok=31
+EN_IO high requested=YES
+EN_IO latch=HIGH
+peripherals initialized=YES
+IO ready=YES
+
+FAULT 1:
+attempt=1
+ok=0
+EN_IO high requested=NO
+EN_IO latch=LOW
+peripherals initialized=NO
+IO ready=NO
+
+FAULT 2:
+attempt=3
+ok=1
+EN_IO high requested=NO
+EN_IO latch=LOW
+peripherals initialized=NO
+IO ready=NO
+
+FAULT 3:
+attempt=7
+ok=3
+EN_IO high requested=NO
+EN_IO latch=LOW
+peripherals initialized=NO
+IO ready=NO
+
+FAULT 4:
+attempt=15
+ok=7
+EN_IO high requested=NO
+EN_IO latch=LOW
+peripherals initialized=NO
+IO ready=NO
+
+FAULT 5:
+attempt=31
+ok=15
+EN_IO high requested=NO
+EN_IO latch=LOW
+peripherals initialized=NO
+IO ready=NO
+```
+
+R5 cambia sólo el harness: el cliente emite claves canónicas
+`A13_G2_CLIENT_*` del único bloque que ya validó y el gate consume sólo esas
+claves. El candidato productivo local no cambia.
+
 ## Observación mapeada — delay() y temporización no bloqueante
 
 No forma parte del fix A13-002 ni abre un gate nuevo en Alpha13.
@@ -743,6 +819,55 @@ concurrencia innecesaria en sketches de PLC.
 
 `delayMicroseconds()` merece una revisión separada porque su implementación
 espera activamente y no tiene la misma semántica cooperativa de `delay(ms)`.
+
+
+## Observación mapeada — TFT sucia al energizar por USB
+
+No se clasifica todavía como regresión productiva y no se mezcla con A13-002.
+
+Estado actual del source:
+
+```text
+JWPLC_TFT_RST=GPIO14
+initPeripherals():
+  TFT_CS -> OUTPUT/HIGH
+  TFT_RST -> OUTPUT/LOW
+JWPLC_TFT.begin():
+  TFT_eSPI backend init()
+Alpha11 contract:
+  TFT_RST_HELD_LOW_DURING_AUTOLOAD=YES
+  FIRST_IDLE_FRAME_IMMEDIATE_AFTER_DISPLAY_BEGIN=YES
+```
+
+La retención de reset existe y no fue eliminada por A13-002. Sin embargo,
+`initPeripherals()` se ejecuta dentro de `loopTask`, después de
+`initArduino()`. El backlight del Basic v2 no tiene control por software.
+Por ello existe una ventana estrictamente anterior a `initPeripherals()` en
+la que el firmware de aplicación todavía no gobierna GPIO14 y el GRAM del
+ST7789 puede hacerse visible al energizar.
+
+Interpretación provisional:
+
+```text
+dirty pattern only before first IDLE frame -> pre-firmware/power-on window
+dirty pattern persists after IDLE/display begin -> DISPLAY REGRESSION
+```
+
+Acción:
+
+```text
+TFT_STARTUP_DIRTY=REVIEW_AFTER_G2
+TFT_NEW_FEATURES=OUT_OF_SCOPE remains
+ROBUSTNESS_REGRESSION_IF_PERSISTENT=YES
+DO_NOT_CHANGE_TFT_WHILE_G2_CANDIDATE_DIRTY=YES
+```
+
+Si el fenómeno es sólo transitorio, la mejora software posible es adelantar
+CS=HIGH/RST=LOW al punto seguro más temprano de `app_main()`; eso reduce la
+ventana pero no puede eliminar el intervalo anterior al firmware. La solución
+eléctrica absoluta requeriría mantener RST definido durante power-on o controlar
+backlight, lo cual pertenece a hardware/revisión de placa y no se asumirá sin
+revisar el esquemático.
 
 ## Gates restantes
 

@@ -105,6 +105,12 @@ def main():
                 print(f"A13_G2_CLIENT_STEP_MISMATCH={observed_step}", flush=True)
                 return 6
 
+            for key in sorted(required):
+                print(
+                    f"A13_G2_CLIENT_{key}={values[key]}",
+                    flush=True,
+                )
+
             print("A13_G2_CLIENT_BLOCK=PASS", flush=True)
             return 0
 
