@@ -40,7 +40,7 @@ function Finish-Gate {
     )
 
     $lines = @(
-        'GATE=A13-G1-P3-R1',
+        'GATE=A13-G1-P3-R2',
         "STATUS=$Status",
         "REASON=$Reason",
         "PRODUCT_FAILURE=$ProductFailure",
@@ -72,7 +72,7 @@ if ($parseErrors.Count -ne 0) {
 . $CommonPath
 
 Write-Host '============================================================'
-Write-Host ' A13-G1-P3-R1 - PHYSICAL DNS REGRESSION'
+Write-Host ' A13-G1-P3-R2 - PHYSICAL DNS REGRESSION'
 Write-Host '============================================================'
 
 Push-Location $RepoRoot
@@ -80,6 +80,29 @@ try {
     $Branch = (git branch --show-current).Trim()
     $Head = (git rev-parse HEAD).Trim()
     $Parent = (git rev-parse 'HEAD^').Trim()
+
+    & git merge-base --is-ancestor $BaselineHead $Head
+    $BaselineAncestor = ($LASTEXITCODE -eq 0)
+    $CommittedSinceBaseline = @(
+        git diff --name-only "$BaselineHead..$Head" |
+            Where-Object { $_ -and $_.Trim().Length -gt 0 }
+    )
+    $AllowedCommitted = @(
+        'docs/v2.1.0-alpha.13/ALPHA13_STATUS.md',
+        'tools/alpha13/gates/common.ps1',
+        'tools/alpha13/gates/a13_g1_p3_dns_physical.ps1',
+        'tools/alpha13/gates/run_a13_g1_p3_dns_physical.bat',
+        'tools/alpha13/results/.gitkeep'
+    )
+    $UnexpectedCommitted = @(
+        $CommittedSinceBaseline |
+            Where-Object { $_.Replace('\\','/') -notin $AllowedCommitted }
+    )
+    $DnsCommitted = @(
+        $CommittedSinceBaseline |
+            Where-Object { $_.Replace('\\','/') -eq $DnsRelative }
+    ).Count -ne 0
+
     $Dirty = @(Get-A13TrackedDirty)
     $Staged = @(Get-A13Staged)
 
@@ -100,8 +123,16 @@ try {
         Finish-Gate -Status 'REVIEW' -Reason 'UNEXPECTED_BRANCH' -HarnessFailure 'YES' -ExitCode 4 -Extra @("BRANCH=$Branch", "HEAD=$Head")
     }
 
-    if ($Parent -ne $BaselineHead) {
-        Finish-Gate -Status 'REVIEW' -Reason 'UNEXPECTED_HEAD_TOPOLOGY' -HarnessFailure 'YES' -ExitCode 5 -Extra @("HEAD=$Head", "HEAD_PARENT=$Parent", "EXPECTED_PARENT=$BaselineHead")
+    if (-not $BaselineAncestor -or $UnexpectedCommitted.Count -ne 0 -or $DnsCommitted) {
+        Finish-Gate -Status 'REVIEW' -Reason 'UNEXPECTED_HEAD_TOPOLOGY' -HarnessFailure 'YES' -ExitCode 5 -Extra @(
+            "HEAD=$Head",
+            "HEAD_PARENT=$Parent",
+            "BASELINE_HEAD=$BaselineHead",
+            "BASELINE_IS_ANCESTOR=$BaselineAncestor",
+            "COMMITTED_SINCE_BASELINE=$($CommittedSinceBaseline -join ';')",
+            "UNEXPECTED_COMMITTED=$($UnexpectedCommitted -join ';')",
+            "DNS_COMMITTED=$DnsCommitted"
+        )
     }
 
     $DnsSha = Get-A13Sha256 -Path $DnsPath
@@ -126,6 +157,9 @@ try {
     Write-Host "BRANCH=$Branch"
     Write-Host "HEAD=$Head"
     Write-Host "HEAD_PARENT=$Parent"
+    Write-Host "BASELINE_IS_ANCESTOR=$BaselineAncestor"
+    Write-Host "COMMITTED_SINCE_BASELINE=$($CommittedSinceBaseline -join ';')"
+    Write-Host "DNS_COMMITTED=$DnsCommitted"
     Write-Host "DNS_SHA256=$DnsSha"
     Write-Host 'TRACKED_DIRTY_COUNT=1'
     Write-Host 'STAGED_COUNT=0'

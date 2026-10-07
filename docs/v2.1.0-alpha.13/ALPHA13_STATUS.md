@@ -49,7 +49,8 @@ G1_PRE1=PASS
 G1_P1=PASS
 G1_P2=PASS
 G1_P3_ATTEMPT_1=REVIEW_ENVIRONMENT
-G1_P3_R1=READY
+G1_P3_R1=REVIEW_HARNESS
+G1_P3_R2=READY
 ```
 
 Candidato actual:
@@ -86,9 +87,29 @@ PRODUCT_FAILURE=NO
 ENVIRONMENT_FAILURE=YES
 ```
 
-## Infraestructura G1-P3-R1
+P3 R1 — wrapper de sintaxis:
 
-Versionada en el primer commit de Alpha13, hijo directo de `BASELINE_HEAD`:
+```text
+BAT_SYNTAX_PREFLIGHT=FAIL
+ERROR=PowerShell recibió el token literal ^ antes de |
+PHYSICAL_REGRESSION=NOT_EXECUTED
+PRODUCT_FAILURE=NO
+HARNESS_FAILURE=YES
+```
+
+Clasificación conforme al registro de fallos del proyecto:
+
+```text
+F091_APPLIES=YES
+CHAT_AS_LONG_GATE_EDITOR=DO_NOT_REPEAT
+VERSIONED_PS1_BAT_LOGS_STATUS=REQUIRED
+```
+
+## Infraestructura G1-P3-R2
+
+Versionada en commits de tooling/docs descendientes de `BASELINE_HEAD`. El gate
+acepta esa cadena sólo si los archivos commiteados desde el baseline pertenecen
+al allowlist de tooling/docs y confirma que `Dns.cpp` sigue sin commit:
 
 ```text
 tools/alpha13/gates/common.ps1
@@ -106,12 +127,14 @@ sin candidato inequívoco = REVIEW_ENVIRONMENT
 preflight de puerto fallido = no compilar / no subir / no abrir cliente
 compile/upload/client/SUMMARY = logs persistentes por run
 Dns.cpp = nunca stageado ni commiteado por el gate
+wrapper BAT = sin pipes escapados entre cmd.exe y powershell -Command
+topología = baseline ancestro + allowlist de commits tooling/docs
 ```
 
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=A13-G1-P3-R1
+NEXT_GATE=A13-G1-P3-R2
 OBJECTIVE=physical DNS regression
 PREREQUISITE=JWPLC connected and serial port visible
 ```
