@@ -52,7 +52,8 @@ G1_P3_ATTEMPT_1=REVIEW_ENVIRONMENT
 G1_P3_R1=REVIEW_HARNESS
 G1_P3_R2=REVIEW_HARNESS
 G1_P3_R3=REVIEW_PRECONDITION
-G1_P3_R4=READY
+G1_P3_R4=REVIEW_HARNESS
+G1_P3_R5=READY
 ```
 
 Candidato actual:
@@ -182,7 +183,28 @@ GITHUB_DESKTOP=no debe listar objetos .o/.d/.bin/.elf/.map del build
 Se recupera así el patrón de los gates físicos Alpha14, que compilaban fuera
 del working tree.
 
-## Infraestructura G1-P3-R4
+P3 R4 — fallo del reader serial:
+
+```text
+A13_GATE_SYNTAX=PASS
+COMPILE_EXIT=0
+REPO_ETHERNET_SELECTED=True
+DNS_SOURCE_OBJECT_COUNT=1
+UPLOAD_EXIT=0
+CLIENT_EXIT=4
+SERIAL_READER_EXCEPTION=UnicodeEncodeError
+CONSOLE_ENCODING=cp1252
+INVALID_SERIAL_BYTE_DECODED_AS=U+FFFD
+NB2_ETH_DIAG_CAPTURED=NO
+PRODUCT_FAILURE=NO
+HARNESS_FAILURE=YES
+```
+
+R5 usa un cliente Alpha13 propio. Los bytes seriales inválidos se representan
+con escapes ASCII y la escritura a stdout aplica `backslashreplace`; un byte
+de arranque corrupto ya no puede matar el thread de captura.
+
+## Infraestructura G1-P3-R5
 
 Versionada en commits de tooling/docs descendientes de `BASELINE_HEAD`. El gate
 acepta esa cadena sólo si los archivos commiteados desde el baseline pertenecen
@@ -191,6 +213,7 @@ al allowlist de tooling/docs y confirma que `Dns.cpp` sigue sin commit:
 ```text
 tools/alpha13/gates/common.ps1
 tools/alpha13/gates/a13_g1_p3_dns_physical.ps1
+tools/alpha13/gates/a13_g1_p3_dns_physical_client.py
 tools/alpha13/gates/run_a13_g1_p3_dns_physical.bat
 tools/alpha13/firmware/a13_g1_p3_dns_physical_probe/a13_g1_p3_dns_physical_probe.ino
 tools/alpha13/results/.gitignore
@@ -213,7 +236,7 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=A13-G1-P3-R4
+NEXT_GATE=A13-G1-P3-R5
 OBJECTIVE=physical DNS regression
 PREREQUISITE=JWPLC connected and serial port visible
 ```
