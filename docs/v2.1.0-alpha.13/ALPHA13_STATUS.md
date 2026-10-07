@@ -50,7 +50,8 @@ G1_P1=PASS
 G1_P2=PASS
 G1_P3_ATTEMPT_1=REVIEW_ENVIRONMENT
 G1_P3_R1=REVIEW_HARNESS
-G1_P3_R2=READY
+G1_P3_R2=REVIEW_HARNESS
+G1_P3_R3=READY
 ```
 
 Candidato actual:
@@ -105,7 +106,41 @@ CHAT_AS_LONG_GATE_EDITOR=DO_NOT_REPEAT
 VERSIONED_PS1_BAT_LOGS_STATUS=REQUIRED
 ```
 
-## Infraestructura G1-P3-R2
+P3 R2 — carrera READY serial:
+
+```text
+A13_GATE_SYNTAX=PASS
+COMPILE_EXIT=0
+REPO_ETHERNET_SELECTED=True
+DNS_SOURCE_OBJECT_COUNT=1
+UPLOAD_EXIT=0
+CLIENT_EXIT=4
+NB3_DNS_READY_TIMEOUT=YES
+PHYSICAL_DNS_SEQUENCE=NOT_STARTED
+PRODUCT_FAILURE=NO
+HARNESS_FAILURE=YES
+ENVIRONMENT_FAILURE=YES
+```
+
+Causa de harness:
+
+```text
+probe READY = one-shot
+gate delay after upload = 800 ms
+client wait starts after serial open
+READY emitted before client open => marker lost permanently
+```
+
+Corrección R3:
+
+```text
+probe Alpha13 propio
+READY reemitido cada 500 ms mientras WAIT_COMMAND
+sin cambios en Dns.cpp
+sin cambios en API/producto
+```
+
+## Infraestructura G1-P3-R3
 
 Versionada en commits de tooling/docs descendientes de `BASELINE_HEAD`. El gate
 acepta esa cadena sólo si los archivos commiteados desde el baseline pertenecen
@@ -115,6 +150,7 @@ al allowlist de tooling/docs y confirma que `Dns.cpp` sigue sin commit:
 tools/alpha13/gates/common.ps1
 tools/alpha13/gates/a13_g1_p3_dns_physical.ps1
 tools/alpha13/gates/run_a13_g1_p3_dns_physical.bat
+tools/alpha13/firmware/a13_g1_p3_dns_physical_probe/a13_g1_p3_dns_physical_probe.ino
 tools/alpha13/results/.gitkeep
 ```
 
@@ -134,7 +170,7 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=A13-G1-P3-R2
+NEXT_GATE=A13-G1-P3-R3
 OBJECTIVE=physical DNS regression
 PREREQUISITE=JWPLC connected and serial port visible
 ```

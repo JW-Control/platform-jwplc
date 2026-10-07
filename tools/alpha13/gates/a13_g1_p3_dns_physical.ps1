@@ -40,7 +40,7 @@ function Finish-Gate {
     )
 
     $lines = @(
-        'GATE=A13-G1-P3-R2',
+        'GATE=A13-G1-P3-R3',
         "STATUS=$Status",
         "REASON=$Reason",
         "PRODUCT_FAILURE=$ProductFailure",
@@ -72,7 +72,7 @@ if ($parseErrors.Count -ne 0) {
 . $CommonPath
 
 Write-Host '============================================================'
-Write-Host ' A13-G1-P3-R2 - PHYSICAL DNS REGRESSION'
+Write-Host ' A13-G1-P3-R3 - PHYSICAL DNS REGRESSION'
 Write-Host '============================================================'
 
 Push-Location $RepoRoot
@@ -92,6 +92,7 @@ try {
         'tools/alpha13/gates/common.ps1',
         'tools/alpha13/gates/a13_g1_p3_dns_physical.ps1',
         'tools/alpha13/gates/run_a13_g1_p3_dns_physical.bat',
+        'tools/alpha13/firmware/a13_g1_p3_dns_physical_probe/a13_g1_p3_dns_physical_probe.ino',
         'tools/alpha13/results/.gitkeep'
     )
     $UnexpectedCommitted = @(
@@ -109,7 +110,7 @@ try {
     $DnsPath = Join-Path $RepoRoot $DnsRelative
     $LibrariesRoot = Join-Path $RepoRoot 'JWPLC\2.1.0\libraries'
     $EthernetRoot = Join-Path $LibrariesRoot 'JWPLC_Ethernet'
-    $ProbePath = Join-Path $RepoRoot 'tools\modbus-tcp-benchmark\firmware\a14_nb2_dns_async_probe\a14_nb2_dns_async_probe.ino'
+    $ProbePath = Join-Path $RepoRoot 'tools\alpha13\firmware\a13_g1_p3_dns_physical_probe\a13_g1_p3_dns_physical_probe.ino'
     $ProbeDir = Split-Path -Parent $ProbePath
     $ClientPath = Join-Path $RepoRoot 'tools\modbus-tcp-benchmark\gates\a14_nb3_udp_send_dns_physical_client.py'
 
