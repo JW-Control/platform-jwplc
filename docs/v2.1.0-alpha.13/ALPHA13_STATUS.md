@@ -304,7 +304,7 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=G2-P2-R2 / A13-002
+NEXT_GATE=G2-P2-R3 / A13-002
 OBJECTIVE=apply minimal candidate and run source-first contract
 STATE=READY_TO_RETRY_AFTER_HARNESS_FIX
 PREREQUISITE=G2_P1_PASS
@@ -552,9 +552,9 @@ core.a SHA256=78d0c0ab14f156b96116529e88872340d51877af40d24ba3559f6081e0bf34fb
 Infraestructura G2-P2:
 
 ```text
-tools/alpha13/candidates/a13_g2_p2_tca_startup.patch
 tools/alpha13/gates/apply_a13_g2_p2_candidate.ps1
 tools/alpha13/gates/run_a13_g2_p2_apply_candidate.bat
+tools/alpha13/gates/run_a13_g2_p2_apply_and_test.bat
 tools/alpha13/gates/a13_g2_p2_tca_startup_candidate.ps1
 tools/alpha13/gates/a13_g2_tca_startup_candidate_client.py
 tools/alpha13/gates/run_a13_g2_p2_tca_startup_candidate.bat
@@ -607,6 +607,39 @@ Get-FileHash dependency -> removed
 duplicate malformed contract block in candidate gate -> removed
 BAT parser preflight -> retained
 candidate still must start from clean baseline
+```
+
+G2-P2 R2 — REVIEW_HARNESS:
+
+```text
+APPLY_SYNTAX=PASS
+BASELINE_BLOBS=PASS
+CORE_ARCHIVE_SHA=PASS
+GIT_APPLY_CHECK=FAIL
+PATCH_APPLIED=NO
+PRODUCT_CHANGE_EXECUTED=NO
+
+CANDIDATE_GATE_SYNTAX=PASS
+CANDIDATE_GATE_STATUS=REVIEW
+REASON=UNEXPECTED_HEAD_TOPOLOGY
+UNEXPECTED_COMMITTED=
+  docs/v2.1.0-alpha.13/A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md
+  tools/alpha13/gates/run_a13_g2_p2_apply_candidate.bat
+PRODUCT_FAILURE=NO
+HARNESS_FAILURE=YES
+```
+
+Corrección R3:
+
+```text
+git apply candidate mechanism -> removed
+candidate application -> deterministic exact-once transforms
+baseline blob guard -> retained
+candidate blob guard -> retained
+core.a SHA guard -> retained
+allowlist -> completed with all G2-P2 tooling/docs paths
+combined apply+test runner -> added
+test cannot start if apply fails
 ```
 
 ## Observación mapeada — delay() y temporización no bloqueante
