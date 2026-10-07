@@ -252,9 +252,76 @@ control-flow fragments before publication;
 parser failure before compile/upload never counts against product.
 ```
 
+## F100 — usar un patch contextual como mecanismo de aplicación del candidato
+
+Síntoma:
+
+```text
+baseline blob guards=PASS
+git apply --check=FAIL
+jwplc_peripherals.cpp patch does not apply
+jwplc_peripherals.h patch does not apply
+```
+
+El fallo ocurrió antes de `git apply`; por tanto no hubo cambio productivo.
+
+Clasificación:
+
+```text
+HARNESS_FAILURE=YES
+PRODUCT_FAILURE=NO
+PATCH_APPLIED=NO
+ROOT_CAUSE_OF_CONTEXT_MISMATCH=NOT_REQUIRED_FOR_PRODUCT_DECISION
+```
+
+Prevención:
+
+```text
+cuando el baseline ya está fijado por blob SHA:
+- aplicar transformaciones exact-once sobre anchors controlados;
+- verificar después los blob SHA exactos del candidato;
+- restaurar archivos en catch;
+- no depender de matching contextual de un .patch para un gate local.
+```
+
+## F101 — allowlist de topología incompleto para el propio gate
+
+Síntoma:
+
+```text
+STATUS=REVIEW
+REASON=UNEXPECTED_HEAD_TOPOLOGY
+unexpected:
+  A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md
+  run_a13_g2_p2_apply_candidate.bat
+```
+
+Causa:
+
+El gate no incluyó en su allowlist dos rutas que ya formaban parte de la cadena
+versionada necesaria para ejecutarlo.
+
+Clasificación:
+
+```text
+HARNESS_FAILURE=YES
+PRODUCT_FAILURE=NO
+PHYSICAL_GATE_EXECUTED=NO
+```
+
+Prevención:
+
+```text
+antes de publicar un gate con topología cerrada:
+- enumerar git diff --name-only BASE..HEAD;
+- comparar esa lista completa contra el allowlist;
+- incluir wrappers, docs y registros de fallos del propio gate;
+- si el apply falla, no ejecutar manualmente el test físico.
+```
+
 ## Estado
 
 ```text
-NEXT_FAILURE_ID=F100
+NEXT_FAILURE_ID=F102
 SYNC_TO_PROJECT_FAILURES_SOURCE=PENDING
 ```
