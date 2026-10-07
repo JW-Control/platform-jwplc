@@ -1,6 +1,6 @@
 # v2.1.0-alpha.13 — Estado operativo y continuidad
 
-Actualizado: 2026-10-06 — cierre G1
+Actualizado: 2026-10-07 — G2-P1 baseline reproducido
 
 > Fuente viva de continuidad del alpha. Un chat nuevo debe verificar el estado real
 > del repositorio y continuar desde `NEXT_GATE`.
@@ -304,10 +304,10 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=G2-P1-R2 / A13-002
-OBJECTIVE=close baseline fault injection using GPIO output latch semantics
-STATE=READY_TO_RUN
-PREREQUISITE=G2_P1_R1_REVIEW_HARNESS
+NEXT_GATE=G2-P2 / A13-002
+OBJECTIVE=minimal source candidate for safe TCA startup and truthful IO readiness
+STATE=READY_FOR_CANDIDATE_DESIGN
+PREREQUISITE=G2_P1_PASS
 ```
 
 No modificar todavía código productivo de G2 hasta completar su preflight
@@ -320,7 +320,8 @@ G2_PRE1=PASS
 G2_CLASSIFICATION=ROBUSTNESS_FIX
 G2_PRIORITY=P0
 G2_CONFIDENCE=HIGH
-G2_STATUS=REVIEW_CONFIRMED_RISK
+G2_STATUS=BASELINE_DEFECT_REPRODUCED
+G2_P1_R2=PASS
 PRODUCT_CHANGE=NO
 ```
 
@@ -460,6 +461,61 @@ EN_IO_OUTPUT_LATCH  <- GPIO_OUT_REG
 EN_IO_PAD_READBACK  <- diagnóstico no contractual
 PRODUCT_CHANGE=NO
 ```
+
+G2-P1 R2 — cierre baseline:
+
+```text
+HEAD=0dd5e236604391c497839ae08452e507a131db78
+A13_GATE_SYNTAX=PASS
+COMPILE_LEGS=6/6 PASS
+SOURCE_CORE=YES
+STUB_CORE=NO
+VERSIONED_CORE_A_LINKED=NO
+FULL_JWPLCBASIC_PROFILE=YES
+SOURCE_RESTORED=True
+BOARDS_LOCAL_RESTORED=True
+CORE_SHA256_PRESERVED=True
+CONTROL_STEP_CONTRACT=PASS
+FAULT_STEP_1_CONTRACT=PASS
+FAULT_STEP_2_CONTRACT=PASS
+FAULT_STEP_3_CONTRACT=PASS
+FAULT_STEP_4_CONTRACT=PASS
+FAULT_STEP_5_CONTRACT=PASS
+STATUS=PASS
+REASON=BASELINE_DEFECT_REPRODUCED_SAFELY
+PRODUCT_FAILURE=REPRODUCED_BASELINE_DEFECT
+HARNESS_FAILURE=NO
+HARDWARE_FAILURE=NO
+ENVIRONMENT_FAILURE=NO
+```
+
+Control normal:
+
+```text
+OP_OK_MASK=31
+EN_IO_HIGH_REQUESTED=YES
+EN_IO_OUTPUT_ENABLE=YES
+EN_IO_OUTPUT_LATCH=HIGH
+IO_VIEW_READY=YES
+```
+
+En las cinco fallas inyectadas el baseline conserva el defecto:
+
+```text
+EN_IO_HIGH_REQUESTED=YES
+EN_IO_OUTPUT_LATCH=LOW   # interlock de seguridad del harness
+IO_VIEW_READY=YES
+PERIPHERALS_INITIALIZED=YES
+```
+
+Por tanto A13-002 deja de ser sólo riesgo estático: queda reproducido en
+hardware con fault injection controlado.
+
+Siguiente paso: diseñar el cambio mínimo productivo. Debe mantener `EN_IO`
+en LOW y `JWPLC_IO.ready()==false` ante cualquiera de las cinco fallas, y
+sólo declarar ready después de completar correctamente la configuración TCA.
+
+No regenerar todavía `core.a`: primero debe pasar source-first el candidato.
 
 ## Observación mapeada — delay() y temporización no bloqueante
 

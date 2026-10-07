@@ -171,6 +171,23 @@ para verificar una salida configurada output-only:
 - no cambiar la configuración productiva del GPIO para satisfacer al harness.
 ```
 
+Validación R2:
+
+```text
+CONTROL:
+EN_IO_OUTPUT_ENABLE=YES
+EN_IO_OUTPUT_LATCH=HIGH
+EN_IO_PAD_READBACK=LOW
+CONTRACT_PASS=True
+
+FAULT_LEGS_1_TO_5:
+EN_IO_OUTPUT_ENABLE=YES
+EN_IO_OUTPUT_LATCH=LOW
+CONTRACT_PASS=True
+
+F097_RESOLVED=YES
+```
+
 ## Estado
 
 ```text
