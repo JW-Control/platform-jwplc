@@ -658,7 +658,7 @@ HARNESS_FAILURE=YES
 Diagnóstico byte-a-byte:
 
 ```text
-Windows PowerShell 5 + UTF-8 without BOM
+wrapper forced powershell.exe (PowerShell legacy) + UTF-8 without BOM
 todavía -> todavÃ­a
 están   -> estÃ¡n
 MOJIBAKE_VARIANT_BLOB=2e54c7950e2d23db2c19548e56f5b81fd483f92f
@@ -673,6 +673,22 @@ new expected jwplc_peripherals.cpp blob=c3d53566d274e95b7dda111327140b5393f7db35
 candidate bytes are generated and hashed under %TEMP% first
 repo product files are not touched unless all 3 temp blobs match
 combined BAT parses common + apply + physical gate before apply
+```
+
+Entorno PowerShell confirmado por el desarrollador:
+
+```text
+PSEdition=Core
+PSVersion=7.6.6
+EXECUTABLE=pwsh
+```
+
+Regla aplicada desde G2-P2-R4:
+
+```text
+material BAT wrappers -> require pwsh / PowerShell Core 7+
+no silent fallback to powershell.exe
+wrapper prints resolved pwsh version before parser/apply/gate
 ```
 
 ## Observación mapeada — delay() y temporización no bloqueante

@@ -319,7 +319,7 @@ antes de publicar un gate con topología cerrada:
 - si el apply falla, no ejecutar manualmente el test físico.
 ```
 
-## F102 — generar bytes productivos desde literales UTF-8 no ASCII en Windows PowerShell 5
+## F102 — wrapper forzó PowerShell legacy al generar bytes productivos
 
 Síntoma:
 
@@ -332,9 +332,12 @@ expected=875a50fd64552e8c4a4300e07b9494d2c32605d7
 
 Causa demostrada:
 
-El `.ps1` versionado estaba en UTF-8 sin BOM y contenía literales acentuados
-que se usaban para construir bytes del archivo productivo. Windows PowerShell
-5 interpretó esos literales con la code page local:
+El entorno interactivo del desarrollador es PowerShell Core 7.6.6, pero los
+wrappers BAT de G2-P2 invocaban explícitamente `powershell.exe`. En Windows
+eso desvió la ejecución al host PowerShell legacy. El `.ps1` versionado
+estaba en UTF-8 sin BOM y contenía literales acentuados usados para construir
+bytes del archivo productivo; ese host reinterpretó los caracteres con la code
+page local:
 
 ```text
 todavía -> todavÃ­a
@@ -362,8 +365,12 @@ Prevención:
 
 ```text
 si un script PowerShell genera bytes productivos:
+- host estándar JWPLC = `pwsh` / PowerShell Core 7+;
+- los BAT materiales deben resolver/requerir `pwsh` explícitamente;
+- imprimir la versión de PowerShell al inicio del gate;
+- no hacer fallback silencioso a `powershell.exe`;
 - usar literales ASCII-only o construir Unicode explícitamente;
-- no depender de UTF-8 sin BOM en Windows PowerShell 5;
+- no depender de la interpretación de encoding del host;
 - generar primero el candidato bajo %TEMP%;
 - verificar allí los blob SHA exactos;
 - sólo después copiar bytes al working tree;
