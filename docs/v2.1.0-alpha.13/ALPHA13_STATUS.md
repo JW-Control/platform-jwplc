@@ -1,6 +1,6 @@
 # v2.1.0-alpha.13 — Estado operativo y continuidad
 
-Actualizado: 2026-10-06
+Actualizado: 2026-10-06 — cierre G1
 
 > Fuente viva de continuidad del alpha. Un chat nuevo debe verificar el estado real
 > del repositorio y continuar desde `NEXT_GATE`.
@@ -53,17 +53,19 @@ G1_P3_R1=REVIEW_HARNESS
 G1_P3_R2=REVIEW_HARNESS
 G1_P3_R3=REVIEW_PRECONDITION
 G1_P3_R4=REVIEW_HARNESS
-G1_P3_R5=READY
+G1_P3_R5=PASS
+G1_STATUS=CLOSED_PASS
 ```
 
-Candidato actual:
+Candidato cerrado:
 
 ```text
 FILE=JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/Dns.cpp
 SHA256=08291b4b89274f014e1ce6073bd16303192e5bfe1b4e2fdeaa21d133fb783995
-TRACKED_DIRTY_EXPECTED=1
-STAGED_EXPECTED=0
-COMMIT=NO
+PRODUCT_COMMIT=8bc48b73074859d367b2d949e333f0b16c83cbd7
+COMMIT_MESSAGE=fix(ethernet): evitar bloqueo DNS con respuestas truncadas
+REMOTE_PUSH=PASS
+WORKTREE_AFTER_COMMIT=CLEAN
 ```
 
 Evidencia cerrada:
@@ -124,13 +126,22 @@ HARNESS_FAILURE=YES
 ENVIRONMENT_FAILURE=YES
 ```
 
-Causa de harness:
+Hipótesis planteada durante R2, posteriormente NO confirmada como causa raíz:
 
 ```text
 probe READY = one-shot
 gate delay after upload = 800 ms
 client wait starts after serial open
-READY emitted before client open => marker lost permanently
+posible pérdida del marcador READY
+```
+
+La evidencia posterior mostró que el JWPLC todavía no tenía la precondición
+Ethernet completa (RJ45 + red con DHCP) durante esos intentos. Por tanto:
+
+```text
+R2_READY_RACE_AS_ROOT_CAUSE=NOT_PROVEN
+PRODUCT_FAILURE=NO
+LESSON=no promover una hipótesis temporal a causa raíz sin instrumentación
 ```
 
 Corrección R3:
@@ -204,6 +215,63 @@ R5 usa un cliente Alpha13 propio. Los bytes seriales inválidos se representan
 con escapes ASCII y la escritura a stdout aplica `backslashreplace`; un byte
 de arranque corrupto ya no puede matar el thread de captura.
 
+P3 R5 — cierre físico:
+
+```text
+A13_GATE_SYNTAX=PASS
+DNS_SHA256=08291b4b89274f014e1ce6073bd16303192e5bfe1b4e2fdeaa21d133fb783995
+DNS_NORMAL_PATH_CONTRACT=True
+COMPILE_EXIT=0
+REPO_ETHERNET_SELECTED=True
+DNS_SOURCE_OBJECT_COUNT=1
+UPLOAD_EXIT=0
+CLIENT_EXIT=0
+DUT_IP_EFFECTIVE=192.168.0.31
+PC_DNS_SERVER_IP=192.168.0.4
+RESULT_CODE=1
+PROBE_FAILED=NO
+SUCCESS_RESULT_IP=10.20.30.40
+SUCCESS_DURATION_MS=1
+SUCCESS_POLL_COUNT=5
+TIMEOUT_DURATION_MS=453
+TIMEOUT_POLL_COUNT=5663
+DNS_BEGIN_HOLD_MAX_US=1460
+DNS_POLL_HOLD_MAX_US=748
+LOOP_GAP_MAX_US=644
+SPI_LOCK_ERRORS=0
+DNS_VALID_QUERY_COUNT=1
+DNS_TIMEOUT_QUERY_COUNT=1
+DNS_OTHER_QUERY_COUNT=0
+NB3_DNS_CLIENT_PASS=YES
+DIRTY_SCOPE_VALID=True
+DIFF_CHECK_PASS=True
+STATUS=PASS
+PRODUCT_FAILURE=NO
+HARNESS_FAILURE=NO
+HARDWARE_FAILURE=NO
+ENVIRONMENT_FAILURE=NO
+```
+
+Precondición física confirmada para este gate:
+
+```text
+USB/serial -> COM4
+W5500/RJ45 -> LAN con DHCP
+PC -> misma LAN
+```
+
+Cierre Git:
+
+```text
+FINAL_DIFF_AUDIT=PASS
+STAGED_FILE_COUNT=1
+STAGED_FILE=JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/Dns.cpp
+GIT_DIFF_CACHED_CHECK=PASS
+PRODUCT_COMMIT=8bc48b73074859d367b2d949e333f0b16c83cbd7
+REMOTE_PUSH=PASS
+G1=CLOSED_PASS
+```
+
 ## Infraestructura G1-P3-R5
 
 Versionada en commits de tooling/docs descendientes de `BASELINE_HEAD`. El gate
@@ -236,39 +304,19 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=A13-G1-P3-R5
-OBJECTIVE=physical DNS regression
-PREREQUISITE=JWPLC connected and serial port visible
+NEXT_GATE=G2 / A13-002
+OBJECTIVE=TCA startup / EN_IO
+STATE=READY_FOR_READ_ONLY_PREFLIGHT
+PREREQUISITE=G1_CLOSED_PASS
 ```
 
-Ejecución recomendada después de sincronizar el commit de tooling:
-
-```text
-.\tools\alpha13\gates\run_a13_g1_p3_dns_physical.bat
-```
-
-Si la autodetección no es inequívoca:
-
-```text
-.\tools\alpha13\gates\run_a13_g1_p3_dns_physical.bat COM4
-```
-
-Si PASS:
-
-```text
-final diff audit
--> stage Dns.cpp only
--> commit productivo A13-001
--> update this file
--> push
--> close G1
--> open G2 / A13-002
-```
+No modificar todavía código productivo de G2 hasta completar su preflight
+dirigido y fijar el contrato del gate.
 
 ## Gates restantes
 
 ```text
-G2  A13-002 TCA startup / EN_IO                  PENDING
+G2  A13-002 TCA startup / EN_IO                  READY
 G3  A13-004 TCA RMW/shadow atomicity             PENDING
 G4  A13-003 TFT batch task ownership             PENDING
 G5  A13-005 + A13-006 TCP correctness            PENDING
@@ -285,7 +333,6 @@ G10 final regression/freeze                       PENDING
 Adafruit_BusIO source fallback baseline defect
 stale precompiled archives can mask source changes
 serial COM can change between sessions
-G1 product candidate is still uncommitted
 ```
 
 ## DO NOT DO
@@ -293,12 +340,11 @@ G1 product candidate is still uncommitted
 ```text
 DO_NOT_REPEAT_P0
 DO_NOT_REPEAT_G1_PRE1_P1_P2_WITHOUT_NEW_EVIDENCE
-DO_NOT_COMMIT_DNS_CPP_BEFORE_G1_P3_R1_PASS
 DO_NOT_REMOVE_NORMAL_AUTOLOAD_PERIPHERALS
 DO_NOT_ASSUME_OPENPLC_INTEGRATED
 DO_NOT_ASSUME_OTA_DEFINED
 DO_NOT_FIX_FINAL_FLASH_FREQ_WITHOUT_DECISION
 DO_NOT_PUBLISH_BOOTLOADER_BIN_AS_FINAL
 DO_NOT_IMPLEMENT_JW_BUSIO_YET
-DO_NOT_OPEN_G2_UNTIL_G1_CLOSED
+G1_CLOSED_G2_MAY_START_WITH_READ_ONLY_PREFLIGHT
 ```
