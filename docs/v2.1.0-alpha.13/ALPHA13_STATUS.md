@@ -306,7 +306,7 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ```text
 NEXT_GATE=G2-P1 / A13-002
 OBJECTIVE=baseline fault injection TCA startup / EN_IO
-STATE=READY_FOR_VERSIONED_HARNESS
+STATE=READY_TO_RUN
 PREREQUISITE=G2_PRE1_PASS
 ```
 
@@ -402,6 +402,27 @@ La lectura de registros se conserva como evidencia, pero no se exige energizar
 salidas para demostrar el defecto.
 
 No implementar todavía el fix A13-002 hasta cerrar G2-P1.
+
+Infraestructura G2-P1 versionada:
+
+```text
+tools/alpha13/gates/a13_g2_p1_tca_startup_baseline.ps1
+tools/alpha13/gates/a13_g2_tca_startup_client.py
+tools/alpha13/gates/run_a13_g2_p1_tca_startup_baseline.bat
+tools/alpha13/firmware/a13_g2_tca_startup_probe/a13_g2_tca_startup_probe.ino
+```
+
+Salvaguardas:
+
+```text
+product source instrumentation=TEMPORARY_ONLY
+source restored before physical uploads=REQUIRED
+boards.local restored byte-for-byte=REQUIRED
+versioned core.a mutation=FORBIDDEN
+builds=%TEMP%
+failure legs physical EN_IO=FORCED_LOW
+control leg physical EN_IO=normal
+```
 
 ## Gates restantes
 
