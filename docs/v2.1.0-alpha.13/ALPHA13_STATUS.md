@@ -51,7 +51,8 @@ G1_P2=PASS
 G1_P3_ATTEMPT_1=REVIEW_ENVIRONMENT
 G1_P3_R1=REVIEW_HARNESS
 G1_P3_R2=REVIEW_HARNESS
-G1_P3_R3=READY
+G1_P3_R3=REVIEW_PRECONDITION
+G1_P3_R4=READY
 ```
 
 Candidato actual:
@@ -140,7 +141,37 @@ sin cambios en Dns.cpp
 sin cambios en API/producto
 ```
 
-## Infraestructura G1-P3-R3
+P3 R3 — READY no alcanzado:
+
+```text
+A13_GATE_SYNTAX=PASS
+COMPILE_EXIT=0
+REPO_ETHERNET_SELECTED=True
+DNS_SOURCE_OBJECT_COUNT=1
+UPLOAD_EXIT=0
+CLIENT_EXIT=4
+NB3_DNS_READY_TIMEOUT=YES
+DNS_SEQUENCE_STARTED=NO
+PRODUCT_FAILURE=NO
+ROOT_CAUSE=PRECONDITION_NOT_YET_CLASSIFIED
+```
+
+La reemisión periódica elimina la hipótesis de marcador READY perdido.
+R4 añade telemetría serial no invasiva de runtime Ethernet mientras READY=false:
+
+```text
+BEGIN_ATTEMPTED
+READY
+BUSY
+runtimeState
+lastError
+diagnosticCode
+```
+
+Esto permite separar LINK_OFF / DHCP / SPI / HW / otro estado antes de
+atribuir cualquier regresión a Dns.cpp.
+
+## Infraestructura G1-P3-R4
 
 Versionada en commits de tooling/docs descendientes de `BASELINE_HEAD`. El gate
 acepta esa cadena sólo si los archivos commiteados desde el baseline pertenecen
@@ -170,7 +201,7 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=A13-G1-P3-R3
+NEXT_GATE=A13-G1-P3-R4
 OBJECTIVE=physical DNS regression
 PREREQUISITE=JWPLC connected and serial port visible
 ```

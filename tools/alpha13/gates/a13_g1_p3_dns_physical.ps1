@@ -40,7 +40,7 @@ function Finish-Gate {
     )
 
     $lines = @(
-        'GATE=A13-G1-P3-R3',
+        'GATE=A13-G1-P3-R4',
         "STATUS=$Status",
         "REASON=$Reason",
         "PRODUCT_FAILURE=$ProductFailure",
@@ -72,7 +72,7 @@ if ($parseErrors.Count -ne 0) {
 . $CommonPath
 
 Write-Host '============================================================'
-Write-Host ' A13-G1-P3-R3 - PHYSICAL DNS REGRESSION'
+Write-Host ' A13-G1-P3-R4 - PHYSICAL DNS REGRESSION'
 Write-Host '============================================================'
 
 Push-Location $RepoRoot

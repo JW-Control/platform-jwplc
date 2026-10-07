@@ -39,6 +39,8 @@ static uint32_t spiLockErrors = 0;
 static bool readyAnnounced = false;
 static uint32_t lastReadyAnnouncementMs = 0;
 static constexpr uint32_t READY_REPEAT_MS = 500;
+static constexpr uint32_t ETH_DIAG_PERIOD_MS = 500;
+static uint32_t lastEthDiagMs = 0;
 
 static void updateLoopGap()
 {
@@ -256,6 +258,25 @@ void loop()
 {
     updateLoopGap();
     serviceSerial();
+
+    const uint32_t nowMs = millis();
+    if ((uint32_t)(nowMs - lastEthDiagMs) >= ETH_DIAG_PERIOD_MS)
+    {
+        lastEthDiagMs = nowMs;
+        Serial.print("NB2_ETH_DIAG BEGIN=");
+        Serial.print(JWPLC_Ethernet.isBeginAttempted() ? "YES" : "NO");
+        Serial.print(" READY=");
+        Serial.print(JWPLC_Ethernet.isReady() ? "YES" : "NO");
+        Serial.print(" BUSY=");
+        Serial.print(JWPLC_Ethernet.isBusy() ? "YES" : "NO");
+        Serial.print(" STATE=");
+        Serial.print((int)JWPLC_Ethernet.runtimeState());
+        Serial.print(" ERROR=");
+        Serial.print((int)JWPLC_Ethernet.lastError());
+        Serial.print(" CODE=");
+        Serial.println(JWPLC_Ethernet.diagnosticCode());
+    }
+
     if (JWPLC_Ethernet.isReady())
     {
         if (phase == WAIT_COMMAND)
