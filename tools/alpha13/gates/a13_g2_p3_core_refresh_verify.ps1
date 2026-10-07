@@ -304,15 +304,33 @@ try
     $coreFinal = Get-A13Sha256 -Path $CorePath
     $dirtyFinal = @(Get-A13TrackedDirty | Sort-Object)
     $stagedFinal = @(Get-A13Staged)
-    $expectedFinalDirty = @($ExpectedCandidate.Keys + $CoreRelative | Sort-Object)
+
+    $expectedFinalDirty = @($ExpectedCandidate.Keys)
+    $expectedFinalDirty += $CoreRelative
+    $expectedFinalDirty = @($expectedFinalDirty | Sort-Object)
     $dirtyFinalDiff = @(Compare-Object -ReferenceObject $expectedFinalDirty -DifferenceObject $dirtyFinal)
+
+    $candidateFinalValid = $true
+    foreach ($relative in $ExpectedCandidate.Keys)
+    {
+        if ((Get-GitBlobSha -Path $relative) -ne $ExpectedCandidate[$relative])
+        {
+            $candidateFinalValid = $false
+        }
+    }
 
     & git diff --check
     $diffCheck = ($LASTEXITCODE -eq 0)
 
-    if ($coreFinal -ne $coreAfterBuild -or $dirtyFinalDiff.Count -ne 0 -or $stagedFinal.Count -ne 0 -or -not $diffCheck)
+    if (
+        $coreFinal -ne $coreAfterBuild -or
+        -not $candidateFinalValid -or
+        $dirtyFinalDiff.Count -ne 0 -or
+        $stagedFinal.Count -ne 0 -or
+        -not $diffCheck
+    )
     {
-        Finish-G2P3 -Status 'REVIEW' -Reason 'FINAL_REPO_AUDIT_FAILED' -HarnessFailure 'YES' -ExitCode 40 -Extra @("CORE_FINAL_SHA256=$coreFinal","DIRTY=$($dirtyFinal -join ';')","STAGED=$($stagedFinal -join ';')","DIFF_CHECK=$diffCheck")
+        Finish-G2P3 -Status 'REVIEW' -Reason 'FINAL_REPO_AUDIT_FAILED' -HarnessFailure 'YES' -ExitCode 40 -Extra @("CORE_FINAL_SHA256=$coreFinal","CANDIDATE_BLOBS_FINAL=$candidateFinalValid","DIRTY=$($dirtyFinal -join ';')","STAGED=$($stagedFinal -join ';')","DIFF_CHECK=$diffCheck")
     }
 
     Finish-G2P3 -Status 'PASS' -Reason 'CORE_REFRESH_AND_NORMAL_LINK_PASS' -ExitCode 0 -Extra @(
@@ -330,6 +348,7 @@ try
         'BOARDS_LOCAL_UNCHANGED=True',
         "TRACKED_DIRTY_FINAL=$($dirtyFinal.Count)",
         "STAGED_FINAL=$($stagedFinal.Count)",
+        "CANDIDATE_BLOBS_FINAL=$candidateFinalValid",
         "DIFF_CHECK_FINAL=$diffCheck",
         "BUILD_LOG=$BuildWrapperLog",
         "VERIFY_LOG=$VerifyWrapperLog"
