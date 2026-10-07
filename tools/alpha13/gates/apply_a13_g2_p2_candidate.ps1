@@ -20,7 +20,7 @@ $ExpectedBaseline = @{
 
 $ExpectedCandidate = @{
     $InitRelative = '23efb3935a34e6b5649875b57c804e60538827cd'
-    $PerRelative  = '875a50fd64552e8c4a4300e07b9494d2c32605d7'
+    $PerRelative  = 'c3d53566d274e95b7dda111327140b5393f7db35'
     $HdrRelative  = '288667f1caa08142e2a155b8c85f24b2aa5beb44'
 }
 
@@ -41,6 +41,19 @@ function Get-Blob
     if ($LASTEXITCODE -ne 0 -or $value.Count -ne 1)
     {
         throw "git hash-object fallo para $RelativePath"
+    }
+
+    return ([string]$value[0]).Trim()
+}
+
+function Get-RawBlob
+{
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    $value = @(& git -C $RepoRoot hash-object --no-filters -- $Path 2>&1)
+    if ($LASTEXITCODE -ne 0 -or $value.Count -ne 1)
+    {
+        throw "git hash-object fallo para $Path"
     }
 
     return ([string]$value[0]).Trim()
@@ -174,7 +187,7 @@ try
 
     $perOldReady = '    g_ioState.initialized = true;'
     $perNewReady = @(
-        '    // El snapshot existe desde este punto, pero las E/S todavía no están',
+        '    // El snapshot existe desde este punto, pero las E/S todavia no estan',
         '    // listas hasta que initPeripherals() complete I2C/TCA y habilite EN_IO.',
         '    g_ioState.initialized = false;'
     ) -join $lf
@@ -202,9 +215,47 @@ try
     ) -join $lf
     $hdr = Replace-ExactOnce -Text $hdr -Old $hdrOld -New $hdrNew -Label 'IO_READY_DECLARATION'
 
-    Write-Utf8Lf -Path $initPath -Text $init
-    Write-Utf8Lf -Path $perPath -Text $per
-    Write-Utf8Lf -Path $hdrPath -Text $hdr
+    $tempRoot = Join-Path $env:TEMP (
+        'jwplc_a13_g2_p2_candidate_' + [Guid]::NewGuid().ToString('N')
+    )
+    New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
+
+    try
+    {
+        $tempInit = Join-Path $tempRoot 'peripherals_init.cpp'
+        $tempPer = Join-Path $tempRoot 'jwplc_peripherals.cpp'
+        $tempHdr = Join-Path $tempRoot 'jwplc_peripherals.h'
+
+        Write-Utf8Lf -Path $tempInit -Text $init
+        Write-Utf8Lf -Path $tempPer -Text $per
+        Write-Utf8Lf -Path $tempHdr -Text $hdr
+
+        $tempCandidates = @(
+            [PSCustomObject]@{ Name = $InitRelative; Path = $tempInit; Expected = $ExpectedCandidate[$InitRelative] },
+            [PSCustomObject]@{ Name = $PerRelative; Path = $tempPer; Expected = $ExpectedCandidate[$PerRelative] },
+            [PSCustomObject]@{ Name = $HdrRelative; Path = $tempHdr; Expected = $ExpectedCandidate[$HdrRelative] }
+        )
+
+        foreach ($candidate in $tempCandidates)
+        {
+            $tempBlob = Get-RawBlob -Path $candidate.Path
+            if ($tempBlob -ne $candidate.Expected)
+            {
+                throw "PREAPPLY_CANDIDATE_BLOB_MISMATCH $($candidate.Name) actual=$tempBlob expected=$($candidate.Expected)"
+            }
+        }
+
+        [IO.File]::WriteAllBytes($initPath, [IO.File]::ReadAllBytes($tempInit))
+        [IO.File]::WriteAllBytes($perPath, [IO.File]::ReadAllBytes($tempPer))
+        [IO.File]::WriteAllBytes($hdrPath, [IO.File]::ReadAllBytes($tempHdr))
+    }
+    finally
+    {
+        if (Test-Path -LiteralPath $tempRoot)
+        {
+            Remove-Item -LiteralPath $tempRoot -Recurse -Force
+        }
+    }
 
     foreach ($relative in $ExpectedCandidate.Keys)
     {
