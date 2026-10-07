@@ -395,6 +395,7 @@ try
 
     $allowed = @(
         'docs/v2.1.0-alpha.13/ALPHA13_STATUS.md',
+        'docs/v2.1.0-alpha.13/A13_G2_P2_CANDIDATE_DESIGN_20261007.md',
         'tools/alpha13/candidates/a13_g2_p2_tca_startup.patch',
         'tools/alpha13/gates/apply_a13_g2_p2_candidate.ps1',
         'tools/alpha13/gates/a13_g2_p2_tca_startup_candidate.ps1',
