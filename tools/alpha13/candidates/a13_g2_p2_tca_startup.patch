@@ -1,0 +1,70 @@
+diff --git a/JWPLC/2.1.0/cores/jwcontrol/peripherals_init.cpp b/JWPLC/2.1.0/cores/jwcontrol/peripherals_init.cpp
+--- a/JWPLC/2.1.0/cores/jwcontrol/peripherals_init.cpp
++++ b/JWPLC/2.1.0/cores/jwcontrol/peripherals_init.cpp
+@@ -78,17 +78,20 @@ void initPeripherals(void)
+ 
+     jwplcSystemClearOutputShadow();
+ 
+-    (void)TCA6424A_writeBank(TCA6424A_DEFAULT_ADDRESS, 1, 0x00);
+-    (void)TCA6424A_writeBank(TCA6424A_DEFAULT_ADDRESS, 2, 0x00);
+-
+-    (void)TCA6424A_setBankDirection(TCA6424A_DEFAULT_ADDRESS, 0, 0xFF);
+-    (void)TCA6424A_setBankDirection(TCA6424A_DEFAULT_ADDRESS, 1, 0x00);
+-    (void)TCA6424A_setBankDirection(TCA6424A_DEFAULT_ADDRESS, 2, 0xFF);
++    if (!TCA6424A_writeBank(TCA6424A_DEFAULT_ADDRESS, 1, 0x00) ||
++        !TCA6424A_writeBank(TCA6424A_DEFAULT_ADDRESS, 2, 0x00) ||
++        !TCA6424A_setBankDirection(TCA6424A_DEFAULT_ADDRESS, 0, 0xFF) ||
++        !TCA6424A_setBankDirection(TCA6424A_DEFAULT_ADDRESS, 1, 0x00) ||
++        !TCA6424A_setBankDirection(TCA6424A_DEFAULT_ADDRESS, 2, 0xFF))
++    {
++        return;
++    }
+ 
+     gpio_set_level((gpio_num_t)EN_IO, 1);
+     vTaskDelay(pdMS_TO_TICKS(2));
+ 
+     g_jwplc_peripherals_initialized = true;
++    jwplcSystemSetIOReady(true);
+ #else
+     jwplcSystemInitState();
+     g_jwplc_peripherals_initialized = true;
++    jwplcSystemSetIOReady(true);
+ #endif
+ }
+diff --git a/JWPLC/2.1.0/cores/jwcontrol/jwplc_peripherals.cpp b/JWPLC/2.1.0/cores/jwcontrol/jwplc_peripherals.cpp
+--- a/JWPLC/2.1.0/cores/jwcontrol/jwplc_peripherals.cpp
++++ b/JWPLC/2.1.0/cores/jwcontrol/jwplc_peripherals.cpp
+@@ -157,7 +157,9 @@ void jwplcSystemInitState(void)
+     g_ioState.di_logical_bank0 = 0;
+     g_ioState.do_bank1 = 0;
+     g_ioState.do_bank2 = 0;
+-    g_ioState.initialized = true;
++    // El snapshot existe desde este punto, pero las E/S todavía no están
++    // listas hasta que initPeripherals() complete I2C/TCA y habilite EN_IO.
++    g_ioState.initialized = false;
+     g_ioState.display_dirty = true;
+     g_ioState.last_scan_ms = millis();
+     g_ioState.last_display_refresh_ms = 0;
+@@ -184,6 +186,11 @@ void jwplcSystemInitState(void)
+     g_lastDisplayBeginAttemptMs = 0;
+ }
+ 
++void jwplcSystemSetIOReady(bool ready)
++{
++    g_ioState.initialized = ready;
++}
++
+ void jwplcSystemSetOutputShadow(uint8_t bank1, uint8_t bank2)
+ {
+     if ((g_ioState.do_bank1 != bank1) || (g_ioState.do_bank2 != bank2))
+diff --git a/JWPLC/2.1.0/cores/jwcontrol/jwplc_peripherals.h b/JWPLC/2.1.0/cores/jwcontrol/jwplc_peripherals.h
+--- a/JWPLC/2.1.0/cores/jwcontrol/jwplc_peripherals.h
++++ b/JWPLC/2.1.0/cores/jwcontrol/jwplc_peripherals.h
+@@ -53,6 +53,7 @@ const JWPLC_RTCState* jwplcGetRTCState(void);
+ 
+ // Runtime automático JWPLC
+ void jwplcSystemInitState(void);
++void jwplcSystemSetIOReady(bool ready);
+ void jwplcSystemScanIO(void);
+ void jwplcSystemTickRTC(void);
+ void jwplcSystemDisplayHook(void);

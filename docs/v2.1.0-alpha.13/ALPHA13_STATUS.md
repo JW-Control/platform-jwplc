@@ -306,7 +306,7 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ```text
 NEXT_GATE=G2-P2 / A13-002
 OBJECTIVE=minimal source candidate for safe TCA startup and truthful IO readiness
-STATE=READY_FOR_CANDIDATE_DESIGN
+STATE=READY_TO_APPLY_AND_RUN_SOURCE_FIRST
 PREREQUISITE=G2_P1_PASS
 ```
 
@@ -516,6 +516,73 @@ en LOW y `JWPLC_IO.ready()==false` ante cualquiera de las cinco fallas, y
 sólo declarar ready después de completar correctamente la configuración TCA.
 
 No regenerar todavía `core.a`: primero debe pasar source-first el candidato.
+
+Diseño G2-P2 fijado:
+
+```text
+PRODUCT_FILES=3
+1 cores/jwcontrol/peripherals_init.cpp
+2 cores/jwcontrol/jwplc_peripherals.cpp
+3 cores/jwcontrol/jwplc_peripherals.h
+PUBLIC_API_BREAK=NO
+CORE_A_REFRESH=NOT_YET
+```
+
+Cambios mínimos:
+
+```text
+jwplcSystemInitState() -> IO ready=false
+post-probe TCA ops -> every return checked
+any failed op -> return with EN_IO still LOW
+successful startup -> EN_IO HIGH -> settle -> peripheral init true -> IO ready=true
+non-Basic path -> explicit IO ready=true after system state init
+```
+
+Identidad esperada del candidato local:
+
+```text
+peripherals_init.cpp blob=23efb3935a34e6b5649875b57c804e60538827cd
+jwplc_peripherals.cpp blob=875a50fd64552e8c4a4300e07b9494d2c32605d7
+jwplc_peripherals.h blob=288667f1caa08142e2a155b8c85f24b2aa5beb44
+staged=0
+commit=NO
+core.a SHA256=78d0c0ab14f156b96116529e88872340d51877af40d24ba3559f6081e0bf34fb
+```
+
+Infraestructura G2-P2:
+
+```text
+tools/alpha13/candidates/a13_g2_p2_tca_startup.patch
+tools/alpha13/gates/apply_a13_g2_p2_candidate.ps1
+tools/alpha13/gates/run_a13_g2_p2_apply_candidate.bat
+tools/alpha13/gates/a13_g2_p2_tca_startup_candidate.ps1
+tools/alpha13/gates/a13_g2_tca_startup_candidate_client.py
+tools/alpha13/gates/run_a13_g2_p2_tca_startup_candidate.bat
+tools/alpha13/firmware/a13_g2_tca_startup_candidate_probe/a13_g2_tca_startup_candidate_probe.ino
+```
+
+Contrato source-first:
+
+```text
+control:
+attempt=31
+ok=31
+EN_IO latch=HIGH
+peripherals initialized=YES
+IO ready=YES
+
+fault step N:
+attempt=(1<<N)-1
+ok=(1<<(N-1))-1
+EN_IO high requested=NO
+EN_IO latch=LOW
+peripherals initialized=NO
+IO ready=NO
+```
+
+El gate vuelve a compilar las seis piernas desde `cores/jwcontrol` con el
+perfil completo `jwplcbasic`, preserva el `core.a` versionado y restaura la
+instrumentación temporal al candidato exacto antes de cualquier upload.
 
 ## Observación mapeada — delay() y temporización no bloqueante
 
