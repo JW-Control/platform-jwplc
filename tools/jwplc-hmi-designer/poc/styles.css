@@ -1313,9 +1313,9 @@ body.bottom-collapsed .bottom-tabs { border-bottom: 0; }
   height: 4px;
 }
 .bar-top-slider-wrap {
-  padding: 6px 4px 8px;
-  background: #0f1c26;
-  border: 1px solid #23394a;
+  padding: 8px 10px;
+  background: #13222e;
+  border: 1px solid #213543;
   border-radius: 6px;
   margin: 0 0 10px;
 }
@@ -1323,26 +1323,28 @@ body.bottom-collapsed .bottom-tabs { border-bottom: 0; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 5px;
-  font-size: 10px;
+  margin-bottom: 6px;
+  font-size: 10.5px;
 }
 .bar-top-slider-header span {
-  color: #8fa6b8;
+  color: #52c9ff;
   font-weight: 600;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.2px;
 }
 .bar-top-slider-header strong {
   font-family: "Cascadia Code", Consolas, monospace;
-  font-size: 10.5px;
-  color: #52c9ff;
+  font-size: 12px;
+  color: #00d7ef;
 }
 .bar-top-slider-input {
   width: 100%;
   accent-color: #ff9a43;
   cursor: pointer;
-  height: 5px;
+  height: 6px;
   margin: 0;
   display: block;
+  touch-action: none;
+  user-select: none;
 }
 .bar-color-input-wrap {
   display: flex;
@@ -1522,6 +1524,12 @@ body.bottom-collapsed .bottom-tabs { border-bottom: 0; }
   gap: 4px;
   width: 100%;
 }
+.bar-visual-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  width: 100%;
+}
 .bar-visual-grid-2 {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -1569,6 +1577,307 @@ body.bottom-collapsed .bottom-tabs { border-bottom: 0; }
   color: #6a8292;
   font-weight: 500;
   margin-left: auto;
+}
+
+/* ==========================================================================
+   Alpha11 · Inspector BAR Rediseño — Propuesta 2: Visual e Intuitivo
+   ========================================================================== */
+
+.bar-inspector-wrap {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+.bar-nav-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #0d1720;
+  border-bottom: 1px solid #1e313f;
+  margin: 0 -10px 10px;
+  padding: 0 10px;
+}
+
+.bar-main-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 6px 0 6px;
+}
+
+.bar-main-tab {
+  flex: 1;
+  padding: 7px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid #253948;
+  background: #13222e;
+  color: #8ea3b3;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.bar-main-tab:hover {
+  background: #1a2f3e;
+  border-color: #3b5366;
+  color: #dce9f1;
+}
+
+.bar-main-tab.active {
+  background: rgba(255, 154, 67, 0.14);
+  border-color: #ff9a43;
+  color: #ff9a43;
+  font-weight: 700;
+  box-shadow: 0 0 8px rgba(255, 154, 67, 0.22);
+}
+
+.bar-sub-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 2px 0 8px;
+}
+
+.bar-sub-tab {
+  flex: 1;
+  padding: 5px 2px;
+  font-size: 10px;
+  font-weight: 600;
+  text-align: center;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid #213543;
+  background: #101c26;
+  color: #7e98ab;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.bar-sub-tab:hover {
+  background: #182a38;
+  border-color: #2f495c;
+  color: #dce9f1;
+}
+
+.bar-sub-tab.active {
+  background: rgba(255, 154, 67, 0.12);
+  border-color: #ff9a43;
+  color: #ff9a43;
+  font-weight: 700;
+}
+
+.bar-scroll-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bar-card {
+  background: #13222e;
+  border: 1px solid #213543;
+  border-radius: 6px;
+  padding: 10px 12px;
+  transition: border-color 0.15s ease;
+}
+
+.bar-card-section-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #8ea3b3;
+  margin-bottom: 6px;
+  letter-spacing: 0.2px;
+}
+
+.bar-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.bar-card-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #dce9f1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bar-cyan-title {
+  color: #52c9ff;
+}
+
+.bar-cyan-title svg {
+  stroke: #00d7ef;
+  color: #00d7ef;
+  flex-shrink: 0;
+}
+
+.bar-two-cols {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  width: 100%;
+}
+
+.bar-field-subtitle {
+  font-size: 10px;
+  color: #8ea3b3;
+  margin-bottom: 4px;
+  display: block;
+  font-weight: 600;
+}
+
+.bar-info-note {
+  background: rgba(0, 215, 239, 0.08);
+  border: 1px solid rgba(0, 215, 239, 0.22);
+  border-radius: 5px;
+  padding: 6px 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 10px;
+  color: #9bc2d4;
+  line-height: 1.35;
+}
+
+.bar-info-icon {
+  color: #00d7ef;
+  font-weight: bold;
+  font-size: 11px;
+  flex-shrink: 0;
+  line-height: 1;
+  margin-top: 1px;
+}
+
+.bar-cyan-readout {
+  color: #00d7ef !important;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-weight: 700;
+}
+
+.bar-code-box {
+  background: #09131a;
+  border: 1px solid #1e3342;
+  border-radius: 5px;
+  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 11px;
+  color: #52c9ff;
+}
+
+.bar-code-box code {
+  user-select: all;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bar-copy-icon-btn {
+  background: #182b3a;
+  border: 1px solid #2d4557;
+  border-radius: 4px;
+  color: #52c9ff;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 3px 6px;
+  flex-shrink: 0;
+  transition: all 0.12s;
+  line-height: 1;
+}
+
+.bar-copy-icon-btn:hover {
+  background: #233f55;
+  border-color: #52c9ff;
+  color: #fff;
+}
+
+.bar-toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 32px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.bar-toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.bar-toggle-slider {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #1a2c3a;
+  border: 1px solid #2c4456;
+  border-radius: 18px;
+  transition: .2s;
+}
+
+.bar-toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 12px;
+  width: 12px;
+  left: 2px;
+  bottom: 2px;
+  background-color: #8ea3b3;
+  border-radius: 50%;
+  transition: .2s;
+}
+
+.bar-toggle-switch input:checked + .bar-toggle-slider {
+  background-color: #0284c7;
+  border-color: #38bdf8;
+}
+
+.bar-toggle-switch input:checked + .bar-toggle-slider:before {
+  transform: translateX(14px);
+  background-color: #ffffff;
+}
+
+.bar-action-btn {
+  background: #152735;
+  border: 1px solid #2e475a;
+  color: #c9d8e4;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.12s;
+}
+
+.bar-action-btn:hover {
+  background: #1e384d;
+  border-color: #52c9ff;
+  color: #fff;
+}
+
+.bar-action-danger {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #f87171;
+}
+
+.bar-action-danger:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: #ef4444;
+  color: #fff;
 }
 
 
