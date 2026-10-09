@@ -1,6 +1,6 @@
 # v2.1.0-alpha.13 — Estado operativo y continuidad
 
-Actualizado: 2026-10-09 — G2-P4 físico PASS
+Actualizado: 2026-10-09 — G2 / A13-002 CLOSED_PASS
 
 > Fuente viva de continuidad del alpha. Un chat nuevo debe verificar el estado real
 > del repositorio y continuar desde `NEXT_GATE`.
@@ -304,10 +304,10 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=G2-P5 / A13-002
-OBJECTIVE=final diff audit, explicit staging and product commit
-STATE=READY_FOR_FINAL_AUDIT
-PREREQUISITE=G2_P4_PASS
+NEXT_GATE=TFT-PRE1
+OBJECTIVE=baseline temporal de startup TFT sin cambio productivo
+STATE=READY_TO_RUN_AFTER_PULL
+PREREQUISITE=G2_CLOSED_PASS
 ```
 
 No modificar todavía código productivo de G2 hasta completar su preflight
@@ -320,12 +320,16 @@ G2_PRE1=PASS
 G2_CLASSIFICATION=ROBUSTNESS_FIX
 G2_PRIORITY=P0
 G2_CONFIDENCE=HIGH
-G2_STATUS=PHYSICAL_PASS_PENDING_COMMIT
+G2_STATUS=CLOSED_PASS
 G2_P1_R2=PASS
 G2_P2_R5=PASS
 G2_P3=PASS
 G2_P4=PASS
-PRODUCT_CHANGE=LOCAL_UNCOMMITTED
+G2_P5=PASS
+PRODUCT_CHANGE=COMMITTED_PUSHED
+PRODUCT_COMMIT=6a585693
+REMOTE_PUSH=PASS
+WORKTREE_AFTER_COMMIT=CLEAN
 ```
 
 Preflight read-only confirmado sobre HEAD:
@@ -998,10 +1002,11 @@ dirty pattern persists after IDLE/display begin -> DISPLAY REGRESSION
 Acción:
 
 ```text
-TFT_STARTUP_DIRTY=REVIEW_AFTER_G2
-TFT_NEW_FEATURES=OUT_OF_SCOPE remains
-ROBUSTNESS_REGRESSION_IF_PERSISTENT=YES
-DO_NOT_CHANGE_TFT_WHILE_G2_CANDIDATE_DIRTY=YES
+TFT_STARTUP_DIRTY=OPEN_ROBUSTNESS_OBSERVATION
+TFT_PRE1=BASELINE_TIMING_WITH_NORMAL_PACKAGE
+TFT_NEW_FEATURES=OUT_OF_SCOPE
+PRODUCT_CHANGE_BEFORE_MEASUREMENT=NO
+G3_BLOCKED_UNTIL_TFT_PRE1_CLASSIFIED=YES
 ```
 
 Si el fenómeno es sólo transitorio, la mejora software posible es adelantar
@@ -1014,7 +1019,7 @@ revisar el esquemático.
 ## Gates restantes
 
 ```text
-G2  A13-002 TCA startup / EN_IO                  PASS_PENDING_COMMIT
+G2  A13-002 TCA startup / EN_IO                  CLOSED_PASS
 G3  A13-004 TCA RMW/shadow atomicity             PENDING
 G4  A13-003 TFT batch task ownership             PENDING
 G5  A13-005 + A13-006 TCP correctness            PENDING
