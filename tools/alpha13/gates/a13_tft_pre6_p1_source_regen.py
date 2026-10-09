@@ -214,8 +214,8 @@ def main() -> int:
     # Guard the compiled backend's own translation unit. Proven to work
     # in PRE5 R3; no changes to upstream TFT_eSPI itself.
     backend_cpp = backend_copy / "TFT_eSPI.cpp"
-    current_cpp = read_exact(backend_cpp)
-    include = '#include "TFT_eSPI.h"'
+    current_cpp_bytes = backend_cpp.read_bytes()
+    include = b'#include "TFT_eSPI.h"'
     guard = (
         lf
         + "#if !defined(ST7789_DRIVER) || !defined(JWPLC_TFT_DEFER_DISPON)"
@@ -223,9 +223,10 @@ def main() -> int:
         + "#error A13_TFT_PRE6_BACKEND_CONFIGURATION_NOT_PROPAGATED"
         + lf
         + "#endif"
-    )
-    current_cpp = replace_once(current_cpp, include, include + guard, "BACKEND_INCLUDE")
-    write_exact(backend_cpp, current_cpp)
+    ).encode("ascii")
+    if current_cpp_bytes.count(include) != 1:
+        raise ValueError("BACKEND_INCLUDE_ANCHOR_COUNT_INVALID")
+    backend_cpp.write_bytes(current_cpp_bytes.replace(include, include + guard, 1))
 
     for name, expected in EXPECTED_CANDIDATE_SHA256.items():
         p = (
