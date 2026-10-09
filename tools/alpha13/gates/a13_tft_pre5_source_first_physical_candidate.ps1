@@ -15,6 +15,7 @@ $ExpectedCandidateInitSha = '44873be82fe836084934a328df77f098e9ab88d212dd1d570da
 $ExpectedBackendVersion = '2.5.43'
 $ExpectedBackendCppSha = '01ed6edb0530d38b94ddeac079ba81633aa21d77d049b12da21a37f4bec69ee1'
 $ExpectedBackendHeaderSha = 'b1b2789ace7ac8fd4a4c414054757d91e6e62649a23d74226ea28ceb8d6f4462'
+$ExpectedBackendInitSha = 'e21cae2ac84285dc0e77648eca67ca753f41f7da3c271594ede750b725136c10'
 
 $ScriptDir = $PSScriptRoot
 $RepoRoot = [IO.Path]::GetFullPath((Join-Path $ScriptDir '..\..\..'))
@@ -163,6 +164,14 @@ try {
         }
     }
 
+    # Fail fast and exercise the PowerShell array contract before any compile.
+    $probeIno = @(Get-ChildItem -LiteralPath $ProbeDir -File -Filter '*.ino')
+    if ($probeIno.Count -ne 1) {
+        Finish-TFTPre5 -Status 'REVIEW' -Reason 'PROBE_INO_COUNT_INVALID' -HarnessFailure 'YES' -ExitCode 18 -Extra @("PROBE_INO_COUNT=$($probeIno.Count)")
+    }
+    Write-Host "PROBE_INO_COUNT=$($probeIno.Count)"
+    Write-Host "PROBE_INO_NAME=$($probeIno[0].Name)"
+
     $branch = (git branch --show-current).Trim()
     $head = (git rev-parse HEAD).Trim()
     if ($branch -ne $ExpectedBranch) {
@@ -275,9 +284,11 @@ try {
     $installedBackendRoot = $backendSelection.Root
     $installedBackendCpp = Join-Path $installedBackendRoot 'TFT_eSPI.cpp'
     $installedBackendHeader = Join-Path $installedBackendRoot 'TFT_eSPI.h'
+    $installedBackendInit = Join-Path $installedBackendRoot 'TFT_Drivers\ST7789_Init.h'
 
     if ((Get-A13Sha256 -Path $installedBackendCpp) -ne $ExpectedBackendCppSha -or
-        (Get-A13Sha256 -Path $installedBackendHeader) -ne $ExpectedBackendHeaderSha) {
+        (Get-A13Sha256 -Path $installedBackendHeader) -ne $ExpectedBackendHeaderSha -or
+        (Get-A13Sha256 -Path $installedBackendInit) -ne $ExpectedBackendInitSha) {
         Finish-TFTPre5 -Status 'REVIEW' -Reason 'BACKEND_IDENTITY_MISMATCH' -EnvironmentFailure 'YES' -ExitCode 17
     }
 
@@ -295,11 +306,6 @@ try {
     Copy-Item -LiteralPath $pre4Setup -Destination (Join-Path $CandidateJwplcSrc 'tft_setup.h') -Force
 
     $script:Pre5Stage = 'PROBE_COPY'
-    $probeIno = @(Get-ChildItem -LiteralPath $ProbeDir -File -Filter '*.ino')
-    if ($probeIno.Count -ne 1) {
-        Finish-TFTPre5 -Status 'REVIEW' -Reason 'PROBE_INO_COUNT_INVALID' -HarnessFailure 'YES' -ExitCode 18
-    }
-
     Copy-Item -LiteralPath $probeIno[0].FullName -Destination (Join-Path $CandidateProbeDir $probeIno[0].Name) -Force
     Copy-Item -LiteralPath $pre4Setup -Destination (Join-Path $CandidateProbeDir 'tft_setup.h') -Force
 
@@ -425,8 +431,11 @@ try {
     $displayReady = Get-A13LogValue -Text $clientText -Key 'A13_TFT_PRE1_CLIENT_DISPLAY_READY'
     $ioReady = Get-A13LogValue -Text $clientText -Key 'A13_TFT_PRE1_CLIENT_IO_READY'
     $clientPass = Get-A13LogValue -Text $clientText -Key 'A13_TFT_PRE1_CLIENT_PASS'
+    $tftRstEnable = Get-A13LogValue -Text $clientText -Key 'A13_TFT_PRE1_CLIENT_TFT_RST_OUTPUT_ENABLE'
+    $tftRstLatch = Get-A13LogValue -Text $clientText -Key 'A13_TFT_PRE1_CLIENT_TFT_RST_OUTPUT_LATCH'
 
-    if ($null -eq $setupEntry -or $displayReady -ne 'YES' -or $ioReady -ne 'YES' -or $clientPass -ne 'YES') {
+    if ($null -eq $setupEntry -or $displayReady -ne 'YES' -or $ioReady -ne 'YES' -or $clientPass -ne 'YES' -or
+        $tftRstEnable -ne 'YES' -or $tftRstLatch -ne 'HIGH') {
         Finish-TFTPre5 -Status 'REVIEW' -Reason 'CANDIDATE_RUNTIME_CONTRACT_FAILED' -ProductFailure 'YES' -ExitCode 23
     }
 
@@ -436,12 +445,14 @@ try {
     $displayShaAfter = Get-A13Sha256 -Path $OfficialDisplayArchive
     $backendCppShaAfter = Get-A13Sha256 -Path $installedBackendCpp
     $backendHeaderShaAfter = Get-A13Sha256 -Path $installedBackendHeader
+    $backendInitShaAfter = Get-A13Sha256 -Path $installedBackendInit
     $candidateSetupShaAfter = Get-A13Sha256 -Path (Join-Path $CandidateProbeDir 'tft_setup.h')
     if ($coreShaAfter -ne $ExpectedCoreArchiveSha -or
         $tftShaAfter -ne $officialTftShaBefore -or
         $displayShaAfter -ne $officialDisplayShaBefore -or
         $backendCppShaAfter -ne $ExpectedBackendCppSha -or
         $backendHeaderShaAfter -ne $ExpectedBackendHeaderSha -or
+        $backendInitShaAfter -ne $ExpectedBackendInitSha -or
         $candidateSetupShaAfter -ne $ExpectedCandidateSetupSha) {
         Finish-TFTPre5 -Status 'REVIEW' -Reason 'AFTER_UPLOAD_SOURCE_OR_ARCHIVE_IDENTITY_CHANGED' -HarnessFailure 'YES' -ExitCode 26
     }
@@ -477,6 +488,8 @@ try {
         "SETUP_ENTRY_MS=$setupEntry",
         "DISPLAY_READY=$displayReady",
         "IO_READY=$ioReady",
+        "TFT_RST_OUTPUT_ENABLE=$tftRstEnable",
+        "TFT_RST_OUTPUT_LATCH=$tftRstLatch",
         'VISUAL_POWER_CYCLE_REQUIRED=YES',
         'EXPECTED_VISUAL=OFF_TO_BLACK_TO_IDLE',
         'VISUAL_FIX_CONFIRMED=NO_PENDING_USER_VIDEO',
