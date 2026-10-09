@@ -107,11 +107,15 @@
   const shapeSides2 = document.getElementById('shapeSides2');
   const shapeSidesWrap2 = document.getElementById('shapeSidesWrap2');
   const shapeRotation = document.getElementById('shapeRotation');
+  const shapeBorderRow = document.getElementById('shapeBorderRow');
+  const shapeBorderLabel = document.getElementById('shapeBorderLabel');
+  const shapeBorderToggleWrap = document.getElementById('shapeBorderToggleWrap');
   const shapeBorderEnabled = document.getElementById('shapeBorderEnabled');
   const shapeBorderColorInput = document.getElementById('shapeBorderColorInput');
   const shapeBorderColorSwatch = document.getElementById('shapeBorderColorSwatch');
   const shapeBorderColorCode = document.getElementById('shapeBorderColorCode');
   const shapeBorderSize = document.getElementById('shapeBorderSize');
+  const shapeFillRow = document.getElementById('shapeFillRow');
   const shapeFillEnabled = document.getElementById('shapeFillEnabled');
   const shapeFillColorInput = document.getElementById('shapeFillColorInput');
   const shapeFillColorSwatch = document.getElementById('shapeFillColorSwatch');
@@ -127,11 +131,26 @@
   const rawTextX = document.getElementById('rawTextX');
   const rawTextY = document.getElementById('rawTextY');
   const rawTextSize = document.getElementById('rawTextSize');
+  const rawTextFont = document.getElementById('rawTextFont');
   const rawTextTransparent = document.getElementById('rawTextTransparent');
   const rawTextColor = document.getElementById('rawTextColor');
   const rawTextBackground = document.getElementById('rawTextBackground');
   const rawTextBackgroundWrap = document.getElementById('rawTextBackgroundWrap');
   const rawBoundsStatus = document.getElementById('rawBoundsStatus');
+  const rawScalePxHint = document.getElementById('rawScalePxHint');
+  const rawTextName = document.getElementById('rawTextName');
+  const rawDuplicateBtn = document.getElementById('rawDuplicateBtn');
+  const rawDeleteBtn = document.getElementById('rawDeleteBtn');
+  const rawTextColorSwatch = document.getElementById('rawTextColorSwatch');
+  const rawTextColorInput = document.getElementById('rawTextColorInput');
+  const rawTextColorCode = document.getElementById('rawTextColorCode');
+  const rawTextTransparentToggle = document.getElementById('rawTextTransparentToggle');
+  const rawTextBgColorWrap = document.getElementById('rawTextBgColorWrap');
+  const rawTextBgColorSwatch = document.getElementById('rawTextBgColorSwatch');
+  const rawTextBgColorInput = document.getElementById('rawTextBgColorInput');
+  const rawTextBgColorCode = document.getElementById('rawTextBgColorCode');
+  const rawInspectorContract = document.getElementById('rawInspectorContract');
+  const copyRawContractBtn = document.getElementById('copyRawContractBtn');
 
   const fieldName = document.getElementById('fieldName');
   const fieldId = document.getElementById('fieldId');
@@ -232,6 +251,7 @@
   let resizeInitialBounds = null;
   let resizeInitialPointer = null;
   let resizeInitialFields = null;
+  let resizeInitialPixelMap = null;
   let dragInitialPointer = null;
   let dragInitialFields = null;
   let isMarquee = false;
@@ -268,6 +288,51 @@
   let isPanning = false;
   let lastPanPointer = null;
 
+  function updateMiniPreviewViewport() {
+    const vpBox = document.getElementById('sidebarPreviewViewport');
+    const miniCanvas = document.getElementById('sidebarMiniPreviewCanvas');
+    const frame = document.getElementById('sidebarPreviewFrame');
+    const vp = canvasViewport || document.getElementById('canvasViewport');
+    if (!vpBox || !vp) return;
+    const vpRect = vp.getBoundingClientRect();
+    if (vpRect.width <= 0 || vpRect.height <= 0) return;
+
+    const canvasLeft = (vpRect.width - WIDTH * zoom) / 2 + panX;
+    const canvasTop = (vpRect.height - HEIGHT * zoom) / 2 + panY;
+
+    const visX1 = Math.max(0, -canvasLeft / zoom);
+    const visY1 = Math.max(0, -canvasTop / zoom);
+    const visX2 = Math.min(WIDTH, (vpRect.width - canvasLeft) / zoom);
+    const visY2 = Math.min(HEIGHT, (vpRect.height - canvasTop) / zoom);
+
+    const isZoomed = (visX2 - visX1 < WIDTH - 2) || (visY2 - visY1 < HEIGHT - 2);
+    if (isZoomed && zoom > 1.05) {
+      if (miniCanvas && frame) {
+        const cRect = miniCanvas.getBoundingClientRect();
+        const fRect = frame.getBoundingClientRect();
+        if (cRect.width > 0 && cRect.height > 0) {
+          const scaleX = cRect.width / WIDTH;
+          const scaleY = cRect.height / HEIGHT;
+          const leftOffset = cRect.left - fRect.left;
+          const topOffset = cRect.top - fRect.top;
+          vpBox.style.display = 'block';
+          vpBox.style.left = `${leftOffset + visX1 * scaleX}px`;
+          vpBox.style.top = `${topOffset + visY1 * scaleY}px`;
+          vpBox.style.width = `${Math.max(4, (visX2 - visX1) * scaleX)}px`;
+          vpBox.style.height = `${Math.max(4, (visY2 - visY1) * scaleY)}px`;
+          return;
+        }
+      }
+      vpBox.style.display = 'block';
+      vpBox.style.left = `${(visX1 / WIDTH) * 100}%`;
+      vpBox.style.top = `${(visY1 / HEIGHT) * 100}%`;
+      vpBox.style.width = `${((visX2 - visX1) / WIDTH) * 100}%`;
+      vpBox.style.height = `${((visY2 - visY1) / HEIGHT) * 100}%`;
+    } else {
+      vpBox.style.display = 'none';
+    }
+  }
+
   function updateStageTransform() {
     if (canvasStage) {
       canvasStage.style.transform = `translate(${panX}px, ${panY}px)`;
@@ -275,6 +340,7 @@
     if (canvasViewport) {
       canvasViewport.style.backgroundPosition = `${panX}px ${panY}px, ${panX + 12}px ${panY + 12}px`;
     }
+    updateMiniPreviewViewport();
   }
 
   function applyZoom(nextZoom) {
@@ -293,6 +359,7 @@
     }
     zoomSelect.value = String(val);
     render();
+    updateMiniPreviewViewport();
     window.dispatchEvent(new CustomEvent('jwplc:zoom-change', { detail: { zoom: val } }));
   }
 
@@ -333,12 +400,27 @@
   function fitSelection() {
     if (!canvasViewport) return;
     const fields = selectedFields();
-    if (!fields || fields.length === 0) {
-      fitCanvas();
-      return;
+    let b = null;
+    if (fields && fields.length > 0) {
+      b = getSelectionBounds(fields);
+    } else {
+      const selPm = window.JWPLCHMIPixelMaps?.getSelected?.();
+      if (selPm && selPm.pixels?.length) {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        selPm.pixels.forEach((p) => {
+          const px = selPm.x + p.x;
+          const py = selPm.y + p.y;
+          if (px < minX) minX = px;
+          if (px > maxX) maxX = px;
+          if (py < minY) minY = py;
+          if (py > maxY) maxY = py;
+        });
+        if (minX <= maxX && minY <= maxY) {
+          b = { minX, minY, maxX, maxY };
+        }
+      }
     }
 
-    const b = getSelectionBounds(fields);
     if (!b) {
       fitCanvas();
       return;
@@ -387,14 +469,19 @@
   let activePage = 0;
   let hmiPages = [{ id: 0, name: 'Principal' }];
 
+  // Padding (px) que el fondo opaco de RAW_TEXT agrega alrededor del texto.
+  const RAW_BG_PAD = 2;
+
   const rawState = {
     x: 20,
     y: 20,
-    size: 2,
-    value: 'TEMP: 25.6 C',
+    size: 1,
+    font: 'GLCD',
+    value: 'Texto RAW',
     foreground: 0xF800,
     background: 0xFFFF
   };
+
 
   function defaultTextField(key = 'text-1') {
     return {
@@ -465,12 +552,28 @@
   }
 
   function colorByName(name) {
-    return COLORS.find((color) => color.name === name) || COLORS[0];
+    if (name === 'TRANSPARENT' || name === -1) {
+      return { name: 'TRANSPARENT', value: -1 };
+    }
+    const str = String(name ?? '').trim();
+    const match = COLORS.find((color) => color.name.toUpperCase() === str.toUpperCase());
+    if (match) return match;
+
+    const num = (str.startsWith('0x') || str.startsWith('0X')) ? parseInt(str, 16) : Number(str);
+    if (Number.isFinite(num)) {
+      const val565 = num & 0xFFFF;
+      const byVal = COLORS.find((c) => c.value === val565);
+      if (byVal) return byVal;
+      return { name: hex565(val565), value: val565 };
+    }
+    return COLORS[0];
   }
 
   function colorName(value) {
-    const match = COLORS.find((color) => color.value === value);
-    return match ? match.name : hex565(value);
+    if (value === 'TRANSPARENT' || value === -1) return 'TRANSPARENT';
+    const num = Number(value) & 0xFFFF;
+    const match = COLORS.find((color) => color.value === num);
+    return match ? match.name : hex565(num);
   }
 
   function rgb565ToRgb888(value) {
@@ -485,11 +588,13 @@
   }
 
   function rgb565ToCss(value) {
+    if (value === 'TRANSPARENT' || value === -1) return 'transparent';
     const { r, g, b } = rgb565ToRgb888(value);
     return `rgb(${r}, ${g}, ${b})`;
   }
 
   function rgb565ToHex888(value) {
+    if (value === 'TRANSPARENT' || value === -1) return '#000000';
     const { r, g, b } = rgb565ToRgb888(value);
     return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
   }
@@ -505,17 +610,38 @@
 
   function ensureSelectOption(select, value) {
     if (!select) return;
+    const allowed = new Set(['TRANSPARENT', 'CUSTOM', ...COLORS.map((c) => c.name)]);
+    for (let i = select.options.length - 1; i >= 0; i--) {
+      if (!allowed.has(select.options[i].value)) {
+        select.options[i].remove();
+      }
+    }
+
+    if (value === 'TRANSPARENT' || value === -1) {
+      let opt = [...select.options].find((o) => o.value === 'TRANSPARENT');
+      if (!opt) {
+        opt = document.createElement('option');
+        opt.value = 'TRANSPARENT';
+        opt.textContent = 'TRANSPARENTE (Fondo libre)';
+        select.insertBefore(opt, select.firstChild);
+      }
+      select.value = 'TRANSPARENT';
+      return;
+    }
     const val565 = Number(value) & 0xFFFF;
     const matched = COLORS.find((c) => c.value === val565);
-    const name = matched ? matched.name : hex565(val565);
-    let opt = [...select.options].find((o) => o.value === name || o.value === hex565(val565));
-    if (!opt) {
-      opt = document.createElement('option');
-      opt.value = name;
-      opt.textContent = `${name} · ${hex565(val565)}`;
-      select.appendChild(opt);
+    if (matched) {
+      select.value = matched.name;
+    } else {
+      let opt = [...select.options].find((o) => o.value === 'CUSTOM');
+      if (!opt) {
+        opt = document.createElement('option');
+        opt.value = 'CUSTOM';
+        opt.textContent = 'Personalizado';
+        select.appendChild(opt);
+      }
+      select.value = 'CUSTOM';
     }
-    select.value = opt.value;
   }
 
   function indexFor(x, y) { return y * WIDTH + x; }
@@ -697,7 +823,9 @@
 
         const field = selectedField();
         if (field) {
-          if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
+          if (field.type === 'LINE') {
+            field.frameColor = selectedColor.value;
+          } else if (['RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
             if (field.fill) {
               field.fillColor = selectedColor.value;
             } else {
@@ -709,6 +837,7 @@
             field.valueColor = selectedColor.value;
           }
           syncInputsFromState();
+          syncShapeInspector();
           render();
           commitHistory();
         }
@@ -1174,7 +1303,7 @@
     const font = window.JWPLCGfxClassicFont;
     const glyph = font.glyphFor(charCode);
     const scale = Math.max(1, Math.trunc(size));
-    const isTransparent = (background === null || background === undefined || background === -1);
+    const isTransparent = (background === null || background === undefined || background === -1 || background === 'TRANSPARENT');
     for (let column = 0; column < font.cellWidth; column += 1) {
       const bits = column < font.bytesPerGlyph ? glyph[column] : 0;
       for (let row = 0; row < font.cellHeight; row += 1) {
@@ -1200,6 +1329,50 @@
       drawClassicChar(buffer, cursorX, cursorY, character.codePointAt(0), foreground, background, scale);
       cursorX += font.cellWidth * scale;
     }
+  }
+
+  function drawRawTextAt(buffer, text, x, y, foreground, background, size, fontId) {
+    if (!text) return;
+    const isTransparent = (background === null || background === undefined || background === -1 || background === 'TRANSPARENT');
+
+    // Primero calculamos los bounds del texto (sin padding).
+    const tb = rawTextBounds(text, size, fontId);
+
+    // Fondo opaco: un unico fillRect con RAW_BG_PAD px de margen en todos los
+    // lados, antes de pintar los glifos. Esto es uniforme para GLCD y FreeFonts.
+    if (!isTransparent && tb.width > 0 && tb.height > 0) {
+      fillBufferRect(
+        buffer,
+        x - RAW_BG_PAD, y - RAW_BG_PAD,
+        tb.width  + RAW_BG_PAD * 2,
+        tb.height + RAW_BG_PAD * 2,
+        background
+      );
+    }
+
+    // Ahora pintamos los glifos con fondo transparente (ya lo manejamos arriba).
+    const fonts = window.JWPLCDesignerFonts;
+    const font = fonts ? fonts.get(fontId) : null;
+    if (!font || font.kind === 'glcd') {
+      drawClassicTextAt(buffer, text, x, y, foreground, null, size);
+      return;
+    }
+    const mask = fonts.rasterize(font, text, size);
+    for (let row = 0; row < mask.height; row += 1) {
+      for (let column = 0; column < mask.width; column += 1) {
+        if (mask.data[row * mask.width + column]) {
+          fillBufferRect(buffer, x + column, y + row, 1, 1, foreground);
+        }
+      }
+    }
+  }
+
+  function rawTextBounds(text, size, fontId) {
+    const fonts = window.JWPLCDesignerFonts;
+    const font = fonts ? fonts.get(fontId) : null;
+    if (!font || font.kind === 'glcd') return nominalTextBounds(text, size);
+    if (!text) return { width: 0, height: 0 };
+    return { width: fonts.measureWidth(font, text, size), height: fonts.lineHeight(font, size) };
   }
 
   function nominalTextBounds(text, size) {
@@ -1267,18 +1440,20 @@
   function getFieldBounds(field) {
     if (!field) return { minX: 0, maxX: 0, minY: 0, maxY: 0, width: 0, height: 0 };
     if (field.type === 'RAW_TEXT') {
-      const tb = nominalTextBounds(field.text || '', field.size || 1);
+      const tb = rawTextBounds(field.text || '', field.size || 1, field.font);
       const w = Math.max(6, tb.width);
       const h = Math.max(7, tb.height);
+      const pad = field.transparentBackground ? 0 : RAW_BG_PAD;
       return {
-        minX: field.x,
-        maxX: field.x + w - 1,
-        minY: field.y,
-        maxY: field.y + h - 1,
-        width: w,
-        height: h
+        minX: field.x - pad,
+        maxX: field.x + w - 1 + pad,
+        minY: field.y - pad,
+        maxY: field.y + h - 1 + pad,
+        width:  w + pad * 2,
+        height: h + pad * 2
       };
     }
+
     if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
       const pts = getShapeTransformedVertices(field);
       let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
@@ -1313,6 +1488,27 @@
 
   function computeFieldGeometry(field) {
     if (!field) return null;
+    if (field.type === 'BAR') {
+      if (window.JWPLCHMIBar?.computeGeometry) {
+        return window.JWPLCHMIBar.computeGeometry(field);
+      }
+      const pad = effectiveFieldPadding(field);
+      const w = Math.max(24, Number(field.barWidth) || 110);
+      const h = Math.max(12, Number(field.barHeight) || 12);
+      return {
+        pad,
+        fieldX: field.x,
+        fieldY: field.y,
+        fieldW: w + 2 * pad,
+        fieldH: h + 2 * pad,
+        valueX: field.x + pad,
+        valueY: field.y + pad,
+        valueW: w,
+        valueH: h,
+        labelBounds: { width: 0, height: 0 },
+        unitBounds: { width: 0, height: 0 }
+      };
+    }
     if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT'].includes(field.type)) {
       const b = getFieldBounds(field);
       return {
@@ -1376,39 +1572,101 @@
   }
 
   function drawField(buffer, field) {
+    if (field.type === 'BAR') return null;
     const g = computeFieldGeometry(field);
-    fillBufferRect(buffer, g.fieldX, g.fieldY, g.fieldW, g.fieldH, field.backgroundColor);
+    const isTrans = field.transparentBackground || field.backgroundColor === 'TRANSPARENT' || field.backgroundColor === -1 || field.backgroundColor === null || field.backgroundColor === undefined;
+    if (!isTrans) {
+      fillBufferRect(buffer, g.fieldX, g.fieldY, g.fieldW, g.fieldH, field.backgroundColor);
+    }
     if (field.frame && g.fieldW > 1 && g.fieldH > 1) {
       drawBufferRect(buffer, g.fieldX, g.fieldY, g.fieldW, g.fieldH, field.frameColor);
     }
+    const textBg = isTrans ? null : field.backgroundColor;
     if (field.label) {
-      drawClassicTextAt(buffer, field.label, field.x + g.pad, field.y + g.pad, field.labelColor, field.backgroundColor, field.labelSize);
+      drawClassicTextAt(buffer, field.label, field.x + g.pad, field.y + g.pad, field.labelColor, textBg, field.labelSize);
     }
     if (field.unit) {
-      drawClassicTextAt(buffer, field.unit, g.valueX + g.valueW + FIELD_GAP, g.valueY, field.labelColor, field.backgroundColor, field.labelSize);
+      drawClassicTextAt(buffer, field.unit, g.valueX + g.valueW + FIELD_GAP, g.valueY, field.labelColor, textBg, field.labelSize);
     }
     const preview = previewTextForField(field);
     if (preview) {
-      drawClassicTextAt(buffer, preview, alignedValueX(field, g), g.valueY, field.valueColor, field.backgroundColor, field.valueSize);
+      drawClassicTextAt(buffer, preview, alignedValueX(field, g), g.valueY, field.valueColor, textBg, field.valueSize);
     }
     return g;
   }
 
+  let barLayerCanvas = null;
+  let barLayerCtx = null;
+
+  function drawBarToFramebuffer(buffer, field) {
+    if (!window.JWPLCHMIBar?.drawBarField) return;
+    if (!barLayerCanvas) {
+      barLayerCanvas = document.createElement('canvas');
+      barLayerCanvas.width = WIDTH;
+      barLayerCanvas.height = HEIGHT;
+      barLayerCtx = barLayerCanvas.getContext('2d', { willReadFrequently: true });
+    }
+    barLayerCtx.clearRect(0, 0, WIDTH, HEIGHT);
+    window.JWPLCHMIBar.drawBarField(barLayerCtx, field, 1);
+
+    const g = window.JWPLCHMIBar.computeGeometry ? window.JWPLCHMIBar.computeGeometry(field) : null;
+    let minX = 0, minY = 0, maxW = WIDTH, maxH = HEIGHT;
+    if (g && Number.isFinite(g.fieldX) && Number.isFinite(g.fieldY) && Number.isFinite(g.fieldW) && Number.isFinite(g.fieldH)) {
+      minX = Math.max(0, Math.min(WIDTH - 1, Math.floor(g.fieldX)));
+      minY = Math.max(0, Math.min(HEIGHT - 1, Math.floor(g.fieldY)));
+      maxW = Math.max(1, Math.min(WIDTH - minX, Math.ceil(g.fieldW)));
+      maxH = Math.max(1, Math.min(HEIGHT - minY, Math.ceil(g.fieldH)));
+    }
+
+    const imgData = barLayerCtx.getImageData(minX, minY, maxW, maxH);
+    const data = imgData.data;
+    for (let py = 0; py < maxH; py++) {
+      const fbRowOffset = (minY + py) * WIDTH + minX;
+      for (let px = 0; px < maxW; px++) {
+        const idx = (py * maxW + px) * 4;
+        const a = data[idx + 3];
+        if (a === 0) continue;
+        const r = data[idx];
+        const g = data[idx + 1];
+        const b = data[idx + 2];
+        const fbIdx = fbRowOffset + px;
+        if (a >= 250) {
+          buffer[fbIdx] = (((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)) & 0xFFFF;
+        } else {
+          const dst565 = buffer[fbIdx];
+          const dr = Math.round(((dst565 >> 11) & 0x1F) * 255 / 31);
+          const dg = Math.round(((dst565 >> 5) & 0x3F) * 255 / 63);
+          const db = Math.round((dst565 & 0x1F) * 255 / 31);
+          const alphaNorm = a / 255;
+          const outR = Math.round(r * alphaNorm + dr * (1 - alphaNorm));
+          const outG = Math.round(g * alphaNorm + dg * (1 - alphaNorm));
+          const outB = Math.round(b * alphaNorm + db * (1 - alphaNorm));
+          buffer[fbIdx] = (((outR & 0xF8) << 8) | ((outG & 0xFC) << 3) | (outB >> 3)) & 0xFFFF;
+        }
+      }
+    }
+  }
+
   function composeFramebuffer() {
     framebuffer.set(pixelLayer);
-    fieldsForPage(activePage).forEach((field) => {
-      if (['TEXT', 'VALUE', 'BOOL', 'BAR'].includes(field.type)) {
+    const pageFields = fieldsForPage(activePage);
+    for (let i = pageFields.length - 1; i >= 0; i--) {
+      const field = pageFields[i];
+      if (field.hidden) continue;
+      if (['TEXT', 'VALUE', 'BOOL'].includes(field.type)) {
         drawField(framebuffer, field);
+      } else if (field.type === 'BAR') {
+        drawBarToFramebuffer(framebuffer, field);
       } else if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
         drawShape(framebuffer, field);
       } else if (field.type === 'RAW_TEXT') {
         const bg = field.transparentBackground ? null : (field.backgroundColor ?? 0x0000);
-        drawClassicTextAt(framebuffer, field.text || '', field.x, field.y, field.textColor ?? 0xFFFF, bg, field.size || 1);
+        drawRawTextAt(framebuffer, field.text || '', field.x, field.y, field.textColor ?? 0xFFFF, bg, field.size || 1, field.font);
       }
-    });
+    }
     if (selectedTool === 'rawText' && !hmiFields.some((f) => f.type === 'RAW_TEXT' && Number(f.page || 0) === activePage)) {
       const bg = rawState.transparent ? null : rawState.background;
-      drawClassicTextAt(framebuffer, rawState.value, rawState.x, rawState.y, rawState.foreground, bg, rawState.size);
+      drawRawTextAt(framebuffer, rawState.value, rawState.x, rawState.y, rawState.foreground, bg, rawState.size, rawState.font);
     }
   }
 
@@ -1546,14 +1804,18 @@
   function updateMetrics() {
     const selF = selectedField();
     if (selF && selF.type === 'RAW_TEXT') {
-      const width = selF.text ? selF.text.length * 6 * (selF.size || 1) : 0;
-      const height = selF.text ? 8 * (selF.size || 1) : 0;
+      const isGlcd = !selF.font || selF.font === 'GLCD';
+      const b = rawTextBounds(selF.text || '', selF.size || 1, selF.font);
+      const width = isGlcd ? (selF.text ? selF.text.length * 6 * (selF.size || 1) : 0) : b.width;
+      const height = isGlcd ? (selF.text ? 8 * (selF.size || 1) : 0) : b.height;
       rawBoundsStatus.textContent = `${width} × ${height} px`;
       return;
     }
     if (selectedTool === 'rawText') {
-      const width = rawState.value ? rawState.value.length * 6 * rawState.size : 0;
-      const height = rawState.value ? 8 * rawState.size : 0;
+      const isGlcd = !rawState.font || rawState.font === 'GLCD';
+      const b = rawTextBounds(rawState.value || '', rawState.size, rawState.font);
+      const width = isGlcd ? (rawState.value ? rawState.value.length * 6 * rawState.size : 0) : b.width;
+      const height = isGlcd ? (rawState.value ? 8 * rawState.size : 0) : b.height;
       rawBoundsStatus.textContent = `${width} × ${height} px`;
       return;
     }
@@ -1577,42 +1839,177 @@
     codeOutput.textContent = codeMode === 'contract' ? buildContractText() : buildStatusText();
   }
 
+  function reorderPageFields(sourceKey, targetKey, insertAbove) {
+    if (!sourceKey || !targetKey || sourceKey === targetKey) return;
+    const pageFields = fieldsForPage(activePage);
+    const sourceIdx = pageFields.findIndex((f) => f.key === sourceKey);
+    const targetIdx = pageFields.findIndex((f) => f.key === targetKey);
+    if (sourceIdx === -1 || targetIdx === -1 || sourceIdx === targetIdx) return;
+
+    const [moved] = pageFields.splice(sourceIdx, 1);
+    let newTargetIdx = pageFields.findIndex((f) => f.key === targetKey);
+    if (!insertAbove) newTargetIdx += 1;
+    pageFields.splice(newTargetIdx, 0, moved);
+
+    const nonPageFields = hmiFields.filter((f) => Number(f.page || 0) !== activePage);
+    hmiFields = [...pageFields, ...nonPageFields];
+
+    render();
+    commitHistory();
+  }
+
+  function updateMiniPreview() {
+    const miniCanvas = document.getElementById('sidebarMiniPreviewCanvas');
+    if (miniCanvas) {
+      const mctx = miniCanvas.getContext('2d');
+      if (mctx) {
+        mctx.imageSmoothingEnabled = true;
+        mctx.imageSmoothingQuality = 'high';
+        mctx.clearRect(0, 0, WIDTH, HEIGHT);
+        mctx.drawImage(logicalCanvas, 0, 0);
+      }
+    }
+
+    const badge = document.getElementById('sidebarPreviewBadge');
+    if (badge) {
+      const cur = hmiPages.find((p) => p.id === activePage);
+      badge.textContent = `${WIDTH} × ${HEIGHT} · ${cur?.name || 'Pág. ' + activePage}`;
+    }
+
+    updateMiniPreviewViewport();
+  }
+
+  const SVG_EYE_OPEN = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+  const SVG_EYE_OFF = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+  const SVG_LOCK_CLOSED = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
+  const SVG_LOCK_OPEN = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>`;
+
+  function formatLopakaFieldName(field, index) {
+    if (!field) return `Objeto ${index + 1}`;
+    let raw = (field.name || field.id || '').trim();
+    raw = raw.replace(/^FIELD[_\s-]*/i, '').trim();
+    if (raw) {
+      raw = raw.replace(/_+/g, ' ');
+      return raw;
+    }
+    if (field.label && field.label.trim()) return field.label.trim();
+    if (field.text && field.text.trim()) return field.text.trim();
+    const typeNames = {
+      TEXT: 'Texto',
+      VALUE: 'Valor',
+      BOOL: 'Bool',
+      BAR: 'Barra',
+      RAW_TEXT: 'Texto RAW',
+      LINE: 'Línea',
+      RECT: 'Rectángulo',
+      ELLIPSE: 'Elipse',
+      TRIANGLE: 'Triángulo',
+      POLYGON: 'Polígono'
+    };
+    const tName = typeNames[field.type] || field.type || 'Objeto';
+    return `${tName} ${index + 1}`;
+  }
+
   function renderObjectList() {
     objectList.querySelectorAll('.object-item').forEach((item) => item.remove());
     const visibleFields = fieldsForPage(activePage);
-    visibleFields.forEach((field) => {
-      const index = hmiFields.indexOf(field);
-      const button = document.createElement('button');
+    visibleFields.forEach((field, index) => {
+      const button = document.createElement('div');
       const active = selectedFieldKeys.includes(field.key);
-      button.className = `object-item${active ? ' active' : ''}`;
-      button.type = 'button';
+      button.className = `object-item${active ? ' active' : ''}${field.hidden ? ' is-hidden' : ''}${field.locked ? ' is-locked' : ''}`;
       button.dataset.fieldKey = field.key;
-      button.title = `${field.type} · ${field.name} · ${field.id}`;
-      let icon = 'T';
-      if (field.type === 'VALUE') icon = '123';
+      const displayName = formatLopakaFieldName(field, index);
+      button.title = `${field.type} · ${displayName} (Doble clic: zoom in · Clic: editar)`;
+
+      let icon = 'Aa';
+      if (['TEXT', 'VALUE', 'RAW_TEXT'].includes(field.type)) icon = 'Aa';
       else if (field.type === 'BOOL') icon = '○';
-      else if (field.type === 'BAR') icon = '▥';
+      else if (field.type === 'BAR') icon = '▰';
       else if (field.type === 'LINE') icon = '╱';
       else if (field.type === 'RECT') icon = '□';
-      else if (field.type === 'ELLIPSE') icon = '⬭';
+      else if (field.type === 'ELLIPSE') icon = '○';
       else if (field.type === 'TRIANGLE') icon = '△';
-      else if (field.type === 'POLYGON') icon = '⎔';
-      else if (field.type === 'RAW_TEXT') icon = 'A';
-      
-      button.innerHTML = `<span class="object-icon">${icon}</span><span class="object-type">${field.type}</span><span class="object-name"></span><span class="object-id"></span><span class="object-eye">●</span>`;
+      else if (field.type === 'POLYGON') icon = '⬡';
+
+      button.innerHTML = `
+        <span class="object-icon">${icon}</span>
+        <span class="object-type" style="display:none">${field.type}</span>
+        <span class="object-name" title="${displayName}">${displayName}</span>
+        <span class="object-id" style="display:none">${field.id || ''}</span>
+        <div class="object-actions">
+          <button type="button" class="object-btn btn-eye" title="${field.hidden ? 'Mostrar' : 'Ocultar'}">${field.hidden ? SVG_EYE_OFF : SVG_EYE_OPEN}</button>
+          <button type="button" class="object-btn btn-lock" title="${field.locked ? 'Desbloquear' : 'Bloquear'}">${field.locked ? SVG_LOCK_CLOSED : SVG_LOCK_OPEN}</button>
+        </div>
+      `;
+
       if (field.type === 'VALUE') {
         const iconNode = button.querySelector('.object-icon');
-        iconNode.style.fontSize = '9.5px';
-        iconNode.style.fontWeight = '800';
-        iconNode.style.color = '#52c9ff';
+        if (iconNode) {
+          iconNode.style.fontWeight = '800';
+          iconNode.style.color = '#52c9ff';
+        }
       }
-      button.querySelector('.object-name').textContent = field.name || `${field.type} ${index + 1}`;
-      if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT'].includes(field.type)) {
-        button.querySelector('.object-id').textContent = '';
-      } else {
-        button.querySelector('.object-id').textContent = field.id || fieldFallbackId(field, index);
-      }
+
+      // Drag and drop for layer reordering
+      button.draggable = true;
+      button.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', field.key);
+        e.dataTransfer.effectAllowed = 'move';
+        button.classList.add('is-dragging');
+      });
+
+      button.addEventListener('dragend', () => {
+        button.classList.remove('is-dragging');
+        objectList.querySelectorAll('.drop-target-above, .drop-target-below').forEach((el) => {
+          el.classList.remove('drop-target-above', 'drop-target-below');
+        });
+      });
+
+      button.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const rect = button.getBoundingClientRect();
+        const isAbove = (e.clientY - rect.top) < rect.height / 2;
+        button.classList.toggle('drop-target-above', isAbove);
+        button.classList.toggle('drop-target-below', !isAbove);
+      });
+
+      button.addEventListener('dragleave', () => {
+        button.classList.remove('drop-target-above', 'drop-target-below');
+      });
+
+      button.addEventListener('drop', (e) => {
+        e.preventDefault();
+        button.classList.remove('drop-target-above', 'drop-target-below');
+        const sourceKey = e.dataTransfer.getData('text/plain');
+        if (!sourceKey || sourceKey === field.key) return;
+        const rect = button.getBoundingClientRect();
+        const isAbove = (e.clientY - rect.top) < rect.height / 2;
+        reorderPageFields(sourceKey, field.key, isAbove);
+      });
+
+      // Actions: Eye & Lock buttons
+      const eyeBtn = button.querySelector('.btn-eye');
+      eyeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        field.hidden = !field.hidden;
+        render();
+        commitHistory();
+      });
+
+      const lockBtn = button.querySelector('.btn-lock');
+      lockBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        field.locked = !field.locked;
+        render();
+        commitHistory();
+      });
+
+      // Single click selects and allows editing
       button.addEventListener('click', (e) => {
+        if (e.target.closest('.object-btn')) return;
         if (e.shiftKey || e.ctrlKey) {
           if (selectedFieldKeys.includes(field.key)) {
             setSelectedKeys(selectedFieldKeys.filter((k) => k !== field.key));
@@ -1627,9 +2024,23 @@
         syncToolUI();
         render();
       });
+
+      // Double click does zoom in to the object!
+      button.addEventListener('dblclick', (e) => {
+        if (e.target.closest('.object-btn')) return;
+        e.preventDefault();
+        setSelectedKeys([field.key]);
+        selectedTool = toolForField(field);
+        syncInputsFromState();
+        syncToolUI();
+        fitSelection();
+        render();
+      });
+
       objectList.appendChild(button);
     });
-    countBadge.textContent = String(visibleFields.length);
+    const pmCount = (window.JWPLCHMIPixelMaps?.getAll?.() || []).filter((pm) => Number(pm.page || 0) === activePage).length;
+    countBadge.textContent = String(visibleFields.length + pmCount);
     if (fieldsStatus) fieldsStatus.textContent = `Campos: ${hmiFields.length}/${MAX_FIELDS}`;
   }
 
@@ -1659,8 +2070,14 @@
 
     renderObjectList();
 
+    if (!window.JWPLCHMIEditor?.integratedBarLayers && window.JWPLCHMIBar?.drawBars) {
+      window.JWPLCHMIBar.drawBars(displayCtx, zoom, previewCtx);
+    }
+
     drawSelectionAndGuides();
     drawRulers();
+    updateMiniPreview();
+    updateMiniPreviewViewport();
   
     
 
@@ -1726,11 +2143,46 @@
   }
 
   function getSelectionHandles(fields) {
-    if (!fields || fields.length === 0) return [];
+    if (!fields || fields.length === 0) {
+      const selPm = window.JWPLCHMIPixelMaps?.getSelected?.();
+      if (selPm && selectedTool === 'pointer' && Number(selPm.page || 0) === activePage && selPm.editorVisible !== false && selPm.pixels?.length) {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        selPm.pixels.forEach((p) => {
+          const px = selPm.x + p.x;
+          const py = selPm.y + p.y;
+          if (px < minX) minX = px;
+          if (px > maxX) maxX = px;
+          if (py < minY) minY = py;
+          if (py > maxY) maxY = py;
+        });
+        if (minX !== Infinity) {
+          const sx1 = minX * zoom;
+          const sy1 = minY * zoom;
+          const sx2 = (maxX + 1) * zoom;
+          const sy2 = (maxY + 1) * zoom;
+          const midX = (sx1 + sx2) / 2;
+          const midY = (sy1 + sy2) / 2;
+          return [
+            { id: 'tl', x: sx1, y: sy1, cursor: 'nwse-resize' },
+            { id: 'tc', x: midX, y: sy1, cursor: 'ns-resize' },
+            { id: 'tr', x: sx2, y: sy1, cursor: 'nesw-resize' },
+            { id: 'rc', x: sx2, y: midY, cursor: 'ew-resize' },
+            { id: 'br', x: sx2, y: sy2, cursor: 'nwse-resize' },
+            { id: 'bc', x: midX, y: sy2, cursor: 'ns-resize' },
+            { id: 'bl', x: sx1, y: sy2, cursor: 'nesw-resize' },
+            { id: 'lc', x: sx1, y: midY, cursor: 'ew-resize' }
+          ];
+        }
+      }
+      return [];
+    }
 
     if (fields.length === 1) {
       const f = fields[0];
+      // RAW_TEXT: sin handles de resize (el texto no se deforma geometricamente)
+      if (f.type === 'RAW_TEXT') return [];
       if (f.type === 'LINE') {
+
         const x1 = f.x ?? 0; const y1 = f.y ?? 0;
         const x2 = f.x2 ?? x1; const y2 = f.y2 ?? y1;
         const cx = (x1 + x2) / 2; const cy = (y1 + y2) / 2;
@@ -1789,7 +2241,7 @@
 
   function hitTestHandle(event) {
     const fields = selectedFields();
-    if (fields.length === 0) return null;
+    if (fields.length === 0 && !window.JWPLCHMIPixelMaps?.getSelected?.()) return null;
     const rect = displayCanvas.getBoundingClientRect();
     const scaleX = displayCanvas.width / rect.width;
     const scaleY = displayCanvas.height / rect.height;
@@ -1797,7 +2249,7 @@
     const mouseScreenY = (event.clientY - rect.top) * scaleY;
 
     const handles = getSelectionHandles(fields);
-    const hitRadius = 8;
+    const hitRadius = 12;
     for (const h of handles) {
       const dx = mouseScreenX - h.x;
       const dy = mouseScreenY - h.y;
@@ -1810,13 +2262,27 @@
 
   function isPointInsideSelection(point) {
     const fields = selectedFields();
-    if (fields.length === 0) return false;
-    if (fields.length === 1 && ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(fields[0].type)) {
+    if (fields.length === 0) {
+      const selPm = window.JWPLCHMIPixelMaps?.getSelected?.();
+      if (selPm && selectedTool === 'pointer' && Number(selPm.page || 0) === activePage && selPm.editorVisible !== false && selPm.pixels?.length) {
+        return selPm.pixels.some((p) => {
+          const px = selPm.x + p.x;
+          const py = selPm.y + p.y;
+          return Math.abs(px - point.x) <= 2 && Math.abs(py - point.y) <= 2;
+        });
+      }
+      return false;
+    }
+    if (fields.length === 1 && fields[0].type === 'LINE') {
+      if (distanceToFieldBorder(point, fields[0]) <= 2.0) return true;
+      return false;
+    }
+    if (fields.length === 1 && ['RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(fields[0].type)) {
       if (isPointInsideShapeArea(point.x, point.y, fields[0])) return true;
     }
     const b = getSelectionBounds(fields);
     if (!b) return false;
-    const margin = 2;
+    const margin = 4;
     return (
       point.x >= b.minX - margin &&
       point.x <= b.maxX + margin &&
@@ -1827,7 +2293,65 @@
 
   function drawSelectionAndGuides() {
     const fields = selectedFields();
-    if (fields.length === 0) return;
+    if (fields.length === 0) {
+      const selPm = window.JWPLCHMIPixelMaps?.getSelected?.();
+      if (selPm && selectedTool === 'pointer' && Number(selPm.page || 0) === activePage && selPm.editorVisible !== false && selPm.pixels?.length) {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        selPm.pixels.forEach((p) => {
+          const px = selPm.x + p.x;
+          const py = selPm.y + p.y;
+          if (px < minX) minX = px;
+          if (px > maxX) maxX = px;
+          if (py < minY) minY = py;
+          if (py > maxY) maxY = py;
+        });
+        if (minX !== Infinity) {
+          const sx1 = minX * zoom;
+          const sy1 = minY * zoom;
+          const sx2 = (maxX + 1) * zoom;
+          const sy2 = (maxY + 1) * zoom;
+          const sw = Math.max(8, sx2 - sx1);
+          const sh = Math.max(8, sy2 - sy1);
+
+          displayCtx.save();
+          // 1. Dotted projection lines to rulers
+          displayCtx.strokeStyle = 'rgba(255, 255, 255, 0.40)';
+          displayCtx.setLineDash([2, 3]);
+          displayCtx.lineWidth = 1;
+          displayCtx.beginPath();
+          displayCtx.moveTo(sx1 + 0.5, 0);
+          displayCtx.lineTo(sx1 + 0.5, displayCanvas.height);
+          displayCtx.moveTo(sx2 + 0.5, 0);
+          displayCtx.lineTo(sx2 + 0.5, displayCanvas.height);
+          displayCtx.moveTo(0, sy1 + 0.5);
+          displayCtx.lineTo(displayCanvas.width, sy1 + 0.5);
+          displayCtx.moveTo(0, sy2 + 0.5);
+          displayCtx.lineTo(displayCanvas.width, sy2 + 0.5);
+          displayCtx.stroke();
+          displayCtx.setLineDash([]);
+
+          // 2. Bounding outline (#0084ff)
+          displayCtx.strokeStyle = '#0084ff';
+          displayCtx.lineWidth = 1;
+          displayCtx.strokeRect(sx1 + 0.5, sy1 + 0.5, sw, sh);
+
+          // 3. 8 Selection Handles
+          const hs = 6;
+          const handles = getSelectionHandles([]);
+          handles.forEach((h) => {
+            const rx = Math.round(h.x - hs / 2);
+            const ry = Math.round(h.y - hs / 2);
+            displayCtx.fillStyle = '#060d13';
+            displayCtx.fillRect(rx, ry, hs, hs);
+            displayCtx.strokeStyle = '#0084ff';
+            displayCtx.lineWidth = 1.5;
+            displayCtx.strokeRect(rx + 0.5, ry + 0.5, hs - 1, hs - 1);
+          });
+          displayCtx.restore();
+        }
+      }
+      return;
+    }
 
     const b = getSelectionBounds(fields);
     if (!b) return;
@@ -1855,18 +2379,13 @@
     displayCtx.lineWidth = 1;
 
     if (fields.length === 1 && fields[0].type === 'LINE') {
-      const f = fields[0];
-      const x1 = f.x ?? 0; const y1 = f.y ?? 0;
-      const x2 = f.x2 ?? x1; const y2 = f.y2 ?? y1;
-      const cx = (x1 + x2) / 2; const cy = (y1 + y2) / 2;
-      const angleDeg = Number(f.rotation) || 0;
-      const flipH = Boolean(f.flipH); const flipV = Boolean(f.flipV);
-      const p1 = transformShapePoint(x1, y1, cx, cy, angleDeg, flipH, flipV);
-      const p2 = transformShapePoint(x2, y2, cx, cy, angleDeg, flipH, flipV);
-      displayCtx.beginPath();
-      displayCtx.moveTo(p1.x * zoom + 0.5, p1.y * zoom + 0.5);
-      displayCtx.lineTo(p2.x * zoom + 0.5, p2.y * zoom + 0.5);
-      displayCtx.stroke();
+      let rx = b.screenX1;
+      let ry = b.screenY1;
+      let rw = b.screenW;
+      let rh = b.screenH;
+      if (rw < 8) { rx -= (8 - rw) / 2; rw = 8; }
+      if (rh < 8) { ry -= (8 - rh) / 2; rh = 8; }
+      displayCtx.strokeRect(Math.round(rx) + 0.5, Math.round(ry) + 0.5, Math.round(rw), Math.round(rh));
     } else if (fields.length === 1 && ['RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(fields[0].type)) {
       const f = fields[0];
       const lb = getShapeLocalBounds(f);
@@ -2099,7 +2618,7 @@
       fieldSection.hidden = !showField;
       fieldSection.style.display = showField ? '' : 'none';
     }
-    if (rawMetricsSection) rawMetricsSection.hidden = !isRaw;
+    // rawMetricsSection ya vive dentro del details de Tipografia: no necesita hidden dinamico.
     if (fieldMetricsSection) fieldMetricsSection.hidden = !showField;
 
     if (isShape) {
@@ -2129,6 +2648,7 @@
       if (fieldValueBoundsWrap) fieldValueBoundsWrap.hidden = isShape;
       if (fieldMetricsSection) fieldMetricsSection.hidden = isShape || !fieldTools.includes(selectedTool);
     }
+    window.dispatchEvent(new CustomEvent('jwplc:tool-changed', { detail: { tool: selectedTool } }));
   }
 
   function updateActiveColorUI() {
@@ -2139,9 +2659,16 @@
     renderRecentColors();
   }
 
-  function buildColorSelect(select, selectedName) {
+  function buildColorSelect(select, selectedName, allowTransparent = false) {
     if (!select) return;
     select.innerHTML = '';
+    if (allowTransparent) {
+      const transOpt = document.createElement('option');
+      transOpt.value = 'TRANSPARENT';
+      transOpt.textContent = 'TRANSPARENTE (Fondo libre)';
+      transOpt.selected = selectedName === 'TRANSPARENT';
+      select.appendChild(transOpt);
+    }
     COLORS.forEach((color) => {
       const option = document.createElement('option');
       option.value = color.name;
@@ -2162,21 +2689,39 @@
     host.className = 'a11-custom-color';
     const row = document.createElement('div');
     row.className = 'a11-color-control';
+    const transSwatch = document.createElement('span');
+    transSwatch.className = 'a11-trans-swatch';
+    transSwatch.title = 'Fondo transparente';
+    transSwatch.style.display = 'none';
     const visual = document.createElement('input');
     visual.type = 'color';
     visual.title = 'Selector visual interactivo RGB';
-    const swatch = document.createElement('span');
-    swatch.className = 'a11-swatch';
-    row.append(visual, swatch);
+    const hexBadge = document.createElement('span');
+    hexBadge.className = 'a11-hex-badge';
+    row.append(transSwatch, visual, hexBadge);
     host.appendChild(row);
     select.insertAdjacentElement('afterend', host);
 
     function sync() {
-      const val = Number(getValue()) & 0xFFFF;
+      const raw = getValue();
+      if (raw === 'TRANSPARENT' || raw === -1) {
+        visual.style.display = 'none';
+        transSwatch.style.display = 'inline-block';
+        hexBadge.textContent = 'Transparente';
+        hexBadge.style.color = '#8ea3b3';
+        hexBadge.title = 'Sin fondo (transparente)';
+        ensureSelectOption(select, 'TRANSPARENT');
+        return;
+      }
+      visual.style.display = '';
+      transSwatch.style.display = 'none';
+      const val = Number(raw) & 0xFFFF;
       const hex888 = rgb565ToHex888(val);
       visual.value = hex888;
-      swatch.style.background = rgb565ToCss(val);
-      swatch.title = `${hex565(val)} · ${hex888.toUpperCase()}`;
+      hexBadge.textContent = hex565(val);
+      hexBadge.style.color = '#52c9ff';
+      hexBadge.title = `${hex565(val)} · ${hex888.toUpperCase()}`;
+      ensureSelectOption(select, val);
     }
 
     visual.addEventListener('input', () => {
@@ -2198,7 +2743,17 @@
     });
 
     select.addEventListener('change', () => {
-      const matched = COLORS.find((c) => c.name === select.value);
+      if (select.value === 'TRANSPARENT') {
+        setValue('TRANSPARENT');
+        sync();
+        render();
+        commitHistory();
+        return;
+      }
+      if (select.value === 'CUSTOM') {
+        return;
+      }
+      const matched = colorByName(select.value);
       const val = matched ? matched.value : (Number(select.value) || 0);
       setValue(val);
       addRecentColor(val);
@@ -2231,6 +2786,7 @@
         if (field) {
           if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
             field.frameColor = color.value;
+            syncShapeInspector();
           } else if (field.type === 'RAW_TEXT') {
             field.textColor = color.value;
           } else if (['TEXT', 'VALUE', 'BOOL', 'BAR'].includes(field.type)) {
@@ -2250,6 +2806,7 @@
   function syncShapeInspector() {
     const field = selectedField();
     if (!field) return;
+    const isLine = field.type === 'LINE';
     const SHAPE_ICONS = { LINE: '\u2571', RECT: '\u25a1', ELLIPSE: '\u2b2d', TRIANGLE: '\u25b3', POLYGON: '\u2394' };
     if (shapeInspectorIcon) shapeInspectorIcon.textContent = SHAPE_ICONS[field.type] || '\u25a1';
     if (shapeInspectorName) shapeInspectorName.value = field.name || (field.type.toLowerCase());
@@ -2264,15 +2821,23 @@
     if (shapeSidesWrap2) shapeSidesWrap2.hidden = field.type !== 'POLYGON';
     if (shapeSides2) shapeSides2.value = field.sides || 5;
     if (shapeRotation) shapeRotation.value = field.rotation || 0;
-    // Border
-    if (shapeBorderEnabled) shapeBorderEnabled.checked = field.borderEnabled !== false;
+
+    // Stroke / Border
+    if (shapeBorderLabel) shapeBorderLabel.textContent = isLine ? 'Línea' : 'Borde';
+    if (shapeBorderToggleWrap) shapeBorderToggleWrap.hidden = isLine; // Lines must always have stroke visible
+    if (shapeBorderEnabled) {
+      if (isLine) field.borderEnabled = true;
+      shapeBorderEnabled.checked = field.borderEnabled !== false;
+    }
     const fc = field.frameColor ?? 0xFFFF;
     if (shapeBorderColorSwatch) shapeBorderColorSwatch.style.background = rgb565ToCss(fc);
     if (shapeBorderColorInput) shapeBorderColorInput.value = rgb565ToHex888(fc);
     if (shapeBorderColorCode) shapeBorderColorCode.textContent = rgb565ToHex888(fc).toUpperCase();
     if (shapeBorderSize) shapeBorderSize.value = field.size || 1;
-    // Fill
-    if (shapeFillEnabled) shapeFillEnabled.checked = !!field.fill;
+
+    // Fill (hidden for lines)
+    if (shapeFillRow) shapeFillRow.hidden = isLine;
+    if (shapeFillEnabled) shapeFillEnabled.checked = !isLine && !!field.fill;
     const fillC = field.fillColor ?? 0xFFE0;
     if (shapeFillColorSwatch) shapeFillColorSwatch.style.background = rgb565ToCss(fillC);
     if (shapeFillColorInput) shapeFillColorInput.value = rgb565ToHex888(fillC);
@@ -2284,7 +2849,16 @@
     rawTextX.value = String(rawState.x);
     rawTextY.value = String(rawState.y);
     rawTextSize.value = String(rawState.size);
+    if (rawTextName) rawTextName.value = 'Texto RAW';
     if (rawTextTransparent) rawTextTransparent.value = rawState.transparent ? '1' : '0';
+    if (rawTextTransparentToggle) rawTextTransparentToggle.checked = !Boolean(rawState.transparent);
+    if (rawTextBgColorWrap) rawTextBgColorWrap.style.display = rawState.transparent ? 'none' : 'flex';
+    if (rawTextColorSwatch) rawTextColorSwatch.style.background = rgb565ToCss(rawState.foreground);
+    if (rawTextColorInput) rawTextColorInput.value = rgb565ToHex888(rawState.foreground);
+    if (rawTextColorCode) rawTextColorCode.textContent = rgb565ToHex888(rawState.foreground).toUpperCase();
+    if (rawTextBgColorSwatch) rawTextBgColorSwatch.style.background = rgb565ToCss(rawState.background);
+    if (rawTextBgColorInput) rawTextBgColorInput.value = rgb565ToHex888(rawState.background);
+    if (rawTextBgColorCode) rawTextBgColorCode.textContent = rgb565ToHex888(rawState.background).toUpperCase();
     if (rawTextColor) ensureSelectOption(rawTextColor, rawState.foreground);
     if (rawTextBackground) ensureSelectOption(rawTextBackground, rawState.background);
     if (rawTextBackgroundWrap) rawTextBackgroundWrap.hidden = Boolean(rawState.transparent);
@@ -2292,23 +2866,48 @@
     const field = selectedField();
     if (!field) {
       inspectorContract.textContent = 'Sin objeto seleccionado';
+      if (rawInspectorContract) rawInspectorContract.textContent = '// Sin objeto seleccionado';
       syncAllColorControls();
       return;
     }
 
     if (field.type === 'RAW_TEXT') {
+      if (rawTextName) rawTextName.value = field.name || 'Texto RAW';
       rawTextInput.value = field.text || '';
       rawTextX.value = String(field.x);
       rawTextY.value = String(field.y);
       rawTextSize.value = String(field.size || 1);
-      if (rawTextTransparent) rawTextTransparent.value = field.transparentBackground ? '1' : '0';
-      if (rawTextColor) ensureSelectOption(rawTextColor, field.textColor ?? 0xFFFF);
-      if (rawTextBackground) ensureSelectOption(rawTextBackground, field.backgroundColor ?? 0x0000);
-      if (rawTextBackgroundWrap) rawTextBackgroundWrap.hidden = Boolean(field.transparentBackground);
+      if (rawTextFont && window.JWPLCDesignerFonts) rawTextFont.value = window.JWPLCDesignerFonts.normalizeId(field.font);
+      const isTrans = Boolean(field.transparentBackground);
+      if (rawTextTransparent) rawTextTransparent.value = isTrans ? '1' : '0';
+      if (rawTextTransparentToggle) rawTextTransparentToggle.checked = !isTrans;
+      if (rawTextBgColorWrap) rawTextBgColorWrap.style.display = isTrans ? 'none' : 'flex';
+
+      const fg = field.textColor ?? 0xFFFF;
+      const bg = field.backgroundColor ?? 0x0000;
+      if (rawTextColorSwatch) rawTextColorSwatch.style.background = rgb565ToCss(fg);
+      if (rawTextColorInput) rawTextColorInput.value = rgb565ToHex888(fg);
+      if (rawTextColorCode) rawTextColorCode.textContent = rgb565ToHex888(fg).toUpperCase();
+      if (rawTextBgColorSwatch) rawTextBgColorSwatch.style.background = rgb565ToCss(bg);
+      if (rawTextBgColorInput) rawTextBgColorInput.value = rgb565ToHex888(bg);
+      if (rawTextBgColorCode) rawTextBgColorCode.textContent = rgb565ToHex888(bg).toUpperCase();
+
+      if (rawTextColor) ensureSelectOption(rawTextColor, fg);
+      if (rawTextBackground) ensureSelectOption(rawTextBackground, bg);
+      if (rawTextBackgroundWrap) rawTextBackgroundWrap.hidden = isTrans;
       syncAllColorControls();
-      inspectorContract.textContent = `// Texto RAW estático: JWPLC_Display.getTFT()->print(...)`;
+
+      const contractShort = (field.font && field.font !== 'GLCD')
+        ? `JWPLC_Display.getTFT()->setFont(${window.JWPLCDesignerFonts.cppSymbol(field.font)});\nJWPLC_Display.getTFT()->drawString("${field.text || ''}", ${field.x}, ${field.y});`
+        : `JWPLC_Display.getTFT()->setCursor(${field.x}, ${field.y});\nJWPLC_Display.getTFT()->print("${field.text || ''}");`;
+      if (rawInspectorContract) rawInspectorContract.textContent = contractShort;
+      inspectorContract.textContent = (field.font && field.font !== 'GLCD')
+        ? `// Texto RAW estático: JWPLC_Display.getTFT()->setFont(${window.JWPLCDesignerFonts.cppSymbol(field.font)}) + drawString(...)`
+        : `// Texto RAW estático: JWPLC_Display.getTFT()->print(...)`;
+      if (typeof updateScalePxHint === 'function') updateScalePxHint();
       return;
     }
+
 
     // Shape fields: hide old inspector immediately and sync shape inspector only
     if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
@@ -2338,12 +2937,14 @@
     fieldValueSize.value = String(field.valueSize || 1);
     fieldLabelSize.value = String(field.labelSize || 1);
     fieldFrame.value = field.frame ? '1' : '0';
+    const frameColorWrap = fieldFrameColor?.closest('label');
+    if (frameColorWrap) frameColorWrap.style.display = field.frame ? '' : 'none';
     fieldLayout.value = field.layout || 'INLINE';
-    fieldAlign.value = field.align || 'LEFT';
-    fieldLabelColor.value = colorName(field.labelColor || 0xFFFF);
-    fieldValueColor.value = colorName(field.valueColor || 0xFFFF);
-    fieldBackgroundColor.value = colorName(field.backgroundColor || 0x0000);
-    fieldFrameColor.value = colorName(field.frameColor || 0xFFFF);
+    if (fieldAlign) fieldAlign.value = field.align || 'LEFT';
+    ensureSelectOption(fieldLabelColor, field.labelColor ?? 0xFFFF);
+    ensureSelectOption(fieldValueColor, field.valueColor ?? 0xFFFF);
+    ensureSelectOption(fieldBackgroundColor, field.backgroundColor ?? 'TRANSPARENT');
+    ensureSelectOption(fieldFrameColor, field.frameColor ?? 0xFFFF);
     syncAllColorControls();
 
     if (field.type === 'VALUE') {
@@ -2513,6 +3114,38 @@
     return true;
   }
 
+  function deletePage(page) {
+    const target = Number(page);
+    if (!pageExists(target) || hmiPages.length <= 1) return false;
+    const idx = hmiPages.findIndex((item) => item.id === target);
+    if (idx === -1) return false;
+
+    // Remove page from array
+    hmiPages.splice(idx, 1);
+
+    // Remove fields on that page
+    hmiFields = hmiFields.filter((field) => Number(field.page || 0) !== target);
+
+    // Remove pixel maps on that page
+    if (window.JWPLCHMIPixelMaps?.deleteForPage) {
+      window.JWPLCHMIPixelMaps.deleteForPage(target);
+    }
+
+    // Switch to adjacent page
+    if (activePage === target) {
+      activePage = hmiPages[Math.max(0, idx - 1)]?.id ?? hmiPages[0].id;
+    }
+
+    setSelectedKeys([]);
+    selectedTool = 'none';
+    syncInputsFromState();
+    syncToolUI();
+    render();
+    commitHistory();
+    window.dispatchEvent(new CustomEvent('jwplc:editor-refresh'));
+    return true;
+  }
+
   function moveSelectedFieldToPage(page) {
     const target = Number(page);
     const field = selectedField();
@@ -2573,6 +3206,7 @@
       x: px,
       y: py,
       size: rawState.size || 1,
+      font: rawState.font || 'GLCD',
       transparentBackground: true,
       textColor: selectedColor ? selectedColor.value : (rawState.foreground ?? 0xFFFF),
       backgroundColor: rawState.background ?? 0x0000,
@@ -2819,6 +3453,18 @@
         }
         return;
       }
+      if (tool === 'boolField') {
+        selectedTool = 'boolField';
+        syncToolUI();
+        render();
+        return;
+      }
+      if (tool === 'barField') {
+        selectedTool = 'barField';
+        syncToolUI();
+        render();
+        return;
+      }
       if (tool === 'rawText') {
         addRawTextField();
         return;
@@ -2980,29 +3626,131 @@
     const field = selectedField();
     if (field && field.type === 'RAW_TEXT') field.y = rawState.y;
   });
+  if (rawTextFont && window.JWPLCDesignerFonts) {
+    const groups = new Map();
+    window.JWPLCDesignerFonts.list.forEach((font) => {
+      if (!groups.has(font.group)) {
+        const group = document.createElement('optgroup');
+        group.label = font.group;
+        groups.set(font.group, group);
+        rawTextFont.appendChild(group);
+      }
+      const option = document.createElement('option');
+      option.value = font.id;
+      option.textContent = font.label;
+      groups.get(font.group).appendChild(option);
+    });
+    rawTextFont.value = rawState.font;
+  }
+  function updateScalePxHint() {
+    if (!rawScalePxHint || !window.JWPLCDesignerFonts) return;
+    const font = window.JWPLCDesignerFonts.get(rawState.font);
+    if (!font) { rawScalePxHint.textContent = ''; return; }
+    const h = window.JWPLCDesignerFonts.lineHeight(font, rawState.size);
+    rawScalePxHint.textContent = `· ${h} px`;
+  }
+
+  bindRawInput(rawTextFont, () => {
+    const fonts = window.JWPLCDesignerFonts;
+    if (!fonts) return;
+    rawState.font = fonts.normalizeId(rawTextFont.value);
+    const field = selectedField();
+    if (field && field.type === 'RAW_TEXT') {
+      field.font = rawState.font;
+      syncInputsFromState();
+    }
+    updateScalePxHint();
+  });
   bindRawInput(rawTextSize, () => {
     rawState.size = Number(rawTextSize.value) || 1;
     const field = selectedField();
     if (field && field.type === 'RAW_TEXT') field.size = rawState.size;
+    updateScalePxHint();
   });
+
+  // Controles de Texto RAW (estilo Lopaka)
+  rawTextName?.addEventListener('input', () => {
+    const field = selectedField();
+    if (field && field.type === 'RAW_TEXT') {
+      field.name = rawTextName.value;
+      render();
+    }
+  });
+  rawTextName?.addEventListener('change', () => commitHistory());
+
+  rawDuplicateBtn?.addEventListener('click', duplicateSelectedField);
+  rawDeleteBtn?.addEventListener('click', deleteSelectedField);
+
+  copyRawContractBtn?.addEventListener('click', () => {
+    const code = rawInspectorContract?.textContent || '';
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(code);
+      copyRawContractBtn.textContent = '¡Copiado!';
+      setTimeout(() => { copyRawContractBtn.textContent = 'Copiar'; }, 1500);
+    }
+  });
+
+  rawTextColorSwatch?.addEventListener('click', () => triggerColorPicker(rawTextColorInput));
+  rawTextColorInput?.addEventListener('input', () => {
+    const c = hex888ToRgb565(rawTextColorInput.value);
+    const field = selectedField();
+    if (field && field.type === 'RAW_TEXT') field.textColor = c;
+    rawState.foreground = c;
+    if (rawTextColorSwatch) rawTextColorSwatch.style.background = rgb565ToCss(c);
+    if (rawTextColorCode) rawTextColorCode.textContent = rgb565ToHex888(c).toUpperCase();
+    render();
+  });
+  rawTextColorInput?.addEventListener('change', () => commitHistory());
+
+  rawTextTransparentToggle?.addEventListener('change', () => {
+    const isOpaque = rawTextTransparentToggle.checked;
+    const field = selectedField();
+    if (field && field.type === 'RAW_TEXT') field.transparentBackground = !isOpaque;
+    rawState.transparent = !isOpaque;
+    if (rawTextBgColorWrap) rawTextBgColorWrap.style.display = isOpaque ? 'flex' : 'none';
+    render();
+    commitHistory();
+  });
+
+  rawTextBgColorSwatch?.addEventListener('click', () => triggerColorPicker(rawTextBgColorInput));
+  rawTextBgColorInput?.addEventListener('input', () => {
+    const c = hex888ToRgb565(rawTextBgColorInput.value);
+    const field = selectedField();
+    if (field && field.type === 'RAW_TEXT') field.backgroundColor = c;
+    rawState.background = c;
+    if (rawTextBgColorSwatch) rawTextBgColorSwatch.style.background = rgb565ToCss(c);
+    if (rawTextBgColorCode) rawTextBgColorCode.textContent = rgb565ToHex888(c).toUpperCase();
+    render();
+  });
+  rawTextBgColorInput?.addEventListener('change', () => commitHistory());
+
   bindRawInput(rawTextTransparent, () => {
     const isTrans = rawTextTransparent.value === '1';
     rawState.transparent = isTrans;
     const field = selectedField();
     if (field && field.type === 'RAW_TEXT') field.transparentBackground = isTrans;
     if (rawTextBackgroundWrap) rawTextBackgroundWrap.hidden = isTrans;
+    if (rawTextTransparentToggle) rawTextTransparentToggle.checked = !isTrans;
+    if (rawTextBgColorWrap) rawTextBgColorWrap.style.display = isTrans ? 'none' : 'flex';
   });
   bindRawInput(rawTextColor, () => {
     const color = colorByName(rawTextColor.value).value;
     rawState.foreground = color;
     const field = selectedField();
     if (field && field.type === 'RAW_TEXT') field.textColor = color;
+    if (rawTextColorSwatch) rawTextColorSwatch.style.background = rgb565ToCss(color);
+    if (rawTextColorInput) rawTextColorInput.value = rgb565ToHex888(color);
+    if (rawTextColorCode) rawTextColorCode.textContent = rgb565ToHex888(color).toUpperCase();
   });
   bindRawInput(rawTextBackground, () => {
     rawState.background = colorByName(rawTextBackground.value).value;
     const field = selectedField();
     if (field && field.type === 'RAW_TEXT') field.backgroundColor = rawState.background;
+    if (rawTextBgColorSwatch) rawTextBgColorSwatch.style.background = rgb565ToCss(rawState.background);
+    if (rawTextBgColorInput) rawTextBgColorInput.value = rgb565ToHex888(rawState.background);
+    if (rawTextBgColorCode) rawTextBgColorCode.textContent = rgb565ToHex888(rawState.background).toUpperCase();
   });
+
 
   bindFieldInput(fieldName, (field) => { field.name = fieldName.value; });
   bindFieldInput(fieldId, (field) => { field.id = fieldId.value; });
@@ -3033,12 +3781,22 @@
   bindFieldInput(fieldUnit, (field) => { field.unit = fieldUnit.value; });
   bindFieldInput(fieldValueSize, (field) => { field.valueSize = Number(fieldValueSize.value) || 1; });
   bindFieldInput(fieldLabelSize, (field) => { field.labelSize = Number(fieldLabelSize.value) || 1; });
-  bindFieldInput(fieldFrame, (field) => { field.frame = fieldFrame.value === '1'; });
+  bindFieldInput(fieldFrame, (field) => {
+    field.frame = fieldFrame.value === '1';
+    const frameColorWrap = fieldFrameColor?.closest('label');
+    if (frameColorWrap) frameColorWrap.style.display = field.frame ? '' : 'none';
+  });
   bindFieldInput(fieldLayout, (field) => { field.layout = fieldLayout.value; });
   bindFieldInput(fieldAlign, (field) => { field.align = fieldAlign.value; });
   bindFieldInput(fieldLabelColor, (field) => { field.labelColor = colorByName(fieldLabelColor.value).value; });
   bindFieldInput(fieldValueColor, (field) => { field.valueColor = colorByName(fieldValueColor.value).value; });
-  bindFieldInput(fieldBackgroundColor, (field) => { field.backgroundColor = colorByName(fieldBackgroundColor.value).value; });
+  bindFieldInput(fieldBackgroundColor, (field) => {
+    if (fieldBackgroundColor.value === 'TRANSPARENT') {
+      field.backgroundColor = 'TRANSPARENT';
+    } else {
+      field.backgroundColor = colorByName(fieldBackgroundColor.value).value;
+    }
+  });
   bindFieldInput(fieldFrameColor, (field) => { field.frameColor = colorByName(fieldFrameColor.value).value; });
 
   bindFieldInput(fieldIntegerDigits, (field) => {
@@ -3194,16 +3952,18 @@
   function hitTestField(point) {
     let bestField = null;
     let bestDist = Infinity;
-    const tolerance = 2.0;
+    const pageFields = fieldsForPage(activePage);
 
-    for (let index = hmiFields.length - 1; index >= 0; index -= 1) {
-      const field = hmiFields[index];
-      if (Number(field.page || 0) !== activePage) continue;
+    for (let index = 0; index < pageFields.length; index += 1) {
+      const field = pageFields[index];
+      if (field.hidden || field.locked) continue;
 
+      const tolerance = (field.type === 'LINE') ? 2.0 : (['RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type) ? 3.5 : 2.0);
       const dist = distanceToFieldBorder(point, field);
       if (dist <= tolerance && dist < bestDist) {
         bestDist = dist;
         bestField = field;
+        break;
       }
     }
     return bestField;
@@ -3269,12 +4029,6 @@
     }
 
     if (isTargetDisplay && (selectedTool === 'pixel' || selectedTool === 'erase')) {
-      if (!inside(point.x, point.y)) return;
-      drawing = true;
-      lastPoint = point;
-      const value = selectedTool === 'erase' ? 0x0000 : selectedColor.value;
-      gestureChanged = setLayerPixel(point.x, point.y, value);
-      render();
       return;
     }
 
@@ -3312,9 +4066,38 @@
     const handle = hitTestHandle(event);
     if (handle) {
       resizingHandle = handle;
-      resizeInitialBounds = getSelectionBounds(selectedFields());
-      resizeInitialPointer = point;
-      resizeInitialFields = selectedFields().map((f) => ({ ...f }));
+      const flds = selectedFields();
+      if (flds.length > 0) {
+        resizeInitialBounds = getSelectionBounds(flds);
+        resizeInitialPointer = point;
+        resizeInitialFields = flds.map((f) => ({ ...f }));
+      } else {
+        const selPm = window.JWPLCHMIPixelMaps?.getSelected?.();
+        if (selPm && selPm.pixels?.length) {
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          selPm.pixels.forEach((p) => {
+            const px = selPm.x + p.x;
+            const py = selPm.y + p.y;
+            if (px < minX) minX = px;
+            if (px > maxX) maxX = px;
+            if (py < minY) minY = py;
+            if (py > maxY) maxY = py;
+          });
+          resizeInitialBounds = { minX, minY, maxX, maxY };
+          resizeInitialPointer = point;
+          resizeInitialFields = [];
+          resizeInitialPixelMap = {
+            key: selPm.key,
+            x: selPm.x,
+            y: selPm.y,
+            minX,
+            minY,
+            maxX,
+            maxY,
+            pixels: selPm.pixels.map((p) => ({ ...p }))
+          };
+        }
+      }
       return;
     }
 
@@ -3339,11 +4122,14 @@
     // 3. Check if clicking inside the current selection bounding box
     // (Allows dragging without having to aim for the 1.5px contour)
     if (isPointInsideSelection(point)) {
-      draggingObject = true;
-      dragInitialPointer = { ...point, rawX: point.x, rawY: point.y };
-      dragInitialFields = selectedFields().map((f) => ({ ...f }));
-      render();
-      return;
+      const curSelected = selectedFields();
+      if (!curSelected.some((f) => f.locked)) {
+        draggingObject = true;
+        dragInitialPointer = { ...point, rawX: point.x, rawY: point.y };
+        dragInitialFields = curSelected.map((f) => ({ ...f }));
+        render();
+        return;
+      }
     }
 
     // 4. Check if clicking directly on any field's contour (1.5px tolerance)
@@ -3351,9 +4137,11 @@
     if (hit) {
       setSelectedKeys([hit.key]);
       selectedTool = toolForField(hit);
-      draggingObject = true;
-      dragInitialPointer = { ...point, rawX: hit.x, rawY: hit.y };
-      dragInitialFields = [{ ...hit }];
+      if (!hit.locked) {
+        draggingObject = true;
+        dragInitialPointer = { ...point, rawX: hit.x, rawY: hit.y };
+        dragInitialFields = [{ ...hit }];
+      }
       syncInputsFromState();
       syncToolUI();
       render();
@@ -3553,6 +4341,40 @@
           f.y = Math.round(newMinY + origRelY1 * scaleY);
           f.x2 = Math.round(newMinX + origRelX2 * scaleX);
           f.y2 = Math.round(newMinY + origRelY2 * scaleY);
+        } else if (f.type === 'BAR') {
+          f.barAutoWidth = false;
+          const origW = Number(orig.barWidth) || 110;
+          const origH = Number(orig.barHeight) || 12;
+          const origRadius = Number(orig.circleRadius) || 26;
+          const deltaW = newW - initW;
+          const deltaH = newH - initH;
+
+          if (f.barPreset === 'CIRCULAR') {
+            const deltaSide = (Math.abs(deltaW) >= Math.abs(deltaH)) ? deltaW : deltaH;
+            f.circleRadius = Math.max(10, Math.min(80, Math.round(origRadius + deltaSide / 2)));
+          } else if (f.barOrientation === 'VERTICAL') {
+            if (['rc', 'lc'].includes(hid)) {
+              f.barWidth = Math.max(6, Math.min(100, Math.round(origW + deltaW)));
+            }
+            if (['tc', 'bc', 'tl', 'tr', 'bl', 'br'].includes(hid)) {
+              f.barHeight = Math.max(10, Math.min(170, Math.round(origH + deltaH)));
+            }
+          } else {
+            // HORIZONTAL
+            if (['rc', 'lc', 'tl', 'tr', 'bl', 'br'].includes(hid)) {
+              f.barWidth = Math.max(20, Math.min(320, Math.round(origW + deltaW)));
+            }
+            if (['tc', 'bc'].includes(hid)) {
+              f.barHeight = Math.max(4, Math.min(170, Math.round(origH + deltaH)));
+            }
+          }
+
+          if (['tl', 'bl', 'lc'].includes(hid)) {
+            f.x = Math.round(newMinX);
+          }
+          if (['tl', 'tr', 'tc'].includes(hid)) {
+            f.y = Math.round(newMinY);
+          }
         } else {
           const origRelX = orig.x - initMinX;
           const origRelY = orig.y - initMinY;
@@ -3566,6 +4388,31 @@
           }
         }
       });
+
+      if (fields.length === 0 && resizeInitialPixelMap) {
+        const pm = window.JWPLCHMIPixelMaps?.getSelected?.();
+        if (pm && pm.key === resizeInitialPixelMap.key) {
+          const origMinLocalX = resizeInitialPixelMap.minX - resizeInitialPixelMap.x;
+          const origMinLocalY = resizeInitialPixelMap.minY - resizeInitialPixelMap.y;
+          pm.x = Math.round(newMinX);
+          pm.y = Math.round(newMinY);
+          const scaledPixels = [];
+          const seen = new Set();
+          resizeInitialPixelMap.pixels.forEach((p) => {
+            const relX = p.x - origMinLocalX;
+            const relY = p.y - origMinLocalY;
+            const nx = Math.round(relX * scaleX);
+            const ny = Math.round(relY * scaleY);
+            const key = `${nx},${ny}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              scaledPixels.push({ x: nx, y: ny, color: p.color });
+            }
+          });
+          pm.pixels = scaledPixels;
+          window.dispatchEvent(new CustomEvent('jwplc:pixelmap-updated'));
+        }
+      }
 
       gestureChanged = true;
       syncInputsFromState();
@@ -3582,8 +4429,10 @@
           displayCanvas.style.cursor = 'move';
         } else if (hitTestField(rawPoint)) {
           displayCanvas.style.cursor = 'pointer';
+        } else if (selectedTool === 'pointer' && window.JWPLCHMIPixelMaps?.hitTest?.(rawPoint)) {
+          displayCanvas.style.cursor = 'pointer';
         } else {
-          displayCanvas.style.cursor = (['pixel', 'erase', 'fill', 'pick'].includes(selectedTool) ? 'crosshair' : 'default');
+          displayCanvas.style.cursor = (['pixel', 'erase', 'fill', 'pick'].includes(selectedTool) ? (selectedTool === 'erase' ? 'none' : 'crosshair') : 'default');
         }
       }
       return;
@@ -3761,6 +4610,7 @@
     resizeInitialBounds = null;
     resizeInitialPointer = null;
     resizeInitialFields = null;
+    resizeInitialPixelMap = null;
     dragInitialPointer = null;
     dragInitialFields = null;
     lastPoint = null;
@@ -3796,14 +4646,56 @@
             }
           }
 
+          // Check pixelmaps for CAD Marquee
+          let matchedPixelMap = null;
+          const allPixelMaps = window.JWPLCHMIPixelMaps?.getAll?.() || [];
+          for (let i = allPixelMaps.length - 1; i >= 0; i--) {
+            const pm = allPixelMaps[i];
+            if (Number(pm.page || 0) !== activePage || pm.editorVisible === false || !pm.pixels?.length) continue;
+            if (isLeftToRight) {
+              // Blue Window: Must be completely enclosed in marquee box
+              let pMinX = Infinity, pMinY = Infinity, pMaxX = -Infinity, pMaxY = -Infinity;
+              pm.pixels.forEach((p) => {
+                const px = pm.x + p.x;
+                const py = pm.y + p.y;
+                if (px < pMinX) pMinX = px;
+                if (px > pMaxX) pMaxX = px;
+                if (py < pMinY) pMinY = py;
+                if (py > pMaxY) pMaxY = py;
+              });
+              if (pMinX !== Infinity && pMinX >= boxL && pMaxX <= boxR && pMinY >= boxT && pMaxY <= boxB) {
+                matchedPixelMap = pm;
+                break;
+              }
+            } else {
+              // Green Crossing ("modo verde"): Touches ANY drawn pixel
+              const touchesPixel = pm.pixels.some((p) => {
+                const px = pm.x + p.x;
+                const py = pm.y + p.y;
+                return px >= boxL && px <= boxR && py >= boxT && py <= boxB;
+              });
+              if (touchesPixel) {
+                matchedPixelMap = pm;
+                break;
+              }
+            }
+          }
+
           if (matchedList.length > 0) {
             setSelectedKeys(matchedList.map((f) => f.key));
             const primary = selectedField();
             selectedTool = primary ? toolForField(primary) : 'pointer';
+            window.JWPLCHMIPixelMaps?.setSelectedKey?.(null);
             syncInputsFromState();
+            syncToolUI();
+          } else if (matchedPixelMap) {
+            setSelectedKeys([]);
+            window.JWPLCHMIPixelMaps?.setSelectedKey?.(matchedPixelMap.key);
+            selectedTool = 'pointer';
             syncToolUI();
           } else {
             setSelectedKeys([]);
+            window.JWPLCHMIPixelMaps?.setSelectedKey?.(null);
             syncToolUI();
           }
         }
@@ -3857,6 +4749,7 @@
     if (fields.length > 0) {
       let moved = false;
       fields.forEach((field) => {
+        if (field.locked) return;
         if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
           field.x += dx;
           field.y += dy;
@@ -3909,9 +4802,23 @@
   }
 
   function alignSelectedShapes(alignType) {
-    const SHAPE_TYPES = ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'];
-    const fields = selectedFields().filter((f) => SHAPE_TYPES.includes(f.type));
-    if (fields.length === 0) return;
+    const fields = selectedFields();
+    if (fields.length === 0) {
+      if (selectedTool === 'rawText') {
+        const b = rawTextBounds(rawState.value || '', rawState.size, rawState.font);
+        const w = b.width;
+        const h = b.height;
+        if (alignType === 'left') rawState.x = 0;
+        else if (alignType === 'hcenter') rawState.x = Math.max(0, Math.round((WIDTH - w) / 2));
+        else if (alignType === 'right') rawState.x = Math.max(0, WIDTH - w);
+        else if (alignType === 'top') rawState.y = 0;
+        else if (alignType === 'vcenter') rawState.y = Math.max(0, Math.round((HEIGHT - h) / 2));
+        else if (alignType === 'bottom') rawState.y = Math.max(0, HEIGHT - h);
+        syncInputsFromState();
+        render();
+      }
+      return;
+    }
     fields.forEach((f) => {
       const b = getFieldBounds(f);
       let dx = 0;
@@ -3933,8 +4840,15 @@
       f.y += dy;
       if (f.x2 !== undefined) f.x2 += dx;
       if (f.y2 !== undefined) f.y2 += dy;
+      if (f.type === 'RAW_TEXT') {
+        rawState.x = f.x;
+        rawState.y = f.y;
+      }
     });
-    syncShapeInspector(); render(); commitHistory();
+    syncShapeInspector();
+    syncInputsFromState();
+    render();
+    commitHistory();
   }
 
   document.addEventListener('keydown', (event) => {
@@ -4068,11 +4982,11 @@
   });
 
   buildColorSelect(rawTextColor, 'WHITE');
-  buildColorSelect(rawTextBackground, 'BLACK');
+  buildColorSelect(rawTextBackground, 'BLACK', true);
   buildColorSelect(fieldFillColor, 'WHITE');
   buildColorSelect(fieldLabelColor, 'WHITE');
   buildColorSelect(fieldValueColor, 'CYAN');
-  buildColorSelect(fieldBackgroundColor, 'BLACK');
+  buildColorSelect(fieldBackgroundColor, 'BLACK', true);
   buildColorSelect(fieldFrameColor, 'WHITE');
 
   attachVisualColorPicker(rawTextColor,
@@ -4235,7 +5149,9 @@
   });
   document.getElementById('shapeDuplicateBtn')?.addEventListener('click', duplicateSelectedField);
   document.getElementById('shapeDeleteBtn')?.addEventListener('click', deleteSelectedField);
-  // ── End Shape Inspector ─────────────────────────────────────────────────
+  document.getElementById('sidebarPreviewFrame')?.addEventListener('click', () => {
+    fitCanvas();
+  });
 
   buildPalette();
   updateActiveColorUI();
@@ -4248,6 +5164,7 @@
   updateHistoryButtons();
 
   window.JWPLCHMIEditor = {
+    integratedBarLayers: true,
     getSelectedField: () => selectedField(),
     getSelectedFields: () => selectedFields(),
     getSelectedFieldKeys: () => [...selectedFieldKeys],
@@ -4258,6 +5175,7 @@
       render();
     },
     getZoom: () => zoom,
+    getSelectedColor: () => (selectedColor ? selectedColor.value : 0xFFFF),
     getSelectedTool: () => selectedTool,
     getSelectedFieldType: () => selectedField()?.type || null,
     getAllFields: () => hmiFields,
@@ -4272,6 +5190,7 @@
     setActivePage,
     addPage,
     renamePage,
+    deletePage,
     moveSelectedFieldToPage,
     commitHistory,
     render,
@@ -4292,7 +5211,9 @@
     addValueField,
     addRawTextField,
     floodFill,
-    pickColorAt
+    pickColorAt,
+    hitTestHandle: (e) => hitTestHandle(e),
+    drawSelectionAndGuides: () => drawSelectionAndGuides()
   };
   window.jwplc = window.JWPLCHMIEditor;
 })();
@@ -4369,9 +5290,12 @@
       if (crosshairY) crosshairY.style.display = 'none';
     });
 
-    // Mouse Wheel: Scroll up/down, Shift+Scroll left/right, Ctrl+Scroll Zoom
     canvasViewport.addEventListener('wheel', (e) => {
       e.preventDefault();
+      const activeTool = window.JWPLCHMIEditor?.getSelectedTool?.();
+      if (activeTool === 'erase' || activeTool === 'pixel') {
+        return;
+      }
       if (e.ctrlKey) {
         // Ctrl + Wheel = Zoom in / Zoom out
         const curZoom = Number(document.getElementById('zoomSelect')?.value) || 1;

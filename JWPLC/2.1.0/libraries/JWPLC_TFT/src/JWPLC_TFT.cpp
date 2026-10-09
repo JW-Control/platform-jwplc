@@ -40,6 +40,10 @@ extern "C"
 #error "JWPLC_TFT: SUPPORT_TRANSACTIONS requerido"
 #endif
 
+#if !defined(LOAD_FONT2) || !defined(LOAD_FONT4) || !defined(LOAD_GFXFF)
+#error "JWPLC_TFT: LOAD_FONT2, LOAD_FONT4 y LOAD_GFXFF requeridos"
+#endif
+
 namespace
 {
     TFT_eSPI g_backend = TFT_eSPI();
@@ -49,6 +53,60 @@ namespace
     static constexpr uint16_t NATIVE_HEIGHT = 320;
     static constexpr uint16_t LOGICAL_WIDTH = 320;
     static constexpr uint16_t LOGICAL_HEIGHT = 170;
+
+    // Devuelve la FreeFont asociada o nullptr para fuentes bitmap.
+    const GFXfont *freeFontFor(JWPLC_TFTFont font)
+    {
+        switch (font)
+        {
+        case JWPLC_TFTFont::SANS_9:        return &FreeSans9pt7b;
+        case JWPLC_TFTFont::SANS_BOLD_9:   return &FreeSansBold9pt7b;
+        case JWPLC_TFTFont::SANS_12:       return &FreeSans12pt7b;
+        case JWPLC_TFTFont::SANS_BOLD_12:  return &FreeSansBold12pt7b;
+        case JWPLC_TFTFont::SANS_18:       return &FreeSans18pt7b;
+        case JWPLC_TFTFont::SANS_BOLD_18:  return &FreeSansBold18pt7b;
+        case JWPLC_TFTFont::SANS_24:       return &FreeSans24pt7b;
+        case JWPLC_TFTFont::SANS_BOLD_24:  return &FreeSansBold24pt7b;
+        case JWPLC_TFTFont::SERIF_9:       return &FreeSerif9pt7b;
+        case JWPLC_TFTFont::SERIF_BOLD_9:  return &FreeSerifBold9pt7b;
+        case JWPLC_TFTFont::SERIF_12:      return &FreeSerif12pt7b;
+        case JWPLC_TFTFont::SERIF_BOLD_12: return &FreeSerifBold12pt7b;
+        case JWPLC_TFTFont::SERIF_18:      return &FreeSerif18pt7b;
+        case JWPLC_TFTFont::SERIF_BOLD_18: return &FreeSerifBold18pt7b;
+        case JWPLC_TFTFont::SERIF_24:      return &FreeSerif24pt7b;
+        case JWPLC_TFTFont::SERIF_BOLD_24: return &FreeSerifBold24pt7b;
+        case JWPLC_TFTFont::MONO_9:        return &FreeMono9pt7b;
+        case JWPLC_TFTFont::MONO_BOLD_9:   return &FreeMonoBold9pt7b;
+        case JWPLC_TFTFont::MONO_12:       return &FreeMono12pt7b;
+        case JWPLC_TFTFont::MONO_BOLD_12:  return &FreeMonoBold12pt7b;
+        case JWPLC_TFTFont::MONO_18:       return &FreeMono18pt7b;
+        case JWPLC_TFTFont::MONO_BOLD_18:  return &FreeMonoBold18pt7b;
+        case JWPLC_TFTFont::MONO_24:       return &FreeMono24pt7b;
+        case JWPLC_TFTFont::MONO_BOLD_24:  return &FreeMonoBold24pt7b;
+        default:                           return nullptr;
+        }
+    }
+
+    void applyFont(JWPLC_TFTFont font)
+    {
+        const GFXfont *gfx = freeFontFor(font);
+
+        if (gfx != nullptr)
+        {
+            g_backend.setFreeFont(gfx);
+            return;
+        }
+
+        // Limpia cualquier FreeFont previa antes de elegir una bitmap.
+        g_backend.setFreeFont(nullptr);
+
+        switch (font)
+        {
+        case JWPLC_TFTFont::FONT2: g_backend.setTextFont(2); break;
+        case JWPLC_TFTFont::FONT4: g_backend.setTextFont(4); break;
+        default:                   g_backend.setTextFont(1); break;
+        }
+    }
 }
 
 JWPLC_TFTClass JWPLC_TFT;
@@ -62,6 +120,9 @@ JWPLC_TFTClass::JWPLC_TFTClass()
       _textBackgroundEnabled(true),
       _wrapX(true),
       _wrapY(false),
+      _font(JWPLC_TFTFont::GLCD),
+      _datum(JWPLC_TFTDatum::TOP_LEFT),
+      _padding(0),
       _cursorX(0),
       _cursorY(0)
 {
@@ -456,6 +517,10 @@ void JWPLC_TFTClass::syncTextState()
     g_backend.setTextWrap(
         _wrapX,
         _wrapY);
+
+    applyFont(_font);
+    g_backend.setTextDatum(static_cast<uint8_t>(_datum));
+    g_backend.setTextPadding(_padding);
 }
 
 void JWPLC_TFTClass::syncCursorState()
@@ -542,6 +607,60 @@ void JWPLC_TFTClass::setTextWrap(
     g_backend.setTextWrap(
         _wrapX,
         _wrapY);
+}
+
+void JWPLC_TFTClass::setFont(JWPLC_TFTFont font)
+{
+    _font = font;
+    applyFont(_font);
+}
+
+JWPLC_TFTFont JWPLC_TFTClass::font() const
+{
+    return _font;
+}
+
+void JWPLC_TFTClass::setTextDatum(JWPLC_TFTDatum datum)
+{
+    _datum = datum;
+    g_backend.setTextDatum(static_cast<uint8_t>(_datum));
+}
+
+JWPLC_TFTDatum JWPLC_TFTClass::textDatum() const
+{
+    return _datum;
+}
+
+void JWPLC_TFTClass::setTextPadding(uint16_t width)
+{
+    _padding = width;
+    g_backend.setTextPadding(_padding);
+}
+
+uint16_t JWPLC_TFTClass::textPadding() const
+{
+    return _padding;
+}
+
+int16_t JWPLC_TFTClass::drawString(
+    const char *text,
+    int16_t x,
+    int16_t y,
+    uint32_t timeoutMs)
+{
+    if (text == nullptr)
+    {
+        return 0;
+    }
+
+    if (!acquireForOperation(timeoutMs))
+    {
+        return -1;
+    }
+
+    const int16_t drawn = g_backend.drawString(text, x, y);
+    releaseAfterOperation();
+    return drawn;
 }
 
 int16_t JWPLC_TFTClass::textWidth(

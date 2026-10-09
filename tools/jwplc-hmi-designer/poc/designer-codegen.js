@@ -289,15 +289,62 @@
         return cmds.join('\n        ');
       }
       if (field.type === 'RAW_TEXT') {
+        const RAW_BG_PAD = 2;
         const fg = `0x${(field.textColor ?? 0xFFFF).toString(16).toUpperCase().padStart(4, '0')}`;
         const text = String(field.text || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        const fonts = window.JWPLCDesignerFonts;
+        const font = fonts ? fonts.fieldFont(field) : null;
+        if (font && font.kind !== 'glcd') {
+          const tft = 'JWPLC_Display.getTFT()->';
+          const pad = '\n        ';
+          const lines = [];
+          if (!field.transparentBackground) {
+            const bg = `0x${(field.backgroundColor ?? 0x0000).toString(16).toUpperCase().padStart(4, '0')}`;
+            const w = fonts.measureWidth(font, String(field.text || ''), field.size || 1);
+            const h = fonts.lineHeight(font, field.size || 1);
+            // Padding de RAW_BG_PAD px alrededor del texto (igual que el preview)
+            lines.push(`${tft}fillRect(${field.x - RAW_BG_PAD}, ${field.y - RAW_BG_PAD}, ${w + RAW_BG_PAD * 2}, ${h + RAW_BG_PAD * 2}, ${bg});`);
+          }
+          lines.push(
+            `${tft}setFont(${fonts.cppSymbol(font.id)});`,
+            `${tft}setTextDatum(JWPLC_TFTDatum::TOP_LEFT);`,
+            `${tft}setTextSize(${field.size || 1});`,
+            `${tft}setTextColor(${fg});`,
+            `${tft}drawString("${text}", ${field.x}, ${field.y});`,
+            `${tft}setFont(JWPLC_TFTFont::GLCD);`
+          );
+          return lines.join(pad);
+        }
+        // GLCD
+        const tft = 'JWPLC_Display.getTFT()->';
+        const pad = '\n        ';
         if (field.transparentBackground) {
-          return `JWPLC_Display.getTFT()->setCursor(${field.x}, ${field.y});\n        JWPLC_Display.getTFT()->setTextSize(${field.size || 1});\n        JWPLC_Display.getTFT()->setTextColor(${fg});\n        JWPLC_Display.getTFT()->print("${text}");`;
+          return [
+            `${tft}setCursor(${field.x}, ${field.y});`,
+            `${tft}setTextSize(${field.size || 1});`,
+            `${tft}setTextColor(${fg});`,
+            `${tft}print("${text}");`
+          ].join(pad);
         } else {
           const bg = `0x${(field.backgroundColor ?? 0x0000).toString(16).toUpperCase().padStart(4, '0')}`;
-          return `JWPLC_Display.getTFT()->setCursor(${field.x}, ${field.y});\n        JWPLC_Display.getTFT()->setTextSize(${field.size || 1});\n        JWPLC_Display.getTFT()->setTextColor(${fg}, ${bg});\n        JWPLC_Display.getTFT()->print("${text}");`;
+          const fonts2 = window.JWPLCDesignerFonts;
+          const glcd = fonts2 ? fonts2.get('GLCD') : null;
+          const scale = field.size || 1;
+          // Bounds GLCD: 6*scale*chars - scale de ancho, 7*scale de alto
+          const chars = String(field.text || '').length;
+          const w = chars > 0 ? chars * 6 * scale - scale : 0;
+          const h = 7 * scale;
+          return [
+            // fillRect con padding antes del print (igual que el preview)
+            `${tft}fillRect(${field.x - RAW_BG_PAD}, ${field.y - RAW_BG_PAD}, ${w + RAW_BG_PAD * 2}, ${h + RAW_BG_PAD * 2}, ${bg});`,
+            `${tft}setCursor(${field.x}, ${field.y});`,
+            `${tft}setTextSize(${scale});`,
+            `${tft}setTextColor(${fg});`,
+            `${tft}print("${text}");`
+          ].join(pad);
         }
       }
+
     }
     const id = canonicalFor(field, 'id', field.id, index);
     const variable = canonicalFor(field, 'variable', field.variable, index);

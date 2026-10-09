@@ -236,8 +236,6 @@
 
   function clearFieldSelection() {
     editor()?.setSelectedFieldKeys?.([]);
-    window.JWPLCHMIEditor?.setSelectedFieldKeys?.([]);
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   }
 
   function createMap() {
@@ -295,17 +293,27 @@
     changed();
   }
 
-  function hitMap(point) {
+  function hitMap(point, tolerance = 2) {
     const visible = mapsForPage().filter((map) => ensureEditorMeta(map).editorVisible);
     for (let i = visible.length - 1; i >= 0; i -= 1) {
       const map = visible[i];
+      if (!map.pixels?.length) continue;
       const b = bounds(map);
-      const inBox = (point.x >= b.x - 2 && point.x <= b.x + b.width + 2 && point.y >= b.y - 2 && point.y <= b.y + b.height + 2);
-      if (inBox) {
-        if (selectedKey === map.key || map.pixels.length === 0 || findPixel(map, point.x - map.x, point.y - map.y) >= 0) {
-          return map;
-        }
+      if (
+        point.x < b.x - tolerance ||
+        point.x > b.x + b.width + tolerance ||
+        point.y < b.y - tolerance ||
+        point.y > b.y + b.height + tolerance
+      ) {
+        continue;
       }
+
+      const nearPixel = map.pixels.some((p) => {
+        const px = map.x + p.x;
+        const py = map.y + p.y;
+        return Math.abs(px - point.x) <= tolerance && Math.abs(py - point.y) <= tolerance;
+      });
+      if (nearPixel) return map;
     }
     return null;
   }
@@ -474,6 +482,7 @@
     eraserSizeInput.addEventListener('change', () => {
       eraserSize = clamp(Number(eraserSizeInput.value) || 1, 1, MAX_BRUSH_SIZE);
       eraserSizeInput.value = String(eraserSize);
+      if (mainEraserSizeSelect) mainEraserSizeSelect.value = String(eraserSize);
     });
 
     visibilityButton.addEventListener('click', () => {
@@ -558,17 +567,42 @@
     objectList.querySelectorAll('.a11-pixel-row').forEach((node) => node.remove());
     mapsForPage().forEach((map) => {
       ensureEditorMeta(map);
-      const row = document.createElement('button');
-      row.type = 'button';
-      row.dataset.hidden = map.editorVisible ? '0' : '1';
-      row.className = `object-item a11-pixel-row${map.key === selectedKey ? ' active' : ''}`;
-      row.innerHTML = '<span class="object-icon">▦</span><span class="object-type">PIXEL</span><span class="object-name"></span><span class="object-id"></span><span class="object-eye"></span>';
-      row.querySelector('.object-name').textContent = map.name;
-      row.querySelector('.object-id').textContent = map.editorVisible
-        ? `${map.pixels.length} px · ${Math.round(map.editorOpacity * 100)}%`
-        : `${map.pixels.length} px · oculto`;
-      row.querySelector('.object-eye').textContent = map.editorVisible ? '●' : '○';
+      const row = document.createElement('div');
+      const isAct = map.key === selectedKey;
+      row.className = `object-item a11-pixel-row${isAct ? ' active' : ''}${!map.editorVisible ? ' is-hidden' : ''}${map.locked ? ' is-locked' : ''}`;
+      row.innerHTML = `
+        <span class="object-icon">▦</span>
+        <span class="object-type" style="display:none">PIXEL</span>
+        <span class="object-name" title="${map.name}">${map.name}</span>
+        <span class="object-id" style="display:none">${map.pixels.length} px</span>
+        <div class="object-actions">
+          <button type="button" class="object-btn btn-eye" title="${map.editorVisible ? 'Ocultar' : 'Mostrar'}">${map.editorVisible ? '👁' : '🚫'}</button>
+          <button type="button" class="object-btn btn-lock" title="${map.locked ? 'Desbloquear' : 'Bloquear'}">${map.locked ? '🔒' : '🔓'}</button>
+        </div>
+      `;
+
+      const eyeBtn = row.querySelector('.btn-eye');
+      eyeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        map.editorVisible = !map.editorVisible;
+        syncInspector();
+        render();
+        window.JWPLCHMIInspectorState?.sync?.();
+      });
+
+      const lockBtn = row.querySelector('.btn-lock');
+      lockBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        map.locked = !map.locked;
+        syncInspector();
+        render();
+        window.JWPLCHMIInspectorState?.sync?.();
+      });
+
       row.addEventListener('click', (event) => {
+        if (event.target.closest('.object-btn')) return;
         event.preventDefault();
         clearFieldSelection();
         selectedKey = map.key;
@@ -577,6 +611,18 @@
         render();
         window.JWPLCHMIInspectorState?.sync?.();
       });
+
+      row.addEventListener('dblclick', (event) => {
+        if (event.target.closest('.object-btn')) return;
+        event.preventDefault();
+        clearFieldSelection();
+        selectedKey = map.key;
+        mode = 'MOVE';
+        syncInspector();
+        render();
+        window.JWPLCHMIEditor?.fitSelection?.();
+      });
+
       objectList.appendChild(row);
     });
     if (countBadge) countBadge.textContent = String((editor()?.getFieldsForPage?.(page()) || []).length + mapsForPage().length);
@@ -619,17 +665,6 @@
       pctx.restore();
     });
 
-    // Draw active pixelmap selection bounding box
-    const selMap = selected();
-    if (selMap && Number(selMap.page || 0) === page() && ensureEditorMeta(selMap).editorVisible) {
-      const b = bounds(selMap);
-      ctx.save();
-      ctx.strokeStyle = '#38bdf8';
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([4, 3]);
-      ctx.strokeRect(b.x * zoom - 0.5, b.y * zoom - 0.5, b.width * zoom + 1, b.height * zoom + 1);
-      ctx.restore();
-    }
 
     if (gridToggle?.checked && zoom >= 3) {
       const map = selected();
@@ -670,48 +705,7 @@
     window.dispatchEvent(new CustomEvent('jwplc:pixelmap-changed', { detail: { count: maps.length } }));
   }
 
-  function ensureSelectOption(select, value) {
-    const token = hex565(value);
-    let option = [...select.options].find((item) => item.value === token);
-    if (!option) {
-      option = document.createElement('option');
-      option.value = token;
-      option.textContent = `${token} · personalizado`;
-      select.appendChild(option);
-    }
-    select.value = token;
-  }
 
-  function injectAppearancePickers() {
-    const specs = [
-      ['fieldLabelColor', 'labelColor'], ['fieldValueColor', 'valueColor'],
-      ['fieldBackgroundColor', 'backgroundColor'], ['fieldFrameColor', 'frameColor']
-    ];
-    specs.forEach(([id, property]) => {
-      const select = document.getElementById(id);
-      const label = select?.closest('label');
-      if (!select || !label || label.dataset.a11Rgb565 === '1') return;
-      label.dataset.a11Rgb565 = '1';
-      const host = document.createElement('div');
-      select.insertAdjacentElement('afterend', host);
-      const sync = makeColorControl(host,
-        () => Number(editor()?.getSelectedField?.()?.[property] ?? 0),
-        (value) => {
-          const field = editor()?.getSelectedField?.();
-          if (!field) return;
-          field[property] = value & 0xFFFF;
-          ensureSelectOption(select, field[property]);
-          refreshBase();
-        }, true);
-      window.addEventListener('jwplc:editor-refresh', () => {
-        const field = editor()?.getSelectedField?.();
-        if (!field) return;
-        const value = Number(field[property]) & 0xFFFF;
-        ensureSelectOption(select, value);
-        sync();
-      });
-    });
-  }
 
   function normalizeRuns(map) {
     const pixels = map.pixels.map((p) => ({ x: map.x + p.x, y: map.y + p.y, color: p.color & 0xFFFF }))
@@ -777,32 +771,62 @@
 
   pixelTool?.addEventListener('click', () => {
     clearFieldSelection();
-    let map = selected();
-    if (!map || Number(map.page || 0) !== page()) {
-      const pageMaps = mapsForPage();
-      if (pageMaps.length > 0) {
-        selectedKey = pageMaps[pageMaps.length - 1].key;
-      } else {
-        createMap();
-      }
-    }
     mode = 'DRAW';
     syncTools();
     render();
     window.JWPLCHMIInspectorState?.sync?.();
   });
 
+  const eraserCursorBox = document.getElementById('eraserCursorBox');
+
+  function updateEraserCursor(p) {
+    if (!eraserCursorBox) return;
+    const currentTool = editor()?.getSelectedTool?.() || 'pointer';
+    if (currentTool !== 'erase' || !inside(p)) {
+      eraserCursorBox.style.display = 'none';
+      return;
+    }
+    const range = brushRange(eraserSize);
+    const zoom = currentZoom();
+    const left = (p.x + range.start) * zoom;
+    const top = (p.y + range.start) * zoom;
+    const w = range.size * zoom;
+    const h = range.size * zoom;
+    eraserCursorBox.style.left = `${left}px`;
+    eraserCursorBox.style.top = `${top}px`;
+    eraserCursorBox.style.width = `${w}px`;
+    eraserCursorBox.style.height = `${h}px`;
+    eraserCursorBox.style.display = 'block';
+  }
+
+  displayCanvas.addEventListener('pointerleave', () => {
+    if (eraserCursorBox) eraserCursorBox.style.display = 'none';
+  });
+
+  displayCanvas.addEventListener('pointermove', (event) => {
+    const p = pointFromEvent(event);
+    updateEraserCursor(p);
+  });
+
+  // Ajustar tamaño del borrador con la rueda del ratón
+  window.addEventListener('wheel', (event) => {
+    const currentTool = editor()?.getSelectedTool?.() || 'pointer';
+    if (currentTool !== 'erase') return;
+    const target = event.target;
+    if (target?.closest?.('.panel') || target?.closest?.('nav') || target?.closest?.('header')) return;
+    event.preventDefault();
+    if (event.deltaY < 0) {
+      eraserSize = Math.min(MAX_BRUSH_SIZE, eraserSize + 1);
+    } else if (event.deltaY > 0) {
+      eraserSize = Math.max(1, eraserSize - 1);
+    }
+    if (eraserSizeInput) eraserSizeInput.value = String(eraserSize);
+    const p = pointFromEvent(event);
+    updateEraserCursor(p);
+  }, { passive: false });
+
   eraseTool?.addEventListener('click', () => {
     clearFieldSelection();
-    let map = selected();
-    if (!map || Number(map.page || 0) !== page()) {
-      const pageMaps = mapsForPage();
-      if (pageMaps.length > 0) {
-        selectedKey = pageMaps[pageMaps.length - 1].key;
-      } else {
-        createMap();
-      }
-    }
     mode = 'ERASE';
     syncTools();
     render();
@@ -811,7 +835,12 @@
 
   window.addEventListener('jwplc:tool-changed', (event) => {
     const newTool = event.detail?.tool;
-    if (newTool && newTool !== 'pixel' && newTool !== 'erase') {
+    if (newTool !== 'erase' && eraserCursorBox) eraserCursorBox.style.display = 'none';
+    if (newTool === 'pixel' || newTool === 'erase') {
+      mode = (newTool === 'erase') ? 'ERASE' : 'DRAW';
+      syncTools();
+      render();
+    } else if (newTool) {
       if (newTool !== 'pointer') {
         selectedKey = null;
       }
@@ -833,74 +862,80 @@
     if (!inside(p)) return;
 
     if (isPixelTool) {
-      let map = selected();
-      if (!map || Number(map.page || 0) !== page()) {
-        const pageMaps = mapsForPage();
-        if (pageMaps.length > 0) {
-          map = pageMaps[pageMaps.length - 1];
+      let map = null;
+      if (currentTool === 'erase') {
+        // Erase: prefer map directly under pointer, otherwise active map or last map on page
+        const hit = hitMap(p, Math.max(2, Math.floor(eraserSize / 2)));
+        if (hit) {
+          map = hit;
+          selectedKey = map.key;
+        } else {
+          map = selected();
+          if (!map || Number(map.page || 0) !== page()) {
+            const pageMaps = mapsForPage();
+            map = pageMaps.length > 0 ? pageMaps[pageMaps.length - 1] : null;
+            if (map) selectedKey = map.key;
+          }
+        }
+        if (!map) return; // Nothing to erase
+      } else {
+        // Pencil: each new stroke creates a new object if none selected or if selected map already has pixels!
+        let currentMap = selected();
+        if (currentMap && Number(currentMap.page || 0) === page() && currentMap.pixels.length === 0) {
+          map = currentMap;
         } else {
           map = createMap();
         }
-        if (map) selectedKey = map.key;
+        if (!map) return;
+        selectedKey = map.key;
       }
-      if (!map) return;
-      clearFieldSelection();
       mode = (currentTool === 'erase') ? 'ERASE' : 'DRAW';
       event.preventDefault();
       event.stopImmediatePropagation();
       pointer = event.pointerId;
       lastPoint = p;
-      displayCanvas.setPointerCapture?.(pointer);
+      try { displayCanvas.setPointerCapture(pointer); } catch (_) {}
+      const drawColor = (editor()?.getSelectedColor?.() ?? color) & 0xFFFF;
       if (mode === 'ERASE') {
         eraseBrush(map, p.x, p.y, eraserSize);
       } else {
-        putBrush(map, p.x, p.y, color, brushSize);
+        putBrush(map, p.x, p.y, drawColor, brushSize);
       }
-      refreshBase();
       render();
       return;
     }
 
     // currentTool === 'pointer'
-    let map = selected();
-    if (!map) {
-      map = hitMap(p);
-      if (!map) return;
-      clearFieldSelection();
-      selectedKey = map.key;
-      mode = 'MOVE';
-    } else {
-      const hit = hitMap(p);
-      if (!hit || hit.key !== map.key) {
-        if (hit) {
-          clearFieldSelection();
-          selectedKey = hit.key;
-          mode = 'MOVE';
-        } else {
-          selectedKey = null;
-          render();
-          return;
-        }
-      } else {
-        mode = 'MOVE';
-      }
+    if (editor()?.hitTestHandle?.(event)) {
+      return;
     }
 
-    if (Number(map.page || 0) !== page()) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    pointer = event.pointerId;
-    lastPoint = p;
-    displayCanvas.setPointerCapture?.(pointer);
-    if (mode === 'MOVE') {
+    const hit = hitMap(p);
+    if (hit) {
+      clearFieldSelection();
+      selectedKey = hit.key;
+      mode = 'MOVE';
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      pointer = event.pointerId;
+      lastPoint = p;
+      try { displayCanvas.setPointerCapture(pointer); } catch (_) {}
       dragStart = p;
-      dragOrigin = { x: map.x, y: map.y };
+      dragOrigin = { x: hit.x, y: hit.y };
+      syncInspector();
+      refreshBase();
+      return;
     }
-    render();
+
+    if (selectedKey) {
+      selectedKey = null;
+      syncInspector();
+      refreshBase();
+    }
   }, true);
 
-  displayCanvas.addEventListener('pointermove', (event) => {
-    if (pointer !== event.pointerId) return;
+  window.addEventListener('pointermove', (event) => {
+    if (pointer === null || pointer !== event.pointerId) return;
     const p = pointFromEvent(event);
     if (!inside(p)) return;
     const map = selected();
@@ -920,34 +955,55 @@
         nextY = Math.round(nextY / grid) * grid;
       }
       
-      map.x = Math.max(0, Math.min(WIDTH - bounds(map).width, nextX));
-      map.y = Math.max(0, Math.min(HEIGHT - bounds(map).height, nextY));
-      syncInspector();
-      refreshBase();
+      nextX = Math.max(0, Math.min(WIDTH - bounds(map).width, nextX));
+      nextY = Math.max(0, Math.min(HEIGHT - bounds(map).height, nextY));
+      if (map.x !== nextX || map.y !== nextY) {
+        map.x = nextX;
+        map.y = nextY;
+        syncInspector();
+        refreshBase();
+      }
     } else if (lastPoint) {
+      const drawColor = (editor()?.getSelectedColor?.() ?? color) & 0xFFFF;
       rasterLine(lastPoint, p, (x, y) => {
         if (mode === 'ERASE') eraseBrush(map, x, y, eraserSize);
-        else putBrush(map, x, y, color, brushSize);
+        else putBrush(map, x, y, drawColor, brushSize);
       });
       lastPoint = p;
+      render();
     }
-    refreshBase();
   }, true);
 
   function endPointer(event) {
     if (pointer === null || (event?.pointerId !== undefined && event.pointerId !== pointer)) return;
     event?.preventDefault?.();
     event?.stopImmediatePropagation?.();
+    try { displayCanvas.releasePointerCapture(pointer); } catch (_) {}
     pointer = null;
     lastPoint = null;
     dragStart = null;
     dragOrigin = null;
+
+    // Remove empty pixel maps
+    const beforeCount = maps.length;
+    maps = maps.filter((m) => m.pixels && m.pixels.length > 0);
+    if (!maps.some((m) => m.key === selectedKey)) {
+      selectedKey = null;
+    }
+
+    const currentTool = editor()?.getSelectedTool?.() || 'pointer';
+    if (currentTool === 'pixel') {
+      // When finishing a pencil stroke, deselect so the next stroke automatically creates a new object
+      selectedKey = null;
+    }
+
     changed();
     syncInspector();
+    refreshBase();
     render();
   }
-  displayCanvas.addEventListener('pointerup', endPointer, true);
-  displayCanvas.addEventListener('pointercancel', endPointer, true);
+  window.addEventListener('pointerup', endPointer, true);
+  window.addEventListener('pointercancel', endPointer, true);
 
   document.addEventListener('keydown', (event) => {
     const map = selected();
@@ -1032,7 +1088,6 @@
   injectStyles();
   organizeLeftPanel();
   injectInspector();
-  injectAppearancePickers();
   if (pixelSection) pixelSection.hidden = true;
   render();
 
@@ -1049,6 +1104,13 @@
     export: exportMaps,
     import: importMaps,
     buildCode,
-    refresh: render
+    refresh: render,
+    hitTest: (point) => hitMap(point),
+    setSelectedKey: (key) => {
+      selectedKey = key;
+      syncInspector();
+      refreshBase();
+    },
+    getBounds: (map) => bounds(map)
   };
 })();

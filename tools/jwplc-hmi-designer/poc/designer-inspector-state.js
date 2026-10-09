@@ -43,7 +43,9 @@
     if (pixels()?.getSelected?.()) return 'PIXEL';
     const selectedTool = editor()?.getSelectedTool?.() || 'none';
     if (selectedTool === 'rawText') return 'RAW';
-    if (editor()?.getSelectedField?.()) return 'FIELD';
+    const field = editor()?.getSelectedField?.();
+    if (field?.type === 'RAW_TEXT') return 'RAW';
+    if (field) return 'FIELD';
     return 'NONE';
   }
 

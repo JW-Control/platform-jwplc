@@ -570,6 +570,28 @@ JWPLC_TFT.write(
     length);
 ```
 
+### Fuentes - Intermedio
+
+Por defecto se usa la fuente clasica 5x7 (`GLCD`). Puedes elegir otra con `setFont()`:
+
+```cpp
+JWPLC_TFT.setFont(JWPLC_TFTFont::SANS_BOLD_12);
+JWPLC_TFT.setTextDatum(JWPLC_TFTDatum::TOP_LEFT);
+JWPLC_TFT.setTextColor(JWPLC_TFT_WHITE);
+JWPLC_TFT.drawString("TEMP: 25.6 C", 20, 20);
+JWPLC_TFT.setFont(JWPLC_TFTFont::GLCD); // volver a la fuente clasica
+```
+
+Fuentes disponibles: `GLCD`, `FONT2`, `FONT4`, y `SANS_9`, `SANS_BOLD_9`, `SANS_12`,
+`SANS_BOLD_12`, `SERIF_*`, `MONO_*` (mismas variantes 9 y 12, normal y bold).
+
+Notas:
+
+- Con las fuentes `SANS_*`, `SERIF_*` y `MONO_*`, `setCursor()` + `print()` usan la linea base
+  del texto como origen. Usa `drawString()` con un datum `TOP_*` para anclar por arriba.
+- `drawString()` respeta `setTextDatum()` (izquierda, centro, derecha, arriba, medio, abajo, linea base).
+- Con las FreeFonts, `setTextColor(fg, bg)` no rellena la celda de cada glifo. Para fondo solido dibuja antes un `fillRect()` con el area del texto (`textWidth()` x `fontHeight()`).
+- `setTextSize()` escala todas las fuentes. `textWidth()` y `fontHeight()` miden con la fuente activa.
 ### Medir texto — Intermedio
 
 ```cpp

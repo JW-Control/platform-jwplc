@@ -13,7 +13,7 @@
   const gate = document.querySelector('.page-tabs .gate');
   const bottomSummary = document.querySelector('.bottom-summary');
   const pageTabs = document.querySelector('.page-tabs');
-  const pageNavBlock = document.querySelector('.left-panel .nav-block');
+  const pageNavBlock = document.querySelector('.left-panel [data-pages-block]');
   const displayCanvas = document.getElementById('displayCanvas');
   const previewCanvas = document.getElementById('previewCanvas');
   const zoomSelect = document.getElementById('zoomSelect');
@@ -25,7 +25,7 @@
   const statusPage = [...document.querySelectorAll('.statusbar span')]
     .find((span) => span.textContent.trim().startsWith('Página:'));
 
-  if (!pageTabs || !pageNavBlock || !displayCanvas || !previewCanvas) return;
+  if (!pageTabs || !displayCanvas || !previewCanvas) return;
 
   let navigationMode = 'SELECT';
   let pageSelect = null;
@@ -97,6 +97,7 @@
   }
 
   function rebuildLeftPages() {
+    if (!pageNavBlock) return;
     const heading = pageNavBlock.querySelector('.section-heading');
     if (!heading) return;
 
@@ -150,16 +151,85 @@
     existing.forEach((node) => node.remove());
     const gateNode = pageTabs.querySelector('.gate');
 
+    const totalPages = pages().length;
+
     pages().forEach((page) => {
-      const tab = document.createElement('button');
-      tab.className = `tab${page.id === activePage() ? ' active' : ''}`;
-      tab.type = 'button';
-      tab.textContent = page.name;
-      tab.title = pageLabel(page);
-      tab.addEventListener('click', () => {
+      const tab = document.createElement('div');
+      const isActive = page.id === activePage();
+      tab.className = `tab page-tab-pill${isActive ? ' active' : ''}`;
+      tab.dataset.pageId = String(page.id);
+
+      const label = document.createElement('span');
+      label.className = 'page-tab-label';
+      label.textContent = page.name;
+      label.title = `${pageLabel(page)} (Doble clic para renombrar)`;
+      label.addEventListener('click', () => {
         navigationMode = 'SELECT';
         editor()?.setActivePage?.(page.id);
+        patchUI();
       });
+      label.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        const next = window.prompt('Nombre de la página', page.name);
+        if (next == null) return;
+        editor()?.renamePage?.(page.id, next);
+        patchUI();
+      });
+      tab.appendChild(label);
+
+      // Botón de eliminar con confirmación de mantener pulsado (Hold to delete)
+      if (totalPages > 1) {
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'page-delete-btn';
+        delBtn.title = 'Mantén presionado para borrar página';
+        delBtn.innerHTML = '<span class="del-icon">✕</span><span class="del-hold-bar"></span>';
+
+        let holdTimer = null;
+        let startHoldTime = 0;
+        const HOLD_DURATION = 1200; // 1.2 segundos para confirmar
+
+        function endHold() {
+          if (holdTimer) {
+            cancelAnimationFrame(holdTimer);
+            holdTimer = null;
+          }
+          delBtn.classList.remove('is-holding');
+          const bar = delBtn.querySelector('.del-hold-bar');
+          if (bar) bar.style.width = '0%';
+        }
+
+        delBtn.addEventListener('pointerdown', (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          delBtn.classList.add('is-holding');
+          startHoldTime = performance.now();
+
+          function stepHold(now) {
+            const elapsed = now - startHoldTime;
+            const progress = Math.min(1, elapsed / HOLD_DURATION);
+            const bar = delBtn.querySelector('.del-hold-bar');
+            if (bar) bar.style.width = `${progress * 100}%`;
+
+            if (progress >= 1) {
+              endHold();
+              editor()?.deletePage?.(page.id);
+              patchUI();
+            } else {
+              holdTimer = requestAnimationFrame(stepHold);
+            }
+          }
+          holdTimer = requestAnimationFrame(stepHold);
+        });
+
+        delBtn.addEventListener('pointerup', endHold);
+        delBtn.addEventListener('pointerleave', endHold);
+        delBtn.addEventListener('pointercancel', endHold);
+        delBtn.addEventListener('click', (e) => e.stopPropagation());
+
+        tab.appendChild(delBtn);
+      }
+
       pageTabs.insertBefore(tab, gateNode);
     });
 
@@ -167,7 +237,7 @@
     add.className = 'tab add-tab';
     add.type = 'button';
     add.textContent = '＋';
-    add.disabled = pages().length >= (editor()?.getMaxPages?.() || 16);
+    add.disabled = totalPages >= (editor()?.getMaxPages?.() || 16);
     add.title = 'Nueva página';
     add.addEventListener('click', addPage);
     pageTabs.insertBefore(add, gateNode);

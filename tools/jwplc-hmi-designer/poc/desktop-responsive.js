@@ -221,7 +221,13 @@
 
   function leftSections() {
     const blocks = $$('.left-panel .nav-block');
-    return { pages: blocks[0], objects: blocks[1], components: blocks[2], tools: blocks[3], dev: $('.left-panel .dev-actions') };
+    return {
+      pages: $('#sidebarPreviewBlock') || blocks[0],
+      objects: $('#objectsNavBlock') || blocks[0],
+      components: blocks[1] || null,
+      tools: blocks[2] || null,
+      dev: $('.left-panel .dev-actions')
+    };
   }
 
   function ensureLeftRail() {

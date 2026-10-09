@@ -40,6 +40,56 @@ static constexpr uint16_t JWPLC_TFT_YELLOW = 0xFFE0;
 static constexpr uint16_t JWPLC_TFT_CYAN = 0x07FF;
 static constexpr uint16_t JWPLC_TFT_MAGENTA = 0xF81F;
 
+// Fuentes disponibles. Los IDs son propios de JWPLC: el usuario no necesita
+// incluir headers de TFT_eSPI ni de Adafruit GFX.
+enum class JWPLC_TFTFont : uint8_t
+{
+    GLCD = 0,        // Font 1 clasica 5x7 (default)
+    FONT2,           // Font 2 bitmap 16 px
+    FONT4,           // Font 4 bitmap 26 px
+    SANS_9,
+    SANS_BOLD_9,
+    SANS_12,
+    SANS_BOLD_12,
+    SANS_18,
+    SANS_BOLD_18,
+    SANS_24,
+    SANS_BOLD_24,
+    SERIF_9,
+    SERIF_BOLD_9,
+    SERIF_12,
+    SERIF_BOLD_12,
+    SERIF_18,
+    SERIF_BOLD_18,
+    SERIF_24,
+    SERIF_BOLD_24,
+    MONO_9,
+    MONO_BOLD_9,
+    MONO_12,
+    MONO_BOLD_12,
+    MONO_18,
+    MONO_BOLD_18,
+    MONO_24,
+    MONO_BOLD_24
+};
+
+// Punto de anclaje usado por drawString(). Valores identicos a TFT_eSPI.
+enum class JWPLC_TFTDatum : uint8_t
+{
+    TOP_LEFT = 0,
+    TOP_CENTER = 1,
+    TOP_RIGHT = 2,
+    MIDDLE_LEFT = 3,
+    MIDDLE_CENTER = 4,
+    MIDDLE_RIGHT = 5,
+    BOTTOM_LEFT = 6,
+    BOTTOM_CENTER = 7,
+    BOTTOM_RIGHT = 8,
+    BASELINE_LEFT = 9,
+    BASELINE_CENTER = 10,
+    BASELINE_RIGHT = 11
+};
+
 class JWPLC_TFTClass : public Print
 {
 public:
@@ -145,6 +195,28 @@ public:
 
     void setTextWrap(bool wrapX, bool wrapY = false);
 
+    // Selecciona la fuente activa. Con fuentes FreeFont (SANS_*, SERIF_*,
+    // MONO_*) el origen de print()/setCursor() es la linea base del texto;
+    // drawString() con datum TOP_* evita esa diferencia.
+    void setFont(JWPLC_TFTFont font);
+    JWPLC_TFTFont font() const;
+
+    void setTextDatum(JWPLC_TFTDatum datum);
+    JWPLC_TFTDatum textDatum() const;
+
+    // Ancho minimo que se rellena con el color de fondo en drawString().
+    // Necesario para fondo solido con FreeFonts.
+    void setTextPadding(uint16_t width);
+    uint16_t textPadding() const;
+
+    // Dibuja texto anclado en (x, y) segun el datum. Devuelve el ancho dibujado
+    // o -1 si no se pudo adquirir el bus.
+    int16_t drawString(
+        const char *text,
+        int16_t x,
+        int16_t y,
+        uint32_t timeoutMs = 50);
+
     int16_t textWidth(const char *text) const;
     int16_t fontHeight() const;
 
@@ -172,6 +244,9 @@ private:
     bool _textBackgroundEnabled;
     bool _wrapX;
     bool _wrapY;
+    JWPLC_TFTFont _font;
+    JWPLC_TFTDatum _datum;
+    uint16_t _padding;
     int16_t _cursorX;
     int16_t _cursorY;
 

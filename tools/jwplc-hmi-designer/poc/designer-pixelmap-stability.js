@@ -79,7 +79,7 @@
     gctx.clearRect(0, 0, geometryCanvas.width, geometryCanvas.height);
     if (Number(map.page || 0) !== page() || map.editorVisible === false || !geometryToggle?.checked) return;
 
-    const zoom = Math.max(0.01, Number(zoomSelect?.value) || 1);
+    const zoom = editor()?.getZoom?.() || (displayCanvas.width / WIDTH) || 1;
     const b = mapBounds(map);
     const left = Math.max(0, b.x - 1);
     const top = Math.max(0, b.y - 1);
@@ -99,7 +99,7 @@
     const helper = compat();
     if (!pm || !helper?.restoreBase?.()) return;
 
-    const zoom = Math.max(0.01, Number(zoomSelect?.value) || 1);
+    const zoom = editor()?.getZoom?.() || (displayCanvas.width / WIDTH) || 1;
     const ctx = displayCanvas.getContext('2d');
     const pctx = previewCanvas.getContext('2d');
     const protectedRects = fieldRects();

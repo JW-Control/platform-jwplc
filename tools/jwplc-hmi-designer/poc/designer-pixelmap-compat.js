@@ -134,6 +134,9 @@
       dctx.drawImage(baseDisplay, sx * zoom, sy * zoom, sw * zoom, sh * zoom, sx * zoom, sy * zoom, sw * zoom, sh * zoom);
       pctx.drawImage(basePreview, sx, sy, sw, sh, sx, sy, sw, sh);
     });
+    if (editor()?.hasFieldSelection?.()) {
+      editor()?.drawSelectionAndGuides?.();
+    }
   }
 
   function queueRestore() {
@@ -150,9 +153,18 @@
     captureBase();
     queueRestore();
   });
-  document.addEventListener('pointerdown', queueRestore, true);
-  document.addEventListener('pointermove', (event) => { if (event.buttons) queueRestore(); }, true);
-  document.addEventListener('click', queueRestore, true);
+  document.addEventListener('pointerdown', () => {
+    const tool = editor()?.getSelectedTool?.();
+    if (tool !== 'pixel' && tool !== 'erase') queueRestore();
+  }, true);
+  document.addEventListener('pointermove', (event) => {
+    const tool = editor()?.getSelectedTool?.();
+    if (tool !== 'pixel' && tool !== 'erase' && event.buttons) queueRestore();
+  }, true);
+  document.addEventListener('click', () => {
+    const tool = editor()?.getSelectedTool?.();
+    if (tool !== 'pixel' && tool !== 'erase') queueRestore();
+  }, true);
 
   function wrapCodegen() {
     const cg = window.JWPLCHMICodegen;

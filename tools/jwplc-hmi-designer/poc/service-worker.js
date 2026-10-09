@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'jwplc-hmi-designer-alpha11-a11-7d-project-integration';
+const CACHE_NAME = 'jwplc-hmi-designer-alpha11-a11-7d-lopaka-raw-inspector';
 const CORE = [
   './desktop.html',
   './index.html',
@@ -8,6 +8,8 @@ const CORE = [
   './desktop-responsive.css',
   './desktop-responsive-compat.css',
   './gfx-classic-font.js',
+  './designer-fonts-data.js',
+  './designer-fonts.js',
   './app.js',
   './ux-foundation.js',
   './designer-codegen.js',
