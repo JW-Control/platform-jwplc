@@ -304,8 +304,8 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=TFT-PRE5-R2
-OBJECTIVE=compile and flash source-first deferred-DISPON candidate using native sketch-local tft_setup discovery
+NEXT_GATE=TFT-PRE5-R3
+OBJECTIVE=compile and flash source-first deferred-DISPON candidate with strict collection and backend configuration guards
 STATE=READY_TO_RERUN_AFTER_PULL
 PREREQUISITE=TFT_PRE4_PASS
 ```
@@ -1182,6 +1182,32 @@ BACKEND_ORIGINAL_MUTATED=NO
 REPO_PRODUCT_MUTATED=NO
 WORKTREE_FINAL=CLEAN
 ```
+
+TFT-PRE5 R2 — REVIEW_HARNESS (F108):
+
+```text
+A13_TFT_PRE5_SYNTAX=PASS
+SERIAL_PORT=COM4
+PRE4_SHA_GUARDS=PASS
+STATUS=REVIEW
+REASON=UNEXPECTED_GATE_EXCEPTION
+EXCEPTION=No se encuentra la propiedad "Count" en este objeto
+COMPILE_CANDIDATE=NOT_REACHED
+UPLOAD=NOT_EXECUTED
+VISUAL_VERIFICATION=NOT_PERFORMED
+```
+
+R3 conserva PRE4 sin alteraciones, fuerza `@(...)` para los resultados de
+`Get-ChildItem`, adelanta el control de cardinalidad y añade comprobaciones
+sobre la unidad de traducción real `TFT_eSPI.cpp`: si no recibe
+`ST7789_DRIVER` y `JWPLC_TFT_DEFER_DISPON`, el build aborta por `#error`.
+La guardia se inyecta sólo bajo `%TEMP%` y se registran los hashes de
+archivos originales y temporales. Cualquier anomalía evita la subida.
+
+Importante: un eventual PASS de PRE5-R3 significa compilación, subida y
+runtime serial correctos, pero NO demuestra por sí solo la eliminación
+visual del blanco/GRAM. Esa conclusión necesita el video de energizado USB
+sin 24 V, comparado con el baseline PRE1/PRE2.
 
 TFT-PRE5 R1 — REVIEW_HARNESS:
 
