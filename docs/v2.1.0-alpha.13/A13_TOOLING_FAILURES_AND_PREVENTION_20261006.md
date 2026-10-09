@@ -709,6 +709,27 @@ adicional por una ejecución que pasó. Mantener `NEXT_FAILURE_ID=F109`.
 El archive TFT productivo requiere regeneración reproducible y prueba
 normal antes de cerrar la observación a nivel release.
 
+### Prevención aplicada a TFT-PRE6-P0 (sin fallo nuevo)
+
+```text
+P0_INPUT=objetos fuente ya validados físicamente en PRE5_R3
+P0_OUTPUT=archive autocontenido únicamente en %TEMP%
+ARRAY_CARDINALITY=usar @(...) para todos los resultados de búsqueda
+PRECOMPILED_MEMBER_SET=JWPLC_TFT.cpp.o,TFT_eSPI.cpp.o
+PRECOMPILED_MEMBER_SHA_PARITY=REQUIRED
+NORMAL_COMPILATION_CASES=3
+GLOBAL_TFT_ESPI_SELECTION=FORBIDDEN
+CORE_A_AND_DISPLAY_A_AND_OLD_TFT_A=HASH_GUARDED
+NO_UPLOAD_UNTIL_PRODUCT_ARCHIVE_AND_SOURCE_REFRESH=YES
+NO_NEW_FAILURE_ID_WITHOUT_NEW_FAILURE=YES
+```
+
+Importante: un archive construido desde los objetos temporales PRE5
+puede confirmar que las unidades compiladas se empaquetan y enlazan,
+pero **todavía no demuestra** que se puedan reconstruir de forma
+autónoma desde sources canónicos. Esa demostración corresponde a P1
+y nunca se reemplaza por el PASS de P0.
+
 ## Estado
 
 ```text
