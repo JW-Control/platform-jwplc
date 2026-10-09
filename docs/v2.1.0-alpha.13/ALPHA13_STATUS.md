@@ -304,11 +304,13 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=TFT-PRE6-P1A-R2
-OBJECTIVE=verify PRE6-P0 proof parser then reproduce exact PRE4 source hashes independently
-STATE=READY_TO_RERUN_AFTER_PULL
+NEXT_GATE=TFT-PRE6-P1A-EVIDENCE-RECOVERY
+OBJECTIVE=verify persistence of local P0 archive and select durable evidence recovery without repeating P0
+STATE=READ_ONLY_DIAGNOSTIC_REQUIRED
 PREREQUISITE=TFT_PRE6_P0_CLOSED_PASS
 P1A_R1=REVIEW_HARNESS_F109
+P1A_R2=REVIEW_HARNESS_F109
+P0_SUMMARY_LOCAL=NOT_FOUND
 PRODUCT_FIX_COMMITTED=NO
 PRODUCTION_ARCHIVE_REFRESH=NOT_STARTED
 ```
@@ -1445,6 +1447,33 @@ Se reforzó también el generador de `ST7789_Init.h` para comprobar,
 contra el SHA físico PRE4, las variantes exactas LF/CRLF de los here-strings
 PowerShell. No flexibilizar hashes ni modificar el producto.
 `NEXT_FAILURE_ID=F110`; sin nuevas hipótesis tratadas como hechos.
+
+## TFT-PRE6-P1A R2 — evidencia faltante (2026-10-09)
+
+```text
+P1A_R2=REVIEW_HARNESS
+PROOF_PARSER_SELF_TEST=PASS
+PROOF_SEARCH_DIRECTORY_COUNT=1
+PROOF_SUMMARY_MISSING=tools/alpha13/results/tft_pre6_p0_20261009_123147/SUMMARY.log
+COMPILE_EXECUTED=NO
+UPLOAD_EXECUTED=NO
+PRODUCT_REPO_MODIFIED=NO
+F109_CAUSE_CLASS=LOCAL_PROOF_UNAVAILABLE
+P0_PREVIOUS=CLOSED_PASS
+NEXT=READ_ONLY_CHECK_OF_P0_DIR_AND_TEMP_ARCHIVE
+```
+
+La prueba del parser ha descartado la hipótesis de R1. El script
+encuentra el directorio P0, pero no el `SUMMARY.log` que P0 anunció.
+Se desconoce por qué el archivo ya no es accesible; no atribuirlo a
+limpieza de archivos sin evidencia. P0 conserva un cierre Git durable,
+`A13_TFT_PRE6_P0_CLOSURE_20261009.md`, pero el gate aún debe exigir
+prueba suficientemente fuerte antes de aceptar un handoff recuperado.
+
+P1A no se relanza hasta verificar si el archive de P0 en `%TEMP%`
+sigue disponible. No regenerar el `SUMMARY.log` histórico ni repetir
+P0 innecesariamente. Seguir `F109`; no crear `F110` sin otra clase
+independiente de fallo.
 
 ## Gates restantes
 
