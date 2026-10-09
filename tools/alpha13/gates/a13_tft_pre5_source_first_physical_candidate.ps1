@@ -306,8 +306,22 @@ try {
     Copy-Item -LiteralPath $pre4Setup -Destination (Join-Path $CandidateJwplcSrc 'tft_setup.h') -Force
 
     $script:Pre5Stage = 'PROBE_COPY'
-    Copy-Item -LiteralPath $probeIno[0].FullName -Destination (Join-Path $CandidateProbeDir $probeIno[0].Name) -Force
+    $candidateProbeIno = Join-Path $CandidateProbeDir $probeIno[0].Name
+    Copy-Item -LiteralPath $probeIno[0].FullName -Destination $candidateProbeIno -Force
     Copy-Item -LiteralPath $pre4Setup -Destination (Join-Path $CandidateProbeDir 'tft_setup.h') -Force
+
+    # The standard PRE1 serial block is reused, but carries a unique PRE5
+    # provenance marker on every pass. A stale PRE1 binary must never PASS.
+    $candidateProbeText = [IO.File]::ReadAllText($candidateProbeIno)
+    $serialAnchor = 'Serial.println("A13_TFT_PRE1_RESULT=BEGIN");'
+    $serialAnchorCount = @([regex]::Matches($candidateProbeText,[regex]::Escape($serialAnchor))).Count
+    if ($serialAnchorCount -ne 1) {
+        Finish-TFTPre5 -Status 'REVIEW' -Reason 'PROVENANCE_ANCHOR_INVALID' -HarnessFailure 'YES' -ExitCode 28
+    }
+    $serialMarker = 'Serial.println("A13_TFT_PRE5_CANDIDATE_SHA256=' + $ExpectedCandidateCppSha + '");'
+    $candidateProbeText = $candidateProbeText.Replace($serialAnchor, $serialAnchor + [Environment]::NewLine + '    ' + $serialMarker)
+    [IO.File]::WriteAllText($candidateProbeIno,$candidateProbeText,(New-Object Text.UTF8Encoding($false)))
+    Write-Host "PROBE_RUNTIME_PROVENANCE=$ExpectedCandidateCppSha"
 
     $candidateSketchSetupSha = Get-A13Sha256 -Path (Join-Path $CandidateProbeDir 'tft_setup.h')
     if ($candidateSketchSetupSha -ne $ExpectedCandidateSetupSha) {
@@ -454,10 +468,12 @@ try {
     $displayReady = Get-A13LogValue -Text $clientText -Key 'A13_TFT_PRE1_CLIENT_DISPLAY_READY'
     $ioReady = Get-A13LogValue -Text $clientText -Key 'A13_TFT_PRE1_CLIENT_IO_READY'
     $clientPass = Get-A13LogValue -Text $clientText -Key 'A13_TFT_PRE1_CLIENT_PASS'
+    $runtimeCandidateSha = Get-A13LogValue -Text $clientText -Key 'A13_TFT_PRE1_CLIENT_A13_TFT_PRE5_CANDIDATE_SHA256'
     $tftRstEnable = Get-A13LogValue -Text $clientText -Key 'A13_TFT_PRE1_CLIENT_TFT_RST_OUTPUT_ENABLE'
     $tftRstLatch = Get-A13LogValue -Text $clientText -Key 'A13_TFT_PRE1_CLIENT_TFT_RST_OUTPUT_LATCH'
 
     if ($null -eq $setupEntry -or $displayReady -ne 'YES' -or $ioReady -ne 'YES' -or $clientPass -ne 'YES' -or
+        $runtimeCandidateSha -ne $ExpectedCandidateCppSha -or
         $tftRstEnable -ne 'YES' -or $tftRstLatch -ne 'HIGH') {
         Finish-TFTPre5 -Status 'REVIEW' -Reason 'CANDIDATE_RUNTIME_CONTRACT_FAILED' -ProductFailure 'YES' -ExitCode 23
     }
@@ -510,6 +526,8 @@ try {
         "CORE_A_LINKED=$coreArchiveLinked",
         "SETUP_ENTRY_MS=$setupEntry",
         "DISPLAY_READY=$displayReady",
+        "RUNTIME_CANDIDATE_SHA256=$runtimeCandidateSha",
+        'STALE_BASELINE_SERIAL_ACCEPTED=NO',
         "IO_READY=$ioReady",
         "TFT_RST_OUTPUT_ENABLE=$tftRstEnable",
         "TFT_RST_OUTPUT_LATCH=$tftRstLatch",
