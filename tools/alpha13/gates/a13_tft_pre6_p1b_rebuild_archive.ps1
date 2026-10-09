@@ -181,7 +181,7 @@ try {
         } catch { continue }
         if ($m.schema -cne 'a13-tft-pre6-source-regeneration-v1' -or
             $m.source -cne 'PRODUCT_CANONICAL_BLOBS' -or
-            $m.backend -cne 'MAINTAINER_TFT_ESPI_2.5_43_VERIFIED_SHA' -or
+            $m.backend -cne 'MAINTAINER_TFT_ESPI_2.5.43_VERIFIED_SHA' -or
             $m.source_cpp_sha256 -cne $CandidateCppSha -or
             $m.source_setup_sha256 -cne $CandidateSetupSha -or
             $m.backend_init_sha256 -cne $CandidateInitSha -or
