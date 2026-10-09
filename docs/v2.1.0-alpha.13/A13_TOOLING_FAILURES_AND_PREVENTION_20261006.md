@@ -627,9 +627,62 @@ temporary TFT_eSPI retains its native User_Setup_Select.h
 only ST7789_Init.h candidate is patched in temp backend
 ```
 
+## F108 — salida escalar de Get-ChildItem evaluada como colección en PRE5
+
+Síntoma confirmado en TFT-PRE5 R2:
+
+```text
+A13_TFT_PRE5_SYNTAX=PASS
+SERIAL_PORT=COM4
+STATUS=REVIEW
+REASON=UNEXPECTED_GATE_EXCEPTION
+EXCEPTION=No se encuentra la propiedad "Count" en este objeto
+COMPILE_EXIT=NOT_REACHED
+UPLOAD_EXIT=NOT_REACHED
+```
+
+Causa más directa identificada en el código: el gate usaba
+`$probeIno = Get-ChildItem ... -Filter '*.ino'` seguido de
+`$probeIno.Count`. Con una sola coincidencia, PowerShell puede entregar
+un objeto escalar sin propiedad `Count` utilizable bajo
+`Set-StrictMode -Version Latest`. La ejecución llegó al punto donde
+se copia el sketch temporal, después del preflight de puerto y resolución
+de fuente TFT_eSPI; no llegó al `COMPILE_EXIT` del candidato.
+
+Clasificación:
+
+```text
+HARNESS_FAILURE=YES
+PRODUCT_FAILURE=NO_EVIDENCE
+HARDWARE_FAILURE=NO
+ENVIRONMENT_FAILURE=NO
+CANDIDATE_COMPILED=NO
+UPLOAD_EXECUTED=NO
+VISUAL_FIX_CONFIRMED=NO
+```
+
+Prevención obligatoria:
+
+```text
+- envolver resultados de cmdlets con cardinalidad variable en @(...);
+- comprobar .Count sobre arrays explícitos, no sobre objetos ambiguos;
+- hacer el preflight de cardinalidad antes de compilaciones costosas;
+- informar PHASE, tipo y línea de excepción en el SUMMARY;
+- asegurar selección de ambos sources temporales + .o exactos;
+- introducir guardia de compilación para comprobar que TFT_eSPI.cpp
+  ve ST7789_DRIVER y JWPLC_TFT_DEFER_DISPON;
+- verificar SHA de core.a y de archives originales antes/después;
+- fallar cerrado antes de upload si cualquier contrato no se cumple;
+- reservar el PASS visual para evidencia posterior a power-cycle físico.
+```
+
+Acción: TFT-PRE5 R3 refuerza validaciones de compilación y regresión y
+mantiene la misma identidad candidata PRE4. No se modifican archivos de
+producto, ni el archive TFT definitivo ni la instalación TFT_eSPI global.
+
 ## Estado
 
 ```text
-NEXT_FAILURE_ID=F108
+NEXT_FAILURE_ID=F109
 SYNC_TO_PROJECT_FAILURES_SOURCE=PENDING
 ```
