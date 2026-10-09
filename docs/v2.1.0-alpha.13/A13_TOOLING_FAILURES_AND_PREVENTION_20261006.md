@@ -420,9 +420,56 @@ el ruido serial bruto permanece en logs como evidencia, pero no como fuente
 contractual para parsear resultados.
 ```
 
+## F104 — usar GPIO_ENABLE_REG/GPIO_OUT_REG para un pin >= 32
+
+Síntoma:
+
+```text
+TFT-PRE1
+TFT_CS=GPIO33
+TFT_CS_OUTPUT_ENABLE=NO
+TFT_CS_OUTPUT_LATCH=LOW
+```
+
+Causa:
+
+El probe reutilizó el patrón de observabilidad de EN_IO (GPIO27) y leyó
+`GPIO_ENABLE_REG` / `GPIO_OUT_REG`, que cubren GPIO0..31. Para GPIO33 debe
+usarse el banco alto (`GPIO_ENABLE1_REG` / `GPIO_OUT1_REG`) y desplazar
+`pin - 32`. Por tanto las dos líneas de CS de PRE1 no representan el estado
+real del pin.
+
+Clasificación:
+
+```text
+HARNESS_FAILURE=YES
+PRODUCT_FAILURE=NO
+TFT_PRE1_TIMING_INVALIDATED=NO
+TFT_PRE1_PASS_INVALIDATED=NO
+CS_DIAGNOSTIC_INVALID=YES
+```
+
+El contrato de TFT-PRE1 no dependía del estado de CS; `SETUP_ENTRY_MS`,
+`DISPLAY_READY`, `IO_READY` y las verificaciones de ruta precompilada siguen
+siendo válidas.
+
+Prevención:
+
+```text
+GPIO 0..31  -> GPIO_ENABLE_REG / GPIO_OUT_REG
+GPIO 32+    -> GPIO_ENABLE1_REG / GPIO_OUT1_REG
+no reutilizar una máscara 1UL << pin sin seleccionar primero el banco
+si el dato es sólo diagnóstico, marcarlo explícitamente y no elevarlo a causa
+```
+
+Validación preventiva:
+
+El probe TFT-PRE1 se corrige para seleccionar el banco de registros según el
+número de GPIO. No se exige repetir PRE1 porque el dato CS no era contractual.
+
 ## Estado
 
 ```text
-NEXT_FAILURE_ID=F104
+NEXT_FAILURE_ID=F105
 SYNC_TO_PROJECT_FAILURES_SOURCE=PENDING
 ```
