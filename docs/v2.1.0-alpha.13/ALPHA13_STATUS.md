@@ -304,12 +304,13 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=TFT-PRE6-P1A-R3
-OBJECTIVE=recover P0 handoff from versioned P0 PRE4 PRE3 docs and SHA-verified P0 archive; regenerate PRE4 candidate sources
+NEXT_GATE=TFT-PRE6-P1B
+OBJECTIVE=independently recompile regenerated P1A sources, create temp precompiled archive, and qualify three normal consumers
 STATE=READY_TO_RUN_AFTER_PULL
-PREREQUISITE=TFT_PRE6_P0_CLOSED_PASS
+PREREQUISITE=TFT_PRE6_P1A_R3_CLOSED_PASS
 P1A_R1=REVIEW_HARNESS_F109
 P1A_R2=REVIEW_HARNESS_F109
+P1A_R3=CLOSED_PASS
 P0_SUMMARY_LOCAL=NOT_FOUND
 P0_ARCHIVE_SHA_VERIFIED=YES
 PRODUCT_FIX_COMMITTED=NO
@@ -1510,6 +1511,45 @@ archive SHA/tamaño, y backend TFT_eSPI 2.5.43 con hashes originales.
 No se reconstruye ni falsifica el `SUMMARY.log` previo. El generador
 de fuentes de P1A permanece sin modificaciones en R3. Sólo se progresa
 a P1B después de `STATUS=PASS` real en P1A.
+
+## TFT-PRE6-P1A R3 — CLOSED_PASS; P1B listo
+
+```text
+P1A_R3=PASS
+REASON=CANONICAL_SOURCE_TRANSFORM_REPRODUCED
+P0_HANDOFF_RECOVERED=YES
+P0_PROOF_SOURCE=VERSIONED_CLOSURE_AND_ARCHIVE_SHA256
+P0_HISTORICAL_SUMMARY=NOT_REQUIRED_MISSING
+P0_ARCHIVE_SHA256=ff9dd89cb267bc270d2ca6fa2d0f1362b76595b8dc6b49f764d05a8e28bb6705
+P1A_CPP_SHA256=494440b00e74e74a7b23975420574e035ef2138fdf5a0cea2fed51c986c29d25
+P1A_SETUP_SHA256=8fa079444ca130772d3a642eaf814035100bc098032b403c922c458d351ae5e1
+P1A_INIT_SHA256=44873be82fe836084934a328df77f098e9ab88d212dd1d570da5e8aac74671bc
+P1A_BACKEND_CPP_INSTRUMENTED_SHA256=3fe3c601830aad09e579e8fec1223c6a0e9b6a31a82f491743fbe166a5b16350
+P1A_MANIFEST=%TEMP%/jwplc_a13_tft_pre6_p1a_20261009_165802/MANIFEST.json
+P1A_COMPILE_EXECUTED=NO
+P1A_UPLOAD_EXECUTED=NO
+P1A_PRODUCT_MUTATED=NO
+P1B_GATE=tools/alpha13/gates/a13_tft_pre6_p1b_rebuild_archive.ps1
+P1B_WRAPPER=tools/alpha13/gates/run_a13_tft_pre6_p1b_rebuild_archive.bat
+P1B_STATE=READY_NOT_EXECUTED
+P1B_SOURCE_COMPILE=REQUIRED
+P1B_ARCHIVE_OUTPUT=TEMP_ONLY
+P1B_NORMAL_COMPILE_CASES=3
+P1B_UPLOAD=NO
+P1B_PRODUCT_MUTATION=NO
+NEXT_FAILURE_ID=F110
+```
+
+Documento de cierre: `A13_TFT_PRE6_P1A_CLOSURE_20261009.md`.
+
+P1B selecciona el manifiesto P1A que declare las mismas fuentes y
+verifica los hashes físicos PRE4 antes de compilar. El gate se basa en el
+modelo de archive y tres consumidores de P0, que ya pasaron.
+Exige compilación source-first de `JWPLC_TFT.cpp.o` y
+`TFT_eSPI.cpp.o`, archive de dos miembros con paridad byte a byte,
+y builds Arduino normales que NO seleccionen la TFT_eSPI global.
+No se permite publicar el archive ni dar por corregido el package antes
+de P2 y su prueba física.
 
 ## Gates restantes
 
