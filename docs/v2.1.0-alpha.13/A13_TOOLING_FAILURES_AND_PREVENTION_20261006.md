@@ -467,9 +467,54 @@ Validación preventiva:
 El probe TFT-PRE1 se corrige para seleccionar el banco de registros según el
 número de GPIO. No se exige repetir PRE1 porque el dato CS no era contractual.
 
+## F105 — asumir nombres simbólicos concretos en ST7789_Init.h
+
+Síntoma:
+
+```text
+TFT-PRE3
+TFT_ESPI_VERSION=2.5.43
+ST7789_DELAY_VALUES_MS=120,10,120,120,120,10,120,120
+ST7789_SLPOUT_COUNT=0
+ST7789_NORON_COUNT=0
+ST7789_DISPON_COUNT=0
+STATUS=REVIEW
+REASON=ST7789_INIT_SEQUENCE_UNEXPECTED
+```
+
+Causa:
+
+El parser de PRE3 buscó únicamente los identificadores `TFT_SLPOUT`,
+`TFT_NORON` y `TFT_DISPON`. La implementación seleccionada de TFT_eSPI
+2.5.43 puede expresar esos mismos comandos como `ST7789_SLPOUT`,
+`ST7789_NORON`, `ST7789_DISPON` o como valores literales `0x11`, `0x13`,
+`0x29`. Por tanto los conteos cero no prueban ausencia de esos comandos.
+
+Clasificación:
+
+```text
+HARNESS_FAILURE=YES
+PRODUCT_FAILURE=NO
+ENVIRONMENT_FAILURE=NO
+SOURCE_ATTRIBUTION_VALID=YES
+VERSION_AND_HASHES_VALID=YES
+SEQUENCE_CLASSIFICATION=PENDING_R2
+```
+
+Prevención:
+
+```text
+parsear llamadas writecommand(...) y normalizar equivalentes semánticos
+SLPOUT = TFT_SLPOUT | ST7789_SLPOUT | 0x11
+NORON  = TFT_NORON  | ST7789_NORON  | 0x13
+DISPON = TFT_DISPON | ST7789_DISPON | 0x29
+reportar también la expresión capturada y el delay posterior
+no usar presencia de un nombre de macro como contrato funcional
+```
+
 ## Estado
 
 ```text
-NEXT_FAILURE_ID=F105
+NEXT_FAILURE_ID=F106
 SYNC_TO_PROJECT_FAILURES_SOURCE=PENDING
 ```
