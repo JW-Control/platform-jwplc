@@ -128,7 +128,7 @@ function Find-TftEspiSelection {
     param([string[]]$Lines)
     $hits = @($Lines | Where-Object { $_ -match '^Using library TFT_eSPI at version .+ in folder: .+$' })
     if ($hits.Count -ne 1) { return $null }
-    $m = [regex]::Match($hits[0],'^Using library TFT_eSPI at version (?<version>\\S+) in folder: (?<folder>.+)$')
+    $m = [regex]::Match($hits[0],'^Using library TFT_eSPI at version (?<version>\S+) in folder: (?<folder>.+)$')
     if (-not $m.Success) { return $null }
     return [pscustomobject]@{
         Version = $m.Groups['version'].Value.Trim()
