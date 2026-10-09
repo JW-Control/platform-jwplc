@@ -333,7 +333,30 @@ try {
     $initBeforeGuard = [IO.File]::ReadAllText($candidateBackendInit)
     [IO.File]::WriteAllText($candidateBackendInit, $configGuard + [Environment]::NewLine + $initBeforeGuard, $utf8)
     $instrumentedInitSha = Get-A13Sha256 -Path $candidateBackendInit
+
+    # Verify the backend's own translation unit, not just the wrapper.
+    # This catches a different selected driver or missing sketch-local setup.
+    $candidateBackendCpp = Join-Path $CandidateBackendRoot 'TFT_eSPI.cpp'
+    $backendCppText = [IO.File]::ReadAllText($candidateBackendCpp)
+    $backendIncludePattern = '(?m)^#include\s+["<]TFT_eSPI\.h[">]'
+    $backendIncludeHits = @([regex]::Matches($backendCppText,$backendIncludePattern))
+    if ($backendIncludeHits.Count -ne 1) {
+        Finish-TFTPre5 -Status 'REVIEW' -Reason 'TFT_ESPI_CPP_INCLUDE_ANCHOR_INVALID' -HarnessFailure 'YES' -ExitCode 27
+    }
+    $backendGuardText = @'
+#if !defined(ST7789_DRIVER) || !defined(JWPLC_TFT_DEFER_DISPON)
+#error A13_TFT_PRE5_BACKEND_CONFIGURATION_NOT_PROPAGATED
+#endif
+'@
+    $backendIncludeHit = $backendIncludeHits[0]
+    $backendInsertOffset = $backendIncludeHit.Index + $backendIncludeHit.Length
+    $instrumentedBackendCpp = $backendCppText.Insert($backendInsertOffset, [Environment]::NewLine + $backendGuardText)
+    [IO.File]::WriteAllText($candidateBackendCpp,$instrumentedBackendCpp,$utf8)
+    $instrumentedBackendCppSha = Get-A13Sha256 -Path $candidateBackendCpp
+
     Write-Host 'BACKEND_CONFIG_GUARD=ENABLED'
+    Write-Host 'BACKEND_SOURCE_CONFIG_GUARD=ENABLED'
+    Write-Host "INSTRUMENTED_BACKEND_CPP_SHA256=$instrumentedBackendCppSha"
     Write-Host "INSTRUMENTED_INIT_SHA256=$instrumentedInitSha"
     Write-Host "SKETCH_LOCAL_SETUP_SHA256=$candidateSketchSetupSha"
 
