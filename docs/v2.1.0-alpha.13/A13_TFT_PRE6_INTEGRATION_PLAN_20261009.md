@@ -125,6 +125,37 @@ comprobar `JWPLC_TFT.cpp.o` / `TFT_eSPI.cpp.o`, producir el nuevo
 `libJWPLC_TFT.a`, verificar archivos del archive y su enlace autónomo
 antes de sustituir el archive oficial.
 
+### P2A — adopción temporal en worktree (preparado, no ejecutado)
+
+El archivo autocontenido de P1B es válido: SHA-256
+`ab73b244c44ebd75d29a4eeb3cd97f5d18c08470f535eb16d55c2fdbf2310ff8`,
+1 091 990 bytes, dos miembros, recompilación de fuente y tres casos normales
+PASS. Ver `A13_TFT_PRE6_P1B_CLOSURE_20261009.md`.
+
+```text
+P2A=PREPARED_NOT_EXECUTED
+GATE=run_a13_tft_pre6_p2a_adopt_product.bat
+SOURCE_INPUT=P1A_IDENTIFIED_CPP_AND_SETUP
+BINARY_INPUT=P1B_IDENTIFIED_ARCHIVE
+TOUCH_PRODUCT_FILES=3
+ORIGINALS_BACKED_UP=TEMP
+FAILURE=AUTOMATIC_ROLLBACK_AND_CLEAN_GIT_CHECK
+SUCCESS=THREE_EXPECTED_TRACKED_FILES_MODIFIED_UNCOMMITTED
+COMPILE=4_NORMAL_CASES
+UPLOAD=NO
+COMMIT=NO
+```
+
+**Pendiente obligatorio antes del commit final:** el script de
+regeneración de P1A se construyó originalmente sobre los Git blobs
+**anteriores** del producto; tras adoptar el parche, ya no puede
+volver a aplicar la transformación sobre una fuente parcheada sin
+mecanismo de versión/migración. P2B/P3 deberán fijar una receta
+idempotente o compatible con el baseline ya actualizado y demostrar
+una reconstrucción desde los nuevos fuentes productivos antes de
+cerrar la integración para release. No dar P2A PASS como cierre de
+mantenibilidad definitiva.
+
 ### P2 — gate físico de package normal
 
 Compilar y subir usando el FQBN normal `jwplc_local:esp32:jwplcbasic`,
