@@ -13,6 +13,7 @@ $CandidateCppSha = '494440b00e74e74a7b23975420574e035ef2138fdf5a0cea2fed51c986c2
 $CandidateSetupSha = '8fa079444ca130772d3a642eaf814035100bc098032b403c922c458d351ae5e1'
 $CandidateInitSha = '44873be82fe836084934a328df77f098e9ab88d212dd1d570da5e8aac74671bc'
 $BackendOriginalSha = '01ed6edb0530d38b94ddeac079ba81633aa21d77d049b12da21a37f4bec69ee1'
+$ExpectedInstrumentedBackendCppSha = '3fe3c601830aad09e579e8fec1223c6a0e9b6a31a82f491743fbe166a5b16350'
 $ExpectedP1ACommit = 'e17b85dc9826b284534fcd465c8678c5f7a25c21'
 $Fqbn = 'jwplc_local:esp32:jwplcbasic'
 $RepoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
@@ -190,7 +191,7 @@ try {
             $m.product_mutated -ne $false) { continue }
         $declaredRoot = [IO.Path]::GetFullPath([string]$m.temporary_root).TrimEnd('\','/')
         if ($declaredRoot -ine $root.FullName.TrimEnd('\','/')) { continue }
-        if ([string]$m.backend_cpp_instrumented_sha256 -notmatch '^[0-9a-f]{64}$') { continue }
+        if ([string]$m.backend_cpp_instrumented_sha256 -cne $ExpectedInstrumentedBackendCppSha) { continue }
         $sourceRoot = $root.FullName
         $manifest = $m
         break
