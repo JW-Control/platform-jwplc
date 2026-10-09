@@ -674,6 +674,9 @@ Prevención obligatoria:
 - verificar SHA de core.a y de archives originales antes/después;
 - fallar cerrado antes de upload si cualquier contrato no se cumple;
 - reservar el PASS visual para evidencia posterior a power-cycle físico.
+- insertar identificador único del candidato en cada bloque serial canónico,
+  verificar SHA de identidad del firmware recibido y rechazar una lectura
+  procedente del antiguo probe PRE1 o de un firmware no actualizado.
 ```
 
 Acción: TFT-PRE5 R3 refuerza validaciones de compilación y regresión y
