@@ -304,9 +304,9 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=TFT-PRE3-R2
-OBJECTIVE=normalize ST7789 command encoding and close backend source attribution
-STATE=READY_TO_RERUN
+NEXT_GATE=TFT-PRE3-R3
+OBJECTIVE=close normalized ST7789 attribution with script rebuilt from valid R1
+STATE=READY_TO_RERUN_AFTER_PULL
 PREREQUISITE=TFT_PRE2_PASS
 ```
 
@@ -1117,6 +1117,25 @@ ENVIRONMENT_FAILURE=NO
 F105: el parser asumió únicamente macros `TFT_*`; R2 acepta también
 `ST7789_*` y valores literales 0x11/0x13/0x29, y reporta la expresión real
 capturada para SLPOUT/NORON/DISPON.
+
+TFT-PRE3 R2 — abortado por syntax preflight:
+
+```text
+A13_PWSH_VERSION=7.6.6
+A13_TFT_PRE3_SYNTAX=FAIL
+COMPILE_EXECUTED=NO
+UPLOAD_EXECUTED=NO
+PRODUCT_FAILURE=NO
+HARNESS_FAILURE=YES
+ENVIRONMENT_FAILURE=NO
+FAILURE=F106
+```
+
+La edición remota R2 se corrompió por semántica de replacement de JavaScript
+al insertar texto PowerShell que contenía `$'`. El BAT detectó la sintaxis
+inválida antes de ejecutar el gate. R3 fue reconstruido desde el script R1
+que sí había ejecutado, conservando el parser semántico corregido con un
+mecanismo de replacement seguro.
 
 Referencia externa de drivers:
 
