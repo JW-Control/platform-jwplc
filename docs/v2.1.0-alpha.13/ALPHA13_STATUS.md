@@ -1049,6 +1049,46 @@ instrumentación temporal source-first y restaurarla byte-for-byte antes del
 upload para medir `app_main`, `initArduino`, entrada a `initPeripherals`, RST,
 I2C, RTC, FRAM, SD, botones, Display begin, primer refresh y TCA.
 
+Comparación de backend relevante para el arranque:
+
+```text
+ALPHA11_BACKEND=Adafruit_ST7789
+ALPHA12_CURRENT_BACKEND=JWPLC_TFT -> TFT_eSPI
+CURRENT_JWPLC_TFT_BEGIN=g_backend.init() -> setRotation() -> release
+CURRENT_EXPLICIT_BLACK_CLEAR_INSIDE_TFT_BEGIN=NO
+FIRST_BLACK_CLEAR=Idle phase 0 after jwplcDisplayBeginCallback() returns
+BACKLIGHT_SOFTWARE_CONTROL=NO
+RST_HOLD_BEFORE_DISPLAY_BEGIN=YES
+```
+
+El código Alpha11 de JWPLC tampoco hacía un `fillScreen(BLACK)` dentro de
+`tft.init()`: la corrección histórica fue mantener RST bajo durante el autoload
+y hacer la inicialización antes de `setup()`. Por tanto la diferencia actual a
+investigar es la secuencia interna del backend TFT_eSPI, no la desaparición de
+la protección RST.
+
+Referencia externa de drivers:
+
+```text
+Adafruit ST7789 generic:
+  SWRESET delay 150 ms
+  SLPOUT delay 10 ms
+  NORON delay 10 ms
+  DISPON delay 10 ms
+
+TFT_eSPI ST7789 upstream:
+  hardware reset high/low/high + reset wait
+  SLPOUT delay 120 ms
+  delay 120 ms before DISPON
+  DISPON
+  delay 120 ms after DISPON
+```
+
+Esto es consistente con el video nuevo: la pantalla se hace blanca cerca de
++750 ms y el primer frame limpio empieza ~180 ms después. TFT-PRE2 medirá el
+tiempo real de `jwplcDisplayBeginCallback()` ejecutando el archive actual, sin
+cambiar aún el producto.
+
 Si el fenómeno es sólo transitorio, la mejora software posible es adelantar
 CS=HIGH/RST=LOW al punto seguro más temprano de `app_main()`; eso reduce la
 ventana pero no puede eliminar el intervalo anterior al firmware. La solución
