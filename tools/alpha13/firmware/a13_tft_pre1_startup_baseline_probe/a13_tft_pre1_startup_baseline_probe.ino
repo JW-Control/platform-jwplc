@@ -6,19 +6,34 @@
 
 static uint32_t g_setupEntryMs = 0;
 
+static bool outputEnabled(uint8_t pin)
+{
+    if (pin < 32)
+    {
+        return (REG_READ(GPIO_ENABLE_REG) & (uint32_t)(1UL << pin)) != 0;
+    }
+
+    return (REG_READ(GPIO_ENABLE1_REG) &
+            (uint32_t)(1UL << (pin - 32))) != 0;
+}
+
+static bool outputLatchHigh(uint8_t pin)
+{
+    if (pin < 32)
+    {
+        return (REG_READ(GPIO_OUT_REG) & (uint32_t)(1UL << pin)) != 0;
+    }
+
+    return (REG_READ(GPIO_OUT1_REG) &
+            (uint32_t)(1UL << (pin - 32))) != 0;
+}
+
 static void printResult()
 {
-    const uint32_t rstMask = (uint32_t)(1UL << JWPLC_TFT_RST);
-    const uint32_t csMask = (uint32_t)(1UL << JWPLC_TFT_CS);
-
-    const bool rstOutputEnable =
-        (REG_READ(GPIO_ENABLE_REG) & rstMask) != 0;
-    const bool rstOutputLatch =
-        (REG_READ(GPIO_OUT_REG) & rstMask) != 0;
-    const bool csOutputEnable =
-        (REG_READ(GPIO_ENABLE_REG) & csMask) != 0;
-    const bool csOutputLatch =
-        (REG_READ(GPIO_OUT_REG) & csMask) != 0;
+    const bool rstOutputEnable = outputEnabled(JWPLC_TFT_RST);
+    const bool rstOutputLatch = outputLatchHigh(JWPLC_TFT_RST);
+    const bool csOutputEnable = outputEnabled(JWPLC_TFT_CS);
+    const bool csOutputLatch = outputLatchHigh(JWPLC_TFT_CS);
 
     Serial.println("A13_TFT_PRE1_RESULT=BEGIN");
     Serial.print("SETUP_ENTRY_MS=");
