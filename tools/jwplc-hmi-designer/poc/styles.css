@@ -115,7 +115,7 @@ h2 { margin: 0 0 7px; font-size: 11.5px; font-weight: 600; color: #a9bece; lette
   max-height: 130px;
   margin-top: 6px;
   background: #090c10;
-  padding: 5px;
+  padding: 6px;
   border: 1px solid #1c232c;
   border-radius: 6px;
   position: relative;
@@ -139,9 +139,9 @@ h2 { margin: 0 0 7px; font-size: 11.5px; font-weight: 600; color: #a9bece; lette
   image-rendering: auto;
   display: block;
   background: #000000;
-  border: 1px solid #364457;
+  border: 1.5px solid #485c7b;
   border-radius: 2px;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.95), 0 1px 4px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 0 0 1px #05070a, 0 2px 8px rgba(0, 0, 0, 0.85);
   box-sizing: border-box;
 }
 .sidebar-preview-viewport {
