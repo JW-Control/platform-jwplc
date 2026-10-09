@@ -304,10 +304,10 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=TFT-PRE1
-OBJECTIVE=baseline temporal de startup TFT sin cambio productivo
-STATE=READY_TO_RUN_AFTER_PULL
-PREREQUISITE=G2_CLOSED_PASS
+NEXT_GATE=TFT-PRE2
+OBJECTIVE=instrument internal startup milestones and locate dirty-window source
+STATE=READY_TO_PREPARE
+PREREQUISITE=TFT_PRE1_PASS
 ```
 
 No modificar todavía código productivo de G2 hasta completar su preflight
@@ -1008,6 +1008,46 @@ TFT_NEW_FEATURES=OUT_OF_SCOPE
 PRODUCT_CHANGE_BEFORE_MEASUREMENT=NO
 G3_BLOCKED_UNTIL_TFT_PRE1_CLASSIFIED=YES
 ```
+
+TFT-PRE1 — baseline con package normal:
+
+```text
+HEAD=ce7831e214a88551a85acf2be83dad569131881f
+POWER_SOURCE=USB_ONLY
+24VDC=DISCONNECTED
+SERIAL_PORT=COM4
+USES_STUB_CORE=True
+USES_SOURCE_CORE=False
+CORE_A_LINKED=True
+SETUP_ENTRY_MS=664
+DISPLAY_READY=YES
+IO_READY=YES
+TFT_RST_OUTPUT_ENABLE=YES
+TFT_RST_OUTPUT_LATCH=HIGH
+TFT_CS_OUTPUT_ENABLE=NO
+TFT_CS_OUTPUT_LATCH=LOW
+TRACKED_DIRTY_FINAL=0
+STAGED_FINAL=0
+DIFF_CHECK_FINAL=True
+STATUS=PASS
+REASON=BASELINE_TIMING_CAPTURED
+```
+
+Interpretación:
+
+```text
+first valid display frame occurs before setup()
+software autoload before setup <= 664 ms from Arduino millis epoch
+multi-second firmware-delay hypothesis=NOT_SUPPORTED_BY_PRE1
+exact RST-low and first-frame timestamps=NOT_YET_MEASURED
+TFT_CS post-init state=DIAGNOSTIC_ONLY
+```
+
+PRE1 no mide el instante exacto de power-on, `initPeripherals()` ni del primer
+frame; sólo fija un límite superior antes de `setup()`. TFT-PRE2 debe usar
+instrumentación temporal source-first y restaurarla byte-for-byte antes del
+upload para medir `app_main`, `initArduino`, entrada a `initPeripherals`, RST,
+I2C, RTC, FRAM, SD, botones, Display begin, primer refresh y TCA.
 
 Si el fenómeno es sólo transitorio, la mejora software posible es adelantar
 CS=HIGH/RST=LOW al punto seguro más temprano de `app_main()`; eso reduce la
