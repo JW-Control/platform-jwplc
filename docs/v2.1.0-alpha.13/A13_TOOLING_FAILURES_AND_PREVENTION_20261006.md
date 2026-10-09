@@ -567,9 +567,69 @@ switch_count=1
 pass_marker_count=1
 ```
 
+## F107 — inyectar setup TFT_eSPI por una ruta no visible al backend temporal
+
+Síntoma:
+
+```text
+TFT-PRE5 R1
+COMPILE_EXIT=1
+temp JWPLC_TFT selected=YES
+temp TFT_eSPI selected=YES
+missing TFT_MAD_COLOR_ORDER / TFT_CASET / TFT_PASET / TFT_RAMWR / TFT_DRIVER
+STATUS=REVIEW
+REASON=SOURCE_FIRST_CANDIDATE_COMPILE_FAILED
+PRODUCT_FAILURE=NO
+HARNESS_FAILURE=YES
+UPLOAD_EXECUTED=NO
+```
+
+Causa:
+
+PRE5 R1 construyó una copia temporal completa de TFT_eSPI y trató de fijar
+la configuración JWPLC sustituyendo `User_Setup.h` / `User_Setup_Select.h`
+dentro de esa copia. Esa estrategia no reprodujo el mecanismo de discovery
+con el que TFT_eSPI 2.5.43 fue cualificado originalmente.
+
+El contrato nativo de TFT_eSPI 2.5.43 busca primero `tft_setup.h` mediante
+`__has_include(<tft_setup.h>)`. La compilación histórica JWPLC ya dependía de
+ese mecanismo. En R1 el backend temporal terminó sin las definiciones de
+driver ST7789 visibles durante `TFT_eSPI.cpp`, de ahí la familia de símbolos
+de driver no declarados.
+
+Clasificación:
+
+```text
+HARNESS_FAILURE=YES
+PRODUCT_FAILURE=NO
+HARDWARE_FAILURE=NO
+ENVIRONMENT_FAILURE=NO
+COMPILE_FAILED_BEFORE_UPLOAD=YES
+CANDIDATE_RUNTIME_NOT_EXECUTED=YES
+```
+
+Prevención:
+
+```text
+- no reemplazar User_Setup/User_Setup_Select para este flujo;
+- copiar el probe a %TEMP% y colocar tft_setup.h candidato junto al .ino;
+- dejar que TFT_eSPI 2.5.43 use su discovery nativo __has_include;
+- mantener TFT_eSPI global sin mutaciones;
+- exigir selección de librerías temporales y objetos source-first antes de upload.
+```
+
+Corrección:
+
+```text
+PRE5-R2 setup source=sketch-local tft_setup.h in %TEMP%
+candidate setup SHA must equal PRE4 qualified SHA
+temporary TFT_eSPI retains its native User_Setup_Select.h
+only ST7789_Init.h candidate is patched in temp backend
+```
+
 ## Estado
 
 ```text
-NEXT_FAILURE_ID=F107
+NEXT_FAILURE_ID=F108
 SYNC_TO_PROJECT_FAILURES_SOURCE=PENDING
 ```
