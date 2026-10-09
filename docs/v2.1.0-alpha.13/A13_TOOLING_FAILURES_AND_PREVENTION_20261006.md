@@ -730,6 +730,29 @@ pero **todavía no demuestra** que se puedan reconstruir de forma
 autónoma desde sources canónicos. Esa demostración corresponde a P1
 y nunca se reemplaza por el PASS de P0.
 
+### Prevención aplicada a TFT-PRE6-P1A (sin fallo nuevo)
+
+```text
+INPUT_SOURCE_GIT_BLOBS=PINNED
+TFT_ESPI_VERSION=2.5.43
+BACKEND_CPP_HEADER_INIT_SHA256=PINNED
+WINDOWS_CHECKOUT_NEWLINES=ONLY_RAW_OR_CRLF_TO_LF_NORMALIZATION
+CANDIDATE_CPP_SETUP_INIT_SHA256=MUST_EQUAL_PHYSICALLY_VALIDATED_PRE4
+TARGET=FRESH_OS_TEMP_CHILD
+INSTALLED_TFT_ESPI_MUTATION=FORBIDDEN
+PRODUCT_REPO_MUTATION=FORBIDDEN
+NO_COMPILE=YES
+NO_UPLOAD=YES
+SOURCE_BUILD_ARCHIVE_REFRESH=BLOCKED_UNTIL_P1A_PASS
+```
+
+P1A implementa la transformación en Python con anclas únicas,
+reemplazos deterministas y comprobación de los tres SHA exactos antes
+de crear el candidato. La instrumentación adicional del backend se
+escribe sólo en la copia temporal, preservando bytes originales.
+Se mantiene `NEXT_FAILURE_ID=F109`; el éxito de P0 no genera un
+nuevo identificador de fallo.
+
 ## Estado
 
 ```text
