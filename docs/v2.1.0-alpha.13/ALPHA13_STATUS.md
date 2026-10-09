@@ -304,10 +304,10 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=TFT-PRE6-P0
-OBJECTIVE=build and qualify self-contained archive from physically validated PRE5 source objects under TEMP
+NEXT_GATE=TFT-PRE6-P1A
+OBJECTIVE=reproduce exact PRE4 source hashes independently from canonical JWPLC_TFT files and pinned TFT_eSPI 2.5.43
 STATE=READY_TO_RUN_AFTER_PULL
-PREREQUISITE=TFT_PRE5_R3_COMPILE_UPLOAD_SERIAL_VISUAL_PASS
+PREREQUISITE=TFT_PRE6_P0_CLOSED_PASS
 PRODUCT_FIX_COMMITTED=NO
 PRODUCTION_ARCHIVE_REFRESH=NOT_STARTED
 ```
@@ -1364,6 +1364,58 @@ F107 setup por sketch-local `tft_setup.h`; F108 arrays explícitos
 `@(...)`, no reportar PASS físico en una compilación meramente estática.
 El run P0 sólo garantiza archivo temporal autocontenido y compilación
 normal (no demuestra aún fuente canónica ni un archive productivo instalado).
+
+## TFT-PRE6-P0 — archive autónomo temporal (2026-10-09)
+
+```text
+TFT_PRE6_P0_STATUS=CLOSED_PASS
+REASON=TEMP_PRECOMPILED_ARCHIVE_QUALIFIED
+HEAD=89e461123474310e8528e4daf50c97262a86390b
+CANDIDATE_ARCHIVE_SHA256=ff9dd89cb267bc270d2ca6fa2d0f1362b76595b8dc6b49f764d05a8e28bb6705
+CANDIDATE_ARCHIVE_BYTES=1091942
+TFT_OBJECT_SHA256=0a84fc685255b7b2e42a8050d0c643ce12afd6fcb628273993822b77755b74bb
+BACKEND_OBJECT_SHA256=f4b771ba6847cb2b8dca3a7d9c29879725e3e160047df2e9b68b5944fae244cf
+ARCHIVE_MEMBER_COUNT=2
+ARCHIVE_MEMBER_PARITY=PASS
+DIRECT_TFT_COMPILE_EXIT=0
+DISPLAY_INTEGRATION_COMPILE_EXIT=0
+NORMAL_AUTOLOAD_COMPILE_EXIT=0
+COMPILE_CASES_PASS=3
+GLOBAL_TFT_ESPI_REQUIRED=NO
+OFFICIAL_ARCHIVES_PRESERVED=YES
+WORKTREE_FINAL=CLEAN
+UPLOAD_EXECUTED=NO
+PRODUCT_REPO_MODIFIED=NO
+```
+
+Registro detallado: `A13_TFT_PRE6_P0_CLOSURE_20261009.md`.
+
+PRE6-P0 prueba que los objetos físicamente validados en PRE5 R3 se pueden
+empaquetar en una librería autónoma enlazable en tres casos Arduino normales.
+Todavía no demuestra reconstrucción desde las fuentes canónicas.
+
+## TFT-PRE6-P1A — reproducción exacta desde fuente (preparado)
+
+```text
+TFT_PRE6_P1A=PREPARED_NOT_EXECUTED
+SOURCE_GEN=tools/alpha13/gates/a13_tft_pre6_p1_source_regen.py
+GATE=tools/alpha13/gates/a13_tft_pre6_p1a_source_regen.ps1
+RUNNER=tools/alpha13/gates/run_a13_tft_pre6_p1a_source_regen.bat
+EXPECTED_SOURCE_CPP_SHA256=494440b00e74e74a7b23975420574e035ef2138fdf5a0cea2fed51c986c29d25
+EXPECTED_SETUP_SHA256=8fa079444ca130772d3a642eaf814035100bc098032b403c922c458d351ae5e1
+EXPECTED_ST7789_INIT_SHA256=44873be82fe836084934a328df77f098e9ab88d212dd1d570da5e8aac74671bc
+PRODUCT_MUTATION=NO
+COMPILE=NO
+UPLOAD=NO
+P1B_SOURCE_BUILD=BLOCKED_UNTIL_P1A_PASS
+```
+
+P1A usa únicamente sources actuales con identidad de Git comprobada y
+TFT_eSPI 2.5.43 con hashes SHA-256 exactos. Transforma sólo archivos
+temporales, sin modificar el código producto ni la instalación global
+de TFT_eSPI. La coincidencia de los tres SHA físicos PRE4 es requisito
+obligatorio para pasar a recompilación P1B. En Windows sólo se permite
+normalizar CRLF/LF durante la comparación de identidad del blob Git.
 
 ## Gates restantes
 
