@@ -54,17 +54,87 @@
 
   function setSnapEnabled(enabled) {
     if (snapToggle) snapToggle.checked = enabled;
-    if (snapInspectorToggle) snapInspectorToggle.checked = enabled;
+    const snapPopoverToggle = document.getElementById('snapPopoverToggle');
+    if (snapPopoverToggle) snapPopoverToggle.checked = enabled;
     const vertSnap = document.getElementById('vertSnapToggle');
     if (vertSnap) vertSnap.classList.toggle('active', enabled);
     render();
   }
+
+  function setGridEnabled(enabled) {
+    if (gridToggle) {
+      gridToggle.checked = enabled;
+      gridToggle.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    const gridPopoverToggle = document.getElementById('gridPopoverToggle');
+    if (gridPopoverToggle) gridPopoverToggle.checked = enabled;
+    const vertGrid = document.getElementById('vertGridToggle');
+    if (vertGrid) vertGrid.classList.toggle('active', enabled);
+    render();
+  }
+
+  function toggleVertPopover(popover, force) {
+    if (!popover) return;
+    const shouldOpen = force !== undefined ? force : (popover.style.display === 'none');
+    document.querySelectorAll('.vert-popover').forEach((p) => {
+      if (p !== popover) p.style.display = 'none';
+    });
+    popover.style.display = shouldOpen ? 'block' : 'none';
+  }
+
+  // Clic en los botones de la barra: toggle rápido On/Off
   document.getElementById('vertSnapToggle')?.addEventListener('click', function() {
     setSnapEnabled(!snapToggle.checked);
   });
-  snapInspectorToggle?.addEventListener('change', function() {
+  document.getElementById('vertGridToggle')?.addEventListener('click', function() {
+    setGridEnabled(!gridToggle.checked);
+  });
+
+  // Clic en los chevrons: abre el popover de configuración
+  document.getElementById('vertGridMenuBtn')?.addEventListener('click', function(e) {
+    e.stopPropagation();
+    toggleVertPopover(document.getElementById('gridConfigPopover'));
+  });
+  document.getElementById('vertSnapMenuBtn')?.addEventListener('click', function(e) {
+    e.stopPropagation();
+    toggleVertPopover(document.getElementById('snapConfigPopover'));
+  });
+
+  // Clic derecho en el botón: también abre la configuración
+  document.getElementById('vertGridToggle')?.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+    toggleVertPopover(document.getElementById('gridConfigPopover'), true);
+  });
+  document.getElementById('vertSnapToggle')?.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+    toggleVertPopover(document.getElementById('snapConfigPopover'), true);
+  });
+
+  // Botones de cerrar popovers
+  document.getElementById('gridPopoverClose')?.addEventListener('click', function() {
+    const pop = document.getElementById('gridConfigPopover');
+    if (pop) pop.style.display = 'none';
+  });
+  document.getElementById('snapPopoverClose')?.addEventListener('click', function() {
+    const pop = document.getElementById('snapConfigPopover');
+    if (pop) pop.style.display = 'none';
+  });
+
+  // Cerrar popovers si se hace clic fuera
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.vert-btn-group')) {
+      document.querySelectorAll('.vert-popover').forEach((p) => { p.style.display = 'none'; });
+    }
+  });
+
+  // Switches dentro de los popovers
+  document.getElementById('gridPopoverToggle')?.addEventListener('change', function() {
+    setGridEnabled(this.checked);
+  });
+  document.getElementById('snapPopoverToggle')?.addEventListener('change', function() {
     setSnapEnabled(this.checked);
   });
+
   snapSizeSelect?.addEventListener('change', render);
   const clearButton = document.getElementById('clearButton');
   const newProjectButton = document.getElementById('newProjectButton');
@@ -1886,11 +1956,9 @@
 
   function formatLopakaFieldName(field, index) {
     if (!field) return `Objeto ${index + 1}`;
-    let raw = (field.name || field.id || '').trim();
-    raw = raw.replace(/^FIELD[_\s-]*/i, '').trim();
-    if (raw) {
-      raw = raw.replace(/_+/g, ' ');
-      return raw;
+    if (field.name && field.name.trim()) {
+      let n = field.name.trim().replace(/^FIELD[_\s-]*/i, '').trim();
+      if (n) return n.replace(/_+/g, ' ');
     }
     if (field.label && field.label.trim()) return field.label.trim();
     if (field.text && field.text.trim()) return field.text.trim();
@@ -1919,7 +1987,7 @@
       button.className = `object-item${active ? ' active' : ''}${field.hidden ? ' is-hidden' : ''}${field.locked ? ' is-locked' : ''}`;
       button.dataset.fieldKey = field.key;
       const displayName = formatLopakaFieldName(field, index);
-      button.title = `${field.type} · ${displayName} (Doble clic: zoom in · Clic: editar)`;
+      button.title = `${displayName} (Doble clic: zoom in · Clic: editar)`;
 
       let icon = 'Aa';
       if (['TEXT', 'VALUE', 'RAW_TEXT'].includes(field.type)) icon = 'Aa';
@@ -1935,7 +2003,6 @@
         <span class="object-icon">${icon}</span>
         <span class="object-type" style="display:none">${field.type}</span>
         <span class="object-name" title="${displayName}">${displayName}</span>
-        <span class="object-id" style="display:none">${field.id || ''}</span>
         <div class="object-actions">
           <button type="button" class="object-btn btn-eye" title="${field.hidden ? 'Mostrar' : 'Ocultar'}">${field.hidden ? SVG_EYE_OFF : SVG_EYE_OPEN}</button>
           <button type="button" class="object-btn btn-lock" title="${field.locked ? 'Desbloquear' : 'Bloquear'}">${field.locked ? SVG_LOCK_CLOSED : SVG_LOCK_OPEN}</button>
@@ -5355,15 +5422,6 @@
   document.getElementById('fitSelectionButton')?.addEventListener('click', (e) => {
     e.preventDefault();
     window.JWPLCHMIEditor?.fitSelection?.();
-  });
-
-  document.getElementById('vertGridToggle')?.addEventListener('click', function() {
-    const toggle = document.getElementById('gridToggle');
-    if (toggle) {
-      toggle.checked = !toggle.checked;
-      this.classList.toggle('active', toggle.checked);
-      toggle.dispatchEvent(new Event('change', { bubbles: true }));
-    }
   });
 
   document.getElementById('vertGeoToggle')?.addEventListener('click', function() {

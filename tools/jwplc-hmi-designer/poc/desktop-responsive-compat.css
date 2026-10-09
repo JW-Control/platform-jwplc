@@ -6,16 +6,10 @@
   display: inline-block !important;
 }
 
-.layout-wide .object-id {
-  display: inline !important;
-}
-
-.layout-wide .toolbar {
-  overflow: visible;
-}
-
+.layout-wide .object-id,
 .layout-medium .object-id,
-.layout-compact .object-id {
+.layout-compact .object-id,
+.object-id {
   display: none !important;
 }
 

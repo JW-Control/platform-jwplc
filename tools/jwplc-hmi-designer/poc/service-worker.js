@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'jwplc-hmi-designer-alpha11-a11-7d-lopaka-raw-inspector';
+const CACHE_NAME = 'jwplc-hmi-designer-alpha11-a11-7d-vert-grid-snap-left-chevron';
 const CORE = [
   './desktop.html',
   './index.html',

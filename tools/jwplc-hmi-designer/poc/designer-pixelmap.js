@@ -579,7 +579,6 @@
         <span class="object-icon">▦</span>
         <span class="object-type" style="display:none">PIXEL</span>
         <span class="object-name" title="${map.name}">${map.name}</span>
-        <span class="object-id" style="display:none">${map.pixels.length} px</span>
         <div class="object-actions">
           <button type="button" class="object-btn btn-eye" title="${map.editorVisible ? 'Ocultar' : 'Mostrar'}">${map.editorVisible ? SVG_EYE_OPEN : SVG_EYE_OFF}</button>
           <button type="button" class="object-btn btn-lock" title="${map.locked ? 'Desbloquear' : 'Bloquear'}">${map.locked ? SVG_LOCK_CLOSED : SVG_LOCK_OPEN}</button>

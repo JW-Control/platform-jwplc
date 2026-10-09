@@ -1399,37 +1399,127 @@
     }
   }
 
-  function drawSolidBorder(ctx, x, y, w, h, r, bThick, colorCss, scale) {
-    const t = Math.max(1, Math.trunc(Number(bThick) || 1)) * scale;
-    const X = Math.round(x * scale);
-    const Y = Math.round(y * scale);
-    const W = Math.round(w * scale);
-    const H = Math.round(h * scale);
-    const R = Math.round(r * scale);
+  function getRoundedRectRowDx(dy, h, rad) {
+    if (rad <= 0) return 0;
+    if (dy < rad) {
+      const d = rad - 1 - dy;
+      return Math.round(rad - Math.sqrt(Math.max(0, rad * rad - d * d)));
+    } else if (dy >= h - rad) {
+      const d = dy - (h - rad);
+      return Math.round(rad - Math.sqrt(Math.max(0, rad * rad - d * d)));
+    }
+    return 0;
+  }
 
+  function pixelFillRoundedRect(ctx, x, y, w, h, r, colorCss, scale) {
+    if (w <= 0 || h <= 0) return;
+    const maxR = Math.floor(Math.min(w, h) / 2);
+    const rad = Math.max(0, Math.min(r, maxR));
     ctx.fillStyle = colorCss;
-
-    if (R <= 0) {
-      // 100% Píxeles sólidos puros. Cero difuminado
-      ctx.fillRect(X, Y, W, t);
-      ctx.fillRect(X, Y + H - t, W, t);
-      ctx.fillRect(X, Y, t, H);
-      ctx.fillRect(X + W - t, Y, t, H);
-    } else {
-      // Contorno perimetral redondeado 100% sólido con regla evenodd
-      ctx.save();
-      ctx.beginPath();
-      traceRoundedRect(ctx, X, Y, W, H, R);
-      const innerW = W - 2 * t;
-      const innerH = H - 2 * t;
-      if (innerW > 0 && innerH > 0) {
-        const innerR = Math.max(0, R - t);
-        traceRoundedRect(ctx, X + t, Y + t, innerW, innerH, innerR);
-        ctx.fill('evenodd');
-      } else {
-        ctx.fill();
+    if (rad <= 0) {
+      ctx.fillRect(Math.round(x) * scale, Math.round(y) * scale, Math.round(w) * scale, Math.round(h) * scale);
+      return;
+    }
+    for (let dy = 0; dy < h; dy++) {
+      const dx = getRoundedRectRowDx(dy, h, rad);
+      const rowW = w - 2 * dx;
+      if (rowW > 0) {
+        ctx.fillRect((x + dx) * scale, (y + dy) * scale, rowW * scale, scale);
       }
-      ctx.restore();
+    }
+  }
+
+  function pixelBorderRoundedRect(ctx, x, y, w, h, r, bThick, colorCss, scale) {
+    if (w <= 0 || h <= 0) return;
+    const t = Math.max(1, Math.trunc(Number(bThick) || 1));
+    const maxR = Math.floor(Math.min(w, h) / 2);
+    const rad = Math.max(0, Math.min(r, maxR));
+    ctx.fillStyle = colorCss;
+    if (rad <= 0) {
+      ctx.fillRect(x * scale, y * scale, w * scale, t * scale);
+      ctx.fillRect(x * scale, (y + h - t) * scale, w * scale, t * scale);
+      ctx.fillRect(x * scale, (y + t) * scale, t * scale, (h - 2 * t) * scale);
+      ctx.fillRect((x + w - t) * scale, (y + t) * scale, t * scale, (h - 2 * t) * scale);
+      return;
+    }
+    if (t >= maxR && (w <= 2 * t || h <= 2 * t)) {
+      pixelFillRoundedRect(ctx, x, y, w, h, rad, colorCss, scale);
+      return;
+    }
+    const inW = w - 2 * t;
+    const inH = h - 2 * t;
+    const inR = Math.max(0, rad - t);
+
+    for (let dy = 0; dy < h; dy++) {
+      const outDx = getRoundedRectRowDx(dy, h, rad);
+      const outStartX = x + outDx;
+      const outRowW = w - 2 * outDx;
+      if (outRowW <= 0) continue;
+
+      if (dy < t || dy >= h - t || inW <= 0 || inH <= 0) {
+        ctx.fillRect(outStartX * scale, (y + dy) * scale, outRowW * scale, scale);
+      } else {
+        const inDy = dy - t;
+        const inDx = getRoundedRectRowDx(inDy, inH, inR);
+        const inStartX = x + t + inDx;
+        const inEndX = x + w - t - inDx;
+
+        const leftW = inStartX - outStartX;
+        if (leftW > 0) {
+          ctx.fillRect(outStartX * scale, (y + dy) * scale, leftW * scale, scale);
+        }
+        const outEndX = outStartX + outRowW;
+        const rightW = outEndX - inEndX;
+        if (rightW > 0) {
+          ctx.fillRect(inEndX * scale, (y + dy) * scale, rightW * scale, scale);
+        }
+      }
+    }
+  }
+
+  function pixelFillRoundedPortion(ctx, x, y, w, h, r, orientation, fillAmount, isGrad, startCol, endCol, solidCss, scale) {
+    if (w <= 0 || h <= 0 || fillAmount <= 0) return;
+    const maxR = Math.floor(Math.min(w, h) / 2);
+    const rad = Math.max(0, Math.min(r, maxR));
+
+    if (orientation === 'VERTICAL') {
+      const fillH = Math.min(h, Math.round(fillAmount));
+      const startDy = h - fillH;
+      for (let dy = startDy; dy < h; dy++) {
+        const dx = getRoundedRectRowDx(dy, h, rad);
+        const rowW = w - 2 * dx;
+        if (rowW <= 0) continue;
+
+        if (isGrad) {
+          const rowFromBottom = h - 1 - dy;
+          const prop = h > 1 ? rowFromBottom / (h - 1) : 0;
+          ctx.fillStyle = rgb565ToCss(interpolateColor565(startCol, endCol, prop));
+        } else {
+          ctx.fillStyle = solidCss;
+        }
+        ctx.fillRect((x + dx) * scale, (y + dy) * scale, rowW * scale, scale);
+      }
+    } else {
+      // HORIZONTAL
+      const fillW = Math.min(w, Math.round(fillAmount));
+      for (let dy = 0; dy < h; dy++) {
+        const dx = getRoundedRectRowDx(dy, h, rad);
+        const startX = dx;
+        const endX = Math.min(w - dx, fillW);
+        const spanW = endX - startX;
+        if (spanW <= 0) continue;
+
+        if (isGrad) {
+          for (let lx = startX; lx < endX; lx++) {
+            const prop = w > 1 ? lx / (w - 1) : 0;
+            ctx.fillStyle = rgb565ToCss(interpolateColor565(startCol, endCol, prop));
+            ctx.fillRect((x + lx) * scale, (y + dy) * scale, scale, scale);
+          }
+        } else {
+          ctx.fillStyle = solidCss;
+          ctx.fillRect((x + startX) * scale, (y + dy) * scale, spanW * scale, scale);
+        }
+      }
     }
   }
 
@@ -1671,14 +1761,12 @@
         radPx = Math.min(Number(field.barCornerRadius) || 0, Math.floor(minDim / 2));
       }
 
-      // 1. Pista vacía de fondo de la barra
-      ctx.fillStyle = rgb565ToCss(field.trackColor || 0x18C3);
+      // 1. Pista vacía de fondo de la barra (Pixel art sólido para esquinas)
+      const trackCss = rgb565ToCss(field.trackColor || 0x18C3);
       if (radPx <= 0) {
         ctx.fillRect(g.valueX * scale, g.valueY * scale, g.valueW * scale, g.valueH * scale);
       } else {
-        ctx.beginPath();
-        traceRoundedRect(ctx, g.valueX * scale, g.valueY * scale, g.valueW * scale, g.valueH * scale, radPx * scale);
-        ctx.fill();
+        pixelFillRoundedRect(ctx, g.valueX, g.valueY, g.valueW, g.valueH, radPx, trackCss, scale);
       }
 
       // 2. Relleno activo según estilo
@@ -1690,23 +1778,18 @@
           const activeCss = rgb565ToCss(activeCol565);
 
           if (barStyle === 'SOLID') {
-            if (isGrad) {
-              const grad = ctx.createLinearGradient(0, (g.valueY + g.valueH) * scale, 0, g.valueY * scale);
-              grad.addColorStop(0, rgb565ToCss(activeCol565));
-              grad.addColorStop(1, rgb565ToCss(endCol565));
-              ctx.fillStyle = grad;
-            } else {
-              ctx.fillStyle = activeCss;
-            }
             if (radPx <= 0) {
+              if (isGrad) {
+                const grad = ctx.createLinearGradient(0, (g.valueY + g.valueH) * scale, 0, g.valueY * scale);
+                grad.addColorStop(0, rgb565ToCss(activeCol565));
+                grad.addColorStop(1, rgb565ToCss(endCol565));
+                ctx.fillStyle = grad;
+              } else {
+                ctx.fillStyle = activeCss;
+              }
               ctx.fillRect(g.valueX * scale, (g.valueY + g.valueH - fillH) * scale, g.valueW * scale, fillH * scale);
             } else {
-              ctx.save();
-              ctx.beginPath();
-              traceRoundedRect(ctx, g.valueX * scale, g.valueY * scale, g.valueW * scale, g.valueH * scale, radPx * scale);
-              ctx.clip();
-              ctx.fillRect(g.valueX * scale, (g.valueY + g.valueH - fillH) * scale, g.valueW * scale, fillH * scale);
-              ctx.restore();
+              pixelFillRoundedPortion(ctx, g.valueX, g.valueY, g.valueW, g.valueH, radPx, 'VERTICAL', fillH, isGrad, activeCol565, endCol565, activeCss, scale);
             }
           } else if (barStyle === 'STRIPES') {
             ctx.save();
@@ -1775,12 +1858,12 @@
           }
         }
 
-        // Borde exclusivo perimetral de la barra (Sólido 100%, cero difuminado)
+        // Borde exclusivo perimetral de la barra (Sólido 100%, píxeles puros)
         if (field.barBorderEnabled) {
           const bCol = Number.isFinite(Number(field.barBorderColor)) ? Number(field.barBorderColor) : 0xFFFF;
           const bColorCss = rgb565ToCss(bCol);
           const bWidth = Math.max(1, Math.trunc(Number(field.barBorderWidth) || 1));
-          drawSolidBorder(ctx, g.valueX, g.valueY, g.valueW, g.valueH, radPx, bWidth, bColorCss, scale);
+          pixelBorderRoundedRect(ctx, g.valueX, g.valueY, g.valueW, g.valueH, radPx, bWidth, bColorCss, scale);
         }
 
         // Color de porcentaje configurable (por defecto 0xFFFF / blanco)
@@ -1829,14 +1912,17 @@
               ctx.fillStyle = activeCss;
             }
             if (radPx <= 0) {
+              if (isGrad) {
+                const grad = ctx.createLinearGradient(g.valueX * scale, 0, (g.valueX + g.valueW) * scale, 0);
+                grad.addColorStop(0, rgb565ToCss(activeCol565));
+                grad.addColorStop(1, rgb565ToCss(endCol565));
+                ctx.fillStyle = grad;
+              } else {
+                ctx.fillStyle = activeCss;
+              }
               ctx.fillRect(g.valueX * scale, g.valueY * scale, fillW * scale, g.valueH * scale);
             } else {
-              ctx.save();
-              ctx.beginPath();
-              traceRoundedRect(ctx, g.valueX * scale, g.valueY * scale, g.valueW * scale, g.valueH * scale, radPx * scale);
-              ctx.clip();
-              ctx.fillRect(g.valueX * scale, g.valueY * scale, fillW * scale, g.valueH * scale);
-              ctx.restore();
+              pixelFillRoundedPortion(ctx, g.valueX, g.valueY, g.valueW, g.valueH, radPx, 'HORIZONTAL', fillW, isGrad, activeCol565, endCol565, activeCss, scale);
             }
           } else if (barStyle === 'STRIPES') {
             ctx.save();
@@ -1904,12 +1990,12 @@
           }
         }
 
-        // Borde exclusivo perimetral de la barra (Sólido 100%, cero difuminado)
+        // Borde exclusivo perimetral de la barra (Sólido 100%, píxeles puros)
         if (field.barBorderEnabled) {
           const bCol = Number.isFinite(Number(field.barBorderColor)) ? Number(field.barBorderColor) : 0xFFFF;
           const bColorCss = rgb565ToCss(bCol);
           const bWidth = Math.max(1, Math.trunc(Number(field.barBorderWidth) || 1));
-          drawSolidBorder(ctx, g.valueX, g.valueY, g.valueW, g.valueH, radPx, bWidth, bColorCss, scale);
+          pixelBorderRoundedRect(ctx, g.valueX, g.valueY, g.valueW, g.valueH, radPx, bWidth, bColorCss, scale);
         }
 
         // Color de porcentaje configurable (por defecto 0xFFFF / blanco)

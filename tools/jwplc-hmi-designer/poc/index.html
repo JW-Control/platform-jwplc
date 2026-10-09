@@ -65,7 +65,6 @@
             <span class="object-icon">Aa</span>
             <span class="object-type" style="display:none;">TEXT</span>
             <span class="object-name">Estado</span>
-            <span class="object-id" style="display:none;">FIELD_STATUS</span>
             <div class="object-actions">
               <span class="object-btn btn-eye" title="Ocultar / Mostrar">👁</span>
               <span class="object-btn btn-lock" title="Bloquear / Desbloquear">🔓</span>
@@ -260,8 +259,85 @@
           <button id="fitCanvasBtn" class="vert-btn" type="button" title="Ajustar Lienzo (Espacio)">⛶</button>
           <button id="fitSelectionBtn" class="vert-btn" type="button" title="Ajustar Selección (Shift+Espacio)">⊡</button>
           <span class="vert-divider"></span>
-          <button id="vertGridToggle" class="vert-btn toggle-btn active" type="button" title="Alternar Grilla">▦</button>
-          <button id="vertSnapToggle" class="vert-btn toggle-btn active" type="button" title="Ajuste Magnético (Snap)">⧉</button>
+
+          <!-- Botón y Menú Grilla -->
+          <div class="vert-btn-group" id="vertGridGroup">
+            <button id="vertGridMenuBtn" class="vert-side-chevron" type="button" title="Opciones de Grilla (Desplegar a la izquierda)">◂</button>
+            <button id="vertGridToggle" class="vert-btn toggle-btn active" type="button" title="Alternar Grilla (Click) / Configurar (◂ o Click derecho)">▦</button>
+
+            <!-- Popover Flotante de Grilla -->
+            <div id="gridConfigPopover" class="vert-popover" style="display:none;">
+              <div class="vert-popover-header">
+                <span class="vert-popover-title">▦ Configuración de Grilla</span>
+                <button type="button" class="vert-popover-close" id="gridPopoverClose">✕</button>
+              </div>
+              <div class="vert-popover-body">
+                <label class="vert-popover-toggle-row">
+                  <span>Mostrar Grilla</span>
+                  <label class="style-toggle-wrap">
+                    <input id="gridPopoverToggle" type="checkbox" checked />
+                    <span class="style-toggle-slider"></span>
+                  </label>
+                </label>
+                <div class="vert-popover-field">
+                  <span class="vert-popover-label">Forma de la grilla</span>
+                  <select id="gridStyleSelect" class="vert-popover-select">
+                    <option value="lines" selected>Rejilla (Líneas / CAD)</option>
+                    <option value="dots">Puntos</option>
+                  </select>
+                </div>
+                <div class="vert-popover-field">
+                  <span class="vert-popover-label">Paso de la grilla</span>
+                  <select id="gridSizeSelect" class="vert-popover-select">
+                    <option value="4">4 px</option>
+                    <option value="8" selected>8 px</option>
+                    <option value="10">10 px</option>
+                    <option value="16">16 px</option>
+                    <option value="20">20 px</option>
+                    <option value="32">32 px</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Botón y Menú Snap -->
+          <div class="vert-btn-group" id="vertSnapGroup">
+            <button id="vertSnapMenuBtn" class="vert-side-chevron" type="button" title="Opciones de Snap (Desplegar a la izquierda)">◂</button>
+            <button id="vertSnapToggle" class="vert-btn toggle-btn active" type="button" title="Alternar Snap (Click) / Configurar (◂ o Click derecho)">⧉</button>
+
+            <!-- Popover Flotante de Snap -->
+            <div id="snapConfigPopover" class="vert-popover" style="display:none;">
+              <div class="vert-popover-header">
+                <span class="vert-popover-title">⧉ Ajuste Magnético (Snap)</span>
+                <button type="button" class="vert-popover-close" id="snapPopoverClose">✕</button>
+              </div>
+              <div class="vert-popover-body">
+                <label class="vert-popover-toggle-row">
+                  <span>Activar Snap</span>
+                  <label class="style-toggle-wrap">
+                    <input id="snapPopoverToggle" type="checkbox" checked />
+                    <span class="style-toggle-slider"></span>
+                  </label>
+                </label>
+                <div class="vert-popover-field">
+                  <span class="vert-popover-label">Paso del Snap</span>
+                  <select id="snapSizeSelect" class="vert-popover-select">
+                    <option value="grid" selected>Auto (Igual a la grilla)</option>
+                    <option value="1">1 px (Libre / Fino)</option>
+                    <option value="2">2 px</option>
+                    <option value="4">4 px</option>
+                    <option value="8">8 px</option>
+                    <option value="10">10 px</option>
+                    <option value="16">16 px</option>
+                    <option value="20">20 px</option>
+                    <option value="32">32 px</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <button id="vertGeoToggle" class="vert-btn toggle-btn" type="button" title="Guías de Geometría">📐</button>
         </div>
 
@@ -735,47 +811,6 @@
           <div class="active-color-row">
             <span id="activeColorSwatch" class="active-color-swatch"></span>
             <div><strong id="activeColorName">ORANGE</strong><code id="activeColorValue">0xFD20</code></div>
-          </div>
-        </details>
-      </section>
-
-      <section class="inspector-section">
-        <details open>
-          <summary>Grilla y Ajuste (Snap)</summary>
-          <div class="inspector-body two-cols">
-            <label class="field-label full">Forma de la grilla
-              <select id="gridStyleSelect" class="field-input">
-                <option value="lines" selected>Rejilla (Líneas / CAD)</option>
-                <option value="dots">Puntos</option>
-              </select>
-            </label>
-            <label class="field-label full">Paso de la grilla
-              <select id="gridSizeSelect" class="field-input">
-                <option value="4">4 px</option>
-                <option value="8" selected>8 px</option>
-                <option value="10">10 px</option>
-                <option value="16">16 px</option>
-                <option value="20">20 px</option>
-                <option value="32">32 px</option>
-              </select>
-            </label>
-            <label class="field-label full" style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:4px;">
-              <input id="snapInspectorToggle" type="checkbox" checked style="margin:0;cursor:pointer;" />
-              <span>Ajuste Magnético (Snap)</span>
-            </label>
-            <label class="field-label full">Paso del Snap
-              <select id="snapSizeSelect" class="field-input">
-                <option value="grid" selected>Igual a la grilla</option>
-                <option value="1">1 px (Libre / Fino)</option>
-                <option value="2">2 px</option>
-                <option value="4">4 px</option>
-                <option value="8">8 px</option>
-                <option value="10">10 px</option>
-                <option value="16">16 px</option>
-                <option value="20">20 px</option>
-                <option value="32">32 px</option>
-              </select>
-            </label>
           </div>
         </details>
       </section>

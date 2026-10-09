@@ -227,6 +227,9 @@ h2 { margin: 0 0 7px; font-size: 11.5px; font-weight: 600; color: #a9bece; lette
   white-space: nowrap;
   font-size: 11.5px;
 }
+.object-id {
+  display: none !important;
+}
 .object-actions {
   display: flex;
   align-items: center;
@@ -789,6 +792,145 @@ body.bottom-collapsed .bottom-tabs { border-bottom: 0; }
   background: #283340;
   margin: 2px 0;
 }
+
+/* --- Grupos y Popovers en Vertical Toolbar --- */
+.vert-btn-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vert-side-chevron {
+  position: absolute;
+  right: calc(100% + 2px);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 13px;
+  height: 24px;
+  background: #1c242e;
+  border: 1px solid #283748;
+  border-right: none;
+  border-radius: 5px 0 0 5px;
+  color: #8da2b5;
+  font-size: 10px;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  z-index: 52;
+}
+
+.vert-side-chevron:hover {
+  background: #2b3848;
+  color: #ff9a43;
+  border-color: #ff9a43;
+  box-shadow: -2px 0 8px rgba(255, 154, 67, 0.3);
+}
+
+.vert-popover {
+  position: absolute;
+  right: calc(100% + 22px);
+  top: 0;
+  width: 220px;
+  background: #141a22;
+  border: 1px solid #283747;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  z-index: 120;
+  animation: vertPopoverFadeIn 0.15s ease-out;
+}
+
+
+@keyframes vertPopoverFadeIn {
+  from { opacity: 0; transform: translateX(6px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.vert-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #0d1218;
+  border-bottom: 1px solid #202d3a;
+  border-radius: 8px 8px 0 0;
+}
+
+.vert-popover-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #d1dde6;
+  letter-spacing: 0.3px;
+}
+
+.vert-popover-close {
+  background: none;
+  border: none;
+  color: #728494;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.vert-popover-close:hover {
+  color: #fff;
+  background: #283747;
+}
+
+.vert-popover-body {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.vert-popover-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 600;
+  color: #9ab0c2;
+  cursor: pointer;
+}
+
+.vert-popover-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.vert-popover-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #6d8191;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.vert-popover-select {
+  width: 100%;
+  height: 28px;
+  background: #0c1219;
+  border: 1px solid #243545;
+  color: #d6e2ec;
+  border-radius: 5px;
+  padding: 0 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.vert-popover-select:focus {
+  border-color: #ff9a43;
+  outline: none;
+}
+
 
 /* --- Visual RGB565 Color Picker Swatches --- */
 .a11-custom-color {
