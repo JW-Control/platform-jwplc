@@ -304,9 +304,9 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=TFT-PRE3
-OBJECTIVE=attribute exact TFT_eSPI 2.5.43 maintenance source and ST7789 init sequence
-STATE=READY_TO_RUN_AFTER_PULL
+NEXT_GATE=TFT-PRE3-R2
+OBJECTIVE=normalize ST7789 command encoding and close backend source attribution
+STATE=READY_TO_RERUN
 PREREQUISITE=TFT_PRE2_PASS
 ```
 
@@ -1093,6 +1093,30 @@ TFT-PRE3 reutiliza el probe de cualificación TFT_eSPI ya existente para
 identificar la instalación 2.5.43 usada por el entorno de mantenimiento,
 verificar hashes del source y caracterizar la secuencia ST7789 antes de
 construir un candidato.
+
+TFT-PRE3 R1 — atribución válida, parser semántico incompleto:
+
+```text
+TFT_ESPI_LIB_LIST_VERSION=2.5.43
+TFT_ESPI_SELECTED_VERSION=2.5.43
+TFT_ESPI_SELECTED_ROOT=C:\Users\jeykc\Documentos\Programacion\Arduino\libraries\TFT_eSPI
+TFT_ESPI_HEADER_VERSION=2.5.43
+TFT_ESPI_CPP_SHA256=01ed6edb0530d38b94ddeac079ba81633aa21d77d049b12da21a37f4bec69ee1
+ST7789_INIT_SHA256=e21cae2ac84285dc0e77648eca67ca753f41f7da3c271594ede750b725136c10
+TFT_ESPI_HEADER_SHA256=b1b2789ace7ac8fd4a4c414054757d91e6e62649a23d74226ea28ceb8d6f4462
+RESET_HIGH_LOW_HIGH_PRESENT=True
+RESET_DELAY_150_PRESENT=True
+ST7789_DELAY_VALUES_MS=120,10,120,120,120,10,120,120
+STATUS=REVIEW
+REASON=ST7789_INIT_SEQUENCE_UNEXPECTED
+PRODUCT_FAILURE=NO
+HARNESS_FAILURE=YES
+ENVIRONMENT_FAILURE=NO
+```
+
+F105: el parser asumió únicamente macros `TFT_*`; R2 acepta también
+`ST7789_*` y valores literales 0x11/0x13/0x29, y reporta la expresión real
+capturada para SLPOUT/NORON/DISPON.
 
 Referencia externa de drivers:
 
