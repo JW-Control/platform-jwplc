@@ -304,13 +304,14 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=TFT-PRE6-P1A-EVIDENCE-RECOVERY
-OBJECTIVE=verify persistence of local P0 archive and select durable evidence recovery without repeating P0
-STATE=READ_ONLY_DIAGNOSTIC_REQUIRED
+NEXT_GATE=TFT-PRE6-P1A-R3
+OBJECTIVE=recover P0 handoff from versioned P0 PRE4 PRE3 docs and SHA-verified P0 archive; regenerate PRE4 candidate sources
+STATE=READY_TO_RUN_AFTER_PULL
 PREREQUISITE=TFT_PRE6_P0_CLOSED_PASS
 P1A_R1=REVIEW_HARNESS_F109
 P1A_R2=REVIEW_HARNESS_F109
 P0_SUMMARY_LOCAL=NOT_FOUND
+P0_ARCHIVE_SHA_VERIFIED=YES
 PRODUCT_FIX_COMMITTED=NO
 PRODUCTION_ARCHIVE_REFRESH=NOT_STARTED
 ```
@@ -1474,6 +1475,41 @@ P1A no se relanza hasta verificar si el archive de P0 en `%TEMP%`
 sigue disponible. No regenerar el `SUMMARY.log` histórico ni repetir
 P0 innecesariamente. Seguir `F109`; no crear `F110` sin otra clase
 independiente de fallo.
+
+## TFT-PRE6-P1A — recuperación de evidencia y R3 (2026-10-09)
+
+```text
+P0_DIRECTORY_EXISTS=True
+P0_SUMMARY_EXISTS=False
+P0_ARCHIVE_EXISTS=True
+P0_ARCHIVE_BYTES=1091942
+P0_ARCHIVE_SHA256=ff9dd89cb267bc270d2ca6fa2d0f1362b76595b8dc6b49f764d05a8e28bb6705
+P0_RESULT=CLOSED_PASS
+P1A_R3=PREPARED_NOT_EXECUTED
+REQUIRES_HISTORICAL_P0_SUMMARY=NO
+SOURCE_OF_TRUTH=P0_PRE4_PRE3_VERSIONED_DOCS_PLUS_P0_ARCHIVE_SHA
+PRE4_CPP_SETUP_ST7789_EXPECTED_SHA=UNCHANGED
+PRODUCT_MUTATION=NO
+COMPILE_EXECUTED=NO
+UPLOAD_EXECUTED=NO
+NEXT_FAILURE_ID=F110
+```
+
+P1A R2 identificó que el parser pasa pero el archivo
+`tools/alpha13/results/tft_pre6_p0_20261009_123147/SUMMARY.log`
+ya no está disponible. El usuario confirmó que su archive P0 en
+`%TEMP%` sigue presente, mide 1 091 942 bytes y coincide con el SHA
+cerrado. La causa de desaparición del `SUMMARY.log` no se conoce.
+
+R3 usa como evidencia durable los documentos versionados:
+`A13_TFT_PRE6_P0_CLOSURE_20261009.md`,
+`A13_TFT_PRE4_CANDIDATE_20261009.md` y
+`A13_TFT_PRE3_SOURCE_ATTRIBUTION_20261009.md`.
+Comprueba blobs Git desde HEAD, campos, compilaciones P0 documentadas,
+archive SHA/tamaño, y backend TFT_eSPI 2.5.43 con hashes originales.
+No se reconstruye ni falsifica el `SUMMARY.log` previo. El generador
+de fuentes de P1A permanece sin modificaciones en R3. Sólo se progresa
+a P1B después de `STATUS=PASS` real en P1A.
 
 ## Gates restantes
 
