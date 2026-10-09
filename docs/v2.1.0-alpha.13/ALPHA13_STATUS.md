@@ -304,10 +304,10 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=TFT-PRE4
-OBJECTIVE=temp-only deferred-DISPON candidate transform preflight
+NEXT_GATE=TFT-PRE5
+OBJECTIVE=compile and flash source-first deferred-DISPON candidate; leave device ready for visual power-cycle
 STATE=READY_TO_RUN_AFTER_PULL
-PREREQUISITE=TFT_PRE3_PASS
+PREREQUISITE=TFT_PRE4_PASS
 ```
 
 No modificar todavía código productivo de G2 hasta completar su preflight
@@ -1169,6 +1169,35 @@ do not mutate installed TFT_eSPI in place
 TFT-PRE4 sólo genera el candidato bajo `%TEMP%`: no modifica producto ni la
 instalación TFT_eSPI. El candidato conserva el delay post-DISPON de 120 ms,
 pero lo mueve después de limpiar GRAM a negro.
+
+TFT-PRE4 cerró PASS:
+
+```text
+STATUS=PASS
+REASON=TEMP_DEFERRED_DISPON_CANDIDATE_READY
+CANDIDATE_JWPLC_TFT_CPP_SHA256=494440b00e74e74a7b23975420574e035ef2138fdf5a0cea2fed51c986c29d25
+CANDIDATE_TFT_SETUP_SHA256=8fa079444ca130772d3a642eaf814035100bc098032b403c922c458d351ae5e1
+CANDIDATE_ST7789_INIT_SHA256=44873be82fe836084934a328df77f098e9ab88d212dd1d570da5e8aac74671bc
+BACKEND_ORIGINAL_MUTATED=NO
+REPO_PRODUCT_MUTATED=NO
+WORKTREE_FINAL=CLEAN
+```
+
+TFT-PRE5:
+
+```text
+- localiza el último candidato PRE4 PASS y verifica sus tres SHA;
+- copia TFT_eSPI 2.5.43 a `%TEMP%` y aplica allí ST7789_Init.h candidato;
+- sustituye User_Setup/User_Setup_Select únicamente en la copia temporal para
+  fijar de forma reproducible el perfil privado JWPLC;
+- crea JWPLC_TFT source-only temporal;
+- exige selección de ambas librerías temporales y exactamente un
+  JWPLC_TFT.cpp.o + un TFT_eSPI.cpp.o;
+- mantiene JWPLC_Display y core en sus rutas precompiladas normales;
+- sube el probe PRE1 y exige DISPLAY_READY=YES + IO_READY=YES;
+- no modifica el repo ni la instalación TFT_eSPI del mantenedor;
+- deja el firmware candidato cargado para la prueba visual de power-cycle.
+```
 
 Referencia externa de drivers:
 
