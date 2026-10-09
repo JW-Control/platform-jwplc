@@ -119,8 +119,12 @@ function Verified-Document {
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
         Stop-P1A "VERSIONED_PROOF_MISSING:$Gate"
     }
-    $blob = @(& git -C $RepoRoot hash-object -- $Path)
-    if ($LASTEXITCODE -ne 0 -or $blob.Count -ne 1 -or $blob[0].Trim() -ne $BlobSha) {
+    # Verify the exact tracked Git blob from HEAD. Reading the working
+    # file with git hash-object would incorrectly reject CRLF checkouts.
+    # Guard-Integrity already requires a clean tracked worktree.
+    $relative = [IO.Path]::GetRelativePath($RepoRoot,$Path).Replace('\','/')
+    $blob = @(& git -C $RepoRoot rev-parse "HEAD:$relative")
+    if ($LASTEXITCODE -ne 0 -or $blob.Count -ne 1 -or $blob[0].Trim() -cne $BlobSha) {
         Stop-P1A "VERSIONED_PROOF_BLOB_MISMATCH:$Gate"
     }
     $body = [IO.File]::ReadAllText($Path)
