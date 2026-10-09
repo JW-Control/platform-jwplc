@@ -228,7 +228,7 @@ try
         Finish-TFTPre1 -Status 'REVIEW' -Reason 'PYSERIAL_NOT_AVAILABLE' -EnvironmentFailure 'YES' -ExitCode 13
     }
 
-    $clientSyntax = Invoke-A13NativeCaptured -FilePath $pythonExe -Arguments @('-m','py_compile',$ClientPath)
+    $clientSyntax = Invoke-A13NativeCaptured -FilePath $pythonExe -Arguments @('-c','import ast,pathlib,sys; ast.parse(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")); print("PY_SYNTAX=PASS")',$ClientPath)
     if ($clientSyntax.ExitCode -ne 0)
     {
         Finish-TFTPre1 -Status 'REVIEW' -Reason 'CLIENT_SYNTAX_ERROR' -HarnessFailure 'YES' -ExitCode 14
