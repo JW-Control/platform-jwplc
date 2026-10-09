@@ -1,7 +1,7 @@
 param(
     [Parameter(Position = 0)][string]$SerialPort = '',
     [Parameter(Position = 1)][string]$CandidateRoot = '',
-    [string]$ArduinoCli = 'C:\\Program Files\\Arduino PLC IDE Tools\\arduino-cli.exe'
+    [string]$ArduinoCli = 'C:\Program Files\Arduino PLC IDE Tools\arduino-cli.exe'
 )
 
 Set-StrictMode -Version Latest
@@ -17,16 +17,16 @@ $ExpectedBackendCppSha = '01ed6edb0530d38b94ddeac079ba81633aa21d77d049b12da21a37
 $ExpectedBackendHeaderSha = 'b1b2789ace7ac8fd4a4c414054757d91e6e62649a23d74226ea28ceb8d6f4462'
 
 $ScriptDir = $PSScriptRoot
-$RepoRoot = [IO.Path]::GetFullPath((Join-Path $ScriptDir '..\\..\\..'))
+$RepoRoot = [IO.Path]::GetFullPath((Join-Path $ScriptDir '..\..\..'))
 $CommonPath = Join-Path $ScriptDir 'common.ps1'
-$RepoLibraries = Join-Path $RepoRoot 'JWPLC\\2.1.0\\libraries'
-$ProbeDir = Join-Path $RepoRoot 'tools\\alpha13\\firmware\\a13_tft_pre1_startup_baseline_probe'
+$RepoLibraries = Join-Path $RepoRoot 'JWPLC\2.1.0\libraries'
+$ProbeDir = Join-Path $RepoRoot 'tools\alpha13\firmware\a13_tft_pre1_startup_baseline_probe'
 $ClientPath = Join-Path $ScriptDir 'a13_tft_pre1_startup_baseline_client.py'
-$OfficialHeader = Join-Path $RepoRoot 'JWPLC\\2.1.0\\libraries\\JWPLC_TFT\\src\\JWPLC_TFT.h'
-$BackendProbeDir = Join-Path $RepoRoot 'tools\\modbus-tcp-benchmark\\firmware\\a14_h3e1d1_tft_espi_compile_probe'
+$OfficialHeader = Join-Path $RepoRoot 'JWPLC\2.1.0\libraries\JWPLC_TFT\src\JWPLC_TFT.h'
+$BackendProbeDir = Join-Path $RepoRoot 'tools\modbus-tcp-benchmark\firmware\a14_h3e1d1_tft_espi_compile_probe'
 
 $RunId = Get-Date -Format 'yyyyMMdd_HHmmss'
-$RunRoot = Join-Path $RepoRoot ("tools\\alpha13\\results\\tft_pre5_{0}" -f $RunId)
+$RunRoot = Join-Path $RepoRoot ("tools\alpha13\results\tft_pre5_{0}" -f $RunId)
 $TempRoot = Join-Path $env:TEMP ("jwplc_a13_tft_pre5_{0}" -f $RunId)
 $BuildRoot = Join-Path $TempRoot 'build'
 $BackendProbeBuild = Join-Path $TempRoot 'backend-probe'
@@ -87,7 +87,7 @@ function Read-SummaryValue {
 }
 
 function Resolve-LatestPre4Candidate {
-    $resultRoot = Join-Path $RepoRoot 'tools\\alpha13\\results'
+    $resultRoot = Join-Path $RepoRoot 'tools\alpha13\results'
     if (-not (Test-Path -LiteralPath $resultRoot)) { return $null }
 
     $summaries = @(
@@ -116,7 +116,7 @@ function Find-LibrarySelection {
         foreach ($line in $Lines) {
             $m = [regex]::Match($line,$pattern)
             if ($m.Success) {
-                [IO.Path]::GetFullPath($m.Groups['folder'].Value.Trim()).TrimEnd('\\','/')
+                [IO.Path]::GetFullPath($m.Groups['folder'].Value.Trim()).TrimEnd('\','/')
             }
         }
     )
@@ -183,9 +183,9 @@ try {
     Write-Host "PRE4_CANDIDATE_ROOT=$CandidateRoot"
     Write-Host "PRE4_SUMMARY=$pre4Summary"
 
-    $pre4Cpp = Join-Path $CandidateRoot 'JWPLC_TFT\\src\\JWPLC_TFT.cpp'
-    $pre4Setup = Join-Path $CandidateRoot 'JWPLC_TFT\\src\\tft_setup.h'
-    $pre4Init = Join-Path $CandidateRoot 'TFT_eSPI\\ST7789_Init.h'
+    $pre4Cpp = Join-Path $CandidateRoot 'JWPLC_TFT\src\JWPLC_TFT.cpp'
+    $pre4Setup = Join-Path $CandidateRoot 'JWPLC_TFT\src\tft_setup.h'
+    $pre4Init = Join-Path $CandidateRoot 'TFT_eSPI\ST7789_Init.h'
 
     foreach ($required in @($pre4Cpp,$pre4Setup,$pre4Init)) {
         if (-not (Test-Path -LiteralPath $required)) {
@@ -217,7 +217,7 @@ try {
 
     $cliVersion = @(& $ArduinoCli version 2>&1 | ForEach-Object { $_.ToString() }) -join ' '
     Write-Host "ARDUINO_CLI=$cliVersion"
-    if ($cliVersion -notmatch 'Version:\\s*1\\.0\\.2') {
+    if ($cliVersion -notmatch 'Version:\s*1\.0\.2') {
         Finish-TFTPre5 -Status 'REVIEW' -Reason 'ARDUINO_CLI_VERSION_MISMATCH' -EnvironmentFailure 'YES' -ExitCode 10
     }
 
@@ -270,7 +270,7 @@ try {
         Copy-Item -LiteralPath $_.FullName -Destination $CandidateBackendRoot -Recurse -Force
     }
 
-    Copy-Item -LiteralPath $pre4Init -Destination (Join-Path $CandidateBackendRoot 'TFT_Drivers\\ST7789_Init.h') -Force
+    Copy-Item -LiteralPath $pre4Init -Destination (Join-Path $CandidateBackendRoot 'TFT_Drivers\ST7789_Init.h') -Force
     Copy-Item -LiteralPath $pre4Setup -Destination (Join-Path $CandidateBackendRoot 'User_Setup.h') -Force
 
     $utf8 = New-Object Text.UTF8Encoding($false)
@@ -284,7 +284,7 @@ try {
     $properties = "name=JWPLC_TFT`r`nversion=0.1.0-alpha13-pre5`r`nauthor=JW Control`r`nmaintainer=JW Control`r`nsentence=Alpha13 temporary source-first TFT startup candidate.`r`nparagraph=Temporary candidate only; not a distributable package artifact.`r`ncategory=Display`r`narchitectures=esp32`r`nincludes=JWPLC_TFT.h`r`ndepends=TFT_eSPI,SPI`r`n"
     [IO.File]::WriteAllText((Join-Path $CandidateJwplcRoot 'library.properties'),$properties,$utf8)
 
-    $candidateBackendInit = Join-Path $CandidateBackendRoot 'TFT_Drivers\\ST7789_Init.h'
+    $candidateBackendInit = Join-Path $CandidateBackendRoot 'TFT_Drivers\ST7789_Init.h'
     if ((Get-A13Sha256 -Path $candidateBackendInit) -ne $ExpectedCandidateInitSha) {
         Finish-TFTPre5 -Status 'REVIEW' -Reason 'TEMP_BACKEND_PATCH_IDENTITY_FAILED' -HarnessFailure 'YES' -ExitCode 18
     }
@@ -307,8 +307,8 @@ try {
 
     $jwplcSelected = Find-LibrarySelection -Lines $compile.Output -Name 'JWPLC_TFT'
     $backendSelected = Find-LibrarySelection -Lines $compile.Output -Name 'TFT_eSPI'
-    $expectedJwplcRoot = [IO.Path]::GetFullPath($CandidateJwplcRoot).TrimEnd('\\','/')
-    $expectedBackendRoot = [IO.Path]::GetFullPath($CandidateBackendRoot).TrimEnd('\\','/')
+    $expectedJwplcRoot = [IO.Path]::GetFullPath($CandidateJwplcRoot).TrimEnd('\','/')
+    $expectedBackendRoot = [IO.Path]::GetFullPath($CandidateBackendRoot).TrimEnd('\','/')
     $jwplcSelectedOk = $null -ne $jwplcSelected -and $jwplcSelected -ieq $expectedJwplcRoot
     $backendSelectedOk = $null -ne $backendSelected -and $backendSelected -ieq $expectedBackendRoot
 
@@ -331,7 +331,7 @@ try {
 
     $compileText = $compile.Output -join [Environment]::NewLine
     $usesStubCore = $compileText -match "Using core 'jwcontrol_precompiled_stub'"
-    $coreArchiveLinked = $compileText -match '[\\/]precompiled[\\/]core[\\/]JWPLCBASIC[\\/]core\\.a'
+    $coreArchiveLinked = $compileText -match '[\\/]precompiled[\\/]core[\\/]JWPLCBASIC[\\/]core\.a'
 
     Write-Host "JWPLC_TFT_TEMP_SELECTED=$jwplcSelectedOk"
     Write-Host "TFT_ESPI_TEMP_SELECTED=$backendSelectedOk"
