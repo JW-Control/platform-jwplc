@@ -199,7 +199,10 @@ def rollback() -> bool:
                 valid = False
         except Exception:
             valid = False
-    valid &= clean_worktree()
+    try:
+        valid &= clean_worktree()
+    except Exception:
+        valid = False
     emit("ROLLBACK_VERIFIED", "YES" if valid else "NO")
     return valid
 
@@ -328,7 +331,7 @@ def main() -> int:
         for item in report:
             print(item, flush=True)
         return 0
-    except (GateError, OSError, ValueError, subprocess.SubprocessError) as exc:
+    except Exception as exc:
         emit("PHASE", phase)
         emit("ERROR", str(exc))
         recovered = True
