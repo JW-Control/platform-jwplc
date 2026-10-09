@@ -1204,6 +1204,13 @@ sobre la unidad de traducción real `TFT_eSPI.cpp`: si no recibe
 La guardia se inyecta sólo bajo `%TEMP%` y se registran los hashes de
 archivos originales y temporales. Cualquier anomalía evita la subida.
 
+Para evitar un PASS falso por firmware anterior, la copia temporal del
+probe imprime en cada bloque canónico el identificador
+`A13_TFT_PRE5_CANDIDATE_SHA256` de PRE4. El cliente lo recopila y el gate
+exige el valor esperado además de `DISPLAY_READY=YES`, `IO_READY=YES` y
+estado válido de TFT_RST. La salida no declara corrección visual hasta que
+se revise el video de tres encendidos USB completos.
+
 Importante: un eventual PASS de PRE5-R3 significa compilación, subida y
 runtime serial correctos, pero NO demuestra por sí solo la eliminación
 visual del blanco/GRAM. Esa conclusión necesita el video de energizado USB
