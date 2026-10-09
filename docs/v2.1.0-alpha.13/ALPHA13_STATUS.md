@@ -304,17 +304,17 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=TFT-PRE6-P1B
-OBJECTIVE=independently recompile regenerated P1A sources, create temp precompiled archive, and qualify three normal consumers
+NEXT_GATE=TFT-PRE6-P2A
+OBJECTIVE=locally adopt the P1B verified TFT sources and archive with automatic rollback and four normal Arduino builds
 STATE=READY_TO_RUN_AFTER_PULL
-PREREQUISITE=TFT_PRE6_P1A_R3_CLOSED_PASS
+PREREQUISITE=TFT_PRE6_P1B_CLOSED_PASS
 P1A_R1=REVIEW_HARNESS_F109
 P1A_R2=REVIEW_HARNESS_F109
 P1A_R3=CLOSED_PASS
-P0_SUMMARY_LOCAL=NOT_FOUND
-P0_ARCHIVE_SHA_VERIFIED=YES
+P1B=CLOSED_PASS
 PRODUCT_FIX_COMMITTED=NO
-PRODUCTION_ARCHIVE_REFRESH=NOT_STARTED
+PRODUCTION_ARCHIVE_REFRESH=PREPARED_NOT_APPLIED
+NEXT_FAILURE_ID=F110
 ```
 
 No modificar todavía código productivo de G2 hasta completar su preflight
@@ -1550,6 +1550,68 @@ Exige compilación source-first de `JWPLC_TFT.cpp.o` y
 y builds Arduino normales que NO seleccionen la TFT_eSPI global.
 No se permite publicar el archive ni dar por corregido el package antes
 de P2 y su prueba física.
+
+## TFT-PRE6-P1B — archive reconstruido desde fuentes (2026-10-09)
+
+```text
+P1B_STATUS=CLOSED_PASS
+REASON=CANONICAL_SOURCE_ARCHIVE_REBUILT_AND_LINKED
+HEAD=8598a0dbee6006b27c28f1232ca2877d882423fe
+SOURCE_COMPILE_EXIT=0
+SOURCE_JWPLC_TFT_TEMP_SELECTED=True
+SOURCE_TFT_eSPI_TEMP_SELECTED=True
+SOURCE_CORE_STUB=True
+SOURCE_CORE_ARCHIVE_LINKED=True
+SOURCE_DISPLAY_PRECOMPILED=True
+REGENERATED_TFT_OBJECT_SHA256=03063a848b5d5e20d8010b7d0bc19189b7cc5be412489588c1b14ded66815adf
+REGENERATED_BACKEND_OBJECT_SHA256=59b4050dd44b5f6db7a99b2050aee7ff076008eb28032d18d222f4cf57b06732
+P1B_ARCHIVE_SHA256=ab73b244c44ebd75d29a4eeb3cd97f5d18c08470f535eb16d55c2fdbf2310ff8
+P1B_ARCHIVE_BYTES=1091990
+ARCHIVE_MEMBER_COUNT=2
+ARCHIVE_MEMBER_PARITY=PASS
+NORMAL_COMPILE_CASES_PASS=3
+GLOBAL_TFT_ESPI_REQUIRED_FOR_NORMAL_SKETCH=NO
+OFFICIAL_ARCHIVES_PRESERVED=YES
+WORKTREE_FINAL=CLEAN
+PRODUCT_MUTATION=NO
+UPLOAD_EXECUTED=NO
+```
+
+Cierre versionado: A13_TFT_PRE6_P1B_CLOSURE_20261009.md.
+Diferencia entre P0 y P1B archive SHA aceptada: objetos compilados
+independientemente con fuentes equivalentes y gates normales PASS.
+
+## TFT-PRE6-P2A — adopción local reversible, gate preparado
+
+```text
+P2A_STATE=PREPARED_NOT_EXECUTED
+P2A_GATE_PY=tools/alpha13/gates/a13_tft_pre6_p2a_adopt_product.py
+P2A_GATE_PS1=tools/alpha13/gates/a13_tft_pre6_p2a_adopt_product.ps1
+P2A_GATE_BAT=tools/alpha13/gates/run_a13_tft_pre6_p2a_adopt_product.bat
+P2A_CHANGES=JWPLC_TFT.cpp,tft_setup.h,libJWPLC_TFT.a
+P2A_GIT_COMMIT=NO
+P2A_UPLOAD=NO
+P2A_COMPILE_CASES=DIRECT_TFT,DISPLAY_INTEGRATION,NORMAL_AUTOLOAD,STARTUP_PROBE
+P2A_FAIL_ROLLBACK=BYTE_IDENTICAL_BACKUPS_REQUIRED
+P2A_SUCCESS_WORKTREE=3_EXPECTED_TRACKED_FILES_MODIFIED
+P2A_SUCCESS_NEEDS_PHYSICAL_P2B=YES
+PRODUCTIVE_ARCHIVE_REFRESH=NOT_YET_APPLIED
+NEXT_FAILURE_ID=F110
+```
+
+P2A valida previamente hashes originales del core, Display, fuentes TFT
+y libJWPLC_TFT.a. El candidato se selecciona por manifiesto de P1B
+bajo %TEMP%, hashes de objeto, SHA del archive, tamaño y fuentes P1A.
+Sólo después copia los tres archivos productivos, guarda originales
+en %TEMP%, compila cuatro casos mediante la JWPLC_TFT del repositorio
+y comprueba autoload, core precompilado, ausencia de fuente backend y
+de TFT_eSPI externa seleccionada.
+
+Si falla una condición, restaura los tres archivos originales y exige
+worktree CLEAN. Si pasa, **deja tres modificaciones locales SIN COMMIT**
+para realizar P2B físico. No hacer git pull, reset ni cambios de
+rama hasta completar P2B o restaurar explícitamente la copia de
+seguridad. Mantener F110 disponible sólo para fallos nuevos.
 
 ## Gates restantes
 
