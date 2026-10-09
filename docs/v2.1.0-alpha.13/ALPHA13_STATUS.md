@@ -304,9 +304,9 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=TFT-PRE6
-OBJECTIVE=integrate deferred-DISPON into maintainable JWPLC_TFT source/archive without external TFT_eSPI dependency
-STATE=PLAN_AND_REPRODUCIBLE_BUILD_PENDING
+NEXT_GATE=TFT-PRE6-P0
+OBJECTIVE=build and qualify self-contained archive from physically validated PRE5 source objects under TEMP
+STATE=READY_TO_RUN_AFTER_PULL
 PREREQUISITE=TFT_PRE5_R3_COMPILE_UPLOAD_SERIAL_VISUAL_PASS
 PRODUCT_FIX_COMMITTED=NO
 PRODUCTION_ARCHIVE_REFRESH=NOT_STARTED
@@ -1339,6 +1339,31 @@ DISPLAY_UI_CONSUMER_REGRESSION=REQUIRED
 NORMAL_PACKAGE_PHYSICAL_USB_STARTUP_VISUAL=REQUIRED
 COMMIT_ONLY_AFTER_PASS=YES
 ```
+
+## TFT-PRE6 — plan y primer gate sin mutación productiva
+
+Documento: `A13_TFT_PRE6_INTEGRATION_PLAN_20261009.md`.
+
+```text
+TFT_PRE6_P0=PREPARED_NOT_EXECUTED
+TFT_PRE6_P0_GATE=tools/alpha13/gates/a13_tft_pre6_p0_archive_candidate.ps1
+TFT_PRE6_P0_RUNNER=tools/alpha13/gates/run_a13_tft_pre6_p0_archive_candidate.bat
+P0_ARCHIVE_INPUT=PRE5_R3_COMPILED_SOURCE_OBJECTS
+P0_OUTPUT=%TEMP%/candidate-libraries/JWPLC_TFT/src/esp32/libJWPLC_TFT.a
+P0_NORMAL_CASES=DIRECT_TFT,DISPLAY_INTEGRATION,NORMAL_AUTOLOAD
+P0_USES_NORMAL_PRECOMPILED_TFT=YES
+P0_USER_EXTERNAL_TFT_ESPI_REQUIRED=NO
+P0_OFFICIAL_ARCHIVE_MUTATION=NO
+P0_USB_FLASH=NO
+P1_CANONICAL_SOURCE_REBUILD=PENDING_P0_PASS
+PRODUCT_COMMIT=NO
+```
+
+Prevención heredada: F105 macros semánticas; F106 reemplazos seguros;
+F107 setup por sketch-local `tft_setup.h`; F108 arrays explícitos
+`@(...)`, no reportar PASS físico en una compilación meramente estática.
+El run P0 sólo garantiza archivo temporal autocontenido y compilación
+normal (no demuestra aún fuente canónica ni un archive productivo instalado).
 
 ## Gates restantes
 
