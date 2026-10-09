@@ -821,6 +821,39 @@ PRODUCT_FAILURE=NO
 HARDWARE_FAILURE=NO
 ```
 
+### F109 — recuperación verificada y prevención de R3
+
+Diagnóstico adicional ejecutado por el usuario:
+
+```text
+P0_DIRECTORY_EXISTS=True
+P0_SUMMARY_EXISTS=False
+P0_ARCHIVE_EXISTS=True
+P0_ARCHIVE_BYTES=1091942
+P0_ARCHIVE_SHA256=ff9dd89cb267bc270d2ca6fa2d0f1362b76595b8dc6b49f764d05a8e28bb6705
+```
+
+La evidencia binaria crítica de P0 **no desapareció**; faltaba
+únicamente el archivo histórico `SUMMARY.log` del directorio P0.
+Su causa de ausencia no se conoce. P0 conserva el cierre versionado
+`A13_TFT_PRE6_P0_CLOSURE_20261009.md`.
+
+R3 incorpora un modo de recuperación **sin fabricar el SUMMARY**:
+verifica el blob Git de los documentos versionados P0, PRE4 y PRE3,
+el contenido exacto de sus campos críticos y los SHA actuales del
+archive P0 y del backend TFT_eSPI. El SHA de los documentos se resuelve
+desde `HEAD:<ruta>` para evitar falsos fallos por CRLF del checkout.
+El working tree debe estar CLEAN. Ante una discordancia, abortar.
+
+```text
+P0_PRIOR_RESULT=CLOSED_PASS
+RECOVERY_PROOF=VERSIONED_P0_PRE4_PRE3_DOCS_PLUS_P0_ARCHIVE_BYTES_SHA
+P0_SUMMARY_RECREATED=NO
+P0_REBUILD_REQUIRED=NO
+P1A_R3=PREPARED_NOT_EXECUTED
+NEXT_FAILURE_ID=F110
+```
+
 ## Estado
 
 ```text
