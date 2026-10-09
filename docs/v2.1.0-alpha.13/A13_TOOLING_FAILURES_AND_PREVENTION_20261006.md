@@ -679,9 +679,35 @@ Prevención obligatoria:
   procedente del antiguo probe PRE1 o de un firmware no actualizado.
 ```
 
-Acción: TFT-PRE5 R3 refuerza validaciones de compilación y regresión y
-mantiene la misma identidad candidata PRE4. No se modifican archivos de
-producto, ni el archive TFT definitivo ni la instalación TFT_eSPI global.
+Acción ejecutada: TFT-PRE5 R3 reforzó validaciones de compilación
+y regresión sin cambiar la identidad candidata PRE4. Resultado verificado:
+
+```text
+A13_TFT_PRE5_SYNTAX=PASS
+PROBE_INO_COUNT=1
+BACKEND_CONFIG_GUARD=ENABLED
+BACKEND_SOURCE_CONFIG_GUARD=ENABLED
+COMPILE_EXIT=0
+JWPLC_TFT_TEMP_SELECTED=True
+TFT_ESPI_TEMP_SELECTED=True
+JWPLC_TFT_SOURCE_OBJECT_COUNT=1
+TFT_ESPI_SOURCE_OBJECT_COUNT=1
+UPLOAD_EXIT=0
+CLIENT_EXIT=0
+RUNTIME_CANDIDATE_SHA256=494440b00e74e74a7b23975420574e035ef2138fdf5a0cea2fed51c986c29d25
+DISPLAY_READY=YES
+IO_READY=YES
+WORKTREE_FINAL=CLEAN
+STATUS=PASS
+REASON=SOURCE_FIRST_CANDIDATE_FLASHED
+USER_VISUAL_WHITE_BACKGROUND=NOT_OBSERVED
+```
+
+PRE5 confirma que la corrección temporal de `DISPON` y borrado de
+GRAM funciona visualmente, sin nuevas fallas. No abrir un identificador
+adicional por una ejecución que pasó. Mantener `NEXT_FAILURE_ID=F109`.
+El archive TFT productivo requiere regeneración reproducible y prueba
+normal antes de cerrar la observación a nivel release.
 
 ## Estado
 
