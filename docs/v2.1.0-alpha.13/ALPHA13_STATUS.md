@@ -304,10 +304,10 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=TFT-PRE3-R3
-OBJECTIVE=close normalized ST7789 attribution with script rebuilt from valid R1
-STATE=READY_TO_RERUN_AFTER_PULL
-PREREQUISITE=TFT_PRE2_PASS
+NEXT_GATE=TFT-PRE4
+OBJECTIVE=temp-only deferred-DISPON candidate transform preflight
+STATE=READY_TO_RUN_AFTER_PULL
+PREREQUISITE=TFT_PRE3_PASS
 ```
 
 No modificar todavía código productivo de G2 hasta completar su preflight
@@ -1136,6 +1136,39 @@ al insertar texto PowerShell que contenía `$'`. El BAT detectó la sintaxis
 inválida antes de ejecutar el gate. R3 fue reconstruido desde el script R1
 que sí había ejecutado, conservando el parser semántico corregido con un
 mecanismo de replacement seguro.
+
+TFT-PRE3 R3 — cierre:
+
+```text
+STATUS=PASS
+REASON=TFT_ESPI_2543_SOURCE_ATTRIBUTED
+TFT_ESPI_SELECTED_VERSION=2.5.43
+TFT_ESPI_CPP_SHA256=01ed6edb0530d38b94ddeac079ba81633aa21d77d049b12da21a37f4bec69ee1
+ST7789_INIT_SHA256=e21cae2ac84285dc0e77648eca67ca753f41f7da3c271594ede750b725136c10
+TFT_ESPI_HEADER_SHA256=b1b2789ace7ac8fd4a4c414054757d91e6e62649a23d74226ea28ceb8d6f4462
+RESET_HIGH_LOW_HIGH_PRESENT=True
+RESET_DELAY_150_PRESENT=True
+ST7789_SLPOUT_EXPR=ST7789_SLPOUT
+ST7789_NORON_EXPR=ST7789_NORON
+ST7789_DISPON_EXPR=ST7789_DISPON
+ST7789_SLPOUT_BEFORE_DISPON=True
+ST7789_FIRST_DELAY_AFTER_DISPON_MS=120
+WORKTREE_FINAL=CLEAN
+```
+
+Conclusión:
+
+```text
+DISPLAY_BEGIN_DURATION_US=558180
+backend delay blocks account for nearly all measured duration
+visible dirty window begins after backend DISPON
+candidate direction=defer DISPON, clear GRAM black, then DISPON
+do not mutate installed TFT_eSPI in place
+```
+
+TFT-PRE4 sólo genera el candidato bajo `%TEMP%`: no modifica producto ni la
+instalación TFT_eSPI. El candidato conserva el delay post-DISPON de 120 ms,
+pero lo mueve después de limpiar GRAM a negro.
 
 Referencia externa de drivers:
 
