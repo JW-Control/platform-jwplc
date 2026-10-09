@@ -854,6 +854,38 @@ P1A_R3=PREPARED_NOT_EXECUTED
 NEXT_FAILURE_ID=F110
 ```
 
+### F109 — cierre por recuperación durable verificada
+
+```text
+P1A_R3=PASS
+P0_HANDOFF_RECOVERED=YES
+P0_HISTORICAL_SUMMARY=NOT_REQUIRED_MISSING
+SOURCE_OF_TRUTH=VERSIONED_P0_PRE4_PRE3_DOCS_PLUS_P0_ARCHIVE_SHA
+CANONICAL_SOURCE_TRANSFORM_REPRODUCED=YES
+PRODUCT_REPO_MUTATED=NO
+INSTALLED_TFT_ESPI_MUTATED=NO
+COMPILE_EXECUTED=NO
+UPLOAD_EXECUTED=NO
+```
+
+La corrida R3 cerró sin omitir comprobaciones de SHA ni reconstruir
+el `SUMMARY.log` antiguo. Los tres SHA de los fuentes del candidato
+coincidieron con los validados físicamente. F109 queda resuelto
+mediante comprobación de evidencia versionada y bytes del archive.
+
+Prevención P1B:
+- consumir un manifiesto P1A válido y los fuentes exactos con SHA guardado;
+- no depender de un único SUMMARY.log local efímero;
+- compilar y verificar los dos objetos desde los fuentes regenerados,
+  sin tomar los miembros archive de PRE5 ni P0;
+- regenerar el archive sólo bajo `%TEMP%`;
+- exigir paridad de miembros y tres compilaciones normales sin TFT_eSPI
+  externa;
+- abortar antes de cualquier modificación al archive productivo;
+- mantener `NEXT_FAILURE_ID=F110` hasta un fallo nuevo comprobado.
+
+
+
 ## Estado
 
 ```text
