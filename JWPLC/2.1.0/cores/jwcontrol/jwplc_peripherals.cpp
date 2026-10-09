@@ -208,7 +208,9 @@ void jwplcSystemInitState(void)
     g_ioState.di_logical_bank0 = 0;
     g_ioState.do_bank1 = 0;
     g_ioState.do_bank2 = 0;
-    g_ioState.initialized = true;
+    // El snapshot existe desde este punto, pero las E/S todavia no estan
+    // listas hasta que initPeripherals() complete I2C/TCA y habilite EN_IO.
+    g_ioState.initialized = false;
     g_ioState.display_dirty = true;
     g_ioState.last_scan_ms = millis();
     g_ioState.last_display_refresh_ms = 0;
@@ -228,6 +230,11 @@ void jwplcSystemInitState(void)
 
     g_displayInitialized = false;
     g_lastDisplayBeginAttemptMs = 0;
+}
+
+void jwplcSystemSetIOReady(bool ready)
+{
+    g_ioState.initialized = ready;
 }
 
 void jwplcSystemSetOutputShadow(uint8_t bank1, uint8_t bank2)

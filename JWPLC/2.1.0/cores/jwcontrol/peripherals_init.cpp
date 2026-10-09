@@ -91,19 +91,23 @@ void initPeripherals(void)
 
     jwplcSystemClearOutputShadow();
 
-    (void)TCA6424A_writeBank(TCA6424A_DEFAULT_ADDRESS, 1, 0x00);
-    (void)TCA6424A_writeBank(TCA6424A_DEFAULT_ADDRESS, 2, 0x00);
-
-    (void)TCA6424A_setBankDirection(TCA6424A_DEFAULT_ADDRESS, 0, 0xFF);
-    (void)TCA6424A_setBankDirection(TCA6424A_DEFAULT_ADDRESS, 1, 0x00);
-    (void)TCA6424A_setBankDirection(TCA6424A_DEFAULT_ADDRESS, 2, 0xFF);
+    if (!TCA6424A_writeBank(TCA6424A_DEFAULT_ADDRESS, 1, 0x00) ||
+        !TCA6424A_writeBank(TCA6424A_DEFAULT_ADDRESS, 2, 0x00) ||
+        !TCA6424A_setBankDirection(TCA6424A_DEFAULT_ADDRESS, 0, 0xFF) ||
+        !TCA6424A_setBankDirection(TCA6424A_DEFAULT_ADDRESS, 1, 0x00) ||
+        !TCA6424A_setBankDirection(TCA6424A_DEFAULT_ADDRESS, 2, 0xFF))
+    {
+        return;
+    }
 
     gpio_set_level((gpio_num_t)EN_IO, 1);
     vTaskDelay(pdMS_TO_TICKS(2));
 
     g_jwplc_peripherals_initialized = true;
+    jwplcSystemSetIOReady(true);
 #else
     jwplcSystemInitState();
     g_jwplc_peripherals_initialized = true;
+    jwplcSystemSetIOReady(true);
 #endif
 }

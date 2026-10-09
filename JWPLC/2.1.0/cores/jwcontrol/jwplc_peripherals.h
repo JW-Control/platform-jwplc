@@ -60,6 +60,7 @@ const JWPLC_RTCState* jwplcGetRTCState(void);
 
 // Runtime automático JWPLC
 void jwplcSystemInitState(void);
+void jwplcSystemSetIOReady(bool ready);
 void jwplcSystemScanIO(void);
 void jwplcSystemTickRTC(void);
 void jwplcSystemDisplayHook(void);
