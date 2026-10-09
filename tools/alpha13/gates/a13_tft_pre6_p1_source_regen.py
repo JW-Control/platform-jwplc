@@ -50,9 +50,19 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def git_blob(path: Path) -> str:
+def git_blob(path: Path, expected: str) -> str:
+    # Git can store LF while a Windows checkout contains CRLF.
+    # Accept only that exact transformation, not arbitrary content changes.
     data = path.read_bytes()
-    return hashlib.sha1(b"blob " + str(len(data)).encode("ascii") + b"\0" + data).hexdigest()
+    def blob_sha(raw: bytes) -> str:
+        return hashlib.sha1(
+            b"blob " + str(len(raw)).encode("ascii") + b"\0" + raw
+        ).hexdigest()
+    current = blob_sha(data)
+    if current == expected:
+        return current
+    normalized = blob_sha(data.replace(b"\r\n", b"\n"))
+    return normalized
 
 
 def verified_eq(value: str, expected: str, code: str) -> None:
@@ -100,7 +110,11 @@ def main() -> int:
         "JWPLC_TFT.h": src / "JWPLC_TFT.h",
     }
     for name, path in original.items():
-        verified_eq(git_blob(path), EXPECTED_GIT_BLOBS[name], "OFFICIAL_BLOB_" + name)
+        verified_eq(
+            git_blob(path, EXPECTED_GIT_BLOBS[name]),
+            EXPECTED_GIT_BLOBS[name],
+            "OFFICIAL_BLOB_" + name,
+        )
 
     for name, expected in EXPECTED_BACKEND_SHA256.items():
         verified_eq(sha256(backend / name), expected, "BACKEND_SHA_" + name)
