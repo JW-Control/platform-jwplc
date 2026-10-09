@@ -63,21 +63,78 @@ function Guard-Integrity {
     if ($LASTEXITCODE -ne 0) { Stop-P1A 'GIT_DIFF_CHECK_FAILED' }
 }
 function Read-Key {
-    param([string]$Text,[string]$Key)
-    return Get-A13LogValue -Text $Text -Key $Key
+    param(
+        [Parameter(Mandatory = $true)][string]$Text,
+        [Parameter(Mandatory = $true)][string]$Key
+    )
+
+    # This is a real invocation, not a bare token after 'return'.
+    # Match unique canonical KEY=VALUE lines only.
+    $value = Get-A13LogValue -Text $Text -Key $Key
+    return $value
+}
+function Assert-ProofParser {
+    $fixture = @(
+        'GATE=A13-TFT-PRE6-P0',
+        'STATUS=PASS',
+        'REASON=TEMP_PRECOMPILED_ARCHIVE_QUALIFIED',
+        "CANDIDATE_ARCHIVE_SHA256=$ExpectedP0",
+        'ARCHIVE_MEMBER_PARITY=PASS',
+        'COMPILE_CASES_PASS=3'
+    ) -join "`n"
+    $expect = @{
+        'STATUS' = 'PASS'
+        'REASON' = 'TEMP_PRECOMPILED_ARCHIVE_QUALIFIED'
+        'CANDIDATE_ARCHIVE_SHA256' = $ExpectedP0
+        'ARCHIVE_MEMBER_PARITY' = 'PASS'
+        'COMPILE_CASES_PASS' = '3'
+    }
+    foreach ($key in $expect.Keys) {
+        $got = Read-Key -Text $fixture -Key $key
+        if ($got -cne $expect[$key]) {
+            Stop-P1A "PROOF_PARSER_SELF_TEST_FAILED:$key"
+        }
+    }
+    Write-Host 'PROOF_PARSER_SELF_TEST=PASS'
 }
 function Latest-Proof {
-    param([string]$Filter,[string]$ExpectedReason,[string]$HashKey,[string]$ExpectedHash)
-    $dirs = @(Get-ChildItem -LiteralPath $ResultsRoot -Directory -Filter $Filter -ErrorAction SilentlyContinue | Sort-Object Name -Descending)
+    param(
+        [string]$Filter,
+        [string]$ExpectedReason,
+        [string]$HashKey,
+        [string]$ExpectedHash
+    )
+    if (-not (Test-Path -LiteralPath $ResultsRoot)) {
+        Stop-P1A "RESULTS_ROOT_NOT_FOUND:$ResultsRoot"
+    }
+    $dirs = @(
+        Get-ChildItem -LiteralPath $ResultsRoot -Directory -Filter $Filter -ErrorAction SilentlyContinue |
+            Sort-Object Name -Descending
+    )
+    Write-Host "PROOF_SEARCH_FILTER=$Filter"
+    Write-Host "PROOF_SEARCH_DIRECTORY_COUNT=$($dirs.Count)"
     foreach ($dir in $dirs) {
         $path = Join-Path $dir.FullName 'SUMMARY.log'
-        if (-not (Test-Path -LiteralPath $path)) { continue }
-        $text = [IO.File]::ReadAllText($path)
-        if ((Read-Key $text 'STATUS') -eq 'PASS' -and
-            (Read-Key $text 'REASON') -eq $ExpectedReason -and
-            (Read-Key $text $HashKey) -eq $ExpectedHash) {
-            return [pscustomobject]@{ Path=$path; Text=$text }
+        if (-not (Test-Path -LiteralPath $path)) {
+            Write-Host "PROOF_SUMMARY_MISSING=$path"
+            continue
         }
+        $body = [IO.File]::ReadAllText($path)
+        $status = Read-Key -Text $body -Key 'STATUS'
+        $reason = Read-Key -Text $body -Key 'REASON'
+        $sha = Read-Key -Text $body -Key $HashKey
+
+        Write-Host "PROOF_SUMMARY_CANDIDATE=$path"
+        Write-Host "PROOF_STATUS=$status"
+        Write-Host "PROOF_REASON=$reason"
+        Write-Host "PROOF_SHA=$sha"
+
+        if ($status -ceq 'PASS' -and $reason -ceq $ExpectedReason -and
+            $sha -ceq $ExpectedHash) {
+            Write-Host "PROOF_MATCH=YES"
+            return [pscustomobject]@{ Path=$path; Text=$body }
+        }
+        Write-Host "PROOF_MATCH=NO"
     }
     return $null
 }
@@ -96,6 +153,7 @@ try {
     Guard-Integrity
 
     $script:Phase = 'P0_PROVENANCE'
+    Assert-ProofParser
     $p0 = Latest-Proof 'tft_pre6_p0_*' 'TEMP_PRECOMPILED_ARCHIVE_QUALIFIED' 'CANDIDATE_ARCHIVE_SHA256' $ExpectedP0
     if ($null -eq $p0) { Stop-P1A 'P0_PASS_PROOF_NOT_FOUND' }
     if ((Read-Key $p0.Text 'COMPILE_CASES_PASS') -ne '3' -or
