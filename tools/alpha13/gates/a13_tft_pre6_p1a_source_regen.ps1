@@ -9,6 +9,9 @@ $Common = Join-Path $PSScriptRoot 'common.ps1'
 $OldTft = Join-Path $RepoRoot 'JWPLC\2.1.0\libraries\JWPLC_TFT\src\esp32\libJWPLC_TFT.a'
 $OldCore = Join-Path $RepoRoot 'JWPLC\2.1.0\precompiled\core\JWPLCBASIC\core.a'
 $OldDisplay = Join-Path $RepoRoot 'JWPLC\2.1.0\libraries\JWPLC_Display\src\esp32\libJWPLC_Display.a'
+$P0ProofPath = Join-Path $RepoRoot 'docs\v2.1.0-alpha.13\A13_TFT_PRE6_P0_CLOSURE_20261009.md'
+$Pre4ProofPath = Join-Path $RepoRoot 'docs\v2.1.0-alpha.13\A13_TFT_PRE4_CANDIDATE_20261009.md'
+$Pre3ProofPath = Join-Path $RepoRoot 'docs\v2.1.0-alpha.13\A13_TFT_PRE3_SOURCE_ATTRIBUTION_20261009.md'
 
 $ExpectedP0 = 'ff9dd89cb267bc270d2ca6fa2d0f1362b76595b8dc6b49f764d05a8e28bb6705'
 $ExpectedCpp = '494440b00e74e74a7b23975420574e035ef2138fdf5a0cea2fed51c986c29d25'
@@ -18,6 +21,15 @@ $ExpectedOldTft = '5d860a131811dd9a7eb6fa55f5674b1d78b0de7dfaf8748ce18a60ceed2d3
 $ExpectedOldCore = '6f328eeb796091070c8d852a2c0e90f71047d8d2b5786fe3cd5079b2fb6ff983'
 $ExpectedOldDisplay = 'c960d718433e29a40e3cc55bc745c9a2e121ee1ee598ec72c04872327592dc02'
 $ExpectedBranch = 'v2.1.0-alpha.13/feature/cleanup-robustness'
+$ExpectedP0ProofBlob = '15a33a9bb686fdfb4b22277e792fd194669c1010'
+$ExpectedPre4ProofBlob = 'f9f9b2b683d7fcd85644e50a3a55f8bf54f1a673'
+$ExpectedPre3ProofBlob = '53f636a7c90a38929402e5696c89fe9ffd8277cd'
+$ExpectedP0Bytes = 1091942
+$ExpectedP0Head = '89e461123474310e8528e4daf50c97262a86390b'
+$ExpectedBackendVersion = '2.5.43'
+$ExpectedBackendCppSha = '01ed6edb0530d38b94ddeac079ba81633aa21d77d049b12da21a37f4bec69ee1'
+$ExpectedBackendHeaderSha = 'b1b2789ace7ac8fd4a4c414054757d91e6e62649a23d74226ea28ceb8d6f4462'
+$ExpectedBackendInitSha = 'e21cae2ac84285dc0e77648eca67ca753f41f7da3c271594ede750b725136c10'
 
 $RunId = Get-Date -Format 'yyyyMMdd_HHmmss'
 $RunRoot = Join-Path $ResultsRoot ('tft_pre6_p1a_' + $RunId)
@@ -97,46 +109,37 @@ function Assert-ProofParser {
     }
     Write-Host 'PROOF_PARSER_SELF_TEST=PASS'
 }
-function Latest-Proof {
+function Verified-Document {
     param(
-        [string]$Filter,
-        [string]$ExpectedReason,
-        [string]$HashKey,
-        [string]$ExpectedHash
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$BlobSha,
+        [Parameter(Mandatory = $true)][string]$Gate,
+        [Parameter(Mandatory = $true)][string]$Reason
     )
-    if (-not (Test-Path -LiteralPath $ResultsRoot)) {
-        Stop-P1A "RESULTS_ROOT_NOT_FOUND:$ResultsRoot"
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        Stop-P1A "VERSIONED_PROOF_MISSING:$Gate"
     }
-    $dirs = @(
-        Get-ChildItem -LiteralPath $ResultsRoot -Directory -Filter $Filter -ErrorAction SilentlyContinue |
-            Sort-Object Name -Descending
-    )
-    Write-Host "PROOF_SEARCH_FILTER=$Filter"
-    Write-Host "PROOF_SEARCH_DIRECTORY_COUNT=$($dirs.Count)"
-    foreach ($dir in $dirs) {
-        $path = Join-Path $dir.FullName 'SUMMARY.log'
-        if (-not (Test-Path -LiteralPath $path)) {
-            Write-Host "PROOF_SUMMARY_MISSING=$path"
-            continue
-        }
-        $body = [IO.File]::ReadAllText($path)
-        $status = Read-Key -Text $body -Key 'STATUS'
-        $reason = Read-Key -Text $body -Key 'REASON'
-        $sha = Read-Key -Text $body -Key $HashKey
-
-        Write-Host "PROOF_SUMMARY_CANDIDATE=$path"
-        Write-Host "PROOF_STATUS=$status"
-        Write-Host "PROOF_REASON=$reason"
-        Write-Host "PROOF_SHA=$sha"
-
-        if ($status -ceq 'PASS' -and $reason -ceq $ExpectedReason -and
-            $sha -ceq $ExpectedHash) {
-            Write-Host "PROOF_MATCH=YES"
-            return [pscustomobject]@{ Path=$path; Text=$body }
-        }
-        Write-Host "PROOF_MATCH=NO"
+    $blob = @(& git -C $RepoRoot hash-object -- $Path)
+    if ($LASTEXITCODE -ne 0 -or $blob.Count -ne 1 -or $blob[0].Trim() -ne $BlobSha) {
+        Stop-P1A "VERSIONED_PROOF_BLOB_MISMATCH:$Gate"
     }
-    return $null
+    $body = [IO.File]::ReadAllText($Path)
+    if ((Read-Key -Text $body -Key 'GATE') -cne $Gate -or
+        (Read-Key -Text $body -Key 'STATUS') -cne 'PASS' -or
+        (Read-Key -Text $body -Key 'REASON') -cne $Reason) {
+        Stop-P1A "VERSIONED_PROOF_CONTENT_INVALID:$Gate"
+    }
+    Write-Host "VERSIONED_PROOF_GATE=$Gate"
+    Write-Host "VERSIONED_PROOF_BLOB=$($blob[0].Trim())"
+    Write-Host "VERSIONED_PROOF_PATH=$Path"
+    return $body
+}
+function Require-ProofField {
+    param([string]$Proof,[string]$Key,[string]$Expected)
+    $actual = Read-Key -Text $Proof -Key $Key
+    if ($actual -cne $Expected) {
+        Stop-P1A "VERSIONED_PROOF_VALUE_MISMATCH:$Key actual=$actual"
+    }
 }
 
 Write-Host '============================================================'
@@ -152,31 +155,75 @@ try {
     if ($branch -ne $ExpectedBranch) { Stop-P1A 'UNEXPECTED_BRANCH' }
     Guard-Integrity
 
-    $script:Phase = 'P0_PROVENANCE'
+    $script:Phase = 'P0_DURABLE_PROVENANCE'
     Assert-ProofParser
-    $p0 = Latest-Proof 'tft_pre6_p0_*' 'TEMP_PRECOMPILED_ARCHIVE_QUALIFIED' 'CANDIDATE_ARCHIVE_SHA256' $ExpectedP0
-    if ($null -eq $p0) { Stop-P1A 'P0_PASS_PROOF_NOT_FOUND' }
-    if ((Read-Key $p0.Text 'COMPILE_CASES_PASS') -ne '3' -or
-        (Read-Key $p0.Text 'ARCHIVE_MEMBER_PARITY') -ne 'PASS') {
-        Stop-P1A 'P0_PROOF_CONTRACT_FAILED'
+    $p0Text = Verified-Document -Path $P0ProofPath -BlobSha $ExpectedP0ProofBlob -Gate 'A13-TFT-PRE6-P0' -Reason 'TEMP_PRECOMPILED_ARCHIVE_QUALIFIED'
+    Require-ProofField -Proof $p0Text -Key 'HEAD' -Expected $ExpectedP0Head
+    Require-ProofField -Proof $p0Text -Key 'CANDIDATE_ARCHIVE_SHA256' -Expected $ExpectedP0
+    Require-ProofField -Proof $p0Text -Key 'CANDIDATE_ARCHIVE_BYTES' -Expected ([string]$ExpectedP0Bytes)
+    Require-ProofField -Proof $p0Text -Key 'ARCHIVE_MEMBER_COUNT' -Expected '2'
+    Require-ProofField -Proof $p0Text -Key 'ARCHIVE_MEMBER_PARITY' -Expected 'PASS'
+    Require-ProofField -Proof $p0Text -Key 'WORKTREE_FINAL' -Expected 'CLEAN'
+    foreach ($caseName in @('DIRECT_TFT','DISPLAY_INTEGRATION','NORMAL_AUTOLOAD')) {
+        $casePattern = '(?m)^\|\s*' + $caseName + '\s*\|\s*0\s*\|\s*seleccionado\s*\|\s*0\s*\|\s*0\s*\|\s*no seleccionada\s*\|[ \t]*\r?$'
+        if (-not [regex]::IsMatch($p0Text,$casePattern)) {
+            Stop-P1A "VERSIONED_P0_CASE_NOT_PROVEN:$caseName"
+        }
     }
-    $p0Archive = Read-Key $p0.Text 'CANDIDATE_ARCHIVE'
-    if (-not (Test-Path -LiteralPath $p0Archive)) { Stop-P1A 'P0_ARCHIVE_NOT_FOUND' }
-    if ((Get-A13Sha256 -Path $p0Archive) -ne $ExpectedP0) { Stop-P1A 'P0_ARCHIVE_HASH_CHANGED' }
+    foreach ($key in @('TFT_PRECOMPILED','STUB_CORE','CORE_ARCHIVE_LINKED')) {
+        Require-ProofField -Proof $p0Text -Key $key -Expected 'True'
+    }
 
-    $script:Phase = 'PRE4_PROVENANCE'
-    $pre4 = Latest-Proof 'tft_pre4_*' 'TEMP_DEFERRED_DISPON_CANDIDATE_READY' 'CANDIDATE_JWPLC_TFT_CPP_SHA256' $ExpectedCpp
-    if ($null -eq $pre4) { Stop-P1A 'PRE4_PASS_PROOF_NOT_FOUND' }
-    if ((Read-Key $pre4.Text 'CANDIDATE_TFT_SETUP_SHA256') -ne $ExpectedSetup -or
-        (Read-Key $pre4.Text 'CANDIDATE_ST7789_INIT_SHA256') -ne $ExpectedInit) {
-        Stop-P1A 'PRE4_PROOF_CONTRACT_FAILED'
+    # Never synthesize the missing historical SUMMARY.log. Validate the
+    # actual binary P0 reported against the signed-off versioned evidence.
+    $p0Name = 'jwplc_a13_tft_pre6_p0_20261009_123147'
+    $p0Archive = Join-Path $env:TEMP ($p0Name + '\libraries\JWPLC_TFT\src\esp32\libJWPLC_TFT.a')
+    if (-not (Test-Path -LiteralPath $p0Archive -PathType Leaf)) {
+        Stop-P1A "P0_ARCHIVE_NOT_FOUND:$p0Archive"
     }
-    $backend = Read-Key $pre4.Text 'TFT_ESPI_ROOT'
-    if ([string]::IsNullOrWhiteSpace($backend) -or -not (Test-Path -LiteralPath $backend)) {
-        Stop-P1A 'TFT_ESPI_SOURCE_NOT_FOUND'
+    $p0Bytes = (Get-Item -LiteralPath $p0Archive).Length
+    $p0Sha = Get-A13Sha256 -Path $p0Archive
+    Write-Host "P0_DURABLE_PROOF_SOURCE=$P0ProofPath"
+    Write-Host "P0_HISTORICAL_SUMMARY=NOT_REQUIRED_MISSING"
+    Write-Host "P0_ARCHIVE_PATH=$p0Archive"
+    Write-Host "P0_ARCHIVE_BYTES=$p0Bytes"
+    Write-Host "P0_ARCHIVE_SHA256=$p0Sha"
+    if ($p0Bytes -ne $ExpectedP0Bytes -or $p0Sha -cne $ExpectedP0) {
+        Stop-P1A 'P0_ARCHIVE_IDENTITY_MISMATCH'
     }
-    Write-Host "P0_SUMMARY=$($p0.Path)"
-    Write-Host "PRE4_SUMMARY=$($pre4.Path)"
+    Write-Host 'P0_HANDOFF_RECOVERED=YES'
+    Write-Host 'P0_PROOF_SOURCE=VERSIONED_CLOSURE_AND_ARCHIVE_SHA256'
+
+    $script:Phase = 'PRE4_PRE3_DURABLE_PROVENANCE'
+    $pre4Text = Verified-Document -Path $Pre4ProofPath -BlobSha $ExpectedPre4ProofBlob -Gate 'A13-TFT-PRE4' -Reason 'TEMP_DEFERRED_DISPON_CANDIDATE_READY'
+    Require-ProofField -Proof $pre4Text -Key 'CANDIDATE_JWPLC_TFT_CPP_SHA256' -Expected $ExpectedCpp
+    Require-ProofField -Proof $pre4Text -Key 'CANDIDATE_TFT_SETUP_SHA256' -Expected $ExpectedSetup
+    Require-ProofField -Proof $pre4Text -Key 'CANDIDATE_ST7789_INIT_SHA256' -Expected $ExpectedInit
+    Require-ProofField -Proof $pre4Text -Key 'BACKEND_ORIGINAL_MUTATED' -Expected 'NO'
+    Require-ProofField -Proof $pre4Text -Key 'REPO_PRODUCT_MUTATED' -Expected 'NO'
+
+    $pre3Text = Verified-Document -Path $Pre3ProofPath -BlobSha $ExpectedPre3ProofBlob -Gate 'A13-TFT-PRE3' -Reason 'TFT_ESPI_2543_SOURCE_ATTRIBUTED'
+    Require-ProofField -Proof $pre3Text -Key 'TFT_ESPI_SELECTED_VERSION' -Expected $ExpectedBackendVersion
+    Require-ProofField -Proof $pre3Text -Key 'TFT_ESPI_CPP_SHA256' -Expected $ExpectedBackendCppSha
+    Require-ProofField -Proof $pre3Text -Key 'TFT_ESPI_HEADER_SHA256' -Expected $ExpectedBackendHeaderSha
+    Require-ProofField -Proof $pre3Text -Key 'ST7789_INIT_SHA256' -Expected $ExpectedBackendInitSha
+    $backend = Read-Key -Text $pre3Text -Key 'TFT_ESPI_SELECTED_ROOT'
+    if ([string]::IsNullOrWhiteSpace($backend) -or
+        -not (Test-Path -LiteralPath $backend -PathType Container)) {
+        Stop-P1A 'TFT_ESPI_SOURCE_ROOT_NOT_FOUND'
+    }
+    foreach ($srcCheck in @(
+        [pscustomobject]@{Path=(Join-Path $backend 'TFT_eSPI.cpp');Sha=$ExpectedBackendCppSha},
+        [pscustomobject]@{Path=(Join-Path $backend 'TFT_eSPI.h');Sha=$ExpectedBackendHeaderSha},
+        [pscustomobject]@{Path=(Join-Path $backend 'TFT_Drivers\ST7789_Init.h');Sha=$ExpectedBackendInitSha}
+    )) {
+        if (-not (Test-Path -LiteralPath $srcCheck.Path -PathType Leaf) -or
+            (Get-A13Sha256 -Path $srcCheck.Path) -cne $srcCheck.Sha) {
+            Stop-P1A "TFT_ESPI_BACKEND_SHA_MISMATCH:$($srcCheck.Path)"
+        }
+    }
+    Write-Host "PRE4_PROOF_SOURCE=$Pre4ProofPath"
+    Write-Host "PRE3_PROOF_SOURCE=$Pre3ProofPath"
     Write-Host "TFT_ESPI_SOURCE=$backend"
 
     if ([string]::IsNullOrWhiteSpace($PythonExe)) {
@@ -213,8 +260,13 @@ try {
     Guard-Integrity
     Finish-P1A -Status 'PASS' -Reason 'CANONICAL_SOURCE_TRANSFORM_REPRODUCED' -Extra @(
         "HEAD=$head",
-        "P0_SUMMARY=$($p0.Path)",
-        "PRE4_SUMMARY=$($pre4.Path)",
+        "P0_PROOF_SOURCE=$P0ProofPath",
+        "PRE4_PROOF_SOURCE=$Pre4ProofPath",
+        "PRE3_PROOF_SOURCE=$Pre3ProofPath",
+        "P0_ARCHIVE_SHA256=$p0Sha",
+        "P0_ARCHIVE_BYTES=$p0Bytes",
+        'P0_HISTORICAL_SUMMARY=NOT_REQUIRED_MISSING',
+        'P0_HANDOFF_RECOVERED=YES',
         "TEMP_ROOT=$TempRoot",
         "CANDIDATE_JWPLC_TFT_CPP_SHA256=$ExpectedCpp",
         "CANDIDATE_TFT_SETUP_SHA256=$ExpectedSetup",
