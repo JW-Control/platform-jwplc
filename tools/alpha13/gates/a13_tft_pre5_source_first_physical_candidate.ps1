@@ -34,6 +34,7 @@ $CandidateLibraries = Join-Path $TempRoot 'libraries'
 $CandidateJwplcRoot = Join-Path $CandidateLibraries 'JWPLC_TFT'
 $CandidateJwplcSrc = Join-Path $CandidateJwplcRoot 'src'
 $CandidateBackendRoot = Join-Path $CandidateLibraries 'TFT_eSPI'
+$CandidateProbeDir = Join-Path $TempRoot 'a13_tft_pre1_startup_baseline_probe'
 $CompileLog = Join-Path $RunRoot 'compile.log'
 $UploadLog = Join-Path $RunRoot 'upload.log'
 $ClientLog = Join-Path $RunRoot 'client.log'
@@ -44,6 +45,7 @@ New-Item -ItemType Directory -Force -Path $BuildRoot | Out-Null
 New-Item -ItemType Directory -Force -Path $BackendProbeBuild | Out-Null
 New-Item -ItemType Directory -Force -Path $CandidateJwplcSrc | Out-Null
 New-Item -ItemType Directory -Force -Path $CandidateBackendRoot | Out-Null
+New-Item -ItemType Directory -Force -Path $CandidateProbeDir | Out-Null
 
 . $CommonPath
 
@@ -271,22 +273,32 @@ try {
     }
 
     Copy-Item -LiteralPath $pre4Init -Destination (Join-Path $CandidateBackendRoot 'TFT_Drivers\ST7789_Init.h') -Force
-    Copy-Item -LiteralPath $pre4Setup -Destination (Join-Path $CandidateBackendRoot 'User_Setup.h') -Force
 
     $utf8 = New-Object Text.UTF8Encoding($false)
-    $selectText = "#pragma once`r`n#ifndef USER_SETUP_LOADED`r`n#define USER_SETUP_LOADED`r`n#include `"User_Setup.h`"`r`n#endif`r`n"
-    [IO.File]::WriteAllText((Join-Path $CandidateBackendRoot 'User_Setup_Select.h'),$selectText,$utf8)
 
     Copy-Item -LiteralPath $OfficialHeader -Destination (Join-Path $CandidateJwplcSrc 'JWPLC_TFT.h') -Force
     Copy-Item -LiteralPath $pre4Cpp -Destination (Join-Path $CandidateJwplcSrc 'JWPLC_TFT.cpp') -Force
     Copy-Item -LiteralPath $pre4Setup -Destination (Join-Path $CandidateJwplcSrc 'tft_setup.h') -Force
+
+    $probeIno = Get-ChildItem -LiteralPath $ProbeDir -File -Filter '*.ino'
+    if ($probeIno.Count -ne 1) {
+        Finish-TFTPre5 -Status 'REVIEW' -Reason 'PROBE_INO_COUNT_INVALID' -HarnessFailure 'YES' -ExitCode 18
+    }
+
+    Copy-Item -LiteralPath $probeIno[0].FullName -Destination (Join-Path $CandidateProbeDir $probeIno[0].Name) -Force
+    Copy-Item -LiteralPath $pre4Setup -Destination (Join-Path $CandidateProbeDir 'tft_setup.h') -Force
+
+    $candidateSketchSetupSha = Get-A13Sha256 -Path (Join-Path $CandidateProbeDir 'tft_setup.h')
+    if ($candidateSketchSetupSha -ne $ExpectedCandidateSetupSha) {
+        Finish-TFTPre5 -Status 'REVIEW' -Reason 'SKETCH_LOCAL_SETUP_IDENTITY_FAILED' -HarnessFailure 'YES' -ExitCode 19
+    }
 
     $properties = "name=JWPLC_TFT`r`nversion=0.1.0-alpha13-pre5`r`nauthor=JW Control`r`nmaintainer=JW Control`r`nsentence=Alpha13 temporary source-first TFT startup candidate.`r`nparagraph=Temporary candidate only; not a distributable package artifact.`r`ncategory=Display`r`narchitectures=esp32`r`nincludes=JWPLC_TFT.h`r`ndepends=TFT_eSPI,SPI`r`n"
     [IO.File]::WriteAllText((Join-Path $CandidateJwplcRoot 'library.properties'),$properties,$utf8)
 
     $candidateBackendInit = Join-Path $CandidateBackendRoot 'TFT_Drivers\ST7789_Init.h'
     if ((Get-A13Sha256 -Path $candidateBackendInit) -ne $ExpectedCandidateInitSha) {
-        Finish-TFTPre5 -Status 'REVIEW' -Reason 'TEMP_BACKEND_PATCH_IDENTITY_FAILED' -HarnessFailure 'YES' -ExitCode 18
+        Finish-TFTPre5 -Status 'REVIEW' -Reason 'TEMP_BACKEND_PATCH_IDENTITY_FAILED' -HarnessFailure 'YES' -ExitCode 20
     }
 
     $compile = Invoke-A13NativeCaptured -FilePath $ArduinoCli -Arguments @(
@@ -294,7 +306,7 @@ try {
         '--library',$CandidateJwplcRoot,
         '--library',$CandidateBackendRoot,
         '--libraries',$RepoLibraries,
-        $ProbeDir
+        $CandidateProbeDir
     )
 
     $compile.Output | Set-Content -LiteralPath $CompileLog -Encoding utf8
@@ -333,6 +345,8 @@ try {
     $usesStubCore = $compileText -match "Using core 'jwcontrol_precompiled_stub'"
     $coreArchiveLinked = $compileText -match '[\\/]precompiled[\\/]core[\\/]JWPLCBASIC[\\/]core\.a'
 
+    Write-Host "BACKEND_SETUP_DISCOVERY=SKETCH_LOCAL_TFT_SETUP"
+    Write-Host "SKETCH_LOCAL_SETUP_SHA256=$candidateSketchSetupSha"
     Write-Host "JWPLC_TFT_TEMP_SELECTED=$jwplcSelectedOk"
     Write-Host "TFT_ESPI_TEMP_SELECTED=$backendSelectedOk"
     Write-Host "JWPLC_TFT_SOURCE_OBJECT_COUNT=$jwplcObjectCount"
@@ -350,7 +364,7 @@ try {
     }
 
     $upload = Invoke-A13NativeCaptured -FilePath $ArduinoCli -Arguments @(
-        'upload','--fqbn',$Fqbn,'--port',$resolvedPort,'--input-dir',$BuildRoot,$ProbeDir
+        'upload','--fqbn',$Fqbn,'--port',$resolvedPort,'--input-dir',$BuildRoot,$CandidateProbeDir
     )
     $upload.Output | Set-Content -LiteralPath $UploadLog -Encoding utf8
     Write-Host "UPLOAD_EXIT=$($upload.ExitCode)"
@@ -396,6 +410,9 @@ try {
         "PRE4_CANDIDATE_ROOT=$CandidateRoot",
         "TEMP_JWPLC_TFT_ROOT=$CandidateJwplcRoot",
         "TEMP_TFT_ESPI_ROOT=$CandidateBackendRoot",
+        "TEMP_PROBE_ROOT=$CandidateProbeDir",
+        'BACKEND_SETUP_DISCOVERY=SKETCH_LOCAL_TFT_SETUP',
+        "SKETCH_LOCAL_SETUP_SHA256=$candidateSketchSetupSha",
         "JWPLC_TFT_TEMP_SELECTED=$jwplcSelectedOk",
         "TFT_ESPI_TEMP_SELECTED=$backendSelectedOk",
         "JWPLC_TFT_SOURCE_OBJECT_COUNT=$jwplcObjectCount",
