@@ -304,10 +304,10 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=G2-P3 / A13-002
-OBJECTIVE=refresh core.a from qualified source and verify normal jwplcbasic link
+NEXT_GATE=G2-P4 / A13-002
+OBJECTIVE=physical validation using normal precompiled jwplcbasic package
 STATE=READY_TO_RUN
-PREREQUISITE=G2_P2_CLOSED_PASS
+PREREQUISITE=G2_P3_PASS
 ```
 
 No modificar todavía código productivo de G2 hasta completar su preflight
@@ -320,9 +320,11 @@ G2_PRE1=PASS
 G2_CLASSIFICATION=ROBUSTNESS_FIX
 G2_PRIORITY=P0
 G2_CONFIDENCE=HIGH
-G2_STATUS=BASELINE_DEFECT_REPRODUCED
+G2_STATUS=CANDIDATE_ARCHIVE_QUALIFIED
 G2_P1_R2=PASS
-PRODUCT_CHANGE=NO
+G2_P2_R5=PASS
+G2_P3=PASS
+PRODUCT_CHANGE=LOCAL_UNCOMMITTED
 ```
 
 Preflight read-only confirmado sobre HEAD:
@@ -796,6 +798,60 @@ que el FQBN normal `jwplcbasic` compila con
 
 Ante cualquier fallo de build/verify, el gate debe restaurar el archive
 anterior y dejar sólo los tres sources candidatos dirty.
+
+
+G2-P3 — refresh de core y enlace normal:
+
+```text
+HEAD=0cfec7d38719bea643baab97a5c4d7dac9833c48
+PWSH_VERSION=7.6.6
+ARDUINO_CLI=1.0.2
+
+SOURCE_BUILD=PASS
+SOURCE_BUILD_TIME_S=110.125
+SOURCE_COMPILE_DB_ENTRIES=79
+SOURCE_JWCONTROL_TUS=64
+SOURCE_STUB_TUS=0
+SOURCE_PERIPHERALS_INIT_COUNT=1
+
+CORE_BEFORE_BYTES=3042444
+CORE_BEFORE_SHA256=78d0c0ab14f156b96116529e88872340d51877af40d24ba3559f6081e0bf34fb
+CORE_AFTER_BYTES=3043670
+CORE_AFTER_SHA256=6f328eeb796091070c8d852a2c0e90f71047d8d2b5786fe3cd5079b2fb6ff983
+
+NORMAL_VERIFY=PASS
+NORMAL_VERIFY_TIME_S=73.107
+NORMAL_COMPILE_DB_ENTRIES=16
+NORMAL_SOURCE_TUS=0
+NORMAL_STUB_TUS=1
+NORMAL_PRECOMPILED_STUB_COUNT=1
+NORMAL_JWPLCBASIC_STUB=True
+NORMAL_JWPLCBASIC_SOURCE_CORE=False
+NORMAL_JWPLCBASIC_CORE_A_LINKED=True
+APP_BYTES=411376
+
+BOARDS_LOCAL_UNCHANGED=True
+TRACKED_DIRTY_FINAL=4
+STAGED_FINAL=0
+CANDIDATE_BLOBS_FINAL=True
+DIFF_CHECK_FINAL=True
+STATUS=PASS
+REASON=CORE_REFRESH_AND_NORMAL_LINK_PASS
+```
+
+G2-P4 queda desbloqueado. Debe compilar un probe con el FQBN normal
+`jwplcbasic`, demostrar nuevamente stub + archive sin source core, subirlo al
+JWPLC y verificar físicamente:
+
+```text
+JWPLC_IO.ready()=YES
+EN_IO output-enable=YES
+EN_IO latch=HIGH
+lastScanMs>0
+```
+
+Los fault steps no se repiten en P4: ya quedaron validados source-first en
+G2-P2 y el archive de P3 fue generado desde esos mismos blobs cualificados.
 
 ## Observación mapeada — delay() y temporización no bloqueante
 
