@@ -39,6 +39,11 @@ $CompileLog = Join-Path $RunRoot 'compile.log'
 $UploadLog = Join-Path $RunRoot 'upload.log'
 $ClientLog = Join-Path $RunRoot 'client.log'
 $SummaryLog = Join-Path $RunRoot 'SUMMARY.log'
+$OfficialCoreArchive = Join-Path $RepoRoot 'JWPLC\2.1.0\precompiled\core\JWPLCBASIC\core.a'
+$OfficialTftArchive = Join-Path $RepoRoot 'JWPLC\2.1.0\libraries\JWPLC_TFT\src\esp32\libJWPLC_TFT.a'
+$OfficialDisplayArchive = Join-Path $RepoRoot 'JWPLC\2.1.0\libraries\JWPLC_Display\src\esp32\libJWPLC_Display.a'
+$ExpectedCoreArchiveSha = '6f328eeb796091070c8d852a2c0e90f71047d8d2b5786fe3cd5079b2fb6ff983'
+$script:Pre5Stage = 'ENTRY'
 
 New-Item -ItemType Directory -Force -Path $RunRoot | Out-Null
 New-Item -ItemType Directory -Force -Path $BuildRoot | Out-Null
@@ -152,7 +157,7 @@ Write-Host '============================================================'
 
 Push-Location $RepoRoot
 try {
-    foreach ($required in @($CommonPath,$ProbeDir,$ClientPath,$OfficialHeader,$RepoLibraries,$BackendProbeDir)) {
+    foreach ($required in @($CommonPath,$ProbeDir,$ClientPath,$OfficialHeader,$RepoLibraries,$BackendProbeDir,$OfficialCoreArchive,$OfficialTftArchive,$OfficialDisplayArchive)) {
         if (-not (Test-Path -LiteralPath $required)) {
             Finish-TFTPre5 -Status 'REVIEW' -Reason "REQUIRED_PATH_MISSING:$required" -HarnessFailure 'YES' -ExitCode 3
         }
@@ -168,6 +173,13 @@ try {
     if ($entryStatus.Count -ne 0) {
         Finish-TFTPre5 -Status 'REVIEW' -Reason 'WORKTREE_NOT_CLEAN' -HarnessFailure 'YES' -ExitCode 5 -Extra @("STATUS=$($entryStatus -join ';')")
     }
+
+    $script:Pre5Stage = 'PRE4_CANDIDATE'
+    if ((Get-A13Sha256 -Path $OfficialCoreArchive) -ne $ExpectedCoreArchiveSha) {
+        Finish-TFTPre5 -Status 'REVIEW' -Reason 'NORMAL_CORE_ARCHIVE_SHA_MISMATCH' -HarnessFailure 'YES' -ExitCode 25
+    }
+    $officialTftShaBefore = Get-A13Sha256 -Path $OfficialTftArchive
+    $officialDisplayShaBefore = Get-A13Sha256 -Path $OfficialDisplayArchive
 
     if ([string]::IsNullOrWhiteSpace($CandidateRoot)) {
         $resolved = Resolve-LatestPre4Candidate
@@ -244,6 +256,7 @@ try {
         Finish-TFTPre5 -Status 'REVIEW' -Reason 'PYSERIAL_NOT_AVAILABLE' -EnvironmentFailure 'YES' -ExitCode 13
     }
 
+    $script:Pre5Stage = 'BACKEND_RESOLUTION'
     $backendProbe = Invoke-A13NativeCaptured -FilePath $ArduinoCli -Arguments @(
         'compile','--fqbn',$Fqbn,'-j','0','-v','--clean','--build-path',$BackendProbeBuild,$BackendProbeDir
     )
@@ -268,6 +281,7 @@ try {
         Finish-TFTPre5 -Status 'REVIEW' -Reason 'BACKEND_IDENTITY_MISMATCH' -EnvironmentFailure 'YES' -ExitCode 17
     }
 
+    $script:Pre5Stage = 'TEMP_SOURCE_ASSEMBLY'
     Get-ChildItem -LiteralPath $installedBackendRoot -Force | ForEach-Object {
         Copy-Item -LiteralPath $_.FullName -Destination $CandidateBackendRoot -Recurse -Force
     }
@@ -280,7 +294,8 @@ try {
     Copy-Item -LiteralPath $pre4Cpp -Destination (Join-Path $CandidateJwplcSrc 'JWPLC_TFT.cpp') -Force
     Copy-Item -LiteralPath $pre4Setup -Destination (Join-Path $CandidateJwplcSrc 'tft_setup.h') -Force
 
-    $probeIno = Get-ChildItem -LiteralPath $ProbeDir -File -Filter '*.ino'
+    $script:Pre5Stage = 'PROBE_COPY'
+    $probeIno = @(Get-ChildItem -LiteralPath $ProbeDir -File -Filter '*.ino')
     if ($probeIno.Count -ne 1) {
         Finish-TFTPre5 -Status 'REVIEW' -Reason 'PROBE_INO_COUNT_INVALID' -HarnessFailure 'YES' -ExitCode 18
     }
@@ -301,6 +316,22 @@ try {
         Finish-TFTPre5 -Status 'REVIEW' -Reason 'TEMP_BACKEND_PATCH_IDENTITY_FAILED' -HarnessFailure 'YES' -ExitCode 20
     }
 
+    # Canary in the temporary backend: compile must fail unless TFT_eSPI.cpp
+    # sees the deferred-DISPON setup. The PRE4 candidate SHA above remains
+    # the reference identity; this guard is added only to the disposable copy.
+    $configGuard = @'
+#if defined(ST7789_DRIVER) && !defined(JWPLC_TFT_DEFER_DISPON)
+#error A13_TFT_PRE5_BACKEND_DEFER_DISPON_NOT_ENABLED
+#endif
+'@
+    $initBeforeGuard = [IO.File]::ReadAllText($candidateBackendInit)
+    [IO.File]::WriteAllText($candidateBackendInit, $configGuard + [Environment]::NewLine + $initBeforeGuard, $utf8)
+    $instrumentedInitSha = Get-A13Sha256 -Path $candidateBackendInit
+    Write-Host 'BACKEND_CONFIG_GUARD=ENABLED'
+    Write-Host "INSTRUMENTED_INIT_SHA256=$instrumentedInitSha"
+    Write-Host "SKETCH_LOCAL_SETUP_SHA256=$candidateSketchSetupSha"
+
+    $script:Pre5Stage = 'CANDIDATE_COMPILE'
     $compile = Invoke-A13NativeCaptured -FilePath $ArduinoCli -Arguments @(
         'compile','--fqbn',$Fqbn,'-j','0','-v','--clean','--build-path',$BuildRoot,
         '--library',$CandidateJwplcRoot,
@@ -317,6 +348,7 @@ try {
         Finish-TFTPre5 -Status 'REVIEW' -Reason 'SOURCE_FIRST_CANDIDATE_COMPILE_FAILED' -HarnessFailure 'YES' -ExitCode 19 -Extra @("COMPILE_LOG=$CompileLog")
     }
 
+    $script:Pre5Stage = 'BUILD_PROOF'
     $jwplcSelected = Find-LibrarySelection -Lines $compile.Output -Name 'JWPLC_TFT'
     $backendSelected = Find-LibrarySelection -Lines $compile.Output -Name 'TFT_eSPI'
     $expectedJwplcRoot = [IO.Path]::GetFullPath($CandidateJwplcRoot).TrimEnd('\','/')
@@ -363,6 +395,7 @@ try {
         Finish-TFTPre5 -Status 'REVIEW' -Reason 'SOURCE_FIRST_CANDIDATE_BUILD_CONTRACT_FAILED' -HarnessFailure 'YES' -ExitCode 20
     }
 
+    $script:Pre5Stage = 'UPLOAD'
     $upload = Invoke-A13NativeCaptured -FilePath $ArduinoCli -Arguments @(
         'upload','--fqbn',$Fqbn,'--port',$resolvedPort,'--input-dir',$BuildRoot,$CandidateProbeDir
     )
@@ -375,6 +408,7 @@ try {
 
     Start-Sleep -Milliseconds 500
 
+    $script:Pre5Stage = 'SERIAL_CLIENT'
     $client = Invoke-A13NativeCaptured -FilePath $pythonExe -Arguments @(
         $ClientPath,'--serial',$resolvedPort,'--baud','115200','--timeout-s','10'
     )
@@ -396,6 +430,22 @@ try {
         Finish-TFTPre5 -Status 'REVIEW' -Reason 'CANDIDATE_RUNTIME_CONTRACT_FAILED' -ProductFailure 'YES' -ExitCode 23
     }
 
+    $script:Pre5Stage = 'FINAL_AUDIT'
+    $coreShaAfter = Get-A13Sha256 -Path $OfficialCoreArchive
+    $tftShaAfter = Get-A13Sha256 -Path $OfficialTftArchive
+    $displayShaAfter = Get-A13Sha256 -Path $OfficialDisplayArchive
+    $backendCppShaAfter = Get-A13Sha256 -Path $installedBackendCpp
+    $backendHeaderShaAfter = Get-A13Sha256 -Path $installedBackendHeader
+    $candidateSetupShaAfter = Get-A13Sha256 -Path (Join-Path $CandidateProbeDir 'tft_setup.h')
+    if ($coreShaAfter -ne $ExpectedCoreArchiveSha -or
+        $tftShaAfter -ne $officialTftShaBefore -or
+        $displayShaAfter -ne $officialDisplayShaBefore -or
+        $backendCppShaAfter -ne $ExpectedBackendCppSha -or
+        $backendHeaderShaAfter -ne $ExpectedBackendHeaderSha -or
+        $candidateSetupShaAfter -ne $ExpectedCandidateSetupSha) {
+        Finish-TFTPre5 -Status 'REVIEW' -Reason 'AFTER_UPLOAD_SOURCE_OR_ARCHIVE_IDENTITY_CHANGED' -HarnessFailure 'YES' -ExitCode 26
+    }
+
     $finalStatus = @(& git status --porcelain=v1 --untracked-files=normal)
     & git diff --check
     $diffCheck = ($LASTEXITCODE -eq 0)
@@ -411,6 +461,10 @@ try {
         "TEMP_JWPLC_TFT_ROOT=$CandidateJwplcRoot",
         "TEMP_TFT_ESPI_ROOT=$CandidateBackendRoot",
         "TEMP_PROBE_ROOT=$CandidateProbeDir",
+        "INSTRUMENTED_INIT_SHA256=$instrumentedInitSha",
+        "CORE_SHA256=$coreShaAfter",
+        "TFT_ARCHIVE_SHA256=$tftShaAfter",
+        "DISPLAY_ARCHIVE_SHA256=$displayShaAfter",
         'BACKEND_SETUP_DISCOVERY=SKETCH_LOCAL_TFT_SETUP',
         "SKETCH_LOCAL_SETUP_SHA256=$candidateSketchSetupSha",
         "JWPLC_TFT_TEMP_SELECTED=$jwplcSelectedOk",
@@ -425,6 +479,7 @@ try {
         "IO_READY=$ioReady",
         'VISUAL_POWER_CYCLE_REQUIRED=YES',
         'EXPECTED_VISUAL=OFF_TO_BLACK_TO_IDLE',
+        'VISUAL_FIX_CONFIRMED=NO_PENDING_USER_VIDEO',
         'PRODUCT_REPO_MUTATED=NO',
         'INSTALLED_TFT_ESPI_MUTATED=NO',
         'WORKTREE_FINAL=CLEAN',
@@ -435,7 +490,7 @@ try {
     )
 }
 catch {
-    Finish-TFTPre5 -Status 'REVIEW' -Reason 'UNEXPECTED_GATE_EXCEPTION' -HarnessFailure 'YES' -ProductFailure 'UNDETERMINED' -ExitCode 90 -Extra @("EXCEPTION=$($_.Exception.Message)")
+    Finish-TFTPre5 -Status 'REVIEW' -Reason 'UNEXPECTED_GATE_EXCEPTION' -HarnessFailure 'YES' -ProductFailure 'UNDETERMINED' -ExitCode 90 -Extra @("STAGE=$script:Pre5Stage","EXCEPTION_TYPE=$($_.Exception.GetType().FullName)","EXCEPTION_LINE=$($_.InvocationInfo.ScriptLineNumber)","EXCEPTION=$($_.Exception.Message)")
 }
 finally {
     Pop-Location
