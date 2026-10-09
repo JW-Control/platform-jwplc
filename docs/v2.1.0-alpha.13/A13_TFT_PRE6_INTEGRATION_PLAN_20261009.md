@@ -1,7 +1,7 @@
 # Alpha13 — TFT-PRE6 — Integración reproducible del arranque ST7789
 
 Fecha: 2026-10-09
-Estado: `P0_CLOSED_PASS`; `P1A_PREPARED_NOT_EXECUTED`; `P1B_PENDING_P1A_PASS`.
+Estado: `P0_CLOSED_PASS`; `P1A_R3_CLOSED_PASS`; `P1B_PREPARED_NOT_EXECUTED`.
 
 ## Punto de partida validado
 
@@ -62,6 +62,54 @@ TFT_eSPI 2.5.43 instalado con SHA fijados, trabajando sólo bajo
 `%TEMP%`. P1A no compila ni sube firmware; P1B toma sus outputs para la
 recompilación y la generación autónoma del archive.
 
+
+### P1A — fuente candidata regenerada (cerrado)
+
+```text
+GATE=A13-TFT-PRE6-P1A
+STATUS=PASS
+REASON=CANONICAL_SOURCE_TRANSFORM_REPRODUCED
+P0_HANDOFF_RECOVERED=YES
+P1A_SOURCE_CPP_SHA256=494440b00e74e74a7b23975420574e035ef2138fdf5a0cea2fed51c986c29d25
+P1A_TFT_SETUP_SHA256=8fa079444ca130772d3a642eaf814035100bc098032b403c922c458d351ae5e1
+P1A_ST7789_INIT_SHA256=44873be82fe836084934a328df77f098e9ab88d212dd1d570da5e8aac74671bc
+P1A_BACKEND_CPP_INSTRUMENTED_SHA256=3fe3c601830aad09e579e8fec1223c6a0e9b6a31a82f491743fbe166a5b16350
+PRODUCT_MUTATED=NO
+UPLOAD=NO
+```
+
+La evidencia de P0 fue recuperada mediante el archivo binario con SHA
+correcto y los cierres versionados de PRE3/PRE4/P0. No se generó ni
+falsificó el SUMMARY.log histórico. Detalle en
+`A13_TFT_PRE6_P1A_CLOSURE_20261009.md`.
+
+### P1B — reconstrucción nueva del archive (preparado)
+
+A partir de `MANIFEST.json` de P1A y los cuatro SHA guardados,
+compilar en una carpeta distinta:
+
+```text
+source JWPLC_TFT.cpp.o = 1
+source TFT_eSPI.cpp.o = 1
+JWPLC_TFT selected = verified temp P1A
+TFT_eSPI selected = verified temp P1A
+core stub + core.a = required
+Display archive unchanged = required
+```
+
+Después construir un archive temporal con `gcc-ar` de la plataforma,
+extraer sus dos miembros, comprobar paridad byte a byte y realizar las
+tres compilaciones normales ya probadas en P0 sin seleccionar TFT_eSPI
+externa. El nuevo archive no tiene por qué tener un SHA idéntico al de P0,
+dado que es una recompilación independiente; la identidad de las fuentes,
+los miembros y el enlace son los contratos.
+
+```text
+P1B=PREPARED_NOT_EXECUTED
+PRODUCT_ARCHIVE_MUTATION=NO
+UPLOAD=NO
+NEXT_AFTER_P1B_PASS=P2_PACKAGE_INTEGRATION
+```
 
 ### P1 — receta canónica y fuente productiva
 
