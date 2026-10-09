@@ -304,10 +304,10 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=TFT-PRE2
-OBJECTIVE=instrument internal startup milestones and locate dirty-window source
-STATE=READY_TO_PREPARE
-PREREQUISITE=TFT_PRE1_PASS
+NEXT_GATE=TFT-PRE3
+OBJECTIVE=attribute exact TFT_eSPI 2.5.43 maintenance source and ST7789 init sequence
+STATE=READY_TO_RUN_AFTER_PULL
+PREREQUISITE=TFT_PRE2_PASS
 ```
 
 No modificar todavía código productivo de G2 hasta completar su preflight
@@ -1066,6 +1066,33 @@ El código Alpha11 de JWPLC tampoco hacía un `fillScreen(BLACK)` dentro de
 y hacer la inicialización antes de `setup()`. Por tanto la diferencia actual a
 investigar es la secuencia interna del backend TFT_eSPI, no la desaparición de
 la protección RST.
+
+TFT-PRE2 cerró PASS con instrumentación source-first:
+
+```text
+DISPLAY_BEGIN_DURATION_US=558180
+FIRST_REFRESH_DURATION_US=14067
+RST_TO_DISPLAY_START_US=13145
+BOOT_TO_FIRST_REFRESH_US=659341
+SETUP_ENTRY_US=664542
+SOURCE_RESTORED=True
+CORE_SHA_PRESERVED=True
+WORKTREE_FINAL=CLEAN
+```
+
+Clasificación:
+
+```text
+RTC_FRAM_SD_BUTTONS_AS_MAIN_CAUSE=NO
+IDLE_FIRST_REFRESH_AS_MAIN_CAUSE=NO
+DISPLAY_BEGIN_BACKEND_WINDOW=CONFIRMED
+PRODUCT_CHANGE=NO
+```
+
+TFT-PRE3 reutiliza el probe de cualificación TFT_eSPI ya existente para
+identificar la instalación 2.5.43 usada por el entorno de mantenimiento,
+verificar hashes del source y caracterizar la secuencia ST7789 antes de
+construir un candidato.
 
 Referencia externa de drivers:
 
