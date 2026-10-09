@@ -753,13 +753,11 @@ escribe sólo en la copia temporal, preservando bytes originales.
 Se mantiene `NEXT_FAILURE_ID=F109`; el éxito de P0 no genera un
 nuevo identificador de fallo.
 
-## F109 — parser del handoff PRE6-P0 rechazó una evidencia PASS existente
+## F109 — dependencia de un SUMMARY.log local ausente entre gates
 
-Síntoma real de la primera corrida TFT-PRE6-P1A, 2026-10-09:
+La primera corrida TFT-PRE6-P1A R1 reportó:
 
 ```text
-A13_TFT_PRE6_P1A_PWSH_SYNTAX=PASS
-A13_TFT_PRE6_P1A_PY_SYNTAX=PASS
 STATUS=REVIEW
 REASON=P0_PASS_PROOF_NOT_FOUND
 PHASE=P0_PROVENANCE
@@ -769,44 +767,58 @@ UPLOAD_EXECUTED=NO
 PRODUCT_REPO_MODIFIED=NO
 ```
 
-Evidencia cruzada: `TFT-PRE6-P0` ya había cerrado `STATUS=PASS`,
-`REASON=TEMP_PRECOMPILED_ARCHIVE_QUALIFIED`, archive SHA-256
-`ff9dd89cb267bc270d2ca6fa2d0f1362b76595b8dc6b49f764d05a8e28bb6705`,
-tres compilaciones PASS y working tree CLEAN. No se invalida P0.
-
-**Clasificación:** fallo del harness al buscar/leer su evidencia previa.
-El disparador exacto del desacuerdo aún requiere diagnóstico de R2;
-no confundir el mensaje `P0_PASS_PROOF_NOT_FOUND` con que P0 falló,
-ni asignar sin pruebas una causa definitiva a formato, ruta o parser.
-
-Hipótesis principal a verificar: la envoltura de lectura
-`return Get-A13LogValue -Text $Text -Key $Key` en `Read-Key` de P1A
-no preservó la salida esperada. La implementación R2 separa llamada
-y retorno explícitamente.
-
-Prevención y corrección R2:
+El diagnóstico ampliado R2 (2026-10-09) aisló el motivo **observado**:
 
 ```text
-- test sintético del parser con claves STATUS, REASON y SHA esperadas;
-- invocación explícita $value = Get-A13LogValue ...; return $value;
-- búsqueda de SUMMARY.log con cardinalidad @(...) y conteo visible;
-- imprimir ruta candidata y tripleta STATUS/REASON/SHA por archivo;
-- exigir estado PASS, razón exacta y SHA exacto; NUNCA omitir gates;
-- mantener P0 CLOSED_PASS, sin repetir compilaciones previas;
-- no tocar producto, archive oficial ni firmware hasta P1A PASS.
+PROOF_PARSER_SELF_TEST=PASS
+PROOF_SEARCH_FILTER=tft_pre6_p0_*
+PROOF_SEARCH_DIRECTORY_COUNT=1
+PROOF_SUMMARY_MISSING=tools/alpha13/results/tft_pre6_p0_20261009_123147/SUMMARY.log
+P1A_R2=REVIEW_HARNESS
 ```
 
-Revisión preventiva adicional del generador P1A: la transformación
-`ST7789_Init.h` acepta sólo LF o CRLF del *here-string* original, y
-elige una variante exclusivamente cuando coincide con el SHA validado
-físicamente en PRE4; cualquier otra salida sigue fallando cerrada.
+La ruta y el directorio P0 existen, pero `SUMMARY.log` no fue
+accesible mediante `Test-Path -LiteralPath` en R2. **El parser no es
+la causa** de R2; la hipótesis R1 sobre `return Get-A13LogValue`
+quedó refutada por `PROOF_PARSER_SELF_TEST=PASS`.
+No hay pruebas suficientes para afirmar si el archivo fue eliminado,
+movido o nunca persistió fuera del proceso previo; no especular sobre
+`git clean`, sincronización o herramientas de limpieza sin evidencia.
+
+P0 sigue **CLOSED_PASS**: su salida de terminal fue recibida y su
+cierre fue registrado y versionado en
+`docs/v2.1.0-alpha.13/A13_TFT_PRE6_P0_CLOSURE_20261009.md`,
+con SHA del archive
+`ff9dd89cb267bc270d2ca6fa2d0f1362b76595b8dc6b49f764d05a8e28bb6705`,
+paridad de miembros y tres compilaciones normales exitosas.
+
+**Clasificación:** `HARNESS_FAILURE=YES`; dependencia demasiado fuerte
+de un único archivo de resultados local no versionado. No es fallo de
+TFT, de archivo binario ni del puerto serie.
+
+Prevención:
 
 ```text
+- separar evidencia durable versionada de logs locales efímeros;
+- requerir identidad SHA y contenido del cierre versionado de P0;
+- cuando exista archive P0 local, verificar bytes y SHA además del registro;
+- no marcar SUMMARY ausente como fallo del P0 anterior;
+- no fingir ni regenerar SUMMARY.log histórico;
+- detenerse si no hay evidencia durable verificable;
+- no repetir builds ya cerrados exclusivamente por pérdida de log;
+- mostrar ruta y presencia de archive/log antes de elegir recuperación;
+- mantener checks de SHA, source y resultado de gate independientes;
+- conservar no compile/no upload/no product mutation en P1A.
+```
+
+```text
+P1A_R1=REVIEW_HARNESS
+P1A_R2=REVIEW_HARNESS
+P0_RESULT=CLOSED_PASS
+ROOT_CAUSE_CLASS=LOST_OR_INACCESSIBLE_LOCAL_EVIDENCE
+PRECISE_FILE_DISAPPEARANCE_CAUSE=NOT_ESTABLISHED
 PRODUCT_FAILURE=NO
 HARDWARE_FAILURE=NO
-P1A_R1=REVIEW_HARNESS
-P1A_R2=PREPARED_NOT_EXECUTED
-P0_RESULT=CLOSED_PASS
 ```
 
 ## Estado
