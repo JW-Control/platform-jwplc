@@ -1,6 +1,6 @@
 # v2.1.0-alpha.13 — Estado operativo y continuidad
 
-Actualizado: 2026-10-07 — G2-P1 baseline reproducido
+Actualizado: 2026-10-09 — G2-P4 físico PASS
 
 > Fuente viva de continuidad del alpha. Un chat nuevo debe verificar el estado real
 > del repositorio y continuar desde `NEXT_GATE`.
@@ -304,10 +304,10 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=G2-P4 / A13-002
-OBJECTIVE=physical validation using normal precompiled jwplcbasic package
-STATE=READY_TO_RUN
-PREREQUISITE=G2_P3_PASS
+NEXT_GATE=G2-P5 / A13-002
+OBJECTIVE=final diff audit, explicit staging and product commit
+STATE=READY_FOR_FINAL_AUDIT
+PREREQUISITE=G2_P4_PASS
 ```
 
 No modificar todavía código productivo de G2 hasta completar su preflight
@@ -320,10 +320,11 @@ G2_PRE1=PASS
 G2_CLASSIFICATION=ROBUSTNESS_FIX
 G2_PRIORITY=P0
 G2_CONFIDENCE=HIGH
-G2_STATUS=CANDIDATE_ARCHIVE_QUALIFIED
+G2_STATUS=PHYSICAL_PASS_PENDING_COMMIT
 G2_P1_R2=PASS
 G2_P2_R5=PASS
 G2_P3=PASS
+G2_P4=PASS
 PRODUCT_CHANGE=LOCAL_UNCOMMITTED
 ```
 
@@ -853,6 +854,61 @@ lastScanMs>0
 Los fault steps no se repiten en P4: ya quedaron validados source-first en
 G2-P2 y el archive de P3 fue generado desde esos mismos blobs cualificados.
 
+G2-P4 — validación física con package normal precompilado:
+
+```text
+HEAD=5cf8dba1495de150bc9c7161a0233732417bb4b7
+SERIAL_PORT=COM4
+ARDUINO_CLI=1.0.2
+COMPILE_EXIT=0
+USES_STUB_CORE=True
+USES_SOURCE_CORE=False
+CORE_A_LINKED=True
+SOURCE_TU_COUNT=0
+STUB_TU_COUNT=1
+PRECOMPILED_STUB_COUNT=1
+FULL_PROFILE=True
+UPLOAD_EXIT=0
+CLIENT_EXIT=0
+IO_READY=YES
+EN_IO_OUTPUT_ENABLE=YES
+EN_IO_OUTPUT_LATCH=HIGH
+LAST_SCAN_MS=2280
+CORE_SHA256=6f328eeb796091070c8d852a2c0e90f71047d8d2b5786fe3cd5079b2fb6ff983
+SOURCE_BLOBS_FINAL=True
+TRACKED_DIRTY_FINAL=4
+STAGED_FINAL=0
+DIFF_CHECK_FINAL=True
+STATUS=PASS
+REASON=NORMAL_PRECOMPILED_PHYSICAL_PASS
+PRODUCT_FAILURE=NO
+HARNESS_FAILURE=NO
+HARDWARE_FAILURE=NO
+ENVIRONMENT_FAILURE=NO
+```
+
+Cadena A13-002 completada:
+
+```text
+baseline defect reproduced -> PASS
+source-first candidate physical -> PASS
+core.a refresh -> PASS
+normal stub + archive link -> PASS
+normal precompiled physical -> PASS
+```
+
+Pendiente antes del commit:
+
+```text
+final unstaged diff audit
+git diff --check
+explicit staging of exactly 4 product files
+staged diff audit
+single product commit
+push
+status closure
+```
+
 ## Observación mapeada — delay() y temporización no bloqueante
 
 No forma parte del fix A13-002 ni abre un gate nuevo en Alpha13.
@@ -958,7 +1014,7 @@ revisar el esquemático.
 ## Gates restantes
 
 ```text
-G2  A13-002 TCA startup / EN_IO                  REVIEW_CONFIRMED_RISK
+G2  A13-002 TCA startup / EN_IO                  PASS_PENDING_COMMIT
 G3  A13-004 TCA RMW/shadow atomicity             PENDING
 G4  A13-003 TFT batch task ownership             PENDING
 G5  A13-005 + A13-006 TCP correctness            PENDING
