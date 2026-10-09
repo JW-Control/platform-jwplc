@@ -205,16 +205,15 @@ function Apply-TimingInstrumentation
     ) -join $nl
     $text = Replace-ExactlyOnce -Text $text -Old $i2cOld -New ($i2cOld + $nl + '    a13_tft_pre2_i2c_end_us = (uint64_t)esp_timer_get_time();') -Name 'I2C_END'
 
-    $rtcBoundary = '#endif' + $nl + $nl + '#if JWPLC_HAS_FRAM'
-    $text = Replace-ExactlyOnce -Text $text -Old $rtcBoundary -New ('#endif' + $nl + '    a13_tft_pre2_rtc_end_us = (uint64_t)esp_timer_get_time();' + $nl + $nl + '#if JWPLC_HAS_FRAM') -Name 'RTC_END'
-
-    $framBoundary = '#endif' + $nl + $nl + '    // microSD no es crítica para permitir que el resto del sistema arranque.'
-    $text = Replace-ExactlyOnce -Text $text -Old $framBoundary -New ('#endif' + $nl + '    a13_tft_pre2_fram_end_us = (uint64_t)esp_timer_get_time();' + $nl + $nl + '    // microSD no es crítica para permitir que el resto del sistema arranque.') -Name 'FRAM_END'
+    $text = Replace-ExactlyOnce -Text $text `
+        -Old '#if JWPLC_HAS_FRAM' `
+        -New ('    a13_tft_pre2_rtc_end_us = (uint64_t)esp_timer_get_time();' + $nl + $nl + '#if JWPLC_HAS_FRAM') `
+        -Name 'RTC_END'
 
     $text = Replace-ExactlyOnce -Text $text `
         -Old '    (void)jwplcSDBeginCallback();' `
-        -New ('    (void)jwplcSDBeginCallback();' + $nl + '    a13_tft_pre2_sd_end_us = (uint64_t)esp_timer_get_time();') `
-        -Name 'SD_END'
+        -New ('    a13_tft_pre2_fram_end_us = (uint64_t)esp_timer_get_time();' + $nl + '    (void)jwplcSDBeginCallback();' + $nl + '    a13_tft_pre2_sd_end_us = (uint64_t)esp_timer_get_time();') `
+        -Name 'FRAM_SD_END'
 
     $text = Replace-ExactlyOnce -Text $text `
         -Old '    (void)jwplcButtonsBeginCallback();' `
