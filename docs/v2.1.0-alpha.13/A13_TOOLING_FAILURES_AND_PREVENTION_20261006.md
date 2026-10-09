@@ -512,9 +512,64 @@ reportar también la expresión capturada y el delay posterior
 no usar presencia de un nombre de macro como contrato funcional
 ```
 
+## F106 — usar JavaScript String.replace con `$'` dentro de PowerShell generado
+
+Síntoma:
+
+```text
+TFT-PRE3 R2
+A13_TFT_PRE3_SYNTAX=FAIL
+PowerShell: falta cierre de ')' / '}'
+script contiene cola duplicada después del bloque finally
+PHYSICAL_OR_PRODUCT_ACTION=NO
+```
+
+Causa demostrada:
+
+Durante la edición remota del gate se usó JavaScript `String.replace(old, replacementString)`.
+El replacement contenía expresiones PowerShell/regex que terminaban en `$'`.
+En JavaScript, `$'` dentro del replacement string no es literal: significa
+`the portion of the input after the matched substring`. El runtime insertó la
+cola del archivo dentro del replacement, duplicó grandes bloques y dejó una
+cadena regex sin cerrar.
+
+Clasificación:
+
+```text
+HARNESS_FAILURE=YES
+PRODUCT_FAILURE=NO
+ENVIRONMENT_FAILURE=NO
+COMPILE_EXECUTED=NO
+UPLOAD_EXECUTED=NO
+WRAPPER_SYNTAX_PREFLIGHT_PROTECTED_PRODUCT=YES
+TFT_PRE3_R1_EVIDENCE_INVALIDATED=NO
+```
+
+Prevención:
+
+```text
+al editar código mediante JavaScript:
+- no usar String.replace(old, replacementString) si el replacement puede contener `$`;
+- usar String.replace(old, () => replacementString), slice/concat o transformación estructural;
+- reconstruir desde el último blob/commit sintácticamente validado cuando haya corrupción;
+- verificar conteos estructurales de secciones únicas antes de publicar;
+- mantener parser preflight pwsh en el BAT antes de cualquier compile/upload/product action.
+```
+
+Corrección aplicada:
+
+```text
+PRE3-R3 rebuilt from known-good R1 commit=b2b2b2b3
+semantic parser retained
+replacement mechanism=callback-safe
+banner_count=1
+switch_count=1
+pass_marker_count=1
+```
+
 ## Estado
 
 ```text
-NEXT_FAILURE_ID=F106
+NEXT_FAILURE_ID=F107
 SYNC_TO_PROJECT_FAILURES_SOURCE=PENDING
 ```
