@@ -753,9 +753,65 @@ escribe sólo en la copia temporal, preservando bytes originales.
 Se mantiene `NEXT_FAILURE_ID=F109`; el éxito de P0 no genera un
 nuevo identificador de fallo.
 
+## F109 — parser del handoff PRE6-P0 rechazó una evidencia PASS existente
+
+Síntoma real de la primera corrida TFT-PRE6-P1A, 2026-10-09:
+
+```text
+A13_TFT_PRE6_P1A_PWSH_SYNTAX=PASS
+A13_TFT_PRE6_P1A_PY_SYNTAX=PASS
+STATUS=REVIEW
+REASON=P0_PASS_PROOF_NOT_FOUND
+PHASE=P0_PROVENANCE
+HARNESS_FAILURE=YES
+COMPILE_EXECUTED=NO
+UPLOAD_EXECUTED=NO
+PRODUCT_REPO_MODIFIED=NO
+```
+
+Evidencia cruzada: `TFT-PRE6-P0` ya había cerrado `STATUS=PASS`,
+`REASON=TEMP_PRECOMPILED_ARCHIVE_QUALIFIED`, archive SHA-256
+`ff9dd89cb267bc270d2ca6fa2d0f1362b76595b8dc6b49f764d05a8e28bb6705`,
+tres compilaciones PASS y working tree CLEAN. No se invalida P0.
+
+**Clasificación:** fallo del harness al buscar/leer su evidencia previa.
+El disparador exacto del desacuerdo aún requiere diagnóstico de R2;
+no confundir el mensaje `P0_PASS_PROOF_NOT_FOUND` con que P0 falló,
+ni asignar sin pruebas una causa definitiva a formato, ruta o parser.
+
+Hipótesis principal a verificar: la envoltura de lectura
+`return Get-A13LogValue -Text $Text -Key $Key` en `Read-Key` de P1A
+no preservó la salida esperada. La implementación R2 separa llamada
+y retorno explícitamente.
+
+Prevención y corrección R2:
+
+```text
+- test sintético del parser con claves STATUS, REASON y SHA esperadas;
+- invocación explícita $value = Get-A13LogValue ...; return $value;
+- búsqueda de SUMMARY.log con cardinalidad @(...) y conteo visible;
+- imprimir ruta candidata y tripleta STATUS/REASON/SHA por archivo;
+- exigir estado PASS, razón exacta y SHA exacto; NUNCA omitir gates;
+- mantener P0 CLOSED_PASS, sin repetir compilaciones previas;
+- no tocar producto, archive oficial ni firmware hasta P1A PASS.
+```
+
+Revisión preventiva adicional del generador P1A: la transformación
+`ST7789_Init.h` acepta sólo LF o CRLF del *here-string* original, y
+elige una variante exclusivamente cuando coincide con el SHA validado
+físicamente en PRE4; cualquier otra salida sigue fallando cerrada.
+
+```text
+PRODUCT_FAILURE=NO
+HARDWARE_FAILURE=NO
+P1A_R1=REVIEW_HARNESS
+P1A_R2=PREPARED_NOT_EXECUTED
+P0_RESULT=CLOSED_PASS
+```
+
 ## Estado
 
 ```text
-NEXT_FAILURE_ID=F109
+NEXT_FAILURE_ID=F110
 SYNC_TO_PROJECT_FAILURES_SOURCE=PENDING
 ```
