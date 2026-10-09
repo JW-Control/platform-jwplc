@@ -304,9 +304,9 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=TFT-PRE5
-OBJECTIVE=compile and flash source-first deferred-DISPON candidate; leave device ready for visual power-cycle
-STATE=READY_TO_RUN_AFTER_PULL
+NEXT_GATE=TFT-PRE5-R2
+OBJECTIVE=compile and flash source-first deferred-DISPON candidate using native sketch-local tft_setup discovery
+STATE=READY_TO_RERUN_AFTER_PULL
 PREREQUISITE=TFT_PRE4_PASS
 ```
 
@@ -1182,6 +1182,29 @@ BACKEND_ORIGINAL_MUTATED=NO
 REPO_PRODUCT_MUTATED=NO
 WORKTREE_FINAL=CLEAN
 ```
+
+TFT-PRE5 R1 — REVIEW_HARNESS:
+
+```text
+A13_TFT_PRE5_SYNTAX=PASS
+PRE4 candidate SHA guards=PASS
+SERIAL_PORT=COM4
+COMPILE_EXIT=1
+TEMP_JWPLC_TFT_SELECTED=YES
+TEMP_TFT_ESPI_SELECTED=YES
+ERROR_CLASS=driver setup symbols missing
+UPLOAD_EXECUTED=NO
+STATUS=REVIEW
+REASON=SOURCE_FIRST_CANDIDATE_COMPILE_FAILED
+PRODUCT_FAILURE=NO
+HARNESS_FAILURE=YES
+FAILURE=F107
+```
+
+R2 elimina la sustitución de `User_Setup.h` / `User_Setup_Select.h` y usa
+el mecanismo nativo de TFT_eSPI 2.5.43: una copia temporal del probe con el
+`tft_setup.h` candidato en la misma carpeta del `.ino`. El backend global y
+el repositorio permanecen intactos.
 
 TFT-PRE5:
 
