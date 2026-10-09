@@ -162,18 +162,38 @@ def main() -> int:
     if len(matches) != 2:
         raise ValueError(f"ST7789_DISPON_ANCHOR_COUNT={len(matches)}")
 
-    def delayed_dispon(m: re.Match[str]) -> str:
-        ind = m.group("indent")
-        return lf.join(
-            [
-                ind + "#ifndef JWPLC_TFT_DEFER_DISPON",
-                ind + "writecommand(ST7789_DISPON);    // Display on",
-                ind + "delay(120);",
-                ind + "#endif",
-            ]
-        )
+    def patch_backend_init(line_ending: str) -> str:
+        def delayed_dispon(m: re.Match[str]) -> str:
+            ind = m.group("indent")
+            return line_ending.join(
+                [
+                    ind + "#ifndef JWPLC_TFT_DEFER_DISPON",
+                    ind + "writecommand(ST7789_DISPON);    // Display on",
+                    ind + "delay(120);",
+                    ind + "#endif",
+                ]
+            )
+        return pattern.sub(delayed_dispon, init)
 
-    patched_init = pattern.sub(delayed_dispon, init)
+    # PowerShell's quoted here-string inherits its script file's line
+    # endings. Windows checkouts may use LF or CRLF. Try only these two
+    # exact encodings: the PRE4 physically validated SHA decides.
+    patch_variants = {eol: patch_backend_init(eol) for eol in ("\n", "\r\n")}
+    patched_init = next(
+        (
+            text
+            for text in patch_variants.values()
+            if hashlib.sha256(text.encode("utf-8")).hexdigest()
+            == EXPECTED_CANDIDATE_SHA256["ST7789_Init.h"]
+        ),
+        None,
+    )
+    if patched_init is None:
+        observed = {
+            "LF": hashlib.sha256(patch_variants["\n"].encode("utf-8")).hexdigest(),
+            "CRLF": hashlib.sha256(patch_variants["\r\n"].encode("utf-8")).hexdigest(),
+        }
+        raise ValueError(f"ST7789_INIT_PHYSICAL_SHA_NOT_REPRODUCED: {observed}")
     if patched_init.count("JWPLC_TFT_DEFER_DISPON") != 2:
         raise ValueError("PATCHED_BACKEND_MACRO_COUNT_INVALID")
 
