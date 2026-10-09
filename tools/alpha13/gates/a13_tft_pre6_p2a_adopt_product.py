@@ -245,6 +245,7 @@ def compile_cases(cli: str) -> None:
     for label, sketch in cases:
         require(sketch.is_dir(), "SKETCH_PATH_NOT_FOUND:" + label)
         build = TEMP_ROOT / ("build_" + label)
+        emit("BUILD_CASE_START", label)
         args = [cli, "compile", "--fqbn", FQBN, "-j", "0", "-v",
                 "--clean", "--build-path", str(build),
                 "--library", str(TFT), "--libraries", str(LIBS), str(sketch)]
@@ -331,7 +332,9 @@ def main() -> int:
         for item in report:
             print(item, flush=True)
         return 0
-    except Exception as exc:
+    except BaseException as exc:
+        # Includes KeyboardInterrupt: a cancelled compile must not leave
+        # a partly adopted product worktree without rollback.
         emit("PHASE", phase)
         emit("ERROR", str(exc))
         recovered = True
