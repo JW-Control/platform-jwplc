@@ -886,6 +886,45 @@ Prevención P1B:
 
 
 
+### Prevención TFT-PRE6-P2A (no es un fallo nuevo)
+
+P1B terminó en PASS de recompilación de fuentes, dos miembros del
+archive y tres compilaciones normales. El gate P2A incorpora barreras:
+
+```text
+P1B_ARCHIVE_SHA256=ab73b244c44ebd75d29a4eeb3cd97f5d18c08470f535eb16d55c2fdbf2310ff8
+P1B_ARCHIVE_BYTES=1091990
+P1B_MEMBER_PARITY=PASS
+P1A_CPP_SHA256=494440b00e74e74a7b23975420574e035ef2138fdf5a0cea2fed51c986c29d25
+P1A_SETUP_SHA256=8fa079444ca130772d3a642eaf814035100bc098032b403c922c458d351ae5e1
+PRODUCT_MUTATION=ONLY_THREE_TRACKED_JWPLC_TFT_FILES
+ORIGINAL_BACKUP=TEMP_BYTE_IDENTICAL
+PRECONDITION=GIT_WORKTREE_CLEAN
+RELEASE_ARCHIVE_ADOPTION=LOCAL_UNCOMMITTED
+NORMAL_COMPILE_CASES=4
+ROLLBACK_ON_GATE_FAILURE=YES
+PHYSICAL_UPLOAD=NO
+GIT_COMMIT=NO
+```
+
+- No aceptar un `SUMMARY.log` antiguo como única prueba de procedencia:
+  exigir manifiesto P1B y SHA del archive actualmente presente.
+- Actualizar juntos `JWPLC_TFT.cpp`, `tft_setup.h` y
+  `libJWPLC_TFT.a`. No cambiar sólo el binario.
+- Respaldar los tres archivos antes de reemplazarlos; si cualquier
+  copia, SHA, diff o compilación falla, restaurar exactamente los
+  originales y verificar worktree limpio.
+- Inspeccionar la selección exacta de la JWPLC_TFT del repositorio,
+  no confundirla con las temporales, y exigir core precompilado.
+- Rechazar objetos TFT source-first y dependencia externa TFT_eSPI
+  durante compilación de sketch normal.
+- Dejar el worktree explícitamente modificado y sin commit después
+  de P2A PASS para completar gate físico P2B. No hacer
+  `git pull`/reset/checkout de otros cambios mientras esté sucio.
+- El archive productivo debe probarse físicamente antes de
+  commit/release. F109 permanece cerrado; mantener F110 para fallo
+  nuevo verificado.
+
 ## Estado
 
 ```text
