@@ -304,10 +304,11 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=TFT-PRE6-P1A
-OBJECTIVE=reproduce exact PRE4 source hashes independently from canonical JWPLC_TFT files and pinned TFT_eSPI 2.5.43
-STATE=READY_TO_RUN_AFTER_PULL
+NEXT_GATE=TFT-PRE6-P1A-R2
+OBJECTIVE=verify PRE6-P0 proof parser then reproduce exact PRE4 source hashes independently
+STATE=READY_TO_RERUN_AFTER_PULL
 PREREQUISITE=TFT_PRE6_P0_CLOSED_PASS
+P1A_R1=REVIEW_HARNESS_F109
 PRODUCT_FIX_COMMITTED=NO
 PRODUCTION_ARCHIVE_REFRESH=NOT_STARTED
 ```
@@ -1416,6 +1417,34 @@ temporales, sin modificar el código producto ni la instalación global
 de TFT_eSPI. La coincidencia de los tres SHA físicos PRE4 es requisito
 obligatorio para pasar a recompilación P1B. En Windows sólo se permite
 normalizar CRLF/LF durante la comparación de identidad del blob Git.
+
+## TFT-PRE6-P1A R1 — REVIEW_HARNESS / F109 (2026-10-09)
+
+```text
+P0_PREVIOUS=CLOSED_PASS
+P1A_R1=REVIEW_HARNESS
+REASON=P0_PASS_PROOF_NOT_FOUND
+PHASE=P0_PROVENANCE
+P0_ACTUAL_SUMMARY=tools/alpha13/results/tft_pre6_p0_20261009_123147/SUMMARY.log
+P0_ACTUAL_STATUS=PASS
+P0_ACTUAL_REASON=TEMP_PRECOMPILED_ARCHIVE_QUALIFIED
+P0_ACTUAL_ARCHIVE_SHA256=ff9dd89cb267bc270d2ca6fa2d0f1362b76595b8dc6b49f764d05a8e28bb6705
+P1A_COMPILE_EXECUTED=NO
+P1A_UPLOAD_EXECUTED=NO
+PRODUCT_REPO_MODIFIED=NO
+FAILURE=F109
+```
+
+P1A R1 no encontró la prueba previa a pesar de que P0 pasó y dejó
+evidencia canónica. R2 prueba el parser con un fixture sintético, hace la
+llamada a `Get-A13LogValue` explícita y muestra los valores
+`STATUS/REASON/SHA` para cada `SUMMARY.log` candidato. La causa exacta
+queda condicionada al diagnóstico R2; P0 no se repite.
+
+Se reforzó también el generador de `ST7789_Init.h` para comprobar,
+contra el SHA físico PRE4, las variantes exactas LF/CRLF de los here-strings
+PowerShell. No flexibilizar hashes ni modificar el producto.
+`NEXT_FAILURE_ID=F110`; sin nuevas hipótesis tratadas como hechos.
 
 ## Gates restantes
 
