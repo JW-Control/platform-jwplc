@@ -304,10 +304,12 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=TFT-PRE5-R3
-OBJECTIVE=compile and flash source-first deferred-DISPON candidate with strict collection and backend configuration guards
-STATE=READY_TO_RERUN_AFTER_PULL
-PREREQUISITE=TFT_PRE4_PASS
+NEXT_GATE=TFT-PRE6
+OBJECTIVE=integrate deferred-DISPON into maintainable JWPLC_TFT source/archive without external TFT_eSPI dependency
+STATE=PLAN_AND_REPRODUCIBLE_BUILD_PENDING
+PREREQUISITE=TFT_PRE5_R3_COMPILE_UPLOAD_SERIAL_VISUAL_PASS
+PRODUCT_FIX_COMMITTED=NO
+PRODUCTION_ARCHIVE_REFRESH=NOT_STARTED
 ```
 
 No modificar todavía código productivo de G2 hasta completar su preflight
@@ -1283,6 +1285,60 @@ ventana pero no puede eliminar el intervalo anterior al firmware. La solución
 eléctrica absoluta requeriría mantener RST definido durante power-on o controlar
 backlight, lo cual pertenece a hardware/revisión de placa y no se asumirá sin
 revisar el esquemático.
+
+## TFT-PRE5 R3 — cierre del candidato físico y visual (2026-10-09)
+
+```text
+TFT_PRE5_R3=PASS
+REASON=SOURCE_FIRST_CANDIDATE_FLASHED
+PROBE_INO_COUNT=1
+COMPILE_EXIT=0
+JWPLC_TFT_TEMP_SELECTED=True
+TFT_ESPI_TEMP_SELECTED=True
+JWPLC_TFT_SOURCE_OBJECT_COUNT=1
+TFT_ESPI_SOURCE_OBJECT_COUNT=1
+JWPLC_TFT_PRECOMPILED=False
+JWPLC_DISPLAY_PRECOMPILED=True
+USES_STUB_CORE=True
+CORE_A_LINKED=True
+UPLOAD_EXIT=0
+CLIENT_EXIT=0
+RUNTIME_CANDIDATE_SHA256=494440b00e74e74a7b23975420574e035ef2138fdf5a0cea2fed51c986c29d25
+DISPLAY_READY=YES
+IO_READY=YES
+TFT_RST_OUTPUT_ENABLE=YES
+TFT_RST_OUTPUT_LATCH=HIGH
+TFT_CS_OUTPUT_ENABLE=YES
+TFT_CS_OUTPUT_LATCH=HIGH
+SETUP_ENTRY_MS=676
+BASELINE_SETUP_ENTRY_MS=664
+USER_VISUAL_WHITE_GRAM=RESOLVED_IN_TEMP_CANDIDATE
+IDLE_PROGRESSIVE_RENDERING=OBSERVED_REMAINING
+PACKAGE_LIBRARY_ARCHIVE_NOT_REFRESHED=YES
+PRODUCT_COMMIT=NO
+```
+
+El usuario confirmó por nueva grabación y mensaje que el fondo blanco
+desapareció y el arranque permanece limpio. El IDLE sigue renderizándose por
+fases: no es parte del defecto de GRAM y no autoriza features nuevas.
+
+PRE5 R3 conservó íntegros el repositorio, la librería externa TFT_eSPI y
+los archives precompilados versionados. Por eso **la solución aún NO está
+disponible para un sketch normal del package**: el candidato se compiló desde
+dos librerías temporales seleccionadas por Arduino CLI, mientras
+`JWPLC_TFT` distribuida sigue enlazando el archive anterior.
+
+Documento de cierre: `A13_TFT_PRE5_PHYSICAL_VISUAL_20261009.md`.
+
+```text
+TFT-PRE6=NEXT
+BUILD_RECIPE=TEMPORARY_COPY_OF_VERIFIED_TFT_ESPI_2_5_43
+PRECOMPILED_ARCHIVE_REBUILD=REQUIRED
+NORMAL_PACKAGE_NO_USER_TFT_ESPI_DEPENDENCY=REQUIRED
+DISPLAY_UI_CONSUMER_REGRESSION=REQUIRED
+NORMAL_PACKAGE_PHYSICAL_USB_STARTUP_VISUAL=REQUIRED
+COMMIT_ONLY_AFTER_PASS=YES
+```
 
 ## Gates restantes
 
