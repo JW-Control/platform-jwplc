@@ -1,7 +1,7 @@
 # Alpha13 — TFT-PRE6 — Integración reproducible del arranque ST7789
 
 Fecha: 2026-10-09
-Estado: `P0_PREPARED_NOT_EXECUTED`.
+Estado: `P0_CLOSED_PASS`; `P1A_PREPARED_NOT_EXECUTED`; `P1B_PENDING_P1A_PASS`.
 
 ## Punto de partida validado
 
@@ -50,6 +50,18 @@ recompilar fuentes modificadas aún no versionadas:
 Su resultado PASS no reemplaza el gate P1, ya que P0 depende de los objetos
 temporales PRE5 y no es una receta autónoma de reconstrucción desde fuente
 productiva.
+
+**Resultado real P0 (2026-10-09):** `STATUS=PASS`, archive de 1 091 942
+bytes con SHA-256 `ff9dd89cb267bc270d2ca6fa2d0f1362b76595b8dc6b49f764d05a8e28bb6705`;
+dos miembros bit-a-bit validados y tres compilaciones normales PASS sin TFT_eSPI
+externa. Ver `A13_TFT_PRE6_P0_CLOSURE_20261009.md`.
+
+**P1A preparado:** reproducción de los tres SHA exactos del candidato
+físico PRE4 desde `JWPLC_TFT.cpp` y `tft_setup.h` canónicos junto a
+TFT_eSPI 2.5.43 instalado con SHA fijados, trabajando sólo bajo
+`%TEMP%`. P1A no compila ni sube firmware; P1B toma sus outputs para la
+recompilación y la generación autónoma del archive.
+
 
 ### P1 — receta canónica y fuente productiva
 
