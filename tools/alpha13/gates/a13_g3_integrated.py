@@ -376,9 +376,9 @@ def run():
         emit("NEXT_GATE",RES["next_gate"])
         save()
         return 0
-    except (Stop,Exception) as e:
+    except (Stop,Exception,KeyboardInterrupt) as e:
         RES["reason"]=str(e)
-        RES["category"]=e.kind if isinstance(e,Stop) else "HARNESS"
+        RES["category"]=e.kind if isinstance(e,Stop) else ("USER_ABORT" if isinstance(e,KeyboardInterrupt) else "HARNESS")
         rollback()
         RES["status"]="REVIEW" if RES["category"] not in ("PRODUCT","HARDWARE") else "FAIL"
         emit("STATUS",RES["status"])
