@@ -1,5 +1,35 @@
 # v2.1.0-alpha.13 — Estado operativo y continuidad
 
+## Estado vigente — G4 R1 bloqueado por diferencia de backend local (2026-10-10)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G1_DNS=CLOSED_PASS
+G2_TCA_STARTUP=CLOSED_PASS
+TFT_CLOSURE=CLOSED_PASS
+G3=CLOSED_PASS
+G4_R1_PREFLIGHT=PASS
+G4_R1_BACKEND_RECIPE=REVIEW_ENVIRONMENT_SHA_MISMATCH
+G4_R1_LOCAL_BACKEND_INIT_SHA256=NOT_YET_OBSERVED
+G4_R1_SOURCE_REBUILD=NOT_EXECUTED
+G4_R1_PHYSICAL_UPLOAD=NOT_EXECUTED
+G4_R1_PRODUCT_ADOPTION=NOT_EXECUTED
+G4_BACKEND_RECOVERY=VERSIONED_READY_TO_RETEST
+G4_PRODUCT_COMMIT=NO
+NEXT_GATE=A13_G4_INTEGRATED_RETEST
+NEXT_FAILURE_ID=F111
+OPENPLC=OUT_OF_SCOPE
+HMI_DESIGNER=OUT_OF_SCOPE
+TFT_NEW_FEATURES=OUT_OF_SCOPE
+```
+
+La versión actual del gate compara variantes SHA fijadas y puede recuperar
+la fuente original desde TFT_eSPI V2.5.43 oficial **solo en TEMP**,
+sin sobrescribir archivos de usuario. No considerar G4 cerrado hasta
+obtener compilaciones, serial físico, confirmación visual y auditoría de producto.
+
+---
+
 ## Estado vigente — G4 A13-003 preparado (2026-10-10)
 
 **Hito integrado en preparación:** esta entrada prevalece sobre el `NEXT_GATE` histórico de G3. El candidato está versionado **solo bajo tooling**, no se han cambiado fuentes ni binarios de producto.

@@ -34,6 +34,37 @@ Si falla alguna fase se detiene y restaura los tres archivos tras haberlos adopt
 
 El test no conmuta salidas de relé, pero sí reemplaza el sketch actual. Debe ejecutarse con JWPLC en banco sin cargas/actuadores conectados, nunca controlando una máquina real. La observación humana no se simula.
 
+## Incidencia R1 y recuperación segura del backend (2026-10-10)
+
+Primera ejecución: `PREFLIGHT=PASS`, después
+`BACKEND_RECIPE=REVIEW` por
+`BACKEND_SHA_MISMATCH:TFT_Drivers/ST7789_Init.h`.
+No se ejecutaron compilación, upload, validación física ni adopción de producto.
+El SHA actual de la instalación local **todavía no se conoce** a partir de la
+consola compartida. No asumir qué cambio produjo el desacuerdo.
+
+La identidad original pinneada
+`e21cae2ac84285dc0e77648eca753f41f7da3c271594ede750b725136c10`
+fue contrastada contra el fichero del tag oficial
+`Bodmer/TFT_eSPI V2.5.43`, ruta `TFT_Drivers/ST7789_Init.h`.
+La identidad parcheada de mantenimiento se mantiene fija:
+`44873be82fe836084934a328df77f098e9ab88d212dd1d570da5e8aac74671bc`.
+
+El ejecutor actualizado:
+- informa SHA local, identidad conocida, presencia de guard y anclas;
+- admite únicamente las dos identidades pinneadas, con normalización CRLF/LF verificada;
+- cuando el init local difiere, descarga del tag oficial **solo a memoria** y
+  lo emplea exclusivamente en la copia temporal si su SHA es el original exacto;
+- preserva el `TFT_eSPI` local, exige los SHA exactos de `TFT_eSPI.cpp/.h`,
+  y verifica que la copia temporal final tiene el SHA parcheado esperado;
+- si la fuente oficial no está disponible o el SHA difiere, detiene G4 con
+  `BACKEND_INIT_UNRECOGNIZED_PINNED_VARIANTS_STOP` y evidencia diagnóstica;
+  no adopta ningún archivo productivo.
+
+Esto es una recuperación delimitada del entorno de mantenimiento, **no una
+relajación de la seguridad del firmware**. No se reabren G1, G2, G3 ni
+TFT-CLOSURE. No se crea un nuevo F-ID sin causa raíz corroborada.
+
 ## Resultado esperado
 
 ```text
