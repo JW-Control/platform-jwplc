@@ -45,6 +45,7 @@ namespace
     TFT_eSPI g_backend = TFT_eSPI();
 
     static constexpr uint8_t ACTIVE_ROTATION = 1;
+    static constexpr uint8_t ST7789_CMD_DISPON = 0x29;
     static constexpr uint16_t NATIVE_WIDTH = 170;
     static constexpr uint16_t NATIVE_HEIGHT = 320;
     static constexpr uint16_t LOGICAL_WIDTH = 320;
@@ -93,6 +94,9 @@ bool JWPLC_TFTClass::begin(uint32_t timeoutMs)
 
     g_backend.init();
     g_backend.setRotation(ACTIVE_ROTATION);
+    g_backend.fillScreen(JWPLC_TFT_BLACK);
+    g_backend.writecommand(ST7789_CMD_DISPON);
+    delay(120);
 
     syncTextState();
     syncCursorState();
