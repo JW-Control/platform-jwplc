@@ -178,39 +178,121 @@ def make_backend(source_root):
     phase("BACKEND_RECIPE","RUNNING")
     source_root=source_root.resolve()
     check(source_root.is_dir(),"BACKEND_MISSING:"+str(source_root),"ENVIRONMENT")
-    for rel,expected in BACKEND_SHA.items():
-        check((source_root/rel).is_file() and sha(source_root/rel)==expected,
-              "BACKEND_SHA_MISMATCH:"+rel,"ENVIRONMENT")
+
+    # Los archivos fuente de TFT_eSPI y la cabecera principal SIEMPRE han de
+    # coincidir exactamente con el backend 2.5.43 validado en TFT-CLOSURE.
+    for rel in ("TFT_eSPI.cpp","TFT_eSPI.h"):
+        expected=BACKEND_SHA[rel]
+        path=source_root/rel
+        check(path.is_file(),"BACKEND_FILE_MISSING:"+rel,"ENVIRONMENT")
+        actual=sha(path)
+        if actual!=expected:
+            emit("BACKEND_FILE",str(path))
+            emit("BACKEND_SHA256_ACTUAL",actual)
+            emit("BACKEND_SHA256_ESPERADO",expected)
+            raise GateStop("BACKEND_SHA_MISMATCH:"+rel,"ENVIRONMENT")
     check('#define TFT_ESPI_VERSION "2.5.43"' in
           (source_root/"TFT_eSPI.h").read_text(encoding="utf-8"),
           "BACKEND_NOT_2_5_43","ENVIRONMENT")
+
+    # El init puede estar ya en estado de mantenimiento (guard DISPON)
+    # o ser el original. Ambos SHA fueron fijados en la validación TFT-PRE6.
+    # Aceptar sólo estas DOS identidades, con tolerancia al formato CRLF/LF
+    # de Windows. Nunca confiar en otros cambios locales de usuario.
+    rel="TFT_Drivers/ST7789_Init.h"
+    path=source_root/rel
+    check(path.is_file(),"BACKEND_FILE_MISSING:"+rel,"ENVIRONMENT")
+    native=path.read_bytes()
+    versions=(
+        ("ORIGINAL",BACKEND_SHA[rel]),
+        ("ALREADY_PATCHED",PATCHED_INIT_SHA),
+    )
+    lf=native.replace(b"\r\n",b"\n")
+    crlf=lf.replace(b"\n",b"\r\n")
+    variants=(("EXACT",native),("NORMALIZED_LF",lf),("NORMALIZED_CRLF",crlf))
+    accepted=None
+    for variant,expected in versions:
+        for encoding,content in variants:
+            if hashlib.sha256(content).hexdigest()==expected:
+                accepted=(variant,encoding,content)
+                break
+        if accepted is not None:
+            break
+
+    emit("BACKEND_INIT_SHA256_ACTUAL",hashlib.sha256(native).hexdigest())
+    emit("BACKEND_INIT_SHA256_ORIGINAL_PINNED",BACKEND_SHA[rel])
+    emit("BACKEND_INIT_SHA256_PATCHED_PINNED",PATCHED_INIT_SHA)
+    emit("BACKEND_INIT_HAS_DEFER_GUARD",
+         "YES" if b"JWPLC_TFT_DEFER_DISPON" in native else "NO")
+    emit("BACKEND_INIT_ORIGINAL_DISPON_ANCHORS",
+         len(re.findall(rb"writecommand\(ST7789_DISPON\)",native)))
+
+    if accepted is None:
+        MANIFEST["backend_init_diagnostic"]={
+            "path":str(path),"actual_sha256":hashlib.sha256(native).hexdigest(),
+            "expected_original_sha256":BACKEND_SHA[rel],
+            "expected_patched_sha256":PATCHED_INIT_SHA,
+            "bytes":len(native),
+            "has_defer_guard":b"JWPLC_TFT_DEFER_DISPON" in native,
+        }
+        raise GateStop("BACKEND_INIT_UNRECOGNIZED_PINNED_VARIANTS_STOP","ENVIRONMENT")
+
+    kind,normalization,canonical=accepted
+    emit("BACKEND_ACCEPTED_VARIANT",kind)
+    emit("BACKEND_LINE_ENDINGS",normalization)
+    MANIFEST["backend_init_source_variant"]=kind
+    MANIFEST["backend_init_line_ending_variant"]=normalization
+    MANIFEST["backend_init_source_sha256"]=hashlib.sha256(native).hexdigest()
     backend=TEMP/"source"/"TFT_eSPI"
     shutil.copytree(source_root,backend)
-    init=backend/"TFT_Drivers/ST7789_Init.h"
-    raw=init.read_text(encoding="utf-8")
-    pattern=re.compile(r"(?m)^(?P<indent>\s*)writecommand\(ST7789_DISPON\);\s*//\s*Display on\s*\r?\n(?P=indent)delay\(120\);")
-    check(len(pattern.findall(raw))==2,"PATCH_BACKEND_ANCHORS_NOT_2","HARNESS")
-    patched=None
-    for eol in ("\n","\r\n"):
-        def modify(m):
-            ind=m.group("indent")
-            return eol.join((ind+"#ifndef JWPLC_TFT_DEFER_DISPON",
-                             ind+"writecommand(ST7789_DISPON);    // Display on",
-                             ind+"delay(120);",ind+"#endif"))
-        candidate=pattern.sub(modify,raw).encode("utf-8")
-        if hashlib.sha256(candidate).hexdigest()==PATCHED_INIT_SHA:
-            patched=candidate
-            break
-    check(patched is not None,"BACKEND_PATCH_NOT_REPRODUCED","HARNESS")
-    init.write_bytes(patched)
+    init=backend/rel
+
+    if kind=="ALREADY_PATCHED":
+        check(canonical.count(b"JWPLC_TFT_DEFER_DISPON")==2,
+              "BACKEND_PATCHED_GUARD_COUNT_MISMATCH","HARNESS")
+        check(canonical.count(b"writecommand(ST7789_DISPON)")==2,
+              "BACKEND_PATCHED_DISPON_COUNT_MISMATCH","HARNESS")
+        init.write_bytes(canonical)
+    else:
+        # Transformación histórica de la receta TFT-CLOSURE, sólo en %TEMP%.
+        text=canonical.decode("utf-8")
+        pattern=re.compile(
+            r"(?m)^(?P<indent>\s*)writecommand\(ST7789_DISPON\);"
+            r"\s*//\s*Display on\s*\r?\n(?P=indent)delay\(120\);")
+        check(len(pattern.findall(text))==2,
+              "PATCH_BACKEND_ANCHORS_NOT_2","HARNESS")
+        patched=None
+        for eol in ("\n","\r\n"):
+            def modify(m):
+                ind=m.group("indent")
+                return eol.join((ind+"#ifndef JWPLC_TFT_DEFER_DISPON",
+                                 ind+"writecommand(ST7789_DISPON);    // Display on",
+                                 ind+"delay(120);",ind+"#endif"))
+            data=pattern.sub(modify,text).encode("utf-8")
+            if hashlib.sha256(data).hexdigest()==PATCHED_INIT_SHA:
+                patched=data
+                break
+        check(patched is not None,"BACKEND_PATCH_NOT_REPRODUCED","HARNESS")
+        init.write_bytes(patched)
+
+    check(sha(init)==PATCHED_INIT_SHA,
+          "TEMP_BACKEND_INIT_SHA_NOT_PINNED","HARNESS")
+    MANIFEST["backend_init_temp_sha256"]=sha(init)
+
     cpp=backend/"TFT_eSPI.cpp"
     source=cpp.read_bytes()
     include=b'#include "TFT_eSPI.h"'
-    check(source.count(include)==1,"BACKEND_INCLUDE_ANCHOR_CHANGED","HARNESS")
+    check(source.count(include)==1,
+          "BACKEND_INCLUDE_ANCHOR_CHANGED","HARNESS")
     eol=os.linesep.encode("ascii")
     guard=eol.join((b"#if !defined(ST7789_DRIVER) || !defined(JWPLC_TFT_DEFER_DISPON)",
                     b"#error A13_G4_BACKEND_CONFIG_NOT_PROPAGATED",b"#endif"))
     cpp.write_bytes(source.replace(include,include+eol+guard,1))
+    # Verificar que ni un byte del backend original del usuario fue alterado.
+    check(sha(source_root/"TFT_eSPI.cpp")==BACKEND_SHA["TFT_eSPI.cpp"] and
+          sha(source_root/"TFT_eSPI.h")==BACKEND_SHA["TFT_eSPI.h"] and
+          hashlib.sha256(path.read_bytes()).hexdigest()==MANIFEST["backend_init_source_sha256"],
+          "SOURCE_BACKEND_WAS_MUTATED","HARNESS")
     phase("BACKEND_RECIPE","PASS")
     return backend
 
