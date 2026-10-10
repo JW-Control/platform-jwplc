@@ -1,5 +1,49 @@
 # v2.1.0-alpha.13 — Estado operativo y continuidad
 
+## Estado vigente — G5 preparado para validación integrada (2026-10-10)
+
+**Prevalece sobre el bloque histórico previo en relación con G5.**
+
+```text
+BRANCH=v2.1.0-alpha.13/feature/cleanup-robustness
+ALPHA13_STATUS=IN_PROGRESS
+G1_DNS=CLOSED_PASS
+G2_TCA_STARTUP=CLOSED_PASS
+TFT_CLOSURE=CLOSED_PASS
+G3_TCA_RMW_SHADOW=CLOSED_PASS
+G4_TFT_BATCH_TASK_OWNERSHIP=CLOSED_PASS
+F112=CLOSED_PREVENTION_REGISTERED
+G5=A13-005_PLUS_A13-006_TCP_CORRECTNESS
+G5_CANDIDATE=VERSIONED_OUTSIDE_PRODUCT
+G5_PRODUCT_SOURCE_MUTATION=NOT_EXECUTED
+G5_TCP_PHYSICAL=NOT_EXECUTED
+G5_NORMAL_SOURCE_REGRESSIONS=NOT_EXECUTED
+G5_INTEGRATED_TOOLING=VERSIONED_READY_TO_RUN
+G5_PRODUCT_COMMIT=NO
+NEXT_GATE=A13-G5-INTEGRATED-TCP-CORRECTNESS
+NEXT_FAILURE_ID=F113
+OPENPLC=OUT_OF_SCOPE
+HMI_DESIGNER=OUT_OF_SCOPE
+TFT_NEW_FEATURES=OUT_OF_SCOPE
+```
+
+Las fuentes de `JWPLC_Ethernet` permiten observar tres contratos TCP en riesgo:
+`EthernetClient::write(size>SSIZE)`, `EthernetClient::read(size_t)`
+y `EthernetServer::write` cuando no hay clientes o el envío falla.
+**No se presenta como equivalencia verificada de cada ID A13-005/A13-006
+con el informe canónico no disponible en la rama;** los cambios quedan
+acotados al código comprobado y la homologación final de IDs debe
+contrastarse antes del cierre G5.
+
+El <u>único</u> gate integrado G5 usa overlay temporal de fuentes,
+compilación Arduino CLI desde fuente, prueba de red con token serial y
+LAN real, regresiones de producto y rollback; **sin commits automáticos**.
+La fase física requiere PC y JWPLC en la misma red y equipo desconectado
+de actuadores. Ver [A13_G5_INTEGRATED_PLAN_20261010.md](A13_G5_INTEGRATED_PLAN_20261010.md).
+
+---
+
+
 ## Prevención F112 — cierre G4 y portabilidad Python/Git (2026-10-10)
 
 ```text
