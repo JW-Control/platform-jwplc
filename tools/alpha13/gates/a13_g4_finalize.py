@@ -12,6 +12,7 @@ ROOT=Path.cwd().resolve()
 BRANCH="v2.1.0-alpha.13/feature/cleanup-robustness"
 BASE="bc9e7c938506bd872cbb4d943d58ef9644be6e5d"
 TOOLING_HEAD="b15c59cd599a1d5e7dbabc594a38ccdc0c49f791"
+HEAD_REPAIR="21a0816c6bfb605de8b1b6efb2ef27d86051ac35"
 P="JWPLC/2.1.0/libraries/JWPLC_TFT/src/"
 CANDIDATES={
  P+"JWPLC_TFT.cpp":"tools/alpha13/candidates/g4/JWPLC_TFT.cpp",
@@ -133,10 +134,9 @@ def preflight():
     need(git("branch","--show-current")==BRANCH,"WRONG_BRANCH")
     head=git("rev-parse","HEAD")
     cached=git("rev-parse","refs/remotes/origin/"+BRANCH)
-    # GitHub Desktop puede haber actualizado HEAD del mismo branch tras fetch.
-    # Se admiten solo el baseline, el primer commit de tooling y el ultimo
-    # remoto, sujeto a verificar su cadena y alcance exactos antes del commit.
-    need(head in (BASE,TOOLING_HEAD,cached),
+    # GitHub Desktop puede haber actualizado HEAD al tooling previo.
+    # SOLO se admiten los tres ancestros concretos y el remote validado.
+    need(head in (BASE,TOOLING_HEAD,HEAD_REPAIR,cached),
          "LOCAL_HEAD_NOT_RECOGNIZED_"+head)
     say("LOCAL_HEAD_ACCEPTED="+head)
 
@@ -155,32 +155,42 @@ def preflight():
 def remote(local_head):
     ref=git("rev-parse","refs/remotes/origin/"+BRANCH)
     need(ref not in (BASE,TOOLING_HEAD),"REMOTE_REPAIR_COMMIT_NOT_FETCHED")
-    # Exactamente 2 commits no productivos: original b15c y repair.
+    # Exactamente tres commits no productivos: b15c, 21a, cierre reparado.
     ancestors=git("rev-list","--reverse",BASE+".."+ref).splitlines()
-    need(len(ancestors)==2 and ancestors[0]==TOOLING_HEAD and ancestors[1]==ref,
-         "REMOTE_HISTORY_NOT_EXPECTED_2_TOOLING_COMMITS")
-    need(git("rev-list","--parents","-n","1",TOOLING_HEAD).split()==
-         [TOOLING_HEAD,BASE],"FIRST_TOOLING_PARENT_CHANGED")
-    need(git("rev-list","--parents","-n","1",ref).split()==
-         [ref,TOOLING_HEAD],"REPAIR_TOOLING_PARENT_CHANGED")
+    need(len(ancestors)==3 and ancestors[:2]==[TOOLING_HEAD,HEAD_REPAIR]
+         and ancestors[2]==ref,
+         "REMOTE_HISTORY_NOT_EXPECTED_3_TOOLING_COMMITS")
+    for child,parent in ((TOOLING_HEAD,BASE),(HEAD_REPAIR,TOOLING_HEAD),
+                         (ref,HEAD_REPAIR)):
+        need(git("rev-list","--parents","-n","1",child).split()==[child,parent],
+             "TOOLING_PARENT_CHANGED_"+child)
     need(setpaths("diff","--name-only",BASE,ref)==TOOLING,
          "REMOTE_DIFF_NOT_EXACT_2_TOOLING_FILES")
-    need(local_head in (BASE,TOOLING_HEAD,ref),
+    need(local_head in (BASE,TOOLING_HEAD,HEAD_REPAIR,ref),
          "LOCAL_HEAD_NOT_AUTHORIZED_"+local_head)
 
-    # Si el commit de tooling ya se incorporó localmente, los archivos
-    # deben conservar exactamente el contenido de ese HEAD (no cambios
-    # accidentales ni regenerados en el árbol de trabajo).
+    # Los bytes del worktree pueden tener CRLF (Git autocrlf en Windows)
+    # aun cuando el blob comprometido sea LF y 'git diff' esté limpio.
+    # Usar el índice y las comprobaciones de Git, nunca igualdad raw bytes.
     for path in TOOLING:
         file=ROOT/path
         if local_head==BASE:
             need(not file.exists(),"UNEXPECTED_TOOLING_COLLISION_"+path)
         else:
             need(file.is_file(),"LOCAL_TOOLING_MISSING_"+path)
-            p=subprocess.run(["git","show",local_head+":"+path],
-                             cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-            need(p.returncode==0 and p.stdout==file.read_bytes(),
-                 "LOCAL_TOOLING_NOT_HEAD_IDENTICAL_"+path)
+            tracked=subprocess.run(["git","ls-files","--error-unmatch","--",path],
+                                   cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+            need(tracked.returncode==0,"LOCAL_TOOLING_NOT_TRACKED_"+path)
+            unstaged=subprocess.run(["git","diff","--quiet","HEAD","--",path],
+                                    cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+            staged=subprocess.run(["git","diff","--cached","--quiet","HEAD","--",path],
+                                  cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+            need(unstaged.returncode==0 and staged.returncode==0,
+                 "LOCAL_TOOLING_HAS_GIT_CHANGES_"+path)
+            blob=git("rev-parse",local_head+":"+path)
+            cached_blob=git("rev-parse",":"+path)
+            need(blob==cached_blob,"LOCAL_TOOLING_INDEX_MISMATCH_"+path)
+    say("LOCAL_TOOLING=PASS_GIT_NORMALIZED_EOLS")
 
     # Asegurar que el finalizador extraído a %TEMP% es exactamente el
     # versionado en la rama remota validada, sin ejecución de variantes.
@@ -189,7 +199,7 @@ def remote(local_head):
                      cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     need(p.returncode==0 and p.stdout==Path(__file__).read_bytes(),
          "RUNNER_BYTES_NOT_MATCHING_VERIFIED_REMOTE")
-    say("REMOTE_PREFLIGHT=PASS_2_TOOLING_COMMITS_ONLY")
+    say("REMOTE_PREFLIGHT=PASS_3_TOOLING_COMMITS_ONLY")
     say("REMOTE_FINALIZER="+ref)
     return ref
 
