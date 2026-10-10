@@ -925,6 +925,16 @@ extern "C" bool jwplcDisplayBeginCallback(void)
     return true;
 }
 
+// Definida en este objeto (siempre enlazado junto a jwplcDisplayRefreshCallback)
+// para que un HAL que la declare weak la resuelva sin depender del orden del linker.
+extern "C" void jwplcDisplaySetInputForceOverlay(uint8_t forcedMask, uint8_t forcedValues)
+{
+    if (JWPLCIdleScreen::setInputForceOverlay(forcedMask, forcedValues))
+    {
+        jwplcSystemMarkDisplayDirty();
+    }
+}
+
 extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc)
 {
     if (!g_tftReady)
