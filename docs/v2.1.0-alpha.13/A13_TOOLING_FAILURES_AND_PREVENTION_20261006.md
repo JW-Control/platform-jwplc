@@ -925,6 +925,38 @@ GIT_COMMIT=NO
   commit/release. F109 permanece cerrado; mantener F110 para fallo
   nuevo verificado.
 
+### Cambio de flujo 2026-10-09 — sin fallo nuevo
+
+```text
+P1B=PASS_ARCHIVE_REBUILT_SOURCE_FIRST
+P2A=PASS_PRODUCT_LOCAL_ADOPTION
+P2A_NORMAL_BUILDS=4/4
+P2A_PRODUCT_REMOTE_COMMIT=NO
+P2A_PHYSICAL_UPLOAD=NO
+P2B=NEXT_PHYSICAL_PENDING
+F109=CLOSED
+NEXT_FAILURE_ID=F110
+```
+
+Se adopta `docs/JWPLC_COLLABORATION_WORKFLOW.md` como regla
+transversal: etapas seguras automatizadas dentro de **un gate por hito**,
+con cortes sólo en fronteras de seguridad, incertidumbre física o
+aprobación del usuario. Preflight sintáctico y semántico antes del
+primer comando; logs por fase y manifiesto durable de hashes para
+no depender de `SUMMARY.log` efímero; clasificación fiel
+`PRODUCT/HARNESS/HARDWARE/ENVIRONMENT/PRECONDITION` cuando haya
+evidencia suficiente.
+
+No crear múltiples IDs de fallo por reintentos de la misma causa.
+Conservar abort/rollback probado. No declarar PASS visual sin
+confirmación humana y no hacer commit/product release antes de
+prueba física del archive normal. No volver a recomendar pull o reset
+sin revisar el worktree intencionalmente modificado.
+
+La política de **hitos integradores** sustituye la obligación de
+interacción de usuario para cada microgate; **NO** elimina pruebas ni
+rastreo de resultados, y tampoco crea un nuevo fallo F110.
+
 ## Estado
 
 ```text
