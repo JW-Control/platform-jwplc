@@ -11,6 +11,7 @@ static constexpr size_t SERVER_BYTES = 64;
 static EthernetServer g_server(JWPLC_SERVER_PORT);
 static bool g_serverReady = false;
 static bool g_done = false;
+static size_t g_noClientWritten = (size_t)-1;
 static uint8_t g_tx[TX_BYTES];
 
 static bool lockSPI() {
@@ -92,6 +93,8 @@ static void runCase(IPAddress host) {
   }
   if (serverWritten!=SERVER_BYTES) ++errors;
 
+  Serial.print("G5_NO_CLIENT_BYTES="); Serial.println((unsigned long)g_noClientWritten);
+  if (g_noClientWritten != 0) ++errors;
   Serial.print("G5_TX_BYTES="); Serial.println((unsigned long)bytesWritten);
   Serial.print("G5_RX_BYTES="); Serial.println(bytesRead);
   Serial.print("G5_SERVER_BYTES="); Serial.println((unsigned long)serverWritten);
@@ -112,6 +115,9 @@ void loop() {
 
   if (!g_serverReady && lockSPI()) {
     g_server.begin();
+    // Antes de anunciar READY, ningún cliente del PC se ha conectado.
+    const uint8_t single = 0x55;
+    g_noClientWritten = g_server.write(&single, 1);
     unlockSPI();
     g_serverReady=true;
   }

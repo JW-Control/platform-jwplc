@@ -79,10 +79,11 @@ def main():
                     done.set()
             thread=threading.Thread(target=receiver,daemon=True)
             thread.start()
-            inbound=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-            inbound.settimeout(5.0)
             connected=False
             for _ in range(10):
+                if inbound is not None: inbound.close()
+                inbound=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+                inbound.settimeout(2.0)
                 try:
                     inbound.connect((device,PORT_DUT_SERVER))
                     connected=True
@@ -126,6 +127,7 @@ def main():
                 "SERIAL_PASS":exactly("G5_RESULT","PASS"),
                 "SERIAL_ERRORS_ZERO":exactly("G5_ERRORS","0"),
                 "SERIAL_TX_COMPLETE":exactly("G5_TX_BYTES",str(PAYLOAD_BYTES)),
+                "SERVER_EMPTY_ZERO":exactly("G5_NO_CLIENT_BYTES","0"),
                 "SERIAL_RX_COMPLETE":exactly("G5_RX_BYTES",str(RX_BYTES)),
                 "SERIAL_SERVER_COMPLETE":exactly("G5_SERVER_BYTES",str(SERVER_BYTES)),
                 "PC_RECEIVED_EXACT_5000":bytes(received)==expected,

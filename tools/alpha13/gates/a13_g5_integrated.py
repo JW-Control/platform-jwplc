@@ -196,7 +196,7 @@ def preview_build(cli,selected):
     fixtures=[
       ("ETH_STATIC",LIBS/"JWPLC_Ethernet/examples/02.Ethernet_StaticIP_Basic"),
       ("ETH_SPI",LIBS/"JWPLC_Ethernet/examples/Ethernet_SPI_Coexistence"),
-      ("MODBUS_CLIENT",LIBS/"JWPLC_ModbusTCP/examples/ModbusTCP_Client_FC03"),
+      ("MODBUS_CLIENT",LIBS/"JWPLC_ModbusTCP/examples/02.ModbusTCP_Client"),
     ]
     # Los archivos reales del repositorio son la fuente; no inventar sketches.
     for label,path in fixtures:
@@ -260,7 +260,7 @@ def regress(cli):
     cases=[
       ("ETH_STATIC",LIBS/"JWPLC_Ethernet/examples/02.Ethernet_StaticIP_Basic"),
       ("ETH_SPI",LIBS/"JWPLC_Ethernet/examples/Ethernet_SPI_Coexistence"),
-      ("MODBUS_CLIENT",LIBS/"JWPLC_ModbusTCP/examples/ModbusTCP_Client_FC03"),
+      ("MODBUS_CLIENT",LIBS/"JWPLC_ModbusTCP/examples/02.ModbusTCP_Client"),
     ]
     for label,path in cases:
         compile_case(cli,path,"PRODUCT_"+label,ETH)
