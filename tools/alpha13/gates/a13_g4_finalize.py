@@ -11,6 +11,8 @@ from pathlib import Path
 ROOT=Path.cwd().resolve()
 BRANCH="v2.1.0-alpha.13/feature/cleanup-robustness"
 BASE="bc9e7c938506bd872cbb4d943d58ef9644be6e5d"
+TOOLING_HEAD="b15c59cd599a1d5e7dbabc594a38ccdc0c49f791"
+HEAD_REPAIR="21a0816c6bfb605de8b1b6efb2ef27d86051ac35"
 P="JWPLC/2.1.0/libraries/JWPLC_TFT/src/"
 CANDIDATES={
  P+"JWPLC_TFT.cpp":"tools/alpha13/candidates/g4/JWPLC_TFT.cpp",
@@ -130,7 +132,14 @@ def preflight():
     need(git("rev-parse","--is-inside-work-tree")=="true","NOT_REPO")
     need(Path(git("rev-parse","--show-toplevel")).resolve()==ROOT,"WRONG_REPO_ROOT")
     need(git("branch","--show-current")==BRANCH,"WRONG_BRANCH")
-    need(git("rev-parse","HEAD")==BASE,"LOCAL_HEAD_CHANGED")
+    head=git("rev-parse","HEAD")
+    cached=git("rev-parse","refs/remotes/origin/"+BRANCH)
+    # GitHub Desktop puede haber actualizado HEAD al tooling previo.
+    # SOLO se admiten los tres ancestros concretos y el remote validado.
+    need(head in (BASE,TOOLING_HEAD,HEAD_REPAIR,cached),
+         "LOCAL_HEAD_NOT_RECOGNIZED_"+head)
+    say("LOCAL_HEAD_ACCEPTED="+head)
+
     need(bool(re.search(r"github\.com[:/]JW-Control/platform-jwplc(?:\.git)?$",
                         git("remote","get-url","origin"),re.I)),"WRONG_ORIGIN")
     need(setpaths("diff","--name-only")==PRODUCT,"DIRTY_SCOPE_NOT_EXACT_3_TFT")
@@ -143,17 +152,57 @@ def preflight():
     git("var","GIT_AUTHOR_IDENT")
     git("var","GIT_COMMITTER_IDENT")
     say("GIT_PREFLIGHT=PASS")
-def remote():
+def remote(local_head):
     ref=git("rev-parse","refs/remotes/origin/"+BRANCH)
-    need(ref!=BASE,"REMOTE_FINALIZER_NOT_FETCHED")
-    need(git("rev-list","--count",BASE+".."+ref)=="1","REMOTE_NOT_EXACTLY_ONE_COMMIT")
-    need(git("rev-list","--parents","-n","1",ref).split()==[ref,BASE],
-         "REMOTE_NOT_CHILD_OF_LOCAL_BASE")
-    need(setpaths("diff","--name-only",BASE,ref)==TOOLING,"REMOTE_NOT_TOOLING_ONLY")
+    need(ref not in (BASE,TOOLING_HEAD),"REMOTE_REPAIR_COMMIT_NOT_FETCHED")
+    # Exactamente tres commits no productivos: b15c, 21a, cierre reparado.
+    ancestors=git("rev-list","--reverse",BASE+".."+ref).splitlines()
+    need(len(ancestors)==3 and ancestors[:2]==[TOOLING_HEAD,HEAD_REPAIR]
+         and ancestors[2]==ref,
+         "REMOTE_HISTORY_NOT_EXPECTED_3_TOOLING_COMMITS")
+    for child,parent in ((TOOLING_HEAD,BASE),(HEAD_REPAIR,TOOLING_HEAD),
+                         (ref,HEAD_REPAIR)):
+        need(git("rev-list","--parents","-n","1",child).split()==[child,parent],
+             "TOOLING_PARENT_CHANGED_"+child)
+    need(setpaths("diff","--name-only",BASE,ref)==TOOLING,
+         "REMOTE_DIFF_NOT_EXACT_2_TOOLING_FILES")
+    need(local_head in (BASE,TOOLING_HEAD,HEAD_REPAIR,ref),
+         "LOCAL_HEAD_NOT_AUTHORIZED_"+local_head)
+
+    # Los bytes del worktree pueden tener CRLF (Git autocrlf en Windows)
+    # aun cuando el blob comprometido sea LF y 'git diff' esté limpio.
+    # Usar el índice y las comprobaciones de Git, nunca igualdad raw bytes.
     for path in TOOLING:
-        need(not (ROOT/path).exists(),"UNTRACKED_TOOLING_COLLISION")
-    say("REMOTE_PREFLIGHT=PASS_TOOLING_ONLY")
+        file=ROOT/path
+        if local_head==BASE:
+            need(not file.exists(),"UNEXPECTED_TOOLING_COLLISION_"+path)
+        else:
+            need(file.is_file(),"LOCAL_TOOLING_MISSING_"+path)
+            tracked=subprocess.run(["git","ls-files","--error-unmatch","--",path],
+                                   cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+            need(tracked.returncode==0,"LOCAL_TOOLING_NOT_TRACKED_"+path)
+            unstaged=subprocess.run(["git","diff","--quiet","HEAD","--",path],
+                                    cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+            staged=subprocess.run(["git","diff","--cached","--quiet","HEAD","--",path],
+                                  cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+            need(unstaged.returncode==0 and staged.returncode==0,
+                 "LOCAL_TOOLING_HAS_GIT_CHANGES_"+path)
+            blob=git("rev-parse",local_head+":"+path)
+            cached_blob=git("rev-parse",":"+path)
+            need(blob==cached_blob,"LOCAL_TOOLING_INDEX_MISMATCH_"+path)
+    say("LOCAL_TOOLING=PASS_GIT_NORMALIZED_EOLS")
+
+    # Asegurar que el finalizador extraído a %TEMP% es exactamente el
+    # versionado en la rama remota validada, sin ejecución de variantes.
+    runner=ROOT/"tools/alpha13/gates/a13_g4_finalize.py"
+    p=subprocess.run(["git","show",ref+":tools/alpha13/gates/a13_g4_finalize.py"],
+                     cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    need(p.returncode==0 and p.stdout==Path(__file__).read_bytes(),
+         "RUNNER_BYTES_NOT_MATCHING_VERIFIED_REMOTE")
+    say("REMOTE_PREFLIGHT=PASS_3_TOOLING_COMMITS_ONLY")
+    say("REMOTE_FINALIZER="+ref)
     return ref
+
 def commit(scope,message):
     git("add","--",*sorted(scope))
     need(setpaths("diff","--cached","--name-only")==scope,"STAGED_SCOPE_MISMATCH")
@@ -277,7 +326,8 @@ def main():
         product()
         m=evidence()
         product()
-        tool=remote()
+        local_head=git("rev-parse","HEAD")
+        tool=remote(local_head)
         product()
         say("READY_FOR_OPERATOR_AUTHORIZATION=YES")
         confirmation=input("Autorizar commits y push de G4 (AUTORIZO_COMMIT_G4): ").strip()
@@ -285,12 +335,18 @@ def main():
         prod=commit(PRODUCT,"fix(tft): asegurar propiedad de tarea en batch SPI")
         product()
         need(not setpaths("diff","--name-only"),"DIRTY_AFTER_PRODUCT_COMMIT")
-        git("merge","--no-ff","-m","chore(alpha13): integrar ejecutor de cierre G4",
-            "refs/remotes/origin/"+BRANCH)
-        merged=git("rev-parse","HEAD")
+        if local_head==tool:
+            # El repo ya contiene el finalizador; commit productivo lineal.
+            merged="NOT_REQUIRED"
+        else:
+            # Commit productivo desde el baseline/primer tooling; integración
+            # sin tocar ni sobrescribir los tres bytes TFT probados.
+            git("merge","--no-ff","-m","chore(alpha13): integrar ejecutor de cierre G4",
+                "refs/remotes/origin/"+BRANCH)
+            merged=git("rev-parse","HEAD")
         need(not setpaths("diff","--name-only") and
              not setpaths("diff","--cached","--name-only"),
-             "DIRTY_AFTER_TOOLING_MERGE")
+             "DIRTY_AFTER_TOOLING_INTEGRATION")
         product()
         say("SYNC_MERGE="+merged)
         changes=write_docs(m,tool,prod,merged)
