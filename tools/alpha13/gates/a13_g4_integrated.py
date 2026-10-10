@@ -41,7 +41,7 @@ CANDIDATES = ("tools/alpha13/candidates/g4/JWPLC_TFT.cpp",
 BACKEND_SHA = {
     "TFT_eSPI.cpp":"01ed6edb0530d38b94ddeac079ba81633aa21d77d049b12da21a37f4bec69ee1",
     "TFT_eSPI.h":"b1b2789ace7ac8fd4a4c414054757d91e6e62649a23d74226ea28ceb8d6f4462",
-    "TFT_Drivers/ST7789_Init.h":"e21cae2ac84285dc0e77648eca753f41f7da3c271594ede750b725136c10",
+    "TFT_Drivers/ST7789_Init.h":"e21cae2ac84285dc0e77648eca67ca753f41f7da3c271594ede750b725136c10",
 }
 PATCHED_INIT_SHA = "44873be82fe836084934a328df77f098e9ab88d212dd1d570da5e8aac74671bc"
 RUN_ID = datetime.now().strftime("%Y%m%d_%H%M%S") + "_" + uuid.uuid4().hex[:8]
@@ -160,6 +160,21 @@ def preflight():
           "TRACKED_WORKTREE_NOT_CLEAN")
     check(not git("ls-files","--others","--exclude-standard"),
           "UNTRACKED_WORKTREE_FILES_PRESENT")
+    # Verificar forma y procedencia de las identidades del backend ANTES
+    # de llegar a la receta o consultar Internet. Prevenir errata F111.
+    historical=(ROOT/"tools/alpha13/gates/a13_tft_closure.py").read_text(encoding="utf-8")
+    historical_pin=re.search(r'"backend_init":\\s*"([a-f0-9]{64})"',historical)
+    historical_patched=re.search(r'"patched_init":\\s*"([a-f0-9]{64})"',historical)
+    check(historical_pin is not None and historical_patched is not None,
+          "TFT_CLOSURE_PINNED_SHA_MISSING","HARNESS")
+    check(BACKEND_SHA["TFT_Drivers/ST7789_Init.h"]==historical_pin.group(1) and
+          PATCHED_INIT_SHA==historical_patched.group(1),
+          "G4_BACKEND_PINS_DIVERGE_FROM_CLOSED_TFT","HARNESS")
+    for key,value in BACKEND_SHA.items():
+        check(re.fullmatch(r"[0-9a-f]{64}",value) is not None,
+              "G4_BACKEND_PIN_MALFORMED:"+key,"HARNESS")
+    check(re.fullmatch(r"[0-9a-f]{64}",PATCHED_INIT_SHA) is not None,
+          "G4_BACKEND_PATCHED_PIN_MALFORMED","HARNESS")
     check(sha(CORE)==CORE_SHA,"G3_CORE_CHANGED")
     check(sha(DISPLAY_A)==DISPLAY_SHA,"DISPLAY_ARCHIVE_CHANGED")
     check(sha(ROOT/PRODUCT[2])==OLD_TFT_SHA,"TFT_ARCHIVE_BASELINE_MISMATCH")
