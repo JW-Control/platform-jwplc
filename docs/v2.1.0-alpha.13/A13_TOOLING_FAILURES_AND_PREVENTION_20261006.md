@@ -963,3 +963,56 @@ rastreo de resultados, y tampoco crea un nuevo fallo F110.
 NEXT_FAILURE_ID=F110
 SYNC_TO_PROJECT_FAILURES_SOURCE=PENDING
 ```
+
+## F110 — firmas duplicadas en generación de candidato G3 (2026-10-10)
+
+**Clase:** `HARNESS / GENERACIÓN DE CÓDIGO`, no fallo demostrado del hardware ni de un firmware publicado.
+
+### Reproducción observada
+
+```text
+GATE=A13-G3-INTEGRATED
+RUN_ID=20261010_084655_3f2ccaf9
+PREFLIGHT=PASS
+ADOPTION=PASS
+BUILD_OFFICIAL_CORE_EXIT=1
+STATUS=REVIEW
+ROLLBACK=PASS
+PRODUCT_COMMIT=NO
+UPLOAD=NOT_EXECUTED
+```
+
+El `source-Basic.log` aportado por el operador evidencia siete errores de
+declaración duplicada en los cuatro archivos de origen adoptados:
+`bool bool` (tres funciones TCA), `int int` (jwplcI2C_updateBit) y
+`void void` (tres funciones del runtime).
+Causa raíz: el transformador usado para generar el candidato preservó
+el especificador de retorno original y añadió otro, mientras la revisión
+estructural inicial no comprobó firmas exactas.
+
+No hubo daño en producto publicado: la compilación se detuvo antes del
+upload y el respaldo restauró el core original.
+`git status --short` posterior vacío;
+`core.a SHA256=6f328eeb796091070c8d852a2c0e90f71047d8d2b5786fe3cd5079b2fb6ff983`.
+
+### Corrección y prevención
+
+- Corregir todas las firmas **en los candidatos versionados**, sin parchear
+  manualmente las fuentes productivas ni duplicar el gate.
+- Añadir preflight previo a adopción que rechace tipos de retorno duplicados,
+  verifique firmas exactas y el contrato de mutex y shadow.
+- En fallos de construcción, extraer `source-Basic.log` y mostrar errores
+  concretos además del código del wrapper PowerShell.
+- Calificar nuevamente fuente→core.a→enlace normal→regresiones→prueba física;
+  no considerar PASS hasta obtener resultados del nuevo intento.
+- Respetar rollback byte-identical, worktree limpio y frontera de cargas
+  desconectadas para las dos salidas de relé del ensayo.
+
+```text
+F110=HARNESS_CANDIDATE_GENERATION
+ROOT_CAUSE=DOUBLE_RETURN_TYPE
+CORRECTIVE_TOOLING_COMMIT=4da9285097e982168577a90be770ff1112b84adc
+RETEST=NOT_EXECUTED
+F110_RECURRENCE=PREVENTION_CHECK_READY
+NEXT_FAILURE_ID=F111
+```
