@@ -163,8 +163,8 @@ def preflight():
     # Verificar forma y procedencia de las identidades del backend ANTES
     # de llegar a la receta o consultar Internet. Prevenir errata F111.
     historical=(ROOT/"tools/alpha13/gates/a13_tft_closure.py").read_text(encoding="utf-8")
-    historical_pin=re.search(r'"backend_init":\\s*"([a-f0-9]{64})"',historical)
-    historical_patched=re.search(r'"patched_init":\\s*"([a-f0-9]{64})"',historical)
+    historical_pin=re.search(r'"backend_init":\s*"([a-f0-9]{64})"',historical)
+    historical_patched=re.search(r'"patched_init":\s*"([a-f0-9]{64})"',historical)
     check(historical_pin is not None and historical_patched is not None,
           "TFT_CLOSURE_PINNED_SHA_MISSING","HARNESS")
     check(BACKEND_SHA["TFT_Drivers/ST7789_Init.h"]==historical_pin.group(1) and
