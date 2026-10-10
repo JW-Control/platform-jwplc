@@ -3,20 +3,20 @@
   "alg": "ed25519",
   "keyId": "jwcontrol-2026",
   "packageId": "com.jwcontrol.jwplc-basic",
-  "version": "2.1.0-alpha.27",
-  "signedAt": "2026-10-10T14:27:16.606Z",
+  "version": "2.1.0-alpha.28",
+  "signedAt": "2026-10-10T19:10:06.557Z",
   "files": {
     "README.md": "f98f113f4095893aca82fbb0a5d750d8a6c383af37e3cbe99691854c96ddb832",
     "assets/jwplcbasic.png": "64c7c2755436f2224c1aa7f4ed535c95339eba3df43dbc93f1f19bf5f1b6fb68",
     "examples/JWPLC_Basic_Blink_Q0_0/README.md": "363bf0ddb193c6d4978e18c3947bf53df755c42704fe383632e8929cad83c52f",
     "examples/JWPLC_Basic_IO_Test_I0_to_Q0/README.md": "c40d37f6963766cb280de09c43ab56f56b74ce5f533beaf06d35e937f37cb747",
-    "hal/jwplcbasic-remoteio-slave.cpp": "e0460d0349d6d74b0a09a81f6533497e33d61a478fb4993397afc5ab5ed26f11",
-    "hal/jwplcbasic.cpp": "9a4c213ff3e6dfd23c98c9e06632cfd2e0b2aec2b3d3f41d535a3dc3a49fee6e",
-    "manifest.json": "fd67426b8a6fac78cfe03e201cbbed132203c27ef82b30344c3892a802a0851b",
+    "hal/jwplcbasic-remoteio-slave.cpp": "d8823f51d8a0352017cca20f36057835bf92eacdf7b494733a82e77e63d88d7f",
+    "hal/jwplcbasic.cpp": "e92afe8c3a98cf3b0fcb46379908fa3dd233b225f3a71e1a50f7f19b7948e8ec",
+    "manifest.json": "f50a626ffc10ec401314a3b1d6e87d68253ff1acd0c2c7b875a1c2f82e65befc",
     "screens/backplane.json": "51e516ea63cb4dee71a93bdd218ebfcc565411a6eab295903bc89744a9827df2",
     "screens/jwplc-basic-remote-io.json": "f2ed17ef99859cf655f4c5d6be369dd4a49760b5c5e649fa688d04f9550090e1",
     "screens/modbus.json": "2ba86ffbc65d197eaf94ca6ebc36b6ed0b2cf0d2ea7f0dc6c2676cfd61262ef6",
     "screens/remote-io-slave.json": "4b4a0353eab762fef2ab8c2f9ace5cd5f330a51a21e828a97f436374efc1a12c"
   },
-  "signature": "iM4QWbBi+DX/Ytxc0p8+r06KW44RmIxG675ejZr80sM7i8N2VKfXRt9rQWA7+A6wYxPFxxWEC4Ko8NdYQ4gHBg=="
+  "signature": "KvSFsX4DkPgK+kXKDTBd3AxECugQDioyf2eLMb/Iq/LXnOF09rcYqANvaouu7HmeeZzkycYr61KdqKCVe2/fCQ=="
 }

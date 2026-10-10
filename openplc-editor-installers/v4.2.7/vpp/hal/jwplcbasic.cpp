@@ -79,6 +79,15 @@ static constexpr uint8_t JWPLC_REMOTE_OFFLINE_FAILURES = 3;
 // OUTPUT_FAILSAFE_MS = 1000). Peor caso: ciclo de slots en linea + 1 timeout.
 static constexpr uint32_t JWPLC_REMOTE_OFFLINE_PROBE_INTERVAL_MS = 1000UL;
 
+// Entradas remotas forzadas por el debugger -> pantalla IDLE del modulo.
+// Se escriben con FC06 en el Holding Register 0 del esclavo (byte alto =
+// mascara, byte bajo = valores) solo cuando cambian, mas un refresco mientras
+// haya forzados (por si el modulo se reinicio). Un modulo sin ese registro
+// (firmware anterior) responde excepcion: no cuenta como fallo de
+// comunicacion y se reintenta como maximo una vez por intervalo.
+static constexpr uint16_t JWPLC_REMOTE_HR_INPUT_FORCE = 0;
+static constexpr uint32_t JWPLC_REMOTE_INPUT_FORCE_REFRESH_MS = 1000UL;
+
 // ---------------------------------------------------------------------------
 // Configuracion del bus RS-485 del Backplane (Serial2).
 //
@@ -236,6 +245,18 @@ struct JWPLCRemoteSlot
 
     bool online;
     uint8_t consecutiveFailures;
+
+    // Entradas del modulo forzadas por el debugger, para su pantalla IDLE.
+    // appliedInputs: ultimo valor que el HAL escribio en los %IX del modulo.
+    // inputForceOverlay: mascara << 8 | valores, calculado tras el programa.
+    // sentInputForceOverlay: ultimo valor confirmado por el modulo (HR 0).
+    uint8_t appliedInputs;
+    uint16_t inputForceOverlay;
+    uint16_t pendingInputForceOverlay;
+    uint16_t sentInputForceOverlay;
+    bool inputForceOverlaySent;
+    bool inputForceWriteAttempted;
+    uint32_t lastInputForceWriteMs;
 };
 
 static JWPLCRemoteSlot jwplcRemoteSlots[JWPLC_REMOTE_MAX_SLOTS] = {};
@@ -751,8 +772,10 @@ static bool jwplcLoadRemoteSlots()
     return jwplcRemoteSlotCount > 0;
 }
 
-static void jwplcApplyRemoteInputs(const JWPLCRemoteSlot &remote, uint8_t bits)
+static void jwplcApplyRemoteInputs(JWPLCRemoteSlot &remote, uint8_t bits)
 {
+    remote.appliedInputs = bits;
+
     for (uint8_t i = 0; i < JWPLC_REMOTE_CHANNELS; ++i)
     {
         const JWPLCIecBitAddress &mapping = remote.inputMap[i];
@@ -833,7 +856,31 @@ static void jwplcRecordRemoteResult(JWPLCRemoteSlot &remote, bool success)
         remote.feedbackValid = false;
         remote.feedbackMismatchBits = 0;
         jwplcApplyRemoteInputs(remote, 0);
+        // Al volver, el modulo arranca sin marca: reenviar el estado actual.
+        remote.inputForceOverlaySent = false;
     }
+}
+
+// Escritura FC06 de las entradas forzadas pendiente para este slot.
+static bool jwplcRemoteInputForceWriteDue(const JWPLCRemoteSlot &remote)
+{
+    if (!remote.online)
+        return false;
+
+    const uint32_t elapsedMs = (uint32_t)(millis() - remote.lastInputForceWriteMs);
+
+    if (!remote.inputForceOverlaySent)
+    {
+        // Primer envio, o el modulo no lo confirmo (p. ej. firmware anterior).
+        return !remote.inputForceWriteAttempted ||
+               elapsedMs >= JWPLC_REMOTE_INPUT_FORCE_REFRESH_MS;
+    }
+
+    if (remote.sentInputForceOverlay != remote.inputForceOverlay)
+        return true;
+
+    return remote.inputForceOverlay != 0 &&
+           elapsedMs >= JWPLC_REMOTE_INPUT_FORCE_REFRESH_MS;
 }
 
 enum JWPLCRemoteRtuPhase : uint8_t
@@ -844,6 +891,9 @@ enum JWPLCRemoteRtuPhase : uint8_t
     JWPLC_REMOTE_FEEDBACK_WAIT,
     JWPLC_REMOTE_READ_START,
     JWPLC_REMOTE_READ_WAIT,
+    // FC06 de entradas forzadas, solo cuando hace falta (ver HR 0).
+    JWPLC_REMOTE_FORCE_START,
+    JWPLC_REMOTE_FORCE_WAIT,
     // Todos los slots fuera de linea y aun no toca sondear: bus en reposo.
     JWPLC_REMOTE_IDLE
 };
@@ -1006,6 +1056,42 @@ static void jwplcServiceRemoteRtu()
                 jwplcApplyRemoteInputs(remote, remote.inputBits);
             }
 
+            if (fc02Succeeded && jwplcRemoteInputForceWriteDue(remote))
+            {
+                jwplcRemotePhase = JWPLC_REMOTE_FORCE_START;
+            }
+            else
+            {
+                jwplcAdvanceRemoteSlot();
+            }
+        }
+        break;
+
+    case JWPLC_REMOTE_FORCE_START:
+        remote.pendingInputForceOverlay = remote.inputForceOverlay;
+        if (JWPLC_ModbusRTU.writeSingleRegister(
+                remote.slaveId,
+                JWPLC_REMOTE_HR_INPUT_FORCE,
+                remote.pendingInputForceOverlay,
+                JWPLC_MODBUS_TIMEOUT_MS))
+        {
+            remote.inputForceWriteAttempted = true;
+            remote.lastInputForceWriteMs = millis();
+            jwplcRemotePhase = JWPLC_REMOTE_FORCE_WAIT;
+        }
+        break;
+
+    case JWPLC_REMOTE_FORCE_WAIT:
+        if (JWPLC_ModbusRTU.masterDone())
+        {
+            // Solo afecta a la pantalla del modulo: un fallo no cuenta para
+            // fuera de linea (un firmware anterior responde excepcion).
+            if (JWPLC_ModbusRTU.masterSucceeded())
+            {
+                remote.sentInputForceOverlay = remote.pendingInputForceOverlay;
+                remote.inputForceOverlaySent = true;
+            }
+            JWPLC_ModbusRTU.clearMasterResult();
             jwplcAdvanceRemoteSlot();
         }
         break;
@@ -1110,36 +1196,72 @@ extern "C" void jwplcDisplaySetInputForceOverlay(uint8_t forcedMask, uint8_t for
 // Lectura física de I0_0..I0_7 del último updateInputBuffers() (bit i = I0_i).
 static uint8_t jwplcLocalInputsPhysical = 0;
 
+// raw: almacenamiento de la entrada (ya con el forzado re-impuesto).
+// written: último valor que el HAL escribió en ella.
+static bool jwplcInputIsForced(const IEC_BOOL *raw, bool written)
+{
+    return runtime_located_bool_is_forced
+               ? runtime_located_bool_is_forced(raw) != 0
+               : (*raw != 0) != written;
+}
+
 static void jwplcPublishForcedInputs()
 {
-    if (!jwplcDisplaySetInputForceOverlay)
-        return;
-
-    uint8_t forcedMask = 0;
-    uint8_t forcedValues = 0;
-
-    // pinMask_DIN es fijo (I0_0..I0_7), así que %IX0.i es el bit i de la IDLE.
-    for (int i = 0; i < NUM_DISCRETE_INPUT && i < 8; i++)
+    // Entradas locales -> IDLE de este equipo.
+    if (jwplcDisplaySetInputForceOverlay)
     {
-        IEC_BOOL *raw = bool_input[0][i];
-        if (raw == NULL || !jwplcValidPin(pinMask_DIN[i]))
-            continue;
+        uint8_t forcedMask = 0;
+        uint8_t forcedValues = 0;
 
-        const uint8_t bit = (uint8_t)(1U << i);
-        const bool value = *raw != 0;
-        const bool forced = runtime_located_bool_is_forced
-                                ? runtime_located_bool_is_forced(raw) != 0
-                                : value != ((jwplcLocalInputsPhysical & bit) != 0);
-        if (forced)
+        // pinMask_DIN es fijo (I0_0..I0_7), así que %IX0.i es el bit i de la IDLE.
+        for (int i = 0; i < NUM_DISCRETE_INPUT && i < 8; i++)
         {
-            forcedMask |= bit;
-            if (value)
-                forcedValues |= bit;
+            IEC_BOOL *raw = bool_input[0][i];
+            if (raw == NULL || !jwplcValidPin(pinMask_DIN[i]))
+                continue;
+
+            const uint8_t bit = (uint8_t)(1U << i);
+            if (jwplcInputIsForced(raw, (jwplcLocalInputsPhysical & bit) != 0))
+            {
+                forcedMask |= bit;
+                if (*raw)
+                    forcedValues |= bit;
+            }
         }
+
+        // Barata si no cambió: solo marca el display cuando el overlay varía.
+        jwplcDisplaySetInputForceOverlay(forcedMask, forcedValues);
     }
 
-    // Barata si no cambió: solo marca el display cuando el overlay varía.
-    jwplcDisplaySetInputForceOverlay(forcedMask, forcedValues);
+    // Entradas de cada módulo Remote I/O -> IDLE del módulo, vía FC06 HR 0
+    // (jwplcServiceRemoteRtu lo envía solo cuando cambia).
+    for (uint8_t s = 0; s < jwplcRemoteSlotCount; ++s)
+    {
+        JWPLCRemoteSlot &remote = jwplcRemoteSlots[s];
+        uint8_t forcedMask = 0;
+        uint8_t forcedValues = 0;
+
+        for (uint8_t i = 0; i < JWPLC_REMOTE_CHANNELS; ++i)
+        {
+            const JWPLCIecBitAddress &mapping = remote.inputMap[i];
+            if (!mapping.valid)
+                continue;
+
+            IEC_BOOL *raw = bool_input[mapping.byteIndex][mapping.bitIndex];
+            if (raw == NULL)
+                continue;
+
+            const uint8_t bit = (uint8_t)(1U << i);
+            if (jwplcInputIsForced(raw, (remote.appliedInputs & bit) != 0))
+            {
+                forcedMask |= bit;
+                if (*raw)
+                    forcedValues |= bit;
+            }
+        }
+
+        remote.inputForceOverlay = (uint16_t)(((uint16_t)forcedMask << 8) | forcedValues);
+    }
 }
 
 void updateInputBuffers()

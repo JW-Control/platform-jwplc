@@ -17,8 +17,10 @@ extern "C"
 //   FC02 0..7  -> I0_0..I0_7
 //   FC01 0..7  -> feedback Q0_0..Q0_7
 //   FC05/FC15  -> Q0_0..Q0_7
+//   FC03/FC06 HR 0 -> entradas forzadas en el Master (solo pantalla IDLE):
+//              byte alto = mascara I0_0..I0_7, byte bajo = valor forzado.
 //   Fail-safe: sin escritura FC05/FC15 valida durante el tiempo configurado
-//   -> todas las Q en LOW.
+//   -> todas las Q en LOW y se borra la marca de entradas forzadas.
 //
 // Las salidas pertenecen al Master del Backplane: el programa IEC de este
 // dispositivo no lee ni escribe I/O fisica (pinMapping = false), para que
@@ -119,6 +121,25 @@ static uint8_t jwplcSlaveDiscreteInputs = 0x00;
 static uint8_t jwplcSlaveAppliedOutputs = 0xFF;
 static bool jwplcSlaveEnabled = false;
 
+// Holding Register 0: entradas de este modulo forzadas por el debugger en el
+// Master (byte alto = mascara, byte bajo = valores). Solo alimenta la pantalla
+// IDLE: el forzado actua en el programa del Master, no en la I/O de este equipo.
+static constexpr uint16_t JWPLC_SLAVE_HR_INPUT_FORCE = 0;
+static uint16_t jwplcSlaveHolding[1] = {0};
+
+// Weak: con un package sin el overlay de la IDLE el HAL compila igual.
+extern "C" void jwplcDisplaySetInputForceOverlay(uint8_t forcedMask, uint8_t forcedValues) __attribute__((weak));
+
+static void jwplcSlavePublishForcedInputs()
+{
+    if (!jwplcDisplaySetInputForceOverlay)
+        return;
+
+    const uint16_t overlay = jwplcSlaveHolding[JWPLC_SLAVE_HR_INPUT_FORCE];
+    // Barata si no cambio: el display solo se marca cuando el overlay varia.
+    jwplcDisplaySetInputForceOverlay((uint8_t)(overlay >> 8), (uint8_t)(overlay & 0xFF));
+}
+
 static void jwplcSlaveApplyOutputs(uint8_t bitmap)
 {
     if (bitmap == jwplcSlaveAppliedOutputs)
@@ -147,10 +168,14 @@ static void jwplcSlaveService()
     {
         jwplcSlaveCoils = 0x00;
         jwplcSlaveApplyOutputs(0x00);
+        // Sin Master no hay forzado vigente: no dejar una "F" vieja en la IDLE.
+        jwplcSlaveHolding[JWPLC_SLAVE_HR_INPUT_FORCE] = 0;
+        jwplcSlavePublishForcedInputs();
         return;
     }
 
     jwplcSlaveApplyOutputs(jwplcSlaveCoils);
+    jwplcSlavePublishForcedInputs();
 }
 
 void hardwareInit()
@@ -163,6 +188,7 @@ void hardwareInit()
 
     JWPLC_ModbusRTU.setCoils(&jwplcSlaveCoils, JWPLC_SLAVE_CHANNELS);
     JWPLC_ModbusRTU.setDiscreteInputs(&jwplcSlaveDiscreteInputs, JWPLC_SLAVE_CHANNELS);
+    JWPLC_ModbusRTU.setHoldingRegisters(jwplcSlaveHolding, 1);
 
     if (JWPLC_ModbusRTU.begin(JWPLC_SLAVE_ID, JWPLC_SLAVE_BAUD, JWPLC_SLAVE_CONFIG))
     {
