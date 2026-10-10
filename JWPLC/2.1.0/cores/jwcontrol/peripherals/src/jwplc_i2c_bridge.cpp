@@ -73,6 +73,16 @@ static int jwplcI2CEnsureStartedLocked(void)
     return ESP_OK;
 }
 
+int jwplcI2C_transactionBegin(void)
+{
+    return jwplcI2CLock() ? ESP_OK : ESP_FAIL;
+}
+
+void jwplcI2C_transactionEnd(void)
+{
+    jwplcI2CUnlock();
+}
+
 int jwplcI2C_begin(void)
 {
     return jwplcI2C_beginWithPins(JWPLC_I2C_DEFAULT_SDA, JWPLC_I2C_DEFAULT_SCL, JWPLC_I2C_DEFAULT_HZ);
@@ -284,21 +294,29 @@ int jwplcI2C_updateBit(uint8_t address, uint8_t reg, uint8_t bitNum, uint8_t bit
         return ESP_ERR_INVALID_ARG;
     }
 
+    // Una sola exclusión sobre read + modify + write. Las primitivas internas
+    // pueden bloquear recursivamente sobre el mismo mutex I2C.
+    if (!jwplcI2CLock())
+    {
+        return ESP_FAIL;
+    }
+
     uint8_t value = 0;
     int ret = jwplcI2C_readReg8(address, reg, &value);
-    if (ret != ESP_OK)
+    if (ret == ESP_OK)
     {
-        return ret;
+        if (bitValue)
+        {
+            value |= (uint8_t)(1u << bitNum);
+        }
+        else
+        {
+            value &= (uint8_t)~(1u << bitNum);
+        }
+
+        ret = jwplcI2C_writeReg8(address, reg, value);
     }
 
-    if (bitValue)
-    {
-        value |= (uint8_t)(1u << bitNum);
-    }
-    else
-    {
-        value &= (uint8_t)~(1u << bitNum);
-    }
-
-    return jwplcI2C_writeReg8(address, reg, value);
+    jwplcI2CUnlock();
+    return ret;
 }

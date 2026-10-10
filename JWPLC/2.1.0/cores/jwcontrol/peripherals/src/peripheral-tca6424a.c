@@ -41,9 +41,16 @@ static void TCA6424A_prepareOutputShadowAddress(uint8_t address)
 
 bool TCA6424A_init(uint8_t address)
 {
+    if (jwplcI2C_transactionBegin() != 0)
+    {
+        return false;
+    }
+
     TCA6424A_prepareOutputShadowAddress(address);
     TCA6424A_invalidateOutputShadow();
-    return TCA6424A_testConnection(address);
+    const bool connected = TCA6424A_testConnection(address);
+    jwplcI2C_transactionEnd();
+    return connected;
 }
 
 bool TCA6424A_testConnection(uint8_t address)
@@ -89,27 +96,35 @@ bool TCA6424A_writePin(uint8_t address, uint16_t pin, bool state)
     {
         return false;
     }
+    if (jwplcI2C_transactionBegin() != 0)
+    {
+        return false;
+    }
 
-    uint8_t bank    = (uint8_t)(pin / 8);
-    uint8_t regAddr = (uint8_t)(TCA6424A_RA_OUTPUT0 + bank);
-    uint8_t bitNum  = (uint8_t)(pin % 8);
-    uint8_t bitMask = (uint8_t)(1u << bitNum);
+    const uint8_t bank = (uint8_t)(pin / 8);
+    const uint8_t regAddr = (uint8_t)(TCA6424A_RA_OUTPUT0 + bank);
+    const uint8_t bitNum = (uint8_t)(pin % 8);
+    const uint8_t bitMask = (uint8_t)(1u << bitNum);
 
     TCA6424A_prepareOutputShadowAddress(address);
 
     if (g_outputShadowValid[bank])
     {
-        bool currentState = (g_outputShadow[bank] & bitMask) != 0;
-
+        const bool currentState = (g_outputShadow[bank] & bitMask) != 0;
         if (currentState == state)
         {
-            // No-op real: no mutex I2C, no read y no write.
+            // El no-op debe quedar dentro de la misma exclusión que writeBank.
+            jwplcI2C_transactionEnd();
             return true;
         }
     }
 
     if (jwplcI2C_updateBit(address, regAddr, bitNum, state ? 1 : 0) != 0)
     {
+        // Un timeout no demuestra que el hardware haya rechazado la escritura.
+        // No permitir otro no-op basado en un estado de salida incierto.
+        g_outputShadowValid[bank] = false;
+        jwplcI2C_transactionEnd();
         return false;
     }
 
@@ -125,6 +140,7 @@ bool TCA6424A_writePin(uint8_t address, uint16_t pin, bool state)
         }
     }
 
+    jwplcI2C_transactionEnd();
     return true;
 }
 
@@ -134,24 +150,30 @@ bool TCA6424A_writeBank(uint8_t address, uint8_t bank, uint8_t state)
     {
         return false;
     }
+    if (jwplcI2C_transactionBegin() != 0)
+    {
+        return false;
+    }
 
     TCA6424A_prepareOutputShadowAddress(address);
 
     if (g_outputShadowValid[bank] && g_outputShadow[bank] == state)
     {
-        // El banco ya está en el estado solicitado: cero tráfico I2C.
+        jwplcI2C_transactionEnd();
         return true;
     }
 
-    uint8_t regAddr = (uint8_t)(TCA6424A_RA_OUTPUT0 + bank);
-
+    const uint8_t regAddr = (uint8_t)(TCA6424A_RA_OUTPUT0 + bank);
     if (jwplcI2C_writeReg8(address, regAddr, state) != 0)
     {
+        g_outputShadowValid[bank] = false;
+        jwplcI2C_transactionEnd();
         return false;
     }
 
     g_outputShadow[bank] = state;
     g_outputShadowValid[bank] = true;
+    jwplcI2C_transactionEnd();
     return true;
 }
 

@@ -6,6 +6,7 @@ extern "C"
 {
 #include "jwplc_peripherals.h"
 #include "peripheral-tca6424a.h"
+#include "jwplc_i2c_bridge.h"
 }
 
 extern "C" void ARDUINO_ISR_ATTR __pinMode(uint8_t pin, uint8_t mode);
@@ -239,12 +240,19 @@ void jwplcSystemSetIOReady(bool ready)
 
 void jwplcSystemSetOutputShadow(uint8_t bank1, uint8_t bank2)
 {
+    if (jwplcI2C_transactionBegin() != 0)
+    {
+        return;
+    }
+
     if ((g_ioState.do_bank1 != bank1) || (g_ioState.do_bank2 != bank2))
     {
         g_ioState.do_bank1 = bank1;
         g_ioState.do_bank2 = bank2;
         jwplcSystemMarkDisplayDirty();
     }
+
+    jwplcI2C_transactionEnd();
 }
 
 void jwplcSystemClearOutputShadow(void)
@@ -264,10 +272,17 @@ uint8_t JWPLC_readOutputs(void)
 
 void JWPLC_writeOutputs(uint8_t bitmap)
 {
+    if (jwplcI2C_transactionBegin() != 0)
+    {
+        return;
+    }
+
     if (TCA6424A_writeBank(TCA6424A_DEFAULT_ADDRESS, 1, bitmap))
     {
         jwplcSystemSetOutputShadow(bitmap, g_ioState.do_bank2);
     }
+
+    jwplcI2C_transactionEnd();
 }
 
 uint8_t jwplc_digitalReadBlock(const uint16_t *pins, uint8_t count)
@@ -488,15 +503,22 @@ void jwplc_digitalWrite(uint16_t pin, uint8_t val)
 {
     if (jwplc_isExpanderPin(pin))
     {
-        uint8_t channel = jwplc_virtualChannel(pin);
-        bool high = (val != LOW);
+        // Protege en una misma región el registro físico y el shadow de
+        // JWPLC_IO; el driver TCA usa el mismo mutex recursivo del puente.
+        if (jwplcI2C_transactionBegin() != 0)
+        {
+            return;
+        }
+
+        const uint8_t channel = jwplc_virtualChannel(pin);
+        const bool high = (val != LOW);
 
         if (TCA6424A_writePin(TCA6424A_DEFAULT_ADDRESS, channel, high))
         {
             if (jwplc_isOutputBank1Channel(channel))
             {
-                uint8_t bit = (uint8_t)(channel - 8);
-                uint8_t oldVal = g_ioState.do_bank1;
+                const uint8_t bit = (uint8_t)(channel - 8);
+                const uint8_t oldVal = g_ioState.do_bank1;
 
                 if (high)
                     g_ioState.do_bank1 |= (uint8_t)(1u << bit);
@@ -510,8 +532,8 @@ void jwplc_digitalWrite(uint16_t pin, uint8_t val)
             }
             else if (jwplc_isOutputBank2Channel(channel))
             {
-                uint8_t bit = (uint8_t)(channel - 16);
-                uint8_t oldVal = g_ioState.do_bank2;
+                const uint8_t bit = (uint8_t)(channel - 16);
+                const uint8_t oldVal = g_ioState.do_bank2;
 
                 if (high)
                     g_ioState.do_bank2 |= (uint8_t)(1u << bit);
@@ -524,6 +546,8 @@ void jwplc_digitalWrite(uint16_t pin, uint8_t val)
                 }
             }
         }
+
+        jwplcI2C_transactionEnd();
         return;
     }
 
