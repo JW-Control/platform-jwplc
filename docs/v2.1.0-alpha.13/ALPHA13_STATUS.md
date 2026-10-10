@@ -1,5 +1,32 @@
 # v2.1.0-alpha.13 — Estado operativo y continuidad
 
+## Estado vigente — G3-P0 preparado (2026-10-10)
+
+**Prevalece para la próxima acción sobre los bloques cronológicos anteriores.** El cierre TFT permanece retenido.
+
+```text
+BRANCH=v2.1.0-alpha.13/feature/cleanup-robustness
+ALPHA13_STATUS=IN_PROGRESS
+G1_DNS=CLOSED_PASS
+G2_TCA_STARTUP=CLOSED_PASS
+TFT_CLOSURE=CLOSED_PASS
+G3=A13-004_TCA_RMW_SHADOW_ATOMICITY
+G3_P0_TOOLING=VERSIONED_READY_TO_RUN
+G3_P0_RESULT=NOT_EXECUTED
+G3_PRODUCT_CHANGE=NO
+NEXT_GATE=A13-G3-P0_TCA_RMW_BASELINE
+NO_UPLOAD=YES
+NO_RECOMPILE_CORE=YES
+OPENPLC=OUT_OF_SCOPE
+HMI_DESIGNER=OUT_OF_SCOPE
+TFT_NEW_FEATURES=OUT_OF_SCOPE
+```
+
+Ejecutor: `tools/alpha13/gates/run_a13_g3_p0_tca_rmw_baseline.bat`. Diseño y criterio de evidencia: [A13_G3_P0_TCA_RMW_BASELINE_PLAN_20261010.md](A13_G3_P0_TCA_RMW_BASELINE_PLAN_20261010.md). El resultado no se clasificará como PASS hasta recibir la salida ejecutada; en P0 se modela una intercalación, no se mide concurrencia física. No repetir TFT.
+
+---
+
+
 ## Estado vigente — TFT-CLOSURE cerrado (2026-10-09)
 
 **TFT_CLOSURE_CLOSED_PASS_CURRENT_20261009**. Este bloque prevalece sobre las entradas históricas P2A/P2B y NEXT_GATE=TFT-CLOSURE más abajo, preservadas para trazabilidad.
