@@ -1,5 +1,8 @@
 # Alpha13 — TFT-CLOSURE — ejecutor integrador propuesto
 
+> **Actualización tras ejecución (20261009_220034_167fa2ad):** este documento conserva el plan inicial como historial. La ejecución física, regresiones y rebuild dieron PASS, confirmado por el operador. Consultar [cierre final](A13_TFT_CLOSURE_20261009.md).
+
+
 Fecha: 2026-10-09. Estado: `PREPARADO_LOCALMENTE_NO_VERSIONADO_NO_EJECUTADO`.
 
 ## Fuente de verdad
