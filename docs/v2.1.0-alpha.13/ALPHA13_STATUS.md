@@ -304,16 +304,19 @@ topología = baseline ancestro + allowlist de commits tooling/docs
 ## NEXT_GATE
 
 ```text
-NEXT_GATE=TFT-PRE6-P2A
-OBJECTIVE=locally adopt the P1B verified TFT sources and archive with automatic rollback and four normal Arduino builds
-STATE=READY_TO_RUN_AFTER_PULL
-PREREQUISITE=TFT_PRE6_P1B_CLOSED_PASS
+NEXT_GATE=TFT-CLOSURE
+NEXT_PHYSICAL_GATE=TFT-PRE6-P2B
+OBJECTIVE=confirm boot-clean on physical JWPLC with normal product precompiled archive, then regress, finalize rebuild recipe and close
+STATE=PRODUCT_ADOPTED_LOCALLY_UNCOMMITTED_AWAITING_PHYSICAL_GATE
+PREREQUISITE=TFT_PRE6_P2A_CLOSED_PASS
 P1A_R1=REVIEW_HARNESS_F109
 P1A_R2=REVIEW_HARNESS_F109
 P1A_R3=CLOSED_PASS
 P1B=CLOSED_PASS
+P2A=CLOSED_PASS
+P2A_PRODUCT_FILES_CHANGED=3
 PRODUCT_FIX_COMMITTED=NO
-PRODUCTION_ARCHIVE_REFRESH=PREPARED_NOT_APPLIED
+PRODUCTION_ARCHIVE_REFRESH=APPLIED_LOCAL_ONLY
 NEXT_FAILURE_ID=F110
 ```
 
@@ -1612,6 +1615,92 @@ worktree CLEAN. Si pasa, **deja tres modificaciones locales SIN COMMIT**
 para realizar P2B físico. No hacer git pull, reset ni cambios de
 rama hasta completar P2B o restaurar explícitamente la copia de
 seguridad. Mantener F110 disponible sólo para fallos nuevos.
+
+## TFT-PRE6-P2A — CLOSED_PASS; hito TFT-CLOSURE pendiente (2026-10-09)
+
+**Estado canónico para nuevo chat.** El usuario ejecutó P2A con estos resultados:
+
+```text
+GATE=A13-TFT-PRE6-P2A
+STATUS=PASS
+REASON=PRODUCT_WORKTREE_ADOPTED_AND_FOUR_NORMAL_BUILDS_PASS
+BRANCH=v2.1.0-alpha.13/feature/cleanup-robustness
+HEAD_LOCAL_DURING_P2A=ac69e41922f512c280ad116bcf79b24596befa02
+HEAD_REMOTO_AFTER_DOCS=CHECK_ON_ENTRY
+P2A_CPP_SHA256=494440b00e74e74a7b23975420574e035ef2138fdf5a0cea2fed51c986c29d25
+P2A_TFT_SETUP_SHA256=8fa079444ca130772d3a642eaf814035100bc098032b403c922c458d351ae5e1
+P2A_TFT_ARCHIVE_SHA256=ab73b244c44ebd75d29a4eeb3cd97f5d18c08470f535eb16d55c2fdbf2310ff8
+P2A_TFT_ARCHIVE_BYTES=1091990
+P2A_CORE_SHA256=6f328eeb796091070c8d852a2c0e90f71047d8d2b5786fe3cd5079b2fb6ff983
+P2A_DISPLAY_SHA256=c960d718433e29a40e3cc55bc745c9a2e121ee1ee598ec72c04872327592dc02
+P2A_NORMAL_COMPILE_CASES_PASS=4
+P2A_DIRECT_TFT=PASS
+P2A_DISPLAY_INTEGRATION=PASS
+P2A_NORMAL_AUTOLOAD=PASS
+P2A_STARTUP_PROBE=PASS
+P2A_GLOBAL_TFT_ESPI_REQUIRED=NO
+P2A_PRODUCT_CHANGED_FILE_COUNT=3
+P2A_PRODUCT_COMMIT_EXECUTED=NO
+P2A_UPLOAD_EXECUTED=NO
+P2A_BACKUP_ROOT=%TEMP%/jwplc_a13_tft_pre6_p2a_20261009_172339/originals
+LOCAL_WORKTREE=3_TRACKED_PRODUCT_FILES_MODIFIED_UNCOMMITTED
+NEXT_FAILURE_ID=F110
+```
+
+Los tres archivos locales adoptados en el equipo Windows **y sólo esos**:
+
+```text
+JWPLC/2.1.0/libraries/JWPLC_TFT/src/JWPLC_TFT.cpp
+JWPLC/2.1.0/libraries/JWPLC_TFT/src/tft_setup.h
+JWPLC/2.1.0/libraries/JWPLC_TFT/src/esp32/libJWPLC_TFT.a
+```
+
+**No se han versionado aún esos cambios productivos** ni se ha efectuado
+upload del archive productivo. La validación visual positiva anterior de PRE5
+aplica al **candidato temporal**, no sustituye la prueba normal P2B.
+La rama remota sí puede contener nuevos commits **documentales** desde
+`ac69e419`, sin significar que los cambios productivos estén en GitHub.
+
+### Siguiente hito: TFT-CLOSURE (flujo integrado)
+
+Contrato operativo: `docs/JWPLC_COLLABORATION_WORKFLOW.md`.
+
+1. **No repetir gates cerrados.** Empezar por verificación de hashes de
+   los tres archivos modificados y `git status`, FQBN/COM disponible y
+   backup existente. No forzar `git pull` sobre worktree intencionalmente
+   modificado. Para traer únicamente un ejecutor nuevo, usar método
+   explícito que no actualice los tres archivos productivos.
+2. Ejecutar un **gate integrador**, automatizando compilación normal,
+   upload por COM verificado, identificación del firmware por serial y
+   condición `DISPLAY_READY=YES` / `IO_READY=YES`. Asegurar prueba
+   real del archive productivo `ab73b244...` sin TFT_eSPI externa;
+   evitar falso PASS por firmware serial anterior (provenance).
+3. Pedir al usuario observación de arranque **USB-only** y video/capturas:
+   fondo blanco ausente, pantalla limpia, IDLE coherente. No inferir
+   resultado visual solo de serial. El dibujado progresivo de IDLE es
+   observación distinta, no bug de GRAM.
+4. Tras PASS visual, validar regresiones de Display y consumers de
+   Alpha12/Alpha13, autoload, APIs y reconstrucción del archive con
+   receta capaz de partir de los **nuevos fuentes ya parcheados**.
+   La receta P1A original usa como entrada el baseline viejo:
+   **requiere adaptación idempotente o nueva receta versionada**.
+5. Preparar commit exacto de producto y documentación, revisión de
+   `git diff --check` y checklist de Alpha13; commit/publicación
+   sujetos a confirmación. No tocar OpenPLC ni HMI Designer.
+
+```text
+NEXT_GATE=TFT-CLOSURE
+P2B_PHYSICAL=NOT_EXECUTED
+P3_REGRESSION_AND_REBUILD_RECIPE=NOT_EXECUTED
+P3_COMMIT=NOT_EXECUTED
+PRODUCT_REPO_REMOTE_CHANGED=NO_FOR_TFT_THREE_FILES
+WORKFLOW=INTEGRATED_MILESTONES
+MIGRATION_HANDOFF_SEPARATE_FILE=NOT_REQUIRED
+```
+
+**Nota de precedencia:** este bloque y el `NEXT_GATE` vigente
+reemplazan las menciones históricas `P2A_PREPARED_NOT_EXECUTED` en
+secciones anteriores, conservadas como registro cronológico.
 
 ## Gates restantes
 
