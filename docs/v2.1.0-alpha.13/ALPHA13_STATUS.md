@@ -1,5 +1,37 @@
 # v2.1.0-alpha.13 — Estado operativo y continuidad
 
+## Estado vigente — G3 A13-004 cerrado (2026-10-10)
+
+**Prevalece sobre los bloques anteriores de G3.**
+
+G1_DNS=CLOSED_PASS
+G2_TCA_STARTUP=CLOSED_PASS
+TFT_CLOSURE=CLOSED_PASS
+G3_P0=PASS_BASELINE_RACE_REPRODUCED
+G3_SOURCE_CORE_REBUILD=PASS
+G3_NORMAL_PRECOMPILED_LINK=PASS
+G3_REGRESSIONS=3_OF_3_PASS
+G3_PHYSICAL=150_OF_150_PASS
+G3_SERIAL_ERRORS=0
+G3_FINAL_OUTPUT=0x00
+G3=CLOSED_PASS
+G3_20261010_091949_a04d2223=20261010_091949_a04d2223
+G3_a1a985f64c22838a1987d4280b8c1dc431a42d5789c6692cbfa36dfb6252246d256=a1a985f64c22838a1987d4280b8c1dc431a42d5789c6692cbfa36dfb6252246d
+G3_8b8b9a7b491feb92d8fc91f06ae75234771cde70=8b8b9a7b491feb92d8fc91f06ae75234771cde70
+G3_SYNC_NOT_REQUIRED=NOT_REQUIRED
+F110=CLOSED_HARNESS_REMEDIATED
+NEXT_GATE=A13-G4_TFT_BATCH_TASK_OWNERSHIP
+NEXT_FAILURE_ID=F111
+OPENPLC=OUT_OF_SCOPE
+HMI_DESIGNER=OUT_OF_SCOPE
+TFT_NEW_FEATURES=OUT_OF_SCOPE
+
+Documentos: [cierre G3](A13_G3_CLOSURE_20261010.md) y
+[checklist G3](A13_G3_CLOSURE_CHECKLIST_20261010.md).
+Sin publicación ni merge a release.
+
+---
+
 ## Estado vigente — G3 integrado: candidata corregida, prueba pendiente (2026-10-10)
 
 **Prevalece sobre los bloques anteriores de G3.** El intento inicial falló por siete firmas duplicadas generadas en las fuentes candidatas; no por TCA ni por el toolchain. Restauración local validada.
