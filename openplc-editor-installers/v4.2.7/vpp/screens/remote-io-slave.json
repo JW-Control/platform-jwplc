@@ -3,6 +3,7 @@
     {
       "id": "remote-io-slave",
       "title": "Remote I/O Slave (RS-485 Backplane)",
+      "description": "Este equipo funciona como modulo Remote I/O: su firmware ya esta completo. Al compilar con esta placa, el editor usa una plantilla interna y NO usa ni modifica el programa del proyecto (main). Puedes compilar el esclavo desde el mismo proyecto del maestro sin borrar su main.",
       "layout": "form",
       "persistence": "remote_io_slave",
       "fields": [

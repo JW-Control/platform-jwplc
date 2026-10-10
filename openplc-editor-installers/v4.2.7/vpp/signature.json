@@ -3,8 +3,8 @@
   "alg": "ed25519",
   "keyId": "jwcontrol-2026",
   "packageId": "com.jwcontrol.jwplc-basic",
-  "version": "2.1.0-alpha.28",
-  "signedAt": "2026-10-10T19:10:06.557Z",
+  "version": "2.1.0-alpha.29",
+  "signedAt": "2026-10-10T21:58:35.995Z",
   "files": {
     "README.md": "f98f113f4095893aca82fbb0a5d750d8a6c383af37e3cbe99691854c96ddb832",
     "assets/jwplcbasic.png": "64c7c2755436f2224c1aa7f4ed535c95339eba3df43dbc93f1f19bf5f1b6fb68",
@@ -12,11 +12,11 @@
     "examples/JWPLC_Basic_IO_Test_I0_to_Q0/README.md": "c40d37f6963766cb280de09c43ab56f56b74ce5f533beaf06d35e937f37cb747",
     "hal/jwplcbasic-remoteio-slave.cpp": "d8823f51d8a0352017cca20f36057835bf92eacdf7b494733a82e77e63d88d7f",
     "hal/jwplcbasic.cpp": "e92afe8c3a98cf3b0fcb46379908fa3dd233b225f3a71e1a50f7f19b7948e8ec",
-    "manifest.json": "f50a626ffc10ec401314a3b1d6e87d68253ff1acd0c2c7b875a1c2f82e65befc",
+    "manifest.json": "5b638381813f511de280ab03e3394e1cc77c9fc064a673b35e00840d880cf692",
     "screens/backplane.json": "51e516ea63cb4dee71a93bdd218ebfcc565411a6eab295903bc89744a9827df2",
     "screens/jwplc-basic-remote-io.json": "f2ed17ef99859cf655f4c5d6be369dd4a49760b5c5e649fa688d04f9550090e1",
     "screens/modbus.json": "2ba86ffbc65d197eaf94ca6ebc36b6ed0b2cf0d2ea7f0dc6c2676cfd61262ef6",
-    "screens/remote-io-slave.json": "4b4a0353eab762fef2ab8c2f9ace5cd5f330a51a21e828a97f436374efc1a12c"
+    "screens/remote-io-slave.json": "aa4c1205fd3b9f9e5ca47dfa50db4c07470c00823f6c166cfa6b16a4e42771a0"
   },
-  "signature": "KvSFsX4DkPgK+kXKDTBd3AxECugQDioyf2eLMb/Iq/LXnOF09rcYqANvaouu7HmeeZzkycYr61KdqKCVe2/fCQ=="
+  "signature": "2vO1MtdBhEOnwRPn95yGN3Doo/9OzbJjh2oNoefa1t8ueYEq8QyJMeqgp/9pkU2tFdJ9qAMfyfpUS2xJeJc/DQ=="
 }
