@@ -228,6 +228,41 @@ def make_backend(source_root):
          len(re.findall(rb"writecommand\(ST7789_DISPON\)",native)))
 
     if accepted is None:
+        # Recuperación estricta del archivo público del tag oficial V2.5.43.
+        # El SHA-256 del tag se comprobó independientemente contra el valor
+        # pinneado en TFT-CLOSURE. Se descarga SOLO a memoria/copia TEMP:
+        # nunca reemplazar la librería que mantiene el operador.
+        import urllib.request
+        upstream=("https://raw.githubusercontent.com/Bodmer/TFT_eSPI/"
+                  "V2.5.43/TFT_Drivers/ST7789_Init.h")
+        emit("BACKEND_INIT_RECOVERY","ATTEMPT_PINNED_OFFICIAL_SOURCE")
+        try:
+            request=urllib.request.Request(upstream,
+                                           headers={"User-Agent":"JWPLC-A13-G4-Source-Verify"})
+            with urllib.request.urlopen(request,timeout=15) as response:
+                upstream_bytes=response.read(65537)
+            check(len(upstream_bytes)<=65536,
+                  "BACKEND_UPSTREAM_SIZE_UNEXPECTED","ENVIRONMENT")
+            upstream_sha=hashlib.sha256(upstream_bytes).hexdigest()
+            emit("BACKEND_UPSTREAM_SHA256_ACTUAL",upstream_sha)
+            check(upstream_sha==BACKEND_SHA[rel],
+                  "BACKEND_UPSTREAM_SHA_NOT_PINNED","ENVIRONMENT")
+            accepted=("ORIGINAL","OFFICIAL_V2_5_43_PINNED",upstream_bytes)
+            MANIFEST["backend_init_source_recovery"]={
+                "method":"OFFICIAL_TAG_DOWNLOAD_TEMP_ONLY",
+                "url":upstream,
+                "sha256":upstream_sha,
+                "local_unmodified":True,
+            }
+            emit("BACKEND_INIT_RECOVERY","PASS_VERIFIED_SHA")
+        except GateStop:
+            raise
+        except Exception as exc:
+            emit("BACKEND_INIT_RECOVERY","UNAVAILABLE")
+            emit("BACKEND_DOWNLOAD_ERROR",str(exc)[:350])
+            MANIFEST["backend_init_recovery_failure"]=str(exc)[:350]
+
+    if accepted is None:
         MANIFEST["backend_init_diagnostic"]={
             "path":str(path),"actual_sha256":hashlib.sha256(native).hexdigest(),
             "expected_original_sha256":BACKEND_SHA[rel],
