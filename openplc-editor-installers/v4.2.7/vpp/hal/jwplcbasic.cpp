@@ -1089,18 +1089,76 @@ void hardwareInit()
     }
 }
 
+// =====================================================
+// Entradas locales forzadas -> pantalla IDLE
+// =====================================================
+// Un forzado del debugger vive en la variable IEC: la lectura física no
+// cambia y la IDLE no lo mostraría. El runtime re-impone el valor forzado
+// sobre el valor crudo justo después de updateInputBuffers()
+// (runtime_apply_located_forces), así que en updateOutputBuffers() el valor
+// crudo de cada entrada ya es el que ve el programa.
+//
+// Detección exacta si el runtime del editor exporta
+// runtime_located_bool_is_forced(). Si no, se marca forzada la entrada cuyo
+// valor crudo difiere de la lectura física; un forzado al mismo valor que la
+// entrada física no se distingue (la IDLE muestra igual el valor correcto).
+// Ambos símbolos son weak: con un package o un editor anteriores, el HAL
+// compila igual y la IDLE queda como antes.
+extern "C" uint8_t runtime_located_bool_is_forced(const void *raw) __attribute__((weak));
+extern "C" void jwplcDisplaySetInputForceOverlay(uint8_t forcedMask, uint8_t forcedValues) __attribute__((weak));
+
+// Lectura física de I0_0..I0_7 del último updateInputBuffers() (bit i = I0_i).
+static uint8_t jwplcLocalInputsPhysical = 0;
+
+static void jwplcPublishForcedInputs()
+{
+    if (!jwplcDisplaySetInputForceOverlay)
+        return;
+
+    uint8_t forcedMask = 0;
+    uint8_t forcedValues = 0;
+
+    // pinMask_DIN es fijo (I0_0..I0_7), así que %IX0.i es el bit i de la IDLE.
+    for (int i = 0; i < NUM_DISCRETE_INPUT && i < 8; i++)
+    {
+        IEC_BOOL *raw = bool_input[0][i];
+        if (raw == NULL || !jwplcValidPin(pinMask_DIN[i]))
+            continue;
+
+        const uint8_t bit = (uint8_t)(1U << i);
+        const bool value = *raw != 0;
+        const bool forced = runtime_located_bool_is_forced
+                                ? runtime_located_bool_is_forced(raw) != 0
+                                : value != ((jwplcLocalInputsPhysical & bit) != 0);
+        if (forced)
+        {
+            forcedMask |= bit;
+            if (value)
+                forcedValues |= bit;
+        }
+    }
+
+    // Barata si no cambió: solo marca el display cuando el overlay varía.
+    jwplcDisplaySetInputForceOverlay(forcedMask, forcedValues);
+}
+
 void updateInputBuffers()
 {
     jwplcTimingOnScanStart();
+    uint8_t physical = 0;
     for (int i = 0; i < NUM_DISCRETE_INPUT; i++)
     {
         uint16_t pin = pinMask_DIN[i];
 
         if (bool_input[i / 8][i % 8] != NULL && jwplcValidPin(pin))
         {
-            *bool_input[i / 8][i % 8] = digitalRead(pin);
+            const int value = digitalRead(pin);
+            *bool_input[i / 8][i % 8] = value;
+            if (value && i < 8)
+                physical |= (uint8_t)(1U << i);
         }
     }
+    jwplcLocalInputsPhysical = physical;
 
     jwplcServiceRemoteRtu();
 }
@@ -1121,6 +1179,8 @@ void updateOutputBuffers()
             digitalWrite(pin, *bool_output[i / 8][i % 8]);
         }
     }
+
+    jwplcPublishForcedInputs();
 
     jwplcServiceRemoteRtu();
     jwplcTimingMaybePrint();
