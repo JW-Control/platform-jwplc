@@ -287,7 +287,7 @@ int jwplcI2C_writeRegs(uint8_t address, uint8_t startReg, uint8_t length, const 
     return err;
 }
 
-int int jwplcI2C_updateBit(uint8_t address, uint8_t reg, uint8_t bitNum, uint8_t bitValue)
+int jwplcI2C_updateBit(uint8_t address, uint8_t reg, uint8_t bitNum, uint8_t bitValue)
 {
     if (bitNum > 7)
     {

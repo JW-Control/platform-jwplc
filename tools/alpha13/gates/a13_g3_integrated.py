@@ -98,6 +98,25 @@ def command(argv, label, cwd=None):
     emit(label+"_EXIT", p.returncode)
     if p.returncode:
         emit(label+"_TAIL", "\\n".join(output.splitlines()[-9:]))
+        # Recoger el diagnóstico del compilador, no solo el throw del wrapper PS1.
+        if label == "BUILD_OFFICIAL_CORE":
+            nested = sorted((TEMP / "core_build").rglob("source-Basic.log"))
+            if nested:
+                detail = nested[-1].read_text(encoding="utf-8", errors="replace")
+                extracted = []
+                for rawline in detail.splitlines():
+                    if re.search(r"(?:fatal error:|\berror:|undefined reference|error C\d+)", rawline, re.I):
+                        if len(rawline) < 1400:
+                            extracted.append(rawline.strip())
+                if extracted:
+                    unique = list(dict.fromkeys(extracted))
+                    (RUN / "COMPILER_ERRORS.log").write_text("\n".join(unique) + "\n",
+                                                              encoding="utf-8")
+                    for entry in unique[:12]:
+                        emit("COMPILER_ERROR", entry[:360])
+                else:
+                    emit("COMPILER_DIAGNOSTIC", "No match in source-Basic.log; inspect full log")
+
         raise Stop(label+"_EXIT_"+str(p.returncode), "PRODUCT_OR_ENVIRONMENT")
     return output
 
@@ -120,6 +139,25 @@ def proof_contract():
     tca = candidate[next(k for k in candidate if k.endswith("peripheral-tca6424a.c"))]
     runtime = candidate[next(k for k in candidate if k.endswith("/jwplc_peripherals.cpp"))]
     header = candidate[next(k for k in candidate if k.endswith("jwplc_i2c_bridge.h"))]
+    # Audit structural obligatorio antes de adoptar fuentes productivas.
+    # En el intento anterior una sustitución incorrecta introdujo bool bool,
+    # int int y void void; el gate debe detectarlo sin compilar ni mutar.
+    for filename, candidate_text in candidate.items():
+        dup = re.search(r"(?m)^\s*(?:bool|int|void|uint8_t|uint16_t|uint32_t)\s+(?:bool|int|void|uint8_t|uint16_t|uint32_t)\s+[A-Za-z_]\w*\s*\(", candidate_text)
+        need(dup is None, "DUPLICATE_RETURN_TYPE_IN_CANDIDATE:" + filename + ": " +
+             (dup.group(0).strip() if dup else ""), "HARNESS")
+    required_signatures = (
+        (bridge, "int jwplcI2C_updateBit("),
+        (tca, "bool TCA6424A_init("),
+        (tca, "bool TCA6424A_writePin("),
+        (tca, "bool TCA6424A_writeBank("),
+        (runtime, "void jwplcSystemSetOutputShadow("),
+        (runtime, "void JWPLC_writeOutputs("),
+        (runtime, "void jwplc_digitalWrite("),
+    )
+    for content, signature in required_signatures:
+        need(len(re.findall(r"(?m)^\s*" + re.escape(signature), content)) == 1,
+             "BAD_CANDIDATE_SIGNATURE:" + signature, "HARNESS")
     need("int jwplcI2C_transactionBegin(void);" in header, "NO_TRANSACTION_DECL")
     block = bridge.split("int jwplcI2C_updateBit(",1)[1]
     need("if (!jwplcI2CLock())" in block and

@@ -238,7 +238,7 @@ void jwplcSystemSetIOReady(bool ready)
     g_ioState.initialized = ready;
 }
 
-void void jwplcSystemSetOutputShadow(uint8_t bank1, uint8_t bank2)
+void jwplcSystemSetOutputShadow(uint8_t bank1, uint8_t bank2)
 {
     if (jwplcI2C_transactionBegin() != 0)
     {
@@ -270,7 +270,7 @@ uint8_t JWPLC_readOutputs(void)
     return g_ioState.do_bank1;
 }
 
-void void JWPLC_writeOutputs(uint8_t bitmap)
+void JWPLC_writeOutputs(uint8_t bitmap)
 {
     if (jwplcI2C_transactionBegin() != 0)
     {
@@ -499,7 +499,7 @@ void jwplc_pinMode(uint16_t pin, uint8_t mode)
     __pinMode((uint8_t)pin, mode);
 }
 
-void void jwplc_digitalWrite(uint16_t pin, uint8_t val)
+void jwplc_digitalWrite(uint16_t pin, uint8_t val)
 {
     if (jwplc_isExpanderPin(pin))
     {

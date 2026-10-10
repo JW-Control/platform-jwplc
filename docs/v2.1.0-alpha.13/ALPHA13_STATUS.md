@@ -1,5 +1,38 @@
 # v2.1.0-alpha.13 — Estado operativo y continuidad
 
+## Estado vigente — G3 integrado: candidata corregida, prueba pendiente (2026-10-10)
+
+**Prevalece sobre los bloques anteriores de G3.** El intento inicial falló por siete firmas duplicadas generadas en las fuentes candidatas; no por TCA ni por el toolchain. Restauración local validada.
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+BRANCH=v2.1.0-alpha.13/feature/cleanup-robustness
+G1_DNS=CLOSED_PASS
+G2_TCA_STARTUP=CLOSED_PASS
+TFT_CLOSURE=CLOSED_PASS
+G3_P0=PASS_BASELINE_RACE_REPRODUCED
+G3_ATTEMPT_1=REVIEW_CANDIDATE_SYNTAX
+G3_ATTEMPT_1_BUILD_OFFICIAL_CORE=FAIL
+G3_ATTEMPT_1_ROOT_CAUSE=DUPLICATED_RETURN_TYPES_IN_GENERATED_CANDIDATE
+G3_ATTEMPT_1_PRODUCT_FAILURE=NO_VALID_PRODUCT_CANDIDATE
+G3_ATTEMPT_1_PHYSICAL=NOT_EXECUTED
+G3_ATTEMPT_1_ROLLBACK=PASS
+G3_ATTEMPT_1_ORIGINAL_CORE_SHA256=6f328eeb796091070c8d852a2c0e90f71047d8d2b5786fe3cd5079b2fb6ff983
+G3_CANDIDATE_SIGNATURES_FIXED=YES
+G3_HARNESS_STATIC_SIGNATURE_GUARD=ADDED
+G3_RETEST=NOT_EXECUTED
+G3_PRODUCT_COMMIT=NO
+NEXT_GATE=A13-G3_INTEGRATED_RETEST
+NEXT_FAILURE_ID=F110
+OPENPLC=OUT_OF_SCOPE
+HMI_DESIGNER=OUT_OF_SCOPE
+TFT_NEW_FEATURES=OUT_OF_SCOPE
+```
+
+Causa confirmada por `source-Basic.log` compartido por el operador. No repetir P0. Los cambios de candidato y harness se documentan en [A13_G3_INTEGRATED_PLAN_20261010.md](A13_G3_INTEGRATED_PLAN_20261010.md). El siguiente intento solo debe ejecutarse con worktree limpio y con los actuadores desconectados. No dar por aprobada la prueba física hasta obtener evidencia serial y revisión humana.
+
+---
+
 ## Estado vigente — G3 integrado preparado (2026-10-10)
 
 **Nuevo estado operativo:** prevalece sobre el bloque anterior "G3-P0 preparado". G1/G2/TFT permanecen cerrados.

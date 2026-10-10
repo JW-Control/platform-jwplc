@@ -46,3 +46,9 @@ En FAIL/REVIEW el gate intenta restaurar las cuatro fuentes y `core.a` usando ba
 La construcción del archive no debe exigir SHA bit-a-bit histórico: el core contiene objetos con `__DATE__/__TIME__`. Se exige prueba de fuentes, link normal, hashes y cobertura de runtime.
 
 **Cierre del hito sujeto a evidencias reales y autorización de commit.** El no-op con shadow validado y la invalidación en fallo deben conservarse.
+
+## Corrección del intento de compilación 2026-10-10
+
+El primer intento integrado (ID `20261010_084655_3f2ccaf9`) pasó PREFLIGHT/ADOPTION, pero falló en `BUILD_OFFICIAL_CORE`. El log demostró un defecto del **generador del candidato**: siete firmas inválidas (`bool bool`, `int int`, `void void`). No se ejecutaron upload ni pruebas físicas. `ROLLBACK=PASS` y el SHA del `core.a` original quedó preservado: `6f328eeb796091070c8d852a2c0e90f71047d8d2b5786fe3cd5079b2fb6ff983`.
+
+Se corrigieron esas siete firmas en los tres archivos candidatos afectados, sin modificar producto. El preflight de G3 detecta ahora duplicados y exige firmas exactas antes de la adopción. En fallos de compilación del core copia mensajes relevantes del compilador a `COMPILER_ERRORS.log` y los imprime directamente. **Los cambios corregidos aún no tienen validación de Arduino CLI ni hardware:** correr una sola vez el hito integrado con el árbol limpio y cargas físicas desconectadas.

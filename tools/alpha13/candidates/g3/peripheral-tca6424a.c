@@ -39,7 +39,7 @@ static void TCA6424A_prepareOutputShadowAddress(uint8_t address)
     }
 }
 
-bool bool TCA6424A_init(uint8_t address)
+bool TCA6424A_init(uint8_t address)
 {
     if (jwplcI2C_transactionBegin() != 0)
     {
@@ -90,7 +90,7 @@ bool TCA6424A_readBank(uint8_t address, uint8_t bank, uint8_t *state)
     return jwplcI2C_readReg8(address, regAddr, state) == 0;
 }
 
-bool bool TCA6424A_writePin(uint8_t address, uint16_t pin, bool state)
+bool TCA6424A_writePin(uint8_t address, uint16_t pin, bool state)
 {
     if (pin >= TCA6424A_NUM_IO)
     {
@@ -144,7 +144,7 @@ bool bool TCA6424A_writePin(uint8_t address, uint16_t pin, bool state)
     return true;
 }
 
-bool bool TCA6424A_writeBank(uint8_t address, uint8_t bank, uint8_t state)
+bool TCA6424A_writeBank(uint8_t address, uint8_t bank, uint8_t state)
 {
     if (!TCA6424A_isValidBank(bank))
     {
