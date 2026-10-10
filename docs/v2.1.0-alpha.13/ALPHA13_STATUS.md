@@ -1,5 +1,37 @@
 # v2.1.0-alpha.13 — Estado operativo y continuidad
 
+## Estado vigente — G4 R2: F111 identificado/corregido, validación pendiente (2026-10-10)
+
+```text
+BRANCH=v2.1.0-alpha.13/feature/cleanup-robustness
+ALPHA13_STATUS=IN_PROGRESS
+G1_DNS=CLOSED_PASS
+G2_TCA_STARTUP=CLOSED_PASS
+TFT_CLOSURE=CLOSED_PASS
+G3=CLOSED_PASS
+G4_R1=REVIEW_HARNESS_PIN
+G4_R2=REVIEW_HARNESS_PIN
+G4_R2_LOCAL_BACKEND_MATCHES_OFFICIAL=YES
+G4_R2_UPSTREAM_BACKEND_MATCHES_OFFICIAL=YES
+G4_F111_ROOT_CAUSE=TRUNCATED_PIN_LITERAL
+G4_PIN_FIX_VERSIONED=YES
+G4_HISTORICAL_SHA_GUARD_ADDED=YES
+G4_PRODUCT_CHANGED=NO
+G4_PHYSICAL_UPLOAD=NOT_EXECUTED
+G4_RETEST=NOT_EXECUTED
+F111=OPEN_PENDING_G4_RETEST
+NEXT_GATE=A13_G4_INTEGRATED_RETEST
+NEXT_FAILURE_ID=F112
+OPENPLC=OUT_OF_SCOPE
+HMI_DESIGNER=OUT_OF_SCOPE
+TFT_NEW_FEATURES=OUT_OF_SCOPE
+```
+
+Se comprobó que la cabecera de init instalada coincide por bytes SHA-256 con la fuente oficial del tag TFT_eSPI `V2.5.43` y con el pin del gate TFT-CLOSURE. El fallo era de nuestra constante G4, corregida en tooling, no del usuario. No reinstalar ni modificar `TFT_eSPI`. Al completar el gate integrado, cerrar G4 y F111 según evidencia.
+
+---
+
+
 ## Estado vigente — G4 R1 bloqueado por diferencia de backend local (2026-10-10)
 
 ```text

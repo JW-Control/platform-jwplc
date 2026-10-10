@@ -77,3 +77,7 @@ NEXT_GATE=A13_G4_CLOSURE_AFTER_REVIEW
 No realizar `git pull/reset/checkout/clean` sobre el producto adoptado después de PASS. El hito se cerrará mediante un commit productivo posterior, con autorización, más checklist/documentación. No abrir gates cerrados G1/G2/G3/TFT-CLOSURE.
 
 `OPENPLC=OUT_OF_SCOPE`, `HMI_DESIGNER=OUT_OF_SCOPE`, `TFT_NEW_FEATURES=OUT_OF_SCOPE`.
+
+### Segunda ejecución y corrección F111 (2026-10-10)
+
+El intento R2 encontró `BACKEND_INIT_SHA256_ACTUAL` y `BACKEND_UPSTREAM_SHA256_ACTUAL` iguales a `e21cae2ac84285dc0e77648eca67ca753f41f7da3c271594ede750b725136c10`, que es el mismo valor pinneado en TFT-CLOSURE. **La constante de G4 estaba truncada; no existía drift del backend local**. El ejecutor ahora copia el hash correcto y compara los dos pins del init con el gate TFT histórico antes de ejecutar la receta. Se registra `F111=HARNESS`; el próximo fallo a numerar será F112. No hay firmware compilado/subido ni cambios productivos por estos intentos.

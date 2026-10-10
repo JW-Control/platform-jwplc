@@ -1029,3 +1029,43 @@ NEXT_FAILURE_ID=F111
 
 Las siete firmas duplicadas no reaparecieron. No crear nuevos IDs por esta
 misma causa sin nueva evidencia.
+
+## F111 — G4: SHA pinneado truncado para ST7789_Init.h (2026-10-10)
+
+**Clasificación:** `HARNESS_FAILURE` (identidad de artefacto fijada incorrectamente en el ejecutor); no fallo del entorno instalado, producto ni TFT físico.
+
+### Evidencia de la segunda ejecución G4
+
+```text
+G4_HARNESS_PY_SYNTAX=PASS
+PREFLIGHT=PASS
+USB_VID_PID=1A86:7523
+BACKEND_RECIPE=RUNNING_THEN_REVIEW
+BACKEND_INIT_SHA256_ACTUAL=e21cae2ac84285dc0e77648eca67ca753f41f7da3c271594ede750b725136c10
+BACKEND_UPSTREAM_SHA256_ACTUAL=e21cae2ac84285dc0e77648eca67ca753f41f7da3c271594ede750b725136c10
+STATUS=REVIEW
+REASON=BACKEND_UPSTREAM_SHA_NOT_PINNED
+PRODUCT_ADOPTION=NOT_EXECUTED
+PHYSICAL_UPLOAD=NOT_EXECUTED
+```
+
+La instalación local de `TFT_eSPI 2.5.43` coincidía **exactamente** con el tag oficial y con el hash `backend_init` del gate TFT-CLOSURE ya publicado. El ejecutor G4 había copiado una constante incompleta, sin la secuencia `67c` en el tramo `...eca67ca...`, y por ello rechazó dos orígenes correctos. La rama de recuperación descargó correctamente el origen oficial, pero comparó contra la misma constante incorrecta.
+
+### Corrección preventiva
+
+- Restaurar el SHA-256 completo de 64 caracteres **sin modificar el backend instalado**.
+- Verificar en preflight todos los SHA pinneados y confrontar `backend_init` y `patched_init` contra `a13_tft_closure.py` versionado; fallar con `HARNESS` antes de tocar archivos o red.
+- Mantener la receta de parche ST7789 original y comprobación de hash temporal.
+- Preservar `core.a`, `Display.a`, autoload y las fuentes/archivos productivos; no abrir gates G1/G2/G3/TFT-CLOSURE.
+- El siguiente reintento integrado es la primera oportunidad de validar realmente reconstrucción G4, enlace de TFT y pruebas físicas. No marcar F111 cerrado ni G4 PASS antes de esa evidencia.
+
+```text
+F111=HARNESS_BACKEND_PIN_TRUNCATION
+ROOT_CAUSE=G4_BAD_PIN_LITERAL
+LOCAL_BACKEND_DEFECT=NO
+UPSTREAM_SOURCE_DEFECT=NO
+G4_PRODUCT_MUTATION=NO
+G4_PHYSICAL_UPLOAD=NO
+RETEST=NOT_EXECUTED
+NEXT_FAILURE_ID=F112
+```
