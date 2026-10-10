@@ -3,6 +3,9 @@
 #include <SPI.h>
 #include <TFT_eSPI.h>
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
 extern "C"
 {
 #include "jwplc_spi_bus.h"
@@ -56,7 +59,7 @@ JWPLC_TFTClass JWPLC_TFT;
 
 JWPLC_TFTClass::JWPLC_TFTClass()
     : _ready(false),
-      _batchActive(false),
+      _batchOwner(nullptr),
       _textSize(1),
       _textColor(JWPLC_TFT_WHITE),
       _textBackground(JWPLC_TFT_BLACK),
@@ -160,11 +163,15 @@ bool JWPLC_TFTClass::beginBatch(uint32_t timeoutMs)
         return false;
     }
 
-    if (_batchActive)
+    void *const self = xTaskGetCurrentTaskHandle();
+    if (_batchOwner.load(std::memory_order_acquire) == self)
     {
+        // Idempotencia previa para la misma tarea: un endBatch() basta.
         return true;
     }
 
+    // Otra tarea tiene el batch: no se permite adoptar su transaccion.
+    // Esperar el mutex SPI real respeta timeoutMs (0 = no esperar).
     if (!jwplcSPI_acquire(timeoutMs))
     {
         return false;
@@ -173,25 +180,27 @@ bool JWPLC_TFTClass::beginBatch(uint32_t timeoutMs)
     jwplcSPI_prepareForTFT();
     g_backend.startWrite();
 
-    _batchActive = true;
+    _batchOwner.store(self, std::memory_order_release);
     return true;
 }
 
 void JWPLC_TFTClass::endBatch()
 {
-    if (!_batchActive)
+    void *const self = xTaskGetCurrentTaskHandle();
+    if (_batchOwner.load(std::memory_order_acquire) != self)
     {
+        // Una tarea ajena nunca cierra ni libera el mutex del propietario.
         return;
     }
 
     g_backend.endWrite();
-    _batchActive = false;
+    _batchOwner.store(nullptr, std::memory_order_release);
     jwplcSPI_release();
 }
 
 bool JWPLC_TFTClass::batchActive() const
 {
-    return _batchActive;
+    return _batchOwner.load(std::memory_order_acquire) != nullptr;
 }
 
 bool JWPLC_TFTClass::acquireForOperation(uint32_t timeoutMs)
@@ -201,11 +210,14 @@ bool JWPLC_TFTClass::acquireForOperation(uint32_t timeoutMs)
         return false;
     }
 
-    if (_batchActive)
+    void *const self = xTaskGetCurrentTaskHandle();
+    if (_batchOwner.load(std::memory_order_acquire) == self)
     {
+        // Las primitivas del propietario participan en su batch.
         return true;
     }
 
+    // Batch de otra tarea: esperar el mutex, nunca saltarselo.
     if (!jwplcSPI_acquire(timeoutMs))
     {
         return false;
@@ -218,7 +230,8 @@ bool JWPLC_TFTClass::acquireForOperation(uint32_t timeoutMs)
 
 void JWPLC_TFTClass::releaseAfterOperation()
 {
-    if (_batchActive)
+    void *const self = xTaskGetCurrentTaskHandle();
+    if (_batchOwner.load(std::memory_order_acquire) == self)
     {
         return;
     }
