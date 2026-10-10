@@ -280,7 +280,7 @@ def normal_compile(cli,sketch,label,temp_library):
     check(len(selected)==1 and Path(selected[0].strip()).resolve()==temp_library.resolve(),
           "WRONG_TFT_LIBRARY_"+label,"HARNESS")
     check("Using precompiled library" in output and
-          re.search(r"Using precompiled library .+JWPLC_TFT",output) is not None,
+          re.search(r"Using precompiled library .*JWPLC_TFT",output) is not None,
           "NOT_PRECOMPILED_"+label,"HARNESS")
     check(re.search(r"^Using library TFT_eSPI at version",output,re.M) is None,
           "EXTERNAL_BACKEND_SELECTED_"+label,"HARNESS")
