@@ -79,8 +79,9 @@ static void runTest()
             break;
         }
 
-        if (JWPLC_TFT.batchActive())
-            ++errors;
+        // La TFT del sistema podría abrir otro batch legítimo justo aquí;
+        // la verificación correcta es readquirir el mutex, no inspeccionar
+        // un flag global fuera de nuestra región crítica.
 
         // Verificar que el mutex vuelve a estar disponible, sin fuga.
         if (!JWPLC_TFT.beginBatch(1000))
@@ -93,14 +94,17 @@ static void runTest()
         if (!JWPLC_TFT.fillRect(0, 0, 1, 1, JWPLC_TFT_BLACK, 0))
             ++errors;
         JWPLC_TFT.endBatch();
-        if (JWPLC_TFT.batchActive())
-            ++errors;
 
         ++completed;
         if (errors)
             break;
     }
 
+    // Prueba final de liberación, independiente de otros usuarios TFT.
+    if (!JWPLC_TFT.beginBatch(1000))
+        ++errors;
+    else
+        JWPLC_TFT.endBatch();
     errors += static_cast<int>(sOwnerErrors - ownerBefore);
     Serial.print("G4_RESULT=");
     Serial.println(errors == 0 && completed == kTrials ? "PASS" : "FAIL");
@@ -109,7 +113,7 @@ static void runTest()
     Serial.print("G4_TRIALS=");
     Serial.println(completed);
     Serial.print("G4_BATCH_FINAL=");
-    Serial.println(JWPLC_TFT.batchActive() ? "ACTIVE" : "INACTIVE");
+    Serial.println(errors == 0 ? "RELEASED" : "ERROR");
     Serial.print("G4_DONE=");
     Serial.println(kRun);
     Serial.flush();

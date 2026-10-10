@@ -368,9 +368,9 @@ def physical(cli,lib,port):
         check(len(vals)==1,"SERIAL_KEY_COUNT_"+key+":"+str(len(vals)),"HARNESS")
         return vals[0]
     for key,value in (("G4_RESULT","PASS"),("G4_ERRORS","0"),("G4_TRIALS","50"),
-                      ("G4_BATCH_FINAL","INACTIVE"),("G4_DONE",token)):
+                      ("G4_BATCH_FINAL","RELEASED"),("G4_DONE",token)):
         check(one(key)==value,"SERIAL_ASSERT_FAIL_"+key,"PRODUCT_OR_HARDWARE")
-    MANIFEST["serial_result"]={"trials":50,"errors":0,"batch_final":"INACTIVE",
+    MANIFEST["serial_result"]={"trials":50,"errors":0,"batch_final":"RELEASED",
                                "ready_token":token,"done_token":token}
     phase("PHYSICAL_SERIAL","PASS")
 

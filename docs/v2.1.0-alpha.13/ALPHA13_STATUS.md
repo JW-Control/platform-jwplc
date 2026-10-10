@@ -1,5 +1,33 @@
 # v2.1.0-alpha.13 — Estado operativo y continuidad
 
+## Estado vigente — G4 A13-003 preparado (2026-10-10)
+
+**Hito integrado en preparación:** esta entrada prevalece sobre el `NEXT_GATE` histórico de G3. El candidato está versionado **solo bajo tooling**, no se han cambiado fuentes ni binarios de producto.
+
+```text
+BRANCH=v2.1.0-alpha.13/feature/cleanup-robustness
+ALPHA13_STATUS=IN_PROGRESS
+G1_DNS=CLOSED_PASS
+G2_TCA_STARTUP=CLOSED_PASS
+TFT_CLOSURE=CLOSED_PASS
+G3_TCA_RMW_SHADOW=CLOSED_PASS
+G4=A13-003_TFT_BATCH_TASK_OWNERSHIP
+G4_PRODUCT_CHANGE=NOT_EXECUTED
+G4_ARCHIVE_REBUILD=NOT_EXECUTED
+G4_PHYSICAL_TEST=NOT_EXECUTED
+G4_TOOLING=VERSIONED_READY_TO_RUN
+NEXT_GATE=A13_G4_INTEGRATED
+NEXT_FAILURE_ID=F111
+OPENPLC=OUT_OF_SCOPE
+HMI_DESIGNER=OUT_OF_SCOPE
+TFT_NEW_FEATURES=OUT_OF_SCOPE
+```
+
+Criterios y ejecutor: [A13_G4_INTEGRATED_PLAN_20261010.md](A13_G4_INTEGRATED_PLAN_20261010.md). Mantener G3 core.a y TFT startup sin cambios. El gate G4 debe reconstruir el archive TFT desde las fuentes candidatas y backend 2.5.43 aislado, comprobar enlace normal, ejecutar test con tareas FreeRTOS y requerir observación humana. No marcar G4 PASS hasta obtener evidencia del operador.
+
+---
+
+
 ## Estado vigente — G3 A13-004 cerrado (2026-10-10)
 
 **Prevalece sobre los bloques anteriores de G3.**
