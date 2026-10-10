@@ -3,6 +3,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <freertos/semphr.h>
+#include "driver/gpio.h"
 
 extern "C" {
 void jwplc_digitalWrite(uint16_t pin, uint8_t val);
@@ -54,6 +55,8 @@ void runTest() {
     }
     ++completed;
   }
+  // Falla o éxito: desconectar físicamente los relés antes del reset lógico.
+  gpio_set_level((gpio_num_t)EN_IO, 0);
   JWPLC_writeOutputs(0);
   uint8_t finalReg=0xff;
   if (jwplcI2C_readReg8(0x22,0x05,&finalReg)!=0 || finalReg!=0) ++errors;

@@ -1,5 +1,38 @@
 # v2.1.0-alpha.13 — Estado operativo y continuidad
 
+## Estado vigente — G3 integrado preparado (2026-10-10)
+
+**Nuevo estado operativo:** prevalece sobre el bloque anterior "G3-P0 preparado". G1/G2/TFT permanecen cerrados.
+
+```text
+BRANCH=v2.1.0-alpha.13/feature/cleanup-robustness
+ALPHA13_STATUS=IN_PROGRESS
+G1_DNS=CLOSED_PASS
+G2_TCA_STARTUP=CLOSED_PASS
+TFT_CLOSURE=CLOSED_PASS
+G3_P0=PASS_BASELINE_RACE_REPRODUCED
+G3_P0_SOURCE_CONTRACT=PASS
+G3_P0_PHYSICAL=NOT_EXECUTED
+G3_P0_HEAD=c33aff2bad3c3a94e988ae030ceb99ad241c9eef
+G3_P0_HARDWARE_INTERLEAVING=NOT_MEASURED
+G3_INTEGRATED_TOOLING=VERSIONED_READY_TO_RUN
+G3_CANDIDATE_PRODUCT_COMMIT=NOT_EXECUTED
+G3_CANDIDATE_SOURCE_ARCHIVE_VALIDATION=NOT_EXECUTED
+G3_PHYSICAL=NOT_EXECUTED
+NEXT_GATE=A13-G3_INTEGRATED_SOURCE_ARCHIVE_PHYSICAL
+NEXT_FAILURE_ID=F110
+OPENPLC=OUT_OF_SCOPE
+HMI_DESIGNER=OUT_OF_SCOPE
+TFT_NEW_FEATURES=OUT_OF_SCOPE
+```
+
+El usuario ejecutó `run_a13_g3_p0_tca_rmw_baseline.bat` con `STATUS=PASS_BASELINE_RACE_REPRODUCED`, `SEQUENTIAL_CONTROL=0x03`, `INTERLEAVED_AB_HARDWARE=0x02`, `INTERLEAVED_BA_HARDWARE=0x01`, `SHADOW_FALSE_NOOP_POSSIBLE=YES`, sin modificar producto. La prueba fue un **modelo determinista**, no una medición de hardware. La continuación no requiere más rondas manuales para P1: el gate integrado con candidata reversible, core.a, compilación normal y ensayo físico supervisado está en [A13_G3_INTEGRATED_PLAN_20261010.md](A13_G3_INTEGRATED_PLAN_20261010.md).
+
+**Precaución física:** dos salidas de relé se conmutan; solo equipo con cargas/actuadores desconectados, y confirmación explícita. No usar físicamente si el entorno no está aislado. Producto permanece sin commit hasta pasar el gate.
+
+---
+
+
 ## Estado vigente — G3-P0 preparado (2026-10-10)
 
 **Prevalece para la próxima acción sobre los bloques cronológicos anteriores.** El cierre TFT permanece retenido.
