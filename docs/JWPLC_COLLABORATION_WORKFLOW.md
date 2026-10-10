@@ -1,6 +1,6 @@
 # JWPLC — Flujo de colaboración por hitos
 
-Actualizado: 2026-10-09
+Actualizado: 2026-10-10
 Estado: VIGENTE para `platform-jwplc` y siguientes alphas.
 Sustituye la práctica de solicitar una respuesta del usuario por **cada microgate**, pero NO elimina comprobaciones, criterios de parada ni evidencia.
 
@@ -92,3 +92,55 @@ La rama remota puede contener **documentación posterior a P2A** no integrada en
 ## 8. Retorno en el chat
 
 Comunicar resultados, causas y siguiente comando de forma compacta. No copiar 500 líneas del harness al chat cuando puede versionarse. Solo un bloque de comandos por intervención, salvo solicitud expresa. No publicar comandos de reset/limpieza cuando exista un worktree productivo intencionalmente sucio.
+
+## 9. Contrato Windows para Python y finalizadores Git (F112)
+
+**Aplicación obligatoria** a Alpha13-G5 y siguientes gates de
+`platform-jwplc` que usen PowerShell, Python, archivos precompilados
+o commits locales. Antes de proporcionar comandos al operador:
+
+- Resolver **un único ejecutable real** `python.exe`, validar
+  `Test-Path -PathType Leaf` y `& $pythonExe --version`. Nunca
+  convertir `Get-Command python` completo en una cadena, ejecutar
+  `.py` por asociación ni usar WindowsApps como intérprete supuesto.
+- Validar `ast.parse` del `.py` concreto y su procedencia con
+  `git rev-parse ref:path` y `git hash-object $runner`. Descargar
+  tooling con `git fetch` y extraerlo fuera del repositorio si el
+  producto quedó modificado localmente; no usar `pull/reset/checkout/clean`.
+- Leer `LOCAL_HEAD` y `REMOTE_HEAD` reales, no fijar el local desde
+  una ejecución anterior. Autorizar solamente **ancestros explícitos**
+  comprobados por `git rev-list` y diff remoto exactamente allowlisted.
+- Para verificar archivos de texto tracked, usar limpieza lógica de
+  Git (`git diff --quiet HEAD -- path`, `git diff --cached --quiet`)
+  y coherencia índice/HEAD (`git rev-parse :path` frente a
+  `git rev-parse HEAD:path`). No exigir igualdad de bytes crudos
+  entre `git show` y el checkout Windows; puede existir LF/CRLF.
+  Para `.a` y otros binarios, exigir SHA-256 byte a byte.
+- Ejecutar el self-test portable versionado
+  `tools/alpha13/gates/a13_finalizer_portability_selftest.py` y una
+  simulación/preflight del finalizador concreto con worktree sucio
+  intencionalmente, HEAD base y HEAD con tooling incorporado. El test
+  debe abortar **antes del primer commit** si faltan identidades,
+  ejecutable, evidencia, limpieza o autorización.
+- Después de un cierre validado no volver a reconstruir/subir firmware
+  por una falla exclusiva del launcher; clasificarla como harness y
+  corregir el finalizador sin alterar los bytes probados.
+
+Ejemplo seguro de llamada con Python 3.11 instalado explícitamente:
+
+```powershell
+$pythonExe = Join-Path $env:LOCALAPPDATA "Programs\Python\Python311\python.exe"
+if (-not (Test-Path -LiteralPath $pythonExe -PathType Leaf)) {
+    throw "Python verificado no disponible; detener."
+}
+& $pythonExe --version
+if ($LASTEXITCODE -ne 0) { throw "Python no ejecutable." }
+& $pythonExe -B $runner
+if ($LASTEXITCODE -ne 0) { throw "Finalizador REVIEW; no reintentar a ciegas." }
+```
+
+La ruta es **ejemplo de entorno**, no una instalación universal
+ni autorización para usar cualquier versión de Python: cada gate
+declara su mínimo y verifica `sys.executable`. El historial y las
+razones de esta norma están en el incidente **F112** del FAILURES
+canónico de Alpha13.

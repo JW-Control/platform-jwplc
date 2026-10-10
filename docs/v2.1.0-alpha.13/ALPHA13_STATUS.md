@@ -1,5 +1,38 @@
 # v2.1.0-alpha.13 — Estado operativo y continuidad
 
+## Prevención F112 — cierre G4 y portabilidad Python/Git (2026-10-10)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G1_DNS=CLOSED_PASS
+G2_TCA_STARTUP=CLOSED_PASS
+TFT_CLOSURE=CLOSED_PASS
+G3=CLOSED_PASS
+G4=CLOSED_PASS
+G4_CLOSURE_COMMIT=bd1581035af09eff47a08cae959312f8eae1d06f
+F110=CLOSED
+F111=CLOSED
+F112=CLOSED_PREVENTION_REGISTERED
+F112_SCOPE=POWERSHELL_PYTHON_GIT_FINALIZER_PORTABILITY
+F112_PORTABILITY_SELFTEST=VERSIONED
+NEXT_GATE=A13-G5_TCP_CORRECTNESS_A13_005_A13_006
+NEXT_FAILURE_ID=F113
+OPENPLC=OUT_OF_SCOPE
+HMI_DESIGNER=OUT_OF_SCOPE
+TFT_NEW_FEATURES=OUT_OF_SCOPE
+```
+
+F112 documenta bloqueos de cierre debidos a invocación de Python,
+estado HEAD local asumido y comparación byte a byte de textos Git
+en Windows. La compilación, prueba física y cierre G4 permanecen PASS;
+no hubo cambio productivo adicional por registrar esta prevención.
+Consultar `A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md` y
+la sección 9 de `docs/JWPLC_COLLABORATION_WORKFLOW.md` antes de
+preparar finalizadores G5+.
+
+---
+
+
 ## Estado vigente — G4 cerrado (2026-10-10)
 
 Este bloque es canonico y prevalece sobre las entradas anteriores.

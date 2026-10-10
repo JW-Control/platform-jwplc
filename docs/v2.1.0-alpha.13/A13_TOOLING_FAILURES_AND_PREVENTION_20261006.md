@@ -1079,3 +1079,96 @@ NORMAL_REGRESSIONS=4_OF_4_PASS
 NEXT_FAILURE_ID=F112
 
 El error estaba en el pin del harness, no en el backend instalado.
+
+## F112 — cierre Git G4: Python/PowerShell, HEAD local y EOL LF/CRLF (2026-10-10)
+
+**Clasificación:** `HARNESS / FLUJO DE COLABORACIÓN / PORTABILIDAD WINDOWS`.
+**Estado:** `CLOSED_PREVENTION_REGISTERED` tras cierre G4 real. No es fallo
+de `JWPLC_TFT`, de `core.a` ni de la prueba física.
+
+### Incidentes comprobados en el mismo cierre G4
+
+| Manifestación | Evidencia compartida | Causa o clasificación |
+|---|---|---|
+| Ventana de Windows para elegir programa antes de iniciar el finalizador | Primer lanzamiento interrumpido tras mostrar `LOCAL_HEAD` y `REMOTE_HEAD` | Fallo del método de invocación de Python en PowerShell; la operación precisa que abrió la ventana no quedó registrada, **no atribuirla sin evidencia** a un mecanismo específico de asociaciones |
+| Invocación con tres rutas de Python concatenadas | `PYTHON_EXE=C:\Windows\system32\python C:\Users\...\Python311\python.exe C:\Users\...\WindowsApps\python.exe`; PowerShell no reconoció el conjunto | Uso de `(Get-Command python -CommandType Application).Source` sin seleccionar una sola aplicación: salida múltiple convertida en cadena |
+| `HEAD local inesperado` en el primer comando de cierre | Local `b15c59c...`, mientras la instrucción solo admitía `bc9e7c9...` | Suposición incorrecta sobre el HEAD local tras integración de tooling; faltaba validar la cadena de commits permitida |
+| `LOCAL_TOOLING_NOT_HEAD_IDENTICAL_tools/alpha13/gates/a13_g4_finalize.py` | El finalizador había validado Git, producto y evidencia; se detuvo antes de autorización | Comparación de `git show HEAD:path` **byte a byte** contra `Path.read_bytes()`; susceptible a falsos negativos por conversiones LF/CRLF. No se recuperó un volcado de EOL local que permita atribuir la discrepancia exclusivamente a CRLF |
+
+Estos abortos **no invalidaron** el gate G4: anteriormente se habían
+obtenido `PASS_PHYSICAL_AND_REBUILT_NORMAL_ARCHIVE`, 50/50 ciclos,
+cuatro regresiones, evidencia visual del operador y tres fuentes/binarios
+TFT adoptados localmente. Durante los abortos de cierre no se hizo
+upload nuevo, rollback destructivo ni commit productivo.
+
+### Corrección aplicada y verificación observada
+
+- Invocación explícita del ejecutable existente
+  `C:\Users\jeykc\AppData\Local\Programs\Python\Python311\python.exe`,
+  **no** una lista de `Get-Command` y **no** una asociación de `.py`.
+- Script extraído del commit remoto a `%TEMP%`; igualdad de blob Git
+  verificada antes de pasarlo como argumento a `python.exe -B`.
+- HEAD local admitido únicamente si pertenece al conjunto de commits
+  ancestrales esperado, validando padres y alcance remoto **solo tooling**.
+  No ejecutar `git pull` sobre los tres archivos productivos modificados.
+- Identidad de textos: `git diff --quiet HEAD -- path` y
+  `git diff --cached --quiet HEAD -- path`, y comparación del blob
+  indexado `git rev-parse :path` con `git rev-parse HEAD:path`.
+  **No** comparar bytes crudos de archivos de texto de checkout contra
+  blobs Git. Para `.a` y otros binarios conservar SHA-256 de bytes reales.
+- Última ejecución del operador verificó:
+  `LOCAL_TOOLING=PASS_GIT_NORMALIZED_EOLS`,
+  `REMOTE_PREFLIGHT=PASS_3_TOOLING_COMMITS_ONLY`,
+  `READY_FOR_OPERATOR_AUTHORIZATION=YES`, y posteriormente
+  `PUSH=PASS_NON_FORCE`, `STATUS=CLOSED_PASS`.
+  Commits: producto `46a695756ecae205f585e59bf8e129493fa51d91`,
+  merge `dae9e674b3bc1212210fe9ca780b3000c72cbab2` y
+  cierre `bd1581035af09eff47a08cae959312f8eae1d06f`.
+
+### Prevención obligatoria desde F112
+
+1. **Un solo intérprete:** localizar `python.exe` como archivo real,
+   exigir exactamente una ruta y ejecutar mediante `& $pythonExe -B $runner`.
+   Si no existe, abortar. No inferir que `python` o `py` en el PATH
+   resuelven inequívocamente, ni llamar directamente a archivos `.py`.
+2. **Preflight del launcher:** comprobar invocación `--version`,
+   sintaxis `ast.parse`, integridad `git hash-object` frente al blob
+   remoto y salida de un autodiagnóstico antes de enviar al usuario
+   un comando que haga commits.
+3. **HEAD no supuesto:** obtener `LOCAL_HEAD` y `REMOTE_HEAD` en vivo,
+   validar ancestros exactos, padres y diff allowlisted. No basarse en
+   un HEAD histórico porque aparezca en GitHub Desktop o un chat.
+4. **EOL normalizado por Git:** para texto usar índice y `git diff`;
+   para archive precompilado, hashes de bytes físicos. Prohibido usar
+   `git show ... == Path.read_bytes()` como única condición de limpieza.
+5. **Worktree intencionalmente sucio:** conservar los productos probados,
+   usar `fetch` (no `pull/reset/checkout/clean`), extraer finalizador
+   a `%TEMP%`, y realizar commit solo con autorización.
+6. **Prueba de regresión previa:** ejecutar
+   `tools/alpha13/gates/a13_finalizer_portability_selftest.py` con
+   Python 3.11+ sobre un Git temporal; exige aceptación CRLF/LF,
+   rechazo de modificaciones reales, HEAD ancestral correcto y
+   ejecución explícita de un único intérprete. Además probar el
+   finalizador concreto con HEAD base y HEAD con tooling ya incorporado.
+   El self-test **no sustituye** esa prueba de integración.
+7. **Nada de microreintentos ciegos:** ante `REVIEW_STOP`, clasificar
+   `HARNESS/ENVIRONMENT/PRODUCT`, inspeccionar evidencia y corregir
+   la causa; no crear nuevos F-ID por la misma cadena de errores.
+
+```text
+F112=HARNESS_WINDOWS_PYTHON_GIT_FINALIZER
+G4_PHYSICAL=PASS_50_OF_50
+G4_CLOSURE=CLOSED_PASS
+F112_STATUS=CLOSED_PREVENTION_REGISTERED
+PYTHON_EXECUTABLE=EXPLICIT_SINGLE_PATH
+RAW_GIT_BLOB_EQUALS_WORKTREE_TEXT=FORBIDDEN_AS_SOLE_GUARD
+HEAD_POLICY=EXACT_VERIFIED_ANCESTRY_AND_SCOPE
+CRLF_POLICY=GIT_DIFF_AND_INDEX_BLOB
+NEXT_FAILURE_ID=F113
+```
+
+La prevención se incorpora transversalmente a
+`docs/JWPLC_COLLABORATION_WORKFLOW.md`. Documentar estas causas
+no demuestra por sí solo que jamás puedan reaparecer; los siguientes
+finalizadores deben ejecutar el self-test y su propia prueba de
+integración **antes** de proponerse al operador.
