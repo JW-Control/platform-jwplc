@@ -244,6 +244,28 @@ def build_physical(cli):
     stage("PHYSICAL_PROBE_BUILD","PASS")
     return path,token
 
+def regressions(cli):
+    stage("REGRESSION_NORMAL_CONSUMERS","RUNNING")
+    libs=ROOT/"JWPLC/2.1.0/libraries"
+    cases=(
+        ("IDLE_STATUS",libs/"JWPLC_Display/examples/01.Display_IDLE_Status"),
+        ("HMI_FIELDS",libs/"JWPLC_Display/examples/02.Display_HMI_Fields"),
+        ("LOGIC_RUNTIME_UI",libs/"JWPLC_LogicRuntime_UI/examples/JWPLC_LogicRuntime_UI_Home"),
+    )
+    passed=[]
+    for name,sketch in cases:
+        need(sketch.is_dir(),"REGRESSION_SKETCH_MISSING:"+name,"HARNESS")
+        out=command([cli,"compile","--fqbn",FQBN,"-j","0","-v","--clean",
+                     "--build-path",TEMP/("reg_"+name),
+                     "--libraries",libs,sketch],"COMPILE_REG_"+name)
+        need("Using core 'jwcontrol_precompiled_stub'" in out,
+             "REG_STUB_NOT_USED:"+name,"HARNESS")
+        need(re.search(r"precompiled[/\\]core[/\\]JWPLCBASIC[/\\]core\.a",out)!=None,
+             "REG_ARCHIVE_NOT_LINKED:"+name,"HARNESS")
+        passed.append(name)
+    RES["regressions"]=passed
+    stage("REGRESSION_NORMAL_CONSUMERS","PASS")
+
 def choose_port(requested):
     from serial.tools import list_ports
     ports=list(list_ports.comports())
@@ -340,6 +362,7 @@ def run():
         adoption()
         rebuild(cli,ps)
         build,token=build_physical(cli)
+        regressions(cli)
         if not args.skip_physical:
             physical(cli,build,token,port)
         else:

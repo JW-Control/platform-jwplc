@@ -24,7 +24,7 @@ Contrato público Arduino sin cambios. No se modifica la política de autoload, 
 .\tools\alpha13\gates\run_a13_g3_integrated.bat --serial-port COM4
 ```
 
-Fases agrupadas: preflight de Git/sha/status, respaldos fuera del repositorio, adopción **local reversible** de cuatro fuentes, reconstrucción usando `Build-JWPLCPrecompiledCore.ps1`, verificación de enlace normal con `Verify-JWPLCPrecompiledCore.ps1`, compilación de sketch físico con token irrepetible, confirmación presencial de desconexión de cargas, upload a COM detectado, stress test de dos tareas y lectura de registro físico 0x05, auditoría del diff.
+Fases agrupadas: preflight de Git/sha/status, respaldos fuera del repositorio, adopción **local reversible** de cuatro fuentes, reconstrucción usando `Build-JWPLCPrecompiledCore.ps1`, verificación de enlace normal con `Verify-JWPLCPrecompiledCore.ps1`, compilación de sketch físico con token irrepetible, tres regresiones normales de consumidores Display/LogicRuntime_UI, confirmación presencial de desconexión de cargas, upload a COM detectado, stress test de dos tareas y lectura de registro físico 0x05, auditoría del diff.
 
 **La prueba física energiza los relés Q0_0 y Q0_1 150 veces.** No ejecutar en equipo cableado a motores, válvulas, calefacción, ni otros actuadores. Requiere confirmación textual `DESCONECTADAS` para subir. El sketch permanece en espera sin ejecutar el test hasta recibir el token serie único. Desenergiza ambos relés al finalizar.
 
@@ -41,7 +41,7 @@ En FAIL/REVIEW el gate intenta restaurar las cuatro fuentes y `core.a` usando ba
 - `STATUS=PASS_PHYSICAL_AND_NORMAL_CORE`: reconstrucción y enlace oficiales, prueba real concurrente con 150 ciclos sin pérdidas, cinco cambios productivos locales sin commit. Solicitar observación humana y revisión de logs para el commit y cierre documental.
 - `STATUS=PASS_STATIC_PHYSICAL_PENDING`: solo validación de build/link; no promover firmware.
 - `STATUS=REVIEW/FAIL`: detener e interpretar clasificación; no confundir harness con producto.
-- Genera `SUMMARY.log`, `MANIFEST.json`, `BUILD_OFFICIAL_CORE.log`, `VERIFY_OFFICIAL_CORE.log`, `COMPILE_G3_PROBE.log` y, si aplica, `UPLOAD_G3_PROBE.log` y `serial_g3.log`.
+- Genera `SUMMARY.log`, `MANIFEST.json`, `BUILD_OFFICIAL_CORE.log`, `VERIFY_OFFICIAL_CORE.log`, `COMPILE_G3_PROBE.log` `COMPILE_REG_*.log` y, si aplica, `UPLOAD_G3_PROBE.log` y `serial_g3.log`.
 
 La construcción del archive no debe exigir SHA bit-a-bit histórico: el core contiene objetos con `__DATE__/__TIME__`. Se exige prueba de fuentes, link normal, hashes y cobertura de runtime.
 
