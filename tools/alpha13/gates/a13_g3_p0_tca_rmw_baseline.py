@@ -129,7 +129,8 @@ def main():
     for path in (BRIDGE, TCA):
         raw = (ROOT / path).read_bytes()
         expected = git("show", BASE + ":" + path).stdout
-        require(raw == expected, "SOURCE_CHANGED_SINCE_G3_BASELINE: " + path)
+        require(raw.replace(b"\r\n", b"\n") == expected.replace(b"\r\n", b"\n"),
+                "SOURCE_CHANGED_SINCE_G3_BASELINE: " + path)
         source[path] = raw.decode("utf-8")
         hashes[path] = hashlib.sha256(raw).hexdigest()
     require(git("diff", "--quiet", "--", BRIDGE, TCA, check=False).returncode == 0,
