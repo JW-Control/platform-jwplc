@@ -1458,3 +1458,37 @@ G6_PRODUCT_MODIFIED=NO
 G6_GIT_CLOSURE=NO
 NEXT_FAILURE_ID=F118
 ```
+
+### Diagnóstico F117 confirmado: división UDP por MTU y receptor demasiado estricto
+
+El diagnóstico de solo lectura, con firmware físico ya cargado,
+observó `DUT_IP=192.168.0.31`, `PC_IP=192.168.0.4`, dos datagramas
+desde `192.168.0.31:5020` de **1472** y **576** bytes.
+`DATAGRAM_CONCAT_BYTES=2048` y
+`DATAGRAM_CONCAT_MATCH=True`, con emisor serial:
+`G6_TX_ACCEPTED_BYTES=2048`, `G6_TX_END_PACKET=1`,
+`G6_TX_ERRORS=0`.
+
+La documentación oficial de WIZnet explica que el W5500 divide
+automáticamente los envíos UDP que exceden el MTU. Se confirma, por
+tanto, el origen del falso fallo de la expectativa del harness:
+**no se recibió un solo datagrama de 2048 bytes, sino dos mensajes
+UDP distintos cuyos contenidos concatenados son correctos**.
+No equivale a reensamblaje IP transparente. El contrato público
+sobre conservar un datagrama único más allá de 1472 bytes deberá
+documentarse como limitación de hardware/red.
+
+La prueba host se corrigió para aceptar exclusivamente un datagrama
+de 2048 bytes o la forma `1472,576`, verificando IP/puerto idénticos,
+orden y contenido exacto. Ocho fixtures comprueban casos válidos e
+inválidos. Se preparó `a13_g6_resume_uploaded.py` para repetir
+únicamente el tramo físico, continuar con regresiones y cierre Git
+automático **si pasa todo**, sin recompilar ni reflashear.
+
+```text
+F117_ROOT_CAUSE=MTU_1472_W5500_UDP_SPLIT
+F117_HARNESS_FIX=VERSIONED
+F117_PHYSICAL_FULL_RETEST=PENDING
+G6_TX_DATA_CORRUPTED=NO
+G6_REUPLOAD_REQUIRED=NO
+```

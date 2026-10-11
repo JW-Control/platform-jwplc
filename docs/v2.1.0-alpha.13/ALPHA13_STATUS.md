@@ -1,5 +1,38 @@
 # v2.1.0-alpha.13 — Estado operativo y continuidad
 
+## G6 — MTU confirmado y reanudación sin upload preparada (2026-10-11)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G1=CLOSED_PASS
+G2=CLOSED_PASS
+G3=CLOSED_PASS
+G4=CLOSED_PASS
+G5=CLOSED_PASS
+G6_NETWORK_R2=REVIEW_EXPECTED_ONE_DATAGRAM
+G6_UPLOAD_R2=PASS_ARDUINO_CLI_1_5_1
+G6_TX_DIAG=PASS_SPLIT_1472_576_CONCAT_EXACT
+G6_MTUSTREAM_SEMANTICS=W5500_2_UDP_MESSAGES
+G6_PRODUCT_MUTATION=NO
+G6_GIT_CLOSURE=NO
+G6_RESUME_RUNNER=VERSIONED_NOT_EXECUTED
+G6_RESUME_UPLOAD=NOT_REQUIRED
+F117=CONFIRMED_HARNESS_FIX_AWAITING_FULL_RETEST
+NEXT_FAILURE_ID=F118
+NEXT_GATE=A13_G6_RESUME_UPLOADED
+RELEASE_MERGE_PR_PUBLICATION=NO
+```
+
+Los 2048 bytes se recibieron en dos datagramas UDP distintos,
+1472+576, ambos desde la IP del JWPLC y con bytes concatenados
+exactos. WIZnet documenta la división automática por MTU.
+La prueba PC admitía erróneamente sólo un paquete de 2048 bytes.
+Reanudación preparada reutilizando el mismo firmware/token,
+sin nueva compilación de overlay ni upload.
+
+---
+
+
 ## G6 — F117 diagnóstico UDP TX tras upload PASS (2026-10-11)
 
 ```text

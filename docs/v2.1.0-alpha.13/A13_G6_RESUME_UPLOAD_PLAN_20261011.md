@@ -35,3 +35,17 @@ intacto. Si falla después del primer commit no se ejecutan comandos
 destructivos y el estado queda para recuperación manual.
 
 Prueba aún **no realizada en el entorno Windows del operador**.
+
+## Evidencia de diagnóstico y naturaleza de los datagramas
+
+`G6_TX_DIAGNOSTIC.json` documenta
+`datagrams=[1472,576]`, `concatenated_matches_expected=true`,
+IP de origen correcta, primera diferencia a byte 1472 únicamente
+porque el primer datagrama terminaba allí, no por corrupción.
+La documentación WIZnet W5500/UDP describe envío de datos
+superiores al MTU dividido automáticamente en unidades MTU.
+No equiparar dos datagramas a la recepción de un datagrama completo.
+
+El test de reanudación seguirá rechazando bytes corruptos, origen
+o puerto erróneos, ausencia de segundo datagrama y longitud/orden
+incorrectos. Los resultados históricos se conservan.

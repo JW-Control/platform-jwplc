@@ -330,6 +330,9 @@ def render_close():
 - Serial={m['port']}
 - Firmware prueba SHA256={m['app_sha256']}
 - UDP físico: {m['physical']}
+- G6_RESUME_ORIGIN={m.get('resume_origin','NO_RESUME')}
+- MTU W5500: mensaje de 2048 bytes observado como UDP 1472+576;
+  se verifica orden, IP/puerto y concatenación exacta.
 - Compilaciones overlay: {m['overlay_regressions']}
 - Compilaciones producto: {m['product_regressions']}
 - Sources: {m['product_sha256']}
