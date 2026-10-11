@@ -1172,3 +1172,60 @@ La prevención se incorpora transversalmente a
 no demuestra por sí solo que jamás puedan reaparecer; los siguientes
 finalizadores deben ejecutar el self-test y su propia prueba de
 integración **antes** de proponerse al operador.
+
+## F113 — Finalizador G5 bloqueado por archivos no rastreados ajenos (2026-10-11)
+
+**Categoría:** HARNESS / ergonomía del preflight Git.
+**Estado:** CORRECCIÓN_VERSIONADA; **cierre operativo pendiente de nueva ejecución del finalizador**.
+
+### Evidencia
+El gate integrado G5 terminó con `STATUS=PASS_PHYSICAL_NORMAL_SOURCE`,
+las pruebas PC↔JWPLC y 3/3 compilaciones de regresión PASS,
+y adoptó exactamente dos archivos `JWPLC_Ethernet` localmente.
+El siguiente intento de repetir el gate se detuvo por worktree sucio,
+como correspondía. En el primer intento del finalizador auditado:
+```text
+LOCAL_HEAD=ab269503fd25b942faecc9256b7bf35dc5ccbc03
+REMOTE_HEAD=80c0af5cb4febcd0cd6a11fec32a60d9d0253f11
+FINALIZER_INTEGRITY=PASS
+G5_FINALIZER_SYNTAX=PASS
+HITO=A13_G5_FINALIZE
+STATUS=REVIEW_STOP
+REASON=UNTRACKED_FILES
+NO_RESET_NO_CHECKOUT_NO_CLEAN_NO_BLIND_RETRY=YES
+```
+La salida no enumera los archivos no rastreados. La ventana CMake de VS Code
+observada anteriormente podría haber generado artefactos, **pero esa
+causalidad no está comprobada**. No eliminar ni ignorar sus archivos a ciegas.
+
+### Causa
+El finalizador G5 exigía un repositorio sin ningún archivo untracked:
+`git ls-files --others --exclude-standard` vacío. Esta restricción
+es innecesaria cuando los únicos cambios de producto permitidos están
+identificados y **cada `git add` usa pathspecs explícitos**, con posterior
+comprobación exacta del índice y del commit.
+
+### Prevención implementada
+- Conservar y enumerar hasta 12 rutas untracked, sin abrir, borrar,
+  sobrescribir, versionar ni añadirlas al índice.
+- Detenerse si una ruta no rastreada colisiona con los documentos
+  que G5 debe crear o con otros destinos reservados.
+- Exigir exactamente dos archivos de producto dirty y ningún cambio
+  staged al comenzar.
+- `git add -- <dos archivos>` y comprobación del **alcance exacto**
+  en el índice/commit; lo mismo con los tres documentos del cierre.
+- Al finalizar, exigir worktree **tracked** limpio; se permiten archivos
+  untracked preexistentes sin tocarlos. No usar `git add -A`,
+  `git clean`, `git reset`, `git checkout` ni `git pull` sobre
+  el producto adoptado.
+- Registrar cada bloqueo del launcher en FAILURES antes de abrir otro gate.
+
+```text
+F113=G5_UNTRACKED_FILES_PREFLIGHT_OVERRESTRICTIVE
+F113_ROOT_CAUSE=HARNESS_POLICY_NOT_PRODUCT
+F113_FIX=VERSIONED
+F113_FINALIZER_RETEST=PENDING
+G5_PHYSICAL=PASS
+G5_GIT_CLOSURE=PENDING
+NEXT_FAILURE_ID=F114
+```

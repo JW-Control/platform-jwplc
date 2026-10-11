@@ -1,5 +1,33 @@
 # v2.1.0-alpha.13 — Estado operativo y continuidad
 
+## Seguimiento G5 — prueba PASS, cierre Git F113 pendiente (2026-10-11)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G1_DNS=CLOSED_PASS
+G2_TCA_STARTUP=CLOSED_PASS
+G3=CLOSED_PASS
+G4=CLOSED_PASS
+G5_PHYSICAL=PASS
+G5_REGRESSIONS=3_OVERLAY_PASS_3_PRODUCT_PASS
+G5_PRODUCT_FILES=2_LOCAL_MODIFIED_UNCOMMITTED
+G5_FINALIZER_R1=REVIEW_STOP_UNTRACKED_FILES
+G5_FINALIZER_R2=VERSIONED_NOT_EXECUTED
+G5_CLOSURE=PENDING
+F113=OPEN_FIX_VERSIONED_PENDING_RETEST
+NEXT_FAILURE_ID=F114
+NEXT_GATE=A13_G5_GIT_CLOSURE
+RELEASE_MERGE_PR_PUBLICATION=NO
+```
+
+Las rutas untracked de la PC aún no fueron identificadas en la consola.
+El finalizador corregido las conservará sin tocar; únicamente incorporará
+los dos archivos Ethernet validados y la documentación autorizada.
+No repetir las pruebas físicas de G5.
+
+---
+
+
 ## Estado vigente — G5 preparado para validación integrada (2026-10-10)
 
 **Prevalece sobre el bloque histórico previo en relación con G5.**

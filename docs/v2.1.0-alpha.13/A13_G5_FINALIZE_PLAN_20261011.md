@@ -50,3 +50,21 @@ El histórico remoto admitido es únicamente:
 → el commit de reparación; solo dos paths de tooling y plan.
 El HEAD local puede ser cualquiera de esos tres ancestros verificados.
 No muta firmware ni altera los candidatos de la prueba G5 PASS.
+
+## Incidencia F113 y finalizador recuperado (2026-10-11)
+
+El primer cierre se detuvo en `UNTRACKED_FILES`, después de verificar
+su integridad y sintaxis pero **antes de autorizar commits**. El log no
+permite identificar cuáles son los archivos no rastreados; un build
+CMake de VS Code es una hipótesis, no un hecho.
+
+El finalizador actualizado registra las rutas no rastreadas, impide
+colisiones con los documentos del cierre y no las altera. `git add`
+se limita a los **dos archivos TCP** y, después, a los tres documentos
+de G5. Las comprobaciones exactas del índice, archivos modificados,
+evidencia de MANIFEST, token serial, hashes y cadena remota siguen
+obligatorias. Se retira únicamente la restricción de `untracked=0`.
+
+Se permite trabajar con `untracked > 0` bajo estas salvaguardas;
+después del push estos archivos pueden seguir visibles en GitHub Desktop
+y deben revisarse por separado, sin limpieza automática.

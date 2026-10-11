@@ -17,6 +17,7 @@ KNOWN_TOOLING=[
     "3c178f66f60ee0578b83a48c552582135ebccc1a",
     "fb96571166f6e5ee546a82ee0f149d0eaa675beb",
     "f18c4b43d09b77a2132ae0333cacb19826f3f8e0",
+    "80c0af5cb4febcd0cd6a11fec32a60d9d0253f11",
 ]
 TOOLING={
     "tools/alpha13/gates/a13_g5_finalize.py",
@@ -105,7 +106,7 @@ def preflight():
     need(local in ([BASE]+expected_lineage),"LOCAL_HEAD_UNEXPECTED "+local)
     lineage=cmd("rev-list","--reverse",BASE+".."+remote).splitlines()
     need(lineage==expected_lineage,
-         "REMOTE_HISTORY_NOT_EXACT_5_TOOLING_COMMITS")
+         "REMOTE_HISTORY_NOT_EXACT_6_TOOLING_COMMITS")
     parent=BASE
     for child in expected_lineage:
         need(cmd("rev-list","--parents","-n","1",child).split()==
@@ -115,7 +116,21 @@ def preflight():
          "REMOTE_TOOLING_SCOPE_UNEXPECTED")
     need(paths("diff","--name-only")==set(PRODUCT),"PRODUCT_DIRTY_SCOPE_NOT_2")
     need(not paths("diff","--cached","--name-only"),"FILES_ALREADY_STAGED")
-    need(not paths("ls-files","--others","--exclude-standard"),"UNTRACKED_FILES")
+    # Los untracked del usuario (p. ej. outputs locales) no son parte de G5.
+    # No borrarlos ni versionarlos: git add se limita a pathspecs explícitos.
+    # Registrar rutas y bloquear colisiones con los documentos del cierre.
+    untracked=paths("ls-files","--others","--exclude-standard")
+    reserved=set(PRODUCT)|TOOLING|{STATUS,REPORT,CHECKLIST}
+    need(not (untracked & reserved),
+         "UNTRACKED_TARGET_COLLISION="+repr(sorted(untracked & reserved)))
+    for name in (REPORT,CHECKLIST):
+        need(not (ROOT/name).exists() and not (ROOT/name).is_symlink(),
+             "CLOSURE_DOCUMENT_COLLISION="+name)
+    note("UNTRACKED_PRESERVED_COUNT="+str(len(untracked)))
+    for name in sorted(untracked)[:12]:
+        note("UNTRACKED_PRESERVED="+name)
+    if len(untracked)>12:
+        note("UNTRACKED_ADDITIONAL_COUNT="+str(len(untracked)-12))
     need(not cmd("diff","--check"),"PRODUCT_DIFF_WHITESPACE")
     for op in ("MERGE_HEAD","CHERRY_PICK_HEAD","REBASE_HEAD"):
         loc=Path(cmd("rev-parse","--git-path",op))
@@ -397,9 +412,14 @@ def main():
         doccommit=commit(docs,"docs(alpha13): cerrar G5 y preparar G6")
         product()
         need(not paths("diff","--name-only") and
-             not paths("diff","--cached","--name-only") and
-             not paths("ls-files","--others","--exclude-standard"),
-             "FINAL_WORKTREE_NOT_CLEAN")
+             not paths("diff","--cached","--name-only"),
+             "FINAL_TRACKED_WORKTREE_NOT_CLEAN")
+        # No exigir que desaparezcan los untracked previos: no nos pertenecen.
+        # Verificar una vez más ausencia de colisión con documentos/versiones.
+        remaining=paths("ls-files","--others","--exclude-standard")
+        need(not (remaining & (set(PRODUCT)|TOOLING|{STATUS,REPORT,CHECKLIST})),
+             "FINAL_UNTRACKED_TARGET_COLLISION")
+        note("UNTRACKED_FILES_LEFT_UNTOUCHED="+str(len(remaining)))
         note("PUSH=START_NON_FORCE")
         cmd("push","origin","HEAD:refs/heads/"+BRANCH)
         note("PUSH=PASS_NON_FORCE")
