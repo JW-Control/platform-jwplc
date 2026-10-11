@@ -506,6 +506,9 @@ def main():
         call([sys.executable,"-B",
               ROOT/"tools/alpha13/gates/a13_finalizer_portability_selftest.py"],
              "F112_PORTABILITY_SELFTEST")
+        call([sys.executable,"-B",
+              ROOT/"tools/alpha13/gates/a13_g7_contract_selftest.py"],
+             "G7_CONTRACT_SELFTEST")
         source=prep_source()
         pre,archive=build_archive(cli,source)
         check_precompiled(cli,pre,"CANDIDATE_LINK")
@@ -524,13 +527,23 @@ def main():
         MANIFEST["category"]=(exc.kind if isinstance(exc,Review) else
                               "USER_ABORT" if isinstance(exc,KeyboardInterrupt)
                               else "HARNESS")
-        if not COMMITTED:
+        # Si Git ya avanzó, ni siquiera un error entre commit y bandera
+        # COMMITTED permite restaurar archivos sobre el HEAD nuevo.
+        advanced=False
+        try:
+            current=git("rev-parse","HEAD")
+            advanced=(current!=MANIFEST.get("entry_head",current))
+        except Exception:
+            advanced=True
+        if not COMMITTED and not advanced:
             rollback()
+        elif ADOPTED:
+            log("ROLLBACK","SKIPPED_GIT_HEAD_ADVANCED_OR_UNVERIFIED")
         MANIFEST["status"]="REVIEW_STOP"
         log("STATUS","REVIEW_STOP")
         log("REASON",MANIFEST["reason"])
         log("CATEGORY",MANIFEST["category"])
-        log("GIT_PARTIAL_COMMIT",COMMITTED)
+        log("GIT_PARTIAL_COMMIT",COMMITTED or advanced)
         log("FRAM_RESTORE_VERIFIED",MANIFEST.get("fram_restored"))
         save()
         return 2
