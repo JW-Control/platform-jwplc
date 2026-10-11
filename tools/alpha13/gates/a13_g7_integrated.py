@@ -411,7 +411,13 @@ def regression(cli,selected,prefix):
              "PRECOMPILED_REGRESSION_BROKEN_"+name)
         assert_fram_archive_link(verbose,selected,prefix+"_"+name)
         log(prefix+"_"+name,"PASS")
-    MANIFEST[prefix.lower()+"_regressions"]=[p for p,_ in demos]
+    # Prefixes are already named CANDIDATE_REGRESSIONS / PRODUCT_REGRESSIONS.
+    # Do not append "_regressions" a second time: the closure document
+    # consumes precisely manifest["candidate_regressions"] and
+    # manifest["product_regressions"].
+    need(prefix in ("CANDIDATE_REGRESSIONS","PRODUCT_REGRESSIONS"),
+         "REGRESSIONS_UNKNOWN_PREFIX_"+prefix,"HARNESS")
+    MANIFEST[prefix.lower()]=[p for p,_ in demos]
     stage(prefix,"PASS")
 
 def upload_physical(cli,selected,port):
@@ -491,6 +497,13 @@ def audit(archive):
 
 def close_documents():
     m=MANIFEST
+    # Validate the document schema BEFORE performing any Git commit.
+    for key in ("candidate_regressions","product_regressions"):
+        need(isinstance(m.get(key),list) and
+             set(m[key])=={"GLOBAL_FRAM","CONFIG_BLOCK"},
+             "DOCUMENT_MANIFEST_REGRESSIONS_INVALID_"+key,"HARNESS")
+    need(set(m.get("product_sha256",{}))==set([*PRODUCT,ARCHIVE]),
+         "DOCUMENT_MANIFEST_PRODUCT_HASH_SCOPE","HARNESS")
     text=f"""# Alpha13-G7 — Cierre FRAM ({datetime.now().strftime('%Y-%m-%d')})
 
 **G7=PASS físico, compilado y archive; Alpha13 permanece en curso.**
