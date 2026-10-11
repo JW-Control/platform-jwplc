@@ -1,5 +1,48 @@
 # v2.1.0-alpha.13 — Estado operativo y continuidad
 
+## Estado vigente — G7 FRAM preflight preparado, producto intacto (2026-10-11)
+
+```text
+BRANCH=v2.1.0-alpha.13/feature/cleanup-robustness
+ALPHA13_STATUS=IN_PROGRESS
+G1_DNS=CLOSED_PASS
+G2_TCA_STARTUP=CLOSED_PASS
+TFT_CLOSURE=CLOSED_PASS
+G3_TCA_RMW=CLOSED_PASS
+G4_TFT_BATCH=CLOSED_PASS
+G5_TCP=CLOSED_PASS
+G6_UDP=CLOSED_PASS
+G6_PRODUCT_COMMIT=575144f49f1a392615ee3e0c1b9e137202ff532d
+G6_DOCS_COMMIT=17c37355e851bcc4306b8dd737eedfa45eef05b2
+G7=A13-009_PLUS_A13-013_FRAM
+G7_PREP_COMMIT=d90401c79dd69b9d54a0844ac43038bcf3a123a9
+G7_PREFLIGHT=VERSIONED_NOT_EXECUTED
+G7_ARCHIVE_MODE=PRECOMPILED_FULL
+G7_PRODUCT_CHANGED=NO
+G7_PHYSICAL=NOT_EXECUTED
+G7_FRAM_DATA_POLICY=PRESERVE_UNTIL_SAFE_TEST_WINDOW_IS_DEFINED
+G7_SOURCE_ARCHIVE_REBUILD=PENDING
+NEXT_GATE=A13_G7_FRAM_PREFLIGHT_AND_CANDIDATE_QUALIFICATION
+NEXT_FAILURE_ID=F118
+OPENPLC=OUT_OF_SCOPE
+HMI_DESIGNER=OUT_OF_SCOPE
+TFT_NEW_FEATURES=OUT_OF_SCOPE
+RELEASE_MERGE_PR_PUBLICATION=NO
+```
+
+G6 ha cerrado con prueba física, regresiones y push sin fuerza;
+no hay que repetirlo. G7 requiere especial tratamiento por
+`JW_FRAM` `precompiled=full` y `libJW_FRAM.a`: el siguiente
+cambio productivo debe incluir build fuente→objeto→archive→link
+y verificar un espacio seguro antes de cualquier escritura FRAM.
+Se versionó el plan
+`A13_G7_FRAM_PREPARATION_PLAN_20261011.md` y un preflight que
+solo compila, sin upload ni escritura FRAM. A13-009/A13-013 no
+se declaran corregidos sin contrastar alcance con auditoría.
+
+---
+
+
 ## Estado vigente — G6 cerrado, G7 siguiente (2026-10-11)
 
 ALPHA13_STATUS=IN_PROGRESS

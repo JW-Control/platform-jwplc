@@ -1492,3 +1492,34 @@ F117_PHYSICAL_FULL_RETEST=PENDING
 G6_TX_DATA_CORRUPTED=NO
 G6_REUPLOAD_REQUIRED=NO
 ```
+
+### F115–F117 — resultado posterior del cierre real de G6 (2026-10-11)
+
+El operador ejecutó `a13_g6_resume_uploaded.py` y confirmó:
+```text
+G6_RESUME_UDP_FIXTURES=8_OF_8_PASS
+G6_RESUME_ORIGINAL_EVIDENCE=PASS_3_COMPILES_UPLOAD_AND_DIAGNOSTIC
+G6_PHYSICAL_PC_EXIT=0
+PHASE=PHYSICAL_NETWORK_PASS
+COMPILE_PRODUCT_ETH_STATIC_EXIT=0
+COMPILE_PRODUCT_ETH_SPI_EXIT=0
+COMPILE_PRODUCT_MODBUS_CLIENT_EXIT=0
+PHASE=FINAL_AUDIT_PASS
+PHASE=AUTO_GIT_CLOSURE_PASS
+PUSH=PASS_NON_FORCE
+STATUS=CLOSED_PASS
+G6_RESUME_NO_NEW_UPLOAD=YES
+```
+
+Resultado confirmado:
+- `F115=TOOLING_CLOSED_CLI_OFFICIAL_VALIDATED`: Arduino CLI oficial
+  1.5.1 fue usado y el upload funcionó. **La causa histórica exacta
+  del primer PermissionError(13) en COM4 no se pudo demostrar.**
+- `F116=HARNESS_CLOSED`: el falso negativo de la colección
+  PowerShell se eliminó, el core y CLI fueron validados después.
+- `F117=HARNESS_CLOSED`: receptor MTU dividido corregido y
+  prueba PC↔JWPLC completa PASS, sin nueva subida.
+- `NEXT_FAILURE_ID=F118`.
+
+Esto actualiza los estados vigentes sin borrar la evidencia de
+los intentos fallidos ni atribuir al firmware un fallo del harness.
