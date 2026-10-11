@@ -1172,3 +1172,90 @@ La prevención se incorpora transversalmente a
 no demuestra por sí solo que jamás puedan reaparecer; los siguientes
 finalizadores deben ejecutar el self-test y su propia prueba de
 integración **antes** de proponerse al operador.
+
+## F113 — Finalizador G5 bloqueado por archivos no rastreados ajenos (2026-10-11)
+
+**Categoría:** HARNESS / ergonomía del preflight Git.
+**Estado:** CORRECCIÓN_VERSIONADA; **cierre operativo pendiente de nueva ejecución del finalizador**.
+
+### Evidencia
+El gate integrado G5 terminó con `STATUS=PASS_PHYSICAL_NORMAL_SOURCE`,
+las pruebas PC↔JWPLC y 3/3 compilaciones de regresión PASS,
+y adoptó exactamente dos archivos `JWPLC_Ethernet` localmente.
+El siguiente intento de repetir el gate se detuvo por worktree sucio,
+como correspondía. En el primer intento del finalizador auditado:
+```text
+LOCAL_HEAD=ab269503fd25b942faecc9256b7bf35dc5ccbc03
+REMOTE_HEAD=80c0af5cb4febcd0cd6a11fec32a60d9d0253f11
+FINALIZER_INTEGRITY=PASS
+G5_FINALIZER_SYNTAX=PASS
+HITO=A13_G5_FINALIZE
+STATUS=REVIEW_STOP
+REASON=UNTRACKED_FILES
+NO_RESET_NO_CHECKOUT_NO_CLEAN_NO_BLIND_RETRY=YES
+```
+La salida no enumera los archivos no rastreados. La ventana CMake de VS Code
+observada anteriormente podría haber generado artefactos, **pero esa
+causalidad no está comprobada**. No eliminar ni ignorar sus archivos a ciegas.
+
+### Causa
+El finalizador G5 exigía un repositorio sin ningún archivo untracked:
+`git ls-files --others --exclude-standard` vacío. Esta restricción
+es innecesaria cuando los únicos cambios de producto permitidos están
+identificados y **cada `git add` usa pathspecs explícitos**, con posterior
+comprobación exacta del índice y del commit.
+
+### Prevención implementada
+- Conservar y enumerar hasta 12 rutas untracked, sin abrir, borrar,
+  sobrescribir, versionar ni añadirlas al índice.
+- Detenerse si una ruta no rastreada colisiona con los documentos
+  que G5 debe crear o con otros destinos reservados.
+- Exigir exactamente dos archivos de producto dirty y ningún cambio
+  staged al comenzar.
+- `git add -- <dos archivos>` y comprobación del **alcance exacto**
+  en el índice/commit; lo mismo con los tres documentos del cierre.
+- Al finalizar, exigir worktree **tracked** limpio; se permiten archivos
+  untracked preexistentes sin tocarlos. No usar `git add -A`,
+  `git clean`, `git reset`, `git checkout` ni `git pull` sobre
+  el producto adoptado.
+- Registrar cada bloqueo del launcher en FAILURES antes de abrir otro gate.
+
+```text
+F113=G5_UNTRACKED_FILES_PREFLIGHT_OVERRESTRICTIVE
+F113_ROOT_CAUSE=HARNESS_POLICY_NOT_PRODUCT
+F113_FIX=VERSIONED
+F113_FINALIZER_RETEST=PENDING
+G5_PHYSICAL=PASS
+G5_GIT_CLOSURE=PENDING
+NEXT_FAILURE_ID=F114
+```
+
+## F114 — Finalizador G5: contrato de claves MANIFEST incorrecto (2026-10-11)
+
+**Clasificación:** HARNESS, no fallo productivo. **Estado:** FIX_VERSIONED_PENDING_RETEST.
+
+El finalizador pasó `GIT_PREFLIGHT=PASS` y
+`PRODUCT=PASS_2_ETHERNET_SOURCES_AND_G3_G4_ARCHIVES` pero se detuvo
+antes de solicitar autorización con `REASON=G5_CANDIDATE_SET_CHANGED`.
+Causa confirmada en `a13_g5_integrated.py`: `candidate_sha256` se
+genera como `{product_path: sha(candidate_path)}`; el cierre suponía
+incorrectamente claves `candidate_path`, y accedía a `[src]`.
+Corregido: exigir claves exactas de producto, formato SHA256 y verificar
+`candidate_hashes[dest] == sha(src)` para cada par.
+
+Los 42 untracked vistos en la consola son outputs de CMake/VS Code
+en la carpeta `build/`: `CMakeCache.txt`, `CMakeFiles`, etc.
+Se añadió `/build/` al `.gitignore` raíz **sin eliminar archivos**.
+
+**Prevención:** validar esquemas completos de MANIFEST contra el código
+que los genera, incluidos tipos, nombres de claves y significados de
+valores; no enviar finalizadores sin esa comprobación. Los dos archivos
+Ethernet siguen probados físicamente y pendientes solo de cierre Git.
+
+```text
+F114=G5_MANIFEST_KEYS_WRONG
+F114_STATUS=FIX_VERSIONED_PENDING_RETEST
+G5_PHYSICAL=PASS
+G5_GIT_CLOSURE=PENDING
+NEXT_FAILURE_ID=F115
+```

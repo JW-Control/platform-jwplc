@@ -144,3 +144,27 @@ ni autorización para usar cualquier versión de Python: cada gate
 declara su mínimo y verifica `sys.executable`. El historial y las
 razones de esta norma están en el incidente **F112** del FAILURES
 canónico de Alpha13.
+
+## 10. Finalizadores con archivos Git no rastreados (F113)
+
+El preflight de un finalizador **no debe exigir ciegamente un worktree
+sin archivos untracked** si el hito ya dejó cambios de producto validados.
+Se exige verificar el conjunto exacto de archivos tracked dirty,
+índice vacío, colisiones en destinos de documentación y alcance explícito
+de todos los comandos `git add -- rutas`. Los archivos untracked ajenos
+no deben limpiarse, modificar `.gitignore` sin evidencia, ni entrar en
+commits por accidente. Registrar sus rutas y dejarlos al operador.
+
+Se rechaza cualquier colisión con un fichero que el finalizador pretenda
+crear; tras un cierre se comprueba limpieza solo de tracked y ningún
+archivo staged, manteniendo los untracked ajenos intactos. El defecto
+real observado en G5 está documentado como F113.
+
+## 11. Contratos de MANIFEST y archivos generados (F114)
+
+Antes de entregar un finalizador, comprobar todas las claves, tipos
+y valores del `MANIFEST.json` contra las asignaciones reales del
+generador. Nunca inferir que el diccionario SHA está indexado por
+rutas de candidatos: el gate G5 utiliza rutas del **producto**.
+No permitir borrados de archivos locales de `build/`; se ignoran
+mediante `.gitignore` raíz. No incorporar salidas de CMake al repositorio.
