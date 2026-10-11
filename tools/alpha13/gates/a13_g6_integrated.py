@@ -478,7 +478,7 @@ def main():
         cli=cli_find(args.arduino_cli)
         run([cli,"version"],"CLI_VERSION")
         core_list=run([cli,"core","list"],"CLI_CORES")
-        check(re.search(r"(?m)^\\s*jwplc_local:esp32\\s",core_list) is not None,
+        check(re.search(r"(?m)^\s*jwplc_local:esp32\s",core_list) is not None,
               "JWPLC_LOCAL_CORE_NOT_INSTALLED_IN_SELECTED_CLI","ENVIRONMENT")
         emit("JWPLC_CORE_TARGET","jwplc_local:esp32:jwplcbasic")
         port=serial_port(args.serial_port)

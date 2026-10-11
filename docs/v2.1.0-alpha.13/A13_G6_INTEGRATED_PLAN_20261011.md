@@ -101,3 +101,24 @@ commit, conserva estado y requiere revisión, **sin reset/clean/rebase**.
 
 Los selftests automáticos están versionados pero todavía no se
 han ejecutado en el Windows/Arduino real del operador.
+
+## Incidente F115: CLI ajeno y COM4 no disponible (2026-10-11)
+
+El primer G6 ejecutado compiló 3/3 regresiones y el sketch con
+`C:\Program Files\Arduino PLC IDE Tools\arduino-cli.EXE`, que
+se seleccionó mediante un fallback del harness **no acordado**.
+La subida falló antes de abrir COM4, con
+`PermissionError(13)` y `Original message ... 31`.
+`MANIFEST.product_changed=false` y no existen commits G6.
+
+La ruta del CLI se independiza del error USB: no hay evidencia
+suficiente para afirmar que el ejecutable de PLC IDE Tools ocasionó
+el fallo de acceso al puerto. Se prohíbe esa ruta y cualquier
+fallback silencioso. G6 debe ejecutarse más adelante con
+`--arduino-cli "RUTA_ABSOLUTA_VERIFICADA"` y conservar identidad SHA,
+versión y listado `jwplc_local:esp32` instalado.
+
+Primero obtener inventario **solo lectura** de los CLI disponibles
+en Windows y comprobar COM4 sin flash; no recomendar reinstalaciones
+ni cambios de drivers sin diagnóstico. El artefacto previo no es un
+PASS físico y no se debe reciclar como validación del nuevo entorno.

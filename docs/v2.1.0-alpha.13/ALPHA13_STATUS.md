@@ -1,5 +1,41 @@
 # v2.1.0-alpha.13 — Estado operativo y continuidad
 
+## G6 — CLI y COM4 en revisión (2026-10-11)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G1=CLOSED_PASS
+G2=CLOSED_PASS
+G3=CLOSED_PASS
+G4=CLOSED_PASS
+G5=CLOSED_PASS
+G6_R1_PREFLIGHT=PASS
+G6_R1_SELFTEST=PASS
+G6_R1_CANDIDATE_BUILD=PASS_3_OF_3
+G6_R1_PHYSICAL_BUILD=PASS
+G6_R1_UPLOAD=REVIEW_COM4_OPEN_PERMISSION_ERROR_13
+G6_R1_CLI=ARDUINO_PLC_IDE_TOOLS_UNEXPECTED
+G6_R1_PRODUCT_MUTATION=NO
+G6_R1_GIT_COMMIT=NO
+G6_R1_TCP_UDP_PHYSICAL=NOT_RUN
+G6_CLI_POLICY=EXPLICIT_ARDUINO_IDE_CLI_REQUIRED
+G6_RETEST=NOT_EXECUTED
+F115=OPEN_CODE_FIX_VERSIONED
+NEXT_FAILURE_ID=F116
+NEXT_GATE=A13_G6_ENVIRONMENT_DIAGNOSE_THEN_RESUME
+RELEASE_MERGE_PR_PUBLICATION=NO
+```
+
+El fallback que seleccionó `Arduino PLC IDE Tools` fue un error del
+harness; la causa de `PermissionError(13)` de COM4 no está todavía
+establecida. El runner ahora exige CLI por ruta absoluta, no acepta
+aquel fallback y registra versión y SHA. No reejecutar G6 antes de
+seleccionar el CLI correcto y diagnosticar el puerto. Mantener fuentes
+productivas y G1–G5 intactos.
+
+---
+
+
 ## Estado vigente — G6 listo para ejecutar gate integrado (2026-10-11)
 
 ```text

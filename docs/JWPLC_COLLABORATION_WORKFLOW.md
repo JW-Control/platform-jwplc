@@ -202,3 +202,19 @@ El ejecutor de cierre:
 Esta política aplica desde G6; G1–G5 permanecen cerrados con sus
 evidencias históricas. La automatización no equivale a permiso para
 eludir seguridad física o publicar Alpha13.
+
+## 13. Procedencia de Arduino CLI (F115)
+
+Todos los gates nuevos del package Arduino JWPLC deben utilizar un
+`arduino-cli.exe` **explícitamente identificado** y compatible con la
+instalación de Arduino IDE del operador, no una ruta oculta por PATH
+ni un fallback a `Arduino PLC IDE Tools`.
+
+Cada gate debe registrar ruta absoluta, versión, SHA-256 del ejecutable
+y core instalado `jwplc_local:esp32` antes de compilar y antes de
+subir firmware. Si no existe una ruta verificada, detenerse con
+`REVIEW_ENVIRONMENT` y pedir diagnóstico read-only; no escoger otra
+versión/instalación de Arduino silenciosamente. Distinguir fallos de
+resolución del CLI de bloqueos físicos de COM/USB y guardar el log
+original de esptool. No alterar scripts históricos de gates cerrados
+sin una razón de mantenimiento explícita.

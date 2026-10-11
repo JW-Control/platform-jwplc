@@ -1270,3 +1270,77 @@ NEXT_FAILURE_ID=F115
 
 No se borraron outputs CMake, se respetó /build/ y los archivos
 Ethernet previamente probados físicamente.
+
+## F115 — G6 usó silenciosamente Arduino PLC IDE Tools como CLI (2026-10-11)
+
+**Categoría:** HARNESS / PROVENIENCIA DE HERRAMIENTAS, con incidencia
+independiente de apertura de COM4. **Estado:** REMEDIATION_VERSIONED;
+prueba del CLI corregido y recuperación del puerto todavía pendientes.
+
+### Evidencia real
+
+```text
+RUN_ID=20261011_122638_044c92f3
+CLI=C:\Program Files\Arduino PLC IDE Tools\arduino-cli.EXE
+FQBN=jwplc_local:esp32:jwplcbasic
+G6_CANDIDATE_REGRESSIONS=PASS_3_OF_3
+G6_PHYSICAL_BUILD=PASS
+UPLOAD_G6_EXIT=1
+ESPTOOL_VERSION=5.2.0
+ESPTOOL_FATAL=Could not open COM4, the port is busy or doesn't exist
+WINDOWS_ERROR=PermissionError(13) / sistema not functioning (31)
+PRODUCT_CHANGED=FALSE
+GIT_PRODUCT_COMMIT=FALSE
+G6_PHYSICAL_NETWORK=NOT_RUN
+```
+
+El fallback `C:\Program Files\Arduino PLC IDE Tools\arduino-cli.exe`
+fue introducido por el asistente. La versión histórica de G4 incluso
+prefería esa ruta, y las versiones históricas de G5/G6 la usaban
+como fallback cuando `arduino-cli` no estaba en PATH. No es el
+flujo acordado para el package JWPLC en Arduino IDE; **no debió
+seleccionarse sin aprobación ni dejar constancia de procedencia**.
+
+Aunque el ejecutable se llama `arduino-cli` y compiló el FQBN JWPLC
+desde sus fuentes, no equivale a afirmar que Arduino PLC IDE se haya
+utilizado para desarrollar el sketch. Tampoco se ha demostrado que esa
+ruta sea la causa de `PermissionError(13)`: esptool no consiguió
+abrir COM4, situación que puede depender de otra aplicación que ocupe
+el puerto, del driver CH340 o de conectividad USB. La causa concreta
+del acceso fallido está pendiente de diagnóstico local.
+
+### Prevención obligatoria
+
+- El G6 revisado exige `--arduino-cli` con **ruta absoluta a un
+  archivo ejecutable** elegido por el operador; no acepta una opción
+  vacía ni un nombre resuelto por PATH sin identificarlo.
+- Rechaza la carpeta `Arduino PLC IDE Tools`, sin reemplazarla
+  silenciosamente por otra.
+- Registra la ruta real y SHA-256 del ejecutable utilizado en
+  MANIFEST/SUMMARY; ejecuta `version`, `core list` y verifica que
+  `jwplc_local:esp32` esté instalado antes de compilar/subir.
+- El script `a13_g6_contract_selftest.py` verifica la presencia de
+  esas protecciones (no sustituye el diagnóstico local).
+- La verificación de la procedencia de Arduino CLI pasa a ser
+  obligatoria en gates posteriores. No mezclar instalaciones ni
+  reutilizar binarios de una compilación con un CLI diferente sin
+  comprobar equivalencia de entorno.
+- Investigar COM4 por separado. Cerrar monitores seriales/terminales
+  que pudieran ocuparlo y obtener datos de Device Manager/puertos.
+  No reflashear hasta asegurar que el puerto está disponible y el
+  JWPLC sigue aislado de cargas.
+- Conservar los artefactos de G6 R1 como evidencia. No modificar
+  fuentes productivas ni crear commits G6 hasta revalidación
+  física con el ejecutable acordado.
+
+```text
+F115=G6_UNEXPECTED_PLC_IDE_CLI_FALLBACK
+F115_CLASS=HARNESS
+F115_CODE_FIX=VERSIONED
+F115_REAL_ENVIRONMENT_VALIDATION=PENDING
+COM4=FAILED_OPEN_PERMISSION_ERROR_13
+COM4_CAUSE=NOT_ESTABLISHED
+G6_PRODUCT=UNMODIFIED
+G6_CLOSURE=NOT_DONE
+NEXT_FAILURE_ID=F116
+```
