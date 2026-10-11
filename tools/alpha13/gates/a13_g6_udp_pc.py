@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""G6 PC UDP físico con token: 2048 TX, 256 parcial, 16 siguiente."""
+"""G6 PC UDP físico: 2048 TX en 1 datagrama o 1472+576, RX parcial y recuperación."""
 from __future__ import annotations
 import argparse
 import ipaddress
@@ -61,9 +61,35 @@ def main():
                 sock.settimeout(8.0)
                 sock.bind((pc,PC_PORT))
                 ser.write(("G6_TX:"+args.token+" "+pc+"\n").encode("ascii"))
+                # W5500 UDP transmits up to its configured MTU (usually
+                # 1472 bytes) per datagram; its 2-KiB TX buffer is NOT
+                # necessarily one UDP message at the receiving PC.
+                # Accept exactly one 2048-byte datagram or the documented
+                # 1472+576 split, with the same source IP+port and
+                # byte-perfect concatenation in received order.
                 data,address=sock.recvfrom(8192)
-                if address[0]!=dut or data!=EXPECTED_TX:
-                    print("G6_PC_ERROR=TX_PAYLOAD_MISMATCH",flush=True)
+                packets=[(data,address)]
+                sizes=[len(data)]
+                if len(data)==1472:
+                    sock.settimeout(3.0)
+                    try:
+                        second,second_address=sock.recvfrom(8192)
+                        packets.append((second,second_address))
+                        sizes.append(len(second))
+                    except socket.timeout:
+                        print("G6_PC_ERROR=TX_SECOND_DATAGRAM_TIMEOUT",flush=True)
+                        return 3
+                combined=b"".join(payload for payload,_ in packets)
+                source_ok=all(
+                    addr[0]==dut and addr[1]==DUT_PORT
+                    for _,addr in packets)
+                shape_ok=sizes in ([2048],[1472,576])
+                bytes_ok=combined==EXPECTED_TX
+                print("G6_PC_TX_DATAGRAM_SIZES="+",".join(map(str,sizes)),flush=True)
+                print("G6_PC_TX_SOURCE_MATCH="+str(source_ok),flush=True)
+                print("G6_PC_TX_BYTES_MATCH="+str(bytes_ok),flush=True)
+                if not (source_ok and shape_ok and bytes_ok):
+                    print("G6_PC_ERROR=TX_DATAGRAM_CONTRACT_FAILED",flush=True)
                     return 3
                 print("G6_PC_TX_2048_EXACT=PASS",flush=True)
                 if not get_line(ser,args.token,"G6_TX_DONE="+args.token,15,all_lines):
