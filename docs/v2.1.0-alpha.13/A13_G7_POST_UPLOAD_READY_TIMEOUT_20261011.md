@@ -77,3 +77,28 @@ decide si la prueba física de FRAM pasó.
 No repetir el script si falla o es interrumpido después
 de emitir la orden. Mantener el JWPLC sin cargas ni actuadores,
 sin borrar NVS ni cargar otro firmware, hasta revisar el backup.
+
+## Ensayo FRAM físico recuperado — PASS (2026-10-11)
+
+```text
+PHYSICAL_RUN=g7_20261011_164228_e5e86ddc
+APP_SHA256=30cb8c596d212b6209e3fb179c1b9f216588c2fc83225834dfb2bce7088c663a
+RUN_COMMAND_SENT_ONCE=YES
+RESTORE_128_BYTES=PASS
+CHECKSUM_AND_INVALID_INPUT=PASS
+TOTAL_ERRORS=0
+PHYSICAL_PASS=YES
+NEW_UPLOAD=NO
+```
+
+El firmware quedó funcional tras reconectar alimentación, y
+la FRAM terminó con datos originales restaurados. Por
+seguridad no repetir el ensayo, no borrar el NVS ni reiniciar
+con un nuevo sketch sólo para repetir la prueba. El cierre
+productivo se realizará mediante
+`a13_g7_close_from_physical_pass.py` con
+`--verify-only` seguido de cierre si todas las comprobaciones
+son PASS, sin cargar firmware ni acceder al puerto serial.
+
+La causa del congelamiento inmediato al upload no fue demostrada
+con evidencia: F120 conserva esa investigación pendiente.

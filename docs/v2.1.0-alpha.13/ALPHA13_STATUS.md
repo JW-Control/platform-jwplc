@@ -1,5 +1,49 @@
 # v2.1.0-alpha.13 — Estado operativo y continuidad
 
+## G7 — PHYSICAL_PASS con NVS restaurado, falta cierre productivo (2026-10-11)
+
+```text
+BRANCH=v2.1.0-alpha.13/feature/cleanup-robustness
+ALPHA13_STATUS=IN_PROGRESS
+G1_G6=CLOSED_PASS
+G7_PHYSICAL_RUN_ID=g7_20261011_164228_e5e86ddc
+G7_UPLOAD=PASS_PREVIOUS_ATTEMPT
+G7_APP_SHA256=30cb8c596d212b6209e3fb179c1b9f216588c2fc83225834dfb2bce7088c663a
+G7_PHYSICAL=PASS_BACKUP_RESTORE_CHECKSUM_NULL_BOUNDS
+G7_FRAM_STALE_RECOVERY=1
+G7_FRAM_BACKUP_PASS=1
+G7_FRAM_NULL_AND_BOUNDS_ERRORS=0
+G7_FRAM_VALID_BLOCK_ERRORS=0
+G7_FRAM_CORRUPT_BLOCK_ERRORS=0
+G7_FRAM_VERSION_ERRORS=0
+G7_FRAM_RESTORE_PASS=1
+G7_FRAM_TOTAL_ERRORS=0
+G7_FRAM_DONE=PASS_EXACT_TOKEN
+G7_FRAM_RECOVERY_PROOF=PHYSICAL_PASS_JSON_CREATED
+G7_NEW_UPLOAD_REQUIRED=NO
+G7_ADOPTION_AND_PRODUCT_REGRESSIONS=PENDING
+G7_GIT_CLOSURE=PENDING
+G7_CLOSE_FROM_PHYSICAL_PASS=PREPARED_NOT_EXECUTED
+F120_CAUSE_POST_UPLOAD_FREEZE=UNKNOWN
+G7_CANONICAL_A13_009_013_MAPPING=REVIEW_PENDING
+NEXT_FAILURE_ID=F121
+RELEASE_MERGE_PR_PUBLICATION=NO
+```
+
+El operador ejecutó una única orden `G7_FRAM_RUN` sobre
+firmware existente, recibida tras `READY` por COM4 con
+DTR/RTS desactivados. La FRAM restauró los 128 bytes originales,
+sin diferencias y con 0 errores. La prueba no repetirá
+el acceso a FRAM. Se preparó cierre desde evidencia en
+`a13_g7_close_from_physical_pass.py`, que comprueba
+manifiesto, hashes y logs; sólo después adopta dos fuentes y
+`libJW_FRAM.a` y ejecuta regresiones Arduino IDE.
+**G7 no está CLOSED_PASS hasta terminar regresiones y Git.**
+F120 sigue con causa de freeze post-upload no demostrada.
+
+---
+
+
 ## G7 — F120 power-cycle recuperado y UART READY probado; físico pendiente (2026-10-11)
 
 ```text

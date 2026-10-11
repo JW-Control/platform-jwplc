@@ -1742,3 +1742,46 @@ F120_PHYSICAL_FRAM_TEST=NOT_YET_EXECUTED
 F120_RESUME_SCRIPT=VERSIONED_NOT_EXECUTED
 NEXT_FAILURE_ID=F121
 ```
+
+### F120 — El ensayo físico de FRAM finalmente pasó; freeze post-upload sin causa determinada
+
+Después de abrir COM4 con DTR=RTS=False, el operador ejecutó
+una única orden `G7_FRAM_RUN` sobre el firmware ya cargado:
+```text
+G7_RECOVER_RUN_ID=g7_20261011_164228_e5e86ddc
+G7_RECOVER_SOURCE=ALREADY_FLASHED_NO_NEW_UPLOAD
+G7_SERIAL_READY_MATCH=PASS
+G7_SERIAL_G7_FRAM_STALE_RECOVERY=1
+G7_SERIAL_G7_FRAM_BACKUP_PASS=1
+G7_SERIAL_G7_FRAM_NULL_AND_BOUNDS_ERRORS=0
+G7_SERIAL_G7_FRAM_VALID_BLOCK_ERRORS=0
+G7_SERIAL_G7_FRAM_CORRUPT_BLOCK_ERRORS=0
+G7_SERIAL_G7_FRAM_VERSION_ERRORS=0
+G7_SERIAL_G7_FRAM_RESTORE_PASS=1
+G7_SERIAL_G7_FRAM_TOTAL_ERRORS=0
+G7_SERIAL_G7_FRAM_RESULT=PASS
+G7_FRAM_PHYSICAL=PASS_BACKUP_RESTORE_CHECKSUM_NULL_BOUNDS
+G7_RECOVER_SERIAL_EXIT=0
+G7_RECOVER_FRAM_RESTORE_VERIFIED=True
+G7_RECOVER_STATUS=PHYSICAL_PASS
+```
+
+Esto **cierra la validación física FRAM** y confirma la restauración,
+pero no identifica la causa raíz del congelamiento TFT y
+`READY_TIMEOUT` inmediatamente posterior al upload anterior.
+Distinguir `F120_PHYSICAL_RECOVERY=PASS` de
+`F120_POST_UPLOAD_FREEZE_CAUSE=UNKNOWN`; no cerrar la causa
+histórica por inferencia. No volver a ejecutar `G7_FRAM_RUN`.
+
+La evidencia local consta de:
+`tools/alpha13/results/g7_fram_g7_20261011_164228_e5e86ddc/G7_FRAM_PHYSICAL_RECOVERY.log`
+y `G7_FRAM_PHYSICAL_RECOVERY.json`, con SHA de log/host.
+`a13_g7_close_from_physical_pass.py` comprueba ambos y la
+identidad del archivo `libJW_FRAM.a` antes de permitir adopción
+y regresiones. Posee `--verify-only` no destructivo.
+```text
+F120_PHYSICAL_FRAM=PASS
+F120_POST_UPLOAD_FREEZE_CAUSE=UNKNOWN
+G7_CLOSE_PRODUCT_AND_DOCS=PENDING
+NEXT_FAILURE_ID=F121
+```
