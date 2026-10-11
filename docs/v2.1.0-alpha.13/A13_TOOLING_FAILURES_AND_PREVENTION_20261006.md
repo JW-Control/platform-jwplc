@@ -1666,3 +1666,34 @@ G7_FRAM_WRITE=NO
 G7_PRODUCT_MUTATION=NO
 NEXT_FAILURE_ID=F120
 ```
+
+## F120 — G7: timeout de READY y reloj TFT detenido después del upload (2026-10-11)
+
+**Estado:** DIAGNOSIS_PENDING. **Producto:** sin adopción.
+El intento G7 R3 confirmó reconstrucción source/archive, enlace
+`-L/-lJW_FRAM`, regresiones candidato, compilación del sketch
+físico y subida `UPLOAD_G7_EXIT=0`. Tras la subida:
+`FRAM_PHYSICAL_SERIAL_EXIT=3`,
+`G7_SERIAL_ERROR=READY_TIMEOUT`.
+El operador observó hora TFT congelada en 16:46:54.
+
+Causa **todavía desconocida**: el sketch habría de transmitir
+`G7_FRAM_READY` cada 700 ms sin orden previa. El host no recibió
+la marca y no envió `G7_FRAM_RUN`. El paquete posee autoload de
+RTC/display (`jwplcSystemTask`) fuera del sketch; por ello la
+explicación inicial de TFT inmóvil sólo por falta de dibujo desde
+`loop()` es insuficiente.
+
+Se creó `a13_g7_boot_readonly.py` para lectura UART pasiva, con
+DTR/RTS en false y sin escrituras, resets, comandos FRAM ni flash.
+Conservar manifiesto, logs de subida, y cualquier marca NVS intacta.
+
+```text
+F120_CLASS=UNKNOWN
+F120_FLASH_UPLOAD=PASS
+F120_DEVICE_READY=NOT_OBSERVED
+F120_FRAM_RUN_SENT=NO
+F120_PRODUCT_MUTATED=NO
+F120_PASSIVE_DIAG=VERSIONED_NOT_EXECUTED
+NEXT_FAILURE_ID=F121
+```

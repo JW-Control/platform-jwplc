@@ -1,5 +1,41 @@
 # v2.1.0-alpha.13 — Estado operativo y continuidad
 
+## G7 — F120: upload PASS, READY_TIMEOUT y TFT detenida; UART pasiva pendiente (2026-10-11)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G1_G6=CLOSED_PASS
+G7_SOURCE_ARCHIVE_BUILD=PASS
+G7_CANDIDATE_LINK_AND_REGRESSIONS=PASS
+G7_PHYSICAL_BUILD=PASS
+G7_UPLOAD=PASS
+G7_FIRMWARE_SHA256=30cb8c596d212b6209e3fb179c1b9f216588c2fc83225834dfb2bce7088c663a
+G7_FRAM_SERIAL=REVIEW_READY_TIMEOUT
+G7_TFT_CLOCK=STOPPED_AT_16_46_54_OPERATOR_OBSERVATION
+G7_FRAM_TEST_COMMAND=NOT_SENT
+G7_FRAM_RESTORE_VERIFIED=NO_NOT_RUN
+G7_PRODUCT_ADOPTION=NO
+G7_GIT_CLOSE=NO
+G7_PHYSICAL_CAUSE=UNKNOWN
+F120=POST_UPLOAD_READY_TIMEOUT
+F120_PASSIVE_SERIAL_DIAG=VERSIONED_NOT_EXECUTED
+NEXT_FAILURE_ID=F121
+NEXT_GATE=A13_G7_UART_READONLY_DIAGNOSIS
+DO_NOT_REFLASH_OR_RESET_BEFORE_SERIAL_EVIDENCE=YES
+RELEASE_MERGE_PR_PUBLICATION=NO
+```
+
+No repetir G7 ni declarar CLOSED_PASS. Primero captar pasivamente
+UART de COM4 a 115200, sin transmitir `G7_FRAM_RUN`, sin reset
+del ESP32 y sin sobrescribir firmware/NVS. El core sí incluye un
+`jwplcSystemTask` para pantalla y RTC independiente del sketch.
+La coincidencia reloj detenido + READY_TIMEOUT merece diagnóstico de
+arranque, serial o tareas, sin atribución causal prematura.
+Documento detallado: `A13_G7_POST_UPLOAD_READY_TIMEOUT_20261011.md`.
+
+---
+
+
 ## G7 — F119 enlace FRAM verificado; reanudación preparada (2026-10-11)
 
 ```text
