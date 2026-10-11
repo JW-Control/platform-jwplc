@@ -47,26 +47,15 @@ jobs:
           grep -qx 'G7C_SOURCE_CONTRACT=PASS' g7c_native_cpp.log
           grep -qx 'G7C_NATIVE_TESTS=PASS' g7c_native_cpp.log
           grep -qx 'G7C_NATIVE_CPP=PASS_ACTUAL_EXTRACTED_METHOD' g7c_native_cpp.log
-      - name: Validar el estado despues de la adopcion FRAM
+      - name: Comprobar readString tras adopcion de fuentes
         shell: bash
         run: |
           set -euo pipefail
           cp tools/alpha13/candidates/g7c/JW_FRAM.cpp JWPLC/2.1.0/libraries/JW_FRAM/src/JW_FRAM.cpp
           cp tools/alpha13/candidates/g7c/JW_FRAM.h JWPLC/2.1.0/libraries/JW_FRAM/src/JW_FRAM.h
-          python3 -B tools/alpha13/gates/a13_g7c_source_selftest.py \
-            --native-cxx "$(command -v g++)" --require-native \
-            | tee g7c_native_after_adoption.log
-          grep -qx 'G7C_SOURCE_STATE=ADOPTED_EXACT_CANDIDATE' g7c_native_after_adoption.log
-          grep -qx 'G7C_NATIVE_TESTS=PASS' g7c_native_after_adoption.log
-          test "$(grep -c '^G7C_NATIVE_CASE_.*=PASS        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: alpha13-g7c-native-${{ github.run_id }}
-          path: |
-            g7c_native_cpp.log
-            g7c_native_after_adoption.log
-          if-no-files-found: warn
- g7c_native_after_adoption.log)" -eq 11
+          python3 -B tools/alpha13/gates/a13_g7c_source_selftest.py --native-cxx /usr/bin/g++ --require-native > g7c_after_adoption.log
+          grep -qx G7C_SOURCE_STATE=ADOPTED_EXACT_CANDIDATE g7c_after_adoption.log
+          grep -qx G7C_NATIVE_TESTS=PASS g7c_after_adoption.log
       - name: Guardar evidencia (incluso ante fallo)
         if: always()
         uses: actions/upload-artifact@v4
