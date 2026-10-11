@@ -12,7 +12,12 @@ from pathlib import Path
 ROOT=Path.cwd().resolve()
 BRANCH="v2.1.0-alpha.13/feature/cleanup-robustness"
 BASE="ab269503fd25b942faecc9256b7bf35dc5ccbc03"
-FIRST_TOOLING="79116d90b7fe2fb37b68e8a30c678b1cfaf288ab"
+KNOWN_TOOLING=[
+    "79116d90b7fe2fb37b68e8a30c678b1cfaf288ab",
+    "3c178f66f60ee0578b83a48c552582135ebccc1a",
+    "fb96571166f6e5ee546a82ee0f149d0eaa675beb",
+    "f18c4b43d09b77a2132ae0333cacb19826f3f8e0",
+]
 TOOLING={
     "tools/alpha13/gates/a13_g5_finalize.py",
     "docs/v2.1.0-alpha.13/A13_G5_FINALIZE_PLAN_20261011.md",
@@ -57,7 +62,11 @@ def cmd(*args):
     return out.stdout.decode("utf-8","replace").strip()
 
 def paths(*args):
-    out=subprocess.run(["git","-c","core.quotepath=false",*args,"-z"],
+    # -z debe ir antes de "--" y de los pathspecs para que Git
+    # no lo interprete como un nombre de archivo literal.
+    normalized=list(args)
+    normalized.insert(normalized.index("--") if "--" in normalized else len(normalized),"-z")
+    out=subprocess.run(["git","-c","core.quotepath=false",*normalized],
                        cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     need(out.returncode==0,"GIT_PATH_QUERY_FAILED "+repr(args))
     return set(filter(None,out.stdout.decode("utf-8","replace").split("\0")))
@@ -92,14 +101,16 @@ def preflight():
                         cmd("remote","get-url","origin"),re.I)),"WRONG_ORIGIN")
     local=cmd("rev-parse","HEAD")
     remote=cmd("rev-parse","refs/remotes/origin/"+BRANCH)
-    need(local in (BASE,FIRST_TOOLING,remote),"LOCAL_HEAD_UNEXPECTED "+local)
+    expected_lineage=KNOWN_TOOLING+[remote]
+    need(local in ([BASE]+expected_lineage),"LOCAL_HEAD_UNEXPECTED "+local)
     lineage=cmd("rev-list","--reverse",BASE+".."+remote).splitlines()
-    need(lineage==[FIRST_TOOLING,remote],
-         "REMOTE_HISTORY_NOT_EXACT_2_TOOLING_COMMITS")
-    need(cmd("rev-list","--parents","-n","1",FIRST_TOOLING).split()==
-         [FIRST_TOOLING,BASE],"TOOLING_PARENT_CHANGED")
-    need(cmd("rev-list","--parents","-n","1",remote).split()==
-         [remote,FIRST_TOOLING],"REPAIR_PARENT_CHANGED")
+    need(lineage==expected_lineage,
+         "REMOTE_HISTORY_NOT_EXACT_5_TOOLING_COMMITS")
+    parent=BASE
+    for child in expected_lineage:
+        need(cmd("rev-list","--parents","-n","1",child).split()==
+             [child,parent],"TOOLING_PARENT_CHANGED_"+child)
+        parent=child
     need(paths("diff","--name-only",BASE,remote)==TOOLING,
          "REMOTE_TOOLING_SCOPE_UNEXPECTED")
     need(paths("diff","--name-only")==set(PRODUCT),"PRODUCT_DIRTY_SCOPE_NOT_2")
