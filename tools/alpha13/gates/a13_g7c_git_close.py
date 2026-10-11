@@ -22,6 +22,7 @@ BASE = "e975dbc3180784b4a7d8c9d47f359f608df7b333"
 TOOL_FILES = {
     "tools/alpha13/gates/a13_g7c_git_close.py",
     "tools/alpha13/gates/run_a13_g7c_git_close.bat",
+    ".github/workflows/alpha13-g7c-fram-native.yml",
 }
 CPP = "JWPLC/2.1.0/libraries/JW_FRAM/src/JW_FRAM.cpp"
 HDR = "JWPLC/2.1.0/libraries/JW_FRAM/src/JW_FRAM.h"
