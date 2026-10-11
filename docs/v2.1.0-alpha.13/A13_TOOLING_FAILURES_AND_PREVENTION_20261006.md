@@ -1523,3 +1523,66 @@ Resultado confirmado:
 
 Esto actualiza los estados vigentes sin borrar la evidencia de
 los intentos fallidos ni atribuir al firmware un fallo del harness.
+
+## F118 — G7: autoprueba de secuencia usa etiqueta inexistente (2026-10-11)
+
+**Clase:** HARNESS / CONTRATO DE TEST; no incidencia productiva.
+**Estado:** FIX_VERSIONED_PENDING_RETEST.
+
+Evidencia real aportada en el primer intento de G7:
+
+```text
+CLI_EXE=C:\Program Files\Arduino CLI\arduino-cli.exe
+CLI_SHA256=1017de89179c3167e6b8a38ca6cc4091fa69a3cf97aafa7810f01423003f5571
+PREFLIGHT=PASS
+F112_PORTABILITY_SELFTEST_EXIT=0
+G7_CONTRACT_SELFTEST_EXIT=2
+G7_CONTRACT_BENCH_SAFETY_ONLY_CONFIRMATION=PASS
+G7_CONTRACT_SELFTEST=FAIL
+G7_CONTRACT_REASON=ValueError('substring not found')
+STATUS=REVIEW_STOP
+REASON=G7_CONTRACT_SELFTEST_FAILED
+GIT_PARTIAL_COMMIT=False
+FRAM_RESTORE_VERIFIED=False
+```
+
+Causa directa: el autodiagnóstico `a13_g7_contract_selftest.py`
+buscaba literalmente `regression(cli,FRAM,"PRODUCT")`, que **no
+existe**: el runner invoca `regression(cli,FRAM,"PRODUCT_REGRESSIONS")`.
+El uso de `.index()` sin verificar presencia arrojó `ValueError`
+y no informó qué etapa tenía la discrepancia. El ejecutor reportó
+la categoría genérica `PRODUCT_OR_ENVIRONMENT` para una caída de
+su propia autoprueba, aunque era `HARNESS`.
+
+Prevención versionada:
+
+- Verificar los argumentos contra llamadas reales del runner.
+  `find()` y una comprobación explícita por etapa emiten ahora
+  `G7_CONTRACT_SEQUENCE_STAGE_*_PRESENT` antes del orden global,
+  sin `ValueError` opaco.
+- `call()` clasifica fallo de `G7_CONTRACT_SELFTEST` o F112
+  como `HARNESS`, no producto/ambiente.
+- Dos problemas latentes identificados antes del siguiente intento:
+  `sample_sketch()` creaba el mismo directorio TEMP en cada
+  compilación, lo que fallaría en la segunda llamada; ahora es
+  idempotente. La ruta a `gcc-ar` no se imprimía necesariamente
+  en el verbose de CLI: ahora también se resuelve junto al `g++`
+  del toolchain realmente usado, como en el gate de Alpha12.
+- El primer intento NO llegó a `SOURCE_REBUILD`, `UPLOAD`,
+  `FRAM_PHYSICAL`, `PRODUCT_ADOPTION` ni Git commits;
+  por tanto, no hay escritura FRAM ni restauración pendiente.
+- Retestar selftest completo **antes** de iniciar ninguna operación
+  física. Nunca repetir la subida por una falla del harness
+  que pueda diagnosticarse offline.
+
+```text
+F118=G7_SELFTEST_WRONG_PRODUCT_REGRESSIONS_LABEL
+F118_CLASS=HARNESS
+F118_CODE_FIX=VERSIONED
+F118_LOCAL_TEST=PENDING
+G7_UPLOAD=NOT_EXECUTED
+G7_FRAM_WRITES=NONE
+G7_PRODUCT_CHANGED=NO
+G7_GIT_CLOSURE=NOT_EXECUTED
+NEXT_FAILURE_ID=F119
+```

@@ -60,14 +60,24 @@ def main():
     must('input("JWPLC en banco, FRAM disponible y sin actuadores (BANCO_FRAM): ")' in runner and
          '"AUTORIZO_COMMIT_G7"' not in runner,
          "BENCH_SAFETY_ONLY_CONFIRMATION")
-    main_start=runner.index("def main():")
-    stages=runner[main_start:]
-    must(stages.index("build_archive(cli,source)") <
-         stages.index("upload_physical(cli,pre,args.serial_port)") <
-         stages.index("adopt(archive)") <
-         stages.index("regression(cli,FRAM,\"PRODUCT\")") <
-         stages.index("audit(archive)") <
-         stages.index("auto_git_close()"),
+    # Avoid ValueError from .index(): absence must be a labeled failure.
+    # Match ACTUAL runner function arguments, not invented milestones.
+    must("def main():" in runner,"MAIN_ENTRYPOINT_PRESENT")
+    stages=runner.split("def main():",1)[1]
+    sequence=(
+        ("SOURCE_ARCHIVE", "build_archive(cli,source)"),
+        ("PHYSICAL", "upload_physical(cli,pre,args.serial_port)"),
+        ("PRODUCT_ADOPTION", "adopt(archive)"),
+        ("PRODUCT_REGRESSIONS", 'regression(cli,FRAM,"PRODUCT_REGRESSIONS")'),
+        ("FINAL_AUDIT", "audit(archive)"),
+        ("AUTO_GIT_CLOSURE", "auto_git_close()"),
+    )
+    positions=[]
+    for name,needle in sequence:
+        at=stages.find(needle)
+        must(at>=0,"SEQUENCE_STAGE_"+name+"_PRESENT")
+        positions.append(at)
+    must(positions==sorted(positions) and len(set(positions))==len(positions),
          "SAFE_EXECUTION_SEQUENCE")
     must('git("add","--",*sorted(paths))' in runner and
          '"push","origin","HEAD:refs/heads/"+BRANCH' in runner and

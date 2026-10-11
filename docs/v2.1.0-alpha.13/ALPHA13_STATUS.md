@@ -1,5 +1,35 @@
 # v2.1.0-alpha.13 — Estado operativo y continuidad
 
+## G7 — F118 harness corregido; prueba física aún pendiente (2026-10-11)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G1_G6=CLOSED_PASS
+G7_R1_PREFLIGHT=PASS
+G7_R1_F112=PASS
+G7_R1_CONTRACT_SELFTEST=REVIEW_HARNESS_WRONG_LABEL
+G7_R1_SOURCE_BUILD=NOT_EXECUTED
+G7_R1_FRAM_UPLOAD=NOT_EXECUTED
+G7_R1_FRAM_WRITE=NONE
+G7_R1_PRODUCT_ADOPTION=NO
+G7_R1_GIT_COMMITS=NO
+G7_F118_FIX=VERSIONED_NOT_RETESTED
+NEXT_FAILURE_ID=F119
+NEXT_GATE=A13_G7_FRAM_INTEGRATED_RETRY_AFTER_HARNESS_FIX
+RELEASE_MERGE_PR_PUBLICATION=NO
+```
+
+F118 se debió a buscar una cadena ficticia
+`regression(cli,FRAM,"PRODUCT")` mientras el runner contiene
+`regression(cli,FRAM,"PRODUCT_REGRESSIONS")`.
+Se corrigió el autocontrato y se hicieron idempotentes los
+directorios de trabajo reutilizados; la clasificación de fallos
+de la autoprueba ahora es HARNESS. No declarar G7 PASS por
+la revisión: requiere nueva ejecución en el banco.
+
+---
+
+
 ## G7 — candidato e integración listos; pendiente de ensayo en PC (2026-10-11)
 
 ```text

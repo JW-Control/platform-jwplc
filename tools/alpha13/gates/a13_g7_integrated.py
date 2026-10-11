@@ -110,7 +110,10 @@ def call(argv,label,cwd=ROOT):
             if re.search(r"(error:|fatal error:|undefined reference|G7_SERIAL_ERROR)",v,re.I)]
         for line in diagnostics[-8:]:log("DIAGNOSTIC",line[-300:])
         if not diagnostics:log("DIAGNOSTIC_TAIL",repr(text.splitlines()[-8:])[-900:])
-        raise Review(label+"_FAILED","PRODUCT_OR_ENVIRONMENT")
+        category=("HARNESS" if label in (
+            "F112_PORTABILITY_SELFTEST","G7_CONTRACT_SELFTEST") else
+            "PRODUCT_OR_ENVIRONMENT")
+        raise Review(label+"_FAILED",category)
     return text
 
 def preflight(cli,port):
@@ -208,7 +211,9 @@ def compile(cli,sketch,label,selected):
 
 def sample_sketch():
     demo=TEMP/"sample"/"sample"
-    demo.mkdir(parents=True)
+    # This helper is called by SOURCE_REBUILD, CANDIDATE_LINK and
+    # subsequent regressions; reuse it without crashing on second call.
+    demo.mkdir(parents=True,exist_ok=True)
     (demo/"sample.ino").write_text(
         "#include <Arduino.h>\n"
         "#include <JW_FRAM.h>\n"
@@ -229,6 +234,20 @@ def build_archive(cli,source):
     archiveTool=re.findall(r'["\x27]([^"\x27\r\n]*xtensa-esp32-elf-gcc-ar(?:\.exe)?)["\x27]',
                            verbose,re.I)
     archiver=next((Path(x) for x in archiveTool if Path(x).is_file()),None)
+    if archiver is None:
+        # Arduino CLI prints the g++ command but need not print gcc-ar.
+        # Use the archiver shipped alongside the COMPILER ACTUALLY USED.
+        compilerTools=re.findall(
+            r'["\x27]([^"\x27\r\n]*xtensa-esp32-elf-g\+\+(?:\.exe)?)["\x27]',
+            verbose,re.I)
+        for compiler in compilerTools:
+            for name in ("xtensa-esp32-elf-gcc-ar.exe","xtensa-esp32-elf-gcc-ar"):
+                candidate=Path(compiler).parent/name
+                if candidate.is_file():
+                    archiver=candidate
+                    break
+            if archiver is not None:
+                break
     need(archiver is not None,"ARCHIVER_PATH_NOT_FOUND_IN_COMPILE")
     MANIFEST["source_object_sha256"]=sha(obj[0])
     stage("SOURCE_REBUILD","PASS")
