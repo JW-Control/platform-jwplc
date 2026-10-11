@@ -1,5 +1,38 @@
 # v2.1.0-alpha.13 — Estado operativo y continuidad
 
+## G7C — Candidato canónico preparado, pendiente de ejecución offline (2026-10-11)
+
+```text
+G1_G7=CLOSED_PASS
+G7C_SCOPE=A13-009_readString+A13-013_private_cleanup
+G7C_CANDIDATES=VERSIONED_NOT_ADOPTED
+G7C_SRC_CPP=tools/alpha13/candidates/g7c/JW_FRAM.cpp
+G7C_SRC_H=tools/alpha13/candidates/g7c/JW_FRAM.h
+G7C_SOURCE_CONTRACT=READY_NOT_EXECUTED
+G7C_NATIVE_RUNTIME=READY_NOT_EXECUTED
+G7C_OBJECT_ARCHIVE_REBUILD=READY_NOT_EXECUTED
+G7C_CANDIDATE_LINK_REGRESSIONS=READY_NOT_EXECUTED
+G7C_NORMAL_PRODUCT_FILES=UNCHANGED
+G7C_FRAM_PHYSICAL=NOT_REQUESTED
+G7C_GIT_PRODUCT_COMMIT=NO
+G7C_GIT_PUSH_PRODUCT=NO
+A13-009=IN_PROGRESS_NOT_CLOSED
+A13-013=IN_PROGRESS_NOT_CLOSED
+NEXT_GATE=G7C_OFFLINE_INTEGRATED
+RELEASE_MERGE_PR_PUBLICATION=NO
+```
+
+El cierre G7 ya confirmado no reemplaza A13-009/013.
+Se preparó nuevo candidato mínimo y runner offline de
+fuente→objeto→archive→enlace→2 regresiones; la
+prueba unitaria nativa extrae el cuerpo C++ real y
+tiene 11 escenarios. El resultado debe interpretarse
+como candidato técnico, NO cierre productivo G7C.
+Plan: `A13_G7C_FRAM_CANONICAL_PLAN_20261011.md`.
+
+---
+
+
 ## Conciliación canónica G7 y preparación G8 (2026-10-11)
 
 ```text
