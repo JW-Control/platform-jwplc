@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/alpha13-g7c-fram-native.yml'
       - 'tools/alpha13/gates/a13_g7c_source_selftest.py'
+      - 'tools/alpha13/gates/a13_g7c_adopt_local.py'
       - 'tools/alpha13/candidates/g7c/JW_FRAM.cpp'
       - 'tools/alpha13/candidates/g7c/JW_FRAM.h'
       - 'JWPLC/2.1.0/libraries/JW_FRAM/src/JW_FRAM.cpp'
@@ -27,6 +28,8 @@ jobs:
         run: |
           g++ --version
           python3 --version
+      - name: Verificar sintaxis del ejecutor de adopcion
+        run: python3 -m py_compile tools/alpha13/gates/a13_g7c_adopt_local.py
       - name: Validar delta exacto y once casos nativos
         shell: bash
         run: |
