@@ -35,3 +35,18 @@ Si falla tras el primer commit, detener y revisar el estado; **no**
 resetear ni repetir ciegamente. El informe original que asignaba
 A13-005 y A13-006 individualmente aún falta para corroborar mapping;
 queda como pendiente documental explícito, no una conjetura.
+\n## Corrección F112 preoperativa (2026-10-11)
+
+Tras preparar el finalizador se detectó un riesgo de falso error por
+comparar el hash raw del backup previo con `git show HEAD:archivo`.
+El checkout Windows puede usar CRLF y el blob Git LF sin modificación
+semántica. Se sustituyó esa igualdad por validación de formato SHA-256
+del manifiesto y comparación contra el respaldo real de `%TEMP%`
+**si aún existe**, nunca contra bytes de `git show`.
+
+El histórico remoto admitido es únicamente:
+`ab269503fd25b942faecc9256b7bf35dc5ccbc03`
+→ `79116d90b7fe2fb37b68e8a30c678b1cfaf288ab`
+→ el commit de reparación; solo dos paths de tooling y plan.
+El HEAD local puede ser cualquiera de esos tres ancestros verificados.
+No muta firmware ni altera los candidatos de la prueba G5 PASS.
