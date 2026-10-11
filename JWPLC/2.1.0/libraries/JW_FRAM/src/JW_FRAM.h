@@ -6,6 +6,7 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include <string.h>
+#include <stdlib.h>
 #include <type_traits>
 
 /** Códigos de operación SPI FRAM */
@@ -272,21 +273,34 @@ bool JW_FRAM::readBlock(uint32_t addr, T &value, uint8_t expectedVersion)
     return false;
   }
 
-  if (!read(addr + sizeof(header), reinterpret_cast<uint8_t *>(&value), sizeof(T)))
+  // No publicar datos en el objeto del usuario hasta validar el checksum.
+  // El buffer dinamico evita reservar sizeof(T) sobre el stack limitado del ESP32.
+  // Conserva la API para todos los tipos trivially copyable, incluso si T
+  // no tiene constructor por defecto.
+  uint8_t *payload = static_cast<uint8_t *>(malloc(sizeof(T)));
+  if (payload == nullptr)
   {
+    debugPrint(F("JW_FRAM::readBlock() memoria insuficiente"));
+    return false;
+  }
+
+  if (!read(addr + sizeof(header), payload, sizeof(T)))
+  {
+    free(payload);
     debugPrint(F("JW_FRAM::readBlock() fallo al leer payload"));
     return false;
   }
 
-  const uint16_t checksum =
-      computeChecksum(reinterpret_cast<const uint8_t *>(&value), sizeof(T));
-
+  const uint16_t checksum = computeChecksum(payload, sizeof(T));
   if (checksum != header.checksum)
   {
+    free(payload);
     debugPrint(F("JW_FRAM::readBlock() checksum invalido"));
     return false;
   }
 
+  memcpy(&value, payload, sizeof(T));
+  free(payload);
   return true;
 }
 

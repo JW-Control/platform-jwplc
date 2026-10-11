@@ -246,6 +246,11 @@ bool JW_FRAM::write(uint32_t addr, const uint8_t *values, size_t count) {
     return true;
   }
 
+  if (values == nullptr) {
+    debugPrint(F("JW_FRAM::write() buffer nulo"));
+    return false;
+  }
+
   if (!isAddressValid(addr, count)) {
     debugPrint(F("JW_FRAM::write() direccion fuera de rango"));
     return false;
@@ -267,6 +272,11 @@ bool JW_FRAM::write(uint32_t addr, const uint8_t *values, size_t count) {
 bool JW_FRAM::read(uint32_t addr, uint8_t *values, size_t count) {
   if (count == 0) {
     return true;
+  }
+
+  if (values == nullptr) {
+    debugPrint(F("JW_FRAM::read() buffer nulo"));
+    return false;
   }
 
   if (!isAddressValid(addr, count)) {
