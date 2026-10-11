@@ -168,3 +168,37 @@ generador. Nunca inferir que el diccionario SHA está indexado por
 rutas de candidatos: el gate G5 utiliza rutas del **producto**.
 No permitir borrados de archivos locales de `build/`; se ignoran
 mediante `.gitignore` raíz. No incorporar salidas de CMake al repositorio.
+
+## 12. Hitos integrados: commit/push automático tras PASS (2026-10-11)
+
+**Decisión explícita del operador:** dejar de solicitar la cadena interactiva
+`AUTORIZO_COMMIT_GN` para commits de cada gate. Un resultado íntegramente
+validado del gate constituye autorización operativa para versionar y hacer
+push **únicamente** del alcance del hito, en su rama de trabajo.
+
+El ejecutor de cierre:
+1. Audita antes de mutar Git la evidencia real, hashes, fases PASS,
+   contrato de MANIFEST comprobado contra el generador, identidad de
+   fuentes/archive y alcance exacto de producto.
+2. Resuelve Git HEAD local/remoto y ascendencia permitida, registra los
+   archivos tracked modificados, staged y untracked, verifica colisiones,
+   EOL LF/CRLF y que todo commit incluya sólo rutas allowlisted.
+3. Cuando todo es PASS, ejecuta commits de producto y documentación y push
+   **no force** automáticamente, sin petición `AUTORIZO`. Cuando un
+   preflight o prueba es REVIEW/FAIL, no hace commit.
+4. Nunca ejecuta `git reset/checkout/clean` para resolver fallos,
+   nunca elimina archivos ajenos, no cambia release ni publica
+   PR/PreRelease sin la fase de cierre de alpha.
+5. Si se requieren pruebas físicas que sustituyen el sketch, el paso de
+   upload mantiene una **confirmación de condiciones seguras de banco**
+   (`BANCO`/similar); esto es distinto del permiso Git y no se elimina.
+6. En caso de fallo después de un commit, no reintenta automáticamente
+   ni reescribe historia; conserva log y estado para recuperación.
+7. Antes de mandar un finalizador al operador, su autor debe haber
+   verificado sintaxis, contrato entre runner/manifiesto, pruebas
+   de portabilidad F112 y escenarios base/HEAD-tooling EOL en un Git
+   temporal. No enviar un finalizador no ensayado como si fuera robusto.
+
+Esta política aplica desde G6; G1–G5 permanecen cerrados con sus
+evidencias históricas. La automatización no equivale a permiso para
+eludir seguridad física o publicar Alpha13.

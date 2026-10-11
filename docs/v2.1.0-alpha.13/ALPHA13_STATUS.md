@@ -1,5 +1,40 @@
 # v2.1.0-alpha.13 — Estado operativo y continuidad
 
+## Estado vigente — G6 preparación y cierre automatizado (2026-10-11)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G1_DNS=CLOSED_PASS
+G2_TCA_STARTUP=CLOSED_PASS
+TFT_CLOSURE=CLOSED_PASS
+G3=CLOSED_PASS
+G4=CLOSED_PASS
+G5=CLOSED_PASS
+G5_CLOSURE_COMMIT=cc965e89311c7a54465818bf8fdda7cca1b59ff7
+G6=A13-007_DATAGRAM_ROBUSTNESS_PLUS_A13-008_REVIEW
+G6_PREPARATION=IN_PROGRESS
+G6_PRODUCT_MUTATION=NOT_EXECUTED
+G6_PHYSICAL_GATE=NOT_EXECUTED
+G6_AUTO_GIT_CLOSURE=ENABLED_ONLY_AFTER_ALL_GATES_PASS
+G6_FLASH_PERMISSION=BENCH_SAFETY_ONLY
+G6_RELEASE_PUBLICATION=NO
+NEXT_GATE=A13_G6_PREPARATION_AND_INTEGRATED_TEST
+NEXT_FAILURE_ID=F115
+OPENPLC=OUT_OF_SCOPE
+HMI_DESIGNER=OUT_OF_SCOPE
+TFT_NEW_FEATURES=OUT_OF_SCOPE
+```
+
+G5 ya está cerrado. Por petición expresa del operador se retira la
+solicitud textual `AUTORIZO_COMMIT_GN`: el cierre Git en la rama
+Alpha13 pasa a ser automático **solo con preflight, evidencia, hashes,
+contratos y scope íntegramente PASS**. Conserva confirmación de banco
+para cualquier upload físico. La política canónica está en
+`docs/JWPLC_COLLABORATION_WORKFLOW.md`, sección 12.
+
+---
+
+
 ## Estado vigente — G5 cerrado y G6 siguiente (2026-10-11)
 
 El bloque es el estado vigente; los antiguos bloques G4/G5 preparado
