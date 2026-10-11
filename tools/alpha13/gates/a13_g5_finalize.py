@@ -12,6 +12,7 @@ from pathlib import Path
 ROOT=Path.cwd().resolve()
 BRANCH="v2.1.0-alpha.13/feature/cleanup-robustness"
 BASE="ab269503fd25b942faecc9256b7bf35dc5ccbc03"
+FIRST_TOOLING="79116d90b7fe2fb37b68e8a30c678b1cfaf288ab"
 TOOLING={
     "tools/alpha13/gates/a13_g5_finalize.py",
     "docs/v2.1.0-alpha.13/A13_G5_FINALIZE_PLAN_20261011.md",
@@ -91,9 +92,14 @@ def preflight():
                         cmd("remote","get-url","origin"),re.I)),"WRONG_ORIGIN")
     local=cmd("rev-parse","HEAD")
     remote=cmd("rev-parse","refs/remotes/origin/"+BRANCH)
-    need(local in (BASE,remote),"LOCAL_HEAD_UNEXPECTED "+local)
-    need(cmd("rev-list","--parents","-n","1",remote).split()==[remote,BASE],
-         "REMOTE_NOT_SINGLE_TOOLING_COMMIT")
+    need(local in (BASE,FIRST_TOOLING,remote),"LOCAL_HEAD_UNEXPECTED "+local)
+    lineage=cmd("rev-list","--reverse",BASE+".."+remote).splitlines()
+    need(lineage==[FIRST_TOOLING,remote],
+         "REMOTE_HISTORY_NOT_EXACT_2_TOOLING_COMMITS")
+    need(cmd("rev-list","--parents","-n","1",FIRST_TOOLING).split()==
+         [FIRST_TOOLING,BASE],"TOOLING_PARENT_CHANGED")
+    need(cmd("rev-list","--parents","-n","1",remote).split()==
+         [remote,FIRST_TOOLING],"REPAIR_PARENT_CHANGED")
     need(paths("diff","--name-only",BASE,remote)==TOOLING,
          "REMOTE_TOOLING_SCOPE_UNEXPECTED")
     need(paths("diff","--name-only")==set(PRODUCT),"PRODUCT_DIRTY_SCOPE_NOT_2")
