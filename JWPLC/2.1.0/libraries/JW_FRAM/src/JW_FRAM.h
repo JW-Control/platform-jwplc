@@ -119,8 +119,6 @@ private:
                         uint8_t *readBuffer, size_t readLen);
 
   void debugPrint(const __FlashStringHelper *msg);
-  void debugPrint(const String &msg);
-  void debugPrint(const char *msg);
   void debugPrintValue(const __FlashStringHelper *prefix, uint32_t value, int base = DEC);
   uint16_t computeChecksum(const uint8_t *data, size_t len) const;
 };
