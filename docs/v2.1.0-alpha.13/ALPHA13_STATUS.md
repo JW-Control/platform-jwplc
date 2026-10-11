@@ -1,3 +1,49 @@
+## G7C — Candidato validado offline y nativo, NO adoptado (2026-10-11)
+
+```text
+G1_G7=CLOSED_PASS
+G7C_WINDOWS_RUN_ID=g7c_20261011_175217_3b6759cd
+G7C_WINDOWS_HEAD=20858de6d25bb23428488800f0f4e03d2fb846d5
+G7C_SOURCE_CONTRACT=PASS
+G7C_REBUILD_ARCHIVE_LINK=PASS
+G7C_REGRESSIONS=PASS_2_OF_2
+G7C_FINAL_AUDIT=PASS_PRODUCT_UNCHANGED
+G7C_NATIVE_WINDOWS=NOT_AVAILABLE_PENDING_IN_THAT_RUN
+G7C_NATIVE_GITHUB_ACTIONS=PASS_11_OF_11
+G7C_NATIVE_CI_RUN=38183543776
+G7C_NATIVE_CI_SHA=cd5172d99fb9d0ade76e3b36f106436cc4c08434
+G7C_SOURCE_OBJECT_SHA256=2d635936aeb0096a7e3dd8051e2c4a23e56dc863922f0a114cc3b2b56323366c
+G7C_CANDIDATE_ARCHIVE_SHA256=df390f3379da13c6d4503a9fb83bc098f2944590fe3ad083348e95bfdcaf7299
+G7C_CANDIDATE_VALIDATION=PASS
+A13-009=CANDIDATE_VALIDATED_NOT_ADOPTED
+A13-013=CANDIDATE_VALIDATED_NOT_ADOPTED
+G7C_PRODUCT_FILES=UNCHANGED
+G7C_PRODUCT_COMMIT=NO
+G7C_PHYSICAL_UPLOAD_OR_FRAM_ACCESS=NONE
+G7C_NEXT_GATE=ADOPTION_WITH_ROLLBACK_AND_PRODUCT_REGRESSIONS
+G8=NOT_STARTED
+F120_POST_UPLOAD_FREEZE_CAUSE=UNKNOWN_PENDING
+RELEASE_MERGE_PR_PUBLICATION=NO
+```
+
+Evidencia Windows: ejecución enviada por el operador; reconstrucción fuente→objeto→archive,
+enlace `-L/-lJW_FRAM`, regresiones `GLOBAL_FRAM` y `CONFIG_BLOCK`,
+auditoría final sin escrituras de producto. La prueba C++ nativa no estuvo
+disponible en Windows y **no** se contabiliza como PASS de ese entorno.
+
+Evidencia nativa independiente: [GitHub Actions G7C #1](https://github.com/JW-Control/platform-jwplc/actions/runs/38183543776),
+compilación Linux g++ del cuerpo productivo extraído con 11/11 escenarios PASS,
+`G7C_NATIVE_CPP=PASS_ACTUAL_EXTRACTED_METHOD`. El mock necesitó conservar el
+valor predeterminado de `maxLen`, corregido solo en tooling (`a97e908`).
+Workflow de pruebas en `cd5172d`.
+
+El candidato tiene evidencia suficiente para **preparar** adopción controlada:
+copiar fuentes + archive exacto con backup, compilar regresiones contra el archive
+productivo y revisar hashes, Git y rollback. No actualizar aún A13-009/013 a
+`CLOSED_PASS`, ni iniciar G8, hasta validar esa adopción y cerrar Git.
+
+---
+
 # v2.1.0-alpha.13 — Estado operativo y continuidad
 
 ## G7C — Candidato canónico preparado, pendiente de ejecución offline (2026-10-11)
