@@ -173,7 +173,7 @@ def library_properties(text,source=False):
 def prep_source():
     stage("SOURCE_OVERLAY","RUNNING")
     source=TEMP/"source"/"JW_FRAM"
-    source.mkdir(parents=True)
+    (source/"src").mkdir(parents=True)
     for product,candidate in PRODUCT.items():
         shutil.copy2(ROOT/candidate,source/"src"/Path(candidate).name)
     prop=(FRAM/"library.properties").read_text(encoding="utf-8")
