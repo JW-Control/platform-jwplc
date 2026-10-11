@@ -400,7 +400,9 @@ bool JW_FRAM::readString(uint32_t addr, String &value, uint8_t maxLen) {
     return false;
   }
 
-  if (!isAddressValid(addr + 1, len)) {
+  // Una cadena vacia solo almacena su byte de longitud: tambien es
+  // valida si empieza en la ultima direccion fisica de la FRAM.
+  if (len > 0 && !isAddressValid(addr + 1, len)) {
     debugPrint(F("JW_FRAM::readString() payload fuera de rango"));
     return false;
   }
