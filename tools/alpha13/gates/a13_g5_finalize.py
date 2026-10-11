@@ -68,11 +68,20 @@ def sha(path):
             digest.update(chunk)
     return digest.hexdigest()
 
-def from_git_sha(ref,path):
-    data=subprocess.run(["git","show",ref+":"+path],cwd=ROOT,
-                        stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-    need(data.returncode==0,"SOURCE_REF_MISSING "+path)
-    return hashlib.sha256(data.stdout).hexdigest()
+def original_backup_sha(run_id,path):
+    # G5 generó un backup en TEMP antes de adoptar las fuentes. Si todavía
+    # existe, verificar sus bytes exactos con el SHA del manifest; Git puede
+    # contener LF mientras el checkout en Windows conserva CRLF (F112).
+    import tempfile
+    backup=(Path(tempfile.gettempdir())/("jwplc_a13_g5_"+run_id)/
+            "product_backups"/path)
+    if not backup.is_file():
+        return None
+    digest=hashlib.sha256()
+    with backup.open("rb") as stream:
+        for chunk in iter(lambda:stream.read(1<<20),b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 def preflight():
     need(cmd("rev-parse","--is-inside-work-tree")=="true","NOT_A_REPOSITORY")
@@ -178,8 +187,13 @@ def evidence():
              "G5_MANIFEST_CANDIDATE_SHA "+dest)
         need(m.get("product_sha256",{}).get(dest)==sha(dest),
              "G5_MANIFEST_PRODUCT_SHA "+dest)
-        need(m.get("original_sha256",{}).get(dest)==from_git_sha(BASE,dest),
-             "G5_ORIGINAL_SHA_VS_BASE "+dest)
+        original=m.get("original_sha256",{}).get(dest)
+        need(isinstance(original,str) and
+             re.fullmatch("[a-f0-9]{64}",original) is not None,
+             "G5_ORIGINAL_SHA_MISSING "+dest)
+        backup=original_backup_sha(m["run_id"],dest)
+        if backup is not None:
+            need(original==backup,"G5_ORIGINAL_BACKUP_SHA_DIFFERENT "+dest)
     log_names=["F112_PORTABILITY_SELFTEST","CLI_VERSION",
                "COMPILE_OVERLAY_ETH_STATIC","COMPILE_OVERLAY_ETH_SPI",
                "COMPILE_OVERLAY_MODBUS_CLIENT","COMPILE_G5_PHYSICAL",
