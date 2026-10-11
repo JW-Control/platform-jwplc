@@ -152,14 +152,38 @@ size_t EthernetClient::write(uint8_t b)
 
 size_t EthernetClient::write(const uint8_t *buf, size_t size)
 {
-	if (_sockindex >= MAX_SOCK_NUM) return 0;
-	if (writeAsyncInProgress()) {
-		setWriteError();
-		return 0;
-	}
-	if (Ethernet.socketSend(_sockindex, buf, size, _timeout)) return size;
-	setWriteError();
-	return 0;
+    if (size == 0) return 0;
+    if (_sockindex >= MAX_SOCK_NUM || buf == nullptr ||
+        writeAsyncInProgress() || _stopPending || _flushPending) {
+        setWriteError();
+        return 0;
+    }
+
+    // socketSend() puede aceptar como máximo W5100.SSIZE por llamada.
+    // Nunca declarar como enviados los bytes sin SEND_OK de ese fragmento.
+    const uint32_t startedMs = millis();
+    size_t totalWritten = 0;
+    while (totalWritten < size) {
+        const uint32_t elapsedMs = (uint32_t)(millis() - startedMs);
+        if (elapsedMs >= _timeout) break;
+
+        const uint32_t remainingMs = _timeout - elapsedMs;
+        const size_t remaining = size - totalWritten;
+        const uint16_t chunk = (uint16_t)(
+            remaining < (size_t)W5100.SSIZE ?
+                remaining : (size_t)W5100.SSIZE);
+        const uint16_t sent = Ethernet.socketSend(
+            _sockindex, buf + totalWritten, chunk, remainingMs);
+
+        // Una falla o confirmación parcial no permite reemitir el resto
+        // con seguridad: el peer podría haber recibido bytes no confirmados.
+        if (sent == 0 || sent > chunk) break;
+        totalWritten += sent;
+        if (sent != chunk) break;
+    }
+
+    if (totalWritten != size) setWriteError();
+    return totalWritten;
 }
 
 int EthernetClient::beginWriteAsync(const uint8_t *buf, size_t size)
@@ -252,8 +276,12 @@ int EthernetClient::available()
 
 int EthernetClient::read(uint8_t *buf, size_t size)
 {
-	if (_sockindex >= MAX_SOCK_NUM) return 0;
-	return Ethernet.socketRecv(_sockindex, buf, size);
+    if (_sockindex >= MAX_SOCK_NUM || size == 0) return 0;
+
+    // socketRecv() recibe int16_t: size_t >= 32768 podría ser negativo.
+    const int16_t boundedSize = (int16_t)(
+        size > (size_t)INT16_MAX ? (size_t)INT16_MAX : size);
+    return Ethernet.socketRecv(_sockindex, buf, boundedSize);
 }
 
 int EthernetClient::jwplcReadTcpFastDeferred(uint8_t *buf, size_t size)

@@ -160,20 +160,29 @@ size_t EthernetServer::write(uint8_t b)
 
 size_t EthernetServer::write(const uint8_t *buffer, size_t size)
 {
-	uint8_t chip, maxindex=MAX_SOCK_NUM;
-
-	chip = W5100.getChip();
-	if (!chip) return 0;
+    if (buffer == nullptr || size == 0) return 0;
+    uint8_t chip, maxindex = MAX_SOCK_NUM;
+    chip = W5100.getChip();
+    if (!chip) return 0;
 #if MAX_SOCK_NUM > 4
-	if (chip == 51) maxindex = 4; // W5100 chip never supports more than 4 sockets
+    if (chip == 51) maxindex = 4;
 #endif
-	available();
-	for (uint8_t i=0; i < maxindex; i++) {
-		if (server_port[i] == _port) {
-			if (Ethernet.socketStatus(i) == SnSR::ESTABLISHED) {
-				Ethernet.socketSend(i, buffer, size);
-			}
-		}
-	}
-	return size;
+    // Conservar la gestión de sockets de servidor previa al broadcast.
+    available();
+
+    bool anyClient = false;
+    size_t minimumWritten = size;
+    for (uint8_t i = 0; i < maxindex; i++) {
+        if (server_port[i] != _port ||
+            Ethernet.socketStatus(i) != SnSR::ESTABLISHED) {
+            continue;
+        }
+        anyClient = true;
+        EthernetClient client(i);
+        const size_t written = client.write(buffer, size);
+        if (written < minimumWritten) minimumWritten = written;
+    }
+    // Un broadcast sólo es completo cuando todos los peers elegibles
+    // confirmaron el tamaño. Sin peers, no hay bytes transmitidos.
+    return anyClient ? minimumWritten : 0;
 }
