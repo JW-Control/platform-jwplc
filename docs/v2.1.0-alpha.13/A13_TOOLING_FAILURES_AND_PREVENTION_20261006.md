@@ -1393,3 +1393,68 @@ F116_FIX=NO_DUPLICATE_CORE_CHECK_IN_POWERSHELL
 F116_RETEST=PENDING
 NEXT_FAILURE_ID=F117
 ```
+
+## F117 — G6: fallo TX UDP sin diagnóstico de longitud/IP/contenido (2026-10-11)
+
+**Tipo:** GATE-PHYSICAL-REVIEW con defecto de observabilidad del harness.
+**Estado:** OPEN_DIAGNOSTIC_PREPARED. **Producto:** sin mutaciones.
+
+### Evidencia aportada
+```text
+ARDUINO_CLI_EXE=C:\Program Files\Arduino CLI\arduino-cli.exe
+ARDUINO_CLI_SHA256=1017de89179c3167e6b8a38ca6cc4091fa69a3cf97aafa7810f01423003f5571
+CLI_VERSION_EXIT=0
+CLI_CORES_EXIT=0
+PORT_PRECHECK=COM4_OPEN_PASS_COM4_CLOSE_PASS
+COMPILE_OVERLAY_ETH_STATIC_EXIT=0
+COMPILE_OVERLAY_ETH_SPI_EXIT=0
+COMPILE_OVERLAY_MODBUS_CLIENT_EXIT=0
+COMPILE_G6_UDP_PHYSICAL_EXIT=0
+APP_SHA256=03ea7fbefab1269c3f6de6a51efa39e26d7c50ff3e8cdfd8b3f955a3dc490581
+UPLOAD_G6_EXIT=0
+G6_PHYSICAL_PC_EXIT=3
+G6_PC_ERROR=TX_PAYLOAD_MISMATCH
+PRODUCT_ADOPTION=NOT_EXECUTED
+GIT_PRODUCT_COMMIT=NO
+```
+
+El fallo COM4 del intento anterior no se repitió usando el CLI oficial:
+COM4 pudo abrirse antes del test y esptool completó upload.
+Ahora el error aparece en la verificación de UDP del PC.
+
+### Distinción crítica
+
+El script original `a13_g6_udp_pc.py` combina con `or`:
+`address[0] != dut` **o** `data != EXPECTED_TX`, y muestra
+`G6_PC_ERROR=TX_PAYLOAD_MISMATCH` en ambos casos. Con la evidencia
+disponible no puede determinarse si el datagrama era más corto,
+de otro origen, contenía bytes diferentes o tenía otra longitud.
+**No concluir** que el W5500, el SPI o el candidato UDP están
+defectuosos sin separar esas condiciones.
+
+### Diagnóstico preparado
+Se versionó `tools/alpha13/gates/a13_g6_udp_tx_diagnose.py`, que
+usa el **firmware ya cargado** y el token de MANIFEST de la última
+ejecución elegible. No recompila, no carga firmware, no adopta fuentes
+ni hace commits. Inspecciona: IP/puerto de origen, longitud real,
+longitud esperada, SHA-256, primeras diferencias y flags seriales
+`G6_TX_*`. Conserva evidencia en
+`tools/alpha13/results/g6_integrated_*/G6_TX_DIAGNOSTIC.json`.
+El origen del fallo queda `PENDING_DIAGNOSIS`.
+
+Prevención para G6 y posteriores: una aserción de payload físico
+**debe desglosar** causa (origen, longitud, contenido, primer offset
+distinto, estado serial del emisor), sin convertirlas en un solo
+`MISMATCH` genérico. Reusar el firmware de prueba cuando sea seguro,
+sin nuevos flashes para incrementar observabilidad del host.
+
+```text
+F117=G6_UDP_TX_PAYLOAD_MISMATCH_UNCLASSIFIED
+F117_HARNESS_OBSERVABILITY=INSUFFICIENT_R1
+F117_DIAGNOSTIC=VERSIONED_NOT_EXECUTED
+G6_PREVIOUS_UPLOAD=PASS
+G6_UDP_NETWORK=REVIEW
+G6_PRODUCT_MODIFIED=NO
+G6_GIT_CLOSURE=NO
+NEXT_FAILURE_ID=F118
+```

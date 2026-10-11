@@ -1,5 +1,38 @@
 # v2.1.0-alpha.13 — Estado operativo y continuidad
 
+## G6 — F117 diagnóstico UDP TX tras upload PASS (2026-10-11)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G1=CLOSED_PASS
+G2=CLOSED_PASS
+G3=CLOSED_PASS
+G4=CLOSED_PASS
+G5=CLOSED_PASS
+G6_R2_CLI=ARDUINO_CLI_OFFICIAL_1_5_1_PASS
+G6_R2_COM4=PASS
+G6_R2_BUILD=PASS
+G6_R2_UPLOAD=PASS
+G6_R2_PC_UDP=REVIEW_TX_PAYLOAD_MISMATCH
+G6_DIAGNOSTIC=PREPARED_NO_REFLASH
+G6_PRODUCT_MUTATION=NO
+G6_COMMITS=NO
+F115=PENDING_PHYSICAL_CLASSIFICATION
+F116=RESOLVED_LAUNCHER_FIX
+F117=OPEN_DIAGNOSTIC_PENDING
+NEXT_FAILURE_ID=F118
+NEXT_GATE=A13_G6_UDP_TX_DIAGNOSE
+RELEASE_MERGE_PR_PUBLICATION=NO
+```
+
+El script de recepción G6 R2 no discrimina diferencia de origen,
+longitud y contenido del datagrama. El firmware de prueba quedó
+cargado correctamente y puede reutilizarse para recopilar evidencia
+antes de cualquier cambio de producto o compilación nueva.
+
+---
+
+
 ## G6 — F116: falsa ausencia del core en preflight PowerShell (2026-10-11)
 
 ```text

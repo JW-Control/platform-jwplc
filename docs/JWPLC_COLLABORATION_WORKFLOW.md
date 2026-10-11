@@ -233,3 +233,15 @@ el runner Python compruebe el core exacto sobre stdout unido.
 Nunca interpretar que un `-notmatch` de arreglos prueba ausencia
 de `jwplc_local:esp32`. Validar el caso con varios cores instalados
 antes de compartir bloques PowerShell.
+
+## 15. Evidencia de red física: errores distinguibles (F117)
+
+Para comparaciones UDP/TCP de PC con un dispositivo real, un único
+`PAYLOAD_MISMATCH` no constituye un diagnóstico suficiente.
+Registrar longitud observada y esperada, IP/puerto de origen, hash
+de payload, primer índice diferente y salida serial del emisor.
+Separar resultados por causa antes de decidir cambios en firmware.
+Si el sketch de prueba ya se subió y permite repetir la transacción
+sin actuadores, preferir diagnóstico read-only y **sin nuevo upload**.
+No presentar un fallo ambiguo de prueba como defecto confirmado del
+producto ni ejecutar automáticamente un cierre Git.
