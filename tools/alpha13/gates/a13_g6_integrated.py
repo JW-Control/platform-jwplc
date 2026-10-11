@@ -465,6 +465,9 @@ def main():
         run([sys.executable,"-B",
              ROOT/"tools/alpha13/gates/a13_finalizer_portability_selftest.py"],
             "F112_PORTABILITY_SELFTEST")
+        run([sys.executable,"-B",
+             ROOT/"tools/alpha13/gates/a13_g6_contract_selftest.py"],
+            "G6_CONTRACT_SELFTEST")
         cli=cli_find(args.arduino_cli)
         run([cli,"version"],"CLI_VERSION")
         port=serial_port(args.serial_port)
