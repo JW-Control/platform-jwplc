@@ -135,6 +135,9 @@ def preflight(cli,port):
     MANIFEST["entry_head"]=head
     MANIFEST["cli_path"]=str(cli)
     MANIFEST["cli_sha256"]=sha(cli)
+    need(MANIFEST["cli_sha256"]==
+         "1017de89179c3167e6b8a38ca6cc4091fa69a3cf97aafa7810f01423003f5571",
+         "OFFICIAL_ARDUINO_CLI_SHA_DIFFERS_FROM_G6","ENVIRONMENT")
     MANIFEST["port"]=port
     log("CLI_EXE",cli)
     log("CLI_SHA256",MANIFEST["cli_sha256"])
