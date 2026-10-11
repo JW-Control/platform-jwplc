@@ -2,9 +2,12 @@
 """F118 prevention: G7 source/harness contract verifier (read-only, no hardware)."""
 from __future__ import annotations
 import ast
+import hashlib
+import importlib.util
 from pathlib import Path
 import re
 import sys
+import tempfile
 
 ROOT=Path(__file__).resolve().parents[3]
 GATES=ROOT/"tools/alpha13/gates"
@@ -83,6 +86,54 @@ def main():
          '"push","origin","HEAD:refs/heads/"+BRANCH' in runner and
          'git("reset"' not in runner and 'git("clean"' not in runner,
          "EXACT_PATH_GIT_NONFORCE_NO_DESTRUCTIVE")
+    # Real probe of the linker parser (the earlier text-only selftest
+    # missed the literal archive-name assumption).
+    runner_path=GATES/"a13_g7_integrated.py"
+    spec=importlib.util.spec_from_file_location("a13_g7_link_fixture",runner_path)
+    must(spec is not None and spec.loader is not None,"LINK_MODULE_IMPORT_SPEC")
+    gate=importlib.util.module_from_spec(spec)
+    sys.modules[spec.name]=gate
+    spec.loader.exec_module(gate)
+    with tempfile.TemporaryDirectory(prefix="jwplc_g7_link_fixture_") as tmp:
+        selected=Path(tmp)/"candidate/JW_FRAM"
+        folder=selected/"src/esp32"
+        folder.mkdir(parents=True)
+        archive=folder/"libJW_FRAM.a"
+        archive.write_bytes(b"synthetic archive identity fixture")
+        gate.MANIFEST["archive_sha256"]=hashlib.sha256(archive.read_bytes()).hexdigest()
+        escaped=str(folder).replace("\\","\\\\")
+        good=(
+            '"C:\\toolchain\\xtensa-esp32-elf-g++.exe" '
+            '-o "C:\\build\\test.elf" "-L'+escaped+'" -lJW_FRAM'
+        )
+        must(gate.assert_fram_archive_link(good,selected,"FIXTURE_VALID"),
+             "LINK_FIXTURE_VALID")
+        bad_dir=good.replace(escaped,
+                str(Path(tmp)/"unrelated/src/esp32").replace("\\","\\\\"))
+        try:
+            gate.assert_fram_archive_link(bad_dir,selected,"FIXTURE_BAD_PATH")
+        except gate.Review:
+            must(True,"LINK_FIXTURE_REJECTS_WRONG_DIRECTORY")
+        else:
+            must(False,"LINK_FIXTURE_REJECTS_WRONG_DIRECTORY")
+        try:
+            gate.assert_fram_archive_link(good.replace(" -lJW_FRAM"," -lOther"),
+                                          selected,"FIXTURE_NO_LIBRARY")
+        except gate.Review:
+            must(True,"LINK_FIXTURE_REJECTS_MISSING_FLAG")
+        else:
+            must(False,"LINK_FIXTURE_REJECTS_MISSING_FLAG")
+        gate.MANIFEST["archive_sha256"]="0"*64
+        try:
+            gate.assert_fram_archive_link(good,selected,"FIXTURE_WRONG_SHA")
+        except gate.Review:
+            must(True,"LINK_FIXTURE_REJECTS_WRONG_SHA")
+        else:
+            must(False,"LINK_FIXTURE_REJECTS_WRONG_SHA")
+    must('parser.add_argument("--resume-from-run",default="",' in runner and
+         'RESUME_PRIOR_CANDIDATE_COMPILE_NOT_PASS' in runner and
+         'RESUME_OBJECT_ARCHIVE_PARITY_MISMATCH' in runner,
+         "RESUME_PROVENANCE_AND_SAFE_REUSE")
     print("G7_CONTRACT_SELFTEST=PASS",flush=True)
 
 if __name__=="__main__":
