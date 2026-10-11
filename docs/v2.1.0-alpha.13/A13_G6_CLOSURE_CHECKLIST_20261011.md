@@ -1,0 +1,11 @@
+# Alpha13-G6 — checklist
+- [x] Límites de buffer TX W5500 y conversiones RX firmadas.
+- [x] Socket no iniciado/stop/reopen sin estado stale.
+- [x] Alpha14 UDP cooperativo y drenado parcial preservados.
+- [x] Prueba física 2048 TX / 256 parcial / 16 recuperación.
+- [x] Compilaciones source-first overlay y producto 3/3.
+- [x] Core.a y TFT.a previamente validados intactos.
+- [x] Source/manifest SHA y Git scope auditados.
+- [x] Cierre Git automático tras PASS sin AUTORIZO.
+- [ ] Revisar equivalencia individual A13-007 / A13-008 con auditoría canónica.
+- [ ] G7 FRAM y regresión final Alpha13.
