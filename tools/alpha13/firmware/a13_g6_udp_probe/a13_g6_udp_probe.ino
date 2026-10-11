@@ -96,6 +96,14 @@ static void runPartial() {
     }
     if (packet != 256 || readBytes != 8 || left != 248 ||
         drainedParse != 0) ++errors;
+    if (readBytes == 8) {
+        for (int i = 0; i < 8; ++i) {
+            if (g_rx[i] != (uint8_t)((i * 3 + 7) & 255)) {
+                ++errors;
+                break;
+            }
+        }
+    }
     emit("G6_PARTIAL_PACKET", packet);
     emit("G6_PARTIAL_READ", readBytes);
     emit("G6_PARTIAL_REMAINING", left);
