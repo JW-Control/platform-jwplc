@@ -139,3 +139,22 @@ requiere ejecutar el preflight no destructivo por separado.
 **Estado actual: herramientas versionadas, todavía no ejecutadas
 en Windows/hardware.** Si alguna fase es REVIEW, no repetir G7
 hasta diagnosticar el log y preservar el respaldo NVS.
+
+## Continuidad R2→R3: verificación de -L/-l y archive original
+
+El operador encontró el linker con `-lJW_FRAM` y
+`-L` hacia el directorio FRAM candidato. El test de R2 rechazaba
+erróneamente la ausencia del literal `libJW_FRAM.a` en stdout.
+El ejecutor fue modificado para verificar el comando que produce
+el ELF, sus flags `-L`/`-lJW_FRAM`, la ruta real del archivo,
+su SHA y el caso de no tener un objeto `JW_FRAM.cpp.o` normal.
+
+El nuevo parámetro `--resume-from-run g7_20261011_162621_6ca7668e`
+reusa fuente→objeto→archive verificados de R2 con comprobaciones
+de identidad. Repite solo el enlace del candidato, regresiones,
+sketch físico, restitución, regresiones de producto, auditoría,
+commit/push. Si el TEMP original se ha eliminado, aborta antes
+de la fase física y no hace supuestos.
+
+**G7 aún no está PASS**. No ejecutar comandos productivos
+ni retocar la FRAM hasta obtener la salida del operador.

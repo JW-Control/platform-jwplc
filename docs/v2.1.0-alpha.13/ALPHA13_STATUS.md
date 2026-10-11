@@ -1,5 +1,40 @@
 # v2.1.0-alpha.13 — Estado operativo y continuidad
 
+## G7 — F119 enlace FRAM verificado; reanudación preparada (2026-10-11)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G1_G6=CLOSED_PASS
+G7_R2_SOURCE=PASS
+G7_R2_ARCHIVE=PASS
+G7_R2_ARCHIVE_SHA256=477ba0ccc3b20e638eccd7dda7d22b209d1ce73003df34917dc9ea7d476d83dd
+G7_R2_CANDIDATE_COMPILE=PASS
+G7_R2_LINK_FLAGS=-L_CANDIDATE_AND_-lJW_FRAM
+G7_R2_REVIEW_REASON=HARNESS_ARCHIVE_LITERAL_MISSING
+G7_R2_PRODUCT_MUTATION=NO
+G7_R2_FIRMWARE_UPLOAD=NO
+G7_R2_FRAM_WRITE=NO
+G7_R3_REUSE_FROM_RUN=g7_20261011_162621_6ca7668e
+G7_R3_RUNNER=VERSIONED_NOT_EXECUTED
+G7_R3_START_PHASE=CANDIDATE_LINK
+G7_R3_GIT_AUTO_CLOSE=ONLY_AFTER_ALL_PASS
+NEXT_FAILURE_ID=F120
+NEXT_GATE=A13_G7_RESUME_CANDIDATE_ARCHIVE
+RELEASE_MERGE_PR_PUBLICATION=NO
+```
+
+El linker recibió `-lJW_FRAM` y el directorio
+`-L` de `TEMP/candidate/JW_FRAM/src/esp32`; el problema fue
+exigir que apareciera el literal `libJW_FRAM.a`.
+El harness ahora valida ambas opciones, existencia y SHA del
+archive exacto. La nueva autoprueba ejecuta casos negativos reales.
+La reanudación reutiliza la fuente y archive generados, con
+manifiesto/hashes del intento detenido: no prueba aún G7 en hardware.
+El respaldo NVS permanece sin usar porque la FRAM no fue escrita.
+
+---
+
+
 ## G7 — F118 harness corregido; prueba física aún pendiente (2026-10-11)
 
 ```text

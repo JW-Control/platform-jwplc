@@ -1586,3 +1586,83 @@ G7_PRODUCT_CHANGED=NO
 G7_GIT_CLOSURE=NOT_EXECUTED
 NEXT_FAILURE_ID=F119
 ```
+
+## F119 — G7: falso negativo del enlace FRAM por buscar el nombre del archive (2026-10-11)
+
+**Clase:** HARNESS / VERIFICACIÓN PRECOMPILADO; **Estado:** FIX_VERSIONED_PENDING_RETEST.
+No hay incidencia de hardware ni prueba física iniciada en este intento.
+
+### Evidencia aportada en G7 R2
+
+```text
+G7_CONTRACT_SELFTEST_EXIT=0
+SOURCE_OVERLAY=PASS
+COMPILE_FRAM_SOURCE_EXIT=0
+SOURCE_REBUILD=PASS
+ARCHIVE_CREATE_EXIT=0
+ARCHIVE_MEMBERS_EXIT=0
+ARCHIVE_EXTRACT_EXIT=0
+SOURCE_OBJECT_SHA256=52b4b3f5154e7b0b45f6db5098830167c30db79fa03e12667d1f36fa5ad0501e
+ARCHIVE_MEMBER_BYTE_PARITY=PASS
+NEW_FRAM_ARCHIVE_SHA256=477ba0ccc3b20e638eccd7dda7d22b209d1ce73003df34917dc9ea7d476d83dd
+ARCHIVE_REBUILD=PASS
+COMPILE_CANDIDATE_LINK_EXIT=0
+STATUS=REVIEW_STOP
+REASON=PRECOMPILED_ARCHIVE_LINK_MISSING_CANDIDATE_LINK
+PRODUCT_CHANGED=NO
+FRAM_UPLOAD=NO
+FRAM_WRITE=NO
+```
+
+El operador inspeccionó el log del linker con PowerShell y corroboró:
+
+```text
+SELECTED_LIB=TEMP\candidate\JW_FRAM
+LINKER_LIBRARY_FLAG=-lJW_FRAM
+LINKER_DIRECTORY_FLAG=-LTEMP\candidate\JW_FRAM\src\esp32
+ARCHIVE_LITERAL_IN_VERBOSE=False
+```
+
+El build usó correctamente `-L` hacia la carpeta que contiene el
+`libJW_FRAM.a` candidato y `-lJW_FRAM`. El harness esperaba
+erróneamente el literal `libJW_FRAM.a` en la salida del linker.
+Eso no prueba un enlace ausente: Arduino CLI expone el `-l` y
+`-L` del compilador. La correspondencia real de contenido entre
+archivo fuente, objeto y archive ya estaba verificada.
+
+### Prevención / correcciones versionadas
+
+- Nuevo `assert_fram_archive_link()`: busca comando real `.elf`
+  del linker, requiere `-lJW_FRAM` y directorio `-L` exacto,
+  existencia de `src/esp32/libJW_FRAM.a` y SHA-256 igual al del
+  archive creado; **no** se satisface por la sola línea
+  `Using library`.
+- Sustituir las tres validaciones de nombre literal:
+  candidato, regresiones y prueba física.
+- Autoprueba con fixtures positivo y negativos: directorio incorrecto,
+  `-l` ausente y SHA incorrecto. Estas pruebas ejercitan el
+  validador real y no solo buscan cadenas de texto.
+- Reanudación `--resume-from-run g7_20261011_162621_6ca7668e`
+  limitada a ese RUN_ID, con validación del manifiesto antiguo,
+  ausencia de upload/cambios previos, huellas de las fuentes,
+  identidad del objeto y archive, selección previa y opciones
+  reales de linker. Copia el archive ya construido a un TEMP nuevo
+  y repite desde `CANDIDATE_LINK`; no rehace la compilación de
+  fuentes ni archiva de nuevo.
+- Si faltan artefactos temporales o difieren los hashes, detener
+  `REVIEW` antes de compilar o tocar el equipo, no reconstruir
+  automáticamente un candidato distinto.
+
+```text
+F119=G7_FRAM_LINK_LITERAL_ASSUMPTION
+F119_CLASS=HARNESS
+F119_SOURCE_REBUILD=PASS_PREVIOUS_RUN
+F119_ARCHIVE_PARITY=PASS_PREVIOUS_RUN
+F119_LINK_FLAGS=-L_EXACT_AND_lJW_FRAM
+F119_FIX=VERSIONED
+F119_RESUME=PREPARED_NOT_EXECUTED
+G7_UPLOAD=NO
+G7_FRAM_WRITE=NO
+G7_PRODUCT_MUTATION=NO
+NEXT_FAILURE_ID=F120
+```
