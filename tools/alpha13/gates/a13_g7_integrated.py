@@ -306,6 +306,88 @@ def assert_fram_archive_link(verbose, selected, label):
     log("FRAM_LINK_"+label,"PASS_EXACT_L_PATH_L_FLAG_AND_ARCHIVE_SHA")
     return True
 
+def resume_verified_archive(run_id):
+    """Reuse a prior physical-NOT-STARTED run's verified .a, not its gate status."""
+    allowed="g7_20261011_162621_6ca7668e"
+    need(run_id==allowed,"RESUME_RUN_NOT_ALLOWLISTED","HARNESS")
+    previous=ROOT/"tools/alpha13/results"/("g7_fram_"+run_id)
+    oldtemp=Path(tempfile.gettempdir())/("jwplc_a13_"+run_id)
+    mf=previous/"MANIFEST.json"
+    need(mf.is_file(),"RESUME_MANIFEST_MISSING","ENVIRONMENT")
+    m=json.loads(mf.read_text(encoding="utf-8-sig"))
+    need(m.get("schema")=="A13-G7-INTEGRATED-1" and
+         m.get("run_id")==run_id and
+         m.get("entry_head")=="08bee3b1b2d9f3d7696a8ebcdf069c8d190260b1",
+         "RESUME_MANIFEST_PROVENANCE","HARNESS")
+    need(m.get("status")=="REVIEW_STOP" and
+         m.get("reason")=="PRECOMPILED_ARCHIVE_LINK_MISSING_CANDIDATE_LINK" and
+         m.get("physical_upload") is False and
+         m.get("product_adopted") is False and
+         m.get("git_product_committed") is False and
+         m.get("git_docs_committed") is False and
+         m.get("git_pushed") is False,
+         "RESUME_NOT_SAFE_UNUPLOADED_RUN","HARNESS")
+    phases=m.get("phase",{})
+    for name in ("PREFLIGHT","SOURCE_OVERLAY","SOURCE_REBUILD","ARCHIVE_REBUILD"):
+        need(phases.get(name)=="PASS","RESUME_PHASE_NOT_PASS_"+name,"HARNESS")
+    need(phases.get("CANDIDATE_LINK")=="RUNNING","RESUME_STOP_POSITION_WRONG","HARNESS")
+    need(m.get("cli_sha256")==MANIFEST["cli_sha256"] and
+         m.get("port")==MANIFEST["port"],
+         "RESUME_CLI_OR_PORT_CHANGED","ENVIRONMENT")
+    need(m.get("before_sha256")==MANIFEST["before_sha256"] and
+         m.get("candidate_sha256")==MANIFEST["candidate_sha256"],
+         "RESUME_PRODUCT_OR_CANDIDATE_CHANGED","HARNESS")
+    archive_sha=m.get("archive_sha256")
+    object_sha=m.get("source_object_sha256")
+    need(isinstance(archive_sha,str) and len(archive_sha)==64 and
+         isinstance(object_sha,str) and len(object_sha)==64,
+         "RESUME_ARCHIVE_OR_OBJECT_SHA_MISSING","HARNESS")
+    source=oldtemp/"source/JW_FRAM"
+    oldselected=oldtemp/"candidate/JW_FRAM"
+    oldarchive=oldselected/"src/esp32/libJW_FRAM.a"
+    oldmembers=oldtemp/"extract/JW_FRAM.cpp.o"
+    oldobject=list((oldtemp/"build_FRAM_SOURCE").rglob("JW_FRAM.cpp.o"))
+    need(len(oldobject)==1 and oldmembers.is_file() and oldarchive.is_file(),
+         "RESUME_ARTIFACTS_MISSING","ENVIRONMENT")
+    need(sha(oldobject[0])==object_sha and sha(oldmembers)==object_sha,
+         "RESUME_OBJECT_ARCHIVE_PARITY_MISMATCH","HARNESS")
+    need(sha(oldarchive)==archive_sha,"RESUME_ARCHIVE_SHA_MISMATCH","HARNESS")
+    for prod,cand in PRODUCT.items():
+        name=Path(prod).name
+        need(sha(source/"src"/name)==MANIFEST["candidate_sha256"][prod] and
+             sha(oldselected/"src"/name)==MANIFEST["candidate_sha256"][prod]
+             if name=="JW_FRAM.h" else
+             sha(source/"src"/name)==MANIFEST["candidate_sha256"][prod],
+             "RESUME_SOURCE_CANDIDATE_CHANGED_"+name,"HARNESS")
+    compile_log=previous/"COMPILE_CANDIDATE_LINK.log"
+    need(compile_log.is_file(),"RESUME_LINK_LOG_MISSING","HARNESS")
+    text=compile_log.read_text(encoding="utf-8-sig")
+    need(re.search(r"(?m)^EXIT=0\s*$",text),
+         "RESUME_PRIOR_CANDIDATE_COMPILE_NOT_PASS","HARNESS")
+    hits=re.findall(r"(?m)^Using library JW_FRAM at version .+ in folder: (.+)$",text)
+    need(len(hits)==1 and
+         Path(hits[0].strip()).resolve()==oldselected.resolve(),
+         "RESUME_PRIOR_LIBRARY_SELECTION_MISMATCH","HARNESS")
+    MANIFEST["archive_sha256"]=archive_sha
+    MANIFEST["source_object_sha256"]=object_sha
+    assert_fram_archive_link(text,oldselected,"RESUME_PREVIOUS_LINK")
+    selected=TEMP/"candidate/JW_FRAM"
+    need(not selected.exists(),"RESUME_TEMP_CANDIDATE_ALREADY_EXISTS","HARNESS")
+    shutil.copytree(oldselected,selected)
+    need(sha(selected/"src/esp32/libJW_FRAM.a")==archive_sha and
+         sha(selected/"src/JW_FRAM.h")==MANIFEST["candidate_sha256"][
+            "JWPLC/2.1.0/libraries/JW_FRAM/src/JW_FRAM.h"],
+         "RESUME_COPY_VERIFICATION_FAILED","HARNESS")
+    MANIFEST["resume_from_run"]=run_id
+    MANIFEST["resume_from_archive"]=str(oldarchive)
+    MANIFEST["phase"]["SOURCE_REBUILD"]="PASS_REUSED_FROM_VERIFIED_RUN"
+    MANIFEST["phase"]["ARCHIVE_REBUILD"]="PASS_REUSED_FROM_VERIFIED_RUN"
+    log("G7_REUSED_ARCHIVE_SHA256",archive_sha)
+    log("G7_REUSED_OBJECT_SHA256",object_sha)
+    log("G7_REUSED_PRIOR_LINK","PASS")
+    save()
+    return selected,selected/"src/esp32/libJW_FRAM.a"
+
 def check_precompiled(cli,selected,label):
     stage(label,"RUNNING")
     verbose,build=compile(cli,sample_sketch(),label,selected)
@@ -546,6 +628,8 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--arduino-cli",required=True)
     parser.add_argument("--serial-port",required=True)
+    parser.add_argument("--resume-from-run",default="",
+                        help="Reutilizar archivo y evidencia source de R2")
     args=parser.parse_args()
     RESULT.mkdir(parents=True,exist_ok=False)
     TEMP.mkdir(parents=True,exist_ok=False)
@@ -558,8 +642,11 @@ def main():
         call([sys.executable,"-B",
               ROOT/"tools/alpha13/gates/a13_g7_contract_selftest.py"],
              "G7_CONTRACT_SELFTEST")
-        source=prep_source()
-        pre,archive=build_archive(cli,source)
+        if args.resume_from_run:
+            pre,archive=resume_verified_archive(args.resume_from_run)
+        else:
+            source=prep_source()
+            pre,archive=build_archive(cli,source)
         check_precompiled(cli,pre,"CANDIDATE_LINK")
         regression(cli,pre,"CANDIDATE_REGRESSIONS")
         upload_physical(cli,pre,args.serial_port)
