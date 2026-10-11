@@ -93,7 +93,7 @@ def persist():
         json.dumps(MANIFEST,indent=2,ensure_ascii=False)+"\n",encoding="utf-8")
     lines=["GATE=A13-G6","RUN_ID="+RUN_ID,"STATUS="+MANIFEST["status"]]
     lines += [f"{k}={v}" for k,v in MANIFEST["phase"].items()]
-    for k in ("reason","category","port","app_sha256","physical",
+    for k in ("reason","category","port","cli_path","cli_sha256","app_sha256","physical",
               "regressions","git_product_commit","git_docs_commit","rollback"):
         if k in MANIFEST:lines.append(k.upper()+"="+str(MANIFEST[k]))
     (RESULT/"SUMMARY.log").write_text("\n".join(lines)+"\n",encoding="utf-8")
@@ -122,15 +122,22 @@ def run(args,label):
     return output
 
 def cli_find(explicit):
-    if explicit:
-        check(Path(explicit).is_file() or shutil.which(explicit),
-              "CLI_EXPLICIT_NOT_FOUND","ENVIRONMENT")
-        return explicit
-    found=shutil.which("arduino-cli")
-    if found:return found
-    fallback=Path(r"C:\Program Files\Arduino PLC IDE Tools\arduino-cli.exe")
-    check(fallback.is_file(),"ARDUINO_CLI_MISSING","ENVIRONMENT")
-    return str(fallback)
+    # F115: NO fallback silencioso a Arduino PLC IDE Tools ni PATH ambiguo.
+    # El operador identifica la instalacion CLI usada por Arduino IDE.
+    check(bool(explicit),"ARDUINO_CLI_EXPLICIT_PATH_REQUIRED","ENVIRONMENT")
+    candidate=Path(explicit).expanduser()
+    check(candidate.is_absolute(),"ARDUINO_CLI_ABSOLUTE_PATH_REQUIRED","ENVIRONMENT")
+    check(candidate.is_file(),"ARDUINO_CLI_EXECUTABLE_NOT_FOUND","ENVIRONMENT")
+    resolved=candidate.resolve()
+    check(resolved.name.casefold() in ("arduino-cli.exe","arduino-cli"),
+          "ARDUINO_CLI_FILENAME_NOT_EXPECTED","ENVIRONMENT")
+    check("arduino plc ide tools" not in str(resolved).casefold(),
+          "ARDUINO_PLC_IDE_TOOLS_FORBIDDEN","ENVIRONMENT")
+    MANIFEST["cli_path"]=str(resolved)
+    MANIFEST["cli_sha256"]=sha(resolved)
+    emit("ARDUINO_CLI_EXE",resolved)
+    emit("ARDUINO_CLI_SHA256",MANIFEST["cli_sha256"])
+    return str(resolved)
 
 def serial_port(name):
     from serial.tools import list_ports
@@ -470,6 +477,10 @@ def main():
             "G6_CONTRACT_SELFTEST")
         cli=cli_find(args.arduino_cli)
         run([cli,"version"],"CLI_VERSION")
+        core_list=run([cli,"core","list"],"CLI_CORES")
+        check(re.search(r"(?m)^\\s*jwplc_local:esp32\\s",core_list) is not None,
+              "JWPLC_LOCAL_CORE_NOT_INSTALLED_IN_SELECTED_CLI","ENVIRONMENT")
+        emit("JWPLC_CORE_TARGET","jwplc_local:esp32:jwplcbasic")
         port=serial_port(args.serial_port)
         MANIFEST["port"]=port
         selected=overlay()

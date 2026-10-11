@@ -53,6 +53,11 @@ def main():
     check("auto_close()" in runner and "BANCO_UDP" in runner and
           "AUTORIZO_COMMIT_G6" not in runner,
           "BENCH_ONLY_APPROVAL")
+    check("ARDUINO_CLI_EXPLICIT_PATH_REQUIRED" in runner and
+          "ARDUINO_PLC_IDE_TOOLS_FORBIDDEN" in runner and
+          "JWPLC_LOCAL_CORE_NOT_INSTALLED_IN_SELECTED_CLI" in runner and
+          "fallback=Path" not in runner,
+          "F115_EXPLICIT_ARDUINO_CLI_PROVENANCE")
     print("G6_CONTRACT_SELFTEST=PASS",flush=True)
 
 if __name__=="__main__":
