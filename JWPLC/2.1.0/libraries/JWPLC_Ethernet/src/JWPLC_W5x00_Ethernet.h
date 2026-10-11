@@ -259,7 +259,8 @@ protected:
 	uint16_t _remaining; // remaining bytes of incoming packet yet to be processed
 
 public:
-	EthernetUDP() : sockindex(MAX_SOCK_NUM) {}  // Constructor
+	EthernetUDP() : _port(0), _remotePort(0), _offset(0),
+	                sockindex(MAX_SOCK_NUM), _remaining(0) {}  // Constructor
 	virtual uint8_t begin(uint16_t);      // initialize, start listening on specified port. Returns 1 if successful, 0 if there are no sockets available to use
 	virtual uint8_t beginMulticast(IPAddress, uint16_t);  // initialize, start listening on specified port. Returns 1 if successful, 0 if there are no sockets available to use
 	virtual void stop();  // Finish with the UDP socket
