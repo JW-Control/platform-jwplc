@@ -62,3 +62,42 @@ Esta condición no es una autorización Git.
 
 `OPENPLC=OUT_OF_SCOPE`, `HMI_DESIGNER=OUT_OF_SCOPE`,
 `TFT_NEW_FEATURES=OUT_OF_SCOPE`.
+
+## Implementación de prueba integrada preparada (2026-10-11)
+
+Archivos versionados fuera del producto:
+
+- `tools/alpha13/candidates/g6/EthernetUdp.cpp` y
+  `JWPLC_W5x00_Ethernet.h`: límites TX `W5100.SSIZE`, RX
+  `INT16_MAX`, socket inválido, header 8 bytes y estado de
+  constructor/stop/reopen. `jwplcReadPacketFastDeferred` ya no
+  trunca un `size_t` que exceda `UINT16_MAX`.
+- `tools/alpha13/firmware/a13_g6_udp_probe/a13_g6_udp_probe.ino`:
+  prueba física con token único, escritura solicitada de 65 536 bytes,
+  confirmación real de 2 048 bytes, datagrama de 256 bytes parcialmente
+  leído, descarte cooperativo, siguiente datagrama de 16 bytes,
+  `stop()/begin()` y errores de estado.
+- `tools/alpha13/gates/a13_g6_udp_pc.py`: PC UDP puerto 5021,
+  JWPLC 5020, validación del payload de ida, lecturas, token y retornos.
+- `tools/alpha13/gates/a13_g6_contract_selftest.py`: verificación
+  offline de sintaxis Python, nombres de serial, fuente y esquema de
+  manifiesto antes de compilación.
+- `tools/alpha13/gates/a13_g6_integrated.py` y wrapper
+  `run_a13_g6_integrated.bat`: un único gate de inicio a cierre Git.
+
+El runner solo selecciona el source overlay si Arduino CLI confirma
+`Using library JWPLC_Ethernet ... in folder` esperado y encuentra el
+objeto `EthernetUdp.cpp.o`. Conserva SHA de `core.a` (G3) y TFT.a (G4).
+Todas las fases deben marcar PASS antes de adoptar los dos fuentes.
+Regresiones Arduino: Ethernet_StaticIP, Ethernet_SPI_Coexistence y
+ModbusTCP_Client, 3/3 con overlay y 3/3 con producto.
+
+El flujo de cierre no usa una confirmación `AUTORIZO`: revisa que
+la rama remota no haya avanzado, que el alcance exacto sea de dos
+archivos productivos y tres documentales, que no exista índice staged,
+y hace commits/push no-force. Si falla antes del primer commit tras
+adopción, restaura bytes del backup. Si falla después del primer
+commit, conserva estado y requiere revisión, **sin reset/clean/rebase**.
+
+Los selftests automáticos están versionados pero todavía no se
+han ejecutado en el Windows/Arduino real del operador.

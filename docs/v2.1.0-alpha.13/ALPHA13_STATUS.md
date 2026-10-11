@@ -1,5 +1,45 @@
 # v2.1.0-alpha.13 — Estado operativo y continuidad
 
+## Estado vigente — G6 listo para ejecutar gate integrado (2026-10-11)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+BRANCH=v2.1.0-alpha.13/feature/cleanup-robustness
+G1_DNS=CLOSED_PASS
+G2_TCA_STARTUP=CLOSED_PASS
+TFT_CLOSURE=CLOSED_PASS
+G3_TCA_RMW_SHADOW=CLOSED_PASS
+G4_TFT_BATCH_OWNERSHIP=CLOSED_PASS
+G5_TCP_CORRECTNESS=CLOSED_PASS
+G6=A13-007_UDP_DATAGRAM_BOUNDS_AND_A13-008_REVIEW
+G6_SOURCE_CANDIDATES=VERSIONED_OUTSIDE_PRODUCT
+G6_RUNNER=VERSIONED_NOT_EXECUTED
+G6_CONTRACT_SELFTEST=VERSIONED_NOT_EXECUTED
+G6_HARDWARE=NOT_EXECUTED
+G6_AUTO_CLOSE_GIT=ENABLED_AFTER_ALL_GATES_PASS
+G6_BENCH_APPROVAL=REQUIRED_BEFORE_UPLOAD
+G6_PRODUCT_FILES=NOT_MODIFIED
+NEXT_GATE=A13_G6_INTEGRATED
+NEXT_FAILURE_ID=F115
+RELEASE_MERGE_PR_PUBLICATION=NO
+OPENPLC=OUT_OF_SCOPE
+HMI_DESIGNER=OUT_OF_SCOPE
+TFT_NEW_FEATURES=OUT_OF_SCOPE
+```
+
+El ejecutor G6 incluye selftest de Python/Git (F112) y contrato
+generador↔prueba↔cierre, compilación source-first, validación física
+UDP PC↔JWPLC, rollback previo al primer commit, y cierre Git automático
+sin la cadena `AUTORIZO_COMMIT_G6`. Solo solicita `BANCO_UDP` antes del
+upload físico. Los paths productivos permanecen intactos hasta PASS.
+
+**Esta preparación todavía no demuestra PASS de Arduino CLI ni de la
+prueba física.** El operador debe ejecutar el hito en su entorno;
+cualquier fallo queda REVIEW y no se reintenta ciegamente.
+
+---
+
+
 ## Estado vigente — G6 preparación y cierre automatizado (2026-10-11)
 
 ```text
