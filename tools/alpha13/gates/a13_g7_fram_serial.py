@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Verifica un único G7 FRAM físico vía puerto serie (sin flash)."""
 from __future__ import annotations
+from contextlib import closing
 import argparse
 import re
 import sys
@@ -29,7 +30,16 @@ def main():
     }
     received={}
     try:
-        with serial.Serial(args.serial_port,115200,timeout=.3) as ser:
+        ser=serial.Serial(port=None,baudrate=115200,timeout=.3,
+                          rtscts=False,dsrdtr=False,xonxoff=False)
+        # Mismo procedimiento que ya obtuvo 29 READY tras reconectar
+        # el JWPLC. Evitar pulsar DTR/RTS al abrir el puerto CH340.
+        ser.dtr=False
+        ser.rts=False
+        ser.port=args.serial_port
+        print("G7_SERIAL_DTR_RTS=FALSE_FALSE",flush=True)
+        with closing(ser):
+            ser.open()
             deadline=time.monotonic()+45
             ready="G7_FRAM_READY="+args.token
             while time.monotonic()<deadline:
@@ -38,8 +48,10 @@ def main():
                     print("G7_SERIAL_"+line,flush=True)
                 if line==ready: break
             else:
-                print("G7_SERIAL_ERROR=READY_TIMEOUT",flush=True)
+                print("G7_SERIAL_ERROR=READY_TIMEOUT_NO_RUN_SENT",flush=True)
                 return 3
+            print("G7_SERIAL_READY_MATCH=PASS",flush=True)
+            print("G7_SERIAL_COMMAND=G7_FRAM_RUN_SENT_ONCE",flush=True)
             ser.write(("G7_FRAM_RUN:"+args.token+"\n").encode("ascii"))
             ser.flush()
             deadline=time.monotonic()+40
