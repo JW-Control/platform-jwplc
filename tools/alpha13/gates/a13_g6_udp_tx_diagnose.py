@@ -136,6 +136,32 @@ def run_diag(args):
                     show("FIRST_MISMATCH_INDEX",mismatch if mismatch is not None else "NONE")
                     show("RECEIVED_SHA256",info["comparison"]["received_sha256"])
                     show("RX_FIRST_32_HEX",data[:32].hex())
+
+                    # Document whether 2048 bytes arrived in multiple
+                    # datagrams (W5500 UDP MSS/MTU != TX socket window).
+                    packets=[(data,addr)]
+                    sock.settimeout(0.8)
+                    while len(packets)<4:
+                        try:
+                            extra,origin=sock.recvfrom(8192)
+                            packets.append((extra,origin))
+                        except socket.timeout:
+                            break
+                    fragments=[]
+                    for idx,(part,origin) in enumerate(packets):
+                        record={"index":idx,"bytes":len(part),
+                                "ip":origin[0],"port":origin[1],
+                                "sha256":hashlib.sha256(part).hexdigest()}
+                        fragments.append(record)
+                        show("DATAGRAM_"+str(idx)+"_BYTES",len(part))
+                        show("DATAGRAM_"+str(idx)+"_IP",origin[0])
+                    combined=b"".join(part for part,_ in packets)
+                    info["comparison"]["datagrams"]=fragments
+                    info["comparison"]["concatenated_bytes"]=len(combined)
+                    info["comparison"]["concatenated_matches_expected"]=combined==EXPECTED
+                    show("DATAGRAM_COUNT",len(packets))
+                    show("DATAGRAM_CONCAT_BYTES",len(combined))
+                    show("DATAGRAM_CONCAT_MATCH",combined==EXPECTED)
                 except socket.timeout:
                     info["comparison"]["packet_timeout"]=True
                     show("DATAGRAM_RECEIVED","NO_TIMEOUT")
