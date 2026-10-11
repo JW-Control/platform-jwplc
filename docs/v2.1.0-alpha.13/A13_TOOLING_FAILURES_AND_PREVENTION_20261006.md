@@ -1697,3 +1697,48 @@ F120_PRODUCT_MUTATED=NO
 F120_PASSIVE_DIAG=VERSIONED_NOT_EXECUTED
 NEXT_FAILURE_ID=F121
 ```
+
+### F120 — Nueva evidencia: recuperación tras reconexión y UART pasiva (2026-10-11)
+
+El operador había desconectado el JWPLC tras el fallo de G7.
+Al conectarlo nuevamente, reportó que TFT/RTC se actualizaban con
+normalidad. `a13_g7_boot_readonly.py`, sin enviar comandos,
+abrió COM4 a 115200 con DTR=RTS=False y registró:
+
+```text
+ORIGINAL_RUN=g7_20261011_164228_e5e86ddc
+FIRMWARE_SHA256=30cb8c596d212b6209e3fb179c1b9f216588c2fc83225834dfb2bce7088c663a
+ORIGINAL_UPLOAD=True
+FRAM_TEST_COMMAND=NOT_SENT
+G7_DIAG_UART_LINES=29
+G7_DIAG_UART_BYTES=1247
+G7_DIAG_READY_EXACT_COUNT=29
+G7_DIAG_BOOT_PANIC_MARKER_COUNT=0
+STATUS=PASSIVE_CAPTURE_COMPLETE_NOT_A_G7_PASS
+```
+
+**Conclusión delimitada**: el firmware G7 sí ejecuta setup/loop
+tras arranque frío, COM4 funciona y el freeze TFT/RTC desapareció.
+No afirmar que el origen sea DTR/RTS, un fallo de RTC,
+FRAM o un reset, porque no se tiene traza de arranque del
+timeout original. F120 queda **open root cause unknown**.
+No hubo mensaje `G7_FRAM_RUN` en el intento anterior,
+por lo que `fram_restored=False` no demuestra alteración FRAM.
+
+Acción: `a13_g7_fram_serial.py` ahora usa apertura serial
+DTR/RTS=False. `a13_g7_resume_physical_only.py`
+corrobora el manifiesto del upload, evidencia pasiva de READY
+y token, crea un registro *exclusivo*, envía solo una orden de
+ensayo y exige PASS de restauración completa. No compila,
+no sube sketch y no hace commits. Ante cualquier fallo después
+de enviar orden, detener: **podría existir respaldo NVS pendiente**.
+
+```text
+F120_PHYSICAL_SYMPTOM=RECOVERED_ON_POWER_CYCLE
+F120_UART_READY=PASS_29_OF_29
+F120_PANIC_OBSERVED=NO
+F120_CAUSE=UNKNOWN
+F120_PHYSICAL_FRAM_TEST=NOT_YET_EXECUTED
+F120_RESUME_SCRIPT=VERSIONED_NOT_EXECUTED
+NEXT_FAILURE_ID=F121
+```

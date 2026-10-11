@@ -1,5 +1,52 @@
 # v2.1.0-alpha.13 — Estado operativo y continuidad
 
+## G7 — F120 power-cycle recuperado y UART READY probado; físico pendiente (2026-10-11)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G1_G6=CLOSED_PASS
+G7_R3_SOURCE_AND_ARCHIVE=PASS
+G7_R3_CANDIDATE_COMPILE_AND_LINK=PASS
+G7_R3_PHYSICAL_UPLOAD=PASS
+G7_R3_READY_TIMEOUT=REVIEW_STOP
+G7_POWER_CYCLE_AFTER_FAILURE=OPERATOR_DISCONNECTED_AND_RECONNECTED
+G7_TFT_RTC_AFTER_POWER_CYCLE=NORMAL_OPERATOR_OBSERVATION
+G7_UART_PASSIVE=29_READY_EXACT_IN_20_SECONDS
+G7_UART_PANIC_REBOOT_MARKERS=0
+G7_FIRMWARE_TOKEN=g7_20261011_164228_e5e86ddc
+G7_APP_SHA256=30cb8c596d212b6209e3fb179c1b9f216588c2fc83225834dfb2bce7088c663a
+G7_FRAM_RUN_COMMAND=NOT_YET_SENT
+G7_FRAM_BACKUP=NOT_YET_STARTED
+G7_FRAM_RESTORE=NOT_YET_TESTED
+G7_PHYSICAL_ONLY_RECOVERY=PREPARED_NOT_EXECUTED
+G7_REFLASH=NOT_REQUIRED
+G7_PRODUCT_ADOPTION=NO
+F120_SYMPTOM=RECOVERED_AFTER_POWER_CYCLE_CAUSE_UNKNOWN
+NEXT_FAILURE_ID=F121
+NEXT_GATE=A13_G7_PHYSICAL_ONLY_SAME_FIRMWARE_TOKEN
+RELEASE_MERGE_PR_PUBLICATION=NO
+```
+
+Tras el primer timeout del ensayo físico G7, el operador
+desconectó/reconectó el JWPLC. La TFT volvió a actualizar RTC.
+El puerto COM4, abierto en modo pasivo DTR=RTS=False,
+recibió 29 veces `G7_FRAM_READY` con el token exacto,
+sin señales de panic ni reboot. Esto confirma
+`setup()`/`loop()` tras el arranque frío, pero **no explica**
+el bloqueo transitorio posterior a la subida.
+
+Se modificó el host serial para abrir COM4 con DTR/RTS desactivados,
+igual que la captura pasiva exitosa, y se versionó una
+reanudación sólo física del sketch ya cargado, sin reconstrucción
+ni flash. El ensayo que escribe FRAM aún NO se ha ejecutado;
+no hay evidencia de bytes alterados por G7.
+El resultado `fram_restored=False` del intento anterior significa
+**sin validación porque no se envió G7_FRAM_RUN**, no un
+fallo demostrado de restauración.
+
+---
+
+
 ## G7 — F120: upload PASS, READY_TIMEOUT y TFT detenida; UART pasiva pendiente (2026-10-11)
 
 ```text

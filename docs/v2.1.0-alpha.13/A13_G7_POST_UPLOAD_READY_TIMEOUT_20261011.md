@@ -52,3 +52,28 @@ F120_PASSIVE_SERIAL=PREPARED_NOT_EXECUTED
 G7_PHYSICAL=REVIEW_STOP
 NEXT_FAILURE_ID=F121
 ```
+
+## Actualización tras cold boot exitoso — 2026-10-11
+
+El operador reinició la alimentación desconectando y reconectando
+el JWPLC. RTC/TFT volvieron a actualizarse normalmente.
+En una ventana de 20 s a 115200 se recibieron **29** líneas
+`G7_FRAM_READY=g7_20261011_164228_e5e86ddc`, con
+0 marcadores boot/panic/WDT. El puerto y firmware están funcionando
+después del cold boot. La causa del timeout inmediato post-upload
+sigue sin explicación demostrada.
+
+Para probar la FRAM sin alterar el estado de firmware, ejecutar
+`tools/alpha13/gates/a13_g7_resume_physical_only.py` con
+`--run-id g7_20261011_164228_e5e86ddc` y
+`--serial-port COM4`. El host modificado abre COM4 sin activar
+DTR/RTS, comprueba READY y envía `G7_FRAM_RUN` una sola vez.
+La orden escribe 128 bytes temporalmente con respaldo en NVS y
+verificación de restauración. Se guardan `G7_FRAM_PHYSICAL_RECOVERY.log`
+y `G7_FRAM_PHYSICAL_RECOVERY.json` en el directorio
+del intento original. Este **no** es el cierre G7; sólo
+decide si la prueba física de FRAM pasó.
+
+No repetir el script si falla o es interrumpido después
+de emitir la orden. Mantener el JWPLC sin cargas ni actuadores,
+sin borrar NVS ni cargar otro firmware, hasta revisar el backup.
