@@ -1,3 +1,36 @@
+## G7C — Adopción local controlada preparada, NO ejecutada (2026-10-11)
+
+```text
+G7C_CANDIDATE_OFFLINE=PASS
+G7C_NATIVE_CI_11_OF_11=PASS
+G7C_ADOPTION_RUNNER=tools/alpha13/gates/a13_g7c_adopt_local.py
+G7C_ADOPTION_WRAPPER=tools/alpha13/gates/run_a13_g7c_adopt.bat
+G7C_ADOPTION_RUNNER_STATUS=VERSIONED_NOT_EXECUTED_WINDOWS
+G7C_ADOPTION_SOURCE_RUN=g7c_20261011_175217_3b6759cd
+G7C_ADOPTION_ARCHIVE_SHA256=df390f3379da13c6d4503a9fb83bc098f2944590fe3ad083348e95bfdcaf7299
+G7C_ADOPTION_MODE=BACKUP_THEN_3_PRODUCT_FILES_THEN_2_REGRESSIONS
+G7C_ON_FAILURE=ROLLBACK_AND_REVIEW_STOP
+G7C_ON_PASS=PRODUCT_ADOPTED_REGRESSIONS_PASS_PENDING_COMMIT
+G7C_UPLOAD_OR_FRAM_WRITE=NO
+G7C_GIT_COMMIT_OR_PUSH=NO
+G7C_NEXT_GATE=RUN_LOCAL_PRODUCT_ADOPTION
+A13-009=CANDIDATE_VALIDATED_NOT_ADOPTED
+A13-013=CANDIDATE_VALIDATED_NOT_ADOPTED
+G8=NOT_STARTED
+```
+
+El ejecutor usa exclusivamente las fuentes y el archive de la corrida
+offline identificada y valida SHA de sus artefactos, CI nativo, baseline
+productivo, core/TFT y rama. Respalda los tres archivos en TEMP; ante
+fallo posterior al respaldo restaura bytes y hashes. Tras adoptar exige
+dos compilaciones productivas con enlace del archive nuevo, sin modificar
+el firmware grabado, sin tocar FRAM y sin `git add/commit/push`.
+
+**No marcar G7C cerrado** antes de recibir el resultado Windows y
+decidir el commit productivo exacto. No iniciar G8.
+
+---
+
 ## G7C — Candidato validado offline y nativo, NO adoptado (2026-10-11)
 
 ```text
