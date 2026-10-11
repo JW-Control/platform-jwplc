@@ -39,3 +39,19 @@ Si Git avanzó, no hay reset/clean forzado; revisar manualmente.
 **Pendientes de Alpha13:** F120 conserva causa raíz
 del freeze post-upload desconocida, y A13-009/013 no se asignan
 semánticamente sin la auditoría canónica.
+
+## F121: autocheck del esquema documental antes de la adopción
+
+El primer intento de cierre realizó regresiones normales 2/2 y
+auditoría final PASS, pero `close_documents()` produjo
+`KeyError('product_regressions')`, debido a que el productor
+guardó `product_regressions_regressions`.
+Rollback PASS; cero commits y ningún acceso físico.
+
+La corrección elimina el sufijo duplicado. El nuevo
+`a13_g7_closure_document_selftest.py` genera los documentos
+con las funciones reales y compilación simulada, incluye
+caso negativo de clave ausente y detiene el cierre ANTES de
+adoptar archivos si falla. `--verify-only` ahora ejecuta
+esta autoprueba. El origen de F120 sigue como pendiente
+sin inferir un fallo de FRAM.

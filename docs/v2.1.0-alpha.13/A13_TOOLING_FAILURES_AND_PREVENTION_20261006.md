@@ -1785,3 +1785,66 @@ F120_POST_UPLOAD_FREEZE_CAUSE=UNKNOWN
 G7_CLOSE_PRODUCT_AND_DOCS=PENDING
 NEXT_FAILURE_ID=F121
 ```
+
+## F121 — G7: clave de regresiones duplicada impide cierre documental (2026-10-11)
+
+**Clase:** HARNESS / ESQUEMA DE MANIFIESTO.
+**Estado:** FIX_VERSIONED_PENDING_RETEST.
+
+La ejecución de cierre desde la prueba física PASS tuvo:
+
+```text
+PHASE=PHYSICAL_EVIDENCE_REVIEW_PASS
+PHASE=PRODUCT_ADOPTION_PASS
+COMPILE_PRODUCT_REGRESSIONS_GLOBAL_FRAM_EXIT=0
+COMPILE_PRODUCT_REGRESSIONS_CONFIG_BLOCK_EXIT=0
+PHASE=PRODUCT_REGRESSIONS_PASS
+PHASE=FINAL_AUDIT_PASS
+PHASE=AUTO_GIT_CLOSURE_RUNNING
+ROLLBACK=PASS
+STATUS=REVIEW_STOP
+REASON='product_regressions'
+GIT_PARTIAL_COMMIT=False
+G7_CLOSE_NO_UPLOAD_NO_FRAM_WRITE_NO_SERIAL=YES
+```
+
+**Causa exacta:** el productor en `a13_g7_integrated.py`
+almacenaba `MANIFEST[prefix.lower()+"_regressions"]`,
+aunque `prefix` YA es `PRODUCT_REGRESSIONS` o
+`CANDIDATE_REGRESSIONS`. Se generaba
+`product_regressions_regressions` y el renderizador
+`close_documents()` esperaba `product_regressions`,
+causando `KeyError('product_regressions')` después del
+PASS técnico. El cierre Git no empezó; el rollback protegió
+los dos archivos fuente y `libJW_FRAM.a`.
+
+**Corrección:** la función de regresiones ahora exige los
+dos prefijos permitidos y persiste `MANIFEST[prefix.lower()]`
+sin duplicar sufijos. `close_documents()` comprueba
+primero el esquema requerido y las rutas productivas, emitiendo
+un error etiquetado `HARNESS`, no un `KeyError` opaco.
+
+**Nueva prevención:** `a13_g7_closure_document_selftest.py`
+invoca la función de regresión real con compilación/linker simulados,
+comprueba ambas claves del manifiesto y renderiza de verdad el
+documento de cierre. Incluye caso negativo sin
+`product_regressions`. Esta autoprueba se ejecuta ANTES
+de `validate_evidence` y de toda adopción en
+`a13_g7_close_from_physical_pass.py`.
+No modifica producto ni accede a COM4.
+
+Se debe ejecutar primero el modo `--verify-only` de cierre,
+confirmar el selftest PASS y luego reintentar cierre productivo.
+No repetir la prueba física, compilar firmware físico ni subir sketch.
+
+```text
+F121=G7_DOUBLE_SUFFIX_PRODUCT_REGRESSIONS_MANIFEST
+F121_CLASS=HARNESS
+F121_ROOT_CAUSE=MANIFEST_KEY_SUFFIX_DUPLICATED
+F121_FIX=VERSIONED_NOT_TESTED_WINDOWS
+F121_CONTRACT_SELFTEST=PREPARED_NOT_EXECUTED
+G7_PHYSICAL_FRAM=PASS_AND_RESTORED
+G7_PRODUCT_FILES=ROLLED_BACK_PASS
+G7_GIT_CLOSURE=NO
+NEXT_FAILURE_ID=F122
+```

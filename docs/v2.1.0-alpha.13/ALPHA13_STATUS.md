@@ -1,5 +1,40 @@
 # v2.1.0-alpha.13 — Estado operativo y continuidad
 
+## G7 — F121 corregido en harness, regeneración documental pendiente (2026-10-11)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G1_G6=CLOSED_PASS
+G7_FRAM_PHYSICAL=PASS
+G7_FRAM_RESTORED=PASS
+G7_PRODUCT_REGRESSIONS=PASS_2_OF_2
+G7_FINAL_AUDIT=PASS
+G7_CLOSE_PREVIOUS=REVIEW_STOP_KEYERROR_product_regressions
+G7_CLOSE_ROLLBACK=PASS
+G7_CLOSE_PRODUCT_COMMIT=NO
+G7_CLOSE_DOCS_COMMIT=NO
+G7_CLOSE_PUSH=NO
+G7_F121_FIX=VERSIONED_NOT_EXECUTED_WINDOWS
+G7_DOCUMENT_SELFTEST=PREPARED_NOT_EXECUTED
+G7_NEW_UPLOAD_REQUIRED=NO
+G7_PHYSICAL_RETEST_REQUIRED=NO
+G7_ARCHIVE_SHA256=477ba0ccc3b20e638eccd7dda7d22b209d1ce73003df34917dc9ea7d476d83dd
+G7_F120_POST_UPLOAD_FREEZE_CAUSE=UNKNOWN
+NEXT_FAILURE_ID=F122
+NEXT_GATE=A13_G7_CLOSE_FROM_PHYSICAL_PASS_RETRY
+RELEASE_MERGE_PR_PUBLICATION=NO
+```
+
+El cierre R4 falló sólo al leer una clave de manifiesto
+mal nombrada mientras generaba los documentos, después de
+regresiones y auditoría PASS. Se restauró todo el producto,
+no hubo cambios Git ni nuevas operaciones físicas.
+El runner y un test real de generación documental ya se
+versionaron para impedir este error al final del hito.
+
+---
+
+
 ## G7 — PHYSICAL_PASS con NVS restaurado, falta cierre productivo (2026-10-11)
 
 ```text
