@@ -20,6 +20,7 @@ KNOWN_TOOLING=[
     "80c0af5cb4febcd0cd6a11fec32a60d9d0253f11",
     "dca37cd01c291e5433c85028324c41f328756325",
     "633b861ae28edd03cf76a2034e3d9e227660c0de",
+    "15977e2f1048df2d15eaab2db1a98be0d03a426c",
 ]
 NEW_TOOLING={
     "tools/alpha13/gates/a13_g5_finalize.py",
@@ -43,6 +44,7 @@ TFT="JWPLC/2.1.0/libraries/JWPLC_TFT/src/esp32/libJWPLC_TFT.a"
 TFT_SHA="4c606ba66e29c1337d42450a29fd09fe76c6988f72aa51d3882b81db59f82ecc"
 DOC="docs/v2.1.0-alpha.13/"
 STATUS=DOC+"ALPHA13_STATUS.md"
+FAILURES=DOC+"A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md"
 REPORT=DOC+"A13_G5_CLOSURE_20261011.md"
 CHECKLIST=DOC+"A13_G5_CLOSURE_CHECKLIST_20261011.md"
 RUN=None
@@ -115,7 +117,7 @@ def preflight():
     need(local in ([BASE]+expected_lineage),"LOCAL_HEAD_UNEXPECTED "+local)
     lineage=cmd("rev-list","--reverse",BASE+".."+remote).splitlines()
     need(lineage==expected_lineage,
-         "REMOTE_HISTORY_NOT_EXACT_8_TOOLING_COMMITS")
+         "REMOTE_HISTORY_NOT_EXACT_9_TOOLING_COMMITS")
     parent=BASE
     for child in expected_lineage:
         need(cmd("rev-list","--parents","-n","1",child).split()==
@@ -353,6 +355,9 @@ NEXT_GATE=A13-G6_DATAGRAM_ROBUSTNESS_A13_007_A13_008_REVIEW.
     need(original.startswith(marker),"STATUS_HEADER_NOT_EXPECTED")
     need("## Estado vigente — G5 cerrado" not in original,
          "G5_ALREADY_MARKED_CLOSED")
+    history=(ROOT/FAILURES).read_text(encoding="utf-8-sig")
+    need("## F113 —" in history and "## F114 —" in history,
+         "G5_FAILURE_REGISTER_MISSING_F113_F114")
     pre=f"""
 ## Estado vigente — G5 cerrado y G6 siguiente (2026-10-11)
 
@@ -375,7 +380,8 @@ G5_TOOLING_COMMIT={tool}
 G5_SYNC_MERGE_COMMIT={merge}
 F112=CLOSED_PREVENTION_REGISTERED
 F113=CLOSED_HARNESS_REMEDIATED
-NEXT_FAILURE_ID=F114
+F114=CLOSED_HARNESS_REMEDIATED
+NEXT_FAILURE_ID=F115
 NEXT_GATE=A13-G6_DATAGRAM_ROBUSTNESS_A13_007_A13_008_REVIEW
 OPENPLC=OUT_OF_SCOPE
 HMI_DESIGNER=OUT_OF_SCOPE
@@ -388,13 +394,26 @@ Alpha13 todavía no tiene merge release, PR ni PreRelease.
 ---
 
 """
+    failure_closure=f"""
+### F113 y F114 — cierre confirmado por ejecución G5
+F113_STATUS=CLOSED_HARNESS_REMEDIATED
+F114_STATUS=CLOSED_HARNESS_REMEDIATED
+G5_RUN_ID={m['run_id']}
+G5_PRODUCT_COMMIT={product_commit}
+G5_GIT_CLOSURE=CLOSED_PASS
+NEXT_FAILURE_ID=F115
+
+No se borraron outputs CMake, se respetó /build/ y los archivos
+Ethernet previamente probados físicamente.
+"""
     changes={REPORT:report,CHECKLIST:checklist,
-             STATUS:original.replace(marker,marker+pre,1)}
+             STATUS:original.replace(marker,marker+pre,1),
+             FAILURES:history+failure_closure}
     for path,text in changes.items():
         if path in (REPORT,CHECKLIST):
             need(not (ROOT/path).exists(),"G5_DOC_ALREADY_EXISTS "+path)
         (ROOT/path).write_text(text,encoding="utf-8",newline="\n")
-    note("DOCUMENTS=3_FILES_CREATED_OR_UPDATED")
+    note("DOCUMENTS=4_FILES_CREATED_OR_UPDATED")
     return set(changes)
 
 def main():

@@ -76,3 +76,12 @@ producto**. El finalizador comprueba `set(candidate_hashes)==set(PRODUCT)`
 y `candidate_hashes[dest] == sha(src)` con formato SHA256 estricto.
 Los 42 archivos de CMake `build/` quedan ignorados con `/build/`
 sin borrarse ni añadirse a Git. El gate físico G5 sigue PASS.
+
+## Consistencia documental F113/F114
+
+Al completar el cierre, el finalizador también actualiza el FAILURES
+canónico para marcar F113 y F114 como `CLOSED_HARNESS_REMEDIATED`, enlaza
+el run ID y commit productivo, y fija `NEXT_FAILURE_ID=F115`.
+La operación documental versiona exactamente **cuatro archivos**: informe
+de cierre, checklist, ALPHA13_STATUS y FAILURES. Ningún untracked de
+`build/` entra al índice. No se repiten pruebas físicas.
