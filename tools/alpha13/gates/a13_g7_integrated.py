@@ -354,11 +354,13 @@ def resume_verified_archive(run_id):
     need(sha(oldarchive)==archive_sha,"RESUME_ARCHIVE_SHA_MISMATCH","HARNESS")
     for prod,cand in PRODUCT.items():
         name=Path(prod).name
-        need(sha(source/"src"/name)==MANIFEST["candidate_sha256"][prod] and
-             sha(oldselected/"src"/name)==MANIFEST["candidate_sha256"][prod]
-             if name=="JW_FRAM.h" else
-             sha(source/"src"/name)==MANIFEST["candidate_sha256"][prod],
+        expected=MANIFEST["candidate_sha256"][prod]
+        need(sha(source/"src"/name)==expected,
              "RESUME_SOURCE_CANDIDATE_CHANGED_"+name,"HARNESS")
+        # A full-precompiled directory has the public header, not cpp.
+        if name=="JW_FRAM.h":
+            need(sha(oldselected/"src"/name)==expected,
+                 "RESUME_PRECOMPILED_HEADER_CHANGED","HARNESS")
     compile_log=previous/"COMPILE_CANDIDATE_LINK.log"
     need(compile_log.is_file(),"RESUME_LINK_LOG_MISSING","HARNESS")
     text=compile_log.read_text(encoding="utf-8-sig")
