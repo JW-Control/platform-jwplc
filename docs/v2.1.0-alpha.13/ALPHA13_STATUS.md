@@ -1,3 +1,35 @@
+## G8-P0 — Ejecutable read-only preparado y CI PASS (2026-10-11)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G7C=CLOSED_PASS
+A13-009=CLOSED_PASS
+A13-013=CLOSED_PASS
+G8_SCOPE=A13-010_MODBUS_RTU_RX_BYTES+A13-011_RS485_UART_READY
+G8_P0_RUNNER=tools/alpha13/gates/a13_g8_p0_baseline.py
+G8_P0_WRAPPER=tools/alpha13/gates/run_a13_g8_p0_baseline.bat
+G8_P0_CI_SOURCE_STATIC=PASS_RUN_38185801023
+G8_P0_WINDOWS_COMPILE_RUN=NOT_EXECUTED
+G8_P0_PRODUCT_CHANGE=NO
+G8_P0_USB_SERIAL_FRAM_ACCESS=NO
+G8_P0_GIT_COMMIT_PUSH=NO
+NEXT_GATE=A13-G8_P0_MODBUS_RTU_RS485_BASELINE_RUN
+F120_ROOT_CAUSE=UNKNOWN_PENDING
+RELEASE_MERGE_PR_PUBLICATION=NO
+```
+
+Baseline P0 preparado bajo `tools/alpha13/gates`: preflight
+rama/HEAD, CLI 1.5.1, fuentes/bibliotecas/archives, contrato exacto
+de contadores RTU y readiness RS485, compilaciones normales Slave,
+Master y RS485 Status; registrar SHA, linker `-L/-lJWPLC_ModbusRTU`
+y objeto `JWPLC_RS485.cpp.o`. Sin acceso físico, sin Git de producto.
+La [CI G8 P0](https://github.com/JW-Control/platform-jwplc/actions/runs/38185801023)
+ha validado sintaxis y detección estática sobre el código fuente real.
+Aún falta ejecutar las compilaciones normales en el Windows del operador.
+Plan: [A13_G8_P0_MODBUS_RTU_RS485_BASELINE_PLAN_20261011.md](A13_G8_P0_MODBUS_RTU_RS485_BASELINE_PLAN_20261011.md).
+
+---
+
 ## G7C — Cierre canónico FRAM productivo verificado (2026-10-11)
 
 ```text
