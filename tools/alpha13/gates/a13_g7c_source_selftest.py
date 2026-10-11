@@ -139,7 +139,7 @@ public:
     return true;
   }
   void debugPrint(const char *) {}
-  bool readString(uint32_t,String &,uint8_t);
+  bool readString(uint32_t,String &,uint8_t=MAX_TEXT_LENGTH);
 };
 """
 
