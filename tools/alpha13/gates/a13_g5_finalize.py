@@ -18,11 +18,18 @@ KNOWN_TOOLING=[
     "fb96571166f6e5ee546a82ee0f149d0eaa675beb",
     "f18c4b43d09b77a2132ae0333cacb19826f3f8e0",
     "80c0af5cb4febcd0cd6a11fec32a60d9d0253f11",
+    "dca37cd01c291e5433c85028324c41f328756325",
 ]
-TOOLING={
+NEW_TOOLING={
     "tools/alpha13/gates/a13_g5_finalize.py",
     "docs/v2.1.0-alpha.13/A13_G5_FINALIZE_PLAN_20261011.md",
 }
+EXISTING_DOCUMENTS={
+    "docs/v2.1.0-alpha.13/A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md",
+    "docs/v2.1.0-alpha.13/ALPHA13_STATUS.md",
+    "docs/JWPLC_COLLABORATION_WORKFLOW.md",
+}
+TOOLING=NEW_TOOLING|EXISTING_DOCUMENTS
 PREFIX="JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/"
 PRODUCT={
     PREFIX+"EthernetClient.cpp":"tools/alpha13/candidates/g5/EthernetClient.cpp",
@@ -106,7 +113,7 @@ def preflight():
     need(local in ([BASE]+expected_lineage),"LOCAL_HEAD_UNEXPECTED "+local)
     lineage=cmd("rev-list","--reverse",BASE+".."+remote).splitlines()
     need(lineage==expected_lineage,
-         "REMOTE_HISTORY_NOT_EXACT_6_TOOLING_COMMITS")
+         "REMOTE_HISTORY_NOT_EXACT_7_TOOLING_COMMITS")
     parent=BASE
     for child in expected_lineage:
         need(cmd("rev-list","--parents","-n","1",child).split()==
@@ -140,10 +147,11 @@ def preflight():
     cmd("var","GIT_COMMITTER_IDENT")
     for name in TOOLING:
         path=ROOT/name
-        if local==BASE:
-            need(not path.exists(),"TOOLING_COLLISION "+name)
+        if local==BASE and name in NEW_TOOLING:
+            need(not path.exists() and not path.is_symlink(),
+                 "NEW_TOOLING_COLLISION "+name)
         else:
-            need(path.is_file(),"TOOLING_NOT_PRESENT "+name)
+            need(path.is_file(),"TOOLING_OR_DOC_NOT_PRESENT "+name)
             need(not paths("diff","--name-only","HEAD","--",name),
                  "TOOLING_WORKTREE_CHANGED "+name)
             need(not paths("diff","--cached","--name-only","HEAD","--",name),
@@ -361,7 +369,8 @@ G5_PRODUCT_COMMIT={product_commit}
 G5_TOOLING_COMMIT={tool}
 G5_SYNC_MERGE_COMMIT={merge}
 F112=CLOSED_PREVENTION_REGISTERED
-NEXT_FAILURE_ID=F113
+F113=CLOSED_HARNESS_REMEDIATED
+NEXT_FAILURE_ID=F114
 NEXT_GATE=A13-G6_DATAGRAM_ROBUSTNESS_A13_007_A13_008_REVIEW
 OPENPLC=OUT_OF_SCOPE
 HMI_DESIGNER=OUT_OF_SCOPE
