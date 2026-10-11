@@ -1,5 +1,43 @@
 # v2.1.0-alpha.13 — Estado operativo y continuidad
 
+## G7 — candidato e integración listos; pendiente de ensayo en PC (2026-10-11)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G1_G6=CLOSED_PASS
+G7=FRAM_PROBE_SOURCE_ARCHIVE_INTEGRATED_READY
+G7_OPERATOR_FRAM_WRITE_CONSENT=YES
+G7_SAFE_WINDOW=0x1F00..0x1F7F
+G7_WINDOW_BACKUP=NVS_RESTORE_WITH_BYTE_COMPARE
+G7_CANDIDATE_NULL_GUARDS=VERSIONED_NOT_APPLIED
+G7_CANDIDATE_BLOCK_CHECKSUM_PRESERVE_OUTPUT=VERSIONED_NOT_APPLIED
+G7_SOURCE_TO_OBJECT_ARCHIVE_LINK=RUNNER_PREPARED_NOT_EXECUTED
+G7_APP_PHYSICAL=NOT_EXECUTED
+G7_PRODUCT_ADOPTION=NO
+G7_AUTO_GIT_CLOSE=ONLY_AFTER_PASS
+G7_NEXT_FAILURE_ID=F118
+G7_CANONICAL_009_013_MAPPING=REVIEW_PENDING
+NEXT_GATE=A13_G7_FRAM_INTEGRATED
+RELEASE_MERGE_PR_PUBLICATION=NO
+```
+
+El operador confirmó que la FRAM física puede usarse para ensayos.
+Se prepararon candidato, prueba física con respaldo persistente
+en NVS, archivo `.a` generado desde objeto y ejecutor integrado.
+La ventana 0x1F00..0x1F7F se lee, respalda en NVS antes de modificar y
+se restaura/verifica tras la prueba. Una marca `pending` permite
+recuperación si ocurre reinicio; si la recuperación falla, se detiene
+G7 y queda el respaldo NVS para análisis.
+
+Sin cambios productivos hasta superar reconstrucción, enlace, carga,
+serial y restauración; no se solicita `AUTORIZO_COMMIT_G7`.
+Requiere `BANCO_FRAM` únicamente por seguridad de actuadores
+antes de reemplazar el sketch. G7 no equivale a cierre semántico
+de A13-009/013 sin disponer del hallazgo canónico original.
+
+---
+
+
 ## Estado vigente — G7 FRAM preflight preparado, producto intacto (2026-10-11)
 
 ```text

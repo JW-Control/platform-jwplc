@@ -103,3 +103,39 @@ G7_CLOSURE=NOT_EXECUTED
 No ejecutar el script heredado
 `tools/alpha12/gates/alpha12_jw_fram_precompiled_refresh.ps1`
 sin revisar antes su CLI predeterminado y sus rutas de rama.
+
+## Implementación integrada y ventana física aprobada (2026-10-11)
+
+El operador autorizó **escritura temporal de FRAM de laboratorio**.
+El sketch
+`tools/alpha13/firmware/a13_g7_fram_probe/a13_g7_fram_probe.ino`
+utiliza `0x1F00..0x1F7F` (128 bytes) únicamente tras confirmar
+una FRAM de 8192 bytes. Guarda los 128 bytes previos en NVS
+(`Preferences`, namespace `a13g7fram`) junto con un flag
+`pending`. Restaura y compara todos los bytes, borra el respaldo
+solo si la restauración es íntegra. Ante reinicio se ejecuta la
+recuperación antes de ensayos nuevos. Si falla la restauración,
+no continuar ni subir otro sketch; conservar el NVS pendiente.
+
+El candidato en `tools/alpha13/candidates/g7/` añade rechazo
+de punteros nulos en `read/write` de longitud positiva y cambia
+`readBlock<T>` para no publicar `value` hasta checksum PASS,
+con un buffer temporal del heap y devolución segura en caso
+de falta de memoria. Las APIs públicas, versiones y periféricos
+del autoload no cambian.
+
+El ejecutor `a13_g7_integrated.py` recompila con
+`C:\Program Files\Arduino CLI\arduino-cli.exe` (1.5.1), usando
+la fuente y bundled BusIO, archiva con el mismo ar del toolchain,
+extrae y compara el objeto byte a byte, comprueba enlace
+`precompiled=full`, sube un sketch temporal al JWPLC **en banco**
+y valida las pruebas y restauración por serial. Solo entonces
+adopta dos fuentes y `libJW_FRAM.a`, compila ejemplos normales,
+audita hashes y hace commits/push no-force automáticos.
+No introduce ZIP ni dependencias de Arduino PLC IDE Tools.
+
+Las comprobaciones de sintaxis y contrato son internas; no se
+requiere ejecutar el preflight no destructivo por separado.
+**Estado actual: herramientas versionadas, todavía no ejecutadas
+en Windows/hardware.** Si alguna fase es REVIEW, no repetir G7
+hasta diagnosticar el log y preservar el respaldo NVS.
