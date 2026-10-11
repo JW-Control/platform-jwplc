@@ -1,5 +1,28 @@
 # v2.1.0-alpha.13 — Estado operativo y continuidad
 
+## G5 — F114 reparado, cierre Git todavía pendiente (2026-10-11)
+
+```text
+G1=CLOSED_PASS
+G2=CLOSED_PASS
+G3=CLOSED_PASS
+G4=CLOSED_PASS
+G5_PHYSICAL=PASS
+G5_REGRESSIONS=PASS_3_OVERLAY_3_PRODUCT
+G5_GIT_CLOSURE=PENDING
+F113=PENDING_CLOSURE_RETEST
+F114=FIX_VERSIONED_PENDING_RETEST
+NEXT_FAILURE_ID=F115
+CMAKE_BUILD_IGNORED=/build/
+NEXT_GATE=A13_G5_GIT_CLOSURE
+RELEASE_MERGE_PR_PUBLICATION=NO
+```
+
+El manifiesto G5 usa claves de producto; el finalizador ahora refleja
+exactamente ese contrato. No repetir gate ni reflashear el hardware.
+
+---
+
 ## Seguimiento G5 — prueba PASS, cierre Git F113 pendiente (2026-10-11)
 
 ```text

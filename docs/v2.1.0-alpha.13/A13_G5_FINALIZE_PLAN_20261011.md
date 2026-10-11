@@ -68,3 +68,11 @@ obligatorias. Se retira únicamente la restricción de `untracked=0`.
 Se permite trabajar con `untracked > 0` bajo estas salvaguardas;
 después del push estos archivos pueden seguir visibles en GitHub Desktop
 y deben revisarse por separado, sin limpieza automática.
+
+## F114 — Contrato de MANIFEST corregido (2026-10-11)
+
+El ejecutor G5 genera hashes de candidatos indexados por **rutas de
+producto**. El finalizador comprueba `set(candidate_hashes)==set(PRODUCT)`
+y `candidate_hashes[dest] == sha(src)` con formato SHA256 estricto.
+Los 42 archivos de CMake `build/` quedan ignorados con `/build/`
+sin borrarse ni añadirse a Git. El gate físico G5 sigue PASS.

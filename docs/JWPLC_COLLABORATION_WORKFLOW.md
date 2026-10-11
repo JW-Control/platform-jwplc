@@ -159,3 +159,12 @@ Se rechaza cualquier colisión con un fichero que el finalizador pretenda
 crear; tras un cierre se comprueba limpieza solo de tracked y ningún
 archivo staged, manteniendo los untracked ajenos intactos. El defecto
 real observado en G5 está documentado como F113.
+
+## 11. Contratos de MANIFEST y archivos generados (F114)
+
+Antes de entregar un finalizador, comprobar todas las claves, tipos
+y valores del `MANIFEST.json` contra las asignaciones reales del
+generador. Nunca inferir que el diccionario SHA está indexado por
+rutas de candidatos: el gate G5 utiliza rutas del **producto**.
+No permitir borrados de archivos locales de `build/`; se ignoran
+mediante `.gitignore` raíz. No incorporar salidas de CMake al repositorio.

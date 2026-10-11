@@ -1229,3 +1229,33 @@ G5_PHYSICAL=PASS
 G5_GIT_CLOSURE=PENDING
 NEXT_FAILURE_ID=F114
 ```
+
+## F114 — Finalizador G5: contrato de claves MANIFEST incorrecto (2026-10-11)
+
+**Clasificación:** HARNESS, no fallo productivo. **Estado:** FIX_VERSIONED_PENDING_RETEST.
+
+El finalizador pasó `GIT_PREFLIGHT=PASS` y
+`PRODUCT=PASS_2_ETHERNET_SOURCES_AND_G3_G4_ARCHIVES` pero se detuvo
+antes de solicitar autorización con `REASON=G5_CANDIDATE_SET_CHANGED`.
+Causa confirmada en `a13_g5_integrated.py`: `candidate_sha256` se
+genera como `{product_path: sha(candidate_path)}`; el cierre suponía
+incorrectamente claves `candidate_path`, y accedía a `[src]`.
+Corregido: exigir claves exactas de producto, formato SHA256 y verificar
+`candidate_hashes[dest] == sha(src)` para cada par.
+
+Los 42 untracked vistos en la consola son outputs de CMake/VS Code
+en la carpeta `build/`: `CMakeCache.txt`, `CMakeFiles`, etc.
+Se añadió `/build/` al `.gitignore` raíz **sin eliminar archivos**.
+
+**Prevención:** validar esquemas completos de MANIFEST contra el código
+que los genera, incluidos tipos, nombres de claves y significados de
+valores; no enviar finalizadores sin esa comprobación. Los dos archivos
+Ethernet siguen probados físicamente y pendientes solo de cierre Git.
+
+```text
+F114=G5_MANIFEST_KEYS_WRONG
+F114_STATUS=FIX_VERSIONED_PENDING_RETEST
+G5_PHYSICAL=PASS
+G5_GIT_CLOSURE=PENDING
+NEXT_FAILURE_ID=F115
+```

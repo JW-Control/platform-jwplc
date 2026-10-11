@@ -19,12 +19,14 @@ KNOWN_TOOLING=[
     "f18c4b43d09b77a2132ae0333cacb19826f3f8e0",
     "80c0af5cb4febcd0cd6a11fec32a60d9d0253f11",
     "dca37cd01c291e5433c85028324c41f328756325",
+    "633b861ae28edd03cf76a2034e3d9e227660c0de",
 ]
 NEW_TOOLING={
     "tools/alpha13/gates/a13_g5_finalize.py",
     "docs/v2.1.0-alpha.13/A13_G5_FINALIZE_PLAN_20261011.md",
 }
 EXISTING_DOCUMENTS={
+    ".gitignore",
     "docs/v2.1.0-alpha.13/A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md",
     "docs/v2.1.0-alpha.13/ALPHA13_STATUS.md",
     "docs/JWPLC_COLLABORATION_WORKFLOW.md",
@@ -113,7 +115,7 @@ def preflight():
     need(local in ([BASE]+expected_lineage),"LOCAL_HEAD_UNEXPECTED "+local)
     lineage=cmd("rev-list","--reverse",BASE+".."+remote).splitlines()
     need(lineage==expected_lineage,
-         "REMOTE_HISTORY_NOT_EXACT_7_TOOLING_COMMITS")
+         "REMOTE_HISTORY_NOT_EXACT_8_TOOLING_COMMITS")
     parent=BASE
     for child in expected_lineage:
         need(cmd("rev-list","--parents","-n","1",child).split()==
@@ -219,11 +221,14 @@ def evidence():
     token=m.get("token","")
     need(isinstance(token,str) and token.startswith(m["run_id"]+"_"),
          "G5_RUNTIME_TOKEN_MISSING")
-    need(m.get("candidate_sha256",{}).keys() ==
-         {src for src in PRODUCT.values()},
+    # MANIFEST generado por G5: ruta del producto -> sha256 del candidato.
+    candidate_hashes=m.get("candidate_sha256")
+    need(isinstance(candidate_hashes,dict) and set(candidate_hashes)==set(PRODUCT),
          "G5_CANDIDATE_SET_CHANGED")
+    need(all(isinstance(x,str) and re.fullmatch(r"[a-f0-9]{64}",x)
+             for x in candidate_hashes.values()),"G5_CANDIDATE_BAD_HASH_FORMAT")
     for dest,src in PRODUCT.items():
-        need(m["candidate_sha256"][src]==sha(src),
+        need(candidate_hashes[dest]==sha(src),
              "G5_MANIFEST_CANDIDATE_SHA "+dest)
         need(m.get("product_sha256",{}).get(dest)==sha(dest),
              "G5_MANIFEST_PRODUCT_SHA "+dest)
