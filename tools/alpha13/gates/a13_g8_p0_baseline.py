@@ -167,7 +167,7 @@ def source_diagnostics():
         rtu))
     # Limitar la inspección al último bucle no-bulk justo antes del
     # decodificador master. Evita que el scanner abarque el Slave por error.
-    end_master_rx = rtu.find("uint16_t expectedLength = 0;")
+    end_master_rx = rtu.rfind("uint16_t expectedLength = 0;")
     loops = list(re.finditer(
         r"else\s*\{\s*while \(JWPLC_RS485\.available\(\) > 0\)",
         rtu[:end_master_rx] if end_master_rx >= 0 else ""))
