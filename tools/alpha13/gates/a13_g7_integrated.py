@@ -495,7 +495,11 @@ def close_documents():
 
 **G7=PASS físico, compilado y archive; Alpha13 permanece en curso.**
 
-- RUN_ID={RUN_ID}
+- RUN_ID_CIERRE={RUN_ID}
+- RUN_ID_FISICO={m.get('physical_run_id', RUN_ID)}
+- REUTILIZA_UPLOAD_FISICO={m.get('new_firmware_upload', True) is False}
+- PRUEBA_FISICA_LOG_SHA256={m.get('physical_recovery_log_sha256', 'INTEGRATED_NO_SEPARATE_LOG')}
+- PRUEBA_FISICA_PROOF_SHA256={m.get('physical_recovery_proof_sha256', 'INTEGRATED_NO_SEPARATE_PROOF')}
 - CLI={m['cli_path']}
 - CLI_SHA256={m['cli_sha256']}
 - Firmware SHA256={m['app_sha256']}; COM={m['port']}
@@ -512,6 +516,9 @@ def close_documents():
 
 **Límite:** el informe canónico A13-009/A13-013 no está presente
 íntegro; no se atribuye su cierre semántico hasta contrastarlo.
+F120 (READY_TIMEOUT post-upload y TFT congelada) desapareció tras
+reconectar alimentación: causa raíz histórica desconocida.
+Se pasó físicamente FRAM sin reflashear, y la restauración se verificó.
 No se tocó OpenPLC ni HMI Designer.
 No PR ni publicación de alpha.
 
@@ -547,12 +554,14 @@ G5=CLOSED_PASS
 G6=CLOSED_PASS
 G7_FRAM=CLOSED_PASS
 G7_RUN_ID={RUN_ID}
+G7_PHYSICAL_RUN_ID={m.get('physical_run_id', RUN_ID)}
 G7_FRAM_RESTORED=PASS
+G7_F120_POST_UPLOAD_CAUSE=UNKNOWN_PENDING
 G7_ARCHIVE_SHA256={m['archive_sha256']}
 G7_SOURCE_ARCHIVE_PARITY=PASS
 G7_A13_009_013_CANONICAL_MAPPING=REVIEW_PENDING
 NEXT_GATE=A13-G8_SERIAL_A13_010_A13_011
-NEXT_FAILURE_ID=F118
+NEXT_FAILURE_ID=F121
 RELEASE_MERGE_PR_PUBLICATION=NO
 
 Cierre: A13_G7_FRAM_CLOSURE_20261011.md
