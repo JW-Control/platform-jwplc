@@ -165,14 +165,17 @@ def source_diagnostics():
     duplicate = bool(re.search(
         r"_stats\.rxBytes\+\+;\s*_stats\.rxBytes\+\+;\s*_rxBuffer\[_rxLength\+\+\]",
         rtu))
-    master_start = rtu.find("void JWPLC_ModbusRTUClass::")
-    master_rx = re.search(
-        r"else\s*\{\s*while \(JWPLC_RS485\.available\(\) > 0\)"
-        r".*?int value = JWPLC_RS485\.read\(\);"
-        r".*?_rxBuffer\[_rxLength\+\+\] = \(uint8_t\)value;"
-        r".*?_lastByteUs = micros\(\);\s*\}\s*\}\s*uint16_t expectedLength",
-        rtu, re.S)
-    master_missing = bool(master_rx and "_stats.rxBytes" not in master_rx.group(0))
+    # Limitar la inspección al último bucle no-bulk justo antes del
+    # decodificador master. Evita que el scanner abarque el Slave por error.
+    end_master_rx = rtu.find("uint16_t expectedLength = 0;")
+    loops = list(re.finditer(
+        r"else\s*\{\s*while \(JWPLC_RS485\.available\(\) > 0\)",
+        rtu[:end_master_rx] if end_master_rx >= 0 else ""))
+    master_block = (rtu[loops[-1].start():end_master_rx]
+                    if loops and end_master_rx >= 0 else "")
+    master_missing = bool(
+        "_rxBuffer[_rxLength++] = (uint8_t)value;" in master_block and
+        "_stats.rxBytes" not in master_block)
     unconditional_ready = bool(re.search(
         r"_serial->begin\(_baud,\s*_config,\s*_rxPin,\s*_txPin\);\s*"
         r"_ready\s*=\s*true\s*;", rs485))
