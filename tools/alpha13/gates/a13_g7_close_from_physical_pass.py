@@ -178,7 +178,7 @@ def validate_evidence(g, cli, run_id):
     line("ARCHIVE_SHA256",ARCHIVE_SHA)
     return m
 
-def execute(cli,port,run):
+def execute(cli,port,run,verify_only=False):
     g=import_gate()
     g.RUN_ID="g7_close_"+datetime.now().strftime("%Y%m%d_%H%M%S")+"_"+uuid.uuid4().hex[:8]
     g.RESULT=g.ROOT/"tools/alpha13/results"/("g7_fram_"+g.RUN_ID)
@@ -210,6 +210,15 @@ def execute(cli,port,run):
                ROOT/"tools/alpha13/gates/a13_g7_contract_selftest.py"],
                "G7_CONTRACT_SELFTEST")
         validate_evidence(g,cli,run)
+        if verify_only:
+            g.MANIFEST["status"]="PREFLIGHT_VERIFIED_ONLY"
+            g.log("STATUS","PREFLIGHT_VERIFIED_ONLY")
+            line("STATUS","PREFLIGHT_VERIFIED_ONLY")
+            line("PRODUCT_MUTATION","NO")
+            line("GIT_COMMITS","NO")
+            line("NEW_UPLOAD_OR_FRAM_COMMAND","NO")
+            g.save()
+            return 0
         candidate=g.TEMP/"verified_candidate"/"JW_FRAM"
         shutil.copytree(SRC,candidate)
         copied=candidate/"src/esp32/libJW_FRAM.a"
@@ -258,6 +267,7 @@ def main():
     p.add_argument("--arduino-cli",required=True)
     p.add_argument("--serial-port",default="COM4")
     p.add_argument("--physical-run",required=True)
+    p.add_argument("--verify-only",action="store_true")
     args=p.parse_args()
     try:
         cli=Path(args.arduino_cli).expanduser()
@@ -266,7 +276,7 @@ def main():
                "OFFICIAL_ARDUINO_CLI_ABSOLUTE_REQUIRED")
         verify(args.serial_port=="COM4","PORT_MUST_BE_COM4")
         verify(args.physical_run==RUN,"PHYSICAL_RUN_NOT_ALLOWLISTED")
-        return execute(cli.resolve(),args.serial_port,args.physical_run)
+        return execute(cli.resolve(),args.serial_port,args.physical_run,args.verify_only)
     except Exception as exc:
         line("STATUS","REVIEW_STOP")
         line("ERROR",repr(exc))
