@@ -1,0 +1,47 @@
+name: Alpha13 G7C - C++ FRAM native
+
+on:
+  push:
+    branches:
+      - 'v2.1.0-alpha.13/feature/cleanup-robustness'
+    paths:
+      - '.github/workflows/alpha13-g7c-fram-native.yml'
+      - 'tools/alpha13/gates/a13_g7c_source_selftest.py'
+      - 'tools/alpha13/candidates/g7c/JW_FRAM.cpp'
+      - 'tools/alpha13/candidates/g7c/JW_FRAM.h'
+      - 'JWPLC/2.1.0/libraries/JW_FRAM/src/JW_FRAM.cpp'
+      - 'JWPLC/2.1.0/libraries/JW_FRAM/src/JW_FRAM.h'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-fram-11-cases:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Obtener codigo
+        uses: actions/checkout@v4
+      - name: Comprobar compilador nativo
+        run: |
+          g++ --version
+          python3 --version
+      - name: Validar delta exacto y once casos nativos
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -B tools/alpha13/gates/a13_g7c_source_selftest.py \
+            --native-cxx "$(command -v g++)" --require-native \
+            | tee g7c_native_cpp.log
+          test "$(grep -c '^G7C_NATIVE_CASE_.*=PASS$' g7c_native_cpp.log)" -eq 11
+          grep -qx 'G7C_SOURCE_CONTRACT=PASS' g7c_native_cpp.log
+          grep -qx 'G7C_NATIVE_TESTS=PASS' g7c_native_cpp.log
+          grep -qx 'G7C_NATIVE_CPP=PASS_ACTUAL_EXTRACTED_METHOD' g7c_native_cpp.log
+      - name: Guardar evidencia (incluso ante fallo)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alpha13-g7c-native-${{ github.run_id }}
+          path: g7c_native_cpp.log
+          if-no-files-found: warn
