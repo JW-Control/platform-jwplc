@@ -209,6 +209,11 @@ def execute(cli,port,run,verify_only=False):
         g.call([sys.executable,"-B",
                ROOT/"tools/alpha13/gates/a13_g7_contract_selftest.py"],
                "G7_CONTRACT_SELFTEST")
+        # F121: exercise REAL manifest producer and document renderer with
+        # mocked compiler/linker, before adopting any product files.
+        g.call([sys.executable,"-B",
+               ROOT/"tools/alpha13/gates/a13_g7_closure_document_selftest.py"],
+               "G7_CLOSURE_DOCUMENT_SELFTEST")
         validate_evidence(g,cli,run)
         if verify_only:
             g.MANIFEST["status"]="PREFLIGHT_VERIFIED_ONLY"
