@@ -15,6 +15,15 @@ EXPECTED_TX = bytes((i & 255) for i in range(2048))
 EXPECTED_PARTIAL = bytes((i * 3 + 7) & 255 for i in range(256))
 EXPECTED_NEXT = bytes((i * 5 + 1) & 255 for i in range(16))
 
+def tx_contract(packets, dut):
+    """Return exact UDP TX contract checks for a single message or MTU split."""
+    sizes=[len(payload) for payload,_ in packets]
+    source_ok=all(addr[0]==dut and addr[1]==DUT_PORT
+                  for _,addr in packets)
+    shape_ok=sizes in ([2048], [1472,576])
+    bytes_ok=b"".join(payload for payload,_ in packets)==EXPECTED_TX
+    return sizes,source_ok,shape_ok,bytes_ok
+
 def local_ip(peer: str) -> str:
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         s.connect((peer, DUT_PORT))
@@ -79,12 +88,7 @@ def main():
                     except socket.timeout:
                         print("G6_PC_ERROR=TX_SECOND_DATAGRAM_TIMEOUT",flush=True)
                         return 3
-                combined=b"".join(payload for payload,_ in packets)
-                source_ok=all(
-                    addr[0]==dut and addr[1]==DUT_PORT
-                    for _,addr in packets)
-                shape_ok=sizes in ([2048],[1472,576])
-                bytes_ok=combined==EXPECTED_TX
+                sizes,source_ok,shape_ok,bytes_ok=tx_contract(packets,dut)
                 print("G6_PC_TX_DATAGRAM_SIZES="+",".join(map(str,sizes)),flush=True)
                 print("G6_PC_TX_SOURCE_MATCH="+str(source_ok),flush=True)
                 print("G6_PC_TX_BYTES_MATCH="+str(bytes_ok),flush=True)
