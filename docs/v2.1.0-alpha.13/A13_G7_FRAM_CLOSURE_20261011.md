@@ -30,3 +30,22 @@ No se tocó OpenPLC ni HMI Designer.
 No PR ni publicación de alpha.
 
 NEXT_GATE=A13-G8_SERIAL_A13_010_A13_011.
+
+## Nota posterior — conciliación del alcance con la auditoría canónica
+
+**El PASS técnico de G7 y los commits anteriores siguen válidos.**
+Sin embargo, el informe canónico atribuye A13-009 a
+`JW_FRAM::readString()` y A13-013 a constructores/
+`debugPrint` privados: ninguna de esas correcciones fue
+parte del candidato G7 cerrado. En el HEAD posterior al cierre,
+ambas situaciones siguen visibles en fuentes.
+
+Por tanto, **A13-009 y A13-013 continúan pendientes**
+de un subhito de cumplimiento canónico (G7C).
+Los guards de puntero y la protección checksum de
+`readBlock()` desarrollados en G7 son correctos y
+probados, pero **no sustituyen** dichos hallazgos.
+Mantener F120 como causa raíz desconocida.
+
+Documento de trazabilidad:
+`A13_G7_CANONICAL_RECONCILIATION_AND_G8_SCOPE_20261011.md`.

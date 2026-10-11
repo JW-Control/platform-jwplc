@@ -10,3 +10,9 @@
 - [x] Commits/push no-force automáticos tras PASS.
 - [ ] Contrastar atribución A13-009/A13-013 con auditoría canónica.
 - [ ] G8 y gates restantes antes del freeze Alpha13.
+
+## Conciliación posterior con auditoría original
+
+- [ ] A13-009: corregir `readString()` cuando falla leer longitud, y validar cadena vacía legítima/payload/reserva.
+- [ ] A13-013: eliminar únicamente guards imposibles y las dos sobrecargas privadas sin consumidores; reconstruir .a y comprobar símbolos.
+- [x] Conservar G7 como cierre técnico trazable (checksums y null guards).

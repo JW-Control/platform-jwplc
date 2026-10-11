@@ -1,5 +1,39 @@
 # v2.1.0-alpha.13 — Estado operativo y continuidad
 
+## Conciliación canónica G7 y preparación G8 (2026-10-11)
+
+```text
+G7_TECHNICAL_GATE=CLOSED_PASS
+G7_COMMIT_PRODUCT=a166d08e4eb1467c6237ba6196b687f381554b44
+G7_COMMIT_DOCS=cd3fe89d2dbf882bbdb6b8a04f2f7d1d916df16a
+A13-009=PENDING_CANONICAL_FIX_readString_length_SPI_failure
+A13-013=PENDING_CANONICAL_CLEANUP_FRAM_ctors_debugPrint
+G7_CANONICAL_MAPPING=RECONCILED_WITH_PENDING_SCOPE
+G8_SCOPE=MODBUS_RTU_RX_COUNTER_AND_RS485_UART_READY
+G8_A13-010=PENDING
+G8_A13-011=PENDING
+G8_P0=READ_ONLY_PLAN_PREPARED_NOT_EXECUTED
+NEXT_ACTION=DECIDE_G7_CANONICAL_DELTA_PRIORITY_VS_G8_P0
+F120_POST_UPLOAD_FREEZE_CAUSE=UNKNOWN_PENDING
+RELEASE_MERGE_PR_PUBLICATION=NO
+```
+
+El hito G7 cerrado es válido para lo que implementó y probó,
+pero la auditoría canónica exige además dos correcciones
+FRAM aún ausentes: `readString()` no distingue error
+leyendo longitud del texto vacío; y las dos sobrecargas
+privadas + guards de constructores siguen en el producto.
+No confundir `G7=CLOSED_PASS` con
+`A13-009/013=RESOLVED`. Ver
+`A13_G7_CANONICAL_RECONCILIATION_AND_G8_SCOPE_20261011.md`.
+
+G8 debe limitarse a estadísticas RX de Modbus RTU y
+readiness de RS-485, no a Serial USB genérico.
+No se cambia firmware/producto en esta revisión.
+
+---
+
+
 ## Estado vigente — G7 cerrado, G8 siguiente (2026-10-11)
 
 ALPHA13_STATUS=IN_PROGRESS
