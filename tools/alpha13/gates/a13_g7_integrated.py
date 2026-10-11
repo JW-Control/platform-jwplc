@@ -277,13 +277,41 @@ def build_archive(cli,source):
     stage("ARCHIVE_REBUILD","PASS")
     return pre,archive
 
+def assert_fram_archive_link(verbose, selected, label):
+    """Verify exact -L directory, -l flag and candidate .a identity.
+
+    Arduino CLI's linker need not spell libJW_FRAM.a literally. It
+    normally emits -L<selected>/src/esp32 -lJW_FRAM. Do not confuse
+    a mere 'Using library' message with proof of the linker inputs.
+    """
+    expected_dir=(selected/"src/esp32").resolve()
+    archive=expected_dir/"libJW_FRAM.a"
+    need(archive.is_file(),"FRAM_ARCHIVE_FILE_ABSENT_"+label,"HARNESS")
+    need(sha(archive)==MANIFEST["archive_sha256"],
+         "FRAM_ARCHIVE_SHA_MISMATCH_"+label,"HARNESS")
+    # Some Windows command renderings escape \ as \\; accept both
+    # without requiring the .a basename to appear in stdout.
+    link_lines=[x.replace("\\\\","\\") for x in verbose.splitlines()
+                if "-lJW_FRAM" in x and ".elf" in x]
+    need(len(link_lines)==1,"FRAM_LINKER_COMMAND_NOT_UNIQUE_"+label,"HARNESS")
+    line=link_lines[0]
+    need(re.search(r'(?<!\S)["\x27]?-lJW_FRAM(?=\s|["\x27]|$)',line),
+         "FRAM_LINKER_LIBRARY_FLAG_MISSING_"+label,"HARNESS")
+    dirs=re.findall(
+        r'(?<!\S)["\x27]?-L["\x27]?([A-Za-z]:[\\/][^\s"\x27]+)',
+        line)
+    selected_dirs=[Path(x).resolve() for x in dirs]
+    need(expected_dir in selected_dirs,
+         "FRAM_LINKER_DIRECTORY_MISMATCH_"+label,"HARNESS")
+    log("FRAM_LINK_"+label,"PASS_EXACT_L_PATH_L_FLAG_AND_ARCHIVE_SHA")
+    return True
+
 def check_precompiled(cli,selected,label):
     stage(label,"RUNNING")
     verbose,build=compile(cli,sample_sketch(),label,selected)
     need(not list(build.rglob("JW_FRAM.cpp.o")),
          "PRECOMPILED_POLICY_BROKEN_"+label)
-    need("libJW_FRAM.a" in verbose,
-         "PRECOMPILED_ARCHIVE_LINK_MISSING_"+label)
+    assert_fram_archive_link(verbose,selected,label)
     stage(label,"PASS")
 
 def regression(cli,selected,prefix):
@@ -297,8 +325,7 @@ def regression(cli,selected,prefix):
         verbose,build=compile(cli,path,prefix+"_"+name,selected)
         need(not list(build.rglob("JW_FRAM.cpp.o")),
              "PRECOMPILED_REGRESSION_BROKEN_"+name)
-        need("libJW_FRAM.a" in verbose,
-             "FRAM_ARCHIVE_MISSING_REGRESSION_"+name)
+        assert_fram_archive_link(verbose,selected,prefix+"_"+name)
         log(prefix+"_"+name,"PASS")
     MANIFEST[prefix.lower()+"_regressions"]=[p for p,_ in demos]
     stage(prefix,"PASS")
@@ -313,7 +340,7 @@ def upload_physical(cli,selected,port):
     (sketch/"probe.ino").write_text(code.replace("__G7_TOKEN__",RUN_ID),
                                      encoding="utf-8")
     verbose,build=compile(cli,sketch,"G7_PHYSICAL",selected)
-    need("libJW_FRAM.a" in verbose,"PHYSICAL_ARCHIVE_NOT_LINKED")
+    assert_fram_archive_link(verbose,selected,"PHYSICAL")
     bins=list(build.rglob("*.ino.bin"))
     need(len(bins)==1,"PHYSICAL_APP_BIN_NOT_UNIQUE")
     MANIFEST["app_sha256"]=sha(bins[0])
