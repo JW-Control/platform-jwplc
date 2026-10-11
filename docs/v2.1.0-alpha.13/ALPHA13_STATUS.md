@@ -1,5 +1,39 @@
 # v2.1.0-alpha.13 — Estado operativo y continuidad
 
+## G6 — F116: falsa ausencia del core en preflight PowerShell (2026-10-11)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G1=CLOSED_PASS
+G2=CLOSED_PASS
+G3=CLOSED_PASS
+G4=CLOSED_PASS
+G5=CLOSED_PASS
+G6_R1=REVIEW_COM4_OPEN_FAILED
+G6_R2=NOT_STARTED_POWERSHELL_CORE_LIST_FALSE_NEGATIVE
+G6_PRODUCT_MUTATION=NO
+G6_GIT_COMMIT=NO
+G6_PHYSICAL=NOT_EXECUTED
+ARDUINO_CLI_OFFICIAL_1_5_1=USER_VERIFIED
+JWPLC_LOCAL_CORE_2_1_0_DEV=USER_VERIFIED
+COM4_RECHECK=NOT_EXECUTED
+F115=OPEN_AWAITING_REAL_ENVIRONMENT_VALIDATION
+F116=HARNESS_FALSE_NEGATIVE_FIX_PREPARED
+NEXT_FAILURE_ID=F117
+NEXT_GATE=A13_G6_COM4_DIAGNOSIS_AND_RETEST
+RELEASE_MERGE_PR_PUBLICATION=NO
+```
+
+PowerShell aplicó `-notmatch` sobre las múltiples líneas de
+`arduino-cli core list`, interpretando erróneamente que el core no
+existía. No hubo compilación, upload, mutación de producto ni commit
+en este intento. El CLI oficial y el core están reconocidos según el
+diagnóstico anterior del operador; se retira el chequeo PowerShell
+redundante. Pendiente confirmar COM4 antes de reintentar G6.
+
+---
+
+
 ## G6 — CLI y COM4 en revisión (2026-10-11)
 
 ```text

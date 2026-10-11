@@ -1344,3 +1344,52 @@ G6_PRODUCT=UNMODIFIED
 G6_CLOSURE=NOT_DONE
 NEXT_FAILURE_ID=F116
 ```
+
+## F116 — PowerShell: falso negativo de `arduino-cli core list` por `-notmatch` con arreglo (2026-10-11)
+
+**Tipo:** HARNESS / SCRIPT POWERSHELL. **Estado:** FIX_COMMAND_PREPARED_PENDING_RETEST.
+**Producto:** sin modificaciones. **G6:** sigue sin prueba física ni cierre.
+
+### Evidencia y causa reproducible
+
+El operador ya había obtenido `arduino-cli 1.5.1` y la fila
+`jwplc_local:esp32 2.1.0-dev` con el CLI oficial de
+`C:\Program Files\Arduino CLI\arduino-cli.exe`. Sin embargo, el bloque
+PowerShell de reanudación se detuvo en `Core JWPLC local no encontrado`
+inmediatamente después de imprimir `arduino-cli Version: 1.5.1`.
+No alcanzó el diagnóstico COM4 ni `git pull` ni ejecutó G6.
+
+Causa: `$cores = & $cli core list` es un **arreglo de líneas**.
+En PowerShell, aplicar `$cores -notmatch 'jwplc_local:esp32...'`
+produce una **colección de líneas no coincidentes**, no un booleano
+global. Como la lista contiene otros cores, la colección no está vacía,
+la expresión del `if` se interpreta como verdadera y lanza
+una falsa ausencia incluso cuando el core JWPLC está instalado.
+
+### Prevención obligatoria
+
+- No aplicar `-match`/`-notmatch` a resultados multilinea sin
+  definir si se esperan colecciones o booleanos. Para comprobar una
+  coincidencia en **todo el texto**: `$text = (& $cli core list) -join "`n"`
+  y luego `$text -match '(?m)^\s*jwplc_local:esp32\s+'`.
+- No duplicar las verificaciones que ya ejecuta `a13_g6_integrated.py`.
+  Ese runner aplica `re.search(..., core_list)` sobre una cadena,
+  registra CLI real y SHA, y aborta antes de compilar si falta el core.
+- Mantener la selección explícita del CLI oficial y un diagnóstico
+  de COM4 sin escritura. Conservar los resultados G6 del intento
+  anterior para analizar el error COM4 por separado.
+- Los comandos de PowerShell deben revisar el **tipo real** devuelto
+  por cmdlets y ejecutables nativos y tratar cada código de salida
+  individualmente; no asumir comportamiento escalar de expresiones
+  sobre arreglos. Prevenir reintentos innecesarios y prompts duplicados.
+
+```text
+F116=POWERSHELL_ARRAY_NOTMATCH_FALSE_NEGATIVE
+F116_CLASS=HARNESS_LAUNCHER
+F116_ROOT_CAUSE=ARRAY_NOTMATCH_RETURNS_NONMATCHING_ELEMENTS
+F116_PRODUCT_CHANGED=NO
+F116_G6_RESTARTED=NO
+F116_FIX=NO_DUPLICATE_CORE_CHECK_IN_POWERSHELL
+F116_RETEST=PENDING
+NEXT_FAILURE_ID=F117
+```

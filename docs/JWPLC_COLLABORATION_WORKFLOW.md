@@ -218,3 +218,18 @@ versión/instalación de Arduino silenciosamente. Distinguir fallos de
 resolución del CLI de bloqueos físicos de COM/USB y guardar el log
 original de esptool. No alterar scripts históricos de gates cerrados
 sin una razón de mantenimiento explícita.
+
+## 14. PowerShell: no confundir filtros de arreglos con comparaciones escalares (F116)
+
+Los comandos nativos invocados con `&` pueden producir varias líneas,
+y PowerShell las materializa como arreglo. `-match` o `-notmatch`
+con un arreglo selecciona elementos; **no** devuelve el resultado
+booleano de examinar la totalidad de la salida.
+
+Cuando sea necesario comprobar una fila, usar
+`$text = (& $cli core list) -join "`n"` y después
+`$text -match 'patron'`, o mejor evitar esta duplicación y dejar que
+el runner Python compruebe el core exacto sobre stdout unido.
+Nunca interpretar que un `-notmatch` de arreglos prueba ausencia
+de `jwplc_local:esp32`. Validar el caso con varios cores instalados
+antes de compartir bloques PowerShell.
