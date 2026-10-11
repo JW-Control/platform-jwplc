@@ -31,6 +31,13 @@ def unique_replace(s,a,b,label):
 def expected_candidate():
     cpp=(PROD/"JW_FRAM.cpp").read_text(encoding="utf-8")
     hdr=(PROD/"JW_FRAM.h").read_text(encoding="utf-8")
+    # Despues de la adopcion, los fuentes productivos deben ser
+    # exactamente el candidato aprobado. No intentar parchearlos otra vez.
+    if (cpp == (CAND/"JW_FRAM.cpp").read_text(encoding="utf-8") and
+            hdr == (CAND/"JW_FRAM.h").read_text(encoding="utf-8")):
+        print("G7C_SOURCE_STATE=ADOPTED_EXACT_CANDIDATE",flush=True)
+        return cpp,hdr
+    print("G7C_SOURCE_STATE=BASELINE_EXPECTING_EXACT_DELTA",flush=True)
     guards="  if (_spi_dev) {\n    delete _spi_dev;\n  }\n\n"
     need(cpp.count(guards)==2,"TWO_DEAD_GUARDS")
     cpp=cpp.replace(guards,"",2)
