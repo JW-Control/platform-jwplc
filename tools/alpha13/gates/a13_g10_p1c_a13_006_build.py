@@ -142,18 +142,17 @@ def verify_core(log,label):
     need(re.search(r"[/\\]precompiled[/\\]core[/\\]JWPLCBASIC[/\\]core\.a",log),
          "PRECOMPILED_JWPLC_CORE_NOT_LINKED_"+label)
 def normalize_compiler_path_text(value):
-    """Normalizar texto de Make .d / arduino-cli -v, no rutas para acceso FS.
+    """Normalizar representaciones Windows/Linux de dependencias Make GCC.
 
-    Soporta rutas GCC Win con separadores slash/backslash, espacios escapados,
-    colon escapado y CRLF. No eliminar nombres para hacer match espurio.
+    El verificador se basa en archivos .d del compilador (platform.txt:
+    -MMD); NO depende de la ruta absoluta impresa por arduino-cli -v.
     """
-    return (value.replace("\\\\\\\\", "\\\\")
-                 .replace("\\\\ ", " ")
-                 .replace("\\\\:", ":")
-                 .replace("\\\\r\\\\n", " ")
-                 .replace("\\\\n", " ")
-                 .replace("\\\\", "/").casefold())
-
+    return (value.replace("\r\n", "\n")
+                 .replace("\\\n", " ")
+                 .replace("\\ ", " ")
+                 .replace("\\:", ":")
+                 .replace("\\\\", "\\")
+                 .replace("\\", "/").casefold())
 
 def verify_source_build(log,build,folder,label):
     """Probar objeto REAL y entrada de compilación con .d generado por -MMD.
