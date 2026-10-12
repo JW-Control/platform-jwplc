@@ -24,6 +24,7 @@ static bool released = false;
 static int chosenButton = -1;
 static uint32_t lastReadyMs = 0;
 static uint32_t lastSampleMs = 0;
+static uint32_t lastHeartbeatMs = 0;
 
 static void printSummary()
 {
@@ -130,8 +131,17 @@ void setup()
 void loop()
 {
     serviceUSB();
-    if (finished) return;
     const uint32_t now = millis();
+    if (finished)
+    {
+        if ((uint32_t)(now - lastHeartbeatMs) >= 1000)
+        {
+            lastHeartbeatMs = now;
+            Serial.print("G9_P5_HEARTBEAT:");
+            Serial.println(session);
+        }
+        return;
+    }
     if (!running)
     {
         if ((uint32_t)(now - lastReadyMs) >= 500)
