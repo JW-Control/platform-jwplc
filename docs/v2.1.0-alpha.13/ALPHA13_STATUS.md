@@ -1,3 +1,46 @@
+## G9-P2/P3 — candidato compilado PASS en Windows, adopción preparada (2026-10-12)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G8_FINAL=CLOSED_PASS_WITH_EXPLICIT_COVERAGE_LIMITS
+G9_P0_WINDOWS=CLOSED_PASS_READ_ONLY
+G9_P1_A13-017=DOC_ONLY_PASS
+G9_CANDIDATE_RUN_ID=g9_p2p3_20261012_000449_23842b4f
+G9_CANDIDATE_SOURCE_CONTRACT=PASS
+G9_CANDIDATE_SOURCE_BUILD=PASS
+G9_CANDIDATE_ARCHIVE_MEMBER_BYTE_PARITY=PASS
+G9_CANDIDATE_NEW_SD_ARCHIVE_SHA256=58e86fdf31c9bf94204fcbcf7462656fd9f4d9a7d73bff35bd660dbff538b89e
+G9_CANDIDATE_REGRESSIONS=PASS_SD_BASIC_GLOBAL_SD_GLOBAL_RTC_GLOBAL_BUTTONS
+G9_CANDIDATE_LINK=PASS_EXACT_PATH_FLAG_SHA_ALL_FOUR
+G9_CANDIDATE_FINAL_AUDIT=PASS
+G9_CANDIDATE_STATUS=CANDIDATE_BUILD_PASS_PRODUCT_UNCHANGED
+G9_PRODUCT_ADOPTION=PREPARED_NOT_EXECUTED
+G9_ADOPTION_CI=PASS_WINDOWS_LINUX_RUN_38209971080
+G9_NEXT=tools/alpha13/gates/run_a13_g9_adopt.bat
+G9_EXPECTED_PRODUCT_DIFF=JW_SD_CPP_LIBJW_SD_A_GLOBALPERIPHERALS_CPP
+G9_PRODUCT_COMMIT=NONE
+G9_HARDWARE_TEST=NONE
+G9_FINAL=OPEN
+G10_FINAL=NOT_STARTED
+RELEASE_MERGE_PR_PUBLICATION=NO
+```
+
+El candidato de A13-012 y A13-014 compiló exitosamente
+con el Arduino CLI local del operador y realizó cuatro regresiones
+de enlace normal. Se generó un nuevo `libJW_SD.a` con paridad
+del miembro extraído y objeto real; la fuente y el archive
+originales permanecen intactos. El ejecutor de adopción
+`a13_g9_adopt_local.py` ya está versionado y sus pruebas
+de contrato Git de tres rutas, escenarios negativos y compatibilidad
+Windows/Linux pasaron:
+[CI 38209971080](https://github.com/JW-Control/platform-jwplc/actions/runs/38209971080).
+No se ejecutó adopción, commit ni flash todavía.
+
+Detalles:
+[A13_G9_P2P3_CANDIDATE_AND_ADOPTION_GATE_20261012.md](A13_G9_P2P3_CANDIDATE_AND_ADOPTION_GATE_20261012.md).
+
+---
+
 ## Alpha13 — G9-P0 Windows PASS; P2/P3 candidatos preparados (2026-10-11)
 
 ```text
