@@ -1962,3 +1962,54 @@ siempre `CI_PASS`, `WINDOWS_PASS`, adopción productiva, prueba
 física y commit/push. Las notas F122/F123 también deben
 sincronizarse con la fuente viva de FAILURES del Proyecto en la
 próxima actualización de sus archivos.
+
+
+### Reconciliación definitiva F122/F123 — separación de rutas Windows (2026-10-11)
+
+**Nueva evidencia que resuelve la incertidumbre anterior.** La prueba CI
+reprodujo el falso negativo usando **la función real del ejecutor G8**
+en el runner Windows, con las mismas tres rutas. Log del job Windows
+en [GitHub Actions 38188287251](https://github.com/JW-Control/platform-jwplc/actions/runs/38188287251):
+
+```text
+G8_ADOPT_INDEX_EXPECTED_PATHS=JWPLC\2.1.0\libraries\...
+G8_ADOPT_INDEX_V_PATHS=JWPLC/2.1.0/libraries/...:H
+G8_ADOPT_INDEX_TRACKED_PATHS=JWPLC/2.1.0/libraries/...
+G8_ADOPT_INDEX_HEAD_PATHS=JWPLC/2.1.0/libraries/...
+G8_ADOPT_INDEX_PARSE_ERRORS=[]
+RuntimeError: INDEX_EXACT_THREE_PATHS_MISMATCH
+```
+
+**Causa raíz demostrada:** el harness usaba
+`str(Path.relative_to(ROOT))` para construir conjuntos de comparación
+contra resultados de Git. En Windows, `pathlib.Path` produce separadores
+`\`, mientras que `git ls-files`, `git ls-tree` y
+`git diff --name-only -z` devuelven rutas POSIX con `/`,
+independientemente del sistema operativo. Por eso ambos conjuntos
+tenían los mismos archivos físicos pero cadenas distintas.
+Esto explica los rechazos F122 y F123; **no eran defectos del producto**.
+
+**Corrección:** `Path.relative_to(ROOT).as_posix()` para TODAS las
+rutas que se comparen con Git o se pasen como `HEAD:ruta`.
+Conservar `str(Path.relative_to(ROOT))` donde sea necesario para leer
+las claves del manifiesto P1/P2 ya generado en Windows. No convertir
+esas claves a mitad del flujo y romper la procedencia de hashes.
+
+**Prueba preventiva:** Linux y Windows deben ejecutar exactamente
+`git_index_marks()` y `audit_git_scope()` del ejecutor real en
+un checkout CI temporal, primero limpio y luego con las dos fuentes
+más el archive modificados. `CI_WINDOWS_PASS`, que todavía debe
+verificarse después del commit del fix, no sustituye la adopción
+en el Windows físico. No más diagnósticos especulativos ni
+repeticiones sin cobertura de plataforma.
+
+```text
+F122_ROOT_CAUSE=WINDOWS_PATH_SEPARATOR_MISMATCH
+F123_ROOT_CAUSE=WINDOWS_PATH_SEPARATOR_MISMATCH
+F122_F123_NOT_PRODUCT_DEFECT=YES
+FIX=GIT_PATHS_AS_POSIX_AND_LEGACY_MANIFEST_KEYS_SEPARATE
+WIN_CI_REGRESSION=IN_PROGRESS
+WINDOWS_PRODUCT_ADOPTION=NOT_EXECUTED_SINCE_FIX
+G8=CURRENT_NOT_CLOSED
+NEXT_FAILURE_ID=F124
+```
