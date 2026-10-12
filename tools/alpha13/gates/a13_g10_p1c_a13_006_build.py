@@ -315,7 +315,10 @@ def selftest():
             obj=build/"libraries"/"JWPLC_ModbusTCP"/(name+".o")
             obj.parent.mkdir(parents=True,exist_ok=True)
             obj.write_bytes(b"synthetic ELF for contract test\n"+name.encode())
-            dep=obj.with_suffix(".d")
+            # GCC -MMD con -o nombre.cpp.o normalmente emite .cpp.o.d;
+            # validar tambien .cpp.d para toolchains con otra convencion.
+            dep=(Path(str(obj)+".d") if name.endswith("_Client.cpp")
+                 else obj.with_suffix(".d"))
             # GCC -MMD dependency output: no parser dependence on -v log.
             source=str((folder/"src"/name).resolve()).replace("\\", "/")
             dep.write_text(str(obj)+": "+source.replace(" ", "\\ ")+
