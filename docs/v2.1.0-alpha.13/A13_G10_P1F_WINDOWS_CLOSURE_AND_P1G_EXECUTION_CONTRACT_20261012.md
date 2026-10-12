@@ -62,6 +62,53 @@ su invocación por sí sola tampoco detecta reinicios posteriores.
 Una inicialización/soft-reset efectivo y resets externos no detectables
 requieren cobertura o limitación explícita.
 
+## 2A. Hallazgo complementario — APIs Ethernet directas y doble capa de bloqueo
+
+Inspección read-only posterior al cierre P1F:
+
+- `JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/socket.cpp`:
+  `EthernetClass::socketBegin()` y `socketDisconnect()` usan
+  `SPI.beginTransaction(SPI_ETHERNET_SETTINGS)`, pero esos
+  cuerpos **no llaman** `jwplcSPI_acquire()`.
+- `EthernetClient.cpp`: `EthernetClient::beginStopAsync()`,
+  `pollStopAsync()` y `cancelStopAsync()` operan vía
+  `Ethernet.socketStatus/socketDisconnect/socketClose`;
+  `localPort()` y `remoteIP()` usan directamente
+  `SPI.beginTransaction()`, sin adquirir el mutex JWPLC
+  dentro de esos métodos.
+- `cores/jwcontrol/peripherals/src/jwplc_spi_bus.cpp`:
+  `jwplcSPI_acquire()` usa un mutex FreeRTOS creado por
+  `xSemaphoreCreateMutex()` y adquirido con
+  `xSemaphoreTake()`.
+  No existe evidencia en estos métodos de que
+  `SPI.beginTransaction()` tome **ese mismo mutex JWPLC**.
+
+Consecuencia delimitada: los consumidores que envuelven
+correctamente las llamadas en `jwplcSPI_acquire/release`
+pueden estar protegidos entre sí, pero un usuario directo
+de `EthernetClient`, `EthernetServer` o de helpers socket
+sin ese wrapper **no queda demostrado** como coordinado
+por el mutex JWPLC. No afirmar que ocurrió una colisión
+física, ni negar posibles locks internos propios de
+SPIClass: esos locks no equivalen automáticamente al
+contrato de ownership JWPLC.
+
+**Nuevo bloqueo de diseño P1G:** antes de adoptar A o B,
+definir el perímetro real de acceso W5500 para API Arduino
+directa y consumidores internos, sin meter adquisiciones
+anidadas de un mutex NO recursivo: envolver de nuevo
+`socketBegin()` desde una llamada que ya tiene el lock
+podría bloquear. Examinar un punto de sincronización
+común o un lease explícito que reconozca ownership
+y evite doble adquisición. No tocar la implementación
+SPI global de Arduino ni modificar producto por inercia.
+
+Este hallazgo aumenta la importancia de la cobertura
+negativa `raw EthernetClient/Server`, del test de
+`nested_lock_deadlock` y de la medición de fairness.
+P1G permanece en diseño; ninguna implementación nueva
+se acepta todavía.
+
 ## 3. Criterios para un candidato de producto, no para un modelo
 
 - **Identidad**: conservar en cada socket un lease interno con epoch
