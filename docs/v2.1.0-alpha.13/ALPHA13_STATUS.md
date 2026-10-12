@@ -1,3 +1,42 @@
+## Alpha13 G10 — P1F Windows cerrado, P1G contrato seguro abierto (2026-10-12)
+
+```text
+ALPHA13=IN_PROGRESS
+BRANCH=v2.1.0-alpha.13/feature/cleanup-robustness
+G10_P1F_WINDOWS_HEAD=f5d8d32369ecbc64163e65ed3e52e0a4f88733f6
+G10_P1F_WINDOWS_RUN=g10_p1f_20261012_162335_c18278de
+G10_P1F_WINDOWS=PASS_READONLY_12_PATTERNS_5_FROZEN_ARCHIVES
+G10_P1F_CI=PASS_WINDOWS_LINUX_RUN_38299316198
+G10_P1F_SELFTEST_NEGATIVES=2_IN_CI_NOT_SEPARATELY_REPORTED_LOCAL
+G10_P1F_STATUS=SOCKET_EPOCH_BASELINE_CAPTURED_ADOPTION_BLOCKED
+G10_P1F_PRODUCT_FILES_MODIFIED=NONE
+G10_P1G=DESIGN_SOURCE_REVIEW_OPEN_CANDIDATE_NOT_EXECUTED
+G10_P1G_REQUIREMENTS=EPOCH_OWNER_LISTENER_RESET_INTERLOCK
+A13-006=REVISION_REQUIRED_ADOPTION_BLOCKED
+G10_FINAL=NOT_CLOSED
+F120_POST_UPLOAD_FREEZE=UNKNOWN_PENDING
+COM4_COM14_DIAGNOSTICS=NOT_RESTORED
+RELEASE_PR_MERGE_PUBLICATION=NO
+```
+
+El operador ejecutó P1F después de fast-forward 37366d10 -> f5d8d323,
+con 12 patrones confirmados y cinco archives intactos. Se confirma riesgo de
+reset GPIO antes del mutex SPI, estado isReady() que no prueba generación,
+y tabla estática EthernetServer::server_port[] sin ownership/epoch.
+La CI P1F pasó Windows/Linux; NO se ha probado ningún fix ni hardware.
+
+P1G comienza con una revisión de diseño y después exige candidato temporal
+y pruebas C++ nativas sobre métodos reales; no basta un contador epoch ni
+un modelo abstracto. Las comprobaciones de identidad y stop/cancel deben
+ser coherentes con la exclusión de reset. Decidir A (quiescencia W5500)
+o B (mutex SPI durante ~90 ms) solo tras pruebas de cobertura y de fairness.
+La adopción A13-006 continúa bloqueada.
+
+Plan y cierre documentados en
+[A13_G10_P1F_WINDOWS_CLOSURE_AND_P1G_EXECUTION_CONTRACT_20261012.md](A13_G10_P1F_WINDOWS_CLOSURE_AND_P1G_EXECUTION_CONTRACT_20261012.md).
+
+---
+
 ## Alpha13 G10 — P1E Windows PASS, P1F inventory CI PASS (2026-10-12)
 
 ```text
