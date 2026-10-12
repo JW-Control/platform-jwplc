@@ -1848,3 +1848,117 @@ G7_PRODUCT_FILES=ROLLED_BACK_PASS
 G7_GIT_CLOSURE=NO
 NEXT_FAILURE_ID=F122
 ```
+
+
+## F122 — G8: adopción productiva rechazada por diff Git sin detalle (2026-10-11)
+
+**Síntoma:** `run_a13_g8_adopt.bat` llegó a respaldo y copia exacta de
+las dos fuentes y `libJWPLC_ModbusRTU.a`, pero abortó antes de las
+regresiones productivas:
+
+```text
+RUN_ID=g8_adopt_20261011_192007_949944b4
+PREFLIGHT=PASS
+BACKUP=PASS
+PRODUCT_ADOPTION=REVIEW_STOP
+REASON=DIRTY_SCOPE_NOT_EXACT_THREE_FILES
+ROLLBACK=PASS
+PRODUCT_REGRESSIONS=NOT_EXECUTED
+```
+
+**Evidencia y límite:** el verificador comparaba
+`git diff --name-only -z` con un conjunto fijo de tres rutas, pero no
+registró cuáles rutas observó Git. Los hashes de bytes del candidato
+habían superado el control anterior; NO hay prueba para identificar
+qué ruta faltó/sobró, si hubo retraso del índice o si influyó alguna
+particularidad de Windows. No atribuir causa específica sin esos datos.
+
+**Clasificación:**
+
+```text
+F122_CLASS=HARNESS_OBSERVABILITY_GAP
+PRODUCT_FAILURE=NOT_DEMONSTRATED
+PRODUCT_RESTORE=PASS
+PRODUCT_COMMIT_OR_UPLOAD=NONE
+ROOT_CAUSE_OF_SCOPE_MISMATCH=UNDETERMINED
+```
+
+**Prevención:** antes de rechazar una adopción debe registrarse en log
+y manifiesto el conjunto exacto observado, esperado y staged; comparar
+además blobs `HEAD`→working tree y hashes de candidato; no relajar la
+allowlist ni declarar PASS con diferencias no explicadas. Toda falla
+posterior al backup exige rollback auditado y no publicar archivos
+fuente sin el archive precompilado correspondiente.
+
+## F123 — G8: falso rechazo del índice por parser `ls-files -v` (2026-10-11)
+
+**Síntoma:** el segundo intento no pasó del preflight:
+
+```text
+RUN_ID=g8_adopt_20261011_192425_df5a28db
+PHASE=PREFLIGHT_RUNNING
+REASON=INDEX_NOT_TRACKING_ALL_PRODUCT_FILES
+BACKUP=NOT_STARTED
+ADOPTION=NOT_STARTED
+PRODUCT_CHANGE=NONE
+```
+
+El diagnóstico independiente de solo lectura, ejecutado sobre la
+misma copia local después del intento fallido, mostró:
+
+```text
+RUN_ID=g8_d0_20261011_192744_4cb40613
+PATH_1_INDEX=True  PATH_1_HEAD=True  V_FLAG=H
+PATH_2_INDEX=True  PATH_2_HEAD=True  V_FLAG=H
+PATH_3_INDEX=True  PATH_3_HEAD=True  V_FLAG=H
+INDEX_TRACKS_ALL=True
+CLEAN=True
+HEAD_EQUALS_WORKTREE=True (las tres rutas)
+STATUS=DIAGNOSTIC_COLLECTED_NO_MUTATION
+```
+
+Las tres rutas productivas sí están rastreadas: `JWPLC_ModbusRTU.cpp`,
+`JWPLC_RS485.cpp` y `libJWPLC_ModbusRTU.a`. No había flags
+`skip-worktree` ni `assume-unchanged` en esas tres rutas.
+**No pedir al operador reset, checkout, add, cambio de índice ni
+copia manual de archivos.**
+
+**Causa demostrada a nivel de sistema:** el rechazo de preflight
+contradice los datos de Git obtenidos por la herramienta D0; por
+tanto, el chequeo introducido en el harness generó un falso negativo.
+**Mecanismo preciso no demostrado:** la ejecución fallida no dejó
+la salida cruda de `ls-files -v`, por lo que no se puede establecer
+si hubo una anomalía de decodificación, parsing, entorno o contenido
+temporal del proceso.
+
+**Corrección:** sustituir el parser de líneas por tokens delimitados
+en NUL con `git ls-files -v -z`, contrastar con
+`git ls-files --full-name -z` y `git ls-tree -z HEAD`,
+emitir observados/esperados y errores de parsing **antes** del
+assert; validar en CI Windows y Linux con el mismo helper real.
+Devolver `REVIEW_STOP` con evidencia si hay discrepancia verdadera,
+sin saltar controles de SHA, Git o rollback.
+
+**Clasificación:**
+
+```text
+F123_CLASS=HARNESS_FALSE_NEGATIVE
+G8_D0=PASS_READ_ONLY
+PRODUCT_FAILURE=NO_EVIDENCE
+PRODUCT_MODIFIED_IN_SECOND_ATTEMPT=NO
+PRODUCT_COMMIT_OR_UPLOAD=NONE
+F123_FIX=VERSIONED_PENDING_WINDOWS_RETEST
+A13-010=CANDIDATE_VALIDATED_NOT_ADOPTED
+A13-011=CANDIDATE_VALIDATED_NOT_ADOPTED
+G8=CURRENT_NOT_CLOSED
+NEXT_FAILURE_ID=F124
+```
+
+**Regla transversal:** cada nueva precondición de Git que pueda
+bloquear un gate debe tener un caso positivo sobre checkout normal
+y otro sobre archivos realmente modificados, ejecutados en Windows
+y Linux antes de pedir al operador que repita el BAT. Diferenciar
+siempre `CI_PASS`, `WINDOWS_PASS`, adopción productiva, prueba
+física y commit/push. Las notas F122/F123 también deben
+sincronizarse con la fuente viva de FAILURES del Proyecto en la
+próxima actualización de sus archivos.
