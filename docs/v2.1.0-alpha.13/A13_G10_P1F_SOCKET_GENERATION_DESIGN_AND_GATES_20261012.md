@@ -1,3 +1,33 @@
+## P1F — CI fuente/negativos PASS en Windows y Linux
+
+El [run 38299316198](https://github.com/JW-Control/platform-jwplc/actions/runs/38299316198)
+terminó **PASS Windows y Linux**. Su snapshot examinó
+12 patrones relevantes a reset GPIO, mutex SPI, listener
+`server_port[]`, backend y rutas Modbus TCP; ejecutó
+2 casos negativos de contrato y comprobó SHA de
+5 archives congelados. La CI **no probó un candidato
+corregido**, ni hardware ni Arduino build.
+
+```text
+G10_P1F_CI=PASS_WINDOWS_LINUX_RUN_38299316198
+G10_P1F_SELFTEST=PASS_TWELVE_PATTERNS_TWO_NEGATIVES
+G10_P1F_RESET_OCCURS_BEFORE_SPI_LOCK=True
+G10_P1F_LISTENER_SERVER_PORT_IS_STATIC=True
+G10_P1F_READY_IS_BOOLEAN_NOT_EPOCH=True
+G10_P1F_NO_GENERATION_EXPOSED_IN_RUNTIME=True
+G10_P1F_ARCHIVES_FROZEN=5
+G10_P1F_CI_STATUS=SOCKET_EPOCH_BASELINE_CAPTURED_ADOPTION_BLOCKED
+G10_P1F_LOCAL_WINDOWS=NOT_YET_EXECUTED
+G10_PRODUCT_MODIFICATION=NONE
+```
+
+BAT local versionado:
+`tools/alpha13/gates/run_a13_g10_p1f_socket_epoch_baseline.bat`.
+Solo lee fuentes, cinco archives y manifiesto P1E local;
+no compila, no sube firmware y no modifica Git.
+
+---
+
 # Alpha13 G10-P1F — Diseño del contrato de generación y ownership de sockets W5500
 
 **Fecha:** 2026-10-12.  
