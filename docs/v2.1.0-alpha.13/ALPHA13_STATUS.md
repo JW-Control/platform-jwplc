@@ -1,3 +1,68 @@
+## Alpha13 — G9 en curso: P0 CI PASS y A13-017 documento corregido (2026-10-11)
+
+```text
+ALPHA12=CLOSED_PUBLISHED
+ALPHA13=IN_PROGRESS
+BRANCH=v2.1.0-alpha.13/feature/cleanup-robustness
+G8_FINAL=CLOSED_PASS_WITH_EXPLICIT_COVERAGE_LIMITS
+G9_AUDIT_SCOPE=A13-012_A13-014_A13-017
+G9_P0_CI=PASS_WIN_LINUX_RUN_38204046284
+G9_P0_READONLY_RUNNER=tools/alpha13/gates/a13_g9_p0_readonly.py
+G9_P0_WINDOWS_USER=NOT_YET_EXECUTED
+G9_P0_SD_NUL_COUNT=1
+G9_P0_SD_NUL_OFFSET=28732
+G9_P0_SD_ARCHIVE_SHA256=1b9619ba37295782ade1edc6f06439a38e7e534fc08f5b05757c9af7a645acc0
+G9_P0_GLOBAL_RTC_REFS=3
+G9_P0_GLOBAL_THROTTLE_REFS=2
+G9_P1_A13-017=DOC_ONLY_APPLIED_AND_AUDITED
+G9_P1_HEADERS_NONCOMMENT_LINES_UNCHANGED=True
+G9_P2_A13-012=PENDING_SOURCE_ARCHIVE_SAFE_CHANGE
+G9_P3_A13-014=PENDING_GLOBALPERIPHERALS_EQUIVALENCE
+G9_FINAL=IN_PROGRESS_NOT_CLOSED
+G10_FINAL_FREEZE=PENDING
+G10_A13-015=ADOPT_PENDING_CI_SMOKE
+G10_A13-016=ADOPT_PENDING_ARCHIVE_FINGERPRINT
+G10_A13-018=ADOPT_PENDING_BINARY_METRICS
+G10_G5_G6_CANONICAL_CORRESPONDENCE=PENDING
+G9_CI_INITIAL_SHALLOW_CHECKOUT_REVIEW=RESOLVED_NO_PRODUCT_CHANGE
+F120_POST_UPLOAD_FREEZE_ROOT_CAUSE=UNKNOWN_PENDING
+NEXT_GATE=G9-P0_READONLY_LOCAL_THEN_G9_INTEGRATED_P2_P3
+OPENPLC=OUT_OF_SCOPE
+HMI_DESIGNER=OUT_OF_SCOPE
+TFT_NEW_FEATURES=OUT_OF_SCOPE
+RELEASE_MERGE_PR_PUBLICATION=NO
+```
+
+Después de cerrar G8 con dos JWPLC Basic físicos
+se abrió G9 según el grupo canónico de cleanup.
+La auditoría original adjudica A13-012 al NUL embebido
+en `JW_SD.cpp` (archivo precompilado),
+A13-014 a variables privadas invariables en
+`JWPLC_GlobalPeripherals.cpp`, y A13-017 a textos activos
+anacrónicos de README y headers.
+
+El gate **read-only P0** validó en Windows y Linux:
+[CI 38204046284](https://github.com/JW-Control/platform-jwplc/actions/runs/38204046284).
+Identificó un solo NUL en offset 28732, 3 referencias
+RTC y 2 de refresh; fue necesario habilitar historia
+Git completa de checkout CI para contrastar la ascendencia
+del commit de G8. A13-017 corrigió exclusivamente texto
+activo de README, `JWPLC_ModbusTCP.h` y `JW_SD.h`,
+con non-comment lines de ambos headers idénticas
+al baseline de G8.
+
+**No hay nuevas modificaciones de firmware**,
+ni archive SD reconstruido, ni prueba física de G9.
+Los trabajos de P2/P3 exigen respaldo y validaciones
+normales Arduino/archives antes de commit de producto.
+
+Plan:
+[A13_G9_CLEANUP_PLAN_20261011.md](A13_G9_CLEANUP_PLAN_20261011.md).
+Baseline y corrección textual:
+[A13_G9_P0_P1_BASELINE_AND_DOC_CLOSURE_20261011.md](A13_G9_P0_P1_BASELINE_AND_DOC_CLOSURE_20261011.md).
+
+---
+
 ## G8 — CIERRE FUNCIONAL PASS tras validación física Master COM4 / Slave COM14 (2026-10-11)
 
 ```text
