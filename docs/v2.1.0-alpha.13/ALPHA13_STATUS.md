@@ -1,3 +1,42 @@
+## G8-P0 cerrado; G8-P1/P2 candidato aislado y CI nativo PASS (2026-10-11)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G7C=CLOSED_PASS
+G8_P0=CLOSED_PASS_READ_ONLY
+G8_P0_RUN_ID=g8_p0_20261011_185223_e0c4e0cc
+G8_P0_NORMAL_COMPILES=PASS_3_OF_3
+G8_P0_RTU_PRECOMPILED_LINK=PASS_SLAVE_MASTER
+G8_A13-010=DEFECT_CONFIRMED_CANDIDATE_NOT_ADOPTED
+G8_A13-011=DEFECT_CONFIRMED_CANDIDATE_NOT_ADOPTED
+G8_P1_CANDIDATE_SOURCE=VERSIONED_UNDER_TOOLS_ONLY
+G8_P1_NATIVE_TESTS=PASS_20_OF_20_CI_RUN_38186444071
+G8_P2_RUNNER=tools/alpha13/gates/a13_g8_p1_p2_candidate.py
+G8_P2_WRAPPER=tools/alpha13/gates/run_a13_g8_p1_p2_candidate.bat
+G8_P2_RUNNER_SYNTAX_AND_NATIVE_CI=PASS_RUN_38186574868
+G8_P2_WINDOWS_BUILD_REGRESSIONS=NOT_EXECUTED
+G8_PRODUCT_CHANGED=NO
+G8_ARCHIVE_PRODUCT_UPDATED=NO
+G8_USB_UPLOAD_OR_FRAM_ACCESS=NONE
+G8_RELEASE_MERGE_PR_PUBLICATION=NO
+G8_NEXT_ACTION=RUN_LOCAL_G8_P1P2_CANDIDATE
+```
+
+P0 fue ejecutado en Windows por operador con preflight, tres
+compilaciones normales y auditoría final PASS. G8-P1/P2 dispone
+de candidatos fuente no productivos, verificación de delta exacto
+y 20 fixtures C++ nativos PASS en CI; el runner preparará
+`libJWPLC_ModbusRTU.a` en TEMP con paridad de objeto y enlace
+normal de sketches sin alterar producto. Los fixtures **no son**
+evidencia de runtime eléctrico; el test real Windows sigue
+pendiente. No iniciar adopción de producto por CI aislada.
+
+Documentos:
+[A13_G8_P0_BASELINE_CLOSURE_20261011.md](A13_G8_P0_BASELINE_CLOSURE_20261011.md) y
+[A13_G8_P1P2_CANDIDATE_PLAN_20261011.md](A13_G8_P1P2_CANDIDATE_PLAN_20261011.md).
+
+---
+
 ## G8-P0 — Ejecutable read-only preparado y CI PASS (2026-10-11)
 
 ```text
