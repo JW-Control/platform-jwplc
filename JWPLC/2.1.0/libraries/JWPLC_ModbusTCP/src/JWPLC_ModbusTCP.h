@@ -164,8 +164,9 @@ public:
     // Server Modbus TCP. beginServer() no fuerza una inicialización Ethernet
     // síncrona: si el autoload todavía está obteniendo DHCP, task() espera
     // cooperativamente hasta que JWPLC_Ethernet esté READY.
-    // En A14.1 el servidor se configura una vez durante setup(). El cierre
-    // explícito de sockets se añadirá junto al backend cooperativo de A14.2.
+    // Contrato actual: configurar una vez. Una llamada repetida con los mismos
+    // parámetros es idempotente; intentar cambiarlos con servidor habilitado
+    // devuelve BUSY. EthernetServer todavía no ofrece stop() del listener.
     bool beginServer(uint8_t unitId = JWPLC_MODBUS_TCP_DEFAULT_UNIT_ID,
                      uint16_t port = JWPLC_MODBUS_TCP_DEFAULT_PORT);
 
