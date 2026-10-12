@@ -1,0 +1,53 @@
+name: Alpha13 G9 - candidate byte-level contract
+
+on:
+  push:
+    branches:
+      - 'v2.1.0-alpha.13/feature/cleanup-robustness'
+    paths:
+      - '.github/workflows/alpha13-g9-candidate-contract.yml'
+      - 'tools/alpha13/gates/a13_g9_candidate_contract.py'
+      - 'tools/alpha13/gates/a13_g9_p2p3_candidate.py'
+      - 'tools/alpha13/gates/run_a13_g9_p2p3_candidate.bat'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  g9-candidate-pure:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Sintaxis y ayuda
+        shell: pwsh
+        run: |
+          python -m py_compile tools/alpha13/gates/a13_g9_candidate_contract.py tools/alpha13/gates/a13_g9_p2p3_candidate.py
+          python -B tools/alpha13/gates/a13_g9_p2p3_candidate.py --help
+          if ($LASTEXITCODE -ne 0) { throw 'G9_CANDIDATE_HELP_FAILED' }
+      - name: Validar transformaciones exactas sin modificar producto
+        shell: pwsh
+        run: |
+          python -B tools/alpha13/gates/a13_g9_candidate_contract.py | Tee-Object -FilePath g9_contract.log
+          if ($LASTEXITCODE -ne 0) { throw 'G9_CANDIDATE_CONTRACT_FAILED' }
+          if ((Get-Content g9_contract.log -Raw) -notmatch 'G9_CANDIDATE_CONTRACT=PASS_READ_ONLY') { throw 'G9_CANDIDATE_CONTRACT_PASS_MISSING' }
+      - name: Confirmar checkout intacto
+        shell: pwsh
+        run: |
+          git diff --exit-code
+          if ($LASTEXITCODE -ne 0) { throw 'G9_CANDIDATE_MUTATED_PRODUCT' }
+      - name: Guardar evidencia
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alpha13-g9-source-contract-${{ matrix.os }}-${{ github.run_id }}
+          path: g9_contract.log
+          if-no-files-found: warn
