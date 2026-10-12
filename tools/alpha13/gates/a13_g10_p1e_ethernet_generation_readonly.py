@@ -73,7 +73,7 @@ def patterns(source):
     rt=source["RUNTIME"]; low=source["W5100"]
     probe=extract(rt,"bool JWPLC_EthernetClass::probeHardware()")
     reset=extract(rt,"void JWPLC_EthernetClass::resetHardwareIfNeeded()")
-    link=extract(rt,"void JWPLC_EthernetClass::task()")
+    link=extract(rt,"void JWPLC_EthernetClass::service()")
     ready=extract(rt,"bool JWPLC_EthernetClass::isReady() const")
     init=extract(low,"uint8_t W5100Class::init(void)")
     eth_begin=source["BACKEND"]
