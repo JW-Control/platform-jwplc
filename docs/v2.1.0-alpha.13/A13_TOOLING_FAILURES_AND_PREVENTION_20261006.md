@@ -2293,3 +2293,20 @@ F128=RESOLVED_CI_CONTRACT_ONLY
 G10_P1B_LOCAL_RETEST=AWAITING_OPERATOR
 G10_P1B_PRODUCT_ADOPTION=NONE
 ```
+
+## Actualización F128 — retest local PASS (2026-10-12)
+
+El operador confirmó el cierre local del defecto del harness:
+
+```text
+G10_P1B_LOCAL_RUN=g10_p1b_20261012_124640_8458554e
+G10_P1B_SOURCE_CONTRACT=PASS_FOUR_PRIVATE_CANDIDATES
+G10_P1B_STATUS=CANDIDATE_SOURCE_CONTRACT_PASS_NATIVE_NOT_RUN
+F128=RESOLVED_CI_AND_LOCAL_RETEST
+G10_P1B_ARDUINO_BUILD=NOT_YET_EXECUTED
+G10_P1B_PRODUCT_ADOPTION=NONE
+```
+
+No se debe interpretar la corrección del harness F128 como
+resolución de A13-006. El segundo gate de build P1C compilará
+Client y Server contra los candidatos, sin modificar producto.
