@@ -1,3 +1,48 @@
+## G8 — Cierre Git de producto confirmado; prueba física pendiente (2026-10-11)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G7C=CLOSED_PASS
+G8_P0=CLOSED_PASS_READ_ONLY
+G8_P1P2=CANDIDATE_BUILD_PASS
+G8_P3_ADOPTION=CLOSED_PASS_LOCAL
+G8_P3_ADOPTION_RUN_ID=g8_adopt_20261011_193839_57f9bb49
+G8_GIT_COMMIT_PUSH=PASS
+G8_GIT_PRODUCT_COMMIT=fb71d65eb2c842b3f46e6949760e693f3b73d95e
+G8_REMOTE_BRANCH_HEAD_VERIFIED=fb71d65eb2c842b3f46e6949760e693f3b73d95e
+G8_COMMITTED_FILES=EXACT_THREE_CPP_RTU_CPP_RS485_ARCHIVE_RTU
+G8_ARCHIVE_SHA256=f239100fbb6770a3a6f336179fbfa3a4afd27cc16e12c6f239cf05f28f7a1416
+A13-010=PRODUCT_COMMITTED_REGRESSIONS_PASS_PHYSICAL_PENDING
+A13-011=PRODUCT_COMMITTED_REGRESSIONS_PASS_PHYSICAL_PENDING
+G8_GIT_TECHNICAL_CLOSURE=PASS
+G8_PHYSICAL_RS485=NOT_EXECUTED_PENDING_HARDWARE_CONFIRMATION
+G8_FUNCTIONAL_GATE=IN_PROGRESS_NOT_CLOSED
+G8_NEXT=P4_PHYSICAL_PRECONDITIONS_PEER_WIRING_AUTHORIZATION
+F120_POST_UPLOAD_FREEZE_CAUSE=UNKNOWN_PENDING
+OPENPLC=OUT_OF_SCOPE
+HMI_DESIGNER=OUT_OF_SCOPE
+TFT_NEW_FEATURES=OUT_OF_SCOPE
+RELEASE_MERGE_PR_PUBLICATION=NO
+```
+
+El operador informó PASS del cierre Git `g8_git_20261011_194840_716ae090`.
+La lectura independiente de GitHub confirmó que el commit de producto
+incluye exactamente `JWPLC_ModbusRTU.cpp`, `JWPLC_RS485.cpp` y
+`libJWPLC_ModbusRTU.a` y que corresponde al HEAD de la rama.
+Los cambios **ya están versionados** en remoto y dejan atrás los
+candidatos TEMP; sin embargo, aún no se ha realizado transmisión
+física Modbus RTU/RS-485 ni nuevo upload. La evidencia de CI nativo
+con mocks, los tres builds productivos y el enlace del archive no
+son prueba de comunicación eléctrica. El siguiente hito es definir
+un montaje de prueba real sin alterar equipos operativos.
+
+Cierre Git:
+[A13_G8_GIT_PRODUCT_CLOSURE_20261011.md](A13_G8_GIT_PRODUCT_CLOSURE_20261011.md).
+Plan físico:
+[A13_G8_RS485_MODBUS_PHYSICAL_VALIDATION_PLAN_20261011.md](A13_G8_RS485_MODBUS_PHYSICAL_VALIDATION_PLAN_20261011.md).
+
+---
+
 ## G8 — Adopción local PASS; cierre Git preparado, prueba física pendiente (2026-10-11)
 
 ```text
