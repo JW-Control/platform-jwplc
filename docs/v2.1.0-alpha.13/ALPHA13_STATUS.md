@@ -1,3 +1,47 @@
+## G8-P4 — Gate físico preparado para Master COM4 y Slave COM14 (2026-10-11)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G8_GIT_PRODUCT=CLOSED_PASS_COMMIT_fb71d65e
+G8_P4_HARDWARE=2_JWPLC_BASIC
+G8_P4_MASTER_PORT=COM4
+G8_P4_SLAVE_PORT=COM14
+G8_P4_RTU=115200_8N1_SLAVE_ID_2_FC03
+G8_P4_RTU_CYCLES=12
+G8_P4_EXPECTED_RX_MASTER=156
+G8_P4_EXPECTED_RX_SLAVE=96
+G8_P4_CI_SELFTEST=PASS_RUN_38194119661_WIN_AND_LINUX
+G8_P4_UPLOAD=NOT_EXECUTED
+G8_P4_PHYSICAL_RESULT=NOT_YET_TESTED
+G8_P4_WRAPPER=tools/alpha13/gates/run_a13_g8_p4_dual_plc_physical.bat
+G8_PHYSICAL_RISK=OVERWRITES_CURRENT_FIRMWARE_BOTH_PLCS_NO_AUTO_RESTORE
+G8_PHYSICAL_GATE=PREPARED_AWAITING_OPERATOR_BENCH_CONFIRMATION
+G8=CURRENT_NOT_CLOSED
+RELEASE_MERGE_PR_PUBLICATION=NO
+```
+
+El operador dispone de dos JWPLC Basic: COM4 Master y COM14
+Slave. Se versionaron dos sketches de banco sin uso de relés,
+un runner Python y un BAT único para compilar contra librerías
+productivas, validar archivo RTU precompilado y acceso COM,
+exigir confirmación interactiva para sobrescribir ambos
+firmwares y probar 12 FC03 con token específico. El PASS requiere
+datos y contadores RX exactos desde ambas placas (156/96),
+cero errores CRC/timeout y telemetría READY de las dos UART.
+La autorización de upload no está implícita: requiere confirmar
+que ambos equipos están en banco aislado y se puede sustituir
+su firmware. No se restaura firmware anterior automáticamente.
+
+El selftest del gate, con casos negativos de datos, conteos,
+roles y timeout, pasó en ambos entornos:
+[CI G8 P4](https://github.com/JW-Control/platform-jwplc/actions/runs/38194119661).
+No hay todavía evidencia de tráfico eléctrico.
+
+Documento:
+[A13_G8_P4_DUAL_JWPLC_COM4_COM14_EXECUTION_PLAN_20261011.md](A13_G8_P4_DUAL_JWPLC_COM4_COM14_EXECUTION_PLAN_20261011.md).
+
+---
+
 ## G8 — CI nativa post-commit reparada y PASS, F124 registrado (2026-10-11)
 
 ```text
