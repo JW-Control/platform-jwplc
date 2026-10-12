@@ -13,7 +13,7 @@ import hashlib
 import importlib.util
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PureWindowsPath, PurePosixPath
 import shutil
 import subprocess
 import sys
@@ -67,6 +67,50 @@ def git(*args):
                      cwd=ROOT,capture_output=True)
     need(p.returncode==0,"GIT_FAILED_"+repr(args))
     return p.stdout.decode("utf-8","replace").strip()
+
+def repo_key(path):
+    """Clave portable de ruta relativa usada por manifests P0/P1A y Git.
+
+    Path.__str__ en Windows produce barras inversas. Los manifests previos
+    registraron rutas POSIX. Mantener una sola representación en ambos SO.
+    """
+    need(not path.is_absolute() and ".." not in path.parts,
+         "UNSAFE_RELATIVE_REPO_PATH")
+    return path.as_posix()
+
+def verify_local_provenance(p0,p1a):
+    """Validación realmente usada en modo local (también por selftest CI)."""
+    for path in [CLIENT_CPP,SERVER_CPP]:
+        name=repo_key(path)
+        actual=sha(ROOT/path)
+        need(p0.get("sources",{}).get(name,{}).get("sha256")==actual and
+             p1a.get("source_cpp_sha256",{}).get(name)==actual,
+             "SOURCE_PROVENANCE_CHANGED_"+name)
+
+def selftest_paths():
+    for path in [CLIENT_CPP,CLIENT_H,SERVER_CPP,SERVER_H]:
+        expected=path.as_posix()
+        windows=PureWindowsPath(expected)
+        posix=PurePosixPath(expected)
+        need(repo_key(windows)==expected and repo_key(posix)==expected,
+             "CROSS_PLATFORM_MANIFEST_KEY_MISMATCH_"+expected)
+    p0={"sources":{repo_key(path):{"sha256":sha(ROOT/path)}
+                   for path in [CLIENT_CPP,SERVER_CPP]}}
+    p1a={"source_cpp_sha256":{repo_key(path):sha(ROOT/path)
+                            for path in [CLIENT_CPP,SERVER_CPP]}}
+    verify_local_provenance(p0,p1a)
+    say("SELFTEST_MANIFEST_PATHS","PASS_WINDOWS_AND_POSIX")
+    # Rechazar mismatches; la prueba positiva no debe relajar provenance.
+    p0["sources"][repo_key(CLIENT_CPP)]["sha256"]="0"*64
+    try:
+        verify_local_provenance(p0,p1a)
+    except RuntimeError as exc:
+        need("SOURCE_PROVENANCE_CHANGED_" in str(exc),
+             "NEGATIVE_PROVENANCE_WRONG_FAILURE")
+    else:
+        raise RuntimeError("BAD_MANIFEST_SHA_ACCEPTED")
+    say("SELFTEST_NEGATIVE_PROVENANCE","PASS_REJECTED")
+    return 0
 def load_repro():
     path=ROOT/"tools/alpha13/gates/a13_g10_p1a_a13_006_repro.py"
     spec=importlib.util.spec_from_file_location("g10_p1a_ref",path)
@@ -91,10 +135,10 @@ def eol(s):
     return "\r\n" if "\r\n" in s else "\n"
 
 def make(orig,repro):
-    c=orig[str(CLIENT_CPP)]
-    ch=orig[str(CLIENT_H)]
-    s=orig[str(SERVER_CPP)]
-    sh=orig[str(SERVER_H)]
+    c=orig[repo_key(CLIENT_CPP)]
+    ch=orig[repo_key(CLIENT_H)]
+    s=orig[repo_key(SERVER_CPP)]
+    sh=orig[repo_key(SERVER_H)]
     ch=exact(ch,"    bool _sendStarted;\n".replace("\n",eol(ch)),
              "    bool _sendStarted;\n    bool _closePending;\n".replace("\n",eol(ch)),
              "CLIENT_PRIVATE_PENDING_FIELD")
@@ -278,16 +322,16 @@ def make(orig,repro):
 
     for path,src in [(CLIENT_CPP,c),(SERVER_CPP,s)]:
         need(src.count("void JWPLC_")>=3,"SOURCE_LARGE_CONTENT_MISSING_"+str(path))
-    for before,after,path in [(orig[str(CLIENT_CPP)],c,CLIENT_CPP),
-                              (orig[str(SERVER_CPP)],s,SERVER_CPP),
-                              (orig[str(CLIENT_H)],ch,CLIENT_H),
-                              (orig[str(SERVER_H)],sh,SERVER_H)]:
+    for before,after,path in [(orig[repo_key(CLIENT_CPP)],c,CLIENT_CPP),
+                              (orig[repo_key(SERVER_CPP)],s,SERVER_CPP),
+                              (orig[repo_key(CLIENT_H)],ch,CLIENT_H),
+                              (orig[repo_key(SERVER_H)],sh,SERVER_H)]:
         need(eol(before)==eol(after),"SOURCE_EOL_CHANGED_"+str(path))
         need(len(list(difflib.unified_diff(
              before.splitlines(),after.splitlines(),n=0)))<140,
              "SOURCE_DIFF_TOO_WIDE_"+str(path))
-    return {str(CLIENT_CPP):c,str(CLIENT_H):ch,
-            str(SERVER_CPP):s,str(SERVER_H):sh}
+    return {repo_key(CLIENT_CPP):c,repo_key(CLIENT_H):ch,
+            repo_key(SERVER_CPP):s,repo_key(SERVER_H):sh}
 
 def build_native(c,repro):
     native=repro.CPP_TEMPLATE
@@ -298,9 +342,9 @@ def build_native(c,repro):
     need(native.count(needle2)==1,"NATIVE_SERVER_STUB_MISSING")
     native=native.replace(needle2,needle2+"\n    bool _dropPending=false;",1)
     native=native.replace("__SOURCE_CLIENT__",
-                          repro.extract(c[str(CLIENT_CPP)],METHODS["client_close"]))
+                          repro.extract(c[repo_key(CLIENT_CPP)],METHODS["client_close"]))
     native=native.replace("__SOURCE_SERVER__",
-                          repro.extract(c[str(SERVER_CPP)],METHODS["server_drop"]))
+                          repro.extract(c[repo_key(SERVER_CPP)],METHODS["server_drop"]))
     native=native.split("int main(){")[0]
     native+=r'''
 int main() {
@@ -424,7 +468,13 @@ def main():
     p.add_argument("--native",action="store_true")
     p.add_argument("--ci-standalone",action="store_true",
                    help="in CI accept HEAD ancestry without user-local manifests")
+    p.add_argument("--selftest-paths",action="store_true",
+                   help="exercise actual local manifest lookup with Windows/POSIX paths")
     args=p.parse_args()
+    if args.selftest_paths:
+        need(not args.source_only and not args.native and
+             not args.ci_standalone,"SELFTEST_MODE_EXCLUSIVE")
+        return selftest_paths()
     need(args.source_only != args.native,"SELECT_EXACTLY_ONE_MODE")
     rid="g10_p1b_"+datetime.now().strftime("%Y%m%d_%H%M%S")+"_"+uuid.uuid4().hex[:8]
     OUT=ROOT/"tools/alpha13/results"/rid
@@ -464,10 +514,7 @@ def main():
                  p1a.get("schema")=="A13-G10-P1A-REPRO-1" and
                  p1a.get("status")=="SOURCE_CONTRACT_PASS_NATIVE_NOT_RUN",
                  "INVALID_LOCAL_EVIDENCE")
-            for name in [str(CLIENT_CPP),str(SERVER_CPP)]:
-                need(p0["sources"][name]["sha256"]==sha(ROOT/name) and
-                     p1a["source_cpp_sha256"][name]==sha(ROOT/name),
-                     "SOURCE_PROVENANCE_CHANGED_"+name)
+            verify_local_provenance(p0,p1a)
         repro=load_repro()
         candidate=make(old,repro)
         output=OUT/"candidate_sources"
