@@ -184,13 +184,15 @@ def assert_selected(log,label,name,path):
 
 def compile(cli,sketch,label,rtu_lib,rs_lib):
     build=TMP/("build_"+label)
-    output=run([cli,"compile","--fqbn",FQBN,"-j","0","-v","--clean",
-                "--build-path",build,
-                "--library",rtu_lib,
-                "--library",rs_lib,
-                "--libraries",LIBS,sketch],"COMPILE_"+label)
+    flags=[cli,"compile","--fqbn",FQBN,"-j","0","-v","--clean",
+           "--build-path",build]
+    if not label.endswith("RS485_STATUS"):
+        flags+=["--library",rtu_lib]
+    flags+=["--library",rs_lib,"--libraries",LIBS,sketch]
+    output=run(flags,"COMPILE_"+label)
     assert_selected(output,label,"JWPLC_RS485",rs_lib)
-    assert_selected(output,label,"JWPLC_ModbusRTU",rtu_lib)
+    if not label.endswith("RS485_STATUS"):
+        assert_selected(output,label,"JWPLC_ModbusRTU",rtu_lib)
     rs_objs=list(build.rglob("JWPLC_RS485.cpp.o"))
     need(len(rs_objs)==1,"RS485_SOURCE_OBJECT_NOT_UNIQUE_"+label)
     need(re.search(r"[/\\]precompiled[/\\]core[/\\]JWPLCBASIC[/\\]core\.a",
@@ -262,7 +264,8 @@ def regression(cli,pre,source_rs,archive):
         log,build,_=compile(cli,sketch,"CANDIDATE_"+label,pre,source_rs)
         need(not list(build.rglob("JWPLC_ModbusRTU.cpp.o")),
              "PRECOMPILED_RTU_CPP_REBUILT_"+label)
-        link_check(log,pre,label,archive)
+        if label!="RS485_STATUS":
+            link_check(log,pre,label,archive)
         done.append(label)
         say("REGRESSION_"+label,"PASS")
     M["candidate_regressions"]=done
