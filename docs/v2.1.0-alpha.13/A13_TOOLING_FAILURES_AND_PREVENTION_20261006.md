@@ -2014,3 +2014,40 @@ WINDOWS_PRODUCT_ADOPTION=NOT_EXECUTED_SINCE_FIX
 G8=CURRENT_NOT_CLOSED
 NEXT_FAILURE_ID=F124
 ```
+
+
+### Confirmación Windows productiva de F122/F123 (2026-10-11)
+
+El operador repitió `run_a13_g8_adopt.bat` después del
+fix de rutas POSIX y de los tests CI Windows/Linux:
+
+```text
+RUN_ID=g8_adopt_20261011_193839_57f9bb49
+INDEX_FLAGS=H_H_H
+PRODUCT_ADOPTION=PASS
+PRODUCT_REGRESSIONS=PASS_SLAVE_MASTER_RS485_STATUS
+FINAL_AUDIT=PASS
+ADOPTION_DIFF_PATHS=EXACT_THREE
+ADOPTION_BYTES_CHANGED=TRUE_TRUE_TRUE
+FINAL_DIFF_PATHS=EXACT_THREE
+ARCHIVE_SHA256=f239100fbb6770a3a6f336179fbfa3a4afd27cc16e12c6f239cf05f28f7a1416
+STATUS=PRODUCT_ADOPTED_REGRESSIONS_PASS_PENDING_PHYSICAL_DECISION_AND_COMMIT
+GIT_COMMIT_OR_PUSH=NONE
+UPLOAD_OR_RS485_ACCESS=NONE
+```
+
+**F122 y F123 = CORREGIDOS Y RETEST_WINDOWS_PASS.**
+La causa raíz fue mezcla de rutas Windows con `\` y salidas POSIX
+de Git con `/`; se corrigió el harness y se pasó la auditoría de
+Git y tres regresiones **sobre el producto local real**. No abrir
+un nuevo incidente por el mismo caso ni declarar otro fallo de firmware.
+Se conservan los incidentes para evitar reincidencias. G8 aún requiere
+commit Git exacto y decisión explícita de prueba física.
+
+```text
+F122_FIX=VERIFIED_WINDOWS_PRODUCT_ADOPTION_PASS
+F123_FIX=VERIFIED_WINDOWS_PRODUCT_ADOPTION_PASS
+G8_ARCHIVE_PRODUCT_IN_LOCAL_WORKTREE=YES_PENDING_COMMIT
+G8_REMOTE_COMMIT=NONE_AT_THIS_POINT
+NEXT_FAILURE_ID=F124
+```
