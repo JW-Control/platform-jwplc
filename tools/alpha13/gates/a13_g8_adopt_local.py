@@ -102,8 +102,8 @@ def main():
         require(not g.git_paths("diff","--name-only") and
                 not g.git_paths("diff","--cached","--name-only"),
                 "WORKTREE_ALREADY_DIRTY_OR_STAGED")
-        require(not git_status("ls-files","--unmerged"),
-                "GIT_UNMERGED_PATHS_ERROR")
+        require(not g.git_paths("ls-files","--unmerged"),
+                "GIT_UNMERGED_PATHS_PRESENT")
         require(all(g.sha(f)==h for f,h in g.EXPECTED.items()),
                 "CORE_TFT_FRAM_BASELINE_CHANGED")
         require(g.sha(g.FRAM)==FRAM_SHA,"FRAM_ARCHIVE_CHANGED")
