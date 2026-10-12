@@ -1,3 +1,67 @@
+## Alpha13 G10 — P1C 4/4 PASS; P1D nativa revela riesgo reset/reuso (2026-10-12)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G9_FINAL=CLOSED_PASS_WITH_EXPLICIT_COVERAGE_LIMITS
+G10_P1B_LOCAL_CANDIDATE_RUN=g10_p1b_20261012_124640_8458554e
+G10_P1C_LOCAL_BUILD_RUN=g10_p1c_20261012_140152_a7211c08
+G10_P1C_HEAD_AT_TEST=802c6260
+G10_P1C_BASELINE_SERVER=PASS_COMPILE_AND_GCC_DEPENDENCY
+G10_P1C_BASELINE_CLIENT=PASS_COMPILE_AND_GCC_DEPENDENCY
+G10_P1C_CANDIDATE_SERVER=PASS_COMPILE_AND_GCC_DEPENDENCY
+G10_P1C_CANDIDATE_CLIENT=PASS_COMPILE_AND_GCC_DEPENDENCY
+G10_P1C_FINAL_AUDIT=PASS
+G10_P1C_STATUS=ARDUINO_BASELINE_AND_CANDIDATE_BUILDS_PASS_PRODUCT_UNCHANGED
+F129=RESOLVED_CI_AND_LOCAL_RETEST
+G10_P1D_CI=PASS_WINDOWS_LINUX_RUN_38296384365
+G10_P1D_NATIVE=SOURCE_BACKED_SIX_FUNCTIONS_LIFECYCLE_RESET_REUSE_HAZARD_REPRO
+G10_P1D_MEANING=ADOPTION_BLOCKED_NOT_FIX_PASS
+G10_P1D_WINDOWS_LOCAL=NOT_YET_RUN
+G10_P1D_LOCAL_GATE=tools/alpha13/gates/run_a13_g10_p1d_a13_006_lifecycle.bat
+A13-006=ADOPT_CONFIRMED_FIX_REVISION_REQUIRED
+A13-006_CURRENT_P1B_CANDIDATE=REJECT_FOR_ADOPTION_UNTIL_ETHERNET_GENERATION_PROTECTION
+G10_PRODUCT_FILES_CHANGED=NONE
+G10_HARDWARE_UPLOAD=NONE
+A13-007=REVIEW_OPEN
+A13-008=REVIEW_OPEN
+A13-015=ADOPT_PENDING
+A13-016=ADOPT_PENDING
+A13-018=ADOPT_PENDING
+G10_FINAL=NOT_CLOSED
+F120_POST_UPLOAD_FREEZE_ROOT_CAUSE=UNKNOWN_PENDING
+COM4_FIRMWARE=G9_DIAGNOSTIC_NOT_RESTORED
+COM14_FIRMWARE=G8_DIAGNOSTIC_NOT_RESTORED
+RELEASE_PR_MERGE_PUBLICATION=NO
+```
+
+El operador confirmó las cuatro compilaciones reales
+P1C con selección correcta de librerías, source
+objects/dependencias y hashes; el gate final fue PASS,
+sin cambio de producto.
+
+Al extender las pruebas negativas a seis cuerpos
+reales C++ candidatos, la CI P1D
+[38296384365](https://github.com/JW-Control/platform-jwplc/actions/runs/38296384365)
+pasó Windows y Linux, **reproduciendo un riesgo de
+cerrar un socket de otro propietario** bajo un
+escenario simulado de reset W5500 y reutilización
+de índice. Es una alerta del diseño del candidato,
+no de un fallo observado en campo ni de la versión
+productiva original. `CI_PASS` significa
+que la detección del riesgo funcionó, **no que la
+corrección A13-006 esté lista**.
+
+Decisión: bloquear adopción actual y revisar
+identidad/generación de sockets del runtime Ethernet.
+No modificar P1B productivo, ni empezar DHCP/UDP
+hasta conciliar esta puerta. Se conserva
+A13-006 `ADOPT_CONFIRMED_FIX_REVISION_REQUIRED`.
+
+Evidencias: [cierre P1C](A13_G10_P1C_ARDUINO_OVERLAY_CLOSURE_20261012.md),
+[plan y resultados negativos P1D](A13_G10_P1D_NEGATIVE_TCP_LIFECYCLE_PLAN_20261012.md).
+
+---
+
 ## Alpha13 G10 — P1C Windows cuatro builds PASS; P1D ciclo de vida pendiente (2026-10-12)
 
 ```text
