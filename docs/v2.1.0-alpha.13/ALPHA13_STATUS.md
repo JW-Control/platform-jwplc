@@ -1,3 +1,62 @@
+## Alpha13 G10 — P1C primer build EXIT 0, auditoría F129 corregida (2026-10-12)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G9_FINAL=CLOSED_PASS_WITH_EXPLICIT_COVERAGE_LIMITS
+G10_P0_WINDOWS=BASELINE_CAPTURED_REVIEW_FINDINGS_OPEN
+G10_P1A_WINDOWS=SOURCE_CONTRACT_PASS_NATIVE_NOT_RUN
+G10_P1B_WINDOWS=CANDIDATE_SOURCE_CONTRACT_PASS_NATIVE_NOT_RUN
+F128=CLOSED_PASS_CI_AND_LOCAL
+G10_P1C_FAILED_RUN_ID=g10_p1c_20261012_134431_10e91e4c
+G10_P1C_FAILED_GATE_PHASE=ARDUINO_BUILDS_RUNNING
+G10_P1C_FAILED_BASELINE_SERVER_COMPILE_EXIT=0
+G10_P1C_FAILED_REASON=TCP_COMPILE_INPUT_NOT_CORRECT_FOLDER_BASELINE_SERVER_JWPLC_ModbusTCP_Client.cpp
+G10_P1C_FAILURE_CLASS=F129_HARNESS_SOURCE_PROVENANCE_VERBOSE_MATCH
+G10_P1C_CLIENT_AND_CANDIDATE_BUILDS=NOT_EXECUTED_IN_FAILED_RUN
+F129_FIX=VERIFY_GCC_MMD_D_FILE_AND_CPP_O_WITH_SOURCE_LIBRARY
+F129_CI=PASS_WINDOWS_LINUX_RUN_38293634614
+G10_P1C_LOCAL_RETEST=NOT_YET_EXECUTED
+G10_P1C_NEXT_GATE=tools/alpha13/gates/run_a13_g10_p1c_a13_006_build.bat
+G10_P1C_PRODUCT_ADOPTION=NONE
+G10_P1C_HARDWARE_UPLOAD=NONE
+A13-006=ADOPT_CONFIRMED_REPRO_FIX_PENDING
+A13-007=REVIEW_OPEN
+A13-008=REVIEW_OPEN
+A13-015=ADOPT_PENDING
+A13-016=ADOPT_PENDING
+A13-018=ADOPT_PENDING
+G10_FINAL=NOT_CLOSED
+F120_POST_UPLOAD_FREEZE_ROOT_CAUSE=UNKNOWN_PENDING
+RELEASE_PR_MERGE_PUBLICATION=NO
+```
+
+El primer P1C del operador pasó preflight y overlay;
+`arduino-cli` compiló el ejemplo Server original con
+`EXIT=0`, pero un verificador adicional exigía la
+ruta absoluta C++ en el formato verbose `-v`.
+La fuente concreta del `COMPILE_BASELINE_SERVER.log`
+local no está descargada aquí, de modo que **no
+afirmar cuál representación real contenía ese log**.
+Solo el verificador de procedencia originó
+`REVIEW_STOP`; los restantes tres ejemplos
+no llegaron a ejecutarse.
+
+Se sustituyó la búsqueda de texto `-v` por la
+comprobación de objetos `.cpp.o` y dependencias
+`.cpp.d` emitidas mediante `-MMD` por
+`platform.txt`, conservando la comprobación exacta
+de `Using library JWPLC_ModbusTCP...`, hashes y
+Git limpio. CI
+[38293634614](https://github.com/JW-Control/platform-jwplc/actions/runs/38293634614)
+PASS Windows/Linux con caso positivo y negativos de
+dependencia incorrecta o faltante. El nuevo gate aún
+no se ha ejecutado localmente; ningún producto G10
+ha sido adoptado o programado en placas.
+
+Registro: [F129](A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md).
+
+---
+
 ## Alpha13 G10 — P1B Windows PASS; P1C build Arduino preparado (2026-10-12)
 
 ```text
