@@ -1,0 +1,48 @@
+name: Alpha13 G8 - Git close selftest
+
+on:
+  push:
+    branches:
+      - 'v2.1.0-alpha.13/feature/cleanup-robustness'
+    paths:
+      - '.github/workflows/alpha13-g8-git-close.yml'
+      - 'tools/alpha13/gates/a13_g8_git_close.py'
+      - 'tools/alpha13/gates/a13_g8_git_close_selftest.py'
+      - 'tools/alpha13/gates/run_a13_g8_git_close.bat'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  git-close-readonly:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verificar sintaxis y CLI sin commit
+        shell: pwsh
+        run: |
+          python -m py_compile tools/alpha13/gates/a13_g8_git_close.py tools/alpha13/gates/a13_g8_git_close_selftest.py
+          python -B tools/alpha13/gates/a13_g8_git_close.py --help
+      - name: Verificar Git real y simulacion con tres rutas
+        shell: pwsh
+        run: |
+          python -B tools/alpha13/gates/a13_g8_git_close_selftest.py | Tee-Object -FilePath g8_git_selftest.log
+          if ($LASTEXITCODE -ne 0) { throw 'G8_SELFTEST_FAILED' }
+          $text = Get-Content g8_git_selftest.log -Raw
+          if ($text -notmatch 'G8_GIT_SELFTEST_STATUS=PASS_NO_PRODUCT_MUTATION') { throw 'G8_SELFTEST_MISSING_PASS' }
+      - name: Archivar autoprueba
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alpha13-g8-git-close-${{ matrix.os }}-${{ github.run_id }}
+          path: g8_git_selftest.log
+          if-no-files-found: warn
