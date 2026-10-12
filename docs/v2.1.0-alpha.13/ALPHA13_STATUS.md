@@ -1,3 +1,31 @@
+## G10-P1G — inventario de mutex Ethernet y pin RST GPIO4 (2026-10-12)
+
+```text
+G10_P1G_SOURCE_MUTEX_INVENTORY=CAPTURED_READONLY
+G10_P1G_HIGH_LEVEL_LOCAL_GUARDS=19
+G10_P1G_DIRECT_BACKEND_METHODS_NO_LOCAL_JWPLC_MUTEX=81
+G10_P1G_GENUINELY_UNPROTECTED_CALLGRAPH=REVIEW_OPEN_NOT_81_CONFIRMED_BUGS
+G10_P1G_RST_ETH_HARDWARE_GPIO=4
+G10_P1G_RESET_DEFAULT_FW_PIN=255
+G10_P1G_GPIO4_PULSE_IN_NORMAL_AUTOLOAD=NOT_CONFIGURED_IN_REVIEWED_SOURCES
+G10_P1G_RESET_PIN_DEFAULT_CHANGE=BLOCKED_PENDING_INTERLOCK_AND_HARDWARE_GATE
+G10_P1G_CAUSE_ALPHA12_LATENCY_UNPROVEN=YES
+G10_P1G_FIRMWARE_MODIFICATIONS=NONE
+G10_FINAL=OPEN
+```
+
+Se verificó el esquema suministrado: RST-ETH->GPIO4. La librería
+`JWPLC_Ethernet` conserva por defecto `JWPLC_ETH_RESET_PIN=255`
+y boards.txt no la sobrescribe. La capa runtime/Modbus sí posee protección
+explícita en 19 métodos operativos; las APIs directas de Client/Server/UDP
+utilizan el contrato de protección del llamador. El recuento estático de
+81 métodos sin lock **local** NO representa 81 carreras demostradas.
+
+Inventario y reglas del recuento:
+[A13_G10_P1G_ETHERNET_SPI_PROTECTION_INVENTORY_20261012.md](A13_G10_P1G_ETHERNET_SPI_PROTECTION_INVENTORY_20261012.md).
+
+---
+
 ## Alpha13 G10 — P1F Windows cerrado, P1G contrato seguro abierto (2026-10-12)
 
 ```text
