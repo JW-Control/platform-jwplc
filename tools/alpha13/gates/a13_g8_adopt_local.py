@@ -51,6 +51,59 @@ def git_status(*args):
     return proc.returncode
 
 
+def git_index_marks(paths):
+    """Read-only: catch index flags that hide actual worktree changes."""
+    p=subprocess.run(
+        ["git","-c","core.quotepath=false","ls-files","-v","--",
+         *sorted(str(x.relative_to(ROOT)) for x in paths)],
+        cwd=ROOT,capture_output=True,text=True,encoding="utf-8",errors="replace")
+    require(p.returncode==0,"GIT_LS_FILES_V_ERROR")
+    result={}
+    for line in p.stdout.splitlines():
+        if len(line)>=3 and line[1]==" ":
+            result[line[2:]]=line[0]
+    require(set(result)=={str(x.relative_to(ROOT)) for x in paths},
+            "INDEX_NOT_TRACKING_ALL_PRODUCT_FILES")
+    return result
+
+
+def audit_git_scope(g, expected, phase):
+    """Never infer a correct Git change merely from successful copy/hash."""
+    observed=g.git_paths("diff","--name-only")
+    staged=g.git_paths("diff","--cached","--name-only")
+    flags=git_index_marks(expected)
+    desired={str(p.relative_to(ROOT)) for p in expected}
+    changes_by_bytes={}
+    for target in expected:
+        relative=str(target.relative_to(ROOT))
+        expected_blob=g.git("rev-parse","HEAD:"+relative)
+        local_hash=subprocess.run(
+            ["git","hash-object","--",str(target)],
+            cwd=ROOT,capture_output=True,text=True)
+        require(local_hash.returncode==0,"GIT_HASH_OBJECT_FAILED_"+relative)
+        changes_by_bytes[relative]=local_hash.stdout.strip()!=expected_blob
+    emit(phase+"_DIFF_PATHS",";".join(sorted(observed)) or "NONE")
+    emit(phase+"_EXPECTED_PATHS",";".join(sorted(desired)))
+    emit(phase+"_INDEX_FLAGS",";".join(
+        k+":"+flags[k] for k in sorted(flags)))
+    emit(phase+"_BYTES_CHANGED",";".join(
+        k+":"+str(changes_by_bytes[k]) for k in sorted(changes_by_bytes)))
+    g.M["git_scope_"+phase.lower()]={
+        "observed":sorted(observed),"expected":sorted(desired),
+        "staged":sorted(staged),"index_flags":flags,
+        "head_differs_from_worktree":changes_by_bytes,
+    }
+    g.save()
+    require(not staged,phase+"_UNEXPECTED_STAGED_FILES")
+    # Skip-worktree (S) or assume-unchanged (lowercase) masks legitimate changes.
+    require(all(c.isupper() and c!="S" for c in flags.values()),
+            phase+"_GIT_INDEX_FLAGS_HIDE_PRODUCT")
+    require(all(changes_by_bytes.values()),
+            phase+"_CANDIDATE_SAME_AS_GIT_HEAD")
+    require(observed==desired,phase+"_GIT_DIFF_SCOPE_MISMATCH")
+    return True
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--arduino-cli",default=r"C:\Program Files\Arduino CLI\arduino-cli.exe")
@@ -102,6 +155,12 @@ def main():
         require(not g.git_paths("diff","--name-only") and
                 not g.git_paths("diff","--cached","--name-only"),
                 "WORKTREE_ALREADY_DIRTY_OR_STAGED")
+        marks=git_index_marks(TARGETS)
+        emit("PREFLIGHT_INDEX_FLAGS",";".join(
+            k+":"+marks[k] for k in sorted(marks)))
+        g.M["preflight_index_flags"]=marks
+        require(all(x.isupper() and x!="S" for x in marks.values()),
+                "PREFLIGHT_GIT_INDEX_FLAG_ASSUMED_OR_SKIPPED")
         require(not g.git_paths("ls-files","--unmerged"),
                 "GIT_UNMERGED_PATHS_PRESENT")
         require(all(g.sha(f)==h for f,h in g.EXPECTED.items()),
@@ -169,9 +228,7 @@ def main():
             shutil.copy2(source,target)
         require(all(g.sha(target)==g.M["candidate_sha256"][str(target.relative_to(ROOT))]
                     for target in TARGETS),"ADOPTED_BYTES_NOT_CANDIDATE")
-        require(g.git_paths("diff","--name-only")==names and
-                not g.git_paths("diff","--cached","--name-only"),
-                "DIRTY_SCOPE_NOT_EXACT_THREE_FILES")
+        audit_git_scope(g,TARGETS,"ADOPTION")
         check=g.run([sys.executable,"-B",g.SOURCE_TEST],"SOURCE_CONTRACT_POST")
         require("G8_SOURCE_STATE=ADOPTED_EXACT_CANDIDATE" in check and
                 "G8_SOURCE_CONTRACT=PASS" in check,
@@ -208,9 +265,7 @@ def main():
             path=ROOT/name
             correct=(g.M["candidate_sha256"][name] if name in names else before_hash)
             require(g.sha(path)==correct,"FINAL_SHA_MISMATCH_"+name)
-        require(g.git_paths("diff","--name-only")==names and
-                not g.git_paths("diff","--cached","--name-only"),
-                "FINAL_DIRTY_SCOPE_OR_STAGE_CHANGED")
+        audit_git_scope(g,TARGETS,"FINAL")
         require(g.git("rev-parse","HEAD")==head,"GIT_HEAD_CHANGED_DURING_RUN")
         require(g.sha(g.ARCHIVE)==PREVIOUS_ARCHIVE_SHA,
                 "FINAL_RTU_ARCHIVE_HASH_MISMATCH")
