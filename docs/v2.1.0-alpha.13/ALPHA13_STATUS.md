@@ -1,3 +1,41 @@
+## G8 — CI nativa post-commit reparada y PASS, F124 registrado (2026-10-11)
+
+```text
+G8_PRODUCT_COMMIT=fb71d65eb2c842b3f46e6949760e693f3b73d95e
+G8_GIT_PRODUCT=CLOSED_PASS
+G8_POST_COMMIT_CI_INITIAL=FAIL_RUN_38189443172_FIXTURE_ONLY
+F124_ROOT_CAUSE=NON_IDEMPOTENT_TEST_AFTER_CANDIDATE_ADOPTION
+F124_CORRECTION=CI_EPHEMERAL_DIFF_ALL_THREE_PATHS
+G8_POST_COMMIT_CI_RETEST=PASS_RUN_38191980973
+G8_NATIVE_CPP=PASS_20_TESTS
+G8_ADOPTION_SOURCE_CONTRACT_CI=PASS
+G8_GIT_DIFF_SCOPE_CI=PASS
+G8_PRODUCTION_ARCHIVE_CHANGED_BY_CI_FIX=NO
+F122_F123=RESOLVED_WINDOWS_PRODUCT_PASS
+F124=RESOLVED_CI_PASS
+G8_PHYSICAL_RS485=PENDING_HARDWARE_PEER_CONFIRMATION
+G8_FUNCTIONAL_GATE=NOT_CLOSED
+ALPHA13=IN_PROGRESS
+RELEASE_MERGE_PR_PUBLICATION=NO
+```
+
+La CI disparada inmediatamente por el commit de producto falló
+exclusivamente porque su fixture asumía que copiar las fuentes
+candidatas siempre las modificaría; después de la adopción
+eran idénticas y solo se modificaba el archive temporal.
+Se reparó el workflow para producir tres cambios verificables
+exclusivamente en el checkout efímero **después** de ejecutar
+los casos nativos reales. El retest CI terminó PASS, sin
+nuevo commit de producto y sin cambiar el archive RTU publicado
+en la rama.
+
+Evidencia:
+[CI G8 post-commit PASS](https://github.com/JW-Control/platform-jwplc/actions/runs/38191980973);
+[A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md](A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md)
+F124.
+
+---
+
 ## G8 — Cierre Git de producto confirmado; prueba física pendiente (2026-10-11)
 
 ```text
