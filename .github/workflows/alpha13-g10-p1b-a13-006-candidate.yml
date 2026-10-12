@@ -1,0 +1,59 @@
+name: Alpha13 G10 P1B - TCP deferred-close candidate
+
+on:
+  push:
+    branches:
+      - 'v2.1.0-alpha.13/feature/cleanup-robustness'
+    paths:
+      - '.github/workflows/alpha13-g10-p1b-a13-006-candidate.yml'
+      - 'tools/alpha13/gates/a13_g10_p1b_a13_006_candidate.py'
+      - 'tools/alpha13/gates/run_a13_g10_p1b_a13_006_candidate.bat'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  g10-p1b-candidate:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: MSVC host toolchain on Windows
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: Python syntax and CLI help
+        shell: pwsh
+        run: |
+          python -m py_compile tools/alpha13/gates/a13_g10_p1b_a13_006_candidate.py
+          python -B tools/alpha13/gates/a13_g10_p1b_a13_006_candidate.py --help
+          if ($LASTEXITCODE -ne 0) { throw 'P1B_HELP_FAILED' }
+      - name: Source-backed candidate and 8 native markers
+        shell: pwsh
+        run: |
+          python -B tools/alpha13/gates/a13_g10_p1b_a13_006_candidate.py --native --ci-standalone | Tee-Object -FilePath g10_p1b.log
+          if ($LASTEXITCODE -ne 0) { throw 'G10_P1B_CANDIDATE_NATIVE_FAILED' }
+          if ((Get-Content g10_p1b.log -Raw) -notmatch 'G10_P1B_STATUS=CANDIDATE_NATIVE_PASS_PRODUCT_UNCHANGED') { throw 'G10_P1B_PASS_MARKER_MISSING' }
+      - name: Check repository intact
+        shell: pwsh
+        run: |
+          git diff --exit-code
+          if ($LASTEXITCODE -ne 0) { throw 'G10_P1B_PRODUCT_MUTATED' }
+      - name: Archive proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alpha13-g10-p1b-candidate-${{ matrix.os }}-${{ github.run_id }}
+          path: |
+            tools/alpha13/results/g10_p1b_*/
+            g10_p1b.log
+          if-no-files-found: warn
