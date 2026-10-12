@@ -74,8 +74,14 @@ def contract():
     source_rs=RS.read_text(encoding="utf-8")
     candidate_rtu=CAND_RTU.read_text(encoding="utf-8")
     candidate_rs=CAND_RS.read_text(encoding="utf-8")
-    need(candidate_rtu==make_expected_rtu(source_rtu),"RTU_CANDIDATE_NOT_EXACT_DELTA")
-    need(candidate_rs==make_expected_rs(source_rs),"RS_CANDIDATE_NOT_EXACT_DELTA")
+    if source_rtu==candidate_rtu and source_rs==candidate_rs:
+        print("G8_SOURCE_STATE=ADOPTED_EXACT_CANDIDATE",flush=True)
+    else:
+        need(candidate_rtu==make_expected_rtu(source_rtu),
+             "RTU_CANDIDATE_NOT_EXACT_DELTA")
+        need(candidate_rs==make_expected_rs(source_rs),
+             "RS_CANDIDATE_NOT_EXACT_DELTA")
+        print("G8_SOURCE_STATE=BASELINE_EXACT_DELTA",flush=True)
     core=CORE_SER.read_text(encoding="utf-8")
     header=CORE_H.read_text(encoding="utf-8")
     need("HardwareSerial::operator bool() const" in core and
