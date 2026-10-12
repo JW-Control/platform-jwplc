@@ -1,3 +1,42 @@
+## G8 — Intento de adopción detenido y rollback PASS; harness diagnóstico corregido (2026-10-11)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G7C=CLOSED_PASS
+G8_P0=CLOSED_PASS_READ_ONLY
+G8_P1P2=CANDIDATE_BUILD_PASS_PRODUCT_UNCHANGED
+G8_ADOPTION_ATTEMPT=g8_adopt_20261011_192007_949944b4
+G8_ADOPTION_PRECHECK=PASS
+G8_ADOPTION_BACKUP=PASS
+G8_ADOPTION_SCOPE=REVIEW_STOP_DIRTY_SCOPE_NOT_EXACT_THREE_FILES
+G8_ADOPTION_ROLLBACK=PASS
+G8_PRODUCT_REGRESSIONS_AFTER_ADOPTION=NOT_EXECUTED
+G8_PRODUCT_COMMIT_PUSH=NONE
+G8_PRODUCT_STATUS=UNCHANGED_AFTER_ROLLBACK
+G8_INDEX_FLAG_ROOT_CAUSE=NOT_YET_DETERMINED
+G8_SCOPE_RUNNER=DIAGNOSTICS_ENHANCED_VERSIONED
+G8_SCOPE_CI_THREE_FILES=PASS_RUN_38187763080
+G8_NEXT=RETRY_CONTROLLED_ADOPTION_WITH_EXACT_GIT_DIAGNOSTICS
+A13-010=CANDIDATE_VALIDATED_NOT_ADOPTED
+A13-011=CANDIDATE_VALIDATED_NOT_ADOPTED
+F120_ROOT_CAUSE=UNKNOWN_PENDING
+RELEASE_MERGE_PR_PUBLICATION=NO
+```
+
+Operador informó `G8_ADOPT_STATUS=REVIEW_STOP_ROLLBACK` antes de
+compilaciones productivas, con recuperación completa. La
+causa exacta del mismatch no se puede deducir de ese log.
+Se corrigió el harness para emitir rutas Git observadas y
+esperadas, marcas de índice y diferencia de bytes con `HEAD`;
+no se eliminó la exigencia de los tres archivos ni se hizo
+commit/push de producto. CI del nuevo auditor sobre los
+tres archivos (incluyendo archive binario) obtuvo PASS.
+
+Detalle:
+[A13_G8_ADOPTION_FIRST_ATTEMPT_REVIEW_20261011.md](A13_G8_ADOPTION_FIRST_ATTEMPT_REVIEW_20261011.md).
+
+---
+
 ## G8 — P1/P2 candidato PASS y adopción controlada preparada (2026-10-11)
 
 ```text
