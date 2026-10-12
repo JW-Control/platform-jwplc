@@ -1,3 +1,35 @@
+## Conciliación con prueba realizada — G8-P4 PASS (2026-10-11)
+
+Este documento nació como propuesta de banco. Posteriormente se
+ejecutó una validación positiva real con **dos JWPLC Basic**:
+Master COM4, Slave COM14, 115200 8N1, FC03 y 12/12
+solicitudes/respuestas correctas. Las métricas observadas fueron
+Master RX 156 bytes y Slave RX 96 bytes, CRC y timeouts cero.
+Los firmwares de banco permanecen cargados.
+
+La prueba cubrió **transmisión y recepción física**, inicialización
+positiva de UART y contabilidad `rxBytes` no-bulk en ambas placas.
+La negativa de fallo de instalación UART y `begin/end/begin` se
+conservan como evidencias de fixtures nativos, sin atribuirles
+ejecución física. No se hizo el ensayo opcional de reinicialización
+UART ni restauración de aplicación anterior.
+
+El resultado canónico está en
+[A13_G8_P4_PHYSICAL_CLOSURE_20261011.md](A13_G8_P4_PHYSICAL_CLOSURE_20261011.md);
+este plan histórico se conserva para trazabilidad.
+
+```text
+G8_PHYSICAL_FC03=CLOSED_PASS_12_OF_12
+G8_PHYSICAL_RX_MASTER=156_EXPECTED_156
+G8_PHYSICAL_RX_SLAVE=96_EXPECTED_96
+G8_PHYSICAL_UART_BEGIN_POSITIVE=PASS
+G8_PHYSICAL_UART_FAULT_INJECTION=NOT_PERFORMED
+G8_FUNCTIONAL=CLOSED_PASS_WITH_EXPLICIT_COVERAGE_LIMITS
+ALPHA13=IN_PROGRESS
+```
+
+---
+
 # Alpha13-G8 — Plan seguro de validación física RS-485 y Modbus RTU
 
 **Fecha:** 2026-10-11. **Estado:** `PLAN_ONLY_NO_UPLOAD_NO_HARDWARE_TEST`.
