@@ -1,3 +1,30 @@
+## Retest F128 Windows — P1B local PASS (2026-10-12)
+
+El operador volvió a ejecutar el BAT tras la corrección
+de claves de rutas POSIX en manifests y mapas internos.
+Sin repetir G10-P0/P1A:
+
+```text
+G10_P1B_LOCAL_RUN_ID=g10_p1b_20261012_124640_8458554e
+G10_P1B_SOURCE_CONTRACT=PASS_FOUR_PRIVATE_CANDIDATES
+G10_P1B_STATUS=CANDIDATE_SOURCE_CONTRACT_PASS_NATIVE_NOT_RUN
+G10_P1B_PRODUCT_CHANGE=NONE
+```
+
+El retest CI [38284253191](https://github.com/JW-Control/platform-jwplc/actions/runs/38284253191)
+pasó Windows y Linux, incluyendo ambos modos de rutas,
+el caso negativo de hash y la generación completa del
+candidato. El P1B local PASS **no es** compilación
+Arduino CLI ni prueba física de Modbus TCP. La salida
+de P1B no contiene una demostración de integridad de
+los caminos completos begin/task/end/reset W5500.
+
+**Decisión:** proceder a P1C solamente con overlay temporal,
+baseline + candidato Client/Server y verificaciones de
+source objects, archives y Git. No adoptar producto todavía.
+
+---
+
 # Alpha13 G10-P1B — Candidato A13-006, resultado nativo
 
 **Fecha:** 2026-10-12. **Estado:** `CANDIDATE_NATIVE_CI_PASS_PRODUCT_UNCHANGED`.
