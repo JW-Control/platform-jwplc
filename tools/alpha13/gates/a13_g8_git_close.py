@@ -73,7 +73,11 @@ def text_git(*args):
 
 
 def git_paths(*args):
-    return set(filter(None, cmd(*args, "-z").stdout.decode(
+    # -z debe anteceder al separador --, no convertirse en pathspec.
+    argv = list(args)
+    pos = argv.index("--") if "--" in argv else len(argv)
+    argv.insert(pos, "-z")
+    return set(filter(None, cmd(*argv).stdout.decode(
         "utf-8", "surrogateescape").split("\0")))
 
 
