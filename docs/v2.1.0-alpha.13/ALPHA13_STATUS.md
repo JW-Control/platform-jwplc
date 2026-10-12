@@ -1,3 +1,59 @@
+## Alpha13 G9 — Cierre Git CONFIRMADO; smoke periférico pendiente (2026-10-12)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G8_FINAL=CLOSED_PASS_WITH_EXPLICIT_COVERAGE_LIMITS
+G9_P0=CLOSED_PASS_READ_ONLY
+G9_P1_A13-017=CLOSED_PASS_DOC_ONLY
+G9_P2_A13-012=PRODUCT_COMMITTED_BUILD_PASS_PHYSICAL_PENDING
+G9_P3_A13-014=PRODUCT_COMMITTED_BUILD_PASS_PHYSICAL_PENDING
+G9_ADOPTION_RUN_ID=g9_adopt_20261012_101458_1e395a6e
+G9_GIT_RUN_ID=g9_git_20261012_102731_5f38ca7a
+G9_GIT_PRODUCT=CLOSED_PASS
+G9_PRODUCT_COMMIT=63e0291a7b1480af846e955559ab175aa78e7300
+G9_PRODUCT_REMOTE_HEAD_VERIFIED=63e0291a7b1480af846e955559ab175aa78e7300
+G9_PRODUCT_REMOTE_PATHS=EXACT_THREE
+G9_SD_ARCHIVE_SHA256_OPERATOR=58e86fdf31c9bf94204fcbcf7462656fd9f4d9a7d73bff35bd660dbff538b89e
+G9_CANDIDATE_PRODUCT_REGRESSIONS=PASS_4_OF_4
+G9_GIT_CLOSE_CI=PASS_WINDOWS_LINUX_RUN_38270082029
+G9_PHYSICAL_SD_RTC_BUTTONS=NOT_EXECUTED
+G9_HARDWARE_MICROSD_CARD_AND_PORT=NEEDS_CONFIRMATION
+G9_FUNCTIONAL=IN_PROGRESS_PHYSICAL_SMOKE_PENDING
+G9_PHYSICAL_PLAN=docs/v2.1.0-alpha.13/A13_G9_PHYSICAL_SMOKE_PLAN_20261012.md
+G10=NOT_STARTED
+F120_POST_UPLOAD_FREEZE_ROOT_CAUSE=UNKNOWN_PENDING
+OPENPLC=OUT_OF_SCOPE
+HMI_DESIGNER=OUT_OF_SCOPE
+TFT_NEW_FEATURES=OUT_OF_SCOPE
+RELEASE_MERGE_PR_PUBLICATION=NO
+```
+
+El operador confirmó `G9_GIT_PREFLIGHT=PASS`,
+`G9_GIT_STAGED_AUDIT=PASS`, `G9_GIT_COMMIT_PUSH=PASS`.
+La verificación independiente en GitHub identificó el
+commit productivo [`63e0291a`](https://github.com/JW-Control/platform-jwplc/commit/63e0291a7b1480af846e955559ab175aa78e7300)
+como HEAD remoto y comprobó sus tres rutas exactas:
+`JW_SD.cpp`, `libJW_SD.a`,
+`JWPLC_GlobalPeripherals.cpp`. El diff remoto de texto
+coincide con los cambios mínimos A13-012/A13-014; archive
+SHA fue verificado por las pruebas locales del operador.
+
+**La fase Git/producto de G9 está cerrada.** La fase
+funcional física permanece abierta: se requiere smoke
+SD de solo lectura, RTC y botón en un JWPLC real por
+tratarse de periféricos. Los dos equipos de G8 siguen
+con sketches diagnósticos según la última evidencia;
+no asumir restauración ni microSD presente. Cualquier
+upload físico requerirá confirmación de placa/COM,
+aislamiento y autorización explícita.
+
+Cierre Git:
+[A13_G9_GIT_PRODUCT_CLOSURE_20261012.md](A13_G9_GIT_PRODUCT_CLOSURE_20261012.md).
+Plan físico:
+[A13_G9_PHYSICAL_SMOKE_PLAN_20261012.md](A13_G9_PHYSICAL_SMOKE_PLAN_20261012.md).
+
+---
+
 ## G9-P2/P3 — Adopción producto local PASS, commit controlado pendiente (2026-10-12)
 
 ```text
