@@ -141,17 +141,51 @@ def verify_lib(log,folder,label):
 def verify_core(log,label):
     need(re.search(r"[/\\]precompiled[/\\]core[/\\]JWPLCBASIC[/\\]core\.a",log),
          "PRECOMPILED_JWPLC_CORE_NOT_LINKED_"+label)
+def normalize_compiler_path_text(value):
+    """Normalizar texto de Make .d / arduino-cli -v, no rutas para acceso FS.
+
+    Soporta rutas GCC Win con separadores slash/backslash, espacios escapados,
+    colon escapado y CRLF. No eliminar nombres para hacer match espurio.
+    """
+    return (value.replace("\\\\\\\\", "\\\\")
+                 .replace("\\\\ ", " ")
+                 .replace("\\\\:", ":")
+                 .replace("\\\\r\\\\n", " ")
+                 .replace("\\\\n", " ")
+                 .replace("\\\\", "/").casefold())
+
+
 def verify_source_build(log,build,folder,label):
+    """Probar objeto REAL y entrada de compilación con .d generado por -MMD.
+
+    No depender de que Arduino CLI imprima la ruta absoluta compilada: la
+    selección efectiva de librería se comprueba por separado en verify_lib.
+    """
     objects={}
-    for name in ["JWPLC_ModbusTCP_Client.cpp.o","JWPLC_ModbusTCP.cpp.o"]:
-        found=list(build.rglob(name))
-        need(len(found)==1,"TCP_SOURCE_OBJECT_MISSING_OR_DUPLICATED_"+label+"_"+name)
-        objects[name]=sha(found[0])
-    norm=log.replace("\\\\","\\").replace("\\","/")
     for name in ["JWPLC_ModbusTCP_Client.cpp","JWPLC_ModbusTCP.cpp"]:
-        needle=(folder/"src"/name).resolve().as_posix().lower()
-        need(needle in norm.lower(),
-             "TCP_COMPILE_INPUT_NOT_CORRECT_FOLDER_"+label+"_"+name)
+        object_name=name+".o"
+        found=list(build.rglob(object_name))
+        need(len(found)==1,
+             "TCP_SOURCE_OBJECT_MISSING_OR_DUPLICATED_"+label+"_"+object_name)
+        obj=found[0]
+        objects[object_name]=sha(obj)
+        # GCC -MMD, fijado en platform.txt, genera .cpp.d desde .cpp.o.
+        deps=[obj.with_suffix(".d"), Path(str(obj)+".d")]
+        deps=[d for d in deps if d.is_file()]
+        need(len(deps)==1,
+             "TCP_OBJECT_DEPENDENCY_FILE_MISSING_OR_DUPLICATED_"+
+             label+"_"+name)
+        dep=normalize_compiler_path_text(deps[0].read_text(
+            encoding="utf-8",errors="replace"))
+        # El .d es generado por el mismo compilador que creó el objeto;
+        # exigir fuente de la librería real, no solo nombre de archivo.
+        expected=normalize_compiler_path_text(
+            str((folder/"src"/name).resolve()))
+        relative="/jwplc_modbustcp/src/"+name.casefold()
+        need(expected in dep or relative in dep,
+             "TCP_COMPILE_DEPENDENCY_WRONG_SOURCE_"+label+"_"+name)
+        objects[name+".d"]=sha(deps[0])
+    emit("SOURCE_PROVENANCE_"+label,"PASS_OBJECT_DEPENDENCY_MMD")
     return objects
 def verify_frozen():
     for p,want in FROZEN.items():
