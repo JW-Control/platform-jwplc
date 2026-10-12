@@ -36,10 +36,11 @@ compilación.
 | Dev / PreRelease publicada | `v2.1.0-alpha.12` | Publicada y validada |
 | PreRelease anterior | `v2.1.0-alpha.11` | Publicada y validada |
 
-Alpha11 permanece como última versión completamente cerrada y validada:
+Alpha12 es la última versión completamente cerrada, publicada y validada; Alpha13 sigue en desarrollo:
 
 ```text
-ALPHA11_STATUS=CLOSED_PUBLISHED
+ALPHA12_STATUS=CLOSED_PUBLISHED
+ALPHA13_STATUS=IN_PROGRESS
 ```
 
 Estado actual de Alpha12:
