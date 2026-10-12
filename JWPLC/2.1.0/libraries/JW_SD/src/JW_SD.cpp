@@ -1808,7 +1808,7 @@ bool JWPLCDataLog::openFile()
     if (
         _storage == nullptr ||
         !_storage->isReady() ||
-        _path[0] == ' ')
+        _path[0] == '\0')
     {
         return false;
     }
