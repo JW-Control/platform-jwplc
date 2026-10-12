@@ -1,3 +1,44 @@
+## Actualización: reproducción nativa CONFIRMADA (2026-10-12)
+
+La CI [38280631554](https://github.com/JW-Control/platform-jwplc/actions/runs/38280631554)
+concluyó **PASS Windows y Linux**, con extracción de los cuerpos C++ de
+`closeSession()` y `dropClient()` desde el repo y compilación host
+(`clang++` en ambas plataformas). Resultado:
+
+```text
+G10_P1A_SOURCE_EXTRACTION=PASS_EXACT_CURRENT_FUNCTION_BODIES
+G10_P1A_NATIVE=PASS_SOURCE_BACKED_SIX_SCENARIOS
+G10_P1A_STATUS=NATIVE_BASELINE_DEFECT_REPRODUCED_NOT_FIXED
+```
+
+Los seis escenarios del harness incluyen **dos reproducciones positivas
+del defecto (lock SPI denegado) y cuatro controles de funcionamiento
+esperado (lock concedido / ausencia de socket)**. Es evidencia de un
+problema de ownership en la lógica compilada con mocks, **no prueba física
+ni validación de corrección**. Ningún archivo de producto fue editado.
+
+**Decisión A13-006:** elevar de `REVIEW_OPEN` a
+`ADOPT_CONFIRMED_REPRO_FIX_PENDING`, incluir cliente y
+servidor como superficies afectadas diferenciadas; exigir garantía
+de liberación eventual, espera no bloqueante y protección frente a
+reuso de número de socket. Antes de adoptar código se necesitan gates
+negativos de lock persistente/transitorio, reconexión, end(), fail(),
+reset Ethernet y saturación/recuperación de sockets. No introducir
+ningún mecanismo que deje un socket pendiente indefinidamente sin
+política de recuperación explícita.
+
+```text
+G10_P1A_CI=PASS_WIN_LINUX_RUN_38280631554
+G10_P1A_NATIVE_BASELINE=DEFECT_REPRODUCED_NOT_FIXED
+A13-006=ADOPT_CONFIRMED_REPRO_FIX_PENDING
+G10_P1A_WINDOWS_LOCAL_SOURCE_CONTRACT=NOT_YET_EXECUTED
+G10_A13-007=REVIEW_OPEN
+G10_A13-008=REVIEW_OPEN
+G10_PRODUCT_CHANGE=NONE
+```
+
+---
+
 # Alpha13 G10 — P0 Windows PASS y P1A reproducción A13-006
 
 **Fecha:** 2026-10-12. **Alpha13:** `IN_PROGRESS`; G9 cerrado.
