@@ -1,3 +1,47 @@
+## G8 — P1/P2 candidato PASS y adopción controlada preparada (2026-10-11)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G1_G7=CLOSED_PASS
+G7C=CLOSED_PASS
+G8_P0=CLOSED_PASS_READ_ONLY
+G8_P1P2=CANDIDATE_BUILD_PASS_PRODUCT_UNCHANGED
+G8_P1P2_RUN_ID=g8_p1p2_20261011_190500_d59b4022
+G8_SOURCE_OBJECT_ARCHIVE_PARITY=PASS
+G8_RTU_CANDIDATE_ARCHIVE_SHA256=f239100fbb6770a3a6f336179fbfa3a4afd27cc16e12c6f239cf05f28f7a1416
+G8_CANDIDATE_COMPILES=PASS_SLAVE_MASTER_RS485_STATUS
+G8_CANDIDATE_RTU_LINK=PASS_SLAVE_MASTER_EXACT_PATH_FLAG_SHA
+G8_CANDIDATE_FINAL_AUDIT=PASS_PRODUCT_UNCHANGED
+G8_NATIVE_CI_20_CASES=PASS
+G8_ADOPTION_RUNNER=tools/alpha13/gates/a13_g8_adopt_local.py
+G8_ADOPTION_WRAPPER=tools/alpha13/gates/run_a13_g8_adopt.bat
+G8_ADOPTION_RUNNER_CI=PASS_RUN_38187430145
+G8_ADOPTION_WINDOWS=NOT_EXECUTED
+G8_PRODUCT_COMMIT_PUSH=NO
+G8_PHYSICAL_RS485=NOT_EXECUTED_DECISION_PENDING
+A13-010=CANDIDATE_VALIDATED_NOT_ADOPTED
+A13-011=CANDIDATE_VALIDATED_NOT_ADOPTED
+G8=IN_PROGRESS_NOT_CLOSED
+NEXT_GATE=G8_CONTROLLED_PRODUCT_ADOPTION
+F120_ROOT_CAUSE=UNKNOWN_PENDING
+RELEASE_MERGE_PR_PUBLICATION=NO
+```
+
+El candidato generó archive RTU con SHA exacto y 3/3 regresiones
+sin tocar producto. El siguiente hito **no** realizará una
+publicación Git: su ejecutor respaldará tres archivos productivos,
+los reemplazará solo si coinciden todas las evidencias y compilará
+de nuevo tres consumidores con bibliotecas normales del package
+(`--libraries` sin overlay, object RS485 + `-L/-l` RTU),
+con rollback ante fallo. Antes del cierre Git de G8 se revisará
+el riesgo de validación física del nuevo estado UART/RS485.
+
+Documentos:
+[A13_G8_P1P2_CANDIDATE_RESULTS_20261011.md](A13_G8_P1P2_CANDIDATE_RESULTS_20261011.md),
+[A13_G8_PRODUCT_ADOPTION_PLAN_20261011.md](A13_G8_PRODUCT_ADOPTION_PLAN_20261011.md).
+
+---
+
 ## G8-P0 cerrado; G8-P1/P2 candidato aislado y CI nativo PASS (2026-10-11)
 
 ```text
