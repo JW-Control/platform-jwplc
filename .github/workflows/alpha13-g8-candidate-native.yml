@@ -7,6 +7,8 @@ on:
     paths:
       - '.github/workflows/alpha13-g8-candidate-native.yml'
       - 'tools/alpha13/gates/a13_g8_source_selftest.py'
+      - 'tools/alpha13/gates/a13_g8_p1_p2_candidate.py'
+      - 'tools/alpha13/gates/run_a13_g8_p1_p2_candidate.bat'
       - 'tools/alpha13/candidates/g8/**'
   workflow_dispatch:
 
@@ -25,6 +27,8 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m py_compile tools/alpha13/gates/a13_g8_source_selftest.py
+          python3 -m py_compile tools/alpha13/gates/a13_g8_p1_p2_candidate.py
+          python3 -B tools/alpha13/gates/a13_g8_p1_p2_candidate.py --help
           python3 -B tools/alpha13/gates/a13_g8_source_selftest.py --native-cxx "$(command -v g++)" --require-native | tee g8_native.log
           grep -qx 'G8_SOURCE_CONTRACT=PASS' g8_native.log
           grep -qx 'G8_HARDWARESERIAL_BOOL_CORE_CONTRACT=PASS' g8_native.log
