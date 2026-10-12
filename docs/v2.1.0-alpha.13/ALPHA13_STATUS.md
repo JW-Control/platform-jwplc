@@ -1,3 +1,52 @@
+## Alpha13 G10 — F128 Windows P1B corregido, CI PASS; operador pendiente (2026-10-12)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G9_FINAL=CLOSED_PASS_WITH_EXPLICIT_COVERAGE_LIMITS
+G10_P0_WINDOWS=BASELINE_CAPTURED_REVIEW_FINDINGS_OPEN
+G10_P1A_WINDOWS=SOURCE_CONTRACT_PASS_NATIVE_NOT_RUN
+G10_P1B_LOCAL_ATTEMPT_RUN=g10_p1b_20261012_122341_30dd9ea2
+G10_P1B_LOCAL_ATTEMPT=REVIEW_STOP_HARNESS_KEYERROR
+F128_CLASS=WINDOWS_MANIFEST_POSIX_PATH_KEY_MISMATCH
+F128_ROOT_CAUSE=STR_PATH_WINDOWS_BACKSLASH_VS_MANIFEST_POSIX
+F128_FIX=REPO_KEY_PATH_AS_POSIX_ALL_MAPS
+F128_CI=PASS_WINDOWS_LINUX_RUN_38284253191
+F128_CI_NEGATIVE_SHA_AND_FULL_CANDIDATE_KEY_TEST=PASS
+G10_P1B_LOCAL_RETEST=NOT_YET_EXECUTED
+G10_P1B_NEXT_GATE=tools/alpha13/gates/run_a13_g10_p1b_a13_006_candidate.bat
+G10_P1B_PRODUCT_CHANGE=NONE
+G10_P1B_ARDUINO_BUILD=NOT_YET_EXECUTED
+G10_P1B_HARDWARE_UPLOAD=NONE
+A13-006=ADOPT_CONFIRMED_REPRO_FIX_PENDING
+A13-007=REVIEW_OPEN
+A13-008=REVIEW_OPEN
+G10_FINAL=NOT_CLOSED
+F120_POST_UPLOAD_FREEZE_ROOT_CAUSE=UNKNOWN_PENDING
+RELEASE_PR_MERGE_PUBLICATION=NO
+```
+
+El operador detectó `KeyError('JWPLC\\2.1.0\\...')` en
+P1B. La investigación confirmó un defecto en el harness:
+el informe P0/P1A guarda claves POSIX y `str(Path)`
+en Windows produjo barras inversas. La primera CI
+de candidato había omitido deliberadamente los manifests
+locales mediante `--ci-standalone`, por lo que ese PASS
+**no cubría** el código fallido.
+
+Se normalizaron **todas** las claves de rutas de los
+manifiestos y del mapa `old` usando `Path.as_posix()`.
+Se añadió una prueba de la misma función de validación
+local, caminos Windows/Posix, hash negativo y ejecución
+íntegra de `make()` + `build_native()`.
+La CI [38284253191](https://github.com/JW-Control/platform-jwplc/actions/runs/38284253191)
+finalizó PASS en Windows y Linux.
+
+**P1B sigue pendiente del retest en Windows real**;
+no hay adopción de firmware ni prueba física por este
+gate. No repetir P0/P1A ni saltar a P1C todavía.
+
+---
+
 ## Alpha13 G10 — P1A local PASS; P1B candidato nativo CI PASS (2026-10-12)
 
 ```text
