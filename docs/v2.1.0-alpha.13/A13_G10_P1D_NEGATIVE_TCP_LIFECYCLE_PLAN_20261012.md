@@ -1,3 +1,49 @@
+## Resultado posterior: CI nativa P1D PASS como prueba de riesgo (2026-10-12)
+
+La [CI 38296384365](https://github.com/JW-Control/platform-jwplc/actions/runs/38296384365)
+terminó **PASS Windows y Linux**, con fuentes candidatas P1B
+reproducidas y seis cuerpos C++ reales ejecutados bajo mocks de
+sockets y SPI. El test incluye dos contraejemplos explícitos
+de **reutilización de índice tras reset simulado**,
+uno para cliente y otro para servidor.
+
+```text
+G10_P1D_SOURCE_CONTRACT=PASS_SIX_REAL_CANDIDATE_METHODS
+G10_P1D_NATIVE=PASS_SOURCE_BACKED_LIFECYCLE_AND_RESET_COUNTEREXAMPLES
+G10_P1D_STATUS=RESET_REUSE_RISK_REPRODUCED_ADOPTION_BLOCKED
+```
+
+**Interpretación:** `CI_SUCCESS` solo significa que el harness
+demostró lo esperado. La implementación candidata **NO superó
+el requisito de seguridad de generaciones de socket**, por lo
+que se **BLOQUEA su adopción**. Se probó con escenario
+de interleaving controlado, no ocurrió sobre hardware real.
+El primer intento CI de P1D falló por constantes de
+defaults omitidas en el shim C++ nativo; se ajustó solo
+el shim y se añadieron diagnósticos de compilador.
+La CI de retest de arriba es la evidencia válida.
+
+**Próximo trabajo de diseño:** antes de nuevos candidatos
+se requiere identificar el ciclo de generación/reset del
+runtime `JWPLC_Ethernet`, evaluar si el reinicio observado
+es realmente una invalidación de todos los sockets y
+diferenciar pérdida temporal de `isReady()` frente a
+reset real del W5500. No asumir que todos los
+`NOT_READY` invalidan handles. Aplicar un token de
+generación privado o política conservadora equivalente
+que no permita cerrar un índice de otro owner.
+
+```text
+G10_P1D_CI=PASS_WINDOWS_LINUX_RUN_38296384365
+G10_P1D_CANDIDATE_ASSESSED=BLOCKED_BY_RESET_REUSE_COUNTEREXAMPLE
+G10_P1D_WINDOWS_LOCAL_SOURCE_CONTRACT=NOT_YET_RUN
+A13-006=ADOPT_CONFIRMED_FIX_DESIGN_REVISION_REQUIRED
+G10_PRODUCT_ADOPTION=NONE
+ALPHA13=IN_PROGRESS
+```
+
+---
+
 # Alpha13 G10-P1D — Pruebas negativas de ciclo de vida A13-006
 
 **Fecha:** 2026-10-12. **Estado inicial:** `NATIVE_CI_PENDING`; **candidato productivo NO adoptado**.
