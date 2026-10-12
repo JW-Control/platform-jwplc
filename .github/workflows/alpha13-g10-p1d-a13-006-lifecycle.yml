@@ -1,0 +1,59 @@
+name: Alpha13 G10 P1D - TCP lifecycle reset reuse red-team
+
+on:
+  push:
+    branches:
+      - 'v2.1.0-alpha.13/feature/cleanup-robustness'
+    paths:
+      - '.github/workflows/alpha13-g10-p1d-a13-006-lifecycle.yml'
+      - 'tools/alpha13/gates/a13_g10_p1d_a13_006_lifecycle.py'
+      - 'tools/alpha13/gates/run_a13_g10_p1d_a13_006_lifecycle.bat'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-lifecycle:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Host MSVC for Windows
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: Syntax and help
+        shell: pwsh
+        run: |
+          python -m py_compile tools/alpha13/gates/a13_g10_p1d_a13_006_lifecycle.py
+          python -B tools/alpha13/gates/a13_g10_p1d_a13_006_lifecycle.py --help
+          if ($LASTEXITCODE -ne 0) { throw 'G10_P1D_HELP_FAILED' }
+      - name: Compile real P1B method bodies with socket-generation mocks
+        shell: pwsh
+        run: |
+          python -B tools/alpha13/gates/a13_g10_p1d_a13_006_lifecycle.py --native --ci-standalone | Tee-Object -FilePath g10_p1d.log
+          if ($LASTEXITCODE -ne 0) { throw 'G10_P1D_NATIVE_TEST_FAILED' }
+          if ((Get-Content g10_p1d.log -Raw) -notmatch 'G10_P1D_STATUS=RESET_REUSE_RISK_REPRODUCED_ADOPTION_BLOCKED') { throw 'G10_P1D_RESET_RISK_MARKER_MISSING' }
+      - name: Product remains unchanged
+        shell: pwsh
+        run: |
+          git diff --exit-code
+          if ($LASTEXITCODE -ne 0) { throw 'G10_P1D_MUTATED_PRODUCT' }
+      - name: Archive read-only evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alpha13-g10-p1d-redteam-${{ matrix.os }}-${{ github.run_id }}
+          path: |
+            tools/alpha13/results/g10_p1d_*/
+            g10_p1d.log
+          if-no-files-found: warn
