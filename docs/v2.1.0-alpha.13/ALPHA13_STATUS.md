@@ -1,3 +1,83 @@
+## Alpha13 — G9 CERRADO; G10-P0 baseline CI PASS (2026-10-12)
+
+```text
+ALPHA12_STATUS=CLOSED_PUBLISHED
+ALPHA13_STATUS=IN_PROGRESS
+BRANCH=v2.1.0-alpha.13/feature/cleanup-robustness
+G8_FINAL=CLOSED_PASS_WITH_EXPLICIT_COVERAGE_LIMITS
+G9_P0=CLOSED_PASS
+G9_P1_A13-017=CLOSED_PASS_DOC
+G9_P2_A13-012=CLOSED_PASS_PRODUCT_AND_PHYSICAL
+G9_P3_A13-014=CLOSED_PASS_PRODUCT_AND_PHYSICAL
+G9_P4_GIT_COMMIT=63e0291a7b1480af846e955559ab175aa78e7300
+G9_P5_RUN_ID=g9_p5_20261012_112751_200b0593
+G9_P5_PORT=COM4
+G9_P5_MICROSD=PRESENT_1_READY_1_ROOT_READ_ONLY_1
+G9_P5_RTC=PRESENT_1_VALID_1_LOST_0
+G9_P5_BUTTON=UP_ID_1_PRESS_1_RELEASE_1
+G9_P5_HEARTBEATS_POST_TEST=PASS_3
+G9_P5_FINAL_AUDIT=PASS
+G9_P5_STATUS=PHYSICAL_PASS_COM4_SD_READONLY_RTC_BUTTONS
+G9_COM14=NOT_TOUCHED
+G9_COM4_FIRMWARE_RESTORE=NOT_AUTOMATED
+G9_FINAL=CLOSED_PASS_WITH_EXPLICIT_COVERAGE_LIMITS
+G10_P0_CI=PASS_WINDOWS_LINUX_RUN_38278669640
+G10_P0_READONLY_RUNNER=tools/alpha13/gates/run_a13_g10_p0_readonly.bat
+G10_P0_LOCAL=NOT_YET_EXECUTED
+G10_P0_TCP_SOCKET_DROP_PATTERN=True
+G10_P0_DHCP_UNCHECKED_READ_PATTERN=True
+G10_P0_UDP_UNBOUNDED_WAIT_PATTERN=True
+G10_P0_CI_SMOKE_TCP_PRESENT=False
+G10_P0_CI_SMOKE_RTU_MASTER_PRESENT=False
+G10_P0_FREEZE_GIT_EPOCH_POLICY=True
+G10_P0_BINARY_BYTES_BIN_SUM=True
+G10_P0_ARCHIVES_FROZEN=5
+G10_A13-006=REVIEW_OPEN
+G10_A13-007=REVIEW_OPEN
+G10_A13-008=REVIEW_OPEN
+G10_A13-015=ADOPT_PENDING
+G10_A13-016=ADOPT_PENDING
+G10_A13-018=ADOPT_PENDING
+G10_FINAL=NOT_CLOSED
+F120_POST_UPLOAD_FREEZE_ROOT_CAUSE=UNKNOWN_PENDING
+OPENPLC=OUT_OF_SCOPE
+HMI_DESIGNER=OUT_OF_SCOPE
+TFT_NEW_FEATURES=OUT_OF_SCOPE
+RELEASE_MERGE_PR_PUBLICATION=NO
+NEXT_GATE=G10_P0_LOCAL_READ_ONLY_BASELINE
+```
+
+El operador terminó el smoke de G9 con `COMPILE_EXIT=0`,
+selección del archive SD productivo, upload autorizado,
+microSD detectada/montada y raíz abierta con `FILE_READ`,
+RTC válido sin `lostPower`, PRESS/RELEASE del botón
+UP y tres heartbeats. La auditoría final fue PASS.
+Con la evidencia previa Git/producto y regresiones
+4/4 se cierra G9 **con límites de cobertura explícitos**.
+COM4 sigue con sketch de diagnóstico, COM14 queda con
+el firmware de test G8 según última evidencia.
+No hay restauración automática ni solución demostrada de F120.
+
+En la conciliación con el informe canónico
+`Markdown pegado.md`, G5/G6 resultan correctos en
+sus pruebas, pero **no cierran por sí mismos**
+A13-006 (closeSession pierde socket si falla SPI),
+A13-007 (DHCP parcial) ni A13-008 (UDP sin deadline).
+La inspección read-only actual encontró los tres
+patrones. A13-015/016/018 siguen abiertos como deuda
+de CI, procedencia de archive y metricas. La nueva
+CI G10-P0 [38278669640](https://github.com/JW-Control/platform-jwplc/actions/runs/38278669640)
+pasó Windows y Linux, pero es una foto de hallazgos:
+**no implica corrección de esos defectos**.
+
+Cierre canónico de G9:
+[A13_G9_P5_PHYSICAL_CLOSURE_20261012.md](A13_G9_P5_PHYSICAL_CLOSURE_20261012.md),
+[A13_G9_FINAL_CLOSURE_CHECKLIST_20261012.md](A13_G9_FINAL_CLOSURE_CHECKLIST_20261012.md).
+Plan G10:
+[A13_G10_OPERATIVE_PLAN_20261012.md](A13_G10_OPERATIVE_PLAN_20261012.md).
+
+---
+
 ## G9-P5 — Smoke físico COM4 preparado; microSD presente (2026-10-12)
 
 ```text
