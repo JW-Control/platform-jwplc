@@ -52,19 +52,50 @@ def git_status(*args):
 
 
 def git_index_marks(paths):
-    """Read-only: catch index flags that hide actual worktree changes."""
-    p=subprocess.run(
-        ["git","-c","core.quotepath=false","ls-files","-v","--",
-         *sorted(str(x.relative_to(ROOT)) for x in paths)],
-        cwd=ROOT,capture_output=True,text=True,encoding="utf-8",errors="replace")
-    require(p.returncode==0,"GIT_LS_FILES_V_ERROR")
-    result={}
-    for line in p.stdout.splitlines():
-        if len(line)>=3 and line[1]==" ":
-            result[line[2:]]=line[0]
-    require(set(result)=={str(x.relative_to(ROOT)) for x in paths},
-            "INDEX_NOT_TRACKING_ALL_PRODUCT_FILES")
-    return result
+    """Índice Git verificado mediante rutas NUL; sin parsing de líneas.
+
+    ls-files -v -z permite comprobar la marca H/S exactamente por ruta.
+    Validación cruzada: --full-name -z y HEAD ls-tree -z.
+    El manifest conserva los bytes de diagnóstico ANTES de rechazar.
+    """
+    wanted={str(x.relative_to(ROOT)) for x in paths}
+    args=["git","-c","core.quotepath=false"]
+    def query(*argv):
+        p=subprocess.run([*args,*argv],cwd=ROOT,capture_output=True)
+        require(p.returncode==0,"INDEX_COMMAND_FAILED_"+repr(argv)+":"+
+                p.stderr.decode("utf-8","backslashreplace")[-250:])
+        return p.stdout
+    records=query("ls-files","-v","-z","--",*sorted(wanted))
+    actual={}
+    malformed=[]
+    for token in records.split(b"\0"):
+        if not token: continue
+        if len(token)<3 or token[1:2]!=b" ":
+            malformed.append(repr(token[:140]))
+            continue
+        mark=token[0:1].decode("ascii","replace")
+        path=token[2:].decode("utf-8","surrogateescape")
+        if path in actual: malformed.append("DUPLICATE:"+repr(path))
+        actual[path]=mark
+    tracked={
+        token.decode("utf-8","surrogateescape")
+        for token in query("ls-files","--full-name","-z","--",*sorted(wanted)).split(b"\0")
+        if token}
+    head={
+        token.decode("utf-8","surrogateescape")
+        for token in query("ls-tree","-r","--name-only","-z",
+                           "HEAD","--",*sorted(wanted)).split(b"\0")
+        if token}
+    emit("INDEX_EXPECTED_PATHS",";".join(sorted(wanted)))
+    emit("INDEX_V_PATHS",";".join(k+":"+actual[k] for k in sorted(actual)) or "NONE")
+    emit("INDEX_TRACKED_PATHS",";".join(sorted(tracked)) or "NONE")
+    emit("INDEX_HEAD_PATHS",";".join(sorted(head)) or "NONE")
+    emit("INDEX_PARSE_ERRORS",repr(malformed))
+    # Registrarlo incluso en REVIEW_STOP: nunca fallar sin revelar la discrepancia.
+    require(not malformed,"INDEX_V_RECORDS_MALFORMED")
+    require(set(actual)==wanted and tracked==wanted and head==wanted,
+            "INDEX_EXACT_THREE_PATHS_MISMATCH")
+    return actual
 
 
 def audit_git_scope(g, expected, phase):
