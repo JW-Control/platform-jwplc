@@ -34,7 +34,6 @@ EXPECTED=[
     "A13_006_SERVER_NO_CLIENT_NO_LOCK=PASS",
     "A13_006_RESULT=BASELINE_DEFECT_REPRODUCED_NOT_FIXED",
 ]
-ROOT_CPP=String.raw if False else ""
 CPP_TEMPLATE=r'''
 #include <iostream>
 #include <stdexcept>
@@ -263,6 +262,8 @@ def main():
                    help="run real closeSession/dropClient bodies with host C++ mocks")
     p.add_argument("--source-only",action="store_true",
                    help="validate source and provenance without a host compiler")
+    p.add_argument("--ci-standalone",action="store_true",
+                   help="CI only: prove HEAD ancestry and sources without local P0 evidence")
     args=p.parse_args()
     need(args.native!=args.source_only,"CHOOSE_EXACTLY_ONE_MODE")
     runid="g10_p1a_"+datetime.now().strftime("%Y%m%d_%H%M%S")+"_"+uuid.uuid4().hex[:8]
@@ -286,19 +287,25 @@ def main():
         need(not git("diff","--name-only") and
              not git("diff","--cached","--name-only"),
              "TRACKED_WORKTREE_DIRTY")
-        p0=ROOT/"tools/alpha13/results"/P0_ID/"MANIFEST.json"
-        need(p0.is_file(),"G10_P0_LOCAL_MANIFEST_NOT_FOUND")
-        previous=json.loads(p0.read_text(encoding="utf-8-sig"))
-        need(previous.get("schema")=="A13-G10-P0-READONLY-1" and
-             previous.get("run_id")==P0_ID and
-             previous.get("status")=="BASELINE_CAPTURED_REVIEW_FINDINGS_OPEN" and
-             previous.get("head")==G10_P0_HEAD,
-             "P0_WRONG_PROVENANCE")
+        if not args.ci_standalone:
+            p0=ROOT/"tools/alpha13/results"/P0_ID/"MANIFEST.json"
+            need(p0.is_file(),"G10_P0_LOCAL_MANIFEST_NOT_FOUND")
+            previous=json.loads(p0.read_text(encoding="utf-8-sig"))
+            need(previous.get("schema")=="A13-G10-P0-READONLY-1" and
+                 previous.get("run_id")==P0_ID and
+                 previous.get("status")=="BASELINE_CAPTURED_REVIEW_FINDINGS_OPEN" and
+                 previous.get("head")==G10_P0_HEAD,
+                 "P0_WRONG_PROVENANCE")
+        else:
+            previous=None
         for name in [CLIENT,SERVER]:
             current=sha(ROOT/name)
-            need(previous.get("sources",{}).get(name,{}).get("sha256")==current,
-                 "G10_P0_SOURCE_SHA_CHANGED_"+name)
+            if previous is not None:
+                need(previous.get("sources",{}).get(name,{}).get("sha256")==current,
+                     "G10_P0_SOURCE_SHA_CHANGED_"+name)
             report["source_cpp_sha256"][name]=current
+        report["provenance"]=("CI_GIT_HISTORY_AND_CURRENT_SOURCES_ONLY"
+                              if args.ci_standalone else "LOCAL_P0_MANIFEST_AND_SHA")
         report["head"]=head
         source=prepare_source()
         (output/"extracted_cpp.cpp").write_text(source,encoding="utf-8")
