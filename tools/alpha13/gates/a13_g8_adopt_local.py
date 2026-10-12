@@ -58,7 +58,7 @@ def git_index_marks(paths):
     Validación cruzada: --full-name -z y HEAD ls-tree -z.
     El manifest conserva los bytes de diagnóstico ANTES de rechazar.
     """
-    wanted={str(x.relative_to(ROOT)) for x in paths}
+    wanted={x.relative_to(ROOT).as_posix() for x in paths}
     args=["git","-c","core.quotepath=false"]
     def query(*argv):
         p=subprocess.run([*args,*argv],cwd=ROOT,capture_output=True)
@@ -103,10 +103,10 @@ def audit_git_scope(g, expected, phase):
     observed=g.git_paths("diff","--name-only")
     staged=g.git_paths("diff","--cached","--name-only")
     flags=git_index_marks(expected)
-    desired={str(p.relative_to(ROOT)) for p in expected}
+    desired={p.relative_to(ROOT).as_posix() for p in expected}
     changes_by_bytes={}
     for target in expected:
-        relative=str(target.relative_to(ROOT))
+        relative=target.relative_to(ROOT).as_posix()
         expected_blob=g.git("rev-parse","HEAD:"+relative)
         local_hash=subprocess.run(
             ["git","hash-object","--",str(target)],
@@ -155,7 +155,10 @@ def main():
             ("jwplc_a13_"+PREVIOUS_ID)/
             "candidate/JWPLC_ModbusRTU/src/esp32/libJWPLC_ModbusRTU.a",
     }
-    names={str(p.relative_to(ROOT)) for p in TARGETS}
+    # Git reporta rutas POSIX incluso bajo Windows; el manifiesto
+    # P1/P2 ya emitido usa la representación Path local. NO mezclarlas.
+    names={p.relative_to(ROOT).as_posix() for p in TARGETS}
+    manifest_target_names={str(p.relative_to(ROOT)) for p in TARGETS}
     g.M.clear()
     g.M.update({
         "schema":"A13-G8-PRODUCT-ADOPTION-1","run_id":run_id,
@@ -294,7 +297,8 @@ def main():
         g.stage("FINAL_AUDIT","RUNNING")
         for name,before_hash in old["before_sha256"].items():
             path=ROOT/name
-            correct=(g.M["candidate_sha256"][name] if name in names else before_hash)
+            correct=(g.M["candidate_sha256"][name]
+                     if name in manifest_target_names else before_hash)
             require(g.sha(path)==correct,"FINAL_SHA_MISMATCH_"+name)
         audit_git_scope(g,TARGETS,"FINAL")
         require(g.git("rev-parse","HEAD")==head,"GIT_HEAD_CHANGED_DURING_RUN")
