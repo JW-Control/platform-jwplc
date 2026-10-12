@@ -1,3 +1,31 @@
+## G8 — Segundo intento: índice Git no reconocido en PREFLIGHT (2026-10-11)
+
+```text
+G8_ADOPTION_ATTEMPT_2=g8_adopt_20261011_192425_df5a28db
+G8_ADOPT_PHASE=PREFLIGHT_RUNNING
+G8_ADOPT_REASON=INDEX_NOT_TRACKING_ALL_PRODUCT_FILES
+G8_PRODUCT_BACKUP=NOT_STARTED
+G8_PRODUCT_ADOPTION=NOT_STARTED
+G8_PRODUCT_REGRESSIONS=NOT_STARTED
+G8_PRODUCT_COMMIT=NONE
+G8_PRODUCT=UNCHANGED_IN_THIS_ATTEMPT
+G8_ROOT_CAUSE=UNKNOWN_PENDING_WINDOWS_GIT_INDEX_DIAGNOSTIC
+NEXT_GATE=G8_D0_READ_ONLY_GIT_INDEX_DIAGNOSTIC
+```
+
+El nuevo preflight detuvo antes del backup al no poder reconocer
+las tres rutas mediante `git ls-files -v`. El log no incluye
+las rutas devueltas ni el motivo. No asumir que los tres archivos
+hayan desaparecido, que el usuario usó comandos incorrectos,
+ni marcar PASS sin diagnosticar. El nuevo gate D0 de solo lectura
+registrará `ls-files -v` normal/NUL, `ls-files --stage`,
+`ls-tree HEAD`, objetos blobs de HEAD/working tree,
+`git status`, `git diff`, diferencias de caso y origen
+de las tres rutas. No modifica producto, índice ni configuración.
+No repetir la adopción hasta revisar la evidencia D0.
+
+---
+
 ## G8 — Intento de adopción detenido y rollback PASS; harness diagnóstico corregido (2026-10-11)
 
 ```text
