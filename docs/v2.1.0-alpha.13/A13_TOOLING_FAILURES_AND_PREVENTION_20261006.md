@@ -2051,3 +2051,53 @@ G8_ARCHIVE_PRODUCT_IN_LOCAL_WORKTREE=YES_PENDING_COMMIT
 G8_REMOTE_COMMIT=NONE_AT_THIS_POINT
 NEXT_FAILURE_ID=F124
 ```
+
+## F124 — CI G8 asumía archivos fuente diferentes tras adoptar producto (2026-10-11)
+
+**Síntoma:** después del commit de producto `fb71d65e` de A13-010 y
+A13-011, el workflow `alpha13-g8-candidate-native.yml` devolvió FAIL
+en [run 38189443172](https://github.com/JW-Control/platform-jwplc/actions/runs/38189443172),
+en el paso `Probar alcance Git de las tres rutas productivas en checkout efimero`.
+
+```text
+CI_DIFF_PATHS=JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/src/esp32/libJWPLC_ModbusRTU.a
+CI_BYTES_CHANGED_RTU_CPP=False
+CI_BYTES_CHANGED_RS485_CPP=False
+CI_BYTES_CHANGED_ARCHIVE=True
+REASON=CI_CANDIDATE_SAME_AS_GIT_HEAD
+```
+
+**Causa demostrada:** el paso de CI copiaba las dos fuentes candidatas
+encima del producto y modificaba artificialmente solo el archive. Ese
+test era válido **antes** de adoptar el producto, cuando las dos fuentes
+candidatas diferían de HEAD. Después del commit `fb71d65e`, las dos
+fuentes ya eran exactamente las candidatas, así que copiarlas era un
+no-op. Solo el archive aparecía modificado, mientras
+`audit_git_scope()` esperaba tres cambios. El fallo está en el
+**fixture de CI no idempotente frente al estado post-adopción**,
+no en la corrección de firmware ni en el archive productivo.
+
+**Solución:** mantener intacta la auditoría exacta de tres rutas,
+pero en la simulación efímera de GitHub Actions añadir marcadores de
+prueba controlados a las **dos fuentes y al archive** después de
+validar los 20 escenarios nativos y el contrato de fuentes exactas.
+Los marcadores se escriben solo en el runner desechable de CI,
+jamás en código productivo, candidatos versionados o PC del operador.
+El mismo test pasa antes y después de la adopción.
+
+**Prevención:** todo workflow que simule una diferencia Git debe
+asegurar explícitamente que el conjunto de rutas modificadas cumple
+la precondición requerida, incluso después de haber integrado los
+candidatos. Cubrir ambos estados del producto y separar
+`CI_FIXTURE_FAIL` de `PRODUCT_FAIL`.
+
+```text
+F124_CLASS=CI_FIXTURE_FALSE_NEGATIVE
+PRODUCT_FAILURE=NO
+G8_PRODUCT_COMMIT=fb71d65eb2c842b3f46e6949760e693f3b73d95e
+G8_PRODUCT_FILES_CHANGED_BY_F124_FIX=NONE
+F124_FIX=WORKFLOW_VERSIONED
+F124_CI_RETEST=IN_PROGRESS
+G8_PHYSICAL_RS485=NOT_EXECUTED
+NEXT_FAILURE_ID=F125
+```
