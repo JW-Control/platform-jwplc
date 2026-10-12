@@ -129,6 +129,37 @@ compilador C++ nativo Windows/Linux. El BAT previsto del
 operador es **solo de fuente**, y contrasta el candidato
 contra los manifests P0/P1A/P1B/P1C locales.
 
+## Contraste de runtime Ethernet: `isReady()` no es generación
+
+Inspección de fuentes actuales:
+`JWPLC_Ethernet.cpp::isReady()` expone únicamente
+el booleano `_ready`. `JWPLC_EthernetClass::task()`
+lo pone `false` al detectar `LinkOFF`, y
+`validateNetworkReady()` también lo desactiva
+ante contención SPI de `acquireBus(200)`.
+En cambio `probeHardware()` invoca
+`resetHardwareIfNeeded()` e inicia el chip con
+`Ethernet.begin(...)`.
+
+**Consecuencia:** `isReady()==false` no demuestra
+que se haya reiniciado el W5500, ni `true` demuestra
+que siga vigente la identidad del socket de antes.
+Eliminar un pending solo porque Ethernet está
+momentáneamente `NOT_READY` solucionaría un caso
+pero podría volver a crear el leak original
+tras caída de enlace sin reset. Este contrato
+debe diseñarse contra la **generación efectiva
+de los sockets**, no meramente contra la transición
+de `isReady()`.
+
+No modificar todavía APIs públicas de Ethernet:
+la forma de exponer un contador interno monotónico
+o invalidación por generación deberá revisarse
+con el ciclo de inicialización/reset W5500 y
+sus otros consumidores.
+
+---
+
 ## Semántica deliberada del resultado
 
 Si se reproduce el cierre de un socket de otro propietario,
