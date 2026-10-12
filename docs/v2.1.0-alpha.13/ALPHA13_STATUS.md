@@ -1,3 +1,50 @@
+## G9-P5 — Smoke físico COM4 preparado; microSD presente (2026-10-12)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G9_GIT_PRODUCT=CLOSED_PASS_COMMIT_63e0291a
+G9_FUNCTIONAL=IN_PROGRESS_PHYSICAL_SMOKE_PENDING
+G9_P5_SELECTED_HARDWARE=JWPLC_BASIC_COM4
+G9_P5_MICROSD_CONFIRMED_BY_OPERATOR=YES
+G9_P5_COM14=NOT_SELECTED_AND_NOT_TOUCHED
+G9_P5_SD_TEST=ROOT_DIRECTORY_FILE_READ_ONLY
+G9_P5_RTC_TEST=JWPLC_TIME_CACHED_PRESENT_VALID_LOST_POWER
+G9_P5_BUTTON_TEST=ONE_REAL_PRESS_AND_RELEASE_SAME_ID
+G9_P5_POST_TEST_HEARTBEATS=3_REQUIRED_NOT_F120_RESOLUTION
+G9_P5_CONTRACT_CI=PASS_WINDOWS_LINUX_RUN_38274903580
+G9_P5_PHYSICAL=NOT_EXECUTED
+G9_P5_UPLOAD=NOT_EXECUTED
+G9_P5_GATE=tools/alpha13/gates/run_a13_g9_p5_physical_com4.bat
+G9_P5_SKETCH=tools/alpha13/sketches/g9_p5_sd_rtc_buttons/g9_p5_sd_rtc_buttons.ino
+G9_P5_UPLOAD_AUTHORIZATION=REQUIRED_INTERACTIVELY_BEFORE_FLASH
+G9_P5_PREVIOUS_APPLICATION_RESTORE=NOT_AUTOMATED
+F120_POST_UPLOAD_FREEZE_ROOT_CAUSE=UNKNOWN_PENDING
+G10=NOT_STARTED
+OPENPLC=OUT_OF_SCOPE
+HMI_DESIGNER=OUT_OF_SCOPE
+TFT_NEW_FEATURES=OUT_OF_SCOPE
+RELEASE_MERGE_PR_PUBLICATION=NO
+```
+
+El operador confirmó microSD insertada en COM4. Se creó un
+sketch de lectura SD root con `JWPLC_SD.open("/", FILE_READ)`,
+consulta RTC mediante snapshot `JWPLC_Time`, y captura
+real de PRESS/RELEASE de la misma tecla frontal.
+El gate compilará desde producto G9 normal, verificará
+SHA del archive precompilado y exigirá confirmación
+explícita antes del upload **solo COM4**; COM14 no se usa.
+El runner no restaura firmware previo y deja evidencias
+locales. La CI de contrato [38274903580](https://github.com/JW-Control/platform-jwplc/actions/runs/38274903580)
+terminó PASS en Windows y Linux. Esto aún no es
+evidencia de hardware. Para decidir PASS físico se exige
+el log posterior a upload, RTC y directorio SD válidos,
+un botón presionado/liberado y tres heartbeats.
+
+Plan:
+[A13_G9_P5_COM4_SD_RTC_BUTTONS_EXECUTION_20261012.md](A13_G9_P5_COM4_SD_RTC_BUTTONS_EXECUTION_20261012.md).
+
+---
+
 ## Alpha13 G9 — Cierre Git CONFIRMADO; smoke periférico pendiente (2026-10-12)
 
 ```text
