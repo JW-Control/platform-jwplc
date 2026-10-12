@@ -1995,7 +1995,7 @@ Conservar `str(Path.relative_to(ROOT))` donde sea necesario para leer
 las claves del manifiesto P1/P2 ya generado en Windows. No convertir
 esas claves a mitad del flujo y romper la procedencia de hashes.
 
-**Prueba preventiva:** Linux y Windows deben ejecutar exactamente
+**Resultado del retest:** ambos jobs del workflow [38188441089](https://github.com/JW-Control/platform-jwplc/actions/runs/38188441089) pasaron el helper de índice en estado limpio y la auditoría real de tres rutas modificadas. La validación se hizo sobre checkouts efímeros; no se ha repetido todavía la adopción productiva del operador.\n\n**Prueba preventiva:** Linux y Windows deben ejecutar exactamente
 `git_index_marks()` y `audit_git_scope()` del ejecutor real en
 un checkout CI temporal, primero limpio y luego con las dos fuentes
 más el archive modificados. `CI_WINDOWS_PASS`, que todavía debe
@@ -2008,7 +2008,7 @@ F122_ROOT_CAUSE=WINDOWS_PATH_SEPARATOR_MISMATCH
 F123_ROOT_CAUSE=WINDOWS_PATH_SEPARATOR_MISMATCH
 F122_F123_NOT_PRODUCT_DEFECT=YES
 FIX=GIT_PATHS_AS_POSIX_AND_LEGACY_MANIFEST_KEYS_SEPARATE
-WIN_CI_REGRESSION=IN_PROGRESS
+WIN_CI_REGRESSION=PASS_RUN_38188441089
 WINDOWS_PRODUCT_ADOPTION=NOT_EXECUTED_SINCE_FIX
 G8=CURRENT_NOT_CLOSED
 NEXT_FAILURE_ID=F124
