@@ -52,10 +52,19 @@ def make_global_candidate(data:bytes)->bytes:
     require(src.count("g_rtcEnabled")==3,"GLOBAL_RTC_REFERENCES_CHANGED")
     require(src.count("g_buttonRefreshThrottleMs")==2,
             "GLOBAL_THROTTLE_REFERENCES_CHANGED")
+    # Git puede entregar CRLF en Windows y LF en Linux. Preservar bytes
+    # originales fuera de las cuatro ventanas de cambio, sin normalizar
+    # o reescribir el archivo completo con finales de línea distintos.
+    newline="\r\n" if "\r\n" in src else "\n"
+    require(not ("\r\n" in src and src.count("\r\n")!=src.count("\n")),
+            "GLOBAL_MIXED_NEWLINES_UNEXPECTED")
     new=src
     for original,replacement in GLOBAL_REPLACEMENTS:
-        require(new.count(original)==1,"GLOBAL_REPLACEMENT_NOT_EXACT:"+repr(original[:40]))
-        new=new.replace(original,replacement,1)
+        source_pattern=original.replace("\n",newline)
+        target_pattern=replacement.replace("\n",newline)
+        require(new.count(source_pattern)==1,
+                "GLOBAL_REPLACEMENT_NOT_EXACT:"+repr(original[:40]))
+        new=new.replace(source_pattern,target_pattern,1)
     require("g_rtcEnabled" not in new,"GLOBAL_RTC_FLAG_REMAINS")
     require("static constexpr uint32_t g_buttonRefreshThrottleMs = 25;" in new,
             "GLOBAL_THROTTLE_NOT_25_CONSTEXPR")
