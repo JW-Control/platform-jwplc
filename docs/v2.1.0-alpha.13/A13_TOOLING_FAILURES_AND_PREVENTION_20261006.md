@@ -2225,3 +2225,55 @@ F126=RESOLVED
 F127=RESOLVED
 G9_CANDIDATE_FULL_ARDUINO_BUILD=NOT_YET_EXECUTED_ON_OPERATOR_WINDOWS
 ```
+
+## F128 — G10-P1B: claves POSIX del manifiesto frente a Path Windows (2026-10-12)
+
+**Síntoma confirmado por operador:**
+
+```text
+G10_P1B_STATUS=REVIEW_STOP
+G10_P1B_REASON=KeyError('JWPLC\\2.1.0\\libraries\\JWPLC_ModbusTCP\\src\\JWPLC_ModbusTCP_Client.cpp')
+G10_P1B_RUN_ID=g10_p1b_20261012_122341_30dd9ea2
+```
+
+La ejecución ocurrió después de sincronizar HEAD `bd3dc54a`.
+Se detuvo **antes** del marcador de fuentes candidatas, sin compilar
+Arduino, modificar bibliotecas productivas ni tocar COM4/COM14.
+
+**Causa raíz verificada en código:** `G10-P0` y `G10-P1A`
+guardan las rutas de fuente de sus manifiestos como claves POSIX
+(con `/`), pero el código P1B realizaba la consulta usando
+`str(Path(...))`, que en Windows produce `\\`. Además, el
+mapa `old` se generaba con `str(path)`, lo que habría provocado
+el mismo problema en otras fases. La CI anterior usó
+`--ci-standalone`, saltándose la lectura de los
+manifiestos locales, por lo que sus PASS Windows/Linux
+**no cubrían esta ruta**.
+
+**Corrección versionada:** `repo_key(path) = path.as_posix()`
+para todas las claves del contrato y los candidatos,
+incluido el mapa `old`; extraer la comprobación
+`verify_local_provenance` común al modo local y al selftest.
+Añadir CI Windows/Linux con rutas `PureWindowsPath`/
+`PurePosixPath`, caso negativo de SHA incorrecto y
+generación íntegra de cuatro fuentes candidatas con el
+mismo código que usa el operador.
+
+**Prevención:** las claves de manifiestos y nombres de
+archivos relativos a Git deben tener representación estable
+POSIX; mantener rutas nativas solo para acceso al
+sistema de archivos. Probar **ambos modos**
+`--ci-standalone` y local-provenance antes de pedir BAT.
+La falla de harness no invalida los P0/P1A anteriores
+ni implica defecto nuevo de Modbus TCP.
+
+```text
+F128_CLASS=HARNESS_WINDOWS_POSIX_MANIFEST_KEY_MISMATCH
+G10_P1B_LOCAL=REVIEW_STOP_BEFORE_CANDIDATE
+G10_P1B_PRODUCT_CHANGED=NO
+G10_P1B_COM4_COM14_TOUCHED=NO
+G10_P0_AND_P1A_EVIDENCE=VALID
+F128_FIX=VERSIONED_REPO_KEY_AS_POSIX_AND_FULL_FLOW_SELFTEST
+F128_CI_RETEST=PENDING
+NEXT_FAILURE_ID=F129
+```
