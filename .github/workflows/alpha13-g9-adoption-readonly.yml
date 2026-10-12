@@ -1,0 +1,53 @@
+name: Alpha13 G9 - adoption read-only selftest
+
+on:
+  push:
+    branches:
+      - 'v2.1.0-alpha.13/feature/cleanup-robustness'
+    paths:
+      - '.github/workflows/alpha13-g9-adoption-readonly.yml'
+      - 'tools/alpha13/gates/a13_g9_adopt_local.py'
+      - 'tools/alpha13/gates/a13_g9_adopt_selftest.py'
+      - 'tools/alpha13/gates/run_a13_g9_adopt.bat'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  adoption-readonly:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validar sintaxis y ayuda del gate
+        shell: pwsh
+        run: |
+          python -m py_compile tools/alpha13/gates/a13_g9_adopt_local.py tools/alpha13/gates/a13_g9_adopt_selftest.py
+          python -B tools/alpha13/gates/a13_g9_adopt_local.py --help
+          if ($LASTEXITCODE -ne 0) { throw 'G9_ADOPT_HELP_FAILED' }
+      - name: Ejercitar Git exacto y escenarios negativos en repositorio temporal
+        shell: pwsh
+        run: |
+          python -B tools/alpha13/gates/a13_g9_adopt_selftest.py | Tee-Object -FilePath g9_adoption_selftest.log
+          if ($LASTEXITCODE -ne 0) { throw 'G9_ADOPTION_SELFTEST_FAILED' }
+          if ((Get-Content g9_adoption_selftest.log -Raw) -notmatch 'G9_ADOPT_SELFTEST=PASS_NO_PRODUCT_MUTATION') { throw 'G9_ADOPTION_SELFTEST_MARKER_MISSING' }
+      - name: Confirmar producto intacto
+        shell: pwsh
+        run: |
+          git diff --exit-code
+          if ($LASTEXITCODE -ne 0) { throw 'G9_ADOPTION_TEST_MUTATED_PRODUCT' }
+      - name: Guardar evidencia
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alpha13-g9-adopt-selftest-${{ matrix.os }}-${{ github.run_id }}
+          path: g9_adoption_selftest.log
+          if-no-files-found: warn
