@@ -500,7 +500,7 @@ def main():
         for path in TARGETS:
             f=ROOT/path
             need(f.is_file(),"FILE_MISSING_"+str(path))
-            old[str(path)]=f.read_bytes().decode("utf-8-sig")
+            old[repo_key(path)]=f.read_bytes().decode("utf-8-sig")
         if not args.ci_standalone:
             local=ROOT/"tools/alpha13/results"/P0_ID/"MANIFEST.json"
             repro_local=ROOT/"tools/alpha13/results"/P1A_ID/"MANIFEST.json"
