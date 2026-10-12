@@ -2151,3 +2151,31 @@ F125_FIX=VERSIONED_SOURCE_OFFSET_REVERSIBILITY
 F125_CI_RETEST=PENDING
 NEXT_FAILURE_ID=F126
 ```
+
+## F126 — G9: ayuda de runner Python con símbolo no codificable en Windows (2026-10-11)
+
+**Síntoma:** `--help` del ejecutor de candidatos
+`a13_g9_p2p3_candidate.py` en el runner Windows falló en
+[CI 38205242003](https://github.com/JW-Control/platform-jwplc/actions/runs/38205242003),
+mientras Linux completó el contrato de fuentes con PASS.
+`UnicodeEncodeError: 'charmap' codec can't encode character '\\u2192'`.
+
+**Causa demostrada:** la descripción del comando incluía una
+flecha Unicode `→`. El Python del runner Windows tenía una salida
+de consola que no podía codificarla en el paso `--help`.
+No llegó a compilar ni tocar librerías.
+
+**Corrección y prevención:** usar ASCII en la descripción
+CLI del runner, conservando la documentación española UTF-8.
+Probar sintaxis y `--help` **en ambos sistemas** antes de
+pedir el BAT al operador; no generalizar el PASS Linux a Windows.
+
+```text
+F126_CLASS=HARNESS_WINDOWS_CONSOLE_ENCODING
+PRODUCT_FAILURE=NO
+PRODUCT_MUTATION=NONE
+G9_P2P3_CANDIDATE_BUILD=NOT_YET_EXECUTED_BY_OPERATOR
+F126_FIX=CLI_ASCII_DESCRIPTION_VERSIONED
+F126_CI_RETEST=PENDING
+NEXT_FAILURE_ID=F127
+```
