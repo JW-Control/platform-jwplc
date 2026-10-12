@@ -7,6 +7,8 @@ on:
     paths:
       - '.github/workflows/alpha13-g8-git-index-readonly.yml'
       - 'tools/alpha13/gates/a13_g8_git_index_diagnostic.py'
+      - 'tools/alpha13/gates/a13_g8_index_contract_selftest.py'
+      - 'tools/alpha13/gates/a13_g8_adopt_local.py'
       - 'tools/alpha13/gates/run_a13_g8_git_index_diagnostic.bat'
   workflow_dispatch:
 
@@ -41,6 +43,10 @@ jobs:
           if (-not $m.all_expected_head) { throw "HEAD_PATHS_UNRECOGNIZED" }
           if (-not $m.clean) { throw "GIT_DIRTY" }
           Write-Host "G8_D0_CI_GIT_INDEX=PASS"
+      - name: Probar helper real de adopcion con tres cambios en checkout efimero
+        run: |
+          python -m py_compile tools/alpha13/gates/a13_g8_index_contract_selftest.py tools/alpha13/gates/a13_g8_adopt_local.py
+          python -B tools/alpha13/gates/a13_g8_index_contract_selftest.py
       - name: Guardar diagnostico
         if: always()
         uses: actions/upload-artifact@v4
