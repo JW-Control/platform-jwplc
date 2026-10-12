@@ -1,3 +1,51 @@
+## G8 — D0 confirma Git limpio; F122/F123 por rutas Windows resueltos en harness (2026-10-11)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G7C=CLOSED_PASS
+G8_P0=CLOSED_PASS_READ_ONLY
+G8_P1P2=CANDIDATE_BUILD_PASS_PRODUCT_UNCHANGED
+G8_D0_RUN_ID=g8_d0_20261011_192744_4cb40613
+G8_D0_CLEAN=True
+G8_D0_INDEX_TRACKS_ALL=True
+G8_D0_INDEX_FLAGS=H_H_H
+F122_ROOT_CAUSE=WINDOWS_PATH_BACKSLASH_VS_GIT_POSIX_SLASH
+F123_ROOT_CAUSE=WINDOWS_PATH_BACKSLASH_VS_GIT_POSIX_SLASH
+G8_GIT_SCOPE_FIX=PATH_RELATIVE_TO_ROOT_AS_POSIX
+G8_OLD_P1P2_MANIFEST_KEYS=WINDOWS_LEGACY_PRESERVED
+G8_GIT_SCOPE_SELFTEST_WIN_LINUX=PASS_RUN_38188441089
+G8_ADOPTION_PRODUCT_WINDOWS=NOT_YET_RETRIED_AFTER_FIX
+G8_PRODUCT_COMMIT=NO
+G8_PHYSICAL_RS485=NOT_EXECUTED_PENDING_DECISION
+A13-010=CANDIDATE_VALIDATED_NOT_ADOPTED
+A13-011=CANDIDATE_VALIDATED_NOT_ADOPTED
+G8=IN_PROGRESS_NOT_CLOSED
+NEXT_GATE=RUN_G8_ADOPTION_RETRY_WITH_VERSIONED_BAT
+RELEASE_MERGE_PR_PUBLICATION=NO
+```
+
+El D0 del operador confirma que Git sí rastrea las tres rutas
+en HEAD con marcas H y worktree limpio. Una prueba CI Windows
+del mismo helper reprodujo el falso negativo:
+las rutas generadas por `str(Path.relative_to(ROOT))` usaban
+backslash y las rutas de Git, slash. Se corrigió la
+comparación a `Path.relative_to(ROOT).as_posix()` para
+Git **sin transformar las claves heredadas del manifiesto P1/P2
+generado en Windows**. El test del helper real con los tres
+archivos modificados pasó en
+[CI 38188441089](https://github.com/JW-Control/platform-jwplc/actions/runs/38188441089)
+tanto Linux como Windows. Los intentos anteriores restauraron
+correctamente producto o se detuvieron antes de adoptar.
+No se considera G8 cerrado por esto: requiere adopción
+productiva con compilaciones reales, revisión de prueba
+física y commit exacto fuente/archive.
+
+Registro de fallos:
+[A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md](A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md),
+F122 y F123 con reconciliación posterior.
+
+---
+
 ## G8 — Segundo intento: índice Git no reconocido en PREFLIGHT (2026-10-11)
 
 ```text
