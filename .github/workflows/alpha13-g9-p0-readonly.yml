@@ -22,8 +22,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     steps:
-      - name: Descargar repo
+      - name: Descargar repo con historial para comprobar ancestros Git
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Preparar Python
         uses: actions/setup-python@v5
         with:
