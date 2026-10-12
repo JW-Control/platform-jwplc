@@ -125,6 +125,85 @@ desde `loop()`. Las APIs directas están publicadas en
 `jwplcSPI_acquire()`; no se debe presentar como adquisición
 automática del mutex JWPLC.
 
+## 3A. Enumeración de entradas inferiores con acceso directo
+
+El propósito de la lista es permitir una revisión método por método.
+Se indica la función, no se afirma que cada una sea un bug: la
+ausencia de adquisición **local** puede ser intencional cuando
+el llamador protege correctamente el recorrido.
+
+### EthernetClient.cpp — 24/34 accesos directos sin lock local
+
+| Métodos detectados (sobrecargas separadas) |
+|---|
+| `connect(const char*,uint16_t)`, `beginConnectAsync()`, `pollConnectAsync()`, `connectAsyncInProgress()`, `cancelConnectAsync()` |
+| `availableForWrite()`, `write(const uint8_t*,size_t)`, `pollWriteAsync()`, `cancelWriteAsync()` |
+| `available()`, `read(uint8_t*,size_t)`, `jwplcReadTcpFastDeferred()`, `jwplcCommitRxFast()`, `peek()`, `read()` |
+| `pollFlushAsync()`, `beginStopAsync()`, `pollStopAsync()`, `cancelStopAsync()` |
+| `connected()`, `status()`, `localPort()`, `remoteIP()`, `remotePort()` |
+
+Las otras diez definiciones no contienen acceso explícito al
+backend/SPI en el cuerpo, pero varias delegan a las anteriores
+(por ejemplo `stop()`, `flush()` y `connect(IPAddress,...)`).
+Por tanto, **24** no es la cantidad de entradas públicas
+a proteger tras el análisis completo de call graph.
+
+### EthernetServer.cpp — 5/6 accesos directos sin lock local
+
+`begin()`, `available()`, `accept()`,
+`statusreport()` y `write(const uint8_t*,size_t)`.
+`write(uint8_t)` delega a otra función y también
+debe incluirse en la evaluación de rutas públicas.
+
+### EthernetUdp.cpp — 14/20 accesos directos sin lock local
+
+`begin()`, `stop()`, `beginPacket(const char*,uint16_t)`,
+`beginPacket(IPAddress,uint16_t)`, `beginEndPacketAsync()`,
+`pollEndPacketAsync()`, `write(const uint8_t*,size_t)`,
+`parsePacket()`, `jwplcReadPacketFastDeferred()`,
+`jwplcCommitRxFast()`, `read(uint8_t*,size_t)`,
+`read()`, `peek()`, `beginMulticast()`.
+
+Otras funciones como `endPacket()` y
+`write(uint8_t)` delegan indirectamente.
+
+### socket.cpp — 20/26 accesos directos sin lock local
+
+`socketBegin()`, `socketBeginMulticast()`,
+`socketStatus()`, `socketClose()`,
+`socketListen()`, `socketConnect()`,
+`socketDisconnect()`, `socketCommitTCPFast()`,
+`socketRecvUDPFastDeferred()`, `socketCommitUDPFast()`,
+`socketRecvAvailable()`, `socketPeek()`,
+`socketSend()`, `socketBeginSendTCP()`,
+`socketPollSendTCP()`, `socketSendAvailable()`,
+`socketBufferData()`, `socketStartUDP()`,
+`socketBeginSendUDP()`, `socketPollSendUDP()`.
+
+Los wrappers como `socketRecv()`,
+`socketRecvTCPFastDeferred()`, `socketSendUDP()`
+también deben rastrearse indirectamente; 20 no cubre todas
+las operaciones efectivas del módulo.
+
+### JWPLC_W5x00_Ethernet.cpp — 18/22 accesos directos sin lock local
+
+`begin(uint8_t*,unsigned long,unsigned long)`,
+`beginDHCPAsync()`, `pollDHCP()`,
+`begin(uint8_t*,IPAddress,IPAddress,IPAddress,IPAddress)`,
+`init()`, `linkStatus()`, `hardwareStatus()`,
+`maintain()`, `MACAddress()`, `localIP()`,
+`subnetMask()`, `gatewayIP()`, `setMACAddress()`,
+`setLocalIP()`, `setSubnetMask()`,
+`setGatewayIP()`, `setRetransmissionTimeout()`,
+`setRetransmissionCount()`.
+
+**Próximo gate antes del candidato:** construir una matriz
+`llamador -> mutex adquirido -> función -> socket -> finalización`
+para cada entrada, incluidos métodos delegados y resets.
+Es prematuro afirmar que `81/81` «necesitan agregar mutex».
+Se necesita una estrategia central sin doble adquisición y
+evidencia de coverage completa.
+
 ## 4. Qué sí se valida y qué no
 
 **Sí:** partes importantes del runtime Ethernet y el protocolo
