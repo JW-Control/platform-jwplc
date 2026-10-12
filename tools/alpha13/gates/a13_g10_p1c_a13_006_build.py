@@ -294,6 +294,60 @@ def selftest():
     try:verify_lib(sample,TMP/"wrong" if TMP else ROOT/"wrong","NEGATIVE")
     except RuntimeError:pass
     else:raise RuntimeError("BAD_TCP_LIBRARY_SELECTED_ACCEPTED")
+    # F129: ejecutar exactamente verify_source_build sobre artefactos sinteticos.
+    # El antiguo gate buscaba una ruta absoluta dentro de -v y generó falso
+    # negativo pese a compilar Server y encontrar ambos objetos .cpp.o.
+    need(normalize_compiler_path_text(
+         "C:\\JWPLC Control\\JWPLC_ModbusTCP\\src\\JWPLC_ModbusTCP_Client.cpp"
+         )=="c:/jwplc control/jwplc_modbustcp/src/jwplc_modbustcp_client.cpp",
+         "WINDOWS_COMPILER_PATH_NORMALIZATION_BAD")
+    need(normalize_compiler_path_text(
+         "C\\:/JWPLC\\ Control/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP.cpp"
+         )=="c:/jwplc control/jwplc_modbustcp/src/jwplc_modbustcp.cpp",
+         "GCC_MAKE_ESCAPES_NORMALIZATION_BAD")
+    with tempfile.TemporaryDirectory(prefix="jwplc_p1c_f129_") as temp:
+        root=Path(temp)
+        build=root/"build"
+        folder=root/"source with spaces"/"JWPLC_ModbusTCP"
+        depfiles=[]
+        objs=[]
+        for name in ["JWPLC_ModbusTCP_Client.cpp","JWPLC_ModbusTCP.cpp"]:
+            obj=build/"libraries"/"JWPLC_ModbusTCP"/(name+".o")
+            obj.parent.mkdir(parents=True,exist_ok=True)
+            obj.write_bytes(b"synthetic ELF for contract test\n"+name.encode())
+            dep=obj.with_suffix(".d")
+            # GCC -MMD dependency output: no parser dependence on -v log.
+            source=str((folder/"src"/name).resolve()).replace("\\", "/")
+            dep.write_text(str(obj)+": "+source.replace(" ", "\\ ")+
+                           " \\\n "+str(folder/"src"/"JWPLC_ModbusTCP.h")+"\n",
+                           encoding="utf-8")
+            objs.append(obj)
+            depfiles.append(dep)
+        proof=verify_source_build("verbose CLI path might be relative",
+                                  build,folder,"SELFTEST_F129")
+        need(len(proof)==4, "F129_SELFTEST_NOT_TWO_OBJECTS_TWO_DEPFILES")
+        depfiles[0].write_text(
+            "object: "+str(root/"other_library"/"src"/
+                            "JWPLC_ModbusTCP_Client.cpp")+"\n",
+            encoding="utf-8")
+        try:
+            verify_source_build("compiler log omitted absolute source",
+                                build,folder,"NEGATIVE_WRONG_SOURCE")
+        except RuntimeError as exc:
+            need("TCP_COMPILE_DEPENDENCY_WRONG_SOURCE_" in str(exc),
+                 "WRONG_SOURCE_NOT_REJECTED_STRICTLY")
+        else:
+            raise RuntimeError("UNRELATED_LIBRARY_DEPENDENCY_ACCEPTED")
+        depfiles[0].unlink()
+        try:
+            verify_source_build("compiler log omitted absolute source",
+                                build,folder,"NEGATIVE_MISSING_DEPFILE")
+        except RuntimeError as exc:
+            need("TCP_OBJECT_DEPENDENCY_FILE_MISSING_OR_DUPLICATED_" in str(exc),
+                 "MISSING_DEPENDENCY_NOT_REJECTED_STRICTLY")
+        else:
+            raise RuntimeError("MISSING_DEPENDENCY_ACCEPTED")
+    emit("SELFTEST_F129","PASS_MMD_DEPENDENCY_POSITIVE_AND_NEGATIVES")
     emit("SELFTEST","PASS_SCOPE_SOURCE_LIBRARY_NEGATIVE")
 def main():
     global OUT,TMP
