@@ -2390,3 +2390,24 @@ positivo y dos rechazos negativos (source ajeno y
 `.d` ausente), además del selftest de selección de
 bibliotecas. Todavía **no** se ha repetido P1C con
 las cuatro compilaciones reales en Windows.
+
+## Retest final F129 con formato GCC .cpp.o.d — CI PASS (2026-10-12)
+
+La ampliación de la prueba del gate para cubrir explícitamente
+`JWPLC_ModbusTCP_Client.cpp.o.d` y `JWPLC_ModbusTCP.cpp.d`
+ha concluido **PASS Windows y Linux**:
+[CI 38293904677](https://github.com/JW-Control/platform-jwplc/actions/runs/38293904677).
+
+Esta CI prueba el **contrato del harness**, los casos
+negativos y la integridad del checkout; **no** ejecuta
+Arduino CLI del operador ni valida todavía los cuatro
+builds de P1C. Conservar
+`g10_p1c_20261012_134431_10e91e4c` como evidencia
+del primer `REVIEW_STOP`.
+
+```text
+F129=RESOLVED_CI_CONTRACT
+F129_CI_FINAL=PASS_WINDOWS_LINUX_RUN_38293904677
+G10_P1C_LOCAL_RETEST=NOT_YET_EXECUTED
+G10_P1C_PRODUCT_ADOPTION=NONE
+```
