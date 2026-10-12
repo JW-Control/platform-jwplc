@@ -8,6 +8,10 @@ on:
       - '.github/workflows/alpha13-g8-candidate-native.yml'
       - 'tools/alpha13/gates/a13_g8_source_selftest.py'
       - 'tools/alpha13/gates/a13_g8_p1_p2_candidate.py'
+      - 'tools/alpha13/gates/a13_g8_adopt_local.py'
+      - 'tools/alpha13/gates/run_a13_g8_adopt.bat'
+      - 'JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/src/JWPLC_ModbusRTU.cpp'
+      - 'JWPLC/2.1.0/libraries/JWPLC_RS485/src/JWPLC_RS485.cpp'
       - 'tools/alpha13/gates/run_a13_g8_p1_p2_candidate.bat'
       - 'tools/alpha13/candidates/g8/**'
   workflow_dispatch:
@@ -28,16 +32,30 @@ jobs:
           set -euo pipefail
           python3 -m py_compile tools/alpha13/gates/a13_g8_source_selftest.py
           python3 -m py_compile tools/alpha13/gates/a13_g8_p1_p2_candidate.py
+          python3 -m py_compile tools/alpha13/gates/a13_g8_adopt_local.py
+          python3 -B tools/alpha13/gates/a13_g8_adopt_local.py --help
           python3 -B tools/alpha13/gates/a13_g8_p1_p2_candidate.py --help
           python3 -B tools/alpha13/gates/a13_g8_source_selftest.py --native-cxx "$(command -v g++)" --require-native | tee g8_native.log
           grep -qx 'G8_SOURCE_CONTRACT=PASS' g8_native.log
           grep -qx 'G8_HARDWARESERIAL_BOOL_CORE_CONTRACT=PASS' g8_native.log
           grep -qx 'G8_NATIVE_TOTAL_CASES=20' g8_native.log
           grep -qx 'G8_NATIVE_CPP=PASS_ACTUAL_EXTRACTED_BRANCHES' g8_native.log
+      - name: Simular la adopcion de ambas fuentes en CI
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp tools/alpha13/candidates/g8/JWPLC_ModbusRTU.cpp JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/src/JWPLC_ModbusRTU.cpp
+          cp tools/alpha13/candidates/g8/JWPLC_RS485.cpp JWPLC/2.1.0/libraries/JWPLC_RS485/src/JWPLC_RS485.cpp
+          python3 -B tools/alpha13/gates/a13_g8_source_selftest.py --native-cxx "$(command -v g++)" --require-native | tee g8_native_adopted.log
+          grep -qx 'G8_SOURCE_STATE=ADOPTED_EXACT_CANDIDATE' g8_native_adopted.log
+          grep -qx 'G8_NATIVE_TOTAL_CASES=20' g8_native_adopted.log
+          grep -qx 'G8_NATIVE_CPP=PASS_ACTUAL_EXTRACTED_BRANCHES' g8_native_adopted.log
       - name: Guardar evidencia incluso ante fallo
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: alpha13-g8-native-${{ github.run_id }}
-          path: g8_native.log
+          path: |
+            g8_native.log
+            g8_native_adopted.log
           if-no-files-found: warn
