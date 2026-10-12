@@ -81,7 +81,6 @@ def main():
         m.call("add","--",*sorted(need))
         require(m.gp("diff","--cached","--name-only")==need and
                 not m.gp("diff","--name-only"),"STAGED_SCOPE_WRONG")
-        m.call("commit","-c","user.name=JWPLC CI") if False else None
         git(m.ROOT,"-c","user.name=JWPLC CI",
             "-c","user.email=ci@example.invalid","commit","-qm","test candidate")
         require(m.gp("diff-tree","--no-commit-id","--name-only",
