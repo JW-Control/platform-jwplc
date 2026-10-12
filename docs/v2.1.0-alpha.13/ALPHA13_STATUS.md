@@ -1,3 +1,57 @@
+## Alpha13 G10 — P1B Windows PASS; P1C build Arduino preparado (2026-10-12)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G9_FINAL=CLOSED_PASS_WITH_EXPLICIT_COVERAGE_LIMITS
+G10_P0_WINDOWS=BASELINE_CAPTURED_REVIEW_FINDINGS_OPEN
+G10_P1A_WINDOWS=SOURCE_CONTRACT_PASS_NATIVE_NOT_RUN
+G10_P1B_WINDOWS_RUN_ID=g10_p1b_20261012_124640_8458554e
+G10_P1B_WINDOWS_STATUS=CANDIDATE_SOURCE_CONTRACT_PASS_NATIVE_NOT_RUN
+F128=RESOLVED_AFTER_WINDOWS_LOCAL_RETEST
+G10_P1B_NATIVE_CI=PASS_WINDOWS_LINUX_RUN_38284253191
+G10_P1C_CONTRACT_CI=PASS_WINDOWS_LINUX_RUN_38287866687
+G10_P1C_NEXT_GATE=tools/alpha13/gates/run_a13_g10_p1c_a13_006_build.bat
+G10_P1C_BASELINE_TCP_SERVER=NOT_YET_COMPILED_LOCALLY
+G10_P1C_BASELINE_TCP_CLIENT=NOT_YET_COMPILED_LOCALLY
+G10_P1C_CANDIDATE_TCP_SERVER=NOT_YET_COMPILED_LOCALLY
+G10_P1C_CANDIDATE_TCP_CLIENT=NOT_YET_COMPILED_LOCALLY
+G10_P1C_PRODUCT_ADOPTION=NONE
+G10_P1C_HARDWARE_UPLOAD=NONE
+A13-006=ADOPT_CONFIRMED_REPRO_FIX_PENDING
+A13-006_TASK_RESET_W5500_EDGE_CASES=NOT_YET_VALIDATED
+A13-007=REVIEW_OPEN
+A13-008=REVIEW_OPEN
+A13-015=ADOPT_PENDING
+A13-016=ADOPT_PENDING
+A13-018=ADOPT_PENDING
+G10_FINAL=NOT_CLOSED
+F120_POST_UPLOAD_FREEZE_ROOT_CAUSE=UNKNOWN_PENDING
+RELEASE_PR_MERGE_PUBLICATION=NO
+```
+
+El usuario ejecutó P1B nuevamente en el Windows del operador
+tras corregir F128 y obtuvo los cuatro candidatos de fuente
+`PASS_FOUR_PRIVATE_CANDIDATES`, estado
+`CANDIDATE_SOURCE_CONTRACT_PASS_NATIVE_NOT_RUN`.
+Se preserva el resultado fallido anterior como evidencia del
+defecto del harness, ya cerrado.
+
+El nuevo P1C comprobará **cuatro compilaciones reales**
+con Arduino CLI del operador: TCP Server y Client del producto
+original y los dos ejemplos usando overlay aislado de fuentes
+P1B. Exigirá selección de librería, objetos C++ Client/Server,
+enlace core JWPLC Basic, cinco archives congelados, hashes
+de candidatos, Git limpio y manifests locales previos.
+La CI del harness [38287866687](https://github.com/JW-Control/platform-jwplc/actions/runs/38287866687)
+pasó Windows y Linux (selftest, no build Arduino).
+No declarar `A13-006=CLOSED_PASS` ni adoptar producto
+antes de verificar corrección de flujos begin/end/task/fail,
+reconexión, reset del W5500 y reutilización de socket.
+
+Detalle: [A13_G10_P1C_ARDUINO_OVERLAY_EXECUTION_20261012.md](A13_G10_P1C_ARDUINO_OVERLAY_EXECUTION_20261012.md).
+
+---
+
 ## Alpha13 G10 — F128 Windows P1B corregido, CI PASS; operador pendiente (2026-10-12)
 
 ```text
