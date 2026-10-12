@@ -1,3 +1,54 @@
+## G9-P2/P3 — Adopción producto local PASS, commit controlado pendiente (2026-10-12)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G8_FINAL=CLOSED_PASS_WITH_EXPLICIT_COVERAGE_LIMITS
+G9_P0=CLOSED_PASS_READ_ONLY
+G9_P1_A13-017=CLOSED_PASS_DOC_ONLY
+G9_P2_A13-012=PRODUCT_ADOPTED_BUILD_PASS_PENDING_COMMIT
+G9_P3_A13-014=PRODUCT_ADOPTED_BUILD_PASS_PENDING_COMMIT
+G9_PRODUCT_ADOPTION_RUN=g9_adopt_20261012_101458_1e395a6e
+G9_ADOPTION_PREFLIGHT=PASS
+G9_ADOPTION_BACKUP=PASS
+G9_ADOPTION_SCOPE=PASS_EXACT_THREE_PRODUCT_PATHS
+G9_ADOPTION_REGRESSIONS=PASS_4_OF_4
+G9_ADOPTION_FINAL_AUDIT=PASS
+G9_ADOPTION_ARCHIVE_SHA256=58e86fdf31c9bf94204fcbcf7462656fd9f4d9a7d73bff35bd660dbff538b89e
+G9_PRODUCT_COMMIT=NONE
+G9_PRODUCT_GIT_CLOSURE_RUNNER=tools/alpha13/gates/run_a13_g9_git_close.bat
+G9_GIT_CLOSURE_CI=PASS_WINDOWS_LINUX_RUN_38270082029
+G9_PHYSICAL_SD_RTC_BUTTONS=NOT_EXECUTED
+G9_FINAL=IN_PROGRESS
+G10_FINAL=PENDING
+F120_POST_UPLOAD_FREEZE_ROOT_CAUSE=UNKNOWN_PENDING
+RELEASE_PR_MERGE_PUBLICATION=NO
+```
+
+El operador realizó la adopción local real de los tres cambios
+de producto. Se respaldaron y verificaron los originales,
+el archive SD es el nuevo `58e86fdf...` y los cuatro
+ejemplos compilaron con la selección productiva normal
+y `-lJW_SD` exacto. Git quedó con exactamente las tres
+rutas permitidas modificadas, índice sin stage.
+**Todavía no hay commit ni push del producto G9**.
+
+Se versionó el cierre Git controlado, sin recompilar o
+acceder al hardware, con verificación de manifests
+P0/candidato/adopción, SHA de backups y blobs HEAD,
+triple scope y push. Su autoprueba read-only pasó
+en [Windows y Linux CI 38270082029](https://github.com/JW-Control/platform-jwplc/actions/runs/38270082029).
+El operador solo debe hacer `git pull --ff-only` de las
+herramientas y ejecutar el BAT de cierre, **sin cambiar
+manual ni staged los tres archivos**.
+
+Evidencia:
+[A13_G9_PRODUCT_ADOPTION_PASS_20261012.md](A13_G9_PRODUCT_ADOPTION_PASS_20261012.md).
+No declarar G9 `CLOSED_PASS` hasta cierre Git y
+decisión explícita de cobertura física o riesgo
+residual; Alpha13 permanece en progreso.
+
+---
+
 ## G9-P2/P3 — candidato compilado PASS en Windows, adopción preparada (2026-10-12)
 
 ```text
