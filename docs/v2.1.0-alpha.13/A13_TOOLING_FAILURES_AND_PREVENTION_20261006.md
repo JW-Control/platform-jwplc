@@ -2179,3 +2179,36 @@ F126_FIX=CLI_ASCII_DESCRIPTION_VERSIONED
 F126_CI_RETEST=PENDING
 NEXT_FAILURE_ID=F127
 ```
+
+## F127 — G9: contrato de reemplazos fuente dependía de LF en Windows (2026-10-11)
+
+**Síntoma:** el tercer intento de CI G9 de contrato fuente,
+[run 38205311929](https://github.com/JW-Control/platform-jwplc/actions/runs/38205311929),
+pasó en Linux y falló en Windows con
+`GLOBAL_REPLACEMENT_NOT_EXACT` sobre el comentario de RTC.
+
+**Causa demostrada:** `JWPLC_GlobalPeripherals.cpp` llegó al
+checkout Windows con finales de línea `CRLF`, pero las cadenas
+de transformación esperaban exclusivamente `LF`. No corresponde
+normalizar todo el archivo al parchearlo porque eso generaría
+un diff masivo y ocultaría la limpieza real.
+
+**Corrección:** detectar el formato de final de línea del archivo,
+rechazar mezclas anómalas y construir los patrones exactos con
+su formato original. Aplicar únicamente las cuatro sustituciones
+de texto A13-014, conservando los bytes no relacionados. El
+control de diff y de RTC/botonera se mantiene estricto.
+
+**Prevención:** para ediciones textuales de fuentes Arduino
+en Windows/Linux, hacer pruebas de contrato en ambas plataformas
+y conservar el estilo LF/CRLF de entrada.
+
+```text
+F127_CLASS=HARNESS_TEXT_EOL_PORTABILITY
+PRODUCT_FAILURE=NO
+GLOBALPERIPHERALS_PRODUCT_MODIFIED=NO
+G9_PRODUCT_COMMIT=NONE
+F127_FIX=EOL_PRESERVING_EXACT_REPLACEMENTS
+F127_CI_RETEST=PENDING
+NEXT_FAILURE_ID=F128
+```
