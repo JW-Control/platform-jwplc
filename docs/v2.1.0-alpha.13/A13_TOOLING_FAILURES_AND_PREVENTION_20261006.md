@@ -2310,3 +2310,74 @@ G10_P1B_PRODUCT_ADOPTION=NONE
 No se debe interpretar la corrección del harness F128 como
 resolución de A13-006. El segundo gate de build P1C compilará
 Client y Server contra los candidatos, sin modificar producto.
+
+## F129 — G10-P1C: falso negativo de procedencia de compilación TCP (2026-10-12)
+
+**Salida reportada por el operador, Windows (sin editar producto):**
+
+```text
+G10_P1C_PHASE=PREFLIGHT_PASS
+G10_P1C_PHASE=OVERLAY_PASS
+G10_P1C_COMPILE_BASELINE_SERVER_EXIT=0
+G10_P1C_STATUS=REVIEW_STOP
+G10_P1C_REASON=RuntimeError('TCP_COMPILE_INPUT_NOT_CORRECT_FOLDER_BASELINE_SERVER_JWPLC_ModbusTCP_Client.cpp')
+G10_P1C_RUN_ID=g10_p1c_20261012_134431_10e91e4c
+```
+
+**Diagnóstico del gate:** el primer ejemplo Modbus TCP Server
+compiló con salida Arduino CLI 0 y el verificador llegó
+más allá de selección de biblioteca, comprobación de core
+y presencia de ambos archivos `.cpp.o`.
+Falla únicamente la búsqueda de la ruta absoluta del
+`.cpp` dentro del texto verbose `-v`. Ese texto no
+garantiza conservar la ruta exactamente en la
+representación calculada por `Path.resolve()`;
+el log local completo del operador no se descargó
+para demostrar cuál formato alternativo utilizó.
+**No declarar fallo del compilador ni de A13-006
+a partir de esta excepción**. Tampoco declarar
+todavía los builds restantes PASS: no fueron ejecutados.
+
+**Corrección del contrato F129:** sustituir la búsqueda
+de texto en `arduino-cli -v` por una comprobación de
+los dos archivos `.cpp.o` realmente creados y sus
+respectivos archivos de dependencias `.cpp.d`
+de GCC `-MMD`, habilitado en el `platform.txt`
+JWPLC, validando que cada archivo de dependencias
+identifique el source `JWPLC_ModbusTCP/src/<archivo>.cpp`.
+Conservar la comprobación independiente de librería
+exacta `Using library...`, el enlace al core JWPLC
+precompilado, cuatro compilaciones y hashes de
+los cinco archives congelados. No aceptar resultados
+a partir de un archivo `.o` aislado sin dependencias.
+
+**Pruebas añadidas:** fixture sintético en ambos sistemas
+con ruta Windows de backslash, escapes Make/GCC,
+rutas con espacios, dos objetos y dependencias,
+más negativos de source ajeno y archivo `.d` ausente.
+CI no sustituye los cuatro builds reales Arduino.
+Si una instalación concreta no genera `.d`, marcar
+`REVIEW_STOP` y estudiar su `platform.txt`/log;
+no silenciar esa prueba.
+
+**Prevención:** un PASS de selftest sin ejecución de
+la rama que falló no acredita un verificador de
+procedencia. Preferir artefactos estructurados del
+compilador por encima del formato humano de `-v`.
+Registrar por separado el resultado del compilador,
+la selección de biblioteca y el resultado de la
+auditoría de procedencia.
+
+```text
+F129_CLASS=HARNESS_FALSE_NEGATIVE_COMPILE_SOURCE_PROVENANCE
+F129_TRIGGER=ARDUINO_VERBOSE_ABSOLUTE_CPP_PATH_ASSUMPTION
+G10_P1C_FIRST_BASELINE_SERVER_COMPILE_EXIT=0
+G10_P1C_FIRST_GATE=REVIEW_STOP
+G10_P1C_REMAINING_THREE_BUILDS=NOT_EXECUTED
+G10_P1C_PRODUCT_CHANGED=NO
+G10_P1C_UPLOAD=NO
+F129_FIX=VERSIONED_GCC_MMD_OBJECT_DEPENDENCY_PROVENANCE
+F129_CI_RETEST=IN_PROGRESS
+G10_P1C_LOCAL_RETEST=AWAITING_OPERATOR
+NEXT_FAILURE_ID=F130
+```
