@@ -1,3 +1,66 @@
+## Alpha13 G10 — P1D local PASS; P1E baseline generaciones CI PASS (2026-10-12)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G9_FINAL=CLOSED_PASS_WITH_EXPLICIT_COVERAGE_LIMITS
+G10_P1C_WINDOWS_RUN=g10_p1c_20261012_140152_a7211c08
+G10_P1C=PASS_FOUR_ARDUINO_BASELINE_CANDIDATE_BUILDS
+G10_P1D_WINDOWS_RUN=g10_p1d_20261012_141926_035d46be
+G10_P1D_LOCAL=SOURCE_CONTRACT_PASS_NATIVE_NOT_RUN_ADOPTION_BLOCKED
+G10_P1D_NATIVE_CI=PASS_WINDOWS_LINUX_RUN_38296384365
+G10_P1D_REUSE_RISK=REPRODUCED_IN_NATIVE_MOCK_NOT_PHYSICAL
+A13-006=ADOPT_CONFIRMED_FIX_REVISION_REQUIRED
+G10_P1E_CI=PASS_WINDOWS_LINUX_RUN_38297416611
+G10_P1E_READONLY_SOURCE_CONTRACT=TEN_PATTERNS_AND_NEGATIVE_PASS
+G10_P1E_PHYSICAL_RESET_OPTIONAL=TRUE
+G10_P1E_W5100_INIT_HAS_STATIC_GUARD=TRUE
+G10_P1E_ISREADY_ONLY_BOOL=TRUE
+G10_P1E_LINK_OFF_CAN_SET_NOT_READY=TRUE
+G10_P1E_RUNTIME_GENERATION_EXPOSED=NO
+G10_P1E_FROZEN_ARCHIVES=5
+G10_P1E_LOCAL_WINDOWS=NOT_YET_EXECUTED
+G10_P1E_NEXT_GATE=tools/alpha13/gates/run_a13_g10_p1e_ethernet_generation_readonly.bat
+G10_P1E_PRODUCT_CHANGE=NONE
+G10_P1E_HARDWARE_UPLOAD=NONE
+A13-007=REVIEW_OPEN
+A13-008=REVIEW_OPEN
+A13-015=ADOPT_PENDING
+A13-016=ADOPT_PENDING
+A13-018=ADOPT_PENDING
+G10_FINAL=NOT_CLOSED
+F120_POST_UPLOAD_FREEZE_ROOT_CAUSE=UNKNOWN_PENDING
+COM4_FIRMWARE=G9_DIAGNOSTIC_NOT_RESTORED
+COM14_FIRMWARE=G8_DIAGNOSTIC_NOT_RESTORED
+RELEASE_PR_MERGE_PUBLICATION=NO
+```
+
+El operador confirmó P1D local PASS, que
+solo comprueba procedencia del candidato con
+seis funciones. La CI nativa P1D ya había
+reproducido bajo mocks el cierre erróneo de
+un índice de socket perteneciente a otra
+conexión tras reset simulado. Se mantiene
+A13-006 **BLOQUEADO para adopción**.
+
+El inventario de fuente P1E concluyó
+[CI PASS Win/Linux 38297416611](https://github.com/JW-Control/platform-jwplc/actions/runs/38297416611).
+Se verificaron 10 patrones de fuente y negativos:
+`JWPLC_Ethernet.isReady()` únicamente expone
+`_ready` y puede estar falso por caída de enlace,
+`probeHardware()` utiliza reset físico condicionado
+por pin, y `W5100.init()` tiene una guarda `initialized`.
+Por tanto ni `isReady()` ni contar solo init() sirven
+como generación única de socket. Un cambio de
+producto requerirá contrato de generación y
+pruebas de dos dueños + reset/link + contención,
+sin romper las APIs.
+
+Siguiente paso: P1E en Windows operador, solo lectura,
+con manifiestos P1C/P1D locales. Plan:
+[A13_G10_P1D_LOCAL_CLOSURE_AND_P1E_DESIGN_20261012.md](A13_G10_P1D_LOCAL_CLOSURE_AND_P1E_DESIGN_20261012.md).
+
+---
+
 ## Alpha13 G10 — P1C 4/4 PASS; P1D nativa revela riesgo reset/reuso (2026-10-12)
 
 ```text
