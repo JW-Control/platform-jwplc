@@ -2112,3 +2112,42 @@ F124=RESOLVED_CI_PASS
 G8_GIT_PRODUCT=CLOSED_PASS
 G8_PHYSICAL_RS485=DECISION_PENDING
 ```
+
+## F125 — G9: prueba de reversibilidad del NUL usa coincidencia incorrecta (2026-10-11)
+
+**Síntoma:** el primer contrato binario del candidato G9-P2/P3
+falló en la CI (run
+[38205174547](https://github.com/JW-Control/platform-jwplc/actions/runs/38205174547))
+con `SD_NOT_REVERSIBLE_EXACT_ONE_LITERAL`.
+La fuente `JW_SD.cpp` sí conserva **un NUL real** en offset
+28732, confirmado por G9-P0 local y CI.
+
+**Causa raíz:** la comprobación hacía el cambio correcto del literal
+`'<NUL>'` por `'\\0'`, pero intentaba reconstruir el archivo
+original mediante `new.replace(SD_NEW,SD_OLD,1)`, lo cual
+selecciona **la primera aparición de cualquier escape textual**
+`'\\0'` en el archivo, y no necesariamente la aparición recién
+transformada. La prueba rechazaba un candidato correcto cuando
+`JW_SD.cpp` ya contenía otras comparaciones con NUL textual.
+
+**Corrección:** localizar primero el offset exacto de los tres bytes
+de la secuencia original (`'` + NUL + `'`), reemplazar en ese
+mismo índice y verificar la reconstrucción inversa **por offset**,
+además de conteo de NUL restante cero y cambio de longitud de
++1 byte. El control NO se debilita: ahora valida la ruta precisa.
+
+**Prevención:** las validaciones binarias no deben suponer
+unicidad de la representación textual nueva; cuando se modifica
+un byte de origen identificado por offset, comparar y revertir
+siempre en el mismo offset. Mantener byte-for-byte completo
+fuera de esa ventana.
+
+```text
+F125_CLASS=HARNESS_CONTRACT_FALSE_NEGATIVE
+PRODUCT_MODIFIED=NO
+SD_ARCHIVE_MODIFIED=NO
+G9_P2P3_PRODUCT_ADOPTION=NOT_EXECUTED
+F125_FIX=VERSIONED_SOURCE_OFFSET_REVERSIBILITY
+F125_CI_RETEST=PENDING
+NEXT_FAILURE_ID=F126
+```
