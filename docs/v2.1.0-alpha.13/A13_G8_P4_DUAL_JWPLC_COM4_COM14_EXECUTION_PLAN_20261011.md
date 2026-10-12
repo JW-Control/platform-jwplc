@@ -1,3 +1,34 @@
+## Resultado posterior al plan — prueba física PASS (2026-10-11)
+
+El procedimiento de este documento **ya se ejecutó** en las dos
+placas, con los roles anunciados; lo que sigue debajo conserva el
+plan de ejecución original como histórico.
+
+```text
+RUN_ID=g8_p4_20261011_223555_543f69c4
+MASTER=COM4
+SLAVE=COM14
+FC03=PASS_12_OF_12
+MASTER_RX=156_BYTES
+SLAVE_RX=96_BYTES
+MASTER_CRC=0
+SLAVE_CRC=0
+MASTER_TIMEOUTS=0
+MASTER_READY=1
+SLAVE_READY=1
+FINAL_AUDIT=PASS
+PHYSICAL_GATE=CLOSED_PASS
+PREVIOUS_APPLICATION_FIRMWARE_RESTORED=NO
+```
+
+La evidencia del operador quedó registrada en
+[A13_G8_P4_PHYSICAL_CLOSURE_20261011.md](A13_G8_P4_PHYSICAL_CLOSURE_20261011.md)
+y el
+[A13_G8_CLOSURE_CHECKLIST_20261011.md](A13_G8_CLOSURE_CHECKLIST_20261011.md).
+Los dos firmwares de banco **no se restauraron automáticamente**.
+
+---
+
 # Alpha13 G8-P4 — Gate físico con dos JWPLC Basic
 
 **Fecha:** 2026-10-11. **Estado:** PREPARADO, **NO EJECUTADO FÍSICAMENTE**.
