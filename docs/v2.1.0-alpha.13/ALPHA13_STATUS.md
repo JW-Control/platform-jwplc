@@ -1,3 +1,46 @@
+## Alpha13 G10 — F129 corregido y CI PASS, P1C retest Windows pendiente (2026-10-12)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G9_FINAL=CLOSED_PASS_WITH_EXPLICIT_COVERAGE_LIMITS
+G10_P1B_WINDOWS=CANDIDATE_SOURCE_CONTRACT_PASS_NATIVE_NOT_RUN
+G10_P1C_FIRST_WINDOWS_RUN=g10_p1c_20261012_134431_10e91e4c
+G10_P1C_FIRST_BASELINE_SERVER_COMPILE_EXIT=0
+G10_P1C_FIRST_STATUS=REVIEW_STOP_HARNESS_F129
+G10_P1C_FIRST_REMAINING_THREE_COMPILES=NOT_RUN
+F129_ROOT_CAUSE=VERBOSE_LOG_PATH_STRING_NOT_SOURCE_COMPILATION_PROOF
+F129_FIX=COMPILER_MMD_DEPENDENCY_CPP_D_OR_CPP_O_D_PLUS_OBJECT_SHA
+F129_CI_FINAL=PASS_WINDOWS_LINUX_RUN_38293904677
+G10_P1C_NEXT_GATE=tools/alpha13/gates/run_a13_g10_p1c_a13_006_build.bat
+G10_P1C_LOCAL_RETEST=AWAITING_OPERATOR
+G10_P1C_PRODUCT_MODIFICATION=NONE
+G10_P1C_HARDWARE_ACCESS=NONE
+A13-006=ADOPT_CONFIRMED_REPRO_FIX_PENDING
+A13-007=REVIEW_OPEN
+A13-008=REVIEW_OPEN
+G10_FINAL=NOT_CLOSED
+F120_POST_UPLOAD_FREEZE_ROOT_CAUSE=UNKNOWN_PENDING
+RELEASE_PR_MERGE_PUBLICATION=NO
+```
+
+El operador obtuvo `COMPILE_BASELINE_SERVER_EXIT=0`;
+el gate falló al comprobar formato de ruta C++ en el
+log verbose (no por fallo del compilador). El contrato
+se reforzó para exigir archivo objeto y dependencia
+real de GCC `-MMD` en formatos `.cpp.o.d` o
+`.cpp.d`; en ambos casos la fuente debe pertenecer
+a la librería Modbus TCP seleccionada. El selftest
+incluye casos negativos de dependencia errónea
+o faltante y rutas Win/Linux. La CI actualizada
+[38293904677](https://github.com/JW-Control/platform-jwplc/actions/runs/38293904677)
+terminó PASS en los dos sistemas. Todavía se requieren
+las cuatro compilaciones reales P1C en la PC del
+operador; no hay adopción de producto ni upload.
+
+Error/prevención: [F129](A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md).
+
+---
+
 ## Alpha13 G10 — P1C primer build EXIT 0, auditoría F129 corregida (2026-10-12)
 
 ```text
