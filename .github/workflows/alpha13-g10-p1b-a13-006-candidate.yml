@@ -37,6 +37,13 @@ jobs:
           python -m py_compile tools/alpha13/gates/a13_g10_p1b_a13_006_candidate.py
           python -B tools/alpha13/gates/a13_g10_p1b_a13_006_candidate.py --help
           if ($LASTEXITCODE -ne 0) { throw 'P1B_HELP_FAILED' }
+      - name: Regression F128 - same P0/P1A manifest lookup as local Windows
+        shell: pwsh
+        run: |
+          python -B tools/alpha13/gates/a13_g10_p1b_a13_006_candidate.py --selftest-paths | Tee-Object -FilePath g10_p1b_paths.log
+          if ($LASTEXITCODE -ne 0) { throw 'G10_P1B_LOCAL_MANIFEST_PATH_SELFTEST_FAILED' }
+          if ((Get-Content g10_p1b_paths.log -Raw) -notmatch 'G10_P1B_SELFTEST_MANIFEST_PATHS=PASS_WINDOWS_AND_POSIX') { throw 'G10_P1B_LOCAL_MANIFEST_PATH_MARKER_MISSING' }
+          if ((Get-Content g10_p1b_paths.log -Raw) -notmatch 'G10_P1B_SELFTEST_NEGATIVE_PROVENANCE=PASS_REJECTED') { throw 'G10_P1B_NEGATIVE_PROVENANCE_MARKER_MISSING' }
       - name: Source-backed candidate and 8 native markers
         shell: pwsh
         run: |
@@ -56,4 +63,5 @@ jobs:
           path: |
             tools/alpha13/results/g10_p1b_*/
             g10_p1b.log
+            g10_p1b_paths.log
           if-no-files-found: warn
