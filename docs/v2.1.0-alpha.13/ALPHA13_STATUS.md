@@ -1,3 +1,67 @@
+## G8 — CIERRE FUNCIONAL PASS tras validación física Master COM4 / Slave COM14 (2026-10-11)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G7C=CLOSED_PASS
+G8_P0=CLOSED_PASS
+G8_P1P2=CLOSED_PASS_NATIVE_AND_ARCHIVE_LINK
+G8_P3=CLOSED_PASS_PRODUCT_ADOPTED_AND_COMMITTED
+G8_P3_PRODUCT_COMMIT=fb71d65eb2c842b3f46e6949760e693f3b73d95e
+G8_P4_RUN_ID=g8_p4_20261011_223555_543f69c4
+G8_P4_MASTER=COM4
+G8_P4_SLAVE=COM14
+G8_P4_HARDWARE=2_JWPLC_BASIC
+G8_P4_BAUD_FORMAT=115200_8N1
+G8_P4_RTU=FC03_SLAVE_ID_2
+G8_P4_DUAL_READY=PASS
+G8_P4_UPLOAD_SLAVE=PASS
+G8_P4_UPLOAD_MASTER=PASS
+G8_P4_FC03_CORRECT=12_OF_12
+G8_P4_MASTER_RX_BYTES=156_EXPECTED_156
+G8_P4_SLAVE_RX_BYTES=96_EXPECTED_96
+G8_P4_MASTER_RX_TX_FRAMES=12_12
+G8_P4_SLAVE_RX_TX_FRAMES=12_12
+G8_P4_SLAVE_REQUESTS=12
+G8_P4_MASTER_CRC_TIMEOUTS=0_0
+G8_P4_SLAVE_CRC=0
+G8_P4_FINAL_AUDIT=PASS
+G8_P4_STATUS=PHYSICAL_PASS_2JWPLC_12FC03_RX_EXACT
+G8_FINAL=CLOSED_PASS_WITH_EXPLICIT_COVERAGE_LIMITS
+A13-010=CLOSED_PASS_COMMITTED_PHYSICAL_RX_CORRECT
+A13-011=CLOSED_PASS_COMMITTED_UART_READY_REAL_NATIVE_NEGATIVE
+G8_REMAINING_HARDWARE_TESTS=OPTIONAL_SEPARATE_QA
+G8_TWO_BOARD_FIRMWARE=DIAGNOSTIC_SKETCH_LOADED_NOT_AUTO_RESTORED
+F120_POST_UPLOAD_FREEZE_CAUSE=UNKNOWN_PENDING_SEPARATE
+G8_EXTRA_PRODUCT_EDITS=NONE
+G8_PR_MERGE_TAG_RELEASE=NO
+ALPHA13_FINAL_CLOSURE=NOT_YET
+NEXT_ALPHA13=RECONCILE_REMAINING_GATES_AND_RELEASE_CHECKLIST
+```
+
+El operador ejecutó exitosamente el gate de dos JWPLC Basic
+en banco (COM4 Master y COM14 Slave), con confirmación de carga
+en ambas placas y telemetría de ambos extremos. Se recibieron
+las 12 respuestas FC03 con valores válidos y contadores de bytes
+exactos, 156/96; UART READY=1 en ambos, CRC y timeouts=0,
+auditoría Git final PASS. Esto confirma físicamente los cambios
+A13-010/A13-011 en el alcance positivo ensayado. La ruta
+negativa de error de driver UART y begin/end/begin permanecen
+cubiertas en los fixtures C++ nativos, no por inyección física
+de errores en estas placas.
+
+**G8 queda cerrado funcionalmente**, con límites documentados
+(no declarar ensayados FC adicionales, bulk físico, EMC,
+falla física UART ni F120). El resultado NO cierra Alpha13
+ni autoriza publicación o cambio de alpha. Las placas siguen
+con sketches de banco y requieren restauración antes de servicio.
+
+Evidencia canónica:
+[A13_G8_P4_PHYSICAL_CLOSURE_20261011.md](A13_G8_P4_PHYSICAL_CLOSURE_20261011.md).
+Checklist:
+[A13_G8_CLOSURE_CHECKLIST_20261011.md](A13_G8_CLOSURE_CHECKLIST_20261011.md).
+
+---
+
 ## G8-P4 — Gate físico preparado para Master COM4 y Slave COM14 (2026-10-11)
 
 ```text
