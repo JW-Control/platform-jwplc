@@ -2377,7 +2377,16 @@ G10_P1C_REMAINING_THREE_BUILDS=NOT_EXECUTED
 G10_P1C_PRODUCT_CHANGED=NO
 G10_P1C_UPLOAD=NO
 F129_FIX=VERSIONED_GCC_MMD_OBJECT_DEPENDENCY_PROVENANCE
-F129_CI_RETEST=IN_PROGRESS
+F129_CI_RETEST=PASS_WINDOWS_LINUX_RUN_38293634614
 G10_P1C_LOCAL_RETEST=AWAITING_OPERATOR
 NEXT_FAILURE_ID=F130
 ```
+
+Retest de la corrección F129:
+[CI 38293634614](https://github.com/JW-Control/platform-jwplc/actions/runs/38293634614)
+**PASS Windows y Linux**. Se ejecutó el mismo
+`verify_source_build()` con fixture `.cpp.o/.cpp.d`
+positivo y dos rechazos negativos (source ajeno y
+`.d` ausente), además del selftest de selección de
+bibliotecas. Todavía **no** se ha repetido P1C con
+las cuatro compilaciones reales en Windows.
