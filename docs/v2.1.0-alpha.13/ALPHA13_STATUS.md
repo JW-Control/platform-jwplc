@@ -1,3 +1,48 @@
+## G8 — Adopción local PASS; cierre Git preparado, prueba física pendiente (2026-10-11)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G7C=CLOSED_PASS
+G8_P0=CLOSED_PASS_READ_ONLY
+G8_P1P2=CANDIDATE_BUILD_PASS_PRODUCT_UNCHANGED
+G8_P3_ADOPTION=PASS_LOCAL
+G8_P3_RUN_ID=g8_adopt_20261011_193839_57f9bb49
+G8_P3_PREFLIGHT_BACKUP_PRODUCT_ADOPTION=PASS
+G8_P3_REGRESSIONS=PASS_SLAVE_MASTER_RS485_STATUS
+G8_P3_SOURCE_CONTRACT=PASS_PRE_AND_POST
+G8_P3_ARCHIVE_LINK=PASS_SLAVE_MASTER_EXACT_PATH_FLAG_SHA
+G8_P3_FINAL_GIT_DIRTY_PATHS=EXACT_THREE_PRODUCT_FILES
+G8_P3_RTU_ARCHIVE_SHA256=f239100fbb6770a3a6f336179fbfa3a4afd27cc16e12c6f239cf05f28f7a1416
+A13-010=PRODUCT_ADOPTED_LOCAL_PENDING_COMMIT
+A13-011=PRODUCT_ADOPTED_LOCAL_PENDING_COMMIT
+G8_GIT_CLOSE_RUNNER=tools/alpha13/gates/a13_g8_git_close.py
+G8_GIT_CLOSE_BAT=tools/alpha13/gates/run_a13_g8_git_close.bat
+G8_GIT_CLOSURE_LOCAL=NOT_YET_EXECUTED
+G8_PHYSICAL_RS485=NOT_EXECUTED_PENDING_DECISION
+G8_NO_UPLOAD_COM_FRAM=YES
+G8_PRODUCT_COMMIT=NO
+G8=CURRENT_NOT_CLOSED
+NEXT=G8_GIT_CLOSE_THREE_FILES
+OPENPLC=OUT_OF_SCOPE
+HMI_DESIGNER=OUT_OF_SCOPE
+TFT_NEW_FEATURES=OUT_OF_SCOPE
+RELEASE_MERGE_PR_PUBLICATION=NO
+```
+
+La adopción productiva local en Windows ha pasado y la compilación
+normal enlaza el archive RTU correcto. El operador conserva
+**tres cambios locales intencionales** hasta versionarlos juntos
+en el commit de producto. No publicar release ni confundir CI con
+prueba eléctrica. Se ha preparado un cierre Git que verificará
+la procedencia de ambos manifests, backup exacto, hashes del objeto
+y archive, y staging/commit/push solo de estas tres rutas; no
+modifica firmware adicional, no realiza upload ni prueba física.
+
+Registro detallado:
+[A13_G8_PRODUCT_ADOPTION_PASS_20261011.md](A13_G8_PRODUCT_ADOPTION_PASS_20261011.md).
+
+---
+
 ## G8 — D0 confirma Git limpio; F122/F123 por rutas Windows resueltos en harness (2026-10-11)
 
 ```text
