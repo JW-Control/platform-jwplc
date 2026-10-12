@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""G9-P2/P3 offline: SD source NUL→escape con archive, GlobalPeripherals RTC/25 ms.
+"""G9-P2/P3 offline: SD source NULaescape con archive, GlobalPeripherals RTC/25 ms.
 
 Solamente crea candidatos y binarios temporales. NO modifica producto,
 no hace upload/COM ni escribe FRAM/SD, no stage, commit, push ni release.
