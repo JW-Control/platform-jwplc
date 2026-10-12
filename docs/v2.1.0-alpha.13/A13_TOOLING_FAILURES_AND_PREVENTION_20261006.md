@@ -2097,7 +2097,18 @@ PRODUCT_FAILURE=NO
 G8_PRODUCT_COMMIT=fb71d65eb2c842b3f46e6949760e693f3b73d95e
 G8_PRODUCT_FILES_CHANGED_BY_F124_FIX=NONE
 F124_FIX=WORKFLOW_VERSIONED
-F124_CI_RETEST=IN_PROGRESS
+F124_CI_RETEST=PASS_RUN_38191980973
 G8_PHYSICAL_RS485=NOT_EXECUTED
 NEXT_FAILURE_ID=F125
+```
+
+La CI posterior al fix concluyó PASS en
+[GitHub Actions 38191980973](https://github.com/JW-Control/platform-jwplc/actions/runs/38191980973),
+incluidas las pruebas C++ nativas, el contrato pre/post adopción y
+el alcance exacto de tres rutas en checkout efímero.
+
+```text
+F124=RESOLVED_CI_PASS
+G8_GIT_PRODUCT=CLOSED_PASS
+G8_PHYSICAL_RS485=DECISION_PENDING
 ```
