@@ -1,3 +1,53 @@
+## Alpha13 — G9-P0 Windows PASS; P2/P3 candidatos preparados (2026-10-11)
+
+```text
+ALPHA13_STATUS=IN_PROGRESS
+G8=CLOSED_PASS_WITH_EXPLICIT_COVERAGE_LIMITS
+G9_P0_WINDOWS=BASELINE_CAPTURED_READ_ONLY
+G9_P0_RUN_ID=g9_p0_20261011_234245_6727f0b0
+G9_P0_HEAD=93cbd1e7e04ac4f5aedac95bf35fa29453733c38
+G9_P0_SD_NUL=1_OFFSET_28732
+G9_P0_SD_ARCHIVE_SHA256=1b9619ba37295782ade1edc6f06439a38e7e534fc08f5b05757c9af7a645acc0
+G9_P0_GLOBAL_RTC_REFS=3
+G9_P0_GLOBAL_THROTTLE_REFS=2
+G9_P0_README_OUTDATED_ALPHA11=False
+G9_P1_A13-017=DOC_ONLY_APPLIED_AUDITED
+G9_P2_A13-012=CANDIDATE_RUNNER_READY_NOT_YET_BUILT
+G9_P3_A13-014=CANDIDATE_RUNNER_READY_NOT_YET_BUILT
+G9_P2P3_CI_CONTRACT=PASS_WIN_LINUX_RUN_38205406022
+G9_P2P3_SOURCE_BUILD_WINDOWS=NOT_YET_EXECUTED
+G9_P2P3_SD_NEW_ARCHIVE=NOT_YET_BUILT
+G9_P2P3_PRODUCT_ADOPTION=NONE
+G9_P2P3_HARDWARE_ACCESS=NONE
+F125_F126_F127=RESOLVED_CI_PASS_HARNESS_ONLY
+G9_NEXT_GATE=tools/alpha13/gates/run_a13_g9_p2p3_candidate.bat
+G9_FINAL=IN_PROGRESS
+G10_FINAL=NOT_STARTED
+RELEASE_MERGE_PR_PUBLICATION=NO
+```
+
+El operador confirmó P0 desde
+`93cbd1e7e04ac4f5aedac95bf35fa29453733c38`;
+el resultado coincide con baseline CI (NUL SD,
+archive y referencias GlobalPeripherals) y confirma
+que A13-017 ya no tiene el reclamo antiguo sobre Alpha11.
+Se creó el ejecutor **P2/P3 offline** que construye
+el SD desde fuente, regenera `libJW_SD.a`,
+comprueba la paridad miembro/objeto y compila
+regresiones BasicReadWrite, microSD, RTC y Buttons
+en el package normal con GlobalPeripherals candidata.
+El contrato exacto pasó en
+[CI 38205406022](https://github.com/JW-Control/platform-jwplc/actions/runs/38205406022)
+Windows/Linux, después de corregir solo el harness
+por posición NUL, consola `--help` y CRLF/LF.
+No se ha compilado aún el nuevo archivo SD en la PC
+ni se han modificado fuentes/archives de producto.
+
+Ejecución preparada:
+[A13_G9_P2P3_CANDIDATE_EXECUTION_PLAN_20261011.md](A13_G9_P2P3_CANDIDATE_EXECUTION_PLAN_20261011.md).
+
+---
+
 ## Alpha13 — G9 en curso: P0 CI PASS y A13-017 documento corregido (2026-10-11)
 
 ```text
