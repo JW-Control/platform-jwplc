@@ -168,6 +168,10 @@ struct IPAddress{
     bool operator==(const IPAddress &b)const{return v==b.v;}
 };
 enum {
+ JWPLC_MODBUS_TCP_CLIENT_DEFAULT_PORT=502,
+ JWPLC_MODBUS_TCP_CLIENT_DEFAULT_UNIT_ID=1,
+};
+enum {
  JWPLC_MODBUS_TCP_CLIENT_IDLE=0,
  JWPLC_MODBUS_TCP_CLIENT_WAIT_ETHERNET,
  JWPLC_MODBUS_TCP_CLIENT_CONNECTING,
@@ -395,6 +399,10 @@ def main():
             (OUT/"compiler.log").write_text(
                 "COMMAND="+repr(argv)+"\nEXIT="+str(compile.returncode)+
                 "\n"+compile.stdout+"\n"+compile.stderr,encoding="utf-8")
+            if compile.returncode!=0:
+                for line in (compile.stderr+"\n"+compile.stdout).splitlines()[-22:]:
+                    if line.strip():
+                        say("COMPILER_DIAGNOSTIC",line[:240])
             need(compile.returncode==0 and exe.is_file(),
                  "HOST_CXX_COMPILE_FAILED_SEE_LOG")
             run=subprocess.run([str(exe)],cwd=OUT,capture_output=True,
