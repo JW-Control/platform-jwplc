@@ -37,11 +37,13 @@ def require(value,reason):
 def make_sd_candidate(data:bytes)->bytes:
     require(data.count(b"\x00")==1,"SD_NUL_COUNT_NOT_EXACT_ONE")
     require(data.count(SD_OLD)==1,"SD_CHARACTER_NUL_PATTERN_NOT_EXACT")
-    new=data.replace(SD_OLD,SD_NEW,1)
+    original_offset=data.index(SD_OLD)
+    new=data[:original_offset]+SD_NEW+data[original_offset+len(SD_OLD):]
     require(b"\x00" not in new,"SD_NUL_NOT_REMOVED")
     require(len(new)==len(data)+1,"SD_ESCAPED_LITERAL_LENGTH_UNEXPECTED")
-    require(new.replace(SD_NEW,SD_OLD,1)==data,
-            "SD_NOT_REVERSIBLE_EXACT_ONE_LITERAL")
+    require(new[original_offset:original_offset+len(SD_NEW)]==SD_NEW and
+            new[:original_offset]+SD_OLD+new[original_offset+len(SD_NEW):]==data,
+            "SD_NOT_REVERSIBLE_EXACT_ONE_LITERAL_AT_KNOWN_OFFSET")
     return new
 
 
