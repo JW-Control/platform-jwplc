@@ -1,3 +1,37 @@
+## P1E — CI readonly Windows/Linux PASS (2026-10-12)
+
+El [run 38297416611](https://github.com/JW-Control/platform-jwplc/actions/runs/38297416611)
+terminó **PASS Windows y Linux**, sin modificar código
+productivo ni acceder al hardware. El snapshot examinó
+las rutas de reset físico, `isReady()`, enlace,
+`W5100.init()` y los dos consumidores Modbus TCP.
+Los diez patrones de fuente y el caso negativo
+de contrato se confirmaron; cinco archives permanecieron
+con SHA-256 congelado.
+
+```text
+G10_P1E_CI=PASS_WINDOWS_LINUX_RUN_38297416611
+G10_P1E_SELFTEST=PASS_READONLY_TEN_PATTERNS_AND_NEGATIVE
+G10_P1E_RUNTIME_GENERATION_NOT_EXPOSED=True
+G10_P1E_PROBE_CALLS_PHYSICAL_RESET=True
+G10_P1E_BACKEND_INIT_STATIC_GUARD=True
+G10_P1E_LINK_OFF_CAN_CLEAR_READY=True
+G10_P1E_ARCHIVES_FROZEN=5
+G10_P1E_CI_STATUS=RESET_GENERATION_BASELINE_CAPTURED_ADOPTION_BLOCKED
+G10_P1E_LOCAL_WINDOWS=NOT_YET_EXECUTED
+G10_P1E_PRODUCT_ADOPTION=NO
+```
+
+El PASS representa una inspección de procedencia:
+el diseño correctivo **todavía no existe**.
+El script local comprobará además la cadena de
+manifiestos P1C/P1D conservada por el operador.
+Su BAT es
+`tools/alpha13/gates/run_a13_g10_p1e_ethernet_generation_readonly.bat`.
+No compila ni sube firmware.
+
+---
+
 # Alpha13 G10 — P1D local cerrado y diseño P1E de generación Ethernet
 
 **Fecha:** 2026-10-12.  
