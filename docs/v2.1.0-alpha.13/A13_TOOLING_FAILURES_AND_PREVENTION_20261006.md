@@ -2274,6 +2274,22 @@ G10_P1B_PRODUCT_CHANGED=NO
 G10_P1B_COM4_COM14_TOUCHED=NO
 G10_P0_AND_P1A_EVIDENCE=VALID
 F128_FIX=VERSIONED_REPO_KEY_AS_POSIX_AND_FULL_FLOW_SELFTEST
-F128_CI_RETEST=PENDING
+F128_CI_RETEST=PASS_WINDOWS_LINUX_RUN_38284253191
 NEXT_FAILURE_ID=F129
+```
+
+CI de retest de F128: [38284253191](https://github.com/JW-Control/platform-jwplc/actions/runs/38284253191)
+terminó **PASS en Windows y Linux**. Se ejecutaron el
+selftest del lookup de los manifests P0/P1A con rutas
+`PureWindowsPath/PurePosixPath`, el caso negativo de
+hash y el generador íntegro de cuatro fuentes; también
+pasaron las pruebas nativas de cierre y el chequeo de
+checkout sin cambios. Aún no hay ejecución local
+del operador del BAT corregido, adopción de producto
+ni flash por esta corrección.
+
+```text
+F128=RESOLVED_CI_CONTRACT_ONLY
+G10_P1B_LOCAL_RETEST=AWAITING_OPERATOR
+G10_P1B_PRODUCT_ADOPTION=NONE
 ```
