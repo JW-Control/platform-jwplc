@@ -34,7 +34,7 @@ def main():
         engine.ARCHIVE:None,
     }
     before=gate.git_index_marks(products)
-    require(set(before)=={str(p.relative_to(gate.ROOT)) for p in products},
+    require(set(before)=={p.relative_to(gate.ROOT).as_posix() for p in products},
             "BASELINE_INDEX_PATHS_INVALID")
     require(all(value=="H" for value in before.values()),
             "BASELINE_GIT_FLAGS_NOT_H")
