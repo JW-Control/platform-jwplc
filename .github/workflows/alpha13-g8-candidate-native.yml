@@ -61,8 +61,17 @@ jobs:
           gate=importlib.util.module_from_spec(spec)
           spec.loader.exec_module(gate)
           engine=gate.engine()
+          # Luego del commit de producto, ambas fuentes ya son iguales
+          # a los candidatos: forzar cambios SOLO en el checkout de CI
+          # para probar el mismo contrato de tres rutas, sin mutar el repo remoto.
+          for source in [
+              engine.RTU/"src/JWPLC_ModbusRTU.cpp",
+              engine.RS/"src/JWPLC_RS485.cpp",
+          ]:
+              with source.open("ab") as f:
+                  f.write(b"\n// G8_CI_GIT_SCOPE_EPHEMERAL_ONLY\n")
           with (engine.ARCHIVE).open("ab") as f:
-              f.write(b"G8_CI_EPHERMERAL_DELTA")
+              f.write(b"G8_CI_GIT_SCOPE_EPHEMERAL_ONLY")
           with tempfile.TemporaryDirectory() as tmp:
               engine.RES=pathlib.Path(tmp)
               engine.M={"run_id":"ci_scope","status":"CI","phases":{}}
