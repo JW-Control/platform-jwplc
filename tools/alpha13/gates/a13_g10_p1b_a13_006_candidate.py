@@ -110,6 +110,18 @@ def selftest_paths():
     else:
         raise RuntimeError("BAD_MANIFEST_SHA_ACCEPTED")
     say("SELFTEST_NEGATIVE_PROVENANCE","PASS_REJECTED")
+    # Ejercitar el MISMO generador que usa --source-only en el Windows real.
+    # F128 tambien afectaba old[str(path)], no solamente el manifiesto.
+    before={repo_key(path):(ROOT/path).read_bytes().decode("utf-8-sig")
+            for path in TARGETS}
+    candidate=make(before,load_repro())
+    need(set(candidate)==set(before) and len(candidate)==4 and
+         all(candidate[name]!=before[name] for name in before),
+         "CROSS_PLATFORM_CANDIDATE_KEY_SET_WRONG")
+    native=build_native(candidate,load_repro())
+    need("A13_006_CANDIDATE=PASS_LOCK_FAIL_RETRY_SOCKET_HANDLE" in native,
+         "NATIVE_CANDIDATE_ASSEMBLY_MISSING")
+    say("SELFTEST_FULL_CANDIDATE_KEY_FLOW","PASS_FOUR_SOURCES")
     return 0
 def load_repro():
     path=ROOT/"tools/alpha13/gates/a13_g10_p1a_a13_006_repro.py"
