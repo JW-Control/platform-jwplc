@@ -2351,7 +2351,7 @@ precompilado, cuatro compilaciones y hashes de
 los cinco archives congelados. No aceptar resultados
 a partir de un archivo `.o` aislado sin dependencias.
 
-**Pruebas añadidas:** fixture sintético en ambos sistemas
+**Pruebas añadidas:** fixture sintético con ambos formatos de dependencia `.cpp.o.d` (observado con GCC `-MMD -o nombre.cpp.o`) y `.cpp.d`, en ambos sistemas
 con ruta Windows de backslash, escapes Make/GCC,
 rutas con espacios, dos objetos y dependencias,
 más negativos de source ajeno y archivo `.d` ausente.
