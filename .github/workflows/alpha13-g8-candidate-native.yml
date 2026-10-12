@@ -1,0 +1,39 @@
+name: Alpha13 G8 - C++ native RTU and RS485
+
+on:
+  push:
+    branches:
+      - 'v2.1.0-alpha.13/feature/cleanup-robustness'
+    paths:
+      - '.github/workflows/alpha13-g8-candidate-native.yml'
+      - 'tools/alpha13/gates/a13_g8_source_selftest.py'
+      - 'tools/alpha13/candidates/g8/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-rtu-rs485:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Obtener codigo
+        uses: actions/checkout@v4
+      - name: Sintaxis y delta canónico
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/alpha13/gates/a13_g8_source_selftest.py
+          python3 -B tools/alpha13/gates/a13_g8_source_selftest.py --native-cxx "$(command -v g++)" --require-native | tee g8_native.log
+          grep -qx 'G8_SOURCE_CONTRACT=PASS' g8_native.log
+          grep -qx 'G8_HARDWARESERIAL_BOOL_CORE_CONTRACT=PASS' g8_native.log
+          grep -qx 'G8_NATIVE_TOTAL_CASES=20' g8_native.log
+          grep -qx 'G8_NATIVE_CPP=PASS_ACTUAL_EXTRACTED_BRANCHES' g8_native.log
+      - name: Guardar evidencia incluso ante fallo
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alpha13-g8-native-${{ github.run_id }}
+          path: g8_native.log
+          if-no-files-found: warn
