@@ -181,8 +181,8 @@ public:
     size_t writeLine(
         const char *text);
 
-    // G2a: disponible manualmente.
-    // G2b: el runtime atendera el manager automaticamente.
+    // Servicio manual opcional. El runtime JWPLC ya atiende automáticamente
+    // los DataLogs registrados mediante jwplcDataLogTickCallback().
     void service();
 
     bool commit();
