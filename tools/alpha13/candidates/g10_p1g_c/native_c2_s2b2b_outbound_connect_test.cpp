@@ -117,6 +117,12 @@ static void testDirectConnect(){
     check(g_connects==1&&c._sockindex==0,"OUTBOUND_CONNECT_NOT_STARTED");
     check(bool(c._jwplcSocketToken),"NEW_CONNECT_HAS_NO_VALID_TOKEN");
     check(c.connectAsyncInProgress(),"CONNECT_SHOULD_BE_PENDING");
+    // Contention with an ALLOCATED socket is different from deferred start:
+    // poll must report pending, not a false link failure.
+    g_task=2;check(jwplcSPI_acquire(0),"DIRECT_POLL_BUSY_SETUP");g_task=1;
+    check(c.pollConnectAsync()==0&&c._sockindex==0,
+          "BUS_BUSY_POLL_MISREPORTED_DISCONNECTED");
+    g_task=2;jwplcSPI_release();g_task=1;
     g_sockStatus[0]=SnSR::ESTABLISHED;
     check(c.pollConnectAsync()==1,"POLL_CONNECTED_FAILED");
     check(!c.connectAsyncInProgress(),"CONNECTED_STILL_IN_PROGRESS");
