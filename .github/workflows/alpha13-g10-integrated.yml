@@ -139,6 +139,7 @@ jobs:
                 --libraries "$BASE" \
                 --library "$selected/JWPLC_Ethernet" \
                 --library "$selected/JWPLC_ModbusTCP" \
+                --build-property "compiler.cpp.extra_flags=-I$ROOT/JWPLC/2.1.0/cores/jwcontrol" \
                 --build-path "$output" --clean -v \
                 "$ROOT/$sketch" >"$log" 2>&1 || {
                   grep -En 'error:|fatal error|undefined reference|Error during build' "$log" | tail -n 24 || true
