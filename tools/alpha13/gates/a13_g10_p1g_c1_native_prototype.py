@@ -181,15 +181,38 @@ def run_build(base,out,name,mutate=None):
         argv=[host,"-std=c++17","-O0","-Wall","-Wextra",
               "-I"+str(inc),"-I"+str(BASE),str(src),str(TEST),
               "-o",str(executable)]
+    # MSYS2 UCRT64/MINGW64/CLANG64 fuera del PATH: g++.exe puede ser
+    # encontrado por ruta absoluta y aun asi fallar al cargar cc1plus.exe,
+    # lto-wrapper.exe o DLLs de MinGW. No cambiar PATH del operador.
+    native_env=os.environ.copy()
+    path_prefix=""
+    if os.name=="nt" and kind=="gcc":
+        path_prefix=str(Path(host).resolve().parent)
+        native_env["PATH"]=path_prefix+os.pathsep+native_env.get("PATH","")
     result=subprocess.run(argv,cwd=folder,capture_output=True,
-                          text=True,errors="replace",timeout=120)
-    (folder/"compile.log").write_text(
-        "COMMAND="+repr(argv)+"\nEXIT="+str(result.returncode)+"\n"+
-        result.stdout+"\n"+result.stderr,encoding="utf-8")
+                          text=True,errors="replace",timeout=120,env=native_env)
+    compile_log=("COMMAND="+repr(argv)+"\n"
+                 "COMPILER="+host+"\n"
+                 "COMPILER_KIND="+kind+"\n"
+                 "HOST_PATH_PREFIX="+path_prefix+"\n"
+                 "EXIT="+str(result.returncode)+"\n"+
+                 result.stdout+"\n"+result.stderr)
+    (folder/"compile.log").write_text(compile_log,encoding="utf-8")
+    if result.returncode!=0 or not executable.is_file():
+        say("COMPILER",host)
+        say("COMPILE_PHASE",name)
+        say("COMPILE_EXIT",result.returncode)
+        say("COMPILER_HOST_PATH_PREFIX",path_prefix if path_prefix else "UNCHANGED")
+        for line in (result.stderr+"\n"+result.stdout).splitlines()[-24:]:
+            if line.strip():
+                say("COMPILER_DIAGNOSTIC",line[:350])
+        if not result.stderr.strip() and not result.stdout.strip():
+            say("COMPILER_DIAGNOSTIC",
+                "NO_STDOUT_STDERR_SEE_compile.log_OR_WINDOWS_DLL_DIALOG")
     need(result.returncode==0 and executable.is_file(),
          "HOST_COMPILE_FAILED_"+name+"_SEE_COMPILE_LOG")
     run=subprocess.run([str(executable)],cwd=folder,capture_output=True,
-                       text=True,errors="replace",timeout=15)
+                       text=True,errors="replace",timeout=15,env=native_env)
     text=run.stdout+"\n"+run.stderr
     (folder/"native.log").write_text(
         "EXIT="+str(run.returncode)+"\n"+text,encoding="utf-8")
