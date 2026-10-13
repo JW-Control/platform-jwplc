@@ -107,7 +107,8 @@ public:
     SocketToken _jwplcSocketToken{};
 };
 
-#include "C2_S2B2B_REAL_CONNECT_METHODS.inc"
+// El runner nativo reutiliza el compilador C2-S2B2A y su archivo .inc generado.
+#include "C2_S2B2A_REAL_PATCHED_METHODS.inc"
 
 static void checkNoLeak(){check(g_spiOwner==0&&g_takes==g_releases,"SPI_OWNER_LEAK");}
 static void testDirectConnect(){
