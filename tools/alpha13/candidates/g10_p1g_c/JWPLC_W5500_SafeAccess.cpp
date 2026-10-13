@@ -2,6 +2,11 @@
 // Compilación host usa stubs de FreeRTOS y jwplc_spi_bus.
 #include "JWPLC_W5500_SafeAccess.h"
 #include "jwplc_spi_bus.h"
+#if defined(ARDUINO) || defined(ESP_PLATFORM)
+// ESP-IDF requiere inicializar los tipos/configuracion de FreeRTOS antes
+// de task.h. En el harness host se usan los stubs de task.h aislados.
+#include "freertos/FreeRTOS.h"
+#endif
 #include "freertos/task.h"
 #include <atomic>
 
