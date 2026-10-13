@@ -12,6 +12,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import uuid
@@ -90,11 +91,61 @@ def load_module(rel,name):
     spec.loader.exec_module(module)
     return module
 def compiler():
+    """Buscar compilador NATIVO (x86/x64), nunca usar xtensa-esp32-elf-g++."""
+    # Compatibilidad con gates previos: primero respetar el PATH de usuario.
     repro=load_module("tools/alpha13/gates/a13_g10_p1a_a13_006_repro.py",
                       "g10_p1g_c1_compiler_ref")
     path,kind=repro.compiler()
-    need(path is not None,"HOST_CXX_NOT_FOUND")
-    return path,kind
+    if path is not None:
+        return str(path),kind
+    # CXX explícito permite usar un compilador instalado fuera de PATH.
+    value=os.environ.get("CXX","").strip().strip('"')
+    if value:
+        resolved=shutil.which(value)
+        if resolved:
+            return resolved,"msvc" if Path(resolved).stem.lower()=="cl" else "gcc"
+        if Path(value).is_file():
+            return str(Path(value)),"msvc" if Path(value).stem.lower()=="cl" else "gcc"
+        raise RuntimeError("CXX_ENV_NOT_RESOLVED_"+value)
+    if os.name!="nt":
+        raise RuntimeError("HOST_CXX_NOT_FOUND")
+    # Rutas frecuentes: LLVM y toolchains MinGW nativas (NO Arduino ESP32).
+    pf=Path(os.environ.get("ProgramFiles",r"C:\Program Files"))
+    pf86=Path(os.environ.get("ProgramFiles(x86)",r"C:\Program Files (x86)"))
+    drive=Path(os.environ.get("SystemDrive","C:")+"\\")
+    local=Path(os.environ.get("LOCALAPPDATA",str(Path.home()/"AppData/Local")))
+    home=Path.home()
+    known=[
+        pf/"LLVM/bin/clang++.exe",
+        drive/"msys64/ucrt64/bin/g++.exe",
+        drive/"msys64/mingw64/bin/g++.exe",
+        drive/"msys64/clang64/bin/clang++.exe",
+        drive/"mingw64/bin/g++.exe",
+        local/"Programs/LLVM/bin/clang++.exe",
+        home/"scoop/apps/llvm/current/bin/clang++.exe",
+        home/"scoop/apps/gcc/current/bin/g++.exe",
+    ]
+    for candidate in known:
+        if candidate.is_file():
+            return str(candidate),"gcc"
+    # MSVC puede existir sin que PowerShell tenga vcvars64 en su entorno.
+    vswhere=pf86/"Microsoft Visual Studio/Installer/vswhere.exe"
+    if vswhere.is_file():
+        proc=subprocess.run([
+            str(vswhere),"-latest","-products","*","-requires",
+            "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+            "-property","installationPath"],
+            capture_output=True,text=True,errors="replace",timeout=15)
+        if proc.returncode==0 and proc.stdout.strip():
+            vcvars=Path(proc.stdout.strip())/"VC/Auxiliary/Build/vcvars64.bat"
+            if vcvars.is_file():
+                return str(vcvars),"msvc-vcvars"
+    for year in ("2026","2022","2019"):
+        for edition in ("BuildTools","Community","Professional","Enterprise"):
+            vcvars=pf/"Microsoft Visual Studio"/year/edition/"VC/Auxiliary/Build/vcvars64.bat"
+            if vcvars.is_file():
+                return str(vcvars),"msvc-vcvars"
+    raise RuntimeError("HOST_CXX_NOT_FOUND")
 def run_build(base,out,name,mutate=None):
     folder=out/name
     folder.mkdir(parents=True,exist_ok=False)
@@ -115,6 +166,17 @@ def run_build(base,out,name,mutate=None):
         argv=[host,"/nologo","/EHsc","/std:c++17","/W4",
               "/I"+str(inc),"/I"+str(BASE),str(src),str(TEST),
               "/Fe:"+str(executable)]
+    elif kind=="msvc-vcvars":
+        bat=folder/"compile_with_msvc.bat"
+        cl_args=["cl.exe","/nologo","/EHsc","/std:c++17","/W4",
+                 "/I"+str(inc),"/I"+str(BASE),str(src),str(TEST),
+                 "/Fe:"+str(executable)]
+        bat.write_text(
+            '@echo off\ncall "'+host+'" >nul\n'
+            'if errorlevel 1 exit /b 91\n'
+            +subprocess.list2cmdline(cl_args)+'\n'
+            'exit /b %ERRORLEVEL%\n',encoding="utf-8")
+        argv=["cmd.exe","/d","/c",str(bat)]
     else:
         argv=[host,"-std=c++17","-O0","-Wall","-Wextra",
               "-I"+str(inc),"-I"+str(BASE),str(src),str(TEST),
@@ -163,7 +225,21 @@ def main():
     ap=argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--selftest",action="store_true")
     ap.add_argument("--ci-standalone",action="store_true")
+    ap.add_argument("--compiler-probe",action="store_true",
+                    help="Solo detectar compilador host; no compila ni genera manifest")
     args=ap.parse_args()
+    if args.compiler_probe:
+        try:
+            host,kind=compiler()
+            say("HOST_CXX",host)
+            say("HOST_CXX_KIND",kind)
+            say("COMPILER_PROBE","FOUND")
+            return 0
+        except RuntimeError as err:
+            say("COMPILER_PROBE","NOT_FOUND")
+            say("COMPILER_REASON",str(err))
+            say("NEXT","CI_PROVES_C1_WINDOWS_LINUX_LOCAL_COMPILER_OPTIONAL")
+            return 2
     runid="g10_p1g_c1_"+datetime.now().strftime("%Y%m%d_%H%M%S")+"_"+uuid.uuid4().hex[:8]
     out=ROOT/"tools/alpha13/results"/runid
     out.mkdir(parents=True,exist_ok=False)
@@ -207,6 +283,9 @@ def main():
         return 0
     except Exception as err:
         manifest["reason"]=repr(err)
+        if "HOST_CXX_NOT_FOUND" in str(err):
+            say("LOCAL_BLOCKER","NO_NATIVE_CPP_COMPILER_DETECTED")
+            say("NEXT","DO_NOT_USE_ESP32_CROSS_COMPILER_USE_CI_OR_INSTALL_HOST_CXX")
         say("STATUS","REVIEW_STOP")
         say("REASON",repr(err))
         say("RESULTS",out)
