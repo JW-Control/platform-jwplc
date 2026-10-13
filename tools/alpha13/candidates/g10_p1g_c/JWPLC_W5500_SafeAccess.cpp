@@ -144,6 +144,19 @@ bool listenerMatchesLocked(uint8_t socket, uint16_t port,
            port != 0 && g_slots[socket].listenerPort == port;
 }
 
+StatusReadOutcome readStatusIfCurrent(
+    const SocketToken& token, SocketStatusReadFn read,
+    void* context, uint32_t timeoutMs, uint8_t* statusOut) {
+    BusScope bus(timeoutMs);
+    if (!bus) return StatusReadOutcome::BusBusy;
+    if (!matchesLocked(token) || read == nullptr || statusOut == nullptr)
+        return StatusReadOutcome::Stale;
+    // No write to statusOut until the source returned an actual value.
+    const uint8_t value = read(token.socketIndex, context);
+    *statusOut = value;
+    return StatusReadOutcome::Read;
+}
+
 CloseOutcome closeIfCurrent(const SocketToken& token, SocketCloseFn close,
                             void* context, uint32_t timeoutMs) {
     BusScope bus(timeoutMs);
