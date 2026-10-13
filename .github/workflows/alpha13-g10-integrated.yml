@@ -147,15 +147,62 @@ jobs:
                   echo "G10_I_ARDUINO_$version=FAILED_NOT_FULL_ALPHA13"
                   exit 32
                 }
-              grep -F 'Using library JWPLC_Ethernet' "$log" | tail -n 1 || true
-              grep -F 'Using library JWPLC_ModbusTCP' "$log" | tail -n 1 || true
+              eth_lib="$(grep -F 'Using library JWPLC_Ethernet' "$log" | tail -n 1)"
+              echo "$eth_lib"
+              if [[ "$eth_lib" != *"in folder: $selected/JWPLC_Ethernet"* ]]; then
+                echo "G10_I_WRONG_ETH_LIBRARY_SELECTED=$version/$name"
+                exit 34
+              fi
+              if [ "$name" = '01.ModbusTCP_Server' ]; then
+                tcp_lib="$(grep -F 'Using library JWPLC_ModbusTCP' "$log" | tail -n 1)"
+                echo "$tcp_lib"
+                if [[ "$tcp_lib" != *"in folder: $selected/JWPLC_ModbusTCP"* ]]; then
+                  echo "G10_I_WRONG_TCP_LIBRARY_SELECTED=$version/$name"
+                  exit 35
+                fi
+              fi
               if [ "$version" = candidate ]; then
-                find "$output" -name 'JWPLC_W5500_SafeAccess.cpp.o' \
-                  -print >"$EVIDENCE/object-$name.txt"
-                test "$(wc -l < "$EVIDENCE/object-$name.txt")" -eq 1 || {
+                mapfile -t objs < <(find "$output" -name 'JWPLC_W5500_SafeAccess.cpp.o' -type f)
+                if [ "${#objs[@]}" -ne 1 ]; then
                   echo 'G10_I_CANDIDATE_SAFEACCESS_OBJECT_NOT_UNIQUE'
                   exit 33
+                fi
+                printf '%s\n' "${objs[@]}" >"$EVIDENCE/object-$name.txt"
+                obj="${objs[0]}"
+                # -MMD from platform.txt: prueba fuente real del objeto GCC,
+                # no solamente que el nombre del objeto exista.
+                dep="${obj%.o}.d"
+                if [ ! -f "$dep" ]; then
+                  dep="$obj.d"
+                fi
+                test -f "$dep" || { echo "G10_I_MMD_DEPENDENCY_MISSING"; exit 36; }
+                if ! grep -Fq "$CAND/JWPLC_Ethernet/src/JWPLC_W5500_SafeAccess.cpp" "$dep"; then
+                  echo "G10_I_WRONG_OBJECT_SOURCE_MMD"
+                  exit 37
+                fi
+                mapfile -t elfs < <(find "$output" -maxdepth 1 -type f -name '*.elf')
+                if [ "${#elfs[@]}" -ne 1 ]; then
+                  echo "G10_I_ELF_NOT_UNIQUE"
+                  exit 38
+                fi
+                toolnm="$(find "$HOME/.arduino15/packages/jwplc/tools" -type f -name 'xtensa-esp32-elf-nm' -print -quit)"
+                test -n "$toolnm" && test -x "$toolnm" || {
+                  echo "G10_I_TARGET_NM_MISSING"
+                  exit 39
                 }
+                "$toolnm" -C "${elfs[0]}" >"$EVIDENCE/nm-$name.txt"
+                # Debe encontrarse en el ejecutable enlazado, no únicamente
+                # en un archivo .o que podría quedar descartado.
+                grep -Fq 'jwplc_w5500_candidate::enter(' "$EVIDENCE/nm-$name.txt" || {
+                  echo "G10_I_SAFEACCESS_ENTER_NOT_IN_ELF"
+                  exit 40
+                }
+                grep -Fq 'jwplc_w5500_candidate::leave()' "$EVIDENCE/nm-$name.txt" || {
+                  echo "G10_I_SAFEACCESS_LEAVE_NOT_IN_ELF"
+                  exit 41
+                }
+                sha256sum "$obj" "${elfs[0]}" >"$EVIDENCE/object-elf-sha-$name.txt"
+                echo "G10_I_SOURCE_TO_OBJECT_MMD_AND_ELF_$name=PASS"
               fi
               echo "G10_I_ARDUINO_${version}_$name=PASS_BOOTSTRAP_LIBRARIES_ONLY"
               echo "::endgroup::"
