@@ -401,3 +401,44 @@ G10-I-B04-DEFERRED_QUEUE=NOT_DESIGNED_NOT_VALIDATED
 G10-I-PRODUCT_CHANGED=NO
 G10-I-ADOPTION=BLOCKED
 ```
+
+
+### Resultado de CI del contrato triestado — 2026-10-13
+
+[GitHub Actions, run 38485428889](https://github.com/JW-Control/platform-jwplc/actions/runs/38485428889) ejecutado sobre
+`456890bb3ace659841a59db4cabba57cf06e3f31`:
+
+```text
+G10-I-COMPOSE-WINDOWS=PASS
+G10-I-COMPOSE-LINUX=PASS
+G10-I-NATIVE-STATUS-PRIMITIVE-WINDOWS=PASS
+G10-I-NATIVE-STATUS-PRIMITIVE-LINUX=PASS
+G10-I-STATUS-PROBE=READ_BUS_BUSY_STALE
+G10-I-OVERLAY-FILES=10
+G10-I-ARCHIVES=5_FROZEN
+G10-I-ARDUINO-BASELINE-MODBUS-TCP-SERVER=PASS
+G10-I-ARDUINO-BASELINE-ETHERNET-SPI=PASS
+G10-I-ARDUINO-CANDIDATE-MODBUS-TCP-SERVER=PASS
+G10-I-ARDUINO-CANDIDATE-ETHERNET-SPI=PASS
+G10-I-CANDIDATE-SOURCE-MMD-ELF=PASS_2_OF_2
+G10-I-CURRENT_BLOCKERS=8
+G10-I-CLIENT_CONNECTED_BUSY_SEMANTICS=NOT_FIXED
+G10-I-MODBUS_TCP_CLOSESESSION_BUSY_LEAK=NOT_FIXED
+G10-I-STATUS=COMPOSED_REVIEW_BLOCKED
+A13-006=ADOPTION_BLOCKED
+```
+
+La prueba usa el core bootstrap `2.1.0-alpha.10` con
+headers adicionales de la rama; **no** es el build
+del package Alpha13 definitivo. Un PASS de esta
+campaña parcial significa exclusivamente que la
+primitiva triestado nativa, las bibliotecas seleccionadas,
+el objeto y ELF candidato cumplen sus invariantes.
+Las interfaces públicas Arduino y las fuentes productivas
+permanecen intactas. **No autoriza G10-H ni upload**.
+
+**Próximo trabajo B01/B04:** conectar el resultado
+triestado a callers internos, establecer política
+de cierre diferido con ciclo de vida garantizado
+y probar regresión global de sockets, DNS y DHCP.
+Se conserva un solo G10-I, no se abren microgates.
