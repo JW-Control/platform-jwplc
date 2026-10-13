@@ -341,3 +341,63 @@ overlay y el ELF contiene `enter()` y `leave()` en ambos
 candidatos. Este PASS **no cierra B06 ni G10-I** porque se usa
 bootstrap Alpha10 con include del core de rama y no se compila
 todo el package actual. B01/B04 continúan abiertos.
+
+
+## G10-I — avance de diseño B01/B04 (2026-10-13)
+
+**B01 — lectura de status SPI sin falsificar estado.** Se añadió
+`StatusReadOutcome::{Read,BusBusy,Stale}` a la capa
+**experimental**
+`tools/alpha13/candidates/g10_p1g_c/JWPLC_W5500_SafeAccess.h/.cpp`,
+y `readStatusIfCurrent(token,fn,context,timeout,&status)`.
+La función usa `BusScope` y comprueba `SocketToken`
+**antes** de leer; no sobrescribe `statusOut` en
+`BusBusy` ni en `Stale`. Requiere prueba host
+del scope anidado, CLOSED auténtico, contención,
+reutilización de socket y reset de epoch. La regresión
+corre como **fase interna G10-I**, no como microgate.
+
+**Importante:** introducir una primitiva triestado **NO
+resuelve automáticamente B01**. El overlay actual de
+`EthernetClient::connected()` todavía devuelve `0`
+y el de `EthernetClass::socketStatus()` devuelve
+`SnSR::CLOSED` si `BusScope(20)` falla. Antes de
+adoptar debe propagarse `BusBusy` a los consumidores
+que destruyen/cambian sesiones (Modbus TCP, Server,
+otros TCP y DNS), manteniendo la API Arduino binaria.
+No usar `CONNECTED` como valor inventado.
+
+**B04 — closeSession pierde referencia al socket con
+SPI ocupado.** En
+`JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP_Client.cpp`
+la implementación real contiene:
+
+```cpp
+if ((bool)_tcpClient && acquireBus(20))
+{
+    _tcpClient.cancelConnectAsync();
+    releaseBus();
+}
+_tcpClient = EthernetClient();
+```
+
+`operator bool()` para `EthernetClient` devuelve
+`_sockindex < MAX_SOCK_NUM`. Si `acquireBus(20)`
+no obtiene el mutex, no hay llamada a
+`cancelConnectAsync()`, pero se reasigna el objeto,
+perdiendo el handle anterior. Es un **riesgo
+source-backed**, no un fallo de campo confirmado.
+La corrección debe preservar un ticket de cierre
+asíncrono reintentable hasta que un servicio posterior
+confirme `Closed` o `Stale`. No limitarse a
+conservar el objeto local si su vida termina; evitar
+cierre por índice sin token. La política de errores
+y timeouts debe impedir solicitudes huérfanas.
+
+```text
+G10-I-B01=TRISTATE_PRIMITIVE_INTRODUCED_NOT_WIRED_ALL_CALLERS
+G10-I-B04=MODBUS_TCP_CLOSE_SESSION_HANDLE_DROP_CONFIRMED_IN_SOURCE
+G10-I-B04-DEFERRED_QUEUE=NOT_DESIGNED_NOT_VALIDATED
+G10-I-PRODUCT_CHANGED=NO
+G10-I-ADOPTION=BLOCKED
+```
