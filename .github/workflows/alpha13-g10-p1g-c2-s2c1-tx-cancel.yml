@@ -1,0 +1,57 @@
+name: Alpha13 G10 P1G-C2-S2C1 - TX cancel owner lease
+on:
+  push:
+    branches:
+      - 'v2.1.0-alpha.13/feature/cleanup-robustness'
+    paths:
+      - '.github/workflows/alpha13-g10-p1g-c2-s2c1-tx-cancel.yml'
+      - 'tools/alpha13/gates/a13_g10_p1g_c2_s2c1_tx_cancel.py'
+      - 'tools/alpha13/gates/run_a13_g10_p1g_c2_s2c1_tx_cancel.bat'
+      - 'tools/alpha13/candidates/g10_p1g_c/native_c2_s2c1_tx_cancel_test.cpp'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tx-cancel-real-cpp:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Python syntax
+        shell: pwsh
+        run: |
+          python -m py_compile tools/alpha13/gates/a13_g10_p1g_c2_s2c1_tx_cancel.py
+          python -B tools/alpha13/gates/a13_g10_p1g_c2_s2c1_tx_cancel.py --help
+          if ($LASTEXITCODE -ne 0) { throw 'C2_S2C1_SYNTAX_FAILED' }
+      - name: Compile five real methods and reject five negative mutations
+        shell: pwsh
+        run: |
+          python -B tools/alpha13/gates/a13_g10_p1g_c2_s2c1_tx_cancel.py --ci-standalone | Tee-Object -FilePath c2_s2c1.log
+          if ($LASTEXITCODE -ne 0) { throw 'C2_S2C1_NATIVE_FAILED' }
+          $log=Get-Content c2_s2c1.log -Raw
+          if ($log -notmatch 'G10_P1G_C2_S2C1_POSITIVE_NATIVE=PASS_REAL_TX_CANCEL_WITH_OUTBOUND') { throw 'POSITIVE_MISSING' }
+          if ($log -notmatch 'G10_P1G_C2_S2C1_NEGATIVES=5') { throw 'NEGATIVES_MISSING' }
+          if ($log -notmatch 'G10_P1G_C2_S2C1_STATUS=TX_CANCEL_REAL_CPP_NATIVE_PASS_INCOMPLETE_ADOPTION_BLOCKED') { throw 'WRONG_STATUS' }
+      - name: Product unchanged
+        shell: pwsh
+        run: |
+          git diff --exit-code
+          if ($LASTEXITCODE -ne 0) { throw 'PRODUCT_MUTATED' }
+      - name: Evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alpha13-c2-s2c1-${{ matrix.os }}-${{ github.run_id }}
+          path: |
+            c2_s2c1.log
+            tools/alpha13/results/g10_p1g_c2_s2c1_*/
+          if-no-files-found: warn
