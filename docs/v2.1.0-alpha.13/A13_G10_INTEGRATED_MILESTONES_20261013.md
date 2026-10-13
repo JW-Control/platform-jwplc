@@ -318,10 +318,26 @@ Arduino, y probarlo antes de habilitar adopción.
 G10-I=IN_PROGRESS
 REMAINING_VALIDATION_CAMPAIGNS=4_PLANNED
 G10-C=DECISION_NOT_TEST_CAMPAIGN
-G10-I-ARDUINO_LINK_PROVENANCE=CI_RUNNING_NOT_YET_PASS
+G10-I-ARDUINO_LINK_PROVENANCE=PASS_2_CANDIDATE_ELFS_RUN_38484339095
+G10-I-ARDUINO_LINK_PROVENANCE_HEAD=1438fb883f83cddc1b839fb2961f5f9b4a335feb
+G10-I-ARDUINO_BASELINE=2_OF_2_PASS
+G10-I-ARDUINO_CANDIDATE=2_OF_2_PASS
+G10-I-CANDIDATE_MMD=2_OF_2_PASS_CORRECT_SAFEACCESS_SOURCE
+G10-I-CANDIDATE_ELF=2_OF_2_PASS_ENTER_LEAVE_SYMBOLS
+G10-I-FULL_ALPHA13_CORE=NOT_VERIFIED
 A13-006=ADOPTION_BLOCKED
 G10-H=NOT_STARTED
 G10_FINAL=NOT_CLOSED
 GPIO4=255
 FROZEN_ARCHIVES=5
 ```
+
+
+**Verificación CI definitiva de procedencia Arduino:**
+[run 38484339095](https://github.com/JW-Control/platform-jwplc/actions/runs/38484339095)
+— los tres jobs PASS; dos baselines y dos candidatos compilan;
+`.d` comprueba que el objeto procede del `SafeAccess.cpp` del
+overlay y el ELF contiene `enter()` y `leave()` en ambos
+candidatos. Este PASS **no cierra B06 ni G10-I** porque se usa
+bootstrap Alpha10 con include del core de rama y no se compila
+todo el package actual. B01/B04 continúan abiertos.
