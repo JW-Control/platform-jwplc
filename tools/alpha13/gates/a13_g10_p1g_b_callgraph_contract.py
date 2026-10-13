@@ -199,9 +199,12 @@ def negatives(m,src):
     for label,key,old,new,wanted in mutations:
         need(src[key].count(old)>=1,"NEGATIVE_ANCHOR_MISSING_"+label)
         alt=dict(src)
-        # La tabla legacy aparece en available(), accept() y operator bool().
-        # Este negativo debe eliminar TODAS las lecturas, no solo la primera.
-        alt[key]=src[key].replace(old,new) if label=="LISTENER_OWNERSHIP_DRIFT" else src[key].replace(old,new,1)
+        # Con múltiples acquireBus en un método y múltiples readers
+        # de server_port, mutar solo la primera aparición no cambia
+        # necesariamente la propiedad evaluada por el testigo.
+        replace_all = label in (
+            "REMOVE_MB_CLIENT_LOCK", "LISTENER_OWNERSHIP_DRIFT")
+        alt[key]=src[key].replace(old,new) if replace_all else src[key].replace(old,new,1)
         try:
             rows=inspect(m,alt)
         except RuntimeError as err:
