@@ -10,6 +10,7 @@
 
 #define JWPLC_HAS_ETHERNET 1
 #define JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS 0
+#define MAX_SOCK_NUM 8
 static void check(bool valid, const char* message) {
     if (!valid) throw std::runtime_error(message);
 }
