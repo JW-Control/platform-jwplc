@@ -65,7 +65,7 @@ NEGATIVE_MUTATIONS={
         "jwplcSPI_acquire(timeoutMs)","NESTED_CLIENT_DEADLOCK_OR_FALSE_DISCONNECT"),
     "MB_SERVER_RAW_RELEASE":("MB_SERVER",
         "jwplc_w5500_candidate::leave();",
-        "jwplcSPI_release();","RUNTIME_DOUBLE_TAKE_OR_OWNER_LEAK"),
+        "jwplcSPI_release();","MUTEX_RELEASE_BY_NONOWNER"),
 }
 def say(k,v):print("G10_P1G_C2_S1_"+str(k)+"="+str(v),flush=True)
 def need(ok,msg):
@@ -261,6 +261,9 @@ def main():
             alt[key]=overlay[key].replace(old,new,1)
             bad=methods_include(repro,alt)
             neg_rc,neglog=native_build(out,"negative_"+label,bad,c1,host,kind)
+            if neg_rc==0 or expected_error not in neglog:
+                say("NEGATIVE_DEBUG_"+label,
+                    "EXIT_"+str(neg_rc)+"_"+neglog.strip().replace("\\n"," | ")[:400])
             need(neg_rc!=0 and expected_error in neglog,
                  "NEGATIVE_NOT_REJECTED_"+label)
             say("NEGATIVE_"+label,"PASS_REJECTED")
