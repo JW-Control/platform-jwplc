@@ -313,6 +313,10 @@ static void testRetargetWithActiveTx() {
     std::cout<<"C2_S2C1_TX_RETARGET_NESTED_GUARD=PASS\n";
 }
 static void testBlockingIpSuccess(){
+    // Separar las asignaciones de las pruebas outbound/TX precedentes:
+    // en el mock reset físico limpia tanto tokens como hardware.
+    check(resetAndInvalidate(resetPhysical,nullptr,20),"LEGACY_RESET_INTERLOCK");
+    for(int i=0;i<8;i++)g_sockStatus[i]=SnSR::CLOSED;
     EthernetClient c;
     c._timeout=10;
     g_autoConnect=true;
