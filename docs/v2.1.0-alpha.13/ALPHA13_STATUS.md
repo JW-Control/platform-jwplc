@@ -1,3 +1,33 @@
+## G10-P1G-A — CI Windows/Linux PASS, validación local pendiente (2026-10-12)
+
+```text
+G10_P1G_A_CI=PASS_WINDOWS_LINUX_RUN_38339370374
+G10_P1G_A_CI_HEAD=355572d39f6001c82b7044ed4dcf0daee1894f7e
+G10_P1G_A_BASELINE=CALLPATH_BASELINE_CAPTURED_ADOPTION_BLOCKED
+G10_P1G_A_SOURCE_METHODS=257_ACROSS_8_CPP
+G10_P1G_A_LOCAL_WRAPPED_METHODS=19
+G10_P1G_A_LOWER_DIRECT_WITHOUT_LOCAL_LOCK=81_NOT_BUG_COUNT
+G10_P1G_A_NEGATIVES=4_CI_PASS
+G10_P1G_A_FROZEN_ARCHIVES=5
+G10_P1G_A_WINDOWS_LOCAL=NOT_YET_EXECUTED
+G10_P1G_B=CALL_GRAPH_AND_CANDIDATE_OPEN
+G10_P1G_B_PRODUCT_PATCH=NOT_STARTED
+G10_P1G_B_GPIO4_ENABLE=NO
+G10_P1G_B_HARDWARE_UPLOAD=NO
+A13-006=ADOPTION_BLOCKED_PENDING_EPOCH_OWNER_INTERLOCK
+G10_FINAL=NOT_CLOSED
+```
+
+G10-P1G-A genera una matriz CSV de primeros accesos y verifica cuatro
+negativos. No constituye un call graph semántico exhaustivo ni aceptación
+de un fix. No se alteró producto ni hardware. P1G-B debe demostrar
+exclusión real bajo mutex y protección de propiedad/generación de sockets
+sin romper el autoload, Display, SD ni FRAM.
+
+[Gate y próximo contrato](A13_G10_P1G_A_SOURCE_MATRIX_GATE_AND_NEXT_20261012.md).
+
+---
+
 ## G10-P1G — inventario de mutex Ethernet y pin RST GPIO4 (2026-10-12)
 
 ```text
