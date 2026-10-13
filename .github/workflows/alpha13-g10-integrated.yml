@@ -61,3 +61,125 @@ jobs:
             g10_i.log
             tools/alpha13/results/g10_i_*/
           if-no-files-found: warn
+
+  arduino-review:
+    name: Baseline vs overlay - compilacion Arduino (NO adopcion)
+    runs-on: ubuntu-latest
+    needs: overlay-compose
+    timeout-minutes: 50
+    env:
+      JWPLC_INDEX_URL: https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json
+      JWPLC_BOOTSTRAP_VERSION: 2.1.0-alpha.10
+      JWPLC_FQBN: jwplc:esp32:jwplcbasic
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: arduino/setup-arduino-cli@v2
+        with:
+          version: '1.x'
+      - name: Cache toolchain
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15/packages/jwplc
+            ~/.arduino15/staging
+          key: g10i-${{ runner.os }}-${{ env.JWPLC_BOOTSTRAP_VERSION }}-${{ hashFiles('JWPLC/package_jwplc_index_dev.json') }}
+          restore-keys: |
+            jwplc-${{ runner.os }}-${{ env.JWPLC_BOOTSTRAP_VERSION }}-
+      - name: Bootstrap del toolchain Arduino
+        shell: bash
+        run: |
+          set -euo pipefail
+          arduino-cli config init --overwrite
+          arduino-cli config set board_manager.additional_urls "$JWPLC_INDEX_URL"
+          arduino-cli core update-index
+          arduino-cli core install "jwplc:esp32@$JWPLC_BOOTSTRAP_VERSION"
+          arduino-cli board listall "$JWPLC_FQBN"
+      - name: Preparar baseline y overlay externos al repositorio
+        shell: bash
+        run: |
+          set -euo pipefail
+          PLATFORM_DIR="$HOME/.arduino15/packages/jwplc/hardware/esp32/$JWPLC_BOOTSTRAP_VERSION"
+          SOURCE_DIR="$GITHUB_WORKSPACE/JWPLC/2.1.0"
+          mkdir -p "$RUNNER_TEMP/g10-evidence"
+          test -d "$PLATFORM_DIR"
+          test -d "$SOURCE_DIR"
+          rsync -a --delete "$SOURCE_DIR/" "$PLATFORM_DIR/"
+          cmp "$SOURCE_DIR/boards.txt" "$PLATFORM_DIR/boards.txt"
+          cmp "$SOURCE_DIR/platform.txt" "$PLATFORM_DIR/platform.txt"
+          python -B tools/alpha13/gates/a13_g10_integrated.py --ci-standalone \
+            --stage-platform "$RUNNER_TEMP/g10-candidate-platform" \
+            | tee "$RUNNER_TEMP/g10-evidence/stage.log"
+          grep -F 'G10_INTEGRATED_ARDUINO_PLATFORM_EXPORT=STAGED_NOT_COMPILED' \
+            "$RUNNER_TEMP/g10-evidence/stage.log"
+          grep -F 'G10_INTEGRATED_STATUS=COMPOSED_REVIEW_BLOCKED' \
+            "$RUNNER_TEMP/g10-evidence/stage.log"
+      - name: Compilar baseline y candidato en el mismo toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          PLATFORM_DIR="$HOME/.arduino15/packages/jwplc/hardware/esp32/$JWPLC_BOOTSTRAP_VERSION"
+          SOURCE_DIR="$GITHUB_WORKSPACE/JWPLC/2.1.0"
+          STAGED="$RUNNER_TEMP/g10-candidate-platform"
+          EVIDENCE="$RUNNER_TEMP/g10-evidence"
+          sketches=(
+            "JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/examples/01.ModbusTCP_Server"
+            "JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/Ethernet_SPI_Coexistence"
+          )
+          for sketch in "${sketches[@]}"; do
+            label="$(basename "$sketch")"
+            echo "::group::Baseline $label"
+            arduino-cli compile --fqbn "$JWPLC_FQBN" --warnings default \
+              --build-path "$RUNNER_TEMP/g10-baseline-$label" --clean -v \
+              "$GITHUB_WORKSPACE/$sketch" \
+              >"$EVIDENCE/baseline-$label.log" 2>&1 || {
+                tail -n 100 "$EVIDENCE/baseline-$label.log"
+                echo "G10_I_BASELINE_BUILD=FAILED"
+                exit 31
+              }
+            echo "G10_I_BASELINE_$label=PASS"
+            echo "::endgroup::"
+          done
+          # Instalación de prueba, NO se altera el árbol JWPLC versionado.
+          rsync -a --delete "$STAGED/" "$PLATFORM_DIR/"
+          cmp "$STAGED/boards.txt" "$PLATFORM_DIR/boards.txt"
+          cmp "$STAGED/platform.txt" "$PLATFORM_DIR/platform.txt"
+          for filename in JWPLC_W5500_SafeAccess.h JWPLC_W5500_SafeAccess.cpp; do
+            cmp "$STAGED/libraries/JWPLC_Ethernet/src/$filename" \
+                "$PLATFORM_DIR/libraries/JWPLC_Ethernet/src/$filename"
+          done
+          for sketch in "${sketches[@]}"; do
+            label="$(basename "$sketch")"
+            echo "::group::Candidato $label"
+            arduino-cli compile --fqbn "$JWPLC_FQBN" --warnings default \
+              --build-path "$RUNNER_TEMP/g10-candidate-$label" --clean -v \
+              "$GITHUB_WORKSPACE/$sketch" \
+              >"$EVIDENCE/candidate-$label.log" 2>&1 || {
+                tail -n 110 "$EVIDENCE/candidate-$label.log"
+                echo "G10_I_CANDIDATE_BUILD=BLOCKED"
+                exit 32
+              }
+            find "$RUNNER_TEMP/g10-candidate-$label" \
+              -name 'JWPLC_W5500_SafeAccess.cpp.o' \
+              -print >"$EVIDENCE/object-$label.txt"
+            test "$(wc -l < "$EVIDENCE/object-$label.txt")" -eq 1 || {
+              echo "G10_I_SOURCE_OBJECT=NOT_UNIQUE"
+              exit 33
+            }
+            echo "G10_I_CANDIDATE_$label=PASS_SOURCE_OBJECT_PRESENT"
+            echo "::endgroup::"
+          done
+          echo 'G10_I_BASELINE_CANDIDATE_BUILD=PASS_BOTH_SKETCHES_NOT_HARDWARE'
+      - name: Conservar evidencia sin publicar binarios
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g10-i-arduino-review-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/g10-evidence/
+          if-no-files-found: warn
+          retention-days: 14
