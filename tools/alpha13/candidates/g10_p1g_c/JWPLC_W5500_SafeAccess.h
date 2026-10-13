@@ -37,6 +37,23 @@ enum class CloseOutcome : uint8_t {
     Stale = 3
 };
 
+// G10-I: lectura sin ambigüedad. NO convertir contención a SnSR::CLOSED.
+// Esta API es solo de la candidata, no modifica interfaces Arduino.
+enum class StatusReadOutcome : uint8_t {
+    Read = 1,
+    BusBusy = 2,
+    Stale = 3
+};
+
+using SocketStatusReadFn = uint8_t (*)(uint8_t socket, void* context);
+
+// La operación de status y la validación de owner suceden en un mismo
+// ámbito de SPI, incluso si el callback usa el scope W5500 anidable.
+// statusOut permanece intacto si no hubo lectura real.
+StatusReadOutcome readStatusIfCurrent(
+    const SocketToken& token, SocketStatusReadFn read,
+    void* context, uint32_t timeoutMs, uint8_t* statusOut);
+
 // Todas las funciones salvo closeIfCurrent/resetAndInvalidate exigen
 // estar DENTRO del scope de bus. La operación física y el check se
 // realizan juntos; la API pública Arduino aún no está conectada aquí.
