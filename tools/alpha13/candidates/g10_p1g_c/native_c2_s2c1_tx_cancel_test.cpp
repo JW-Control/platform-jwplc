@@ -274,12 +274,20 @@ static void testRetargetWithActiveTx() {
     EthernetClient c;
     check(c.beginConnectAsync(IPAddress(14),2710)==0,"TX_RETARGET_SETUP");
     c._writeAsyncState=2;
-    const auto previous=c._sockindex;
+    const auto previousToken=c._jwplcSocketToken;
     const int before=g_closes;
     check(c.beginConnectAsync(IPAddress(15),2711)==0,
           "RETARGET_WITH_SEND_PENDING_FAILED");
-    check(g_closes==before+1 && c._sockindex!=previous &&
-          c._writeAsyncState==0,"TX_RETARGET_LEAK_OR_DOUBLE_CLOSE");
+    // La nueva conexión puede legítimamente reutilizar el mismo índice:
+    // lo importante es un lease DISTINTO y vigente bajo la misma generación.
+    {
+        BusScope bus(20);
+        check(bool(bus)&&!matchesLocked(previousToken) &&
+              matchesLocked(c._jwplcSocketToken) &&
+              c._jwplcSocketToken.allocation!=previousToken.allocation &&
+              g_closes==before+1 && c._writeAsyncState==0,
+              "TX_RETARGET_LEAK_OR_DOUBLE_CLOSE");
+    }
     checkNoLeak();
     std::cout<<"C2_S2C1_TX_RETARGET_NESTED_GUARD=PASS\n";
 }
