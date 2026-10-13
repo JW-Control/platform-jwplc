@@ -170,3 +170,82 @@ detiene la ejecución hasta conciliar explícitamente
 esa situación. G10-I no modifica esos tres archivos TFT.
 
 No repetir de forma manual los gates cerrados.
+
+
+## Actualización verificable: compilación Arduino del overlay (2026-10-13)
+
+**CI integrada definitiva:** [run 38457826687](https://github.com/JW-Control/platform-jwplc/actions/runs/38457826687), `HEAD=5a82cdd9a3b9315e2c619b65dc096fee2350b26f`.
+
+```text
+G10-I-PREP-WINDOWS=PASS
+G10-I-PREP-LINUX=PASS
+G10-I-SAFEACCESS-H-CPP=INCLUDED_IN_ISOLATED_PLATFORM
+G10-I-ARDUINO-CORE=IMMUTABLE_BOOTSTRAP_2.1.0-alpha.10
+G10-I-ARDUINO-BRANCH-CORE-HEADERS=ADDITIONAL_INCLUDE_ONLY
+G10-I-BASELINE-MODBUS-TCP-SERVER=COMPILE_PASS
+G10-I-BASELINE-ETHERNET-SPI-COEXISTENCE=COMPILE_PASS
+G10-I-CANDIDATE-MODBUS-TCP-SERVER=COMPILE_PASS
+G10-I-CANDIDATE-ETHERNET-SPI-COEXISTENCE=COMPILE_PASS
+G10-I-ETHERNET-SOURCE-ORIGIN=EXPLICIT_SELECTED_PATHS_VERIFIED_IN_LOG
+G10-I-SAFEACCESS-COMPILE-OBJECT=PRESENT_UNIQUE
+G10-I-ELF-AND-OBJECT-DEPENDENCY-PROVENANCE=NOT_FULLY_VERIFIED
+G10-I-FULL-ALPHA13-PLATFORM-BUILD=NOT_RUN
+G10-I-ARDUINO-IDE=NOT_RUN
+G10-I-PHYSICAL-HARDWARE=NOT_RUN
+G10-I-STATUS=ARDUINO_LIBRARIES_COMPAT_PASS_INTEGRATION_INCOMPLETE
+G10-H=NOT_STARTED
+A13-006=ADOPTION_BLOCKED
+G10_FINAL=NOT_CLOSED
+```
+
+La evidencia corresponde a **dos sketches, dos variantes**
+y biblioteca fuente seleccionada explícitamente desde el árbol
+de la rama o el package candidato temporal. Se conservó la
+instalación del core bootstrap sin reescribir
+`boards.txt/platform.txt`; este PASS no equivale al
+package completo Alpha13 ni a la confirmación del autoload
+físico en hardware. Todavía se debe comprobar el objeto
+que produce el compilador y su símbolo en el ELF/mapa real,
+además de las ocho brechas B01–B08.
+
+### Problemas detectados y correcciones, sin microgates nuevos
+
+1. **CI 38456681071:** al superponer una plataforma distinta
+   encima del core Arduino ya instalado, el baseline se detuvo
+   con `The instance is no longer valid and needs to be
+   reinitialized`. Clasificación: `ENVIRONMENT`.
+   Se evitó sustituyendo solo las bibliotecas seleccionadas
+   por Arduino CLI mediante rutas explícitas, sin cambiar el
+   core instalado.
+2. **CI 38457151457:** baseline bloqueado por
+   `jwplc_modbus_motor.h`, disponible en el core de la rama
+   pero no en el bootstrap de Alpha10. Clasificación:
+   `ENVIRONMENT/BOOTSTRAP_COMPATIBILITY`.
+   Se añadió una ruta de include explícita de la rama a
+   esta prueba, sin modificar el core instalado.
+3. **CI 38457463479:** baseline PASS para ambos sketches;
+   candidato falla al compilar
+   `JWPLC_W5500_SafeAccess.cpp` porque
+   `freertos/task.h` requiere cargar primero
+   `freertos/FreeRTOS.h` en el entorno IDF del toolchain.
+   Clasificación: `CANDIDATE_BUILD`.
+   Corrección limitada al candidato aislado
+   `tools/alpha13/candidates/g10_p1g_c/JWPLC_W5500_SafeAccess.cpp`:
+   include condicionado a Arduino/ESP-IDF, compatible
+   con stubs host.
+4. **CI 38457826687:** ambos baseline y ambos candidatos
+   compilan con Arduino CLI; las regresiones host C1,
+   S2A y S2B1 pasaron Windows/Linux tras el cambio.
+   Clasificación: `PASS_LIMITED_LIBRARY_COMPILATION`.
+
+No se adoptó código en `JWPLC/2.1.0`; los cinco
+archives permanecen congelados. La falla de baseline
+o de la CI experimental no se presenta como fallo
+de Ethernet en una placa real.
+
+**Siguiente acción en el mismo G10-I:** consolidar
+la semántica SPI_BUSY, el cierre y lease de todas las
+rutas TCP/UDP/DNS/DHCP; verificar procedencia objeto
+→ ELF/mapa con toolchain actual y compilación del
+package completo con su core correspondiente.
+No pedir un BAT por método ni avanzar a G10-H.
