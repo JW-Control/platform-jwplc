@@ -59,7 +59,7 @@ NEGATIVES=[
     ("POLL_NO_LEASE",SIGS[4],
       "!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)",
       "false",
-      "UDP_STALE_SEND_AFTER_RESET_TOUCHED_HARDWARE"),
+      "UDP_POLL_WITHOUT_TOKEN"),
 ]
 def say(k,v):print("G10_P1G_C2_S2C2B1_"+str(k)+"="+str(v),flush=True)
 def need(ok,msg):
