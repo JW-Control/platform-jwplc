@@ -1,3 +1,36 @@
+## G10-P1G-C2-S2B2B — Windows local CLOSED_PASS (2026-10-13)
+
+```text
+G10_P1G_C2_S2B2B_LOCAL=PASS_WINDOWS
+G10_P1G_C2_S2B2B_LOCAL_HEAD=755a9b91b379685bd5404b2a448d9d59e32c888a
+G10_P1G_C2_S2B2B_LOCAL_RUN=g10_p1g_c2_s2b2b_20261013_124846_9fdc28d7
+G10_P1G_C2_S2B2B_LOCAL_POSITIVE=PASS_REAL_OUTBOUND_LIFECYCLE
+G10_P1G_C2_S2B2B_LOCAL_NEGATIVES=5_PASS_REJECTED
+G10_P1G_C2_S2B2B_LOCAL_METHODS=4
+G10_P1G_C2_S2B2B_LOCAL_OVERLAY_FILES=3
+G10_P1G_C2_S2B2B_LOCAL_ARCHIVES=5_FROZEN
+G10_P1G_C2_S2B2B_LOCAL_PRODUCT_CHANGED=NO
+G10_P1G_C2_S2B2B_CI=PASS_WINDOWS_LINUX_RUN_38440505069
+G10_P1G_C2_S2B2B_CONCLUSION=CLOSED_PASS_NATIVE_SLICE_ONLY
+G10_P1G_C2_S2C1=TX_CANCEL_OWNER_CLOSE_NEXT
+G10_P1G_C2_S2C2=LEGACY_CONNECT_DNS_AND_PENDING_CLEANUP
+A13-006=ADOPTION_BLOCKED
+G10_FINAL=NOT_CLOSED
+ALPHA13=IN_PROGRESS
+```
+
+El operador confirmó el gate S2B2B sobre `755a9b91`,
+incluidos cinco negativos y cinco archives intactos.
+La revisión de `EthernetClient.cpp` ratifica el cierre
+directo sin token en `cancelWriteAsync()` cuando
+`_writeAsyncState==2`, y el cierre previo a DNS
+sin token en `connect(const char*)`. Para no mezclar
+políticas, S2C se divide en S2C1 **cancelación TX** y
+S2C2 **Arduino connect/DNS bloqueantes**. Todo bajo
+overlays y CI; sin cambios productivos ni GPIO4.
+
+---
+
 ## G10-P1G-C2-S2B2A local CLOSED_PASS y S2B2B CI PASS (2026-10-13)
 
 ```text
