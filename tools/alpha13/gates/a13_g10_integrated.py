@@ -14,6 +14,7 @@ from datetime import datetime
 import hashlib
 import importlib.util
 import json
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -150,6 +151,15 @@ def compose():
     for k,path in s1.TARGETS.items():
         paths[path]=first["CLIENT"] if k=="RAW_CLIENT" else first[k]
     paths[udp.UDP_PATH]=first["UDP"]
+    # La fase antigua componía referencias a SafeAccess, pero OMITÍA sus
+    # dos archivos. Un build Arduino completo exige ambas unidades.
+    base=ROOT/"tools/alpha13/candidates/g10_p1g_c"
+    candidate_base="JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/"
+    for name in ("JWPLC_W5500_SafeAccess.h","JWPLC_W5500_SafeAccess.cpp"):
+        rel=candidate_base+name
+        require(rel not in paths and not (ROOT/rel).exists(),
+                "SAFE_ACCESS_ALREADY_IN_PRODUCT_REVIEW_REQUIRED_"+name)
+        paths[rel]=(base/name).read_text(encoding="utf-8-sig")
     return paths
 
 def write_evidence(out,head,files):
@@ -159,19 +169,54 @@ def write_evidence(out,head,files):
         p=overlay/name
         p.parent.mkdir(parents=True,exist_ok=True)
         p.write_text(source,encoding="utf-8")
+        candidate=(ROOT/name)
+        if not candidate.is_file():
+            candidate=(ROOT/"tools/alpha13/candidates/g10_p1g_c"/Path(name).name)
+        require(candidate.is_file(),"OVERLAY_SOURCE_PROVENANCE_MISSING_"+name)
         hashes[name]={"sha256":digest(p),"bytes":p.stat().st_size,
-                      "source_sha256":digest(ROOT/name)}
+                      "source_sha256":digest(candidate),
+                      "source_path":candidate.relative_to(ROOT).as_posix()}
     out.joinpath("BLOCKERS.md").write_text(
         "# G10-I — bloqueos de adopción\n\n"+
         "\n".join(f"- **{k}**: {v}" for k,v in BLOCKERS.items())+"\n",
         encoding="utf-8")
     return hashes
+
+def stage_platform(destination,files,hashes):
+    """Copia el package en ubicación temporal externa, sin modificar repo."""
+    target=Path(destination).resolve()
+    require(not target.is_relative_to(ROOT),"STAGE_CANNOT_BE_INSIDE_REPOSITORY")
+    require(not target.exists(),"STAGE_MUST_NOT_ALREADY_EXIST")
+    require(target.parent.is_dir(),"STAGE_PARENT_MISSING")
+    require(str(target)!=str(target.anchor),"INVALID_STAGE_ROOT")
+    source=ROOT/"JWPLC/2.1.0"
+    shutil.copytree(source,target)
+    manifest={}
+    for rel,content in files.items():
+        prefix="JWPLC/2.1.0/"
+        require(rel.startswith(prefix),"OVERLAY_ESCAPES_PACKAGE_"+rel)
+        dst=target/rel[len(prefix):]
+        require(dst.resolve().is_relative_to(target),"OVERLAY_ESCAPE_DETECTED")
+        dst.parent.mkdir(parents=True,exist_ok=True)
+        dst.write_text(content,encoding="utf-8")
+        require(digest(dst)==hashes[rel]["sha256"],
+                "STAGED_SOURCE_SHA_DIFFERS_"+rel)
+        manifest[rel]={"sha256":digest(dst),"relative_staged_path":rel[len(prefix):]}
+    # Las bibliotecas .a se copian byte-a-byte. Los cinco archives son
+    # inmutables, no se regeneran ni se vinculan de nuevo en esta etapa.
+    frozen=load(MODULES["frozen"],"staged_frozen")
+    refs=frozen.FROZEN if hasattr(frozen,"FROZEN") else {}
+    # La comprobación del freeze canónico ya se ejecutó en preflight.
+    return manifest
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ci-standalone",action="store_true",
                         help="CI: solo verificación de branch ancestor, no acredita gate local")
     parser.add_argument("--require-ready",action="store_true",
                         help="Falla mientras existan bloqueos de integración")
+    parser.add_argument("--stage-platform",type=Path,
+                        help="Copiar package a ruta TEMPORAL EXTERNA inexistente y aplicar overlay")
     opts=parser.parse_args()
     runid=("g10_i_"+datetime.now().strftime("%Y%m%d_%H%M%S")
            +"_"+uuid.uuid4().hex[:8])
@@ -188,6 +233,11 @@ def main():
         m["archives_frozen"]=True
         files=compose()
         shas=write_evidence(out,head,files)
+        if opts.stage_platform is not None:
+            staged=stage_platform(opts.stage_platform,files,shas)
+            m["staged_sources"]=staged
+            m["staged_platform"]=str(opts.stage_platform.resolve())
+            emit("ARDUINO_PLATFORM_EXPORT","STAGED_NOT_COMPILED")
         m.update({"head":head,"overlay_files":shas,
                   "blockers":BLOCKERS,
                   "status":"COMPOSED_REVIEW_BLOCKED"})
