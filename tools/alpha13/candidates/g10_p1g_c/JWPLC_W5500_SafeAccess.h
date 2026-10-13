@@ -41,6 +41,10 @@ enum class CloseOutcome : uint8_t {
 // estar DENTRO del scope de bus. La operación física y el check se
 // realizan juntos; la API pública Arduino aún no está conectada aquí.
 SocketToken allocateSocketLocked(uint8_t socket, uint32_t ownerCookie);
+// S2A: ticket único al abrir un socket nuevo; no se entrega a usuarios todavía.
+SocketToken allocateSocketLockedAuto(uint8_t socket);
+// Captura válida SOLO con el bus W5500 adquirido, para asociar handles futuros.
+SocketToken currentSocketTokenLocked(uint8_t socket);
 bool matchesLocked(const SocketToken& token);
 void mapListenerLocked(uint8_t socket, uint16_t port, const SocketToken& token);
 bool listenerMatchesLocked(uint8_t socket, uint16_t port,
