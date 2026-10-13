@@ -1,3 +1,51 @@
+# Alpha13 — estado vigente: G10 por hitos integrados (2026-10-13)
+
+> **Esta cabecera prevalece sobre entradas históricas** de G10
+> situadas más abajo. El historial se conserva por trazabilidad;
+> no usar sus antiguas líneas `NEXT_GATE=S2...` como instrucción activa.
+
+```text
+HITO=G10-I
+ETAPA=PREP_SOURCE_OVERLAY_COMPOSED
+BRANCH=v2.1.0-alpha.13/feature/cleanup-robustness
+G10-I-PREP-CI=PASS_WINDOWS_LINUX_RUN_38453458169
+G10-I-PREP-CI-HEAD=31a2a9f5462255e183a331c149dfc064d33ab0e6
+G10-I-PREP-STATUS=COMPOSED_REVIEW_BLOCKED
+G10-I-INTEGRATED_CPP_ARDUINO=NOT_YET_COMPILED
+G10-I-SOURCE_OVERLAY=GENERATED_TEMPORARY_ONLY
+G10-I-OPEN_BLOCKERS=8
+G10-I-LOCAL_WINDOWS=NOT_REQUIRED_UNTIL_INTEGRATED_READY
+G10-H=NOT_STARTED_REQUIRES_PHYSICAL_AUTHORIZATION
+G10-C=NOT_STARTED
+G10-P1G-C2-S2C2B1=LOCAL_WINDOWS_CLOSED_PASS
+G10-P1G-C2-S2C2B1-RUN=g10_p1g_c2_s2c2b1_20261013_135948_9b7cb66e
+A13-006=ADOPTION_BLOCKED
+G10_FINAL=NOT_CLOSED
+PRODUCT_CHANGED=NO_FOR_G10
+PRECOMPILED_ARCHIVES=5_FROZEN
+GPIO4_RESET=255_DISABLED
+ALPHA13=IN_PROGRESS
+NEXT_ACTION=G10-I_RESOLVE_INTEGRATION_BLOCKERS_BEFORE_USER_GATE
+```
+
+**Decisión de flujo aprobada:** dejar de pedir una ejecución manual
+por cada método; el siguiente trabajo es **G10-I Integración**,
+luego **G10-H Hardware autorizado** y **G10-C Cierre**.
+La CI de PREP valida que puede componerse el overlay común
+y detectarse bloqueos; **no** certifica compilación Arduino,
+ausencia de races ni seguridad del firmware.
+
+[Plan G10-I/H/C](A13_G10_INTEGRATED_MILESTONES_20261013.md).
+Ejecutor único: `tools/alpha13/gates/run_a13_g10_integrated.bat`.
+No ejecutar manualmente más microgates ni flashear hasta preparar
+un test integrado reproducible y aprobado.
+
+**Otros hitos Alpha13 (como TFT-CLOSURE) mantienen su estado
+independiente**; no presuponer que su worktree local
+sea limpio ni repetir cambios productivos no versionados.
+
+---
+
 ## G10-P1G-C2-S2C2A local CLOSED_PASS y S2C2B1 UDP CI PASS (2026-10-13)
 
 ```text
