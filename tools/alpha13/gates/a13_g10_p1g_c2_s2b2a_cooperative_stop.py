@@ -39,7 +39,7 @@ EXPECTED=[
 NEGATIVES=[
     ("NO_BEGIN_GUARD",
      "int EthernetClient::beginStopAsync()\n{\n\tjwplc_w5500_candidate::BusScope bus(20);\n\tif (!bus) return 0;",
-     "int EthernetClient::beginStopAsync()\n{\n\t/* guard removed */", "STATUS_WITHOUT_GUARD"),
+     "int EthernetClient::beginStopAsync()\n{\n\t/* guard removed */", "NO_PENDING_AFTER_FIN"),
     ("NO_OWNER_VALIDATION",
      "if (_sockindex < MAX_SOCK_NUM &&\n\t    !jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken))",
      "if (_sockindex < MAX_SOCK_NUM &&\n\t    false)",
