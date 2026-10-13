@@ -40,7 +40,7 @@ EXPECTED=[
 NEGATIVES=[
   ("REMOVE_BEGIN_GUARD",SIGS[0],
    "jwplc_w5500_candidate::BusScope bus(20);",
-   "/* no begin guard */","CANCEL_WRITE_OUTSIDE_GUARD"),
+   "bool bus = true; // mutated: bypass real guard","CANCEL_WRITE_OUTSIDE_GUARD"),
   ("REMOVE_NEW_TOKEN",SIGS[0],
    "_jwplcSocketToken = jwplc_w5500_candidate::currentSocketTokenLocked(_sockindex);",
    "/* no token captured */","BEGIN_CONNECT_MUST_BE_PENDING"),
