@@ -40,7 +40,7 @@ NEGATIVES=[
  ("NO_TX_GUARD",
   "jwplc_w5500_candidate::BusScope bus(20);",
   "bool bus = true; // deliberate no mutex",
-  "SOCKET_CLOSE_UNLOCKED"),
+  "CLOSE_NOT_ISSUED_WHEN_SEND_PENDING"),
  ("NO_TX_OWNER",
   "!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)",
   "false",
