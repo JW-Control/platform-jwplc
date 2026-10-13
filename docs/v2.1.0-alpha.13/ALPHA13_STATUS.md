@@ -1,3 +1,32 @@
+## G10-P1G-C1 — Windows local nativo PASS (2026-10-13)
+
+```text
+G10_P1G_C1_WINDOWS_LOCAL=PASS_NATIVE_SOURCE_BACKED_ISOLATED
+G10_P1G_C1_WINDOWS_HEAD=7750917312bfb46cf2b7a1c719abc1b7f8fa5fe4
+G10_P1G_C1_WINDOWS_RUN=g10_p1g_c1_20261013_092038_8703b3da
+G10_P1G_C1_WINDOWS_COMPILER=C:\\msys64\\ucrt64\\bin\\g++.exe
+G10_P1G_C1_WINDOWS_POSITIVE=PASS_BUS_NESTING_SOCKET_LEASE_RESET
+G10_P1G_C1_WINDOWS_NEGATIVES=4_PASS_REJECTED
+G10_P1G_C1_WINDOWS_ARCHIVES=5_FROZEN
+G10_P1G_C1_PREVIOUS_WINDOWS_FAIL=EXIT_1_EMPTY_STDERR_STDOUT
+G10_P1G_C1_FAIL_ROOT_CAUSE=CONSISTENT_WITH_MSYS2_PATH_NOT_PROVEN
+G10_P1G_C1_CI=PASS_WINDOWS_LINUX_RUN_38412055418
+G10_P1G_C2=EXPERIMENTAL_REAL_METHOD_OVERLAY_IN_PROGRESS
+G10_P1G_C1_PRODUCT_MODIFIED=NO
+G10_P1G_C1_GPIO4_ENABLED=NO
+A13-006=ADOPTION_BLOCKED
+G10_FINAL=NOT_CLOSED
+```
+
+El operador confirmó compilación y ejecución C++ host con MSYS2 UCRT64,
+cuatro mutaciones rechazadas y cinco archives intactos. El `compile.log`
+de la ejecución fallida anterior solo contiene `EXIT=1` sin salida;
+no atribuir causa exacta a DLL sin prueba adicional. El candidato C1
+continúa fuera del package real. Se habilita trabajo de integración en
+overlay P1G-C2, no la adopción productiva.
+
+---
+
 ## G10-P1G-C1 — g++ UCRT64 encontrado, compilación Windows local detenida (2026-10-13)
 
 ```text
