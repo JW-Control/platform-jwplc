@@ -1,0 +1,60 @@
+name: Alpha13 G10 P1G-C2-S1 - real SPI nested methods
+
+on:
+  push:
+    branches:
+      - 'v2.1.0-alpha.13/feature/cleanup-robustness'
+    paths:
+      - '.github/workflows/alpha13-g10-p1g-c2-s1-real-spi-slice.yml'
+      - 'tools/alpha13/gates/a13_g10_p1g_c2_first_real_spi_slice.py'
+      - 'tools/alpha13/gates/run_a13_g10_p1g_c2_s1_real_spi_slice.bat'
+      - 'tools/alpha13/candidates/g10_p1g_c/native_c2_spi_slice_test.cpp'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-backed-slice:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Syntax
+        shell: pwsh
+        run: |
+          python -m py_compile tools/alpha13/gates/a13_g10_p1g_c2_first_real_spi_slice.py
+          python -B tools/alpha13/gates/a13_g10_p1g_c2_first_real_spi_slice.py --help
+          if ($LASTEXITCODE -ne 0) { throw 'P1G_C2_S1_HELP_FAILED' }
+      - name: Compile real source overlay and negative mutations
+        shell: pwsh
+        run: |
+          python -B tools/alpha13/gates/a13_g10_p1g_c2_first_real_spi_slice.py --ci-standalone | Tee-Object -FilePath g10_p1g_c2_s1.log
+          if ($LASTEXITCODE -ne 0) { throw 'P1G_C2_S1_GATE_FAILED' }
+          $log=Get-Content g10_p1g_c2_s1.log -Raw
+          if ($log -notmatch 'G10_P1G_C2_S1_METHODS_REAL_PATCHED=8') { throw 'C2_S1_REAL_METHODS_MISSING' }
+          if ($log -notmatch 'G10_P1G_C2_S1_NEGATIVES=4') { throw 'C2_S1_NEGATIVE_COUNT_MISSING' }
+          if ($log -notmatch 'G10_P1G_C2_S1_STATUS=REAL_SOURCE_MUTEX_SLICE_NATIVE_PASS_INCOMPLETE_ADOPTION_BLOCKED') { throw 'C2_S1_STATUS_WRONG' }
+      - name: Product unchanged
+        shell: pwsh
+        run: |
+          git diff --exit-code
+          if ($LASTEXITCODE -ne 0) { throw 'P1G_C2_S1_PRODUCT_CHANGED' }
+      - name: Evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alpha13-g10-p1g-c2-s1-${{ matrix.os }}-${{ github.run_id }}
+          path: |
+            g10_p1g_c2_s1.log
+            tools/alpha13/results/g10_p1g_c2_s1_*/
+          if-no-files-found: warn
