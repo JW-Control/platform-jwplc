@@ -12,6 +12,7 @@ std::atomic<TaskHandle_t> g_owner{nullptr};
 uint32_t g_depth = 0; // solo el task propietario lo lee/escribe.
 uint32_t g_epoch = 1;
 uint32_t g_allocation = 0;
+uint32_t g_autoOwner = 0;
 
 struct Slot {
     uint32_t epoch = 0;
@@ -90,6 +91,29 @@ SocketToken allocateSocketLocked(uint8_t socket, uint32_t ownerCookie) {
     t.ownerCookie = s.owner;
     t.socketIndex = socket;
     return t;
+}
+
+SocketToken allocateSocketLockedAuto(uint8_t socket) {
+    if (!ownedByThisTask() || socket >= kSockets) return {};
+    ++g_autoOwner;
+    if (g_autoOwner == 0) {
+        // Evitar cookie reciclada tras overflow de 32 bits.
+        incrementEpochLocked();
+        g_autoOwner = 1;
+    }
+    return allocateSocketLocked(socket, g_autoOwner);
+}
+
+SocketToken currentSocketTokenLocked(uint8_t socket) {
+    if (!ownedByThisTask() || socket >= kSockets) return {};
+    const Slot& slot = g_slots[socket];
+    if (!slot.valid) return {};
+    SocketToken token;
+    token.chipEpoch = slot.epoch;
+    token.allocation = slot.allocation;
+    token.ownerCookie = slot.owner;
+    token.socketIndex = socket;
+    return token;
 }
 
 bool matchesLocked(const SocketToken& token) {
