@@ -7,6 +7,12 @@ on:
       - '.github/workflows/alpha13-g10-integrated.yml'
       - 'tools/alpha13/gates/a13_g10_integrated.py'
       - 'tools/alpha13/gates/run_a13_g10_integrated.bat'
+      - 'tools/alpha13/gates/a13_g10_p1g_c2_*.py'
+      - 'tools/alpha13/gates/a13_g10_p1g_a_mutex_callpaths.py'
+      - 'tools/alpha13/gates/a13_g10_p1a_a13_006_repro.py'
+      - 'tools/alpha13/candidates/g10_p1g_c/**'
+      - 'JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/**'
+      - 'JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/**'
   workflow_dispatch:
 permissions:
   contents: read
