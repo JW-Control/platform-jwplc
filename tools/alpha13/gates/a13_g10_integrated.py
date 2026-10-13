@@ -209,6 +209,26 @@ def stage_platform(destination,files,hashes):
     # La comprobación del freeze canónico ya se ejecutó en preflight.
     return manifest
 
+def status_probe_native(out):
+    """Una fase DEL MISMO G10-I; no es un nuevo gate manual."""
+    cxx=load("a13_g10_p1g_c1_native_prototype.py","g10i_cxx_status")
+    builder=load(MODULES["b2a"],"g10i_status_builder")
+    builder.TEST=ROOT/"tools/alpha13/candidates/g10_p1g_c/native_g10_i_status_probe_test.cpp"
+    code,log=builder.native(out,"status_probe","",cxx)
+    expected=(
+        "G10_I_STATUS_READ_CLOSED_ESTABLISHED=PASS",
+        "G10_I_STATUS_SPI_BUSY_NO_FALSE_CLOSED=PASS",
+        "G10_I_STATUS_REUSE_RESET_STALE=PASS",
+        "G10_I_STATUS_NATIVE=PASS_TRISTATE_PRIMITIVE_ONLY_ADOPTION_BLOCKED",
+    )
+    if code != 0 or not all(item in log for item in expected):
+        emit("STATUS_PROBE_DIAG",log.strip().replace("\n"," | ")[:800])
+    require(code==0 and all(item in log for item in expected),
+            "NATIVE_TRISTATE_STATUS_PROBE_FAILED")
+    return {"result":"PASS_PRIMITIVE_ONLY","log":"status_probe/native.log",
+            "qualified_for_adoption":False}
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ci-standalone",action="store_true",
@@ -233,6 +253,8 @@ def main():
         m["archives_frozen"]=True
         files=compose()
         shas=write_evidence(out,head,files)
+        m["status_probe"]=status_probe_native(out)
+        emit("TRISTATE_STATUS_NATIVE","PASS_PRIMITIVE_ONLY")
         if opts.stage_platform is not None:
             staged=stage_platform(opts.stage_platform,files,shas)
             m["staged_sources"]=staged
