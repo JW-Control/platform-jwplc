@@ -65,7 +65,7 @@ NEGATIVE_MUTATIONS={
         "jwplcSPI_acquire(timeoutMs)","NESTED_CLIENT_DEADLOCK_OR_FALSE_DISCONNECT"),
     "MB_SERVER_RAW_RELEASE":("MB_SERVER",
         "jwplc_w5500_candidate::leave();",
-        "jwplcSPI_release();","MUTEX_RELEASE_BY_NONOWNER"),
+        "jwplcSPI_release();","SOCKET_STATUS_OUTSIDE_MUTEX"),
 }
 def say(k,v):print("G10_P1G_C2_S1_"+str(k)+"="+str(v),flush=True)
 def need(ok,msg):
