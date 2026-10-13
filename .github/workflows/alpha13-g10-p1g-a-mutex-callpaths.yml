@@ -1,0 +1,66 @@
+name: Alpha13 G10 P1G-A - Ethernet mutex callpath baseline
+
+on:
+  push:
+    branches:
+      - 'v2.1.0-alpha.13/feature/cleanup-robustness'
+    paths:
+      - '.github/workflows/alpha13-g10-p1g-a-mutex-callpaths.yml'
+      - 'tools/alpha13/gates/a13_g10_p1g_a_mutex_callpaths.py'
+      - 'tools/alpha13/gates/run_a13_g10_p1g_a_mutex_callpaths.bat'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  p1g-a-readonly:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Python help/syntax
+        shell: pwsh
+        run: |
+          python -m py_compile tools/alpha13/gates/a13_g10_p1g_a_mutex_callpaths.py
+          python -B tools/alpha13/gates/a13_g10_p1g_a_mutex_callpaths.py --help
+          if ($LASTEXITCODE -ne 0) { throw 'G10_P1G_A_SYNTAX_OR_HELP_FAILED' }
+      - name: Four negative source tests
+        shell: pwsh
+        run: |
+          python -B tools/alpha13/gates/a13_g10_p1g_a_mutex_callpaths.py --selftest | Tee-Object -FilePath g10_p1g_a_selftest.log
+          if ($LASTEXITCODE -ne 0) { throw 'G10_P1G_A_SELFTEST_FAILED' }
+          if ((Get-Content g10_p1g_a_selftest.log -Raw) -notmatch 'G10_P1G_A_SELFTEST=PASS_4_NEGATIVES') { throw 'G10_P1G_A_NEGATIVES_MISSING' }
+      - name: Frozen sources and SPI ownership
+        shell: pwsh
+        run: |
+          python -B tools/alpha13/gates/a13_g10_p1g_a_mutex_callpaths.py --ci-standalone | Tee-Object -FilePath g10_p1g_a_snapshot.log
+          if ($LASTEXITCODE -ne 0) { throw 'G10_P1G_A_SNAPSHOT_FAILED' }
+          $s = Get-Content g10_p1g_a_snapshot.log -Raw
+          if ($s -notmatch 'G10_P1G_A_STATUS=CALLPATH_BASELINE_CAPTURED_ADOPTION_BLOCKED') { throw 'G10_P1G_A_STATUS_WRONG' }
+          if ($s -notmatch 'G10_P1G_A_TOTAL_HIGH_LEVEL_LOCAL_GUARDS=19') { throw 'G10_P1G_A_19_MISSING' }
+          if ($s -notmatch 'G10_P1G_A_LOWER_DIRECT_TOTAL_NOT_BUG_COUNT=81') { throw 'G10_P1G_A_81_MISSING' }
+      - name: Git tracked files unmodified
+        shell: pwsh
+        run: |
+          git diff --exit-code
+          if ($LASTEXITCODE -ne 0) { throw 'G10_P1G_A_PRODUCT_MUTATED' }
+      - name: Evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alpha13-g10-p1g-a-${{ matrix.os }}-${{ github.run_id }}
+          path: |
+            g10_p1g_a_selftest.log
+            g10_p1g_a_snapshot.log
+            tools/alpha13/results/g10_p1g_a_*/
+          if-no-files-found: warn
