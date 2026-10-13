@@ -151,14 +151,16 @@ static void testServerAvailableAndCopies() {
 }
 
 static void testServerAcceptAndContention() {
-    // Usar slot 1: slot 0 pertenece a otro protocolo tras el reciclaje.
     EthernetServer server(1502);
     server.begin();
-    check(EthernetServer::server_port[1]==1502,"SECOND_LISTENER_FAILED");
-    g_status[1]=SnSR::ESTABLISHED;
+    uint8_t listening=MAX_SOCK_NUM;
+    for (uint8_t i=0;i<MAX_SOCK_NUM;i++)
+        if (EthernetServer::server_port[i]==1502) listening=i;
+    check(listening<MAX_SOCK_NUM,"SECOND_LISTENER_FAILED");
+    g_status[listening]=SnSR::ESTABLISHED;
     EthernetClient accepted=server.accept();
-    check(accepted.getSocketNumber()==1,"ACCEPT_DID_NOT_RETURN_CLIENT");
-    check(EthernetServer::server_port[1]==0,"ACCEPT_LISTENER_NOT_RELEASED");
+    check(accepted.getSocketNumber()==listening,"ACCEPT_DID_NOT_RETURN_CLIENT");
+    check(EthernetServer::server_port[listening]==0,"ACCEPT_LISTENER_NOT_RELEASED");
     EthernetClient alias=accepted;
 
     // La contención SPI debe conservar el handle y NO cerrar el socket.
@@ -167,7 +169,7 @@ static void testServerAcceptAndContention() {
     g_task=1;
     const int before=g_close;
     alias.cancelStopAsync();
-    check(alias.getSocketNumber()==1 && g_close==before,
+    check(alias.getSocketNumber()==listening && g_close==before,
           "BUS_BUSY_DISCARDED_HANDLE_OR_CLOSED");
     g_task=2;
     jwplcSPI_release();
@@ -186,9 +188,13 @@ static bool hwReset(void*) {
 static void testResetStaleHandle() {
     EthernetServer server(8080);
     server.begin();
-    g_status[1]=SnSR::ESTABLISHED;
+    uint8_t idx=MAX_SOCK_NUM;
+    for (uint8_t i=0;i<MAX_SOCK_NUM;i++)
+        if (EthernetServer::server_port[i]==8080) idx=i;
+    check(idx<MAX_SOCK_NUM,"RESET_LISTENER_FAILED");
+    g_status[idx]=SnSR::ESTABLISHED;
     EthernetClient before=server.accept();
-    check(before.getSocketNumber()==1,"RESET_BASELINE_ACCEPT_FAILED");
+    check(before.getSocketNumber()==idx,"RESET_BASELINE_ACCEPT_FAILED");
     const int closes=g_close;
     check(resetAndInvalidate(hwReset,nullptr,20),"RESET_FAILED");
     before.cancelStopAsync();
