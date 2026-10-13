@@ -51,7 +51,7 @@ MUTATIONS=[
      "false","STALE_COPY_CLOSED_RECYCLED_SOCKET"),
     ("SERVER_AVAILABLE_UNLOCKED","SERVER",
      "EthernetClient EthernetServer::available()\n{\n    jwplc_w5500_candidate::BusScope bus(20);\n    if (!bus) return EthernetClient(MAX_SOCK_NUM);",
-     "EthernetClient EthernetServer::available()\n{\n    /* removed available scope */","STATUS_UNLOCKED"),
+     "EthernetClient EthernetServer::available()\n{\n    /* removed available scope */","AVAILABLE_CLIENT_NOT_RETURNED"),
     ("BUS_BUSY_DROPS_HANDLE","CLIENT",
      "if (!bus) return; // Contención SPI: conservar handle y reintentar.",
      "if (!bus) { _sockindex = MAX_SOCK_NUM; return; }",
