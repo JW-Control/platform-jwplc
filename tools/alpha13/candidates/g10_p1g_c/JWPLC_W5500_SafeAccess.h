@@ -46,6 +46,8 @@ SocketToken allocateSocketLockedAuto(uint8_t socket);
 // Captura válida SOLO con el bus W5500 adquirido, para asociar handles futuros.
 SocketToken currentSocketTokenLocked(uint8_t socket);
 bool matchesLocked(const SocketToken& token);
+// El propietario invalida su token tras CLOSE bajo la MISMA exclusión SPI.
+bool invalidateSocketLocked(const SocketToken& token);
 void mapListenerLocked(uint8_t socket, uint16_t port, const SocketToken& token);
 bool listenerMatchesLocked(uint8_t socket, uint16_t port,
                            const SocketToken& token);
