@@ -6,13 +6,20 @@
 
 ```text
 HITO=G10-I
-ETAPA=PREP_SOURCE_OVERLAY_COMPOSED
+ETAPA=ARDUINO_LIBRARY_COMPATIBILITY_PASS_FULL_INTEGRATION_OPEN
 BRANCH=v2.1.0-alpha.13/feature/cleanup-robustness
 G10-I-PREP-CI=PASS_WINDOWS_LINUX_RUN_38453811488
 G10-I-PREP-CI-HEAD=b5dcfeecd01a75a8b12cc78cfe28c01a8ccc23fb
 G10-I-PREP-STATUS=COMPOSED_REVIEW_BLOCKED
-G10-I-INTEGRATED_CPP_ARDUINO=NOT_YET_COMPILED
+G10-I-ARDUINO-LIBRARIES=PASS_BASELINE_2_CANDIDATE_2_RUN_38457826687
+G10-I-ARDUINO-LIBRARIES-CI-HEAD=5a82cdd9a3b9315e2c619b65dc096fee2350b26f
+G10-I-ARDUINO-TEST-FQBN=jwplc:esp32:jwplcbasic
+G10-I-ARDUINO-TEST-CORE=BOOTSTRAP_2.1.0-alpha.10_WITH_BRANCH_HEADER_PATH
+G10-I-SAFEACCESS_CPP=COMPILED_AS_CANDIDATE_OBJECT
+G10-I-INTEGRATED_CPP_ARDUINO=PARTIAL_LIBRARIES_ONLY_NOT_FULL_ALPHA13_PACKAGE
 G10-I-SOURCE_OVERLAY=GENERATED_TEMPORARY_ONLY
+G10-I-FULL_PACKAGE_AND_IDE=NOT_RUN
+G10-I-PHYSICAL=NOT_RUN
 G10-I-OPEN_BLOCKERS=8
 G10-I-LOCAL_WINDOWS=NOT_REQUIRED_UNTIL_INTEGRATED_READY
 G10-H=NOT_STARTED_REQUIRES_PHYSICAL_AUTHORIZATION
@@ -25,15 +32,18 @@ PRODUCT_CHANGED=NO_FOR_G10
 PRECOMPILED_ARCHIVES=5_FROZEN
 GPIO4_RESET=255_DISABLED
 ALPHA13=IN_PROGRESS
-NEXT_ACTION=G10-I_RESOLVE_INTEGRATION_BLOCKERS_BEFORE_USER_GATE
+NEXT_ACTION=G10-I_VERIFY_FULL_SOURCE_LINK_AND_REVIEW_SPI_BUSY_DNS_DHCP_BEFORE_USER_GATE
 ```
 
 **Decisión de flujo aprobada:** dejar de pedir una ejecución manual
 por cada método; el siguiente trabajo es **G10-I Integración**,
 luego **G10-H Hardware autorizado** y **G10-C Cierre**.
-La CI de PREP valida que puede componerse el overlay común
-y detectarse bloqueos; **no** certifica compilación Arduino,
-ausencia de races ni seguridad del firmware.
+La preparación y la compilación limitada de dos ejemplos Arduino
+con librerías de la rama/candidato han pasado en CI. Se utilizó
+el bootstrap inmutable Alpha10 con headers del core de la rama
+por compatibilidad. Esto **no** certifica compilación
+del package Alpha13 completo, ausencia de races
+ni seguridad del firmware.
 
 [Plan G10-I/H/C](A13_G10_INTEGRATED_MILESTONES_20261013.md).
 Ejecutor único: `tools/alpha13/gates/run_a13_g10_integrated.bat`.
