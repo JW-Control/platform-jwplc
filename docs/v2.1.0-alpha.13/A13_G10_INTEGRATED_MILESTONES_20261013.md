@@ -249,3 +249,79 @@ rutas TCP/UDP/DNS/DHCP; verificar procedencia objeto
 → ELF/mapa con toolchain actual y compilación del
 package completo con su core correspondiente.
 No pedir un BAT por método ni avanzar a G10-H.
+
+
+## Control de alcance: cuántas validaciones restan (2026-10-13)
+
+El avance de G10-I **no** se divide otra vez en microgates. Se han
+agrupado las tareas restantes en **cuatro campañas de validación**
+y una revisión de cierre. Son unidades planificadas,
+**no una garantía de solo cuatro ejecuciones**: un fallo puede
+obligar a repetir la campaña afectada.
+
+| Campaña | Hito | Criterio de salida |
+|---|---|---|
+| 1. SPI/socket/TCP/UDP/DNS/DHCP | G10-I | Concurrencia, BUS_BUSY distinto de desconexión, propietario y epoch de cada acceso, sin regresión de API |
+| 2. Regresión integrada | G10-I | Reuso/retarget, stop y connect tras timeout, cierre diferido, reset seguro, pruebas negativas y estrés de máquinas de estado |
+| 3. Compilación/enlace real | G10-I | Baseline vs candidato del **core completo Alpha13** y todos los periféricos autoload; objetos/.d/ELF/mapa atribuibles al código candidato; cinco archives idénticos |
+| 4. Validación física | G10-H | Ethernet/Modbus y coexistencia real con Display, SD, FRAM, RTC, RS-485, botonera y TCA/I/O; autorizada por operador |
+
+G10-C es la **decisión de cierre y documentación**, no otra
+campaña técnica. Previstas **dos intervenciones manuales**
+del operador si las validaciones internas y CI pasan:
+ejecución integrada en Windows y prueba de hardware
+autorizada. No pedir un BAT por cada método.
+
+### Integración de evidencia de enlazado
+
+En el **mismo workflow** `alpha13-g10-integrated.yml`
+se incorporó revisión de procedencia tras compilación Arduino:
+bibliotecas elegidas por `--library`, archivo de
+dependencias GCC `.d` para `JWPLC_W5500_SafeAccess.cpp`,
+un solo objeto, y símbolos `enter()/leave()` en el
+`.elf` del sketch compilado. Si no aparecen, la CI
+debe fallar en vez de anunciar una falsa integración.
+
+**No se considera resuelta la campaña 3** hasta usar
+el core Alpha13 completo, el autoload normal, objeto/ELF
+y un baseline comparable. Por el momento el core de la
+CI es el bootstrap Alpha10 compatible con headers
+seleccionados desde la rama.
+
+### Brechas funcionales críticas — no marcar como PASS
+
+- `EthernetClient::connected()` devuelve `0` en
+  el overlay si `BusScope(20)` falla por contención.
+  El caller puede interpretarlo como desconexión.
+- `EthernetClass::socketStatus()` devuelve
+  `SnSR::CLOSED` en la misma circunstancia; otros
+  callers pueden descartar su handle. No existe
+  estado tri-valuado adoptado o una garantía de
+  estatus cacheado coherente por token.
+- `EthernetClient::stop()` retorna tras timeout
+  sin cerrar el socket cuando sigue `SPI_BUSY`.
+  Conservar el handle no equivale a garantizar
+  un reintento futuro automático.
+- `cancelConnectAsync()` también puede
+  conservar un socket abierto en `SPI_BUSY`.
+- DNS/DHCP y UDP RX/TX no están integrados
+  de punta a punta bajo el ownership del socket.
+
+**Decisión:** no sustituir estos retornos por
+`CONNECTED` o `CLOSED` arbitrarios para forzar un
+PASS. Diseñar un resultado de sondeo distinguible
+(`VALID/BUS_BUSY/STALE`) para los consumidores
+internos, conservando compatibilidad de las APIs
+Arduino, y probarlo antes de habilitar adopción.
+
+```text
+G10-I=IN_PROGRESS
+REMAINING_VALIDATION_CAMPAIGNS=4_PLANNED
+G10-C=DECISION_NOT_TEST_CAMPAIGN
+G10-I-ARDUINO_LINK_PROVENANCE=CI_RUNNING_NOT_YET_PASS
+A13-006=ADOPTION_BLOCKED
+G10-H=NOT_STARTED
+G10_FINAL=NOT_CLOSED
+GPIO4=255
+FROZEN_ARCHIVES=5
+```
