@@ -121,6 +121,12 @@ bool matchesLocked(const SocketToken& token) {
            same(token, g_slots[token.socketIndex]);
 }
 
+bool invalidateSocketLocked(const SocketToken& token) {
+    if (!matchesLocked(token)) return false;
+    clearSlot(g_slots[token.socketIndex]);
+    return true;
+}
+
 void mapListenerLocked(uint8_t socket, uint16_t port,
                        const SocketToken& token) {
     if (!matchesLocked(token) || socket != token.socketIndex) return;
