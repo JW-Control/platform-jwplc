@@ -1,3 +1,35 @@
+## G10-P1G-C1 — diagnóstico Python Windows: comando sin extensión interceptado (2026-10-13)
+
+```text
+G10_P1G_C1_WINDOWS_PYTHON_COMMAND=C:\\Windows\\System32\\python
+G10_P1G_C1_WINDOWS_REAL_PYTHON_EXE=C:\\Users\\jeykc\\AppData\\Local\\Programs\\Python\\Python311\\python.exe
+G10_P1G_C1_WINDOWS_PYTHON_SHADOW=OBSERVED_OPEN_WITH_DIALOG
+G10_P1G_C1_BAT_RUNNER=UPDATED_TO_PYTHON_DOT_EXE
+G10_P1G_C1_LOCAL_COMPILER_PROBE=RETRY_WITH_EXPLICIT_PYTHON_EXE_PENDING
+G10_P1G_C1_WINDOWS_NATIVE=NOT_YET_VERIFIED
+G10_P1G_C1_CI_PRIOR=PASS_WINDOWS_LINUX_RUN_38349898868
+G10_P1G_C2=DESIGN_CONTINUITY_ALLOWED_NOT_ADOPTED
+G10_P1G_C2_PRODUCT_CHANGES=NONE
+A13-006=ADOPTION_BLOCKED
+```
+
+Captura de PowerShell: `Get-Command python -All` resuelve primero
+`C:\\Windows\\System32\\python` (sin extensión), seguido del
+`python.exe` instalado en Python311 y del alias WindowsApps. Ejecutar
+`python --version`, `python -c` o el `--compiler-probe` desde
+`python` abre «¿Cómo quieres abrir este archivo?» y no produce
+salida. Por tanto, el primer REVIEW_STOP `HOST_CXX_NOT_FOUND`
+se conserva como ejecución original, pero no se da por válido
+el diagnóstico posterior de descubrimiento hasta repetirlo usando
+`python.exe` explícito. No eliminar el elemento de System32 sin
+identificarlo; no hay evidencia de necesidad de reinstalar Python.
+
+El BAT C1 invoca ahora `python.exe` (extensión explícita) para evitar
+shadowing por `python` sin extensión. No se han alterado archivos
+productivos, archivos .a, GPIO4 ni el firmware físico.
+
+---
+
 ## G10-P1G-C1 — Windows local sin compilador host; CI revalidada (2026-10-13)
 
 ```text
