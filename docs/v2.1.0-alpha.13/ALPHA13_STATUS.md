@@ -1,3 +1,40 @@
+## G10-P1G-C1 — g++ UCRT64 encontrado, compilación Windows local detenida (2026-10-13)
+
+```text
+G10_P1G_C1_PYTHON_EXE=PASS_PYTHON_3_11_5
+G10_P1G_C1_LOCAL_CXX_DETECTED=C:\\msys64\\ucrt64\\bin\\g++.exe
+G10_P1G_C1_LOCAL_CXX_KIND=gcc
+G10_P1G_C1_LOCAL_RUN=g10_p1g_c1_20261013_091528_3b490b65
+G10_P1G_C1_LOCAL_POSITIVE_COMPILE=REVIEW_STOP_HOST_COMPILE_FAILED
+G10_P1G_C1_LOCAL_EXACT_COMPILER_ERROR=PENDING_COMPILE_LOG
+G10_P1G_C1_RUNNER_FIX=TEMPORARY_GCC_BIN_PATH_PLUS_DIAGNOSTICS
+G10_P1G_C1_RUNNER_FIX_HEAD=ac499a6b8aa3eec86b23def1984da77fa0bc044c
+G10_P1G_C1_RUNNER_FIX_CI=PASS_WINDOWS_LINUX_RUN_38412055418
+G10_P1G_C1_LOCAL_RETRY=NOT_YET_EXECUTED
+G10_P1G_C1_INTEGRATED_IN_PRODUCT=NO
+G10_P1G_C2_PRODUCT_CHANGE=NONE
+G10_P1G_C2_GPIO4_DEFAULT_CHANGE=NO
+A13-006=ADOPTION_BLOCKED
+G10_FINAL=NOT_CLOSED
+```
+
+El operador confirmó Python 3.11.5 con ejecutable `python.exe` y detección
+C++ host `C:\\msys64\\ucrt64\\bin\\g++.exe`. La ejecución C1 dejó
+`HOST_COMPILE_FAILED_positive_SEE_COMPILE_LOG` antes del test nativo.
+**No se ha recibido el contenido de `positive/compile.log`; la causa exacta
+sigue no determinada.** Se encontró una posible causa en la invocación:
+GCC UCRT fuera de PATH. El gate añade exclusivamente al entorno
+del proceso hijo el directorio del compilador tanto para compilar
+como para ejecutar el binario, y expone exit/stderr en consola.
+Esta corrección volvió a pasar CI Windows/Linux, pero no prueba
+por sí sola la configuración MSYS2 concreta del operador.
+
+El estado local se mantiene REVIEW_STOP hasta una nueva ejecución
+o revisión del `compile.log`. No se modificaron libraries/core,
+archives precompilados ni hardware.
+
+---
+
 ## G10-P1G-C1 — diagnóstico Python Windows: comando sin extensión interceptado (2026-10-13)
 
 ```text
