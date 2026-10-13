@@ -179,6 +179,8 @@ def main():
             sources="\n\n".join(cpp_methods[:-1]+[tx])+"\n"
             return s2b2a.native(out,label,sources,c1)
         rc,log=build("positive",tx_body)
+        if rc!=0 or not all(x in log for x in EXPECTED):
+            say("POSITIVE_DIAGNOSTIC","EXIT_"+str(rc)+"_"+log.strip().replace("\n"," | ")[:1500])
         need(rc==0 and all(x in log for x in EXPECTED),
              "POSITIVE_TX_CANCEL_SOURCE_TEST_FAILED")
         say("POSITIVE_NATIVE","PASS_REAL_TX_CANCEL_WITH_OUTBOUND")
