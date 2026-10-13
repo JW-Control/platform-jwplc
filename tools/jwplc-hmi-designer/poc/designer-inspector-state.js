@@ -4,10 +4,13 @@
   if (window.JWPLCHMIInspectorState) return;
 
   const fieldSection = document.getElementById('textFieldControlsSection');
+  const shapeSection = document.getElementById('shapeInspectorSection');
   const rawSection = document.getElementById('rawTextControlsSection');
   const pixelInspector = document.getElementById('pixelMapControlsSection');
   const legacyPixelSection = document.querySelector('.pixel-controls');
+  const navBarSection = document.getElementById('navBarInspectorSection');
   const rightPanel = document.querySelector('.right-panel');
+  const SHAPE_TYPES = ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'];
 
   if (!rightPanel) return;
 
@@ -45,6 +48,8 @@
     if (selectedTool === 'rawText') return 'RAW';
     const field = editor()?.getSelectedField?.();
     if (field?.type === 'RAW_TEXT') return 'RAW';
+    if (field?.type === 'NAV_BAR' || selectedTool === 'navBarField') return 'NAV_BAR';
+    if (field && SHAPE_TYPES.includes(field.type)) return 'SHAPE';
     if (field) return 'FIELD';
     return 'NONE';
   }
@@ -52,9 +57,15 @@
   function syncInspectorState() {
     const mode = currentMode();
 
+    setSectionVisible(navBarSection, mode === 'NAV_BAR');
     setSectionVisible(fieldSection, mode === 'FIELD');
+    setSectionVisible(shapeSection, mode === 'SHAPE');
     setSectionVisible(rawSection, mode === 'RAW');
     setSectionVisible(pixelInspector, mode === 'PIXEL');
+
+    if (mode === 'NAV_BAR' && window.JWPLCHMIPages?.syncNavBarInspector) {
+      window.JWPLCHMIPages.syncNavBarInspector();
+    }
 
     // A11-7 ya dispone de color contextual en PIXEL y en Apariencia.
     // La sección global heredada mezcla estados y queda fuera del flujo normal.

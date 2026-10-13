@@ -19,7 +19,7 @@
   }
 
   function allFields() {
-    return editor()?.getAllFields?.() || [];
+    return (editor()?.getAllFields?.() || []).filter((field) => field.type !== 'NAV_BAR');
   }
 
   function pages() {
@@ -228,63 +228,81 @@
   function setterHint(field, index) {
     if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT'].includes(field.type)) {
       const c = `0x${(field.frameColor || 0xFFFF).toString(16).toUpperCase().padStart(4, '0')}`;
+      const fc = `0x${(field.fillColor || field.frameColor || 0xFFFF).toString(16).toUpperCase().padStart(4, '0')}`;
+      const r = Math.max(0, Math.round(Number(field.cornerRadius) || 0));
+      const rot = ((Number(field.rotation) || 0) % 360 + 360) % 360;
+      const borderOn = field.borderEnabled !== false;
+
       if (field.type === 'LINE') return `JWPLC_Display.getTFT()->drawLine(${field.x}, ${field.y}, ${field.x2}, ${field.y2}, ${c});`;
-      if (field.type === 'RECT') {
+      if (field.type === 'RECT' && rot === 0) {
         const minX = Math.min(field.x, field.x2);
         const minY = Math.min(field.y, field.y2);
         const w = Math.abs(field.x2 - field.x);
         const h = Math.abs(field.y2 - field.y);
         const cmds = [];
-        if (field.fill) {
-          const fc = `0x${(field.fillColor || field.frameColor || 0xFFFF).toString(16).toUpperCase().padStart(4, '0')}`;
-          cmds.push(`JWPLC_Display.getTFT()->fillRect(${minX}, ${minY}, ${w}, ${h}, ${fc});`);
+        if (r > 0) {
+          if (field.fill) cmds.push(`JWPLC_Display.getTFT()->fillRoundRect(${minX}, ${minY}, ${w}, ${h}, ${r}, ${fc});`);
+          if (borderOn) cmds.push(`JWPLC_Display.getTFT()->drawRoundRect(${minX}, ${minY}, ${w}, ${h}, ${r}, ${c});`);
+        } else {
+          if (field.fill) cmds.push(`JWPLC_Display.getTFT()->fillRect(${minX}, ${minY}, ${w}, ${h}, ${fc});`);
+          if (borderOn) cmds.push(`JWPLC_Display.getTFT()->drawRect(${minX}, ${minY}, ${w}, ${h}, ${c});`);
         }
-        cmds.push(`JWPLC_Display.getTFT()->drawRect(${minX}, ${minY}, ${w}, ${h}, ${c});`);
         return cmds.join('\n        ');
       }
       if (field.type === 'ELLIPSE') {
-        const cx = Math.min(field.x, field.x2) + Math.abs(field.x2 - field.x)/2;
-        const cy = Math.min(field.y, field.y2) + Math.abs(field.y2 - field.y)/2;
-        const r = Math.max(Math.abs(field.x2 - field.x)/2, Math.abs(field.y2 - field.y)/2);
+        const cx = Math.round(Math.min(field.x, field.x2) + Math.abs(field.x2 - field.x) / 2);
+        const cy = Math.round(Math.min(field.y, field.y2) + Math.abs(field.y2 - field.y) / 2);
+        const rx = Math.round(Math.abs(field.x2 - field.x) / 2);
+        const ry = Math.round(Math.abs(field.y2 - field.y) / 2);
         const cmds = [];
-        if (field.fill) {
-          const fc = `0x${(field.fillColor || field.frameColor || 0xFFFF).toString(16).toUpperCase().padStart(4, '0')}`;
-          cmds.push(`JWPLC_Display.getTFT()->fillCircle(${cx}, ${cy}, ${r}, ${fc});`);
+        if (rx === ry) {
+          if (field.fill) cmds.push(`JWPLC_Display.getTFT()->fillCircle(${cx}, ${cy}, ${rx}, ${fc});`);
+          if (borderOn) cmds.push(`JWPLC_Display.getTFT()->drawCircle(${cx}, ${cy}, ${rx}, ${c});`);
+        } else {
+          if (field.fill) cmds.push(`JWPLC_Display.getTFT()->fillEllipse(${cx}, ${cy}, ${rx}, ${ry}, ${fc});`);
+          if (borderOn) cmds.push(`JWPLC_Display.getTFT()->drawEllipse(${cx}, ${cy}, ${rx}, ${ry}, ${c});`);
         }
-        cmds.push(`JWPLC_Display.getTFT()->drawCircle(${cx}, ${cy}, ${r}, ${c});`);
         return cmds.join('\n        ');
       }
-      if (field.type === 'TRIANGLE') {
-        const x1 = Math.round((field.x + field.x2)/2), y1 = field.y;
+      if (field.type === 'TRIANGLE' && r === 0 && rot === 0) {
+        const x1 = Math.round((field.x + field.x2) / 2), y1 = field.y;
         const x2 = field.x, y2 = field.y2;
         const x3 = field.x2, y3 = field.y2;
         const cmds = [];
-        if (field.fill) {
-          const fc = `0x${(field.fillColor || field.frameColor || 0xFFFF).toString(16).toUpperCase().padStart(4, '0')}`;
-          cmds.push(`JWPLC_Display.getTFT()->fillTriangle(${x1}, ${y1}, ${x2}, ${y2}, ${x3}, ${y3}, ${fc});`);
-        }
-        cmds.push(`JWPLC_Display.getTFT()->drawTriangle(${x1}, ${y1}, ${x2}, ${y2}, ${x3}, ${y3}, ${c});`);
+        if (field.fill) cmds.push(`JWPLC_Display.getTFT()->fillTriangle(${x1}, ${y1}, ${x2}, ${y2}, ${x3}, ${y3}, ${fc});`);
+        if (borderOn) cmds.push(`JWPLC_Display.getTFT()->drawTriangle(${x1}, ${y1}, ${x2}, ${y2}, ${x3}, ${y3}, ${c});`);
         return cmds.join('\n        ');
       }
-      if (field.type === 'POLYGON') {
-        const cx = (field.x + field.x2) / 2;
-        const cy = (field.y + field.y2) / 2;
-        const rx = Math.abs(field.x2 - field.x) / 2;
-        const ry = Math.abs(field.y2 - field.y) / 2;
-        const numSides = Math.max(3, Math.min(12, Math.trunc(Number(field.sides) || 5)));
-        const pts = [];
-        for (let i = 0; i < numSides; i++) {
-          const angle = (i * 2 * Math.PI / numSides) - Math.PI / 2;
-          pts.push({
-            x: Math.round(cx + rx * Math.cos(angle)),
-            y: Math.round(cy + ry * Math.sin(angle))
-          });
+      if (['RECT', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
+        const apiVerts = window.JWPLCHMIEditor?.getShapeVertices?.(field);
+        let pts = Array.isArray(apiVerts) && apiVerts.length >= 3 ? apiVerts : null;
+        if (!pts) {
+          const cx = (field.x + field.x2) / 2;
+          const cy = (field.y + field.y2) / 2;
+          const rx = Math.abs(field.x2 - field.x) / 2;
+          const ry = Math.abs(field.y2 - field.y) / 2;
+          const numSides = field.type === 'TRIANGLE' ? 3 : field.type === 'RECT' ? 4 : Math.max(3, Math.min(20, Math.trunc(Number(field.sides) || 5)));
+          pts = [];
+          for (let i = 0; i < numSides; i++) {
+            const angle = (i * 2 * Math.PI / numSides) - Math.PI / 2;
+            pts.push({
+              x: Math.round(cx + rx * Math.cos(angle)),
+              y: Math.round(cy + ry * Math.sin(angle))
+            });
+          }
         }
         const cmds = [];
-        for (let i = 0; i < numSides; i++) {
-          const p1 = pts[i];
-          const p2 = pts[(i + 1) % numSides];
-          cmds.push(`JWPLC_Display.getTFT()->drawLine(${p1.x}, ${p1.y}, ${p2.x}, ${p2.y}, ${c});`);
+        if (field.fill && pts.length >= 3) {
+          for (let i = 1; i < pts.length - 1; i++) {
+            cmds.push(`JWPLC_Display.getTFT()->fillTriangle(${pts[0].x}, ${pts[0].y}, ${pts[i].x}, ${pts[i].y}, ${pts[i + 1].x}, ${pts[i + 1].y}, ${fc});`);
+          }
+        }
+        if (borderOn) {
+          for (let i = 0; i < pts.length; i++) {
+            const p1 = pts[i];
+            const p2 = pts[(i + 1) % pts.length];
+            cmds.push(`JWPLC_Display.getTFT()->drawLine(${p1.x}, ${p1.y}, ${p2.x}, ${p2.y}, ${c});`);
+          }
         }
         return cmds.join('\n        ');
       }
@@ -371,6 +389,90 @@
     return chunks.join('\n\n');
   }
 
+  function navBarFunctionBlock() {
+    const hmiPages = window.JWPLCHMIPages;
+    if (!hmiPages) return '';
+    const cfg = hmiPages.getNavBarConfig ? hmiPages.getNavBarConfig() : null;
+    const pageList = pages();
+    if (!cfg || !cfg.enabled || pageList.length <= 1) return '';
+
+    const lines = [];
+    lines.push(`// =====================================================`);
+    lines.push(`// Barra de Navegación HMI Autogenerada (ST7789)`);
+    lines.push(`// =====================================================`);
+    lines.push(`static void jwplcDrawPageNavBar(uint8_t activePage)`);
+    lines.push(`{`);
+    lines.push(`    auto &tft = JWPLC_Display.display();`);
+
+    const layout = hmiPages.computeNavBarLayout ? hmiPages.computeNavBarLayout(pageList, 0) : null;
+    const y = layout ? layout.y : 147;
+    const h = layout ? layout.h : 22;
+    lines.push(`    tft.fillRect(0, ${y}, 320, ${h}, 0x0000);`);
+    lines.push(`    tft.setTextSize(1);`);
+    lines.push(``);
+    lines.push(`    switch (activePage)`);
+    lines.push(`    {`);
+
+    pageList.forEach((page, idx) => {
+      const curLayout = hmiPages.computeNavBarLayout ? hmiPages.computeNavBarLayout(pageList, page.id) : null;
+      lines.push(`    case ${idx}:`);
+      lines.push(`        {`);
+      if (curLayout && curLayout.tabs) {
+        curLayout.tabs.forEach((tab) => {
+          const col565 = `0x${Number(tab.color || 0xFFFF).toString(16).toUpperCase().padStart(4, '0')}`;
+          if (tab.isActive) {
+            lines.push(`            tft.fillRoundRect(${tab.x}, ${tab.y}, ${tab.w}, ${tab.h}, 3, 0xFFFF);`);
+            lines.push(`            tft.drawRoundRect(${tab.x}, ${tab.y}, ${tab.w}, ${tab.h}, 3, ${col565});`);
+            lines.push(`            tft.setTextColor(${col565 === '0xFFFF' ? '0x0000' : col565}, 0xFFFF);`);
+          } else {
+            lines.push(`            tft.fillRoundRect(${tab.x}, ${tab.y}, ${tab.w}, ${tab.h}, 3, 0x0000);`);
+            lines.push(`            tft.drawRoundRect(${tab.x}, ${tab.y}, ${tab.w}, ${tab.h}, 3, ${col565});`);
+            lines.push(`            tft.setTextColor(${col565}, 0x0000);`);
+          }
+          const textW = tab.shortName.length * 6 - 1;
+          const tx = tab.x + Math.floor((tab.w - textW) / 2);
+          const ty = tab.y + Math.floor((tab.h - 7) / 2);
+          lines.push(`            tft.setCursor(${tx}, ${ty});`);
+          lines.push(`            tft.print("${tab.shortName}");`);
+        });
+
+        if (curLayout.hasOverflow) {
+          if (curLayout.leftArrow) {
+            const la = curLayout.leftArrow;
+            const laCol = la.enabled ? '0x07FF' : '0x39E7';
+            lines.push(`            tft.drawRoundRect(${la.x}, ${la.y}, ${la.w}, ${la.h}, 3, ${laCol});`);
+            lines.push(`            tft.setTextColor(${laCol}, 0x0000);`);
+            lines.push(`            tft.setCursor(${la.x + 5}, ${la.y + Math.floor((la.h - 7) / 2)});`);
+            lines.push(`            tft.print("<");`);
+          }
+          if (curLayout.rightArrow) {
+            const ra = curLayout.rightArrow;
+            const raCol = ra.enabled ? '0x07FF' : '0x39E7';
+            lines.push(`            tft.drawRoundRect(${ra.x}, ${ra.y}, ${ra.w}, ${ra.h}, 3, ${raCol});`);
+            lines.push(`            tft.setTextColor(${raCol}, 0x0000);`);
+            lines.push(`            tft.setCursor(${ra.x + 5}, ${ra.y + Math.floor((ra.h - 7) / 2)});`);
+            lines.push(`            tft.print(">");`);
+          }
+          if (curLayout.counter) {
+            const cnt = curLayout.counter;
+            lines.push(`            tft.drawRoundRect(${cnt.x}, ${cnt.y}, ${cnt.w}, ${cnt.h}, 3, 0x4A69);`);
+            lines.push(`            tft.setTextColor(0xFFFF, 0x0000);`);
+            lines.push(`            tft.setCursor(${cnt.x + 2}, ${cnt.y + Math.floor((cnt.h - 7) / 2)});`);
+            lines.push(`            tft.print("${cnt.text}");`);
+          }
+        }
+      }
+      lines.push(`        }`);
+      lines.push(`        break;`);
+    });
+
+    lines.push(`    default:`);
+    lines.push(`        break;`);
+    lines.push(`    }`);
+    lines.push(`}`);
+    return lines.join('\n');
+  }
+
   function generatedUIUpdateBlock() {
     const fields = allFields();
     const symbols = new Map(
@@ -392,11 +494,18 @@
         `        break;`);
     });
 
+    const hasNavBar = Boolean(window.JWPLCHMIPages?.getNavBarConfig?.()?.enabled && pages().length > 1);
+    const navBarCall = hasNavBar
+      ? `    static uint8_t s_lastNavBarPage = 255;\n    const uint8_t curPage = JWPLC_Display.userPage();\n    if (curPage != s_lastNavBarPage)\n    {\n        s_lastNavBarPage = curPage;\n        jwplcDrawPageNavBar(curPage);\n    }\n\n`
+      : '';
+    const switchTarget = hasNavBar ? 'curPage' : 'JWPLC_Display.userPage()';
+
     return `// Sincronización gráfica autogenerada.\n` +
       `// La lógica de aplicación debe permanecer en loop().\n` +
       `void jwplcUIUpdate()\n` +
       `{\n` +
-      `    switch (JWPLC_Display.userPage())\n` +
+      `${navBarCall}` +
+      `    switch (${switchTarget})\n` +
       `    {\n` +
       `${cases.join('\n\n')}\n\n` +
       `    default:\n` +
@@ -431,7 +540,9 @@
     }, '    ');
 
     const variables = groupedChunks((field, index) => variableDeclaration(field, index));
+    const navBarBlock = navBarFunctionBlock();
     const uiUpdate = generatedUIUpdateBlock();
+    const fullUiBlock = navBarBlock ? `${navBarBlock}\n\n${uiUpdate}` : uiUpdate;
     const pageEnum = pageEnumBlock();
 
     if (/enum HMIPageId : uint8_t\n\{[\s\S]*?\n\};/.test(text)) {
@@ -453,16 +564,17 @@
       `// Variables HMI\n${variables}\n\n// Definición declarativa`);
 
     const generatedTailMarker = text.indexOf('// Sincronización gráfica autogenerada.');
+    const navBarTailMarker = text.indexOf('// Barra de Navegación HMI Autogenerada');
     const legacyTailMarker = text.indexOf('// jwplcUIUpdate() NO se genera.');
     const settersTailMarker = text.indexOf('// Setters públicos que corresponden a este diseño:');
-    const tailCandidates = [generatedTailMarker, legacyTailMarker, settersTailMarker]
+    const tailCandidates = [generatedTailMarker, navBarTailMarker, legacyTailMarker, settersTailMarker]
       .filter((value) => value >= 0);
 
     if (tailCandidates.length) {
       const tailStart = Math.min(...tailCandidates);
-      text = `${text.slice(0, tailStart).trimEnd()}\n\n${uiUpdate}`;
+      text = `${text.slice(0, tailStart).trimEnd()}\n\n${fullUiBlock}`;
     } else {
-      text = `${text.trimEnd()}\n\n${uiUpdate}`;
+      text = `${text.trimEnd()}\n\n${fullUiBlock}`;
     }
 
     if (!text.includes('JWPLC_Display.setUserRefreshMode(')) {

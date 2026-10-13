@@ -48,11 +48,15 @@
     return `rgb(${Math.round(c.r * k)}, ${Math.round(c.g * k)}, ${Math.round(c.b * k)})`;
   }
 
-  function fieldRects() {
+  function fieldRects(forMap) {
     const helper = compat();
-    return (editor()?.getFieldsForPage?.(page()) || []).map((field) => {
-      const rect = helper?.fieldRect?.(field);
-      return rect ? { x: rect.x, y: rect.y, w: rect.width, h: rect.height } : null;
+    const mapOrder = Number(forMap?.layerOrder) || Infinity;
+    return (editor()?.getFieldsForPage?.(page()) || []).filter((field) => {
+      if (field.hidden) return false;
+      return (Number(field.layerOrder) || 0) < mapOrder;
+    }).map((field) => {
+      const rect = editor()?.getFieldBounds?.(field) || helper?.fieldRect?.(field);
+      return rect ? { x: rect.minX ?? rect.x, y: rect.minY ?? rect.y, w: rect.width, h: rect.height } : null;
     }).filter(Boolean);
   }
 
@@ -102,28 +106,36 @@
     const zoom = editor()?.getZoom?.() || (displayCanvas.width / WIDTH) || 1;
     const ctx = displayCanvas.getContext('2d');
     const pctx = previewCanvas.getContext('2d');
-    const protectedRects = fieldRects();
-    const covered = (x, y) => protectedRects.some((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
+    const hasPixelOrder = typeof editor()?.getPixelFieldOrder === 'function';
 
     ctx.save();
     pctx.save();
     ctx.globalAlpha = 1;
     pctx.globalAlpha = 1;
 
-    (pm.getAll?.() || []).forEach((map) => {
-      if (Number(map.page || 0) !== page() || map.editorVisible === false) return;
-      const opacity = Number.isFinite(Number(map.editorOpacity)) ? Number(map.editorOpacity) : 1;
-      (map.pixels || []).forEach((pixel) => {
-        const x = Number(map.x || 0) + Number(pixel.x || 0);
-        const y = Number(map.y || 0) + Number(pixel.y || 0);
-        if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT || covered(x, y)) return;
-        const color = editorCss565(pixel.color, opacity);
-        ctx.fillStyle = color;
-        ctx.fillRect(x * zoom, y * zoom, zoom, zoom);
-        pctx.fillStyle = color;
-        pctx.fillRect(x, y, 1, 1);
+    const allMaps = pm.getAll?.() || [];
+    allMaps.forEach((m) => editor()?.ensureLayerOrder?.(m));
+    [...allMaps]
+      .sort((a, b) => (Number(b.layerOrder) || 0) - (Number(a.layerOrder) || 0))
+      .forEach((map) => {
+        if (Number(map.page || 0) !== page() || map.editorVisible === false) return;
+        const mapOrder = Number(map.layerOrder) || Infinity;
+        const protectedRects = hasPixelOrder ? null : fieldRects(map);
+        const covered = (x, y) => hasPixelOrder
+          ? editor().getPixelFieldOrder(x, y) < mapOrder
+          : protectedRects.some((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
+        const opacity = Number.isFinite(Number(map.editorOpacity)) ? Number(map.editorOpacity) : 1;
+        (map.pixels || []).forEach((pixel) => {
+          const x = Number(map.x || 0) + Number(pixel.x || 0);
+          const y = Number(map.y || 0) + Number(pixel.y || 0);
+          if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT || covered(x, y)) return;
+          const color = editorCss565(pixel.color, opacity);
+          ctx.fillStyle = color;
+          ctx.fillRect(x * zoom, y * zoom, zoom, zoom);
+          pctx.fillStyle = color;
+          pctx.fillRect(x, y, 1, 1);
+        });
       });
-    });
 
     ctx.restore();
     pctx.restore();

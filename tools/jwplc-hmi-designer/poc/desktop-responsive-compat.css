@@ -3,7 +3,7 @@
 
 .layout-wide #openProjectButton,
 .layout-wide #saveProjectButton {
-  display: inline-block !important;
+  display: inline-flex !important;
 }
 
 .layout-wide .object-id,
@@ -15,5 +15,5 @@
 
 /* En MEDIUM/COMPACT la visibilidad se decide por rol, no por nth-of-type. */
 .layout-medium #saveProjectButton {
-  display: inline-block !important;
+  display: inline-flex !important;
 }

@@ -1417,14 +1417,48 @@
     const rad = Math.max(0, Math.min(r, maxR));
     ctx.fillStyle = colorCss;
     if (rad <= 0) {
-      ctx.fillRect(Math.round(x) * scale, Math.round(y) * scale, Math.round(w) * scale, Math.round(h) * scale);
+      const x0 = Math.round(x * scale);
+      const y0 = Math.round(y * scale);
+      const x1 = Math.round((x + w) * scale);
+      const y1 = Math.round((y + h) * scale);
+      ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
       return;
     }
     for (let dy = 0; dy < h; dy++) {
       const dx = getRoundedRectRowDx(dy, h, rad);
       const rowW = w - 2 * dx;
       if (rowW > 0) {
-        ctx.fillRect((x + dx) * scale, (y + dy) * scale, rowW * scale, scale);
+        const x0 = Math.round((x + dx) * scale);
+        const x1 = Math.round((x + dx + rowW) * scale);
+        const y0 = Math.round((y + dy) * scale);
+        const y1 = Math.round((y + dy + 1) * scale);
+        ctx.fillRect(x0, y0, x1 - x0, Math.max(1, y1 - y0));
+      }
+    }
+  }
+
+  function pixelClipRoundedRect(ctx, x, y, w, h, r, scale) {
+    ctx.beginPath();
+    if (w <= 0 || h <= 0) return;
+    const maxR = Math.floor(Math.min(w, h) / 2);
+    const rad = Math.max(0, Math.min(r, maxR));
+    if (rad <= 0) {
+      const x0 = Math.round(x * scale);
+      const y0 = Math.round(y * scale);
+      const x1 = Math.round((x + w) * scale);
+      const y1 = Math.round((y + h) * scale);
+      ctx.rect(x0, y0, x1 - x0, y1 - y0);
+      return;
+    }
+    for (let dy = 0; dy < h; dy++) {
+      const dx = getRoundedRectRowDx(dy, h, rad);
+      const rowW = w - 2 * dx;
+      if (rowW > 0) {
+        const x0 = Math.round((x + dx) * scale);
+        const x1 = Math.round((x + dx + rowW) * scale);
+        const y0 = Math.round((y + dy) * scale);
+        const y1 = Math.round((y + dy + 1) * scale);
+        ctx.rect(x0, y0, x1 - x0, Math.max(1, y1 - y0));
       }
     }
   }
@@ -1436,10 +1470,18 @@
     const rad = Math.max(0, Math.min(r, maxR));
     ctx.fillStyle = colorCss;
     if (rad <= 0) {
-      ctx.fillRect(x * scale, y * scale, w * scale, t * scale);
-      ctx.fillRect(x * scale, (y + h - t) * scale, w * scale, t * scale);
-      ctx.fillRect(x * scale, (y + t) * scale, t * scale, (h - 2 * t) * scale);
-      ctx.fillRect((x + w - t) * scale, (y + t) * scale, t * scale, (h - 2 * t) * scale);
+      const x0 = Math.round(x * scale);
+      const y0 = Math.round(y * scale);
+      const x1 = Math.round((x + w) * scale);
+      const y1 = Math.round((y + h) * scale);
+      const xtL = Math.round((x + t) * scale);
+      const xtR = Math.round((x + w - t) * scale);
+      const ytT = Math.round((y + t) * scale);
+      const ytB = Math.round((y + h - t) * scale);
+      ctx.fillRect(x0, y0, x1 - x0, ytT - y0);
+      ctx.fillRect(x0, ytB, x1 - x0, y1 - ytB);
+      ctx.fillRect(x0, ytT, xtL - x0, ytB - ytT);
+      ctx.fillRect(xtR, ytT, x1 - xtR, ytB - ytT);
       return;
     }
     if (t >= maxR && (w <= 2 * t || h <= 2 * t)) {
@@ -1455,9 +1497,14 @@
       const outStartX = x + outDx;
       const outRowW = w - 2 * outDx;
       if (outRowW <= 0) continue;
+      const y0 = Math.round((y + dy) * scale);
+      const y1 = Math.round((y + dy + 1) * scale);
+      const rowH = Math.max(1, y1 - y0);
 
       if (dy < t || dy >= h - t || inW <= 0 || inH <= 0) {
-        ctx.fillRect(outStartX * scale, (y + dy) * scale, outRowW * scale, scale);
+        const x0 = Math.round(outStartX * scale);
+        const x1 = Math.round((outStartX + outRowW) * scale);
+        ctx.fillRect(x0, y0, x1 - x0, rowH);
       } else {
         const inDy = dy - t;
         const inDx = getRoundedRectRowDx(inDy, inH, inR);
@@ -1466,12 +1513,16 @@
 
         const leftW = inStartX - outStartX;
         if (leftW > 0) {
-          ctx.fillRect(outStartX * scale, (y + dy) * scale, leftW * scale, scale);
+          const x0 = Math.round(outStartX * scale);
+          const x1 = Math.round(inStartX * scale);
+          ctx.fillRect(x0, y0, x1 - x0, rowH);
         }
         const outEndX = outStartX + outRowW;
         const rightW = outEndX - inEndX;
         if (rightW > 0) {
-          ctx.fillRect(inEndX * scale, (y + dy) * scale, rightW * scale, scale);
+          const x0 = Math.round(inEndX * scale);
+          const x1 = Math.round(outEndX * scale);
+          ctx.fillRect(x0, y0, x1 - x0, rowH);
         }
       }
     }
@@ -1485,40 +1536,46 @@
     if (orientation === 'VERTICAL') {
       const fillH = Math.min(h, Math.round(fillAmount));
       const startDy = h - fillH;
+      if (isGrad) {
+        const grad = ctx.createLinearGradient(0, (y + h) * scale, 0, y * scale);
+        grad.addColorStop(0, rgb565ToCss(startCol));
+        grad.addColorStop(1, rgb565ToCss(endCol));
+        ctx.fillStyle = grad;
+      } else {
+        ctx.fillStyle = solidCss;
+      }
       for (let dy = startDy; dy < h; dy++) {
         const dx = getRoundedRectRowDx(dy, h, rad);
         const rowW = w - 2 * dx;
         if (rowW <= 0) continue;
-
-        if (isGrad) {
-          const rowFromBottom = h - 1 - dy;
-          const prop = h > 1 ? rowFromBottom / (h - 1) : 0;
-          ctx.fillStyle = rgb565ToCss(interpolateColor565(startCol, endCol, prop));
-        } else {
-          ctx.fillStyle = solidCss;
-        }
-        ctx.fillRect((x + dx) * scale, (y + dy) * scale, rowW * scale, scale);
+        const x0 = Math.round((x + dx) * scale);
+        const x1 = Math.round((x + dx + rowW) * scale);
+        const y0 = Math.round((y + dy) * scale);
+        const y1 = Math.round((y + dy + 1) * scale);
+        ctx.fillRect(x0, y0, x1 - x0, Math.max(1, y1 - y0));
       }
     } else {
       // HORIZONTAL
       const fillW = Math.min(w, Math.round(fillAmount));
+      if (isGrad) {
+        const grad = ctx.createLinearGradient(x * scale, 0, (x + w) * scale, 0);
+        grad.addColorStop(0, rgb565ToCss(startCol));
+        grad.addColorStop(1, rgb565ToCss(endCol));
+        ctx.fillStyle = grad;
+      } else {
+        ctx.fillStyle = solidCss;
+      }
       for (let dy = 0; dy < h; dy++) {
         const dx = getRoundedRectRowDx(dy, h, rad);
         const startX = dx;
         const endX = Math.min(w - dx, fillW);
         const spanW = endX - startX;
         if (spanW <= 0) continue;
-
-        if (isGrad) {
-          for (let lx = startX; lx < endX; lx++) {
-            const prop = w > 1 ? lx / (w - 1) : 0;
-            ctx.fillStyle = rgb565ToCss(interpolateColor565(startCol, endCol, prop));
-            ctx.fillRect((x + lx) * scale, (y + dy) * scale, scale, scale);
-          }
-        } else {
-          ctx.fillStyle = solidCss;
-          ctx.fillRect((x + startX) * scale, (y + dy) * scale, spanW * scale, scale);
-        }
+        const x0 = Math.round((x + startX) * scale);
+        const x1 = Math.round((x + endX) * scale);
+        const y0 = Math.round((y + dy) * scale);
+        const y1 = Math.round((y + dy + 1) * scale);
+        ctx.fillRect(x0, y0, x1 - x0, Math.max(1, y1 - y0));
       }
     }
   }
@@ -1762,8 +1819,10 @@
       }
 
       // 1. Pista vacía de fondo de la barra (Pixel art sólido para esquinas)
-      const trackCss = rgb565ToCss(field.trackColor || 0x18C3);
+      const trackCol565 = Number.isFinite(Number(field.trackColor)) ? Number(field.trackColor) : 0x18C3;
+      const trackCss = rgb565ToCss(trackCol565);
       if (radPx <= 0) {
+        ctx.fillStyle = trackCss;
         ctx.fillRect(g.valueX * scale, g.valueY * scale, g.valueW * scale, g.valueH * scale);
       } else {
         pixelFillRoundedRect(ctx, g.valueX, g.valueY, g.valueW, g.valueH, radPx, trackCss, scale);
@@ -1793,8 +1852,7 @@
             }
           } else if (barStyle === 'STRIPES') {
             ctx.save();
-            ctx.beginPath();
-            traceRoundedRect(ctx, g.valueX * scale, g.valueY * scale, g.valueW * scale, g.valueH * scale, radPx * scale);
+            pixelClipRoundedRect(ctx, g.valueX, g.valueY, g.valueW, g.valueH, radPx, scale);
             ctx.clip();
             ctx.beginPath();
             ctx.rect(g.valueX * scale, (g.valueY + g.valueH - fillH) * scale, g.valueW * scale, fillH * scale);
@@ -1815,8 +1873,7 @@
             ctx.restore();
           } else if (barStyle === 'BLOCKS') {
             ctx.save();
-            ctx.beginPath();
-            traceRoundedRect(ctx, g.valueX * scale, g.valueY * scale, g.valueW * scale, g.valueH * scale, radPx * scale);
+            pixelClipRoundedRect(ctx, g.valueX, g.valueY, g.valueW, g.valueH, radPx, scale);
             ctx.clip();
             const blockH = Math.max(3, Math.round(6 * scale));
             const gap = Math.max(1, Math.round(2 * scale));
@@ -1832,8 +1889,7 @@
             ctx.restore();
           } else if (barStyle === 'DOTS') {
             ctx.save();
-            ctx.beginPath();
-            traceRoundedRect(ctx, g.valueX * scale, g.valueY * scale, g.valueW * scale, g.valueH * scale, radPx * scale);
+            pixelClipRoundedRect(ctx, g.valueX, g.valueY, g.valueW, g.valueH, radPx, scale);
             ctx.clip();
             const dotR = Math.max(1.5, Math.min(g.valueW * scale / 2 - 1.5 * scale, 3.5 * scale));
             const step = dotR * 2 + Math.max(2, Math.round(3 * scale));
@@ -1903,14 +1959,6 @@
           const activeCss = rgb565ToCss(activeCol565);
 
           if (barStyle === 'SOLID') {
-            if (isGrad) {
-              const grad = ctx.createLinearGradient(g.valueX * scale, 0, (g.valueX + g.valueW) * scale, 0);
-              grad.addColorStop(0, rgb565ToCss(activeCol565));
-              grad.addColorStop(1, rgb565ToCss(endCol565));
-              ctx.fillStyle = grad;
-            } else {
-              ctx.fillStyle = activeCss;
-            }
             if (radPx <= 0) {
               if (isGrad) {
                 const grad = ctx.createLinearGradient(g.valueX * scale, 0, (g.valueX + g.valueW) * scale, 0);
@@ -1926,7 +1974,7 @@
             }
           } else if (barStyle === 'STRIPES') {
             ctx.save();
-            traceRoundedRect(ctx, g.valueX * scale, g.valueY * scale, g.valueW * scale, g.valueH * scale, radPx * scale);
+            pixelClipRoundedRect(ctx, g.valueX, g.valueY, g.valueW, g.valueH, radPx, scale);
             ctx.clip();
             ctx.beginPath();
             ctx.rect(g.valueX * scale, g.valueY * scale, fillW * scale, g.valueH * scale);
@@ -1947,7 +1995,7 @@
             ctx.restore();
           } else if (barStyle === 'BLOCKS') {
             ctx.save();
-            traceRoundedRect(ctx, g.valueX * scale, g.valueY * scale, g.valueW * scale, g.valueH * scale, radPx * scale);
+            pixelClipRoundedRect(ctx, g.valueX, g.valueY, g.valueW, g.valueH, radPx, scale);
             ctx.clip();
             const blockW = Math.max(3, Math.round(6 * scale));
             const gap = Math.max(1, Math.round(2 * scale));
@@ -1964,7 +2012,7 @@
             ctx.restore();
           } else if (barStyle === 'DOTS') {
             ctx.save();
-            traceRoundedRect(ctx, g.valueX * scale, g.valueY * scale, g.valueW * scale, g.valueH * scale, radPx * scale);
+            pixelClipRoundedRect(ctx, g.valueX, g.valueY, g.valueW, g.valueH, radPx, scale);
             ctx.clip();
             const dotR = Math.max(1.5, Math.min(g.valueH * scale / 2 - 1.5 * scale, 3.5 * scale));
             const step = dotR * 2 + Math.max(2, Math.round(3 * scale));
@@ -3161,8 +3209,9 @@
         if (barAppLinearGradEndHex) barAppLinearGradEndHex.textContent = hex565(field.valueColorEnd || 0x07E0);
       }
       if (barAppLinearTrackNative) {
-        barAppLinearTrackNative.value = rgb565ToHexCss(field.trackColor || 0x18C3);
-        if (barAppLinearTrackHex) barAppLinearTrackHex.textContent = hex565(field.trackColor || 0x18C3);
+        const trackCol = Number.isFinite(Number(field.trackColor)) ? Number(field.trackColor) : 0x18C3;
+        barAppLinearTrackNative.value = rgb565ToHexCss(trackCol);
+        if (barAppLinearTrackHex) barAppLinearTrackHex.textContent = hex565(trackCol);
       }
       const showPctColor = (field.linearPctPos === 'RIGHT' || field.linearPctPos === 'INSIDE');
       if (barAppLinearPctColWrap) barAppLinearPctColWrap.style.display = showPctColor ? 'block' : 'none';

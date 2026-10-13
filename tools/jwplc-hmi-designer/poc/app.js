@@ -54,10 +54,13 @@
 
   function setSnapEnabled(enabled) {
     if (snapToggle) snapToggle.checked = enabled;
+    if (snapInspectorToggle) snapInspectorToggle.checked = enabled;
     const snapPopoverToggle = document.getElementById('snapPopoverToggle');
     if (snapPopoverToggle) snapPopoverToggle.checked = enabled;
     const vertSnap = document.getElementById('vertSnapToggle');
     if (vertSnap) vertSnap.classList.toggle('active', enabled);
+    const vertSnapGroup = document.getElementById('vertSnapGroup');
+    if (vertSnapGroup) vertSnapGroup.classList.toggle('active', enabled);
     render();
   }
 
@@ -70,16 +73,29 @@
     if (gridPopoverToggle) gridPopoverToggle.checked = enabled;
     const vertGrid = document.getElementById('vertGridToggle');
     if (vertGrid) vertGrid.classList.toggle('active', enabled);
+    const vertGridGroup = document.getElementById('vertGridGroup');
+    if (vertGridGroup) vertGridGroup.classList.toggle('active', enabled);
     render();
+  }
+
+  function closeAllVertPopovers() {
+    document.querySelectorAll('.vert-popover').forEach((p) => {
+      p.style.display = 'none';
+      p.closest('.vert-btn-group')?.classList.remove('popover-open');
+    });
   }
 
   function toggleVertPopover(popover, force) {
     if (!popover) return;
     const shouldOpen = force !== undefined ? force : (popover.style.display === 'none');
     document.querySelectorAll('.vert-popover').forEach((p) => {
-      if (p !== popover) p.style.display = 'none';
+      if (p !== popover) {
+        p.style.display = 'none';
+        p.closest('.vert-btn-group')?.classList.remove('popover-open');
+      }
     });
     popover.style.display = shouldOpen ? 'block' : 'none';
+    popover.closest('.vert-btn-group')?.classList.toggle('popover-open', shouldOpen);
   }
 
   // Clic en los botones de la barra: toggle rápido On/Off
@@ -112,18 +128,16 @@
 
   // Botones de cerrar popovers
   document.getElementById('gridPopoverClose')?.addEventListener('click', function() {
-    const pop = document.getElementById('gridConfigPopover');
-    if (pop) pop.style.display = 'none';
+    closeAllVertPopovers();
   });
   document.getElementById('snapPopoverClose')?.addEventListener('click', function() {
-    const pop = document.getElementById('snapConfigPopover');
-    if (pop) pop.style.display = 'none';
+    closeAllVertPopovers();
   });
 
   // Cerrar popovers si se hace clic fuera
   document.addEventListener('click', function(e) {
     if (!e.target.closest('.vert-btn-group')) {
-      document.querySelectorAll('.vert-popover').forEach((p) => { p.style.display = 'none'; });
+      closeAllVertPopovers();
     }
   });
 
@@ -416,7 +430,7 @@
   function applyZoom(nextZoom) {
     const val = Math.max(0.25, Math.min(16, Math.round(nextZoom * 100) / 100));
     zoom = val;
-    let opt = zoomSelect.querySelector(`option[value="${val}"]`);
+    let opt = zoomSelect.querySelector(`option[value="${val}"]:not([data-fit-option="1"])`);
     if (!opt) {
       opt = zoomSelect.querySelector('option[data-custom-zoom="1"]');
       if (!opt) {
@@ -443,7 +457,7 @@
     const topMargin = 72;
     const bottomMargin = 28;
     const leftMargin = 36;
-    const rightMargin = 56;
+    const rightMargin = 72;
 
     const rulerTopH = 22;
     const rulerRightW = 36;
@@ -504,10 +518,10 @@
     const topMargin = 72;
     const bottomMargin = 28;
     const leftMargin = 36;
-    const rightMargin = 56;
+    const rightMargin = 72;
 
-    const availW = Math.max(80, vpW - leftMargin - rightMargin);
-    const availH = Math.max(60, vpH - topMargin - bottomMargin);
+    const availW = Math.max(80, vpW - leftMargin - rightMargin - 36);
+    const availH = Math.max(60, vpH - topMargin - bottomMargin - 22);
 
     const selW = Math.max(4, (b.maxX - b.minX + 1));
     const selH = Math.max(4, (b.maxY - b.minY + 1));
@@ -538,6 +552,14 @@
   let keyboardNudgeChanged = false;
   let activePage = 0;
   let hmiPages = [{ id: 0, name: 'Principal' }];
+  let navBarConfig = {
+    enabled: true,
+    preset: 'industrial-color',
+    position: 'bottom',
+    height: 22,
+    showIndicator: true,
+    showArrows: true
+  };
 
   // Padding (px) que el fondo opaco de RAW_TEXT agrega alrededor del texto.
   const RAW_BG_PAD = 2;
@@ -743,6 +765,69 @@
     return rotatePoint(x, y, cx, cy, -angleDeg);
   }
 
+  function getMaxCornerRadius(field) {
+    if (!field) return 0;
+    const w = Math.abs((field.x2 ?? field.x ?? 0) - (field.x ?? 0));
+    const h = Math.abs((field.y2 ?? field.y ?? 0) - (field.y ?? 0));
+    const minDim = Math.min(w, h);
+    if (field.type === 'RECT') return Math.max(0, Math.floor(minDim / 2));
+    if (field.type === 'TRIANGLE' || field.type === 'POLYGON') return Math.max(0, Math.floor(minDim * 0.35));
+    return 0;
+  }
+
+  function buildRoundedPolygonPoints(basePts, radius) {
+    const r = Math.max(0, Math.round(Number(radius) || 0));
+    if (r <= 0 || !Array.isArray(basePts) || basePts.length < 3) return basePts;
+    const n = basePts.length;
+    const out = [];
+    const steps = Math.max(4, Math.min(10, r + 2));
+
+    for (let i = 0; i < n; i++) {
+      const prev = basePts[(i - 1 + n) % n];
+      const curr = basePts[i];
+      const next = basePts[(i + 1) % n];
+
+      const dx1 = prev.x - curr.x;
+      const dy1 = prev.y - curr.y;
+      const len1 = Math.hypot(dx1, dy1);
+
+      const dx2 = next.x - curr.x;
+      const dy2 = next.y - curr.y;
+      const len2 = Math.hypot(dx2, dy2);
+
+      if (len1 < 2 || len2 < 2) {
+        out.push({ x: Math.round(curr.x), y: Math.round(curr.y) });
+        continue;
+      }
+
+      const ux1 = dx1 / len1;
+      const uy1 = dy1 / len1;
+      const ux2 = dx2 / len2;
+      const uy2 = dy2 / len2;
+
+      const dot = Math.max(-0.995, Math.min(0.995, ux1 * ux2 + uy1 * uy2));
+      const halfAngle = Math.acos(dot) / 2;
+      const tanHalf = Math.tan(halfAngle);
+      const rawDist = tanHalf > 0.05 ? (r / tanHalf) : r;
+      const dist = Math.min(rawDist, len1 * 0.46, len2 * 0.46);
+
+      const pStart = { x: curr.x + ux1 * dist, y: curr.y + uy1 * dist };
+      const pEnd = { x: curr.x + ux2 * dist, y: curr.y + uy2 * dist };
+
+      for (let s = 0; s <= steps; s++) {
+        const t = s / steps;
+        const omt = 1 - t;
+        // Curva cuadrática suave tangente a ambos lados del vértice
+        const px = Math.round(omt * omt * pStart.x + 2 * omt * t * curr.x + t * t * pEnd.x);
+        const py = Math.round(omt * omt * pStart.y + 2 * omt * t * curr.y + t * t * pEnd.y);
+        if (out.length === 0 || out[out.length - 1].x !== px || out[out.length - 1].y !== py) {
+          out.push({ x: px, y: py });
+        }
+      }
+    }
+    return out;
+  }
+
   function getShapeTransformedVertices(field) {
     const x1 = field.x ?? 0; const y1 = field.y ?? 0;
     const x2 = field.x2 ?? x1; const y2 = field.y2 ?? y1;
@@ -752,6 +837,8 @@
     const flipH = Boolean(field.flipH);
     const flipV = Boolean(field.flipV);
     const tf = (p) => transformShapePoint(p.x, p.y, cx, cy, angleDeg, flipH, flipV);
+    const maxR = getMaxCornerRadius(field);
+    const r = clamp(Math.round(Number(field.cornerRadius) || 0), 0, maxR);
 
     if (field.type === 'LINE') {
       return [tf({ x: x1, y: y1 }), tf({ x: x2, y: y2 })];
@@ -761,21 +848,43 @@
       const right = Math.max(x1, x2);
       const top = Math.min(y1, y2);
       const bottom = Math.max(y1, y2);
-      return [
-        tf({ x: left, y: top }),
-        tf({ x: right, y: top }),
-        tf({ x: right, y: bottom }),
-        tf({ x: left, y: bottom })
+      if (r <= 0) {
+        return [
+          tf({ x: left, y: top }),
+          tf({ x: right, y: top }),
+          tf({ x: right, y: bottom }),
+          tf({ x: left, y: bottom })
+        ];
+      }
+      const corners = [
+        { cx: left + r, cy: top + r, start: Math.PI, end: 1.5 * Math.PI },
+        { cx: right - r, cy: top + r, start: 1.5 * Math.PI, end: 2 * Math.PI },
+        { cx: right - r, cy: bottom - r, start: 0, end: 0.5 * Math.PI },
+        { cx: left + r, cy: bottom - r, start: 0.5 * Math.PI, end: Math.PI }
       ];
+      const steps = Math.max(4, Math.min(10, r + 2));
+      const pts = [];
+      corners.forEach((c) => {
+        for (let s = 0; s <= steps; s++) {
+          const ang = c.start + (c.end - c.start) * (s / steps);
+          const pt = tf({ x: c.cx + r * Math.cos(ang), y: c.cy + r * Math.sin(ang) });
+          if (pts.length === 0 || pts[pts.length - 1].x !== pt.x || pts[pts.length - 1].y !== pt.y) {
+            pts.push(pt);
+          }
+        }
+      });
+      return pts;
     }
     if (field.type === 'TRIANGLE') {
       const topPt = { x: Math.round((x1 + x2) / 2), y: y1 };
       const bl = { x: x1, y: y2 };
       const br = { x: x2, y: y2 };
-      return [tf(topPt), tf(bl), tf(br)];
+      const basePts = [topPt, br, bl];
+      return buildRoundedPolygonPoints(basePts, r).map(tf);
     }
     if (field.type === 'POLYGON') {
-      return getPolygonVertices(field).map(tf);
+      const basePts = getPolygonVertices(field);
+      return buildRoundedPolygonPoints(basePts, r).map(tf);
     }
     if (field.type === 'ELLIPSE') {
       const minX = Math.min(x1, x2); const maxX = Math.max(x1, x2);
@@ -921,7 +1030,7 @@
   }
 
   function fieldsForPage(page = activePage) {
-    return hmiFields.filter((field) => Number(field.page || 0) === Number(page));
+    return hmiFields.filter((field) => (field.type === 'NAV_BAR' || field.global) || Number(field.page || 0) === Number(page));
   }
 
   function setSelectedKeys(keys) {
@@ -930,7 +1039,7 @@
   }
 
   function selectedFields() {
-    return hmiFields.filter((field) => selectedFieldKeys.includes(field.key) && Number(field.page || 0) === activePage);
+    return hmiFields.filter((field) => selectedFieldKeys.includes(field.key) && (field.type === 'NAV_BAR' || field.global || Number(field.page || 0) === activePage));
   }
 
   function selectedField() {
@@ -944,6 +1053,7 @@
     if (field.type === 'BOOL') return 'boolField';
     if (field.type === 'BAR') return 'barField';
     if (field.type === 'TEXT') return 'textField';
+    if (field.type === 'NAV_BAR') return 'navBarField';
     return 'pointer';
   }
 
@@ -1039,8 +1149,19 @@
     return true;
   }
 
+  const topFieldOrder = new Float64Array(WIDTH * HEIGHT);
+  const topFieldIsBar = new Uint8Array(WIDTH * HEIGHT);
+  let activeDrawingOrder = Infinity;
+
   function setBufferPixel(buffer, x, y, value) {
-    if (inside(x, y)) buffer[indexFor(x, y)] = value;
+    if (inside(x, y)) {
+      const idx = indexFor(x, y);
+      buffer[idx] = value;
+      if (buffer === framebuffer) {
+        topFieldOrder[idx] = activeDrawingOrder;
+        topFieldIsBar[idx] = 0;
+      }
+    }
   }
 
   function fillBufferRect(buffer, x, y, width, height, value) {
@@ -1329,34 +1450,13 @@
       return;
     }
 
-    if (field.type === 'RECT') {
-      if (hasFill && pts.length >= 4) {
-        fillShapePolygon(buffer, pts, fillColor);
-      }
-      if (hasBorder && pts.length >= 4) {
-        rasterLineBuffer(buffer, pts[0].x, pts[0].y, pts[1].x, pts[1].y, color, size);
-        rasterLineBuffer(buffer, pts[1].x, pts[1].y, pts[2].x, pts[2].y, color, size);
-        rasterLineBuffer(buffer, pts[2].x, pts[2].y, pts[3].x, pts[3].y, color, size);
-        rasterLineBuffer(buffer, pts[3].x, pts[3].y, pts[0].x, pts[0].y, color, size);
-      }
-      return;
-    }
-
-    if (field.type === 'TRIANGLE') {
+    if (field.type === 'RECT' || field.type === 'TRIANGLE' || field.type === 'POLYGON' || field.type === 'ELLIPSE') {
       if (hasFill && pts.length >= 3) {
-        fillShapeTriangle(buffer, pts[0], pts[1], pts[2], fillColor);
-      }
-      if (hasBorder && pts.length >= 3) {
-        rasterLineBuffer(buffer, pts[0].x, pts[0].y, pts[1].x, pts[1].y, color, size);
-        rasterLineBuffer(buffer, pts[1].x, pts[1].y, pts[2].x, pts[2].y, color, size);
-        rasterLineBuffer(buffer, pts[2].x, pts[2].y, pts[0].x, pts[0].y, color, size);
-      }
-      return;
-    }
-
-    if (field.type === 'POLYGON' || field.type === 'ELLIPSE') {
-      if (hasFill && pts.length >= 3) {
-        fillShapePolygon(buffer, pts, fillColor);
+        if (field.type === 'TRIANGLE' && pts.length === 3) {
+          fillShapeTriangle(buffer, pts[0], pts[1], pts[2], fillColor);
+        } else {
+          fillShapePolygon(buffer, pts, fillColor);
+        }
       }
       if (hasBorder && pts.length >= 2) {
         for (let i = 0; i < pts.length; i++) {
@@ -1508,19 +1608,38 @@
   }
 
   function getFieldBounds(field) {
-    if (!field) return { minX: 0, maxX: 0, minY: 0, maxY: 0, width: 0, height: 0 };
+    if (!field) return { x: 0, y: 0, minX: 0, maxX: 0, minY: 0, maxY: 0, width: 0, height: 0 };
     if (field.type === 'RAW_TEXT') {
       const tb = rawTextBounds(field.text || '', field.size || 1, field.font);
       const w = Math.max(6, tb.width);
       const h = Math.max(7, tb.height);
       const pad = field.transparentBackground ? 0 : RAW_BG_PAD;
+      const minX = field.x - pad;
+      const minY = field.y - pad;
       return {
-        minX: field.x - pad,
+        x: minX,
+        y: minY,
+        minX,
         maxX: field.x + w - 1 + pad,
-        minY: field.y - pad,
+        minY,
         maxY: field.y + h - 1 + pad,
         width:  w + pad * 2,
         height: h + pad * 2
+      };
+    }
+
+    if (field.type === 'NAV_BAR') {
+      const h = Number(field.height) || 22;
+      const y = field.position === 'top' ? 2 : (170 - h - 1);
+      return {
+        x: 0,
+        y,
+        minX: 0,
+        maxX: 319,
+        minY: y,
+        maxY: y + h - 1,
+        width: 320,
+        height: h
       };
     }
 
@@ -1537,6 +1656,8 @@
         minX = field.x ?? 0; maxX = minX; minY = field.y ?? 0; maxY = minY;
       }
       return {
+        x: minX,
+        y: minY,
         minX,
         maxX,
         minY,
@@ -1547,6 +1668,8 @@
     }
     const g = computeFieldGeometry(field);
     return {
+      x: g.fieldX,
+      y: g.fieldY,
       minX: g.fieldX,
       maxX: g.fieldX + g.fieldW - 1,
       minY: g.fieldY,
@@ -1558,6 +1681,22 @@
 
   function computeFieldGeometry(field) {
     if (!field) return null;
+    if (field.type === 'NAV_BAR') {
+      const b = getFieldBounds(field);
+      return {
+        pad: 0,
+        fieldX: b.minX,
+        fieldY: b.minY,
+        fieldW: b.width,
+        fieldH: b.height,
+        valueX: 0,
+        valueY: 0,
+        valueW: 0,
+        valueH: 0,
+        labelBounds: { width: 0, height: 0 },
+        unitBounds: { width: 0, height: 0 }
+      };
+    }
     if (field.type === 'BAR') {
       if (window.JWPLCHMIBar?.computeGeometry) {
         return window.JWPLCHMIBar.computeGeometry(field);
@@ -1668,7 +1807,7 @@
   let barLayerCanvas = null;
   let barLayerCtx = null;
 
-  function drawBarToFramebuffer(buffer, field) {
+  function drawBarToFramebuffer(buffer, field, onlyOrder = false) {
     if (!window.JWPLCHMIBar?.drawBarField) return;
     if (!barLayerCanvas) {
       barLayerCanvas = document.createElement('canvas');
@@ -1696,10 +1835,15 @@
         const idx = (py * maxW + px) * 4;
         const a = data[idx + 3];
         if (a === 0) continue;
+        const fbIdx = fbRowOffset + px;
+        if (buffer === framebuffer) {
+          topFieldOrder[fbIdx] = activeDrawingOrder;
+          topFieldIsBar[fbIdx] = 1;
+        }
+        if (onlyOrder) continue;
         const r = data[idx];
         const g = data[idx + 1];
         const b = data[idx + 2];
-        const fbIdx = fbRowOffset + px;
         if (a >= 250) {
           buffer[fbIdx] = (((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)) & 0xFFFF;
         } else {
@@ -1719,14 +1863,18 @@
 
   function composeFramebuffer() {
     framebuffer.set(pixelLayer);
+    topFieldOrder.fill(Infinity);
+    topFieldIsBar.fill(0);
+    pageObjectsInOrder(activePage);
     const pageFields = fieldsForPage(activePage);
     for (let i = pageFields.length - 1; i >= 0; i--) {
       const field = pageFields[i];
       if (field.hidden) continue;
+      activeDrawingOrder = ensureLayerOrder(field);
       if (['TEXT', 'VALUE', 'BOOL'].includes(field.type)) {
         drawField(framebuffer, field);
       } else if (field.type === 'BAR') {
-        drawBarToFramebuffer(framebuffer, field);
+        drawBarToFramebuffer(framebuffer, field, true);
       } else if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
         drawShape(framebuffer, field);
       } else if (field.type === 'RAW_TEXT') {
@@ -1734,6 +1882,7 @@
         drawRawTextAt(framebuffer, field.text || '', field.x, field.y, field.textColor ?? 0xFFFF, bg, field.size || 1, field.font);
       }
     }
+    activeDrawingOrder = Infinity;
     if (selectedTool === 'rawText' && !hmiFields.some((f) => f.type === 'RAW_TEXT' && Number(f.page || 0) === activePage)) {
       const bg = rawState.transparent ? null : rawState.background;
       drawRawTextAt(framebuffer, rawState.value, rawState.x, rawState.y, rawState.foreground, bg, rawState.size, rawState.font);
@@ -1753,11 +1902,17 @@
       bytes[offset + 3] = 255;
     }
     logicalCtx.putImageData(image, 0, 0);
+
+    // Dibuja la barra de navegación HMI directamente en el lienzo lógico
+    if (window.JWPLCHMIPages?.drawHMINavigationBar) {
+      window.JWPLCHMIPages.drawHMINavigationBar(logicalCtx, 1);
+    }
   }
 
   function drawGrid() {
-    if (!gridToggle.checked || zoom < 2) return;
+    if (!gridToggle.checked) return;
     const gridSize = Number(gridSizeSelect.value) || 8;
+    if (gridSize * zoom < 4) return;
     const gridStyle = gridStyleSelect ? gridStyleSelect.value : 'lines';
 
     displayCtx.save();
@@ -1850,7 +2005,7 @@
   }
 
   function buildContractText() {
-    const validFields = hmiFields.filter(f => !['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT'].includes(f.type));
+    const validFields = hmiFields.filter(f => !['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT', 'NAV_BAR'].includes(f.type));
     if (validFields.length === 0) return '// Sin campos HMI. Agrega TEXT, VALUE, BOOL o BAR para comenzar.';
     const enumLines = validFields
       .map((field, index) => `    ${sanitizeSymbol(field.id, fieldFallbackId(field, index))} = ${index + 1}`)
@@ -1909,22 +2064,79 @@
     codeOutput.textContent = codeMode === 'contract' ? buildContractText() : buildStatusText();
   }
 
+  let layerSeq = 0;
+
+  function ensureLayerOrder(item) {
+    if (!item) return 0;
+    if (!Number.isFinite(Number(item.layerOrder)) || Number(item.layerOrder) <= 0) {
+      layerSeq += 1;
+      item.layerOrder = layerSeq;
+    } else if (Number(item.layerOrder) > layerSeq) {
+      layerSeq = Number(item.layerOrder);
+    }
+    return Number(item.layerOrder);
+  }
+
+  function assignNewLayerOrder(item) {
+    if (!item) return 0;
+    const pFields = fieldsForPage(activePage);
+    const pMaps = (window.JWPLCHMIPixelMaps?.getAll?.() || []).filter(
+      (pm) => Number(pm.page || 0) === Number(activePage)
+    );
+    pFields.forEach((f) => { if (f !== item) ensureLayerOrder(f); });
+    pMaps.forEach((m) => { if (m !== item) ensureLayerOrder(m); });
+    layerSeq += 1;
+    item.layerOrder = layerSeq;
+    return item.layerOrder;
+  }
+
+  function pageObjectsInOrder(page = activePage) {
+    const pFields = fieldsForPage(page);
+    const pMaps = (window.JWPLCHMIPixelMaps?.getAll?.() || []).filter(
+      (pm) => Number(pm.page || 0) === Number(page)
+    );
+    pFields.forEach(ensureLayerOrder);
+    pMaps.forEach(ensureLayerOrder);
+    return [...pFields, ...pMaps].sort((a, b) => a.layerOrder - b.layerOrder);
+  }
+
+  function sortObjectListDOM() {
+    if (!objectList) return;
+    const rows = [...objectList.querySelectorAll('.object-item')];
+    rows.sort((a, b) => (Number(a.dataset.layerOrder) || 0) - (Number(b.dataset.layerOrder) || 0));
+    rows.forEach((node) => objectList.appendChild(node));
+  }
+
   function reorderPageFields(sourceKey, targetKey, insertAbove) {
     if (!sourceKey || !targetKey || sourceKey === targetKey) return;
-    const pageFields = fieldsForPage(activePage);
-    const sourceIdx = pageFields.findIndex((f) => f.key === sourceKey);
-    const targetIdx = pageFields.findIndex((f) => f.key === targetKey);
+    const items = pageObjectsInOrder(activePage);
+    const sourceIdx = items.findIndex((item) => item.key === sourceKey);
+    const targetIdx = items.findIndex((item) => item.key === targetKey);
     if (sourceIdx === -1 || targetIdx === -1 || sourceIdx === targetIdx) return;
 
-    const [moved] = pageFields.splice(sourceIdx, 1);
-    let newTargetIdx = pageFields.findIndex((f) => f.key === targetKey);
+    const [moved] = items.splice(sourceIdx, 1);
+    let newTargetIdx = items.findIndex((item) => item.key === targetKey);
     if (!insertAbove) newTargetIdx += 1;
-    pageFields.splice(newTargetIdx, 0, moved);
+    items.splice(newTargetIdx, 0, moved);
 
-    const nonPageFields = hmiFields.filter((f) => Number(f.page || 0) !== activePage);
-    hmiFields = [...pageFields, ...nonPageFields];
+    items.forEach((item, idx) => {
+      item.layerOrder = idx + 1;
+    });
+    if (items.length > layerSeq) layerSeq = items.length;
+
+    const pageFieldsOrdered = items.filter((item) => item.type !== 'PIXELMAP');
+    const nonPageFields = hmiFields.filter((f) => !(f.type === 'NAV_BAR' || f.global) && Number(f.page || 0) !== activePage);
+    hmiFields = [...pageFieldsOrdered, ...nonPageFields];
+
+    const pmAll = window.JWPLCHMIPixelMaps?.getAll?.();
+    if (Array.isArray(pmAll)) {
+      const pageMapsOrdered = items.filter((item) => item.type === 'PIXELMAP');
+      const nonPageMaps = pmAll.filter((m) => Number(m.page || 0) !== activePage);
+      pmAll.splice(0, pmAll.length, ...pageMapsOrdered, ...nonPageMaps);
+    }
 
     render();
+    window.JWPLCHMIPixelMaps?.refresh?.();
     commitHistory();
   }
 
@@ -1936,7 +2148,7 @@
         mctx.imageSmoothingEnabled = true;
         mctx.imageSmoothingQuality = 'high';
         mctx.clearRect(0, 0, WIDTH, HEIGHT);
-        mctx.drawImage(logicalCanvas, 0, 0);
+        mctx.drawImage(previewCanvas || logicalCanvas, 0, 0);
       }
     }
 
@@ -1972,20 +2184,23 @@
       RECT: 'Rectángulo',
       ELLIPSE: 'Elipse',
       TRIANGLE: 'Triángulo',
-      POLYGON: 'Polígono'
+      POLYGON: 'Polígono',
+      NAV_BAR: 'Barra de Navegación'
     };
     const tName = typeNames[field.type] || field.type || 'Objeto';
     return `${tName} ${index + 1}`;
   }
 
   function renderObjectList() {
-    objectList.querySelectorAll('.object-item').forEach((item) => item.remove());
+    objectList.querySelectorAll('.object-item:not(.a11-pixel-row)').forEach((item) => item.remove());
     const visibleFields = fieldsForPage(activePage);
     visibleFields.forEach((field, index) => {
+      ensureLayerOrder(field);
       const button = document.createElement('div');
       const active = selectedFieldKeys.includes(field.key);
       button.className = `object-item${active ? ' active' : ''}${field.hidden ? ' is-hidden' : ''}${field.locked ? ' is-locked' : ''}`;
       button.dataset.fieldKey = field.key;
+      button.dataset.layerOrder = String(field.layerOrder);
       const displayName = formatLopakaFieldName(field, index);
       button.title = `${displayName} (Doble clic: zoom in · Clic: editar)`;
 
@@ -1998,6 +2213,7 @@
       else if (field.type === 'ELLIPSE') icon = '○';
       else if (field.type === 'TRIANGLE') icon = '△';
       else if (field.type === 'POLYGON') icon = '⬡';
+      else if (field.type === 'NAV_BAR') icon = '☰';
 
       button.innerHTML = `
         <span class="object-icon">${icon}</span>
@@ -2106,6 +2322,7 @@
 
       objectList.appendChild(button);
     });
+    sortObjectListDOM();
     const pmCount = (window.JWPLCHMIPixelMaps?.getAll?.() || []).filter((pm) => Number(pm.page || 0) === activePage).length;
     countBadge.textContent = String(visibleFields.length + pmCount);
     if (fieldsStatus) fieldsStatus.textContent = `Campos: ${hmiFields.length}/${MAX_FIELDS}`;
@@ -2127,12 +2344,51 @@
     displayCtx.imageSmoothingEnabled = false;
     displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
     displayCtx.drawImage(logicalCanvas, 0, 0, WIDTH, HEIGHT, 0, 0, WIDTH * zoom, HEIGHT * zoom);
+
+    const visiblePageBars = fieldsForPage(activePage).filter(
+      (field) => field.type === 'BAR' && !field.hidden
+    );
+    const stampHigherLayersOverBar = (ctx, barField, scale) => {
+      const barOrder = ensureLayerOrder(barField);
+      const b = getFieldBounds(barField);
+      const x0 = Math.max(0, Math.floor(b.minX ?? b.x ?? 0));
+      const y0 = Math.max(0, Math.floor(b.minY ?? b.y ?? 0));
+      const x1 = Math.min(WIDTH, Math.ceil((b.maxX ?? (x0 + (b.width || 0))) + 1));
+      const y1 = Math.min(HEIGHT, Math.ceil((b.maxY ?? (y0 + (b.height || 0))) + 1));
+      for (let py = y0; py < y1; py++) {
+        let spanStart = -1;
+        for (let px = x0; px <= x1; px++) {
+          const idx = py * WIDTH + px;
+          const covered = px < x1 && topFieldOrder[idx] < barOrder && !topFieldIsBar[idx];
+          if (covered && spanStart < 0) {
+            spanStart = px;
+          } else if (!covered && spanStart >= 0) {
+            const spanW = px - spanStart;
+            ctx.drawImage(logicalCanvas, spanStart, py, spanW, 1, spanStart * scale, py * scale, spanW * scale, scale);
+            spanStart = -1;
+          }
+        }
+      }
+    };
+    if (window.JWPLCHMIBar?.drawBarField) {
+      for (let i = visiblePageBars.length - 1; i >= 0; i--) {
+        window.JWPLCHMIBar.drawBarField(displayCtx, visiblePageBars[i], zoom);
+        stampHigherLayersOverBar(displayCtx, visiblePageBars[i], zoom);
+      }
+    }
+
     drawGrid();
 
     if (previewCtx) {
       previewCtx.imageSmoothingEnabled = false;
       previewCtx.clearRect(0, 0, WIDTH, HEIGHT);
       previewCtx.drawImage(logicalCanvas, 0, 0);
+      if (window.JWPLCHMIBar?.drawBarField) {
+        for (let i = visiblePageBars.length - 1; i >= 0; i--) {
+          window.JWPLCHMIBar.drawBarField(previewCtx, visiblePageBars[i], 1);
+          stampHigherLayersOverBar(previewCtx, visiblePageBars[i], 1);
+        }
+      }
     }
 
     renderObjectList();
@@ -2497,18 +2753,23 @@
     const rightCanvas = document.getElementById('rightRulerCanvas');
     if (!topCanvas || !rightCanvas) return;
 
-    const targetTopW = WIDTH * zoom;
-    const targetRightH = HEIGHT * zoom;
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    const targetTopW = Math.round(WIDTH * zoom);
+    const targetRightH = Math.round(HEIGHT * zoom);
+    const topPhysW = Math.round(targetTopW * dpr);
+    const topPhysH = Math.round(22 * dpr);
+    const rightPhysW = Math.round(36 * dpr);
+    const rightPhysH = Math.round(targetRightH * dpr);
 
-    if (topCanvas.width !== targetTopW || topCanvas.height !== 22) {
-      topCanvas.width = targetTopW;
-      topCanvas.height = 22;
+    if (topCanvas.width !== topPhysW || topCanvas.height !== topPhysH) {
+      topCanvas.width = topPhysW;
+      topCanvas.height = topPhysH;
       topCanvas.style.width = `${targetTopW}px`;
       topCanvas.style.height = '22px';
     }
-    if (rightCanvas.width !== 36 || rightCanvas.height !== targetRightH) {
-      rightCanvas.width = 36;
-      rightCanvas.height = targetRightH;
+    if (rightCanvas.width !== rightPhysW || rightCanvas.height !== rightPhysH) {
+      rightCanvas.width = rightPhysW;
+      rightCanvas.height = rightPhysH;
       rightCanvas.style.width = '36px';
       rightCanvas.style.height = `${targetRightH}px`;
     }
@@ -2516,8 +2777,11 @@
     const topCtx = topCanvas.getContext('2d');
     const rightCtx = rightCanvas.getContext('2d');
 
-    topCtx.clearRect(0, 0, topCanvas.width, topCanvas.height);
-    rightCtx.clearRect(0, 0, rightCanvas.width, rightCanvas.height);
+    topCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    rightCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    topCtx.clearRect(0, 0, targetTopW, 22);
+    rightCtx.clearRect(0, 0, 36, targetRightH);
 
     // Top ruler ticks
     topCtx.strokeStyle = '#5a6b78';
@@ -2569,38 +2833,39 @@
       }
     }
 
-    topCtx.font = '10px Consolas, monospace';
+    const rulerFont = '600 10.5px "Segoe UI", system-ui, -apple-system, sans-serif';
+    topCtx.font = rulerFont;
     topCtx.fillStyle = '#9cb1c2';
     topCtx.textAlign = 'center';
     topCtx.textBaseline = 'top';
 
-    rightCtx.font = '10px Consolas, monospace';
+    rightCtx.font = rulerFont;
     rightCtx.fillStyle = '#9cb1c2';
     rightCtx.textAlign = 'left';
     rightCtx.textBaseline = 'middle';
 
     if (selBounds) {
-      const px1 = selBounds.x1 * zoom;
-      const px2 = selBounds.x2 * zoom;
-      topCtx.fillStyle = '#dbe8f2';
-      topCtx.fillText(String(selBounds.x1), px1, 2);
+      const px1 = Math.round(selBounds.x1 * zoom);
+      const px2 = Math.round(selBounds.x2 * zoom);
+      topCtx.fillStyle = '#e6f1f8';
+      topCtx.fillText(String(selBounds.x1), px1, 1);
       if (px2 - px1 > 24) {
-        topCtx.fillText(String(selBounds.x2), px2, 2);
+        topCtx.fillText(String(selBounds.x2), px2, 1);
       }
 
       // Highlight ticks at x1 and x2
       topCtx.strokeStyle = '#0084ff';
       topCtx.lineWidth = 2;
       topCtx.beginPath();
-      topCtx.moveTo(px1 + 0.5, 12);
-      topCtx.lineTo(px1 + 0.5, 22);
-      topCtx.moveTo(px2 + 0.5, 12);
-      topCtx.lineTo(px2 + 0.5, 22);
+      topCtx.moveTo(px1, 12);
+      topCtx.lineTo(px1, 22);
+      topCtx.moveTo(px2, 12);
+      topCtx.lineTo(px2, 22);
       topCtx.stroke();
 
-      const py1 = selBounds.y1 * zoom;
-      const py2 = selBounds.y2 * zoom;
-      rightCtx.fillStyle = '#dbe8f2';
+      const py1 = Math.round(selBounds.y1 * zoom);
+      const py2 = Math.round(selBounds.y2 * zoom);
+      rightCtx.fillStyle = '#e6f1f8';
       rightCtx.fillText(String(selBounds.y1), 12, py1);
       if (py2 - py1 > 14) {
         rightCtx.fillText(String(selBounds.y2), 12, py2);
@@ -2610,17 +2875,17 @@
       rightCtx.strokeStyle = '#0084ff';
       rightCtx.lineWidth = 2;
       rightCtx.beginPath();
-      rightCtx.moveTo(0, py1 + 0.5);
-      rightCtx.lineTo(10, py1 + 0.5);
-      rightCtx.moveTo(0, py2 + 0.5);
-      rightCtx.lineTo(10, py2 + 0.5);
+      rightCtx.moveTo(0, py1);
+      rightCtx.lineTo(10, py1);
+      rightCtx.moveTo(0, py2);
+      rightCtx.lineTo(10, py2);
       rightCtx.stroke();
     } else {
       for (let x = 50; x < WIDTH; x += 50) {
-        topCtx.fillText(String(x), x * zoom, 2);
+        topCtx.fillText(String(x), Math.round(x * zoom), 1);
       }
       for (let y = 50; y < HEIGHT; y += 50) {
-        rightCtx.fillText(String(y), 12, y * zoom);
+        rightCtx.fillText(String(y), 12, Math.round(y * zoom));
       }
     }
   }
@@ -2642,7 +2907,7 @@
       button.classList.toggle('active', button.dataset.tool === selectedTool);
     });
 
-    const isVarTool = ['valueField', 'boolField', 'barField'].includes(selectedTool);
+    const isVarTool = ['valueField', 'boolField', 'barField', 'navBarField'].includes(selectedTool);
     const varToolBtn = document.getElementById('variableToolBtn');
     if (varToolBtn) {
       varToolBtn.classList.toggle('active', isVarTool);
@@ -2667,6 +2932,15 @@
 
     const SHAPE_TYPES = ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'];
     const isShape = Boolean(field && SHAPE_TYPES.includes(field.type));
+    const isNavBar = selectedTool === 'navBarField' || field?.type === 'NAV_BAR';
+    const navBarSection = document.getElementById('navBarInspectorSection');
+    if (navBarSection) {
+      navBarSection.hidden = !isNavBar;
+      navBarSection.style.display = isNavBar ? '' : 'none';
+      if (isNavBar && window.JWPLCHMIPages?.syncNavBarInspector) {
+        window.JWPLCHMIPages.syncNavBarInspector();
+      }
+    }
 
     if (eyedropperSection) {
       eyedropperSection.hidden = !isColorTool;
@@ -2680,7 +2954,7 @@
       rawSection.hidden = !isRaw;
       rawSection.style.display = isRaw ? '' : 'none';
     }
-    const showField = Boolean(field && fieldTools.includes(selectedTool) && field.type !== 'RAW_TEXT' && !isShape);
+    const showField = Boolean(field && fieldTools.includes(selectedTool) && field.type !== 'RAW_TEXT' && !isShape && field.type !== 'NAV_BAR');
     if (fieldSection) {
       fieldSection.hidden = !showField;
       fieldSection.style.display = showField ? '' : 'none';
@@ -2870,28 +3144,145 @@
     });
   }
 
+  function buildShapeCppSnippet(field) {
+    if (!field) return '';
+    const tft = 'JWPLC_Display.getTFT()->';
+    const c = hex565(field.frameColor ?? 0xFFFF);
+    const fc = hex565(field.fillColor ?? field.frameColor ?? 0xFFFF);
+    const hasBorder = field.borderEnabled !== false;
+    const hasFill = Boolean(field.fill);
+    const rot = Number(field.rotation) || 0;
+    const maxR = getMaxCornerRadius(field);
+    const r = clamp(Math.round(Number(field.cornerRadius) || 0), 0, maxR);
+
+    if (field.type === 'LINE') {
+      const pts = getShapeTransformedVertices(field);
+      const p0 = pts[0] || { x: field.x, y: field.y };
+      const p1 = pts[1] || { x: field.x2, y: field.y2 };
+      return `${tft}drawLine(${p0.x}, ${p0.y}, ${p1.x}, ${p1.y}, ${c});`;
+    }
+    if (field.type === 'RECT' && rot === 0) {
+      const minX = Math.min(field.x, field.x2);
+      const minY = Math.min(field.y, field.y2);
+      const w = Math.abs(field.x2 - field.x);
+      const h = Math.abs(field.y2 - field.y);
+      const cmds = [];
+      if (hasFill) {
+        cmds.push(r > 0
+          ? `${tft}fillRoundRect(${minX}, ${minY}, ${w}, ${h}, ${r}, ${fc});`
+          : `${tft}fillRect(${minX}, ${minY}, ${w}, ${h}, ${fc});`);
+      }
+      if (hasBorder) {
+        cmds.push(r > 0
+          ? `${tft}drawRoundRect(${minX}, ${minY}, ${w}, ${h}, ${r}, ${c});`
+          : `${tft}drawRect(${minX}, ${minY}, ${w}, ${h}, ${c});`);
+      }
+      return cmds.join('\n') || '// Sin trazo ni relleno activo';
+    }
+    if (field.type === 'ELLIPSE' && rot === 0) {
+      const cx = Math.round((field.x + field.x2) / 2);
+      const cy = Math.round((field.y + field.y2) / 2);
+      const rx = Math.round(Math.abs(field.x2 - field.x) / 2);
+      const ry = Math.round(Math.abs(field.y2 - field.y) / 2);
+      const rad = Math.max(rx, ry);
+      const cmds = [];
+      if (hasFill) cmds.push(`${tft}fillCircle(${cx}, ${cy}, ${rad}, ${fc});`);
+      if (hasBorder) cmds.push(`${tft}drawCircle(${cx}, ${cy}, ${rad}, ${c});`);
+      return cmds.join('\n') || '// Sin trazo ni relleno activo';
+    }
+    if (field.type === 'TRIANGLE' && rot === 0 && r <= 0 && !field.flipH && !field.flipV) {
+      const x1 = Math.round((field.x + field.x2) / 2), y1 = field.y;
+      const x2 = field.x, y2 = field.y2;
+      const x3 = field.x2, y3 = field.y2;
+      const cmds = [];
+      if (hasFill) cmds.push(`${tft}fillTriangle(${x1}, ${y1}, ${x2}, ${y2}, ${x3}, ${y3}, ${fc});`);
+      if (hasBorder) cmds.push(`${tft}drawTriangle(${x1}, ${y1}, ${x2}, ${y2}, ${x3}, ${y3}, ${c});`);
+      return cmds.join('\n') || '// Sin trazo ni relleno activo';
+    }
+    const pts = getShapeTransformedVertices(field);
+    const cmds = [];
+    for (let i = 0; i < pts.length; i++) {
+      const p1 = pts[i];
+      const p2 = pts[(i + 1) % pts.length];
+      cmds.push(`${tft}drawLine(${p1.x}, ${p1.y}, ${p2.x}, ${p2.y}, ${c});`);
+    }
+    if (cmds.length > 4) {
+      return `${cmds.slice(0, 3).join('\n')}\n// ... (+${cmds.length - 3} segmentos vectoriales)`;
+    }
+    return cmds.join('\n');
+  }
+
   function syncShapeInspector() {
     const field = selectedField();
     if (!field) return;
     const isLine = field.type === 'LINE';
     const SHAPE_ICONS = { LINE: '\u2571', RECT: '\u25a1', ELLIPSE: '\u2b2d', TRIANGLE: '\u25b3', POLYGON: '\u2394' };
     if (shapeInspectorIcon) shapeInspectorIcon.textContent = SHAPE_ICONS[field.type] || '\u25a1';
-    if (shapeInspectorName) shapeInspectorName.value = field.name || (field.type.toLowerCase());
+    const displayName = field.name || (field.type.toLowerCase());
+    if (shapeInspectorName && document.activeElement !== shapeInspectorName) {
+      shapeInspectorName.value = displayName;
+    }
+    const headerTitle = document.getElementById('shapeInspectorHeaderTitle');
+    if (headerTitle) headerTitle.textContent = displayName.toUpperCase();
+
+    // Active shape type button
+    document.querySelectorAll('#shapeTypeSelectorGrid [data-shape-type]').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.shapeType === field.type);
+    });
+
     const x1 = field.x ?? 0; const y1 = field.y ?? 0;
     const x2 = field.x2 ?? x1; const y2 = field.y2 ?? y1;
-    // Show center position (invariant to rotation) and local width/height
     const cx = (x1 + x2) / 2; const cy = (y1 + y2) / 2;
-    if (shapeX) shapeX.value = Math.round(cx);
-    if (shapeY) shapeY.value = Math.round(cy);
-    if (shapeW) shapeW.value = Math.abs(x2 - x1) || 1;
-    if (shapeH) shapeH.value = Math.abs(y2 - y1) || 1;
+    if (shapeX && document.activeElement !== shapeX) shapeX.value = Math.round(cx);
+    if (shapeY && document.activeElement !== shapeY) shapeY.value = Math.round(cy);
+    if (shapeW && document.activeElement !== shapeW) shapeW.value = Math.abs(x2 - x1) || 1;
+    if (shapeH && document.activeElement !== shapeH) shapeH.value = Math.abs(y2 - y1) || 1;
+
+    // Corner Radius (RECT, TRIANGLE, POLYGON)
+    const supportsCorners = ['RECT', 'TRIANGLE', 'POLYGON'].includes(field.type);
+    const cornerCard = document.getElementById('shapeCornerCard');
+    if (cornerCard) cornerCard.hidden = !supportsCorners;
+    if (supportsCorners) {
+      const maxR = getMaxCornerRadius(field);
+      const r = clamp(Math.round(Number(field.cornerRadius) || 0), 0, maxR);
+      field.cornerRadius = r;
+      const cornerSlider = document.getElementById('shapeCornerSlider');
+      const cornerInput = document.getElementById('shapeCornerRadius');
+      const cornerReadout = document.getElementById('shapeCornerReadout');
+      const cornerMaxHint = document.getElementById('shapeCornerMaxHint');
+      if (cornerSlider) {
+        cornerSlider.max = String(Math.max(1, maxR));
+        cornerSlider.value = String(r);
+      }
+      if (cornerInput && document.activeElement !== cornerInput) {
+        cornerInput.max = String(maxR);
+        cornerInput.value = String(r);
+      }
+      if (cornerReadout) cornerReadout.textContent = `${r} px`;
+      if (cornerMaxHint) cornerMaxHint.textContent = `Máx: ${maxR} px`;
+      document.querySelectorAll('#shapeCornerPresetGrid [data-corner-preset]').forEach((btn) => {
+        btn.classList.toggle('active', Number(btn.dataset.cornerPreset) === r);
+      });
+    }
+
+    // Polygon sides
     if (shapeSidesWrap2) shapeSidesWrap2.hidden = field.type !== 'POLYGON';
-    if (shapeSides2) shapeSides2.value = field.sides || 5;
-    if (shapeRotation) shapeRotation.value = field.rotation || 0;
+    const sides = Number(field.sides) || 5;
+    if (shapeSides2 && document.activeElement !== shapeSides2) shapeSides2.value = sides;
+    document.querySelectorAll('#shapeSidesPresetGrid [data-sides-preset]').forEach((btn) => {
+      btn.classList.toggle('active', Number(btn.dataset.sidesPreset) === sides);
+    });
+
+    // Rotation
+    const rot = Number(field.rotation) || 0;
+    if (shapeRotation && document.activeElement !== shapeRotation) shapeRotation.value = rot;
+    document.querySelectorAll('#shapeRotPresetGrid [data-rot-preset]').forEach((btn) => {
+      btn.classList.toggle('active', Number(btn.dataset.rotPreset) === rot);
+    });
 
     // Stroke / Border
     if (shapeBorderLabel) shapeBorderLabel.textContent = isLine ? 'Línea' : 'Borde';
-    if (shapeBorderToggleWrap) shapeBorderToggleWrap.hidden = isLine; // Lines must always have stroke visible
+    if (shapeBorderToggleWrap) shapeBorderToggleWrap.hidden = isLine;
     if (shapeBorderEnabled) {
       if (isLine) field.borderEnabled = true;
       shapeBorderEnabled.checked = field.borderEnabled !== false;
@@ -2900,7 +3291,11 @@
     if (shapeBorderColorSwatch) shapeBorderColorSwatch.style.background = rgb565ToCss(fc);
     if (shapeBorderColorInput) shapeBorderColorInput.value = rgb565ToHex888(fc);
     if (shapeBorderColorCode) shapeBorderColorCode.textContent = rgb565ToHex888(fc).toUpperCase();
-    if (shapeBorderSize) shapeBorderSize.value = field.size || 1;
+    const strokeSize = Number(field.size) || 1;
+    if (shapeBorderSize && document.activeElement !== shapeBorderSize) shapeBorderSize.value = strokeSize;
+    document.querySelectorAll('#shapeStrokePresetGrid [data-stroke-preset]').forEach((btn) => {
+      btn.classList.toggle('active', Number(btn.dataset.strokePreset) === strokeSize);
+    });
 
     // Fill (hidden for lines)
     if (shapeFillRow) shapeFillRow.hidden = isLine;
@@ -2909,6 +3304,10 @@
     if (shapeFillColorSwatch) shapeFillColorSwatch.style.background = rgb565ToCss(fillC);
     if (shapeFillColorInput) shapeFillColorInput.value = rgb565ToHex888(fillC);
     if (shapeFillColorCode) shapeFillColorCode.textContent = rgb565ToHex888(fillC).toUpperCase();
+
+    // Tech tab C++ snippet preview
+    const techPreview = document.getElementById('shapeTechCodePreview');
+    if (techPreview) techPreview.textContent = buildShapeCppSnippet(field);
   }
 
   function syncInputsFromState() {
@@ -3036,6 +3435,7 @@
     return {
       fields: hmiFields.map((field) => ({ ...field })),
       pages: hmiPages.map((page) => ({ ...page })),
+      navBar: { ...navBarConfig },
       activePage,
       selectedFieldKeys: [...selectedFieldKeys],
       selectedFieldKey,
@@ -3058,6 +3458,7 @@
     if (JSON.stringify(a.selectedFieldKeys || []) !== JSON.stringify(b.selectedFieldKeys || [])) return false;
     if (JSON.stringify(a.fields) !== JSON.stringify(b.fields)) return false;
     if (JSON.stringify(a.pages) !== JSON.stringify(b.pages)) return false;
+    if (JSON.stringify(a.navBar || {}) !== JSON.stringify(b.navBar || {})) return false;
     if (JSON.stringify(a.raw) !== JSON.stringify(b.raw)) return false;
     return equalPixels(a.pixels, b.pixels);
   }
@@ -3075,6 +3476,7 @@
   function restoreSnapshot(snapshot) {
     hmiFields = snapshot.fields.map((field) => ({ ...field }));
     hmiPages = (snapshot.pages || [{ id: 0, name: 'Principal' }]).map((page) => ({ ...page }));
+    if (snapshot.navBar) navBarConfig = { ...snapshot.navBar };
     activePage = pageExists(snapshot.activePage) ? snapshot.activePage : 0;
     setSelectedKeys(snapshot.selectedFieldKeys || (snapshot.selectedFieldKey ? [snapshot.selectedFieldKey] : []));
     selectedTool = snapshot.selectedTool;
@@ -3181,6 +3583,38 @@
     return true;
   }
 
+  function setPageMetadata(page, metadata = {}) {
+    const target = hmiPages.find((item) => item.id === Number(page));
+    if (!target) return false;
+    let changed = false;
+    if (metadata.name !== undefined) {
+      const next = String(metadata.name || '').trim().slice(0, 24);
+      if (next && next !== target.name) {
+        target.name = next;
+        changed = true;
+      }
+    }
+    if (metadata.shortName !== undefined) {
+      const nextShort = String(metadata.shortName || '').trim().slice(0, 8);
+      if (nextShort !== target.shortName) {
+        target.shortName = nextShort;
+        changed = true;
+      }
+    }
+    if (metadata.color !== undefined) {
+      const col = metadata.color === null ? null : Number(metadata.color);
+      if (col !== target.color) {
+        target.color = col;
+        changed = true;
+      }
+    }
+    if (changed) {
+      render();
+      commitHistory();
+    }
+    return changed;
+  }
+
   function deletePage(page) {
     const target = Number(page);
     if (!pageExists(target) || hmiPages.length <= 1) return false;
@@ -3191,7 +3625,7 @@
     hmiPages.splice(idx, 1);
 
     // Remove fields on that page
-    hmiFields = hmiFields.filter((field) => Number(field.page || 0) !== target);
+    hmiFields = hmiFields.filter((field) => field.type === 'NAV_BAR' || field.global || Number(field.page || 0) !== target);
 
     // Remove pixel maps on that page
     if (window.JWPLCHMIPixelMaps?.deleteForPage) {
@@ -3249,8 +3683,10 @@
       backgroundColor: 0x0000,
       fill: false,
       size: 1,
+      cornerRadius: 0,
       sides: Number(document.getElementById('mainPolySidesInput')?.value || 5)
     };
+    assignNewLayerOrder(field);
     hmiFields.push(field);
     setSelectedKeys([field.key]);
     syncInputsFromState();
@@ -3279,6 +3715,7 @@
       backgroundColor: rawState.background ?? 0x0000,
       page: activePage
     };
+    assignNewLayerOrder(field);
     hmiFields.push(field);
     setSelectedKeys([field.key]);
     selectedTool = 'pointer';
@@ -3303,6 +3740,7 @@
     field.x = 20 + ((fieldSerial - 1) * 8) % 80;
     field.y = 20 + ((fieldSerial - 1) * 8) % 60;
     placeNewField(field);
+    assignNewLayerOrder(field);
     hmiFields.push(field);
     setSelectedKeys([field.key]);
     selectedTool = 'textField';
@@ -3324,6 +3762,7 @@
     field.x = 28 + ((fieldSerial - 1) * 8) % 90;
     field.y = 44 + ((fieldSerial - 1) * 8) % 70;
     placeNewField(field);
+    assignNewLayerOrder(field);
     hmiFields.push(field);
     setSelectedKeys([field.key]);
     selectedTool = 'valueField';
@@ -3340,6 +3779,7 @@
     sources.forEach((source) => {
       fieldSerial += 1;
       const copy = { ...source };
+      delete copy.layerOrder;
       const prefix = source.type.toLowerCase();
       copy.key = `${prefix}-${fieldSerial}`;
       copy.name = `${source.name || source.type} copia`;
@@ -3351,6 +3791,7 @@
       if (source.x2 !== undefined) copy.x2 = source.x2 + 8;
       if (source.y2 !== undefined) copy.y2 = source.y2 + 8;
       placeNewField(copy);
+      assignNewLayerOrder(copy);
       hmiFields.push(copy);
       newKeys.push(copy.key);
     });
@@ -3532,12 +3973,46 @@
         render();
         return;
       }
+      if (tool === 'navBarField') {
+        let navBar = hmiFields.find((f) => f.type === 'NAV_BAR');
+        if (!navBar) {
+          const cfg = window.JWPLCHMIPages?.getNavBarConfig?.() || { preset: 'industrial-color', position: 'bottom', height: 22 };
+          const h = Number(cfg.height) || 22;
+          const y = cfg.position === 'top' ? 2 : (170 - h - 1);
+          navBar = {
+            key: 'NAV_BAR',
+            type: 'NAV_BAR',
+            name: 'Barra de Navegación',
+            label: 'NAV_BAR',
+            x: 0,
+            y,
+            preset: cfg.preset || 'industrial-color',
+            position: cfg.position || 'bottom',
+            height: h,
+            global: true,
+            hidden: false,
+            locked: false,
+            layerOrder: 999
+          };
+          hmiFields.push(navBar);
+          if (window.JWPLCHMIPages?.setNavBarConfig) {
+            window.JWPLCHMIPages.setNavBarConfig({ ...cfg, enabled: true });
+          }
+          commitHistory();
+        }
+        setSelectedKeys([navBar.key]);
+        selectedTool = 'navBarField';
+        syncInputsFromState();
+        syncToolUI();
+        render();
+        return;
+      }
       if (tool === 'rawText') {
         addRawTextField();
         return;
       }
       selectedTool = tool;
-      if (!['pointer', 'textField', 'valueField', 'boolField', 'barField'].includes(tool)) {
+      if (!['pointer', 'textField', 'valueField', 'boolField', 'barField', 'navBarField'].includes(tool)) {
         setSelectedKeys([]);
       }
       window.dispatchEvent(new CustomEvent('jwplc:tool-changed', { detail: { tool } }));
@@ -3560,13 +4035,15 @@
   const VAR_ICONS = {
     valueField: '<svg width="18" height="16" viewBox="0 0 24 24"><text x="12" y="16.5" text-anchor="middle" font-size="11.5" font-weight="800" font-family="\'Segoe UI\', -apple-system, sans-serif" fill="currentColor" letter-spacing="-0.5px">123</text></svg>',
     boolField: '<svg width="18" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="6"/><circle cx="16" cy="12" r="3" fill="currentColor"/></svg>',
-    barField: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="10" rx="2.5"/><rect x="5" y="10" width="7" height="4" rx="1" fill="currentColor"/></svg>'
+    barField: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="10" rx="2.5"/><rect x="5" y="10" width="7" height="4" rx="1" fill="currentColor"/></svg>',
+    navBarField: '<svg width="18" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="10" rx="2"></rect><path d="M7 7v10M12 7v10M17 7v10"></path></svg>'
   };
 
   const VAR_TITLES = {
     valueField: 'Variables del PLC · Valor Numérico (VALUE)',
     boolField: 'Variables del PLC · Booleano (BOOL)',
-    barField: 'Variables del PLC · Barra de Nivel (BAR)'
+    barField: 'Variables del PLC · Barra de Nivel (BAR)',
+    navBarField: 'Variables del PLC · Barra de Navegación (NAV)'
   };
 
   const TEXT_ICONS = {
@@ -4101,7 +4578,11 @@
 
     if (['line', 'rect', 'ellipse', 'triangle', 'polygon'].includes(selectedTool) && isTargetDisplay) {
       const type = selectedTool.toUpperCase();
-      addShapeField(type, point, point);
+      const snapStep = getSnapStep();
+      const startPt = snapStep > 0
+        ? { x: Math.round(point.x / snapStep) * snapStep, y: Math.round(point.y / snapStep) * snapStep }
+        : point;
+      addShapeField(type, startPt, startPt);
       drawing = true;
       render();
       return;
@@ -4534,14 +5015,14 @@
       const snapStep = getSnapStep();
       let dx = rawPoint.x - (dragInitialPointer?.x ?? 0);
       let dy = rawPoint.y - (dragInitialPointer?.y ?? 0);
-      if (snapStep > 0) {
-        dx = Math.round(dx / snapStep) * snapStep;
-        dy = Math.round(dy / snapStep) * snapStep;
-      }
 
       if (selectedTool === 'rawText' && selectedFields().length === 0) {
         let nextX = (dragInitialPointer?.rawX ?? 0) + dx;
         let nextY = (dragInitialPointer?.rawY ?? 0) + dy;
+        if (snapStep > 0) {
+          nextX = Math.round(nextX / snapStep) * snapStep;
+          nextY = Math.round(nextY / snapStep) * snapStep;
+        }
         nextX = clamp(nextX, 0, WIDTH - 1);
         nextY = clamp(nextY, 0, HEIGHT - 1);
         gestureChanged = gestureChanged || nextX !== rawState.x || nextY !== rawState.y;
@@ -4549,6 +5030,16 @@
         rawState.y = nextY;
       } else {
         const fields = selectedFields();
+        const primaryOrig = dragInitialFields?.[0];
+        if (snapStep > 0 && primaryOrig) {
+          const snappedX = Math.round((primaryOrig.x + dx) / snapStep) * snapStep;
+          const snappedY = Math.round((primaryOrig.y + dy) / snapStep) * snapStep;
+          dx = snappedX - primaryOrig.x;
+          dy = snappedY - primaryOrig.y;
+        } else if (snapStep > 0) {
+          dx = Math.round(dx / snapStep) * snapStep;
+          dy = Math.round(dy / snapStep) * snapStep;
+        }
         fields.forEach((f) => {
           const orig = dragInitialFields?.find((o) => o.key === f.key);
           if (!orig) return;
@@ -5118,6 +5609,154 @@
   });
 
   // ── Shape Inspector Events ──────────────────────────────────────────────
+  let activeShapeMainTab = 'design';
+  let activeShapeSubTab = 'form';
+
+  function syncShapeTabPanes() {
+    const subTabsEl = document.getElementById('shapeSubTabs');
+    const paneForm = document.getElementById('shapePaneForm');
+    const paneAppear = document.getElementById('shapePaneAppear');
+    const paneLoc = document.getElementById('shapePaneLoc');
+    const paneTech = document.getElementById('shapePaneTech');
+
+    document.querySelectorAll('#shapeMainTabs [data-shape-tab]').forEach((btn) => {
+      btn.classList.toggle('is-active', btn.dataset.shapeTab === activeShapeMainTab);
+    });
+    document.querySelectorAll('#shapeSubTabs [data-shape-subtab]').forEach((btn) => {
+      btn.classList.toggle('is-active', btn.dataset.shapeSubtab === activeShapeSubTab);
+    });
+
+    if (activeShapeMainTab === 'tech') {
+      if (subTabsEl) subTabsEl.hidden = true;
+      if (paneForm) paneForm.hidden = true;
+      if (paneAppear) paneAppear.hidden = true;
+      if (paneLoc) paneLoc.hidden = true;
+      if (paneTech) paneTech.hidden = false;
+    } else {
+      if (subTabsEl) subTabsEl.hidden = false;
+      if (paneTech) paneTech.hidden = true;
+      if (paneForm) paneForm.hidden = activeShapeSubTab !== 'form';
+      if (paneAppear) paneAppear.hidden = activeShapeSubTab !== 'appear';
+      if (paneLoc) paneLoc.hidden = activeShapeSubTab !== 'loc';
+    }
+  }
+
+  document.querySelectorAll('#shapeMainTabs [data-shape-tab]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      activeShapeMainTab = btn.dataset.shapeTab || 'design';
+      syncShapeTabPanes();
+      syncShapeInspector();
+    });
+  });
+
+  document.querySelectorAll('#shapeSubTabs [data-shape-subtab]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      activeShapeSubTab = btn.dataset.shapeSubtab || 'form';
+      syncShapeTabPanes();
+    });
+  });
+
+  document.querySelectorAll('#shapeTypeSelectorGrid [data-shape-type]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const f = selectedField(); if (!f) return;
+      const newType = btn.dataset.shapeType;
+      if (!newType || f.type === newType) return;
+      f.type = newType;
+      if (newType === 'POLYGON' && (!f.sides || f.sides < 3)) f.sides = 5;
+      syncInputsFromState();
+      render();
+      commitHistory();
+    });
+  });
+
+  function applyShapeCornerRadius(val, commit = false) {
+    const f = selectedField(); if (!f) return;
+    const maxR = getMaxCornerRadius(f);
+    const clamped = Math.max(0, Math.min(maxR, Math.round(Number(val) || 0)));
+    f.cornerRadius = clamped;
+    syncShapeInspector();
+    render();
+    if (commit) commitHistory();
+  }
+
+  const shapeCornerSliderEl = document.getElementById('shapeCornerSlider');
+  const shapeCornerRadiusEl = document.getElementById('shapeCornerRadius');
+  shapeCornerSliderEl?.addEventListener('input', () => applyShapeCornerRadius(shapeCornerSliderEl.value, false));
+  shapeCornerSliderEl?.addEventListener('change', () => applyShapeCornerRadius(shapeCornerSliderEl.value, true));
+  shapeCornerRadiusEl?.addEventListener('input', () => applyShapeCornerRadius(shapeCornerRadiusEl.value, false));
+  shapeCornerRadiusEl?.addEventListener('change', () => applyShapeCornerRadius(shapeCornerRadiusEl.value, true));
+
+  document.querySelectorAll('#shapeCornerPresetGrid [data-corner-preset]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const f = selectedField(); if (!f) return;
+      const preset = btn.dataset.cornerPreset;
+      const maxR = getMaxCornerRadius(f);
+      const val = preset === 'max' ? maxR : Number(preset) || 0;
+      applyShapeCornerRadius(val, true);
+    });
+  });
+
+  document.querySelectorAll('#shapeSidesPresetGrid [data-sides-preset]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const f = selectedField(); if (!f) return;
+      f.sides = Math.max(3, Math.min(20, Number(btn.dataset.sidesPreset) || 5));
+      syncShapeInspector();
+      render();
+      commitHistory();
+    });
+  });
+
+  document.querySelectorAll('#shapeStrokePresetGrid [data-stroke-preset]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const f = selectedField(); if (!f) return;
+      f.size = Math.max(1, Math.min(12, Number(btn.dataset.strokePreset) || 1));
+      syncShapeInspector();
+      render();
+      commitHistory();
+    });
+  });
+
+  document.querySelectorAll('#shapeRotPresetGrid [data-rot-preset]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const f = selectedField(); if (!f) return;
+      f.rotation = Number(btn.dataset.rotPreset) % 360;
+      syncShapeInspector();
+      render();
+      commitHistory();
+    });
+  });
+
+  document.querySelectorAll('[data-shape-color-target] .bar-palette-pill').forEach((pill) => {
+    pill.addEventListener('click', () => {
+      const f = selectedField(); if (!f) return;
+      const group = pill.closest('[data-shape-color-target]');
+      const target = group?.dataset.shapeColorTarget;
+      const hex = pill.dataset.colorHex;
+      if (!hex) return;
+      const c = hex888ToRgb565(hex);
+      if (target === 'border') {
+        f.frameColor = c;
+      } else if (target === 'fill') {
+        f.fillColor = c;
+      }
+      syncShapeInspector();
+      render();
+      commitHistory();
+    });
+  });
+
+  document.getElementById('shapeCopyCodeBtn')?.addEventListener('click', () => {
+    const f = selectedField(); if (!f) return;
+    const code = buildShapeCppSnippet(f);
+    navigator.clipboard?.writeText(code);
+    const btn = document.getElementById('shapeCopyCodeBtn');
+    if (btn) {
+      const prev = btn.textContent;
+      btn.textContent = '¡Copiado!';
+      setTimeout(() => { btn.textContent = prev; }, 1400);
+    }
+  });
+
   shapeInspectorName?.addEventListener('input', () => {
     const f = selectedField(); if (!f) return;
     f.name = shapeInspectorName.value;
@@ -5131,6 +5770,7 @@
     const hw = Math.round(w / 2); const hh = Math.round(h / 2);
     f.x = cx - hw; f.y = cy - hh; f.x2 = cx + hw; f.y2 = cy + hh;
     if (shapeSides2 && !shapeSidesWrap2?.hidden) f.sides = Number(shapeSides2.value);
+    syncShapeInspector();
     render();
   }
   [shapeX, shapeY, shapeW, shapeH].forEach((el) => {
@@ -5138,11 +5778,11 @@
     el?.addEventListener('change', () => { shapeGeomUpdate(); commitHistory(); });
   });
   shapeSides2?.addEventListener('input', () => {
-    const f = selectedField(); if (!f) return; f.sides = Number(shapeSides2.value); render();
+    const f = selectedField(); if (!f) return; f.sides = Number(shapeSides2.value); syncShapeInspector(); render();
   });
   shapeSides2?.addEventListener('change', () => commitHistory());
   shapeRotation?.addEventListener('input', () => {
-    const f = selectedField(); if (!f) return; f.rotation = Number(shapeRotation.value) % 360; render();
+    const f = selectedField(); if (!f) return; f.rotation = Number(shapeRotation.value) % 360; syncShapeInspector(); render();
   });
   shapeRotation?.addEventListener('change', () => commitHistory());
   document.getElementById('shapeRotate90Btn')?.addEventListener('click', () => {
@@ -5165,7 +5805,7 @@
     syncShapeInspector(); render(); commitHistory();
   });
   shapeBorderEnabled?.addEventListener('change', () => {
-    const f = selectedField(); if (!f) return; f.borderEnabled = shapeBorderEnabled.checked; render(); commitHistory();
+    const f = selectedField(); if (!f) return; f.borderEnabled = shapeBorderEnabled.checked; syncShapeInspector(); render(); commitHistory();
   });
   function triggerColorPicker(input) {
     if (!input) return;
@@ -5178,13 +5818,12 @@
   shapeBorderColorInput?.addEventListener('input', () => {
     const f = selectedField(); if (!f) return;
     const c = hex888ToRgb565(shapeBorderColorInput.value); f.frameColor = c;
-    if (shapeBorderColorSwatch) shapeBorderColorSwatch.style.background = rgb565ToCss(c);
-    if (shapeBorderColorCode) shapeBorderColorCode.textContent = rgb565ToHex888(c).toUpperCase();
+    syncShapeInspector();
     render();
   });
   shapeBorderColorInput?.addEventListener('change', () => commitHistory());
   shapeBorderSize?.addEventListener('input', () => {
-    const f = selectedField(); if (!f) return; f.size = Number(shapeBorderSize.value) || 1; render();
+    const f = selectedField(); if (!f) return; f.size = Number(shapeBorderSize.value) || 1; syncShapeInspector(); render();
   });
   shapeBorderSize?.addEventListener('change', () => commitHistory());
   shapeFillEnabled?.addEventListener('change', () => {
@@ -5195,8 +5834,7 @@
   shapeFillColorInput?.addEventListener('input', () => {
     const f = selectedField(); if (!f) return;
     const c = hex888ToRgb565(shapeFillColorInput.value); f.fillColor = c;
-    if (shapeFillColorSwatch) shapeFillColorSwatch.style.background = rgb565ToCss(c);
-    if (shapeFillColorCode) shapeFillColorCode.textContent = rgb565ToHex888(c).toUpperCase();
+    syncShapeInspector();
     render();
   });
   shapeFillColorInput?.addEventListener('change', () => commitHistory());
@@ -5280,7 +5918,26 @@
     floodFill,
     pickColorAt,
     hitTestHandle: (e) => hitTestHandle(e),
-    drawSelectionAndGuides: () => drawSelectionAndGuides()
+    drawSelectionAndGuides: () => drawSelectionAndGuides(),
+    ensureLayerOrder,
+    assignNewLayerOrder,
+    reorderPageObjects: reorderPageFields,
+    sortObjectListDOM,
+    getFieldBounds: (f) => getFieldBounds(f),
+    getShapeVertices: (f) => getShapeTransformedVertices(f),
+    getMaxCornerRadius: (f) => getMaxCornerRadius(f),
+    getPixelFieldOrder: (x, y) => {
+      const px = Math.trunc(Number(x));
+      const py = Math.trunc(Number(y));
+      return inside(px, py) ? topFieldOrder[indexFor(px, py)] : Infinity;
+    },
+    getNavBarConfig: () => ({ ...navBarConfig }),
+    setNavBarConfig: (cfg) => {
+      navBarConfig = { ...navBarConfig, ...cfg };
+      render();
+      commitHistory();
+    },
+    setPageMetadata
   };
   window.jwplc = window.JWPLCHMIEditor;
 })();

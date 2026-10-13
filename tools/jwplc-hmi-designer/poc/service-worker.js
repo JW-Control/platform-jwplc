@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'jwplc-hmi-designer-alpha11-a11-7d-vert-grid-snap-left-chevron';
+const CACHE_NAME = 'jwplc-hmi-designer-alpha11-a11-7e-crisp-rulers-bars-v2';
 const CORE = [
   './desktop.html',
   './index.html',

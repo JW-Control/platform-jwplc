@@ -73,11 +73,21 @@
     style.id = 'a11-project-integration-style';
     style.textContent = `
       .a11-project-button.linked {
-        border-color:#3da98a !important;
-        box-shadow:0 0 0 1px rgba(61,169,138,.22) inset;
+        border-color: rgba(67, 209, 122, 0.48) !important;
+        background: rgba(67, 209, 122, 0.11) !important;
+        color: #7af0ae !important;
+        box-shadow: inset 0 1px 0 rgba(67, 209, 122, 0.18);
       }
-      .a11-project-button.update-ready {
-        border-color:#ff8a2a !important;
+      .a11-project-button.update-ready:not(:disabled) {
+        border-color: rgba(0, 215, 239, 0.55) !important;
+        background: linear-gradient(180deg, rgba(0, 215, 239, 0.15) 0%, rgba(0, 215, 239, 0.07) 100%) !important;
+        color: #52c9ff !important;
+        box-shadow: inset 0 -2px 0 rgba(0, 215, 239, 0.45);
+      }
+      .a11-project-button.update-ready:not(:disabled):hover {
+        border-color: #00d7ef !important;
+        background: linear-gradient(180deg, rgba(0, 215, 239, 0.24) 0%, rgba(0, 215, 239, 0.12) 100%) !important;
+        color: #ffffff !important;
       }
       .a11-project-status {
         display:inline-flex;
@@ -255,6 +265,7 @@
       projectName,
       savedAt: new Date().toISOString(),
       activePage: Number(api?.getActivePage?.() || 0),
+      navigationBar: api?.getNavBarConfig?.() || null,
       pages,
       fields,
       declarativeOnly: true
@@ -284,7 +295,8 @@
     return fields.map((field, index) => ({
       ...field,
       key: `${String(field.type || 'TEXT').toLowerCase()}-${index + 1}`,
-      page: Number(field.page || 0)
+      page: Number(field.page || 0),
+      cornerRadius: Number(field.cornerRadius || 0)
     }));
   }
 
@@ -299,12 +311,22 @@
     suppressDirty = true;
     document.getElementById('newProjectButton')?.click();
 
+    if (normalized.navigationBar && api.setNavBarConfig) {
+      api.setNavBarConfig(normalized.navigationBar);
+    }
+
     if (pages[0]?.name && pages[0].name !== 'Principal') {
       api.renamePage?.(0, pages[0].name);
     }
     for (let i = 1; i < pages.length; i += 1) {
       api.addPage?.(pages[i].name || `Página ${i + 1}`);
     }
+
+    pages.forEach((p) => {
+      if (api.setPageMetadata) {
+        api.setPageMetadata(p.id, { shortName: p.shortName, color: p.color });
+      }
+    });
 
     const desiredCount = Math.max(1, importedFields.length);
     const currentFields = api.getAllFields();
@@ -592,12 +614,9 @@
 
     const generateButton = document.getElementById('generateButton');
     if (generateButton && !document.getElementById('linkSketchButton')) {
-      const separator = document.createElement('span');
-      separator.className = 'separator';
-
       const link = document.createElement('button');
       link.id = 'linkSketchButton';
-      link.className = 'a11-project-button';
+      link.className = 'a11-project-button tb-btn tb-group-end';
       link.type = 'button';
       link.textContent = 'Vincular sketch…';
       link.title = 'Seleccionar la carpeta del sketch Arduino';
@@ -605,7 +624,7 @@
 
       const update = document.createElement('button');
       update.id = 'updateHmiButton';
-      update.className = 'a11-project-button update-ready';
+      update.className = 'a11-project-button update-ready tb-btn tb-group-mid';
       update.type = 'button';
       update.textContent = 'Actualizar HMI';
       update.title = `Escribir ${HEADER_NAME} en el sketch vinculado`;
@@ -614,7 +633,11 @@
 
       generateButton.insertAdjacentElement('afterend', update);
       update.insertAdjacentElement('afterend', link);
-      link.insertAdjacentElement('afterend', separator);
+      if (!link.nextElementSibling?.classList?.contains('separator')) {
+        const separator = document.createElement('span');
+        separator.className = 'separator';
+        link.insertAdjacentElement('afterend', separator);
+      }
     }
 
     if (!document.getElementById('installAppButton')) {

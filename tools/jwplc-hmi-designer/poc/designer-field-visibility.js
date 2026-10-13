@@ -75,7 +75,7 @@
   // designer-pixelmap.js conserva esa referencia histórica para localizar el
   // contenedor de Objetos. Se crea un shim efímero sólo durante la inicialización
   // para que el módulo capture el nav-block real sin tocar el modelo de fields.
-  const objectNav = document.querySelector('.count-badge')?.closest('.nav-block') || null;
+  const objectNav = document.getElementById('objectsList') || document.querySelector('.count-badge')?.closest('.nav-block') || null;
   let objectShim = document.getElementById('textObjectItem');
   if (!objectShim && objectNav) {
     objectShim = document.createElement('span');
@@ -88,7 +88,7 @@
   function loadInspectorState() {
     if (window.JWPLCHMIInspectorState || document.querySelector('script[data-a11-inspector-state]')) return;
     const script = document.createElement('script');
-    script.src = './designer-inspector-state.js';
+    script.src = './designer-inspector-state.js?v=1791860200';
     script.async = false;
     script.dataset.a11InspectorState = '1';
     script.onload = () => window.JWPLCHMIInspectorState?.sync?.();

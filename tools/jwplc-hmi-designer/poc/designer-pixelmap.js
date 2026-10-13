@@ -17,7 +17,7 @@
   const displayCanvas = document.getElementById('displayCanvas');
   const previewCanvas = document.getElementById('previewCanvas');
   const geometryCanvas = document.getElementById('geometryCanvas');
-  const objectList = document.getElementById('textObjectItem')?.parentElement;
+  const objectList = document.getElementById('objectsList') || document.getElementById('textObjectItem')?.parentElement;
   const countBadge = document.querySelector('.count-badge');
   const fieldSection = document.getElementById('textFieldControlsSection');
   const rawSection = document.getElementById('rawTextControlsSection');
@@ -253,6 +253,7 @@
       editorOpacity: 1,
       pixels: []
     };
+    editor()?.assignNewLayerOrder?.(map);
     maps.push(map);
     selectedKey = map.key;
     mode = 'DRAW';
@@ -275,6 +276,8 @@
       editorOpacity: 1,
       pixels: source.pixels.map((p) => ({ ...p }))
     };
+    delete copy.layerOrder;
+    editor()?.assignNewLayerOrder?.(copy);
     const b = bounds(copy);
     copy.x = Math.min(copy.x, Math.max(0, WIDTH - b.width));
     copy.y = Math.min(copy.y, Math.max(0, HEIGHT - b.height));
@@ -294,10 +297,14 @@
   }
 
   function hitMap(point, tolerance = 2) {
-    const visible = mapsForPage().filter((map) => ensureEditorMeta(map).editorVisible);
-    for (let i = visible.length - 1; i >= 0; i -= 1) {
+    const visible = mapsForPage()
+      .filter((map) => ensureEditorMeta(map).editorVisible && !map.locked)
+      .sort((a, b) => (Number(a.layerOrder) || 0) - (Number(b.layerOrder) || 0));
+    const topFieldAtPoint = editor()?.getPixelFieldOrder?.(point.x, point.y) ?? Infinity;
+    for (let i = 0; i < visible.length; i += 1) {
       const map = visible[i];
       if (!map.pixels?.length) continue;
+      if (topFieldAtPoint < (Number(map.layerOrder) || Infinity)) continue;
       const b = bounds(map);
       if (
         point.x < b.x - tolerance ||
@@ -568,13 +575,41 @@
   const SVG_LOCK_CLOSED = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
   const SVG_LOCK_OPEN = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>`;
 
+  function reorderPageMaps(sourceKey, targetKey, insertAbove) {
+    if (!sourceKey || !targetKey || sourceKey === targetKey) return;
+    if (editor()?.reorderPageObjects) {
+      editor().reorderPageObjects(sourceKey, targetKey, insertAbove);
+      changed();
+      return;
+    }
+    const activePage = page();
+    const pageMaps = mapsForPage();
+    const sourceIdx = pageMaps.findIndex((m) => m.key === sourceKey);
+    const targetIdx = pageMaps.findIndex((m) => m.key === targetKey);
+    if (sourceIdx === -1 || targetIdx === -1 || sourceIdx === targetIdx) return;
+
+    const [moved] = pageMaps.splice(sourceIdx, 1);
+    let newTargetIdx = pageMaps.findIndex((m) => m.key === targetKey);
+    if (!insertAbove) newTargetIdx += 1;
+    pageMaps.splice(newTargetIdx, 0, moved);
+
+    const otherMaps = maps.filter((m) => Number(m.page || 0) !== activePage);
+    maps = [...pageMaps, ...otherMaps];
+
+    refreshBase();
+    changed();
+  }
+
   function patchObjectList() {
     objectList.querySelectorAll('.a11-pixel-row').forEach((node) => node.remove());
     mapsForPage().forEach((map) => {
       ensureEditorMeta(map);
+      editor()?.ensureLayerOrder?.(map);
       const row = document.createElement('div');
       const isAct = map.key === selectedKey;
       row.className = `object-item a11-pixel-row${isAct ? ' active' : ''}${!map.editorVisible ? ' is-hidden' : ''}${map.locked ? ' is-locked' : ''}`;
+      row.dataset.pixelKey = map.key;
+      row.dataset.layerOrder = String(map.layerOrder || 0);
       row.innerHTML = `
         <span class="object-icon">▦</span>
         <span class="object-type" style="display:none">PIXEL</span>
@@ -584,6 +619,43 @@
           <button type="button" class="object-btn btn-lock" title="${map.locked ? 'Desbloquear' : 'Bloquear'}">${map.locked ? SVG_LOCK_CLOSED : SVG_LOCK_OPEN}</button>
         </div>
       `;
+
+      row.draggable = true;
+      row.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', map.key);
+        e.dataTransfer.effectAllowed = 'move';
+        row.classList.add('is-dragging');
+      });
+
+      row.addEventListener('dragend', () => {
+        row.classList.remove('is-dragging');
+        objectList.querySelectorAll('.drop-target-above, .drop-target-below').forEach((el) => {
+          el.classList.remove('drop-target-above', 'drop-target-below');
+        });
+      });
+
+      row.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const rect = row.getBoundingClientRect();
+        const isAbove = (e.clientY - rect.top) < rect.height / 2;
+        row.classList.toggle('drop-target-above', isAbove);
+        row.classList.toggle('drop-target-below', !isAbove);
+      });
+
+      row.addEventListener('dragleave', () => {
+        row.classList.remove('drop-target-above', 'drop-target-below');
+      });
+
+      row.addEventListener('drop', (e) => {
+        e.preventDefault();
+        row.classList.remove('drop-target-above', 'drop-target-below');
+        const sourceKey = e.dataTransfer.getData('text/plain');
+        if (!sourceKey || sourceKey === map.key) return;
+        const rect = row.getBoundingClientRect();
+        const isAbove = (e.clientY - rect.top) < rect.height / 2;
+        reorderPageMaps(sourceKey, map.key, isAbove);
+      });
 
       const eyeBtn = row.querySelector('.btn-eye');
       eyeBtn.addEventListener('click', (e) => {
@@ -629,14 +701,20 @@
 
       objectList.appendChild(row);
     });
+    editor()?.sortObjectListDOM?.();
     if (countBadge) countBadge.textContent = String((editor()?.getFieldsForPage?.(page()) || []).length + mapsForPage().length);
   }
 
-  function fieldRects() {
+  function fieldRects(forMap) {
     const compat = window.JWPLCHMIPixelCompat;
-    return (editor()?.getFieldsForPage?.(page()) || []).map((field) => {
-      const rect = compat?.fieldRect?.(field);
-      return rect ? { x: rect.x, y: rect.y, w: rect.width, h: rect.height } : null;
+    const mapOrder = Number(forMap?.layerOrder) || Infinity;
+    return (editor()?.getFieldsForPage?.(page()) || []).filter((field) => {
+      if (field.hidden) return false;
+      const fOrder = Number(field.layerOrder) || 0;
+      return fOrder < mapOrder;
+    }).map((field) => {
+      const rect = editor()?.getFieldBounds?.(field) || compat?.fieldRect?.(field);
+      return rect ? { x: rect.minX ?? rect.x, y: rect.minY ?? rect.y, w: rect.w ?? rect.width, h: rect.h ?? rect.height } : null;
     }).filter(Boolean);
   }
 
@@ -646,28 +724,36 @@
     const zoom = currentZoom();
     const ctx = displayCanvas.getContext('2d');
     const pctx = previewCanvas.getContext('2d');
-    const protectedRects = fieldRects();
-    const covered = (x, y) => protectedRects.some((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
+    const hasPixelOrder = typeof editor()?.getPixelFieldOrder === 'function';
+    const pageMaps = mapsForPage();
+    pageMaps.forEach((m) => editor()?.ensureLayerOrder?.(m));
 
-    mapsForPage().forEach((map) => {
-      ensureEditorMeta(map);
-      if (!map.editorVisible) return;
-      ctx.save();
-      pctx.save();
-      ctx.globalAlpha = map.editorOpacity;
-      pctx.globalAlpha = map.editorOpacity;
-      map.pixels.forEach((pixel) => {
-        const x = map.x + pixel.x;
-        const y = map.y + pixel.y;
-        if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT || covered(x, y)) return;
-        ctx.fillStyle = css565(pixel.color);
-        ctx.fillRect(Math.floor(x * zoom), Math.floor(y * zoom), Math.ceil(zoom), Math.ceil(zoom));
-        pctx.fillStyle = css565(pixel.color);
-        pctx.fillRect(x, y, 1, 1);
+    [...pageMaps]
+      .sort((a, b) => (Number(b.layerOrder) || 0) - (Number(a.layerOrder) || 0))
+      .forEach((map) => {
+        ensureEditorMeta(map);
+        if (!map.editorVisible) return;
+        const mapOrder = Number(map.layerOrder) || Infinity;
+        const protectedRects = hasPixelOrder ? null : fieldRects(map);
+        const covered = (x, y) => hasPixelOrder
+          ? editor().getPixelFieldOrder(x, y) < mapOrder
+          : protectedRects.some((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
+        ctx.save();
+        pctx.save();
+        ctx.globalAlpha = map.editorOpacity;
+        pctx.globalAlpha = map.editorOpacity;
+        map.pixels.forEach((pixel) => {
+          const x = map.x + pixel.x;
+          const y = map.y + pixel.y;
+          if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT || covered(x, y)) return;
+          ctx.fillStyle = css565(pixel.color);
+          ctx.fillRect(Math.floor(x * zoom), Math.floor(y * zoom), Math.ceil(zoom), Math.ceil(zoom));
+          pctx.fillStyle = css565(pixel.color);
+          pctx.fillRect(x, y, 1, 1);
+        });
+        ctx.restore();
+        pctx.restore();
       });
-      ctx.restore();
-      pctx.restore();
-    });
 
 
     if (gridToggle?.checked && zoom >= 3) {

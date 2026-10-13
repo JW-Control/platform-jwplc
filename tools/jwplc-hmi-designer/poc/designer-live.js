@@ -41,12 +41,17 @@
 
   const separator = document.createElement('span');
   separator.className = 'separator';
+  const postLiveSeparator = document.createElement('span');
+  postLiveSeparator.className = 'separator';
 
   const fitButton = document.getElementById('fitButton');
   if (toolbar && fitButton) {
-    toolbar.insertBefore(separator, fitButton);
+    if (!fitButton.previousElementSibling?.classList?.contains('separator')) {
+      toolbar.insertBefore(separator, fitButton);
+    }
     toolbar.insertBefore(liveButton, fitButton);
     toolbar.insertBefore(liveStatus, fitButton);
+    toolbar.insertBefore(postLiveSeparator, fitButton);
   }
 
   const diagnosticPanel = document.createElement('section');

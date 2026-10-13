@@ -63,6 +63,8 @@
   }
 
   function fieldRect(field) {
+    const exact = editor()?.getFieldBounds?.(field);
+    if (exact) return exact;
     if (field.type === 'BAR') return barRect(field);
     const pad = Math.max(FIELD_PADDING, Number(field.labelSize) || 1, Number(field.valueSize) || 1);
     const label = textBounds(field.label, field.labelSize);
@@ -120,20 +122,28 @@
   function restoreFields() {
     restoreQueued = false;
     if (!haveBase) return;
-    const zoom = display.width / WIDTH;
-    const dctx = display.getContext('2d');
-    const pctx = preview.getContext('2d');
-    (editor()?.getFieldsForPage?.(activePage()) || []).forEach((field) => {
-      const rect = fieldRect(field);
-      if (!rect || rect.width <= 0 || rect.height <= 0) return;
-      const sx = Math.max(0, rect.x);
-      const sy = Math.max(0, rect.y);
-      const sw = Math.min(WIDTH - sx, rect.width);
-      const sh = Math.min(HEIGHT - sy, rect.height);
-      if (sw <= 0 || sh <= 0) return;
-      dctx.drawImage(baseDisplay, sx * zoom, sy * zoom, sw * zoom, sh * zoom, sx * zoom, sy * zoom, sw * zoom, sh * zoom);
-      pctx.drawImage(basePreview, sx, sy, sw, sh, sx, sy, sw, sh);
-    });
+    if (typeof editor()?.getPixelFieldOrder !== 'function') {
+      const zoom = display.width / WIDTH;
+      const dctx = display.getContext('2d');
+      const pctx = preview.getContext('2d');
+      const pageMaps = (window.JWPLCHMIPixelMaps?.getAll?.() || []).filter(
+        (m) => Number(m.page || 0) === activePage() && m.editorVisible !== false
+      );
+      const minMapOrder = pageMaps.reduce((min, m) => Math.min(min, Number(m.layerOrder) || Infinity), Infinity);
+      (editor()?.getFieldsForPage?.(activePage()) || []).forEach((field) => {
+        if (field.hidden) return;
+        if ((Number(field.layerOrder) || 0) > minMapOrder) return;
+        const rect = fieldRect(field);
+        if (!rect || rect.width <= 0 || rect.height <= 0) return;
+        const sx = Math.max(0, rect.minX ?? rect.x ?? 0);
+        const sy = Math.max(0, rect.minY ?? rect.y ?? 0);
+        const sw = Math.min(WIDTH - sx, rect.width);
+        const sh = Math.min(HEIGHT - sy, rect.height);
+        if (sw <= 0 || sh <= 0) return;
+        dctx.drawImage(baseDisplay, sx * zoom, sy * zoom, sw * zoom, sh * zoom, sx * zoom, sy * zoom, sw * zoom, sh * zoom);
+        pctx.drawImage(basePreview, sx, sy, sw, sh, sx, sy, sw, sh);
+      });
+    }
     if (editor()?.hasFieldSelection?.()) {
       editor()?.drawSelectionAndGuides?.();
     }
