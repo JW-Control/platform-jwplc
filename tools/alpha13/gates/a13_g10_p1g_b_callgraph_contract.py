@@ -199,7 +199,9 @@ def negatives(m,src):
     for label,key,old,new,wanted in mutations:
         need(src[key].count(old)>=1,"NEGATIVE_ANCHOR_MISSING_"+label)
         alt=dict(src)
-        alt[key]=src[key].replace(old,new,1)
+        # La tabla legacy aparece en available(), accept() y operator bool().
+        # Este negativo debe eliminar TODAS las lecturas, no solo la primera.
+        alt[key]=src[key].replace(old,new) if label=="LISTENER_OWNERSHIP_DRIFT" else src[key].replace(old,new,1)
         try:
             rows=inspect(m,alt)
         except RuntimeError as err:
