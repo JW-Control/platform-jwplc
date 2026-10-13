@@ -1,3 +1,32 @@
+## G10-P1G-C1 — Windows local sin compilador host; CI revalidada (2026-10-13)
+
+```text
+G10_P1G_C1_WINDOWS_LOCAL_RUN=g10_p1g_c1_20261013_000509_97cf9df1
+G10_P1G_C1_WINDOWS_LOCAL=REVIEW_STOP_ENV_HOST_CXX_NOT_FOUND
+G10_P1G_C1_WINDOWS_LOCAL_CPP_COMPILE=NOT_RUN
+G10_P1G_C1_LOCAL_PRODUCT_FIX=NOT_PROVEN
+G10_P1G_C1_COMPILER_DISCOVERY=EXTENDED_MSVC_VSWHERE_VCVARS_LLVM_MSYS2_SCOOP
+G10_P1G_C1_COMPILER_PROBE=AVAILABLE_AFTER_PULL
+G10_P1G_C1_CI_REVALIDATED=PASS_WINDOWS_LINUX_RUN_38349898868
+G10_P1G_C2_DESIGN_WORK=ALLOWED_CI_PROVENANCE
+G10_P1G_C2_REAL_METHOD_INTEGRATION=NOT_STARTED
+G10_P1G_C2_ADOPTION=BLOCKED
+G10_P1G_C2_GPIO4_ENABLED=NO
+G10_P1G_C2_PRODUCT_MUTATIONS=NONE
+A13-006=ADOPTION_BLOCKED
+G10_FINAL=NOT_CLOSED
+```
+
+El operador no tenía un compilador C++ nativo en el PATH de PowerShell,
+por lo que C1 se detuvo antes de compilar; no es una regresión de firmware.
+Se amplió la detección de Visual Studio/MSYS2/LLVM, sin descargar ni
+instalar herramientas automáticamente. CI C1 pasó de nuevo Windows/Linux;
+C2 puede avanzar en overlay, no puede declarar PASS local ficticio.
+
+[Diagnóstico y continuidad](A13_G10_P1G_C1_WINDOWS_TOOLCHAIN_BLOCKER_20261013.md).
+
+---
+
 ## G10-P1G-B Windows PASS y P1G-C1 nativo CI PASS (2026-10-13 UTC)
 
 ```text
