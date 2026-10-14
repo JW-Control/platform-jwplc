@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - 'v2.1.0-alpha.13/feature/cleanup-robustness'
+      - 'codex/alpha13-g10-*'
     paths:
       - '.github/workflows/alpha13-g10-integrated.yml'
       - 'tools/alpha13/gates/a13_g10_integrated.py'
