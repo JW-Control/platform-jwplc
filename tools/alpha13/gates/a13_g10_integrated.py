@@ -478,7 +478,8 @@ def server_cleanup_native(out,files):
     rel="JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP.cpp"
     src=files[rel]
     sigs=("void JWPLC_ModbusTCPClass::dropClient()",
-          "bool JWPLC_ModbusTCPClass::serviceDeferredDrop()")
+          "bool JWPLC_ModbusTCPClass::serviceDeferredDrop()",
+          "void JWPLC_ModbusTCPClass::task()")
     bodies={sig:repro.extract(src,sig) for sig in sigs}
     def run(tag, methods):
         return builder.native(out,tag,"\n\n".join(methods[sig] for sig in sigs)+"\n",compiler)
@@ -486,7 +487,10 @@ def server_cleanup_native(out,files):
     wanted=("G10_I_SERVER_DEFERRED_CLOSE_BUSY_RETRY=PASS",
             "G10_I_SERVER_STALE_OWNER_NOT_CLOSED=PASS",
             "G10_I_SERVER_EMPTY_AND_LINK_DOWN=PASS",
-            "G10_I_SERVER_CLEANUP_NATIVE=PASS_TWO_REAL_SOURCE_METHODS")
+            "G10_I_SERVER_TASK_PENDING_DRAIN=PASS",
+            "G10_I_SERVER_LINK_DOWN_BUSY_DRAIN=PASS",
+            "G10_I_SERVER_DISABLED_DRAIN=PASS",
+            "G10_I_SERVER_CLEANUP_NATIVE=PASS_THREE_REAL_SOURCE_METHODS")
     if code!=0 or not all(x in output for x in wanted):
         emit("SERVER_CLEANUP_DIAG",
              "EXIT_"+str(code)+"_"+output.strip().replace("\n"," | ")[:1200])
@@ -505,6 +509,14 @@ def server_cleanup_native(out,files):
          "outcome == jwplc_w5500_candidate::StatusReadOutcome::Read",
          "outcome != jwplc_w5500_candidate::StatusReadOutcome::BusBusy",
          "SERVER_STALE_CLOSED_OTHER_OWNER"),
+        ("TASK_SKIPS_PENDING",sigs[2],
+         "if (_jwplcDropPending && !serviceDeferredDrop()) return;",
+         "if (false) return;",
+         "SERVER_TASK_ENTERED_WHILE_DROP_BUSY"),
+        ("TASK_NOT_READY_DROPS_HANDLE",sigs[2],
+         "if (_jwplcDropPending) return;",
+         "/* ignore deferred cleanup, unsafe */",
+         "SERVER_LINK_DOWN_BUSY_ABANDONED_CLIENT"),
     ]
     for label,sig,a,b,expected in negatives:
         original=bodies[sig]
@@ -625,7 +637,7 @@ def main():
         m["modbus_cleanup_probe"]=modbus_cleanup_native(out,files)
         emit("MODBUS_CLEANUP_NATIVE","PASS_THREE_SOURCE_METHODS_3_NEGATIVES")
         m["modbus_server_cleanup_probe"]=server_cleanup_native(out,files)
-        emit("MODBUS_SERVER_CLEANUP_NATIVE","PASS_TWO_SOURCE_METHODS_3_NEGATIVES")
+        emit("MODBUS_SERVER_CLEANUP_NATIVE","PASS_THREE_SOURCE_METHODS_5_NEGATIVES")
         if opts.stage_platform is not None:
             staged=stage_platform(opts.stage_platform,files,shas)
             m["staged_sources"]=staged
