@@ -594,14 +594,25 @@ de plataforma, librerías y `.d`/ELF del candidato.
 La ejecución iniciada tras el cambio es
 [GitHub Actions #38510083279](https://github.com/JW-Control/platform-jwplc/actions/runs/38510083279)
 sobre `8b121b8b411d7f0646c8d048125b312bd691b7fa`.
-**No afirmar PASS hasta confirmar sus trabajos baseline y
-candidato.** Esta matriz valida compatibilidad de compilación,
-no condiciones eléctricas ni autoload concurrente físico.
+**Resultado confirmado:** [GitHub Actions #38510083279](https://github.com/JW-Control/platform-jwplc/actions/runs/38510083279):
+los cinco trabajos terminaron `success`. El package Alpha13 de la
+rama compiló **11/11 sketches baseline y 11/11 candidato** bajo el
+mismo core `jwplc_local:esp32:jwplcbasic`, sin tocar el
+producto ni los cinco precompilados. Los 11 candidatos incluyen
+comprobación MMD y símbolos ELF; se comprobó la procedencia de
+bibliotecas Ethernet y Modbus TCP según el código del workflow.
+La suite host Windows/Linux y la comparación bootstrap también
+pasaron. Esto constituye regresión representativa de
+**compilación/enlace**, no prueba de condiciones eléctricas
+ni autoload concurrente físico.
 
 ```text
 G10-I-B03=UDP_DNS_DHCP_CLOSE_LIFETIME_CONTRACT_OPEN
 G10-I-B03-SOURCE_RISK=CONFIRMED
-G10-I-REPRESENTATIVE_SKETCHES_PER_VARIANT=11_CI_RUNNING
+G10-I-REPRESENTATIVE_SKETCHES_PER_VARIANT=11_OF_11_PASS_BASELINE_AND_CANDIDATE
+G10-I-REPRESENTATIVE_MATRIX_CI=PASS_5_JOBS_RUN_38510083279
+G10-I-CANDIDATE_MMD_ELF=PASS_11_OF_11
+G10-I-FULL_ALPH13_SKETCH_COMPLETENESS=REPRESENTATIVE_ONLY
 G10-I-UDP_DNS_DHCP_RUNTIME_TEST=NOT_RUN
 G10-I-ARDUINO_IDE=NOT_RUN
 G10-H=NOT_STARTED
