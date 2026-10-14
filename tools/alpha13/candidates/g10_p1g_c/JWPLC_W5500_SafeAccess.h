@@ -74,6 +74,16 @@ using SocketCloseFn = void (*)(uint8_t socket, void* context);
 CloseOutcome closeIfCurrent(const SocketToken& token, SocketCloseFn close,
                             void* context, uint32_t timeoutMs);
 
+// A stop that cannot acquire SPI publishes its allocation without keeping the
+// UDP object alive. Allocation numbers never repeat; a late stale publisher
+// cannot replace a newer owner's request. The caller retains its own token
+// until it observes CLOSED or STALE.
+bool requestDeferredClose(const SocketToken& token);
+// One bounded cooperative pass. May be called after the UDP/DNS/DHCP object
+// has gone away. The callback executes only under the bus and current lease.
+uint8_t serviceDeferredClose(SocketCloseFn close, void* context,
+                             uint32_t timeoutMs);
+
 // Variante B de prototipo: exclusión SPI completa durante reset.
 // Mantiene el mutex mientras se ejecuta el callback; no promover a
 // producto hasta medir fairness SD/FRAM/Display durante ~90ms.

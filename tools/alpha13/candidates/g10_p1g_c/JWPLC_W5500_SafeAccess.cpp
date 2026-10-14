@@ -18,6 +18,9 @@ uint32_t g_depth = 0; // solo el task propietario lo lee/escribe.
 uint32_t g_epoch = 1;
 uint32_t g_allocation = 0;
 uint32_t g_autoOwner = 0;
+// A 32-bit monotonically increasing allocation lets a producer publish a
+// close request even when another task holds SPI. Never wrap this counter.
+std::atomic<uint32_t> g_pendingClose[kSockets] = {};
 
 struct Slot {
     uint32_t epoch = 0;
@@ -78,12 +81,8 @@ uint32_t currentEpochLocked() {
 SocketToken allocateSocketLocked(uint8_t socket, uint32_t ownerCookie) {
     if (!ownedByThisTask() || socket >= kSockets || ownerCookie == 0)
         return {};
+    if (g_allocation == UINT32_MAX) return {}; // fail closed before reuse
     ++g_allocation;
-    if (g_allocation == 0) {
-        // Evitar colisión del serial tras overflow; invalidar leases.
-        incrementEpochLocked();
-        g_allocation = 1;
-    }
     Slot& s = g_slots[socket];
     s.epoch = g_epoch;
     s.allocation = g_allocation;
@@ -167,6 +166,40 @@ CloseOutcome closeIfCurrent(const SocketToken& token, SocketCloseFn close,
     close(token.socketIndex, context);
     clearSlot(g_slots[token.socketIndex]);
     return CloseOutcome::Closed;
+}
+
+bool requestDeferredClose(const SocketToken& token) {
+    if (!bool(token)) return false;
+    auto& pending = g_pendingClose[token.socketIndex];
+    uint32_t observed = pending.load(std::memory_order_acquire);
+    while (observed < token.allocation &&
+           !pending.compare_exchange_weak(observed, token.allocation,
+                                          std::memory_order_acq_rel)) {}
+    // An older owner may publish late, but may never displace a newer ticket.
+    return true;
+}
+
+uint8_t serviceDeferredClose(SocketCloseFn close, void* context,
+                             uint32_t timeoutMs) {
+    if (close == nullptr) return 0;
+    BusScope bus(timeoutMs);
+    if (!bus) return 0;
+    uint8_t drained = 0;
+    for (uint8_t index = 0; index < kSockets; ++index) {
+        auto& pending = g_pendingClose[index];
+        const uint32_t ticket = pending.load(std::memory_order_acquire);
+        if (ticket == 0) continue;
+        Slot& slot = g_slots[index];
+        if (slot.valid && slot.allocation == ticket) {
+            close(index, context);
+            clearSlot(slot);
+            ++drained;
+        }
+        uint32_t expected = ticket;
+        (void)pending.compare_exchange_strong(expected, 0,
+                                               std::memory_order_acq_rel);
+    }
+    return drained;
 }
 
 bool resetAndInvalidate(ResetFn reset, void* context, uint32_t timeoutMs) {

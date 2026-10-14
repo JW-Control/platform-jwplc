@@ -388,6 +388,30 @@ def compose():
     udp_original=(ROOT/udp.UDP_PATH).read_text(encoding="utf-8-sig")
     udp_overlay,_=udp.patches(repro,udp_original)
     first["UDP"]='#include "JWPLC_W5500_SafeAccess.h"\n'+udp_overlay
+    # A DNS stack object can disappear immediately after finish/cancel. Its
+    # UDP stop therefore publishes a lease ticket before returning BUS_BUSY;
+    # the autoload tick owns the retry independently of that object's life.
+    busy="if (!bus) return; // never discard socket on SPI_BUSY"
+    require(first["UDP"].count(busy)==1,"B03_UDP_BUSY_SOURCE_DRIFT")
+    first["UDP"]=first["UDP"].replace(busy,
+        "if (!bus) {\n"
+        "\t\t(void)jwplc_w5500_candidate::requestDeferredClose(_jwplcSocketToken);\n"
+        "\t\treturn; // preserve the local handle and publish a durable ticket\n"
+        "\t}",1)
+    first["UDP"] += """
+
+// Callable by the core autoload tick after a temporary DNS object is gone.
+uint8_t EthernetUDP::jwplcServiceDeferredClose()
+{
+    return jwplc_w5500_candidate::serviceDeferredClose(
+        [](uint8_t index, void*) { Ethernet.socketClose(index); }, nullptr, 0);
+}
+"""
+    hdr_anchor="virtual void stop();  // Finish with the UDP socket"
+    require(first["HEADER"].count(hdr_anchor)==1,"B03_UDP_HEADER_DRIFT")
+    first["HEADER"]=first["HEADER"].replace(hdr_anchor,hdr_anchor+
+        "\n\t// Internal cooperative drain, independent of object lifetime.\n"
+        "\tstatic uint8_t jwplcServiceDeferredClose();",1)
     first=patch_client_modbus_b01_b04(repro,first)
     first=patch_modbus_server_deferred_drop(repro,first)
     udp_anchor="bool _sendPending = false; // JWPLC cooperative UDP SEND state"
@@ -409,6 +433,28 @@ def compose():
     for k,path in s1.TARGETS.items():
         paths[path]=first["CLIENT"] if k=="RAW_CLIENT" else first[k]
     paths[udp.UDP_PATH]=first["UDP"]
+    # Keep DNS/DHCP source byte-for-byte; their terminal paths intentionally
+    # retain legacy results while the lease ticket outlives the UDP object.
+    eth_src="JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/"
+    for name in ("Dns.cpp","Dhcp.cpp"):
+        rel=eth_src+name
+        paths[rel]=(ROOT/rel).read_text(encoding="utf-8-sig")
+    socket_rel=eth_src+"socket.cpp"
+    socket_source=paths[socket_rel]
+    socket_anchor="if (!bus) return MAX_SOCK_NUM;"
+    require(socket_source.count(socket_anchor)==1,"B03_SOCKET_BEGIN_DRIFT")
+    paths[socket_rel]=socket_source.replace(socket_anchor,
+        socket_anchor+"\n\t// Drain old UDP tickets before choosing a reusable slot.\n"
+        "\t(void)jwplc_w5500_candidate::serviceDeferredClose(\n"
+        "\t\t[](uint8_t index, void*) { Ethernet.socketClose(index); }, nullptr, 0);",1)
+    service_rel=eth_src+"JWPLC_Ethernet.cpp"
+    service=(ROOT/service_rel).read_text(encoding="utf-8-sig")
+    service_anchor="void JWPLC_EthernetClass::service()\n{\n#if !JWPLC_HAS_ETHERNET\n    return;\n#else"
+    require(service.count(service_anchor)==1,"B03_AUTOLOAD_SERVICE_DRIFT")
+    service=service.replace(service_anchor,service_anchor+
+        "\n    // The core tick runs even after DNS/DHCP becomes logically inactive.\n"
+        "    (void)EthernetUDP::jwplcServiceDeferredClose();",1)
+    paths[service_rel]='#include "JWPLC_W5500_SafeAccess.h"\n'+service
     paths["JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP_Client.h"]=first["MB_CLIENT_HEADER"]
     paths["JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP.h"]=first["MB_SERVER_HEADER"]
     # La fase antigua componía referencias a SafeAccess, pero OMITÍA sus
@@ -588,14 +634,14 @@ def modbus_cleanup_native(out,files):
             "limitations":"task scheduler and Modbus end-to-end not proven"}
 
 
-def b03_shutdown_risk_native(out, files):
-    """Reproducción B03 source-backed; PASS significa RIESGO, no adopción."""
+def b03_deferred_close_native(out, files):
+    """Real UDP/DNS/DHCP methods plus real lease queue, with live mutants."""
     repro=load(MODULES["repro"],"b03_real_methods")
     compiler=load("a13_g10_p1g_c1_native_prototype.py","b03_real_compiler")
     builder=load(MODULES["b2a"],"b03_native_builder")
-    builder.TEST=ROOT/"tools/alpha13/candidates/g10_p1g_c/native_g10_i_dns_dhcp_shutdown_risk_test.cpp"
-    dns=(ROOT/"JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/Dns.cpp").read_text(encoding="utf-8-sig")
-    dhcp=(ROOT/"JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/Dhcp.cpp").read_text(encoding="utf-8-sig")
+    builder.TEST=ROOT/"tools/alpha13/candidates/g10_p1g_c/native_g10_i_b03_deferred_close_test.cpp"
+    dns=files["JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/Dns.cpp"]
+    dhcp=files["JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/Dhcp.cpp"]
     udp=files["JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/EthernetUdp.cpp"]
     signatures=(
         ("void EthernetUDP::stop()",udp),
@@ -606,22 +652,33 @@ def b03_shutdown_risk_native(out, files):
     methods=[repro.extract(source,signature) for signature,source in signatures]
     require(all("stop()" in text for text in methods),
             "B03_SOURCE_TERMINATION_CONTRACT_DRIFT")
-    rc,log=builder.native(out,"b03_shutdown_risk",
-                           "\n\n".join(methods)+"\n",compiler)
+    def run(tag, versions):
+        return builder.native(out,tag,"\n\n".join(versions)+"\n",compiler)
+    rc,log=run("b03_deferred_close_positive",methods)
     required=(
-        "G10_I_B03_DNS_FINISH_BUSY_ORPHAN=RISK_REPRODUCED",
-        "G10_I_B03_DNS_CANCEL_BUSY_ORPHAN=RISK_REPRODUCED",
-        "G10_I_B03_DHCP_FINISH_BUSY_ORPHAN=RISK_REPRODUCED",
-        "G10_I_B03_NATIVE=SOURCE_BACKED_RISK_REPRODUCED_ADOPTION_BLOCKED",
+        "G10_I_B03_DNS_FINISH_LIFETIME=PASS",
+        "G10_I_B03_DNS_CANCEL_IDLE_RETRY=PASS",
+        "G10_I_B03_DHCP_FINISH_IDLE_RETRY=PASS",
+        "G10_I_B03_STALE_RESET_OWNER=PASS",
+        "G10_I_B03_NATIVE=PASS_SOURCE_BACKED_DEFERRED_CLOSE",
     )
     if rc!=0 or not all(marker in log for marker in required):
         emit("B03_SOURCE_DIAG","EXIT_"+str(rc)+"_"+log.strip().replace("\n"," | ")[:1100])
     require(rc==0 and all(marker in log for marker in required),
-            "B03_SOURCE_REPRODUCTION_FAILED_OR_BEHAVIOR_CHANGED_REVIEW")
-    return {"status":"SOURCE_BACKED_RISK_REPRODUCED",
+            "B03_SOURCE_CORRECTION_NOT_DEMONSTRATED")
+    stop=methods[0]
+    anchor="(void)jwplc_w5500_candidate::requestDeferredClose(_jwplcSocketToken);"
+    require(stop.count(anchor)==1,"B03_TICKET_ANCHOR_MISSING")
+    mutant=list(methods)
+    mutant[0]=stop.replace(anchor,"/* mutant: discard durable ticket */",1)
+    rc,log=run("b03_negative_drop_ticket",mutant)
+    require(rc!=0 and "DNS_FINISH_TICKET_NOT_DRAINED" in log,
+            "B03_DROP_TICKET_MUTANT_NOT_REJECTED")
+    return {"status":"PASS_SOURCE_BACKED_DEFERRED_CLOSE",
             "cpp_methods":len(methods),
+            "negatives":1,
             "safe_for_adoption":False,
-            "limitations":"host mock; no network hardware or full DNS DHCP runtime"}
+            "limitations":"host bus/hardware stub; DNS/DHCP full runtime and other B01-B08 paths remain open"}
 
 
 def status_probe_native(out):
@@ -674,8 +731,8 @@ def main():
         emit("MODBUS_CLEANUP_NATIVE","PASS_THREE_SOURCE_METHODS_3_NEGATIVES")
         m["modbus_server_cleanup_probe"]=server_cleanup_native(out,files)
         emit("MODBUS_SERVER_CLEANUP_NATIVE","PASS_THREE_SOURCE_METHODS_5_NEGATIVES")
-        m["b03_dns_dhcp_shutdown"]=b03_shutdown_risk_native(out,files)
-        emit("B03_DNS_DHCP_SHUTDOWN","RISK_REPRODUCED_BLOCKS_ADOPTION")
+        m["b03_dns_dhcp_shutdown"]=b03_deferred_close_native(out,files)
+        emit("B03_DNS_DHCP_SHUTDOWN","PASS_SOURCE_BACKED_DEFERRED_CLOSE_1_NEGATIVE")
         if opts.stage_platform is not None:
             staged=stage_platform(opts.stage_platform,files,shas)
             m["staged_sources"]=staged
@@ -683,7 +740,7 @@ def main():
             emit("ARDUINO_PLATFORM_EXPORT","STAGED_NOT_COMPILED")
         m.update({"head":head,"overlay_files":shas,
                   "blockers":BLOCKERS,
-                  "status":"COMPOSED_REVIEW_BLOCKED"})
+                  "status":"B03_CANDIDATE_REVIEW_BLOCKED"})
         emit("SOURCE_OVERLAY","COMPOSED")
         emit("OVERLAY_FILES",len(files))
         emit("FROZEN_ARCHIVES",5)
