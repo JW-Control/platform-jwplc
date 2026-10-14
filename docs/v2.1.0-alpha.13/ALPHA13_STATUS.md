@@ -1,5 +1,7 @@
 # Alpha13 — estado vigente: G10 por hitos integrados (2026-10-13)
 
+> **G10-I B03 — CI guard agregado 2026-10-14:** script `tools/alpha13/gates/a13_g10_b03_source_contract.py` (commit `2f3b1807`) y paso en `.github/workflows/alpha13-g10-integrated.yml` (commit `a9858dc3`). Detecta en fuente real los patrones DNS finish/cancel y DHCP finish de stop seguido de cierre lógico, con dos mutaciones negativas. **La prueba valida el reconocimiento del riesgo, NO el arreglo**. CI posterior al commit todavía no comprobado desde este chat. `B03=OPEN`, `A13-006=ADOPTION_BLOCKED`, `G10-H=NOT_STARTED`.
+
 > **Revisión de contrato B03 — 2026-10-14:** se identificaron rutas de abandono de `EthernetUDP::stop()` bajo `SPI_BUSY` en `DNSClient::finishResolveAsync/cancelResolveAsync` y `DhcpClass::finishAsync`. Contrato y matriz de aceptación versionados en [`A13_G10_B03_DEFERRED_CLOSE_CONTRACT_20261014.md`](A13_G10_B03_DEFERRED_CLOSE_CONTRACT_20261014.md), commit `eca13d17`. **NO se implementó aún el fix ni se ejecutó CI nueva; G10-I continúa REVIEW/BLOCKED, G10-H sin autorización, A13-006 ADOPTION_BLOCKED.**
 
 > **Esta cabecera prevalece sobre entradas históricas** de G10
