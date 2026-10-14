@@ -619,3 +619,40 @@ G10-H=NOT_STARTED
 A13-006=ADOPTION_BLOCKED
 G10_FINAL=NOT_CLOSED
 ```
+
+
+### B03 — evidencia nativa source-backed (2026-10-14)
+
+[GitHub Actions #38511031959](https://github.com/JW-Control/platform-jwplc/actions/runs/38511031959),
+`HEAD=ee11fbd703a8e5c1762a1c3276c5d9f29c8087db`.
+Los jobs nativos Ubuntu 24.04 y Windows completaron con éxito
+la **reproducción de un riesgo**, sin modificar el paquete Arduino.
+
+Se compilaron **cuatro cuerpos C++ extraídos del código real**:
+`EthernetUDP::stop()` del overlay, más
+`DNSClient::finishResolveAsync()`,
+`DNSClient::cancelResolveAsync()` y
+`DhcpClass::finishAsync()` originales. Los stubs
+de bus FreeRTOS/W5500 simulan otro task manteniendo
+el SPI y comprueban explícitamente que los protocolos
+marcan fin/cancelación mientras el socket queda abierto.
+
+```text
+G10-I-B03-NATIVE-UBUNTU=RISK_REPRODUCED
+G10-I-B03-NATIVE-WINDOWS=RISK_REPRODUCED
+G10-I-B03-DNS_FINISH=OPEN_SOCKET_AFTER_TERMINAL_RESULT
+G10-I-B03-DNS_CANCEL=OPEN_SOCKET_AFTER_CANCEL
+G10-I-B03-DHCP_FINISH=OPEN_SOCKET_AFTER_TERMINAL_RESULT
+G10-I-B03-FIX_IMPLEMENTED=NO
+G10-I-B03-NATIVE_HARNESS=MOCKS_NO_HARDWARE
+G10-I-B03=BLOCKS_ADOPTION
+```
+
+**Interpretación obligatoria:** que el job indique `success`
+solo demuestra que la reproducción detectó el fallo previsto.
+NO acredita que DNS/DHCP sean seguros ni que la integración
+haya cerrado el riesgo. La compilación de los 11 sketches
+por variante es evidencia separada; no prueba liberación
+en tiempo de ejecución. Evaluar un cierre diferido
+**que sobreviva a la vida del objeto** y descarte
+tickets obsoletos antes de proponer adopción.
