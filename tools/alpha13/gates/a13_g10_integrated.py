@@ -365,6 +365,62 @@ def stage_platform(destination,files,hashes):
     # La comprobación del freeze canónico ya se ejecutó en preflight.
     return manifest
 
+def modbus_cleanup_native(out,files):
+    """Compilar tres METODOS C++ del overlay actual y negativos integrados."""
+    repro=load(MODULES["repro"],"modbus_cleanup_extract")
+    cxx=load("a13_g10_p1g_c1_native_prototype.py","modbus_cleanup_compiler")
+    builder=load(MODULES["b2a"],"modbus_cleanup_builder")
+    builder.TEST=ROOT/"tools/alpha13/candidates/g10_p1g_c/native_g10_i_modbus_cleanup_test.cpp"
+    mb=files["JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP_Client.cpp"]
+    signatures=(
+        "bool JWPLC_ModbusTCPClientClass::busy() const",
+        "void JWPLC_ModbusTCPClientClass::closeSession()",
+        "bool JWPLC_ModbusTCPClientClass::serviceDeferredClose()",
+    )
+    bodies={key:repro.extract(mb,key) for key in signatures}
+    def compile_test(tag,versions):
+        joined="\n\n".join(versions[key] for key in signatures)+"\n"
+        return builder.native(out,tag,joined,cxx)
+    rc,log=compile_test("modbus_cleanup_positive",bodies)
+    expectations=[
+        "G10_I_MB_DEFERRED_CLOSE_BUSY_RETRY=PASS",
+        "G10_I_MB_STALE_REUSE_PROTECTED=PASS",
+        "G10_I_MB_NO_HANDLE_IDEMPOTENT=PASS",
+        "G10_I_MB_CLEANUP_NATIVE=PASS_SOURCE_METHODS_NO_PRODUCT_ADOPTION",
+    ]
+    if rc!=0 or not all(x in log for x in expectations):
+        emit("MB_CLEANUP_DIAG","EXIT_"+str(rc)+"_"+log.strip().replace("\n"," | ")[:700])
+    require(rc==0 and all(x in log for x in expectations),
+            "MB_CLEANUP_REAL_SOURCE_POSITIVE_FAILED")
+    variants=[
+        ("NO_BUSY_FLAG",signatures[0],
+         "if (_jwplcClosePending) return true;",
+         "if (_jwplcClosePending) return false;",
+         "SPI_BUSY_DROPPED_MODBUS_HANDLE"),
+        ("DROP_HANDLE_ON_BUSY",signatures[2],
+         "if (!acquireBus(20)) return false; // retain _tcpClient and token",
+         "if (!acquireBus(20)) { _tcpClient=EthernetClient(); return false; }",
+         "SPI_BUSY_DROPPED_MODBUS_HANDLE"),
+        ("SKIP_REAL_CLOSE",signatures[2],
+         "_tcpClient.cancelStopAsync();",
+         "/* never close socket */",
+         "DEFERRED_CLOSE_DID_NOT_DRAIN"),
+    ]
+    for label,signature,original,replacement,expected in variants:
+        version=dict(bodies)
+        require(version[signature].count(original)==1,
+                "MB_CLEANUP_NEGATIVE_ANCHOR_MISSING_"+label)
+        version[signature]=version[signature].replace(original,replacement,1)
+        code,output=compile_test("modbus_cleanup_negative_"+label,version)
+        if code==0 or expected not in output:
+            emit("MB_NEGATIVE_DIAG_"+label,
+                 "EXIT_"+str(code)+"_"+output.strip().replace("\n"," | ")[:500])
+        require(code!=0 and expected in output,
+                "MB_CLEANUP_NEGATIVE_NOT_REJECTED_"+label)
+    return {"result":"PASS_THREE_SOURCE_METHODS","negatives":len(variants),
+            "limitations":"task scheduler and Modbus end-to-end not proven"}
+
+
 def status_probe_native(out):
     """Una fase DEL MISMO G10-I; no es un nuevo gate manual."""
     cxx=load("a13_g10_p1g_c1_native_prototype.py","g10i_cxx_status")
@@ -411,6 +467,8 @@ def main():
         shas=write_evidence(out,head,files)
         m["status_probe"]=status_probe_native(out)
         emit("TRISTATE_STATUS_NATIVE","PASS_PRIMITIVE_ONLY")
+        m["modbus_cleanup_probe"]=modbus_cleanup_native(out,files)
+        emit("MODBUS_CLEANUP_NATIVE","PASS_THREE_SOURCE_METHODS_3_NEGATIVES")
         if opts.stage_platform is not None:
             staged=stage_platform(opts.stage_platform,files,shas)
             m["staged_sources"]=staged
