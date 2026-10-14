@@ -643,14 +643,19 @@ def b03_deferred_close_native(out, files):
     dns=files["JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/Dns.cpp"]
     dhcp=files["JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/Dhcp.cpp"]
     udp=files["JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/EthernetUdp.cpp"]
+    dhcp_async=(ROOT/"JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/DhcpAsyncControl.cpp").read_text(encoding="utf-8-sig")
     signatures=(
         ("void EthernetUDP::stop()",udp),
         ("void DNSClient::finishResolveAsync(int result)",dns),
         ("void DNSClient::cancelResolveAsync()",dns),
         ("void DhcpClass::finishAsync()",dhcp),
+        ("uint8_t EthernetUDP::begin(uint16_t port)",udp),
+        ("int DNSClient::beginResolveAsync(",dns),
+        ("int DhcpClass::beginWithDHCPAsync(",dhcp),
+        ("bool DhcpClass::startLeaseMaintenance(uint8_t mode)",dhcp_async),
     )
     methods=[repro.extract(source,signature) for signature,source in signatures]
-    require(all("stop()" in text for text in methods),
+    require(all("stop()" in body for body in methods[1:4]),
             "B03_SOURCE_TERMINATION_CONTRACT_DRIFT")
     def run(tag, versions):
         return builder.native(out,tag,"\n\n".join(versions)+"\n",compiler)
@@ -660,23 +665,40 @@ def b03_deferred_close_native(out, files):
         "G10_I_B03_DNS_CANCEL_IDLE_RETRY=PASS",
         "G10_I_B03_DHCP_FINISH_IDLE_RETRY=PASS",
         "G10_I_B03_STALE_RESET_OWNER=PASS",
+        "G10_I_B03_DNS_DHCP_REBEGIN=PASS",
+        "G10_I_B03_DHCP_RENEW_REBIND=PASS",
         "G10_I_B03_NATIVE=PASS_SOURCE_BACKED_DEFERRED_CLOSE",
     )
     if rc!=0 or not all(marker in log for marker in required):
         emit("B03_SOURCE_DIAG","EXIT_"+str(rc)+"_"+log.strip().replace("\n"," | ")[:1100])
     require(rc==0 and all(marker in log for marker in required),
             "B03_SOURCE_CORRECTION_NOT_DEMONSTRATED")
-    stop=methods[0]
-    anchor="(void)jwplc_w5500_candidate::requestDeferredClose(_jwplcSocketToken);"
-    require(stop.count(anchor)==1,"B03_TICKET_ANCHOR_MISSING")
-    mutant=list(methods)
-    mutant[0]=stop.replace(anchor,"/* mutant: discard durable ticket */",1)
-    rc,log=run("b03_negative_drop_ticket",mutant)
-    require(rc!=0 and "DNS_FINISH_TICKET_NOT_DRAINED" in log,
-            "B03_DROP_TICKET_MUTANT_NOT_REJECTED")
+    variants=(
+        ("drop_ticket",0,
+         "(void)jwplc_w5500_candidate::requestDeferredClose(_jwplcSocketToken);",
+         "/* mutant: discard durable ticket */",
+         "DNS_FINISH_TICKET_NOT_DRAINED"),
+        ("stop_without_owner",0,
+         "jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)",
+         "true", "B03_DOUBLE_OR_UNKNOWN_CLOSE"),
+        ("dns_rebegin_on_busy",5,
+         "if (iUdp.begin(1024 + (millis() & 0xF)) != 1)",
+         "if (false)", "DNS_REBEGIN_REUSED_BUSY_SOCKET"),
+        ("dhcp_renew_on_busy",7,
+         "if (_dhcpUdpSocket.begin(DHCP_CLIENT_PORT) == 0)",
+         "if (false)", "DHCP_MAINT_REUSED_BUSY_SOCKET"),
+    )
+    for label,index,anchor,replacement,expected in variants:
+        require(methods[index].count(anchor)==1,"B03_MUTANT_ANCHOR_"+label)
+        mutant=list(methods)
+        mutant[index]=mutant[index].replace(anchor,replacement,1)
+        rc,log=run("b03_negative_"+label,mutant)
+        if rc==0 or expected not in log:
+            emit("B03_MUTANT_DIAG_"+label,log.strip().replace("\n"," | ")[:500])
+        require(rc!=0 and expected in log,"B03_MUTANT_NOT_REJECTED_"+label)
     return {"status":"PASS_SOURCE_BACKED_DEFERRED_CLOSE",
             "cpp_methods":len(methods),
-            "negatives":1,
+            "negatives":len(variants),
             "safe_for_adoption":False,
             "limitations":"host bus/hardware stub; DNS/DHCP full runtime and other B01-B08 paths remain open"}
 
@@ -732,7 +754,7 @@ def main():
         m["modbus_server_cleanup_probe"]=server_cleanup_native(out,files)
         emit("MODBUS_SERVER_CLEANUP_NATIVE","PASS_THREE_SOURCE_METHODS_5_NEGATIVES")
         m["b03_dns_dhcp_shutdown"]=b03_deferred_close_native(out,files)
-        emit("B03_DNS_DHCP_SHUTDOWN","PASS_SOURCE_BACKED_DEFERRED_CLOSE_1_NEGATIVE")
+        emit("B03_DNS_DHCP_SHUTDOWN","PASS_SOURCE_BACKED_DEFERRED_CLOSE_4_NEGATIVES")
         if opts.stage_platform is not None:
             staged=stage_platform(opts.stage_platform,files,shas)
             m["staged_sources"]=staged
