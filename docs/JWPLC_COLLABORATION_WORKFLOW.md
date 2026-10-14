@@ -1,6 +1,6 @@
 # JWPLC — Flujo de colaboración por hitos
 
-Actualizado: 2026-10-10
+Actualizado: 2026-10-13
 Estado: VIGENTE para `platform-jwplc` y siguientes alphas.
 Sustituye la práctica de solicitar una respuesta del usuario por **cada microgate**, pero NO elimina comprobaciones, criterios de parada ni evidencia.
 
@@ -245,3 +245,102 @@ Si el sketch de prueba ya se subió y permite repetir la transacción
 sin actuadores, preferir diagnóstico read-only y **sin nuevo upload**.
 No presentar un fallo ambiguo de prueba como defecto confirmado del
 producto ni ejecutar automáticamente un cierre Git.
+
+## 16. GitHub Actions como primera línea de validación (2026-10-13)
+
+**Decisión de colaboración:** en desarrollo de firmware/package JWPLC,
+primero ejecutar en CI los gates que no necesitan interacción con
+hardware; no enviar un BAT de Windows por cada método o corrección.
+Esto **complementa** los contratos de hitos (§1–§6), los commits
+condicionados por evidencia (§12) y la procedencia del CLI (§13);
+no elimina el gate local o físico cuando corresponde.
+
+### 16.1 Orden de pruebas y alcance de cada PASS
+
+| Etapa | Ejecutor preferido | Significado del PASS |
+|---|---|---|
+| Static/preflight | GitHub Actions Linux/Windows | Árbol, hashes, scripts, manifiestos y condiciones reproducibles |
+| C++ host | GitHub Actions Linux/Windows | Contratos de concurrencia y estados **bajo mocks**; no hardware |
+| Arduino CLI | GitHub Actions con toolchain explícito | Sketch y fuentes elegidas **compilan/enlazan**; no implica Arduino IDE |
+| Package del branch | CI con platform/boards/precompilados de la rama en instalación temporal separada | Compilación del package probado; no equivale a la distribución instalada ni a todo el autoload |
+| Instalación Windows/IDE | Operador, cuando exista candidato integrado | Compatibilidad con la instalación local, sin repetir microtests anteriores |
+| Gate físico | Operador y banco autorizado | Comportamiento real, periféricos, comunicación, fairness SPI y recuperación |
+
+Exigir **baseline vs candidato** en el mismo toolchain cuando la prueba
+sea comparativa. Registrar `HEAD`, FQBN, versión/ruta del CLI, identidad
+del core, selección de bibliotecas, `.a` congelados, hashes y la
+procedencia **fuente → objeto → ELF/mapa**. Evitar que un core bootstrap
+sea seleccionado por error en lugar del core del branch. Si el
+bootstrap se utiliza solo para instalar herramientas, seleccionarlo
+separadamente del package a evaluar, p. ej. `jwplc_local:esp32`.
+
+Una CI roja no demuestra automáticamente defecto de firmware:
+clasificar `PRODUCT / HARNESS / ENVIRONMENT / PRECONDITION / HARDWARE`.
+Diferenciar PASS parcial de cierre de hito y no contabilizar reintentos
+fallidos como gates nuevos. Conservar URL de run, commit y artefactos.
+No publicar binarios experimentales como releases.
+
+### 16.2 Ejecución autónoma e intervención humana
+
+El asistente/Codex puede iterar, corregir **overlays/tooling**
+y verificar por GitHub Actions sin requerir un mensaje del operador
+por cada corrida; preferir un workflow por **hito**, con etapas
+internas que fallen cerrado. No iniciar nuevos workflows redundantes
+mientras siga una ejecución idéntica en curso.
+
+Pedir intervención cuando sea indispensable: autorización material
+de alcance/adopción, validación de Arduino IDE local, selección de
+puerto/equipo, flasheo, evidencia de periféricos físicos o cierre
+de release. No convertir el PASS de CI en aprobación de upload.
+La actividad entre conversaciones **no debe presumirse automática**
+salvo que exista tarea/agente programado explícitamente y habilitado.
+
+**G10-I Alpha13:** CI puede componer y compilar el overlay de modo
+aislado; `A13-006=ADOPTION_BLOCKED`, `G10_FINAL=NOT_CLOSED` hasta
+evidencia integradora y autorización. Mantener GPIO4 reset deshabilitado
+(`255`), cinco archives `.a` inmutables y todos los periféricos
+de autoload normal. No modificar producto por velocidad o por un
+resultado parcial.
+
+### 16.3 Separación entre documentación pública y memoria interna
+
+`platform-jwplc` es un repositorio **público**. No hay carpetas,
+ramas, nombres `private`, `.gitignore` ni GitHub Actions artifacts
+que conviertan en confidencial un archivo ya incluido en el repositorio
+o en su historial público.
+
+- **Aquí, público:** APIs, README para usuarios, instrucciones
+  de compilación, contratos reproducibles del CI, decisiones de
+  producto publicables, changelog y gates desprovistos de secretos.
+- **Solo en repositorio privado independiente, cuando se autorice
+  y configure:** `JWPLC_ASSISTANT_FAILURES_AND_PREVENTION`,
+  historial interno detallado de errores y correcciones de asistentes,
+  decisiones de colaboración no publicables, handoffs internos,
+  notas sensibles de desarrollo y transferencias de contexto.
+  Los nombres son ejemplos; ningún contenido privado debe trasladarse
+  automáticamente desde archivos del Proyecto de ChatGPT.
+- **Referencia cruzada segura:** el repo público puede mostrar el
+  nombre de una política interna o un identificador de decisión
+  **no sensible**, pero no su texto, URL privada con credenciales,
+  datos de clientes, secretos, logs seriales identificadores
+  ni rutas locales con información reservada.
+- **GitHub Actions:** no imprimir contenido interno en logs de una
+  ejecución pública ni incluirlo en artifacts públicos. Para
+  comprobaciones que necesitan documentación privada, usar
+  workflows aislados en el repositorio privado y permisos mínimos.
+- **Sin sincronización implícita:** archivos subidos a ChatGPT Project
+  no se actualizan al cambiar GitHub ni GitHub se actualiza al
+  editar esos adjuntos. Mantener una única versión canónica
+  por documento, con fecha/hash, y sincronizar deliberadamente
+  la copia del Proyecto cuando se requiera; evitar forks
+  documentales silenciosos.
+- **Publicación histórica:** mover posteriormente un documento
+  a un repo privado no borra versiones antiguas ya expuestas
+  en commits, forks, clones o artifacts públicos. Auditar
+  la procedencia antes de subir contenidos internos.
+
+**Estado de esta decisión:** la metodología pública de CI queda
+establecida aquí. La creación, nombre, miembros, permisos y
+migración inicial a un repositorio interno privado son una
+**decisión pendiente del operador**; no crear el repositorio
+ni publicar el contenido de `FAILURES` sin su aprobación.
