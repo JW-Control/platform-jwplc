@@ -588,6 +588,42 @@ def modbus_cleanup_native(out,files):
             "limitations":"task scheduler and Modbus end-to-end not proven"}
 
 
+def b03_shutdown_risk_native(out, files):
+    """Reproducción B03 source-backed; PASS significa RIESGO, no adopción."""
+    repro=load(MODULES["repro"],"b03_real_methods")
+    compiler=load("a13_g10_p1g_c1_native_prototype.py","b03_real_compiler")
+    builder=load(MODULES["b2a"],"b03_native_builder")
+    builder.TEST=ROOT/"tools/alpha13/candidates/g10_p1g_c/native_g10_i_dns_dhcp_shutdown_risk_test.cpp"
+    dns=(ROOT/"JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/Dns.cpp").read_text(encoding="utf-8-sig")
+    dhcp=(ROOT/"JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/Dhcp.cpp").read_text(encoding="utf-8-sig")
+    udp=files["JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/EthernetUdp.cpp"]
+    signatures=(
+        ("void EthernetUDP::stop()",udp),
+        ("void DNSClient::finishResolveAsync(int result)",dns),
+        ("void DNSClient::cancelResolveAsync()",dns),
+        ("void DhcpClass::finishAsync()",dhcp),
+    )
+    methods=[repro.extract(source,signature) for signature,source in signatures]
+    require(all("stop()" in text for text in methods),
+            "B03_SOURCE_TERMINATION_CONTRACT_DRIFT")
+    rc,log=builder.native(out,"b03_shutdown_risk",
+                           "\n\n".join(methods)+"\n",compiler)
+    required=(
+        "G10_I_B03_DNS_FINISH_BUSY_ORPHAN=RISK_REPRODUCED",
+        "G10_I_B03_DNS_CANCEL_BUSY_ORPHAN=RISK_REPRODUCED",
+        "G10_I_B03_DHCP_FINISH_BUSY_ORPHAN=RISK_REPRODUCED",
+        "G10_I_B03_NATIVE=SOURCE_BACKED_RISK_REPRODUCED_ADOPTION_BLOCKED",
+    )
+    if rc!=0 or not all(marker in log for marker in required):
+        emit("B03_SOURCE_DIAG","EXIT_"+str(rc)+"_"+log.strip().replace("\n"," | ")[:1100])
+    require(rc==0 and all(marker in log for marker in required),
+            "B03_SOURCE_REPRODUCTION_FAILED_OR_BEHAVIOR_CHANGED_REVIEW")
+    return {"status":"SOURCE_BACKED_RISK_REPRODUCED",
+            "cpp_methods":len(methods),
+            "safe_for_adoption":False,
+            "limitations":"host mock; no network hardware or full DNS DHCP runtime"}
+
+
 def status_probe_native(out):
     """Una fase DEL MISMO G10-I; no es un nuevo gate manual."""
     cxx=load("a13_g10_p1g_c1_native_prototype.py","g10i_cxx_status")
@@ -638,6 +674,8 @@ def main():
         emit("MODBUS_CLEANUP_NATIVE","PASS_THREE_SOURCE_METHODS_3_NEGATIVES")
         m["modbus_server_cleanup_probe"]=server_cleanup_native(out,files)
         emit("MODBUS_SERVER_CLEANUP_NATIVE","PASS_THREE_SOURCE_METHODS_5_NEGATIVES")
+        m["b03_dns_dhcp_shutdown"]=b03_shutdown_risk_native(out,files)
+        emit("B03_DNS_DHCP_SHUTDOWN","RISK_REPRODUCED_BLOCKS_ADOPTION")
         if opts.stage_platform is not None:
             staged=stage_platform(opts.stage_platform,files,shas)
             m["staged_sources"]=staged
