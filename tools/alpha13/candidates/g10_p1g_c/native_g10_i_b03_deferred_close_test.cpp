@@ -11,6 +11,8 @@ using namespace jwplc_w5500_candidate;
 static int g_task=1,g_spiOwner=0,g_takes=0,g_releases=0,g_closes=0;
 static bool g_hwOpen[MAX_SOCK_NUM]={};
 static uint32_t g_time=4123;
+static uint8_t g_dhcpResponse=0;
+static int g_dnsPacketSize=0;
 static void check(bool b,const char* why){if(!b)throw std::runtime_error(why);}
 extern "C" bool jwplcSPI_acquire(uint32_t) {
     if(g_spiOwner!=0)return false;
@@ -39,6 +41,13 @@ struct IPAddress{
 };
 static const IPAddress INADDR_NONE(255,255,255,255);
 namespace SnMR {constexpr uint8_t UDP=2,MULTI=128;}
+constexpr int INVALID_RESPONSE=-4,SUCCESS=1,INVALID_SERVER=-2,TIMED_OUT=-1;
+constexpr uint16_t DNS_PORT=53,DHCP_CLIENT_PORT=68;
+constexpr uint8_t STATE_DHCP_START=0,STATE_DHCP_DISCOVER=1,
+                  STATE_DHCP_REQUEST=2,STATE_DHCP_LEASED=3,
+                  STATE_DHCP_REREQUEST=4;
+constexpr uint8_t DHCP_DISCOVER=1,DHCP_OFFER=2,DHCP_REQUEST=3,
+                  DHCP_ACK=5,DHCP_NAK=6;
 struct MockEthernet {
     void socketClose(uint8_t s){
         check(ownedByThisTask(),"B03_HW_CLOSE_UNGUARDED");
@@ -69,6 +78,8 @@ struct EthernetUDP{
     void stop();
     int beginPacket(IPAddress,uint16_t){return 1;}
     int beginEndPacketAsync(){return 1;}
+    int pollEndPacketAsync(){return 1;}
+    int parsePacket(){return g_dnsPacketSize;}
 };
 struct DNSClient {
     EthernetUDP iUdp;
@@ -82,12 +93,11 @@ struct DNSClient {
     int inet_aton(const char*,IPAddress&){return 0;}
     uint16_t BuildRequest(const char*){return 1;}
     int beginResolveAsync(const char*,IPAddress&,uint16_t);
+    int pollResolveAsync();
+    int ProcessResponsePacket(IPAddress&){return SUCCESS;}
     void finishResolveAsync(int result);
     void cancelResolveAsync();
 };
-constexpr int INVALID_RESPONSE=-4;
-constexpr int SUCCESS=1,INVALID_SERVER=-2;
-constexpr uint16_t DNS_PORT=53;
 struct DhcpClass{
     EthernetUDP _dhcpUdpSocket;
     uint32_t _dhcpTransactionId=0;
@@ -102,13 +112,24 @@ struct DhcpClass{
     unsigned long _leaseRetryNotBeforeMs=0;
     void reset_DHCP_lease(){}
     void presend_DHCP(){}
-    int pollDHCP(){return 0;}
+    void send_DHCP_MESSAGE(uint8_t,uint16_t){}
+    uint8_t parseDHCPResponseAvailable(uint32_t& id){
+        id=77;const uint8_t response=g_dhcpResponse;g_dhcpResponse=0;
+        return response;
+    }
+    uint8_t parseDHCPResponse(unsigned long,uint32_t& id){
+        id=77;
+        return _dhcp_state==STATE_DHCP_DISCOVER ? DHCP_OFFER : DHCP_ACK;
+    }
+    void finalizeLease(){}
+    int pollDHCP();
+    int request_DHCP_lease();
+    int beginWithDHCP(uint8_t*,unsigned long,unsigned long);
     int beginWithDHCPAsync(uint8_t*,unsigned long,unsigned long);
     bool startLeaseMaintenance(uint8_t);
     void finishAsync();
+    void cancelDHCP();
 };
-constexpr uint8_t STATE_DHCP_START=0,STATE_DHCP_REREQUEST=4;
-constexpr uint16_t DHCP_CLIENT_PORT=68;
 #include "C2_S2B2A_REAL_PATCHED_METHODS.inc"
 
 static void closeTicket(uint8_t s,void*){Ethernet.socketClose(s);}
@@ -179,6 +200,83 @@ static void testDhcpFinish(){
     tick();
     check(!g_hwOpen[3]&&g_closes==before+1,"DHCP_FINISH_NO_IDLE_DRAIN");
     std::cout<<"G10_I_B03_DHCP_FINISH_IDLE_RETRY=PASS\n";
+}
+static void testDnsTimeout(){
+    DNSClient dns;
+    IPAddress result;
+    bind(dns.iUdp,1);
+    dns.iAsyncActive=true;
+    dns.iAsyncResult=&result;
+    dns.iAsyncTimeout=1;
+    dns.iAsyncWaitStartMs=g_time-2;
+    dns.iAsyncWaitAttempt=3;
+    holdByOther();
+    check(dns.pollResolveAsync()==TIMED_OUT && !dns.iAsyncActive &&
+          dns.iUdp.sockindex==1 && g_hwOpen[1],"DNS_TIMEOUT_LOST_OWNER");
+    releaseOther();
+    tick();
+    check(!g_hwOpen[1],"DNS_TIMEOUT_NOT_DRAINED");
+    std::cout<<"G10_I_B03_DNS_TIMEOUT=PASS\n";
+}
+static void testDhcpTimeoutAckNakCancel(){
+    DhcpClass timed;
+    bind(timed._dhcpUdpSocket,1);
+    timed._asyncActive=true;
+    timed._asyncStartTime=g_time-3;
+    timed._timeout=1;
+    holdByOther();
+    check(timed.pollDHCP()==-1 && !timed._asyncActive &&
+          timed._dhcpUdpSocket.sockindex==1 && g_hwOpen[1],
+          "DHCP_TIMEOUT_LOST_OWNER");
+    releaseOther();tick();
+    check(!g_hwOpen[1],"DHCP_TIMEOUT_NOT_DRAINED");
+
+    DhcpClass ack;
+    bind(ack._dhcpUdpSocket,2);
+    ack._asyncActive=true;
+    ack._asyncStartTime=g_time;
+    ack._timeout=100;
+    ack._dhcp_state=STATE_DHCP_REQUEST;
+    g_dhcpResponse=DHCP_ACK;
+    holdByOther();
+    check(ack.pollDHCP()==1 && !ack._asyncActive &&
+          ack._dhcp_state==STATE_DHCP_LEASED && g_hwOpen[2],
+          "DHCP_ACK_LOST_OWNER");
+    releaseOther();tick();
+    check(!g_hwOpen[2],"DHCP_ACK_NOT_DRAINED");
+
+    DhcpClass nak;
+    bind(nak._dhcpUdpSocket,3);
+    nak._asyncActive=true;
+    nak._asyncStartTime=g_time;
+    nak._timeout=100;
+    nak._dhcp_state=STATE_DHCP_REQUEST;
+    g_dhcpResponse=DHCP_NAK;
+    holdByOther();
+    check(nak.pollDHCP()==0 && nak._asyncActive &&
+          nak._dhcp_state==STATE_DHCP_START && g_hwOpen[3],
+          "DHCP_NAK_FLOW_INVALID");
+    nak.cancelDHCP();
+    check(!nak._asyncActive && nak._leaseMaintenanceMode==DhcpClass::LEASE_MAINT_NONE &&
+          nak._dhcpUdpSocket.sockindex==3 && g_hwOpen[3],
+          "DHCP_CANCEL_LOST_OWNER");
+    releaseOther();tick();
+    check(!g_hwOpen[3],"DHCP_CANCEL_NOT_DRAINED");
+    std::cout<<"G10_I_B03_DHCP_TIMEOUT_ACK_NAK_CANCEL=PASS\n";
+}
+static void testSynchronousDhcpRebegin(){
+    uint8_t mac[6]={1,2,3,4,5,6};
+    DhcpClass dhcp;
+    bind(dhcp._dhcpUdpSocket,1);
+    holdByOther();
+    check(dhcp.beginWithDHCP(mac,100,10)==0 &&
+          dhcp._dhcpUdpSocket.sockindex==1 && g_hwOpen[1],
+          "DHCP_SYNC_REBEGIN_REUSED_BUSY_SOCKET");
+    releaseOther();tick();
+    check(!g_hwOpen[1],"DHCP_SYNC_TICKET_NOT_DRAINED");
+    check(dhcp.beginWithDHCP(mac,100,10)==1,
+          "DHCP_SYNC_RETRY_FAILED");
+    std::cout<<"G10_I_B03_DHCP_SYNC_REBEGIN=PASS\n";
 }
 static void testDnsAndDhcpRebegin(){
     DNSClient dns;
@@ -275,7 +373,9 @@ static void testRecycledAndReset(){
 int main(){
     try{
         testFinishAndLifetime();testCancelRepeatedBusy();
-        testDhcpFinish();testDnsAndDhcpRebegin();
+        testDhcpFinish();testDnsTimeout();
+        testDhcpTimeoutAckNakCancel();testSynchronousDhcpRebegin();
+        testDnsAndDhcpRebegin();
         testRenewRebindBusy();testMulticastDoesNotReuseBusyOwner();
         testRecycledAndReset();
         check(g_spiOwner==0&&g_takes==g_releases,"B03_MUTEX_LEAK");

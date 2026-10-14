@@ -689,6 +689,11 @@ def b03_deferred_close_native(out, files):
         ("int DhcpClass::beginWithDHCPAsync(",dhcp),
         ("bool DhcpClass::startLeaseMaintenance(uint8_t mode)",dhcp_async),
         ("uint8_t EthernetUDP::beginMulticast(IPAddress ip, uint16_t port)",udp),
+        ("int DNSClient::pollResolveAsync()",dns),
+        ("int DhcpClass::pollDHCP()",dhcp),
+        ("int DhcpClass::request_DHCP_lease()",dhcp),
+        ("int DhcpClass::beginWithDHCP(uint8_t *mac, unsigned long timeout, unsigned long responseTimeout)",dhcp),
+        ("void DhcpClass::cancelDHCP()",dhcp_async),
     )
     methods=[repro.extract(source,signature) for signature,source in signatures]
     require(all("stop()" in body for body in methods[1:4]),
@@ -700,6 +705,9 @@ def b03_deferred_close_native(out, files):
         "G10_I_B03_DNS_FINISH_LIFETIME=PASS",
         "G10_I_B03_DNS_CANCEL_IDLE_RETRY=PASS",
         "G10_I_B03_DHCP_FINISH_IDLE_RETRY=PASS",
+        "G10_I_B03_DNS_TIMEOUT=PASS",
+        "G10_I_B03_DHCP_TIMEOUT_ACK_NAK_CANCEL=PASS",
+        "G10_I_B03_DHCP_SYNC_REBEGIN=PASS",
         "G10_I_B03_STALE_RESET_OWNER=PASS",
         "G10_I_B03_DNS_DHCP_REBEGIN=PASS",
         "G10_I_B03_DHCP_RENEW_REBIND=PASS",
@@ -727,6 +735,17 @@ def b03_deferred_close_native(out, files):
         ("multicast_without_bus",8,
          "if (!bus) return 0; // preserve previous owner on BUS_BUSY",
          "if (false) return 0;", "B03_BEGIN_WITHOUT_BUS"),
+        ("dns_timeout_without_finish",9,
+         "finishResolveAsync(TIMED_OUT);",
+         "/* mutant: timeout returns without releasing socket */",
+         "DNS_TIMEOUT_LOST_OWNER"),
+        ("dhcp_timeout_without_finish",10,
+         "if ((now - _asyncStartTime) > _timeout)",
+         "if (false)", "DHCP_TIMEOUT_LOST_OWNER"),
+        ("dhcp_cancel_without_stop",13,
+         "_dhcpUdpSocket.stop();",
+         "/* mutant: cancellation leaves socket open */",
+         "DHCP_CANCEL_NOT_DRAINED"),
     )
     for label,index,anchor,replacement,expected in variants:
         require(methods[index].count(anchor)==1,"B03_MUTANT_ANCHOR_"+label)
@@ -740,7 +759,7 @@ def b03_deferred_close_native(out, files):
             "cpp_methods":len(methods),
             "negatives":len(variants),
             "safe_for_adoption":False,
-            "limitations":"host bus/hardware stub; DNS/DHCP full runtime and other B01-B08 paths remain open"}
+            "limitations":"host bus/hardware stub; DHCP packet parsing and other B01-B08 paths remain open"}
 
 
 def status_probe_native(out):
@@ -794,7 +813,7 @@ def main():
         m["modbus_server_cleanup_probe"]=server_cleanup_native(out,files)
         emit("MODBUS_SERVER_CLEANUP_NATIVE","PASS_THREE_SOURCE_METHODS_5_NEGATIVES")
         m["b03_dns_dhcp_shutdown"]=b03_deferred_close_native(out,files)
-        emit("B03_DNS_DHCP_SHUTDOWN","PASS_SOURCE_BACKED_DEFERRED_CLOSE_5_NEGATIVES")
+        emit("B03_DNS_DHCP_SHUTDOWN","PASS_SOURCE_BACKED_DEFERRED_CLOSE_8_NEGATIVES")
         if opts.stage_platform is not None:
             staged=stage_platform(opts.stage_platform,files,shas)
             m["staged_sources"]=staged
