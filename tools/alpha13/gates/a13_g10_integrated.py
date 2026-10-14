@@ -252,6 +252,108 @@ bool JWPLC_ModbusTCPClientClass::serviceDeferredClose()
     first["MB_CLIENT"]=mb
     return first
 
+
+def patch_modbus_server_deferred_drop(repro, first):
+    """B01/B04 server: mantener el cliente hasta close validado, sin GPIO4."""
+    hdr_path="JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP.h"
+    h=(ROOT/hdr_path).read_text(encoding="utf-8-sig")
+    field="    bool _clientActive;"
+    require(h.count(field)==1,"SERVER_DROP_HEADER_STATE_DRIFT")
+    h=h.replace(field,field+"\n    bool _jwplcDropPending = false; // G10-I overlay only",1)
+    decl="    void dropClient();"
+    require(h.count(decl)==1,"SERVER_DROP_DECL_DRIFT")
+    h=h.replace(decl,decl+"\n    bool serviceDeferredDrop();",1)
+    first["MB_SERVER_HEADER"]=h
+    cpp=first["MB_SERVER"]
+    old=repro.extract(cpp,"void JWPLC_ModbusTCPClass::dropClient()")
+    require("if (_clientActive && acquireBus(20))" in old
+            and "_client = EthernetClient();" in old,
+            "SERVER_DROP_SOURCE_CHANGED")
+    new="""void JWPLC_ModbusTCPClass::dropClient()
+{
+    // No perder la identidad del socket mientras falte mutex.
+    _jwplcDropPending = _jwplcDropPending || (bool)_client;
+    _clientActive = false;
+    resetRx();
+    if (_jwplcDropPending && !serviceDeferredDrop()) {
+        return; // must be serviced before accepting any new socket
+    }
+    if (_serverEnabled && JWPLC_Ethernet.isReady())
+        _serverState = JWPLC_MODBUS_TCP_SERVER_LISTENING;
+    else if (_serverEnabled)
+        _serverState = JWPLC_MODBUS_TCP_SERVER_WAIT_ETHERNET;
+    else
+        _serverState = JWPLC_MODBUS_TCP_SERVER_STOPPED;
+}"""
+    require(cpp.count(old)==1,"SERVER_DROP_METHOD_NOT_UNIQUE")
+    cpp=cpp.replace(old,new,1)
+    cpp+="""
+
+// G10-I server cooperative cleanup. Never close an index without lease.
+bool JWPLC_ModbusTCPClass::serviceDeferredDrop()
+{
+    if (!_jwplcDropPending) return true;
+    if (!acquireBus(20)) return false;
+    // The configured INT socket can no longer belong to this client.
+    // Only touch W5500 INT state if the token is CURRENT.
+    uint8_t observedStatus = 0;
+    const auto outcome = _client.jwplcProbeSocketStatus(observedStatus);
+    if (outcome == jwplc_w5500_candidate::StatusReadOutcome::Read &&
+        _rxIntConfigured && _rxIntSocket == _client.getSocketNumber())
+        disableRxIntLocked();
+    _client.cancelStopAsync();  // nested scope checks token before close
+    const bool released = !(bool)_client;
+    releaseBus();
+    if (released) {
+        _client = EthernetClient();
+        _jwplcDropPending = false;
+        resetRx();
+        resetRxIntSoftware();
+    }
+    return released;
+}
+"""
+    old=repro.extract(cpp,"void JWPLC_ModbusTCPClass::task()")
+    anchor="    if (!_serverEnabled)"
+    require(old.count(anchor)==1,"SERVER_TASK_SOURCE_CHANGED")
+    revised=old.replace(anchor,
+       """    // El cierre pendiente se atiende incluso si Ethernet deja de READY.
+    if (_jwplcDropPending && !serviceDeferredDrop()) return;
+"""+anchor,1)
+    reset="""        _serverListening = false;
+        _clientActive = false;
+        _client = EthernetClient();"""
+    require(revised.count(reset)==1,"SERVER_NOT_READY_RESET_DRIFT")
+    revised=revised.replace(reset,"""        if (_clientActive || (bool)_client) {
+            dropClient();
+            if (_jwplcDropPending) return;
+        }
+        _serverListening = false;
+        _clientActive = false;
+        _client = EthernetClient();""",1)
+    require(cpp.count(old)==1,"SERVER_TASK_NOT_UNIQUE")
+    cpp=cpp.replace(old,revised,1)
+    old=repro.extract(cpp,"void JWPLC_ModbusTCPClass::serviceServer()")
+    anchor="""    const uint32_t now = millis();"""
+    require(old.count(anchor)==1,"SERVER_SERVICE_NOW_DRIFT")
+    revised=old.replace(anchor,anchor+"""
+    if (_jwplcDropPending && !serviceDeferredDrop())
+        return;
+""",1)
+    # If status was actually CLOSED, use the guarded deferred close path
+    # rather than throwing the client handle away without invalidate.
+    old_drop="""            _client = EthernetClient();
+            _clientActive = false;
+            resetRx();
+            _serverState = JWPLC_MODBUS_TCP_SERVER_LISTENING;"""
+    require(revised.count(old_drop)==1,"SERVER_PEER_DISCONNECT_DRIFT")
+    revised=revised.replace(old_drop,"""            dropClient(); // owns valid token or defers safely
+            if (_jwplcDropPending) return;""",1)
+    require(cpp.count(old)==1,"SERVER_SERVICE_NOT_UNIQUE")
+    cpp=cpp.replace(old,revised,1)
+    first["MB_SERVER"]=cpp
+    return first
+
 def compose():
     mods={k:load(v,k) for k,v in MODULES.items() if k!="frozen"}
     repro=mods["repro"]
@@ -287,6 +389,7 @@ def compose():
     udp_overlay,_=udp.patches(repro,udp_original)
     first["UDP"]='#include "JWPLC_W5500_SafeAccess.h"\n'+udp_overlay
     first=patch_client_modbus_b01_b04(repro,first)
+    first=patch_modbus_server_deferred_drop(repro,first)
     udp_anchor="bool _sendPending = false; // JWPLC cooperative UDP SEND state"
     require(first["HEADER"].count(udp_anchor)==1,"UDP_HEADER_FIELD_DRIFT")
     first["HEADER"]=first["HEADER"].replace(udp_anchor,udp_anchor+
@@ -307,6 +410,7 @@ def compose():
         paths[path]=first["CLIENT"] if k=="RAW_CLIENT" else first[k]
     paths[udp.UDP_PATH]=first["UDP"]
     paths["JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP_Client.h"]=first["MB_CLIENT_HEADER"]
+    paths["JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP.h"]=first["MB_SERVER_HEADER"]
     # La fase antigua componía referencias a SafeAccess, pero OMITÍA sus
     # dos archivos. Un build Arduino completo exige ambas unidades.
     base=ROOT/"tools/alpha13/candidates/g10_p1g_c"
