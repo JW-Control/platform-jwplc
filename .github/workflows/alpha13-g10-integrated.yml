@@ -15,6 +15,15 @@ on:
       - 'JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/**'
       - 'JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/**'
   workflow_dispatch:
+    inputs:
+      regression_level:
+        description: 'N2 compacto o N3 con los 11 sketches baseline/candidato'
+        type: choice
+        required: true
+        default: full
+        options:
+          - compact
+          - full
 permissions:
   contents: read
 jobs:
@@ -134,6 +143,7 @@ jobs:
           sketches=(
             "JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/examples/01.ModbusTCP_Server"
             "JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/Ethernet_SPI_Coexistence"
+            "JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/01.Ethernet_DHCP_Basic"
           )
           for version in baseline candidate; do
             case "$version" in
@@ -231,6 +241,9 @@ jobs:
           retention-days: 14
 
   full-platform-review:
+    # N3: cierre/integración integral, nunca en cada push pequeño de Ethernet.
+    # En este cambio se preserva manual con workflow_dispatch=full.
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.regression_level == 'full' }}
     name: Alpha13 package completo aislado - ${{ matrix.variant }}
     runs-on: ubuntu-24.04
     needs: overlay-compose
