@@ -320,14 +320,60 @@ jobs:
                 echo "G10_I_FULL_PLATFORM_BUILD=FAILED_${{ matrix.variant }}"
                 exit 47
               }
+            # No basta el PASS de build: exigir la biblioteca Ethernet de
+            # ESTE package Alpha13, no una instalada accidentalmente.
+            if ! grep -F 'Using library JWPLC_Ethernet ' "$EVIDENCE/compile-$label.log" \
+              | grep -Fq "in folder: $HARDWARE/libraries/JWPLC_Ethernet"; then
+              echo "G10_I_FULL_WRONG_ETHERNET_LIBRARY=${{ matrix.variant }}/$label"
+              exit 49
+            fi
+            if [ "$label" = "01.ModbusTCP_Server" ]; then
+              if ! grep -F 'Using library JWPLC_ModbusTCP ' "$EVIDENCE/compile-$label.log" \
+                | grep -Fq "in folder: $HARDWARE/libraries/JWPLC_ModbusTCP"; then
+                echo "G10_I_FULL_WRONG_MODBUSTCP_LIBRARY=${{ matrix.variant }}/$label"
+                exit 50
+              fi
+            fi
             if [ "${{ matrix.variant }}" = candidate ]; then
-              find "$WORK/build-$label" -type f \
-                -name 'JWPLC_W5500_SafeAccess.cpp.o' \
-                >"$EVIDENCE/obj-$label.txt"
-              test "$(wc -l < "$EVIDENCE/obj-$label.txt")" -eq 1 || {
-                echo "G10_I_FULL_CANDIDATE_OBJECT_MISSING"
+              mapfile -t objects < <(find "$WORK/build-$label" -type f \
+                -name 'JWPLC_W5500_SafeAccess.cpp.o')
+              if [ "${#objects[@]}" -ne 1 ]; then
+                echo "G10_I_FULL_CANDIDATE_OBJECT_NOT_UNIQUE"
                 exit 48
+              fi
+              obj="${objects[0]}"
+              printf '%s\n' "$obj" >"$EVIDENCE/obj-$label.txt"
+              dep="${obj%.o}.d"
+              if [ ! -f "$dep" ]; then dep="$obj.d"; fi
+              test -f "$dep" || {
+                echo "G10_I_FULL_CANDIDATE_MMD_NOT_FOUND"
+                exit 51
               }
+              if ! grep -Fq "$HARDWARE/libraries/JWPLC_Ethernet/src/JWPLC_W5500_SafeAccess.cpp" "$dep"; then
+                echo "G10_I_FULL_CANDIDATE_MMD_WRONG_SOURCE"
+                exit 52
+              fi
+              mapfile -t elfs < <(find "$WORK/build-$label" -maxdepth 1 -type f -name '*.elf')
+              if [ "${#elfs[@]}" -ne 1 ]; then
+                echo "G10_I_FULL_CANDIDATE_ELF_NOT_UNIQUE"
+                exit 53
+              fi
+              nmtool="$(find "$HOME/.arduino15/packages/jwplc/tools" -type f -name 'xtensa-esp32-elf-nm' -print -quit)"
+              test -n "$nmtool" && test -x "$nmtool" || {
+                echo "G10_I_FULL_CANDIDATE_NM_NOT_FOUND"
+                exit 54
+              }
+              "$nmtool" -C "${elfs[0]}" >"$EVIDENCE/nm-$label.txt"
+              grep -Fq 'jwplc_w5500_candidate::enter(' "$EVIDENCE/nm-$label.txt" || {
+                echo "G10_I_FULL_CANDIDATE_ENTER_ABSENT_IN_ELF"
+                exit 55
+              }
+              grep -Fq 'jwplc_w5500_candidate::leave()' "$EVIDENCE/nm-$label.txt" || {
+                echo "G10_I_FULL_CANDIDATE_LEAVE_ABSENT_IN_ELF"
+                exit 56
+              }
+              sha256sum "$obj" "${elfs[0]}" >"$EVIDENCE/obj-elf-sha-$label.txt"
+              echo "G10_I_FULL_CANDIDATE_SOURCE_MMD_ELF_$label=PASS"
             fi
             echo "G10_I_FULL_${{ matrix.variant }}_$label=PASS"
           done
