@@ -297,9 +297,20 @@ jobs:
           WORK="$RUNNER_TEMP/g10-full-${{ matrix.variant }}"
           HARDWARE="$WORK/sketchbook/hardware/jwplc_local/esp32"
           EVIDENCE="$WORK/evidence"
+          # Compilar la MISMA matriz sobre baseline y candidato.
+          # Todos los sketches y rutas se verificaron en la rama Alpha13.
           sketches=(
             "JWPLC/2.1.0/libraries/JWPLC_GlobalPeripherals/examples/01.DigitalIO_Basic"
+            "JWPLC/2.1.0/libraries/JWPLC_GlobalPeripherals/examples/02.Buttons_Basic"
+            "JWPLC/2.1.0/libraries/JWPLC_GlobalPeripherals/examples/03.RTC_Basic"
+            "JWPLC/2.1.0/libraries/JWPLC_GlobalPeripherals/examples/04.FRAM_Basic"
+            "JWPLC/2.1.0/libraries/JWPLC_GlobalPeripherals/examples/05.microSD_Basic"
+            "JWPLC/2.1.0/libraries/JWPLC_RS485/examples/03.RS485_Status"
+            "JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/examples/01.ModbusRTU_Slave_Holding"
+            "JWPLC/2.1.0/libraries/JWPLC_Display/examples/01.Display_IDLE_Status"
+            "JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/01.Ethernet_DHCP_Basic"
             "JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/examples/01.ModbusTCP_Server"
+            "JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/examples/02.ModbusTCP_Client"
           )
           for sketch in "${sketches[@]}"; do
             label="$(basename "$sketch")"
@@ -377,7 +388,8 @@ jobs:
             fi
             echo "G10_I_FULL_${{ matrix.variant }}_$label=PASS"
           done
-          echo "G10_I_FULL_ALPHA13_PLATFORM_${{ matrix.variant }}=PASS"
+          echo "G10_I_FULL_ALPHA13_SKETCHES_${{ matrix.variant }}=${#sketches[@]}"
+          echo "G10_I_FULL_ALPHA13_PLATFORM_${{ matrix.variant }}=PASS_REPRESENTATIVE_11_NOT_HARDWARE"
       - name: Conservar trazabilidad, sin publicar firmware
         if: always()
         uses: actions/upload-artifact@v6
