@@ -45,6 +45,7 @@ jobs:
           $log=Get-Content g10_i.log -Raw
           if ($log -notmatch 'G10_INTEGRATED_SOURCE_OVERLAY=COMPOSED') { throw 'G10_I_NO_OVERLAY' }
           if ($log -notmatch 'G10_INTEGRATED_TRISTATE_STATUS_NATIVE=PASS_PRIMITIVE_ONLY') { throw 'G10_I_TRISTATE_NATIVE_NOT_PROVEN' }
+          if ($log -notmatch 'G10_INTEGRATED_MODBUS_CLEANUP_NATIVE=PASS_THREE_SOURCE_METHODS_3_NEGATIVES') { throw 'G10_I_MODBUS_CLEANUP_NOT_PROVEN' }
           if ($log -notmatch 'G10_INTEGRATED_BLOCKERS=8') { throw 'G10_I_RISK_MASKED' }
           if ($log -notmatch 'G10_INTEGRATED_STATUS=COMPOSED_REVIEW_BLOCKED') { throw 'G10_I_WRONG_STATUS' }
           if ($log -notmatch 'G10_INTEGRATED_PRODUCT_CHANGED=NO') { throw 'G10_I_PRODUCT_CHANGED' }
