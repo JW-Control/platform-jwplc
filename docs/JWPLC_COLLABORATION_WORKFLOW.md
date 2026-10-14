@@ -339,8 +339,14 @@ o en su historial público.
   en commits, forks, clones o artifacts públicos. Auditar
   la procedencia antes de subir contenidos internos.
 
-**Estado de esta decisión:** la metodología pública de CI queda
-establecida aquí. La creación, nombre, miembros, permisos y
-migración inicial a un repositorio interno privado son una
-**decisión pendiente del operador**; no crear el repositorio
-ni publicar el contenido de `FAILURES` sin su aprobación.
+**Estado actualizado (2026-10-13):** el operador aprobó
+reutilizar el repositorio privado ya existente `JW-Control/jwplc-dev-mcp`
+como fuente de conocimiento interno; el índice está en
+`knowledge/README.md`, rama documental
+`docs/private-knowledge-foundation`. No se creó otro
+repositorio ni se alteró el servidor MCP. La migración del contenido
+histórico `FAILURES` y otros adjuntos sigue **PENDIENTE DE REVISIÓN**,
+y las autorizaciones para compartir material privado no cambian.
+La versión pública de este documento conserva solamente las reglas
+de colaboración y una referencia nominal; no copiar documentos
+internos ni su contenido a `platform-jwplc`.
