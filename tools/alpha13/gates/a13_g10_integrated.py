@@ -407,6 +407,25 @@ uint8_t EthernetUDP::jwplcServiceDeferredClose()
         [](uint8_t index, void*) { Ethernet.socketClose(index); }, nullptr, 0);
 }
 """
+    multicast_sig="uint8_t EthernetUDP::beginMulticast(IPAddress ip, uint16_t port)"
+    multicast_old=repro.extract(first["UDP"],multicast_sig)
+    require(multicast_old.count("if (sockindex < MAX_SOCK_NUM) Ethernet.socketClose(sockindex);")==1,
+            "B03_UDP_MULTICAST_SOURCE_DRIFT")
+    multicast_new=multicast_old.replace(multicast_sig+"\n{",multicast_sig+"\n{\n"
+        "\tjwplc_w5500_candidate::BusScope bus(20);\n"
+        "\tif (!bus) return 0; // preserve previous owner on BUS_BUSY",1)
+    multicast_new=multicast_new.replace(
+        "if (sockindex < MAX_SOCK_NUM) Ethernet.socketClose(sockindex);",
+        "if (sockindex < MAX_SOCK_NUM &&\n"
+        "\t    jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) {\n"
+        "\t\tEthernet.socketClose(sockindex);\n"
+        "\t\t(void)jwplc_w5500_candidate::invalidateSocketLocked(_jwplcSocketToken);\n"
+        "\t}",1)
+    multicast_new=multicast_new.replace("if (sockindex >= MAX_SOCK_NUM) return 0;",
+        "if (sockindex >= MAX_SOCK_NUM) return 0;\n"
+        "\t_jwplcSocketToken=jwplc_w5500_candidate::currentSocketTokenLocked(sockindex);\n"
+        "\tif (!bool(_jwplcSocketToken)) { sockindex=MAX_SOCK_NUM; return 0; }",1)
+    first["UDP"]=first["UDP"].replace(multicast_old,multicast_new,1)
     hdr_anchor="virtual void stop();  // Finish with the UDP socket"
     require(first["HEADER"].count(hdr_anchor)==1,"B03_UDP_HEADER_DRIFT")
     first["HEADER"]=first["HEADER"].replace(hdr_anchor,hdr_anchor+
@@ -444,9 +463,25 @@ uint8_t EthernetUDP::jwplcServiceDeferredClose()
     socket_anchor="if (!bus) return MAX_SOCK_NUM;"
     require(socket_source.count(socket_anchor)==1,"B03_SOCKET_BEGIN_DRIFT")
     paths[socket_rel]=socket_source.replace(socket_anchor,
-        socket_anchor+"\n\t// Drain old UDP tickets before choosing a reusable slot.\n"
+        socket_anchor+"\n\tif (!jwplc_w5500_candidate::allocationAvailableLocked()) return MAX_SOCK_NUM;\n"
+        "\t// Drain old UDP tickets before choosing a reusable slot.\n"
         "\t(void)jwplc_w5500_candidate::serviceDeferredClose(\n"
         "\t\t[](uint8_t index, void*) { Ethernet.socketClose(index); }, nullptr, 0);",1)
+    multi_sig="uint8_t EthernetClass::socketBeginMulticast(uint8_t protocol, IPAddress ip, uint16_t port)"
+    socket_source=paths[socket_rel]
+    multi_old=repro.extract(socket_source,multi_sig)
+    require(multi_old.count("\tSPI.endTransaction();\n\treturn s;")==1,
+            "B03_SOCKET_MULTICAST_SOURCE_DRIFT")
+    multi_new=multi_old.replace(multi_sig+"\n{",multi_sig+"\n{\n"
+        "\tjwplc_w5500_candidate::BusScope bus(20);\n"
+        "\tif (!bus || !jwplc_w5500_candidate::allocationAvailableLocked()) return MAX_SOCK_NUM;\n"
+        "\t(void)jwplc_w5500_candidate::serviceDeferredClose(\n"
+        "\t\t[](uint8_t index, void*) { Ethernet.socketClose(index); }, nullptr, 0);",1)
+    multi_new=multi_new.replace("\tSPI.endTransaction();\n\treturn s;",
+        "\tSPI.endTransaction();\n"
+        "\t(void)jwplc_w5500_candidate::allocateSocketLockedAuto(s);\n"
+        "\treturn s;",1)
+    paths[socket_rel]=socket_source.replace(multi_old,multi_new,1)
     service_rel=eth_src+"JWPLC_Ethernet.cpp"
     service=(ROOT/service_rel).read_text(encoding="utf-8-sig")
     service_anchor="void JWPLC_EthernetClass::service()\n{\n#if !JWPLC_HAS_ETHERNET\n    return;\n#else"
@@ -653,6 +688,7 @@ def b03_deferred_close_native(out, files):
         ("int DNSClient::beginResolveAsync(",dns),
         ("int DhcpClass::beginWithDHCPAsync(",dhcp),
         ("bool DhcpClass::startLeaseMaintenance(uint8_t mode)",dhcp_async),
+        ("uint8_t EthernetUDP::beginMulticast(IPAddress ip, uint16_t port)",udp),
     )
     methods=[repro.extract(source,signature) for signature,source in signatures]
     require(all("stop()" in body for body in methods[1:4]),
@@ -667,6 +703,7 @@ def b03_deferred_close_native(out, files):
         "G10_I_B03_STALE_RESET_OWNER=PASS",
         "G10_I_B03_DNS_DHCP_REBEGIN=PASS",
         "G10_I_B03_DHCP_RENEW_REBIND=PASS",
+        "G10_I_B03_MULTICAST_BUSY_REUSE=PASS",
         "G10_I_B03_NATIVE=PASS_SOURCE_BACKED_DEFERRED_CLOSE",
     )
     if rc!=0 or not all(marker in log for marker in required):
@@ -687,6 +724,9 @@ def b03_deferred_close_native(out, files):
         ("dhcp_renew_on_busy",7,
          "if (_dhcpUdpSocket.begin(DHCP_CLIENT_PORT) == 0)",
          "if (false)", "DHCP_MAINT_REUSED_BUSY_SOCKET"),
+        ("multicast_without_bus",8,
+         "if (!bus) return 0; // preserve previous owner on BUS_BUSY",
+         "if (false) return 0;", "B03_BEGIN_WITHOUT_BUS"),
     )
     for label,index,anchor,replacement,expected in variants:
         require(methods[index].count(anchor)==1,"B03_MUTANT_ANCHOR_"+label)
@@ -754,7 +794,7 @@ def main():
         m["modbus_server_cleanup_probe"]=server_cleanup_native(out,files)
         emit("MODBUS_SERVER_CLEANUP_NATIVE","PASS_THREE_SOURCE_METHODS_5_NEGATIVES")
         m["b03_dns_dhcp_shutdown"]=b03_deferred_close_native(out,files)
-        emit("B03_DNS_DHCP_SHUTDOWN","PASS_SOURCE_BACKED_DEFERRED_CLOSE_4_NEGATIVES")
+        emit("B03_DNS_DHCP_SHUTDOWN","PASS_SOURCE_BACKED_DEFERRED_CLOSE_5_NEGATIVES")
         if opts.stage_platform is not None:
             staged=stage_platform(opts.stage_platform,files,shas)
             m["staged_sources"]=staged

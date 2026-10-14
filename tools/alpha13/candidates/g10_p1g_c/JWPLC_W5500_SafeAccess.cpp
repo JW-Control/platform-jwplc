@@ -108,6 +108,10 @@ SocketToken allocateSocketLockedAuto(uint8_t socket) {
     return allocateSocketLocked(socket, g_autoOwner);
 }
 
+bool allocationAvailableLocked() {
+    return ownedByThisTask() && g_allocation < UINT32_MAX;
+}
+
 SocketToken currentSocketTokenLocked(uint8_t socket) {
     if (!ownedByThisTask() || socket >= kSockets) return {};
     const Slot& slot = g_slots[socket];

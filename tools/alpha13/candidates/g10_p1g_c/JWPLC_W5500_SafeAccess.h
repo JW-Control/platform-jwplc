@@ -60,6 +60,8 @@ StatusReadOutcome readStatusIfCurrent(
 SocketToken allocateSocketLocked(uint8_t socket, uint32_t ownerCookie);
 // S2A: ticket único al abrir un socket nuevo; no se entrega a usuarios todavía.
 SocketToken allocateSocketLockedAuto(uint8_t socket);
+// Check before opening hardware: allocation serials never wrap/repeat.
+bool allocationAvailableLocked();
 // Captura válida SOLO con el bus W5500 adquirido, para asociar handles futuros.
 SocketToken currentSocketTokenLocked(uint8_t socket);
 bool matchesLocked(const SocketToken& token);

@@ -38,7 +38,7 @@ struct IPAddress{
     }
 };
 static const IPAddress INADDR_NONE(255,255,255,255);
-namespace SnMR {constexpr uint8_t UDP=2;}
+namespace SnMR {constexpr uint8_t UDP=2,MULTI=128;}
 struct MockEthernet {
     void socketClose(uint8_t s){
         check(ownedByThisTask(),"B03_HW_CLOSE_UNGUARDED");
@@ -54,6 +54,9 @@ struct MockEthernet {
         }
         return MAX_SOCK_NUM;
     }
+    uint8_t socketBeginMulticast(uint8_t protocol,IPAddress,uint16_t port){
+        return socketBegin(protocol,port);
+    }
 } Ethernet;
 struct EthernetUDP{
     uint8_t sockindex=MAX_SOCK_NUM;
@@ -62,6 +65,7 @@ struct EthernetUDP{
     IPAddress _remoteIP;
     SocketToken _jwplcSocketToken{};
     uint8_t begin(uint16_t port);
+    uint8_t beginMulticast(IPAddress ip,uint16_t port);
     void stop();
     int beginPacket(IPAddress,uint16_t){return 1;}
     int beginEndPacketAsync(){return 1;}
@@ -226,6 +230,21 @@ static void testRenewRebindBusy(){
     }
     std::cout<<"G10_I_B03_DHCP_RENEW_REBIND=PASS\n";
 }
+static void testMulticastDoesNotReuseBusyOwner(){
+    EthernetUDP udp;
+    bind(udp,5);
+    holdByOther();
+    check(udp.beginMulticast(IPAddress(239,1,2,3),32001)==0 &&
+          udp.sockindex==5 && g_hwOpen[5],"MULTICAST_BUSY_LOST_OWNER");
+    udp.stop();
+    releaseOther();
+    tick();
+    check(!g_hwOpen[5],"MULTICAST_PENDING_NOT_DRAINED");
+    check(udp.beginMulticast(IPAddress(239,1,2,3),32001)==1 &&
+          bool(udp._jwplcSocketToken),"MULTICAST_LEASE_NOT_ALLOCATED");
+    udp.stop();
+    std::cout<<"G10_I_B03_MULTICAST_BUSY_REUSE=PASS\n";
+}
 static void testRecycledAndReset(){
     const int before=g_closes;
     DNSClient dns;
@@ -257,7 +276,8 @@ int main(){
     try{
         testFinishAndLifetime();testCancelRepeatedBusy();
         testDhcpFinish();testDnsAndDhcpRebegin();
-        testRenewRebindBusy();testRecycledAndReset();
+        testRenewRebindBusy();testMulticastDoesNotReuseBusyOwner();
+        testRecycledAndReset();
         check(g_spiOwner==0&&g_takes==g_releases,"B03_MUTEX_LEAK");
         std::cout<<"G10_I_B03_NATIVE=PASS_SOURCE_BACKED_DEFERRED_CLOSE\n";
         return 0;

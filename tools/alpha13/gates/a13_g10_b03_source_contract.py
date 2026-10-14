@@ -32,6 +32,9 @@ def main() -> int:
                 "JWPLC_EthernetClass::service()" in t and
                 "EthernetUDP::jwplcServiceDeferredClose()" in t and
                 "serviceDeferredClose(" in b and
+                "allocationAvailableLocked()" in b and
+                "EthernetClass::socketBeginMulticast" in b and
+                "EthernetUDP::beginMulticast" in u and
                 "slot.allocation == ticket" in l and
                 "close(index, context);" in l)
     require(fixed(stop, tick, begin, lease), "B03_COMPOSED_SOURCE_PATH_INCOMPLETE")
