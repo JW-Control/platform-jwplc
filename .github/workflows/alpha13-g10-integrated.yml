@@ -64,6 +64,7 @@ jobs:
           if ($log -notmatch 'G10_INTEGRATED_TRISTATE_STATUS_NATIVE=PASS_PRIMITIVE_ONLY') { throw 'G10_I_TRISTATE_NATIVE_NOT_PROVEN' }
           if ($log -notmatch 'G10_INTEGRATED_MODBUS_CLEANUP_NATIVE=PASS_THREE_SOURCE_METHODS_3_NEGATIVES') { throw 'G10_I_MODBUS_CLEANUP_NOT_PROVEN' }
           if ($log -notmatch 'G10_INTEGRATED_MODBUS_SERVER_CLEANUP_NATIVE=PASS_THREE_SOURCE_METHODS_5_NEGATIVES') { throw 'G10_I_MODBUS_SERVER_NOT_PROVEN' }
+          if ($log -notmatch 'G10_INTEGRATED_B02_UDP_IO=PASS_SOURCE_BACKED_7_METHODS_3_NEGATIVES') { throw 'G10_I_B02_UDP_IO_NOT_PROVEN' }
           if ($log -notmatch 'G10_INTEGRATED_B03_DNS_DHCP_SHUTDOWN=PASS_SOURCE_BACKED_DEFERRED_CLOSE_9_NEGATIVES') { throw 'G10_I_B03_CORRECTION_NOT_DEMONSTRATED' }
           if ($log -notmatch 'G10_INTEGRATED_BLOCKERS=8') { throw 'G10_I_RISK_MASKED' }
           if ($log -notmatch 'G10_INTEGRATED_STATUS=B03_CANDIDATE_REVIEW_BLOCKED') { throw 'G10_I_WRONG_STATUS' }
@@ -250,6 +251,15 @@ jobs:
                       exit 45
                     }
                   done
+                  for symbol in 'EthernetUDP::write(unsigned char const*,' \
+                                'EthernetUDP::parsePacket()' \
+                                'EthernetUDP::read(unsigned char*,'; do
+                    grep -Fq "$symbol" "$EVIDENCE/nm-$name.txt" || {
+                      echo "G10_I_B02_UDP_SYMBOL_NOT_IN_ELF=$symbol"
+                      exit 46
+                    }
+                  done
+                  echo 'G10_I_B02_UDP_SOURCE_TO_OBJECT_MMD_AND_ELF=PASS'
                   echo 'G10_I_B03_SOURCE_TO_OBJECT_MMD_AND_ELF=PASS_4_SOURCES'
                 fi
                 sha256sum "$obj" "${elfs[0]}" >"$EVIDENCE/object-elf-sha-$name.txt"
