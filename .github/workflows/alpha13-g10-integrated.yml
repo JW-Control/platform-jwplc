@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/alpha13-g10-integrated.yml'
       - 'tools/alpha13/gates/a13_g10_integrated.py'
+      - 'tools/alpha13/gates/a13_g10_b03_source_contract.py'
       - 'tools/alpha13/gates/run_a13_g10_integrated.bat'
       - 'tools/alpha13/gates/a13_g10_p1g_c2_*.py'
       - 'tools/alpha13/gates/a13_g10_p1g_a_mutex_callpaths.py'
@@ -37,6 +38,11 @@ jobs:
           python -m py_compile tools/alpha13/gates/a13_g10_integrated.py
           python -B tools/alpha13/gates/a13_g10_integrated.py --help
           if ($LASTEXITCODE -ne 0) { throw 'G10_I_SYNTAX' }
+      - name: Verificar contrato source-backed B03 (riesgo conocido, NO fix)
+        shell: pwsh
+        run: |
+          python -B tools/alpha13/gates/a13_g10_b03_source_contract.py
+          if ($LASTEXITCODE -ne 0) { throw 'G10_I_B03_SOURCE_CONTRACT_DRIFT' }
       - name: Componer overlays aislados y comprobar freeze
         shell: pwsh
         run: |
