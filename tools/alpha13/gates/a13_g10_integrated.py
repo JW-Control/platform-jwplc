@@ -40,7 +40,7 @@ MODULES = {
 # Ningún PASS previo resuelve todavía estas fronteras de integración.
 BLOCKERS = {
     "B01": "SPI_BUSY: EthernetClient.connected() y socketStatus() pueden simular CLOSED o desconexión",
-    "B02": "UDP RX/TX ya protegido en siete métodos; TCP y otras rutas directas aún requieren lease end-to-end",
+    "B02": "UDP y TCP RX directos protegidos en el candidato; TCP TX y rutas restantes aún requieren lease end-to-end",
     "B03": "Dns.cpp real, EthernetUDP dependiente y DHCP no están integrados en un mismo flujo",
     "B04": "stop() / connect() con timeout y SPI ocupado pueden dejar handles sin reintento automático garantizado",
     "B05": "Identidad real de server_port[]/listeners, socket recycling y reset físico no validada a nivel end-to-end",
@@ -380,6 +380,31 @@ def patch_udp_rx_tx_b02(repro, source):
         source=source.replace(old,new,1)
     return source
 
+
+def patch_tcp_rx_b02(repro, source):
+    """B02: guard direct Client RX calls without changing public signatures."""
+    paths=(
+        ("int EthernetClient::available()","0","0"),
+        ("int EthernetClient::read(uint8_t *buf, size_t size)","0","0"),
+        ("int EthernetClient::read()","-1","-1"),
+        ("int EthernetClient::peek()","-1","-1"),
+        ("int EthernetClient::jwplcReadTcpFastDeferred(","0","-1"),
+        ("bool EthernetClient::jwplcCommitRxFast()","false","false"),
+    )
+    for signature,busy,stale in paths:
+        old=repro.extract(source,signature)
+        require("jwplc_w5500_candidate::BusScope bus" not in old,
+                "B02_TCP_ALREADY_GUARDED_"+signature)
+        opener=old.index("{")
+        guard=("\n\tjwplc_w5500_candidate::BusScope bus(20);"
+               "\n\tif (!bus) return "+busy+";"
+               "\n\tif (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken))"
+               " return "+stale+";")
+        new=old[:opener+1]+guard+old[opener+1:]
+        require(source.count(old)==1,"B02_TCP_METHOD_NOT_UNIQUE_"+signature)
+        source=source.replace(old,new,1)
+    return source
+
 def compose():
     mods={k:load(v,k) for k,v in MODULES.items() if k!="frozen"}
     repro=mods["repro"]
@@ -409,6 +434,7 @@ def compose():
     first["CLIENT"],_=b2b.patch(repro,first["CLIENT"])
     first["CLIENT"],_=c1.patch_tx(repro,first["CLIENT"])
     first["CLIENT"],_=c2a.patch_legacy(repro,first["CLIENT"])
+    first["CLIENT"]=patch_tcp_rx_b02(repro,first["CLIENT"])
     socket_overlay,_=s2a.patch(repro,first["SOCKET"])
     first["SOCKET"]=socket_overlay
     udp_original=(ROOT/udp.UDP_PATH).read_text(encoding="utf-8-sig")
@@ -696,6 +722,59 @@ def modbus_cleanup_native(out,files):
             "limitations":"task scheduler and Modbus end-to-end not proven"}
 
 
+def b02_tcp_rx_native(out, files):
+    """Execute real Client RX bodies against current, busy and stale leases."""
+    repro=load(MODULES["repro"],"b02_tcp_real_methods")
+    compiler=load("a13_g10_p1g_c1_native_prototype.py","b02_tcp_real_compiler")
+    builder=load(MODULES["b2a"],"b02_tcp_native_builder")
+    builder.TEST=ROOT/"tools/alpha13/candidates/g10_p1g_c/native_g10_i_b02_tcp_rx_test.cpp"
+    source=files["JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/EthernetClient.cpp"]
+    signatures=(
+        "int EthernetClient::available()",
+        "int EthernetClient::read(uint8_t *buf, size_t size)",
+        "int EthernetClient::read()",
+        "int EthernetClient::peek()",
+        "int EthernetClient::jwplcReadTcpFastDeferred(",
+        "bool EthernetClient::jwplcCommitRxFast()",
+    )
+    methods=[repro.extract(source,signature) for signature in signatures]
+    def run(tag,versions):
+        return builder.native(out,tag,"\n\n".join(versions)+"\n",compiler)
+    rc,log=run("b02_tcp_rx_positive",methods)
+    required=("G10_I_B02_TCP_CURRENT_OWNER=PASS",
+              "G10_I_B02_TCP_BUSY=PASS",
+              "G10_I_B02_TCP_RECYCLED=PASS",
+              "G10_I_B02_TCP_INVALID_LEASE=PASS")
+    if rc!=0 or not all(marker in log for marker in required):
+        emit("B02_TCP_DIAG","EXIT_"+str(rc)+"_"+log.strip().replace("\n"," | ")[:800])
+    require(rc==0 and all(marker in log for marker in required),
+            "B02_TCP_SOURCE_CORRECTION_NOT_DEMONSTRATED")
+    variants=(
+        ("available_without_guard",0,
+         "\tjwplc_w5500_candidate::BusScope bus(20);\n\tif (!bus) return 0;\n\tif (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) return 0;",
+         "\t/* mutant: read available without bus or lease */",
+         "B02_TCP_IO_WITHOUT_BUS"),
+        ("read_without_lease",1,
+         "!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)",
+         "false","B02_TCP_IO_STALE_OWNER"),
+        ("fast_without_lease",4,
+         "!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)",
+         "false","B02_TCP_IO_STALE_OWNER"),
+    )
+    for label,index,anchor,replacement,expected in variants:
+        require(methods[index].count(anchor)==1,"B02_TCP_MUTANT_ANCHOR_"+label)
+        mutant=list(methods)
+        mutant[index]=mutant[index].replace(anchor,replacement,1)
+        code,output=run("b02_tcp_negative_"+label,mutant)
+        if code==0 or expected not in output:
+            emit("B02_TCP_MUTANT_DIAG_"+label,
+                 "EXIT_"+str(code)+"_"+output.strip().replace("\n"," | ")[:500])
+        require(code!=0 and expected in output,
+                "B02_TCP_MUTANT_NOT_REJECTED_"+label)
+    return {"status":"PASS_SOURCE_BACKED_TCP_RX","cpp_methods":len(methods),
+            "negatives":len(variants),"scope":"TCP Client RX only; TX and public status remain open"}
+
+
 def b02_udp_io_native(out, files):
     """Execute real UDP RX/TX bodies with bus and lease assertions."""
     repro=load(MODULES["repro"],"b02_real_methods")
@@ -899,6 +978,8 @@ def main():
         emit("MODBUS_SERVER_CLEANUP_NATIVE","PASS_THREE_SOURCE_METHODS_5_NEGATIVES")
         m["b02_udp_io"]=b02_udp_io_native(out,files)
         emit("B02_UDP_IO","PASS_SOURCE_BACKED_7_METHODS_3_NEGATIVES")
+        m["b02_tcp_rx"]=b02_tcp_rx_native(out,files)
+        emit("B02_TCP_RX","PASS_SOURCE_BACKED_6_METHODS_3_NEGATIVES")
         m["b03_dns_dhcp_shutdown"]=b03_deferred_close_native(out,files)
         emit("B03_DNS_DHCP_SHUTDOWN","PASS_SOURCE_BACKED_DEFERRED_CLOSE_9_NEGATIVES")
         if opts.stage_platform is not None:

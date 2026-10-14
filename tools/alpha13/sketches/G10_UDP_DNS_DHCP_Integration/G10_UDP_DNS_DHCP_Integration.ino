@@ -8,6 +8,7 @@
 #include <Dns.h>
 
 static EthernetUDP gUdp;
+static EthernetClient gTcp;
 static DNSClient gDns;
 static IPAddress gResult;
 
@@ -33,6 +34,15 @@ static void exerciseApiOnDemand() {
     (void)gUdp.parsePacket();
     gUdp.stop();
   }
+
+  // Force the candidate Client RX bodies into the linked ELF for B02.
+  uint8_t tcpByte = 0;
+  (void)gTcp.available();
+  (void)gTcp.read(&tcpByte, 1);
+  (void)gTcp.read();
+  (void)gTcp.peek();
+  (void)gTcp.jwplcReadTcpFastDeferred(&tcpByte, 1);
+  (void)gTcp.jwplcCommitRxFast();
 }
 
 void setup() {

@@ -65,6 +65,7 @@ jobs:
           if ($log -notmatch 'G10_INTEGRATED_MODBUS_CLEANUP_NATIVE=PASS_THREE_SOURCE_METHODS_3_NEGATIVES') { throw 'G10_I_MODBUS_CLEANUP_NOT_PROVEN' }
           if ($log -notmatch 'G10_INTEGRATED_MODBUS_SERVER_CLEANUP_NATIVE=PASS_THREE_SOURCE_METHODS_5_NEGATIVES') { throw 'G10_I_MODBUS_SERVER_NOT_PROVEN' }
           if ($log -notmatch 'G10_INTEGRATED_B02_UDP_IO=PASS_SOURCE_BACKED_7_METHODS_3_NEGATIVES') { throw 'G10_I_B02_UDP_IO_NOT_PROVEN' }
+          if ($log -notmatch 'G10_INTEGRATED_B02_TCP_RX=PASS_SOURCE_BACKED_6_METHODS_3_NEGATIVES') { throw 'G10_I_B02_TCP_RX_NOT_PROVEN' }
           if ($log -notmatch 'G10_INTEGRATED_B03_DNS_DHCP_SHUTDOWN=PASS_SOURCE_BACKED_DEFERRED_CLOSE_9_NEGATIVES') { throw 'G10_I_B03_CORRECTION_NOT_DEMONSTRATED' }
           if ($log -notmatch 'G10_INTEGRATED_BLOCKERS=8') { throw 'G10_I_RISK_MASKED' }
           if ($log -notmatch 'G10_INTEGRATED_STATUS=B03_CANDIDATE_REVIEW_BLOCKED') { throw 'G10_I_WRONG_STATUS' }
@@ -260,6 +261,28 @@ jobs:
                     }
                   done
                   echo 'G10_I_B02_UDP_SOURCE_TO_OBJECT_MMD_AND_ELF=PASS'
+                  mapfile -t tcpobjs < <(find "$output" -name 'EthernetClient.cpp.o' -type f)
+                  if [ "${#tcpobjs[@]}" -ne 1 ]; then
+                    echo 'G10_I_B02_TCP_OBJECT_NOT_UNIQUE'
+                    exit 47
+                  fi
+                  tcpdep="${tcpobjs[0]%.o}.d"
+                  test -f "$tcpdep" || { echo 'G10_I_B02_TCP_MMD_MISSING'; exit 48; }
+                  grep -Fq "$CAND/JWPLC_Ethernet/src/EthernetClient.cpp" "$tcpdep" || {
+                    echo 'G10_I_B02_TCP_WRONG_OBJECT_SOURCE'
+                    exit 49
+                  }
+                  sha256sum "${tcpobjs[0]}" >"$EVIDENCE/b02-tcp-object-sha-$name.txt"
+                  for symbol in 'EthernetClient::available()' \
+                                'EthernetClient::read()' \
+                                'EthernetClient::read(unsigned char*,' \
+                                'EthernetClient::peek()'; do
+                    grep -Fq "$symbol" "$EVIDENCE/nm-$name.txt" || {
+                      echo "G10_I_B02_TCP_SYMBOL_NOT_IN_ELF=$symbol"
+                      exit 50
+                    }
+                  done
+                  echo 'G10_I_B02_TCP_SOURCE_TO_OBJECT_MMD_AND_ELF=PASS'
                   echo 'G10_I_B03_SOURCE_TO_OBJECT_MMD_AND_ELF=PASS_4_SOURCES'
                 fi
                 sha256sum "$obj" "${elfs[0]}" >"$EVIDENCE/object-elf-sha-$name.txt"
