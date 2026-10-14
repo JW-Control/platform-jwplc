@@ -22,13 +22,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-24.04, windows-latest]
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
       - name: Python syntax
@@ -57,7 +57,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'G10_I_TRACKED_DIRTY' }
       - name: Evidencia de preparacion
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: alpha13-g10-i-${{ matrix.os }}-${{ github.run_id }}
           path: |
@@ -68,7 +68,7 @@ jobs:
 
   arduino-review:
     name: Arduino CLI - bibliotecas baseline vs candidato (bootstrap intacto)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: overlay-compose
     timeout-minutes: 50
     env:
@@ -76,17 +76,17 @@ jobs:
       JWPLC_BOOTSTRAP_VERSION: 2.1.0-alpha.10
       JWPLC_FQBN: jwplc:esp32:jwplcbasic
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
       - uses: arduino/setup-arduino-cli@v2
         with:
           version: '1.x'
       - name: Cache toolchain inmutable
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.arduino15/packages/jwplc
@@ -214,7 +214,7 @@ jobs:
           echo 'G10_I_ARDUINO_LIBRARY_BASELINE_CANDIDATE=PASS_NOT_FULL_PLATFORM'
       - name: Evidencia de compilacion sin publicar binarios
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: g10-i-arduino-review-${{ github.run_id }}
           path: |
@@ -224,7 +224,7 @@ jobs:
 
   full-platform-review:
     name: Alpha13 package completo aislado - ${{ matrix.variant }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: overlay-compose
     timeout-minutes: 50
     strategy:
@@ -236,17 +236,17 @@ jobs:
       JWPLC_BOOTSTRAP_VERSION: 2.1.0-alpha.10
       JWPLC_FQBN: jwplc_local:esp32:jwplcbasic
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
       - uses: arduino/setup-arduino-cli@v2
         with:
           version: '1.x'
       - name: Cache toolchain sin mutar
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.arduino15/packages/jwplc
@@ -380,7 +380,7 @@ jobs:
           echo "G10_I_FULL_ALPHA13_PLATFORM_${{ matrix.variant }}=PASS"
       - name: Conservar trazabilidad, sin publicar firmware
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: g10-i-full-${{ matrix.variant }}-${{ github.run_id }}
           path: |
