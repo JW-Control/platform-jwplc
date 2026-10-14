@@ -221,3 +221,123 @@ jobs:
             ${{ runner.temp }}/g10-evidence/
           if-no-files-found: warn
           retention-days: 14
+
+  full-platform-review:
+    name: Alpha13 package completo aislado - ${{ matrix.variant }}
+    runs-on: ubuntu-latest
+    needs: overlay-compose
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [baseline, candidate]
+    env:
+      JWPLC_INDEX_URL: https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json
+      JWPLC_BOOTSTRAP_VERSION: 2.1.0-alpha.10
+      JWPLC_FQBN: jwplc:esp32:jwplcbasic
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: arduino/setup-arduino-cli@v2
+        with:
+          version: '1.x'
+      - name: Cache toolchain sin mutar
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15/packages/jwplc
+            ~/.arduino15/staging
+          key: g10i-full-${{ runner.os }}-alpha10-${{ hashFiles('JWPLC/package_jwplc_index_dev.json') }}
+      - name: Instalar herramientas y core bootstrap
+        shell: bash
+        run: |
+          set -euo pipefail
+          arduino-cli config init --overwrite
+          arduino-cli config set board_manager.additional_urls "$JWPLC_INDEX_URL"
+          arduino-cli core update-index
+          arduino-cli core install "jwplc:esp32@$JWPLC_BOOTSTRAP_VERSION"
+      - name: Preparar hardware sketchbook aislado sin cambiar el core instalado
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORK="$RUNNER_TEMP/g10-full-${{ matrix.variant }}"
+          SRC="$GITHUB_WORKSPACE/JWPLC/2.1.0"
+          mkdir -p "$WORK/sketchbook/hardware/jwplc/esp32" "$WORK/evidence"
+          if [ "${{ matrix.variant }}" = candidate ]; then
+            python -B tools/alpha13/gates/a13_g10_integrated.py --ci-standalone \
+              --stage-platform "$RUNNER_TEMP/g10-full-candidate-platform" \
+              >"$WORK/evidence/compose.log"
+            SRC="$RUNNER_TEMP/g10-full-candidate-platform"
+            grep -F 'G10_INTEGRATED_STATUS=COMPOSED_REVIEW_BLOCKED' "$WORK/evidence/compose.log"
+          fi
+          rsync -a "$SRC/" "$WORK/sketchbook/hardware/jwplc/esp32/"
+          cmp "$SRC/boards.txt" "$WORK/sketchbook/hardware/jwplc/esp32/boards.txt"
+          cmp "$SRC/platform.txt" "$WORK/sketchbook/hardware/jwplc/esp32/platform.txt"
+          # Verificar paridad de todos los archives; ninguno se recompila,
+          # sustituye ni altera en este job.
+          while IFS= read -r -d '' archive; do
+            relative="${archive#"$GITHUB_WORKSPACE/JWPLC/2.1.0/"}"
+            cmp "$GITHUB_WORKSPACE/JWPLC/2.1.0/$relative" \
+              "$WORK/sketchbook/hardware/jwplc/esp32/$relative"
+          done < <(find "$GITHUB_WORKSPACE/JWPLC/2.1.0" -type f -name '*.a' -print0)
+          arduino-cli config set directories.user "$WORK/sketchbook"
+          arduino-cli board details --fqbn "$JWPLC_FQBN" \
+            >"$WORK/evidence/board.txt"
+          test -f "$WORK/sketchbook/hardware/jwplc/esp32/precompiled/core/JWPLCBASIC/core.a"
+          echo "G10_I_FULL_VARIANT=${{ matrix.variant }}"
+          echo "G10_I_FULL_ARCHIVES=UNCHANGED"
+      - name: Compilación package completo y comprobación de plataforma
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORK="$RUNNER_TEMP/g10-full-${{ matrix.variant }}"
+          HARDWARE="$WORK/sketchbook/hardware/jwplc/esp32"
+          EVIDENCE="$WORK/evidence"
+          sketches=(
+            "JWPLC/2.1.0/libraries/JWPLC_GlobalPeripherals/examples/01.DigitalIO_Basic"
+            "JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/examples/01.ModbusTCP_Server"
+          )
+          for sketch in "${sketches[@]}"; do
+            label="$(basename "$sketch")"
+            properties="$EVIDENCE/properties-$label.txt"
+            arduino-cli compile --fqbn "$JWPLC_FQBN" \
+              --show-properties "$GITHUB_WORKSPACE/$sketch" >"$properties"
+            if ! grep -Fq "runtime.platform.path=$HARDWARE" "$properties"; then
+              echo 'G10_I_FULL_PLATFORM_NOT_SELECTED'
+              grep -E 'runtime.platform.path|build.core|build.extra_libs' "$properties" | head -n 25 || true
+              exit 46
+            fi
+            arduino-cli compile --fqbn "$JWPLC_FQBN" --warnings default \
+              --build-path "$WORK/build-$label" --clean -v \
+              "$GITHUB_WORKSPACE/$sketch" >"$EVIDENCE/compile-$label.log" 2>&1 || {
+                grep -En 'error:|fatal error|undefined reference|Error during build|no such file' \
+                  "$EVIDENCE/compile-$label.log" | tail -n 28 || true
+                tail -n 30 "$EVIDENCE/compile-$label.log"
+                echo "G10_I_FULL_PLATFORM_BUILD=FAILED_${{ matrix.variant }}"
+                exit 47
+              }
+            if [ "${{ matrix.variant }}" = candidate ]; then
+              find "$WORK/build-$label" -type f \
+                -name 'JWPLC_W5500_SafeAccess.cpp.o' \
+                >"$EVIDENCE/obj-$label.txt"
+              test "$(wc -l < "$EVIDENCE/obj-$label.txt")" -eq 1 || {
+                echo "G10_I_FULL_CANDIDATE_OBJECT_MISSING"
+                exit 48
+              }
+            fi
+            echo "G10_I_FULL_${{ matrix.variant }}_$label=PASS"
+          done
+          echo "G10_I_FULL_ALPHA13_PLATFORM_${{ matrix.variant }}=PASS"
+      - name: Conservar trazabilidad, sin publicar firmware
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g10-i-full-${{ matrix.variant }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/g10-full-${{ matrix.variant }}/evidence/
+          if-no-files-found: warn
+          retention-days: 14
