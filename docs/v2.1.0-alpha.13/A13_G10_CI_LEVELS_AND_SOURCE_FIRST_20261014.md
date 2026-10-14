@@ -29,3 +29,11 @@ Commit `e53dbb11a95da5aa5ca9d2b7a20553cf6e7335f5` modifica `.github/workflows/al
 - El push de este workflow debe revisarse en Actions antes de declarar PASS. El modo automático para cambios amplios de core/SPI/precompilados queda **pendiente**; por ahora activar N3 manualmente frente a dichos cambios, antes de hardware y cierre. También siguen pendientes sketches N2 dedicados UDP/DNS/DHCP y la corrección B03.
 
 **Precaución:** el CI verde existente para el riesgo B03 reconoce la reproducción de un defecto, no verifica su corrección.
+
+## N2 ampliado con cobertura de API DNS/UDP (2026-10-14)
+
+- Sketch de integración de API `tools/alpha13/sketches/G10_UDP_DNS_DHCP_Integration/G10_UDP_DNS_DHCP_Integration.ino` incorporado al candidato de CI: commit `f6ff67fd`.
+- Matriz N2 baseline/candidato actualizada para compilarlo: commit `8925b348`. Ahora el job incluye **cuatro** sketches por variante, todavía menos de once.
+- Sketch intencionalmente no activa tráfico sin disparador serie; su PASS prueba compilación/enlace de métodos DNS y UDP, no el comportamiento de DHCP en red ni la resolución de B03. La cobertura DHCP funcional continúa en harness y hardware futuro.
+- No se cambió la librería productiva, el overlay B03, los cinco precompilados ni GPIO4.
+- **CI de este nuevo commit: PENDIENTE DE CONFIRMACIÓN.** Verificar Actions antes de declarar PASS. B03 permanece OPEN y A13-006 ADOPTION_BLOCKED.
