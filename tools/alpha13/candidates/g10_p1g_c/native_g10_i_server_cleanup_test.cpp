@@ -8,6 +8,7 @@
 using namespace jwplc_w5500_candidate;
 #define MAX_SOCK_NUM 8
 static int g_task=1,g_spi=0,g_takes=0,g_releases=0,g_close=0,g_intDisabled=0,g_intReset=0,g_hwRead=0;
+static int g_listen=0,g_service=0,g_error=0;
 static uint8_t g_status[8]={};
 static void check(bool c,const char* why){if(!c) throw std::runtime_error(why);}
 extern "C" bool jwplcSPI_acquire(uint32_t) {
@@ -56,7 +57,7 @@ enum {
   JWPLC_MODBUS_TCP_SERVER_CLIENT_ACTIVE=3
 };
 struct JWPLC_ModbusTCPClass {
-  bool _serverEnabled=true,_clientActive=false,_jwplcDropPending=false;
+  bool _serverEnabled=true,_clientActive=false,_jwplcDropPending=false,_serverListening=true;
   bool _rxIntConfigured=false;
   uint8_t _rxIntSocket=MAX_SOCK_NUM;
   int _serverState=JWPLC_MODBUS_TCP_SERVER_CLIENT_ACTIVE;
@@ -72,6 +73,10 @@ struct JWPLC_ModbusTCPClass {
   void resetRxIntSoftware(){++g_intReset;_rxIntConfigured=false;}
   void dropClient();
   bool serviceDeferredDrop();
+  void task();
+  void setError(int){++g_error;}
+  void ensureServerListening(){++g_listen;_serverListening=true;}
+  void serviceServer(){++g_service;}
 };
 #include "C2_S2B2A_REAL_PATCHED_METHODS.inc"
 static SocketToken assign(JWPLC_ModbusTCPClass& s,uint8_t sock){
@@ -134,13 +139,72 @@ static void testNoClientAndLinkNotReady(){
   check(s.serviceDeferredDrop(),"SERVER_EMPTY_RETRY_NOT_IDEMPOTENT");
   std::cout<<"G10_I_SERVER_EMPTY_AND_LINK_DOWN=PASS\n";
 }
+static void testTaskDrainsPendingEvenWhenIdle(){
+  JWPLC_ModbusTCPClass s;
+  const auto old=assign(s,3);
+  enterBusy();
+  s.dropClient();
+  const int listen=g_listen,service=g_service;
+  s.task();
+  check(s._jwplcDropPending && s._client.sock==3 &&
+        g_listen==listen && g_service==service,
+        "SERVER_TASK_ENTERED_WHILE_DROP_BUSY");
+  leaveBusy();
+  const int before=g_close;
+  s.task();
+  check(!s._jwplcDropPending && !bool(s._client) &&
+        g_close==before+1 && g_listen==listen+1 &&
+        g_service==service+1,"SERVER_TASK_DID_NOT_DRAIN_PENDING");
+  {BusScope b(20);check(bool(b)&&!matchesLocked(old),
+        "SERVER_TASK_DRAIN_OLD_OWNER_SURVIVED");}
+  std::cout<<"G10_I_SERVER_TASK_PENDING_DRAIN=PASS\n";
+}
+static void testLinkDownBusyMustNotAbandonHandle(){
+  JWPLC_ModbusTCPClass s;
+  auto old=assign(s,4);
+  g_ready=false;
+  enterBusy();
+  s.task();
+  check(s._jwplcDropPending && s._client.sock==4 &&
+        g_status[4]==0x17 && g_spi==2,
+        "SERVER_LINK_DOWN_BUSY_ABANDONED_CLIENT");
+  leaveBusy();
+  const int before=g_close;
+  s.task();
+  check(!s._jwplcDropPending && !bool(s._client) &&
+        g_close==before+1 &&
+        s._serverState==JWPLC_MODBUS_TCP_SERVER_WAIT_ETHERNET &&
+        !s._serverListening,
+        "SERVER_LINK_DOWN_DRAIN_FAILED");
+  g_ready=true;
+  {BusScope b(20);check(bool(b)&&!matchesLocked(old),
+        "SERVER_LINK_DOWN_SOCKET_LEASE_RETAINED");}
+  std::cout<<"G10_I_SERVER_LINK_DOWN_BUSY_DRAIN=PASS\n";
+}
+static void testDisabledServerStillDrains(){
+  JWPLC_ModbusTCPClass s;
+  assign(s,5);
+  s._serverEnabled=false;
+  enterBusy();
+  s.dropClient();
+  leaveBusy();
+  const int before=g_close;
+  s.task();
+  check(!s._jwplcDropPending && !bool(s._client) &&
+        g_close==before+1 && !s._clientActive,
+        "SERVER_DISABLED_TASK_DID_NOT_DRAIN");
+  std::cout<<"G10_I_SERVER_DISABLED_DRAIN=PASS\n";
+}
 int main(){
   try{
     testDeferAndRetry();
     testReuseNeverCloseAnotherOwner();
     testNoClientAndLinkNotReady();
+    testTaskDrainsPendingEvenWhenIdle();
+    testLinkDownBusyMustNotAbandonHandle();
+    testDisabledServerStillDrains();
     check(g_spi==0&&g_takes==g_releases,"SERVER_MUTEX_LEAK");
-    std::cout<<"G10_I_SERVER_CLEANUP_NATIVE=PASS_TWO_REAL_SOURCE_METHODS\n";
+    std::cout<<"G10_I_SERVER_CLEANUP_NATIVE=PASS_THREE_REAL_SOURCE_METHODS\n";
     return 0;
   }catch(const std::exception& e){
     std::cerr<<"G10_I_SERVER_CLEANUP_ERROR="<<e.what()<<"\n";
