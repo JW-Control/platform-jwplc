@@ -547,3 +547,64 @@ G10_FINAL=NOT_CLOSED
 **Advertencia residual explícita:** `arduino/setup-arduino-cli@v2` aún está basada en Node.js 20. GitHub la ejecuta temporalmente con Node.js 24 y el job **terminó PASS**, pero su warning `Node.js 20 is deprecated` persiste. No existe evidencia de una versión oficial `@v3` recomendada en las instrucciones de Arduino consultadas en esta revisión. No reemplazar por un instalador externo ni cambiar versión del CLI durante este mantenimiento sin validar hashes, distribución y paridad baseline/candidato. Las alertas por cambio de `ubuntu-latest` dejan de aplicar a los jobs ahora fijados en 24.04.
 
 **Alcance:** este PASS certifica la compatibilidad del workflow actualizado con los cinco trabajos existentes; no prueba hardware, Arduino IDE ni cierra el algoritmo de concurrencia SPI/Modbus. Mantener los cinco archivos `.a` congelados y GPIO4=255 deshabilitado.
+
+
+## G10-I — revisión source-backed B03: cierres UDP en DNS y DHCP (2026-10-14)
+
+**Hallazgo confirmado en fuentes del producto** (no fallo físico observado):
+`EthernetUDP::stop()` conserva el handle si no obtiene `BusScope(20)`
+en el overlay G10-I. La conservación es necesaria para no cerrar el
+socket de otro propietario, pero el llamador **debe reintentar** ese
+cierre antes de abandonar la instancia UDP. Hoy no existe esa
+garantía en todos los consumidores.
+
+| Método fuente real | Secuencia que puede romper el contrato |
+|---|---|
+| `DNSClient::finishResolveAsync()` | `iUdp.stop()` → marca `iAsyncActive=false` sin confirmar liberación |
+| `DNSClient::cancelResolveAsync()` | `iUdp.stop()` → borra estado y finaliza aun con SPI ocupado |
+| `DNSClient::beginResolveAsync()` | Cancela anterior y comienza otro `iUdp.begin()` sin comprobar cierre |
+| `DhcpClass::finishAsync()` | `_dhcpUdpSocket.stop()` → pone `_asyncActive=false` |
+| `DhcpClass::beginWithDHCPAsync()` | `stop()` seguido inmediatamente de `begin(DHCP_CLIENT_PORT)` |
+
+**Contrato pendiente de implementar:** una respuesta terminal
+de DNS/DHCP debe distinguir *protocolo completado* de *socket
+liberado*; no debe perderse un `SocketToken` pendiente ni
+reabrirse o reciclarse indebidamente el mismo índice. Considerar
+un mecanismo de cierre diferido que sobreviva al ciclo de vida
+de la instancia y tenga cola/tickets acotados y política segura
+ante starvation de SPI. No resolverlo simplemente con
+`delay()`, con un `CLOSED` falso, con invalidación prematura
+del token, ni con reintentos infinitos dentro del mutex.
+
+Antes de adoptar, exigir pruebas de **cancelación con SPI_BUSY,
+DNS timeout, DHCP renew/rebind, fin con enlace caído, reuso
+de slot, vencimiento de ticket y pérdida/restitución de ownership**,
+más compilación Arduino y gate físico posterior. DNS/UDP
+`parsePacket()/read()/write()` también necesitan protección
+de RX/TX y separación entre contención y falla de transporte.
+
+### Ampliación de matriz de compilación
+
+El mismo workflow G10-I incorpora **once sketches reales por
+variante** para cubrir APIs de E/S, botonera, RTC, FRAM, SD,
+RS-485, Modbus RTU, Display, DHCP y Modbus TCP servidor/cliente
+con core Alpha13 aislado; se conservan las comprobaciones
+de plataforma, librerías y `.d`/ELF del candidato.
+
+La ejecución iniciada tras el cambio es
+[GitHub Actions #38510083279](https://github.com/JW-Control/platform-jwplc/actions/runs/38510083279)
+sobre `8b121b8b411d7f0646c8d048125b312bd691b7fa`.
+**No afirmar PASS hasta confirmar sus trabajos baseline y
+candidato.** Esta matriz valida compatibilidad de compilación,
+no condiciones eléctricas ni autoload concurrente físico.
+
+```text
+G10-I-B03=UDP_DNS_DHCP_CLOSE_LIFETIME_CONTRACT_OPEN
+G10-I-B03-SOURCE_RISK=CONFIRMED
+G10-I-REPRESENTATIVE_SKETCHES_PER_VARIANT=11_CI_RUNNING
+G10-I-UDP_DNS_DHCP_RUNTIME_TEST=NOT_RUN
+G10-I-ARDUINO_IDE=NOT_RUN
+G10-H=NOT_STARTED
+A13-006=ADOPTION_BLOCKED
+G10_FINAL=NOT_CLOSED
+```
