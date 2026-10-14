@@ -12,6 +12,7 @@ on:
       - 'tools/alpha13/gates/a13_g10_p1g_a_mutex_callpaths.py'
       - 'tools/alpha13/gates/a13_g10_p1a_a13_006_repro.py'
       - 'tools/alpha13/candidates/g10_p1g_c/**'
+      - 'tools/alpha13/sketches/**'
       - 'JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/**'
       - 'JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/**'
   workflow_dispatch:
@@ -144,6 +145,7 @@ jobs:
             "JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/examples/01.ModbusTCP_Server"
             "JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/Ethernet_SPI_Coexistence"
             "JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/01.Ethernet_DHCP_Basic"
+            "tools/alpha13/sketches/G10_UDP_DNS_DHCP_Integration"
           )
           for version in baseline candidate; do
             case "$version" in
