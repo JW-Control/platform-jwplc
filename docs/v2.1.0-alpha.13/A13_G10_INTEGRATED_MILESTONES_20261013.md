@@ -442,3 +442,74 @@ triestado a callers internos, establecer política
 de cierre diferido con ciclo de vida garantizado
 y probar regresión global de sockets, DNS y DHCP.
 Se conserva un solo G10-I, no se abren microgates.
+
+
+### G10-I B01/B04 — mitigación integrada experimental (2026-10-13)
+
+**CI del mismo integrador:**
+[run 38499744270](https://github.com/JW-Control/platform-jwplc/actions/runs/38499744270),
+`HEAD=f95710240a57a64224975b8f195c36327ea5b723`.
+Los tres jobs pasaron: composición Windows/Linux con nativo
+y compilación Arduino CLI en Ubuntu.
+
+**Diferencia respecto al anterior PASS triestado:** ya no se limita
+a declarar el resultado `Read/BusBusy/Stale`. El overlay de
+`EthernetClient` incorpora `jwplcProbeSocketStatus(uint8_t&)`
+y el de `JWPLC_ModbusTCPClient` lo consulta dentro de
+`serviceConnection()` y `serviceResponse()`, para no
+descartar la sesión por BUS_BUSY ni usar hardware tras
+un token obsoleto. No se cambió `connected()` público:
+sus semánticas antiguas siguen pendientes para otros consumers.
+
+En `closeSession()` se cambió el overlay para
+**conservar `_tcpClient` y su token** cuando no es posible
+cancelar, y añadir `_jwplcClosePending` y
+`serviceDeferredClose()`. `busy()` refleja cierre pendiente
+y `task()` lo atiende antes de cualquier nueva transacción.
+`begin()` y `startRequest()` rechazan nueva actividad
+mientras persiste limpieza pendiente. `cancelStopAsync()`
+proviene del corte source-backed anterior y comprueba el lease
+bajo mutex anidable. Todo es **overlay**, no package activo.
+
+El arnés integrado ahora compila desde las fuentes del overlay
+los cuerpos reales `busy()`, `closeSession()` y
+`serviceDeferredClose()`, y verifica: cierre no destructivo
+con SPI_BUSY, reintento posterior, rechazo de token viejo tras
+reutilización de índice, e idempotencia. **Tres mutaciones
+negativas** producen fallos nativos observables. Los tests
+de contrato `Read/BusBusy/Stale` previos siguen pasando.
+
+```text
+G10-I-OVERLAY-COMPOSE-WINDOWS=PASS
+G10-I-OVERLAY-COMPOSE-LINUX=PASS
+G10-I-MODBUS-CLEANUP_NATIVE=PASS_3_REAL_CPP_METHODS_3_NEGATIVES
+G10-I-TRISTATE_NATIVE=PASS_WINDOWS_LINUX
+G10-I-ARDUINO_BASELINE=2_PASS
+G10-I-ARDUINO_CANDIDATE=2_PASS
+G10-I-CANDIDATE_MMD_AND_ELF=2_PASS
+G10-I-FROZEN_ARCHIVES=5
+G10-I-PRODUCT_MODIFIED=NO
+G10-I-FULL_ALPHA13_PACKAGE=NOT_BUILT
+G10-I-B01=PARTIALLY_MITIGATED_IN_MODBUS_CLIENT_ONLY
+G10-I-B04=COOPERATIVE_RETRY_PROTOTYPE_NOT_END_TO_END
+G10-I-GLOBAL_BLOCKERS=8_OPEN
+A13-006=ADOPTION_BLOCKED
+G10_FINAL=NOT_CLOSED
+```
+
+**Limitaciones que impiden cerrar B01/B04:**
+el comportamiento de `EthernetClient::connected()` público,
+`EthernetClass::socketStatus()` con contención y la ruta
+Modbus TCP Server todavía no tienen tratamiento uniforme.
+El reintento de cierre depende de que el llamador siga
+ejecutando `task()` mientras `busy()` sea verdadero.
+Faltan pruebas integradas de reconexión, timeout simultáneo,
+`JWPLC_Ethernet.isReady()` falso sin reset verdadero,
+retarget, destructor/ciclo de vida, DNS/DHCP y fairness real.
+Una prueba nativa no garantiza por sí misma que el hardware
+real cierre el socket ni que el programa de usuario ejecute
+el servicio con suficiente frecuencia.
+
+**Cierre del bloque:** avance de diseño y compilación PASS;
+**B01/B04 permanecen OPEN**, G10-I no se considera cerrado
+y no se autoriza flash. Mantener el ejecutor único.
