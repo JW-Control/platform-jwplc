@@ -49,7 +49,7 @@ jobs:
           python -m py_compile tools/alpha13/gates/a13_g10_integrated.py
           python -B tools/alpha13/gates/a13_g10_integrated.py --help
           if ($LASTEXITCODE -ne 0) { throw 'G10_I_SYNTAX' }
-      - name: Verificar contrato source-backed B03 (riesgo conocido, NO fix)
+      - name: Verificar ruta candidata B03 y mutaciones de contrato
         shell: pwsh
         run: |
           python -B tools/alpha13/gates/a13_g10_b03_source_contract.py
@@ -64,10 +64,9 @@ jobs:
           if ($log -notmatch 'G10_INTEGRATED_TRISTATE_STATUS_NATIVE=PASS_PRIMITIVE_ONLY') { throw 'G10_I_TRISTATE_NATIVE_NOT_PROVEN' }
           if ($log -notmatch 'G10_INTEGRATED_MODBUS_CLEANUP_NATIVE=PASS_THREE_SOURCE_METHODS_3_NEGATIVES') { throw 'G10_I_MODBUS_CLEANUP_NOT_PROVEN' }
           if ($log -notmatch 'G10_INTEGRATED_MODBUS_SERVER_CLEANUP_NATIVE=PASS_THREE_SOURCE_METHODS_5_NEGATIVES') { throw 'G10_I_MODBUS_SERVER_NOT_PROVEN' }
-          # B03 es reproducción de un defecto, no evidencia de corrección.
-          if ($log -notmatch 'G10_INTEGRATED_B03_DNS_DHCP_SHUTDOWN=RISK_REPRODUCED_BLOCKS_ADOPTION') { throw 'G10_I_B03_RISK_WAS_NOT_REPRODUCED_REVIEW' }
+          if ($log -notmatch 'G10_INTEGRATED_B03_DNS_DHCP_SHUTDOWN=PASS_SOURCE_BACKED_DEFERRED_CLOSE_1_NEGATIVE') { throw 'G10_I_B03_CORRECTION_NOT_DEMONSTRATED' }
           if ($log -notmatch 'G10_INTEGRATED_BLOCKERS=8') { throw 'G10_I_RISK_MASKED' }
-          if ($log -notmatch 'G10_INTEGRATED_STATUS=COMPOSED_REVIEW_BLOCKED') { throw 'G10_I_WRONG_STATUS' }
+          if ($log -notmatch 'G10_INTEGRATED_STATUS=B03_CANDIDATE_REVIEW_BLOCKED') { throw 'G10_I_WRONG_STATUS' }
           if ($log -notmatch 'G10_INTEGRATED_PRODUCT_CHANGED=NO') { throw 'G10_I_PRODUCT_CHANGED' }
       - name: No tocar fuentes productivas
         shell: pwsh
@@ -296,7 +295,7 @@ jobs:
               --stage-platform "$RUNNER_TEMP/g10-full-candidate-platform" \
               >"$WORK/evidence/compose.log"
             SRC="$RUNNER_TEMP/g10-full-candidate-platform"
-            grep -F 'G10_INTEGRATED_STATUS=COMPOSED_REVIEW_BLOCKED' "$WORK/evidence/compose.log"
+            grep -F 'G10_INTEGRATED_STATUS=B03_CANDIDATE_REVIEW_BLOCKED' "$WORK/evidence/compose.log"
           fi
           rsync -a "$SRC/" "$WORK/sketchbook/hardware/jwplc_local/esp32/"
           cmp "$SRC/boards.txt" "$WORK/sketchbook/hardware/jwplc_local/esp32/boards.txt"
