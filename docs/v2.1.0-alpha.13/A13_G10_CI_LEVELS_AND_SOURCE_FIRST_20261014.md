@@ -18,3 +18,14 @@
 
 ## Riesgo y autorización
 Se mantiene `G10-I=OPEN`, `B03=OPEN`, `A13-006=ADOPTION_BLOCKED`, `G10-H=NOT_STARTED`. Los cinco archives y GPIO4 no se tocan. CI verde por compilación prueba compatibilidad de build, **no** corrección de B03 ni coexistencia física. Aplicar cambios de YAML en commit separado y revisar que N3 permanezca disparable manualmente antes de reducir su frecuencia.
+
+## Implementación inicial CI — 2026-10-14
+
+Commit `e53dbb11a95da5aa5ca9d2b7a20553cf6e7335f5` modifica `.github/workflows/alpha13-g10-integrated.yml`:
+
+- El push normal ejecuta N1 (overlay-compose, dos sistemas operativos con detector B03) y N2 (Arduino CLI baseline y candidato para tres sketches **existentes**: `01.ModbusTCP_Server`, `Ethernet_SPI_Coexistence`, `01.Ethernet_DHCP_Basic`). Son seis compilaciones de bibliotecas, no todavía tres sketches nuevos que ejerciten todas las funciones.
+- N3 `full-platform-review` conserva exactamente 11 sketches por variante, pero se restringe a `workflow_dispatch` con entrada `regression_level=full`. Valor por defecto del disparo manual: **full**, para reducir el riesgo de saltarse la regresión de cierre.
+- No se deshabilitaron archives ni se modificó firmware. Ethernet continúa source-first según `library.properties`.
+- El push de este workflow debe revisarse en Actions antes de declarar PASS. El modo automático para cambios amplios de core/SPI/precompilados queda **pendiente**; por ahora activar N3 manualmente frente a dichos cambios, antes de hardware y cierre. También siguen pendientes sketches N2 dedicados UDP/DNS/DHCP y la corrección B03.
+
+**Precaución:** el CI verde existente para el riesgo B03 reconoce la reproducción de un defecto, no verifica su corrección.
