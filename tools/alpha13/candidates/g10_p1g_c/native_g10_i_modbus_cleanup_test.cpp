@@ -91,6 +91,9 @@ static void testDeferAndRetry() {
     JWPLC_ModbusTCPClientClass mb;
     assign(mb,1);
     auto token=mb._tcpClient._jwplcSocketToken;
+    // Igual que after end()/fail(): el engine ya no está en SENDING.
+    // busy() sólo debe mantenerse true por la limpieza pendiente.
+    mb._state=JWPLC_MODBUS_TCP_CLIENT_IDLE;
     lockByOtherTask();
     mb.closeSession();
     check(mb._jwplcClosePending&&mb.busy() &&
