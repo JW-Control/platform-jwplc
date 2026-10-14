@@ -56,7 +56,11 @@ G10-I-FULL-PLATFORM-MMD_ELF=PASS_2_CANDIDATE_SKETCHES_RUN_38508580631
 G10-I-FULL-PLATFORM-LIBRARY_DISCOVERY=PASS_2_CANDIDATE_SKETCHES_RUN_38508580631
 G10-I-CI_NODE24_UBUNTU24=PASS_5_OF_5_RUN_38508580631
 G10-I-CI_ARDUINO_ACTION_NODE20=WARNING_RESIDUAL
-G10-I-REPRESENTATIVE_PERIPHERAL_COMPILE=11_SKETCHES_PER_VARIANT_PENDING_CI_38510083279
+G10-I-REPRESENTATIVE_PERIPHERAL_COMPILE=PASS_BASELINE_11_CANDIDATE_11_RUN_38510083279
+G10-I-REPRESENTATIVE_CI_5_JOBS=PASS
+G10-I-REPRESENTATIVE_MMD_ELF=PASS_11_CANDIDATE_SKETCHES
+G10-I-PERIPHERALS_COVERED=DI_BUTTONS_RTC_FRAM_SD_RS485_MODBUS_RTU_DISPLAY_DHCP_MODBUS_TCP
+G10-I-REPRESENTATIVE_MATRIX_LIMIT=COMPILE_ONLY_NOT_CONCURRENT_HARDWARE
 G10-I-B03_UDP_DNS_DHCP_CLOSE_LIFETIME=OPEN_CONFIRMED_SOURCE
 G10-I-ARDUINO-IDE_AND_PHYSICAL=NOT_RUN
 G10-I-LOCAL_WINDOWS=NOT_REQUIRED_UNTIL_INTEGRATED_READY
@@ -70,18 +74,19 @@ PRODUCT_CHANGED=NO_FOR_G10
 PRECOMPILED_ARCHIVES=5_FROZEN
 GPIO4_RESET=255_DISABLED
 ALPHA13=IN_PROGRESS
-NEXT_ACTION=G10-I_VERIFY_FULL_MMD_ELF_AND_REVIEW_SPI_BUSY_DNS_DHCP_BEFORE_USER_GATE
+NEXT_ACTION=G10-I_REVIEW_B03_UDP_DNS_DHCP_DEFERRED_CLOSE_AND_REMAINING_OWNERSHIP
 ```
 
 **Decisión de flujo aprobada:** dejar de pedir una ejecución manual
 por cada método; el siguiente trabajo es **G10-I Integración**,
 luego **G10-H Hardware autorizado** y **G10-C Cierre**.
-La preparación y la compilación limitada de dos ejemplos Arduino
-con librerías de la rama/candidato han pasado en CI. Se utilizó
-el bootstrap inmutable Alpha10 con headers del core de la rama
-por compatibilidad. Esto **no** certifica compilación
-del package Alpha13 completo, ausencia de races
-ni seguridad del firmware.
+Las validaciones más recientes alcanzan 11 sketches por variante
+con el core Alpha13 de la rama, instalado aisladamente como
+`jwplc_local:esp32:jwplcbasic`, y comprobaciones fuente/objeto/ELF.
+El bootstrap Alpha10 se usa **solo en otra prueba independiente**
+de bibliotecas. El PASS no certifica ejecución física simultánea
+de periféricos, Arduino IDE ni ausencia de carreras SPI.
+[CI #38510083279](https://github.com/JW-Control/platform-jwplc/actions/runs/38510083279).
 
 [Plan G10-I/H/C](A13_G10_INTEGRATED_MILESTONES_20261013.md).
 Ejecutor único: `tools/alpha13/gates/run_a13_g10_integrated.bat`.
