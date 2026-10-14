@@ -706,6 +706,7 @@ def b03_deferred_close_native(out, files):
         "G10_I_B03_DNS_CANCEL_IDLE_RETRY=PASS",
         "G10_I_B03_DHCP_FINISH_IDLE_RETRY=PASS",
         "G10_I_B03_DNS_TIMEOUT=PASS",
+        "G10_I_B03_DNS_BUILD_ERROR=PASS",
         "G10_I_B03_DHCP_TIMEOUT_ACK_NAK_CANCEL=PASS",
         "G10_I_B03_DHCP_SYNC_REBEGIN=PASS",
         "G10_I_B03_STALE_RESET_OWNER=PASS",
@@ -746,6 +747,10 @@ def b03_deferred_close_native(out, files):
          "_dhcpUdpSocket.stop();",
          "/* mutant: cancellation leaves socket open */",
          "DHCP_CANCEL_NOT_DRAINED"),
+        ("dns_build_error_without_finish",5,
+         "ret = BuildRequest(aHostname);\n\tif (ret == 0) {\n\t\tfinishResolveAsync(-11);",
+         "ret = BuildRequest(aHostname);\n\tif (ret == 0) {\n\t\t/* mutant: discard opened UDP socket */",
+         "DNS_BUILD_ERROR_NOT_DRAINED"),
     )
     for label,index,anchor,replacement,expected in variants:
         require(methods[index].count(anchor)==1,"B03_MUTANT_ANCHOR_"+label)
@@ -813,7 +818,7 @@ def main():
         m["modbus_server_cleanup_probe"]=server_cleanup_native(out,files)
         emit("MODBUS_SERVER_CLEANUP_NATIVE","PASS_THREE_SOURCE_METHODS_5_NEGATIVES")
         m["b03_dns_dhcp_shutdown"]=b03_deferred_close_native(out,files)
-        emit("B03_DNS_DHCP_SHUTDOWN","PASS_SOURCE_BACKED_DEFERRED_CLOSE_8_NEGATIVES")
+        emit("B03_DNS_DHCP_SHUTDOWN","PASS_SOURCE_BACKED_DEFERRED_CLOSE_9_NEGATIVES")
         if opts.stage_platform is not None:
             staged=stage_platform(opts.stage_platform,files,shas)
             m["staged_sources"]=staged

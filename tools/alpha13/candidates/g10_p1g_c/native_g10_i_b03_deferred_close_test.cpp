@@ -1,4 +1,4 @@
-// B03: four extracted C++ methods plus the real SafeAccess implementation.
+// B03: extracted C++ control paths plus the real SafeAccess implementation.
 // Hardware/bus are stubs; assertions check the lease, not a mock DNS result.
 #include "JWPLC_W5500_SafeAccess.h"
 #include "freertos/task.h"
@@ -13,6 +13,7 @@ static bool g_hwOpen[MAX_SOCK_NUM]={};
 static uint32_t g_time=4123;
 static uint8_t g_dhcpResponse=0;
 static int g_dnsPacketSize=0;
+static bool g_dnsFailBuildAndHold=false;
 static void check(bool b,const char* why){if(!b)throw std::runtime_error(why);}
 extern "C" bool jwplcSPI_acquire(uint32_t) {
     if(g_spiOwner!=0)return false;
@@ -91,7 +92,13 @@ struct DNSClient {
     int iAsyncStatus=0;
     bool iAsyncActive=false,iAsyncSendPending=false;
     int inet_aton(const char*,IPAddress&){return 0;}
-    uint16_t BuildRequest(const char*){return 1;}
+    uint16_t BuildRequest(const char*){
+        if (!g_dnsFailBuildAndHold) return 1;
+        g_task=2;
+        check(jwplcSPI_acquire(0),"DNS_BUILD_LOCK_FAILED");
+        g_task=1;
+        return 0;
+    }
     int beginResolveAsync(const char*,IPAddress&,uint16_t);
     int pollResolveAsync();
     int ProcessResponsePacket(IPAddress&){return SUCCESS;}
@@ -217,6 +224,20 @@ static void testDnsTimeout(){
     tick();
     check(!g_hwOpen[1],"DNS_TIMEOUT_NOT_DRAINED");
     std::cout<<"G10_I_B03_DNS_TIMEOUT=PASS\n";
+}
+static void testDnsBuildError(){
+    DNSClient dns;
+    IPAddress result;
+    g_dnsFailBuildAndHold=true;
+    check(dns.beginResolveAsync("invalid.example",result,100)==-11,
+          "DNS_BUILD_ERROR_NOT_RETURNED");
+    g_dnsFailBuildAndHold=false;
+    const uint8_t socket=dns.iUdp.sockindex;
+    check(socket<MAX_SOCK_NUM && g_hwOpen[socket] && !dns.iAsyncActive,
+          "DNS_BUILD_ERROR_LOST_OWNER");
+    releaseOther();tick();
+    check(!g_hwOpen[socket],"DNS_BUILD_ERROR_NOT_DRAINED");
+    std::cout<<"G10_I_B03_DNS_BUILD_ERROR=PASS\n";
 }
 static void testDhcpTimeoutAckNakCancel(){
     DhcpClass timed;
@@ -377,7 +398,7 @@ int main(){
         testDhcpTimeoutAckNakCancel();testSynchronousDhcpRebegin();
         testDnsAndDhcpRebegin();
         testRenewRebindBusy();testMulticastDoesNotReuseBusyOwner();
-        testRecycledAndReset();
+        testRecycledAndReset();testDnsBuildError();
         check(g_spiOwner==0&&g_takes==g_releases,"B03_MUTEX_LEAK");
         std::cout<<"G10_I_B03_NATIVE=PASS_SOURCE_BACKED_DEFERRED_CLOSE\n";
         return 0;
