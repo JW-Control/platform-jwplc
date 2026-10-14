@@ -234,7 +234,7 @@ jobs:
     env:
       JWPLC_INDEX_URL: https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json
       JWPLC_BOOTSTRAP_VERSION: 2.1.0-alpha.10
-      JWPLC_FQBN: jwplc:esp32:jwplcbasic
+      JWPLC_FQBN: jwplc_local:esp32:jwplcbasic
     steps:
       - uses: actions/checkout@v4
         with:
@@ -266,7 +266,7 @@ jobs:
           set -euo pipefail
           WORK="$RUNNER_TEMP/g10-full-${{ matrix.variant }}"
           SRC="$GITHUB_WORKSPACE/JWPLC/2.1.0"
-          mkdir -p "$WORK/sketchbook/hardware/jwplc/esp32" "$WORK/evidence"
+          mkdir -p "$WORK/sketchbook/hardware/jwplc_local/esp32" "$WORK/evidence"
           if [ "${{ matrix.variant }}" = candidate ]; then
             python -B tools/alpha13/gates/a13_g10_integrated.py --ci-standalone \
               --stage-platform "$RUNNER_TEMP/g10-full-candidate-platform" \
@@ -274,20 +274,20 @@ jobs:
             SRC="$RUNNER_TEMP/g10-full-candidate-platform"
             grep -F 'G10_INTEGRATED_STATUS=COMPOSED_REVIEW_BLOCKED' "$WORK/evidence/compose.log"
           fi
-          rsync -a "$SRC/" "$WORK/sketchbook/hardware/jwplc/esp32/"
-          cmp "$SRC/boards.txt" "$WORK/sketchbook/hardware/jwplc/esp32/boards.txt"
-          cmp "$SRC/platform.txt" "$WORK/sketchbook/hardware/jwplc/esp32/platform.txt"
+          rsync -a "$SRC/" "$WORK/sketchbook/hardware/jwplc_local/esp32/"
+          cmp "$SRC/boards.txt" "$WORK/sketchbook/hardware/jwplc_local/esp32/boards.txt"
+          cmp "$SRC/platform.txt" "$WORK/sketchbook/hardware/jwplc_local/esp32/platform.txt"
           # Verificar paridad de todos los archives; ninguno se recompila,
           # sustituye ni altera en este job.
           while IFS= read -r -d '' archive; do
             relative="${archive#"$GITHUB_WORKSPACE/JWPLC/2.1.0/"}"
             cmp "$GITHUB_WORKSPACE/JWPLC/2.1.0/$relative" \
-              "$WORK/sketchbook/hardware/jwplc/esp32/$relative"
+              "$WORK/sketchbook/hardware/jwplc_local/esp32/$relative"
           done < <(find "$GITHUB_WORKSPACE/JWPLC/2.1.0" -type f -name '*.a' -print0)
           arduino-cli config set directories.user "$WORK/sketchbook"
           arduino-cli board details --fqbn "$JWPLC_FQBN" \
             >"$WORK/evidence/board.txt"
-          test -f "$WORK/sketchbook/hardware/jwplc/esp32/precompiled/core/JWPLCBASIC/core.a"
+          test -f "$WORK/sketchbook/hardware/jwplc_local/esp32/precompiled/core/JWPLCBASIC/core.a"
           echo "G10_I_FULL_VARIANT=${{ matrix.variant }}"
           echo "G10_I_FULL_ARCHIVES=UNCHANGED"
       - name: Compilación package completo y comprobación de plataforma
@@ -295,7 +295,7 @@ jobs:
         run: |
           set -euo pipefail
           WORK="$RUNNER_TEMP/g10-full-${{ matrix.variant }}"
-          HARDWARE="$WORK/sketchbook/hardware/jwplc/esp32"
+          HARDWARE="$WORK/sketchbook/hardware/jwplc_local/esp32"
           EVIDENCE="$WORK/evidence"
           sketches=(
             "JWPLC/2.1.0/libraries/JWPLC_GlobalPeripherals/examples/01.DigitalIO_Basic"
