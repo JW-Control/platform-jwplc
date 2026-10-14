@@ -513,3 +513,37 @@ el servicio con suficiente frecuencia.
 **Cierre del bloque:** avance de diseño y compilación PASS;
 **B01/B04 permanecen OPEN**, G10-I no se considera cerrado
 y no se autoriza flash. Mantener el ejecutor único.
+
+
+## Mantenimiento GitHub Actions — Node.js 24 / Ubuntu 24.04 (2026-10-14)
+
+**Objetivo:** eliminar la dependencia de Node.js 20 de las acciones oficiales de GitHub, fijar Ubuntu contra migraciones imprevistas y **no alterar** el firmware ni el toolchain Arduino por una limpieza cosmética.
+
+**Cambio de workflow:** `94f4c0326537c10668c0d8b57f730fd0ba180da5`.
+
+| Acción/runner | Antes | Actual |
+|---|---|---|
+| actions/checkout | v4 | v5 |
+| actions/setup-python | v5 | v6 |
+| actions/upload-artifact | v4 | v6 |
+| actions/cache | v4 | v5 |
+| runner Ubuntu | ubuntu-latest | ubuntu-24.04 |
+
+**Evidencia:** [GitHub Actions #38508580631](https://github.com/JW-Control/platform-jwplc/actions/runs/38508580631), ejecutado sobre el commit `94f4c032`:
+
+```text
+G10-I-CI-NODE24-UBUNTU24=PASS_5_OF_5_JOBS
+G10-I-COMPOSE-UBUNTU24=PASS
+G10-I-COMPOSE-WINDOWS=PASS
+G10-I-ARDUINO-BOOTSTRAP-BASELINE-VS-CANDIDATE=PASS
+G10-I-FULL-ALPHA13-BASELINE=PASS
+G10-I-FULL-ALPHA13-CANDIDATE=PASS
+G10-I-FULL-CANDIDATE-SOURCE_MMD_ELF=PASS_BOTH_SKETCHES
+G10-I-PRODUCT_CHANGED=NO
+G10-I-A13-006=ADOPTION_BLOCKED
+G10_FINAL=NOT_CLOSED
+```
+
+**Advertencia residual explícita:** `arduino/setup-arduino-cli@v2` aún está basada en Node.js 20. GitHub la ejecuta temporalmente con Node.js 24 y el job **terminó PASS**, pero su warning `Node.js 20 is deprecated` persiste. No existe evidencia de una versión oficial `@v3` recomendada en las instrucciones de Arduino consultadas en esta revisión. No reemplazar por un instalador externo ni cambiar versión del CLI durante este mantenimiento sin validar hashes, distribución y paridad baseline/candidato. Las alertas por cambio de `ubuntu-latest` dejan de aplicar a los jobs ahora fijados en 24.04.
+
+**Alcance:** este PASS certifica la compatibilidad del workflow actualizado con los cinco trabajos existentes; no prueba hardware, Arduino IDE ni cierra el algoritmo de concurrencia SPI/Modbus. Mantener los cinco archivos `.a` congelados y GPIO4=255 deshabilitado.
