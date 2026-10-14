@@ -469,6 +469,57 @@ def stage_platform(destination,files,hashes):
     # La comprobación del freeze canónico ya se ejecutó en preflight.
     return manifest
 
+def server_cleanup_native(out,files):
+    """Source-backed Server drop/retry tested inside the single G10-I run."""
+    repro=load(MODULES["repro"],"server_cleanup_extract")
+    compiler=load("a13_g10_p1g_c1_native_prototype.py","server_cleanup_compiler")
+    builder=load(MODULES["b2a"],"server_cleanup_builder")
+    builder.TEST=ROOT/"tools/alpha13/candidates/g10_p1g_c/native_g10_i_server_cleanup_test.cpp"
+    rel="JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP.cpp"
+    src=files[rel]
+    sigs=("void JWPLC_ModbusTCPClass::dropClient()",
+          "bool JWPLC_ModbusTCPClass::serviceDeferredDrop()")
+    bodies={sig:repro.extract(src,sig) for sig in sigs}
+    def run(tag, methods):
+        return builder.native(out,tag,"\n\n".join(methods[sig] for sig in sigs)+"\n",compiler)
+    code,output=run("server_cleanup_positive",bodies)
+    wanted=("G10_I_SERVER_DEFERRED_CLOSE_BUSY_RETRY=PASS",
+            "G10_I_SERVER_STALE_OWNER_NOT_CLOSED=PASS",
+            "G10_I_SERVER_EMPTY_AND_LINK_DOWN=PASS",
+            "G10_I_SERVER_CLEANUP_NATIVE=PASS_TWO_REAL_SOURCE_METHODS")
+    if code!=0 or not all(x in output for x in wanted):
+        emit("SERVER_CLEANUP_DIAG",
+             "EXIT_"+str(code)+"_"+output.strip().replace("\n"," | ")[:1200])
+    require(code==0 and all(x in output for x in wanted),
+            "SERVER_CLEANUP_REAL_SOURCE_POSITIVE_FAILED")
+    negatives=[
+        ("LOSE_OWNER_WHEN_BUSY",sigs[0],
+         "_jwplcDropPending = _jwplcDropPending || (bool)_client;",
+         "_jwplcDropPending = false;",
+         "SERVER_BUSY_DISCARDED_LEASE"),
+        ("SKIP_CLOSE",sigs[1],
+         "_client.cancelStopAsync();",
+         "/* no hardware close */",
+         "SERVER_DEFERRED_RETRY_DID_NOT_CLOSE"),
+        ("STALE_INT_DISABLE",sigs[1],
+         "outcome == jwplc_w5500_candidate::StatusReadOutcome::Read",
+         "outcome != jwplc_w5500_candidate::StatusReadOutcome::BusBusy",
+         "SERVER_STALE_CLOSED_OTHER_OWNER"),
+    ]
+    for label,sig,a,b,expected in negatives:
+        original=bodies[sig]
+        require(original.count(a)==1,"SERVER_NEGATIVE_ANCHOR_MISSING_"+label)
+        mutant=dict(bodies);mutant[sig]=original.replace(a,b,1)
+        code,out_text=run("server_cleanup_negative_"+label,mutant)
+        if code==0 or expected not in out_text:
+            emit("SERVER_NEGATIVE_DIAG_"+label,
+                 "EXIT_"+str(code)+"_"+out_text.strip().replace("\n"," | ")[:600])
+        require(code!=0 and expected in out_text,"SERVER_NEGATIVE_NOT_REJECTED_"+label)
+    return {"result":"PASS_TWO_SOURCE_METHODS","negatives":len(negatives),
+            "end_to_end":False,
+            "limitations":"complete task(), serviceServer(), PHY link and RX paths remain open"}
+
+
 def modbus_cleanup_native(out,files):
     """Compilar tres METODOS C++ del overlay actual y negativos integrados."""
     repro=load(MODULES["repro"],"modbus_cleanup_extract")
@@ -573,6 +624,8 @@ def main():
         emit("TRISTATE_STATUS_NATIVE","PASS_PRIMITIVE_ONLY")
         m["modbus_cleanup_probe"]=modbus_cleanup_native(out,files)
         emit("MODBUS_CLEANUP_NATIVE","PASS_THREE_SOURCE_METHODS_3_NEGATIVES")
+        m["modbus_server_cleanup_probe"]=server_cleanup_native(out,files)
+        emit("MODBUS_SERVER_CLEANUP_NATIVE","PASS_TWO_SOURCE_METHODS_3_NEGATIVES")
         if opts.stage_platform is not None:
             staged=stage_platform(opts.stage_platform,files,shas)
             m["staged_sources"]=staged
