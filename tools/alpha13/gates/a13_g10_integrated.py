@@ -98,6 +98,160 @@ def preflight(ci):
     f.check(f.sources())
     return head
 
+def patch_client_modbus_b01_b04(repro, first):
+    """Parcheo source-backed de consulta triestado y cierre reintentable.
+
+    No altera la API Arduino legacy; los nuevos símbolos son adiciones
+    internas al overlay. Cada guard de deriva debe fallar cerrado.
+    """
+    hdr=first["HEADER"]
+    signature="uint8_t getSocketNumber() const { return _sockindex; }"
+    require(hdr.count(signature)==1,"G10_CLIENT_PROBE_HEADER_DRIFT")
+    hdr=hdr.replace(signature,signature+
+        "\n\t// Estado tri-valuado interno; no convertir BUS_BUSY a CLOSED.\n"
+        "\tjwplc_w5500_candidate::StatusReadOutcome jwplcProbeSocketStatus(uint8_t& result);",1)
+    first["HEADER"]=hdr
+    cpp=first["CLIENT"]
+    require("EthernetClient::jwplcProbeSocketStatus" not in cpp,
+            "CLIENT_PROBE_ALREADY_PRESENT")
+    cpp+="""
+
+// G10-I B01: Status bajo ownership y la misma exclusión W5500.
+jwplc_w5500_candidate::StatusReadOutcome
+EthernetClient::jwplcProbeSocketStatus(uint8_t& result)
+{
+    if (_sockindex >= MAX_SOCK_NUM)
+        return jwplc_w5500_candidate::StatusReadOutcome::Stale;
+    return jwplc_w5500_candidate::readStatusIfCurrent(
+        _jwplcSocketToken,
+        [](uint8_t index, void*) -> uint8_t {
+            return Ethernet.socketStatus(index);
+        },
+        nullptr, 20, &result);
+}
+"""
+    first["CLIENT"]=cpp
+    mh_path="JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP_Client.h"
+    mh=(ROOT/mh_path).read_text(encoding="utf-8-sig")
+    field="    bool _sendStarted;"
+    require(mh.count(field)==1,"MODBUS_HEADER_SEND_FIELD_DRIFT")
+    mh=mh.replace(field,field+
+        "\n    // G10-I: retener el objeto/socket hasta CLOSE o STALE real.\n"
+        "    bool _jwplcClosePending = false;",1)
+    proto="    void closeSession();"
+    require(mh.count(proto)==1,"MODBUS_HEADER_CLOSE_DECL_DRIFT")
+    mh=mh.replace(proto,proto+
+        "\n    bool serviceDeferredClose();",1)
+    first["MB_CLIENT_HEADER"]=mh
+    mb=first["MB_CLIENT"]
+    def replace_body(signature,old_fragment,new_fragment):
+        nonlocal mb
+        old=repro.extract(mb,signature)
+        require(old.count(old_fragment)==1,
+                "MODBUS_BODY_SOURCE_DRIFT_"+signature)
+        new=old.replace(old_fragment,new_fragment,1)
+        require(new!=old and mb.count(old)==1,
+                "MODBUS_BODY_NOT_UNIQUE_"+signature)
+        mb=mb.replace(old,new,1)
+    replace_body("bool JWPLC_ModbusTCPClientClass::busy() const",
+        "{",
+        "{\n    // Mantener task() activo si el cierre necesita reintento.\n"
+        "    if (_jwplcClosePending) return true;")
+    replace_body("bool JWPLC_ModbusTCPClientClass::begin(",
+        "    if (busy())",
+        "    if (_jwplcClosePending) {\n"
+        "        _result = JWPLC_MODBUS_TCP_CLIENT_BUSY;\n"
+        "        return false;\n"
+        "    }\n    if (busy())")
+    replace_body("bool JWPLC_ModbusTCPClientClass::startRequest(",
+        "    if (busy())",
+        "    if (_jwplcClosePending) {\n"
+        "        _result = JWPLC_MODBUS_TCP_CLIENT_BUSY;\n"
+        "        return false;\n"
+        "    }\n    if (busy())")
+    replace_body("void JWPLC_ModbusTCPClientClass::task()",
+        "    if (!busy())",
+        "    // Incluso despues de fail()/end() se debe poder drenar CLOSE.\n"
+        "    if (_jwplcClosePending && !serviceDeferredClose()) return;\n"
+        "    if (!busy())")
+    mb_sig="void JWPLC_ModbusTCPClientClass::closeSession()"
+    before=repro.extract(mb,mb_sig)
+    require(before.count("_tcpClient = EthernetClient();")==1 and
+            "cancelConnectAsync();" in before,"CLOSESESSION_SOURCE_DRIFT")
+    after=mb_sig+"""
+{
+    _asyncTx.reset();
+    // No abandonar el token si otro task posee SPI.
+    _jwplcClosePending = _jwplcClosePending || (bool)_tcpClient;
+    if (_jwplcClosePending)
+        (void)serviceDeferredClose();
+    else
+        _tcpClient = EthernetClient();
+
+    _sessionConnected = false;
+    _connectStarted = false;
+    _sendStarted = false;
+    resetRx();
+}
+"""
+    require(mb.count(before)==1,"CLOSESESSION_NOT_UNIQUE")
+    mb=mb.replace(before,after,1)
+    mb+="""
+
+// Servicio cooperativo, sin espera ocupada ni cierre por indice sin owner.
+bool JWPLC_ModbusTCPClientClass::serviceDeferredClose()
+{
+    if (!_jwplcClosePending) return true;
+    if (!acquireBus(20)) return false; // retain _tcpClient and token
+    _tcpClient.cancelStopAsync(); // guard anidado y lease en EthernetClient
+    const bool released = !(bool)_tcpClient;
+    releaseBus();
+    if (released) {
+        _tcpClient = EthernetClient();
+        _jwplcClosePending = false;
+    }
+    return released;
+}
+"""
+    # Lectura previa al uso: los consumidores internos nunca deben
+    # interpretar BusBusy como desconexion. La validacion se hace dentro
+    # de su scope de Modbus para evitar carreras entre probe y consumo.
+    status_sig="void JWPLC_ModbusTCPClientClass::serviceConnection()"
+    before=repro.extract(mb,status_sig)
+    probe="        const bool stillConnected = _tcpClient.connected() != 0;"
+    require(before.count(probe)==1,"MODBUS_CONNECT_STATUS_DRIFT")
+    after=before.replace(probe,"""        uint8_t observedStatus = 0;
+        const auto probe = _tcpClient.jwplcProbeSocketStatus(observedStatus);
+        if (probe == jwplc_w5500_candidate::StatusReadOutcome::BusBusy) {
+            releaseBus();
+            return; // no falsa desconexion con SPI ocupado
+        }
+        const bool stillConnected =
+            probe == jwplc_w5500_candidate::StatusReadOutcome::Read &&
+            _tcpClient.connected() != 0;""",1)
+    require(mb.count(before)==1,"MODBUS_SERVICE_CONNECT_NOT_UNIQUE")
+    mb=mb.replace(before,after,1)
+    resp_sig="void JWPLC_ModbusTCPClientClass::serviceResponse()"
+    before=repro.extract(mb,resp_sig)
+    needle="    int availableBytes = _tcpClient.available();"
+    require(before.count(needle)==1,"MODBUS_RESPONSE_AVAILABLE_DRIFT")
+    after=before.replace(needle,"""    uint8_t observedStatus = 0;
+    const auto probe = _tcpClient.jwplcProbeSocketStatus(observedStatus);
+    if (probe == jwplc_w5500_candidate::StatusReadOutcome::BusBusy) {
+        releaseBus();
+        return; // SPI_BUSY != link failure
+    }
+    if (probe == jwplc_w5500_candidate::StatusReadOutcome::Stale) {
+        releaseBus();
+        fail(JWPLC_MODBUS_TCP_CLIENT_TRANSPORT_ERROR, true);
+        return;
+    }
+    int availableBytes = _tcpClient.available();""",1)
+    require(mb.count(before)==1,"MODBUS_SERVICE_RESPONSE_NOT_UNIQUE")
+    mb=mb.replace(before,after,1)
+    first["MB_CLIENT"]=mb
+    return first
+
 def compose():
     mods={k:load(v,k) for k,v in MODULES.items() if k!="frozen"}
     repro=mods["repro"]
@@ -132,6 +286,7 @@ def compose():
     udp_original=(ROOT/udp.UDP_PATH).read_text(encoding="utf-8-sig")
     udp_overlay,_=udp.patches(repro,udp_original)
     first["UDP"]='#include "JWPLC_W5500_SafeAccess.h"\n'+udp_overlay
+    first=patch_client_modbus_b01_b04(repro,first)
     udp_anchor="bool _sendPending = false; // JWPLC cooperative UDP SEND state"
     require(first["HEADER"].count(udp_anchor)==1,"UDP_HEADER_FIELD_DRIFT")
     first["HEADER"]=first["HEADER"].replace(udp_anchor,udp_anchor+
@@ -151,6 +306,7 @@ def compose():
     for k,path in s1.TARGETS.items():
         paths[path]=first["CLIENT"] if k=="RAW_CLIENT" else first[k]
     paths[udp.UDP_PATH]=first["UDP"]
+    paths["JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP_Client.h"]=first["MB_CLIENT_HEADER"]
     # La fase antigua componía referencias a SafeAccess, pero OMITÍA sus
     # dos archivos. Un build Arduino completo exige ambas unidades.
     base=ROOT/"tools/alpha13/candidates/g10_p1g_c"
