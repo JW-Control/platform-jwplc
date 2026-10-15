@@ -39,12 +39,12 @@ MODULES = {
 }
 # Ningún PASS previo resuelve todavía estas fronteras de integración.
 BLOCKERS = {
-    "B01": "Modbus Server/Client usan probe interno; connected()/socketStatus() públicos conservan BUS_BUSY indistinguible y faltan otros consumidores",
-    "B02": "Client capacity, flush y endpoints corregidos; status/connected dependen de política B01 y ownership Server/UDP de B04/B05",
-    "B03": "Dns.cpp real, EthernetUDP dependiente y DHCP no están integrados en un mismo flujo",
-    "B04": "stop()/cancelStopAsync()/cancelConnectAsync() tienen ticket duradero; revisar ciclo de vida de begin/poll y retarget",
+    "B01": "B01_PUBLIC_API_DECISION_REQUIRED: connected()/status()/socketStatus() públicos colapsan BUS_BUSY y CLOSED",
+    "B02": "IO directo source-backed; semántica pública de estado se decide en B01",
+    "B03": "Cierre diferido DNS/DHCP/UDP source-backed; falta red física",
+    "B04": "Ciclo connect/retarget/cancel/stop source-backed; falta temporización física del tick autoload",
     "B05": "Listener y broadcast source-backed; reset físico y reconexión end-to-end aún no validados",
-    "B06": "Sin build Arduino CLI/IDE baseline-vs-overlay con autoload y cinco archives congelados",
+    "B06": "N2 bootstrap pasó; N3 package Alpha13 completo aún no ejecutado",
     "B07": "Sin medición física de fairness y regresión W5500, Display, SD, FRAM, RTC, TCA, RS-485, Modbus RTU/TCP",
     "B08": "Overlay único no equivale a compilación completa: revisar doble lock, firmas públicas y compatibilidad del core",
 }
@@ -110,6 +110,10 @@ def patch_client_modbus_b01_b04(repro, first):
     hdr=hdr.replace(signature,signature+
         "\n\t// Estado tri-valuado interno; no convertir BUS_BUSY a CLOSED.\n"
         "\tjwplc_w5500_candidate::StatusReadOutcome jwplcProbeSocketStatus(uint8_t& result);",1)
+    pending="bool _jwplcDeferredConnect = false;"
+    require(hdr.count(pending)==1,"G10_CLIENT_CANCEL_PENDING_HEADER_DRIFT")
+    hdr=hdr.replace(pending,pending+
+        "\n    bool _jwplcCancelConnectPending = false;",1)
     first["HEADER"]=hdr
     cpp=first["CLIENT"]
     cancel_sig="void EthernetClient::cancelConnectAsync()"
@@ -118,11 +122,24 @@ def patch_client_modbus_b01_b04(repro, first):
     require(old_cancel.count(busy)==1,"CLIENT_CANCEL_BUSY_ANCHOR_DRIFT")
     new_cancel=old_cancel.replace(busy,
         "if (!bus) {\n"
+        "\t\t_jwplcCancelConnectPending = true;\n"
         "\t\t// A temporary client may die after a timeout. The autoload\n"
         "\t\t// service owns this token until CLOSE or a newer allocation.\n"
         "\t\t(void)jwplc_w5500_candidate::requestDeferredClose(_jwplcSocketToken);\n"
         "\t\treturn; // retain the handle for an explicit retry too\n"
         "\t}",1)
+    opener="void EthernetClient::cancelConnectAsync()\n{"
+    require(new_cancel.count(opener)==1,"CLIENT_CANCEL_OPEN_DRIFT")
+    new_cancel=new_cancel.replace(opener,opener+
+        "\n\t_jwplcDeferredConnect = false; // cancel the queued retarget too",1)
+    empty="if (_sockindex >= MAX_SOCK_NUM) {\n\t\t_jwplcDeferredConnect = false;"
+    require(new_cancel.count(empty)==1,"CLIENT_CANCEL_EMPTY_DRIFT")
+    new_cancel=new_cancel.replace(empty,empty+
+        "\n\t\t_jwplcCancelConnectPending = false;",1)
+    acquired="\t_jwplcDeferredConnect = false;\n\tif (!jwplc_w5500_candidate::matchesLocked"
+    require(new_cancel.count(acquired)==1,"CLIENT_CANCEL_ACQUIRED_DRIFT")
+    new_cancel=new_cancel.replace(acquired,
+        "\t_jwplcCancelConnectPending = false;\n"+acquired,1)
     require(cpp.count(old_cancel)==1,"CLIENT_CANCEL_METHOD_NOT_UNIQUE")
     cpp=cpp.replace(old_cancel,new_cancel,1)
     stop_sig="void EthernetClient::stop()"
@@ -148,6 +165,34 @@ def patch_client_modbus_b01_b04(repro, first):
         "\t}",1)
     require(cpp.count(old_cancel_stop)==1,"CLIENT_CANCEL_STOP_METHOD_NOT_UNIQUE")
     cpp=cpp.replace(old_cancel_stop,new_cancel_stop,1)
+    begin_sig="int EthernetClient::beginConnectAsync(IPAddress ip, uint16_t port)"
+    old_begin=repro.extract(cpp,begin_sig)
+    begin_open=begin_sig+"\n{"
+    require(old_begin.count(begin_open)==1,"CLIENT_BEGIN_CONNECT_OPEN_DRIFT")
+    new_begin=old_begin.replace(begin_open,begin_open+
+        "\n\t// An explicit new target supersedes a pending cancellation.\n"
+        "\t_jwplcCancelConnectPending = false;",1)
+    require(cpp.count(old_begin)==1,"CLIENT_BEGIN_CONNECT_NOT_UNIQUE")
+    cpp=cpp.replace(old_begin,new_begin,1)
+    poll_sig="int EthernetClient::pollConnectAsync()"
+    old_poll=repro.extract(cpp,poll_sig)
+    poll_open=poll_sig+"\n{"
+    require(old_poll.count(poll_open)==1,"CLIENT_POLL_CONNECT_OPEN_DRIFT")
+    new_poll=old_poll.replace(poll_open,poll_open+
+        "\n\tif (_jwplcCancelConnectPending) {\n"
+        "\t\tcancelConnectAsync();\n"
+        "\t\treturn _jwplcCancelConnectPending ? 0 : -1;\n"
+        "\t}",1)
+    require(cpp.count(old_poll)==1,"CLIENT_POLL_CONNECT_NOT_UNIQUE")
+    cpp=cpp.replace(old_poll,new_poll,1)
+    progress_sig="bool EthernetClient::connectAsyncInProgress()"
+    old_progress=repro.extract(cpp,progress_sig)
+    progress_open=progress_sig+"\n{"
+    require(old_progress.count(progress_open)==1,"CLIENT_CONNECT_PROGRESS_OPEN_DRIFT")
+    new_progress=old_progress.replace(progress_open,progress_open+
+        "\n\tif (_jwplcCancelConnectPending) return true;",1)
+    require(cpp.count(old_progress)==1,"CLIENT_CONNECT_PROGRESS_NOT_UNIQUE")
+    cpp=cpp.replace(old_progress,new_progress,1)
     require("EthernetClient::jwplcProbeSocketStatus" not in cpp,
             "CLIENT_PROBE_ALREADY_PRESENT")
     cpp+="""
@@ -1029,6 +1074,81 @@ def client_close_ticket_native(out,files):
             "scope":"BUS_BUSY, timeout, object destruction, stale/current lease"}
 
 
+def b04_connect_lifecycle_native(out,files):
+    """Real begin/poll/cancel/retarget bodies and negative race mutations."""
+    repro=load(MODULES["repro"],"b04_lifecycle_extract")
+    compiler=load("a13_g10_p1g_c1_native_prototype.py","b04_lifecycle_compiler")
+    builder=load(MODULES["b2a"],"b04_lifecycle_builder")
+    boundary=(ROOT/"tools/alpha13/candidates/g10_p1g_c/native_c2_s2c2a_legacy_connect_test.cpp").read_text(encoding="utf-8-sig")
+    require(boundary.count("static void checkNoLeak()")==1,
+            "B04_LIFECYCLE_BOUNDARY_DRIFT")
+    prefix=boundary.split("static void checkNoLeak()",1)[0]
+    field="bool _jwplcDeferredConnect=false;"
+    require(prefix.count(field)==1,"B04_LIFECYCLE_FIELD_DRIFT")
+    prefix=prefix.replace(field,field+
+        " bool _jwplcCancelConnectPending=false;",1)
+    delay="static void delay(int ms){ g_now+=uint32_t(ms);"
+    require(prefix.count(delay)==1,"B04_LIFECYCLE_WAIT_BOUNDARY_DRIFT")
+    prefix=prefix.replace(delay,
+        "static void delay(int ms){ check(!ownedByThisTask(),"
+        "\"B04_WAIT_HOLDS_SPI\"); g_now+=uint32_t(ms);",1)
+    cases=(ROOT/"tools/alpha13/candidates/g10_p1g_c/native_g10_i_b04_connect_lifecycle_cases.cpp").read_text(encoding="utf-8-sig")
+    test=out/"b04_connect_lifecycle_test.cpp"
+    test.write_text(prefix+cases,encoding="utf-8")
+    builder.TEST=test
+    source=files["JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/EthernetClient.cpp"]
+    sigs=("int EthernetClient::beginConnectAsync(",
+          "int EthernetClient::pollConnectAsync()",
+          "bool EthernetClient::connectAsyncInProgress()",
+          "void EthernetClient::cancelConnectAsync()",
+          "void EthernetClient::cancelWriteAsync()",
+          "int EthernetClient::connect(IPAddress ip, uint16_t port)")
+    bodies={sig:repro.extract(source,sig) for sig in sigs}
+    def run(tag,versions):
+        joined="\n\n".join(versions[sig] for sig in sigs)+"\n"
+        return builder.native(out,tag,joined,compiler)
+    rc,log=run("b04_connect_lifecycle_positive",bodies)
+    wanted=("CANCELLED_RETARGET","RECYCLED_CANCEL",
+            "NEW_TARGET_SUPERSEDES","TIMEOUT_NO_PHANTOM",
+            "TIMEOUT_EXISTING_TICKET")
+    if rc!=0 or not all("G10_I_B04_"+x+"=PASS" in log for x in wanted):
+        emit("B04_LIFECYCLE_DIAG","EXIT_"+str(rc)+"_"+log[-900:].strip())
+    require(rc==0 and all("G10_I_B04_"+x+"=PASS" in log for x in wanted),
+            "B04_LIFECYCLE_SOURCE_CORRECTION_NOT_DEMONSTRATED")
+    variants=(
+        ("cancel_loses_pending",sigs[3],
+         "_jwplcCancelConnectPending = true;","_jwplcCancelConnectPending = false;",
+         "B04_CANCEL_PENDING_NOT_IN_PROGRESS"),
+        ("poll_ignores_cancel",sigs[1],
+         "if (_jwplcCancelConnectPending) {","if (false) {",
+         "B04_CANCELLED_RETARGET_RESTARTED"),
+        ("begin_drops_new_target",sigs[0],
+         "_jwplcCancelConnectPending = false;","/* old cancel still pending */",
+         "B04_NEW_TARGET_WAS_CANCELLED"),
+        ("progress_misses_cancel",sigs[2],
+         "if (_jwplcCancelConnectPending) return true;","if (false) return true;",
+         "B04_CANCEL_PENDING_NOT_IN_PROGRESS"),
+        ("cancel_ignores_owner",sigs[3],
+         "!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)","false",
+         "B04_RECYCLED_OWNER_TOUCHED"),
+        ("timeout_skips_cancel",sigs[5],
+         "cancelConnectAsync();","/* timeout does not cancel */",
+         "B04_TIMEOUT_PHANTOM_CONNECT"),
+    )
+    for label,sig,anchor,replacement,expected in variants:
+        require(bodies[sig].count(anchor)==1,"B04_LIFECYCLE_MUTANT_ANCHOR_"+label)
+        mutant=dict(bodies);mutant[sig]=bodies[sig].replace(anchor,replacement,1)
+        code,output=run("b04_connect_lifecycle_negative_"+label,mutant)
+        if code==0 or expected not in output:
+            emit("B04_LIFECYCLE_MUTANT_DIAG_"+label,
+                 "EXIT_"+str(code)+"_"+output[-600:].strip())
+        require(code!=0 and expected in output,
+                "B04_LIFECYCLE_MUTANT_NOT_REJECTED_"+label)
+    return {"status":"PASS_SOURCE_BACKED_CONNECT_LIFECYCLE",
+            "cpp_methods":len(sigs),"negatives":len(variants),
+            "scope":"BUS_BUSY cancel, retarget, recycled owner, timeout; host W5500"}
+
+
 def modbus_cleanup_native(out,files):
     """Compilar tres METODOS C++ del overlay actual y negativos integrados."""
     repro=load(MODULES["repro"],"modbus_cleanup_extract")
@@ -1508,6 +1628,42 @@ def status_probe_native(out):
             "qualified_for_adoption":False}
 
 
+def b01_public_semantics_inventory(files):
+    """Source-backed scope check; this is a documented block, not a PASS."""
+    repro=load(MODULES["repro"],"b01_public_inventory")
+    client=files["JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/EthernetClient.cpp"]
+    socket=files["JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/socket.cpp"]
+    mb_client=files["JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP_Client.cpp"]
+    mb_server=files["JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP.cpp"]
+    connected=repro.extract(client,"uint8_t EthernetClient::connected()")
+    status=repro.extract(client,"uint8_t EthernetClient::status()")
+    raw=repro.extract(socket,"uint8_t EthernetClass::socketStatus(uint8_t s)")
+    require("if (!bus) return 0;" in connected and
+            "return Ethernet.socketStatus(_sockindex);" in status and
+            "if (!bus) return SnSR::CLOSED;" in raw,
+            "B01_PUBLIC_SCALAR_CONTRACT_CHANGED_REVIEW_REQUIRED")
+    for sig in ("void JWPLC_ModbusTCPClientClass::serviceConnection()",
+                "void JWPLC_ModbusTCPClientClass::serviceResponse()"):
+        body=repro.extract(mb_client,sig)
+        require(body.index("jwplcProbeSocketStatus(") <
+                body.index("_tcpClient.connected()"),
+                "B01_MODBUS_CLIENT_PROBE_ORDER_DRIFT_"+sig)
+    body=repro.extract(mb_server,"void JWPLC_ModbusTCPClass::serviceServer()")
+    require(body.index("jwplcProbeSocketStatus(") <
+            body.index("ackRxIntLocked()") and
+            body.index("jwplcProbeSocketStatus(") <
+            body.index("_client.connected()"),
+            "B01_MODBUS_SERVER_PROBE_ORDER_DRIFT")
+    listener=repro.extract(mb_server,"void JWPLC_ModbusTCPClass::ensureServerListening()")
+    require(listener.index("if (!acquireBus(20))") <
+            listener.index("(bool)_server"),
+            "B01_MODBUS_LISTENER_BUSY_ORDER_DRIFT")
+    return {"status":"BLOCKED_SEMANTICS",
+            "internal_consumers":"Modbus Client connection/response, Modbus Server RX/listener guarded",
+            "public_returns":"connected=0, status/socketStatus=CLOSED on BUS_BUSY",
+            "consequence":"external Arduino callers can mistake contention for disconnection"}
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ci-standalone",action="store_true",
@@ -1532,6 +1688,7 @@ def main():
         m["archives_frozen"]=True
         files=compose()
         shas=write_evidence(out,head,files)
+        m["b01_public_semantics_inventory"]=b01_public_semantics_inventory(files)
         m["status_probe"]=status_probe_native(out)
         emit("TRISTATE_STATUS_NATIVE","PASS_PRIMITIVE_ONLY")
         m["modbus_cleanup_probe"]=modbus_cleanup_native(out,files)
@@ -1542,6 +1699,8 @@ def main():
         emit("B01_MODBUS_SERVER_STATUS","PASS_REAL_CPP_2_NEGATIVES")
         m["client_close_ticket_probe"]=client_close_ticket_native(out,files)
         emit("B04_CLIENT_CLOSE_TICKET","PASS_5_REAL_CPP_4_NEGATIVES")
+        m["b04_connect_lifecycle_probe"]=b04_connect_lifecycle_native(out,files)
+        emit("B04_CONNECT_LIFECYCLE","PASS_6_REAL_CPP_6_NEGATIVES")
         m["b02_udp_io"]=b02_udp_io_native(out,files)
         emit("B02_UDP_IO","PASS_SOURCE_BACKED_7_METHODS_3_NEGATIVES")
         m["b02_tcp_rx"]=b02_tcp_rx_native(out,files)
@@ -1550,14 +1709,26 @@ def main():
         emit("B02_TCP_TX","PASS_SOURCE_BACKED_5_METHODS_4_NEGATIVES")
         m["b02_client_remaining"]=b02_client_remaining_native(out,files)
         emit("B02_CLIENT_REMAINING","PASS_SOURCE_BACKED_12_METHODS_6_NEGATIVES")
-        m["b02_nonphysical_status"]="REVIEW_B01_B04_B05_DEPENDENCIES"
+        m["b02_nonphysical_status"]="PASS_SOURCE_BACKED_IO_PUBLIC_STATUS_EXCLUDED"
         emit("B02_NONPHYSICAL",m["b02_nonphysical_status"])
         m["b04_b05_server"]=b04_b05_server_native(out,files)
         emit("B04_B05_SERVER","PASS_SOURCE_BACKED_4_METHODS_1_CTOR_6_NEGATIVES")
-        m["b04_b05_status"]="REVIEW_PUBLIC_BUSY_POLICY_ASYNC_LIFECYCLE_AND_PHYSICAL_RESET"
+        m["b04_b05_status"]="REVIEW_PUBLIC_BUSY_POLICY_AND_PHYSICAL_RESET"
         emit("B04_B05",m["b04_b05_status"])
         m["b03_dns_dhcp_shutdown"]=b03_deferred_close_native(out,files)
         emit("B03_DNS_DHCP_SHUTDOWN","PASS_SOURCE_BACKED_DEFERRED_CLOSE_9_NEGATIVES")
+        m["gate_matrix"]={
+            "B01":"BLOCKED_SEMANTICS",
+            "B02":"PASS_NONPHYSICAL",
+            "B03":"PASS_NONPHYSICAL",
+            "B04":"PASS_NONPHYSICAL",
+            "B05":"REVIEW_PHYSICAL",
+        }
+        m["b01_public_api_decision"]="B01_PUBLIC_API_DECISION_REQUIRED"
+        m["n3_ready"]="NO_B01_PUBLIC_API_DECISION_REQUIRED"
+        emit("B01_PUBLIC_API_DECISION_REQUIRED","YES")
+        emit("GATE_MATRIX","B01_BLOCKED_SEMANTICS_B02_B03_B04_PASS_NONPHYSICAL_B05_REVIEW_PHYSICAL")
+        emit("N3_READY",m["n3_ready"])
         if opts.stage_platform is not None:
             staged=stage_platform(opts.stage_platform,files,shas)
             m["staged_sources"]=staged
@@ -1565,7 +1736,7 @@ def main():
             emit("ARDUINO_PLATFORM_EXPORT","STAGED_NOT_COMPILED")
         m.update({"head":head,"overlay_files":shas,
                   "blockers":BLOCKERS,
-                  "status":"B01_B04_B05_CANDIDATE_REVIEW_STOP"})
+                  "status":"B01_PUBLIC_API_DECISION_REQUIRED"})
         emit("SOURCE_OVERLAY","COMPOSED")
         emit("OVERLAY_FILES",len(files))
         emit("FROZEN_ARCHIVES",5)

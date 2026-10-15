@@ -66,16 +66,19 @@ jobs:
           if ($log -notmatch 'G10_INTEGRATED_MODBUS_SERVER_CLEANUP_NATIVE=PASS_THREE_SOURCE_METHODS_5_NEGATIVES') { throw 'G10_I_MODBUS_SERVER_NOT_PROVEN' }
           if ($log -notmatch 'G10_INTEGRATED_B01_MODBUS_SERVER_STATUS=PASS_REAL_CPP_2_NEGATIVES') { throw 'G10_I_B01_SERVER_STATUS_NOT_PROVEN' }
           if ($log -notmatch 'G10_INTEGRATED_B04_CLIENT_CLOSE_TICKET=PASS_5_REAL_CPP_4_NEGATIVES') { throw 'G10_I_B04_CLIENT_TICKET_NOT_PROVEN' }
+          if ($log -notmatch 'G10_INTEGRATED_B04_CONNECT_LIFECYCLE=PASS_6_REAL_CPP_6_NEGATIVES') { throw 'G10_I_B04_CONNECT_LIFECYCLE_NOT_PROVEN' }
           if ($log -notmatch 'G10_INTEGRATED_B02_UDP_IO=PASS_SOURCE_BACKED_7_METHODS_3_NEGATIVES') { throw 'G10_I_B02_UDP_IO_NOT_PROVEN' }
           if ($log -notmatch 'G10_INTEGRATED_B02_TCP_RX=PASS_SOURCE_BACKED_6_METHODS_3_NEGATIVES') { throw 'G10_I_B02_TCP_RX_NOT_PROVEN' }
           if ($log -notmatch 'G10_INTEGRATED_B02_TCP_TX=PASS_SOURCE_BACKED_5_METHODS_4_NEGATIVES') { throw 'G10_I_B02_TCP_TX_NOT_PROVEN' }
           if ($log -notmatch 'G10_INTEGRATED_B02_CLIENT_REMAINING=PASS_SOURCE_BACKED_12_METHODS_6_NEGATIVES') { throw 'G10_I_B02_CLIENT_REMAINING_NOT_PROVEN' }
-          if ($log -notmatch 'G10_INTEGRATED_B02_NONPHYSICAL=REVIEW_B01_B04_B05_DEPENDENCIES') { throw 'G10_I_B02_SCOPE_MISREPORTED' }
+          if ($log -notmatch 'G10_INTEGRATED_B02_NONPHYSICAL=PASS_SOURCE_BACKED_IO_PUBLIC_STATUS_EXCLUDED') { throw 'G10_I_B02_SCOPE_MISREPORTED' }
           if ($log -notmatch 'G10_INTEGRATED_B04_B05_SERVER=PASS_SOURCE_BACKED_4_METHODS_1_CTOR_6_NEGATIVES') { throw 'G10_I_B05_SERVER_CORRECTION_NOT_PROVEN' }
-          if ($log -notmatch 'G10_INTEGRATED_B04_B05=REVIEW_PUBLIC_BUSY_POLICY_ASYNC_LIFECYCLE_AND_PHYSICAL_RESET') { throw 'G10_I_B05_SCOPE_MISREPORTED' }
+          if ($log -notmatch 'G10_INTEGRATED_B04_B05=REVIEW_PUBLIC_BUSY_POLICY_AND_PHYSICAL_RESET') { throw 'G10_I_B05_SCOPE_MISREPORTED' }
           if ($log -notmatch 'G10_INTEGRATED_B03_DNS_DHCP_SHUTDOWN=PASS_SOURCE_BACKED_DEFERRED_CLOSE_9_NEGATIVES') { throw 'G10_I_B03_CORRECTION_NOT_DEMONSTRATED' }
+          if ($log -notmatch 'G10_INTEGRATED_B01_PUBLIC_API_DECISION_REQUIRED=YES') { throw 'G10_I_B01_SEMANTICS_RISK_MASKED' }
+          if ($log -notmatch 'G10_INTEGRATED_N3_READY=NO_B01_PUBLIC_API_DECISION_REQUIRED') { throw 'G10_I_N3_READINESS_WRONG' }
           if ($log -notmatch 'G10_INTEGRATED_BLOCKERS=8') { throw 'G10_I_RISK_MASKED' }
-          if ($log -notmatch 'G10_INTEGRATED_STATUS=B01_B04_B05_CANDIDATE_REVIEW_STOP') { throw 'G10_I_WRONG_STATUS' }
+          if ($log -notmatch 'G10_INTEGRATED_STATUS=B01_PUBLIC_API_DECISION_REQUIRED') { throw 'G10_I_WRONG_STATUS' }
           if ($log -notmatch 'G10_INTEGRATED_PRODUCT_CHANGED=NO') { throw 'G10_I_PRODUCT_CHANGED' }
       - name: No tocar fuentes productivas
         shell: pwsh
@@ -301,6 +304,9 @@ jobs:
                     }
                   done
                   for symbol in 'EthernetClient::cancelConnectAsync()' \
+                                'EthernetClient::beginConnectAsync(' \
+                                'EthernetClient::pollConnectAsync()' \
+                                'EthernetClient::connectAsyncInProgress()' \
                                 'EthernetClient::cancelStopAsync()' \
                                 'EthernetClient::stop()' \
                                 'jwplc_w5500_candidate::requestDeferredClose('; do
@@ -428,7 +434,7 @@ jobs:
               --stage-platform "$RUNNER_TEMP/g10-full-candidate-platform" \
               >"$WORK/evidence/compose.log"
             SRC="$RUNNER_TEMP/g10-full-candidate-platform"
-            grep -F 'G10_INTEGRATED_STATUS=B01_B04_B05_CANDIDATE_REVIEW_STOP' "$WORK/evidence/compose.log"
+            grep -F 'G10_INTEGRATED_STATUS=B01_PUBLIC_API_DECISION_REQUIRED' "$WORK/evidence/compose.log"
           fi
           rsync -a "$SRC/" "$WORK/sketchbook/hardware/jwplc_local/esp32/"
           cmp "$SRC/boards.txt" "$WORK/sketchbook/hardware/jwplc_local/esp32/boards.txt"

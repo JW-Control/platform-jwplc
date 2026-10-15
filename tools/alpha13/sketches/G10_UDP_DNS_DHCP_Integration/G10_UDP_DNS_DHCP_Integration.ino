@@ -55,7 +55,11 @@ static void exerciseApiOnDemand() {
   (void)gTcp.localPort();
   (void)gTcp.remoteIP();
   (void)gTcp.remotePort();
-  // B04: link public close paths; B01's internal probe is linked by Modbus.
+  // B04: link the full cooperative connect/close cycle. B01's internal
+  // status probe is linked by the Modbus Server example.
+  (void)gTcp.beginConnectAsync(IPAddress(192, 168, 1, 2), 502);
+  (void)gTcp.pollConnectAsync();
+  (void)gTcp.connectAsyncInProgress();
   gTcp.cancelConnectAsync();
   gTcp.cancelStopAsync();
   gTcp.stop();

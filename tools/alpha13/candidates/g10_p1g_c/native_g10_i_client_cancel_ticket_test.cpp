@@ -34,6 +34,7 @@ struct EthernetClient {
   uint8_t _sockindex=MAX_SOCK_NUM;
   SocketToken _jwplcSocketToken{};
   bool _jwplcDeferredConnect=false;
+  bool _jwplcCancelConnectPending=false;
   bool _stopPending=false;
   uint32_t _stopStartedAtMs=0,_timeout=3;
   void cancelConnectAsync();
