@@ -545,6 +545,70 @@ def patch_tcp_remaining_b02(repro, source):
         source=source.replace(old,new,1)
     return source
 
+def patch_server_b04_b05(repro, source):
+    """Snapshot only current server sockets; send after releasing SPI."""
+    signature="EthernetServer::operator bool()"
+    old=repro.extract(source,signature)
+    require(old.count("W5100.getChip()")==1 and
+            old.count("Ethernet.socketStatus(i)")==1 and
+            "BusScope" not in old,"B04_SERVER_BOOL_SOURCE_DRIFT")
+    new=old.replace("{", "{\n\tjwplc_w5500_candidate::BusScope bus(20);\n"
+                    "\tif (!bus) return false; // public bool cannot encode BUS_BUSY",1)
+    new=new.replace("if (server_port[i] == _port) {",
+        "if (server_port[i] == _port &&\n"
+        "            jwplc_w5500_candidate::listenerMatchesLocked(\n"
+        "                i, _port, jwplc_w5500_candidate::currentSocketTokenLocked(i))) {",1)
+    require(source.count(old)==1,"B04_SERVER_BOOL_NOT_UNIQUE")
+    source=source.replace(old,new,1)
+
+    signature="size_t EthernetServer::write(const uint8_t *buffer, size_t size)"
+    old=repro.extract(source,signature)
+    require(old.count("W5100.getChip()")==1 and
+            old.count("Ethernet.socketStatus(i)")==1 and
+            old.count("client.write(buffer, size)")==1 and
+            "BusScope" not in old,"B05_SERVER_WRITE_SOURCE_DRIFT")
+    new="""size_t EthernetServer::write(const uint8_t *buffer, size_t size)
+{
+    if (buffer == nullptr || size == 0) return 0;
+    // Keep the legacy listener-maintenance pass, outside the snapshot lock.
+    available();
+
+    EthernetClient clients[MAX_SOCK_NUM];
+    uint8_t count = 0;
+    {
+        jwplc_w5500_candidate::BusScope bus(20);
+        if (!bus) return 0; // no listener or socket inference on SPI_BUSY
+        const uint8_t chip = W5100.getChip();
+        if (!chip) return 0;
+        uint8_t maxindex = MAX_SOCK_NUM;
+#if MAX_SOCK_NUM > 4
+        if (chip == 51) maxindex = 4;
+#endif
+        for (uint8_t i = 0; i < maxindex; i++) {
+            const auto token = jwplc_w5500_candidate::currentSocketTokenLocked(i);
+            if (server_port[i] != _port ||
+                !jwplc_w5500_candidate::listenerMatchesLocked(i, _port, token) ||
+                Ethernet.socketStatus(i) != SnSR::ESTABLISHED) continue;
+            // The constructor captures the token while this same scope owns
+            // SPI. A recycled slot cannot become a new broadcast target.
+            clients[count] = EthernetClient(i);
+            if (clients[count].getSocketNumber() == i &&
+                jwplc_w5500_candidate::matchesLocked(clients[count]._jwplcSocketToken))
+                ++count;
+        }
+    }
+
+    // Each write may wait for SEND_OK. Never hold the server scan lock here.
+    size_t minimumWritten = size;
+    for (uint8_t i = 0; i < count; i++) {
+        const size_t written = clients[i].write(buffer, size);
+        if (written < minimumWritten) minimumWritten = written;
+    }
+    return count ? minimumWritten : 0;
+}"""
+    require(source.count(old)==1,"B05_SERVER_WRITE_NOT_UNIQUE")
+    return source.replace(old,new,1)
+
 def compose():
     mods={k:load(v,k) for k,v in MODULES.items() if k!="frozen"}
     repro=mods["repro"]
@@ -577,6 +641,7 @@ def compose():
     first["CLIENT"]=patch_tcp_rx_b02(repro,first["CLIENT"])
     first["CLIENT"]=patch_tcp_tx_b02(repro,first["CLIENT"])
     first["CLIENT"]=patch_tcp_remaining_b02(repro,first["CLIENT"])
+    first["SERVER"]=patch_server_b04_b05(repro,first["SERVER"])
     socket_overlay,_=s2a.patch(repro,first["SOCKET"])
     first["SOCKET"]=socket_overlay
     udp_original=(ROOT/udp.UDP_PATH).read_text(encoding="utf-8-sig")
@@ -1050,6 +1115,72 @@ def b02_client_remaining_native(out, files):
             "scope":"capacity, flush, endpoint reads; B01 public status and B04/B05 ownership open"}
 
 
+def b04_b05_server_native(out, files):
+    """Run real Server scan/broadcast and constructor against slot epochs."""
+    repro=load(MODULES["repro"],"b05_server_repro")
+    compiler=load("a13_g10_p1g_c1_native_prototype.py","b05_server_compiler")
+    builder=load(MODULES["b2a"],"b05_server_builder")
+    header=files["JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/JWPLC_W5x00_Ethernet.h"]
+    ctor=repro.extract(header,"EthernetClient(uint8_t s)")
+    template=(ROOT/"tools/alpha13/candidates/g10_p1g_c/native_g10_i_b04_b05_server_test.cpp").read_text(encoding="utf-8-sig")
+    require(template.count("__REAL_CLIENT_CTOR__")==1,"B05_CTOR_TEMPLATE_DRIFT")
+    test=out/"b05_server_native_test.cpp"
+    test.write_text(template.replace("__REAL_CLIENT_CTOR__",ctor),encoding="utf-8")
+    builder.TEST=test
+    source=files["JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/EthernetServer.cpp"]
+    signatures=("void EthernetServer::begin()",
+                "EthernetClient EthernetServer::available()",
+                "EthernetServer::operator bool()",
+                "size_t EthernetServer::write(const uint8_t *buffer, size_t size)")
+    methods=[repro.extract(source,s) for s in signatures]
+    def run(tag,versions):
+        return builder.native(out,tag,"\n\n".join(versions)+"\n",compiler)
+    rc,log=run("b05_server_positive",methods)
+    required=("LISTENER_REOPEN","BUSY","RECYCLED_RESET",
+              "BROADCAST_PARTIAL_RECYCLED","NO_PEER_TIMEOUT")
+    if rc!=0 or not all("G10_I_B05_"+name+"=PASS" in log for name in required):
+        emit("B05_SERVER_DIAG","EXIT_"+str(rc)+"_"+log.strip().replace("\n"," | ")[:800])
+    require(rc==0 and all("G10_I_B05_"+name+"=PASS" in log for name in required),
+            "B05_SERVER_SOURCE_CORRECTION_NOT_DEMONSTRATED")
+    variants=(
+        ("bool_without_bus",2,
+         "\tjwplc_w5500_candidate::BusScope bus(20);\n"
+         "\tif (!bus) return false; // public bool cannot encode BUS_BUSY",
+         "", "B05_W5500_OUTSIDE_BUS"),
+        ("bool_without_listener_lease",2,
+         "jwplc_w5500_candidate::listenerMatchesLocked(\n"
+         "                i, _port, jwplc_w5500_candidate::currentSocketTokenLocked(i))",
+         "true", "B05_STALE_LISTENER_STATUS_READ"),
+        ("write_without_bus",3,
+         "        jwplc_w5500_candidate::BusScope bus(20);\n"
+         "        if (!bus) return 0; // no listener or socket inference on SPI_BUSY",
+         "", "B05_W5500_OUTSIDE_BUS"),
+        ("write_without_listener_lease",3,
+         "!jwplc_w5500_candidate::listenerMatchesLocked(i, _port, token)",
+         "false", "B05_STALE_LISTENER_STATUS_READ"),
+        ("write_with_lock_across_tx",3,
+         "    // Each write may wait for SEND_OK. Never hold the server scan lock here.",
+         "    jwplc_w5500_candidate::BusScope heldAcrossWrite(20);\n"
+         "    // mutant: keep SPI while waiting for SEND_OK.",
+         "B05_BROADCAST_WRITE_WITH_BUS"),
+        ("ignore_partial_failure",3,
+         "return count ? minimumWritten : 0;",
+         "return count ? size : 0;", "B05_BROADCAST_PARTIAL_RESULT_WRONG"),
+    )
+    for label,index,anchor,replacement,expected in variants:
+        require(methods[index].count(anchor)==1,"B05_SERVER_MUTANT_ANCHOR_"+label)
+        mutant=list(methods)
+        mutant[index]=mutant[index].replace(anchor,replacement,1)
+        code,output=run("b05_server_negative_"+label,mutant)
+        if code==0 or expected not in output:
+            emit("B05_SERVER_MUTANT_DIAG_"+label,
+                 "EXIT_"+str(code)+"_"+output.strip().replace("\n"," | ")[:500])
+        require(code!=0 and expected in output,"B05_SERVER_MUTANT_NOT_REJECTED_"+label)
+    return {"status":"PASS_SOURCE_BACKED_SERVER_SNAPSHOT","cpp_methods":len(methods),
+            "real_client_constructor":True,"negatives":len(variants),
+            "scope":"Server listener bool/broadcast; BUS_BUSY bool policy and full B04/B05 remain REVIEW"}
+
+
 def b02_udp_io_native(out, files):
     """Execute real UDP RX/TX bodies with bus and lease assertions."""
     repro=load(MODULES["repro"],"b02_real_methods")
@@ -1261,6 +1392,10 @@ def main():
         emit("B02_CLIENT_REMAINING","PASS_SOURCE_BACKED_12_METHODS_6_NEGATIVES")
         m["b02_nonphysical_status"]="REVIEW_B01_B04_B05_DEPENDENCIES"
         emit("B02_NONPHYSICAL",m["b02_nonphysical_status"])
+        m["b04_b05_server"]=b04_b05_server_native(out,files)
+        emit("B04_B05_SERVER","PASS_SOURCE_BACKED_4_METHODS_1_CTOR_6_NEGATIVES")
+        m["b04_b05_status"]="REVIEW_B01_BUSY_POLICY_AND_RESET_OWNERSHIP"
+        emit("B04_B05",m["b04_b05_status"])
         m["b03_dns_dhcp_shutdown"]=b03_deferred_close_native(out,files)
         emit("B03_DNS_DHCP_SHUTDOWN","PASS_SOURCE_BACKED_DEFERRED_CLOSE_9_NEGATIVES")
         if opts.stage_platform is not None:

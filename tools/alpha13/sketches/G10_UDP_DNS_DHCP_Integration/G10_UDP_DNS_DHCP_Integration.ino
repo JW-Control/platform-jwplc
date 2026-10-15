@@ -9,6 +9,7 @@
 
 static EthernetUDP gUdp;
 static EthernetClient gTcp;
+static EthernetServer gServer(502);
 static DNSClient gDns;
 static IPAddress gResult;
 
@@ -54,6 +55,10 @@ static void exerciseApiOnDemand() {
   (void)gTcp.localPort();
   (void)gTcp.remoteIP();
   (void)gTcp.remotePort();
+  // Reach Server listener and broadcast bodies for B04/B05 ELF provenance.
+  gServer.begin();
+  (void)static_cast<bool>(gServer);
+  (void)gServer.write(&tcpByte, 1);
 }
 
 void setup() {
