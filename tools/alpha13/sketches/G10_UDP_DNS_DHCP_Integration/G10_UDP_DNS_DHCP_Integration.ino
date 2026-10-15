@@ -35,7 +35,7 @@ static void exerciseApiOnDemand() {
     gUdp.stop();
   }
 
-  // Force the candidate Client RX bodies into the linked ELF for B02.
+  // Link the candidate Client RX and TX bodies for B02 source provenance.
   uint8_t tcpByte = 0;
   (void)gTcp.available();
   (void)gTcp.read(&tcpByte, 1);
@@ -43,6 +43,10 @@ static void exerciseApiOnDemand() {
   (void)gTcp.peek();
   (void)gTcp.jwplcReadTcpFastDeferred(&tcpByte, 1);
   (void)gTcp.jwplcCommitRxFast();
+  (void)gTcp.write(&tcpByte, 1);
+  (void)gTcp.beginWriteAsync(&tcpByte, 1);
+  (void)gTcp.pollWriteAsync();
+  gTcp.cancelWriteAsync();
 }
 
 void setup() {

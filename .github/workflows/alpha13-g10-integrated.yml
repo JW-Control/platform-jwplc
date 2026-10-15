@@ -66,6 +66,7 @@ jobs:
           if ($log -notmatch 'G10_INTEGRATED_MODBUS_SERVER_CLEANUP_NATIVE=PASS_THREE_SOURCE_METHODS_5_NEGATIVES') { throw 'G10_I_MODBUS_SERVER_NOT_PROVEN' }
           if ($log -notmatch 'G10_INTEGRATED_B02_UDP_IO=PASS_SOURCE_BACKED_7_METHODS_3_NEGATIVES') { throw 'G10_I_B02_UDP_IO_NOT_PROVEN' }
           if ($log -notmatch 'G10_INTEGRATED_B02_TCP_RX=PASS_SOURCE_BACKED_6_METHODS_3_NEGATIVES') { throw 'G10_I_B02_TCP_RX_NOT_PROVEN' }
+          if ($log -notmatch 'G10_INTEGRATED_B02_TCP_TX=PASS_SOURCE_BACKED_5_METHODS_4_NEGATIVES') { throw 'G10_I_B02_TCP_TX_NOT_PROVEN' }
           if ($log -notmatch 'G10_INTEGRATED_B03_DNS_DHCP_SHUTDOWN=PASS_SOURCE_BACKED_DEFERRED_CLOSE_9_NEGATIVES') { throw 'G10_I_B03_CORRECTION_NOT_DEMONSTRATED' }
           if ($log -notmatch 'G10_INTEGRATED_BLOCKERS=8') { throw 'G10_I_RISK_MASKED' }
           if ($log -notmatch 'G10_INTEGRATED_STATUS=B03_CANDIDATE_REVIEW_BLOCKED') { throw 'G10_I_WRONG_STATUS' }
@@ -276,7 +277,11 @@ jobs:
                   for symbol in 'EthernetClient::available()' \
                                 'EthernetClient::read()' \
                                 'EthernetClient::read(unsigned char*,' \
-                                'EthernetClient::peek()'; do
+                                'EthernetClient::peek()' \
+                                'EthernetClient::write(unsigned char const*,' \
+                                'EthernetClient::beginWriteAsync(' \
+                                'EthernetClient::pollWriteAsync()' \
+                                'EthernetClient::cancelWriteAsync()'; do
                     grep -Fq "$symbol" "$EVIDENCE/nm-$name.txt" || {
                       echo "G10_I_B02_TCP_SYMBOL_NOT_IN_ELF=$symbol"
                       exit 50

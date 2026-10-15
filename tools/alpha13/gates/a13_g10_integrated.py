@@ -40,7 +40,7 @@ MODULES = {
 # Ningún PASS previo resuelve todavía estas fronteras de integración.
 BLOCKERS = {
     "B01": "SPI_BUSY: EthernetClient.connected() y socketStatus() pueden simular CLOSED o desconexión",
-    "B02": "UDP y TCP RX directos protegidos en el candidato; TCP TX y rutas restantes aún requieren lease end-to-end",
+    "B02": "UDP I/O y TCP Client RX/TX protegidos en el candidato; availableForWrite, flush y rutas restantes requieren lease end-to-end",
     "B03": "Dns.cpp real, EthernetUDP dependiente y DHCP no están integrados en un mismo flujo",
     "B04": "stop() / connect() con timeout y SPI ocupado pueden dejar handles sin reintento automático garantizado",
     "B05": "Identidad real de server_port[]/listeners, socket recycling y reset físico no validada a nivel end-to-end",
@@ -405,6 +405,91 @@ def patch_tcp_rx_b02(repro, source):
         source=source.replace(old,new,1)
     return source
 
+
+def patch_tcp_tx_b02(repro, source):
+    """Run legacy writes through bounded, lease-checked async SEND steps."""
+    signature="size_t EthernetClient::write(const uint8_t *buf, size_t size)"
+    old=repro.extract(source,signature)
+    require(old.count("Ethernet.socketSend(")==1 and
+            old.count("setWriteError();")==2,
+            "B02_TCP_WRITE_SOURCE_DRIFT")
+    new="""size_t EthernetClient::write(const uint8_t *buf, size_t size)
+{
+    if (size == 0) return 0;
+    if (_sockindex >= MAX_SOCK_NUM || buf == nullptr ||
+        writeAsyncInProgress() || _stopPending || _flushPending) {
+        setWriteError();
+        return 0;
+    }
+
+    // One SEND step per poll; yield only after its bus scope was released.
+    const uint32_t startedMs = millis();
+    size_t totalWritten = 0;
+    while (totalWritten < size) {
+        if ((uint32_t)(millis() - startedMs) >= _timeout) break;
+        const size_t remaining = size - totalWritten;
+        const uint16_t chunk = (uint16_t)(
+            remaining < (size_t)W5100.SSIZE ? remaining : (size_t)W5100.SSIZE);
+        int state = beginWriteAsync(buf + totalWritten, chunk);
+        while (state == 0) {
+            if ((uint32_t)(millis() - startedMs) >= _timeout) {
+                // If SEND was not issued, cancellation releases the buffer
+                // even under BUS_BUSY. After SEND, cleanup retains its lease.
+                cancelWriteAsync();
+                break;
+            }
+            yield(); // no JWPLC SPI mutex held here
+            state = pollWriteAsync();
+        }
+        if (state != 1) break;
+        totalWritten += chunk;
+    }
+    if (totalWritten != size) setWriteError();
+    return totalWritten;
+}"""
+    require(source.count(old)==1,"B02_TCP_WRITE_NOT_UNIQUE")
+    source=source.replace(old,new,1)
+
+    signature="int EthernetClient::pollWriteAsync()"
+    old=repro.extract(source,signature)
+    require(old.count("Ethernet.socketBeginSendTCP(")==1 and
+            old.count("Ethernet.socketPollSendTCP(")==1,
+            "B02_TCP_POLL_SOURCE_DRIFT")
+    guard="""
+    jwplc_w5500_candidate::BusScope bus(20);
+    if (!bus) return 0; // retain the SEND state and its buffer
+    if (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) {
+        _sockindex = MAX_SOCK_NUM;
+        _writeAsyncState = 0;
+        _writeAsyncBuffer = nullptr;
+        _writeAsyncLength = 0;
+        _writeAsyncStartedAtMs = 0;
+        return -1; // recycled slot or chip epoch: no W5500 access
+    }
+"""
+    anchor="\tif (_writeAsyncState == 1) {"
+    require(old.count(anchor)==1,"B02_TCP_POLL_STATE_ANCHOR")
+    new=old.replace(anchor,guard+anchor,1)
+    require(source.count(old)==1,"B02_TCP_POLL_NOT_UNIQUE")
+    source=source.replace(old,new,1)
+
+    signature="void EthernetClient::cancelWriteAsync()"
+    old=repro.extract(source,signature)
+    anchor="\tjwplc_w5500_candidate::BusScope bus(20);"
+    require(old.count(anchor)==1,"B02_TCP_CANCEL_ANCHOR")
+    early="""    if (_writeAsyncState == 1) {
+        // No SEND command was issued; dropping the borrowed buffer is safe.
+        _writeAsyncState = 0;
+        _writeAsyncBuffer = nullptr;
+        _writeAsyncLength = 0;
+        _writeAsyncStartedAtMs = 0;
+        return;
+    }
+"""
+    new=old.replace(anchor,early+anchor,1)
+    require(source.count(old)==1,"B02_TCP_CANCEL_NOT_UNIQUE")
+    return source.replace(old,new,1)
+
 def compose():
     mods={k:load(v,k) for k,v in MODULES.items() if k!="frozen"}
     repro=mods["repro"]
@@ -435,6 +520,7 @@ def compose():
     first["CLIENT"],_=c1.patch_tx(repro,first["CLIENT"])
     first["CLIENT"],_=c2a.patch_legacy(repro,first["CLIENT"])
     first["CLIENT"]=patch_tcp_rx_b02(repro,first["CLIENT"])
+    first["CLIENT"]=patch_tcp_tx_b02(repro,first["CLIENT"])
     socket_overlay,_=s2a.patch(repro,first["SOCKET"])
     first["SOCKET"]=socket_overlay
     udp_original=(ROOT/udp.UDP_PATH).read_text(encoding="utf-8-sig")
@@ -775,6 +861,59 @@ def b02_tcp_rx_native(out, files):
             "negatives":len(variants),"scope":"TCP Client RX only; TX and public status remain open"}
 
 
+def b02_tcp_tx_native(out, files):
+    """Exercise the five real TCP TX bodies and reject unsafe mutations."""
+    repro=load(MODULES["repro"],"b02_tcp_tx_real_methods")
+    compiler=load("a13_g10_p1g_c1_native_prototype.py","b02_tcp_tx_compiler")
+    builder=load(MODULES["b2a"],"b02_tcp_tx_builder")
+    builder.TEST=ROOT/"tools/alpha13/candidates/g10_p1g_c/native_g10_i_b02_tcp_tx_test.cpp"
+    source=files["JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/EthernetClient.cpp"]
+    signatures=(
+        "size_t EthernetClient::write(const uint8_t *buf, size_t size)",
+        "int EthernetClient::beginWriteAsync(const uint8_t *buf, size_t size)",
+        "int EthernetClient::pollWriteAsync()",
+        "bool EthernetClient::writeAsyncInProgress() const",
+        "void EthernetClient::cancelWriteAsync()",
+    )
+    methods=[repro.extract(source,signature) for signature in signatures]
+    def run(tag,versions):
+        return builder.native(out,tag,"\n\n".join(versions)+"\n",compiler)
+    rc,log=run("b02_tcp_tx_positive",methods)
+    required=("CURRENT_OWNER","BUSY_RETRY","RECYCLED",
+              "TIMEOUT_BEFORE_SEND","TIMEOUT_AFTER_SEND","TRANSMISSION_FAILURE")
+    if rc!=0 or not all("G10_I_B02_TCP_TX_"+name+"=PASS" in log for name in required):
+        emit("B02_TCP_TX_DIAG","EXIT_"+str(rc)+"_"+log.strip().replace("\n"," | ")[:800])
+    require(rc==0 and all("G10_I_B02_TCP_TX_"+name+"=PASS" in log for name in required),
+            "B02_TCP_TX_SOURCE_CORRECTION_NOT_DEMONSTRATED")
+    variants=(
+        ("poll_without_guard",2,
+         "    jwplc_w5500_candidate::BusScope bus(20);\n    if (!bus) return 0; // retain the SEND state and its buffer\n    if (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) {",
+         "    if (false) {", "B02_TX_IO_WITHOUT_BUS"),
+        ("poll_without_lease",2,
+         "!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)",
+         "false", "B02_TX_STALE_SENT_TO_NEW_OWNER"),
+        ("retain_borrowed_buffer",4,
+         "    if (_writeAsyncState == 1) {",
+         "    if (false) {", "B02_TX_TIMEOUT_BORROWED_BUFFER_RETAINED"),
+        ("ignore_begin_failure",0,
+         "        if (state != 1) break;",
+         "        if (false) break;", "B02_TX_BEGIN_FAILURE_NOT_REPORTED"),
+    )
+    for label,index,anchor,replacement,expected in variants:
+        require(methods[index].count(anchor)==1,"B02_TCP_TX_MUTANT_ANCHOR_"+label)
+        mutant=list(methods)
+        mutant[index]=mutant[index].replace(anchor,replacement,1)
+        code,output=run("b02_tcp_tx_negative_"+label,mutant)
+        if code==0 or expected not in output:
+            emit("B02_TCP_TX_MUTANT_DIAG_"+label,
+                 "EXIT_"+str(code)+"_"+output.strip().replace("\n"," | ")[:500])
+        require(code!=0 and expected in output,
+                "B02_TCP_TX_MUTANT_NOT_REJECTED_"+label)
+    return {"status":"PASS_SOURCE_BACKED_TCP_TX","cpp_methods":len(methods),
+            "negatives":len(variants),
+            "scope":"TCP write/async SEND; other TCP helpers and public status remain open"}
+
+
 def b02_udp_io_native(out, files):
     """Execute real UDP RX/TX bodies with bus and lease assertions."""
     repro=load(MODULES["repro"],"b02_real_methods")
@@ -980,6 +1119,8 @@ def main():
         emit("B02_UDP_IO","PASS_SOURCE_BACKED_7_METHODS_3_NEGATIVES")
         m["b02_tcp_rx"]=b02_tcp_rx_native(out,files)
         emit("B02_TCP_RX","PASS_SOURCE_BACKED_6_METHODS_3_NEGATIVES")
+        m["b02_tcp_tx"]=b02_tcp_tx_native(out,files)
+        emit("B02_TCP_TX","PASS_SOURCE_BACKED_5_METHODS_4_NEGATIVES")
         m["b03_dns_dhcp_shutdown"]=b03_deferred_close_native(out,files)
         emit("B03_DNS_DHCP_SHUTDOWN","PASS_SOURCE_BACKED_DEFERRED_CLOSE_9_NEGATIVES")
         if opts.stage_platform is not None:
