@@ -15,8 +15,10 @@ escalares devolvían `0`, `CLOSED` y `false` aunque el hardware seguía en
 `BusBusy` sin leer ni modificar el byte de salida. El guard de lease añadido
 a `connected()` y `status()` evita ahora que un alias obsoleto lea W5500. La
 prueba verifica propietario vigente, CLOSED real, SPI ocupado, recuperación,
-reciclaje y lease inválido. Rechaza mutaciones que eliminan cualquiera de los
-dos guards o cambian BUS_BUSY de `connected()` a conectado.
+reciclaje, lease inválido y retorno inmediato de `status()` para un cliente
+sin socket. Rechaza mutaciones que eliminan cualquiera de los dos guards,
+cambian BUS_BUSY de `connected()` a conectado o hacen que el cliente vacío
+espere SPI.
 
 Representación interna existente: `(StatusReadOutcome, statusOut)`; `statusOut`
 es **estado actual válido exclusivamente cuando el outcome es `Read`**. En

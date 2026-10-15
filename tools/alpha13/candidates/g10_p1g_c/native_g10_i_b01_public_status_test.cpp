@@ -9,10 +9,10 @@ using namespace jwplc_w5500_candidate;
 #define JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS 0
 #define SPI_ETHERNET_SETTINGS 0
 namespace SnSR { constexpr uint8_t CLOSED=0, LISTEN=0x14, ESTABLISHED=0x17, FIN_WAIT=0x18, CLOSE_WAIT=0x1c; }
-static int task=1, owner=0, reads=0, takes=0, releases=0;
+static int task=1, owner=0, reads=0, takes=0, releases=0, attempts=0;
 static uint8_t hardware[8]={};
 static void check(bool ok,const char* why){if(!ok)throw std::runtime_error(why);}
-extern "C" bool jwplcSPI_acquire(uint32_t){if(owner)return false;owner=task;++takes;return true;}
+extern "C" bool jwplcSPI_acquire(uint32_t){++attempts;if(owner)return false;owner=task;++takes;return true;}
 extern "C" void jwplcSPI_release(void){check(owner==task,"BAD_RELEASE");owner=0;++releases;}
 extern "C" void jwplcSPI_deselectAll(void){}
 extern "C" TaskHandle_t xTaskGetCurrentTaskHandle(void){return reinterpret_cast<TaskHandle_t>(static_cast<uintptr_t>(task));}
@@ -60,6 +60,10 @@ int main(){try{
        invalid.jwplcProbeSocketStatus(observed)==StatusReadOutcome::Stale &&
        observed==0xa5 && reads==invalidReads,"INVALID_LEASE_READ_HARDWARE");
  std::puts("B01_REAL_CURRENT_AND_INVALID_LEASE=PASS");
+ EthernetClient empty;const int emptyAttempts=attempts;
+ check(empty.status()==SnSR::CLOSED && attempts==emptyAttempts,
+       "EMPTY_STATUS_ACQUIRED_SPI");
+ std::puts("B01_REAL_EMPTY_STATUS_FAST_PATH=PASS");
  check(takes==releases&&owner==0,"LOCK_LEAK");
  return 0;
 }catch(const std::exception& e){std::fprintf(stderr,"B01_ERROR=%s\n",e.what());return 3;}}

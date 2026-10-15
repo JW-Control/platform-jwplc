@@ -132,8 +132,8 @@ def patch_client_modbus_b01_b04(repro, first):
     status_anchor="if (_sockindex >= MAX_SOCK_NUM) return SnSR::CLOSED;"
     require(old_status.count(status_anchor)==1,"B01_STATUS_LEASE_ANCHOR_DRIFT")
     new_status=old_status.replace(status_anchor,
-        "jwplc_w5500_candidate::BusScope bus(20);\n"
-        "\tif (!bus) return SnSR::CLOSED;\n\t"+status_anchor+"\n"
+        status_anchor+"\n\tjwplc_w5500_candidate::BusScope bus(20);\n"
+        "\tif (!bus) return SnSR::CLOSED;\n"
         "\tif (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) "
         "return SnSR::CLOSED;",1)
     require(cpp.count(old_status)==1,"B01_STATUS_METHOD_NOT_UNIQUE")
@@ -1678,7 +1678,8 @@ def b01_scalar_native(out, files):
     required=("B01_REAL_STATUS_CONNECTED_CLOSED=PASS",
               "B01_REAL_BUSY_COLLAPSES_TO_DISCONNECTED_AND_RECOVERS=REPRODUCED",
               "B01_REAL_STALE_SCALAR_REJECTED=PASS",
-              "B01_REAL_CURRENT_AND_INVALID_LEASE=PASS")
+              "B01_REAL_CURRENT_AND_INVALID_LEASE=PASS",
+              "B01_REAL_EMPTY_STATUS_FAST_PATH=PASS")
     require(rc==0 and all(marker in log for marker in required),
             "B01_SCALAR_REAL_CPP_FAILED_"+log.strip().replace("\n","_")[:250])
     negatives=(
@@ -1690,6 +1691,9 @@ def b01_scalar_native(out, files):
          "/* mutant: stale alias reads new owner */", "STALE_SCALAR_TOUCHED_NEW_OWNER"),
         ("busy_as_connected",0,"if (!bus) return 0;","if (!bus) return 1;",
          "BUSY_SCALAR_CHANGED"),
+        ("empty_status_takes_spi",1,
+         "if (_sockindex >= MAX_SOCK_NUM) return SnSR::CLOSED;",
+         "/* mutant: empty client takes SPI */", "EMPTY_STATUS_ACQUIRED_SPI"),
     )
     for label,index,old,new,error in negatives:
         require(methods[index].count(old)==1,"B01_SCALAR_MUTANT_ANCHOR_"+label)
@@ -1768,7 +1772,7 @@ def main():
         m["status_probe"]=status_probe_native(out)
         emit("TRISTATE_STATUS_NATIVE","PASS_PRIMITIVE_ONLY")
         m["b01_scalar"]=b01_scalar_native(out,files)
-        emit("B01_SCALAR_NATIVE","PASS_STALE_GUARD_3_NEGATIVES_BUSY_SEMANTICS_BLOCKED")
+        emit("B01_SCALAR_NATIVE","PASS_STALE_GUARD_4_NEGATIVES_BUSY_SEMANTICS_BLOCKED")
         m["modbus_cleanup_probe"]=modbus_cleanup_native(out,files)
         emit("MODBUS_CLEANUP_NATIVE","PASS_THREE_SOURCE_METHODS_3_NEGATIVES")
         m["modbus_server_cleanup_probe"]=server_cleanup_native(out,files)
