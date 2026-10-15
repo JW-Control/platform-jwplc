@@ -55,9 +55,7 @@ static void exerciseApiOnDemand() {
   (void)gTcp.localPort();
   (void)gTcp.remoteIP();
   (void)gTcp.remotePort();
-  // B01/B04: link the internal tri-state probe and durable close paths.
-  uint8_t tcpStatus = 0;
-  (void)gTcp.jwplcProbeSocketStatus(tcpStatus);
+  // B04: link public close paths; B01's internal probe is linked by Modbus.
   gTcp.cancelConnectAsync();
   gTcp.cancelStopAsync();
   gTcp.stop();

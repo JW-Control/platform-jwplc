@@ -300,8 +300,7 @@ jobs:
                       exit 50
                     }
                   done
-                  for symbol in 'EthernetClient::jwplcProbeSocketStatus(' \
-                                'EthernetClient::cancelConnectAsync()' \
+                  for symbol in 'EthernetClient::cancelConnectAsync()' \
                                 'EthernetClient::cancelStopAsync()' \
                                 'EthernetClient::stop()' \
                                 'jwplc_w5500_candidate::requestDeferredClose('; do
