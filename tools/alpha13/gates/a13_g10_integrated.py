@@ -116,6 +116,28 @@ def patch_client_modbus_b01_b04(repro, first):
         "\n    bool _jwplcCancelConnectPending = false;",1)
     first["HEADER"]=hdr
     cpp=first["CLIENT"]
+    # La API escalar conserva sus retornos Arduino; una copia obsoleta no
+    # puede consultar el status del propietario que recicló el socket.
+    connected_sig="uint8_t EthernetClient::connected()"
+    old_connected=repro.extract(cpp,connected_sig)
+    connected_anchor="if (_sockindex >= MAX_SOCK_NUM) return 0;"
+    require(old_connected.count(connected_anchor)==1,
+            "B01_CONNECTED_LEASE_ANCHOR_DRIFT")
+    new_connected=old_connected.replace(connected_anchor,
+        connected_anchor+"\n\tif (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) return 0;",1)
+    require(cpp.count(old_connected)==1,"B01_CONNECTED_METHOD_NOT_UNIQUE")
+    cpp=cpp.replace(old_connected,new_connected,1)
+    status_sig="uint8_t EthernetClient::status()"
+    old_status=repro.extract(cpp,status_sig)
+    status_anchor="if (_sockindex >= MAX_SOCK_NUM) return SnSR::CLOSED;"
+    require(old_status.count(status_anchor)==1,"B01_STATUS_LEASE_ANCHOR_DRIFT")
+    new_status=old_status.replace(status_anchor,
+        "jwplc_w5500_candidate::BusScope bus(20);\n"
+        "\tif (!bus) return SnSR::CLOSED;\n\t"+status_anchor+"\n"
+        "\tif (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) "
+        "return SnSR::CLOSED;",1)
+    require(cpp.count(old_status)==1,"B01_STATUS_METHOD_NOT_UNIQUE")
+    cpp=cpp.replace(old_status,new_status,1)
     cancel_sig="void EthernetClient::cancelConnectAsync()"
     old_cancel=repro.extract(cpp,cancel_sig)
     busy="if (!bus) return; // Keep identity; retry required."
@@ -1628,6 +1650,58 @@ def status_probe_native(out):
             "qualified_for_adoption":False}
 
 
+def b01_scalar_native(out, files):
+    """Run the real scalar Client/Server bodies and reject lease regressions."""
+    repro=load(MODULES["repro"],"b01_scalar_repro")
+    compiler=load("a13_g10_p1g_c1_native_prototype.py","b01_scalar_compiler")
+    builder=load(MODULES["b2a"],"b01_scalar_builder")
+    builder.TEST=ROOT/"tools/alpha13/candidates/g10_p1g_c/native_g10_i_b01_public_status_test.cpp"
+    paths=(
+        ("JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/EthernetClient.cpp",
+         ("uint8_t EthernetClient::connected()", "uint8_t EthernetClient::status()",
+          "EthernetClient::jwplcProbeSocketStatus(uint8_t& result)")),
+        ("JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/EthernetServer.cpp",
+         ("EthernetServer::operator bool()",)),
+        ("JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/socket.cpp",
+         ("uint8_t EthernetClass::socketStatus(uint8_t s)",)),
+    )
+    methods=[]
+    for path,sigs in paths:
+        for sig in sigs:
+            body=repro.extract(files[path],sig)
+            if sig.startswith("EthernetClient::jwplcProbeSocketStatus"):
+                body="jwplc_w5500_candidate::StatusReadOutcome\n"+body
+            methods.append(body)
+    def run(label,bodies):
+        return builder.native(out,"b01_scalar_"+label,"\n\n".join(bodies)+"\n",compiler)
+    rc,log=run("positive",methods)
+    required=("B01_REAL_STATUS_CONNECTED_CLOSED=PASS",
+              "B01_REAL_BUSY_COLLAPSES_TO_DISCONNECTED_AND_RECOVERS=REPRODUCED",
+              "B01_REAL_STALE_SCALAR_REJECTED=PASS",
+              "B01_REAL_CURRENT_AND_INVALID_LEASE=PASS")
+    require(rc==0 and all(marker in log for marker in required),
+            "B01_SCALAR_REAL_CPP_FAILED_"+log.strip().replace("\n","_")[:250])
+    negatives=(
+        ("connected_without_lease",0,
+         "if (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) return 0;",
+         "/* mutant: stale alias reads new owner */", "STALE_SCALAR_TOUCHED_NEW_OWNER"),
+        ("status_without_lease",1,
+         "if (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) return SnSR::CLOSED;",
+         "/* mutant: stale alias reads new owner */", "STALE_SCALAR_TOUCHED_NEW_OWNER"),
+        ("busy_as_connected",0,"if (!bus) return 0;","if (!bus) return 1;",
+         "BUSY_SCALAR_CHANGED"),
+    )
+    for label,index,old,new,error in negatives:
+        require(methods[index].count(old)==1,"B01_SCALAR_MUTANT_ANCHOR_"+label)
+        mutant=list(methods)
+        mutant[index]=mutant[index].replace(old,new,1)
+        code,output=run("negative_"+label,mutant)
+        require(code!=0 and error in output,"B01_SCALAR_MUTANT_NOT_REJECTED_"+label)
+    return {"status":"PASS_STALE_GUARD_PUBLIC_BUSY_SEMANTICS_BLOCKED",
+            "cpp_methods":len(methods),"negatives":len(negatives),
+            "busy_contract":"scalar 0/CLOSED/false remains ambiguous"}
+
+
 def b01_public_semantics_inventory(files):
     """Source-backed scope check; this is a documented block, not a PASS."""
     repro=load(MODULES["repro"],"b01_public_inventory")
@@ -1639,6 +1713,8 @@ def b01_public_semantics_inventory(files):
     status=repro.extract(client,"uint8_t EthernetClient::status()")
     raw=repro.extract(socket,"uint8_t EthernetClass::socketStatus(uint8_t s)")
     require("if (!bus) return 0;" in connected and
+            "matchesLocked(_jwplcSocketToken)" in connected and
+            "matchesLocked(_jwplcSocketToken)" in status and
             "return Ethernet.socketStatus(_sockindex);" in status and
             "if (!bus) return SnSR::CLOSED;" in raw,
             "B01_PUBLIC_SCALAR_CONTRACT_CHANGED_REVIEW_REQUIRED")
@@ -1691,6 +1767,8 @@ def main():
         m["b01_public_semantics_inventory"]=b01_public_semantics_inventory(files)
         m["status_probe"]=status_probe_native(out)
         emit("TRISTATE_STATUS_NATIVE","PASS_PRIMITIVE_ONLY")
+        m["b01_scalar"]=b01_scalar_native(out,files)
+        emit("B01_SCALAR_NATIVE","PASS_STALE_GUARD_3_NEGATIVES_BUSY_SEMANTICS_BLOCKED")
         m["modbus_cleanup_probe"]=modbus_cleanup_native(out,files)
         emit("MODBUS_CLEANUP_NATIVE","PASS_THREE_SOURCE_METHODS_3_NEGATIVES")
         m["modbus_server_cleanup_probe"]=server_cleanup_native(out,files)
