@@ -40,7 +40,7 @@ MODULES = {
 # Ningún PASS previo resuelve todavía estas fronteras de integración.
 BLOCKERS = {
     "B01": "SPI_BUSY: EthernetClient.connected() y socketStatus() pueden simular CLOSED o desconexión",
-    "B02": "UDP I/O y TCP Client RX/TX protegidos en el candidato; availableForWrite, flush y rutas restantes requieren lease end-to-end",
+    "B02": "Client capacity, flush y endpoints corregidos; status/connected dependen de política B01 y ownership Server/UDP de B04/B05",
     "B03": "Dns.cpp real, EthernetUDP dependiente y DHCP no están integrados en un mismo flujo",
     "B04": "stop() / connect() con timeout y SPI ocupado pueden dejar handles sin reintento automático garantizado",
     "B05": "Identidad real de server_port[]/listeners, socket recycling y reset físico no validada a nivel end-to-end",
@@ -490,6 +490,61 @@ def patch_tcp_tx_b02(repro, source):
     require(source.count(old)==1,"B02_TCP_CANCEL_NOT_UNIQUE")
     return source.replace(old,new,1)
 
+def patch_tcp_remaining_b02(repro, source):
+    """Guard direct Client capacity, flush and endpoint reads by socket lease."""
+    signature="int EthernetClient::availableForWrite(void)"
+    old=repro.extract(source,signature)
+    require(old.count("Ethernet.socketSendAvailable(_sockindex)")==1 and
+            "BusScope" not in old,"B02_CAPACITY_SOURCE_DRIFT")
+    new=old.replace("\tif (_sockindex >= MAX_SOCK_NUM) return 0;",
+        "\tjwplc_w5500_candidate::BusScope bus(20);\n"
+        "\tif (!bus || _sockindex >= MAX_SOCK_NUM) return 0;\n"
+        "\tif (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) return 0;",1)
+    require(source.count(old)==1,"B02_CAPACITY_NOT_UNIQUE")
+    source=source.replace(old,new,1)
+
+    signature="int EthernetClient::pollFlushAsync()"
+    old=repro.extract(source,signature)
+    anchor="\tconst uint8_t stat = Ethernet.socketStatus(_sockindex);"
+    require(old.count(anchor)==1 and "BusScope" not in old,
+            "B02_FLUSH_SOURCE_DRIFT")
+    guard="""    // pollWriteAsync() has completed its own short bus scope. Acquire a
+    // fresh lease before reading status and TX space on this socket.
+    jwplc_w5500_candidate::BusScope bus(20);
+    if (!bus) {
+        if ((uint32_t)(millis() - _flushStartedAtMs) < _timeout) return 0;
+        _flushPending = false;
+        _flushStartedAtMs = 0;
+        return -1;
+    }
+    if (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) {
+        _sockindex = MAX_SOCK_NUM;
+        _flushPending = false;
+        _flushStartedAtMs = 0;
+        return -1;
+    }
+"""
+    new=old.replace(anchor,guard+anchor,1)
+    require(source.count(old)==1,"B02_FLUSH_NOT_UNIQUE")
+    source=source.replace(old,new,1)
+
+    for signature,zero in (("uint16_t EthernetClient::localPort()","0"),
+                           ("IPAddress EthernetClient::remoteIP()",
+                            "IPAddress((uint32_t)0)"),
+                           ("uint16_t EthernetClient::remotePort()","0")):
+        old=repro.extract(source,signature)
+        anchor="\tif (_sockindex >= MAX_SOCK_NUM) return "+zero+";"
+        require(old.count(anchor)==1 and old.count("SPI.beginTransaction(")==1,
+                "B02_ENDPOINT_SOURCE_DRIFT_"+signature)
+        new=old.replace(anchor,
+            "\tjwplc_w5500_candidate::BusScope bus(20);\n"
+            "\tif (!bus || _sockindex >= MAX_SOCK_NUM) return "+zero+";\n"
+            "\tif (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken))"
+            " return "+zero+";",1)
+        require(source.count(old)==1,"B02_ENDPOINT_NOT_UNIQUE_"+signature)
+        source=source.replace(old,new,1)
+    return source
+
 def compose():
     mods={k:load(v,k) for k,v in MODULES.items() if k!="frozen"}
     repro=mods["repro"]
@@ -521,6 +576,7 @@ def compose():
     first["CLIENT"],_=c2a.patch_legacy(repro,first["CLIENT"])
     first["CLIENT"]=patch_tcp_rx_b02(repro,first["CLIENT"])
     first["CLIENT"]=patch_tcp_tx_b02(repro,first["CLIENT"])
+    first["CLIENT"]=patch_tcp_remaining_b02(repro,first["CLIENT"])
     socket_overlay,_=s2a.patch(repro,first["SOCKET"])
     first["SOCKET"]=socket_overlay
     udp_original=(ROOT/udp.UDP_PATH).read_text(encoding="utf-8-sig")
@@ -914,6 +970,86 @@ def b02_tcp_tx_native(out, files):
             "scope":"TCP write/async SEND; other TCP helpers and public status remain open"}
 
 
+def b02_client_remaining_native(out, files):
+    """Run Client capacity, flush and endpoint code with real lease scopes."""
+    repro=load(MODULES["repro"],"b02_remaining_repro")
+    compiler=load("a13_g10_p1g_c1_native_prototype.py","b02_remaining_compiler")
+    builder=load(MODULES["b2a"],"b02_remaining_builder")
+    builder.TEST=ROOT/"tools/alpha13/candidates/g10_p1g_c/native_g10_i_b02_client_remaining_test.cpp"
+    source=files["JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/EthernetClient.cpp"]
+    signatures=(
+        "int EthernetClient::availableForWrite(void)",
+        "int EthernetClient::beginFlushAsync()",
+        "int EthernetClient::pollFlushAsync()",
+        "bool EthernetClient::flushAsyncInProgress() const",
+        "void EthernetClient::cancelFlushAsync()",
+        "void EthernetClient::flush()",
+        "uint16_t EthernetClient::localPort()",
+        "IPAddress EthernetClient::remoteIP()",
+        "uint16_t EthernetClient::remotePort()",
+        "bool EthernetClient::writeAsyncInProgress() const",
+        "int EthernetClient::pollWriteAsync()",
+        "void EthernetClient::cancelWriteAsync()",
+    )
+    methods=[repro.extract(source,sig) for sig in signatures]
+    def run(tag,versions):
+        return builder.native(out,tag,"\n\n".join(versions)+"\n",compiler)
+    rc,log=run("b02_remaining_positive",methods)
+    required=("CURRENT","BUSY","RECYCLED","TIMEOUT_CANCEL",
+              "SEND_FAILURE","COOPERATIVE_WAIT")
+    if rc!=0 or not all("G10_I_B02_REMAIN_"+x+"=PASS" in log for x in required):
+        emit("B02_REMAIN_DIAG","EXIT_"+str(rc)+"_"+log.strip().replace("\n"," | ")[:800])
+    require(rc==0 and all("G10_I_B02_REMAIN_"+x+"=PASS" in log for x in required),
+            "B02_REMAIN_SOURCE_CORRECTION_NOT_DEMONSTRATED")
+    guard="""    jwplc_w5500_candidate::BusScope bus(20);
+    if (!bus) {
+        if ((uint32_t)(millis() - _flushStartedAtMs) < _timeout) return 0;
+        _flushPending = false;
+        _flushStartedAtMs = 0;
+        return -1;
+    }
+    if (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) {
+        _sockindex = MAX_SOCK_NUM;
+        _flushPending = false;
+        _flushStartedAtMs = 0;
+        return -1;
+    }
+"""
+    variants=(
+        ("capacity_without_bus",0,
+         "\tjwplc_w5500_candidate::BusScope bus(20);\n"
+         "\tif (!bus || _sockindex >= MAX_SOCK_NUM) return 0;\n"
+         "\tif (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) return 0;",
+         "\tif (_sockindex >= MAX_SOCK_NUM) return 0;",
+         "B02_REMAIN_IO_WITHOUT_BUS"),
+        ("endpoint_without_lease",6,
+         "!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)",
+         "false","B02_REMAIN_STALE_SOCKET_ACCESS"),
+        ("flush_without_bus",2,guard,"", "B02_REMAIN_IO_WITHOUT_BUS"),
+        ("flush_without_lease",2,
+         "!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)",
+         "false","B02_REMAIN_STALE_FLUSH_ACCESS"),
+        ("flush_busy_timeout_ignored",2,
+         "(uint32_t)(millis() - _flushStartedAtMs) < _timeout",
+         "true","B02_REMAIN_BUSY_TIMEOUT_NOT_HONORED"),
+        ("send_failure_ignored",2,
+         "if (writeState < 0) {","if (false) {",
+         "B02_REMAIN_SEND_FAILURE_MASKED"),
+    )
+    for label,index,anchor,replacement,expected in variants:
+        require(methods[index].count(anchor)==1,"B02_REMAIN_MUTANT_ANCHOR_"+label)
+        mutant=list(methods)
+        mutant[index]=mutant[index].replace(anchor,replacement,1)
+        code,output=run("b02_remaining_negative_"+label,mutant)
+        if code==0 or expected not in output:
+            emit("B02_REMAIN_MUTANT_DIAG_"+label,
+                 "EXIT_"+str(code)+"_"+output.strip().replace("\n"," | ")[:450])
+        require(code!=0 and expected in output,"B02_REMAIN_MUTANT_NOT_REJECTED_"+label)
+    return {"status":"PASS_SOURCE_BACKED_CLIENT_REMAINING","cpp_methods":len(methods),
+            "newly_guarded":5,"negatives":len(variants),
+            "scope":"capacity, flush, endpoint reads; B01 public status and B04/B05 ownership open"}
+
+
 def b02_udp_io_native(out, files):
     """Execute real UDP RX/TX bodies with bus and lease assertions."""
     repro=load(MODULES["repro"],"b02_real_methods")
@@ -1121,6 +1257,10 @@ def main():
         emit("B02_TCP_RX","PASS_SOURCE_BACKED_6_METHODS_3_NEGATIVES")
         m["b02_tcp_tx"]=b02_tcp_tx_native(out,files)
         emit("B02_TCP_TX","PASS_SOURCE_BACKED_5_METHODS_4_NEGATIVES")
+        m["b02_client_remaining"]=b02_client_remaining_native(out,files)
+        emit("B02_CLIENT_REMAINING","PASS_SOURCE_BACKED_12_METHODS_6_NEGATIVES")
+        m["b02_nonphysical_status"]="REVIEW_B01_B04_B05_DEPENDENCIES"
+        emit("B02_NONPHYSICAL",m["b02_nonphysical_status"])
         m["b03_dns_dhcp_shutdown"]=b03_deferred_close_native(out,files)
         emit("B03_DNS_DHCP_SHUTDOWN","PASS_SOURCE_BACKED_DEFERRED_CLOSE_9_NEGATIVES")
         if opts.stage_platform is not None:

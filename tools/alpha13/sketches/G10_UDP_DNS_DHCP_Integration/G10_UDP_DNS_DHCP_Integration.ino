@@ -47,6 +47,13 @@ static void exerciseApiOnDemand() {
   (void)gTcp.beginWriteAsync(&tcpByte, 1);
   (void)gTcp.pollWriteAsync();
   gTcp.cancelWriteAsync();
+  (void)gTcp.availableForWrite();
+  (void)gTcp.beginFlushAsync();
+  (void)gTcp.pollFlushAsync();
+  gTcp.cancelFlushAsync();
+  (void)gTcp.localPort();
+  (void)gTcp.remoteIP();
+  (void)gTcp.remotePort();
 }
 
 void setup() {
