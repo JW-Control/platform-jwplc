@@ -55,6 +55,12 @@ static void exerciseApiOnDemand() {
   (void)gTcp.localPort();
   (void)gTcp.remoteIP();
   (void)gTcp.remotePort();
+  // B01/B04: link the internal tri-state probe and durable close paths.
+  uint8_t tcpStatus = 0;
+  (void)gTcp.jwplcProbeSocketStatus(tcpStatus);
+  gTcp.cancelConnectAsync();
+  gTcp.cancelStopAsync();
+  gTcp.stop();
   // Reach Server listener and broadcast bodies for B04/B05 ELF provenance.
   gServer.begin();
   (void)static_cast<bool>(gServer);

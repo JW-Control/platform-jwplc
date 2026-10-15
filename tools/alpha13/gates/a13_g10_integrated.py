@@ -39,11 +39,11 @@ MODULES = {
 }
 # Ningún PASS previo resuelve todavía estas fronteras de integración.
 BLOCKERS = {
-    "B01": "SPI_BUSY: EthernetClient.connected() y socketStatus() pueden simular CLOSED o desconexión",
+    "B01": "Modbus Server/Client usan probe interno; connected()/socketStatus() públicos conservan BUS_BUSY indistinguible y faltan otros consumidores",
     "B02": "Client capacity, flush y endpoints corregidos; status/connected dependen de política B01 y ownership Server/UDP de B04/B05",
     "B03": "Dns.cpp real, EthernetUDP dependiente y DHCP no están integrados en un mismo flujo",
-    "B04": "stop() / connect() con timeout y SPI ocupado pueden dejar handles sin reintento automático garantizado",
-    "B05": "Identidad real de server_port[]/listeners, socket recycling y reset físico no validada a nivel end-to-end",
+    "B04": "stop()/cancelStopAsync()/cancelConnectAsync() tienen ticket duradero; revisar ciclo de vida de begin/poll y retarget",
+    "B05": "Listener y broadcast source-backed; reset físico y reconexión end-to-end aún no validados",
     "B06": "Sin build Arduino CLI/IDE baseline-vs-overlay con autoload y cinco archives congelados",
     "B07": "Sin medición física de fairness y regresión W5500, Display, SD, FRAM, RTC, TCA, RS-485, Modbus RTU/TCP",
     "B08": "Overlay único no equivale a compilación completa: revisar doble lock, firmas públicas y compatibilidad del core",
@@ -112,6 +112,42 @@ def patch_client_modbus_b01_b04(repro, first):
         "\tjwplc_w5500_candidate::StatusReadOutcome jwplcProbeSocketStatus(uint8_t& result);",1)
     first["HEADER"]=hdr
     cpp=first["CLIENT"]
+    cancel_sig="void EthernetClient::cancelConnectAsync()"
+    old_cancel=repro.extract(cpp,cancel_sig)
+    busy="if (!bus) return; // Keep identity; retry required."
+    require(old_cancel.count(busy)==1,"CLIENT_CANCEL_BUSY_ANCHOR_DRIFT")
+    new_cancel=old_cancel.replace(busy,
+        "if (!bus) {\n"
+        "\t\t// A temporary client may die after a timeout. The autoload\n"
+        "\t\t// service owns this token until CLOSE or a newer allocation.\n"
+        "\t\t(void)jwplc_w5500_candidate::requestDeferredClose(_jwplcSocketToken);\n"
+        "\t\treturn; // retain the handle for an explicit retry too\n"
+        "\t}",1)
+    require(cpp.count(old_cancel)==1,"CLIENT_CANCEL_METHOD_NOT_UNIQUE")
+    cpp=cpp.replace(old_cancel,new_cancel,1)
+    stop_sig="void EthernetClient::stop()"
+    old_stop=repro.extract(cpp,stop_sig)
+    timeout="if ((uint32_t)(millis() - waitStartedMs) >= _timeout) return;"
+    require(old_stop.count(timeout)==1,"CLIENT_STOP_TIMEOUT_ANCHOR_DRIFT")
+    new_stop=old_stop.replace(timeout,
+        "if ((uint32_t)(millis() - waitStartedMs) >= _timeout) {\n"
+        "\t\t\t// The caller may destroy this client after a void stop().\n"
+        "\t\t\t(void)jwplc_w5500_candidate::requestDeferredClose(_jwplcSocketToken);\n"
+        "\t\t\treturn;\n"
+        "\t\t}",1)
+    require(cpp.count(old_stop)==1,"CLIENT_STOP_METHOD_NOT_UNIQUE")
+    cpp=cpp.replace(old_stop,new_stop,1)
+    cancel_stop_sig="void EthernetClient::cancelStopAsync()"
+    old_cancel_stop=repro.extract(cpp,cancel_stop_sig)
+    busy="if (!bus) return; // Contención SPI: conservar handle y reintentar."
+    require(old_cancel_stop.count(busy)==1,"CLIENT_CANCEL_STOP_BUSY_DRIFT")
+    new_cancel_stop=old_cancel_stop.replace(busy,
+        "if (!bus) {\n"
+        "\t\t(void)jwplc_w5500_candidate::requestDeferredClose(_jwplcSocketToken);\n"
+        "\t\treturn; // retain the handle for an explicit retry too\n"
+        "\t}",1)
+    require(cpp.count(old_cancel_stop)==1,"CLIENT_CANCEL_STOP_METHOD_NOT_UNIQUE")
+    cpp=cpp.replace(old_cancel_stop,new_cancel_stop,1)
     require("EthernetClient::jwplcProbeSocketStatus" not in cpp,
             "CLIENT_PROBE_ALREADY_PRESENT")
     cpp+="""
@@ -349,6 +385,33 @@ bool JWPLC_ModbusTCPClass::serviceDeferredDrop()
     require(revised.count(old_drop)==1,"SERVER_PEER_DISCONNECT_DRIFT")
     revised=revised.replace(old_drop,"""            dropClient(); // owns valid token or defers safely
             if (_jwplcDropPending) return;""",1)
+    # ACK, RSR and connected() must not inspect a socket recycled after
+    # _server.available() handed us its previous lease.
+    anchor="""    if (!acquireBus(20))
+    {
+        return;
+    }
+
+    bool fatalFrame = false;"""
+    require(revised.count(anchor)==1,"SERVER_STATUS_PROBE_ANCHOR_DRIFT")
+    revised=revised.replace(anchor,"""    if (!acquireBus(20))
+    {
+        return;
+    }
+
+    uint8_t observedStatus = 0;
+    const auto probe = _client.jwplcProbeSocketStatus(observedStatus);
+    if (probe == jwplc_w5500_candidate::StatusReadOutcome::BusBusy) {
+        releaseBus();
+        return; // ownership unknown: retry without changing session
+    }
+    if (probe == jwplc_w5500_candidate::StatusReadOutcome::Stale) {
+        releaseBus();
+        dropClient(); // no W5500 access through the old handle
+        return;
+    }
+
+    bool fatalFrame = false;""",1)
     require(cpp.count(old)==1,"SERVER_SERVICE_NOT_UNIQUE")
     cpp=cpp.replace(old,revised,1)
     first["MB_SERVER"]=cpp
@@ -873,6 +936,99 @@ def server_cleanup_native(out,files):
             "limitations":"complete task(), serviceServer(), PHY link and RX paths remain open"}
 
 
+def modbus_server_status_native(out,files):
+    """Execute the real server consumer before RX INT and socket queries."""
+    repro=load(MODULES["repro"],"server_status_extract")
+    compiler=load("a13_g10_p1g_c1_native_prototype.py","server_status_compiler")
+    builder=load(MODULES["b2a"],"server_status_builder")
+    builder.TEST=ROOT/"tools/alpha13/candidates/g10_p1g_c/native_g10_i_modbus_server_status_test.cpp"
+    source=files["JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP.cpp"]
+    body=repro.extract(source,"void JWPLC_ModbusTCPClass::serviceServer()")
+    def run(tag,text):
+        return builder.native(out,tag,text+"\n",compiler)
+    code,log=run("modbus_server_status_positive",body)
+    wanted=("G10_I_B01_SERVER_BUSY_STALE=PASS",
+            "G10_I_B01_SERVER_CURRENT=PASS")
+    if code!=0 or not all(marker in log for marker in wanted):
+        emit("B01_SERVER_STATUS_DIAG","EXIT_"+str(code)+"_"+log[-1000:].strip())
+    require(code==0 and all(marker in log for marker in wanted),
+            "B01_SERVER_STATUS_SOURCE_CORRECTION_NOT_DEMONSTRATED")
+    variants=(
+        ("skip_stale", "probe == jwplc_w5500_candidate::StatusReadOutcome::Stale",
+         "false", "SERVER_STALE_TOUCHED_RECYCLED_SOCKET"),
+        ("discard_current", "probe == jwplc_w5500_candidate::StatusReadOutcome::Stale",
+         "probe != jwplc_w5500_candidate::StatusReadOutcome::BusBusy",
+         "SERVER_CURRENT_OWNER_NOT_SERVICED"),
+    )
+    for label,anchor,replacement,expected in variants:
+        require(body.count(anchor)==1,"B01_SERVER_MUTANT_ANCHOR_"+label)
+        rc,output=run("modbus_server_status_negative_"+label,
+                      body.replace(anchor,replacement,1))
+        if rc==0 or expected not in output:
+            emit("B01_SERVER_MUTANT_DIAG_"+label,
+                 "EXIT_"+str(rc)+"_"+output[-700:].strip())
+        require(rc!=0 and expected in output,
+                "B01_SERVER_MUTANT_NOT_REJECTED_"+label)
+    return {"status":"PASS_SOURCE_BACKED_SERVER_CONSUMER",
+            "cpp_methods":1,"negatives":len(variants),
+            "scope":"BUS_BUSY, stale and current leases; host W5500 stub"}
+
+
+def client_close_ticket_native(out,files):
+    """Real Client close/cancel bodies; durable ticket survives object death."""
+    repro=load(MODULES["repro"],"client_ticket_extract")
+    compiler=load("a13_g10_p1g_c1_native_prototype.py","client_ticket_compiler")
+    builder=load(MODULES["b2a"],"client_ticket_builder")
+    builder.TEST=ROOT/"tools/alpha13/candidates/g10_p1g_c/native_g10_i_client_cancel_ticket_test.cpp"
+    source=files["JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/EthernetClient.cpp"]
+    sigs=("void EthernetClient::cancelConnectAsync()",
+          "void EthernetClient::stop()",
+          "int EthernetClient::beginStopAsync()",
+          "int EthernetClient::pollStopAsync()",
+          "void EthernetClient::cancelStopAsync()")
+    bodies={sig:repro.extract(source,sig) for sig in sigs}
+    def run(tag,versions):
+        joined="\n\n".join(versions[sig] for sig in sigs)+"\n"
+        return builder.native(out,tag,joined,compiler)
+    code,log=run("client_close_ticket_positive",bodies)
+    wanted=("CANCEL_BUSY_DURABLE","CANCEL_RECYCLED","CANCEL_CURRENT",
+            "STOP_TIMEOUT_DURABLE","CANCEL_STOP_DURABLE",
+            "STOP_CURRENT_TIMEOUT")
+    if code!=0 or not all("G10_I_B04_"+name+"=PASS" in log for name in wanted):
+        emit("B04_CLIENT_TICKET_DIAG","EXIT_"+str(code)+"_"+log[-900:].strip())
+    require(code==0 and all("G10_I_B04_"+name+"=PASS" in log for name in wanted),
+            "B04_CLIENT_CLOSE_TICKET_NOT_DEMONSTRATED")
+    variants=(
+        ("cancel_connect_without_ticket",sigs[0],
+         "(void)jwplc_w5500_candidate::requestDeferredClose(_jwplcSocketToken);",
+         "/* ticket dropped */",
+         "B04_BUSY_CANCEL_LOST_AFTER_OBJECT_DESTROYED"),
+        ("stop_without_ticket",sigs[1],
+         "(void)jwplc_w5500_candidate::requestDeferredClose(_jwplcSocketToken);",
+         "/* ticket dropped */",
+         "B04_STOP_TIMEOUT_LOST_AFTER_OBJECT_DESTROYED"),
+        ("cancel_stop_without_ticket",sigs[4],
+         "(void)jwplc_w5500_candidate::requestDeferredClose(_jwplcSocketToken);",
+         "/* ticket dropped */",
+         "B04_CANCEL_STOP_LOST_AFTER_OBJECT_DESTROYED"),
+        ("cancel_connect_without_owner",sigs[0],
+         "!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)",
+         "false","B04_STALE_HANDLE_NOT_RELEASED"),
+    )
+    for label,sig,anchor,replacement,expected in variants:
+        require(bodies[sig].count(anchor)==1,"B04_CLIENT_MUTANT_ANCHOR_"+label)
+        mutant=dict(bodies);mutant[sig]=bodies[sig].replace(anchor,replacement,1)
+        rc,output=run("client_close_ticket_negative_"+label,mutant)
+        if rc==0 or expected not in output:
+            emit("B04_CLIENT_MUTANT_DIAG_"+label,
+                 "EXIT_"+str(rc)+"_"+output[-600:].strip())
+        require(rc!=0 and expected in output,
+                "B04_CLIENT_MUTANT_NOT_REJECTED_"+label)
+    return {"status":"PASS_SOURCE_BACKED_DURABLE_CLIENT_CLOSE",
+            "cpp_methods":len(sigs),"negatives":len(variants),
+            "scope":"BUS_BUSY, timeout, object destruction, stale/current lease"}
+
+
 def modbus_cleanup_native(out,files):
     """Compilar tres METODOS C++ del overlay actual y negativos integrados."""
     repro=load(MODULES["repro"],"modbus_cleanup_extract")
@@ -1382,6 +1538,10 @@ def main():
         emit("MODBUS_CLEANUP_NATIVE","PASS_THREE_SOURCE_METHODS_3_NEGATIVES")
         m["modbus_server_cleanup_probe"]=server_cleanup_native(out,files)
         emit("MODBUS_SERVER_CLEANUP_NATIVE","PASS_THREE_SOURCE_METHODS_5_NEGATIVES")
+        m["modbus_server_status_probe"]=modbus_server_status_native(out,files)
+        emit("B01_MODBUS_SERVER_STATUS","PASS_REAL_CPP_2_NEGATIVES")
+        m["client_close_ticket_probe"]=client_close_ticket_native(out,files)
+        emit("B04_CLIENT_CLOSE_TICKET","PASS_5_REAL_CPP_4_NEGATIVES")
         m["b02_udp_io"]=b02_udp_io_native(out,files)
         emit("B02_UDP_IO","PASS_SOURCE_BACKED_7_METHODS_3_NEGATIVES")
         m["b02_tcp_rx"]=b02_tcp_rx_native(out,files)
@@ -1394,7 +1554,7 @@ def main():
         emit("B02_NONPHYSICAL",m["b02_nonphysical_status"])
         m["b04_b05_server"]=b04_b05_server_native(out,files)
         emit("B04_B05_SERVER","PASS_SOURCE_BACKED_4_METHODS_1_CTOR_6_NEGATIVES")
-        m["b04_b05_status"]="REVIEW_B01_BUSY_POLICY_AND_RESET_OWNERSHIP"
+        m["b04_b05_status"]="REVIEW_PUBLIC_BUSY_POLICY_ASYNC_LIFECYCLE_AND_PHYSICAL_RESET"
         emit("B04_B05",m["b04_b05_status"])
         m["b03_dns_dhcp_shutdown"]=b03_deferred_close_native(out,files)
         emit("B03_DNS_DHCP_SHUTDOWN","PASS_SOURCE_BACKED_DEFERRED_CLOSE_9_NEGATIVES")
@@ -1405,7 +1565,7 @@ def main():
             emit("ARDUINO_PLATFORM_EXPORT","STAGED_NOT_COMPILED")
         m.update({"head":head,"overlay_files":shas,
                   "blockers":BLOCKERS,
-                  "status":"B03_CANDIDATE_REVIEW_BLOCKED"})
+                  "status":"B01_B04_B05_CANDIDATE_REVIEW_STOP"})
         emit("SOURCE_OVERLAY","COMPOSED")
         emit("OVERLAY_FILES",len(files))
         emit("FROZEN_ARCHIVES",5)
