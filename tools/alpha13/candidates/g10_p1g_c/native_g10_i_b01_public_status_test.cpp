@@ -9,7 +9,8 @@ using namespace jwplc_w5500_candidate;
 #define JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS 0
 #define SPI_ETHERNET_SETTINGS 0
 namespace SnSR { constexpr uint8_t CLOSED=0, LISTEN=0x14, ESTABLISHED=0x17, FIN_WAIT=0x18, CLOSE_WAIT=0x1c; }
-static int task=1, owner=0, reads=0, takes=0, releases=0, attempts=0;
+static int task=1, owner=0, reads=0, takes=0, releases=0, attempts=0, begins=0;
+static uint32_t nowMs=1000;
 static uint8_t hardware[8]={};
 static void check(bool ok,const char* why){if(!ok)throw std::runtime_error(why);}
 extern "C" bool jwplcSPI_acquire(uint32_t){++attempts;if(owner)return false;owner=task;++takes;return true;}
@@ -21,7 +22,28 @@ struct MockW5100 {int getChip(){check(ownedByThisTask(),"CHIP_OUTSIDE_BUS");retu
 struct EthernetClass {uint8_t socketStatus(uint8_t);} Ethernet;
 struct EthernetClient {uint8_t _sockindex=MAX_SOCK_NUM; SocketToken _jwplcSocketToken{};int available(){return 0;}uint8_t connected();uint8_t status();StatusReadOutcome jwplcProbeSocketStatus(uint8_t&);};
 static uint16_t server_port[8]={};
-struct EthernetServer {uint16_t _port=502;explicit operator bool();};
+struct EthernetServer {
+ uint16_t _port=502;
+ explicit operator bool();
+ StatusReadOutcome jwplcProbeListening(bool&);
+ void begin(){check(ownedByThisTask(),"MODBUS_REOPEN_WITHOUT_BUS");++begins;
+  auto token=allocateSocketLockedAuto(3);check(bool(token),"MODBUS_REOPEN_NO_TOKEN");
+  mapListenerLocked(3,_port,token);server_port[3]=_port;hardware[3]=SnSR::LISTEN;}
+};
+static uint32_t millis(){return nowMs;}
+enum {JWPLC_MODBUS_TCP_SERVER_ERROR=4,JWPLC_MODBUS_TCP_TRANSPORT_ERROR=7,
+      JWPLC_MODBUS_TCP_SERVER_LISTENING=2,JWPLC_MODBUS_TCP_SERVER_CLIENT_ACTIVE=3};
+struct JWPLC_ModbusTCPClass {
+ bool _serverListening=false,_clientActive=false;
+ uint32_t _lastListenAttemptMs=0;
+ int _serverState=0,errors=0;
+ EthernetServer _server;
+ bool acquireBus(uint32_t ms){return enter(ms);}
+ void releaseBus(){leave();}
+ void setError(int){++errors;}
+ void clearError(){errors=0;}
+ void ensureServerListening();
+};
 #include "C2_S2B2A_REAL_PATCHED_METHODS.inc"
 static void hold(){task=2;check(jwplcSPI_acquire(0),"LOCK_SETUP");task=1;}
 static void unhold(){task=2;jwplcSPI_release();task=1;}
@@ -32,6 +54,13 @@ int main(){try{
  uint8_t observed=0xa5;
  check(client.connected()==1 && client.status()==SnSR::ESTABLISHED && bool(server),"REAL_CONNECTED_MISSING");
  check(client.jwplcProbeSocketStatus(observed)==StatusReadOutcome::Read && observed==SnSR::ESTABLISHED,"READ_WRONG");
+ bool listening=false;
+ check(server.jwplcProbeListening(listening)==StatusReadOutcome::Read && listening,
+       "LISTENER_READ_TRUE_FAILED");
+ hardware[3]=SnSR::CLOSED;listening=true;
+ check(server.jwplcProbeListening(listening)==StatusReadOutcome::Read && !listening,
+       "LISTENER_READ_FALSE_FAILED");
+ hardware[3]=SnSR::LISTEN;
  hardware[2]=SnSR::CLOSED;observed=0xa5;
  check(client.connected()==0 && client.status()==SnSR::CLOSED,"REAL_CLOSED_MISSING");
  check(client.jwplcProbeSocketStatus(observed)==StatusReadOutcome::Read && observed==SnSR::CLOSED,"CLOSED_READ_WRONG");
@@ -40,6 +69,9 @@ int main(){try{
  hold();const int before=reads;observed=0xa5;
  check(client.connected()==0 && client.status()==SnSR::CLOSED && !bool(server),"BUSY_SCALAR_CHANGED");
  check(client.jwplcProbeSocketStatus(observed)==StatusReadOutcome::BusBusy && observed==0xa5 && reads==before,"BUSY_PROBE_WRONG");
+ listening=true;
+ check(server.jwplcProbeListening(listening)==StatusReadOutcome::BusBusy &&
+       listening && reads==before,"LISTENER_BUSY_CHANGED_OBSERVATION");
  unhold();
  check(client.connected()==1 && client.status()==SnSR::ESTABLISHED && bool(server),"RECOVERY_FAILED");
  std::puts("B01_REAL_BUSY_COLLAPSES_TO_DISCONNECTED_AND_RECOVERS=REPRODUCED");
@@ -64,6 +96,27 @@ int main(){try{
  check(empty.status()==SnSR::CLOSED && attempts==emptyAttempts,
        "EMPTY_STATUS_ACQUIRED_SPI");
  std::puts("B01_REAL_EMPTY_STATUS_FAST_PATH=PASS");
+ JWPLC_ModbusTCPClass modbus;
+ hold();const int busyBegins=begins;modbus.ensureServerListening();
+ check(!modbus._serverListening && begins==busyBegins && modbus.errors==0,
+       "MODBUS_BUSY_SPURIOUS_REOPEN");unhold();
+ nowMs+=600;modbus.ensureServerListening();
+ check(modbus._serverListening && begins==busyBegins && modbus.errors==0,
+       "MODBUS_CURRENT_REOPENED");
+ {BusScope bus(0);check(bool(bus),"SERVER_RECYCLE_BUS");
+  const auto stale=allocateSocketLockedAuto(3);check(bool(stale),"SERVER_RECYCLE_FAILED");}
+ listening=true;const int listenerReads=reads;
+ check(server.jwplcProbeListening(listening)==StatusReadOutcome::Stale &&
+       listening && reads==listenerReads && !bool(server),
+       "LISTENER_STALE_READ_NEW_OWNER");
+ modbus._serverListening=false;nowMs+=600;modbus.ensureServerListening();
+ check(modbus._serverListening && begins==busyBegins+1 && modbus.errors==0,
+       "MODBUS_STALE_NOT_REOPENED");
+ listening=false;
+ check(server.jwplcProbeListening(listening)==StatusReadOutcome::Read && listening,
+       "LISTENER_RECOVERY_FAILED");
+ std::puts("B01_SERVER_PROBE_READ_BUSY_STALE_RECOVERY=PASS");
+ std::puts("B01_MODBUS_LISTENER_NO_SPURIOUS_REOPEN=PASS");
  check(takes==releases&&owner==0,"LOCK_LEAK");
  return 0;
 }catch(const std::exception& e){std::fprintf(stderr,"B01_ERROR=%s\n",e.what());return 3;}}

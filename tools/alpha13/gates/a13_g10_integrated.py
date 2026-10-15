@@ -39,7 +39,6 @@ MODULES = {
 }
 # Ningún PASS previo resuelve todavía estas fronteras de integración.
 BLOCKERS = {
-    "B01": "B01_PUBLIC_API_DECISION_REQUIRED: connected()/status()/socketStatus() públicos colapsan BUS_BUSY y CLOSED",
     "B02": "IO directo source-backed; semántica pública de estado se decide en B01",
     "B03": "Cierre diferido DNS/DHCP/UDP source-backed; falta red física",
     "B04": "Ciclo connect/retarget/cancel/stop source-backed; falta temporización física del tick autoload",
@@ -739,6 +738,85 @@ def patch_server_b04_b05(repro, source):
     require(source.count(old)==1,"B05_SERVER_WRITE_NOT_UNIQUE")
     return source.replace(old,new,1)
 
+def patch_server_b01_optional(repro, first):
+    """Add a tri-state listener query without changing Arduino bool semantics."""
+    hdr=first["HEADER"]
+    anchor="\tvirtual operator bool();"
+    require(hdr.count(anchor)==1,"B01_SERVER_PROBE_HEADER_DRIFT")
+    hdr=hdr.replace(anchor,anchor+
+        "\n\t// Optional: observed is valid only when the outcome is Read.\n"
+        "\tjwplc_w5500_candidate::StatusReadOutcome jwplcProbeListening(bool& observed);",1)
+    first["HEADER"]=hdr
+    source=first["SERVER"]
+    require("EthernetServer::jwplcProbeListening" not in source,
+            "B01_SERVER_PROBE_ALREADY_PRESENT")
+    source+="""
+
+// G10-I B01: query the listener under SPI and its mapped socket lease.
+jwplc_w5500_candidate::StatusReadOutcome
+EthernetServer::jwplcProbeListening(bool& observed)
+{
+    jwplc_w5500_candidate::BusScope bus(20);
+    if (!bus) return jwplc_w5500_candidate::StatusReadOutcome::BusBusy;
+    const uint8_t chip = W5100.getChip();
+    if (!chip) return jwplc_w5500_candidate::StatusReadOutcome::Stale;
+    uint8_t maxindex = MAX_SOCK_NUM;
+#if MAX_SOCK_NUM > 4
+    if (chip == 51) maxindex = 4;
+#endif
+    bool hasCurrentListener = false;
+    bool listening = false;
+    for (uint8_t i = 0; i < maxindex; ++i) {
+        if (server_port[i] != _port) continue;
+        const auto token = jwplc_w5500_candidate::currentSocketTokenLocked(i);
+        if (!jwplc_w5500_candidate::listenerMatchesLocked(i, _port, token))
+            continue;
+        hasCurrentListener = true;
+        if (Ethernet.socketStatus(i) == SnSR::LISTEN) listening = true;
+    }
+    if (!hasCurrentListener)
+        return jwplc_w5500_candidate::StatusReadOutcome::Stale;
+    observed = listening;
+    return jwplc_w5500_candidate::StatusReadOutcome::Read;
+}
+"""
+    first["SERVER"]=source
+    source=first["MB_SERVER"]
+    sig="void JWPLC_ModbusTCPClass::ensureServerListening()"
+    old=repro.extract(source,sig)
+    anchor="""    bool listening = (bool)_server;
+    if (!listening)
+    {
+        _server.begin();
+        listening = (bool)_server;
+    }
+
+    releaseBus();
+
+    if (!listening)"""
+    require(old.count(anchor)==1,"B01_MODBUS_LISTENER_PROBE_ANCHOR_DRIFT")
+    replacement="""    bool listening = false;
+    auto probe = _server.jwplcProbeListening(listening);
+    if (probe == jwplc_w5500_candidate::StatusReadOutcome::BusBusy) {
+        releaseBus();
+        return; // unknown: keep the listener operation pending
+    }
+    if (probe != jwplc_w5500_candidate::StatusReadOutcome::Read || !listening)
+    {
+        _server.begin();
+        probe = _server.jwplcProbeListening(listening);
+    }
+
+    releaseBus();
+    if (probe == jwplc_w5500_candidate::StatusReadOutcome::BusBusy)
+        return; // do not report a false listener failure
+
+    if (probe != jwplc_w5500_candidate::StatusReadOutcome::Read || !listening)"""
+    new=old.replace(anchor,replacement,1)
+    require(source.count(old)==1,"B01_MODBUS_LISTENER_NOT_UNIQUE")
+    first["MB_SERVER"]=source.replace(old,new,1)
+    return first
+
 def compose():
     mods={k:load(v,k) for k,v in MODULES.items() if k!="frozen"}
     repro=mods["repro"]
@@ -772,6 +850,7 @@ def compose():
     first["CLIENT"]=patch_tcp_tx_b02(repro,first["CLIENT"])
     first["CLIENT"]=patch_tcp_remaining_b02(repro,first["CLIENT"])
     first["SERVER"]=patch_server_b04_b05(repro,first["SERVER"])
+    first=patch_server_b01_optional(repro,first)
     socket_overlay,_=s2a.patch(repro,first["SOCKET"])
     first["SOCKET"]=socket_overlay
     udp_original=(ROOT/udp.UDP_PATH).read_text(encoding="utf-8-sig")
@@ -1661,15 +1740,19 @@ def b01_scalar_native(out, files):
          ("uint8_t EthernetClient::connected()", "uint8_t EthernetClient::status()",
           "EthernetClient::jwplcProbeSocketStatus(uint8_t& result)")),
         ("JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/EthernetServer.cpp",
-         ("EthernetServer::operator bool()",)),
+         ("EthernetServer::operator bool()",
+          "EthernetServer::jwplcProbeListening(bool& observed)")),
         ("JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/socket.cpp",
          ("uint8_t EthernetClass::socketStatus(uint8_t s)",)),
+        ("JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP.cpp",
+         ("void JWPLC_ModbusTCPClass::ensureServerListening()",)),
     )
     methods=[]
     for path,sigs in paths:
         for sig in sigs:
             body=repro.extract(files[path],sig)
-            if sig.startswith("EthernetClient::jwplcProbeSocketStatus"):
+            if sig.startswith(("EthernetClient::jwplcProbeSocketStatus",
+                               "EthernetServer::jwplcProbeListening")):
                 body="jwplc_w5500_candidate::StatusReadOutcome\n"+body
             methods.append(body)
     def run(label,bodies):
@@ -1679,7 +1762,9 @@ def b01_scalar_native(out, files):
               "B01_REAL_BUSY_COLLAPSES_TO_DISCONNECTED_AND_RECOVERS=REPRODUCED",
               "B01_REAL_STALE_SCALAR_REJECTED=PASS",
               "B01_REAL_CURRENT_AND_INVALID_LEASE=PASS",
-              "B01_REAL_EMPTY_STATUS_FAST_PATH=PASS")
+              "B01_REAL_EMPTY_STATUS_FAST_PATH=PASS",
+              "B01_SERVER_PROBE_READ_BUSY_STALE_RECOVERY=PASS",
+              "B01_MODBUS_LISTENER_NO_SPURIOUS_REOPEN=PASS")
     require(rc==0 and all(marker in log for marker in required),
             "B01_SCALAR_REAL_CPP_FAILED_"+log.strip().replace("\n","_")[:250])
     negatives=(
@@ -1694,6 +1779,17 @@ def b01_scalar_native(out, files):
         ("empty_status_takes_spi",1,
          "if (_sockindex >= MAX_SOCK_NUM) return SnSR::CLOSED;",
          "/* mutant: empty client takes SPI */", "EMPTY_STATUS_ACQUIRED_SPI"),
+        ("listener_without_lease",4,
+         "if (!jwplc_w5500_candidate::listenerMatchesLocked(i, _port, token))",
+         "if (false)", "LISTENER_STALE_READ_NEW_OWNER"),
+        ("listener_busy_writes_output",4,
+         "if (!bus) return jwplc_w5500_candidate::StatusReadOutcome::BusBusy;",
+         "if (!bus) { observed = false; return jwplc_w5500_candidate::StatusReadOutcome::BusBusy; }",
+         "LISTENER_BUSY_CHANGED_OBSERVATION"),
+        ("modbus_skips_stale_reopen",6,
+         "if (probe != jwplc_w5500_candidate::StatusReadOutcome::Read || !listening)\n"
+         "    {\n        _server.begin();",
+         "if (false)\n    {\n        _server.begin();", "MODBUS_STALE_NOT_REOPENED"),
     )
     for label,index,old,new,error in negatives:
         require(methods[index].count(old)==1,"B01_SCALAR_MUTANT_ANCHOR_"+label)
@@ -1701,27 +1797,41 @@ def b01_scalar_native(out, files):
         mutant[index]=mutant[index].replace(old,new,1)
         code,output=run("negative_"+label,mutant)
         require(code!=0 and error in output,"B01_SCALAR_MUTANT_NOT_REJECTED_"+label)
-    return {"status":"PASS_STALE_GUARD_PUBLIC_BUSY_SEMANTICS_BLOCKED",
+    return {"status":"PASS_CLIENT_SERVER_OPT_IN_LEGACY_SCALARS_LIMITED",
             "cpp_methods":len(methods),"negatives":len(negatives),
             "busy_contract":"scalar 0/CLOSED/false remains ambiguous"}
 
 
 def b01_public_semantics_inventory(files):
-    """Source-backed scope check; this is a documented block, not a PASS."""
+    """Source-backed API/consumer contract; legacy scalar limits remain."""
     repro=load(MODULES["repro"],"b01_public_inventory")
     client=files["JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/EthernetClient.cpp"]
     socket=files["JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/socket.cpp"]
+    header=files["JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/JWPLC_W5x00_Ethernet.h"]
+    server=files["JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/EthernetServer.cpp"]
     mb_client=files["JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP_Client.cpp"]
     mb_server=files["JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP.cpp"]
     connected=repro.extract(client,"uint8_t EthernetClient::connected()")
     status=repro.extract(client,"uint8_t EthernetClient::status()")
     raw=repro.extract(socket,"uint8_t EthernetClass::socketStatus(uint8_t s)")
+    server_bool=repro.extract(server,"EthernetServer::operator bool()")
+    server_probe=repro.extract(server,"EthernetServer::jwplcProbeListening(bool& observed)")
     require("if (!bus) return 0;" in connected and
             "matchesLocked(_jwplcSocketToken)" in connected and
             "matchesLocked(_jwplcSocketToken)" in status and
             "return Ethernet.socketStatus(_sockindex);" in status and
             "if (!bus) return SnSR::CLOSED;" in raw,
             "B01_PUBLIC_SCALAR_CONTRACT_CHANGED_REVIEW_REQUIRED")
+    require("virtual uint8_t connected();" in header and
+            "static uint8_t socketStatus(uint8_t s);" in header and
+            "virtual operator bool();" in header and
+            "jwplcProbeSocketStatus(uint8_t& result);" in header and
+            "jwplcProbeListening(bool& observed);" in header and
+            "if (!bus) return false;" in server_bool and
+            "StatusReadOutcome::BusBusy" in server_probe and
+            "StatusReadOutcome::Stale" in server_probe and
+            "observed = listening;" in server_probe,
+            "B01_OPTIONAL_OR_LEGACY_API_CONTRACT_DRIFT")
     for sig in ("void JWPLC_ModbusTCPClientClass::serviceConnection()",
                 "void JWPLC_ModbusTCPClientClass::serviceResponse()"):
         body=repro.extract(mb_client,sig)
@@ -1736,12 +1846,14 @@ def b01_public_semantics_inventory(files):
             "B01_MODBUS_SERVER_PROBE_ORDER_DRIFT")
     listener=repro.extract(mb_server,"void JWPLC_ModbusTCPClass::ensureServerListening()")
     require(listener.index("if (!acquireBus(20))") <
-            listener.index("(bool)_server"),
-            "B01_MODBUS_LISTENER_BUSY_ORDER_DRIFT")
-    return {"status":"BLOCKED_SEMANTICS",
-            "internal_consumers":"Modbus Client connection/response, Modbus Server RX/listener guarded",
+            listener.index("jwplcProbeListening(") <
+            listener.index("_server.begin()") and
+            "StatusReadOutcome::BusBusy" in listener,
+            "B01_MODBUS_LISTENER_PROBE_ORDER_DRIFT")
+    return {"status":"PASS_OPT_IN_LEGACY_SCALARS_LIMITED",
+            "internal_consumers":"Modbus Client connection/response, Modbus Server RX/listener tri-state",
             "public_returns":"connected=0, status/socketStatus=CLOSED on BUS_BUSY",
-            "consequence":"external Arduino callers can mistake contention for disconnection"}
+            "consequence":"legacy-only external callers can mistake contention for disconnection"}
 
 
 def main():
@@ -1772,7 +1884,7 @@ def main():
         m["status_probe"]=status_probe_native(out)
         emit("TRISTATE_STATUS_NATIVE","PASS_PRIMITIVE_ONLY")
         m["b01_scalar"]=b01_scalar_native(out,files)
-        emit("B01_SCALAR_NATIVE","PASS_STALE_GUARD_4_NEGATIVES_BUSY_SEMANTICS_BLOCKED")
+        emit("B01_SCALAR_NATIVE","PASS_CLIENT_SERVER_PROBES_7_NEGATIVES")
         m["modbus_cleanup_probe"]=modbus_cleanup_native(out,files)
         emit("MODBUS_CLEANUP_NATIVE","PASS_THREE_SOURCE_METHODS_3_NEGATIVES")
         m["modbus_server_cleanup_probe"]=server_cleanup_native(out,files)
@@ -1795,21 +1907,21 @@ def main():
         emit("B02_NONPHYSICAL",m["b02_nonphysical_status"])
         m["b04_b05_server"]=b04_b05_server_native(out,files)
         emit("B04_B05_SERVER","PASS_SOURCE_BACKED_4_METHODS_1_CTOR_6_NEGATIVES")
-        m["b04_b05_status"]="REVIEW_PUBLIC_BUSY_POLICY_AND_PHYSICAL_RESET"
+        m["b04_b05_status"]="REVIEW_PHYSICAL_RESET"
         emit("B04_B05",m["b04_b05_status"])
         m["b03_dns_dhcp_shutdown"]=b03_deferred_close_native(out,files)
         emit("B03_DNS_DHCP_SHUTDOWN","PASS_SOURCE_BACKED_DEFERRED_CLOSE_9_NEGATIVES")
         m["gate_matrix"]={
-            "B01":"BLOCKED_SEMANTICS",
+            "B01":"PASS_NONPHYSICAL_OPT_IN_LEGACY_LIMITED",
             "B02":"PASS_NONPHYSICAL",
             "B03":"PASS_NONPHYSICAL",
             "B04":"PASS_NONPHYSICAL",
             "B05":"REVIEW_PHYSICAL",
         }
-        m["b01_public_api_decision"]="B01_PUBLIC_API_DECISION_REQUIRED"
-        m["n3_ready"]="NO_B01_PUBLIC_API_DECISION_REQUIRED"
-        emit("B01_PUBLIC_API_DECISION_REQUIRED","YES")
-        emit("GATE_MATRIX","B01_BLOCKED_SEMANTICS_B02_B03_B04_PASS_NONPHYSICAL_B05_REVIEW_PHYSICAL")
+        m["b01_public_api_decision"]="APPROVED_OPT_IN_WITH_LEGACY_SCALAR_LIMITATION"
+        m["n3_ready"]="YES_NONPHYSICAL"
+        emit("B01_OPT_IN","PASS_LEGACY_SCALARS_LIMITED")
+        emit("GATE_MATRIX","B01_B02_B03_B04_PASS_NONPHYSICAL_B05_REVIEW_PHYSICAL")
         emit("N3_READY",m["n3_ready"])
         if opts.stage_platform is not None:
             staged=stage_platform(opts.stage_platform,files,shas)
@@ -1818,7 +1930,7 @@ def main():
             emit("ARDUINO_PLATFORM_EXPORT","STAGED_NOT_COMPILED")
         m.update({"head":head,"overlay_files":shas,
                   "blockers":BLOCKERS,
-                  "status":"B01_PUBLIC_API_DECISION_REQUIRED"})
+                  "status":"N3_READY_NONPHYSICAL"})
         emit("SOURCE_OVERLAY","COMPOSED")
         emit("OVERLAY_FILES",len(files))
         emit("FROZEN_ARCHIVES",5)

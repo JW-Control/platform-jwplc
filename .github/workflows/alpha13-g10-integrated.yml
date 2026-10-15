@@ -62,7 +62,7 @@ jobs:
           $log=Get-Content g10_i.log -Raw
           if ($log -notmatch 'G10_INTEGRATED_SOURCE_OVERLAY=COMPOSED') { throw 'G10_I_NO_OVERLAY' }
           if ($log -notmatch 'G10_INTEGRATED_TRISTATE_STATUS_NATIVE=PASS_PRIMITIVE_ONLY') { throw 'G10_I_TRISTATE_NATIVE_NOT_PROVEN' }
-          if ($log -notmatch 'G10_INTEGRATED_B01_SCALAR_NATIVE=PASS_STALE_GUARD_4_NEGATIVES_BUSY_SEMANTICS_BLOCKED') { throw 'G10_I_B01_SCALAR_STALE_GUARD_NOT_PROVEN' }
+          if ($log -notmatch 'G10_INTEGRATED_B01_SCALAR_NATIVE=PASS_CLIENT_SERVER_PROBES_7_NEGATIVES') { throw 'G10_I_B01_OPT_IN_PROBES_NOT_PROVEN' }
           if ($log -notmatch 'G10_INTEGRATED_MODBUS_CLEANUP_NATIVE=PASS_THREE_SOURCE_METHODS_3_NEGATIVES') { throw 'G10_I_MODBUS_CLEANUP_NOT_PROVEN' }
           if ($log -notmatch 'G10_INTEGRATED_MODBUS_SERVER_CLEANUP_NATIVE=PASS_THREE_SOURCE_METHODS_5_NEGATIVES') { throw 'G10_I_MODBUS_SERVER_NOT_PROVEN' }
           if ($log -notmatch 'G10_INTEGRATED_B01_MODBUS_SERVER_STATUS=PASS_REAL_CPP_2_NEGATIVES') { throw 'G10_I_B01_SERVER_STATUS_NOT_PROVEN' }
@@ -74,12 +74,12 @@ jobs:
           if ($log -notmatch 'G10_INTEGRATED_B02_CLIENT_REMAINING=PASS_SOURCE_BACKED_12_METHODS_6_NEGATIVES') { throw 'G10_I_B02_CLIENT_REMAINING_NOT_PROVEN' }
           if ($log -notmatch 'G10_INTEGRATED_B02_NONPHYSICAL=PASS_SOURCE_BACKED_IO_PUBLIC_STATUS_EXCLUDED') { throw 'G10_I_B02_SCOPE_MISREPORTED' }
           if ($log -notmatch 'G10_INTEGRATED_B04_B05_SERVER=PASS_SOURCE_BACKED_4_METHODS_1_CTOR_6_NEGATIVES') { throw 'G10_I_B05_SERVER_CORRECTION_NOT_PROVEN' }
-          if ($log -notmatch 'G10_INTEGRATED_B04_B05=REVIEW_PUBLIC_BUSY_POLICY_AND_PHYSICAL_RESET') { throw 'G10_I_B05_SCOPE_MISREPORTED' }
+          if ($log -notmatch 'G10_INTEGRATED_B04_B05=REVIEW_PHYSICAL_RESET') { throw 'G10_I_B05_SCOPE_MISREPORTED' }
           if ($log -notmatch 'G10_INTEGRATED_B03_DNS_DHCP_SHUTDOWN=PASS_SOURCE_BACKED_DEFERRED_CLOSE_9_NEGATIVES') { throw 'G10_I_B03_CORRECTION_NOT_DEMONSTRATED' }
-          if ($log -notmatch 'G10_INTEGRATED_B01_PUBLIC_API_DECISION_REQUIRED=YES') { throw 'G10_I_B01_SEMANTICS_RISK_MASKED' }
-          if ($log -notmatch 'G10_INTEGRATED_N3_READY=NO_B01_PUBLIC_API_DECISION_REQUIRED') { throw 'G10_I_N3_READINESS_WRONG' }
-          if ($log -notmatch 'G10_INTEGRATED_BLOCKERS=8') { throw 'G10_I_RISK_MASKED' }
-          if ($log -notmatch 'G10_INTEGRATED_STATUS=B01_PUBLIC_API_DECISION_REQUIRED') { throw 'G10_I_WRONG_STATUS' }
+          if ($log -notmatch 'G10_INTEGRATED_B01_OPT_IN=PASS_LEGACY_SCALARS_LIMITED') { throw 'G10_I_B01_CONTRACT_NOT_PROVEN' }
+          if ($log -notmatch 'G10_INTEGRATED_N3_READY=YES_NONPHYSICAL') { throw 'G10_I_N3_READINESS_WRONG' }
+          if ($log -notmatch 'G10_INTEGRATED_BLOCKERS=7') { throw 'G10_I_RISK_MASKED' }
+          if ($log -notmatch 'G10_INTEGRATED_STATUS=N3_READY_NONPHYSICAL') { throw 'G10_I_WRONG_STATUS' }
           if ($log -notmatch 'G10_INTEGRATED_PRODUCT_CHANGED=NO') { throw 'G10_I_PRODUCT_CHANGED' }
       - name: No tocar fuentes productivas
         shell: pwsh
@@ -159,6 +159,7 @@ jobs:
             "JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/Ethernet_SPI_Coexistence"
             "JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/01.Ethernet_DHCP_Basic"
             "tools/alpha13/sketches/G10_UDP_DNS_DHCP_Integration"
+            "tools/alpha13/sketches/G10_B01_Status_OptIn"
           )
           for version in baseline candidate; do
             case "$version" in
@@ -167,6 +168,9 @@ jobs:
             esac
             for sketch in "${sketches[@]}"; do
               name="$(basename "$sketch")"
+              if [ "$version" = baseline ] && [ "$name" = G10_B01_Status_OptIn ]; then
+                continue # the new optional method exists only in the candidate
+              fi
               log="$EVIDENCE/$version-$name.log"
               output="$RUNNER_TEMP/g10-$version-$name"
               echo "::group::$version $name"
@@ -364,6 +368,19 @@ jobs:
                   fi
                   echo 'G10_I_B01_MODBUS_SERVER_SOURCE_TO_OBJECT_MMD_AND_ELF=PASS'
                 fi
+                if [ "$name" = 'G10_B01_Status_OptIn' ]; then
+                  for stem in EthernetClient.cpp EthernetServer.cpp; do
+                    mapfile -t optobjs < <(find "$output" -name "$stem.o" -type f)
+                    test "${#optobjs[@]}" -eq 1 || { echo "G10_I_B01_OPT_OBJECT_NOT_UNIQUE=$stem"; exit 62; }
+                    optdep="${optobjs[0]%.o}.d"
+                    test -f "$optdep" || { echo "G10_I_B01_OPT_MMD_MISSING=$stem"; exit 63; }
+                    grep -Fq "$CAND/JWPLC_Ethernet/src/$stem" "$optdep" || {
+                      echo "G10_I_B01_OPT_WRONG_SOURCE=$stem"; exit 64;
+                    }
+                    sha256sum "${optobjs[0]}" >>"$EVIDENCE/b01-opt-object-sha-$name.txt"
+                  done
+                  echo 'G10_I_B01_OPT_IN_SOURCE_TO_OBJECT_MMD_AND_ELF=PASS'
+                fi
                 sha256sum "$obj" "${elfs[0]}" >"$EVIDENCE/object-elf-sha-$name.txt"
                 echo "G10_I_SOURCE_TO_OBJECT_MMD_AND_ELF_$name=PASS"
               fi
@@ -435,7 +452,7 @@ jobs:
               --stage-platform "$RUNNER_TEMP/g10-full-candidate-platform" \
               >"$WORK/evidence/compose.log"
             SRC="$RUNNER_TEMP/g10-full-candidate-platform"
-            grep -F 'G10_INTEGRATED_STATUS=B01_PUBLIC_API_DECISION_REQUIRED' "$WORK/evidence/compose.log"
+            grep -F 'G10_INTEGRATED_STATUS=N3_READY_NONPHYSICAL' "$WORK/evidence/compose.log"
           fi
           rsync -a "$SRC/" "$WORK/sketchbook/hardware/jwplc_local/esp32/"
           cmp "$SRC/boards.txt" "$WORK/sketchbook/hardware/jwplc_local/esp32/boards.txt"
