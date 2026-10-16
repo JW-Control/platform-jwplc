@@ -188,10 +188,20 @@ def build(cli,config,platform,tmp,rtu):
         properties=command([cli,"--config-file",config,"compile",
               "--fqbn",FQBN,"--show-properties",sketch],
               "PROPERTIES_"+role)
-        expected="runtime.platform.path="+str(platform)
-        require(any(line.strip().replace("\\","/")==expected.replace("\\","/")
-                    for line in properties.splitlines()),
-                "WRONG_FULL_ALPHA13_PLATFORM_"+role)
+        # Arduino CLI usa a veces el path largo de Windows mientras que
+        # tempfile/Path de Python conserva su alias 8.3 (RUNNER~1).
+        # Una igualdad textual es falsamente negativa. samefile() verifica
+        # identidad REAL de directorio, y rechaza otro core instalado.
+        raw_paths=[line.partition("=")[2].strip().strip('"')
+                   for line in properties.splitlines()
+                   if line.partition("=")[0].strip()=="runtime.platform.path"]
+        require(len(raw_paths)==1,"RUNTIME_PLATFORM_PROPERTY_MISSING_OR_DUPLICATED_"+role)
+        observed=Path(raw_paths[0])
+        if not observed.is_dir() or not observed.samefile(platform):
+            emit("PLATFORM_"+role+"_OBSERVED",str(observed))
+            emit("PLATFORM_"+role+"_EXPECTED",str(platform))
+            require(False,"WRONG_FULL_ALPHA13_PLATFORM_"+role)
+        emit("PLATFORM_"+role+"_IDENTITY","PASS_SAME_DIRECTORY")
         logs=command([cli,"--config-file",config,"compile",
               "--fqbn",FQBN,"--warnings","default",
               "--build-path",builddir,"--clean","-v",sketch],
