@@ -276,6 +276,10 @@ def selftest() -> int:
         ("traffic_gap", lambda m: m["events"].__setitem__(slice(None),[
             e for e in m["events"] if not (e["phase"]=="R4" and
              e["kind"]=="traffic" and 1100 < e["t"] < 1450)])),
+        ("spi_busy_unknown_not_linkoff", lambda m: [
+            e.update({"link":0})
+            for e in m["events"] if e["phase"]=="R2" and
+              e["kind"]=="heartbeat" and 611 < e["t"] < 623]),
         ("bad_origin", lambda m: m.__setitem__("origin","REAL_CERTIFIED")),
         ("invalid_bool", lambda m: next(e for e in m["events"] if e["kind"]=="traffic").__setitem__("tcp",1)),
     ]
