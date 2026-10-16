@@ -207,8 +207,9 @@ def _synthetic() -> dict:
         base = start + cycle * 65
         ev.append(hb("R2", base))
         ev.append({"phase": "R2", "t": base+1, "kind": "link_down"})
-        for step in (2, 6, 10):
-            ev.append(traffic("R2", base+step, tcp=False, udp=False, rtu=True))
+        for step in (2, 4, 6, 8, 10, 12):
+            if step in (2, 6, 10):
+                ev.append(traffic("R2", base+step, tcp=False, udp=False, rtu=True))
             ev.append(hb("R2", base+step+0.1, eth=0, tcp=0))
         ev.append({"phase": "R2", "t": base+13, "kind": "link_up"})
         ev.append(hb("R2", base+14))
