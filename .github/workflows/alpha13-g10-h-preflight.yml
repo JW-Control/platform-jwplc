@@ -50,7 +50,7 @@ jobs:
           staged=tmp/"g10h-stage"
           hashes={k:{"sha256":hashlib.sha256(v.encode("utf-8")).hexdigest()} for k,v in files.items()}
           m.stage_platform(staged,files,hashes)
-          target=tmp/"g10h-user/hardware/jwplc_local/esp32"
+          target=tmp/"g10h-user/hardware/jwplc_hbench/esp32"
           target.parent.mkdir(parents=True,exist_ok=True)
           shutil.copytree(staged,target)
           src=(target/"libraries/JWPLC_Ethernet/src/JWPLC_Ethernet.cpp").read_text()
@@ -62,9 +62,9 @@ jobs:
       - name: Compilar dos programas en package Alpha13 aislado
         run: |
           set -euo pipefail
-          arduino-cli compile --fqbn jwplc_local:esp32:jwplcbasic --clean -v --build-path "$RUNNER_TEMP/g10h-build-com4" tools/alpha13/sketches/g10_h_integrated >"$RUNNER_TEMP/g10h-com4.log" 2>&1 || { tail -n 70 "$RUNNER_TEMP/g10h-com4.log"; exit 1; }
+          arduino-cli compile --fqbn jwplc_hbench:esp32:jwplcbasic --clean -v --build-path "$RUNNER_TEMP/g10h-build-com4" tools/alpha13/sketches/g10_h_integrated >"$RUNNER_TEMP/g10h-com4.log" 2>&1 || { tail -n 70 "$RUNNER_TEMP/g10h-com4.log"; exit 1; }
           echo "G10_H_CI_COM4=PASS"
-          arduino-cli compile --fqbn jwplc_local:esp32:jwplcbasic --clean -v --build-path "$RUNNER_TEMP/g10h-build-com14" tools/alpha13/sketches/g8_p4_slave >"$RUNNER_TEMP/g10h-com14.log" 2>&1 || { tail -n 70 "$RUNNER_TEMP/g10h-com14.log"; exit 1; }
+          arduino-cli compile --fqbn jwplc_hbench:esp32:jwplcbasic --clean -v --build-path "$RUNNER_TEMP/g10h-build-com14" tools/alpha13/sketches/g8_p4_slave >"$RUNNER_TEMP/g10h-com14.log" 2>&1 || { tail -n 70 "$RUNNER_TEMP/g10h-com14.log"; exit 1; }
           echo "G10_H_CI_COM14=PASS"
           find "$RUNNER_TEMP/g10h-build-com4" -name 'JWPLC_W5500_SafeAccess.cpp.o' | grep -q .
           echo "G10_H_CI_W5500_OBJECT=PASS"
@@ -132,7 +132,7 @@ jobs:
               tmp=pathlib.Path(t)
               staged=tmp/'staged'
               m.stage_platform(staged,sources,hashes)
-              sk=tmp/'sketchbook'/'hardware'/'jwplc_local'/'esp32'
+              sk=tmp/'sketchbook'/'hardware'/'jwplc_hbench'/'esp32'
               sk.parent.mkdir(parents=True)
               import shutil
               shutil.copytree(staged,sk)
@@ -142,7 +142,7 @@ jobs:
               conf=confdir/'arduino-cli.yaml'
               b=subprocess.run(['arduino-cli','--config-file',str(conf),'config','set','directories.user',str(tmp/'sketchbook')],text=True,capture_output=True)
               print('G10_H_WINDOWS_CONFIG_SET_RC=',b.returncode,b.stdout[-500:],b.stderr[-500:])
-              cmd=['arduino-cli','--config-file',str(conf),'compile','--fqbn','jwplc_local:esp32:jwplcbasic','--show-properties',str(root/'tools/alpha13/sketches/g10_h_integrated')]
+              cmd=['arduino-cli','--config-file',str(conf),'compile','--fqbn','jwplc_hbench:esp32:jwplcbasic','--show-properties',str(root/'tools/alpha13/sketches/g10_h_integrated')]
               p=subprocess.run(cmd,text=True,capture_output=True,errors='replace')
               print('G10_H_WINDOWS_SHOW_PROPERTIES_EXIT=',p.returncode,'OUTPUT_LINES=',len(p.stdout.splitlines()))
               for line in p.stdout.splitlines():
@@ -158,6 +158,11 @@ jobs:
               real=pathlib.Path(actual_paths[0])
               assert real.is_dir() and real.samefile(sk), 'G10_H_WIN_PLATFORM_DIR_IDENTITY_FAIL'
               assert not real.samefile(staged), 'G10_H_WIN_NEGATIVE_WRONG_PLATFORM_ACCEPTED'
+              # El namespace de banco no puede colisionar con el de Arduino15,
+              # aunque la instalación preexistente use jwplc_local:esp32.
+              assert 'jwplc_hbench' in real.parts, 'G10_H_WIN_BENCH_NAMESPACE_NOT_SELECTED'
+              assert 'jwplc_local' not in real.parts, 'G10_H_WIN_INSTALLED_VENDOR_LEAK'
+              print('G10_H_WINDOWS_BENCH_VENDOR=PASS_ISOLATED_FROM_JWPLC_LOCAL')
               print('G10_H_WINDOWS_PLATFORM_IDENTITY=PASS_SAME_DIRECTORY_8DOT3_ALLOWED')
               print('G10_H_WINDOWS_PLATFORM_WRONG_COPY=PASS_REJECTED')
               run_spec=importlib.util.spec_from_file_location('g10h_runner_build',root/'tools/alpha13/gates/a13_g10_h_physical.py')
