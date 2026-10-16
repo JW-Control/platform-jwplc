@@ -4,6 +4,8 @@ on:
     branches: ['codex/alpha13-g10-h-*']
     paths:
       - '.github/workflows/alpha13-g10-h-preflight.yml'
+      - 'tools/alpha13/gates/a13_g10_integrated.py'
+      - 'tools/alpha13/gates/a13_g10_h_stage_selftest.py'
       - 'tools/alpha13/gates/a13_g10_h_physical.py'
       - 'tools/alpha13/gates/run_a13_g10_h_physical.bat'
       - 'tools/alpha13/sketches/g10_h_integrated/**'
@@ -75,3 +77,20 @@ jobs:
             ${{ runner.temp }}/g10h-com4.log
             ${{ runner.temp }}/g10h-com14.log
           if-no-files-found: error
+
+  windows-stage-integrity:
+    name: G10-H staging source-first Windows (sin compilacion ni upload)
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Probar hashes en bytes LF y mutacion SHA (Windows)
+        shell: pwsh
+        run: |
+          python -B tools/alpha13/gates/a13_g10_h_stage_selftest.py
+          if ($LASTEXITCODE -ne 0) { throw 'G10_H_STAGE_WINDOWS_PORTABILITY_FAILED' }
