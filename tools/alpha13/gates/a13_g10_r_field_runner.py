@@ -88,6 +88,12 @@ def parse_heartbeat(line:str,token:str,phase:str,t:float):
         else:
             if not v.isdecimal():return None
             d[field]=int(v)
+    if d["link"] not in (0,1,2):return None
+    if d["eth"] not in (0,1) or d["tcp"] not in (0,1) or d["rtc"] not in (0,1):
+        return None
+    if not re.fullmatch(r"[a-f0-9]{4,8}",d["boot"]):return None
+    if not re.fullmatch(r"\\d{1,3}(?:\\.\\d{1,3}){3}",d["ip"]):
+        return None
     return d
 
 
@@ -236,6 +242,15 @@ class Recorder:
                 ip=(latest or {}).get("ip") or self.ready_ip
                 rtu_value=(latest or {}).get("rtu_ok")
                 rtu_fail=(latest or {}).get("rtu_fail")
+            # La primera lectura aún no tiene heartbeat/RTU diferencial.
+            # No crear una muestra "fallida" ficticia por falta de sesión.
+            if latest is None or rtu_value is None:
+                halt.wait(.2)
+                continue
+            if prev_rtu is None:
+                prev_rtu=rtu_value
+                halt.wait(min(.6,interval))
+                continue
             seq+=1
             tcp_ok=udp_ok=False
             if ip and ip!="0.0.0.0":
@@ -341,6 +356,7 @@ def live(evidence:Path)->int:
     try:
         result["current_ports"]=c.open()
         deadline=time.monotonic()+45
+        ready=False
         while time.monotonic()<deadline:
             with c.lock:
                 ready=c.ready_ip is not None and c.protocol_seen
