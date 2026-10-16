@@ -36,7 +36,7 @@ R4_SECONDS=1805
 R2_FAULT_SECONDS=12
 R2_RECOVERY_SECONDS=96
 AUTH="G10R AUTORIZO CAPTURA COM4 COM14 Y MANIOBRAS RJ45"
-READY_RE=re.compile(r"^G10R_READY:IP=(\d{1,3}(?:\.\d{1,3}){3}) TCP=1 UDP=1 RTU=1 BOOT=([0-9a-f]+) LINK=([012])$")
+READY_RE=re.compile(r"^G10R_READY:IP=(\d{1,3}(?:\.\d{1,3}){3}) TCP=1 UDP=1 RTU=1 BOOT=([0-9a-f]+) LINK=([012]) VER=R1R2R4_R3SNAPSHOT_V1$")
 HB_RE=re.compile(r"^G10R_HEARTBEAT:([0-9a-f]{24}) (.*)$")
 FIELDS={"HB":"hb","BOOT":"boot","IP":"ip","LINK":"link","ETH":"eth",
         "TCP":"tcp","SD_OK":"sd_ok","SD_FAIL":"sd_fail","RTC":"rtc",
@@ -177,6 +177,7 @@ class Recorder:
                     if ready:
                         self.ready_ip=ready.group(1)
                         self.boot=ready.group(2)
+                        self.protocol_seen=True
                     if self.phase and self.token:
                         hb=parse_heartbeat(line,self.token,self.phase,at)
                         if hb:
@@ -332,6 +333,13 @@ def selftest()->int:
     for label,line in neg:
         require(parse_heartbeat(line,"a"*24,"R2",12.4) is None,
                 "NEGATIVE_NOT_REJECTED_"+label)
+    expected_ready=("G10R_READY:IP=192.0.2.4 TCP=1 UDP=1 RTU=1"
+                    " BOOT=abc123 LINK=1 VER=R1R2R4_R3SNAPSHOT_V1")
+    require(READY_RE.fullmatch(expected_ready) is not None,
+            "READY_PERIODIC_PROTOCOL_MISSING")
+    require(READY_RE.fullmatch(expected_ready.replace("VER=R1R2R4_R3SNAPSHOT_V1",
+                                                     "VER=LEGACY")) is None,
+            "READY_STALE_FIRMWARE_ACCEPTED")
     require(plan()["hardware"]=="NOT_ACCESSED",
             "DRY_RUN_IMPLICIT_HARDWARE")
     print("G10_R_FIELD_SELFTEST=PASS_6_NEGATIVE_SERIAL_CASES")
