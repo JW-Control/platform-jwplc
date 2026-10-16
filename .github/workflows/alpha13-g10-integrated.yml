@@ -49,7 +49,7 @@ jobs:
           python -m py_compile tools/alpha13/gates/a13_g10_integrated.py
           python -B tools/alpha13/gates/a13_g10_integrated.py --help
           if ($LASTEXITCODE -ne 0) { throw 'G10_I_SYNTAX' }
-      - name: Verificar contrato source-backed B03 (riesgo conocido, NO fix)
+      - name: Verificar ruta candidata B03 y mutaciones de contrato
         shell: pwsh
         run: |
           python -B tools/alpha13/gates/a13_g10_b03_source_contract.py
@@ -62,12 +62,25 @@ jobs:
           $log=Get-Content g10_i.log -Raw
           if ($log -notmatch 'G10_INTEGRATED_SOURCE_OVERLAY=COMPOSED') { throw 'G10_I_NO_OVERLAY' }
           if ($log -notmatch 'G10_INTEGRATED_TRISTATE_STATUS_NATIVE=PASS_PRIMITIVE_ONLY') { throw 'G10_I_TRISTATE_NATIVE_NOT_PROVEN' }
+          if ($log -notmatch 'G10_INTEGRATED_B01_SCALAR_NATIVE=PASS_CLIENT_SERVER_PROBES_7_NEGATIVES') { throw 'G10_I_B01_OPT_IN_PROBES_NOT_PROVEN' }
+          if ($log -notmatch 'G10_INTEGRATED_B08_MUTEX_NATIVE=PASS_NONRECURSIVE_3_WRAPPERS_6_NEGATIVES') { throw 'G10_I_B08_MUTEX_OWNERSHIP_NOT_PROVEN' }
           if ($log -notmatch 'G10_INTEGRATED_MODBUS_CLEANUP_NATIVE=PASS_THREE_SOURCE_METHODS_3_NEGATIVES') { throw 'G10_I_MODBUS_CLEANUP_NOT_PROVEN' }
           if ($log -notmatch 'G10_INTEGRATED_MODBUS_SERVER_CLEANUP_NATIVE=PASS_THREE_SOURCE_METHODS_5_NEGATIVES') { throw 'G10_I_MODBUS_SERVER_NOT_PROVEN' }
-          # B03 es reproducción de un defecto, no evidencia de corrección.
-          if ($log -notmatch 'G10_INTEGRATED_B03_DNS_DHCP_SHUTDOWN=RISK_REPRODUCED_BLOCKS_ADOPTION') { throw 'G10_I_B03_RISK_WAS_NOT_REPRODUCED_REVIEW' }
-          if ($log -notmatch 'G10_INTEGRATED_BLOCKERS=8') { throw 'G10_I_RISK_MASKED' }
-          if ($log -notmatch 'G10_INTEGRATED_STATUS=COMPOSED_REVIEW_BLOCKED') { throw 'G10_I_WRONG_STATUS' }
+          if ($log -notmatch 'G10_INTEGRATED_B01_MODBUS_SERVER_STATUS=PASS_REAL_CPP_2_NEGATIVES') { throw 'G10_I_B01_SERVER_STATUS_NOT_PROVEN' }
+          if ($log -notmatch 'G10_INTEGRATED_B04_CLIENT_CLOSE_TICKET=PASS_5_REAL_CPP_4_NEGATIVES') { throw 'G10_I_B04_CLIENT_TICKET_NOT_PROVEN' }
+          if ($log -notmatch 'G10_INTEGRATED_B04_CONNECT_LIFECYCLE=PASS_6_REAL_CPP_6_NEGATIVES') { throw 'G10_I_B04_CONNECT_LIFECYCLE_NOT_PROVEN' }
+          if ($log -notmatch 'G10_INTEGRATED_B02_UDP_IO=PASS_SOURCE_BACKED_7_METHODS_3_NEGATIVES') { throw 'G10_I_B02_UDP_IO_NOT_PROVEN' }
+          if ($log -notmatch 'G10_INTEGRATED_B02_TCP_RX=PASS_SOURCE_BACKED_6_METHODS_3_NEGATIVES') { throw 'G10_I_B02_TCP_RX_NOT_PROVEN' }
+          if ($log -notmatch 'G10_INTEGRATED_B02_TCP_TX=PASS_SOURCE_BACKED_5_METHODS_4_NEGATIVES') { throw 'G10_I_B02_TCP_TX_NOT_PROVEN' }
+          if ($log -notmatch 'G10_INTEGRATED_B02_CLIENT_REMAINING=PASS_SOURCE_BACKED_12_METHODS_6_NEGATIVES') { throw 'G10_I_B02_CLIENT_REMAINING_NOT_PROVEN' }
+          if ($log -notmatch 'G10_INTEGRATED_B02_NONPHYSICAL=PASS_SOURCE_BACKED_IO_PUBLIC_STATUS_EXCLUDED') { throw 'G10_I_B02_SCOPE_MISREPORTED' }
+          if ($log -notmatch 'G10_INTEGRATED_B04_B05_SERVER=PASS_SOURCE_BACKED_4_METHODS_1_CTOR_6_NEGATIVES') { throw 'G10_I_B05_SERVER_CORRECTION_NOT_PROVEN' }
+          if ($log -notmatch 'G10_INTEGRATED_B04_B05=REVIEW_PHYSICAL_RESET') { throw 'G10_I_B05_SCOPE_MISREPORTED' }
+          if ($log -notmatch 'G10_INTEGRATED_B03_DNS_DHCP_SHUTDOWN=PASS_SOURCE_BACKED_DEFERRED_CLOSE_9_NEGATIVES') { throw 'G10_I_B03_CORRECTION_NOT_DEMONSTRATED' }
+          if ($log -notmatch 'G10_INTEGRATED_B01_OPT_IN=PASS_LEGACY_SCALARS_LIMITED') { throw 'G10_I_B01_CONTRACT_NOT_PROVEN' }
+          if ($log -notmatch 'G10_INTEGRATED_N3_READY=YES_NONPHYSICAL') { throw 'G10_I_N3_READINESS_WRONG' }
+          if ($log -notmatch 'G10_INTEGRATED_BLOCKERS=7') { throw 'G10_I_RISK_MASKED' }
+          if ($log -notmatch 'G10_INTEGRATED_STATUS=N3_READY_NONPHYSICAL') { throw 'G10_I_WRONG_STATUS' }
           if ($log -notmatch 'G10_INTEGRATED_PRODUCT_CHANGED=NO') { throw 'G10_I_PRODUCT_CHANGED' }
       - name: No tocar fuentes productivas
         shell: pwsh
@@ -131,6 +144,16 @@ jobs:
           grep -F 'G10_INTEGRATED_ARDUINO_PLATFORM_EXPORT=STAGED_NOT_COMPILED' \
             "$RUNNER_TEMP/g10-evidence/stage.log"
           test -f "$RUNNER_TEMP/g10-candidate-platform/libraries/JWPLC_Ethernet/src/JWPLC_W5500_SafeAccess.cpp"
+          # B08: comprobar que N2 realmente compila el overlay con los tres
+          # wrappers de propiedad, no los wrappers legacy mutex-direct.
+          for cpp in \
+            "$RUNNER_TEMP/g10-candidate-platform/libraries/JWPLC_Ethernet/src/JWPLC_Ethernet.cpp" \
+            "$RUNNER_TEMP/g10-candidate-platform/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP_Client.cpp" \
+            "$RUNNER_TEMP/g10-candidate-platform/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP.cpp"; do
+            grep -Fq 'jwplc_w5500_candidate::enter(timeoutMs)' "$cpp"
+            grep -Fq 'jwplc_w5500_candidate::leave();' "$cpp"
+          done
+          echo 'G10_I_B08_THREE_REAL_WRAPPERS_STAGED=PASS'
           # No rsync hacia ~/.arduino15: las alteraciones de boards.txt/platform.txt
           # invalidan la instancia CLI (error independiente del firmware).
           echo 'G10_I_CORE_INSTALLED=UNCHANGED'
@@ -147,6 +170,7 @@ jobs:
             "JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/Ethernet_SPI_Coexistence"
             "JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/01.Ethernet_DHCP_Basic"
             "tools/alpha13/sketches/G10_UDP_DNS_DHCP_Integration"
+            "tools/alpha13/sketches/G10_B01_Status_OptIn"
           )
           for version in baseline candidate; do
             case "$version" in
@@ -155,6 +179,9 @@ jobs:
             esac
             for sketch in "${sketches[@]}"; do
               name="$(basename "$sketch")"
+              if [ "$version" = baseline ] && [ "$name" = G10_B01_Status_OptIn ]; then
+                continue # the new optional method exists only in the candidate
+              fi
               log="$EVIDENCE/$version-$name.log"
               output="$RUNNER_TEMP/g10-$version-$name"
               echo "::group::$version $name"
@@ -225,6 +252,146 @@ jobs:
                   echo "G10_I_SAFEACCESS_LEAVE_NOT_IN_ELF"
                   exit 41
                 }
+                if [ "$name" = 'G10_UDP_DNS_DHCP_Integration' ]; then
+                  # B03 must use the staged UDP, DNS, DHCP and autoload
+                  # sources, not merely a SafeAccess object with mock users.
+                  for stem in EthernetUdp.cpp Dns.cpp Dhcp.cpp JWPLC_Ethernet.cpp; do
+                    mapfile -t b03objs < <(find "$output" -name "$stem.o" -type f)
+                    if [ "${#b03objs[@]}" -ne 1 ]; then
+                      echo "G10_I_B03_OBJECT_NOT_UNIQUE=$stem"
+                      exit 42
+                    fi
+                    b03dep="${b03objs[0]%.o}.d"
+                    test -f "$b03dep" || { echo "G10_I_B03_MMD_MISSING=$stem"; exit 43; }
+                    grep -Fq "$CAND/JWPLC_Ethernet/src/$stem" "$b03dep" || {
+                      echo "G10_I_B03_WRONG_OBJECT_SOURCE=$stem"
+                      exit 44
+                    }
+                    sha256sum "${b03objs[0]}" >>"$EVIDENCE/b03-object-sha-$name.txt"
+                  done
+                  for symbol in 'EthernetUDP::jwplcServiceDeferredClose()' \
+                                'jwplc_w5500_candidate::serviceDeferredClose(' \
+                                'DNSClient::finishResolveAsync(int)' \
+                                'DhcpClass::finishAsync()'; do
+                    grep -Fq "$symbol" "$EVIDENCE/nm-$name.txt" || {
+                      echo "G10_I_B03_SYMBOL_NOT_IN_ELF=$symbol"
+                      exit 45
+                    }
+                  done
+                  for symbol in 'EthernetUDP::write(unsigned char const*,' \
+                                'EthernetUDP::parsePacket()' \
+                                'EthernetUDP::read(unsigned char*,'; do
+                    grep -Fq "$symbol" "$EVIDENCE/nm-$name.txt" || {
+                      echo "G10_I_B02_UDP_SYMBOL_NOT_IN_ELF=$symbol"
+                      exit 46
+                    }
+                  done
+                  echo 'G10_I_B02_UDP_SOURCE_TO_OBJECT_MMD_AND_ELF=PASS'
+                  mapfile -t tcpobjs < <(find "$output" -name 'EthernetClient.cpp.o' -type f)
+                  if [ "${#tcpobjs[@]}" -ne 1 ]; then
+                    echo 'G10_I_B02_TCP_OBJECT_NOT_UNIQUE'
+                    exit 47
+                  fi
+                  tcpdep="${tcpobjs[0]%.o}.d"
+                  test -f "$tcpdep" || { echo 'G10_I_B02_TCP_MMD_MISSING'; exit 48; }
+                  grep -Fq "$CAND/JWPLC_Ethernet/src/EthernetClient.cpp" "$tcpdep" || {
+                    echo 'G10_I_B02_TCP_WRONG_OBJECT_SOURCE'
+                    exit 49
+                  }
+                  sha256sum "${tcpobjs[0]}" >"$EVIDENCE/b02-tcp-object-sha-$name.txt"
+                  for symbol in 'EthernetClient::available()' \
+                                'EthernetClient::read()' \
+                                'EthernetClient::read(unsigned char*,' \
+                                'EthernetClient::peek()' \
+                                'EthernetClient::write(unsigned char const*,' \
+                                'EthernetClient::beginWriteAsync(' \
+                                'EthernetClient::pollWriteAsync()' \
+                                'EthernetClient::cancelWriteAsync()' \
+                                'EthernetClient::availableForWrite()' \
+                                'EthernetClient::beginFlushAsync()' \
+                                'EthernetClient::pollFlushAsync()' \
+                                'EthernetClient::cancelFlushAsync()' \
+                                'EthernetClient::localPort()' \
+                                'EthernetClient::remoteIP()' \
+                                'EthernetClient::remotePort()'; do
+                    grep -Fq "$symbol" "$EVIDENCE/nm-$name.txt" || {
+                      echo "G10_I_B02_TCP_SYMBOL_NOT_IN_ELF=$symbol"
+                      exit 50
+                    }
+                  done
+                  for symbol in 'EthernetClient::cancelConnectAsync()' \
+                                'EthernetClient::beginConnectAsync(' \
+                                'EthernetClient::pollConnectAsync()' \
+                                'EthernetClient::connectAsyncInProgress()' \
+                                'EthernetClient::cancelStopAsync()' \
+                                'EthernetClient::stop()' \
+                                'jwplc_w5500_candidate::requestDeferredClose('; do
+                    grep -Fq "$symbol" "$EVIDENCE/nm-$name.txt" || {
+                      echo "G10_I_B01_B04_SYMBOL_NOT_IN_ELF=$symbol"
+                      exit 57
+                    }
+                  done
+                  echo 'G10_I_B01_B04_CLIENT_SOURCE_TO_OBJECT_MMD_AND_ELF=PASS'
+                  echo 'G10_I_B02_TCP_SOURCE_TO_OBJECT_MMD_AND_ELF=PASS'
+                  mapfile -t serverobjs < <(find "$output" -name 'EthernetServer.cpp.o' -type f)
+                  if [ "${#serverobjs[@]}" -ne 1 ]; then
+                    echo 'G10_I_B05_SERVER_OBJECT_NOT_UNIQUE'
+                    exit 51
+                  fi
+                  serverdep="${serverobjs[0]%.o}.d"
+                  test -f "$serverdep" || { echo 'G10_I_B05_SERVER_MMD_MISSING'; exit 52; }
+                  grep -Fq "$CAND/JWPLC_Ethernet/src/EthernetServer.cpp" "$serverdep" || {
+                    echo 'G10_I_B05_SERVER_WRONG_OBJECT_SOURCE'
+                    exit 53
+                  }
+                  sha256sum "${serverobjs[0]}" >"$EVIDENCE/b05-server-object-sha-$name.txt"
+                  for symbol in 'EthernetServer::begin()' \
+                                'EthernetServer::available()' \
+                                'EthernetServer::operator bool()' \
+                                'EthernetServer::write(unsigned char const*,'; do
+                    grep -Fq "$symbol" "$EVIDENCE/nm-$name.txt" || {
+                      echo "G10_I_B05_SERVER_SYMBOL_NOT_IN_ELF=$symbol"
+                      exit 54
+                    }
+                  done
+                  echo 'G10_I_B05_SERVER_SOURCE_TO_OBJECT_MMD_AND_ELF=PASS'
+                  echo 'G10_I_B03_SOURCE_TO_OBJECT_MMD_AND_ELF=PASS_4_SOURCES'
+                fi
+                if [ "$name" = '01.ModbusTCP_Server' ]; then
+                  mapfile -t modbusobjs < <(find "$output" -name 'JWPLC_ModbusTCP.cpp.o' -type f)
+                  if [ "${#modbusobjs[@]}" -ne 1 ]; then
+                    echo 'G10_I_B01_MODBUS_SERVER_OBJECT_NOT_UNIQUE'
+                    exit 58
+                  fi
+                  modbusdep="${modbusobjs[0]%.o}.d"
+                  test -f "$modbusdep" || { echo 'G10_I_B01_MODBUS_SERVER_MMD_MISSING'; exit 59; }
+                  grep -Fq "$CAND/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP.cpp" "$modbusdep" || {
+                    echo 'G10_I_B01_MODBUS_SERVER_WRONG_OBJECT_SOURCE'
+                    exit 60
+                  }
+                  sha256sum "${modbusobjs[0]}" >"$EVIDENCE/b01-modbus-server-object-sha-$name.txt"
+                  # LTO may inline the private serviceServer() and its probe.
+                  # Its actual body is executed by N1; here require the staged
+                  # Modbus object (.d above) and Modbus code in the final ELF.
+                  if ! grep -Fq 'JWPLC_ModbusTCPClass::' "$EVIDENCE/nm-$name.txt"; then
+                    echo 'G10_I_B01_MODBUS_SERVER_CODE_NOT_IN_ELF'
+                    exit 61
+                  fi
+                  echo 'G10_I_B01_MODBUS_SERVER_SOURCE_TO_OBJECT_MMD_AND_ELF=PASS'
+                fi
+                if [ "$name" = 'G10_B01_Status_OptIn' ]; then
+                  for stem in EthernetClient.cpp EthernetServer.cpp; do
+                    mapfile -t optobjs < <(find "$output" -name "$stem.o" -type f)
+                    test "${#optobjs[@]}" -eq 1 || { echo "G10_I_B01_OPT_OBJECT_NOT_UNIQUE=$stem"; exit 62; }
+                    optdep="${optobjs[0]%.o}.d"
+                    test -f "$optdep" || { echo "G10_I_B01_OPT_MMD_MISSING=$stem"; exit 63; }
+                    grep -Fq "$CAND/JWPLC_Ethernet/src/$stem" "$optdep" || {
+                      echo "G10_I_B01_OPT_WRONG_SOURCE=$stem"; exit 64;
+                    }
+                    sha256sum "${optobjs[0]}" >>"$EVIDENCE/b01-opt-object-sha-$name.txt"
+                  done
+                  echo 'G10_I_B01_OPT_IN_SOURCE_TO_OBJECT_MMD_AND_ELF=PASS'
+                fi
                 sha256sum "$obj" "${elfs[0]}" >"$EVIDENCE/object-elf-sha-$name.txt"
                 echo "G10_I_SOURCE_TO_OBJECT_MMD_AND_ELF_$name=PASS"
               fi
@@ -244,9 +411,11 @@ jobs:
           retention-days: 14
 
   full-platform-review:
-    # N3: cierre/integración integral, nunca en cada push pequeño de Ethernet.
-    # En este cambio se preserva manual con workflow_dispatch=full.
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.regression_level == 'full' }}
+    # B08 N1/N2 PASS run 38842899887, overlay source SHA 6e6b7a23.
+    # Disparo N3 final del candidato; no autoriza hardware ni adopción.
+    # N3 se activa por despacho manual o por un commit marcado una sola vez
+    # en la rama experimental. Los push ordinarios continúan siendo N1/N2.
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.regression_level == 'full') || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/codex/alpha13-g10-') && contains(github.event.head_commit.message, '[G10-N3]')) }}
     name: Alpha13 package completo aislado - ${{ matrix.variant }}
     runs-on: ubuntu-24.04
     needs: overlay-compose
@@ -296,7 +465,7 @@ jobs:
               --stage-platform "$RUNNER_TEMP/g10-full-candidate-platform" \
               >"$WORK/evidence/compose.log"
             SRC="$RUNNER_TEMP/g10-full-candidate-platform"
-            grep -F 'G10_INTEGRATED_STATUS=COMPOSED_REVIEW_BLOCKED' "$WORK/evidence/compose.log"
+            grep -F 'G10_INTEGRATED_STATUS=N3_READY_NONPHYSICAL' "$WORK/evidence/compose.log"
           fi
           rsync -a "$SRC/" "$WORK/sketchbook/hardware/jwplc_local/esp32/"
           cmp "$SRC/boards.txt" "$WORK/sketchbook/hardware/jwplc_local/esp32/boards.txt"
