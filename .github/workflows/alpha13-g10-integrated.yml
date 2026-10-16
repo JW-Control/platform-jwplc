@@ -411,6 +411,8 @@ jobs:
           retention-days: 14
 
   full-platform-review:
+    # B08 N1/N2 PASS run 38842899887, overlay source SHA 6e6b7a23.
+    # Disparo N3 final del candidato; no autoriza hardware ni adopción.
     # N3 se activa por despacho manual o por un commit marcado una sola vez
     # en la rama experimental. Los push ordinarios continúan siendo N1/N2.
     if: ${{ (github.event_name == 'workflow_dispatch' && inputs.regression_level == 'full') || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/codex/alpha13-g10-') && contains(github.event.head_commit.message, '[G10-N3]')) }}
