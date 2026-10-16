@@ -2,8 +2,9 @@
   Alpha13 G10-R R1/R2/R4: banco aislado. COM4 = Ethernet/SD/RTC/FRAM/RTU Master.
   COM14 = Slave ID 2 opcional (g8_p4_slave). Nada de salidas Q,
   escrituras SD/FRAM, reset W5500 GPIO4 ni desactivacion de autoload.
-  Sketch experimental sin actuadores ni escrituras SD/FRAM. R3 socket epoch
-  NO cubierto por este sketch. Compilar SOLO con overlay G10-I staged.
+  Sketch experimental sin actuadores ni escrituras SD/FRAM. R3 expone
+  snapshots READ-ONLY owner/epoch/pending, NO valida fault injection.
+  Compilar SOLO con overlay G10-I + telemetria de laboratorio G10-R.
 */
 #include <JWPLC_GlobalPeripherals.h>
 #include <JWPLC_ModbusTCP.h>
@@ -41,6 +42,30 @@ static void handleCommand(const char* msg) {
     if (active && strlen(msg+10)==24 && strcmp(msg+10,token)==0) {
       active=false;useRtu=false;
       Serial.print("G10R_STOPPED:");Serial.println(token);
+    }
+    return;
+  }
+  // R3: telemetria puntual, solo lectura del overlay experimental G10-R.
+  // No provoca SPI_BUSY, no cierra sockets, no altera epoch/lease.
+  static const char snapshotPrefix[]="G10R_SOCKETS:";
+  if (strncmp(msg,snapshotPrefix,sizeof(snapshotPrefix)-1)==0) {
+    const char* requested=msg+sizeof(snapshotPrefix)-1;
+    if (!active || strlen(requested)!=24 || strcmp(requested,token)!=0) return;
+    jwplc_w5500_candidate::LabSocketSnapshot slots[8];
+    const auto status=jwplc_w5500_candidate::labCaptureSockets(slots,8,1);
+    if (status!=jwplc_w5500_candidate::LabCaptureOutcome::Captured) {
+      Serial.print("G10R_SOCK_STATUS:");Serial.print(token);
+      Serial.print(" CODE=");Serial.println((int)status);
+      return; // 2 BUS_BUSY nunca es un CLOSED confirmado.
+    }
+    for (uint8_t i=0;i<8;++i) {
+      Serial.print("G10R_SOCK:");Serial.print(token);
+      Serial.print(" SID=");Serial.print(slots[i].socketIndex);
+      Serial.print(" EPOCH=");Serial.print(slots[i].epoch);
+      Serial.print(" ALLOC=");Serial.print(slots[i].allocation);
+      Serial.print(" OWNER=");Serial.print(slots[i].ownerCookie);
+      Serial.print(" PENDING=");Serial.print(slots[i].pendingCloseAllocation);
+      Serial.print(" VALID=");Serial.println(slots[i].valid?1:0);
     }
     return;
   }
