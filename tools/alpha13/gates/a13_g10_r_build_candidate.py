@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
+import os
+import uuid
 import hashlib
 import importlib.util
 import json
@@ -67,9 +70,18 @@ def guard_sketch() -> None:
     print("G10_R_SKETCH_GUARD=PASS_STATIC_NO_Q_NO_STORAGE_WRITE_NO_RESET")
 
 
-def build(cli: str) -> None:
+def build(cli: str, *, upload: bool = False) -> None:
     require(Path.cwd().resolve() == ROOT, "RUN_FROM_REPO_ROOT")
     guard_sketch()
+    if upload:
+        require(os.name=="nt","G10R_UPLOAD_WINDOWS_ONLY")
+        v=run([cli,"version"])
+        require(re.search(r"\\bVersion:\\s*1\\.5\\.1\\b",v) is not None,
+                "G10R_UPLOAD_ARDUINO_CLI_1_5_1_REQUIRED")
+        ref="refs/remotes/origin/codex/alpha13-g10-r-recovery-prep"
+        current=run(["git","rev-parse","HEAD"]).strip()
+        remote=run(["git","rev-parse",ref]).strip()
+        require(current==remote,"G10R_UPLOAD_REMOTE_HEAD_MISMATCH")
     spec = importlib.util.spec_from_file_location(
         "g10r_integrator", ROOT/"tools/alpha13/gates/a13_g10_integrated.py")
     m = importlib.util.module_from_spec(spec)
@@ -113,6 +125,10 @@ def build(cli: str) -> None:
         run([cli,"--config-file",str(conf),"config","set",
              "directories.user",str(user)])
         output={"source_head":head,"g10_i_source_sha":G10I,
+                "schema":"G10-R-AUTHORIZED-UPLOAD-V1",
+                "gpio4_reset":"DISABLED","ports":["COM4","COM14"],
+                "uploaded":{"COM4":"NOT_RUN","COM14":"NOT_RUN"},
+                "elf_sha256":{},
                 "r3_lab_snapshot":"READ_ONLY_INSTRUMENTED_NOT_FAULT_INJECTED",
                 "r3_product_api_modified":False,
                 "fqbn":FQBN,"overlay_source_count":len(files),
@@ -156,11 +172,79 @@ def build(cli: str) -> None:
             require(len(elfs)==1,"ELF_NOT_UNIQUE_"+name)
             output["builds"][name]={"status":"PASS_SOURCE_FIRST",
                                     "elf_sha256":sha256(elfs[0])}
+            output["elf_sha256"][name]=sha256(elfs[0])
             print("G10_R_BUILD_"+name+"=PASS_SOURCE_FIRST")
         print("G10_R_STAGE=PASS_14_SOURCES")
         print("G10_R_PLATFORM=PASS_SAME_DIRECTORY_ISOLATED")
         print("G10_R_PHYSICAL_TEST=NOT_RUN")
         print("G10_R_BUILD_MANIFEST="+json.dumps(output,sort_keys=True))
+        if upload:
+            upload_after_build(cli,conf,tmp,output)
+
+
+
+def upload_after_build(cli: str, config: Path, tmp: Path,
+                       evidence: dict) -> None:
+    """Frontera física separada. Nada se sube antes del consentimiento."""
+    from serial.tools import list_ports
+
+    def verify_usb():
+        result={}
+        for name in ("COM4","COM14"):
+            matches=[p for p in list_ports.comports()
+                     if p.device.upper()==name]
+            require(len(matches)==1,"G10R_USB_MISSING_"+name)
+            port=matches[0]
+            require((port.vid,port.pid)==(0x1a86,0x7523),
+                    "G10R_USB_IDENTITY_MISMATCH_"+name)
+            result[name]={"vid":port.vid,"pid":port.pid,
+                          "description":port.description}
+        return result
+
+    evidence["port_metadata"]=verify_usb()
+    require(evidence["source_head"]==
+            run(["git","rev-parse","HEAD"]).strip(),
+            "G10R_HEAD_CHANGED_AFTER_BUILD")
+    print("G10_R_FLASH_NOTICE=BANCO_SIN_RELES_NI_CARGAS_Q")
+    print("G10_R_FLASH_NOTICE=COM14_Slave_Y_COM4_Diagnostico_R3")
+    print("G10_R_FLASH_NOTICE=FIRMWARE_ANTERIOR_NO_SE_RESTAURA")
+    print("G10_R_FLASH_NOTICE=GPIO4_DISABLED_SD_FRAM_READ_ONLY")
+    print("G10_R_FLASH_NOTICE=CIERRE_MONITORES_SERIALES_ANTES_UPLOAD")
+    consent="G10R AUTORIZO FLASH COM4 COM14"
+    try:answer=input("Escribe exactamente '"+consent+"': ").strip()
+    except EOFError:answer=""
+    require(answer==consent,"G10R_UPLOAD_NOT_AUTHORIZED")
+    evidence["consent"]="EXPLICIT_AFTER_SOURCE_FIRST_BUILD"
+    out=ROOT/"tools/alpha13/results"/(
+         "g10_r_upload_"+datetime.now().strftime("%Y%m%d_%H%M%S")+
+         "_"+uuid.uuid4().hex[:8])
+    out.mkdir(parents=True,exist_ok=False)
+    try:
+        for port in ("COM14","COM4"):
+            current=verify_usb()
+            require(current[port]==evidence["port_metadata"][port],
+                    "G10R_USB_CHANGED_BEFORE_UPLOAD_"+port)
+            logs=run([cli,"--config-file",str(config),"upload",
+                      "--fqbn",FQBN,"--port",port,
+                      "--input-dir",str(tmp/("build-"+port))],
+                      out/("UPLOAD_"+port+".log"))
+            evidence["uploaded"][port]="PASS_CONFIRMED_UPLOAD"
+            evidence["upload_log_"+port+"_sha256"]=sha256(
+                out/("UPLOAD_"+port+".log"))
+            (out/"MANIFEST.json").write_text(
+                json.dumps(evidence,indent=2)+"\n",encoding="utf-8")
+        evidence["physical_test"]="NOT_RUN_FIRMWARE_UPLOAD_ONLY"
+        evidence["upload"]="PASS_BOTH_EXPLICIT"
+        print("G10_R_UPLOAD_STATUS=PASS_BOTH_EXPLICIT")
+    except Exception as exc:
+        evidence["upload"]="REVIEW_STOP_PARTIAL_POSSIBLE"
+        evidence["error"]=str(exc)
+        print("G10_R_UPLOAD_STATUS=REVIEW_STOP_PARTIAL_POSSIBLE")
+        raise
+    finally:
+        (out/"MANIFEST.json").write_text(
+            json.dumps(evidence,indent=2)+"\n",encoding="utf-8")
+        print("G10_R_UPLOAD_EVIDENCE_PATH="+str(out/"MANIFEST.json"))
 
 
 def main() -> int:
@@ -168,6 +252,8 @@ def main() -> int:
     selection=ap.add_mutually_exclusive_group(required=True)
     selection.add_argument("--selftest",action="store_true")
     selection.add_argument("--build",action="store_true")
+    selection.add_argument("--upload",action="store_true",
+                           help="Requiere consentimiento humano y dos USB CH340; NO usar en CI")
     ap.add_argument("--cli",default="arduino-cli")
     args=ap.parse_args()
     try:
@@ -175,7 +261,7 @@ def main() -> int:
             guard_sketch()
             print("G10_R_BUILD_SELFTEST=PASS_NO_CLI_NO_USB_NO_UPLOAD")
         else:
-            build(args.cli)
+            build(args.cli,upload=args.upload)
         return 0
     except Exception as e:
         print("G10_R_REVIEW_STOP="+str(e))
