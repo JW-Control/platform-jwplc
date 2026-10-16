@@ -78,9 +78,11 @@ VPP_OPENPLC=2.1.0-alpha.29 (rama v2.1.0-alpha.12/feature/openplc-engineering-clo
 ## Insumos externos pendientes
 
 ```text
-BOTONERA_7A_TECLA_F1=PENDIENTE_CONFIRMAR (package define 6)
+BOTONERA=6_TECLAS (confirmado; matriz 2x3)
 OPENPLC_DEBUG_SET_FORCING0_SEMANTICS=PENDIENTE_F0 (Alpha14)
-MENU_LIMITES_ARBOL=PENDIENTE
+MENU_MAX_DEPTH=3 (MVP)
+MENU_MVP_NODES=SUBMENU, VIEW, EDIT_NUM, EDIT_BOOL
+MENU_NODE_COUNT_LIMIT=A_MEDIR_EN_A15_8
 ```
 
 ## Registro
@@ -91,3 +93,5 @@ MENU_LIMITES_ARBOL=PENDIENTE
   y del VPP. Se adopta el plan HMI rev. 2 de Kenyi con correcciones
   (`A15_OPENPLC_INTEGRATION_DECISION_20261016.md`). MENU definido como objeto
   de página para configurar variables. Organización de alphas 13/14/15 fijada.
+- 2026-10-16 — Confirmado: botonera de 6 teclas (matriz 2x3). MENU MVP con
+  profundidad máxima 3 y nodos SUBMENU/VIEW/EDIT_NUM/EDIT_BOOL.

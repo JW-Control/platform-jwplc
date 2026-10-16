@@ -94,7 +94,10 @@ BTN_DOWN`, `BTN_COUNT`). La capacidad `hmiDisplay.keys` del VPP debe usar la
 lista real.
 
 ```text
-PENDIENTE_CONFIRMAR=¿existe una 7.ª tecla física (F1)?
+BOTONERA=6_TECLAS (confirmado por el jefe, 2026-10-16)
+EVIDENCIA=JWPLC_GlobalPeripherals.cpp:57-58 matriz ROWS{12,2} x COLS{35,34,36} = 2x3
+          docs/v2.1.0-alpha.8/ALPHA8_HMI_BUTTON_VALIDATION.md (6 máscaras 0x01..0x20)
+F1=NO_EXISTE -> corregir capabilities.hmiDisplay.keys y docs del fork (Alpha14)
 ```
 
 ### C4 — Numeración

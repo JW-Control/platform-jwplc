@@ -199,11 +199,19 @@ Reglas:
 - Indicador de "editando": ítem invertido o con marco de color, consistente
   con el sombreado del indicador NN/TT.
 
-Preguntas abiertas:
+### MENU MVP (decisión del jefe, 2026-10-16)
 
-- Profundidad máxima del árbol y número de nodos (RAM/flash).
-- ¿Pulsación larga como acción distinta (p. ej. salir directo a la raíz)?
-- ¿Protección por clave de ramas de configuración?
+```text
+MENU_MAX_DEPTH=3            (raíz = nivel 1; submenú de submenú = nivel 3)
+MENU_MVP_NODES=SUBMENU, VIEW, EDIT_NUM, EDIT_BOOL
+MENU_POST_MVP=EDIT_ENUM, ACTION, GOTO_PAGE, pulsación larga, clave por rama
+TECLAS=6 (BTN_LEFT, BTN_UP, BTN_RIGHT, BTN_ESC, BTN_OK, BTN_DOWN)
+```
+
+- El Designer bloquea crear un submenú por debajo del nivel 3.
+- El número de nodos totales y de ítems por nivel se mide en el gate A15-8
+  (RAM/flash) y se fija después del MVP.
+- Tras el MVP se evalúa en banco antes de ampliar.
 
 ---
 
