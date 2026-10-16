@@ -117,7 +117,17 @@ Un futuro runner físico consolidado deberá guardar `SUMMARY.log`, `MANIFEST.js
 
 **Nota de procedencia:** el firmware G10-H actualmente grabado en COM4/COM14 no habla necesariamente `G10R_...`; el nuevo sketch R1/R2/R4 requiere autorización de flash futura. La identificación de puerto observada en H es histórica, no una verificación de presencia actual.
 
-## 7. Estado y siguiente acción
+## 7. Implementación de los dos ejecutores de campo — preparados, NO ejecutados
+
+**Contrato de build→upload y seguridad:** `tools/alpha13/gates/a13_g10_r_build_candidate.py` ofrece `--build` sin hardware y `--upload` como **operación física distinta**. Esta última solo acepta Windows, Arduino CLI **1.5.1**, la rama de banco sincronizada con `origin` y el package staged de FQBN `jwplc_hbench:esp32:jwplcbasic`. Recompila COM4 y COM14 de forma source-first, comprueba identidad de plataforma y las bibliotecas seleccionadas, core congelado, cinco archives, objeto SafeAccess `.d/.o` y SHA de ambos ELF. Verifica CH340 en COM4/COM14, y exige escribir literalmente `G10R AUTORIZO FLASH COM4 COM14`. **Primero sube Slave COM14, luego master COM4**, registrando `UPLOAD_COM14.log` y `UPLOAD_COM4.log` con SHA y `MANIFEST.json` en `tools/alpha13/results/g10_r_upload_*/`. En caso de fallo parcial conserva el estado real: **sin rollback automático**. Ningún upload se ha realizado ni autorizado con este documento.
+
+**Contrato de captura:** `tools/alpha13/gates/a13_g10_r_field_runner.py` permite `--dry-run`, `--selftest` y, de forma protegida, `--live --upload-evidence <MANIFEST.json>`. Antes de abrir los COM, `--live` exige el manifiesto de un **upload previo y explícito**, SHA correcto de los dos logs, hashes ELF, dos VID/PID CH340 y etiqueta R3 staged; después pide consentimiento diferente: `G10R AUTORIZO CAPTURA COM4 COM14 Y MANIOBRAS RJ45`. Verifica en UART el protocolo periódico `R1R2R4_R3SNAPSHOT_V1` y Slave `G8_P4_READY`, no solo una IP vieja. Captura UART y PC por hilos independientes, R1 de 605 s, R2 tres ciclos manuales de 12 s y recuperación, R4 de 1805 s; solicita al Slave estadísticas `CRC`/solicitudes y conserva trazas y `MANIFEST.json`. **El script NO realiza flash, no manipula cable, no reinicia el W5500, no acciona Q y no certifica por sí solo el firmware mediante el marcador UART**. El evaluador offline y la revisión humana siguen necesarios.
+
+**Fronteras pendientes antes del uso físico:** revisión final de CI en el HEAD exacto, validación del protocolo en una placa real de banco, decisión explícita sobre estado de firmware previo y forma de restauración, confirmación del conexionado aislado y autorización humana separada. Una declaración en archivo local de upload + respuesta UART no es atestación criptográfica del binario en flash. R3 requiere pruebas de contención `SPI_BUSY` con transiciones reales y correlación `epoch/owner`, no solo snapshots; R5 power-cycle e IDE permanecen fuera de esta autorización.
+
+**Controles reforzados:** el replay R1/R4 exige `RTC=1`, link y servidor listos, heartbeat y RTU/SD/FRAM en progreso y rechazo de ausencia de tráfico. El selftest del runner usa un COM14 falso para detectar errores de terminador LF y manifiestos de upload sintéticos para impedir aceptar un flash parcial. Esas pruebas son **sintéticas** y no sustituyen banco.
+
+## 8. Estado y siguiente acción
 
 ```text
 G10-I=NONPHYSICAL_PASS_CANDIDATE
@@ -125,7 +135,7 @@ G10-H=PASS_PHYSICAL_SMOKE_MANIFEST_REVIEWED
 G10-C=CLOSED_DECISION_DEFER_ADOPTION
 G10-R=PREP_NONPHYSICAL
 G10-R-N0=PASS_SYNTHETIC_CONTRACT_WINDOWS_UBUNTU_RUN_38855037866
-G10-R-R1_R2_R4=SKETCH_AND_OFFLINE_REPLAY_CI_PASS_PHYSICAL_NOT_RUN
+G10-R-R1_R2_R4=SOURCE_FIRST_AND_HOST_RUNNER_PREP_NO_PHYSICAL
 G10-R-R5=NOT_AUTHORIZED
 A13-006=ADOPTION_BLOCKED
 PRODUCT_MODIFIED=NO
@@ -136,7 +146,7 @@ FROZEN_ARCHIVES=5_UNCHANGED
 OPENPLC=OUT_OF_SCOPE
 HMI_DESIGNER=OUT_OF_SCOPE
 TFT_NEW_FEATURES=OUT_OF_SCOPE
-NEXT_GATE=G10-R_AUTHORIZED_UPLOAD_PROVENANCE_AND_R3_LIFECYCLE_FAULT_INJECTION
+NEXT_GATE=G10-R_FINAL_CI_REVIEW_R3_LIFECYCLE_FAULT_INJECTION_AND_OPERATOR_DECISION
 ```
 
 **No cerrar G10-R con esta ficha:** sirve para fijar riesgos, alcance y condiciones de preparación; ni el autodiagnóstico sintético ni la CI sin hardware equivalen a R1–R4 reales.
