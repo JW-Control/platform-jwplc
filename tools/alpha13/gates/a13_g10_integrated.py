@@ -45,7 +45,7 @@ BLOCKERS = {
     "B05": "Listener y broadcast source-backed; reset físico y reconexión end-to-end aún no validados",
     "B06": "N2 bootstrap pasó; N3 package Alpha13 completo aún no ejecutado",
     "B07": "Sin medición física de fairness y regresión W5500, Display, SD, FRAM, RTC, TCA, RS-485, Modbus RTU/TCP",
-    "B08": "Overlay único no equivale a compilación completa: revisar doble lock, firmas públicas y compatibilidad del core",
+    "B08": "Wrappers SPI no recursivos compuestos en overlay, validar N2/N3 del nuevo HEAD y limitaciones físicas",
 }
 def emit(k,v):
     print("G10_INTEGRATED_"+str(k)+"="+str(v),flush=True)
@@ -817,6 +817,47 @@ EthernetServer::jwplcProbeListening(bool& observed)
     first["MB_SERVER"]=source.replace(old,new,1)
     return first
 
+def patch_b08_spi_mutex_ownership(repro, paths):
+    """Unify actual Modbus/Ethernet outer locks with the W5500 tracked scope.
+
+    The core retains its nonrecursive global mutex; nested W5500 calls reuse
+    only an enter() acquisition tracked by g_owner, never an unrelated SD/TFT
+    acquisition on the same task. No product file is written.
+    """
+    prefix = "JWPLC/2.1.0/libraries/"
+    wrappers = (
+        (prefix+"JWPLC_Ethernet/src/JWPLC_Ethernet.cpp",
+         "JWPLC_EthernetClass"),
+        (prefix+"JWPLC_ModbusTCP/src/JWPLC_ModbusTCP_Client.cpp",
+         "JWPLC_ModbusTCPClientClass"),
+        (prefix+"JWPLC_ModbusTCP/src/JWPLC_ModbusTCP.cpp",
+         "JWPLC_ModbusTCPClass"),
+    )
+    for rel,cls in wrappers:
+        require(rel in paths, "B08_MISSING_COMPOSED_"+cls)
+        source=paths[rel]
+        acquire=repro.extract(source,"bool "+cls+"::acquireBus(uint32_t timeoutMs)")
+        release=repro.extract(source,"void "+cls+"::releaseBus()")
+        require(acquire.count("jwplcSPI_acquire(timeoutMs)")==1
+                and "jwplc_w5500_candidate::enter(timeoutMs)" not in acquire,
+                "B08_ACQUIRE_SOURCE_DRIFT_"+cls)
+        require(release.count("jwplcSPI_release();")==1
+                and "jwplc_w5500_candidate::leave();" not in release,
+                "B08_RELEASE_SOURCE_DRIFT_"+cls)
+        new_acquire=acquire.replace("jwplcSPI_acquire(timeoutMs)",
+                                    "jwplc_w5500_candidate::enter(timeoutMs)",1)
+        new_release=release.replace("jwplcSPI_release();",
+                                    "jwplc_w5500_candidate::leave();",1)
+        require(source.count(acquire)==1 and source.count(release)==1,
+                "B08_WRAPPER_NOT_UNIQUE_"+cls)
+        source=source.replace(acquire,new_acquire,1).replace(release,new_release,1)
+        inc='#include "JWPLC_W5500_SafeAccess.h"'
+        if inc not in source:
+            source=inc+"\\n"+source
+        paths[rel]=source
+    return paths
+
+
 def compose():
     mods={k:load(v,k) for k,v in MODULES.items() if k!="frozen"}
     repro=mods["repro"]
@@ -970,7 +1011,7 @@ uint8_t EthernetUDP::jwplcServiceDeferredClose()
         require(rel not in paths and not (ROOT/rel).exists(),
                 "SAFE_ACCESS_ALREADY_IN_PRODUCT_REVIEW_REQUIRED_"+name)
         paths[rel]=(base/name).read_text(encoding="utf-8-sig")
-    return paths
+    return patch_b08_spi_mutex_ownership(repro, paths)
 
 def write_evidence(out,head,files):
     overlay=out/"overlay"
@@ -1729,6 +1770,71 @@ def status_probe_native(out):
             "qualified_for_adoption":False}
 
 
+def b08_mutex_native(out, files):
+    """Real composed wrappers versus a host nonrecursive SPI mutex (core semantics)."""
+    repro=load(MODULES["repro"],"b08_mutex_repro")
+    compiler=load("a13_g10_p1g_c1_native_prototype.py","b08_mutex_compiler")
+    builder=load(MODULES["b2a"],"b08_mutex_builder")
+    builder.TEST=ROOT/"tools/alpha13/candidates/g10_p1g_c/native_g10_i_b08_mutex_ownership_test.cpp"
+    prefix="JWPLC/2.1.0/libraries/"
+    wrappers=(
+        (prefix+"JWPLC_Ethernet/src/JWPLC_Ethernet.cpp",
+         "JWPLC_EthernetClass"),
+        (prefix+"JWPLC_ModbusTCP/src/JWPLC_ModbusTCP_Client.cpp",
+         "JWPLC_ModbusTCPClientClass"),
+        (prefix+"JWPLC_ModbusTCP/src/JWPLC_ModbusTCP.cpp",
+         "JWPLC_ModbusTCPClass"),
+    )
+    methods=[]
+    for rel,cls in wrappers:
+        for sig in ("bool "+cls+"::acquireBus(uint32_t timeoutMs)",
+                    "void "+cls+"::releaseBus()"):
+            methods.append(repro.extract(files[rel],sig))
+    def run(name, bodies):
+        return builder.native(out,"b08_mutex_"+name,
+                              "\\n\\n".join(bodies)+"\\n",compiler)
+    rc,log=run("positive",methods)
+    required=(
+        "G10_I_B08_ETHERNET_SERVICE_NESTED=PASS",
+        "G10_I_B08_MODBUS_CLIENT_NESTED=PASS",
+        "G10_I_B08_MODBUS_SERVER_NESTED=PASS",
+        "G10_I_B08_MUTEX_NATIVE=PASS_REAL_WRAPPERS_NONRECURSIVE",
+    )
+    if rc != 0 or not all(x in log for x in required):
+        emit("B08_DIAGNOSTIC",log.strip().replace("\\n"," | ")[:950])
+    require(rc==0 and all(x in log for x in required),
+            "B08_REAL_NONRECURSIVE_WRAPPER_FAILED")
+    negatives=(
+        (0,"jwplc_w5500_candidate::enter(timeoutMs)","jwplcSPI_acquire(timeoutMs)",
+         "B08_WRAPPER_NOT_TRACKED_AS_W5500_OWNER"),
+        (1,"jwplc_w5500_candidate::leave();","jwplcSPI_release();",
+         "B08_WRAPPER_RELEASE_LEAK"),
+        (2,"jwplc_w5500_candidate::enter(timeoutMs)","jwplcSPI_acquire(timeoutMs)",
+         "B08_WRAPPER_NOT_TRACKED_AS_W5500_OWNER"),
+        (3,"jwplc_w5500_candidate::leave();","jwplcSPI_release();",
+         "B08_WRAPPER_RELEASE_LEAK"),
+        (4,"jwplc_w5500_candidate::enter(timeoutMs)","jwplcSPI_acquire(timeoutMs)",
+         "B08_WRAPPER_NOT_TRACKED_AS_W5500_OWNER"),
+        (5,"jwplc_w5500_candidate::leave();","jwplcSPI_release();",
+         "B08_WRAPPER_RELEASE_LEAK"),
+    )
+    for i,old,new,error in negatives:
+        require(methods[i].count(old)==1,"B08_MUTATION_ANCHOR_"+str(i))
+        mutant=list(methods)
+        mutant[i]=mutant[i].replace(old,new,1)
+        rc,log=run("negative_"+str(i),mutant)
+        if rc==0 or error not in log:
+            emit("B08_MUTANT_DIAGNOSTIC_"+str(i),
+                 log.strip().replace("\\n"," | ")[:700])
+        require(rc!=0 and error in log,"B08_MUTANT_ACCEPTED_"+str(i))
+    return {
+        "status":"PASS_SOURCE_BACKED_NONRECURSIVE_MUTEX_WRAPPERS",
+        "cpp_wrappers":len(methods),"negatives":len(negatives),
+        "core_lock":"xSemaphoreCreateMutex/nonrecursive",
+        "limitations":"host model, not hardware or physical fairness",
+    }
+
+
 def b01_scalar_native(out, files):
     """Run the real scalar Client/Server bodies and reject lease regressions."""
     repro=load(MODULES["repro"],"b01_scalar_repro")
@@ -1885,6 +1991,8 @@ def main():
         emit("TRISTATE_STATUS_NATIVE","PASS_PRIMITIVE_ONLY")
         m["b01_scalar"]=b01_scalar_native(out,files)
         emit("B01_SCALAR_NATIVE","PASS_CLIENT_SERVER_PROBES_7_NEGATIVES")
+        m["b08_spi_mutex"]=b08_mutex_native(out,files)
+        emit("B08_MUTEX_NATIVE","PASS_NONRECURSIVE_3_WRAPPERS_6_NEGATIVES")
         m["modbus_cleanup_probe"]=modbus_cleanup_native(out,files)
         emit("MODBUS_CLEANUP_NATIVE","PASS_THREE_SOURCE_METHODS_3_NEGATIVES")
         m["modbus_server_cleanup_probe"]=server_cleanup_native(out,files)
@@ -1917,6 +2025,7 @@ def main():
             "B03":"PASS_NONPHYSICAL",
             "B04":"PASS_NONPHYSICAL",
             "B05":"REVIEW_PHYSICAL",
+            "B08":"PASS_NATIVE_NONRECURSIVE_PENDING_N3",
         }
         m["b01_public_api_decision"]="APPROVED_OPT_IN_WITH_LEGACY_SCALAR_LIMITATION"
         m["n3_ready"]="YES_NONPHYSICAL"
