@@ -63,6 +63,7 @@ jobs:
           if ($log -notmatch 'G10_INTEGRATED_SOURCE_OVERLAY=COMPOSED') { throw 'G10_I_NO_OVERLAY' }
           if ($log -notmatch 'G10_INTEGRATED_TRISTATE_STATUS_NATIVE=PASS_PRIMITIVE_ONLY') { throw 'G10_I_TRISTATE_NATIVE_NOT_PROVEN' }
           if ($log -notmatch 'G10_INTEGRATED_B01_SCALAR_NATIVE=PASS_CLIENT_SERVER_PROBES_7_NEGATIVES') { throw 'G10_I_B01_OPT_IN_PROBES_NOT_PROVEN' }
+          if ($log -notmatch 'G10_INTEGRATED_B08_MUTEX_NATIVE=PASS_NONRECURSIVE_3_WRAPPERS_6_NEGATIVES') { throw 'G10_I_B08_MUTEX_OWNERSHIP_NOT_PROVEN' }
           if ($log -notmatch 'G10_INTEGRATED_MODBUS_CLEANUP_NATIVE=PASS_THREE_SOURCE_METHODS_3_NEGATIVES') { throw 'G10_I_MODBUS_CLEANUP_NOT_PROVEN' }
           if ($log -notmatch 'G10_INTEGRATED_MODBUS_SERVER_CLEANUP_NATIVE=PASS_THREE_SOURCE_METHODS_5_NEGATIVES') { throw 'G10_I_MODBUS_SERVER_NOT_PROVEN' }
           if ($log -notmatch 'G10_INTEGRATED_B01_MODBUS_SERVER_STATUS=PASS_REAL_CPP_2_NEGATIVES') { throw 'G10_I_B01_SERVER_STATUS_NOT_PROVEN' }
@@ -143,6 +144,16 @@ jobs:
           grep -F 'G10_INTEGRATED_ARDUINO_PLATFORM_EXPORT=STAGED_NOT_COMPILED' \
             "$RUNNER_TEMP/g10-evidence/stage.log"
           test -f "$RUNNER_TEMP/g10-candidate-platform/libraries/JWPLC_Ethernet/src/JWPLC_W5500_SafeAccess.cpp"
+          # B08: comprobar que N2 realmente compila el overlay con los tres
+          # wrappers de propiedad, no los wrappers legacy mutex-direct.
+          for cpp in \
+            "$RUNNER_TEMP/g10-candidate-platform/libraries/JWPLC_Ethernet/src/JWPLC_Ethernet.cpp" \
+            "$RUNNER_TEMP/g10-candidate-platform/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP_Client.cpp" \
+            "$RUNNER_TEMP/g10-candidate-platform/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP.cpp"; do
+            grep -Fq 'jwplc_w5500_candidate::enter(timeoutMs)' "$cpp"
+            grep -Fq 'jwplc_w5500_candidate::leave();' "$cpp"
+          done
+          echo 'G10_I_B08_THREE_REAL_WRAPPERS_STAGED=PASS'
           # No rsync hacia ~/.arduino15: las alteraciones de boards.txt/platform.txt
           # invalidan la instancia CLI (error independiente del firmware).
           echo 'G10_I_CORE_INSTALLED=UNCHANGED'
