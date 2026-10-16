@@ -76,7 +76,7 @@ def build(cli: str, *, upload: bool = False) -> None:
     if upload:
         require(os.name=="nt","G10R_UPLOAD_WINDOWS_ONLY")
         v=run([cli,"version"])
-        require(re.search(r"\\bVersion:\\s*1\\.5\\.1\\b",v) is not None,
+        require(re.search(r"\bVersion:\s*1\.5\.1\b",v) is not None,
                 "G10R_UPLOAD_ARDUINO_CLI_1_5_1_REQUIRED")
         ref="refs/remotes/origin/codex/alpha13-g10-r-recovery-prep"
         current=run(["git","rev-parse","HEAD"]).strip()
