@@ -443,7 +443,7 @@ def selftest()->int:
                       "REQUESTS":12,"CRC":0,"READY":1}
     require(rec.request_slave_result()["REQUESTS"]==12 and
             len(fake.sent)==1 and fake.sent[0].startswith(b"G8_P4_REPORT:") and
-            fake.sent[0].endswith(b"\\n"),
+            fake.sent[0].endswith(b"\n"),
             "SLAVE_REPORT_COMMAND_TERMINATOR_REQUIRED")
     require(plan()["hardware"]=="NOT_ACCESSED",
             "DRY_RUN_IMPLICIT_HARDWARE")
