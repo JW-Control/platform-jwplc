@@ -119,6 +119,21 @@ def parse_heartbeat(line:str,token:str,phase:str,t:float):
     return d
 
 
+
+def parse_slave_result(line:str,token:str):
+    prefix="G8_P4_SLAVE_RESULT:"+token+" "
+    if not line.startswith(prefix):return None
+    values={}
+    for part in line[len(prefix):].split():
+        name,sep,value=part.partition("=")
+        if not sep or name in values or not value.isdecimal():
+            return None
+        values[name]=int(value)
+    expected={"RXBYTES","RXFRAMES","TXFRAMES","REQUESTS","CRC","READY"}
+    if set(values)!=expected:return None
+    return values
+
+
 def recv_exact(s, count:int)->bytes:
     buf=bytearray()
     while len(buf)<count:
@@ -166,6 +181,8 @@ class Recorder:
         self.ready_ip=None
         self.protocol_seen=False
         self.slave_ready=False
+        self.slave_report_token=""
+        self.slave_result=None
         self.ports={}
         self.threads=[]
         self.origin=time.monotonic()
@@ -205,8 +222,12 @@ class Recorder:
                         if hb:
                             self.latest=hb
                             self.events.append(hb)
-                elif name=="COM14" and line=="G8_P4_READY:SLAVE:ID2:115200:8N1":
-                    self.slave_ready=True
+                elif name=="COM14":
+                    if line=="G8_P4_READY:SLAVE:ID2:115200:8N1":
+                        self.slave_ready=True
+                    if self.slave_report_token:
+                        parsed=parse_slave_result(line,self.slave_report_token)
+                        if parsed is not None:self.slave_result=parsed
 
     def open(self):
         from serial.tools import list_ports
@@ -304,6 +325,19 @@ class Recorder:
         finally:
             halt.set();task.join(timeout=5);self.end()
 
+    def request_slave_result(self):
+        token=uuid.uuid4().hex[:24]
+        with self.lock:self.slave_report_token=token
+        self.ports["COM14"].write(("G8_P4_REPORT:"+token+"\\n").encode("ascii"))
+        self.ports["COM14"].flush()
+        deadline=time.monotonic()+6
+        while time.monotonic()<deadline:
+            with self.lock:
+                result=dict(self.slave_result) if self.slave_result else None
+            if result:return result
+            if self.stop.wait(.1):break
+        raise RuntimeError("SLAVE_RESULT_TIMEOUT_OR_SERIAL_LOST")
+
     def link_cycles(self):
         self.start("R2")
         halt=threading.Event()
@@ -393,6 +427,11 @@ def selftest()->int:
         try:inspect_evidence(doc)
         except RuntimeError:pass
         else:raise AssertionError("TEST_EVIDENCE_PARTIAL_UPLOAD_ACCEPTED")
+    slave=("G8_P4_SLAVE_RESULT:"+"a"*24+
+           " RXBYTES=99 RXFRAMES=12 TXFRAMES=12 REQUESTS=12 CRC=0 READY=1")
+    require(parse_slave_result(slave,"a"*24)["CRC"]==0,"SLAVE_PARSE_POSITIVE")
+    require(parse_slave_result(slave.replace("CRC=0","CRC=broken"),"a"*24) is None,
+            "SLAVE_PARSE_NEGATIVE_NOT_REJECTED")
     require(plan()["hardware"]=="NOT_ACCESSED",
             "DRY_RUN_IMPLICIT_HARDWARE")
     print("G10_R_FIELD_SELFTEST=PASS_6_NEGATIVE_SERIAL_CASES")
@@ -433,6 +472,11 @@ def live(evidence:Path)->int:
         c.measure("R1",R1_SECONDS,5)
         c.link_cycles()
         c.measure("R4",R4_SECONDS,5)
+        result["slave_result"]=c.request_slave_result()
+        require(result["slave_result"]["CRC"]==0 and
+                result["slave_result"]["READY"]==1 and
+                result["slave_result"]["REQUESTS"]>=8,
+                "SLAVE_CRC_OR_REQUESTS_FAILED")
         # Correlación y validación offline. No declara PASS físico automático.
         spec=importlib.util.spec_from_file_location("g10r_replay",
                  ROOT/"tools/alpha13/gates/a13_g10_r_replay.py")
