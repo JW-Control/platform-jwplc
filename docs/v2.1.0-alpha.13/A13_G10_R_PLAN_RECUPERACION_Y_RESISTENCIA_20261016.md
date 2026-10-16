@@ -102,7 +102,7 @@ Un futuro runner físico consolidado deberá guardar `SUMMARY.log`, `MANIFEST.js
 
 ## 6. Implementación incremental R1/R2/R4 — ejecutables no físicos
 
-**Estado de esta iteración:** fuentes y contrato implementados; los únicos PASS ejecutados hasta este punto son el replay **sintético** y la compilación que reporte la CI, no recuperación real de red.
+**Estado de esta iteración: CI de fuentes y contrato PASS, hardware NO ejecutado.** [Run #38860689736](https://github.com/JW-Control/platform-jwplc/actions/runs/38860689736), HEAD ejecutable `921ca6cd6a94f3874ef425be057e2af287d1feaf`, `completed/success`, **4/4 jobs PASS**: replay sintético **15 mutaciones negativas rechazadas** Windows/Ubuntu; compilación source-first **COM4 + COM14** Windows/Ubuntu con 14 fuentes del overlay, core congelado y FQBN de banco. Dos compilaciones producen ELF/SHA de host distintos; no se exige identidad binaria Windows/Linux, sino identidad de fuentes, core y procedencia, y se registraron ambos ELF en logs.
 
 - `tools/alpha13/sketches/g10_r_integrated/g10_r_integrated.ino`: diagnóstico separado de G10-H. Conserva autoload Ethernet/W5500, microSD, FRAM, RTC, botonera, RS-485/Modbus RTU, Display y TCA/I/O; añade `G10R_BOOT:NONCE`, `G10R_READY` con IP/boot/PHY interpretado como `LINK`, `G10R_HEARTBEAT` con IP/boot/`LINK` y contadores, `G10R_START:<token>:RTU=1`, `G10R_STOP:<token>`. Las órdenes START/STOP afectan únicamente a la sesión de diagnóstico, no a relés ni a cargas. **Es firmware nuevo, todavía NO flasheado.**
 - `tools/alpha13/gates/a13_g10_r_build_candidate.py`: staging source-first del mismo overlay G10-I, FQBN temporal `jwplc_hbench:esp32:jwplcbasic`, 14 SHA fuentes, cinco precompilados congelados, atribución de plataforma/bibliotecas, objeto `.d/.o` de SafeAccess y ELF COM4 y COM14. Solo tiene `--selftest` y `--build` **sin upload**.
@@ -121,7 +121,7 @@ G10-H=PASS_PHYSICAL_SMOKE_MANIFEST_REVIEWED
 G10-C=CLOSED_DECISION_DEFER_ADOPTION
 G10-R=PREP_NONPHYSICAL
 G10-R-N0=PASS_SYNTHETIC_CONTRACT_WINDOWS_UBUNTU_RUN_38855037866
-G10-R-R1_R4=DESIGNED_NOT_IMPLEMENTED
+G10-R-R1_R2_R4=SKETCH_AND_OFFLINE_REPLAY_CI_PASS_PHYSICAL_NOT_RUN
 G10-R-R5=NOT_AUTHORIZED
 A13-006=ADOPTION_BLOCKED
 PRODUCT_MODIFIED=NO
@@ -132,7 +132,7 @@ FROZEN_ARCHIVES=5_UNCHANGED
 OPENPLC=OUT_OF_SCOPE
 HMI_DESIGNER=OUT_OF_SCOPE
 TFT_NEW_FEATURES=OUT_OF_SCOPE
-NEXT_GATE=G10-R_BUILD_SAFE_RUNNER_AND_INSTRUMENTED_SKETCH
+NEXT_GATE=G10-R_LIVE_RUNNER_AND_R3_OWNER_EPOCH_DIAGNOSTIC
 ```
 
 **No cerrar G10-R con esta ficha:** sirve para fijar riesgos, alcance y condiciones de preparación; ni el autodiagnóstico sintético ni la CI sin hardware equivalen a R1–R4 reales.
