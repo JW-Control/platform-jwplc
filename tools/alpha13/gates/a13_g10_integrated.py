@@ -853,7 +853,7 @@ def patch_b08_spi_mutex_ownership(repro, paths):
         source=source.replace(acquire,new_acquire,1).replace(release,new_release,1)
         inc='#include "JWPLC_W5500_SafeAccess.h"'
         if inc not in source:
-            source=inc+"\\n"+source
+            source=inc+"\n"+source
         paths[rel]=source
     return paths
 
@@ -1792,7 +1792,7 @@ def b08_mutex_native(out, files):
             methods.append(repro.extract(files[rel],sig))
     def run(name, bodies):
         return builder.native(out,"b08_mutex_"+name,
-                              "\\n\\n".join(bodies)+"\\n",compiler)
+                              "\n\n".join(bodies)+"\n",compiler)
     rc,log=run("positive",methods)
     required=(
         "G10_I_B08_ETHERNET_SERVICE_NESTED=PASS",
@@ -1801,7 +1801,7 @@ def b08_mutex_native(out, files):
         "G10_I_B08_MUTEX_NATIVE=PASS_REAL_WRAPPERS_NONRECURSIVE",
     )
     if rc != 0 or not all(x in log for x in required):
-        emit("B08_DIAGNOSTIC",log.strip().replace("\\n"," | ")[:950])
+        emit("B08_DIAGNOSTIC",log.strip().replace("\n"," | ")[:950])
     require(rc==0 and all(x in log for x in required),
             "B08_REAL_NONRECURSIVE_WRAPPER_FAILED")
     negatives=(
@@ -1825,7 +1825,7 @@ def b08_mutex_native(out, files):
         rc,log=run("negative_"+str(i),mutant)
         if rc==0 or error not in log:
             emit("B08_MUTANT_DIAGNOSTIC_"+str(i),
-                 log.strip().replace("\\n"," | ")[:700])
+                 log.strip().replace("\n"," | ")[:700])
         require(rc!=0 and error in log,"B08_MUTANT_ACCEPTED_"+str(i))
     return {
         "status":"PASS_SOURCE_BACKED_NONRECURSIVE_MUTEX_WRAPPERS",
