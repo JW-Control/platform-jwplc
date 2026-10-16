@@ -206,13 +206,23 @@ def build(cli,config,platform,tmp,rtu):
               "--fqbn",FQBN,"--warnings","default",
               "--build-path",builddir,"--clean","-v",sketch],
               "COMPILE_"+role)
-        for lib in ("JWPLC_Ethernet","JWPLC_ModbusTCP"):
-            if role=="COM4":
+        if role=="COM4":
+            for lib in ("JWPLC_Ethernet","JWPLC_ModbusTCP"):
+                # Comparar identidad FS: el CLI expande aliases Windows 8.3
+                # y Python puede conservar un path distinto al mismo directorio.
+                # Rechazar siempre otro directorio, incluso con igual nombre.
+                prefix="Using library "+lib+" "
+                reports=[line.split(" in folder: ",1)[1].strip().strip('"')
+                         for line in logs.splitlines()
+                         if line.startswith(prefix) and " in folder: " in line]
+                require(len(reports)==1,"LIBRARY_SELECTION_REPORT_MISSING_"+lib)
+                actual=Path(reports[0])
                 expectedlib=platform/"libraries"/lib
-                require(any("Using library "+lib+" " in line and
-                            str(expectedlib).lower() in line.lower()
-                            for line in logs.splitlines()),
-                        "WRONG_SELECTED_LIBRARY_"+lib)
+                if not actual.is_dir() or not actual.samefile(expectedlib):
+                    emit("LIBRARY_"+lib+"_OBSERVED",str(actual))
+                    emit("LIBRARY_"+lib+"_EXPECTED",str(expectedlib))
+                    require(False,"WRONG_SELECTED_LIBRARY_"+lib)
+                emit("LIBRARY_"+lib+"_PROVENANCE","PASS_SAME_DIRECTORY")
         if role=="COM4":
             objects=list(builddir.rglob("JWPLC_W5500_SafeAccess.cpp.o"))
             require(len(objects)==1,"SAFEACCESS_OBJECT_NOT_UNIQUE")
