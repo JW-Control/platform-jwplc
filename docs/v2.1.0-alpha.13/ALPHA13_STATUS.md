@@ -1,13 +1,17 @@
 # Alpha13 — estado vivo G10 (preparación G10-R, 2026-10-16)
 
-> **G10-R iniciado únicamente en modalidad NO FÍSICA.** Rama `codex/alpha13-g10-r-recovery-prep` derivada del PR #107 (G10-C). Se prepararon [plan integrado de recuperación/resistencia](A13_G10_R_PLAN_RECUPERACION_Y_RESISTENCIA_20261016.md), contrato `tools/alpha13/gates/a13_g10_r_preflight.py` (lectura de manifiesto G10-H o 13 mutaciones sintéticas), y CI N0 [#38855037866](https://github.com/JW-Control/platform-jwplc/actions/runs/38855037866) **2/2 SUCCESS**. Adicionalmente el sketch source-first COM4/COM14, parser offline con 15 mutantes y test de lectura PHY `LinkON/LinkOFF/Unknown` tienen CI [#38860689736](https://github.com/JW-Control/platform-jwplc/actions/runs/38860689736) **4/4 PASS** sobre HEAD ejecutable `921ca6cd6a94f3874ef425be057e2af287d1feaf`. **No hay runner físico completo ni autorización de uso de hardware**, y R3 owner/epoch sigue sin instrumentar. **El preflight no es R1–R4**, no acredita red en fallo, cierre diferido con SPI_BUSY físico, endurance ni nuevo firmware. El futuro runner y la instrumentación siguen PENDIENTES y requieren autorización física separada. `A13-006=ADOPTION_BLOCKED`; G10-C continúa cerrado con decisión de diferir; PR #105, #106, #107 siguen Draft; **COM4 y COM14 contienen firmware de diagnóstico sin restauración automática**. No alterar producto ni GPIO4.
+> **G10-R — continuidad técnica 16/10/2026, rama aislada:** tras G10-C (decisión de diferir adopción), están implementados (1) sketch COM4 de resistencia y captura de link PHY; (2) staging G10-I de 14 fuentes con **snapshots read-only** de `epoch/owner/allocation/pending` solo en SafeAccess del paquete temporal; (3) evaluadores offline R1/R2/R4 y owner/epoch con mutantes negativos; (4) gate separado de **build→upload** que exige Arduino CLI 1.5.1, CH340, SHA de ELF y consentimiento textual; (5) runner anfitrión que requiere **manifest SHA + consentimiento adicional** antes de captar COM4/COM14 y maniobras RJ45, sin subir firmware. La CI de fuentes de referencia [#38862150129](https://github.com/JW-Control/platform-jwplc/actions/runs/38862150129) comprobó 4/4 PASS Windows/Ubuntu sobre su HEAD; las modificaciones recientes del runner/RTC requieren CI del HEAD vigente. La instrumentación R3 de snapshots no demuestra secuencias DNS/DHCP bajo SPI_BUSY. **NO se ha ejecutado `--upload` ni `--live`; firmware actual de ambas placas sigue siendo el de G10-H sin restauración.** Los 5 archives y el producto permanecen intactos, GPIO4 deshabilitado. No reiniciar, desconectar ni flashear en nombre de este estado sin consentimiento independiente. `A13-006=ADOPTION_BLOCKED`.
 
 ```text
 HITO=G10-R
 BRANCH=codex/alpha13-g10-r-recovery-prep
-G10-R=PREP_NONPHYSICAL
+G10-R=PREP_NONPHYSICAL_SOURCE_CODE_IMPLEMENTED
 G10-R-N0=PASS_SYNTHETIC_CONTRACT_WINDOWS_UBUNTU_RUN_38855037866
-G10-R-R1_R2_R4=SKETCH_AND_REPLAY_CI_PASS_4X4_RUN_38860689736_PHYSICAL_NOT_RUN
+G10-R-SOURCE_BUILD=PASS_BASELINE_4X4_RUN_38862150129
+G10-R-R1_R2_R4=SKETCH_RUNNER_AND_REPLAY_READY_CI_FINAL_PENDING_PHYSICAL_NOT_RUN
+G10-R-R3=READONLY_SNAPSHOTS_AND_OFFLINE_OWNER_EPOCH_CONTRACT_FAULT_INJECTION_NOT_RUN
+G10-R-UPLOAD=GATED_IMPLEMENTED_NOT_EXECUTED
+G10-R-CAPTURE=CONSENT_GATED_NOT_EXECUTED
 G10-R-R5=NOT_AUTHORIZED
 G10-I=NONPHYSICAL_PASS_CANDIDATE
 G10-H=PASS_PHYSICAL_SMOKE_MANIFEST_REVIEWED
@@ -19,7 +23,7 @@ AUTOLOAD_NORMAL=UNCHANGED
 FROZEN_ARCHIVES=5_UNCHANGED
 GPIO4_RESET=DISABLED
 OPERATOR_FIRMWARE_RESTORED=NO
-NEXT_GATE=G10-R_LIVE_RUNNER_AND_R3_OWNER_EPOCH_DIAGNOSTIC
+NEXT_GATE=G10-R_FINAL_CI_R3_SOURCE_BACKED_NEGATIVES_THEN_OPERATOR_AUTHORIZATION_DECISION
 PHYSICAL_UPLOAD=NOT_AUTHORIZED
 PHYSICAL_LINK_FLAP=NOT_AUTHORIZED
 PHYSICAL_POWER_CYCLE=NOT_AUTHORIZED
