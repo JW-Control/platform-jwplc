@@ -1,0 +1,72 @@
+name: Alpha13 G10-H preflight sin hardware
+on:
+  push:
+    branches: ['codex/alpha13-g10-h-*']
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - uses: arduino/setup-arduino-cli@v2
+        with:
+          version: '1.x'
+      - name: Verificar ejecutor sin puerto ni flash
+        run: |
+          python -m py_compile tools/alpha13/gates/a13_g10_h_physical.py
+          python -B tools/alpha13/gates/a13_g10_h_physical.py --selftest
+          grep -Fq 'G10H_START:' tools/alpha13/sketches/g10_h_integrated/g10_h_integrated.ino
+      - name: Instalar core bootstrap solo en CI
+        run: |
+          arduino-cli config init --overwrite
+          arduino-cli config set board_manager.additional_urls "https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json"
+          arduino-cli core update-index
+          arduino-cli core install "jwplc:esp32@2.1.0-alpha.10"
+      - name: Componer candidato en ubicacion temporal
+        run: |
+          python - <<'PY'
+          import hashlib,importlib.util,os,pathlib,shutil
+          root=pathlib.Path.cwd()
+          spec=importlib.util.spec_from_file_location("g10h_ci_integrator",root/"tools/alpha13/gates/a13_g10_integrated.py")
+          m=importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(m)
+          m.preflight(True)
+          files=m.compose()
+          tmp=pathlib.Path(os.environ["RUNNER_TEMP"])
+          staged=tmp/"g10h-stage"
+          hashes={k:{"sha256":hashlib.sha256(v.encode("utf-8")).hexdigest()} for k,v in files.items()}
+          m.stage_platform(staged,files,hashes)
+          target=tmp/"g10h-user/hardware/jwplc_local/esp32"
+          target.parent.mkdir(parents=True,exist_ok=True)
+          shutil.copytree(staged,target)
+          src=(target/"libraries/JWPLC_Ethernet/src/JWPLC_Ethernet.cpp").read_text()
+          assert "jwplc_w5500_candidate::enter(timeoutMs)" in src
+          assert "EthernetUDP::jwplcServiceDeferredClose()" in src
+          print("G10_H_CI_STAGE=PASS")
+          PY
+          arduino-cli config set directories.user "$RUNNER_TEMP/g10h-user"
+      - name: Compilar dos programas en package Alpha13 aislado
+        run: |
+          set -euo pipefail
+          arduino-cli compile --fqbn jwplc_local:esp32:jwplcbasic --clean -v --build-path "$RUNNER_TEMP/g10h-build-com4" tools/alpha13/sketches/g10_h_integrated >"$RUNNER_TEMP/g10h-com4.log" 2>&1 || { tail -n 70 "$RUNNER_TEMP/g10h-com4.log"; exit 1; }
+          echo "G10_H_CI_COM4=PASS"
+          arduino-cli compile --fqbn jwplc_local:esp32:jwplcbasic --clean -v --build-path "$RUNNER_TEMP/g10h-build-com14" tools/alpha13/sketches/g8_p4_slave >"$RUNNER_TEMP/g10h-com14.log" 2>&1 || { tail -n 70 "$RUNNER_TEMP/g10h-com14.log"; exit 1; }
+          echo "G10_H_CI_COM14=PASS"
+          find "$RUNNER_TEMP/g10h-build-com4" -name 'JWPLC_W5500_SafeAccess.cpp.o' | grep -q .
+          echo "G10_H_CI_W5500_OBJECT=PASS"
+      - name: Evidencia de compilacion
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: g10-h-preflight
+          path: |
+            /tmp/g10h-com4.log
+            /tmp/g10h-com14.log
+          if-no-files-found: ignore
