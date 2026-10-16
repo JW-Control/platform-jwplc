@@ -109,7 +109,11 @@ Un futuro runner físico consolidado deberá guardar `SUMMARY.log`, `MANIFEST.js
 - `tools/alpha13/gates/a13_g10_r_replay.py`: contrato JSON `G10-R-REPLAY-V1`, modo `--selftest` con negativos sintéticos y `--evaluate <archivo>` **únicamente offline**. Exige >=600 s R1, >=1800 s R4, gaps heartbeat <=3 s, huecos de muestreo tráfico <=20 s, progreso periféricos, boot estable, y tres ciclos R2 (10–15 s link-down, caída **observada** en heartbeat y TCP/UDP, RTU mantenido, readyness <=90 s y cinco operaciones TCP/UDP/RTU consecutivas <=30 s). Clasifica `PASS_REPLAY_CONTRACT` o `REVIEW_STOP`, **nunca** `PASS_PHYSICAL`.
 - `.github/workflows/alpha13-g10-r-source-build.yml`: contrato/replay Windows+Ubuntu y compilación Arduino CLI real del candidato COM4 y Slave COM14, sin COM ni upload. Contratos y build se reportan como jobs diferentes.
 
-**Limitación explícita:** el sketch no exporta todavía telemetría `owner/epoch/lease/CLOSE_PENDING/STALE` del driver. Por tanto **no implementa R3**, que requiere instrumentación source-backed separada, mutaciones y pruebas de cierre diferido. Tampoco existe aún la orquestación física que produzca JSON de eventos correlacionados con log USB/PC ni la autorización de flasheo. **No dar al operador instrucciones de ejecución física** solo porque CI del sketch pase.
+**Actualización 16/10 (R3 parcial):** se agregó **instrumentación de laboratorio al overlay TEMPORAL** (mismas 14 rutas, pero dos fuentes de SafeAccess extendidas): `LabSocketSnapshot` con `socketIndex/epoch/allocation/ownerCookie/pendingCloseAllocation/valid`, y `labCaptureSockets()` protegida por `BusScope`, resultado `Captured/BusBusy/InvalidOutput`. El sketch puede consultarla con `G10R_SOCKETS:<token>`, imprimiendo `G10R_SOCK` por slot o `G10R_SOCK_STATUS` si SPI está ocupado. Esta API **solo existe en el paquete staged de diagnóstico**, nunca en el package productivo. El ejecutor de compilación liga el símbolo source-first. Además `a13_g10_r_owner_epoch.py` implementa un verificador OFFLINE de transiciones de propietarios/epoch con **14 casos negativos sintéticos**. Estas lecturas son snapshots; **R3 todavía NO comprueba la transición física DNS/DHCP/UDP bajo SPI_BUSY ni la integridad de una secuencia de eventos emitida por firmware**. El primer CI del nuevo código debe corroborarse antes de darlo por válido.
+
+**Ejecutor anfitrión:** `a13_g10_r_field_runner.py` implementa `--selftest`, `--dry-run` y una modalidad `--live` que no realiza uploads, exige un **registro externo verificable de dos cargas G10-R** (`G10-R-AUTHORIZED-UPLOAD-V1`), dos CH340 y respuestas UART G10-R/Slave antes de iniciar. En modalidad live solicita permiso exacto para captura y maniobras **RJ45 exclusivamente manuales**, conserva UART + mediciones PC y somete eventos al replay, **sin afirmar PASS físico automático**. No usar `--live` todavía: **NO se ha creado el gate aprobado de carga con evidencias ni existe autorización de intervención material**, y no hay garantía criptográfica de contenido flash a partir de un protocolo serial. El runner no ejecuta resets GPIO4, power-cycle ni manipulación de relés.
+
+**Próximos requisitos:** formalizar el uploader fuente→ELF→flash con consentimiento separado y atestación documental, asegurar compatibilidad de sesión/arranque y revisión de abortos antes del banco; construir fault injection y telemetría histórica real de R3; y obtener autorización física independiente. **No indicar ejecutar BAT ni conectarse a COM4/COM14 todavía**.
 
 **Nota de procedencia:** el firmware G10-H actualmente grabado en COM4/COM14 no habla necesariamente `G10R_...`; el nuevo sketch R1/R2/R4 requiere autorización de flash futura. La identificación de puerto observada en H es histórica, no una verificación de presencia actual.
 
@@ -132,7 +136,7 @@ FROZEN_ARCHIVES=5_UNCHANGED
 OPENPLC=OUT_OF_SCOPE
 HMI_DESIGNER=OUT_OF_SCOPE
 TFT_NEW_FEATURES=OUT_OF_SCOPE
-NEXT_GATE=G10-R_LIVE_RUNNER_AND_R3_OWNER_EPOCH_DIAGNOSTIC
+NEXT_GATE=G10-R_AUTHORIZED_UPLOAD_PROVENANCE_AND_R3_LIFECYCLE_FAULT_INJECTION
 ```
 
 **No cerrar G10-R con esta ficha:** sirve para fijar riesgos, alcance y condiciones de preparación; ni el autodiagnóstico sintético ni la CI sin hardware equivalen a R1–R4 reales.
