@@ -135,8 +135,9 @@ Reglas:
 - Ninguna opción sin soporte en el firmware.
 - La simulación en "Datos" nunca escribe al PLC.
 
-Orden de migración: VALUE → TEXT → BOOL → RAW_TEXT → figuras (completar) →
-NAV_BAR → PixelMap → MENU (nuevo).
+Prioridad (pedido del jefe): **terminar BAR y rehacer TEXT, VALUE y BOOL** primero.
+Especificación: `A15_7_INSPECTOR_REDESIGN_SPEC_20261016.md`.
+Después: RAW_TEXT → figuras (completar) → NAV_BAR → PixelMap → MENU (nuevo).
 
 ---
 
@@ -225,7 +226,8 @@ A15-3  Gráfica estática fuera del tick (B6)                   PENDING   (= F1,
 A15-4  CI del Designer: Playwright + arduino-cli               PENDING   (= F1)
 A15-5  Codegen puro + golden tests (D3)                       PENDING   (= F1/F6, O6)
 A15-6  .jwhmi v2 + modo Arduino/OpenPLC + host adapter        PENDING   (= F2)
-A15-7  Inspector gráfico por tipo                             PENDING
+A15-7  Inspector gráfico: 7A BAR, 7B VALUE, 7C TEXT, 7D BOOL  PENDING   (prioridad alta)
+       7E+ RAW_TEXT, figuras, NAV_BAR, PixelMap               PENDING
 A15-8  Widget MENU (Designer + JWPLC_UI)                      PENDING   (= F5 setpoints/teclas)
 A15-9  Paridad física en JWPLC Basic                          PENDING
 A15-10 Empaquetado, versiones, docs                           PENDING
@@ -237,4 +239,4 @@ Dependencias con otras alphas:
   MENU): Alpha13.
 - Anfitrión en OpenPLC, `generate-hmi`, HAL, Designer dentro del VPP: Alpha14.
 
-Orden: A15-1 → A15-2 → A15-3 → A15-5 → A15-4 → A15-6 → A15-7 → A15-8 → A15-9 → A15-10.
+Orden: A15-1 → A15-2 → A15-3 → **A15-7A..7D** → A15-5 → A15-4 → A15-6 → A15-8 → A15-7E+ → A15-9 → A15-10.

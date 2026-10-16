@@ -33,7 +33,9 @@ Primer trabajo del nuevo chat:
    agregue al firmware.
 3. A15-2: renumerar ids de página al borrar (`app.js:deletePage`) y unificar
    la configuración de NAV_BAR.
-4. Documentar cada gate en `docs/v2.1.0-alpha.15/A15_<n>_*.md` y actualizar STATUS.
+4. A15-7A..7D: cerrar BAR y rehacer TEXT/VALUE/BOOL según
+   `A15_7_INSPECTOR_REDESIGN_SPEC_20261016.md`.
+5. Documentar cada gate en `docs/v2.1.0-alpha.15/A15_<n>_*.md` y actualizar STATUS.
 
 Reglas críticas:
 

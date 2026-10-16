@@ -32,7 +32,11 @@ A15_3_STATIC_OUT_OF_TICK=PENDING
 A15_4_DESIGNER_CI=PENDING
 A15_5_PURE_CODEGEN_TESTS=PENDING
 A15_6_JWHMI_V2_MODES_HOST=PENDING
-A15_7_INSPECTOR_VISUAL=PENDING
+A15_7A_BAR_FINISH=PENDING (prioridad alta)
+A15_7B_VALUE=PENDING (prioridad alta)
+A15_7C_TEXT=PENDING (prioridad alta)
+A15_7D_BOOL=PENDING (prioridad alta)
+A15_7E_RAW_SHAPES_NAV_PIXEL=PENDING
 A15_8_MENU=PENDING
 A15_9_PHYSICAL_PARITY=PENDING
 A15_10_PACKAGING_DOCS=PENDING
@@ -54,7 +58,7 @@ B7_NO_PHYSICAL_GATES=OPEN
 ## Inspector (adopción del patrón Propuesta 2)
 
 ```text
-BAR=ADOPTED (checklist de la spec sin validar)
+BAR=PARTIAL (pestañas OK; quedan BAR-1..BAR-7 de A15_7_INSPECTOR_REDESIGN_SPEC)
 SHAPES=PARTIAL (reutiliza bar-inspector-wrap)
 VALUE=LEGACY
 TEXT=LEGACY
@@ -95,3 +99,5 @@ MENU_NODE_COUNT_LIMIT=A_MEDIR_EN_A15_8
   de página para configurar variables. Organización de alphas 13/14/15 fijada.
 - 2026-10-16 — Confirmado: botonera de 6 teclas (matriz 2x3). MENU MVP con
   profundidad máxima 3 y nodos SUBMENU/VIEW/EDIT_NUM/EDIT_BOOL.
+- 2026-10-16 — Especificación A15-7 (cerrar BAR, rehacer TEXT/VALUE/BOOL) con
+  hallazgos de los inspectores actuales; prioridad alta tras A15-1..A15-3.
