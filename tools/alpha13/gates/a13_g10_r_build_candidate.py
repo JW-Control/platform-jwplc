@@ -46,6 +46,7 @@ def guard_sketch() -> None:
     s = path.read_text(encoding="utf-8")
     for needle in (
         "G10R_BOOT:NONCE=", "G10R_STOPPED:",
+        "G10R_PROTOCOL:R1R2R4_R3SNAPSHOT_V1",
         "G10R_READY:IP=", "G10R_HEARTBEAT:",
         "JWPLC_Ethernet.useDHCP();",
         "JWPLC_ModbusTCP.beginServer(1,502)",
