@@ -92,7 +92,7 @@ def parse_heartbeat(line:str,token:str,phase:str,t:float):
     if d["eth"] not in (0,1) or d["tcp"] not in (0,1) or d["rtc"] not in (0,1):
         return None
     if not re.fullmatch(r"[a-f0-9]{4,8}",d["boot"]):return None
-    if not re.fullmatch(r"\\d{1,3}(?:\\.\\d{1,3}){3}",d["ip"]):
+    if not re.fullmatch(r"\d{1,3}(?:\.\d{1,3}){3}",d["ip"]):
         return None
     return d
 
