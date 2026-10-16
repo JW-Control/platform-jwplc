@@ -1,0 +1,94 @@
+name: Alpha13 G10-R R1-R4 build y replay sin hardware
+
+on:
+  push:
+    branches: ['codex/alpha13-g10-r-*']
+    paths:
+      - '.github/workflows/alpha13-g10-r-source-build.yml'
+      - 'tools/alpha13/gates/a13_g10_r_build_candidate.py'
+      - 'tools/alpha13/gates/a13_g10_r_replay.py'
+      - 'tools/alpha13/sketches/g10_r_integrated/**'
+  pull_request:
+    paths:
+      - '.github/workflows/alpha13-g10-r-source-build.yml'
+      - 'tools/alpha13/gates/a13_g10_r_build_candidate.py'
+      - 'tools/alpha13/gates/a13_g10_r_replay.py'
+      - 'tools/alpha13/sketches/g10_r_integrated/**'
+
+permissions:
+  contents: read
+
+jobs:
+  offline-contracts:
+    name: G10-R offline replay y negativos (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Contrato de alcance G10-R, producto congelado
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --name-only d01f6b2730bc0eaf2aee0fd9b1cb8eb6dafe10c7 HEAD > "$RUNNER_TEMP/g10-r-scope.txt"
+          while IFS= read -r path; do
+            case "$path" in
+              .github/workflows/alpha13-g10-r-preflight.yml|.github/workflows/alpha13-g10-r-source-build.yml|tools/alpha13/gates/a13_g10_r_preflight.py|tools/alpha13/gates/a13_g10_r_build_candidate.py|tools/alpha13/gates/a13_g10_r_replay.py|tools/alpha13/sketches/g10_r_integrated/g10_r_integrated.ino|docs/v2.1.0-alpha.13/A13_G10_R_PLAN_RECUPERACION_Y_RESISTENCIA_20261016.md|docs/v2.1.0-alpha.13/ALPHA13_STATUS.md)
+                ;;
+              *)
+                echo "G10_R_UNEXPECTED_CHANGE=$path"
+                exit 2
+                ;;
+            esac
+          done < "$RUNNER_TEMP/g10-r-scope.txt"
+          echo "G10_R_PRODUCT_AND_OLD_GATES_UNMODIFIED=PASS"
+      - name: Compilar parser Python y validar negativos
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -B -m py_compile tools/alpha13/gates/a13_g10_r_replay.py tools/alpha13/gates/a13_g10_r_build_candidate.py
+          python -B tools/alpha13/gates/a13_g10_r_replay.py --selftest
+          python -B tools/alpha13/gates/a13_g10_r_build_candidate.py --selftest
+          echo "G10_R_OFFLINE_CONTRACTS=PASS_SYNTHETIC_NO_HARDWARE"
+
+  candidate-build:
+    name: G10-R source first COM4 COM14 (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - uses: arduino/setup-arduino-cli@v2
+        with:
+          version: '1.5.1'
+      - name: Instalar toolchain bootstrap exclusivo de CI
+        shell: bash
+        run: |
+          set -euo pipefail
+          arduino-cli config init --overwrite
+          arduino-cli config set board_manager.additional_urls "https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json"
+          arduino-cli core update-index
+          arduino-cli core install "jwplc:esp32@2.1.0-alpha.10"
+          echo "G10_R_CORE_BOOTSTRAP=PASS"
+      - name: Compilar fuente candidata aislada sin COM ni upload
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -B tools/alpha13/gates/a13_g10_r_build_candidate.py --build
+          echo "G10_R_COM4_COM14_COMPILATION=PASS_NO_USB_NO_UPLOAD"
