@@ -45,7 +45,7 @@ BLOCKERS = {
     "B05": "Listener y broadcast source-backed; reset físico y reconexión end-to-end aún no validados",
     "B06": "N2 bootstrap pasó; N3 package Alpha13 completo aún no ejecutado",
     "B07": "Sin medición física de fairness y regresión W5500, Display, SD, FRAM, RTC, TCA, RS-485, Modbus RTU/TCP",
-    "B08": "S1 ya compone wrappers enter/leave; falta gate N1 integrado fiel al mutex no recursivo, N2/N3 y validación física",
+    "B08": "Conservar wrappers S1 al componer runtime Ethernet; validar host mutex no recursivo, N2/N3 y concurrencia física",
 }
 def emit(k,v):
     print("G10_INTEGRATED_"+str(k)+"="+str(v),flush=True)
@@ -984,13 +984,16 @@ uint8_t EthernetUDP::jwplcServiceDeferredClose()
         "\treturn s;",1)
     paths[socket_rel]=socket_source.replace(multi_old,multi_new,1)
     service_rel=eth_src+"JWPLC_Ethernet.cpp"
-    service=(ROOT/service_rel).read_text(encoding="utf-8-sig")
+    # No releer la fuente legacy: esto sobrescribía los wrappers S1
+    # enter()/leave() y reintroducía el doble mutex en DHCP/autoload.
+    require(service_rel in paths,"B08_RUNTIME_NOT_COMPOSED")
+    service=paths[service_rel]
     service_anchor="void JWPLC_EthernetClass::service()\n{\n#if !JWPLC_HAS_ETHERNET\n    return;\n#else"
     require(service.count(service_anchor)==1,"B03_AUTOLOAD_SERVICE_DRIFT")
     service=service.replace(service_anchor,service_anchor+
         "\n    // The core tick runs even after DNS/DHCP becomes logically inactive.\n"
         "    (void)EthernetUDP::jwplcServiceDeferredClose();",1)
-    paths[service_rel]='#include "JWPLC_W5500_SafeAccess.h"\n'+service
+    paths[service_rel]=service
     paths["JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP_Client.h"]=first["MB_CLIENT_HEADER"]
     paths["JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP.h"]=first["MB_SERVER_HEADER"]
     # La fase antigua componía referencias a SafeAccess, pero OMITÍA sus
