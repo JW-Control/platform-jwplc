@@ -328,7 +328,7 @@ class Recorder:
     def request_slave_result(self):
         token=uuid.uuid4().hex[:24]
         with self.lock:self.slave_report_token=token
-        self.ports["COM14"].write(("G8_P4_REPORT:"+token+"\\n").encode("ascii"))
+        self.ports["COM14"].write(("G8_P4_REPORT:"+token+"\n").encode("ascii"))
         self.ports["COM14"].flush()
         deadline=time.monotonic()+6
         while time.monotonic()<deadline:
