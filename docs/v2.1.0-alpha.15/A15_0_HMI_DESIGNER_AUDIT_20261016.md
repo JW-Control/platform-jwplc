@@ -104,8 +104,9 @@ platform.txt version=2.0.0
 DOC_FUENTES_EN=docs/v2.1.0-alpha.14/ (debería vivir en alpha.15)
 ```
 
-Decisión del propietario (2026-10-16): el HMI Designer se trabaja como
-`v2.1.0-alpha.15-HmiDesigner`. El roadmap debe actualizarse para reflejarlo.
+Decisión del jefe (2026-10-16): Alpha13 = robustez del package, Alpha14 =
+OpenPLC (Kenyi), Alpha15 = HMI Designer (André), en la rama
+`v2.1.0-alpha.15-HmiDesigner`. La numeración del roadmap no aplica.
 
 ## Acoplamientos a JWPLC (para modo OpenPLC)
 

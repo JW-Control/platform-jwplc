@@ -64,11 +64,31 @@ del JWPLC Basic, que:
 - reconozca si está vinculado a un proyecto **Arduino IDE** (el usuario nombra
   las variables) o a un proyecto **OpenPLC** (las variables ya existen y el
   usuario sólo elige cuál vincular);
-- incorpore un sistema de menús integrado con la botonera.
+- incorpore un tipo MENU (árbol de menús/submenús para ver y configurar
+  variables) integrado con la botonera.
 
 Detalle y gates: `docs/v2.1.0-alpha.15/ALPHA15_PLAN.md`.
 Estado vivo: `docs/v2.1.0-alpha.15/ALPHA15_STATUS.md`.
 Auditoría de partida: `docs/v2.1.0-alpha.15/A15_0_HMI_DESIGNER_AUDIT_20261016.md`.
+Integración OpenPLC: `docs/v2.1.0-alpha.15/A15_OPENPLC_INTEGRATION_DECISION_20261016.md`.
+
+Organización de alphas (manda sobre `docs/JWPLC_V2_1_CLOSURE_ROADMAP.md`):
+
+```text
+ALPHA13=robustez del package (jefe)
+ALPHA14=OpenPLC (Kenyi)     -> repo JW-Control/openplc-editor + VPP en openplc-editor-installers/
+ALPHA15=HMI Designer (André)
+```
+
+Repos relacionados:
+
+```text
+JW-Control/openplc-editor  rama develop/alpha12-backplane-closure
+  docs/jwplc/JWPLC_HMI_PLAN_INDUSTRIAL.md   plan HMI rev.2 (base adoptada)
+  resources/sources/arduino/arduino_runtime_glue.h  superficie real del runtime (STruC++)
+JW-Control/platform-jwplc  rama v2.1.0-alpha.12/feature/openplc-engineering-closure
+  openplc-editor-installers/v4.2.7/vpp/     VPP (manifest, HAL jwplcbasic.cpp, screens)
+```
 
 ---
 
