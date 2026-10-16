@@ -129,6 +129,8 @@ def build(cli: str, *, upload: bool = False) -> None:
                 "gpio4_reset":"DISABLED","ports":["COM4","COM14"],
                 "uploaded":{"COM4":"NOT_RUN","COM14":"NOT_RUN"},
                 "elf_sha256":{},
+                "sketch_sha256":{"COM4":sha256(SKETCH_COM4/"g10_r_integrated.ino"),
+                                 "COM14":sha256(SKETCH_COM14/"g8_p4_slave.ino")},
                 "r3_lab_snapshot":"READ_ONLY_INSTRUMENTED_NOT_FAULT_INJECTED",
                 "r3_product_api_modified":False,
                 "fqbn":FQBN,"overlay_source_count":len(files),
