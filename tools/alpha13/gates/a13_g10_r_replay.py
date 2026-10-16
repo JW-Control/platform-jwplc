@@ -73,6 +73,8 @@ def evaluate(report: dict) -> dict:
                 _fail(errors, "ETH_FIELD_INVALID")
             if type(item.get("tcp")) is not int or item["tcp"] not in (0, 1):
                 _fail(errors, "TCP_FIELD_INVALID")
+            if type(item.get("rtc")) is not int or item["rtc"] not in (0, 1):
+                _fail(errors, "RTC_FIELD_INVALID")
             if type(item.get("link")) is not int or item["link"] not in (0, 1, 2):
                 _fail(errors, "PHY_LINK_FIELD_INVALID")
             if not isinstance(item.get("ip"), str) or not item["ip"]:
@@ -83,6 +85,7 @@ def evaluate(report: dict) -> dict:
             if p in ("R1", "R4") and (item.get("eth") != 1 or
                                      item.get("tcp") != 1 or
                                      item.get("link") == 2 or
+                                     item.get("rtc") != 1 or
                                      item.get("ip") == "0.0.0.0"):
                 _fail(errors, "STEADY_ETHERNET_LOST_" + p)
             if item.get("sd_fail") != 0 or item.get("rtu_fail") != 0:
@@ -212,7 +215,7 @@ def _synthetic() -> dict:
         fram += 1
         rtu += 1
         return {"phase": phase, "t": t, "kind": "heartbeat", "boot": boot,
-                "hb": hbcount, "eth": eth, "tcp": tcp,
+                "hb": hbcount, "eth": eth, "tcp": tcp, "rtc": 1,
                 "link": 1 if eth else 2,
                 "ip": "192.0.2.42" if eth else "0.0.0.0",
                 "sd_ok": sd, "sd_fail": 0, "fram": fram,
@@ -260,6 +263,7 @@ def selftest() -> int:
         ("tcp_failure", lambda m: next(e for e in m["events"] if e["phase"]=="R1" and e["kind"]=="traffic").__setitem__("tcp",False)),
         ("udp_failure", lambda m: next(e for e in m["events"] if e["phase"]=="R4" and e["kind"]=="traffic").__setitem__("udp",False)),
         ("rtu_failure", lambda m: next(e for e in m["events"] if e["phase"]=="R4" and e["kind"]=="traffic").__setitem__("rtu",False)),
+        ("rtc_invalid", lambda m: next(e for e in m["events"] if e["phase"]=="R1" and e["kind"]=="heartbeat").__setitem__("rtc",0)),
         ("boot_change", lambda m: next(e for e in m["events"] if e["phase"]=="R4" and e["kind"]=="heartbeat").__setitem__("boot","deadbeef")),
         ("no_link_cycles", lambda m: m["events"].__setitem__(slice(None),[e for e in m["events"] if e["kind"]!="link_down"])),
         ("stuck_recovery", lambda m: [
