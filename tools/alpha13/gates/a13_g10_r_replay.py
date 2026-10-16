@@ -73,6 +73,8 @@ def evaluate(report: dict) -> dict:
                 _fail(errors, "ETH_FIELD_INVALID")
             if type(item.get("tcp")) is not int or item["tcp"] not in (0, 1):
                 _fail(errors, "TCP_FIELD_INVALID")
+            if type(item.get("link")) is not int or item["link"] not in (0, 1, 2):
+                _fail(errors, "PHY_LINK_FIELD_INVALID")
             if not isinstance(item.get("ip"), str) or not item["ip"]:
                 _fail(errors, "IP_FIELD_REQUIRED")
             for key in ("hb", "sd_ok", "sd_fail", "fram", "rtu_ok", "rtu_fail"):
@@ -80,6 +82,7 @@ def evaluate(report: dict) -> dict:
                     _fail(errors, "COUNTER_INVALID_" + key.upper())
             if p in ("R1", "R4") and (item.get("eth") != 1 or
                                      item.get("tcp") != 1 or
+                                     item.get("link") == 2 or
                                      item.get("ip") == "0.0.0.0"):
                 _fail(errors, "STEADY_ETHERNET_LOST_" + p)
             if item.get("sd_fail") != 0 or item.get("rtu_fail") != 0:
@@ -107,6 +110,8 @@ def evaluate(report: dict) -> dict:
                     if b[counter] < a[counter]:
                         _fail(errors, "COUNTER_REGRESSION_" + counter.upper() + "_" + phase)
             if phase in ("R1", "R4") and hbs:
+                if not any(x["link"] == 1 for x in hbs):
+                    _fail(errors, "STEADY_PHY_LINK_NEVER_CONFIRMED_" + phase)
                 if (hbs[-1]["sd_ok"] <= hbs[0]["sd_ok"] or
                     hbs[-1]["fram"] <= hbs[0]["fram"] or
                     hbs[-1]["rtu_ok"] <= hbs[0]["rtu_ok"]):
@@ -146,8 +151,11 @@ def evaluate(report: dict) -> dict:
             if not 10 <= dt <= 15:
                 _fail(errors, "R2_FAULT_WINDOW_DURATION")
             during = r2[a_index+1:b_index]
+            # PHY real: LinkOFF=2, LinkON=1, Unknown=0 (SPI_BUSY).
+            # ETH.isReady puede quedar en 1 hasta renovar DHCP; no inferir
+            # cable desconectado de la ausencia de respuestas TCP.
             link_down_hb = [e for e in during if e["kind"]=="heartbeat" and
-                            e["eth"]==0 and e["tcp"]==0]
+                            e["link"]==2]
             failed_packets = [e for e in during if e["kind"]=="traffic" and
                               not e["tcp"] and not e["udp"]]
             if len(link_down_hb) < 2 or not failed_packets:
@@ -156,7 +164,8 @@ def evaluate(report: dict) -> dict:
                                     if downs.index((a_index, down)) + 1 < len(downs)
                                     else len(r2))]
             healthy = [e for e in post if e["kind"] == "heartbeat" and
-                       e["eth"] == 1 and e["tcp"] == 1 and e["ip"] != "0.0.0.0"]
+                       e["link"] == 1 and e["eth"] == 1 and
+                       e["tcp"] == 1 and e["ip"] != "0.0.0.0"]
             if not healthy:
                 _fail(errors, "R2_RECOVERY_NO_READY_HEARTBEAT")
                 continue
@@ -204,6 +213,7 @@ def _synthetic() -> dict:
         rtu += 1
         return {"phase": phase, "t": t, "kind": "heartbeat", "boot": boot,
                 "hb": hbcount, "eth": eth, "tcp": tcp,
+                "link": 1 if eth else 2,
                 "ip": "192.0.2.42" if eth else "0.0.0.0",
                 "sd_ok": sd, "sd_fail": 0, "fram": fram,
                 "rtu_ok": rtu, "rtu_fail": 0}
@@ -260,7 +270,7 @@ def selftest() -> int:
         ("counter_regression", lambda m: next(e for e in reversed(m["events"]) if e["phase"]=="R4" and e["kind"]=="heartbeat").__setitem__("sd_ok",0)),
         ("missing_heartbeat", lambda m: m["events"].__setitem__(slice(None),[e for e in m["events"] if e["kind"]!="heartbeat"])),
         ("link_down_not_observed", lambda m: [
-            e.update({"eth":1, "tcp":1, "ip":"192.0.2.42"})
+            e.update({"eth":1, "tcp":1, "link":1, "ip":"192.0.2.42"})
             for e in m["events"] if e["phase"]=="R2" and
               e["kind"]=="heartbeat" and 611 < e["t"] < 623]),
         ("traffic_gap", lambda m: m["events"].__setitem__(slice(None),[
