@@ -182,7 +182,8 @@ void loop() {
       Serial.print(" UDP=");Serial.print(udpReady?1:0);
       Serial.print(" RTU=");Serial.print(rtuReady?1:0);
       Serial.print(" BOOT=");Serial.print(bootNonce,HEX);
-      Serial.print(" LINK=");Serial.println((int)JWPLC_Ethernet.linkStatus());
+      Serial.print(" LINK=");Serial.print((int)JWPLC_Ethernet.linkStatus());
+      Serial.println(" VER=R1R2R4_R3SNAPSHOT_V1");
     }
     return;
   }
