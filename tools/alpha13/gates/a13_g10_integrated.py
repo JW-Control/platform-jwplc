@@ -45,7 +45,7 @@ BLOCKERS = {
     "B05": "Listener y broadcast source-backed; reset físico y reconexión end-to-end aún no validados",
     "B06": "N2 bootstrap pasó; N3 package Alpha13 completo aún no ejecutado",
     "B07": "Sin medición física de fairness y regresión W5500, Display, SD, FRAM, RTC, TCA, RS-485, Modbus RTU/TCP",
-    "B08": "Wrappers SPI no recursivos compuestos en overlay, validar N2/N3 del nuevo HEAD y limitaciones físicas",
+    "B08": "S1 ya compone wrappers enter/leave; falta gate N1 integrado fiel al mutex no recursivo, N2/N3 y validación física",
 }
 def emit(k,v):
     print("G10_INTEGRATED_"+str(k)+"="+str(v),flush=True)
@@ -817,12 +817,12 @@ EthernetServer::jwplcProbeListening(bool& observed)
     first["MB_SERVER"]=source.replace(old,new,1)
     return first
 
-def patch_b08_spi_mutex_ownership(repro, paths):
-    """Unify actual Modbus/Ethernet outer locks with the W5500 tracked scope.
+def verify_b08_spi_mutex_ownership(repro, paths):
+    """Assert all six REAL wrappers are already composed by the earlier S1 overlay.
 
-    The core retains its nonrecursive global mutex; nested W5500 calls reuse
-    only an enter() acquisition tracked by g_owner, never an unrelated SD/TFT
-    acquisition on the same task. No product file is written.
+    S1 patches jwplcSPI_acquire/release to tracked W5500 enter/leave. Do not
+    re-patch them: the core SPI mutex remains nonrecursive and unrelated
+    TFT/SD/FRAM transactions must not be inherited by task identity alone.
     """
     prefix = "JWPLC/2.1.0/libraries/"
     wrappers = (
@@ -833,28 +833,19 @@ def patch_b08_spi_mutex_ownership(repro, paths):
         (prefix+"JWPLC_ModbusTCP/src/JWPLC_ModbusTCP.cpp",
          "JWPLC_ModbusTCPClass"),
     )
-    for rel,cls in wrappers:
+    for rel, cls in wrappers:
         require(rel in paths, "B08_MISSING_COMPOSED_"+cls)
         source=paths[rel]
         acquire=repro.extract(source,"bool "+cls+"::acquireBus(uint32_t timeoutMs)")
         release=repro.extract(source,"void "+cls+"::releaseBus()")
-        require(acquire.count("jwplcSPI_acquire(timeoutMs)")==1
-                and "jwplc_w5500_candidate::enter(timeoutMs)" not in acquire,
-                "B08_ACQUIRE_SOURCE_DRIFT_"+cls)
-        require(release.count("jwplcSPI_release();")==1
-                and "jwplc_w5500_candidate::leave();" not in release,
-                "B08_RELEASE_SOURCE_DRIFT_"+cls)
-        new_acquire=acquire.replace("jwplcSPI_acquire(timeoutMs)",
-                                    "jwplc_w5500_candidate::enter(timeoutMs)",1)
-        new_release=release.replace("jwplcSPI_release();",
-                                    "jwplc_w5500_candidate::leave();",1)
-        require(source.count(acquire)==1 and source.count(release)==1,
-                "B08_WRAPPER_NOT_UNIQUE_"+cls)
-        source=source.replace(acquire,new_acquire,1).replace(release,new_release,1)
-        inc='#include "JWPLC_W5500_SafeAccess.h"'
-        if inc not in source:
-            source=inc+"\n"+source
-        paths[rel]=source
+        require(acquire.count("jwplc_w5500_candidate::enter(timeoutMs)")==1
+                and "jwplcSPI_acquire(timeoutMs)" not in acquire,
+                "B08_ACQUIRE_WRAPPER_NOT_COMPOSED_"+cls)
+        require(release.count("jwplc_w5500_candidate::leave();")==1
+                and "jwplcSPI_release();" not in release,
+                "B08_RELEASE_WRAPPER_NOT_COMPOSED_"+cls)
+        require('#include "JWPLC_W5500_SafeAccess.h"' in source,
+                "B08_HEADER_NOT_COMPOSED_"+cls)
     return paths
 
 
@@ -1011,7 +1002,7 @@ uint8_t EthernetUDP::jwplcServiceDeferredClose()
         require(rel not in paths and not (ROOT/rel).exists(),
                 "SAFE_ACCESS_ALREADY_IN_PRODUCT_REVIEW_REQUIRED_"+name)
         paths[rel]=(base/name).read_text(encoding="utf-8-sig")
-    return patch_b08_spi_mutex_ownership(repro, paths)
+    return verify_b08_spi_mutex_ownership(repro, paths)
 
 def write_evidence(out,head,files):
     overlay=out/"overlay"
