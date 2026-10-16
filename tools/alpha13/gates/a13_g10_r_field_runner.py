@@ -20,6 +20,7 @@ import queue
 import re
 import socket
 import struct
+import tempfile
 import sys
 import threading
 import time
@@ -65,6 +66,27 @@ def inspect_evidence(path:Path)->dict:
     require(d.get("gpio4_reset")=="DISABLED"
             and d.get("product_modified") is False,
             "UPLOAD_EVIDENCE_UNSAFE")
+    require(d.get("upload")=="PASS_BOTH_EXPLICIT" and
+            d.get("consent")=="EXPLICIT_AFTER_SOURCE_FIRST_BUILD",
+            "UPLOAD_EVIDENCE_NO_EXPLICIT_CONSENT")
+    require(d.get("g10_i_source_sha")==
+            "a954cabd9c6e37876b59995a41ff0a449308ccd1",
+            "UPLOAD_EVIDENCE_DIFFERENT_CANDIDATE")
+    require(re.fullmatch(r"[a-f0-9]{40}",d.get("source_head","")) is not None,
+            "UPLOAD_EVIDENCE_HEAD_REQUIRED")
+    require(d.get("r3_lab_snapshot")==
+            "READ_ONLY_INSTRUMENTED_NOT_FAULT_INJECTED",
+            "UPLOAD_EVIDENCE_R3_LAB_MISSING")
+    meta=d.get("port_metadata",{})
+    require(isinstance(meta,dict) and set(meta)==set(PORTS) and all(
+        meta[p].get("vid")==CH340[0] and meta[p].get("pid")==CH340[1]
+        for p in PORTS),"UPLOAD_EVIDENCE_USB_IDENTITY_MISSING")
+    for port in PORTS:
+        log=path.parent/("UPLOAD_"+port+".log")
+        require(log.is_file(),"UPLOAD_EVIDENCE_LOG_MISSING_"+port)
+        require(hashlib.sha256(log.read_bytes()).hexdigest()==
+                d.get("upload_log_"+port+"_sha256"),
+                "UPLOAD_EVIDENCE_LOG_HASH_DRIFT_"+port)
     # Reconciliación documental: no es prueba criptográfica de la memoria.
     return d
 
@@ -340,6 +362,37 @@ def selftest()->int:
     require(READY_RE.fullmatch(expected_ready.replace("VER=R1R2R4_R3SNAPSHOT_V1",
                                                      "VER=LEGACY")) is None,
             "READY_STALE_FIRMWARE_ACCEPTED")
+    with tempfile.TemporaryDirectory(prefix="g10r-evidence-synth-") as d:
+        root=Path(d)
+        evidence={
+            "schema":"G10-R-AUTHORIZED-UPLOAD-V1",
+            "fqbn":FQBN,"ports":["COM4","COM14"],
+            "uploaded":{"COM4":"PASS_CONFIRMED_UPLOAD",
+                        "COM14":"PASS_CONFIRMED_UPLOAD"},
+            "elf_sha256":{"COM4":"a"*64,"COM14":"b"*64},
+            "gpio4_reset":"DISABLED","product_modified":False,
+            "upload":"PASS_BOTH_EXPLICIT",
+            "consent":"EXPLICIT_AFTER_SOURCE_FIRST_BUILD",
+            "g10_i_source_sha":"a954cabd9c6e37876b59995a41ff0a449308ccd1",
+            "source_head":"c"*40,
+            "r3_lab_snapshot":"READ_ONLY_INSTRUMENTED_NOT_FAULT_INJECTED",
+            "port_metadata":{"COM4":{"vid":CH340[0],"pid":CH340[1]},
+                             "COM14":{"vid":CH340[0],"pid":CH340[1]}}
+        }
+        for port in PORTS:
+            log=root/("UPLOAD_"+port+".log")
+            log.write_text("SYNTHETIC_TEST_NO_HARDWARE",encoding="utf-8")
+            evidence["upload_log_"+port+"_sha256"]=hashlib.sha256(
+                log.read_bytes()).hexdigest()
+        doc=root/"MANIFEST.json"
+        doc.write_text(json.dumps(evidence),encoding="utf-8")
+        require(inspect_evidence(doc)["schema"]==evidence["schema"],
+                "TEST_EVIDENCE_POSITIVE")
+        evidence["uploaded"]["COM4"]="NOT_RUN"
+        doc.write_text(json.dumps(evidence),encoding="utf-8")
+        try:inspect_evidence(doc)
+        except RuntimeError:pass
+        else:raise AssertionError("TEST_EVIDENCE_PARTIAL_UPLOAD_ACCEPTED")
     require(plan()["hardware"]=="NOT_ACCESSED",
             "DRY_RUN_IMPLICIT_HARDWARE")
     print("G10_R_FIELD_SELFTEST=PASS_6_NEGATIVE_SERIAL_CASES")
