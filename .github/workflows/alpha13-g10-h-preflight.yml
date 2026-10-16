@@ -152,7 +152,18 @@ jobs:
               if p.returncode:
                   print('G10_H_WINDOWS_PROPERTIES_ERROR=',p.stderr[-1800:])
                   sys.exit(2)
-              if not any(line.startswith('runtime.platform.path=') for line in p.stdout.splitlines()):
-                  print('G10_H_WINDOWS_NO_RUNTIME_PLATFORM_PATH_IN_SHOW_PROPERTIES=YES')
+              actual_paths=[line.partition('=')[2].strip() for line in p.stdout.splitlines()
+                            if line.partition('=')[0].strip()=='runtime.platform.path']
+              assert len(actual_paths)==1, 'G10_H_WIN_PLATFORM_PROPERTY_MISSING'
+              real=pathlib.Path(actual_paths[0])
+              assert real.is_dir() and real.samefile(sk), 'G10_H_WIN_PLATFORM_DIR_IDENTITY_FAIL'
+              assert not real.samefile(staged), 'G10_H_WIN_NEGATIVE_WRONG_PLATFORM_ACCEPTED'
+              print('G10_H_WINDOWS_PLATFORM_IDENTITY=PASS_SAME_DIRECTORY_8DOT3_ALLOWED')
+              print('G10_H_WINDOWS_PLATFORM_WRONG_COPY=PASS_REJECTED')
+              run_spec=importlib.util.spec_from_file_location('g10h_runner_build',root/'tools/alpha13/gates/a13_g10_h_physical.py')
+              run=importlib.util.module_from_spec(run_spec);sys.modules[run_spec.name]=run;run_spec.loader.exec_module(run)
+              run.OUT=tmp/'evidence';run.OUT.mkdir()
+              run.build('arduino-cli',conf,sk,tmp,True)
+              print('G10_H_WINDOWS_RUNNER_COM4_COM14=PASS_NO_USB_NO_FLASH')
           '@ | python -
           if ($LASTEXITCODE -ne 0) { throw 'G10_H_WINDOWS_PLATFORM_DIAGNOSTIC_ERROR' }
