@@ -98,7 +98,20 @@ Un futuro runner físico consolidado deberá guardar `SUMMARY.log`, `MANIFEST.js
 5. **Una autorización expresa del operador** para las acciones físicas elegidas: flash y/o desconexión de cable y/o power-cycle. No agrupar una autorización nueva de power-cycle con una antigua de upload.
 6. Solo entonces ejecutar, revisar evidencia y decidir si cambiar `A13-006`; **nunca cambiar estado productivo automáticamente por un PASS de banco**.
 
-## 6. Estado y siguiente acción
+## 6. Implementación incremental R1/R2/R4 — ejecutables no físicos
+
+**Estado de esta iteración:** fuentes y contrato implementados; los únicos PASS ejecutados hasta este punto son el replay **sintético** y la compilación que reporte la CI, no recuperación real de red.
+
+- `tools/alpha13/sketches/g10_r_integrated/g10_r_integrated.ino`: diagnóstico separado de G10-H. Conserva autoload Ethernet/W5500, microSD, FRAM, RTC, botonera, RS-485/Modbus RTU, Display y TCA/I/O; añade `G10R_BOOT:NONCE`, `G10R_READY` con IP y boot, `G10R_HEARTBEAT` con IP/boot y contadores, `G10R_START:<token>:RTU=1`, `G10R_STOP:<token>`. Las órdenes START/STOP afectan únicamente a la sesión de diagnóstico, no a relés ni a cargas. **Es firmware nuevo, todavía NO flasheado.**
+- `tools/alpha13/gates/a13_g10_r_build_candidate.py`: staging source-first del mismo overlay G10-I, FQBN temporal `jwplc_hbench:esp32:jwplcbasic`, 14 SHA fuentes, cinco precompilados congelados, atribución de plataforma/bibliotecas, objeto `.d/.o` de SafeAccess y ELF COM4 y COM14. Solo tiene `--selftest` y `--build` **sin upload**.
+- `tools/alpha13/gates/a13_g10_r_replay.py`: contrato JSON `G10-R-REPLAY-V1`, modo `--selftest` con negativos sintéticos y `--evaluate <archivo>` **únicamente offline**. Exige >=600 s R1, >=1800 s R4, gaps heartbeat <=3 s, huecos de muestreo tráfico <=20 s, progreso periféricos, boot estable, y tres ciclos R2 (10–15 s link-down, caída **observada** en heartbeat y TCP/UDP, RTU mantenido, readyness <=90 s y cinco operaciones TCP/UDP/RTU consecutivas <=30 s). Clasifica `PASS_REPLAY_CONTRACT` o `REVIEW_STOP`, **nunca** `PASS_PHYSICAL`.
+- `.github/workflows/alpha13-g10-r-source-build.yml`: contrato/replay Windows+Ubuntu y compilación Arduino CLI real del candidato COM4 y Slave COM14, sin COM ni upload. Contratos y build se reportan como jobs diferentes.
+
+**Limitación explícita:** el sketch no exporta todavía telemetría `owner/epoch/lease/CLOSE_PENDING/STALE` del driver. Por tanto **no implementa R3**, que requiere instrumentación source-backed separada, mutaciones y pruebas de cierre diferido. Tampoco existe aún la orquestación física que produzca JSON de eventos correlacionados con log USB/PC ni la autorización de flasheo. **No dar al operador instrucciones de ejecución física** solo porque CI del sketch pase.
+
+**Nota de procedencia:** el firmware G10-H actualmente grabado en COM4/COM14 no habla necesariamente `G10R_...`; el nuevo sketch R1/R2/R4 requiere autorización de flash futura. La identificación de puerto observada en H es histórica, no una verificación de presencia actual.
+
+## 7. Estado y siguiente acción
 
 ```text
 G10-I=NONPHYSICAL_PASS_CANDIDATE
