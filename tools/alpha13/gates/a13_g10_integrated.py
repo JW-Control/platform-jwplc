@@ -1043,7 +1043,10 @@ def stage_platform(destination,files,hashes):
         dst=target/rel[len(prefix):]
         require(dst.resolve().is_relative_to(target),"OVERLAY_ESCAPE_DETECTED")
         dst.parent.mkdir(parents=True,exist_ok=True)
-        dst.write_text(content,encoding="utf-8")
+        # In Windows Path.write_text() traduce LF -> CRLF, mientras los
+        # hashes del overlay se calculan sobre UTF-8 exacto con LF.
+        # Escribir bytes identicos en Linux/Windows, sin rebajar SHA guard.
+        dst.write_bytes(content.encode("utf-8"))
         require(digest(dst)==hashes[rel]["sha256"],
                 "STAGED_SOURCE_SHA_DIFFERS_"+rel)
         manifest[rel]={"sha256":digest(dst),"relative_staged_path":rel[len(prefix):]}
