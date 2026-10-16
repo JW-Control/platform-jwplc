@@ -155,7 +155,8 @@ void loop() {
       Serial.print(" TCP=");Serial.print(JWPLC_ModbusTCP.serverReady()?1:0);
       Serial.print(" UDP=");Serial.print(udpReady?1:0);
       Serial.print(" RTU=");Serial.print(rtuReady?1:0);
-      Serial.print(" BOOT=");Serial.println(bootNonce,HEX);
+      Serial.print(" BOOT=");Serial.print(bootNonce,HEX);
+      Serial.print(" LINK=");Serial.println((int)JWPLC_Ethernet.linkStatus());
     }
     return;
   }
@@ -183,6 +184,9 @@ void loop() {
     Serial.print(" BOOT=");Serial.print(bootNonce,HEX);
     Serial.print(" IP=");
     Serial.print(JWPLC_Ethernet.isReady()?JWPLC_Ethernet.localIP():IPAddress(0,0,0,0));
+    // LinkON=1, LinkOFF=2, Unknown=0 (puede ser SPI_BUSY).
+    // Unknown nunca equivale a LinkOFF físico.
+    Serial.print(" LINK=");Serial.print((int)JWPLC_Ethernet.linkStatus());
     Serial.print(" ETH=");Serial.print(JWPLC_Ethernet.isReady()?1:0);
     Serial.print(" TCP=");Serial.print(JWPLC_ModbusTCP.serverReady()?1:0);
     Serial.print(" SD_OK=");Serial.print(sdOk);
