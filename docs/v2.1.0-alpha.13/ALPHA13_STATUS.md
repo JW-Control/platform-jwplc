@@ -1,12 +1,12 @@
 # Alpha13 — estado vivo G10 (preparación G10-R, 2026-10-16)
 
-> **G10-R iniciado únicamente en modalidad NO FÍSICA.** Rama `codex/alpha13-g10-r-recovery-prep` derivada del PR #107 (G10-C). Se prepararon [plan integrado de recuperación/resistencia](A13_G10_R_PLAN_RECUPERACION_Y_RESISTENCIA_20261016.md), contrato `tools/alpha13/gates/a13_g10_r_preflight.py` (lectura de manifiesto G10-H o 13 mutaciones sintéticas), y CI Windows/Ubuntu sin puerto ni upload. **El preflight no es R1–R4**, no acredita red en fallo, cierre diferido con SPI_BUSY físico, endurance ni nuevo firmware. El futuro runner y la instrumentación siguen PENDIENTES y requieren autorización física separada. `A13-006=ADOPTION_BLOCKED`; G10-C continúa cerrado con decisión de diferir; PR #105, #106, #107 siguen Draft; **COM4 y COM14 contienen firmware de diagnóstico sin restauración automática**. No alterar producto ni GPIO4.
+> **G10-R iniciado únicamente en modalidad NO FÍSICA.** Rama `codex/alpha13-g10-r-recovery-prep` derivada del PR #107 (G10-C). Se prepararon [plan integrado de recuperación/resistencia](A13_G10_R_PLAN_RECUPERACION_Y_RESISTENCIA_20261016.md), contrato `tools/alpha13/gates/a13_g10_r_preflight.py` (lectura de manifiesto G10-H o 13 mutaciones sintéticas), y CI [#38855037866](https://github.com/JW-Control/platform-jwplc/actions/runs/38855037866) **2/2 SUCCESS** (Windows y Ubuntu, 13 mutaciones sintéticas rechazadas), sin puerto ni upload. **El preflight no es R1–R4**, no acredita red en fallo, cierre diferido con SPI_BUSY físico, endurance ni nuevo firmware. El futuro runner y la instrumentación siguen PENDIENTES y requieren autorización física separada. `A13-006=ADOPTION_BLOCKED`; G10-C continúa cerrado con decisión de diferir; PR #105, #106, #107 siguen Draft; **COM4 y COM14 contienen firmware de diagnóstico sin restauración automática**. No alterar producto ni GPIO4.
 
 ```text
 HITO=G10-R
 BRANCH=codex/alpha13-g10-r-recovery-prep
 G10-R=PREP_NONPHYSICAL
-G10-R-N0=READONLY_CONTRACT_IMPLEMENTED_CI_REVIEW
+G10-R-N0=PASS_SYNTHETIC_CONTRACT_WINDOWS_UBUNTU_RUN_38855037866
 G10-R-R1_R4=PLAN_DEFINED_RUNNER_AND_INSTRUMENTATION_PENDING
 G10-R-R5=NOT_AUTHORIZED
 G10-I=NONPHYSICAL_PASS_CANDIDATE
