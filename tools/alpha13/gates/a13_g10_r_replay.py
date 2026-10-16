@@ -215,6 +215,8 @@ def _synthetic() -> dict:
         for step in range(5):
             ev.append(traffic("R2", base+15+step*2))
             ev.append(hb("R2", base+15+step*2+0.1))
+        for step in range(25, 65, 2):
+            ev.append(hb("R2", base+step))
     base = 820
     for t in range(base, base+1802, 2):
         ev.append(hb("R4", t))
@@ -237,9 +239,12 @@ def selftest() -> int:
         ("rtu_failure", lambda m: next(e for e in m["events"] if e["phase"]=="R4" and e["kind"]=="traffic").__setitem__("rtu",False)),
         ("boot_change", lambda m: next(e for e in m["events"] if e["phase"]=="R4" and e["kind"]=="heartbeat").__setitem__("boot","deadbeef")),
         ("no_link_cycles", lambda m: m["events"].__setitem__(slice(None),[e for e in m["events"] if e["kind"]!="link_down"])),
-        ("stuck_recovery", lambda m: next(e for e in m["events"] if e["phase"]=="R2" and e["kind"]=="heartbeat" and e["t"]>620).__setitem__("eth",0)),
+        ("stuck_recovery", lambda m: [
+            e.update({"eth":0, "tcp":0, "ip":"0.0.0.0"})
+            for e in m["events"] if e["phase"]=="R2" and
+               e["kind"]=="heartbeat" and 624 <= e["t"] < 675]),
         ("fault_long", lambda m: next(e for e in m["events"] if e["kind"]=="link_up").__setitem__("t",629.0)),
-        ("counter_regression", lambda m: next(e for e in m["events"] if e["phase"]=="R4" and e["kind"]=="heartbeat").__setitem__("sd_ok",0)),
+        ("counter_regression", lambda m: next(e for e in reversed(m["events"]) if e["phase"]=="R4" and e["kind"]=="heartbeat").__setitem__("sd_ok",0)),
         ("missing_heartbeat", lambda m: m["events"].__setitem__(slice(None),[e for e in m["events"] if e["kind"]!="heartbeat"])),
         ("bad_origin", lambda m: m.__setitem__("origin","REAL_CERTIFIED")),
         ("invalid_bool", lambda m: next(e for e in m["events"] if e["kind"]=="traffic").__setitem__("tcp",1)),
