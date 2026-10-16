@@ -54,6 +54,8 @@ def guard_sketch() -> None:
         "JWPLC_FRAM.read8(0)",
         "JWPLC_Buttons.pressed(key)",
         "JWPLC_W5500_SafeAccess.h",
+        "G10R_SOCKETS:", "G10R_SOCK_STATUS:",
+        "LabSocketSnapshot", "labCaptureSockets(",
     ):
         require(needle in s, "R1_R2_R4_SKETCH_ANCHOR_MISSING_" + needle)
     for forbidden in (".write8(", "FILE_WRITE", "digitalWrite(", "analogWrite(",
@@ -74,7 +76,17 @@ def build(cli: str) -> None:
     assert spec.loader is not None
     spec.loader.exec_module(m)
     head = m.preflight(True)  # source-only, no hardware or git mutation
-    files = m.compose()
+    # Sólo staging de laboratorio: se añade inspección read-only a las
+    # mismas 14 fuentes, sin modificar G10-I ni JWPLC/2.1.0.
+    labpath=ROOT/"tools/alpha13/gates/a13_g10_r_instrumentation.py"
+    lab_spec=importlib.util.spec_from_file_location("g10_r_lab_snapshot",labpath)
+    require(lab_spec is not None and lab_spec.loader is not None,"LAB_MODULE_MISSING")
+    lab=importlib.util.module_from_spec(lab_spec)
+    sys.modules[lab_spec.name]=lab
+    lab_spec.loader.exec_module(lab)
+    files = lab.compose_lab(m.compose())
+    require("LabCaptureOutcome labCaptureSockets(" in files[lab.CPP],
+            "R3_STAGE_INSTRUMENTATION_MISSING")
     hashes = {rel:{"sha256":hashlib.sha256(content.encode("utf-8")).hexdigest()}
               for rel,content in files.items()}
     require(len(files)==14,"EXPECTED_14_SOURCE_OVERLAYS")
@@ -100,6 +112,8 @@ def build(cli: str) -> None:
         run([cli,"--config-file",str(conf),"config","set",
              "directories.user",str(user)])
         output={"source_head":head,"g10_i_source_sha":G10I,
+                "r3_lab_snapshot":"READ_ONLY_INSTRUMENTED_NOT_FAULT_INJECTED",
+                "r3_product_api_modified":False,
                 "fqbn":FQBN,"overlay_source_count":len(files),
                 "staged_core_sha256":sha256(platform/"precompiled/core/JWPLCBASIC/core.a"),
                 "product_modified":False,"physical_test":"NOT_RUN",
