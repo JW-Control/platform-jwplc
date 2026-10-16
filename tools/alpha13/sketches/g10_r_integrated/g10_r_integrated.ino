@@ -153,6 +153,7 @@ static void serviceRTU(uint32_t now) {
 
 void setup() {
   Serial.begin(115200);
+  Serial.println("G10R_PROTOCOL:R1R2R4_R3SNAPSHOT_V1");
   bootNonce=esp_random();
   Serial.print("G10R_BOOT:NONCE=");Serial.println(bootNonce,HEX);
   // El autoload normal inicia Ethernet y el resto de perifericos.
