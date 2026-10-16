@@ -1,7 +1,7 @@
 # Alpha13 — G10-R: campaña integrada de recuperación y resistencia
 
 **Fecha:** 2026-10-16 (Perú).  
-**Estado:** `G10-R=PREP_NONPHYSICAL`; **sin autorización de upload ni ensayo físico**.  
+**Estado:** `G10-R=PREP_NONPHYSICAL`; **sin autorización de upload ni ensayo físico**. CI N0 [#38855037866](https://github.com/JW-Control/platform-jwplc/actions/runs/38855037866), 2/2 SUCCESS Windows/Ubuntu (13 mutaciones sintéticas, ningún hardware).  
 **Rama:** `codex/alpha13-g10-r-recovery-prep`, sobre la rama documental G10-C, **no** sobre producto.  
 **Propósito:** cubrir riesgos residuales antes de una eventual nueva decisión de adopción. G10-C permanece cerrado con `CLOSED_DECISION_DEFER_ADOPTION`. No cambiar por anticipado `A13-006=ADOPTION_BLOCKED`.
 
@@ -105,7 +105,7 @@ G10-I=NONPHYSICAL_PASS_CANDIDATE
 G10-H=PASS_PHYSICAL_SMOKE_MANIFEST_REVIEWED
 G10-C=CLOSED_DECISION_DEFER_ADOPTION
 G10-R=PREP_NONPHYSICAL
-G10-R-N0=SOURCE_CONTRACT_READY_CI_PENDING
+G10-R-N0=PASS_SYNTHETIC_CONTRACT_WINDOWS_UBUNTU_RUN_38855037866
 G10-R-R1_R4=DESIGNED_NOT_IMPLEMENTED
 G10-R-R5=NOT_AUTHORIZED
 A13-006=ADOPTION_BLOCKED
