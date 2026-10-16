@@ -432,6 +432,19 @@ def selftest()->int:
     require(parse_slave_result(slave,"a"*24)["CRC"]==0,"SLAVE_PARSE_POSITIVE")
     require(parse_slave_result(slave.replace("CRC=0","CRC=broken"),"a"*24) is None,
             "SLAVE_PARSE_NEGATIVE_NOT_REJECTED")
+    class _FakeCOM14:
+        def __init__(self):self.sent=[]
+        def write(self,data):self.sent.append(data)
+        def flush(self):pass
+    fake=_FakeCOM14()
+    rec=Recorder(Path("."))
+    rec.ports["COM14"]=fake
+    rec.slave_result={"RXBYTES":99,"RXFRAMES":12,"TXFRAMES":12,
+                      "REQUESTS":12,"CRC":0,"READY":1}
+    require(rec.request_slave_result()["REQUESTS"]==12 and
+            len(fake.sent)==1 and fake.sent[0].startswith(b"G8_P4_REPORT:") and
+            fake.sent[0].endswith(b"\\n"),
+            "SLAVE_REPORT_COMMAND_TERMINATOR_REQUIRED")
     require(plan()["hardware"]=="NOT_ACCESSED",
             "DRY_RUN_IMPLICIT_HARDWARE")
     print("G10_R_FIELD_SELFTEST=PASS_6_NEGATIVE_SERIAL_CASES")
