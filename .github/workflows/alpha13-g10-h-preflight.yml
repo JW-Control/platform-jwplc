@@ -2,6 +2,11 @@ name: Alpha13 G10-H preflight sin hardware
 on:
   push:
     branches: ['codex/alpha13-g10-h-*']
+    paths:
+      - '.github/workflows/alpha13-g10-h-preflight.yml'
+      - 'tools/alpha13/gates/a13_g10_h_physical.py'
+      - 'tools/alpha13/gates/run_a13_g10_h_physical.bat'
+      - 'tools/alpha13/sketches/g10_h_integrated/**'
 permissions:
   contents: read
 jobs:
@@ -67,6 +72,6 @@ jobs:
         with:
           name: g10-h-preflight
           path: |
-            /tmp/g10h-com4.log
-            /tmp/g10h-com14.log
-          if-no-files-found: ignore
+            ${{ runner.temp }}/g10h-com4.log
+            ${{ runner.temp }}/g10h-com14.log
+          if-no-files-found: error
