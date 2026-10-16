@@ -9,6 +9,7 @@ on:
       - 'tools/alpha13/gates/a13_g10_r_replay.py'
       - 'tools/alpha13/gates/a13_g10_r_instrumentation.py'
       - 'tools/alpha13/gates/a13_g10_r_owner_epoch.py'
+      - 'tools/alpha13/gates/a13_g10_r_field_runner.py'
       - 'tools/alpha13/sketches/g10_r_integrated/**'
   pull_request:
     paths:
@@ -17,6 +18,7 @@ on:
       - 'tools/alpha13/gates/a13_g10_r_replay.py'
       - 'tools/alpha13/gates/a13_g10_r_instrumentation.py'
       - 'tools/alpha13/gates/a13_g10_r_owner_epoch.py'
+      - 'tools/alpha13/gates/a13_g10_r_field_runner.py'
       - 'tools/alpha13/sketches/g10_r_integrated/**'
 
 permissions:
@@ -46,7 +48,7 @@ jobs:
           git diff --name-only d01f6b2730bc0eaf2aee0fd9b1cb8eb6dafe10c7 HEAD > "$RUNNER_TEMP/g10-r-scope.txt"
           while IFS= read -r path; do
             case "$path" in
-              .github/workflows/alpha13-g10-r-preflight.yml|.github/workflows/alpha13-g10-r-source-build.yml|tools/alpha13/gates/a13_g10_r_preflight.py|tools/alpha13/gates/a13_g10_r_build_candidate.py|tools/alpha13/gates/a13_g10_r_replay.py|tools/alpha13/sketches/g10_r_integrated/g10_r_integrated.ino|tools/alpha13/gates/a13_g10_r_instrumentation.py|tools/alpha13/gates/a13_g10_r_owner_epoch.py|docs/v2.1.0-alpha.13/A13_G10_R_PLAN_RECUPERACION_Y_RESISTENCIA_20261016.md|docs/v2.1.0-alpha.13/ALPHA13_STATUS.md)
+              .github/workflows/alpha13-g10-r-preflight.yml|.github/workflows/alpha13-g10-r-source-build.yml|tools/alpha13/gates/a13_g10_r_preflight.py|tools/alpha13/gates/a13_g10_r_build_candidate.py|tools/alpha13/gates/a13_g10_r_replay.py|tools/alpha13/sketches/g10_r_integrated/g10_r_integrated.ino|tools/alpha13/gates/a13_g10_r_instrumentation.py|tools/alpha13/gates/a13_g10_r_owner_epoch.py|tools/alpha13/gates/a13_g10_r_field_runner.py|docs/v2.1.0-alpha.13/A13_G10_R_PLAN_RECUPERACION_Y_RESISTENCIA_20261016.md|docs/v2.1.0-alpha.13/ALPHA13_STATUS.md)
                 ;;
               *)
                 echo "G10_R_UNEXPECTED_CHANGE=$path"
@@ -59,11 +61,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -B -m py_compile tools/alpha13/gates/a13_g10_r_replay.py tools/alpha13/gates/a13_g10_r_build_candidate.py tools/alpha13/gates/a13_g10_r_instrumentation.py tools/alpha13/gates/a13_g10_r_owner_epoch.py
+          python -B -m py_compile tools/alpha13/gates/a13_g10_r_replay.py tools/alpha13/gates/a13_g10_r_build_candidate.py tools/alpha13/gates/a13_g10_r_instrumentation.py tools/alpha13/gates/a13_g10_r_owner_epoch.py tools/alpha13/gates/a13_g10_r_field_runner.py
           python -B tools/alpha13/gates/a13_g10_r_replay.py --selftest
           python -B tools/alpha13/gates/a13_g10_r_build_candidate.py --selftest
           python -B tools/alpha13/gates/a13_g10_r_instrumentation.py --selftest
           python -B tools/alpha13/gates/a13_g10_r_owner_epoch.py --selftest
+          python -B tools/alpha13/gates/a13_g10_r_field_runner.py --selftest
+          python -B tools/alpha13/gates/a13_g10_r_field_runner.py --dry-run
           echo "G10_R_OFFLINE_CONTRACTS=PASS_SYNTHETIC_NO_HARDWARE"
 
   candidate-build:
