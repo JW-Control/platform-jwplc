@@ -143,6 +143,7 @@ class Recorder:
         self.boot=None
         self.ready_ip=None
         self.protocol_seen=False
+        self.slave_ready=False
         self.ports={}
         self.threads=[]
         self.origin=time.monotonic()
@@ -181,6 +182,8 @@ class Recorder:
                         if hb:
                             self.latest=hb
                             self.events.append(hb)
+                elif name=="COM14" and line=="G8_P4_READY:SLAVE:ID2:115200:8N1":
+                    self.slave_ready=True
 
     def open(self):
         from serial.tools import list_ports
@@ -273,7 +276,8 @@ class Recorder:
                               args=(phase,interval,halt),daemon=True)
         task.start()
         try:
-            time.sleep(duration)
+            if self.stop.wait(duration):
+                raise RuntimeError("SERIAL_WORKER_ABORT_DURING_"+phase)
         finally:
             halt.set();task.join(timeout=5);self.end()
 
@@ -288,11 +292,13 @@ class Recorder:
                 print(f"G10_R_R2_CYCLE={cycle}: RETIRA manualmente solo RJ45 de COM4; ENTER tras retirarlo.")
                 input("Confirmar RJ45 retirado: ")
                 self.add({"kind":"link_down","phase":"R2","t":self.stamp()})
-                time.sleep(R2_FAULT_SECONDS)
+                if self.stop.wait(R2_FAULT_SECONDS):
+                    raise RuntimeError("SERIAL_WORKER_ABORT_R2_FAULT")
                 print("RECONÉCTALO al mismo switch de banco; ENTER tras reconectar.")
                 input("Confirmar RJ45 reconectado: ")
                 self.add({"kind":"link_up","phase":"R2","t":self.stamp()})
-                time.sleep(R2_RECOVERY_SECONDS)
+                if self.stop.wait(R2_RECOVERY_SECONDS):
+                    raise RuntimeError("SERIAL_WORKER_ABORT_R2_RECOVERY")
         finally:
             halt.set();task.join(timeout=5);self.end()
 
@@ -359,7 +365,7 @@ def live(evidence:Path)->int:
         ready=False
         while time.monotonic()<deadline:
             with c.lock:
-                ready=c.ready_ip is not None and c.protocol_seen
+                ready=c.ready_ip is not None and c.protocol_seen and c.slave_ready
             if ready:break
             time.sleep(.1)
         require(ready,"G10_R_EXPECTED_FIRMWARE_PROTOCOL_NOT_FOUND")
