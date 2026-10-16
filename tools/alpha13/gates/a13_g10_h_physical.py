@@ -28,7 +28,9 @@ import uuid
 ROOT=Path(__file__).resolve().parents[3]
 G10_I_SHA="a954cabd9c6e37876b59995a41ff0a449308ccd1"
 BRANCH="codex/alpha13-g10-h-physical-com4-com14"
-FQBN="jwplc_local:esp32:jwplcbasic"
+FQBN="jwplc_hbench:esp32:jwplcbasic"
+# Namespace EXCLUSIVO del bench. Nunca usar jwplc_local de Arduino15.
+BENCH_VENDOR="jwplc_hbench"
 MASTER="COM4"
 SLAVE="COM14"
 SERIAL_BAUD=115200
@@ -146,7 +148,7 @@ def isolated_platform(tmp,cli):
     stage=tmp/"staged-package"
     m.stage_platform(stage,files,hashes)
     users=tmp/"sketchbook"
-    target=users/"hardware/jwplc_local/esp32"
+    target=users/"hardware"/BENCH_VENDOR/"esp32"
     target.parent.mkdir(parents=True)
     shutil.copytree(stage,target)
     for relative in ("boards.txt","platform.txt",
@@ -174,6 +176,8 @@ def isolated_platform(tmp,cli):
     STATE["overlay_sources"]={rel:info["sha256"] for rel,info in hashes.items()}
     STATE["staged_core_sha256"]=digest(target/"precompiled/core/JWPLCBASIC/core.a")
     STATE["staged_platform"] = "TEMP_ISOLATED_NO_PRODUCT_MUTATION"
+    STATE["bench_fqbn"]=FQBN
+    STATE["bench_vendor"]=BENCH_VENDOR
     emit("STAGE","PASS_"+str(len(files))+"_OVERLAY_SOURCES")
     save()
     return config,target
