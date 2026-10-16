@@ -1,0 +1,171 @@
+#!/usr/bin/env python3
+"""G10-R: compila COM4/COM14 desde overlay G10-I aislado, SIN PUERTOS NI UPLOAD."""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import importlib.util
+import json
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+
+ROOT = Path(__file__).resolve().parents[3]
+FQBN = "jwplc_hbench:esp32:jwplcbasic"
+G10I = "a954cabd9c6e37876b59995a41ff0a449308ccd1"
+SKETCH_COM4 = ROOT / "tools/alpha13/sketches/g10_r_integrated"
+SKETCH_COM14 = ROOT / "tools/alpha13/sketches/g8_p4_slave"
+
+
+def sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def require(value, reason: str) -> None:
+    if not value:
+        raise RuntimeError(reason)
+
+
+def run(argv: list[str], log: Path | None = None) -> str:
+    p = subprocess.run([str(x) for x in argv],cwd=ROOT,capture_output=True,
+                       text=True,errors="replace",timeout=360)
+    txt = (p.stdout or "") + "\n" + (p.stderr or "")
+    if log is not None:
+        log.write_text("COMMAND="+repr(argv)+"\nEXIT="+str(p.returncode)+"\n"+txt,
+                       encoding="utf-8")
+    require(p.returncode == 0, "CLI_COMMAND_FAILED:" + " ".join(map(str,argv[:4]))+
+            ":"+str(p.returncode)+": "+txt[-900:])
+    return txt
+
+
+def guard_sketch() -> None:
+    path = SKETCH_COM4 / "g10_r_integrated.ino"
+    s = path.read_text(encoding="utf-8")
+    for needle in (
+        "G10R_BOOT:NONCE=", "G10R_STOPPED:",
+        "G10R_READY:IP=", "G10R_HEARTBEAT:",
+        "JWPLC_Ethernet.useDHCP();",
+        "JWPLC_ModbusTCP.beginServer(1,502)",
+        "JWPLC_ModbusRTU.requestReadHoldingRegisters(",
+        "JWPLC_SD.open(\"/\", FILE_READ)",
+        "JWPLC_FRAM.read8(0)",
+        "JWPLC_Buttons.pressed(key)",
+        "JWPLC_W5500_SafeAccess.h",
+    ):
+        require(needle in s, "R1_R2_R4_SKETCH_ANCHOR_MISSING_" + needle)
+    for forbidden in (".write8(", "FILE_WRITE", "digitalWrite(", "analogWrite(",
+                      "jwplcWriteQ(", "ethernetReset(", "ESP.restart(",
+                      "esp_restart(", "gpio_set_level("):
+        require(forbidden not in s,"R1_R2_R4_FORBIDDEN_API_"+forbidden)
+    require(SKETCH_COM14.is_dir(),"SLAVE_SKETCH_MISSING")
+    print("G10_R_SKETCH_GUARD=PASS_STATIC_NO_Q_NO_STORAGE_WRITE_NO_RESET")
+
+
+def build(cli: str) -> None:
+    require(Path.cwd().resolve() == ROOT, "RUN_FROM_REPO_ROOT")
+    guard_sketch()
+    spec = importlib.util.spec_from_file_location(
+        "g10r_integrator", ROOT/"tools/alpha13/gates/a13_g10_integrated.py")
+    m = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = m
+    assert spec.loader is not None
+    spec.loader.exec_module(m)
+    head = m.preflight(True)  # source-only, no hardware or git mutation
+    files = m.compose()
+    hashes = {rel:{"sha256":hashlib.sha256(content.encode("utf-8")).hexdigest()}
+              for rel,content in files.items()}
+    require(len(files)==14,"EXPECTED_14_SOURCE_OVERLAYS")
+    with tempfile.TemporaryDirectory(prefix="jwplc-g10r-build-") as scratch:
+        tmp=Path(scratch)
+        stage=tmp/"staged"
+        m.stage_platform(stage,files,hashes)
+        user=tmp/"sketchbook"
+        platform=user/"hardware/jwplc_hbench/esp32"
+        platform.parent.mkdir(parents=True)
+        shutil.copytree(stage,platform)
+        for relative in ("boards.txt","platform.txt",
+                         "precompiled/core/JWPLCBASIC/core.a"):
+            require(sha256(ROOT/"JWPLC/2.1.0"/relative)==sha256(platform/relative),
+                    "PRODUCT_FROZEN_FILE_DRIFT_"+relative)
+        require(m.load(m.MODULES["frozen"],"g10r_frozen").check_frozen()==5,
+                "FROZEN_ARCHIVES_DRIFT")
+
+        confdir=tmp/"arduino-config"
+        confdir.mkdir()
+        run([cli,"config","init","--dest-dir",str(confdir)])
+        conf=confdir/"arduino-cli.yaml"
+        run([cli,"--config-file",str(conf),"config","set",
+             "directories.user",str(user)])
+        output={"source_head":head,"g10_i_source_sha":G10I,
+                "fqbn":FQBN,"overlay_source_count":len(files),
+                "staged_core_sha256":sha256(platform/"precompiled/core/JWPLCBASIC/core.a"),
+                "product_modified":False,"physical_test":"NOT_RUN",
+                "upload":"NOT_RUN","builds":{}}
+        for name,sketch in (("COM4",SKETCH_COM4),("COM14",SKETCH_COM14)):
+            props=run([cli,"--config-file",str(conf),"compile",
+                       "--fqbn",FQBN,"--show-properties",str(sketch)])
+            values=[line.partition("=")[2].strip().strip('"')
+                    for line in props.splitlines()
+                    if line.partition("=")[0].strip()=="runtime.platform.path"]
+            require(len(values)==1,"PROPERTIES_PLATFORM_UNIQUE_"+name)
+            path=Path(values[0])
+            require(path.is_dir() and path.samefile(platform),
+                    "WRONG_PLATFORM_"+name)
+            target=tmp/("build-"+name)
+            logs=run([cli,"--config-file",str(conf),"compile",
+                      "--fqbn",FQBN,"--warnings","default",
+                      "--build-path",str(target),"--clean","-v",str(sketch)],
+                      tmp/("COMPILE_"+name+".log"))
+            if name=="COM4":
+                for lib in ("JWPLC_Ethernet","JWPLC_ModbusTCP"):
+                    lines=[line.split(" in folder: ",1)[1].strip().strip('"')
+                           for line in logs.splitlines()
+                           if line.startswith("Using library "+lib+" ") and
+                              " in folder: " in line]
+                    require(len(lines)==1 and Path(lines[0]).is_dir() and
+                            Path(lines[0]).samefile(platform/"libraries"/lib),
+                            "WRONG_LIBRARY_"+lib)
+                objects=list(target.rglob("JWPLC_W5500_SafeAccess.cpp.o"))
+                require(len(objects)==1,"SAFEACCESS_OBJECT_NOT_UNIQUE")
+                dep=Path(str(objects[0])+".d")
+                if not dep.exists():
+                    dep=objects[0].with_suffix(".d")
+                require(dep.is_file() and "JWPLC_W5500_SafeAccess.cpp" in
+                        dep.read_text(encoding="utf-8",errors="replace"),
+                        "SAFEACCESS_SOURCE_DEP_MISSING")
+                output["safeaccess_object_sha256"]=sha256(objects[0])
+            elfs=list(target.glob("*.elf"))
+            require(len(elfs)==1,"ELF_NOT_UNIQUE_"+name)
+            output["builds"][name]={"status":"PASS_SOURCE_FIRST",
+                                    "elf_sha256":sha256(elfs[0])}
+            print("G10_R_BUILD_"+name+"=PASS_SOURCE_FIRST")
+        print("G10_R_STAGE=PASS_14_SOURCES")
+        print("G10_R_PLATFORM=PASS_SAME_DIRECTORY_ISOLATED")
+        print("G10_R_PHYSICAL_TEST=NOT_RUN")
+        print("G10_R_BUILD_MANIFEST="+json.dumps(output,sort_keys=True))
+
+
+def main() -> int:
+    ap=argparse.ArgumentParser(description=__doc__)
+    selection=ap.add_mutually_exclusive_group(required=True)
+    selection.add_argument("--selftest",action="store_true")
+    selection.add_argument("--build",action="store_true")
+    ap.add_argument("--cli",default="arduino-cli")
+    args=ap.parse_args()
+    try:
+        if args.selftest:
+            guard_sketch()
+            print("G10_R_BUILD_SELFTEST=PASS_NO_CLI_NO_USB_NO_UPLOAD")
+        else:
+            build(args.cli)
+        return 0
+    except Exception as e:
+        print("G10_R_REVIEW_STOP="+str(e))
+        return 2
+
+
+if __name__=="__main__":
+    sys.exit(main())
