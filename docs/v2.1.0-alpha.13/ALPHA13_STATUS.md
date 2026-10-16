@@ -1,4 +1,37 @@
-# Alpha13 — estado vivo G10 (decisión G10-C, 2026-10-16)
+# Alpha13 — estado vivo G10 (preparación G10-R, 2026-10-16)
+
+> **G10-R iniciado únicamente en modalidad NO FÍSICA.** Rama `codex/alpha13-g10-r-recovery-prep` derivada del PR #107 (G10-C). Se prepararon [plan integrado de recuperación/resistencia](A13_G10_R_PLAN_RECUPERACION_Y_RESISTENCIA_20261016.md), contrato `tools/alpha13/gates/a13_g10_r_preflight.py` (lectura de manifiesto G10-H o 13 mutaciones sintéticas), y CI Windows/Ubuntu sin puerto ni upload. **El preflight no es R1–R4**, no acredita red en fallo, cierre diferido con SPI_BUSY físico, endurance ni nuevo firmware. El futuro runner y la instrumentación siguen PENDIENTES y requieren autorización física separada. `A13-006=ADOPTION_BLOCKED`; G10-C continúa cerrado con decisión de diferir; PR #105, #106, #107 siguen Draft; **COM4 y COM14 contienen firmware de diagnóstico sin restauración automática**. No alterar producto ni GPIO4.
+
+```text
+HITO=G10-R
+BRANCH=codex/alpha13-g10-r-recovery-prep
+G10-R=PREP_NONPHYSICAL
+G10-R-N0=READONLY_CONTRACT_IMPLEMENTED_CI_REVIEW
+G10-R-R1_R4=PLAN_DEFINED_RUNNER_AND_INSTRUMENTATION_PENDING
+G10-R-R5=NOT_AUTHORIZED
+G10-I=NONPHYSICAL_PASS_CANDIDATE
+G10-H=PASS_PHYSICAL_SMOKE_MANIFEST_REVIEWED
+G10-C=CLOSED_DECISION_DEFER_ADOPTION
+A13-006=ADOPTION_BLOCKED
+G10-FINAL=NOT_CLOSED_FOR_PRODUCT
+PRODUCT_MODIFIED=NO
+AUTOLOAD_NORMAL=UNCHANGED
+FROZEN_ARCHIVES=5_UNCHANGED
+GPIO4_RESET=DISABLED
+OPERATOR_FIRMWARE_RESTORED=NO
+NEXT_GATE=G10-R_IMPLEMENT_RUNNER_AND_SOURCE_FIRST_DIAGNOSTIC_CI
+PHYSICAL_UPLOAD=NOT_AUTHORIZED
+PHYSICAL_LINK_FLAP=NOT_AUTHORIZED
+PHYSICAL_POWER_CYCLE=NOT_AUTHORIZED
+MERGE=NOT_AUTHORIZED
+RELEASE=NOT_AUTHORIZED
+OPENPLC=OUT_OF_SCOPE
+HMI_DESIGNER=OUT_OF_SCOPE
+TFT_NEW_FEATURES=OUT_OF_SCOPE
+```
+
+---
+
 
 > **ESTADO VIGENTE DE G10 — 16/10/2026 (rama experimental G10-C).** Este encabezado corrige entradas cronológicas antiguas de este archivo; **NO equivale al estado de adopción de la rama productiva**. G10-I: candidato N1–N3 PASS en CI #38843599043, HEAD `a954cabd9c6e37876b59995a41ff0a449308ccd1`. G10-H: smoke físico COM4/COM14 **PASS** con manifiesto revisado, HEAD ejecutado `c776ab92388e8765e933bf50cab8215e7c18325b`, `47 TCP OK/0 FAIL`, `47 UDP OK/0 FAIL`, `49 RTU Master OK/0 FAIL`, `52 solicitudes Slave/0 CRC`, SD `56 OK/0 FAIL`, FRAM `56`, RTC válido, botón `6`. G10-C: **decisión documental de diferir adopción**, no nueva campaña técnica. No se han acreditado recuperación Ethernet/DNS/DHCP, estrés prolongado, reset/power-cycle, pruebas IDE finales ni integración productiva. `A13-006=ADOPTION_BLOCKED`, `G10-FINAL=NOT_CLOSED_FOR_PRODUCT`; [decisión y checklist](A13_G10_C_DECISION_Y_CIERRE_20261016.md). PR #105 y PR #106 siguen Draft, sin merge/PreRelease. Los dos PLC contienen firmware de diagnóstico y no fueron restaurados.
 
