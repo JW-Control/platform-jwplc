@@ -77,6 +77,15 @@ def inspect_evidence(path:Path)->dict:
     require(d.get("r3_lab_snapshot")==
             "READ_ONLY_INSTRUMENTED_NOT_FAULT_INJECTED",
             "UPLOAD_EVIDENCE_R3_LAB_MISSING")
+    sk=d.get("sketch_sha256",{})
+    expected_sources={
+        "COM4":ROOT/"tools/alpha13/sketches/g10_r_integrated/g10_r_integrated.ino",
+        "COM14":ROOT/"tools/alpha13/sketches/g8_p4_slave/g8_p4_slave.ino",
+    }
+    require(isinstance(sk,dict) and set(sk)==set(PORTS) and all(
+        isinstance(sk[p],str) and sk[p]==hashlib.sha256(
+            expected_sources[p].read_bytes()).hexdigest()
+        for p in PORTS),"UPLOAD_EVIDENCE_CURRENT_SKETCH_SHA_DRIFT")
     meta=d.get("port_metadata",{})
     require(isinstance(meta,dict) and set(meta)==set(PORTS) and all(
         meta[p].get("vid")==CH340[0] and meta[p].get("pid")==CH340[1]
@@ -410,6 +419,10 @@ def selftest()->int:
             "g10_i_source_sha":"a954cabd9c6e37876b59995a41ff0a449308ccd1",
             "source_head":"c"*40,
             "r3_lab_snapshot":"READ_ONLY_INSTRUMENTED_NOT_FAULT_INJECTED",
+            "sketch_sha256":{
+                "COM4":hashlib.sha256((ROOT/"tools/alpha13/sketches/g10_r_integrated/g10_r_integrated.ino").read_bytes()).hexdigest(),
+                "COM14":hashlib.sha256((ROOT/"tools/alpha13/sketches/g8_p4_slave/g8_p4_slave.ino").read_bytes()).hexdigest(),
+            },
             "port_metadata":{"COM4":{"vid":CH340[0],"pid":CH340[1]},
                              "COM14":{"vid":CH340[0],"pid":CH340[1]}}
         }
