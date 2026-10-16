@@ -18,6 +18,7 @@ import sys
 R1_MIN_S = 600.0
 R4_MIN_S = 1800.0
 HB_GAP_MAX_S = 3.0
+TRAFFIC_GAP_MAX_S = 20.0
 RECOVERY_DEADLINE_S = 90.0
 RECOVERY_SUCCESS_WINDOW_S = 30.0
 
@@ -123,6 +124,10 @@ def evaluate(report: dict) -> dict:
         reqs = [x for x in arr if x["kind"] == "traffic"]
         if len(reqs) < int(minimum // 20):
             _fail(errors, "TRAFFIC_SAMPLES_INSUFFICIENT_" + phase)
+        if reqs:
+            stamps = [arr[0]["t"]] + [x["t"] for x in reqs] + [arr[-1]["t"]]
+            if any(b-a > TRAFFIC_GAP_MAX_S for a, b in zip(stamps, stamps[1:])):
+                _fail(errors, "TRAFFIC_COVERAGE_GAP_" + phase)
 
     r2 = timeline["R2"]
     downs = [(index, e) for index, e in enumerate(r2) if e["kind"] == "link_down"]
@@ -140,6 +145,13 @@ def evaluate(report: dict) -> dict:
             dt = up["t"] - down["t"]
             if not 10 <= dt <= 15:
                 _fail(errors, "R2_FAULT_WINDOW_DURATION")
+            during = r2[a_index+1:b_index]
+            link_down_hb = [e for e in during if e["kind"]=="heartbeat" and
+                            e["eth"]==0 and e["tcp"]==0]
+            failed_packets = [e for e in during if e["kind"]=="traffic" and
+                              not e["tcp"] and not e["udp"]]
+            if len(link_down_hb) < 2 or not failed_packets:
+                _fail(errors, "R2_PHYSICAL_LINK_DOWN_NOT_OBSERVED")
             post = r2[b_index + 1: (downs[downs.index((a_index, down)) + 1][0]
                                     if downs.index((a_index, down)) + 1 < len(downs)
                                     else len(r2))]
@@ -247,6 +259,13 @@ def selftest() -> int:
         ("fault_long", lambda m: next(e for e in m["events"] if e["kind"]=="link_up").__setitem__("t",629.0)),
         ("counter_regression", lambda m: next(e for e in reversed(m["events"]) if e["phase"]=="R4" and e["kind"]=="heartbeat").__setitem__("sd_ok",0)),
         ("missing_heartbeat", lambda m: m["events"].__setitem__(slice(None),[e for e in m["events"] if e["kind"]!="heartbeat"])),
+        ("link_down_not_observed", lambda m: [
+            e.update({"eth":1, "tcp":1, "ip":"192.0.2.42"})
+            for e in m["events"] if e["phase"]=="R2" and
+              e["kind"]=="heartbeat" and 611 < e["t"] < 623]),
+        ("traffic_gap", lambda m: m["events"].__setitem__(slice(None),[
+            e for e in m["events"] if not (e["phase"]=="R4" and
+             e["kind"]=="traffic" and 1100 < e["t"] < 1450)])),
         ("bad_origin", lambda m: m.__setitem__("origin","REAL_CERTIFIED")),
         ("invalid_bool", lambda m: next(e for e in m["events"] if e["kind"]=="traffic").__setitem__("tcp",1)),
     ]
