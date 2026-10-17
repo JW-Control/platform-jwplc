@@ -236,8 +236,9 @@ class Recorder:
         self.ready_ip=None
         self.protocol_seen=False
         self.r3_snapshots=[]
-        self.r3_udp_lines=[]
+        self.r3_udp_lines=[]  # Histórico compat: incluye ahora DNS/TCP con kind.
         self.r3_udp_sessions=[]
+        self._r3_requested_mode=None
         self._r3_udp_started_at=None
         self._sock_batch=None
         spec=importlib.util.spec_from_file_location(
@@ -304,21 +305,33 @@ class Recorder:
     def capture_udp_probe_line(self,line,at):
         # UART COM4, solo de la sesión vigente; no atribuir datos ajenos.
         if not self.phase or not self.token:return
-        if not line.startswith(("G10R_R3_UDP:","G10R_R3_LEASE:",
+        if not line.startswith(("G10R_R3_UDP:","G10R_R3_DNS:",
+                                "G10R_R3_TCP:","G10R_R3_LEASE:",
                                 "G10R_R3_HOLD:")):return
+        kind=self._r3_requested_mode
+        if line.startswith("G10R_R3_"):
+            prefix=line.split(":",1)[0]
+            if prefix in ("G10R_R3_UDP","G10R_R3_DNS","G10R_R3_TCP"):
+                kind=prefix.rsplit("_",1)[-1]
         self.r3_udp_lines.append({
-            "phase":self.phase,"token":self.token,"t":at,"line":line})
-        if line=="G10R_R3_UDP:"+self.token+" STATE=ARMED":
+            "phase":self.phase,"token":self.token,"kind":kind,
+            "t":at,"line":line})
+        if (kind in ("UDP","DNS","TCP") and
+            line=="G10R_R3_"+kind+":"+self.token+" STATE=ARMED"):
             self._r3_udp_started_at=at
 
-    def r3_udp_probe_request(self):
-        """Armado aislado, NO se invoca desde R1/R2/R4 ni --live actual."""
+    def r3_udp_probe_request(self,kind="UDP"):
+        """Un modo por sesión, solo en la fase R3; nunca durante R1/R2/R4."""
+        require(kind in ("UDP","DNS","TCP"),
+                "R3_UNSUPPORTED_PROBE_KIND")
         with self.lock:
             require(self.phase=="R3" and self.token and
-                    self._r3_udp_started_at is None,
-                    "R3_UDP_NOT_IN_DEDICATED_PHASE_OR_ALREADY_TRIGGERED")
+                    self._r3_udp_started_at is None and
+                    self._r3_requested_mode is None,
+                    "R3_NOT_IN_DEDICATED_PHASE_OR_ALREADY_TRIGGERED")
+            self._r3_requested_mode=kind
             token=self.token
-        self.send("G10R_R3_UDP:"+token)
+        self.send("G10R_R3_"+kind+":"+token)
         return token
 
     def capture_socket_line(self,line,at):
@@ -400,6 +413,7 @@ class Recorder:
             token=self.token
             self.trace.begin(token,phase)
             self._r3_udp_started_at=None
+            self._r3_requested_mode=None
         self.send("G10R_START:"+token+":RTU=1")
         return token
 
@@ -414,6 +428,7 @@ class Recorder:
             if self.phase=="R3":
                 self.r3_udp_sessions.append({
                     "token":self.token,
+                    "kind":self._r3_requested_mode,
                     "lines":[item["line"] for item in self.r3_udp_lines
                              if item["phase"]=="R3" and
                              item["token"]==self.token],
@@ -737,7 +752,8 @@ def live(evidence:Path)->int:
                 sys.modules[spec.name]=m
                 spec.loader.exec_module(m)
                 result["r3_udp_verdicts"].append(m.evaluate(
-                    session["lines"],session["trace"],session["token"]))
+                    session["lines"],session["trace"],session["token"],
+                    session.get("kind") or "UNKNOWN"))
             except Exception as exc:
                 result["r3_udp_verdicts"].append({
                     "status":"REVIEW_STOP",
