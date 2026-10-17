@@ -98,7 +98,15 @@ def build(cli: str, *, upload: bool = False) -> None:
     lab=importlib.util.module_from_spec(lab_spec)
     sys.modules[lab_spec.name]=lab
     lab_spec.loader.exec_module(lab)
-    files = lab.compose_lab(m.compose())
+    trace_path=ROOT/"tools/alpha13/gates/a13_g10_r_trace.py"
+    trace_spec=importlib.util.spec_from_file_location("g10_r_event_trace",trace_path)
+    require(trace_spec is not None and trace_spec.loader is not None,"TRACE_MODULE_MISSING")
+    trace=importlib.util.module_from_spec(trace_spec)
+    sys.modules[trace_spec.name]=trace
+    trace_spec.loader.exec_module(trace)
+    files = trace.compose_trace(lab.compose_lab(m.compose()))
+    require("LabEventResult labReadEvents(" in files[trace.C],
+            "R3_TRACE_NOT_LINKED")
     require("LabCaptureOutcome labCaptureSockets(" in files[lab.CPP],
             "R3_STAGE_INSTRUMENTATION_MISSING")
     hashes = {rel:{"sha256":hashlib.sha256(content.encode("utf-8")).hexdigest()}
