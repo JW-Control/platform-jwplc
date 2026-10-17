@@ -41,7 +41,8 @@ A15_7E_RAW_SHAPES_NAV_PIXEL=PENDING (NAV: borrar páginas, estilo Contador e ind
 A15_7F_IDLE_CONFIG=PASS (Proyecto · Pantalla y arranque; ESC/Por inactividad/Nunca + MENU «Ir al inicio»)
 A15_7G_APPEARANCE_A1=PENDING (análisis en A15_7_APARIENCIA_A1_ANALISIS_20261018.md; espera visto bueno)
 A15_LOPAKA_REVIEW=DONE (A15_LOPAKA_REVISION_20261018.md; P1 aprobado, P2 ajustado)
-A15_INDUSTRIAL_PLAN=PROPOSED (A15_INDUSTRIAL_ARQUITECTURA_PLAN_20261018.md; espera aprobación, decisiones F.1-F.7)
+A15_INDUSTRIAL_PLAN=APPROVED (A15_INDUSTRIAL_ARQUITECTURA_PLAN_20261018.md §G; Alpha15 cierra con I1-I3 + A1 + buzzer; resto Alpha16)
+A15_BUZZER=PASS_ESP32_COMPILE (JWPLC_Buzzer en JWPLC_GlobalPeripherals; físico pendiente)
 A15_8_MENU=PASS_HOST_AND_ESP32_COMPILE (A15_8_MENU_20261017; físico pendiente)
 A15_9_PHYSICAL_PARITY=PENDING
 A15_10_PACKAGING_DOCS=PENDING
@@ -187,3 +188,11 @@ MENU_NODE_COUNT_LIMIT=64 por menú, 4 menús, 1 por página (9 nodos = +952 B RA
   - tendencia y gauge.
 
   Hitos I1–I15 y 7 decisiones pendientes. Nada implementado.
+- 2026-10-18 — Plan industrial aprobado con ajustes (§G):
+  - FRAM: último KB para el sistema;
+  - diálogo de confirmación CANCELAR/ACEPTAR;
+  - FINALIZADO + ACEPTAR;
+  - `%MX` en OpenPLC (F0e para Kenyi).
+
+  Nuevo `JWPLC_Buzzer` en el package (GPIO26, no bloqueante, volumen en `setup()`, ejemplo `07.Buzzer_Basic`).
+  Sigue: I1 → I2 → I3 → A1 para cerrar Alpha15.

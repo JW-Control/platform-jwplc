@@ -157,6 +157,16 @@ Leer, en orden:
 | F0b | Más tipos con memoria ubicada: VALUE ← `%MW`/`%MD` (`int_memory`/`dint_memory`), TEXT de estado | Kenyi |
 | F0c | Escribir del HMI/MENU al PLC (setpoints): `%MW` en `updateInputBuffers()` o `openplc_debug_set(..., forcing=0)`; confirmar la semántica de `forcing=0` | Kenyi |
 | F0d | Medir el costo de `jwplcUIUpdate()` por scan (objetivo < 50 µs) | Kenyi |
+| F0e | **Bits de memoria `%MX` (IEC 61131-3)** en el runtime Arduino de OpenPLC (aprobado el 2026-10-18, plan industrial §G.11) | Kenyi |
+
+Detalle de F0e:
+
+- Hoy `resources/sources/arduino/openplc.h` y `arduino_runtime_glue.cpp` (openplc-editor 1f12dc5) enlazan `%MW/%MD/%ML` (`int_memory`, `dint_memory`, `lint_memory`), pero **no** `%MX` `[visto]`. `bool_memory` sólo aparece en el esquema de S7Comm.
+- Falta:
+  - `IEC_BOOL *bool_memory[MAX_MEMORY_BOOL/8][8]` en `openplc.h`;
+  - el caso `%MX` al enlazar las variables ubicadas en `arduino_runtime_glue.cpp`;
+  - el tamaño en el VPP.
+- Lo usarán los bits de aviso y de solicitud de la HMI (ALARM y RECIPE, Alpha16).
 | F3 | El editor escribe `JWPLC_HMI_Generated.h` junto a `arduino.cpp`; el HAL lo toma con `#if __has_include("JWPLC_HMI_Generated.h")` y deja de pegarse | Kenyi |
 | A15-6 | Modo OpenPLC del Designer: elegir la variable PLC existente en vez de escribir un nombre, y `plcBinding` en el `.jwhmi` | André (Alpha15) |
 | — | Manifest: "Keyboard: 7 buttons" → 6 (corrección C3) | Kenyi |

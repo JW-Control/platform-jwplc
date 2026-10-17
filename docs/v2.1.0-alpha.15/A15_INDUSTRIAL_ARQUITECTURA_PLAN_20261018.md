@@ -1,10 +1,13 @@
 # JWPLC HMI Designer — Ampliación industrial: diagnóstico, arquitectura y plan
 
-Fecha: `2026-10-18` · rama `v2.1.0-alpha.15-HmiDesigner` · Estado: **PROPUESTA (esperando aprobación)**
+Fecha: `2026-10-18` · rama `v2.1.0-alpha.15-HmiDesigner` · Estado: **APROBADO con ajustes (ver §G)**
 
 ```text
 INDUSTRIAL_ARCH_REVIEW=DONE
-IMPLEMENTATION=NOT_STARTED (espera aprobación del responsable)
+INDUSTRIAL_ARCH_APPROVED=2026-10-18 (decisiones en §G; §G manda sobre el resto del documento)
+ALPHA15_CLOSE_SCOPE=I1,I2,I3 + Apariencia A1 + JWPLC_Buzzer
+ALPHA16_SCOPE=I4..I15 + ideas aprobadas (escalado, umbrales, nivel de acceso, confirmación)
+JWPLC_BUZZER=PASS_ESP32_COMPILE (JWPLC_GlobalPeripherals, 2026-10-18)
 ```
 
 Responde al encargo `JWPLC HMI Designer — Alpha15: Ampliación de capacidades industriales`.
@@ -469,3 +472,55 @@ Reglas que se mantienen:
 5. **SILENCIAR.** El package no tiene buzzer. ¿Hay una sirena externa que controle el PLC? Si no, quitar la acción del contrato.
 6. **Contrato con OpenPLC.** No hay `%MX`, así que habría que empaquetar los bits en `%MW`. Revisar con Kenyi (Alpha14).
 7. **Slots de campos.** SEQUENCE y tendencia ocupan 1 slot de los 32 cada uno. ¿Está bien, o se reserva un presupuesto aparte?
+
+---
+
+## G. Decisiones aprobadas (2026-10-18)
+
+| # | Tema | Decisión |
+|---|---|---|
+| G.1 | Alcance | **Alpha15** cierra con I1 (VALUE duración y miles, BOOL «Piloto»), I2 (RTC), I3 (tildes cp437), Apariencia A1 y el buzzer. **Alpha16** lleva el resto: I4–I15 y las ideas aprobadas (G.9). |
+| G.2 | Capa de avisos | Va **por encima** de IDLE y USER, como capa propia del firmware. Se revisa el firmware y se actualiza en Alpha16 (I5). |
+| G.3 | Teclas de las plantillas | Los elementos seleccionables de cada pantalla (botones de RECIPE, diálogos) se recorren con ◀ ▶ y se activan con OK. El árbitro de I4 sólo garantiza que una tecla tenga un único dueño. |
+| G.4 | Registro de eventos | Se usa **`JWPLCDataLog`** (anillo en RAM + journal en FRAM + SD, ya optimizado para registro continuo). No se crea otro almacenamiento de eventos. La página EVENT_LOG lee el anillo en RAM y, si hay tarjeta, el archivo. |
+| G.5 | Recetas: vistas | «En proceso» y «pausado» mantienen la **vista de ejecución**; «detenido» vuelve a la **selección**. ESC nunca detiene. Fin normal o con error: **FINALIZADO + ACEPTAR**, para que el operario sepa cómo terminó. |
+| G.6 | Mapa de la FRAM | El **último KB** queda para el sistema y el usuario tiene libre acceso del byte 0 al 7 KB (abajo). |
+| G.7 | Avisos por defecto | Críticos: se mantienen hasta que **se resuelve la falla y el operario reconoce** (LATCH). Menores: **sólo reconocimiento** (ACK). |
+| G.8 | Buzzer / SILENCIAR | El JWPLC **sí tiene buzzer** (GPIO26, usado por los ejemplos Tetris/Flappy). Se integra al package como `JWPLC_Buzzer`, sin declaración en el sketch y configurable en `setup()` (hecho, §G.11). SILENCIAR calla el buzzer de la HMI y, si existe, envía la solicitud a la sirena del PLC. |
+| G.9 | Ideas aprobadas | Escalado (ganancia/offset) y umbrales de color en VALUE y BAR; nivel de acceso en el MENU; **confirmación con dos botones en pantalla** (G.10). |
+| G.10 | Diálogo de confirmación | Dos botones **[ CANCELAR ] [ ACEPTAR ]**. Por defecto está seleccionado **CANCELAR**; ▶ pasa a ACEPTAR, ◀ vuelve y **OK ejecuta el botón seleccionado**; ESC equivale a CANCELAR. Se usa en los nodos críticos del MENU, en DETENER de RECIPE y en cargar o guardar receta. |
+| G.11 | OpenPLC | Se agregan **bits de memoria `%MX`** (IEC 61131-3) al runtime de OpenPLC para los bits de aviso y de solicitud, en vez de empaquetarlos en `%MW`. Le toca a Alpha14 (Kenyi), en el repo `openplc-editor`. |
+| G.12 | Slots | Se mantienen los 32 campos por ahora; más adelante se revisa subir a 64 o 128. |
+
+### G.6 Mapa de FRAM (8 KB actuales) — propuesta de detalle
+
+```text
+0x0000 – 0x1BFF   7 KB   USUARIO (libre: sketch, Retain de OpenPLC, datos propios)
+0x1C00 – 0x1FFF   1 KB   SISTEMA JWPLC
+   0x1C00 – 0x1C3F    64 B   cabecera: firma, versión del mapa, CRC
+   0x1C40 – 0x1EBF   640 B   journal de JWPLCDataLog
+   0x1EC0 – 0x1FFF   320 B   recetas (p. ej. 10 × 6 parámetros × 4 B + nombres cortos y CRC)
+```
+
+**Ojo:** A14_3 fijó el journal de DataLog en «hasta 1 KB». Dentro de un único KB de sistema, el journal tiene que bajar a ~640 B para que entren las recetas.
+
+- Si se prefiere conservar el journal en 1 KB, las recetas pasan a SD.
+- Con la FRAM de 32 KB prevista, el bloque de sistema sigue siendo el **último KB** (0x7C00–0x7FFF) y el usuario gana el resto.
+
+Los offsets son tentativos: `JW_FRAM` todavía no define una zona de sistema y DataLog no tiene una dirección fija documentada. Se fijan en I9/I10.
+
+### G.13 `JWPLC_Buzzer` (hecho en esta ronda)
+
+- **Dónde está:** `JWPLC_GlobalPeripherals/src/JWPLC_Buzzer.{h,cpp}`, con el pin en `jwplc_hardware_config.h` (`JWPLC_HAS_BUZZER`, `JWPLC_BUZZER_PIN 26`).
+- **Objeto global:** `JWPLC_Buzzer`, disponible por el autoload, sin declararlo en el sketch.
+- **Funciones:**
+  - `setVolume(0..255)`, con la misma escala que los ejemplos;
+  - `setEnabled`;
+  - `tone(Hz, ms)`;
+  - `beep()`;
+  - `play(notas, n, loop, velocidad)`;
+  - `stop()`, `isPlaying()` e `isBusy()`.
+- **No bloquea:** un `esp_timer` de una sola vez apaga la nota o pasa a la siguiente, sin `delay()` ni `service()`. Un `beep()` interrumpe la melodía y ésta sigue al terminar, como los SFX del Tetris.
+- **El pin** se configura con LEDC en el primer uso. Si nada usa el buzzer, el GPIO26 queda libre.
+- **Compilación ESP32 `[ejecutado]`:** `07.Buzzer_Basic` 436964 B / 29580 B. Tetris, Flappy y `A15_8_Menu_Designer` siguen compilando. Prueba física `[no verificado]`.
+- **Compatibilidad:** los ejemplos Tetris/Flappy siguen con su propio manejo del pin; no mezclarlos con `JWPLC_Buzzer` en un mismo sketch. Migrarlos a la API queda opcional.
