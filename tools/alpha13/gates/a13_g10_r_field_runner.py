@@ -554,6 +554,30 @@ def selftest()->int:
             len(fake.sent)==1 and fake.sent[0].startswith(b"G8_P4_REPORT:") and
             fake.sent[0].endswith(b"\n"),
             "SLAVE_REPORT_COMMAND_TERMINATOR_REQUIRED")
+    rec.phase="R1"
+    rec.token="a"*24
+    rec.capture_socket_line("G10R_SOCK_BEGIN:"+"a"*24+" T_MS=123",1.0)
+    for sid in range(8):
+        rec.capture_socket_line("G10R_SOCK:"+"a"*24+
+            f" SID={sid} EPOCH=1 ALLOC={sid+1} OWNER=55 PENDING=0 VALID=1",
+            1.0+sid*.01)
+    rec.capture_socket_line("G10R_SOCK_END:"+"a"*24,1.3)
+    require(len(rec.r3_snapshots)==1 and
+            rec.r3_snapshots[0]["status"]=="CAPTURED" and
+            len(rec.r3_snapshots[0]["slots"])==8,
+            "R3_FULL_SNAPSHOT_NOT_RECORDED")
+    rec.capture_socket_line("G10R_SOCK_BEGIN:"+"a"*24+" T_MS=500",2.0)
+    rec.capture_socket_line("G10R_SOCK:"+"a"*24+
+        " SID=0 EPOCH=1 ALLOC=1 OWNER=55 PENDING=0 VALID=1",2.1)
+    rec.capture_socket_line("G10R_SOCK_END:"+"a"*24,2.2)
+    require(rec.r3_snapshots[-1]["status"]=="INCOMPLETE_REVIEW_STOP",
+            "R3_PARTIAL_SNAPSHOT_FALSE_PASS")
+    rec.capture_socket_line("G10R_SOCK_STATUS:"+"a"*24+" CODE=2",3.0)
+    require(rec.r3_snapshots[-1]["status"]=="BUS_BUSY",
+            "R3_BUSY_MISCLASSIFIED_AS_CLOSED")
+    require(decode_socket_slot("G10R_SOCK:"+"a"*24+
+        " SID=8 EPOCH=1 ALLOC=1 OWNER=5 PENDING=0 VALID=1","a"*24) is None,
+        "R3_OUT_OF_RANGE_SOCKET_ACCEPTED")
     require(plan()["hardware"]=="NOT_ACCESSED",
             "DRY_RUN_IMPLICIT_HARDWARE")
     print("G10_R_FIELD_SELFTEST=PASS_6_NEGATIVE_SERIAL_CASES")
