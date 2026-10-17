@@ -158,3 +158,19 @@ R3_COMPLETE_PHYSICAL_CAMPAIGN_READY=FALSE
 G10-R-H=BLOCKED
 A13-006=ADOPTION_BLOCKED
 ```
+
+
+## Revisión de fidelidad PC/W5500 (17/oct, iteración posterior)
+
+Se corrigió `a13_g10_r_tcp124_router.py` para nombrar `pc_socket_closed` únicamente cuando se cierra el socket host y `w5500_close=UNKNOWN`. El nombre anterior `close_confirmed` inducía a considerar un cierre PC como prueba de liberación física W5500. Se mantiene `--live` deshabilitado. La prueba N0 dirigida Windows/Ubuntu deberá verificarse para el SHA de cambio, sin adjudicar PASS anticipado.
+
+**Bloque TCP (1/4) sigue abierto.** Su criterio de cierre requiere vinculación instrumentada source-backed desde firmware temporal y capture PC/UART por transacción, además de negativos y CI. No se rebaja el criterio para acelerar la campaña.
+
+```text
+PREH_STEPS_REMAINING=4
+TCP124_HOST_CLOSE=ONLY_PC_SOCKET
+TCP124_W5500_CLOSE=UNKNOWN
+TCP124_UART_BINDING=NOT_IMPLEMENTED
+R3_PHYSICAL_INJECTION_READY=FALSE
+G10-R-H=BLOCKED
+```
