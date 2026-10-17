@@ -67,6 +67,9 @@ void jwplcUIUpdate()                     // sólo setters (dirty refresh)
 Consecuencias:
 
 - La gráfica estática se dibuja **una vez por página**, no en cada tick.
+- Orden de capas: en el lienzo `layerOrder` menor = más al frente (`composeFramebuffer`
+  recorre el arreglo al revés). El codegen dibuja en `layerOrder` descendente (de atrás hacia
+  adelante) para coincidir `[ejecutado]`.
 - Queda **debajo** de los campos y PixelMaps (el runtime los dibuja después).
 - La NAV_BAR se repinta al volver de IDLE `[inferido]`: antes el guard `s_lastNavBarPage`
   impedía redibujarla si la página no había cambiado, aunque `fillScreen` la hubiera borrado.
@@ -100,7 +103,20 @@ POLYGON_CONCAVO=relleno por abanico, correcto sólo para polígonos convexos
 ELLIPSE_ROTADA=la rotación de elipses no se genera (O5 del plan del fork)
 ```
 
+## Gate físico para el equipo
+
+`tools/jwplc-hmi-designer/gates/A15_1_3_Codegen_Static/` (sketch + header generado + `.jwhmi`
++ capturas del Designer + checklist D1-D5 / T1-T8). El sketch compila en host contra los headers
+reales `[ejecutado]`; compilación ESP32 y TFT `[no verificado]`.
+
+## Observaciones para A15-7E
+
+- Un objeto nuevo recibe el `layerOrder` más alto y por eso queda **detrás** de los existentes
+  `[ejecutado]`. Es contraintuitivo (en Lopaka/Figma lo nuevo queda al frente).
+- Los campos del runtime (TEXT/VALUE/BOOL/BAR) siempre quedan sobre la gráfica estática en la
+  TFT, aunque en el lienzo una figura esté por delante: el Designer debería avisarlo.
+
 ## Higiene
 
 Eliminados `/desktop.html` (copia UTF-16 con mojibake, `e72fb2c`) y `poc/fix.py`. Cache-busters
-`?v=1792050000` y `CACHE_NAME=jwplc-hmi-designer-a15-1-codegen-v1`.
+`?v=1792060000` y `CACHE_NAME=jwplc-hmi-designer-a15-1-codegen-v2`.

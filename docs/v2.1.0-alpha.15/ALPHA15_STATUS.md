@@ -52,7 +52,7 @@ B3_TFT_A_NOT_REGENERATED_ABI=MITIGATED (fuentes JWPLC_TFT revertidas a main; fue
 B4_BAR_CIRCULAR_GRADIENT_HELPERS_MISSING=CLOSED_IN_DESIGNER (deshabilitado + fallback lineal; firmware -> Alpha13)
 B5_DELETE_PAGE_BREAKS_REOPEN=CLOSED (A15-2)
 B6_STATIC_DRAW_EVERY_TICK=CLOSED (A15-3)
-B7_NO_PHYSICAL_GATES=OPEN
+B7_NO_PHYSICAL_GATES=OPEN (gate A15_1_3_Codegen_Static listo, pendiente de taller)
 ```
 
 ## Inspector (adopción del patrón Propuesta 2)
@@ -105,3 +105,7 @@ MENU_NODE_COUNT_LIMIT=A_MEDIR_EN_A15_8
 - 2026-10-17 — A15-1, A15-2 y A15-3 cerrados (`A15_1_3_CODEGEN_PAGES_STATIC_20261017.md`).
   Smoke test `tools/jwplc-hmi-designer/tests/codegen-smoke.cjs` 20/20. Fuentes de
   `JWPLC_TFT` revertidas a `main`. Siguiente: A15-7A..7D.
+- 2026-10-17 — Corrección de orden de capas en el codegen (descendente, igual que el lienzo).
+  Gate físico listo para taller: `tools/jwplc-hmi-designer/gates/A15_1_3_Codegen_Static/`.
+  Regenerar `libJWPLC_TFT.a` desde la nube bloqueado por red (github.com releases y
+  downloads.arduino.cc denegados).
