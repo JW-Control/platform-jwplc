@@ -100,7 +100,7 @@ LabEventResult labReadEvents(uint32_t after, LabEvent* out, uint8_t capacity,
 """
 RULES=[
     ("        if (slot.valid && slot.allocation == ticket) {",
-     "        const bool matchPending=(slot.valid && slot.allocation == ticket);\\n"
+     "        const bool matchPending=(slot.valid && slot.allocation == ticket);\n"
      "        if (matchPending) {"),
     ("    ++g_allocation;\n    Slot& s = g_slots[socket];",
      "    ++g_allocation;\n    Slot& s = g_slots[socket];\n"
