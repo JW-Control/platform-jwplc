@@ -127,14 +127,27 @@ struct JWPLC_UIValueFormat
         bool leadingZerosValue = false);
 };
 
+// Alpha15: color del valor por estado. Con falseColor != trueColor el valor
+// se dibuja con el color del estado actual; si son iguales (constructor de
+// dos textos) se usa colors.value como antes.
+#define JWPLC_UI_HAS_BOOL_STATE_COLORS 1
+
 struct JWPLC_UIBoolText
 {
     const char *falseText;
     const char *trueText;
+    uint16_t falseColor;
+    uint16_t trueColor;
 
     JWPLC_UIBoolText(
         const char *falseTextValue = "OFF",
         const char *trueTextValue = "ON");
+
+    JWPLC_UIBoolText(
+        const char *falseTextValue,
+        const char *trueTextValue,
+        uint16_t falseColorValue,
+        uint16_t trueColorValue);
 };
 
 struct JWPLC_UIRange

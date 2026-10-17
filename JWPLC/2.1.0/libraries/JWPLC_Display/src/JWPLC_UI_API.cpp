@@ -73,7 +73,22 @@ JWPLC_UIValueFormat::JWPLC_UIValueFormat(
 JWPLC_UIBoolText::JWPLC_UIBoolText(
     const char *falseTextValue,
     const char *trueTextValue)
-    : falseText(falseTextValue), trueText(trueTextValue)
+    : falseText(falseTextValue),
+      trueText(trueTextValue),
+      falseColor(0),
+      trueColor(0)
+{
+}
+
+JWPLC_UIBoolText::JWPLC_UIBoolText(
+    const char *falseTextValue,
+    const char *trueTextValue,
+    uint16_t falseColorValue,
+    uint16_t trueColorValue)
+    : falseText(falseTextValue),
+      trueText(trueTextValue),
+      falseColor(falseColorValue),
+      trueColor(trueColorValue)
 {
 }
 

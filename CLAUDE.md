@@ -103,10 +103,13 @@ JW-Control/platform-jwplc  rama v2.1.0-alpha.12/feature/openplc-engineering-clos
    `JWPLC_Display`, ver `docs/v2.1.0-alpha.14/A14_3_HMI_DIRTY_ON_DEMAND_STRONG_PASS_20260913.md`).
 3. **No exponer TFT_eSPI al usuario.** La API pública es `JWPLC_TFT`,
    `JWPLC_Display` y `JWPLC_UI`.
-4. **Librerías `precompiled=full`.** Cambiar `.h/.cpp` de `JWPLC_TFT` o
-   `JWPLC_Display` **no** cambia el binario: hay que regenerar
-   `src/esp32/lib*.a`. Cambiar miembros de una clase sin regenerar el `.a`
-   rompe el ABI. Nunca publicar header y `.a` desalineados.
+4. **Librerías `precompiled=full`.** Cambiar `.h/.cpp` de una librería
+   precompilada **no** cambia el binario: hay que regenerar `src/esp32/lib*.a`.
+   Nunca publicar header y `.a` desalineados. **Durante el alpha**, la librería
+   que va a cambiar se pone en modo fuente (se retira sólo `precompiled=full`)
+   y su `.a` se regenera una vez antes del cierre, seguido del benchmark de
+   compilación en la PC del jefe. Hoy: `JWPLC_Display` en modo fuente,
+   `JWPLC_TFT` precompilada (su `.a` incluye TFT_eSPI).
 5. **El Display no consume los latches de la botonera de la aplicación**
    (Alpha8). Si un widget de menú necesita teclas, debe declararlo
    explícitamente y respetar la limpieza CONTENT -> SELECT (Alpha11).
@@ -180,7 +183,7 @@ raw.githubusercontent.com y github.com releases):
 tools/alpha15/regenerate_libJWPLC_TFT.sh setup              # una vez: arduino-cli + tools + TFT_eSPI
 tools/alpha15/regenerate_libJWPLC_TFT.sh compile <sketch>    # compila con jwplc_local:esp32:jwplcbasic
 tools/alpha15/regenerate_libJWPLC_TFT.sh build [--install]   # regenera libJWPLC_TFT.a + chequeo ABI
-tools/alpha15/regenerate_libJWPLC_Display.sh build [--install]  # regenera libJWPLC_Display.a + chequeo ABI
+tools/alpha15/regenerate_libJWPLC_Display.sh build [--install]  # SÓLO al cierre: libJWPLC_Display.a + chequeo ABI
 ```
 
 Los gates físicos (subir a la placa, mirar la TFT) los ejecuta el equipo en taller y se

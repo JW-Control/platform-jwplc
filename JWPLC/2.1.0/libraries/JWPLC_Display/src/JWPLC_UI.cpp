@@ -28,6 +28,7 @@ namespace
         bool used;
         bool dirty;
         bool hasValue;
+        bool boolState;
 
         char value[VALUE_BUFFER_SIZE];
         float barValue;
@@ -47,6 +48,7 @@ namespace
               used(false),
               dirty(true),
               hasValue(false),
+              boolState(false),
               barValue(0.0f),
               fieldX(0),
               fieldY(0),
@@ -829,8 +831,18 @@ namespace
             (def.style.valueTextSize == 0)
                 ? 1
                 : def.style.valueTextSize);
+        uint16_t valueColor = def.style.colors.value;
+
+        if (def.meta.type == JWPLC_UI_FIELD_BOOL &&
+            def.options.boolText.falseColor != def.options.boolText.trueColor)
+        {
+            valueColor = field.boolState
+                             ? def.options.boolText.trueColor
+                             : def.options.boolText.falseColor;
+        }
+
         tft.setTextColor(
-            def.style.colors.value,
+            valueColor,
             def.style.colors.background);
 
         const uint32_t alignStartUs =
@@ -1014,7 +1026,17 @@ namespace JWPLCUI
                        ? field->def.options.boolText.falseText
                        : "OFF");
 
-        setValueString(*field, text);
+        const bool stateChanged = field->boolState != value;
+        field->boolState = value;
+
+        // Con color por estado, el mismo texto en ambos estados (p. ej. "●")
+        // también debe repintarse al cambiar de estado.
+        if (!setValueString(*field, text) &&
+            stateChanged &&
+            field->def.options.boolText.falseColor != field->def.options.boolText.trueColor)
+        {
+            markFieldDirty(*field);
+        }
         return true;
     }
 
