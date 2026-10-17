@@ -19,6 +19,11 @@
 JW_MatrixButtons JWPLC_Buttons;
 JWPLC_DisplayClass *g_displayUnused = nullptr;
 
+// Ítem "Ir al inicio" (JWPLC_UI_MENU_GO_IDLE): cuenta las llamadas a goIdle().
+JWPLC_DisplayClass JWPLC_Display;
+static int g_goIdleCalls = 0;
+void JWPLC_DisplayClass::goIdle() { g_goIdleCalls++; }
+
 namespace JWPLCButtons
 {
     bool isReady() { return true; }
@@ -313,6 +318,29 @@ int main(int argc, char **argv)
     JWPLC_Buttons.press(BTN_OK);
     tick();
     check(JWPLC_Buttons.pend[BTN_OK] == 1, "en una página sin menú las teclas quedan para la aplicación");
+
+    printf("IR AL INICIO\n");
+    {
+        static const JWPLC_UIMenuNode exitNodes[] = {
+            JWPLC_UIMenuView(JWPLC_UI_MENU_ROOT, "Temperatura", &temperatura, 1, "C"),
+            JWPLC_UIMenuGoIdle(JWPLC_UI_MENU_ROOT, "Ir al inicio")};
+        const JWPLC_UIMenu exitMenu[] = {JWPLC_UIMenuField(0, 10, 20, 300, 140, "Salir", exitNodes, 2, 0)};
+        check(JWPLCUI::setMenus(exitMenu, 1), "acepta un ítem GO_IDLE sin variable");
+        g_page = 0;
+        jwplcUIMenuPrepareEnter();
+        jwplcUIMenuDrawStatic(&tft);
+        tick();
+        key(BTN_DOWN);
+        savePpm("menu_go_idle");
+        const int before = g_goIdleCalls;
+        key(BTN_RIGHT);
+        check(g_goIdleCalls == before, "RIGHT sobre GO_IDLE no sale (sólo OK)");
+        key(BTN_OK);
+        check(g_goIdleCalls == before + 1, "OK sobre GO_IDLE llama a JWPLC_Display.goIdle()");
+        check(JWPLC_Buttons.pend[BTN_OK] == 0, "el OK de la acción se consume");
+        temperatura = 12.0f;
+        check(tick() >= 0, "GO_IDLE no se lee como variable al refrescar");
+    }
 
     printf("\n%s (%d fallas)\n", failures ? "FAIL" : "PASS", failures);
     return failures ? 1 : 0;

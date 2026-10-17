@@ -47,7 +47,8 @@ const BAR_BASE = {
 };
 
 const FULL_PROJECT = {
-  // A15-7: IDLE con teclas propias (compila setIdleWakeButton/setIdleReturnButton y enterUserUI).
+  // A15-7: IDLE con tecla de entrada y arranque en el HMI. back: 'BUTTON' es de
+  // proyectos anteriores ("Con otra tecla", retirado): debe abrir como ESC.
   display: { start: 'HMI', wake: 'BUTTON', wakeButton: 'BTN_OK', back: 'BUTTON', backButton: 'BTN_LEFT', timeoutS: 15 },
   pages: [{ id: 0, name: 'Principal' }, { id: 1, name: 'Alarmas' }, { id: 2, name: 'Ajustes' }],
   fields: [
@@ -198,7 +199,7 @@ async function main() {
     const update = full.slice(full.indexOf('void jwplcUIUpdate()'));
     check(!/tft\.|jwplcHMIFill|jwplcHMIDraw|jwplcDrawPageNavBar/.test(update), 'jwplcUIUpdate() sólo contiene setters (A15-3)');
     check(/void jwplcUIPageEnter\(uint8_t page\)/.test(full), 'la gráfica estática está en jwplcUIPageEnter()');
-    check(/setIdleWakeButton\(BTN_OK\);[\s\S]*setIdleReturnButton\(BTN_LEFT\);[\s\S]*enterUserUI\(\);\n\}/.test(full), 'IDLE: teclas de entrada/vuelta y arranque en el HMI al final de jwplcHMISetup()');
+    check(/setIdleWakeButton\(BTN_OK\);\n\s*JWPLC_Display\.setIdleReturnMode\(JWPLC_DisplayClass::IDLE_RETURN_ESC_ONLY\);\n\s*JWPLC_Display\.enterUserUI\(\);\n\}/.test(full) && !/setIdleReturnButton/.test(full), 'IDLE: tecla de entrada, vuelta "otra tecla" antigua -> ESC y arranque en el HMI al final de jwplcHMISetup()');
 
     console.log('Compilación host (g++ -fsyntax-only) contra headers reales');
     // .a si la librería es precompilada; definiciones en src/*.cpp si está en modo fuente.

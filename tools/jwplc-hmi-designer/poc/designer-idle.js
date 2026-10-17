@@ -30,8 +30,7 @@
     start: 'IDLE',          // IDLE | HMI
     wake: 'ANY',            // ANY | BUTTON | NONE
     wakeButton: 'BTN_OK',
-    back: 'ESC',            // ESC | BUTTON | TIMEOUT | NONE
-    backButton: 'BTN_LEFT',
+    back: 'ESC',            // ESC | TIMEOUT | NONE (BUTTON retirado: chocaba con ◀ ▶ del selector)
     timeoutS: 15
   });
 
@@ -41,9 +40,11 @@
     const c = { ...DEFAULTS, ...(raw && typeof raw === 'object' ? raw : {}) };
     if (!['IDLE', 'HMI'].includes(c.start)) c.start = DEFAULTS.start;
     if (!['ANY', 'BUTTON', 'NONE'].includes(c.wake)) c.wake = DEFAULTS.wake;
-    if (!['ESC', 'BUTTON', 'TIMEOUT', 'NONE'].includes(c.back)) c.back = DEFAULTS.back;
+    // "Con otra tecla" se retiró (se cruzaba con LEFT/RIGHT/OK del selector de
+    // páginas y del contenido); un proyecto que lo tenía pasa a ESC.
+    if (!['ESC', 'TIMEOUT', 'NONE'].includes(c.back)) c.back = DEFAULTS.back;
     if (!BUTTON_IDS.has(c.wakeButton)) c.wakeButton = DEFAULTS.wakeButton;
-    if (!BUTTON_IDS.has(c.backButton)) c.backButton = DEFAULTS.backButton;
+    delete c.backButton;
     c.timeoutS = Math.max(1, Math.min(3600, Math.trunc(Number(c.timeoutS) || DEFAULTS.timeoutS)));
     return c;
   }
@@ -57,8 +58,7 @@
     const lines = [];
     lines.push(`    JWPLC_Display.setIdleWakeMode(${D}${{ ANY: 'IDLE_WAKE_ANY_BUTTON', BUTTON: 'IDLE_WAKE_BUTTON_ONLY', NONE: 'IDLE_WAKE_DISABLED' }[c.wake]});`);
     if (c.wake === 'BUTTON') lines.push(`    JWPLC_Display.setIdleWakeButton(${c.wakeButton});`);
-    lines.push(`    JWPLC_Display.setIdleReturnMode(${D}${{ ESC: 'IDLE_RETURN_ESC_ONLY', BUTTON: 'IDLE_RETURN_BUTTON_ONLY', TIMEOUT: 'IDLE_RETURN_TIMEOUT', NONE: 'IDLE_RETURN_DISABLED' }[c.back]});`);
-    if (c.back === 'BUTTON') lines.push(`    JWPLC_Display.setIdleReturnButton(${c.backButton});`);
+    lines.push(`    JWPLC_Display.setIdleReturnMode(${D}${{ ESC: 'IDLE_RETURN_ESC_ONLY', TIMEOUT: 'IDLE_RETURN_TIMEOUT', NONE: 'IDLE_RETURN_DISABLED' }[c.back]});`);
     if (c.back === 'TIMEOUT') lines.push(`    JWPLC_Display.setIdleTimeoutMs(${c.timeoutS * 1000}UL);`);
     if (c.start === 'HMI') lines.push('    JWPLC_Display.enterUserUI();');
     return `${MARKER}${lines.join('\n')}\n`;
@@ -145,22 +145,18 @@
       </div>
       <div class="bar-card">
         <div class="bar-card-section-title">Volver a la IDLE</div>
-        <div class="bar-visual-grid-2 idle-back-grid">
+        <div class="bar-visual-grid-3">
           <button type="button" class="bar-visual-btn" data-idle-set="back" data-value="ESC"><strong class="insp-mono">ESC</strong><span>Con ESC</span></button>
-          <button type="button" class="bar-visual-btn" data-idle-set="back" data-value="BUTTON"><strong class="insp-mono">⌗</strong><span>Con otra tecla</span></button>
           <button type="button" class="bar-visual-btn" data-idle-set="back" data-value="TIMEOUT"><strong class="insp-mono">⏱</strong><span>Por inactividad</span></button>
           <button type="button" class="bar-visual-btn" data-idle-set="back" data-value="NONE"><strong class="insp-mono">⊘</strong><span>Nunca</span></button>
         </div>
-        <div class="idle-keypad-row" data-idle-show="back:BUTTON">
-          <span class="bar-visual-group-title">Tecla para volver</span>
-          <div data-idle-keypad-host="back"></div>
-        </div>
+        <div class="insp-note" data-idle-show="back:ESC" data-idle-pages-note>ESC retrocede paso a paso: edición → submenú → contenido de la página → selector (NN/TT negro) → IDLE. Sólo vuelve a la IDLE desde el selector.</div>
         <div data-idle-show="back:TIMEOUT">
           <span class="bar-visual-group-title">Sin tocar teclas durante</span>
           <div class="insp-chip-row">${TIMEOUTS_S.map((s) => `<button type="button" class="insp-chip" data-idle-set="timeoutS" data-value="${s}">${s < 60 ? `${s} s` : `${s / 60} min`}</button>`).join('')}</div>
-          <div class="insp-note">En este modo ESC no vuelve a la IDLE: sólo el tiempo sin teclas.</div>
+          <div class="insp-note">Vuelve en cualquier sección (selector o contenido). En este modo ESC no vuelve a la IDLE: sólo retrocede dentro del HMI.</div>
         </div>
-        <div class="insp-note" data-idle-pages-note>Con varias páginas, ESC primero sale del contenido al selector de páginas y una segunda pulsación vuelve a la IDLE.</div>
+        <div class="insp-note" data-idle-show="back:NONE">Sólo se vuelve con un ítem «⏎ Ir al inicio» de un MENU (Árbol y datos) o desde el sketch con <code>JWPLC_Display.goIdle()</code>.</div>
       </div>
       <div class="bar-card">
         <div class="bar-card-header"><span class="bar-card-title">Se genera en jwplcHMISetup()</span></div>
@@ -177,24 +173,30 @@
       const [key, value] = el.dataset.idleShow.split(':');
       el.hidden = config[key] !== value;
     });
-    ['wake', 'back'].forEach((group) => {
+    ['wake'].forEach((group) => {
       const host = section.querySelector(`[data-idle-keypad-host="${group}"]`);
-      const selected = group === 'wake' ? config.wakeButton : config.backButton;
+      const selected = config.wakeButton;
       if (host.dataset.selected !== selected) {
         host.dataset.selected = selected;
         host.innerHTML = keypad(group, selected);
       }
     });
+    // Con una sola página no hay selector: ESC vuelve desde la raíz del contenido.
     const pages = editor()?.getPages?.().length || 1;
-    section.querySelector('[data-idle-pages-note]').hidden = pages <= 1 || config.back !== 'ESC';
+    const escNote = section.querySelector('[data-idle-pages-note]');
+    if (!escNote.hidden) {
+      escNote.textContent = pages > 1
+        ? 'ESC retrocede paso a paso: edición → submenú → contenido de la página → selector (NN/TT negro) → IDLE. Sólo vuelve a la IDLE desde el selector.'
+        : 'ESC retrocede paso a paso: edición → submenú → raíz → IDLE (con una sola página no hay selector NN/TT).';
+    }
 
     const enter = { ANY: 'cualquier tecla', BUTTON: `tecla ${buttonName(config.wakeButton)}`, NONE: 'enterUserUI()' }[config.wake];
-    const back = { ESC: 'ESC', BUTTON: `tecla ${buttonName(config.backButton)}`, TIMEOUT: `${config.timeoutS} s sin teclas`, NONE: 'no vuelve' }[config.back];
+    const back = { ESC: 'ESC', TIMEOUT: `${config.timeoutS} s sin teclas`, NONE: 'ítem «Ir al inicio»' }[config.back];
     section.querySelector('[data-idle-flow]').innerHTML = `
       <div class="idle-node${config.start === 'IDLE' ? ' is-start' : ''}">${screenSvg('IDLE')}<span>IDLE</span></div>
       <div class="idle-edges">
         <div class="idle-edge">${enter} <b>→</b></div>
-        <div class="idle-edge${config.back === 'NONE' ? ' is-off' : ''}"><b>←</b> ${back}</div>
+        <div class="idle-edge"><b>←</b> ${back}</div>
       </div>
       <div class="idle-node${config.start === 'HMI' ? ' is-start' : ''}">${screenSvg('HMI')}<span>HMI</span></div>`;
     section.querySelector('[data-idle-code]').textContent = setupLines().replace(MARKER, '').replace(/^ {4}/gm, '').trimEnd();
@@ -220,7 +222,7 @@
       return;
     }
     const key = e.target.closest('[data-idle-key]');
-    if (key) update({ [key.dataset.idleKey === 'wake' ? 'wakeButton' : 'backButton']: key.dataset.value });
+    if (key) update({ wakeButton: key.dataset.value });
   });
 
   // Proyecto nuevo: valores por defecto (applyProject pulsa este botón antes de cargar).

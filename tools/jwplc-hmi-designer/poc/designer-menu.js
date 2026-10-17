@@ -24,8 +24,13 @@
     SUBMENU: { label: 'Submenú', icon: '▸', kinds: [] },
     VIEW: { label: 'Ver', icon: '◉', kinds: ['float', 'int32', 'bool'] },
     EDIT_NUM: { label: 'Editar número', icon: '±', kinds: ['float', 'int32'] },
-    EDIT_BOOL: { label: 'Editar ON/OFF', icon: '⏻', kinds: ['bool'] }
+    EDIT_BOOL: { label: 'Editar ON/OFF', icon: '⏻', kinds: ['bool'] },
+    // Acción: OK vuelve a la pantalla IDLE (JWPLC_UIMenuGoIdle). Sin variable.
+    GO_IDLE: { label: 'Ir al inicio', icon: '⏎', kinds: [] }
   };
+
+  // Ítems sin variable vinculada.
+  const hasVariable = (n) => n.type !== 'SUBMENU' && n.type !== 'GO_IDLE';
 
   const DEFAULT_COLORS = Object.freeze({
     text: 0xFFFF,
@@ -285,6 +290,7 @@
 
   function formatValue(node, value) {
     if (node.type === 'SUBMENU') return '>';
+    if (node.type === 'GO_IDLE') return '<';
     if (node.valueType === 'bool') {
       const state = Boolean(num(value));
       const text = state ? node.trueText : node.falseText;
@@ -457,6 +463,10 @@
           if (/[^\x20-\x7E]/.test(n.label || '')) warnings.push(`${where}: usa caracteres fuera de ASCII (tildes, ñ); la TFT los dibuja como otros símbolos.`);
           return;
         }
+        if (n.type === 'GO_IDLE') {
+          if (/[^\x20-\x7E]/.test(n.label || '')) warnings.push(`${where}: usa caracteres fuera de ASCII (tildes, ñ); la TFT los dibuja como otros símbolos.`);
+          return;
+        }
         const variable = sanitizeSymbol(n.variable, '');
         if (!variable) { errors.push(`${where}: falta la variable C++.`); return; }
         if (!NODE_TYPES[n.type].kinds.includes(n.valueType)) errors.push(`${where}: tipo ${n.valueType} no válido para ${n.type}.`);
@@ -504,6 +514,7 @@
     const unit = n.unit ? cppString(n.unit) : 'nullptr';
     const decimals = clamp(Math.trunc(num(n.decimals, 1)), 0, 6);
     if (n.type === 'SUBMENU') return `JWPLC_UIMenuSubmenu(${parent}, ${label})`;
+    if (n.type === 'GO_IDLE') return `JWPLC_UIMenuGoIdle(${parent}, ${label})`;
     if (n.type === 'VIEW') {
       if (n.valueType === 'bool') return `JWPLC_UIMenuView(${parent}, ${label}, ${variable}, ${cppString(n.falseText)}, ${cppString(n.trueText)})`;
       if (n.valueType === 'int32') return `JWPLC_UIMenuView(${parent}, ${label}, ${variable}, ${unit})`;
@@ -552,7 +563,7 @@
 
       const vars = [];
       ordered.forEach((n) => {
-        if (n.type === 'SUBMENU') return;
+        if (!hasVariable(n)) return;
         const variable = sanitizeSymbol(n.variable, 'menuVar');
         if (declared.has(variable) || fieldVars.has(variable)) return;
         declared.add(variable);
@@ -728,6 +739,7 @@
               <button type="button" class="insp-chip" data-menu-add="VIEW">◉ Ver</button>
               <button type="button" class="insp-chip" data-menu-add="EDIT_NUM">± Editar nº</button>
               <button type="button" class="insp-chip" data-menu-add="EDIT_BOOL">⏻ Editar ON/OFF</button>
+              <button type="button" class="insp-chip" data-menu-add="GO_IDLE" title="Con OK vuelve a la pantalla IDLE (útil con «Volver a la IDLE: Nunca»)">⏎ Ir al inicio</button>
             </div>
           </div>
           <div class="bar-card">
@@ -971,7 +983,7 @@
           <div class="menu-tree-row${n.key === selectedKey ? ' active' : ''}" data-menu-node="${n.key}" style="padding-left:${6 + (depth - 1) * 14}px">
             <span class="menu-tree-icon">${NODE_TYPES[n.type].icon}</span>
             <span class="menu-tree-label">${escapeHtml(n.label)}</span>
-            <span class="menu-tree-var">${n.type === 'SUBMENU' ? `${childrenOf(field.nodes, n.key).length} ítems` : escapeHtml(n.variable)}</span>
+            <span class="menu-tree-var">${n.type === 'SUBMENU' ? `${childrenOf(field.nodes, n.key).length} ítems` : n.type === 'GO_IDLE' ? '→ IDLE' : escapeHtml(n.variable)}</span>
             <span class="menu-tree-btns">
               <button type="button" data-menu-move="-1" ${i === 0 ? 'disabled' : ''} title="Subir">▲</button>
               <button type="button" data-menu-move="1" ${i === siblings.length - 1 ? 'disabled' : ''} title="Bajar">▼</button>
@@ -1006,7 +1018,8 @@
       host.innerHTML = `
         <div class="bar-card-section-title">${NODE_TYPES[t].icon} ${NODE_TYPES[t].label} · nivel ${levelOf(field.nodes, node)}</div>
         <label class="field-label">Texto del ítem<input class="field-input" data-node-prop="label" type="text" maxlength="39" /></label>
-        ${t === 'SUBMENU' ? '' : `
+        ${t === 'GO_IDLE' ? '<div class="insp-note">Con OK vuelve a la pantalla IDLE (<code>JWPLC_UIMenuGoIdle</code>). Úsalo con «Volver a la IDLE: Nunca» para que la salida la decida el menú.</div>' : ''}
+        ${!hasVariable(node) ? '' : `
           <label class="field-label">Variable C++<input class="field-input code-input" data-node-prop="variable" type="text" maxlength="32" /></label>
           ${kinds.length > 1 ? `<span class="bar-visual-group-title insp-gap">Tipo</span><div class="insp-chip-row">${chips('data-node-kind', kinds.map((k) => [k, k === 'int32' ? 'int32_t' : k]), node.valueType)}</div>` : `<div class="insp-readouts"><span>Tipo <code class="insp-type-chip">${CPP_TYPE[node.valueType]}</code></span></div>`}
           ${isBool ? `

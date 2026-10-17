@@ -194,6 +194,10 @@ async function main() {
     await page.click(`${S}[data-menu-node="${sub2.key}"] [data-menu-remove]`);
     m = await menuField();
     check(!m.nodes.some((x) => x.key === sub2.key), 'eliminar un ítem');
+    await page.click(`${S}[data-menu-add="GO_IDLE"]`);
+    m = await menuField();
+    const goIdle = m.nodes[m.nodes.length - 1];
+    check(goIdle.type === 'GO_IDLE' && !goIdle.variable, 'agregar "Ir al inicio" (acción sin variable)');
 
     console.log('GUARDAR / ABRIR');
     const roundTrip = await page.evaluate(async () => {
@@ -245,7 +249,15 @@ async function main() {
     if (canvas) await canvas.screenshot({ path: path.join(OUT, 'designer_canvas.png') });
 
     console.log('HEADER');
+    // Ítem "Ir al inicio" al final de la raíz: debe emitirse y compilar.
+    await page.evaluate(() => {
+      const E = window.JWPLCHMIEditor;
+      const field = E.getAllFields().find((f) => f.type === 'MENU');
+      field.nodes = [...field.nodes, { key: 'goidle', parent: null, type: 'GO_IDLE', label: 'Ir al inicio', variable: '', valueType: '', initial: 0, min: 0, max: 100, step: 1, decimals: 1, unit: '', falseText: 'OFF', trueText: 'ON' }];
+      E.render();
+    });
     const h = await header();
+    check(/JWPLC_UIMenuGoIdle\(JWPLC_UI_MENU_ROOT, "Ir al inicio"\)/.test(h), 'el ítem "Ir al inicio" se emite como JWPLC_UIMenuGoIdle');
     fs.writeFileSync(path.join(OUT, 'JWPLC_HMI_Generated.h'), h);
     check(/JWPLC_Display\.setMenus\(\s*HMI_MENUS/.test(h), 'jwplcHMISetup() registra los menús');
     check(/float consigna = 45\.0f;/.test(h) && /int32_t retardo = 30;/.test(h) && /bool alarmaHabilitada = true;/.test(h), 'declara las variables con su tipo y valor inicial');
@@ -268,7 +280,7 @@ async function main() {
       check(compiled, `el header compila contra los headers reales${compiled ? '' : `\n${log}`}`);
       const { librarySymbols } = require('./lib-symbols.cjs');
       const display = librarySymbols(path.join(LIBS, 'JWPLC_Display'));
-      check(display.symbols.has('JWPLC_DisplayClass::setMenus') && display.symbols.has('JWPLC_UIMenuEditNum'),
+      check(display.symbols.has('JWPLC_DisplayClass::setMenus') && display.symbols.has('JWPLC_UIMenuEditNum') && display.symbols.has('JWPLC_UIMenuGoIdle'),
         `setMenus y los constructores existen en JWPLC_Display (${display.mode === 'precompiled' ? 'libJWPLC_Display.a' : 'fuente'})`);
     } else {
       skip('sin g++/nm: no se compila el header ni se revisan los símbolos del .a');

@@ -17,7 +17,7 @@ const node = (key, parent, type, label, extra = {}) => ({
 module.exports = {
   full: {
     // A15-7: IDLE no por defecto (entrar con OK, volver por inactividad, arrancar en el HMI).
-    display: { start: 'HMI', wake: 'BUTTON', wakeButton: 'BTN_OK', back: 'TIMEOUT', backButton: 'BTN_LEFT', timeoutS: 30 },
+    display: { start: 'HMI', wake: 'BUTTON', wakeButton: 'BTN_OK', back: 'TIMEOUT', timeoutS: 30 },
     pages: [{ id: 0, name: 'Principal' }, { id: 1, name: 'Alarmas' }, { id: 2, name: 'Ajustes' }],
     fields: [
       { ...COLORS, type: 'TEXT', name: 'T', id: 'FIELD_ESTADO', variable: 'estado', capacity: 12, x: 4, y: 4, preview: 'READY', label: 'Estado', unit: '', valueSize: 2, labelSize: 1, frame: false, layout: 'INLINE', align: 'LEFT', page: 0, layerOrder: 5 },
