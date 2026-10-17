@@ -11,11 +11,11 @@ import copy
 import re
 
 TOKEN=r"[0-9a-f]{24}"
-BIND=re.compile(rf"G10R_TCP_LEASE:({TOKEN}) TID=(\d+) SID=(\d+) EPOCH=(\d+) ALLOC=(\d+) OWNER=(\d+)")
+BIND=re.compile(rf"G10R_TCP_OBS:({TOKEN}) SEQ=(\d+) TID=(\d+) SID=(\d+) CAPTURE=(\d+) EPOCH=(\d+) ALLOC=(\d+) OWNER=(\d+)")
 LIFE=re.compile(rf"G10R_EVT:({TOKEN}) SEQ=(\d+) KIND=(\d+) SID=(\d+) EPOCH=(\d+) ALLOC=(\d+) OWNER=(\d+)")
 START=re.compile(rf"G10R_STARTED:({TOKEN}) RTU=[01]")
 END=re.compile(rf"G10R_EVT_END:({TOKEN})")
-TCP_HEAD=re.compile(rf"G10R_TCP_HEAD:({TOKEN}) COUNT=(\\d+) DROPPED=(\\d+)")
+TCP_HEAD=re.compile(rf"G10R_TCP_HEAD:({TOKEN}) COUNT=(\d+) DROPPED=(\d+)")
 TCP_END=re.compile(rf"G10R_TCP_END:({TOKEN})")
 def evaluate(lines,token,transaction):
     errors=[]
