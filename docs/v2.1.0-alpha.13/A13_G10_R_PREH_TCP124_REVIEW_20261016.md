@@ -76,3 +76,20 @@ G10-R-R3_PHYSICAL_INJECTION_READY=FALSE
 G10-R-UPLOAD=BLOCKED
 NEXT_GATE=TCP124_HOST_CI_AND_LEASE_CORRELATION_DESIGN
 ```
+
+
+## PRE-H revisión fuente y CI de loopback (17/oct/2026)
+
+La corrida [#39006047197](https://github.com/JW-Control/platform-jwplc/actions/runs/39006047197) **NO fue PASS**: Ubuntu PASS, Windows FAIL. La falla Windows documenta una sesión con marcas de inicio y fin iguales en la resolución observada (`NOT_SIMULTANEOUS`, target 1). Se corrigió el arnés en `29cf46e8` introduciendo una ventana de 75 ms **después de completar las respuestas FC03 y antes de liberar** las sesiones; no se alteró el criterio de solapamiento ni se inventaron timestamps. La CI de ese commit debe consultarse antes de declarar PASS.
+
+Inspección adicional de `tools/alpha13/sketches/g10_r_integrated/g10_r_integrated.ino`: el banco posee servidor `JWPLC_ModbusTCP.beginServer(1,502)`, pero **no emite identificador por transacción FC03 vinculado con SID/EPOCH/ALLOC/OWNER de cada sesión TCP del W5500**. Las respuestas PC demuestran tráfico y simultaneidad del HOST cuando haya medición real; los snapshots W5500 son observaciones de estado y no correlación causal por transacción. No inferir `source-backed TCP124` a partir de un fixture o cuatro sockets PC exitosos.
+
+**NEXT_GATE:** (a) CI Windows+Ubuntu de loopback con HEAD exacto; (b) instrumentación temporal por sesión de Modbus TCP que relacione transacción con identidad de lease y cierre real sin tocar package producto, con negativos de ambigüedad/reciclado; (c) 1/2/4 clientes PC concurrentes y fairness/TCA, DHCP, luego PRE-H de campaña integral. No cambiar `R3_PHYSICAL_INJECTION_READY=False` ni `R3_COMPLETE_PHYSICAL_CAMPAIGN_READY=False`; Alpha15 no se toca.
+
+```text
+G10-R-TCP124-HOST-PRIOR_CI=FAIL_WINDOWS_RUN_39006047197
+G10-R-TCP124-HOST-FIX=COMMITTED_29cf46e8_CI_PENDING
+G10-R-TCP124-LEASE_TRANSACTION_CORRELATION=NOT_IMPLEMENTED
+G10-R-H=BLOCKED
+A13-006=ADOPTION_BLOCKED
+```
