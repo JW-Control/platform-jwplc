@@ -59,6 +59,7 @@ def guard_sketch() -> None:
         "JWPLC_Buttons.pressed(key)",
         "JWPLC_W5500_SafeAccess.h",
         "G10R_SOCKETS:", "G10R_SOCK_STATUS:",
+        "G10R_SOCK_BEGIN:", "G10R_SOCK_END:",
         "LabSocketSnapshot", "labCaptureSockets(",
     ):
         require(needle in s, "R1_R2_R4_SKETCH_ANCHOR_MISSING_" + needle)
