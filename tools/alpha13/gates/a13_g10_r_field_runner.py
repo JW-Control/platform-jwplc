@@ -914,6 +914,24 @@ def live(evidence:Path)->int:
                     "status":"REVIEW_STOP",
                     "errors":["UDP_CONTRACT_EXCEPTION_"+type(exc).__name__]})
         result["r3_lifecycle_trace"]=c.trace.report()
+        # B2: equidad y DHCP, solo evidencias observadas en UART/host.
+        try:
+            b2_path=ROOT/"tools/alpha13/gates/a13_g10_r_b2_contract.py"
+            b2_spec=importlib.util.spec_from_file_location("g10r_b2_contract",b2_path)
+            require(b2_spec is not None and b2_spec.loader is not None,
+                    "B2_CONTRACT_MISSING")
+            b2=importlib.util.module_from_spec(b2_spec)
+            sys.modules[b2_spec.name]=b2
+            b2_spec.loader.exec_module(b2)
+            result["b2_observability"]=b2.evaluate(result)
+            if result["b2_observability"]["status"]=="REVIEW_STOP":
+                result["physical_status"]="REVIEW_STOP"
+                status=2
+        except Exception as exc:
+            result["b2_observability"]={"status":"REVIEW_STOP",
+                "issues":["B2_EVALUATION_EXCEPTION_"+type(exc).__name__]}
+            result["physical_status"]="REVIEW_STOP"
+            status=2
         # Unir evidencia de PC/Modbus con los eventos UART y el mismo lease.
         try:
             join_path=ROOT/"tools/alpha13/gates/a13_g10_r_tcp124_join.py"
