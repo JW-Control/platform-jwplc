@@ -33,6 +33,7 @@ def observe_loopback(n):
     rendezvous=threading.Barrier(n+1,timeout=5)
     release=threading.Event()
     errors=[]
+    fc03_done=[False]*n
     samples=[None]*n
     server_errors=[]
     def acceptor():
@@ -69,8 +70,9 @@ def observe_loopback(n):
                 head=recv_exact(c,7)
                 tid,protocol,length,unit=struct.unpack("!HHHB",head)
                 body=recv_exact(c,length-1)
-                good=(tid==i+1 and protocol==0 and body==b"\\x03\\x02\\x12\\x34")
+                good=(tid==i+1 and protocol==0 and body==bytes((3,2,0x12,0x34)))
                 if not good:raise RuntimeError("INVALID_FC03_RESPONSE")
+                fc03_done[i]=True
                 release.wait(timeout=5)
                 end=time.monotonic_ns()
                 samples[i]={"client":i,"start_ns":start,"end_ns":end,"fc03_ok":True}
@@ -80,8 +82,11 @@ def observe_loopback(n):
     thread.start()
     workers=[threading.Thread(target=client,args=(i,),daemon=True) for i in range(n)]
     for t in workers:t.start()
-    for t in workers:t.join(timeout=8)
+    deadline=time.monotonic()+5
+    while not all(fc03_done) and not errors and time.monotonic()<deadline:
+        time.sleep(.01)
     release.set()
+    for t in workers:t.join(timeout=8)
     thread.join(timeout=8)
     errors.extend({"error":e} for e in server_errors)
     if any(t.is_alive() for t in workers+[thread]) or any(s is None for s in samples):
