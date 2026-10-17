@@ -40,16 +40,17 @@
     frame: 0xFFFF
   });
 
+  // De arriba hacia abajo, como se ve el menú en la TFT.
   const COLOR_LABELS = [
-    ['text', 'Texto'],
-    ['value', 'Valor'],
-    ['background', 'Fondo'],
+    ['titleBackground', 'Título · fondo'],
+    ['title', 'Título · texto'],
+    ['text', 'Ítem · texto'],
+    ['value', 'Ítem · valor'],
     ['selectBackground', 'Selección · fondo'],
     ['selectText', 'Selección · texto'],
     ['editBackground', 'Edición · fondo'],
     ['editText', 'Edición · texto'],
-    ['titleBackground', 'Título · fondo'],
-    ['title', 'Título · texto'],
+    ['background', 'Fondo del menú'],
     ['frame', 'Marco']
   ];
 
@@ -798,18 +799,116 @@
     return node.type === 'SUBMENU' ? node.key : (node.parent || null);
   }
 
-  function renderColors(field) {
+  // --- Apariencia: dos mini-modelos con los colores de cada parte ----------
+  // Las vistas usan el mismo pintor que el lienzo (paint), en tamaño 1× y
+  // escala 2. Cada fila de controles queda a la altura de la fila que pinta.
+  const PREVIEW_W = 80;
+  const PREVIEW_SCALE = 2;
+  const PREVIEW_NODES = [
+    { key: 'p1', parent: null, type: 'VIEW', label: 'Temp', variable: 'p1', valueType: 'float', initial: 21.5, decimals: 1, unit: '' },
+    { key: 'p2', parent: null, type: 'EDIT_NUM', label: 'Nivel', variable: 'p2', valueType: 'int32', initial: 50, decimals: 0, unit: '' },
+    { key: 'p3', parent: null, type: 'EDIT_BOOL', label: 'Bomba', variable: 'p3', valueType: 'bool', initial: 0, falseText: 'OFF', trueText: 'ON' }
+  ];
+  const COLOR_LETTER = { titleBackground: 'F', title: 'T', text: 'T', value: 'V', selectBackground: 'F', selectText: 'T', editBackground: 'F', editText: 'T', background: 'F', frame: 'M' };
+  const COLOR_NAME = Object.fromEntries(COLOR_LABELS);
+  const CASES = [
+    {
+      id: 'nav',
+      title: 'Caso 1 · Navegando',
+      editing: false,
+      rows: [
+        { label: 'Título', keys: ['titleBackground', 'title'] },
+        { label: 'Ítem', keys: ['text', 'value'] },
+        { label: 'Selección', keys: ['selectBackground', 'selectText'] },
+        { label: 'Fondo', keys: ['background'] }
+      ]
+    },
+    {
+      id: 'edit',
+      title: 'Caso 2 · Editando un valor (OK)',
+      editing: true,
+      rows: [null, null, { label: 'Edición', keys: ['editBackground', 'editText'] }, null]
+    }
+  ];
+  let activeColorKey = 'titleBackground';
+
+  function swatchHtml(key) {
+    return `<label class="menu-swatch" data-menu-swatch="${key}" title="${COLOR_NAME[key]}">` +
+      `<input type="color" data-menu-color-native="${key}" /><span>${COLOR_LETTER[key]}</span></label>`;
+  }
+
+  function buildAppearance() {
     const host = section.querySelector('[data-menu-colors]');
     if (host.dataset.built) return;
     host.dataset.built = '1';
-    host.innerHTML = COLOR_LABELS.map(([key, title]) => `
-      <div class="insp-color-row">
-        <div class="insp-color-head"><span>${title}</span>
-          <label class="insp-color-native"><input type="color" data-menu-color-native="${key}" /><span class="insp-hex" data-menu-color-hex="${key}"></span></label>
+    host.innerHTML = CASES.map((c) => `
+      <div class="menu-case">
+        <div class="bar-card-section-title">${c.title}</div>
+        <div class="menu-case-body">
+          <canvas class="menu-case-canvas" data-menu-case="${c.id}"></canvas>
+          <div class="menu-case-legend" data-menu-legend="${c.id}">
+            ${c.rows.map((r) => `<div class="menu-legend-row">${r
+              ? `<span class="menu-legend-arrow">◀</span><span class="menu-legend-label">${r.label}</span>${r.keys.map(swatchHtml).join('')}`
+              : ''}</div>`).join('')}
+          </div>
         </div>
+      </div>`).join('') + `
+      <div class="menu-legend-row menu-frame-row" data-menu-frame-row>
+        <span class="menu-legend-label">Marco</span>${swatchHtml('frame')}
+      </div>
+      <div class="menu-palette">
+        <div class="insp-note">F fondo · T texto · V valor. Clic en un cuadro para editarlo; la paleta rápida se aplica a <strong data-menu-active-color></strong>.</div>
         <div class="insp-swatch-row">${PALETTE.map(([v, name]) =>
-          `<button type="button" class="insp-swatch" data-menu-color="${key}" data-value="${v}" title="${name} · ${hex565(v)}" style="background:${rgb565ToCss(v)}"></button>`).join('')}</div>
-      </div>`).join('');
+          `<button type="button" class="insp-swatch" data-menu-palette="${v}" title="${name} · ${hex565(v)}" style="background:${rgb565ToCss(v)}"></button>`).join('')}</div>
+      </div>`;
+  }
+
+  function drawCasePreview(canvas, field, c) {
+    const L = layout({ ...field, textSize: 1 });
+    const h = 2 * L.border + L.rowH * 4;
+    const preview = {
+      ...field, x: 0, y: 0, width: PREVIEW_W, height: h, textSize: 1,
+      title: field.title || 'Menú', nodes: PREVIEW_NODES
+    };
+    const fb = renderToArray(preview, { parentKey: null, selected: 1, depth: 1, editing: c.editing, focused: true });
+    canvas.width = PREVIEW_W * PREVIEW_SCALE;
+    canvas.height = h * PREVIEW_SCALE;
+    const ctx = canvas.getContext('2d');
+    const img = ctx.createImageData(canvas.width, canvas.height);
+    for (let y = 0; y < canvas.height; y++) {
+      for (let x = 0; x < canvas.width; x++) {
+        const v = fb[Math.floor(y / PREVIEW_SCALE) * SCREEN_W + Math.floor(x / PREVIEW_SCALE)];
+        const o = (y * canvas.width + x) * 4;
+        img.data[o] = ((v >> 11) & 0x1F) * 255 / 31;
+        img.data[o + 1] = ((v >> 5) & 0x3F) * 255 / 63;
+        img.data[o + 2] = (v & 0x1F) * 255 / 31;
+        img.data[o + 3] = 255;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+    // Las filas de controles miden lo mismo que las filas pintadas.
+    const legend = section.querySelector(`[data-menu-legend="${c.id}"]`);
+    legend.style.paddingTop = `${L.border * PREVIEW_SCALE}px`;
+    legend.style.setProperty('--menu-row-h', `${L.rowH * PREVIEW_SCALE}px`);
+  }
+
+  function syncAppearance(field) {
+    buildAppearance();
+    CASES.forEach((c) => drawCasePreview(section.querySelector(`[data-menu-case="${c.id}"]`), field, c));
+    section.querySelector('[data-menu-frame-row]').hidden = !field.frame;
+    Object.keys(DEFAULT_COLORS).forEach((key) => {
+      const v = num(field.colors[key]) & 0xFFFF;
+      section.querySelectorAll(`[data-menu-swatch="${key}"]`).forEach((sw) => {
+        sw.style.background = rgb565ToCss(v);
+        sw.style.color = ((v >> 11) + ((v >> 5) & 0x3F) / 2 + (v & 0x1F)) > 40 ? '#000' : '#fff';
+        sw.classList.toggle('active', key === activeColorKey);
+        const native = sw.querySelector('input');
+        if (native && document.activeElement !== native) native.value = rgb565ToCss(v);
+      });
+    });
+    section.querySelector('[data-menu-active-color]').textContent = COLOR_NAME[activeColorKey];
+    const activeValue = num(field.colors[activeColorKey]) & 0xFFFF;
+    section.querySelectorAll('[data-menu-palette]').forEach((b) => b.classList.toggle('active', Number(b.dataset.menuPalette) === activeValue));
   }
 
   function renderTree(field) {
@@ -948,15 +1047,7 @@
       else if (b.dataset.menuAdd !== 'SUBMENU') b.disabled = false;
     });
 
-    renderColors(field);
-    Object.keys(DEFAULT_COLORS).forEach((key) => {
-      const v = num(field.colors[key]) & 0xFFFF;
-      section.querySelectorAll(`[data-menu-color="${key}"]`).forEach((b) => b.classList.toggle('active', Number(b.dataset.value) === v));
-      const native = section.querySelector(`[data-menu-color-native="${key}"]`);
-      if (native && document.activeElement !== native) native.value = rgb565ToCss(v);
-      const hexEl = section.querySelector(`[data-menu-color-hex="${key}"]`);
-      if (hexEl) hexEl.textContent = hex565(v);
-    });
+    syncAppearance(field);
 
     const pagesHost = section.querySelector('[data-menu-pages]');
     const pages = editor()?.getPages?.() || [];
@@ -1003,8 +1094,14 @@
       });
       return;
     }
-    const swatch = t.closest('[data-menu-color]');
-    if (swatch) { mutate((f) => { f.colors[swatch.dataset.menuColor] = Number(swatch.dataset.value); }); return; }
+    const swatch = t.closest('[data-menu-swatch]');
+    if (swatch) {
+      activeColorKey = swatch.dataset.menuSwatch;
+      syncAppearance(field);
+      return;
+    }
+    const pill = t.closest('[data-menu-palette]');
+    if (pill) { mutate((f) => { f.colors[activeColorKey] = Number(pill.dataset.menuPalette); }); return; }
     const page = t.closest('[data-menu-page]');
     if (page) {
       const target = Number(page.dataset.menuPage);
@@ -1093,6 +1190,14 @@
     if (t.matches('[data-menu-color-native]')) {
       mutate((f) => { f.colors[t.dataset.menuColorNative] = cssTo565(t.value); });
     }
+  });
+
+  // Vista previa en vivo mientras se arrastra en el selector de color; el
+  // historial se registra una vez en 'change'.
+  section.addEventListener('input', (e) => {
+    if (!e.target.matches('[data-menu-color-native]')) return;
+    activeColorKey = e.target.dataset.menuColorNative;
+    mutate((f) => { f.colors[e.target.dataset.menuColorNative] = cssTo565(e.target.value); }, false);
   });
 
   const NUMERIC_PROPS = new Set(['x', 'y', 'width', 'height', 'initial', 'min', 'max', 'step']);

@@ -1567,6 +1567,15 @@
     return { width: text.length * 6 * scale - scale, height: 7 * scale };
   }
 
+  // BOOL con color por estado: igual que JWPLC_UI.cpp (falseColor != trueColor).
+  function fieldValueColor565(field) {
+    if (field.type === 'BOOL' && field.stateColors &&
+        Number(field.falseColor) !== Number(field.trueColor)) {
+      return field.boolValue ? Number(field.trueColor) : Number(field.falseColor);
+    }
+    return field.valueColor;
+  }
+
   function effectiveFieldPadding(field) {
     return Math.max(FIELD_PADDING, field.labelSize || 1, field.valueSize || 1);
   }
@@ -1837,7 +1846,7 @@
     }
     const preview = previewTextForField(field);
     if (preview) {
-      drawClassicTextAt(buffer, preview, alignedValueX(field, g), g.valueY, field.valueColor, textBg, field.valueSize);
+      drawClassicTextAt(buffer, preview, alignedValueX(field, g), g.valueY, fieldValueColor565(field), textBg, field.valueSize);
     }
     return g;
   }
@@ -2796,8 +2805,9 @@
     }
     const rulerW = 36;
     const rulerH = 24;
-    const px = rulerW + Math.round((pt.x + 0.5) * zoom);
-    const py = rulerH + Math.round((pt.y + 0.5) * zoom);
+    const cell = (v) => (Math.floor(v * zoom) + Math.floor((v + 1) * zoom)) / 2;
+    const px = rulerW + Math.round(cell(pt.x));
+    const py = rulerH + Math.round(cell(pt.y));
     crosshairX.style.display = 'block';
     crosshairX.style.left = `${px}px`;
     crosshairY.style.display = 'block';
@@ -2871,8 +2881,12 @@
     bottomCtx.lineWidth = 1;
     bottomCtx.beginPath();
 
+    // Misma fórmula que drawGrid() (floor): con zoom fraccionario round() corría
+    // las marcas 1 px respecto de las líneas de la grilla.
+    const edge = (v) => Math.floor(v * zoom);
+
     for (let x = 0; x <= WIDTH; x += 2) {
-      const px = Math.round(x * zoom) + 0.5;
+      const px = edge(x) + 0.5;
       let tickLen = 0;
       if (x % 50 === 0) tickLen = 8;
       else if (x % 10 === 0) tickLen = 5;
@@ -2898,7 +2912,7 @@
     rightCtx.beginPath();
 
     for (let y = 0; y <= HEIGHT; y += 2) {
-      const py = Math.round(y * zoom) + 0.5;
+      const py = edge(y) + 0.5;
       let tickLen = 0;
       if (y % 50 === 0) tickLen = 8;
       else if (y % 10 === 0) tickLen = 5;
@@ -2930,7 +2944,7 @@
 
     for (let x = 50; x < WIDTH; x += 50) {
       if (activeCursorPoint && Math.abs(x - activeCursorPoint.x) < 22) continue;
-      const px = Math.round(x * zoom);
+      const px = edge(x);
       topCtx.fillText(String(x), px, 2);
       bottomCtx.fillText(String(x), px, rulerH - 2);
     }
@@ -2947,7 +2961,7 @@
 
     for (let y = 50; y < HEIGHT; y += 50) {
       if (activeCursorPoint && Math.abs(y - activeCursorPoint.y) < 14) continue;
-      const py = Math.round(y * zoom);
+      const py = edge(y);
       leftCtx.fillText(String(y), rulerW - 11, py);
       rightCtx.fillText(String(y), 11, py);
     }
@@ -2969,10 +2983,10 @@
     }
 
     if (selBounds) {
-      const px1 = Math.round(selBounds.x1 * zoom) + 0.5;
-      const px2 = Math.round(selBounds.x2 * zoom) + 0.5;
-      const py1 = Math.round(selBounds.y1 * zoom) + 0.5;
-      const py2 = Math.round(selBounds.y2 * zoom) + 0.5;
+      const px1 = edge(selBounds.x1) + 0.5;
+      const px2 = edge(selBounds.x2) + 0.5;
+      const py1 = edge(selBounds.y1) + 0.5;
+      const py2 = edge(selBounds.y2) + 0.5;
 
       // Selection bounds ticks on top/bottom
       topCtx.strokeStyle = '#0084ff';
@@ -3013,57 +3027,39 @@
       rightCtx.stroke();
     }
 
-    // Dynamic Cursor Position Highlight (Exact Match to User Reference)
+    // Cursor: resalta la celda del píxel (de su borde izquierdo/superior al
+    // siguiente), alineada con las marcas y la grilla; el número va centrado.
     if (activeCursorPoint && inside(activeCursorPoint.x, activeCursorPoint.y)) {
       const cx = activeCursorPoint.x;
       const cy = activeCursorPoint.y;
-      const cpx = Math.round((cx + 0.5) * zoom);
-      const cpy = Math.round((cy + 0.5) * zoom);
+      const x0 = edge(cx);
+      const x1 = Math.max(x0 + 1, edge(cx + 1));
+      const y0 = edge(cy);
+      const y1 = Math.max(y0 + 1, edge(cy + 1));
+      const cpx = (x0 + x1) / 2;
+      const cpy = (y0 + y1) / 2;
+      const band = 'rgba(230, 242, 250, 0.85)';
 
-      // Top ruler cursor
-      topCtx.strokeStyle = '#e6f2fa';
-      topCtx.lineWidth = 2;
-      topCtx.beginPath();
-      topCtx.moveTo(cpx + 0.5, rulerH - 11);
-      topCtx.lineTo(cpx + 0.5, rulerH);
-      topCtx.stroke();
-
+      topCtx.fillStyle = band;
+      topCtx.fillRect(x0, rulerH - 11, x1 - x0, 11);
       topCtx.font = cursorFont;
       topCtx.fillStyle = '#f0f7fd';
       topCtx.fillText(String(cx), cpx, 2);
 
-      // Bottom ruler cursor
-      bottomCtx.strokeStyle = '#e6f2fa';
-      bottomCtx.lineWidth = 2;
-      bottomCtx.beginPath();
-      bottomCtx.moveTo(cpx + 0.5, 0);
-      bottomCtx.lineTo(cpx + 0.5, 11);
-      bottomCtx.stroke();
-
+      bottomCtx.fillStyle = band;
+      bottomCtx.fillRect(x0, 0, x1 - x0, 11);
       bottomCtx.font = cursorFont;
       bottomCtx.fillStyle = '#f0f7fd';
       bottomCtx.fillText(String(cx), cpx, rulerH - 2);
 
-      // Left ruler cursor
-      leftCtx.strokeStyle = '#e6f2fa';
-      leftCtx.lineWidth = 2;
-      leftCtx.beginPath();
-      leftCtx.moveTo(rulerW - 11, cpy + 0.5);
-      leftCtx.lineTo(rulerW, cpy + 0.5);
-      leftCtx.stroke();
-
+      leftCtx.fillStyle = band;
+      leftCtx.fillRect(rulerW - 11, y0, 11, y1 - y0);
       leftCtx.font = cursorFont;
       leftCtx.fillStyle = '#f0f7fd';
       leftCtx.fillText(String(cy), rulerW - 13, cpy);
 
-      // Right ruler cursor
-      rightCtx.strokeStyle = '#e6f2fa';
-      rightCtx.lineWidth = 2;
-      rightCtx.beginPath();
-      rightCtx.moveTo(0, cpy + 0.5);
-      rightCtx.lineTo(11, cpy + 0.5);
-      rightCtx.stroke();
-
+      rightCtx.fillStyle = band;
+      rightCtx.fillRect(0, y0, 11, y1 - y0);
       rightCtx.font = cursorFont;
       rightCtx.fillStyle = '#f0f7fd';
       rightCtx.fillText(String(cy), 13, cpy);

@@ -76,7 +76,7 @@ MENU=ADOPTED (designer-menu.js; firmware JWPLC_Display 1.1.0)
 DESIGNER_UI=Alpha11
 ELECTRON_PACKAGE=0.11.0-alpha.11
 JWPLC_TFT=0.3.0 (elipses/triángulos + FreeFonts con setFont/drawString; .a regenerado, ABI compatible)
-JWPLC_DISPLAY=1.1.0 (MENU declarativo; .a regenerado, ABI compatible, +48 B sin MENU)
+JWPLC_DISPLAY=1.1.0 (MENU + color por estado de BOOL) · SOURCE_FIRST hasta el cierre (.a 0317c3ac… histórico, regenerar al cierre)
 DESIGNER_FONTS=GLCD + 24 FreeFonts (Font2/Font4 deshabilitadas)
 PROJECT_FORMAT=JWPLC_HMI_PROJECT v1
 VPP_OPENPLC=2.1.0-alpha.29 (rama v2.1.0-alpha.12/feature/openplc-engineering-closure)
@@ -137,3 +137,8 @@ MENU_NODE_COUNT_LIMIT=64 por menú, 4 menús, 1 por página (9 nodos = +952 B RA
   generados antes de refactorizar, núcleo `designer-codegen-core.js` (bloques de campos) usado por
   app/bool/bar, MENU ejecutable en node, `tests/codegen-core.test.cjs` y `tests/run-all.cjs`
   (omite lo que requiere g++). El golden detectó y evitó una regresión en BAR durante la extracción.
+- 2026-10-17 — Revisión del jefe (`A15_7_INSPECTOR_FOLLOWUP_20261017.md`): `JWPLC_Display` pasa a modo
+  fuente hasta el cierre (convención del equipo; el `.a` se regenera antes de documentar y publicar).
+  Colores en vivo en los inspectores, color por estado de BOOL (firmware + Designer, con respaldo
+  `#ifdef`), regla/cursor alineados con la grilla, Apariencia del MENU con dos mini-modelos. El
+  desplazamiento de 1 px de TEXT en 4× es la regla de padding del firmware (decisión pendiente).

@@ -148,6 +148,22 @@ async function main() {
     await page.click(`${W}[data-bool-preview="1"]`);
     const bo = await selected();
     check(bo.falseText === 'PARADO' && bo.trueText === 'MARCHA', 'preset de textos');
+    await sub('appearance');
+    await page.click(`${W}[data-bool-colormode="state"]`);
+    await page.click(`${W}[data-color-key="false"][data-color="${0xF800}"]`);
+    await page.click(`${W}[data-color-key="true"][data-color="${0x07E0}"]`);
+    const boc = await selected();
+    check(boc.stateColors === true && boc.falseColor === 0xF800 && boc.trueColor === 0x07E0, 'BOOL: color por estado');
+    // Color en vivo: un evento 'input' del selector nativo cambia el modelo sin cerrar la paleta.
+    const live = await page.evaluate(() => {
+      const input = document.querySelector('#fieldInspectorV2 [data-color-native="label"]');
+      input.value = '#ff00ff';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      return window.JWPLCHMIEditor.getSelectedField().labelColor;
+    });
+    check(live === 0xF81F, 'color en vivo con el evento input del selector');
+    await shot('bool_apariencia');
+    await page.click(`${W}[data-insp-main="data"]`);
     check(bo.boolValue === true && bo.preview === 'MARCHA', 'estado de prueba con interruptor');
 
     await page.evaluate(() => window.JWPLCHMIEditor.addPage());
@@ -166,6 +182,7 @@ async function main() {
     check(/JWPLC_UI_LAYOUT_STACKED/.test(h) && /JWPLC_UI_ALIGN_CENTER/.test(h), 'layout y alineación emitidos');
     check(/JWPLC_UIValueFormat\(\s*4,\s*2,\s*true/.test(h), 'formato numérico emitido');
     check(/0xF800/.test(h) && /"PARADO",\s*"MARCHA"/.test(h), 'color y textos BOOL emitidos');
+    check(/#ifdef JWPLC_UI_HAS_BOOL_STATE_COLORS\n\s*JWPLC_UIBoolText\(\s*"PARADO",\s*"MARCHA",\s*0xF800,\s*0x07E0\)/.test(h), 'BOOL: colores por estado con respaldo para packages anteriores');
 
     console.log('PROYECTO VIEJO');
     const bg = await page.evaluate(async () => {

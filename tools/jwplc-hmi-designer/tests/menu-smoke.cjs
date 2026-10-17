@@ -253,8 +253,10 @@ async function main() {
         log = String(error.stderr || error.message).split('\n').slice(0, 8).join('\n');
       }
       check(compiled, `el header compila contra los headers reales${compiled ? '' : `\n${log}`}`);
-      const nm = execFileSync('nm', ['-C', path.join(LIBS, 'JWPLC_Display', 'src', 'esp32', 'libJWPLC_Display.a')]).toString();
-      check(/ T JWPLC_DisplayClass::setMenus\(/.test(nm) && / T JWPLC_UIMenuEditNum\(/.test(nm), 'setMenus y los constructores existen en libJWPLC_Display.a');
+      const { librarySymbols } = require('./lib-symbols.cjs');
+      const display = librarySymbols(path.join(LIBS, 'JWPLC_Display'));
+      check(display.symbols.has('JWPLC_DisplayClass::setMenus') && display.symbols.has('JWPLC_UIMenuEditNum'),
+        `setMenus y los constructores existen en JWPLC_Display (${display.mode === 'precompiled' ? 'libJWPLC_Display.a' : 'fuente'})`);
     } else {
       skip('sin g++/nm: no se compila el header ni se revisan los símbolos del .a');
     }

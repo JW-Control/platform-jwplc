@@ -88,9 +88,20 @@
     el.dispatchEvent(new Event(commit ? 'change' : 'input', { bubbles: true }));
   }
 
-  function proxyColor(id, value565) {
+  // commit=false: vista previa en vivo mientras se arrastra en el selector.
+  function proxyColor(id, value565, commit = true) {
     const match = PALETTE.find(([, v]) => v === (value565 & 0xFFFF));
-    proxyValue(id, match ? match[0] : hex565(value565), true);
+    proxyValue(id, match ? match[0] : hex565(value565), commit);
+  }
+
+  // Propiedades sin control viejo equivalente (color por estado de BOOL):
+  // se escriben en el modelo y se registra el historial con la API del editor.
+  function setFieldProps(apply, commit) {
+    const field = selectedField();
+    if (!field) return;
+    apply(field);
+    editor()?.render?.();
+    if (commit) editor()?.commitHistory?.();
   }
 
   // --- Plantilla --------------------------------------------------------------
@@ -257,15 +268,22 @@
       <div class="insp-panel" data-insp-panel="design:appearance" hidden>
         <div class="bar-card">
           ${colorRow('label', 'Etiqueta')}
-          ${colorRow('value', 'Valor')}
+          <div data-value-color-row>${colorRow('value', 'Valor')}</div>
           ${colorRow('background', 'Fondo')}
           <div data-frame-only>${colorRow('frame', 'Marco')}</div>
           <div class="insp-note">El fondo es obligatorio: el refresco parcial de la TFT borra el valor anterior pintando el fondo.</div>
         </div>
         <div class="bar-card" data-only="BOOL">
-          <button type="button" class="bar-visual-btn insp-needs-fw insp-wide" disabled title="JWPLC_UIColors tiene un único color de valor">
-            <span>Color por estado (TRUE verde / FALSE rojo)</span><span>Requiere firmware</span>
-          </button>
+          <div class="bar-card-section-title">Color del valor</div>
+          <div class="bar-visual-grid-2">
+            <button type="button" class="bar-visual-btn" data-bool-colormode="single"><strong>ON</strong><span>Un color</span></button>
+            <button type="button" class="bar-visual-btn" data-bool-colormode="state"><strong><span style="color:#ff5050">OFF</span> / <span style="color:#3ce36b">ON</span></strong><span>Por estado</span></button>
+          </div>
+          <div data-bool-state-colors>
+            ${colorRow('false', 'Estado FALSE')}
+            ${colorRow('true', 'Estado TRUE')}
+            <div class="insp-note">Requiere JWPLC_Display con color por estado (Alpha15); con un package anterior el header compila con un solo color.</div>
+          </div>
         </div>
       </div>
 
@@ -415,7 +433,18 @@
     }
     const swatch = e.target.closest('[data-color-key]');
     if (swatch) {
-      proxyColor(COLOR_TARGET[swatch.dataset.colorKey], Number(swatch.dataset.color));
+      const key = swatch.dataset.colorKey;
+      if (BOOL_STATE_PROP[key]) setFieldProps((f) => { f[BOOL_STATE_PROP[key]] = Number(swatch.dataset.color); }, true);
+      else proxyColor(COLOR_TARGET[key], Number(swatch.dataset.color));
+      return;
+    }
+    const colorMode = e.target.closest('[data-bool-colormode]');
+    if (colorMode) {
+      setFieldProps((f) => {
+        f.stateColors = colorMode.dataset.boolColormode === 'state';
+        if (!Number.isFinite(Number(f.falseColor))) f.falseColor = 0xF800;
+        if (!Number.isFinite(Number(f.trueColor))) f.trueColor = 0x07E0;
+      }, true);
       return;
     }
     const preset = e.target.closest('[data-bool-preset]');
@@ -457,9 +486,19 @@
     frame: 'fieldFrameColor'
   };
   const COLOR_PROP = { label: 'labelColor', value: 'valueColor', background: 'backgroundColor', frame: 'frameColor' };
+  const BOOL_STATE_PROP = { false: 'falseColor', true: 'trueColor' };
 
+  // 'input' llega mientras se arrastra en el selector: el lienzo se actualiza
+  // en vivo y el historial se registra una sola vez en 'change'.
   wrap.querySelectorAll('[data-color-native]').forEach((input) => {
-    input.addEventListener('change', () => proxyColor(COLOR_TARGET[input.dataset.colorNative], cssTo565(input.value)));
+    const apply = (commit) => {
+      const key = input.dataset.colorNative;
+      const value = cssTo565(input.value);
+      if (BOOL_STATE_PROP[key]) setFieldProps((f) => { f[BOOL_STATE_PROP[key]] = value; }, commit);
+      else proxyColor(COLOR_TARGET[key], value, commit);
+    };
+    input.addEventListener('input', () => apply(false));
+    input.addEventListener('change', () => apply(true));
   });
 
   const slider = wrap.querySelector('[data-preview-slider]');
@@ -507,7 +546,13 @@
   }
 
   function syncColors(field) {
-    Object.entries(COLOR_PROP).forEach(([key, prop]) => {
+    const stateColors = field.type === 'BOOL' && Boolean(field.stateColors);
+    wrap.querySelectorAll('[data-bool-colormode]').forEach((b) =>
+      b.classList.toggle('active', (b.dataset.boolColormode === 'state') === stateColors));
+    wrap.querySelector('[data-bool-state-colors]').hidden = !stateColors;
+    wrap.querySelector('[data-value-color-row]').hidden = stateColors;
+    const props = field.type === 'BOOL' ? { ...COLOR_PROP, ...BOOL_STATE_PROP } : COLOR_PROP;
+    Object.entries(props).forEach(([key, prop]) => {
       const raw = field[prop];
       const v = Number.isFinite(Number(raw)) ? Number(raw) & 0xFFFF : 0;
       wrap.querySelectorAll(`[data-color-key="${key}"]`).forEach((b) => b.classList.toggle('active', Number(b.dataset.color) === v));

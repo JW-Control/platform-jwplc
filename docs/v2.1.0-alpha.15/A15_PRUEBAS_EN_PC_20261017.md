@@ -51,9 +51,10 @@ Las capturas quedan en la carpeta temporal que imprime cada test.
 
 ## 4. En la placa (gates físicos)
 
-El MENU y las fuentes necesitan los `.a` nuevos de esta rama (`JWPLC_Display` 1.1.0,
-`JWPLC_TFT` 0.3.0). Con el package local `jwplc_local` apuntando al repo (el que se usó en
-Alpha14) basta con el `git pull`. Para comprobarlo:
+`JWPLC_Display` está en modo fuente durante el alpha (se compila desde `src/`, el `.a` se
+regenera al cierre) y `JWPLC_TFT` usa su `.a` 0.3.0 de esta rama. Con el package local
+`jwplc_local` apuntando al repo (el que se usó en Alpha14) basta con el `git pull`. La primera
+compilación tarda más porque compila el Display. Para comprobarlo:
 
 ```powershell
 Get-Item "$env:LOCALAPPDATA\Arduino15\packages\jwplc_local\hardware\esp32\2.1.0-dev" |

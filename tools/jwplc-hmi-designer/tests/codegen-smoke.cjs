@@ -6,7 +6,8 @@
 // 3. Compila cada header con g++ -fsyntax-only contra los headers reales de
 //    JWPLC_Display / JWPLC_UI / JWPLC_TFT (host-stub/ sólo reemplaza Arduino.h
 //    y los periféricos que no intervienen).
-// 4. Verifica que cada llamada C++ emitida exista en los .a publicados (nm -C).
+// 4. Verifica que cada llamada C++ emitida exista en la librería: en el .a si es
+//    precompilada (nm -C) o en src/*.cpp si está en modo fuente.
 //
 // Uso (desde la raíz del repo):
 //   node tools/jwplc-hmi-designer/tests/codegen-smoke.cjs [carpeta-salida]
@@ -197,10 +198,14 @@ async function main() {
     check(/void jwplcUIPageEnter\(uint8_t page\)/.test(full), 'la gráfica estática está en jwplcUIPageEnter()');
 
     console.log('Compilación host (g++ -fsyntax-only) contra headers reales');
-    const nmOut = execFileSync('nm', ['-C',
-      path.join(LIBS, 'JWPLC_Display', 'src', 'esp32', 'libJWPLC_Display.a'),
-      path.join(LIBS, 'JWPLC_TFT', 'src', 'esp32', 'libJWPLC_TFT.a')]).toString();
-    const symbols = new Set(nmOut.split('\n').filter((l) => / T /.test(l)).map((l) => l.replace(/.* T /, '').replace(/\(.*/, '')));
+    // .a si la librería es precompilada; definiciones en src/*.cpp si está en modo fuente.
+    const { librarySymbols } = require('./lib-symbols.cjs');
+    const symbols = new Set();
+    for (const lib of ['JWPLC_Display', 'JWPLC_TFT']) {
+      const info = librarySymbols(path.join(LIBS, lib));
+      info.symbols.forEach((s) => symbols.add(s));
+      console.log(`  ${lib}: símbolos desde ${info.mode === 'precompiled' ? `lib${lib}.a` : 'el fuente (modo fuente durante el alpha)'}`);
+    }
 
     let navCompiled = 0;
     for (const [name, text] of Object.entries(headers)) {

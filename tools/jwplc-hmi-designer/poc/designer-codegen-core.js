@@ -60,9 +60,25 @@
     return `    JWPLC_UITextField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        JWPLC_UIText(${textOrNull(field.label)}, ${textOrNull(field.unit)}, ${field.capacity}),\n        JWPLC_UITextFieldStyle(\n            ${field.valueSize},\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout},\n            JWPLC_UI_ALIGN_${field.align}),\n        ${field.page},\n        ${fieldColors(field)})`;
   }
 
+  function boolStateColorsOn(field) {
+    return Boolean(field.stateColors) && Number(field.falseColor) !== Number(field.trueColor);
+  }
+
+  // Color por estado: requiere JWPLC_Display con JWPLC_UI_HAS_BOOL_STATE_COLORS;
+  // con un package anterior compila con un solo color (colors.value).
+  function boolTextBlock(field) {
+    const texts = `"${cppString(field.falseText)}",\n            "${cppString(field.trueText)}"`;
+    if (!boolStateColorsOn(field)) return `        JWPLC_UIBoolText(\n            ${texts}),\n`;
+    return `#ifdef JWPLC_UI_HAS_BOOL_STATE_COLORS\n` +
+      `        JWPLC_UIBoolText(\n            ${texts},\n            ${hex565(field.falseColor)},\n            ${hex565(field.trueColor)}),\n` +
+      `#else\n` +
+      `        JWPLC_UIBoolText(\n            ${texts}),\n` +
+      `#endif\n`;
+  }
+
   // field: con falseText/trueText ya resueltos (designer-bool ensureBoolState).
   function boolFieldBlock(field, id) {
-    return `    JWPLC_UIBoolField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        JWPLC_UIText(${textOrNull(field.label)}, ${textOrNull(field.unit)}),\n        JWPLC_UIBoolText(\n            "${cppString(field.falseText)}",\n            "${cppString(field.trueText)}"),\n        JWPLC_UIBoolStyle(\n            ${field.valueSize},\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout},\n            JWPLC_UI_ALIGN_${field.align}),\n        ${field.page || 0},\n        ${fieldColors(field)})`;
+    return `    JWPLC_UIBoolField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        JWPLC_UIText(${textOrNull(field.label)}, ${textOrNull(field.unit)}),\n${boolTextBlock(field)}        JWPLC_UIBoolStyle(\n            ${field.valueSize},\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout},\n            JWPLC_UI_ALIGN_${field.align}),\n        ${field.page || 0},\n        ${fieldColors(field)})`;
   }
 
   // field: normalizado por designer-bar (ensureBarState -> applyFirmwareCaps).
@@ -116,6 +132,7 @@
     valueFieldBlock,
     textFieldBlock,
     boolFieldBlock,
+    boolStateColorsOn,
     barFieldBlock,
     fieldBlock,
     variableDeclaration,
