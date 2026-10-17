@@ -61,6 +61,9 @@ def guard_sketch() -> None:
         "G10R_SOCKETS:", "G10R_SOCK_STATUS:",
         "G10R_SOCK_BEGIN:", "G10R_SOCK_END:",
         "G10R_EVENTS:", "G10R_EVT_HEAD:", "G10R_EVT_END:",
+        "G10R_R3_UDP:", "G10R_R3_LEASE:", "CLOSE_DURING_HOLD",
+        "AWAIT_LIFECYCLE_REVIEW", "BusScope scope(0)",
+        "vTaskDelay(pdMS_TO_TICKS(80))",
         "LabSocketSnapshot", "labCaptureSockets(",
     ):
         require(needle in s, "R1_R2_R4_SKETCH_ANCHOR_MISSING_" + needle)
@@ -68,6 +71,10 @@ def guard_sketch() -> None:
                       "jwplcWriteQ(", "ethernetReset(", "ESP.restart(",
                       "esp_restart(", "gpio_set_level("):
         require(forbidden not in s,"R1_R2_R4_FORBIDDEN_API_"+forbidden)
+    require("r3ProbeUdp.begin(15021)" in s and
+            "r3ProbeUdp.stop()" in s and
+            "r3HoldState.load(std::memory_order_acquire)" in s,
+            "R3_UDP_BOUNDED_PROBE_GUARD_MISSING")
     require(SKETCH_COM14.is_dir(),"SLAVE_SKETCH_MISSING")
     print("G10_R_SKETCH_GUARD=PASS_STATIC_NO_Q_NO_STORAGE_WRITE_NO_RESET")
 
