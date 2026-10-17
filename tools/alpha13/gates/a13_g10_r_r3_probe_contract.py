@@ -25,8 +25,21 @@ def evaluate(lines:list[str],trace:dict,token:str)->dict:
     if not isinstance(token,str) or not TOKEN.fullmatch(token):
         return {"status":"REVIEW_STOP","errors":["INVALID_SESSION_TOKEN"]}
     states=[]
+    lease=[]
     for line in lines:
-        if not isinstance(line,str) or not line.startswith(PREFIX):continue
+        if not isinstance(line,str):continue
+        if line.startswith("G10R_R3_LEASE:"):
+            m=re.fullmatch("G10R_R3_LEASE:"+token+
+                r" SID=(\d+) EPOCH=(\d+) ALLOC=(\d+) OWNER=(\d+)",line)
+            if m is None:
+                errors.append("INVALID_OR_FOREIGN_R3_LEASE")
+            else:
+                values=tuple(map(int,m.groups()))
+                if not (0<=values[0]<8 and all(x>0 for x in values[1:])):
+                    errors.append("BAD_R3_LEASE_IDENTITY")
+                lease.append(values)
+            continue
+        if not line.startswith(PREFIX):continue
         marker=PREFIX+token+" STATE="
         if not line.startswith(marker):
             errors.append("FOREIGN_SESSION_R3_MESSAGE")
@@ -37,6 +50,8 @@ def evaluate(lines:list[str],trace:dict,token:str)->dict:
         states.append(state)
     if states!=SUCCESS:
         errors.append("R3_UDP_PHASE_INCOMPLETE_OR_OUT_OF_ORDER")
+    if len(lease)!=1:
+        errors.append("R3_EXACT_LEASE_NOT_RECORDED")
     if not isinstance(trace,dict):
         return {"status":"REVIEW_STOP","errors":errors+["TRACE_MISSING"]}
     if trace.get("status")!="OBSERVATIONAL_COMPLETE_NOT_PHYSICAL_PASS":
@@ -72,6 +87,8 @@ def evaluate(lines:list[str],trace:dict,token:str)->dict:
         errors.append("NO_QUEUED_CLOSE_AND_MATCHING_DRAIN")
     if len(matching)!=1:
         errors.append("AMBIGUOUS_OR_MULTIPLE_UDP_CLOSE_LEASES")
+    if len(lease)==1 and matching!=lease:
+        errors.append("CLOSED_LEASE_DIFFERS_FROM_R3_PROBE")
     return {"status":"R3_UDP_SOURCE_CONTRACT_ONLY_NOT_PHYSICAL_PASS"
             if not errors else "REVIEW_STOP",
             "errors":list(dict.fromkeys(errors)),
@@ -83,7 +100,8 @@ def evaluate(lines:list[str],trace:dict,token:str)->dict:
 
 def fixture():
     t="a"*24
-    lines=[f"{PREFIX}{t} STATE={state}" for state in SUCCESS]
+    lines=[f"G10R_R3_LEASE:{t} SID=3 EPOCH=1 ALLOC=25 OWNER=5"]
+    lines += [f"{PREFIX}{t} STATE={state}" for state in SUCCESS]
     trace={"status":"OBSERVATIONAL_COMPLETE_NOT_PHYSICAL_PASS",
            "dropped":0,"issues":[],"events":[
               {"seq":10,"kind":6,"socket":3,"epoch":1,
@@ -98,7 +116,7 @@ def selftest():
     t,lines,trace=fixture()
     assert evaluate(lines,trace,t)["status"]=="R3_UDP_SOURCE_CONTRACT_ONLY_NOT_PHYSICAL_PASS"
     negatives=[
-        ("missing_held_close",lambda l,r:l.pop(1)),
+        ("missing_held_close",lambda l,r:l.pop(2)),
         ("wrong_order",lambda l,r:l.reverse()),
         ("lost_history",lambda l,r:r.update(dropped=1)),
         ("history_overrun",lambda l,r:r.update(issues=["TRACE_HISTORY_OVERRUN"])),
@@ -106,16 +124,19 @@ def selftest():
         ("epoch_changed",lambda l,r:r["events"][1].update(epoch=3)),
         ("not_drained",lambda l,r:r["events"].pop()),
         ("not_queued",lambda l,r:r["events"].pop(0)),
-        ("race_in_probe",lambda l,r:l.__setitem__(1,l[1].replace("CLOSE_DURING_HOLD",
+        ("race_in_probe",lambda l,r:l.__setitem__(2,l[2].replace("CLOSE_DURING_HOLD",
                                                                 "CLOSE_RACE_REVIEW"))),
         ("foreign_token",lambda l,r:l.__setitem__(0,l[0].replace("a"*24,"b"*24))),
         ("missing_end",lambda l,r:l.pop()),
+        ("wrong_recorded_lease",lambda l,r:l.__setitem__(0,l[0].replace("ALLOC=25","ALLOC=77"))),
+        ("missing_lease",lambda l,r:l.pop(0)),
+        ("duplicate_lease",lambda l,r:l.insert(1,l[0])),
     ]
     for label, mutate in negatives:
         l=copy.deepcopy(lines);r=copy.deepcopy(trace)
         mutate(l,r)
         assert evaluate(l,r,t)["status"]=="REVIEW_STOP",label
-    print("G10_R_R3_UDP_PROBE_NEGATIVES=11_REJECTED")
+    print("G10_R_R3_UDP_PROBE_NEGATIVES=14_REJECTED")
     print("G10_R_R3_UDP_PROBE=PASS_OFFLINE_CONTRACT_ONLY")
     print("G10_R_R3_FULL_H=BLOCKED_NOT_RUN")
 
