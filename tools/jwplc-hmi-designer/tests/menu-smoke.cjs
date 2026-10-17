@@ -56,7 +56,16 @@ function serve() {
   return new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve(server)));
 }
 
+function hasTool(cmd, args) {
+  try { execFileSync(cmd, args, { stdio: 'ignore' }); return true; } catch (_) { return false; }
+}
+const HAS_GPP = hasTool('g++', ['--version']);
+const HAS_NM = hasTool('nm', ['--version']);
+
 const failures = [];
+function skip(message) {
+  console.log(`  SKIP ${message}`);
+}
 function check(condition, message) {
   if (condition) console.log(`  PASS ${message}`);
   else { console.log(`  FAIL ${message}`); failures.push(message); }
@@ -89,14 +98,18 @@ async function main() {
 
   console.log('SIMULACIÓN DEL FIRMWARE');
   const simDir = path.join(OUT, 'sim');
-  let simOk = true;
-  try {
-    execFileSync(process.execPath, [path.join(__dirname, 'menu-host-sim.cjs'), simDir], { stdio: 'pipe' });
-  } catch (error) {
-    simOk = false;
-    console.log(String(error.stdout || '').split('\n').filter((l) => /FAIL/.test(l)).join('\n'));
+  if (HAS_GPP) {
+    let simOk = true;
+    try {
+      execFileSync(process.execPath, [path.join(__dirname, 'menu-host-sim.cjs'), simDir], { stdio: 'pipe' });
+    } catch (error) {
+      simOk = false;
+      console.log(String(error.stdout || '').split('\n').filter((l) => /FAIL/.test(l)).join('\n'));
+    }
+    check(simOk, 'menu-host-sim.cjs pasa (firmware real en host)');
+  } else {
+    skip('sin g++: no se simula el firmware ni se compara el lienzo con él');
   }
-  check(simOk, 'menu-host-sim.cjs pasa (firmware real en host)');
 
   const server = await serve();
   const { chromium } = loadPlaywright();
@@ -194,6 +207,7 @@ async function main() {
     const states = [['menu_root', null], ['menu_level2', 'ci'], ['menu_level3', 'h']];
     for (const [name, nodeKey] of states) {
       const ref = path.join(simDir, `${name}.rgb565`);
+      if (!HAS_GPP) continue;
       if (!fs.existsSync(ref)) { check(false, `${name}: falta la referencia del firmware`); continue; }
       const raw = fs.readFileSync(ref);
       const firmware = Array.from({ length: raw.length / 2 }, (_, i) => raw.readUInt16LE(i * 2));
@@ -226,20 +240,24 @@ async function main() {
     check(!/HMIFieldId[\s\S]*MENU_AJUSTES[\s\S]*\};/.test(h.slice(0, h.indexOf('// Variables HMI'))), 'el MENU no ocupa un HMIFieldId');
     check((h.match(/JWPLC_Display\.setMenus\(/g) || []).length === 1, 'setMenus aparece una sola vez (parche idempotente)');
 
-    const cPath = path.join(OUT, 'menu_header.cpp');
-    fs.writeFileSync(cPath, '#include "JWPLC_HMI_Generated.h"\nint main() { jwplcHMISetup(); jwplcUIUpdate(); return 0; }\n');
-    let compiled = true;
-    let log = '';
-    try {
-      execFileSync('g++', ['-std=gnu++17', '-fsyntax-only', '-Wall', `-I${OUT}`, `-I${STUB}`,
-        `-I${path.join(LIBS, 'JWPLC_Display', 'src')}`, `-I${path.join(LIBS, 'JWPLC_TFT', 'src')}`, cPath], { stdio: 'pipe' });
-    } catch (error) {
-      compiled = false;
-      log = String(error.stderr || error.message).split('\n').slice(0, 8).join('\n');
+    if (HAS_GPP && HAS_NM) {
+      const cPath = path.join(OUT, 'menu_header.cpp');
+      fs.writeFileSync(cPath, '#include "JWPLC_HMI_Generated.h"\nint main() { jwplcHMISetup(); jwplcUIUpdate(); return 0; }\n');
+      let compiled = true;
+      let log = '';
+      try {
+        execFileSync('g++', ['-std=gnu++17', '-fsyntax-only', '-Wall', `-I${OUT}`, `-I${STUB}`,
+          `-I${path.join(LIBS, 'JWPLC_Display', 'src')}`, `-I${path.join(LIBS, 'JWPLC_TFT', 'src')}`, cPath], { stdio: 'pipe' });
+      } catch (error) {
+        compiled = false;
+        log = String(error.stderr || error.message).split('\n').slice(0, 8).join('\n');
+      }
+      check(compiled, `el header compila contra los headers reales${compiled ? '' : `\n${log}`}`);
+      const nm = execFileSync('nm', ['-C', path.join(LIBS, 'JWPLC_Display', 'src', 'esp32', 'libJWPLC_Display.a')]).toString();
+      check(/ T JWPLC_DisplayClass::setMenus\(/.test(nm) && / T JWPLC_UIMenuEditNum\(/.test(nm), 'setMenus y los constructores existen en libJWPLC_Display.a');
+    } else {
+      skip('sin g++/nm: no se compila el header ni se revisan los símbolos del .a');
     }
-    check(compiled, `el header compila contra los headers reales${compiled ? '' : `\n${log}`}`);
-    const nm = execFileSync('nm', ['-C', path.join(LIBS, 'JWPLC_Display', 'src', 'esp32', 'libJWPLC_Display.a')]).toString();
-    check(/ T JWPLC_DisplayClass::setMenus\(/.test(nm) && / T JWPLC_UIMenuEditNum\(/.test(nm), 'setMenus y los constructores existen en libJWPLC_Display.a');
 
     check(errors.length === 0, `sin errores de consola${errors.length ? `: ${errors.slice(0, 3).join(' | ')}` : ''}`);
   } finally {

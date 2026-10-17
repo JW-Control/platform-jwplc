@@ -31,7 +31,7 @@ A15_1_CODEGEN_COMPILE=PASS (host g++/nm; arduino-cli en A15-4)
 A15_2_PERSISTENCE_PAGES=PASS
 A15_3_STATIC_OUT_OF_TICK=PASS (tiempos de bus en A15-9)
 A15_4_DESIGNER_CI=PASS_ESP32_COMPILE (smoke host + arduino-cli ESP32 en la nube; falta automatizar en CI)
-A15_5_PURE_CODEGEN_TESTS=PENDING
+A15_5_PURE_CODEGEN_TESTS=PASS_PARTIAL (golden 5/5 + núcleo en node; estática/NAV/PixelMap aún por capas)
 A15_6_JWHMI_V2_MODES_HOST=PENDING
 A15_7A_BAR_FINISH=PASS (A15_7_INSPECTOR_CLOSE_20261017; paridad lienzo/firmware 16/16)
 A15_7B_VALUE=PASS
@@ -133,3 +133,7 @@ MENU_NODE_COUNT_LIMIT=64 por menú, 4 menús, 1 por página (9 nodos = +952 B RA
   herramienta MENU, inspector con árbol, codegen con `#error` de versión. Gates `A15_8_Menu` (a mano)
   y `A15_8_Menu_Designer` compilan para ESP32. Corregido: duplicado de `jwplcUIUpdate()` en una
   segunda pasada del codegen sin gráfica estática.
+- 2026-10-17 — A15-5 parcial (`A15_5_PURE_CODEGEN_TESTS_20261017.md`): golden tests de 5 proyectos
+  generados antes de refactorizar, núcleo `designer-codegen-core.js` (bloques de campos) usado por
+  app/bool/bar, MENU ejecutable en node, `tests/codegen-core.test.cjs` y `tests/run-all.cjs`
+  (omite lo que requiere g++). El golden detectó y evitó una regresión en BAR durante la extracción.

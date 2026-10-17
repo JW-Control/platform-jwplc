@@ -77,19 +77,6 @@
     return /^[A-Za-z_]/.test(cleaned) ? cleaned : `_${cleaned}`;
   }
 
-  function cppString(value) {
-    return String(value || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-  }
-
-  function cppBool(value) {
-    return value ? 'true' : 'false';
-  }
-
-  function hex565(value) {
-    const num = Number(value);
-    return `0x${(Number.isFinite(num) ? num & 0xFFFF : 0).toString(16).toUpperCase().padStart(4, '0')}`;
-  }
-
   function ensureBoolState(field) {
     if (!field || field.type !== 'BOOL') return;
     if (typeof field.falseText !== 'string') field.falseText = 'OFF';
@@ -201,12 +188,11 @@
     boolButton.classList.add('active');
   }
 
+  // A15-5: la definición C++ vive en designer-codegen-core.js.
   function boolFieldBlock(field) {
     ensureBoolState(field);
     const id = sanitizeSymbol(field.id, `FIELD_BOOL_${serialFor(field)}`);
-    const label = field.label ? `"${cppString(field.label)}"` : 'nullptr';
-    const unit = field.unit ? `"${cppString(field.unit)}"` : 'nullptr';
-    return `    JWPLC_UIBoolField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        JWPLC_UIText(${label}, ${unit}),\n        JWPLC_UIBoolText(\n            "${cppString(field.falseText)}",\n            "${cppString(field.trueText)}"),\n        JWPLC_UIBoolStyle(\n            ${field.valueSize},\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout},\n            JWPLC_UI_ALIGN_${field.align}),\n        ${field.page || 0},\n        JWPLC_UIColors(\n            ${hex565(field.labelColor)},\n            ${hex565(field.valueColor)},\n            ${hex565(field.backgroundColor)},\n            ${hex565(field.frameColor)}))`;
+    return window.JWPLCHMICodegenCore.boolFieldBlock(field, id);
   }
 
   function replaceHelperCall(text, id, replacement) {

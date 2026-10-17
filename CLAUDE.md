@@ -158,6 +158,9 @@ for f in tools/jwplc-hmi-designer/poc/*.js; do node --check "$f" || echo "FAIL $
 # smoke test del codegen: genera headers en Chromium headless y los compila
 # (g++ -fsyntax-only) contra los headers reales + verifica símbolos en los .a
 node tools/jwplc-hmi-designer/tests/codegen-smoke.cjs
+node tools/jwplc-hmi-designer/tests/run-all.cjs           # todos los tests + resumen
+node tools/jwplc-hmi-designer/tests/codegen-golden.cjs    # header == tests/golden (--update si es intencional)
+node tools/jwplc-hmi-designer/tests/codegen-core.test.cjs # codegen puro en node, sin navegador
 node tools/jwplc-hmi-designer/tests/inspector-smoke.cjs   # inspector TEXT/VALUE/BOOL/BAR
 node tools/jwplc-hmi-designer/tests/menu-host-sim.cjs     # MENU: firmware real en host (g++)
 node tools/jwplc-hmi-designer/tests/menu-smoke.cjs        # MENU: Designer + paridad con el firmware

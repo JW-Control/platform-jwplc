@@ -628,7 +628,8 @@
   // Inspector
   // ---------------------------------------------------------------------------
 
-  const anchor = document.getElementById('textFieldControlsSection');
+  // Sin DOM (node/vm en tests/codegen-core.test.cjs) sólo se publica la parte pura.
+  const anchor = typeof document !== 'undefined' ? document.getElementById('textFieldControlsSection') : null;
   if (!anchor) {
     window.JWPLCHMIMenu = { createDefault, ensureState, paint, renderToArray, layout, generate, validate, patchHeader, dfsOrder };
     return;

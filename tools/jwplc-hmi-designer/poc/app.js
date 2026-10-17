@@ -1994,14 +1994,6 @@
     return /^[A-Za-z_]/.test(cleaned) ? cleaned : `_${cleaned}`;
   }
 
-  function cppString(value) {
-    return String(value || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-  }
-
-  function cppBool(value) {
-    return value ? 'true' : 'false';
-  }
-
   function fieldFallbackId(field, index) {
     if (field.type === 'VALUE') return `FIELD_VALUE_${index + 1}`;
     if (field.type === 'BOOL') return `FIELD_BOOL_${index + 1}`;
@@ -2023,20 +2015,13 @@
     return `char ${variable}[${Math.max(1, field.capacity) + 1}] = {};`;
   }
 
+  // A15-5: la definición C++ de cada campo vive en designer-codegen-core.js.
+  // BOOL y BAR salen aquí como JWPLC_UITextField provisional: sus capas
+  // (designer-bool/-bar) normalizan el campo y reemplazan esa llamada.
   function fieldContract(field, index) {
     const id = sanitizeSymbol(field.id, fieldFallbackId(field, index));
-    const layout = `JWPLC_UI_LAYOUT_${field.layout}`;
-    const align = `JWPLC_UI_ALIGN_${field.align}`;
-    const frame = cppBool(field.frame);
-    const label = field.label ? `"${cppString(field.label)}"` : 'nullptr';
-    const unit = field.unit ? `"${cppString(field.unit)}"` : 'nullptr';
-    const colors = `JWPLC_UIColors(\n            ${hex565(field.labelColor)},\n            ${hex565(field.valueColor)},\n            ${hex565(field.backgroundColor)},\n            ${hex565(field.frameColor)})`;
-
-    if (field.type === 'VALUE') {
-      return `    JWPLC_UIValueField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        JWPLC_UIText(${label}, ${unit}),\n        JWPLC_UIValueFormat(\n            ${Math.max(1, field.integerDigits)},\n            ${Math.max(0, field.decimalDigits)},\n            ${cppBool(field.signedValue)},\n            ${cppBool(field.leadingZeros)}),\n        JWPLC_UIValueStyle(\n            ${field.valueSize},\n            ${field.labelSize},\n            ${frame},\n            ${layout},\n            ${align}),\n        ${field.page},\n        ${colors})`;
-    }
-
-    return `    JWPLC_UITextField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        JWPLC_UIText(${label}, ${unit}, ${field.capacity}),\n        JWPLC_UITextFieldStyle(\n            ${field.valueSize},\n            ${field.labelSize},\n            ${frame},\n            ${layout},\n            ${align}),\n        ${field.page},\n        ${colors})`;
+    const core = window.JWPLCHMICodegenCore;
+    return field.type === 'VALUE' ? core.valueFieldBlock(field, id) : core.textFieldBlock(field, id);
   }
 
   function setterHint(field, index) {

@@ -950,20 +950,6 @@
       `JWPLC_Display.setBar(${id}, ${varName});`;
   }
 
-  function cppString(value) {
-    return String(value || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-  }
-
-  function cppBool(value) {
-    return value ? 'true' : 'false';
-  }
-
-  function cppFloat(value) {
-    const number = Number(value);
-    if (!Number.isFinite(number)) return '0.0f';
-    return `${Number.isInteger(number) ? number.toFixed(1) : String(number)}f`;
-  }
-
   function hex565(value) {
     if (value === 'TRANSPARENT' || value === -1) return 'TRANSPARENT';
     return `0x${(Number(value || 0) & 0xFFFF).toString(16).toUpperCase().padStart(4, '0')}`;
@@ -3366,30 +3352,12 @@
     barButton.classList.add('active');
   }
 
+  // A15-5: la definición C++ vive en designer-codegen-core.js; aquí sólo se
+  // normaliza el campo a lo que dibuja el firmware.
   function barFieldBlock(field) {
     ensureBarState(field);
     const id = sanitizeSymbol(field.id, `FIELD_BAR_${serialFor(field)}`);
-    const label = (field.showLabel && field.barLabel) ? `"${cppString(field.barLabel)}"` : 'nullptr';
-    const unit = field.barUnit ? `"${cppString(field.barUnit)}"` : 'nullptr';
-    const g = barGeometry(field);
-
-    // A15-1: JWPLC_UICircularField y JWPLC_UIGradientBarField no existen en
-    // JWPLC_UI (firmware publicado). Se emite la barra lineal soportada y se
-    // deja constancia en el header; la UI deshabilita esas variantes.
-    const isCircular = field.barPreset === 'CIRCULAR';
-    const isGrad = (field.barFillMode === 'GRADIENT' || field.barPreset === 'GRADIENT');
-    const bCol = Number.isFinite(Number(field.barBorderColor)) ? Number(field.barBorderColor) : 0xFFFF;
-    const borderComment = field.barBorderEnabled ? `, Borde: ${hex565(bCol)} (${field.barBorderWidth || 1}px)` : '';
-    const unsupportedNote = isCircular
-      ? '    // AVISO: medidor circular requiere firmware (Alpha13); se genera barra lineal.\n'
-      : (isGrad ? '    // AVISO: degradado requiere firmware (Alpha13); se genera color sólido.\n' : '');
-    const styleHeader = `${unsupportedNote}    // Barra Sólida (${field.barOrientation || 'HORIZONTAL'}) - Estilo: ${field.barStyle || 'SOLID'}, Radio: ${field.barCornerRadius || 0}${borderComment}\n`;
-    const rect = field.barAutoWidth
-      ? `JWPLC_UIRect(${field.x}, ${field.y})`
-      : `JWPLC_UIRect(${field.x}, ${field.y}, ${Math.max(20, Math.min(WIDTH, Math.trunc(Number(field.barWidth) || 110)))}, ${field.barOrientation === 'VERTICAL' ? Math.max(10, Math.trunc(Number(field.barHeight) || 60)) : 'JWPLC_UI_AUTO'})`;
-
-    return `${styleHeader}` +
-           `    JWPLC_UIBarField(\n        ${id},\n        ${rect},\n        JWPLC_UIText(${label}, ${unit}),\n        JWPLC_UIRange(${cppFloat(field.barMin)}, ${cppFloat(field.barMax)}),\n        JWPLC_UIBarStyle(\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout}),\n        ${field.page || 0},\n        JWPLC_UIColors(\n            ${hex565(field.labelColor)},\n            ${hex565(field.valueColor)},\n            ${hex565(field.trackColor || field.backgroundColor)},\n            ${hex565(field.frameColor)}))`;
+    return window.JWPLCHMICodegenCore.barFieldBlock(field, id);
   }
 
   function replaceHelperCall(text, id, replacement) {

@@ -16,7 +16,7 @@ de `index.html` e inyecta los scripts en orden.
 ## Orden de carga de módulos (importa)
 
 ```text
-index.html:      gfx-classic-font -> designer-fonts-data -> designer-fonts -> app -> ux-foundation -> designer-codegen
+index.html:      gfx-classic-font -> designer-fonts-data -> designer-fonts -> designer-codegen-core -> app -> ux-foundation -> designer-codegen
 ux-foundation:   designer-bool -> designer-bar -> designer-field-inspector -> (designer-menu) -> designer-field-visibility -> designer-pages -> designer-live
 field-visibility: designer-inspector-state, designer-pixelmap-compat -> designer-pixelmap -> designer-pixelmap-stability
 desktop.html:    designer-project, designer-native-project, designer-project-integration-fix,
@@ -78,8 +78,11 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
 - Ids de página siempre contiguos `0..N-1` (`deletePage` renumera; abrir normaliza).
 - NAV_BAR existe sólo si hay un objeto NAV_BAR visible.
 - Capas: `layerOrder` menor = más al frente; la estática se emite en orden descendente.
-- Tras tocar el codegen: `node tools/jwplc-hmi-designer/tests/codegen-smoke.cjs`.
-- Tras tocar JS/CSS: subir `?v=` (hoy 1792400000) en `index.html`/`desktop.html`/`ux-foundation.js`/
+- Definición C++ de cada campo: `poc/designer-codegen-core.js` (puro, también en node). `app.js`
+  emite TEXT/VALUE; BOOL/BAR salen como `JWPLC_UITextField` provisional que reemplazan sus capas.
+- Tras tocar el codegen: `node tests/codegen-golden.cjs` (salida byte a byte) y
+  `node tests/codegen-smoke.cjs`. Un cambio intencional: `--update` y revisar el diff.
+- Tras tocar JS/CSS: subir `?v=` (hoy 1792500000) en `index.html`/`desktop.html`/`ux-foundation.js`/
   `designer-field-visibility.js` y `CACHE_NAME` en `service-worker.js`.
 
 ## Probar sin hardware

@@ -1,0 +1,2 @@
+# Los golden se comparan byte a byte con el header que genera el Designer (LF).
+*.h text eol=lf

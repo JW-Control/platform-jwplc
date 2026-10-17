@@ -1,26 +1,47 @@
 # Tests del HMI Designer
 
-## `codegen-smoke.cjs`
-
-Verifica sin hardware que el header generado compila contra el package:
+Todo se corre desde la raíz del repo. Para ejecutar todos y ver un resumen:
 
 ```bash
-node tools/jwplc-hmi-designer/tests/codegen-smoke.cjs [carpeta-salida]
+node tools/jwplc-hmi-designer/tests/run-all.cjs
 ```
 
-Qué hace:
+Sin `g++` (por ejemplo Windows sin MSYS2) se omiten los pasos que compilan C++; el resto corre igual.
 
-1. sirve `poc/` en `127.0.0.1` y abre `desktop.html` en Chromium headless (Playwright);
-2. carga proyectos de prueba (3 páginas + NAV_BAR + todas las figuras + BAR circular/degradado
-   + fuente no GLCD; borrado de página intermedia; proyecto legado con ids `[0, 2]`;
-   proyecto sólo con figuras) y genera `JWPLC_HMI_Generated.h`;
-3. compila cada header con `g++ -std=gnu++17 -fsyntax-only -Wall` contra los headers
-   **reales** de `JWPLC_Display`, `JWPLC_UI` y `JWPLC_TFT`;
-4. comprueba con `nm -C` que cada llamada `tft.*` / `JWPLC_Display.*` emitida exista en
-   `libJWPLC_Display.a` / `libJWPLC_TFT.a`.
+| Test | Qué verifica | Requiere |
+|---|---|---|
+| `codegen-core.test.cjs` | Núcleo puro (`poc/designer-codegen-core.js`) y codegen/validación del MENU (`poc/designer-menu.js`) en node, sin navegador. Con g++: compila el resultado y compara el pintor del MENU con el firmware simulado. | node (+ g++ opcional) |
+| `codegen-golden.cjs` | El header generado para cada proyecto de `fixtures.cjs` es idéntico a `golden/<n>.h`. Si el cambio es intencional, `--update` y revisar el diff en git. | Playwright |
+| `inspector-smoke.cjs` | Inspector TEXT/VALUE/BOOL operado como usuario (tarjetas, chips, paleta, páginas, undo). BAR: opciones sin firmware deshabilitadas y geometría del lienzo == `computeFieldGeometry()` del firmware (16 casos). | Playwright |
+| `menu-smoke.cjs` | MENU: herramienta, inspector del árbol, undo, guardar/abrir, profundidad 3, header. Con g++: lienzo == framebuffer del firmware píxel a píxel y el header compila. | Playwright (+ g++, nm) |
+| `menu-host-sim.cjs` | Compila el `JWPLC_UI_Menu.cpp` real con g++ contra stubs (`menu-host/stub`) y recorre un guion de teclas (39 verificaciones). Guarda capturas PNG del framebuffer. | g++ |
+| `codegen-smoke.cjs` | Headers de varios proyectos compilan con `g++ -fsyntax-only` contra los headers reales y cada llamada existe en los `.a` (`nm`). | Playwright, g++, nm, python3 |
 
-Requisitos: Node 18+, Playwright (local o global), Chromium, `g++`, `nm`, `python3`.
+`host-stub/` y `menu-host/stub/` sólo reemplazan `Arduino.h`, la botonera, la TFT y los
+periféricos que no intervienen. No sustituyen la compilación real para ESP32
+(`tools/alpha15/regenerate_libJWPLC_TFT.sh compile <sketch>`) ni la prueba en la placa.
 
-`host-stub/` sólo reemplaza `Arduino.h` (clase `Print` mínima) y los periféricos que
-`JWPLC_Display.h` incluye pero que el header generado no usa. No sustituye la compilación
-real con `arduino-cli` para ESP32 (gate A15-4) ni la prueba en hardware (A15-9).
+## Windows (PowerShell)
+
+Una sola vez:
+
+```powershell
+npm install -g playwright
+npx playwright install chromium
+```
+
+Cada vez:
+
+```powershell
+git switch v2.1.0-alpha.15-HmiDesigner
+git pull origin v2.1.0-alpha.15-HmiDesigner
+node tools\jwplc-hmi-designer\tests\run-all.cjs
+```
+
+Si `npm root -g` no encuentra Playwright, instálalo en el repo (`npm install playwright`)
+y vuelve a correr el comando.
+
+## Linux / nube
+
+Playwright global y Chromium en `/opt/pw-browsers` (ya configurado en la nube). Para la
+compilación ESP32 real ver `CLAUDE.md` §6.
