@@ -58,6 +58,8 @@ static void handleCommand(const char* msg) {
       Serial.print(" CODE=");Serial.println((int)status);
       return; // 2 BUS_BUSY nunca es un CLOSED confirmado.
     }
+    Serial.print("G10R_SOCK_BEGIN:");Serial.print(token);
+    Serial.print(" T_MS=");Serial.println(millis());
     for (uint8_t i=0;i<8;++i) {
       Serial.print("G10R_SOCK:");Serial.print(token);
       Serial.print(" SID=");Serial.print(slots[i].socketIndex);
@@ -67,6 +69,7 @@ static void handleCommand(const char* msg) {
       Serial.print(" PENDING=");Serial.print(slots[i].pendingCloseAllocation);
       Serial.print(" VALID=");Serial.println(slots[i].valid?1:0);
     }
+    Serial.print("G10R_SOCK_END:");Serial.println(token);
     return;
   }
   if (active || strncmp(msg,prefix,sizeof(prefix)-1)!=0) return;
