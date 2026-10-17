@@ -38,6 +38,9 @@ R4_SECONDS=1805
 R2_FAULT_SECONDS=12
 R2_RECOVERY_SECONDS=96
 AUTH="G10R AUTORIZO CAPTURA COM4 COM14 Y MANIOBRAS RJ45"
+# Estado intencionalmente fail-closed: R3 no cuenta con inyector físico
+# source-backed aprobado ni orquestación dedicada. R1/R2/R4 no lo sustituyen.
+R3_PHYSICAL_INJECTION_READY=False
 READY_RE=re.compile(r"^G10R_READY:IP=(\d{1,3}(?:\.\d{1,3}){3}) TCP=1 UDP=1 RTU=1 BOOT=([0-9A-Fa-f]+) LINK=([012]) VER=R1R2R4_R3SNAPSHOT_V1$")
 HB_RE=re.compile(r"^G10R_HEARTBEAT:([0-9a-f]{24}) (.*)$")
 FIELDS={"HB":"hb","BOOT":"boot","IP":"ip","LINK":"link","ETH":"eth",
@@ -486,7 +489,9 @@ def plan()->dict:
       "phases":{"R1_seconds":R1_SECONDS,"R2_cycles":3,
                 "R2_fault_seconds":R2_FAULT_SECONDS,
                 "R4_seconds":R4_SECONDS},
-      "R3":"SEPARATE_SOURCE_INSTRUMENTATION_NOT_QUALIFIED_BY_R1_R4"}
+      "R3":"INTEGRATED_PHYSICAL_INJECTION_NOT_IMPLEMENTED",
+      "physical_campaign_enabled":R3_PHYSICAL_INJECTION_READY,
+      "live": "FAIL_CLOSED_R3_MISSING"}
 
 
 def selftest()->int:
@@ -606,12 +611,16 @@ def selftest()->int:
         "R3_OUT_OF_RANGE_SOCKET_ACCEPTED")
     require(plan()["hardware"]=="NOT_ACCESSED",
             "DRY_RUN_IMPLICIT_HARDWARE")
+    require(R3_PHYSICAL_INJECTION_READY is False,
+            "SELFTEST_MUST_REJECT_INCOMPLETE_PHYSICAL_CAMPAIGN")
     print("G10_R_FIELD_SELFTEST=PASS_6_NEGATIVE_SERIAL_CASES")
     print("G10_R_FIELD_HARDWARE=NOT_ACCESSED")
     return 0
 
 
 def live(evidence:Path)->int:
+    require(R3_PHYSICAL_INJECTION_READY,
+            "G10R_PHYSICAL_BLOCKED_R3_PHASE_MISSING_IN_INTEGRATED_CAMPAIGN")
     require(os.name=="nt","WINDOWS_ONLY")
     proven=inspect_evidence(evidence)
     # El archivo aportado se considera EVIDENCIA EXTERNA; NO confirma
