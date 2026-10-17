@@ -8,6 +8,7 @@ on:
       - 'tools/alpha13/gates/a13_g10_r_tcp124_router.py'
       - 'tools/alpha13/gates/a13_g10_r_tcp124_uart_contract.py'
       - 'tools/alpha13/gates/a13_g10_r_tcp124_collector.py'
+      - 'tools/alpha13/gates/a13_g10_r_tcp124_join.py'
       - 'tools/alpha13/gates/a13_g10_r_field_runner.py'
       - '.github/workflows/alpha13-preh-tcp124-offline.yml'
   workflow_dispatch:
@@ -43,3 +44,8 @@ jobs:
 
       - name: TCP UART collector fail-closed
         run: python tools/alpha13/gates/a13_g10_r_tcp124_collector.py --selftest
+
+      - name: PC UART socket lifecycle join (fixtures y mutantes)
+        run: python tools/alpha13/gates/a13_g10_r_tcp124_join.py --selftest
+      - name: Runner de campo modo selftest (sin COM)
+        run: python tools/alpha13/gates/a13_g10_r_field_runner.py --selftest
