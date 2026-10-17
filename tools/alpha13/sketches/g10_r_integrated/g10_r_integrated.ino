@@ -45,6 +45,7 @@ static std::atomic_flag tcpRowsBusy=ATOMIC_FLAG_INIT;
 static std::atomic<uint32_t> tcpDropped{0};
 static uint32_t tcpSequence=0;
 static std::atomic<uint32_t> tcpSession{0};
+static std::atomic<uint32_t> tcpSessionStartSeq{0};
 extern "C" void g10rLabTcpRequest(uint16_t tid, uint8_t sid) {
   if (!active || sid>=8) return;
   jwplc_w5500_candidate::LabSocketSnapshot slots[8];
@@ -186,12 +187,13 @@ static void handleCommand(const char* msg) {
     const char* p=msg+sizeof(tcpCmd)-1;
     if (!active || strlen(p)!=24 || strcmp(p,token)!=0) return;
     G10RTcpRow batch[32];uint8_t n=0;
-    uint32_t dropped=0;
+    uint32_t dropped=0;bool overflow=false;
     if (tcpRowsBusy.test_and_set(std::memory_order_acquire)) {
       Serial.print("G10R_TCP_STATUS:");Serial.print(token);
       Serial.println(" CODE=BUSY");return;
     }
     dropped=tcpDropped.load(std::memory_order_relaxed);
+    overflow=(tcpSequence-tcpSessionStartSeq.load(std::memory_order_acquire)>32);
     const uint32_t oldest=tcpSequence>32?tcpSequence-31:1;
     for (uint32_t seq=oldest;seq<=tcpSequence;++seq) {
       const G10RTcpRow &e=tcpRows[(seq-1)%32];
@@ -200,7 +202,8 @@ static void handleCommand(const char* msg) {
     tcpRowsBusy.clear(std::memory_order_release);
     Serial.print("G10R_TCP_HEAD:");Serial.print(token);
     Serial.print(" COUNT=");Serial.print(n);
-    Serial.print(" DROPPED=");Serial.println(dropped);
+    Serial.print(" DROPPED=");Serial.print(dropped);
+    Serial.print(" OVERFLOW=");Serial.println(overflow?1:0);
     for (uint8_t i=0;i<n;++i) {
       const auto &e=batch[i];
       Serial.print("G10R_TCP_OBS:");Serial.print(token);
@@ -390,6 +393,7 @@ static void handleCommand(const char* msg) {
   useRtu=(p[29]=='1');
   hb=sdOk=sdFail=udpRx=udpTx=rtuOk=rtuFail=btnEvents=framReads=0;
   lastSample=lastRtu=lastReport=millis();
+  tcpSessionStartSeq.store(tcpSequence,std::memory_order_release);
   tcpSession.fetch_add(1,std::memory_order_acq_rel); // sesión atómica.
   active=true;startMs=millis();
   r3Armed=r3CloseAttempted=r3ClosedWhileHeld=r3FinishPrinted=false;
