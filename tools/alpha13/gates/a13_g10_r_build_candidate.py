@@ -129,13 +129,13 @@ def build(cli: str, *, upload: bool = False) -> None:
     # OFFER, REQUEST, renovación de lease ni tocar el manager global.
     dhcp_header=("JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/"
                  "JWPLC_W5x00_Ethernet.h")
-    friend_anchor="class DhcpClass {\\nprivate:"
+    friend_anchor="class DhcpClass {\nprivate:"
     require(dhcp_header in files and
             files[dhcp_header].count(friend_anchor)==1,
             "G10R_DHCP_LAB_FRIEND_HEADER_DRIFT")
     files[dhcp_header]=files[dhcp_header].replace(
         friend_anchor,
-        friend_anchor+"\\n    friend class G10RLabDhcpProbe; "
+        friend_anchor+"\n    friend class G10RLabDhcpProbe; "
         "// solo stage del bench, no API producto",1)
     require("LabEventResult labReadEvents(" in files[trace.C],
             "R3_TRACE_NOT_LINKED")
