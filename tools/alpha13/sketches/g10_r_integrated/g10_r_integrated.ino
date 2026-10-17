@@ -38,7 +38,17 @@ static EthernetUDP r3ProbeUdp;
 static DNSClient r3ProbeDns;
 static IPAddress r3ProbeDnsResult;
 static EthernetClient r3ProbeTcp;
-static uint8_t r3Mode=0; // 1 UDP, 2 DNS, 3 TCP; ningun DHCP en LAN activa.
+// Esta clase es amiga UNICAMENTE del overlay staged de G10-R;
+// nunca existe en la API/producto. No envía paquetes DHCP.
+class G10RLabDhcpProbe {
+public:
+  static bool arm(DhcpClass& d) {
+    return d._dhcpUdpSocket.begin(15023)==1;
+  }
+  static void finish(DhcpClass& d) { d.finishAsync(); }
+};
+static DhcpClass r3ProbeDhcp;
+static uint8_t r3Mode=0; // 1 UDP, 2 DNS, 3 TCP, 4 DHCP cancel, 5 DHCP finish.
 static std::atomic<uint8_t> r3HoldState{0}; // 0 idle; 1 held; 2 released; 3 lock denied
 static std::atomic<uint32_t> r3HoldDurationUs{0}; // duracion REAL, no presupuesto garantizado
 static bool r3Armed=false, r3CloseAttempted=false, r3ClosedWhileHeld=false;
@@ -68,6 +78,8 @@ static void r3HoldW5500(void*) {
 static const char* r3PrefixByMode() {
   if (r3Mode==2) return "G10R_R3_DNS:";
   if (r3Mode==3) return "G10R_R3_TCP:";
+  if (r3Mode==4) return "G10R_R3_DHCP_CANCEL:";
+  if (r3Mode==5) return "G10R_R3_DHCP_FINISH:";
   return "G10R_R3_UDP:";
 }
 static void r3Report(const char* state) {
@@ -77,6 +89,8 @@ static void r3Report(const char* state) {
 static void r3Cleanup() {
   if (r3Mode==2) r3ProbeDns.cancelResolveAsync();
   else if (r3Mode==3) r3ProbeTcp.cancelConnectAsync();
+  else if (r3Mode==4) r3ProbeDhcp.cancelDHCP();
+  else if (r3Mode==5) G10RLabDhcpProbe::finish(r3ProbeDhcp);
   else r3ProbeUdp.stop();
 }
 
@@ -142,6 +156,10 @@ static void handleCommand(const char* msg) {
     r3Prefix="G10R_R3_DNS:";mode=2;
   } else if (strncmp(msg,"G10R_R3_TCP:",12)==0) {
     r3Prefix="G10R_R3_TCP:";mode=3;
+  } else if (strncmp(msg,"G10R_R3_DHCP_CANCEL:",20)==0) {
+    r3Prefix="G10R_R3_DHCP_CANCEL:";mode=4;
+  } else if (strncmp(msg,"G10R_R3_DHCP_FINISH:",20)==0) {
+    r3Prefix="G10R_R3_DHCP_FINISH:";mode=5;
   }
   if (r3Prefix) {
     const char* requested=msg+strlen(r3Prefix);
@@ -175,6 +193,11 @@ static void handleCommand(const char* msg) {
             // servidor TCP real ni modifica los servidores del PLC.
             openState=r3ProbeTcp.beginConnectAsync(
                 IPAddress(198,18,0,1),15022);
+          } else if (r3Mode==4 || r3Mode==5) {
+            // Prueba REAL de cancel/finish de DhcpClass, SIN llamar
+            // beginWithDHCP ni EthernetClass::cancelDHCP.
+            // El UDP temporal port 15023 NO hace DHCP DISCOVER.
+            openState=G10RLabDhcpProbe::arm(r3ProbeDhcp)?0:-1;
           }
           if (openState>=0) {
             const auto b=jwplc_w5500_candidate::labCaptureSockets(after,8,0);
