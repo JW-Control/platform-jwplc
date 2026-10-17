@@ -59,3 +59,20 @@ G10-R-BENCH=UP_TO_2_JWPLC_PLUS_PC_AND_ROUTER
 A13-006=ADOPTION_BLOCKED
 NEXT_GATE=TCP124_EVENT_PRODUCER_AND_CAPTURE_SOURCE_INTEGRATION
 ```
+
+
+## Implementación host TCP con sockets reales, exclusivamente loopback (17/oct/2026)
+
+- `tools/alpha13/gates/a13_g10_r_tcp124_host.py` ejecuta 1/2/4 clientes TCP usando sockets reales **127.0.0.1**, un servidor FC03 sintético que responde a cada transacción y una barrera de inicio. La prueba espera la recepción de respuesta correcta de todos los clientes antes de liberar conexiones; registra intervalos monotónicos de socket abierto y calcula `active_peak`.
+- Se añadió al workflow dirigido Windows/Ubuntu. Este test verifica simultaneidad de sockets host, **no** la librería Ethernet del package, no sesiones TCP del W5500, no trazas de lease W5500 y no genera tráfico físico.
+- Los tests antiguos de contrato host son sintéticos; el nuevo selftest ejercita sockets reales de loopback, pero todavía **NO** sustituye la integración source-backed del generador/collector de PC con identidades observables del candidato.
+- Se verifica el CI del HEAD exacto, no se transfieren automáticamente PASS anteriores. No integrar en la rama Alpha15 ni habilitar hardware.
+
+```text
+TCP124_LOOPBACK_HOST=IMPLEMENTED_CI_PENDING
+TCP124_SOURCE_BACKED_W5500=NOT_IMPLEMENTED
+TCP124_PHYSICAL=NOT_RUN
+G10-R-R3_PHYSICAL_INJECTION_READY=FALSE
+G10-R-UPLOAD=BLOCKED
+NEXT_GATE=TCP124_HOST_CI_AND_LEASE_CORRELATION_DESIGN
+```
