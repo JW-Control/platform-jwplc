@@ -174,3 +174,29 @@ G10-R-R3-FAULT_INJECTION=NOT_IMPLEMENTED
 G10-R-ADOPTION=BLOCKED
 G10-R-NEXT=DESIGN_SOURCE_BACKED_LIFECYCLE_EVENT_STREAM_AND_PHYSICAL_SAFETY_REVIEW
 ```
+
+
+## 10. R3 — historial real de lifecycle en el overlay temporal (16/10/2026)
+
+La siguiente instrumentación se añadió **exclusivamente al overlay staged G10-I para el banco**, sin modificar fuentes de `JWPLC/2.1.0` ni contratos Arduino:
+
+- `tools/alpha13/gates/a13_g10_r_trace.py`: composición source-first sobre los 14 archivos de G10-I + snapshots R3 previos. Solo modifica el contenido temporal de **`JWPLC_W5500_SafeAccess.h/.cpp`**. Emite eventos al producirse **Allocate, Recycle, CloseBusy, CloseImmediate, CloseStale, QueueRequest, DrainClose, DrainStale e Invalidate**. La identidad `epoch/allocation/owner` se toma del token real. **QueueRequest significa publicación/intentona de ticket, no CLOSE confirmado**. El reciclaje registra el propietario previo antes de sobrescribirlo.
+- El historial usa un anillo estático de **64 eventos** y un `atomic_flag` de adquisición **try-only**, sin UART, espera activa ni nueva toma del mutex SPI dentro de callbacks. Si la escritura no puede obtener el lock, un contador `dropped` explícito documenta la pérdida. El contador de secuencia no se reutiliza silenciosamente cuando llega a `UINT32_MAX`. La lectura `labReadEvents(after)` devuelve `Read`, `HistoryOverrun`, `Busy` o `Invalid`; se limita a 8 eventos por solicitud.
+- `tools/alpha13/sketches/g10_r_integrated/g10_r_integrated.ino`: comando `G10R_EVENTS:<token>:AFTER=<sequence>` limitado a la sesión activa. Responde `G10R_EVT_HEAD` con `CODE/COUNT/NEWEST/DROPPED`, hasta 8 `G10R_EVT` y `G10R_EVT_END`. La exportación no realiza writes SD/FRAM, no toca relés Q y no acciona GPIO4.
+- `tools/alpha13/gates/a13_g10_r_trace_host.py`: lector/validador UART con cursor por secuencia persistente entre fases; registra explícitamente **gap, overrun, dropped, timeout, respuesta parcial, batch solapado y campos corruptos**. No da PASS de R3 al faltar información.
+- `tools/alpha13/gates/a13_g10_r_trace_validate.py`: auditor OFFLINE de eventos históricos: impide cerrar propietario ajeno, reutilizar un lease sin reciclaje, drenar sin ticket observado, confundir `BUS_BUSY` con cierre, o dar por completa una traza con saltos de secuencia. Incluye **10 mutaciones negativas sintéticas**, distintas de las pruebas nativas C++.
+- `tools/alpha13/gates/a13_g10_r_field_runner.py`: registra `r3_lifecycle_trace` y `r3_semantic_verdict` de forma independiente de R1/R2/R4; mantiene los consentimientos de upload/captura separados. En caso de `INSTRUMENTATION_GAP` exige revisión y **nunca transforma coherencia de eventos en validación física R3**.
+- Suite C++ `native_g10_r_lab_snapshot_test.cpp`: ahora también valida el orden del historial real y reconoce su desbordamiento. El runner `a13_g10_r_r3_native.py` incorpora mutaciones C++ sobre tipo de QueueRequest, DrainClose y clasificación de overrun, además de cuatro mutantes previos de snapshots. La **CI del HEAD exacto de esta ampliación** debe cerrar antes de atribuir resultado.
+
+**Límites:** los eventos reflejan la ejecución del **SafeAccess** fuente real bajo mutex SPI **simulado** en host; solo en banco podrán atribuirse a firmware real. Se requiere fault injection determinista de DNS/DHCP/UDP bajo `SPI_BUSY`, evidencia fuente→ELF→upload y correlación temporal UART/PC. La lectura del ring no acredita el estado eléctrico del W5500. **R3 sigue sin PASS físico y `A13-006=ADOPTION_BLOCKED`.**
+
+```text
+G10-R-R3-LIFECYCLE=SOURCE_TRACE_RING_AND_HOST_SEMANTICS_IMPLEMENTED
+G10-R-R3-HISTORY_CAPACITY=64_EVENTS
+G10-R-R3-LOST_EVENTS=REVIEW_STOP_REQUIRED
+G10-R-R3-SOURCE_CI=PENDING_FINAL_HEAD
+G10-R-R3-PHYSICAL=NOT_RUN
+G10-R-R3-DNS_DHCP_SPI_BUSY_FAULT_INJECTION=NOT_RUN
+PRODUCT_MODIFIED=NO
+GPIO4_RESET=DISABLED
+```
