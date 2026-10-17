@@ -97,18 +97,54 @@ def native() -> None:
         cmd = [compiler, "-std=c++17", "-O0", "-Wall", "-Wextra",
                "-Werror", "-I", str(inc), "-I", str(root),
                str(src), str(TEST), "-o", str(executable)]
-        built = subprocess.run(cmd, capture_output=True, text=True,
-                               timeout=120, errors="replace")
-        require(built.returncode == 0 and executable.is_file(),
-                "R3_REAL_SOURCE_NATIVE_COMPILE_FAILED_" +
-                (built.stderr or built.stdout)[-1300:])
-        run = subprocess.run([str(executable)], capture_output=True,
-                             text=True, timeout=30, errors="replace")
+
+        def compile_and_run(version: str):
+            src.write_bytes(version.encode("utf-8"))
+            built = subprocess.run(cmd, capture_output=True, text=True,
+                                   timeout=120, errors="replace")
+            require(built.returncode == 0 and executable.is_file(),
+                    "R3_REAL_SOURCE_NATIVE_COMPILE_FAILED_" +
+                    (built.stderr or built.stdout)[-1300:])
+            return subprocess.run([str(executable)], capture_output=True,
+                                  text=True, timeout=30, errors="replace")
+
+        real = result[SOURCE]
+        run = compile_and_run(real)
         require(run.returncode == 0, "R3_REAL_SOURCE_NATIVE_FAILED_" +
                 (run.stderr or run.stdout)[-1300:])
         for line in EXPECTED:
             require(line in run.stdout, "R3_SOURCE_ASSERT_MISSING_" + line)
             print(line)
+
+        # Negativos con el MISMO test host y misma fuente compuesta,
+        # mutando una línea de instrumentación por vez.
+        mutants = [
+            ("PENDING_NOT_CAPTURED",
+             "out[index].pendingCloseAllocation =\\n"
+             "            g_pendingClose[index].load(std::memory_order_acquire);",
+             "out[index].pendingCloseAllocation = 0;",
+             "PENDING_TICKET_NOT_VISIBLE"),
+            ("BUS_BUSY_FALSE_CAPTURED",
+             "if (!bus) return LabCaptureOutcome::BusBusy;",
+             "if (!bus) return LabCaptureOutcome::Captured;",
+             "BUS_BUSY_NOT_DISTINGUISHED"),
+            ("EPOCH_ZEROED",
+             "out[index].epoch = slot.epoch;",
+             "out[index].epoch = 0;",
+             "INITIAL_SNAPSHOT_LEASE_MISMATCH"),
+            ("OWNER_ZEROED",
+             "out[index].ownerCookie = slot.owner;",
+             "out[index].ownerCookie = 0;",
+             "INITIAL_SNAPSHOT_LEASE_MISMATCH"),
+        ]
+        for label, before, after, rejection in mutants:
+            require(real.count(before) == 1,
+                    "R3_NATIVE_MUTATION_ANCHOR_DRIFT_" + label)
+            trial = compile_and_run(real.replace(before, after, 1))
+            require(trial.returncode != 0 and rejection in trial.stderr,
+                    "R3_NATIVE_MUTANT_NOT_REJECTED_" + label +
+                    "_" + trial.stderr[-600:])
+        print("G10_R_R3_SOURCE_MUTANTS=4_PASS_REJECTED")
     print("G10_R_R3_REAL_CPP_NATIVE=PASS_LINUX_HOST_NO_HARDWARE")
     print("G10_R_R3_PRODUCT_MODIFIED=NO")
 
