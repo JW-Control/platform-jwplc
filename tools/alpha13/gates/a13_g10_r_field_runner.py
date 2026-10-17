@@ -48,6 +48,9 @@ HB_RE=re.compile(r"^G10R_HEARTBEAT:([0-9a-f]{24}) (.*)$")
 FIELDS={"HB":"hb","BOOT":"boot","IP":"ip","LINK":"link","ETH":"eth",
         "TCP":"tcp","SD_OK":"sd_ok","SD_FAIL":"sd_fail","RTC":"rtc",
         "DHCP_STATE":"dhcp_state","DHCP_ERR":"dhcp_err",
+        "DHCP_TICKS":"dhcp_ticks","DHCP_PEND":"dhcp_pend",
+        "DHCP_RENEW_OK":"dhcp_renew_ok","DHCP_RENEW_FAIL":"dhcp_renew_fail",
+        "DHCP_REBIND_OK":"dhcp_rebind_ok","DHCP_REBIND_FAIL":"dhcp_rebind_fail",
         "IO_READY":"io_ready","IO_AGE_MS":"io_age_ms",
         "RTC_AGE_MS":"rtc_age_ms","TFT_READY":"tft_ready",
         "FRAM":"fram","RTU_OK":"rtu_ok","RTU_FAIL":"rtu_fail"}
@@ -675,6 +678,8 @@ def plan()->dict:
 def selftest()->int:
     sample=("G10R_HEARTBEAT:"+"a"*24+
       " HB=10 BOOT=abc123 IP=192.0.2.4 LINK=2 ETH=1 TCP=1 DHCP_STATE=6 DHCP_ERR=0"
+      " DHCP_TICKS=12 DHCP_PEND=1 DHCP_RENEW_OK=0 DHCP_RENEW_FAIL=0"
+      " DHCP_REBIND_OK=0 DHCP_REBIND_FAIL=0"
       " SD_OK=10 SD_FAIL=0 RTC=1 FRAM=10 UDP_RX=4 UDP_TX=4"
       " RTU_OK=8 RTU_FAIL=0 IO_READY=1 IO_AGE_MS=50 RTC_AGE_MS=70 TFT_READY=1 BTN_EVENTS=2")
     ev=parse_heartbeat(sample,"a"*24,"R2",12.4)
