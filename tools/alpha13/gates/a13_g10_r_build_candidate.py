@@ -21,6 +21,8 @@ FQBN = "jwplc_hbench:esp32:jwplcbasic"
 G10I = "a954cabd9c6e37876b59995a41ff0a449308ccd1"
 SKETCH_COM4 = ROOT / "tools/alpha13/sketches/g10_r_integrated"
 SKETCH_COM14 = ROOT / "tools/alpha13/sketches/g8_p4_slave"
+# Fail-closed hasta completar R3 físico DNS/DHCP/TCP + gate integrado.
+R3_COMPLETE_PHYSICAL_CAMPAIGN_READY = False
 
 
 def sha256(path: Path) -> str:
@@ -81,6 +83,9 @@ def guard_sketch() -> None:
 
 
 def build(cli: str, *, upload: bool = False) -> None:
+    if upload:
+        require(R3_COMPLETE_PHYSICAL_CAMPAIGN_READY,
+                "G10R_FLASH_BLOCKED_R3_FULL_CAMPAIGN_NOT_READY")
     require(Path.cwd().resolve() == ROOT, "RUN_FROM_REPO_ROOT")
     guard_sketch()
     if upload:
