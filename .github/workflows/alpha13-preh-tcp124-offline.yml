@@ -4,6 +4,7 @@ on:
     paths:
       - 'tools/alpha13/gates/a13_g10_r_tcp124_contract.py'
       - 'tools/alpha13/gates/a13_g10_r_tcp124_host.py'
+      - 'tools/alpha13/gates/a13_g10_r_tcp124_provenance.py'
       - '.github/workflows/alpha13-preh-tcp124-offline.yml'
   workflow_dispatch:
 jobs:
@@ -26,3 +27,6 @@ jobs:
 
       - name: Concurrent TCP loopback 1 2 4 (no PLC)
         run: python tools/alpha13/gates/a13_g10_r_tcp124_host.py --selftest
+
+      - name: Provenance fail-closed and eleven mutations (no hardware)
+        run: python tools/alpha13/gates/a13_g10_r_tcp124_provenance.py --selftest
