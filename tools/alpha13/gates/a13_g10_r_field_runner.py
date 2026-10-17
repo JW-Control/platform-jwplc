@@ -234,6 +234,15 @@ class Recorder:
         self.protocol_seen=False
         self.r3_snapshots=[]
         self._sock_batch=None
+        spec=importlib.util.spec_from_file_location(
+            "g10r_trace_collector",
+            ROOT/"tools/alpha13/gates/a13_g10_r_trace_host.py")
+        require(spec is not None and spec.loader is not None,
+                "R3_TRACE_COLLECTOR_UNAVAILABLE")
+        m=importlib.util.module_from_spec(spec)
+        sys.modules[spec.name]=m
+        spec.loader.exec_module(m)
+        self.trace=m.TraceCollector()
         self.slave_ready=False
         self.slave_report_token=""
         self.slave_result=None
@@ -277,6 +286,7 @@ class Recorder:
                             self.latest=hb
                             self.events.append(hb)
                         self.capture_socket_line(line,at)
+                        self.trace.receive(line,at)
                 elif name=="COM14":
                     if line=="G8_P4_READY:SLAVE:ID2:115200:8N1":
                         self.slave_ready=True
@@ -361,6 +371,7 @@ class Recorder:
             self.token=uuid.uuid4().hex[:24]
             self.latest=None
             token=self.token
+            self.trace.begin(token,phase)
         self.send("G10R_START:"+token+":RTU=1")
         return token
 
@@ -371,6 +382,7 @@ class Recorder:
                 self._sock_batch["status"]="INCOMPLETE_REVIEW_STOP_SESSION_END"
                 self.r3_snapshots.append(self._sock_batch)
                 self._sock_batch=None
+            self.trace.finish()
             self.phase=""
             self.token=""
             self.latest=None
@@ -379,6 +391,7 @@ class Recorder:
         seq=0
         prev_rtu=None
         next_snapshot_at=time.monotonic()
+        next_events_at=time.monotonic()
         while not halt.is_set() and not self.stop.is_set():
             with self.lock:
                 latest=dict(self.latest) if self.latest else None
@@ -395,6 +408,11 @@ class Recorder:
                 prev_rtu=rtu_value
                 halt.wait(min(.6,interval))
                 continue
+            if time.monotonic()>=next_events_at:
+                with self.lock:
+                    trace_cmd=self.trace.request(self.stamp())
+                if trace_cmd:self.send(trace_cmd)
+                next_events_at=time.monotonic()+2
             if time.monotonic()>=next_snapshot_at:
                 # Sólo observación; no se utiliza para validar R3 CLOSE.
                 self.send("G10R_SOCKETS:"+token)
@@ -649,7 +667,10 @@ def live(evidence:Path)->int:
         c.close()
         result["events"]=sorted(c.events,key=lambda ev:ev["t"])
         result["r3_socket_snapshots"]=list(c.r3_snapshots)
+        result["r3_lifecycle_trace"]=c.trace.report()
         result["r3_status"]="OBSERVABILITY_ONLY_NOT_CLOSE_FAULT_INJECTION"
+        if c.trace.issues:
+            result["r3_status"]="INSTRUMENTATION_GAP_REVIEW_STOP_R3"
         result["exit_code"]=status
         (out/"MANIFEST.json").write_text(
             json.dumps(result,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
