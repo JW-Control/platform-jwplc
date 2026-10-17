@@ -233,6 +233,21 @@ def udp_echo(ip:str,token:str,seq:int)->bool:
     return True
 
 
+def link_confirmed_from_uart(latest:dict|None,after:float,*,up:bool)->bool:
+    """Sólo aceptar heartbeat COM4 real, nuevo y perteneciente a R2."""
+    if not isinstance(latest,dict) or latest.get("phase")!="R2":
+        return False
+    t=latest.get("t")
+    if not isinstance(t,(int,float)) or t<=after:
+        return False
+    if not up:
+        return latest.get("link")==2
+    return (latest.get("link")==1 and latest.get("eth")==1
+            and latest.get("dhcp_state")==5
+            and isinstance(latest.get("ip"),str)
+            and latest.get("ip") not in ("","0.0.0.0"))
+
+
 class Recorder:
     def __init__(self,root:Path):
         self.root=root
@@ -643,22 +658,47 @@ class Recorder:
         self.start("R2")
         halt=threading.Event()
         task=threading.Thread(target=self.traffic_worker,
-                             args=("R2",2,halt),daemon=True)
+                              args=("R2",2,halt),daemon=True)
         task.start()
+        unplugged=False
         try:
             for cycle in range(1,4):
-                print(f"G10_R_R2_CYCLE={cycle}: RETIRA manualmente solo RJ45 de COM4; ENTER tras retirarlo.")
-                input("Confirmar RJ45 retirado: ")
-                self.add({"kind":"link_down","phase":"R2","t":self.stamp()})
-                if self.stop.wait(R2_FAULT_SECONDS):
-                    raise RuntimeError("SERIAL_WORKER_ABORT_R2_FAULT")
-                print("RECONÉCTALO al mismo switch de banco; ENTER tras reconectar.")
-                input("Confirmar RJ45 reconectado: ")
-                self.add({"kind":"link_up","phase":"R2","t":self.stamp()})
-                if self.stop.wait(R2_RECOVERY_SECONDS):
-                    raise RuntimeError("SERIAL_WORKER_ABORT_R2_RECOVERY")
+                print(f"G10_R_R2_CYCLE={cycle}: desconecta SOLO RJ45 de COM4.")
+                require(input("Escribe 'G10R RJ45 COM4 RETIRADO': ").strip()==
+                        "G10R RJ45 COM4 RETIRADO","R2_OPERATOR_UNPLUG_NOT_CONFIRMED")
+                unplugged=True
+                marker=self.stamp()
+                deadline=time.monotonic()+R2_FAULT_SECONDS
+                seen=False
+                while time.monotonic()<deadline and not self.stop.is_set():
+                    with self.lock:sample=dict(self.latest) if self.latest else None
+                    if link_confirmed_from_uart(sample,marker,up=False):
+                        seen=True;break
+                    self.stop.wait(.2)
+                require(seen,"R2_LINK_DOWN_NOT_OBSERVED_UART_CYCLE_"+str(cycle))
+                self.add({"kind":"link_down","phase":"R2","t":self.stamp(),
+                          "source":"COM4_HEARTBEAT_LINKOFF","cycle":cycle})
+                print("Reconecta el mismo RJ45 COM4 al router de banco.")
+                require(input("Escribe 'G10R RJ45 COM4 RECONECTADO': ").strip()==
+                        "G10R RJ45 COM4 RECONECTADO",
+                        "R2_OPERATOR_RECONNECT_NOT_CONFIRMED")
+                marker=self.stamp()
+                deadline=time.monotonic()+R2_RECOVERY_SECONDS
+                recovered=False
+                while time.monotonic()<deadline and not self.stop.is_set():
+                    with self.lock:sample=dict(self.latest) if self.latest else None
+                    if link_confirmed_from_uart(sample,marker,up=True):
+                        recovered=True;break
+                    self.stop.wait(.2)
+                require(recovered,"R2_DHCP_LINK_RECOVERY_NOT_OBSERVED_UART_CYCLE_"+str(cycle))
+                unplugged=False
+                self.add({"kind":"link_up","phase":"R2","t":self.stamp(),
+                          "source":"COM4_HEARTBEAT_LINKON_ETH_DHCP_READY",
+                          "cycle":cycle})
         finally:
             halt.set();task.join(timeout=5);self.end()
+            if unplugged:
+                print("G10_R_STOP_OPERADOR: verifica y reconecta RJ45 COM4 MANUALMENTE.")
 
 
 def plan()->dict:
@@ -827,6 +867,23 @@ def selftest()->int:
     r3rec.capture_udp_probe_line("G10R_R3_UDP:"+"b"*24+" STATE=ARMED",1.2)
     require(len(r3rec.r3_udp_lines)==3,
             "R3_FOREIGN_UART_NOT_PRESERVED_FOR_REVIEW")
+    down={"phase":"R2","t":3.0,"link":2,"eth":0,
+          "dhcp_state":3,"ip":"0.0.0.0"}
+    up={"phase":"R2","t":4.0,"link":1,"eth":1,
+        "dhcp_state":5,"ip":"192.168.0.10"}
+    require(link_confirmed_from_uart(down,2.0,up=False),"B4_LINK_DOWN_POSITIVE")
+    require(link_confirmed_from_uart(up,3.0,up=True),"B4_LINK_UP_POSITIVE")
+    require(not link_confirmed_from_uart(down,3.0,up=False),
+            "B4_STALE_LINK_DOWN_ACCEPTED")
+    require(not link_confirmed_from_uart(up,4.0,up=True),
+            "B4_STALE_LINK_UP_ACCEPTED")
+    require(not link_confirmed_from_uart(dict(up,dhcp_state=3),3.0,up=True),
+            "B4_UNREADY_DHCP_ACCEPTED")
+    require(not link_confirmed_from_uart(dict(up,phase="R1"),3.0,up=True),
+            "B4_WRONG_PHASE_ACCEPTED")
+    require(not link_confirmed_from_uart(dict(down,link=1),2.0,up=False),
+            "B4_FALSE_UNPLUG_ACCEPTED")
+    print("G10_R_B4_R2_UART_LINK_NEGATIVES=5_REJECTED")
     print("G10_R_FIELD_SELFTEST=PASS_6_NEGATIVE_SERIAL_CASES")
     print("G10_R_FIELD_HARDWARE=NOT_ACCESSED")
     return 0
