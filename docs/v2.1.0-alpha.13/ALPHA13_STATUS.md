@@ -1,5 +1,23 @@
 # Alpha13 — G10-R, estado vivo de preparación (16/10/2026)
 
+> **16-oct — R3 preparado para inyección en banco, SIN EJECUCIÓN FÍSICA:** el único sketch COM4 temporal `g10_r_integrated.ino` incluye cinco sondas bajo mutex W5500 real (`UDP.stop`, `DNSClient.cancelResolveAsync`, `EthernetClient.cancelConnectAsync`, `DhcpClass.cancelDHCP`, `DhcpClass.finishAsync`). Las dos rutas DHCP usan un objeto `DhcpClass` **local** cuyo UDP privado se arma exclusivamente en puerto **15023** por un `friend` inyectado solo al **staging**: no emite DHCP DISCOVER, no modifica el DHCP global ni productivo. El runner incorpora `r3_suite()` para una **única campaña R1→R2→R3(5)→R4** con abortos y captura de identidad de cada lease. Nuevo handshake `R1R2R3R4_FAULT_LAB_V2`; build y runner rechazan protocolo viejo. Se mantiene `--upload/--live` **fail-closed**: aún faltan cobertura TCP 1/2/4, DHCP renew/rebind físico, fairness TFT/TCA, revisión N2 Windows/Ubuntu del HEAD exacto y autorización del banco. **No se tocó Alpha15 ni se flashearon COM4/COM14.** [Plan R3 y límites](A13_G10_R_CAMPANA_INTEGRADA_Y_TRANSFERENCIA_ALPHA15_20261016.md).
+
+```text
+G10-R-R3-STAGED_FIVE_MODES=UDP_DNS_TCP_DHCP_CANCEL_DHCP_FINISH
+G10-R-R3-DHCP_PROBE=PACKET_FREE_ISOLATED_INSTANCE
+G10-R-R3-FIELD_RUNNER=ONE_INTEGRATED_R1_R2_R3_R4_CAMPAIGN_CODE_PRESENT
+G10-R-R3-UDP_DNS_TCP_DHCP_PHYSICAL=NOT_RUN
+G10-R-R3-CONCURRENT_TCP_1_2_4=REVIEW_REQUIRED
+G10-R-R3-PHYSICAL_DHCP_RENEW_REBIND=NOT_RUN
+G10-R-R3-TFT_TCA_FAIRNESS=NOT_MEASURED
+G10-R-R3-H=FAIL_CLOSED
+G10-R-FLASH=BLOCKED
+A13-006=ADOPTION_BLOCKED
+ALPHA15=UNMODIFIED
+NEXT_GATE=PREH_CONCURRENT_TCP_FAIRNESS_AND_FINAL_CI_THEN_AUTHORIZED_H
+```
+
+
 > **16/10 — Consolidación PRE-H y Alpha15:** la CI de referencia [#38998540944](https://github.com/JW-Control/platform-jwplc/actions/runs/38998540944) fue **5/5 SUCCESS** para `5e4a6d78` (anterior). En HEAD posteriores, se integró al host la captura `r3_udp_lines/sessions/verdicts` con lease exacto y cierres paralelos permitidos, **17 mutantes de contrato offline**, y se blindaron tanto `--live` como `--upload` antes de abrir COM o flashear mientras R3 completo no exista. **Los cambios más recientes necesitan CI por su HEAD exacto**. Se realizó comparación READ-ONLY de blobs entre producto Alpha13 y `v2.1.0-alpha.15-HmiDesigner`: `Dns.cpp`, `EthernetClient.cpp`, `EthernetUdp.cpp`, `JWPLC_TFT.h` y archive TFT **divergen**; `platform.txt`, `JWPLC_Display_API.h`, `JWPLC_Display.cpp`, `DhcpAsyncControl.cpp`, `JWPLC_Ethernet.cpp` y header RTU **coinciden** en los SHA consultados. [Matriz de transferencia](A13_ALPHA15_COMPAT_READONLY_PRETRANSFER_20261016.md). Alpha15 no fue modificada; **G10-H físico R3 no ejecutado, `A13-006=ADOPTION_BLOCKED`**.
 
 ```text
