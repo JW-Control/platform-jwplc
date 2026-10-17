@@ -284,7 +284,10 @@ def main() -> int:
     try:
         if args.selftest:
             guard_sketch()
+            require(R3_COMPLETE_PHYSICAL_CAMPAIGN_READY is False,
+                    "G10R_SELFTEST_MUST_FAIL_CLOSED_FLASH")
             print("G10_R_BUILD_SELFTEST=PASS_NO_CLI_NO_USB_NO_UPLOAD")
+            print("G10_R_FLASH=BLOCKED_R3_FULL_CAMPAIGN_NOT_READY")
         else:
             build(args.cli,upload=args.upload)
         return 0
