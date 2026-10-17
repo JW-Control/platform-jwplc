@@ -15,7 +15,7 @@ BIND=re.compile(rf"G10R_TCP_OBS:({TOKEN}) SEQ=(\d+) TID=(\d+) SID=(\d+) CAPTURE=
 LIFE=re.compile(rf"G10R_EVT:({TOKEN}) SEQ=(\d+) KIND=(\d+) SID=(\d+) EPOCH=(\d+) ALLOC=(\d+) OWNER=(\d+)")
 START=re.compile(rf"G10R_STARTED:({TOKEN}) RTU=[01]")
 END=re.compile(rf"G10R_EVT_END:({TOKEN})")
-TCP_HEAD=re.compile(rf"G10R_TCP_HEAD:({TOKEN}) COUNT=(\d+) DROPPED=(\d+)")
+TCP_HEAD=re.compile(rf"G10R_TCP_HEAD:({TOKEN}) COUNT=(\d+) DROPPED=(\d+) OVERFLOW=([01])")
 TCP_END=re.compile(rf"G10R_TCP_END:({TOKEN})")
 def evaluate(lines,token,transaction):
     errors=[]
@@ -35,7 +35,7 @@ def evaluate(lines,token,transaction):
                 leases.append(tuple(map(int,m.groups()[3:4]+m.groups()[5:])))
         elif m:=TCP_HEAD.fullmatch(line):
             if m[1]!=token:foreign=True
-            else:tcp_head.append((int(m[2]),int(m[3])))
+            else:tcp_head.append((int(m[2]),int(m[3]),int(m[4])))
         elif m:=TCP_END.fullmatch(line):
             if m[1]!=token:foreign=True
             else:tcp_ended+=1
@@ -50,7 +50,7 @@ def evaluate(lines,token,transaction):
     if foreign:errors.append("FOREIGN_SESSION")
     if started!=1 or ended!=1 or tcp_ended!=1 or len(tcp_head)!=1:
         errors.append("MISSING_SESSION_BOUNDARIES")
-    if len(tcp_head)==1 and (tcp_head[0][1]!=0 or tcp_head[0][0]<len(leases)):
+    if len(tcp_head)==1 and (tcp_head[0][1]!=0 or tcp_head[0][2]!=0 or tcp_head[0][0]<len(leases)):
         errors.append("TCP_TRACE_INCOMPLETE")
     if len(leases)!=1:errors.append("NO_UNIQUE_TRANSACTION_TO_LEASE_BIND")
     if len(leases)==1:
@@ -79,7 +79,7 @@ def evaluate(lines,token,transaction):
 def fixture():
     t="a"*24
     l=[f"G10R_STARTED:{t} RTU=1",
-       f"G10R_TCP_HEAD:{t} COUNT=1 DROPPED=0",
+       f"G10R_TCP_HEAD:{t} COUNT=1 DROPPED=0 OVERFLOW=0",
        f"G10R_TCP_OBS:{t} SEQ=1 TID=47 SID=2 CAPTURE=1 EPOCH=3 ALLOC=5 OWNER=9",
        f"G10R_TCP_END:{t}",
        f"G10R_EVT:{t} SEQ=1 KIND=1 SID=2 EPOCH=3 ALLOC=5 OWNER=9",
@@ -106,6 +106,7 @@ def selftest():
         ("foreign_token",lambda x:x.__setitem__(2,x[2].replace(token,"b"*24))),
         ("busy_capture",lambda x:x.__setitem__(2,x[2].replace("CAPTURE=1","CAPTURE=2"))),
         ("trace_drop",lambda x:x.__setitem__(1,x[1].replace("DROPPED=0","DROPPED=1"))),
+        ("ring_overrun",lambda x:x.__setitem__(1,x[1].replace("OVERFLOW=0","OVERFLOW=1"))),
     ):
         v=copy.deepcopy(lines);fn(v);cases.append((name,v))
     for name,v in cases:
