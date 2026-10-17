@@ -538,6 +538,9 @@ void loop() {
     // Unknown nunca equivale a LinkOFF físico.
     Serial.print(" LINK=");Serial.print((int)JWPLC_Ethernet.linkStatus());
     Serial.print(" ETH=");Serial.print(JWPLC_Ethernet.isReady()?1:0);
+    // Telemetría DHCP, solo lectura de API existente; no fuerza renew/rebind.
+    Serial.print(" DHCP_STATE=");Serial.print((int)JWPLC_Ethernet.runtimeState());
+    Serial.print(" DHCP_ERR=");Serial.print((int)JWPLC_Ethernet.lastError());
     Serial.print(" TCP=");Serial.print(JWPLC_ModbusTCP.serverReady()?1:0);
     Serial.print(" SD_OK=");Serial.print(sdOk);
     Serial.print(" SD_FAIL=");Serial.print(sdFail);
