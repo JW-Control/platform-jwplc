@@ -7,12 +7,14 @@ on:
       - '.github/workflows/alpha13-g10-r-preflight.yml'
       - 'tools/alpha13/gates/a13_g10_r_preflight.py'
       - 'docs/v2.1.0-alpha.13/A13_G10_R_PLAN_RECUPERACION_Y_RESISTENCIA_20261016.md'
+      - 'docs/v2.1.0-alpha.13/A13_G10_R_CAMPANA_INTEGRADA_Y_TRANSFERENCIA_ALPHA15_20261016.md'
       - 'docs/v2.1.0-alpha.13/ALPHA13_STATUS.md'
   pull_request:
     paths:
       - '.github/workflows/alpha13-g10-r-preflight.yml'
       - 'tools/alpha13/gates/a13_g10_r_preflight.py'
       - 'docs/v2.1.0-alpha.13/A13_G10_R_PLAN_RECUPERACION_Y_RESISTENCIA_20261016.md'
+      - 'docs/v2.1.0-alpha.13/A13_G10_R_CAMPANA_INTEGRADA_Y_TRANSFERENCIA_ALPHA15_20261016.md'
       - 'docs/v2.1.0-alpha.13/ALPHA13_STATUS.md'
 
 permissions:
@@ -43,7 +45,7 @@ jobs:
           test -s changed-paths.txt
           while IFS= read -r file; do
             case "$file" in
-              .github/workflows/alpha13-g10-r-preflight.yml|tools/alpha13/gates/a13_g10_r_preflight.py|tools/alpha13/gates/a13_g10_r_r3_native.py|tools/alpha13/gates/a13_g10_r_trace.py|tools/alpha13/gates/a13_g10_r_trace_host.py|tools/alpha13/gates/a13_g10_r_trace_validate.py|tools/alpha13/gates/a13_g10_r_r3_protocol_native.py|tools/alpha13/candidates/g10_r/native_g10_r_lab_snapshot_test.cpp|docs/v2.1.0-alpha.13/A13_G10_R_PLAN_RECUPERACION_Y_RESISTENCIA_20261016.md|docs/v2.1.0-alpha.13/ALPHA13_STATUS.md|.github/workflows/alpha13-g10-r-source-build.yml|tools/alpha13/gates/a13_g10_r_build_candidate.py|tools/alpha13/gates/a13_g10_r_replay.py|tools/alpha13/sketches/g10_r_integrated/g10_r_integrated.ino|tools/alpha13/gates/a13_g10_r_instrumentation.py|tools/alpha13/gates/a13_g10_r_owner_epoch.py|tools/alpha13/gates/a13_g10_r_field_runner.py)
+              .github/workflows/alpha13-g10-r-preflight.yml|tools/alpha13/gates/a13_g10_r_preflight.py|tools/alpha13/gates/a13_g10_r_r3_native.py|tools/alpha13/gates/a13_g10_r_trace.py|tools/alpha13/gates/a13_g10_r_trace_host.py|tools/alpha13/gates/a13_g10_r_trace_validate.py|tools/alpha13/gates/a13_g10_r_r3_protocol_native.py|tools/alpha13/candidates/g10_r/native_g10_r_lab_snapshot_test.cpp|docs/v2.1.0-alpha.13/A13_G10_R_CAMPANA_INTEGRADA_Y_TRANSFERENCIA_ALPHA15_20261016.md|docs/v2.1.0-alpha.13/A13_G10_R_PLAN_RECUPERACION_Y_RESISTENCIA_20261016.md|docs/v2.1.0-alpha.13/ALPHA13_STATUS.md|.github/workflows/alpha13-g10-r-source-build.yml|tools/alpha13/gates/a13_g10_r_build_candidate.py|tools/alpha13/gates/a13_g10_r_replay.py|tools/alpha13/sketches/g10_r_integrated/g10_r_integrated.ino|tools/alpha13/gates/a13_g10_r_instrumentation.py|tools/alpha13/gates/a13_g10_r_owner_epoch.py|tools/alpha13/gates/a13_g10_r_field_runner.py)
                 ;;
               *)
                 echo "G10_R_SCOPE_REVIEW_STOP=$file"
