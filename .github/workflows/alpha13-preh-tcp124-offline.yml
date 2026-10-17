@@ -6,6 +6,7 @@ on:
       - 'tools/alpha13/gates/a13_g10_r_tcp124_host.py'
       - 'tools/alpha13/gates/a13_g10_r_tcp124_provenance.py'
       - 'tools/alpha13/gates/a13_g10_r_tcp124_router.py'
+      - 'tools/alpha13/gates/a13_g10_r_tcp124_uart_contract.py'
       - '.github/workflows/alpha13-preh-tcp124-offline.yml'
   workflow_dispatch:
 jobs:
@@ -34,3 +35,6 @@ jobs:
 
       - name: Router stress plan safety (no network)
         run: python tools/alpha13/gates/a13_g10_r_tcp124_router.py --selftest
+
+      - name: UART raw transaction lease contract
+        run: python tools/alpha13/gates/a13_g10_r_tcp124_uart_contract.py --selftest
