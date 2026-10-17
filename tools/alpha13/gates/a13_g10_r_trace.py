@@ -99,6 +99,9 @@ LabEventResult labReadEvents(uint32_t after, LabEvent* out, uint8_t capacity,
 }
 """
 RULES=[
+    ("        if (slot.valid && slot.allocation == ticket) {",
+     "        const bool matchPending=(slot.valid && slot.allocation == ticket);\\n"
+     "        if (matchPending) {"),
     ("    ++g_allocation;\n    Slot& s = g_slots[socket];",
      "    ++g_allocation;\n    Slot& s = g_slots[socket];\n"
      "    if(s.valid) {\n"
@@ -144,7 +147,7 @@ RULES=[
      "            ++drained;"),
     ("        uint32_t expected = ticket;\n"
      "        (void)pending.compare_exchange_strong(expected, 0,",
-     "        if (!(slot.valid && slot.allocation==ticket)) {\n"
+     "        if (!matchPending) {\n"
      "          SocketToken stale{};\n"
      "          stale.chipEpoch=slot.epoch; stale.allocation=ticket;\n"
      "          stale.ownerCookie=slot.owner; stale.socketIndex=index;\n"
@@ -183,7 +186,7 @@ def compose_trace(files: dict[str,str])->dict[str,str]:
 
 
 def selftest():
-    assert len(RULES)==9
+    assert len(RULES)==10
     for label,pair in enumerate(RULES):
         assert pair[0] and pair[1] and pair[0]!=pair[1],label
     assert "g_labDropped.fetch_add" in GLOBALS
