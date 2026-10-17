@@ -145,6 +145,15 @@ def build(cli: str, *, upload: bool = False) -> None:
     sys.modules[tcp_spec.name]=tcp
     tcp_spec.loader.exec_module(tcp)
     files=tcp.compose(files)
+    # B2: mantenimiento DHCP real, observacional y sin cambio de flujo.
+    b2_path=ROOT/"tools/alpha13/gates/a13_g10_r_b2_dhcp_stage.py"
+    b2_spec=importlib.util.spec_from_file_location("g10r_b2_stage",b2_path)
+    require(b2_spec is not None and b2_spec.loader is not None,
+            "B2_DHCP_STAGE_MISSING")
+    b2=importlib.util.module_from_spec(b2_spec)
+    sys.modules[b2_spec.name]=b2
+    b2_spec.loader.exec_module(b2)
+    files=b2.compose(files)
     # SOLO staging G10-R: friend diagnóstica en DhcpClass para armar
     # el UDP interno en un puerto TEMPORAL (15023), SIN DHCP DISCOVER,
     # OFFER, REQUEST, renovación de lease ni tocar el manager global.
