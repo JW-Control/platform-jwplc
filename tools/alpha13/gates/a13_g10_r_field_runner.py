@@ -673,9 +673,13 @@ class Recorder:
                 while time.monotonic()<deadline and not self.stop.is_set():
                     with self.lock:sample=dict(self.latest) if self.latest else None
                     if link_confirmed_from_uart(sample,marker,up=False):
-                        seen=True;break
+                        seen=True
                     self.stop.wait(.2)
+                require(not self.stop.is_set(),"R2_SERIAL_STOP_DURING_LINK_OFF")
                 require(seen,"R2_LINK_DOWN_NOT_OBSERVED_UART_CYCLE_"+str(cycle))
+                with self.lock: last_down=dict(self.latest) if self.latest else None
+                require(link_confirmed_from_uart(last_down,marker,up=False),
+                        "R2_LINK_OFF_NOT_STABLE_AT_END_CYCLE_"+str(cycle))
                 self.add({"kind":"link_down","phase":"R2","t":self.stamp(),
                           "source":"COM4_HEARTBEAT_LINKOFF","cycle":cycle})
                 print("Reconecta el mismo RJ45 COM4 al router de banco.")
@@ -688,9 +692,13 @@ class Recorder:
                 while time.monotonic()<deadline and not self.stop.is_set():
                     with self.lock:sample=dict(self.latest) if self.latest else None
                     if link_confirmed_from_uart(sample,marker,up=True):
-                        recovered=True;break
+                        recovered=True
                     self.stop.wait(.2)
+                require(not self.stop.is_set(),"R2_SERIAL_STOP_DURING_RECOVERY")
                 require(recovered,"R2_DHCP_LINK_RECOVERY_NOT_OBSERVED_UART_CYCLE_"+str(cycle))
+                with self.lock:last_up=dict(self.latest) if self.latest else None
+                require(link_confirmed_from_uart(last_up,marker,up=True),
+                        "R2_RECOVERY_NOT_STABLE_AT_END_CYCLE_"+str(cycle))
                 unplugged=False
                 self.add({"kind":"link_up","phase":"R2","t":self.stamp(),
                           "source":"COM4_HEARTBEAT_LINKON_ETH_DHCP_READY",
