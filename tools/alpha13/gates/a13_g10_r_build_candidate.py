@@ -96,13 +96,15 @@ def guard_sketch() -> None:
     require("g10rLabTcpRequest" in s and "G10R_TCP_EVENTS:" in s,
             "TCP124_SOURCE_CALLBACK_OR_EXPORT_MISSING")
     require(SKETCH_COM14.is_dir(),"SLAVE_SKETCH_MISSING")
-    require("G10R_H0_STAGE_DIAG=ONESHOT_REAL_LINK_RTC_NO_R1_R4" in s and
-            s.count('Serial.print(" LINK=-9");')==2 and
+    require("G10R_H0_READY_BOUNDED=8" in s and
+            "G10R_H0_READY_DIAG=FIRST_READY_AT_1HZ_RTC_NO_R1_R4" in s and
             s.count("JWPLC_Ethernet.linkStatus()")==1 and
-            "RTC_NOINIT_ATTR" in s and "h0LinkRun=1;" in s and
-            "h0LinkProbePending=false;" in s and
-            "G10R_H0_TRACE=ALREADY_ATTEMPTED_NO_AUTO_REPEAT" in s,
-            "H0_LINK_STAGE_ONESHOT_SKETCH_DRIFT")
+            s.count('Serial.print(" LINK=-9");')==1 and
+            "H0_READY_MAX_CALLS=8" in s and "RTC_NOINIT_ATTR" in s and
+            "h0LinkAttempt=attempt;" in s and
+            "G10R_H0_TRACE=REBOOT_NO_AUTO_REPEAT" in s and
+            "H0_CAP_REACHED=1" in s,
+            "H0_LINK_READY_BOUNDED_SKETCH_DRIFT")
     print("G10_R_SKETCH_GUARD=PASS_STATIC_NO_Q_NO_STORAGE_WRITE_NO_RESET")
 
 
@@ -137,7 +139,7 @@ def build(cli: str, *, upload: bool = False, stage_out: Path | None = None,
         v=run([cli,"version"])
         require(re.search(r"\bVersion:\s*1\.5\.1\b",v) is not None,
                 "G10R_UPLOAD_ARDUINO_CLI_1_5_1_REQUIRED")
-        ref="refs/remotes/origin/codex/alpha13-h0-wdt-link-stage-20261017"
+        ref="refs/remotes/origin/codex/alpha13-h0-wdt-ready-window-20261017"
         current=run(["git","rev-parse","HEAD"]).strip()
         remote=run(["git","rev-parse",ref]).strip()
         require(current==remote,"G10R_UPLOAD_REMOTE_HEAD_MISMATCH")
@@ -260,7 +262,7 @@ def build(cli: str, *, upload: bool = False, stage_out: Path | None = None,
                 "staged_core_sha256":sha256(platform/"precompiled/core/JWPLCBASIC/core.a"),
                 "product_modified":False,"physical_test":"NOT_RUN",
                 "backup_policy":("WAIVED_DEV_ONLY" if waiver_data else "FULL_FLASH_BACKUPS"),
-                "diagnostic":"H0_COM4_LINK_STAGE_ONESHOT_NO_R1_R4",
+                "diagnostic":"H0_COM4_READY_LINK_MAX8_NO_R1_R4",
                  "upload":"NOT_RUN","builds":{}}
         for name,sketch in (("COM4",SKETCH_COM4),("COM14",SKETCH_COM14)):
             props=run([cli,"--config-file",str(conf),"compile",
@@ -373,14 +375,14 @@ def upload_after_build(cli: str, config: Path, tmp: Path,
             run(["git","rev-parse","HEAD"]).strip(),
             "G10R_HEAD_CHANGED_AFTER_BUILD")
     print("G10_R_FLASH_NOTICE=BANCO_SIN_RELES_NI_CARGAS_Q")
-    print("G10_R_FLASH_NOTICE=SOLO_COM4_H0_LINK_STAGE_ONESHOT")
+    print("G10_R_FLASH_NOTICE=SOLO_COM4_H0_READY_LINK_MAX8")
     print("G10_R_FLASH_NOTICE=COM14_SLAVE_UNTOUCHED")
     print("G10_R_FLASH_NOTICE=FIRMWARE_ANTERIOR_NO_SE_RESTAURA")
     print("G10_R_FLASH_NOTICE=GPIO4_DISABLED_SD_FRAM_READ_ONLY")
     print("G10_R_FLASH_NOTICE=CIERRE_MONITORES_SERIALES_ANTES_UPLOAD")
     require(h0_diag_com4 and dev_waiver is not None,
             "H0_DIAG_COM4_ONLY_WITH_DEV_WAIVER")
-    consent="G10R AUTORIZO SOLO COM4 ETAPAS LINK SIN BACKUP"
+    consent="G10R AUTORIZO SOLO COM4 READY LINK 8 SIN BACKUP"
     try:answer=input("Escribe exactamente '"+consent+"': ").strip()
     except EOFError:answer=""
     require(answer==consent,"G10R_UPLOAD_NOT_AUTHORIZED")
@@ -441,7 +443,7 @@ def main() -> int:
             guard_sketch()
             require(R3_COMPLETE_PHYSICAL_CAMPAIGN_READY is False,
                     "G10R_SELFTEST_MUST_FAIL_CLOSED_FLASH")
-            require("codex/alpha13-h0-wdt-link-stage-20261017" in
+            require("codex/alpha13-h0-wdt-ready-window-20261017" in
                     Path(__file__).read_text(encoding="utf-8"),
                     "B4_UPLOAD_REMOTE_SOURCE_BRANCH_DRIFT")
             print("G10_R_BUILD_SELFTEST=PASS_NO_CLI_NO_USB_NO_UPLOAD")
