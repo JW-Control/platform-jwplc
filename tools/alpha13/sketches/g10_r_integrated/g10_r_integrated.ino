@@ -11,6 +11,7 @@
 #include <JWPLC_ModbusRTU.h>
 #include <JWPLC_RS485.h>
 #include <JWPLC_W5500_SafeAccess.h>
+#include <JWPLC_Ethernet_DNS.h>
 #include <string.h>
 #include <esp_system.h>
 #include <atomic>
@@ -34,6 +35,10 @@ static uint8_t packet[96];
 // El task solo sostiene el mismo mutex W5500 <=80 ms; nunca toca SPI,
 // GPIO4, SD, FRAM, Q ni servicios en segundo plano.
 static EthernetUDP r3ProbeUdp;
+static DNSClient r3ProbeDns;
+static IPAddress r3ProbeDnsResult;
+static EthernetClient r3ProbeTcp;
+static uint8_t r3Mode=0; // 1 UDP, 2 DNS, 3 TCP; ningun DHCP en LAN activa.
 static std::atomic<uint8_t> r3HoldState{0}; // 0 idle; 1 held; 2 released; 3 lock denied
 static std::atomic<uint32_t> r3HoldDurationUs{0}; // duracion REAL, no presupuesto garantizado
 static bool r3Armed=false, r3CloseAttempted=false, r3ClosedWhileHeld=false;
@@ -60,16 +65,26 @@ static void r3HoldW5500(void*) {
   vTaskDelete(nullptr);
 }
 
+static const char* r3PrefixByMode() {
+  if (r3Mode==2) return "G10R_R3_DNS:";
+  if (r3Mode==3) return "G10R_R3_TCP:";
+  return "G10R_R3_UDP:";
+}
 static void r3Report(const char* state) {
-  Serial.print("G10R_R3_UDP:");Serial.print(token);
+  Serial.print(r3PrefixByMode());Serial.print(token);
   Serial.print(" STATE=");Serial.println(state);
+}
+static void r3Cleanup() {
+  if (r3Mode==2) r3ProbeDns.cancelResolveAsync();
+  else if (r3Mode==3) r3ProbeTcp.cancelConnectAsync();
+  else r3ProbeUdp.stop();
 }
 
 static void r3Service() {
   if (!r3Armed || r3FinishPrinted) return;
   const uint8_t state=r3HoldState.load(std::memory_order_acquire);
   if (state==3) {
-    r3ProbeUdp.stop();  // liberar socket temporal también si falla inyección
+    r3Cleanup();  // liberar socket temporal también si falla inyección
     r3Report("MUTEX_NOT_ACQUIRED");
     r3FinishPrinted=true;
     return;
@@ -78,7 +93,7 @@ static void r3Service() {
     // La llamada REAL EthernetUDP::stop() debe publicar ticket durable
     // mientras otra tarea posee el mutex. La confirmación se hace
     // después por G10R_EVENTS + snapshot, no por el estado local.
-    r3ProbeUdp.stop();
+    r3Cleanup();
     r3CloseAttempted=true;
     r3ClosedWhileHeld=(r3HoldState.load(std::memory_order_acquire)==1);
     r3Report(r3ClosedWhileHeld?"CLOSE_DURING_HOLD":"CLOSE_RACE_REVIEW");
@@ -86,7 +101,7 @@ static void r3Service() {
   if (state==2) {
     if (!r3ReleasedAt) r3ReleasedAt=millis();
     if ((uint32_t)(millis()-r3ReleasedAt)>=250) {
-      if (!r3CloseAttempted) r3ProbeUdp.stop(); // no dejar huérfano
+      if (!r3CloseAttempted) r3Cleanup(); // no dejar huérfano
       const uint32_t us=r3HoldDurationUs.load(std::memory_order_acquire);
       Serial.print("G10R_R3_HOLD:");Serial.print(token);
       Serial.print(" US=");Serial.println(us);
@@ -119,11 +134,20 @@ static void handleCommand(const char* msg) {
   }
   // R3: una sola contención real de mutex y cierre de UDP temporal.
   // No inicia sin START y token explícito; no repite automáticamente.
-  static const char r3Prefix[]="G10R_R3_UDP:";
-  if (strncmp(msg,r3Prefix,sizeof(r3Prefix)-1)==0) {
-    const char* requested=msg+sizeof(r3Prefix)-1;
+  const char* r3Prefix=nullptr;
+  uint8_t mode=0;
+  if (strncmp(msg,"G10R_R3_UDP:",12)==0) {
+    r3Prefix="G10R_R3_UDP:";mode=1;
+  } else if (strncmp(msg,"G10R_R3_DNS:",12)==0) {
+    r3Prefix="G10R_R3_DNS:";mode=2;
+  } else if (strncmp(msg,"G10R_R3_TCP:",12)==0) {
+    r3Prefix="G10R_R3_TCP:";mode=3;
+  }
+  if (r3Prefix) {
+    const char* requested=msg+strlen(r3Prefix);
     if (!active || strlen(requested)!=24 || strcmp(requested,token)!=0 ||
         r3Armed) return;
+    r3Mode=mode;
     if (!JWPLC_Ethernet.isReady()) {
       r3Report("PREPARE_FAILED");return;
     }
@@ -136,7 +160,23 @@ static void handleCommand(const char* msg) {
         jwplc_w5500_candidate::LabSocketSnapshot before[8],after[8];
         const auto a=jwplc_w5500_candidate::labCaptureSockets(before,8,0);
         if (a==jwplc_w5500_candidate::LabCaptureOutcome::Captured) {
-          if (r3ProbeUdp.begin(15021)==1) {
+          int openState=-1;
+          if (r3Mode==1) {
+            openState=(r3ProbeUdp.begin(15021)==1)?0:-1;
+          } else if (r3Mode==2) {
+            IPAddress server=Ethernet.dnsServerIP();
+            if (server!=IPAddress((uint32_t)0)) {
+              r3ProbeDns.begin(server);
+              openState=r3ProbeDns.beginResolveAsync(
+                  "jwplc-g10r.invalid",r3ProbeDnsResult,4000);
+            }
+          } else if (r3Mode==3) {
+            // Red 198.18/15 reservada para benchmarking: no requiere
+            // servidor TCP real ni modifica los servidores del PLC.
+            openState=r3ProbeTcp.beginConnectAsync(
+                IPAddress(198,18,0,1),15022);
+          }
+          if (openState>=0) {
             const auto b=jwplc_w5500_candidate::labCaptureSockets(after,8,0);
             if (b==jwplc_w5500_candidate::LabCaptureOutcome::Captured) {
               uint8_t count=0;
@@ -157,7 +197,7 @@ static void handleCommand(const char* msg) {
       }
     }
     if (!ready) {
-      r3ProbeUdp.stop();
+      r3Cleanup();
       r3Report("PREPARE_FAILED");return;
     }
     Serial.print("G10R_R3_LEASE:");Serial.print(token);
@@ -173,7 +213,7 @@ static void handleCommand(const char* msg) {
                                   3072,nullptr,1,nullptr);
     if (created!=pdPASS) {
       r3HoldState.store(3,std::memory_order_release);
-      r3ProbeUdp.stop(); // solo un socket de laboratorio, sin cargas
+      r3Cleanup(); // solo un socket de laboratorio, sin cargas
       r3Report("TASK_CREATION_FAILED");
       r3FinishPrinted=true;
     }
@@ -260,6 +300,7 @@ static void handleCommand(const char* msg) {
   lastSample=lastRtu=lastReport=millis();
   active=true;startMs=millis();
   r3Armed=r3CloseAttempted=r3ClosedWhileHeld=r3FinishPrinted=false;
+  r3Mode=0;
   r3ReleasedAt=0;
   r3ProbeSocket=255;r3Epoch=r3Allocation=r3Owner=0;
   r3HoldState.store(0,std::memory_order_release);
