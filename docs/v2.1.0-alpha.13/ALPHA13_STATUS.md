@@ -1,3 +1,29 @@
+# ESTADO VIGENTE — 17/10/2026 — PRE-H B1–B4 cerrados NO FÍSICOS
+
+**PRE-H completamente preparado y validado en CI para el candidato de laboratorio.** `B1/B2/B3/B4=CLOSED_NONPHYSICAL`, **0 bloques de ingeniería pendientes para solicitar H0 al operador**. El código exacto verificado es `33990007405cac2b5af9c110943d94f9201e6add`; los cambios documentales posteriores no alteran firmware, staging, guards ni runners. PR #109 sigue **Draft** sin merge.
+
+**CI del mismo código, 19/19 jobs PASS sin omitted/skipped:** [B4 seguridad/backup #39037163647](https://github.com/JW-Control/platform-jwplc/actions/runs/39037163647) 2/2; [N0 G10-R #39037163623](https://github.com/JW-Control/platform-jwplc/actions/runs/39037163623) 2/2; [B1 offline #39037163606](https://github.com/JW-Control/platform-jwplc/actions/runs/39037163606) 2/2; [B2 offline #39037163624](https://github.com/JW-Control/platform-jwplc/actions/runs/39037163624) 2/2; [TCP124 source-first #39037163653](https://github.com/JW-Control/platform-jwplc/actions/runs/39037163653) 2/2; [G10-R build/replay/nativo #39037163667](https://github.com/JW-Control/platform-jwplc/actions/runs/39037163667) 5/5; [B3 integrado N0/N1/N3 #39037163676](https://github.com/JW-Control/platform-jwplc/actions/runs/39037163676) 4/4, N3 candidato **11/11** con artifact y fuente→objeto→ELF. Baseline N3 11/11 reutilizado tras demostrar equivalencia exacta `JWPLC/` con G10-I `a954cabd`. Cinco archives congelados y demás precompilados intactos; Arduino IDE local no ejecutado.
+
+**Documento B4 operativo:** [A13_G10_R_PREH_B4_BANCO_RESPALDOS_SEGURIDAD_20261017.md](A13_G10_R_PREH_B4_BANCO_RESPALDOS_SEGURIDAD_20261017.md). Script `tools/alpha13/gates/a13_g10_r_b4_bench.py` genera ficha LOCAL (vacía por defecto), verifica dos backups completos de flash/identidades/seguridad con 14 negativos y bloquea uso de `--upload`/`--live` sin ficha. R2 requiere UART real LINKOFF y DHCP READY tras las ventanas completas de 12+96 segundos por ciclo. Sólo el **operador** puede verificar banco, leer flash de ambas placas, respaldar, aprobar puertas A/B y aportar la evidencia. **R5/power-cycle** y restauración física siguen separados.
+
+```text
+PREH_B1_TCP124=CLOSED_NONPHYSICAL
+PREH_B2_DHCP_FAIRNESS=CLOSED_NONPHYSICAL
+PREH_B3_N0_N1_N2_N3=CLOSED_NONPHYSICAL_CI_VERIFIED
+PREH_B4_BENCH_BACKUP_SAFETY=CLOSED_NONPHYSICAL_CI_VERIFIED
+PREH_STEPS_REMAINING=0
+G10-R-H0=WAIT_OPERATOR_PHYSICAL_BENCH_IDENTITY_AND_FULL_FLASH_BACKUPS
+G10-R-H=NOT_RUN_NOT_AUTHORIZED
+R3_COMPLETE_PHYSICAL_CAMPAIGN_READY=FALSE
+R3_PHYSICAL_INJECTION_READY=FALSE
+A13-006=ADOPTION_BLOCKED
+ALPHA15=UNMODIFIED
+G10-R-R5=NOT_AUTHORIZED
+NEXT_GATE=G10_R_H0_OPERATOR_BENCH_BACKUPS_AND_SEPARATE_AUTH
+```
+
+---
+
 # Estado vigente PRE-H — 17/10/2026: B3 integrado CERRADO, solo B4 pendiente
 
 **El bloque 3 N0/N1/N2/N3 está `CLOSED_NONPHYSICAL_CI_VERIFIED`**. Código exacto `ba1b0b1ddad78fbdc574b1590abae06bff1030a6`; los commits posteriores a ese SHA son exclusivamente de documentación. No se ha adoptado G10-R en rama productiva.
