@@ -134,6 +134,15 @@ def build(cli: str, *, upload: bool = False) -> None:
     sys.modules[trace_spec.name]=trace
     trace_spec.loader.exec_module(trace)
     files = trace.compose_trace(lab.compose_lab(m.compose()))
+    # Hook TID+socket del servidor Modbus, SOLO overlay temporal de banco.
+    tcp_path=ROOT/"tools/alpha13/gates/a13_g10_r_tcp124_stage.py"
+    tcp_spec=importlib.util.spec_from_file_location("g10r_tcp124_stage",tcp_path)
+    require(tcp_spec is not None and tcp_spec.loader is not None,
+            "TCP124_STAGE_MODULE_MISSING")
+    tcp=importlib.util.module_from_spec(tcp_spec)
+    sys.modules[tcp_spec.name]=tcp
+    tcp_spec.loader.exec_module(tcp)
+    files=tcp.compose(files)
     # SOLO staging G10-R: friend diagnóstica en DhcpClass para armar
     # el UDP interno en un puerto TEMPORAL (15023), SIN DHCP DISCOVER,
     # OFFER, REQUEST, renovación de lease ni tocar el manager global.
