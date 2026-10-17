@@ -38,7 +38,9 @@ A15_7B_VALUE=PASS
 A15_7C_TEXT=PASS
 A15_7D_BOOL=PASS
 A15_7E_RAW_SHAPES_NAV_PIXEL=PENDING (NAV: borrar páginas, estilo Contador e indicador NN/TT resueltos en A15_7_INSPECTOR_FOLLOWUP_3)
-A15_7F_IDLE_CONFIG=PASS (Proyecto · Pantalla y arranque)
+A15_7F_IDLE_CONFIG=PASS (Proyecto · Pantalla y arranque; ESC/Por inactividad/Nunca + MENU «Ir al inicio»)
+A15_7G_APPEARANCE_A1=PENDING (análisis en A15_7_APARIENCIA_A1_ANALISIS_20261018.md; espera visto bueno)
+A15_LOPAKA_REVIEW=DONE (A15_LOPAKA_REVISION_20261018.md; propuestas P1/P2/P3)
 A15_8_MENU=PASS_HOST_AND_ESP32_COMPILE (A15_8_MENU_20261017; físico pendiente)
 A15_9_PHYSICAL_PARITY=PENDING
 A15_10_PACKAGING_DOCS=PENDING
@@ -167,3 +169,10 @@ MENU_NODE_COUNT_LIMIT=64 por menú, 4 menús, 1 por página (9 nodos = +952 B RA
   - NAV: borrar página con confirmación, estilo «Contador» (NN/TT de Alpha11 con `setPageIndicator`), indicador nativo en paridad con el lienzo y abreviaturas sin tildes.
 
   Gate F0 de Kenyi regenerado.
+- 2026-10-18 — 4.ª revisión (`A15_7_INSPECTOR_FOLLOWUP_4_20261018.md`):
+  - confirmada la cadena de ESC (edición → submenú → contenido → selector NN/TT → IDLE);
+  - se retira «volver con otra tecla»;
+  - la vuelta por inactividad ahora también cuenta dentro del contenido (firmware);
+  - nuevo ítem de MENU «⏎ Ir al inicio» (`JWPLC_UIMenuGoIdle`).
+
+  Análisis de la propuesta A1 de Apariencia, con crítica de diseño, y revisión de Lopaka con propuestas.

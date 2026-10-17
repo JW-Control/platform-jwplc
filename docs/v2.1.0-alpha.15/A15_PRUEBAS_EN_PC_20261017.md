@@ -19,7 +19,7 @@ powershell -ExecutionPolicy Bypass -File tools\jwplc-hmi-designer\Start-JWPLC-HM
 
 Abre Edge/Chrome en modo app sobre `http://127.0.0.1:8765/desktop.html`. Si ves la versión
 anterior, recarga con `Ctrl+F5`: los scripts cambiaron de `?v=` y la caché del service worker
-pasó a `a15-idle-nav-v13`.
+pasó a `a15-goidle-v14`.
 
 Qué revisar:
 
