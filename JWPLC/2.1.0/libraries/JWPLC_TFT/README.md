@@ -490,6 +490,27 @@ JWPLC_TFT.drawCircle(
     color);
 ```
 
+### Elipses y triángulos — Intermedio (0.2.0)
+
+```cpp
+JWPLC_TFT.fillEllipse(
+    x, y,        // centro
+    rx, ry,      // semiejes
+    color);
+
+JWPLC_TFT.drawEllipse(x, y, rx, ry, color);
+
+JWPLC_TFT.fillTriangle(
+    x0, y0,
+    x1, y1,
+    x2, y2,
+    color);
+
+JWPLC_TFT.drawTriangle(x0, y0, x1, y1, x2, y2, color);
+```
+
+Las usa el código que genera el HMI Designer para las figuras estáticas.
+
 ### Líneas y píxeles — Básico / Intermedio
 
 ```cpp

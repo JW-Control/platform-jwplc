@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 #define JWPLC_TFT_VERSION_MAJOR 0
-#define JWPLC_TFT_VERSION_MINOR 1
+#define JWPLC_TFT_VERSION_MINOR 2
 #define JWPLC_TFT_VERSION_PATCH 0
 
 enum class JWPLC_TFTPanel : uint8_t
@@ -104,6 +104,40 @@ public:
         int16_t x,
         int16_t y,
         int16_t radius,
+        uint16_t color,
+        uint32_t timeoutMs = 50);
+    // Elipse centrada en (x, y) con semiejes rx/ry. Alpha15: usada por el
+    // codegen del HMI Designer para figuras estáticas.
+    bool fillEllipse(
+        int16_t x,
+        int16_t y,
+        int16_t rx,
+        int16_t ry,
+        uint16_t color,
+        uint32_t timeoutMs = 50);
+    bool drawEllipse(
+        int16_t x,
+        int16_t y,
+        int16_t rx,
+        int16_t ry,
+        uint16_t color,
+        uint32_t timeoutMs = 50);
+    bool fillTriangle(
+        int16_t x0,
+        int16_t y0,
+        int16_t x1,
+        int16_t y1,
+        int16_t x2,
+        int16_t y2,
+        uint16_t color,
+        uint32_t timeoutMs = 50);
+    bool drawTriangle(
+        int16_t x0,
+        int16_t y0,
+        int16_t x1,
+        int16_t y1,
+        int16_t x2,
+        int16_t y2,
         uint16_t color,
         uint32_t timeoutMs = 50);
     bool drawFastHLine(

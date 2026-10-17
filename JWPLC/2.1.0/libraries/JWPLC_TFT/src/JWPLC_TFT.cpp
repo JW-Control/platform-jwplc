@@ -369,6 +369,110 @@ bool JWPLC_TFTClass::drawCircle(
     return true;
 }
 
+bool JWPLC_TFTClass::fillEllipse(
+    int16_t x,
+    int16_t y,
+    int16_t rx,
+    int16_t ry,
+    uint16_t color,
+    uint32_t timeoutMs)
+{
+    if (!acquireForOperation(timeoutMs))
+    {
+        return false;
+    }
+
+    g_backend.fillEllipse(
+        x,
+        y,
+        rx,
+        ry,
+        color);
+
+    releaseAfterOperation();
+    return true;
+}
+
+bool JWPLC_TFTClass::drawEllipse(
+    int16_t x,
+    int16_t y,
+    int16_t rx,
+    int16_t ry,
+    uint16_t color,
+    uint32_t timeoutMs)
+{
+    if (!acquireForOperation(timeoutMs))
+    {
+        return false;
+    }
+
+    g_backend.drawEllipse(
+        x,
+        y,
+        rx,
+        ry,
+        color);
+
+    releaseAfterOperation();
+    return true;
+}
+
+bool JWPLC_TFTClass::fillTriangle(
+    int16_t x0,
+    int16_t y0,
+    int16_t x1,
+    int16_t y1,
+    int16_t x2,
+    int16_t y2,
+    uint16_t color,
+    uint32_t timeoutMs)
+{
+    if (!acquireForOperation(timeoutMs))
+    {
+        return false;
+    }
+
+    g_backend.fillTriangle(
+        x0,
+        y0,
+        x1,
+        y1,
+        x2,
+        y2,
+        color);
+
+    releaseAfterOperation();
+    return true;
+}
+
+bool JWPLC_TFTClass::drawTriangle(
+    int16_t x0,
+    int16_t y0,
+    int16_t x1,
+    int16_t y1,
+    int16_t x2,
+    int16_t y2,
+    uint16_t color,
+    uint32_t timeoutMs)
+{
+    if (!acquireForOperation(timeoutMs))
+    {
+        return false;
+    }
+
+    g_backend.drawTriangle(
+        x0,
+        y0,
+        x1,
+        y1,
+        x2,
+        y2,
+        color);
+
+    releaseAfterOperation();
+    return true;
+}
+
 bool JWPLC_TFTClass::drawFastHLine(
     int16_t x,
     int16_t y,
