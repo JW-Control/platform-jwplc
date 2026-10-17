@@ -45,6 +45,9 @@ window.JWPLCLegendArrows  designer-legend-arrows  flechas de la leyenda de Apari
 
 ## Patrón de inspector objetivo (Propuesta 2 de BAR)
 
+Reglas de UX/UI completas (Apariencia, botonera, capturas obligatorias): skill del repo
+`.claude/skills/hmi-designer-ux/SKILL.md` (cualquier agente puede leerlo como guía).
+
 Referencia: `JWPLC_HMI_Designer_BAR_Propuesta_2_Paquete_UI/` y `poc/designer-bar.js`.
 
 - Pestañas principales: **Diseño / Datos / Técnico**.

@@ -40,7 +40,8 @@ A15_7D_BOOL=PASS
 A15_7E_RAW_SHAPES_NAV_PIXEL=PENDING (NAV: borrar páginas, estilo Contador e indicador NN/TT resueltos en A15_7_INSPECTOR_FOLLOWUP_3)
 A15_7F_IDLE_CONFIG=PASS (Proyecto · Pantalla y arranque; ESC/Por inactividad/Nunca + MENU «Ir al inicio»)
 A15_7G_APPEARANCE_A1=PENDING (análisis en A15_7_APARIENCIA_A1_ANALISIS_20261018.md; espera visto bueno)
-A15_LOPAKA_REVIEW=DONE (A15_LOPAKA_REVISION_20261018.md; propuestas P1/P2/P3)
+A15_LOPAKA_REVIEW=DONE (A15_LOPAKA_REVISION_20261018.md; P1 aprobado, P2 ajustado)
+A15_INDUSTRIAL_PLAN=PROPOSED (A15_INDUSTRIAL_ARQUITECTURA_PLAN_20261018.md; espera aprobación, decisiones F.1-F.7)
 A15_8_MENU=PASS_HOST_AND_ESP32_COMPILE (A15_8_MENU_20261017; físico pendiente)
 A15_9_PHYSICAL_PARITY=PENDING
 A15_10_PACKAGING_DOCS=PENDING
@@ -176,3 +177,13 @@ MENU_NODE_COUNT_LIMIT=64 por menú, 4 menús, 1 por página (9 nodos = +952 B RA
   - nuevo ítem de MENU «⏎ Ir al inicio» (`JWPLC_UIMenuGoIdle`).
 
   Análisis de la propuesta A1 de Apariencia, con crítica de diseño, y revisión de Lopaka con propuestas.
+- 2026-10-18 — Skill del repo `.claude/skills/hmi-designer-ux` (reglas UX/UI del Designer).
+
+  Plan de arquitectura para la ampliación industrial:
+  - avisos ALARM/INTERLOCK y árbitro de teclas;
+  - SEQUENCE;
+  - duración y RTC en VALUE;
+  - plantillas RECIPE, EVENT_LOG e IO_DIAGNOSTIC;
+  - tendencia y gauge.
+
+  Hitos I1–I15 y 7 decisiones pendientes. Nada implementado.

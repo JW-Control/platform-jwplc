@@ -99,3 +99,17 @@ Cada objeto nuevo con firmware sigue la regla del proyecto:
 - primero `JWPLC_UI` en modo fuente;
 - después el pintor del Designer igual al firmware (test de paridad como el del MENU);
 - al final el codegen con golden.
+
+## 4. Decisión del jefe (2026-10-18)
+
+- **P1**: aprobado en su conjunto.
+- **P2**:
+  - MULTI-ESTADO descartado; lo cubre SEQUENCE.
+  - LED/piloto pasa a ser una **representación de BOOL**, no un objeto nuevo.
+  - **Reloj RTC** aprobado.
+  - **Tendencia** (gráfico de línea del historial) aprobada.
+  - **Gauge de arco** = el BAR circular deshabilitado.
+- **P3**: interesante, sin prioridad.
+
+Plan integrado con la ampliación industrial (ALARM, INTERLOCK, SEQUENCE, RECIPE, EVENT_LOG):
+`A15_INDUSTRIAL_ARQUITECTURA_PLAN_20261018.md`.
