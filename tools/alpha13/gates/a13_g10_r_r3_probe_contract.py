@@ -13,7 +13,7 @@ import re
 
 TOKEN=re.compile(r"^[0-9a-f]{24}$")
 PREFIX="G10R_R3_UDP:"
-KINDS=("UDP","DNS","TCP")
+KINDS=("UDP","DNS","TCP","DHCP_CANCEL","DHCP_FINISH")
 SUCCESS=["ARMED","CLOSE_DURING_HOLD","AWAIT_LIFECYCLE_REVIEW"]
 KNOWN=set(SUCCESS)|{
     "MUTEX_NOT_ACQUIRED","PREPARE_FAILED","TASK_CREATION_FAILED",
@@ -112,7 +112,9 @@ def evaluate(lines:list[str],trace:dict,token:str,kind:str="UDP")->dict:
             "coverage":{"udp_stop":matches==1 and kind=="UDP",
                         "dns_cancel":matches==1 and kind=="DNS",
                         "tcp_cancel":matches==1 and kind=="TCP",
-                        "dhcp":False,"tcp_1_2_4_clients":False},
+                        "dhcp_cancel":matches==1 and kind=="DHCP_CANCEL",
+                        "dhcp_finish":matches==1 and kind=="DHCP_FINISH",
+                        "tcp_1_2_4_clients":False},
             "r3_physical_campaign":"NOT_QUALIFIED"}
 
 
@@ -171,14 +173,14 @@ def selftest():
     assert evaluate(lines,with_parallel,t)["status"]==(
         "R3_UDP_SOURCE_CONTRACT_ONLY_NOT_PHYSICAL_PASS")
     # El mismo contrato vale para DNS y TCP, sin fingir DHCP aprobado.
-    for kind in ("DNS","TCP"):
+    for kind in ("DNS","TCP","DHCP_CANCEL","DHCP_FINISH"):
         other=[line.replace("G10R_R3_UDP:","G10R_R3_"+kind+":")
                for line in lines]
         assert evaluate(other,copy.deepcopy(trace),t,kind)["status"]==(
             "R3_UDP_SOURCE_CONTRACT_ONLY_NOT_PHYSICAL_PASS")
         assert evaluate(other,copy.deepcopy(trace),t,"UDP")["status"]=="REVIEW_STOP"
     print("G10_R_R3_UDP_PROBE_NEGATIVES=17_REJECTED")
-    print("G10_R_R3_DNS_TCP_CONTRACT=PASS_SYNTHETIC_ONLY")
+    print("G10_R_R3_DNS_TCP_DHCP_CONTRACT=PASS_SYNTHETIC_ONLY")
     print("G10_R_R3_UDP_PROBE=PASS_OFFLINE_CONTRACT_ONLY")
     print("G10_R_R3_FULL_H=BLOCKED_NOT_RUN")
 
