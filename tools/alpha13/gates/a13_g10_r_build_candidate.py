@@ -79,6 +79,16 @@ def guard_sketch() -> None:
                       "jwplcWriteQ(", "ethernetReset(", "ESP.restart(",
                       "esp_restart(", "gpio_set_level("):
         require(forbidden not in s,"R1_R2_R4_FORBIDDEN_API_"+forbidden)
+    require("r3ProbeDhcp.beginWithDHCP" not in s and
+            "Ethernet.cancelDHCP(" not in s and
+            "G10RLabDhcpProbe::arm" in s and
+            "r3ProbeDhcp.cancelDHCP()" in s and
+            "G10RLabDhcpProbe::finish" in s,
+            "G10R_DHCP_LAB_MUST_NOT_EMIT_DHCP_DISCOVER_OR_TOUCH_MANAGER")
+    product_header=ROOT/"JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/JWPLC_W5x00_Ethernet.h"
+    require("friend class G10RLabDhcpProbe;" not in
+            product_header.read_text(encoding="utf-8-sig"),
+            "G10R_DHCP_LAB_FRIEND_LEAKED_INTO_PRODUCT")
     require("r3ProbeUdp.begin(15021)" in s and
             "r3ProbeUdp.stop()" in s and
             "r3HoldState.load(std::memory_order_acquire)" in s,
