@@ -69,7 +69,7 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
 - NAV_BAR existe sólo si hay un objeto NAV_BAR visible.
 - Capas: `layerOrder` menor = más al frente; la estática se emite en orden descendente.
 - Tras tocar el codegen: `node tools/jwplc-hmi-designer/tests/codegen-smoke.cjs`.
-- Tras tocar JS/CSS: subir `?v=` (hoy 1792090000) en `index.html`/`desktop.html`/`ux-foundation.js`/
+- Tras tocar JS/CSS: subir `?v=` (hoy 1792100000) en `index.html`/`desktop.html`/`ux-foundation.js`/
   `designer-field-visibility.js` y `CACHE_NAME` en `service-worker.js`.
 
 ## Probar sin hardware

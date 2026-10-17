@@ -1535,7 +1535,7 @@
 
     // Ahora pintamos los glifos con fondo transparente (ya lo manejamos arriba).
     const fonts = window.JWPLCDesignerFonts;
-    const font = fonts ? fonts.get(fonts.firmwareSupportsFonts ? fontId : 'GLCD') : null;
+    const font = fonts ? fonts.get(fonts.effectiveId(fontId)) : null;
     if (!font || font.kind === 'glcd') {
       drawClassicTextAt(buffer, text, x, y, foreground, null, size);
       return;
@@ -1552,7 +1552,7 @@
 
   function rawTextBounds(text, size, fontId) {
     const fonts = window.JWPLCDesignerFonts;
-    const font = fonts ? fonts.get(fonts.firmwareSupportsFonts ? fontId : 'GLCD') : null;
+    const font = fonts ? fonts.get(fonts.effectiveId(fontId)) : null;
     if (!font || font.kind === 'glcd') return nominalTextBounds(text, size);
     if (!text) return { width: 0, height: 0 };
     return { width: fonts.measureWidth(font, text, size), height: fonts.lineHeight(font, size) };
@@ -4393,11 +4393,10 @@
       const option = document.createElement('option');
       option.value = font.id;
       option.textContent = font.label;
-      // A15-1: libJWPLC_TFT.a publicado sólo dibuja GLCD (setFont/drawString
-      // pendientes de Alpha13). El resto queda visible pero no seleccionable.
-      if (font.kind !== 'glcd') {
+      // Font2/Font4 no están en el firmware (agregarían ~9 KB a todo sketch).
+      if (!window.JWPLCDesignerFonts.isSupported(font)) {
         option.disabled = true;
-        option.textContent = `${font.label} (requiere firmware)`;
+        option.textContent = `${font.label} (no incluida en el firmware)`;
       }
       groups.get(font.group).appendChild(option);
     });

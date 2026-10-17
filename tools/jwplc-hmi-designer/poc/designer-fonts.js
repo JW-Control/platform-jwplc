@@ -1,8 +1,8 @@
 (() => {
   'use strict';
 
-  // Catalogo de fuentes para RAW_TEXT. Los ids coinciden con el enum
-  // JWPLC_TFTFont de la libreria JWPLC_TFT (TFT_eSPI como backend).
+  // Catalogo de fuentes para RAW_TEXT. Los ids coinciden con las constantes
+  // JWPLC_FONT_<id> de JWPLC_TFT 0.3.0 (TFT_eSPI como backend).
   //
   // - GLCD: bitmaps reales (gfx-classic-font.js).
   // - FreeFonts (SANS/SERIF/MONO 9 y 12 pt): glifos REALES de TFT_eSPI
@@ -59,15 +59,23 @@
     return byId.has(id) ? id : 'GLCD';
   }
 
-  // A15-1: el libJWPLC_TFT.a publicado sólo dibuja GLCD. Mientras Alpha13 no
-  // regenere la librería con setFont/drawString, el preview usa GLCD para que
-  // el lienzo muestre lo mismo que la TFT.
-  const FIRMWARE_SUPPORTS_FONTS = false;
+  // JWPLC_TFT 0.3.0 dibuja GLCD y las FreeFonts (cada una se enlaza sólo si
+  // el sketch la usa). Font2/Font4 de TFT_eSPI no se incluyen en el firmware:
+  // agregan ~9 KB a todo sketch aunque no se usen.
+  function isSupported(fontOrId) {
+    const font = typeof fontOrId === 'string' ? get(fontOrId) : fontOrId;
+    return Boolean(font) && (font.kind === 'glcd' || font.kind === 'free');
+  }
+
+  // Id que realmente se dibuja (en el lienzo y en la TFT).
+  function effectiveId(id) {
+    const font = get(id);
+    return isSupported(font) ? font.id : 'GLCD';
+  }
 
   // Compatibilidad con proyectos antiguos: sin campo font => GLCD.
   function fieldFont(field) {
-    if (!FIRMWARE_SUPPORTS_FONTS) return get('GLCD');
-    return get(field && field.font);
+    return get(effectiveId(field && field.font));
   }
 
   // ---- Datos reales GFXfont -------------------------------------------------
@@ -289,10 +297,11 @@
     get,
     normalizeId,
     fieldFont,
-    firmwareSupportsFonts: FIRMWARE_SUPPORTS_FONTS,
+    isSupported,
+    effectiveId,
     measureWidth,
     lineHeight,
     rasterize,
-    cppSymbol: (id) => `JWPLC_TFTFont::${normalizeId(id)}`
+    cppSymbol: (id) => `JWPLC_FONT_${effectiveId(id)}`
   });
 })();

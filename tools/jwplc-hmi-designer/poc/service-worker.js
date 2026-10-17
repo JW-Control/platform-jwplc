@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'jwplc-hmi-designer-a15-navbar-parity-v5';
+const CACHE_NAME = 'jwplc-hmi-designer-a15-fonts-v6';
 const CORE = [
   './desktop.html',
   './index.html',

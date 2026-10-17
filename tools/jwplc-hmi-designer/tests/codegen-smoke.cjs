@@ -184,7 +184,14 @@ async function main() {
     const full = headers.full || '';
     check(!/getTFT/.test(Object.values(headers).join('\n')), 'no usa JWPLC_Display.getTFT()');
     check(!/JWPLC_UICircularField|JWPLC_UIGradientBarField/.test(full), 'no usa helpers BAR inexistentes');
-    check(!/setFont|drawString|setTextDatum/.test(full), 'no usa API de fuentes ausente en el .a');
+    const fontCallsOutsideGuard = full.split('\n').reduce((state, line) => {
+      if (/^\s*#if JWPLC_HMI_TFT_FONTS/.test(line)) state.inside = true;
+      else if (/^\s*#(else|endif)/.test(line)) state.inside = false;
+      else if (/setFont|drawString|setTextDatum/.test(line) && !state.inside) state.count += 1;
+      return state;
+    }, { inside: false, count: 0 }).count;
+    check(/tft\.setFont\(JWPLC_FONT_SANS_9\)/.test(full), 'RAW_TEXT con FreeFont usa setFont(JWPLC_FONT_SANS_9)');
+    check(fontCallsOutsideGuard === 0, 'la API de fuentes sólo aparece dentro de #if JWPLC_HMI_TFT_FONTS');
     const update = full.slice(full.indexOf('void jwplcUIUpdate()'));
     check(!/tft\.|jwplcHMIFill|jwplcHMIDraw|jwplcDrawPageNavBar/.test(update), 'jwplcUIUpdate() sólo contiene setters (A15-3)');
     check(/void jwplcUIPageEnter\(uint8_t page\)/.test(full), 'la gráfica estática está en jwplcUIPageEnter()');

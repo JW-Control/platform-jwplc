@@ -247,6 +247,7 @@
   // Se implementan con primitivas que existen en libJWPLC_TFT.a
   // (drawFastHLine, drawPixel, drawLine), sin depender de TFT_eSPI.
   const STATIC_HELPERS = {
+    fonts: '',
     swap: `static inline void jwplcHMISwap(int16_t &a, int16_t &b)
 {
     const int16_t t = a;
@@ -518,25 +519,53 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
     if (field.type === 'RAW_TEXT') {
       const RAW_BG_PAD = 2;
       const fg = hex565(field.textColor ?? 0xFFFF);
-      const text = cppStringLiteral(field.text);
+      const bg = hex565(field.backgroundColor ?? 0x0000);
+      const raw = String(field.text || '');
+      const text = cppStringLiteral(raw);
       const scale = Math.max(1, Number(field.size) || 1);
+      const fonts = window.JWPLCDesignerFonts;
       const requestedFont = String(field.font || 'GLCD');
+      const font = fonts ? fonts.get(fonts.effectiveId(requestedFont)) : null;
+
+      const glcdLines = (out) => {
+        if (!field.transparentBackground) {
+          const w = raw.length > 0 ? raw.length * 6 * scale - scale : 0;
+          out.push(`tft.fillRect(${field.x - RAW_BG_PAD}, ${field.y - RAW_BG_PAD}, ${w + RAW_BG_PAD * 2}, ${7 * scale + RAW_BG_PAD * 2}, ${bg});`);
+        }
+        out.push(
+          `tft.setCursor(${field.x}, ${field.y});`,
+          `tft.setTextSize(${scale});`,
+          `tft.setTextColor(${fg});`,
+          `tft.print("${text}");`);
+      };
+
+      if (font && font.kind === 'free') {
+        // JWPLC_TFT >= 0.3.0: FreeFont con drawString (datum arriba-izquierda,
+        // igual que el lienzo). Con 0.1/0.2 se dibuja en GLCD.
+        helpers.add('fonts');
+        lines.push('#if JWPLC_HMI_TFT_FONTS');
+        if (!field.transparentBackground && fonts) {
+          const w = fonts.measureWidth(font, raw, scale);
+          const h = fonts.lineHeight(font, scale);
+          lines.push(`tft.fillRect(${field.x - RAW_BG_PAD}, ${field.y - RAW_BG_PAD}, ${w + RAW_BG_PAD * 2}, ${h + RAW_BG_PAD * 2}, ${bg});`);
+        }
+        lines.push(
+          `tft.setFont(${fonts.cppSymbol(font.id)});`,
+          `tft.setTextDatum(JWPLC_TFTDatum::TOP_LEFT);`,
+          `tft.setTextSize(${scale});`,
+          `tft.setTextColor(${fg});`,
+          `tft.drawString("${text}", ${field.x}, ${field.y});`,
+          `tft.setFont(JWPLC_FONT_GLCD);`,
+          '#else');
+        glcdLines(lines);
+        lines.push('#endif');
+        return { lines, helpers };
+      }
+
       if (requestedFont !== 'GLCD') {
-        // libJWPLC_TFT.a publicado no incluye setFont/drawString (A15-0 B3).
-        lines.push(`// Fuente ${requestedFont.replace(/[^A-Za-z0-9_]/g, '')} requiere firmware con fuentes (Alpha13); se dibuja con GLCD.`);
+        lines.push(`// Fuente ${requestedFont.replace(/[^A-Za-z0-9_]/g, '')} no incluida en el firmware; se dibuja con GLCD.`);
       }
-      if (!field.transparentBackground) {
-        const chars = String(field.text || '').length;
-        const w = chars > 0 ? chars * 6 * scale - scale : 0;
-        const h = 7 * scale;
-        lines.push(`tft.fillRect(${field.x - RAW_BG_PAD}, ${field.y - RAW_BG_PAD}, ${w + RAW_BG_PAD * 2}, ${h + RAW_BG_PAD * 2}, ${hex565(field.backgroundColor ?? 0x0000)});`);
-      }
-      lines.push(
-        `tft.setCursor(${field.x}, ${field.y});`,
-        `tft.setTextSize(${scale});`,
-        `tft.setTextColor(${fg});`,
-        `tft.print("${text}");`
-      );
+      glcdLines(lines);
       return { lines, helpers };
     }
 
@@ -759,24 +788,31 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
     parts.push(`    }`);
     parts.push(`}`);
 
-    const order = ['swap', 'fillTriangle', 'fillEllipse', 'drawEllipse', 'microText'];
+    const order = ['fonts', 'swap', 'fillTriangle', 'fillEllipse', 'drawEllipse', 'microText'];
     return { block: parts.join('\n'), helpers: order.filter((name) => helpers.has(name)) };
   }
 
   // JWPLC_TFT >= 0.2.0 trae fillEllipse/drawEllipse/fillTriangle nativos.
   // Con 0.1.0 (package alpha12 publicado) se usa la implementación de respaldo.
+  // JWPLC_TFT >= 0.3.0 trae fuentes (setFont/drawString, JWPLC_FONT_*).
   const NATIVE_SHAPES_GUARD = `#if defined(JWPLC_TFT_VERSION_MAJOR) && \\
     ((JWPLC_TFT_VERSION_MAJOR > 0) || (JWPLC_TFT_VERSION_MINOR >= 2))
 #define JWPLC_HMI_TFT_NATIVE_SHAPES 1
 #else
 #define JWPLC_HMI_TFT_NATIVE_SHAPES 0
+#endif
+#if defined(JWPLC_TFT_VERSION_MAJOR) && \\
+    ((JWPLC_TFT_VERSION_MAJOR > 0) || (JWPLC_TFT_VERSION_MINOR >= 3))
+#define JWPLC_HMI_TFT_FONTS 1
+#else
+#define JWPLC_HMI_TFT_FONTS 0
 #endif`;
 
   function helpersBlock(names) {
     if (!names.length) return '';
     return `// Primitivas auxiliares (sólo usan API pública de JWPLC_TFT).\n` +
       `${NATIVE_SHAPES_GUARD}\n\n` +
-      names.map((name) => STATIC_HELPERS[name]).join('\n\n');
+      names.map((name) => STATIC_HELPERS[name]).filter(Boolean).join('\n\n');
   }
 
   function pageEnumBlock() {
