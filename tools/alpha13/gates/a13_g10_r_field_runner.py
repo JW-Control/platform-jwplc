@@ -306,23 +306,26 @@ class Recorder:
         # UART COM4, solo de la sesión vigente; no atribuir datos ajenos.
         if not self.phase or not self.token:return
         if not line.startswith(("G10R_R3_UDP:","G10R_R3_DNS:",
-                                "G10R_R3_TCP:","G10R_R3_LEASE:",
+                                "G10R_R3_TCP:","G10R_R3_DHCP_CANCEL:",
+                                "G10R_R3_DHCP_FINISH:","G10R_R3_LEASE:",
                                 "G10R_R3_HOLD:")):return
         kind=self._r3_requested_mode
         if line.startswith("G10R_R3_"):
             prefix=line.split(":",1)[0]
-            if prefix in ("G10R_R3_UDP","G10R_R3_DNS","G10R_R3_TCP"):
-                kind=prefix.rsplit("_",1)[-1]
+            if prefix in ("G10R_R3_UDP","G10R_R3_DNS",
+                          "G10R_R3_TCP","G10R_R3_DHCP_CANCEL",
+                          "G10R_R3_DHCP_FINISH"):
+                kind=prefix[len("G10R_R3_"):]
         self.r3_udp_lines.append({
             "phase":self.phase,"token":self.token,"kind":kind,
             "t":at,"line":line})
-        if (kind in ("UDP","DNS","TCP") and
+        if (kind in ("UDP","DNS","TCP","DHCP_CANCEL","DHCP_FINISH") and
             line=="G10R_R3_"+kind+":"+self.token+" STATE=ARMED"):
             self._r3_udp_started_at=at
 
     def r3_udp_probe_request(self,kind="UDP"):
         """Un modo por sesión, solo en la fase R3; nunca durante R1/R2/R4."""
-        require(kind in ("UDP","DNS","TCP"),
+        require(kind in ("UDP","DNS","TCP","DHCP_CANCEL","DHCP_FINISH"),
                 "R3_UNSUPPORTED_PROBE_KIND")
         with self.lock:
             require(self.phase=="R3" and self.token and
