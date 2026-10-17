@@ -1,3 +1,26 @@
+## Evidencia física C — recibida 17/10/2026 13:38
+
+La variante C instalada en COM4 (mantenida fuera del package publicado) emitió:
+- `G10R_H0_STAGE_DIAG=ONESHOT_REAL_LINK_RTC_NO_R1_R4` y `G10R_H0_TRACE=FIRST_BOOT_ARMED_ONCE` tras un `rst:0x1 (POWERON_RESET)` a las 13:38:20; el motivo preciso de ese reset no está demostrado.
+- A las **13:38:22.777** imprimió `G10R_H0_PROBE_BEGIN=REAL_LINK_STATUS`; a las **13:38:22.780** imprimió `G10R_H0_PROBE_RETURN:PHY=1 STAGE=50`. Lectura real satisfactoria de W5500 PHY `LinkON`, mutex tomado/liberado y retorno de la API.
+- Desde **13:38:21.626 hasta 13:38:46.625** el `BOOT=9F83BFAD` se mantuvo constante, con `G10R_READY` sin `TG1WDT_SYS_RESET`; `IP=192.168.0.31`, `TCP=1`, `UDP=1`, `RTU=1` por el período posterior a obtención de DHCP.
+- El `LINK=-9` de READY se mantiene como **centinela exclusivamente de laboratorio**, no indica fallo PHY.
+
+**Interpretación:** El A/B previo (lectura repetida en cada READY -> TG1WDT, desactivada -> estabilidad) más C (UNA lectura real tras 1,5 s desde setup -> PHY=1/STAGE=50) **rechazan la hipótesis de bloqueo incondicional del método `linkStatus()`**. Permanecen abiertas posibles dependencias del momento en boot, estado DHCP/autoload, acceso simultáneo al mutex SPI, frecuencia de consulta o timing. En el A original la llamada ocurría en `G10R_READY` durante la ventana inicial, mientras que C difiere en temporización y llama una sola vez. **C no prueba seguridad de las llamadas repetidas.**
+
+**Siguiente experimento preferible (no ejecutado):** D instrumentar una consulta única dentro de la ubicación original `G10R_READY` al primer mensaje, con marcador de fase y registro RTC, y **no repetir después de WDT**. Solo si retorna correctamente, considerar un número pequeño de consultas periódicas acotadas que deje evidencia de cuántas se completaron, evitando repetir tras reset. Mantener el hook solo staged y el autoload normal. NO sustituir la API original por `LINK=-9` en producto, ni reducir periféricos para obtener PASS.
+
+```text
+H0_C_REAL_PHY=LINK_ON_1
+H0_C_MUTEX_PHY_RELEASE=STAGE_50_PASS_ONE_CALL
+H0_C_BOOT_STABILITY=OBSERVED_25S_WITHOUT_TG1WDT
+H0_C_REPEATED_LINK_STATUS=NOT_TESTED
+H0_ROOT_CAUSE=OPEN_TIMING_OR_REENTRANCY_UNPROVEN
+G10-R-H=REVIEW_STOP_NOT_AUTHORIZED
+```
+
+---
+
 # Alpha13 H0 — Duplicación de LINK y trazas de WDT por etapas
 
 **Fecha:** 17/10/2026. **Revisión experimental aislada** basada en PR #110. No modifica ni adopta código productivo.
