@@ -66,6 +66,8 @@ int main(){
           "BUS_BUSY_NOT_DISTINGUISHED");
     check(snap[2].epoch==0x12345678,
           "BUS_BUSY_OVERWROTE_UNREAD_OUTPUT");
+    check(closeIfCurrent(old,onClose,nullptr,0)==CloseOutcome::BusBusy,
+          "CLOSE_WHILE_BUSY_NOT_RETRIABLE");
     check(requestDeferredClose(old),"PUBLISH_DEFERRED_TICKET_FAILED");
     check(serviceDeferredClose(onClose,nullptr,0)==0 &&
           physicalClose==0,"CLOSE_WHILE_BUS_BUSY");
@@ -102,6 +104,40 @@ int main(){
           physicalClose==2,"CURRENT_OWNER_CANNOT_CLOSE");
     check(labCaptureSockets(snap,8,0)==LabCaptureOutcome::Captured &&
           !snap[2].valid,"CURRENT_CLOSE_NOT_VISIBLE");
+    LabEvent history[8]={};
+    uint32_t cursor=0,newest=0,dropped=0;
+    uint8_t count=0;
+    uint32_t kinds[10]={};
+    check(labReadEvents(0,nullptr,8,&count,&newest,&dropped)==
+          LabEventResult::Invalid,"TRACE_NULL_ACCEPTED");
+    do {
+        const auto status=labReadEvents(cursor,history,8,
+                                        &count,&newest,&dropped);
+        check(status==LabEventResult::Read && dropped==0,
+              "TRACE_GAP_BEFORE_64_EVENTS");
+        for (uint8_t i=0;i<count;++i) {
+            const LabEvent& e=history[i];
+            check(e.seq==cursor+1,"TRACE_SEQUENCE_DISCONTINUITY");
+            cursor=e.seq;
+            const int type=static_cast<int>(e.kind);
+            check(type>=1&&type<=9,"TRACE_BAD_KIND");
+            ++kinds[type];
+        }
+    } while (cursor<newest);
+    check(kinds[1]>=2 && kinds[3]>=1 && kinds[4]>=1 &&
+          kinds[5]>=1 && kinds[6]>=2 && kinds[7]==1 &&
+          kinds[8]>=1,"TRACE_EXPECTED_LIFECYCLE_MISSING");
+    std::cout<<"G10_R_R3_LIFECYCLE_TRACE=PASS_SOURCE_BACKED\n";
+    for (int i=0;i<80;++i) {
+        BusScope bus(20);
+        check(bool(bus) && bool(allocateSocketLockedAuto(4)),
+              "TRACE_RING_STRESS_ALLOC_FAILED");
+    }
+    check(labReadEvents(0,history,8,&count,&newest,&dropped)==
+          LabEventResult::HistoryOverrun,
+          "TRACE_OVERRUN_FALSE_PASS");
+    check(count==8,"TRACE_OVERRUN_NO_TAIL");
+    std::cout<<"G10_R_R3_TRACE_OVERRUN=PASS_REVIEW_DETECTED\n";
     check(busOwner==0&&takes==releases,
           "BUS_MUTEX_LEAK_OR_UNBALANCED_RELEASE");
     std::cout<<"G10_R_R3_LAB_RECYCLE_STALE_GUARD=PASS\n";
