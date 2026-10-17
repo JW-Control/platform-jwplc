@@ -1,0 +1,32 @@
+name: Alpha13 PRE-H B2 DHCP y perifericos no fisico
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/alpha13-preh-b2-offline.yml'
+      - 'tools/alpha13/gates/a13_g10_r_b2_*'
+      - 'tools/alpha13/gates/a13_g10_r_field_runner.py'
+      - 'tools/alpha13/gates/a13_g10_r_build_candidate.py'
+      - 'tools/alpha13/sketches/g10_r_integrated/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  b2-contract:
+    name: B2 DHCP y fairness offline (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: DHCP staged hook sin red ni COM
+        run: python -B tools/alpha13/gates/a13_g10_r_b2_dhcp_stage.py --selftest
+      - name: Contrato DHCP, IO y periféricos
+        run: python -B tools/alpha13/gates/a13_g10_r_b2_contract.py --selftest
+      - name: Verificar parser UART y garantías de bloqueo H
+        run: python -B tools/alpha13/gates/a13_g10_r_field_runner.py --selftest
