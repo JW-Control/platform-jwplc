@@ -109,8 +109,6 @@ def build(cli: str, *, upload: bool = False, stage_out: Path | None = None,
           h0_diag_com4: bool = False) -> None:
     waiver_data=None
     if upload:
-        require(h0_diag_com4,"H0_BRANCH_DUAL_UPLOAD_FORBIDDEN")
-    if upload:
         require((bench_evidence is None) != (dev_waiver is None),
                 "H0_REQUIRE_EXACTLY_ONE_BENCH_BACKUP_OR_DEVELOPMENT_WAIVER")
         if dev_waiver is not None:
@@ -127,6 +125,8 @@ def build(cli: str, *, upload: bool = False, stage_out: Path | None = None,
             print("G10_R_B4_LOCAL_BACKUP_AND_BENCH=CHECKED_NOT_HARDWARE_ATTESTED")
             require(R3_COMPLETE_PHYSICAL_CAMPAIGN_READY,
                     "G10R_FLASH_BLOCKED_R3_FULL_CAMPAIGN_NOT_READY")
+    if upload:
+        require(h0_diag_com4,"H0_BRANCH_DUAL_UPLOAD_FORBIDDEN")
     require(Path.cwd().resolve() == ROOT, "RUN_FROM_REPO_ROOT")
     guard_sketch()
     if upload:
@@ -430,7 +430,7 @@ def main() -> int:
             guard_sketch()
             require(R3_COMPLETE_PHYSICAL_CAMPAIGN_READY is False,
                     "G10R_SELFTEST_MUST_FAIL_CLOSED_FLASH")
-            require("codex/alpha13-preh-tcp124-review-20261016" in
+            require("codex/alpha13-h0-wdt-link-isolation-20261017" in
                     Path(__file__).read_text(encoding="utf-8"),
                     "B4_UPLOAD_REMOTE_SOURCE_BRANCH_DRIFT")
             print("G10_R_BUILD_SELFTEST=PASS_NO_CLI_NO_USB_NO_UPLOAD")
