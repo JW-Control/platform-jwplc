@@ -252,6 +252,17 @@ def build(cli: str, *, upload: bool = False) -> None:
                         modbus_dep.read_text(encoding="utf-8",errors="replace"),
                         "MODBUS_TCP_SOURCE_DEP_MISSING")
                 output["modbus_tcp_object_sha256"]=sha256(modbus_objects[0])
+                # B2: comprobar fuente DHCP real compilada, no archive antiguo.
+                ethernet_objects=list(target.rglob("JWPLC_Ethernet.cpp.o"))
+                require(len(ethernet_objects)==1,"ETHERNET_OBJECT_NOT_UNIQUE")
+                ethernet_dep=Path(str(ethernet_objects[0])+".d")
+                if not ethernet_dep.exists():
+                    ethernet_dep=ethernet_objects[0].with_suffix(".d")
+                require(ethernet_dep.is_file() and "JWPLC_Ethernet.cpp" in
+                        ethernet_dep.read_text(encoding="utf-8",errors="replace"),
+                        "ETHERNET_SOURCE_DEP_MISSING")
+                output["ethernet_object_sha256"]=sha256(ethernet_objects[0])
+                print("G10_R_B2_DHCP_SOURCE_TO_OBJECT=PASS")
                 print("G10_R_TCP124_MODBUS_SOURCE_TO_OBJECT=PASS")
             elfs=list(target.glob("*.elf"))
             require(len(elfs)==1,"ELF_NOT_UNIQUE_"+name)
