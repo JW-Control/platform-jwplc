@@ -100,3 +100,46 @@ G10-R-DNS_DHCP_TCP_PHYSICAL_INJECTION=NOT_READY
 G10-R-H=BLOCKED
 A13-006=ADOPTION_BLOCKED
 ```
+
+
+## 8. R3 — cinco inyecciones de cierre sobre el hardware real, PREPARADAS PERO NO FLASHEADAS
+
+Se añadieron **cinco modos source-backed** al **mismo** `g10_r_integrated.ino`, subordinados a `G10R_START:<token>` y a una orden explícita del runner, sin arranque automático:
+
+| Modo R3 | Objeto REAL | Operación durante retención SPI | Qué **no** demuestra |
+| --- | --- | --- | --- |
+| `UDP` | `EthernetUDP` temporal puerto 15021 | `stop()` | DNS, DHCP, TCP |
+| `DNS` | `DNSClient` temporal y consulta `jwplc-g10r.invalid` | `cancelResolveAsync()` | DNS con respuesta exitosa |
+| `TCP` | `EthernetClient` temporal y destino de benchmarking 198.18.0.1:15022 | `cancelConnectAsync()` | 1/2/4 conexiones de cliente reales |
+| `DHCP_CANCEL` | `DhcpClass` temporal | `cancelDHCP()` | Adquisición/renovación DHCP de la instancia global |
+| `DHCP_FINISH` | `DhcpClass` temporal | `finishAsync()` | ACK/NAK, renew/rebind end-to-end |
+
+**Condición DHCP de seguridad:** solo se agrega en el overlay temporal de 14 fuentes un `friend class G10RLabDhcpProbe` a `DhcpClass`. El helper abre exclusivamente su miembro UDP interno en **puerto de laboratorio 15023**; **NO llama** `DhcpClass::beginWithDHCPAsync()`, `EthernetClass::cancelDHCP()`, ni envía `DHCP_DISCOVER`. Por tanto puede probar que los callbacks de limpieza publican/drenan un cierre diferido durante `SPI_BUSY` sin sustituir ni afectar directamente el gestor DHCP del autoload. La fuente productiva, archivos `.a` congelados y APIs públicas permanecen intactos.
+
+**Protocolo de procedencia actualizado:** `G10R_PROTOCOL:R1R2R3R4_FAULT_LAB_V2` y `READY VER=R1R2R3R4_FAULT_LAB_V2`. Un firmware anterior que solo anuncie `R1R2R4_R3SNAPSHOT_V1` ya no cumple el handshake del runner, independientemente del puerto COM.
+
+El `a13_g10_r_field_runner.py` dispone de `r3_suite()` que agrupa los cinco modos como **una sola fase R3** dentro de R1→R2→R3→R4: cada subfase tiene token, captura UART+anillo de lifecycle, identificación del socket, espera de drenaje y aborto inmediato ante `PREPARE_FAILED/MUTEX_NOT_ACQUIRED/HOLD_TIMING_REVIEW/TRACE_GAP`. Ninguna subfase requiere del operador enviar comandos separados. Este método **todavía no puede entrar en ejecución**, porque `R3_PHYSICAL_INJECTION_READY=False` y `R3_COMPLETE_PHYSICAL_CAMPAIGN_READY=False`.
+
+### Condiciones pendientes antes de un único comando físico
+
+- **C1 — CI del HEAD exacto:** cinco jobs de N0/N1/N2 source-first en Windows/Ubuntu, sin errores ni `skipped`; revisión del parche DHCP solo-en-stage y de logs `.d/.o/ELF`.
+- **C2 — Contención TCP 1/2/4 y presupuesto de 8 sockets:** diseñar una carga TCP concurrente con criterio de aceptación compatible con el servidor Modbus TCP actual (unit ID 1 **no** representa cuatro clientes), sin falsear PASS por aperturas fallidas; documentar puerto/peer y métricas.
+- **C3 — DHCP de red real:** añadir a R2 la observación y evidencia de recuperación de IP, DNS y DHCP del gestor productivo tras link-loss, sin disparar una segunda negociación sobre una LAN industrial. El test `DHCP_CANCEL/FINISH` cubre únicamente las rutas de limpieza bajo contención.
+- **C4 — Equidad de periféricos:** obtener métricas físicas de TFT/TCA/I/O y confirmar que autoload, SD, FRAM, RTC, RS-485/RTU siguen atendidos durante R3/R4; no basta el conteo de heartbeats.
+- **C5 — Banco:** COM4/COM14, PLC sin cargas Q, switch aislado, inventario de firmware anterior/restauración, consentimientos separados para upload y captura/RJ45, y parada segura por timeout o pérdida de eventos.
+
+**Criterio de no-regresión:** no elevar `R3_PHYSICAL_INJECTION_READY` mientras exista cualquiera de C1–C5 pendiente. No inferir que un test N1 simulado equivale a una inyección física ejecutada. Al alcanzar PRE-H PASS se preparará **un solo** flujo de operador, nunca cinco microgates.
+
+```text
+G10-R-R3-LAB_MODES=UDP_DNS_TCP_DHCP_CANCEL_DHCP_FINISH
+G10-R-R3-SOURCE=STAGED_ONLY_NO_PRODUCT_APIS
+G10-R-R3-UART=R1R2R3R4_FAULT_LAB_V2
+G10-R-R3-DHCP_EXTRA_DISCOVER=NO
+G10-R-R3-TCP_PARALLEL_1_2_4=NOT_QUALIFIED
+G10-R-R3-DHCP_LEASE_RECOVERY=NOT_QUALIFIED
+G10-R-R3-TFT_TCA_FAIRNESS=NOT_MEASURED_PHYSICALLY
+G10-R-R3-UPLOAD=BLOCKED
+G10-R-R3-LIVE=BLOCKED
+G10-R-R3-PHYSICAL=NOT_RUN
+A13-006=ADOPTION_BLOCKED
+```
