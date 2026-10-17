@@ -38,6 +38,8 @@ static std::atomic<uint8_t> r3HoldState{0}; // 0 idle; 1 held; 2 released; 3 loc
 static bool r3Armed=false, r3CloseAttempted=false, r3ClosedWhileHeld=false;
 static uint32_t r3ReleasedAt=0;
 static bool r3FinishPrinted=false;
+static uint8_t r3ProbeSocket=255;
+static uint32_t r3Epoch=0,r3Allocation=0,r3Owner=0;
 
 static void r3HoldW5500(void*) {
   {
@@ -114,9 +116,47 @@ static void handleCommand(const char* msg) {
     const char* requested=msg+sizeof(r3Prefix)-1;
     if (!active || strlen(requested)!=24 || strcmp(requested,token)!=0 ||
         r3Armed) return;
-    if (!JWPLC_Ethernet.isReady() || r3ProbeUdp.begin(15021)!=1) {
+    if (!JWPLC_Ethernet.isReady()) {
       r3Report("PREPARE_FAILED");return;
     }
+    // El mismo BusScope cubre snapshots previas y apertura: otra tarea
+    // no puede reciclar sockets entre estas tres operaciones.
+    bool ready=false;
+    {
+      jwplc_w5500_candidate::BusScope bus(20);
+      if (bus) {
+        jwplc_w5500_candidate::LabSocketSnapshot before[8],after[8];
+        const auto a=jwplc_w5500_candidate::labCaptureSockets(before,8,0);
+        if (a==jwplc_w5500_candidate::LabCaptureOutcome::Captured) {
+          if (r3ProbeUdp.begin(15021)==1) {
+            const auto b=jwplc_w5500_candidate::labCaptureSockets(after,8,0);
+            if (b==jwplc_w5500_candidate::LabCaptureOutcome::Captured) {
+              uint8_t count=0;
+              for (uint8_t i=0;i<8;++i) {
+                if (after[i].valid && (!before[i].valid ||
+                    after[i].allocation!=before[i].allocation)) {
+                  ++count;
+                  r3ProbeSocket=i;
+                  r3Epoch=after[i].epoch;
+                  r3Allocation=after[i].allocation;
+                  r3Owner=after[i].ownerCookie;
+                }
+              }
+              ready=(count==1 && r3Epoch && r3Allocation && r3Owner);
+            }
+          }
+        }
+      }
+    }
+    if (!ready) {
+      r3ProbeUdp.stop();
+      r3Report("PREPARE_FAILED");return;
+    }
+    Serial.print("G10R_R3_LEASE:");Serial.print(token);
+    Serial.print(" SID=");Serial.print(r3ProbeSocket);
+    Serial.print(" EPOCH=");Serial.print(r3Epoch);
+    Serial.print(" ALLOC=");Serial.print(r3Allocation);
+    Serial.print(" OWNER=");Serial.println(r3Owner);
     r3Armed=true;
     r3HoldState.store(0,std::memory_order_release);
     r3Report("ARMED");
@@ -212,6 +252,7 @@ static void handleCommand(const char* msg) {
   active=true;startMs=millis();
   r3Armed=r3CloseAttempted=r3ClosedWhileHeld=r3FinishPrinted=false;
   r3ReleasedAt=0;
+  r3ProbeSocket=255;r3Epoch=r3Allocation=r3Owner=0;
   r3HoldState.store(0,std::memory_order_release);
   JWPLC_ModbusRTU.resetStats();
   JWPLC_Buttons.clearPendingInput();
