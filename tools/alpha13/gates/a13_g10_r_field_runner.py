@@ -240,6 +240,7 @@ class Recorder:
         self.r3_snapshots=[]
         self.r3_udp_lines=[]  # Histórico compat: incluye ahora DNS/TCP con kind.
         self.r3_udp_sessions=[]
+        self.tcp124_stress=[]
         self._r3_requested_mode=None
         self._r3_udp_started_at=None
         self._sock_batch=None
@@ -575,6 +576,45 @@ class Recorder:
                                     session["token"],mode)
             require(verdict["status"]=="R3_UDP_SOURCE_CONTRACT_ONLY_NOT_PHYSICAL_PASS",
                     "R3_PROBE_EVIDENCE_REVIEW_STOP_"+mode)
+        # Estrés 1/2/4 CLIENTES PC contra servidor single-active, en la MISMA
+        # campaña autorizada. Hasta habilitar H este método no se ejecuta.
+        router_path=ROOT/"tools/alpha13/gates/a13_g10_r_tcp124_router.py"
+        router_spec=importlib.util.spec_from_file_location("g10r_tcp_router",router_path)
+        require(router_spec is not None and router_spec.loader is not None,
+                "TCP124_ROUTER_MODULE_MISSING")
+        router=importlib.util.module_from_spec(router_spec)
+        sys.modules[router_spec.name]=router
+        router_spec.loader.exec_module(router)
+        for count in (1,2,4):
+            token=self.start("R3")
+            try:
+                deadline=time.monotonic()+12
+                ip=None
+                while time.monotonic()<deadline and not self.stop.is_set():
+                    with self.lock:
+                        if self.latest and self.latest.get("phase")=="R3":
+                            ip=self.latest.get("ip")
+                    if ip:break
+                    self.stop.wait(.1)
+                require(ip is not None,"TCP124_HEARTBEAT_IP_MISSING")
+                router.plan(ip,count,2)
+                report=router.run_target(ip,count,2,tid_base=1000+count*100)
+                report.update({"token":token,"phase":"R3"})
+                self.tcp124_stress.append(report)
+                for observation in report.get("clients",[]):
+                    if observation is None:continue
+                    if "tid" in observation:
+                        self.add({"kind":"traffic","phase":"R3","token":token,
+                                  "t":self.stamp(),"tcp_tid":observation["tid"],
+                                  "tcp":observation["fc03_ok"],"udp":False,
+                                  "rtu":False})
+                self.send("G10R_TCP_EVENTS:"+token)
+                with self.lock:
+                    trace_cmd=self.trace.request(self.stamp())
+                if trace_cmd:self.send(trace_cmd)
+                if self.stop.wait(4):raise RuntimeError("TCP124_SESSION_ABORT")
+            finally:
+                self.end()
         # Completar las 5 sondas NO equivale a validar DHCP renew/rebind,
         # 1/2/4 clientes ni fairness TFT/TCA: H permanece sujeto al plan.
 
@@ -842,6 +882,7 @@ def live(evidence:Path)->int:
         result["events"]=sorted(c.events,key=lambda ev:ev["t"])
         result["r3_socket_snapshots"]=list(c.r3_snapshots)
         result["tcp_uart"]=c.tcp_collector.report()
+        result["tcp124_stress"]=list(c.tcp124_stress)
         result["pc_tcp_transactions"]=[ev for ev in c.events
             if ev.get("kind")=="traffic" and "tcp_tid" in ev]
         result["r3_udp_lines"]=list(c.r3_udp_lines)
