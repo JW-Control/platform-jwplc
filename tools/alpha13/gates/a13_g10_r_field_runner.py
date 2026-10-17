@@ -20,6 +20,7 @@ import queue
 import re
 import socket
 import struct
+import subprocess
 import tempfile
 import sys
 import threading
@@ -48,6 +49,23 @@ def require(ok,reason):
     if not ok:raise RuntimeError(reason)
 
 
+def current_source_head()->str:
+    """Identidad local de las fuentes, sin interacción de red."""
+    result=subprocess.run(["git","rev-parse","HEAD"],cwd=ROOT,
+                          capture_output=True,text=True,timeout=12)
+    require(result.returncode==0,"G10R_LOCAL_GIT_HEAD_NOT_AVAILABLE")
+    head=result.stdout.strip()
+    require(re.fullmatch("[a-f0-9]{40}",head) is not None,
+            "G10R_LOCAL_GIT_HEAD_INVALID")
+    require(subprocess.run(["git","diff","--quiet","--"],cwd=ROOT,
+                           timeout=12).returncode==0,
+            "G10R_TRACKED_WORKTREE_DIRTY")
+    require(subprocess.run(["git","diff","--cached","--quiet","--"],cwd=ROOT,
+                           timeout=12).returncode==0,
+            "G10R_STAGED_WORKTREE_DIRTY")
+    return head
+
+
 def inspect_evidence(path:Path)->dict:
     """El manifiesto es una PRECONDICIÓN documental, NO attestation remota."""
     d=json.loads(path.read_text(encoding="utf-8-sig"))
@@ -74,6 +92,8 @@ def inspect_evidence(path:Path)->dict:
             "UPLOAD_EVIDENCE_DIFFERENT_CANDIDATE")
     require(re.fullmatch(r"[a-f0-9]{40}",d.get("source_head","")) is not None,
             "UPLOAD_EVIDENCE_HEAD_REQUIRED")
+    require(d["source_head"]==current_source_head(),
+            "UPLOAD_EVIDENCE_NOT_FROM_CURRENT_SOURCE_HEAD")
     require(d.get("r3_lab_snapshot")==
             "READ_ONLY_INSTRUMENTED_NOT_FAULT_INJECTED",
             "UPLOAD_EVIDENCE_R3_LAB_MISSING")
@@ -424,7 +444,7 @@ def selftest()->int:
             "upload":"PASS_BOTH_EXPLICIT",
             "consent":"EXPLICIT_AFTER_SOURCE_FIRST_BUILD",
             "g10_i_source_sha":"a954cabd9c6e37876b59995a41ff0a449308ccd1",
-            "source_head":"c"*40,
+            "source_head":current_source_head(),
             "r3_lab_snapshot":"READ_ONLY_INSTRUMENTED_NOT_FAULT_INJECTED",
             "sketch_sha256":{
                 "COM4":hashlib.sha256((ROOT/"tools/alpha13/sketches/g10_r_integrated/g10_r_integrated.ino").read_bytes()).hexdigest(),
@@ -447,6 +467,12 @@ def selftest()->int:
         try:inspect_evidence(doc)
         except RuntimeError:pass
         else:raise AssertionError("TEST_EVIDENCE_PARTIAL_UPLOAD_ACCEPTED")
+        evidence["uploaded"]["COM4"]="PASS_CONFIRMED_UPLOAD"
+        evidence["source_head"]="0"*40
+        doc.write_text(json.dumps(evidence),encoding="utf-8")
+        try:inspect_evidence(doc)
+        except RuntimeError:pass
+        else:raise AssertionError("TEST_EVIDENCE_DIFFERENT_HEAD_ACCEPTED")
     slave=("G8_P4_SLAVE_RESULT:"+"a"*24+
            " RXBYTES=99 RXFRAMES=12 TXFRAMES=12 REQUESTS=12 CRC=0 READY=1")
     require(parse_slave_result(slave,"a"*24)["CRC"]==0,"SLAVE_PARSE_POSITIVE")
