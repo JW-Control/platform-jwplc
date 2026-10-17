@@ -731,6 +731,20 @@ def selftest()->int:
             "DRY_RUN_IMPLICIT_HARDWARE")
     require(R3_PHYSICAL_INJECTION_READY is False,
             "SELFTEST_MUST_REJECT_INCOMPLETE_PHYSICAL_CAMPAIGN")
+    require(R3_PROBE_ORDER==("UDP","DNS","TCP","DHCP_CANCEL","DHCP_FINISH"),
+            "SELFTEST_R3_INTEGRATED_MODES_DRIFT")
+    for mode in R3_PROBE_ORDER:
+        recorder=Recorder(Path("."))
+        recorder.phase="R3";recorder.token="a"*24
+        recorder._r3_requested_mode=mode
+        recorder.capture_udp_probe_line(
+            "G10R_R3_"+mode+":"+"a"*24+" STATE=ARMED",1.0)
+        recorder.capture_udp_probe_line(
+            "G10R_R3_HOLD:"+"a"*24+" US=80000",1.1)
+        require(len(recorder.r3_udp_lines)==2 and
+                recorder.r3_udp_lines[0]["kind"]==mode and
+                recorder._r3_udp_started_at==1.0,
+                "SELFTEST_R3_MODE_UART_NOT_CORRELATED_"+mode)
     # Los comandos R3 no pueden usarse en R1 ni sin sesión.
     r3rec=Recorder(Path("."))
     r3rec.phase="R1";r3rec.token="a"*24
