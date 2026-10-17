@@ -1,16 +1,16 @@
-# Alpha13 — estado vivo G10 (preparación G10-R, 2026-10-16)
+# Alpha13 — G10-R, estado vivo de preparación (16/10/2026)
 
-> **G10-R — continuidad técnica 16/10/2026, rama aislada:** tras G10-C (decisión de diferir adopción), están implementados (1) sketch COM4 de resistencia y captura de link PHY; (2) staging G10-I de 14 fuentes con **snapshots read-only** de `epoch/owner/allocation/pending` solo en SafeAccess del paquete temporal; (3) evaluadores offline R1/R2/R4 y owner/epoch con mutantes negativos; (4) gate separado de **build→upload** que exige Arduino CLI 1.5.1, CH340, SHA de ELF y consentimiento textual; (5) runner anfitrión que requiere **manifest SHA + consentimiento adicional** antes de captar COM4/COM14 y maniobras RJ45, sin subir firmware. La CI de fuentes de referencia [#38862150129](https://github.com/JW-Control/platform-jwplc/actions/runs/38862150129) comprobó 4/4 PASS Windows/Ubuntu sobre su HEAD; las modificaciones recientes del runner/RTC requieren CI del HEAD vigente. La instrumentación R3 de snapshots no demuestra secuencias DNS/DHCP bajo SPI_BUSY. **NO se ha ejecutado `--upload` ni `--live`; firmware actual de ambas placas sigue siendo el de G10-H sin restauración.** Los 5 archives y el producto permanecen intactos, GPIO4 deshabilitado. No reiniciar, desconectar ni flashear en nombre de este estado sin consentimiento independiente. `A13-006=ADOPTION_BLOCKED`.
+> **Hito actual: seguridad del harness y observabilidad R3; hardware NO ejecutado.** Baseline del código anterior: [CI #38864224010](https://github.com/JW-Control/platform-jwplc/actions/runs/38864224010), **4/4 SUCCESS Windows/Ubuntu** para HEAD `e11e3638858e5063c432c67490feeb8f04764bae`. En la rama `codex/alpha13-g10-r-recovery-prep` se corrigió el parser de nonce HEX Arduino con mayúsculas y se exige concordancia **HEAD local+worktree limpio↔manifiesto de upload**. Los snapshots de ocho sockets se delimitan `G10R_SOCK_BEGIN/G10R_SOCK_END`, se guardan por sesión cada ~15 s y las capturas incompletas/BUS_BUSY quedan clasificadas explícitamente. Nuevo código y CI de Windows/Ubuntu en revisión: **NO atribuirles el PASS del baseline previo hasta verificar la corrida exacta**. R3 no tiene todavía secuencias físicas verificadas de fault injection `SPI_BUSY`. Código productivo y cinco archives intactos; GPIO4 deshabilitado. Los dos equipos aún contienen G10-H diagnóstico sin restauración. `A13-006=ADOPTION_BLOCKED`; PR #108 Draft; sin merge, upload, manipulación RJ45 ni release.
 
 ```text
 HITO=G10-R
 BRANCH=codex/alpha13-g10-r-recovery-prep
-G10-R=PREP_NONPHYSICAL_SOURCE_CODE_IMPLEMENTED
-G10-R-N0=PASS_SYNTHETIC_CONTRACT_WINDOWS_UBUNTU_RUN_38855037866
-G10-R-SOURCE_BUILD=PASS_BASELINE_4X4_RUN_38862150129
-G10-R-R1_R2_R4=SKETCH_RUNNER_AND_REPLAY_READY_CI_FINAL_PENDING_PHYSICAL_NOT_RUN
-G10-R-R3=READONLY_SNAPSHOTS_AND_OFFLINE_OWNER_EPOCH_CONTRACT_FAULT_INJECTION_NOT_RUN
-G10-R-UPLOAD=GATED_IMPLEMENTED_NOT_EXECUTED
+G10-R=PREP_NONPHYSICAL_SOURCE_INSTRUMENTED_CI_FINAL_PENDING
+G10-R-BASE_CI=PASS_4X4_RUN_38864224010_HEAD_e11e3638
+G10-R-N0=PASS_SYNTHETIC_CONTRACT_WINDOWS_UBUNTU
+G10-R-R1_R2_R4=SKETCH_REPLAY_CAPTURE_AND_UPLOAD_GATES_IMPLEMENTED_PHYSICAL_NOT_RUN
+G10-R-R3=READ_ONLY_SOURCE_BACKED_SNAPSHOTS_AND_OFFLINE_CONTRACT_NO_PHYSICAL_FAULT_INJECTION
+G10-R-UPLOAD=CONSENT_GATED_NOT_EXECUTED
 G10-R-CAPTURE=CONSENT_GATED_NOT_EXECUTED
 G10-R-R5=NOT_AUTHORIZED
 G10-I=NONPHYSICAL_PASS_CANDIDATE
@@ -23,7 +23,7 @@ AUTOLOAD_NORMAL=UNCHANGED
 FROZEN_ARCHIVES=5_UNCHANGED
 GPIO4_RESET=DISABLED
 OPERATOR_FIRMWARE_RESTORED=NO
-NEXT_GATE=G10-R_FINAL_CI_R3_SOURCE_BACKED_NEGATIVES_THEN_OPERATOR_AUTHORIZATION_DECISION
+NEXT_GATE=G10-R_FINAL_CI_REVIEW_AND_R3_FAULT_INJECTION_PLAN
 PHYSICAL_UPLOAD=NOT_AUTHORIZED
 PHYSICAL_LINK_FLAP=NOT_AUTHORIZED
 PHYSICAL_POWER_CYCLE=NOT_AUTHORIZED
