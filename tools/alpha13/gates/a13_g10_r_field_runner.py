@@ -671,6 +671,30 @@ def live(evidence:Path)->int:
         result["r3_status"]="OBSERVABILITY_ONLY_NOT_CLOSE_FAULT_INJECTION"
         if c.trace.issues:
             result["r3_status"]="INSTRUMENTATION_GAP_REVIEW_STOP_R3"
+        # Auditor semantico: no convierte una traza consistente en R3 fisico PASS.
+        if result["r3_lifecycle_trace"]["events"]:
+            try:
+                p=ROOT/"tools/alpha13/gates/a13_g10_r_trace_validate.py"
+                spec=importlib.util.spec_from_file_location("g10r3_semantics",p)
+                require(spec is not None and spec.loader is not None,
+                        "R3_SEMANTICS_UNAVAILABLE")
+                m=importlib.util.module_from_spec(spec)
+                sys.modules[spec.name]=m
+                spec.loader.exec_module(m)
+                report=result["r3_lifecycle_trace"]
+                result["r3_semantic_verdict"]=m.evaluate({
+                    "schema":"G10-R-LIFECYCLE-REPLAY-V1",
+                    "origin":"UART_SOURCE_CAPTURE_UNVERIFIED",
+                    "events":report["events"],
+                    "dropped_events":report["dropped"],
+                    "instrumentation_gaps":report["issues"]})
+                if result["r3_semantic_verdict"]["status"]=="REVIEW_STOP":
+                    result["r3_status"]="SEMANTIC_REVIEW_STOP_R3"
+            except Exception as exc:
+                result["r3_status"]="SEMANTIC_EVALUATOR_REVIEW_STOP_R3"
+                result["r3_semantic_error"]=type(exc).__name__
+        else:
+            result["r3_status"]="NO_LIFECYCLE_EVENTS_REVIEW_STOP_R3"
         result["exit_code"]=status
         (out/"MANIFEST.json").write_text(
             json.dumps(result,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
