@@ -61,9 +61,14 @@ def evaluate(lines,token,transaction):
               (s,e,a,o)==(sid,epoch,allocation,owner)]
         queues=[seq for seq,k in rows if k==6]
         drains=[seq for seq,k in rows if k==7]
-        if len(queues)!=1 or len(drains)!=1 or queues[0]>=drains[0]:
+        immediate=[seq for seq,k in rows if k==4]
+        deferred=(not immediate and len(queues)==1 and
+                  len(drains)==1 and queues[0]<drains[0])
+        direct=(len(immediate)==1 and not queues and not drains)
+        if not (deferred or direct):
             errors.append("CLOSE_NOT_PROVEN")
-        if any(kind==2 and (not drains or seq<drains[0]) for seq,kind in rows):
+        close_at=drains[0] if deferred else immediate[0] if direct else 0
+        if any(kind==2 and (not close_at or seq<close_at) for seq,kind in rows):
             errors.append("RECYCLE_BEFORE_DRAIN")
     sequences=[r[0] for r in events]
     if sequences!=sorted(set(sequences)) or (sequences and sequences!=list(range(sequences[0],sequences[-1]+1))):
@@ -105,6 +110,13 @@ def selftest():
         v=copy.deepcopy(lines);fn(v);cases.append((name,v))
     for name,v in cases:
         assert evaluate(v,token,47)["status"]=="REVIEW_STOP",name
+    # Cierre inmediato es legítimo cuando no existió BUS_BUSY.
+    instant=copy.deepcopy(lines)
+    instant[5]=instant[5].replace("KIND=6","KIND=4")
+    instant.pop(6)
+    instant[5]=instant[5].replace("SEQ=2","SEQ=2")
+    assert evaluate(instant,token,47)["status"]=="PASS_UART_PROTOCOL_CONTRACT_ONLY"
+    print("G10R_TCP124_UART_DIRECT_AND_DEFERRED=PASS_FIXTURE_ONLY")
     print("G10R_TCP124_UART_CONTRACT=PASS_FIXTURE_ONLY")
     print(f"G10R_TCP124_UART_MUTANTS={len(cases)}_REJECTED")
     print("G10R_TCP124_UART_SOURCE_EMITTER=NOT_IMPLEMENTED")
