@@ -132,3 +132,8 @@ JWPLC_UI           (objetos nuevos, tabla de bindings {fieldId, puntero/tipo})
 ```
 
 Cualquier cambio se revisa entre Alpha14 y Alpha15 y se documenta aquí.
+
+## Seguimiento
+
+- 2026-10-18: alpha.12 (VPP 2.1.0-alpha.29) unida a la rama del Designer. Ruta F0 para Kenyi, con primera
+  prueba BOOL ↔ relé Q0_0, en `A15_F0_OPENPLC_RUTA_KENYI_20261018.md`.

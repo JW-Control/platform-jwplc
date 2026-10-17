@@ -42,6 +42,8 @@ A15_8_MENU=PASS_HOST_AND_ESP32_COMPILE (A15_8_MENU_20261017; físico pendiente)
 A15_9_PHYSICAL_PARITY=PENDING
 A15_10_PACKAGING_DOCS=PENDING
 A15_OPENPLC_INTEGRATION_DECISION=PASS (adopta plan rev.2 del fork + correcciones C1-C5)
+A15_ALPHA12_MERGE=PASS (VPP 2.1.0-alpha.29 + overlay IDLE de Kenyi; merge 7cbd427c)
+A15_F0_OPENPLC_BOOL_RELE=PASS_COMPILE (HAL VPP + bloque F0; OpenPLC y placa pendientes, Kenyi)
 ```
 
 ## Bloqueantes abiertos (de A15-0)
@@ -151,3 +153,8 @@ MENU_NODE_COUNT_LIMIT=64 por menú, 4 menús, 1 por página (9 nodos = +952 B RA
   - grilla de 1/2 px.
 
   Pendiente: extender los mini-modelos a BAR, figuras, RAW_TEXT y NAV_BAR (A15-7E).
+- 2026-10-18 — Merge de `v2.1.0-alpha.12/feature/openplc-engineering-closure` (Kenyi, VPP 2.1.0-alpha.29)
+  en la rama del Designer. Archivos de alpha.12 sin cambios; sólo chocó `libJWPLC_Display.a`, que no se
+  enlaza en modo fuente (se conserva el de alpha.15, regenerar al cierre). Gate
+  `gates/A15_F0_OpenPLC_Bool_Rele` (BOOL ↔ relé Q0_0) y ruta para Kenyi en
+  `A15_F0_OPENPLC_RUTA_KENYI_20261018.md`.
