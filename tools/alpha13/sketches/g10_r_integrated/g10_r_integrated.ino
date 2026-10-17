@@ -35,6 +35,7 @@ static uint8_t packet[96];
 // GPIO4, SD, FRAM, Q ni servicios en segundo plano.
 static EthernetUDP r3ProbeUdp;
 static std::atomic<uint8_t> r3HoldState{0}; // 0 idle; 1 held; 2 released; 3 lock denied
+static std::atomic<uint32_t> r3HoldDurationUs{0}; // duracion REAL, no presupuesto garantizado
 static bool r3Armed=false, r3CloseAttempted=false, r3ClosedWhileHeld=false;
 static uint32_t r3ReleasedAt=0;
 static bool r3FinishPrinted=false;
@@ -49,8 +50,11 @@ static void r3HoldW5500(void*) {
       vTaskDelete(nullptr);
       return;
     }
+    const uint32_t heldFrom=micros();
     r3HoldState.store(1, std::memory_order_release);
-    vTaskDelay(pdMS_TO_TICKS(80));
+    vTaskDelay(pdMS_TO_TICKS(80)); // espera nominal: el scheduler puede retrasar la salida
+    r3HoldDurationUs.store((uint32_t)(micros()-heldFrom),
+                           std::memory_order_release);
   }
   r3HoldState.store(2, std::memory_order_release);
   vTaskDelete(nullptr);
@@ -83,7 +87,11 @@ static void r3Service() {
     if (!r3ReleasedAt) r3ReleasedAt=millis();
     if ((uint32_t)(millis()-r3ReleasedAt)>=250) {
       if (!r3CloseAttempted) r3ProbeUdp.stop(); // no dejar huérfano
-      r3Report(r3CloseAttempted&&r3ClosedWhileHeld?
+      const uint32_t us=r3HoldDurationUs.load(std::memory_order_acquire);
+      Serial.print("G10R_R3_HOLD:");Serial.print(token);
+      Serial.print(" US=");Serial.println(us);
+      if (us<60000 || us>120000) r3Report("HOLD_TIMING_REVIEW");
+      else r3Report(r3CloseAttempted&&r3ClosedWhileHeld?
                "AWAIT_LIFECYCLE_REVIEW":"INJECTION_INCOMPLETE_REVIEW");
       r3FinishPrinted=true;
     }
@@ -159,6 +167,7 @@ static void handleCommand(const char* msg) {
     Serial.print(" OWNER=");Serial.println(r3Owner);
     r3Armed=true;
     r3HoldState.store(0,std::memory_order_release);
+    r3HoldDurationUs.store(0,std::memory_order_release);
     r3Report("ARMED");
     BaseType_t created=xTaskCreate(r3HoldW5500,"G10R_R3_UDP",
                                   3072,nullptr,1,nullptr);
@@ -254,6 +263,7 @@ static void handleCommand(const char* msg) {
   r3ReleasedAt=0;
   r3ProbeSocket=255;r3Epoch=r3Allocation=r3Owner=0;
   r3HoldState.store(0,std::memory_order_release);
+  r3HoldDurationUs.store(0,std::memory_order_release);
   JWPLC_ModbusRTU.resetStats();
   JWPLC_Buttons.clearPendingInput();
   Serial.print("G10R_STARTED:");Serial.print(token);
