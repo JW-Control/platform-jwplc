@@ -100,15 +100,26 @@ def guard_sketch() -> None:
 
 
 def build(cli: str, *, upload: bool = False, stage_out: Path | None = None,
-          bench_evidence: Path | None = None) -> None:
+          bench_evidence: Path | None = None,
+          dev_waiver: Path | None = None) -> None:
+    waiver_data=None
     if upload:
-        require(bench_evidence is not None,"B4_BENCH_BACKUP_EVIDENCE_REQUIRED_BEFORE_FLASH")
-        import a13_g10_r_b4_bench as b4
-        issues=b4.validate(json.loads(bench_evidence.read_text(encoding="utf-8-sig")))
-        require(not issues,"B4_PREFLIGHT_REVIEW_STOP_"+",".join(issues))
-        print("G10_R_B4_LOCAL_BACKUP_AND_BENCH=CHECKED_NOT_HARDWARE_ATTESTED")
-        require(R3_COMPLETE_PHYSICAL_CAMPAIGN_READY,
-                "G10R_FLASH_BLOCKED_R3_FULL_CAMPAIGN_NOT_READY")
+        require((bench_evidence is None) != (dev_waiver is None),
+                "H0_REQUIRE_EXACTLY_ONE_BENCH_BACKUP_OR_DEVELOPMENT_WAIVER")
+        if dev_waiver is not None:
+            # Excepcion del banco de desarrollo; NO habilita la campaña H.
+            import a13_g10_r_h0_dev_waiver as h0
+            waiver_data=json.loads(dev_waiver.read_text(encoding="utf-8-sig"))
+            issues=h0.validate(waiver_data)
+            require(not issues,"H0_DEV_WAIVER_REVIEW_STOP_"+",".join(issues))
+            print("G10_R_H0_BACKUP=WAIVED_FOR_TWO_DEV_BOARDS_ONLY")
+        else:
+            import a13_g10_r_b4_bench as b4
+            issues=b4.validate(json.loads(bench_evidence.read_text(encoding="utf-8-sig")))
+            require(not issues,"B4_PREFLIGHT_REVIEW_STOP_"+",".join(issues))
+            print("G10_R_B4_LOCAL_BACKUP_AND_BENCH=CHECKED_NOT_HARDWARE_ATTESTED")
+            require(R3_COMPLETE_PHYSICAL_CAMPAIGN_READY,
+                    "G10R_FLASH_BLOCKED_R3_FULL_CAMPAIGN_NOT_READY")
     require(Path.cwd().resolve() == ROOT, "RUN_FROM_REPO_ROOT")
     guard_sketch()
     if upload:
@@ -230,7 +241,8 @@ def build(cli: str, *, upload: bool = False, stage_out: Path | None = None,
                 "fqbn":FQBN,"overlay_source_count":len(files),
                 "staged_core_sha256":sha256(platform/"precompiled/core/JWPLCBASIC/core.a"),
                 "product_modified":False,"physical_test":"NOT_RUN",
-                "upload":"NOT_RUN","builds":{}}
+                "backup_policy":("WAIVED_DEV_ONLY" if waiver_data else "FULL_FLASH_BACKUPS"),
+                 "upload":"NOT_RUN","builds":{}}
         for name,sketch in (("COM4",SKETCH_COM4),("COM14",SKETCH_COM14)):
             props=run([cli,"--config-file",str(conf),"compile",
                        "--fqbn",FQBN,"--show-properties",str(sketch)])
@@ -298,12 +310,12 @@ def build(cli: str, *, upload: bool = False, stage_out: Path | None = None,
         print("G10_R_PHYSICAL_TEST=NOT_RUN")
         print("G10_R_BUILD_MANIFEST="+json.dumps(output,sort_keys=True))
         if upload:
-            upload_after_build(cli,conf,tmp,output)
+            upload_after_build(cli,conf,tmp,output,dev_waiver=waiver_data)
 
 
 
 def upload_after_build(cli: str, config: Path, tmp: Path,
-                       evidence: dict) -> None:
+                       evidence: dict, *, dev_waiver: dict | None = None) -> None:
     """Frontera física separada. Nada se sube antes del consentimiento."""
     from serial.tools import list_ports
 
@@ -321,6 +333,21 @@ def upload_after_build(cli: str, config: Path, tmp: Path,
         return result
 
     evidence["port_metadata"]=verify_usb()
+    if dev_waiver is not None:
+        # Verificar la MAC y los 4MB del ESP32 en cada puerto ANTES de escribir.
+        for name in ("COM4","COM14"):
+            observed=run([sys.executable,"-m","esptool","--chip","esp32",
+                          "--port",name,"--baud","115200","read_mac"])
+            m=re.search(r"MAC:\s*([0-9a-f]{2}(?::[0-9a-f]{2}){5})",
+                        observed,re.IGNORECASE)
+            require(m is not None,"H0_ESPTOOL_MAC_NOT_READ_"+name)
+            require(m.group(1).lower()==dev_waiver["device_roles"][name]["expected_mac"].lower(),
+                    "H0_ESP32_MAC_MISMATCH_"+name)
+            flash=run([sys.executable,"-m","esptool","--chip","esp32",
+                       "--port",name,"--baud","115200","flash_id"])
+            require(re.search(r"Detected flash size:\s*4MB\b",flash,re.IGNORECASE)
+                    is not None,"H0_FLASH_SIZE_NOT_4MB_"+name)
+        print("G10_R_H0_BOTH_MAC_AND_FLASH4MB=PASS_BEFORE_WRITE")
     require(evidence["source_head"]==
             run(["git","rev-parse","HEAD"]).strip(),
             "G10R_HEAD_CHANGED_AFTER_BUILD")
@@ -329,7 +356,8 @@ def upload_after_build(cli: str, config: Path, tmp: Path,
     print("G10_R_FLASH_NOTICE=FIRMWARE_ANTERIOR_NO_SE_RESTAURA")
     print("G10_R_FLASH_NOTICE=GPIO4_DISABLED_SD_FRAM_READ_ONLY")
     print("G10_R_FLASH_NOTICE=CIERRE_MONITORES_SERIALES_ANTES_UPLOAD")
-    consent="G10R AUTORIZO FLASH COM4 COM14"
+    consent=("G10R AUTORIZO FLASH COM4 COM14 SIN BACKUP" if dev_waiver
+             is not None else "G10R AUTORIZO FLASH COM4 COM14")
     try:answer=input("Escribe exactamente '"+consent+"': ").strip()
     except EOFError:answer=""
     require(answer==consent,"G10R_UPLOAD_NOT_AUTHORIZED")
@@ -376,6 +404,8 @@ def main() -> int:
     ap.add_argument("--stage-output",type=Path)
     ap.add_argument("--bench-evidence",type=Path,
                     help="Ficha local B4 con backups full flash antes de cualquier upload")
+    ap.add_argument("--dev-waiver",type=Path,
+                    help="Excepcion dos placas desarrollo sin backup con chequeo MAC/flash")
     selection.add_argument("--upload",action="store_true",
                            help="Requiere consentimiento humano y dos USB CH340; NO usar en CI")
     ap.add_argument("--cli",default="arduino-cli")
@@ -395,9 +425,10 @@ def main() -> int:
             build(args.cli,stage_out=args.stage_output)
         else:
             require(args.stage_output is None,"B3_STAGE_OUTPUT_ONLY_FOR_STAGE_ONLY")
-            require(not args.upload or args.bench_evidence is not None,
-                    "B4_BENCH_BACKUP_EVIDENCE_REQUIRED")
-            build(args.cli,upload=args.upload,bench_evidence=args.bench_evidence)
+            require(not args.upload or args.bench_evidence is not None or
+                    args.dev_waiver is not None,"B4_BENCH_BACKUP_OR_DEV_WAIVER_REQUIRED")
+            build(args.cli,upload=args.upload,bench_evidence=args.bench_evidence,
+                  dev_waiver=args.dev_waiver)
         return 0
     except Exception as e:
         print("G10_R_REVIEW_STOP="+str(e))
