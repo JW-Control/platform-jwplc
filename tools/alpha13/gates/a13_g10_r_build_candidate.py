@@ -99,7 +99,7 @@ def guard_sketch() -> None:
     print("G10_R_SKETCH_GUARD=PASS_STATIC_NO_Q_NO_STORAGE_WRITE_NO_RESET")
 
 
-def build(cli: str, *, upload: bool = False) -> None:
+def build(cli: str, *, upload: bool = False, stage_out: Path | None = None) -> None:
     if upload:
         require(R3_COMPLETE_PHYSICAL_CAMPAIGN_READY,
                 "G10R_FLASH_BLOCKED_R3_FULL_CAMPAIGN_NOT_READY")
@@ -178,6 +178,23 @@ def build(cli: str, *, upload: bool = False) -> None:
         tmp=Path(scratch)
         stage=tmp/"staged"
         m.stage_platform(stage,files,hashes)
+        if stage_out is not None:
+            destination=stage_out.resolve()
+            require(destination!=ROOT and ROOT not in destination.parents,
+                    "B3_STAGE_MUST_BE_OUTSIDE_REPOSITORY")
+            require(not destination.exists(),"B3_STAGE_TARGET_MUST_NOT_EXIST")
+            destination.parent.mkdir(parents=True,exist_ok=True)
+            shutil.copytree(stage,destination)
+            require(sha256(ROOT/"JWPLC/2.1.0"/"boards.txt")==
+                    sha256(destination/"boards.txt"),"B3_BOARDS_DRIFT")
+            require(sha256(ROOT/"JWPLC/2.1.0"/"platform.txt")==
+                    sha256(destination/"platform.txt"),"B3_PLATFORM_DRIFT")
+            require(m.load(m.MODULES["frozen"],"g10r_b3_frozen").check_frozen()==5,
+                    "B3_FROZEN_ARCHIVES_DRIFT")
+            print("G10_R_B3_STAGE=PASS_14_SOURCE_OVERLAYS_NO_CLI")
+            print("G10_R_B3_PRODUCT=UNCHANGED")
+            print("G10_R_B3_PHYSICAL=NOT_RUN")
+            return
         user=tmp/"sketchbook"
         platform=user/"hardware/jwplc_hbench/esp32"
         platform.parent.mkdir(parents=True)
@@ -348,6 +365,9 @@ def main() -> int:
     selection=ap.add_mutually_exclusive_group(required=True)
     selection.add_argument("--selftest",action="store_true")
     selection.add_argument("--build",action="store_true")
+    selection.add_argument("--stage-only",action="store_true",
+                           help="Exporta plataforma candidata a temp externa, sin CLI ni hardware")
+    ap.add_argument("--stage-output",type=Path)
     selection.add_argument("--upload",action="store_true",
                            help="Requiere consentimiento humano y dos USB CH340; NO usar en CI")
     ap.add_argument("--cli",default="arduino-cli")
@@ -359,7 +379,11 @@ def main() -> int:
                     "G10R_SELFTEST_MUST_FAIL_CLOSED_FLASH")
             print("G10_R_BUILD_SELFTEST=PASS_NO_CLI_NO_USB_NO_UPLOAD")
             print("G10_R_FLASH=BLOCKED_R3_FULL_CAMPAIGN_NOT_READY")
+        elif args.stage_only:
+            require(args.stage_output is not None,"B3_STAGE_OUTPUT_REQUIRED")
+            build(args.cli,stage_out=args.stage_output)
         else:
+            require(args.stage_output is None,"B3_STAGE_OUTPUT_ONLY_FOR_STAGE_ONLY")
             build(args.cli,upload=args.upload)
         return 0
     except Exception as e:
