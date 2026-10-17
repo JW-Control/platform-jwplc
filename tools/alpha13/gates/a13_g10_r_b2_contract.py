@@ -13,6 +13,7 @@ import json
 DHCP=("dhcp_ticks","dhcp_pend","dhcp_renew_ok","dhcp_renew_fail",
       "dhcp_rebind_ok","dhcp_rebind_fail")
 COUNTERS=("sd_ok","sd_fail","fram","rtu_ok","rtu_fail","udp_rx","udp_tx")
+TFT=("tft_draw","tft_fail","tft_max_us","tft_spi_wait_max_us")
 PHASES=("R1","R2","R3","R4")
 def evaluate(data):
     issues=[]
@@ -30,11 +31,11 @@ def evaluate(data):
         if len(group)<3:issues.append("INSUFFICIENT_"+str(phase))
         previous=None
         for e in group:
-            required=DHCP+COUNTERS+("io_ready","io_age_ms","rtc_age_ms",
+            required=DHCP+COUNTERS+TFT+("io_ready","io_age_ms","rtc_age_ms",
                     "tft_ready","dhcp_state","dhcp_err","rtc","ip","link","eth","t")
             if any(k not in e for k in required):
                 issues.append("MISSING_TELEMETRY");continue
-            nums=DHCP+COUNTERS+("io_ready","io_age_ms","rtc_age_ms",
+            nums=DHCP+COUNTERS+TFT+("io_ready","io_age_ms","rtc_age_ms",
                               "tft_ready","dhcp_state","dhcp_err","rtc","link","eth")
             if any(type(e[k]) is not int or e[k]<0 for k in nums):
                 issues.append("INVALID_COUNTER");continue
@@ -55,10 +56,14 @@ def evaluate(data):
             for e in group):
             if group[-1]["fram"]<=group[0]["fram"] or group[-1]["sd_ok"]<=group[0]["sd_ok"]:
                 issues.append("SD_OR_FRAM_NO_PROGRESS")
+        if len(group)>2 and all(type(e.get("tft_draw")) is int for e in group):
+            if group[-1]["tft_draw"]<=group[0]["tft_draw"]:
+                issues.append("TFT_REFRESH_NO_PROGRESS")
     ordered=sorted(hbs,key=lambda e:e.get("t",-1))
     for a,b in zip(ordered,ordered[1:]):
-        if all(k in a and k in b for k in DHCP):
+        if all(k in a and k in b for k in DHCP+TFT):
             if any(b[k]<a[k] for k in DHCP):issues.append("GLOBAL_DHCP_COUNTER_REGRESSION")
+            if any(b[k]<a[k] for k in TFT):issues.append("GLOBAL_TFT_COUNTER_REGRESSION")
     r2=[e for e in hbs if e.get("phase")=="R2"]
     if r2:
         if not any(e.get("link")==2 for e in r2):
@@ -77,7 +82,7 @@ def evaluate(data):
       "issues":sorted(set(issues)),
       "dhcp_lease_maintenance":renewal,
       "dhcp_renew_rebind_physical":"NOT_PROVEN_BY_OFFLINE_EVALUATOR",
-      "tft_refresh_progress":"NOT_MEASURED_READY_ONLY",
+      "tft_refresh_progress":"OBSERVED_BY_H3E1_RELEASE_BUS_COUNTS",
       "tca_io_progress":"OBSERVED_BY_RUNTIME_SCAN_AGE_NOT_BUS_TRANSACTION",
       "physical_campaign":"NOT_ATTESTED"
     }
@@ -93,6 +98,8 @@ def fixture():
                "sd_ok":idx+1,"sd_fail":0,"fram":idx+1,
                "rtu_ok":idx+1,"rtu_fail":0,"udp_rx":idx+1,"udp_tx":idx+1,
                "dhcp_ticks":phase_index*10+idx+1,"dhcp_pend":0,
+               "tft_draw":phase_index*20+idx+1,"tft_fail":0,
+               "tft_max_us":1500,"tft_spi_wait_max_us":100,
                "dhcp_renew_ok":0,"dhcp_renew_fail":0,
                "dhcp_rebind_ok":0,"dhcp_rebind_fail":0}
             if phase=="R2" and idx==1:e.update(link=2,eth=0,dhcp_state=3,ip="0.0.0.0")
@@ -110,6 +117,8 @@ def selftest():
     mutated("stale_io",lambda q:q["events"][2].update(io_age_ms=99999))
     mutated("rtc_stalled",lambda q:q["events"][2].update(rtc_age_ms=99999))
     mutated("tft_not_ready",lambda q:q["events"][2].update(tft_ready=0))
+    mutated("tft_stall",lambda q:[e.update(tft_draw=1) for e in q["events"][:4]])
+    mutated("tft_regression",lambda q:q["events"][-1].update(tft_draw=0))
     mutated("missing_dhcp",lambda q:q["events"][2].pop("dhcp_state"))
     mutated("dhcp_regression",lambda q:q["events"][-1].update(dhcp_ticks=0))
     mutated("fram_stalled",lambda q:[e.update(fram=0) for e in q["events"][:4]])
@@ -121,7 +130,7 @@ def selftest():
     print("G10R_B2_DHCP_PERIPHERAL_CONTRACT=PASS_SYNTHETIC")
     print(f"G10R_B2_NEGATIVE_CASES={len(cases)}_REJECTED")
     print("G10R_B2_DHCP_RENEW_REBIND=NOT_PHYSICALLY_PROVEN")
-    print("G10R_B2_TFT_REFRESH=NOT_MEASURED")
+    print("G10R_B2_TFT_REFRESH=H3E1_CONTRACT_ONLY_NO_HARDWARE")
 if __name__=="__main__":
     p=argparse.ArgumentParser()
     g=p.add_mutually_exclusive_group(required=True)
