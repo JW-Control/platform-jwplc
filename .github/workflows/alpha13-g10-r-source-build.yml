@@ -15,6 +15,7 @@ on:
       - 'tools/alpha13/gates/a13_g10_r_trace_host.py'
       - 'tools/alpha13/gates/a13_g10_r_trace_validate.py'
       - 'tools/alpha13/gates/a13_g10_r_r3_protocol_native.py'
+      - 'tools/alpha13/gates/a13_g10_r_r3_probe_contract.py'
       - 'tools/alpha13/candidates/g10_r/native_g10_r_lab_snapshot_test.cpp'
       - 'tools/alpha13/sketches/g10_r_integrated/**'
   pull_request:
@@ -30,6 +31,7 @@ on:
       - 'tools/alpha13/gates/a13_g10_r_trace_host.py'
       - 'tools/alpha13/gates/a13_g10_r_trace_validate.py'
       - 'tools/alpha13/gates/a13_g10_r_r3_protocol_native.py'
+      - 'tools/alpha13/gates/a13_g10_r_r3_probe_contract.py'
       - 'tools/alpha13/candidates/g10_r/native_g10_r_lab_snapshot_test.cpp'
       - 'tools/alpha13/sketches/g10_r_integrated/**'
 
@@ -60,7 +62,7 @@ jobs:
           git diff --name-only d01f6b2730bc0eaf2aee0fd9b1cb8eb6dafe10c7 HEAD > "$RUNNER_TEMP/g10-r-scope.txt"
           while IFS= read -r path; do
             case "$path" in
-              .github/workflows/alpha13-g10-r-preflight.yml|.github/workflows/alpha13-g10-r-source-build.yml|tools/alpha13/gates/a13_g10_r_preflight.py|tools/alpha13/gates/a13_g10_r_build_candidate.py|tools/alpha13/gates/a13_g10_r_replay.py|tools/alpha13/sketches/g10_r_integrated/g10_r_integrated.ino|tools/alpha13/gates/a13_g10_r_instrumentation.py|tools/alpha13/gates/a13_g10_r_owner_epoch.py|tools/alpha13/gates/a13_g10_r_field_runner.py|tools/alpha13/gates/a13_g10_r_r3_native.py|tools/alpha13/gates/a13_g10_r_trace.py|tools/alpha13/gates/a13_g10_r_trace_host.py|tools/alpha13/gates/a13_g10_r_trace_validate.py|tools/alpha13/gates/a13_g10_r_r3_protocol_native.py|tools/alpha13/candidates/g10_r/native_g10_r_lab_snapshot_test.cpp|docs/v2.1.0-alpha.13/A13_G10_R_CAMPANA_INTEGRADA_Y_TRANSFERENCIA_ALPHA15_20261016.md|docs/v2.1.0-alpha.13/A13_G10_R_PLAN_RECUPERACION_Y_RESISTENCIA_20261016.md|docs/v2.1.0-alpha.13/ALPHA13_STATUS.md)
+              .github/workflows/alpha13-g10-r-preflight.yml|.github/workflows/alpha13-g10-r-source-build.yml|tools/alpha13/gates/a13_g10_r_preflight.py|tools/alpha13/gates/a13_g10_r_build_candidate.py|tools/alpha13/gates/a13_g10_r_replay.py|tools/alpha13/sketches/g10_r_integrated/g10_r_integrated.ino|tools/alpha13/gates/a13_g10_r_instrumentation.py|tools/alpha13/gates/a13_g10_r_owner_epoch.py|tools/alpha13/gates/a13_g10_r_field_runner.py|tools/alpha13/gates/a13_g10_r_r3_native.py|tools/alpha13/gates/a13_g10_r_trace.py|tools/alpha13/gates/a13_g10_r_trace_host.py|tools/alpha13/gates/a13_g10_r_trace_validate.py|tools/alpha13/gates/a13_g10_r_r3_protocol_native.py|tools/alpha13/gates/a13_g10_r_r3_probe_contract.py|tools/alpha13/candidates/g10_r/native_g10_r_lab_snapshot_test.cpp|docs/v2.1.0-alpha.13/A13_G10_R_CAMPANA_INTEGRADA_Y_TRANSFERENCIA_ALPHA15_20261016.md|docs/v2.1.0-alpha.13/A13_G10_R_PLAN_RECUPERACION_Y_RESISTENCIA_20261016.md|docs/v2.1.0-alpha.13/ALPHA13_STATUS.md)
                 ;;
               *)
                 echo "G10_R_UNEXPECTED_CHANGE=$path"
@@ -73,7 +75,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -B -m py_compile tools/alpha13/gates/a13_g10_r_replay.py tools/alpha13/gates/a13_g10_r_build_candidate.py tools/alpha13/gates/a13_g10_r_instrumentation.py tools/alpha13/gates/a13_g10_r_owner_epoch.py tools/alpha13/gates/a13_g10_r_field_runner.py tools/alpha13/gates/a13_g10_r_r3_native.py tools/alpha13/gates/a13_g10_r_trace.py tools/alpha13/gates/a13_g10_r_trace_host.py tools/alpha13/gates/a13_g10_r_trace_validate.py tools/alpha13/gates/a13_g10_r_r3_protocol_native.py
+          python -B -m py_compile tools/alpha13/gates/a13_g10_r_replay.py tools/alpha13/gates/a13_g10_r_build_candidate.py tools/alpha13/gates/a13_g10_r_instrumentation.py tools/alpha13/gates/a13_g10_r_owner_epoch.py tools/alpha13/gates/a13_g10_r_field_runner.py tools/alpha13/gates/a13_g10_r_r3_native.py tools/alpha13/gates/a13_g10_r_trace.py tools/alpha13/gates/a13_g10_r_trace_host.py tools/alpha13/gates/a13_g10_r_trace_validate.py tools/alpha13/gates/a13_g10_r_r3_protocol_native.py tools/alpha13/gates/a13_g10_r_r3_probe_contract.py
           python -B tools/alpha13/gates/a13_g10_r_replay.py --selftest
           python -B tools/alpha13/gates/a13_g10_r_build_candidate.py --selftest
           python -B tools/alpha13/gates/a13_g10_r_instrumentation.py --selftest
@@ -83,6 +85,7 @@ jobs:
           python -B tools/alpha13/gates/a13_g10_r_trace_validate.py --selftest
           python -B tools/alpha13/gates/a13_g10_r_r3_native.py --selftest
           python -B tools/alpha13/gates/a13_g10_r_r3_protocol_native.py --selftest
+          python -B tools/alpha13/gates/a13_g10_r_r3_probe_contract.py --selftest
           python -B tools/alpha13/gates/a13_g10_r_trace.py --selftest
           python -B tools/alpha13/gates/a13_g10_r_trace.py --source-check
           python -B tools/alpha13/gates/a13_g10_r_field_runner.py --dry-run
@@ -141,6 +144,7 @@ jobs:
           set -euo pipefail
           python -B tools/alpha13/gates/a13_g10_r_r3_native.py --selftest
           python -B tools/alpha13/gates/a13_g10_r_r3_protocol_native.py --selftest
+          python -B tools/alpha13/gates/a13_g10_r_r3_probe_contract.py --selftest
           python -B tools/alpha13/gates/a13_g10_r_trace.py --selftest
           python -B tools/alpha13/gates/a13_g10_r_trace.py --source-check
           python -B tools/alpha13/gates/a13_g10_r_r3_native.py --native
