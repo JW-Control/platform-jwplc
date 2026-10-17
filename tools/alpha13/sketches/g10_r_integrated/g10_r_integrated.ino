@@ -8,6 +8,7 @@
 */
 #include <JWPLC_GlobalPeripherals.h>
 #include <JWPLC_Display.h>
+#include <JWPLC_IdleScreen.h>
 #include <JWPLC_Display_H3E1_Profile.h>
 #include <JWPLC_ModbusTCP.h>
 #include <JWPLC_ModbusRTU.h>
@@ -496,6 +497,8 @@ static void serviceRTU(uint32_t now) {
 }
 
 void setup() {
+  // Etiqueta SOLO del firmware de diagnóstico; no cambia el package.
+  JWPLCIdleScreen::setTitle("JWPLC Basic A13");
   Serial.begin(115200);
   Serial.println("G10R_PROTOCOL:R1R2R3R4_FAULT_LAB_V2");
   bootNonce=esp_random();
