@@ -1,3 +1,22 @@
+## H0 — Tamaño flash observado y marcador IDLE del firmware experimental (17/10/2026)
+
+- La identificación real de ambas placas con **esptool.py 4.6.2** confirmó `ESP32-D0WD-V3 rev 3.1`, oscilador 40 MHz y flash física **4 MB** en COM4 (Master con microSD) y COM14 (Slave sin microSD). Las direcciones MAC son distintas; **no se incorporan** identificadores MAC al repositorio. Los comandos `flash_id` y `read_mac` no respaldaron ni modificaron flash. Para cada respaldo completo posterior la longitud esperada será `0x400000 = 4 194 304 bytes`; sigue faltando permiso de lectura completa y evidencia local SHA256.
+- Se revisaron fuentes/archives de Alpha12 y Alpha13: `JWPLC_IdleScreen.cpp` y `JWPLC_Display.cpp` son idénticos entre ambas, pero `JWPLC_TFT.cpp` es distinto. Alpha13 agrega `fillScreen(JWPLC_TFT_BLACK)`, comando ST7789 `DISPON` y espera de 120 ms durante `JWPLC_TFTClass::begin`; también cambió el blob precompilado `libJWPLC_TFT.a`. **No se ha comprobado físicamente** si la mancha blanca desaparece en el arranque, y `flash_id/read_mac` no identifican el firmware actualmente instalado.
+- Para desambiguar la identidad del firmware de prueba, ambos sketches experimentales `g10_r_integrated.ino` (COM4) y `g8_p4_slave.ino` (COM14) llaman `JWPLCIdleScreen::setTitle("JWPLC Basic A13")` durante `setup()`. El título usa fuente IDLE existente de tamaño 1 y cabe en su bloque de 115 px. **No se cambian** bibliotecas de producto, API pública, precompilados o configuración autoload. Esto solo marca **estos dos sketches**, no todas las aplicaciones ni prueba automáticamente la versión de biblioteca cargada.
+- **Validez de CI:** el último `19/19 PASS` corresponde al HEAD de código anterior `33990007405cac2b5af9c110943d94f9201e6add`. Tras modificar ambos sketches y la whitelist B3 deben revisarse los nuevos gates y las compilaciones COM4/COM14 antes de permitir upload; **no transferir PASS previo**. Bloqueos `R3_COMPLETE_PHYSICAL_CAMPAIGN_READY=FALSE` y `R3_PHYSICAL_INJECTION_READY=FALSE` permanecen.
+
+```text
+H0_PORTS_AND_FLASH_SIZE=OBSERVED_4MB_EACH
+H0_MAC_DISTINCT=TRUE_NO_IDENTIFIERS_IN_REPO
+H0_BACKUPS=NOT_READ
+H0_FLASH=NOT_AUTHORIZED
+H0_IDLES_LABEL=A13_DIAGNOSTIC_SKETCH_ONLY
+H0_A13_TFT_BOOT_PHYSICAL=NOT_TESTED
+H0_LABEL_CHANGE_CI=NEEDS_EXACT_HEAD
+```
+
+---
+
 ## H0 — Identidad de banco confirmada por operador (17/10/2026)
 
 | Puerto previsto | Rol | microSD | Sketch de laboratorio previsto | Estado |
