@@ -1,0 +1,34 @@
+{
+  "sections": [
+    {
+      "id": "hmi_diagnostics",
+      "title": "Pantalla HMI · Diagnóstico",
+      "layout": "form",
+      "persistence": "hmi_diagnostics",
+      "fields": [
+        {
+          "id": "timing",
+          "label": "Medir tiempos de scan",
+          "type": "boolean",
+          "default": false,
+          "help": "Mide cada segundo cuánto tarda la HMI en el scan (copia de enlaces HMI <-> PLC), el scan completo y el periodo entre scans, y publica los resultados en 8 palabras %MW (µs). Para pruebas de banco; dejarlo apagado en producción."
+        },
+        {
+          "id": "timing_base_mw",
+          "label": "Primer %MW de resultados",
+          "type": "number",
+          "min": 0,
+          "max": 12,
+          "step": 1,
+          "default": 10,
+          "help": "Usa %MWn..%MWn+7: HMI prom., HMI máx., HMI máx. desde el arranque, scan prom., scan máx., periodo prom., periodo máx. y scans por segundo. No deben chocar con %MW del programa.",
+          "visible": {
+            "condition": "fields.timing",
+            "operator": "equals",
+            "value": true
+          }
+        }
+      ]
+    }
+  ]
+}

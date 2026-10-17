@@ -18,3 +18,4 @@ openplc-editor-installers/v4.2.7/vpp/signature.json text eol=lf
 openplc-editor-installers/v4.2.7/vpp/assets/jwplcbasic.png -text
 openplc-editor-installers/v4.2.7/vpp/hal/jwplcbasic-remoteio-slave.cpp text eol=lf
 openplc-editor-installers/v4.2.7/vpp/screens/remote-io-slave.json text eol=lf
+openplc-editor-installers/v4.2.7/vpp/screens/hmi.json text eol=lf
