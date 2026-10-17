@@ -65,6 +65,31 @@ jobs:
           test "$upload_rc" -eq 2
           grep -Fq 'H0_DEV_WAIVER_REVIEW_STOP' "$RUNNER_TEMP/h0-upload-denied.log"
           echo "H0_DEV_WAIVER=FAIL_CLOSED_NO_USB_NO_FLASH"
+      - name: H0 con waiver válido rechaza ruta de upload doble ANTES de COM
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -B - <<'PY'
+          import json
+          import os
+          import runpy
+          from pathlib import Path
+          h0=runpy.run_path("tools/alpha13/gates/a13_g10_r_h0_dev_waiver.py")
+          doc=h0["template"]()
+          for port,mac in (("COM4","02:00:00:00:00:04"),("COM14","02:00:00:00:00:14")):
+              doc["device_roles"][port]["expected_mac"]=mac
+          doc["physical_checks"]={name:True for name in doc["physical_checks"]}
+          doc["accept_loss_exact_phrase"]=h0["ACK"]
+          assert not h0["validate"](doc)
+          (Path(os.environ["RUNNER_TEMP"])/"h0-synthetic-valid.json").write_text(json.dumps(doc),encoding="utf-8")
+          PY
+          set +e
+          python -B tools/alpha13/gates/a13_g10_r_build_candidate.py --upload --dev-waiver "$RUNNER_TEMP/h0-synthetic-valid.json" > "$RUNNER_TEMP/h0-dual-denied.log" 2>&1
+          rc=$?
+          set -e
+          test "$rc" -eq 2
+          grep -Fq 'H0_BRANCH_DUAL_UPLOAD_FORBIDDEN' "$RUNNER_TEMP/h0-dual-denied.log"
+          echo "H0_VALID_WAIVER_DUAL_UPLOAD=DENIED_BEFORE_USB"
       - name: Sin ficha no hay upload ni captura
         shell: bash
         run: |
