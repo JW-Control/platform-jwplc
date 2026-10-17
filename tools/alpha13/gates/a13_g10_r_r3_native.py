@@ -76,7 +76,8 @@ def native() -> None:
     # No ejecutar integrator.main(): esa ruta escribe evidencias y gates
     # ajenos. Sólo usar su composición source-backed de 14 archivos.
     original = integrator.compose()
-    result = lab.compose_lab(original)
+    trace=module_at("tools/alpha13/gates/a13_g10_r_trace.py","g10_r_native_trace")
+    result = trace.compose_trace(lab.compose_lab(original))
     require(len(original) == 14 and len(result) == 14,
             "R3_SOURCE_COMPOSITION_COUNT_DRIFT")
     require(result[HEADER] != original[HEADER] and result[SOURCE] != original[SOURCE],
