@@ -1,0 +1,24 @@
+name: Alpha13 PRE-H TCP124 contract (offline)
+on:
+  pull_request:
+    paths:
+      - 'tools/alpha13/gates/a13_g10_r_tcp124_contract.py'
+      - '.github/workflows/alpha13-preh-tcp124-offline.yml'
+  workflow_dispatch:
+jobs:
+  tcp124-host:
+    name: TCP 1 2 4 contract offline
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Contract positive and negative cases (no COM, no flash)
+        run: python tools/alpha13/gates/a13_g10_r_tcp124_contract.py --selftest
