@@ -8,6 +8,7 @@ on:
       - 'tools/alpha13/gates/a13_g10_r_b3_scope.py'
       - 'tools/alpha13/gates/a13_g10_r_field_runner.py'
       - 'tools/alpha13/gates/a13_g10_r_build_candidate.py'
+      - 'tools/alpha13/gates/a13_g10_r_h0_link_stage.py'
       - 'docs/v2.1.0-alpha.13/A13_G10_R_PREH_B4_BANCO_RESPALDOS_SEGURIDAD_20261017.md'
   workflow_dispatch:
 permissions:
