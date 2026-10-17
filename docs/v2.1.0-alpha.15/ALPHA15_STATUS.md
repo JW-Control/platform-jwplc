@@ -1,6 +1,6 @@
 # v2.1.0-alpha.15 — Estado
 
-Actualizado: `2026-10-16`
+Actualizado: `2026-10-17`
 
 ## Identidad
 
@@ -9,7 +9,7 @@ BRANCH=v2.1.0-alpha.15-HmiDesigner
 PARENT_BRANCH=v2.0.1-alpha.15-(HmiDesigner)
 BASE_SHA=cc66d69aa1eca461b7111c856293e5f1f6e103b4
 OWNER_ALPHA15=André (HMI Designer)
-ALPHA15_STATUS=PLANNING
+ALPHA15_STATUS=IN_PROGRESS
 ALPHA15_RELEASE_PR=NOT_OPENED
 ```
 
@@ -26,10 +26,10 @@ ROADMAP_V2_1_NUMERACION=SUSTITUIDA_POR_ESTA_ORGANIZACION
 
 ```text
 A15_0_AUDIT=PASS
-A15_1_CODEGEN_COMPILE=PENDING
-A15_2_PERSISTENCE_PAGES=PENDING
-A15_3_STATIC_OUT_OF_TICK=PENDING
-A15_4_DESIGNER_CI=PENDING
+A15_1_CODEGEN_COMPILE=PASS (host g++/nm; arduino-cli en A15-4)
+A15_2_PERSISTENCE_PAGES=PASS
+A15_3_STATIC_OUT_OF_TICK=PASS (tiempos de bus en A15-9)
+A15_4_DESIGNER_CI=PARTIAL (tests/codegen-smoke.cjs; falta arduino-cli)
 A15_5_PURE_CODEGEN_TESTS=PENDING
 A15_6_JWHMI_V2_MODES_HOST=PENDING
 A15_7A_BAR_FINISH=PENDING (prioridad alta)
@@ -46,12 +46,12 @@ A15_OPENPLC_INTEGRATION_DECISION=PASS (adopta plan rev.2 del fork + correcciones
 ## Bloqueantes abiertos (de A15-0)
 
 ```text
-B1_GETTFT_NOT_IN_API=OPEN
-B2_TFT_MISSING_PRIMITIVES=OPEN
-B3_TFT_A_NOT_REGENERATED_ABI=OPEN (depende de Alpha13)
-B4_BAR_CIRCULAR_GRADIENT_HELPERS_MISSING=OPEN
-B5_DELETE_PAGE_BREAKS_REOPEN=OPEN
-B6_STATIC_DRAW_EVERY_TICK=OPEN
+B1_GETTFT_NOT_IN_API=CLOSED (A15-1)
+B2_TFT_MISSING_PRIMITIVES=CLOSED_IN_DESIGNER (helpers en el header; nativo en Alpha13 opcional)
+B3_TFT_A_NOT_REGENERATED_ABI=MITIGATED (fuentes JWPLC_TFT revertidas a main; fuentes -> Alpha13 desde bf0fba1)
+B4_BAR_CIRCULAR_GRADIENT_HELPERS_MISSING=CLOSED_IN_DESIGNER (deshabilitado + fallback lineal; firmware -> Alpha13)
+B5_DELETE_PAGE_BREAKS_REOPEN=CLOSED (A15-2)
+B6_STATIC_DRAW_EVERY_TICK=CLOSED (A15-3)
 B7_NO_PHYSICAL_GATES=OPEN
 ```
 
@@ -74,7 +74,8 @@ MENU=NOT_EXISTS
 ```text
 DESIGNER_UI=Alpha11
 ELECTRON_PACKAGE=0.11.0-alpha.11
-JWPLC_TFT=0.1.0 (source con fuentes, .a sin regenerar)
+JWPLC_TFT=0.1.0 (source = main, alineado con el .a publicado)
+DESIGNER_FONTS=sólo GLCD (FIRMWARE_SUPPORTS_FONTS=false)
 PROJECT_FORMAT=JWPLC_HMI_PROJECT v1
 VPP_OPENPLC=2.1.0-alpha.29 (rama v2.1.0-alpha.12/feature/openplc-engineering-closure)
 ```
@@ -101,3 +102,6 @@ MENU_NODE_COUNT_LIMIT=A_MEDIR_EN_A15_8
   profundidad máxima 3 y nodos SUBMENU/VIEW/EDIT_NUM/EDIT_BOOL.
 - 2026-10-16 — Especificación A15-7 (cerrar BAR, rehacer TEXT/VALUE/BOOL) con
   hallazgos de los inspectores actuales; prioridad alta tras A15-1..A15-3.
+- 2026-10-17 — A15-1, A15-2 y A15-3 cerrados (`A15_1_3_CODEGEN_PAGES_STATIC_20261017.md`).
+  Smoke test `tools/jwplc-hmi-designer/tests/codegen-smoke.cjs` 20/20. Fuentes de
+  `JWPLC_TFT` revertidas a `main`. Siguiente: A15-7A..7D.

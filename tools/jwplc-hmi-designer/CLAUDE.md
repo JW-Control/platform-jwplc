@@ -54,20 +54,28 @@ Referencia: `JWPLC_HMI_Designer_BAR_Propuesta_2_Paquete_UI/` y `poc/designer-bar
 
 Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
 
-## Trampas conocidas (auditoría A15-0)
+## Reglas del codegen (A15-1..A15-3)
 
-- `JWPLC_Display.getTFT()` **no existe**: usar `JWPLC_Display.tft()` (referencia).
-- `JWPLC_TFTClass` no tiene `drawEllipse/fillEllipse/drawTriangle/fillTriangle`.
-- `JWPLC_UICircularField` y `JWPLC_UIGradientBarField` **no existen** en el firmware.
-- `jwplcUIUpdate()` corre en cada tick de refresco con el bus tomado: no meter
-  gráfica estática ahí.
-- `deletePage` no renumera ids y `validateProject` exige ids contiguos.
-- NAV_BAR tiene dos fuentes de verdad (editor vs objeto NAV_BAR).
+- Gráfica estática (figuras, RAW_TEXT, NAV_BAR) -> `jwplcUIPageEnter()`; `jwplcUIUpdate()`
+  sólo setters. El runtime llama `jwplcUIPageEnter` con el bus tomado, tras `fillScreen` y
+  antes de dibujar los campos.
+- Acceso TFT: `JWPLC_TFTClass &tft = JWPLC_Display.tft();` (no existe `getTFT()`).
+- Sin `drawEllipse/fillEllipse/drawTriangle/fillTriangle` en `JWPLC_TFTClass`: usar los
+  helpers `jwplcHMI*` de `designer-codegen.js` (STATIC_HELPERS).
+- Fuentes: `FIRMWARE_SUPPORTS_FONTS=false` en `designer-fonts.js` hasta que Alpha13
+  regenere `libJWPLC_TFT.a` con `setFont/drawString`.
+- BAR circular/degradado: deshabilitados (`.insp-needs-fw`); el codegen cae a `JWPLC_UIBarField`.
+- Ids de página siempre contiguos `0..N-1` (`deletePage` renumera; abrir normaliza).
+- NAV_BAR existe sólo si hay un objeto NAV_BAR visible.
+- Tras tocar el codegen: `node tools/jwplc-hmi-designer/tests/codegen-smoke.cjs`.
+- Tras tocar JS/CSS: subir `?v=` en `index.html`/`desktop.html`/`ux-foundation.js`/
+  `designer-field-visibility.js` y `CACHE_NAME` en `service-worker.js`.
 
 ## Probar sin hardware
 
 ```bash
 for f in poc/*.js; do node --check "$f" || echo "FAIL $f"; done
+node tests/codegen-smoke.cjs            # genera headers y los compila contra el package
 cd poc && python3 -m http.server 8765 --bind 127.0.0.1   # abrir /desktop.html
 ```
 

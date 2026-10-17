@@ -153,6 +153,10 @@ JW-Control/platform-jwplc  rama v2.1.0-alpha.12/feature/openplc-engineering-clos
 # sintaxis de todos los JS del designer
 for f in tools/jwplc-hmi-designer/poc/*.js; do node --check "$f" || echo "FAIL $f"; done
 
+# smoke test del codegen: genera headers en Chromium headless y los compila
+# (g++ -fsyntax-only) contra los headers reales + verifica símbolos en los .a
+node tools/jwplc-hmi-designer/tests/codegen-smoke.cjs
+
 # servir el designer y abrirlo en Chromium headless (Playwright global)
 cd tools/jwplc-hmi-designer/poc && python3 -m http.server 8765 --bind 127.0.0.1
 # entrada: http://127.0.0.1:8765/desktop.html
