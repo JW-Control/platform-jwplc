@@ -51,8 +51,9 @@ ni tomarlos como referencia para el HMI Designer.
 ```text
 ACTIVE_ALPHA=v2.1.0-alpha.15
 ACTIVE_BRANCH=v2.1.0-alpha.15-HmiDesigner
-PARENT_BRANCH=v2.0.1-alpha.15-(HmiDesigner)   (rama del practicante, NO modificar)
-PARENT_HEAD=cc66d69aa1eca461b7111c856293e5f1f6e103b4
+PARENT_BRANCH=v2.0.1-alpha.15-(HmiDesigner)   (rama anterior de André; congelada, NO modificar)
+PARENT_LAST_MERGED=af797d79 (2026-10-16, fusionado en la rama activa el 2026-10-17)
+EQUIPO=André y agentes trabajan en v2.1.0-alpha.15-HmiDesigner
 SCOPE=JWPLC HMI Designer (editor + codegen + soporte firmware JWPLC_Display/JWPLC_TFT)
 DOCS=docs/v2.1.0-alpha.15/
 ```
@@ -140,7 +141,8 @@ JW-Control/platform-jwplc  rama v2.1.0-alpha.12/feature/openplc-engineering-clos
 
 ## 5. Convenciones de git
 
-- Rama de trabajo: `v2.1.0-alpha.N-<Tema>` (ver §2). No tocar la rama del practicante.
+- Rama de trabajo: `v2.1.0-alpha.N-<Tema>` (ver §2). La rama anterior de André queda congelada.
+- Antes de empezar: `git pull origin v2.1.0-alpha.15-HmiDesigner` (varias personas/agentes en la misma rama).
 - Mensajes de commit descriptivos (`feat(hmi-designer): ...`, `fix(jwplc-tft): ...`,
   `docs(alpha15): ...`). Prohibido `.`, `,`, `patch`.
 - No versionar archivos de prueba temporales (`temp_*`, `fix.py`, copias en la raíz).

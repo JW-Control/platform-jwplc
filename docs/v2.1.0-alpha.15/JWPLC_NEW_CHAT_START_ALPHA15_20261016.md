@@ -17,7 +17,8 @@ Estado:
 
 ```text
 BRANCH=v2.1.0-alpha.15-HmiDesigner
-PARENT_BRANCH=v2.0.1-alpha.15-(HmiDesigner)   (no modificar)
+PARENT_BRANCH=v2.0.1-alpha.15-(HmiDesigner)   (congelada; fusionada hasta af797d79)
+TEAM_BRANCH=v2.1.0-alpha.15-HmiDesigner     (André y agentes; hacer git pull antes de empezar)
 OWNER=André (Alpha15) · OpenPLC=Kenyi (Alpha14) · package=jefe (Alpha13)
 BASE_SHA=cc66d69aa1eca461b7111c856293e5f1f6e103b4
 CURRENT_GATE=A15-7A_BAR_FINISH
@@ -26,6 +27,7 @@ CODE_CHANGED_IN_ALPHA15=YES (A15-1..A15-3 cerrados 2026-10-17)
 
 Primer trabajo del nuevo chat:
 
+0. `git pull origin v2.1.0-alpha.15-HmiDesigner`.
 1. Correr `node tools/jwplc-hmi-designer/tests/codegen-smoke.cjs` (debe dar 20/20).
 2. A15-7A..7D: cerrar BAR y rehacer TEXT/VALUE/BOOL según
    `A15_7_INSPECTOR_REDESIGN_SPEC_20261016.md`.

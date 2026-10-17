@@ -142,6 +142,17 @@ la TFT; el codegen hoy lo pasa en `JWPLC_UIText(label, unit)`).
 | BAR circular y degradado (`JWPLC_UICircularField`, `JWPLC_UIGradientBarField`) | B4 |
 | Posición de etiqueta/porcentaje en BAR | alineación 3×3, "% de carga" |
 
+## 7b. NAV_BAR (inspector de André, fusionado 2026-10-17)
+
+El inspector ya sigue el patrón (Diseño / Páginas / Técnico, tarjetas visuales). Pendiente de
+paridad con la TFT:
+
+| # | Hallazgo `[visto]` | Acción |
+|---|---|---|
+| NAV-1 | `fontSize` micro (4x6) / mediana (7x9): el preview usa una microfuente propia; el codegen siempre emite GLCD 5x7 (`setTextSize(1)`) | Emitir glifos micro como bitmap o limitar a las escalas GLCD reales (5x7, 10x14) |
+| NAV-2 | `textAlign` izquierda/derecha y `labelFormat` (`N°`, `N° + Nom`) sólo se aplican en el preview | Trasladarlos al codegen (`navBarFunctionBlock`) |
+| NAV-3 | Presets y posiciones verticales: verificar en la TFT (A15-9) | Gate físico |
+
 ## 8. Criterio de cierre por tipo
 
 ```text

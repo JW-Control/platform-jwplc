@@ -6,7 +6,8 @@ Actualizado: `2026-10-17`
 
 ```text
 BRANCH=v2.1.0-alpha.15-HmiDesigner
-PARENT_BRANCH=v2.0.1-alpha.15-(HmiDesigner)
+PARENT_BRANCH=v2.0.1-alpha.15-(HmiDesigner) (congelada; último commit fusionado af797d79)
+TEAM_BRANCH=v2.1.0-alpha.15-HmiDesigner (André trabaja aquí desde 2026-10-17)
 BASE_SHA=cc66d69aa1eca461b7111c856293e5f1f6e103b4
 OWNER_ALPHA15=André (HMI Designer)
 ALPHA15_STATUS=IN_PROGRESS
@@ -64,7 +65,7 @@ VALUE=LEGACY
 TEXT=LEGACY
 BOOL=LEGACY
 RAW_TEXT=LEGACY
-NAV_BAR=LEGACY
+NAV_BAR=ADOPTED_UI (André, af797d79: Diseño/Páginas/Técnico, 6 presets, 4 posiciones); codegen no aplica tipografía/alineación/formato de etiqueta
 PIXELMAP=LEGACY
 MENU=NOT_EXISTS
 ```
@@ -113,3 +114,8 @@ MENU_NODE_COUNT_LIMIT=A_MEDIR_EN_A15_8
   Gate A15 y headers del smoke test compilan/enlazan para ESP32. `JWPLC_TFT` 0.2.0 con
   primitivas de elipse/triángulo, `.a` regenerado y ABI compatible
   (`A15_4_TFT_PRIMITIVES_ESP32_COMPILE_20261017.md`).
+- 2026-10-17 — Fusionado `af797d79` de André (inspector NAV_BAR estilo BAR, presets, posición
+  vertical, reglas perimetrales, cuentagotas). Único conflicto: cache-busters de `index.html`.
+  Smoke test PASS, gate A15 compila para ESP32 (444649 B / 34620 B). Hallazgo NAV-1: el preview
+  aplica `fontSize` micro/mediana, `textAlign` y `labelFormat`, el codegen no (GLCD 5x7 centrado,
+  nombre corto) -> A15-7E. André continúa en esta rama.
