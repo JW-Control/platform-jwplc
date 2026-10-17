@@ -34,6 +34,39 @@ static uint8_t packet[96];
 // R3: sonda UDP exclusivamente de banco, armada por comando con token.
 // El task solo sostiene el mismo mutex W5500 <=80 ms; nunca toca SPI,
 // GPIO4, SD, FRAM, Q ni servicios en segundo plano.
+// Bench TCP124: captura acotada sin Serial en callback de Modbus.
+struct G10RTcpRow {
+  uint32_t seq=0, epoch=0, allocation=0, owner=0, session=0;
+  uint16_t tid=0;
+  uint8_t sid=255, capture=0;
+};
+static G10RTcpRow tcpRows[32];
+static std::atomic_flag tcpRowsBusy=ATOMIC_FLAG_INIT;
+static std::atomic<uint32_t> tcpDropped{0};
+static uint32_t tcpSequence=0, tcpSession=0;
+extern "C" void g10rLabTcpRequest(uint16_t tid, uint8_t sid) {
+  if (!active || sid>=8) return;
+  jwplc_w5500_candidate::LabSocketSnapshot slots[8];
+  const auto capture=jwplc_w5500_candidate::labCaptureSockets(slots,8,0);
+  if (tcpRowsBusy.test_and_set(std::memory_order_acquire)) {
+    tcpDropped.fetch_add(1,std::memory_order_relaxed);return;
+  }
+  if (tcpSequence==UINT32_MAX) {
+    tcpDropped.fetch_add(1,std::memory_order_relaxed);
+    tcpRowsBusy.clear(std::memory_order_release);return;
+  }
+  G10RTcpRow e{};
+  e.seq=++tcpSequence;e.tid=tid;e.sid=sid;e.session=tcpSession;
+  e.capture=(uint8_t)capture;
+  if (capture==jwplc_w5500_candidate::LabCaptureOutcome::Captured &&
+      slots[sid].valid && slots[sid].socketIndex==sid) {
+    e.epoch=slots[sid].epoch;e.allocation=slots[sid].allocation;
+    e.owner=slots[sid].ownerCookie;
+  }
+  tcpRows[(e.seq-1)%32]=e;
+  tcpRowsBusy.clear(std::memory_order_release);
+}
+
 static EthernetUDP r3ProbeUdp;
 static DNSClient r3ProbeDns;
 static IPAddress r3ProbeDnsResult;
@@ -144,6 +177,41 @@ static void handleCommand(const char* msg) {
       active=false;useRtu=false;
       Serial.print("G10R_STOPPED:");Serial.println(token);
     }
+    return;
+  }
+  // Lectura read-only de eventos TCP: nunca declara lease si SPI estuvo BUSY.
+  static const char tcpCmd[]="G10R_TCP_EVENTS:";
+  if (strncmp(msg,tcpCmd,sizeof(tcpCmd)-1)==0) {
+    const char* p=msg+sizeof(tcpCmd)-1;
+    if (!active || strlen(p)!=24 || strcmp(p,token)!=0) return;
+    G10RTcpRow batch[32];uint8_t n=0;
+    uint32_t dropped=0;
+    if (tcpRowsBusy.test_and_set(std::memory_order_acquire)) {
+      Serial.print("G10R_TCP_STATUS:");Serial.print(token);
+      Serial.println(" CODE=BUSY");return;
+    }
+    dropped=tcpDropped.load(std::memory_order_relaxed);
+    const uint32_t oldest=tcpSequence>32?tcpSequence-31:1;
+    for (uint32_t seq=oldest;seq<=tcpSequence;++seq) {
+      const G10RTcpRow &e=tcpRows[(seq-1)%32];
+      if (e.seq==seq && e.session==tcpSession) batch[n++]=e;
+    }
+    tcpRowsBusy.clear(std::memory_order_release);
+    Serial.print("G10R_TCP_HEAD:");Serial.print(token);
+    Serial.print(" COUNT=");Serial.print(n);
+    Serial.print(" DROPPED=");Serial.println(dropped);
+    for (uint8_t i=0;i<n;++i) {
+      const auto &e=batch[i];
+      Serial.print("G10R_TCP_OBS:");Serial.print(token);
+      Serial.print(" SEQ=");Serial.print(e.seq);
+      Serial.print(" TID=");Serial.print(e.tid);
+      Serial.print(" SID=");Serial.print(e.sid);
+      Serial.print(" CAPTURE=");Serial.print(e.capture);
+      Serial.print(" EPOCH=");Serial.print(e.epoch);
+      Serial.print(" ALLOC=");Serial.print(e.allocation);
+      Serial.print(" OWNER=");Serial.println(e.owner);
+    }
+    Serial.print("G10R_TCP_END:");Serial.println(token);
     return;
   }
   // R3: una sola contención real de mutex y cierre de UDP temporal.
@@ -321,6 +389,7 @@ static void handleCommand(const char* msg) {
   useRtu=(p[29]=='1');
   hb=sdOk=sdFail=udpRx=udpTx=rtuOk=rtuFail=btnEvents=framReads=0;
   lastSample=lastRtu=lastReport=millis();
+  ++tcpSession; // token de sesión local; cada lectura filtra por sesión.
   active=true;startMs=millis();
   r3Armed=r3CloseAttempted=r3ClosedWhileHeld=r3FinishPrinted=false;
   r3Mode=0;
