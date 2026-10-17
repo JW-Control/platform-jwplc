@@ -6,6 +6,8 @@
  */
 #include <JWPLC_ModbusRTU.h>
 #include <JWPLC_RS485.h>
+#include <JWPLC_Display.h>
+#include <JWPLC_IdleScreen.h>
 
 static constexpr uint8_t kId = 2;
 static constexpr uint32_t kBaud = 115200;
@@ -67,6 +69,8 @@ static void serviceUsb()
 
 void setup()
 {
+    // Etiqueta SOLO del firmware de diagnóstico; no cambia el package.
+    JWPLCIdleScreen::setTitle("JWPLC Basic A13");
     Serial.begin(115200);
     JWPLC_ModbusRTU.setHoldingRegisters(holding, 4);
     if (!JWPLC_ModbusRTU.begin(kId, kBaud, SERIAL_8N1))

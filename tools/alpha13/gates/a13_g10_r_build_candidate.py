@@ -93,14 +93,33 @@ def guard_sketch() -> None:
             "r3ProbeUdp.stop()" in s and
             "r3HoldState.load(std::memory_order_acquire)" in s,
             "R3_UDP_BOUNDED_PROBE_GUARD_MISSING")
+    require("g10rLabTcpRequest" in s and "G10R_TCP_EVENTS:" in s,
+            "TCP124_SOURCE_CALLBACK_OR_EXPORT_MISSING")
     require(SKETCH_COM14.is_dir(),"SLAVE_SKETCH_MISSING")
     print("G10_R_SKETCH_GUARD=PASS_STATIC_NO_Q_NO_STORAGE_WRITE_NO_RESET")
 
 
-def build(cli: str, *, upload: bool = False) -> None:
+def build(cli: str, *, upload: bool = False, stage_out: Path | None = None,
+          bench_evidence: Path | None = None,
+          dev_waiver: Path | None = None) -> None:
+    waiver_data=None
     if upload:
-        require(R3_COMPLETE_PHYSICAL_CAMPAIGN_READY,
-                "G10R_FLASH_BLOCKED_R3_FULL_CAMPAIGN_NOT_READY")
+        require((bench_evidence is None) != (dev_waiver is None),
+                "H0_REQUIRE_EXACTLY_ONE_BENCH_BACKUP_OR_DEVELOPMENT_WAIVER")
+        if dev_waiver is not None:
+            # Excepcion del banco de desarrollo; NO habilita la campaña H.
+            import a13_g10_r_h0_dev_waiver as h0
+            waiver_data=json.loads(dev_waiver.read_text(encoding="utf-8-sig"))
+            issues=h0.validate(waiver_data)
+            require(not issues,"H0_DEV_WAIVER_REVIEW_STOP_"+",".join(issues))
+            print("G10_R_H0_BACKUP=WAIVED_FOR_TWO_DEV_BOARDS_ONLY")
+        else:
+            import a13_g10_r_b4_bench as b4
+            issues=b4.validate(json.loads(bench_evidence.read_text(encoding="utf-8-sig")))
+            require(not issues,"B4_PREFLIGHT_REVIEW_STOP_"+",".join(issues))
+            print("G10_R_B4_LOCAL_BACKUP_AND_BENCH=CHECKED_NOT_HARDWARE_ATTESTED")
+            require(R3_COMPLETE_PHYSICAL_CAMPAIGN_READY,
+                    "G10R_FLASH_BLOCKED_R3_FULL_CAMPAIGN_NOT_READY")
     require(Path.cwd().resolve() == ROOT, "RUN_FROM_REPO_ROOT")
     guard_sketch()
     if upload:
@@ -108,7 +127,7 @@ def build(cli: str, *, upload: bool = False) -> None:
         v=run([cli,"version"])
         require(re.search(r"\bVersion:\s*1\.5\.1\b",v) is not None,
                 "G10R_UPLOAD_ARDUINO_CLI_1_5_1_REQUIRED")
-        ref="refs/remotes/origin/codex/alpha13-g10-r-recovery-prep"
+        ref="refs/remotes/origin/codex/alpha13-preh-tcp124-review-20261016"
         current=run(["git","rev-parse","HEAD"]).strip()
         remote=run(["git","rev-parse",ref]).strip()
         require(current==remote,"G10R_UPLOAD_REMOTE_HEAD_MISMATCH")
@@ -134,6 +153,24 @@ def build(cli: str, *, upload: bool = False) -> None:
     sys.modules[trace_spec.name]=trace
     trace_spec.loader.exec_module(trace)
     files = trace.compose_trace(lab.compose_lab(m.compose()))
+    # Hook TID+socket del servidor Modbus, SOLO overlay temporal de banco.
+    tcp_path=ROOT/"tools/alpha13/gates/a13_g10_r_tcp124_stage.py"
+    tcp_spec=importlib.util.spec_from_file_location("g10r_tcp124_stage",tcp_path)
+    require(tcp_spec is not None and tcp_spec.loader is not None,
+            "TCP124_STAGE_MODULE_MISSING")
+    tcp=importlib.util.module_from_spec(tcp_spec)
+    sys.modules[tcp_spec.name]=tcp
+    tcp_spec.loader.exec_module(tcp)
+    files=tcp.compose(files)
+    # B2: mantenimiento DHCP real, observacional y sin cambio de flujo.
+    b2_path=ROOT/"tools/alpha13/gates/a13_g10_r_b2_dhcp_stage.py"
+    b2_spec=importlib.util.spec_from_file_location("g10r_b2_stage",b2_path)
+    require(b2_spec is not None and b2_spec.loader is not None,
+            "B2_DHCP_STAGE_MISSING")
+    b2=importlib.util.module_from_spec(b2_spec)
+    sys.modules[b2_spec.name]=b2
+    b2_spec.loader.exec_module(b2)
+    files=b2.compose(files)
     # SOLO staging G10-R: friend diagnóstica en DhcpClass para armar
     # el UDP interno en un puerto TEMPORAL (15023), SIN DHCP DISCOVER,
     # OFFER, REQUEST, renovación de lease ni tocar el manager global.
@@ -158,6 +195,23 @@ def build(cli: str, *, upload: bool = False) -> None:
         tmp=Path(scratch)
         stage=tmp/"staged"
         m.stage_platform(stage,files,hashes)
+        if stage_out is not None:
+            destination=stage_out.resolve()
+            require(destination!=ROOT and ROOT not in destination.parents,
+                    "B3_STAGE_MUST_BE_OUTSIDE_REPOSITORY")
+            require(not destination.exists(),"B3_STAGE_TARGET_MUST_NOT_EXIST")
+            destination.parent.mkdir(parents=True,exist_ok=True)
+            shutil.copytree(stage,destination)
+            require(sha256(ROOT/"JWPLC/2.1.0"/"boards.txt")==
+                    sha256(destination/"boards.txt"),"B3_BOARDS_DRIFT")
+            require(sha256(ROOT/"JWPLC/2.1.0"/"platform.txt")==
+                    sha256(destination/"platform.txt"),"B3_PLATFORM_DRIFT")
+            require(m.load(m.MODULES["frozen"],"g10r_b3_frozen").check_frozen()==5,
+                    "B3_FROZEN_ARCHIVES_DRIFT")
+            print("G10_R_B3_STAGE=PASS_14_SOURCE_OVERLAYS_NO_CLI")
+            print("G10_R_B3_PRODUCT=UNCHANGED")
+            print("G10_R_B3_PHYSICAL=NOT_RUN")
+            return
         user=tmp/"sketchbook"
         platform=user/"hardware/jwplc_hbench/esp32"
         platform.parent.mkdir(parents=True)
@@ -187,7 +241,8 @@ def build(cli: str, *, upload: bool = False) -> None:
                 "fqbn":FQBN,"overlay_source_count":len(files),
                 "staged_core_sha256":sha256(platform/"precompiled/core/JWPLCBASIC/core.a"),
                 "product_modified":False,"physical_test":"NOT_RUN",
-                "upload":"NOT_RUN","builds":{}}
+                "backup_policy":("WAIVED_DEV_ONLY" if waiver_data else "FULL_FLASH_BACKUPS"),
+                 "upload":"NOT_RUN","builds":{}}
         for name,sketch in (("COM4",SKETCH_COM4),("COM14",SKETCH_COM14)):
             props=run([cli,"--config-file",str(conf),"compile",
                        "--fqbn",FQBN,"--show-properties",str(sketch)])
@@ -221,6 +276,29 @@ def build(cli: str, *, upload: bool = False) -> None:
                         dep.read_text(encoding="utf-8",errors="replace"),
                         "SAFEACCESS_SOURCE_DEP_MISSING")
                 output["safeaccess_object_sha256"]=sha256(objects[0])
+                # Fuente real de Modbus TCP: sin ella el hook del candidato
+                # podria quedar oculto tras un archive precompilado.
+                modbus_objects=list(target.rglob("JWPLC_ModbusTCP.cpp.o"))
+                require(len(modbus_objects)==1,"MODBUS_TCP_OBJECT_NOT_UNIQUE")
+                modbus_dep=Path(str(modbus_objects[0])+".d")
+                if not modbus_dep.exists():
+                    modbus_dep=modbus_objects[0].with_suffix(".d")
+                require(modbus_dep.is_file() and "JWPLC_ModbusTCP.cpp" in
+                        modbus_dep.read_text(encoding="utf-8",errors="replace"),
+                        "MODBUS_TCP_SOURCE_DEP_MISSING")
+                output["modbus_tcp_object_sha256"]=sha256(modbus_objects[0])
+                # B2: comprobar fuente DHCP real compilada, no archive antiguo.
+                ethernet_objects=list(target.rglob("JWPLC_Ethernet.cpp.o"))
+                require(len(ethernet_objects)==1,"ETHERNET_OBJECT_NOT_UNIQUE")
+                ethernet_dep=Path(str(ethernet_objects[0])+".d")
+                if not ethernet_dep.exists():
+                    ethernet_dep=ethernet_objects[0].with_suffix(".d")
+                require(ethernet_dep.is_file() and "JWPLC_Ethernet.cpp" in
+                        ethernet_dep.read_text(encoding="utf-8",errors="replace"),
+                        "ETHERNET_SOURCE_DEP_MISSING")
+                output["ethernet_object_sha256"]=sha256(ethernet_objects[0])
+                print("G10_R_B2_DHCP_SOURCE_TO_OBJECT=PASS")
+                print("G10_R_TCP124_MODBUS_SOURCE_TO_OBJECT=PASS")
             elfs=list(target.glob("*.elf"))
             require(len(elfs)==1,"ELF_NOT_UNIQUE_"+name)
             output["builds"][name]={"status":"PASS_SOURCE_FIRST",
@@ -232,12 +310,12 @@ def build(cli: str, *, upload: bool = False) -> None:
         print("G10_R_PHYSICAL_TEST=NOT_RUN")
         print("G10_R_BUILD_MANIFEST="+json.dumps(output,sort_keys=True))
         if upload:
-            upload_after_build(cli,conf,tmp,output)
+            upload_after_build(cli,conf,tmp,output,dev_waiver=waiver_data)
 
 
 
 def upload_after_build(cli: str, config: Path, tmp: Path,
-                       evidence: dict) -> None:
+                       evidence: dict, *, dev_waiver: dict | None = None) -> None:
     """Frontera física separada. Nada se sube antes del consentimiento."""
     from serial.tools import list_ports
 
@@ -255,6 +333,21 @@ def upload_after_build(cli: str, config: Path, tmp: Path,
         return result
 
     evidence["port_metadata"]=verify_usb()
+    if dev_waiver is not None:
+        # Verificar la MAC y los 4MB del ESP32 en cada puerto ANTES de escribir.
+        for name in ("COM4","COM14"):
+            observed=run([sys.executable,"-m","esptool","--chip","esp32",
+                          "--port",name,"--baud","115200","read_mac"])
+            m=re.search(r"MAC:\s*([0-9a-f]{2}(?::[0-9a-f]{2}){5})",
+                        observed,re.IGNORECASE)
+            require(m is not None,"H0_ESPTOOL_MAC_NOT_READ_"+name)
+            require(m.group(1).lower()==dev_waiver["device_roles"][name]["expected_mac"].lower(),
+                    "H0_ESP32_MAC_MISMATCH_"+name)
+            flash=run([sys.executable,"-m","esptool","--chip","esp32",
+                       "--port",name,"--baud","115200","flash_id"])
+            require(re.search(r"Detected flash size:\s*4MB\b",flash,re.IGNORECASE)
+                    is not None,"H0_FLASH_SIZE_NOT_4MB_"+name)
+        print("G10_R_H0_BOTH_MAC_AND_FLASH4MB=PASS_BEFORE_WRITE")
     require(evidence["source_head"]==
             run(["git","rev-parse","HEAD"]).strip(),
             "G10R_HEAD_CHANGED_AFTER_BUILD")
@@ -263,7 +356,8 @@ def upload_after_build(cli: str, config: Path, tmp: Path,
     print("G10_R_FLASH_NOTICE=FIRMWARE_ANTERIOR_NO_SE_RESTAURA")
     print("G10_R_FLASH_NOTICE=GPIO4_DISABLED_SD_FRAM_READ_ONLY")
     print("G10_R_FLASH_NOTICE=CIERRE_MONITORES_SERIALES_ANTES_UPLOAD")
-    consent="G10R AUTORIZO FLASH COM4 COM14"
+    consent=("G10R AUTORIZO FLASH COM4 COM14 SIN BACKUP" if dev_waiver
+             is not None else "G10R AUTORIZO FLASH COM4 COM14")
     try:answer=input("Escribe exactamente '"+consent+"': ").strip()
     except EOFError:answer=""
     require(answer==consent,"G10R_UPLOAD_NOT_AUTHORIZED")
@@ -305,6 +399,13 @@ def main() -> int:
     selection=ap.add_mutually_exclusive_group(required=True)
     selection.add_argument("--selftest",action="store_true")
     selection.add_argument("--build",action="store_true")
+    selection.add_argument("--stage-only",action="store_true",
+                           help="Exporta plataforma candidata a temp externa, sin CLI ni hardware")
+    ap.add_argument("--stage-output",type=Path)
+    ap.add_argument("--bench-evidence",type=Path,
+                    help="Ficha local B4 con backups full flash antes de cualquier upload")
+    ap.add_argument("--dev-waiver",type=Path,
+                    help="Excepcion dos placas desarrollo sin backup con chequeo MAC/flash")
     selection.add_argument("--upload",action="store_true",
                            help="Requiere consentimiento humano y dos USB CH340; NO usar en CI")
     ap.add_argument("--cli",default="arduino-cli")
@@ -314,10 +415,20 @@ def main() -> int:
             guard_sketch()
             require(R3_COMPLETE_PHYSICAL_CAMPAIGN_READY is False,
                     "G10R_SELFTEST_MUST_FAIL_CLOSED_FLASH")
+            require("codex/alpha13-preh-tcp124-review-20261016" in
+                    Path(__file__).read_text(encoding="utf-8"),
+                    "B4_UPLOAD_REMOTE_SOURCE_BRANCH_DRIFT")
             print("G10_R_BUILD_SELFTEST=PASS_NO_CLI_NO_USB_NO_UPLOAD")
             print("G10_R_FLASH=BLOCKED_R3_FULL_CAMPAIGN_NOT_READY")
+        elif args.stage_only:
+            require(args.stage_output is not None,"B3_STAGE_OUTPUT_REQUIRED")
+            build(args.cli,stage_out=args.stage_output)
         else:
-            build(args.cli,upload=args.upload)
+            require(args.stage_output is None,"B3_STAGE_OUTPUT_ONLY_FOR_STAGE_ONLY")
+            require(not args.upload or args.bench_evidence is not None or
+                    args.dev_waiver is not None,"B4_BENCH_BACKUP_EVIDENCE_REQUIRED_OR_DEV_WAIVER")
+            build(args.cli,upload=args.upload,bench_evidence=args.bench_evidence,
+                  dev_waiver=args.dev_waiver)
         return 0
     except Exception as e:
         print("G10_R_REVIEW_STOP="+str(e))

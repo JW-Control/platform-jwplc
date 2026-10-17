@@ -7,6 +7,9 @@
   Compilar SOLO con overlay G10-I + telemetria de laboratorio G10-R.
 */
 #include <JWPLC_GlobalPeripherals.h>
+#include <JWPLC_Display.h>
+#include <JWPLC_IdleScreen.h>
+#include <JWPLC_Display_H3E1_Profile.h>
 #include <JWPLC_ModbusTCP.h>
 #include <JWPLC_ModbusRTU.h>
 #include <JWPLC_RS485.h>
@@ -17,6 +20,10 @@
 #include <atomic>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+
+// H3E1 existente: habilitado únicamente para este diagnóstico de laboratorio.
+// No altera lógica de refresco ni API pública; añade costo de instrumentación.
+extern "C" bool jwplcH3E1ProfilerEnabled(void) { return true; }
 
 static uint16_t registers[4] = {0x1234, 0x2345, 0x3456, 0x4567};
 static uint16_t rtuValues[4] = {};
@@ -34,6 +41,57 @@ static uint8_t packet[96];
 // R3: sonda UDP exclusivamente de banco, armada por comando con token.
 // El task solo sostiene el mismo mutex W5500 <=80 ms; nunca toca SPI,
 // GPIO4, SD, FRAM, Q ni servicios en segundo plano.
+// Bench TCP124: captura acotada sin Serial en callback de Modbus.
+struct G10RTcpRow {
+  uint32_t seq=0, epoch=0, allocation=0, owner=0, session=0;
+  uint16_t tid=0;
+  uint8_t sid=255, capture=0;
+};
+static G10RTcpRow tcpRows[32];
+static std::atomic_flag tcpRowsBusy=ATOMIC_FLAG_INIT;
+static std::atomic<uint32_t> tcpDropped{0};
+static uint32_t tcpSequence=0;
+static std::atomic<uint32_t> tcpSession{0};
+static std::atomic<uint32_t> tcpSessionStartSeq{0};
+extern "C" void g10rLabTcpRequest(uint16_t tid, uint8_t sid) {
+  if (!active || sid>=8) return;
+  jwplc_w5500_candidate::LabSocketSnapshot slots[8];
+  const auto capture=jwplc_w5500_candidate::labCaptureSockets(slots,8,0);
+  if (tcpRowsBusy.test_and_set(std::memory_order_acquire)) {
+    tcpDropped.fetch_add(1,std::memory_order_relaxed);return;
+  }
+  if (tcpSequence==UINT32_MAX) {
+    tcpDropped.fetch_add(1,std::memory_order_relaxed);
+    tcpRowsBusy.clear(std::memory_order_release);return;
+  }
+  G10RTcpRow e{};
+  e.seq=++tcpSequence;e.tid=tid;e.sid=sid;e.session=tcpSession.load(std::memory_order_acquire);
+  e.capture=(uint8_t)capture;
+  if (capture==jwplc_w5500_candidate::LabCaptureOutcome::Captured &&
+      slots[sid].valid && slots[sid].socketIndex==sid) {
+    e.epoch=slots[sid].epoch;e.allocation=slots[sid].allocation;
+    e.owner=slots[sid].ownerCookie;
+  }
+  tcpRows[(e.seq-1)%32]=e;
+  tcpRowsBusy.clear(std::memory_order_release);
+}
+
+// B2: callback de observación DHCP tras liberar el mutex SPI.
+// Sólo incrementos atómicos, sin Serial ni transacciones.
+static std::atomic<uint32_t> dhcpTicks{0}, dhcpPending{0};
+static std::atomic<uint32_t> dhcpRenewOk{0}, dhcpRenewFail{0};
+static std::atomic<uint32_t> dhcpRebindOk{0}, dhcpRebindFail{0};
+extern "C" void g10rLabDhcpMaintenance(int result, bool pending) {
+  dhcpTicks.fetch_add(1,std::memory_order_relaxed);
+  if (pending) dhcpPending.fetch_add(1,std::memory_order_relaxed);
+  switch (result) {
+    case 1: dhcpRenewFail.fetch_add(1,std::memory_order_relaxed);break;
+    case 2: dhcpRenewOk.fetch_add(1,std::memory_order_relaxed);break;
+    case 3: dhcpRebindFail.fetch_add(1,std::memory_order_relaxed);break;
+    case 4: dhcpRebindOk.fetch_add(1,std::memory_order_relaxed);break;
+    default:break;
+  }
+}
 static EthernetUDP r3ProbeUdp;
 static DNSClient r3ProbeDns;
 static IPAddress r3ProbeDnsResult;
@@ -144,6 +202,43 @@ static void handleCommand(const char* msg) {
       active=false;useRtu=false;
       Serial.print("G10R_STOPPED:");Serial.println(token);
     }
+    return;
+  }
+  // Lectura read-only de eventos TCP: nunca declara lease si SPI estuvo BUSY.
+  static const char tcpCmd[]="G10R_TCP_EVENTS:";
+  if (strncmp(msg,tcpCmd,sizeof(tcpCmd)-1)==0) {
+    const char* p=msg+sizeof(tcpCmd)-1;
+    if (!active || strlen(p)!=24 || strcmp(p,token)!=0) return;
+    G10RTcpRow batch[32];uint8_t n=0;
+    uint32_t dropped=0;bool overflow=false;
+    if (tcpRowsBusy.test_and_set(std::memory_order_acquire)) {
+      Serial.print("G10R_TCP_STATUS:");Serial.print(token);
+      Serial.println(" CODE=BUSY");return;
+    }
+    dropped=tcpDropped.load(std::memory_order_relaxed);
+    overflow=(tcpSequence-tcpSessionStartSeq.load(std::memory_order_acquire)>32);
+    const uint32_t oldest=tcpSequence>32?tcpSequence-31:1;
+    for (uint32_t seq=oldest;seq<=tcpSequence;++seq) {
+      const G10RTcpRow &e=tcpRows[(seq-1)%32];
+      if (e.seq==seq && e.session==tcpSession.load(std::memory_order_acquire)) batch[n++]=e;
+    }
+    tcpRowsBusy.clear(std::memory_order_release);
+    Serial.print("G10R_TCP_HEAD:");Serial.print(token);
+    Serial.print(" COUNT=");Serial.print(n);
+    Serial.print(" DROPPED=");Serial.print(dropped);
+    Serial.print(" OVERFLOW=");Serial.println(overflow?1:0);
+    for (uint8_t i=0;i<n;++i) {
+      const auto &e=batch[i];
+      Serial.print("G10R_TCP_OBS:");Serial.print(token);
+      Serial.print(" SEQ=");Serial.print(e.seq);
+      Serial.print(" TID=");Serial.print(e.tid);
+      Serial.print(" SID=");Serial.print(e.sid);
+      Serial.print(" CAPTURE=");Serial.print(e.capture);
+      Serial.print(" EPOCH=");Serial.print(e.epoch);
+      Serial.print(" ALLOC=");Serial.print(e.allocation);
+      Serial.print(" OWNER=");Serial.println(e.owner);
+    }
+    Serial.print("G10R_TCP_END:");Serial.println(token);
     return;
   }
   // R3: una sola contención real de mutex y cierre de UDP temporal.
@@ -321,6 +416,8 @@ static void handleCommand(const char* msg) {
   useRtu=(p[29]=='1');
   hb=sdOk=sdFail=udpRx=udpTx=rtuOk=rtuFail=btnEvents=framReads=0;
   lastSample=lastRtu=lastReport=millis();
+  tcpSessionStartSeq.store(tcpSequence,std::memory_order_release);
+  tcpSession.fetch_add(1,std::memory_order_acq_rel); // sesión atómica.
   active=true;startMs=millis();
   r3Armed=r3CloseAttempted=r3ClosedWhileHeld=r3FinishPrinted=false;
   r3Mode=0;
@@ -400,6 +497,8 @@ static void serviceRTU(uint32_t now) {
 }
 
 void setup() {
+  // Etiqueta SOLO del firmware de diagnóstico; no cambia el package.
+  JWPLCIdleScreen::setTitle("JWPLC Basic A13");
   Serial.begin(115200);
   Serial.println("G10R_PROTOCOL:R1R2R3R4_FAULT_LAB_V2");
   bootNonce=esp_random();
@@ -464,6 +563,15 @@ void loop() {
     // Unknown nunca equivale a LinkOFF físico.
     Serial.print(" LINK=");Serial.print((int)JWPLC_Ethernet.linkStatus());
     Serial.print(" ETH=");Serial.print(JWPLC_Ethernet.isReady()?1:0);
+    // Telemetría DHCP, solo lectura de API existente; no fuerza renew/rebind.
+    Serial.print(" DHCP_STATE=");Serial.print((int)JWPLC_Ethernet.runtimeState());
+    Serial.print(" DHCP_ERR=");Serial.print((int)JWPLC_Ethernet.lastError());
+    Serial.print(" DHCP_TICKS=");Serial.print(dhcpTicks.load(std::memory_order_relaxed));
+    Serial.print(" DHCP_PEND=");Serial.print(dhcpPending.load(std::memory_order_relaxed));
+    Serial.print(" DHCP_RENEW_OK=");Serial.print(dhcpRenewOk.load(std::memory_order_relaxed));
+    Serial.print(" DHCP_RENEW_FAIL=");Serial.print(dhcpRenewFail.load(std::memory_order_relaxed));
+    Serial.print(" DHCP_REBIND_OK=");Serial.print(dhcpRebindOk.load(std::memory_order_relaxed));
+    Serial.print(" DHCP_REBIND_FAIL=");Serial.print(dhcpRebindFail.load(std::memory_order_relaxed));
     Serial.print(" TCP=");Serial.print(JWPLC_ModbusTCP.serverReady()?1:0);
     Serial.print(" SD_OK=");Serial.print(sdOk);
     Serial.print(" SD_FAIL=");Serial.print(sdFail);
@@ -473,6 +581,18 @@ void loop() {
     Serial.print(" UDP_TX=");Serial.print(udpTx);
     Serial.print(" RTU_OK=");Serial.print(rtuOk);
     Serial.print(" RTU_FAIL=");Serial.print(rtuFail);
+    // Read-only: snapshots mantenidos por autoload, sin explorar el bus.
+    Serial.print(" IO_READY=");Serial.print(JWPLC_IO.ready()?1:0);
+    Serial.print(" IO_AGE_MS=");Serial.print((uint32_t)(now-JWPLC_IO.lastScanMs()));
+    Serial.print(" RTC_AGE_MS=");Serial.print((uint32_t)(now-JWPLC_Time.lastUpdateMs()));
+    Serial.print(" TFT_READY=");Serial.print(JWPLCDisplay::isReady()?1:0);
+    JWPLCH3E1Stats displayStats{};
+    jwplcH3E1Snapshot(&displayStats);
+    // release_bus.calls representa refrescos que adquirieron y liberaron TFT.
+    Serial.print(" TFT_DRAW=");Serial.print(displayStats.release_bus.calls);
+    Serial.print(" TFT_FAIL=");Serial.print(displayStats.spi_acquire_failures);
+    Serial.print(" TFT_MAX_US=");Serial.print(displayStats.refresh_total.max_us);
+    Serial.print(" TFT_SPI_WAIT_MAX_US=");Serial.print(displayStats.spi_wait.max_us);
     Serial.print(" BTN_EVENTS=");Serial.println(btnEvents);
   }
 }

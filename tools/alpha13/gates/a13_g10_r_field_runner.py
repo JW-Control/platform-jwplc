@@ -47,6 +47,14 @@ READY_RE=re.compile(r"^G10R_READY:IP=(\d{1,3}(?:\.\d{1,3}){3}) TCP=1 UDP=1 RTU=1
 HB_RE=re.compile(r"^G10R_HEARTBEAT:([0-9a-f]{24}) (.*)$")
 FIELDS={"HB":"hb","BOOT":"boot","IP":"ip","LINK":"link","ETH":"eth",
         "TCP":"tcp","SD_OK":"sd_ok","SD_FAIL":"sd_fail","RTC":"rtc",
+        "DHCP_STATE":"dhcp_state","DHCP_ERR":"dhcp_err",
+        "DHCP_TICKS":"dhcp_ticks","DHCP_PEND":"dhcp_pend",
+        "DHCP_RENEW_OK":"dhcp_renew_ok","DHCP_RENEW_FAIL":"dhcp_renew_fail",
+        "DHCP_REBIND_OK":"dhcp_rebind_ok","DHCP_REBIND_FAIL":"dhcp_rebind_fail",
+        "IO_READY":"io_ready","IO_AGE_MS":"io_age_ms",
+        "RTC_AGE_MS":"rtc_age_ms","TFT_READY":"tft_ready",
+        "TFT_DRAW":"tft_draw","TFT_FAIL":"tft_fail",
+        "TFT_MAX_US":"tft_max_us","TFT_SPI_WAIT_MAX_US":"tft_spi_wait_max_us",
         "FRAM":"fram","RTU_OK":"rtu_ok","RTU_FAIL":"rtu_fail"}
 
 
@@ -136,7 +144,7 @@ def parse_heartbeat(line:str,token:str,phase:str,t:float):
         values[k]=v
     required=set(FIELDS)|{"UDP_RX","UDP_TX","BTN_EVENTS"}
     if set(values)!=required:return None
-    d={"phase":phase,"t":t,"kind":"heartbeat"}
+    d={"phase":phase,"token":token,"t":t,"kind":"heartbeat"}
     for k,v in values.items():
         field=FIELDS.get(k)
         if field is None:continue
@@ -225,6 +233,21 @@ def udp_echo(ip:str,token:str,seq:int)->bool:
     return True
 
 
+def link_confirmed_from_uart(latest:dict|None,after:float,*,up:bool)->bool:
+    """Sólo aceptar heartbeat COM4 real, nuevo y perteneciente a R2."""
+    if not isinstance(latest,dict) or latest.get("phase")!="R2":
+        return False
+    t=latest.get("t")
+    if not isinstance(t,(int,float)) or t<=after:
+        return False
+    if not up:
+        return latest.get("link")==2
+    return (latest.get("link")==1 and latest.get("eth")==1
+            and latest.get("dhcp_state")==5
+            and isinstance(latest.get("ip"),str)
+            and latest.get("ip") not in ("","0.0.0.0"))
+
+
 class Recorder:
     def __init__(self,root:Path):
         self.root=root
@@ -240,6 +263,7 @@ class Recorder:
         self.r3_snapshots=[]
         self.r3_udp_lines=[]  # Histórico compat: incluye ahora DNS/TCP con kind.
         self.r3_udp_sessions=[]
+        self.tcp124_stress=[]
         self._r3_requested_mode=None
         self._r3_udp_started_at=None
         self._sock_batch=None
@@ -252,6 +276,14 @@ class Recorder:
         sys.modules[spec.name]=m
         spec.loader.exec_module(m)
         self.trace=m.TraceCollector()
+        tcp_path=ROOT/"tools/alpha13/gates/a13_g10_r_tcp124_collector.py"
+        tcp_spec=importlib.util.spec_from_file_location("g10r_tcp_collector",tcp_path)
+        require(tcp_spec is not None and tcp_spec.loader is not None,
+                "TCP124_COLLECTOR_MISSING")
+        tcp_module=importlib.util.module_from_spec(tcp_spec)
+        sys.modules[tcp_spec.name]=tcp_module
+        tcp_spec.loader.exec_module(tcp_module)
+        self.tcp_collector=tcp_module.TcpCollector()
         self.slave_ready=False
         self.slave_report_token=""
         self.slave_result=None
@@ -297,6 +329,7 @@ class Recorder:
                         self.capture_socket_line(line,at)
                         self.capture_udp_probe_line(line,at)
                         self.trace.receive(line,at)
+                        self.tcp_collector.receive(line,at)
                 elif name=="COM14":
                     if line=="G8_P4_READY:SLAVE:ID2:115200:8N1":
                         self.slave_ready=True
@@ -417,6 +450,7 @@ class Recorder:
             self.latest=None
             token=self.token
             self.trace.begin(token,phase)
+            self.tcp_collector.begin(token)
             self._r3_udp_started_at=None
             self._r3_requested_mode=None
         self.send("G10R_START:"+token+":RTU=1")
@@ -430,6 +464,7 @@ class Recorder:
                 self.r3_snapshots.append(self._sock_batch)
                 self._sock_batch=None
             self.trace.finish()
+            self.tcp_collector.finish()
             if self.phase=="R3":
                 self.r3_udp_sessions.append({
                     "token":self.token,
@@ -446,6 +481,7 @@ class Recorder:
         seq=0
         prev_rtu=None
         next_snapshot_at=time.monotonic()
+        next_tcp_at=time.monotonic()
         next_events_at=time.monotonic()
         while not halt.is_set() and not self.stop.is_set():
             with self.lock:
@@ -468,6 +504,10 @@ class Recorder:
                     trace_cmd=self.trace.request(self.stamp())
                 if trace_cmd:self.send(trace_cmd)
                 next_events_at=time.monotonic()+2
+            if time.monotonic()>=next_tcp_at:
+                command=self.tcp_collector.request()
+                if command:self.send(command)
+                next_tcp_at=time.monotonic()+15
             if time.monotonic()>=next_snapshot_at:
                 # Sólo observación; no se utiliza para validar R3 CLOSE.
                 self.send("G10R_SOCKETS:"+token)
@@ -484,7 +524,8 @@ class Recorder:
                         rtu_value>prev_rtu and rtu_fail==0)
             if rtu_value is not None:prev_rtu=rtu_value
             self.add({"kind":"traffic","phase":phase,"t":self.stamp(),
-                      "tcp":tcp_ok,"udp":udp_ok,"rtu":rtu_ok})
+                      "token":token,"tcp":tcp_ok,"tcp_tid":seq&0xffff,
+                      "udp":udp_ok,"rtu":rtu_ok})
             halt.wait(interval)
 
     def measure(self,phase,duration:int,interval:int):
@@ -558,6 +599,45 @@ class Recorder:
                                     session["token"],mode)
             require(verdict["status"]=="R3_UDP_SOURCE_CONTRACT_ONLY_NOT_PHYSICAL_PASS",
                     "R3_PROBE_EVIDENCE_REVIEW_STOP_"+mode)
+        # Estrés 1/2/4 CLIENTES PC contra servidor single-active, en la MISMA
+        # campaña autorizada. Hasta habilitar H este método no se ejecuta.
+        router_path=ROOT/"tools/alpha13/gates/a13_g10_r_tcp124_router.py"
+        router_spec=importlib.util.spec_from_file_location("g10r_tcp_router",router_path)
+        require(router_spec is not None and router_spec.loader is not None,
+                "TCP124_ROUTER_MODULE_MISSING")
+        router=importlib.util.module_from_spec(router_spec)
+        sys.modules[router_spec.name]=router
+        router_spec.loader.exec_module(router)
+        for count in (1,2,4):
+            token=self.start("R3")
+            try:
+                deadline=time.monotonic()+12
+                ip=None
+                while time.monotonic()<deadline and not self.stop.is_set():
+                    with self.lock:
+                        if self.latest and self.latest.get("phase")=="R3":
+                            ip=self.latest.get("ip")
+                    if ip:break
+                    self.stop.wait(.1)
+                require(ip is not None,"TCP124_HEARTBEAT_IP_MISSING")
+                router.plan(ip,count,2)
+                report=router.run_target(ip,count,2,tid_base=1000+count*100)
+                report.update({"token":token,"phase":"R3"})
+                self.tcp124_stress.append(report)
+                for observation in report.get("clients",[]):
+                    if observation is None:continue
+                    if "tid" in observation:
+                        self.add({"kind":"traffic","phase":"R3","token":token,
+                                  "t":self.stamp(),"tcp_tid":observation["tid"],
+                                  "tcp":observation["fc03_ok"],"udp":False,
+                                  "rtu":False})
+                self.send("G10R_TCP_EVENTS:"+token)
+                with self.lock:
+                    trace_cmd=self.trace.request(self.stamp())
+                if trace_cmd:self.send(trace_cmd)
+                if self.stop.wait(4):raise RuntimeError("TCP124_SESSION_ABORT")
+            finally:
+                self.end()
         # Completar las 5 sondas NO equivale a validar DHCP renew/rebind,
         # 1/2/4 clientes ni fairness TFT/TCA: H permanece sujeto al plan.
 
@@ -578,22 +658,55 @@ class Recorder:
         self.start("R2")
         halt=threading.Event()
         task=threading.Thread(target=self.traffic_worker,
-                             args=("R2",2,halt),daemon=True)
+                              args=("R2",2,halt),daemon=True)
         task.start()
+        unplugged=False
         try:
             for cycle in range(1,4):
-                print(f"G10_R_R2_CYCLE={cycle}: RETIRA manualmente solo RJ45 de COM4; ENTER tras retirarlo.")
-                input("Confirmar RJ45 retirado: ")
-                self.add({"kind":"link_down","phase":"R2","t":self.stamp()})
-                if self.stop.wait(R2_FAULT_SECONDS):
-                    raise RuntimeError("SERIAL_WORKER_ABORT_R2_FAULT")
-                print("RECONÉCTALO al mismo switch de banco; ENTER tras reconectar.")
-                input("Confirmar RJ45 reconectado: ")
-                self.add({"kind":"link_up","phase":"R2","t":self.stamp()})
-                if self.stop.wait(R2_RECOVERY_SECONDS):
-                    raise RuntimeError("SERIAL_WORKER_ABORT_R2_RECOVERY")
+                print(f"G10_R_R2_CYCLE={cycle}: desconecta SOLO RJ45 de COM4.")
+                require(input("Escribe 'G10R RJ45 COM4 RETIRADO': ").strip()==
+                        "G10R RJ45 COM4 RETIRADO","R2_OPERATOR_UNPLUG_NOT_CONFIRMED")
+                unplugged=True
+                marker=self.stamp()
+                deadline=time.monotonic()+R2_FAULT_SECONDS
+                seen=False
+                while time.monotonic()<deadline and not self.stop.is_set():
+                    with self.lock:sample=dict(self.latest) if self.latest else None
+                    if link_confirmed_from_uart(sample,marker,up=False):
+                        seen=True
+                    self.stop.wait(.2)
+                require(not self.stop.is_set(),"R2_SERIAL_STOP_DURING_LINK_OFF")
+                require(seen,"R2_LINK_DOWN_NOT_OBSERVED_UART_CYCLE_"+str(cycle))
+                with self.lock: last_down=dict(self.latest) if self.latest else None
+                require(link_confirmed_from_uart(last_down,marker,up=False),
+                        "R2_LINK_OFF_NOT_STABLE_AT_END_CYCLE_"+str(cycle))
+                self.add({"kind":"link_down","phase":"R2","t":self.stamp(),
+                          "source":"COM4_HEARTBEAT_LINKOFF","cycle":cycle})
+                print("Reconecta el mismo RJ45 COM4 al router de banco.")
+                require(input("Escribe 'G10R RJ45 COM4 RECONECTADO': ").strip()==
+                        "G10R RJ45 COM4 RECONECTADO",
+                        "R2_OPERATOR_RECONNECT_NOT_CONFIRMED")
+                marker=self.stamp()
+                deadline=time.monotonic()+R2_RECOVERY_SECONDS
+                recovered=False
+                while time.monotonic()<deadline and not self.stop.is_set():
+                    with self.lock:sample=dict(self.latest) if self.latest else None
+                    if link_confirmed_from_uart(sample,marker,up=True):
+                        recovered=True
+                    self.stop.wait(.2)
+                require(not self.stop.is_set(),"R2_SERIAL_STOP_DURING_RECOVERY")
+                require(recovered,"R2_DHCP_LINK_RECOVERY_NOT_OBSERVED_UART_CYCLE_"+str(cycle))
+                with self.lock:last_up=dict(self.latest) if self.latest else None
+                require(link_confirmed_from_uart(last_up,marker,up=True),
+                        "R2_RECOVERY_NOT_STABLE_AT_END_CYCLE_"+str(cycle))
+                unplugged=False
+                self.add({"kind":"link_up","phase":"R2","t":self.stamp(),
+                          "source":"COM4_HEARTBEAT_LINKON_ETH_DHCP_READY",
+                          "cycle":cycle})
         finally:
             halt.set();task.join(timeout=5);self.end()
+            if unplugged:
+                print("G10_R_STOP_OPERADOR: verifica y reconecta RJ45 COM4 MANUALMENTE.")
 
 
 def plan()->dict:
@@ -614,9 +727,11 @@ def plan()->dict:
 
 def selftest()->int:
     sample=("G10R_HEARTBEAT:"+"a"*24+
-      " HB=10 BOOT=abc123 IP=192.0.2.4 LINK=2 ETH=1 TCP=1"
+      " HB=10 BOOT=abc123 IP=192.0.2.4 LINK=2 ETH=1 TCP=1 DHCP_STATE=5 DHCP_ERR=0"
+      " DHCP_TICKS=12 DHCP_PEND=1 DHCP_RENEW_OK=0 DHCP_RENEW_FAIL=0"
+      " DHCP_REBIND_OK=0 DHCP_REBIND_FAIL=0"
       " SD_OK=10 SD_FAIL=0 RTC=1 FRAM=10 UDP_RX=4 UDP_TX=4"
-      " RTU_OK=8 RTU_FAIL=0 BTN_EVENTS=2")
+      " RTU_OK=8 RTU_FAIL=0 IO_READY=1 IO_AGE_MS=50 RTC_AGE_MS=70 TFT_READY=1 TFT_DRAW=80 TFT_FAIL=0 TFT_MAX_US=1500 TFT_SPI_WAIT_MAX_US=120 BTN_EVENTS=2")
     ev=parse_heartbeat(sample,"a"*24,"R2",12.4)
     require(ev and ev["link"]==2 and ev["rtu_ok"]==8,
             "TEST_HEARTBEAT_POSITIVE")
@@ -760,12 +875,33 @@ def selftest()->int:
     r3rec.capture_udp_probe_line("G10R_R3_UDP:"+"b"*24+" STATE=ARMED",1.2)
     require(len(r3rec.r3_udp_lines)==3,
             "R3_FOREIGN_UART_NOT_PRESERVED_FOR_REVIEW")
+    down={"phase":"R2","t":3.0,"link":2,"eth":0,
+          "dhcp_state":3,"ip":"0.0.0.0"}
+    up={"phase":"R2","t":4.0,"link":1,"eth":1,
+        "dhcp_state":5,"ip":"192.168.0.10"}
+    require(link_confirmed_from_uart(down,2.0,up=False),"B4_LINK_DOWN_POSITIVE")
+    require(link_confirmed_from_uart(up,3.0,up=True),"B4_LINK_UP_POSITIVE")
+    require(not link_confirmed_from_uart(down,3.0,up=False),
+            "B4_STALE_LINK_DOWN_ACCEPTED")
+    require(not link_confirmed_from_uart(up,4.0,up=True),
+            "B4_STALE_LINK_UP_ACCEPTED")
+    require(not link_confirmed_from_uart(dict(up,dhcp_state=3),3.0,up=True),
+            "B4_UNREADY_DHCP_ACCEPTED")
+    require(not link_confirmed_from_uart(dict(up,phase="R1"),3.0,up=True),
+            "B4_WRONG_PHASE_ACCEPTED")
+    require(not link_confirmed_from_uart(dict(down,link=1),2.0,up=False),
+            "B4_FALSE_UNPLUG_ACCEPTED")
+    print("G10_R_B4_R2_UART_LINK_NEGATIVES=5_REJECTED")
     print("G10_R_FIELD_SELFTEST=PASS_6_NEGATIVE_SERIAL_CASES")
     print("G10_R_FIELD_HARDWARE=NOT_ACCESSED")
     return 0
 
 
-def live(evidence:Path)->int:
+def live(evidence:Path,bench_evidence:Path)->int:
+    # Doble puerta: documento local de respaldo verificado ANTES de abrir COM.
+    import a13_g10_r_b4_bench as b4
+    issues=b4.validate(json.loads(bench_evidence.read_text(encoding="utf-8-sig")))
+    require(not issues,"B4_BENCH_BACKUP_REVIEW_STOP_"+",".join(issues))
     require(R3_PHYSICAL_INJECTION_READY,
             "G10R_PHYSICAL_BLOCKED_R3_PHASE_MISSING_IN_INTEGRATED_CAMPAIGN")
     require(os.name=="nt","WINDOWS_ONLY")
@@ -816,7 +952,7 @@ def live(evidence:Path)->int:
         result["replay_verdict"]=verdict
         result["physical_status"]="EVIDENCE_COLLECTED_REQUIRES_REVIEW"
         status=0 if verdict["status"]=="PASS_REPLAY_CONTRACT" else 2
-    except Exception as exc:
+    except (Exception,KeyboardInterrupt) as exc:
         result["physical_status"]="REVIEW_STOP"
         result["reason"]=str(exc)
         status=2
@@ -824,6 +960,10 @@ def live(evidence:Path)->int:
         c.close()
         result["events"]=sorted(c.events,key=lambda ev:ev["t"])
         result["r3_socket_snapshots"]=list(c.r3_snapshots)
+        result["tcp_uart"]=c.tcp_collector.report()
+        result["tcp124_stress"]=list(c.tcp124_stress)
+        result["pc_tcp_transactions"]=[ev for ev in c.events
+            if ev.get("kind")=="traffic" and "tcp_tid" in ev]
         result["r3_udp_lines"]=list(c.r3_udp_lines)
         result["r3_udp_sessions"]=list(c.r3_udp_sessions)
         result["r3_udp_verdicts"]=[]
@@ -845,6 +985,42 @@ def live(evidence:Path)->int:
                     "status":"REVIEW_STOP",
                     "errors":["UDP_CONTRACT_EXCEPTION_"+type(exc).__name__]})
         result["r3_lifecycle_trace"]=c.trace.report()
+        # B2: equidad y DHCP, solo evidencias observadas en UART/host.
+        try:
+            b2_path=ROOT/"tools/alpha13/gates/a13_g10_r_b2_contract.py"
+            b2_spec=importlib.util.spec_from_file_location("g10r_b2_contract",b2_path)
+            require(b2_spec is not None and b2_spec.loader is not None,
+                    "B2_CONTRACT_MISSING")
+            b2=importlib.util.module_from_spec(b2_spec)
+            sys.modules[b2_spec.name]=b2
+            b2_spec.loader.exec_module(b2)
+            result["b2_observability"]=b2.evaluate(result)
+            if result["b2_observability"]["status"]=="REVIEW_STOP":
+                result["physical_status"]="REVIEW_STOP"
+                status=2
+        except Exception as exc:
+            result["b2_observability"]={"status":"REVIEW_STOP",
+                "issues":["B2_EVALUATION_EXCEPTION_"+type(exc).__name__]}
+            result["physical_status"]="REVIEW_STOP"
+            status=2
+        # Unir evidencia de PC/Modbus con los eventos UART y el mismo lease.
+        try:
+            join_path=ROOT/"tools/alpha13/gates/a13_g10_r_tcp124_join.py"
+            join_spec=importlib.util.spec_from_file_location("g10r_tcp_join",join_path)
+            require(join_spec is not None and join_spec.loader is not None,
+                    "TCP124_JOIN_UNAVAILABLE")
+            join_module=importlib.util.module_from_spec(join_spec)
+            sys.modules[join_spec.name]=join_module
+            join_spec.loader.exec_module(join_module)
+            result["tcp124_join"]=join_module.evaluate(result)
+            if result["tcp124_join"]["status"]!="PASS_OFFLINE_SOURCE_EVIDENCE_CONTRACT":
+                result["physical_status"]="REVIEW_STOP"
+                status=2
+        except Exception as exc:
+            result["tcp124_join"]={"status":"REVIEW_STOP",
+                "issues":["TCP_JOIN_EXCEPTION_"+type(exc).__name__]}
+            result["physical_status"]="REVIEW_STOP"
+            status=2
         result["r3_status"]="OBSERVABILITY_ONLY_NOT_CLOSE_FAULT_INJECTION"
         if c.trace.issues:
             result["r3_status"]="INSTRUMENTATION_GAP_REVIEW_STOP_R3"
@@ -875,6 +1051,21 @@ def live(evidence:Path)->int:
         result["exit_code"]=status
         (out/"MANIFEST.json").write_text(
             json.dumps(result,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+        manifest_path=out/"MANIFEST.json"
+        manifest_hash=hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+        summary=(
+            "JWPLC G10-R H — SUMMARY (evidencia física por revisar)\\n"
+            "STATUS="+str(result["physical_status"])+"\\n"
+            "EXIT_CODE="+str(status)+"\\n"
+            "MANIFEST_SHA256="+manifest_hash+"\\n"
+            "HEAD="+str(proven.get("source_head","UNKNOWN"))+"\\n"
+            "R3_STATUS="+str(result.get("r3_status","REVIEW_STOP"))+"\\n"
+            "TCP124_JOIN="+str(result.get("tcp124_join",{}).get("status","REVIEW_STOP"))+"\\n"
+            "B2_FAIRNESS="+str(result.get("b2_observability",{}).get("status","REVIEW_STOP"))+"\\n"
+            "RESTORATION=NOT_RUN_SEPARATE_AUTH_REQUIRED\\n"
+            "PHYSICAL_SIGNOFF=OPERATOR_REVIEW_REQUIRED\\n"
+        )
+        (out/"SUMMARY.log").write_text(summary.replace("\\n","\n"),encoding="utf-8")
         print("G10_R_CAPTURE_DIR="+str(out))
         print("G10_R_CAPTURE_STATUS="+result["physical_status"])
     return status
@@ -887,6 +1078,8 @@ def main()->int:
     modes.add_argument("--dry-run",action="store_true")
     modes.add_argument("--live",action="store_true")
     p.add_argument("--upload-evidence",type=Path)
+    p.add_argument("--bench-evidence",type=Path,
+                   help="Ficha local B4 respaldos y banco; jamás implica autorización")
     args=p.parse_args()
     try:
         if args.selftest:return selftest()
@@ -895,7 +1088,9 @@ def main()->int:
             return 0
         require(args.upload_evidence is not None,
                 "LIVE_REQUIRES_PREVIOUS_UPLOAD_EVIDENCE_NOT_GENERATED_BY_THIS_RUNNER")
-        return live(args.upload_evidence)
+        require(args.bench_evidence is not None,
+                "B4_BENCH_BACKUP_EVIDENCE_REQUIRED_BEFORE_COM")
+        return live(args.upload_evidence,args.bench_evidence)
     except (OSError,ValueError,RuntimeError,EOFError) as exc:
         print("G10_R_REVIEW_STOP="+str(exc))
         return 2
