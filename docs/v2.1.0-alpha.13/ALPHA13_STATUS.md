@@ -1,3 +1,28 @@
+# Estado vigente PRE-H — 17/10/2026: B3 integrado CERRADO, solo B4 pendiente
+
+**El bloque 3 N0/N1/N2/N3 está `CLOSED_NONPHYSICAL_CI_VERIFIED`**. Código exacto `ba1b0b1ddad78fbdc574b1590abae06bff1030a6`; los commits posteriores a ese SHA son exclusivamente de documentación. No se ha adoptado G10-R en rama productiva.
+
+**CI de integración del candidato:** [#39015874604](https://github.com/JW-Control/platform-jwplc/actions/runs/39015874604) 4/4 jobs PASS (N0 Ubuntu + Windows, N1 nativo y N3 candidato 11/11). [#39015874548](https://github.com/JW-Control/platform-jwplc/actions/runs/39015874548) 5/5 PASS (replay, source-first COM4/COM14 y C++ source-backed). N0 histórico reconciliado [#39015874600](https://github.com/JW-Control/platform-jwplc/actions/runs/39015874600) 2/2 PASS. N2 TCP124 [#39015874532](https://github.com/JW-Control/platform-jwplc/actions/runs/39015874532) 2/2 PASS. **N3 baseline** reutiliza 11/11 de G10-I [#38843599043](https://github.com/JW-Control/platform-jwplc/actions/runs/38843599043) tras comprobación exacta de `JWPLC/` sin cambios; **N3 candidate** es recompilación nueva de 11/11 con el overlay B1/B2. Los archives, GPIO4 y Alpha15 permanecen intactos.
+
+**Documento de cierre con gates/decisiones/artifact y límites:** [A13_G10_R_PREH_B3_CIERRE_20261017.md](A13_G10_R_PREH_B3_CIERRE_20261017.md).
+
+```text
+PREH_BLOCK_1_TCP124=CLOSED_NONPHYSICAL
+PREH_BLOCK_2_DHCP_FAIRNESS=CLOSED_NONPHYSICAL
+PREH_BLOCK_3_INTEGRATED_N0_N1_N2_N3=CLOSED_NONPHYSICAL_CI_VERIFIED
+PREH_BLOCK_4_PHYSICAL_SAFETY_BACKUP_AUTH=OPEN
+PREH_STEPS_REMAINING=1
+G10-R-H=BLOCKED_NOT_AUTHORIZED
+G10-R-PHYSICAL=NOT_RUN
+R3_PHYSICAL_INJECTION_READY=FALSE
+R3_COMPLETE_PHYSICAL_CAMPAIGN_READY=FALSE
+A13-006=ADOPTION_BLOCKED
+ALPHA15=UNMODIFIED
+NEXT_GATE=PREH_BLOCK_4_PHYSICAL_SAFETY_BACKUP_AND_OPERATOR_AUTH
+```
+
+---
+
 # Estado PRE-H vigente — 17/oct/2026: bloques 1 y 2 preparados, 2 restantes
 
 **B2 DHCP/fairness: `CLOSED_NONPHYSICAL_SOURCE_FIRST`.** Se instrumentó mantenimiento DHCP real del backend tras liberar SPI; métricas H3E1 de TFT, edad de scan I/O/TCA cacheado, RTC, SD, FRAM, RTU, UDP y botón; validador fail-closed por **fase+token** para R3. Esta decisión es de preparación y compilación, **NO valida físicamente** renew/rebind, link loss ni fairness del banco.
