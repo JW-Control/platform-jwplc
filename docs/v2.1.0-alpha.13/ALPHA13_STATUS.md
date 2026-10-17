@@ -1,5 +1,17 @@
 # Alpha13 — G10-R, estado vivo de preparación (16/10/2026)
 
+> **PRE-H / R3-UDP 16-oct:** corregida la correlación de lease en presencia de cierres TCP/DNS/DHCP concurrentes: ahora se exige exactamente **un cierre de la sonda UDP identificada**, no un único cierre global. El contrato añade el caso positivo paralelo y **17 negativos**. El runner PC conserva `r3_udp_lines/r3_udp_sessions/r3_udp_verdicts` en el manifiesto y el build gate tiene un bloqueo físico explícito (`R3_COMPLETE_PHYSICAL_CAMPAIGN_READY=False`) adicional al bloqueo de captura (`R3_PHYSICAL_INJECTION_READY=False`). **CI #38998540944 5/5 SUCCESS corresponde a HEAD anterior `5e4a6d78`; verificar CI del HEAD vigente antes de atribuir aprobación.** No hay prueba de campo R3, merge ni flash nuevos. [PRE-H integrado](A13_G10_R_CAMPANA_INTEGRADA_Y_TRANSFERENCIA_ALPHA15_20261016.md).
+
+```text
+G10-R-R3_UDP_PCHOST=SOURCE_WIRED_17_NEGATIVES
+G10-R-HARDWARE_UPLOAD=BLOCKED_BEFORE_COM
+G10-R-HARDWARE_CAPTURE=BLOCKED_BEFORE_COM
+G10-R-R3_COMPLETE=NOT_READY
+A13-006=ADOPTION_BLOCKED
+ALPHA15_TRANSFER=NOT_AUTHORIZED
+```
+
+
 > **R3 — avance de fault injection (16/10/2026):** el sketch temporal agrega una única sonda explícita `G10R_R3_UDP:<token>`: task FreeRTOS con `BusScope(0)` con espera nominal de **80 ms** y duración real **medida en microsegundos** (rango contractual 60–120 ms; cualquier exceso `HOLD_TIMING_REVIEW`), `EthernetUDP::stop()` real durante la contención y lectura del lease `SID/EPOCH/ALLOC/OWNER` antes de inyectar, para correlacionar `QueueRequest→DrainClose` del mismo socket. Esta subfase requiere una sesión de banco autorizada para demostrar el comportamiento físico; **todavía no se ejecutó en hardware**. `a13_g10_r_r3_probe_contract.py` integra 16 mutantes sintéticos, sin reemplazar los 7 mutantes C++ ni los 14 métodos DNS/DHCP/UDP ya validados en host. **La campaña H integral sigue bloqueada en `R3_PHYSICAL_INJECTION_READY=False`** porque faltan inyectores físicos DNS/DHCP/TCP y 1/2/4 clientes con pruebas de seguridad. **No usar `--live` ni flashear COM4/COM14.** [Plan PRE-H](A13_G10_R_CAMPANA_INTEGRADA_Y_TRANSFERENCIA_ALPHA15_20261016.md).
 
 ```text
