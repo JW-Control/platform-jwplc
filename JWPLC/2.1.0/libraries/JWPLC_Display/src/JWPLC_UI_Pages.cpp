@@ -93,9 +93,16 @@ namespace
             return;
         }
 
+        // En PAGE_CONTENT ESC pertenece al contenido (vuelve al selector), así
+        // que sólo se suspende la vuelta por tecla. La vuelta por inactividad
+        // sigue activa en cualquier sección (Alpha15).
         g_savedIdleReturnMode = JWPLC_Display.idleReturnMode();
-        JWPLC_Display.setIdleReturnMode(IDLE_RETURN_DISABLED);
-        g_idleReturnOverridden = true;
+        if (g_savedIdleReturnMode == IDLE_RETURN_ESC_ONLY ||
+            g_savedIdleReturnMode == IDLE_RETURN_BUTTON_ONLY)
+        {
+            JWPLC_Display.setIdleReturnMode(IDLE_RETURN_DISABLED);
+            g_idleReturnOverridden = true;
+        }
         g_selectionMode = false;
         markIndicatorDirty();
         JWPLCUI::requestRefresh();

@@ -170,6 +170,12 @@ namespace
             return;
         }
 
+        if (node.type == JWPLC_UI_MENU_GO_IDLE)
+        {
+            snprintf(out, size, "<");
+            return;
+        }
+
         if (node.kind == JWPLC_UI_MENU_VALUE_BOOL)
         {
             const bool state = editingRow
@@ -467,6 +473,13 @@ namespace
             startEdit(m, node, pos);
             JWPLC_Buttons.clearPendingInput();
         }
+        else if (ok && node.type == JWPLC_UI_MENU_GO_IDLE)
+        {
+            // El refresco revisa el modo después de atender la entrada, así
+            // que la IDLE se dibuja en este mismo ciclo.
+            JWPLC_Buttons.clearPendingInput();
+            JWPLC_Display.goIdle();
+        }
     }
 
     // Repinta las filas cuyo valor vinculado cambió desde el último dibujo.
@@ -486,7 +499,7 @@ namespace
             if (nodeIndex < 0)
                 break;
             const JWPLC_UIMenuNode &node = m.def.nodes[nodeIndex];
-            if (node.type == JWPLC_UI_MENU_SUBMENU)
+            if (node.type == JWPLC_UI_MENU_SUBMENU || node.type == JWPLC_UI_MENU_GO_IDLE)
                 continue;
             if (m.editing && pos == m.selected[lv])
                 continue;
@@ -641,7 +654,7 @@ namespace
         if (valueW > 0)
             drawText(tft, m, x + w - ROW_PAD_X - valueW, y + ROW_PAD_Y, value, vfg, bg);
 
-        m.cache[row] = (node.type == JWPLC_UI_MENU_SUBMENU) ? 0.0f : readValue(node);
+        m.cache[row] = (node.type == JWPLC_UI_MENU_SUBMENU || node.type == JWPLC_UI_MENU_GO_IDLE) ? 0.0f : readValue(node);
     }
 
     void drawFull(JWPLC_TFTClass &tft, MenuRuntime &m)
@@ -709,7 +722,7 @@ namespace
             if (depth > JWPLC_UI_MENU_MAX_DEPTH)
                 return false;
 
-            if (node.type != JWPLC_UI_MENU_SUBMENU && node.value == nullptr)
+            if (node.type != JWPLC_UI_MENU_SUBMENU && node.type != JWPLC_UI_MENU_GO_IDLE && node.value == nullptr)
                 return false;
             if (node.type == JWPLC_UI_MENU_EDIT_NUM && node.max < node.min)
                 return false;
@@ -767,6 +780,11 @@ static JWPLC_UIMenuNode makeNode(JWPLC_UIMenuNodeType type, JWPLC_UIMenuValueKin
 JWPLC_UIMenuNode JWPLC_UIMenuSubmenu(uint8_t parent, const char *label)
 {
     return makeNode(JWPLC_UI_MENU_SUBMENU, JWPLC_UI_MENU_VALUE_NONE, parent, label, nullptr);
+}
+
+JWPLC_UIMenuNode JWPLC_UIMenuGoIdle(uint8_t parent, const char *label)
+{
+    return makeNode(JWPLC_UI_MENU_GO_IDLE, JWPLC_UI_MENU_VALUE_NONE, parent, label, nullptr);
 }
 
 JWPLC_UIMenuNode JWPLC_UIMenuView(uint8_t parent, const char *label, const float *value, uint8_t decimals, const char *unit)

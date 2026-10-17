@@ -37,8 +37,13 @@ enum JWPLC_UIMenuNodeType : uint8_t
     JWPLC_UI_MENU_SUBMENU = 0,
     JWPLC_UI_MENU_VIEW,
     JWPLC_UI_MENU_EDIT_NUM,
-    JWPLC_UI_MENU_EDIT_BOOL
+    JWPLC_UI_MENU_EDIT_BOOL,
+    // Alpha15: acción "volver a la pantalla IDLE" (OK -> JWPLC_Display.goIdle()).
+    // Sirve con el retorno "Nunca" del Designer: la salida la decide el menú.
+    JWPLC_UI_MENU_GO_IDLE
 };
+
+#define JWPLC_UI_HAS_MENU_GO_IDLE 1
 
 enum JWPLC_UIMenuValueKind : uint8_t
 {
@@ -158,6 +163,11 @@ JWPLC_UIMenuNode JWPLC_UIMenuEditBool(
     bool *value,
     const char *falseText = "OFF",
     const char *trueText = "ON");
+
+// Ítem de acción: con OK vuelve a la pantalla IDLE. Se dibuja con "<" a la derecha.
+JWPLC_UIMenuNode JWPLC_UIMenuGoIdle(
+    uint8_t parent,
+    const char *label);
 
 // width/height obligatorios (> 0). textSize 1 (filas de 12 px) o 2 (20 px).
 JWPLC_UIMenu JWPLC_UIMenuField(
