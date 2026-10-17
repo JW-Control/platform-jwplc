@@ -1,4 +1,131 @@
-# Alpha13 — estado vivo G10 (decisión G10-C, 2026-10-16)
+# Alpha13 — G10-R, estado vivo de preparación (16/10/2026)
+
+> **16-oct — R3 preparado para inyección en banco, SIN EJECUCIÓN FÍSICA:** el único sketch COM4 temporal `g10_r_integrated.ino` incluye cinco sondas bajo mutex W5500 real (`UDP.stop`, `DNSClient.cancelResolveAsync`, `EthernetClient.cancelConnectAsync`, `DhcpClass.cancelDHCP`, `DhcpClass.finishAsync`). Las dos rutas DHCP usan un objeto `DhcpClass` **local** cuyo UDP privado se arma exclusivamente en puerto **15023** por un `friend` inyectado solo al **staging**: no emite DHCP DISCOVER, no modifica el DHCP global ni productivo. El runner incorpora `r3_suite()` para una **única campaña R1→R2→R3(5)→R4** con abortos y captura de identidad de cada lease. Nuevo handshake `R1R2R3R4_FAULT_LAB_V2`; build y runner rechazan protocolo viejo. Se mantiene `--upload/--live` **fail-closed**: aún faltan cobertura TCP 1/2/4, DHCP renew/rebind físico, fairness TFT/TCA, revisión N2 Windows/Ubuntu del HEAD exacto y autorización del banco. **No se tocó Alpha15 ni se flashearon COM4/COM14.** [Plan R3 y límites](A13_G10_R_CAMPANA_INTEGRADA_Y_TRANSFERENCIA_ALPHA15_20261016.md).
+
+```text
+G10-R-R3-STAGED_FIVE_MODES=UDP_DNS_TCP_DHCP_CANCEL_DHCP_FINISH
+G10-R-R3-DHCP_PROBE=PACKET_FREE_ISOLATED_INSTANCE
+G10-R-R3-FIELD_RUNNER=ONE_INTEGRATED_R1_R2_R3_R4_CAMPAIGN_CODE_PRESENT
+G10-R-R3-UDP_DNS_TCP_DHCP_PHYSICAL=NOT_RUN
+G10-R-R3-CONCURRENT_TCP_1_2_4=REVIEW_REQUIRED
+G10-R-R3-PHYSICAL_DHCP_RENEW_REBIND=NOT_RUN
+G10-R-R3-TFT_TCA_FAIRNESS=NOT_MEASURED
+G10-R-R3-H=FAIL_CLOSED
+G10-R-FLASH=BLOCKED
+A13-006=ADOPTION_BLOCKED
+ALPHA15=UNMODIFIED
+NEXT_GATE=PREH_CONCURRENT_TCP_FAIRNESS_AND_FINAL_CI_THEN_AUTHORIZED_H
+```
+
+
+> **16/10 — Consolidación PRE-H y Alpha15:** la CI de referencia [#38998540944](https://github.com/JW-Control/platform-jwplc/actions/runs/38998540944) fue **5/5 SUCCESS** para `5e4a6d78` (anterior). En HEAD posteriores, se integró al host la captura `r3_udp_lines/sessions/verdicts` con lease exacto y cierres paralelos permitidos, **17 mutantes de contrato offline**, y se blindaron tanto `--live` como `--upload` antes de abrir COM o flashear mientras R3 completo no exista. **Los cambios más recientes necesitan CI por su HEAD exacto**. Se realizó comparación READ-ONLY de blobs entre producto Alpha13 y `v2.1.0-alpha.15-HmiDesigner`: `Dns.cpp`, `EthernetClient.cpp`, `EthernetUdp.cpp`, `JWPLC_TFT.h` y archive TFT **divergen**; `platform.txt`, `JWPLC_Display_API.h`, `JWPLC_Display.cpp`, `DhcpAsyncControl.cpp`, `JWPLC_Ethernet.cpp` y header RTU **coinciden** en los SHA consultados. [Matriz de transferencia](A13_ALPHA15_COMPAT_READONLY_PRETRANSFER_20261016.md). Alpha15 no fue modificada; **G10-H físico R3 no ejecutado, `A13-006=ADOPTION_BLOCKED`**.
+
+```text
+G10-R-R3-UDP_HOST=SOURCE_INTEGRATED_17_OFFLINE_NEGATIVES_CI_FINAL_PENDING
+G10-R-LIVE=BLOCKED_BEFORE_COM
+G10-R-UPLOAD=BLOCKED_BEFORE_COM
+G10-R-R3_DNS_DHCP_TCP_PHYSICAL=NOT_READY
+G10-R-H=NOT_AUTHORIZED
+G10-R-ALPHA15_DIFF=READ_ONLY_CRITICAL_ETHERNET_TFT_DIVERGENCE
+ALPHA15_BRANCH_MODIFIED=NO
+PRODUCT_MODIFIED=NO
+A13-006=ADOPTION_BLOCKED
+```
+
+
+> **PRE-H / R3-UDP 16-oct:** corregida la correlación de lease en presencia de cierres TCP/DNS/DHCP concurrentes: ahora se exige exactamente **un cierre de la sonda UDP identificada**, no un único cierre global. El contrato añade el caso positivo paralelo y **17 negativos**. El runner PC conserva `r3_udp_lines/r3_udp_sessions/r3_udp_verdicts` en el manifiesto y el build gate tiene un bloqueo físico explícito (`R3_COMPLETE_PHYSICAL_CAMPAIGN_READY=False`) adicional al bloqueo de captura (`R3_PHYSICAL_INJECTION_READY=False`). **CI #38998540944 5/5 SUCCESS corresponde a HEAD anterior `5e4a6d78`; verificar CI del HEAD vigente antes de atribuir aprobación.** No hay prueba de campo R3, merge ni flash nuevos. [PRE-H integrado](A13_G10_R_CAMPANA_INTEGRADA_Y_TRANSFERENCIA_ALPHA15_20261016.md).
+
+```text
+G10-R-R3_UDP_PCHOST=SOURCE_WIRED_17_NEGATIVES
+G10-R-HARDWARE_UPLOAD=BLOCKED_BEFORE_COM
+G10-R-HARDWARE_CAPTURE=BLOCKED_BEFORE_COM
+G10-R-R3_COMPLETE=NOT_READY
+A13-006=ADOPTION_BLOCKED
+ALPHA15_TRANSFER=NOT_AUTHORIZED
+```
+
+
+> **R3 — avance de fault injection (16/10/2026):** el sketch temporal agrega una única sonda explícita `G10R_R3_UDP:<token>`: task FreeRTOS con `BusScope(0)` con espera nominal de **80 ms** y duración real **medida en microsegundos** (rango contractual 60–120 ms; cualquier exceso `HOLD_TIMING_REVIEW`), `EthernetUDP::stop()` real durante la contención y lectura del lease `SID/EPOCH/ALLOC/OWNER` antes de inyectar, para correlacionar `QueueRequest→DrainClose` del mismo socket. Esta subfase requiere una sesión de banco autorizada para demostrar el comportamiento físico; **todavía no se ejecutó en hardware**. `a13_g10_r_r3_probe_contract.py` integra 16 mutantes sintéticos, sin reemplazar los 7 mutantes C++ ni los 14 métodos DNS/DHCP/UDP ya validados en host. **La campaña H integral sigue bloqueada en `R3_PHYSICAL_INJECTION_READY=False`** porque faltan inyectores físicos DNS/DHCP/TCP y 1/2/4 clientes con pruebas de seguridad. **No usar `--live` ni flashear COM4/COM14.** [Plan PRE-H](A13_G10_R_CAMPANA_INTEGRADA_Y_TRANSFERENCIA_ALPHA15_20261016.md).
+
+```text
+G10-R-R3-UDP=SOURCE_ONLY_LOCK80_PARTIAL_NOT_PHYSICALLY_RUN
+G10-R-R3-UDP-LEASE=EXACT_PROVENANCE_SID_EPOCH_ALLOC_OWNER
+G10-R-R3-UDP-REPLAY=14_NEGATIVES_SYNTHETIC
+G10-R-R3-DNS_DHCP_TCP=PHYSICAL_INJECTION_NOT_IMPLEMENTED
+G10-R-H=FAIL_CLOSED
+A13-006=ADOPTION_BLOCKED
+ALPHA15_PRODUCT_TRANSFER=NOT_AUTHORIZED
+```
+
+
+> **Actualización PRE-H integrada (16/10/2026):** al preparar una única campaña física R1→R2→R3→R4 se detectó que el runner anterior ejecutaba solo R1/R2/R4. `a13_g10_r_field_runner.py --live` queda **bloqueado intencionalmente** antes de abrir COM, con `G10R_PHYSICAL_BLOCKED_R3_PHASE_MISSING_IN_INTEGRATED_CAMPAIGN`. Su `--selftest` conserva este requisito. La batería nativa del job R3 integra ahora **14 métodos fuente reales** DNS/DHCP/UDP (finish, cancel, timeout, renew/rebind y multicast) con el SafeAccess y trazador del **mismo overlay temporal de 14 fuentes**. En la CI del commit `e9aca4df` el job nativo informó **12 marcadores positivos** y **3 mutaciones negativas rechazadas**; el job previo de SafeAccess sigue cubriendo 7 mutaciones. La compilación completa Windows/Ubuntu del **HEAD vigente** requiere conclusión explícita antes de marcar cierre N0–N2. Documentado en [PRE-H integrado y transferencia Alpha15](A13_G10_R_CAMPANA_INTEGRADA_Y_TRANSFERENCIA_ALPHA15_20261016.md). Ninguna modificación productiva ni transferencia a la rama Alpha15 autorizada.
+
+```text
+G10-R-PREH=INTEGRATED_NONPHYSICAL_IMPLEMENTED_CI_HEAD_PENDING
+G10-R-R3-NATIVE=14_REAL_DNS_DHCP_UDP_METHODS_WITH_R3_TRACE
+G10-R-R3-NEGATIVES=3_PROTOCOL_AND_7_SAFEACCESS_SOURCE_BACKED
+G10-R-H=FAIL_CLOSED_R3_INJECTION_PHASE_NOT_IMPLEMENTED
+G10-R-R1_R2_R3_R4-PHYSICAL=NOT_RUN
+G10-R-ALPHA15=READ_ONLY_COMPATIBILITY_ALLOWED_NO_PRODUCT_MERGE
+A13-006=ADOPTION_BLOCKED
+NEXT_GATE=R3_DETERMINISTIC_PHYSICAL_FAULT_INJECTION_AND_INTEGRATED_H_PREP
+```
+
+
+> **Actualización R3 / historial (16-oct-2026):** el overlay de laboratorio incorpora un anillo fijo de **64 eventos**, con `try-lock` no bloqueante, secuencia, propietario, epoch, allocation y detección de `dropped/overrun`. Sin usar GPIO4 ni escribir SD/FRAM/Q, `G10R_EVENTS:<token>:AFTER=<seq>` exporta eventos al runner, que conserva `r3_lifecycle_trace` y el resultado del auditor semántico. El [job nativo R3 de CI #38995714214](https://github.com/JW-Control/platform-jwplc/actions/runs/38995714214) verifica **7 mutantes de C++ real** rechazados y `TRACE_OVERRUN=PASS_REVIEW_DETECTED`; el contrato UART host rechaza **7 negativos** y el auditor de propietario/epoch **10 negativos** (exclusivamente sintéticos). **La compilación COM4/COM14 Windows+Ubuntu debe terminar en el HEAD exacto antes del PASS global.** Faltan fault injection físico DNS/DHCP/UDP y endurance. `A13-006=ADOPTION_BLOCKED`; ninguno de los firmwares de G10-R se ha subido.
+
+```text
+G10-R-R3-HISTORICAL_TRACE=SOURCE_BACKED_NATIVES_7_NEGATIVES
+G10-R-R3-UART_SEMANTICS=HOST_7_NEGATIVES_AND_OWNER_EPOCH_10_NEGATIVES
+G10-R-R3-PHYSICAL=NOT_RUN
+G10-R-R3-FAULT_INJECTION=NOT_RUN
+G10-R-R1_R2_R4=NOT_RUN_PHYSICALLY
+PRODUCT_MODIFIED=NO
+GPIO4_RESET=DISABLED
+A13-006=ADOPTION_BLOCKED
+NEXT_GATE=G10-R_FINAL_CI_AND_PRE_PHYSICAL_REVIEW
+```
+
+
+> **Actualización de evidencia R3 (16/10/2026):** nueva suite C++ host con **SafeAccess.cpp real compuesto** y exclusión SPI simulada no recursiva; el test verifica `BUS_BUSY`, ticket de cierre pendiente, drenaje de la cola y rechazo de un token obsoleto al reciclar socket. En [CI #38994618424](https://github.com/JW-Control/platform-jwplc/actions/runs/38994618424), el job R3 declaró `G10_R_R3_SOURCE_MUTANTS=4_PASS_REJECTED` junto con los dos casos positivos. **La compilación Arduino Windows/Ubuntu de esa corrida puede continuar en progreso: no se atribuye 5/5 PASS hasta verificarla.** Sigue sin haber fault injection físico DNS/DHCP/UDP ni telemetría histórica real de lifecycle. [Detalles del test y límites](A13_G10_R_PLAN_RECUPERACION_Y_RESISTENCIA_20261016.md). `A13-006=ADOPTION_BLOCKED`, PR #108 Draft, sin nuevas cargas ni modificación de producto.
+
+
+> **Hito actual: seguridad del harness y observabilidad R3; hardware NO ejecutado.** Baseline del código anterior: [CI #38864224010](https://github.com/JW-Control/platform-jwplc/actions/runs/38864224010), **4/4 SUCCESS Windows/Ubuntu** para HEAD `e11e3638858e5063c432c67490feeb8f04764bae`. En la rama `codex/alpha13-g10-r-recovery-prep` se corrigió el parser de nonce HEX Arduino con mayúsculas y se exige concordancia **HEAD local+worktree limpio↔manifiesto de upload**. Los snapshots de ocho sockets se delimitan `G10R_SOCK_BEGIN/G10R_SOCK_END`, se guardan por sesión cada ~15 s y las capturas incompletas/BUS_BUSY quedan clasificadas explícitamente. Nuevo código y CI de Windows/Ubuntu en revisión: **NO atribuirles el PASS del baseline previo hasta verificar la corrida exacta**. R3 no tiene todavía secuencias físicas verificadas de fault injection `SPI_BUSY`. Código productivo y cinco archives intactos; GPIO4 deshabilitado. Los dos equipos aún contienen G10-H diagnóstico sin restauración. `A13-006=ADOPTION_BLOCKED`; PR #108 Draft; sin merge, upload, manipulación RJ45 ni release.
+
+```text
+HITO=G10-R
+BRANCH=codex/alpha13-g10-r-recovery-prep
+G10-R=PREP_NONPHYSICAL_SOURCE_INSTRUMENTED_CI_FINAL_PENDING
+G10-R-BASE_CI=PASS_4X4_RUN_38864224010_HEAD_e11e3638
+G10-R-N0=PASS_SYNTHETIC_CONTRACT_WINDOWS_UBUNTU
+G10-R-R1_R2_R4=SKETCH_REPLAY_CAPTURE_AND_UPLOAD_GATES_IMPLEMENTED_PHYSICAL_NOT_RUN
+G10-R-R3=HOST_CPP_SOURCE_BACKED_PASS_4_MUTANTS_PHYSICAL_FAULT_INJECTION_NOT_RUN
+G10-R-UPLOAD=CONSENT_GATED_NOT_EXECUTED
+G10-R-CAPTURE=CONSENT_GATED_NOT_EXECUTED
+G10-R-R5=NOT_AUTHORIZED
+G10-I=NONPHYSICAL_PASS_CANDIDATE
+G10-H=PASS_PHYSICAL_SMOKE_MANIFEST_REVIEWED
+G10-C=CLOSED_DECISION_DEFER_ADOPTION
+A13-006=ADOPTION_BLOCKED
+G10-FINAL=NOT_CLOSED_FOR_PRODUCT
+PRODUCT_MODIFIED=NO
+AUTOLOAD_NORMAL=UNCHANGED
+FROZEN_ARCHIVES=5_UNCHANGED
+GPIO4_RESET=DISABLED
+OPERATOR_FIRMWARE_RESTORED=NO
+NEXT_GATE=G10-R_FINAL_CI_REVIEW_AND_R3_FAULT_INJECTION_PLAN
+PHYSICAL_UPLOAD=NOT_AUTHORIZED
+PHYSICAL_LINK_FLAP=NOT_AUTHORIZED
+PHYSICAL_POWER_CYCLE=NOT_AUTHORIZED
+MERGE=NOT_AUTHORIZED
+RELEASE=NOT_AUTHORIZED
+OPENPLC=OUT_OF_SCOPE
+HMI_DESIGNER=OUT_OF_SCOPE
+TFT_NEW_FEATURES=OUT_OF_SCOPE
+```
+
+---
+
 
 > **ESTADO VIGENTE DE G10 — 16/10/2026 (rama experimental G10-C).** Este encabezado corrige entradas cronológicas antiguas de este archivo; **NO equivale al estado de adopción de la rama productiva**. G10-I: candidato N1–N3 PASS en CI #38843599043, HEAD `a954cabd9c6e37876b59995a41ff0a449308ccd1`. G10-H: smoke físico COM4/COM14 **PASS** con manifiesto revisado, HEAD ejecutado `c776ab92388e8765e933bf50cab8215e7c18325b`, `47 TCP OK/0 FAIL`, `47 UDP OK/0 FAIL`, `49 RTU Master OK/0 FAIL`, `52 solicitudes Slave/0 CRC`, SD `56 OK/0 FAIL`, FRAM `56`, RTC válido, botón `6`. G10-C: **decisión documental de diferir adopción**, no nueva campaña técnica. No se han acreditado recuperación Ethernet/DNS/DHCP, estrés prolongado, reset/power-cycle, pruebas IDE finales ni integración productiva. `A13-006=ADOPTION_BLOCKED`, `G10-FINAL=NOT_CLOSED_FOR_PRODUCT`; [decisión y checklist](A13_G10_C_DECISION_Y_CIERRE_20261016.md). PR #105 y PR #106 siguen Draft, sin merge/PreRelease. Los dos PLC contienen firmware de diagnóstico y no fueron restaurados.
 
