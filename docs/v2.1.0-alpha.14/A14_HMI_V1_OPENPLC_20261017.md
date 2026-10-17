@@ -30,6 +30,8 @@ F0D_4_MENU_ALPHA32=PASS_CON_OBSERVACION (HMI 5–14 µs prom., un pico de ≈ 85
 F0D_5_PAGES_ALPHA32=FAIL_DETERMINISMO (enlace HMI 7–13 µs OK; periodo máx. 53–65 ms al cambiar de página)
 F0D_HMI_COST=PASS (alpha.32: 5–15 µs prom., ≤ 27 µs máx./s; picos 73–90 µs por desalojo)
 F0D_DISPLAY_JITTER=ABIERTO (redibujo de página en jwplcSystemTask, mismo core y mayor prioridad que loopTask)
+F3_DESIGNER_EN_OPENPLC=IMPLEMENTADO (abrir, editar, Actualizar HMI y compilar probados por Kenyi; selector Variable PLC probado en Chromium con anfitrión simulado)
+F3_CADENA_COMPLETA_EN_PLACA=PENDING [no verificado]
 ```
 
 ## 1. Qué cambia respecto de la ruta F0
@@ -279,3 +281,42 @@ Opciones para Alpha13/Alpha15 (decisión del jefe):
 - redibujo de página en tramos.
 
 Detalle en el gate `A14_F0d_OpenPLC_Tiempos`.
+
+## 11. F3: el Designer dentro de OpenPLC
+
+Contrato: `A14_F3_CONTRATO_HMI_OPENPLC_20261017.md`.
+
+**OpenPLC** (editor, rama `develop/alpha14-openplc-hmi-v1`):
+
+- botón **Abrir HMI Designer** en el dispositivo;
+- ventana con el Designer de este repo, vinculada a `hmi/` del proyecto;
+- `listVariables()` con las reglas de la compilación;
+- al compilar, los enlaces salen de `plcBinding` en `hmi/JWPLC_HMI.jwhmi`;
+  `bindings.json` queda como respaldo.
+
+**Designer** (este repo):
+
+- `designer-openplc-host.js`, nuevo, sólo se activa con `JWPLCHMIHost` en modo
+  `openplc`: en la pestaña Datos de BOOL, VALUE, BAR y nodos del MENU agrega el
+  selector **Variable PLC** filtrado por tipo y acceso;
+- el nombre C++ se genera solo y se guarda `plcBinding`;
+- `designer-menu.js`: getter `selectedNode`;
+- `desktop.html`: carga el módulo.
+
+El modo Arduino y el `.exe` no cambian. André decide si integra este módulo en
+A15-6 o lo reemplaza.
+
+Prueba de Kenyi en la app (primera versión):
+
+- abrir, editar, "Actualizar HMI", compilar y correr: OK;
+- dos fallas, corregidas:
+  - no se podía elegir la variable PLC: ahora hay selector;
+  - al reabrir salía la pantalla vieja: ahora "Actualizar HMI" y el cierre de
+    la ventana guardan `JWPLC_HMI.jwhmi`.
+
+Prueba sin hardware: en Chromium, con anfitrión simulado y el proyecto F0c,
+`BOOL ← RELE` (sólo ofrece BOOL) y `MENU Limite <-> LIMITE` (sólo ofrece
+`%MW`/`%MD` con RW; tipo `int32`) quedan con `plcBinding` en `serialize()`.
+
+Pendiente: probar la cadena completa en la app y en la placa (elegir
+variables, Actualizar HMI, borrar `bindings.json`, compilar, reabrir).
