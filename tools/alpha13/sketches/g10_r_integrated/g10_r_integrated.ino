@@ -63,6 +63,7 @@ static void r3Service() {
   if (!r3Armed || r3FinishPrinted) return;
   const uint8_t state=r3HoldState.load(std::memory_order_acquire);
   if (state==3) {
+    r3ProbeUdp.stop();  // liberar socket temporal también si falla inyección
     r3Report("MUTEX_NOT_ACQUIRED");
     r3FinishPrinted=true;
     return;
@@ -79,6 +80,7 @@ static void r3Service() {
   if (state==2) {
     if (!r3ReleasedAt) r3ReleasedAt=millis();
     if ((uint32_t)(millis()-r3ReleasedAt)>=250) {
+      if (!r3CloseAttempted) r3ProbeUdp.stop(); // no dejar huérfano
       r3Report(r3CloseAttempted&&r3ClosedWhileHeld?
                "AWAIT_LIFECYCLE_REVIEW":"INJECTION_INCOMPLETE_REVIEW");
       r3FinishPrinted=true;
@@ -196,6 +198,8 @@ static void handleCommand(const char* msg) {
     return;
   }
   if (active || strncmp(msg,prefix,sizeof(prefix)-1)!=0) return;
+  // No pisar token/estado mientras el task R3 aún posee el bus.
+  if (r3Armed && !r3FinishPrinted) return;
   const char* p=msg+sizeof(prefix)-1;
   if (strlen(p)!=30 || p[24]!=':' ||
       strncmp(p+25,"RTU=",4)!=0 || (p[29]!='0' && p[29]!='1')) return;
