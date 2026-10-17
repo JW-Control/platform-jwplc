@@ -286,18 +286,18 @@ static void jwplcDrawPageNavBar(uint8_t activePage)
     {
     case 0:
         {
-            tft.fillRoundRect(22, 147, 90, 22, 3, 0xFFFF);
-            tft.drawRoundRect(22, 147, 90, 22, 3, 0x03FF);
+            tft.fillRoundRect(22, 148, 90, 20, 3, 0xFFFF);
+            tft.drawRoundRect(22, 148, 90, 20, 3, 0x03FF);
             tft.setTextColor(0x03FF, 0xFFFF);
             tft.setCursor(55, 154);
             tft.print("PRNC");
-            tft.fillRoundRect(115, 147, 90, 22, 3, 0x0000);
-            tft.drawRoundRect(115, 147, 90, 22, 3, 0xFFFF);
+            tft.fillRoundRect(115, 148, 90, 20, 3, 0x0000);
+            tft.drawRoundRect(115, 148, 90, 20, 3, 0xFFFF);
             tft.setTextColor(0xFFFF, 0x0000);
             tft.setCursor(151, 154);
             tft.print("MTR");
-            tft.fillRoundRect(208, 147, 90, 22, 3, 0x0000);
-            tft.drawRoundRect(208, 147, 90, 22, 3, 0xF81F);
+            tft.fillRoundRect(208, 148, 90, 20, 3, 0x0000);
+            tft.drawRoundRect(208, 148, 90, 20, 3, 0xF81F);
             tft.setTextColor(0xF81F, 0x0000);
             tft.setCursor(244, 154);
             tft.print("NVL");
@@ -305,18 +305,18 @@ static void jwplcDrawPageNavBar(uint8_t activePage)
         break;
     case 1:
         {
-            tft.fillRoundRect(22, 147, 90, 22, 3, 0x0000);
-            tft.drawRoundRect(22, 147, 90, 22, 3, 0x03FF);
+            tft.fillRoundRect(22, 148, 90, 20, 3, 0x0000);
+            tft.drawRoundRect(22, 148, 90, 20, 3, 0x03FF);
             tft.setTextColor(0x03FF, 0x0000);
             tft.setCursor(55, 154);
             tft.print("PRNC");
-            tft.fillRoundRect(115, 147, 90, 22, 3, 0xFFFF);
-            tft.drawRoundRect(115, 147, 90, 22, 3, 0xFFFF);
+            tft.fillRoundRect(115, 148, 90, 20, 3, 0xFFFF);
+            tft.drawRoundRect(115, 148, 90, 20, 3, 0xFFFF);
             tft.setTextColor(0x0000, 0xFFFF);
             tft.setCursor(151, 154);
             tft.print("MTR");
-            tft.fillRoundRect(208, 147, 90, 22, 3, 0x0000);
-            tft.drawRoundRect(208, 147, 90, 22, 3, 0xF81F);
+            tft.fillRoundRect(208, 148, 90, 20, 3, 0x0000);
+            tft.drawRoundRect(208, 148, 90, 20, 3, 0xF81F);
             tft.setTextColor(0xF81F, 0x0000);
             tft.setCursor(244, 154);
             tft.print("NVL");
@@ -324,18 +324,18 @@ static void jwplcDrawPageNavBar(uint8_t activePage)
         break;
     case 2:
         {
-            tft.fillRoundRect(22, 147, 90, 22, 3, 0x0000);
-            tft.drawRoundRect(22, 147, 90, 22, 3, 0x03FF);
+            tft.fillRoundRect(22, 148, 90, 20, 3, 0x0000);
+            tft.drawRoundRect(22, 148, 90, 20, 3, 0x03FF);
             tft.setTextColor(0x03FF, 0x0000);
             tft.setCursor(55, 154);
             tft.print("PRNC");
-            tft.fillRoundRect(115, 147, 90, 22, 3, 0x0000);
-            tft.drawRoundRect(115, 147, 90, 22, 3, 0xFFFF);
+            tft.fillRoundRect(115, 148, 90, 20, 3, 0x0000);
+            tft.drawRoundRect(115, 148, 90, 20, 3, 0xFFFF);
             tft.setTextColor(0xFFFF, 0x0000);
             tft.setCursor(151, 154);
             tft.print("MTR");
-            tft.fillRoundRect(208, 147, 90, 22, 3, 0xFFFF);
-            tft.drawRoundRect(208, 147, 90, 22, 3, 0xF81F);
+            tft.fillRoundRect(208, 148, 90, 20, 3, 0xFFFF);
+            tft.drawRoundRect(208, 148, 90, 20, 3, 0xF81F);
             tft.setTextColor(0xF81F, 0xFFFF);
             tft.setCursor(244, 154);
             tft.print("NVL");

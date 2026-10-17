@@ -542,134 +542,7 @@ h2 { margin: 0 0 7px; font-size: 11.5px; font-weight: 600; color: #a9bece; lette
   box-sizing: border-box;
 }
 
-/* Botón de configuración de barra de navegación en .page-tabs */
-.nav-bar-config-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #72caff;
-  background: rgba(82, 201, 255, 0.08);
-  border: 1px solid rgba(82, 201, 255, 0.25);
-  border-radius: 4px;
-  padding: 4px 8px;
-  cursor: pointer;
-  transition: all 0.15s;
-  margin-left: 6px;
-}
-.nav-bar-config-btn:hover {
-  background: rgba(82, 201, 255, 0.18);
-  border-color: #52c9ff;
-  color: #ffffff;
-}
-.nav-bar-config-btn.active {
-  background: #1b344b;
-  border-color: #52c9ff;
-  color: #ffffff;
-}
-
-/* Modal / Popover para Configuración de Barra HMI */
-.hmi-nav-popover {
-  position: absolute;
-  top: 40px;
-  right: 18px;
-  width: 330px;
-  background: #121822;
-  border: 1px solid #283a4e;
-  border-radius: 8px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.05);
-  z-index: 200;
-  display: flex;
-  flex-direction: column;
-  animation: hmiNavFadeIn 0.15s ease-out;
-  box-sizing: border-box;
-}
-@keyframes hmiNavFadeIn {
-  from { opacity: 0; transform: translateY(-6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.hmi-nav-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 9px 12px;
-  background: #0b1017;
-  border-bottom: 1px solid #1e2c3c;
-  border-radius: 8px 8px 0 0;
-}
-.hmi-nav-title {
-  font-size: 12px;
-  font-weight: 700;
-  color: #e2ecf5;
-  letter-spacing: 0.3px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.hmi-nav-close {
-  background: transparent;
-  border: none;
-  color: #72889c;
-  font-size: 13px;
-  cursor: pointer;
-  padding: 2px 6px;
-  border-radius: 3px;
-}
-.hmi-nav-close:hover {
-  background: #233346;
-  color: #ffffff;
-}
-.hmi-nav-body {
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  max-height: 480px;
-  overflow-y: auto;
-}
-.hmi-nav-toggle-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 11.5px;
-  font-weight: 600;
-  color: #cad8e4;
-  cursor: pointer;
-  padding: 4px 0;
-}
-.hmi-nav-row {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.hmi-nav-row-two-cols {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-.hmi-nav-label {
-  font-size: 10px;
-  font-weight: 700;
-  color: #6e869c;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-}
-.hmi-nav-select, .hmi-nav-input {
-  width: 100%;
-  height: 28px;
-  background: #090e14;
-  border: 1px solid #233446;
-  color: #dbe6f0;
-  border-radius: 4px;
-  padding: 0 8px;
-  font-size: 11px;
-  box-sizing: border-box;
-}
-.hmi-nav-select:focus, .hmi-nav-input:focus {
-  border-color: #52c9ff;
-  outline: none;
-}
+/* Lista de páginas para el Inspector de la Barra de Navegación */
 .hmi-nav-pages-list {
   display: flex;
   flex-direction: column;
@@ -1010,36 +883,78 @@ h2 { margin: 0 0 7px; font-size: 11.5px; font-weight: 600; color: #a9bece; lette
   height: max-content;
   display: flex;
   flex-direction: column;
+  user-select: none;
 }
-.canvas-stage-top {
+
+.canvas-crosshair-x {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  border-left: 1px dashed rgba(255, 255, 255, 0.36);
+  pointer-events: none;
+  z-index: 85;
+  display: none;
+}
+
+.canvas-crosshair-y {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.36);
+  pointer-events: none;
+  z-index: 85;
+  display: none;
+}
+
+.canvas-stage-row {
   display: flex;
-  height: 22px;
-  background: transparent;
+  flex-direction: row;
+  align-items: stretch;
 }
-#topRulerCanvas {
+
+.canvas-stage-top-row,
+.canvas-stage-bottom-row {
+  height: 24px;
+}
+
+.canvas-stage-mid-row {
+  height: max-content;
+}
+
+.canvas-stage-left,
+.canvas-stage-right {
+  width: 36px;
+  display: flex;
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.ruler-corner {
+  width: 36px;
+  height: 24px;
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  box-sizing: border-box;
+}
+
+#topRulerCanvas,
+#bottomRulerCanvas,
+#leftRulerCanvas,
+#rightRulerCanvas {
   display: block;
   image-rendering: auto;
   pointer-events: none;
+  background: transparent;
 }
-.canvas-stage-mid {
-  display: flex;
-  flex-direction: row;
-}
+
 .canvas-screen-wrap {
   position: relative;
   width: max-content;
   height: max-content;
   line-height: 0;
-}
-.canvas-stage-right {
-  width: 36px;
-  display: flex;
-  background: transparent;
-}
-#rightRulerCanvas {
-  display: block;
-  image-rendering: auto;
-  pointer-events: none;
 }
 .cad-marquee-box {
   position: absolute;
@@ -2265,7 +2180,8 @@ body.bottom-collapsed .bottom-tabs { border-bottom: 0; }
   padding: 6px 0 6px;
 }
 
-.bar-main-tab {
+.bar-main-tab,
+.shape-main-tab {
   flex: 1;
   padding: 7px 4px;
   font-size: 11px;
@@ -2280,13 +2196,17 @@ body.bottom-collapsed .bottom-tabs { border-bottom: 0; }
   user-select: none;
 }
 
-.bar-main-tab:hover {
+.bar-main-tab:hover,
+.shape-main-tab:hover {
   background: #1a2f3e;
   border-color: #3b5366;
   color: #dce9f1;
 }
 
-.bar-main-tab.active {
+.bar-main-tab.active,
+.bar-main-tab.is-active,
+.shape-main-tab.active,
+.shape-main-tab.is-active {
   background: rgba(255, 154, 67, 0.14);
   border-color: #ff9a43;
   color: #ff9a43;
@@ -2300,7 +2220,8 @@ body.bottom-collapsed .bottom-tabs { border-bottom: 0; }
   padding: 2px 0 8px;
 }
 
-.bar-sub-tab {
+.bar-sub-tab,
+.shape-sub-tab {
   flex: 1;
   padding: 5px 2px;
   font-size: 10px;
@@ -2315,20 +2236,69 @@ body.bottom-collapsed .bottom-tabs { border-bottom: 0; }
   user-select: none;
 }
 
-.bar-sub-tab:hover {
+.bar-sub-tab:hover,
+.shape-sub-tab:hover {
   background: #182a38;
   border-color: #2f495c;
   color: #dce9f1;
 }
 
-.bar-sub-tab.active {
+.bar-sub-tab.active,
+.bar-sub-tab.is-active,
+.shape-sub-tab.active,
+.shape-sub-tab.is-active {
   background: rgba(255, 154, 67, 0.12);
   border-color: #ff9a43;
   color: #ff9a43;
   font-weight: 700;
 }
 
+.shape-eyedropper-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: #142330;
+  border: 1px solid #284457;
+  border-radius: 5px;
+  color: #00e5ff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.shape-eyedropper-btn:hover {
+  background: #1a3245;
+  border-color: #ff9a43;
+  color: #ff9a43;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(255, 154, 67, 0.25);
+}
+
+.shape-eyedropper-btn:active,
+.shape-eyedropper-btn.active {
+  background: rgba(255, 154, 67, 0.22);
+  border-color: #ff9a43;
+  color: #ff9a43;
+  box-shadow: 0 0 8px rgba(255, 154, 67, 0.4);
+}
+
+.shape-eyedropper-btn svg {
+  width: 17px;
+  height: 17px;
+  display: block;
+  stroke-width: 2.2;
+}
+
 .bar-scroll-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bar-tab-panel {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -2535,6 +2505,17 @@ body.bottom-collapsed .bottom-tabs { border-bottom: 0; }
   background: rgba(239, 68, 68, 0.25);
   border-color: #ef4444;
   color: #fff;
+}
+
+/* Ajustes para el panel de navegación HMI */
+#navBarInspectorSection .geom-input {
+  font-size: 11px;
+  padding: 4px 5px;
+  text-align: center;
+}
+#navBarInspectorSection .bar-presets-grid.two-presets {
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
 }
 
 
