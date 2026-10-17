@@ -37,7 +37,7 @@ R4_SECONDS=1805
 R2_FAULT_SECONDS=12
 R2_RECOVERY_SECONDS=96
 AUTH="G10R AUTORIZO CAPTURA COM4 COM14 Y MANIOBRAS RJ45"
-READY_RE=re.compile(r"^G10R_READY:IP=(\d{1,3}(?:\.\d{1,3}){3}) TCP=1 UDP=1 RTU=1 BOOT=([0-9a-f]+) LINK=([012]) VER=R1R2R4_R3SNAPSHOT_V1$")
+READY_RE=re.compile(r"^G10R_READY:IP=(\d{1,3}(?:\.\d{1,3}){3}) TCP=1 UDP=1 RTU=1 BOOT=([0-9A-Fa-f]+) LINK=([012]) VER=R1R2R4_R3SNAPSHOT_V1$")
 HB_RE=re.compile(r"^G10R_HEARTBEAT:([0-9a-f]{24}) (.*)$")
 FIELDS={"HB":"hb","BOOT":"boot","IP":"ip","LINK":"link","ETH":"eth",
         "TCP":"tcp","SD_OK":"sd_ok","SD_FAIL":"sd_fail","RTC":"rtc",
@@ -115,14 +115,15 @@ def parse_heartbeat(line:str,token:str,phase:str,t:float):
     for k,v in values.items():
         field=FIELDS.get(k)
         if field is None:continue
-        if k in ("BOOT","IP"):d[field]=v
+        if k=="BOOT":d[field]=v.lower()
+        elif k=="IP":d[field]=v
         else:
             if not v.isdecimal():return None
             d[field]=int(v)
     if d["link"] not in (0,1,2):return None
     if d["eth"] not in (0,1) or d["tcp"] not in (0,1) or d["rtc"] not in (0,1):
         return None
-    if not re.fullmatch(r"[a-f0-9]{4,8}",d["boot"]):return None
+    if not re.fullmatch(r"[A-Fa-f0-9]{1,8}",d["boot"]):return None
     if not re.fullmatch(r"\d{1,3}(?:\.\d{1,3}){3}",d["ip"]):
         return None
     return d
@@ -224,7 +225,7 @@ class Recorder:
                     ready=READY_RE.fullmatch(line)
                     if ready:
                         self.ready_ip=ready.group(1)
-                        self.boot=ready.group(2)
+                        self.boot=ready.group(2).lower()
                         self.protocol_seen=True
                     if self.phase and self.token:
                         hb=parse_heartbeat(line,self.token,self.phase,at)
@@ -387,6 +388,10 @@ def selftest()->int:
     ev=parse_heartbeat(sample,"a"*24,"R2",12.4)
     require(ev and ev["link"]==2 and ev["rtu_ok"]==8,
             "TEST_HEARTBEAT_POSITIVE")
+    upper=sample.replace("BOOT=abc123","BOOT=ABC123")
+    parsed_upper=parse_heartbeat(upper,"a"*24,"R2",12.4)
+    require(parsed_upper and parsed_upper["boot"]=="abc123",
+            "HEARTBEAT_ARDUINO_HEX_UPPERCASE_REJECTED")
     neg=[
         ("wrong_token",sample.replace("a"*24,"b"*24)),
         ("missing_ip",sample.replace(" IP=192.0.2.4","")),
@@ -402,6 +407,8 @@ def selftest()->int:
                     " BOOT=abc123 LINK=1 VER=R1R2R4_R3SNAPSHOT_V1")
     require(READY_RE.fullmatch(expected_ready) is not None,
             "READY_PERIODIC_PROTOCOL_MISSING")
+    require(READY_RE.fullmatch(expected_ready.replace("BOOT=abc123","BOOT=ABC123")) is not None,
+            "READY_ARDUINO_HEX_UPPERCASE_REJECTED")
     require(READY_RE.fullmatch(expected_ready.replace("VER=R1R2R4_R3SNAPSHOT_V1",
                                                      "VER=LEGACY")) is None,
             "READY_STALE_FIRMWARE_ACCEPTED")
