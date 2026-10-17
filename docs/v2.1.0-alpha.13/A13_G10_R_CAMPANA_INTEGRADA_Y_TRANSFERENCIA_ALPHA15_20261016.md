@@ -60,19 +60,20 @@ NEXT_GATE=R3_DETERMINISTIC_LAB_FAULT_INJECTION_DESIGN_CI_THEN_ONE_PHYSICAL_CAMPA
 
 ## 6. Avance incremental R3 — contención real acotada sobre UDP de laboratorio
 
-Se añadió al sketch **temporal** `g10_r_integrated.ino` una primera subfase `G10R_R3_UDP:<token>`, **inactiva por defecto** y exigida por sesión. Un task FreeRTOS independiente obtiene `BusScope(0)` del **mismo mutex W5500** y lo conserva a lo sumo `vTaskDelay(pdMS_TO_TICKS(80))`; no intercambia datos SPI, no toca GPIO4, no acciona Q ni modifica SD/FRAM. El loop invoca el **`EthernetUDP::stop()` real** sobre un UDP temporal port 15021 durante la ventana de bloqueo. Si no se solapan, informa `CLOSE_RACE_REVIEW`, jamás PASS. El task libera el lock por destructor RAII y elimina su propia tarea.
+Se añadió al sketch **temporal** `g10_r_integrated.ino` una primera subfase `G10R_R3_UDP:<token>`, **inactiva por defecto** y exigida por sesión. Un task FreeRTOS independiente obtiene `BusScope(0)` del **mismo mutex W5500** y programa una espera **nominal** `vTaskDelay(pdMS_TO_TICKS(80))`, pero **no presume límite máximo real**: mide `micros()` y exige 60–120 ms, con `HOLD_TIMING_REVIEW` fuera del rango; no intercambia datos SPI, no toca GPIO4, no acciona Q ni modifica SD/FRAM. El loop invoca el **`EthernetUDP::stop()` real** sobre un UDP temporal port 15021 durante la ventana de bloqueo. Si no se solapan, informa `CLOSE_RACE_REVIEW`, jamás PASS. El task libera el lock por destructor RAII y elimina su propia tarea.
 
 **Identidad sin inferencias:** antes de armar la inyección, el mismo scope SPI cubre snapshots `LabSocketSnapshot[8]` antes/después de `EthernetUDP::begin(15021)`; se exige **exactamente una nueva asignación**. Se imprime `G10R_R3_LEASE:<token> SID/EPOCH/ALLOC/OWNER`. Las trazas de solicitud de ticket `QueueRequest` y de cierre `DrainClose` solo pueden correlacionarse con ese mismo lease. Las fallas de lock, creación de task, preparación de UDP o expiración fuera de ventana son resultados de revisión, nunca éxito. El socket temporal se intenta liberar incluso en rutas de error. No puede iniciarse una nueva sesión mientras el task anterior sigue trabajando.
 
-**Evaluación sin hardware:** `a13_g10_r_r3_probe_contract.py --selftest` verifica la secuencia UART de `ARMED`, `CLOSE_DURING_HOLD`, `AWAIT_LIFECYCLE_REVIEW` y los eventos del lease exacto, con **14 mutaciones negativas**. `a13_g10_r_build_candidate.py` impide compilar un sketch sin esta protección. Este preflight es sintético; falta evidencia W5500 real.
+**Evaluación sin hardware:** `a13_g10_r_r3_probe_contract.py --selftest` verifica la secuencia UART de `ARMED`, `CLOSE_DURING_HOLD`, `AWAIT_LIFECYCLE_REVIEW` y los eventos del lease exacto, con **16 mutaciones negativas**. `a13_g10_r_build_candidate.py` impide compilar un sketch sin esta protección. Este preflight es sintético; falta evidencia W5500 real.
 
 **Límites y bloqueo:** aunque esta subfase usa un lock físico real cuando finalmente se ejecute en la placa, **no cubre todavía DNS/DHCP/TCP ni los clientes concurrentes 1/2/4**. Por tanto `R3_PHYSICAL_INJECTION_READY=False` en el runner de campo: `--live` continúa fallando antes de cualquier COM, upload o maniobra. No está autorizada una prueba aislada de la sonda UDP. El objetivo sigue siendo **una sola campaña H integrada R1→R2→R3 completo→R4**, con la misma captura consolidada. R5/power-cycle es otro gate.
 
 ```text
 G10-R-R3-UDP-BOUNDED_PROBE=SOURCE_IMPLEMENTED
-G10-R-R3-UDP-LOCK_BUDGET_MS=80
+G10-R-R3-UDP-HOLD_NOMINAL_MS=80
+G10-R-R3-UDP-HOLD_ACCEPT_US=60000_TO_120000
 G10-R-R3-UDP-LEASE=EXACT_SOURCE_BACKED_SNAPSHOT
-G10-R-R3-UDP-REPLAY=OFFLINE_14_NEGATIVES
+G10-R-R3-UDP-REPLAY=OFFLINE_16_NEGATIVES
 G10-R-R3-DNS_DHCP_TCP=NOT_IMPLEMENTED_FOR_PHYSICAL_INJECTION
 G10-R-H=BLOCKED_FAIL_CLOSED
 ALPHA15_PRODUCT_TRANSFER=NOT_AUTHORIZED
