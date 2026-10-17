@@ -35,7 +35,7 @@ def recv_exact(sock,n):
         out+=data
     return out
 
-def run_target(target,count,hold):
+def run_target(target,count,hold,tid_base=0):
     start=threading.Barrier(count+1,timeout=8)
     records=[None]*count
     def client(i):
@@ -46,7 +46,7 @@ def run_target(target,count,hold):
                 row["opened_ns"]=time.monotonic_ns()
                 row["connect_ok"]=True
                 start.wait()
-                tid=i+1
+                tid=tid_base+i+1\n                row["tid"]=tid
                 # FC03, holding registers 0..3; protocolo actual del G10-R.
                 s.sendall(struct.pack("!HHHBBHH",tid,0,6,1,3,0,4))
                 try:
