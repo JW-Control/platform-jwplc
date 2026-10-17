@@ -89,19 +89,23 @@ def evaluate(lines:list[str],trace:dict,token:str)->dict:
             continue
         if k==6:queues.setdefault(key,[]).append(seq)
         else:drains.setdefault(key,[]).append(seq)
-    matching=[key for key,starts in queues.items()
-              if key in drains and any(a<b for a in starts for b in drains[key])]
-    if not matching:
-        errors.append("NO_QUEUED_CLOSE_AND_MATCHING_DRAIN")
-    if len(matching)!=1:
-        errors.append("AMBIGUOUS_OR_MULTIPLE_UDP_CLOSE_LEASES")
-    if len(lease)==1 and matching!=lease:
-        errors.append("CLOSED_LEASE_DIFFERS_FROM_R3_PROBE")
+    # En un gate concurrente también se cierran sockets TCP/DNS/DHCP:
+    # solo el lease exacto anunciado por la sonda se atribuye a R3-UDP.
+    target=lease[0] if len(lease)==1 else None
+    matches=0
+    if target is not None:
+        starts=queues.get(target,[])
+        finishes=drains.get(target,[])
+        matches=sum(any(start<end for start in starts) for end in finishes)
+        if matches!=1:
+            errors.append("PROBE_LEASE_MISSING_OR_DOUBLE_DRAIN")
+    else:
+        errors.append("PROBE_LEASE_UNRESOLVED")
     return {"status":"R3_UDP_SOURCE_CONTRACT_ONLY_NOT_PHYSICAL_PASS"
             if not errors else "REVIEW_STOP",
             "errors":list(dict.fromkeys(errors)),
-            "matches":len(matching),"states":states,
-            "coverage":{"udp_stop":bool(matching),"dns":False,
+            "matches":matches,"states":states,
+            "coverage":{"udp_stop":matches==1,"dns":False,
                         "dhcp":False,"tcp_1_2_4_clients":False},
             "r3_physical_campaign":"NOT_QUALIFIED"}
 
@@ -142,12 +146,25 @@ def selftest():
         ("duplicate_lease",lambda l,r:l.insert(1,l[0])),
         ("missing_duration",lambda l,r:l.pop(-2)),
         ("overlong_mutex",lambda l,r:l.__setitem__(-2,l[-2].replace("80000","185000"))),
+        ("double_drain",lambda l,r:r["events"].append({
+            "seq":12,"kind":7,"socket":3,"epoch":1,"allocation":25,"owner":5})),
     ]
     for label, mutate in negatives:
         l=copy.deepcopy(lines);r=copy.deepcopy(trace)
         mutate(l,r)
         assert evaluate(l,r,t)["status"]=="REVIEW_STOP",label
-    print("G10_R_R3_UDP_PROBE_NEGATIVES=16_REJECTED")
+    # Tráfico paralelo: el cierre de otro socket jamás se atribuye a la
+    # sonda ni se convierte en "ambiguous" si el lease R3 es inequívoco.
+    with_parallel=copy.deepcopy(trace)
+    with_parallel["events"] += [
+        {"seq":12,"kind":6,"socket":1,"epoch":1,
+         "allocation":30,"owner":77},
+        {"seq":13,"kind":7,"socket":1,"epoch":1,
+         "allocation":30,"owner":77},
+    ]
+    assert evaluate(lines,with_parallel,t)["status"]==(
+        "R3_UDP_SOURCE_CONTRACT_ONLY_NOT_PHYSICAL_PASS")
+    print("G10_R_R3_UDP_PROBE_NEGATIVES=17_REJECTED")
     print("G10_R_R3_UDP_PROBE=PASS_OFFLINE_CONTRACT_ONLY")
     print("G10_R_R3_FULL_H=BLOCKED_NOT_RUN")
 
