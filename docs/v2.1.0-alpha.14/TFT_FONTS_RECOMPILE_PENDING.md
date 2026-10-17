@@ -1,3 +1,9 @@
+> [!NOTE]
+> **Resuelto en alpha.15 (2026-10-17):** `JWPLC_TFT` 0.3.0 trae `setFont/drawString` con
+> `libJWPLC_TFT.a` regenerado y ABI compatible. La API final usa constantes
+> `JWPLC_FONT_*` (no el enum de este documento) y no incluye Font2/Font4. Ver
+> `docs/v2.1.0-alpha.15/A15_4B_TFT_FONTS_20261017.md`.
+
 # Fuentes tipograficas en JWPLC_TFT / HMI Designer - PENDIENTE RECOMPILAR
 
 > [!IMPORTANT]

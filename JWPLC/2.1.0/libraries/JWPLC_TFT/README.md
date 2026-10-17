@@ -511,6 +511,27 @@ JWPLC_TFT.drawTriangle(x0, y0, x1, y1, x2, y2, color);
 
 Las usa el código que genera el HMI Designer para las figuras estáticas.
 
+### Fuentes — Intermedio (0.3.0)
+
+```cpp
+JWPLC_TFT.setFont(JWPLC_FONT_SANS_BOLD_12);
+JWPLC_TFT.setTextDatum(JWPLC_TFTDatum::TOP_LEFT);
+JWPLC_TFT.setTextColor(JWPLC_TFT_WHITE);
+JWPLC_TFT.drawString("25.6 C", 10, 10);
+JWPLC_TFT.setFont(JWPLC_FONT_GLCD);   // volver a la fuente clásica
+```
+
+Fuentes disponibles: `JWPLC_FONT_GLCD` y las FreeFonts
+`JWPLC_FONT_{SANS|SERIF|MONO}[_BOLD]_{9|12|18|24}`.
+
+- Sólo se agregan al firmware las fuentes que el sketch nombra
+  (una FreeFont de 12 pt ocupa unos 4-5 KB de flash).
+- Con FreeFonts, `print()` usa la línea base como origen; `drawString()` con
+  datum `TOP_*` no.
+- Restaurar `JWPLC_FONT_GLCD` al terminar: los campos de `JWPLC_Display`
+  se dibujan en GLCD.
+- `setTextPadding(ancho)` rellena con el color de fondo hasta ese ancho.
+
 ### Líneas y píxeles — Básico / Intermedio
 
 ```cpp
