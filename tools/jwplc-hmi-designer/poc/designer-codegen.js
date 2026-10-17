@@ -405,9 +405,15 @@
     lines.push(`    auto &tft = JWPLC_Display.display();`);
 
     const layout = hmiPages.computeNavBarLayout ? hmiPages.computeNavBarLayout(pageList, 0) : null;
+    const x = layout ? layout.x : 0;
     const y = layout ? layout.y : 147;
+    const w = layout ? layout.w : 320;
     const h = layout ? layout.h : 22;
-    lines.push(`    tft.fillRect(0, ${y}, 320, ${h}, 0x0000);`);
+    const isVert = Boolean(layout?.isVertical);
+    const preset = cfg.preset || 'industrial-color';
+    const radius = cfg.radius !== undefined ? Number(cfg.radius) : 3;
+
+    lines.push(`    tft.fillRect(${x}, ${y}, ${w}, ${h}, 0x0000);`);
     lines.push(`    tft.setTextSize(1);`);
     lines.push(``);
     lines.push(`    switch (activePage)`);
@@ -418,44 +424,60 @@
       lines.push(`    case ${idx}:`);
       lines.push(`        {`);
       if (curLayout && curLayout.tabs) {
-        curLayout.tabs.forEach((tab) => {
-          const col565 = `0x${Number(tab.color || 0xFFFF).toString(16).toUpperCase().padStart(4, '0')}`;
-          if (tab.isActive) {
-            lines.push(`            tft.fillRoundRect(${tab.x}, ${tab.y}, ${tab.w}, ${tab.h}, 3, 0xFFFF);`);
-            lines.push(`            tft.drawRoundRect(${tab.x}, ${tab.y}, ${tab.w}, ${tab.h}, 3, ${col565});`);
-            lines.push(`            tft.setTextColor(${col565 === '0xFFFF' ? '0x0000' : col565}, 0xFFFF);`);
-          } else {
-            lines.push(`            tft.fillRoundRect(${tab.x}, ${tab.y}, ${tab.w}, ${tab.h}, 3, 0x0000);`);
-            lines.push(`            tft.drawRoundRect(${tab.x}, ${tab.y}, ${tab.w}, ${tab.h}, 3, ${col565});`);
-            lines.push(`            tft.setTextColor(${col565}, 0x0000);`);
-          }
-          const textW = tab.shortName.length * 6 - 1;
-          const tx = tab.x + Math.floor((tab.w - textW) / 2);
-          const ty = tab.y + Math.floor((tab.h - 7) / 2);
-          lines.push(`            tft.setCursor(${tx}, ${ty});`);
-          lines.push(`            tft.print("${tab.shortName}");`);
-        });
+        if (preset === 'compact-dots') {
+          curLayout.tabs.forEach((tab) => {
+            if (tab.isActive) {
+              const r = Math.floor(Math.min(tab.w, tab.h) / 2);
+              lines.push(`            tft.fillRoundRect(${tab.x}, ${tab.y}, ${tab.w}, ${tab.h}, ${r}, 0x07FF);`);
+            } else {
+              const cx = tab.x + Math.floor(tab.w / 2);
+              const cy = tab.y + Math.floor(tab.h / 2);
+              lines.push(`            tft.fillCircle(${cx}, ${cy}, 2, 0x4A69);`);
+            }
+          });
+        } else {
+          curLayout.tabs.forEach((tab) => {
+            const col565 = `0x${Number(tab.color || 0xFFFF).toString(16).toUpperCase().padStart(4, '0')}`;
+            const rad = Math.min(radius, Math.floor(Math.min(tab.w, tab.h) / 2));
+            if (tab.isActive) {
+              lines.push(`            tft.fillRoundRect(${tab.x}, ${tab.y}, ${tab.w}, ${tab.h}, ${rad}, 0xFFFF);`);
+              lines.push(`            tft.drawRoundRect(${tab.x}, ${tab.y}, ${tab.w}, ${tab.h}, ${rad}, ${col565});`);
+              lines.push(`            tft.setTextColor(${col565 === '0xFFFF' ? '0x0000' : col565}, 0xFFFF);`);
+            } else {
+              lines.push(`            tft.fillRoundRect(${tab.x}, ${tab.y}, ${tab.w}, ${tab.h}, ${rad}, 0x0000);`);
+              lines.push(`            tft.drawRoundRect(${tab.x}, ${tab.y}, ${tab.w}, ${tab.h}, ${rad}, ${col565});`);
+              lines.push(`            tft.setTextColor(${col565}, 0x0000);`);
+            }
+            const textW = tab.shortName.length * 6 - 1;
+            const tx = tab.x + Math.max(1, Math.floor((tab.w - textW) / 2));
+            const ty = tab.y + Math.max(1, Math.floor((tab.h - 7) / 2));
+            lines.push(`            tft.setCursor(${tx}, ${ty});`);
+            lines.push(`            tft.print("${tab.shortName}");`);
+          });
+        }
 
         if (curLayout.hasOverflow) {
+          const arrowPrevChar = isVert ? "^" : "<";
+          const arrowNextChar = isVert ? "v" : ">";
           if (curLayout.leftArrow) {
             const la = curLayout.leftArrow;
             const laCol = la.enabled ? '0x07FF' : '0x39E7';
-            lines.push(`            tft.drawRoundRect(${la.x}, ${la.y}, ${la.w}, ${la.h}, 3, ${laCol});`);
+            lines.push(`            tft.drawRoundRect(${la.x}, ${la.y}, ${la.w}, ${la.h}, 2, ${laCol});`);
             lines.push(`            tft.setTextColor(${laCol}, 0x0000);`);
-            lines.push(`            tft.setCursor(${la.x + 5}, ${la.y + Math.floor((la.h - 7) / 2)});`);
-            lines.push(`            tft.print("<");`);
+            lines.push(`            tft.setCursor(${la.x + Math.floor((la.w - 5) / 2)}, ${la.y + Math.floor((la.h - 7) / 2)});`);
+            lines.push(`            tft.print("${arrowPrevChar}");`);
           }
           if (curLayout.rightArrow) {
             const ra = curLayout.rightArrow;
             const raCol = ra.enabled ? '0x07FF' : '0x39E7';
-            lines.push(`            tft.drawRoundRect(${ra.x}, ${ra.y}, ${ra.w}, ${ra.h}, 3, ${raCol});`);
+            lines.push(`            tft.drawRoundRect(${ra.x}, ${ra.y}, ${ra.w}, ${ra.h}, 2, ${raCol});`);
             lines.push(`            tft.setTextColor(${raCol}, 0x0000);`);
-            lines.push(`            tft.setCursor(${ra.x + 5}, ${ra.y + Math.floor((ra.h - 7) / 2)});`);
-            lines.push(`            tft.print(">");`);
+            lines.push(`            tft.setCursor(${ra.x + Math.floor((ra.w - 5) / 2)}, ${ra.y + Math.floor((ra.h - 7) / 2)});`);
+            lines.push(`            tft.print("${arrowNextChar}");`);
           }
           if (curLayout.counter) {
             const cnt = curLayout.counter;
-            lines.push(`            tft.drawRoundRect(${cnt.x}, ${cnt.y}, ${cnt.w}, ${cnt.h}, 3, 0x4A69);`);
+            lines.push(`            tft.drawRoundRect(${cnt.x}, ${cnt.y}, ${cnt.w}, ${cnt.h}, 2, 0x4A69);`);
             lines.push(`            tft.setTextColor(0xFFFF, 0x0000);`);
             lines.push(`            tft.setCursor(${cnt.x + 2}, ${cnt.y + Math.floor((cnt.h - 7) / 2)});`);
             lines.push(`            tft.print("${cnt.text}");`);

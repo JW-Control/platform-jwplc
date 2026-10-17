@@ -45,7 +45,7 @@ El frontend está desacoplado en subsistemas especializados que se comunican a t
 ### `app.js`
 
 - **Ruta absoluta:** [`app.js`](file:///c:/Users/Andre/Documents/GitHub/platform-jwplc/tools/jwplc-hmi-designer/poc/app.js)
-- **Líneas totales:** `5995` | **Tamaño:** `236.5 KB`
+- **Líneas totales:** `5791` | **Tamaño:** `251.4 KB`
 
 | Línea Aprox. | Función / Identificador | Parámetros | Descripción / Propósito |
 | :---: | :--- | :--- | :--- |
@@ -154,8 +154,9 @@ El frontend está desacoplado en subsistemas especializados que se comunican a t
 | `L2565` | `hitTestHandle` | `event` | Verifica si el cursor está sobre alguno de los manipuladores de la selección. |
 | `L2586` | `isPointInsideSelection` | `point` | Verifica si un punto está dentro del área delimitada por los campos seleccionados. |
 | `L2617` | `drawSelectionAndGuides` | `` | Dibuja el recuadro de selección, guías magnéticas inteligentes y manipuladores. |
-| `L2751` | `drawRulers` | `` | Dibuja las reglas milimétricas/pixel en los bordes superior e izquierdo del viewport. |
-| `L2893` | `updateCursor` | `point` | Actualiza el estilo del cursor (crosshair, move, resize, etc.) según la herramienta activa. |
+| `L2766` | `updateCrosshairs` | `pt` | Posiciona las líneas en cruz discontinuas alineadas con las coordenadas lógicas exactas del cursor sobre el canvas. |
+| `L2785` | `drawRulers` | `` | Renderiza las 4 regletas perimetrales (superior, inferior, izquierda, derecha) con marcas, cotas e indicador dinámico de posición del cursor. |
+| `L3080` | `updateCursor` | `point` | Actualiza la barra de estado inferior, el cuentagotas y sincroniza el cursor en las 4 regletas perimetrales. |
 | `L2905` | `syncToolUI` | `` | Sincroniza el botón activo en la barra de herramientas según el modo seleccionado. |
 | `L2995` | `updateActiveColorUI` | `` | Actualiza la muestra del color actualmente seleccionado en la interfaz. |
 | `L3003` | `buildColorSelect` | `select, selectedName, allowTransparent = false` | Puebla un selector desplegable con los colores estándar de ST77XX. |
@@ -212,15 +213,16 @@ El frontend está desacoplado en subsistemas especializados que se comunican a t
 | `L5263` | `nudgeSelection` | `dx, dy` | Mueve los campos seleccionados (dx, dy) píxeles usando las teclas de flecha. |
 | `L5326` | `alignSelectedShapes` | `alignType` | Alinea los campos seleccionados (izquierda, derecha, centro, arriba, abajo, distribuir). |
 | `L5579` | `syncShapeTabPanes` | `` | Alterna la visibilidad de las pestañas principales (`Diseño`/`Técnico`) y subpestañas (`Forma`/`Apariencia`/`Ubicación`) del inspector de figuras. |
-| `L5636` | `applyShapeCornerRadius` | `val, commit = false` | Aplica y restringe el radio de redondeo (`cornerRadius`) de la figura seleccionada. |
-| `L5729` | `shapeGeomUpdate` | `` | Actualiza las propiedades de geometría de figuras tras editar X/Y/W/H. |
-| `L5774` | `triggerColorPicker` | `input` | Abre programáticamente el diálogo nativo o selector de color. |
-| `L5835` | `window.JWPLCHMIEditor` | `` | API global expuesta por el editor principal (incluye `getShapeVertices`, `getMaxCornerRadius`, `ensureLayerOrder`, `assignNewLayerOrder`, `reorderPageObjects`, `sortObjectListDOM`, `getFieldBounds`, `getPixelFieldOrder`). |
+| `L5636` | `applyShapeCornerRadius` | `val, commit = false` | Aplica y restringe el radio de redondeo (`cornerRadius`) de la figura seleccionada según el preset o entrada numérica. |
+| `L5767` | `activateShapeEyedropper` | `target` | Abre el cuentagotas (EyeDropper nativo del navegador o muestreador en lienzo) para copiar colores a borde o relleno. |
+| `L5832` | `shapeGeomUpdate` | `` | Actualiza las propiedades de geometría de figuras tras editar X/Y/W/H. |
+| `L5877` | `triggerColorPicker` | `input` | Abre programáticamente el diálogo nativo o selector de color. |
+| `L5938` | `window.JWPLCHMIEditor` | `` | API global expuesta por el editor principal (incluye `getShapeVertices`, `getMaxCornerRadius`, `ensureLayerOrder`, `assignNewLayerOrder`, `reorderPageObjects`, `sortObjectListDOM`, `getFieldBounds`, `getPixelFieldOrder`). |
 
 ### `designer-bar.js`
 
 - **Ruta absoluta:** [`designer-bar.js`](file:///c:/Users/Andre/Documents/GitHub/platform-jwplc/tools/jwplc-hmi-designer/poc/designer-bar.js)
-- **Líneas totales:** `3452` | **Tamaño:** `170.2 KB`
+- **Líneas totales:** `3221` | **Tamaño:** `171.8 KB`
 
 | Línea Aprox. | Función / Identificador | Parámetros | Descripción / Propósito |
 | :---: | :--- | :--- | :--- |
@@ -471,29 +473,23 @@ El frontend está desacoplado en subsistemas especializados que se comunican a t
 ### `designer-pages.js`
 
 - **Ruta absoluta:** [`designer-pages.js`](file:///c:/Users/Andre/Documents/GitHub/platform-jwplc/tools/jwplc-hmi-designer/poc/designer-pages.js)
-- **Líneas totales:** `685` | **Tamaño:** `26.2 KB`
+- **Líneas totales:** `1706` | **Tamaño:** `62.6 KB`
 
 | Línea Aprox. | Función / Identificador | Parámetros | Descripción / Propósito |
 | :---: | :--- | :--- | :--- |
 | `L12` | `PRESET_PAGE_COLORS` | `` | Paleta de 8 colores ST7789 para pestañas (azul, blanco, lavanda, amarillo, cian, verde, naranja, rojo). |
-| `L55` | `defaultPageColor` | `index` | Retorna el color RGB565 por defecto asignado a una página según su índice. |
-| `L59` | `pageColorCss` | `color565` | Convierte un valor numérico RGB565 a color CSS rgba/hex. |
-| `L71` | `computeSmartShortName` | `pageName, index` | Calcula automáticamente una abreviatura inteligente (ej. `CFG`, `GEN`, `T_CD`) según el nombre. |
-| `L87` | `getNavBarConfig` | `` | Retorna la configuración activa de la barra HMI (activación, prediseño, posición, altura). |
-| `L100` | `updateNavBarConfig` | `next` | Actualiza la configuración de la barra de navegación y persiste en el historial. |
-| `L107` | `addPage` | `` | Crea una nueva página en el proyecto con un nombre específico. |
-| `L117` | `computeNavBarLayout` | `pageList, curActivePage` | Algoritmo de distribución adaptativo: calcula posiciones, anchos de botones y flechas ◄ ► / contador NN/TT en desbordamiento. |
-| `L240` | `drawHMINavigationBar` | `ctx, scale` | Renderizado gráfico de la barra HMI en canvas según el prediseño activo (`industrial-color`, `dark-pill`, `segmented-bar`, `compact-dots`). |
-| `L353` | `openNavBarPopover` | `anchorBtn` | Abre el modal/popover de configuración de la barra HMI y personalización de abreviaturas/colores. |
-| `L472` | `rebuildTopTabs` | `` | Reconstruye las pestañas superiores con soporte de **renombrado inline por doble clic**, hold-to-delete y botón ⚙ Menú HMI. |
-| `L582` | `ensurePageSelect` | `` | Garantiza la existencia del selector de página en el inspector. |
-| `L604` | `syncInspectorPage` | `` | Sincroniza el selector de página del campo seleccionado. |
-| `L619` | `drawClassicText` | `ctx, text, x, y, scale, foreground` | Dibuja caracteres bitmap clásicos Adafruit GFX. |
-| `L666` | `patchCanvases` | `` | Dibuja la barra HMI en `displayCanvas`, `previewCanvas` (WebSerial Live Preview) y minimapa. |
-| `L684` | `displayCanvas.click` | `e` | Intercepta clics directos sobre las pestañas o flechas ◄ ► de la barra en el canvas ST7789. |
-| `L718` | `patchGeneratedCode` | `` | Sincroniza la generación de código C++ para páginas y barra de navegación. |
-| `L741` | `patchUI` | `` | Ciclo de refresco integral de pestañas, inspectores, estado y renderizado. |
-| `L760` | `window.JWPLCHMIPages` | `` | API pública del gestor de páginas y barra HMI expuesta en window. |
+| `L55` | `MICRO_FONT_3X5` | `` | Glifos bitmap 3x5 embebidos en celda 4x6 para micro-tipografía ultracompacta. |
+| `L98` | `drawMicroText` | `ctx, text, x, y, scale, col` | Renderiza microfuente en canvas HTML5 para pestañas laterales o estrechas. |
+| `L115` | `computeSmartShortName` | `pageName, index` | Calcula automáticamente una abreviatura inteligente (ej. `CFG`, `GEN`, `T_CD`) según el nombre. |
+| `L145` | `getNavBarConfig` | `` | Retorna la configuración activa de la barra HMI (activación, 6 presets, posición, coordenadas X/Y/W/H, distribución, alineación, fuente, bordes, radio, gap). |
+| `L176` | `updateNavBarConfig` | `next` | Actualiza la configuración de la barra de navegación y sincroniza dimensiones horizontal/vertical. |
+| `L226` | `syncNavBarConfigFromField` | `field` | Sincroniza la configuración del navbar desde los cambios de arrastre/redimensión CAD del lienzo en `app.js`. |
+| `L252` | `computeNavBarLayout` | `pageList, curActivePage` | Algoritmo de distribución adaptativo: calcula posiciones horizontal/vertical, cluster agrupado para `compact-dots`, anchos de botones y flechas ◄ ► ▲ ▼ / contador NN/TT en desbordamiento. |
+| `L620` | `drawHMINavigationBar` | `ctx, scale` | Renderizado gráfico de la barra HMI en canvas según el prediseño activo (`industrial-color`, `dark-pill`, `segmented-bar`, `compact-dots`, `edge-tabs`, `numeric-pills`), fondo y bordes. |
+| `L940` | `rebuildTopTabs` | `` | Reconstruye las solapas superiores exclusivamente para gestión de páginas (renombrado inline con doble clic, hold-to-delete y `＋`). |
+| `L1299` | `switchNavBarMainTab` | `tabName` | Alterna entre las pestañas `Diseño`, `Páginas` y `Técnico` del Inspector de Barra de Navegación homogéneo con `BAR`. |
+| `L1493` | `syncNavBarInspector` | `` | Sincroniza tarjetas visuales (6 presets, 4 posiciones, alineación rápida H/V/Full, coordenadas X/Y/W/H, tipografía micro/normal/mediana, acabados), lista de páginas y llamada C++ en el panel derecho. |
+| `L1678` | `window.JWPLCHMIPages` | `` | API pública del gestor de páginas y barra HMI expuesta en window (`syncNavBarConfigFromField`, `getNavBarConfig`, `setNavBarConfig`, etc.). |
 
 ### `designer-pixelmap-codegen-guard.js`
 
@@ -880,7 +876,8 @@ El frontend está desacoplado en subsistemas especializados que se comunican a t
 
 
 ## NAV_BAR (barra de navegación HMI como objeto)
-- Tipo de campo global `NAV_BAR` (app.js: fieldsForPage/getFieldBounds/toolForField; se crea desde Tipos de Variable → Barra de Navegación). No genera entrada en HMI_FIELDS.
+- Tipo de campo global `NAV_BAR` (app.js: fieldsForPage/getFieldBounds/toolForField; se crea desde Tipos de Variable → Barra de Navegación). No genera entrada en HMI_FIELDS ni consume enum ID.
 - Render: `JWPLCHMIPages.drawHMINavigationBar` se invoca desde `rebuildLogicalImage` (vive en logicalCanvas: lienzo, preview y minimapa).
-- Inspector: `#navBarInspectorSection` (designer-inspector-state.js + `syncNavBarInspector` en designer-pages.js).
-- Renombrar página: doble clic en la pestaña (designer-pages.js `rebuildTopTabs`, actualización no destructiva del DOM).
+- Inspector Homogéneo: `#navBarInspectorSection` estructurado con la arquitectura visual de `BAR` (`.bar-inspector-wrap`, pestañas `[Diseño]`, `[Páginas]`, `[Técnico]`, tarjetas `.bar-card` y selectores visuales `.bar-preset-btn`).
+- Renombrar página: doble clic en la solapa de página (`rebuildTopTabs`, actualización no destructiva del DOM, timer de latch para prevenir colisión con clics simples).
+- Gestión de páginas limpia: el disparador de configuración "Menú HMI" fue desacoplado de las pestañas superiores; la configuración responde únicamente a la selección del objeto `NAV_BAR`.

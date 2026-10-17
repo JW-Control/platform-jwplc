@@ -40,7 +40,6 @@
 
   let navigationMode = 'SELECT';
   let pageSelect = null;
-  let navPopoverElement = null;
 
   function editor() {
     return window.JWPLCHMIEditor || null;
@@ -92,17 +91,85 @@
     return clean.slice(0, 4);
   }
 
+  // --- Micro Font (4x6 cell: 3x5 bitmap + 1px spacing) para HMI ultra compacto ---
+  const MICRO_FONT_3X5 = {
+    '0': [0x1F, 0x11, 0x1F], '1': [0x00, 0x1F, 0x00], '2': [0x1D, 0x15, 0x17],
+    '3': [0x15, 0x15, 0x1F], '4': [0x07, 0x04, 0x1F], '5': [0x17, 0x15, 0x1D],
+    '6': [0x1F, 0x15, 0x1D], '7': [0x01, 0x1D, 0x03], '8': [0x1F, 0x15, 0x1F],
+    '9': [0x17, 0x15, 0x1F], 'A': [0x1E, 0x05, 0x1E], 'B': [0x1F, 0x15, 0x0A],
+    'C': [0x0E, 0x11, 0x11], 'D': [0x1F, 0x11, 0x0E], 'E': [0x1F, 0x15, 0x11],
+    'F': [0x1F, 0x05, 0x01], 'G': [0x0E, 0x15, 0x1D], 'H': [0x1F, 0x04, 0x1F],
+    'I': [0x11, 0x1F, 0x11], 'J': [0x08, 0x10, 0x0F], 'K': [0x1F, 0x04, 0x1B],
+    'L': [0x1F, 0x10, 0x10], 'M': [0x1F, 0x02, 0x1F], 'N': [0x1F, 0x06, 0x1F],
+    'O': [0x0E, 0x11, 0x0E], 'P': [0x1F, 0x05, 0x02], 'Q': [0x0E, 0x11, 0x1E],
+    'R': [0x1F, 0x05, 0x1A], 'S': [0x12, 0x15, 0x09], 'T': [0x01, 0x1F, 0x01],
+    'U': [0x0F, 0x10, 0x0F], 'V': [0x07, 0x18, 0x07], 'W': [0x1F, 0x08, 0x1F],
+    'X': [0x1B, 0x04, 0x1B], 'Y': [0x03, 0x1C, 0x03], 'Z': [0x19, 0x15, 0x13],
+    ':': [0x00, 0x0A, 0x00], '.': [0x00, 0x10, 0x00], '-': [0x04, 0x04, 0x04],
+    '/': [0x18, 0x06, 0x01], '_': [0x10, 0x10, 0x10], '<': [0x04, 0x0A, 0x11],
+    '>': [0x11, 0x0A, 0x04], ' ': [0x00, 0x00, 0x00]
+  };
+
+  function drawMicroText(ctx, text, x, y, scale, color) {
+    if (!text) return;
+    ctx.fillStyle = color;
+    let cursorX = x;
+    const str = String(text).toUpperCase();
+    for (const char of str) {
+      const cols = MICRO_FONT_3X5[char] || MICRO_FONT_3X5[' '];
+      for (let c = 0; c < 3; c++) {
+        const bits = cols[c];
+        for (let r = 0; r < 5; r++) {
+          if ((bits & (1 << r)) !== 0) {
+            ctx.fillRect((cursorX + c) * scale, (y + r) * scale, scale, scale);
+          }
+        }
+      }
+      cursorX += 4;
+    }
+  }
+
   function getNavBarConfig() {
     const navBarField = editor()?.getAllFields?.()?.find((f) => f.type === 'NAV_BAR');
     const fromEditor = editor()?.getNavBarConfig?.() || {};
+
+    const pos = navBarField?.position || fromEditor.position || 'bottom';
+    const isVert = pos === 'left' || pos === 'right' || navBarField?.orientation === 'vertical' || fromEditor.orientation === 'vertical';
+
+    const defaultW = isVert ? 22 : 320;
+    const defaultH = isVert ? 170 : 22;
+
+    let defaultX = 0;
+    if (pos === 'right') defaultX = 320 - (Number(navBarField?.width || fromEditor.width) || defaultW) - 2;
+    else if (pos === 'left') defaultX = 2;
+
+    let defaultY = 0;
+    if (pos === 'top') defaultY = 2;
+    else if (pos === 'bottom') defaultY = 170 - (Number(navBarField?.height || fromEditor.height) || defaultH) - 1;
+
+    const xVal = navBarField?.x !== undefined ? Number(navBarField.x) : (fromEditor.x !== undefined ? Number(fromEditor.x) : defaultX);
+    const yVal = navBarField?.y !== undefined ? Number(navBarField.y) : (fromEditor.y !== undefined ? Number(fromEditor.y) : defaultY);
+
     return {
       showIndicator: true,
       showArrows: true,
       ...fromEditor,
       enabled: Boolean(navBarField && !navBarField.hidden),
       preset: navBarField?.preset || fromEditor.preset || 'industrial-color',
-      position: navBarField?.position || fromEditor.position || 'bottom',
-      height: Number(navBarField?.height || fromEditor.height || 22)
+      position: pos,
+      orientation: isVert ? 'vertical' : 'horizontal',
+      x: xVal,
+      y: yVal,
+      width: Number(navBarField?.width || fromEditor.width || defaultW),
+      height: Number(navBarField?.height || fromEditor.height || defaultH),
+      tabDistribution: navBarField?.tabDistribution || fromEditor.tabDistribution || 'center',
+      textAlign: navBarField?.textAlign || fromEditor.textAlign || 'center',
+      fontSize: navBarField?.fontSize || fromEditor.fontSize || 'normal',
+      labelFormat: navBarField?.labelFormat || fromEditor.labelFormat || 'short',
+      bgMode: navBarField?.bgMode || fromEditor.bgMode || 'solid',
+      borderMode: navBarField?.borderMode || fromEditor.borderMode || 'none',
+      radius: navBarField?.radius !== undefined ? Number(navBarField.radius) : (fromEditor.radius !== undefined ? Number(fromEditor.radius) : 3),
+      gap: navBarField?.gap !== undefined ? Number(navBarField.gap) : (fromEditor.gap !== undefined ? Number(fromEditor.gap) : 3)
     };
   }
 
@@ -110,20 +177,75 @@
     const current = getNavBarConfig();
     const updated = { ...current, ...next };
     const navBarField = editor()?.getAllFields?.()?.find((f) => f.type === 'NAV_BAR');
+
+    if (next.position !== undefined) {
+      const isVert = next.position === 'left' || next.position === 'right';
+      updated.orientation = isVert ? 'vertical' : 'horizontal';
+      if (isVert) {
+        const curW = Number(next.width || current.width || 24);
+        updated.width = curW >= 100 ? 24 : curW;
+        updated.height = 170;
+        updated.y = 0;
+        if (next.position === 'left') {
+          updated.x = 2;
+        } else {
+          updated.x = 320 - updated.width - 2;
+        }
+      } else {
+        const curH = Number(next.height || current.height || 22);
+        updated.height = curH >= 100 ? 22 : curH;
+        updated.width = 320;
+        updated.x = 0;
+        if (next.position === 'top') {
+          updated.y = 2;
+        } else {
+          updated.y = 170 - updated.height - 1;
+        }
+      }
+    }
+
+    if (next.x !== undefined) updated.x = Number(next.x);
+    if (next.y !== undefined) updated.y = Number(next.y);
+    if (next.width !== undefined) updated.width = Number(next.width);
+    if (next.height !== undefined) updated.height = Number(next.height);
+
     if (navBarField) {
-      if (next.preset) navBarField.preset = next.preset;
-      if (next.position) {
+      if (next.preset !== undefined) navBarField.preset = next.preset;
+      if (next.position !== undefined) {
         navBarField.position = next.position;
-        navBarField.y = next.position === 'top' ? 2 : (170 - (navBarField.height || 22) - 1);
+        navBarField.orientation = updated.orientation;
       }
-      if (next.height) {
-        navBarField.height = next.height;
-        navBarField.y = (navBarField.position || 'bottom') === 'top' ? 2 : (170 - next.height - 1);
-      }
+      navBarField.x = updated.x;
+      navBarField.y = updated.y;
+      navBarField.width = updated.width;
+      navBarField.height = updated.height;
+      if (next.tabDistribution !== undefined) navBarField.tabDistribution = next.tabDistribution;
+      if (next.textAlign !== undefined) navBarField.textAlign = next.textAlign;
+      if (next.fontSize !== undefined) navBarField.fontSize = next.fontSize;
+      if (next.labelFormat !== undefined) navBarField.labelFormat = next.labelFormat;
+      if (next.bgMode !== undefined) navBarField.bgMode = next.bgMode;
+      if (next.borderMode !== undefined) navBarField.borderMode = next.borderMode;
+      if (next.radius !== undefined) navBarField.radius = Number(next.radius);
+      if (next.gap !== undefined) navBarField.gap = Number(next.gap);
       if (next.enabled !== undefined) navBarField.hidden = !next.enabled;
     }
     editor()?.setNavBarConfig?.(updated);
     patchUI();
+  }
+
+  function syncNavBarConfigFromField(field) {
+    if (!field || field.type !== 'NAV_BAR') return;
+    const current = getNavBarConfig();
+    const updated = {
+      ...current,
+      x: field.x,
+      y: field.y,
+      width: field.width || current.width,
+      height: field.height || current.height,
+      position: field.position || current.position
+    };
+    editor()?.setNavBarConfig?.(updated);
+    syncNavBarInspector();
   }
 
   function addPage() {
@@ -136,29 +258,319 @@
     patchUI();
   }
 
-  // --- Algoritmo de Distribución Adaptativo para la Barra HMI ---
+  // --- Algoritmo de Distribución Adaptativo para la Barra HMI (Horizontal y Vertical) ---
   function computeNavBarLayout(pageList, curActivePage) {
     const total = pageList.length;
     const cfg = getNavBarConfig();
-    const width = 320;
-    const h = cfg.height || 22;
-    const y = cfg.position === 'top' ? 2 : (170 - h - 1);
+    const isVert = cfg.position === 'left' || cfg.position === 'right' || cfg.orientation === 'vertical';
+
+    const barW = Number(cfg.width) || (isVert ? 22 : 320);
+    const barH = Number(cfg.height) || (isVert ? 170 : 22);
+    const barX = Number(cfg.x) !== undefined && !Number.isNaN(Number(cfg.x)) ? Number(cfg.x) : 0;
+    const barY = Number(cfg.y) !== undefined && !Number.isNaN(Number(cfg.y)) ? Number(cfg.y) : 0;
 
     if (!cfg.enabled || total < 1) {
-      return { visible: false, hasOverflow: false, tabs: [], leftArrow: null, rightArrow: null, counter: null, y, h, bounds: { x: 0, y, w: width, h } };
+      return {
+        visible: false,
+        isVertical: isVert,
+        hasOverflow: false,
+        tabs: [],
+        leftArrow: null,
+        rightArrow: null,
+        counter: null,
+        x: barX,
+        y: barY,
+        w: barW,
+        h: barH,
+        bounds: { x: barX, y: barY, w: barW, h: barH },
+        cluster: null
+      };
     }
 
-    const minTabW = 34;
-    const gap = 3;
+    const preset = cfg.preset || 'industrial-color';
+
+    // CASO ESPECIAL: PRESET COMPACT-DOTS (Puntos Agrupados y Minimalistas)
+    if (preset === 'compact-dots') {
+      const dotDiameter = 5;
+      const dotGap = 5;
+
+      if (!isVert) {
+        // Horizontal: cápsula activa de 12x5, inactivas de 5x5
+        const activeDotW = 12;
+        const totalSpan = (total - 1) * (dotDiameter + dotGap) + activeDotW;
+
+        let clusterX;
+        if (cfg.tabDistribution === 'start') clusterX = barX + 8;
+        else if (cfg.tabDistribution === 'end') clusterX = barX + barW - 8 - totalSpan;
+        else clusterX = barX + Math.floor((barW - totalSpan) / 2);
+
+        const clusterY = barY + Math.floor((barH - dotDiameter) / 2);
+
+        let curX = clusterX;
+        const tabs = pageList.map((page, idx) => {
+          const isActive = page.id === curActivePage;
+          const w = isActive ? activeDotW : dotDiameter;
+          const h = dotDiameter;
+          const x = curX;
+          const y = clusterY;
+          curX += w + dotGap;
+          return {
+            pageId: page.id,
+            pageIndex: idx,
+            name: page.name,
+            shortName: page.shortName || computeSmartShortName(page.name, idx),
+            color: page.color ?? defaultPageColor(idx),
+            x,
+            y,
+            w,
+            h,
+            hitX: x - 4,
+            hitY: barY,
+            hitW: w + 8,
+            hitH: barH,
+            isActive
+          };
+        });
+
+        return {
+          visible: true,
+          isVertical: false,
+          hasOverflow: false,
+          tabs,
+          leftArrow: null,
+          rightArrow: null,
+          counter: null,
+          x: barX,
+          y: barY,
+          w: barW,
+          h: barH,
+          bounds: { x: barX, y: barY, w: barW, h: barH },
+          cluster: { x: clusterX, y: clusterY, w: totalSpan, h: dotDiameter }
+        };
+      } else {
+        // Vertical: cápsula activa de 5x12, inactivas de 5x5
+        const activeDotH = 12;
+        const totalSpan = (total - 1) * (dotDiameter + dotGap) + activeDotH;
+
+        const clusterX = barX + Math.floor((barW - dotDiameter) / 2);
+        let clusterY;
+        if (cfg.tabDistribution === 'start') clusterY = barY + 8;
+        else if (cfg.tabDistribution === 'end') clusterY = barY + barH - 8 - totalSpan;
+        else clusterY = barY + Math.floor((barH - totalSpan) / 2);
+
+        let curY = clusterY;
+        const tabs = pageList.map((page, idx) => {
+          const isActive = page.id === curActivePage;
+          const w = dotDiameter;
+          const h = isActive ? activeDotH : dotDiameter;
+          const x = clusterX;
+          const y = curY;
+          curY += h + dotGap;
+          return {
+            pageId: page.id,
+            pageIndex: idx,
+            name: page.name,
+            shortName: page.shortName || computeSmartShortName(page.name, idx),
+            color: page.color ?? defaultPageColor(idx),
+            x,
+            y,
+            w,
+            h,
+            hitX: barX,
+            hitY: y - 4,
+            hitW: barW,
+            hitH: h + 8,
+            isActive
+          };
+        });
+
+        return {
+          visible: true,
+          isVertical: true,
+          hasOverflow: false,
+          tabs,
+          leftArrow: null,
+          rightArrow: null,
+          counter: null,
+          x: barX,
+          y: barY,
+          w: barW,
+          h: barH,
+          bounds: { x: barX, y: barY, w: barW, h: barH },
+          cluster: { x: clusterX, y: clusterY, w: dotDiameter, h: totalSpan }
+        };
+      }
+    }
+
+    // DISPOSICIÓN VERTICAL (Pestañas Apiladas en Lateral Izquierdo o Derecho)
+    if (isVert) {
+      const margin = 3;
+      const gap = Number(cfg.gap) || 3;
+      const availH = barH - (2 * margin);
+      const minTabH = 16;
+      const neededH = (total * minTabH) + ((total - 1) * gap);
+
+      // Si caben verticalmente
+      if (neededH <= availH) {
+        const tabH = Math.min(32, Math.floor((availH - (total - 1) * gap) / total));
+        const totalSpan = (total * tabH) + ((total - 1) * gap);
+        let startY;
+        if (cfg.tabDistribution === 'start') startY = barY + margin;
+        else if (cfg.tabDistribution === 'end') startY = barY + barH - margin - totalSpan;
+        else startY = barY + Math.floor((barH - totalSpan) / 2);
+
+        const tabW = barW - 4;
+        const tabX = barX + 2;
+
+        const tabs = pageList.map((page, idx) => {
+          const y = startY + idx * (tabH + gap);
+          return {
+            pageId: page.id,
+            pageIndex: idx,
+            name: page.name,
+            shortName: page.shortName || computeSmartShortName(page.name, idx),
+            color: page.color ?? defaultPageColor(idx),
+            x: tabX,
+            y,
+            w: tabW,
+            h: tabH,
+            hitX: tabX,
+            hitY: y,
+            hitW: tabW,
+            hitH: tabH,
+            isActive: page.id === curActivePage
+          };
+        });
+
+        return {
+          visible: true,
+          isVertical: true,
+          hasOverflow: false,
+          tabs,
+          leftArrow: null,
+          rightArrow: null,
+          counter: null,
+          x: barX,
+          y: barY,
+          w: barW,
+          h: barH,
+          bounds: { x: barX, y: barY, w: barW, h: barH },
+          cluster: null
+        };
+      } else {
+        // Desbordamiento vertical
+        const arrowH = 14;
+        const counterH = 18;
+        const reservedH = (2 * margin) + (2 * arrowH) + counterH + (4 * gap);
+        const tabsSpaceH = barH - reservedH;
+        const tabH = 18;
+        const visibleCount = Math.max(2, Math.min(total, Math.floor((tabsSpaceH + gap) / (tabH + gap))));
+        const activeIdx = Math.max(0, pageList.findIndex((p) => p.id === curActivePage));
+
+        const half = Math.floor(visibleCount / 2);
+        let startIdx = activeIdx - half;
+        if (startIdx < 0) startIdx = 0;
+        if (startIdx + visibleCount > total) startIdx = Math.max(0, total - visibleCount);
+        const endIdx = Math.min(total - 1, startIdx + visibleCount - 1);
+
+        const tabW = barW - 4;
+        const tabX = barX + 2;
+        let cursorY = barY + margin;
+
+        const leftArrow = {
+          x: tabX,
+          y: cursorY,
+          w: tabW,
+          h: arrowH,
+          enabled: startIdx > 0,
+          targetPage: Math.max(0, activeIdx - 1),
+          text: '^'
+        };
+        cursorY += arrowH + gap;
+
+        const tabs = [];
+        for (let i = startIdx; i <= endIdx; i++) {
+          const page = pageList[i];
+          tabs.push({
+            pageId: page.id,
+            pageIndex: i,
+            name: page.name,
+            shortName: page.shortName || computeSmartShortName(page.name, i),
+            color: page.color ?? defaultPageColor(i),
+            x: tabX,
+            y: cursorY,
+            w: tabW,
+            h: tabH,
+            hitX: tabX,
+            hitY: cursorY,
+            hitW: tabW,
+            hitH: tabH,
+            isActive: page.id === curActivePage
+          });
+          cursorY += tabH + gap;
+        }
+
+        const rightArrow = {
+          x: tabX,
+          y: cursorY,
+          w: tabW,
+          h: arrowH,
+          enabled: endIdx < total - 1,
+          targetPage: Math.min(total - 1, activeIdx + 1),
+          text: 'v'
+        };
+        cursorY += arrowH + gap;
+
+        const counter = {
+          x: tabX,
+          y: cursorY,
+          w: tabW,
+          h: counterH,
+          text: `${activeIdx + 1}/${total}`
+        };
+
+        return {
+          visible: true,
+          isVertical: true,
+          hasOverflow: true,
+          tabs,
+          leftArrow,
+          rightArrow,
+          counter,
+          x: barX,
+          y: barY,
+          w: barW,
+          h: barH,
+          bounds: { x: barX, y: barY, w: barW, h: barH },
+          cluster: null
+        };
+      }
+    }
+
+    // DISPOSICIÓN HORIZONTAL (Inferior, Superior o Libre)
     const margin = 4;
-    const availWidth = width - (2 * margin);
+    const gap = Number(cfg.gap) || 3;
+    const availWidth = barW - (2 * margin);
+    const minTabW = 30;
     const neededWidth = (total * minTabW) + ((total - 1) * gap);
 
     // Caso 1: Todas las páginas caben en el ancho horizontal
     if (neededWidth <= availWidth) {
-      const tabW = Math.min(total <= 3 ? 90 : 80, Math.floor((availWidth - (total - 1) * gap) / total));
+      let tabW;
+      if (cfg.tabDistribution === 'stretch') {
+        tabW = Math.floor((availWidth - (total - 1) * gap) / total);
+      } else {
+        tabW = Math.min(total <= 3 ? 90 : 80, Math.floor((availWidth - (total - 1) * gap) / total));
+      }
+
       const totalSpan = (total * tabW) + ((total - 1) * gap);
-      const startX = Math.floor((width - totalSpan) / 2);
+      let startX;
+      if (cfg.tabDistribution === 'start') startX = barX + margin;
+      else if (cfg.tabDistribution === 'end') startX = barX + barW - margin - totalSpan;
+      else startX = barX + Math.floor((barW - totalSpan) / 2);
+
+      const tabH = barH - 2;
+      const tabY = barY + 1;
 
       const tabs = pageList.map((page, idx) => {
         const x = startX + idx * (tabW + gap);
@@ -171,34 +583,42 @@
           shortName: short,
           color: col,
           x,
-          y,
+          y: tabY,
           w: tabW,
-          h,
+          h: tabH,
+          hitX: x,
+          hitY: tabY,
+          hitW: tabW,
+          hitH: tabH,
           isActive: page.id === curActivePage
         };
       });
 
       return {
         visible: true,
+        isVertical: false,
         hasOverflow: false,
         tabs,
         leftArrow: null,
         rightArrow: null,
         counter: null,
-        y,
-        h,
-        bounds: { x: 0, y, w: width, h }
+        x: barX,
+        y: barY,
+        w: barW,
+        h: barH,
+        bounds: { x: barX, y: barY, w: barW, h: barH },
+        cluster: null
       };
     }
 
-    // Caso 2: Desbordamiento horizontal (Muchas páginas: flechas ◄ ► + contador NN/TT)
+    // Caso 2: Desbordamiento horizontal
     const arrowW = 16;
     const counterW = 34;
     const reserved = (2 * margin) + (2 * arrowW) + counterW + (4 * gap);
-    const tabsSpace = width - reserved;
+    const tabsSpace = barW - reserved;
 
     const tabW = 40;
-    const visibleCount = Math.max(3, Math.min(total, Math.floor((tabsSpace + gap) / (tabW + gap))));
+    const visibleCount = Math.max(2, Math.min(total, Math.floor((tabsSpace + gap) / (tabW + gap))));
     const activeIdx = Math.max(0, pageList.findIndex((p) => p.id === curActivePage));
 
     const half = Math.floor(visibleCount / 2);
@@ -207,14 +627,18 @@
     if (startIdx + visibleCount > total) startIdx = Math.max(0, total - visibleCount);
     const endIdx = Math.min(total - 1, startIdx + visibleCount - 1);
 
-    let cursorX = margin;
+    const tabH = barH - 2;
+    const tabY = barY + 1;
+    let cursorX = barX + margin;
+
     const leftArrow = {
       x: cursorX,
-      y,
+      y: tabY,
       w: arrowW,
-      h,
+      h: tabH,
       enabled: startIdx > 0,
-      targetPage: Math.max(0, activeIdx - 1)
+      targetPage: Math.max(0, activeIdx - 1),
+      text: '<'
     };
     cursorX += arrowW + gap;
 
@@ -230,9 +654,13 @@
         shortName: short,
         color: col,
         x: cursorX,
-        y,
+        y: tabY,
         w: tabW,
-        h,
+        h: tabH,
+        hitX: cursorX,
+        hitY: tabY,
+        hitW: tabW,
+        hitH: tabH,
         isActive: page.id === curActivePage
       });
       cursorX += tabW + gap;
@@ -240,32 +668,37 @@
 
     const rightArrow = {
       x: cursorX,
-      y,
+      y: tabY,
       w: arrowW,
-      h,
+      h: tabH,
       enabled: endIdx < total - 1,
-      targetPage: Math.min(total - 1, activeIdx + 1)
+      targetPage: Math.min(total - 1, activeIdx + 1),
+      text: '>'
     };
     cursorX += arrowW + gap;
 
     const counter = {
       x: cursorX,
-      y,
+      y: tabY,
       w: counterW,
-      h,
+      h: tabH,
       text: `${String(activeIdx + 1).padStart(2, '0')}/${String(total).padStart(2, '0')}`
     };
 
     return {
       visible: true,
+      isVertical: false,
       hasOverflow: true,
       tabs,
       leftArrow,
       rightArrow,
       counter,
-      y,
-      h,
-      bounds: { x: 0, y, w: width, h }
+      x: barX,
+      y: barY,
+      w: barW,
+      h: barH,
+      bounds: { x: barX, y: barY, w: barW, h: barH },
+      cluster: null
     };
   }
 
@@ -279,17 +712,11 @@
 
     ctx.save();
 
-    // Franja de fondo de la barra
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, layout.y * scale, 320 * scale, layout.h * scale);
-
-    const preset = cfg.preset || 'industrial-color';
-
     function fillRounded(x, y, w, h, r, col) {
       ctx.fillStyle = col;
       ctx.beginPath();
-      const rx = r * scale;
-      if (typeof ctx.roundRect === 'function') {
+      const rx = Math.min(r, Math.floor(w / 2), Math.floor(h / 2)) * scale;
+      if (typeof ctx.roundRect === 'function' && rx > 0) {
         ctx.roundRect(x * scale, y * scale, w * scale, h * scale, rx);
       } else {
         ctx.rect(x * scale, y * scale, w * scale, h * scale);
@@ -301,8 +728,8 @@
       ctx.strokeStyle = col;
       ctx.lineWidth = Math.max(1, lineWidth * scale);
       ctx.beginPath();
-      const rx = r * scale;
-      if (typeof ctx.roundRect === 'function') {
+      const rx = Math.min(r, Math.floor(w / 2), Math.floor(h / 2)) * scale;
+      if (typeof ctx.roundRect === 'function' && rx > 0) {
         ctx.roundRect(x * scale + 0.5, y * scale + 0.5, w * scale - 1, h * scale - 1, rx);
       } else {
         ctx.strokeRect(x * scale + 0.5, y * scale + 0.5, w * scale - 1, h * scale - 1);
@@ -310,214 +737,184 @@
       ctx.stroke();
     }
 
-    function drawCenteredText(text, x, y, w, h, color) {
-      const charCount = String(text).length;
-      const textW = charCount * 6 - 1;
-      const tx = x + Math.floor((w - textW) / 2);
-      const ty = y + Math.floor((h - 7) / 2);
-      drawClassicText(ctx, text, tx, ty, scale, color);
+    // 1. Fondo de la barra
+    const preset = cfg.preset || 'industrial-color';
+    const bgMode = cfg.bgMode || 'solid';
+
+    if (preset === 'compact-dots') {
+      // Para compact-dots: fondo discreto sólo en torno al cluster (si no es transparente)
+      if (bgMode === 'solid' || bgMode === 'dark') {
+        const cl = layout.cluster;
+        if (cl) {
+          const pillPadX = layout.isVertical ? 4 : 7;
+          const pillPadY = layout.isVertical ? 7 : 4;
+          const pillX = cl.x - pillPadX;
+          const pillY = cl.y - pillPadY;
+          const pillW = cl.w + pillPadX * 2;
+          const pillH = cl.h + pillPadY * 2;
+          const bgCol = bgMode === 'dark' ? '#0b141d' : '#000000';
+          fillRounded(pillX, pillY, pillW, pillH, 7, bgCol);
+          strokeRounded(pillX, pillY, pillW, pillH, 7, '#1b2d3d', 1);
+        }
+      }
+    } else {
+      if (bgMode === 'solid') {
+        fillRounded(layout.x, layout.y, layout.w, layout.h, cfg.radius, '#000000');
+      } else if (bgMode === 'dark') {
+        fillRounded(layout.x, layout.y, layout.w, layout.h, cfg.radius, '#0b141d');
+      }
     }
 
-    // Dibujo de Pestañas según el Prediseño
+    // 2. Borde o línea divisoria
+    if (cfg.borderMode === 'line') {
+      ctx.strokeStyle = '#273c4f';
+      ctx.lineWidth = Math.max(1, scale);
+      ctx.beginPath();
+      if (layout.isVertical) {
+        const lx = (cfg.position === 'right') ? (layout.x * scale) : ((layout.x + layout.w) * scale);
+        ctx.moveTo(lx, layout.y * scale);
+        ctx.lineTo(lx, (layout.y + layout.h) * scale);
+      } else {
+        const ly = (cfg.position === 'top') ? ((layout.y + layout.h) * scale) : (layout.y * scale);
+        ctx.moveTo(layout.x * scale, ly);
+        ctx.lineTo((layout.x + layout.w) * scale, ly);
+      }
+      ctx.stroke();
+    } else if (cfg.borderMode === 'frame') {
+      strokeRounded(layout.x, layout.y, layout.w, layout.h, cfg.radius, '#273c4f', 1);
+    }
+
+    // Función de texto con tamaño y alineación
+    function drawTabText(text, x, y, w, h, color) {
+      if (!text) return;
+      const str = String(text);
+      const isMicro = cfg.fontSize === 'micro';
+      const isMedium = cfg.fontSize === 'medium';
+      const charW = isMicro ? 4 : (isMedium ? 7 : 6);
+      const charH = isMicro ? 5 : (isMedium ? 9 : 7);
+      const textW = str.length * charW - 1;
+
+      let tx;
+      if (cfg.textAlign === 'left') tx = x + 3;
+      else if (cfg.textAlign === 'right') tx = x + w - textW - 3;
+      else tx = x + Math.floor((w - textW) / 2);
+
+      const ty = y + Math.floor((h - charH) / 2);
+
+      if (isMicro) {
+        drawMicroText(ctx, str, tx, ty, scale, color);
+      } else {
+        drawClassicText(ctx, str, tx, ty, scale, color);
+      }
+    }
+
+    function formatLabel(tab) {
+      if (cfg.labelFormat === 'number') return String(tab.pageIndex + 1);
+      if (cfg.labelFormat === 'num_short') return `${tab.pageIndex + 1}:${tab.shortName}`;
+      return tab.shortName;
+    }
+
+    const rad = Number(cfg.radius !== undefined ? cfg.radius : 3);
+
+    // 3. Dibujo de cada pestaña según preset
     layout.tabs.forEach((tab) => {
       const colCss = pageColorCss(tab.color);
+      const label = formatLabel(tab);
 
       if (preset === 'industrial-color') {
-        // IDÉNTICO A LA REFERENCIA FÍSICA
         if (tab.isActive) {
-          fillRounded(tab.x, tab.y, tab.w, tab.h, 3, '#ffffff');
-          strokeRounded(tab.x, tab.y, tab.w, tab.h, 3, colCss, 1.5);
-          drawCenteredText(tab.shortName, tab.x, tab.y, tab.w, tab.h, colCss === '#ffffff' ? '#9c27b0' : colCss);
+          fillRounded(tab.x, tab.y, tab.w, tab.h, rad, '#ffffff');
+          strokeRounded(tab.x, tab.y, tab.w, tab.h, rad, colCss, 1.5);
+          drawTabText(label, tab.x, tab.y, tab.w, tab.h, colCss === '#ffffff' ? '#9c27b0' : colCss);
         } else {
-          fillRounded(tab.x, tab.y, tab.w, tab.h, 3, '#000000');
-          strokeRounded(tab.x, tab.y, tab.w, tab.h, 3, colCss, 1);
-          drawCenteredText(tab.shortName, tab.x, tab.y, tab.w, tab.h, colCss);
+          fillRounded(tab.x, tab.y, tab.w, tab.h, rad, '#000000');
+          strokeRounded(tab.x, tab.y, tab.w, tab.h, rad, colCss, 1);
+          drawTabText(label, tab.x, tab.y, tab.w, tab.h, colCss);
         }
       } else if (preset === 'dark-pill') {
         if (tab.isActive) {
-          fillRounded(tab.x, tab.y, tab.w, tab.h, 4, '#00c8ff');
-          drawCenteredText(tab.shortName, tab.x, tab.y, tab.w, tab.h, '#000000');
+          fillRounded(tab.x, tab.y, tab.w, tab.h, Math.max(rad, 4), '#00c8ff');
+          drawTabText(label, tab.x, tab.y, tab.w, tab.h, '#000000');
         } else {
-          fillRounded(tab.x, tab.y, tab.w, tab.h, 4, '#151e2a');
-          strokeRounded(tab.x, tab.y, tab.w, tab.h, 4, '#27384c', 1);
-          drawCenteredText(tab.shortName, tab.x, tab.y, tab.w, tab.h, '#8ca2b6');
+          fillRounded(tab.x, tab.y, tab.w, tab.h, Math.max(rad, 4), '#151e2a');
+          strokeRounded(tab.x, tab.y, tab.w, tab.h, Math.max(rad, 4), '#27384c', 1);
+          drawTabText(label, tab.x, tab.y, tab.w, tab.h, '#8ca2b6');
         }
       } else if (preset === 'segmented-bar') {
         if (tab.isActive) {
           fillRounded(tab.x, tab.y, tab.w, tab.h, 2, '#1f2e42');
           ctx.fillStyle = '#52c9ff';
-          ctx.fillRect(tab.x * scale, tab.y * scale, tab.w * scale, 2 * scale);
-          drawCenteredText(tab.shortName, tab.x, tab.y, tab.w, tab.h, '#ffffff');
+          if (layout.isVertical) {
+            const ax = (cfg.position === 'right') ? (tab.x + tab.w - 2) : tab.x;
+            ctx.fillRect(ax * scale, tab.y * scale, 2 * scale, tab.h * scale);
+          } else {
+            const ay = (cfg.position === 'top') ? (tab.y + tab.h - 2) : tab.y;
+            ctx.fillRect(tab.x * scale, ay * scale, tab.w * scale, 2 * scale);
+          }
+          drawTabText(label, tab.x, tab.y, tab.w, tab.h, '#ffffff');
         } else {
           fillRounded(tab.x, tab.y, tab.w, tab.h, 2, '#0e1520');
           strokeRounded(tab.x, tab.y, tab.w, tab.h, 2, '#1e2b3c', 1);
-          drawCenteredText(tab.shortName, tab.x, tab.y, tab.w, tab.h, '#768d9f');
+          drawTabText(label, tab.x, tab.y, tab.w, tab.h, '#768d9f');
         }
       } else if (preset === 'compact-dots') {
+        // Puntos limpios, elegantes y proporcionados
         if (tab.isActive) {
-          fillRounded(tab.x + Math.floor((tab.w - 18) / 2), tab.y + Math.floor((tab.h - 6) / 2), 18, 6, 3, '#00c8ff');
+          fillRounded(tab.x, tab.y, tab.w, tab.h, 2.5, '#00c8ff');
         } else {
-          fillRounded(tab.x + Math.floor((tab.w - 6) / 2), tab.y + Math.floor((tab.h - 6) / 2), 6, 6, 3, '#2a3a4c');
+          fillRounded(tab.x, tab.y, tab.w, tab.h, 2.5, '#2e4357');
+        }
+      } else if (preset === 'edge-tabs') {
+        // Lengüetas minimalistas en el borde
+        if (tab.isActive) {
+          fillRounded(tab.x, tab.y, tab.w, tab.h, 2, colCss);
+          drawTabText(label, tab.x, tab.y, tab.w, tab.h, '#000000');
+        } else {
+          fillRounded(tab.x, tab.y, tab.w, tab.h, 2, '#111b25');
+          strokeRounded(tab.x, tab.y, tab.w, tab.h, 2, colCss, 1);
+          drawTabText(label, tab.x, tab.y, tab.w, tab.h, '#7c92a6');
+        }
+      } else if (preset === 'numeric-pills') {
+        // Insignias circulares / redondeadas con números
+        const numText = String(tab.pageIndex + 1);
+        if (tab.isActive) {
+          fillRounded(tab.x, tab.y, tab.w, tab.h, Math.max(rad, 4), '#00c8ff');
+          drawTabText(numText, tab.x, tab.y, tab.w, tab.h, '#000000');
+        } else {
+          fillRounded(tab.x, tab.y, tab.w, tab.h, Math.max(rad, 4), '#14202d');
+          strokeRounded(tab.x, tab.y, tab.w, tab.h, Math.max(rad, 4), '#263a4d', 1);
+          drawTabText(numText, tab.x, tab.y, tab.w, tab.h, '#8ca3b8');
         }
       }
     });
 
-    // Dibujo de Controles de Desbordamiento (◄, ►, NN/TT)
+    // 4. Controles de desbordamiento (flechas y contador)
     if (layout.hasOverflow) {
       if (layout.leftArrow) {
         const la = layout.leftArrow;
         const color = la.enabled ? '#52c9ff' : '#283848';
         fillRounded(la.x, la.y, la.w, la.h, 3, '#0b1118');
         strokeRounded(la.x, la.y, la.w, la.h, 3, color, 1);
-        drawCenteredText('<', la.x, la.y, la.w, la.h, color);
+        drawTabText(la.text || '<', la.x, la.y, la.w, la.h, color);
       }
       if (layout.rightArrow) {
         const ra = layout.rightArrow;
         const color = ra.enabled ? '#52c9ff' : '#283848';
         fillRounded(ra.x, ra.y, ra.w, ra.h, 3, '#0b1118');
         strokeRounded(ra.x, ra.y, ra.w, ra.h, 3, color, 1);
-        drawCenteredText('>', ra.x, ra.y, ra.w, ra.h, color);
+        drawTabText(ra.text || '>', ra.x, ra.y, ra.w, ra.h, color);
       }
       if (layout.counter) {
         const cnt = layout.counter;
         fillRounded(cnt.x, cnt.y, cnt.w, cnt.h, 3, '#0b1118');
         strokeRounded(cnt.x, cnt.y, cnt.w, cnt.h, 3, '#3b4e62', 1);
-        drawCenteredText(cnt.text, cnt.x, cnt.y, cnt.w, cnt.h, '#ffffff');
+        drawTabText(cnt.text, cnt.x, cnt.y, cnt.w, cnt.h, '#ffffff');
       }
     }
 
     ctx.restore();
   }
 
-  // --- Popover / Modal de Configuración de la Barra HMI ---
-  function openNavBarPopover(anchorBtn) {
-    if (navPopoverElement) {
-      navPopoverElement.remove();
-      navPopoverElement = null;
-      anchorBtn.classList.remove('active');
-      return;
-    }
-
-    anchorBtn.classList.add('active');
-    const popover = document.createElement('div');
-    popover.className = 'hmi-nav-popover';
-
-    const cfg = getNavBarConfig();
-    const curPages = pages();
-
-    popover.innerHTML = `
-      <div class="hmi-nav-header">
-        <span class="hmi-nav-title">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="2" y="7" width="20" height="13" rx="2"></rect>
-            <path d="M2 11h20"></path>
-          </svg>
-          Barra de Navegación HMI
-        </span>
-        <button type="button" class="hmi-nav-close" title="Cerrar">&times;</button>
-      </div>
-      <div class="hmi-nav-body">
-        <label class="hmi-nav-toggle-row">
-          <span>Mostrar en Pantalla (320&times;170)</span>
-          <input type="checkbox" id="hmiNavEnabled" ${cfg.enabled ? 'checked' : ''} />
-        </label>
-        
-        <div class="hmi-nav-row">
-          <span class="hmi-nav-label">Estilo / Prediseño</span>
-          <select id="hmiNavPreset" class="hmi-nav-select">
-            <option value="industrial-color" ${cfg.preset === 'industrial-color' ? 'selected' : ''}>Industrial Multi-Color (Ref. Física)</option>
-            <option value="dark-pill" ${cfg.preset === 'dark-pill' ? 'selected' : ''}>Modern Dark Pill</option>
-            <option value="segmented-bar" ${cfg.preset === 'segmented-bar' ? 'selected' : ''}>Segmented Bar (Continua)</option>
-            <option value="compact-dots" ${cfg.preset === 'compact-dots' ? 'selected' : ''}>Compact Dots & Badges</option>
-          </select>
-        </div>
-
-        <div class="hmi-nav-row-two-cols">
-          <div class="hmi-nav-row">
-            <span class="hmi-nav-label">Posición</span>
-            <select id="hmiNavPosition" class="hmi-nav-select">
-              <option value="bottom" ${cfg.position === 'bottom' ? 'selected' : ''}>Inferior (Bottom)</option>
-              <option value="top" ${cfg.position === 'top' ? 'selected' : ''}>Superior (Top)</option>
-            </select>
-          </div>
-          <div class="hmi-nav-row">
-            <span class="hmi-nav-label">Altura</span>
-            <select id="hmiNavHeight" class="hmi-nav-select">
-              <option value="18" ${cfg.height === 18 ? 'selected' : ''}>18 px</option>
-              <option value="22" ${cfg.height === 22 ? 'selected' : ''}>22 px (Estándar)</option>
-              <option value="26" ${cfg.height === 26 ? 'selected' : ''}>26 px</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="hmi-nav-row">
-          <span class="hmi-nav-label">Páginas del Proyecto (${curPages.length})</span>
-          <div class="hmi-nav-pages-list" id="hmiNavPagesList"></div>
-        </div>
-      </div>
-    `;
-
-    // Llenar lista de páginas con campos de abreviatura y color
-    const pagesContainer = popover.querySelector('#hmiNavPagesList');
-    curPages.forEach((page, idx) => {
-      const row = document.createElement('div');
-      row.className = 'hmi-nav-page-row';
-      const short = page.shortName || computeSmartShortName(page.name, idx);
-      const colHex = page.color ?? defaultPageColor(idx);
-      const colCss = pageColorCss(colHex);
-
-      row.innerHTML = `
-        <span class="hmi-nav-page-num">${String(idx + 1).padStart(2, '0')}</span>
-        <span class="hmi-nav-page-name" title="${page.name}">${page.name}</span>
-        <input type="text" class="hmi-nav-short-input" maxlength="6" value="${short}" title="Abreviatura para el botón (máx 6 letras)" />
-        <button type="button" class="hmi-nav-color-btn" style="background:${colCss}" title="Clic para alternar color"></button>
-      `;
-
-      const shortInput = row.querySelector('.hmi-nav-short-input');
-      shortInput.addEventListener('change', () => {
-        editor()?.setPageMetadata?.(page.id, { shortName: shortInput.value.trim().toUpperCase() });
-        patchUI();
-      });
-
-      const colorBtn = row.querySelector('.hmi-nav-color-btn');
-      colorBtn.addEventListener('click', () => {
-        const curIdx = PRESET_PAGE_COLORS.findIndex((c) => c.hex565 === colHex);
-        const nextIdx = (curIdx + 1) % PRESET_PAGE_COLORS.length;
-        const nextCol = PRESET_PAGE_COLORS[nextIdx].hex565;
-        editor()?.setPageMetadata?.(page.id, { color: nextCol });
-        colorBtn.style.background = PRESET_PAGE_COLORS[nextIdx].css;
-        patchUI();
-      });
-
-      pagesContainer.appendChild(row);
-    });
-
-    // Wire-up controls
-    popover.querySelector('.hmi-nav-close').addEventListener('click', () => {
-      popover.remove();
-      navPopoverElement = null;
-      anchorBtn.classList.remove('active');
-    });
-
-    popover.querySelector('#hmiNavEnabled').addEventListener('change', (e) => {
-      updateNavBarConfig({ enabled: e.target.checked });
-    });
-
-    popover.querySelector('#hmiNavPreset').addEventListener('change', (e) => {
-      updateNavBarConfig({ preset: e.target.value });
-    });
-
-    popover.querySelector('#hmiNavPosition').addEventListener('change', (e) => {
-      updateNavBarConfig({ position: e.target.value });
-    });
-
-    popover.querySelector('#hmiNavHeight').addEventListener('change', (e) => {
-      updateNavBarConfig({ height: Number(e.target.value) });
-    });
-
-    pageTabs.appendChild(popover);
-    navPopoverElement = popover;
-  }
 
   // --- Renombrado Interactivo con Doble Clic en Pestañas Superiores ---
   let activeInlineRenameId = null;
@@ -553,10 +950,6 @@
 
     // Reconstrucción completa si cambiaron las páginas
     pageTabs.querySelectorAll('.tab').forEach((node) => node.remove());
-    if (navPopoverElement) {
-      navPopoverElement.remove();
-      navPopoverElement = null;
-    }
 
     const totalPages = curPages.length;
 
@@ -754,24 +1147,6 @@
     add.title = 'Nueva página';
     add.addEventListener('click', addPage);
     pageTabs.insertBefore(add, gateNode);
-
-    // Botón Configuración de Barra HMI
-    const navBtn = document.createElement('button');
-    navBtn.className = 'tab nav-bar-config-btn';
-    navBtn.type = 'button';
-    navBtn.title = 'Configuración de Barra de Navegación HMI en Pantalla';
-    navBtn.innerHTML = `
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="3"></circle>
-        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-      </svg>
-      <span>Menú HMI</span>
-    `;
-    navBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      document.getElementById('navBarToolBtn')?.click();
-    });
-    pageTabs.insertBefore(navBtn, gateNode);
   }
 
   function ensurePageSelect() {
@@ -884,17 +1259,21 @@
     const layout = computeNavBarLayout(pages(), activePage());
     if (!layout.visible) return;
 
-    if (py < layout.y || py > layout.y + layout.h) return;
-
-    // Selecciona el objeto NAV_BAR en el lienzo/inspector
-    const navBarField = editor()?.getAllFields?.()?.find((f) => f.type === 'NAV_BAR');
-    if (navBarField && editor()?.setSelectedFieldKeys) {
-      editor().setSelectedFieldKeys([navBarField.key]);
+    // Selecciona el objeto NAV_BAR en el lienzo/inspector si se hace clic dentro del área de la barra
+    if (px >= layout.x && px <= layout.x + layout.w && py >= layout.y && py <= layout.y + layout.h) {
+      const navBarField = editor()?.getAllFields?.()?.find((f) => f.type === 'NAV_BAR');
+      if (navBarField && editor()?.setSelectedFieldKeys) {
+        editor().setSelectedFieldKeys([navBarField.key]);
+      }
     }
 
-    // Clic en pestaña
+    // Clic en pestaña / punto
     for (const tab of layout.tabs) {
-      if (px >= tab.x && px <= tab.x + tab.w) {
+      const hx = tab.hitX !== undefined ? tab.hitX : tab.x;
+      const hy = tab.hitY !== undefined ? tab.hitY : tab.y;
+      const hw = tab.hitW !== undefined ? tab.hitW : tab.w;
+      const hh = tab.hitH !== undefined ? tab.hitH : tab.h;
+      if (px >= hx && px <= hx + hw && py >= hy && py <= hy + hh) {
         if (tab.pageId !== activePage()) {
           editor()?.setActivePage?.(tab.pageId);
           patchUI();
@@ -903,23 +1282,221 @@
       }
     }
 
-    // Clic en flecha izquierda ◄
+    // Clic en flecha previa (◄ / ▲)
     if (layout.leftArrow && layout.leftArrow.enabled) {
-      if (px >= layout.leftArrow.x && px <= layout.leftArrow.x + layout.leftArrow.w) {
+      const la = layout.leftArrow;
+      if (px >= la.x && px <= la.x + la.w && py >= la.y && py <= la.y + la.h) {
         editor()?.setActivePage?.(layout.leftArrow.targetPage);
         patchUI();
         return;
       }
     }
 
-    // Clic en flecha derecha ►
+    // Clic en flecha siguiente (► / ▼)
     if (layout.rightArrow && layout.rightArrow.enabled) {
-      if (px >= layout.rightArrow.x && px <= layout.rightArrow.x + layout.rightArrow.w) {
+      const ra = layout.rightArrow;
+      if (px >= ra.x && px <= ra.x + ra.w && py >= ra.y && py <= ra.y + ra.h) {
         editor()?.setActivePage?.(layout.rightArrow.targetPage);
         patchUI();
         return;
       }
     }
+  });
+
+  // --- Inspector Barra de Navegación HMI (Homogéneo con BAR) ---
+  let activeNavBarTab = 'design';
+
+  function switchNavBarMainTab(tabName) {
+    activeNavBarTab = tabName;
+    const section = document.getElementById('navBarInspectorSection');
+    if (!section) return;
+
+    section.querySelectorAll('.bar-main-tab[data-navbar-tab]').forEach((btn) => {
+      const isAct = btn.dataset.navbarTab === tabName;
+      btn.classList.toggle('active', isAct);
+      btn.setAttribute('aria-selected', isAct ? 'true' : 'false');
+    });
+
+    const paneDesign = document.getElementById('navBarPaneDesign');
+    const panePages = document.getElementById('navBarPanePages');
+    const paneTech = document.getElementById('navBarPaneTech');
+
+    if (paneDesign) {
+      paneDesign.hidden = (tabName !== 'design');
+      paneDesign.style.display = (tabName === 'design') ? 'flex' : 'none';
+    }
+    if (panePages) {
+      panePages.hidden = (tabName !== 'pages');
+      panePages.style.display = (tabName === 'pages') ? 'flex' : 'none';
+    }
+    if (paneTech) {
+      paneTech.hidden = (tabName !== 'tech');
+      paneTech.style.display = (tabName === 'tech') ? 'flex' : 'none';
+    }
+  }
+
+  // Event Listeners de Pestañas Principales del Inspector
+  document.querySelectorAll('#navBarInspectorSection .bar-main-tab[data-navbar-tab]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      switchNavBarMainTab(btn.dataset.navbarTab);
+    });
+  });
+
+  // Event Listeners de Botones de Prediseño Visual
+  document.querySelectorAll('#navBarInspectorSection .bar-preset-btn[data-navbar-preset]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const preset = btn.dataset.navbarPreset;
+      updateNavBarConfig({ preset });
+    });
+  });
+
+  // Event Listeners de Posición en Pantalla (Inferior, Superior, Izquierda, Derecha)
+  document.querySelectorAll('#navBarInspectorSection .bar-visual-btn[data-navbar-pos]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const pos = btn.dataset.navbarPos;
+      updateNavBarConfig({ position: pos });
+    });
+  });
+
+  // Event Listeners de Centrado y Alineación Rápida
+  document.querySelectorAll('#navBarInspectorSection .bar-visual-btn[data-navbar-align]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const action = btn.dataset.navbarAlign;
+      const cfg = getNavBarConfig();
+      const w = Number(cfg.width) || 320;
+      const h = Number(cfg.height) || 22;
+
+      if (action === 'hcenter') {
+        const nextX = Math.max(0, Math.round((320 - w) / 2));
+        updateNavBarConfig({ x: nextX });
+      } else if (action === 'vcenter') {
+        const nextY = Math.max(0, Math.round((170 - h) / 2));
+        updateNavBarConfig({ y: nextY });
+      } else if (action === 'full') {
+        if (cfg.position === 'left' || cfg.position === 'right' || cfg.orientation === 'vertical') {
+          updateNavBarConfig({ y: 0, height: 170 });
+        } else {
+          updateNavBarConfig({ x: 0, width: 320 });
+        }
+      }
+    });
+  });
+
+  // Inputs Numéricos de Coordenadas
+  const bindNumCoord = (id, prop, min, max) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('change', () => {
+      const val = Math.max(min, Math.min(max, Number(el.value) || 0));
+      updateNavBarConfig({ [prop]: val });
+    });
+  };
+  bindNumCoord('navBarCoordX', 'x', 0, 319);
+  bindNumCoord('navBarCoordY', 'y', 0, 169);
+  bindNumCoord('navBarCoordW', 'width', 10, 320);
+  bindNumCoord('navBarCoordH', 'height', 10, 170);
+
+  // Distribución de Pestañas
+  document.querySelectorAll('#navBarInspectorSection .bar-visual-btn[data-navbar-dist]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      updateNavBarConfig({ tabDistribution: btn.dataset.navbarDist });
+    });
+  });
+
+  // Alineación de Texto
+  document.querySelectorAll('#navBarInspectorSection .bar-visual-btn[data-navbar-textalign]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      updateNavBarConfig({ textAlign: btn.dataset.navbarTextalign });
+    });
+  });
+
+  // Tamaño de Fuente
+  document.querySelectorAll('#navBarInspectorSection .bar-visual-btn[data-navbar-fontsize]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      updateNavBarConfig({ fontSize: btn.dataset.navbarFontsize });
+    });
+  });
+
+  // Formato de Etiqueta
+  document.querySelectorAll('#navBarInspectorSection .bar-visual-btn[data-navbar-labelformat]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      updateNavBarConfig({ labelFormat: btn.dataset.navbarLabelformat });
+    });
+  });
+
+  // Modo de Fondo
+  document.querySelectorAll('#navBarInspectorSection .bar-visual-btn[data-navbar-bgmode]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      updateNavBarConfig({ bgMode: btn.dataset.navbarBgmode });
+    });
+  });
+
+  // Modo de Borde
+  document.querySelectorAll('#navBarInspectorSection .bar-visual-btn[data-navbar-bordermode]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      updateNavBarConfig({ borderMode: btn.dataset.navbarBordermode });
+    });
+  });
+
+  // Radio de Esquinas
+  document.querySelectorAll('#navBarInspectorSection .bar-visual-btn[data-navbar-radius]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      updateNavBarConfig({ radius: Number(btn.dataset.navbarRadius) });
+    });
+  });
+
+  // Separación Gap
+  document.querySelectorAll('#navBarInspectorSection .bar-visual-btn[data-navbar-gap]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      updateNavBarConfig({ gap: Number(btn.dataset.navbarGap) });
+    });
+  });
+
+  // Botón Copiar Primitiva C++
+  document.getElementById('navBarCopyCodeBtn')?.addEventListener('click', async () => {
+    const code = document.getElementById('navBarCppCallCode')?.textContent?.trim() || 'jwplcDrawPageNavBar(JWPLC_Display.userPage());';
+    const copyBtn = document.getElementById('navBarCopyCodeBtn');
+    try {
+      await navigator.clipboard.writeText(code);
+      if (copyBtn) {
+        copyBtn.textContent = '✓';
+        copyBtn.style.color = '#34c759';
+        setTimeout(() => {
+          copyBtn.textContent = '⧉';
+          copyBtn.style.color = '';
+        }, 1200);
+      }
+    } catch (err) {
+      console.warn('Clipboard write error:', err);
+    }
+  });
+
+  // Botón Eliminar Barra de Navegación
+  document.getElementById('navBarInspectorDeleteBtn')?.addEventListener('click', () => {
+    const navBarField = editor()?.getAllFields?.()?.find((f) => f.type === 'NAV_BAR');
+    if (navBarField && editor()?.setSelectedFieldKeys) {
+      editor().setSelectedFieldKeys([navBarField.key]);
+      editor()?.deleteSelectedField?.();
+    }
+    updateNavBarConfig({ enabled: false });
+    const section = document.getElementById('navBarInspectorSection');
+    if (section) {
+      section.hidden = true;
+      section.style.display = 'none';
+    }
+    patchUI();
   });
 
   // --- Sincronización del Inspector para Barra de Navegación ---
@@ -928,98 +1505,143 @@
     if (!section || section.hidden) return;
 
     const cfg = getNavBarConfig();
-    const presetSelect = document.getElementById('navBarInspectorPreset');
-    const positionSelect = document.getElementById('navBarInspectorPosition');
-    const heightSelect = document.getElementById('navBarInspectorHeight');
+
+    // 1. Pestaña activa
+    switchNavBarMainTab(activeNavBarTab);
+
+    // 2. Marcar preset activo
+    const curPreset = cfg.preset || 'industrial-color';
+    section.querySelectorAll('.bar-preset-btn[data-navbar-preset]').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.navbarPreset === curPreset);
+    });
+
+    // 3. Marcar posición activa
+    const curPos = cfg.position || 'bottom';
+    section.querySelectorAll('.bar-visual-btn[data-navbar-pos]').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.navbarPos === curPos);
+    });
+
+    // 4. Marcar distribución activa
+    section.querySelectorAll('.bar-visual-btn[data-navbar-dist]').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.navbarDist === (cfg.tabDistribution || 'center'));
+    });
+
+    // 5. Marcar alineación texto
+    section.querySelectorAll('.bar-visual-btn[data-navbar-textalign]').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.navbarTextalign === (cfg.textAlign || 'center'));
+    });
+
+    // 6. Marcar tamaño fuente
+    section.querySelectorAll('.bar-visual-btn[data-navbar-fontsize]').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.navbarFontsize === (cfg.fontSize || 'normal'));
+    });
+
+    // 7. Marcar formato etiqueta
+    section.querySelectorAll('.bar-visual-btn[data-navbar-labelformat]').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.navbarLabelformat === (cfg.labelFormat || 'short'));
+    });
+
+    // 8. Marcar fondo
+    section.querySelectorAll('.bar-visual-btn[data-navbar-bgmode]').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.navbarBgmode === (cfg.bgMode || 'solid'));
+    });
+
+    // 9. Marcar borde
+    section.querySelectorAll('.bar-visual-btn[data-navbar-bordermode]').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.navbarBordermode === (cfg.borderMode || 'none'));
+    });
+
+    // 10. Marcar radio
+    section.querySelectorAll('.bar-visual-btn[data-navbar-radius]').forEach((btn) => {
+      btn.classList.toggle('active', Number(btn.dataset.navbarRadius) === Number(cfg.radius !== undefined ? cfg.radius : 3));
+    });
+
+    // 11. Marcar gap
+    section.querySelectorAll('.bar-visual-btn[data-navbar-gap]').forEach((btn) => {
+      btn.classList.toggle('active', Number(btn.dataset.navbarGap) === Number(cfg.gap !== undefined ? cfg.gap : 3));
+    });
+
+    // 12. Inputs numéricos (no sobreescribir si están en foco)
+    const activeEl = document.activeElement;
+    const inX = document.getElementById('navBarCoordX');
+    const inY = document.getElementById('navBarCoordY');
+    const inW = document.getElementById('navBarCoordW');
+    const inH = document.getElementById('navBarCoordH');
+    if (inX && inX !== activeEl) inX.value = String(cfg.x);
+    if (inY && inY !== activeEl) inY.value = String(cfg.y);
+    if (inW && inW !== activeEl) inW.value = String(cfg.width);
+    if (inH && inH !== activeEl) inH.value = String(cfg.height);
+
+    // 13. Lectura de Geometría
+    const geoXY = document.getElementById('navBarGeoXY');
+    const geoWH = document.getElementById('navBarGeoWH');
+    if (geoXY) geoXY.textContent = `${cfg.x} / ${cfg.y}`;
+    if (geoWH) geoWH.textContent = `${cfg.width} × ${cfg.height}`;
+
+    // 6. Lista de páginas con abreviatura y color
     const pagesList = document.getElementById('navBarInspectorPagesList');
-
-    if (presetSelect && presetSelect.value !== (cfg.preset || 'industrial-color')) {
-      presetSelect.value = cfg.preset || 'industrial-color';
-    }
-    if (positionSelect && positionSelect.value !== (cfg.position || 'bottom')) {
-      positionSelect.value = cfg.position || 'bottom';
-    }
-    if (heightSelect && heightSelect.value !== String(cfg.height || 22)) {
-      heightSelect.value = String(cfg.height || 22);
-    }
-
     if (pagesList) {
-      pagesList.innerHTML = '';
-      pages().forEach((page, idx) => {
-        const row = document.createElement('div');
-        row.className = 'hmi-nav-page-row';
+      const activeEl = document.activeElement;
+      const isTyping = activeEl && pagesList.contains(activeEl) && activeEl.classList.contains('hmi-nav-short-input');
+      const curPages = pages();
+      const existingRows = pagesList.querySelectorAll('.hmi-nav-page-row');
 
-        const num = document.createElement('span');
-        num.className = 'hmi-nav-page-num';
-        num.textContent = `${String(idx + 1).padStart(2, '0')}`;
+      if (existingRows.length !== curPages.length || !isTyping) {
+        pagesList.innerHTML = '';
+        curPages.forEach((page, idx) => {
+          const row = document.createElement('div');
+          row.className = 'hmi-nav-page-row';
 
-        const name = document.createElement('span');
-        name.className = 'hmi-nav-page-name';
-        name.textContent = page.name;
-        name.title = page.name;
+          const num = document.createElement('span');
+          num.className = 'hmi-nav-page-num';
+          num.textContent = `${String(idx + 1).padStart(2, '0')}`;
 
-        const shortInput = document.createElement('input');
-        shortInput.type = 'text';
-        shortInput.className = 'hmi-nav-short-input';
-        shortInput.maxLength = 4;
-        shortInput.value = page.shortName || computeSmartShortName(page.name, idx);
-        shortInput.title = 'Abreviatura en pantalla (máx 4 caracteres)';
-        shortInput.addEventListener('change', (e) => {
-          const val = e.target.value.trim().toUpperCase().slice(0, 4);
-          page.shortName = val;
-          editor()?.setPageMetadata?.(page.id, { shortName: val });
-          patchUI();
+          const name = document.createElement('span');
+          name.className = 'hmi-nav-page-name';
+          name.textContent = page.name;
+          name.title = page.name;
+
+          const shortInput = document.createElement('input');
+          shortInput.type = 'text';
+          shortInput.className = 'hmi-nav-short-input';
+          shortInput.maxLength = 4;
+          shortInput.value = page.shortName || computeSmartShortName(page.name, idx);
+          shortInput.title = 'Abreviatura en pantalla (máx 4 caracteres)';
+          shortInput.addEventListener('change', (e) => {
+            const val = e.target.value.trim().toUpperCase().slice(0, 4);
+            page.shortName = val;
+            editor()?.setPageMetadata?.(page.id, { shortName: val });
+            patchUI();
+          });
+
+          const colorBtn = document.createElement('button');
+          colorBtn.type = 'button';
+          colorBtn.className = 'hmi-nav-color-btn';
+          const curCol = page.color ?? defaultPageColor(idx);
+          colorBtn.style.backgroundColor = pageColorCss(curCol);
+          colorBtn.title = 'Clic para cambiar color ST7789';
+
+          colorBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const curHex = page.color ?? defaultPageColor(idx);
+            const foundIdx = PRESET_PAGE_COLORS.findIndex((c) => c.hex565 === curHex);
+            const nextIdx = (foundIdx + 1) % PRESET_PAGE_COLORS.length;
+            const nextCol = PRESET_PAGE_COLORS[nextIdx].hex565;
+            page.color = nextCol;
+            editor()?.setPageMetadata?.(page.id, { color: nextCol });
+            colorBtn.style.backgroundColor = PRESET_PAGE_COLORS[nextIdx].css;
+            patchUI();
+          });
+
+          row.appendChild(num);
+          row.appendChild(name);
+          row.appendChild(shortInput);
+          row.appendChild(colorBtn);
+          pagesList.appendChild(row);
         });
-
-        const colorBtn = document.createElement('button');
-        colorBtn.type = 'button';
-        colorBtn.className = 'hmi-nav-color-btn';
-        const curCol = page.color ?? defaultPageColor(idx);
-        colorBtn.style.backgroundColor = pageColorCss(curCol);
-        colorBtn.title = 'Clic para cambiar color ST7789';
-
-        colorBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const curHex = page.color ?? defaultPageColor(idx);
-          const foundIdx = PRESET_PAGE_COLORS.findIndex((c) => c.hex565 === curHex);
-          const nextIdx = (foundIdx + 1) % PRESET_PAGE_COLORS.length;
-          const nextCol = PRESET_PAGE_COLORS[nextIdx].hex565;
-          page.color = nextCol;
-          editor()?.setPageMetadata?.(page.id, { color: nextCol });
-          colorBtn.style.backgroundColor = PRESET_PAGE_COLORS[nextIdx].css;
-          patchUI();
-        });
-
-        row.appendChild(num);
-        row.appendChild(name);
-        row.appendChild(shortInput);
-        row.appendChild(colorBtn);
-        pagesList.appendChild(row);
-      });
+      }
     }
   }
-
-  // Event Listeners de Controles del Inspector de Barra HMI
-  document.getElementById('navBarInspectorPreset')?.addEventListener('change', (e) => {
-    updateNavBarConfig({ preset: e.target.value });
-  });
-
-  document.getElementById('navBarInspectorPosition')?.addEventListener('change', (e) => {
-    updateNavBarConfig({ position: e.target.value });
-  });
-
-  document.getElementById('navBarInspectorHeight')?.addEventListener('change', (e) => {
-    updateNavBarConfig({ height: Number(e.target.value) });
-  });
-
-  document.getElementById('navBarInspectorDeleteBtn')?.addEventListener('click', () => {
-    const navBarField = editor()?.getAllFields?.()?.find((f) => f.type === 'NAV_BAR');
-    if (navBarField && editor()?.setSelectedFieldKeys) {
-      editor().setSelectedFieldKeys([navBarField.key]);
-      editor()?.deleteSelectedField?.();
-    }
-    updateNavBarConfig({ enabled: false });
-  });
 
   function patchGeneratedCode() {
     if (!codeOutput?.textContent.startsWith('// Código generado por JWPLC HMI Designer')) return;
@@ -1072,6 +1694,7 @@
     indicatorRect: () => ({ ...INDICATOR }),
     getNavBarConfig,
     setNavBarConfig: updateNavBarConfig,
+    syncNavBarConfigFromField,
     computeNavBarLayout,
     computeSmartShortName,
     drawHMINavigationBar,

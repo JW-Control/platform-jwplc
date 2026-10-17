@@ -2125,7 +2125,7 @@
 
   function switchMainTab(tab) {
     currentMainTab = tab;
-    document.querySelectorAll('.bar-main-tab').forEach((b) => {
+    document.querySelectorAll('.bar-inspector-wrap > .bar-nav-header .bar-main-tabs[role="tablist"] .bar-main-tab').forEach((b) => {
       const isAct = b.dataset.mainTab === tab;
       b.classList.toggle('active', isAct);
       b.setAttribute('aria-selected', isAct ? 'true' : 'false');
@@ -2140,7 +2140,7 @@
 
   function switchSubTab(subTab) {
     currentSubTab = subTab;
-    document.querySelectorAll('.bar-sub-tab').forEach((b) => {
+    document.querySelectorAll('#barDesignSubTabs .bar-sub-tab').forEach((b) => {
       const isAct = b.dataset.subTab === subTab;
       b.classList.toggle('active', isAct);
       b.setAttribute('aria-selected', isAct ? 'true' : 'false');
@@ -2152,14 +2152,14 @@
     if (barSubpanelPlacement) barSubpanelPlacement.style.display = (subTab === 'placement') ? 'block' : 'none';
   }
 
-  document.querySelectorAll('.bar-main-tab').forEach((btn) => {
+  document.querySelectorAll('.bar-inspector-wrap > .bar-nav-header .bar-main-tabs[role="tablist"] .bar-main-tab').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       switchMainTab(btn.dataset.mainTab);
     });
   });
 
-  document.querySelectorAll('.bar-sub-tab').forEach((btn) => {
+  document.querySelectorAll('#barDesignSubTabs .bar-sub-tab').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       switchSubTab(btn.dataset.subTab);

@@ -459,11 +459,11 @@
     const leftMargin = 36;
     const rightMargin = 72;
 
-    const rulerTopH = 22;
-    const rulerRightW = 36;
+    const rulerH = 24;
+    const rulerW = 36;
 
-    const availW = Math.max(80, vpW - leftMargin - rightMargin - rulerRightW);
-    const availH = Math.max(60, vpH - topMargin - bottomMargin - rulerTopH);
+    const availW = Math.max(80, vpW - leftMargin - rightMargin - rulerW * 2);
+    const availH = Math.max(60, vpH - topMargin - bottomMargin - rulerH * 2);
 
     const rawZoom = Math.min(availW / WIDTH, availH / HEIGHT);
     const targetZoom = Math.max(0.5, Math.min(10, Math.floor(rawZoom * 20) / 20));
@@ -473,8 +473,8 @@
     const desiredCenterX = leftMargin + (vpW - leftMargin - rightMargin) / 2;
     const desiredCenterY = topMargin + (vpH - topMargin - bottomMargin) / 2;
 
-    const targetPanX = Math.round(desiredCenterX - ((vpW - WIDTH * targetZoom) / 2 - 18 + (WIDTH / 2) * targetZoom));
-    const targetPanY = Math.round(desiredCenterY - ((vpH - HEIGHT * targetZoom) / 2 + 11 + (HEIGHT / 2) * targetZoom));
+    const targetPanX = Math.round(desiredCenterX - ((vpW - WIDTH * targetZoom) / 2 + (WIDTH / 2) * targetZoom));
+    const targetPanY = Math.round(desiredCenterY - ((vpH - HEIGHT * targetZoom) / 2 + (HEIGHT / 2) * targetZoom));
 
     panX = targetPanX;
     panY = targetPanY;
@@ -539,8 +539,8 @@
     const desiredCenterX = leftMargin + (vpW - leftMargin - rightMargin) / 2;
     const desiredCenterY = topMargin + (vpH - topMargin - bottomMargin) / 2;
 
-    const targetPanX = Math.round(desiredCenterX - ((vpW - WIDTH * targetZoom) / 2 - 18 + selCenterX * targetZoom));
-    const targetPanY = Math.round(desiredCenterY - ((vpH - HEIGHT * targetZoom) / 2 + 11 + selCenterY * targetZoom));
+    const targetPanX = Math.round(desiredCenterX - ((vpW - WIDTH * targetZoom) / 2 + selCenterX * targetZoom));
+    const targetPanY = Math.round(desiredCenterY - ((vpH - HEIGHT * targetZoom) / 2 + selCenterY * targetZoom));
 
     panX = targetPanX;
     panY = targetPanY;
@@ -1122,6 +1122,8 @@
     return changed;
   }
 
+  let activeShapeColorDropperTarget = null;
+
   function pickColorAt(point) {
     if (!inside(point.x, point.y)) return false;
     const color565 = framebuffer[indexFor(point.x, point.y)];
@@ -1134,10 +1136,21 @@
     const field = selectedField();
     if (field) {
       if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
-        if (field.fill) {
+        if (activeShapeColorDropperTarget === 'fill') {
+          field.fillColor = selectedColor.value;
+        } else if (activeShapeColorDropperTarget === 'border') {
+          field.frameColor = selectedColor.value;
+        } else if (field.fill) {
           field.fillColor = selectedColor.value;
         } else {
           field.frameColor = selectedColor.value;
+        }
+        if (activeShapeColorDropperTarget) {
+          activeShapeColorDropperTarget = null;
+          document.getElementById('shapeBorderEyedropperBtn')?.classList.remove('active');
+          document.getElementById('shapeFillEyedropperBtn')?.classList.remove('active');
+          selectedTool = 'pointer';
+          syncToolUI();
         }
       } else if (field.type === 'RAW_TEXT') {
         field.textColor = selectedColor.value;
@@ -1629,16 +1642,30 @@
     }
 
     if (field.type === 'NAV_BAR') {
-      const h = Number(field.height) || 22;
-      const y = field.position === 'top' ? 2 : (170 - h - 1);
+      const isVert = field.position === 'left' || field.position === 'right' || field.orientation === 'vertical';
+      const defaultW = isVert ? 22 : 320;
+      const defaultH = isVert ? 170 : 22;
+
+      let defaultX = 0;
+      if (field.position === 'right') defaultX = 320 - (Number(field.width) || defaultW) - 2;
+      else if (field.position === 'left') defaultX = 2;
+
+      let defaultY = 0;
+      if (field.position === 'top') defaultY = 2;
+      else if (field.position === 'bottom') defaultY = 170 - (Number(field.height) || defaultH) - 1;
+
+      const w = Number(field.width) || defaultW;
+      const h = Number(field.height) || defaultH;
+      const x = field.x !== undefined ? Number(field.x) : defaultX;
+      const y = field.y !== undefined ? Number(field.y) : defaultY;
       return {
-        x: 0,
+        x,
         y,
-        minX: 0,
-        maxX: 319,
+        minX: x,
+        maxX: x + w - 1,
         minY: y,
         maxY: y + h - 1,
-        width: 320,
+        width: w,
         height: h
       };
     }
@@ -2748,45 +2775,94 @@
     displayCtx.restore();
   }
 
+  let activeCursorPoint = null;
+
+  function updateCrosshairs(pt) {
+    const crosshairX = document.getElementById('crosshairX');
+    const crosshairY = document.getElementById('crosshairY');
+    if (!crosshairX || !crosshairY) return;
+    if (!pt || !inside(pt.x, pt.y)) {
+      crosshairX.style.display = 'none';
+      crosshairY.style.display = 'none';
+      return;
+    }
+    const rulerW = 36;
+    const rulerH = 24;
+    const px = rulerW + Math.round((pt.x + 0.5) * zoom);
+    const py = rulerH + Math.round((pt.y + 0.5) * zoom);
+    crosshairX.style.display = 'block';
+    crosshairX.style.left = `${px}px`;
+    crosshairY.style.display = 'block';
+    crosshairY.style.top = `${py}px`;
+  }
+
   function drawRulers() {
     const topCanvas = document.getElementById('topRulerCanvas');
+    const bottomCanvas = document.getElementById('bottomRulerCanvas');
+    const leftCanvas = document.getElementById('leftRulerCanvas');
     const rightCanvas = document.getElementById('rightRulerCanvas');
-    if (!topCanvas || !rightCanvas) return;
+    if (!topCanvas || !bottomCanvas || !leftCanvas || !rightCanvas) return;
 
     const dpr = Math.max(1, window.devicePixelRatio || 1);
     const targetTopW = Math.round(WIDTH * zoom);
-    const targetRightH = Math.round(HEIGHT * zoom);
+    const targetMidH = Math.round(HEIGHT * zoom);
+    const rulerH = 24;
+    const rulerW = 36;
+
     const topPhysW = Math.round(targetTopW * dpr);
-    const topPhysH = Math.round(22 * dpr);
-    const rightPhysW = Math.round(36 * dpr);
-    const rightPhysH = Math.round(targetRightH * dpr);
+    const topPhysH = Math.round(rulerH * dpr);
+    const sidePhysW = Math.round(rulerW * dpr);
+    const sidePhysH = Math.round(targetMidH * dpr);
 
     if (topCanvas.width !== topPhysW || topCanvas.height !== topPhysH) {
       topCanvas.width = topPhysW;
       topCanvas.height = topPhysH;
       topCanvas.style.width = `${targetTopW}px`;
-      topCanvas.style.height = '22px';
+      topCanvas.style.height = `${rulerH}px`;
     }
-    if (rightCanvas.width !== rightPhysW || rightCanvas.height !== rightPhysH) {
-      rightCanvas.width = rightPhysW;
-      rightCanvas.height = rightPhysH;
-      rightCanvas.style.width = '36px';
-      rightCanvas.style.height = `${targetRightH}px`;
+    if (bottomCanvas.width !== topPhysW || bottomCanvas.height !== topPhysH) {
+      bottomCanvas.width = topPhysW;
+      bottomCanvas.height = topPhysH;
+      bottomCanvas.style.width = `${targetTopW}px`;
+      bottomCanvas.style.height = `${rulerH}px`;
+    }
+    if (leftCanvas.width !== sidePhysW || leftCanvas.height !== sidePhysH) {
+      leftCanvas.width = sidePhysW;
+      leftCanvas.height = sidePhysH;
+      leftCanvas.style.width = `${rulerW}px`;
+      leftCanvas.style.height = `${targetMidH}px`;
+    }
+    if (rightCanvas.width !== sidePhysW || rightCanvas.height !== sidePhysH) {
+      rightCanvas.width = sidePhysW;
+      rightCanvas.height = sidePhysH;
+      rightCanvas.style.width = `${rulerW}px`;
+      rightCanvas.style.height = `${targetMidH}px`;
     }
 
     const topCtx = topCanvas.getContext('2d');
+    const bottomCtx = bottomCanvas.getContext('2d');
+    const leftCtx = leftCanvas.getContext('2d');
     const rightCtx = rightCanvas.getContext('2d');
 
     topCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    bottomCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    leftCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     rightCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    topCtx.clearRect(0, 0, targetTopW, 22);
-    rightCtx.clearRect(0, 0, 36, targetRightH);
+    topCtx.clearRect(0, 0, targetTopW, rulerH);
+    bottomCtx.clearRect(0, 0, targetTopW, rulerH);
+    leftCtx.clearRect(0, 0, rulerW, targetMidH);
+    rightCtx.clearRect(0, 0, rulerW, targetMidH);
 
-    // Top ruler ticks
-    topCtx.strokeStyle = '#5a6b78';
+    // Standard ticks: Top & Bottom
+    topCtx.strokeStyle = '#4e6475';
     topCtx.lineWidth = 1;
     topCtx.beginPath();
+
+    bottomCtx.strokeStyle = '#4e6475';
+    bottomCtx.lineWidth = 1;
+    bottomCtx.beginPath();
+
     for (let x = 0; x <= WIDTH; x += 2) {
       const px = Math.round(x * zoom) + 0.5;
       let tickLen = 0;
@@ -2794,16 +2870,25 @@
       else if (x % 10 === 0) tickLen = 5;
       else if (x % 2 === 0 && zoom >= 3) tickLen = 3;
       if (tickLen > 0) {
-        topCtx.moveTo(px, 22 - tickLen);
-        topCtx.lineTo(px, 22);
+        topCtx.moveTo(px, rulerH - tickLen);
+        topCtx.lineTo(px, rulerH);
+
+        bottomCtx.moveTo(px, 0);
+        bottomCtx.lineTo(px, tickLen);
       }
     }
     topCtx.stroke();
+    bottomCtx.stroke();
 
-    // Right ruler ticks
-    rightCtx.strokeStyle = '#5a6b78';
+    // Standard ticks: Left & Right
+    leftCtx.strokeStyle = '#4e6475';
+    leftCtx.lineWidth = 1;
+    leftCtx.beginPath();
+
+    rightCtx.strokeStyle = '#4e6475';
     rightCtx.lineWidth = 1;
     rightCtx.beginPath();
+
     for (let y = 0; y <= HEIGHT; y += 2) {
       const py = Math.round(y * zoom) + 0.5;
       let tickLen = 0;
@@ -2811,13 +2896,55 @@
       else if (y % 10 === 0) tickLen = 5;
       else if (y % 2 === 0 && zoom >= 3) tickLen = 3;
       if (tickLen > 0) {
+        leftCtx.moveTo(rulerW - tickLen, py);
+        leftCtx.lineTo(rulerW, py);
+
         rightCtx.moveTo(0, py);
         rightCtx.lineTo(tickLen, py);
       }
     }
+    leftCtx.stroke();
     rightCtx.stroke();
 
-    // Selected field coordinates
+    const rulerFont = '500 10px "Segoe UI", system-ui, -apple-system, sans-serif';
+    const cursorFont = '700 10.5px "Segoe UI", system-ui, -apple-system, sans-serif';
+
+    // Static interval coordinates (skip if close to cursor)
+    topCtx.font = rulerFont;
+    topCtx.fillStyle = '#647c8f';
+    topCtx.textAlign = 'center';
+    topCtx.textBaseline = 'top';
+
+    bottomCtx.font = rulerFont;
+    bottomCtx.fillStyle = '#647c8f';
+    bottomCtx.textAlign = 'center';
+    bottomCtx.textBaseline = 'bottom';
+
+    for (let x = 50; x < WIDTH; x += 50) {
+      if (activeCursorPoint && Math.abs(x - activeCursorPoint.x) < 22) continue;
+      const px = Math.round(x * zoom);
+      topCtx.fillText(String(x), px, 2);
+      bottomCtx.fillText(String(x), px, rulerH - 2);
+    }
+
+    leftCtx.font = rulerFont;
+    leftCtx.fillStyle = '#647c8f';
+    leftCtx.textAlign = 'right';
+    leftCtx.textBaseline = 'middle';
+
+    rightCtx.font = rulerFont;
+    rightCtx.fillStyle = '#647c8f';
+    rightCtx.textAlign = 'left';
+    rightCtx.textBaseline = 'middle';
+
+    for (let y = 50; y < HEIGHT; y += 50) {
+      if (activeCursorPoint && Math.abs(y - activeCursorPoint.y) < 14) continue;
+      const py = Math.round(y * zoom);
+      leftCtx.fillText(String(y), rulerW - 11, py);
+      rightCtx.fillText(String(y), 11, py);
+    }
+
+    // Selected field coordinates / bounds
     const sel = selectedField();
     let selBounds = null;
     if (sel && sel.type !== 'PIXELMAP') {
@@ -2833,60 +2960,105 @@
       }
     }
 
-    const rulerFont = '600 10.5px "Segoe UI", system-ui, -apple-system, sans-serif';
-    topCtx.font = rulerFont;
-    topCtx.fillStyle = '#9cb1c2';
-    topCtx.textAlign = 'center';
-    topCtx.textBaseline = 'top';
-
-    rightCtx.font = rulerFont;
-    rightCtx.fillStyle = '#9cb1c2';
-    rightCtx.textAlign = 'left';
-    rightCtx.textBaseline = 'middle';
-
     if (selBounds) {
-      const px1 = Math.round(selBounds.x1 * zoom);
-      const px2 = Math.round(selBounds.x2 * zoom);
-      topCtx.fillStyle = '#e6f1f8';
-      topCtx.fillText(String(selBounds.x1), px1, 1);
-      if (px2 - px1 > 24) {
-        topCtx.fillText(String(selBounds.x2), px2, 1);
-      }
+      const px1 = Math.round(selBounds.x1 * zoom) + 0.5;
+      const px2 = Math.round(selBounds.x2 * zoom) + 0.5;
+      const py1 = Math.round(selBounds.y1 * zoom) + 0.5;
+      const py2 = Math.round(selBounds.y2 * zoom) + 0.5;
 
-      // Highlight ticks at x1 and x2
+      // Selection bounds ticks on top/bottom
       topCtx.strokeStyle = '#0084ff';
-      topCtx.lineWidth = 2;
+      topCtx.lineWidth = 1.5;
       topCtx.beginPath();
-      topCtx.moveTo(px1, 12);
-      topCtx.lineTo(px1, 22);
-      topCtx.moveTo(px2, 12);
-      topCtx.lineTo(px2, 22);
+      topCtx.moveTo(px1, rulerH - 12);
+      topCtx.lineTo(px1, rulerH);
+      topCtx.moveTo(px2, rulerH - 12);
+      topCtx.lineTo(px2, rulerH);
       topCtx.stroke();
 
-      const py1 = Math.round(selBounds.y1 * zoom);
-      const py2 = Math.round(selBounds.y2 * zoom);
-      rightCtx.fillStyle = '#e6f1f8';
-      rightCtx.fillText(String(selBounds.y1), 12, py1);
-      if (py2 - py1 > 14) {
-        rightCtx.fillText(String(selBounds.y2), 12, py2);
-      }
+      bottomCtx.strokeStyle = '#0084ff';
+      bottomCtx.lineWidth = 1.5;
+      bottomCtx.beginPath();
+      bottomCtx.moveTo(px1, 0);
+      bottomCtx.lineTo(px1, 12);
+      bottomCtx.moveTo(px2, 0);
+      bottomCtx.lineTo(px2, 12);
+      bottomCtx.stroke();
 
-      // Highlight ticks at y1 and y2
+      // Selection bounds ticks on left/right
+      leftCtx.strokeStyle = '#0084ff';
+      leftCtx.lineWidth = 1.5;
+      leftCtx.beginPath();
+      leftCtx.moveTo(rulerW - 12, py1);
+      leftCtx.lineTo(rulerW, py1);
+      leftCtx.moveTo(rulerW - 12, py2);
+      leftCtx.lineTo(rulerW, py2);
+      leftCtx.stroke();
+
       rightCtx.strokeStyle = '#0084ff';
-      rightCtx.lineWidth = 2;
+      rightCtx.lineWidth = 1.5;
       rightCtx.beginPath();
       rightCtx.moveTo(0, py1);
-      rightCtx.lineTo(10, py1);
+      rightCtx.lineTo(12, py1);
       rightCtx.moveTo(0, py2);
-      rightCtx.lineTo(10, py2);
+      rightCtx.lineTo(12, py2);
       rightCtx.stroke();
-    } else {
-      for (let x = 50; x < WIDTH; x += 50) {
-        topCtx.fillText(String(x), Math.round(x * zoom), 1);
-      }
-      for (let y = 50; y < HEIGHT; y += 50) {
-        rightCtx.fillText(String(y), 12, Math.round(y * zoom));
-      }
+    }
+
+    // Dynamic Cursor Position Highlight (Exact Match to User Reference)
+    if (activeCursorPoint && inside(activeCursorPoint.x, activeCursorPoint.y)) {
+      const cx = activeCursorPoint.x;
+      const cy = activeCursorPoint.y;
+      const cpx = Math.round((cx + 0.5) * zoom);
+      const cpy = Math.round((cy + 0.5) * zoom);
+
+      // Top ruler cursor
+      topCtx.strokeStyle = '#e6f2fa';
+      topCtx.lineWidth = 2;
+      topCtx.beginPath();
+      topCtx.moveTo(cpx + 0.5, rulerH - 11);
+      topCtx.lineTo(cpx + 0.5, rulerH);
+      topCtx.stroke();
+
+      topCtx.font = cursorFont;
+      topCtx.fillStyle = '#f0f7fd';
+      topCtx.fillText(String(cx), cpx, 2);
+
+      // Bottom ruler cursor
+      bottomCtx.strokeStyle = '#e6f2fa';
+      bottomCtx.lineWidth = 2;
+      bottomCtx.beginPath();
+      bottomCtx.moveTo(cpx + 0.5, 0);
+      bottomCtx.lineTo(cpx + 0.5, 11);
+      bottomCtx.stroke();
+
+      bottomCtx.font = cursorFont;
+      bottomCtx.fillStyle = '#f0f7fd';
+      bottomCtx.fillText(String(cx), cpx, rulerH - 2);
+
+      // Left ruler cursor
+      leftCtx.strokeStyle = '#e6f2fa';
+      leftCtx.lineWidth = 2;
+      leftCtx.beginPath();
+      leftCtx.moveTo(rulerW - 11, cpy + 0.5);
+      leftCtx.lineTo(rulerW, cpy + 0.5);
+      leftCtx.stroke();
+
+      leftCtx.font = cursorFont;
+      leftCtx.fillStyle = '#f0f7fd';
+      leftCtx.fillText(String(cy), rulerW - 13, cpy);
+
+      // Right ruler cursor
+      rightCtx.strokeStyle = '#e6f2fa';
+      rightCtx.lineWidth = 2;
+      rightCtx.beginPath();
+      rightCtx.moveTo(0, cpy + 0.5);
+      rightCtx.lineTo(11, cpy + 0.5);
+      rightCtx.stroke();
+
+      rightCtx.font = cursorFont;
+      rightCtx.fillStyle = '#f0f7fd';
+      rightCtx.fillText(String(cy), 13, cpy);
     }
   }
 
@@ -2895,11 +3067,22 @@
       cursorStatus.textContent = 'X: — · Y: —';
       pixelStatus.textContent = 'Pixel: —';
       updateEyedropperLiveUI(point);
+      if (activeCursorPoint !== null) {
+        activeCursorPoint = null;
+        updateCrosshairs(null);
+        drawRulers();
+      }
       return;
     }
     cursorStatus.textContent = `X: ${point.x} · Y: ${point.y}`;
     pixelStatus.textContent = `Pixel: ${hex565(framebuffer[indexFor(point.x, point.y)])}`;
     updateEyedropperLiveUI(point);
+
+    if (!activeCursorPoint || activeCursorPoint.x !== point.x || activeCursorPoint.y !== point.y) {
+      activeCursorPoint = { x: point.x, y: point.y };
+      updateCrosshairs(activeCursorPoint);
+      drawRulers();
+    }
   }
 
   function syncToolUI() {
@@ -3246,22 +3429,17 @@
       const maxR = getMaxCornerRadius(field);
       const r = clamp(Math.round(Number(field.cornerRadius) || 0), 0, maxR);
       field.cornerRadius = r;
-      const cornerSlider = document.getElementById('shapeCornerSlider');
       const cornerInput = document.getElementById('shapeCornerRadius');
-      const cornerReadout = document.getElementById('shapeCornerReadout');
       const cornerMaxHint = document.getElementById('shapeCornerMaxHint');
-      if (cornerSlider) {
-        cornerSlider.max = String(Math.max(1, maxR));
-        cornerSlider.value = String(r);
-      }
       if (cornerInput && document.activeElement !== cornerInput) {
         cornerInput.max = String(maxR);
         cornerInput.value = String(r);
       }
-      if (cornerReadout) cornerReadout.textContent = `${r} px`;
       if (cornerMaxHint) cornerMaxHint.textContent = `Máx: ${maxR} px`;
       document.querySelectorAll('#shapeCornerPresetGrid [data-corner-preset]').forEach((btn) => {
-        btn.classList.toggle('active', Number(btn.dataset.cornerPreset) === r);
+        const p = btn.dataset.cornerPreset;
+        const val = p === 'max' ? maxR : Number(p);
+        btn.classList.toggle('active', val === r);
       });
     }
 
@@ -3296,6 +3474,10 @@
     document.querySelectorAll('#shapeStrokePresetGrid [data-stroke-preset]').forEach((btn) => {
       btn.classList.toggle('active', Number(btn.dataset.strokePreset) === strokeSize);
     });
+    document.querySelectorAll('[data-shape-color-target="border"] .bar-palette-pill').forEach((pill) => {
+      const hex = pill.dataset.colorHex || pill.dataset.hex;
+      pill.classList.toggle('active', hex ? (hex888ToRgb565(hex) === fc) : false);
+    });
 
     // Fill (hidden for lines)
     if (shapeFillRow) shapeFillRow.hidden = isLine;
@@ -3304,6 +3486,10 @@
     if (shapeFillColorSwatch) shapeFillColorSwatch.style.background = rgb565ToCss(fillC);
     if (shapeFillColorInput) shapeFillColorInput.value = rgb565ToHex888(fillC);
     if (shapeFillColorCode) shapeFillColorCode.textContent = rgb565ToHex888(fillC).toUpperCase();
+    document.querySelectorAll('[data-shape-color-target="fill"] .bar-palette-pill').forEach((pill) => {
+      const hex = pill.dataset.colorHex || pill.dataset.hex;
+      pill.classList.toggle('active', hex ? (hex888ToRgb565(hex) === fillC) : false);
+    });
 
     // Tech tab C++ snippet preview
     const techPreview = document.getElementById('shapeTechCodePreview');
@@ -4525,7 +4711,10 @@
       event.target.closest('input') ||
       event.target.closest('select') ||
       event.target.id === 'topRulerCanvas' ||
-      event.target.id === 'rightRulerCanvas'
+      event.target.id === 'bottomRulerCanvas' ||
+      event.target.id === 'leftRulerCanvas' ||
+      event.target.id === 'rightRulerCanvas' ||
+      event.target.closest('.ruler-corner')
     ) {
       return;
     }
@@ -5056,6 +5245,9 @@
             rawState.x = f.x;
             rawState.y = f.y;
           }
+          if (f.type === 'NAV_BAR') {
+            window.JWPLCHMIPages?.syncNavBarConfigFromField?.(f);
+          }
           gestureChanged = true;
         });
       }
@@ -5402,6 +5594,9 @@
         rawState.x = f.x;
         rawState.y = f.y;
       }
+      if (f.type === 'NAV_BAR') {
+        window.JWPLCHMIPages?.syncNavBarConfigFromField?.(f);
+      }
     });
     syncShapeInspector();
     syncInputsFromState();
@@ -5620,10 +5815,14 @@
     const paneTech = document.getElementById('shapePaneTech');
 
     document.querySelectorAll('#shapeMainTabs [data-shape-tab]').forEach((btn) => {
-      btn.classList.toggle('is-active', btn.dataset.shapeTab === activeShapeMainTab);
+      const isAct = btn.dataset.shapeTab === activeShapeMainTab;
+      btn.classList.toggle('active', isAct);
+      btn.classList.toggle('is-active', isAct);
     });
     document.querySelectorAll('#shapeSubTabs [data-shape-subtab]').forEach((btn) => {
-      btn.classList.toggle('is-active', btn.dataset.shapeSubtab === activeShapeSubTab);
+      const isAct = btn.dataset.shapeSubtab === activeShapeSubTab;
+      btn.classList.toggle('active', isAct);
+      btn.classList.toggle('is-active', isAct);
     });
 
     if (activeShapeMainTab === 'tech') {
@@ -5642,7 +5841,8 @@
   }
 
   document.querySelectorAll('#shapeMainTabs [data-shape-tab]').forEach((btn) => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
       activeShapeMainTab = btn.dataset.shapeTab || 'design';
       syncShapeTabPanes();
       syncShapeInspector();
@@ -5650,7 +5850,8 @@
   });
 
   document.querySelectorAll('#shapeSubTabs [data-shape-subtab]').forEach((btn) => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
       activeShapeSubTab = btn.dataset.shapeSubtab || 'form';
       syncShapeTabPanes();
     });
@@ -5679,10 +5880,7 @@
     if (commit) commitHistory();
   }
 
-  const shapeCornerSliderEl = document.getElementById('shapeCornerSlider');
   const shapeCornerRadiusEl = document.getElementById('shapeCornerRadius');
-  shapeCornerSliderEl?.addEventListener('input', () => applyShapeCornerRadius(shapeCornerSliderEl.value, false));
-  shapeCornerSliderEl?.addEventListener('change', () => applyShapeCornerRadius(shapeCornerSliderEl.value, true));
   shapeCornerRadiusEl?.addEventListener('input', () => applyShapeCornerRadius(shapeCornerRadiusEl.value, false));
   shapeCornerRadiusEl?.addEventListener('change', () => applyShapeCornerRadius(shapeCornerRadiusEl.value, true));
 
@@ -5731,7 +5929,7 @@
       const f = selectedField(); if (!f) return;
       const group = pill.closest('[data-shape-color-target]');
       const target = group?.dataset.shapeColorTarget;
-      const hex = pill.dataset.colorHex;
+      const hex = pill.dataset.colorHex || pill.dataset.hex;
       if (!hex) return;
       const c = hex888ToRgb565(hex);
       if (target === 'border') {
@@ -5743,6 +5941,54 @@
       render();
       commitHistory();
     });
+  });
+
+  async function activateShapeEyedropper(target) {
+    const f = selectedField(); if (!f) return;
+    const borderBtn = document.getElementById('shapeBorderEyedropperBtn');
+    const fillBtn = document.getElementById('shapeFillEyedropperBtn');
+
+    if (window.EyeDropper) {
+      try {
+        if (target === 'border') borderBtn?.classList.add('active');
+        if (target === 'fill') fillBtn?.classList.add('active');
+        const eyeDropper = new window.EyeDropper();
+        const res = await eyeDropper.open();
+        if (res && res.sRGBHex) {
+          const c565 = hex888ToRgb565(res.sRGBHex);
+          if (target === 'border') {
+            f.frameColor = c565;
+          } else if (target === 'fill') {
+            f.fillColor = c565;
+          }
+          addRecentColor(c565);
+          syncShapeInspector();
+          render();
+          commitHistory();
+        }
+      } catch (e) {
+        // Canceled or aborted by user
+      } finally {
+        borderBtn?.classList.remove('active');
+        fillBtn?.classList.remove('active');
+      }
+      return;
+    }
+
+    // Fallback if native EyeDropper not supported: canvas pixel sampler
+    activeShapeColorDropperTarget = target;
+    if (target === 'border') borderBtn?.classList.add('active');
+    if (target === 'fill') fillBtn?.classList.add('active');
+    selectedTool = 'colorPicker';
+    syncToolUI();
+  }
+
+  document.getElementById('shapeBorderEyedropperBtn')?.addEventListener('click', () => {
+    activateShapeEyedropper('border');
+  });
+
+  document.getElementById('shapeFillEyedropperBtn')?.addEventListener('click', () => {
+    activateShapeEyedropper('fill');
   });
 
   document.getElementById('shapeCopyCodeBtn')?.addEventListener('click', () => {
@@ -5992,26 +6238,27 @@
       e.preventDefault();
     });
 
-    // Crosshairs tracking across the viewport
+    // Crosshairs & cursor tracking across the canvas stage
     canvasViewport.addEventListener('pointermove', (e) => {
-      const crosshairX = document.getElementById('crosshairX');
-      const crosshairY = document.getElementById('crosshairY');
-      if (crosshairX && crosshairY) {
-        const rect = canvasViewport.getBoundingClientRect();
-        const cx = e.clientX - rect.left;
-        const cy = e.clientY - rect.top;
-        crosshairX.style.display = 'block';
-        crosshairY.style.display = 'block';
-        crosshairX.style.left = `${cx}px`;
-        crosshairY.style.top = `${cy}px`;
+      if (e.target.closest('.canvas-toolbar') || e.target.closest('.right-vertical-toolbar')) {
+        if (activeCursorPoint) {
+          activeCursorPoint = null;
+          updateCrosshairs(null);
+          drawRulers();
+        }
+        return;
       }
+      const rawPoint = pointFromPointer(e);
+      updateCursor(rawPoint);
     });
 
     canvasViewport.addEventListener('pointerleave', () => {
-      const crosshairX = document.getElementById('crosshairX');
-      const crosshairY = document.getElementById('crosshairY');
-      if (crosshairX) crosshairX.style.display = 'none';
-      if (crosshairY) crosshairY.style.display = 'none';
+      activeCursorPoint = null;
+      updateCrosshairs(null);
+      drawRulers();
+      cursorStatus.textContent = 'X: — · Y: —';
+      pixelStatus.textContent = 'Pixel: —';
+      updateEyedropperLiveUI({ x: -1, y: -1 });
     });
 
     canvasViewport.addEventListener('wheel', (e) => {
