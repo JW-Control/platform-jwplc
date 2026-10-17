@@ -53,6 +53,8 @@ FIELDS={"HB":"hb","BOOT":"boot","IP":"ip","LINK":"link","ETH":"eth",
         "DHCP_REBIND_OK":"dhcp_rebind_ok","DHCP_REBIND_FAIL":"dhcp_rebind_fail",
         "IO_READY":"io_ready","IO_AGE_MS":"io_age_ms",
         "RTC_AGE_MS":"rtc_age_ms","TFT_READY":"tft_ready",
+        "TFT_DRAW":"tft_draw","TFT_FAIL":"tft_fail",
+        "TFT_MAX_US":"tft_max_us","TFT_SPI_WAIT_MAX_US":"tft_spi_wait_max_us",
         "FRAM":"fram","RTU_OK":"rtu_ok","RTU_FAIL":"rtu_fail"}
 
 
@@ -681,7 +683,7 @@ def selftest()->int:
       " DHCP_TICKS=12 DHCP_PEND=1 DHCP_RENEW_OK=0 DHCP_RENEW_FAIL=0"
       " DHCP_REBIND_OK=0 DHCP_REBIND_FAIL=0"
       " SD_OK=10 SD_FAIL=0 RTC=1 FRAM=10 UDP_RX=4 UDP_TX=4"
-      " RTU_OK=8 RTU_FAIL=0 IO_READY=1 IO_AGE_MS=50 RTC_AGE_MS=70 TFT_READY=1 BTN_EVENTS=2")
+      " RTU_OK=8 RTU_FAIL=0 IO_READY=1 IO_AGE_MS=50 RTC_AGE_MS=70 TFT_READY=1 TFT_DRAW=80 TFT_FAIL=0 TFT_MAX_US=1500 TFT_SPI_WAIT_MAX_US=120 BTN_EVENTS=2")
     ev=parse_heartbeat(sample,"a"*24,"R2",12.4)
     require(ev and ev["link"]==2 and ev["rtu_ok"]==8,
             "TEST_HEARTBEAT_POSITIVE")
