@@ -6,8 +6,9 @@
   snapshots READ-ONLY owner/epoch/pending, NO valida fault injection.
   Compilar SOLO con overlay G10-I + telemetria de laboratorio G10-R.
   H0 DIAGNOSTICO UNICO: LINK=-9 NO es estado fisico; R1-R4 NO VALIDOS.
-  Stage C: una unica llamada PHY real con persistencia de etapa en RTC,
-  inhibida en reinicios posteriores; no usar como aceptacion de R1-R4.
+  Stage D: 1 a 8 llamadas reales en los primeros READY cada ~1s.
+  RTC retiene etapa e intento tras WDT; no se repiten tras reinicio.
+  No usar como aceptacion de R1-R4.
 */
 #include <JWPLC_GlobalPeripherals.h>
 #include <JWPLC_Display.h>
@@ -36,16 +37,16 @@ static bool udpReady=false, udpPending=false, active=false, useRtu=false;
 static bool rtuReady=false;
 static uint32_t bootNonce=0;
 
-// H0 etapa C: prueba UNA sola vez tras upload, aun si hay WDT y reboot.
-// RTC_NOINIT retiene la ultima fase ante resets sin energia desconectada.
-// No usar como sensor LINK ni para la campana R1-R4.
-static constexpr uint32_t H0_LINK_MAGIC=0x48304C31UL; // "H0L1"
+// H0 D: reproduccion acotada de READY (maximo 8 lecturas PHY reales).
+// Nueva MAGIC frente al experimento C; no reiterar despues de reboot WDT.
+static constexpr uint32_t H0_LINK_MAGIC=0x48304C32UL; // "H0L2"
+static constexpr uint32_t H0_READY_MAX_CALLS=8;
 static RTC_NOINIT_ATTR volatile uint32_t h0LinkMagic;
 static RTC_NOINIT_ATTR volatile uint32_t h0LinkRun;
+static RTC_NOINIT_ATTR volatile uint32_t h0LinkAttempt;
 static RTC_NOINIT_ATTR volatile uint32_t h0LinkStage;
 static RTC_NOINIT_ATTR volatile uint32_t h0LinkStageInverse;
 static bool h0LinkProbePending=false;
-static uint32_t h0LinkProbeStartMs=0;
 
 extern "C" void g10rH0LinkStage(uint8_t stage) {
   if (h0LinkMagic!=H0_LINK_MAGIC || h0LinkRun!=1) return;
@@ -524,23 +525,24 @@ void setup() {
   JWPLCIdleScreen::setTitle("JWPLC Basic A13");
   Serial.begin(115200);
   Serial.println("G10R_PROTOCOL:R1R2R3R4_FAULT_LAB_V2");
-  Serial.println("G10R_H0_WDT_DIAG=SKIP_2_DIRECT_LINK_READS_NO_R1_R4");
-  Serial.println("G10R_H0_STAGE_DIAG=ONESHOT_REAL_LINK_RTC_NO_R1_R4");
+  Serial.println("G10R_H0_READY_BOUNDED=8");
+  Serial.println("G10R_H0_READY_DIAG=FIRST_READY_AT_1HZ_RTC_NO_R1_R4");
   if (h0LinkMagic!=H0_LINK_MAGIC) {
     h0LinkMagic=H0_LINK_MAGIC;
     h0LinkRun=0;
+    h0LinkAttempt=0;
     h0LinkStage=0;
     h0LinkStageInverse=~0UL;
     h0LinkProbePending=true;
-    Serial.println("G10R_H0_TRACE=FIRST_BOOT_ARMED_ONCE");
+    Serial.println("G10R_H0_TRACE=ARMED_8_READS_ONLY_INITIAL_BOOT");
   } else {
     const bool stageValid=(h0LinkStageInverse==~h0LinkStage);
     Serial.print("G10R_H0_PREVIOUS:RUN="); Serial.print(h0LinkRun);
+    Serial.print(" ATTEMPT="); Serial.print(h0LinkAttempt);
     Serial.print(" LAST_STAGE="); Serial.print(h0LinkStage);
     Serial.print(" VALID="); Serial.println(stageValid?1:0);
-    Serial.println("G10R_H0_TRACE=ALREADY_ATTEMPTED_NO_AUTO_REPEAT");
+    Serial.println("G10R_H0_TRACE=REBOOT_NO_AUTO_REPEAT");
   }
-  h0LinkProbeStartMs=millis();
   bootNonce=esp_random();
   Serial.print("G10R_BOOT:NONCE=");Serial.println(bootNonce,HEX);
   // El autoload normal inicia Ethernet y el resto de perifericos.
@@ -557,25 +559,8 @@ void setup() {
 void loop() {
   handleUsb();
   uint32_t now=millis();
-  // H0: autoload y perifericos INTACTOS; solo se eliminan dos lecturas
-  // PHY directas del sketch para atribucion causal del WDT.
-  // SOLO H0: un intento real al PHY, capturando la etapa en memoria RTC.
-  // Si el WDT reinicia, en el proximo arranque imprime ultima etapa
-  // y NO repite la sonda automaticamente (solo una escritura en COM4).
-  if (h0LinkProbePending &&
-      (uint32_t)(now-h0LinkProbeStartMs)>=1500) {
-    h0LinkProbePending=false;
-    h0LinkRun=1;
-    h0LinkStage=1;
-    h0LinkStageInverse=~1UL;
-    Serial.println("G10R_H0_PROBE_BEGIN=REAL_LINK_STATUS");
-    Serial.flush(); // Fuera de la region critica SPI
-    const int physical=(int)JWPLC_Ethernet.linkStatus();
-    h0LinkRun=2;
-    Serial.print("G10R_H0_PROBE_RETURN:PHY=");
-    Serial.print(physical);
-    Serial.print(" STAGE=");Serial.println(h0LinkStage);
-  }
+  // H0 D: invocar solo en READY como originalmente, no desde otro lugar.
+  // Si watchdog reinicia, la proxima ejecucion no repite; sin quitar autoload.
   // El core mantiene autoload. Este task no llama service() de Ethernet.
   r3Service();
   serviceUDP();
@@ -589,7 +574,26 @@ void loop() {
       Serial.print(" UDP=");Serial.print(udpReady?1:0);
       Serial.print(" RTU=");Serial.print(rtuReady?1:0);
       Serial.print(" BOOT=");Serial.print(bootNonce,HEX);
-      Serial.print(" LINK=-9"); // H0: no leer PHY directamente desde sketch
+      Serial.print(" LINK=");
+      if (h0LinkProbePending && h0LinkAttempt<H0_READY_MAX_CALLS) {
+        // Ubicacion original de LINK. Los tres stores ocurren antes de SPI.
+        const uint32_t attempt=h0LinkAttempt+1;
+        h0LinkAttempt=attempt;
+        h0LinkRun=1;
+        h0LinkStage=1;
+        h0LinkStageInverse=~1UL;
+        const int physical=(int)JWPLC_Ethernet.linkStatus();
+        h0LinkRun=2;
+        Serial.print(physical);
+        Serial.print(" H0_ATTEMPT=");Serial.print(attempt);
+        Serial.print(" H0_STAGE=");Serial.print(h0LinkStage);
+        if (attempt==H0_READY_MAX_CALLS) {
+          h0LinkProbePending=false;
+          Serial.print(" H0_CAP_REACHED=1");
+        }
+      } else {
+        Serial.print(-9); // centinela: sin consultar PHY
+      }
       Serial.println(" VER=R1R2R3R4_FAULT_LAB_V2");
     }
     return;
