@@ -41,6 +41,8 @@ AUTH="G10R AUTORIZO CAPTURA COM4 COM14 Y MANIOBRAS RJ45"
 # Estado intencionalmente fail-closed: R3 no cuenta con inyector físico
 # source-backed aprobado ni orquestación dedicada. R1/R2/R4 no lo sustituyen.
 R3_PHYSICAL_INJECTION_READY=False
+# Las cinco sondas pertenecen a UNA misma campaña H, no a uploads distintos.
+R3_PROBE_ORDER=("UDP","DNS","TCP","DHCP_CANCEL","DHCP_FINISH")
 READY_RE=re.compile(r"^G10R_READY:IP=(\d{1,3}(?:\.\d{1,3}){3}) TCP=1 UDP=1 RTU=1 BOOT=([0-9A-Fa-f]+) LINK=([012]) VER=R1R2R4_R3SNAPSHOT_V1$")
 HB_RE=re.compile(r"^G10R_HEARTBEAT:([0-9a-f]{24}) (.*)$")
 FIELDS={"HB":"hb","BOOT":"boot","IP":"ip","LINK":"link","ETH":"eth",
@@ -497,6 +499,68 @@ class Recorder:
         finally:
             halt.set();task.join(timeout=5);self.end()
 
+    def r3_suite(self):
+        """Un solo gate R3: cinco sondas TEMPORALES + tráfico continuo.
+        No ejecutable hasta que N0/N1/N2 y seguridad de banco aprueben
+        R3_PHYSICAL_INJECTION_READY (actualmente FALSE).
+        """
+        for mode in R3_PROBE_ORDER:
+            token=self.start("R3")
+            halt=threading.Event()
+            task=threading.Thread(target=self.traffic_worker,
+                                  args=("R3",1,halt),daemon=True)
+            task.start()
+            try:
+                # El firmware envía START/READY. No inyectar inmediatamente
+                # tras abrir UART; esperar al menos 1 heartbeat de la sesión.
+                deadline=time.monotonic()+12
+                ready=False
+                while time.monotonic()<deadline and not self.stop.is_set():
+                    with self.lock:
+                        ready=(self.latest is not None and
+                               self.latest.get("phase")=="R3")
+                    if ready:break
+                    self.stop.wait(.1)
+                require(ready,"R3_HEARTBEAT_NOT_READY_"+mode)
+                self.r3_udp_probe_request(mode)
+                terminal="G10R_R3_"+mode+":"+token+(
+                    " STATE=AWAIT_LIFECYCLE_REVIEW")
+                until=time.monotonic()+15
+                seen=False
+                while time.monotonic()<until and not self.stop.is_set():
+                    with self.lock:
+                        lines=[x["line"] for x in self.r3_udp_lines
+                               if x["token"]==token]
+                        seen=(terminal in lines)
+                        bad=any((" STATE="+state) in line for line in lines
+                            for state in ("PREPARE_FAILED","MUTEX_NOT_ACQUIRED",
+                              "TASK_CREATION_FAILED","CLOSE_RACE_REVIEW",
+                              "HOLD_TIMING_REVIEW","INJECTION_INCOMPLETE_REVIEW"))
+                    require(not bad,"R3_INJECTION_ABORT_"+mode)
+                    if seen:break
+                    self.stop.wait(.1)
+                require(seen,"R3_MISSING_TERMINAL_"+mode)
+                # Dar oportunidad al lector del ring de recuperar CLOSE/DRAIN.
+                if self.stop.wait(4):
+                    raise RuntimeError("R3_SERIAL_WORKER_ABORT_"+mode)
+            finally:
+                halt.set();task.join(timeout=5);self.end()
+            session=self.r3_udp_sessions[-1]
+            require(session["kind"]==mode,"R3_MODE_IDENTITY_MISMATCH")
+            p=ROOT/"tools/alpha13/gates/a13_g10_r_r3_probe_contract.py"
+            spec=importlib.util.spec_from_file_location("g10r3_contract_"+mode,p)
+            require(spec is not None and spec.loader is not None,
+                    "R3_PROBE_CONTRACT_MISSING")
+            module=importlib.util.module_from_spec(spec)
+            sys.modules[spec.name]=module
+            spec.loader.exec_module(module)
+            verdict=module.evaluate(session["lines"],session["trace"],
+                                    session["token"],mode)
+            require(verdict["status"]=="R3_UDP_SOURCE_CONTRACT_ONLY_NOT_PHYSICAL_PASS",
+                    "R3_PROBE_EVIDENCE_REVIEW_STOP_"+mode)
+        # Completar las 5 sondas NO equivale a validar DHCP renew/rebind,
+        # 1/2/4 clientes ni fairness TFT/TCA: H permanece sujeto al plan.
+
     def request_slave_result(self):
         token=uuid.uuid4().hex[:24]
         with self.lock:self.slave_report_token=token
@@ -539,7 +603,11 @@ def plan()->dict:
       "phases":{"R1_seconds":R1_SECONDS,"R2_cycles":3,
                 "R2_fault_seconds":R2_FAULT_SECONDS,
                 "R4_seconds":R4_SECONDS},
-      "R3":"INTEGRATED_PHYSICAL_INJECTION_NOT_IMPLEMENTED",
+      "R3":"FIVE_SOURCE_BACKED_PROBES_STAGED_LAB_ONLY",
+      "R3_probe_order":list(R3_PROBE_ORDER),
+      "R3_coverage_gaps":["DHCP_RENEW_REBIND_PHYSICAL",
+                          "TCP_CONCURRENT_1_2_4",
+                          "TFT_TCA_FAIRNESS_MEASUREMENTS"],
       "physical_campaign_enabled":R3_PHYSICAL_INJECTION_READY,
       "live": "FAIL_CLOSED_R3_MISSING"}
 
@@ -717,6 +785,7 @@ def live(evidence:Path)->int:
         require(ready,"G10_R_EXPECTED_FIRMWARE_PROTOCOL_NOT_FOUND")
         c.measure("R1",R1_SECONDS,5)
         c.link_cycles()
+        c.r3_suite()  # Un único hito con subfases source-backed y abortos.
         c.measure("R4",R4_SECONDS,5)
         result["slave_result"]=c.request_slave_result()
         require(result["slave_result"]["CRC"]==0 and
