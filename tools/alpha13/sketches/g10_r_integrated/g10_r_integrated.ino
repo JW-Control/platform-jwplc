@@ -7,6 +7,7 @@
   Compilar SOLO con overlay G10-I + telemetria de laboratorio G10-R.
 */
 #include <JWPLC_GlobalPeripherals.h>
+#include <JWPLC_Display.h>
 #include <JWPLC_ModbusTCP.h>
 #include <JWPLC_ModbusRTU.h>
 #include <JWPLC_RS485.h>
@@ -550,6 +551,11 @@ void loop() {
     Serial.print(" UDP_TX=");Serial.print(udpTx);
     Serial.print(" RTU_OK=");Serial.print(rtuOk);
     Serial.print(" RTU_FAIL=");Serial.print(rtuFail);
+    // Read-only: snapshots mantenidos por autoload, sin explorar el bus.
+    Serial.print(" IO_READY=");Serial.print(JWPLC_IO.ready()?1:0);
+    Serial.print(" IO_AGE_MS=");Serial.print((uint32_t)(now-JWPLC_IO.lastScanMs()));
+    Serial.print(" RTC_AGE_MS=");Serial.print((uint32_t)(now-JWPLC_Time.lastUpdateMs()));
+    Serial.print(" TFT_READY=");Serial.print(JWPLCDisplay::isReady()?1:0);
     Serial.print(" BTN_EVENTS=");Serial.println(btnEvents);
   }
 }
