@@ -87,8 +87,11 @@
     };
 
     project.apply = async (data) => {
-      const pixelMaps = validatePixelMaps(data?.pixelMaps);
+      validatePixelMaps(data?.pixelMaps);
       const result = await baseApply(data);
+      // Se relee después de baseApply: validateProject puede renumerar las
+      // páginas y reasignar/descartar PixelMaps (A15-2).
+      const pixelMaps = validatePixelMaps(data?.pixelMaps);
 
       await waitFor(() => window.JWPLCHMIPixelMaps?.import, 2000);
       window.JWPLCHMIPixelMaps?.import?.(pixelMaps);

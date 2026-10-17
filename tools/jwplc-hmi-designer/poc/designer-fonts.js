@@ -59,8 +59,14 @@
     return byId.has(id) ? id : 'GLCD';
   }
 
+  // A15-1: el libJWPLC_TFT.a publicado sólo dibuja GLCD. Mientras Alpha13 no
+  // regenere la librería con setFont/drawString, el preview usa GLCD para que
+  // el lienzo muestre lo mismo que la TFT.
+  const FIRMWARE_SUPPORTS_FONTS = false;
+
   // Compatibilidad con proyectos antiguos: sin campo font => GLCD.
   function fieldFont(field) {
+    if (!FIRMWARE_SUPPORTS_FONTS) return get('GLCD');
     return get(field && field.font);
   }
 
@@ -283,6 +289,7 @@
     get,
     normalizeId,
     fieldFont,
+    firmwareSupportsFonts: FIRMWARE_SUPPORTS_FONTS,
     measureWidth,
     lineHeight,
     rasterize,

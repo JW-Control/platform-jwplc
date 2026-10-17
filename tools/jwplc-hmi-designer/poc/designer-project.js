@@ -272,6 +272,31 @@
     };
   }
 
+  // A15-2: proyectos guardados tras borrar una página intermedia podían tener
+  // ids no contiguos (p. ej. [0, 2]). Se renumeran al abrir en lugar de
+  // rechazarlos; los PixelMaps de páginas inexistentes se descartan.
+  function normalizePageIds(data) {
+    const sorted = data.pages.slice().sort((a, b) => Number(a.id) - Number(b.id));
+    if (sorted.every((page, index) => Number(page.id) === index)) return;
+    const remap = new Map(sorted.map((page, index) => [Number(page.id), index]));
+    const isGlobal = (field) => field.type === 'NAV_BAR' || field.global;
+
+    data.pages = sorted.map((page) => ({ ...page, id: remap.get(Number(page.id)) }));
+    data.fields = data.fields
+      .filter((field) => isGlobal(field) || remap.has(Number(field.page || 0)))
+      .map((field) => isGlobal(field) ? field : { ...field, page: remap.get(Number(field.page || 0)) });
+    if (Array.isArray(data.pixelMaps)) {
+      const before = data.pixelMaps.length;
+      data.pixelMaps = data.pixelMaps
+        .filter((map) => remap.has(Number(map.page || 0)))
+        .map((map) => ({ ...map, page: remap.get(Number(map.page || 0)) }));
+      if (data.pixelMaps.length !== before) {
+        console.warn(`[JWPLC HMI] ${before - data.pixelMaps.length} PixelMap(s) de páginas borradas descartados al abrir.`);
+      }
+    }
+    data.activePage = remap.get(Number(data.activePage || 0)) ?? 0;
+  }
+
   function validateProject(data) {
     if (!data || data.format !== PROJECT_FORMAT || Number(data.version) !== PROJECT_VERSION) {
       throw new Error('El archivo no es un proyecto JWPLC HMI compatible con Alpha11.');
@@ -283,11 +308,7 @@
       throw new Error('El proyecto contiene una cantidad de campos inválida.');
     }
 
-    const ids = data.pages.map((page) => Number(page.id)).sort((a, b) => a - b);
-    if (ids.some((id, index) => id !== index)) {
-      throw new Error('Alpha11 requiere páginas contiguas desde 0.');
-    }
-
+    normalizePageIds(data);
     return data;
   }
 

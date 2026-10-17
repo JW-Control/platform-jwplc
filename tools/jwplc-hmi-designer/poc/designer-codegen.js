@@ -225,145 +225,277 @@
     return `char ${variable}[${capacity + 1}] = {};`;
   }
 
-  function setterHint(field, index) {
-    if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT'].includes(field.type)) {
-      const c = `0x${(field.frameColor || 0xFFFF).toString(16).toUpperCase().padStart(4, '0')}`;
-      const fc = `0x${(field.fillColor || field.frameColor || 0xFFFF).toString(16).toUpperCase().padStart(4, '0')}`;
-      const r = Math.max(0, Math.round(Number(field.cornerRadius) || 0));
-      const rot = ((Number(field.rotation) || 0) % 360 + 360) % 360;
-      const borderOn = field.borderEnabled !== false;
+  const STATIC_TYPES = ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT'];
 
-      if (field.type === 'LINE') return `JWPLC_Display.getTFT()->drawLine(${field.x}, ${field.y}, ${field.x2}, ${field.y2}, ${c});`;
-      if (field.type === 'RECT' && rot === 0) {
-        const minX = Math.min(field.x, field.x2);
-        const minY = Math.min(field.y, field.y2);
-        const w = Math.abs(field.x2 - field.x);
-        const h = Math.abs(field.y2 - field.y);
-        const cmds = [];
-        if (r > 0) {
-          if (field.fill) cmds.push(`JWPLC_Display.getTFT()->fillRoundRect(${minX}, ${minY}, ${w}, ${h}, ${r}, ${fc});`);
-          if (borderOn) cmds.push(`JWPLC_Display.getTFT()->drawRoundRect(${minX}, ${minY}, ${w}, ${h}, ${r}, ${c});`);
-        } else {
-          if (field.fill) cmds.push(`JWPLC_Display.getTFT()->fillRect(${minX}, ${minY}, ${w}, ${h}, ${fc});`);
-          if (borderOn) cmds.push(`JWPLC_Display.getTFT()->drawRect(${minX}, ${minY}, ${w}, ${h}, ${c});`);
+  function isStaticObject(field) {
+    return STATIC_TYPES.includes(field?.type);
+  }
+
+  function hex565(value, fallback = 0xFFFF) {
+    const number = Number.isFinite(Number(value)) ? Number(value) : fallback;
+    return `0x${(number & 0xFFFF).toString(16).toUpperCase().padStart(4, '0')}`;
+  }
+
+  function cppStringLiteral(value) {
+    return String(value || '')
+      .replace(/\\/g, '\\\\')
+      .replace(/"/g, '\\"')
+      .replace(/[\r\n]+/g, ' ');
+  }
+
+  // Helpers C++ que el header incluye sólo si algún objeto los usa.
+  // Se implementan con primitivas que existen en libJWPLC_TFT.a
+  // (drawFastHLine, drawPixel, drawLine), sin depender de TFT_eSPI.
+  const STATIC_HELPERS = {
+    swap: `static inline void jwplcHMISwap(int16_t &a, int16_t &b)
+{
+    const int16_t t = a;
+    a = b;
+    b = t;
+}`,
+    fillTriangle: `static void jwplcHMIFillTriangle(JWPLC_TFTClass &tft,
+    int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint16_t color)
+{
+    if (y0 > y1) { jwplcHMISwap(y0, y1); jwplcHMISwap(x0, x1); }
+    if (y1 > y2) { jwplcHMISwap(y2, y1); jwplcHMISwap(x2, x1); }
+    if (y0 > y1) { jwplcHMISwap(y0, y1); jwplcHMISwap(x0, x1); }
+
+    int16_t a;
+    int16_t b;
+    if (y0 == y2)
+    {
+        a = b = x0;
+        if (x1 < a) a = x1; else if (x1 > b) b = x1;
+        if (x2 < a) a = x2; else if (x2 > b) b = x2;
+        tft.drawFastHLine(a, y0, b - a + 1, color);
+        return;
+    }
+
+    const int32_t dx01 = x1 - x0, dy01 = y1 - y0;
+    const int32_t dx02 = x2 - x0, dy02 = y2 - y0;
+    const int32_t dx12 = x2 - x1, dy12 = y2 - y1;
+    int32_t sa = 0;
+    int32_t sb = 0;
+    const int16_t last = (y1 == y2) ? y1 : (int16_t)(y1 - 1);
+    int16_t y = y0;
+
+    for (; y <= last; y++)
+    {
+        a = (int16_t)(x0 + sa / dy01);
+        b = (int16_t)(x0 + sb / dy02);
+        sa += dx01;
+        sb += dx02;
+        if (a > b) jwplcHMISwap(a, b);
+        tft.drawFastHLine(a, y, b - a + 1, color);
+    }
+
+    sa = dx12 * (y - y1);
+    sb = dx02 * (y - y0);
+    for (; y <= y2; y++)
+    {
+        a = (int16_t)(x1 + sa / dy12);
+        b = (int16_t)(x0 + sb / dy02);
+        sa += dx12;
+        sb += dx02;
+        if (a > b) jwplcHMISwap(a, b);
+        tft.drawFastHLine(a, y, b - a + 1, color);
+    }
+}`,
+    fillEllipse: `static void jwplcHMIFillEllipse(JWPLC_TFTClass &tft,
+    int16_t cx, int16_t cy, int16_t rx, int16_t ry, uint16_t color)
+{
+    if (rx <= 0 || ry <= 0)
+    {
+        tft.drawFastHLine(cx - rx, cy, 2 * rx + 1, color);
+        return;
+    }
+    for (int16_t dy = -ry; dy <= ry; dy++)
+    {
+        const float t = 1.0f - ((float)dy * (float)dy) / ((float)ry * (float)ry);
+        const int16_t dx = (int16_t)((float)rx * sqrtf(t > 0.0f ? t : 0.0f) + 0.5f);
+        tft.drawFastHLine(cx - dx, cy + dy, 2 * dx + 1, color);
+    }
+}`,
+    drawEllipse: `static void jwplcHMIDrawEllipse(JWPLC_TFTClass &tft,
+    int16_t cx, int16_t cy, int16_t rx, int16_t ry, uint16_t color)
+{
+    if (rx <= 0 || ry <= 0)
+    {
+        tft.drawLine(cx - rx, cy - ry, cx + rx, cy + ry, color);
+        return;
+    }
+    // Elipse por punto medio (misma lógica que el preview del Designer).
+    const int32_t rx2 = (int32_t)rx * rx;
+    const int32_t ry2 = (int32_t)ry * ry;
+    int32_t x = 0;
+    int32_t y = ry;
+    int32_t px = 0;
+    int32_t py = 2 * rx2 * y;
+    int32_t p = ry2 - rx2 * ry + rx2 / 4;
+    while (px <= py)
+    {
+        tft.drawPixel(cx + x, cy + y, color);
+        tft.drawPixel(cx - x, cy + y, color);
+        tft.drawPixel(cx + x, cy - y, color);
+        tft.drawPixel(cx - x, cy - y, color);
+        x++;
+        px += 2 * ry2;
+        if (p < 0)
+        {
+            p += ry2 + px;
         }
-        return cmds.join('\n        ');
-      }
-      if (field.type === 'ELLIPSE') {
-        const cx = Math.round(Math.min(field.x, field.x2) + Math.abs(field.x2 - field.x) / 2);
-        const cy = Math.round(Math.min(field.y, field.y2) + Math.abs(field.y2 - field.y) / 2);
-        const rx = Math.round(Math.abs(field.x2 - field.x) / 2);
-        const ry = Math.round(Math.abs(field.y2 - field.y) / 2);
-        const cmds = [];
-        if (rx === ry) {
-          if (field.fill) cmds.push(`JWPLC_Display.getTFT()->fillCircle(${cx}, ${cy}, ${rx}, ${fc});`);
-          if (borderOn) cmds.push(`JWPLC_Display.getTFT()->drawCircle(${cx}, ${cy}, ${rx}, ${c});`);
-        } else {
-          if (field.fill) cmds.push(`JWPLC_Display.getTFT()->fillEllipse(${cx}, ${cy}, ${rx}, ${ry}, ${fc});`);
-          if (borderOn) cmds.push(`JWPLC_Display.getTFT()->drawEllipse(${cx}, ${cy}, ${rx}, ${ry}, ${c});`);
+        else
+        {
+            y--;
+            py -= 2 * rx2;
+            p += ry2 + px - py;
         }
-        return cmds.join('\n        ');
-      }
-      if (field.type === 'TRIANGLE' && r === 0 && rot === 0) {
-        const x1 = Math.round((field.x + field.x2) / 2), y1 = field.y;
-        const x2 = field.x, y2 = field.y2;
-        const x3 = field.x2, y3 = field.y2;
-        const cmds = [];
-        if (field.fill) cmds.push(`JWPLC_Display.getTFT()->fillTriangle(${x1}, ${y1}, ${x2}, ${y2}, ${x3}, ${y3}, ${fc});`);
-        if (borderOn) cmds.push(`JWPLC_Display.getTFT()->drawTriangle(${x1}, ${y1}, ${x2}, ${y2}, ${x3}, ${y3}, ${c});`);
-        return cmds.join('\n        ');
-      }
-      if (['RECT', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
-        const apiVerts = window.JWPLCHMIEditor?.getShapeVertices?.(field);
-        let pts = Array.isArray(apiVerts) && apiVerts.length >= 3 ? apiVerts : null;
-        if (!pts) {
-          const cx = (field.x + field.x2) / 2;
-          const cy = (field.y + field.y2) / 2;
-          const rx = Math.abs(field.x2 - field.x) / 2;
-          const ry = Math.abs(field.y2 - field.y) / 2;
-          const numSides = field.type === 'TRIANGLE' ? 3 : field.type === 'RECT' ? 4 : Math.max(3, Math.min(20, Math.trunc(Number(field.sides) || 5)));
-          pts = [];
-          for (let i = 0; i < numSides; i++) {
-            const angle = (i * 2 * Math.PI / numSides) - Math.PI / 2;
-            pts.push({
-              x: Math.round(cx + rx * Math.cos(angle)),
-              y: Math.round(cy + ry * Math.sin(angle))
-            });
-          }
+    }
+    p = (int32_t)(ry2 * (x + 0.5f) * (x + 0.5f) + rx2 * (y - 1) * (y - 1) - rx2 * ry2);
+    while (y >= 0)
+    {
+        tft.drawPixel(cx + x, cy + y, color);
+        tft.drawPixel(cx - x, cy + y, color);
+        tft.drawPixel(cx + x, cy - y, color);
+        tft.drawPixel(cx - x, cy - y, color);
+        y--;
+        py -= 2 * rx2;
+        if (p > 0)
+        {
+            p += rx2 - py;
         }
-        const cmds = [];
-        if (field.fill && pts.length >= 3) {
-          for (let i = 1; i < pts.length - 1; i++) {
-            cmds.push(`JWPLC_Display.getTFT()->fillTriangle(${pts[0].x}, ${pts[0].y}, ${pts[i].x}, ${pts[i].y}, ${pts[i + 1].x}, ${pts[i + 1].y}, ${fc});`);
-          }
+        else
+        {
+            x++;
+            px += 2 * ry2;
+            p += rx2 - py + px;
+        }
+    }
+}`
+  };
+
+  function shapeVertices(field) {
+    const apiVerts = window.JWPLCHMIEditor?.getShapeVertices?.(field);
+    if (Array.isArray(apiVerts) && apiVerts.length >= 3) {
+      return apiVerts.map((p) => ({ x: Math.round(p.x), y: Math.round(p.y) }));
+    }
+    const cx = (field.x + field.x2) / 2;
+    const cy = (field.y + field.y2) / 2;
+    const rx = Math.abs(field.x2 - field.x) / 2;
+    const ry = Math.abs(field.y2 - field.y) / 2;
+    const numSides = field.type === 'TRIANGLE' ? 3 : field.type === 'RECT' ? 4 : Math.max(3, Math.min(20, Math.trunc(Number(field.sides) || 5)));
+    const pts = [];
+    for (let i = 0; i < numSides; i++) {
+      const angle = (i * 2 * Math.PI / numSides) - Math.PI / 2;
+      pts.push({ x: Math.round(cx + rx * Math.cos(angle)), y: Math.round(cy + ry * Math.sin(angle)) });
+    }
+    return pts;
+  }
+
+  // Devuelve { lines: string[], helpers: Set<string> } para un objeto estático.
+  // Las líneas usan una referencia local `tft` (JWPLC_TFTClass &).
+  function staticDrawCode(field) {
+    const helpers = new Set();
+    const lines = [];
+    const c = hex565(field.frameColor);
+    const fc = hex565(field.fillColor ?? field.frameColor);
+    const r = Math.max(0, Math.round(Number(field.cornerRadius) || 0));
+    const rot = ((Number(field.rotation) || 0) % 360 + 360) % 360;
+    const borderOn = field.borderEnabled !== false;
+
+    if (field.type === 'LINE') {
+      const verts = window.JWPLCHMIEditor?.getShapeVertices?.(field);
+      const p0 = Array.isArray(verts) && verts[0] ? verts[0] : { x: field.x, y: field.y };
+      const p1 = Array.isArray(verts) && verts[1] ? verts[1] : { x: field.x2, y: field.y2 };
+      lines.push(`tft.drawLine(${Math.round(p0.x)}, ${Math.round(p0.y)}, ${Math.round(p1.x)}, ${Math.round(p1.y)}, ${c});`);
+      return { lines, helpers };
+    }
+
+    if (field.type === 'RECT' && rot === 0) {
+      const minX = Math.min(field.x, field.x2);
+      const minY = Math.min(field.y, field.y2);
+      const w = Math.abs(field.x2 - field.x);
+      const h = Math.abs(field.y2 - field.y);
+      if (r > 0) {
+        if (field.fill) lines.push(`tft.fillRoundRect(${minX}, ${minY}, ${w}, ${h}, ${r}, ${fc});`);
+        if (borderOn) lines.push(`tft.drawRoundRect(${minX}, ${minY}, ${w}, ${h}, ${r}, ${c});`);
+      } else {
+        if (field.fill) lines.push(`tft.fillRect(${minX}, ${minY}, ${w}, ${h}, ${fc});`);
+        if (borderOn) lines.push(`tft.drawRect(${minX}, ${minY}, ${w}, ${h}, ${c});`);
+      }
+      return { lines, helpers };
+    }
+
+    if (field.type === 'ELLIPSE') {
+      const cx = Math.round(Math.min(field.x, field.x2) + Math.abs(field.x2 - field.x) / 2);
+      const cy = Math.round(Math.min(field.y, field.y2) + Math.abs(field.y2 - field.y) / 2);
+      const rx = Math.round(Math.abs(field.x2 - field.x) / 2);
+      const ry = Math.round(Math.abs(field.y2 - field.y) / 2);
+      if (rx === ry) {
+        if (field.fill) lines.push(`tft.fillCircle(${cx}, ${cy}, ${rx}, ${fc});`);
+        if (borderOn) lines.push(`tft.drawCircle(${cx}, ${cy}, ${rx}, ${c});`);
+      } else {
+        if (field.fill) {
+          helpers.add('fillEllipse');
+          lines.push(`jwplcHMIFillEllipse(tft, ${cx}, ${cy}, ${rx}, ${ry}, ${fc});`);
         }
         if (borderOn) {
-          for (let i = 0; i < pts.length; i++) {
-            const p1 = pts[i];
-            const p2 = pts[(i + 1) % pts.length];
-            cmds.push(`JWPLC_Display.getTFT()->drawLine(${p1.x}, ${p1.y}, ${p2.x}, ${p2.y}, ${c});`);
-          }
-        }
-        return cmds.join('\n        ');
-      }
-      if (field.type === 'RAW_TEXT') {
-        const RAW_BG_PAD = 2;
-        const fg = `0x${(field.textColor ?? 0xFFFF).toString(16).toUpperCase().padStart(4, '0')}`;
-        const text = String(field.text || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-        const fonts = window.JWPLCDesignerFonts;
-        const font = fonts ? fonts.fieldFont(field) : null;
-        if (font && font.kind !== 'glcd') {
-          const tft = 'JWPLC_Display.getTFT()->';
-          const pad = '\n        ';
-          const lines = [];
-          if (!field.transparentBackground) {
-            const bg = `0x${(field.backgroundColor ?? 0x0000).toString(16).toUpperCase().padStart(4, '0')}`;
-            const w = fonts.measureWidth(font, String(field.text || ''), field.size || 1);
-            const h = fonts.lineHeight(font, field.size || 1);
-            // Padding de RAW_BG_PAD px alrededor del texto (igual que el preview)
-            lines.push(`${tft}fillRect(${field.x - RAW_BG_PAD}, ${field.y - RAW_BG_PAD}, ${w + RAW_BG_PAD * 2}, ${h + RAW_BG_PAD * 2}, ${bg});`);
-          }
-          lines.push(
-            `${tft}setFont(${fonts.cppSymbol(font.id)});`,
-            `${tft}setTextDatum(JWPLC_TFTDatum::TOP_LEFT);`,
-            `${tft}setTextSize(${field.size || 1});`,
-            `${tft}setTextColor(${fg});`,
-            `${tft}drawString("${text}", ${field.x}, ${field.y});`,
-            `${tft}setFont(JWPLC_TFTFont::GLCD);`
-          );
-          return lines.join(pad);
-        }
-        // GLCD
-        const tft = 'JWPLC_Display.getTFT()->';
-        const pad = '\n        ';
-        if (field.transparentBackground) {
-          return [
-            `${tft}setCursor(${field.x}, ${field.y});`,
-            `${tft}setTextSize(${field.size || 1});`,
-            `${tft}setTextColor(${fg});`,
-            `${tft}print("${text}");`
-          ].join(pad);
-        } else {
-          const bg = `0x${(field.backgroundColor ?? 0x0000).toString(16).toUpperCase().padStart(4, '0')}`;
-          const fonts2 = window.JWPLCDesignerFonts;
-          const glcd = fonts2 ? fonts2.get('GLCD') : null;
-          const scale = field.size || 1;
-          // Bounds GLCD: 6*scale*chars - scale de ancho, 7*scale de alto
-          const chars = String(field.text || '').length;
-          const w = chars > 0 ? chars * 6 * scale - scale : 0;
-          const h = 7 * scale;
-          return [
-            // fillRect con padding antes del print (igual que el preview)
-            `${tft}fillRect(${field.x - RAW_BG_PAD}, ${field.y - RAW_BG_PAD}, ${w + RAW_BG_PAD * 2}, ${h + RAW_BG_PAD * 2}, ${bg});`,
-            `${tft}setCursor(${field.x}, ${field.y});`,
-            `${tft}setTextSize(${scale});`,
-            `${tft}setTextColor(${fg});`,
-            `${tft}print("${text}");`
-          ].join(pad);
+          helpers.add('drawEllipse');
+          lines.push(`jwplcHMIDrawEllipse(tft, ${cx}, ${cy}, ${rx}, ${ry}, ${c});`);
         }
       }
-
+      return { lines, helpers };
     }
+
+    if (['RECT', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
+      const pts = shapeVertices(field);
+      if (field.fill && pts.length >= 3) {
+        helpers.add('swap');
+        helpers.add('fillTriangle');
+        for (let i = 1; i < pts.length - 1; i++) {
+          lines.push(`jwplcHMIFillTriangle(tft, ${pts[0].x}, ${pts[0].y}, ${pts[i].x}, ${pts[i].y}, ${pts[i + 1].x}, ${pts[i + 1].y}, ${fc});`);
+        }
+      }
+      if (borderOn) {
+        for (let i = 0; i < pts.length; i++) {
+          const p1 = pts[i];
+          const p2 = pts[(i + 1) % pts.length];
+          lines.push(`tft.drawLine(${p1.x}, ${p1.y}, ${p2.x}, ${p2.y}, ${c});`);
+        }
+      }
+      return { lines, helpers };
+    }
+
+    if (field.type === 'RAW_TEXT') {
+      const RAW_BG_PAD = 2;
+      const fg = hex565(field.textColor ?? 0xFFFF);
+      const text = cppStringLiteral(field.text);
+      const scale = Math.max(1, Number(field.size) || 1);
+      const requestedFont = String(field.font || 'GLCD');
+      if (requestedFont !== 'GLCD') {
+        // libJWPLC_TFT.a publicado no incluye setFont/drawString (A15-0 B3).
+        lines.push(`// Fuente ${requestedFont.replace(/[^A-Za-z0-9_]/g, '')} requiere firmware con fuentes (Alpha13); se dibuja con GLCD.`);
+      }
+      if (!field.transparentBackground) {
+        const chars = String(field.text || '').length;
+        const w = chars > 0 ? chars * 6 * scale - scale : 0;
+        const h = 7 * scale;
+        lines.push(`tft.fillRect(${field.x - RAW_BG_PAD}, ${field.y - RAW_BG_PAD}, ${w + RAW_BG_PAD * 2}, ${h + RAW_BG_PAD * 2}, ${hex565(field.backgroundColor ?? 0x0000)});`);
+      }
+      lines.push(
+        `tft.setCursor(${field.x}, ${field.y});`,
+        `tft.setTextSize(${scale});`,
+        `tft.setTextColor(${fg});`,
+        `tft.print("${text}");`
+      );
+      return { lines, helpers };
+    }
+
+    return { lines, helpers };
+  }
+
+  function setterHint(field, index) {
+    if (isStaticObject(field)) return '';
     const id = canonicalFor(field, 'id', field.id, index);
     const variable = canonicalFor(field, 'variable', field.variable, index);
     if (field.type === 'VALUE') return `JWPLC_Display.setValue(${id}, ${variable});`;
@@ -397,12 +529,11 @@
     if (!cfg || !cfg.enabled || pageList.length <= 1) return '';
 
     const lines = [];
-    lines.push(`// =====================================================`);
     lines.push(`// Barra de Navegación HMI Autogenerada (ST7789)`);
-    lines.push(`// =====================================================`);
+    lines.push(`// Se dibuja una vez por página desde jwplcUIPageEnter().`);
     lines.push(`static void jwplcDrawPageNavBar(uint8_t activePage)`);
     lines.push(`{`);
-    lines.push(`    auto &tft = JWPLC_Display.display();`);
+    lines.push(`    JWPLC_TFTClass &tft = JWPLC_Display.tft();`);
 
     const layout = hmiPages.computeNavBarLayout ? hmiPages.computeNavBarLayout(pageList, 0) : null;
     const y = layout ? layout.y : 147;
@@ -413,9 +544,9 @@
     lines.push(`    switch (activePage)`);
     lines.push(`    {`);
 
-    pageList.forEach((page, idx) => {
+    pageList.forEach((page) => {
       const curLayout = hmiPages.computeNavBarLayout ? hmiPages.computeNavBarLayout(pageList, page.id) : null;
-      lines.push(`    case ${idx}:`);
+      lines.push(`    case ${Number(page.id)}:`);
       lines.push(`        {`);
       if (curLayout && curLayout.tabs) {
         curLayout.tabs.forEach((tab) => {
@@ -473,6 +604,10 @@
     return lines.join('\n');
   }
 
+  function hasNavBar() {
+    return Boolean(window.JWPLCHMIPages?.getNavBarConfig?.()?.enabled && pages().length > 1);
+  }
+
   function generatedUIUpdateBlock() {
     const fields = allFields();
     const symbols = new Map(
@@ -480,13 +615,13 @@
     const cases = [];
 
     pages().forEach((page) => {
-      const entries = fields
+      const lines = fields
         .map((field, index) => ({ field, index }))
-        .filter(({ field }) => Number(field.page || 0) === Number(page.id));
-      if (!entries.length) return;
+        .filter(({ field }) => Number(field.page || 0) === Number(page.id) && !isStaticObject(field))
+        .map(({ field, index }) => `        ${setterHint(field, index)}`);
+      if (!lines.length) return;
 
       const symbol = symbols.get(Number(page.id)) || String(Number(page.id));
-      const lines = entries.map(({ field, index }) => `        ${setterHint(field, index)}`);
       cases.push(
         `    case ${symbol}:\n` +
         `        // ${pageComment(page)}\n` +
@@ -494,24 +629,95 @@
         `        break;`);
     });
 
-    const hasNavBar = Boolean(window.JWPLCHMIPages?.getNavBarConfig?.()?.enabled && pages().length > 1);
-    const navBarCall = hasNavBar
-      ? `    static uint8_t s_lastNavBarPage = 255;\n    const uint8_t curPage = JWPLC_Display.userPage();\n    if (curPage != s_lastNavBarPage)\n    {\n        s_lastNavBarPage = curPage;\n        jwplcDrawPageNavBar(curPage);\n    }\n\n`
-      : '';
-    const switchTarget = hasNavBar ? 'curPage' : 'JWPLC_Display.userPage()';
+    const body = cases.length
+      ? `    switch (JWPLC_Display.userPage())\n` +
+        `    {\n` +
+        `${cases.join('\n\n')}\n\n` +
+        `    default:\n` +
+        `        break;\n` +
+        `    }\n`
+      : `    // Sin campos dinámicos.\n`;
 
-    return `// Sincronización gráfica autogenerada.\n` +
+    return `// Sincronización gráfica autogenerada (cada tick de refresco).\n` +
+      `// Sólo setters: el runtime redibuja únicamente los campos que cambiaron.\n` +
       `// La lógica de aplicación debe permanecer en loop().\n` +
       `void jwplcUIUpdate()\n` +
       `{\n` +
-      `${navBarCall}` +
-      `    switch (${switchTarget})\n` +
-      `    {\n` +
-      `${cases.join('\n\n')}\n\n` +
-      `    default:\n` +
-      `        break;\n` +
-      `    }\n` +
+      body +
       `}`;
+  }
+
+  // Gráfica estática: se dibuja una sola vez al entrar a cada página.
+  // El runtime llama jwplcUIPageEnter() con el bus TFT tomado (batch),
+  // después de limpiar la pantalla y antes de dibujar los campos.
+  function generatedPageEnterBlock() {
+    const fields = allFields();
+    const symbols = new Map(
+      pageSymbols().map(({ page, symbol }) => [Number(page.id), symbol]));
+    const helpers = new Set();
+    const cases = [];
+
+    pages().forEach((page) => {
+      const lines = [];
+      fields
+        .filter((field) => Number(field.page || 0) === Number(page.id) && isStaticObject(field) && !field.hidden)
+        .sort((a, b) => (Number(a.layerOrder) || 0) - (Number(b.layerOrder) || 0))
+        .forEach((field) => {
+          const code = staticDrawCode(field);
+          code.helpers.forEach((name) => helpers.add(name));
+          if (!code.lines.length) return;
+          lines.push(`        // ${String(field.name || field.type).replace(/[\r\n]+/g, ' ')}`);
+          code.lines.forEach((line) => lines.push(`        ${line}`));
+        });
+      if (!lines.length) return;
+      const symbol = symbols.get(Number(page.id)) || String(Number(page.id));
+      cases.push(
+        `    case ${symbol}:\n` +
+        `${lines.join('\n')}\n` +
+        `        break;`);
+    });
+
+    const navBar = hasNavBar();
+    if (!cases.length && !navBar) return { block: '', helpers: [] };
+
+    const parts = [];
+    parts.push(`// Gráfica estática por página (se dibuja una vez al entrar a la página).`);
+    parts.push(`// Para lógica propia al cambiar de página, define en el sketch:`);
+    parts.push(`//   extern "C" void jwplcHMIUserPageEnter(uint8_t page) { ... }`);
+    parts.push(`extern "C" void jwplcHMIUserPageEnter(uint8_t page) __attribute__((weak));`);
+    parts.push(``);
+    parts.push(`void jwplcUIPageEnter(uint8_t page)`);
+    parts.push(`{`);
+    if (cases.length) {
+      parts.push(`    JWPLC_TFTClass &tft = JWPLC_Display.tft();`);
+      parts.push(``);
+      parts.push(`    switch (page)`);
+      parts.push(`    {`);
+      parts.push(cases.join('\n\n'));
+      parts.push(``);
+      parts.push(`    default:`);
+      parts.push(`        break;`);
+      parts.push(`    }`);
+    }
+    if (navBar) {
+      parts.push(``);
+      parts.push(`    jwplcDrawPageNavBar(page);`);
+    }
+    parts.push(``);
+    parts.push(`    if (jwplcHMIUserPageEnter)`);
+    parts.push(`    {`);
+    parts.push(`        jwplcHMIUserPageEnter(page);`);
+    parts.push(`    }`);
+    parts.push(`}`);
+
+    const order = ['swap', 'fillTriangle', 'fillEllipse', 'drawEllipse'];
+    return { block: parts.join('\n'), helpers: order.filter((name) => helpers.has(name)) };
+  }
+
+  function helpersBlock(names) {
+    if (!names.length) return '';
+    return `// Primitivas auxiliares (sólo usan API pública de JWPLC_TFT).\n` +
+      names.map((name) => STATIC_HELPERS[name]).join('\n\n');
   }
 
   function pageEnumBlock() {
@@ -533,16 +739,23 @@
   }
 
   function groupGeneratedSections(text) {
+    // Sólo los campos del runtime (TEXT/VALUE/BOOL/BAR) llevan HMIFieldId,
+    // numerados de forma consecutiva.
+    let fieldSerial = 0;
     const enumLines = groupedChunks((field, index) => {
-      if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) return '';
+      if (isStaticObject(field)) return '';
+      fieldSerial += 1;
       const id = canonicalFor(field, 'id', field.id, index);
-      return `    ${id} = ${index + 1},`;
+      return `    ${id} = ${fieldSerial},`;
     }, '    ');
 
     const variables = groupedChunks((field, index) => variableDeclaration(field, index));
-    const navBarBlock = navBarFunctionBlock();
+    const navBarBlock = hasNavBar() ? navBarFunctionBlock() : '';
+    const pageEnter = generatedPageEnterBlock();
     const uiUpdate = generatedUIUpdateBlock();
-    const fullUiBlock = navBarBlock ? `${navBarBlock}\n\n${uiUpdate}` : uiUpdate;
+    const fullUiBlock = [helpersBlock(pageEnter.helpers), navBarBlock, pageEnter.block, uiUpdate]
+      .filter(Boolean)
+      .join('\n\n');
     const pageEnum = pageEnumBlock();
 
     if (/enum HMIPageId : uint8_t\n\{[\s\S]*?\n\};/.test(text)) {
@@ -565,9 +778,11 @@
 
     const generatedTailMarker = text.indexOf('// Sincronización gráfica autogenerada.');
     const navBarTailMarker = text.indexOf('// Barra de Navegación HMI Autogenerada');
+    const helpersTailMarker = text.indexOf('// Primitivas auxiliares (sólo usan API pública de JWPLC_TFT).');
+    const pageEnterTailMarker = text.indexOf('// Gráfica estática por página');
     const legacyTailMarker = text.indexOf('// jwplcUIUpdate() NO se genera.');
     const settersTailMarker = text.indexOf('// Setters públicos que corresponden a este diseño:');
-    const tailCandidates = [generatedTailMarker, navBarTailMarker, legacyTailMarker, settersTailMarker]
+    const tailCandidates = [generatedTailMarker, navBarTailMarker, helpersTailMarker, pageEnterTailMarker, legacyTailMarker, settersTailMarker]
       .filter((value) => value >= 0);
 
     if (tailCandidates.length) {
@@ -635,6 +850,11 @@
 
   window.JWPLCHMICodegen = {
     validateIdentifiers: validationIssues,
+    // Fragmento C++ de un objeto estático, tal como se emite en jwplcUIPageEnter().
+    staticDrawSnippet: (field) => {
+      const code = staticDrawCode(field);
+      return ['JWPLC_TFTClass &tft = JWPLC_Display.tft();', ...code.lines].join('\n');
+    },
     getPageSymbols: () => pageSymbols().map(({ page, symbol }) => ({ id: Number(page.id), name: page.name, symbol })),
     refresh: patchGeneratedCode
   };

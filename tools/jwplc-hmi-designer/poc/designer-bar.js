@@ -105,7 +105,7 @@
                 <span class="bar-preset-name">Barra</span>
                 <span class="bar-preset-desc">Nivel clásico</span>
               </button>
-              <button type="button" class="bar-preset-btn" data-bar-preset="CIRCULAR" title="Medidor circular o anillo de carga">
+              <button type="button" class="bar-preset-btn insp-needs-fw" data-bar-preset="CIRCULAR" disabled title="Requiere firmware: JWPLC_UI todavía no dibuja medidores circulares">
                 <span class="bar-preset-icon">
                   <svg width="22" height="22" viewBox="0 0 22 22" fill="none" style="display:block;margin:0 auto 4px;">
                     <circle cx="11" cy="11" r="8" stroke="#253a48" stroke-width="2.5" />
@@ -113,7 +113,7 @@
                   </svg>
                 </span>
                 <span class="bar-preset-name">Circular</span>
-                <span class="bar-preset-desc">Arco / % Carga</span>
+                <span class="bar-preset-desc">Requiere firmware</span>
               </button>
             </div>
           </div>
@@ -156,7 +156,7 @@
                 <label class="field-label">Tipo de Relleno
                   <select id="barFormaFillMode" class="field-input">
                     <option value="SOLID" selected>Color Sólido</option>
-                    <option value="GRADIENT">Degradado</option>
+                    <option value="GRADIENT" disabled>Degradado (requiere firmware)</option>
                   </select>
                 </label>
               </div>
@@ -350,7 +350,7 @@
               <label class="field-label full" style="margin-top:6px;">Tipo de Relleno Arco
                 <select id="barFormaCircleColorMode" class="field-input">
                   <option value="SOLID" selected>Color Sólido</option>
-                  <option value="GRADIENT">Degradado</option>
+                  <option value="GRADIENT" disabled>Degradado (requiere firmware)</option>
                 </select>
               </label>
             </div>
@@ -2902,6 +2902,7 @@
   document.querySelectorAll('.bar-preset-btn').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
+      if (btn.disabled) return;
       const preset = btn.dataset.barPreset;
       if (preset) setPreset(preset, true);
     });
@@ -3324,23 +3325,17 @@
     const unit = field.barUnit ? `"${cppString(field.barUnit)}"` : 'nullptr';
     const g = barGeometry(field);
 
-    if (field.barPreset === 'CIRCULAR') {
-      return `    // Medidor Circular (${field.circleSweep || 360}°) - Estilo: ${field.circleStyle || 'CONTINUOUS'} - Inicio: ${field.circleStartAngle || 'TOP'} (${field.circleDirection || 'CW'})\n` +
-             `    JWPLC_UICircularField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}, ${g.fieldW}, ${g.fieldH}),\n        JWPLC_UIText(${label}, ${unit}),\n        JWPLC_UIRange(${cppFloat(field.barMin)}, ${cppFloat(field.barMax)}),\n        ${field.circleSweep || 360},\n        ${field.page || 0},\n        JWPLC_UIColors(\n            ${hex565(field.labelColor)},\n            ${hex565(field.valueColor)},\n            ${hex565(field.circleTrackColor || 0x2104)},\n            ${hex565(field.frameColor)}))`;
-    }
-
+    // A15-1: JWPLC_UICircularField y JWPLC_UIGradientBarField no existen en
+    // JWPLC_UI (firmware publicado). Se emite la barra lineal soportada y se
+    // deja constancia en el header; la UI deshabilita esas variantes.
+    const isCircular = field.barPreset === 'CIRCULAR';
     const isGrad = (field.barFillMode === 'GRADIENT' || field.barPreset === 'GRADIENT');
     const bCol = Number.isFinite(Number(field.barBorderColor)) ? Number(field.barBorderColor) : 0xFFFF;
     const borderComment = field.barBorderEnabled ? `, Borde: ${hex565(bCol)} (${field.barBorderWidth || 1}px)` : '';
-    const styleHeader = `    // Barra ${isGrad ? 'con Degradado' : 'Sólida'} (${field.barOrientation || 'HORIZONTAL'}) - Estilo: ${field.barStyle || 'SOLID'}, Radio: ${field.barCornerRadius || 0}${borderComment}\n`;
-    if (isGrad) {
-      const rect = field.barAutoWidth
-        ? `JWPLC_UIRect(${field.x}, ${field.y})`
-        : `JWPLC_UIRect(${field.x}, ${field.y}, ${Math.max(20, Math.min(WIDTH, Math.trunc(Number(field.barWidth) || 110)))}, ${field.barOrientation === 'VERTICAL' ? Math.max(10, Math.trunc(Number(field.barHeight) || 60)) : 'JWPLC_UI_AUTO'})`;
-      return `${styleHeader}` +
-             `    JWPLC_UIGradientBarField(\n        ${id},\n        ${rect},\n        JWPLC_UIText(${label}, ${unit}),\n        JWPLC_UIRange(${cppFloat(field.barMin)}, ${cppFloat(field.barMax)}),\n        JWPLC_UIBarStyle(\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout}),\n        ${hex565(field.valueColor)}, /* Inicio */\n        ${hex565(field.valueColorEnd || 0x07E0)}, /* Fin */\n        ${field.page || 0},\n        JWPLC_UIColors(\n            ${hex565(field.labelColor)},\n            ${hex565(field.valueColor)},\n            ${hex565(field.trackColor || 0x18C3)},\n            ${hex565(field.frameColor)}))`;
-    }
-
+    const unsupportedNote = isCircular
+      ? '    // AVISO: medidor circular requiere firmware (Alpha13); se genera barra lineal.\n'
+      : (isGrad ? '    // AVISO: degradado requiere firmware (Alpha13); se genera color sólido.\n' : '');
+    const styleHeader = `${unsupportedNote}    // Barra Sólida (${field.barOrientation || 'HORIZONTAL'}) - Estilo: ${field.barStyle || 'SOLID'}, Radio: ${field.barCornerRadius || 0}${borderComment}\n`;
     const rect = field.barAutoWidth
       ? `JWPLC_UIRect(${field.x}, ${field.y})`
       : `JWPLC_UIRect(${field.x}, ${field.y}, ${Math.max(20, Math.min(WIDTH, Math.trunc(Number(field.barWidth) || 110)))}, ${field.barOrientation === 'VERTICAL' ? Math.max(10, Math.trunc(Number(field.barHeight) || 60)) : 'JWPLC_UI_AUTO'})`;

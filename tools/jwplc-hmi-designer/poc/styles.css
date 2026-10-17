@@ -1899,6 +1899,15 @@ body.bottom-collapsed .bottom-tabs { border-bottom: 0; }
   color: #fff;
   transform: translateY(-1px);
 }
+.insp-needs-fw,
+.insp-needs-fw:hover {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  background: #13222e;
+  border-color: #283d4d;
+  color: #8aa0b2;
+}
 .bar-preset-btn.active {
   background: rgba(255, 154, 67, 0.16);
   border-color: #ff9a43;

@@ -1522,7 +1522,7 @@
 
     // Ahora pintamos los glifos con fondo transparente (ya lo manejamos arriba).
     const fonts = window.JWPLCDesignerFonts;
-    const font = fonts ? fonts.get(fontId) : null;
+    const font = fonts ? fonts.get(fonts.firmwareSupportsFonts ? fontId : 'GLCD') : null;
     if (!font || font.kind === 'glcd') {
       drawClassicTextAt(buffer, text, x, y, foreground, null, size);
       return;
@@ -1539,7 +1539,7 @@
 
   function rawTextBounds(text, size, fontId) {
     const fonts = window.JWPLCDesignerFonts;
-    const font = fonts ? fonts.get(fontId) : null;
+    const font = fonts ? fonts.get(fonts.firmwareSupportsFonts ? fontId : 'GLCD') : null;
     if (!font || font.kind === 'glcd') return nominalTextBounds(text, size);
     if (!text) return { width: 0, height: 0 };
     return { width: fonts.measureWidth(font, text, size), height: fonts.lineHeight(font, size) };
@@ -2006,7 +2006,12 @@
 
   function buildContractText() {
     const validFields = hmiFields.filter(f => !['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT', 'NAV_BAR'].includes(f.type));
-    if (validFields.length === 0) return '// Sin campos HMI. Agrega TEXT, VALUE, BOOL o BAR para comenzar.';
+    const hasStaticObjects = hmiFields.some(f => ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT', 'NAV_BAR'].includes(f.type));
+    if (validFields.length === 0 && !hasStaticObjects) return '// Sin campos HMI. Agrega TEXT, VALUE, BOOL o BAR para comenzar.';
+    if (validFields.length === 0) {
+      // Sólo gráfica estática: sin HMI_FIELDS (un arreglo vacío no es C++ válido).
+      return `// Código generado por JWPLC HMI Designer\n// API pública JWPLC_UI · Alpha11 A11-3E\n\nenum HMIFieldId : uint8_t\n{\n    // Sin campos dinámicos.\n};\n\n// Variables HMI\n\n\n// Definición declarativa\n// Sin campos dinámicos: sólo gráfica estática por página.\n\nvoid jwplcHMISetup()\n{\n    JWPLC_Display.setUserPageCount(${hmiPages.length});\n    JWPLC_Display.setUserPage(0);\n    JWPLC_Display.setUserRefreshMode(USER_REFRESH_ON_DEMAND);\n}\n\n// jwplcUIUpdate() NO se genera.`;
+    }
     const enumLines = validFields
       .map((field, index) => `    ${sanitizeSymbol(field.id, fieldFallbackId(field, index))} = ${index + 1}`)
       .join(',\n');
@@ -3146,7 +3151,9 @@
 
   function buildShapeCppSnippet(field) {
     if (!field) return '';
-    const tft = 'JWPLC_Display.getTFT()->';
+    // Misma salida que el header generado (designer-codegen.js).
+    if (window.JWPLCHMICodegen?.staticDrawSnippet) return window.JWPLCHMICodegen.staticDrawSnippet(field);
+    const tft = 'JWPLC_Display.tft().';
     const c = hex565(field.frameColor ?? 0xFFFF);
     const fc = hex565(field.fillColor ?? field.frameColor ?? 0xFFFF);
     const hasBorder = field.borderEnabled !== false;
@@ -3363,13 +3370,11 @@
       if (rawTextBackgroundWrap) rawTextBackgroundWrap.hidden = isTrans;
       syncAllColorControls();
 
-      const contractShort = (field.font && field.font !== 'GLCD')
-        ? `JWPLC_Display.getTFT()->setFont(${window.JWPLCDesignerFonts.cppSymbol(field.font)});\nJWPLC_Display.getTFT()->drawString("${field.text || ''}", ${field.x}, ${field.y});`
-        : `JWPLC_Display.getTFT()->setCursor(${field.x}, ${field.y});\nJWPLC_Display.getTFT()->print("${field.text || ''}");`;
+      const contractShort = window.JWPLCHMICodegen?.staticDrawSnippet
+        ? window.JWPLCHMICodegen.staticDrawSnippet(field)
+        : `JWPLC_Display.tft().setCursor(${field.x}, ${field.y});\nJWPLC_Display.tft().print("${field.text || ''}");`;
       if (rawInspectorContract) rawInspectorContract.textContent = contractShort;
-      inspectorContract.textContent = (field.font && field.font !== 'GLCD')
-        ? `// Texto RAW estático: JWPLC_Display.getTFT()->setFont(${window.JWPLCDesignerFonts.cppSymbol(field.font)}) + drawString(...)`
-        : `// Texto RAW estático: JWPLC_Display.getTFT()->print(...)`;
+      inspectorContract.textContent = '// Texto RAW estático: se dibuja en jwplcUIPageEnter() con JWPLC_Display.tft().print(...)';
       if (typeof updateScalePxHint === 'function') updateScalePxHint();
       return;
     }
@@ -3627,15 +3632,35 @@
     // Remove fields on that page
     hmiFields = hmiFields.filter((field) => field.type === 'NAV_BAR' || field.global || Number(field.page || 0) !== target);
 
-    // Remove pixel maps on that page
-    if (window.JWPLCHMIPixelMaps?.deleteForPage) {
-      window.JWPLCHMIPixelMaps.deleteForPage(target);
+    // Remove pixel maps on that page (getAll() devuelve el arreglo vivo).
+    const pixelMaps = window.JWPLCHMIPixelMaps?.getAll?.();
+    if (Array.isArray(pixelMaps)) {
+      for (let i = pixelMaps.length - 1; i >= 0; i -= 1) {
+        if (Number(pixelMaps[i].page || 0) === target) pixelMaps.splice(i, 1);
+      }
     }
 
-    // Switch to adjacent page
+    // Switch to adjacent page (todavía con ids antiguos)
     if (activePage === target) {
       activePage = hmiPages[Math.max(0, idx - 1)]?.id ?? hmiPages[0].id;
     }
+
+    // A15-2: el runtime y el formato .jwhmi exigen ids contiguos 0..N-1.
+    // Se renumeran páginas, campos y PixelMaps conservando el orden.
+    const remap = new Map(hmiPages.map((item, index) => [item.id, index]));
+    hmiPages.forEach((item) => { item.id = remap.get(item.id); });
+    hmiFields.forEach((field) => {
+      if (field.type === 'NAV_BAR' || field.global) return;
+      const next = remap.get(Number(field.page || 0));
+      if (next !== undefined) field.page = next;
+    });
+    if (Array.isArray(pixelMaps)) {
+      pixelMaps.forEach((map) => {
+        const next = remap.get(Number(map.page || 0));
+        if (next !== undefined) map.page = next;
+      });
+    }
+    activePage = remap.get(activePage) ?? 0;
 
     setSelectedKeys([]);
     selectedTool = 'none';
@@ -4182,6 +4207,12 @@
       const option = document.createElement('option');
       option.value = font.id;
       option.textContent = font.label;
+      // A15-1: libJWPLC_TFT.a publicado sólo dibuja GLCD (setFont/drawString
+      // pendientes de Alpha13). El resto queda visible pero no seleccionable.
+      if (font.kind !== 'glcd') {
+        option.disabled = true;
+        option.textContent = `${font.label} (requiere firmware)`;
+      }
       groups.get(font.group).appendChild(option);
     });
     rawTextFont.value = rawState.font;
@@ -5931,7 +5962,11 @@
       const py = Math.trunc(Number(y));
       return inside(px, py) ? topFieldOrder[indexFor(px, py)] : Infinity;
     },
-    getNavBarConfig: () => ({ ...navBarConfig }),
+    // A15-2: la barra existe si y sólo si hay un objeto NAV_BAR visible.
+    getNavBarConfig: () => {
+      const navBarField = hmiFields.find((field) => field.type === 'NAV_BAR');
+      return { ...navBarConfig, enabled: Boolean(navBarField && !navBarField.hidden) };
+    },
     setNavBarConfig: (cfg) => {
       navBarConfig = { ...navBarConfig, ...cfg };
       render();

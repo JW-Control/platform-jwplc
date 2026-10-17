@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'jwplc-hmi-designer-alpha11-a11-7e-crisp-rulers-bars-v2';
+const CACHE_NAME = 'jwplc-hmi-designer-a15-1-codegen-v1';
 const CORE = [
   './desktop.html',
   './index.html',
