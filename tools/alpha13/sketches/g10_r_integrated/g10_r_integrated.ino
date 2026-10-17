@@ -8,6 +8,7 @@
 */
 #include <JWPLC_GlobalPeripherals.h>
 #include <JWPLC_Display.h>
+#include <JWPLC_Display_H3E1_Profile.h>
 #include <JWPLC_ModbusTCP.h>
 #include <JWPLC_ModbusRTU.h>
 #include <JWPLC_RS485.h>
@@ -18,6 +19,10 @@
 #include <atomic>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+
+// H3E1 existente: habilitado únicamente para este diagnóstico de laboratorio.
+// No altera lógica de refresco ni API pública; añade costo de instrumentación.
+extern "C" bool jwplcH3E1ProfilerEnabled(void) { return true; }
 
 static uint16_t registers[4] = {0x1234, 0x2345, 0x3456, 0x4567};
 static uint16_t rtuValues[4] = {};
@@ -578,6 +583,13 @@ void loop() {
     Serial.print(" IO_AGE_MS=");Serial.print((uint32_t)(now-JWPLC_IO.lastScanMs()));
     Serial.print(" RTC_AGE_MS=");Serial.print((uint32_t)(now-JWPLC_Time.lastUpdateMs()));
     Serial.print(" TFT_READY=");Serial.print(JWPLCDisplay::isReady()?1:0);
+    JWPLCH3E1Stats displayStats{};
+    jwplcH3E1Snapshot(&displayStats);
+    // release_bus.calls representa refrescos que adquirieron y liberaron TFT.
+    Serial.print(" TFT_DRAW=");Serial.print(displayStats.release_bus.calls);
+    Serial.print(" TFT_FAIL=");Serial.print(displayStats.spi_acquire_failures);
+    Serial.print(" TFT_MAX_US=");Serial.print(displayStats.refresh_total.max_us);
+    Serial.print(" TFT_SPI_WAIT_MAX_US=");Serial.print(displayStats.spi_wait.max_us);
     Serial.print(" BTN_EVENTS=");Serial.println(btnEvents);
   }
 }
