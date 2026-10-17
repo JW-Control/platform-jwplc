@@ -182,6 +182,9 @@ namespace
         // FIELD_PADDING sigue siendo el margen visual minimo. Para escalas
         // mayores reservamos al menos una celda de escala para contener la
         // posible fila 8 (descenders) sin salir del rectangulo del field.
+        // Alpha15: ese extra se aplica sólo a la derecha y abajo (trailing);
+        // arriba/izquierda el margen es siempre FIELD_PADDING para que la
+        // etiqueta y el valor no se desplacen al pasar a escala 4.
         return (maxTextSize > FIELD_PADDING)
                    ? (int16_t)maxTextSize
                    : FIELD_PADDING;
@@ -435,6 +438,8 @@ namespace
     void computeFieldGeometry(JWPLC_TFTClass &tft, FieldRuntime &field)
     {
         const JWPLC_UIField &def = field.def;
+        // lead: margen superior/izquierdo fijo; pad: margen derecho/inferior.
+        const int16_t lead = FIELD_PADDING;
         const int16_t pad = effectiveFieldPadding(def);
 
         uint16_t labelW = 0;
@@ -519,8 +524,8 @@ namespace
             valueW =
                 (def.rect.width == JWPLC_UI_AUTO)
                     ? DEFAULT_BAR_WIDTH
-                    : (uint16_t)((def.rect.width > 2 * pad)
-                                     ? def.rect.width - 2 * pad
+                    : (uint16_t)((def.rect.width > lead + pad)
+                                     ? def.rect.width - lead - pad
                                      : DEFAULT_BAR_WIDTH);
             valueH = DEFAULT_BAR_HEIGHT;
             break;
@@ -529,7 +534,7 @@ namespace
         if (def.meta.type == JWPLC_UI_FIELD_BAR &&
             def.rect.width != JWPLC_UI_AUTO)
         {
-            int16_t available = def.rect.width - 2 * pad;
+            int16_t available = def.rect.width - lead - pad;
 
             if (def.style.layout == JWPLC_UI_LAYOUT_INLINE && labelW > 0)
             {
@@ -559,44 +564,44 @@ namespace
                 ((unitW > 0) ? FIELD_GAP + (int16_t)unitW : 0);
 
             autoW =
-                2 * pad +
+                lead + pad +
                 (((int16_t)labelW > valueAndUnitW)
                      ? (int16_t)labelW
                      : valueAndUnitW);
 
             autoH =
-                2 * pad +
+                lead + pad +
                 (int16_t)labelH +
                 ((labelH > 0) ? FIELD_GAP : 0) +
                 (int16_t)((valueH > unitH) ? valueH : unitH);
 
-            field.valueX = def.rect.x + pad;
+            field.valueX = def.rect.x + lead;
             field.valueY =
-                def.rect.y + pad +
+                def.rect.y + lead +
                 (int16_t)labelH +
                 ((labelH > 0) ? FIELD_GAP : 0);
         }
         else
         {
             autoW =
-                2 * pad +
+                lead + pad +
                 (int16_t)labelW +
                 ((labelW > 0) ? FIELD_GAP : 0) +
                 (int16_t)valueW +
                 ((unitW > 0) ? FIELD_GAP + (int16_t)unitW : 0);
 
             autoH =
-                2 * pad +
+                lead + pad +
                 (int16_t)((labelH > valueH)
                               ? ((labelH > unitH) ? labelH : unitH)
                               : ((valueH > unitH) ? valueH : unitH));
 
             field.valueX =
-                def.rect.x + pad +
+                def.rect.x + lead +
                 (int16_t)labelW +
                 ((labelW > 0) ? FIELD_GAP : 0);
 
-            field.valueY = def.rect.y + pad;
+            field.valueY = def.rect.y + lead;
         }
 
         field.fieldX = def.rect.x;
@@ -622,7 +627,6 @@ namespace
         computeFieldGeometry(tft, field);
 
         const JWPLC_UIField &def = field.def;
-        const int16_t pad = effectiveFieldPadding(def);
 
         if (field.fieldW > 0 && field.fieldH > 0)
         {
@@ -654,8 +658,8 @@ namespace
                 def.style.colors.label,
                 def.style.colors.background);
             tft.setCursor(
-                def.rect.x + pad,
-                def.rect.y + pad);
+                def.rect.x + FIELD_PADDING,
+                def.rect.y + FIELD_PADDING);
             tft.print(def.text.label);
         }
 
@@ -728,6 +732,25 @@ namespace
             }
         }
 
+        // BOOL con colores por estado: texto y/o fondo de la región del valor.
+        uint16_t valueColor = def.style.colors.value;
+        uint16_t valueBackground = def.style.colors.background;
+
+        if (def.meta.type == JWPLC_UI_FIELD_BOOL)
+        {
+            const JWPLC_UIBoolText &states = def.options.boolText;
+
+            if (states.stateColors & JWPLC_UI_BOOL_STATE_TEXT)
+            {
+                valueColor = field.boolState ? states.trueColor : states.falseColor;
+            }
+
+            if (states.stateColors & JWPLC_UI_BOOL_STATE_BACKGROUND)
+            {
+                valueBackground = field.boolState ? states.trueBackground : states.falseBackground;
+            }
+        }
+
         const uint32_t clearStartUs = profile ? micros() : 0U;
 
         tft.fillRect(
@@ -735,7 +758,7 @@ namespace
             field.valueY,
             field.valueW,
             clearH,
-            def.style.colors.background);
+            valueBackground);
 
         if (profile)
         {
@@ -831,19 +854,9 @@ namespace
             (def.style.valueTextSize == 0)
                 ? 1
                 : def.style.valueTextSize);
-        uint16_t valueColor = def.style.colors.value;
-
-        if (def.meta.type == JWPLC_UI_FIELD_BOOL &&
-            def.options.boolText.falseColor != def.options.boolText.trueColor)
-        {
-            valueColor = field.boolState
-                             ? def.options.boolText.trueColor
-                             : def.options.boolText.falseColor;
-        }
-
         tft.setTextColor(
             valueColor,
-            def.style.colors.background);
+            valueBackground);
 
         const uint32_t alignStartUs =
             profile ? micros() : 0U;
@@ -1033,7 +1046,7 @@ namespace JWPLCUI
         // también debe repintarse al cambiar de estado.
         if (!setValueString(*field, text) &&
             stateChanged &&
-            field->def.options.boolText.falseColor != field->def.options.boolText.trueColor)
+            field->def.options.boolText.stateColors != 0)
         {
             markFieldDirty(*field);
         }

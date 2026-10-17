@@ -76,7 +76,10 @@ JWPLC_UIBoolText::JWPLC_UIBoolText(
     : falseText(falseTextValue),
       trueText(trueTextValue),
       falseColor(0),
-      trueColor(0)
+      trueColor(0),
+      falseBackground(0),
+      trueBackground(0),
+      stateColors(0)
 {
 }
 
@@ -88,7 +91,27 @@ JWPLC_UIBoolText::JWPLC_UIBoolText(
     : falseText(falseTextValue),
       trueText(trueTextValue),
       falseColor(falseColorValue),
-      trueColor(trueColorValue)
+      trueColor(trueColorValue),
+      falseBackground(0),
+      trueBackground(0),
+      stateColors(JWPLC_UI_BOOL_STATE_TEXT)
+{
+}
+
+JWPLC_UIBoolText::JWPLC_UIBoolText(
+    const char *falseTextValue,
+    const char *trueTextValue,
+    uint16_t falseColorValue,
+    uint16_t trueColorValue,
+    uint16_t falseBackgroundValue,
+    uint16_t trueBackgroundValue)
+    : falseText(falseTextValue),
+      trueText(trueTextValue),
+      falseColor(falseColorValue),
+      trueColor(trueColorValue),
+      falseBackground(falseBackgroundValue),
+      trueBackground(trueBackgroundValue),
+      stateColors(JWPLC_UI_BOOL_STATE_TEXT | JWPLC_UI_BOOL_STATE_BACKGROUND)
 {
 }
 

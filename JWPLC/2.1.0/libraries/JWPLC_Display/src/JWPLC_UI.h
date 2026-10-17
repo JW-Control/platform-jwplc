@@ -127,10 +127,16 @@ struct JWPLC_UIValueFormat
         bool leadingZerosValue = false);
 };
 
-// Alpha15: color del valor por estado. Con falseColor != trueColor el valor
-// se dibuja con el color del estado actual; si son iguales (constructor de
-// dos textos) se usa colors.value como antes.
+// Alpha15: colores del valor por estado.
+//   (falso, verdadero)                          -> colors.value / colors.background
+//   (falso, verdadero, colorF, colorV)          -> texto por estado
+//   (falso, verdadero, colorF, colorV, fondoF, fondoV) -> texto y fondo de la
+//                                                  región del valor por estado
 #define JWPLC_UI_HAS_BOOL_STATE_COLORS 1
+#define JWPLC_UI_HAS_BOOL_STATE_BACKGROUNDS 1
+
+static constexpr uint8_t JWPLC_UI_BOOL_STATE_TEXT = 0x01;
+static constexpr uint8_t JWPLC_UI_BOOL_STATE_BACKGROUND = 0x02;
 
 struct JWPLC_UIBoolText
 {
@@ -138,6 +144,9 @@ struct JWPLC_UIBoolText
     const char *trueText;
     uint16_t falseColor;
     uint16_t trueColor;
+    uint16_t falseBackground;
+    uint16_t trueBackground;
+    uint8_t stateColors; // JWPLC_UI_BOOL_STATE_TEXT | JWPLC_UI_BOOL_STATE_BACKGROUND
 
     JWPLC_UIBoolText(
         const char *falseTextValue = "OFF",
@@ -148,6 +157,14 @@ struct JWPLC_UIBoolText
         const char *trueTextValue,
         uint16_t falseColorValue,
         uint16_t trueColorValue);
+
+    JWPLC_UIBoolText(
+        const char *falseTextValue,
+        const char *trueTextValue,
+        uint16_t falseColorValue,
+        uint16_t trueColorValue,
+        uint16_t falseBackgroundValue,
+        uint16_t trueBackgroundValue);
 };
 
 struct JWPLC_UIRange
