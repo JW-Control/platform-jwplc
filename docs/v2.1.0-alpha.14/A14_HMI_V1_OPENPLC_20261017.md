@@ -19,6 +19,17 @@ F0B_VALUES_COMPILE=PASS (VALUE/BAR <- %MW0, runtime real, 461349 B flash)
 F0B_VALUES_PHYSICAL=PASS (2026-10-17, Kenyi: contador y barra siguen a CONTADOR %MW0)
 F0C_WRITE_COMPILE=PASS (MENU EDIT_NUM <-> %MW1 INT y %MD0 REAL, 467749 B flash)
 F0C_WRITE_PHYSICAL=PASS (2026-10-17, Kenyi: edición del MENU escribe en el PLC)
+VPP_TIMING_VERSION=2.1.0-alpha.31 (pantalla "Pantalla HMI": medir tiempos de scan)
+F0D_TIMING_COMPILE=PASS (468173 B con medición; sin medición = alpha.30)
+F0D_1_BASELINE=PASS (sin HMI: scan ≈ 60 µs, periodo 20 ms, periodo máx. 26–28 ms)
+F0D_2_HMI_IDLE_ALPHA31=FAIL (HMI ≈ 167 µs/scan > 50 µs: jwplcUIUpdate() en el scan)
+VPP_TIMING_FIX=2.1.0-alpha.32 (el scan sólo copia enlaces; jwplcUIUpdate queda en la tarea del Display)
+F0D_2B_HMI_IDLE_ALPHA32=PASS (HMI 7–9 µs prom., 21 µs máx. total; scan 46–53 µs)
+F0D_3_VALUES_ALPHA32=PASS_CON_OBSERVACION (HMI 14–15 µs prom., 19–25 µs máx./s; un pico de 90 µs por desalojo de la tarea del Display)
+F0D_4_MENU_ALPHA32=PASS_CON_OBSERVACION (HMI 5–14 µs prom., un pico de ≈ 85 µs; periodo máx. hasta 31,3 ms)
+F0D_5_PAGES_ALPHA32=FAIL_DETERMINISMO (enlace HMI 7–13 µs OK; periodo máx. 53–65 ms al cambiar de página)
+F0D_HMI_COST=PASS (alpha.32: 5–15 µs prom., ≤ 27 µs máx./s; picos 73–90 µs por desalojo)
+F0D_DISPLAY_JITTER=ABIERTO (redibujo de página en jwplcSystemTask, mismo core y mayor prioridad que loopTask)
 ```
 
 ## 1. Qué cambia respecto de la ruta F0
@@ -165,3 +176,106 @@ Detalle de uso reportado: al entrar a la HMI primero se selecciona la página
 del MENU. Es el comportamiento `PAGE_SELECT` → `PAGE_CONTENT` de
 `JWPLC_Display`; si se quiere entrar directo al MENU cuando la página sólo
 tiene un MENU, es una decisión de Alpha15 (André).
+
+## 10. F0d: costo de la HMI en el scan (VPP 2.1.0-alpha.31)
+
+El VPP alpha.31 agrega al maestro la pantalla de configuración "Pantalla HMI"
+con la casilla "Medir tiempos de scan" (`VPP_HMI_DIAGNOSTICS_TIMING` en
+`vpp_config.h`). Con ella el HAL mide `jwplcHMIUpdate()`, el scan
+(`updateInputBuffers` → fin de `updateOutputBuffers`) y el periodo entre
+scans, y publica cada segundo 8 palabras `%MW` (base configurable, por defecto
+`%MW10`). Se usan `%MW` y no Serial para no chocar con el debugger Modbus RTU
+por USB. Sin la casilla el firmware es idéntico al de alpha.30.
+
+Procedimiento, escenarios y criterios: gate
+`tools/jwplc-hmi-designer/gates/A14_F0d_OpenPLC_Tiempos/`.
+
+### F0d-1 · línea base sin HMI `[ejecutado 2026-10-17, Kenyi]`
+
+Con la casilla de medición activa y sin pantalla en el proyecto:
+
+- HMI 0 µs;
+- scan ≈ 60–65 µs de promedio (máximo habitual 80–170 µs, un pico de ≈ 640 µs);
+- periodo promedio 20 000 ± 80 µs;
+- 50–51 scans/s;
+- **periodo máximo 26–28 ms**.
+
+El retraso de 6–8 ms en algunos scans ya está sin HMI, así que es la
+referencia contra la que se comparan F0d-2..F0d-5. Probablemente viene del
+refresco de la IDLE o de la atención del debugger por USB. Detalle y tabla en
+el README del gate `A14_F0d_OpenPLC_Tiempos`.
+
+### F0d-2 · HMI en IDLE con alpha.31 `[ejecutado 2026-10-17, Kenyi]`: no cumple
+
+Resultados:
+
+- HMI ≈ 167 µs de promedio, 340 µs de máximo y 837 µs desde el arranque;
+- scan ≈ 222 µs (+160 µs sobre la base);
+- periodo y scans/s iguales a la base.
+
+Causa: el bloque F0 del HAL llamaba `jwplcUIUpdate()` en cada scan.
+`setValue()` formatea el número en cada llamada, y esa función ya la llama la
+tarea de sistema del Display en cada refresco de USER (no en la IDLE). Además
+se entraba a `JWPLC_UI` desde dos tareas.
+
+VPP 2.1.0-alpha.32: el scan sólo ejecuta `jwplcHMIBindingsSnapshot()`.
+Detalle en el gate `A14_F0d_OpenPLC_Tiempos`. Queda pendiente F0d-2b (repetir
+con alpha.32) y F0d-3..5.
+
+### F0d-2b · HMI en IDLE con alpha.32 `[ejecutado 2026-10-17, Kenyi]`: PASS
+
+- HMI: 7–9 µs de promedio, 10–16 µs de máximo y 21 µs desde el arranque
+  (objetivo < 50 µs);
+- scan: 46–53 µs de promedio, en el orden de la línea base;
+- periodo y scans/s: iguales a la línea base.
+
+La corrección de alpha.32 bajó la HMI unas 20 veces.
+
+### F0d-3 · página Valores con cambios, alpha.32 `[ejecutado 2026-10-17, Kenyi]`
+
+- HMI: 14–15 µs de promedio y 19–25 µs de máximo por segundo; un único pico de
+  90 µs desde el arranque.
+- Scan: 71–74 µs.
+- Periodo máximo: 21–28 ms, igual que la base.
+
+La tarea que dibuja la TFT (`jwplcSystemTask`) corre en el mismo core que el
+PLC con más prioridad y lo desaloja. La medición de reloj incluye ese tiempo:
+es la causa probable del pico y de los ≈ 20 µs más que en IDLE. El periodo no
+empeora respecto de la base.
+
+### F0d-4 · MENU editando, alpha.32 `[ejecutado 2026-10-17, Kenyi]`
+
+Edición de Limite con UP/DOWN mantenidos y decenas con LEFT/RIGHT:
+
+- HMI: 5–14 µs de promedio, 10–27 µs de máximo por segundo, con un pico de
+  ≈ 85 µs (desalojo);
+- scan: 49–67 µs;
+- 50–51 scans/s;
+- periodo máximo: hasta 31,3 ms, unos 3 ms más que el peor caso de la base,
+  por el redibujo del MENU en cada repetición de tecla.
+
+No se pierden scans.
+
+### F0d-5 · cambio de páginas, alpha.32 `[ejecutado 2026-10-17, Kenyi]`
+
+- HMI: 7–13 µs (el enlace sigue sin pesar en el scan).
+- **Periodo máximo: 53–65 ms en cada segundo con cambio de página.** Un scan
+  arranca hasta ≈ 45 ms tarde y el planificador lo recupera después; no se
+  pierden scans.
+
+Causa: el redibujo completo de página en `jwplcSystemTask`, que corre en el
+mismo core que `loopTask` y con mayor prioridad.
+
+### Conclusión F0d
+
+El objetivo de la HMI (< 50 µs por scan) se cumple desde alpha.32: 5–15 µs de
+promedio y ≤ 27 µs de máximo por segundo. Queda abierto un problema de
+determinismo **del runtime de pantalla del package**, no del enlace: el dibujo
+de la TFT desaloja al PLC, poco en IDLE y Valores (≤ 28 ms), algo más en el
+MENU (≤ 31 ms) y mucho al cambiar de página (≤ 65 ms con tarea de 20 ms).
+Opciones para Alpha13/Alpha15 (decisión del jefe):
+
+- tarea del Display en el otro core, o con menor prioridad;
+- redibujo de página en tramos.
+
+Detalle en el gate `A14_F0d_OpenPLC_Tiempos`.
