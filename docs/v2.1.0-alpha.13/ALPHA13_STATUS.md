@@ -1,5 +1,8 @@
 # Alpha13 — G10-R, estado vivo de preparación (16/10/2026)
 
+> **Actualización de evidencia R3 (16/10/2026):** nueva suite C++ host con **SafeAccess.cpp real compuesto** y exclusión SPI simulada no recursiva; el test verifica `BUS_BUSY`, ticket de cierre pendiente, drenaje de la cola y rechazo de un token obsoleto al reciclar socket. En [CI #38994618424](https://github.com/JW-Control/platform-jwplc/actions/runs/38994618424), el job R3 declaró `G10_R_R3_SOURCE_MUTANTS=4_PASS_REJECTED` junto con los dos casos positivos. **La compilación Arduino Windows/Ubuntu de esa corrida puede continuar en progreso: no se atribuye 5/5 PASS hasta verificarla.** Sigue sin haber fault injection físico DNS/DHCP/UDP ni telemetría histórica real de lifecycle. [Detalles del test y límites](A13_G10_R_PLAN_RECUPERACION_Y_RESISTENCIA_20261016.md). `A13-006=ADOPTION_BLOCKED`, PR #108 Draft, sin nuevas cargas ni modificación de producto.
+
+
 > **Hito actual: seguridad del harness y observabilidad R3; hardware NO ejecutado.** Baseline del código anterior: [CI #38864224010](https://github.com/JW-Control/platform-jwplc/actions/runs/38864224010), **4/4 SUCCESS Windows/Ubuntu** para HEAD `e11e3638858e5063c432c67490feeb8f04764bae`. En la rama `codex/alpha13-g10-r-recovery-prep` se corrigió el parser de nonce HEX Arduino con mayúsculas y se exige concordancia **HEAD local+worktree limpio↔manifiesto de upload**. Los snapshots de ocho sockets se delimitan `G10R_SOCK_BEGIN/G10R_SOCK_END`, se guardan por sesión cada ~15 s y las capturas incompletas/BUS_BUSY quedan clasificadas explícitamente. Nuevo código y CI de Windows/Ubuntu en revisión: **NO atribuirles el PASS del baseline previo hasta verificar la corrida exacta**. R3 no tiene todavía secuencias físicas verificadas de fault injection `SPI_BUSY`. Código productivo y cinco archives intactos; GPIO4 deshabilitado. Los dos equipos aún contienen G10-H diagnóstico sin restauración. `A13-006=ADOPTION_BLOCKED`; PR #108 Draft; sin merge, upload, manipulación RJ45 ni release.
 
 ```text
@@ -9,7 +12,7 @@ G10-R=PREP_NONPHYSICAL_SOURCE_INSTRUMENTED_CI_FINAL_PENDING
 G10-R-BASE_CI=PASS_4X4_RUN_38864224010_HEAD_e11e3638
 G10-R-N0=PASS_SYNTHETIC_CONTRACT_WINDOWS_UBUNTU
 G10-R-R1_R2_R4=SKETCH_REPLAY_CAPTURE_AND_UPLOAD_GATES_IMPLEMENTED_PHYSICAL_NOT_RUN
-G10-R-R3=READ_ONLY_SOURCE_BACKED_SNAPSHOTS_AND_OFFLINE_CONTRACT_NO_PHYSICAL_FAULT_INJECTION
+G10-R-R3=HOST_CPP_SOURCE_BACKED_PASS_4_MUTANTS_PHYSICAL_FAULT_INJECTION_NOT_RUN
 G10-R-UPLOAD=CONSENT_GATED_NOT_EXECUTED
 G10-R-CAPTURE=CONSENT_GATED_NOT_EXECUTED
 G10-R-R5=NOT_AUTHORIZED
