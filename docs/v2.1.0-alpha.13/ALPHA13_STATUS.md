@@ -1,3 +1,27 @@
+# Estado PRE-H vigente — 17/oct/2026: bloques 1 y 2 preparados, 2 restantes
+
+**B2 DHCP/fairness: `CLOSED_NONPHYSICAL_SOURCE_FIRST`.** Se instrumentó mantenimiento DHCP real del backend tras liberar SPI; métricas H3E1 de TFT, edad de scan I/O/TCA cacheado, RTC, SD, FRAM, RTU, UDP y botón; validador fail-closed por **fase+token** para R3. Esta decisión es de preparación y compilación, **NO valida físicamente** renew/rebind, link loss ni fairness del banco.
+
+**Evidencia:** [B2 Windows+Ubuntu #39014708958](https://github.com/JW-Control/platform-jwplc/actions/runs/39014708958) 2/2 SUCCESS; [B1 integración #39014708863](https://github.com/JW-Control/platform-jwplc/actions/runs/39014708863) 2/2 SUCCESS; [N2 source-first de fuentes staging B2/H3E1 #39014564729](https://github.com/JW-Control/platform-jwplc/actions/runs/39014564729) 2/2 SUCCESS (fuentes idénticas tras los cambios de parser/validador). [N2 exacto del HEAD de código #39014708876](https://github.com/JW-Control/platform-jwplc/actions/runs/39014708876) requiere comprobar su conclusión final antes de reutilizarlo como PASS. Detalle: [B2 DHCP y fairness](A13_G10_R_PREH_B2_DHCP_FAIRNESS_20261017.md).
+
+```text
+PREH_BLOCK_1_TCP124=CLOSED_NONPHYSICAL_SOURCE_FIRST
+PREH_BLOCK_2_DHCP_FAIRNESS=CLOSED_NONPHYSICAL_SOURCE_FIRST
+PREH_BLOCK_3_INTEGRATED_N0_N1_N2_N3=OPEN
+PREH_BLOCK_4_PHYSICAL_SAFETY_BACKUP_AUTH=OPEN
+PREH_STEPS_REMAINING=2
+G10-R-H=BLOCKED
+G10-R-DHCP_RENEW_REBIND_PHYSICAL=NOT_RUN
+G10-R-TFT_TCA_FAIRNESS_PHYSICAL=NOT_RUN
+R3_PHYSICAL_INJECTION_READY=FALSE
+R3_COMPLETE_PHYSICAL_CAMPAIGN_READY=FALSE
+A13-006=ADOPTION_BLOCKED
+ALPHA15=UNMODIFIED
+NEXT_GATE=PREH_BLOCK_3_INTEGRATED_N0_N1_N2_N3
+```
+
+---
+
 # Estado vigente PRE-H — 17/oct/2026 (prioridad sobre registros históricos)
 
 **Bloque 1 TCP124: `CLOSED_NONPHYSICAL_READY_FOR_PREH_INTEGRATION`.** Sólo se cierra la implementación y verificación **no física**, no se declara validación de hardware ni adopción al package. Rama de implementación `codex/alpha13-preh-tcp124-review-20261016`, HEAD de código `dc194c4d6e863d5324eea14e515d1be92b18c9b6`.
