@@ -1043,6 +1043,21 @@ def live(evidence:Path,bench_evidence:Path)->int:
         result["exit_code"]=status
         (out/"MANIFEST.json").write_text(
             json.dumps(result,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+        manifest_path=out/"MANIFEST.json"
+        manifest_hash=hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+        summary=(
+            "JWPLC G10-R H — SUMMARY (evidencia física por revisar)\\n"
+            "STATUS="+str(result["physical_status"])+"\\n"
+            "EXIT_CODE="+str(status)+"\\n"
+            "MANIFEST_SHA256="+manifest_hash+"\\n"
+            "HEAD="+str(proven.get("source_head","UNKNOWN"))+"\\n"
+            "R3_STATUS="+str(result.get("r3_status","REVIEW_STOP"))+"\\n"
+            "TCP124_JOIN="+str(result.get("tcp124_join",{}).get("status","REVIEW_STOP"))+"\\n"
+            "B2_FAIRNESS="+str(result.get("b2_observability",{}).get("status","REVIEW_STOP"))+"\\n"
+            "RESTORATION=NOT_RUN_SEPARATE_AUTH_REQUIRED\\n"
+            "PHYSICAL_SIGNOFF=OPERATOR_REVIEW_REQUIRED\\n"
+        )
+        (out/"SUMMARY.log").write_text(summary.replace("\\n","\n"),encoding="utf-8")
         print("G10_R_CAPTURE_DIR="+str(out))
         print("G10_R_CAPTURE_STATUS="+result["physical_status"])
     return status
