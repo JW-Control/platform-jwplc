@@ -1,3 +1,15 @@
+## H0 — Excepción solicitada por propietario para dos placas de desarrollo
+
+**Decisión expresa del propietario (17/10/2026):** COM4 Master con microSD y COM14 Slave sin microSD son placas de desarrollo propias, aisladas, con firmware anterior prescindible. El propietario opta por **sobrescribir sin generar respaldos full-flash** y asume que la versión anterior podría no ser recuperable. Esta excepción aplica **únicamente** a esas dos unidades y al upload de los sketches de laboratorio; no cambia el procedimiento B4 estándar para otros JWPLC ni autoriza la campaña R1–R4.
+
+**Implementación segura:** `tools/alpha13/gates/a13_g10_r_h0_dev_waiver.py` genera ficha **local** `JWPLC-A13-H0-DEV-OVERWRITE-NO-BACKUP-V1` con roles, COMs, tamaño flash observado (4 194 304 bytes), MACs esperadas suministradas localmente, aislamiento/salidas Q sin cargas, monitores serial cerrados, aceptación de pérdida del firmware anterior y reconocimiento exacto de renuncia. El cargador `a13_g10_r_build_candidate.py --upload --dev-waiver <JSON_LOCAL>` valida la ficha, confirma SHA del HEAD/árbol limpio, compila ambos sketches en plataforma staged aislada, compara los objetos de fuentes críticas, confirma VID/PID CH340, **vuelve a consultar MAC y tamaño flash en COM4/COM14** y exige `G10R AUTORIZO FLASH COM4 COM14 SIN BACKUP` antes de escribir. Comienza por **COM14 Slave** y luego **COM4 Master**; una falla se registra `REVIEW_STOP_PARTIAL_POSSIBLE` con `MANIFEST.json`, sin inferir que ambas placas tienen firmware nuevo.
+
+La ruta anterior `--upload --bench-evidence` **mantiene** su exigencia de respaldos completos y bloqueo `R3_COMPLETE_PHYSICAL_CAMPAIGN_READY=False`. La ruta `--live` de R1–R4 **mantiene** `R3_PHYSICAL_INJECTION_READY=False` y su validación con respaldo; el waiver dev no la desbloquea ni autoriza manipulación RJ45. Los nuevos cambios requieren CI del HEAD final para upload, y los 19/19 PASS anteriores corresponden a otro SHA. No cambiar `JWPLC/`, GPIO4, precompilados ni Alpha15.
+
+**Pendiente físico:** completar ficha local, abrir worktree separado Alpha13 (no cambiar Alpha15), CI exacta, ejecutar subida bajo autorización interactiva. No generar backups ni ejecutar upload desde CI, Cloud o este chat; solo comandos lanzados por operador en su PC.
+
+---
+
 ## H0 — Tamaño flash observado y marcador IDLE del firmware experimental (17/10/2026)
 
 - La identificación real de ambas placas con **esptool.py 4.6.2** confirmó `ESP32-D0WD-V3 rev 3.1`, oscilador 40 MHz y flash física **4 MB** en COM4 (Master con microSD) y COM14 (Slave sin microSD). Las direcciones MAC son distintas; **no se incorporan** identificadores MAC al repositorio. Los comandos `flash_id` y `read_mac` no respaldaron ni modificaron flash. Para cada respaldo completo posterior la longitud esperada será `0x400000 = 4 194 304 bytes`; sigue faltando permiso de lectura completa y evidencia local SHA256.
