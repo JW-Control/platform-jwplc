@@ -60,8 +60,8 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
   sólo setters. El runtime llama `jwplcUIPageEnter` con el bus tomado, tras `fillScreen` y
   antes de dibujar los campos.
 - Acceso TFT: `JWPLC_TFTClass &tft = JWPLC_Display.tft();` (no existe `getTFT()`).
-- Sin `drawEllipse/fillEllipse/drawTriangle/fillTriangle` en `JWPLC_TFTClass`: usar los
-  helpers `jwplcHMI*` de `designer-codegen.js` (STATIC_HELPERS).
+- Elipse/triángulo: helpers `jwplcHMI*` (STATIC_HELPERS) que usan los métodos nativos de
+  `JWPLC_TFT` >= 0.2.0 y un respaldo para 0.1.0 (`JWPLC_HMI_TFT_NATIVE_SHAPES`).
 - Fuentes: `FIRMWARE_SUPPORTS_FONTS=false` en `designer-fonts.js` hasta que Alpha13
   regenere `libJWPLC_TFT.a` con `setFont/drawString`.
 - BAR circular/degradado: deshabilitados (`.insp-needs-fw`); el codegen cae a `JWPLC_UIBarField`.
@@ -69,7 +69,7 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
 - NAV_BAR existe sólo si hay un objeto NAV_BAR visible.
 - Capas: `layerOrder` menor = más al frente; la estática se emite en orden descendente.
 - Tras tocar el codegen: `node tools/jwplc-hmi-designer/tests/codegen-smoke.cjs`.
-- Tras tocar JS/CSS: subir `?v=` (hoy 1792060000) en `index.html`/`desktop.html`/`ux-foundation.js`/
+- Tras tocar JS/CSS: subir `?v=` (hoy 1792070000) en `index.html`/`desktop.html`/`ux-foundation.js`/
   `designer-field-visibility.js` y `CACHE_NAME` en `service-worker.js`.
 
 ## Probar sin hardware

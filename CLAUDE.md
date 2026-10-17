@@ -165,5 +165,14 @@ cd tools/jwplc-hmi-designer/poc && python3 -m http.server 8765 --bind 127.0.0.1
 nm -C JWPLC/2.1.0/libraries/JWPLC_TFT/src/esp32/libJWPLC_TFT.a | grep 'JWPLC_TFTClass::'
 ```
 
-No hay arduino-cli en el entorno cloud: la compilación ESP32 y los gates
-físicos los ejecuta el equipo en taller y se documentan en `docs/`.
+Compilación ESP32 real (nube o WSL; requiere red a downloads.arduino.cc,
+raw.githubusercontent.com y github.com releases):
+
+```bash
+tools/alpha15/regenerate_libJWPLC_TFT.sh setup              # una vez: arduino-cli + tools + TFT_eSPI
+tools/alpha15/regenerate_libJWPLC_TFT.sh compile <sketch>    # compila con jwplc_local:esp32:jwplcbasic
+tools/alpha15/regenerate_libJWPLC_TFT.sh build [--install]   # regenera libJWPLC_TFT.a + chequeo ABI
+```
+
+Los gates físicos (subir a la placa, mirar la TFT) los ejecuta el equipo en taller y se
+documentan en `docs/`.

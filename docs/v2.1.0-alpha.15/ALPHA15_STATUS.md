@@ -29,7 +29,7 @@ A15_0_AUDIT=PASS
 A15_1_CODEGEN_COMPILE=PASS (host g++/nm; arduino-cli en A15-4)
 A15_2_PERSISTENCE_PAGES=PASS
 A15_3_STATIC_OUT_OF_TICK=PASS (tiempos de bus en A15-9)
-A15_4_DESIGNER_CI=PARTIAL (tests/codegen-smoke.cjs; falta arduino-cli)
+A15_4_DESIGNER_CI=PASS_ESP32_COMPILE (smoke host + arduino-cli ESP32 en la nube; falta automatizar en CI)
 A15_5_PURE_CODEGEN_TESTS=PENDING
 A15_6_JWHMI_V2_MODES_HOST=PENDING
 A15_7A_BAR_FINISH=PENDING (prioridad alta)
@@ -47,7 +47,7 @@ A15_OPENPLC_INTEGRATION_DECISION=PASS (adopta plan rev.2 del fork + correcciones
 
 ```text
 B1_GETTFT_NOT_IN_API=CLOSED (A15-1)
-B2_TFT_MISSING_PRIMITIVES=CLOSED_IN_DESIGNER (helpers en el header; nativo en Alpha13 opcional)
+B2_TFT_MISSING_PRIMITIVES=CLOSED (JWPLC_TFT 0.2.0 nativo + respaldo para 0.1.0)
 B3_TFT_A_NOT_REGENERATED_ABI=MITIGATED (fuentes JWPLC_TFT revertidas a main; fuentes -> Alpha13 desde bf0fba1)
 B4_BAR_CIRCULAR_GRADIENT_HELPERS_MISSING=CLOSED_IN_DESIGNER (deshabilitado + fallback lineal; firmware -> Alpha13)
 B5_DELETE_PAGE_BREAKS_REOPEN=CLOSED (A15-2)
@@ -74,7 +74,7 @@ MENU=NOT_EXISTS
 ```text
 DESIGNER_UI=Alpha11
 ELECTRON_PACKAGE=0.11.0-alpha.11
-JWPLC_TFT=0.1.0 (source = main, alineado con el .a publicado)
+JWPLC_TFT=0.2.0 (fillEllipse/drawEllipse/fillTriangle/drawTriangle; .a regenerado, ABI compatible)
 DESIGNER_FONTS=sólo GLCD (FIRMWARE_SUPPORTS_FONTS=false)
 PROJECT_FORMAT=JWPLC_HMI_PROJECT v1
 VPP_OPENPLC=2.1.0-alpha.29 (rama v2.1.0-alpha.12/feature/openplc-engineering-closure)
@@ -108,4 +108,8 @@ MENU_NODE_COUNT_LIMIT=A_MEDIR_EN_A15_8
 - 2026-10-17 — Corrección de orden de capas en el codegen (descendente, igual que el lienzo).
   Gate físico listo para taller: `tools/jwplc-hmi-designer/gates/A15_1_3_Codegen_Static/`.
   Regenerar `libJWPLC_TFT.a` desde la nube bloqueado por red (github.com releases y
-  downloads.arduino.cc denegados).
+  downloads.arduino.cc denegados) — resuelto el mismo día al habilitar los dominios.
+- 2026-10-17 — Toolchain ESP32 en la nube (`tools/alpha15/regenerate_libJWPLC_TFT.sh`).
+  Gate A15 y headers del smoke test compilan/enlazan para ESP32. `JWPLC_TFT` 0.2.0 con
+  primitivas de elipse/triángulo, `.a` regenerado y ABI compatible
+  (`A15_4_TFT_PRIMITIVES_ESP32_COMPILE_20261017.md`).
