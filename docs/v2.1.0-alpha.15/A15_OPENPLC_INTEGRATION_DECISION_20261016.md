@@ -137,3 +137,7 @@ Cualquier cambio se revisa entre Alpha14 y Alpha15 y se documenta aquí.
 
 - 2026-10-18: alpha.12 (VPP 2.1.0-alpha.29) unida a la rama del Designer. Ruta F0 para Kenyi, con primera
   prueba BOOL ↔ relé Q0_0, en `A15_F0_OPENPLC_RUTA_KENYI_20261018.md`.
+- 2026-10-17: HMI v1 en OpenPLC (Kenyi). El editor copia `hmi/JWPLC_HMI_Generated.h` del proyecto junto al
+  HAL y genera `jwplc_hmi.h` desde `hmi/bindings.json` (BOOL ← `%IX`/`%QX`); el HAL del VPP 2.1.0-alpha.30 lo
+  toma con `__has_include`, sin pegar el header. `bindings.json` es provisional hasta `plcBinding` (A15-6).
+  Detalle en `docs/v2.1.0-alpha.14/A14_HMI_V1_OPENPLC_20261017.md`.
