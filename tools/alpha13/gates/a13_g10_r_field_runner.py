@@ -832,7 +832,11 @@ def selftest()->int:
     return 0
 
 
-def live(evidence:Path)->int:
+def live(evidence:Path,bench_evidence:Path)->int:
+    # Doble puerta: documento local de respaldo verificado ANTES de abrir COM.
+    import a13_g10_r_b4_bench as b4
+    issues=b4.validate(json.loads(bench_evidence.read_text(encoding="utf-8-sig")))
+    require(not issues,"B4_BENCH_BACKUP_REVIEW_STOP_"+",".join(issues))
     require(R3_PHYSICAL_INJECTION_READY,
             "G10R_PHYSICAL_BLOCKED_R3_PHASE_MISSING_IN_INTEGRATED_CAMPAIGN")
     require(os.name=="nt","WINDOWS_ONLY")
@@ -883,7 +887,7 @@ def live(evidence:Path)->int:
         result["replay_verdict"]=verdict
         result["physical_status"]="EVIDENCE_COLLECTED_REQUIRES_REVIEW"
         status=0 if verdict["status"]=="PASS_REPLAY_CONTRACT" else 2
-    except Exception as exc:
+    except (Exception,KeyboardInterrupt) as exc:
         result["physical_status"]="REVIEW_STOP"
         result["reason"]=str(exc)
         status=2
@@ -994,6 +998,8 @@ def main()->int:
     modes.add_argument("--dry-run",action="store_true")
     modes.add_argument("--live",action="store_true")
     p.add_argument("--upload-evidence",type=Path)
+    p.add_argument("--bench-evidence",type=Path,
+                   help="Ficha local B4 respaldos y banco; jamás implica autorización")
     args=p.parse_args()
     try:
         if args.selftest:return selftest()
@@ -1002,7 +1008,9 @@ def main()->int:
             return 0
         require(args.upload_evidence is not None,
                 "LIVE_REQUIRES_PREVIOUS_UPLOAD_EVIDENCE_NOT_GENERATED_BY_THIS_RUNNER")
-        return live(args.upload_evidence)
+        require(args.bench_evidence is not None,
+                "B4_BENCH_BACKUP_EVIDENCE_REQUIRED_BEFORE_COM")
+        return live(args.upload_evidence,args.bench_evidence)
     except (OSError,ValueError,RuntimeError,EOFError) as exc:
         print("G10_R_REVIEW_STOP="+str(exc))
         return 2
