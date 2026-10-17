@@ -46,7 +46,8 @@ def run_target(target,count,hold,tid_base=0):
                 row["opened_ns"]=time.monotonic_ns()
                 row["connect_ok"]=True
                 start.wait()
-                tid=tid_base+i+1\n                row["tid"]=tid
+                tid=tid_base+i+1
+                row["tid"]=tid
                 # FC03, holding registers 0..3; protocolo actual del G10-R.
                 s.sendall(struct.pack("!HHHBBHH",tid,0,6,1,3,0,4))
                 try:
