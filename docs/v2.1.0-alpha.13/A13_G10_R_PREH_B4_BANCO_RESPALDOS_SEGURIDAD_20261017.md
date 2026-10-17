@@ -1,3 +1,16 @@
+## H0 — Identidad de banco confirmada por operador (17/10/2026)
+
+| Puerto previsto | Rol | microSD | Sketch de laboratorio previsto | Estado |
+|---|---|---|---|---|
+| **COM4** | **Master** Ethernet/Modbus y observabilidad | **Presente** | `tools/alpha13/sketches/g10_r_integrated/g10_r_integrated.ino` | Equipo disponible y aislado; falta comprobar identidad USB y backup flash |
+| **COM14** | **Slave** Modbus RTU, ID 2, 115200 8N1 | **Ausente** | `tools/alpha13/sketches/g8_p4_slave/g8_p4_slave.ino` | Equipo disponible y aislado; falta comprobar identidad USB y backup flash |
+
+**Decisión:** ambos JWPLC recibirán nuevamente el firmware de laboratorio una vez que se haya completado H0 y se autorice específicamente el flash. El Slave **no requiere microSD**, no debe recibir el sketch Master ni fallar por carecer de tarjeta; la validación de presencia/progreso de microSD pertenece solo al Master COM4. El Master prueba microSD en modalidad de **lectura** sin crear ni modificar archivos. El backup full-flash del ESP32 no incluye el contenido de la tarjeta microSD: si contiene datos que conservar, respaldarlos **por separado**, sin retirarla con el equipo energizado.
+
+**Confirmaciones aún faltantes:** COM4/COM14 observados por Windows con VID/PID y correspondencia física de placas, ausencia real de cargas/tensión en contactos Q, tamaño de flash detectado, respaldo completo por placa con hash SHA256 y plan de restauración. La descripción «aislados» informada por el operador no sustituye cada check de seguridad; ninguna autorización de lectura, escritura o manipulación de RJ45 ha sido inferida de esta confirmación.
+
+---
+
 > **CIERRE NO FÍSICO VERIFICADO — 17/10/2026.** `B4=CLOSED_NONPHYSICAL_SAFETY_CI_VERIFIED`, código HEAD exacto `33990007405cac2b5af9c110943d94f9201e6add`. [B4 Windows/Ubuntu #39037163647](https://github.com/JW-Control/platform-jwplc/actions/runs/39037163647) **2/2 SUCCESS**: 14 negativas de backup, 5 negativas de R2 UART, falta de ficha, bloqueo de `--upload`/`--live`. La misma fuente supera [N0 #39037163623](https://github.com/JW-Control/platform-jwplc/actions/runs/39037163623) 2/2, [B1 #39037163606](https://github.com/JW-Control/platform-jwplc/actions/runs/39037163606) 2/2, [B2 #39037163624](https://github.com/JW-Control/platform-jwplc/actions/runs/39037163624) 2/2, [TCP124 source-first #39037163653](https://github.com/JW-Control/platform-jwplc/actions/runs/39037163653) 2/2, [G10-R #39037163667](https://github.com/JW-Control/platform-jwplc/actions/runs/39037163667) 5/5 y [N0/N1/N3 #39037163676](https://github.com/JW-Control/platform-jwplc/actions/runs/39037163676) 4/4, incluido N3 candidato 11/11 con artifact `alpha13-b3-n3-39037163676`. **Total 19/19 jobs PASS, ninguno omitido.**
 
 **No confundir cierre técnico con autorización física:** `PREH_STEPS_REMAINING=0` se refiere exclusivamente a preparación de ingeniería; `B4_OPERATOR_FULL_FLASH_BACKUPS=WAIT_OPERATOR`, `G10-R-H=NOT_RUN`, flags flash/live `False`, firma de operador y dos consentimientos todavía pendientes. Cambiar esos flags exige autorización futura, revisión de diff y gates correspondientes; NO se han habilitado en este PR. `NEXT_GATE=G10_R_H0_OPERATOR_BENCH_BACKUPS_AND_SEPARATE_AUTH`.
