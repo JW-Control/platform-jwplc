@@ -85,6 +85,10 @@ def observe_loopback(n):
     deadline=time.monotonic()+5
     while not all(fc03_done) and not errors and time.monotonic()<deadline:
         time.sleep(.01)
+    # Ventana positiva observable en Windows: conservar conexiones abiertas
+    # después de recibir todas las respuestas FC03; jamás simular timestamps.
+    if all(fc03_done) and not errors:
+        time.sleep(.075)
     release.set()
     for t in workers:t.join(timeout=8)
     thread.join(timeout=8)
