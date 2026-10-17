@@ -99,8 +99,14 @@ def guard_sketch() -> None:
     print("G10_R_SKETCH_GUARD=PASS_STATIC_NO_Q_NO_STORAGE_WRITE_NO_RESET")
 
 
-def build(cli: str, *, upload: bool = False, stage_out: Path | None = None) -> None:
+def build(cli: str, *, upload: bool = False, stage_out: Path | None = None,
+          bench_evidence: Path | None = None) -> None:
     if upload:
+        require(bench_evidence is not None,"B4_BENCH_BACKUP_EVIDENCE_REQUIRED_BEFORE_FLASH")
+        import a13_g10_r_b4_bench as b4
+        issues=b4.validate(json.loads(bench_evidence.read_text(encoding="utf-8-sig")))
+        require(not issues,"B4_PREFLIGHT_REVIEW_STOP_"+",".join(issues))
+        print("G10_R_B4_LOCAL_BACKUP_AND_BENCH=CHECKED_NOT_HARDWARE_ATTESTED")
         require(R3_COMPLETE_PHYSICAL_CAMPAIGN_READY,
                 "G10R_FLASH_BLOCKED_R3_FULL_CAMPAIGN_NOT_READY")
     require(Path.cwd().resolve() == ROOT, "RUN_FROM_REPO_ROOT")
@@ -368,6 +374,8 @@ def main() -> int:
     selection.add_argument("--stage-only",action="store_true",
                            help="Exporta plataforma candidata a temp externa, sin CLI ni hardware")
     ap.add_argument("--stage-output",type=Path)
+    ap.add_argument("--bench-evidence",type=Path,
+                    help="Ficha local B4 con backups full flash antes de cualquier upload")
     selection.add_argument("--upload",action="store_true",
                            help="Requiere consentimiento humano y dos USB CH340; NO usar en CI")
     ap.add_argument("--cli",default="arduino-cli")
@@ -384,7 +392,9 @@ def main() -> int:
             build(args.cli,stage_out=args.stage_output)
         else:
             require(args.stage_output is None,"B3_STAGE_OUTPUT_ONLY_FOR_STAGE_ONLY")
-            build(args.cli,upload=args.upload)
+            require(not args.upload or args.bench_evidence is not None,
+                    "B4_BENCH_BACKUP_EVIDENCE_REQUIRED")
+            build(args.cli,upload=args.upload,bench_evidence=args.bench_evidence)
         return 0
     except Exception as e:
         print("G10_R_REVIEW_STOP="+str(e))
