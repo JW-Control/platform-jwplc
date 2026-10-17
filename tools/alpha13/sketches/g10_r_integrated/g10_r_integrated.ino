@@ -43,7 +43,8 @@ struct G10RTcpRow {
 static G10RTcpRow tcpRows[32];
 static std::atomic_flag tcpRowsBusy=ATOMIC_FLAG_INIT;
 static std::atomic<uint32_t> tcpDropped{0};
-static uint32_t tcpSequence=0, tcpSession=0;
+static uint32_t tcpSequence=0;
+static std::atomic<uint32_t> tcpSession{0};
 extern "C" void g10rLabTcpRequest(uint16_t tid, uint8_t sid) {
   if (!active || sid>=8) return;
   jwplc_w5500_candidate::LabSocketSnapshot slots[8];
@@ -56,7 +57,7 @@ extern "C" void g10rLabTcpRequest(uint16_t tid, uint8_t sid) {
     tcpRowsBusy.clear(std::memory_order_release);return;
   }
   G10RTcpRow e{};
-  e.seq=++tcpSequence;e.tid=tid;e.sid=sid;e.session=tcpSession;
+  e.seq=++tcpSequence;e.tid=tid;e.sid=sid;e.session=tcpSession.load(std::memory_order_acquire);
   e.capture=(uint8_t)capture;
   if (capture==jwplc_w5500_candidate::LabCaptureOutcome::Captured &&
       slots[sid].valid && slots[sid].socketIndex==sid) {
@@ -194,7 +195,7 @@ static void handleCommand(const char* msg) {
     const uint32_t oldest=tcpSequence>32?tcpSequence-31:1;
     for (uint32_t seq=oldest;seq<=tcpSequence;++seq) {
       const G10RTcpRow &e=tcpRows[(seq-1)%32];
-      if (e.seq==seq && e.session==tcpSession) batch[n++]=e;
+      if (e.seq==seq && e.session==tcpSession.load(std::memory_order_acquire)) batch[n++]=e;
     }
     tcpRowsBusy.clear(std::memory_order_release);
     Serial.print("G10R_TCP_HEAD:");Serial.print(token);
@@ -389,7 +390,7 @@ static void handleCommand(const char* msg) {
   useRtu=(p[29]=='1');
   hb=sdOk=sdFail=udpRx=udpTx=rtuOk=rtuFail=btnEvents=framReads=0;
   lastSample=lastRtu=lastReport=millis();
-  ++tcpSession; // token de sesión local; cada lectura filtra por sesión.
+  tcpSession.fetch_add(1,std::memory_order_acq_rel); // sesión atómica.
   active=true;startMs=millis();
   r3Armed=r3CloseAttempted=r3ClosedWhileHeld=r3FinishPrinted=false;
   r3Mode=0;
