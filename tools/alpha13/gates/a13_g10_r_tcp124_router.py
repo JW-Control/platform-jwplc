@@ -89,7 +89,8 @@ def selftest():
         try:plan(bad,1,2)
         except ValueError:pass
         else:raise AssertionError("UNSAFE_IP_ACCEPTED")
-    assert "close_confirmed" not in Path(__file__).read_text(encoding="utf-8").split("def selftest():")[0]\n    print("G10_R_TCP124_ROUTER_PLAN=PASS_OFFLINE_NO_NETWORK")
+    assert "close_confirmed" not in Path(__file__).read_text(encoding="utf-8").split("def selftest():")[0]
+    print("G10_R_TCP124_ROUTER_PLAN=PASS_OFFLINE_NO_NETWORK")
     print("G10_R_TCP124_ROUTER_PHYSICAL=NOT_RUN")
 
 if __name__=="__main__":
