@@ -120,7 +120,7 @@ def native() -> None:
         # mutando una línea de instrumentación por vez.
         mutants = [
             ("PENDING_NOT_CAPTURED",
-             "out[index].pendingCloseAllocation =\\n"
+             "out[index].pendingCloseAllocation =\n"
              "            g_pendingClose[index].load(std::memory_order_acquire);",
              "out[index].pendingCloseAllocation = 0;",
              "PENDING_TICKET_NOT_VISIBLE"),
