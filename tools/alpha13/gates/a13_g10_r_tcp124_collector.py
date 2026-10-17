@@ -38,7 +38,10 @@ class TcpCollector:
             seq=[r["SEQ"] for r in b["rows"]]
             b["status"]=("OBSERVATIONAL_COMPLETE_NOT_PHYSICAL_PASS" if
                 b["expected"]==len(seq) and b["dropped"]==0 and
-                b["overflow"]==0 and seq==sorted(set(seq))
+                b["overflow"]==0 and seq==sorted(set(seq)) and
+                (not seq or seq==list(range(seq[0],seq[-1]+1))) and
+                all(r["CAPTURE"]==1 and min(r["EPOCH"],r["ALLOC"],r["OWNER"])>0
+                    for r in b["rows"])
                 else "REVIEW_STOP_INCOMPLETE")
             self.batches.append(b);return
         if line.startswith(row) and self.pending is not None:
@@ -63,7 +66,8 @@ class TcpCollector:
         self.token=""
     def report(self):
         return {"batches":self.batches,"status":
-                "REVIEW_STOP" if any(b["status"].startswith("REVIEW_STOP") for b in self.batches)
+                "REVIEW_STOP" if not self.batches or any(
+                    b["status"].startswith("REVIEW_STOP") for b in self.batches)
                 else "OBSERVATIONAL_ONLY_NOT_PHYSICAL_PASS"}
 
 def selftest():
