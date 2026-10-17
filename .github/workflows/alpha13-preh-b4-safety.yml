@@ -4,6 +4,7 @@ on:
     paths:
       - '.github/workflows/alpha13-preh-b4-safety.yml'
       - 'tools/alpha13/gates/a13_g10_r_b4_bench.py'
+      - 'tools/alpha13/gates/a13_g10_r_h0_dev_waiver.py'
       - 'tools/alpha13/gates/a13_g10_r_b3_scope.py'
       - 'tools/alpha13/gates/a13_g10_r_field_runner.py'
       - 'tools/alpha13/gates/a13_g10_r_build_candidate.py'
@@ -48,6 +49,22 @@ jobs:
           test "$status" -eq 2
           grep -Fq 'G10_R_B4_OPERATOR_PREFLIGHT=REVIEW_STOP' "$RUNNER_TEMP/b4-denied.log"
           echo "B4_EMPTY_OPERATOR_FORM=DENIED"
+      - name: Dev-only waiver no concede upload implicito
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -B tools/alpha13/gates/a13_g10_r_h0_dev_waiver.py --selftest
+          python -B tools/alpha13/gates/a13_g10_r_h0_dev_waiver.py --template "$RUNNER_TEMP/h0-blank-waiver.json"
+          set +e
+          python -B tools/alpha13/gates/a13_g10_r_h0_dev_waiver.py --check "$RUNNER_TEMP/h0-blank-waiver.json" > "$RUNNER_TEMP/h0-denied.log" 2>&1
+          doc_rc=$?
+          python -B tools/alpha13/gates/a13_g10_r_build_candidate.py --upload --dev-waiver "$RUNNER_TEMP/h0-blank-waiver.json" > "$RUNNER_TEMP/h0-upload-denied.log" 2>&1
+          upload_rc=$?
+          set -e
+          test "$doc_rc" -eq 2
+          test "$upload_rc" -eq 2
+          grep -Fq 'H0_DEV_WAIVER_REVIEW_STOP' "$RUNNER_TEMP/h0-upload-denied.log"
+          echo "H0_DEV_WAIVER=FAIL_CLOSED_NO_USB_NO_FLASH"
       - name: Sin ficha no hay upload ni captura
         shell: bash
         run: |
