@@ -26,8 +26,5 @@
 #define TFT_SPI_MODE SPI_MODE0
 #define SPI_FREQUENCY 80000000
 
-#define LOAD_GLCD   // Font 1: 5x7 clasica
-#define LOAD_FONT2  // Font 2: 16 px
-#define LOAD_FONT4  // Font 4: 26 px
-#define LOAD_GFXFF  // FreeFonts (Sans/Serif/Mono 9pt y 12pt)
+#define LOAD_GLCD
 #define SUPPORT_TRANSACTIONS
