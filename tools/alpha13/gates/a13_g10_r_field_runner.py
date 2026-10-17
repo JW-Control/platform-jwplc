@@ -144,7 +144,7 @@ def parse_heartbeat(line:str,token:str,phase:str,t:float):
         values[k]=v
     required=set(FIELDS)|{"UDP_RX","UDP_TX","BTN_EVENTS"}
     if set(values)!=required:return None
-    d={"phase":phase,"t":t,"kind":"heartbeat"}
+    d={"phase":phase,"token":token,"t":t,"kind":"heartbeat"}
     for k,v in values.items():
         field=FIELDS.get(k)
         if field is None:continue
