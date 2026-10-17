@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/alpha13-g10-r-source-build.yml'
       - 'tools/alpha13/gates/a13_g10_r_build_candidate.py'
+      - 'tools/alpha13/gates/a13_g10_r_h0_link_stage.py'
       - 'tools/alpha13/gates/a13_g10_r_replay.py'
       - 'tools/alpha13/gates/a13_g10_r_instrumentation.py'
       - 'tools/alpha13/gates/a13_g10_r_owner_epoch.py'
@@ -22,6 +23,7 @@ on:
     paths:
       - '.github/workflows/alpha13-g10-r-source-build.yml'
       - 'tools/alpha13/gates/a13_g10_r_build_candidate.py'
+      - 'tools/alpha13/gates/a13_g10_r_h0_link_stage.py'
       - 'tools/alpha13/gates/a13_g10_r_replay.py'
       - 'tools/alpha13/gates/a13_g10_r_instrumentation.py'
       - 'tools/alpha13/gates/a13_g10_r_owner_epoch.py'
@@ -69,6 +71,7 @@ jobs:
           python -B -m py_compile tools/alpha13/gates/a13_g10_r_replay.py tools/alpha13/gates/a13_g10_r_build_candidate.py tools/alpha13/gates/a13_g10_r_instrumentation.py tools/alpha13/gates/a13_g10_r_owner_epoch.py tools/alpha13/gates/a13_g10_r_field_runner.py tools/alpha13/gates/a13_g10_r_r3_native.py tools/alpha13/gates/a13_g10_r_trace.py tools/alpha13/gates/a13_g10_r_trace_host.py tools/alpha13/gates/a13_g10_r_trace_validate.py tools/alpha13/gates/a13_g10_r_r3_protocol_native.py tools/alpha13/gates/a13_g10_r_r3_probe_contract.py
           python -B tools/alpha13/gates/a13_g10_r_replay.py --selftest
           python -B tools/alpha13/gates/a13_g10_r_build_candidate.py --selftest
+          python -B tools/alpha13/gates/a13_g10_r_h0_link_stage.py --selftest
           python -B tools/alpha13/gates/a13_g10_r_instrumentation.py --selftest
           python -B tools/alpha13/gates/a13_g10_r_owner_epoch.py --selftest
           python -B tools/alpha13/gates/a13_g10_r_field_runner.py --selftest
