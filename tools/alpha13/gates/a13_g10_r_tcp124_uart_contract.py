@@ -14,31 +14,31 @@ TOKEN=r"[0-9a-f]{24}"
 BIND=re.compile(rf"G10R_TCP_LEASE:({TOKEN}) TID=(\d+) SID=(\d+) EPOCH=(\d+) ALLOC=(\d+) OWNER=(\d+)")
 LIFE=re.compile(rf"G10R_EVT:({TOKEN}) SEQ=(\d+) KIND=(\d+) SID=(\d+) EPOCH=(\d+) ALLOC=(\d+) OWNER=(\d+)")
 START=re.compile(rf"G10R_STARTED:({TOKEN}) RTU=[01]")
-END=re.compile(rf"G10R_EVT_END:({TOKEN})")
+END=re.compile(rf"G10R_EVT_END:({TOKEN})")\nTCP_HEAD=re.compile(rf"G10R_TCP_HEAD:({TOKEN}) COUNT=(\\d+) DROPPED=(\\d+)")\nTCP_END=re.compile(rf"G10R_TCP_END:({TOKEN})")
 def evaluate(lines,token,transaction):
     errors=[]
     if not isinstance(lines,list) or not all(isinstance(s,str) for s in lines):
         return {"status":"REVIEW_STOP","errors":["NON_RAW_UART"]}
     if not re.fullmatch(TOKEN,token) or type(transaction) is not int or not 0<=transaction<65536:
         return {"status":"REVIEW_STOP","errors":["INVALID_INPUT"]}
-    started=0;ended=0;leases=[];events=[];foreign=False
+    started=0;ended=0;tcp_head=[];tcp_ended=0;leases=[];events=[];foreign=False
     for line in lines:
         if m:=START.fullmatch(line):
             if m[1]==token:started+=1
             else:foreign=True
         elif m:=BIND.fullmatch(line):
             if m[1]!=token:foreign=True
-            elif int(m[2])==transaction:leases.append(tuple(map(int,m.groups()[2:])))
-        elif m:=LIFE.fullmatch(line):
+            elif int(m[3])==transaction:\n                if int(m[5])!=1:errors.append("CAPTURE_NOT_VALID")\n                leases.append(tuple(map(int,m.groups()[3:4]+m.groups()[5:])))
+        elif m:=TCP_HEAD.fullmatch(line):\n            if m[1]!=token:foreign=True\n            else:tcp_head.append((int(m[2]),int(m[3])))\n        elif m:=TCP_END.fullmatch(line):\n            if m[1]!=token:foreign=True\n            else:tcp_ended+=1\n        elif m:=LIFE.fullmatch(line):
             if m[1]!=token:foreign=True
             else:events.append(tuple(map(int,m.groups()[1:])))
         elif m:=END.fullmatch(line):
             if m[1]==token:ended+=1
             else:foreign=True
-        elif line.startswith(("G10R_TCP_LEASE:","G10R_EVT:","G10R_STARTED:","G10R_EVT_END:")):
+        elif line.startswith(("G10R_TCP_OBS:","G10R_TCP_HEAD:","G10R_TCP_END:","G10R_EVT:","G10R_STARTED:","G10R_EVT_END:")):
             errors.append("MALFORMED_PROTOCOL_LINE")
     if foreign:errors.append("FOREIGN_SESSION")
-    if started!=1 or ended!=1:errors.append("MISSING_SESSION_BOUNDARIES")
+    if started!=1 or ended!=1 or tcp_ended!=1 or len(tcp_head)!=1:\n        errors.append("MISSING_SESSION_BOUNDARIES")\n    if len(tcp_head)==1 and (tcp_head[0][1]!=0 or tcp_head[0][0]<len(leases)):\n        errors.append("TCP_TRACE_INCOMPLETE")
     if len(leases)!=1:errors.append("NO_UNIQUE_TRANSACTION_TO_LEASE_BIND")
     if len(leases)==1:
         sid,epoch,allocation,owner=leases[0]
@@ -61,7 +61,7 @@ def evaluate(lines,token,transaction):
 def fixture():
     t="a"*24
     l=[f"G10R_STARTED:{t} RTU=1",
-       f"G10R_TCP_LEASE:{t} TID=47 SID=2 EPOCH=3 ALLOC=5 OWNER=9",
+       f"G10R_TCP_HEAD:{t} COUNT=1 DROPPED=0",\n       f"G10R_TCP_OBS:{t} SEQ=1 TID=47 SID=2 CAPTURE=1 EPOCH=3 ALLOC=5 OWNER=9",\n       f"G10R_TCP_END:{t}",
        f"G10R_EVT:{t} SEQ=1 KIND=1 SID=2 EPOCH=3 ALLOC=5 OWNER=9",
        f"G10R_EVT:{t} SEQ=2 KIND=6 SID=2 EPOCH=3 ALLOC=5 OWNER=9",
        f"G10R_EVT:{t} SEQ=3 KIND=7 SID=2 EPOCH=3 ALLOC=5 OWNER=9",
@@ -72,18 +72,18 @@ def selftest():
     assert evaluate(lines,token,47)["status"]=="PASS_UART_PROTOCOL_CONTRACT_ONLY"
     cases=[]
     for name,fn in (
-        ("missing_bind",lambda x:x.pop(1)),
-        ("double_bind",lambda x:x.insert(2,x[1])),
-        ("wrong_tid",lambda x:x.__setitem__(1,x[1].replace("TID=47","TID=48"))),
-        ("wrong_owner",lambda x:x.__setitem__(1,x[1].replace("OWNER=9","OWNER=10"))),
+        ("missing_bind",lambda x:x.pop(2)),
+        ("double_bind",lambda x:x.insert(3,x[2])),
+        ("wrong_tid",lambda x:x.__setitem__(2,x[2].replace("TID=47","TID=48"))),
+        ("wrong_owner",lambda x:x.__setitem__(2,x[2].replace("OWNER=9","OWNER=10"))),
         ("missing_close",lambda x:x.pop(-2)),
-        ("missing_queue",lambda x:x.pop(3)),
-        ("gap",lambda x:x.__setitem__(4,x[4].replace("SEQ=3","SEQ=9"))),
-        ("duplicate_seq",lambda x:x.__setitem__(4,x[4].replace("SEQ=3","SEQ=2"))),
-        ("bad_sid",lambda x:x.__setitem__(1,x[1].replace("SID=2","SID=8"))),
+        ("missing_queue",lambda x:x.pop(-3)),
+        ("gap",lambda x:x.__setitem__(-2,x[-2].replace("SEQ=3","SEQ=9"))),
+        ("duplicate_seq",lambda x:x.__setitem__(-2,x[-2].replace("SEQ=3","SEQ=2"))),
+        ("bad_sid",lambda x:x.__setitem__(2,x[2].replace("SID=2","SID=8"))),
         ("no_start",lambda x:x.pop(0)),
         ("no_end",lambda x:x.pop()),
-        ("foreign_token",lambda x:x.__setitem__(1,x[1].replace(token,"b"*24))),
+        ("foreign_token",lambda x:x.__setitem__(2,x[2].replace(token,"b"*24))),\n        ("busy_capture",lambda x:x.__setitem__(2,x[2].replace("CAPTURE=1","CAPTURE=2"))),\n        ("trace_drop",lambda x:x.__setitem__(1,x[1].replace("DROPPED=0","DROPPED=1"))),
     ):
         v=copy.deepcopy(lines);fn(v);cases.append((name,v))
     for name,v in cases:
