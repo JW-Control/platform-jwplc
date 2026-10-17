@@ -158,6 +158,9 @@ for f in tools/jwplc-hmi-designer/poc/*.js; do node --check "$f" || echo "FAIL $
 # smoke test del codegen: genera headers en Chromium headless y los compila
 # (g++ -fsyntax-only) contra los headers reales + verifica símbolos en los .a
 node tools/jwplc-hmi-designer/tests/codegen-smoke.cjs
+node tools/jwplc-hmi-designer/tests/inspector-smoke.cjs   # inspector TEXT/VALUE/BOOL/BAR
+node tools/jwplc-hmi-designer/tests/menu-host-sim.cjs     # MENU: firmware real en host (g++)
+node tools/jwplc-hmi-designer/tests/menu-smoke.cjs        # MENU: Designer + paridad con el firmware
 
 # servir el designer y abrirlo en Chromium headless (Playwright global)
 cd tools/jwplc-hmi-designer/poc && python3 -m http.server 8765 --bind 127.0.0.1
@@ -174,6 +177,7 @@ raw.githubusercontent.com y github.com releases):
 tools/alpha15/regenerate_libJWPLC_TFT.sh setup              # una vez: arduino-cli + tools + TFT_eSPI
 tools/alpha15/regenerate_libJWPLC_TFT.sh compile <sketch>    # compila con jwplc_local:esp32:jwplcbasic
 tools/alpha15/regenerate_libJWPLC_TFT.sh build [--install]   # regenera libJWPLC_TFT.a + chequeo ABI
+tools/alpha15/regenerate_libJWPLC_Display.sh build [--install]  # regenera libJWPLC_Display.a + chequeo ABI
 ```
 
 Los gates físicos (subir a la placa, mirar la TFT) los ejecuta el equipo en taller y se

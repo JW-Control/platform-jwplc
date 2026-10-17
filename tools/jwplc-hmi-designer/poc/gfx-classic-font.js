@@ -59,7 +59,15 @@
     0x02,0x01,0x02,0x04,0x02
   ]);
 
+  // Glifos de control del glcdfont.c que usa el firmware (flechas de scroll
+  // del MENU: 0x1E arriba, 0x1F abajo).
+  const EXTRA = {
+    0x1E: new Uint8Array([0x30, 0x38, 0x3E, 0x38, 0x30]),
+    0x1F: new Uint8Array([0x06, 0x0E, 0x3E, 0x0E, 0x06])
+  };
+
   function glyphFor(code) {
+    if (EXTRA[code]) return EXTRA[code];
     if (code < FIRST || code > LAST) {
       code = 63; // '?' para el PoC ASCII V1.
     }

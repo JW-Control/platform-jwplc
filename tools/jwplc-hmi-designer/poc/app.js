@@ -1056,6 +1056,7 @@
     if (field.type === 'BAR') return 'barField';
     if (field.type === 'TEXT') return 'textField';
     if (field.type === 'NAV_BAR') return 'navBarField';
+    if (field.type === 'MENU') return 'menuField';
     return 'pointer';
   }
 
@@ -1643,6 +1644,14 @@
       };
     }
 
+    if (field.type === 'MENU') {
+      const x = Number(field.x) || 0;
+      const y = Number(field.y) || 0;
+      const w = Math.max(1, Number(field.width) || 1);
+      const h = Math.max(1, Number(field.height) || 1);
+      return { x, y, minX: x, maxX: x + w - 1, minY: y, maxY: y + h - 1, width: w, height: h };
+    }
+
     if (field.type === 'NAV_BAR') {
       const isVert = field.position === 'left' || field.position === 'right' || field.orientation === 'vertical';
       const defaultW = isVert ? 22 : 320;
@@ -1710,7 +1719,7 @@
 
   function computeFieldGeometry(field) {
     if (!field) return null;
-    if (field.type === 'NAV_BAR') {
+    if (field.type === 'NAV_BAR' || field.type === 'MENU') {
       const b = getFieldBounds(field);
       return {
         pad: 0,
@@ -1904,6 +1913,12 @@
         drawField(framebuffer, field);
       } else if (field.type === 'BAR') {
         drawBarToFramebuffer(framebuffer, field, true);
+      } else if (field.type === 'MENU') {
+        window.JWPLCHMIMenu?.paint?.(field, {
+          fillRect: (x, y, w, h, c) => fillBufferRect(framebuffer, x, y, w, h, c),
+          drawRect: (x, y, w, h, c) => drawBufferRect(framebuffer, x, y, w, h, c),
+          pixel: (x, y, c) => setBufferPixel(framebuffer, x, y, c)
+        });
       } else if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
         drawShape(framebuffer, field);
       } else if (field.type === 'RAW_TEXT') {
@@ -2034,8 +2049,8 @@
   }
 
   function buildContractText() {
-    const validFields = hmiFields.filter(f => !['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT', 'NAV_BAR'].includes(f.type));
-    const hasStaticObjects = hmiFields.some(f => ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT', 'NAV_BAR'].includes(f.type));
+    const validFields = hmiFields.filter(f => !['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT', 'NAV_BAR', 'MENU'].includes(f.type));
+    const hasStaticObjects = hmiFields.some(f => ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT', 'NAV_BAR', 'MENU'].includes(f.type));
     if (validFields.length === 0 && !hasStaticObjects) return '// Sin campos HMI. Agrega TEXT, VALUE, BOOL o BAR para comenzar.';
     if (validFields.length === 0) {
       // Sólo gráfica estática: sin HMI_FIELDS (un arreglo vacío no es C++ válido).
@@ -2248,6 +2263,7 @@
       else if (field.type === 'TRIANGLE') icon = '△';
       else if (field.type === 'POLYGON') icon = '⬡';
       else if (field.type === 'NAV_BAR') icon = '☰';
+      else if (field.type === 'MENU') icon = '▤';
 
       button.innerHTML = `
         <span class="object-icon">${icon}</span>
@@ -3097,7 +3113,7 @@
       button.classList.toggle('active', button.dataset.tool === selectedTool);
     });
 
-    const isVarTool = ['valueField', 'boolField', 'barField', 'navBarField'].includes(selectedTool);
+    const isVarTool = ['valueField', 'boolField', 'barField', 'navBarField', 'menuField'].includes(selectedTool);
     const varToolBtn = document.getElementById('variableToolBtn');
     if (varToolBtn) {
       varToolBtn.classList.toggle('active', isVarTool);
@@ -3123,6 +3139,12 @@
     const SHAPE_TYPES = ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'];
     const isShape = Boolean(field && SHAPE_TYPES.includes(field.type));
     const isNavBar = selectedTool === 'navBarField' || field?.type === 'NAV_BAR';
+    const isMenu = field?.type === 'MENU';
+    const menuSection = document.getElementById('menuInspectorSection');
+    if (menuSection) {
+      menuSection.hidden = !isMenu;
+      menuSection.style.display = isMenu ? '' : 'none';
+    }
     const navBarSection = document.getElementById('navBarInspectorSection');
     if (navBarSection) {
       navBarSection.hidden = !isNavBar;
@@ -3144,7 +3166,7 @@
       rawSection.hidden = !isRaw;
       rawSection.style.display = isRaw ? '' : 'none';
     }
-    const showField = Boolean(field && fieldTools.includes(selectedTool) && field.type !== 'RAW_TEXT' && !isShape && field.type !== 'NAV_BAR');
+    const showField = Boolean(field && fieldTools.includes(selectedTool) && field.type !== 'RAW_TEXT' && !isShape && field.type !== 'NAV_BAR' && !isMenu);
     if (fieldSection) {
       fieldSection.hidden = !showField;
       fieldSection.style.display = showField ? '' : 'none';
@@ -3963,6 +3985,30 @@
     commitHistory();
   }
 
+  // A15-8: MENU (árbol de configuración). Uno por página; el modelo y el
+  // dibujo viven en designer-menu.js.
+  function addMenuField() {
+    const api = window.JWPLCHMIMenu;
+    if (!api || hmiFields.length >= MAX_FIELDS) return;
+    if (hmiFields.some((f) => f.type === 'MENU' && Number(f.page || 0) === activePage)) {
+      window.alert('Esta página ya tiene un MENU: el firmware atiende un solo MENU por página.');
+      return;
+    }
+    fieldSerial += 1;
+    const field = api.createDefault(`menu-${fieldSerial}`, fieldSerial, hmiFields);
+    field.id = uniqueFieldSymbol(field.id);
+    field.page = activePage;
+    placeNewField(field);
+    assignNewLayerOrder(field);
+    hmiFields.push(field);
+    setSelectedKeys([field.key]);
+    selectedTool = 'menuField';
+    syncInputsFromState();
+    syncToolUI();
+    render();
+    commitHistory();
+  }
+
   function addValueField() {
     if (hmiFields.length >= MAX_FIELDS) return;
     fieldSerial += 1;
@@ -4224,8 +4270,12 @@
         addRawTextField();
         return;
       }
+      if (tool === 'menuField') {
+        addMenuField();
+        return;
+      }
       selectedTool = tool;
-      if (!['pointer', 'textField', 'valueField', 'boolField', 'barField', 'navBarField'].includes(tool)) {
+      if (!['pointer', 'textField', 'valueField', 'boolField', 'barField', 'navBarField', 'menuField'].includes(tool)) {
         setSelectedKeys([]);
       }
       window.dispatchEvent(new CustomEvent('jwplc:tool-changed', { detail: { tool } }));
@@ -4249,14 +4299,16 @@
     valueField: '<svg width="18" height="16" viewBox="0 0 24 24"><text x="12" y="16.5" text-anchor="middle" font-size="11.5" font-weight="800" font-family="\'Segoe UI\', -apple-system, sans-serif" fill="currentColor" letter-spacing="-0.5px">123</text></svg>',
     boolField: '<svg width="18" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="6"/><circle cx="16" cy="12" r="3" fill="currentColor"/></svg>',
     barField: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="10" rx="2.5"/><rect x="5" y="10" width="7" height="4" rx="1" fill="currentColor"/></svg>',
-    navBarField: '<svg width="18" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="10" rx="2"></rect><path d="M7 7v10M12 7v10M17 7v10"></path></svg>'
+    navBarField: '<svg width="18" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="10" rx="2"></rect><path d="M7 7v10M12 7v10M17 7v10"></path></svg>',
+    menuField: '<svg width="18" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 8h18M7 12h6M7 16h10"/></svg>'
   };
 
   const VAR_TITLES = {
     valueField: 'Variables del PLC · Valor Numérico (VALUE)',
     boolField: 'Variables del PLC · Booleano (BOOL)',
     barField: 'Variables del PLC · Barra de Nivel (BAR)',
-    navBarField: 'Variables del PLC · Barra de Navegación (NAV)'
+    navBarField: 'Variables del PLC · Barra de Navegación (NAV)',
+    menuField: 'Variables del PLC · Menú de configuración (MENU)'
   };
 
   const TEXT_ICONS = {
@@ -5110,6 +5162,11 @@
           f.y = Math.round(newMinY + origRelY1 * scaleY);
           f.x2 = Math.round(newMinX + origRelX2 * scaleX);
           f.y2 = Math.round(newMinY + origRelY2 * scaleY);
+        } else if (f.type === 'MENU') {
+          f.x = Math.round(newMinX + (orig.x - initMinX) * scaleX);
+          f.y = Math.round(newMinY + (orig.y - initMinY) * scaleY);
+          f.width = clamp(Math.round((Number(orig.width) || 1) * scaleX), 20, WIDTH);
+          f.height = clamp(Math.round((Number(orig.height) || 1) * scaleY), 8, HEIGHT);
         } else if (f.type === 'BAR') {
           f.barAutoWidth = false;
           const origW = Number(orig.barWidth) || 110;

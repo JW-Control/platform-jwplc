@@ -49,6 +49,7 @@
     const field = editor()?.getSelectedField?.();
     if (field?.type === 'RAW_TEXT') return 'RAW';
     if (field?.type === 'NAV_BAR' || selectedTool === 'navBarField') return 'NAV_BAR';
+    if (field?.type === 'MENU') return 'MENU';
     if (field && SHAPE_TYPES.includes(field.type)) return 'SHAPE';
     if (field) return 'FIELD';
     return 'NONE';
@@ -58,6 +59,7 @@
     const mode = currentMode();
 
     setSectionVisible(navBarSection, mode === 'NAV_BAR');
+    setSectionVisible(document.getElementById('menuInspectorSection'), mode === 'MENU');
     setSectionVisible(fieldSection, mode === 'FIELD');
     setSectionVisible(shapeSection, mode === 'SHAPE');
     setSectionVisible(rawSection, mode === 'RAW');

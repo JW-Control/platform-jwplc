@@ -19,7 +19,7 @@
   }
 
   function allFields() {
-    return (editor()?.getAllFields?.() || []).filter((field) => field.type !== 'NAV_BAR');
+    return (editor()?.getAllFields?.() || []).filter((field) => field.type !== 'NAV_BAR' && field.type !== 'MENU');
   }
 
   function pages() {
@@ -872,7 +872,10 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
       /\/\/ Variables HMI\n[\s\S]*?\n\n\/\/ Definición declarativa/,
       `// Variables HMI\n${variables}\n\n// Definición declarativa`);
 
-    const generatedTailMarker = text.indexOf('// Sincronización gráfica autogenerada.');
+    // Sin punto final: el bloque emitido dice "autogenerada (cada tick ...)".
+    // Con punto, una segunda pasada sobre un header sin gráfica estática
+    // duplicaba jwplcUIUpdate().
+    const generatedTailMarker = text.indexOf('// Sincronización gráfica autogenerada');
     const navBarTailMarker = text.indexOf('// Barra de Navegación HMI Autogenerada');
     const helpersTailMarker = text.indexOf('// Primitivas auxiliares (sólo usan API pública de JWPLC_TFT).');
     const pageEnterTailMarker = text.indexOf('// Gráfica estática por página');
@@ -919,6 +922,7 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
     if (!codeOutput?.textContent.startsWith('// Código generado por JWPLC HMI Designer')) return;
     let text = decorateHeader(codeOutput.textContent);
     text = groupGeneratedSections(text);
+    if (window.JWPLCHMIMenu?.patchHeader) text = window.JWPLCHMIMenu.patchHeader(text);
     text = duplicateDiagnostic(text, validationIssues());
     codeOutput.textContent = text;
   }

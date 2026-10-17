@@ -2614,3 +2614,28 @@ label.insp-needs-fw { opacity: 0.45; cursor: not-allowed; }
 .bar-code-box.bar-code-box-multiline code {
   white-space: pre-wrap; word-break: break-word; overflow: auto; text-overflow: clip; max-height: 180px; line-height: 1.4; flex: 1;
 }
+
+/* A15-8 · inspector MENU */
+.menu-tree { display: flex; flex-direction: column; gap: 2px; max-height: 260px; overflow: auto; }
+.menu-tree-row {
+  display: grid; grid-template-columns: 14px 1fr auto auto; gap: 6px; align-items: center;
+  padding: 4px 6px; font-size: 10.5px; color: #c9d8e4; cursor: pointer;
+  background: #101c26; border: 1px solid #1a2c39; border-radius: 4px;
+}
+.menu-tree-row:hover { border-color: #3b5366; }
+.menu-tree-row.active { border-color: #ff9a43; background: rgba(255, 154, 67, 0.10); }
+.menu-tree-icon { color: #52c9ff; text-align: center; }
+.menu-tree-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.menu-tree-var { font-family: 'Cascadia Code', Consolas, monospace; font-size: 9.5px; color: #6a8292; }
+.menu-tree-btns { display: inline-flex; gap: 2px; }
+.menu-tree-btns button {
+  width: 18px; height: 18px; padding: 0; font-size: 9px; border-radius: 3px; cursor: pointer;
+  background: #16283a; border: 1px solid #253948; color: #b8cddc;
+}
+.menu-tree-btns button:disabled { opacity: 0.3; cursor: default; }
+.menu-tree-btns button:hover:not(:disabled) { color: #ff9a43; border-color: #ff9a43; }
+.menu-issues { margin-top: 8px; display: flex; flex-direction: column; gap: 3px; }
+.menu-issue { font-size: 10px; color: #ffcf6e; }
+.menu-issue.is-error { color: #ff6b6b; }
+.menu-issue.is-ok { color: #6be38f; }
+.insp-chip:disabled { opacity: 0.4; cursor: not-allowed; }

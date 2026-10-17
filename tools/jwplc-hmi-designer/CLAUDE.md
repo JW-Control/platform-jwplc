@@ -17,7 +17,7 @@ de `index.html` e inyecta los scripts en orden.
 
 ```text
 index.html:      gfx-classic-font -> designer-fonts-data -> designer-fonts -> app -> ux-foundation -> designer-codegen
-ux-foundation:   designer-bool -> designer-bar -> designer-field-inspector -> designer-field-visibility -> designer-pages -> designer-live
+ux-foundation:   designer-bool -> designer-bar -> designer-field-inspector -> (designer-menu) -> designer-field-visibility -> designer-pages -> designer-live
 field-visibility: designer-inspector-state, designer-pixelmap-compat -> designer-pixelmap -> designer-pixelmap-stability
 desktop.html:    designer-project, designer-native-project, designer-project-integration-fix,
                  designer-pixelmap-workbench/-optimizer/-codegen-guard, desktop-responsive
@@ -59,6 +59,10 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
 - BAR: `applyFirmwareCaps()` en `designer-bar.js` normaliza el modelo a lo que dibuja
   `JWPLC_UIBarField`; al habilitar una variante en firmware, quitarla de ahí y de `closeBarInspector()`.
 - Paridad BAR lienzo/TFT y comportamiento del inspector: `tests/inspector-smoke.cjs`.
+- MENU: `designer-menu.js` (modelo, pintor, codegen puro `generate()`, inspector propio
+  `#menuInspectorSection`). El pintor replica `JWPLC_UI_Menu.cpp` línea por línea: si cambias uno,
+  cambia el otro y corre `tests/menu-smoke.cjs` (compara píxel a píxel con el firmware en host).
+  `nodes`/`colors` se reemplazan (copy-on-write): el historial copia los campos de forma superficial.
 
 ## Reglas del codegen (A15-1..A15-3)
 
@@ -75,7 +79,7 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
 - NAV_BAR existe sólo si hay un objeto NAV_BAR visible.
 - Capas: `layerOrder` menor = más al frente; la estática se emite en orden descendente.
 - Tras tocar el codegen: `node tools/jwplc-hmi-designer/tests/codegen-smoke.cjs`.
-- Tras tocar JS/CSS: subir `?v=` (hoy 1792300000) en `index.html`/`desktop.html`/`ux-foundation.js`/
+- Tras tocar JS/CSS: subir `?v=` (hoy 1792400000) en `index.html`/`desktop.html`/`ux-foundation.js`/
   `designer-field-visibility.js` y `CACHE_NAME` en `service-worker.js`.
 
 ## Probar sin hardware
@@ -84,6 +88,8 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
 for f in poc/*.js; do node --check "$f" || echo "FAIL $f"; done
 node tests/codegen-smoke.cjs            # genera headers y los compila contra el package
 node tests/inspector-smoke.cjs          # inspector TEXT/VALUE/BOOL/BAR + paridad BAR
+node tests/menu-host-sim.cjs            # MENU: JWPLC_UI_Menu.cpp real en host (g++)
+node tests/menu-smoke.cjs               # MENU: Designer + paridad lienzo/firmware + header
 cd poc && python3 -m http.server 8765 --bind 127.0.0.1   # abrir /desktop.html
 ```
 

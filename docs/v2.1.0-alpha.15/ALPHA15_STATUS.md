@@ -38,7 +38,7 @@ A15_7B_VALUE=PASS
 A15_7C_TEXT=PASS
 A15_7D_BOOL=PASS
 A15_7E_RAW_SHAPES_NAV_PIXEL=PENDING
-A15_8_MENU=PENDING
+A15_8_MENU=PASS_HOST_AND_ESP32_COMPILE (A15_8_MENU_20261017; físico pendiente)
 A15_9_PHYSICAL_PARITY=PENDING
 A15_10_PACKAGING_DOCS=PENDING
 A15_OPENPLC_INTEGRATION_DECISION=PASS (adopta plan rev.2 del fork + correcciones C1-C5)
@@ -67,7 +67,7 @@ BOOL=ADOPTED (designer-field-inspector.js)
 RAW_TEXT=LEGACY
 NAV_BAR=ADOPTED_UI (André, af797d79: Diseño/Páginas/Técnico, 6 presets, 4 posiciones); codegen replica el lienzo con el pintor compartido (NAV-1/NAV-2, 207f1594)
 PIXELMAP=LEGACY
-MENU=NOT_EXISTS
+MENU=ADOPTED (designer-menu.js; firmware JWPLC_Display 1.1.0)
 ```
 
 ## Versiones
@@ -76,6 +76,7 @@ MENU=NOT_EXISTS
 DESIGNER_UI=Alpha11
 ELECTRON_PACKAGE=0.11.0-alpha.11
 JWPLC_TFT=0.3.0 (elipses/triángulos + FreeFonts con setFont/drawString; .a regenerado, ABI compatible)
+JWPLC_DISPLAY=1.1.0 (MENU declarativo; .a regenerado, ABI compatible, +48 B sin MENU)
 DESIGNER_FONTS=GLCD + 24 FreeFonts (Font2/Font4 deshabilitadas)
 PROJECT_FORMAT=JWPLC_HMI_PROJECT v1
 VPP_OPENPLC=2.1.0-alpha.29 (rama v2.1.0-alpha.12/feature/openplc-engineering-closure)
@@ -88,7 +89,7 @@ BOTONERA=6_TECLAS (confirmado; matriz 2x3)
 OPENPLC_DEBUG_SET_FORCING0_SEMANTICS=PENDIENTE_F0 (Alpha14)
 MENU_MAX_DEPTH=3 (MVP)
 MENU_MVP_NODES=SUBMENU, VIEW, EDIT_NUM, EDIT_BOOL
-MENU_NODE_COUNT_LIMIT=A_MEDIR_EN_A15_8
+MENU_NODE_COUNT_LIMIT=64 por menú, 4 menús, 1 por página (9 nodos = +952 B RAM, +6.8 KB flash)
 ```
 
 ## Registro
@@ -125,3 +126,10 @@ MENU_NODE_COUNT_LIMIT=A_MEDIR_EN_A15_8
   alto/fondo/AUTO). `applyFirmwareCaps()` normaliza el modelo y `inspector-smoke.cjs` verifica la
   paridad contra una traducción de `computeFieldGeometry()`. Fondo TRANSPARENT de campos ya no
   genera `0xTRANSPARENT`.
+- 2026-10-17 — A15-8 MENU MVP (`A15_8_MENU_20261017.md`). Firmware: `JWPLC_UI_Menu.h/.cpp` en
+  `JWPLC_Display` 1.1.0 (hooks weak/strong, sin cambio de layout de clases), `.a` regenerado con
+  `tools/alpha15/regenerate_libJWPLC_Display.sh` (reproduce el `.a` anterior con 0 diferencias antes
+  del cambio). Simulación en host del firmware real 39/39 y paridad exacta lienzo/firmware. Designer:
+  herramienta MENU, inspector con árbol, codegen con `#error` de versión. Gates `A15_8_Menu` (a mano)
+  y `A15_8_Menu_Designer` compilan para ESP32. Corregido: duplicado de `jwplcUIUpdate()` en una
+  segunda pasada del codegen sin gráfica estática.
