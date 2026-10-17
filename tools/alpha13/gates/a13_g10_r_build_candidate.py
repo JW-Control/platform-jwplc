@@ -116,7 +116,7 @@ def build(cli: str, *, upload: bool = False, stage_out: Path | None = None,
         v=run([cli,"version"])
         require(re.search(r"\bVersion:\s*1\.5\.1\b",v) is not None,
                 "G10R_UPLOAD_ARDUINO_CLI_1_5_1_REQUIRED")
-        ref="refs/remotes/origin/codex/alpha13-g10-r-recovery-prep"
+        ref="refs/remotes/origin/codex/alpha13-preh-tcp124-review-20261016"
         current=run(["git","rev-parse","HEAD"]).strip()
         remote=run(["git","rev-parse",ref]).strip()
         require(current==remote,"G10R_UPLOAD_REMOTE_HEAD_MISMATCH")
@@ -385,6 +385,9 @@ def main() -> int:
             guard_sketch()
             require(R3_COMPLETE_PHYSICAL_CAMPAIGN_READY is False,
                     "G10R_SELFTEST_MUST_FAIL_CLOSED_FLASH")
+            require("codex/alpha13-preh-tcp124-review-20261016" in
+                    Path(__file__).read_text(encoding="utf-8"),
+                    "B4_UPLOAD_REMOTE_SOURCE_BRANCH_DRIFT")
             print("G10_R_BUILD_SELFTEST=PASS_NO_CLI_NO_USB_NO_UPLOAD")
             print("G10_R_FLASH=BLOCKED_R3_FULL_CAMPAIGN_NOT_READY")
         elif args.stage_only:
