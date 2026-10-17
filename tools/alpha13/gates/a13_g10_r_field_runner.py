@@ -252,6 +252,14 @@ class Recorder:
         sys.modules[spec.name]=m
         spec.loader.exec_module(m)
         self.trace=m.TraceCollector()
+        tcp_path=ROOT/"tools/alpha13/gates/a13_g10_r_tcp124_collector.py"
+        tcp_spec=importlib.util.spec_from_file_location("g10r_tcp_collector",tcp_path)
+        require(tcp_spec is not None and tcp_spec.loader is not None,
+                "TCP124_COLLECTOR_MISSING")
+        tcp_module=importlib.util.module_from_spec(tcp_spec)
+        sys.modules[tcp_spec.name]=tcp_module
+        tcp_spec.loader.exec_module(tcp_module)
+        self.tcp_collector=tcp_module.TcpCollector()
         self.slave_ready=False
         self.slave_report_token=""
         self.slave_result=None
@@ -297,6 +305,7 @@ class Recorder:
                         self.capture_socket_line(line,at)
                         self.capture_udp_probe_line(line,at)
                         self.trace.receive(line,at)
+                        self.tcp_collector.receive(line,at)
                 elif name=="COM14":
                     if line=="G8_P4_READY:SLAVE:ID2:115200:8N1":
                         self.slave_ready=True
@@ -417,6 +426,7 @@ class Recorder:
             self.latest=None
             token=self.token
             self.trace.begin(token,phase)
+            self.tcp_collector.begin(token)
             self._r3_udp_started_at=None
             self._r3_requested_mode=None
         self.send("G10R_START:"+token+":RTU=1")
@@ -430,6 +440,7 @@ class Recorder:
                 self.r3_snapshots.append(self._sock_batch)
                 self._sock_batch=None
             self.trace.finish()
+            self.tcp_collector.finish()
             if self.phase=="R3":
                 self.r3_udp_sessions.append({
                     "token":self.token,
@@ -446,6 +457,7 @@ class Recorder:
         seq=0
         prev_rtu=None
         next_snapshot_at=time.monotonic()
+        next_tcp_at=time.monotonic()
         next_events_at=time.monotonic()
         while not halt.is_set() and not self.stop.is_set():
             with self.lock:
@@ -468,6 +480,10 @@ class Recorder:
                     trace_cmd=self.trace.request(self.stamp())
                 if trace_cmd:self.send(trace_cmd)
                 next_events_at=time.monotonic()+2
+            if time.monotonic()>=next_tcp_at:
+                command=self.tcp_collector.request()
+                if command:self.send(command)
+                next_tcp_at=time.monotonic()+15
             if time.monotonic()>=next_snapshot_at:
                 # Sólo observación; no se utiliza para validar R3 CLOSE.
                 self.send("G10R_SOCKETS:"+token)
@@ -484,7 +500,7 @@ class Recorder:
                         rtu_value>prev_rtu and rtu_fail==0)
             if rtu_value is not None:prev_rtu=rtu_value
             self.add({"kind":"traffic","phase":phase,"t":self.stamp(),
-                      "tcp":tcp_ok,"udp":udp_ok,"rtu":rtu_ok})
+                      "tcp":tcp_ok,"tcp_tid":seq&0xffff,"udp":udp_ok,"rtu":rtu_ok})
             halt.wait(interval)
 
     def measure(self,phase,duration:int,interval:int):
@@ -824,6 +840,9 @@ def live(evidence:Path)->int:
         c.close()
         result["events"]=sorted(c.events,key=lambda ev:ev["t"])
         result["r3_socket_snapshots"]=list(c.r3_snapshots)
+        result["tcp_uart"]=c.tcp_collector.report()
+        result["pc_tcp_transactions"]=[ev for ev in c.events
+            if ev.get("kind")=="traffic" and "tcp_tid" in ev]
         result["r3_udp_lines"]=list(c.r3_udp_lines)
         result["r3_udp_sessions"]=list(c.r3_udp_sessions)
         result["r3_udp_verdicts"]=[]
