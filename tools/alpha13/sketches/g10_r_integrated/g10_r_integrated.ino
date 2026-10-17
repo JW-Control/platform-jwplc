@@ -5,6 +5,7 @@
   Sketch experimental sin actuadores ni escrituras SD/FRAM. R3 expone
   snapshots READ-ONLY owner/epoch/pending, NO valida fault injection.
   Compilar SOLO con overlay G10-I + telemetria de laboratorio G10-R.
+  H0 DIAGNOSTICO UNICO: LINK=-9 NO es estado fisico; R1-R4 NO VALIDOS.
 */
 #include <JWPLC_GlobalPeripherals.h>
 #include <JWPLC_Display.h>
@@ -501,6 +502,7 @@ void setup() {
   JWPLCIdleScreen::setTitle("JWPLC Basic A13");
   Serial.begin(115200);
   Serial.println("G10R_PROTOCOL:R1R2R3R4_FAULT_LAB_V2");
+  Serial.println("G10R_H0_WDT_DIAG=SKIP_2_DIRECT_LINK_READS_NO_R1_R4");
   bootNonce=esp_random();
   Serial.print("G10R_BOOT:NONCE=");Serial.println(bootNonce,HEX);
   // El autoload normal inicia Ethernet y el resto de perifericos.
@@ -517,6 +519,8 @@ void setup() {
 void loop() {
   handleUsb();
   uint32_t now=millis();
+  // H0: autoload y perifericos INTACTOS; solo se eliminan dos lecturas
+  // PHY directas del sketch para atribucion causal del WDT.
   // El core mantiene autoload. Este task no llama service() de Ethernet.
   r3Service();
   serviceUDP();
@@ -530,7 +534,7 @@ void loop() {
       Serial.print(" UDP=");Serial.print(udpReady?1:0);
       Serial.print(" RTU=");Serial.print(rtuReady?1:0);
       Serial.print(" BOOT=");Serial.print(bootNonce,HEX);
-      Serial.print(" LINK=");Serial.print((int)JWPLC_Ethernet.linkStatus());
+      Serial.print(" LINK=-9"); // H0: no leer PHY directamente desde sketch
       Serial.println(" VER=R1R2R3R4_FAULT_LAB_V2");
     }
     return;
@@ -561,7 +565,7 @@ void loop() {
     Serial.print(JWPLC_Ethernet.isReady()?JWPLC_Ethernet.localIP():IPAddress(0,0,0,0));
     // LinkON=1, LinkOFF=2, Unknown=0 (puede ser SPI_BUSY).
     // Unknown nunca equivale a LinkOFF físico.
-    Serial.print(" LINK=");Serial.print((int)JWPLC_Ethernet.linkStatus());
+    Serial.print(" LINK=-9"); // H0: no leer PHY directamente desde sketch
     Serial.print(" ETH=");Serial.print(JWPLC_Ethernet.isReady()?1:0);
     // Telemetría DHCP, solo lectura de API existente; no fuerza renew/rebind.
     Serial.print(" DHCP_STATE=");Serial.print((int)JWPLC_Ethernet.runtimeState());
