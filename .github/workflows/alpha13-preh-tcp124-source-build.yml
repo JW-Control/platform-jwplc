@@ -1,0 +1,53 @@
+name: Alpha13 PRE-H TCP124 source-first integrado
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/alpha13-preh-tcp124-source-build.yml'
+      - 'tools/alpha13/gates/a13_g10_r_tcp124_stage.py'
+      - 'tools/alpha13/gates/a13_g10_r_build_candidate.py'
+      - 'tools/alpha13/sketches/g10_r_integrated/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  candidate-source-first:
+    name: TCP124 source first no hardware (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Verificar alcance del candidato sin tocar producto
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --quiet 1492336b8b56a72c0e4e1014dee8069f3f89e504 -- JWPLC/
+          echo "TCP124_PRODUCT_DIFF=NONE"
+      - name: Contrato hook staged y seguridad
+        shell: bash
+        run: |
+          python -B tools/alpha13/gates/a13_g10_r_tcp124_stage.py --selftest
+          python -B tools/alpha13/gates/a13_g10_r_build_candidate.py --selftest
+      - uses: arduino/setup-arduino-cli@v2
+        with:
+          version: '1.5.1'
+      - name: Instalar bootstrap de compilación aislada
+        shell: bash
+        run: |
+          set -euo pipefail
+          arduino-cli config init --overwrite
+          arduino-cli config set board_manager.additional_urls "https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json"
+          arduino-cli core update-index
+          arduino-cli core install "jwplc:esp32@2.1.0-alpha.10"
+      - name: Compilar los dos sketches source-first sin USB
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -B tools/alpha13/gates/a13_g10_r_build_candidate.py --build
+          echo "TCP124_CANDIDATE_SOURCE_FIRST=PASS_NONPHYSICAL"
