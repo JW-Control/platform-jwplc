@@ -164,6 +164,28 @@ def parse_slave_result(line:str,token:str):
     return values
 
 
+
+def decode_socket_slot(line:str,token:str):
+    """Snapshot source-backed; NO es un evento de CLOSE físico."""
+    prefix="G10R_SOCK:"+token+" "
+    if not line.startswith(prefix):return None
+    fields={}
+    for part in line[len(prefix):].split():
+        key,sep,value=part.partition("=")
+        if not sep or key in fields or not value.isdecimal():return None
+        fields[key]=int(value)
+    if set(fields)!={"SID","EPOCH","ALLOC","OWNER","PENDING","VALID"}:
+        return None
+    if not 0<=fields["SID"]<8 or fields["VALID"] not in (0,1):
+        return None
+    if fields["VALID"] and not (
+        fields["EPOCH"]>0 and fields["ALLOC"]>0 and fields["OWNER"]>0):
+        return None
+    return {"socket":fields["SID"],"epoch":fields["EPOCH"],
+            "allocation":fields["ALLOC"],"owner":fields["OWNER"],
+            "pending":fields["PENDING"],"valid":fields["VALID"]}
+
+
 def recv_exact(s, count:int)->bytes:
     buf=bytearray()
     while len(buf)<count:
@@ -210,6 +232,8 @@ class Recorder:
         self.boot=None
         self.ready_ip=None
         self.protocol_seen=False
+        self.r3_snapshots=[]
+        self._sock_batch=None
         self.slave_ready=False
         self.slave_report_token=""
         self.slave_result=None
@@ -252,12 +276,46 @@ class Recorder:
                         if hb:
                             self.latest=hb
                             self.events.append(hb)
+                        self.capture_socket_line(line,at)
                 elif name=="COM14":
                     if line=="G8_P4_READY:SLAVE:ID2:115200:8N1":
                         self.slave_ready=True
                     if self.slave_report_token:
                         parsed=parse_slave_result(line,self.slave_report_token)
                         if parsed is not None:self.slave_result=parsed
+
+    def capture_socket_line(self,line,at):
+        # Invocado sólo desde port_reader bajo self.lock.
+        if not self.phase or not self.token:return
+        prefix="G10R_SOCK_BEGIN:"+self.token+" T_MS="
+        if line.startswith(prefix):
+            tick=line[len(prefix):]
+            if not tick.isdecimal():return
+            self._sock_batch={"phase":self.phase,"t":at,"tick_ms":int(tick),
+                              "status":"CAPTURING","slots":[]}
+            return
+        if line=="G10R_SOCK_END:"+self.token:
+            batch=self._sock_batch
+            self._sock_batch=None
+            if batch is None:return
+            slots=batch["slots"]
+            batch["status"]=("CAPTURED" if
+                len(slots)==8 and {x["socket"] for x in slots}==set(range(8))
+                else "INCOMPLETE_REVIEW_STOP")
+            self.r3_snapshots.append(batch)
+            return
+        if line.startswith("G10R_SOCK_STATUS:"+self.token+" CODE="):
+            code=line.rpartition("=")[2]
+            if code.isdecimal():
+                self.r3_snapshots.append({
+                    "phase":self.phase,"t":at,
+                    "status":"BUS_BUSY" if int(code)==2 else "REVIEW_STOP",
+                    "code":int(code)})
+            self._sock_batch=None
+            return
+        if self._sock_batch is not None:
+            data=decode_socket_slot(line,self.token)
+            if data is not None:self._sock_batch["slots"].append(data)
 
     def open(self):
         from serial.tools import list_ports
@@ -312,6 +370,7 @@ class Recorder:
     def traffic_worker(self,phase,interval,halt:threading.Event):
         seq=0
         prev_rtu=None
+        next_snapshot_at=time.monotonic()
         while not halt.is_set() and not self.stop.is_set():
             with self.lock:
                 latest=dict(self.latest) if self.latest else None
@@ -328,6 +387,10 @@ class Recorder:
                 prev_rtu=rtu_value
                 halt.wait(min(.6,interval))
                 continue
+            if time.monotonic()>=next_snapshot_at:
+                # Sólo observación; no se utiliza para validar R3 CLOSE.
+                self.send("G10R_SOCKETS:"+token)
+                next_snapshot_at=time.monotonic()+15
             seq+=1
             tcp_ok=udp_ok=False
             if ip and ip!="0.0.0.0":
@@ -553,6 +616,8 @@ def live(evidence:Path)->int:
     finally:
         c.close()
         result["events"]=sorted(c.events,key=lambda ev:ev["t"])
+        result["r3_socket_snapshots"]=list(c.r3_snapshots)
+        result["r3_status"]="OBSERVABILITY_ONLY_NOT_CLOSE_FAULT_INJECTION"
         result["exit_code"]=status
         (out/"MANIFEST.json").write_text(
             json.dumps(result,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
