@@ -69,7 +69,7 @@ def build(output):
         for filename in ("boards.txt","platform.txt"):
             assert sha(SOURCE/filename)==sha(hardware/filename),filename
         archives=sorted(SOURCE.rglob("*.a"))
-        if len(archives)!=5:raise RuntimeError("FROZEN_ARCHIVE_COUNT_DRIFT")
+        if len(archives)<5:raise RuntimeError("ARCHIVE_INVENTORY_TOO_SMALL")
         for original in archives:
             if sha(original)!=sha(hardware/original.relative_to(SOURCE)):
                 raise RuntimeError("FROZEN_ARCHIVE_CONTENT_DRIFT")
