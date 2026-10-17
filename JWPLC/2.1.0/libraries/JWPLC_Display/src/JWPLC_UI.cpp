@@ -29,6 +29,9 @@ namespace
         bool dirty;
         bool hasValue;
         bool boolState;
+        // BOOL con fondo por estado: al cambiar de estado se repinta el campo
+        // completo (fondo, marco, etiqueta y unidad), no sólo el valor.
+        bool staticDirty;
 
         char value[VALUE_BUFFER_SIZE];
         float barValue;
@@ -49,6 +52,7 @@ namespace
               dirty(true),
               hasValue(false),
               boolState(false),
+              staticDirty(false),
               barValue(0.0f),
               fieldX(0),
               fieldY(0),
@@ -179,15 +183,17 @@ namespace
             }
         }
 
-        // FIELD_PADDING sigue siendo el margen visual minimo. Para escalas
-        // mayores reservamos al menos una celda de escala para contener la
-        // posible fila 8 (descenders) sin salir del rectangulo del field.
-        // Alpha15: ese extra se aplica sólo a la derecha y abajo (trailing);
+        // FIELD_PADDING sigue siendo el margen visual minimo. El texto con
+        // fondo pinta la celda clasica completa (6x8 por escala): una columna
+        // y una fila de `escala` px mas que el cuerpo nominal 5x7 del layout.
+        // Ese exceso, mas la linea del marco (1 px), debe caber en el margen
+        // derecho/inferior: pad >= escala + 1. Si no, en 3x y 4x el fondo del
+        // texto borraba el marco.
+        // Alpha15: este margen se aplica sólo a la derecha y abajo (trailing);
         // arriba/izquierda el margen es siempre FIELD_PADDING para que la
-        // etiqueta y el valor no se desplacen al pasar a escala 4.
-        return (maxTextSize > FIELD_PADDING)
-                   ? (int16_t)maxTextSize
-                   : FIELD_PADDING;
+        // etiqueta y el valor no se desplacen al cambiar de escala.
+        const int16_t needed = (int16_t)maxTextSize + 1;
+        return (needed > FIELD_PADDING) ? needed : FIELD_PADDING;
     }
 
     void makeNumericSample(const JWPLC_UIField &def, char *out, size_t outSize)
@@ -622,11 +628,29 @@ namespace
                                  : valueH);
     }
 
+    // Fondo del campo: el del estado actual en BOOL con fondo por estado.
+    uint16_t fieldBackground(const FieldRuntime &field)
+    {
+        const JWPLC_UIField &def = field.def;
+
+        if (def.meta.type == JWPLC_UI_FIELD_BOOL &&
+            (def.options.boolText.stateColors & JWPLC_UI_BOOL_STATE_BACKGROUND))
+        {
+            return field.boolState
+                       ? def.options.boolText.trueBackground
+                       : def.options.boolText.falseBackground;
+        }
+
+        return def.style.colors.background;
+    }
+
     void drawFieldStatic(JWPLC_TFTClass &tft, FieldRuntime &field)
     {
         computeFieldGeometry(tft, field);
 
         const JWPLC_UIField &def = field.def;
+        const uint16_t background = fieldBackground(field);
+        field.staticDirty = false;
 
         if (field.fieldW > 0 && field.fieldH > 0)
         {
@@ -635,7 +659,7 @@ namespace
                 field.fieldY,
                 field.fieldW,
                 field.fieldH,
-                def.style.colors.background);
+                background);
         }
 
         if (def.style.frame && field.fieldW > 1 && field.fieldH > 1)
@@ -656,7 +680,7 @@ namespace
                     : def.style.labelTextSize);
             tft.setTextColor(
                 def.style.colors.label,
-                def.style.colors.background);
+                background);
             tft.setCursor(
                 def.rect.x + FIELD_PADDING,
                 def.rect.y + FIELD_PADDING);
@@ -671,7 +695,7 @@ namespace
                     : def.style.labelTextSize);
             tft.setTextColor(
                 def.style.colors.label,
-                def.style.colors.background);
+                background);
             tft.setCursor(
                 field.valueX + field.valueW + FIELD_GAP,
                 field.valueY);
@@ -724,31 +748,26 @@ namespace
                                       : (int16_t)def.style.valueTextSize;
             clearH += scale;
 
+            // Nunca sobre la línea inferior del marco.
             const int16_t maxClearH =
-                (field.fieldY + field.fieldH) - field.valueY;
+                (field.fieldY + field.fieldH - (def.style.frame ? 1 : 0)) - field.valueY;
             if (clearH > maxClearH)
             {
                 clearH = maxClearH;
             }
         }
 
-        // BOOL con colores por estado: texto y/o fondo de la región del valor.
+        // BOOL con colores por estado: color del texto del valor; el fondo
+        // por estado es el de todo el campo (fieldBackground).
         uint16_t valueColor = def.style.colors.value;
-        uint16_t valueBackground = def.style.colors.background;
+        const uint16_t valueBackground = fieldBackground(field);
 
-        if (def.meta.type == JWPLC_UI_FIELD_BOOL)
+        if (def.meta.type == JWPLC_UI_FIELD_BOOL &&
+            (def.options.boolText.stateColors & JWPLC_UI_BOOL_STATE_TEXT))
         {
-            const JWPLC_UIBoolText &states = def.options.boolText;
-
-            if (states.stateColors & JWPLC_UI_BOOL_STATE_TEXT)
-            {
-                valueColor = field.boolState ? states.trueColor : states.falseColor;
-            }
-
-            if (states.stateColors & JWPLC_UI_BOOL_STATE_BACKGROUND)
-            {
-                valueBackground = field.boolState ? states.trueBackground : states.falseBackground;
-            }
+            valueColor = field.boolState
+                             ? def.options.boolText.trueColor
+                             : def.options.boolText.falseColor;
         }
 
         const uint32_t clearStartUs = profile ? micros() : 0U;
@@ -1042,6 +1061,12 @@ namespace JWPLCUI
         const bool stateChanged = field->boolState != value;
         field->boolState = value;
 
+        if (stateChanged &&
+            (field->def.options.boolText.stateColors & JWPLC_UI_BOOL_STATE_BACKGROUND))
+        {
+            field->staticDirty = true;
+        }
+
         // Con color por estado, el mismo texto en ambos estados (p. ej. "●")
         // también debe repintarse al cambiar de estado.
         if (!setValueString(*field, text) &&
@@ -1230,6 +1255,12 @@ namespace JWPLCUI
             }
 
             ++dirtyCount;
+
+            if (field.staticDirty)
+            {
+                drawFieldStatic(tft, field);
+            }
+
             drawFieldValue(tft, field);
         }
 

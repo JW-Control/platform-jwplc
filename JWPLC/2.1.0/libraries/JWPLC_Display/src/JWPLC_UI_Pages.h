@@ -26,6 +26,9 @@ namespace JWPLCUIPages
     // Overlay global NN/TT. Se dibuja al final del refresh para quedar siempre
     // por encima de los fields de la página.
     void drawIndicator(JWPLC_TFTClass &tft);
+
+    // Alpha15: visibilidad y esquina superior izquierda del indicador (36×12).
+    void setIndicator(bool visible, int16_t x, int16_t y);
 }
 
 #endif // JWPLC_UI_PAGES_H

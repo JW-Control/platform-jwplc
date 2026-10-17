@@ -130,8 +130,9 @@ struct JWPLC_UIValueFormat
 // Alpha15: colores del valor por estado.
 //   (falso, verdadero)                          -> colors.value / colors.background
 //   (falso, verdadero, colorF, colorV)          -> texto por estado
-//   (falso, verdadero, colorF, colorV, fondoF, fondoV) -> texto y fondo de la
-//                                                  región del valor por estado
+//   (falso, verdadero, colorF, colorV, fondoF, fondoV) -> texto por estado y
+//                                                  fondo de todo el campo por
+//                                                  estado (el marco no cambia)
 #define JWPLC_UI_HAS_BOOL_STATE_COLORS 1
 #define JWPLC_UI_HAS_BOOL_STATE_BACKGROUNDS 1
 

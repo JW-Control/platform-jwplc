@@ -12,12 +12,18 @@
 
 namespace
 {
-    static constexpr int16_t INDICATOR_X = 282;
-    static constexpr int16_t INDICATOR_Y = 3;
     static constexpr int16_t INDICATOR_W = 36;
     static constexpr int16_t INDICATOR_H = 12;
-    static constexpr int16_t INDICATOR_TEXT_X = 286;
-    static constexpr int16_t INDICATOR_TEXT_Y = 5;
+    static constexpr int16_t INDICATOR_TEXT_DX = 4;
+    static constexpr int16_t INDICATOR_TEXT_DY = 2;
+    static constexpr int16_t SCREEN_W = 320;
+    static constexpr int16_t SCREEN_H = 170;
+
+    // Alpha15: posición y visibilidad configurables (setPageIndicator). Por
+    // defecto, el overlay de Alpha11 arriba a la derecha.
+    int16_t g_indicatorX = 282;
+    int16_t g_indicatorY = 3;
+    bool g_indicatorVisible = true;
 
     uint8_t g_pageCount = 1;
     bool g_selectionMode = true;
@@ -286,9 +292,23 @@ namespace JWPLCUIPages
         JWPLCUI::requestRefresh();
     }
 
+    void setIndicator(bool visible, int16_t x, int16_t y)
+    {
+        if (x < 0) x = 0;
+        if (y < 0) y = 0;
+        if (x > SCREEN_W - INDICATOR_W) x = SCREEN_W - INDICATOR_W;
+        if (y > SCREEN_H - INDICATOR_H) y = SCREEN_H - INDICATOR_H;
+
+        g_indicatorVisible = visible;
+        g_indicatorX = x;
+        g_indicatorY = y;
+        markIndicatorDirty();
+        JWPLCUI::requestRefresh();
+    }
+
     void drawIndicator(JWPLC_TFTClass &tft)
     {
-        if (!navigationEnabled() || !g_indicatorDirty)
+        if (!navigationEnabled() || !g_indicatorVisible || !g_indicatorDirty)
         {
             return;
         }
@@ -303,15 +323,15 @@ namespace JWPLCUIPages
         const uint16_t foreground = g_selectionMode ? 0xFFFF : 0x0000;
 
         tft.fillRect(
-            INDICATOR_X,
-            INDICATOR_Y,
+            g_indicatorX,
+            g_indicatorY,
             INDICATOR_W,
             INDICATOR_H,
             background);
 
         tft.drawRect(
-            INDICATOR_X,
-            INDICATOR_Y,
+            g_indicatorX,
+            g_indicatorY,
             INDICATOR_W,
             INDICATOR_H,
             0xFFFF);
@@ -326,7 +346,7 @@ namespace JWPLCUIPages
 
         tft.setTextSize(1);
         tft.setTextColor(foreground, background);
-        tft.setCursor(INDICATOR_TEXT_X, INDICATOR_TEXT_Y);
+        tft.setCursor(g_indicatorX + INDICATOR_TEXT_DX, g_indicatorY + INDICATOR_TEXT_DY);
         tft.print(text);
 
         g_indicatorDirty = false;
@@ -353,4 +373,9 @@ uint8_t JWPLC_DisplayClass::userPageCount() const
 bool JWPLC_DisplayClass::isUserPageSelection() const
 {
     return JWPLCUIPages::selectionMode();
+}
+
+void JWPLC_DisplayClass::setPageIndicator(bool visible, int16_t x, int16_t y)
+{
+    JWPLCUIPages::setIndicator(visible, x, y);
 }
