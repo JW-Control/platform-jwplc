@@ -256,6 +256,9 @@
     fillTriangle: `static void jwplcHMIFillTriangle(JWPLC_TFTClass &tft,
     int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint16_t color)
 {
+#if JWPLC_HMI_TFT_NATIVE_SHAPES
+    tft.fillTriangle(x0, y0, x1, y1, x2, y2, color);
+#else
     if (y0 > y1) { jwplcHMISwap(y0, y1); jwplcHMISwap(x0, x1); }
     if (y1 > y2) { jwplcHMISwap(y2, y1); jwplcHMISwap(x2, x1); }
     if (y0 > y1) { jwplcHMISwap(y0, y1); jwplcHMISwap(x0, x1); }
@@ -300,10 +303,14 @@
         if (a > b) jwplcHMISwap(a, b);
         tft.drawFastHLine(a, y, b - a + 1, color);
     }
+#endif
 }`,
     fillEllipse: `static void jwplcHMIFillEllipse(JWPLC_TFTClass &tft,
     int16_t cx, int16_t cy, int16_t rx, int16_t ry, uint16_t color)
 {
+#if JWPLC_HMI_TFT_NATIVE_SHAPES
+    tft.fillEllipse(cx, cy, rx, ry, color);
+#else
     if (rx <= 0 || ry <= 0)
     {
         tft.drawFastHLine(cx - rx, cy, 2 * rx + 1, color);
@@ -315,10 +322,14 @@
         const int16_t dx = (int16_t)((float)rx * sqrtf(t > 0.0f ? t : 0.0f) + 0.5f);
         tft.drawFastHLine(cx - dx, cy + dy, 2 * dx + 1, color);
     }
+#endif
 }`,
     drawEllipse: `static void jwplcHMIDrawEllipse(JWPLC_TFTClass &tft,
     int16_t cx, int16_t cy, int16_t rx, int16_t ry, uint16_t color)
 {
+#if JWPLC_HMI_TFT_NATIVE_SHAPES
+    tft.drawEllipse(cx, cy, rx, ry, color);
+#else
     if (rx <= 0 || ry <= 0)
     {
         tft.drawLine(cx - rx, cy - ry, cx + rx, cy + ry, color);
@@ -371,6 +382,7 @@
             p += rx2 - py + px;
         }
     }
+#endif
 }`
   };
 
@@ -716,9 +728,19 @@
     return { block: parts.join('\n'), helpers: order.filter((name) => helpers.has(name)) };
   }
 
+  // JWPLC_TFT >= 0.2.0 trae fillEllipse/drawEllipse/fillTriangle nativos.
+  // Con 0.1.0 (package alpha12 publicado) se usa la implementación de respaldo.
+  const NATIVE_SHAPES_GUARD = `#if defined(JWPLC_TFT_VERSION_MAJOR) && \\
+    ((JWPLC_TFT_VERSION_MAJOR > 0) || (JWPLC_TFT_VERSION_MINOR >= 2))
+#define JWPLC_HMI_TFT_NATIVE_SHAPES 1
+#else
+#define JWPLC_HMI_TFT_NATIVE_SHAPES 0
+#endif`;
+
   function helpersBlock(names) {
     if (!names.length) return '';
     return `// Primitivas auxiliares (sólo usan API pública de JWPLC_TFT).\n` +
+      `${NATIVE_SHAPES_GUARD}\n\n` +
       names.map((name) => STATIC_HELPERS[name]).join('\n\n');
   }
 

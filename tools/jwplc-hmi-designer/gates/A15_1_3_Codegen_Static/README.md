@@ -5,7 +5,8 @@ Prueba local (PC con Windows + JWPLC Basic) del trabajo de alpha.15 hasta el
 
 ```text
 A15_GATE_LOCAL_DESIGNER=PENDING
-A15_GATE_ARDUINO_CLI_COMPILE=PENDING
+A15_GATE_ARDUINO_CLI_COMPILE=PASS_CLOUD (2026-10-17: 444649 B flash / 34620 B RAM con JWPLC_TFT 0.2.0;
+                                         443973 B con el package publicado 0.1.0)
 A15_GATE_PHYSICAL_TFT=PENDING
 ```
 

@@ -126,6 +126,13 @@ void jwplcHMISetup()
 }
 
 // Primitivas auxiliares (sólo usan API pública de JWPLC_TFT).
+#if defined(JWPLC_TFT_VERSION_MAJOR) && \
+    ((JWPLC_TFT_VERSION_MAJOR > 0) || (JWPLC_TFT_VERSION_MINOR >= 2))
+#define JWPLC_HMI_TFT_NATIVE_SHAPES 1
+#else
+#define JWPLC_HMI_TFT_NATIVE_SHAPES 0
+#endif
+
 static inline void jwplcHMISwap(int16_t &a, int16_t &b)
 {
     const int16_t t = a;
@@ -136,6 +143,9 @@ static inline void jwplcHMISwap(int16_t &a, int16_t &b)
 static void jwplcHMIFillTriangle(JWPLC_TFTClass &tft,
     int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint16_t color)
 {
+#if JWPLC_HMI_TFT_NATIVE_SHAPES
+    tft.fillTriangle(x0, y0, x1, y1, x2, y2, color);
+#else
     if (y0 > y1) { jwplcHMISwap(y0, y1); jwplcHMISwap(x0, x1); }
     if (y1 > y2) { jwplcHMISwap(y2, y1); jwplcHMISwap(x2, x1); }
     if (y0 > y1) { jwplcHMISwap(y0, y1); jwplcHMISwap(x0, x1); }
@@ -180,11 +190,15 @@ static void jwplcHMIFillTriangle(JWPLC_TFTClass &tft,
         if (a > b) jwplcHMISwap(a, b);
         tft.drawFastHLine(a, y, b - a + 1, color);
     }
+#endif
 }
 
 static void jwplcHMIFillEllipse(JWPLC_TFTClass &tft,
     int16_t cx, int16_t cy, int16_t rx, int16_t ry, uint16_t color)
 {
+#if JWPLC_HMI_TFT_NATIVE_SHAPES
+    tft.fillEllipse(cx, cy, rx, ry, color);
+#else
     if (rx <= 0 || ry <= 0)
     {
         tft.drawFastHLine(cx - rx, cy, 2 * rx + 1, color);
@@ -196,11 +210,15 @@ static void jwplcHMIFillEllipse(JWPLC_TFTClass &tft,
         const int16_t dx = (int16_t)((float)rx * sqrtf(t > 0.0f ? t : 0.0f) + 0.5f);
         tft.drawFastHLine(cx - dx, cy + dy, 2 * dx + 1, color);
     }
+#endif
 }
 
 static void jwplcHMIDrawEllipse(JWPLC_TFTClass &tft,
     int16_t cx, int16_t cy, int16_t rx, int16_t ry, uint16_t color)
 {
+#if JWPLC_HMI_TFT_NATIVE_SHAPES
+    tft.drawEllipse(cx, cy, rx, ry, color);
+#else
     if (rx <= 0 || ry <= 0)
     {
         tft.drawLine(cx - rx, cy - ry, cx + rx, cy + ry, color);
@@ -253,6 +271,7 @@ static void jwplcHMIDrawEllipse(JWPLC_TFTClass &tft,
             p += rx2 - py + px;
         }
     }
+#endif
 }
 
 // Barra de Navegación HMI Autogenerada (ST7789)
