@@ -29,7 +29,7 @@ import uuid
 
 ROOT=Path(__file__).resolve().parents[3]
 PORTS=("COM4","COM14")
-PROTOCOL="G10R_PROTOCOL:R1R2R4_R3SNAPSHOT_V1"
+PROTOCOL="G10R_PROTOCOL:R1R2R3R4_FAULT_LAB_V2"
 FQBN="jwplc_hbench:esp32:jwplcbasic"
 CH340=(0x1a86,0x7523)
 BAUD=115200
@@ -43,7 +43,7 @@ AUTH="G10R AUTORIZO CAPTURA COM4 COM14 Y MANIOBRAS RJ45"
 R3_PHYSICAL_INJECTION_READY=False
 # Las cinco sondas pertenecen a UNA misma campaña H, no a uploads distintos.
 R3_PROBE_ORDER=("UDP","DNS","TCP","DHCP_CANCEL","DHCP_FINISH")
-READY_RE=re.compile(r"^G10R_READY:IP=(\d{1,3}(?:\.\d{1,3}){3}) TCP=1 UDP=1 RTU=1 BOOT=([0-9A-Fa-f]+) LINK=([012]) VER=R1R2R4_R3SNAPSHOT_V1$")
+READY_RE=re.compile(r"^G10R_READY:IP=(\d{1,3}(?:\.\d{1,3}){3}) TCP=1 UDP=1 RTU=1 BOOT=([0-9A-Fa-f]+) LINK=([012]) VER=R1R2R3R4_FAULT_LAB_V2$")
 HB_RE=re.compile(r"^G10R_HEARTBEAT:([0-9a-f]{24}) (.*)$")
 FIELDS={"HB":"hb","BOOT":"boot","IP":"ip","LINK":"link","ETH":"eth",
         "TCP":"tcp","SD_OK":"sd_ok","SD_FAIL":"sd_fail","RTC":"rtc",
@@ -636,12 +636,12 @@ def selftest()->int:
         require(parse_heartbeat(line,"a"*24,"R2",12.4) is None,
                 "NEGATIVE_NOT_REJECTED_"+label)
     expected_ready=("G10R_READY:IP=192.0.2.4 TCP=1 UDP=1 RTU=1"
-                    " BOOT=abc123 LINK=1 VER=R1R2R4_R3SNAPSHOT_V1")
+                    " BOOT=abc123 LINK=1 VER=R1R2R3R4_FAULT_LAB_V2")
     require(READY_RE.fullmatch(expected_ready) is not None,
             "READY_PERIODIC_PROTOCOL_MISSING")
     require(READY_RE.fullmatch(expected_ready.replace("BOOT=abc123","BOOT=ABC123")) is not None,
             "READY_ARDUINO_HEX_UPPERCASE_REJECTED")
-    require(READY_RE.fullmatch(expected_ready.replace("VER=R1R2R4_R3SNAPSHOT_V1",
+    require(READY_RE.fullmatch(expected_ready.replace("VER=R1R2R3R4_FAULT_LAB_V2",
                                                      "VER=LEGACY")) is None,
             "READY_STALE_FIRMWARE_ACCEPTED")
     with tempfile.TemporaryDirectory(prefix="g10r-evidence-synth-") as d:
