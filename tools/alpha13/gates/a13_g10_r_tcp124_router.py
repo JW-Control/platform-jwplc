@@ -39,7 +39,7 @@ def run_target(target,count,hold):
     start=threading.Barrier(count+1,timeout=8)
     records=[None]*count
     def client(i):
-        row={"client":i,"connect_ok":False,"fc03_ok":False,"close_confirmed":False}
+        row={"client":i,"connect_ok":False,"fc03_ok":False,"pc_socket_closed":False,"w5500_close":"UNKNOWN"}
         try:
             with socket.create_connection((target,502),timeout=2) as s:
                 s.settimeout(2)
@@ -59,7 +59,7 @@ def run_target(target,count,hold):
                 # Mantener conexión abierta para observación de concurrencia TCP.
                 time.sleep(hold)
                 row["closed_ns"]=time.monotonic_ns()
-            row["close_confirmed"]=True # PC solamente, no W5500
+            row["pc_socket_closed"]=True # Nunca afirmar cierre W5500
         except Exception as e:
             row["error"]=type(e).__name__
             try:start.abort()
@@ -89,7 +89,7 @@ def selftest():
         try:plan(bad,1,2)
         except ValueError:pass
         else:raise AssertionError("UNSAFE_IP_ACCEPTED")
-    print("G10_R_TCP124_ROUTER_PLAN=PASS_OFFLINE_NO_NETWORK")
+    assert "close_confirmed" not in Path(__file__).read_text(encoding="utf-8").split("def selftest():")[0]\n    print("G10_R_TCP124_ROUTER_PLAN=PASS_OFFLINE_NO_NETWORK")
     print("G10_R_TCP124_ROUTER_PHYSICAL=NOT_RUN")
 
 if __name__=="__main__":
