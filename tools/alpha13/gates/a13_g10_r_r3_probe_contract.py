@@ -16,7 +16,7 @@ PREFIX="G10R_R3_UDP:"
 SUCCESS=["ARMED","CLOSE_DURING_HOLD","AWAIT_LIFECYCLE_REVIEW"]
 KNOWN=set(SUCCESS)|{
     "MUTEX_NOT_ACQUIRED","PREPARE_FAILED","TASK_CREATION_FAILED",
-    "CLOSE_RACE_REVIEW","INJECTION_INCOMPLETE_REVIEW",
+    "CLOSE_RACE_REVIEW","INJECTION_INCOMPLETE_REVIEW","HOLD_TIMING_REVIEW",
 }
 
 
@@ -26,8 +26,14 @@ def evaluate(lines:list[str],trace:dict,token:str)->dict:
         return {"status":"REVIEW_STOP","errors":["INVALID_SESSION_TOKEN"]}
     states=[]
     lease=[]
+    holds=[]
     for line in lines:
         if not isinstance(line,str):continue
+        if line.startswith("G10R_R3_HOLD:"):
+            m=re.fullmatch("G10R_R3_HOLD:"+token+r" US=(\d+)",line)
+            if m is None:errors.append("INVALID_OR_FOREIGN_HOLD_DURATION")
+            else:holds.append(int(m.group(1)))
+            continue
         if line.startswith("G10R_R3_LEASE:"):
             m=re.fullmatch("G10R_R3_LEASE:"+token+
                 r" SID=(\d+) EPOCH=(\d+) ALLOC=(\d+) OWNER=(\d+)",line)
@@ -52,6 +58,8 @@ def evaluate(lines:list[str],trace:dict,token:str)->dict:
         errors.append("R3_UDP_PHASE_INCOMPLETE_OR_OUT_OF_ORDER")
     if len(lease)!=1:
         errors.append("R3_EXACT_LEASE_NOT_RECORDED")
+    if len(holds)!=1 or not 60000<=holds[0]<=120000:
+        errors.append("R3_REAL_MUTEX_HOLD_DURATION_OUT_OF_RANGE")
     if not isinstance(trace,dict):
         return {"status":"REVIEW_STOP","errors":errors+["TRACE_MISSING"]}
     if trace.get("status")!="OBSERVATIONAL_COMPLETE_NOT_PHYSICAL_PASS":
@@ -102,6 +110,7 @@ def fixture():
     t="a"*24
     lines=[f"G10R_R3_LEASE:{t} SID=3 EPOCH=1 ALLOC=25 OWNER=5"]
     lines += [f"{PREFIX}{t} STATE={state}" for state in SUCCESS]
+    lines.insert(-1,f"G10R_R3_HOLD:{t} US=80000")
     trace={"status":"OBSERVATIONAL_COMPLETE_NOT_PHYSICAL_PASS",
            "dropped":0,"issues":[],"events":[
               {"seq":10,"kind":6,"socket":3,"epoch":1,
@@ -131,12 +140,14 @@ def selftest():
         ("wrong_recorded_lease",lambda l,r:l.__setitem__(0,l[0].replace("ALLOC=25","ALLOC=77"))),
         ("missing_lease",lambda l,r:l.pop(0)),
         ("duplicate_lease",lambda l,r:l.insert(1,l[0])),
+        ("missing_duration",lambda l,r:l.pop(-2)),
+        ("overlong_mutex",lambda l,r:l.__setitem__(-2,l[-2].replace("80000","185000"))),
     ]
     for label, mutate in negatives:
         l=copy.deepcopy(lines);r=copy.deepcopy(trace)
         mutate(l,r)
         assert evaluate(l,r,t)["status"]=="REVIEW_STOP",label
-    print("G10_R_R3_UDP_PROBE_NEGATIVES=14_REJECTED")
+    print("G10_R_R3_UDP_PROBE_NEGATIVES=16_REJECTED")
     print("G10_R_R3_UDP_PROBE=PASS_OFFLINE_CONTRACT_ONLY")
     print("G10_R_R3_FULL_H=BLOCKED_NOT_RUN")
 
