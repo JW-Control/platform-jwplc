@@ -188,6 +188,22 @@ La siguiente instrumentación se añadió **exclusivamente al overlay staged G10
 - `tools/alpha13/gates/a13_g10_r_field_runner.py`: registra `r3_lifecycle_trace` y `r3_semantic_verdict` de forma independiente de R1/R2/R4; mantiene los consentimientos de upload/captura separados. En caso de `INSTRUMENTATION_GAP` exige revisión y **nunca transforma coherencia de eventos en validación física R3**.
 - Suite C++ `native_g10_r_lab_snapshot_test.cpp`: ahora también valida el orden del historial real y reconoce su desbordamiento. El runner `a13_g10_r_r3_native.py` incorpora mutaciones C++ sobre tipo de QueueRequest, DrainClose y clasificación de overrun, además de cuatro mutantes previos de snapshots. La **CI del HEAD exacto de esta ampliación** debe cerrar antes de atribuir resultado.
 
+### Diccionario de eventos UART R3
+
+| KIND | Evento del SafeAccess | Qué demuestra |
+| ---: | --- | --- |
+| 1 | `Allocate` | Nueva asignación de `epoch/allocation/owner` |
+| 2 | `Recycle` | El propietario anterior fue reemplazado; **no significa CLOSE físico** |
+| 3 | `CloseBusy` | No se obtuvo mutex SPI; CLOSE aún **no confirmado** |
+| 4 | `CloseImmediate` | Callback de CLOSE ejecutado bajo mutex y slot invalidado |
+| 5 | `CloseStale` | Intento de cierre con token que no coincide con lease actual |
+| 6 | `QueueRequest` | Se pidió cierre diferido; la solicitud puede ser obsoleta |
+| 7 | `DrainClose` | Se ejecutó el callback CLOSE para el ticket del propietario actual |
+| 8 | `DrainStale` | Ticket pendiente ignorado/retirado por no coincidir con lease |
+| 9 | `Invalidate` | Invalidación lógica del slot; **no acredita CLOSE físico** |
+
+**Diferenciación crucial:** el resultado `LabEventResult::Busy` significa que la **lectura del anillo de instrumentación** no obtuvo su propio `atomic_flag`. No es el mismo hecho que `CloseBusy` (mutex SPI ocupado). Ambos deben preservarse en la evidencia, pero ninguno confirma cierre.
+
 **Límites:** los eventos reflejan la ejecución del **SafeAccess** fuente real bajo mutex SPI **simulado** en host; solo en banco podrán atribuirse a firmware real. Se requiere fault injection determinista de DNS/DHCP/UDP bajo `SPI_BUSY`, evidencia fuente→ELF→upload y correlación temporal UART/PC. La lectura del ring no acredita el estado eléctrico del W5500. **R3 sigue sin PASS físico y `A13-006=ADOPTION_BLOCKED`.**
 
 ```text
