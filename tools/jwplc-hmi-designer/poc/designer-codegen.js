@@ -324,6 +324,43 @@
     }
 #endif
 }`,
+    microText: `// Microfuente 3x5 (celda 4x6) usada por la barra de navegación.
+static const uint8_t JWPLC_HMI_MICRO_FONT[][4] =
+{
+    {'0', 0x1F, 0x11, 0x1F}, {'1', 0x00, 0x1F, 0x00}, {'2', 0x1D, 0x15, 0x17},
+    {'3', 0x15, 0x15, 0x1F}, {'4', 0x07, 0x04, 0x1F}, {'5', 0x17, 0x15, 0x1D},
+    {'6', 0x1F, 0x15, 0x1D}, {'7', 0x01, 0x1D, 0x03}, {'8', 0x1F, 0x15, 0x1F},
+    {'9', 0x17, 0x15, 0x1F}, {'A', 0x1E, 0x05, 0x1E}, {'B', 0x1F, 0x15, 0x0A},
+    {'C', 0x0E, 0x11, 0x11}, {'D', 0x1F, 0x11, 0x0E}, {'E', 0x1F, 0x15, 0x11},
+    {'F', 0x1F, 0x05, 0x01}, {'G', 0x0E, 0x15, 0x1D}, {'H', 0x1F, 0x04, 0x1F},
+    {'I', 0x11, 0x1F, 0x11}, {'J', 0x08, 0x10, 0x0F}, {'K', 0x1F, 0x04, 0x1B},
+    {'L', 0x1F, 0x10, 0x10}, {'M', 0x1F, 0x02, 0x1F}, {'N', 0x1F, 0x06, 0x1F},
+    {'O', 0x0E, 0x11, 0x0E}, {'P', 0x1F, 0x05, 0x02}, {'Q', 0x0E, 0x11, 0x1E},
+    {'R', 0x1F, 0x05, 0x1A}, {'S', 0x12, 0x15, 0x09}, {'T', 0x01, 0x1F, 0x01},
+    {'U', 0x0F, 0x10, 0x0F}, {'V', 0x07, 0x18, 0x07}, {'W', 0x1F, 0x08, 0x1F},
+    {'X', 0x1B, 0x04, 0x1B}, {'Y', 0x03, 0x1C, 0x03}, {'Z', 0x19, 0x15, 0x13},
+    {':', 0x00, 0x0A, 0x00}, {'.', 0x00, 0x10, 0x00}, {'-', 0x04, 0x04, 0x04},
+    {'/', 0x18, 0x06, 0x01}, {'_', 0x10, 0x10, 0x10}, {'<', 0x04, 0x0A, 0x11},
+    {'>', 0x11, 0x0A, 0x04}
+};
+
+static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, const char *text, uint16_t color)
+{
+    for (; *text; ++text, x += 4)
+    {
+        char c = *text;
+        if (c >= 'a' && c <= 'z') c = (char)(c - 'a' + 'A');
+        for (size_t g = 0; g < sizeof(JWPLC_HMI_MICRO_FONT) / sizeof(JWPLC_HMI_MICRO_FONT[0]); ++g)
+        {
+            if (JWPLC_HMI_MICRO_FONT[g][0] != (uint8_t)c) continue;
+            for (int16_t col = 0; col < 3; ++col)
+                for (int16_t row = 0; row < 5; ++row)
+                    if (JWPLC_HMI_MICRO_FONT[g][1 + col] & (1u << row))
+                        tft.drawPixel(x + col, y + row, color);
+            break;
+        }
+    }
+}`,
     drawEllipse: `static void jwplcHMIDrawEllipse(JWPLC_TFTClass &tft,
     int16_t cx, int16_t cy, int16_t rx, int16_t ry, uint16_t color)
 {
@@ -533,12 +570,63 @@
     return chunks.join('\n\n');
   }
 
+  function css565(col) {
+    const text = String(col || '').trim();
+    let r = 0, g = 0, b = 0;
+    let m = text.match(/^#([0-9a-f]{6})$/i);
+    if (m) {
+      const n = parseInt(m[1], 16);
+      r = (n >> 16) & 0xFF; g = (n >> 8) & 0xFF; b = n & 0xFF;
+    } else if ((m = text.match(/^#([0-9a-f]{3})$/i))) {
+      r = parseInt(m[1][0] + m[1][0], 16); g = parseInt(m[1][1] + m[1][1], 16); b = parseInt(m[1][2] + m[1][2], 16);
+    } else if ((m = text.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i))) {
+      r = Math.round(Number(m[1])); g = Math.round(Number(m[2])); b = Math.round(Number(m[3]));
+    }
+    return hex565(((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3));
+  }
+
+  // Traduce las operaciones de JWPLCHMIPages.recordNavBar() a llamadas de
+  // JWPLC_TFT. Mismo recorrido que el lienzo -> misma imagen en la TFT.
+  function navBarOpsToCpp(ops, helpers) {
+    const lines = [];
+    const radius = (op) => Math.max(0, Math.min(Math.floor(Number(op.r) || 0), Math.floor(op.w / 2), Math.floor(op.h / 2)));
+    ops.forEach((op) => {
+      const x = Math.round(op.x), y = Math.round(op.y);
+      if (op.op === 'fillRound') {
+        const r = radius(op);
+        lines.push(r > 0
+          ? `tft.fillRoundRect(${x}, ${y}, ${Math.round(op.w)}, ${Math.round(op.h)}, ${r}, ${css565(op.col)});`
+          : `tft.fillRect(${x}, ${y}, ${Math.round(op.w)}, ${Math.round(op.h)}, ${css565(op.col)});`);
+      } else if (op.op === 'strokeRound') {
+        const r = radius(op);
+        lines.push(r > 0
+          ? `tft.drawRoundRect(${x}, ${y}, ${Math.round(op.w)}, ${Math.round(op.h)}, ${r}, ${css565(op.col)});`
+          : `tft.drawRect(${x}, ${y}, ${Math.round(op.w)}, ${Math.round(op.h)}, ${css565(op.col)});`);
+      } else if (op.op === 'fillRect') {
+        lines.push(`tft.fillRect(${x}, ${y}, ${Math.round(op.w)}, ${Math.round(op.h)}, ${css565(op.col)});`);
+      } else if (op.op === 'line') {
+        lines.push(op.vertical
+          ? `tft.drawFastVLine(${x}, ${y}, ${Math.round(op.len)}, ${css565(op.col)});`
+          : `tft.drawFastHLine(${x}, ${y}, ${Math.round(op.len)}, ${css565(op.col)});`);
+      } else if (op.op === 'text' && op.str) {
+        if (op.micro) {
+          helpers.add('microText');
+          lines.push(`jwplcHMIDrawMicroText(tft, ${x}, ${y}, "${cppStringLiteral(op.str)}", ${css565(op.col)});`);
+        } else {
+          lines.push(`tft.setCursor(${x}, ${y});`);
+          lines.push(`tft.setTextColor(${css565(op.col)});`);
+          lines.push(`tft.print("${cppStringLiteral(op.str)}");`);
+        }
+      }
+    });
+    return lines;
+  }
+
   function navBarFunctionBlock() {
     const hmiPages = window.JWPLCHMIPages;
-    if (!hmiPages) return '';
-    const cfg = hmiPages.getNavBarConfig ? hmiPages.getNavBarConfig() : null;
     const pageList = pages();
-    if (!cfg || !cfg.enabled || pageList.length <= 1) return '';
+    const helpers = new Set();
+    if (!hmiPages?.recordNavBar || !hasNavBar()) return { block: '', helpers: [] };
 
     const lines = [];
     lines.push(`// Barra de Navegación HMI Autogenerada (ST7789)`);
@@ -546,96 +634,21 @@
     lines.push(`static void jwplcDrawPageNavBar(uint8_t activePage)`);
     lines.push(`{`);
     lines.push(`    JWPLC_TFTClass &tft = JWPLC_Display.tft();`);
-
-    const layout = hmiPages.computeNavBarLayout ? hmiPages.computeNavBarLayout(pageList, 0) : null;
-    const x = layout ? layout.x : 0;
-    const y = layout ? layout.y : 147;
-    const w = layout ? layout.w : 320;
-    const h = layout ? layout.h : 22;
-    const isVert = Boolean(layout?.isVertical);
-    const preset = cfg.preset || 'industrial-color';
-    const radius = cfg.radius !== undefined ? Number(cfg.radius) : 3;
-
-    lines.push(`    tft.fillRect(${x}, ${y}, ${w}, ${h}, 0x0000);`);
     lines.push(`    tft.setTextSize(1);`);
     lines.push(``);
     lines.push(`    switch (activePage)`);
     lines.push(`    {`);
-
     pageList.forEach((page) => {
-      const curLayout = hmiPages.computeNavBarLayout ? hmiPages.computeNavBarLayout(pageList, page.id) : null;
+      const body = navBarOpsToCpp(hmiPages.recordNavBar(page.id), helpers);
       lines.push(`    case ${Number(page.id)}:`);
-      lines.push(`        {`);
-      if (curLayout && curLayout.tabs) {
-        if (preset === 'compact-dots') {
-          curLayout.tabs.forEach((tab) => {
-            if (tab.isActive) {
-              const r = Math.floor(Math.min(tab.w, tab.h) / 2);
-              lines.push(`            tft.fillRoundRect(${tab.x}, ${tab.y}, ${tab.w}, ${tab.h}, ${r}, 0x07FF);`);
-            } else {
-              const cx = tab.x + Math.floor(tab.w / 2);
-              const cy = tab.y + Math.floor(tab.h / 2);
-              lines.push(`            tft.fillCircle(${cx}, ${cy}, 2, 0x4A69);`);
-            }
-          });
-        } else {
-          curLayout.tabs.forEach((tab) => {
-            const col565 = `0x${Number(tab.color || 0xFFFF).toString(16).toUpperCase().padStart(4, '0')}`;
-            const rad = Math.min(radius, Math.floor(Math.min(tab.w, tab.h) / 2));
-            if (tab.isActive) {
-              lines.push(`            tft.fillRoundRect(${tab.x}, ${tab.y}, ${tab.w}, ${tab.h}, ${rad}, 0xFFFF);`);
-              lines.push(`            tft.drawRoundRect(${tab.x}, ${tab.y}, ${tab.w}, ${tab.h}, ${rad}, ${col565});`);
-              lines.push(`            tft.setTextColor(${col565 === '0xFFFF' ? '0x0000' : col565}, 0xFFFF);`);
-            } else {
-              lines.push(`            tft.fillRoundRect(${tab.x}, ${tab.y}, ${tab.w}, ${tab.h}, ${rad}, 0x0000);`);
-              lines.push(`            tft.drawRoundRect(${tab.x}, ${tab.y}, ${tab.w}, ${tab.h}, ${rad}, ${col565});`);
-              lines.push(`            tft.setTextColor(${col565}, 0x0000);`);
-            }
-            const textW = tab.shortName.length * 6 - 1;
-            const tx = tab.x + Math.max(1, Math.floor((tab.w - textW) / 2));
-            const ty = tab.y + Math.max(1, Math.floor((tab.h - 7) / 2));
-            lines.push(`            tft.setCursor(${tx}, ${ty});`);
-            lines.push(`            tft.print("${tab.shortName}");`);
-          });
-        }
-
-        if (curLayout.hasOverflow) {
-          const arrowPrevChar = isVert ? "^" : "<";
-          const arrowNextChar = isVert ? "v" : ">";
-          if (curLayout.leftArrow) {
-            const la = curLayout.leftArrow;
-            const laCol = la.enabled ? '0x07FF' : '0x39E7';
-            lines.push(`            tft.drawRoundRect(${la.x}, ${la.y}, ${la.w}, ${la.h}, 2, ${laCol});`);
-            lines.push(`            tft.setTextColor(${laCol}, 0x0000);`);
-            lines.push(`            tft.setCursor(${la.x + Math.floor((la.w - 5) / 2)}, ${la.y + Math.floor((la.h - 7) / 2)});`);
-            lines.push(`            tft.print("${arrowPrevChar}");`);
-          }
-          if (curLayout.rightArrow) {
-            const ra = curLayout.rightArrow;
-            const raCol = ra.enabled ? '0x07FF' : '0x39E7';
-            lines.push(`            tft.drawRoundRect(${ra.x}, ${ra.y}, ${ra.w}, ${ra.h}, 2, ${raCol});`);
-            lines.push(`            tft.setTextColor(${raCol}, 0x0000);`);
-            lines.push(`            tft.setCursor(${ra.x + Math.floor((ra.w - 5) / 2)}, ${ra.y + Math.floor((ra.h - 7) / 2)});`);
-            lines.push(`            tft.print("${arrowNextChar}");`);
-          }
-          if (curLayout.counter) {
-            const cnt = curLayout.counter;
-            lines.push(`            tft.drawRoundRect(${cnt.x}, ${cnt.y}, ${cnt.w}, ${cnt.h}, 2, 0x4A69);`);
-            lines.push(`            tft.setTextColor(0xFFFF, 0x0000);`);
-            lines.push(`            tft.setCursor(${cnt.x + 2}, ${cnt.y + Math.floor((cnt.h - 7) / 2)});`);
-            lines.push(`            tft.print("${cnt.text}");`);
-          }
-        }
-      }
-      lines.push(`        }`);
+      body.forEach((line) => lines.push(`        ${line}`));
       lines.push(`        break;`);
     });
-
     lines.push(`    default:`);
     lines.push(`        break;`);
     lines.push(`    }`);
     lines.push(`}`);
-    return lines.join('\n');
+    return { block: lines.join('\n'), helpers: [...helpers] };
   }
 
   function hasNavBar() {
@@ -746,7 +759,7 @@
     parts.push(`    }`);
     parts.push(`}`);
 
-    const order = ['swap', 'fillTriangle', 'fillEllipse', 'drawEllipse'];
+    const order = ['swap', 'fillTriangle', 'fillEllipse', 'drawEllipse', 'microText'];
     return { block: parts.join('\n'), helpers: order.filter((name) => helpers.has(name)) };
   }
 
@@ -796,10 +809,11 @@
     }, '    ');
 
     const variables = groupedChunks((field, index) => variableDeclaration(field, index));
-    const navBarBlock = hasNavBar() ? navBarFunctionBlock() : '';
+    const navBar = navBarFunctionBlock();
     const pageEnter = generatedPageEnterBlock();
     const uiUpdate = generatedUIUpdateBlock();
-    const fullUiBlock = [helpersBlock(pageEnter.helpers), navBarBlock, pageEnter.block, uiUpdate]
+    const helperNames = [...new Set([...pageEnter.helpers, ...navBar.helpers])];
+    const fullUiBlock = [helpersBlock(helperNames), navBar.block, pageEnter.block, uiUpdate]
       .filter(Boolean)
       .join('\n\n');
     const pageEnum = pageEnumBlock();

@@ -703,6 +703,51 @@
   }
 
   // --- Renderizado Gráfico de la Barra de Navegación HMI ---
+  // La barra se describe con un "pintor" de primitivas. El lienzo usa
+  // canvasNavPainter y el codegen usa recordNavBar(): ambos recorren el mismo
+  // código, así la TFT dibuja lo mismo que el Designer (A15 NAV-1/NAV-2).
+  function canvasNavPainter(ctx, scale) {
+    return {
+      fillRound(x, y, w, h, r, col) {
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        const rx = Math.min(r, Math.floor(w / 2), Math.floor(h / 2)) * scale;
+        if (typeof ctx.roundRect === 'function' && rx > 0) {
+          ctx.roundRect(x * scale, y * scale, w * scale, h * scale, rx);
+        } else {
+          ctx.rect(x * scale, y * scale, w * scale, h * scale);
+        }
+        ctx.fill();
+      },
+      strokeRound(x, y, w, h, r, col, lineWidth = 1) {
+        ctx.strokeStyle = col;
+        ctx.lineWidth = Math.max(1, lineWidth * scale);
+        ctx.beginPath();
+        const rx = Math.min(r, Math.floor(w / 2), Math.floor(h / 2)) * scale;
+        if (typeof ctx.roundRect === 'function' && rx > 0) {
+          ctx.roundRect(x * scale + 0.5, y * scale + 0.5, w * scale - 1, h * scale - 1, rx);
+        } else {
+          ctx.strokeRect(x * scale + 0.5, y * scale + 0.5, w * scale - 1, h * scale - 1);
+        }
+        ctx.stroke();
+      },
+      fillRect(x, y, w, h, col) {
+        ctx.fillStyle = col;
+        ctx.fillRect(x * scale, y * scale, w * scale, h * scale);
+      },
+      // Línea horizontal o vertical de 1 px que ocupa la fila/columna (x, y).
+      line(x, y, len, vertical, col) {
+        ctx.fillStyle = col;
+        if (vertical) ctx.fillRect(x * scale, y * scale, scale, len * scale);
+        else ctx.fillRect(x * scale, y * scale, len * scale, scale);
+      },
+      text(str, x, y, col, micro) {
+        if (micro) drawMicroText(ctx, str, x, y, scale, col);
+        else drawClassicText(ctx, str, x, y, scale, col);
+      }
+    };
+  }
+
   function drawHMINavigationBar(ctx, scale) {
     const cfg = getNavBarConfig();
     if (!cfg.enabled || pages().length < 1) return;
@@ -711,31 +756,31 @@
     if (!layout.visible) return;
 
     ctx.save();
+    paintNavBar(canvasNavPainter(ctx, scale), layout, cfg);
+    ctx.restore();
+  }
 
-    function fillRounded(x, y, w, h, r, col) {
-      ctx.fillStyle = col;
-      ctx.beginPath();
-      const rx = Math.min(r, Math.floor(w / 2), Math.floor(h / 2)) * scale;
-      if (typeof ctx.roundRect === 'function' && rx > 0) {
-        ctx.roundRect(x * scale, y * scale, w * scale, h * scale, rx);
-      } else {
-        ctx.rect(x * scale, y * scale, w * scale, h * scale);
-      }
-      ctx.fill();
-    }
+  // Operaciones de dibujo de la barra para una página, en el orden en que
+  // se pintan. Las usa designer-codegen.js para emitir C++.
+  function recordNavBar(pageId) {
+    const cfg = getNavBarConfig();
+    if (!cfg.enabled || pages().length < 1) return [];
+    const layout = computeNavBarLayout(pages(), Number(pageId));
+    if (!layout.visible) return [];
+    const ops = [];
+    paintNavBar({
+      fillRound: (x, y, w, h, r, col) => ops.push({ op: 'fillRound', x, y, w, h, r, col }),
+      strokeRound: (x, y, w, h, r, col) => ops.push({ op: 'strokeRound', x, y, w, h, r, col }),
+      fillRect: (x, y, w, h, col) => ops.push({ op: 'fillRect', x, y, w, h, col }),
+      line: (x, y, len, vertical, col) => ops.push({ op: 'line', x, y, len, vertical, col }),
+      text: (str, x, y, col, micro) => ops.push({ op: 'text', str: String(str), x, y, col, micro: Boolean(micro) })
+    }, layout, cfg);
+    return ops;
+  }
 
-    function strokeRounded(x, y, w, h, r, col, lineWidth = 1) {
-      ctx.strokeStyle = col;
-      ctx.lineWidth = Math.max(1, lineWidth * scale);
-      ctx.beginPath();
-      const rx = Math.min(r, Math.floor(w / 2), Math.floor(h / 2)) * scale;
-      if (typeof ctx.roundRect === 'function' && rx > 0) {
-        ctx.roundRect(x * scale + 0.5, y * scale + 0.5, w * scale - 1, h * scale - 1, rx);
-      } else {
-        ctx.strokeRect(x * scale + 0.5, y * scale + 0.5, w * scale - 1, h * scale - 1);
-      }
-      ctx.stroke();
-    }
+  function paintNavBar(painter, layout, cfg) {
+    const fillRounded = painter.fillRound;
+    const strokeRounded = painter.strokeRound;
 
     // 1. Fondo de la barra
     const preset = cfg.preset || 'industrial-color';
@@ -767,19 +812,13 @@
 
     // 2. Borde o línea divisoria
     if (cfg.borderMode === 'line') {
-      ctx.strokeStyle = '#273c4f';
-      ctx.lineWidth = Math.max(1, scale);
-      ctx.beginPath();
       if (layout.isVertical) {
-        const lx = (cfg.position === 'right') ? (layout.x * scale) : ((layout.x + layout.w) * scale);
-        ctx.moveTo(lx, layout.y * scale);
-        ctx.lineTo(lx, (layout.y + layout.h) * scale);
+        const lx = (cfg.position === 'right') ? layout.x : (layout.x + layout.w - 1);
+        painter.line(lx, layout.y, layout.h, true, '#273c4f');
       } else {
-        const ly = (cfg.position === 'top') ? ((layout.y + layout.h) * scale) : (layout.y * scale);
-        ctx.moveTo(layout.x * scale, ly);
-        ctx.lineTo((layout.x + layout.w) * scale, ly);
+        const ly = (cfg.position === 'top') ? (layout.y + layout.h - 1) : layout.y;
+        painter.line(layout.x, ly, layout.w, false, '#273c4f');
       }
-      ctx.stroke();
     } else if (cfg.borderMode === 'frame') {
       strokeRounded(layout.x, layout.y, layout.w, layout.h, cfg.radius, '#273c4f', 1);
     }
@@ -801,11 +840,7 @@
 
       const ty = y + Math.floor((h - charH) / 2);
 
-      if (isMicro) {
-        drawMicroText(ctx, str, tx, ty, scale, color);
-      } else {
-        drawClassicText(ctx, str, tx, ty, scale, color);
-      }
+      painter.text(str, tx, ty, color, isMicro);
     }
 
     function formatLabel(tab) {
@@ -843,13 +878,12 @@
       } else if (preset === 'segmented-bar') {
         if (tab.isActive) {
           fillRounded(tab.x, tab.y, tab.w, tab.h, 2, '#1f2e42');
-          ctx.fillStyle = '#52c9ff';
           if (layout.isVertical) {
             const ax = (cfg.position === 'right') ? (tab.x + tab.w - 2) : tab.x;
-            ctx.fillRect(ax * scale, tab.y * scale, 2 * scale, tab.h * scale);
+            painter.fillRect(ax, tab.y, 2, tab.h, '#52c9ff');
           } else {
             const ay = (cfg.position === 'top') ? (tab.y + tab.h - 2) : tab.y;
-            ctx.fillRect(tab.x * scale, ay * scale, tab.w * scale, 2 * scale);
+            painter.fillRect(tab.x, ay, tab.w, 2, '#52c9ff');
           }
           drawTabText(label, tab.x, tab.y, tab.w, tab.h, '#ffffff');
         } else {
@@ -911,8 +945,6 @@
         drawTabText(cnt.text, cnt.x, cnt.y, cnt.w, cnt.h, '#ffffff');
       }
     }
-
-    ctx.restore();
   }
 
 
@@ -1698,6 +1730,7 @@
     computeNavBarLayout,
     computeSmartShortName,
     drawHMINavigationBar,
+    recordNavBar,
     syncNavBarInspector,
     PRESET_PAGE_COLORS
   };

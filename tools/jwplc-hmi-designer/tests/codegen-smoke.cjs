@@ -149,6 +149,35 @@ async function main() {
     headers.shapesOnly = await header();
     check(Boolean(headers.shapesOnly), 'se genera el header sin campos dinámicos');
 
+    console.log('Escenario: barra de navegación (6 estilos x 3 tipografías x horizontal/vertical)');
+    check((await load(FULL_PROJECT)) === null, 'el proyecto abre');
+    const presets = ['industrial-color', 'dark-pill', 'segmented-bar', 'compact-dots', 'edge-tabs', 'numeric-pills'];
+    const fontSizes = ['micro', 'normal', 'medium'];
+    const positions = ['bottom', 'left'];
+    let navCount = 0;
+    for (const preset of presets) {
+      for (const fontSize of fontSizes) {
+        for (const position of positions) {
+          await page.evaluate((cfg) => {
+            window.JWPLCHMIPages.setNavBarConfig(cfg);
+          }, { preset, fontSize, position, textAlign: navCount % 3 === 0 ? 'left' : (navCount % 3 === 1 ? 'center' : 'right'), labelFormat: navCount % 2 ? 'num_short' : 'short', borderMode: 'line' });
+          const text = await header();
+          const key = `nav_${preset}_${fontSize}_${position}`;
+          if (!text || !/static void jwplcDrawPageNavBar/.test(text)) {
+            check(false, `${key}: barra generada`);
+          } else {
+            headers[key] = text;
+            const usesMicroText = /jwplcHMIDrawMicroText\(tft,/.test(text);
+            const expectsMicro = fontSize === 'micro' && preset !== 'compact-dots';
+            if (usesMicroText !== expectsMicro) check(false, `${key}: microfuente ${usesMicroText ? 'presente' : 'ausente'}`);
+          }
+          navCount += 1;
+        }
+      }
+    }
+    check(Object.keys(headers).filter((k) => k.startsWith('nav_')).length === presets.length * fontSizes.length * positions.length,
+      `${navCount} combinaciones generan jwplcDrawPageNavBar`);
+
     check(pageErrors.length === 0, `sin errores JS (${pageErrors.join(' | ') || 'ninguno'})`);
 
     console.log('Contenido del header');
@@ -166,6 +195,7 @@ async function main() {
       path.join(LIBS, 'JWPLC_TFT', 'src', 'esp32', 'libJWPLC_TFT.a')]).toString();
     const symbols = new Set(nmOut.split('\n').filter((l) => / T /.test(l)).map((l) => l.replace(/.* T /, '').replace(/\(.*/, '')));
 
+    let navCompiled = 0;
     for (const [name, text] of Object.entries(headers)) {
       if (!text) continue;
       const hPath = path.join(OUT, `${name}.h`);
@@ -182,15 +212,17 @@ async function main() {
         ok = false;
         log = String(error.stderr || error.message).split('\n').slice(0, 6).join('\n');
       }
-      check(ok, `${name}.h compila${ok ? '' : `\n${log}`}`);
+      if (!name.startsWith('nav_') || !ok) check(ok, `${name}.h compila${ok ? '' : `\n${log}`}`);
+      else navCompiled += 1;
 
       const calls = new Set();
       for (const m of text.matchAll(/\btft\.([A-Za-z]+)\(/g)) calls.add(`JWPLC_TFTClass::${m[1]}`);
       for (const m of text.matchAll(/JWPLC_Display\.([A-Za-z]+)\(/g)) calls.add(`JWPLC_DisplayClass::${m[1]}`);
       const inlineOk = new Set(['JWPLC_TFTClass::print', 'JWPLC_DisplayClass::setValue']);
       const missing = [...calls].filter((c) => !symbols.has(c) && !inlineOk.has(c));
-      check(missing.length === 0, `${name}.h: todas las llamadas existen en los .a (${missing.join(', ') || 'ok'})`);
+      if (!name.startsWith('nav_') || missing.length) check(missing.length === 0, `${name}.h: todas las llamadas existen en los .a (${missing.join(', ') || 'ok'})`);
     }
+    if (navCompiled) check(true, `${navCompiled} headers de barra de navegación compilan y sus llamadas existen en los .a`);
   } finally {
     await browser.close();
     server.kill();
