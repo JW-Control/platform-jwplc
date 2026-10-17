@@ -117,3 +117,19 @@ G10-R-TCP124-W5500_TRANSACTION_LEASE=NOT_INSTRUMENTED
 G10-R-H=BLOCKED
 NEXT_GATE=PREH_TCP124_SOURCE_OBSERVABLE_AND_HOST_PLC_STRESS_DESIGN
 ```
+
+
+## Contrato de procedencia fail-closed (17/oct/2026)
+
+Se incorporó `a13_g10_r_tcp124_provenance.py` y su ejecución en el workflow PRE-H TCP124. Sólo usa fixtures offline; exige `G10R_UART_LAB`, declaración de fuente física (dato **no suficiente como attestation**), ausencia de pérdida de trace, binding explícito de transacción/lease UART, y evento `QueueRequest` anterior a `DrainClose` para la misma tupla SID/EPOCH/ALLOC/OWNER. Once alteraciones negativas se rechazan. **No** extrae `uart_binding_verified` de fuente real, por lo que un JSON aportado arbitrariamente puede afirmarlo y el evaluador no debe usarse como certificación física. El próximo integrador debe derivarlo de UART real/procedencia reproducible y no aceptar el campo como testimonio independiente.
+
+El servidor productivo sigue con cliente activo único. Se mantienen diferenciados peak de sockets PC, atención Modbus y pruebas de W5500. No se han habilitado flash/live ni transferido nada a Alpha15.
+
+```text
+TCP124_PROVENANCE=OFFLINE_FIXTURE_ONLY_CI_PENDING
+TCP124_BINDING_REAL_UART=NOT_IMPLEMENTED
+TCP124_PHYSICAL=NOT_RUN
+G10-R-H=BLOCKED
+A13-006=ADOPTION_BLOCKED
+NEXT_GATE=PREH_REAL_UART_TRANSACTION_BINDING_AND_PERIPHERAL_FAIRNESS
+```
