@@ -865,6 +865,24 @@ def live(evidence:Path)->int:
                     "status":"REVIEW_STOP",
                     "errors":["UDP_CONTRACT_EXCEPTION_"+type(exc).__name__]})
         result["r3_lifecycle_trace"]=c.trace.report()
+        # Unir evidencia de PC/Modbus con los eventos UART y el mismo lease.
+        try:
+            join_path=ROOT/"tools/alpha13/gates/a13_g10_r_tcp124_join.py"
+            join_spec=importlib.util.spec_from_file_location("g10r_tcp_join",join_path)
+            require(join_spec is not None and join_spec.loader is not None,
+                    "TCP124_JOIN_UNAVAILABLE")
+            join_module=importlib.util.module_from_spec(join_spec)
+            sys.modules[join_spec.name]=join_module
+            join_spec.loader.exec_module(join_module)
+            result["tcp124_join"]=join_module.evaluate(result)
+            if result["tcp124_join"]["status"]!="PASS_OFFLINE_SOURCE_EVIDENCE_CONTRACT":
+                result["physical_status"]="REVIEW_STOP"
+                status=2
+        except Exception as exc:
+            result["tcp124_join"]={"status":"REVIEW_STOP",
+                "issues":["TCP_JOIN_EXCEPTION_"+type(exc).__name__]}
+            result["physical_status"]="REVIEW_STOP"
+            status=2
         result["r3_status"]="OBSERVABILITY_ONLY_NOT_CLOSE_FAULT_INJECTION"
         if c.trace.issues:
             result["r3_status"]="INSTRUMENTATION_GAP_REVIEW_STOP_R3"
