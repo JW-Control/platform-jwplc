@@ -66,6 +66,8 @@ def guard_sketch() -> None:
         "G10R_R3_UDP:", "G10R_R3_DNS:", "G10R_R3_TCP:",
         "#include <JWPLC_Ethernet_DNS.h>", "r3ProbeDns.cancelResolveAsync()",
         "r3ProbeTcp.cancelConnectAsync()", "r3ProbeTcp.beginConnectAsync(",
+        "G10R_R3_DHCP_CANCEL:", "G10R_R3_DHCP_FINISH:",
+        "G10RLabDhcpProbe::arm", "G10RLabDhcpProbe::finish",
         "G10R_R3_LEASE:", "G10R_R3_HOLD:",
         "r3HoldDurationUs", "HOLD_TIMING_REVIEW", "CLOSE_DURING_HOLD",
         "AWAIT_LIFECYCLE_REVIEW", "BusScope scope(0)",
@@ -122,6 +124,19 @@ def build(cli: str, *, upload: bool = False) -> None:
     sys.modules[trace_spec.name]=trace
     trace_spec.loader.exec_module(trace)
     files = trace.compose_trace(lab.compose_lab(m.compose()))
+    # SOLO staging G10-R: friend diagnóstica en DhcpClass para armar
+    # el UDP interno en un puerto TEMPORAL (15023), SIN DHCP DISCOVER,
+    # OFFER, REQUEST, renovación de lease ni tocar el manager global.
+    dhcp_header=("JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/"
+                 "JWPLC_W5x00_Ethernet.h")
+    friend_anchor="class DhcpClass {\\nprivate:"
+    require(dhcp_header in files and
+            files[dhcp_header].count(friend_anchor)==1,
+            "G10R_DHCP_LAB_FRIEND_HEADER_DRIFT")
+    files[dhcp_header]=files[dhcp_header].replace(
+        friend_anchor,
+        friend_anchor+"\\n    friend class G10RLabDhcpProbe; "
+        "// solo stage del bench, no API producto",1)
     require("LabEventResult labReadEvents(" in files[trace.C],
             "R3_TRACE_NOT_LINKED")
     require("LabCaptureOutcome labCaptureSockets(" in files[lab.CPP],
