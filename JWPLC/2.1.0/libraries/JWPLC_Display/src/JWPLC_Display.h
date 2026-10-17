@@ -113,6 +113,17 @@ extern "C"
     void jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc);
     void jwplcUserDisplayExitCallback(void);
 
+    /**
+     * @brief Informa a la pantalla IDLE qué entradas locales están forzadas.
+     *
+     * Pensada para el HAL de OpenPLC: una entrada forzada desde el debugger
+     * no cambia la lectura física, así que la IDLE no la mostraría. Bit i =
+     * I0_i. forcedValues solo se considera en los bits de forcedMask. Una
+     * entrada forzada se dibuja con su valor forzado y una "F" (rayada en ON).
+     * Llamar con forcedMask = 0 para quitar el overlay. Barata si no cambia.
+     */
+    void jwplcDisplaySetInputForceOverlay(uint8_t forcedMask, uint8_t forcedValues);
+
 #ifdef __cplusplus
 }
 #endif
