@@ -47,6 +47,8 @@ EXPECTED = (
     "G10_R_R3_LAB_PENDING_BUSY_DRAIN=PASS",
     "G10_R_R3_LAB_RECYCLE_STALE_GUARD=PASS",
     "G10_R_R3_HOST_SOURCE_BACKED=PASS_NOT_PHYSICAL",
+    "G10_R_R3_LIFECYCLE_TRACE=PASS_SOURCE_BACKED",
+    "G10_R_R3_TRACE_OVERRUN=PASS_REVIEW_DETECTED",
 )
 
 
@@ -138,6 +140,20 @@ def native() -> None:
              "out[index].ownerCookie = 0;",
              "INITIAL_SNAPSHOT_LEASE_MISMATCH"),
         ]
+        mutants.extend([
+            ("QUEUE_KIND_WRONG",
+             "labEvent(LabEventKind::QueueRequest,token);",
+             "labEvent(LabEventKind::CloseBusy,token);",
+             "TRACE_EXPECTED_LIFECYCLE_MISSING"),
+            ("DRAIN_KIND_WRONG",
+             "labEvent(LabEventKind::DrainClose,draining);",
+             "labEvent(LabEventKind::DrainStale,draining);",
+             "TRACE_EXPECTED_LIFECYCLE_MISSING"),
+            ("RING_OVERRUN_SILENCED",
+             "return overrun?LabEventResult::HistoryOverrun:LabEventResult::Read;",
+             "return LabEventResult::Read;",
+             "TRACE_OVERRUN_FALSE_PASS"),
+        ])
         for label, before, after, rejection in mutants:
             require(real.count(before) == 1,
                     "R3_NATIVE_MUTATION_ANCHOR_DRIFT_" + label)
@@ -145,7 +161,7 @@ def native() -> None:
             require(trial.returncode != 0 and rejection in trial.stderr,
                     "R3_NATIVE_MUTANT_NOT_REJECTED_" + label +
                     "_" + trial.stderr[-600:])
-        print("G10_R_R3_SOURCE_MUTANTS=4_PASS_REJECTED")
+        print("G10_R_R3_SOURCE_MUTANTS=7_PASS_REJECTED")
     print("G10_R_R3_REAL_CPP_NATIVE=PASS_LINUX_HOST_NO_HARDWARE")
     print("G10_R_R3_PRODUCT_MODIFIED=NO")
 
