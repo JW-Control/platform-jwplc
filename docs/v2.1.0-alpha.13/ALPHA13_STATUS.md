@@ -1,5 +1,20 @@
 # Alpha13 — G10-R, estado vivo de preparación (16/10/2026)
 
+> **Actualización R3 / historial (16-oct-2026):** el overlay de laboratorio incorpora un anillo fijo de **64 eventos**, con `try-lock` no bloqueante, secuencia, propietario, epoch, allocation y detección de `dropped/overrun`. Sin usar GPIO4 ni escribir SD/FRAM/Q, `G10R_EVENTS:<token>:AFTER=<seq>` exporta eventos al runner, que conserva `r3_lifecycle_trace` y el resultado del auditor semántico. El [job nativo R3 de CI #38995714214](https://github.com/JW-Control/platform-jwplc/actions/runs/38995714214) verifica **7 mutantes de C++ real** rechazados y `TRACE_OVERRUN=PASS_REVIEW_DETECTED`; el contrato UART host rechaza **7 negativos** y el auditor de propietario/epoch **10 negativos** (exclusivamente sintéticos). **La compilación COM4/COM14 Windows+Ubuntu debe terminar en el HEAD exacto antes del PASS global.** Faltan fault injection físico DNS/DHCP/UDP y endurance. `A13-006=ADOPTION_BLOCKED`; ninguno de los firmwares de G10-R se ha subido.
+
+```text
+G10-R-R3-HISTORICAL_TRACE=SOURCE_BACKED_NATIVES_7_NEGATIVES
+G10-R-R3-UART_SEMANTICS=HOST_7_NEGATIVES_AND_OWNER_EPOCH_10_NEGATIVES
+G10-R-R3-PHYSICAL=NOT_RUN
+G10-R-R3-FAULT_INJECTION=NOT_RUN
+G10-R-R1_R2_R4=NOT_RUN_PHYSICALLY
+PRODUCT_MODIFIED=NO
+GPIO4_RESET=DISABLED
+A13-006=ADOPTION_BLOCKED
+NEXT_GATE=G10-R_FINAL_CI_AND_PRE_PHYSICAL_REVIEW
+```
+
+
 > **Actualización de evidencia R3 (16/10/2026):** nueva suite C++ host con **SafeAccess.cpp real compuesto** y exclusión SPI simulada no recursiva; el test verifica `BUS_BUSY`, ticket de cierre pendiente, drenaje de la cola y rechazo de un token obsoleto al reciclar socket. En [CI #38994618424](https://github.com/JW-Control/platform-jwplc/actions/runs/38994618424), el job R3 declaró `G10_R_R3_SOURCE_MUTANTS=4_PASS_REJECTED` junto con los dos casos positivos. **La compilación Arduino Windows/Ubuntu de esa corrida puede continuar en progreso: no se atribuye 5/5 PASS hasta verificarla.** Sigue sin haber fault injection físico DNS/DHCP/UDP ni telemetría histórica real de lifecycle. [Detalles del test y límites](A13_G10_R_PLAN_RECUPERACION_Y_RESISTENCIA_20261016.md). `A13-006=ADOPTION_BLOCKED`, PR #108 Draft, sin nuevas cargas ni modificación de producto.
 
 
