@@ -321,4 +321,6 @@ namespace JWPLCUI
     void drawDirty(JWPLC_TFTClass &tft);
 }
 
+#include "JWPLC_UI_Menu.h"
+
 #endif // JWPLC_UI_H

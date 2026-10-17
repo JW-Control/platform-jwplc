@@ -81,6 +81,14 @@ public:
     void clearFields();
     size_t fieldCount() const;
 
+    // MENU declarativo (ver JWPLC_UI_Menu.h). menuChanged() devuelve true una
+    // vez por cada valor confirmado con OK; nodeIndex = índice del nodo.
+    bool setMenus(const JWPLC_UIMenu *menus, size_t count);
+    void clearMenus();
+    size_t menuCount() const;
+    bool menuChanged(uint8_t menuId, uint8_t *nodeIndex = nullptr);
+    bool menuEditing() const;
+
     // PixelMaps estáticos agrupados por página.
     //
     // setPixelMaps(): formato RGB565_RUN compatible, conservado sin cambios.

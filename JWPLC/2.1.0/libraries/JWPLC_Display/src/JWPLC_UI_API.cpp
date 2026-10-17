@@ -315,10 +315,21 @@ JWPLC_UIField JWPLC_UIBarField(
         page);
 }
 
+// Hooks del MENU (Alpha15). JWPLC_UI_Menu.cpp aporta las versiones strong y
+// sólo se enlaza si el sketch registra menús (setMenus / JWPLC_UIMenu*).
+extern "C" void __attribute__((weak)) jwplcUIMenuServiceInput(void) {}
+extern "C" void __attribute__((weak)) jwplcUIMenuPrepareEnter(void) {}
+extern "C" void __attribute__((weak)) jwplcUIMenuInvalidateAll(void) {}
+extern "C" void __attribute__((weak)) jwplcUIMenuDrawStatic(JWPLC_TFTClass *tft) { (void)tft; }
+extern "C" void __attribute__((weak)) jwplcUIMenuDrawDirty(JWPLC_TFTClass *tft) { (void)tft; }
+
 // Implementaciones strong de los hooks internos. Este TU solo se enlaza cuando
 // la HMI se usa: JWPLC_UI.cpp depende de los constructores definidos arriba.
 extern "C" void jwplcUIRuntimeServiceInput(void)
 {
+    // El MENU de la página atiende primero sus teclas (UP/DOWN/LEFT/RIGHT/OK y
+    // ESC fuera de la raíz); lo que no consume sigue al selector de páginas.
+    jwplcUIMenuServiceInput();
     JWPLCUIPages::serviceNavigation();
 }
 
@@ -338,12 +349,14 @@ extern "C" bool jwplcUIRuntimeRefreshNeeded(void)
 
 extern "C" void jwplcUIRuntimeInvalidateAll(bool redrawStatic)
 {
+    jwplcUIMenuInvalidateAll();
     JWPLCUI::invalidateAll(redrawStatic);
 }
 
 extern "C" void jwplcUIRuntimePrepareEnter(void)
 {
     JWPLCUI::prepareEnter();
+    jwplcUIMenuPrepareEnter();
     JWPLCUIPages::prepareEnter();
 }
 
@@ -375,6 +388,7 @@ extern "C" void jwplcUIRuntimeDrawStatic(JWPLC_TFTClass *tft)
         // dibujan después y por tanto conservan prioridad visual.
         JWPLCUI::drawPixelMapsStatic(*tft);
         JWPLCUI::drawStatic(*tft);
+        jwplcUIMenuDrawStatic(tft);
     }
 }
 
@@ -383,6 +397,7 @@ extern "C" void jwplcUIRuntimeDrawDirty(JWPLC_TFTClass *tft)
     if (tft != nullptr)
     {
         JWPLCUI::drawDirty(*tft);
+        jwplcUIMenuDrawDirty(tft);
         JWPLCUIPages::drawIndicator(*tft);
     }
 }
