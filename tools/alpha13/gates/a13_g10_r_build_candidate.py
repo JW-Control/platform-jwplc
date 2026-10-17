@@ -426,7 +426,7 @@ def main() -> int:
         else:
             require(args.stage_output is None,"B3_STAGE_OUTPUT_ONLY_FOR_STAGE_ONLY")
             require(not args.upload or args.bench_evidence is not None or
-                    args.dev_waiver is not None,"B4_BENCH_BACKUP_OR_DEV_WAIVER_REQUIRED")
+                    args.dev_waiver is not None,"B4_BENCH_BACKUP_EVIDENCE_REQUIRED_OR_DEV_WAIVER")
             build(args.cli,upload=args.upload,bench_evidence=args.bench_evidence,
                   dev_waiver=args.dev_waiver)
         return 0
