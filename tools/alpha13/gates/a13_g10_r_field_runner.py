@@ -500,7 +500,8 @@ class Recorder:
                         rtu_value>prev_rtu and rtu_fail==0)
             if rtu_value is not None:prev_rtu=rtu_value
             self.add({"kind":"traffic","phase":phase,"t":self.stamp(),
-                      "tcp":tcp_ok,"tcp_tid":seq&0xffff,"udp":udp_ok,"rtu":rtu_ok})
+                      "token":token,"tcp":tcp_ok,"tcp_tid":seq&0xffff,
+                      "udp":udp_ok,"rtu":rtu_ok})
             halt.wait(interval)
 
     def measure(self,phase,duration:int,interval:int):
