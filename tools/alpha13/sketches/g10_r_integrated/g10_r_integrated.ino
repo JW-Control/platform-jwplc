@@ -45,6 +45,46 @@ static void handleCommand(const char* msg) {
     }
     return;
   }
+  // R3: historial acotado, sin adquirir mutex SPI y sin escribir hardware.
+  static const char eventsPrefix[]="G10R_EVENTS:";
+  if (strncmp(msg,eventsPrefix,sizeof(eventsPrefix)-1)==0) {
+    const char* p=msg+sizeof(eventsPrefix)-1;
+    if (!active || strlen(p)<32 || strncmp(p,token,24)!=0 ||
+        strncmp(p+24,":AFTER=",7)!=0) return;
+    const char* digits=p+31;
+    if (!*digits || strlen(digits)>10) return;
+    uint32_t after=0;
+    while (*digits) {
+      if (*digits<'0'||*digits>'9') return;
+      const uint32_t d=(uint32_t)(*digits-'0');
+      if (after>(UINT32_MAX-d)/10) return;
+      after=after*10+d; ++digits;
+    }
+    jwplc_w5500_candidate::LabEvent events[8];
+    uint8_t count=0; uint32_t newest=0,dropped=0;
+    const auto code=jwplc_w5500_candidate::labReadEvents(
+        after,events,8,&count,&newest,&dropped);
+    Serial.print("G10R_EVT_HEAD:");Serial.print(token);
+    Serial.print(" CODE=");Serial.print((int)code);
+    Serial.print(" COUNT=");Serial.print(count);
+    Serial.print(" NEWEST=");Serial.print(newest);
+    Serial.print(" DROPPED=");Serial.println(dropped);
+    if (code==jwplc_w5500_candidate::LabEventResult::Read ||
+        code==jwplc_w5500_candidate::LabEventResult::HistoryOverrun) {
+      for (uint8_t i=0;i<count;++i) {
+        const auto& e=events[i];
+        Serial.print("G10R_EVT:");Serial.print(token);
+        Serial.print(" SEQ=");Serial.print(e.seq);
+        Serial.print(" KIND=");Serial.print((int)e.kind);
+        Serial.print(" SID=");Serial.print(e.socket);
+        Serial.print(" EPOCH=");Serial.print(e.epoch);
+        Serial.print(" ALLOC=");Serial.print(e.allocation);
+        Serial.print(" OWNER=");Serial.println(e.owner);
+      }
+    }
+    Serial.print("G10R_EVT_END:");Serial.println(token);
+    return;
+  }
   // R3: telemetria puntual, solo lectura del overlay experimental G10-R.
   // No provoca SPI_BUSY, no cierra sockets, no altera epoch/lease.
   static const char snapshotPrefix[]="G10R_SOCKETS:";
