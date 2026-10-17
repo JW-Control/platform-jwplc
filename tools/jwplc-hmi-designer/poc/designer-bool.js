@@ -86,7 +86,8 @@
   }
 
   function hex565(value) {
-    return `0x${Number(value || 0).toString(16).toUpperCase().padStart(4, '0')}`;
+    const num = Number(value);
+    return `0x${(Number.isFinite(num) ? num & 0xFFFF : 0).toString(16).toUpperCase().padStart(4, '0')}`;
   }
 
   function ensureBoolState(field) {

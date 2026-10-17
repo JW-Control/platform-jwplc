@@ -640,7 +640,9 @@
   }
 
   function hex565(value) {
-    return `0x${value.toString(16).toUpperCase().padStart(4, '0')}`;
+    // 'TRANSPARENT' u otro valor no numérico -> 0x0000 (los campos no tienen fondo transparente).
+    const num = Number(value);
+    return `0x${(Number.isFinite(num) ? num & 0xFFFF : 0).toString(16).toUpperCase().padStart(4, '0')}`;
   }
 
   function colorByName(name) {

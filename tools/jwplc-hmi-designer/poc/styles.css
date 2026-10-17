@@ -2520,3 +2520,86 @@ body.bottom-collapsed .bottom-tabs { border-bottom: 0; }
 
 
 
+
+/* ==========================================================================
+   A15-7B/7C/7D · Inspector Propuesta 2 para TEXT / VALUE / BOOL
+   (designer-field-inspector.js; reutiliza bar-card / bar-visual-btn / tabs)
+   ========================================================================== */
+
+#textFieldControlsSection.insp-v2 > details {
+  display: none !important;
+}
+.insp-wrap { display: flex; flex-direction: column; width: 100%; box-sizing: border-box; }
+.insp-wrap[hidden], .insp-wrap [hidden] { display: none !important; }
+.insp-body, .insp-panel { display: flex; flex-direction: column; gap: 10px; }
+.insp-two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: end; }
+.insp-gap { margin-top: 8px; }
+.insp-hint { font-size: 9.5px; font-weight: 500; color: #6a8292; margin-left: 6px; }
+.insp-note { font-size: 9.5px; color: #6a8292; margin-top: 6px; line-height: 1.35; }
+.insp-mono, .insp-wrap code { font-family: 'Cascadia Code', Consolas, monospace; }
+.insp-chip-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.insp-chip {
+  min-width: 34px; padding: 4px 8px; font-size: 10.5px; font-weight: 600;
+  background: #101c26; border: 1px solid #213543; border-radius: 4px;
+  color: #b8cddc; cursor: pointer; transition: all 0.12s ease;
+}
+.insp-chip:hover { border-color: #4a6c84; color: #fff; }
+.insp-chip.active { background: rgba(255, 154, 67, 0.16); border-color: #ff9a43; color: #ff9a43; }
+.insp-stepper {
+  display: inline-flex; align-items: center; gap: 0;
+  border: 1px solid #213543; border-radius: 4px; overflow: hidden; background: #101c26;
+}
+.insp-stepper button {
+  width: 26px; height: 24px; border: 0; background: #16283a; color: #dce9f1;
+  font-size: 13px; cursor: pointer;
+}
+.insp-stepper button:hover { background: #1f3a50; color: #ff9a43; }
+.insp-stepper strong { min-width: 30px; text-align: center; font-size: 11.5px; color: #dce9f1; }
+.insp-toggle.active strong { color: #ff9a43; }
+.insp-format-view, .insp-ruler {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-top: 8px; padding: 5px 8px; font-size: 10px; color: #8ea3b3;
+  background: #0d1820; border: 1px solid #1e313f; border-radius: 4px;
+}
+.insp-format-view code, .insp-ruler code { color: #52c9ff; font-size: 11px; }
+.insp-ruler code { overflow: hidden; text-overflow: clip; white-space: nowrap; max-width: 100%; letter-spacing: 1px; }
+.insp-bool-states { display: grid; grid-template-columns: 1fr auto 1fr; gap: 6px; align-items: center; }
+.insp-state-card {
+  display: flex; flex-direction: column; gap: 3px; padding: 6px;
+  font-size: 9.5px; font-weight: 700; color: #8ea3b3;
+  background: #0d1820; border: 1px solid #283d4d; border-radius: 5px;
+}
+.insp-state-card.is-on { border-color: #2f6b4a; }
+.insp-arrow { color: #6a8292; font-size: 13px; }
+.insp-color-row { padding: 5px 0; border-bottom: 1px solid #1a2c39; }
+.insp-color-row:last-of-type { border-bottom: 0; }
+.insp-color-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 10.5px; font-weight: 600; color: #b8cddc; margin-bottom: 4px;
+}
+.insp-color-native { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+.insp-color-native input[type="color"] {
+  width: 22px; height: 18px; padding: 0; border: 1px solid #283d4d; border-radius: 3px; background: none; cursor: pointer;
+}
+.insp-hex { font-family: 'Cascadia Code', Consolas, monospace; font-size: 10px; color: #52c9ff; }
+.insp-swatch-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.insp-swatch {
+  width: 20px; height: 16px; border-radius: 3px; cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.18); transition: transform 0.1s ease;
+}
+.insp-swatch:hover { transform: translateY(-1px); }
+.insp-swatch.active { outline: 2px solid #ff9a43; outline-offset: 1px; }
+.insp-wide { width: 100%; flex-direction: row; justify-content: space-between; padding: 7px 10px; }
+.insp-readouts { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 6px; font-size: 10px; color: #8ea3b3; }
+.insp-readouts strong { color: #dce9f1; font-weight: 600; }
+.insp-readouts-grid { display: grid; grid-template-columns: 1fr 1fr; }
+.insp-type-chip { padding: 1px 6px; border-radius: 3px; background: #0d1820; border: 1px solid #1e313f; color: #52c9ff; }
+.insp-mode-chip {
+  margin-left: 6px; padding: 1px 6px; font-size: 9px; border-radius: 8px;
+  background: rgba(82, 201, 255, 0.12); border: 1px solid #2a5a73; color: #52c9ff;
+}
+.insp-contract {
+  margin: 0; max-height: 180px; overflow: auto; padding: 6px 8px;
+  font-family: 'Cascadia Code', Consolas, monospace; font-size: 10.5px; line-height: 1.4;
+  white-space: pre; color: #c9d8e4; background: #0b141b; border: 1px solid #1e313f; border-radius: 4px;
+}
