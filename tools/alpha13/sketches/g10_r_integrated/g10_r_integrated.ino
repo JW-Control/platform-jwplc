@@ -13,6 +13,9 @@
 #include <JWPLC_W5500_SafeAccess.h>
 #include <string.h>
 #include <esp_system.h>
+#include <atomic>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 static uint16_t registers[4] = {0x1234, 0x2345, 0x3456, 0x4567};
 static uint16_t rtuValues[4] = {};
@@ -26,6 +29,63 @@ static uint32_t rtuOk=0, rtuFail=0, btnEvents=0, framReads=0;
 static char input[90], token[25]={};
 static size_t used=0;
 static uint8_t packet[96];
+
+// R3: sonda UDP exclusivamente de banco, armada por comando con token.
+// El task solo sostiene el mismo mutex W5500 <=80 ms; nunca toca SPI,
+// GPIO4, SD, FRAM, Q ni servicios en segundo plano.
+static EthernetUDP r3ProbeUdp;
+static std::atomic<uint8_t> r3HoldState{0}; // 0 idle; 1 held; 2 released; 3 lock denied
+static bool r3Armed=false, r3CloseAttempted=false, r3ClosedWhileHeld=false;
+static uint32_t r3ReleasedAt=0;
+static bool r3FinishPrinted=false;
+
+static void r3HoldW5500(void*) {
+  {
+    jwplc_w5500_candidate::BusScope scope(0);
+    if (!scope) {
+      r3HoldState.store(3, std::memory_order_release);
+      vTaskDelete(nullptr);
+      return;
+    }
+    r3HoldState.store(1, std::memory_order_release);
+    vTaskDelay(pdMS_TO_TICKS(80));
+  }
+  r3HoldState.store(2, std::memory_order_release);
+  vTaskDelete(nullptr);
+}
+
+static void r3Report(const char* state) {
+  Serial.print("G10R_R3_UDP:");Serial.print(token);
+  Serial.print(" STATE=");Serial.println(state);
+}
+
+static void r3Service() {
+  if (!r3Armed || r3FinishPrinted) return;
+  const uint8_t state=r3HoldState.load(std::memory_order_acquire);
+  if (state==3) {
+    r3Report("MUTEX_NOT_ACQUIRED");
+    r3FinishPrinted=true;
+    return;
+  }
+  if (state==1 && !r3CloseAttempted) {
+    // La llamada REAL EthernetUDP::stop() debe publicar ticket durable
+    // mientras otra tarea posee el mutex. La confirmación se hace
+    // después por G10R_EVENTS + snapshot, no por el estado local.
+    r3ProbeUdp.stop();
+    r3CloseAttempted=true;
+    r3ClosedWhileHeld=(r3HoldState.load(std::memory_order_acquire)==1);
+    r3Report(r3ClosedWhileHeld?"CLOSE_DURING_HOLD":"CLOSE_RACE_REVIEW");
+  }
+  if (state==2) {
+    if (!r3ReleasedAt) r3ReleasedAt=millis();
+    if ((uint32_t)(millis()-r3ReleasedAt)>=250) {
+      r3Report(r3CloseAttempted&&r3ClosedWhileHeld?
+               "AWAIT_LIFECYCLE_REVIEW":"INJECTION_INCOMPLETE_REVIEW");
+      r3FinishPrinted=true;
+    }
+  }
+}
+
 
 static void recordSD() {
   if (!JWPLC_SD.isCardPresent() || !JWPLC_SD.isReady()) { ++sdFail; return; }
@@ -42,6 +102,29 @@ static void handleCommand(const char* msg) {
     if (active && strlen(msg+10)==24 && strcmp(msg+10,token)==0) {
       active=false;useRtu=false;
       Serial.print("G10R_STOPPED:");Serial.println(token);
+    }
+    return;
+  }
+  // R3: una sola contención real de mutex y cierre de UDP temporal.
+  // No inicia sin START y token explícito; no repite automáticamente.
+  static const char r3Prefix[]="G10R_R3_UDP:";
+  if (strncmp(msg,r3Prefix,sizeof(r3Prefix)-1)==0) {
+    const char* requested=msg+sizeof(r3Prefix)-1;
+    if (!active || strlen(requested)!=24 || strcmp(requested,token)!=0 ||
+        r3Armed) return;
+    if (!JWPLC_Ethernet.isReady() || r3ProbeUdp.begin(15021)!=1) {
+      r3Report("PREPARE_FAILED");return;
+    }
+    r3Armed=true;
+    r3HoldState.store(0,std::memory_order_release);
+    r3Report("ARMED");
+    BaseType_t created=xTaskCreate(r3HoldW5500,"G10R_R3_UDP",
+                                  3072,nullptr,1,nullptr);
+    if (created!=pdPASS) {
+      r3HoldState.store(3,std::memory_order_release);
+      r3ProbeUdp.stop(); // solo un socket de laboratorio, sin cargas
+      r3Report("TASK_CREATION_FAILED");
+      r3FinishPrinted=true;
     }
     return;
   }
@@ -123,6 +206,9 @@ static void handleCommand(const char* msg) {
   hb=sdOk=sdFail=udpRx=udpTx=rtuOk=rtuFail=btnEvents=framReads=0;
   lastSample=lastRtu=lastReport=millis();
   active=true;startMs=millis();
+  r3Armed=r3CloseAttempted=r3ClosedWhileHeld=r3FinishPrinted=false;
+  r3ReleasedAt=0;
+  r3HoldState.store(0,std::memory_order_release);
   JWPLC_ModbusRTU.resetStats();
   JWPLC_Buttons.clearPendingInput();
   Serial.print("G10R_STARTED:");Serial.print(token);
@@ -214,6 +300,7 @@ void loop() {
   handleUsb();
   uint32_t now=millis();
   // El core mantiene autoload. Este task no llama service() de Ethernet.
+  r3Service();
   serviceUDP();
   serviceRTU(now);
   if (!active) {
