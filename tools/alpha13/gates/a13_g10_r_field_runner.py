@@ -236,6 +236,9 @@ class Recorder:
         self.ready_ip=None
         self.protocol_seen=False
         self.r3_snapshots=[]
+        self.r3_udp_lines=[]
+        self.r3_udp_sessions=[]
+        self._r3_udp_started_at=None
         self._sock_batch=None
         spec=importlib.util.spec_from_file_location(
             "g10r_trace_collector",
@@ -289,6 +292,7 @@ class Recorder:
                             self.latest=hb
                             self.events.append(hb)
                         self.capture_socket_line(line,at)
+                        self.capture_udp_probe_line(line,at)
                         self.trace.receive(line,at)
                 elif name=="COM14":
                     if line=="G8_P4_READY:SLAVE:ID2:115200:8N1":
@@ -296,6 +300,26 @@ class Recorder:
                     if self.slave_report_token:
                         parsed=parse_slave_result(line,self.slave_report_token)
                         if parsed is not None:self.slave_result=parsed
+
+    def capture_udp_probe_line(self,line,at):
+        # UART COM4, solo de la sesión vigente; no atribuir datos ajenos.
+        if not self.phase or not self.token:return
+        if not line.startswith(("G10R_R3_UDP:","G10R_R3_LEASE:",
+                                "G10R_R3_HOLD:")):return
+        self.r3_udp_lines.append({
+            "phase":self.phase,"token":self.token,"t":at,"line":line})
+        if line=="G10R_R3_UDP:"+self.token+" STATE=ARMED":
+            self._r3_udp_started_at=at
+
+    def r3_udp_probe_request(self):
+        """Armado aislado, NO se invoca desde R1/R2/R4 ni --live actual."""
+        with self.lock:
+            require(self.phase=="R3" and self.token and
+                    self._r3_udp_started_at is None,
+                    "R3_UDP_NOT_IN_DEDICATED_PHASE_OR_ALREADY_TRIGGERED")
+            token=self.token
+        self.send("G10R_R3_UDP:"+token)
+        return token
 
     def capture_socket_line(self,line,at):
         # Invocado sólo desde port_reader bajo self.lock.
@@ -375,6 +399,7 @@ class Recorder:
             self.latest=None
             token=self.token
             self.trace.begin(token,phase)
+            self._r3_udp_started_at=None
         self.send("G10R_START:"+token+":RTU=1")
         return token
 
@@ -386,6 +411,13 @@ class Recorder:
                 self.r3_snapshots.append(self._sock_batch)
                 self._sock_batch=None
             self.trace.finish()
+            if self.phase=="R3":
+                self.r3_udp_sessions.append({
+                    "token":self.token,
+                    "lines":[item["line"] for item in self.r3_udp_lines
+                             if item["phase"]=="R3" and
+                             item["token"]==self.token],
+                    "trace":self.trace.report()})
             self.phase=""
             self.token=""
             self.latest=None
@@ -613,6 +645,21 @@ def selftest()->int:
             "DRY_RUN_IMPLICIT_HARDWARE")
     require(R3_PHYSICAL_INJECTION_READY is False,
             "SELFTEST_MUST_REJECT_INCOMPLETE_PHYSICAL_CAMPAIGN")
+    # Los comandos R3 no pueden usarse en R1 ni sin sesión.
+    r3rec=Recorder(Path("."))
+    r3rec.phase="R1";r3rec.token="a"*24
+    try:r3rec.r3_udp_probe_request()
+    except RuntimeError:pass
+    else:raise AssertionError("R3_UDP_PROBE_ALLOWED_DURING_R1")
+    r3rec.phase="R3"
+    r3rec.capture_udp_probe_line("G10R_R3_UDP:"+"a"*24+" STATE=ARMED",1.0)
+    r3rec.capture_udp_probe_line("G10R_R3_HOLD:"+"a"*24+" US=80000",1.1)
+    require(len(r3rec.r3_udp_lines)==2 and
+            r3rec._r3_udp_started_at==1.0,
+            "R3_UDP_UART_NOT_CAPTURED")
+    r3rec.capture_udp_probe_line("G10R_R3_UDP:"+"b"*24+" STATE=ARMED",1.2)
+    require(len(r3rec.r3_udp_lines)==3,
+            "R3_FOREIGN_UART_NOT_PRESERVED_FOR_REVIEW")
     print("G10_R_FIELD_SELFTEST=PASS_6_NEGATIVE_SERIAL_CASES")
     print("G10_R_FIELD_HARDWARE=NOT_ACCESSED")
     return 0
@@ -676,6 +723,25 @@ def live(evidence:Path)->int:
         c.close()
         result["events"]=sorted(c.events,key=lambda ev:ev["t"])
         result["r3_socket_snapshots"]=list(c.r3_snapshots)
+        result["r3_udp_lines"]=list(c.r3_udp_lines)
+        result["r3_udp_sessions"]=list(c.r3_udp_sessions)
+        result["r3_udp_verdicts"]=[]
+        for session in c.r3_udp_sessions:
+            try:
+                p=ROOT/"tools/alpha13/gates/a13_g10_r_r3_probe_contract.py"
+                spec=importlib.util.spec_from_file_location(
+                    "g10r3_udp_contract",p)
+                require(spec is not None and spec.loader is not None,
+                        "R3_UDP_CONTRACT_UNAVAILABLE")
+                m=importlib.util.module_from_spec(spec)
+                sys.modules[spec.name]=m
+                spec.loader.exec_module(m)
+                result["r3_udp_verdicts"].append(m.evaluate(
+                    session["lines"],session["trace"],session["token"]))
+            except Exception as exc:
+                result["r3_udp_verdicts"].append({
+                    "status":"REVIEW_STOP",
+                    "errors":["UDP_CONTRACT_EXCEPTION_"+type(exc).__name__]})
         result["r3_lifecycle_trace"]=c.trace.report()
         result["r3_status"]="OBSERVABILITY_ONLY_NOT_CLOSE_FAULT_INJECTION"
         if c.trace.issues:
