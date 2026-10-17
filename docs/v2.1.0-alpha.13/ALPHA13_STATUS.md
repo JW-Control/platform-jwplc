@@ -1,3 +1,29 @@
+# Estado vigente PRE-H — 17/oct/2026 (prioridad sobre registros históricos)
+
+**Bloque 1 TCP124: `CLOSED_NONPHYSICAL_READY_FOR_PREH_INTEGRATION`.** Sólo se cierra la implementación y verificación **no física**, no se declara validación de hardware ni adopción al package. Rama de implementación `codex/alpha13-preh-tcp124-review-20261016`, HEAD de código `dc194c4d6e863d5324eea14e515d1be92b18c9b6`.
+
+- [CI TCP124 offline #39010539929](https://github.com/JW-Control/platform-jwplc/actions/runs/39010539929): **2/2 SUCCESS** Windows y Ubuntu. Incluye host 1/2/4 con sockets loopback, contrato UART crudo, collector y correlación PC-TID↔UART-lease↔lifecycle con mutantes.
+- [CI TCP124 source-first #39010539920](https://github.com/JW-Control/platform-jwplc/actions/runs/39010539920): **2/2 SUCCESS** Windows y Ubuntu, COM4 y COM14. Valida plataforma staged, biblioteca seleccionada, fuente `JWPLC_ModbusTCP.cpp` → dependencia `.d` → objeto `.o`, así como W5500 SafeAccess; el producto sigue intacto.
+- Implementación: hook sólo en 14 fuentes del staging experimental; `G10R_TCP_OBS`/ring UART, `CAPTURE`, `DROPPED`, `OVERFLOW`, TID y tupla SID/EPOCH/ALLOC/OWNER. PC: 1/2/4 clientes contra banco de dos JWPLC como máximo; estrés integrado en una sola R3 y evaluador fail-closed del manifest.
+- **Límites:** el código source-backed no es captura física. Los cierres W5500 durante SPI_BUSY, DHCP real ante pérdida de enlace, fairness de TFT/TCA/I/O y endurance NO se han probado con este HEAD en hardware. El servidor Modbus mantiene una sola sesión activa; 4 sockets TCP abiertos no prueban 4 FC03 simultáneos.
+- El workflow legado G10-R usa una lista fija de archivos anterior al PR PRE-H y puede rechazar el nuevo alcance. Su rechazo por whitelist **no se reinterpreta como PASS**, y no invalida los dos workflows específicos de B1; N3 integrado del package será el paso 3.
+
+```text
+PREH_BLOCK_1_TCP124=CLOSED_NONPHYSICAL_SOURCE_FIRST
+PREH_BLOCK_2_DHCP_FAIRNESS=OPEN
+PREH_BLOCK_3_INTEGRATED_N0_N1_N2_N3=OPEN
+PREH_BLOCK_4_PHYSICAL_SAFETY_BACKUP_AUTH=OPEN
+PREH_STEPS_REMAINING=3
+G10-R-PHYSICAL=NOT_RUN
+R3_PHYSICAL_INJECTION_READY=FALSE
+R3_COMPLETE_PHYSICAL_CAMPAIGN_READY=FALSE
+A13-006=ADOPTION_BLOCKED
+ALPHA15=UNMODIFIED
+NEXT_GATE=PREH_BLOCK_2_DHCP_RECOVERY_AND_PERIPHERAL_FAIRNESS
+```
+
+---
+
 # Alpha13 — G10-R, estado vivo de preparación (16/10/2026)
 
 > **16-oct — R3 preparado para inyección en banco, SIN EJECUCIÓN FÍSICA:** el único sketch COM4 temporal `g10_r_integrated.ino` incluye cinco sondas bajo mutex W5500 real (`UDP.stop`, `DNSClient.cancelResolveAsync`, `EthernetClient.cancelConnectAsync`, `DhcpClass.cancelDHCP`, `DhcpClass.finishAsync`). Las dos rutas DHCP usan un objeto `DhcpClass` **local** cuyo UDP privado se arma exclusivamente en puerto **15023** por un `friend` inyectado solo al **staging**: no emite DHCP DISCOVER, no modifica el DHCP global ni productivo. El runner incorpora `r3_suite()` para una **única campaña R1→R2→R3(5)→R4** con abortos y captura de identidad de cada lease. Nuevo handshake `R1R2R3R4_FAULT_LAB_V2`; build y runner rechazan protocolo viejo. Se mantiene `--upload/--live` **fail-closed**: aún faltan cobertura TCP 1/2/4, DHCP renew/rebind físico, fairness TFT/TCA, revisión N2 Windows/Ubuntu del HEAD exacto y autorización del banco. **No se tocó Alpha15 ni se flashearon COM4/COM14.** [Plan R3 y límites](A13_G10_R_CAMPANA_INTEGRADA_Y_TRANSFERENCIA_ALPHA15_20261016.md).
