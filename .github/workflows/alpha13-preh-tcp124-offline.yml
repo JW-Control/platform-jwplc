@@ -5,6 +5,7 @@ on:
       - 'tools/alpha13/gates/a13_g10_r_tcp124_contract.py'
       - 'tools/alpha13/gates/a13_g10_r_tcp124_host.py'
       - 'tools/alpha13/gates/a13_g10_r_tcp124_provenance.py'
+      - 'tools/alpha13/gates/a13_g10_r_tcp124_router.py'
       - '.github/workflows/alpha13-preh-tcp124-offline.yml'
   workflow_dispatch:
 jobs:
@@ -30,3 +31,6 @@ jobs:
 
       - name: Provenance fail-closed and eleven mutations (no hardware)
         run: python tools/alpha13/gates/a13_g10_r_tcp124_provenance.py --selftest
+
+      - name: Router stress plan safety (no network)
+        run: python tools/alpha13/gates/a13_g10_r_tcp124_router.py --selftest
