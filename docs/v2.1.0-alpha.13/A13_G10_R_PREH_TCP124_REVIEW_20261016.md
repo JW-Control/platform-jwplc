@@ -41,3 +41,21 @@ NEXT_GATE=PREH_TCP124_HOST_CONTRACT_AND_SOURCE_FIRST_IMPLEMENTATION
 ```
 
 Este documento describe únicamente el próximo contrato de ingeniería; no atribuye una prueba ni una corrección nueva al código productivo.
+
+
+## Actualización — banco disponible: dos JWPLC Basic (16/oct/2026)
+
+**Topología aceptable:** 2 placas JWPLC Basic conectadas al mismo router y una PC generadora de tráfico. Los escenarios 1/2/4 se refieren a **sesiones TCP cliente simultáneas**, no a cuatro placas. La PC puede generar cuatro conexiones simultáneas hacia uno o ambos PLC; hay que documentar distribución, IPs, servidor/cliente bajo prueba y sentido de cada sesión. Cuatro conexiones hacia un solo dispositivo **no** validan comportamiento entre cuatro dispositivos distintos.
+
+**Gate host añadido:** `tools/alpha13/gates/a13_g10_r_tcp124_contract.py --selftest` y workflow `.github/workflows/alpha13-preh-tcp124-offline.yml`. Fixture puramente sintético: positivos 1/2/4 y nueve negativos (ventanas sin solapamiento, socket duplicado, allocation inválido, FC03 fallido, cierre no confirmado, exceso de ocho sockets, clientes incompletos, client id repetido y owner ausente). No abre COM, tráfico TCP, router ni hardware y **no** declara prueba source-backed del servidor ni firmware. El evaluador exige evidencia explícita de peak concurrente; un resultado del fixture no certifica implementación del generador ni captura física.
+
+**Integración pendiente:** conectar productor de eventos y colector PC al formato del evaluador, definir reservas de sockets a partir de snapshots reales, verificar concurrencia de FC03 y cierres después de mantener sesiones abiertas; incorporar R3/RTU/periféricos al veredicto integral. **No activar** `R3_PHYSICAL_INJECTION_READY` o `R3_COMPLETE_PHYSICAL_CAMPAIGN_READY` por este gate.
+
+```text
+G10-R-TCP124=OFFLINE_CONTRACT_COMMITTED_CI_PENDING
+G10-R-TCP124-NONPHYSICAL=FIXTURE_ONLY_NOT_SOURCE_BACKED
+G10-R-TCP124-PHYSICAL=NOT_RUN
+G10-R-BENCH=UP_TO_2_JWPLC_PLUS_PC_AND_ROUTER
+A13-006=ADOPTION_BLOCKED
+NEXT_GATE=TCP124_EVENT_PRODUCER_AND_CAPTURE_SOURCE_INTEGRATION
+```
