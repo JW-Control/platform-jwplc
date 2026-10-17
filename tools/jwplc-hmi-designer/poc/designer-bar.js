@@ -941,6 +941,15 @@
     return /^[A-Za-z_]/.test(cleaned) ? cleaned : `_${cleaned}`;
   }
 
+  function barContractText(field, varName) {
+    const id = sanitizeSymbol(field.id, `FIELD_BAR_${serialFor(field)}`);
+    return `// Declarada en JWPLC_HMI_Generated.h:\n` +
+      `float ${varName} = 0.0f;\n\n` +
+      `// Tu código sólo asigna la variable (rango ${field.barMin} … ${field.barMax}).\n` +
+      `// jwplcUIUpdate() la publica en cada ciclo:\n` +
+      `JWPLC_Display.setBar(${id}, ${varName});`;
+  }
+
   function cppString(value) {
     return String(value || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   }
@@ -1092,12 +1101,48 @@
     if (!Number.isFinite(Number(field.barBorderColor))) field.barBorderColor = 0xFFFF;
     if (!Number.isFinite(Number(field.barBorderWidth)) || field.barBorderWidth < 1) field.barBorderWidth = 1;
 
+    applyFirmwareCaps(field);
+
     // Asegurar compatibilidad
     field.label = '';
     field.unit = '';
     field.preview = '';
     field.capacity = 1;
     field.valueSize = 1;
+  }
+
+  // A15-7A: JWPLC_UIBarField (JWPLC_UI.cpp) dibuja sólo una barra horizontal
+  // sólida de 12 px (DEFAULT_BAR_HEIGHT), con ancho fijo, la etiqueta en
+  // (x+pad, y+pad), la unidad a la derecha a la altura de la barra y un único
+  // color de fondo que también es la pista vacía. Se normaliza el modelo a eso
+  // para que el lienzo sea igual a la TFT; las variantes quedan deshabilitadas
+  // en la UI hasta que Alpha13 las implemente.
+  function applyFirmwareCaps(field) {
+    field.barPreset = 'LINEAR';
+    field.barFillMode = 'SOLID';
+    field.barOrientation = 'HORIZONTAL';
+    field.barStyle = 'SOLID';
+    field.barCornerRadius = 0;
+    field.barBorderEnabled = false;
+    field.linearPctPos = 'NONE';
+    if (field.barAutoWidth === true) {
+      // Proyecto viejo con ancho AUTO: el firmware usaba una barra de 80 px;
+      // se fija el ancho total equivalente para conservar la salida.
+      const size = Math.max(1, Math.trunc(Number(field.labelSize) || 1));
+      const pad = Math.max(FIELD_PADDING, size);
+      const labelW = (field.showLabel !== false && field.barLabel) ? nominalTextBounds(field.barLabel, size).width : 0;
+      const unitW = field.barUnit ? nominalTextBounds(field.barUnit, size).width : 0;
+      const valueAndUnit = DEFAULT_BAR_WIDTH + (unitW ? FIELD_GAP + unitW : 0);
+      field.barWidth = field.layout === 'INLINE'
+        ? 2 * pad + labelW + (labelW ? FIELD_GAP : 0) + valueAndUnit
+        : 2 * pad + Math.max(labelW, valueAndUnit);
+    }
+    field.barAutoWidth = false;
+    field.barHeight = DEFAULT_BAR_HEIGHT;
+    if (field.layout !== 'INLINE' && field.layout !== 'STACKED') field.layout = 'STACKED';
+    field.alignV = field.layout === 'INLINE' ? 'MID' : 'TOP';
+    field.alignH = 'LEFT';
+    field.backgroundColor = Number(field.trackColor) & 0xFFFF;
   }
 
   function normalizedFor(field) {
@@ -1284,8 +1329,9 @@
       valueY = field.y + pad;
     } else if (alignV === 'MID') {
       const maxH = Math.max(labelBounds.height, valueH, unitBounds.height);
-      const valY = field.y + pad + Math.round((maxH - valueH) / 2);
-      const lblY = field.y + pad + Math.round((maxH - labelBounds.height) / 2);
+      // Firmware (INLINE): etiqueta y barra comparten valueY = y + pad.
+      const valY = field.y + pad;
+      const lblY = field.y + pad;
       if (alignH === 'RIGHT') {
         fieldW = Math.max(20, Math.min(WIDTH, Math.trunc(Number(field.barWidth) || 110)));
         valueW = Math.max(4, fieldW - 2 * pad - labelBounds.width - FIELD_GAP - unitW);
@@ -1332,7 +1378,8 @@
       unitX = valueX + valueW + (unitW > 0 ? FIELD_GAP : 0);
       labelX = unitX + (unitW > 0 ? unitBounds.width + FIELD_GAP : 0);
     }
-    const unitY = valueY + Math.round((valueH - (unitBounds.height || 7)) / 2);
+    // Firmware: la unidad se imprime en (valueX + valueW + GAP, valueY).
+    const unitY = valueY;
 
     return {
       pad,
@@ -2202,7 +2249,7 @@
   barCopyVarBtn?.addEventListener('click', () => copyToClipboard(barPlcVariable?.value || '', barCopyVarBtn));
   barCopyIdBtn?.addEventListener('click', () => copyToClipboard(barTechId?.value || '', barCopyIdBtn));
   barTechCopyContractBtn?.addEventListener('click', () => {
-    const code = barTechContractCode?.textContent?.split('//')[0]?.trim() || barTechContractCode?.textContent || '';
+    const code = barTechContractCode?.textContent || '';
     copyToClipboard(code, barTechCopyContractBtn);
   });
 
@@ -2688,6 +2735,7 @@
       if (!isBar(field)) return;
       field.alignV = cell.dataset.alignV || 'TOP';
       field.alignH = cell.dataset.alignH || 'LEFT';
+      field.layout = field.alignV === 'MID' ? 'INLINE' : 'STACKED';
       alignMatrixCells.forEach((c) => {
         c.classList.toggle('active', c.dataset.alignV === field.alignV && c.dataset.alignH === field.alignH);
       });
@@ -2816,7 +2864,7 @@
     if (fieldVariable) fieldVariable.value = field.variable;
     if (barTechContractCode) {
       const varName = sanitizeSymbol(field.variable, 'nivel');
-      barTechContractCode.textContent = `float ${varName} = 0.0f; // Vía JWPLC_Display.setBar()`;
+      barTechContractCode.textContent = barContractText(field, varName);
     }
   });
   barPlcVariable?.addEventListener('change', () => {
@@ -3300,7 +3348,7 @@
 
     const varName = sanitizeSymbol(field.variable, 'nivel');
     if (barTechContractCode) {
-      barTechContractCode.textContent = `float ${varName} = 0.0f; // Vía JWPLC_Display.setBar()`;
+      barTechContractCode.textContent = barContractText(field, varName);
     }
 
     if (barDiagSimVal) barDiagSimVal.textContent = `${(norm * 100).toFixed(1)} %`;
@@ -3463,7 +3511,152 @@
     patchStatusText();
   }
 
+  // --- A15-7A: cierre del inspector BAR -----------------------------------
+  // Lo que JWPLC_UIBarField no dibuja queda visible pero deshabilitado
+  // ("Requiere firmware"); los <select> restantes pasan a chips/pestañas y la
+  // simulación vive sólo en "Datos".
+  const FW_TITLE = 'Requiere firmware: JWPLC_UIBarField todavía no lo dibuja (petición a Alpha13)';
+
+  function markNeedsFirmware(element) {
+    if (!element) return;
+    element.classList.add('insp-needs-fw');
+    element.disabled = true;
+    element.title = FW_TITLE;
+  }
+
+  function hideForFirmware(element) {
+    element?.classList.add('bar-fw-hidden');
+  }
+
+  function fwCard(title, items) {
+    const card = document.createElement('div');
+    card.className = 'bar-fw-pending';
+    card.innerHTML = `<span class="bar-visual-group-title">${title}</span>` +
+      `<div class="insp-chip-row">${items.map((i) => `<button type="button" class="insp-chip insp-needs-fw" disabled title="${FW_TITLE}">${i}</button>`).join('')}</div>`;
+    return card;
+  }
+
+  function chipRow(values, attr, suffix = '') {
+    const row = document.createElement('div');
+    row.className = 'insp-chip-row';
+    row.innerHTML = values.map((v) => `<button type="button" class="insp-chip" ${attr}="${v}">${v}${suffix}</button>`).join('');
+    return row;
+  }
+
+  function closeBarInspector() {
+    // BAR-1: la simulación sólo en Datos.
+    hideForFirmware(barInspectorWrap.querySelector('#barSubpanelShape .bar-top-slider-wrap'));
+
+    // BAR-3: variantes sin soporte en el firmware.
+    markNeedsFirmware(barInspectorWrap.querySelector('.bar-orient-btn[data-orient="VERTICAL"]'));
+    barInspectorWrap.querySelectorAll('.bar-linear-style-btn:not([data-style="SOLID"])').forEach(markNeedsFirmware);
+    barInspectorWrap.querySelectorAll('.bar-radius-btn:not([data-radius="0"])').forEach(markNeedsFirmware);
+    const borderToggle = barInspectorWrap.querySelector('#barFormaBorderEnabled');
+    markNeedsFirmware(borderToggle);
+    borderToggle?.closest('label')?.classList.add('insp-needs-fw');
+    alignMatrixCells.forEach((cell) => {
+      const supported = cell.dataset.alignH === 'LEFT' && (cell.dataset.alignV === 'TOP' || cell.dataset.alignV === 'MID');
+      if (supported) cell.title = cell.dataset.alignV === 'MID' ? 'Etiqueta a la izquierda (INLINE)' : 'Etiqueta arriba (STACKED)';
+      else markNeedsFirmware(cell);
+    });
+
+    // BAR-2/BAR-3: selects que no aportan nada al firmware.
+    const widthMode = barInspectorWrap.querySelector('#barFormaWidthMode')?.closest('label');
+    const fillMode = barInspectorWrap.querySelector('#barFormaFillMode')?.closest('label');
+    hideForFirmware(widthMode);
+    if (fillMode) {
+      fillMode.replaceWith(fwCard('Relleno', ['Degradado']));
+    }
+    const pctWrap = barInspectorWrap.querySelector('#barContentLinearWrap');
+    if (pctWrap) {
+      hideForFirmware(pctWrap);
+      pctWrap.insertAdjacentElement('afterend', fwCard('Texto sobre la barra', ['% a la derecha', '% dentro']));
+    }
+
+    // BAR-4: el alto no llega al firmware (DEFAULT_BAR_HEIGHT = 12 px).
+    const heightInput = barInspectorWrap.querySelector('#barFormaHeight');
+    if (heightInput) {
+      heightInput.value = String(DEFAULT_BAR_HEIGHT);
+      heightInput.disabled = true;
+      heightInput.title = 'El firmware dibuja la barra con 12 px de alto fijos';
+      const name = barInspectorWrap.querySelector('#barFormaHeightName');
+      if (name) name.textContent = 'Grosor (fijo en firmware)';
+    }
+
+    // Un solo color de fondo: el firmware borra la pista con colors.background.
+    const bgInput = barInspectorWrap.querySelector('#barAppBgColNative');
+    hideForFirmware(bgInput?.closest('label'));
+    const trackLabel = barInspectorWrap.querySelector('#barAppLinearTrackNative')?.closest('label');
+    if (trackLabel?.firstChild?.nodeType === Node.TEXT_NODE) {
+      trackLabel.firstChild.textContent = 'Fondo y pista vacía (un solo color en firmware)';
+    }
+
+    // BAR-2: tamaño de etiqueta como chips.
+    const labelSizeSelect = barInspectorWrap.querySelector('#barContentLabelSize');
+    if (labelSizeSelect) {
+      const chipsRow = chipRow([1, 2, 3, 4], 'data-bar-label-size', '×');
+      labelSizeSelect.insertAdjacentElement('afterend', chipsRow);
+      hideForFirmware(labelSizeSelect);
+      chipsRow.addEventListener('click', (e) => {
+        const chip = e.target.closest('[data-bar-label-size]');
+        if (!chip) return;
+        labelSizeSelect.value = chip.dataset.barLabelSize;
+        labelSizeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    }
+
+    // BAR-2: página como pestañas mini.
+    // Se oculta el label completo: designer-pages.js reemplaza su input por un select.
+    const pageLabel = barInspectorWrap.querySelector('#barPlacementPage')?.closest('label');
+    if (pageLabel) {
+      const pageChips = document.createElement('div');
+      pageChips.className = 'insp-chip-row';
+      pageChips.id = 'barPlacementPageChips';
+      pageLabel.insertAdjacentElement('afterend', pageChips);
+      pageChips.insertAdjacentHTML('beforebegin', '<span class="bar-visual-group-title">Página</span>');
+      hideForFirmware(pageLabel);
+      pageChips.addEventListener('click', (e) => {
+        const chip = e.target.closest('[data-page-id]');
+        if (chip) editor()?.moveSelectedFieldToPage?.(Number(chip.dataset.pageId));
+      });
+    }
+
+    // BAR-5: pestaña "Datos" (Arduino u OpenPLC según el proyecto, A15-6).
+    const dataTab = barInspectorWrap.querySelector('.bar-main-tab[data-main-tab="plc"] span');
+    if (dataTab) dataTab.textContent = 'Datos';
+    barInspectorWrap.querySelector('#barPlcCppType')?.classList.add('insp-readonly');
+
+    // BAR-6: contrato completo.
+    barInspectorWrap.querySelector('#barTechContractCode')?.closest('.bar-code-box')?.classList.add('bar-code-box-multiline');
+  }
+
+  function syncClosedBarInspector() {
+    const field = selectedField();
+    if (!isBar(field)) return;
+    barInspectorWrap.querySelectorAll('[data-bar-label-size]').forEach((chip) => {
+      chip.classList.toggle('active', Number(chip.dataset.barLabelSize) === Number(field.labelSize || 1));
+    });
+    const pageChips = barInspectorWrap.querySelector('#barPlacementPageChips');
+    if (pageChips) {
+      const pages = editor()?.getPages?.() || [];
+      const current = Number(field.page || 0);
+      const signature = pages.map((p) => `${p.id}:${p.name}`).join('|') + `#${current}`;
+      if (pageChips.dataset.signature !== signature) {
+        pageChips.dataset.signature = signature;
+        pageChips.innerHTML = pages.map((p) =>
+          `<button type="button" class="insp-chip${Number(p.id) === current ? ' active' : ''}" data-page-id="${p.id}">` +
+          `${String(Number(p.id) + 1).padStart(2, '0')} · ${String(p.name).replace(/[&<>"]/g, '')}</button>`).join('');
+      }
+    }
+    const heightInput = barInspectorWrap.querySelector('#barFormaHeight');
+    if (heightInput) heightInput.value = String(DEFAULT_BAR_HEIGHT);
+    if (barFormaHeightName) barFormaHeightName.textContent = 'Grosor (fijo en firmware)';
+  }
+
+  closeBarInspector();
+
   window.addEventListener('jwplc:editor-refresh', patchUI);
+  window.addEventListener('jwplc:editor-refresh', syncClosedBarInspector);
   contractTab?.addEventListener('click', () => setTimeout(patchGeneratedCode, 0));
   statusTab?.addEventListener('click', () => setTimeout(patchStatusText, 0));
   generateButton?.addEventListener('click', () => setTimeout(patchGeneratedCode, 0));

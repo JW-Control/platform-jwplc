@@ -33,10 +33,10 @@ A15_3_STATIC_OUT_OF_TICK=PASS (tiempos de bus en A15-9)
 A15_4_DESIGNER_CI=PASS_ESP32_COMPILE (smoke host + arduino-cli ESP32 en la nube; falta automatizar en CI)
 A15_5_PURE_CODEGEN_TESTS=PENDING
 A15_6_JWHMI_V2_MODES_HOST=PENDING
-A15_7A_BAR_FINISH=PENDING (prioridad alta)
-A15_7B_VALUE=PENDING (prioridad alta)
-A15_7C_TEXT=PENDING (prioridad alta)
-A15_7D_BOOL=PENDING (prioridad alta)
+A15_7A_BAR_FINISH=PASS (A15_7_INSPECTOR_CLOSE_20261017; paridad lienzo/firmware 16/16)
+A15_7B_VALUE=PASS
+A15_7C_TEXT=PASS
+A15_7D_BOOL=PASS
 A15_7E_RAW_SHAPES_NAV_PIXEL=PENDING
 A15_8_MENU=PENDING
 A15_9_PHYSICAL_PARITY=PENDING
@@ -59,13 +59,13 @@ B7_NO_PHYSICAL_GATES=OPEN (gate A15_1_3_Codegen_Static listo, pendiente de talle
 ## Inspector (adopción del patrón Propuesta 2)
 
 ```text
-BAR=PARTIAL (pestañas OK; quedan BAR-1..BAR-7 de A15_7_INSPECTOR_REDESIGN_SPEC)
+BAR=ADOPTED (BAR-1..BAR-7 cerrados; variantes sin firmware deshabilitadas)
 SHAPES=PARTIAL (reutiliza bar-inspector-wrap)
-VALUE=LEGACY
-TEXT=LEGACY
-BOOL=LEGACY
+VALUE=ADOPTED (designer-field-inspector.js)
+TEXT=ADOPTED (designer-field-inspector.js)
+BOOL=ADOPTED (designer-field-inspector.js)
 RAW_TEXT=LEGACY
-NAV_BAR=ADOPTED_UI (André, af797d79: Diseño/Páginas/Técnico, 6 presets, 4 posiciones); codegen no aplica tipografía/alineación/formato de etiqueta
+NAV_BAR=ADOPTED_UI (André, af797d79: Diseño/Páginas/Técnico, 6 presets, 4 posiciones); codegen replica el lienzo con el pintor compartido (NAV-1/NAV-2, 207f1594)
 PIXELMAP=LEGACY
 MENU=NOT_EXISTS
 ```
@@ -75,8 +75,8 @@ MENU=NOT_EXISTS
 ```text
 DESIGNER_UI=Alpha11
 ELECTRON_PACKAGE=0.11.0-alpha.11
-JWPLC_TFT=0.2.0 (fillEllipse/drawEllipse/fillTriangle/drawTriangle; .a regenerado, ABI compatible)
-DESIGNER_FONTS=sólo GLCD (FIRMWARE_SUPPORTS_FONTS=false)
+JWPLC_TFT=0.3.0 (elipses/triángulos + FreeFonts con setFont/drawString; .a regenerado, ABI compatible)
+DESIGNER_FONTS=GLCD + 24 FreeFonts (Font2/Font4 deshabilitadas)
 PROJECT_FORMAT=JWPLC_HMI_PROJECT v1
 VPP_OPENPLC=2.1.0-alpha.29 (rama v2.1.0-alpha.12/feature/openplc-engineering-closure)
 ```
@@ -119,3 +119,9 @@ MENU_NODE_COUNT_LIMIT=A_MEDIR_EN_A15_8
   Smoke test PASS, gate A15 compila para ESP32 (444649 B / 34620 B). Hallazgo NAV-1: el preview
   aplica `fontSize` micro/mediana, `textAlign` y `labelFormat`, el codegen no (GLCD 5x7 centrado,
   nombre corto) -> A15-7E. André continúa en esta rama.
+- 2026-10-17 — A15-7A..7D cerrados (`A15_7_INSPECTOR_CLOSE_20261017.md`). Inspector Propuesta 2
+  para TEXT/VALUE/BOOL (`designer-field-inspector.js`) y cierre de BAR-1..BAR-7. Hallazgo: el lienzo
+  de BAR no coincidía con la TFT (la matriz 3×3 no cambiaba `layout`; INLINE centraba la etiqueta;
+  alto/fondo/AUTO). `applyFirmwareCaps()` normaliza el modelo y `inspector-smoke.cjs` verifica la
+  paridad contra una traducción de `computeFieldGeometry()`. Fondo TRANSPARENT de campos ya no
+  genera `0xTRANSPARENT`.

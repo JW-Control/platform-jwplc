@@ -247,12 +247,12 @@
     document.body.appendChild(script);
   }
 
-  loadScript('./designer-bool.js?v=1792200000', () => {
-    loadScript('./designer-bar.js?v=1792200000', () => {
-      loadScript('./designer-field-inspector.js?v=1792200000', () => {
-        loadScript('./designer-field-visibility.js?v=1792200000', () => {
-          loadScript('./designer-pages.js?v=1792200000', () => {
-            loadScript('./designer-live.js?v=1792200000');
+  loadScript('./designer-bool.js?v=1792300000', () => {
+    loadScript('./designer-bar.js?v=1792300000', () => {
+      loadScript('./designer-field-inspector.js?v=1792300000', () => {
+        loadScript('./designer-field-visibility.js?v=1792300000', () => {
+          loadScript('./designer-pages.js?v=1792300000', () => {
+            loadScript('./designer-live.js?v=1792300000');
           });
         });
       });

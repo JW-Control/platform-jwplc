@@ -194,6 +194,81 @@ async function main() {
       };
     });
     check(!barState.v2 && barState.bar, 'BAR conserva su propio inspector');
+    for (const tab of ['shape', 'content', 'appearance', 'placement']) {
+      await page.click(`#barInspectorWrap .bar-sub-tab[data-sub-tab="${tab}"]`);
+      await shot(`bar_${tab}`);
+    }
+    for (const tab of ['plc', 'tech']) {
+      await page.click(`#barInspectorWrap .bar-main-tab[data-main-tab="${tab}"]`);
+      await shot(`bar_${tab}`);
+    }
+    await page.click('#barInspectorWrap .bar-main-tab[data-main-tab="design"]');
+    const barUi = await page.evaluate(() => {
+      const wrap = document.getElementById('barInspectorWrap');
+      const visible = (el) => el && el.offsetParent !== null;
+      return {
+        verticalDisabled: wrap.querySelector('.bar-orient-btn[data-orient="VERTICAL"]').disabled,
+        simInShape: visible(wrap.querySelector('#barSubpanelShape .bar-top-slider-wrap')),
+        heightLocked: wrap.querySelector('#barFormaHeight').disabled,
+        dataTab: wrap.querySelector('.bar-main-tab[data-main-tab="plc"]').textContent.trim(),
+        contract: wrap.querySelector('#barTechContractCode').textContent
+      };
+    });
+    check(barUi.verticalDisabled && barUi.heightLocked, 'BAR-3/BAR-4: vertical deshabilitada y alto fijo');
+    check(!barUi.simInShape, 'BAR-1: simulación fuera de Forma');
+    check(barUi.dataTab === 'Datos', 'BAR-5: pestaña "Datos"');
+    check(/\n/.test(barUi.contract) && /setBar\(/.test(barUi.contract), 'BAR-6: contrato multilínea con setBar');
+
+    // Paridad lienzo/TFT: traducción literal de computeFieldGeometry()
+    // (JWPLC_Display/src/JWPLC_UI.cpp) para JWPLC_UI_FIELD_BAR con ancho fijo.
+    const parity = await page.evaluate(() => {
+      const PAD = 3; const GAP = 4; const BAR_H = 12;
+      const bounds = (text, size) => (text ? { w: text.length * 6 * size - size, h: 7 * size } : { w: 0, h: 0 });
+      const firmware = (f) => {
+        const pad = Math.max(PAD, f.labelSize);
+        const label = bounds(f.showLabel ? f.barLabel : '', f.labelSize);
+        const unit = bounds(f.barUnit, f.labelSize);
+        let valueW = f.barWidth - 2 * pad;
+        if (f.layout === 'INLINE' && label.w > 0) valueW -= label.w + GAP;
+        if (unit.w > 0) valueW -= unit.w + GAP;
+        valueW = Math.max(1, valueW);
+        const valueH = BAR_H;
+        let fieldH; let valueX; let valueY;
+        if (f.layout === 'STACKED') {
+          fieldH = 2 * pad + label.h + (label.h > 0 ? GAP : 0) + Math.max(valueH, unit.h);
+          valueX = f.x + pad;
+          valueY = f.y + pad + label.h + (label.h > 0 ? GAP : 0);
+        } else {
+          fieldH = 2 * pad + Math.max(label.h, valueH, unit.h);
+          valueX = f.x + pad + label.w + (label.w > 0 ? GAP : 0);
+          valueY = f.y + pad;
+        }
+        return { fieldW: f.barWidth, fieldH, valueX, valueY, valueW, valueH, unitX: valueX + valueW + GAP, unitY: valueY };
+      };
+      const E = window.JWPLCHMIEditor;
+      const field = E.getSelectedField();
+      const mismatches = [];
+      let cases = 0;
+      for (const layout of ['INLINE', 'STACKED']) {
+        for (const showLabel of [true, false]) {
+          for (const barUnit of ['%', '']) {
+            for (const labelSize of [1, 2]) {
+              Object.assign(field, { layout, showLabel, barLabel: 'Nivel', barUnit, labelSize, barWidth: 140, x: 10, y: 20 });
+              const g = window.JWPLCHMIBar.computeGeometry(field);
+              const fw = firmware(field);
+              cases += 1;
+              for (const key of ['fieldW', 'fieldH', 'valueX', 'valueY', 'valueW', 'valueH']) {
+                if (g[key] !== fw[key]) mismatches.push(`${layout}/${showLabel}/${barUnit || '-'}/${labelSize}: ${key} lienzo=${g[key]} tft=${fw[key]}`);
+              }
+              if (barUnit && (g.unitX !== fw.unitX || g.unitY !== fw.unitY)) mismatches.push(`${layout}/${labelSize}: unidad lienzo=${g.unitX},${g.unitY} tft=${fw.unitX},${fw.unitY}`);
+              if (showLabel && (g.labelX !== field.x + g.pad || g.labelY !== field.y + g.pad)) mismatches.push(`${layout}/${labelSize}: etiqueta lienzo=${g.labelX},${g.labelY}`);
+            }
+          }
+        }
+      }
+      return { cases, mismatches };
+    });
+    check(parity.mismatches.length === 0, `BAR: geometría del lienzo == firmware en ${parity.cases} casos${parity.mismatches.length ? `\n      ${parity.mismatches.join('\n      ')}` : ''}`);
 
     check(errors.length === 0, `sin errores de consola${errors.length ? `: ${errors.join(' | ')}` : ''}`);
   } finally {

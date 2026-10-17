@@ -2603,3 +2603,14 @@ body.bottom-collapsed .bottom-tabs { border-bottom: 0; }
   font-family: 'Cascadia Code', Consolas, monospace; font-size: 10.5px; line-height: 1.4;
   white-space: pre; color: #c9d8e4; background: #0b141b; border: 1px solid #1e313f; border-radius: 4px;
 }
+
+/* A15-7A · cierre del inspector BAR */
+.bar-fw-hidden { display: none !important; }
+.bar-fw-pending { margin-top: 6px; display: flex; flex-direction: column; gap: 3px; }
+.insp-chip.insp-needs-fw { opacity: 0.45; cursor: not-allowed; }
+label.insp-needs-fw { opacity: 0.45; cursor: not-allowed; }
+.matrix-cell.insp-needs-fw { opacity: 0.25; }
+.bar-code-box.bar-code-box-multiline { align-items: flex-start; }
+.bar-code-box.bar-code-box-multiline code {
+  white-space: pre-wrap; word-break: break-word; overflow: auto; text-overflow: clip; max-height: 180px; line-height: 1.4; flex: 1;
+}

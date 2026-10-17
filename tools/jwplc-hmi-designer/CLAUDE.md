@@ -17,7 +17,7 @@ de `index.html` e inyecta los scripts en orden.
 
 ```text
 index.html:      gfx-classic-font -> designer-fonts-data -> designer-fonts -> app -> ux-foundation -> designer-codegen
-ux-foundation:   designer-bool -> designer-bar -> designer-field-visibility -> designer-pages -> designer-live
+ux-foundation:   designer-bool -> designer-bar -> designer-field-inspector -> designer-field-visibility -> designer-pages -> designer-live
 field-visibility: designer-inspector-state, designer-pixelmap-compat -> designer-pixelmap -> designer-pixelmap-stability
 desktop.html:    designer-project, designer-native-project, designer-project-integration-fix,
                  designer-pixelmap-workbench/-optimizer/-codegen-guard, desktop-responsive
@@ -54,6 +54,12 @@ Referencia: `JWPLC_HMI_Designer_BAR_Propuesta_2_Paquete_UI/` y `poc/designer-bar
 
 Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
 
+- TEXT/VALUE/BOOL: `designer-field-inspector.js`. Escribe en los inputs viejos (`#fieldX`,
+  `#fieldLayout`…) y dispara `input`/`change`; no tocar el modelo directo (perdería historial).
+- BAR: `applyFirmwareCaps()` en `designer-bar.js` normaliza el modelo a lo que dibuja
+  `JWPLC_UIBarField`; al habilitar una variante en firmware, quitarla de ahí y de `closeBarInspector()`.
+- Paridad BAR lienzo/TFT y comportamiento del inspector: `tests/inspector-smoke.cjs`.
+
 ## Reglas del codegen (A15-1..A15-3)
 
 - Gráfica estática (figuras, RAW_TEXT, NAV_BAR) -> `jwplcUIPageEnter()`; `jwplcUIUpdate()`
@@ -62,14 +68,14 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
 - Acceso TFT: `JWPLC_TFTClass &tft = JWPLC_Display.tft();` (no existe `getTFT()`).
 - Elipse/triángulo: helpers `jwplcHMI*` (STATIC_HELPERS) que usan los métodos nativos de
   `JWPLC_TFT` >= 0.2.0 y un respaldo para 0.1.0 (`JWPLC_HMI_TFT_NATIVE_SHAPES`).
-- Fuentes: `FIRMWARE_SUPPORTS_FONTS=false` en `designer-fonts.js` hasta que Alpha13
-  regenere `libJWPLC_TFT.a` con `setFont/drawString`.
+- Fuentes: GLCD + FreeFonts vía `JWPLC_TFT` 0.3.0 (`setFont/drawString`), siempre dentro de
+  `#if JWPLC_HMI_TFT_FONTS` con respaldo GLCD.
 - BAR circular/degradado: deshabilitados (`.insp-needs-fw`); el codegen cae a `JWPLC_UIBarField`.
 - Ids de página siempre contiguos `0..N-1` (`deletePage` renumera; abrir normaliza).
 - NAV_BAR existe sólo si hay un objeto NAV_BAR visible.
 - Capas: `layerOrder` menor = más al frente; la estática se emite en orden descendente.
 - Tras tocar el codegen: `node tools/jwplc-hmi-designer/tests/codegen-smoke.cjs`.
-- Tras tocar JS/CSS: subir `?v=` (hoy 1792100000) en `index.html`/`desktop.html`/`ux-foundation.js`/
+- Tras tocar JS/CSS: subir `?v=` (hoy 1792300000) en `index.html`/`desktop.html`/`ux-foundation.js`/
   `designer-field-visibility.js` y `CACHE_NAME` en `service-worker.js`.
 
 ## Probar sin hardware
@@ -77,6 +83,7 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
 ```bash
 for f in poc/*.js; do node --check "$f" || echo "FAIL $f"; done
 node tests/codegen-smoke.cjs            # genera headers y los compila contra el package
+node tests/inspector-smoke.cjs          # inspector TEXT/VALUE/BOOL/BAR + paridad BAR
 cd poc && python3 -m http.server 8765 --bind 127.0.0.1   # abrir /desktop.html
 ```
 
