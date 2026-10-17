@@ -66,7 +66,7 @@ class TcpCollector:
         self.token=""
     def report(self):
         return {"batches":self.batches,"status":
-                "REVIEW_STOP" if not self.batches or any(
+                "REVIEW_STOP" if self.pending is not None or not self.batches or any(
                     b["status"].startswith("REVIEW_STOP") for b in self.batches)
                 else "OBSERVATIONAL_ONLY_NOT_PHYSICAL_PASS"}
 
@@ -81,6 +81,11 @@ def selftest():
     c.receive(f"G10R_TCP_HEAD:{t} COUNT=1 DROPPED=0 OVERFLOW=1",3)
     c.receive(f"G10R_TCP_END:{t}",4)
     assert c.report()["status"]=="REVIEW_STOP"
+    d=TcpCollector();d.begin(t)
+    d.receive(f"G10R_TCP_HEAD:{t} COUNT=1 DROPPED=0 OVERFLOW=0",5)
+    assert d.report()["status"]=="REVIEW_STOP"
+    d.finish()
+    assert d.batches[-1]["status"]=="REVIEW_STOP_SESSION_END"
     print("G10R_TCP_COLLECTOR=PASS_SYNTHETIC_NO_HARDWARE")
 if __name__=="__main__":
     p=argparse.ArgumentParser()
