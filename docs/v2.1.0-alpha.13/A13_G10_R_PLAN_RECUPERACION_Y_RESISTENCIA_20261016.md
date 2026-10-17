@@ -152,3 +152,25 @@ NEXT_GATE=G10-R_FINAL_CI_REVIEW_R3_LIFECYCLE_FAULT_INJECTION_AND_OPERATOR_DECISI
 ```
 
 **No cerrar G10-R con esta ficha:** sirve para fijar riesgos, alcance y condiciones de preparación; ni el autodiagnóstico sintético ni la CI sin hardware equivalen a R1–R4 reales.
+
+
+## 9. R3 — prueba nativa source-backed de los snapshots (16/10/2026)
+
+Esta iteración **agrega un gate realmente compilado en C++**, separado de las 14 pruebas sintéticas de transición del evaluador Python y de la CI del sketch Arduino.
+
+- **C++ de test:** `tools/alpha13/candidates/g10_r/native_g10_r_lab_snapshot_test.cpp`.
+- **Runner sin hardware:** `tools/alpha13/gates/a13_g10_r_r3_native.py --native` en Ubuntu host. Compone las **mismas 14 fuentes** de G10-I y añade exclusivamente `LabSocketSnapshot/labCaptureSockets` a los dos archivos SafeAccess del stage; rechaza cambios en las otras doce fuentes. Usa el **SafeAccess.cpp real** y una simulación host de exclusión SPI *no recursiva*.
+- **Casos C++ positivos:** captura bajo scope anidado del mismo propietario, `BUS_BUSY` por lock de otra tarea sin sobrescribir el buffer, publicación del ticket de cierre, observación de `pendingCloseAllocation` tras ceder el mutex, drenaje seguro, nuevo `epoch/allocation/owner`, y rechazo de cierre por token obsoleto después de reciclar un socket.
+- **Negativos de C++ real:** 4 variantes mutadas de la instrumentación (`BUS_BUSY` convertido fraudulentamente en `Captured`, `pendingCloseAllocation` omitido, `epoch=0`, `ownerCookie=0`). El **mismo test** debe abortar con una razón específica para cada mutación; un fallo de compilación de mutante **no** se cuenta como mutación rechazada.
+- **CI:** `.github/workflows/alpha13-g10-r-source-build.yml` incorpora job adicional `G10-R R3 source-backed C++ mutex snapshots (Ubuntu host)`, además de los cuatro jobs existentes. En la [corrida #38994618424](https://github.com/JW-Control/platform-jwplc/actions/runs/38994618424) se observaron `G10_R_R3_LAB_PENDING_BUSY_DRAIN=PASS`, `G10_R_R3_LAB_RECYCLE_STALE_GUARD=PASS` y `G10_R_R3_SOURCE_MUTANTS=4_PASS_REJECTED`. **No declarar todavía 5/5 SUCCESS del workflow hasta confirmar que también finalizó el build Windows/Ubuntu del mismo HEAD.**
+- `GPIO4` permanece deshabilitado, **no se flashean COM4/COM14**, no hay Ethernet real ni carga sobre relés, y `JWPLC/2.1.0` permanece intacto.
+
+**Interpretación estricta:** este PASS certifica el contrato de captura read-only y su relación con la cola de cierre diferido del **código nativo compuesto**, no el comportamiento temporal de DNS/DHCP/UDP en el chip W5500 físico ni que un registro `G10R_SOCK` represente una transición de protocolo en un instante anterior. Faltan fault injection reproducible en firmware, eventos históricos de lifecycle y un procedimiento físico aprobado para poder cerrar R3.
+
+```text
+G10-R-R3-HOST_CPP=PASS_SOURCE_BACKED_WITH_4_NEGATIVE_MUTANTS
+G10-R-R3-PHYSICAL=NOT_RUN
+G10-R-R3-FAULT_INJECTION=NOT_IMPLEMENTED
+G10-R-ADOPTION=BLOCKED
+G10-R-NEXT=DESIGN_SOURCE_BACKED_LIFECYCLE_EVENT_STREAM_AND_PHYSICAL_SAFETY_REVIEW
+```
