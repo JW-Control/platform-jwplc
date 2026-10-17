@@ -1,3 +1,5 @@
+> **ACTUALIZACIÓN 17-oct-2026 — Bloque 1 CLOSED_NONPHYSICAL:** El contenido de propuesta e historial inferior se mantiene para trazabilidad, pero ya fue implementado en candidato aislado. Código exacto `dc194c4d6e863d5324eea14e515d1be92b18c9b6`; CI de contratos [#39010539929](https://github.com/JW-Control/platform-jwplc/actions/runs/39010539929) **2/2 SUCCESS**, N2 source-first [#39010539920](https://github.com/JW-Control/platform-jwplc/actions/runs/39010539920) **2/2 SUCCESS**. Instrumentación TID/socket/lease, captura UART PC, estrés 1/2/4, joins y abortos implementados. No hubo ensayo físico nuevo. `PREH_STEPS_REMAINING=3`, `NEXT_GATE=PREH_BLOCK_2_DHCP_RECOVERY_AND_PERIPHERAL_FAIRNESS`. No adopción, merge, flash ni transferencia Alpha15.
+
 # Alpha13 G10-R — PRE-H TCP 1/2/4 y aceptación de concurrencia (revisión source-first)
 
 **Estado:** `REVIEW_REQUIRED` — análisis no físico, sin firmware ni CI nuevos.  
