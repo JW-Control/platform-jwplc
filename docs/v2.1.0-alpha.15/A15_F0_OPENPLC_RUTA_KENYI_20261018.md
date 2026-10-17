@@ -105,8 +105,9 @@ Por qué así `[visto en openplc-editor 1f12dc5]`:
   forzado del debugger `[inferido]`; F0-6 lo confirma.
 - `jwplcUIUpdate()` sólo llama setters. Si `rele_q0_0` no cambió, no se redibuja nada
   (dirty refresh), así que es barato llamarlo en cada scan.
-- La IDLE por defecto **no** despierta con teclas (`IDLE_WAKE_DISABLED`). `jwplcHMIF0Begin()`
-  pone `IDLE_WAKE_ANY_BUTTON`: arranca en la IDLE (con el overlay de forzadas), cualquier tecla
+- En el firmware, la IDLE por defecto **no** despierta con teclas (`IDLE_WAKE_DISABLED`). Desde
+  2026-10-18 el Designer lo configura en *Proyecto · Pantalla y arranque*, y `jwplcHMISetup()` lo
+  aplica. El header del gate trae: arranca en la IDLE (con el overlay de forzadas), cualquier tecla
   entra a la página y ESC vuelve.
 
 Después, subir la versión del VPP (2.1.0-alpha.30) y firmar con el flujo de siempre:

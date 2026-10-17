@@ -61,5 +61,5 @@ Sin la variable en `%QX0.0`, `bool_output[0][0]` es `NULL` y el campo queda en O
 ```bash
 tools/alpha15/regenerate_libJWPLC_TFT.sh setup     # una vez
 tools/jwplc-hmi-designer/gates/A15_F0_OpenPLC_Bool_Rele/check_f0_compile.sh
-# Sketch uses 422153 bytes · Global variables use 36484 bytes
+# Sketch uses 422401 bytes · Global variables use 36612 bytes
 ```

@@ -19,6 +19,14 @@
     "showIndicator": true,
     "showArrows": true
   },
+  "display": {
+    "start": "IDLE",
+    "wake": "ANY",
+    "wakeButton": "BTN_OK",
+    "back": "ESC",
+    "backButton": "BTN_LEFT",
+    "timeoutS": 15
+  },
   "pages": [
     {
       "id": 0,

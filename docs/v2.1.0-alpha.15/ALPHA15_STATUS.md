@@ -37,7 +37,8 @@ A15_7A_BAR_FINISH=PASS (A15_7_INSPECTOR_CLOSE_20261017; paridad lienzo/firmware 
 A15_7B_VALUE=PASS
 A15_7C_TEXT=PASS
 A15_7D_BOOL=PASS
-A15_7E_RAW_SHAPES_NAV_PIXEL=PENDING
+A15_7E_RAW_SHAPES_NAV_PIXEL=PENDING (NAV: borrar páginas, estilo Contador e indicador NN/TT resueltos en A15_7_INSPECTOR_FOLLOWUP_3)
+A15_7F_IDLE_CONFIG=PASS (Proyecto · Pantalla y arranque)
 A15_8_MENU=PASS_HOST_AND_ESP32_COMPILE (A15_8_MENU_20261017; físico pendiente)
 A15_9_PHYSICAL_PARITY=PENDING
 A15_10_PACKAGING_DOCS=PENDING
@@ -78,7 +79,7 @@ MENU=ADOPTED (designer-menu.js; firmware JWPLC_Display 1.1.0)
 DESIGNER_UI=Alpha11
 ELECTRON_PACKAGE=0.11.0-alpha.11
 JWPLC_TFT=0.3.0 (elipses/triángulos + FreeFonts con setFont/drawString; .a regenerado, ABI compatible)
-JWPLC_DISPLAY=1.1.0 (MENU + texto/fondo por estado de BOOL + anclaje fijo de etiqueta/valor) · SOURCE_FIRST hasta el cierre (.a 0317c3ac… histórico, regenerar al cierre)
+JWPLC_DISPLAY=1.1.0 (MENU + BOOL por estado con fondo de todo el campo + anclaje fijo + marco sin recorte + setPageIndicator) · SOURCE_FIRST hasta el cierre (.a 0317c3ac… histórico, regenerar al cierre)
 DESIGNER_FONTS=GLCD + 24 FreeFonts (Font2/Font4 deshabilitadas)
 PROJECT_FORMAT=JWPLC_HMI_PROJECT v1
 VPP_OPENPLC=2.1.0-alpha.29 (rama v2.1.0-alpha.12/feature/openplc-engineering-closure)
@@ -158,3 +159,11 @@ MENU_NODE_COUNT_LIMIT=64 por menú, 4 menús, 1 por página (9 nodos = +952 B RA
   enlaza en modo fuente (se conserva el de alpha.15, regenerar al cierre). Gate
   `gates/A15_F0_OpenPLC_Bool_Rele` (BOOL ↔ relé Q0_0) y ruta para Kenyi en
   `A15_F0_OPENPLC_RUTA_KENYI_20261018.md`.
+- 2026-10-18 — 3.ª revisión del jefe (`A15_7_INSPECTOR_FOLLOWUP_3_20261018.md`):
+  - marco sin recorte en 3×/4× (margen derecho/inferior = escala + 1);
+  - BOOL con fondo por estado en todo el campo;
+  - flechas con codo de 90° en la Apariencia de campos y MENU;
+  - sección "Pantalla y arranque" (IDLE) que escribe en `jwplcHMISetup()`;
+  - NAV: borrar página con confirmación, estilo «Contador» (NN/TT de Alpha11 con `setPageIndicator`), indicador nativo en paridad con el lienzo y abreviaturas sin tildes.
+
+  Gate F0 de Kenyi regenerado.

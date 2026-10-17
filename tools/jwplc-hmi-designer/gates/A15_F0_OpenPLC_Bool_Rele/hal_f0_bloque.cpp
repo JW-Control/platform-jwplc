@@ -12,10 +12,10 @@
 
 static void jwplcHMIF0Begin()
 {
+    // Campos, página y entrada/salida de la IDLE: lo que se configuró en el
+    // Designer (Proyecto · Pantalla y arranque). En este gate: arranca en la
+    // IDLE, cualquier tecla entra a la página y ESC vuelve.
     jwplcHMISetup();
-    // La placa arranca en la IDLE; cualquier tecla entra a la página del
-    // Designer y ESC vuelve a la IDLE (por defecto la IDLE no despierta).
-    JWPLC_Display.setIdleWakeMode(JWPLC_DisplayClass::IDLE_WAKE_ANY_BUTTON);
 }
 
 static void jwplcHMIF0Update()

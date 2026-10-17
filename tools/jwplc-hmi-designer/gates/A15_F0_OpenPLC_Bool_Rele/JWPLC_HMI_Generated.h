@@ -64,6 +64,10 @@ void jwplcHMISetup()
     JWPLC_Display.setUserPageCount(1);
     JWPLC_Display.setUserPage(PAGE_RELE);
     JWPLC_Display.setUserRefreshMode(USER_REFRESH_PERIODIC);
+
+    // Pantalla IDLE (Designer · Pantalla y arranque)
+    JWPLC_Display.setIdleWakeMode(JWPLC_DisplayClass::IDLE_WAKE_ANY_BUTTON);
+    JWPLC_Display.setIdleReturnMode(JWPLC_DisplayClass::IDLE_RETURN_ESC_ONLY);
 }
 
 // Sincronización gráfica autogenerada (cada tick de refresco).

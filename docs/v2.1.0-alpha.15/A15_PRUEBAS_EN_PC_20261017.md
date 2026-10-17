@@ -19,14 +19,17 @@ powershell -ExecutionPolicy Bypass -File tools\jwplc-hmi-designer\Start-JWPLC-HM
 
 Abre Edge/Chrome en modo app sobre `http://127.0.0.1:8765/desktop.html`. Si ves la versión
 anterior, recarga con `Ctrl+F5`: los scripts cambiaron de `?v=` y la caché del service worker
-pasó a `a15-appearance-v12`.
+pasó a `a15-idle-nav-v13`.
 
 Qué revisar:
 
 | Qué | Dónde | Esperado |
 |---|---|---|
 | Inspector TEXT / VALUE / BOOL | Crear cada tipo desde la barra | Pestañas Diseño (Forma/Contenido/Apariencia/Ubicación), Datos, Técnico; tarjetas y chips, sin selects; valor de prueba sólo en Datos |
-| Apariencia TEXT/VALUE/BOOL | Diseño → Apariencia | Mini-modelo con los colores al lado; BOOL "Por estado" muestra Caso FALSE y Caso TRUE con texto y fondo |
+| Apariencia TEXT/VALUE/BOOL | Diseño → Apariencia | Mini-modelo con flechas de codo hacia cada zona; la del color elegido en naranja; BOOL "Por estado": Caso FALSE y TRUE, el fondo pinta todo el campo |
+| Marco 3×/4× | Campo con marco, etiqueta/valor a 3× y 4× | El marco queda completo |
+| Pantalla y arranque | Clic en el lienzo vacío (sin selección) | Panel IDLE: arranque, entrar, volver; el header cambia en `jwplcHMISetup()` |
+| NAV | Crear barra → Estilo «Contador» | Sólo la caja NN/TT, ubicable en las 4 esquinas; borrar página: clic en ✕ y confirmar |
 | Anclaje 4× | TEXT: pasar etiqueta y valor de 1× a 4× | La esquina superior izquierda de etiqueta y valor no se mueve |
 | Selector de color | Arrastrar rápido dentro del selector | El lienzo sigue en vivo sin trabarse |
 | Objetos nuevos | Agregar dos figuras superpuestas | La última queda encima |
