@@ -661,7 +661,9 @@
       const lines = [];
       fields
         .filter((field) => Number(field.page || 0) === Number(page.id) && isStaticObject(field) && !field.hidden)
-        .sort((a, b) => (Number(a.layerOrder) || 0) - (Number(b.layerOrder) || 0))
+        // En el lienzo, layerOrder menor = más al frente (app.js composeFramebuffer
+        // recorre el arreglo al revés). Se dibuja de atrás hacia adelante.
+        .sort((a, b) => (Number(b.layerOrder) || 0) - (Number(a.layerOrder) || 0))
         .forEach((field) => {
           const code = staticDrawCode(field);
           code.helpers.forEach((name) => helpers.add(name));
