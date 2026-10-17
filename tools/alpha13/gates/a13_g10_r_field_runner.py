@@ -291,6 +291,10 @@ class Recorder:
         if line.startswith(prefix):
             tick=line[len(prefix):]
             if not tick.isdecimal():return
+            if self._sock_batch is not None:
+                old=self._sock_batch
+                old["status"]="INCOMPLETE_REVIEW_STOP_OVERWRITTEN"
+                self.r3_snapshots.append(old)
             self._sock_batch={"phase":self.phase,"t":at,"tick_ms":int(tick),
                               "status":"CAPTURING","slots":[]}
             return
@@ -363,6 +367,10 @@ class Recorder:
     def end(self):
         if self.token:self.send("G10R_STOP:"+self.token)
         with self.lock:
+            if self._sock_batch is not None:
+                self._sock_batch["status"]="INCOMPLETE_REVIEW_STOP_SESSION_END"
+                self.r3_snapshots.append(self._sock_batch)
+                self._sock_batch=None
             self.phase=""
             self.token=""
             self.latest=None
