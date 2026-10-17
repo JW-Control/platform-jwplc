@@ -93,3 +93,27 @@ G10-R-TCP124-LEASE_TRANSACTION_CORRELATION=NOT_IMPLEMENTED
 G10-R-H=BLOCKED
 A13-006=ADOPTION_BLOCKED
 ```
+
+
+## PRE-H — límite de concurrencia del servidor existente (17/oct/2026)
+
+Inspección **source-backed** de `JWPLC_ModbusTCP.cpp::serviceServer()`: el servidor conserva un solo `_client`/`_clientActive`; solo cuando no hay cliente activo obtiene `EthernetClient candidate = _server.available()`. Por ello es incorrecto equiparar **cuatro conexiones TCP abiertas en red** con **cuatro sesiones Modbus TCP atendidas simultáneamente** por el runtime actual.
+
+Separar métricas y veredictos:
+1. `HOST_TCP_OPEN_PEAK=1/2/4`: simultaneidad de conexiones de la PC verificada por tiempos de socket host, nunca evidencia de W5500.
+2. `PLC_TCP_ACCEPTED/ACTIVE`: observar snapshots y eventos propios de firmware sin atribuir a priori cuatro consumidores Modbus paralelos. La política de servicio de un único cliente puede introducir espera o timeouts legítimos para conexiones adicionales.
+3. `FC03_COMPLETION`: rendimiento correcto para clientes de acuerdo con la política vigente, **sin** inventar paralelismo del servidor. El loopback host con servidor sintético prueba el arnés, no el diseño del servidor del package.
+4. `W5500_LEASE`: correlación por propietario/epoch/allocation/transaction real y cierre; no deducirla a partir del puerto local ni del transaction ID MBAP.
+
+El objetivo PRE-H de 4 clientes conserva su utilidad como **stress de apertura y cierre de sockets**, pero la aceptación de cuatro FC03 simultáneamente servidos queda `NOT_REQUIRED_UNTIL_SERVER_MULTI_CLIENT_API_DESIGN`. No ampliar número de clientes activos en producto sin análisis de impacto/API y decisión explícita. La prueba física seguirá requiriendo banco autorizado.
+
+[CI corregida del arnés](https://github.com/JW-Control/platform-jwplc/actions/runs/39007148836): 2/2 SUCCESS Windows y Ubuntu para commit `29cf46e841dff729284dc9246a1d6dca7cd923f4` (contrato sintético + loopback host). No atribuir a hardware.
+
+```text
+G10-R-TCP124-HOST_LOOPBACK_CI=PASS_2_OF_2_RUN_39007148836
+G10-R-TCP124-SERVER_CONCURRENCY=ONE_ACTIVE_CLIENT_SOURCE_OBSERVED
+G10-R-TCP124-FOUR_MODBUS_PARALLEL=NOT_DEMONSTRATED_NOT_REQUIRED
+G10-R-TCP124-W5500_TRANSACTION_LEASE=NOT_INSTRUMENTED
+G10-R-H=BLOCKED
+NEXT_GATE=PREH_TCP124_SOURCE_OBSERVABLE_AND_HOST_PLC_STRESS_DESIGN
+```
