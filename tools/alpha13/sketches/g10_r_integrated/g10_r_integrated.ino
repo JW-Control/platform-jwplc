@@ -70,6 +70,22 @@ extern "C" void g10rLabTcpRequest(uint16_t tid, uint8_t sid) {
   tcpRowsBusy.clear(std::memory_order_release);
 }
 
+// B2: callback de observación DHCP tras liberar el mutex SPI.
+// Sólo incrementos atómicos, sin Serial ni transacciones.
+static std::atomic<uint32_t> dhcpTicks{0}, dhcpPending{0};
+static std::atomic<uint32_t> dhcpRenewOk{0}, dhcpRenewFail{0};
+static std::atomic<uint32_t> dhcpRebindOk{0}, dhcpRebindFail{0};
+extern "C" void g10rLabDhcpMaintenance(int result, bool pending) {
+  dhcpTicks.fetch_add(1,std::memory_order_relaxed);
+  if (pending) dhcpPending.fetch_add(1,std::memory_order_relaxed);
+  switch (result) {
+    case 1: dhcpRenewFail.fetch_add(1,std::memory_order_relaxed);break;
+    case 2: dhcpRenewOk.fetch_add(1,std::memory_order_relaxed);break;
+    case 3: dhcpRebindFail.fetch_add(1,std::memory_order_relaxed);break;
+    case 4: dhcpRebindOk.fetch_add(1,std::memory_order_relaxed);break;
+    default:break;
+  }
+}
 static EthernetUDP r3ProbeUdp;
 static DNSClient r3ProbeDns;
 static IPAddress r3ProbeDnsResult;
@@ -542,6 +558,12 @@ void loop() {
     // Telemetría DHCP, solo lectura de API existente; no fuerza renew/rebind.
     Serial.print(" DHCP_STATE=");Serial.print((int)JWPLC_Ethernet.runtimeState());
     Serial.print(" DHCP_ERR=");Serial.print((int)JWPLC_Ethernet.lastError());
+    Serial.print(" DHCP_TICKS=");Serial.print(dhcpTicks.load(std::memory_order_relaxed));
+    Serial.print(" DHCP_PEND=");Serial.print(dhcpPending.load(std::memory_order_relaxed));
+    Serial.print(" DHCP_RENEW_OK=");Serial.print(dhcpRenewOk.load(std::memory_order_relaxed));
+    Serial.print(" DHCP_RENEW_FAIL=");Serial.print(dhcpRenewFail.load(std::memory_order_relaxed));
+    Serial.print(" DHCP_REBIND_OK=");Serial.print(dhcpRebindOk.load(std::memory_order_relaxed));
+    Serial.print(" DHCP_REBIND_FAIL=");Serial.print(dhcpRebindFail.load(std::memory_order_relaxed));
     Serial.print(" TCP=");Serial.print(JWPLC_ModbusTCP.serverReady()?1:0);
     Serial.print(" SD_OK=");Serial.print(sdOk);
     Serial.print(" SD_FAIL=");Serial.print(sdFail);
