@@ -133,3 +133,28 @@ G10-R-H=BLOCKED
 A13-006=ADOPTION_BLOCKED
 NEXT_GATE=PREH_REAL_UART_TRANSACTION_BINDING_AND_PERIPHERAL_FAIRNESS
 ```
+
+## Contador PRE-H de cuatro bloques — 17/oct/2026
+
+**Meta:** banco con máximo dos JWPLC Basic + una PC + router. Los cuatro clientes TCP son conexiones de la PC, NO cuatro placas. Ni el servidor Modbus single-client ni el W5500 se certifican por el test host.
+
+| Bloque | Criterio para cerrarlo | Estado |
+|---|---|---|
+| 1 TCP y procedencia | Fuente UART real correlacionable por transacción a SID/EPOCH/ALLOC/OWNER, capturador PC 1/2/4 y negativos contra reciclaje, sin afirmaciones por JSON autorreportado | ABIERTO |
+| 2 DHCP y periferia | Recover/link, renew/rebind, progreso y fairness TFT/TCA/SD/FRAM/RTC/RTU observables, sin GPIO4 ni cargas | ABIERTO |
+| 3 N0/N1/N2/N3 final | Gates dirigidos más full platform del HEAD integrado, diferencias de fuentes y precompilados, artifacts y ausencia de skipped | ABIERTO |
+| 4 PRE-H seguridad | Campaign runner R1→R2→R3→R4 sin huecos; backup/restauración; banco sin actuadores; aprobación por operador y dos autorizaciones separadas | ABIERTO |
+
+Nuevo `tools/alpha13/gates/a13_g10_r_tcp124_router.py`: estructura de cliente PC para holding registers FC03, ventana de sockets 1/2/4, intención de estresar serialización single-client y registro de latencias; CLI `--live` **rechaza siempre** hasta completar contrato/banco, incluso con parámetros válidos. `--selftest` no abre red ni COM. No confundir el código preparatorio con ensayo físico ni con aprobación de PRE-H.
+
+```text
+PREH_STEPS_REMAINING=4
+PREH_STEP_1=PARTIAL_HOST_ROUTER_GENERATOR_NOT_ENABLED
+PREH_STEP_2=OPEN
+PREH_STEP_3=OPEN
+PREH_STEP_4=OPEN
+R3_PHYSICAL_INJECTION_READY=FALSE
+R3_COMPLETE_PHYSICAL_CAMPAIGN_READY=FALSE
+G10-R-H=BLOCKED
+A13-006=ADOPTION_BLOCKED
+```
