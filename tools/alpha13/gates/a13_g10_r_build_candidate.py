@@ -93,6 +93,8 @@ def guard_sketch() -> None:
             "r3ProbeUdp.stop()" in s and
             "r3HoldState.load(std::memory_order_acquire)" in s,
             "R3_UDP_BOUNDED_PROBE_GUARD_MISSING")
+    require("g10rLabTcpRequest" in s and "G10R_TCP_EVENTS:" in s,
+            "TCP124_SOURCE_CALLBACK_OR_EXPORT_MISSING")
     require(SKETCH_COM14.is_dir(),"SLAVE_SKETCH_MISSING")
     print("G10_R_SKETCH_GUARD=PASS_STATIC_NO_Q_NO_STORAGE_WRITE_NO_RESET")
 
@@ -230,6 +232,18 @@ def build(cli: str, *, upload: bool = False) -> None:
                         dep.read_text(encoding="utf-8",errors="replace"),
                         "SAFEACCESS_SOURCE_DEP_MISSING")
                 output["safeaccess_object_sha256"]=sha256(objects[0])
+                # Fuente real de Modbus TCP: sin ella el hook del candidato
+                # podria quedar oculto tras un archive precompilado.
+                modbus_objects=list(target.rglob("JWPLC_ModbusTCP.cpp.o"))
+                require(len(modbus_objects)==1,"MODBUS_TCP_OBJECT_NOT_UNIQUE")
+                modbus_dep=Path(str(modbus_objects[0])+".d")
+                if not modbus_dep.exists():
+                    modbus_dep=modbus_objects[0].with_suffix(".d")
+                require(modbus_dep.is_file() and "JWPLC_ModbusTCP.cpp" in
+                        modbus_dep.read_text(encoding="utf-8",errors="replace"),
+                        "MODBUS_TCP_SOURCE_DEP_MISSING")
+                output["modbus_tcp_object_sha256"]=sha256(modbus_objects[0])
+                print("G10_R_TCP124_MODBUS_SOURCE_TO_OBJECT=PASS")
             elfs=list(target.glob("*.elf"))
             require(len(elfs)==1,"ELF_NOT_UNIQUE_"+name)
             output["builds"][name]={"status":"PASS_SOURCE_FIRST",
