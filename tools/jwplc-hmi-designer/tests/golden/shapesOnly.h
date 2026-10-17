@@ -28,6 +28,10 @@ void jwplcHMISetup()
     JWPLC_Display.setUserPageCount(1);
     JWPLC_Display.setUserPage(PAGE_PRINCIPAL);
     JWPLC_Display.setUserRefreshMode(USER_REFRESH_ON_DEMAND);
+
+    // Pantalla IDLE (Designer · Pantalla y arranque)
+    JWPLC_Display.setIdleWakeMode(JWPLC_DisplayClass::IDLE_WAKE_ANY_BUTTON);
+    JWPLC_Display.setIdleReturnMode(JWPLC_DisplayClass::IDLE_RETURN_ESC_ONLY);
 }
 
 // Gráfica estática por página (se dibuja una vez al entrar a la página).

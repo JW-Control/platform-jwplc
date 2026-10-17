@@ -844,11 +844,11 @@
     host.innerHTML = CASES.map((c) => `
       <div class="menu-case">
         <div class="bar-card-section-title">${c.title}</div>
-        <div class="menu-case-body">
+        <div class="menu-case-body" data-menu-case-body="${c.id}" style="gap:${window.JWPLCLegendArrows?.gutterFor(4) ?? 32}px">
           <canvas class="menu-case-canvas" data-menu-case="${c.id}"></canvas>
           <div class="menu-case-legend" data-menu-legend="${c.id}">
-            ${c.rows.map((r) => `<div class="menu-legend-row">${r
-              ? `<span class="menu-legend-arrow">◀</span><span class="menu-legend-label">${r.label}</span>${r.keys.map(swatchHtml).join('')}`
+            ${c.rows.map((r, i) => `<div class="menu-legend-row"${r ? ` data-menu-legend-row="${i}" data-keys="${r.keys.join(',')}"` : ''}>${r
+              ? `<span class="menu-legend-label">${r.label}</span>${r.keys.map(swatchHtml).join('')}`
               : ''}</div>`).join('')}
           </div>
         </div>
@@ -857,7 +857,7 @@
         <span class="menu-legend-label">Marco</span>${swatchHtml('frame')}
       </div>
       <div class="menu-palette">
-        <div class="insp-note">F fondo · T texto · V valor. Clic en un cuadro para editarlo; la paleta rápida se aplica a <strong data-menu-active-color></strong>.</div>
+        <div class="insp-note">F fondo · T texto · V valor. Clic en un cuadro para editarlo; la flecha naranja señala lo que cambia y la paleta rápida se aplica a <strong data-menu-active-color></strong>.</div>
         <div class="insp-swatch-row">${PALETTE.map(([v, name]) =>
           `<button type="button" class="insp-swatch" data-menu-palette="${v}" title="${name} · ${hex565(v)}" style="background:${rgb565ToCss(v)}"></button>`).join('')}</div>
       </div>`;
@@ -886,10 +886,55 @@
       }
     }
     ctx.putImageData(img, 0, 0);
+    canvas.dataset.logicalW = String(PREVIEW_W);
+    canvas.dataset.logicalH = String(h);
+    caseZones.set(c.id, zonesFor(fb, L, field, c, h));
     // Las filas de controles miden lo mismo que las filas pintadas.
     const legend = section.querySelector(`[data-menu-legend="${c.id}"]`);
     legend.style.paddingTop = `${L.border * PREVIEW_SCALE}px`;
     legend.style.setProperty('--menu-row-h', `${L.rowH * PREVIEW_SCALE}px`);
+  }
+
+  // Zonas de la vista para las flechas de la leyenda: cada fila pintada
+  // (banda) y, dentro de ella, el texto de cada color de texto.
+  const caseZones = new Map();
+  const TEXT_KEYS = new Set(['title', 'text', 'value', 'selectText', 'editText']);
+
+  function zonesFor(fb, L, field, c, h) {
+    const bands = [0, 1, 2, 3].map((i) => ({ x: L.border, y: L.border + i * L.rowH, w: PREVIEW_W - 2 * L.border, h: Math.min(L.rowH, h - L.border - (L.border + i * L.rowH)) }));
+    const keys = {};
+    c.rows.forEach((r, i) => {
+      if (!r) return;
+      r.keys.forEach((key) => {
+        const band = bands[i];
+        if (!TEXT_KEYS.has(key)) { keys[key] = { zone: band }; return; }
+        const color = num(field.colors[key]) & 0xFFFF;
+        let minX = Infinity; let maxX = -1; let minY = Infinity; let maxY = -1;
+        for (let y = band.y; y < band.y + band.h; y++) {
+          for (let x = band.x; x < band.x + band.w; x++) {
+            if (fb[y * SCREEN_W + x] !== color) continue;
+            minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+          }
+        }
+        keys[key] = { zone: maxX < 0 ? band : { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 } };
+      });
+    });
+    return { bands, keys };
+  }
+
+  function drawMenuArrows() {
+    CASES.forEach((c) => {
+      const body = section.querySelector(`[data-menu-case-body="${c.id}"]`);
+      const zones = caseZones.get(c.id);
+      if (!body || !zones) return;
+      const items = [...body.querySelectorAll('[data-menu-legend-row]')].map((row) => {
+        const keys = row.dataset.keys.split(',');
+        const active = keys.includes(activeColorKey);
+        const band = zones.bands[Number(row.dataset.menuLegendRow)];
+        return { row, active, zone: active ? zones.keys[activeColorKey].zone : band, tipY: active ? undefined : band.y + band.h / 2 };
+      });
+      window.JWPLCLegendArrows?.draw(body, body.querySelector('canvas'), items, 'right');
+    });
   }
 
   function syncAppearance(field) {
@@ -907,6 +952,7 @@
       });
     });
     section.querySelector('[data-menu-active-color]').textContent = COLOR_NAME[activeColorKey];
+    requestAnimationFrame(drawMenuArrows);
     const activeValue = num(field.colors[activeColorKey]) & 0xFFFF;
     section.querySelectorAll('[data-menu-palette]').forEach((b) => b.classList.toggle('active', Number(b.dataset.menuPalette) === activeValue));
   }
@@ -1076,7 +1122,7 @@
     const main = t.closest('[data-menu-main]');
     if (main) { tabs.main = main.dataset.menuMain; applyTabs(); return; }
     const sub = t.closest('[data-menu-sub]');
-    if (sub) { tabs.sub = sub.dataset.menuSub; applyTabs(); return; }
+    if (sub) { tabs.sub = sub.dataset.menuSub; applyTabs(); requestAnimationFrame(drawMenuArrows); return; }
 
     const action = t.closest('[data-menu-action]')?.dataset.menuAction;
     if (action === 'duplicate') {

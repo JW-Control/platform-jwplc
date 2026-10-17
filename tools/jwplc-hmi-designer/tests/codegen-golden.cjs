@@ -74,7 +74,7 @@ async function main() {
     for (const [name, project] of Object.entries(FIXTURES)) {
       const text = await page.evaluate(async (proj) => {
         const P = window.JWPLCHMIProject;
-        await P.apply({ ...P.serialize(), ...JSON.parse(JSON.stringify(proj)), pixelMaps: [] });
+        await P.apply({ ...P.serialize(), display: null, ...JSON.parse(JSON.stringify(proj)), pixelMaps: [] });
         await new Promise((r) => setTimeout(r, 400));
         const E = window.JWPLCHMIEditor;
         E.setSelectedFieldKeys([]);

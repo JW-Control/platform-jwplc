@@ -143,7 +143,7 @@
   }
 
   function legendRow(label, keys) {
-    return `<div class="menu-legend-row"><span class="menu-legend-arrow">◀</span><span class="menu-legend-label">${label}</span>${keys.map(swatchHtml).join('')}</div>`;
+    return `<div class="menu-legend-row" data-legend-key="${keys[0]}"><span class="menu-legend-label">${label}</span>${keys.map(swatchHtml).join('')}</div>`;
   }
 
   const wrap = document.createElement('div');
@@ -176,10 +176,10 @@
           </div>
         </div>
         <div class="bar-card">
-          <div class="bar-card-section-title">Tamaño del valor <span class="insp-hint" data-readout="valueSizePx"></span></div>
-          <div class="insp-chip-row">${chips('valueSize', [1, 2, 3, 4], '×')}</div>
-          <div class="bar-card-section-title insp-gap">Tamaño de la etiqueta <span class="insp-hint" data-readout="labelSizePx"></span></div>
+          <div class="bar-card-section-title">Tamaño de la etiqueta <span class="insp-hint" data-readout="labelSizePx"></span></div>
           <div class="insp-chip-row">${chips('labelSize', [1, 2, 3, 4], '×')}</div>
+          <div class="bar-card-section-title insp-gap">Tamaño del valor <span class="insp-hint" data-readout="valueSizePx"></span></div>
+          <div class="insp-chip-row">${chips('valueSize', [1, 2, 3, 4], '×')}</div>
           <div class="insp-note">Fuente GLCD 5×7 escalada (celda 6×8 px por 1×).</div>
         </div>
         <div class="bar-card">
@@ -264,6 +264,7 @@
             <button type="button" class="bar-visual-btn" data-set="align" data-value="CENTER">${alignSvg('CENTER')}<span>Centro</span></button>
             <button type="button" class="bar-visual-btn" data-set="align" data-value="RIGHT">${alignSvg('RIGHT')}<span>Derecha</span></button>
           </div>
+          <div class="insp-note" data-align-unit-hint hidden>El valor ocupa la reserva más larga (<code data-readout="reserveShort"></code>) y la unidad va después de ella. Con «Derecha» el valor queda pegado a la unidad.</div>
         </div>
       </div>
 
@@ -559,6 +560,8 @@
 
   let activeColorKey = 'label';
   const PREVIEW_MAX_W = 150;
+  const FIELD_PADDING_PX = 3; // JWPLC_UI.cpp FIELD_PADDING: margen superior/izquierdo
+  const caseZones = new Map();
 
   function stateMode(field) {
     return field?.type === 'BOOL' && Boolean(field.stateColors);
@@ -566,8 +569,8 @@
 
   function KEYS_FOR(field) {
     if (!field) return [];
-    const keys = ['label', 'background'];
-    keys.push(...(stateMode(field) ? ['false', 'falseBg', 'true', 'trueBg'] : ['value']));
+    const keys = ['label'];
+    keys.push(...(stateMode(field) ? ['false', 'falseBg', 'true', 'trueBg'] : ['value', 'background']));
     if (field.frame) keys.push('frame');
     return keys;
   }
@@ -579,44 +582,84 @@
     return Number.isFinite(Number(raw)) ? Number(raw) & 0xFFFF : 0;
   }
 
-  // Un caso = una vista del campo con su leyenda. En "un color" hay un solo
-  // caso; en BOOL por estado, FALSE y TRUE con el texto y fondo de cada uno.
+  // Un caso = una vista del campo con su leyenda, de arriba abajo como se ve
+  // el campo: marco, etiqueta, valor y fondo. En BOOL por estado hay dos
+  // casos (FALSE y TRUE), cada uno con el texto y el fondo de su estado; la
+  // etiqueta y el marco son comunes y aparecen en ambos.
   function casesFor(field) {
-    const shared = [
+    const rowsFor = (valueKey, backgroundKey) => [
+      ...(field.frame ? [{ label: 'Marco', keys: ['frame'] }] : []),
       { label: 'Etiqueta', keys: ['label'] },
-      { label: 'Fondo', keys: ['background'] }
+      { label: 'Valor', keys: [valueKey] },
+      { label: 'Fondo', keys: [backgroundKey] }
     ];
-    if (field.frame) shared.push({ label: 'Marco', keys: ['frame'] });
     if (!stateMode(field)) {
-      return [{ id: 'single', title: 'Vista', boolValue: field.boolValue, rows: [shared[0], { label: 'Valor', keys: ['value'] }, ...shared.slice(1)] }];
+      return [{ id: 'single', title: 'Vista', boolValue: field.boolValue, rows: rowsFor('value', 'background') }];
     }
     return [
-      { id: 'false', title: `Caso FALSE · «${field.falseText || 'OFF'}»`, boolValue: false, rows: [{ label: 'Valor', keys: ['false', 'falseBg'] }] },
-      { id: 'true', title: `Caso TRUE · «${field.trueText || 'ON'}»`, boolValue: true, rows: [{ label: 'Valor', keys: ['true', 'trueBg'] }] },
-      { id: 'shared', title: 'Comunes a ambos estados', rows: shared }
+      { id: 'false', title: `Caso FALSE · «${field.falseText || 'OFF'}»`, boolValue: false, rows: rowsFor('false', 'falseBg') },
+      { id: 'true', title: `Caso TRUE · «${field.trueText || 'ON'}»`, boolValue: true, rows: rowsFor('true', 'trueBg') }
     ];
   }
 
   function buildAppearance(field) {
     const host = wrap.querySelector('[data-field-appearance]');
     const cases = casesFor(field);
-    const signature = cases.map((c) => `${c.id}:${c.rows.map((r) => r.keys.join('+')).join(',')}`).join('|');
+    const signature = cases.map((c) => `${c.id}:${c.rows.map((r) => `${r.label}=${r.keys.join('+')}`).join(',')}`).join('|');
     if (host.dataset.signature === signature) return cases;
     host.dataset.signature = signature;
+    const gutter = window.JWPLCLegendArrows?.gutterFor(4) ?? 32;
     host.innerHTML = cases.map((c) => `
       <div class="menu-case">
         <div class="bar-card-section-title">${escapeHtml(c.title)}</div>
-        <div class="menu-case-body field-case-body">
-          ${c.id === 'shared' ? '' : `<canvas class="menu-case-canvas field-case-canvas" data-field-case="${c.id}"></canvas>`}
+        <div class="menu-case-body field-case-body" data-field-case-body="${c.id}" style="--legend-gutter:${gutter}px">
+          <canvas class="menu-case-canvas field-case-canvas" data-field-case="${c.id}"></canvas>
           <div class="menu-case-legend">${c.rows.map((r) => legendRow(r.label, r.keys)).join('')}</div>
         </div>
       </div>`).join('') + `
       <div class="menu-palette">
-        <div class="insp-note">F fondo · T texto · M marco. Clic en un cuadro para editarlo; la paleta rápida se aplica a <strong data-field-active-color></strong>.</div>
+        <div class="insp-note">F fondo · T texto · M marco. Clic en un cuadro para editarlo; la flecha naranja señala lo que cambia y la paleta rápida se aplica a <strong data-field-active-color></strong>.</div>
         <div class="insp-swatch-row">${PALETTE.map(([, v, name]) =>
           `<button type="button" class="insp-swatch" data-field-palette="${v}" title="${name} · ${hex565(v)}" style="background:${rgb565ToCss(v)}"></button>`).join('')}</div>
       </div>`;
     return cases;
+  }
+
+  // Caja de los píxeles de un color dentro de un rectángulo del framebuffer;
+  // si no hay (color igual al fondo), el rectángulo entero.
+  function colorBox(out, rect, color) {
+    let minX = Infinity; let minY = Infinity; let maxX = -1; let maxY = -1;
+    for (let y = Math.max(0, rect.y); y < Math.min(out.height, rect.y + rect.h); y++) {
+      for (let x = Math.max(0, rect.x); x < Math.min(out.width, rect.x + rect.w); x++) {
+        if (out.buffer[y * out.width + x] !== color) continue;
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+    return maxX < 0 ? rect : { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+  }
+
+  // Zona de cada color en coordenadas del mini-modelo y punto al que llega
+  // la flecha (borde derecho de la zona, a media altura).
+  function zonesFor(field, preview, out) {
+    const g = out.g;
+    const w = Math.ceil(g.fieldW);
+    const h = Math.ceil(g.fieldH);
+    const inset = field.frame ? 1 : 0;
+    const label = { zone: { x: FIELD_PADDING_PX, y: FIELD_PADDING_PX, w: Math.max(1, g.labelBounds.width), h: Math.max(1, g.labelBounds.height) } };
+    const valueRect = { x: Math.round(g.valueX), y: Math.round(g.valueY), w: Math.max(1, Math.round(g.valueW)), h: Math.max(1, Math.round(g.valueH)) };
+    const valueColor = stateMode(field) ? colorOf(field, preview.boolValue ? 'true' : 'false') : colorOf(field, 'value');
+    const value = { zone: colorBox(out, valueRect, valueColor) };
+    // Fondo: la flecha llega al margen inferior, donde sólo hay fondo.
+    const background = { zone: { x: inset, y: inset, w: w - 2 * inset, h: h - 2 * inset }, tipY: h - inset - 1.5 };
+    return {
+      frame: { zone: { x: 0, y: 0, w, h }, tipY: Math.min(2.5, h / 2) },
+      label,
+      value, false: value, true: value,
+      background, falseBg: background, trueBg: background
+    };
   }
 
   // Mismo dibujo que el lienzo (app.js:drawField) sobre un framebuffer propio,
@@ -631,9 +674,25 @@
     if (!out?.g) return;
     const w = Math.max(1, Math.min(out.width, Math.ceil(out.g.fieldW)));
     const h = Math.max(1, Math.min(out.height, Math.ceil(out.g.fieldH)));
-    const scale = Math.max(1, Math.min(3, Math.floor(PREVIEW_MAX_W / w)));
+    // Leyenda a la derecha si el mini-modelo cabe a ×2 (o no mejora debajo);
+    // si no, la leyenda va debajo y el mini-modelo usa todo el ancho.
+    const body = canvas.parentElement;
+    const legend = body.querySelector('.menu-case-legend');
+    const gutter = window.JWPLCLegendArrows?.gutterFor(4) ?? 32;
+    const bodyW = body.clientWidth || 300;
+    const fit = (avail) => Math.max(0, Math.min(3, Math.floor(avail / w)));
+    const rightScale = fit(bodyW - legend.offsetWidth - gutter);
+    const belowScale = fit(bodyW - gutter);
+    const below = rightScale < 2 && belowScale > rightScale;
+    body.classList.toggle('is-below', below);
+    body.dataset.placement = below ? 'below' : 'right';
+    const scale = Math.max(1, below ? belowScale : rightScale);
     if (canvas.width !== w * scale) canvas.width = w * scale;
     if (canvas.height !== h * scale) canvas.height = h * scale;
+    canvas.dataset.logicalW = String(w);
+    canvas.dataset.logicalH = String(h);
+    // Un campo más ancho que el panel se reduce por CSS.
+    canvas.style.width = `${Math.min(w * scale, bodyW - gutter)}px`;
     const ctx = canvas.getContext('2d');
     const img = ctx.createImageData(canvas.width, canvas.height);
     for (let y = 0; y < canvas.height; y++) {
@@ -648,7 +707,31 @@
       }
     }
     ctx.putImageData(img, 0, 0);
+    caseZones.set(c.id, zonesFor(field, preview, out));
   }
+
+  function drawArrows() {
+    wrap.querySelectorAll('[data-field-case-body]').forEach((body) => {
+      const zones = caseZones.get(body.dataset.fieldCaseBody);
+      const canvas = body.querySelector('canvas');
+      if (!zones || !canvas) return;
+      const items = [...body.querySelectorAll('[data-legend-key]')]
+        .filter((row) => zones[row.dataset.legendKey])
+        .map((row) => ({ row, ...zones[row.dataset.legendKey], active: row.dataset.legendKey === activeColorKey }));
+      window.JWPLCLegendArrows?.draw(body, canvas, items, body.dataset.placement);
+    });
+  }
+
+  let arrowsFrame = 0;
+  function scheduleArrows() {
+    if (arrowsFrame) return;
+    arrowsFrame = requestAnimationFrame(() => {
+      arrowsFrame = 0;
+      drawArrows();
+    });
+  }
+
+  if (window.ResizeObserver) new ResizeObserver(scheduleArrows).observe(wrap);
 
   function syncAppearance(field) {
     if (!isManaged(field)) return;
@@ -663,6 +746,7 @@
         const canvas = wrap.querySelector(`[data-field-case="${c.id}"]`);
         if (canvas) drawCase(canvas, field, c);
       });
+      scheduleArrows();
     }
     wrap.querySelectorAll('[data-field-swatch]').forEach((sw) => {
       const key = sw.dataset.fieldSwatch;
@@ -748,6 +832,10 @@
       wrap.querySelectorAll('[data-bool-preview]').forEach((b) => b.classList.toggle('active', (b.dataset.boolPreview === '1') === Boolean(field.boolValue)));
       wrap.querySelectorAll('[data-bool-preset]').forEach((b) => b.classList.toggle('active', b.dataset.boolPreset === `${field.falseText}|${field.trueText}`));
     }
+
+    const alignHint = wrap.querySelector('[data-align-unit-hint]');
+    alignHint.hidden = !(field.unit && field.type !== 'BOOL' && (field.align || 'RIGHT') !== 'RIGHT');
+    if (!alignHint.hidden) readout('reserveShort', field.type === 'VALUE' ? ($('valueFormatSampleStatus')?.textContent || '') : 'M'.repeat(Math.max(1, Number(field.capacity) || 1)));
 
     readout('cppType', cppTypeFor(field));
     syncPages(field);

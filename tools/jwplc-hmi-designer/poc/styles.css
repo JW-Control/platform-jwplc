@@ -621,20 +621,12 @@ h2 { margin: 0 0 7px; font-size: 11.5px; font-weight: 600; color: #a9bece; lette
   background: rgba(255, 70, 70, 0.2);
   color: #ff6e6e;
 }
-.page-delete-btn.is-holding {
-  background: rgba(255, 50, 50, 0.35);
+.page-delete-btn.is-armed {
+  width: auto;
+  padding: 0 5px;
+  background: rgba(255, 50, 50, 0.85);
   color: #fff;
-}
-.page-delete-btn .del-hold-bar {
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  height: 100%;
-  width: 0%;
-  background: rgba(255, 60, 60, 0.85);
-  pointer-events: none;
-  transition: width 0.05s linear;
-  z-index: 0;
+  font-weight: 700;
 }
 .page-delete-btn .del-icon {
   position: relative;
@@ -2667,3 +2659,47 @@ label.insp-needs-fw { opacity: 0.45; cursor: not-allowed; }
 .field-case-body { flex-wrap: wrap; align-items: center; }
 .field-case-canvas { max-width: 100%; }
 .field-case-body .menu-legend-row { height: 24px; }
+
+/* A15-7 · Flechas de la leyenda (designer-legend-arrows.js) */
+.menu-case-body { position: relative; }
+.field-case-body { flex-wrap: nowrap; }
+.field-case-canvas { height: auto; }
+.legend-arrows { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
+.legend-arrow { fill: none; stroke: rgba(184, 205, 220, 0.45); stroke-width: 1; }
+.legend-arrow.active { stroke: #ff9a43; stroke-width: 2; }
+.legend-arrow-head.idle { fill: rgba(184, 205, 220, 0.6); }
+.legend-arrow-head.active { fill: #ff9a43; }
+.legend-zone { fill: none; stroke: #ff9a43; stroke-width: 1.5; stroke-dasharray: 3 2; }
+.field-case-body { gap: var(--legend-gutter, 32px); align-items: center; }
+.field-case-body.is-below { flex-direction: column; align-items: flex-start; gap: 6px; }
+.field-case-body.is-below > canvas,
+.field-case-body.is-below > .menu-case-legend { margin-left: var(--legend-gutter, 32px); }
+.field-case-body > .menu-case-legend { flex: none; }
+
+/* A15-7 · Proyecto: pantalla IDLE y arranque (designer-idle.js) */
+#idleConfigSection[hidden] { display: none !important; }
+.idle-flow { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.idle-node { display: flex; flex-direction: column; align-items: center; gap: 2px; color: #8fb3c9; font: 700 10px 'Cascadia Code', Consolas, monospace; padding: 4px 6px; border: 1px solid #1e313f; border-radius: 6px; }
+.idle-node.is-start { color: #ff9a43; border-color: #ff9a43; }
+.idle-node.is-start span::after { content: ' · inicio'; font-weight: 400; }
+.idle-edges { flex: 1; display: flex; flex-direction: column; gap: 6px; font-size: 10px; color: #b8cddc; text-align: center; }
+.idle-edge { border-bottom: 1px solid #2c4456; padding-bottom: 2px; }
+.idle-edge b { color: #ff9a43; }
+.idle-edge.is-off { opacity: 0.4; text-decoration: line-through; }
+.idle-back-grid { grid-template-columns: repeat(2, 1fr); }
+.idle-keypad-row { margin-top: 8px; }
+.idle-keypad-row[hidden], #idleConfigSection [data-idle-show][hidden] { display: none !important; }
+.idle-keypad {
+  display: grid; grid-template-columns: repeat(3, 34px) 14px 40px; grid-template-rows: repeat(3, 26px); gap: 4px;
+  grid-template-areas: ". up . . esc" "left ok right . ." ". down . . .";
+  margin-top: 4px;
+}
+.idle-key { border: 1px solid #2c4456; background: #0f1d27; color: #b8cddc; border-radius: 5px; font: 700 11px 'Cascadia Code', Consolas, monospace; cursor: pointer; }
+.idle-key:hover { border-color: #ff9a43; }
+.idle-key.active { background: #ff9a43; color: #111; border-color: #ff9a43; }
+.idle-key-up { grid-area: up; } .idle-key-left { grid-area: left; } .idle-key-ok { grid-area: ok; }
+.idle-key-right { grid-area: right; } .idle-key-down { grid-area: down; } .idle-key-esc { grid-area: esc; }
+
+/* A15 · NAV estilo "Contador": sólo los controles de la variante elegida */
+#navBarInspectorSection [data-navbar-bar-only][hidden],
+#navBarInspectorSection [data-navbar-counter-only][hidden] { display: none !important; }

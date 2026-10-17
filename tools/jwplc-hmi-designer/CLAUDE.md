@@ -17,7 +17,7 @@ de `index.html` e inyecta los scripts en orden.
 
 ```text
 index.html:      gfx-classic-font -> designer-fonts-data -> designer-fonts -> designer-codegen-core -> app -> ux-foundation -> designer-codegen
-ux-foundation:   designer-bool -> designer-bar -> designer-field-inspector -> (designer-menu) -> designer-field-visibility -> designer-pages -> designer-live
+ux-foundation:   designer-bool -> designer-bar -> designer-legend-arrows -> designer-field-inspector -> (designer-menu, designer-idle) -> designer-field-visibility -> designer-pages -> designer-live
 field-visibility: designer-inspector-state, designer-pixelmap-compat -> designer-pixelmap -> designer-pixelmap-stability
 desktop.html:    designer-project, designer-native-project, designer-project-integration-fix,
                  designer-pixelmap-workbench/-optimizer/-codegen-guard, desktop-responsive
@@ -39,6 +39,8 @@ window.JWPLCHMIPages      designer-pages    pestañas, NAV_BAR, layout de navega
 window.JWPLCHMIPixelMaps  designer-pixelmap capas Pixel
 window.JWPLCHMIProject    designer-project  serialize/apply/open/save/linkSketch/updateGeneratedHeader
 window.JWPLCHMILive       designer-live     Live Preview WebSerial (JWH1/JWH2, 921600)
+window.JWPLCHMIIdle       designer-idle     Proyecto · Pantalla y arranque (IDLE) -> patchHeader en jwplcHMISetup
+window.JWPLCLegendArrows  designer-legend-arrows  flechas de la leyenda de Apariencia (campos y MENU)
 ```
 
 ## Patrón de inspector objetivo (Propuesta 2 de BAR)
@@ -76,13 +78,16 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
   `#if JWPLC_HMI_TFT_FONTS` con respaldo GLCD.
 - BAR circular/degradado: deshabilitados (`.insp-needs-fw`); el codegen cae a `JWPLC_UIBarField`.
 - Ids de página siempre contiguos `0..N-1` (`deletePage` renumera; abrir normaliza).
-- NAV_BAR existe sólo si hay un objeto NAV_BAR visible.
+- NAV_BAR existe sólo si hay un objeto NAV_BAR visible. Estilo `counter`: no se dibuja barra; el
+  firmware pinta el NN/TT (`setPageIndicator(true, x, y)`). Barra con pestañas: `setPageIndicator(false)`.
+- Márgenes de campo: arriba/izquierda 3 fijo; derecha/abajo `max(3, escala + 1)` (celda 6×8 + marco),
+  igual en `JWPLC_UI.cpp`, `app.js` y `designer-bar.js`; `tests/inspector-smoke.cjs` "MARCO" lo vigila.
 - Capas: `layerOrder` menor = más al frente; la estática se emite en orden descendente.
 - Definición C++ de cada campo: `poc/designer-codegen-core.js` (puro, también en node). `app.js`
   emite TEXT/VALUE; BOOL/BAR salen como `JWPLC_UITextField` provisional que reemplazan sus capas.
 - Tras tocar el codegen: `node tests/codegen-golden.cjs` (salida byte a byte) y
   `node tests/codegen-smoke.cjs`. Un cambio intencional: `--update` y revisar el diff.
-- Tras tocar JS/CSS: subir `?v=` (hoy 1792700000) en `index.html`/`desktop.html`/`ux-foundation.js`/
+- Tras tocar JS/CSS: subir `?v=` (hoy 1792800000) en `index.html`/`desktop.html`/`ux-foundation.js`/
   `designer-field-visibility.js` y `CACHE_NAME` en `service-worker.js`.
 
 ## Probar sin hardware

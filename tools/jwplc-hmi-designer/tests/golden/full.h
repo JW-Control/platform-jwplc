@@ -140,7 +140,18 @@ void jwplcHMISetup()
         sizeof(HMI_FIELDS) / sizeof(HMI_FIELDS[0]));
     JWPLC_Display.setUserPageCount(3);
     JWPLC_Display.setUserPage(PAGE_PRINCIPAL);
+    // Indicador NN/TT (barra de navegación)
+#ifdef JWPLC_UI_HAS_PAGE_INDICATOR_CONFIG
+    JWPLC_Display.setPageIndicator(false);
+#endif
     JWPLC_Display.setUserRefreshMode(USER_REFRESH_PERIODIC);
+
+    // Pantalla IDLE (Designer · Pantalla y arranque)
+    JWPLC_Display.setIdleWakeMode(JWPLC_DisplayClass::IDLE_WAKE_BUTTON_ONLY);
+    JWPLC_Display.setIdleWakeButton(BTN_OK);
+    JWPLC_Display.setIdleReturnMode(JWPLC_DisplayClass::IDLE_RETURN_TIMEOUT);
+    JWPLC_Display.setIdleTimeoutMs(30000UL);
+    JWPLC_Display.enterUserUI();
 }
 
 // Primitivas auxiliares (sólo usan API pública de JWPLC_TFT).

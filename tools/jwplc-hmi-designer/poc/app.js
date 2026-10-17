@@ -1605,8 +1605,8 @@
     return { width: text.length * 6 * scale - scale, height: 7 * scale };
   }
 
-  // BOOL con colores por estado (texto y fondo de la región del valor), igual
-  // que JWPLC_UI.cpp con JWPLC_UIBoolText de 6 argumentos.
+  // BOOL con colores por estado (texto del valor y fondo de todo el campo),
+  // igual que JWPLC_UI.cpp con JWPLC_UIBoolText de 6 argumentos.
   function fieldValueColor565(field) {
     if (field.type === 'BOOL' && field.stateColors) {
       return field.boolValue ? Number(field.trueColor) : Number(field.falseColor);
@@ -1622,8 +1622,11 @@
     return null;
   }
 
+  // Margen derecho/inferior (JWPLC_UI.cpp:effectiveFieldPadding): el fondo del
+  // texto ocupa la celda 6×8 completa (una escala más que el cuerpo 5×7) y la
+  // línea del marco 1 px más, así que pad >= escala + 1.
   function effectiveFieldPadding(field) {
-    return Math.max(FIELD_PADDING, field.labelSize || 1, field.valueSize || 1);
+    return Math.max(FIELD_PADDING, (field.labelSize || 1) + 1, (field.valueSize || 1) + 1);
   }
 
   function makeNumericSample(field) {
@@ -1881,29 +1884,26 @@
     if (field.type === 'BAR') return null;
     const g = computeFieldGeometry(field);
     const isTrans = field.transparentBackground || field.backgroundColor === 'TRANSPARENT' || field.backgroundColor === -1 || field.backgroundColor === null || field.backgroundColor === undefined;
-    if (!isTrans) {
-      fillBufferRect(buffer, g.fieldX, g.fieldY, g.fieldW, g.fieldH, field.backgroundColor);
+    // BOOL con fondo por estado: el fondo de todo el campo es el del estado
+    // (JWPLC_UI.cpp:fieldBackground); el marco no cambia.
+    const stateBg = fieldValueBackground565(field);
+    const background = stateBg ?? field.backgroundColor;
+    if (!isTrans || stateBg !== null) {
+      fillBufferRect(buffer, g.fieldX, g.fieldY, g.fieldW, g.fieldH, background);
     }
     if (field.frame && g.fieldW > 1 && g.fieldH > 1) {
       drawBufferRect(buffer, g.fieldX, g.fieldY, g.fieldW, g.fieldH, field.frameColor);
     }
-    const textBg = isTrans ? null : field.backgroundColor;
+    const textBg = (isTrans && stateBg === null) ? null : background;
     if (field.label) {
       drawClassicTextAt(buffer, field.label, field.x + FIELD_PADDING, field.y + FIELD_PADDING, field.labelColor, textBg, field.labelSize);
     }
     if (field.unit) {
       drawClassicTextAt(buffer, field.unit, g.valueX + g.valueW + FIELD_GAP, g.valueY, field.labelColor, textBg, field.labelSize);
     }
-    // Región del valor con el fondo del estado (firmware: fillRect de valueW ×
-    // valueH + una escala, acotado al campo).
-    const valueBg = fieldValueBackground565(field);
-    if (valueBg !== null) {
-      const clearH = Math.min(g.valueH + (field.valueSize || 1), g.fieldY + g.fieldH - g.valueY);
-      fillBufferRect(buffer, g.valueX, g.valueY, g.valueW, clearH, valueBg);
-    }
     const preview = previewTextForField(field);
     if (preview) {
-      drawClassicTextAt(buffer, preview, alignedValueX(field, g), g.valueY, fieldValueColor565(field), valueBg ?? textBg, field.valueSize);
+      drawClassicTextAt(buffer, preview, alignedValueX(field, g), g.valueY, fieldValueColor565(field), textBg, field.valueSize);
     }
     return g;
   }

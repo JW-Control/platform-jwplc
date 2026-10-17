@@ -680,8 +680,27 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
     return { block: lines.join('\n'), helpers: [...helpers] };
   }
 
+  // Barra con pestañas dibujada por el Designer. El estilo "Contador" no
+  // cuenta: lo dibuja el firmware (indicador NN/TT de Alpha11).
   function hasNavBar() {
-    return Boolean(window.JWPLCHMIPages?.getNavBarConfig?.()?.enabled && pages().length > 1);
+    const cfg = window.JWPLCHMIPages?.getNavBarConfig?.();
+    return Boolean(cfg?.enabled && cfg.preset !== 'counter' && pages().length > 1);
+  }
+
+  // Indicador NN/TT del firmware: en su sitio por defecto sin barra, movido
+  // con el estilo "Contador" y oculto con una barra de pestañas (que ya
+  // muestra la página activa). Idempotente: el texto puede llegar ya parchado.
+  const INDICATOR_MARK = '    // Indicador NN/TT (barra de navegación)\n';
+  function patchPageIndicator(text) {
+    const at = text.indexOf(INDICATOR_MARK);
+    if (at >= 0) text = text.slice(0, at) + text.slice(text.indexOf('#endif\n', at) + '#endif\n'.length);
+    const cfg = window.JWPLCHMIPages?.getNavBarConfig?.();
+    if (!cfg?.enabled || pages().length <= 1) return text;
+    const call = cfg.preset === 'counter'
+      ? `JWPLC_Display.setPageIndicator(true, ${Math.round(Number(cfg.x) || 0)}, ${Math.round(Number(cfg.y) || 0)});`
+      : 'JWPLC_Display.setPageIndicator(false);';
+    const block = `${INDICATOR_MARK}#ifdef JWPLC_UI_HAS_PAGE_INDICATOR_CONFIG\n    ${call}\n#endif\n`;
+    return text.replace(/(    JWPLC_Display\.setUserPage\([^)]*\);\n)/, `$1${block}`);
   }
 
   function generatedUIUpdateBlock() {
@@ -923,6 +942,8 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
     let text = decorateHeader(codeOutput.textContent);
     text = groupGeneratedSections(text);
     if (window.JWPLCHMIMenu?.patchHeader) text = window.JWPLCHMIMenu.patchHeader(text);
+    text = patchPageIndicator(text);
+    if (window.JWPLCHMIIdle?.patchHeader) text = window.JWPLCHMIIdle.patchHeader(text);
     text = duplicateDiagnostic(text, validationIssues());
     codeOutput.textContent = text;
   }

@@ -64,7 +64,7 @@
     return Boolean(field.stateColors);
   }
 
-  // Colores por estado (texto y fondo de la región del valor): requieren
+  // Colores por estado (texto del valor y fondo de todo el campo): requieren
   // JWPLC_Display con JWPLC_UI_HAS_BOOL_STATE_BACKGROUNDS; con un package
   // anterior el header compila con un solo color (colors.value).
   function boolTextBlock(field) {

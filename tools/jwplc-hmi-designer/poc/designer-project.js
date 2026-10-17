@@ -266,6 +266,8 @@
       savedAt: new Date().toISOString(),
       activePage: Number(api?.getActivePage?.() || 0),
       navigationBar: api?.getNavBarConfig?.() || null,
+      // A15-7: entrada/salida de la pantalla IDLE (designer-idle.js).
+      display: window.JWPLCHMIIdle?.get?.() || null,
       pages,
       fields,
       declarativeOnly: true
@@ -335,6 +337,8 @@
     if (normalized.navigationBar && api.setNavBarConfig) {
       api.setNavBarConfig(normalized.navigationBar);
     }
+    // Proyectos sin `display` toman los valores por defecto.
+    window.JWPLCHMIIdle?.set?.(normalized.display || null);
 
     if (pages[0]?.name && pages[0].name !== 'Principal') {
       api.renamePage?.(0, pages[0].name);

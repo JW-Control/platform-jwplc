@@ -1,6 +1,10 @@
 (() => {
   'use strict';
 
+  // Estilo "Contador": misma caja que el indicador de Alpha11.
+  const COUNTER = { w: 36, h: 12 };
+  const COUNTER_CORNERS = { tl: { x: 2, y: 3 }, tr: { x: 282, y: 3 }, bl: { x: 2, y: 155 }, br: { x: 282, y: 155 } };
+
   const INDICATOR = {
     x: 282,
     y: 3,
@@ -78,7 +82,9 @@
 
   function computeSmartShortName(pageName, index) {
     if (!pageName) return `P${index + 1}`;
-    const clean = String(pageName).trim().toUpperCase();
+    // Sin tildes ni eñes: las fuentes GLCD/micro no las tienen ("Página 4"
+    // daba "PÁ_4", que la TFT dibujaba como "P?_4").
+    const clean = String(pageName).normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toUpperCase();
     if (clean.length <= 4) return clean;
     if (clean.includes('_') || clean.includes(' ') || clean.includes('-')) {
       const parts = clean.split(/[\s_\-]+/).filter(Boolean);
@@ -288,6 +294,28 @@
     }
 
     const preset = cfg.preset || 'industrial-color';
+
+    // A15: estilo "Contador": sólo el indicador NN/TT de Alpha11 (36×12), que
+    // dibuja el firmware (setPageIndicator). Sin pestañas ni flechas.
+    if (preset === 'counter') {
+      const rect = { x: barX, y: barY, w: COUNTER.w, h: COUNTER.h };
+      return {
+        visible: true,
+        isVertical: false,
+        hasOverflow: false,
+        tabs: [],
+        leftArrow: null,
+        rightArrow: null,
+        counter: rect,
+        x: barX,
+        y: barY,
+        w: COUNTER.w,
+        h: COUNTER.h,
+        bounds: rect,
+        cluster: null,
+        firmwareIndicator: true
+      };
+    }
 
     // CASO ESPECIAL: PRESET COMPACT-DOTS (Puntos Agrupados y Minimalistas)
     if (preset === 'compact-dots') {
@@ -750,10 +778,19 @@
 
   function drawHMINavigationBar(ctx, scale) {
     const cfg = getNavBarConfig();
-    if (!cfg.enabled || pages().length < 1) return;
+    // Sin barra: indicador NN/TT de Alpha11 en su sitio; estilo "Contador": el
+    // mismo indicador donde se ubicó. Va en la imagen lógica (app.js), así
+    // aparece en lienzo, vista previa y minimapa; dibujado encima del lienzo
+    // ya pintado lo borraba el siguiente render.
+    if (!cfg.enabled || cfg.preset === 'counter') {
+      const at = cfg.enabled ? { x: Number(cfg.x) || 0, y: Number(cfg.y) || 0 } : INDICATOR;
+      drawIndicator(ctx, scale, at);
+      return;
+    }
+    if (pages().length < 1) return;
 
     const layout = computeNavBarLayout(pages(), activePage());
-    if (!layout.visible) return;
+    if (!layout.visible || layout.firmwareIndicator) return;
 
     ctx.save();
     paintNavBar(canvasNavPainter(ctx, scale), layout, cfg);
@@ -766,7 +803,7 @@
     const cfg = getNavBarConfig();
     if (!cfg.enabled || pages().length < 1) return [];
     const layout = computeNavBarLayout(pages(), Number(pageId));
-    if (!layout.visible) return [];
+    if (!layout.visible || layout.firmwareIndicator) return [];
     const ops = [];
     paintNavBar({
       fillRound: (x, y, w, h, r, col) => ops.push({ op: 'fillRound', x, y, w, h, r, col }),
@@ -1113,56 +1150,41 @@
       tab.appendChild(label);
       tab.appendChild(editIcon);
 
-      // Botón de eliminar con confirmación de mantener pulsado (Hold to delete)
+      // Botón de eliminar: primer clic pide confirmación (la X pasa a
+      // "¿Borrar?"), el segundo borra. Antes era "mantener 1,2 s" sobre una X de
+      // 14 px: si el puntero se movía un poco se cancelaba sin aviso.
       if (totalPages > 1) {
         const delBtn = document.createElement('button');
         delBtn.type = 'button';
         delBtn.className = 'page-delete-btn';
-        delBtn.title = 'Mantén presionado para borrar página';
-        delBtn.innerHTML = '<span class="del-icon">✕</span><span class="del-hold-bar"></span>';
+        const objects = (editor()?.getAllFields?.() || []).filter((f) => f.type !== 'NAV_BAR' && !f.global && Number(f.page || 0) === Number(page.id)).length;
+        delBtn.title = `Borrar página${objects ? ` y sus ${objects} objeto(s)` : ''}`;
+        delBtn.innerHTML = '<span class="del-icon">✕</span>';
 
-        let holdTimer = null;
-        let startHoldTime = 0;
-        const HOLD_DURATION = 1200;
-
-        function endHold() {
-          if (holdTimer) {
-            cancelAnimationFrame(holdTimer);
-            holdTimer = null;
-          }
-          delBtn.classList.remove('is-holding');
-          const bar = delBtn.querySelector('.del-hold-bar');
-          if (bar) bar.style.width = '0%';
+        let disarmTimer = null;
+        function disarm() {
+          clearTimeout(disarmTimer);
+          disarmTimer = null;
+          delBtn.classList.remove('is-armed');
+          delBtn.innerHTML = '<span class="del-icon">✕</span>';
         }
 
-        delBtn.addEventListener('pointerdown', (e) => {
+        delBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+        delBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           e.preventDefault();
-          delBtn.classList.add('is-holding');
-          startHoldTime = performance.now();
-
-          function stepHold(now) {
-            const elapsed = now - startHoldTime;
-            const progress = Math.min(1, elapsed / HOLD_DURATION);
-            const bar = delBtn.querySelector('.del-hold-bar');
-            if (bar) bar.style.width = `${progress * 100}%`;
-
-            if (progress >= 1) {
-              endHold();
-              editor()?.deletePage?.(page.id);
-              rebuildTopTabs(true);
-              patchUI();
-            } else {
-              holdTimer = requestAnimationFrame(stepHold);
-            }
+          if (!delBtn.classList.contains('is-armed')) {
+            delBtn.classList.add('is-armed');
+            delBtn.innerHTML = `<span class="del-icon">¿Borrar${objects ? ` (${objects})` : ''}?</span>`;
+            disarmTimer = setTimeout(disarm, 3000);
+            return;
           }
-          holdTimer = requestAnimationFrame(stepHold);
+          disarm();
+          editor()?.deletePage?.(page.id);
+          rebuildTopTabs(true);
+          patchUI();
         });
-
-        delBtn.addEventListener('pointerup', endHold);
-        delBtn.addEventListener('pointerleave', endHold);
-        delBtn.addEventListener('pointercancel', endHold);
-        delBtn.addEventListener('click', (e) => e.stopPropagation());
+        delBtn.addEventListener('blur', disarm);
 
         tab.appendChild(delBtn);
       }
@@ -1245,8 +1267,9 @@
     return `${String(activePage() + 1).padStart(2, '0')}/${String(pages().length).padStart(2, '0')}`;
   }
 
-  function drawIndicator(ctx, scale) {
+  function drawIndicator(ctx, scale, at = INDICATOR) {
     if (pages().length <= 1) return;
+    const box = { ...INDICATOR, x: at.x, y: at.y, textX: at.x + (INDICATOR.textX - INDICATOR.x), textY: at.y + (INDICATOR.textY - INDICATOR.y) };
     const selected = navigationMode === 'SELECT';
     const background = selected ? '#000000' : '#ffffff';
     const foreground = selected ? '#ffffff' : '#000000';
@@ -1254,29 +1277,22 @@
 
     ctx.save();
     ctx.fillStyle = background;
-    ctx.fillRect(INDICATOR.x * scale, INDICATOR.y * scale, INDICATOR.w * scale, INDICATOR.h * scale);
+    ctx.fillRect(box.x * scale, box.y * scale, box.w * scale, box.h * scale);
     ctx.strokeStyle = border;
     ctx.lineWidth = Math.max(1, scale);
     ctx.strokeRect(
-      INDICATOR.x * scale + 0.5,
-      INDICATOR.y * scale + 0.5,
-      INDICATOR.w * scale - 1,
-      INDICATOR.h * scale - 1);
-    drawClassicText(ctx, indicatorText(), INDICATOR.textX, INDICATOR.textY, scale, foreground);
+      box.x * scale + 0.5,
+      box.y * scale + 0.5,
+      box.w * scale - 1,
+      box.h * scale - 1);
+    drawClassicText(ctx, indicatorText(), box.textX, box.textY, scale, foreground);
     ctx.restore();
   }
 
-  function patchCanvases() {
-    const zoom = Math.max(1, Number(zoomSelect?.value) || 3);
-    const cfg = getNavBarConfig();
-
-    // La barra HMI se dibuja en logicalCanvas (app.js → rebuildLogicalImage) y por
-    // tanto ya aparece en lienzo, preview y minimapa. Sin barra: indicador NN/TT.
-    if (!cfg.enabled) {
-      drawIndicator(previewCanvas.getContext('2d', { alpha: false }), 1);
-      drawIndicator(displayCanvas.getContext('2d', { alpha: false }), zoom);
-    }
-  }
+  // La barra HMI y el indicador NN/TT se dibujan en logicalCanvas (app.js →
+  // drawHMINavigationBar), así aparecen en lienzo, preview y minimapa. Aquí
+  // sólo se pide un render cuando cambia algo que los afecta.
+  function patchCanvases() {}
 
   // Intercepción de Clics en la Barra de Navegación del Canvas
   displayCanvas.addEventListener('click', (e) => {
@@ -1380,7 +1396,24 @@
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       const preset = btn.dataset.navbarPreset;
-      updateNavBarConfig({ preset });
+      const current = getNavBarConfig();
+      if (preset === 'counter' && current.preset !== 'counter') {
+        // Arriba a la derecha, como el indicador de Alpha11.
+        updateNavBarConfig({ preset, ...COUNTER_CORNERS.tr, width: COUNTER.w, height: COUNTER.h });
+      } else if (preset !== 'counter' && current.preset === 'counter') {
+        // Vuelve a una barra completa en su posición.
+        updateNavBarConfig({ preset, position: current.position || 'bottom' });
+      } else {
+        updateNavBarConfig({ preset });
+      }
+    });
+  });
+
+  // Estilo "Contador": esquina de la pantalla.
+  document.querySelectorAll('#navBarInspectorSection [data-navbar-corner]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      updateNavBarConfig({ ...COUNTER_CORNERS[btn.dataset.navbarCorner], width: COUNTER.w, height: COUNTER.h });
     });
   });
 
@@ -1546,6 +1579,16 @@
     section.querySelectorAll('.bar-preset-btn[data-navbar-preset]').forEach((btn) => {
       btn.classList.toggle('active', btn.dataset.navbarPreset === curPreset);
     });
+    // El contador sólo se ubica (esquina o X/Y): el resto de opciones son de
+    // las barras con pestañas.
+    const isCounter = curPreset === 'counter';
+    section.querySelectorAll('[data-navbar-bar-only]').forEach((el) => { el.hidden = isCounter; });
+    section.querySelectorAll('[data-navbar-counter-only]').forEach((el) => { el.hidden = !isCounter; });
+    section.querySelectorAll('[data-navbar-corner]').forEach((btn) => {
+      const c = COUNTER_CORNERS[btn.dataset.navbarCorner];
+      btn.classList.toggle('active', isCounter && Number(cfg.x) === c.x && Number(cfg.y) === c.y);
+    });
+    ['navBarCoordW', 'navBarCoordH'].forEach((id) => { const el = document.getElementById(id); if (el) el.disabled = isCounter; });
 
     // 3. Marcar posición activa
     const curPos = cfg.position || 'bottom';
@@ -1721,7 +1764,7 @@
     getNavigationMode: () => navigationMode,
     setNavigationMode: (mode) => {
       navigationMode = mode === 'CONTENT' ? 'CONTENT' : 'SELECT';
-      patchUI();
+      editor()?.render?.(); // el indicador está en la imagen lógica
     },
     indicatorRect: () => ({ ...INDICATOR }),
     getNavBarConfig,

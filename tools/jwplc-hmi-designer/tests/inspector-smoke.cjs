@@ -85,6 +85,9 @@ async function main() {
     E.render();
     document.getElementById('contractTab')?.click();
     await new Promise((r) => setTimeout(r, 400));
+    // Igual que designer-project.js:generatedHeaderText (Actualizar HMI).
+    window.JWPLCHMICodegen?.refresh?.();
+    await new Promise((r) => setTimeout(r, 0));
     return document.getElementById('codeOutput').textContent;
   });
 
@@ -234,6 +237,44 @@ async function main() {
     });
     check(anchor.length === 0, `etiqueta y valor no se desplazan entre 1× y 4×${anchor.length ? `: ${anchor.slice(0, 3).join(' | ')}` : ''}`);
 
+    // El fondo del texto (celda 6×8 completa, con descendentes "gy") no debe
+    // borrar ningún píxel del marco en ninguna combinación de tamaños.
+    console.log('MARCO 1×..4×');
+    const frameCut = await page.evaluate(() => {
+      const E = window.JWPLCHMIEditor;
+      const FRAME = 0xFFE0;
+      const base = { x: 10, y: 10, frame: true, frameColor: FRAME, labelColor: 0xFFFF, valueColor: 0x07FF, backgroundColor: 0x0000, label: 'Lgy', unit: 'Cy', align: 'LEFT' };
+      const kinds = [
+        { type: 'TEXT', capacity: 4, preview: 'Mgjy' },
+        { type: 'VALUE', integerDigits: 3, decimalDigits: 1, preview: '888.8' },
+        { type: 'BOOL', falseText: 'gyOFF', trueText: 'ON', boolValue: false, preview: 'gyOFF' },
+        { type: 'BOOL', falseText: 'OFF', trueText: 'gyON', boolValue: true, preview: 'gyON', stateColors: true, falseColor: 0xFFFF, trueColor: 0x0000, falseBackground: 0xF800, trueBackground: 0x07E0 }
+      ];
+      const out = [];
+      for (const kind of kinds) {
+        for (const labelSize of [1, 2, 3, 4]) {
+          for (const valueSize of [1, 2, 3, 4]) {
+            for (const layout of ['INLINE', 'STACKED']) {
+              const r = E.renderFieldPreview({ ...base, ...kind, labelSize, valueSize, layout });
+              const { fieldX, fieldY, fieldW, fieldH } = r.g;
+              let bad = 0;
+              for (let x = fieldX; x < fieldX + fieldW; x++) {
+                if (r.buffer[fieldY * r.width + x] !== FRAME) bad++;
+                if (r.buffer[(fieldY + fieldH - 1) * r.width + x] !== FRAME) bad++;
+              }
+              for (let y = fieldY; y < fieldY + fieldH; y++) {
+                if (r.buffer[y * r.width + fieldX] !== FRAME) bad++;
+                if (r.buffer[y * r.width + fieldX + fieldW - 1] !== FRAME) bad++;
+              }
+              if (bad) out.push(`${kind.type} ${layout} L${labelSize} V${valueSize}: ${bad} px`);
+            }
+          }
+        }
+      }
+      return out;
+    });
+    check(frameCut.length === 0, `el marco queda completo en TEXT/VALUE/BOOL de 1× a 4×${frameCut.length ? `: ${frameCut.slice(0, 4).join(' | ')}` : ''}`);
+
     console.log('BAR');
     const barState = await page.evaluate(async () => {
       window.JWPLCHMIEditor.addBarField();
@@ -276,7 +317,7 @@ async function main() {
       const bounds = (text, size) => (text ? { w: text.length * 6 * size - size, h: 7 * size } : { w: 0, h: 0 });
       const firmware = (f) => {
         const lead = PAD; // margen superior/izquierdo fijo
-        const pad = Math.max(PAD, f.labelSize); // derecha/abajo
+        const pad = Math.max(PAD, f.labelSize + 1); // derecha/abajo (celda 6×8 + marco)
         const label = bounds(f.showLabel ? f.barLabel : '', f.labelSize);
         const unit = bounds(f.barUnit, f.labelSize);
         let valueW = f.barWidth - (lead + pad);
@@ -320,6 +361,65 @@ async function main() {
       return { cases, mismatches };
     });
     check(parity.mismatches.length === 0, `BAR: geometría del lienzo == firmware en ${parity.cases} casos${parity.mismatches.length ? `\n      ${parity.mismatches.join('\n      ')}` : ''}`);
+
+    console.log('PANTALLA IDLE');
+    await page.evaluate(() => { window.JWPLCHMIEditor.setSelectedFieldKeys([]); window.JWPLCHMIEditor.render(); });
+    await page.waitForTimeout(200);
+    const I = '#idleConfigSection ';
+    check(await page.$eval('#idleConfigSection', (el) => !el.hidden), 'sin selección se muestra "Pantalla y arranque"');
+    await page.click(`${I}[data-idle-set="start"][data-value="HMI"]`);
+    await page.click(`${I}[data-idle-set="wake"][data-value="BUTTON"]`);
+    await page.click(`${I}[data-idle-key="wake"][data-value="BTN_UP"]`);
+    await page.click(`${I}[data-idle-set="back"][data-value="TIMEOUT"]`);
+    await page.click(`${I}[data-idle-set="timeoutS"][data-value="60"]`);
+    const idleShot = await page.$('#idleConfigSection');
+    if (idleShot) await idleShot.screenshot({ path: path.join(OUT, 'idle_config.png') });
+    const idleHeader = await header();
+    check(/setIdleWakeMode\(JWPLC_DisplayClass::IDLE_WAKE_BUTTON_ONLY\);\n\s*JWPLC_Display\.setIdleWakeButton\(BTN_UP\);\n\s*JWPLC_Display\.setIdleReturnMode\(JWPLC_DisplayClass::IDLE_RETURN_TIMEOUT\);\n\s*JWPLC_Display\.setIdleTimeoutMs\(60000UL\);\n\s*JWPLC_Display\.enterUserUI\(\);\n\}/.test(idleHeader), 'IDLE: la configuración llega a jwplcHMISetup()');
+    const idleRound = await page.evaluate(async () => {
+      const P = window.JWPLCHMIProject;
+      const saved = P.serialize();
+      await P.apply({ ...saved, display: null });
+      const reset = window.JWPLCHMIIdle.get();
+      await P.apply(saved);
+      return { saved: saved.display, reset, loaded: window.JWPLCHMIIdle.get() };
+    });
+    check(idleRound.saved.wakeButton === 'BTN_UP' && idleRound.loaded.timeoutS === 60 && idleRound.loaded.start === 'HMI', 'IDLE: se guarda y se abre con el proyecto');
+    check(idleRound.reset.wake === 'ANY' && idleRound.reset.back === 'ESC', 'IDLE: un proyecto sin configuración toma los valores por defecto');
+
+    console.log('BORRAR PÁGINA');
+    const pagesBefore = await page.evaluate(() => { const E = window.JWPLCHMIEditor; E.addPage(); E.addPage(); return E.getPages().length; });
+    await page.waitForTimeout(300);
+    const delButtons = await page.$$('.page-delete-btn');
+    await delButtons[delButtons.length - 1].click();
+    const afterOne = await page.evaluate(() => window.JWPLCHMIEditor.getPages().length);
+    await page.click('.page-delete-btn.is-armed');
+    await page.waitForTimeout(200);
+    const afterTwo = await page.evaluate(() => window.JWPLCHMIEditor.getPages().length);
+    check(afterOne === pagesBefore && afterTwo === pagesBefore - 1, `borrar página: el primer clic pide confirmación y el segundo borra (${pagesBefore} → ${afterOne} → ${afterTwo})`);
+
+    console.log('NAV · CONTADOR');
+    await page.evaluate(() => document.querySelector('[data-tool="navBarField"]').click());
+    await page.waitForTimeout(300);
+    await page.click('#navBarInspectorSection [data-navbar-preset="counter"]');
+    await page.click('#navBarInspectorSection [data-navbar-corner="bl"]');
+    await page.waitForTimeout(200);
+    const tabsHidden = await page.$eval('#navBarInspectorSection [data-navbar-pos]', (el) => el.offsetParent === null);
+    const counter = await page.evaluate(async () => {
+      const cfg = window.JWPLCHMIPages.getNavBarConfig();
+      // Sin selección: el recuadro de selección no tapa el borde del contador.
+      window.JWPLCHMIEditor.setSelectedFieldKeys([]);
+      window.JWPLCHMIEditor.render();
+      await new Promise((r) => setTimeout(r, 100));
+      const c = document.getElementById('displayCanvas');
+      const z = c.width / 320;
+      const px = (x, y) => [...c.getContext('2d').getImageData(Math.round(x * z), Math.round(y * z), 1, 1).data].slice(0, 3).join(',');
+      return { cfg, border: px(2, 160) };
+    });
+    check(counter.cfg.preset === 'counter' && counter.cfg.width === 36 && counter.cfg.height === 12 && counter.cfg.x === 2 && counter.cfg.y === 155, 'NAV Contador: caja 36×12 en la esquina elegida');
+    check(counter.border === '255,255,255' && tabsHidden, 'NAV Contador: el lienzo dibuja el NN/TT y se ocultan las opciones de pestañas');
+    const counterHeader = await header();
+    check(/#ifdef JWPLC_UI_HAS_PAGE_INDICATOR_CONFIG\n\s*JWPLC_Display\.setPageIndicator\(true, 2, 155\);\n#endif/.test(counterHeader) && !/jwplcDrawPageNavBar/.test(counterHeader), 'NAV Contador: el header usa el indicador del firmware y no dibuja barra');
 
     check(errors.length === 0, `sin errores de consola${errors.length ? `: ${errors.join(' | ')}` : ''}`);
   } finally {

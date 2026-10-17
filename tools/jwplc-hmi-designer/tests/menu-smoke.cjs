@@ -149,6 +149,19 @@ async function main() {
     }));
     check(visible.menu && !visible.field, 'se muestra el inspector MENU y no el de campos');
     await shot('menu_forma');
+    await page.click(`${S}[data-menu-sub="appearance"]`);
+    // Clic sin gesto real (no abre el selector nativo) para elegir el cuadro.
+    await page.$eval(`${S}[data-menu-swatch="selectText"]`, (el) => el.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    await page.waitForTimeout(150);
+    const arrows = await page.$$eval(`${S}svg.legend-arrows path.legend-arrow`, (els) => ({ total: els.length, active: els.filter((e) => e.classList.contains('active')).length }));
+    check(arrows.total >= 5 && arrows.active === 1, `Apariencia: flechas de la leyenda (${arrows.total}, activa ${arrows.active})`);
+    // El clic en el cuadro abre el selector nativo; un clic real en la paleta
+    // (mismo color, no cambia el modelo) lo cierra, como en el uso normal.
+    const current = (await menuField()).colors.selectText & 0xFFFF;
+    const pill = await page.$(`${S}[data-menu-palette="${current}"]`);
+    if (pill) await pill.click();
+    await shot('menu_apariencia');
+    await page.click(`${S}[data-menu-sub="shape"]`);
 
     console.log('INSPECTOR');
     await page.click(`${S}[data-menu-main="tree"]`);

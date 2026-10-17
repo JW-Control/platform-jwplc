@@ -37,7 +37,7 @@
   function barRect(field) {
     const labelText = String(field.barLabel ?? field.label ?? 'Nivel');
     const unitText = String(field.barUnit ?? field.unit ?? '%');
-    const pad = Math.max(FIELD_PADDING, Math.max(1, Math.trunc(Number(field.labelSize) || 1)));
+    const pad = Math.max(FIELD_PADDING, Math.max(1, Math.trunc(Number(field.labelSize) || 1)) + 1);
     const label = textBounds(labelText, field.labelSize);
     const unit = textBounds(unitText, field.labelSize);
     let valueW = BAR_W;
@@ -46,18 +46,18 @@
 
     if (field.barAutoWidth === false) {
       width = Math.max(24, Math.min(WIDTH, Math.trunc(Number(field.barWidth) || 110)));
-      let available = width - 2 * pad;
+      let available = width - (FIELD_PADDING + pad);
       if (field.layout === 'INLINE' && label.width) available -= label.width + FIELD_GAP;
       if (unit.width) available -= unit.width + FIELD_GAP;
       valueW = Math.max(1, available);
     }
 
     if (field.layout === 'STACKED') {
-      if (field.barAutoWidth !== false) width = 2 * pad + Math.max(label.width, valueW + (unit.width ? FIELD_GAP + unit.width : 0));
-      height = 2 * pad + label.height + (label.height ? FIELD_GAP : 0) + Math.max(BAR_H, unit.height);
+      if (field.barAutoWidth !== false) width = (FIELD_PADDING + pad) + Math.max(label.width, valueW + (unit.width ? FIELD_GAP + unit.width : 0));
+      height = (FIELD_PADDING + pad) + label.height + (label.height ? FIELD_GAP : 0) + Math.max(BAR_H, unit.height);
     } else {
-      if (field.barAutoWidth !== false) width = 2 * pad + label.width + (label.width ? FIELD_GAP : 0) + valueW + (unit.width ? FIELD_GAP + unit.width : 0);
-      height = 2 * pad + Math.max(label.height, BAR_H, unit.height);
+      if (field.barAutoWidth !== false) width = (FIELD_PADDING + pad) + label.width + (label.width ? FIELD_GAP : 0) + valueW + (unit.width ? FIELD_GAP + unit.width : 0);
+      height = (FIELD_PADDING + pad) + Math.max(label.height, BAR_H, unit.height);
     }
     return { x: Number(field.x) || 0, y: Number(field.y) || 0, width, height };
   }
@@ -66,7 +66,7 @@
     const exact = editor()?.getFieldBounds?.(field);
     if (exact) return exact;
     if (field.type === 'BAR') return barRect(field);
-    const pad = Math.max(FIELD_PADDING, Number(field.labelSize) || 1, Number(field.valueSize) || 1);
+    const pad = Math.max(FIELD_PADDING, (Number(field.labelSize) || 1) + 1, (Number(field.valueSize) || 1) + 1);
     const label = textBounds(field.label, field.labelSize);
     const unit = textBounds(field.unit, field.labelSize);
     let valueText;
@@ -80,11 +80,11 @@
     let width;
     let height;
     if (field.layout === 'STACKED') {
-      width = 2 * pad + Math.max(label.width, value.width + (unit.width ? FIELD_GAP + unit.width : 0));
-      height = 2 * pad + label.height + (label.height ? FIELD_GAP : 0) + Math.max(value.height, unit.height);
+      width = (FIELD_PADDING + pad) + Math.max(label.width, value.width + (unit.width ? FIELD_GAP + unit.width : 0));
+      height = (FIELD_PADDING + pad) + label.height + (label.height ? FIELD_GAP : 0) + Math.max(value.height, unit.height);
     } else {
-      width = 2 * pad + label.width + (label.width ? FIELD_GAP + 0 : 0) + value.width + (unit.width ? FIELD_GAP + unit.width : 0);
-      height = 2 * pad + Math.max(label.height, value.height, unit.height);
+      width = (FIELD_PADDING + pad) + label.width + (label.width ? FIELD_GAP + 0 : 0) + value.width + (unit.width ? FIELD_GAP + unit.width : 0);
+      height = (FIELD_PADDING + pad) + Math.max(label.height, value.height, unit.height);
     }
     return { x: Number(field.x) || 0, y: Number(field.y) || 0, width, height };
   }

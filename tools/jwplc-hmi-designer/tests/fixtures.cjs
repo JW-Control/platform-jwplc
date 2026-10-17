@@ -16,6 +16,8 @@ const node = (key, parent, type, label, extra = {}) => ({
 
 module.exports = {
   full: {
+    // A15-7: IDLE no por defecto (entrar con OK, volver por inactividad, arrancar en el HMI).
+    display: { start: 'HMI', wake: 'BUTTON', wakeButton: 'BTN_OK', back: 'TIMEOUT', backButton: 'BTN_LEFT', timeoutS: 30 },
     pages: [{ id: 0, name: 'Principal' }, { id: 1, name: 'Alarmas' }, { id: 2, name: 'Ajustes' }],
     fields: [
       { ...COLORS, type: 'TEXT', name: 'T', id: 'FIELD_ESTADO', variable: 'estado', capacity: 12, x: 4, y: 4, preview: 'READY', label: 'Estado', unit: '', valueSize: 2, labelSize: 1, frame: false, layout: 'INLINE', align: 'LEFT', page: 0, layerOrder: 5 },
@@ -43,6 +45,14 @@ module.exports = {
     ]
   },
 
+  // A15: barra de navegación estilo "Contador" (sólo NN/TT, abajo a la izquierda).
+  navCounter: {
+    pages: [{ id: 0, name: 'Principal' }, { id: 1, name: 'Página 2' }],
+    fields: [
+      { ...COLORS, type: 'TEXT', name: 'T', id: 'FIELD_T', variable: 't', capacity: 6, x: 4, y: 20, preview: 'OK', label: 'T', unit: '', valueSize: 1, labelSize: 1, frame: false, layout: 'INLINE', align: 'LEFT', page: 0, layerOrder: 2 },
+      { key: 'NAV_BAR', type: 'NAV_BAR', name: 'Barra de Navegación', label: 'NAV_BAR', x: 2, y: 155, width: 36, height: 12, preset: 'counter', position: 'bottom', global: true, hidden: false, locked: false, layerOrder: 999 }
+    ]
+  },
   shapesOnly: {
     pages: [{ id: 0, name: 'Principal' }],
     fields: [{ type: 'RECT', name: 'Marco', id: 'R1', x: 2, y: 2, x2: 150, y2: 30, frameColor: 0xF800, fill: false, page: 0, layerOrder: 1 }]

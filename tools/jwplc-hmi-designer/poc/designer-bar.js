@@ -1115,7 +1115,7 @@
       // Proyecto viejo con ancho AUTO: el firmware usaba una barra de 80 px;
       // se fija el ancho total equivalente para conservar la salida.
       const size = Math.max(1, Math.trunc(Number(field.labelSize) || 1));
-      const pad = Math.max(FIELD_PADDING, size);
+      const pad = Math.max(FIELD_PADDING, size + 1);
       const labelW = (field.showLabel !== false && field.barLabel) ? nominalTextBounds(field.barLabel, size).width : 0;
       const unitW = field.barUnit ? nominalTextBounds(field.barUnit, size).width : 0;
       const valueAndUnit = DEFAULT_BAR_WIDTH + (unitW ? FIELD_GAP + unitW : 0);
@@ -1142,7 +1142,7 @@
 
   function barGeometry(field) {
     ensureBarState(field);
-    const pad = Math.max(FIELD_PADDING, Math.max(1, Math.trunc(Number(field.labelSize) || 1)));
+    const pad = Math.max(FIELD_PADDING, Math.max(1, Math.trunc(Number(field.labelSize) || 1)) + 1);
     const hasLabel = Boolean(field.showLabel && field.barLabel && field.barLabel.trim().length > 0);
     const labelBounds = hasLabel ? nominalTextBounds(field.barLabel, field.labelSize) : { width: 0, height: 0 };
     const hasUnit = Boolean(field.barUnit && field.barUnit.trim().length > 0);

@@ -47,6 +47,8 @@ const BAR_BASE = {
 };
 
 const FULL_PROJECT = {
+  // A15-7: IDLE con teclas propias (compila setIdleWakeButton/setIdleReturnButton y enterUserUI).
+  display: { start: 'HMI', wake: 'BUTTON', wakeButton: 'BTN_OK', back: 'BUTTON', backButton: 'BTN_LEFT', timeoutS: 15 },
   pages: [{ id: 0, name: 'Principal' }, { id: 1, name: 'Alarmas' }, { id: 2, name: 'Ajustes' }],
   fields: [
     { ...COLORS, type: 'TEXT', name: 'T', id: 'FIELD_ESTADO', variable: 'estado', capacity: 12, x: 4, y: 4, preview: 'READY', label: 'Estado', unit: '', valueSize: 2, labelSize: 1, frame: false, layout: 'INLINE', align: 'LEFT', page: 0, layerOrder: 5 },
@@ -98,7 +100,7 @@ async function main() {
 
     const load = (project) => page.evaluate(async (proj) => {
       const P = window.JWPLCHMIProject;
-      const data = { ...P.serialize(), ...JSON.parse(JSON.stringify(proj)), pixelMaps: [] };
+      const data = { ...P.serialize(), display: null, ...JSON.parse(JSON.stringify(proj)), pixelMaps: [] };
       let error = null;
       try { await P.apply(data); } catch (e) { error = e.message; }
       await new Promise((r) => setTimeout(r, 600));
@@ -196,6 +198,7 @@ async function main() {
     const update = full.slice(full.indexOf('void jwplcUIUpdate()'));
     check(!/tft\.|jwplcHMIFill|jwplcHMIDraw|jwplcDrawPageNavBar/.test(update), 'jwplcUIUpdate() sólo contiene setters (A15-3)');
     check(/void jwplcUIPageEnter\(uint8_t page\)/.test(full), 'la gráfica estática está en jwplcUIPageEnter()');
+    check(/setIdleWakeButton\(BTN_OK\);[\s\S]*setIdleReturnButton\(BTN_LEFT\);[\s\S]*enterUserUI\(\);\n\}/.test(full), 'IDLE: teclas de entrada/vuelta y arranque en el HMI al final de jwplcHMISetup()');
 
     console.log('Compilación host (g++ -fsyntax-only) contra headers reales');
     // .a si la librería es precompilada; definiciones en src/*.cpp si está en modo fuente.
