@@ -13,6 +13,7 @@ import re
 
 TOKEN=re.compile(r"^[0-9a-f]{24}$")
 PREFIX="G10R_R3_UDP:"
+KINDS=("UDP","DNS","TCP")
 SUCCESS=["ARMED","CLOSE_DURING_HOLD","AWAIT_LIFECYCLE_REVIEW"]
 KNOWN=set(SUCCESS)|{
     "MUTEX_NOT_ACQUIRED","PREPARE_FAILED","TASK_CREATION_FAILED",
@@ -20,8 +21,11 @@ KNOWN=set(SUCCESS)|{
 }
 
 
-def evaluate(lines:list[str],trace:dict,token:str)->dict:
+def evaluate(lines:list[str],trace:dict,token:str,kind:str="UDP")->dict:
     errors=[]
+    if kind not in KINDS:
+        return {"status":"REVIEW_STOP","errors":["INVALID_PROBE_KIND"]}
+    prefix="G10R_R3_"+kind+":"
     if not isinstance(token,str) or not TOKEN.fullmatch(token):
         return {"status":"REVIEW_STOP","errors":["INVALID_SESSION_TOKEN"]}
     states=[]
@@ -45,8 +49,8 @@ def evaluate(lines:list[str],trace:dict,token:str)->dict:
                     errors.append("BAD_R3_LEASE_IDENTITY")
                 lease.append(values)
             continue
-        if not line.startswith(PREFIX):continue
-        marker=PREFIX+token+" STATE="
+        if not line.startswith("G10R_R3_"):continue
+        marker=prefix+token+" STATE="
         if not line.startswith(marker):
             errors.append("FOREIGN_SESSION_R3_MESSAGE")
             continue
@@ -104,8 +108,10 @@ def evaluate(lines:list[str],trace:dict,token:str)->dict:
     return {"status":"R3_UDP_SOURCE_CONTRACT_ONLY_NOT_PHYSICAL_PASS"
             if not errors else "REVIEW_STOP",
             "errors":list(dict.fromkeys(errors)),
-            "matches":matches,"states":states,
-            "coverage":{"udp_stop":matches==1,"dns":False,
+            "matches":matches,"states":states,"probe_kind":kind,
+            "coverage":{"udp_stop":matches==1 and kind=="UDP",
+                        "dns_cancel":matches==1 and kind=="DNS",
+                        "tcp_cancel":matches==1 and kind=="TCP",
                         "dhcp":False,"tcp_1_2_4_clients":False},
             "r3_physical_campaign":"NOT_QUALIFIED"}
 
@@ -164,7 +170,15 @@ def selftest():
     ]
     assert evaluate(lines,with_parallel,t)["status"]==(
         "R3_UDP_SOURCE_CONTRACT_ONLY_NOT_PHYSICAL_PASS")
+    # El mismo contrato vale para DNS y TCP, sin fingir DHCP aprobado.
+    for kind in ("DNS","TCP"):
+        other=[line.replace("G10R_R3_UDP:","G10R_R3_"+kind+":")
+               for line in lines]
+        assert evaluate(other,copy.deepcopy(trace),t,kind)["status"]==(
+            "R3_UDP_SOURCE_CONTRACT_ONLY_NOT_PHYSICAL_PASS")
+        assert evaluate(other,copy.deepcopy(trace),t,"UDP")["status"]=="REVIEW_STOP"
     print("G10_R_R3_UDP_PROBE_NEGATIVES=17_REJECTED")
+    print("G10_R_R3_DNS_TCP_CONTRACT=PASS_SYNTHETIC_ONLY")
     print("G10_R_R3_UDP_PROBE=PASS_OFFLINE_CONTRACT_ONLY")
     print("G10_R_R3_FULL_H=BLOCKED_NOT_RUN")
 
