@@ -78,3 +78,25 @@ G10-R-R3-DNS_DHCP_TCP=NOT_IMPLEMENTED_FOR_PHYSICAL_INJECTION
 G10-R-H=BLOCKED_FAIL_CLOSED
 ALPHA15_PRODUCT_TRANSFER=NOT_AUTHORIZED
 ```
+
+
+## 7. Endurecimiento de procedencia y evidencia PRE-H — 16/10/2026
+
+**Bug de diagnóstico corregido (en fuente de laboratorio y host, no producto):** el primer evaluador de la sonda UDP consideraba inválida una sesión si también se cerraba correctamente otro socket. Eso era contraproducente para el propósito **concurrente** de R3: el gate ahora identifica la sonda mediante `SID/EPOCH/ALLOC/OWNER` exacto, exige un único `DrainClose` de **ese lease** posterior a su `QueueRequest`, **permite** cierres legítimos de otros sockets y **rechaza** doble drenaje del lease de prueba. El fixture aporta un caso positivo con tráfico paralelo y ahora tiene **17 negativos**.
+
+**Evidencia USB/PC:** `a13_g10_r_field_runner.py` ya separa `r3_udp_lines`, `r3_udp_sessions` y `r3_udp_verdicts` en `MANIFEST.json` cuando se capturen sesiones R3. El identificador de la sesión y los mensajes `G10R_R3_LEASE`, `G10R_R3_HOLD` y `G10R_R3_UDP` se conservan con fase/tiempo; se aplica `a13_g10_r_r3_probe_contract.py` sobre esas evidencias y el historial R3, **sin** convertir el resultado en PASS físico.
+
+**Doble puerta de seguridad:** `a13_g10_r_field_runner.py --live` sigue bloqueado desde antes de abrir COM (`R3_PHYSICAL_INJECTION_READY=False`) y ahora **`a13_g10_r_build_candidate.py --upload` también rechaza la operación antes de iniciar compilación/USB** mediante `R3_COMPLETE_PHYSICAL_CAMPAIGN_READY=False`. El `--selftest` exige conservar este cierre. Ninguno de estos flags se levantará por CI nativa, sin inyección DNS/DHCP/TCP y orquestación R1→R2→R3→R4 completa.
+
+**Evidencia anterior inmutable:** CI [#38998540944](https://github.com/JW-Control/platform-jwplc/actions/runs/38998540944) = 5/5 SUCCESS del commit `5e4a6d78`, *antes* de los cambios de esta sección. Las CI de los commits siguientes se consultan **por SHA exacto**. No adjudicar el PASS anterior al HEAD más nuevo.
+
+```text
+G10-R-UDP-COLLECTOR=INTEGRATED_IN_HOST_NOT_PHYSICALLY_RUN
+G10-R-UDP-CONTRACT=17_NEGATIVES_PLUS_CONCURRENT_POSITIVE
+G10-R-UDP-PHYSICAL=NOT_RUN
+G10-R-FLASH_GATE=FAIL_CLOSED
+G10-R-LIVE_GATE=FAIL_CLOSED
+G10-R-DNS_DHCP_TCP_PHYSICAL_INJECTION=NOT_READY
+G10-R-H=BLOCKED
+A13-006=ADOPTION_BLOCKED
+```
