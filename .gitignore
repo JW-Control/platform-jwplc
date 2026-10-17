@@ -17,3 +17,7 @@
 /tools/jwplc-hmi-designer/electron/build/
 /tools/jwplc-hmi-designer/electron/node_modules/
 /tools/jwplc-hmi-designer/electron/release/
+
+# Carpeta que genera la extensión CMake Tools de VS Code al abrir el repo
+# (configura JWPLC/2.1.0/CMakeLists.txt con MSVC). No es parte del package.
+/build/
