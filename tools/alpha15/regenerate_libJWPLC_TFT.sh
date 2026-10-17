@@ -14,9 +14,9 @@
 #   tools/alpha15/regenerate_libJWPLC_TFT.sh build [--install]
 #   tools/alpha15/regenerate_libJWPLC_TFT.sh compile <carpeta-sketch> [args arduino-cli]
 #
-# "build" compara los símbolos definidos (nombre, tipo, tamaño) contra el .a
-# del repo: ninguno puede desaparecer ni cambiar de tamaño (compatibilidad ABI
-# con los .a que ya enlazan contra JWPLC_TFT, p. ej. libJWPLC_Display.a).
+# "build" verifica la compatibilidad ABI: ningún símbolo público JWPLC_* del
+# .a actual puede desaparecer y todo lo que otras librerías precompiladas
+# (p. ej. libJWPLC_Display.a) importan de JWPLC_TFT debe existir.
 # Con --install copia el .a nuevo al repo.
 #
 # Requiere red hacia downloads.arduino.cc, raw.githubusercontent.com y
@@ -99,18 +99,38 @@ P
      "$(find "$out/build" -name TFT_eSPI.cpp.o | head -1)" "$out/a/"
   (cd "$out/a" && "$(tool xtensa-esp32-elf-gcc-ar)" rcs libJWPLC_TFT.a JWPLC_TFT.cpp.o TFT_eSPI.cpp.o)
 
-  symbols "$REPO/$LIB_REL/src/esp32/libJWPLC_TFT.a" > "$out/current.sym"
-  symbols "$out/a/libJWPLC_TFT.a" > "$out/new.sym"
+  # ABI: la superficie pública es JWPLC_* (clase, constantes, funciones). Las
+  # funciones internas de TFT_eSPI pueden cambiar de tamaño al cambiar
+  # tft_setup.h; ninguna otra librería del package las importa.
+  # Formato de symbols(): "<tipo> <nombre-mangled> <tamaño>".
+  local public_re='^[A-Za-z] (_ZN14JWPLC_TFTClass|_ZNK14JWPLC_TFTClass|JWPLC_TFT |JWPLC_FONT_)'
+  symbols "$REPO/$LIB_REL/src/esp32/libJWPLC_TFT.a" | grep -E "$public_re" | cut -d' ' -f1,2 | sort -u > "$out/current.sym" || true
+  symbols "$out/a/libJWPLC_TFT.a" | grep -E "$public_re" | cut -d' ' -f1,2 | sort -u > "$out/new.sym" || true
   local removed added
   removed=$(comm -23 "$out/current.sym" "$out/new.sym" | wc -l)
   added=$(comm -13 "$out/current.sym" "$out/new.sym" | wc -l)
   echo "ARCHIVE=$out/a/libJWPLC_TFT.a"
   echo "ARCHIVE_BYTES=$(stat -c %s "$out/a/libJWPLC_TFT.a")"
   echo "ARCHIVE_SHA256=$(sha256sum "$out/a/libJWPLC_TFT.a" | cut -d' ' -f1)"
-  echo "SYMBOLS_REMOVED_OR_CHANGED=$removed"
-  echo "SYMBOLS_ADDED=$added"
+  echo "PUBLIC_SYMBOLS_REMOVED=$removed"
+  echo "PUBLIC_SYMBOLS_ADDED=$added"
   comm -13 "$out/current.sym" "$out/new.sym" | c++filt | sed 's/^/  + /'
-  if [[ "$removed" != "0" ]]; then
+
+  # Cada símbolo de JWPLC_TFT que importan las demás librerías precompiladas
+  # debe existir en el .a nuevo.
+  local nm missing=0
+  nm="$(tool xtensa-esp32-elf-nm)"
+  "$nm" --defined-only "$out/a/libJWPLC_TFT.a" 2>/dev/null | awk 'NF>=3{print $3}' | sort -u > "$out/defined.txt"
+  for lib in "$REPO"/JWPLC/2.1.0/libraries/*/src/esp32/*.a; do
+    [[ "$lib" == *libJWPLC_TFT.a ]] && continue
+    while read -r sym; do
+      if ! grep -qxF "$sym" "$out/defined.txt"; then
+        echo "  ! $(basename "$lib") importa $(echo "$sym" | c++filt) y no existe"; missing=$((missing + 1))
+      fi
+    done < <("$nm" -u "$lib" 2>/dev/null | awk '{print $2}' | grep -E '^(_ZN14JWPLC_TFTClass|_ZNK14JWPLC_TFTClass|JWPLC_FONT_|JWPLC_TFT$)' | sort -u)
+  done
+  echo "IMPORTS_FROM_OTHER_LIBS_MISSING=$missing"
+  if [[ "$removed" != "0" || "$missing" != "0" ]]; then
     comm -23 "$out/current.sym" "$out/new.sym" | c++filt | sed 's/^/  - /'
     echo "ABI_COMPAT=FAIL"; exit 1
   fi
