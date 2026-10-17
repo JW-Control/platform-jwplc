@@ -1,0 +1,2 @@
+// Stub host.
+#pragma once
