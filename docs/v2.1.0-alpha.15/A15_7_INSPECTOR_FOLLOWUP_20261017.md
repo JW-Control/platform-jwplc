@@ -7,7 +7,7 @@ LIVE_COLOR_PREVIEW=PASS (TEXT/VALUE/BOOL y MENU; BAR, figuras y RAW_TEXT ya lo h
 BOOL_STATE_COLORS=PASS_SOURCE (JWPLC_Display en modo fuente; .a al cierre)
 RULER_CURSOR_ALIGNMENT=PASS
 MENU_APPEARANCE_REDESIGN=PASS
-TEXT_X4_LABEL_SHIFT=EXPLICADO (regla del firmware; igual en la TFT) -> decisión pendiente
+TEXT_X4_LABEL_SHIFT=CORREGIDO en firmware y Designer (ver A15_7_INSPECTOR_FOLLOWUP_2_20261017.md)
 JWPLC_DISPLAY_LINKAGE=SOURCE_FIRST hasta el cierre del alpha
 PHYSICAL=[no verificado]
 ```
@@ -99,6 +99,10 @@ El orden anterior (texto, valor, fondo, selección, edición, título, marco) no
 Cada cuadro abre el selector nativo, con vista previa en vivo. Los mini-modelos se repintan con cada cambio.
 
 ## 6. TEXT: la etiqueta se mueve 1 px al pasar el valor a 4×
+
+> **Actualización (2.ª ronda):** corregido en el firmware. El margen superior/izquierdo es siempre 3 px
+> y el extra de 4× sólo agranda el campo a la derecha y abajo. Detalle en
+> `A15_7_INSPECTOR_FOLLOWUP_2_20261017.md`. El texto de abajo queda como registro del diagnóstico.
 
 No es un error del Designer: replica lo que hace el firmware.
 

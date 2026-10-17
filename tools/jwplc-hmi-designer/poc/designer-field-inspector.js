@@ -127,20 +127,23 @@
     return values.map((v) => `<button type="button" class="insp-chip" data-set="${set}" data-value="${v}">${v}${suffix}</button>`).join('');
   }
 
-  function colorRow(key, title) {
-    const pills = PALETTE.map(([name, v, label]) =>
-      `<button type="button" class="insp-swatch" data-color-key="${key}" data-color="${v}" title="${label} · ${hex565(v)}" style="background:${rgb565ToCss(v)}"></button>`).join('');
-    return `
-      <div class="insp-color-row" data-color-row="${key}">
-        <div class="insp-color-head">
-          <span>${title}</span>
-          <label class="insp-color-native" title="Color personalizado (se convierte a RGB565)">
-            <input type="color" data-color-native="${key}" value="#ffffff" />
-            <span class="insp-hex" data-color-hex="${key}">0xFFFF</span>
-          </label>
-        </div>
-        <div class="insp-swatch-row">${pills}</div>
-      </div>`;
+  // --- Apariencia: mini-modelos con la leyenda de colores ------------------
+  // Igual que el MENU: una vista real del campo (renderFieldPreview de app.js,
+  // mismo dibujo que el lienzo) y a su lado los colores de cada parte. BOOL
+  // "por estado" muestra los dos casos con el texto y el fondo de cada uno.
+  const SWATCH_LETTER = { label: 'T', value: 'T', background: 'F', frame: 'M', false: 'T', true: 'T', falseBg: 'F', trueBg: 'F' };
+  const SWATCH_NAME = {
+    label: 'Etiqueta · texto', value: 'Valor · texto', background: 'Fondo del campo', frame: 'Marco',
+    false: 'FALSE · texto', true: 'TRUE · texto', falseBg: 'FALSE · fondo', trueBg: 'TRUE · fondo'
+  };
+
+  function swatchHtml(key) {
+    return `<label class="menu-swatch" data-field-swatch="${key}" title="${SWATCH_NAME[key]}">` +
+      `<input type="color" data-color-native="${key}" /><span>${SWATCH_LETTER[key]}</span></label>`;
+  }
+
+  function legendRow(label, keys) {
+    return `<div class="menu-legend-row"><span class="menu-legend-arrow">◀</span><span class="menu-legend-label">${label}</span>${keys.map(swatchHtml).join('')}</div>`;
   }
 
   const wrap = document.createElement('div');
@@ -266,25 +269,14 @@
 
       <!-- DISEÑO · APARIENCIA -->
       <div class="insp-panel" data-insp-panel="design:appearance" hidden>
-        <div class="bar-card">
-          ${colorRow('label', 'Etiqueta')}
-          <div data-value-color-row>${colorRow('value', 'Valor')}</div>
-          ${colorRow('background', 'Fondo')}
-          <div data-frame-only>${colorRow('frame', 'Marco')}</div>
-          <div class="insp-note">El fondo es obligatorio: el refresco parcial de la TFT borra el valor anterior pintando el fondo.</div>
-        </div>
         <div class="bar-card" data-only="BOOL">
           <div class="bar-card-section-title">Color del valor</div>
           <div class="bar-visual-grid-2">
             <button type="button" class="bar-visual-btn" data-bool-colormode="single"><strong>ON</strong><span>Un color</span></button>
-            <button type="button" class="bar-visual-btn" data-bool-colormode="state"><strong><span style="color:#ff5050">OFF</span> / <span style="color:#3ce36b">ON</span></strong><span>Por estado</span></button>
-          </div>
-          <div data-bool-state-colors>
-            ${colorRow('false', 'Estado FALSE')}
-            ${colorRow('true', 'Estado TRUE')}
-            <div class="insp-note">Requiere JWPLC_Display con color por estado (Alpha15); con un package anterior el header compila con un solo color.</div>
+            <button type="button" class="bar-visual-btn" data-bool-colormode="state"><strong><span style="color:#ff5050">OFF</span> / <span style="color:#3ce36b">ON</span></strong><span>Por estado (texto y fondo)</span></button>
           </div>
         </div>
+        <div class="bar-card" data-field-appearance></div>
       </div>
 
       <!-- DISEÑO · UBICACIÓN -->
@@ -392,10 +384,12 @@
   wrap.querySelectorAll('[data-insp-main]').forEach((b) => b.addEventListener('click', () => {
     state.main = b.dataset.inspMain;
     applyTabs();
+    syncAppearance(selectedField());
   }));
   wrap.querySelectorAll('[data-insp-sub]').forEach((b) => b.addEventListener('click', () => {
     state.sub = b.dataset.inspSub;
     applyTabs();
+    syncAppearance(selectedField());
   }));
 
   // --- Eventos de edición -----------------------------------------------------
@@ -431,11 +425,17 @@
       proxyValue(prop === 'capacity' ? 'fieldCapacity' : 'fieldIntegerDigits', next, true);
       return;
     }
-    const swatch = e.target.closest('[data-color-key]');
+    const swatch = e.target.closest('[data-field-swatch]');
     if (swatch) {
-      const key = swatch.dataset.colorKey;
-      if (BOOL_STATE_PROP[key]) setFieldProps((f) => { f[BOOL_STATE_PROP[key]] = Number(swatch.dataset.color); }, true);
-      else proxyColor(COLOR_TARGET[key], Number(swatch.dataset.color));
+      // El clic abre el selector nativo (input dentro del label) y marca el
+      // cuadro al que se aplica la paleta rápida.
+      activeColorKey = swatch.dataset.fieldSwatch;
+      syncAppearance(selectedField());
+      return;
+    }
+    const pill = e.target.closest('[data-field-palette]');
+    if (pill) {
+      applyColor(activeColorKey, Number(pill.dataset.fieldPalette), true);
       return;
     }
     const colorMode = e.target.closest('[data-bool-colormode]');
@@ -444,7 +444,10 @@
         f.stateColors = colorMode.dataset.boolColormode === 'state';
         if (!Number.isFinite(Number(f.falseColor))) f.falseColor = 0xF800;
         if (!Number.isFinite(Number(f.trueColor))) f.trueColor = 0x07E0;
+        if (!Number.isFinite(Number(f.falseBackground))) f.falseBackground = Number(f.backgroundColor) || 0;
+        if (!Number.isFinite(Number(f.trueBackground))) f.trueBackground = Number(f.backgroundColor) || 0;
       }, true);
+      if (!KEYS_FOR(selectedField()).includes(activeColorKey)) activeColorKey = 'label';
       return;
     }
     const preset = e.target.closest('[data-bool-preset]');
@@ -486,19 +489,26 @@
     frame: 'fieldFrameColor'
   };
   const COLOR_PROP = { label: 'labelColor', value: 'valueColor', background: 'backgroundColor', frame: 'frameColor' };
-  const BOOL_STATE_PROP = { false: 'falseColor', true: 'trueColor' };
+  const BOOL_STATE_PROP = { false: 'falseColor', true: 'trueColor', falseBg: 'falseBackground', trueBg: 'trueBackground' };
 
-  // 'input' llega mientras se arrastra en el selector: el lienzo se actualiza
-  // en vivo y el historial se registra una sola vez en 'change'.
-  wrap.querySelectorAll('[data-color-native]').forEach((input) => {
-    const apply = (commit) => {
-      const key = input.dataset.colorNative;
-      const value = cssTo565(input.value);
-      if (BOOL_STATE_PROP[key]) setFieldProps((f) => { f[BOOL_STATE_PROP[key]] = value; }, commit);
-      else proxyColor(COLOR_TARGET[key], value, commit);
-    };
-    input.addEventListener('input', () => apply(false));
-    input.addEventListener('change', () => apply(true));
+  // Colores con control viejo (#fieldLabelColor...) pasan por proxyColor; los
+  // del BOOL por estado no tienen control viejo y van directo al modelo.
+  function applyColor(key, value565, commit) {
+    if (BOOL_STATE_PROP[key]) setFieldProps((f) => { f[BOOL_STATE_PROP[key]] = value565 & 0xFFFF; }, commit);
+    else if (COLOR_TARGET[key]) proxyColor(COLOR_TARGET[key], value565, commit);
+  }
+
+  // 'input' llega mientras se arrastra en el selector (ya limitado a ~25/s por
+  // app.js): lienzo y mini-modelos en vivo; el historial se registra en 'change'.
+  wrap.addEventListener('input', (e) => {
+    const key = e.target.dataset?.colorNative;
+    if (!key) return;
+    activeColorKey = key;
+    applyColor(key, cssTo565(e.target.value), false);
+  });
+  wrap.addEventListener('change', (e) => {
+    const key = e.target.dataset?.colorNative;
+    if (key) applyColor(key, cssTo565(e.target.value), true);
   });
 
   const slider = wrap.querySelector('[data-preview-slider]');
@@ -545,23 +555,128 @@
       `<button type="button" class="insp-chip${Number(p.id) === current ? ' active' : ''}" data-page-id="${p.id}" title="${escapeHtml(p.name)}">${String(Number(p.id) + 1).padStart(2, '0')} · ${escapeHtml(p.name)}</button>`).join('');
   }
 
-  function syncColors(field) {
-    const stateColors = field.type === 'BOOL' && Boolean(field.stateColors);
+  // --- Apariencia ------------------------------------------------------------
+
+  let activeColorKey = 'label';
+  const PREVIEW_MAX_W = 150;
+
+  function stateMode(field) {
+    return field?.type === 'BOOL' && Boolean(field.stateColors);
+  }
+
+  function KEYS_FOR(field) {
+    if (!field) return [];
+    const keys = ['label', 'background'];
+    keys.push(...(stateMode(field) ? ['false', 'falseBg', 'true', 'trueBg'] : ['value']));
+    if (field.frame) keys.push('frame');
+    return keys;
+  }
+
+  function colorOf(field, key) {
+    const prop = COLOR_PROP[key] || BOOL_STATE_PROP[key];
+    let raw = field[prop];
+    if ((key === 'falseBg' || key === 'trueBg') && !Number.isFinite(Number(raw))) raw = field.backgroundColor;
+    return Number.isFinite(Number(raw)) ? Number(raw) & 0xFFFF : 0;
+  }
+
+  // Un caso = una vista del campo con su leyenda. En "un color" hay un solo
+  // caso; en BOOL por estado, FALSE y TRUE con el texto y fondo de cada uno.
+  function casesFor(field) {
+    const shared = [
+      { label: 'Etiqueta', keys: ['label'] },
+      { label: 'Fondo', keys: ['background'] }
+    ];
+    if (field.frame) shared.push({ label: 'Marco', keys: ['frame'] });
+    if (!stateMode(field)) {
+      return [{ id: 'single', title: 'Vista', boolValue: field.boolValue, rows: [shared[0], { label: 'Valor', keys: ['value'] }, ...shared.slice(1)] }];
+    }
+    return [
+      { id: 'false', title: `Caso FALSE · «${field.falseText || 'OFF'}»`, boolValue: false, rows: [{ label: 'Valor', keys: ['false', 'falseBg'] }] },
+      { id: 'true', title: `Caso TRUE · «${field.trueText || 'ON'}»`, boolValue: true, rows: [{ label: 'Valor', keys: ['true', 'trueBg'] }] },
+      { id: 'shared', title: 'Comunes a ambos estados', rows: shared }
+    ];
+  }
+
+  function buildAppearance(field) {
+    const host = wrap.querySelector('[data-field-appearance]');
+    const cases = casesFor(field);
+    const signature = cases.map((c) => `${c.id}:${c.rows.map((r) => r.keys.join('+')).join(',')}`).join('|');
+    if (host.dataset.signature === signature) return cases;
+    host.dataset.signature = signature;
+    host.innerHTML = cases.map((c) => `
+      <div class="menu-case">
+        <div class="bar-card-section-title">${escapeHtml(c.title)}</div>
+        <div class="menu-case-body field-case-body">
+          ${c.id === 'shared' ? '' : `<canvas class="menu-case-canvas field-case-canvas" data-field-case="${c.id}"></canvas>`}
+          <div class="menu-case-legend">${c.rows.map((r) => legendRow(r.label, r.keys)).join('')}</div>
+        </div>
+      </div>`).join('') + `
+      <div class="menu-palette">
+        <div class="insp-note">F fondo · T texto · M marco. Clic en un cuadro para editarlo; la paleta rápida se aplica a <strong data-field-active-color></strong>.</div>
+        <div class="insp-swatch-row">${PALETTE.map(([, v, name]) =>
+          `<button type="button" class="insp-swatch" data-field-palette="${v}" title="${name} · ${hex565(v)}" style="background:${rgb565ToCss(v)}"></button>`).join('')}</div>
+      </div>`;
+    return cases;
+  }
+
+  // Mismo dibujo que el lienzo (app.js:drawField) sobre un framebuffer propio,
+  // recortado al rectángulo del campo y escalado a un entero (1..3).
+  function drawCase(canvas, field, c) {
+    const preview = { ...field, x: 0, y: 0 };
+    if (field.type === 'BOOL') {
+      preview.boolValue = Boolean(c.boolValue);
+      preview.preview = preview.boolValue ? (field.trueText || 'ON') : (field.falseText || 'OFF');
+    }
+    const out = editor()?.renderFieldPreview?.(preview);
+    if (!out?.g) return;
+    const w = Math.max(1, Math.min(out.width, Math.ceil(out.g.fieldW)));
+    const h = Math.max(1, Math.min(out.height, Math.ceil(out.g.fieldH)));
+    const scale = Math.max(1, Math.min(3, Math.floor(PREVIEW_MAX_W / w)));
+    if (canvas.width !== w * scale) canvas.width = w * scale;
+    if (canvas.height !== h * scale) canvas.height = h * scale;
+    const ctx = canvas.getContext('2d');
+    const img = ctx.createImageData(canvas.width, canvas.height);
+    for (let y = 0; y < canvas.height; y++) {
+      const row = Math.floor(y / scale) * out.width;
+      for (let x = 0; x < canvas.width; x++) {
+        const v = out.buffer[row + Math.floor(x / scale)];
+        const o = (y * canvas.width + x) * 4;
+        img.data[o] = ((v >> 11) & 0x1F) * 255 / 31;
+        img.data[o + 1] = ((v >> 5) & 0x3F) * 255 / 63;
+        img.data[o + 2] = (v & 0x1F) * 255 / 31;
+        img.data[o + 3] = 255;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+
+  function syncAppearance(field) {
+    if (!isManaged(field)) return;
+    const perState = stateMode(field);
     wrap.querySelectorAll('[data-bool-colormode]').forEach((b) =>
-      b.classList.toggle('active', (b.dataset.boolColormode === 'state') === stateColors));
-    wrap.querySelector('[data-bool-state-colors]').hidden = !stateColors;
-    wrap.querySelector('[data-value-color-row]').hidden = stateColors;
-    const props = field.type === 'BOOL' ? { ...COLOR_PROP, ...BOOL_STATE_PROP } : COLOR_PROP;
-    Object.entries(props).forEach(([key, prop]) => {
-      const raw = field[prop];
-      const v = Number.isFinite(Number(raw)) ? Number(raw) & 0xFFFF : 0;
-      wrap.querySelectorAll(`[data-color-key="${key}"]`).forEach((b) => b.classList.toggle('active', Number(b.dataset.color) === v));
-      const native = wrap.querySelector(`[data-color-native="${key}"]`);
+      b.classList.toggle('active', (b.dataset.boolColormode === 'state') === perState));
+    if (!KEYS_FOR(field).includes(activeColorKey)) activeColorKey = 'label';
+    const cases = buildAppearance(field);
+    // Sólo si la pestaña está a la vista: no repintar mini-modelos ocultos.
+    if (!wrap.querySelector('[data-insp-panel="design:appearance"]').hidden) {
+      cases.forEach((c) => {
+        const canvas = wrap.querySelector(`[data-field-case="${c.id}"]`);
+        if (canvas) drawCase(canvas, field, c);
+      });
+    }
+    wrap.querySelectorAll('[data-field-swatch]').forEach((sw) => {
+      const key = sw.dataset.fieldSwatch;
+      const v = colorOf(field, key);
+      sw.style.background = rgb565ToCss(v);
+      sw.style.color = ((v >> 11) + ((v >> 5) & 0x3F) / 2 + (v & 0x1F)) > 40 ? '#000' : '#fff';
+      sw.classList.toggle('active', key === activeColorKey);
+      const native = sw.querySelector('input');
       if (native && document.activeElement !== native) native.value = rgb565ToCss(v);
-      const hexEl = wrap.querySelector(`[data-color-hex="${key}"]`);
-      if (hexEl) hexEl.textContent = hex565(v);
     });
-    wrap.querySelector('[data-frame-only]').hidden = !field.frame;
+    const name = wrap.querySelector('[data-field-active-color]');
+    if (name) name.textContent = SWATCH_NAME[activeColorKey];
+    const activeValue = colorOf(field, activeColorKey);
+    wrap.querySelectorAll('[data-field-palette]').forEach((b) => b.classList.toggle('active', Number(b.dataset.fieldPalette) === activeValue));
   }
 
   function sync() {
@@ -635,7 +750,6 @@
     }
 
     readout('cppType', cppTypeFor(field));
-    syncColors(field);
     syncPages(field);
 
     wrap.querySelectorAll('[data-mirror]').forEach((el) => {
@@ -644,6 +758,7 @@
     });
 
     applyTabs();
+    syncAppearance(field);
   }
 
   window.addEventListener('jwplc:editor-refresh', sync);

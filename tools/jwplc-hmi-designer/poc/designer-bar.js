@@ -1120,8 +1120,8 @@
       const unitW = field.barUnit ? nominalTextBounds(field.barUnit, size).width : 0;
       const valueAndUnit = DEFAULT_BAR_WIDTH + (unitW ? FIELD_GAP + unitW : 0);
       field.barWidth = field.layout === 'INLINE'
-        ? 2 * pad + labelW + (labelW ? FIELD_GAP : 0) + valueAndUnit
-        : 2 * pad + Math.max(labelW, valueAndUnit);
+        ? FIELD_PADDING + pad + labelW + (labelW ? FIELD_GAP : 0) + valueAndUnit
+        : FIELD_PADDING + pad + Math.max(labelW, valueAndUnit);
     }
     field.barAutoWidth = false;
     field.barHeight = DEFAULT_BAR_HEIGHT;
@@ -1300,6 +1300,9 @@
     }
 
     // Caso 3: Barra Horizontal Clásica / Degradada
+    // JWPLC_UI.cpp: margen superior/izquierdo fijo (lead); el extra de
+    // escalas grandes (pad) sólo a la derecha/abajo.
+    const lead = FIELD_PADDING;
     const valueH = Math.max(4, Math.trunc(Number(field.barHeight) || DEFAULT_BAR_HEIGHT));
     let valueW = DEFAULT_BAR_WIDTH;
     let fieldW, fieldH, valueX, valueY, labelX = 0, labelY = 0;
@@ -1309,53 +1312,53 @@
 
     if (!hasLabel) {
       fieldW = Math.max(20, Math.min(WIDTH, Math.trunc(Number(field.barWidth) || 110)));
-      valueW = Math.max(4, fieldW - 2 * pad - unitW);
-      fieldH = 2 * pad + Math.max(valueH, unitBounds.height);
-      valueX = field.x + pad;
-      valueY = field.y + pad;
+      valueW = Math.max(1, fieldW - (lead + pad) - unitW);
+      fieldH = (lead + pad) + Math.max(valueH, unitBounds.height);
+      valueX = field.x + lead;
+      valueY = field.y + lead;
     } else if (alignV === 'MID') {
       const maxH = Math.max(labelBounds.height, valueH, unitBounds.height);
-      // Firmware (INLINE): etiqueta y barra comparten valueY = y + pad.
-      const valY = field.y + pad;
-      const lblY = field.y + pad;
+      // Firmware (INLINE): etiqueta y barra comparten valueY = y + lead.
+      const valY = field.y + lead;
+      const lblY = field.y + lead;
       if (alignH === 'RIGHT') {
         fieldW = Math.max(20, Math.min(WIDTH, Math.trunc(Number(field.barWidth) || 110)));
-        valueW = Math.max(4, fieldW - 2 * pad - labelBounds.width - FIELD_GAP - unitW);
-        fieldH = 2 * pad + maxH;
-        valueX = field.x + pad;
+        valueW = Math.max(1, fieldW - (lead + pad) - labelBounds.width - FIELD_GAP - unitW);
+        fieldH = (lead + pad) + maxH;
+        valueX = field.x + lead;
         valueY = valY;
         labelX = valueX + valueW + FIELD_GAP;
         labelY = lblY;
       } else {
         fieldW = Math.max(20, Math.min(WIDTH, Math.trunc(Number(field.barWidth) || 110)));
-        valueW = Math.max(4, fieldW - 2 * pad - labelBounds.width - FIELD_GAP - unitW);
-        fieldH = 2 * pad + maxH;
-        labelX = field.x + pad;
+        valueW = Math.max(1, fieldW - (lead + pad) - labelBounds.width - FIELD_GAP - unitW);
+        fieldH = (lead + pad) + maxH;
+        labelX = field.x + lead;
         labelY = lblY;
         valueX = labelX + labelBounds.width + FIELD_GAP;
         valueY = valY;
       }
     } else if (alignV === 'BOTTOM') {
       fieldW = Math.max(20, Math.min(WIDTH, Math.trunc(Number(field.barWidth) || 110)));
-      valueW = Math.max(4, fieldW - 2 * pad - unitW);
-      fieldH = 2 * pad + Math.max(valueH, unitBounds.height) + FIELD_GAP + labelBounds.height;
-      valueX = field.x + pad;
-      valueY = field.y + pad;
+      valueW = Math.max(1, fieldW - (lead + pad) - unitW);
+      fieldH = (lead + pad) + Math.max(valueH, unitBounds.height) + FIELD_GAP + labelBounds.height;
+      valueX = field.x + lead;
+      valueY = field.y + lead;
       labelY = valueY + Math.max(valueH, unitBounds.height) + FIELD_GAP;
-      if (alignH === 'LEFT') labelX = field.x + pad;
+      if (alignH === 'LEFT') labelX = field.x + lead;
       else if (alignH === 'RIGHT') labelX = field.x + fieldW - pad - labelBounds.width;
-      else labelX = field.x + pad + Math.max(0, Math.trunc((valueW - labelBounds.width) / 2));
+      else labelX = field.x + lead + Math.max(0, Math.trunc((valueW - labelBounds.width) / 2));
     } else {
       // TOP (Stacked)
       fieldW = Math.max(20, Math.min(WIDTH, Math.trunc(Number(field.barWidth) || 110)));
-      valueW = Math.max(4, fieldW - 2 * pad - unitW);
-      fieldH = 2 * pad + labelH + Math.max(valueH, unitBounds.height);
-      labelY = field.y + pad;
-      valueX = field.x + pad;
-      valueY = field.y + pad + labelH;
-      if (alignH === 'LEFT') labelX = field.x + pad;
+      valueW = Math.max(1, fieldW - (lead + pad) - unitW);
+      fieldH = (lead + pad) + labelH + Math.max(valueH, unitBounds.height);
+      labelY = field.y + lead;
+      valueX = field.x + lead;
+      valueY = field.y + lead + labelH;
+      if (alignH === 'LEFT') labelX = field.x + lead;
       else if (alignH === 'RIGHT') labelX = field.x + fieldW - pad - labelBounds.width;
-      else labelX = field.x + pad + Math.max(0, Math.trunc((valueW - labelBounds.width) / 2));
+      else labelX = field.x + lead + Math.max(0, Math.trunc((valueW - labelBounds.width) / 2));
     }
 
     // Cálculo de posición de unidad (%) perfectamente centrada con la barra

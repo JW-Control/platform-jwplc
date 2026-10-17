@@ -61,16 +61,18 @@
   }
 
   function boolStateColorsOn(field) {
-    return Boolean(field.stateColors) && Number(field.falseColor) !== Number(field.trueColor);
+    return Boolean(field.stateColors);
   }
 
-  // Color por estado: requiere JWPLC_Display con JWPLC_UI_HAS_BOOL_STATE_COLORS;
-  // con un package anterior compila con un solo color (colors.value).
+  // Colores por estado (texto y fondo de la región del valor): requieren
+  // JWPLC_Display con JWPLC_UI_HAS_BOOL_STATE_BACKGROUNDS; con un package
+  // anterior el header compila con un solo color (colors.value).
   function boolTextBlock(field) {
     const texts = `"${cppString(field.falseText)}",\n            "${cppString(field.trueText)}"`;
     if (!boolStateColorsOn(field)) return `        JWPLC_UIBoolText(\n            ${texts}),\n`;
-    return `#ifdef JWPLC_UI_HAS_BOOL_STATE_COLORS\n` +
-      `        JWPLC_UIBoolText(\n            ${texts},\n            ${hex565(field.falseColor)},\n            ${hex565(field.trueColor)}),\n` +
+    const bg = (v) => hex565(Number.isFinite(Number(v)) ? v : field.backgroundColor);
+    return `#ifdef JWPLC_UI_HAS_BOOL_STATE_BACKGROUNDS\n` +
+      `        JWPLC_UIBoolText(\n            ${texts},\n            ${hex565(field.falseColor)},\n            ${hex565(field.trueColor)},\n            ${bg(field.falseBackground)},\n            ${bg(field.trueBackground)}),\n` +
       `#else\n` +
       `        JWPLC_UIBoolText(\n            ${texts}),\n` +
       `#endif\n`;

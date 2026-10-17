@@ -1,3 +1,41 @@
+// Selector de color nativo: Chromium emite 'input' en cada movimiento del
+// ratón y cada uno re-renderiza el editor completo (codegen, Live, PixelMaps).
+// En una PC lenta eso satura el hilo principal y el selector se traba. Se deja
+// pasar el primer evento y luego como máximo uno cada 40 ms; el último valor
+// siempre llega y 'change' (cerrar la paleta) no se toca. Aplica a todos los
+// inspectores (campos, BAR, MENU, figuras, RAW_TEXT).
+(() => {
+  const INTERVAL_MS = 40;
+  const pending = new Map();
+  const last = new WeakMap();
+  document.addEventListener('input', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement) || target.type !== 'color' || event.jwplcThrottled) return;
+    const now = performance.now();
+    const elapsed = now - (last.get(target) || 0);
+    if (!pending.has(target) && elapsed >= INTERVAL_MS) {
+      last.set(target, now);
+      return;
+    }
+    event.stopImmediatePropagation();
+    if (pending.has(target)) return;
+    pending.set(target, setTimeout(() => {
+      pending.delete(target);
+      last.set(target, performance.now());
+      const replay = new Event('input', { bubbles: true });
+      replay.jwplcThrottled = true;
+      target.dispatchEvent(replay);
+    }, Math.max(0, INTERVAL_MS - elapsed)));
+  }, true);
+  document.addEventListener('change', (event) => {
+    const timer = pending.get(event.target);
+    if (timer) {
+      clearTimeout(timer);
+      pending.delete(event.target);
+    }
+  }, true);
+})();
+
 (() => {
   'use strict';
 
@@ -1567,13 +1605,21 @@
     return { width: text.length * 6 * scale - scale, height: 7 * scale };
   }
 
-  // BOOL con color por estado: igual que JWPLC_UI.cpp (falseColor != trueColor).
+  // BOOL con colores por estado (texto y fondo de la región del valor), igual
+  // que JWPLC_UI.cpp con JWPLC_UIBoolText de 6 argumentos.
   function fieldValueColor565(field) {
-    if (field.type === 'BOOL' && field.stateColors &&
-        Number(field.falseColor) !== Number(field.trueColor)) {
+    if (field.type === 'BOOL' && field.stateColors) {
       return field.boolValue ? Number(field.trueColor) : Number(field.falseColor);
     }
     return field.valueColor;
+  }
+
+  function fieldValueBackground565(field) {
+    if (field.type === 'BOOL' && field.stateColors) {
+      const bg = field.boolValue ? field.trueBackground : field.falseBackground;
+      return Number.isFinite(Number(bg)) ? Number(bg) : Number(field.backgroundColor) || 0;
+    }
+    return null;
   }
 
   function effectiveFieldPadding(field) {
@@ -1781,6 +1827,10 @@
         unitBounds: { width: 0, height: 0 }
       };
     }
+    // Igual que JWPLC_UI.cpp: margen superior/izquierdo fijo (lead) y el extra
+    // de escalas grandes sólo a la derecha/abajo (pad), para que etiqueta y
+    // valor no se muevan al pasar a 4×.
+    const lead = FIELD_PADDING;
     const pad = effectiveFieldPadding(field);
     const labelBounds = nominalTextBounds(field.label, field.labelSize);
     const unitBounds = nominalTextBounds(field.unit, field.labelSize);
@@ -1792,15 +1842,15 @@
 
     if (field.layout === 'STACKED') {
       const valueAndUnitW = valueBounds.width + (unitBounds.width > 0 ? FIELD_GAP + unitBounds.width : 0);
-      fieldW = 2 * pad + Math.max(labelBounds.width, valueAndUnitW);
-      fieldH = 2 * pad + labelBounds.height + (labelBounds.height > 0 ? FIELD_GAP : 0) + Math.max(valueBounds.height, unitBounds.height);
-      valueX = field.x + pad;
-      valueY = field.y + pad + labelBounds.height + (labelBounds.height > 0 ? FIELD_GAP : 0);
+      fieldW = lead + pad + Math.max(labelBounds.width, valueAndUnitW);
+      fieldH = lead + pad + labelBounds.height + (labelBounds.height > 0 ? FIELD_GAP : 0) + Math.max(valueBounds.height, unitBounds.height);
+      valueX = field.x + lead;
+      valueY = field.y + lead + labelBounds.height + (labelBounds.height > 0 ? FIELD_GAP : 0);
     } else {
-      fieldW = 2 * pad + labelBounds.width + (labelBounds.width > 0 ? FIELD_GAP : 0) + valueBounds.width + (unitBounds.width > 0 ? FIELD_GAP + unitBounds.width : 0);
-      fieldH = 2 * pad + Math.max(labelBounds.height, valueBounds.height, unitBounds.height);
-      valueX = field.x + pad + labelBounds.width + (labelBounds.width > 0 ? FIELD_GAP : 0);
-      valueY = field.y + pad;
+      fieldW = lead + pad + labelBounds.width + (labelBounds.width > 0 ? FIELD_GAP : 0) + valueBounds.width + (unitBounds.width > 0 ? FIELD_GAP + unitBounds.width : 0);
+      fieldH = lead + pad + Math.max(labelBounds.height, valueBounds.height, unitBounds.height);
+      valueX = field.x + lead + labelBounds.width + (labelBounds.width > 0 ? FIELD_GAP : 0);
+      valueY = field.y + lead;
     }
 
     return {
@@ -1839,16 +1889,31 @@
     }
     const textBg = isTrans ? null : field.backgroundColor;
     if (field.label) {
-      drawClassicTextAt(buffer, field.label, field.x + g.pad, field.y + g.pad, field.labelColor, textBg, field.labelSize);
+      drawClassicTextAt(buffer, field.label, field.x + FIELD_PADDING, field.y + FIELD_PADDING, field.labelColor, textBg, field.labelSize);
     }
     if (field.unit) {
       drawClassicTextAt(buffer, field.unit, g.valueX + g.valueW + FIELD_GAP, g.valueY, field.labelColor, textBg, field.labelSize);
     }
+    // Región del valor con el fondo del estado (firmware: fillRect de valueW ×
+    // valueH + una escala, acotado al campo).
+    const valueBg = fieldValueBackground565(field);
+    if (valueBg !== null) {
+      const clearH = Math.min(g.valueH + (field.valueSize || 1), g.fieldY + g.fieldH - g.valueY);
+      fillBufferRect(buffer, g.valueX, g.valueY, g.valueW, clearH, valueBg);
+    }
     const preview = previewTextForField(field);
     if (preview) {
-      drawClassicTextAt(buffer, preview, alignedValueX(field, g), g.valueY, fieldValueColor565(field), textBg, field.valueSize);
+      drawClassicTextAt(buffer, preview, alignedValueX(field, g), g.valueY, fieldValueColor565(field), valueBg ?? textBg, field.valueSize);
     }
     return g;
+  }
+
+  // Vista aislada de un campo (mini-modelos de Apariencia): framebuffer propio,
+  // sin tocar el lienzo ni el orden de capas.
+  function renderFieldPreview(field) {
+    const buffer = new Uint16Array(WIDTH * HEIGHT);
+    const g = (['TEXT', 'VALUE', 'BOOL'].includes(field.type)) ? drawField(buffer, field) : null;
+    return { buffer, g, width: WIDTH, height: HEIGHT };
   }
 
   let barLayerCanvas = null;
@@ -1965,7 +2030,8 @@
   function drawGrid() {
     if (!gridToggle.checked) return;
     const gridSize = Number(gridSizeSelect.value) || 8;
-    if (gridSize * zoom < 4) return;
+    // Grilla de 1 px desde zoom 3 (una línea cada 3 px de pantalla).
+    if (gridSize * zoom < 3) return;
     const gridStyle = gridStyleSelect ? gridStyleSelect.value : 'lines';
 
     displayCtx.save();
@@ -2128,8 +2194,20 @@
     );
     pFields.forEach((f) => { if (f !== item) ensureLayerOrder(f); });
     pMaps.forEach((m) => { if (m !== item) ensureLayerOrder(m); });
-    layerSeq += 1;
-    item.layerOrder = layerSeq;
+    // layerOrder menor = más al frente: lo nuevo queda por encima de todo lo
+    // que ya había en la página (NAV_BAR es global y queda fuera de la cuenta).
+    const others = [...pFields, ...pMaps].filter((o) => o !== item && o.type !== 'NAV_BAR');
+    const front = others.reduce((min, o) => Math.min(min, Number(o.layerOrder)), Infinity);
+    if (!Number.isFinite(front)) {
+      layerSeq += 1;
+      item.layerOrder = layerSeq;
+    } else if (front > 1) {
+      item.layerOrder = front - 1;
+    } else {
+      others.forEach((o) => { o.layerOrder = Number(o.layerOrder) + 1; });
+      layerSeq += 1;
+      item.layerOrder = 1;
+    }
     return item.layerOrder;
   }
 
@@ -6238,6 +6316,7 @@
     ensureLayerOrder,
     assignNewLayerOrder,
     reorderPageObjects: reorderPageFields,
+    renderFieldPreview,
     sortObjectListDOM,
     getFieldBounds: (f) => getFieldBounds(f),
     getShapeVertices: (f) => getShapeTransformedVertices(f),

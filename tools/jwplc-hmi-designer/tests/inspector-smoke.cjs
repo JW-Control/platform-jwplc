@@ -69,6 +69,12 @@ async function main() {
   const fieldOf = (type) => page.evaluate((t) => JSON.parse(JSON.stringify(window.JWPLCHMIEditor.getAllFields().find((f) => f.type === t))), type);
   const sub = async (name) => { await page.click(`${W}[data-insp-main="design"]`); await page.click(`${W}[data-insp-sub="${name}"]`); };
   const fill = async (selector, text) => { await page.fill(W + selector, text); await page.press(W + selector, 'Tab'); };
+  // Elige el cuadro de color (click sin gesto real: no abre el selector nativo)
+  // y aplica un color de la paleta rápida.
+  const pickColor = async (key, value) => {
+    await page.$eval(`${W}[data-field-swatch="${key}"]`, (el) => el.click());
+    await page.click(`${W}[data-field-palette="${value}"]`);
+  };
   const shot = async (name) => {
     const panel = await page.$('#textFieldControlsSection');
     if (panel) await panel.screenshot({ path: path.join(OUT, `${name}.png`) });
@@ -105,8 +111,9 @@ async function main() {
     await fill('[data-proxy="fieldUnit"]', 'bar');
     await shot('value_contenido');
     await sub('appearance');
-    await page.click(`${W}[data-color-key="value"][data-color="${0xF800}"]`);
-    await page.click(`${W}[data-color-key="frame"][data-color="${0xFFE0}"]`);
+    await pickColor('value', 0xF800);
+    await pickColor('frame', 0xFFE0);
+    check(await page.$eval(`${W}[data-field-case="single"]`, (c) => c.width > 0 && c.height > 0), 'Apariencia: mini-modelo del campo');
     await shot('value_apariencia');
     await page.click(`${W}[data-insp-main="data"]`);
     await fill('[data-only="VALUE"] [data-proxy="fieldPreview"]', '-12.34');
@@ -150,10 +157,14 @@ async function main() {
     check(bo.falseText === 'PARADO' && bo.trueText === 'MARCHA', 'preset de textos');
     await sub('appearance');
     await page.click(`${W}[data-bool-colormode="state"]`);
-    await page.click(`${W}[data-color-key="false"][data-color="${0xF800}"]`);
-    await page.click(`${W}[data-color-key="true"][data-color="${0x07E0}"]`);
+    check(await page.$$eval(`${W}[data-field-case]`, (els) => els.map((c) => c.dataset.fieldCase).join(',')) === 'false,true', 'BOOL por estado: mini-modelos FALSE y TRUE');
+    await pickColor('false', 0xF800);
+    await pickColor('true', 0x07E0);
+    await pickColor('falseBg', 0x0000);
+    await pickColor('trueBg', 0x001F);
     const boc = await selected();
-    check(boc.stateColors === true && boc.falseColor === 0xF800 && boc.trueColor === 0x07E0, 'BOOL: color por estado');
+    check(boc.stateColors === true && boc.falseColor === 0xF800 && boc.trueColor === 0x07E0, 'BOOL: color de texto por estado');
+    check(boc.falseBackground === 0x0000 && boc.trueBackground === 0x001F, 'BOOL: color de fondo por estado');
     // Color en vivo: un evento 'input' del selector nativo cambia el modelo sin cerrar la paleta.
     const live = await page.evaluate(() => {
       const input = document.querySelector('#fieldInspectorV2 [data-color-native="label"]');
@@ -182,7 +193,7 @@ async function main() {
     check(/JWPLC_UI_LAYOUT_STACKED/.test(h) && /JWPLC_UI_ALIGN_CENTER/.test(h), 'layout y alineación emitidos');
     check(/JWPLC_UIValueFormat\(\s*4,\s*2,\s*true/.test(h), 'formato numérico emitido');
     check(/0xF800/.test(h) && /"PARADO",\s*"MARCHA"/.test(h), 'color y textos BOOL emitidos');
-    check(/#ifdef JWPLC_UI_HAS_BOOL_STATE_COLORS\n\s*JWPLC_UIBoolText\(\s*"PARADO",\s*"MARCHA",\s*0xF800,\s*0x07E0\)/.test(h), 'BOOL: colores por estado con respaldo para packages anteriores');
+    check(/#ifdef JWPLC_UI_HAS_BOOL_STATE_BACKGROUNDS\n\s*JWPLC_UIBoolText\(\s*"PARADO",\s*"MARCHA",\s*0xF800,\s*0x07E0,\s*0x0000,\s*0x001F\)/.test(h), 'BOOL: texto y fondo por estado con respaldo para packages anteriores');
 
     console.log('PROYECTO VIEJO');
     const bg = await page.evaluate(async () => {
@@ -200,6 +211,28 @@ async function main() {
     check(bg === 0, 'fondo TRANSPARENT de un campo se normaliza a 0x0000');
     const h2 = await header();
     check(!/0xTRANSPARENT|TRANSPARENT\)/.test(h2), 'el header no contiene TRANSPARENT como color');
+
+    console.log('ANCLAJE 1×..4×');
+    const anchor = await page.evaluate(() => {
+      const E = window.JWPLCHMIEditor;
+      E.addValueField();
+      const f = E.getSelectedField();
+      const out = [];
+      for (const labelSize of [1, 2, 3, 4]) {
+        for (const valueSize of [1, 2, 3, 4]) {
+          for (const layout of ['INLINE', 'STACKED']) {
+            Object.assign(f, { labelSize, valueSize, layout, x: 40, y: 30 });
+            const g = E.computeSelectedGeometry();
+            const labelH = 7 * labelSize;
+            const expectedY = layout === 'INLINE' ? 33 : 33 + labelH + 4;
+            if (g.valueY !== expectedY) out.push(`${layout} L${labelSize} V${valueSize}: valueY=${g.valueY} (esperado ${expectedY})`);
+          }
+        }
+      }
+      E.deleteSelectedField();
+      return out;
+    });
+    check(anchor.length === 0, `etiqueta y valor no se desplazan entre 1× y 4×${anchor.length ? `: ${anchor.slice(0, 3).join(' | ')}` : ''}`);
 
     console.log('BAR');
     const barState = await page.evaluate(async () => {
@@ -242,23 +275,24 @@ async function main() {
       const PAD = 3; const GAP = 4; const BAR_H = 12;
       const bounds = (text, size) => (text ? { w: text.length * 6 * size - size, h: 7 * size } : { w: 0, h: 0 });
       const firmware = (f) => {
-        const pad = Math.max(PAD, f.labelSize);
+        const lead = PAD; // margen superior/izquierdo fijo
+        const pad = Math.max(PAD, f.labelSize); // derecha/abajo
         const label = bounds(f.showLabel ? f.barLabel : '', f.labelSize);
         const unit = bounds(f.barUnit, f.labelSize);
-        let valueW = f.barWidth - 2 * pad;
+        let valueW = f.barWidth - (lead + pad);
         if (f.layout === 'INLINE' && label.w > 0) valueW -= label.w + GAP;
         if (unit.w > 0) valueW -= unit.w + GAP;
         valueW = Math.max(1, valueW);
         const valueH = BAR_H;
         let fieldH; let valueX; let valueY;
         if (f.layout === 'STACKED') {
-          fieldH = 2 * pad + label.h + (label.h > 0 ? GAP : 0) + Math.max(valueH, unit.h);
-          valueX = f.x + pad;
-          valueY = f.y + pad + label.h + (label.h > 0 ? GAP : 0);
+          fieldH = (lead + pad) + label.h + (label.h > 0 ? GAP : 0) + Math.max(valueH, unit.h);
+          valueX = f.x + lead;
+          valueY = f.y + lead + label.h + (label.h > 0 ? GAP : 0);
         } else {
-          fieldH = 2 * pad + Math.max(label.h, valueH, unit.h);
-          valueX = f.x + pad + label.w + (label.w > 0 ? GAP : 0);
-          valueY = f.y + pad;
+          fieldH = (lead + pad) + Math.max(label.h, valueH, unit.h);
+          valueX = f.x + lead + label.w + (label.w > 0 ? GAP : 0);
+          valueY = f.y + lead;
         }
         return { fieldW: f.barWidth, fieldH, valueX, valueY, valueW, valueH, unitX: valueX + valueW + GAP, unitY: valueY };
       };
@@ -269,7 +303,7 @@ async function main() {
       for (const layout of ['INLINE', 'STACKED']) {
         for (const showLabel of [true, false]) {
           for (const barUnit of ['%', '']) {
-            for (const labelSize of [1, 2]) {
+            for (const labelSize of [1, 2, 4]) {
               Object.assign(field, { layout, showLabel, barLabel: 'Nivel', barUnit, labelSize, barWidth: 140, x: 10, y: 20 });
               const g = window.JWPLCHMIBar.computeGeometry(field);
               const fw = firmware(field);
@@ -278,7 +312,7 @@ async function main() {
                 if (g[key] !== fw[key]) mismatches.push(`${layout}/${showLabel}/${barUnit || '-'}/${labelSize}: ${key} lienzo=${g[key]} tft=${fw[key]}`);
               }
               if (barUnit && (g.unitX !== fw.unitX || g.unitY !== fw.unitY)) mismatches.push(`${layout}/${labelSize}: unidad lienzo=${g.unitX},${g.unitY} tft=${fw.unitX},${fw.unitY}`);
-              if (showLabel && (g.labelX !== field.x + g.pad || g.labelY !== field.y + g.pad)) mismatches.push(`${layout}/${labelSize}: etiqueta lienzo=${g.labelX},${g.labelY}`);
+              if (showLabel && (g.labelX !== field.x + PAD || g.labelY !== field.y + PAD)) mismatches.push(`${layout}/${labelSize}: etiqueta lienzo=${g.labelX},${g.labelY}`);
             }
           }
         }

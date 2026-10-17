@@ -19,13 +19,18 @@ powershell -ExecutionPolicy Bypass -File tools\jwplc-hmi-designer\Start-JWPLC-HM
 
 Abre Edge/Chrome en modo app sobre `http://127.0.0.1:8765/desktop.html`. Si ves la versión
 anterior, recarga con `Ctrl+F5`: los scripts cambiaron de `?v=` y la caché del service worker
-pasó a `a15-codegen-core-v10`.
+pasó a `a15-appearance-v12`.
 
 Qué revisar:
 
 | Qué | Dónde | Esperado |
 |---|---|---|
 | Inspector TEXT / VALUE / BOOL | Crear cada tipo desde la barra | Pestañas Diseño (Forma/Contenido/Apariencia/Ubicación), Datos, Técnico; tarjetas y chips, sin selects; valor de prueba sólo en Datos |
+| Apariencia TEXT/VALUE/BOOL | Diseño → Apariencia | Mini-modelo con los colores al lado; BOOL "Por estado" muestra Caso FALSE y Caso TRUE con texto y fondo |
+| Anclaje 4× | TEXT: pasar etiqueta y valor de 1× a 4× | La esquina superior izquierda de etiqueta y valor no se mueve |
+| Selector de color | Arrastrar rápido dentro del selector | El lienzo sigue en vivo sin trabarse |
+| Objetos nuevos | Agregar dos figuras superpuestas | La última queda encima |
+| Grilla | Paso de grilla | Opciones 1 px y 2 px |
 | BAR | Crear una barra | Vertical, estilos, redondeo, borde, degradado, circular y "% de carga" deshabilitados ("Requiere firmware"); grosor fijo 12 px; la matriz sólo permite ↖ (apilado) y ← (en línea) |
 | MENU | Desplegable de variables → "Menú de configuración (MENU)" | Árbol de ejemplo en el lienzo; pestaña "Árbol y datos" para agregar/subir/bajar/eliminar ítems; "+ Submenú" se deshabilita en el nivel 3 |
 | Gate del MENU | Abrir `tools\jwplc-hmi-designer\gates\A15_8_Menu_Designer\A15_8_Menu_Designer.jwhmi` | Mismo menú que `gates\A15_8_Menu\menu_root.png` |
