@@ -1,5 +1,18 @@
 # Alpha13 — G10-R, estado vivo de preparación (16/10/2026)
 
+> **R3 — avance de fault injection (16/10/2026):** el sketch temporal agrega una única sonda explícita `G10R_R3_UDP:<token>`: task FreeRTOS con `BusScope(0)` acotado a **80 ms**, `EthernetUDP::stop()` real durante la contención y lectura del lease `SID/EPOCH/ALLOC/OWNER` antes de inyectar, para correlacionar `QueueRequest→DrainClose` del mismo socket. Esta subfase requiere una sesión de banco autorizada para demostrar el comportamiento físico; **todavía no se ejecutó en hardware**. `a13_g10_r_r3_probe_contract.py` integra 14 mutantes sintéticos, sin reemplazar los 7 mutantes C++ ni los 14 métodos DNS/DHCP/UDP ya validados en host. **La campaña H integral sigue bloqueada en `R3_PHYSICAL_INJECTION_READY=False`** porque faltan inyectores físicos DNS/DHCP/TCP y 1/2/4 clientes con pruebas de seguridad. **No usar `--live` ni flashear COM4/COM14.** [Plan PRE-H](A13_G10_R_CAMPANA_INTEGRADA_Y_TRANSFERENCIA_ALPHA15_20261016.md).
+
+```text
+G10-R-R3-UDP=SOURCE_ONLY_LOCK80_PARTIAL_NOT_PHYSICALLY_RUN
+G10-R-R3-UDP-LEASE=EXACT_PROVENANCE_SID_EPOCH_ALLOC_OWNER
+G10-R-R3-UDP-REPLAY=14_NEGATIVES_SYNTHETIC
+G10-R-R3-DNS_DHCP_TCP=PHYSICAL_INJECTION_NOT_IMPLEMENTED
+G10-R-H=FAIL_CLOSED
+A13-006=ADOPTION_BLOCKED
+ALPHA15_PRODUCT_TRANSFER=NOT_AUTHORIZED
+```
+
+
 > **Actualización PRE-H integrada (16/10/2026):** al preparar una única campaña física R1→R2→R3→R4 se detectó que el runner anterior ejecutaba solo R1/R2/R4. `a13_g10_r_field_runner.py --live` queda **bloqueado intencionalmente** antes de abrir COM, con `G10R_PHYSICAL_BLOCKED_R3_PHASE_MISSING_IN_INTEGRATED_CAMPAIGN`. Su `--selftest` conserva este requisito. La batería nativa del job R3 integra ahora **14 métodos fuente reales** DNS/DHCP/UDP (finish, cancel, timeout, renew/rebind y multicast) con el SafeAccess y trazador del **mismo overlay temporal de 14 fuentes**. En la CI del commit `e9aca4df` el job nativo informó **12 marcadores positivos** y **3 mutaciones negativas rechazadas**; el job previo de SafeAccess sigue cubriendo 7 mutaciones. La compilación completa Windows/Ubuntu del **HEAD vigente** requiere conclusión explícita antes de marcar cierre N0–N2. Documentado en [PRE-H integrado y transferencia Alpha15](A13_G10_R_CAMPANA_INTEGRADA_Y_TRANSFERENCIA_ALPHA15_20261016.md). Ninguna modificación productiva ni transferencia a la rama Alpha15 autorizada.
 
 ```text
