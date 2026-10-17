@@ -401,7 +401,7 @@ static void serviceRTU(uint32_t now) {
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("G10R_PROTOCOL:R1R2R4_R3SNAPSHOT_V1");
+  Serial.println("G10R_PROTOCOL:R1R2R3R4_FAULT_LAB_V2");
   bootNonce=esp_random();
   Serial.print("G10R_BOOT:NONCE=");Serial.println(bootNonce,HEX);
   // El autoload normal inicia Ethernet y el resto de perifericos.
@@ -432,7 +432,7 @@ void loop() {
       Serial.print(" RTU=");Serial.print(rtuReady?1:0);
       Serial.print(" BOOT=");Serial.print(bootNonce,HEX);
       Serial.print(" LINK=");Serial.print((int)JWPLC_Ethernet.linkStatus());
-      Serial.println(" VER=R1R2R4_R3SNAPSHOT_V1");
+      Serial.println(" VER=R1R2R3R4_FAULT_LAB_V2");
     }
     return;
   }
