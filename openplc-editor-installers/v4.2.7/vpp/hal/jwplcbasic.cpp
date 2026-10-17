@@ -10,6 +10,38 @@ extern "C"
 #include "vpp_config.h"
 #include <JWPLC_ModbusRTU.h>
 
+// HMI de la pantalla integrada (Alpha14 v1, gate A15 F0).
+// OpenPLC Editor escribe jwplc_hmi.h junto a este archivo en cada compilación
+// (capacidad hmiDisplay del manifest):
+//   - JWPLC_HMI_ENABLED 0 si el proyecto no tiene hmi/JWPLC_HMI_Generated.h;
+//   - JWPLC_HMI_ENABLED 1 con el header del HMI Designer y
+//     jwplcHMIBindingsSnapshot() (copia PLC -> HMI de hmi/bindings.json).
+// Un editor sin soporte HMI no escribe jwplc_hmi.h: la placa queda sólo con la
+// IDLE, como antes. El HAL nunca dibuja en la TFT: sólo setters de JWPLC_Display.
+#if __has_include("jwplc_hmi.h")
+#include "jwplc_hmi.h"
+#endif
+#ifndef JWPLC_HMI_ENABLED
+#define JWPLC_HMI_ENABLED 0
+#endif
+
+#if JWPLC_HMI_ENABLED
+static void jwplcHMIBegin()
+{
+    jwplcHMISetup();
+    // Arranca en la IDLE; cualquier tecla entra a la HMI y ESC vuelve
+    // (por defecto la IDLE no despierta con teclas).
+    JWPLC_Display.setIdleWakeMode(JWPLC_DisplayClass::IDLE_WAKE_ANY_BUTTON);
+}
+
+static void jwplcHMIUpdate()
+{
+    jwplcHMIBindingsSnapshot();
+    // Sólo setters: el Display redibuja un campo únicamente si cambió.
+    jwplcUIUpdate();
+}
+#endif
+
 // El Master usa motor(ASYNC) y la API unificada read...()/write...(), que
 // llegan con el package Alpha12 (jwplc_modbus_motor.h).
 #ifndef JWPLC_MODBUS_MOTOR_H
@@ -1132,6 +1164,9 @@ void hardwareService()
 
 void hardwareInit()
 {
+#if JWPLC_HMI_ENABLED
+    jwplcHMIBegin();
+#endif
     jwplcTimingInit();
     // JWPLC Basic v2.x:
     // La inicializacion de E/S industriales ya la realiza el core jwcontrol
@@ -1301,6 +1336,11 @@ void updateOutputBuffers()
             digitalWrite(pin, *bool_output[i / 8][i % 8]);
         }
     }
+
+#if JWPLC_HMI_ENABLED
+    // Después de escribir las salidas: el HMI ve lo mismo que sale al relé.
+    jwplcHMIUpdate();
+#endif
 
     jwplcPublishForcedInputs();
 
