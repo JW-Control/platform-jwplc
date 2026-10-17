@@ -1,5 +1,19 @@
 # Alpha13 — G10-R, estado vivo de preparación (16/10/2026)
 
+> **Actualización PRE-H integrada (16/10/2026):** al preparar una única campaña física R1→R2→R3→R4 se detectó que el runner anterior ejecutaba solo R1/R2/R4. `a13_g10_r_field_runner.py --live` queda **bloqueado intencionalmente** antes de abrir COM, con `G10R_PHYSICAL_BLOCKED_R3_PHASE_MISSING_IN_INTEGRATED_CAMPAIGN`. Su `--selftest` conserva este requisito. La batería nativa del job R3 integra ahora **14 métodos fuente reales** DNS/DHCP/UDP (finish, cancel, timeout, renew/rebind y multicast) con el SafeAccess y trazador del **mismo overlay temporal de 14 fuentes**. En la CI del commit `e9aca4df` el job nativo informó **12 marcadores positivos** y **3 mutaciones negativas rechazadas**; el job previo de SafeAccess sigue cubriendo 7 mutaciones. La compilación completa Windows/Ubuntu del **HEAD vigente** requiere conclusión explícita antes de marcar cierre N0–N2. Documentado en [PRE-H integrado y transferencia Alpha15](A13_G10_R_CAMPANA_INTEGRADA_Y_TRANSFERENCIA_ALPHA15_20261016.md). Ninguna modificación productiva ni transferencia a la rama Alpha15 autorizada.
+
+```text
+G10-R-PREH=INTEGRATED_NONPHYSICAL_IMPLEMENTED_CI_HEAD_PENDING
+G10-R-R3-NATIVE=14_REAL_DNS_DHCP_UDP_METHODS_WITH_R3_TRACE
+G10-R-R3-NEGATIVES=3_PROTOCOL_AND_7_SAFEACCESS_SOURCE_BACKED
+G10-R-H=FAIL_CLOSED_R3_INJECTION_PHASE_NOT_IMPLEMENTED
+G10-R-R1_R2_R3_R4-PHYSICAL=NOT_RUN
+G10-R-ALPHA15=READ_ONLY_COMPATIBILITY_ALLOWED_NO_PRODUCT_MERGE
+A13-006=ADOPTION_BLOCKED
+NEXT_GATE=R3_DETERMINISTIC_PHYSICAL_FAULT_INJECTION_AND_INTEGRATED_H_PREP
+```
+
+
 > **Actualización R3 / historial (16-oct-2026):** el overlay de laboratorio incorpora un anillo fijo de **64 eventos**, con `try-lock` no bloqueante, secuencia, propietario, epoch, allocation y detección de `dropped/overrun`. Sin usar GPIO4 ni escribir SD/FRAM/Q, `G10R_EVENTS:<token>:AFTER=<seq>` exporta eventos al runner, que conserva `r3_lifecycle_trace` y el resultado del auditor semántico. El [job nativo R3 de CI #38995714214](https://github.com/JW-Control/platform-jwplc/actions/runs/38995714214) verifica **7 mutantes de C++ real** rechazados y `TRACE_OVERRUN=PASS_REVIEW_DETECTED`; el contrato UART host rechaza **7 negativos** y el auditor de propietario/epoch **10 negativos** (exclusivamente sintéticos). **La compilación COM4/COM14 Windows+Ubuntu debe terminar en el HEAD exacto antes del PASS global.** Faltan fault injection físico DNS/DHCP/UDP y endurance. `A13-006=ADOPTION_BLOCKED`; ninguno de los firmwares de G10-R se ha subido.
 
 ```text
