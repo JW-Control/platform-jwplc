@@ -25,10 +25,15 @@ def evaluate(data):
         return {"status":"REVIEW_STOP","issues":["NO_HEARTBEATS"]}
     boots={e.get("boot") for e in hbs}
     if len(boots)!=1:issues.append("BOOT_CHANGED")
-    for phase in {e.get("phase") for e in hbs}:
-        group=sorted((e for e in hbs if e.get("phase")==phase),
-                     key=lambda e:e.get("t",-1))
-        if len(group)<3:issues.append("INSUFFICIENT_"+str(phase))
+    # R3 inicia varios tokens; los contadores de periféricos reinician por token.
+    sessions={(e.get("phase"),e.get("token")) for e in hbs}
+    if any(not isinstance(token,str) or len(token)!=24 for _,token in sessions):
+        issues.append("MISSING_SESSION_TOKEN")
+    for phase,token in sessions:
+        group=sorted((e for e in hbs if e.get("phase")==phase
+                      and e.get("token")==token),key=lambda e:e.get("t",-1))
+        minimum=2 if phase=="R3" else 3
+        if len(group)<minimum:issues.append("INSUFFICIENT_"+str(phase))
         previous=None
         for e in group:
             required=DHCP+COUNTERS+TFT+("io_ready","io_age_ms","rtc_age_ms",
@@ -51,12 +56,12 @@ def evaluate(data):
                 if any(e[k]<previous[k] for k in COUNTERS):
                     issues.append("PHASE_COUNTER_REGRESSION")
             previous=e
-        if len(group)>2 and all(
+        if len(group)>=2 and all(
             isinstance(e.get("fram"),int) and isinstance(e.get("sd_ok"),int)
             for e in group):
             if group[-1]["fram"]<=group[0]["fram"] or group[-1]["sd_ok"]<=group[0]["sd_ok"]:
                 issues.append("SD_OR_FRAM_NO_PROGRESS")
-        if len(group)>2 and all(type(e.get("tft_draw")) is int for e in group):
+        if len(group)>=2 and all(type(e.get("tft_draw")) is int for e in group):
             if group[-1]["tft_draw"]<=group[0]["tft_draw"]:
                 issues.append("TFT_REFRESH_NO_PROGRESS")
     ordered=sorted(hbs,key=lambda e:e.get("t",-1))
@@ -91,7 +96,7 @@ def fixture():
     events=[]
     for phase_index,phase in enumerate(("R1","R2","R4")):
         for idx in range(4):
-            e={"kind":"heartbeat","phase":phase,"t":phase_index*20+idx+1,
+            e={"kind":"heartbeat","phase":phase,"token":str(phase_index+1)*24,"t":phase_index*20+idx+1,
                "boot":"abcdef12","ip":"192.168.1.50","link":1,"eth":1,"tcp":1,
                "dhcp_state":5,"dhcp_err":0,"io_ready":1,"io_age_ms":60,
                "rtc_age_ms":300,"tft_ready":1,"rtc":1,
