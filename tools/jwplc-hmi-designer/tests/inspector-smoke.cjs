@@ -205,6 +205,39 @@ async function main() {
     await page.evaluate(() => { const E = window.JWPLCHMIEditor; const f = E.getAllFields().find((x) => x.valueKind === 'DATETIME'); E.setSelectedFieldKeys([f.key]); E.render(); });
     await page.waitForTimeout(200);
 
+    console.log('CAPAS (lo nuevo al frente en el lienzo)');
+    const layering = await page.evaluate(async () => {
+      const E = window.JWPLCHMIEditor;
+      E.setSelectedFieldKeys([]);
+      E.addTextField();
+      const text = E.getSelectedField();
+      text.x = 200; text.y = 120;
+      E.setSelectedFieldKeys([]);
+      window.JWPLCHMIBool.addBoolField();
+      const b = E.getSelectedField();
+      Object.assign(b, { x: 200, y: 120, stateColors: true, boolValue: true, trueBackground: 0x001F, falseBackground: 0x001F, trueColor: 0xFFFF, falseColor: 0xFFFF });
+      E.render();
+      await new Promise((r) => setTimeout(r, 100));
+      const order = { text: text.layerOrder, bool: b.layerOrder };
+      const keys = [text.key, b.key];
+      return { order, keys };
+    });
+    check(layering.order.bool < layering.order.text, `el BOOL nuevo tiene layerOrder menor (al frente) (${JSON.stringify(layering.order)})`);
+    const pixelAt = (x, y) => page.evaluate(([px, py]) => {
+      const c = document.getElementById('displayCanvas');
+      const z = c.width / 320;
+      const d = c.getContext('2d').getImageData(Math.floor((px + 0.5) * z), Math.floor((py + 0.5) * z), 1, 1).data;
+      return [d[0], d[1], d[2]];
+    }, [x, y]);
+    const p = await pixelAt(201, 121);
+    check(p[2] > 200 && p[0] < 40 && p[1] < 40, `el BOOL nuevo se dibuja encima del TEXT anterior (pixel ${p.join(',')} = azul del fondo TRUE)`);
+    await page.evaluate((keys) => {
+      const E = window.JWPLCHMIEditor;
+      keys.forEach((k) => { E.setSelectedFieldKeys([k]); E.deleteSelectedField(); });
+      E.setSelectedFieldKeys([]);
+      E.render();
+    }, layering.keys);
+
     console.log('TILDES (cp437)');
     const accents = await page.evaluate(() => {
       const E = window.JWPLCHMIEditor;
@@ -453,6 +486,36 @@ async function main() {
       await shot(`bar_${tab}`);
     }
     await page.click('#barInspectorWrap .bar-main-tab[data-main-tab="design"]');
+
+    console.log('BAR · APARIENCIA (mini-modelo + indicador A1)');
+    await page.click('#barInspectorWrap .bar-sub-tab[data-sub-tab="appearance"]');
+    await page.waitForTimeout(250);
+    const barApp = await page.evaluate(() => {
+      const card = document.getElementById('barAppMini');
+      const canvas = card.querySelector('[data-bar-case]');
+      return {
+        legacyHidden: document.getElementById('barAppLegacyCard').offsetParent === null,
+        canvas: canvas ? canvas.width > 0 && canvas.height > 0 : false,
+        rows: [...card.querySelectorAll('[data-bar-legend]')].map((r) => r.dataset.barLegend).join(','),
+        marker: card.querySelectorAll('svg.zone-indicator path.zone-marker').length,
+        active: card.querySelector('.menu-legend-row.is-active')?.dataset.barLegend
+      };
+    });
+    check(barApp.legacyHidden && barApp.canvas && barApp.rows === 'label,value,track' && barApp.marker === 1 && barApp.active === 'value',
+      `BAR Apariencia: mini-modelo, leyenda Etiqueta/Barra/Fondo y ▶ en la barra (${JSON.stringify(barApp)})`);
+    await page.$eval('#barAppMini [data-bar-swatch="track"]', (el) => el.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    await page.click('#barInspectorWrap .bar-sub-tab[data-sub-tab="appearance"]'); // cierra el selector nativo
+    await page.click('#barAppMini [data-bar-palette="63488"]');
+    await page.waitForTimeout(200);
+    const barAfter = await page.evaluate(() => {
+      const f = window.JWPLCHMIEditor.getSelectedField();
+      return { track: f.trackColor, bg: f.backgroundColor, active: document.querySelector('#barAppMini .menu-legend-row.is-active')?.dataset.barLegend };
+    });
+    check(barAfter.track === 0xF800 && barAfter.bg === 0xF800 && barAfter.active === 'track', `BAR: la paleta pinta fondo y pista (un solo color en firmware) (${JSON.stringify(barAfter)})`);
+    const barShot = await page.$('#barInspectorWrap');
+    if (barShot) await barShot.screenshot({ path: path.join(OUT, 'bar_apariencia_a1.png') });
+    await page.evaluate(() => window.JWPLCHMIEditor.undo());
+
     const barUi = await page.evaluate(() => {
       const wrap = document.getElementById('barInspectorWrap');
       const visible = (el) => el && el.offsetParent !== null;

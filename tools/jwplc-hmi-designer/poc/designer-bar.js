@@ -440,7 +440,10 @@
 
         <!-- SUBPANEL 1.3: APARIENCIA -->
         <div class="bar-subpanel" id="barSubpanelAppearance" data-subpanel="appearance" style="display:none;">
-          <div class="bar-card">
+          <!-- Alpha15: mini-modelo + leyenda + indicador A1, como TEXT/VALUE/BOOL -->
+          <div class="bar-card" id="barAppMini"></div>
+          <!-- Controles anteriores: quedan ocultos (BAR circular/degradado sin firmware) -->
+          <div class="bar-card" id="barAppLegacyCard" style="display:none;">
             <!-- Barra Lineal Colores -->
             <div id="barAppLinearFillWrap">
               <div id="barAppLinearSolidWrap" class="field-label full">
@@ -2185,6 +2188,7 @@
     if (barSubpanelShape) barSubpanelShape.style.display = (subTab === 'shape') ? 'block' : 'none';
     if (barSubpanelContent) barSubpanelContent.style.display = (subTab === 'content') ? 'block' : 'none';
     if (barSubpanelAppearance) barSubpanelAppearance.style.display = (subTab === 'appearance') ? 'block' : 'none';
+    if (subTab === 'appearance') requestAnimationFrame(() => syncBarMini(selectedField()));
     if (barSubpanelPlacement) barSubpanelPlacement.style.display = (subTab === 'placement') ? 'block' : 'none';
   }
 
@@ -3470,6 +3474,158 @@
     api.addBarField = createBarField;
   }
 
+  // --- Alpha15 · Apariencia de BAR: mini-modelo, leyenda e indicador A1 -----
+  // Mismo patrón que TEXT/VALUE/BOOL (designer-field-inspector.js). Colores de
+  // JWPLC_UIBarField: value = barra, background = fondo del campo y pista
+  // vacía (un solo color), label = etiqueta y unidad, frame = marco.
+  const BAR_PALETTE = [
+    [0x0000, 'Negro'], [0xFFFF, 'Blanco'], [0xF800, 'Rojo'], [0x07E0, 'Verde'],
+    [0x001F, 'Azul'], [0x07FF, 'Cian'], [0xFFE0, 'Amarillo'], [0xFD20, 'Naranja']
+  ];
+  const BAR_COLOR_PROP = { frame: 'frameColor', label: 'labelColor', value: 'valueColor', track: 'trackColor' };
+  const BAR_COLOR_DEFAULT = { frame: 0xFFFF, label: 0xFFFF, value: 0x07FF, track: 0x18C3 };
+  const BAR_LETTER = { frame: 'M', label: 'T', value: 'B', track: 'F' };
+  const BAR_NAME = { frame: 'Marco', label: 'Etiqueta y unidad', value: 'Barra', track: 'Fondo y pista' };
+  let barActiveKey = 'value';
+  const barMiniCard = document.getElementById('barAppMini');
+
+  const barColorOf = (field, key) => {
+    const raw = Number(field[BAR_COLOR_PROP[key]]);
+    return (Number.isFinite(raw) ? raw : BAR_COLOR_DEFAULT[key]) & 0xFFFF;
+  };
+  const barMiniRows = (field) => [...(field.frame ? ['frame'] : []), 'label', 'value', 'track'];
+
+  function buildBarMini(field) {
+    const rows = barMiniRows(field);
+    const signature = rows.join(',');
+    if (barMiniCard.dataset.signature === signature) return;
+    barMiniCard.dataset.signature = signature;
+    barMiniCard.innerHTML = `
+      <div class="menu-case">
+        <div class="bar-card-section-title">Vista</div>
+        <div class="menu-case-body field-case-body zone-host" data-bar-case-body>
+          <canvas class="menu-case-canvas field-case-canvas" data-bar-case></canvas>
+          <div class="menu-case-legend">${rows.map((k) => `
+            <div class="menu-legend-row" data-bar-legend="${k}"><span class="menu-legend-label">${BAR_NAME[k]}</span>` +
+              `<label class="menu-swatch" data-bar-swatch="${k}" title="${BAR_NAME[k]}"><input type="color" data-bar-color-native="${k}" /><span>${BAR_LETTER[k]}</span></label></div>`).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="menu-palette">
+        <div class="insp-note">Clic en un cuadro para editarlo: el contorno y el ▶ marcan lo que cambia en la vista, y la paleta rápida se aplica a <strong data-bar-active-name></strong>. En la TFT el fondo del campo y la pista vacía son un solo color.</div>
+        <div class="insp-swatch-row">${BAR_PALETTE.map(([v, name]) =>
+          `<button type="button" class="insp-swatch" data-bar-palette="${v}" title="${name} · ${hex565(v)}" style="background:${rgb565ToCss(v)}"></button>`).join('')}</div>
+      </div>`;
+  }
+
+  // Zonas en píxeles lógicos del mini-modelo (campo en 0,0).
+  function barMiniZones(preview, g) {
+    const w = Math.ceil(g.fieldW);
+    const h = Math.ceil(g.fieldH);
+    const inset = preview.frame ? 1 : 0;
+    const label = [];
+    if (g.hasLabel && g.labelBounds?.width > 0) label.push({ x: g.labelX, y: g.labelY, w: g.labelBounds.width, h: g.labelBounds.height });
+    const unitText = String(preview.barUnit ?? preview.unit ?? '');
+    if (unitText && g.unitBounds?.width > 0) {
+      const ux = g.unitX !== undefined ? g.unitX : g.valueX + g.valueW + FIELD_GAP;
+      const uy = g.unitY !== undefined ? g.unitY : g.valueY + Math.round((g.valueH - (g.unitBounds.height || 7)) / 2);
+      label.push({ x: ux, y: uy, w: g.unitBounds.width, h: g.unitBounds.height });
+    }
+    const fillW = Math.round(normalizedFor(preview) * g.valueW);
+    return {
+      frame: [{ x: 0, y: 0, w, h }],
+      label: label.length ? label : [{ x: g.valueX, y: g.valueY, w: g.valueW, h: g.valueH }],
+      value: [{ x: g.valueX, y: g.valueY, w: fillW > 0 ? fillW : g.valueW, h: g.valueH }],
+      track: [{ x: inset, y: inset, w: w - 2 * inset, h: h - 2 * inset, inset: true }]
+    };
+  }
+
+  function drawBarMini(field) {
+    const canvas = barMiniCard.querySelector('[data-bar-case]');
+    const body = canvas?.parentElement;
+    if (!canvas || !body) return;
+    const preview = { ...field, x: 0, y: 0 };
+    const g = barGeometry(preview);
+    const w = Math.max(1, Math.ceil(g.fieldW));
+    const h = Math.max(1, Math.ceil(g.fieldH));
+    const legend = body.querySelector('.menu-case-legend');
+    const gutter = (window.JWPLCZoneIndicator?.CHANNEL ?? 12) + 14;
+    const bodyW = body.clientWidth || 300;
+    const fit = (avail) => Math.max(0, Math.min(3, Math.floor(avail / w)));
+    const rightScale = fit(bodyW - legend.offsetWidth - gutter);
+    const belowScale = fit(bodyW - gutter);
+    const below = rightScale < 2 && belowScale > rightScale;
+    body.classList.toggle('is-below', below);
+    const scale = Math.max(1, below ? belowScale : rightScale);
+    canvas.width = w * scale;
+    canvas.height = h * scale;
+    canvas.dataset.logicalW = String(w);
+    canvas.dataset.logicalH = String(h);
+    canvas.style.width = `${Math.min(w * scale, bodyW - gutter)}px`;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    drawBarField(ctx, preview, scale); // el mismo pintor que el lienzo
+    const zones = barMiniZones(preview, g);
+    body.querySelectorAll('[data-bar-legend]').forEach((row) => row.classList.toggle('is-active', row.dataset.barLegend === barActiveKey));
+    requestAnimationFrame(() => window.JWPLCZoneIndicator?.draw(body, canvas, zones[barActiveKey] || []));
+  }
+
+  function syncBarMini(field) {
+    if (!barMiniCard || !isBar(field)) return;
+    if (!barMiniRows(field).includes(barActiveKey)) barActiveKey = 'value';
+    buildBarMini(field);
+    Object.keys(BAR_COLOR_PROP).forEach((key) => {
+      const v = barColorOf(field, key);
+      barMiniCard.querySelectorAll(`[data-bar-swatch="${key}"]`).forEach((sw) => {
+        sw.style.background = rgb565ToCss(v);
+        sw.style.color = ((v >> 11) + ((v >> 5) & 0x3F) / 2 + (v & 0x1F)) > 40 ? '#000' : '#fff';
+        sw.classList.toggle('active', key === barActiveKey);
+        const native = sw.querySelector('input');
+        if (native && document.activeElement !== native) native.value = rgb565ToHexCss(v);
+      });
+    });
+    const activeValue = barColorOf(field, barActiveKey);
+    barMiniCard.querySelectorAll('[data-bar-palette]').forEach((b) => b.classList.toggle('active', Number(b.dataset.barPalette) === activeValue));
+    const nameEl = barMiniCard.querySelector('[data-bar-active-name]');
+    if (nameEl) nameEl.textContent = BAR_NAME[barActiveKey];
+    // Sólo con la pestaña a la vista (el indicador necesita geometría real).
+    if (barMiniCard.offsetParent) drawBarMini(field);
+  }
+
+  function setBarColor(key, value565, commit) {
+    const field = selectedField();
+    if (!isBar(field)) return;
+    field[BAR_COLOR_PROP[key]] = value565 & 0xFFFF;
+    if (key === 'track') field.backgroundColor = value565 & 0xFFFF; // un solo color en firmware
+    triggerCoreRender(commit);
+  }
+
+  if (barMiniCard) {
+    barMiniCard.addEventListener('click', (e) => {
+      const swatch = e.target.closest('[data-bar-swatch]');
+      if (swatch) { barActiveKey = swatch.dataset.barSwatch; syncBarMini(selectedField()); return; }
+      const pill = e.target.closest('[data-bar-palette]');
+      if (pill) setBarColor(barActiveKey, Number(pill.dataset.barPalette), true);
+    });
+    let lastLive = 0;
+    barMiniCard.addEventListener('input', (e) => {
+      const native = e.target.closest('[data-bar-color-native]');
+      if (!native) return;
+      barActiveKey = native.dataset.barColorNative;
+      const now = Date.now();
+      if (now - lastLive < 40) return; // ~25 eventos/s, como el resto de inspectores
+      lastLive = now;
+      setBarColor(barActiveKey, hexCssTo565(native.value), false);
+    });
+    barMiniCard.addEventListener('change', (e) => {
+      const native = e.target.closest('[data-bar-color-native]');
+      if (native) setBarColor(native.dataset.barColorNative, hexCssTo565(native.value), true);
+    });
+    if (window.ResizeObserver) new ResizeObserver(() => syncBarMini(selectedField())).observe(barMiniCard);
+  }
+
   function patchUI() {
     const field = selectedField();
     if (field?.type === 'BAR') ensureBarState(field);
@@ -3477,6 +3633,7 @@
     if (bottomSummary) bottomSummary.textContent = 'A11-3D — BAR: Sólida, Degradado y Circular';
     patchObjectList();
     patchInspector(field);
+    if (field?.type === 'BAR') syncBarMini(field);
     patchCanvases();
     patchGeneratedCode();
     patchStatusText();

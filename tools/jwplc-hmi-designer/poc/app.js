@@ -1987,9 +1987,15 @@
     framebuffer.set(pixelLayer);
     topFieldOrder.fill(Infinity);
     topFieldIsBar.fill(0);
+    // Del fondo al frente por layerOrder (menor = más al frente). El arreglo
+    // no sirve de orden: los objetos nuevos se agregan al final con el
+    // layerOrder más bajo (assignNewLayerOrder) y quedaban dibujados detrás.
     pageObjectsInOrder(activePage);
-    const pageFields = fieldsForPage(activePage);
-    for (let i = pageFields.length - 1; i >= 0; i--) {
+    const pageFields = fieldsForPage(activePage)
+      .map((field, index) => ({ field, index }))
+      .sort((a, b) => (Number(b.field.layerOrder) - Number(a.field.layerOrder)) || (b.index - a.index))
+      .map(({ field }) => field);
+    for (let i = 0; i < pageFields.length; i++) {
       const field = pageFields[i];
       if (field.hidden) continue;
       activeDrawingOrder = ensureLayerOrder(field);
@@ -2479,9 +2485,10 @@
     displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
     displayCtx.drawImage(logicalCanvas, 0, 0, WIDTH, HEIGHT, 0, 0, WIDTH * zoom, HEIGHT * zoom);
 
-    const visiblePageBars = fieldsForPage(activePage).filter(
-      (field) => field.type === 'BAR' && !field.hidden
-    );
+    // Del fondo al frente (layerOrder mayor primero), como composeFramebuffer.
+    const visiblePageBars = fieldsForPage(activePage)
+      .filter((field) => field.type === 'BAR' && !field.hidden)
+      .sort((a, b) => ensureLayerOrder(b) - ensureLayerOrder(a));
     const stampHigherLayersOverBar = (ctx, barField, scale) => {
       const barOrder = ensureLayerOrder(barField);
       const b = getFieldBounds(barField);
@@ -2505,7 +2512,7 @@
       }
     };
     if (window.JWPLCHMIBar?.drawBarField) {
-      for (let i = visiblePageBars.length - 1; i >= 0; i--) {
+      for (let i = 0; i < visiblePageBars.length; i++) {
         window.JWPLCHMIBar.drawBarField(displayCtx, visiblePageBars[i], zoom);
         stampHigherLayersOverBar(displayCtx, visiblePageBars[i], zoom);
       }
@@ -2518,7 +2525,7 @@
       previewCtx.clearRect(0, 0, WIDTH, HEIGHT);
       previewCtx.drawImage(logicalCanvas, 0, 0);
       if (window.JWPLCHMIBar?.drawBarField) {
-        for (let i = visiblePageBars.length - 1; i >= 0; i--) {
+        for (let i = 0; i < visiblePageBars.length; i++) {
           window.JWPLCHMIBar.drawBarField(previewCtx, visiblePageBars[i], 1);
           stampHigherLayersOverBar(previewCtx, visiblePageBars[i], 1);
         }

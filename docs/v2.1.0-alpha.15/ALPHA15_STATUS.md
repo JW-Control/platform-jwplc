@@ -225,3 +225,10 @@ MENU_NODE_COUNT_LIMIT=64 por menú, 4 menús, 1 por página (9 nodos = +952 B RA
   mini-regla. Etiqueta = etiqueta + unidad; lo común del BOOL por estado se marca en ambos casos. Los
   píxeles del mini-modelo no cambian (verificado). Con esto quedan hechos I1, I2, I3, A1 y el buzzer del
   alcance de Alpha15 (§G.1).
+- 2026-10-18 — Revisión del jefe tras A1:
+  - el lienzo dibujaba los objetos en el orden del arreglo y no por capa: un objeto nuevo (al frente en la lista) quedaba detrás. Corregido en `composeFramebuffer` y en el dibujo de BAR, con test que falla con el código anterior;
+  - la Apariencia de BAR pasa al patrón de mini-modelo, leyenda e indicador A1.
+
+  Propuestas pendientes de decisión:
+  - flujo de los botones Generar / Actualizar / Sketch;
+  - glifos propios para `Á Í Ó Ú` (requiere regenerar `libJWPLC_TFT.a`).

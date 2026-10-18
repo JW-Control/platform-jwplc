@@ -63,7 +63,8 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
 
 - TEXT/VALUE/BOOL: `designer-field-inspector.js`. Escribe en los inputs viejos (`#fieldX`,
   `#fieldLayout`…) y dispara `input`/`change`; no tocar el modelo directo (perdería historial).
-- BAR: `applyFirmwareCaps()` en `designer-bar.js` normaliza el modelo a lo que dibuja
+- BAR: Apariencia con mini-modelo e indicador A1 (`#barAppMini`, `syncBarMini`); los controles de color
+  anteriores quedan ocultos en `#barAppLegacyCard`. `applyFirmwareCaps()` en `designer-bar.js` normaliza el modelo a lo que dibuja
   `JWPLC_UIBarField`; al habilitar una variante en firmware, quitarla de ahí y de `closeBarInspector()`.
 - Paridad BAR lienzo/TFT y comportamiento del inspector: `tests/inspector-smoke.cjs`.
 - MENU: `designer-menu.js` (modelo, pintor, codegen puro `generate()`, inspector propio
@@ -97,12 +98,14 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
 - Texto en la TFT (Alpha15 I3): todo literal C++ de texto pasa por `JWPLCCp437.cppEscape` (octal, nunca
   `\xNN`); el lienzo dibuja con `glyphFor(Unicode)`. TFT_eSPI usa `cp437(false)`: glifo > 176 se envía como
   byte − 1 (`°` → 0xF7). Variables TEXT: `2 × capacidad + 1` bytes (UTF-8).
-- Capas: `layerOrder` menor = más al frente; la estática se emite en orden descendente.
+- Capas: `layerOrder` menor = más al frente; la estática se emite en orden descendente. El lienzo
+  (`composeFramebuffer`, BAR en `render`) dibuja ordenando por `layerOrder`, nunca por el orden del arreglo
+  (los objetos nuevos se agregan al final con el `layerOrder` más bajo).
 - Definición C++ de cada campo: `poc/designer-codegen-core.js` (puro, también en node). `app.js`
   emite TEXT/VALUE; BOOL/BAR salen como `JWPLC_UITextField` provisional que reemplazan sus capas.
 - Tras tocar el codegen: `node tests/codegen-golden.cjs` (salida byte a byte) y
   `node tests/codegen-smoke.cjs`. Un cambio intencional: `--update` y revisar el diff.
-- Tras tocar JS/CSS: subir `?v=` (hoy 1793300000) en `index.html`/`desktop.html`/`ux-foundation.js`/
+- Tras tocar JS/CSS: subir `?v=` (hoy 1793400000) en `index.html`/`desktop.html`/`ux-foundation.js`/
   `designer-field-visibility.js` y `CACHE_NAME` en `service-worker.js`.
 
 ## Probar sin hardware
