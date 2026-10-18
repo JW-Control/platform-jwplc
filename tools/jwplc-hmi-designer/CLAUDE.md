@@ -9,6 +9,10 @@ Editor visual (HTML/JS sin framework ni bundler, empaquetado con Electron) que
 diseña páginas para la TFT ST7789 320x170 del JWPLC Basic y genera
 `JWPLC_HMI_Generated.h` contra `JWPLC_Display` / `JWPLC_UI` / `JWPLC_TFT`.
 
+App de escritorio en Windows: `Generar-e-Instalar-App-Escritorio.cmd` (compila Electron + instala con
+`-RequireElectron`). `electron/main.js` y `preload.cjs` van dentro del .exe: un cambio ahí exige volver a
+generarlo. `poc/` se sincroniza al abrir (`electron/bootstrap.js`).
+
 Entrada real de la app: `poc/desktop.html` (Electron carga
 `desktop.html?app=...`, ver `electron/main.js`). `desktop.html` hace `fetch`
 de `index.html` e inyecta los scripts en orden.

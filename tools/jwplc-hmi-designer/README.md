@@ -22,6 +22,35 @@ AUTOCOMPLETE_JWPLC_DISPLAY=PASS_USER
 
 ---
 
+## Instalar o actualizar la app de escritorio (Windows)
+
+Doble clic en **`Generar-e-Instalar-App-Escritorio.cmd`**. Requiere Node.js LTS
+(`winget install OpenJS.NodeJS.LTS`); la primera vez descarga Electron.
+
+1. Compila la app de escritorio (Electron) con la versión actual del repositorio.
+2. La instala en `%LOCALAPPDATA%\JWPLC\HMI Designer`, con accesos en el Escritorio y el
+   Menú Inicio y la extensión para Arduino IDE 2.
+
+Repetirlo después de cada `git pull` que cambie el Designer.
+
+Sólo la app de escritorio puede **abrir el sketch en el Arduino IDE** y **abrir su
+carpeta** (menú «Sketch: nombre ▾»). La versión de navegador no puede lanzar programas.
+
+### Qué hace cada archivo
+
+| Archivo | Para qué | ¿Lo uso? |
+|---|---|---|
+| `Generar-e-Instalar-App-Escritorio.cmd` | Compila e instala la app de escritorio | **Sí: es el único paso** |
+| `JWPLC-HMI-Designer.cmd` · `Start-JWPLC-HMI-Designer.ps1` · `JWPLC-HMI-Server.ps1` | Abre la versión de navegador desde el repo, sin instalar (desarrollo) | Opcional |
+| `Build-JWPLC-HMI-Designer-Electron.ps1` | Sólo compila la app (paso 1) | Lo llama el generador |
+| `Install-JWPLC-HMI-Designer.ps1` · `.cmd` | Sólo instala (paso 2). Sin app compilada instala el lanzador de navegador | Lo llama el generador |
+| `Build-JWPLC-HMI-Designer-Setup.ps1` | Genera un instalador `Setup.exe` para repartir a otras PCs | Al publicar |
+| `Build-JWPLC-HMI-Designer-Exe.ps1` · `JWPLC-HMI-Designer-Launcher.cs` | Lanzador de compatibilidad (abre el navegador) | Interno |
+| `Build-ArduinoIDE-Launcher.ps1` · `Install-ArduinoIDE-Launcher.ps1` | Extensión de Arduino IDE 2 | Interno |
+| `Test-JWPLC-HMI-Designer-Install.ps1` | Verifica una instalación | Diagnóstico |
+
+---
+
 ## Flujo recomendado
 
 El Designer genera:

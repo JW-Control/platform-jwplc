@@ -13,6 +13,13 @@ git pull origin v2.1.0-alpha.15-HmiDesigner
 
 ## 2. Abrir el Designer
 
+Recomendado (2026-10-18): doble clic en
+`tools\jwplc-hmi-designer\Generar-e-Instalar-App-Escritorio.cmd` y abrir «JWPLC HMI Designer»
+desde el Escritorio. Es la app de escritorio. Sólo ella abre el sketch en el Arduino IDE y su
+carpeta desde el menú «Sketch: nombre ▾». Repetirlo tras cada `git pull` del Designer.
+
+Versión de navegador (desarrollo, sin instalar):
+
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools\jwplc-hmi-designer\Start-JWPLC-HMI-Designer.ps1
 ```

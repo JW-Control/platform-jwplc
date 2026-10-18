@@ -247,3 +247,9 @@ MENU_NODE_COUNT_LIMIT=64 por menú, 4 menús, 1 por página (9 nodos = +952 B RA
   limpiaban al salir del lienzo.
 
   Los glifos `Á Í Ó Ú` quedan para otra alpha (no se regenera `libJWPLC_TFT.a`).
+- 2026-10-18 — El menú del sketch no mostraba «Abrir en Arduino IDE» ni «Abrir carpeta» en la PC del jefe.
+  - Causa: el Designer corría en modo navegador. `Install-JWPLC-HMI-Designer.ps1`, si no encuentra la app
+    de escritorio compilada, instala sin avisar el lanzador que abre Edge.
+  - Nuevo `Generar-e-Instalar-App-Escritorio.cmd` (doble clic): compila Electron y lo instala con
+    `-RequireElectron`, que falla en vez de caer al modo navegador.
+  - README con «qué hace cada archivo».

@@ -37,7 +37,7 @@ GATES_FISICOS_LISTOS=A15_1_3_Codegen_Static, A15_8_Menu, A15_8_Menu_Designer, A1
    - `A15_I2_Reloj`: la medianoche y el RTC sin pila;
    - `A15_I1_Formatos`: el piloto y que no queden restos de dígitos;
    - `07.Buzzer_Basic`: volumen y que no bloquee.
-   - App de escritorio (Electron, en la PC):
+   - App de escritorio (Electron, en la PC), instalada con `tools/jwplc-hmi-designer/Generar-e-Instalar-App-Escritorio.cmd`:
      - «Escribir en sketch» deja `JWPLC_HMI_Generated.h` y `<sketch>.jwhmi`;
      - en el menú «Sketch: nombre ▾», «Abrir en Arduino IDE» y «Abrir carpeta» funcionan;
      - al vincular un sketch con `.jwhmi`, pregunta si abrirlo.
