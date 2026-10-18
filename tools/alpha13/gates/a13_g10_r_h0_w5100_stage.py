@@ -107,7 +107,7 @@ uint16_t W5100Class::write(uint16_t addr, const uint8_t *buf, uint16_t len)
         else: raise AssertionError("H0_E_NEGATIVE_ACCEPTED_"+name)
     source=(ROOT/PATH).read_text(encoding="utf-8-sig")
     result=instrument(source)
-    assert result.count("h0W5100Stage(")==9  # 1 declaracion inline + 8 llamadas
+    assert result.count("h0W5100Stage(")==10  # definicion inline + 9 llamadas
     assert source.count("SPI.beginTransaction(SPI_ETHERNET_SETTINGS);") == result.count("SPI.beginTransaction(SPI_ETHERNET_SETTINGS);")
     assert source.count("readPHYCFGR_W5500();")==result.count("readPHYCFGR_W5500();")
     print("G10R_H0_E_W5100_SOURCE_ANCHORS=PASS")
