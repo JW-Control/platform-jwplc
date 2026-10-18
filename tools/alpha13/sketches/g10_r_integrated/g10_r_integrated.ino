@@ -6,8 +6,8 @@
   snapshots READ-ONLY owner/epoch/pending, NO valida fault injection.
   Compilar SOLO con overlay G10-I + telemetria de laboratorio G10-R.
   H0 DIAGNOSTICO UNICO: LINK=-9 NO es estado fisico; R1-R4 NO VALIDOS.
-  Stage E: una sola llamada real en primer READY; W5100.cpp instrumentado
-  solo en overlay temporal con etapas 31..39, filtradas por task.
+  Stage F: una sola llamada real en primer READY; W5100.init instrumentado
+  solo en overlay temporal con etapas 60..77, filtradas por task.
   RTC retiene etapa e intento tras WDT; no se repiten tras reinicio.
   No usar como aceptacion de R1-R4.
 */
@@ -38,9 +38,9 @@ static bool udpReady=false, udpPending=false, active=false, useRtu=false;
 static bool rtuReady=false;
 static uint32_t bootNonce=0;
 
-// H0 E: reproducir UNA vez el primer READY (el intento 1 genero WDT en D).
-// Nueva MAGIC para no contaminar evidencia RTC de la version anterior.
-static constexpr uint32_t H0_LINK_MAGIC=0x48304C33UL; // "H0L3"
+// H0 F: un unico primer READY y 18 checkpoints en W5100.init().
+// Nueva MAGIC: separa evidencia RTC del experimento E anterior.
+static constexpr uint32_t H0_LINK_MAGIC=0x48304C34UL; // "H0L4"
 static constexpr uint32_t H0_READY_MAX_CALLS=1;
 static RTC_NOINIT_ATTR volatile uint32_t h0LinkMagic;
 static RTC_NOINIT_ATTR volatile uint32_t h0LinkRun;
@@ -529,8 +529,8 @@ void setup() {
   JWPLCIdleScreen::setTitle("JWPLC Basic A13");
   Serial.begin(115200);
   Serial.println("G10R_PROTOCOL:R1R2R3R4_FAULT_LAB_V2");
-  Serial.println("G10R_H0_E_W5100_STAGES=31_32_33_34_35_36_37_38_39");
-  Serial.println("G10R_H0_E_READY_PROBE=ONCE_TASK_FILTER_RTC_NO_R1_R4");
+  Serial.println("G10R_H0_F_INIT_STAGES=60_TO_77");
+  Serial.println("G10R_H0_F_READY_PROBE=ONCE_TASK_FILTER_RTC_NO_R1_R4");
   if (h0LinkMagic!=H0_LINK_MAGIC) {
     h0LinkMagic=H0_LINK_MAGIC;
     h0LinkRun=0;
@@ -563,7 +563,7 @@ void setup() {
 void loop() {
   handleUsb();
   uint32_t now=millis();
-  // H0 E: invocar exactamente una vez en primer READY y trazar backend W5100.
+  // H0 F: invocar una sola vez en primer READY y trazar W5100.init.
   // Si watchdog reinicia, la proxima ejecucion no repite; sin quitar autoload.
   // El core mantiene autoload. Este task no llama service() de Ethernet.
   r3Service();
