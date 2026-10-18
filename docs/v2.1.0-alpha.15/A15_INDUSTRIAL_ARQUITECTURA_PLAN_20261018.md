@@ -37,7 +37,7 @@ Notación:
 | Modos del Display | Sólo `DISPLAY_MODE_IDLE` y `DISPLAY_MODE_USER` `[visto]` | Un aviso encima de cualquiera de los dos requiere una **capa nueva** |
 | RTC DS3232 | `jwplcGetRTCState()`: `present`, `valid`, `lost_power` y fecha/hora; librería `JW_RTC` `[visto]` | Marcas de tiempo y campo fecha/hora |
 | FRAM | `JW_FRAM`, 8 KB en el JWPLC Basic v2.0 (32 KB previstos) `[doc A14_3]` | Recetas y registro de eventos, a repartir (ver F.2) |
-| microSD | `JWPLCDataLog`: anillo en RAM + journal en FRAM de ≤ 1 KB + commit automático por umbral o timeout, sin bloquear `[visto]` `[doc A14_3, A14 SD policy]` | EVENT_LOG en SD reutiliza DataLog tal cual |
+| microSD | `JWPLCDataLog`: anillo en RAM (4 KB por defecto) + commit automático a la SD por umbral o timeout, sin bloquear `[visto]`. El journal en FRAM (≤ 1 KB, A14_3) quedó diferido en A14_6 y no existe en el código `[visto]` | EVENT_LOG en SD reutiliza DataLog tal cual |
 | E/S | `jwplcGetIOState()`: `di_logical_bank0` (I0_0..7) y `do_bank1` (Q0_0..7, salida **comandada**) `[visto]` | IO_DIAGNOSTIC sin firmware nuevo |
 | Buzzer | No hay API de buzzer en el package `[visto: sin coincidencias]` | «SILENCIAR» sólo tiene sentido como solicitud al PLC si la máquina tiene sirena |
 | Arcos | `JWPLC_TFT` no expone `drawArc`/`drawSmoothArc` `[visto]` | El BAR circular (gauge) requiere ampliar `JWPLC_TFT` |
@@ -456,7 +456,7 @@ Reglas que se mantienen:
    - Abrir Alpha16 «HMI industrial» con I4–I15.
    - Los servicios (avisos, registro, recetas) son de otra escala que el Designer actual.
 2. **Presupuesto de la FRAM de 8 KB.** Compiten:
-   - el journal de DataLog (≤ 1 KB, `[doc A14_3]`);
+   - el journal de DataLog (≤ 1 KB según A14_3; diferido en A14_6, hoy 0 B);
    - Retain (roadmap);
    - las recetas (~0,3–1 KB);
    - EVENT_LOG (por ejemplo 2 KB = 128 eventos).
@@ -482,7 +482,7 @@ Reglas que se mantienen:
 | G.1 | Alcance | **Alpha15** cierra con I1 (VALUE duración y miles, BOOL «Piloto»), I2 (RTC), I3 (tildes cp437), Apariencia A1 y el buzzer. **Alpha16** lleva el resto: I4–I15 y las ideas aprobadas (G.9). |
 | G.2 | Capa de avisos | Va **por encima** de IDLE y USER, como capa propia del firmware. Se revisa el firmware y se actualiza en Alpha16 (I5). |
 | G.3 | Teclas de las plantillas | Los elementos seleccionables de cada pantalla (botones de RECIPE, diálogos) se recorren con ◀ ▶ y se activan con OK. El árbitro de I4 sólo garantiza que una tecla tenga un único dueño. |
-| G.4 | Registro de eventos | Se usa **`JWPLCDataLog`** (anillo en RAM + journal en FRAM + SD, ya optimizado para registro continuo). No se crea otro almacenamiento de eventos. La página EVENT_LOG lee el anillo en RAM y, si hay tarjeta, el archivo. |
+| G.4 | Registro de eventos | Se usa **`JWPLCDataLog`** (anillo en RAM + SD, ya optimizado para registro continuo; el journal en FRAM sigue diferido, ver G.6). No se crea otro almacenamiento de eventos. La página EVENT_LOG lee el anillo en RAM y, si hay tarjeta, el archivo. |
 | G.5 | Recetas: vistas | «En proceso» y «pausado» mantienen la **vista de ejecución**; «detenido» vuelve a la **selección**. ESC nunca detiene. Fin normal o con error: **FINALIZADO + ACEPTAR**, para que el operario sepa cómo terminó. |
 | G.6 | Mapa de la FRAM | El **último KB** queda para el sistema y el usuario tiene libre acceso del byte 0 al 7 KB (abajo). |
 | G.7 | Avisos por defecto | Críticos: se mantienen hasta que **se resuelve la falla y el operario reconoce** (LATCH). Menores: **sólo reconocimiento** (ACK). |
@@ -492,22 +492,42 @@ Reglas que se mantienen:
 | G.11 | OpenPLC | Se agregan **bits de memoria `%MX`** (IEC 61131-3) al runtime de OpenPLC para los bits de aviso y de solicitud, en vez de empaquetarlos en `%MW`. Le toca a Alpha14 (Kenyi), en el repo `openplc-editor`. |
 | G.12 | Slots | Se mantienen los 32 campos por ahora; más adelante se revisa subir a 64 o 128. |
 
-### G.6 Mapa de FRAM (8 KB actuales) — propuesta de detalle
+### G.6 Mapa de FRAM (8 KB actuales) y RAM de DataLog — propuesta de reparto
+
+**Punto de partida `[visto]`:** `JWPLCDataLog` hoy **no usa FRAM**.
+
+- `JW_SD.h`/`JW_SD.cpp` sólo tienen el anillo en RAM (`JW_SDDataLogConfig::bufferSize`, 4096 B por defecto, reservado en `begin()`) y el commit a la SD.
+- A14_6 dejó el journal en FRAM diferido (`DATALOG_FRAM_JOURNAL=DEFERRED_NON_BLOCKING`, pipeline `RAM_RING_TO_SD`) justamente porque no había un mapa de FRAM.
+- El «≤ 1 KB» de A14_3 es un **techo**, no una reserva. Así que el KB de sistema no tiene que cederle nada hoy.
+
+**FRAM (8 KB):**
 
 ```text
 0x0000 – 0x1BFF   7 KB   USUARIO (libre: sketch, Retain de OpenPLC, datos propios)
 0x1C00 – 0x1FFF   1 KB   SISTEMA JWPLC
-   0x1C00 – 0x1C3F    64 B   cabecera: firma, versión del mapa, CRC
-   0x1C40 – 0x1EBF   640 B   journal de JWPLCDataLog
-   0x1EC0 – 0x1FFF   320 B   recetas (p. ej. 10 × 6 parámetros × 4 B + nombres cortos y CRC)
+   0x1C00 – 0x1C1F    32 B   cabecera: firma «JWSY», versión del mapa, CRC
+   0x1C20 – 0x1C5F    64 B   avisos: estado LATCH/ACK de los críticos (sobrevive al corte) + contadores
+   0x1C60 – 0x1DFF   416 B   recetas: 8 × 52 B (nombre 12 B + 8 parámetros × 4 B + CRC 4 B + 4 B libres)
+   0x1E00 – 0x1EFF   256 B   últimos eventos persistentes: 16 × 16 B (lo que se vio antes del corte)
+   0x1F00 – 0x1FFF   256 B   reserva: journal de DataLog o Retain del sistema (cuando se decida)
 ```
 
-**Ojo:** A14_3 fijó el journal de DataLog en «hasta 1 KB». Dentro de un único KB de sistema, el journal tiene que bajar a ~640 B para que entren las recetas.
+**RAM (no FRAM):**
 
-- Si se prefiere conservar el journal en 1 KB, las recetas pasan a SD.
-- Con la FRAM de 32 KB prevista, el bloque de sistema sigue siendo el **último KB** (0x7C00–0x7FFF) y el usuario gana el resto.
+| Quién | Cuánto | Nota |
+|---|---|---|
+| Anillo de `JWPLCDataLog` de EVENT_LOG | 2048 B | Mitad del valor por defecto: los eventos son líneas cortas y sólo transiciones |
+| Anillo de eventos de la página | 64 × 16 B = 1 KB | Lo que lista la página EVENT_LOG |
+| Avisos (32 slots) | ~256 B | Estado vivo; la FRAM sólo guarda lo que debe sobrevivir |
 
-Los offsets son tentativos: `JW_FRAM` todavía no define una zona de sistema y DataLog no tiene una dirección fija documentada. Se fijan en I9/I10.
+Criterios:
+
+- El usuario pierde **0 B** de los 7 KB acordados.
+- Si mañana se habilita el journal de DataLog en FRAM, usa la reserva de 256 B. Con commits a la SD cada 512 B o 5 s, 256 B cubren ~2,5 s de eventos; para más, se espera a la FRAM de 32 KB.
+- Con la FRAM de 32 KB, el sistema sigue siendo el **último KB** (0x7C00–0x7FFF) y cada zona crece sin mover la cabecera (la versión del mapa lo indica).
+- Sin tarjeta SD, el registro es RAM + los 16 últimos en FRAM: el operario siempre ve lo reciente, incluso tras un corte.
+
+Los offsets se fijan en código en I9/I10 (`JW_FRAM` todavía no define una zona de sistema) y se protegen con una comprobación: escribir del sketch por encima de 0x1BFF se documenta como prohibido.
 
 ### G.13 `JWPLC_Buzzer` (hecho en esta ronda)
 
