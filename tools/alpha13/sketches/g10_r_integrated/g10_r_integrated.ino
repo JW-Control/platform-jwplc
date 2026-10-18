@@ -6,7 +6,8 @@
   snapshots READ-ONLY owner/epoch/pending, NO valida fault injection.
   Compilar SOLO con overlay G10-I + telemetria de laboratorio G10-R.
   H0 DIAGNOSTICO UNICO: LINK=-9 NO es estado fisico; R1-R4 NO VALIDOS.
-  Stage D: 1 a 8 llamadas reales en los primeros READY cada ~1s.
+  Stage E: una sola llamada real en primer READY; W5100.cpp instrumentado
+  solo en overlay temporal con etapas 31..39, filtradas por task.
   RTC retiene etapa e intento tras WDT; no se repiten tras reinicio.
   No usar como aceptacion de R1-R4.
 */
@@ -37,20 +38,23 @@ static bool udpReady=false, udpPending=false, active=false, useRtu=false;
 static bool rtuReady=false;
 static uint32_t bootNonce=0;
 
-// H0 D: reproduccion acotada de READY (maximo 8 lecturas PHY reales).
-// Nueva MAGIC frente al experimento C; no reiterar despues de reboot WDT.
-static constexpr uint32_t H0_LINK_MAGIC=0x48304C32UL; // "H0L2"
-static constexpr uint32_t H0_READY_MAX_CALLS=8;
+// H0 E: reproducir UNA vez el primer READY (el intento 1 genero WDT en D).
+// Nueva MAGIC para no contaminar evidencia RTC de la version anterior.
+static constexpr uint32_t H0_LINK_MAGIC=0x48304C33UL; // "H0L3"
+static constexpr uint32_t H0_READY_MAX_CALLS=1;
 static RTC_NOINIT_ATTR volatile uint32_t h0LinkMagic;
 static RTC_NOINIT_ATTR volatile uint32_t h0LinkRun;
 static RTC_NOINIT_ATTR volatile uint32_t h0LinkAttempt;
 static RTC_NOINIT_ATTR volatile uint32_t h0LinkStage;
 static RTC_NOINIT_ATTR volatile uint32_t h0LinkStageInverse;
 static bool h0LinkProbePending=false;
+static TaskHandle_t h0LinkCaller=nullptr; // solo task del primer READY
 
 extern "C" void g10rH0LinkStage(uint8_t stage) {
-  if (h0LinkMagic!=H0_LINK_MAGIC || h0LinkRun!=1) return;
-  // Dos stores 32-bit sin Serial, mutex extra, GPIO ni E/S SPI.
+  if (h0LinkMagic!=H0_LINK_MAGIC || h0LinkRun!=1 ||
+      h0LinkCaller==nullptr ||
+      xTaskGetCurrentTaskHandle()!=h0LinkCaller) return;
+  // No imprimir ni esperar; otras tareas de autoload no pisan esta traza.
   h0LinkStage=(uint32_t)stage;
   h0LinkStageInverse=~(uint32_t)stage;
 }
@@ -525,8 +529,8 @@ void setup() {
   JWPLCIdleScreen::setTitle("JWPLC Basic A13");
   Serial.begin(115200);
   Serial.println("G10R_PROTOCOL:R1R2R3R4_FAULT_LAB_V2");
-  Serial.println("G10R_H0_READY_BOUNDED=8");
-  Serial.println("G10R_H0_READY_DIAG=FIRST_READY_AT_1HZ_RTC_NO_R1_R4");
+  Serial.println("G10R_H0_E_W5100_STAGES=31_32_33_34_35_36_37_38_39");
+  Serial.println("G10R_H0_E_READY_PROBE=ONCE_TASK_FILTER_RTC_NO_R1_R4");
   if (h0LinkMagic!=H0_LINK_MAGIC) {
     h0LinkMagic=H0_LINK_MAGIC;
     h0LinkRun=0;
@@ -534,7 +538,7 @@ void setup() {
     h0LinkStage=0;
     h0LinkStageInverse=~0UL;
     h0LinkProbePending=true;
-    Serial.println("G10R_H0_TRACE=ARMED_8_READS_ONLY_INITIAL_BOOT");
+    Serial.println("G10R_H0_TRACE=ARMED_SINGLE_READY_ON_INITIAL_BOOT");
   } else {
     const bool stageValid=(h0LinkStageInverse==~h0LinkStage);
     Serial.print("G10R_H0_PREVIOUS:RUN="); Serial.print(h0LinkRun);
@@ -559,7 +563,7 @@ void setup() {
 void loop() {
   handleUsb();
   uint32_t now=millis();
-  // H0 D: invocar solo en READY como originalmente, no desde otro lugar.
+  // H0 E: invocar exactamente una vez en primer READY y trazar backend W5100.
   // Si watchdog reinicia, la proxima ejecucion no repite; sin quitar autoload.
   // El core mantiene autoload. Este task no llama service() de Ethernet.
   r3Service();
@@ -579,11 +583,13 @@ void loop() {
         // Ubicacion original de LINK. Los tres stores ocurren antes de SPI.
         const uint32_t attempt=h0LinkAttempt+1;
         h0LinkAttempt=attempt;
+        h0LinkCaller=xTaskGetCurrentTaskHandle();
         h0LinkRun=1;
         h0LinkStage=1;
         h0LinkStageInverse=~1UL;
         const int physical=(int)JWPLC_Ethernet.linkStatus();
         h0LinkRun=2;
+        h0LinkCaller=nullptr;
         Serial.print(physical);
         Serial.print(" H0_ATTEMPT=");Serial.print(attempt);
         Serial.print(" H0_STAGE=");Serial.print(h0LinkStage);
