@@ -96,15 +96,18 @@ def guard_sketch() -> None:
     require("g10rLabTcpRequest" in s and "G10R_TCP_EVENTS:" in s,
             "TCP124_SOURCE_CALLBACK_OR_EXPORT_MISSING")
     require(SKETCH_COM14.is_dir(),"SLAVE_SKETCH_MISSING")
-    require("G10R_H0_READY_BOUNDED=8" in s and
-            "G10R_H0_READY_DIAG=FIRST_READY_AT_1HZ_RTC_NO_R1_R4" in s and
+    require("G10R_H0_E_W5100_STAGES=31_32_33_34_35_36_37_38_39" in s and
+            "G10R_H0_E_READY_PROBE=ONCE_TASK_FILTER_RTC_NO_R1_R4" in s and
             s.count("JWPLC_Ethernet.linkStatus()")==1 and
             s.count('Serial.print(" LINK=-9");')==1 and
-            "H0_READY_MAX_CALLS=8" in s and "RTC_NOINIT_ATTR" in s and
+            "H0_LINK_MAGIC=0x48304C33UL" in s and
+            "H0_READY_MAX_CALLS=1" in s and "RTC_NOINIT_ATTR" in s and
+            "h0LinkCaller=xTaskGetCurrentTaskHandle();" in s and
+            "xTaskGetCurrentTaskHandle()!=h0LinkCaller" in s and
             "h0LinkAttempt=attempt;" in s and
             "G10R_H0_TRACE=REBOOT_NO_AUTO_REPEAT" in s and
             "H0_CAP_REACHED=1" in s,
-            "H0_LINK_READY_BOUNDED_SKETCH_DRIFT")
+            "H0_E_W5100_SINGLE_READY_SKETCH_DRIFT")
     print("G10_R_SKETCH_GUARD=PASS_STATIC_NO_Q_NO_STORAGE_WRITE_NO_RESET")
 
 
@@ -139,7 +142,7 @@ def build(cli: str, *, upload: bool = False, stage_out: Path | None = None,
         v=run([cli,"version"])
         require(re.search(r"\bVersion:\s*1\.5\.1\b",v) is not None,
                 "G10R_UPLOAD_ARDUINO_CLI_1_5_1_REQUIRED")
-        ref="refs/remotes/origin/codex/alpha13-h0-wdt-ready-window-20261017"
+        ref="refs/remotes/origin/codex/alpha13-h0-w5500-phy-stage-20261018"
         current=run(["git","rev-parse","HEAD"]).strip()
         remote=run(["git","rev-parse",ref]).strip()
         require(current==remote,"G10R_UPLOAD_REMOTE_HEAD_MISMATCH")
@@ -191,6 +194,17 @@ def build(cli: str, *, upload: bool = False, stage_out: Path | None = None,
     sys.modules[h0_spec.name]=h0
     h0_spec.loader.exec_module(h0)
     files=h0.compose(files)
+    # H0-E: añadir w5100.cpp desde fuente original, checkpoints SOLO staged.
+    wiz_path=ROOT/"tools/alpha13/gates/a13_g10_r_h0_w5100_stage.py"
+    wiz_spec=importlib.util.spec_from_file_location("g10r_h0_w5100_stage",wiz_path)
+    require(wiz_spec is not None and wiz_spec.loader is not None,
+            "H0_E_W5100_STAGE_MODULE_MISSING")
+    wiz=importlib.util.module_from_spec(wiz_spec)
+    sys.modules[wiz_spec.name]=wiz
+    wiz_spec.loader.exec_module(wiz)
+    files=wiz.compose(files)
+    require(wiz.PATH in files and files[wiz.PATH].count("h0W5100Stage(")==10,
+            "H0_E_W5100_STAGED_CHECKPOINTS_NOT_APPLIED")
     # SOLO staging G10-R: friend diagnóstica en DhcpClass para armar
     # el UDP interno en un puerto TEMPORAL (15023), SIN DHCP DISCOVER,
     # OFFER, REQUEST, renovación de lease ni tocar el manager global.
@@ -210,7 +224,7 @@ def build(cli: str, *, upload: bool = False, stage_out: Path | None = None,
             "R3_STAGE_INSTRUMENTATION_MISSING")
     hashes = {rel:{"sha256":hashlib.sha256(content.encode("utf-8")).hexdigest()}
               for rel,content in files.items()}
-    require(len(files)==14,"EXPECTED_14_SOURCE_OVERLAYS")
+    require(len(files)==15,"H0_E_EXPECTED_15_SOURCE_OVERLAYS")
     with tempfile.TemporaryDirectory(prefix="jwplc-g10r-build-") as scratch:
         tmp=Path(scratch)
         stage=tmp/"staged"
@@ -228,7 +242,7 @@ def build(cli: str, *, upload: bool = False, stage_out: Path | None = None,
                     sha256(destination/"platform.txt"),"B3_PLATFORM_DRIFT")
             require(m.load(m.MODULES["frozen"],"g10r_b3_frozen").check_frozen()==5,
                     "B3_FROZEN_ARCHIVES_DRIFT")
-            print("G10_R_B3_STAGE=PASS_14_SOURCE_OVERLAYS_NO_CLI")
+            print("G10_R_B3_STAGE=PASS_15_SOURCE_OVERLAYS_NO_CLI")
             print("G10_R_B3_PRODUCT=UNCHANGED")
             print("G10_R_B3_PHYSICAL=NOT_RUN")
             return
@@ -262,7 +276,8 @@ def build(cli: str, *, upload: bool = False, stage_out: Path | None = None,
                 "staged_core_sha256":sha256(platform/"precompiled/core/JWPLCBASIC/core.a"),
                 "product_modified":False,"physical_test":"NOT_RUN",
                 "backup_policy":("WAIVED_DEV_ONLY" if waiver_data else "FULL_FLASH_BACKUPS"),
-                "diagnostic":"H0_COM4_READY_LINK_MAX8_NO_R1_R4",
+                "diagnostic":"H0_E_COM4_FIRST_READY_W5100_STAGE_SINGLE_NO_R1_R4",
+                "w5100_staged_source_sha256":hashes[wiz.PATH]["sha256"],
                  "upload":"NOT_RUN","builds":{}}
         for name,sketch in (("COM4",SKETCH_COM4),("COM14",SKETCH_COM14)):
             props=run([cli,"--config-file",str(conf),"compile",
@@ -318,6 +333,21 @@ def build(cli: str, *, upload: bool = False, stage_out: Path | None = None,
                         ethernet_dep.read_text(encoding="utf-8",errors="replace"),
                         "ETHERNET_SOURCE_DEP_MISSING")
                 output["ethernet_object_sha256"]=sha256(ethernet_objects[0])
+                # H0-E: nueva unidad utility/w5100.cpp DEBE compilarse
+                # desde fuente staged; ninguna biblioteca .a del producto
+                # sustituye estas etapas en la instrumentacion.
+                wiz_objects=list(target.rglob("w5100.cpp.o"))
+                require(len(wiz_objects)==1,"H0_E_W5100_OBJECT_NOT_UNIQUE")
+                wiz_dep=Path(str(wiz_objects[0])+".d")
+                if not wiz_dep.exists():
+                    wiz_dep=wiz_objects[0].with_suffix(".d")
+                require(wiz_dep.is_file(),"H0_E_W5100_OBJECT_DEP_MISSING")
+                wiz_text=wiz_dep.read_text(encoding="utf-8",errors="replace")
+                require("w5100.cpp" in wiz_text and
+                        "JWPLC_Ethernet" in wiz_text,
+                        "H0_E_W5100_SOURCE_DEP_WRONG")
+                output["w5100_object_sha256"]=sha256(wiz_objects[0])
+                print("G10_R_H0_E_W5100_SOURCE_TO_OBJECT=PASS")
                 print("G10_R_B2_DHCP_SOURCE_TO_OBJECT=PASS")
                 print("G10_R_TCP124_MODBUS_SOURCE_TO_OBJECT=PASS")
             elfs=list(target.glob("*.elf"))
@@ -326,7 +356,7 @@ def build(cli: str, *, upload: bool = False, stage_out: Path | None = None,
                                     "elf_sha256":sha256(elfs[0])}
             output["elf_sha256"][name]=sha256(elfs[0])
             print("G10_R_BUILD_"+name+"=PASS_SOURCE_FIRST")
-        print("G10_R_STAGE=PASS_14_SOURCES")
+        print("G10_R_STAGE=PASS_15_SOURCES")
         print("G10_R_PLATFORM=PASS_SAME_DIRECTORY_ISOLATED")
         print("G10_R_PHYSICAL_TEST=NOT_RUN")
         print("G10_R_BUILD_MANIFEST="+json.dumps(output,sort_keys=True))
@@ -375,14 +405,14 @@ def upload_after_build(cli: str, config: Path, tmp: Path,
             run(["git","rev-parse","HEAD"]).strip(),
             "G10R_HEAD_CHANGED_AFTER_BUILD")
     print("G10_R_FLASH_NOTICE=BANCO_SIN_RELES_NI_CARGAS_Q")
-    print("G10_R_FLASH_NOTICE=SOLO_COM4_H0_READY_LINK_MAX8")
+    print("G10_R_FLASH_NOTICE=SOLO_COM4_H0_E_W5100_FIRST_READY")
     print("G10_R_FLASH_NOTICE=COM14_SLAVE_UNTOUCHED")
     print("G10_R_FLASH_NOTICE=FIRMWARE_ANTERIOR_NO_SE_RESTAURA")
     print("G10_R_FLASH_NOTICE=GPIO4_DISABLED_SD_FRAM_READ_ONLY")
     print("G10_R_FLASH_NOTICE=CIERRE_MONITORES_SERIALES_ANTES_UPLOAD")
     require(h0_diag_com4 and dev_waiver is not None,
             "H0_DIAG_COM4_ONLY_WITH_DEV_WAIVER")
-    consent="G10R AUTORIZO SOLO COM4 READY LINK 8 SIN BACKUP"
+    consent="G10R AUTORIZO SOLO COM4 W5100 ETAPAS SIN BACKUP"
     try:answer=input("Escribe exactamente '"+consent+"': ").strip()
     except EOFError:answer=""
     require(answer==consent,"G10R_UPLOAD_NOT_AUTHORIZED")
@@ -443,7 +473,7 @@ def main() -> int:
             guard_sketch()
             require(R3_COMPLETE_PHYSICAL_CAMPAIGN_READY is False,
                     "G10R_SELFTEST_MUST_FAIL_CLOSED_FLASH")
-            require("codex/alpha13-h0-wdt-ready-window-20261017" in
+            require("codex/alpha13-h0-w5500-phy-stage-20261018" in
                     Path(__file__).read_text(encoding="utf-8"),
                     "B4_UPLOAD_REMOTE_SOURCE_BRANCH_DRIFT")
             print("G10_R_BUILD_SELFTEST=PASS_NO_CLI_NO_USB_NO_UPLOAD")
