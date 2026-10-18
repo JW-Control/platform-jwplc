@@ -174,6 +174,13 @@ async function main() {
       'los relojes no declaran variable ni setter (la misma variable repetida no es un duplicado)');
     check(!(await page.evaluate(() => window.JWPLCHMICodegen.validateIdentifiers().length)), 'sin avisos de identificadores duplicados');
 
+    console.log('Escenario: tildes, ñ y ° en cp437 (Alpha15 I3)');
+    check((await load(require('./fixtures.cjs').i3Accents)) === null, 'el proyecto abre');
+    headers.i3Accents = await header();
+    const ac = headers.i3Accents || '';
+    check(/JWPLC_UIText\("Presi\\242n", "\\367C"\)/.test(ac) && /tft\.print\("L\\241nea 2 \\371 \\250Listo\?"\)/.test(ac),
+      'etiquetas, unidades y RAW_TEXT GLCD con bytes cp437 en octal');
+
     console.log('Escenario: barra de navegación (6 estilos x 3 tipografías x horizontal/vertical)');
     check((await load(FULL_PROJECT)) === null, 'el proyecto abre');
     const presets = ['industrial-color', 'dark-pill', 'segmented-bar', 'compact-dots', 'edge-tabs', 'numeric-pills'];

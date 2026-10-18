@@ -11,7 +11,9 @@ La nube de Lopaka (proyectos, galería, animaciones) tiene partes de pago.
 
 ```text
 LOPAKA_REVIEW=DONE
-PROPUESTAS=PENDIENTE_DECISION (prioridades P1/P2/P3)
+PROPUESTAS=DECIDIDAS (§4)
+P1_1_TILDES=PASS_HOST_AND_ESP32_COMPILE (A15_I3_TILDES_CP437_20261018.md)
+P2_7_LED=PASS (BOOL «Piloto», A15_I1) · P2_7_RELOJ=PASS (A15_I2)
 ```
 
 ## 1. Qué tiene Lopaka (resumen)

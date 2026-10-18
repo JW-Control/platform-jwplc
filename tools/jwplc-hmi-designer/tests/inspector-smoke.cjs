@@ -205,6 +205,16 @@ async function main() {
     await page.evaluate(() => { const E = window.JWPLCHMIEditor; const f = E.getAllFields().find((x) => x.valueKind === 'DATETIME'); E.setSelectedFieldKeys([f.key]); E.render(); });
     await page.waitForTimeout(200);
 
+    console.log('TILDES (cp437)');
+    const accents = await page.evaluate(() => {
+      const E = window.JWPLCHMIEditor;
+      const f = E.getAllFields().find((x) => x.type === 'VALUE');
+      const draw = (label) => Array.from(E.renderFieldPreview({ ...f, x: 0, y: 0, label, unit: '' }).buffer.slice(0, 320 * 20)).join(',');
+      return { o: draw('ó'), q: draw('?'), plain: draw('o'), deg: draw('°'), snow: draw('☃') };
+    });
+    check(accents.o !== accents.q && accents.o !== accents.plain, 'el lienzo dibuja ó con su glifo (ni ? ni o)');
+    check(accents.deg !== accents.q && accents.snow === accents.q, '° tiene glifo; ☃ se dibuja como ?');
+
     console.log('TEXT');
     await page.evaluate(() => window.JWPLCHMIEditor.addTextField());
     await page.waitForTimeout(300);

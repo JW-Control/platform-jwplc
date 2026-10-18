@@ -23,8 +23,9 @@ const core = require(path.join(POC, 'designer-codegen-core.js'));
 
 function loadMenuModule() {
   const context = { window: {}, console };
+  context.self = context.window; // designer-cp437.js (UMD) se registra en self
   vm.createContext(context);
-  for (const file of ['gfx-classic-font.js', 'designer-menu.js']) {
+  for (const file of ['designer-cp437.js', 'gfx-classic-font.js', 'designer-menu.js']) {
     vm.runInContext(fs.readFileSync(path.join(POC, file), 'utf8'), context, { filename: file });
   }
   return context.window.JWPLCHMIMenu;
@@ -65,7 +66,7 @@ check(core.hex565('TRANSPARENT') === '0x0000' && core.hex565(0x1F) === '0x001F',
 check(/JWPLC_UIText\("Di \\"A\\"", nullptr, 8\)/.test(core.textFieldBlock({ ...COLORS, type: 'TEXT', x: 0, y: 0, label: 'Di "A"', unit: '', capacity: 8, valueSize: 1, labelSize: 1, frame: false, layout: 'INLINE', align: 'LEFT', page: 0 }, 'F')),
   'TEXT: escapa comillas y usa nullptr sin unidad');
 check(core.cppFloat(5) === '5.0f' && core.cppFloat(0.25) === '0.25f' && core.cppFloat('x') === '0.0f', 'cppFloat');
-check(core.variableDeclaration({ type: 'TEXT', capacity: 12 }, 'msg') === 'char msg[13] = {};', 'TEXT reserva capacidad + 1');
+check(core.variableDeclaration({ type: 'TEXT', capacity: 12 }, 'msg') === 'char msg[25] = {}; // 12 caracteres (UTF-8: cada tilde ocupa 2 bytes)', 'TEXT reserva 2 bytes por carácter (UTF-8) + 1');
 check(core.setterCall({ type: 'BAR' }, 'F', 'v') === 'JWPLC_Display.setBar(F, v);', 'setter de BAR');
 const bar = core.barFieldBlock({ ...COLORS, type: 'BAR', x: 1, y: 2, barWidth: 500, barMin: 0, barMax: 10, labelSize: 1, frame: true, layout: 'INLINE', page: 3, showLabel: false, barUnit: '', trackColor: 0x18C3 }, 'B');
 check(/JWPLC_UIRect\(1, 2, 320, JWPLC_UI_AUTO\)/.test(bar) && /JWPLC_UIText\(nullptr, nullptr\)/.test(bar) && /0x18C3/.test(bar), 'BAR: ancho acotado a 320, sin etiqueta, pista como fondo');
@@ -83,6 +84,14 @@ check((out.variables.match(/bool bomba/g) || []).length === 1, 'una variable usa
 check(/MENU_AJUSTES_BOMBA_2 = 5,/.test(out.declarations), 'símbolos de nodo únicos aunque se repita el texto');
 check(/JWPLC_UIMenuEditNum\(MENU_AJUSTES_AVANZADO, "Retardo", &retardo, 0, 600, 5, "s"\)/.test(out.declarations), 'EDIT_NUM int32 con padre simbólico');
 check(/PAGE_AJUSTES,/.test(out.declarations), 'usa el símbolo de página');
+const accented = JSON.parse(JSON.stringify(menus));
+accented[0].nodes[0].label = 'Presión';
+accented[0].nodes[0].unit = '°C';
+const accOut = menuApi.generate(accented, { fields: others, pageSymbol: (id) => ['PAGE_PRINCIPAL', 'PAGE_AJUSTES'][id] });
+check(/"Presi\\242n"/.test(accOut.declarations) && /"\\367C"/.test(accOut.declarations) && !accOut.warnings.some((w) => /fuente/.test(w)),
+  'MENU: tildes y ° en cp437 (octal), sin aviso');
+accented[0].nodes[0].label = 'Ángulo ☃';
+check(menuApi.validate(accented, others).warnings.some((w) => /«Á ☃» no existe en la fuente/.test(w)), 'MENU: avisa sólo lo que no tiene glifo');
 
 const bad = (mutator) => {
   const copy = JSON.parse(JSON.stringify(menus));

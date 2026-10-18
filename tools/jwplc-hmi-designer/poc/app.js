@@ -2098,7 +2098,7 @@
     if (field.type === 'VALUE') return window.JWPLCHMICodegenCore.valueDeclaration(field, variable);
     if (field.type === 'BAR') return `float ${variable} = 0.0f;`;
     if (field.type === 'BOOL') return `bool ${variable} = false;`;
-    return `char ${variable}[${Math.max(1, field.capacity) + 1}] = {};`;
+    return window.JWPLCHMICodegenCore.textDeclaration(field, variable);
   }
 
   // A15-5: la definición C++ de cada campo vive en designer-codegen-core.js.
@@ -3713,7 +3713,7 @@
       inspectorContract.textContent = `// Objeto est\u00e1tico: no requiere variable de estado`;
       syncShapeInspector();
     } else {
-      inspectorContract.textContent = `char ${sanitizeSymbol(field.variable, 'texto')}[${field.capacity + 1}] = {};`;
+      inspectorContract.textContent = window.JWPLCHMICodegenCore.textDeclaration(field, sanitizeSymbol(field.variable, 'texto'));
     }
   }
 

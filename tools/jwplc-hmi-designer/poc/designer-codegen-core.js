@@ -18,9 +18,14 @@
     return /^[A-Za-z_]/.test(cleaned) ? cleaned : `_${cleaned}`;
   }
 
-  // Escapa para un literal C++ (sin las comillas).
+  // Alpha15 I3: tildes, ñ y ° con la fuente GLCD (cp437); designer-cp437.js.
+  const cp437 = (typeof module === 'object' && module.exports)
+    ? require('./designer-cp437.js')
+    : self.JWPLCCp437;
+
+  // Literal C++ (sin las comillas) con los bytes que dibuja la TFT.
   function cppString(value) {
-    return String(value || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    return cp437.cppEscape(value || '');
   }
 
   function cppBool(value) {
@@ -167,11 +172,23 @@
     return textFieldBlock(field, id);
   }
 
+  // Alpha15 I3: el sketch escribe el TEXT en UTF-8 y cada tilde ocupa 2 bytes;
+  // el buffer reserva 2 bytes por carácter para que «Presión» no se corte.
+  // setText() lo convierte y recorta a la capacidad en caracteres de la TFT.
+  function textBufferSize(field) {
+    return 2 * Math.max(1, Number(field.capacity) || 1) + 1;
+  }
+
+  function textDeclaration(field, variable) {
+    const capacity = Math.max(1, Number(field.capacity) || 1);
+    return `char ${variable}[${textBufferSize(field)}] = {}; // ${capacity} caracteres (UTF-8: cada tilde ocupa 2 bytes)`;
+  }
+
   function variableDeclaration(field, variable) {
     if (field.type === 'VALUE') return valueDeclaration(field, variable);
     if (field.type === 'BAR') return `float ${variable} = 0.0f;`;
     if (field.type === 'BOOL') return `bool ${variable} = false;`;
-    return `char ${variable}[${Math.max(1, Number(field.capacity) || 1) + 1}] = {};`;
+    return textDeclaration(field, variable);
   }
 
   function setterCall(field, id, variable) {
@@ -192,6 +209,8 @@
     valueFormatBlock,
     valueCppType,
     valueDeclaration,
+    textDeclaration,
+    textBufferSize,
     isClockField,
     textFieldBlock,
     boolFieldBlock,

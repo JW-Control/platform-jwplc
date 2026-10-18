@@ -23,7 +23,7 @@ enum HMIFieldId : uint8_t
 
 // Variables HMI
 // Página 01 · Principal
-char mensaje[17] = {};
+char mensaje[33] = {}; // 16 caracteres (UTF-8: cada tilde ocupa 2 bytes)
 float presion = 0.0f;
 bool valvula = false;
 float tanque = 0.0f;

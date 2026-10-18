@@ -240,7 +240,7 @@
       const variable = sanitizeSymbol(field.variable, `estado${serialFor(field)}`);
       const legacyDeclaration = `bool ${variable} = false;`;
       if (!text.includes(legacyDeclaration)) {
-        const textDeclaration = `char ${variable}[${Math.max(1, field.capacity) + 1}] = {};`;
+        const textDeclaration = window.JWPLCHMICodegenCore.textDeclaration(field, variable);
         text = text.replace(textDeclaration, legacyDeclaration);
       }
       text = replaceHelperCall(text, id, boolFieldBlock(field));

@@ -22,24 +22,23 @@ const HOST = path.join(__dirname, 'menu-host');
 const SRC = path.join(ROOT, 'JWPLC', '2.1.0', 'libraries', 'JWPLC_Display', 'src');
 const OUT = path.resolve(process.argv[2] || fs.mkdtempSync(path.join(os.tmpdir(), 'jwplc-menu-sim-')));
 
-// Glifos GLCD: 32..126 de poc/gfx-classic-font.js (la misma tabla que usa el
-// lienzo) + flechas 0x1E/0x1F de glcdfont.c.
+// Glifos GLCD: los 256 de poc/gfx-classic-font.js (la misma tabla que usa el
+// lienzo, copiada de glcdfont.c). Como TFT_eSPI con cp437(false), un byte
+// > 175 dibuja el glifo siguiente.
 function fontHeader() {
   const js = fs.readFileSync(path.join(ROOT, 'tools', 'jwplc-hmi-designer', 'poc', 'gfx-classic-font.js'), 'utf8');
-  const body = js.slice(js.indexOf('new Uint8Array(['), js.indexOf(']);'));
+  const body = js.slice(js.indexOf('new Uint8Array(['), js.indexOf(']);')).replace(/\/\/.*$/gm, '');
   const bytes = body.match(/0x[0-9A-Fa-f]{2}/g);
-  if (!bytes || bytes.length !== (126 - 32 + 1) * 5) throw new Error(`fuente GLCD inesperada (${bytes && bytes.length})`);
+  if (!bytes || bytes.length !== 256 * 5) throw new Error(`fuente GLCD inesperada (${bytes && bytes.length})`);
   return `// Generado por menu-host-sim.cjs desde poc/gfx-classic-font.js
 #pragma once
 #include <stdint.h>
-static const uint8_t JWPLC_SIM_ASCII[] = {${bytes.join(',')}};
-static const uint8_t JWPLC_SIM_UP[5] = {0x30,0x38,0x3E,0x38,0x30};
-static const uint8_t JWPLC_SIM_DOWN[5] = {0x06,0x0E,0x3E,0x0E,0x06};
+static const uint8_t JWPLC_SIM_FONT[] = {${bytes.join(',')}};
 inline const uint8_t *jwplcSimGlyph(uint8_t c) {
-  if (c == 0x1E) return JWPLC_SIM_UP;
-  if (c == 0x1F) return JWPLC_SIM_DOWN;
-  if (c < 32 || c > 126) c = '?';
-  return &JWPLC_SIM_ASCII[(c - 32) * 5];
+  unsigned index = c;
+  if (index > 175) index++;
+  if (index > 255) index = '?';
+  return &JWPLC_SIM_FONT[index * 5];
 }
 `;
 }

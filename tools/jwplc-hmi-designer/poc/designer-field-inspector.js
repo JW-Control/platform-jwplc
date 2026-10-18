@@ -698,7 +698,7 @@
   function cppTypeFor(field) {
     if (field.type === 'VALUE') return window.JWPLCHMICodegenCore?.valueCppType?.(field) || 'float';
     if (field.type === 'BOOL') return 'bool';
-    return `char[${Math.max(1, Number(field.capacity) || 1) + 1}]`;
+    return `char[${window.JWPLCHMICodegenCore?.textBufferSize?.(field) ?? (Math.max(1, Number(field.capacity) || 1) + 1)}]`;
   }
 
   function syncPages(field) {

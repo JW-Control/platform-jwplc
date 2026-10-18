@@ -915,6 +915,12 @@ namespace JWPLCUI
             value = "";
         }
 
+        // Alpha15 I3: "Presión 25°C" escrito en el sketch (UTF-8) se ve con
+        // tildes; la capacidad cuenta caracteres de la TFT, no bytes UTF-8.
+        char glcd[VALUE_BUFFER_SIZE] = {};
+        JWPLCUIFormat::utf8ToGlcd(value, glcd, sizeof(glcd));
+        value = glcd;
+
         char clipped[VALUE_BUFFER_SIZE] = {};
 
         const uint8_t capacity =

@@ -253,6 +253,18 @@ temperatura = 62.5f;
 Para textos generados como arreglos `char[]`, usa funciones con límite de
 tamaño.
 
+El arreglo reserva 2 bytes por carácter: en el sketch el texto es UTF-8 y cada
+tilde ocupa 2 bytes. `setText()` lo convierte a la fuente de la TFT, así que
+`"Presión 25°C"` se ve con su tilde y su `°`. La capacidad del campo cuenta
+caracteres de la pantalla, no bytes.
+
+Las etiquetas y unidades que genera el HMI Designer ya vienen convertidas, como
+`"Presi\242n"`. Si escribes una etiqueta a mano, usa el Designer o esos escapes:
+una etiqueta en UTF-8 se vería con dos símbolos por tilde.
+
+La fuente trae `á é í ó ú ñ Ñ ü É ¿ ¡ ° ± ² µ`. `Á Í Ó Ú` mayúsculas no existen y se ven
+sin tilde.
+
 Ejemplo:
 
 ```cpp

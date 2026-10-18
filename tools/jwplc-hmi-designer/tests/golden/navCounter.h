@@ -21,7 +21,7 @@ enum HMIFieldId : uint8_t
 
 // Variables HMI
 // Página 01 · Principal
-char t[7] = {};
+char t[13] = {}; // 6 caracteres (UTF-8: cada tilde ocupa 2 bytes)
 
 // Definición declarativa
 static const JWPLC_UIField HMI_FIELDS[] =

@@ -78,6 +78,17 @@ module.exports = {
     ]
   },
 
+  // Alpha15 I3: tildes, ñ y ° en etiquetas, unidades, textos BOOL y RAW_TEXT GLCD.
+  i3Accents: {
+    pages: [{ id: 0, name: 'Configuración' }],
+    fields: [
+      { ...COLORS, type: 'TEXT', name: 'T', id: 'FIELD_ESTADO', variable: 'estado', capacity: 12, x: 4, y: 4, preview: 'Listo ñ', label: 'Señal', unit: '', valueSize: 1, labelSize: 1, frame: false, layout: 'INLINE', align: 'LEFT', page: 0, layerOrder: 1 },
+      { ...COLORS, type: 'VALUE', name: 'V', id: 'FIELD_PRESION', variable: 'presion', x: 4, y: 30, preview: '25.6', label: 'Presión', unit: '°C', integerDigits: 3, decimalDigits: 1, signedValue: false, leadingZeros: false, valueSize: 2, labelSize: 1, frame: true, layout: 'INLINE', align: 'RIGHT', page: 0, layerOrder: 2 },
+      { ...COLORS, type: 'BOOL', name: 'B', id: 'FIELD_VALVULA', variable: 'valvula', x: 4, y: 70, label: 'Válvula', unit: '', falseText: 'NO', trueText: 'SÍ', valueSize: 2, labelSize: 1, frame: false, layout: 'INLINE', align: 'CENTER', page: 0, layerOrder: 3 },
+      { type: 'RAW_TEXT', name: 'Titulo', id: 'RAW_1', text: 'Línea 2 · ¿Listo?', font: 'GLCD', size: 1, x: 4, y: 120, textColor: 0xFFFF, backgroundColor: 0, transparentBackground: false, page: 0, layerOrder: 4 }
+    ]
+  },
+
   shapesOnly: {
     pages: [{ id: 0, name: 'Principal' }],
     fields: [{ type: 'RECT', name: 'Marco', id: 'R1', x: 2, y: 2, x2: 150, y2: 30, frameColor: 0xF800, fill: false, page: 0, layerOrder: 1 }]

@@ -80,7 +80,13 @@
     return /^[A-Za-z_]/.test(cleaned) ? cleaned : `_${cleaned}`;
   }
 
+  // Literal C++ con los bytes cp437 que dibuja la TFT (tildes, ñ, °; Alpha15 I3).
   function cppString(value) {
+    return `"${window.JWPLCCp437.cppEscape(value ?? '')}"`;
+  }
+
+  // Texto plano para #error (el compilador lo muestra tal cual).
+  function cppPlainString(value) {
     return `"${String(value ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
   }
 
@@ -454,17 +460,24 @@
         warnings.push(`${name}: sale de la pantalla (320×170).`);
       }
 
+      // Alpha15 I3: tildes, ñ y ° sí existen en la fuente GLCD; sólo se avisa
+      // de lo que no tiene glifo (se dibuja sin tilde o como '?').
+      const noGlyphWarning = (where, text) => {
+        const missing = window.JWPLCCp437?.unsupported(text) || [];
+        if (missing.length) warnings.push(`${where}: «${missing.join(' ')}» no existe en la fuente de la TFT (se ve sin tilde o como ?).`);
+      };
+
       m.nodes.forEach((n) => {
         const where = `${name} › ${n.label || n.type}`;
         if (n.parent && !nodeByKey(m.nodes, n.parent)) errors.push(`${where}: padre inexistente.`);
         if (levelOf(m.nodes, n) > MAX_DEPTH) errors.push(`${where}: supera la profundidad ${MAX_DEPTH}.`);
         if (n.type === 'SUBMENU') {
           if (childrenOf(m.nodes, n.key).length === 0) warnings.push(`${where}: submenú vacío (no se puede abrir).`);
-          if (/[^\x20-\x7E]/.test(n.label || '')) warnings.push(`${where}: usa caracteres fuera de ASCII (tildes, ñ); la TFT los dibuja como otros símbolos.`);
+          noGlyphWarning(where, n.label);
           return;
         }
         if (n.type === 'GO_IDLE') {
-          if (/[^\x20-\x7E]/.test(n.label || '')) warnings.push(`${where}: usa caracteres fuera de ASCII (tildes, ñ); la TFT los dibuja como otros símbolos.`);
+          noGlyphWarning(where, n.label);
           return;
         }
         const variable = sanitizeSymbol(n.variable, '');
@@ -478,9 +491,7 @@
           errors.push(`${where}: ${variable} se usa como ${menuVars.get(variable)} y como ${type}.`);
         }
         menuVars.set(variable, type);
-        if (/[^\x20-\x7E]/.test(`${n.label}${n.unit || ''}${n.falseText || ''}${n.trueText || ''}`)) {
-          warnings.push(`${where}: usa caracteres fuera de ASCII (tildes, ñ); la TFT los dibuja como otros símbolos.`);
-        }
+        noGlyphWarning(where, `${n.label}${n.unit || ''}${n.falseText || ''}${n.trueText || ''}`);
         if (n.type === 'EDIT_NUM') {
           if (num(n.max) < num(n.min)) errors.push(`${where}: máximo menor que el mínimo.`);
           if (!(num(n.step) > 0)) errors.push(`${where}: el paso debe ser mayor que 0.`);
@@ -551,7 +562,7 @@
       `#ifndef JWPLC_UI_HAS_MENU\n` +
       `#error "El MENU requiere JWPLC_Display con soporte de MENU (package JWPLC Alpha15 o posterior)."\n` +
       `#endif\n` +
-      errors.map((e) => `#error ${cppString(`MENU: ${e}`)}\n`).join('');
+      errors.map((e) => `#error ${cppPlainString(`MENU: ${e}`)}\n`).join('');
 
     const menuEnum = `enum HMIMenuId : uint8_t\n{\n${menus.map((m, i) => `    ${m.id} = ${i},`).join('\n')}\n};`;
     declChunks.push(guard + '\n' + menuEnum);

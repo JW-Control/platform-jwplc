@@ -30,7 +30,7 @@ enum HMIFieldId : uint8_t
 
 // Variables HMI
 // Página 01 · Principal
-char estado[13] = {};
+char estado[25] = {}; // 12 caracteres (UTF-8: cada tilde ocupa 2 bytes)
 float temperatura = 0.0f;
 
 // Página 02 · Alarmas

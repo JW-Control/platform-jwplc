@@ -45,7 +45,7 @@ A15_INDUSTRIAL_PLAN=APPROVED (A15_INDUSTRIAL_ARQUITECTURA_PLAN_20261018.md §G; 
 A15_BUZZER=PASS_ESP32_COMPILE (JWPLC_Buzzer en JWPLC_GlobalPeripherals; físico pendiente)
 A15_I1_FORMATS=PASS_HOST_AND_ESP32_COMPILE (A15_I1_FORMATOS_VALUE_BOOL_20261018.md; VALUE miles/duración + BOOL piloto; físico pendiente)
 A15_I2_RTC=PASS_HOST_AND_ESP32_COMPILE (A15_I2_FECHA_HORA_RTC_20261018.md; VALUE fecha/hora sin variable; físico pendiente)
-A15_I3_CP437=PENDING
+A15_I3_CP437=PASS_HOST_AND_ESP32_COMPILE (A15_I3_TILDES_CP437_20261018.md; desfase cp437(false) resuelto; físico pendiente: ver ° en la placa)
 A15_FRAM_MAP=PROPOSED (plan §G.6: DataLog hoy sin FRAM; reparto del último KB)
 A15_8_MENU=PASS_HOST_AND_ESP32_COMPILE (A15_8_MENU_20261017; físico pendiente)
 A15_9_PHYSICAL_PARITY=PENDING
@@ -87,7 +87,7 @@ MENU=ADOPTED (designer-menu.js; firmware JWPLC_Display 1.1.0)
 DESIGNER_UI=Alpha11
 ELECTRON_PACKAGE=0.11.0-alpha.11
 JWPLC_TFT=0.3.0 (elipses/triángulos + FreeFonts con setFont/drawString; .a regenerado, ABI compatible)
-JWPLC_DISPLAY=1.1.0 (MENU + BOOL por estado con fondo de todo el campo + anclaje fijo + marco sin recorte + setPageIndicator + VALUE miles/duración/fecha-hora + BOOL piloto) · SOURCE_FIRST hasta el cierre (.a 0317c3ac… histórico, regenerar al cierre)
+JWPLC_DISPLAY=1.1.0 (MENU + BOOL por estado con fondo de todo el campo + anclaje fijo + marco sin recorte + setPageIndicator + VALUE miles/duración/fecha-hora + BOOL piloto + setText UTF-8 → cp437) · SOURCE_FIRST hasta el cierre (.a 0317c3ac… histórico, regenerar al cierre)
 DESIGNER_FONTS=GLCD + 24 FreeFonts (Font2/Font4 deshabilitadas)
 PROJECT_FORMAT=JWPLC_HMI_PROJECT v1
 VPP_OPENPLC=2.1.0-alpha.29 (rama v2.1.0-alpha.12/feature/openplc-engineering-closure)
@@ -213,3 +213,10 @@ MENU_NODE_COUNT_LIMIT=64 por menú, 4 menús, 1 por página (9 nodos = +952 B RA
   (`JWPLC_UIDateTimeFormat`, 5 patrones, `--:--` sin RTC válido). Sin variable ni setter; el firmware lo
   actualiza en `pollClockFields()` y sólo repinta cuando cambia el texto. Paridad 55/55; gate
   `A15_I2_Reloj` compila para ESP32.
+- 2026-10-18 — I3 (`A15_I3_TILDES_CP437_20261018.md`): tildes, ñ y ° en la TFT.
+  - El lienzo usa los 256 glifos de `glcdfont.c`.
+  - El codegen emite cp437 en octal: un glifo > 176 se envía como byte − 1, por el `cp437(false)` de TFT_eSPI que usa `JWPLC_TFT`.
+  - `setText()` convierte UTF-8 del sketch.
+  - Las variables TEXT reservan 2 bytes por carácter.
+  - Paridad lienzo == literal == firmware (16 textos).
+  - Todos los gates A15 compilan para ESP32.

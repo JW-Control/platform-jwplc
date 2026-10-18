@@ -32,6 +32,13 @@ namespace JWPLCUIFormat
 
     // false si el reloj no es válido (out queda con guiones: --:--).
     bool dateTime(const JWPLC_UIValueFormat &format, const Clock &clock, char *out, size_t outSize);
+
+    // Alpha15 I3: texto UTF-8 (á, ñ, °…) -> bytes de la fuente GLCD (cp437,
+    // con el desfase de TFT_eSPI cp437(false) para glifos > 176). Letras sin
+    // glifo -> sin tilde (Á -> A); el resto -> '?'. Un byte que no inicia una
+    // secuencia UTF-8 válida pasa tal cual (textos ya escritos en cp437).
+    // Devuelve la cantidad de bytes escritos (sin el '\0').
+    size_t utf8ToGlcd(const char *in, char *out, size_t outSize);
 }
 
 #endif // JWPLC_UI_FORMAT_H

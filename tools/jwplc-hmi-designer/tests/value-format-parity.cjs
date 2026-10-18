@@ -17,6 +17,7 @@ const ROOT = path.resolve(__dirname, '..', '..', '..');
 const SRC = path.join(ROOT, 'JWPLC', '2.1.0', 'libraries', 'JWPLC_Display', 'src');
 const STUB = path.join(__dirname, 'host-stub');
 const F = require(path.join(__dirname, '..', 'poc', 'designer-value-format.js'));
+const C = require(path.join(__dirname, '..', 'poc', 'designer-cp437.js'));
 
 let failures = 0;
 const check = (ok, msg) => { if (!ok) { failures++; console.log(`  FAIL ${msg}`); } };
@@ -124,6 +125,19 @@ int main() {
 }
 `;
 
+// ---- Texto con tildes (Alpha15 I3) ----------------------------------------
+// Tres caminos deben dar los mismos bytes en la TFT:
+//   1. el literal que emite el codegen (cppEscape) compilado por g++;
+//   2. utf8ToGlcd() del firmware (setText con texto UTF-8 del sketch);
+//   3. el lienzo: glyphIndex() -> byteForGlyph().
+const TEXTS = ['Presión', '25°C', 'Ñandú', 'Médico', 'Ángulo', '¿Listo? ¡Sí!', 'µs ± 2²', '☃ nieve 😀',
+  'a\\b "q"', '€ precio', 'Ōmega', 'ABC xyz 0123', 'ü Ü ç Ç â ê î ô û', 'Línea\tTab', '½ ¼ « » ª º', '█▌ ≥ ≤ ≈ ∞ √ ÷'];
+const canvasBytes = (t) => [...t].map((ch) => C.byteForGlyph(C.glyphIndex(ch.codePointAt(0))));
+console.log('== texto: casos fijos (Designer)');
+check(C.cppEscape('Presión 25°C') === 'Presi\\242n 25\\367C', `cppEscape("Presión 25°C") -> ${C.cppEscape('Presión 25°C')}`);
+check(C.cppEscape('Á') === 'A' && C.cppEscape('☃') === '?', 'sin glifo: la letra sin tilde, si no ?');
+check(JSON.stringify(C.unsupported('Ángulo ☃ ñ')) === JSON.stringify(['Á', '☃']), 'unsupported() lista sólo lo que no tiene glifo exacto');
+
 if (!hasGpp()) {
   console.log('== grilla firmware: OMITIDA (sin g++)');
 } else {
@@ -189,6 +203,50 @@ if (!hasGpp()) {
     }
   });
   console.log(`== grilla firmware vs Designer: ${cases.length} casos (${formats.length} formatos × ${values.length} valores)`);
+
+  // Texto: literales del codegen y utf8ToGlcd del firmware.
+  const textCpp = `#include "JWPLC_UI_Format.h"
+#include <cstdio>
+#include <cstring>
+static const char *LITERALS[] = {
+${TEXTS.map((t) => `  "${C.cppEscape(t)}",`).join('\n')}
+};
+static const char *UTF8[] = {
+${TEXTS.map((t) => `  "${[...Buffer.from(t, 'utf8')].map((b) => `\\${b.toString(8).padStart(3, '0')}`).join('')}",`).join('\n')}
+};
+static void hex(const char *s) { for (; *s; ++s) printf("%02X", (unsigned)(unsigned char)*s); }
+int main() {
+  for (size_t i = 0; i < sizeof(LITERALS) / sizeof(LITERALS[0]); ++i) {
+    char out[128];
+    JWPLCUIFormat::utf8ToGlcd(UTF8[i], out, sizeof(out));
+    hex(LITERALS[i]); printf("|"); hex(out); printf("\\n");
+  }
+  return 0;
+}
+`;
+  fs.writeFileSync(path.join(dir, 'text.cpp'), textCpp);
+  const textExe = path.join(dir, 'text');
+  execFileSync('g++', ['-std=c++17', '-O1', '-Wall', '-I', STUB, '-I', SRC,
+    path.join(dir, 'text.cpp'), path.join(SRC, 'JWPLC_UI_Format.cpp'), '-o', textExe], { stdio: 'inherit' });
+  const textLines = execFileSync(textExe).toString().trimEnd().split('\n');
+  // Corte a la mitad de una tilde (strncpy): «Presi» + 0xC3 -> «Presi».
+  const truncCpp = `#include "JWPLC_UI_Format.h"
+#include <cstdio>
+int main() { char out[32]; JWPLCUIFormat::utf8ToGlcd("Presi\\303", out, sizeof(out)); printf("%s", out); return 0; }
+`;
+  fs.writeFileSync(path.join(dir, 'trunc.cpp'), truncCpp);
+  execFileSync('g++', ['-std=c++17', '-I', STUB, '-I', SRC, path.join(dir, 'trunc.cpp'), path.join(SRC, 'JWPLC_UI_Format.cpp'), '-o', path.join(dir, 'trunc')]);
+  check(execFileSync(path.join(dir, 'trunc')).toString() === 'Presi', 'setText: una tilde cortada al final se descarta');
+
+  TEXTS.forEach((t, i) => {
+    const want = canvasBytes(t).map((b) => b.toString(16).toUpperCase().padStart(2, '0')).join('');
+    const [literal, runtime] = (textLines[i] || '').split('|');
+    if (literal !== want || runtime !== want) {
+      failures++;
+      console.log(`  FAIL texto ${JSON.stringify(t)}\n       lienzo   ${want}\n       literal  ${literal}\n       setText  ${runtime}`);
+    }
+  });
+  console.log(`== texto: lienzo == literal del codegen == setText del firmware: ${TEXTS.length} casos`);
   fs.rmSync(dir, { recursive: true, force: true });
 }
 

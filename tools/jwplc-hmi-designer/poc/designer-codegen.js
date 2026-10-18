@@ -224,8 +224,7 @@
     if (field.type === 'VALUE' && window.JWPLCHMICodegenCore?.valueDeclaration) return window.JWPLCHMICodegenCore.valueDeclaration(field, variable);
     if (field.type === 'VALUE' || field.type === 'BAR') return `float ${variable} = 0.0f;`;
     if (field.type === 'BOOL') return `bool ${variable} = false;`;
-    const capacity = Math.max(1, Number(field.capacity) || 1);
-    return `char ${variable}[${capacity + 1}] = {};`;
+    return window.JWPLCHMICodegenCore.textDeclaration(field, variable);
   }
 
   const STATIC_TYPES = ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT'];
@@ -239,11 +238,9 @@
     return `0x${(number & 0xFFFF).toString(16).toUpperCase().padStart(4, '0')}`;
   }
 
+  // Alpha15 I3: bytes cp437 de la fuente GLCD (tildes, ñ, °); saltos -> espacio.
   function cppStringLiteral(value) {
-    return String(value || '')
-      .replace(/\\/g, '\\\\')
-      .replace(/"/g, '\\"')
-      .replace(/[\r\n]+/g, ' ');
+    return window.JWPLCCp437.cppEscape(String(value || '').replace(/[\r\n]+/g, ' '));
   }
 
   // Helpers C++ que el header incluye sólo si algún objeto los usa.

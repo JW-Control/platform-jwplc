@@ -3425,7 +3425,7 @@
       ensureBarState(field);
       const id = sanitizeSymbol(field.id, `FIELD_BAR_${serialFor(field)}`);
       const variable = sanitizeSymbol(field.variable, `nivel${serialFor(field)}`);
-      const legacyDeclaration = `char ${variable}[${Math.max(1, field.capacity) + 1}] = {};`;
+      const legacyDeclaration = window.JWPLCHMICodegenCore.textDeclaration(field, variable);
       text = text.replace(legacyDeclaration, `float ${variable} = 0.0f;`);
       text = replaceHelperCall(text, id, barFieldBlock(field));
       text = text.replace(
