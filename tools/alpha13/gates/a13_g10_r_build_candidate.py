@@ -97,17 +97,17 @@ def guard_sketch() -> None:
             "TCP124_SOURCE_CALLBACK_OR_EXPORT_MISSING")
     require(SKETCH_COM14.is_dir(),"SLAVE_SKETCH_MISSING")
     require("G10R_H0_F_INIT_STAGES=60_TO_77" in s and
-            "G10R_H0_E_READY_PROBE=ONCE_TASK_FILTER_RTC_NO_R1_R4" in s and
+            "G10R_H0_F_READY_PROBE=ONCE_TASK_FILTER_RTC_NO_R1_R4" in s and
             s.count("JWPLC_Ethernet.linkStatus()")==1 and
             s.count('Serial.print(" LINK=-9");')==1 and
-            "H0_LINK_MAGIC=0x48304C33UL" in s and
+            "H0_LINK_MAGIC=0x48304C34UL" in s and
             "H0_READY_MAX_CALLS=1" in s and "RTC_NOINIT_ATTR" in s and
             "h0LinkCaller=xTaskGetCurrentTaskHandle();" in s and
             "xTaskGetCurrentTaskHandle()!=h0LinkCaller" in s and
             "h0LinkAttempt=attempt;" in s and
             "G10R_H0_TRACE=REBOOT_NO_AUTO_REPEAT" in s and
             "H0_CAP_REACHED=1" in s,
-            "H0_E_W5100_SINGLE_READY_SKETCH_DRIFT")
+            "H0_F_W5100_SINGLE_READY_SKETCH_DRIFT")
     print("G10_R_SKETCH_GUARD=PASS_STATIC_NO_Q_NO_STORAGE_WRITE_NO_RESET")
 
 
