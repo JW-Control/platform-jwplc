@@ -1,10 +1,10 @@
 # Alpha15 · Apariencia: análisis de la propuesta A1 (flecha lateral + resaltado)
 
-Fecha: `2026-10-18` · Estado: **propuesta, no implementada** (espera visto bueno del jefe)
+Fecha: `2026-10-18` · Estado: **implementada** (ver §6; aprobada como parte del cierre de Alpha15, plan §G.1)
 
 ```text
 A1_PROMPT_REVIEW=DONE
-A1_IMPLEMENTATION=PENDING (decisión del jefe sobre los puntos 1-4)
+A1_IMPLEMENTATION=PASS (TEXT/VALUE/BOOL y MENU; BAR en A15-7E)
 ```
 
 ## 1. Qué está bien
@@ -143,3 +143,33 @@ La relación color ↔ zona ya existe, pero hoy se lee **después** de la leyend
 1. **Indicador neutro, fuera de los píxeles**: doble trazo a 1–2 px de la zona más un marcador ▶ en un canal externo. Resuelve los dos 🔴.
 2. **Quitar los conectores largos y marcar la fila activa**: menos ruido y orden de lectura correcto.
 3. **Mini-modelo a ×2 como mínimo**: la zona activa debe medir al menos 6–8 px en pantalla.
+
+## 6. Implementación (2026-10-18)
+
+`poc/designer-zone-indicator.js` reemplaza a `designer-legend-arrows.js`, que se elimina. Es un único componente para campos y MENU.
+
+| Punto del análisis | Cómo quedó |
+|---|---|
+| 1. Unidad = color de la etiqueta | La zona Etiqueta son dos contornos: etiqueta y unidad. En el piloto suma el aro |
+| 2. Naranja contra naranja | Doble trazo de 1 px: negro del lado de la HMI, acento del lado de la zona. Se distingue sobre la fila de edición `0xFD20` (captura del caso «Editando») |
+| 3. Flecha encima del widget | ▶ en un canal de 12 px a la izquierda, a la altura de la zona, y banda en una mini-regla de 8 px arriba. El canvas deja ese margen |
+| 4. BAR sin mini-modelo | Fuera de alcance (A15-7E); usará el mismo `draw()` |
+| 5. BOOL por estado | Lo común se marca en los dos casos y su fila dice «(común)». Texto y fondo, sólo en su caso |
+| 6. Escala y zoom | Posiciones con `getBoundingClientRect()`; se recalcula con `ResizeObserver` |
+| Fondo | Contorno hacia adentro, en el margen del campo |
+| Fila activa | Fondo de acento tenue y rótulo en negrita |
+| Paleta | La pastilla activa pasa a blanco: el naranja queda sólo para lo que se edita |
+
+Verificación `[ejecutado]`:
+
+- `tests/inspector-smoke.cjs` · APARIENCIA A1:
+  - BOOL por estado: la etiqueta común se marca en los 2 casos y el fondo TRUE sólo en el suyo;
+  - VALUE con unidad: 2 contornos;
+  - los píxeles de los mini-modelos son idénticos con y sin indicador.
+- `tests/menu-smoke.cjs`: un contorno doble por caso, el ▶ a la altura de la fila activa y los píxeles sin cambio.
+- Capturas de VALUE, BOOL (FALSE y TRUE) y MENU (navegando y editando) revisadas.
+
+Quedan de la crítica (§5), sin hacer:
+
+- cuadros de 24×24: las filas del MENU miden lo que una fila pintada, y a ×2 no entran;
+- quitar las letras T/F/V/M.

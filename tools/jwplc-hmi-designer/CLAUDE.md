@@ -17,7 +17,7 @@ de `index.html` e inyecta los scripts en orden.
 
 ```text
 index.html:      designer-cp437 -> gfx-classic-font -> designer-fonts-data -> designer-fonts -> designer-value-format -> designer-codegen-core -> app -> ux-foundation -> designer-codegen
-ux-foundation:   designer-bool -> designer-bar -> designer-legend-arrows -> designer-field-inspector -> (designer-menu, designer-idle) -> designer-field-visibility -> designer-pages -> designer-live
+ux-foundation:   designer-bool -> designer-bar -> designer-zone-indicator -> designer-field-inspector -> (designer-menu, designer-idle) -> designer-field-visibility -> designer-pages -> designer-live
 field-visibility: designer-inspector-state, designer-pixelmap-compat -> designer-pixelmap -> designer-pixelmap-stability
 desktop.html:    designer-project, designer-native-project, designer-project-integration-fix,
                  designer-pixelmap-workbench/-optimizer/-codegen-guard, desktop-responsive
@@ -40,7 +40,7 @@ window.JWPLCHMIPixelMaps  designer-pixelmap capas Pixel
 window.JWPLCHMIProject    designer-project  serialize/apply/open/save/linkSketch/updateGeneratedHeader
 window.JWPLCHMILive       designer-live     Live Preview WebSerial (JWH1/JWH2, 921600)
 window.JWPLCHMIIdle       designer-idle     Proyecto · Pantalla y arranque (IDLE) -> patchHeader en jwplcHMISetup
-window.JWPLCLegendArrows  designer-legend-arrows  flechas de la leyenda de Apariencia (campos y MENU)
+window.JWPLCZoneIndicator designer-zone-indicator indicador A1 de Apariencia (contorno + ▶ + regla; campos y MENU)
 window.JWPLCCp437         designer-cp437          Unicode <-> cp437 de la fuente GLCD (lienzo y literales C++); gemelo de utf8ToGlcd
 window.JWPLCValueFormat   designer-value-format   formato de VALUE (número, miles, duración, fecha/hora); gemelo de JWPLC_UI_Format.cpp
 ```
@@ -102,7 +102,7 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
   emite TEXT/VALUE; BOOL/BAR salen como `JWPLC_UITextField` provisional que reemplazan sus capas.
 - Tras tocar el codegen: `node tests/codegen-golden.cjs` (salida byte a byte) y
   `node tests/codegen-smoke.cjs`. Un cambio intencional: `--update` y revisar el diff.
-- Tras tocar JS/CSS: subir `?v=` (hoy 1793200000) en `index.html`/`desktop.html`/`ux-foundation.js`/
+- Tras tocar JS/CSS: subir `?v=` (hoy 1793300000) en `index.html`/`desktop.html`/`ux-foundation.js`/
   `designer-field-visibility.js` y `CACHE_NAME` en `service-worker.js`.
 
 ## Probar sin hardware

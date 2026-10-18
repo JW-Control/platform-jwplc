@@ -52,7 +52,11 @@ dibuja el firmware (`JWPLC_Display` / `JWPLC_UI` / `JWPLC_TFT`). Lee también
   en BOOL por estado el fondo del estado pinta **todo el campo**; etiqueta y marco son comunes a
   FALSE/TRUE.
 - Colores en vivo: el selector nativo emite `input` (limitado a ~25/s en `app.js`) y `change`.
-- Ver el análisis vigente en `docs/v2.1.0-alpha.15/A15_7_APARIENCIA_A1_ANALISIS_20261018.md`.
+- Implementado en `poc/designer-zone-indicator.js` (A1): contorno de doble trazo, ▶ en un canal
+  de 12 px a la izquierda y banda en la mini-regla de arriba; la fila activa de la leyenda va
+  resaltada. Sin líneas que crucen el inspector. Cualquier mini-modelo nuevo (BAR, figuras) usa
+  ese mismo componente: `draw(body, canvas, rects)` con la clase `zone-host` en el contenedor.
+- Análisis y criterios: `docs/v2.1.0-alpha.15/A15_7_APARIENCIA_A1_ANALISIS_20261018.md`.
 
 ## 4. Botonera y navegación (no romper)
 

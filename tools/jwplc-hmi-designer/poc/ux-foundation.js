@@ -247,15 +247,15 @@
     document.body.appendChild(script);
   }
 
-  loadScript('./designer-bool.js?v=1793200000', () => {
-    loadScript('./designer-bar.js?v=1793200000', () => {
-      loadScript('./designer-legend-arrows.js?v=1793200000', () => {
-        loadScript('./designer-field-inspector.js?v=1793200000', () => {
-          loadScript('./designer-menu.js?v=1793200000');
-          loadScript('./designer-idle.js?v=1793200000');
-          loadScript('./designer-field-visibility.js?v=1793200000', () => {
-            loadScript('./designer-pages.js?v=1793200000', () => {
-              loadScript('./designer-live.js?v=1793200000');
+  loadScript('./designer-bool.js?v=1793300000', () => {
+    loadScript('./designer-bar.js?v=1793300000', () => {
+      loadScript('./designer-zone-indicator.js?v=1793300000', () => {
+        loadScript('./designer-field-inspector.js?v=1793300000', () => {
+          loadScript('./designer-menu.js?v=1793300000');
+          loadScript('./designer-idle.js?v=1793300000');
+          loadScript('./designer-field-visibility.js?v=1793300000', () => {
+            loadScript('./designer-pages.js?v=1793300000', () => {
+              loadScript('./designer-live.js?v=1793300000');
             });
           });
         });

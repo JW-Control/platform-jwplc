@@ -717,6 +717,7 @@
   let activeColorKey = 'label';
   const PREVIEW_MAX_W = 150;
   const FIELD_PADDING_PX = 3; // JWPLC_UI.cpp FIELD_PADDING: margen superior/izquierdo
+  const FIELD_GAP_PX = 4;     // JWPLC_UI.cpp FIELD_GAP: valor -> unidad
   const caseZones = new Map();
 
   function stateMode(field) {
@@ -744,9 +745,11 @@
   // etiqueta y el marco son comunes y aparecen en ambos.
   function casesFor(field) {
     const pilot = field.type === 'BOOL' && field.boolStyle === 'PILOT';
+    // BOOL por estado: etiqueta y marco son comunes a los dos casos.
+    const common = stateMode(field) ? ' (común)' : '';
     const rowsFor = (valueKey, backgroundKey) => [
-      ...(field.frame ? [{ label: 'Marco', keys: ['frame'] }] : []),
-      { label: pilot ? 'Etiqueta y aro' : 'Etiqueta', keys: ['label'] },
+      ...(field.frame ? [{ label: `Marco${common}`, keys: ['frame'] }] : []),
+      { label: `${pilot ? 'Etiqueta y aro' : 'Etiqueta'}${common}`, keys: ['label'] },
       { label: pilot ? 'Piloto' : 'Valor', keys: [valueKey] },
       { label: 'Fondo', keys: [backgroundKey] }
     ];
@@ -765,17 +768,16 @@
     const signature = cases.map((c) => `${c.id}:${c.rows.map((r) => `${r.label}=${r.keys.join('+')}`).join(',')}`).join('|');
     if (host.dataset.signature === signature) return cases;
     host.dataset.signature = signature;
-    const gutter = window.JWPLCLegendArrows?.gutterFor(4) ?? 32;
     host.innerHTML = cases.map((c) => `
       <div class="menu-case">
         <div class="bar-card-section-title">${escapeHtml(c.title)}</div>
-        <div class="menu-case-body field-case-body" data-field-case-body="${c.id}" style="--legend-gutter:${gutter}px">
+        <div class="menu-case-body field-case-body zone-host" data-field-case-body="${c.id}">
           <canvas class="menu-case-canvas field-case-canvas" data-field-case="${c.id}"></canvas>
           <div class="menu-case-legend">${c.rows.map((r) => legendRow(r.label, r.keys)).join('')}</div>
         </div>
       </div>`).join('') + `
       <div class="menu-palette">
-        <div class="insp-note">F fondo · T texto · M marco. Clic en un cuadro para editarlo; la flecha naranja señala lo que cambia y la paleta rápida se aplica a <strong data-field-active-color></strong>.</div>
+        <div class="insp-note">Clic en un cuadro para editarlo: el contorno y el ▶ marcan lo que cambia en la vista, y la paleta rápida se aplica a <strong data-field-active-color></strong>.</div>
         <div class="insp-swatch-row">${PALETTE.map(([, v, name]) =>
           `<button type="button" class="insp-swatch" data-field-palette="${v}" title="${name} · ${hex565(v)}" style="background:${rgb565ToCss(v)}"></button>`).join('')}</div>
       </div>`;
@@ -798,22 +800,29 @@
     return maxX < 0 ? rect : { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
   }
 
-  // Zona de cada color en coordenadas del mini-modelo y punto al que llega
-  // la flecha (borde derecho de la zona, a media altura).
+  // Zonas de cada color en coordenadas del mini-modelo (rectángulos que
+  // enmarca el indicador A1):
+  //   Etiqueta = etiqueta + unidad (la unidad usa colors.label en el firmware)
+  //              y, en el piloto, el aro;
+  //   Valor    = sólo los píxeles del valor;
+  //   Fondo    = el interior del campo (contorno hacia adentro, en el margen);
+  //   Marco    = el borde.
   function zonesFor(field, preview, out) {
     const g = out.g;
     const w = Math.ceil(g.fieldW);
     const h = Math.ceil(g.fieldH);
     const inset = field.frame ? 1 : 0;
-    const label = { zone: { x: FIELD_PADDING_PX, y: FIELD_PADDING_PX, w: Math.max(1, g.labelBounds.width), h: Math.max(1, g.labelBounds.height) } };
+    const labelRects = [];
+    if (g.labelBounds.width > 0) labelRects.push({ x: FIELD_PADDING_PX, y: FIELD_PADDING_PX, w: g.labelBounds.width, h: g.labelBounds.height });
+    if (g.unitBounds.width > 0) labelRects.push({ x: Math.round(g.valueX + g.valueW + FIELD_GAP_PX), y: Math.round(g.valueY), w: g.unitBounds.width, h: g.unitBounds.height });
     const valueRect = { x: Math.round(g.valueX), y: Math.round(g.valueY), w: Math.max(1, Math.round(g.valueW)), h: Math.max(1, Math.round(g.valueH)) };
+    if (field.type === 'BOOL' && field.boolStyle === 'PILOT') labelRects.push(colorBox(out, valueRect, colorOf(field, 'label')));
     const valueColor = stateMode(field) ? colorOf(field, preview.boolValue ? 'true' : 'false') : colorOf(field, 'value');
-    const value = { zone: colorBox(out, valueRect, valueColor) };
-    // Fondo: la flecha llega al margen inferior, donde sólo hay fondo.
-    const background = { zone: { x: inset, y: inset, w: w - 2 * inset, h: h - 2 * inset }, tipY: h - inset - 1.5 };
+    const value = { rects: [colorBox(out, valueRect, valueColor)] };
+    const background = { rects: [{ x: inset, y: inset, w: w - 2 * inset, h: h - 2 * inset, inset: true }] };
     return {
-      frame: { zone: { x: 0, y: 0, w, h }, tipY: Math.min(2.5, h / 2) },
-      label,
+      frame: { rects: [{ x: 0, y: 0, w, h }] },
+      label: { rects: labelRects.length ? labelRects : [valueRect] },
       value, false: value, true: value,
       background, falseBg: background, trueBg: background
     };
@@ -835,7 +844,8 @@
     // si no, la leyenda va debajo y el mini-modelo usa todo el ancho.
     const body = canvas.parentElement;
     const legend = body.querySelector('.menu-case-legend');
-    const gutter = window.JWPLCLegendArrows?.gutterFor(4) ?? 32;
+    // Canal del ▶ a la izquierda + separación con la leyenda + margen derecho.
+    const gutter = (window.JWPLCZoneIndicator?.CHANNEL ?? 12) + 14;
     const bodyW = body.clientWidth || 300;
     const fit = (avail) => Math.max(0, Math.min(3, Math.floor(avail / w)));
     const rightScale = fit(bodyW - legend.offsetWidth - gutter);
@@ -867,15 +877,20 @@
     caseZones.set(c.id, zonesFor(field, preview, out));
   }
 
+  // Indicador A1: contorno y ▶ en la zona del color activo, sólo en los casos
+  // que tienen ese cuadro (en BOOL por estado, lo común sale en los dos).
   function drawArrows() {
     wrap.querySelectorAll('[data-field-case-body]').forEach((body) => {
       const zones = caseZones.get(body.dataset.fieldCaseBody);
       const canvas = body.querySelector('canvas');
       if (!zones || !canvas) return;
-      const items = [...body.querySelectorAll('[data-legend-key]')]
-        .filter((row) => zones[row.dataset.legendKey])
-        .map((row) => ({ row, ...zones[row.dataset.legendKey], active: row.dataset.legendKey === activeColorKey }));
-      window.JWPLCLegendArrows?.draw(body, canvas, items, body.dataset.placement);
+      let rects = [];
+      body.querySelectorAll('[data-legend-key]').forEach((row) => {
+        const active = row.dataset.legendKey === activeColorKey && Boolean(zones[activeColorKey]);
+        row.classList.toggle('is-active', active);
+        if (active) rects = zones[activeColorKey].rects;
+      });
+      window.JWPLCZoneIndicator?.draw(body, canvas, rects);
     });
   }
 

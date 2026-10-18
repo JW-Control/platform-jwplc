@@ -2580,7 +2580,7 @@ body.bottom-collapsed .bottom-tabs { border-bottom: 0; }
   border: 1px solid rgba(255, 255, 255, 0.18); transition: transform 0.1s ease;
 }
 .insp-swatch:hover { transform: translateY(-1px); }
-.insp-swatch.active { outline: 2px solid #ff9a43; outline-offset: 1px; }
+.insp-swatch.active { outline: 2px solid #e8edf2; outline-offset: 1px; } /* A1: el naranja queda para lo que se edita */
 .insp-wide { width: 100%; flex-direction: row; justify-content: space-between; padding: 7px 10px; }
 .insp-readouts { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 6px; font-size: 10px; color: #8ea3b3; }
 .insp-readouts strong { color: #dce9f1; font-weight: 600; }
@@ -2660,20 +2660,25 @@ label.insp-needs-fw { opacity: 0.45; cursor: not-allowed; }
 .field-case-canvas { max-width: 100%; }
 .field-case-body .menu-legend-row { height: 24px; }
 
-/* A15-7 · Flechas de la leyenda (designer-legend-arrows.js) */
+/* Alpha15 · Apariencia A1: indicador de zona (designer-zone-indicator.js).
+   El canvas deja un canal a la izquierda (▶) y una mini-regla arriba; el
+   contorno neutro de doble trazo nunca usa un color de la paleta RGB565. */
 .menu-case-body { position: relative; }
-.field-case-body { flex-wrap: nowrap; }
+.zone-host { gap: 14px; }
+.zone-host > canvas { margin: 8px 4px 4px 12px; }
+.zone-host > .menu-case-legend { margin-top: 8px; }
+.field-case-body { flex-wrap: nowrap; align-items: center; }
 .field-case-canvas { height: auto; }
-.legend-arrows { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
-.legend-arrow { fill: none; stroke: rgba(184, 205, 220, 0.45); stroke-width: 1; }
-.legend-arrow.active { stroke: #ff9a43; stroke-width: 2; }
-.legend-arrow-head.idle { fill: rgba(184, 205, 220, 0.6); }
-.legend-arrow-head.active { fill: #ff9a43; }
-.legend-zone { fill: none; stroke: #ff9a43; stroke-width: 1.5; stroke-dasharray: 3 2; }
-.field-case-body { gap: var(--legend-gutter, 32px); align-items: center; }
 .field-case-body.is-below { flex-direction: column; align-items: flex-start; gap: 6px; }
-.field-case-body.is-below > canvas,
-.field-case-body.is-below > .menu-case-legend { margin-left: var(--legend-gutter, 32px); }
+.field-case-body.is-below > .menu-case-legend { margin-left: 12px; margin-top: 0; }
+.zone-indicator { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
+.zone-outline-dark { fill: none; stroke: #000; stroke-width: 1; }
+.zone-outline-accent { fill: none; stroke: #ff9a43; stroke-width: 1; }
+.zone-ruler { stroke: rgba(184, 205, 220, 0.25); stroke-width: 1; }
+.zone-ruler-band { fill: #ff9a43; }
+.zone-marker { fill: #ff9a43; stroke: #000; stroke-width: 0.75; }
+.menu-legend-row.is-active { background: rgba(255, 154, 67, 0.14); border-radius: 3px; color: #ffd7b0; }
+.menu-legend-row.is-active .menu-legend-label { font-weight: 700; }
 .field-case-body > .menu-case-legend { flex: none; }
 
 /* A15-7 · Proyecto: pantalla IDLE y arranque (designer-idle.js) */

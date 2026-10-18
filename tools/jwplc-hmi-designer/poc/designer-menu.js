@@ -867,7 +867,7 @@
     host.innerHTML = CASES.map((c) => `
       <div class="menu-case">
         <div class="bar-card-section-title">${c.title}</div>
-        <div class="menu-case-body" data-menu-case-body="${c.id}" style="gap:${window.JWPLCLegendArrows?.gutterFor(4) ?? 32}px">
+        <div class="menu-case-body zone-host" data-menu-case-body="${c.id}">
           <canvas class="menu-case-canvas" data-menu-case="${c.id}"></canvas>
           <div class="menu-case-legend" data-menu-legend="${c.id}">
             ${c.rows.map((r, i) => `<div class="menu-legend-row"${r ? ` data-menu-legend-row="${i}" data-keys="${r.keys.join(',')}"` : ''}>${r
@@ -880,7 +880,7 @@
         <span class="menu-legend-label">Marco</span>${swatchHtml('frame')}
       </div>
       <div class="menu-palette">
-        <div class="insp-note">F fondo · T texto · V valor. Clic en un cuadro para editarlo; la flecha naranja señala lo que cambia y la paleta rápida se aplica a <strong data-menu-active-color></strong>.</div>
+        <div class="insp-note">Clic en un cuadro para editarlo: el contorno y el ▶ marcan lo que cambia en cada vista, y la paleta rápida se aplica a <strong data-menu-active-color></strong>.</div>
         <div class="insp-swatch-row">${PALETTE.map(([v, name]) =>
           `<button type="button" class="insp-swatch" data-menu-palette="${v}" title="${name} · ${hex565(v)}" style="background:${rgb565ToCss(v)}"></button>`).join('')}</div>
       </div>`;
@@ -945,19 +945,26 @@
     return { bands, keys };
   }
 
+  // Indicador A1 (designer-zone-indicator.js): contorno neutro y ▶ en la zona
+  // del color activo. El Marco no tiene fila por caso: se marca en ambas vistas.
   function drawMenuArrows() {
     CASES.forEach((c) => {
       const body = section.querySelector(`[data-menu-case-body="${c.id}"]`);
       const zones = caseZones.get(c.id);
-      if (!body || !zones) return;
-      const items = [...body.querySelectorAll('[data-menu-legend-row]')].map((row) => {
-        const keys = row.dataset.keys.split(',');
-        const active = keys.includes(activeColorKey);
-        const band = zones.bands[Number(row.dataset.menuLegendRow)];
-        return { row, active, zone: active ? zones.keys[activeColorKey].zone : band, tipY: active ? undefined : band.y + band.h / 2 };
+      const canvas = body?.querySelector('canvas');
+      if (!body || !zones || !canvas) return;
+      let rects = [];
+      body.querySelectorAll('[data-menu-legend-row]').forEach((row) => {
+        const active = row.dataset.keys.split(',').includes(activeColorKey) && Boolean(zones.keys[activeColorKey]);
+        row.classList.toggle('is-active', active);
+        if (active) rects = [zones.keys[activeColorKey].zone];
       });
-      window.JWPLCLegendArrows?.draw(body, body.querySelector('canvas'), items, 'right');
+      if (activeColorKey === 'frame') {
+        rects = [{ x: 0, y: 0, w: Number(canvas.dataset.logicalW), h: Number(canvas.dataset.logicalH) }];
+      }
+      window.JWPLCZoneIndicator?.draw(body, canvas, rects);
     });
+    section.querySelector('[data-menu-frame-row]')?.classList.toggle('is-active', activeColorKey === 'frame');
   }
 
   function syncAppearance(field) {

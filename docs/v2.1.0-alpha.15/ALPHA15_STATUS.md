@@ -39,7 +39,7 @@ A15_7C_TEXT=PASS
 A15_7D_BOOL=PASS
 A15_7E_RAW_SHAPES_NAV_PIXEL=PENDING (NAV: borrar páginas, estilo Contador e indicador NN/TT resueltos en A15_7_INSPECTOR_FOLLOWUP_3)
 A15_7F_IDLE_CONFIG=PASS (Proyecto · Pantalla y arranque; ESC/Por inactividad/Nunca + MENU «Ir al inicio»)
-A15_7G_APPEARANCE_A1=PENDING (análisis en A15_7_APARIENCIA_A1_ANALISIS_20261018.md; espera visto bueno)
+A15_7G_APPEARANCE_A1=PASS (designer-zone-indicator.js: contorno doble + ▶ + regla; campos y MENU; A15_7_APARIENCIA_A1_ANALISIS_20261018.md §6)
 A15_LOPAKA_REVIEW=DONE (A15_LOPAKA_REVISION_20261018.md; P1 aprobado, P2 ajustado)
 A15_INDUSTRIAL_PLAN=APPROVED (A15_INDUSTRIAL_ARQUITECTURA_PLAN_20261018.md §G; Alpha15 cierra con I1-I3 + A1 + buzzer; resto Alpha16)
 A15_BUZZER=PASS_ESP32_COMPILE (JWPLC_Buzzer en JWPLC_GlobalPeripherals; físico pendiente)
@@ -220,3 +220,8 @@ MENU_NODE_COUNT_LIMIT=64 por menú, 4 menús, 1 por página (9 nodos = +952 B RA
   - Las variables TEXT reservan 2 bytes por carácter.
   - Paridad lienzo == literal == firmware (16 textos).
   - Todos los gates A15 compilan para ESP32.
+- 2026-10-18 — Apariencia A1 (`A15_7_APARIENCIA_A1_ANALISIS_20261018.md` §6): `designer-zone-indicator.js`
+  reemplaza las flechas largas. Contorno de doble trazo neutro, ▶ en un canal izquierdo y banda en la
+  mini-regla. Etiqueta = etiqueta + unidad; lo común del BOOL por estado se marca en ambos casos. Los
+  píxeles del mini-modelo no cambian (verificado). Con esto quedan hechos I1, I2, I3, A1 y el buzzer del
+  alcance de Alpha15 (§G.1).

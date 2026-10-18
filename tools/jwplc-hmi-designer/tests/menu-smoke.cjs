@@ -153,8 +153,33 @@ async function main() {
     // Clic sin gesto real (no abre el selector nativo) para elegir el cuadro.
     await page.$eval(`${S}[data-menu-swatch="selectText"]`, (el) => el.dispatchEvent(new MouseEvent('click', { bubbles: true })));
     await page.waitForTimeout(150);
-    const arrows = await page.$$eval(`${S}svg.legend-arrows path.legend-arrow`, (els) => ({ total: els.length, active: els.filter((e) => e.classList.contains('active')).length }));
-    check(arrows.total >= 5 && arrows.active === 1, `Apariencia: flechas de la leyenda (${arrows.total}, activa ${arrows.active})`);
+    // Indicador A1: ▶ a la altura de la fila activa, contorno de doble trazo
+    // y sin tocar los píxeles del mini-modelo.
+    const indicator = await page.evaluate((sel) => {
+      const out = [];
+      document.querySelectorAll(`${sel}[data-menu-case-body]`).forEach((body) => {
+        const marker = body.querySelector('svg.zone-indicator path.zone-marker');
+        const row = body.querySelector('.menu-legend-row.is-active');
+        if (!marker) return;
+        const m = marker.getBoundingClientRect();
+        const r = row?.getBoundingClientRect();
+        out.push({
+          accent: body.querySelectorAll('svg.zone-indicator rect.zone-outline-accent').length,
+          dark: body.querySelectorAll('svg.zone-indicator rect.zone-outline-dark').length,
+          aligned: Boolean(r) && Math.abs((m.top + m.bottom) / 2 - (r.top + r.bottom) / 2) <= r.height / 2
+        });
+      });
+      return out;
+    }, S);
+    check(indicator.length >= 1 && indicator.every((i) => i.accent === 1 && i.dark === 1 && i.aligned),
+      `Apariencia A1: contorno doble y ▶ a la altura de la fila activa (${JSON.stringify(indicator)})`);
+    const pixels = async () => page.$$eval(`${S}canvas[data-menu-case]`, (els) => els.map((c) => c.toDataURL()).join('|'));
+    const pixelsA = await pixels();
+    await page.$eval(`${S}[data-menu-swatch="titleBackground"]`, (el) => el.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    await page.waitForTimeout(150);
+    check(pixelsA === await pixels(), 'Apariencia A1: los píxeles del mini-modelo no cambian con el indicador');
+    await page.$eval(`${S}[data-menu-swatch="selectText"]`, (el) => el.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    await page.waitForTimeout(150);
     // El clic en el cuadro abre el selector nativo; un clic real en la paleta
     // (mismo color, no cambia el modelo) lo cierra, como en el uso normal.
     const current = (await menuField()).colors.selectText & 0xFFFF;

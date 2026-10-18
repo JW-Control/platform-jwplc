@@ -260,6 +260,43 @@ async function main() {
     await page.click(`${W}[data-insp-main="data"]`);
     check(bo.boolValue === true && bo.preview === 'MARCHA', 'estado de prueba con interruptor');
 
+    console.log('APARIENCIA A1 (indicador de zona)');
+    const zoneInfo = () => page.evaluate(() => [...document.querySelectorAll('#fieldInspectorV2 [data-field-case-body]')].map((body) => ({
+      id: body.dataset.fieldCaseBody,
+      accent: body.querySelectorAll('svg.zone-indicator rect.zone-outline-accent').length,
+      marker: body.querySelectorAll('svg.zone-indicator path.zone-marker').length,
+      active: [...body.querySelectorAll('.menu-legend-row.is-active')].map((r) => r.textContent.trim())
+    })));
+    // Clic sin gesto real: elige el cuadro sin abrir el selector nativo.
+    const casePixels = () => page.$$eval('#fieldInspectorV2 canvas[data-field-case]', (els) => els.map((c) => c.toDataURL()).join('|'));
+    // BOOL por estado: la etiqueta es común -> indicador en FALSE y TRUE.
+    await sub('appearance');
+    await page.$eval(`${W}[data-field-swatch="label"]`, (el) => el.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    await page.click(`${W}[data-insp-sub="appearance"]`); // un clic real cierra el selector nativo
+    await page.waitForTimeout(200);
+    let zi = await zoneInfo();
+    check(zi.length === 2 && zi.every((z) => z.marker === 1 && z.accent >= 1 && /común/.test(z.active.join(' '))), `BOOL por estado: Etiqueta (común) marcada en los dos casos (${JSON.stringify(zi)})`);
+    const pixA = await casePixels();
+    await page.$eval(`${W}[data-field-swatch="trueBg"]`, (el) => el.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    await page.click(`${W}[data-insp-sub="appearance"]`); // un clic real cierra el selector nativo
+    await page.waitForTimeout(200);
+    zi = await zoneInfo();
+    check(zi.find((z) => z.id === 'true')?.marker === 1 && zi.find((z) => z.id === 'false')?.marker === 0, 'BOOL por estado: el fondo TRUE sólo se marca en su caso');
+    check(pixA === await casePixels(), 'el indicador no cambia los píxeles de los mini-modelos');
+    await shot('bool_apariencia_a1');
+    // VALUE con unidad: la zona Etiqueta son dos rectángulos (etiqueta + unidad).
+    await page.evaluate(() => { const E = window.JWPLCHMIEditor; const f = E.getAllFields().find((x) => x.type === 'VALUE' && x.unit); E.setSelectedFieldKeys([f.key]); E.render(); });
+    await page.waitForTimeout(200);
+    await sub('appearance');
+    await page.$eval(`${W}[data-field-swatch="label"]`, (el) => el.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    await page.click(`${W}[data-insp-sub="appearance"]`); // un clic real cierra el selector nativo
+    await page.waitForTimeout(200);
+    zi = await zoneInfo();
+    check(zi.length === 1 && zi[0].accent === 2 && zi[0].marker === 1, `VALUE: Etiqueta = etiqueta + unidad (2 contornos) (${JSON.stringify(zi)})`);
+    await shot('value_apariencia_a1');
+    await page.evaluate(() => { const E = window.JWPLCHMIEditor; const b = E.getAllFields().filter((f) => f.type === 'BOOL'); E.setSelectedFieldKeys([b[0].key]); E.render(); });
+    await page.waitForTimeout(200);
+
     console.log('BOOL · PILOTO');
     // addBoolField sólo crea uno nuevo si el seleccionado no es BOOL.
     await page.evaluate(() => { window.JWPLCHMIEditor.setSelectedFieldKeys([]); window.JWPLCHMIBool.addBoolField(); });
