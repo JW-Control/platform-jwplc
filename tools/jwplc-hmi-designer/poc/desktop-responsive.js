@@ -407,7 +407,7 @@
     const update = $('#updateHmiButton');
     const connect = $('#liveConnectButton');
     setTextIfChanged(generate, mode === 'compact' ? 'Generar' : 'Generar C++');
-    setTextIfChanged(update, mode === 'compact' ? 'HMI' : 'Actualizar HMI');
+    setTextIfChanged(update, mode === 'compact' ? 'Escribir' : 'Escribir en sketch');
     if (connect && !connect.classList.contains('live')) setTextIfChanged(connect, mode === 'compact' ? 'JWPLC' : 'Conectar JWPLC');
   }
 

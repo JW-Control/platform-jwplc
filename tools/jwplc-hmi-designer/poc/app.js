@@ -6281,7 +6281,24 @@
   historyIndex = 0;
   updateHistoryButtons();
 
+  // Cursor sobre el viewport (lo usa el bloque de paneo, fuera de este módulo).
+  function trackViewportPointer(event) {
+    updateCursor(pointFromPointer(event));
+  }
+
+  function clearViewportCursor(onlyIfActive = false) {
+    if (onlyIfActive && !activeCursorPoint) return;
+    activeCursorPoint = null;
+    updateCrosshairs(null);
+    drawRulers();
+    cursorStatus.textContent = 'X: — · Y: —';
+    pixelStatus.textContent = 'Pixel: —';
+    updateEyedropperLiveUI({ x: -1, y: -1 });
+  }
+
   window.JWPLCHMIEditor = {
+    trackViewportPointer,
+    clearViewportCursor,
     integratedBarLayers: true,
     getSelectedField: () => selectedField(),
     getSelectedFields: () => selectedFields(),
@@ -6411,26 +6428,18 @@
     });
 
     // Crosshairs & cursor tracking across the canvas stage
+    // Este bloque está fuera del módulo del editor: usa su API pública (antes
+    // llamaba funciones internas y fallaba con ReferenceError al salir del lienzo).
     canvasViewport.addEventListener('pointermove', (e) => {
       if (e.target.closest('.canvas-toolbar') || e.target.closest('.right-vertical-toolbar')) {
-        if (activeCursorPoint) {
-          activeCursorPoint = null;
-          updateCrosshairs(null);
-          drawRulers();
-        }
+        window.JWPLCHMIEditor?.clearViewportCursor?.(true);
         return;
       }
-      const rawPoint = pointFromPointer(e);
-      updateCursor(rawPoint);
+      window.JWPLCHMIEditor?.trackViewportPointer?.(e);
     });
 
     canvasViewport.addEventListener('pointerleave', () => {
-      activeCursorPoint = null;
-      updateCrosshairs(null);
-      drawRulers();
-      cursorStatus.textContent = 'X: — · Y: —';
-      pixelStatus.textContent = 'Pixel: —';
-      updateEyedropperLiveUI({ x: -1, y: -1 });
+      window.JWPLCHMIEditor?.clearViewportCursor?.();
     });
 
     canvasViewport.addEventListener('wheel', (e) => {

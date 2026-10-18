@@ -651,8 +651,8 @@
       update.id = 'updateHmiButton';
       update.className = 'a11-project-button update-ready tb-btn tb-group-mid';
       update.type = 'button';
-      update.textContent = 'Actualizar HMI';
-      update.title = `Escribir ${HEADER_NAME} en el sketch vinculado`;
+      update.textContent = 'Escribir en sketch';
+      update.title = `Escribir ${HEADER_NAME} y el proyecto .jwhmi en la carpeta del sketch vinculado`;
       update.disabled = true;
       update.addEventListener('click', updateGeneratedHeader);
 
@@ -732,6 +732,31 @@
   bindDirtyTracking();
   restoreLinkedSketch();
 
+  // Primitivas del sketch vinculado (navegador) para designer-sketch-menu.js.
+  async function linkedFileExists(name) {
+    return Boolean(linkedSketchDirectory) && await directoryHasFile(linkedSketchDirectory, name);
+  }
+
+  async function readLinkedFile(name) {
+    const handle = await linkedSketchDirectory.getFileHandle(name, { create: false });
+    return (await handle.getFile()).text();
+  }
+
+  async function writeLinkedFile(name, text) {
+    if (!(await ensureDirectoryPermission(linkedSketchDirectory, true))) {
+      updateLinkedUI('permission');
+      throw new Error('El Designer necesita permiso para escribir en el sketch.');
+    }
+    const handle = await linkedSketchDirectory.getFileHandle(name, { create: true });
+    await writeFileHandle(handle, text);
+    if (/\.jwhmi$/i.test(name)) {
+      projectFileHandle = handle;
+      projectName = name.replace(/\.jwhmi$/i, '') || projectName;
+      setDirty(false);
+    }
+    updateLinkedUI('linked');
+  }
+
   window.JWPLCHMIProject = {
     serialize: serializeProject,
     apply: applyProject,
@@ -741,6 +766,9 @@
     linkSketch,
     updateGeneratedHeader,
     linkedSketchName: () => linkedSketchDirectory?.name || null,
+    linkedFileExists,
+    readLinkedFile,
+    writeLinkedFile,
     linkedProjectFileName: canonicalProjectFileName,
     headerName: HEADER_NAME
   };

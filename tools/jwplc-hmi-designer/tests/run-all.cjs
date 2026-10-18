@@ -22,6 +22,7 @@ const TESTS = [
   { file: 'value-format-parity.cjs', what: 'formato de VALUE: firmware real == Designer (sin g++ sólo casos fijos)' },
   { file: 'inspector-smoke.cjs', what: 'inspector TEXT/VALUE/BOOL/BAR + paridad BAR' },
   { file: 'menu-smoke.cjs', what: 'MENU en el Designer + paridad con el firmware' },
+  { file: 'sketch-menu-smoke.cjs', what: 'Escribir en sketch + menú del sketch (app de escritorio simulada)' },
   { file: 'menu-host-sim.cjs', what: 'MENU: firmware real en host', needs: gpp ? null : 'g++' },
   { file: 'codegen-smoke.cjs', what: 'headers compilan contra el package', needs: gpp && python ? null : 'g++ y python3' }
 ];

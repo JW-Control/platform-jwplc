@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, session } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, session, shell } from "electron";
 import http from "node:http";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -151,13 +151,27 @@ const fileExists = async (filePath) => {
   }
 };
 
+// El HMI del sketch es <carpeta>.jwhmi junto al .ino (lo escribe "Escribir en sketch").
+const projectFileName = (directoryPath) => `${path.basename(directoryPath)}.jwhmi`;
+
+// El .ino principal se llama como la carpeta (regla del Arduino IDE); si no, el primero.
+const mainInoPath = async (directoryPath) => {
+  const preferred = path.join(directoryPath, `${path.basename(directoryPath)}.ino`);
+  if (await fileExists(preferred)) return preferred;
+  const entries = await fs.readdir(directoryPath, { withFileTypes: true });
+  const first = entries.find((entry) => entry.isFile() && /\.ino$/i.test(entry.name));
+  return first ? path.join(directoryPath, first.name) : null;
+};
+
 const sketchInfo = async (directoryPath) => {
   if (!directoryPath || !(await directoryContainsSketch(directoryPath))) return null;
   return {
     ok: true,
     name: path.basename(directoryPath),
     path: directoryPath,
-    headerExists: await fileExists(path.join(directoryPath, HEADER_NAME))
+    headerExists: await fileExists(path.join(directoryPath, HEADER_NAME)),
+    projectFile: projectFileName(directoryPath),
+    projectExists: await fileExists(path.join(directoryPath, projectFileName(directoryPath)))
   };
 };
 
@@ -223,6 +237,32 @@ const installNativeIpc = () => {
 
     await fs.writeFile(target, text, "utf8");
     return { ok: true, name: info.name, path: target };
+  });
+
+  ipcMain.handle("jwplc-hmi:read-project", async () => {
+    await restoreLinkedSketchPath();
+    const info = await sketchInfo(linkedSketchPath);
+    if (!info) return { ok: false, error: "No hay un sketch vinculado válido." };
+    if (!info.projectExists) return { ok: false, missing: true, fileName: info.projectFile };
+    const text = await fs.readFile(path.join(linkedSketchPath, info.projectFile), "utf8");
+    return { ok: true, fileName: info.projectFile, text };
+  });
+
+  ipcMain.handle("jwplc-hmi:open-sketch-ino", async () => {
+    await restoreLinkedSketchPath();
+    if (!(await sketchInfo(linkedSketchPath))) return { ok: false, error: "No hay un sketch vinculado válido." };
+    const ino = await mainInoPath(linkedSketchPath);
+    if (!ino) return { ok: false, error: "El sketch no tiene archivo .ino." };
+    // Abre con el programa asociado a .ino (normalmente el Arduino IDE).
+    const error = await shell.openPath(ino);
+    return error ? { ok: false, error } : { ok: true, path: ino };
+  });
+
+  ipcMain.handle("jwplc-hmi:open-sketch-folder", async () => {
+    await restoreLinkedSketchPath();
+    if (!(await sketchInfo(linkedSketchPath))) return { ok: false, error: "No hay un sketch vinculado válido." };
+    const error = await shell.openPath(linkedSketchPath);
+    return error ? { ok: false, error } : { ok: true, path: linkedSketchPath };
   });
 
   ipcMain.handle("jwplc-hmi:write-project", async (_event, payload = {}) => {

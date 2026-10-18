@@ -46,6 +46,7 @@ A15_BUZZER=PASS_ESP32_COMPILE (JWPLC_Buzzer en JWPLC_GlobalPeripherals; físico 
 A15_I1_FORMATS=PASS_HOST_AND_ESP32_COMPILE (A15_I1_FORMATOS_VALUE_BOOL_20261018.md; VALUE miles/duración + BOOL piloto; físico pendiente)
 A15_I2_RTC=PASS_HOST_AND_ESP32_COMPILE (A15_I2_FECHA_HORA_RTC_20261018.md; VALUE fecha/hora sin variable; físico pendiente)
 A15_I3_CP437=PASS_HOST_AND_ESP32_COMPILE (A15_I3_TILDES_CP437_20261018.md; desfase cp437(false) resuelto; físico pendiente: ver ° en la placa)
+A15_SKETCH_FLOW=PASS_WEB_SIMULATED (Escribir en sketch + menú del sketch; app de escritorio real [no verificado])
 A15_FRAM_MAP=PROPOSED (plan §G.6: DataLog hoy sin FRAM; reparto del último KB)
 A15_8_MENU=PASS_HOST_AND_ESP32_COMPILE (A15_8_MENU_20261017; físico pendiente)
 A15_9_PHYSICAL_PARITY=PENDING
@@ -231,4 +232,18 @@ MENU_NODE_COUNT_LIMIT=64 por menú, 4 menús, 1 por página (9 nodos = +952 B RA
 
   Propuestas pendientes de decisión:
   - flujo de los botones Generar / Actualizar / Sketch;
-  - glifos propios para `Á Í Ó Ú` (requiere regenerar `libJWPLC_TFT.a`).
+  - glifos propios para `Á Í Ó Ú` (requiere regenerar `libJWPLC_TFT.a`; decidido: otra alpha).
+- 2026-10-18 — Flujo con el sketch (aprobado por el jefe):
+  - se oculta «Generar C++», porque el panel «Código generado» ya muestra el header;
+  - «Actualizar HMI» pasa a **«Escribir en sketch»** y escribe el header y `<sketch>.jwhmi` con una sola confirmación;
+  - «Sketch: nombre ▾» abre un menú: Abrir HMI del sketch · Abrir en Arduino IDE · Abrir carpeta · Cambiar sketch…;
+  - al vincular un sketch con `.jwhmi`, pregunta si abrirlo.
+
+  Electron: IPC nuevos `read-project`, `open-sketch-ino` y `open-sketch-folder`. Test
+  `sketch-menu-smoke.cjs` con la app de escritorio simulada.
+
+  Corregido además un error existente: el bloque de paneo de `app.js` llamaba funciones internas del
+  editor fuera de su alcance (`updateCrosshairs is not defined`), así que la cruceta y la regla no se
+  limpiaban al salir del lienzo.
+
+  Los glifos `Á Í Ó Ú` quedan para otra alpha (no se regenera `libJWPLC_TFT.a`).

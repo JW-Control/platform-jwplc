@@ -7,5 +7,8 @@ contextBridge.exposeInMainWorld('JWPLCHMINative', {
   writeGeneratedHeader: (text, overwrite = false) =>
     ipcRenderer.invoke('jwplc-hmi:write-generated-header', { text, overwrite }),
   writeProject: (fileName, text, overwrite = false) =>
-    ipcRenderer.invoke('jwplc-hmi:write-project', { fileName, text, overwrite })
+    ipcRenderer.invoke('jwplc-hmi:write-project', { fileName, text, overwrite }),
+  readProject: () => ipcRenderer.invoke('jwplc-hmi:read-project'),
+  openSketchIno: () => ipcRenderer.invoke('jwplc-hmi:open-sketch-ino'),
+  openSketchFolder: () => ipcRenderer.invoke('jwplc-hmi:open-sketch-folder')
 });

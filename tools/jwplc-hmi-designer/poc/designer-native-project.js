@@ -186,6 +186,14 @@
     const restored = await native.getLinkedSketch();
     if (restored?.ok) linked = restored;
     updateUi();
+
+    // designer-sketch-menu.js vincula por su cuenta («Cambiar sketch…»):
+    // releer el vínculo para que «Guardar» use el sketch nuevo.
+    window.addEventListener('jwplc:sketch-linked', async () => {
+      const current = await native.getLinkedSketch();
+      linked = current?.ok ? current : null;
+      updateUi();
+    });
   }
 
   init().catch((error) => {

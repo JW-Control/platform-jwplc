@@ -2720,3 +2720,39 @@ label.insp-needs-fw { opacity: 0.45; cursor: not-allowed; }
 }
 .insp-pilot-dot.is-off { background: #ff5050; }
 .insp-pilot-dot.is-on { background: #3ce36b; }
+
+/* Alpha15 · Flujo con el sketch (designer-sketch-menu.js). «Generar C++» se
+   oculta: el panel «Código generado» ya muestra el header. */
+#generateButton { display: none !important; }
+#updateHmiButton { border-top-left-radius: 6px; border-bottom-left-radius: 6px; }
+#linkSketchButton.sketch-menu-button::after { content: ' ▾'; font-size: 0.85em; opacity: 0.8; }
+.sketch-menu {
+  position: fixed; z-index: 9000; min-width: 280px; max-width: 360px; padding: 6px;
+  background: #0f1b23; border: 1px solid #2c4252; border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45); color: #dce8ef; font: 12px/1.35 'Segoe UI', sans-serif;
+}
+.sketch-menu-head { padding: 6px 8px 8px; border-bottom: 1px solid #1d2f3b; margin-bottom: 4px; }
+.sketch-menu-head strong { display: block; font-size: 13px; color: #fff; }
+.sketch-menu-head small { display: block; color: #7f97a8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sketch-menu-files { display: flex; flex-direction: column; gap: 1px; margin-top: 6px; font: 11px 'Cascadia Code', Consolas, monospace; color: #6f8595; }
+.sketch-menu-files .is-on { color: #6be38f; }
+.sketch-menu-item {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 8px; border: 0; border-radius: 6px;
+  background: transparent; color: inherit; text-align: left; cursor: pointer; font: inherit;
+}
+.sketch-menu-item:hover:not([disabled]), .sketch-menu-item:focus-visible { background: rgba(255, 154, 67, 0.14); outline: none; }
+.sketch-menu-item[disabled] { opacity: 0.45; cursor: not-allowed; }
+.sketch-menu-icon { width: 18px; text-align: center; color: #ff9a43; font-size: 14px; }
+.sketch-menu-text { display: flex; flex-direction: column; min-width: 0; }
+.sketch-menu-text small { color: #7f97a8; font-size: 11px; }
+.sketch-menu-sep { height: 1px; background: #1d2f3b; margin: 4px 0; }
+.sketch-toast {
+  position: fixed; left: 50%; bottom: 38px; transform: translateX(-50%); z-index: 9100;
+  min-width: 300px; max-width: min(700px, calc(100vw - 32px)); padding: 10px 14px;
+  border: 1px solid #506675; border-radius: 7px; background: rgba(12, 22, 29, 0.98); color: #e5eef3;
+  font: 12px/1.45 'Segoe UI', sans-serif; box-shadow: 0 9px 30px rgba(0, 0, 0, 0.34);
+  pointer-events: none; opacity: 0; transition: opacity 0.16s ease;
+}
+.sketch-toast.is-visible { opacity: 1; }
+.sketch-toast[data-kind="ok"] { border-color: #3b9e80; }
+.sketch-toast[data-kind="error"] { border-color: #c85d58; color: #ffd7d4; }
