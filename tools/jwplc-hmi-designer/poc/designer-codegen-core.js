@@ -56,7 +56,18 @@
 
   // Alpha15 I1: número (con separador de miles opcional) o duración.
   // Sin separador sale el constructor de 4 argumentos de siempre.
+  // VALUE de fecha/hora (I2): sin variable ni setter, lo llena el firmware desde el RTC.
+  function isClockField(field) {
+    return field?.type === 'VALUE' && field.valueKind === 'DATETIME';
+  }
+
+  const DATETIME_PATTERNS = ['HH_MM', 'HH_MM_SS', 'DD_MM', 'DD_MM_YYYY', 'DD_MM_YYYY_HH_MM'];
+
   function valueFormatBlock(field) {
+    if (isClockField(field)) {
+      const pattern = DATETIME_PATTERNS.includes(field.dateTimePattern) ? field.dateTimePattern : 'HH_MM';
+      return `JWPLC_UIDateTimeFormat(\n            JWPLC_UI_DATETIME_${pattern})`;
+    }
     if (field.valueKind === 'DURATION') {
       const pattern = DURATION_PATTERN_CPP[field.durationPattern] || 'MM_SS';
       const unit = field.durationUnit === 'MS' ? 'MILLIS' : 'SECONDS';
@@ -70,6 +81,7 @@
   // duraciones y contadores con miles sin decimales usan enteros de 32 bits,
   // que float no representa exactos por encima de 2^24 (~4,6 h en ms).
   function valueCppType(field) {
+    if (isClockField(field)) return 'none';
     const integer = field.valueKind === 'DURATION' ||
       ([',', '.', ' '].includes(field.thousandsSep) && !(Number(field.decimalDigits) > 0));
     if (!integer) return 'float';
@@ -77,6 +89,7 @@
   }
 
   function valueDeclaration(field, variable) {
+    if (isClockField(field)) return '';
     const type = valueCppType(field);
     return type === 'float' ? `float ${variable} = 0.0f;` : `${type} ${variable} = 0;`;
   }
@@ -162,6 +175,7 @@
   }
 
   function setterCall(field, id, variable) {
+    if (isClockField(field)) return '';
     if (field.type === 'VALUE') return `JWPLC_Display.setValue(${id}, ${variable});`;
     if (field.type === 'BOOL') return `JWPLC_Display.setBool(${id}, ${variable});`;
     if (field.type === 'BAR') return `JWPLC_Display.setBar(${id}, ${variable});`;
@@ -178,6 +192,7 @@
     valueFormatBlock,
     valueCppType,
     valueDeclaration,
+    isClockField,
     textFieldBlock,
     boolFieldBlock,
     boolStateColorsOn,

@@ -17,6 +17,21 @@ namespace JWPLCUIFormat
 
     // false si el valor no cabe o no es finito (out queda con overflow()).
     bool value(const JWPLC_UIValueFormat &format, double value, char *out, size_t outSize);
+
+    // Fecha/hora (I2). Sin la estructura del core para compilar en host.
+    struct Clock
+    {
+        bool valid;
+        uint16_t year;
+        uint8_t month;
+        uint8_t day;
+        uint8_t hour;
+        uint8_t minute;
+        uint8_t second;
+    };
+
+    // false si el reloj no es válido (out queda con guiones: --:--).
+    bool dateTime(const JWPLC_UIValueFormat &format, const Clock &clock, char *out, size_t outSize);
 }
 
 #endif // JWPLC_UI_FORMAT_H

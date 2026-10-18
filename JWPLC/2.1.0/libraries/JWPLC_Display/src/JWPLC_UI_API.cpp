@@ -383,6 +383,7 @@ extern "C" void jwplcUIRuntimeServiceInput(void)
     // ESC fuera de la raíz); lo que no consume sigue al selector de páginas.
     jwplcUIMenuServiceInput();
     JWPLCUIPages::serviceNavigation();
+    JWPLCUI::pollClockFields();
 }
 
 extern "C" bool jwplcUIRuntimeRefreshNeeded(void)

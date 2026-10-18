@@ -57,6 +57,10 @@ check(core.variableDeclaration({ type: 'VALUE', valueKind: 'DURATION', signedVal
   core.variableDeclaration({ type: 'VALUE', thousandsSep: ',', decimalDigits: 1 }, 'n') === 'float n = 0.0f;' &&
   core.variableDeclaration({ type: 'VALUE', decimalDigits: 0 }, 'n') === 'float n = 0.0f;',
   'VALUE: duración y contadores con miles usan enteros de 32 bits; el resto float');
+const clockField = { ...value, valueKind: 'DATETIME', dateTimePattern: 'DD_MM_YYYY_HH_MM' };
+check(/JWPLC_UIDateTimeFormat\(\n            JWPLC_UI_DATETIME_DD_MM_YYYY_HH_MM\)/.test(core.valueFieldBlock(clockField, 'F')) &&
+  core.variableDeclaration(clockField, 'h') === '' && core.setterCall(clockField, 'F', 'h') === '' && core.isClockField(clockField),
+  'VALUE fecha/hora: JWPLC_UIDateTimeFormat, sin variable ni setter');
 check(core.hex565('TRANSPARENT') === '0x0000' && core.hex565(0x1F) === '0x001F', 'hex565: TRANSPARENT -> 0x0000');
 check(/JWPLC_UIText\("Di \\"A\\"", nullptr, 8\)/.test(core.textFieldBlock({ ...COLORS, type: 'TEXT', x: 0, y: 0, label: 'Di "A"', unit: '', capacity: 8, valueSize: 1, labelSize: 1, frame: false, layout: 'INLINE', align: 'LEFT', page: 0 }, 'F')),
   'TEXT: escapa comillas y usa nullptr sin unidad');

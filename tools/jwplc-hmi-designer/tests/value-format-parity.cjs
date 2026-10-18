@@ -45,7 +45,8 @@ const FIXED = [
   [{ valueKind: 'DURATION', durationPattern: 'COMPACT', integerDigits: 2 }, 45, '45s'],
   [{ valueKind: 'DURATION', durationPattern: 'MM_SS', integerDigits: 2, signedValue: true }, -75, '-01:15'],
   [{ valueKind: 'DURATION', durationPattern: 'MM_SS', integerDigits: 2, signedValue: true }, -0.4, '00:00'],
-  [{ valueKind: 'DURATION', durationPattern: 'MM_SS', integerDigits: 2 }, -5, '--:--']
+  [{ valueKind: 'DURATION', durationPattern: 'MM_SS', integerDigits: 2 }, -5, '--:--'],
+  [{ valueKind: 'DATETIME', dateTimePattern: 'HH_MM' }, 12, '--:--']
 ];
 
 console.log('== casos fijos (Designer)');
@@ -95,6 +96,20 @@ const DRIVER = `
 #include <cstdlib>
 int main() {
   int ints, decs, sgn, lz, sep, kind, pat, unit; char v[64];
+  // Primero los relojes: "C pat valid year month day hour minute second".
+  int nclocks = 0;
+  if (scanf("%d", &nclocks) != 1) return 1;
+  for (int i = 0; i < nclocks; ++i) {
+    int p, valid, y, mo, d, h, mi, se;
+    if (scanf("%d %d %d %d %d %d %d %d", &p, &valid, &y, &mo, &d, &h, &mi, &se) != 8) return 1;
+    JWPLC_UIValueFormat f = JWPLC_UIDateTimeFormat((JWPLC_UIDateTimePattern)p);
+    JWPLCUIFormat::Clock c = { valid != 0, (uint16_t)y, (uint8_t)mo, (uint8_t)d, (uint8_t)h, (uint8_t)mi, (uint8_t)se };
+    char s[64], o[64], t[64];
+    JWPLCUIFormat::sample(f, s, sizeof(s));
+    JWPLCUIFormat::overflow(f, o, sizeof(o));
+    bool ok = JWPLCUIFormat::dateTime(f, c, t, sizeof(t));
+    printf("%s|%s|%s|%d\\n", s, o, t, ok ? 1 : 0);
+  }
   while (scanf("%d %d %d %d %d %d %d %d %63s", &ints, &decs, &sgn, &lz, &sep, &kind, &pat, &unit, v) == 9) {
     JWPLC_UIValueFormat f = kind
       ? JWPLC_UIDurationFormat((JWPLC_UIDurationPattern)pat, (JWPLC_UIDurationUnit)unit, (uint8_t)ints, sgn != 0)
@@ -121,13 +136,46 @@ if (!hasGpp()) {
   const { formats, values } = grid();
   const cases = [];
   for (const f of formats) for (const v of values) cases.push([f, v]);
-  const input = cases.map(([f, v]) => [
+
+  // Relojes: válidos, bordes y fuera de rango (deben dar guiones).
+  const clocks = [
+    { valid: true, year: 2026, month: 10, day: 18, hour: 14, minute: 5, second: 7 },
+    { valid: true, year: 2000, month: 1, day: 1, hour: 0, minute: 0, second: 0 },
+    { valid: true, year: 2099, month: 12, day: 31, hour: 23, minute: 59, second: 59 },
+    { valid: true, year: 999, month: 2, day: 9, hour: 9, minute: 9, second: 9 },
+    { valid: false, year: 2026, month: 10, day: 18, hour: 14, minute: 5, second: 7 },
+    { valid: true, year: 2026, month: 13, day: 1, hour: 0, minute: 0, second: 0 },
+    { valid: true, year: 2026, month: 0, day: 1, hour: 0, minute: 0, second: 0 },
+    { valid: true, year: 2026, month: 1, day: 32, hour: 0, minute: 0, second: 0 },
+    { valid: true, year: 2026, month: 1, day: 1, hour: 24, minute: 0, second: 0 },
+    { valid: true, year: 2026, month: 1, day: 1, hour: 0, minute: 60, second: 0 },
+    { valid: true, year: 2026, month: 1, day: 1, hour: 0, minute: 0, second: 60 }
+  ];
+  const clockCases = [];
+  F.DATETIME_PATTERNS.forEach((pattern, p) => clocks.forEach((c) => clockCases.push([p, pattern, c])));
+  const clockInput = `${clockCases.length}\n` + clockCases.map(([p, , c]) =>
+    [p, c.valid ? 1 : 0, c.year, c.month, c.day, c.hour, c.minute, c.second].join(' ')).join('\n') + '\n';
+
+  const input = clockInput + cases.map(([f, v]) => [
     f.integerDigits, f.decimalDigits || 0, f.signedValue ? 1 : 0, f.leadingZeros ? 1 : 0,
     f.thousandsSep ? f.thousandsSep.charCodeAt(0) : 0, f.valueKind === 'DURATION' ? 1 : 0,
     PATTERN_ENUM[f.durationPattern] || 0, f.durationUnit === 'MS' ? 1 : 0, String(v)
   ].join(' ')).join('\n') + '\n';
-  const lines = execFileSync(exe, { input }).toString().trimEnd().split('\n');
+  const allLines = execFileSync(exe, { input }).toString().trimEnd().split('\n');
+  const clockLines = allLines.slice(0, clockCases.length);
+  const lines = allLines.slice(clockCases.length);
   check(lines.length === cases.length, `líneas ${lines.length} != casos ${cases.length}`);
+
+  clockCases.forEach(([, pattern, c], i) => {
+    const f = { valueKind: 'DATETIME', dateTimePattern: pattern };
+    const js = F.dateTime(f, c);
+    const want = `${F.sample(f)}|${F.overflow(f)}|${js.text}|${js.ok ? 1 : 0}`;
+    if (clockLines[i] !== want) {
+      failures++;
+      console.log(`  FAIL reloj ${pattern} ${JSON.stringify(c)}\n       firmware ${clockLines[i]}\n       designer ${want}`);
+    }
+  });
+  console.log(`== relojes firmware vs Designer: ${clockCases.length} casos`);
 
   let shown = 0;
   cases.forEach(([f, v], i) => {

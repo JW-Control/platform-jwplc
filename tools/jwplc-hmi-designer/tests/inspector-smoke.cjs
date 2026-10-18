@@ -184,6 +184,27 @@ async function main() {
     v = await selected();
     check(v.valueKind === 'NUMBER' && v.integerDigits === 4 && v.decimalDigits === 2 && v.thousandsSep === '', 'Número restaurado (4, 2, sin separador)');
 
+    console.log('VALUE · FECHA/HORA (RTC)');
+    await page.evaluate(() => { window.JWPLCHMIEditor.setSelectedFieldKeys([]); window.JWPLCHMIEditor.addValueField(); });
+    await page.waitForTimeout(300);
+    await sub('content');
+    await page.click(`${W}[data-vkind="DATETIME"]`);
+    await page.click(`${W}[data-vdt="HH_MM_SS"]`);
+    let ck = await selected();
+    check(ck.valueKind === 'DATETIME' && ck.dateTimePattern === 'HH_MM_SS', 'Fecha/hora: tipo y patrón');
+    check(await page.$eval(`${W}[data-readout="reserve"]`, (el) => el.textContent) === '88:88:88', 'Fecha/hora: reserva 88:88:88');
+    check(/^\d\d:\d\d:\d\d$/.test(await page.$eval(`${W}[data-readout="formatted"]`, (el) => el.textContent)), 'Fecha/hora: el lienzo muestra la hora del PC');
+    await page.click(`${W}[data-rtc-invalid]`);
+    check(await page.$eval(`${W}[data-readout="formatted"]`, (el) => el.textContent) === '--:--:--', 'Fecha/hora: vista «sin reloj válido» --:--:--');
+    await shot('value_formato_fecha_hora');
+    await page.click(`${W}[data-insp-main="data"]`);
+    check(await page.$eval(`${W}[data-clock-only]`, (el) => !el.hidden) && await page.$eval(`${W}[data-not-clock]`, (el) => el.hidden), 'Datos: sin variable, con la nota del reloj');
+    await shot('value_fecha_hora_datos');
+    const ckh = await header();
+    check(/JWPLC_UIDateTimeFormat\(\n\s*JWPLC_UI_DATETIME_HH_MM_SS\)/.test(ckh), 'header: JWPLC_UIDateTimeFormat(HH_MM_SS)');
+    await page.evaluate(() => { const E = window.JWPLCHMIEditor; const f = E.getAllFields().find((x) => x.valueKind === 'DATETIME'); E.setSelectedFieldKeys([f.key]); E.render(); });
+    await page.waitForTimeout(200);
+
     console.log('TEXT');
     await page.evaluate(() => window.JWPLCHMIEditor.addTextField());
     await page.waitForTimeout(300);

@@ -2113,6 +2113,7 @@
   function setterHint(field, index) {
     const id = sanitizeSymbol(field.id, fieldFallbackId(field, index));
     const variable = sanitizeSymbol(field.variable, variableFallback(field, index));
+    if (window.JWPLCHMICodegenCore?.isClockField?.(field)) return `// ${id}: fecha/hora del RTC (la actualiza el firmware)`;
     if (field.type === 'VALUE') return `// JWPLC_Display.setValue(${id}, ${variable});`;
     if (field.type === 'BOOL') return `// JWPLC_Display.setBool(${id}, ${variable});`;
     if (field.type === 'BAR') return `// JWPLC_Display.setBar(${id}, ${variable});`;

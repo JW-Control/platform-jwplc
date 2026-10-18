@@ -124,13 +124,31 @@ struct JWPLC_UIStyle
 // Duraciones: la variable trae segundos o milisegundos (lo calcula el PLC; VALUE
 // sólo formatea, truncando a segundos). integerDigits es el ancho de la primera
 // unidad (SS, MM o HH): fija la reserva y el máximo; si no cabe se ve --:--.
+//
+// Alpha15 (I2): fecha/hora del RTC de la placa. El campo no tiene variable:
+// el firmware lee jwplcGetRTCState() y repinta sólo cuando cambia el texto
+// mostrado (el minuto en HH:MM, el segundo en HH:MM:SS). Sin RTC válido se
+// ve --:--.
+//   JWPLC_UIDateTimeFormat(JWPLC_UI_DATETIME_HH_MM)        -> 14:35
+//   JWPLC_UIDateTimeFormat(JWPLC_UI_DATETIME_DD_MM_YYYY)   -> 18/10/2026
 #define JWPLC_UI_HAS_VALUE_DURATION 1
 #define JWPLC_UI_HAS_VALUE_THOUSANDS 1
+#define JWPLC_UI_HAS_VALUE_DATETIME 1
 
 enum JWPLC_UIValueKind : uint8_t
 {
     JWPLC_UI_VALUE_NUMBER = 0,
-    JWPLC_UI_VALUE_DURATION
+    JWPLC_UI_VALUE_DURATION,
+    JWPLC_UI_VALUE_DATETIME
+};
+
+enum JWPLC_UIDateTimePattern : uint8_t
+{
+    JWPLC_UI_DATETIME_HH_MM = 0,       // 14:35
+    JWPLC_UI_DATETIME_HH_MM_SS,        // 14:35:07
+    JWPLC_UI_DATETIME_DD_MM,           // 18/10
+    JWPLC_UI_DATETIME_DD_MM_YYYY,      // 18/10/2026
+    JWPLC_UI_DATETIME_DD_MM_YYYY_HH_MM // 18/10/2026 14:35
 };
 
 enum JWPLC_UIDurationPattern : uint8_t
@@ -157,6 +175,7 @@ struct JWPLC_UIValueFormat
     JWPLC_UIValueKind kind;
     JWPLC_UIDurationPattern durationPattern;
     JWPLC_UIDurationUnit durationUnit;
+    JWPLC_UIDateTimePattern dateTimePattern;
 
     JWPLC_UIValueFormat(
         uint8_t integerDigitsValue = 3,
@@ -172,6 +191,10 @@ JWPLC_UIValueFormat JWPLC_UIDurationFormat(
     JWPLC_UIDurationUnit unit = JWPLC_UI_DURATION_SECONDS,
     uint8_t leadDigits = 2,
     bool signedValue = false);
+
+// Fecha/hora del RTC para JWPLC_UIValueField (sin variable ni setValue).
+JWPLC_UIValueFormat JWPLC_UIDateTimeFormat(
+    JWPLC_UIDateTimePattern pattern = JWPLC_UI_DATETIME_HH_MM);
 
 // Alpha15: colores del valor por estado.
 //   (falso, verdadero)                          -> colors.value / colors.background
@@ -398,6 +421,10 @@ namespace JWPLCUI
     bool setText(uint8_t fieldId, const char *value);
     bool setBool(uint8_t fieldId, bool value);
     bool setBar(uint8_t fieldId, float value);
+
+    // Alpha15 I2: actualiza los VALUE de fecha/hora desde el RTC (cada ciclo
+    // USER, en jwplcUIRuntimeServiceInput). Sólo marca dirty si cambia el texto.
+    void pollClockFields();
 
     void setRefreshMode(JWPLC_UIRefreshMode mode);
     JWPLC_UIRefreshMode refreshMode();

@@ -68,6 +68,16 @@ module.exports = {
     ]
   },
 
+  // Alpha15 I2: VALUE de fecha/hora del RTC (sin variable ni setter).
+  i2Clock: {
+    pages: [{ id: 0, name: 'Principal' }],
+    fields: [
+      { ...COLORS, type: 'VALUE', name: 'Hora', id: 'FIELD_HORA', variable: 'hora', x: 4, y: 4, preview: '', label: '', unit: '', valueKind: 'DATETIME', dateTimePattern: 'HH_MM_SS', integerDigits: 2, decimalDigits: 0, signedValue: false, leadingZeros: false, valueSize: 3, labelSize: 1, frame: true, layout: 'INLINE', align: 'LEFT', page: 0, layerOrder: 1 },
+      { ...COLORS, type: 'VALUE', name: 'Fecha', id: 'FIELD_FECHA', variable: 'hora', x: 4, y: 44, preview: '', label: 'Fecha', unit: '', valueKind: 'DATETIME', dateTimePattern: 'DD_MM_YYYY', integerDigits: 2, decimalDigits: 0, signedValue: false, leadingZeros: false, valueSize: 2, labelSize: 1, frame: false, layout: 'STACKED', align: 'LEFT', page: 0, layerOrder: 2 },
+      { ...COLORS, type: 'VALUE', name: 'T', id: 'FIELD_TEMP', variable: 'temperatura', x: 4, y: 90, preview: '25.6', label: 'Temp', unit: 'C', integerDigits: 3, decimalDigits: 1, signedValue: false, leadingZeros: false, valueSize: 2, labelSize: 1, frame: false, layout: 'INLINE', align: 'RIGHT', page: 0, layerOrder: 3 }
+    ]
+  },
+
   shapesOnly: {
     pages: [{ id: 0, name: 'Principal' }],
     fields: [{ type: 'RECT', name: 'Marco', id: 'R1', x: 2, y: 2, x2: 150, y2: 30, frameColor: 0xF800, fill: false, page: 0, layerOrder: 1 }]

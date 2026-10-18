@@ -203,6 +203,8 @@
     ['id', 'variable'].forEach((property) => {
       const seen = new Map();
       fields.forEach((field, index) => {
+        // Un reloj (fecha/hora del RTC) no declara variable.
+        if (property === 'variable' && isClockField(field)) return;
         const canonical = canonicalFor(field, property, field[property], index);
         const previous = seen.get(canonical);
         if (previous) {
@@ -573,8 +575,12 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
     return { lines, helpers };
   }
 
+  function isClockField(field) {
+    return Boolean(window.JWPLCHMICodegenCore?.isClockField?.(field));
+  }
+
   function setterHint(field, index) {
-    if (isStaticObject(field)) return '';
+    if (isStaticObject(field) || isClockField(field)) return '';
     const id = canonicalFor(field, 'id', field.id, index);
     const variable = canonicalFor(field, 'variable', field.variable, index);
     if (field.type === 'VALUE') return `JWPLC_Display.setValue(${id}, ${variable});`;
@@ -713,7 +719,7 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
     pages().forEach((page) => {
       const lines = fields
         .map((field, index) => ({ field, index }))
-        .filter(({ field }) => Number(field.page || 0) === Number(page.id) && !isStaticObject(field))
+        .filter(({ field }) => Number(field.page || 0) === Number(page.id) && !isStaticObject(field) && !isClockField(field))
         .map(({ field, index }) => `        ${setterHint(field, index)}`);
       if (!lines.length) return;
 

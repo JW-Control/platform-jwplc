@@ -751,7 +751,7 @@ bool seleccionando =
 Si Designer ya configura las páginas, no repitas esa configuración sin una
 razón específica.
 
-### Formatos de VALUE y BOOL «Piloto» — Intermedio
+### Formatos de VALUE (miles, duración, fecha/hora) y BOOL «Piloto» — Intermedio
 
 El HMI Designer los genera desde las tarjetas *Formato* (VALUE) y
 *Representación* (BOOL). A mano se escriben así:
@@ -770,6 +770,12 @@ JWPLC_UIDurationFormat(JWPLC_UI_DURATION_COMPACT)        // 1h05m · 5m03s · 45
 JWPLC_UIDurationFormat(JWPLC_UI_DURATION_MM_SS,
                        JWPLC_UI_DURATION_SECONDS, 2, true) // -01:15 (restante)
 
+// Fecha/hora del RTC de la placa: sin variable ni setValue()
+JWPLC_UIDateTimeFormat(JWPLC_UI_DATETIME_HH_MM)          // 14:35
+JWPLC_UIDateTimeFormat(JWPLC_UI_DATETIME_HH_MM_SS)       // 14:35:07
+JWPLC_UIDateTimeFormat(JWPLC_UI_DATETIME_DD_MM_YYYY)     // 18/10/2026
+JWPLC_UIDateTimeFormat(JWPLC_UI_DATETIME_DD_MM_YYYY_HH_MM)
+
 // BOOL como piloto: círculo gris/verde; opcional, fondo del campo por estado
 JWPLC_UIBoolPilot(0x4208, 0x07E0)
 JWPLC_UIBoolPilot(0x4208, 0xFFE0, 0x0000, 0xF800)
@@ -778,6 +784,8 @@ JWPLC_UIBoolPilot(0x4208, 0xFFE0, 0x0000, 0xF800)
 - La duración la calcula el programa. VALUE sólo la muestra, truncada a segundos.
 - El tercer argumento de `JWPLC_UIDurationFormat` es el ancho de la primera unidad
   (segundos, minutos u horas). Si el valor no cabe, se ve `--:--`.
+- Un VALUE de fecha/hora lee `jwplcGetRTCState()` y se repinta sólo cuando cambia lo
+  que muestra (con `HH:MM`, una vez por minuto). Sin RTC válido se ve `--:--`.
 - Para duraciones y contadores grandes conviene una variable entera (`uint32_t`).
   `float` no representa exactos los valores mayores que 16 777 216.
 - El piloto mide 7 px por escala (`valueTextSize`). Tiene un aro del color de la

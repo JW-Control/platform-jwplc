@@ -164,6 +164,16 @@ async function main() {
     check(/JWPLC_UIBoolPilot\(\n\s*0x4208,\n\s*0x07E0\),/.test(vf) && /JWPLC_UIBoolPilot\(\n\s*0x4208,\n\s*0xFFE0,\n\s*0x0000,\n\s*0xF800\),/.test(vf),
       'BOOL piloto: JWPLC_UIBoolPilot de 2 argumentos y de 4 (fondo por estado)');
 
+    console.log('Escenario: VALUE de fecha/hora del RTC (Alpha15 I2)');
+    check((await load(require('./fixtures.cjs').i2Clock)) === null, 'el proyecto abre');
+    headers.i2Clock = await header();
+    const ck = headers.i2Clock || '';
+    check(/JWPLC_UIDateTimeFormat\(\n\s*JWPLC_UI_DATETIME_HH_MM_SS\)/.test(ck) && /JWPLC_UI_DATETIME_DD_MM_YYYY\)/.test(ck),
+      'emite JWPLC_UIDateTimeFormat');
+    check(!/\bhora\b/.test(ck.slice(ck.indexOf('// Variables HMI'), ck.indexOf('// Definición declarativa'))) && !/setValue\(FIELD_HORA|setValue\(FIELD_FECHA/.test(ck) && /setValue\(FIELD_TEMP, temperatura\)/.test(ck),
+      'los relojes no declaran variable ni setter (la misma variable repetida no es un duplicado)');
+    check(!(await page.evaluate(() => window.JWPLCHMICodegen.validateIdentifiers().length)), 'sin avisos de identificadores duplicados');
+
     console.log('Escenario: barra de navegación (6 estilos x 3 tipografías x horizontal/vertical)');
     check((await load(FULL_PROJECT)) === null, 'el proyecto abre');
     const presets = ['industrial-color', 'dark-pill', 'segmented-bar', 'compact-dots', 'edge-tabs', 'numeric-pills'];

@@ -15,21 +15,30 @@
   const PATTERNS = ['SS', 'MM_SS', 'HH_MM_SS', 'COMPACT'];
   const UNITS = ['S', 'MS'];
   const SEPARATORS = ['', ',', '.', ' '];
+  const DATETIME_PATTERNS = ['HH_MM', 'HH_MM_SS', 'DD_MM', 'DD_MM_YYYY', 'DD_MM_YYYY_HH_MM'];
+  const DATETIME_SHAPE = {
+    HH_MM: '88:88',
+    HH_MM_SS: '88:88:88',
+    DD_MM: '88/88',
+    DD_MM_YYYY: '88/88/8888',
+    DD_MM_YYYY_HH_MM: '88/88/8888 88:88'
+  };
 
   // Modelo normalizado (lo que entiende el firmware).
   function normalize(field) {
     field = field || {};
-    const kind = field.valueKind === 'DURATION' ? 'DURATION' : 'NUMBER';
+    const kind = ['DURATION', 'DATETIME'].includes(field.valueKind) ? field.valueKind : 'NUMBER';
     const integerDigits = Math.min(MAX_INTEGER_DIGITS, Math.max(1, Math.trunc(Number(field.integerDigits) || 1)));
     return {
       kind,
       integerDigits,
-      decimalDigits: kind === 'DURATION' ? 0 : Math.min(MAX_DECIMAL_DIGITS, Math.max(0, Math.trunc(Number(field.decimalDigits) || 0))),
+      decimalDigits: kind !== 'NUMBER' ? 0 : Math.min(MAX_DECIMAL_DIGITS, Math.max(0, Math.trunc(Number(field.decimalDigits) || 0))),
       signedValue: !!field.signedValue,
-      leadingZeros: kind === 'DURATION' ? false : !!field.leadingZeros,
-      thousandsSep: kind === 'DURATION' ? '' : (SEPARATORS.includes(field.thousandsSep) ? field.thousandsSep : ''),
+      leadingZeros: kind !== 'NUMBER' ? false : !!field.leadingZeros,
+      thousandsSep: kind !== 'NUMBER' ? '' : (SEPARATORS.includes(field.thousandsSep) ? field.thousandsSep : ''),
       pattern: PATTERNS.includes(field.durationPattern) ? field.durationPattern : 'MM_SS',
-      unit: UNITS.includes(field.durationUnit) ? field.durationUnit : 'S'
+      unit: UNITS.includes(field.durationUnit) ? field.durationUnit : 'S',
+      dateTimePattern: DATETIME_PATTERNS.includes(field.dateTimePattern) ? field.dateTimePattern : 'HH_MM'
     };
   }
 
@@ -72,6 +81,7 @@
 
   function sample(field) {
     const f = normalize(field);
+    if (f.kind === 'DATETIME') return DATETIME_SHAPE[f.dateTimePattern];
     if (f.kind === 'DURATION') return (f.signedValue ? '-' : '') + durationShape(f, '8');
     const body = (f.signedValue ? '-' : '') + '8'.repeat(f.integerDigits) + (f.decimalDigits ? '.' + '8'.repeat(f.decimalDigits) : '');
     return groupThousands(f, body);
@@ -79,6 +89,7 @@
 
   function overflow(field) {
     const f = normalize(field);
+    if (f.kind === 'DATETIME') return DATETIME_SHAPE[f.dateTimePattern].replace(/8/g, '-');
     if (f.kind === 'DURATION') return durationShape(f, '-');
     return '#'.repeat(sample(field).length);
   }
@@ -122,9 +133,35 @@
     return { text: durationShape(f, '-'), ok: false };
   }
 
+  // Fecha/hora (I2): clock = { valid, year, month, day, hour, minute, second }.
+  function dateTime(field, clock) {
+    const f = normalize(field);
+    const c = clock || {};
+    const ok = Boolean(c.valid) && c.month >= 1 && c.month <= 12 && c.day >= 1 && c.day <= 31 &&
+      c.hour >= 0 && c.hour < 24 && c.minute >= 0 && c.minute < 60 && c.second >= 0 && c.second < 60 &&
+      c.year >= 0 && c.year <= 9999;
+    if (!ok) return { text: overflow(field), ok: false };
+    const date = `${two(c.day)}/${two(c.month)}`;
+    const year = String(c.year).padStart(4, '0');
+    const hm = `${two(c.hour)}:${two(c.minute)}`;
+    const text = {
+      HH_MM: hm,
+      HH_MM_SS: `${hm}:${two(c.second)}`,
+      DD_MM: date,
+      DD_MM_YYYY: `${date}/${year}`,
+      DD_MM_YYYY_HH_MM: `${date}/${year} ${hm}`
+    }[f.dateTimePattern];
+    return { text, ok: true };
+  }
+
+  function clockFromDate(d) {
+    return { valid: true, year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate(), hour: d.getHours(), minute: d.getMinutes(), second: d.getSeconds() };
+  }
+
   // { text, ok } para un valor numérico.
   function format(field, value) {
     const f = normalize(field);
+    if (f.kind === 'DATETIME') return { text: overflow(field), ok: false };
     if (f.kind === 'DURATION') return formatDuration(f, value);
     if (!Number.isFinite(value)) return { text: overflow(field), ok: false };
     const negative = value < 0;
@@ -145,11 +182,15 @@
   }
 
   // Texto de la vista previa del Designer (field.preview es texto libre).
-  function preview(field) {
+  // Fecha/hora: la hora del PC (o «sin RTC» si field.rtcPreview === 'INVALID').
+  function preview(field, now) {
+    if (normalize(field).kind === 'DATETIME') {
+      return dateTime(field, field?.rtcPreview === 'INVALID' ? { valid: false } : clockFromDate(now || new Date())).text;
+    }
     const raw = String(field?.preview ?? '').trim();
     if (!raw) return '';
     return format(field, Number(raw)).text;
   }
 
-  return { normalize, sample, overflow, format, preview, PATTERNS, UNITS, SEPARATORS };
+  return { normalize, sample, overflow, format, dateTime, clockFromDate, preview, PATTERNS, UNITS, SEPARATORS, DATETIME_PATTERNS };
 });

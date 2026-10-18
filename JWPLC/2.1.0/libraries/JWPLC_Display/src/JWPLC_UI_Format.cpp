@@ -17,7 +17,8 @@ JWPLC_UIValueFormat::JWPLC_UIValueFormat(
       thousandsSeparator(thousandsSeparatorValue),
       kind(JWPLC_UI_VALUE_NUMBER),
       durationPattern(JWPLC_UI_DURATION_MM_SS),
-      durationUnit(JWPLC_UI_DURATION_SECONDS)
+      durationUnit(JWPLC_UI_DURATION_SECONDS),
+      dateTimePattern(JWPLC_UI_DATETIME_HH_MM)
 {
 }
 
@@ -31,6 +32,14 @@ JWPLC_UIValueFormat JWPLC_UIDurationFormat(
     format.kind = JWPLC_UI_VALUE_DURATION;
     format.durationPattern = pattern;
     format.durationUnit = unit;
+    return format;
+}
+
+JWPLC_UIValueFormat JWPLC_UIDateTimeFormat(JWPLC_UIDateTimePattern pattern)
+{
+    JWPLC_UIValueFormat format(2, 0, false, false, 0);
+    format.kind = JWPLC_UI_VALUE_DATETIME;
+    format.dateTimePattern = pattern;
     return format;
 }
 
@@ -161,6 +170,27 @@ namespace
         copyOut(work, out, outSize);
     }
 
+    // ----- Fecha/hora -------------------------------------------------------
+
+    // Forma del patrón con un dígito de relleno ('8' muestra, '-' sin reloj).
+    const char *dateTimeShape(JWPLC_UIDateTimePattern pattern, bool dashes)
+    {
+        switch (pattern)
+        {
+        case JWPLC_UI_DATETIME_HH_MM_SS:
+            return dashes ? "--:--:--" : "88:88:88";
+        case JWPLC_UI_DATETIME_DD_MM:
+            return dashes ? "--/--" : "88/88";
+        case JWPLC_UI_DATETIME_DD_MM_YYYY:
+            return dashes ? "--/--/----" : "88/88/8888";
+        case JWPLC_UI_DATETIME_DD_MM_YYYY_HH_MM:
+            return dashes ? "--/--/---- --:--" : "88/88/8888 88:88";
+        case JWPLC_UI_DATETIME_HH_MM:
+        default:
+            return dashes ? "--:--" : "88:88";
+        }
+    }
+
     bool formatDuration(const JWPLC_UIValueFormat &format, double value, char *out, size_t outSize)
     {
         if (!std::isfinite(value) || (value < 0.0 && !format.signedValue))
@@ -248,6 +278,12 @@ namespace JWPLCUIFormat
 
         char work[WORK_SIZE] = {};
 
+        if (format.kind == JWPLC_UI_VALUE_DATETIME)
+        {
+            copyOut(dateTimeShape(format.dateTimePattern, false), out, outSize);
+            return;
+        }
+
         if (format.kind == JWPLC_UI_VALUE_DURATION)
         {
             const size_t sign = format.signedValue ? 1 : 0;
@@ -280,6 +316,12 @@ namespace JWPLCUIFormat
         if (out == nullptr || outSize == 0)
             return;
 
+        if (format.kind == JWPLC_UI_VALUE_DATETIME)
+        {
+            copyOut(dateTimeShape(format.dateTimePattern, true), out, outSize);
+            return;
+        }
+
         if (format.kind == JWPLC_UI_VALUE_DURATION)
         {
             durationShape(format, '-', out, outSize);
@@ -303,6 +345,13 @@ namespace JWPLCUIFormat
 
         if (format.kind == JWPLC_UI_VALUE_DURATION)
             return formatDuration(format, value, out, outSize);
+
+        // Un VALUE de fecha/hora no recibe números (lo llena pollClockFields).
+        if (format.kind == JWPLC_UI_VALUE_DATETIME)
+        {
+            overflow(format, out, outSize);
+            return false;
+        }
 
         if (!std::isfinite(value))
         {
@@ -360,6 +409,46 @@ namespace JWPLCUIFormat
         }
 
         groupThousands(format, work, out, outSize);
+        return true;
+    }
+
+    bool dateTime(const JWPLC_UIValueFormat &format, const Clock &c, char *out, size_t outSize)
+    {
+        if (out == nullptr || outSize == 0)
+            return false;
+
+        const bool valid = c.valid &&
+                           c.month >= 1 && c.month <= 12 &&
+                           c.day >= 1 && c.day <= 31 &&
+                           c.hour < 24 && c.minute < 60 && c.second < 60 &&
+                           c.year <= 9999;
+        if (!valid)
+        {
+            overflow(format, out, outSize);
+            return false;
+        }
+
+        char work[WORK_SIZE] = {};
+        switch (format.dateTimePattern)
+        {
+        case JWPLC_UI_DATETIME_HH_MM_SS:
+            snprintf(work, sizeof(work), "%02u:%02u:%02u", c.hour, c.minute, c.second);
+            break;
+        case JWPLC_UI_DATETIME_DD_MM:
+            snprintf(work, sizeof(work), "%02u/%02u", c.day, c.month);
+            break;
+        case JWPLC_UI_DATETIME_DD_MM_YYYY:
+            snprintf(work, sizeof(work), "%02u/%02u/%04u", c.day, c.month, c.year);
+            break;
+        case JWPLC_UI_DATETIME_DD_MM_YYYY_HH_MM:
+            snprintf(work, sizeof(work), "%02u/%02u/%04u %02u:%02u", c.day, c.month, c.year, c.hour, c.minute);
+            break;
+        case JWPLC_UI_DATETIME_HH_MM:
+        default:
+            snprintf(work, sizeof(work), "%02u:%02u", c.hour, c.minute);
+            break;
+        }
+        copyOut(work, out, outSize);
         return true;
     }
 }

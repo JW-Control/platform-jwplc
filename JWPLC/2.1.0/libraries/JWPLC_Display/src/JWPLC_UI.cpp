@@ -879,8 +879,11 @@ namespace JWPLCUI
     {
         FieldRuntime *field = findField(fieldId);
 
+        // Un reloj (fecha/hora) lo llena pollClockFields(): un setValue() del
+        // sketch lo haría parpadear con guiones, así que se ignora.
         if (field == nullptr ||
-            field->def.meta.type != JWPLC_UI_FIELD_VALUE)
+            field->def.meta.type != JWPLC_UI_FIELD_VALUE ||
+            field->def.format.kind == JWPLC_UI_VALUE_DATETIME)
         {
             return false;
         }
@@ -969,6 +972,45 @@ namespace JWPLCUI
             markFieldDirty(*field);
         }
         return true;
+    }
+
+    void pollClockFields()
+    {
+        const JWPLC_RTCState *rtc = jwplcGetRTCState();
+        JWPLCUIFormat::Clock clock = {};
+
+        if (rtc != nullptr)
+        {
+            clock.valid = rtc->valid;
+            clock.year = rtc->year;
+            clock.month = rtc->month;
+            clock.day = rtc->day;
+            clock.hour = rtc->hour;
+            clock.minute = rtc->minute;
+            clock.second = rtc->second;
+        }
+
+        for (size_t i = 0; i < g_fieldCount; ++i)
+        {
+            FieldRuntime &field = g_fields[i];
+
+            if (!field.used ||
+                field.def.meta.type != JWPLC_UI_FIELD_VALUE ||
+                field.def.format.kind != JWPLC_UI_VALUE_DATETIME)
+            {
+                continue;
+            }
+
+            // setValueString sólo marca dirty si el texto cambió: con HH:MM
+            // la TFT se toca una vez por minuto.
+            char text[VALUE_BUFFER_SIZE] = {};
+            JWPLCUIFormat::dateTime(field.def.format, clock, text, sizeof(text));
+            if (field.hasValue && strncmp(field.value, text, sizeof(field.value)) == 0)
+            {
+                continue; // sin contar un setter en el perfil H3E1
+            }
+            setValueString(field, text);
+        }
     }
 
     bool setBar(uint8_t fieldId, float value)

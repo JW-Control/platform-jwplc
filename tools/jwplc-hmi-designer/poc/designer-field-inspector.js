@@ -206,9 +206,10 @@
 
         <div class="bar-card" data-only="VALUE">
           <div class="bar-card-section-title">Formato</div>
-          <div class="bar-visual-grid-2">
+          <div class="bar-visual-grid-3">
             <button type="button" class="bar-visual-btn" data-vkind="NUMBER"><strong class="insp-mono">123.4</strong><span>Número</span></button>
             <button type="button" class="bar-visual-btn" data-vkind="DURATION"><strong class="insp-mono">05:03</strong><span>Duración</span></button>
+            <button type="button" class="bar-visual-btn" data-vkind="DATETIME"><strong class="insp-mono">14:35</strong><span>Fecha/hora</span></button>
           </div>
 
           <div data-vkind-panel="NUMBER">
@@ -265,6 +266,19 @@
               <button type="button" class="bar-visual-btn insp-toggle" data-toggle="signedValue"><strong class="insp-mono">−01:15</strong><span>Admite negativos</span></button>
             </div>
             <div class="insp-note">El programa calcula el tiempo (transcurrido o restante) y VALUE sólo lo muestra, truncado a segundos. Si no cabe en los dígitos elegidos se ve <code data-readout="overflow">--:--</code>.</div>
+          </div>
+
+          <div data-vkind-panel="DATETIME" hidden>
+            <span class="bar-visual-group-title insp-gap">Qué muestra</span>
+            <div class="bar-visual-grid-2">
+              <button type="button" class="bar-visual-btn" data-vdt="HH_MM"><strong class="insp-mono">14:35</strong><span>Hora</span></button>
+              <button type="button" class="bar-visual-btn" data-vdt="HH_MM_SS"><strong class="insp-mono">14:35:07</strong><span>Hora con segundos</span></button>
+              <button type="button" class="bar-visual-btn" data-vdt="DD_MM"><strong class="insp-mono">18/10</strong><span>Día y mes</span></button>
+              <button type="button" class="bar-visual-btn" data-vdt="DD_MM_YYYY"><strong class="insp-mono">18/10/2026</strong><span>Fecha</span></button>
+              <button type="button" class="bar-visual-btn" data-vdt="DD_MM_YYYY_HH_MM"><strong class="insp-mono">18/10/2026 14:35</strong><span>Fecha y hora</span></button>
+              <button type="button" class="bar-visual-btn insp-toggle" data-rtc-invalid><strong class="insp-mono">--:--</strong><span>Ver sin reloj válido</span></button>
+            </div>
+            <div class="insp-note">Lee el reloj de la placa (RTC): no lleva variable. La TFT se repinta sólo cuando cambia lo que se ve (el minuto o el segundo). Sin hora válida (sin pila o sin ajustar) se ve <code data-readout="overflow">--:--</code>. En el lienzo se ve la hora del PC.</div>
           </div>
 
           <div class="insp-format-view">
@@ -357,7 +371,12 @@
 
       <!-- DATOS -->
       <div class="insp-panel" data-insp-panel="data" hidden>
-        <div class="bar-card">
+        <div class="bar-card" data-clock-only hidden>
+          <div class="bar-card-section-title">Reloj de la placa</div>
+          <div class="insp-note">Este VALUE muestra la fecha/hora del RTC y no lleva variable ni setter: el firmware lo actualiza solo. Para cambiarlo a un número, elige «Número» en Diseño · Contenido · Formato.</div>
+        </div>
+
+        <div class="bar-card" data-not-clock>
           <div class="bar-card-section-title">Variable vinculada <span class="insp-mode-chip" title="Modo del proyecto vinculado">Arduino</span></div>
           <label class="field-label">Variable C++
             <input class="field-input code-input" data-proxy="fieldVariable" type="text" maxlength="32" />
@@ -368,7 +387,7 @@
           <div class="insp-note">Proyecto OpenPLC: aquí se elegirá la variable PLC existente (A15-6).</div>
         </div>
 
-        <div class="bar-card" data-only="VALUE">
+        <div class="bar-card" data-only="VALUE" data-not-clock>
           <div class="bar-card-section-title">Valor de prueba <span class="insp-hint">sólo para el lienzo</span></div>
           <div class="insp-two">
             <input class="field-input" data-proxy="fieldPreview" type="text" maxlength="16" />
@@ -470,7 +489,13 @@
       setFieldProps((f) => {
         if ((f.valueKind || 'NUMBER') === kind) return;
         f.valueKind = kind;
-        if (kind === 'DURATION') {
+        if (kind === 'DATETIME') {
+          f.dateTimePattern = f.dateTimePattern || 'HH_MM';
+          f.integerDigits = 2;
+          f.decimalDigits = 0;
+          f.leadingZeros = false;
+          f.signedValue = false;
+        } else if (kind === 'DURATION') {
           f.durationPattern = f.durationPattern || 'MM_SS';
           f.durationUnit = f.durationUnit || 'S';
           f.integerDigits = 2;
@@ -482,6 +507,16 @@
           f.preview = '25';
         }
       }, true);
+      return;
+    }
+    const dtBtn = e.target.closest('[data-vdt]');
+    if (dtBtn) {
+      setFieldProps((f) => { f.dateTimePattern = dtBtn.dataset.vdt; }, true);
+      return;
+    }
+    const rtcInvalid = e.target.closest('[data-rtc-invalid]');
+    if (rtcInvalid) {
+      setFieldProps((f) => { f.rtcPreview = f.rtcPreview === 'INVALID' ? '' : 'INVALID'; }, true);
       return;
     }
     const sepBtn = e.target.closest('[data-vsep]');
@@ -902,6 +937,13 @@
     wrap.querySelectorAll('[data-only]').forEach((el) => {
       el.hidden = !el.dataset.only.split(' ').includes(field.type);
     });
+    // VALUE de fecha/hora (I2): sin variable ni valor de prueba.
+    const clock = Boolean(window.JWPLCHMICodegenCore?.isClockField?.(field));
+    wrap.querySelectorAll('[data-clock-only]').forEach((el) => { el.hidden = !clock; });
+    wrap.querySelectorAll('[data-not-clock]').forEach((el) => {
+      if (clock) el.hidden = true;
+      else if (!el.dataset.only) el.hidden = false;
+    });
 
     wrap.querySelectorAll('[data-proxy]').forEach((input) => {
       const source = $(input.dataset.proxy);
@@ -925,7 +967,9 @@
         decHost.innerHTML = chips('decimalDigits', options);
       }
       setActive('[data-set="decimalDigits"]', decs);
-      const kind = field.valueKind === 'DURATION' ? 'DURATION' : 'NUMBER';
+      const kind = ['DURATION', 'DATETIME'].includes(field.valueKind) ? field.valueKind : 'NUMBER';
+      wrap.querySelectorAll('[data-vdt]').forEach((b) => b.classList.toggle('active', b.dataset.vdt === (field.dateTimePattern || 'HH_MM')));
+      wrap.querySelector('[data-rtc-invalid]').classList.toggle('active', field.rtcPreview === 'INVALID');
       wrap.querySelectorAll('[data-vkind]').forEach((b) => b.classList.toggle('active', b.dataset.vkind === kind));
       wrap.querySelectorAll('[data-vkind-panel]').forEach((p) => { p.hidden = p.dataset.vkindPanel !== kind; });
       const sep = [',', '.', ' '].includes(field.thousandsSep) ? field.thousandsSep : '';

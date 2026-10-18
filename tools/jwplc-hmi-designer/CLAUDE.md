@@ -41,7 +41,7 @@ window.JWPLCHMIProject    designer-project  serialize/apply/open/save/linkSketch
 window.JWPLCHMILive       designer-live     Live Preview WebSerial (JWH1/JWH2, 921600)
 window.JWPLCHMIIdle       designer-idle     Proyecto · Pantalla y arranque (IDLE) -> patchHeader en jwplcHMISetup
 window.JWPLCLegendArrows  designer-legend-arrows  flechas de la leyenda de Apariencia (campos y MENU)
-window.JWPLCValueFormat   designer-value-format   formato de VALUE (número, miles, duración); gemelo de JWPLC_UI_Format.cpp
+window.JWPLCValueFormat   designer-value-format   formato de VALUE (número, miles, duración, fecha/hora); gemelo de JWPLC_UI_Format.cpp
 ```
 
 ## Patrón de inspector objetivo (Propuesta 2 de BAR)
@@ -89,6 +89,8 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
 - Formato de VALUE (Alpha15 I1): `poc/designer-value-format.js` y `JWPLC_Display/src/JWPLC_UI_Format.cpp`
   producen el mismo texto (muestra, desborde, valor); si cambias uno, cambia el otro y corre
   `tests/value-format-parity.cjs`. Duración y contadores con miles declaran `uint32_t`/`int32_t`.
+- VALUE de fecha/hora (I2, `valueKind: 'DATETIME'` → `JWPLC_UIDateTimeFormat`): sin variable ni setter
+  (`JWPLCHMICodegenCore.isClockField`); el firmware lo llena desde el RTC en `pollClockFields()`.
 - BOOL «Piloto» (`boolStyle: 'PILOT'` → `JWPLC_UIBoolPilot`): círculo de 7 × escala con `fillCircle`
   de TFT_eSPI (`app.js:fillBufferCircle`, misma rutina).
 - Capas: `layerOrder` menor = más al frente; la estática se emite en orden descendente.
@@ -96,7 +98,7 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
   emite TEXT/VALUE; BOOL/BAR salen como `JWPLC_UITextField` provisional que reemplazan sus capas.
 - Tras tocar el codegen: `node tests/codegen-golden.cjs` (salida byte a byte) y
   `node tests/codegen-smoke.cjs`. Un cambio intencional: `--update` y revisar el diff.
-- Tras tocar JS/CSS: subir `?v=` (hoy 1793000000) en `index.html`/`desktop.html`/`ux-foundation.js`/
+- Tras tocar JS/CSS: subir `?v=` (hoy 1793100000) en `index.html`/`desktop.html`/`ux-foundation.js`/
   `designer-field-visibility.js` y `CACHE_NAME` en `service-worker.js`.
 
 ## Probar sin hardware
