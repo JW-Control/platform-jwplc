@@ -37,6 +37,12 @@ GATES_FISICOS_LISTOS=A15_1_3_Codegen_Static, A15_8_Menu, A15_8_Menu_Designer, A1
    - `A15_I2_Reloj`: la medianoche y el RTC sin pila;
    - `A15_I1_Formatos`: el piloto y que no queden restos de dígitos;
    - `07.Buzzer_Basic`: volumen y que no bloquee.
+   - App de escritorio (Electron, en la PC):
+     - «Escribir en sketch» deja `JWPLC_HMI_Generated.h` y `<sketch>.jwhmi`;
+     - en el menú «Sketch: nombre ▾», «Abrir en Arduino IDE» y «Abrir carpeta» funcionan;
+     - al vincular un sketch con `.jwhmi`, pregunta si abrirlo.
+
+     En la nube sólo se probó con la app simulada (`tests/sketch-menu-smoke.cjs`).
 2. **Corregir** lo que salga del taller.
 3. **Regenerar `libJWPLC_Display.a`** una sola vez:
    - `tools/alpha15/regenerate_libJWPLC_Display.sh build --install` (incluye `JWPLC_UI_Format.cpp`);
@@ -50,6 +56,7 @@ GATES_FISICOS_LISTOS=A15_1_3_Codegen_Static, A15_8_Menu, A15_8_Menu_Designer, A1
 - A15-7E: mini-modelos de Apariencia para BAR, figuras, RAW_TEXT y NAV. Usar `designer-zone-indicator.js`.
 - A15-5 resto: estática, NAV y PixelMap al núcleo puro del codegen.
 - De la crítica de A1: cuadros de color de 24×24 y quitar las letras T/F/V/M.
+- Glifos propios `Á Í Ó Ú` en la fuente GLCD (regenerar `libJWPLC_TFT.a`): otra alpha, decidido por el jefe.
 - FRAM: el mapa del último KB (plan §G.6) se fija en código en I9/I10 (Alpha16).
 
 ## Alpha16 (no empezar sin el jefe)
