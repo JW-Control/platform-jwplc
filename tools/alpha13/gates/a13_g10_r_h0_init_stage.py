@@ -14,7 +14,7 @@ INIT_SIG="uint8_t W5100Class::init(void)\n{"
 INIT_END="\n// Soft reset the WIZnet chip"
 W5200_SIG="uint8_t W5100Class::isW5200(void)\n{"
 W5500_SIG="uint8_t W5100Class::isW5500(void)\n{"
-W5100_SIG="uint8_t W5100Class::isW5100(void)\n{"
+LINK_SIG="W5100Linkstatus W5100Class::getLinkStatus()\n{"
 METHOD_END="\n}\n"
 CHECK="h0W5100Stage("
 
@@ -98,7 +98,7 @@ def instrument(src: str) -> str:
     old_reads=src.count("readPHYCFGR_W5500();")
     output=patched_init(src)
     output=patched_probe(output,W5200_SIG,W5500_SIG,69,70,71)
-    output=patched_probe(output,W5500_SIG,W5100_SIG,72,73,74)
+    output=patched_probe(output,W5500_SIG,LINK_SIG,72,73,74)
     for i in range(60,78):
         if output.count("h0W5100Stage("+str(i)+")")!=1:
             raise RuntimeError("H0_F_STAGE_"+str(i)+"_NOT_EXACTLY_ONCE")
@@ -133,14 +133,14 @@ def selftest()->None:
     assert "h0W5100Stage(62)" in amended
     assert "h0W5100Stage(66)" in amended
     assert "h0W5100Stage(75)" in amended
-    assert "Serial.print" not in amended
+    assert amended.count("Serial.print")==base.count("Serial.print")
     try:instrument(amended)
     except RuntimeError:pass
     else:raise AssertionError("H0_F_DOUBLE_PATCH_ACCEPTED")
     for name,mutated in (
         ("SPI",base.replace("\tSPI.begin();","\tSPI.otherBegin();",1)),
         ("GUARD",base.replace("if (initialized) return 1;","if (init) return 1;",1)),
-        ("W5200",base.replace("\tif (!softReset()) return 0;","\tif (fakeReset()) return 0;",1)),
+        ("W5200",base.replace("\tchip = 52;","\tchip = 99;",1)),
     ):
         try: instrument(mutated)
         except RuntimeError: pass
