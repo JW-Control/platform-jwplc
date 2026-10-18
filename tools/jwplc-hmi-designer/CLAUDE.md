@@ -16,7 +16,7 @@ de `index.html` e inyecta los scripts en orden.
 ## Orden de carga de módulos (importa)
 
 ```text
-index.html:      gfx-classic-font -> designer-fonts-data -> designer-fonts -> designer-codegen-core -> app -> ux-foundation -> designer-codegen
+index.html:      gfx-classic-font -> designer-fonts-data -> designer-fonts -> designer-value-format -> designer-codegen-core -> app -> ux-foundation -> designer-codegen
 ux-foundation:   designer-bool -> designer-bar -> designer-legend-arrows -> designer-field-inspector -> (designer-menu, designer-idle) -> designer-field-visibility -> designer-pages -> designer-live
 field-visibility: designer-inspector-state, designer-pixelmap-compat -> designer-pixelmap -> designer-pixelmap-stability
 desktop.html:    designer-project, designer-native-project, designer-project-integration-fix,
@@ -41,6 +41,7 @@ window.JWPLCHMIProject    designer-project  serialize/apply/open/save/linkSketch
 window.JWPLCHMILive       designer-live     Live Preview WebSerial (JWH1/JWH2, 921600)
 window.JWPLCHMIIdle       designer-idle     Proyecto · Pantalla y arranque (IDLE) -> patchHeader en jwplcHMISetup
 window.JWPLCLegendArrows  designer-legend-arrows  flechas de la leyenda de Apariencia (campos y MENU)
+window.JWPLCValueFormat   designer-value-format   formato de VALUE (número, miles, duración); gemelo de JWPLC_UI_Format.cpp
 ```
 
 ## Patrón de inspector objetivo (Propuesta 2 de BAR)
@@ -85,12 +86,17 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
   firmware pinta el NN/TT (`setPageIndicator(true, x, y)`). Barra con pestañas: `setPageIndicator(false)`.
 - Márgenes de campo: arriba/izquierda 3 fijo; derecha/abajo `max(3, escala + 1)` (celda 6×8 + marco),
   igual en `JWPLC_UI.cpp`, `app.js` y `designer-bar.js`; `tests/inspector-smoke.cjs` "MARCO" lo vigila.
+- Formato de VALUE (Alpha15 I1): `poc/designer-value-format.js` y `JWPLC_Display/src/JWPLC_UI_Format.cpp`
+  producen el mismo texto (muestra, desborde, valor); si cambias uno, cambia el otro y corre
+  `tests/value-format-parity.cjs`. Duración y contadores con miles declaran `uint32_t`/`int32_t`.
+- BOOL «Piloto» (`boolStyle: 'PILOT'` → `JWPLC_UIBoolPilot`): círculo de 7 × escala con `fillCircle`
+  de TFT_eSPI (`app.js:fillBufferCircle`, misma rutina).
 - Capas: `layerOrder` menor = más al frente; la estática se emite en orden descendente.
 - Definición C++ de cada campo: `poc/designer-codegen-core.js` (puro, también en node). `app.js`
   emite TEXT/VALUE; BOOL/BAR salen como `JWPLC_UITextField` provisional que reemplazan sus capas.
 - Tras tocar el codegen: `node tests/codegen-golden.cjs` (salida byte a byte) y
   `node tests/codegen-smoke.cjs`. Un cambio intencional: `--update` y revisar el diff.
-- Tras tocar JS/CSS: subir `?v=` (hoy 1792900000) en `index.html`/`desktop.html`/`ux-foundation.js`/
+- Tras tocar JS/CSS: subir `?v=` (hoy 1793000000) en `index.html`/`desktop.html`/`ux-foundation.js`/
   `designer-field-visibility.js` y `CACHE_NAME` en `service-worker.js`.
 
 ## Probar sin hardware
@@ -98,6 +104,7 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
 ```bash
 for f in poc/*.js; do node --check "$f" || echo "FAIL $f"; done
 node tests/codegen-smoke.cjs            # genera headers y los compila contra el package
+node tests/value-format-parity.cjs      # formato de VALUE: JWPLC_UI_Format.cpp real vs Designer
 node tests/inspector-smoke.cjs          # inspector TEXT/VALUE/BOOL/BAR + paridad BAR
 node tests/menu-host-sim.cjs            # MENU: JWPLC_UI_Menu.cpp real en host (g++)
 node tests/menu-smoke.cjs               # MENU: Designer + paridad lienzo/firmware + header

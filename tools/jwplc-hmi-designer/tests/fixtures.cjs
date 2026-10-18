@@ -53,6 +53,21 @@ module.exports = {
       { key: 'NAV_BAR', type: 'NAV_BAR', name: 'Barra de Navegación', label: 'NAV_BAR', x: 2, y: 155, width: 36, height: 12, preset: 'counter', position: 'bottom', global: true, hidden: false, locked: false, layerOrder: 999 }
     ]
   },
+  // Alpha15 I1: VALUE con separador de miles y con duración (variables enteras)
+  // y BOOL «Piloto» (con y sin fondo por estado).
+  i1Formats: {
+    pages: [{ id: 0, name: 'Principal' }],
+    fields: [
+      { ...COLORS, type: 'VALUE', name: 'C', id: 'FIELD_PIEZAS', variable: 'piezas', x: 4, y: 4, preview: '123456', label: 'Piezas', unit: '', integerDigits: 7, decimalDigits: 0, signedValue: false, leadingZeros: false, thousandsSep: ',', valueSize: 2, labelSize: 1, frame: true, layout: 'INLINE', align: 'RIGHT', page: 0, layerOrder: 1 },
+      { ...COLORS, type: 'VALUE', name: 'E', id: 'FIELD_ENERGIA', variable: 'energia', x: 4, y: 40, preview: '1234.5', label: 'kWh', unit: '', integerDigits: 6, decimalDigits: 1, signedValue: false, leadingZeros: false, thousandsSep: '.', valueSize: 2, labelSize: 1, frame: false, layout: 'INLINE', align: 'RIGHT', page: 0, layerOrder: 2 },
+      { ...COLORS, type: 'VALUE', name: 'R', id: 'FIELD_RESTANTE', variable: 't_restante', x: 4, y: 76, preview: '303', label: 'Resta', unit: '', valueKind: 'DURATION', durationPattern: 'MM_SS', durationUnit: 'S', integerDigits: 2, decimalDigits: 0, signedValue: true, leadingZeros: false, valueSize: 3, labelSize: 1, frame: true, layout: 'STACKED', align: 'LEFT', page: 0, layerOrder: 3 },
+      { ...COLORS, type: 'VALUE', name: 'M', id: 'FIELD_MARCHA', variable: 'marcha_ms', x: 160, y: 76, preview: '3903000', label: 'Marcha', unit: '', valueKind: 'DURATION', durationPattern: 'HH_MM_SS', durationUnit: 'MS', integerDigits: 3, decimalDigits: 0, signedValue: false, leadingZeros: false, valueSize: 2, labelSize: 1, frame: false, layout: 'STACKED', align: 'RIGHT', page: 0, layerOrder: 4 },
+      { ...COLORS, type: 'VALUE', name: 'K', id: 'FIELD_CICLO', variable: 'ciclo', x: 160, y: 130, preview: '45', label: 'Ciclo', unit: '', valueKind: 'DURATION', durationPattern: 'COMPACT', durationUnit: 'S', integerDigits: 2, decimalDigits: 0, signedValue: false, leadingZeros: false, valueSize: 1, labelSize: 1, frame: false, layout: 'INLINE', align: 'RIGHT', page: 0, layerOrder: 5 },
+      { ...COLORS, type: 'BOOL', name: 'P', id: 'FIELD_BOMBA', variable: 'bomba', x: 4, y: 140, label: 'Bomba', unit: '', falseText: 'OFF', trueText: 'ON', boolStyle: 'PILOT', stateColors: true, falseColor: 0x4208, trueColor: 0x07E0, falseBackground: 0x0000, trueBackground: 0x0000, valueSize: 2, labelSize: 1, frame: false, layout: 'INLINE', align: 'CENTER', page: 0, layerOrder: 6 },
+      { ...COLORS, type: 'BOOL', name: 'A', id: 'FIELD_ALARMA', variable: 'alarma', x: 90, y: 140, label: 'Alarma', unit: '', falseText: 'OFF', trueText: 'ON', boolStyle: 'PILOT', stateColors: true, falseColor: 0x4208, trueColor: 0xFFE0, falseBackground: 0x0000, trueBackground: 0xF800, valueSize: 1, labelSize: 1, frame: true, layout: 'INLINE', align: 'CENTER', page: 0, layerOrder: 7 }
+    ]
+  },
+
   shapesOnly: {
     pages: [{ id: 0, name: 'Principal' }],
     fields: [{ type: 'RECT', name: 'Marco', id: 'R1', x: 2, y: 2, x2: 150, y2: 30, frameColor: 0xF800, fill: false, page: 0, layerOrder: 1 }]

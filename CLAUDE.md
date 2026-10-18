@@ -169,6 +169,7 @@ node tools/jwplc-hmi-designer/tests/codegen-core.test.cjs # codegen puro en node
 node tools/jwplc-hmi-designer/tests/inspector-smoke.cjs   # inspector TEXT/VALUE/BOOL/BAR
 node tools/jwplc-hmi-designer/tests/menu-host-sim.cjs     # MENU: firmware real en host (g++)
 node tools/jwplc-hmi-designer/tests/menu-smoke.cjs        # MENU: Designer + paridad con el firmware
+node tools/jwplc-hmi-designer/tests/value-format-parity.cjs  # VALUE: formato firmware == Designer
 
 # servir el designer y abrirlo en Chromium headless (Playwright global)
 cd tools/jwplc-hmi-designer/poc && python3 -m http.server 8765 --bind 127.0.0.1

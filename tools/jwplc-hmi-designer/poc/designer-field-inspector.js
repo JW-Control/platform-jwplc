@@ -205,23 +205,68 @@
         </div>
 
         <div class="bar-card" data-only="VALUE">
-          <div class="bar-card-section-title">Formato numérico</div>
-          <div class="insp-two">
-            <div>
-              <span class="bar-visual-group-title">Dígitos enteros</span>
-              <div class="insp-stepper" data-stepper="integerDigits" data-min="1" data-max="9">
-                <button type="button" data-step="-1">−</button><strong data-readout="integerDigits">3</strong><button type="button" data-step="1">+</button>
+          <div class="bar-card-section-title">Formato</div>
+          <div class="bar-visual-grid-2">
+            <button type="button" class="bar-visual-btn" data-vkind="NUMBER"><strong class="insp-mono">123.4</strong><span>Número</span></button>
+            <button type="button" class="bar-visual-btn" data-vkind="DURATION"><strong class="insp-mono">05:03</strong><span>Duración</span></button>
+          </div>
+
+          <div data-vkind-panel="NUMBER">
+            <div class="insp-two insp-gap">
+              <div>
+                <span class="bar-visual-group-title">Dígitos enteros</span>
+                <div class="insp-stepper" data-stepper="integerDigits" data-min="1" data-max="9">
+                  <button type="button" data-step="-1">−</button><strong data-readout="integerDigits">3</strong><button type="button" data-step="1">+</button>
+                </div>
+              </div>
+              <div>
+                <span class="bar-visual-group-title">Decimales</span>
+                <div class="insp-chip-row" data-decimal-chips>${chips('decimalDigits', [0, 1, 2, 3])}</div>
               </div>
             </div>
-            <div>
-              <span class="bar-visual-group-title">Decimales</span>
-              <div class="insp-chip-row" data-decimal-chips>${chips('decimalDigits', [0, 1, 2, 3])}</div>
+            <div class="bar-visual-grid-2 insp-gap">
+              <button type="button" class="bar-visual-btn insp-toggle" data-toggle="signedValue"><strong class="insp-mono">±</strong><span>Con signo</span></button>
+              <button type="button" class="bar-visual-btn insp-toggle" data-toggle="leadingZeros"><strong class="insp-mono">007</strong><span>Ceros a la izquierda</span></button>
             </div>
+            <span class="bar-visual-group-title insp-gap">Separador de miles</span>
+            <div class="bar-visual-grid-4">
+              <button type="button" class="bar-visual-btn" data-vsep=""><strong class="insp-mono">1234</strong><span>Ninguno</span></button>
+              <button type="button" class="bar-visual-btn" data-vsep=","><strong class="insp-mono">1,234</strong><span>Coma</span></button>
+              <button type="button" class="bar-visual-btn" data-vsep="."><strong class="insp-mono">1.234</strong><span>Punto</span></button>
+              <button type="button" class="bar-visual-btn" data-vsep=" "><strong class="insp-mono">1 234</strong><span>Espacio</span></button>
+            </div>
+            <div class="insp-note" data-vsep-note hidden>Con punto como separador, el decimal se muestra con coma (1.234,5).</div>
           </div>
-          <div class="bar-visual-grid-2 insp-gap">
-            <button type="button" class="bar-visual-btn insp-toggle" data-toggle="signedValue"><strong class="insp-mono">±</strong><span>Con signo</span></button>
-            <button type="button" class="bar-visual-btn insp-toggle" data-toggle="leadingZeros"><strong class="insp-mono">007</strong><span>Ceros a la izquierda</span></button>
+
+          <div data-vkind-panel="DURATION" hidden>
+            <span class="bar-visual-group-title insp-gap">Cómo se ve</span>
+            <div class="bar-visual-grid-2">
+              <button type="button" class="bar-visual-btn" data-vpattern="SS"><strong class="insp-mono">45</strong><span>Segundos</span></button>
+              <button type="button" class="bar-visual-btn" data-vpattern="MM_SS"><strong class="insp-mono">05:03</strong><span>Min : seg</span></button>
+              <button type="button" class="bar-visual-btn" data-vpattern="HH_MM_SS"><strong class="insp-mono">01:05:03</strong><span>Hora : min : seg</span></button>
+              <button type="button" class="bar-visual-btn" data-vpattern="COMPACT"><strong class="insp-mono">1h05m</strong><span>Compacto</span></button>
+            </div>
+            <div class="insp-two insp-gap">
+              <div>
+                <span class="bar-visual-group-title" data-readout="leadTitle">Dígitos de los minutos</span>
+                <div class="insp-stepper" data-stepper="integerDigits" data-min="1" data-max="6">
+                  <button type="button" data-step="-1">−</button><strong data-readout="integerDigits">2</strong><button type="button" data-step="1">+</button>
+                </div>
+              </div>
+              <div>
+                <span class="bar-visual-group-title">La variable trae</span>
+                <div class="insp-chip-row">
+                  <button type="button" class="insp-chip" data-vunit="S">segundos</button>
+                  <button type="button" class="insp-chip" data-vunit="MS">milisegundos</button>
+                </div>
+              </div>
+            </div>
+            <div class="bar-visual-grid-2 insp-gap">
+              <button type="button" class="bar-visual-btn insp-toggle" data-toggle="signedValue"><strong class="insp-mono">−01:15</strong><span>Admite negativos</span></button>
+            </div>
+            <div class="insp-note">El programa calcula el tiempo (transcurrido o restante) y VALUE sólo lo muestra, truncado a segundos. Si no cabe en los dígitos elegidos se ve <code data-readout="overflow">--:--</code>.</div>
           </div>
+
           <div class="insp-format-view">
             <span>Reserva <code data-readout="reserve">888.8</code></span>
             <span>→</span>
@@ -241,6 +286,15 @@
         </div>
 
         <div class="bar-card" data-only="BOOL">
+          <div class="bar-card-section-title">Representación</div>
+          <div class="bar-visual-grid-2">
+            <button type="button" class="bar-visual-btn" data-bool-style="TEXT"><strong class="insp-mono">OFF / ON</strong><span>Texto</span></button>
+            <button type="button" class="bar-visual-btn" data-bool-style="PILOT"><strong><span class="insp-pilot-dot is-off"></span> <span class="insp-pilot-dot is-on"></span></strong><span>Piloto</span></button>
+          </div>
+          <div class="insp-note" data-bool-pilot-note hidden>Un círculo de 7 px por escala, a la altura del texto: aro del color de la etiqueta y relleno del color de cada estado (Apariencia).</div>
+        </div>
+
+        <div class="bar-card" data-only="BOOL" data-bool-text-only>
           <div class="bar-card-section-title">Estados</div>
           <div class="insp-bool-states">
             <label class="insp-state-card"><span>FALSE</span>
@@ -257,7 +311,7 @@
           </div>
         </div>
 
-        <div class="bar-card">
+        <div class="bar-card" data-bool-text-only>
           <div class="bar-card-section-title">Alineación del valor</div>
           <div class="bar-visual-grid-3">
             <button type="button" class="bar-visual-btn" data-set="align" data-value="LEFT">${alignSvg('LEFT')}<span>Izquierda</span></button>
@@ -270,7 +324,7 @@
 
       <!-- DISEÑO · APARIENCIA -->
       <div class="insp-panel" data-insp-panel="design:appearance" hidden>
-        <div class="bar-card" data-only="BOOL">
+        <div class="bar-card" data-only="BOOL" data-bool-text-only>
           <div class="bar-card-section-title">Color del valor</div>
           <div class="bar-visual-grid-2">
             <button type="button" class="bar-visual-btn" data-bool-colormode="single"><strong>ON</strong><span>Un color</span></button>
@@ -410,6 +464,48 @@
       proxyValue(SET_TARGET[setBtn.dataset.set], setBtn.dataset.value, true);
       return;
     }
+    const kindBtn = e.target.closest('[data-vkind]');
+    if (kindBtn) {
+      const kind = kindBtn.dataset.vkind;
+      setFieldProps((f) => {
+        if ((f.valueKind || 'NUMBER') === kind) return;
+        f.valueKind = kind;
+        if (kind === 'DURATION') {
+          f.durationPattern = f.durationPattern || 'MM_SS';
+          f.durationUnit = f.durationUnit || 'S';
+          f.integerDigits = 2;
+          f.decimalDigits = 0;
+          f.leadingZeros = false;
+          f.preview = f.durationUnit === 'MS' ? '303000' : '303';
+        } else {
+          f.integerDigits = 3;
+          f.preview = '25';
+        }
+      }, true);
+      return;
+    }
+    const sepBtn = e.target.closest('[data-vsep]');
+    if (sepBtn) {
+      setFieldProps((f) => { f.thousandsSep = sepBtn.dataset.vsep; }, true);
+      return;
+    }
+    const patternBtn = e.target.closest('[data-vpattern]');
+    if (patternBtn) {
+      setFieldProps((f) => { f.durationPattern = patternBtn.dataset.vpattern; }, true);
+      return;
+    }
+    const unitBtn = e.target.closest('[data-vunit]');
+    if (unitBtn) {
+      setFieldProps((f) => {
+        const next = unitBtn.dataset.vunit;
+        if ((f.durationUnit || 'S') === next) return;
+        // Misma duración en la otra unidad: la vista previa no cambia.
+        const v = Number(f.preview) || 0;
+        f.preview = String(next === 'MS' ? Math.round(v * 1000) : Math.floor(v / 1000));
+        f.durationUnit = next;
+      }, true);
+      return;
+    }
     const toggle = e.target.closest('[data-toggle]');
     if (toggle) {
       const field = selectedField();
@@ -447,6 +543,22 @@
         if (!Number.isFinite(Number(f.trueColor))) f.trueColor = 0x07E0;
         if (!Number.isFinite(Number(f.falseBackground))) f.falseBackground = Number(f.backgroundColor) || 0;
         if (!Number.isFinite(Number(f.trueBackground))) f.trueBackground = Number(f.backgroundColor) || 0;
+      }, true);
+      if (!KEYS_FOR(selectedField()).includes(activeColorKey)) activeColorKey = 'label';
+      return;
+    }
+    const boolStyle = e.target.closest('[data-bool-style]');
+    if (boolStyle) {
+      setFieldProps((f) => {
+        f.boolStyle = boolStyle.dataset.boolStyle;
+        if (f.boolStyle === 'PILOT') {
+          // El piloto siempre tiene color por estado.
+          f.stateColors = true;
+          if (!Number.isFinite(Number(f.falseColor))) f.falseColor = 0xF800;
+          if (!Number.isFinite(Number(f.trueColor))) f.trueColor = 0x07E0;
+          if (!Number.isFinite(Number(f.falseBackground))) f.falseBackground = Number(f.backgroundColor) || 0;
+          if (!Number.isFinite(Number(f.trueBackground))) f.trueBackground = Number(f.backgroundColor) || 0;
+        }
       }, true);
       if (!KEYS_FOR(selectedField()).includes(activeColorKey)) activeColorKey = 'label';
       return;
@@ -532,7 +644,16 @@
     wrap.querySelectorAll(`[data-readout="${name}"]`).forEach((el) => { el.textContent = text; });
   }
 
+  const LEAD_SECONDS = { SS: 1, MM_SS: 60, HH_MM_SS: 3600, COMPACT: 3600 };
+  const LEAD_TITLE = { SS: 'Dígitos de los segundos', MM_SS: 'Dígitos de los minutos', HH_MM_SS: 'Dígitos de las horas', COMPACT: 'Dígitos de las horas' };
+
   function valueRange(field) {
+    if (field.valueKind === 'DURATION') {
+      const lead = Math.max(1, Number(field.integerDigits) || 1);
+      const scale = field.durationUnit === 'MS' ? 1000 : 1;
+      const max = (10 ** lead * (LEAD_SECONDS[field.durationPattern] || 60) - 1) * scale;
+      return { min: field.signedValue ? -max : 0, max, step: scale, decs: 0 };
+    }
     const ints = Math.max(1, Number(field.integerDigits) || 1);
     const decs = Math.max(0, Number(field.decimalDigits) || 0);
     const max = Number((10 ** ints - 10 ** -decs).toFixed(decs));
@@ -540,7 +661,7 @@
   }
 
   function cppTypeFor(field) {
-    if (field.type === 'VALUE') return 'float';
+    if (field.type === 'VALUE') return window.JWPLCHMICodegenCore?.valueCppType?.(field) || 'float';
     if (field.type === 'BOOL') return 'bool';
     return `char[${Math.max(1, Number(field.capacity) || 1) + 1}]`;
   }
@@ -587,18 +708,19 @@
   // casos (FALSE y TRUE), cada uno con el texto y el fondo de su estado; la
   // etiqueta y el marco son comunes y aparecen en ambos.
   function casesFor(field) {
+    const pilot = field.type === 'BOOL' && field.boolStyle === 'PILOT';
     const rowsFor = (valueKey, backgroundKey) => [
       ...(field.frame ? [{ label: 'Marco', keys: ['frame'] }] : []),
-      { label: 'Etiqueta', keys: ['label'] },
-      { label: 'Valor', keys: [valueKey] },
+      { label: pilot ? 'Etiqueta y aro' : 'Etiqueta', keys: ['label'] },
+      { label: pilot ? 'Piloto' : 'Valor', keys: [valueKey] },
       { label: 'Fondo', keys: [backgroundKey] }
     ];
     if (!stateMode(field)) {
       return [{ id: 'single', title: 'Vista', boolValue: field.boolValue, rows: rowsFor('value', 'background') }];
     }
     return [
-      { id: 'false', title: `Caso FALSE · «${field.falseText || 'OFF'}»`, boolValue: false, rows: rowsFor('false', 'falseBg') },
-      { id: 'true', title: `Caso TRUE · «${field.trueText || 'ON'}»`, boolValue: true, rows: rowsFor('true', 'trueBg') }
+      { id: 'false', title: pilot ? 'Caso FALSE · apagado' : `Caso FALSE · «${field.falseText || 'OFF'}»`, boolValue: false, rows: rowsFor('false', 'falseBg') },
+      { id: 'true', title: pilot ? 'Caso TRUE · encendido' : `Caso TRUE · «${field.trueText || 'ON'}»`, boolValue: true, rows: rowsFor('true', 'trueBg') }
     ];
   }
 
@@ -803,6 +925,17 @@
         decHost.innerHTML = chips('decimalDigits', options);
       }
       setActive('[data-set="decimalDigits"]', decs);
+      const kind = field.valueKind === 'DURATION' ? 'DURATION' : 'NUMBER';
+      wrap.querySelectorAll('[data-vkind]').forEach((b) => b.classList.toggle('active', b.dataset.vkind === kind));
+      wrap.querySelectorAll('[data-vkind-panel]').forEach((p) => { p.hidden = p.dataset.vkindPanel !== kind; });
+      const sep = [',', '.', ' '].includes(field.thousandsSep) ? field.thousandsSep : '';
+      wrap.querySelectorAll('[data-vsep]').forEach((b) => b.classList.toggle('active', b.dataset.vsep === sep));
+      wrap.querySelector('[data-vsep-note]').hidden = sep !== '.';
+      const pattern = field.durationPattern || 'MM_SS';
+      wrap.querySelectorAll('[data-vpattern]').forEach((b) => b.classList.toggle('active', b.dataset.vpattern === pattern));
+      wrap.querySelectorAll('[data-vunit]').forEach((b) => b.classList.toggle('active', b.dataset.vunit === (field.durationUnit || 'S')));
+      readout('leadTitle', LEAD_TITLE[pattern] || LEAD_TITLE.MM_SS);
+      readout('overflow', window.JWPLCValueFormat?.overflow(field) || '--:--');
       readout('integerDigits', String(field.integerDigits || 1));
       wrap.querySelectorAll('[data-toggle]').forEach((b) => b.classList.toggle('active', Boolean(field[b.dataset.toggle])));
       readout('reserve', $('valueFormatSampleStatus')?.textContent || '');
@@ -824,6 +957,17 @@
       readout('textCounter', `${String(field.preview || '').length}/${cap}`);
       const textPreview = wrap.querySelector('[data-text-preview]');
       textPreview.maxLength = cap;
+    }
+
+    if (field.type === 'BOOL') {
+      const pilot = field.boolStyle === 'PILOT';
+      wrap.querySelectorAll('[data-bool-style]').forEach((b) => b.classList.toggle('active', b.dataset.boolStyle === (pilot ? 'PILOT' : 'TEXT')));
+      wrap.querySelector('[data-bool-pilot-note]').hidden = !pilot;
+      wrap.querySelectorAll('[data-bool-text-only]').forEach((el) => { el.hidden = pilot; });
+    } else {
+      wrap.querySelectorAll('[data-bool-text-only]').forEach((el) => {
+        if (!el.dataset.only) el.hidden = false;
+      });
     }
 
     if (field.type === 'BOOL') {

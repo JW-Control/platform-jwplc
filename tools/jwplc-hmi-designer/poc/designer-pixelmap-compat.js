@@ -29,9 +29,7 @@
   }
 
   function numericSample(field) {
-    const integers = Math.max(1, Math.trunc(Number(field.integerDigits) || 1));
-    const decimals = Math.max(0, Math.trunc(Number(field.decimalDigits) || 0));
-    return `${field.signedValue ? '-' : ''}${'8'.repeat(integers)}${decimals ? `.${'8'.repeat(decimals)}` : ''}`;
+    return window.JWPLCValueFormat.sample(field);
   }
 
   function barRect(field) {

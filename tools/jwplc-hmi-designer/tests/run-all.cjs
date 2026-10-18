@@ -19,6 +19,7 @@ const python = has(process.platform === 'win32' ? 'python' : 'python3', ['--vers
 const TESTS = [
   { file: 'codegen-core.test.cjs', what: 'codegen puro en node (núcleo + MENU)' },
   { file: 'codegen-golden.cjs', what: 'headers generados == golden' },
+  { file: 'value-format-parity.cjs', what: 'formato de VALUE: firmware real == Designer (sin g++ sólo casos fijos)' },
   { file: 'inspector-smoke.cjs', what: 'inspector TEXT/VALUE/BOOL/BAR + paridad BAR' },
   { file: 'menu-smoke.cjs', what: 'MENU en el Designer + paridad con el firmware' },
   { file: 'menu-host-sim.cjs', what: 'MENU: firmware real en host', needs: gpp ? null : 'g++' },

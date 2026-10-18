@@ -135,6 +135,55 @@ async function main() {
     await page.click(`${W}[data-insp-main="tech"]`);
     await shot('value_tecnico');
 
+    console.log('VALUE · FORMATO (miles y duración)');
+    await sub('content');
+    for (let i = 0; i < 3; i++) await page.click(`${W}[data-vkind-panel="NUMBER"] [data-stepper="integerDigits"] [data-step="1"]`);
+    await page.click(`${W}[data-set="decimalDigits"][data-value="0"]`);
+    await page.click(`${W}[data-vsep=","]`);
+    await page.evaluate(() => { const f = window.JWPLCHMIEditor.getSelectedField(); f.preview = '1234567'; window.JWPLCHMIEditor.render(); });
+    await page.waitForTimeout(150);
+    v = await selected();
+    check(v.thousandsSep === ',' && v.integerDigits === 7, 'Número: separador de miles y 7 dígitos');
+    check(await page.evaluate(() => window.JWPLCValueFormat.preview(window.JWPLCHMIEditor.getSelectedField())) === '1,234,567', 'Número: el lienzo muestra 1,234,567');
+    check(await page.$eval(`${W}[data-readout="reserve"]`, (el) => el.textContent) === '-8,888,888', 'Número: la reserva incluye los separadores');
+    await shot('value_formato_miles');
+    let vh = await header();
+    check(/'\,'\)/.test(vh) || /',',?\)/.test(vh), "header: separador ',' como 5.º argumento");
+    check(/int32_t presion = 0;/.test(vh), 'header: contador con miles sin decimales -> int32_t (con signo)');
+    await page.click('#canvasWrap canvas, canvas').catch(() => {});
+    await page.evaluate(() => { const E = window.JWPLCHMIEditor; const f = E.getAllFields().find((x) => x.variable === 'presion'); E.setSelectedFieldKeys([f.key]); E.render(); });
+    await page.waitForTimeout(200);
+    await sub('content');
+    await page.click(`${W}[data-vkind="DURATION"]`);
+    v = await selected();
+    check(v.valueKind === 'DURATION' && v.integerDigits === 2 && v.decimalDigits === 0 && v.preview === '303', 'Duración: valores iniciales (2 dígitos, 303 s)');
+    check(await page.$eval(`${W}[data-vkind-panel="NUMBER"]`, (el) => el.hidden) && !(await page.$eval(`${W}[data-vkind-panel="DURATION"]`, (el) => el.hidden)), 'Duración: sólo se ven sus controles');
+    check(await page.evaluate(() => window.JWPLCValueFormat.preview(window.JWPLCHMIEditor.getSelectedField())) === '05:03', 'Duración MM:SS: 303 s -> 05:03');
+    await page.click(`${W}[data-vpattern="HH_MM_SS"]`);
+    await page.click(`${W}[data-vunit="MS"]`);
+    v = await selected();
+    check(v.durationPattern === 'HH_MM_SS' && v.durationUnit === 'MS' && v.preview === '303000', 'Duración: patrón HH:MM:SS y ms (la vista previa se convierte)');
+    check(await page.$eval(`${W}[data-readout="leadTitle"]`, (el) => el.textContent) === 'Dígitos de las horas', 'Duración: el título del paso sigue al patrón');
+    check(await page.$eval(`${W}[data-readout="formatted"]`, (el) => el.textContent) === '00:05:03', 'Duración: resultado 00:05:03');
+    await shot('value_formato_duracion');
+    vh = await header();
+    check(/JWPLC_UIDurationFormat\(\n\s*JWPLC_UI_DURATION_HH_MM_SS,\n\s*JWPLC_UI_DURATION_MILLIS,\n\s*2,\n\s*true\)/.test(vh), 'header: JWPLC_UIDurationFormat(HH_MM_SS, MILLIS, 2, true)');
+    await page.evaluate(() => { const E = window.JWPLCHMIEditor; const f = E.getAllFields().find((x) => x.variable === 'presion'); E.setSelectedFieldKeys([f.key]); E.render(); });
+    await page.waitForTimeout(200);
+    await sub('content');
+    await page.click(`${W}[data-vkind="NUMBER"]`);
+    check((await selected()).valueKind === 'NUMBER' && (await selected()).integerDigits === 3, 'volver a Número restablece 3 dígitos');
+    await page.evaluate(() => window.JWPLCHMIEditor.undo());
+    await page.waitForTimeout(200);
+    check((await fieldOf('VALUE')).valueKind === 'DURATION', 'undo vuelve a Duración');
+    await page.evaluate(() => window.JWPLCHMIEditor.redo());
+    // Deja el formato como estaba (4 enteros, 2 decimales, sin separador) para HEADER.
+    await page.click(`${W}[data-vkind-panel="NUMBER"] [data-stepper="integerDigits"] [data-step="1"]`);
+    await page.click(`${W}[data-set="decimalDigits"][data-value="2"]`);
+    await page.click(`${W}[data-vsep=""]`);
+    v = await selected();
+    check(v.valueKind === 'NUMBER' && v.integerDigits === 4 && v.decimalDigits === 2 && v.thousandsSep === '', 'Número restaurado (4, 2, sin separador)');
+
     console.log('TEXT');
     await page.evaluate(() => window.JWPLCHMIEditor.addTextField());
     await page.waitForTimeout(300);
@@ -179,6 +228,48 @@ async function main() {
     await shot('bool_apariencia');
     await page.click(`${W}[data-insp-main="data"]`);
     check(bo.boolValue === true && bo.preview === 'MARCHA', 'estado de prueba con interruptor');
+
+    console.log('BOOL · PILOTO');
+    // addBoolField sólo crea uno nuevo si el seleccionado no es BOOL.
+    await page.evaluate(() => { window.JWPLCHMIEditor.setSelectedFieldKeys([]); window.JWPLCHMIBool.addBoolField(); });
+    await page.waitForTimeout(300);
+    await page.evaluate(() => { const f = window.JWPLCHMIEditor.getSelectedField(); f.variable = 'piloto_bomba'; f.label = 'Bomba'; window.JWPLCHMIEditor.render(); });
+    await sub('content');
+    await page.click(`${W}[data-bool-style="PILOT"]`);
+    const bp = await selected();
+    check(bp.boolStyle === 'PILOT' && bp.stateColors === true && bp.falseColor === 0xF800 && bp.trueColor === 0x07E0, 'Piloto: color por estado activo (rojo/verde)');
+    check(await page.$eval(`${W}[data-insp-panel="design:content"] [data-bool-text-only]`, (el) => el.hidden), 'Piloto: se ocultan los textos de estado');
+    await shot('bool_piloto_contenido');
+    await sub('appearance');
+    const legend = await page.$eval(`${W}[data-field-appearance]`, (el) => el.textContent);
+    check(/Etiqueta y aro/.test(legend) && /Piloto/.test(legend) && /apagado/.test(legend), 'Piloto: leyenda «Etiqueta y aro» y «Piloto» por caso');
+    await shot('bool_piloto_apariencia');
+    const px = await page.evaluate(() => {
+      const E = window.JWPLCHMIEditor;
+      const f = E.getSelectedField();
+      const res = {};
+      for (const size of [1, 2, 3, 4]) {
+        for (const on of [false, true]) {
+          const out = E.renderFieldPreview({ ...f, x: 0, y: 0, valueSize: size, boolValue: on });
+          const g = out.g;
+          const r = Math.floor((g.valueH - 1) / 2);
+          const at = (x, y) => out.buffer[y * out.width + x];
+          res[`${size}${on ? 'T' : 'F'}`] = {
+            side: g.valueW === 7 * size && g.valueH === 7 * size,
+            center: at(g.valueX + r, g.valueY + r) === (on ? f.trueColor : f.falseColor),
+            ring: at(g.valueX, g.valueY + r) === (f.labelColor & 0xFFFF),
+            corner: at(g.valueX, g.valueY) === (Number(on ? f.trueBackground : f.falseBackground) & 0xFFFF),
+            dbg: [at(g.valueX + r, g.valueY + r), at(g.valueX, g.valueY + r), at(g.valueX, g.valueY)]
+          };
+        }
+      }
+      return res;
+    });
+    check(Object.values(px).every((p) => p.side && p.center && p.ring && p.corner), `Piloto 1×..4×: caja 7×escala, centro del estado, aro de la etiqueta, esquinas con el fondo del estado (${JSON.stringify(Object.entries(px).filter(([, p]) => !(p.side && p.center && p.ring && p.corner)).map(([k, p]) => k + ':' + p.dbg.join('/')))})`);
+    const ph = await header();
+    check(/#ifdef JWPLC_UI_HAS_BOOL_PILOT\n\s*JWPLC_UIBoolPilot\(\n\s*0xF800,\n\s*0x07E0\),/.test(ph), 'header: JWPLC_UIBoolPilot(0xF800, 0x07E0) con respaldo de texto');
+    await page.evaluate(() => { const E = window.JWPLCHMIEditor; const b = E.getAllFields().filter((f) => f.type === 'BOOL'); E.setSelectedFieldKeys([b[0].key]); E.render(); });
+    await page.waitForTimeout(200);
 
     await page.evaluate(() => window.JWPLCHMIEditor.addPage());
     await page.evaluate(() => {

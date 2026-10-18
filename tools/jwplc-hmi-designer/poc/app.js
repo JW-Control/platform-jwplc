@@ -1228,6 +1228,29 @@
     }
   }
 
+  // TFT_eSPI::fillCircle línea por línea (mismas filas que la TFT).
+  function fillBufferCircle(buffer, x0, y0, r, value) {
+    let x = 0;
+    let dx = 1;
+    let dy = r + r;
+    let p = -(r >> 1);
+    fillBufferRect(buffer, x0 - r, y0, dy + 1, 1, value);
+    while (x < r) {
+      if (p >= 0) {
+        fillBufferRect(buffer, x0 - x, y0 + r, dx, 1, value);
+        fillBufferRect(buffer, x0 - x, y0 - r, dx, 1, value);
+        dy -= 2;
+        p -= dy;
+        r -= 1;
+      }
+      dx += 2;
+      p += dx;
+      x += 1;
+      fillBufferRect(buffer, x0 - r, y0 + x, dy + 1, 1, value);
+      fillBufferRect(buffer, x0 - r, y0 - x, dy + 1, 1, value);
+    }
+  }
+
   function drawBufferRect(buffer, x, y, width, height, value) {
     if (width <= 0 || height <= 0) return;
     fillBufferRect(buffer, x, y, width, 1, value);
@@ -1607,6 +1630,11 @@
 
   // BOOL con colores por estado (texto del valor y fondo de todo el campo),
   // igual que JWPLC_UI.cpp con JWPLC_UIBoolText de 6 argumentos.
+  // BOOL «Piloto» (JWPLC_UIBoolPilot): círculo en lugar del texto.
+  function isBoolPilot(field) {
+    return field?.type === 'BOOL' && field.boolStyle === 'PILOT';
+  }
+
   function fieldValueColor565(field) {
     if (field.type === 'BOOL' && field.stateColors) {
       return field.boolValue ? Number(field.trueColor) : Number(field.falseColor);
@@ -1629,46 +1657,16 @@
     return Math.max(FIELD_PADDING, (field.labelSize || 1) + 1, (field.valueSize || 1) + 1);
   }
 
-  function makeNumericSample(field) {
-    const integerDigits = Math.max(1, Math.trunc(field.integerDigits || 1));
-    const decimalDigits = Math.max(0, Math.trunc(field.decimalDigits || 0));
-    return `${field.signedValue ? '-' : ''}${'8'.repeat(integerDigits)}${decimalDigits > 0 ? `.${'8'.repeat(decimalDigits)}` : ''}`;
-  }
+  // Formato de VALUE: designer-value-format.js, gemelo de JWPLC_UI_Format.cpp
+  // (número, separador de miles y duración; tests/value-format-parity.cjs).
+  const valueFormat = () => window.JWPLCValueFormat;
 
-  function makeOverflowText(field) {
-    let slots = Math.max(1, Math.trunc(field.integerDigits || 1));
-    const decimals = Math.max(0, Math.trunc(field.decimalDigits || 0));
-    if (decimals > 0) slots += 1 + decimals;
-    if (field.signedValue) slots += 1;
-    return '#'.repeat(slots);
+  function makeNumericSample(field) {
+    return valueFormat().sample(field);
   }
 
   function formatNumericPreview(field) {
-    const raw = String(field.preview ?? '').trim();
-    if (!raw) return '';
-    const value = Number(raw);
-    if (!Number.isFinite(value)) return makeOverflowText(field);
-    const negative = value < 0;
-    if (negative && !field.signedValue) return makeOverflowText(field);
-
-    const decimals = Math.max(0, Math.trunc(field.decimalDigits || 0));
-    const allowed = Math.max(1, Math.trunc(field.integerDigits || 1));
-    let out;
-
-    if (field.leadingZeros) {
-      const magnitude = Math.abs(value).toFixed(decimals);
-      const [integerPart, fractionPart] = magnitude.split('.');
-      const paddedInteger = integerPart.padStart(allowed, '0');
-      const body = decimals > 0 ? `${paddedInteger}.${fractionPart || ''.padEnd(decimals, '0')}` : paddedInteger;
-      out = negative ? `-${body}` : body;
-    } else {
-      out = value.toFixed(decimals);
-    }
-
-    const unsigned = out.replace(/^[+-]/, '');
-    const integerPart = unsigned.split('.')[0] || '';
-    if (integerPart.length > allowed) return makeOverflowText(field);
-    return out;
+    return valueFormat().preview(field);
   }
 
   function valueSampleForField(field) {
@@ -1837,7 +1835,10 @@
     const pad = effectiveFieldPadding(field);
     const labelBounds = nominalTextBounds(field.label, field.labelSize);
     const unitBounds = nominalTextBounds(field.unit, field.labelSize);
-    const valueBounds = nominalTextBounds(valueSampleForField(field), field.valueSize);
+    const pilotSide = 7 * Math.max(1, Math.trunc(Number(field.valueSize) || 1));
+    const valueBounds = isBoolPilot(field)
+      ? { width: pilotSide, height: pilotSide }
+      : nominalTextBounds(valueSampleForField(field), field.valueSize);
     let fieldW;
     let fieldH;
     let valueX;
@@ -1900,6 +1901,15 @@
     }
     if (field.unit) {
       drawClassicTextAt(buffer, field.unit, g.valueX + g.valueW + FIELD_GAP, g.valueY, field.labelColor, textBg, field.labelSize);
+    }
+    if (isBoolPilot(field)) {
+      // JWPLC_UI.cpp: aro del color de la etiqueta y relleno del estado.
+      const r = Math.floor((g.valueH - 1) / 2);
+      const cx = g.valueX + r;
+      const cy = g.valueY + r;
+      fillBufferCircle(buffer, cx, cy, r, Number(field.labelColor) & 0xFFFF);
+      if (r > 1) fillBufferCircle(buffer, cx, cy, r - 1, (field.boolValue ? Number(field.trueColor) : Number(field.falseColor)) & 0xFFFF);
+      return g;
     }
     const preview = previewTextForField(field);
     if (preview) {
@@ -2085,7 +2095,8 @@
 
   function variableDeclaration(field, index) {
     const variable = sanitizeSymbol(field.variable, variableFallback(field, index));
-    if (field.type === 'VALUE' || field.type === 'BAR') return `float ${variable} = 0.0f;`;
+    if (field.type === 'VALUE') return window.JWPLCHMICodegenCore.valueDeclaration(field, variable);
+    if (field.type === 'BAR') return `float ${variable} = 0.0f;`;
     if (field.type === 'BOOL') return `bool ${variable} = false;`;
     return `char ${variable}[${Math.max(1, field.capacity) + 1}] = {};`;
   }
@@ -3692,7 +3703,7 @@
       if (fieldDecimalDigits) fieldDecimalDigits.value = String(field.decimalDigits);
       if (fieldSigned) fieldSigned.value = field.signedValue ? '1' : '0';
       if (fieldLeadingZeros) fieldLeadingZeros.value = field.leadingZeros ? '1' : '0';
-      inspectorContract.textContent = `float ${sanitizeSymbol(field.variable, 'valor')} = 0.0f;`;
+      inspectorContract.textContent = window.JWPLCHMICodegenCore.valueDeclaration(field, sanitizeSymbol(field.variable, 'valor'));
     } else if (field.type === 'BOOL') {
       inspectorContract.textContent = `bool ${sanitizeSymbol(field.variable, 'estado')} = false;`;
     } else if (field.type === 'BAR') {

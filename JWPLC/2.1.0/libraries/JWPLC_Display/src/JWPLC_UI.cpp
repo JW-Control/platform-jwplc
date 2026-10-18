@@ -1,4 +1,5 @@
 #include "JWPLC_UI.h"
+#include "JWPLC_UI_Format.h"
 #include <JWPLC_TFT.h>
 #include "JWPLC_Display_API.h"
 #include "JWPLC_Display_H3E1_Profile.h"
@@ -196,43 +197,6 @@ namespace
         return (needed > FIELD_PADDING) ? needed : FIELD_PADDING;
     }
 
-    void makeNumericSample(const JWPLC_UIField &def, char *out, size_t outSize)
-    {
-        if (out == nullptr || outSize == 0)
-        {
-            return;
-        }
-
-        const uint8_t integerDigits =
-            (def.format.integerDigits == 0) ? 1 : def.format.integerDigits;
-
-        size_t pos = 0;
-
-        if (def.format.signedValue && pos + 1 < outSize)
-        {
-            out[pos++] = '-';
-        }
-
-        for (uint8_t i = 0; i < integerDigits && pos + 1 < outSize; ++i)
-        {
-            out[pos++] = '8';
-        }
-
-        if (def.format.decimalDigits > 0 && pos + 1 < outSize)
-        {
-            out[pos++] = '.';
-
-            for (uint8_t i = 0;
-                 i < def.format.decimalDigits && pos + 1 < outSize;
-                 ++i)
-            {
-                out[pos++] = '8';
-            }
-        }
-
-        out[pos] = '\0';
-    }
-
     void makeTextSample(uint8_t capacity, char *out, size_t outSize)
     {
         if (out == nullptr || outSize == 0)
@@ -249,129 +213,6 @@ namespace
         }
 
         out[pos] = '\0';
-    }
-
-    void makeOverflowText(const JWPLC_UIField &def, char *out, size_t outSize)
-    {
-        if (out == nullptr || outSize == 0)
-        {
-            return;
-        }
-
-        size_t slots =
-            (def.format.integerDigits == 0) ? 1 : def.format.integerDigits;
-
-        if (def.format.decimalDigits > 0)
-        {
-            slots += 1 + def.format.decimalDigits;
-        }
-
-        if (def.format.signedValue)
-        {
-            slots += 1;
-        }
-
-        if (slots > outSize - 1)
-        {
-            slots = outSize - 1;
-        }
-
-        for (size_t i = 0; i < slots; ++i)
-        {
-            out[i] = '#';
-        }
-
-        out[slots] = '\0';
-    }
-
-    bool formatNumeric(
-        const JWPLC_UIField &def,
-        double value,
-        char *out,
-        size_t outSize)
-    {
-        if (out == nullptr || outSize == 0)
-        {
-            return false;
-        }
-
-        if (!std::isfinite(value))
-        {
-            makeOverflowText(def, out, outSize);
-            return false;
-        }
-
-        const bool negative = value < 0.0;
-
-        if (negative && !def.format.signedValue)
-        {
-            makeOverflowText(def, out, outSize);
-            return false;
-        }
-
-        const uint8_t decimals = def.format.decimalDigits;
-
-        if (def.format.leadingZeros)
-        {
-            const uint8_t integerDigits =
-                (def.format.integerDigits == 0) ? 1 : def.format.integerDigits;
-
-            const int magnitudeWidth =
-                integerDigits + ((decimals > 0) ? (1 + decimals) : 0);
-
-            char magnitude[VALUE_BUFFER_SIZE] = {};
-            snprintf(
-                magnitude,
-                sizeof(magnitude),
-                "%0*.*f",
-                magnitudeWidth,
-                decimals,
-                std::fabs(value));
-
-            if (negative)
-            {
-                snprintf(out, outSize, "-%s", magnitude);
-            }
-            else
-            {
-                strncpy(out, magnitude, outSize - 1);
-                out[outSize - 1] = '\0';
-            }
-        }
-        else
-        {
-            snprintf(out, outSize, "%.*f", decimals, value);
-        }
-
-        const char *p = out;
-
-        if (*p == '-' || *p == '+')
-        {
-            ++p;
-        }
-
-        uint8_t integerCount = 0;
-
-        while (*p != '\0' && *p != '.')
-        {
-            if (*p >= '0' && *p <= '9')
-            {
-                ++integerCount;
-            }
-
-            ++p;
-        }
-
-        const uint8_t allowed =
-            (def.format.integerDigits == 0) ? 1 : def.format.integerDigits;
-
-        if (integerCount > allowed)
-        {
-            makeOverflowText(def, out, outSize);
-            return false;
-        }
-
-        return true;
     }
 
     bool setValueString(FieldRuntime &field, const char *value)
@@ -473,7 +314,7 @@ namespace
         switch (def.meta.type)
         {
         case JWPLC_UI_FIELD_VALUE:
-            makeNumericSample(def, sample, sizeof(sample));
+            JWPLCUIFormat::sample(def.format, sample, sizeof(sample));
             textBounds(
                 tft,
                 sample,
@@ -497,6 +338,15 @@ namespace
 
         case JWPLC_UI_FIELD_BOOL:
         {
+            if (def.options.boolText.representation == JWPLC_UI_BOOL_AS_PILOT)
+            {
+                // Piloto: caja cuadrada de la altura del cuerpo del texto.
+                const uint8_t scale = (def.style.valueTextSize == 0) ? 1 : def.style.valueTextSize;
+                valueW = (uint16_t)(7 * scale);
+                valueH = valueW;
+                break;
+            }
+
             uint16_t falseW = 0;
             uint16_t falseH = 0;
             uint16_t trueW = 0;
@@ -869,6 +719,49 @@ namespace
             return;
         }
 
+        if (def.meta.type == JWPLC_UI_FIELD_BOOL &&
+            def.options.boolText.representation == JWPLC_UI_BOOL_AS_PILOT)
+        {
+            // Aro (color de la etiqueta) y relleno del estado. Diámetro impar
+            // 2r+1 <= 7 × escala para que el centro caiga en un píxel.
+            const int16_t r = (field.valueH - 1) / 2;
+            const int16_t cx = field.valueX + r;
+            const int16_t cy = field.valueY + r;
+            const uint16_t stateColor = field.boolState
+                                            ? def.options.boolText.trueColor
+                                            : def.options.boolText.falseColor;
+            const uint32_t printStartUs = profile ? micros() : 0U;
+
+            tft.fillCircle(cx, cy, r, def.style.colors.label);
+            if (r > 1)
+            {
+                tft.fillCircle(cx, cy, r - 1, stateColor);
+            }
+
+            if (profile)
+            {
+                printUs = (uint32_t)(micros() - printStartUs);
+            }
+
+            field.dirty = false;
+
+            if (profile)
+            {
+                jwplcH3E1RecordFieldDraw(
+                    def.meta.id,
+                    (uint8_t)def.meta.type,
+                    (uint16_t)field.valueW,
+                    (uint16_t)field.valueH,
+                    0U,
+                    (uint32_t)(micros() - totalStartUs),
+                    clearUs,
+                    0U,
+                    printUs);
+            }
+
+            return;
+        }
+
         tft.setTextSize(
             (def.style.valueTextSize == 0)
                 ? 1
@@ -994,8 +887,8 @@ namespace JWPLCUI
 
         char formatted[VALUE_BUFFER_SIZE] = {};
         const bool valid =
-            formatNumeric(
-                field->def,
+            JWPLCUIFormat::value(
+                field->def.format,
                 value,
                 formatted,
                 sizeof(formatted));

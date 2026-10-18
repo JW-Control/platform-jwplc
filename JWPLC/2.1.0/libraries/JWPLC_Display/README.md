@@ -751,6 +751,38 @@ bool seleccionando =
 Si Designer ya configura las páginas, no repitas esa configuración sin una
 razón específica.
 
+### Formatos de VALUE y BOOL «Piloto» — Intermedio
+
+El HMI Designer los genera desde las tarjetas *Formato* (VALUE) y
+*Representación* (BOOL). A mano se escriben así:
+
+```cpp
+// Contador con separador de miles: 1,234,567
+JWPLC_UIValueFormat(7, 0, false, false, ',')
+
+// Punto de miles y coma decimal: 1.234,5
+JWPLC_UIValueFormat(6, 1, false, false, '.')
+
+// Duración: la variable trae segundos (o ms) y la TFT muestra 05:03
+JWPLC_UIDurationFormat(JWPLC_UI_DURATION_MM_SS)
+JWPLC_UIDurationFormat(JWPLC_UI_DURATION_HH_MM_SS, JWPLC_UI_DURATION_MILLIS, 3)
+JWPLC_UIDurationFormat(JWPLC_UI_DURATION_COMPACT)        // 1h05m · 5m03s · 45s
+JWPLC_UIDurationFormat(JWPLC_UI_DURATION_MM_SS,
+                       JWPLC_UI_DURATION_SECONDS, 2, true) // -01:15 (restante)
+
+// BOOL como piloto: círculo gris/verde; opcional, fondo del campo por estado
+JWPLC_UIBoolPilot(0x4208, 0x07E0)
+JWPLC_UIBoolPilot(0x4208, 0xFFE0, 0x0000, 0xF800)
+```
+
+- La duración la calcula el programa. VALUE sólo la muestra, truncada a segundos.
+- El tercer argumento de `JWPLC_UIDurationFormat` es el ancho de la primera unidad
+  (segundos, minutos u horas). Si el valor no cabe, se ve `--:--`.
+- Para duraciones y contadores grandes conviene una variable entera (`uint32_t`).
+  `float` no representa exactos los valores mayores que 16 777 216.
+- El piloto mide 7 px por escala (`valueTextSize`). Tiene un aro del color de la
+  etiqueta y un relleno del color de cada estado.
+
 ### Refresco USER — Intermedio / Avanzado
 
 Modo bajo demanda:

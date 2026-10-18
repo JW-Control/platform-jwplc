@@ -1,6 +1,6 @@
 # v2.1.0-alpha.15 — Estado
 
-Actualizado: `2026-10-17`
+Actualizado: `2026-10-18`
 
 ## Identidad
 
@@ -43,6 +43,10 @@ A15_7G_APPEARANCE_A1=PENDING (análisis en A15_7_APARIENCIA_A1_ANALISIS_20261018
 A15_LOPAKA_REVIEW=DONE (A15_LOPAKA_REVISION_20261018.md; P1 aprobado, P2 ajustado)
 A15_INDUSTRIAL_PLAN=APPROVED (A15_INDUSTRIAL_ARQUITECTURA_PLAN_20261018.md §G; Alpha15 cierra con I1-I3 + A1 + buzzer; resto Alpha16)
 A15_BUZZER=PASS_ESP32_COMPILE (JWPLC_Buzzer en JWPLC_GlobalPeripherals; físico pendiente)
+A15_I1_FORMATS=PASS_HOST_AND_ESP32_COMPILE (A15_I1_FORMATOS_VALUE_BOOL_20261018.md; VALUE miles/duración + BOOL piloto; físico pendiente)
+A15_I2_RTC=PENDING
+A15_I3_CP437=PENDING
+A15_FRAM_MAP=PROPOSED (plan §G.6: DataLog hoy sin FRAM; reparto del último KB)
 A15_8_MENU=PASS_HOST_AND_ESP32_COMPILE (A15_8_MENU_20261017; físico pendiente)
 A15_9_PHYSICAL_PARITY=PENDING
 A15_10_PACKAGING_DOCS=PENDING
@@ -83,7 +87,7 @@ MENU=ADOPTED (designer-menu.js; firmware JWPLC_Display 1.1.0)
 DESIGNER_UI=Alpha11
 ELECTRON_PACKAGE=0.11.0-alpha.11
 JWPLC_TFT=0.3.0 (elipses/triángulos + FreeFonts con setFont/drawString; .a regenerado, ABI compatible)
-JWPLC_DISPLAY=1.1.0 (MENU + BOOL por estado con fondo de todo el campo + anclaje fijo + marco sin recorte + setPageIndicator) · SOURCE_FIRST hasta el cierre (.a 0317c3ac… histórico, regenerar al cierre)
+JWPLC_DISPLAY=1.1.0 (MENU + BOOL por estado con fondo de todo el campo + anclaje fijo + marco sin recorte + setPageIndicator + VALUE miles/duración + BOOL piloto) · SOURCE_FIRST hasta el cierre (.a 0317c3ac… histórico, regenerar al cierre)
 DESIGNER_FONTS=GLCD + 24 FreeFonts (Font2/Font4 deshabilitadas)
 PROJECT_FORMAT=JWPLC_HMI_PROJECT v1
 VPP_OPENPLC=2.1.0-alpha.29 (rama v2.1.0-alpha.12/feature/openplc-engineering-closure)
@@ -196,3 +200,12 @@ MENU_NODE_COUNT_LIMIT=64 por menú, 4 menús, 1 por página (9 nodos = +952 B RA
 
   Nuevo `JWPLC_Buzzer` en el package (GPIO26, no bloqueante, volumen en `setup()`, ejemplo `07.Buzzer_Basic`).
   Sigue: I1 → I2 → I3 → A1 para cerrar Alpha15.
+- 2026-10-18 — FRAM: `JWPLCDataLog` hoy no usa FRAM (A14_6 difirió el journal: RAM → SD). Propuesta de
+  reparto del último KB en el plan §G.6: cabecera 32 B, avisos 64 B, recetas 416 B, últimos eventos 256 B
+  y reserva 256 B para un journal futuro; el usuario conserva los 7 KB.
+- 2026-10-18 — I1 (`A15_I1_FORMATOS_VALUE_BOOL_20261018.md`):
+  - VALUE con separador de miles y duración (`JWPLC_UI_Format.cpp` + `designer-value-format.js`; paridad 19 200/19 200);
+  - BOOL «Piloto» (`JWPLC_UIBoolPilot`);
+  - las duraciones y los contadores con miles declaran enteros de 32 bits.
+
+  Corregido el redondeo de empates del Designer (`toFixed` frente a `printf`). Gate `A15_I1_Formatos` compila para ESP32.

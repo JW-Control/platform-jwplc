@@ -47,6 +47,16 @@ const value = { ...COLORS, type: 'VALUE', x: 4, y: 40, label: 'Temp', unit: 'C',
 check(core.valueFieldBlock(value, 'FIELD_TEMP') ===
   '    JWPLC_UIValueField(\n        FIELD_TEMP,\n        JWPLC_UIRect(4, 40),\n        JWPLC_UIText("Temp", "C"),\n        JWPLC_UIValueFormat(\n            3,\n            1,\n            true,\n            false),\n        JWPLC_UIValueStyle(\n            2,\n            1,\n            false,\n            JWPLC_UI_LAYOUT_INLINE,\n            JWPLC_UI_ALIGN_RIGHT),\n        0,\n        JWPLC_UIColors(\n            0xFFFF,\n            0x07FF,\n            0x0000,\n            0xFFFF))',
   'VALUE: bloque exacto');
+check(/JWPLC_UIValueFormat\(\n            7,\n            0,\n            false,\n            false,\n            ','\)/.test(core.valueFieldBlock({ ...value, integerDigits: 7, decimalDigits: 0, signedValue: false, thousandsSep: ',' }, 'F')),
+  'VALUE: separador de miles como 5.º argumento');
+check(/JWPLC_UIDurationFormat\(\n            JWPLC_UI_DURATION_HH_MM_SS,\n            JWPLC_UI_DURATION_MILLIS,\n            3,\n            false\)/.test(core.valueFieldBlock({ ...value, valueKind: 'DURATION', durationPattern: 'HH_MM_SS', durationUnit: 'MS', integerDigits: 3, signedValue: false }, 'F')),
+  'VALUE: duración con JWPLC_UIDurationFormat');
+check(core.variableDeclaration({ type: 'VALUE', valueKind: 'DURATION', signedValue: false }, 't') === 'uint32_t t = 0;' &&
+  core.variableDeclaration({ type: 'VALUE', valueKind: 'DURATION', signedValue: true }, 't') === 'int32_t t = 0;' &&
+  core.variableDeclaration({ type: 'VALUE', thousandsSep: ',', decimalDigits: 0 }, 'n') === 'uint32_t n = 0;' &&
+  core.variableDeclaration({ type: 'VALUE', thousandsSep: ',', decimalDigits: 1 }, 'n') === 'float n = 0.0f;' &&
+  core.variableDeclaration({ type: 'VALUE', decimalDigits: 0 }, 'n') === 'float n = 0.0f;',
+  'VALUE: duración y contadores con miles usan enteros de 32 bits; el resto float');
 check(core.hex565('TRANSPARENT') === '0x0000' && core.hex565(0x1F) === '0x001F', 'hex565: TRANSPARENT -> 0x0000');
 check(/JWPLC_UIText\("Di \\"A\\"", nullptr, 8\)/.test(core.textFieldBlock({ ...COLORS, type: 'TEXT', x: 0, y: 0, label: 'Di "A"', unit: '', capacity: 8, valueSize: 1, labelSize: 1, frame: false, layout: 'INLINE', align: 'LEFT', page: 0 }, 'F')),
   'TEXT: escapa comillas y usa nullptr sin unidad');

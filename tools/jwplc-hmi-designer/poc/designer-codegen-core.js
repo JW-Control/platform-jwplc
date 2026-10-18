@@ -52,8 +52,37 @@
     return colorsBlock(field.labelColor, field.valueColor, field.backgroundColor, field.frameColor);
   }
 
+  const DURATION_PATTERN_CPP = { SS: 'SS', MM_SS: 'MM_SS', HH_MM_SS: 'HH_MM_SS', COMPACT: 'COMPACT' };
+
+  // Alpha15 I1: número (con separador de miles opcional) o duración.
+  // Sin separador sale el constructor de 4 argumentos de siempre.
+  function valueFormatBlock(field) {
+    if (field.valueKind === 'DURATION') {
+      const pattern = DURATION_PATTERN_CPP[field.durationPattern] || 'MM_SS';
+      const unit = field.durationUnit === 'MS' ? 'MILLIS' : 'SECONDS';
+      return `JWPLC_UIDurationFormat(\n            JWPLC_UI_DURATION_${pattern},\n            JWPLC_UI_DURATION_${unit},\n            ${Math.max(1, field.integerDigits)},\n            ${cppBool(field.signedValue)})`;
+    }
+    const sep = [',', '.', ' '].includes(field.thousandsSep) ? `,\n            '${field.thousandsSep}'` : '';
+    return `JWPLC_UIValueFormat(\n            ${Math.max(1, field.integerDigits)},\n            ${Math.max(0, field.decimalDigits)},\n            ${cppBool(field.signedValue)},\n            ${cppBool(field.leadingZeros)}${sep})`;
+  }
+
+  // Tipo C++ de la variable de un VALUE. float por defecto (como siempre);
+  // duraciones y contadores con miles sin decimales usan enteros de 32 bits,
+  // que float no representa exactos por encima de 2^24 (~4,6 h en ms).
+  function valueCppType(field) {
+    const integer = field.valueKind === 'DURATION' ||
+      ([',', '.', ' '].includes(field.thousandsSep) && !(Number(field.decimalDigits) > 0));
+    if (!integer) return 'float';
+    return field.signedValue ? 'int32_t' : 'uint32_t';
+  }
+
+  function valueDeclaration(field, variable) {
+    const type = valueCppType(field);
+    return type === 'float' ? `float ${variable} = 0.0f;` : `${type} ${variable} = 0;`;
+  }
+
   function valueFieldBlock(field, id) {
-    return `    JWPLC_UIValueField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        JWPLC_UIText(${textOrNull(field.label)}, ${textOrNull(field.unit)}),\n        JWPLC_UIValueFormat(\n            ${Math.max(1, field.integerDigits)},\n            ${Math.max(0, field.decimalDigits)},\n            ${cppBool(field.signedValue)},\n            ${cppBool(field.leadingZeros)}),\n        JWPLC_UIValueStyle(\n            ${field.valueSize},\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout},\n            JWPLC_UI_ALIGN_${field.align}),\n        ${field.page},\n        ${fieldColors(field)})`;
+    return `    JWPLC_UIValueField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        JWPLC_UIText(${textOrNull(field.label)}, ${textOrNull(field.unit)}),\n        ${valueFormatBlock(field)},\n        JWPLC_UIValueStyle(\n            ${field.valueSize},\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout},\n            JWPLC_UI_ALIGN_${field.align}),\n        ${field.page},\n        ${fieldColors(field)})`;
   }
 
   function textFieldBlock(field, id) {
@@ -69,6 +98,19 @@
   // anterior el header compila con un solo color (colors.value).
   function boolTextBlock(field) {
     const texts = `"${cppString(field.falseText)}",\n            "${cppString(field.trueText)}"`;
+    if (field.boolStyle === 'PILOT') {
+      // Piloto (Alpha15 I1). Fondo por estado sólo si difiere del fondo del campo.
+      const bgOf = (v) => (Number.isFinite(Number(v)) ? Number(v) : Number(field.backgroundColor)) & 0xFFFF;
+      const base = Number(field.backgroundColor) & 0xFFFF;
+      const withBg = bgOf(field.falseBackground) !== base || bgOf(field.trueBackground) !== base;
+      const args = `${hex565(field.falseColor)},\n            ${hex565(field.trueColor)}` +
+        (withBg ? `,\n            ${hex565(bgOf(field.falseBackground))},\n            ${hex565(bgOf(field.trueBackground))}` : '');
+      return `#ifdef JWPLC_UI_HAS_BOOL_PILOT\n` +
+        `        JWPLC_UIBoolPilot(\n            ${args}),\n` +
+        `#else\n` +
+        `        JWPLC_UIBoolText(\n            ${texts}),\n` +
+        `#endif\n`;
+    }
     if (!boolStateColorsOn(field)) return `        JWPLC_UIBoolText(\n            ${texts}),\n`;
     const bg = (v) => hex565(Number.isFinite(Number(v)) ? v : field.backgroundColor);
     return `#ifdef JWPLC_UI_HAS_BOOL_STATE_BACKGROUNDS\n` +
@@ -113,7 +155,8 @@
   }
 
   function variableDeclaration(field, variable) {
-    if (field.type === 'VALUE' || field.type === 'BAR') return `float ${variable} = 0.0f;`;
+    if (field.type === 'VALUE') return valueDeclaration(field, variable);
+    if (field.type === 'BAR') return `float ${variable} = 0.0f;`;
     if (field.type === 'BOOL') return `bool ${variable} = false;`;
     return `char ${variable}[${Math.max(1, Number(field.capacity) || 1) + 1}] = {};`;
   }
@@ -132,6 +175,9 @@
     cppFloat,
     hex565,
     valueFieldBlock,
+    valueFormatBlock,
+    valueCppType,
+    valueDeclaration,
     textFieldBlock,
     boolFieldBlock,
     boolStateColorsOn,

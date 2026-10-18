@@ -58,17 +58,7 @@ JWPLC_UIStyle::JWPLC_UIStyle(
 {
 }
 
-JWPLC_UIValueFormat::JWPLC_UIValueFormat(
-    uint8_t integerDigitsValue,
-    uint8_t decimalDigitsValue,
-    bool signedValueValue,
-    bool leadingZerosValue)
-    : integerDigits(integerDigitsValue),
-      decimalDigits(decimalDigitsValue),
-      signedValue(signedValueValue),
-      leadingZeros(leadingZerosValue)
-{
-}
+// JWPLC_UIValueFormat y JWPLC_UIDurationFormat: JWPLC_UI_Format.cpp
 
 JWPLC_UIBoolText::JWPLC_UIBoolText(
     const char *falseTextValue,
@@ -79,7 +69,8 @@ JWPLC_UIBoolText::JWPLC_UIBoolText(
       trueColor(0),
       falseBackground(0),
       trueBackground(0),
-      stateColors(0)
+      stateColors(0),
+      representation(JWPLC_UI_BOOL_AS_TEXT)
 {
 }
 
@@ -94,7 +85,8 @@ JWPLC_UIBoolText::JWPLC_UIBoolText(
       trueColor(trueColorValue),
       falseBackground(0),
       trueBackground(0),
-      stateColors(JWPLC_UI_BOOL_STATE_TEXT)
+      stateColors(JWPLC_UI_BOOL_STATE_TEXT),
+      representation(JWPLC_UI_BOOL_AS_TEXT)
 {
 }
 
@@ -111,8 +103,30 @@ JWPLC_UIBoolText::JWPLC_UIBoolText(
       trueColor(trueColorValue),
       falseBackground(falseBackgroundValue),
       trueBackground(trueBackgroundValue),
-      stateColors(JWPLC_UI_BOOL_STATE_TEXT | JWPLC_UI_BOOL_STATE_BACKGROUND)
+      stateColors(JWPLC_UI_BOOL_STATE_TEXT | JWPLC_UI_BOOL_STATE_BACKGROUND),
+      representation(JWPLC_UI_BOOL_AS_TEXT)
 {
+}
+
+// Los textos sólo sirven para detectar el cambio de estado (no se dibujan).
+JWPLC_UIBoolText JWPLC_UIBoolPilot(
+    uint16_t falseColor,
+    uint16_t trueColor)
+{
+    JWPLC_UIBoolText pilot("OFF", "ON", falseColor, trueColor);
+    pilot.representation = JWPLC_UI_BOOL_AS_PILOT;
+    return pilot;
+}
+
+JWPLC_UIBoolText JWPLC_UIBoolPilot(
+    uint16_t falseColor,
+    uint16_t trueColor,
+    uint16_t falseBackground,
+    uint16_t trueBackground)
+{
+    JWPLC_UIBoolText pilot("OFF", "ON", falseColor, trueColor, falseBackground, trueBackground);
+    pilot.representation = JWPLC_UI_BOOL_AS_PILOT;
+    return pilot;
 }
 
 JWPLC_UIRange::JWPLC_UIRange(float minValue, float maxValue)

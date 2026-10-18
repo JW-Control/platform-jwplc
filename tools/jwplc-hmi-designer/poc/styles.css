@@ -2703,3 +2703,15 @@ label.insp-needs-fw { opacity: 0.45; cursor: not-allowed; }
 /* A15 · NAV estilo "Contador": sólo los controles de la variante elegida */
 #navBarInspectorSection [data-navbar-bar-only][hidden],
 #navBarInspectorSection [data-navbar-counter-only][hidden] { display: none !important; }
+
+/* Alpha15 I1: BOOL «Piloto» en la tarjeta Representación */
+.insp-pilot-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1.5px solid #e8edf2;
+  vertical-align: -2px;
+}
+.insp-pilot-dot.is-off { background: #ff5050; }
+.insp-pilot-dot.is-on { background: #3ce36b; }

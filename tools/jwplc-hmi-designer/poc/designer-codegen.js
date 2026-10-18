@@ -219,6 +219,7 @@
   function variableDeclaration(field, index) {
     if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT'].includes(field.type)) return '';
     const variable = canonicalFor(field, 'variable', field.variable, index);
+    if (field.type === 'VALUE' && window.JWPLCHMICodegenCore?.valueDeclaration) return window.JWPLCHMICodegenCore.valueDeclaration(field, variable);
     if (field.type === 'VALUE' || field.type === 'BAR') return `float ${variable} = 0.0f;`;
     if (field.type === 'BOOL') return `bool ${variable} = false;`;
     const capacity = Math.max(1, Number(field.capacity) || 1);

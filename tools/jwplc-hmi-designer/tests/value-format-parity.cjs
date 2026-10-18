@@ -1,0 +1,148 @@
+#!/usr/bin/env node
+// Paridad del formato de VALUE (Alpha15 I1) entre el firmware y el Designer.
+//
+// Compila JWPLC_Display/src/JWPLC_UI_Format.cpp (el real) en host con g++,
+// le pasa una grilla de formatos × valores y compara muestra, desborde y
+// texto con poc/designer-value-format.js. Sin g++ sólo corre los casos fijos.
+//
+//   node tools/jwplc-hmi-designer/tests/value-format-parity.cjs
+'use strict';
+
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { execFileSync } = require('child_process');
+
+const ROOT = path.resolve(__dirname, '..', '..', '..');
+const SRC = path.join(ROOT, 'JWPLC', '2.1.0', 'libraries', 'JWPLC_Display', 'src');
+const STUB = path.join(__dirname, 'host-stub');
+const F = require(path.join(__dirname, '..', 'poc', 'designer-value-format.js'));
+
+let failures = 0;
+const check = (ok, msg) => { if (!ok) { failures++; console.log(`  FAIL ${msg}`); } };
+
+// ---- Casos fijos (contrato legible) ---------------------------------------
+const FIXED = [
+  [{ integerDigits: 3, decimalDigits: 1 }, 12.34, '12.3'],
+  [{ integerDigits: 3 }, 1234, '###'],
+  [{ integerDigits: 3 }, 2.5, '2'],
+  [{ integerDigits: 3, decimalDigits: 2 }, 0.125, '0.12'],
+  [{ integerDigits: 6, thousandsSep: ',' }, 123456, '123,456'],
+  [{ integerDigits: 7, thousandsSep: ' ' }, 1234567, '1 234 567'],
+  [{ integerDigits: 6, decimalDigits: 2, thousandsSep: '.' }, 123456.78, '123.456,78'],
+  [{ integerDigits: 6, thousandsSep: ',', leadingZeros: true }, 1234, '001,234'],
+  [{ integerDigits: 6, thousandsSep: ',', signedValue: true }, -1234, '-1,234'],
+  [{ integerDigits: 4, thousandsSep: ',' }, 12345, '#####'],
+  [{ valueKind: 'DURATION', durationPattern: 'SS', integerDigits: 3 }, 45, '45'],
+  [{ valueKind: 'DURATION', durationPattern: 'SS', integerDigits: 2 }, 5, '05'],
+  [{ valueKind: 'DURATION', durationPattern: 'MM_SS', integerDigits: 2 }, 303, '05:03'],
+  [{ valueKind: 'DURATION', durationPattern: 'MM_SS', integerDigits: 2 }, 6000, '--:--'],
+  [{ valueKind: 'DURATION', durationPattern: 'MM_SS', integerDigits: 3 }, 6000, '100:00'],
+  [{ valueKind: 'DURATION', durationPattern: 'HH_MM_SS', integerDigits: 2 }, 3903, '01:05:03'],
+  [{ valueKind: 'DURATION', durationPattern: 'HH_MM_SS', integerDigits: 2, durationUnit: 'MS' }, 3903999, '01:05:03'],
+  [{ valueKind: 'DURATION', durationPattern: 'COMPACT', integerDigits: 2 }, 3903, '1h05m'],
+  [{ valueKind: 'DURATION', durationPattern: 'COMPACT', integerDigits: 2 }, 303, '5m03s'],
+  [{ valueKind: 'DURATION', durationPattern: 'COMPACT', integerDigits: 2 }, 45, '45s'],
+  [{ valueKind: 'DURATION', durationPattern: 'MM_SS', integerDigits: 2, signedValue: true }, -75, '-01:15'],
+  [{ valueKind: 'DURATION', durationPattern: 'MM_SS', integerDigits: 2, signedValue: true }, -0.4, '00:00'],
+  [{ valueKind: 'DURATION', durationPattern: 'MM_SS', integerDigits: 2 }, -5, '--:--']
+];
+
+console.log('== casos fijos (Designer)');
+for (const [field, value, expected] of FIXED) {
+  const got = F.format(field, value).text;
+  check(got === expected, `${JSON.stringify(field)} ${value} -> "${got}" (esperado "${expected}")`);
+}
+console.log(`  ${FIXED.length} casos`);
+
+// ---- Grilla contra el firmware --------------------------------------------
+function hasGpp() {
+  try { execFileSync('g++', ['--version'], { stdio: 'ignore' }); return true; } catch (_) { return false; }
+}
+
+const PATTERN_ENUM = { SS: 0, MM_SS: 1, HH_MM_SS: 2, COMPACT: 3 };
+
+function grid() {
+  const formats = [];
+  for (const integerDigits of [1, 2, 3, 4, 6, 9]) {
+    for (const decimalDigits of [0, 1, 2, 3]) {
+      for (const signedValue of [false, true]) {
+        for (const leadingZeros of [false, true]) {
+          for (const thousandsSep of ['', ',', '.', ' ']) {
+            formats.push({ valueKind: 'NUMBER', integerDigits, decimalDigits, signedValue, leadingZeros, thousandsSep });
+          }
+        }
+      }
+    }
+    for (const durationPattern of Object.keys(PATTERN_ENUM)) {
+      for (const durationUnit of ['S', 'MS']) {
+        for (const signedValue of [false, true]) {
+          formats.push({ valueKind: 'DURATION', integerDigits, durationPattern, durationUnit, signedValue });
+        }
+      }
+    }
+  }
+  // Incluye empates exactos (2.5, 0.125, 987654321.25): printf redondea al par.
+  const values = [0, 1, 7, 12.34, 59, 60, 61, 99.99, 100, 303, 999, 1000, 3599, 3600, 3903, 9999.4,
+    12345.678, 86399, 123456, 999999, 1234567.891, 359999, 360000, 3903999, 123456789, 987654321.25,
+    2.5, 3.5, 0.125, 0.375, -2.5, -0.5, -1, -12.34, -75, -0.4, -3903, -123456.7, 1e16, -1e16];
+  return { formats, values };
+}
+
+const DRIVER = `
+#include "JWPLC_UI_Format.h"
+#include <cstdio>
+#include <cstdlib>
+int main() {
+  int ints, decs, sgn, lz, sep, kind, pat, unit; char v[64];
+  while (scanf("%d %d %d %d %d %d %d %d %63s", &ints, &decs, &sgn, &lz, &sep, &kind, &pat, &unit, v) == 9) {
+    JWPLC_UIValueFormat f = kind
+      ? JWPLC_UIDurationFormat((JWPLC_UIDurationPattern)pat, (JWPLC_UIDurationUnit)unit, (uint8_t)ints, sgn != 0)
+      : JWPLC_UIValueFormat((uint8_t)ints, (uint8_t)decs, sgn != 0, lz != 0, (char)sep);
+    char s[64], o[64], t[64];
+    JWPLCUIFormat::sample(f, s, sizeof(s));
+    JWPLCUIFormat::overflow(f, o, sizeof(o));
+    bool ok = JWPLCUIFormat::value(f, strtod(v, nullptr), t, sizeof(t));
+    printf("%s|%s|%s|%d\\n", s, o, t, ok ? 1 : 0);
+  }
+  return 0;
+}
+`;
+
+if (!hasGpp()) {
+  console.log('== grilla firmware: OMITIDA (sin g++)');
+} else {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jwplc-fmt-'));
+  const exe = path.join(dir, 'fmt');
+  fs.writeFileSync(path.join(dir, 'driver.cpp'), DRIVER);
+  execFileSync('g++', ['-std=c++17', '-O1', '-Wall', '-Wextra', '-I', STUB, '-I', SRC,
+    path.join(dir, 'driver.cpp'), path.join(SRC, 'JWPLC_UI_Format.cpp'), '-o', exe], { stdio: 'inherit' });
+
+  const { formats, values } = grid();
+  const cases = [];
+  for (const f of formats) for (const v of values) cases.push([f, v]);
+  const input = cases.map(([f, v]) => [
+    f.integerDigits, f.decimalDigits || 0, f.signedValue ? 1 : 0, f.leadingZeros ? 1 : 0,
+    f.thousandsSep ? f.thousandsSep.charCodeAt(0) : 0, f.valueKind === 'DURATION' ? 1 : 0,
+    PATTERN_ENUM[f.durationPattern] || 0, f.durationUnit === 'MS' ? 1 : 0, String(v)
+  ].join(' ')).join('\n') + '\n';
+  const lines = execFileSync(exe, { input }).toString().trimEnd().split('\n');
+  check(lines.length === cases.length, `líneas ${lines.length} != casos ${cases.length}`);
+
+  let shown = 0;
+  cases.forEach(([f, v], i) => {
+    const [s, o, t, ok] = (lines[i] || '').split('|');
+    const js = F.format(f, v);
+    const want = `${F.sample(f)}|${F.overflow(f)}|${js.text}|${js.ok ? 1 : 0}`;
+    const got = `${s}|${o}|${t}|${ok}`;
+    if (got !== want) {
+      failures++;
+      if (shown++ < 15) console.log(`  FAIL ${JSON.stringify(f)} ${v}\n       firmware ${got}\n       designer ${want}`);
+    }
+  });
+  console.log(`== grilla firmware vs Designer: ${cases.length} casos (${formats.length} formatos × ${values.length} valores)`);
+  fs.rmSync(dir, { recursive: true, force: true });
+}
+
+console.log(failures ? `\nVALUE-FORMAT PARITY: FAIL (${failures})` : '\nVALUE-FORMAT PARITY: PASS');
+process.exit(failures ? 1 : 0);
