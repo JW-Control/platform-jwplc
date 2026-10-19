@@ -20,6 +20,17 @@ POSTMERGE_HEAD="docs/alpha13-h0-f1-postmerge-com4-20261019"
 POSTMERGE_BASE="f2c6821566fa62df744c3af8d4d70a440994e64f"
 F132_HEAD="codex/alpha13-h0-f1-cli-platform-collision-20261019"
 F132_BASE="01f5aa9a850a332eca5acc2200c30223a2d6f5ea"
+F131_DOCS_HEAD="docs/alpha13-f132-local-pass-h0-com4-20261019"
+F131_DOCS_BASE="2b5802720df552e01a0b4f9d4fe1a7bd2de16daf"
+F131_DOCS_ALLOW=frozenset((
+    "docs/v2.1.0-alpha.13/ALPHA13_STATUS.md",
+    "docs/v2.1.0-alpha.13/A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md",
+    "docs/v2.1.0-alpha.13/A13_G10_P0_INVENTARIO_ESTATICO_SOURCE_BACKED_20261019.md",
+    "docs/v2.1.0-alpha.13/A13_G10_PROMOCION_DESPUES_H0_F1_20261019.md",
+    "docs/v2.1.0-alpha.13/A13_H0_F1_CAMPANA_EXTENDIDA_EN_POWER_20261019.md",
+    "docs/v2.1.0-alpha.13/A13_H0_F1_EN_USB_RJ45_CONECTADO_20261019.md",
+    "tools/alpha13/gates/a13_g10_r_h0_f1_scope_bridge.py",
+))
 F132_ALLOW=frozenset((
     "tools/alpha13/h0_f1_com4/A13_H0_F1_COM4_BANCO.ps1",
     "tools/alpha13/h0_f1_com4/A13_H0_F1_PATH_IDENTITY.ps1",
@@ -101,6 +112,9 @@ def selftest():
     assert "JWPLC/2.1.0/boards.txt" not in F132_ALLOW
     assert "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/utility/w5100.cpp" not in F132_ALLOW
     assert not any("alpha15" in path.lower() for path in F132_ALLOW)
+    assert all(not x.startswith("JWPLC/") for x in F131_DOCS_ALLOW)
+    assert PRODUCT not in F131_DOCS_ALLOW
+    assert not any("alpha15" in path.lower() or path.endswith(".a") or "bootloader.bin" in path.lower() for path in F131_DOCS_ALLOW)
     print("H0_F1_G10_LEGACY_BRIDGE_NEGATIVES=PASS_7")
     
 def check():
@@ -145,6 +159,20 @@ def check():
         assert "hardware\\jwplc_h0f1\\esp32" in runner,"F132_STAGING_VENDOR_MISMATCH"
         assert "H0F1_PLATFORM=PASS_ISOLATED_PACKAGE_PATH_CANONICAL" in runner
         print("G10_R_F132=PASS_STRICT_SCOPE_AND_PRODUCT_F1_UNMODIFIED")
+        return
+    if event=="pull_request" and head==F131_DOCS_HEAD and base==F1_BASE:
+        run("git","merge-base","--is-ancestor",F131_DOCS_BASE,"HEAD")
+        changed=set(run("git","diff","--name-only",F131_DOCS_BASE,"HEAD").splitlines())
+        assert changed==F131_DOCS_ALLOW, (
+            "H0_F131_CLOSE_SCOPE_REVIEW_STOP:"+repr(sorted(changed)))
+        assert not any(p.startswith("JWPLC/") for p in changed), "H0_F131_PRODUCT_CHANGED"
+        original=run("git","show",BASE+":"+PRODUCT)
+        actual=(ROOT/PRODUCT).read_text(encoding="utf-8")
+        assert exact_patch(original,actual), "H0_F131_F1_PRODUCT_DRIFT"
+        status=(ROOT/"docs/v2.1.0-alpha.13/ALPHA13_STATUS.md").read_text(encoding="utf-8")
+        assert "REVIEW_EVIDENCE_GAP" in status, "H0_F131_CAPTURE_LIMITS_MISSING"
+        assert "NEXT_FAILURE_ID=F133" in status, "H0_F131_FAILURE_INDEX_DRIFT"
+        print("G10_R_F131_DOCS=PASS_EXACT_DOCS_WITH_F1_PRODUCT_UNCHANGED")
         return
     # Contrato G10-R original: funciona para todos los demás PR/ramas.
     from a13_g10_r_b3_scope import check as legacy_check
