@@ -32,6 +32,24 @@ jobs:
           if (!(Test-Path -LiteralPath $pathHelper -PathType Leaf)) { throw 'F132_PATH_HELPER_MISSING' }
           . (Resolve-Path -LiteralPath $pathHelper).Path
           Test-H0F1PathIdentity
+          # F003 regresion: un solo archivo .d no debe aplanarse a cadena.
+          $fixture = [IO.Path]::GetTempFileName()
+          try {
+            $only = @(
+              @($fixture, ($fixture+'.missing')) |
+                Where-Object { Test-Path -LiteralPath $_ -PathType Leaf }
+            )
+            if ($only.Count -ne 1 -or $only[0] -ne $fixture) {
+              throw 'F132_F003_ONE_DEP_ARRAY_COLLAPSED'
+            }
+            if (!$body.Contains('$deps = @(') -or
+                !$body.Contains('if ($deps.Count -ne 1')) {
+              throw 'F132_F003_SOURCE_DEP_ARRAY_GUARD_MISSING'
+            }
+            Write-Host 'H0F1_F003_N0=PASS_SINGLE_DEP_ARRAY_NEGATIVES'
+          } finally {
+            Remove-Item -LiteralPath $fixture -Force -ErrorAction SilentlyContinue
+          }
           $ino = [IO.File]::ReadAllText((Resolve-Path (Join-Path $dir 'A13_H0_F1_SMOKE.ino')).Path)
           if (!$body.Contains('if (!$UploadCOM4)') -or !$body.Contains('H0F1_UPLOAD=NOT_RUN')) { throw 'BUILD_ONLY_MODE_MISSING' }
           if (!$body.Contains("'COM4'") -or !$body.Contains('H0F1 AUTORIZO SOLO COM4 PACKAGE CORREGIDO SIN BACKUP')) { throw 'COM4_CONSENT_MISSING' }
