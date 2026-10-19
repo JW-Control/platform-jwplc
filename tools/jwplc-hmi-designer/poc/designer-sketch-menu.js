@@ -36,7 +36,7 @@
     node.dataset.kind = kind;
     node.classList.add('is-visible');
     clearTimeout(toast.timer);
-    toast.timer = setTimeout(() => node.classList.remove('is-visible'), 3400);
+    toast.timer = setTimeout(() => node.classList.remove('is-visible'), Math.max(3400, message.length * 45));
   }
 
   // --- Acceso al sketch: escritorio o navegador ------------------------------
@@ -65,6 +65,14 @@
         ? await native.writeGeneratedHeader(text, true)
         : await native.writeProject(name, text, true);
       if (!result?.ok) throw new Error(result?.error || `No se pudo escribir ${name}.`);
+    },
+    // App generada antes de la guía: main.js/preload.cjs van dentro del .exe.
+    async writeGuide(text) {
+      if (!native.writeGuide) return 'old-app';
+      const result = await native.writeGuide(text);
+      if (result?.foreign) return 'foreign';
+      if (!result?.ok) throw new Error(result?.error || 'No se pudo escribir la guía del sketch.');
+      return 'ok';
     },
     openIno: () => native.openSketchIno(),
     openFolder: () => native.openSketchFolder()
@@ -95,7 +103,16 @@
       if (!info?.projectExists) throw new Error(`El sketch no tiene ${info?.projectFile || '.jwhmi'}.`);
       return project().readLinkedFile(info.projectFile);
     },
-    write: (name, text) => project().writeLinkedFile(name, text)
+    write: (name, text) => project().writeLinkedFile(name, text),
+    async writeGuide(text) {
+      const guide = window.JWPLCSketchGuide;
+      if (await project().linkedFileExists(guide.GUIDE_NAME)) {
+        const current = await project().readLinkedFile(guide.GUIDE_NAME);
+        if (!current.startsWith(guide.GUIDE_MARK)) return 'foreign';
+      }
+      await project().writeLinkedFile(guide.GUIDE_NAME, text);
+      return 'ok';
+    }
   };
 
   // --- Acciones ---------------------------------------------------------------
@@ -149,7 +166,23 @@
     return text.endsWith('\n') ? text : `${text}\n`;
   }
 
-  // «Escribir en sketch»: header + .jwhmi, una sola confirmación.
+  // Guía JWPLC_HMI_LEEME.md (sketch base con las variables del header). Nunca
+  // bloquea la escritura del header: si falla, sólo se avisa.
+  async function writeGuide(info, header) {
+    const guide = window.JWPLCSketchGuide;
+    if (!guide) return '';
+    try {
+      const text = guide.build({ sketchName: info.name, projectFile: info.projectFile, header });
+      const status = await backend.writeGuide(text);
+      if (status === 'ok') return ` y ${guide.GUIDE_NAME} (sketch base)`;
+      if (status === 'foreign') return `. ${guide.GUIDE_NAME} no se tocó: no lo escribió el Designer`;
+      return `. Para la guía ${guide.GUIDE_NAME}, vuelve a generar la app de escritorio`;
+    } catch (error) {
+      return `. Guía no escrita: ${error?.message || error}`;
+    }
+  }
+
+  // «Escribir en sketch»: header + .jwhmi (+ guía), una sola confirmación.
   async function writeToSketch() {
     try {
       let info = await backend.info();
@@ -170,7 +203,8 @@
 
       await backend.write(HEADER_NAME, header);
       await backend.write(info.projectFile, projectText);
-      toast(`Escrito en «${info.name}»: ${HEADER_NAME} y ${info.projectFile}.`, 'ok');
+      const guideNote = await writeGuide(info, header);
+      toast(`Escrito en «${info.name}»: ${HEADER_NAME}, ${info.projectFile}${guideNote}.`, 'ok');
       window.dispatchEvent(new CustomEvent('jwplc:header-written', { detail: { sketch: info.name, header: HEADER_NAME } }));
       window.dispatchEvent(new CustomEvent('jwplc:project-written', { detail: { sketch: info.name, project: info.projectFile } }));
       refreshButtons(await backend.info());

@@ -150,7 +150,6 @@ async function main() {
     check(visible.menu && !visible.field, 'se muestra el inspector MENU y no el de campos');
     await shot('menu_forma');
     await page.click(`${S}[data-menu-sub="appearance"]`);
-    // Clic sin gesto real (no abre el selector nativo) para elegir el cuadro.
     await page.$eval(`${S}[data-menu-swatch="selectText"]`, (el) => el.dispatchEvent(new MouseEvent('click', { bubbles: true })));
     await page.waitForTimeout(150);
     // Indicador A1: ▶ a la altura de la fila activa, contorno de doble trazo
@@ -180,8 +179,18 @@ async function main() {
     check(pixelsA === await pixels(), 'Apariencia A1: los píxeles del mini-modelo no cambian con el indicador');
     await page.$eval(`${S}[data-menu-swatch="selectText"]`, (el) => el.dispatchEvent(new MouseEvent('click', { bubbles: true })));
     await page.waitForTimeout(150);
-    // El clic en el cuadro abre el selector nativo; un clic real en la paleta
-    // (mismo color, no cambia el modelo) lo cierra, como en el uso normal.
+    // El texto de la fila elige su primer color (o conserva el activo si es
+    // de esa fila); el editor fijo sigue a la vista.
+    await page.click(`${S}[data-menu-legend-row] .menu-legend-label >> text=Título`);
+    const rowPick = await page.evaluate((sel) => ({
+      active: document.querySelector(`${sel}[data-menu-swatch="titleBackground"]`)?.classList.contains('active'),
+      target: document.querySelector(`${sel}[data-ce-target]`)?.textContent,
+      native: document.querySelectorAll(`${sel}input[type="color"]`).length
+    }), S);
+    check(rowPick.active && rowPick.native === 0, `Apariencia: clic en el texto «Título» elige su color (${JSON.stringify(rowPick)})`);
+    await page.$eval(`${S}[data-menu-swatch="selectText"]`, (el) => el.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    await page.waitForTimeout(150);
+    // Pastilla del editor con el mismo color: no cambia el modelo.
     const current = (await menuField()).colors.selectText & 0xFFFF;
     const pill = await page.$(`${S}[data-menu-palette="${current}"]`);
     if (pill) await pill.click();

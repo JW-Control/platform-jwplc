@@ -21,10 +21,11 @@ de `index.html` e inyecta los scripts en orden.
 
 ```text
 index.html:      designer-cp437 -> gfx-classic-font -> designer-fonts-data -> designer-fonts -> designer-value-format -> designer-codegen-core -> app -> ux-foundation -> designer-codegen
-ux-foundation:   designer-bool -> designer-bar -> designer-zone-indicator -> designer-field-inspector -> (designer-menu, designer-idle) -> designer-field-visibility -> designer-pages -> designer-live
+ux-foundation:   designer-color-editor -> designer-bool -> designer-bar -> designer-zone-indicator -> designer-field-inspector -> (designer-menu, designer-idle) -> designer-field-visibility -> designer-pages -> designer-live
 field-visibility: designer-inspector-state, designer-pixelmap-compat -> designer-pixelmap -> designer-pixelmap-stability
 desktop.html:    designer-project, designer-native-project, designer-project-integration-fix,
-                 designer-pixelmap-workbench/-optimizer/-codegen-guard, desktop-responsive, designer-sketch-menu
+                 designer-pixelmap-workbench/-optimizer/-codegen-guard, desktop-responsive,
+                 designer-sketch-guide -> designer-sketch-menu
 ```
 
 Varios módulos se "enganchan" a otros con `setInterval` hasta que existe la
@@ -46,6 +47,8 @@ window.JWPLCHMILive       designer-live     Live Preview WebSerial (JWH1/JWH2, 9
 window.JWPLCHMIIdle       designer-idle     Proyecto · Pantalla y arranque (IDLE) -> patchHeader en jwplcHMISetup
 window.JWPLCHMISketchMenu designer-sketch-menu    «Escribir en sketch» (header + .jwhmi) y menú «Sketch: nombre ▾»
 window.JWPLCZoneIndicator designer-zone-indicator indicador A1 de Apariencia (contorno + ▶ + regla; campos y MENU)
+window.JWPLCColorEditor   designer-color-editor   editor de color fijo de Apariencia (campos, MENU, BAR); sin <input type=color>
+window.JWPLCSketchGuide   designer-sketch-guide   JWPLC_HMI_LEEME.md: sketch base leído del header (puro, también en node)
 window.JWPLCCp437         designer-cp437          Unicode <-> cp437 de la fuente GLCD (lienzo y literales C++); gemelo de utf8ToGlcd
 window.JWPLCValueFormat   designer-value-format   formato de VALUE (número, miles, duración, fecha/hora); gemelo de JWPLC_UI_Format.cpp
 ```
@@ -55,12 +58,15 @@ window.JWPLCValueFormat   designer-value-format   formato de VALUE (número, mil
 - «Generar C++» está oculto (`#generateButton` sigue en el DOM: varios módulos cuelgan de su clic, y
   todos también de `#contractTab`). El panel «Código generado» muestra el header.
 - «Escribir en sketch» (`#updateHmiButton`) escribe `JWPLC_HMI_Generated.h` y `<sketch>.jwhmi` con una
-  sola confirmación. «Sketch: nombre ▾» abre el menú: Abrir HMI del sketch · Abrir en Arduino IDE ·
+  sola confirmación, y además `JWPLC_HMI_LEEME.md` (guía con el sketch base; sólo reemplaza una guía que
+  empiece con `GUIDE_MARK`). **El `.ino` del usuario nunca se escribe.** «Sketch: nombre ▾» abre el menú: Abrir HMI del sketch · Abrir en Arduino IDE ·
   Abrir carpeta · Cambiar sketch…; al vincular un sketch con `.jwhmi` pregunta si abrirlo.
 - `designer-sketch-menu.js` toma esos clics en fase de captura en `document` (otros módulos clonan los
-  botones). Escritorio: IPC `read-project`, `open-sketch-ino`, `open-sketch-folder` en
+  botones). Escritorio: IPC `read-project`, `open-sketch-ino`, `open-sketch-folder`, `write-guide` en
   `electron/main.js` + `preload.cjs`. Navegador: `linkedFileExists/readLinkedFile/writeLinkedFile` de
-  `designer-project.js`. Test: `tests/sketch-menu-smoke.cjs` (simula `JWPLCHMINative`).
+  `designer-project.js`. Tests: `tests/sketch-menu-smoke.cjs` (simula `JWPLCHMINative`) y
+  `tests/sketch-guide.test.cjs` (compila el sketch base de la guía contra cada golden). Una app generada
+  antes de `write-guide` escribe header y `.jwhmi` y avisa que regenere la app para la guía.
 
 ## Patrón de inspector objetivo (Propuesta 2 de BAR)
 
@@ -122,7 +128,7 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
   emite TEXT/VALUE; BOOL/BAR salen como `JWPLC_UITextField` provisional que reemplazan sus capas.
 - Tras tocar el codegen: `node tests/codegen-golden.cjs` (salida byte a byte) y
   `node tests/codegen-smoke.cjs`. Un cambio intencional: `--update` y revisar el diff.
-- Tras tocar JS/CSS: subir `?v=` (hoy 1793500000) en `index.html`/`desktop.html`/`ux-foundation.js`/
+- Tras tocar JS/CSS: subir `?v=` (hoy 1793600000) en `index.html`/`desktop.html`/`ux-foundation.js`/
   `designer-field-visibility.js` y `CACHE_NAME` en `service-worker.js`.
 
 ## Probar sin hardware
@@ -135,6 +141,7 @@ node tests/inspector-smoke.cjs          # inspector TEXT/VALUE/BOOL/BAR + parida
 node tests/menu-host-sim.cjs            # MENU: JWPLC_UI_Menu.cpp real en host (g++)
 node tests/menu-smoke.cjs               # MENU: Designer + paridad lienzo/firmware + header
 node tests/sketch-menu-smoke.cjs        # Escribir en sketch + menú del sketch
+node tests/sketch-guide.test.cjs        # guía JWPLC_HMI_LEEME.md + su sketch base compila
 cd poc && python3 -m http.server 8765 --bind 127.0.0.1   # abrir /desktop.html
 ```
 

@@ -51,7 +51,12 @@ dibuja el firmware (`JWPLC_Display` / `JWPLC_UI` / `JWPLC_TFT`). Lee también
 - Zonas según el firmware, no según la intuición: la **unidad usa el color de la etiqueta**;
   en BOOL por estado el fondo del estado pinta **todo el campo**; etiqueta y marco son comunes a
   FALSE/TRUE.
-- Colores en vivo: el selector nativo emite `input` (limitado a ~25/s en `app.js`) y `change`.
+- **Color: editor fijo, nunca el selector nativo** (`poc/designer-color-editor.js`). El selector
+  nativo flota donde quiere el navegador, tapa las filas de abajo y obliga a cerrarlo para elegir otra
+  fila. El editor va dentro de la tarjeta, bajo la leyenda (cuadro S/V, tono, HEX, RGB565 y paleta
+  rápida); se cambia de fila sin cerrar nada. En vivo ~25/s mientras se arrastra, historial al soltar.
+- Filas de la leyenda: **texto a la izquierda, cuadros a la derecha**, y toda la fila es clicable
+  (el texto equivale a su cuadro; con dos cuadros elige el primero salvo que el activo sea de esa fila).
 - Implementado en `poc/designer-zone-indicator.js` (A1): contorno de doble trazo, ▶ en un canal
   de 12 px a la izquierda y banda en la mini-regla de arriba; la fila activa de la leyenda va
   resaltada. Sin líneas que crucen el inspector. Cualquier mini-modelo nuevo (BAR, figuras) usa
@@ -80,9 +85,8 @@ dibuja el firmware (`JWPLC_Display` / `JWPLC_UI` / `JWPLC_TFT`). Lee también
 2. `node tools/jwplc-hmi-designer/tests/run-all.cjs` (todos PASS). Si cambió el codegen:
    `codegen-golden.cjs --update` sólo si el cambio es intencional, revisando el diff.
 3. **Capturas reales** con Playwright (Chromium headless, `desktop.html`) de cada variante
-   tocada; mirarlas antes de entregar (no basta con que el test pase). Un clic sobre un cuadro de
-   color con gesto real abre el selector nativo: en tests usar `el.click()` desde `$eval` y cerrar
-   con un clic real en la paleta.
+   tocada; mirarlas antes de entregar (no basta con que el test pase). Los colores se prueban con
+   el editor fijo (`[data-ce-hex]`, `[data-ce-sv]`, pastillas `data-*-palette`); no hay selector nativo.
 4. Subir `?v=` y `CACHE_NAME` (ver `tools/jwplc-hmi-designer/CLAUDE.md`).
 5. Si tocaste firmware: compilar ESP32 (`tools/alpha15/regenerate_libJWPLC_TFT.sh compile <sketch>`)
    y, si aplica, la paridad en host (`tests/menu-host-sim.cjs`).

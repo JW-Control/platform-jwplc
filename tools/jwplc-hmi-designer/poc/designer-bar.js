@@ -3478,10 +3478,6 @@
   // Mismo patrón que TEXT/VALUE/BOOL (designer-field-inspector.js). Colores de
   // JWPLC_UIBarField: value = barra, background = fondo del campo y pista
   // vacía (un solo color), label = etiqueta y unidad, frame = marco.
-  const BAR_PALETTE = [
-    [0x0000, 'Negro'], [0xFFFF, 'Blanco'], [0xF800, 'Rojo'], [0x07E0, 'Verde'],
-    [0x001F, 'Azul'], [0x07FF, 'Cian'], [0xFFE0, 'Amarillo'], [0xFD20, 'Naranja']
-  ];
   const BAR_COLOR_PROP = { frame: 'frameColor', label: 'labelColor', value: 'valueColor', track: 'trackColor' };
   const BAR_COLOR_DEFAULT = { frame: 0xFFFF, label: 0xFFFF, value: 0x07FF, track: 0x18C3 };
   const BAR_LETTER = { frame: 'M', label: 'T', value: 'B', track: 'F' };
@@ -3507,15 +3503,15 @@
           <canvas class="menu-case-canvas field-case-canvas" data-bar-case></canvas>
           <div class="menu-case-legend">${rows.map((k) => `
             <div class="menu-legend-row" data-bar-legend="${k}"><span class="menu-legend-label">${BAR_NAME[k]}</span>` +
-              `<label class="menu-swatch" data-bar-swatch="${k}" title="${BAR_NAME[k]}"><input type="color" data-bar-color-native="${k}" /><span>${BAR_LETTER[k]}</span></label></div>`).join('')}
+              `<button type="button" class="menu-swatch" data-bar-swatch="${k}" title="${BAR_NAME[k]}"><span>${BAR_LETTER[k]}</span></button></div>`).join('')}
           </div>
         </div>
       </div>
       <div class="menu-palette">
-        <div class="insp-note">Clic en un cuadro para editarlo: el contorno y el ▶ marcan lo que cambia en la vista, y la paleta rápida se aplica a <strong data-bar-active-name></strong>. En la TFT el fondo del campo y la pista vacía son un solo color.</div>
-        <div class="insp-swatch-row">${BAR_PALETTE.map(([v, name]) =>
-          `<button type="button" class="insp-swatch" data-bar-palette="${v}" title="${name} · ${hex565(v)}" style="background:${rgb565ToCss(v)}"></button>`).join('')}</div>
+        <div class="insp-note">Clic en una fila (texto o cuadro) para editar ese color: el contorno y el ▶ marcan lo que cambia en la vista. En la TFT el fondo del campo y la pista vacía son un solo color.</div>
+        <div data-bar-color-editor></div>
       </div>`;
+    if (barColorEditor) barMiniCard.querySelector('[data-bar-color-editor]').appendChild(barColorEditor.el);
   }
 
   // Zonas en píxeles lógicos del mini-modelo (campo en 0,0).
@@ -3582,14 +3578,9 @@
         sw.style.background = rgb565ToCss(v);
         sw.style.color = ((v >> 11) + ((v >> 5) & 0x3F) / 2 + (v & 0x1F)) > 40 ? '#000' : '#fff';
         sw.classList.toggle('active', key === barActiveKey);
-        const native = sw.querySelector('input');
-        if (native && document.activeElement !== native) native.value = rgb565ToHexCss(v);
       });
     });
-    const activeValue = barColorOf(field, barActiveKey);
-    barMiniCard.querySelectorAll('[data-bar-palette]').forEach((b) => b.classList.toggle('active', Number(b.dataset.barPalette) === activeValue));
-    const nameEl = barMiniCard.querySelector('[data-bar-active-name]');
-    if (nameEl) nameEl.textContent = BAR_NAME[barActiveKey];
+    barColorEditor?.set(barColorOf(field, barActiveKey), BAR_NAME[barActiveKey]);
     // Sólo con la pestaña a la vista (el indicador necesita geometría real).
     if (barMiniCard.offsetParent) drawBarMini(field);
   }
@@ -3602,26 +3593,19 @@
     triggerCoreRender(commit);
   }
 
+  // Editor de color fijo bajo la vista (designer-color-editor.js): en vivo
+  // mientras se arrastra y al historial al soltar.
+  const barColorEditor = barMiniCard && window.JWPLCColorEditor?.create({
+    paletteAttr: 'data-bar-palette',
+    onInput: (v) => setBarColor(barActiveKey, v, false),
+    onCommit: (v) => setBarColor(barActiveKey, v, true)
+  });
+
   if (barMiniCard) {
+    // Clic en el cuadro o en el texto de la fila: elige qué color se edita.
     barMiniCard.addEventListener('click', (e) => {
-      const swatch = e.target.closest('[data-bar-swatch]');
-      if (swatch) { barActiveKey = swatch.dataset.barSwatch; syncBarMini(selectedField()); return; }
-      const pill = e.target.closest('[data-bar-palette]');
-      if (pill) setBarColor(barActiveKey, Number(pill.dataset.barPalette), true);
-    });
-    let lastLive = 0;
-    barMiniCard.addEventListener('input', (e) => {
-      const native = e.target.closest('[data-bar-color-native]');
-      if (!native) return;
-      barActiveKey = native.dataset.barColorNative;
-      const now = Date.now();
-      if (now - lastLive < 40) return; // ~25 eventos/s, como el resto de inspectores
-      lastLive = now;
-      setBarColor(barActiveKey, hexCssTo565(native.value), false);
-    });
-    barMiniCard.addEventListener('change', (e) => {
-      const native = e.target.closest('[data-bar-color-native]');
-      if (native) setBarColor(native.dataset.barColorNative, hexCssTo565(native.value), true);
+      const row = e.target.closest('[data-bar-legend]');
+      if (row) { barActiveKey = row.dataset.barLegend; syncBarMini(selectedField()); }
     });
     if (window.ResizeObserver) new ResizeObserver(() => syncBarMini(selectedField())).observe(barMiniCard);
   }

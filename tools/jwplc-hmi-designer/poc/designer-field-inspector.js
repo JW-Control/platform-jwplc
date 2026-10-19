@@ -62,13 +62,6 @@
     return `#${h(r)}${h(g)}${h(b)}`;
   }
 
-  function cssTo565(hex) {
-    const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ''));
-    if (!m) return 0;
-    const n = parseInt(m[1], 16);
-    return (((n >> 19) & 0x1F) << 11) | (((n >> 10) & 0x3F) << 5) | ((n >> 3) & 0x1F);
-  }
-
   function escapeHtml(text) {
     return String(text ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   }
@@ -138,8 +131,8 @@
   };
 
   function swatchHtml(key) {
-    return `<label class="menu-swatch" data-field-swatch="${key}" title="${SWATCH_NAME[key]}">` +
-      `<input type="color" data-color-native="${key}" /><span>${SWATCH_LETTER[key]}</span></label>`;
+    return `<button type="button" class="menu-swatch" data-field-swatch="${key}" title="${SWATCH_NAME[key]}">` +
+      `<span>${SWATCH_LETTER[key]}</span></button>`;
   }
 
   function legendRow(label, keys) {
@@ -557,17 +550,13 @@
       proxyValue(prop === 'capacity' ? 'fieldCapacity' : 'fieldIntegerDigits', next, true);
       return;
     }
+    // Clic en el cuadro o en el texto de la fila: elige qué color edita el
+    // editor fijo de abajo (no abre ninguna ventana).
     const swatch = e.target.closest('[data-field-swatch]');
-    if (swatch) {
-      // El clic abre el selector nativo (input dentro del label) y marca el
-      // cuadro al que se aplica la paleta rápida.
-      activeColorKey = swatch.dataset.fieldSwatch;
+    const legendRow = e.target.closest('[data-field-appearance] [data-legend-key]');
+    if (swatch || legendRow) {
+      activeColorKey = swatch ? swatch.dataset.fieldSwatch : legendRow.dataset.legendKey;
       syncAppearance(selectedField());
-      return;
-    }
-    const pill = e.target.closest('[data-field-palette]');
-    if (pill) {
-      applyColor(activeColorKey, Number(pill.dataset.fieldPalette), true);
       return;
     }
     const colorMode = e.target.closest('[data-bool-colormode]');
@@ -646,17 +635,12 @@
     else if (COLOR_TARGET[key]) proxyColor(COLOR_TARGET[key], value565, commit);
   }
 
-  // 'input' llega mientras se arrastra en el selector (ya limitado a ~25/s por
-  // app.js): lienzo y mini-modelos en vivo; el historial se registra en 'change'.
-  wrap.addEventListener('input', (e) => {
-    const key = e.target.dataset?.colorNative;
-    if (!key) return;
-    activeColorKey = key;
-    applyColor(key, cssTo565(e.target.value), false);
-  });
-  wrap.addEventListener('change', (e) => {
-    const key = e.target.dataset?.colorNative;
-    if (key) applyColor(key, cssTo565(e.target.value), true);
+  // Editor de color fijo bajo la leyenda (designer-color-editor.js): en vivo
+  // mientras se arrastra y al historial al soltar.
+  const colorEditor = window.JWPLCColorEditor?.create({
+    paletteAttr: 'data-field-palette',
+    onInput: (v) => applyColor(activeColorKey, v, false),
+    onCommit: (v) => applyColor(activeColorKey, v, true)
   });
 
   const slider = wrap.querySelector('[data-preview-slider]');
@@ -777,10 +761,10 @@
         </div>
       </div>`).join('') + `
       <div class="menu-palette">
-        <div class="insp-note">Clic en un cuadro para editarlo: el contorno y el ▶ marcan lo que cambia en la vista, y la paleta rápida se aplica a <strong data-field-active-color></strong>.</div>
-        <div class="insp-swatch-row">${PALETTE.map(([, v, name]) =>
-          `<button type="button" class="insp-swatch" data-field-palette="${v}" title="${name} · ${hex565(v)}" style="background:${rgb565ToCss(v)}"></button>`).join('')}</div>
+        <div class="insp-note">Clic en una fila (texto o cuadro) para editar ese color: el contorno y el ▶ marcan lo que cambia en la vista.</div>
+        <div data-field-color-editor></div>
       </div>`;
+    if (colorEditor) host.querySelector('[data-field-color-editor]').appendChild(colorEditor.el);
     return cases;
   }
 
@@ -926,13 +910,8 @@
       sw.style.background = rgb565ToCss(v);
       sw.style.color = ((v >> 11) + ((v >> 5) & 0x3F) / 2 + (v & 0x1F)) > 40 ? '#000' : '#fff';
       sw.classList.toggle('active', key === activeColorKey);
-      const native = sw.querySelector('input');
-      if (native && document.activeElement !== native) native.value = rgb565ToCss(v);
     });
-    const name = wrap.querySelector('[data-field-active-color]');
-    if (name) name.textContent = SWATCH_NAME[activeColorKey];
-    const activeValue = colorOf(field, activeColorKey);
-    wrap.querySelectorAll('[data-field-palette]').forEach((b) => b.classList.toggle('active', Number(b.dataset.fieldPalette) === activeValue));
+    colorEditor?.set(colorOf(field, activeColorKey), SWATCH_NAME[activeColorKey]);
   }
 
   function sync() {

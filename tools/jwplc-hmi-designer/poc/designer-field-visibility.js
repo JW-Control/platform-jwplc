@@ -88,7 +88,7 @@
   function loadInspectorState() {
     if (window.JWPLCHMIInspectorState || document.querySelector('script[data-a11-inspector-state]')) return;
     const script = document.createElement('script');
-    script.src = './designer-inspector-state.js?v=1793500000';
+    script.src = './designer-inspector-state.js?v=1793600000';
     script.async = false;
     script.dataset.a11InspectorState = '1';
     script.onload = () => window.JWPLCHMIInspectorState?.sync?.();

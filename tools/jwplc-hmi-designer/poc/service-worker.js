@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'jwplc-hmi-designer-a15-sketch-v20';
+const CACHE_NAME = 'jwplc-hmi-designer-a15-sketch-v21';
 const CORE = [
   './desktop.html',
   './index.html',
@@ -14,6 +14,7 @@ const CORE = [
   './app.js',
   './ux-foundation.js',
   './designer-codegen.js',
+  './designer-color-editor.js',
   './designer-bool.js',
   './designer-bar.js',
   './designer-zone-indicator.js',
@@ -35,6 +36,7 @@ const CORE = [
   './designer-live.js',
   './designer-project.js',
   './desktop-responsive.js',
+  './designer-sketch-guide.js',
   './designer-sketch-menu.js',
   './manifest.webmanifest',
   './jwplc-hmi-icon.svg'

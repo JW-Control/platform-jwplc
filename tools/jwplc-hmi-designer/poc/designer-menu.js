@@ -59,12 +59,6 @@
     ['frame', 'Marco']
   ];
 
-  const PALETTE = [
-    [0x0000, 'Negro'], [0xFFFF, 'Blanco'], [0xF800, 'Rojo'], [0x07E0, 'Verde'],
-    [0x001F, 'Azul'], [0x07FF, 'Cian'], [0xFFE0, 'Amarillo'], [0xFD20, 'Naranja'],
-    [0x18C3, 'Gris oscuro'], [0x7BEF, 'Gris']
-  ];
-
   // ---------------------------------------------------------------------------
   // Utilidades
   // ---------------------------------------------------------------------------
@@ -104,13 +98,6 @@
     const v = num(value) & 0xFFFF;
     const h = (x) => Math.round(x).toString(16).padStart(2, '0');
     return `#${h(((v >> 11) & 0x1F) * 255 / 31)}${h(((v >> 5) & 0x3F) * 255 / 63)}${h((v & 0x1F) * 255 / 31)}`;
-  }
-
-  function cssTo565(hex) {
-    const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ''));
-    if (!m) return 0;
-    const n = parseInt(m[1], 16);
-    return (((n >> 19) & 0x1F) << 11) | (((n >> 10) & 0x3F) << 5) | ((n >> 3) & 0x1F);
   }
 
   function escapeHtml(text) {
@@ -855,9 +842,17 @@
   ];
   let activeColorKey = 'titleBackground';
 
+  // Editor de color fijo bajo las vistas (designer-color-editor.js): en vivo
+  // mientras se arrastra y al historial al soltar.
+  const colorEditor = window.JWPLCColorEditor?.create({
+    paletteAttr: 'data-menu-palette',
+    onInput: (v) => mutate((f) => { f.colors[activeColorKey] = v; }, false),
+    onCommit: (v) => mutate((f) => { f.colors[activeColorKey] = v; })
+  });
+
   function swatchHtml(key) {
-    return `<label class="menu-swatch" data-menu-swatch="${key}" title="${COLOR_NAME[key]}">` +
-      `<input type="color" data-menu-color-native="${key}" /><span>${COLOR_LETTER[key]}</span></label>`;
+    return `<button type="button" class="menu-swatch" data-menu-swatch="${key}" title="${COLOR_NAME[key]}">` +
+      `<span>${COLOR_LETTER[key]}</span></button>`;
   }
 
   function buildAppearance() {
@@ -880,10 +875,10 @@
         <span class="menu-legend-label">Marco</span>${swatchHtml('frame')}
       </div>
       <div class="menu-palette">
-        <div class="insp-note">Clic en un cuadro para editarlo: el contorno y el ▶ marcan lo que cambia en cada vista, y la paleta rápida se aplica a <strong data-menu-active-color></strong>.</div>
-        <div class="insp-swatch-row">${PALETTE.map(([v, name]) =>
-          `<button type="button" class="insp-swatch" data-menu-palette="${v}" title="${name} · ${hex565(v)}" style="background:${rgb565ToCss(v)}"></button>`).join('')}</div>
+        <div class="insp-note">Clic en un cuadro (o en el texto de la fila) para editar ese color: el contorno y el ▶ marcan lo que cambia en cada vista.</div>
+        <div data-menu-color-editor></div>
       </div>`;
+    if (colorEditor) host.querySelector('[data-menu-color-editor]').appendChild(colorEditor.el);
   }
 
   function drawCasePreview(canvas, field, c) {
@@ -977,14 +972,10 @@
         sw.style.background = rgb565ToCss(v);
         sw.style.color = ((v >> 11) + ((v >> 5) & 0x3F) / 2 + (v & 0x1F)) > 40 ? '#000' : '#fff';
         sw.classList.toggle('active', key === activeColorKey);
-        const native = sw.querySelector('input');
-        if (native && document.activeElement !== native) native.value = rgb565ToCss(v);
       });
     });
-    section.querySelector('[data-menu-active-color]').textContent = COLOR_NAME[activeColorKey];
+    colorEditor?.set(num(field.colors[activeColorKey]) & 0xFFFF, COLOR_NAME[activeColorKey]);
     requestAnimationFrame(drawMenuArrows);
-    const activeValue = num(field.colors[activeColorKey]) & 0xFFFF;
-    section.querySelectorAll('[data-menu-palette]').forEach((b) => b.classList.toggle('active', Number(b.dataset.menuPalette) === activeValue));
   }
 
   function renderTree(field) {
@@ -1171,14 +1162,19 @@
       });
       return;
     }
+    // Clic en el cuadro o en el texto de la fila: el texto elige el primer
+    // color de la fila (o el que ya está activo si es de esa fila).
     const swatch = t.closest('[data-menu-swatch]');
-    if (swatch) {
-      activeColorKey = swatch.dataset.menuSwatch;
+    const legendRow = t.closest('[data-menu-legend-row], [data-menu-frame-row]');
+    if (swatch || legendRow) {
+      if (swatch) activeColorKey = swatch.dataset.menuSwatch;
+      else {
+        const keys = legendRow.hasAttribute('data-menu-frame-row') ? ['frame'] : legendRow.dataset.keys.split(',');
+        if (!keys.includes(activeColorKey)) activeColorKey = keys[0];
+      }
       syncAppearance(field);
       return;
     }
-    const pill = t.closest('[data-menu-palette]');
-    if (pill) { mutate((f) => { f.colors[activeColorKey] = Number(pill.dataset.menuPalette); }); return; }
     const page = t.closest('[data-menu-page]');
     if (page) {
       const target = Number(page.dataset.menuPage);
@@ -1264,17 +1260,6 @@
       if (field) { ui(field).editing = t.checked; editor()?.render?.(); }
       return;
     }
-    if (t.matches('[data-menu-color-native]')) {
-      mutate((f) => { f.colors[t.dataset.menuColorNative] = cssTo565(t.value); });
-    }
-  });
-
-  // Vista previa en vivo mientras se arrastra en el selector de color; el
-  // historial se registra una vez en 'change'.
-  section.addEventListener('input', (e) => {
-    if (!e.target.matches('[data-menu-color-native]')) return;
-    activeColorKey = e.target.dataset.menuColorNative;
-    mutate((f) => { f.colors[e.target.dataset.menuColorNative] = cssTo565(e.target.value); }, false);
   });
 
   const NUMERIC_PROPS = new Set(['x', 'y', 'width', 'height', 'initial', 'min', 'max', 'step']);

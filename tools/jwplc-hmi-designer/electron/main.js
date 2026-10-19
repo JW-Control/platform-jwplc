@@ -9,6 +9,10 @@ const __dirname = path.dirname(__filename);
 const isPackaged = app.isPackaged;
 const appUserModelId = "com.jwcontrol.jwplc.hmidesigner";
 const HEADER_NAME = "JWPLC_HMI_Generated.h";
+// Guía del sketch (poc/designer-sketch-guide.js): nombre fijo y sólo se
+// reemplaza un archivo que el Designer escribió (primera línea con la marca).
+const GUIDE_NAME = "JWPLC_HMI_LEEME.md";
+const GUIDE_MARK = "<!-- Generado por JWPLC HMI Designer";
 
 const webRoot = isPackaged
   ? path.join(process.resourcesPath, "poc")
@@ -263,6 +267,23 @@ const installNativeIpc = () => {
     if (!(await sketchInfo(linkedSketchPath))) return { ok: false, error: "No hay un sketch vinculado válido." };
     const error = await shell.openPath(linkedSketchPath);
     return error ? { ok: false, error } : { ok: true, path: linkedSketchPath };
+  });
+
+  ipcMain.handle("jwplc-hmi:write-guide", async (_event, payload = {}) => {
+    await restoreLinkedSketchPath();
+    const info = await sketchInfo(linkedSketchPath);
+    if (!info) return { ok: false, error: "No hay un sketch vinculado válido." };
+
+    const text = String(payload.text || "");
+    if (!text.startsWith(GUIDE_MARK)) return { ok: false, error: "El contenido no corresponde a la guía del HMI." };
+
+    const target = path.join(linkedSketchPath, GUIDE_NAME);
+    if (await fileExists(target)) {
+      const current = await fs.readFile(target, "utf8");
+      if (!current.startsWith(GUIDE_MARK)) return { ok: false, foreign: true, name: GUIDE_NAME };
+    }
+    await fs.writeFile(target, text, "utf8");
+    return { ok: true, name: GUIDE_NAME, path: target };
   });
 
   ipcMain.handle("jwplc-hmi:write-project", async (_event, payload = {}) => {

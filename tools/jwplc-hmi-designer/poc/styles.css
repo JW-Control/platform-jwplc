@@ -2651,7 +2651,6 @@ label.insp-needs-fw { opacity: 0.45; cursor: not-allowed; }
   font: 700 9px 'Cascadia Code', Consolas, monospace;
 }
 .menu-swatch.active { outline: 2px solid #ff9a43; outline-offset: 1px; }
-.menu-swatch input[type="color"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; padding: 0; border: 0; }
 .menu-palette { border-top: 1px solid #1a2c39; padding-top: 6px; }
 .menu-palette .insp-note { margin: 0 0 6px; }
 
@@ -2756,3 +2755,38 @@ label.insp-needs-fw { opacity: 0.45; cursor: not-allowed; }
 .sketch-toast.is-visible { opacity: 1; }
 .sketch-toast[data-kind="ok"] { border-color: #3b9e80; }
 .sketch-toast[data-kind="error"] { border-color: #c85d58; color: #ffd7d4; }
+
+/* Alpha15 · Apariencia: filas clicables (texto o cuadro) alineadas —texto a la
+   izquierda, cuadros a la derecha— y editor de color fijo bajo la leyenda
+   (designer-color-editor.js) en lugar del selector nativo flotante. */
+.menu-legend-row[data-legend-key], .menu-legend-row[data-menu-legend-row],
+.menu-legend-row[data-menu-frame-row], .menu-legend-row[data-bar-legend] {
+  cursor: pointer; padding: 0 4px; border-radius: 3px;
+}
+.menu-legend-row[data-legend-key], .menu-legend-row[data-bar-legend] { min-width: 150px; }
+.zone-host > .menu-case-legend:not(.field-case-body > *) { flex: 1; }
+.menu-legend-row[data-legend-key]:hover, .menu-legend-row[data-menu-legend-row]:hover,
+.menu-legend-row[data-menu-frame-row]:hover, .menu-legend-row[data-bar-legend]:hover { background: rgba(184, 205, 220, 0.08); }
+.menu-legend-row .menu-legend-label { flex: 1; }
+.menu-swatch { padding: 0; color: inherit; }
+.menu-swatch:focus-visible { outline: 2px solid #e8edf2; outline-offset: 1px; }
+.color-editor { display: flex; flex-direction: column; gap: 6px; max-width: 340px; }
+.color-editor-head { display: flex; align-items: center; justify-content: space-between; font-size: 10.5px; color: #b8cddc; }
+.color-editor-head strong { color: #ffd7b0; }
+.color-editor-swatch { width: 34px; height: 16px; border-radius: 3px; border: 1px solid rgba(255, 255, 255, 0.3); }
+.color-editor-sv { position: relative; height: 96px; border-radius: 4px; border: 1px solid #1e313f; cursor: crosshair; touch-action: none; }
+.color-editor-hue {
+  position: relative; height: 12px; border-radius: 6px; border: 1px solid #1e313f; cursor: ew-resize; touch-action: none;
+  background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+}
+.color-editor-sv-knob, .color-editor-hue-knob {
+  position: absolute; width: 10px; height: 10px; border-radius: 50%; border: 2px solid #fff;
+  box-shadow: 0 0 0 1px #000; transform: translate(-50%, -50%); pointer-events: none;
+}
+.color-editor-hue-knob { top: 50%; }
+.color-editor-fields { display: flex; gap: 8px; }
+.color-editor-fields label { display: flex; align-items: center; gap: 4px; font-size: 10px; color: #8fb3c9; flex: 1; min-width: 0; }
+.color-editor-fields input {
+  width: 100%; min-width: 0; padding: 2px 4px; font: 11px 'Cascadia Code', Consolas, monospace;
+  background: #0b1621; color: #e8edf2; border: 1px solid #253948; border-radius: 3px;
+}

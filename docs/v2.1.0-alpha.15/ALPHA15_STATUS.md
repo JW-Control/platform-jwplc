@@ -46,7 +46,9 @@ A15_BUZZER=PASS_ESP32_COMPILE (JWPLC_Buzzer en JWPLC_GlobalPeripherals; físico 
 A15_I1_FORMATS=PASS_HOST_AND_ESP32_COMPILE (A15_I1_FORMATOS_VALUE_BOOL_20261018.md; VALUE miles/duración + BOOL piloto; físico pendiente)
 A15_I2_RTC=PASS_HOST_AND_ESP32_COMPILE (A15_I2_FECHA_HORA_RTC_20261018.md; VALUE fecha/hora sin variable; físico pendiente)
 A15_I3_CP437=PASS_HOST_AND_ESP32_COMPILE (A15_I3_TILDES_CP437_20261018.md; desfase cp437(false) resuelto; físico pendiente: ver ° en la placa)
-A15_SKETCH_FLOW=PASS_WEB_SIMULATED (Escribir en sketch + menú del sketch; app de escritorio real [no verificado])
+A15_SKETCH_FLOW=PASS_DESKTOP (Escribir en sketch + menú del sketch; el jefe abrió el Arduino IDE desde la app de escritorio el 2026-10-18)
+A15_SKETCH_GUIDE=PASS_HOST (JWPLC_HMI_LEEME.md con sketch base; compila contra los 9 golden; en la app real [no verificado]: requiere regenerarla)
+A15_COLOR_EDITOR=PASS (editor de color fijo en Apariencia de campos, MENU y BAR; filas clicables y alineadas)
 A15_FRAM_MAP=PROPOSED (plan §G.6: DataLog hoy sin FRAM; reparto del último KB)
 A15_8_MENU=PASS_HOST_AND_ESP32_COMPILE (A15_8_MENU_20261017; físico pendiente)
 A15_9_PHYSICAL_PARITY=PENDING
@@ -253,3 +255,19 @@ MENU_NODE_COUNT_LIMIT=64 por menú, 4 menús, 1 por página (9 nodos = +952 B RA
   - Nuevo `Generar-e-Instalar-App-Escritorio.cmd` (doble clic): compila Electron y lo instala con
     `-RequireElectron`, que falla en vez de caer al modo navegador.
   - README con «qué hace cada archivo».
+- 2026-10-19 — El jefe confirma la app de escritorio (abre el Arduino IDE). Sugerencias aplicadas:
+  - **Apariencia:** el selector de color nativo (flotante, tapaba «Fondo y pista» de BAR y había que
+    cerrarlo para cambiar de fila) se reemplaza por un editor fijo bajo la leyenda
+    (`poc/designer-color-editor.js`: cuadro S/V, tono, HEX, RGB565 y paleta rápida), igual en
+    TEXT/VALUE/BOOL, MENU y BAR. Toda la fila es clicable (texto = cuadro); texto a la izquierda y
+    cuadros a la derecha. [ejecutado] inspector-smoke/menu-smoke + capturas.
+  - **Guía del sketch:** «Escribir en sketch» deja además `JWPLC_HMI_LEEME.md` con el sketch base
+    (`#include`, `jwplcHMISetup()`, una línea por variable de pantalla y el `switch` de
+    `menuChanged()` por MENU) y los pasos para un sketch existente. Se arma leyendo el header generado
+    (`poc/designer-sketch-guide.js`). El `.ino` no se toca nunca: insertar código en el `.ino` del usuario
+    queda descartado salvo un futuro «agregar `#include`» aditivo y con confirmación. IPC nuevo
+    `write-guide` (sólo ese nombre; sólo reemplaza una guía con la marca del Designer): **hay que
+    regenerar la app** con `Generar-e-Instalar-App-Escritorio.cmd`. [ejecutado] `tests/sketch-guide.test.cjs`
+    compila el sketch base contra los 9 golden (g++ host, headers reales); `sketch-menu-smoke.cjs`
+    cubre la escritura, el `.ino` intacto y una guía ajena que no se reemplaza.
+  - `run-all.cjs`: 9/9 PASS.

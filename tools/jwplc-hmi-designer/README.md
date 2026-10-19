@@ -36,6 +36,18 @@ Repetirlo después de cada `git pull` que cambie el Designer.
 Sólo la app de escritorio puede **abrir el sketch en el Arduino IDE** y **abrir su
 carpeta** (menú «Sketch: nombre ▾»). La versión de navegador no puede lanzar programas.
 
+### Qué deja «Escribir en sketch» en la carpeta del sketch
+
+| Archivo | Qué es |
+|---|---|
+| `JWPLC_HMI_Generated.h` | Pantallas, campos, MENU e IDLE en C++ (se reemplaza en cada escritura) |
+| `<sketch>.jwhmi` | El diseño, para volver a abrirlo («Abrir HMI del sketch») |
+| `JWPLC_HMI_LEEME.md` | Guía con el **sketch base** (todas las variables del HMI ya usadas, `menuChanged` del MENU) y los pasos para un sketch existente |
+
+El `.ino` nunca se modifica: la guía trae el código para copiar. Si en la carpeta ya hay un
+`JWPLC_HMI_LEEME.md` que no escribió el Designer, no se toca. La guía necesita la app generada
+después del 2026-10-19 (si no, se escriben el header y el `.jwhmi` y el aviso pide regenerar la app).
+
 ### Qué hace cada archivo
 
 | Archivo | Para qué | ¿Lo uso? |

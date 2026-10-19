@@ -54,7 +54,7 @@ function check(condition, message) {
 function nativeMock() {
   const sketches = {
     'C:/Arduino/demo': { name: 'demo', files: { 'demo.ino': '', 'JWPLC_HMI_Generated.h': '// viejo' } },
-    'C:/Arduino/otro': { name: 'otro', files: { 'otro.ino': '' } }
+    'C:/Arduino/otro': { name: 'otro', files: { 'otro.ino': '', 'JWPLC_HMI_LEEME.md': '# Mis notas' } }
   };
   let linked = 'C:/Arduino/demo';
   let nextPick = 'C:/Arduino/otro';
@@ -75,6 +75,13 @@ function nativeMock() {
     selectSketchDirectory: async () => { calls.push('select'); if (!nextPick) return { ok: false, canceled: true }; linked = nextPick; return info(); },
     getLinkedSketch: async () => info(),
     writeGeneratedHeader: async (text, overwrite) => { calls.push(`header:${overwrite}`); sketches[linked].files['JWPLC_HMI_Generated.h'] = text; return { ok: true }; },
+    writeGuide: async (text) => {
+      calls.push('guide');
+      const files = sketches[linked].files;
+      if ('JWPLC_HMI_LEEME.md' in files && !files['JWPLC_HMI_LEEME.md'].startsWith('<!-- Generado por JWPLC HMI Designer')) return { ok: false, foreign: true };
+      files['JWPLC_HMI_LEEME.md'] = text;
+      return { ok: true };
+    },
     writeProject: async (fileName, text, overwrite) => { calls.push(`project:${fileName}:${overwrite}`); sketches[linked].files[fileName] = text; return { ok: true }; },
     readProject: async () => { const i = info(); return i.projectExists ? { ok: true, fileName: i.projectFile, text: sketches[linked].files[i.projectFile] } : { ok: false, missing: true, fileName: i.projectFile }; },
     openSketchIno: async () => { calls.push('open-ino'); return { ok: true }; },
@@ -122,12 +129,19 @@ async function main() {
     await page.waitForTimeout(1200);
     const written = await page.evaluate(() => {
       const f = window.__sketchMock.sketches['C:/Arduino/demo'].files;
-      return { header: f['JWPLC_HMI_Generated.h'], project: f['demo.jwhmi'], calls: window.__sketchMock.calls.slice() };
+      return { header: f['JWPLC_HMI_Generated.h'], project: f['demo.jwhmi'], guide: f['JWPLC_HMI_LEEME.md'], ino: f['demo.ino'], calls: window.__sketchMock.calls.slice() };
     });
     check(dialogs.length === 1 && /JWPLC_HMI_Generated\.h/.test(dialogs[0]) && !/demo\.jwhmi/.test(dialogs[0]), `una sola confirmación, sólo por lo que se reemplaza (${JSON.stringify(dialogs)})`);
     check(/^\/\/ Código generado por JWPLC HMI Designer/.test(written.header || '') && /#pragma once/.test(written.header || ''), 'escribe un JWPLC_HMI_Generated.h válido');
     const savedProject = JSON.parse(written.project || '{}');
     check(savedProject.projectName === 'demo' && savedProject.fields?.length === fieldsBefore, `escribe demo.jwhmi con el diseño (${savedProject.fields?.length} objetos)`);
+    const valueVar = savedProject.fields?.find((f) => f.type === 'VALUE')?.variable;
+    const guide = written.guide || '';
+    check(guide.startsWith('<!-- Generado por JWPLC HMI Designer') && guide.includes('#include "JWPLC_HMI_Generated.h"') &&
+      guide.includes('jwplcHMISetup();') && Boolean(valueVar) && guide.includes(`${valueVar} = `),
+      `escribe JWPLC_HMI_LEEME.md con el sketch base (usa «${valueVar}»)`);
+    check(written.ino === '' && !written.calls.some((c) => /\.ino/.test(c) && !/open-ino/.test(c)), 'el .ino del usuario no se toca');
+    check(/JWPLC_HMI_LEEME\.md/.test(await page.textContent('#a15SketchToast')), 'el aviso nombra la guía escrita');
 
     console.log('MENÚ DEL SKETCH');
     await page.click('#linkSketchButton');
@@ -157,6 +171,12 @@ async function main() {
     await page.waitForTimeout(500);
     const otro = { dialogs: dialogs.slice(), label: await page.textContent('#linkSketchButton'), calls: await page.evaluate(() => window.__sketchMock.calls.slice(-3)) };
     check(otro.dialogs.length === 0 && /otro/.test(otro.label), `vincular un sketch sin .jwhmi no pregunta nada (${JSON.stringify(otro)})`);
+    // «otro» ya tiene un JWPLC_HMI_LEEME.md propio del usuario: no se reemplaza.
+    await page.click('#updateHmiButton');
+    await page.waitForTimeout(1200);
+    const foreign = await page.evaluate(() => window.__sketchMock.sketches['C:/Arduino/otro'].files['JWPLC_HMI_LEEME.md']);
+    check(foreign === '# Mis notas' && /no se tocó/.test(await page.textContent('#a15SketchToast')),
+      'un JWPLC_HMI_LEEME.md que no escribió el Designer no se reemplaza (y se avisa)');
     // Volver a «demo», que sí tiene .jwhmi: pregunta si abrirlo.
     await page.evaluate(() => { window.JWPLCHMIEditor.addTextField(); window.__sketchMock.setNextPick('C:/Arduino/demo'); });
     await page.click('#linkSketchButton');

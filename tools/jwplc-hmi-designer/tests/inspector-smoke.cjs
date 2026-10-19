@@ -69,8 +69,8 @@ async function main() {
   const fieldOf = (type) => page.evaluate((t) => JSON.parse(JSON.stringify(window.JWPLCHMIEditor.getAllFields().find((f) => f.type === t))), type);
   const sub = async (name) => { await page.click(`${W}[data-insp-main="design"]`); await page.click(`${W}[data-insp-sub="${name}"]`); };
   const fill = async (selector, text) => { await page.fill(W + selector, text); await page.press(W + selector, 'Tab'); };
-  // Elige el cuadro de color (click sin gesto real: no abre el selector nativo)
-  // y aplica un color de la paleta rápida.
+  // Elige el cuadro de color y aplica un color de la paleta rápida del editor
+  // fijo (designer-color-editor.js).
   const pickColor = async (key, value) => {
     await page.$eval(`${W}[data-field-swatch="${key}"]`, (el) => el.click());
     await page.click(`${W}[data-field-palette="${value}"]`);
@@ -281,14 +281,30 @@ async function main() {
     const boc = await selected();
     check(boc.stateColors === true && boc.falseColor === 0xF800 && boc.trueColor === 0x07E0, 'BOOL: color de texto por estado');
     check(boc.falseBackground === 0x0000 && boc.trueBackground === 0x001F, 'BOOL: color de fondo por estado');
-    // Color en vivo: un evento 'input' del selector nativo cambia el modelo sin cerrar la paleta.
-    const live = await page.evaluate(() => {
-      const input = document.querySelector('#fieldInspectorV2 [data-color-native="label"]');
-      input.value = '#ff00ff';
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-      return window.JWPLCHMIEditor.getSelectedField().labelColor;
-    });
-    check(live === 0xF81F, 'color en vivo con el evento input del selector');
+    // Editor de color fijo: el texto de la fila elige el color (como su cuadro),
+    // el editor sigue a la vista al cambiar de fila y el HEX aplica en vivo.
+    await page.click(`${W}[data-field-appearance] [data-legend-key="label"] .menu-legend-label`);
+    const rowPick = await page.evaluate(() => ({
+      active: document.querySelector('#fieldInspectorV2 [data-field-swatch="label"]').classList.contains('active'),
+      target: document.querySelector('#fieldInspectorV2 [data-ce-target]')?.textContent,
+      editor: document.querySelector('#fieldInspectorV2 .color-editor')?.offsetParent !== null,
+      native: document.querySelectorAll('#fieldInspectorV2 input[type="color"]').length
+    }));
+    check(rowPick.active && rowPick.editor && rowPick.native === 0 && /Etiqueta/.test(rowPick.target || ''),
+      `Apariencia: clic en el texto de la fila = clic en su cuadro; editor fijo sin selector nativo (${JSON.stringify(rowPick)})`);
+    await page.fill(`${W}[data-ce-hex]`, '#ff00ff');
+    const live = await page.evaluate(() => window.JWPLCHMIEditor.getSelectedField().labelColor);
+    check(live === 0xF81F, 'color en vivo desde el HEX del editor');
+    await page.press(`${W}[data-ce-hex]`, 'Enter');
+    // Arrastre en el cuadro S/V: cambia el color en vivo y al soltar va al historial.
+    const sv = await (await page.$(`${W}[data-ce-sv]`)).boundingBox();
+    await page.mouse.move(sv.x + sv.width - 2, sv.y + 2);
+    await page.mouse.down();
+    await page.mouse.move(sv.x + 4, sv.y + sv.height - 4, { steps: 4 });
+    await page.mouse.up();
+    const dragged = await page.evaluate(() => window.JWPLCHMIEditor.getSelectedField().labelColor);
+    check(dragged !== 0xF81F && dragged < 0x2000, `arrastre en el cuadro S/V oscurece el color (0x${dragged.toString(16)})`);
+    await page.evaluate(() => window.JWPLCHMIEditor.undo());
     await shot('bool_apariencia');
     await page.click(`${W}[data-insp-main="data"]`);
     check(bo.boolValue === true && bo.preview === 'MARCHA', 'estado de prueba con interruptor');
@@ -300,18 +316,15 @@ async function main() {
       marker: body.querySelectorAll('svg.zone-indicator path.zone-marker').length,
       active: [...body.querySelectorAll('.menu-legend-row.is-active')].map((r) => r.textContent.trim())
     })));
-    // Clic sin gesto real: elige el cuadro sin abrir el selector nativo.
     const casePixels = () => page.$$eval('#fieldInspectorV2 canvas[data-field-case]', (els) => els.map((c) => c.toDataURL()).join('|'));
     // BOOL por estado: la etiqueta es común -> indicador en FALSE y TRUE.
     await sub('appearance');
     await page.$eval(`${W}[data-field-swatch="label"]`, (el) => el.dispatchEvent(new MouseEvent('click', { bubbles: true })));
-    await page.click(`${W}[data-insp-sub="appearance"]`); // un clic real cierra el selector nativo
     await page.waitForTimeout(200);
     let zi = await zoneInfo();
     check(zi.length === 2 && zi.every((z) => z.marker === 1 && z.accent >= 1 && /común/.test(z.active.join(' '))), `BOOL por estado: Etiqueta (común) marcada en los dos casos (${JSON.stringify(zi)})`);
     const pixA = await casePixels();
     await page.$eval(`${W}[data-field-swatch="trueBg"]`, (el) => el.dispatchEvent(new MouseEvent('click', { bubbles: true })));
-    await page.click(`${W}[data-insp-sub="appearance"]`); // un clic real cierra el selector nativo
     await page.waitForTimeout(200);
     zi = await zoneInfo();
     check(zi.find((z) => z.id === 'true')?.marker === 1 && zi.find((z) => z.id === 'false')?.marker === 0, 'BOOL por estado: el fondo TRUE sólo se marca en su caso');
@@ -322,7 +335,6 @@ async function main() {
     await page.waitForTimeout(200);
     await sub('appearance');
     await page.$eval(`${W}[data-field-swatch="label"]`, (el) => el.dispatchEvent(new MouseEvent('click', { bubbles: true })));
-    await page.click(`${W}[data-insp-sub="appearance"]`); // un clic real cierra el selector nativo
     await page.waitForTimeout(200);
     zi = await zoneInfo();
     check(zi.length === 1 && zi[0].accent === 2 && zi[0].marker === 1, `VALUE: Etiqueta = etiqueta + unidad (2 contornos) (${JSON.stringify(zi)})`);
@@ -504,7 +516,11 @@ async function main() {
     check(barApp.legacyHidden && barApp.canvas && barApp.rows === 'label,value,track' && barApp.marker === 1 && barApp.active === 'value',
       `BAR Apariencia: mini-modelo, leyenda Etiqueta/Barra/Fondo y ▶ en la barra (${JSON.stringify(barApp)})`);
     await page.$eval('#barAppMini [data-bar-swatch="track"]', (el) => el.dispatchEvent(new MouseEvent('click', { bubbles: true })));
-    await page.click('#barInspectorWrap .bar-sub-tab[data-sub-tab="appearance"]'); // cierra el selector nativo
+    // El texto de la fila también elige el color; el editor sigue a la vista.
+    await page.click('#barAppMini [data-bar-legend="label"] .menu-legend-label');
+    const barRow = await page.evaluate(() => document.querySelector('#barAppMini .menu-legend-row.is-active')?.dataset.barLegend);
+    check(barRow === 'label', `BAR: clic en el texto de la fila elige su color (${barRow})`);
+    await page.$eval('#barAppMini [data-bar-swatch="track"]', (el) => el.dispatchEvent(new MouseEvent('click', { bubbles: true })));
     await page.click('#barAppMini [data-bar-palette="63488"]');
     await page.waitForTimeout(200);
     const barAfter = await page.evaluate(() => {
