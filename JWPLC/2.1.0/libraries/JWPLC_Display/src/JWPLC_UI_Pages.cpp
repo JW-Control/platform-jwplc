@@ -294,6 +294,13 @@ namespace JWPLCUIPages
 
         restoreIdleReturnMode();
         g_selectionMode = true;
+
+        // La tecla que despertó la IDLE ya cumplió su función: su PRESS no debe
+        // actuar además sobre el selector (un OK entraba directo al contenido y
+        // un LEFT/RIGHT cambiaba de página). En PAGE_SELECT la botonera es del
+        // sistema, igual que en enterSelectionMode().
+        consumeNavigationInput();
+
         g_previousMask = readButtonDownMask();
         markIndicatorDirty();
         JWPLCUI::requestRefresh();

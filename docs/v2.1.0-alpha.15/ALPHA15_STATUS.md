@@ -48,6 +48,7 @@ A15_I2_RTC=PASS_HOST_AND_ESP32_COMPILE (A15_I2_FECHA_HORA_RTC_20261018.md; VALUE
 A15_I3_CP437=PASS_HOST_AND_ESP32_COMPILE (A15_I3_TILDES_CP437_20261018.md; desfase cp437(false) resuelto; físico pendiente: ver ° en la placa)
 A15_SKETCH_FLOW=PASS_DESKTOP (Escribir en sketch + menú del sketch; el jefe abrió el Arduino IDE desde la app de escritorio el 2026-10-18)
 A15_SKETCH_GUIDE=PASS_HOST (JWPLC_HMI_LEEME.md con sketch base; compila contra los 9 golden; en la app real [no verificado]: requiere regenerarla)
+A15_WAKE_KEY_FIX=PASS_HOST_AND_ESP32_COMPILE (la tecla que despierta la IDLE ya no entra al contenido ni al MENU; físico pendiente)
 A15_COLOR_EDITOR=PASS (editor de color fijo en Apariencia de campos, MENU y BAR; filas clicables y alineadas)
 A15_FRAM_MAP=PROPOSED (plan §G.6: DataLog hoy sin FRAM; reparto del último KB)
 A15_8_MENU=PASS_HOST_AND_ESP32_COMPILE (A15_8_MENU_20261017; físico pendiente)
@@ -271,3 +272,19 @@ MENU_NODE_COUNT_LIMIT=64 por menú, 4 menús, 1 por página (9 nodos = +952 B RA
     compila el sketch base contra los 9 golden (g++ host, headers reales); `sketch-menu-smoke.cjs`
     cubre la escritura, el `.ino` intacto y una guía ajena que no se reemplaza.
   - `run-all.cjs`: 9/9 PASS.
+- 2026-10-19 — Prueba del jefe en la placa con el sketch base del LEEME:
+  - Con la placa publicada `jwplc:esp32:jwplcbasic` (2.1.0-alpha.12) salta el `#error` del MENU: ese
+    `JWPLC_Display` no tiene MENU. Alpha15 se compila con `jwplc_local` (enlace de `JWPLC/2.1.0` en
+    `<sketchbook>/hardware/jwplc_local/esp32`). Con `jwplc_local` compila y sube [ejecutado por el jefe].
+  - **Bug: «al entrar con OK no me deja moverme entre páginas».** Causa [visto + ejecutado en host]:
+    `enterUserUI()` deja intactos los latches de la botonera (Alpha8) y, en el mismo callback,
+    `serviceNavigation()` lee el PRESS de la tecla que despertó la IDLE. Un OK entraba directo al
+    contenido de la página 1 (LEFT/RIGHT ya eran del contenido o del MENU) y un LEFT/RIGHT cambiaba de
+    página. Aparece en Alpha15 porque el Designer usa por defecto `IDLE_WAKE_ANY_BUTTON` (A15-7F).
+  - Corrección en firmware: `JWPLCUIPages::prepareEnter()` descarta las pulsaciones pendientes al entrar
+    al selector (igual que `enterSelectionMode()`), y `jwplcUIMenuPrepareEnter()` también lo hace si hay
+    un MENU en la página de entrada. Sin páginas ni MENU, el sketch sigue recibiendo la tecla (regla 5).
+  - Test nuevo `tests/menu-host/wake_sim.cpp` (dentro de `menu-host-sim.cjs`): compila los
+    `JWPLC_UI_Pages.cpp` y `JWPLC_UI_Menu.cpp` reales. Falla 7/10 con el código anterior y pasa 10/10
+    con la corrección. Compilan para ESP32 los gates `A15_8_Menu`, `A15_8_Menu_Designer` y el sketch
+    base del LEEME con MENU. Físico pendiente: despertar con OK y ver el NN/TT negro.

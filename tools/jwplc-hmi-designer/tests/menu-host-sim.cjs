@@ -107,6 +107,21 @@ function main() {
     failed = true;
   }
 
+  // Despertar desde IDLE con páginas y MENU reales: la tecla que despierta no
+  // actúa además sobre el selector ni sobre el MENU.
+  const wake = path.join(OUT, process.platform === 'win32' ? 'wake_sim.exe' : 'wake_sim');
+  execFileSync('g++', [
+    '-std=c++17', '-Wall', '-Wextra', '-Werror', '-Wno-unused-parameter', '-Wno-format-truncation',
+    '-I', path.join(HOST, 'stub'), '-I', SRC,
+    path.join(HOST, 'wake_sim.cpp'), path.join(SRC, 'JWPLC_UI_Pages.cpp'), path.join(SRC, 'JWPLC_UI_Menu.cpp'),
+    '-o', wake
+  ], { stdio: 'inherit' });
+  try {
+    execFileSync(wake, [], { stdio: 'inherit' });
+  } catch (_) {
+    failed = true;
+  }
+
   for (const file of fs.readdirSync(OUT).filter((f) => f.endsWith('.ppm'))) {
     ppmToPng(path.join(OUT, file), path.join(OUT, file.replace(/\.ppm$/, '.png')));
   }

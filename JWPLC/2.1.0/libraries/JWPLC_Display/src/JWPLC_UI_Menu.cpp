@@ -1025,8 +1025,20 @@ extern "C" void jwplcUIMenuServiceInput(void)
 
 extern "C" void jwplcUIMenuPrepareEnter(void)
 {
+    bool menuOnPage = false;
+    const uint8_t page = JWPLCUI::currentPage();
     for (uint8_t i = 0; i < g_menuCount; ++i)
+    {
         resetMenu(g_menus[i]);
+        menuOnPage = menuOnPage || g_menus[i].def.page == page;
+    }
+
+    // Un MENU en la página de entrada es dueño de la botonera (con una sola
+    // página tiene el foco al instante): la tecla que despertó la IDLE no debe
+    // editar ni moverse en él. Sin MENU los latches siguen siendo del sketch
+    // (Alpha8).
+    if (menuOnPage)
+        JWPLCButtons::clearPendingInput();
 }
 
 extern "C" void jwplcUIMenuInvalidateAll(void)

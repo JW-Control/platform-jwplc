@@ -41,7 +41,10 @@ GATES_FISICOS_LISTOS=A15_1_3_Codegen_Static, A15_8_Menu, A15_8_Menu_Designer, A1
    - App de escritorio (Electron, en la PC), instalada con `tools/jwplc-hmi-designer/Generar-e-Instalar-App-Escritorio.cmd`:
      - «Escribir en sketch» deja `JWPLC_HMI_Generated.h`, `<sketch>.jwhmi` y `JWPLC_HMI_LEEME.md`;
      - el sketch base de la guía, copiado a un `.ino` vacío, compila y muestra las páginas;
-     - Apariencia: el editor de color fijo (sin selector nativo) en campos, MENU y BAR.
+     - Apariencia: el editor de color fijo (sin selector nativo) en campos, MENU y BAR;
+     - despertar la IDLE con OK debe dejar el selector NN/TT negro (LEFT/RIGHT cambian de página).
+
+     Alpha15 se compila con la placa `jwplc_local` (la publicada alpha.12 no tiene MENU).
 
      Menú del sketch y apertura del Arduino IDE: confirmados por el jefe el 2026-10-18.
 2. **Corregir** lo que salga del taller.

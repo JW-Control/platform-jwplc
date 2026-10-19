@@ -642,6 +642,11 @@ JWPLC_Display.idleWakeMode();
 JWPLC_Display.idleWakeButton();
 ```
 
+La tecla que despierta sólo despierta. Con varias páginas se llega al selector (NN/TT negro),
+aunque esa tecla haya sido OK, LEFT o RIGHT; con un MENU en la página de entrada, tampoco llega al
+MENU. Si la HMI no tiene páginas ni MENU, el sketch sigue recibiendo esa pulsación
+(`JWPLC_Buttons.pressed()`), como desde Alpha8.
+
 ### Retorno a IDLE — Básico / Intermedio
 
 Modos válidos:
