@@ -16,6 +16,13 @@ ROOT=Path(__file__).resolve().parents[3]
 BASE="a9c96273274170195498ff282decf93f0388a450"
 F1_HEAD="codex/alpha13-h0-f1-ss-pin-default-20261019"
 F1_BASE="v2.1.0-alpha.13/feature/cleanup-robustness"
+POSTMERGE_HEAD="docs/alpha13-h0-f1-postmerge-com4-20261019"
+POSTMERGE_BASE="f2c6821566fa62df744c3af8d4d70a440994e64f"
+POSTMERGE_CHANGES=frozenset((
+    "tools/alpha13/gates/a13_g10_r_h0_f1_scope_bridge.py",
+    "docs/v2.1.0-alpha.13/ALPHA13_STATUS.md",
+    "docs/v2.1.0-alpha.13/A13_H_COM4_F1_PHYSICAL_PROTOCOL_20261019.md",
+))
 PRODUCT="JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/utility/w5100.cpp"
 ALLOW=frozenset((
     ".github/workflows/alpha13-g10-r-preflight.yml",
@@ -78,6 +85,8 @@ def selftest():
     assert exact_patch(a,b)
     assert not exact_patch(a,b+"// cambio inesperado\n")
     assert not exact_patch(a,b.replace("JWPLC_ETH_CS","10"))
+    assert POSTMERGE_CHANGES == set(POSTMERGE_CHANGES)
+    assert "JWPLC/2.1.0/boards.txt" not in POSTMERGE_CHANGES
     print("H0_F1_G10_LEGACY_BRIDGE_NEGATIVES=PASS_7")
     
 def check():
@@ -96,6 +105,16 @@ def check():
             ROOT/"JWPLC/2.1.0/cores/jwcontrol/peripherals/include/jwplc_spi_bus.h"
         ).read_text(encoding="utf-8"),"H0_F1_CS_SOURCE_DRIFT"
         print("G10_R_H0_F1_EXACT_EXCEPTION=PASS_W5100_ONLY_NO_GUARD_WEAKENING")
+        return
+    if event=="pull_request" and head==POSTMERGE_HEAD and base==F1_BASE:
+        run("git","merge-base","--is-ancestor",POSTMERGE_BASE,"HEAD")
+        changed=set(run("git","diff","--name-only",POSTMERGE_BASE,"HEAD").splitlines())
+        assert changed==POSTMERGE_CHANGES, (
+            "H0_F1_POSTMERGE_SCOPE_REVIEW_STOP:"+repr(sorted(changed)))
+        original=run("git","show",BASE+":"+PRODUCT)
+        actual=(ROOT/PRODUCT).read_text(encoding="utf-8")
+        assert exact_patch(original,actual),"H0_F1_POSTMERGE_PRODUCT_DIFF_DRIFT"
+        print("G10_R_H0_F1_POSTMERGE_DOCS=PASS_PRODUCT_F1_UNCHANGED_EXACT_DOCS")
         return
     # Contrato G10-R original: funciona para todos los demás PR/ramas.
     from a13_g10_r_b3_scope import check as legacy_check
