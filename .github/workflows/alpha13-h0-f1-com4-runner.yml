@@ -32,6 +32,17 @@ jobs:
           if (!$body.Contains('if (!$UploadCOM4)') -or !$body.Contains('H0F1_UPLOAD=NOT_RUN')) { throw 'BUILD_ONLY_MODE_MISSING' }
           if (!$body.Contains("'COM4'") -or !$body.Contains('H0F1 AUTORIZO SOLO COM4 PACKAGE CORREGIDO SIN BACKUP')) { throw 'COM4_CONSENT_MISSING' }
           if ($body -match '--port.{0,15}COM14') { throw 'COM14_FORBIDDEN' }
+          if (!$body.Contains("jwplc_h0f1:esp32:jwplcbasic") -or
+              !$body.Contains("hardware\jwplc_h0f1\esp32")) {
+            throw 'F132_STAGING_VENDOR_MUST_BE_UNIQUE'
+          }
+          if (!$body.Contains('H0F1_PLATFORM=PASS_ISOLATED_PACKAGE_PATH_CANONICAL') -or
+              !$body.Contains('W5100_SOURCE_DEPENDENCY_NOT_FROM_STAGING')) {
+            throw 'F132_SOURCE_FIRST_VALIDATION_MISSING'
+          }
+          if ($body.Contains("arduino-cli core uninstall") -or $body.Contains("Remove-Item $env:LOCALAPPDATA")) {
+            throw 'F132_MUST_NOT_TOUCH_GLOBAL_INSTALLATION'
+          }
           if (!$ino.Contains('JWPLC_Ethernet.linkStatus()') -or !$ino.Contains('RTC_NOINIT_ATTR') -or !$ino.Contains('H0F1_EARLY_LINK_RETURN')) { throw 'H0_F1_SMOKE_CONTRACT_DRIFT' }
           $productDiff = git diff --name-only 931398783e94b086210132f2d12ea6e0145c4779 HEAD -- JWPLC/
           if ($productDiff) { throw "PRODUCT_CHANGED_IN_KIT: $productDiff" }
