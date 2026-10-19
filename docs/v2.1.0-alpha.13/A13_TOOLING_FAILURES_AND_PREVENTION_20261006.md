@@ -2601,3 +2601,31 @@ F132_FIRMWARE_CHANGED=NO
 F132_COM4_FLASH=NOT_RUN
 NEXT_FAILURE_ID=F133
 ```
+
+
+### F132 — cierre local confirmado por salida del operador (19/10/2026)
+
+El operador compartió el log de compilación *sin upload* en Windows desde el checkout limpio y actualizado, HEAD `2b5802720df552e01a0b4f9d4fe1a7bd2de16daf`, ejecutor `tools/alpha13/h0_f1_com4/A13_H0_F1_COM4_BANCO.ps1`:
+
+```text
+H0F1_PLATFORM=PASS_ISOLATED_PACKAGE_PATH_CANONICAL
+H0F1_STAGING_VENDOR=jwplc_h0f1_ALIAS_JWPLC_SOURCE_UNMODIFIED
+H0F1_ETHERNET=PASS_CANONICAL_SAME_STAGED_LIBRARY
+H0F1_W5100=PASS_GCC_OBJECT_DEPENDENCY_FROM_STAGING
+H0F1_BUILD=PASS_SOURCE_FIRST HEAD=2b5802720df552e01a0b4f9d4fe1a7bd2de16daf
+H0F1_UPLOAD=NOT_RUN COM14=NOT_TOUCHED
+```
+
+Esta evidencia complementa [CI N0/N2 #39290491529](https://github.com/JW-Control/platform-jwplc/actions/runs/39290491529) y [G10-R #39290491493](https://github.com/JW-Control/platform-jwplc/actions/runs/39290491493), ambos **2/2 PASS** para el HEAD pre-merge de PR #120. Por tanto, **F132=RESOLVED_CI_AND_LOCAL_BUILD** y `NEXT_FAILURE_ID=F133`; no duplicar F132 ni F003. El `MANIFEST.json` permanece en el PC del operador y no fue inspeccionado aquí: el cierre de F132 se apoya en la salida aportada.
+
+**Separación estricta:** ninguna placa fue flasheada y la observación Ethernet PHY/WDT es `NOT_RUN`; F131 permanece en H0-F1. La nueva nota de resultados permanece primero en una rama documental separada para conservar el HEAD operativo utilizado en la compilación local, hasta completar la siguiente autorización de hardware.
+
+```text
+F132=RESOLVED_CI_AND_LOCAL_BUILD
+F132_LOCAL_BUILD=PASS_SOURCE_FIRST_HEAD_2B580272
+F132_MANIFEST=PRIVATE_UNREVIEWED
+F132_UPLOAD=NOT_RUN
+F131_H0_H=NOT_RUN
+COM14=NOT_TOUCHED
+NEXT_FAILURE_ID=F133
+```
