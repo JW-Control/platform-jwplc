@@ -2531,3 +2531,29 @@ F132_SOURCE_TO_OBJECT_ELF=NOT_YET_VERIFIED
 F132_PHYSICAL=NOT_RUN
 NEXT_FAILURE_ID=F133
 ```
+
+
+### F132 — causa concreta del rechazo de biblioteca y gate NTFS 8.3 (2026-10-19)
+
+La [CI Windows #39286737847](https://github.com/JW-Control/platform-jwplc/actions/runs/39286737847) sobre HEAD `a1a39e30e5b8c9028a17fb2c9d21231efc01ddb5` completó la compilación sin error pero el harness devolvió `WRONG_ETHERNET_LIBRARY`. **Los dos paths mostrados por el propio log identifican la misma biblioteca temporal:**
+
+```text
+H0F1_PLATFORM=PASS_ISOLATED_PACKAGE_PATH_CANONICAL
+H0F1_ETHERNET_SELECTED=.../Users/runneradmin/.../jwplc_h0f1/esp32/libraries/JWPLC_Ethernet
+H0F1_ETHERNET_EXPECTED=.../Users/RUNNER~1/.../jwplc_h0f1/esp32/libraries/JWPLC_Ethernet
+H0F1_REVIEW_STOP=WRONG_ETHERNET_LIBRARY
+```
+
+Se confirma que `--library` eligió la biblioteca deseada, pero `C:\\Users\\RUNNER~1` es la notación corta NTFS 8.3 de `C:\\Users\\runneradmin`. Las dos rutas no pueden compararse mediante `.Contains()` ni una normalización textual de barras, porque el alias 8.3 representa el mismo directorio físico. **Se trata de una segunda falsa detección del mismo flujo F132, no de un defecto nuevo de Ethernet ni de F131.**
+
+**Corrección propuesta y controles negativos:** resolver ambos paths **existentes** con la API Win32 `GetLongPathNameW` y exigir igualdad completa case-insensitive. Añadir un test Windows que construye una ruta corta por `GetShortPathNameW`, exige equivalencia con la ruta larga real, y rechaza dos directorios distintos. El gate `G10-R` conserva su whitelist estricta, incorporando exclusivamente el helper `A13_H0_F1_PATH_IDENTITY.ps1`. El control de GCC `.d` sigue exigiendo la fuente staged tanto en su notación corta como larga; una librería verdaderamente externa se rechaza.
+
+```text
+F132_CI_39286737847=FAIL_HARNESS_8DOT3_ALIAS_NOT_PRODUCT
+F132_CI_OLD_PLATFORM=PASS
+F132_CI_OLD_ETHERNET_LIBRARY=CORRECT_STAGED_LIBRARY_BUT_FALSE_NEGATIVE
+F132_8DOT3_FIX=VERSIONED_WIN32_LONGPATH_HELPER_WITH_NEGATIVE
+F132_RETEST_CI_EXACT_HEAD=PENDING
+F132_COM4_UPLOAD=NOT_RUN
+NEXT_FAILURE_ID=F133
+```
