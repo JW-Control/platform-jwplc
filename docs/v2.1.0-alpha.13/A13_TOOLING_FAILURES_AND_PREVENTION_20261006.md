@@ -2650,3 +2650,26 @@ F131_FINAL=OPEN_PENDING_EXTENDED_PHYSICAL_VALIDATION
 F132=RESOLVED_CI_AND_LOCAL_BUILD
 NEXT_FAILURE_ID=F133
 ```
+
+
+### F131/H0 — validación física principal positiva: 15 min, LinkOFF→LinkON, reset manual (2026-10-19)
+
+**Complemento al resultado previo, no un nuevo FAILURE.** El operador aclaró expresamente que el `rst:0x1 POWERON_RESET` entre `BOOT=10EF1BB1` y `BOOT=6BCAE2DA` **fue realizado por él**, con RJ45 ausente antes y después del reset. Por ello **no es un reinicio espontáneo del firmware**.
+
+En el mismo `BOOT=6BCAE2DA`, a 115200 baudios, `H0F1_EARLY_LINK_RETURN=2`, `STAGE=2`; progreso desde `COUNT=675` a `898`, con enlace desconectado `LINK=2` hasta `COUNT=728`, y conexión RJ45 a las **13:23:19** mostrando `COUNT=729 LINK=1`. El mismo `LINK=1` se sostuvo en las muestras hasta `COUNT=898` a las 13:26:08 (~170 s conectado), sin `TG1WDT_SYS_RESET` visible. El operador confirmó estabilidad **~15 min total** desde el arranque; las muestras compartidas son extractos del monitor, no archivo UART íntegro.
+
+**Conclusión H0-F1:** `PASS` del **gate físico principal** de la corrección productiva F1 del CS W5500, no de la campaña completa G10. No abrir F133. Permanecen no ejecutados los 10 resets EN, 10 power cycles, cambios LinkON→LinkOFF→LinkON repetidos, protocolos/concurrencia y G10-R R1–R4. No inferir que 15 minutos fueron con RJ45 conectado. `mode:DIO` sigue siendo solamente dato observado.
+
+```text
+F131_FIX_F1=VALIDATED_H0_PRIMARY_PHYSICAL_PASS
+F131_EARLY_PHY=PASS_RETURN_2_REAL
+F131_LINK_TRANSITION=PASS_OFF_2_TO_ON_1
+F131_LINKON_SAMPLED=170_SECONDS
+F131_STABILITY=PASS_15_MIN_TOTAL_OPERATOR_REPORTED
+F131_POWERON_RESET=CONFIRMED_OPERATOR_MANUAL
+F131_UNEXPECTED_RESET=NONE_REPORTED_IN_SAMPLES
+F131_G10_EXTENDED=NOT_RUN
+F132=RESOLVED_CI_AND_LOCAL_BUILD
+COM14=NOT_TOUCHED
+NEXT_FAILURE_ID=F133
+```

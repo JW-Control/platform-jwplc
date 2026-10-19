@@ -1,3 +1,46 @@
+# ESTADO VIGENTE — 19/10/2026 — Alpha13 H0-F1: EARLY_LINK + LinkOFF/LinkON + estabilidad física ~15 min PASS
+
+**Evidencia suministrada por el operador, COM4, package F1 real** desde `v2.1.0-alpha.13/feature/cleanup-robustness` HEAD **`2b5802720df552e01a0b4f9d4fe1a7bd2de16daf`**; sketch `A13_H0_F1_SMOKE.ino`, 115200 baudios. Se conserva la base productiva sin nuevos cambios. `H0F1_UPLOAD=PASS_COM4_ONLY`, `COM14=NOT_TOUCHED`. El operador **aclaró que el `rst:0x1 (POWERON_RESET)` previo fue causado por él**, y que RJ45 permaneció desconectado antes y después de dicho reset. No atribuir ese reset al firmware.
+
+**Resultados UART de la misma sesión/BOOT `6BCAE2DA`:**
+- La consulta temprana de `JWPLC_Ethernet.linkStatus()` retorna `H0F1_EARLY_LINK_RETURN=2` sin `TG1WDT_SYS_RESET` en los fragmentos entregados.
+- LinkOFF real y `STAGE=2` desde arranque; `COUNT=675..728` mostró `LINK=2`.
+- **Transición RJ45 observada a las 13:23:19**, sin reinicio entre muestras: `COUNT=728 LINK=2` → `COUNT=729 LINK=1`, y `COUNT=729..898 LINK=1` de forma sostenida.
+- Último log `13:26:08.386 COUNT=898 STAGE=2 LINK=1`. El operador confirmó **~15 minutos totales de estabilidad** del mismo arranque. El contador a 1 Hz documenta ~898 segundos de ejecución; el enlace conectado se observa en las muestras durante **aproximadamente 170 segundos**, no durante 15 minutos.
+- ID `BOOT=6BCAE2DA` constante y contador progresivo, sin reinicios espontáneos ni watchdog reportados/observados en los extractos. La muestra no demuestra 15 minutos completos de captura UART continua; se preserva la duración confirmada por el operador.
+
+**Decisión:** **`H0_F1_PHYSICAL_PRIMARY_GATE=PASS`**: CS corregido desde package productivo, enlace PHY real LinkOFF→LinkON y estabilidad ~15 minutos. F131 se marca como **corrección de causa W5500 validada en H0 principal**, sin expandir el resultado a G10-R. La campaña extendida de 10 resets EN y 10 power-cycles, reconexión LinkON→LinkOFF→LinkON, concurrencia SPI/socket/DHCP/Modbus TCP y R1–R4 **no está ejecutada ni autorizada**. No declarar robustez integral Ethernet, ni publicar release/bootloader. `mode:DIO` se observó en el boot y no fija configuración FlashFreq.
+
+Referencia: registro [F131/F132](A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md). Evidencias sensibles (MAC, identidad PnP, manifiestos y logs completos) permanecen locales; no copiar en GitHub.
+
+```text
+ALPHA13=OPEN
+F130=CONFIRMED_PROCESS_HISTORICAL
+F131=FIX_F1_VALIDATED_H0_PHYSICAL_PRIMARY_PASS
+F132=RESOLVED_CI_AND_LOCAL_BUILD
+H0_F1_PRODUCT_HEAD=2b5802720df552e01a0b4f9d4fe1a7bd2de16daf
+H0_F1_PHYSICAL_PRIMARY_GATE=PASS_REAL_PHY_AND_15MIN_OPERATOR_REPORTED
+H0_F1_EARLY_LINK=PASS_RETURN_2_WITHOUT_WDT_IN_SAMPLE
+H0_F1_BOOT=6BCAE2DA
+H0_F1_PHY_LINK_OFF=PASS_2
+H0_F1_PHY_LINK_ON=PASS_1_SUSTAINED_170S_SAMPLED
+H0_F1_COUNT_LAST=898
+H0_F1_STABILITY_15MIN=PASS_OPERATOR_REPORTED_SAME_BOOT
+H0_F1_POWERON_RESET=MANUAL_OPERATOR_CONFIRMED
+H0_F1_UNEXPECTED_RESET=NONE_REPORTED_IN_OBSERVATION
+H0_F1_EXTENDED_RESETS_10=NOT_RUN
+H0_F1_EXTENDED_POWERCYCLES_10=NOT_RUN
+H0_F1_LINK_ON_OFF_ON=NOT_RUN
+COM14=NOT_TOUCHED
+G10_R_R1_R2_R3_R4=NOT_RUN_NOT_AUTHORIZED
+G10_PACKAGE_PROMOTION=PENDING_OVERLAY_ONLY
+ALPHA15=UNMODIFIED
+NEXT_FAILURE_ID=F133
+NEXT_GATE=H0_F1_OPTIONAL_EXTENDED_STABILITY_THEN_G10_R_AUTHORIZATION
+```
+
+---
+
 # ESTADO VIGENTE — 19/10/2026 — H0-F1 primer arranque físico Ethernet COM4: EARLY_LINK PASS, H0 COMPLETO PENDIENTE
 
 **Evidencia entregada por operador**, desde el firmware de package instalado y compilado con HEAD `2b5802720df552e01a0b4f9d4fe1a7bd2de16daf` (PR #120 merged); placa de desarrollo COM4, sin LAN RJ45 conectada. La ejecución con `-UploadCOM4` repitió satisfactoriamente `H0F1_PLATFORM=PASS_ISOLATED_PACKAGE_PATH_CANONICAL`, `H0F1_ETHERNET=PASS_CANONICAL_SAME_STAGED_LIBRARY`, `H0F1_W5100=PASS_GCC_OBJECT_DEPENDENCY_FROM_STAGING` y `H0F1_BUILD=PASS_SOURCE_FIRST`. Preflight local de puerto CH340, MAC, flash 4 MB y consentimiento literal fueron aceptados por el ejecutor; reportó `H0F1_UPLOAD=PASS_COM4_ONLY COM14=NOT_TOUCHED`. **La dirección MAC no se copia en archivos de proyecto ni documentación.** No se ha comprobado de forma independiente que la referencia MAC usada proceda de un registro previo distinto de la lectura recién realizada.
