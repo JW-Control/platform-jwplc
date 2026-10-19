@@ -1,3 +1,54 @@
+# ESTADO VIGENTE — 19/10/2026 — H0-F1 primer arranque físico Ethernet COM4: EARLY_LINK PASS, H0 COMPLETO PENDIENTE
+
+**Evidencia entregada por operador**, desde el firmware de package instalado y compilado con HEAD `2b5802720df552e01a0b4f9d4fe1a7bd2de16daf` (PR #120 merged); placa de desarrollo COM4, sin LAN RJ45 conectada. La ejecución con `-UploadCOM4` repitió satisfactoriamente `H0F1_PLATFORM=PASS_ISOLATED_PACKAGE_PATH_CANONICAL`, `H0F1_ETHERNET=PASS_CANONICAL_SAME_STAGED_LIBRARY`, `H0F1_W5100=PASS_GCC_OBJECT_DEPENDENCY_FROM_STAGING` y `H0F1_BUILD=PASS_SOURCE_FIRST`. Preflight local de puerto CH340, MAC, flash 4 MB y consentimiento literal fueron aceptados por el ejecutor; reportó `H0F1_UPLOAD=PASS_COM4_ONLY COM14=NOT_TOUCHED`. **La dirección MAC no se copia en archivos de proyecto ni documentación.** No se ha comprobado de forma independiente que la referencia MAC usada proceda de un registro previo distinto de la lectura recién realizada.
+
+**UART físico a 115200**, dos fragmentos de arranque (antes y después de un `rst:0x1`):
+
+```text
+H0F1_READY:BOOT=10EF1BB1 COUNT=10 STAGE=2 LINK=2
+H0F1_READY:BOOT=10EF1BB1 COUNT=11 STAGE=2 LINK=2
+H0F1_READY:BOOT=10EF1BB1 COUNT=12 STAGE=2 LINK=2
+rst:0x1 (POWERON_RESET),boot:0x17 (SPI_FAST_FLASH_BOOT)
+mode:DIO, clock div:2
+H0F1_BOOT=6BCAE2DA
+H0F1_PREVIOUS_STAGE=0
+H0F1_EARLY_LINK_BEGIN
+H0F1_EARLY_LINK_RETURN=2
+H0F1_READY:BOOT=6BCAE2DA COUNT=1 STAGE=2 LINK=2
+...
+H0F1_READY:BOOT=6BCAE2DA COUNT=12 STAGE=2 LINK=2
+```
+
+**H0-F1 early-link físico: PASS OBSERVADO** en el segundo arranque: `linkStatus()` retornó físicamente `2=LinkOFF` en `setup()`, y el sketch progresó con `STAGE=2`, PHY real y contador hasta 12 sin `TG1WDT_SYS_RESET` en los fragmentos proporcionados. A diferencia de H0-F previo, no se usó centinela `LINK=-9` ni overlay. **No declarar H0 completo ni F131 completamente cerrado:** el reinicio intermedio `rst:0x1 POWERON_RESET` necesita confirmación de si fue causado manualmente/por el monitor serie o si fue espontáneo; no es `TG1WDT_SYS_RESET` pero tampoco está explicado. En la muestra de ~12 segundos no hay evidencia de 15 minutos sostenidos, `LinkON=1`, reconexión RJ45 ni ciclos extendidos. `mode:DIO` se registra como diagnóstico observado, sin inferir cambio de FlashFreq/configuración definitiva.
+
+**Siguiente gate, de menor riesgo:** confirmar origen del `POWERON_RESET`, prolongar observación UART con RJ45 desconectado y contador progresivo, y solo después conectar RJ45 a switch/router **aislado de banco** para observar `LINK=1` real y, posteriormente, LinkOFF/LinkON según autorización. No reiniciar/flashear sin motivo. R1–R4 y promoción de G10 siguen fuera del alcance.
+
+```text
+ALPHA13=OPEN
+F130=CONFIRMED_PROCESS_PREVIOUS
+F131=F1_PRODUCT_MERGED_H0_EARLY_PHY_PASS_STABILITY_PENDING
+F132=RESOLVED_CI_AND_LOCAL_BUILD
+F132_COM4_SOURCE_FIRST=PASS_LOCAL_HEAD_2B580272
+F131_COM4_UPLOAD=PASS_COM4_ONLY
+F131_H0_EARLY_LINK=PASS_REAL_PHY_LINKOFF_2_STAGE_2
+F131_H0_UART_PROGRESSION=PASS_TO_COUNT_12
+F131_H0_WDT=NOT_OBSERVED_IN_SUPPLIED_SAMPLE
+F131_POWERON_RESET=OBSERVED_ORIGIN_UNCONFIRMED
+F131_MODE_DIO=OBSERVED_NOT_CONFIG_DECISION
+F131_LINK_ON=NOT_RUN
+F131_15MIN_STABILITY=NOT_RUN
+F131_H0_FULL=OPEN_PENDING
+F131_RJ45_RECONNECT=NOT_RUN
+COM14=NOT_TOUCHED
+G10-R-R1_R2_R3_R4=NOT_RUN_NOT_AUTHORIZED
+G10_PACKAGE_PROMOTION=PENDING_OVERLAY_ONLY
+ALPHA15=UNMODIFIED
+NEXT_FAILURE_ID=F133
+NEXT_GATE=H0_COM4_CONFIRM_POWERON_RESET_THEN_STABLE_UART_AND_LINK_ON
+```
+
+---
+
 # ESTADO VIGENTE — 19/10/2026 — F132: compilación local source-first PASS; H0 COM4 físico pendiente
 
 **Evidencia informada por el operador en Windows PowerShell**, repositorio `JW-Control/platform-jwplc`, rama `v2.1.0-alpha.13/feature/cleanup-robustness` al HEAD exacto `2b5802720df552e01a0b4f9d4fe1a7bd2de16daf`. Se ejecutaron `git fetch origin`, `git switch`, `git pull --ff-only`, `git status --short` (sin cambios), y `A13_H0_F1_COM4_BANCO.ps1 -ExpectedHead $head` **sin `-UploadCOM4`**. Salida literal:
