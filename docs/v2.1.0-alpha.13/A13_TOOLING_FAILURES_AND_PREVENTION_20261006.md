@@ -2581,3 +2581,23 @@ F132_FULL_SOURCE_FIRST=NOT_YET_PASS
 F132_PHYSICAL=NOT_RUN
 NEXT_FAILURE_ID=F133
 ```
+
+
+### F132 — cierre del harness por CI Windows real (2026-10-19)
+
+**SHA de código exacto:** `c76f7e3a8240c8c6a650445aae2b4be61f5e5488`.
+
+- [CI H0-F1 COM4 #39289719081](https://github.com/JW-Control/platform-jwplc/actions/runs/39289719081): **2/2 PASS**, N0 sintaxis/negativos Windows y N2 compilación real Windows desde copia del package con vendor temporal único. El log N2 confirma `H0F1_PLATFORM=PASS_ISOLATED_PACKAGE_PATH_CANONICAL`, `H0F1_ETHERNET=PASS_CANONICAL_SAME_STAGED_LIBRARY`, `H0F1_W5100=PASS_GCC_OBJECT_DEPENDENCY_FROM_STAGING`, `H0F1_BUILD=PASS_SOURCE_FIRST`, `H0F1_UPLOAD=NOT_RUN COM14=NOT_TOUCHED`.
+- [CI G10-R N0 #39289718821](https://github.com/JW-Control/platform-jwplc/actions/runs/39289718821): **2/2 PASS Windows/Ubuntu**, contrato de alcance que no permite cambios en producto. **Total 4/4 jobs SUCCESS, ningún skipped**.
+- El único cambio posterior a este HEAD de código es documental (registrar evidencia); no equivale a una ejecución local del operador ni a hardware funcional.
+
+**Decisión:** F132 queda `RESOLVED_NONPHYSICAL_CI`. Los dos fallos locales iniciales de selección de plataforma, los falsos negativos de alias NTFS 8.3 y la recurrencia de F003 se conservan como historial del mismo flujo. No añadir F133 por esta causa. **Próximo gate físico: primero build-only local de fuente→objeto→ELF; después, solo con consentimiento de banco, upload a COM4 y UART/PHY real.** Ni COM14 ni R1–R4 autorizados.
+
+```text
+F132=RESOLVED_NONPHYSICAL_CI
+F132_CI=PASS_4_OF_4_EXACT_CODE_SHA_C76F7E3A
+F132_LOCAL_WINDOWS=AWAITING_OPERATOR
+F132_FIRMWARE_CHANGED=NO
+F132_COM4_FLASH=NOT_RUN
+NEXT_FAILURE_ID=F133
+```

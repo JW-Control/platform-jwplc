@@ -1,3 +1,32 @@
+# ESTADO VIGENTE — 19/10/2026 — Alpha13 F132 corregido y verificado por CI; H0 COM4 físico pendiente
+
+**F132 (tooling) CERRADO A NIVEL NO FÍSICO.** El código del ejecutor en HEAD `c76f7e3a8240c8c6a650445aae2b4be61f5e5488` fue validado por [CI Windows H0-F1 #39289719081](https://github.com/JW-Control/platform-jwplc/actions/runs/39289719081): **N0 y N2 2/2 PASS**, con `H0F1_PLATFORM=PASS_ISOLATED_PACKAGE_PATH_CANONICAL`, `H0F1_ETHERNET=PASS_CANONICAL_SAME_STAGED_LIBRARY`, `H0F1_W5100=PASS_GCC_OBJECT_DEPENDENCY_FROM_STAGING`, `H0F1_BUILD=PASS_SOURCE_FIRST`, `H0F1_UPLOAD=NOT_RUN` y `COM14=NOT_TOUCHED`. El N0 incluye pruebas positivas/negativas para alias NTFS 8.3 y el caso F003 de colección PowerShell de un solo archivo. [G10-R #39289718821](https://github.com/JW-Control/platform-jwplc/actions/runs/39289718821): **2/2 PASS Windows/Ubuntu**. **Total 4/4 PASS, ninguno omitido.**
+
+**Alcance y distinción de SHA:** las pruebas respaldan el SHA de código `c76f7e3a`; cualquier commit documental posterior solo actualiza estado/registros y no constituye otro binario. Para cierre del PR comprobar el diff final y su CI. Se integró F1 original en PR #116, no se modifica nuevamente `JWPLC/2.1.0`. La ausencia de resets/WDT en hardware **no está acreditada**: falta ejecutar **build-only en PC Windows del operador** desde Git limpio; únicamente después se puede iniciar upload COM4 con sus verificaciones MAC/flash y consentimiento local; COM14 intocado y R1–R4 bloqueados.
+
+**Incidentes:** F132 (vendor Arduino CLI duplicado, alias NTFS 8.3, recurrencia F003 al inspeccionar dependencias) resuelto en harness por CI, no se abre ID adicional. [FAILURE F132](A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md) actualizado. Conocimiento privado sincronizado mediante [PR #15](https://github.com/JW-Control/jwplc-dev-mcp/pull/15) y [PR #16](https://github.com/JW-Control/jwplc-dev-mcp/pull/16).
+
+```text
+ALPHA13=OPEN
+F131=F1_PRODUCT_MERGED_H_PHYSICAL_PENDING
+F132=RESOLVED_NONPHYSICAL_CI_SOURCE_FIRST_WINDOWS
+F132_CI_N0_N2=PASS_2_OF_2_RUN_39289719081_CODE_SHA_C76F7E3A
+F132_CI_G10R=PASS_2_OF_2_RUN_39289718821_CODE_SHA_C76F7E3A
+F132_LOCAL_BUILD=AWAITING_OPERATOR
+F132_PHYSICAL_COM4=NOT_RUN
+NEXT_FAILURE_ID=F133
+H0_F1_SOURCE_FIRST_CI=PASS_NO_OVERLAY
+H0_F1_H=NOT_RUN
+COM4_UPLOAD=NOT_RUN
+COM14=NOT_TOUCHED
+G10-R-R1_R2_R3_R4=BLOCKED_NOT_AUTHORIZED
+G10_PACKAGE_PROMOTION=PENDING
+ALPHA15=UNMODIFIED
+NEXT_GATE=H0_F1_OPERATOR_LOCAL_BUILD_ONLY_THEN_SEPARATE_COM4_UPLOAD
+```
+
+---
+
 # ESTADO VIGENTE — 19/10/2026 — Alpha13 H0-F1: plataforma y biblioteca staged PASS, parser GCC en retest
 
 **Evidencia no física:** [CI #39288903468](https://github.com/JW-Control/platform-jwplc/actions/runs/39288903468) sobre HEAD `ab68119a4319f84d192904e51a7c75375402bcdf`: N0 Windows PASS (alias NTFS 8.3 y negativo), `H0F1_PLATFORM=PASS_ISOLATED_PACKAGE_PATH_CANONICAL`, `H0F1_ETHERNET=PASS_CANONICAL_SAME_STAGED_LIBRARY`; N2 FAIL tras la compilación por recurrencia conocida de **F003** (filtro PowerShell que devuelve una cadena en vez de array y `$deps[0]` pasa a ser `C`). No prueba defecto de producto ni puerto COM. Corregido en PR #120 por array externo `@(...)` que preserva un único archivo `.d`. **CI del nuevo HEAD: aún no PASS**. [Registro F132](A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md).
