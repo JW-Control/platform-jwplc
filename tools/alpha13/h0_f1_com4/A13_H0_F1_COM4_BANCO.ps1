@@ -45,6 +45,9 @@ if (!$body.Contains('#define PIN_SPI_SS_ETHERNET_LIB JWPLC_ETH_CS') -or
     !$body.Contains('#error "SS_PIN_DEFAULT apunta a GPIO6-11')) { Fail 'PACKAGE_F1_NOT_PRESENT' }
 if ($UploadCOM4 -and $ExpectedMac -notmatch '^([a-fA-F0-9]{2}:){5}[a-fA-F0-9]{2}$') { Fail 'EXPECTED_MAC_REQUIRED' }
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$pathIdentity = Join-Path $scriptDir 'A13_H0_F1_PATH_IDENTITY.ps1'
+if (!(Test-Path -LiteralPath $pathIdentity -PathType Leaf)) { Fail 'F132_PATH_IDENTITY_HELPER_MISSING' }
+. $pathIdentity
 $ino = Join-Path $scriptDir 'A13_H0_F1_SMOKE.ino'
 if (!(Test-Path -LiteralPath $ino)) { Fail 'SMOKE_SKETCH_MISSING' }
 $null = Run-Checked $Cli @('version')
@@ -93,8 +96,8 @@ try {
   Write-Host ('H0F1_PLATFORM_EXPECTED='+$platform)
   Fail 'RUNTIME_PLATFORM_SELECTED_PATH_NOT_FOUND'
 }
-$expectedCanonical = [IO.Path]::GetFullPath($platform).TrimEnd([char[]]@('\','/'))
-$selectedCanonical = [IO.Path]::GetFullPath($selected).TrimEnd([char[]]@('\','/'))
+$expectedCanonical = Get-H0F1CanonicalPath $platform
+$selectedCanonical = Get-H0F1CanonicalPath $selected
 if (!([string]::Equals($selectedCanonical,$expectedCanonical,
                        [StringComparison]::OrdinalIgnoreCase))) {
   Write-Host ('H0F1_PLATFORM_SELECTED='+$selectedCanonical)
@@ -113,7 +116,7 @@ foreach ($property in @('build.board.platform.path','build.core.platform.path',
     if (!$raw) { Fail ('EMPTY_PROPERTY_'+$property) }
     try {
       $p = (Resolve-Path -LiteralPath ($raw.Replace('/','\')) -ErrorAction Stop).ProviderPath
-      $canon = [IO.Path]::GetFullPath($p).TrimEnd([char[]]@('\','/'))
+      $canon = Get-H0F1CanonicalPath $p
     } catch { Fail ('UNRESOLVED_PROPERTY_'+$property) }
     if (!([string]::Equals($canon,$expectedCanonical,[StringComparison]::OrdinalIgnoreCase))) {
       Write-Host ('H0F1_WRONG_PROPERTY='+$property+' VALUE='+$canon)
@@ -135,13 +138,23 @@ $compile = Run-Checked $Cli @('--config-file',$cfg,'compile','--fqbn',$FQBN,
                               '--build-path',$build,'-v',$sketch) (Join-Path $stage 'COMPILE.log')
 $found = @($compile -split '\r?\n' | Where-Object { $_ -match '^Using library JWPLC_Ethernet\b' })
 if ($found.Count -ne 1) { Fail 'ETHERNET_LIBRARY_AMBIGUOUS' }
-$norm = ($found[0] -replace '\\','/').ToLowerInvariant()
-$wanted = ((Join-Path $hw 'libraries\JWPLC_Ethernet') -replace '\\','/').ToLowerInvariant()
-if (!$norm.Contains($wanted)) {
-  Write-Host ('H0F1_ETHERNET_SELECTED='+$found[0])
-  Write-Host ('H0F1_ETHERNET_EXPECTED='+$stagedEthernet)
+# Arduino CLI puede usar el alias NTFS 8.3 (RUNNER~1) para una misma
+# libreria cuyo log muestra el nombre largo. No comparar con Contains().
+$selectedLibLine = ($found[0] -replace '^.+? in folder:\s*','').Trim().Trim('"')
+$selectedLibCanonical = $null
+try {
+  $selectedLibCanonical = Get-H0F1CanonicalPath $selectedLibLine
+} catch {
+  Write-Host ('H0F1_ETHERNET_SELECTED_RAW='+$selectedLibLine)
+  Fail 'ETHERNET_LIBRARY_PATH_MISSING_OR_INVALID'
+}
+$wantedLibCanonical = Get-H0F1CanonicalPath $stagedEthernet
+if (!([string]::Equals($selectedLibCanonical,$wantedLibCanonical,[StringComparison]::OrdinalIgnoreCase))) {
+  Write-Host ('H0F1_ETHERNET_SELECTED='+$selectedLibCanonical)
+  Write-Host ('H0F1_ETHERNET_EXPECTED='+$wantedLibCanonical)
   Fail 'WRONG_ETHERNET_LIBRARY'
 }
+Write-Host 'H0F1_ETHERNET=PASS_CANONICAL_SAME_STAGED_LIBRARY'
 $objs = @(Get-ChildItem -LiteralPath $build -Recurse -File -Filter 'w5100.cpp.o')
 if ($objs.Count -ne 1) { Fail 'W5100_SOURCE_OBJECT_MISSING_OR_MULTIPLE' }
 # gcc -MMD puede generar w5100.cpp.d o w5100.cpp.o.d; exigir evidencia
@@ -155,10 +168,13 @@ $depText = [IO.File]::ReadAllText($deps[0])
 # GCC Makefile .d usa escapes para los espacios, los dos puntos de Windows,
 # barras duplicadas y continuaciones de linea. Igual regla que F129.
 $depNorm = $depText.Replace("`r`n","`n").Replace("\`n"," ").Replace('\ ',' ').Replace('\:',':').Replace('\\','\').Replace('\','/').ToLowerInvariant()
-$sourceExpected = ((Join-Path $hw 'libraries\JWPLC_Ethernet\src\utility\w5100.cpp').Replace('\','/')).ToLowerInvariant()
-if (!$depNorm.Contains($sourceExpected)) {
+$sourceFile = Join-Path $stagedEthernet 'src\utility\w5100.cpp'
+$sourceAlias = $sourceFile.Replace('\','/').ToLowerInvariant()
+$sourceLong = (Get-H0F1CanonicalPath $sourceFile).Replace('\','/').ToLowerInvariant()
+if (!($depNorm.Contains($sourceAlias) -or $depNorm.Contains($sourceLong))) {
   Fail 'W5100_SOURCE_DEPENDENCY_NOT_FROM_STAGING'
 }
+Write-Host 'H0F1_W5100=PASS_GCC_OBJECT_DEPENDENCY_FROM_STAGING'
 $elfs = @(Get-ChildItem -LiteralPath $build -File -Filter '*.elf')
 if ($elfs.Count -ne 1) { Fail 'ELF_MISSING_OR_MULTIPLE' }
 $sourceSha = (Get-FileHash $w5100 -Algorithm SHA256).Hash
