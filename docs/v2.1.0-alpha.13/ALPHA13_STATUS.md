@@ -1,28 +1,38 @@
-# ESTADO VIGENTE — 19/10/2026 — Alpha13 H0-F1 implementado en rama aislada, pendiente de CI y físico
+# ESTADO VIGENTE — 19/10/2026 — Alpha13 H0-F1: N0–N3 y E1/E2 PASS no físicos, H pendiente
 
-> Este bloque se aplica **solo a la rama candidata F1**, no declara integración en la base ni PASS de H0. Véase [A13_H0_F1_PACKAGE_SS_PIN_20261019.md](A13_H0_F1_PACKAGE_SS_PIN_20261019.md). Último código físico H0-F = `f0b9075130158b99d89e0f9a574d964236614b78` (FAIL TG1WDT Stage63); su evidencia N0–N3 previa corresponde al overlay instrumentado y **no** valida F1.
->
-> Rama base comprobada al iniciar: `v2.1.0-alpha.13/feature/cleanup-robustness` @ `a9c96273274170195498ff282decf93f0388a450`; BASE_SYNC=OK y KNOWLEDGE_SYNC=OK al iniciar. Código F1 en `codex/alpha13-h0-f1-ss-pin-default-20261019`: solo `w5100.cpp` productivo, con CS desde `JWPLC_ETH_CS` y #error GPIO6–11. No se cambiaron API, variant, GPIO4, autoload, periféricos, archives ni Alpha15. Test nativo negativo y CI específica nuevos. **F1 pendiente de N0–N3 verificadas**. E1/E2 dependen de artifacts/toolchain; no se declara PASS hasta comprobar.
+> **Candidato NO fusionado:** [PR #116 Draft](https://github.com/JW-Control/platform-jwplc/pull/116), rama `codex/alpha13-h0-f1-ss-pin-default-20261019`, desde base `a9c96273274170195498ff282decf93f0388a450`. **F1 modifica únicamente `JWPLC_Ethernet/src/utility/w5100.cpp` dentro del package**. No hay flasheo, COM, merge ni publicación. Protocolo y evidencia: [A13_H0_F1_PACKAGE_SS_PIN_20261019.md](A13_H0_F1_PACKAGE_SS_PIN_20261019.md).
+
+**Resultados no físicos verificados por SHA:**
+- [CI F1 #39205102378](https://github.com/JW-Control/platform-jwplc/actions/runs/39205102378), SHA `9b57cfc324417d578ae25e3b5a9ff11593aaa726`: **4/4 jobs PASS, ninguno skipped**. N0 Ubuntu y Windows, N1 host con fuente literal (`10` original, `5` corregido, GPIO10 prohibido), N2 source-first `jwplcbasic` y `jwplcbasiccore`, N3 **11/11 sketches del package**, sin overlay. Artifact `a13-h0-f1-package-39205102378`; fuente→.d→.o→ELF verificada.
+- [E1/E2 #39205926623](https://github.com/JW-Control/platform-jwplc/actions/runs/39205926623), SHA `df2174b6284554a16b55aa57679fce96806eee3d`: **1/1 job PASS**, con ELF original/actual recompilados del mismo package. E1 lee el símbolo `W5100Class::ss_pin` directamente del byte de su sección `PROGBITS`: **10 antes, 5 después**. GDB no estaba disponible; ELF brinda evidencia binaria independiente. E2 inspeccionó el `sdkconfig.h` del SDK efectivo y confirmó **`CONFIG_ESPTOOLPY_FLASHMODE_QIO=1`**. Artifact `a13-h0-e1e2-39205926623`.
+- De SHA `9b57cfc` a `df2174b` solo se añadieron dos rutas del gate de evidencias; **0 archivos productivos modificados**, por lo que se reutiliza el PASS N0–N3 sobre el mismo firmware.
+- **Nota CI separada:** el workflow legado `alpha13-g10-r-preflight.yml` falló para este PR al detectar intencionalmente `JWPLC/` y nuevas rutas fuera de su whitelist experimental. Es un **FAIL de alcance legado, no PASS**, y no invalida el gate dedicado F1. Se mantiene su política fail-closed sin relajarla.
+
+**Límites:** H0 físico COM4 sigue NO AUTORIZADO; ningún PASS de CI valida la ausencia de WDT en banco. COM14 no tocado. R1–R4 bloqueados. Robustez G10 aún en overlays, pendiente de promoción a package, sin instrumentación diagnóstica.
 
 ```text
 ALPHA13=OPEN
 HITO=G10-R/H0-F1
 H0_ROOT_CAUSE=IDENTIFIED_SOURCE_CONFIRMED
-H0_FIX_F1=IMPLEMENTED_ISOLATED_UNVERIFIED
-H0_E1_GDB_BEFORE_AFTER=PENDING_CI
-H0_E2_QIO_SDKCONFIG=PENDING_CI
-H0_F1_N0_N1_N2_N3=PENDING_CI
+H0_FIX_F1=IMPLEMENTED_PACKAGE_BRANCH_CANDIDATE
+H0_E1=PASS_ELF_BYTES_SS_PIN_10_TO_5_GDB_NOT_INSTALLED
+H0_E2=PASS_SDKCONFIG_CONFIG_ESPTOOLPY_FLASHMODE_QIO_1
+H0_F1_N0_N1_N2_N3=PASS_CI_4_OF_4_RUN_39205102378_SOURCE_FIRST_PACKAGE
+H0_F1_N3=PASS_11_OF_11_PACKAGE_NO_OVERLAY
+H0_E1_E2_CI=PASS_1_OF_1_RUN_39205926623
+H0_H=NOT_RUN_NOT_AUTHORIZED
+G10_R_LEGACY_SCOPE=FAIL_CLOSED_EXPECTED_FOR_APPROVED_F1_PRODUCT_CHANGE
 F130=CONFIRMED_PROCESS
-F131=CONFIRMED_PRODUCT_SOURCE
+F131=CONFIRMED_PRODUCT_SOURCE_FIX_CANDIDATE
 NEXT_FAILURE_ID=F132
-G10_PACKAGE_PROMOTION=PENDING_OVERLAY_ONLY
+PENDIENTE_DE_PROMOCIÓN=G10_W5500_SAFEACCESS_SOCKETS_ETHERNET_MODBUSTCP
 G10-R-R1_R2_R3_R4=NOT_RUN
 G10-R-H=REVIEW_STOP_NOT_AUTHORIZED
 A13-006=ADOPTION_BLOCKED
 ALPHA15=UNMODIFIED
-BASE_SYNC=OK_AT_BRANCH_START; F1_INTEGRATION=PENDING_OPERATOR
+BASE_SYNC=OK_AT_START_F1_PR_116_PENDING_OPERATOR_MERGE
 KNOWLEDGE_SYNC=OK
-NEXT_GATE=H0_F1_CI_N0_N1_N2_N3_THEN_E1_E2_REVIEW_THEN_EXPLICIT_COM4_AUTH
+NEXT_GATE=H0_F1_OPERATOR_REVIEW_PR_116_THEN_EXPLICIT_COM4_H_AUTH
 ```
 
 ---

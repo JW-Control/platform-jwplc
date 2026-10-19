@@ -1,6 +1,6 @@
 # Alpha13 — H0-F1: SS Ethernet seguro desde el package (19/10/2026)
 
-**Estado:** IMPLEMENTADO EN RAMA AISLADA / N0–N3 PENDIENTES DE CI / H NO AUTORIZADO.
+**Estado:** F1 IMPLEMENTADO EN PACKAGE DE RAMA AISLADA / N0–N3 PASS CI / E1–E2 PASS ELF+SDK / H NO AUTORIZADO.
 **Base:** v2.1.0-alpha.13/feature/cleanup-robustness @ a9c96273274170195498ff282decf93f0388a450.
 **Rama:** codex/alpha13-h0-f1-ss-pin-default-20261019.
 **Registro existente:** F130 (proceso), F131 (defecto de producto). **NEXT_FAILURE_ID:** F132; no crear otro ID para el mismo incidente.
@@ -18,18 +18,25 @@
 
 | Nivel | Control | Estado inicial |
 |---|---|---|
-| E1 previo | Recompilar desde la fuente anterior y consultar con GDB W5100Class::ss_pin en ELF, se espera 10 | PENDIENTE |
-| E2 previo | CONFIG_ESPTOOLPY_FLASHMODE_QIO=1 en sdkconfig.h del core efectivo | PENDIENTE |
-| N0 | Comparación con SHA base; diff de package solo w5100.cpp; cuatro negativos por eliminación de guardas | PENDIENTE CI |
-| N1 | Compilar bloque literal SS del w5100.cpp anterior (10) y corregido (5) con variant SS static const = 5; error con -DPIN_SPI_SS_ETHERNET_LIB=10 | PENDIENTE CI |
-| N2 | Build source-first del sketch linkStatus() en setup() en jwplcbasic y jwplcbasiccore; verificar .d, .o, ELF y biblioteca seleccionada | PENDIENTE CI |
-| N3 | Compilar 11 sketches representativos DIRECTAMENTE desde el package de esta rama, sin overlay G10; auditar fuente→objeto→ELF | PENDIENTE CI |
+| E1 previo | ELF fuente anterior y corregida; lectura directa del byte de W5100Class::ss_pin en PROGBITS | **PASS: 10 → 5** (GDB no instalado) |
+| E2 previo | CONFIG_ESPTOOLPY_FLASHMODE_QIO=1 en sdkconfig.h del core efectivo | **PASS: 1** |
+| N0 | Comparación con SHA base; diff de package solo w5100.cpp; cuatro negativos por eliminación de guardas | **PASS Ubuntu/Windows** |
+| N1 | Compilar bloque literal SS del w5100.cpp anterior (10) y corregido (5) con variant SS static const = 5; error con -DPIN_SPI_SS_ETHERNET_LIB=10 | **PASS 10/5/negativo** |
+| N2 | Build source-first del sketch linkStatus() en setup() en jwplcbasic y jwplcbasiccore; verificar .d, .o, ELF y biblioteca seleccionada | **PASS ambos FQBN** |
+| N3 | Compilar 11 sketches representativos DIRECTAMENTE desde el package de esta rama, sin overlay G10; auditar fuente→objeto→ELF | **PASS 11/11** |
 | H | COM4 autorizado por el operador: primer READY PHY real, estabilidad 15 min, RJ45 OFF/ON, 10 power-cycle y 10 resets EN | NO AUTORIZADO |
 | C | Estado, fallos, manifest y sincronización con base mediante PR aprobado | PENDIENTE |
 
 Runner: tools/alpha13/gates/a13_h0_f1_test.py y a13_h0_f1_arduino.py.
 Workflow: .github/workflows/alpha13-h0-f1-package.yml.
 El runner escribe manifest.json y logs de compilación como artifact; no publica ELF, firmware, datos del banco ni secretos. No requiere USB/COM.
+
+## Evidencias CI verificadas
+
+- [F1 N0–N3, 4/4 jobs sin omitidos, SHA 9b57cfc](https://github.com/JW-Control/platform-jwplc/actions/runs/39205102378). Artifact `a13-h0-f1-package-39205102378`.
+- [E1/E2, 1/1 job, SHA df2174b](https://github.com/JW-Control/platform-jwplc/actions/runs/39205926623). Artifact `a13-h0-e1e2-39205926623`. E1 obtuvo el byte del símbolo en ELF sin GDB; E2 obtuvo la macro QIO real desde `sdkconfig.h`.
+- Diff entre ambos SHA: **solo** nuevo script y workflow E1/E2, cero rutas `JWPLC/`. Se reutiliza el PASS del package sin recompilar N3 por cambios solo de tooling.
+- El workflow G10-R N0 legado declara FAIL de whitelist al detectar un cambio productivo F1, como está diseñado. **No se contabiliza ese FAIL como PASS ni se relaja su guarda**: la aprobación específica de `w5100.cpp` se valida con el N0 F1 dedicado.
 
 ## Criterios de parada
 
@@ -48,10 +55,10 @@ No copiar al package marcas RTC H0, LabSocketSnapshot, eventos UART y amigos tem
 
 ## Estado pendiente al abrir PR
 
-H0_FIX_F1=IMPLEMENTED_ISOLATED_UNVERIFIED
+H0_FIX_F1=IMPLEMENTED_PACKAGE_CANDIDATE_N0_N3_E1_E2_PASS
 H0_FIX_F2=DISCARDED
 G10_PACKAGE_PROMOTION=PENDING_OVERLAY_ONLY
 G10-R-R1_R2_R3_R4=NOT_RUN
 G10-R-H=NOT_AUTHORIZED
 ALPHA15=UNMODIFIED
-NEXT_GATE=H0_F1_CI_N0_N1_N2_N3_THEN_REVIEW_E1_E2_THEN_EXPLICIT_COM4_AUTH
+NEXT_GATE=H0_F1_OPERATOR_REVIEW_PR_116_THEN_EXPLICIT_COM4_H_AUTH
