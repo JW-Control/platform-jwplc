@@ -1,0 +1,66 @@
+name: Alpha13 H0 F1 COM4 - kit en repositorio y CI sin USB
+on:
+  pull_request:
+    paths:
+      - 'tools/alpha13/h0_f1_com4/**'
+      - '.github/workflows/alpha13-h0-f1-com4-runner.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  n0:
+    name: H0 F1 Kit N0 - PowerShell sintaxis y puertas de seguridad
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - name: Validacion sintactica y scope
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dir = 'tools/alpha13/h0_f1_com4'
+          $script = Join-Path $dir 'A13_H0_F1_COM4_BANCO.ps1'
+          $tokens = $null
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $script).Path, [ref]$tokens, [ref]$errors)
+          if ($errors.Count -gt 0) { throw ('POWERSHELL_PARSE_FAIL: '+($errors|Out-String)) }
+          $body = [IO.File]::ReadAllText((Resolve-Path $script).Path)
+          $ino = [IO.File]::ReadAllText((Resolve-Path (Join-Path $dir 'A13_H0_F1_SMOKE.ino')).Path)
+          if (!$body.Contains("if (!$UploadCOM4)") -and !$body.Contains('H0F1_UPLOAD=NOT_RUN')) { throw 'BUILD_ONLY_MODE_MISSING' }
+          if (!$body.Contains("'COM4'") -or !$body.Contains('H0F1 AUTORIZO SOLO COM4 PACKAGE CORREGIDO SIN BACKUP')) { throw 'COM4_CONSENT_MISSING' }
+          if ($body -match '--port.{0,15}COM14') { throw 'COM14_FORBIDDEN' }
+          if (!$ino.Contains('JWPLC_Ethernet.linkStatus()') -or !$ino.Contains('RTC_NOINIT_ATTR') -or !$ino.Contains('H0F1_EARLY_LINK_RETURN')) { throw 'H0_F1_SMOKE_CONTRACT_DRIFT' }
+          $productDiff = git diff --name-only 931398783e94b086210132f2d12ea6e0145c4779 HEAD -- JWPLC/
+          if ($productDiff) { throw "PRODUCT_CHANGED_IN_KIT: $productDiff" }
+          Write-Host 'H0F1_KIT_N0=PASS_SYNTAX_PRODUCT_UNCHANGED_COM4_ONLY'
+  n2:
+    name: H0 F1 Kit N2 - prueba real compilacion Windows package
+    runs-on: windows-latest
+    needs: n0
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - uses: arduino/setup-arduino-cli@v2
+        with:
+          version: '1.5.1'
+      - name: Preparar toolchain Arduino
+        shell: powershell
+        run: |
+          arduino-cli config init --overwrite
+          arduino-cli config set board_manager.additional_urls 'https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json'
+          arduino-cli core update-index
+          if ($LASTEXITCODE -ne 0) { throw 'ARDUINO_INDEX_FAIL' }
+          arduino-cli core install 'jwplc:esp32@2.1.0-alpha.10'
+          if ($LASTEXITCODE -ne 0) { throw 'ARDUINO_INSTALL_FAIL' }
+      - name: Ejecucion script versionado en modo SOLO BUILD
+        shell: powershell
+        run: |
+          $head = (git rev-parse HEAD).Trim()
+          & .\tools\alpha13\h0_f1_com4\A13_H0_F1_COM4_BANCO.ps1 -ExpectedHead $head
+          if ($LASTEXITCODE -ne 0) { throw 'H0_F1_RUNNER_EXIT_NONZERO' }
