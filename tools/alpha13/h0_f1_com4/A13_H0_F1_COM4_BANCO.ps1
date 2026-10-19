@@ -11,7 +11,7 @@ param(
   [string]$Cli = 'arduino-cli'
 )
 $ErrorActionPreference = 'Stop'
-$FQBN = 'jwplc_local:esp32:jwplcbasic'
+$FQBN = 'jwplc_h0f1:esp32:jwplcbasic'  # ID exclusivo de la copia temporal; board/firmware JWPLC reales
 $PORT = 'COM4'
 $CONSENT = 'H0F1 AUTORIZO SOLO COM4 PACKAGE CORREGIDO SIN BACKUP'
 $F1_MERGE = 'f2c6821566fa62df744c3af8d4d70a440994e64f'
@@ -51,13 +51,17 @@ $null = Run-Checked $Cli @('version')
 $stage = Join-Path $env:TEMP ('jwplc_a13_h0f1_'+$head.Substring(0,12)+'_'+(Get-Date -Format 'yyyyMMddHHmmss'))
 if (Test-Path -LiteralPath $stage) { Fail 'TEMP_COLLISION' }
 $book = Join-Path $stage 'sketchbook'
-$hw = Join-Path $book 'hardware\jwplc_local\esp32'
+$hw = Join-Path $book 'hardware\jwplc_h0f1\esp32'
 $cfgDir = Join-Path $stage 'config'
 $build = Join-Path $stage 'build'
 $sketch = Join-Path $stage 'A13_H0_F1_SMOKE'
 New-Item -ItemType Directory -Path @((Split-Path -Parent $hw),$cfgDir,$build,$sketch) -Force | Out-Null
 Copy-Item -LiteralPath $source -Destination $hw -Recurse -Force
 Copy-Item -LiteralPath $ino -Destination $sketch -Force
+# F132: Boards Manager eclipsa un platform manual con el mismo vendor:architecture.
+# Se monta la MISMA copia del package con vendor temporal exclusivo; no se edita
+# boards.txt, platform.txt, las librerias, ni la instalacion global Arduino15.
+# El FQBN se usa solo en build/upload del smoke, no es un board distribuible.
 $cfg = Join-Path $cfgDir 'arduino-cli.yaml'
 $null = Run-Checked $Cli @('config','init','--dest-dir',$cfgDir,'--overwrite')
 $null = Run-Checked $Cli @('--config-file',$cfg,'config','set','directories.user',$book)
@@ -97,7 +101,28 @@ if (!([string]::Equals($selectedCanonical,$expectedCanonical,
   Write-Host ('H0F1_PLATFORM_EXPECTED='+$expectedCanonical)
   Fail 'WRONG_PLATFORM_SELECTED'
 }
+# La plataforma de placa, core y variant debe venir del staging, no de Arduino15.
+foreach ($property in @('build.board.platform.path','build.core.platform.path',
+                        'build.variant.platform.path')) {
+  $matched = @($props -split '\r?\n' | Where-Object {
+    $_.Trim() -match ('^'+[regex]::Escape($property)+'\s*=')
+  })
+  if ($matched.Count -gt 1) { Fail ('DUPLICATED_PROPERTY_'+$property) }
+  if ($matched.Count -eq 1) {
+    $raw = ($matched[0] -split '=', 2)[1].Trim().Trim('"')
+    if (!$raw) { Fail ('EMPTY_PROPERTY_'+$property) }
+    try {
+      $p = (Resolve-Path -LiteralPath ($raw.Replace('/','\')) -ErrorAction Stop).ProviderPath
+      $canon = [IO.Path]::GetFullPath($p).TrimEnd([char[]]@('\','/'))
+    } catch { Fail ('UNRESOLVED_PROPERTY_'+$property) }
+    if (!([string]::Equals($canon,$expectedCanonical,[StringComparison]::OrdinalIgnoreCase))) {
+      Write-Host ('H0F1_WRONG_PROPERTY='+$property+' VALUE='+$canon)
+      Fail 'NON_ISOLATED_PLATFORM_DEPENDENCY'
+    }
+  }
+}
 Write-Host 'H0F1_PLATFORM=PASS_ISOLATED_PACKAGE_PATH_CANONICAL'
+Write-Host 'H0F1_STAGING_VENDOR=jr_h0f1_ALIAS_JWPLC_SOURCE_UNMODIFIED'
 $compile = Run-Checked $Cli @('--config-file',$cfg,'compile','--fqbn',$FQBN,
                               '--warnings','default','--build-path',$build,'-v',$sketch) (Join-Path $stage 'COMPILE.log')
 $found = @($compile -split '\r?\n' | Where-Object { $_ -match '^Using library JWPLC_Ethernet\b' })
@@ -107,9 +132,19 @@ $wanted = ((Join-Path $hw 'libraries\JWPLC_Ethernet') -replace '\\','/').ToLower
 if (!$norm.Contains($wanted)) { Fail 'WRONG_ETHERNET_LIBRARY' }
 $objs = @(Get-ChildItem -LiteralPath $build -Recurse -File -Filter 'w5100.cpp.o')
 if ($objs.Count -ne 1) { Fail 'W5100_SOURCE_OBJECT_MISSING_OR_MULTIPLE' }
-$dep = Join-Path $objs[0].DirectoryName 'w5100.cpp.d'
-if (!(Test-Path -LiteralPath $dep)) { Fail 'W5100_DEP_MISSING' }
-if (!([IO.File]::ReadAllText($dep)).Contains('w5100.cpp')) { Fail 'W5100_DEP_INVALID' }
+# gcc -MMD puede generar w5100.cpp.d o w5100.cpp.o.d; exigir evidencia
+# GCC real con referencia al fuente staged y rechazar .o heredados.
+$deps = @(
+  (Join-Path $objs[0].DirectoryName 'w5100.cpp.d'),
+  (Join-Path $objs[0].DirectoryName 'w5100.cpp.o.d')
+) | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf }
+if ($deps.Count -eq 0) { Fail 'W5100_DEP_MISSING' }
+$depText = ($deps | ForEach-Object { [IO.File]::ReadAllText($_) }) -join "`n"
+$depNorm = $depText.Replace('\','/').Replace('\ ',' ')
+$sourceExpected = ((Join-Path $hw 'libraries\JWPLC_Ethernet\src\utility\w5100.cpp').Replace('\','/'))
+if (!$depNorm.Contains($sourceExpected)) {
+  Fail 'W5100_SOURCE_DEPENDENCY_NOT_FROM_STAGING'
+}
 $elfs = @(Get-ChildItem -LiteralPath $build -File -Filter '*.elf')
 if ($elfs.Count -ne 1) { Fail 'ELF_MISSING_OR_MULTIPLE' }
 $sourceSha = (Get-FileHash $w5100 -Algorithm SHA256).Hash
