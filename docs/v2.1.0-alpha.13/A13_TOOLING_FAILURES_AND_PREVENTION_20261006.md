@@ -2601,3 +2601,139 @@ F132_FIRMWARE_CHANGED=NO
 F132_COM4_FLASH=NOT_RUN
 NEXT_FAILURE_ID=F133
 ```
+
+
+### F132 — cierre local confirmado por salida del operador (19/10/2026)
+
+El operador compartió el log de compilación *sin upload* en Windows desde el checkout limpio y actualizado, HEAD `2b5802720df552e01a0b4f9d4fe1a7bd2de16daf`, ejecutor `tools/alpha13/h0_f1_com4/A13_H0_F1_COM4_BANCO.ps1`:
+
+```text
+H0F1_PLATFORM=PASS_ISOLATED_PACKAGE_PATH_CANONICAL
+H0F1_STAGING_VENDOR=jwplc_h0f1_ALIAS_JWPLC_SOURCE_UNMODIFIED
+H0F1_ETHERNET=PASS_CANONICAL_SAME_STAGED_LIBRARY
+H0F1_W5100=PASS_GCC_OBJECT_DEPENDENCY_FROM_STAGING
+H0F1_BUILD=PASS_SOURCE_FIRST HEAD=2b5802720df552e01a0b4f9d4fe1a7bd2de16daf
+H0F1_UPLOAD=NOT_RUN COM14=NOT_TOUCHED
+```
+
+Esta evidencia complementa [CI N0/N2 #39290491529](https://github.com/JW-Control/platform-jwplc/actions/runs/39290491529) y [G10-R #39290491493](https://github.com/JW-Control/platform-jwplc/actions/runs/39290491493), ambos **2/2 PASS** para el HEAD pre-merge de PR #120. Por tanto, **F132=RESOLVED_CI_AND_LOCAL_BUILD** y `NEXT_FAILURE_ID=F133`; no duplicar F132 ni F003. El `MANIFEST.json` permanece en el PC del operador y no fue inspeccionado aquí: el cierre de F132 se apoya en la salida aportada.
+
+**Separación estricta:** ninguna placa fue flasheada y la observación Ethernet PHY/WDT es `NOT_RUN`; F131 permanece en H0-F1. La nueva nota de resultados permanece primero en una rama documental separada para conservar el HEAD operativo utilizado en la compilación local, hasta completar la siguiente autorización de hardware.
+
+```text
+F132=RESOLVED_CI_AND_LOCAL_BUILD
+F132_LOCAL_BUILD=PASS_SOURCE_FIRST_HEAD_2B580272
+F132_MANIFEST=PRIVATE_UNREVIEWED
+F132_UPLOAD=NOT_RUN
+F131_H0_H=NOT_RUN
+COM14=NOT_TOUCHED
+NEXT_FAILURE_ID=F133
+```
+
+
+### F131/H0 — primera evidencia física positiva con package F1 (2026-10-19)
+
+**No es un ID nuevo:** se actualiza F131, la incidencia original del W5500; **F132** (harness) permanece resuelto por CI y build local. El operador comprobó comunicación de la placa de desarrollo por COM4, aceptó las comprobaciones del ejecutor y autorizó la carga del mismo HEAD de código `2b5802720df552e01a0b4f9d4fe1a7bd2de16daf`. Reportó `H0F1_BUILD=PASS_SOURCE_FIRST`, `H0F1_UPLOAD=PASS_COM4_ONLY COM14=NOT_TOUCHED`.
+
+La UART 115200 del **sketch de package real, no overlay**, mostró `H0F1_EARLY_LINK_BEGIN`, `H0F1_EARLY_LINK_RETURN=2` (PHY LinkOFF real), `H0F1_READY... STAGE=2 LINK=2` con `COUNT=1..12`, tras un `rst:0x1 (POWERON_RESET)`. Antes de ese reset ya aparecía `COUNT=10..12 STAGE=2 LINK=2` de otro boot. El **watchdog TG1WDT_SYS_RESET previo no está presente en esta muestra**, pero eso no acredita estabilidad prolongada.
+
+**Incógnita explícita:** el motivo de `rst:0x1 POWERON_RESET` aún no está identificado (preguntar si hubo reset de EN, reconexión de alimentación o monitor serial); no interpretarlo como watchdog ni descartarlo como espontáneo. `mode:DIO` visible se conserva como dato sin decisión de FlashFreq definitiva. No existe evidencia todavía de `LINK=1` con RJ45, 15 minutos sin resets, 10 ciclos EN/power-cycle, R1–R4 o cierre físico completo. La MAC particular observada no se publica.
+
+```text
+F131_COM4_UPLOAD=PASS_ONLY_COM4
+F131_W5500_EARLY_LINK=PASS_STAGE2_REAL_PHY_LINKOFF
+F131_WDT_SAMPLE=NO_TG1WDT_OBSERVED
+F131_INTERMEDIATE_RESET=POWERON_RESET_ORIGIN_UNKNOWN
+F131_STABILITY_15MIN=NOT_RUN
+F131_RJ45_LINKON=NOT_RUN
+F131_FINAL=OPEN_PENDING_EXTENDED_PHYSICAL_VALIDATION
+F132=RESOLVED_CI_AND_LOCAL_BUILD
+NEXT_FAILURE_ID=F133
+```
+
+
+### F131/H0 — validación física principal positiva: 15 min, LinkOFF→LinkON, reset manual (2026-10-19)
+
+**Complemento al resultado previo, no un nuevo FAILURE.** El operador aclaró expresamente que el `rst:0x1 POWERON_RESET` entre `BOOT=10EF1BB1` y `BOOT=6BCAE2DA` **fue realizado por él**, con RJ45 ausente antes y después del reset. Por ello **no es un reinicio espontáneo del firmware**.
+
+En el mismo `BOOT=6BCAE2DA`, a 115200 baudios, `H0F1_EARLY_LINK_RETURN=2`, `STAGE=2`; progreso desde `COUNT=675` a `898`, con enlace desconectado `LINK=2` hasta `COUNT=728`, y conexión RJ45 a las **13:23:19** mostrando `COUNT=729 LINK=1`. El mismo `LINK=1` se sostuvo en las muestras hasta `COUNT=898` a las 13:26:08 (~170 s conectado), sin `TG1WDT_SYS_RESET` visible. El operador confirmó estabilidad **~15 min total** desde el arranque; las muestras compartidas son extractos del monitor, no archivo UART íntegro.
+
+**Conclusión H0-F1:** `PASS` del **gate físico principal** de la corrección productiva F1 del CS W5500, no de la campaña completa G10. No abrir F133. Permanecen no ejecutados los 10 resets EN, 10 power cycles, cambios LinkON→LinkOFF→LinkON repetidos, protocolos/concurrencia y G10-R R1–R4. No inferir que 15 minutos fueron con RJ45 conectado. `mode:DIO` sigue siendo solamente dato observado.
+
+```text
+F131_FIX_F1=VALIDATED_H0_PRIMARY_PHYSICAL_PASS
+F131_EARLY_PHY=PASS_RETURN_2_REAL
+F131_LINK_TRANSITION=PASS_OFF_2_TO_ON_1
+F131_LINKON_SAMPLED=170_SECONDS
+F131_STABILITY=PASS_15_MIN_TOTAL_OPERATOR_REPORTED
+F131_POWERON_RESET=CONFIRMED_OPERATOR_MANUAL
+F131_UNEXPECTED_RESET=NONE_REPORTED_IN_SAMPLES
+F131_G10_EXTENDED=NOT_RUN
+F132=RESOLVED_CI_AND_LOCAL_BUILD
+COM14=NOT_TOUCHED
+NEXT_FAILURE_ID=F133
+```
+
+
+### F131/H0 — recuperación de enlace ON→OFF→ON sin reinicio (2026-10-19)
+
+El operador realizó una única desconexión y reconexión manual RJ45 **sin reiniciar** el JWPLC Basic COM4. El sketch source-first del package F1, HEAD original `2b5802720df552e01a0b4f9d4fe1a7bd2de16daf`, mantuvo `BOOT=6BCAE2DA`, `STAGE=2` y contador a 1 Hz. Registros seleccionados:
+
+```text
+13:37:36.355 H0F1_READY:BOOT=6BCAE2DA COUNT=1586 STAGE=2 LINK=1
+13:37:37.355 H0F1_READY:BOOT=6BCAE2DA COUNT=1587 STAGE=2 LINK=2
+13:37:43.355 H0F1_READY:BOOT=6BCAE2DA COUNT=1593 STAGE=2 LINK=2
+13:37:44.355 H0F1_READY:BOOT=6BCAE2DA COUNT=1594 STAGE=2 LINK=1
+13:37:50.355 H0F1_READY:BOOT=6BCAE2DA COUNT=1600 STAGE=2 LINK=1
+```
+
+**`F131_H0_F1_RJ45_ON_OFF_ON=PASS_ONE_CYCLE`**, sin watchdog observable en los extractos, sin nuevo boot reportado. `COUNT=1600` indica ~26 min 40 s desde el mismo arranque, pero el UART entregado no cubre cada segundo. La prueba principal de F1 para `SS_PIN_DEFAULT` se sostiene con retorno temprano, estado PHY real, estabilidad y reconexión. No declarar cierre G10-R ni resultados para sockets, DHCP, DNS, Modbus TCP, 10 resets EN o 10 power-cycles. No crear F133 para un gate PASS. MAC, PnP y manifiesto quedan solo locales.
+
+```text
+F131_H0_EARLY_LINK=PASS
+F131_H0_PHYSICAL_PRIMARY=PASS
+F131_H0_LINK_ON_OFF_ON=PASS_SAME_BOOT_ONE_MANUAL_CYCLE
+F131_H0_LAST_COUNT=1600
+F131_H0_UPTIME_FROM_COUNTER=1600S
+F131_H0_EXTENDED_10_EN=NOT_RUN
+F131_H0_EXTENDED_10_POWER_CYCLE=NOT_RUN
+F131_G10_R1_R4=NOT_RUN
+F132=RESOLVED_CI_AND_LOCAL_BUILD
+NEXT_FAILURE_ID=F133
+```
+
+
+### F131 — campaña extendida EN/POWER reportada completada; revisar regla de captura antes de cierre estricto (2026-10-19)
+
+El operador confirmó manualmente 10 EN y 10 power-cycles **solo COM4**, RJ45 desconectado, HEAD productivo original `2b580272...`. El fichero UART compartido contiene 12 BOOT observados (12/12 `H0F1_EARLY_LINK_RETURN=2`; 9/12 con cinco o más mensajes READY). El bloque de consola posterior contiene 10 BOOT con reapertura de COM4 (10/10 `EARLY_LINK_RETURN=2`; 9/10 con cinco o más READY); la captura `BOOT=915169EA` solo llega hasta `COUNT=3`. Hay un banner de arranque duplicado cerca de las 14:21:08 en la primera captura, cuya causa no se adjudica. No se observa `TG1WDT_SYS_RESET` ni panic en la evidencia recibida.
+
+**Clasificación:** mejora funcional repetida observada, **sin indicio de fallo nuevo de producto**; **`H0_EXTENDED_STRICT=REVIEW_EVIDENCE_GAP`** por faltas de cinco contadores, sin inventar veinte capturas completas ni abrir F133. El operador reporta ambas fases como ejecutadas. El PHY con RJ45 ya pasó ON/OFF/ON previamente; 20 reinicios adicionales con cable conectado **no son gate obligatorio**. Solo proponer 2 EN + 2 power-cycles opcionales con RJ45 conectado y permiso específico, sin promover firmware experimental ni tocar COM14. Si se reconcilia/acepta formalmente la diferencia de capturas, habilitar G10-P0 inventario, todavía sin cambios en `JWPLC/`.
+
+```text
+F131_H0_EN_AND_POWER=OPERATOR_CONFIRMED_COMPLETED
+F131_H0_EARLY_LINK=PASS_ALL_BOOT_MARKERS_OBSERVED
+F131_H0_EXTENDED_STRICT=REVIEW_EVIDENCE_GAP
+F131_H0_ETH_CONNECTED_2_PLUS_2=OPTIONAL_NOT_AUTHORIZED
+F131_NEW_PRODUCT_FAILURE=NO_EVIDENCE
+F132=RESOLVED
+NEXT_FAILURE_ID=F133
+```
+
+
+### F131 — complemento EN y USB con RJ45 conectado: seis recuperaciones, sin WDT (2026-10-19)
+
+Tras la campaña de 10+10 con RJ45 desconectado, el operador añadió **tres EN y tres desconexiones/reconexiones USB** con RJ45 conectado. Los seis BOOT nuevos evidencian `STAGE=2`, al menos cinco READY consecutivos y `LINK=1` estable; cinco contienen `EARLY_LINK_RETURN` directo (tres `1`, dos `2`) y el sexto (`F72EA5FC`) inicia su captura en `READY COUNT=1` con `STAGE=2`. Los BOOT iniciales en EN son `7771D843`, `1C9EB6D5`, `195AA6BF`; posteriores a cierre/reapertura USB `BE13DC4E`, `F72EA5FC`, `FD127C6F`. En dos de ellos `LINK=2` al comienzo cambia a `LINK=1` desde COUNT 2: **establecimiento normal del PHY en la muestra, no fallo W5500**.
+
+**Resultado complementario:** `H0_F1_ETH_CONNECTED=PASS_6_OF_6_LINK_RECOVERY`, sin TG1WDT visible. Este resultado refuerza que F1 resuelve la consulta temprana tanto con RJ45 desconectado como con enlace ya presente y durante su negociación. **No corrige retrospectivamente las ventanas de 3–4 READY de la campaña formal 20/20**: ese criterio permanece `REVIEW_EVIDENCE_GAP` hasta aceptación formal. No abrir nuevo ID ni generar modificación del producto; G10 P0 puede inventariarse read-only, promoción de código permanece pendiente.
+
+```text
+F131_H0_RJ45_CONNECTED_EN=PASS_3_OF_3
+F131_H0_RJ45_CONNECTED_USB=PASS_3_OF_3
+F131_EARLY_RETURN_DIRECT=5_OF_6
+F131_EARLY_RETURN_INFERRED_FROM_STAGE2=1_OF_6
+F131_RJ45_LINKON_RECOVERED=6_OF_6
+F131_TG1WDT=NOT_OBSERVED
+F131_EXTENDED_STRICT_20_OF_20=REVIEW_EVIDENCE_GAP
+F131_G10_PROMOTION=NOT_STARTED
+NEXT_FAILURE_ID=F133
+```
