@@ -4,6 +4,8 @@
 
 **F131:** corrección F1 aceptada por el propietario; H0 físico principal y el complemento RJ45 conectado **PASS**. Los 10 EN y 10 power-cycles con RJ45 desconectado fueron reportados realizados y todos los BOOT visibles retornaron, pero la condición formal de **5 READY capturados en cada maniobra** conserva `REVIEW_EVIDENCE_GAP` para cuatro ventanas; no sustituir la evidencia por los nuevos seis arranques ni inventar `20/20 STRICT PASS`. Se puede preparar **G10-P0 inventario de solo lectura**, sin promocionar código hasta fijar decisión de aceptación de H0 extendido.
 
+**G10-P0 (solo lectura) iniciado:** [inventario estático source-backed](A13_G10_P0_INVENTARIO_ESTATICO_SOURCE_BACKED_20261019.md) derivado de `a13_g10_integrated.py::compose()` y mapa real Git: 14 rutas destino, 12 existentes en package, 2 SafeAccess nuevos; `Dns.cpp`/`Dhcp.cpp` sin cambios previstos. Aún **no** se ejecutó la composición dinámica ni se generó un diff/hashes del candidato. El productivo `w5100.cpp` F1 está fuera de G10-I y se conserva. **No iniciar promoción** hasta resolver la aceptación formal de las ventanas 20/20 y completar P0 dinámico.
+
 **Límites:** rama base del firmware sigue en `2b5802720df552e01a0b4f9d4fe1a7bd2de16daf` sin cambios; esta documentación está en PR #121 Draft. No tocar COM14, GPIO4, autoload, FlashFreq, binarios congelados ni instrumentación de `w5100.cpp`. G10-R R1–R4 permanecen no ejecutados/no autorizados.
 
 ```text
@@ -17,7 +19,7 @@ H0_F1_ETH_CONNECTED_EARLY_RETURN_INDIRECT=1_OF_6
 H0_F1_ETH_CONNECTED_LINK1_RECOVERY=PASS_6_OF_6
 H0_F1_ETH_CONNECTED_TG1WDT=NOT_OBSERVED
 H0_F1_EXTENDED_20_OF_20_STRICT=REVIEW_EVIDENCE_GAP
-G10_P0_INVENTORY=AUTHORIZED_READ_ONLY_PREPARATION
+G10_P0_INVENTORY=STATIC_SOURCE_MAP_14_PATHS_12_EXISTING_2_SAFEACCESS
 G10_PACKAGE_PROMOTION=NOT_STARTED_BLOCKED_ON_H0_ACCEPTANCE
 COM14=NOT_TOUCHED
 G10_R_R1_R2_R3_R4=NOT_RUN_NOT_AUTHORIZED
