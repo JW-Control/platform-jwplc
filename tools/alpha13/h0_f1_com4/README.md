@@ -18,7 +18,13 @@ $head = (git rev-parse HEAD).Trim()
 & .\tools\alpha13\h0_f1_com4\A13_H0_F1_COM4_BANCO.ps1 -ExpectedHead $head
 ~~~
 
-La ejecución anterior **solo compila y NO abre COM4**. El script exige rama y SHA exactos,
+La ejecución anterior **solo compila y NO abre COM4**.
+
+**F132 / Windows NTFS 8.3:** durante CI la carpeta `C:\\Users\\runneradmin` apareció como `C:\\Users\\RUNNER~1`, y una comparación literal rechazó la biblioteca `JWPLC_Ethernet` correcta. El helper versionado `A13_H0_F1_PATH_IDENTITY.ps1` utiliza Win32 `GetLongPathNameW` para comprobar que las rutas **existentes** realmente representan el mismo directorio; el gate Windows `Test-H0F1PathIdentity` exige además rechazar directorios distintos. Esto no modifica Windows, Arduino15 ni el package. Con `H0F1_ETHERNET=PASS_CANONICAL_SAME_STAGED_LIBRARY` el script aún exige `H0F1_W5100=PASS_GCC_OBJECT_DEPENDENCY_FROM_STAGING` y ELF antes de imprimir `H0F1_BUILD=PASS_SOURCE_FIRST`.
+
+
+**F132 (resuelto a nivel de diseño, pendiente de comprobación local):** Arduino CLI 1.5.1 puede elegir la plataforma global `jwplc_local:esp32@2.1.0-dev` en lugar de una plataforma manual con el mismo vendor y arquitectura. Para no desinstalarla ni afectar Arduino IDE, la copia temporal de `JWPLC/2.1.0` se monta bajo `sketchbook/hardware/jwplc_h0f1/esp32`, con FQBN temporal **`jwplc_h0f1:esp32:jwplcbasic`**. No cambia ningún archivo de producto, pin o API, solo la etiqueta de registro Arduino del banco. El ejecutor exige `runtime.platform.path` canónico exacto, valida que los `.d/.o/ELF` provienen del source en `%TEMP%` y aborta si ve otro core. Este FQBN temporal no se publica ni instala en el IDE del usuario; el package normal sigue siendo `jwplc_local:esp32`.
+ El script exige rama y SHA exactos,
 worktree limpio y merge de F1 presente. Instala una copia aislada del package en %TEMP%,
 compila el smoke sketch directamente desde ella y verifica biblioteca Ethernet,
 archivo de dependencias .d, objeto w5100.cpp.o, ELF y hashes. El manifiesto

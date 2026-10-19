@@ -2466,3 +2466,138 @@ F131_OBJECT_CONFIRMED=PENDING_E1 (valor inicial de W5100Class::ss_pin en el ELF 
 F131=CONFIRMED_SOURCE_FIX_F1_APPROVED_NOT_IMPLEMENTED
 NEXT_FAILURE_ID=F132
 ```
+
+
+## F132 — H0-F1: Arduino CLI prioriza `jwplc_local` instalado sobre la copia aislada del package (2026-10-19)
+
+**Estado:** CAUSA_RAÍZ_IDENTIFICADA; CORRECCIÓN DE RUNNER PROPUESTA / RETEST WINDOWS PENDIENTE.
+**Clasificación:** `HARNESS_FAILURE=YES`, `PRODUCT_FAILURE=NO`, `COM4_UPLOAD=NO`, `COM14_TOUCHED=NO`.
+
+**Evidencia del operador (dos intentos de build únicamente):**
+
+1. Con HEAD `d813e1008b23e40bf5248e2111ba85595d864b7d`, rama base Alpha13 y worktree limpio, el ejecutor se detuvo en `H0F1_REVIEW_STOP=WRONG_PLATFORM_SELECTED`. No alcanzó compilación.
+2. Se corrigió por PR #119 la comparación literal de rutas, integrando `01f5aa9a850a332eca5acc2200c30223a2d6f5ea`. En la segunda ejecución con ese HEAD, las rutas canonicalizadas **realmente difirieron**:
+
+```text
+H0F1_PLATFORM_SELECTED=.../Arduino15/packages/jwplc_local/hardware/esp32/2.1.0-dev
+H0F1_PLATFORM_EXPECTED=.../Temp/jwplc_a13_h0f1_<SHA>_<RUN>/sketchbook/hardware/jwplc_local/esp32
+H0F1_REVIEW_STOP=WRONG_PLATFORM_SELECTED
+```
+
+No se difunden rutas privadas del operador: las rutas se muestran aquí sanitizadas. El segundo rechazo confirma que no era un problema de `\\` vs `/` en Windows; **Arduino CLI realmente seleccionó el package instalado**. El primer ajuste (#119) mejoró el diagnóstico, pero no resolvió la precedencia.
+
+**Causa técnica verificada:** el CLI resuelve la plataforma identificada por `VENDOR:ARCHITECTURE`; la instalación manual en `{directories.user}/hardware/jwplc_local/esp32` colisiona con la instalación Boards Manager `jwplc_local:esp32@2.1.0-dev` presente en `{directories.data}/packages`. La prioridad inesperada de Boards Manager ante una manual idéntica está reconocida como problema de Arduino CLI ([issue arduino/arduino-cli#2766](https://github.com/arduino/arduino-cli/issues/2766)). Ninguna evidencia señala un defecto en la corrección productiva F1 de `w5100.cpp`; no hubo acceso COM4 ni modificación al equipo.
+
+**Corrección en candidato de runner, no de firmware:** copiar el **mismo** `JWPLC/2.1.0` al sketchbook temporal bajo un `VENDOR` exclusivo `jwplc_h0f1`; usar exclusivamente durante el banco el FQBN `jwplc_h0f1:esp32:jwplcbasic`, sin editar board/variant/platform o borrar/reinstalar la versión global. La selección de `runtime.platform.path` debe ser la copia temporal, con `w5100.cpp.d/.o/ELF` reales procedentes de ese código. Si alguna dependencia `runtime.tools.*` no se resuelve bajo ese identificador, `REVIEW_STOP`; nunca degradar silenciosamente a `jwplc_local:esp32@2.1.0-dev`.
+
+**Prevención:**
+- No usar como prueba de *source-first* un `--show-properties` o un `compile` que solo especifique `directories.user` cuando existe una plataforma instalada del mismo `VENDOR:ARCHITECTURE`.
+- Usar plataforma de desarrollo con namespace temporal único, o aislamiento completo verificado, y comprobar **antes de compilar** la procedencia exacta de `runtime.platform.path`.
+- Registrar por separado (a) error en selección de core, (b) compilación y objeto/ELF, (c) hardware físico. Dos revisiones del ejecutor sin compilación no prueban F1.
+- Versionar cambios por PR en `platform-jwplc`, utilizar `git pull` para entregarlos, sin ZIP externo ni scripts pegados en chat (ver F091 y protocolo de continuidad).
+- No repetir un tercer ciclo de compilación física/carga mientras el script y sus pruebas no físicas estén preparados; **no subir COM4** antes de un `H0F1_BUILD=PASS_SOURCE_FIRST` verdadero.
+
+```text
+F132_CLASS=HARNESS_ARDUINO_PLATFORM_VENDOR_COLLISION
+F132_ROOT_CAUSE=IDENTICAL_VENDOR_ARCH_BOARDS_MANAGER_PRECEDENCE
+F132_LOCAL_REPORT=FAIL_BEFORE_COMPILATION_2_OF_2
+F132_PRODUCT_MUTATION=NONE
+F132_COM4_UPLOAD=NOT_RUN
+F132_COM14=NOT_TOUCHED
+F132_RUNNER_FIX=UNIQUE_EPHEMERAL_VENDOR_CANDIDATE_RETEST_PENDING
+F132_CI_WINDOWS=NOT_YET_PASS
+F131_F1_PRODUCT=MERGED_NOT_PHYSICALLY_VALIDATED
+NEXT_FAILURE_ID=F133
+```
+
+
+### F132 — evidencia CI de la segunda etapa, después de seleccionar la plataforma (19/10/2026)
+
+La [CI H0-F1 COM4 #39284131070](https://github.com/JW-Control/platform-jwplc/actions/runs/39284131070), ejecutada para un SHA candidato **anterior** a la corrección de selección explícita de biblioteca, confirmó en Windows:
+
+```text
+H0F1_PLATFORM=PASS_ISOLATED_PACKAGE_PATH_CANONICAL
+H0F1_REVIEW_STOP=WRONG_ETHERNET_LIBRARY
+```
+
+En esa ejecución Arduino CLI pasó el control de plataforma temporal y el comando de compilación regresó sin error; el siguiente control rechazó la biblioteca seleccionada según el log. **No se pudo determinar del log CI visible si la biblioteca era realmente otra o si había una diferencia de formato textual**, porque `COMPILE.log` estaba guardado en una carpeta temporal de Actions no publicada. Por ello, no contabilizar la compilación como source-first PASS ni afirmar defecto de producto.
+
+**Ajuste incremental del mismo F132:** el ejecutor especifica `arduino-cli compile --library <JWPLC_Ethernet staging>` (máxima prioridad según el contrato de selección de bibliotecas Arduino), mantiene la verificación de la ruta del log y, si difiere, imprime `H0F1_ETHERNET_SELECTED` frente a `H0F1_ETHERNET_EXPECTED`. El gate seguirá exigiendo `.d/.o/ELF` desde el staging, sin publicar firmware ni tocar USB.
+
+```text
+F132_STAGING_PLATFORM_CI=PASS_BEFORE_LIBRARY_CHECK
+F132_ETHERNET_LIBRARY_CI=REVIEW_STOP_INSPECT_FURTHER
+F132_SOURCE_TO_OBJECT_ELF=NOT_YET_VERIFIED
+F132_PHYSICAL=NOT_RUN
+NEXT_FAILURE_ID=F133
+```
+
+
+### F132 — causa concreta del rechazo de biblioteca y gate NTFS 8.3 (2026-10-19)
+
+La [CI Windows #39286737847](https://github.com/JW-Control/platform-jwplc/actions/runs/39286737847) sobre HEAD `a1a39e30e5b8c9028a17fb2c9d21231efc01ddb5` completó la compilación sin error pero el harness devolvió `WRONG_ETHERNET_LIBRARY`. **Los dos paths mostrados por el propio log identifican la misma biblioteca temporal:**
+
+```text
+H0F1_PLATFORM=PASS_ISOLATED_PACKAGE_PATH_CANONICAL
+H0F1_ETHERNET_SELECTED=.../Users/runneradmin/.../jwplc_h0f1/esp32/libraries/JWPLC_Ethernet
+H0F1_ETHERNET_EXPECTED=.../Users/RUNNER~1/.../jwplc_h0f1/esp32/libraries/JWPLC_Ethernet
+H0F1_REVIEW_STOP=WRONG_ETHERNET_LIBRARY
+```
+
+Se confirma que `--library` eligió la biblioteca deseada, pero `C:\\Users\\RUNNER~1` es la notación corta NTFS 8.3 de `C:\\Users\\runneradmin`. Las dos rutas no pueden compararse mediante `.Contains()` ni una normalización textual de barras, porque el alias 8.3 representa el mismo directorio físico. **Se trata de una segunda falsa detección del mismo flujo F132, no de un defecto nuevo de Ethernet ni de F131.**
+
+**Corrección propuesta y controles negativos:** resolver ambos paths **existentes** con la API Win32 `GetLongPathNameW` y exigir igualdad completa case-insensitive. Añadir un test Windows que construye una ruta corta por `GetShortPathNameW`, exige equivalencia con la ruta larga real, y rechaza dos directorios distintos. El gate `G10-R` conserva su whitelist estricta, incorporando exclusivamente el helper `A13_H0_F1_PATH_IDENTITY.ps1`. El control de GCC `.d` sigue exigiendo la fuente staged tanto en su notación corta como larga; una librería verdaderamente externa se rechaza.
+
+```text
+F132_CI_39286737847=FAIL_HARNESS_8DOT3_ALIAS_NOT_PRODUCT
+F132_CI_OLD_PLATFORM=PASS
+F132_CI_OLD_ETHERNET_LIBRARY=CORRECT_STAGED_LIBRARY_BUT_FALSE_NEGATIVE
+F132_8DOT3_FIX=VERSIONED_WIN32_LONGPATH_HELPER_WITH_NEGATIVE
+F132_RETEST_CI_EXACT_HEAD=PENDING
+F132_COM4_UPLOAD=NOT_RUN
+NEXT_FAILURE_ID=F133
+```
+
+
+### F132 — retest NTFS PASS, recurrencia F003 en parser de dependencias (2026-10-19)
+
+La [CI Windows #39288903468](https://github.com/JW-Control/platform-jwplc/actions/runs/39288903468) para HEAD `ab68119a4319f84d192904e51a7c75375402bcdf` demostró:
+
+```text
+N0=PASS (incluye alias 8.3 y directorio distinto rechazado)
+H0F1_PLATFORM=PASS_ISOLATED_PACKAGE_PATH_CANONICAL
+H0F1_ETHERNET=PASS_CANONICAL_SAME_STAGED_LIBRARY
+N2=FAIL_HARNESS_BEFORE_DEPENDENCY_AND_ELF_ASSERTIONS
+```
+
+**Nueva causa acotada (recurrencia de F003 ya registrado, no ID nuevo):** el filtro de candidatos `w5100.cpp.d` / `w5100.cpp.o.d` usaba `$deps = @(candidatos) | Where-Object`, lo que devuelve una **cadena escalar** si sobrevive un solo archivo. A continuación `$deps[0]` accedía al primer carácter `C`; la llamada `[IO.File]::ReadAllText('C')` falló buscando un archivo relativo `C`, y **no** la dependencia GCC. El compilador acabó con código cero y se verificó la biblioteca staged; todavía no hay validación completa `.d/.o/ELF`.
+
+**Corrección versionada en la misma rama F132:** aplicar `$deps = @( @(candidatos) | Where-Object {...})`, manteniendo un array real de uno o dos elementos, y exigir `Count == 1`. Se preserva la procedencia GCC, sin ninguna modificación del package. No repetir F003 como una ID nueva y no declarar F132 cerrado hasta CI del SHA posterior.
+
+```text
+F132_NTFS_8DOT3=PASS_CI_N0_AND_LIBRARY_39288903468
+F132_DEPENDENCY_PARSER=FAIL_KNOWN_F003_SINGLE_ELEMENT_ARRAY_COLLAPSE
+F132_FULL_SOURCE_FIRST=NOT_YET_PASS
+F132_PHYSICAL=NOT_RUN
+NEXT_FAILURE_ID=F133
+```
+
+
+### F132 — cierre del harness por CI Windows real (2026-10-19)
+
+**SHA de código exacto:** `c76f7e3a8240c8c6a650445aae2b4be61f5e5488`.
+
+- [CI H0-F1 COM4 #39289719081](https://github.com/JW-Control/platform-jwplc/actions/runs/39289719081): **2/2 PASS**, N0 sintaxis/negativos Windows y N2 compilación real Windows desde copia del package con vendor temporal único. El log N2 confirma `H0F1_PLATFORM=PASS_ISOLATED_PACKAGE_PATH_CANONICAL`, `H0F1_ETHERNET=PASS_CANONICAL_SAME_STAGED_LIBRARY`, `H0F1_W5100=PASS_GCC_OBJECT_DEPENDENCY_FROM_STAGING`, `H0F1_BUILD=PASS_SOURCE_FIRST`, `H0F1_UPLOAD=NOT_RUN COM14=NOT_TOUCHED`.
+- [CI G10-R N0 #39289718821](https://github.com/JW-Control/platform-jwplc/actions/runs/39289718821): **2/2 PASS Windows/Ubuntu**, contrato de alcance que no permite cambios en producto. **Total 4/4 jobs SUCCESS, ningún skipped**.
+- El único cambio posterior a este HEAD de código es documental (registrar evidencia); no equivale a una ejecución local del operador ni a hardware funcional.
+
+**Decisión:** F132 queda `RESOLVED_NONPHYSICAL_CI`. Los dos fallos locales iniciales de selección de plataforma, los falsos negativos de alias NTFS 8.3 y la recurrencia de F003 se conservan como historial del mismo flujo. No añadir F133 por esta causa. **Próximo gate físico: primero build-only local de fuente→objeto→ELF; después, solo con consentimiento de banco, upload a COM4 y UART/PHY real.** Ni COM14 ni R1–R4 autorizados.
+
+```text
+F132=RESOLVED_NONPHYSICAL_CI
+F132_CI=PASS_4_OF_4_EXACT_CODE_SHA_C76F7E3A
+F132_LOCAL_WINDOWS=AWAITING_OPERATOR
+F132_FIRMWARE_CHANGED=NO
+F132_COM4_FLASH=NOT_RUN
+NEXT_FAILURE_ID=F133
+```
