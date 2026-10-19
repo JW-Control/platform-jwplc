@@ -49,6 +49,7 @@ A15_I3_CP437=PASS_HOST_AND_ESP32_COMPILE (A15_I3_TILDES_CP437_20261018.md; desfa
 A15_SKETCH_FLOW=PASS_DESKTOP (Escribir en sketch + menú del sketch; el jefe abrió el Arduino IDE desde la app de escritorio el 2026-10-18)
 A15_SKETCH_GUIDE=PASS_HOST (JWPLC_HMI_LEEME.md con sketch base; compila contra los 9 golden; en la app real [no verificado]: requiere regenerarla)
 A15_WAKE_KEY_FIX=PASS_HOST_AND_ESP32_COMPILE (la tecla que despierta la IDLE ya no entra al contenido ni al MENU; físico pendiente)
+A15_NAV_TAB_STATES=PASS_HOST_AND_ESP32_COMPILE (pestaña posicionada/seleccionada con doble marco; físico pendiente)
 A15_COLOR_EDITOR=PASS (editor de color fijo en Apariencia de campos, MENU y BAR; filas clicables y alineadas)
 A15_FRAM_MAP=PROPOSED (plan §G.6: DataLog hoy sin FRAM; reparto del último KB)
 A15_8_MENU=PASS_HOST_AND_ESP32_COMPILE (A15_8_MENU_20261017; físico pendiente)
@@ -288,3 +289,25 @@ MENU_NODE_COUNT_LIMIT=64 por menú, 4 menús, 1 por página (9 nodos = +952 B RA
     `JWPLC_UI_Pages.cpp` y `JWPLC_UI_Menu.cpp` reales. Falla 7/10 con el código anterior y pasa 10/10
     con la corrección. Compilan para ESP32 los gates `A15_8_Menu`, `A15_8_Menu_Designer` y el sketch
     base del LEEME con MENU. Físico pendiente: despertar con OK y ver el NN/TT negro.
+  - **Barra de pestañas: posicionado y seleccionado se veían iguales** (la barra se dibuja una vez por
+    página y OK/ESC no cambian de página). Decisión del jefe: Propuesta 4 con doble marco hacia
+    adentro, en todos los estilos salvo «Contador»:
+    - no posicionado = sin fondo (estilo inactivo de cada estilo);
+    - posicionado = fondo de color (una página blanca se posiciona en gris);
+    - seleccionado = fondo blanco y doble marco hacia adentro de 1 + 1 + 1 px.
+    Un acento claro se oscurece sobre blanco para que se lea. En «Puntos», la cápsula mide 5 px de alto
+    y lleva un solo marco.
+  - Firmware: hook débil `jwplcUIPageModeChanged(page, selecting)`, que se llama desde
+    `jwplcUIRuntimeDrawDirty` (bus tomado) sólo cuando OK/ESC cambia el modo sin cambiar de página.
+    Codegen: `jwplcDrawPageNavTab()` dibuja la pestaña activa en sus dos estados;
+    `jwplcDrawPageNavBar()` dibuja el resto y la pestaña según `isUserPageSelection()`. Designer:
+    tarjeta «Pestaña de la página actual» con los tres estados (pintor real); Posicionado/Seleccionado
+    cambian lo que muestra el lienzo.
+  - [ejecutado]:
+    - `wake_sim.cpp` cubre el hook (una llamada por OK/ESC, ninguna al despertar ni al cambiar de página);
+    - los 36 headers de barra compilan en host;
+    - golden `full.h` actualizado (diff revisado);
+    - compila ESP32 un sketch con la barra de 3 páginas, y en el ELF queda el hook del sketch
+      (`T jwplcUIPageModeChanged`);
+    - capturas de los 6 estilos en los dos modos.
+  - [no verificado] en la placa.

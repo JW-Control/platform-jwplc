@@ -793,29 +793,57 @@
     if (!layout.visible || layout.firmwareIndicator) return;
 
     ctx.save();
-    paintNavBar(canvasNavPainter(ctx, scale), layout, cfg);
+    // El lienzo muestra el modo de navegación simulado, como el NN/TT:
+    // selector -> pestaña posicionada, contenido -> pestaña seleccionada.
+    paintNavBar(canvasNavPainter(ctx, scale), layout, cfg, navigationMode === 'CONTENT' ? 'selected' : 'positioned');
     ctx.restore();
   }
 
   // Operaciones de dibujo de la barra para una página, en el orden en que
-  // se pintan. Las usa designer-codegen.js para emitir C++.
-  function recordNavBar(pageId) {
+  // se pintan. Las usa designer-codegen.js para emitir C++. Cada pestaña va
+  // entre marcas {op:'mark'} para separar la activa (firmware: la redibuja
+  // sola al pasar del selector al contenido y al volver).
+  function recordNavBar(pageId, state = 'positioned') {
     const cfg = getNavBarConfig();
     if (!cfg.enabled || pages().length < 1) return [];
     const layout = computeNavBarLayout(pages(), Number(pageId));
     if (!layout.visible || layout.firmwareIndicator) return [];
     const ops = [];
     paintNavBar({
+      mark: (kind, tab) => ops.push({ op: 'mark', kind, pageId: tab.pageId, active: tab.isActive, x: tab.x, y: tab.y, w: tab.w, h: tab.h }),
       fillRound: (x, y, w, h, r, col) => ops.push({ op: 'fillRound', x, y, w, h, r, col }),
       strokeRound: (x, y, w, h, r, col) => ops.push({ op: 'strokeRound', x, y, w, h, r, col }),
       fillRect: (x, y, w, h, col) => ops.push({ op: 'fillRect', x, y, w, h, col }),
       line: (x, y, len, vertical, col) => ops.push({ op: 'line', x, y, len, vertical, col }),
       text: (str, x, y, col, micro) => ops.push({ op: 'text', str: String(str), x, y, col, micro: Boolean(micro) })
-    }, layout, cfg);
+    }, layout, cfg, state);
     return ops;
   }
 
-  function paintNavBar(painter, layout, cfg) {
+  // Alpha15 · Tres estados de pestaña en todos los estilos salvo «Contador»:
+  //   no posicionado        = estilo inactivo de cada estilo;
+  //   posicionado (◀ ▶)     = fondo del color de acento;
+  //   seleccionado (OK)     = fondo blanco con doble marco hacia adentro
+  //                           (1 px + 1 px de aire + 1 px) del color de acento.
+  // Un acento claro se oscurece sobre blanco para que marco y texto se lean, y
+  // una página de color blanco se posiciona en gris (si no, posicionado y
+  // seleccionado serían el mismo fondo blanco).
+  function cssRgb(col) {
+    const text = String(col || '');
+    let m = /^#([0-9a-f]{6})$/i.exec(text);
+    if (m) { const n = parseInt(m[1], 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+    m = /^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i.exec(text);
+    return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : [255, 255, 255];
+  }
+  const cssLuma = (col) => { const [r, g, b] = cssRgb(col); return 0.299 * r + 0.587 * g + 0.114 * b; };
+  const cssHex = (rgb) => `#${rgb.map((v) => Math.round(v).toString(16).padStart(2, '0')).join('')}`;
+  const textOnAccent = (accent) => (cssLuma(accent) > 140 ? '#000000' : '#ffffff');
+  const accentOnWhite = (accent) => (cssLuma(accent) > 120 ? cssHex(cssRgb(accent).map((v) => v * 0.45)) : accent);
+  const accentFill = (accent) => (cssLuma(accent) > 230 ? '#7b7d7b' : accent);
+  // El doble marco necesita 1 + 1 + 1 px por lado y algo de interior.
+  const DOUBLE_FRAME_MIN = 9;
+
+  function paintNavBar(painter, layout, cfg, state = 'positioned') {
     const fillRounded = painter.fillRound;
     const strokeRounded = painter.strokeRound;
 
@@ -888,10 +916,53 @@
 
     const rad = Number(cfg.radius !== undefined ? cfg.radius : 3);
 
+    // Acento y radio de la pestaña activa en cada estilo.
+    function tabAccent(tab) {
+      if (preset === 'industrial-color' || preset === 'edge-tabs') return pageColorCss(tab.color);
+      if (preset === 'segmented-bar') return '#52c9ff';
+      return '#00c8ff';
+    }
+    function tabRadius() {
+      if (preset === 'dark-pill' || preset === 'numeric-pills') return Math.max(rad, 4);
+      if (preset === 'segmented-bar' || preset === 'edge-tabs') return 2;
+      if (preset === 'compact-dots') return 2.5;
+      return rad;
+    }
+    function tabLabel(tab) {
+      if (preset === 'compact-dots') return '';
+      if (preset === 'numeric-pills') return String(tab.pageIndex + 1);
+      return formatLabel(tab);
+    }
+
+    function paintActiveTab(tab) {
+      const accent = tabAccent(tab);
+      const r = tabRadius();
+      const label = tabLabel(tab);
+      if (state === 'selected') {
+        const frame = accentOnWhite(accent);
+        fillRounded(tab.x, tab.y, tab.w, tab.h, r, '#ffffff');
+        strokeRounded(tab.x, tab.y, tab.w, tab.h, r, frame, 1);
+        if (tab.w >= DOUBLE_FRAME_MIN && tab.h >= DOUBLE_FRAME_MIN) {
+          strokeRounded(tab.x + 2, tab.y + 2, tab.w - 4, tab.h - 4, Math.max(0, r - 2), frame, 1);
+        }
+        drawTabText(label, tab.x, tab.y, tab.w, tab.h, frame);
+      } else {
+        const fill = accentFill(accent);
+        fillRounded(tab.x, tab.y, tab.w, tab.h, r, fill);
+        drawTabText(label, tab.x, tab.y, tab.w, tab.h, textOnAccent(fill));
+      }
+    }
+
     // 3. Dibujo de cada pestaña según preset
     layout.tabs.forEach((tab) => {
       const colCss = pageColorCss(tab.color);
       const label = formatLabel(tab);
+      painter.mark?.('start', tab);
+      if (tab.isActive) {
+        paintActiveTab(tab);
+        painter.mark?.('end', tab);
+        return;
+      }
 
       if (preset === 'industrial-color') {
         if (tab.isActive) {
@@ -957,6 +1028,7 @@
           drawTabText(numText, tab.x, tab.y, tab.w, tab.h, '#8ca3b8');
         }
       }
+      painter.mark?.('end', tab);
     });
 
     // 4. Controles de desbordamiento (flechas y contador)
@@ -1565,9 +1637,105 @@
   });
 
   // --- Sincronización del Inspector para Barra de Navegación ---
+  // --- Alpha15 · Tarjeta «Pestaña de la página actual» -----------------------
+  // Los tres estados de la pestaña con el pintor real (las mismas operaciones
+  // que el codegen). Posicionado/Seleccionado eligen qué muestra el lienzo,
+  // igual que el NN/TT del selector y del contenido.
+  const NAV_STATES = [
+    { id: 'unpositioned', name: 'No posicionado', desc: 'Otra página' },
+    { id: 'positioned', name: 'Posicionado', desc: 'Selector · ◀ ▶' },
+    { id: 'selected', name: 'Seleccionado', desc: 'Dentro · OK' }
+  ];
+
+  function ensureNavStatesCard(section) {
+    let card = section.querySelector('[data-navbar-states]');
+    if (card) return card;
+    const presetCard = section.querySelector('[data-navbar-preset]')?.closest('.bar-card');
+    if (!presetCard) return null;
+    card = document.createElement('div');
+    card.className = 'bar-card';
+    card.setAttribute('data-navbar-states', '');
+    card.setAttribute('data-navbar-bar-only', '');
+    card.innerHTML = `
+      <div class="bar-card-section-title">▾ Pestaña de la página actual</div>
+      <div class="nav-states-grid">${NAV_STATES.map((st) => `
+        <button type="button" class="bar-preset-btn nav-state-btn${st.id === 'unpositioned' ? ' is-static' : ''}" data-nav-state="${st.id}"
+          title="${st.id === 'unpositioned' ? 'Cómo se ve la pestaña cuando otra página está activa' : `Ver en el lienzo: ${st.name.toLowerCase()}`}">
+          <canvas class="nav-state-canvas" data-nav-state-canvas="${st.id}"></canvas>
+          <span class="bar-preset-name">${st.name}</span>
+          <span class="bar-preset-desc">${st.desc}</span>
+        </button>`).join('')}
+      </div>
+      <div class="bar-info-note">Con ◀ ▶ el operador recorre las páginas (fondo de color); con OK entra (fondo blanco y doble marco). ESC vuelve al selector.</div>`;
+    presetCard.after(card);
+    card.addEventListener('click', (event) => {
+      const btn = event.target.closest('[data-nav-state]');
+      if (!btn || btn.dataset.navState === 'unpositioned') return;
+      navigationMode = btn.dataset.navState === 'selected' ? 'CONTENT' : 'SELECT';
+      editor()?.render?.();
+      syncNavBarInspector();
+    });
+    return card;
+  }
+
+  // Operaciones de una pestaña (entre sus marcas) y su rectángulo.
+  function tabSegment(ops, pageId) {
+    const out = [];
+    let rect = null;
+    let inside = false;
+    ops.forEach((op) => {
+      if (op.op === 'mark') {
+        if (op.pageId !== pageId) return;
+        inside = op.kind === 'start';
+        if (inside) rect = { x: op.x, y: op.y, w: op.w, h: op.h };
+        return;
+      }
+      if (inside) out.push(op);
+    });
+    return { ops: out, rect };
+  }
+
+  function drawNavStates(card) {
+    const list = pages();
+    const current = activePage();
+    const other = list.find((p) => p.id !== current);
+    NAV_STATES.forEach((st) => {
+      const canvas = card.querySelector(`[data-nav-state-canvas="${st.id}"]`);
+      if (!canvas) return;
+      const seg = st.id === 'unpositioned'
+        ? (other ? tabSegment(recordNavBar(other.id, 'positioned'), current) : { ops: [], rect: null })
+        : tabSegment(recordNavBar(current, st.id), current);
+      const pad = 3;
+      const rect = seg.rect || { x: 0, y: 0, w: 20, h: 12 };
+      const lw = rect.w + 2 * pad;
+      const lh = rect.h + 2 * pad;
+      const scale = Math.max(1, Math.min(3, Math.floor(84 / lw)));
+      canvas.width = lw * scale;
+      canvas.height = lh * scale;
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      ctx.translate(-(rect.x - pad) * scale, -(rect.y - pad) * scale);
+      const painter = canvasNavPainter(ctx, scale);
+      seg.ops.forEach((op) => {
+        if (op.op === 'fillRound') painter.fillRound(op.x, op.y, op.w, op.h, op.r, op.col);
+        else if (op.op === 'strokeRound') painter.strokeRound(op.x, op.y, op.w, op.h, op.r, op.col, 1);
+        else if (op.op === 'fillRect') painter.fillRect(op.x, op.y, op.w, op.h, op.col);
+        else if (op.op === 'line') painter.line(op.x, op.y, op.len, op.vertical, op.col);
+        else if (op.op === 'text') painter.text(op.str, op.x, op.y, op.col, op.micro);
+      });
+      ctx.restore();
+    });
+    const shown = navigationMode === 'CONTENT' ? 'selected' : 'positioned';
+    card.querySelectorAll('[data-nav-state]').forEach((btn) => btn.classList.toggle('active', btn.dataset.navState === shown));
+  }
+
   function syncNavBarInspector() {
     const section = document.getElementById('navBarInspectorSection');
     if (!section || section.hidden) return;
+    const statesCard = ensureNavStatesCard(section);
 
     const cfg = getNavBarConfig();
 
@@ -1584,6 +1752,7 @@
     const isCounter = curPreset === 'counter';
     section.querySelectorAll('[data-navbar-bar-only]').forEach((el) => { el.hidden = isCounter; });
     section.querySelectorAll('[data-navbar-counter-only]').forEach((el) => { el.hidden = !isCounter; });
+    if (statesCard && !isCounter) drawNavStates(statesCard);
     section.querySelectorAll('[data-navbar-corner]').forEach((btn) => {
       const c = COUNTER_CORNERS[btn.dataset.navbarCorner];
       btn.classList.toggle('active', isCounter && Number(cfg.x) === c.x && Number(cfg.y) === c.y);

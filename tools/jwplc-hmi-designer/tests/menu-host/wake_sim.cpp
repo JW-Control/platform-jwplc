@@ -40,6 +40,17 @@ namespace JWPLCUI
     void invalidateAll(bool) {}
 }
 
+// Hook de la barra de navegación (strong, como el que emite el Designer).
+static int g_modeCalls = 0;
+static uint8_t g_modePage = 0xFF;
+static bool g_modeSelecting = false;
+extern "C" void jwplcUIPageModeChanged(uint8_t page, bool selecting)
+{
+    g_modeCalls++;
+    g_modePage = page;
+    g_modeSelecting = selecting;
+}
+
 bool JWPLC_TFTClass::fillRect(int16_t, int16_t, int16_t, int16_t, uint16_t, uint32_t) { return true; }
 bool JWPLC_TFTClass::drawRect(int16_t, int16_t, int16_t, int16_t, uint16_t, uint32_t) { return true; }
 size_t JWPLC_TFTClass::write(uint8_t) { return 1; }
@@ -115,6 +126,27 @@ int main()
     g_page = 0;
     wakeWith(BTN_RIGHT);
     check(g_page == 0 && JWPLCUIPages::selectionMode(), "RIGHT que despierta no cambia además de página");
+
+    printf("BARRA: CAMBIO DE MODO SIN CAMBIAR DE PÁGINA\n");
+    {
+        JWPLC_TFTClass tft;
+        g_page = 0;
+        wakeWith(BTN_OK);
+        g_modeCalls = 0;
+        JWPLCUIPages::drawModeChange(tft);
+        check(g_modeCalls == 0, "al despertar no se llama (la entrada dibuja la página completa)");
+        keyPress(BTN_RIGHT);
+        JWPLCUIPages::drawModeChange(tft);
+        check(g_modeCalls == 0, "cambiar de página en el selector no lo llama (redibujo completo)");
+        keyPress(BTN_OK);
+        JWPLCUIPages::drawModeChange(tft);
+        check(g_modeCalls == 1 && g_modePage == 1 && !g_modeSelecting, "OK: una llamada con la página 2 y selecting=false (seleccionada)");
+        JWPLCUIPages::drawModeChange(tft);
+        check(g_modeCalls == 1, "sin otro cambio no se vuelve a llamar");
+        keyPress(BTN_ESC);
+        JWPLCUIPages::drawModeChange(tft);
+        check(g_modeCalls == 2 && g_modePage == 1 && g_modeSelecting, "ESC: otra llamada con selecting=true (posicionada)");
+    }
 
     printf("DESPERTAR CON UNA PÁGINA Y MENU\n");
     JWPLCUIPages::setPageCount(1);

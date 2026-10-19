@@ -42,7 +42,9 @@ GATES_FISICOS_LISTOS=A15_1_3_Codegen_Static, A15_8_Menu, A15_8_Menu_Designer, A1
      - «Escribir en sketch» deja `JWPLC_HMI_Generated.h`, `<sketch>.jwhmi` y `JWPLC_HMI_LEEME.md`;
      - el sketch base de la guía, copiado a un `.ino` vacío, compila y muestra las páginas;
      - Apariencia: el editor de color fijo (sin selector nativo) en campos, MENU y BAR;
-     - despertar la IDLE con OK debe dejar el selector NN/TT negro (LEFT/RIGHT cambian de página).
+     - despertar la IDLE con OK debe dejar el selector NN/TT negro (LEFT/RIGHT cambian de página);
+     - barra de pestañas: la pestaña actual con fondo de color en el selector, y con fondo blanco y
+       doble marco tras OK; ESC la devuelve al color sin redibujar la página.
 
      Alpha15 se compila con la placa `jwplc_local` (la publicada alpha.12 no tiene MENU).
 

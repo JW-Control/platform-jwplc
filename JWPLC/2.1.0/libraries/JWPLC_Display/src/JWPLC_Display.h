@@ -95,6 +95,10 @@ extern "C"
     // Mantiene los callbacks legacy debajo por compatibilidad.
     void jwplcUIEnter(void);
     void jwplcUIPageEnter(uint8_t page);
+    // Alpha15: OK/ESC cambiaron entre el selector de páginas y el contenido sin
+    // cambiar de página. Se llama con el bus TFT tomado; el header del Designer
+    // redibuja aquí sólo la pestaña activa de la barra de navegación.
+    void jwplcUIPageModeChanged(uint8_t page, bool selecting);
     void jwplcUIUpdate(void);
     void jwplcUIExit(void);
 

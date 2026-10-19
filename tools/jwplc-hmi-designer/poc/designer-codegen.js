@@ -655,14 +655,59 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
     return lines;
   }
 
+  // Separa las operaciones de una página en la barra sin la pestaña activa y
+  // la pestaña activa (marcas {op:'mark'} de recordNavBar).
+  function splitNavOps(ops) {
+    const bar = [];
+    const tab = [];
+    let inActive = false;
+    ops.forEach((op) => {
+      if (op.op === 'mark') { if (op.active) inActive = op.kind === 'start'; return; }
+      (inActive ? tab : bar).push(op);
+    });
+    return { bar, tab };
+  }
+
   function navBarFunctionBlock() {
     const hmiPages = window.JWPLCHMIPages;
     const pageList = pages();
     const helpers = new Set();
     if (!hmiPages?.recordNavBar || !hasNavBar()) return { block: '', helpers: [] };
 
+    const indent = (body, pad) => body.map((line) => `${pad}${line}`);
+    const tabLines = [];
+    const barLines = [];
+    pageList.forEach((page) => {
+      const positioned = splitNavOps(hmiPages.recordNavBar(page.id, 'positioned'));
+      const selected = splitNavOps(hmiPages.recordNavBar(page.id, 'selected'));
+      tabLines.push(`    case ${Number(page.id)}:`);
+      tabLines.push(`        if (selecting)`, `        {`);
+      tabLines.push(...indent(navBarOpsToCpp(positioned.tab, helpers), '            '));
+      tabLines.push(`        }`, `        else`, `        {`);
+      tabLines.push(...indent(navBarOpsToCpp(selected.tab, helpers), '            '));
+      tabLines.push(`        }`, `        break;`);
+      barLines.push(`    case ${Number(page.id)}:`);
+      barLines.push(...indent(navBarOpsToCpp(positioned.bar, helpers), '        '));
+      barLines.push(`        break;`);
+    });
+
     const lines = [];
     lines.push(`// Barra de Navegación HMI Autogenerada (ST7789)`);
+    lines.push(`// Pestaña de la página actual: posicionada en el selector (◀ ▶, fondo de`);
+    lines.push(`// color) o seleccionada dentro de la página (OK, fondo blanco y doble marco).`);
+    lines.push(`static void jwplcDrawPageNavTab(uint8_t activePage, bool selecting)`);
+    lines.push(`{`);
+    lines.push(`    JWPLC_TFTClass &tft = JWPLC_Display.tft();`);
+    lines.push(`    tft.setTextSize(1);`);
+    lines.push(``);
+    lines.push(`    switch (activePage)`);
+    lines.push(`    {`);
+    lines.push(...tabLines);
+    lines.push(`    default:`);
+    lines.push(`        break;`);
+    lines.push(`    }`);
+    lines.push(`}`);
+    lines.push(``);
     lines.push(`// Se dibuja una vez por página desde jwplcUIPageEnter().`);
     lines.push(`static void jwplcDrawPageNavBar(uint8_t activePage)`);
     lines.push(`{`);
@@ -671,15 +716,19 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
     lines.push(``);
     lines.push(`    switch (activePage)`);
     lines.push(`    {`);
-    pageList.forEach((page) => {
-      const body = navBarOpsToCpp(hmiPages.recordNavBar(page.id), helpers);
-      lines.push(`    case ${Number(page.id)}:`);
-      body.forEach((line) => lines.push(`        ${line}`));
-      lines.push(`        break;`);
-    });
+    lines.push(...barLines);
     lines.push(`    default:`);
     lines.push(`        break;`);
     lines.push(`    }`);
+    lines.push(``);
+    lines.push(`    jwplcDrawPageNavTab(activePage, JWPLC_Display.isUserPageSelection());`);
+    lines.push(`}`);
+    lines.push(``);
+    lines.push(`// Selector <-> contenido sin cambiar de página: el firmware redibuja sólo la`);
+    lines.push(`// pestaña activa, con el bus tomado (Alpha15).`);
+    lines.push(`extern "C" void jwplcUIPageModeChanged(uint8_t page, bool selecting)`);
+    lines.push(`{`);
+    lines.push(`    jwplcDrawPageNavTab(page, selecting);`);
     lines.push(`}`);
     return { block: lines.join('\n'), helpers: [...helpers] };
   }

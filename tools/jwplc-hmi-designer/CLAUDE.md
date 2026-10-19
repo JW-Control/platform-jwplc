@@ -107,6 +107,13 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
   `#if JWPLC_HMI_TFT_FONTS` con respaldo GLCD.
 - BAR circular/degradado: deshabilitados (`.insp-needs-fw`); el codegen cae a `JWPLC_UIBarField`.
 - Ids de página siempre contiguos `0..N-1` (`deletePage` renumera; abrir normaliza).
+- NAV con pestañas (todos los estilos salvo «Contador»), pestaña de la página actual en tres estados:
+  no posicionada (estilo inactivo) · posicionada (selector, fondo de acento; una página blanca va en
+  gris) · seleccionada (OK, fondo blanco + doble marco hacia adentro de 1 + 1 + 1 px, si mide ≥ 9 px).
+  `paintNavBar(painter, layout, cfg, state)` marca cada pestaña con `painter.mark`; el codegen separa la
+  activa en `jwplcDrawPageNavTab(page, selecting)` y emite `jwplcUIPageModeChanged()`, que el firmware
+  llama al pasar del selector al contenido y al volver. El lienzo sigue `JWPLCHMIPages` `navigationMode`
+  (tarjeta «Pestaña de la página actual» del inspector).
 - NAV_BAR existe sólo si hay un objeto NAV_BAR visible. Estilo `counter`: no se dibuja barra; el
   firmware pinta el NN/TT (`setPageIndicator(true, x, y)`). Barra con pestañas: `setPageIndicator(false)`.
 - Márgenes de campo: arriba/izquierda 3 fijo; derecha/abajo `max(3, escala + 1)` (celda 6×8 + marco),
@@ -128,7 +135,7 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
   emite TEXT/VALUE; BOOL/BAR salen como `JWPLC_UITextField` provisional que reemplazan sus capas.
 - Tras tocar el codegen: `node tests/codegen-golden.cjs` (salida byte a byte) y
   `node tests/codegen-smoke.cjs`. Un cambio intencional: `--update` y revisar el diff.
-- Tras tocar JS/CSS: subir `?v=` (hoy 1793600000) en `index.html`/`desktop.html`/`ux-foundation.js`/
+- Tras tocar JS/CSS: subir `?v=` (hoy 1793700000) en `index.html`/`desktop.html`/`ux-foundation.js`/
   `designer-field-visibility.js` y `CACHE_NAME` en `service-worker.js`.
 
 ## Probar sin hardware

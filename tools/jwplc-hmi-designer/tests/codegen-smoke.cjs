@@ -202,13 +202,19 @@ async function main() {
             const usesMicroText = /jwplcHMIDrawMicroText\(tft,/.test(text);
             const expectsMicro = fontSize === 'micro' && preset !== 'compact-dots';
             if (usesMicroText !== expectsMicro) check(false, `${key}: microfuente ${usesMicroText ? 'presente' : 'ausente'}`);
+            // Alpha15: pestaña activa en dos estados + redibujo al cambiar de modo.
+            const tabFn = text.slice(text.indexOf('static void jwplcDrawPageNavTab'), text.indexOf('static void jwplcDrawPageNavBar'));
+            if (!/if \(selecting\)/.test(tabFn) || !/jwplcDrawPageNavTab\(activePage, JWPLC_Display\.isUserPageSelection\(\)\)/.test(text) ||
+                !/extern "C" void jwplcUIPageModeChanged\(uint8_t page, bool selecting\)/.test(text)) {
+              check(false, `${key}: pestaña activa en dos estados y jwplcUIPageModeChanged`);
+            }
           }
           navCount += 1;
         }
       }
     }
     check(Object.keys(headers).filter((k) => k.startsWith('nav_')).length === presets.length * fontSizes.length * positions.length,
-      `${navCount} combinaciones generan jwplcDrawPageNavBar`);
+      `${navCount} combinaciones generan jwplcDrawPageNavBar, la pestaña activa en dos estados y jwplcUIPageModeChanged`);
 
     check(pageErrors.length === 0, `sin errores JS (${pageErrors.join(' | ') || 'ninguno'})`);
 

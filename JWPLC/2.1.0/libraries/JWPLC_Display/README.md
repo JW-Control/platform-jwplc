@@ -765,6 +765,16 @@ bool seleccionando =
     JWPLC_Display.isUserPageSelection();
 ```
 
+Barra de pestañas del Designer (Alpha15). La pestaña de la página actual tiene dos estados:
+
+- **posicionada** en el selector (◀ ▶ recorren las páginas): fondo del color de la página;
+- **seleccionada** al entrar con OK: fondo blanco con doble marco hacia adentro.
+
+Las demás pestañas quedan sin fondo. Al pulsar OK o ESC sin cambiar de página, el Display llama a
+`jwplcUIPageModeChanged(page, selecting)` con el bus TFT tomado. El header generado redibuja ahí
+sólo la pestaña activa, no la página. Sin header (o con el estilo «Contador»), el hook queda
+vacío: el indicador NN/TT se repinta solo.
+
 Si Designer ya configura las páginas, no repitas esa configuración sin una
 razón específica.
 

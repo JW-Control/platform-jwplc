@@ -68,6 +68,10 @@ dibuja el firmware (`JWPLC_Display` / `JWPLC_UI` / `JWPLC_TFT`). Lee también
 - IDLE → HMI según *Proyecto · Pantalla y arranque* (`designer-idle.js`).
 - Con varias páginas: selector NN/TT negro (◀ ▶ página, OK entra) → contenido NN/TT blanco (5
   teclas del contenido). ESC retrocede: edición → submenú → raíz → selector → IDLE.
+- Barra de pestañas (todos los estilos salvo «Contador NN/TT»): la pestaña de la página actual se
+  distingue en los dos modos. Posicionada = fondo de color (recorriendo con ◀ ▶) y seleccionada =
+  fondo blanco con doble marco hacia adentro (dentro, tras OK). El firmware la redibuja sola al
+  cambiar de modo. La tecla que despierta la IDLE no actúa además sobre el selector ni sobre el MENU.
 - Volver a la IDLE: ESC, por inactividad (cuenta en cualquier sección) o nunca (ítem de MENU
   «Ir al inicio» o `JWPLC_Display.goIdle()`). No reintroducir "volver con otra tecla".
 - Un componente que necesite teclas declara su dueño y consume la pulsación

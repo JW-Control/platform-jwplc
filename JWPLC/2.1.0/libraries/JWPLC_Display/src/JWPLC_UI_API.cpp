@@ -451,6 +451,7 @@ extern "C" void jwplcUIRuntimeDrawDirty(JWPLC_TFTClass *tft)
     {
         JWPLCUI::drawDirty(*tft);
         jwplcUIMenuDrawDirty(tft);
+        JWPLCUIPages::drawModeChange(*tft);
         JWPLCUIPages::drawIndicator(*tft);
     }
 }

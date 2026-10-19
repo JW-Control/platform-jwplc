@@ -310,6 +310,74 @@ static void jwplcHMIDrawEllipse(JWPLC_TFTClass &tft,
 }
 
 // Barra de Navegación HMI Autogenerada (ST7789)
+// Pestaña de la página actual: posicionada en el selector (◀ ▶, fondo de
+// color) o seleccionada dentro de la página (OK, fondo blanco y doble marco).
+static void jwplcDrawPageNavTab(uint8_t activePage, bool selecting)
+{
+    JWPLC_TFTClass &tft = JWPLC_Display.tft();
+    tft.setTextSize(1);
+
+    switch (activePage)
+    {
+    case 0:
+        if (selecting)
+        {
+            tft.fillRoundRect(22, 148, 90, 20, 3, 0x03DF);
+            tft.setCursor(55, 154);
+            tft.setTextColor(0xFFFF);
+            tft.print("PRNC");
+        }
+        else
+        {
+            tft.fillRoundRect(22, 148, 90, 20, 3, 0xFFFF);
+            tft.drawRoundRect(22, 148, 90, 20, 3, 0x03DF);
+            tft.drawRoundRect(24, 150, 86, 16, 1, 0x03DF);
+            tft.setCursor(55, 154);
+            tft.setTextColor(0x03DF);
+            tft.print("PRNC");
+        }
+        break;
+    case 1:
+        if (selecting)
+        {
+            tft.fillRoundRect(115, 148, 90, 20, 3, 0xFFFF);
+            tft.setCursor(148, 154);
+            tft.setTextColor(0x0000);
+            tft.print("ALRM");
+        }
+        else
+        {
+            tft.fillRoundRect(115, 148, 90, 20, 3, 0xFFFF);
+            tft.drawRoundRect(115, 148, 90, 20, 3, 0x8C71);
+            tft.drawRoundRect(117, 150, 86, 16, 1, 0x8C71);
+            tft.setCursor(148, 154);
+            tft.setTextColor(0x8C71);
+            tft.print("ALRM");
+        }
+        break;
+    case 2:
+        if (selecting)
+        {
+            tft.fillRoundRect(208, 148, 90, 20, 3, 0xEBBE);
+            tft.setCursor(241, 154);
+            tft.setTextColor(0x0000);
+            tft.print("AJST");
+        }
+        else
+        {
+            tft.fillRoundRect(208, 148, 90, 20, 3, 0xFFFF);
+            tft.drawRoundRect(208, 148, 90, 20, 3, 0x8210);
+            tft.drawRoundRect(210, 150, 86, 16, 1, 0x8210);
+            tft.setCursor(241, 154);
+            tft.setTextColor(0x8210);
+            tft.print("AJST");
+        }
+        break;
+    default:
+        break;
+    }
+}
+
 // Se dibuja una vez por página desde jwplcUIPageEnter().
 static void jwplcDrawPageNavBar(uint8_t activePage)
 {
@@ -320,11 +388,6 @@ static void jwplcDrawPageNavBar(uint8_t activePage)
     {
     case 0:
         tft.fillRoundRect(0, 147, 320, 22, 3, 0x0000);
-        tft.fillRoundRect(22, 148, 90, 20, 3, 0xFFFF);
-        tft.drawRoundRect(22, 148, 90, 20, 3, 0x03DF);
-        tft.setCursor(55, 154);
-        tft.setTextColor(0x03DF);
-        tft.print("PRNC");
         tft.fillRoundRect(115, 148, 90, 20, 3, 0x0000);
         tft.drawRoundRect(115, 148, 90, 20, 3, 0xFFFF);
         tft.setCursor(148, 154);
@@ -343,11 +406,6 @@ static void jwplcDrawPageNavBar(uint8_t activePage)
         tft.setCursor(55, 154);
         tft.setTextColor(0x03DF);
         tft.print("PRNC");
-        tft.fillRoundRect(115, 148, 90, 20, 3, 0xFFFF);
-        tft.drawRoundRect(115, 148, 90, 20, 3, 0xFFFF);
-        tft.setCursor(148, 154);
-        tft.setTextColor(0x9936);
-        tft.print("ALRM");
         tft.fillRoundRect(208, 148, 90, 20, 3, 0x0000);
         tft.drawRoundRect(208, 148, 90, 20, 3, 0xEBBE);
         tft.setCursor(241, 154);
@@ -366,15 +424,19 @@ static void jwplcDrawPageNavBar(uint8_t activePage)
         tft.setCursor(148, 154);
         tft.setTextColor(0xFFFF);
         tft.print("ALRM");
-        tft.fillRoundRect(208, 148, 90, 20, 3, 0xFFFF);
-        tft.drawRoundRect(208, 148, 90, 20, 3, 0xEBBE);
-        tft.setCursor(241, 154);
-        tft.setTextColor(0xEBBE);
-        tft.print("AJST");
         break;
     default:
         break;
     }
+
+    jwplcDrawPageNavTab(activePage, JWPLC_Display.isUserPageSelection());
+}
+
+// Selector <-> contenido sin cambiar de página: el firmware redibuja sólo la
+// pestaña activa, con el bus tomado (Alpha15).
+extern "C" void jwplcUIPageModeChanged(uint8_t page, bool selecting)
+{
+    jwplcDrawPageNavTab(page, selecting);
 }
 
 // Gráfica estática por página (se dibuja una vez al entrar a la página).

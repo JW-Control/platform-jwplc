@@ -2790,3 +2790,8 @@ label.insp-needs-fw { opacity: 0.45; cursor: not-allowed; }
   width: 100%; min-width: 0; padding: 2px 4px; font: 11px 'Cascadia Code', Consolas, monospace;
   background: #0b1621; color: #e8edf2; border: 1px solid #253948; border-radius: 3px;
 }
+
+/* Alpha15 · NAV: tres estados de la pestaña de la página actual (designer-pages.js) */
+.nav-states-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 6px 2px 8px; }
+.nav-state-canvas { image-rendering: pixelated; max-width: 100%; display: block; margin: 0 auto 3px; border-radius: 2px; }
+.nav-state-btn.is-static, .nav-state-btn.is-static:hover { cursor: default; transform: none; background: #13222e; border-color: #283d4d; color: #c9d8e4; }

@@ -29,6 +29,8 @@ namespace
     bool g_selectionMode = true;
     uint8_t g_previousMask = 0;
     bool g_indicatorDirty = true;
+    // Alpha15: el modo cambió sin cambiar de página (la barra redibuja su pestaña).
+    bool g_modeDirty = false;
 
     JWPLC_DisplayIdleReturnMode g_savedIdleReturnMode = IDLE_RETURN_ESC_ONLY;
     bool g_idleReturnOverridden = false;
@@ -104,6 +106,7 @@ namespace
             g_idleReturnOverridden = true;
         }
         g_selectionMode = false;
+        g_modeDirty = true;
         markIndicatorDirty();
         JWPLCUI::requestRefresh();
     }
@@ -116,6 +119,7 @@ namespace
         }
 
         g_selectionMode = true;
+        g_modeDirty = true;
         restoreIdleReturnMode();
 
         // Al salir de PAGE_CONTENT no deben sobrevivir PRESS/RELEASE/REPEAT
@@ -294,6 +298,7 @@ namespace JWPLCUIPages
 
         restoreIdleReturnMode();
         g_selectionMode = true;
+        g_modeDirty = false; // la entrada dibuja la página completa en este modo
 
         // La tecla que despertó la IDLE ya cumplió su función: su PRESS no debe
         // actuar además sobre el selector (un OK entraba directo al contenido y
@@ -372,6 +377,29 @@ namespace JWPLCUIPages
                 (uint32_t)(micros() - startUs));
         }
     }
+}
+
+// Alpha15: sin header del Designer (o sin barra de pestañas) no hay nada que
+// redibujar al cambiar de modo; el NN/TT ya se repinta solo.
+extern "C" void __attribute__((weak)) jwplcUIPageModeChanged(uint8_t page, bool selecting)
+{
+    (void)page;
+    (void)selecting;
+}
+
+void JWPLCUIPages::drawModeChange(JWPLC_TFTClass &tft)
+{
+    (void)tft;
+    if (!g_modeDirty)
+    {
+        return;
+    }
+    g_modeDirty = false;
+    if (!navigationEnabled())
+    {
+        return;
+    }
+    jwplcUIPageModeChanged(JWPLCUI::currentPage(), g_selectionMode);
 }
 
 void JWPLC_DisplayClass::setUserPageCount(uint8_t count)

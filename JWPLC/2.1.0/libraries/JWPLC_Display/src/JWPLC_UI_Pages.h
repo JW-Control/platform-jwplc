@@ -23,6 +23,10 @@ namespace JWPLCUIPages
     // Restablece PAGE_SELECT al entrar nuevamente en USER.
     void prepareEnter();
 
+    // Alpha15: si OK/ESC cambió el modo (selector <-> contenido), llama una vez
+    // a jwplcUIPageModeChanged() con el bus tomado. Va antes del overlay NN/TT.
+    void drawModeChange(JWPLC_TFTClass &tft);
+
     // Overlay global NN/TT. Se dibuja al final del refresh para quedar siempre
     // por encima de los fields de la página.
     void drawIndicator(JWPLC_TFTClass &tft);
