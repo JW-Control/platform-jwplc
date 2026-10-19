@@ -126,7 +126,9 @@ JW-Control/platform-jwplc  rama v2.1.0-alpha.12/feature/openplc-engineering-clos
 
 ## 4. Convenciones de documentación
 
-- Idioma: español.
+- Idioma: español en todo, no sólo en `docs/`: respuestas al usuario, análisis y razonamiento visible,
+  mensajes de avance, comentarios de código y mensajes de commit. Los nombres de API, símbolos y
+  salidas de herramientas se citan tal cual.
 - Carpeta por alpha: `docs/v2.1.0-alpha.N/`.
 - Archivos fijos por alpha: `ALPHA<N>_PLAN.md`, `ALPHA<N>_STATUS.md`,
   `JWPLC_NEW_CHAT_START_ALPHA<N>_<YYYYMMDD>.md` (handoff entre chats/agentes).
