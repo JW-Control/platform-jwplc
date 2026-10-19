@@ -1,3 +1,35 @@
+# ESTADO VIGENTE — 19/10/2026 — F1 APROBADO; H0 extendido 10 EN + 10 power-cycle autorizado; G10 después
+
+**Nueva decisión explícita del propietario:** «Aprobado F1. Pasamos a la campaña extendida y luego la integración G10». **No atribuir esta decisión al cierre completo de Alpha13, G10 ni R1–R4**. El gate físico principal de F131/W5500 ya pasó: early-link real, `STAGE=2`, `LINK=2→1→2→1`, sin watchdog reportado, mismo BOOT hasta `COUNT=1600`, y `POWERON_RESET` previo manual. La prueba extendida de **10 EN y 10 cortes completos de alimentación** está **AUTORIZADA PERO NO EJECUTADA** según evidencia disponible.
+
+**Contrato:** [A13_H0_F1_CAMPANA_EXTENDIDA_EN_POWER_20261019.md](A13_H0_F1_CAMPANA_EXTENDIDA_EN_POWER_20261019.md). Únicamente COM4 de laboratorio, con RJ45 desconectado para aislar init W5500, firmware F1 preexistente en `2b5802720df552e01a0b4f9d4fe1a7bd2de16daf`; ningún `git pull`, recompilación o upload necesarios. Intervenciones estrictamente manuales, observación de boot/early-link/`STAGE=2`/PHY y al menos 5 heartbeats por ciclo; fail-closed al primer WDT, brownout, panic, reset imprevisto o falla de identidad COM. **No tocar COM14 ni GPIO4**.
+
+**Orden posterior:** después de H0-EN10 + H0-PW10 PASS, comenzar [plan G10 productivo](A13_G10_PROMOCION_DESPUES_H0_F1_20261019.md) con P0 inventario exacto del **compositor funcional G10-I**. El compositor experimental G10-R mezcla trazas H0 e instrumentación W5500 para banco; **no trasladar su `w5100.cpp` staged al package**, pues pisaría la corrección F1 validada. Mantener `G10_PACKAGE_PROMOTION=PENDING` y `G10_R_R1_R4=NOT_RUN` hasta nuevas evidencias y autorización específica.
+
+**Rama operativa:** la base sigue en `2b5802720df552e01a0b4f9d4fe1a7bd2de16daf`; esta actualización documental vive en [PR #121](https://github.com/JW-Control/platform-jwplc/pull/121) Draft y no cambia la fuente instalada ni obliga al operador a alterar el checkout.
+
+```text
+ALPHA13=OPEN
+F1_APPROVED=YES_OWNER_CONFIRMED
+F131=H0_PRIMARY_PHYSICAL_PASS_EXTENDED_AUTHORIZED_NOT_RUN
+F132=RESOLVED_CI_AND_LOCAL_BUILD
+H0_F1_EXTENDED_EN10=AUTHORIZED_NOT_RUN
+H0_F1_EXTENDED_POWER10=AUTHORIZED_NOT_RUN
+H0_F1_PHYSICAL_TARGET=COM4_ONLY
+H0_F1_RJ45_CONDITION=DISCONNECTED_DURING_EXTENDED
+H0_F1_PRODUCT_HEAD=2b5802720df552e01a0b4f9d4fe1a7bd2de16daf
+COM14=NOT_TOUCHED
+G10_R_R1_R2_R3_R4=NOT_RUN_NOT_AUTHORIZED
+G10_PACKAGE_PROMOTION=POST_H0_EXTENDED_PENDING
+PENDIENTE_DE_PROMOCION=G10_FUNCTIONAL_CANDIDATE
+NEXT_FAILURE_ID=F133
+BASE_SYNC=PENDING_DRAFT_PR121_TO_PRESERVE_OPERATOR_HEAD
+KNOWLEDGE_SYNC=PENDING_DECISION_PR
+NEXT_GATE=H0_F1_EXTENDED_EN10_AND_POWER10_THEN_G10_P0_INVENTORY
+```
+
+---
+
 # ESTADO VIGENTE — 19/10/2026 — H0-F1 PHY LinkON→LinkOFF→LinkON PASS sin reinicio
 
 **Nueva evidencia de COM4 entregada por operador:** en el sketch físico `A13_H0_F1_SMOKE.ino` del package F1 desde `2b5802720df552e01a0b4f9d4fe1a7bd2de16daf`, **sin recompilación ni nuevo flash**, se desconectó y reconectó **manualmente** RJ45 manteniendo `BOOT=6BCAE2DA`, `STAGE=2` y el contador a 1 Hz. UART 115200:
