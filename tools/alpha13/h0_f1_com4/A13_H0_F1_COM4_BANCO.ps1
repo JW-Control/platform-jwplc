@@ -30,7 +30,10 @@ function Run-Checked([string]$exe,[string[]]$argv,[string]$log='') {
 if ($env:OS -ne 'Windows_NT') { Fail 'WINDOWS_ONLY' }
 $root = (Run-Checked 'git' @('rev-parse','--show-toplevel')).Trim()
 $branch = (Run-Checked 'git' @('-C',$root,'branch','--show-current')).Trim()
-if ($branch -cne 'v2.1.0-alpha.13/feature/cleanup-robustness') { Fail 'WRONG_ALPHA13_BRANCH' }
+if ($branch -cne 'v2.1.0-alpha.13/feature/cleanup-robustness') {
+  # CI usa checkout de SHA (detached HEAD), permitido SOLO para compilacion sin hardware.
+  if (!(($branch -eq '') -and (!$UploadCOM4))) { Fail 'WRONG_ALPHA13_BRANCH' }
+}
 $head = (Run-Checked 'git' @('-C',$root,'rev-parse','HEAD')).Trim()
 if ($head -cne $ExpectedHead) { Fail 'HEAD_MISMATCH' }
 $null = Run-Checked 'git' @('-C',$root,'merge-base','--is-ancestor',$F1_MERGE,'HEAD')
