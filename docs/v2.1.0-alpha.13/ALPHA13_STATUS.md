@@ -1,3 +1,44 @@
+# ESTADO VIGENTE — 19/10/2026 — Alpha13 G10-R / H0: causa raíz identificada (SS_PIN_DEFAULT=10 → GPIO10 flash), corrección F1 pendiente
+
+> **Leer este encabezado antes del bloque del 18/10 que continúa debajo.** La auditoría independiente READ-ONLY cerró la pregunta abierta de H0-F. **No había deadlock.** Documento canónico: [A13_H0_ROOT_CAUSE_SS_PIN_20261019.md](A13_H0_ROOT_CAUSE_SS_PIN_20261019.md). Fallos registrados: **F130** (proceso) y **F131** (defecto latente de producto) en [A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md](A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md).
+
+**Causa raíz (confirmada en fuente):**
+- La cadena `SS_PIN_DEFAULT` de `utility/w5100.cpp` (código original de Arduino Ethernet, presente desde Alpha4 e idéntica en Alpha12) solo reconoce macros. El variant declara `SS` como `static const`, así que el resultado es **10**.
+- `JWPLC_Ethernet.linkStatus()` no aplica `Ethernet.init(JWPLC_ETH_CS)`; solo lo hace `probeHardware()` desde el autoload. Si el sketch consulta antes del primer `service()`, `W5100.init()` → `initSS()` ejecuta `pinMode(10, OUTPUT)`.
+- GPIO10 es IO2 de la flash en QIO. La CPU queda sin acceso a flash y salta `rst:0x8 TG1WDT_SYS_RESET`, justo después de la etapa 63.
+- Explica A–F: C funcionó porque llegó después del primer `service()`; el resto falló en el primer READY.
+
+**Corrección aprobada en principio, NO implementada:** F1 en `w5100.cpp`, `PIN_SPI_SS_ETHERNET_LIB = JWPLC_ETH_CS` (`jwplc_spi_bus.h`, única fuente de verdad del pin) más una guarda `#error` para GPIO6–11 en ESP32. **F2** (`Ethernet.init(_csPin)` en cada `linkStatus()`) **se descarta**: Alpha12 tampoco lo hacía y con F1 no aporta nada en el uso normal. No se toca el variant, las APIs, el autoload ni los periféricos; `LINK=-9` sigue siendo un centinela de laboratorio y no una solución.
+
+**Hallazgos de alcance para el cierre de Alpha13:**
+- **La robustez Ethernet/SPI de G10 existe solo en el overlay temporal de 15 fuentes** (`a13_g10_r_build_candidate.py`). Frente al package de `f0b9075` faltan `JWPLC_W5500_SafeAccess.cpp/.h` y cambios en `EthernetClient/Udp/Server`, `socket.cpp`, `JWPLC_Ethernet.cpp`, `JWPLC_W5x00_Ethernet.h` y `JWPLC_ModbusTCP*`. G1–G8 sí se promovieron (27 archivos). **El cierre exige promover al package lo validado, con F1 incluido, y validar el package instalado; la instrumentación H0 no pasa a producto.**
+- La rama base `v2.1.0-alpha.13/feature/cleanup-robustness` no recibe commits desde 14/10. El estado vivo avanzó por la cadena `codex/alpha13-*` (PR #105, #109–#114, Draft). La documentación de esta auditoría está en `claude/w5500-watchdog-audit-5vobvz`, basada en `e5476a8`.
+
+**Evidencia pendiente sin flashear:**
+- **E1:** `xtensa-esp32-elf-gdb -batch -ex "p/d 'W5100Class::ss_pin'" <ELF H0-F>`. Se espera 10.
+- **E2:** `CONFIG_ESPTOOLPY_FLASHMODE_QIO=1` en `esp32/qio_qspi/include/sdkconfig.h`.
+
+```text
+ALPHA13=OPEN
+HITO=G10-R
+H0_ROOT_CAUSE=IDENTIFIED_SOURCE_CONFIRMED
+H0_ROOT_CAUSE_OBJECT_E1=PENDING
+H0_FLASH_MODE_E2=PENDING
+H0_FIX_F1=APPROVED_IN_PRINCIPLE_NOT_IMPLEMENTED
+H0_FIX_F2=DISCARDED
+F130=CONFIRMED_PROCESS
+F131=CONFIRMED_SOURCE_LATENT_SINCE_ALPHA4
+NEXT_FAILURE_ID=F132
+G10_PACKAGE_PROMOTION=PENDING_OVERLAY_ONLY
+G10-R-H=REVIEW_STOP_NOT_AUTHORIZED
+G10-R-R1_R2_R3_R4=NOT_RUN
+A13-006=ADOPTION_BLOCKED
+ALPHA15=UNMODIFIED
+NEXT_GATE=H0_E1_E2_THEN_F1_ISOLATED_BRANCH_N0_N1_N2_N3_THEN_AUTHORIZED_COM4_CHECK
+```
+
+---
+
 # ESTADO VIGENTE — 18/10/2026 — Alpha13 G10-R / H0: watchdog localizado en ventana initSS, raíz pendiente
 
 > **Leer este encabezado antes del historial de 16–17/10 que continúa debajo.** El estado PRE-H original (`WAIT_OPERATOR_IDENTITY_AND_FULL_FLASH_BACKUPS`) quedó **superado para las dos unidades de desarrollo**, porque el operador comprobó identidades, autorizó por excepción renunciar a backup y realizó cargas controladas. Esa excepción no autoriza subidas futuras ni la campaña R1–R4.
