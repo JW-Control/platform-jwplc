@@ -2466,3 +2466,46 @@ F131_OBJECT_CONFIRMED=PENDING_E1 (valor inicial de W5100Class::ss_pin en el ELF 
 F131=CONFIRMED_SOURCE_FIX_F1_APPROVED_NOT_IMPLEMENTED
 NEXT_FAILURE_ID=F132
 ```
+
+
+## F132 — H0-F1: Arduino CLI prioriza `jwplc_local` instalado sobre la copia aislada del package (2026-10-19)
+
+**Estado:** CAUSA_RAÍZ_IDENTIFICADA; CORRECCIÓN DE RUNNER PROPUESTA / RETEST WINDOWS PENDIENTE.
+**Clasificación:** `HARNESS_FAILURE=YES`, `PRODUCT_FAILURE=NO`, `COM4_UPLOAD=NO`, `COM14_TOUCHED=NO`.
+
+**Evidencia del operador (dos intentos de build únicamente):**
+
+1. Con HEAD `d813e1008b23e40bf5248e2111ba85595d864b7d`, rama base Alpha13 y worktree limpio, el ejecutor se detuvo en `H0F1_REVIEW_STOP=WRONG_PLATFORM_SELECTED`. No alcanzó compilación.
+2. Se corrigió por PR #119 la comparación literal de rutas, integrando `01f5aa9a850a332eca5acc2200c30223a2d6f5ea`. En la segunda ejecución con ese HEAD, las rutas canonicalizadas **realmente difirieron**:
+
+```text
+H0F1_PLATFORM_SELECTED=.../Arduino15/packages/jwplc_local/hardware/esp32/2.1.0-dev
+H0F1_PLATFORM_EXPECTED=.../Temp/jwplc_a13_h0f1_<SHA>_<RUN>/sketchbook/hardware/jwplc_local/esp32
+H0F1_REVIEW_STOP=WRONG_PLATFORM_SELECTED
+```
+
+No se difunden rutas privadas del operador: las rutas se muestran aquí sanitizadas. El segundo rechazo confirma que no era un problema de `\\` vs `/` en Windows; **Arduino CLI realmente seleccionó el package instalado**. El primer ajuste (#119) mejoró el diagnóstico, pero no resolvió la precedencia.
+
+**Causa técnica verificada:** el CLI resuelve la plataforma identificada por `VENDOR:ARCHITECTURE`; la instalación manual en `{directories.user}/hardware/jwplc_local/esp32` colisiona con la instalación Boards Manager `jwplc_local:esp32@2.1.0-dev` presente en `{directories.data}/packages`. La prioridad inesperada de Boards Manager ante una manual idéntica está reconocida como problema de Arduino CLI ([issue arduino/arduino-cli#2766](https://github.com/arduino/arduino-cli/issues/2766)). Ninguna evidencia señala un defecto en la corrección productiva F1 de `w5100.cpp`; no hubo acceso COM4 ni modificación al equipo.
+
+**Corrección en candidato de runner, no de firmware:** copiar el **mismo** `JWPLC/2.1.0` al sketchbook temporal bajo un `VENDOR` exclusivo `jwplc_h0f1`; usar exclusivamente durante el banco el FQBN `jwplc_h0f1:esp32:jwplcbasic`, sin editar board/variant/platform o borrar/reinstalar la versión global. La selección de `runtime.platform.path` debe ser la copia temporal, con `w5100.cpp.d/.o/ELF` reales procedentes de ese código. Si alguna dependencia `runtime.tools.*` no se resuelve bajo ese identificador, `REVIEW_STOP`; nunca degradar silenciosamente a `jwplc_local:esp32@2.1.0-dev`.
+
+**Prevención:**
+- No usar como prueba de *source-first* un `--show-properties` o un `compile` que solo especifique `directories.user` cuando existe una plataforma instalada del mismo `VENDOR:ARCHITECTURE`.
+- Usar plataforma de desarrollo con namespace temporal único, o aislamiento completo verificado, y comprobar **antes de compilar** la procedencia exacta de `runtime.platform.path`.
+- Registrar por separado (a) error en selección de core, (b) compilación y objeto/ELF, (c) hardware físico. Dos revisiones del ejecutor sin compilación no prueban F1.
+- Versionar cambios por PR en `platform-jwplc`, utilizar `git pull` para entregarlos, sin ZIP externo ni scripts pegados en chat (ver F091 y protocolo de continuidad).
+- No repetir un tercer ciclo de compilación física/carga mientras el script y sus pruebas no físicas estén preparados; **no subir COM4** antes de un `H0F1_BUILD=PASS_SOURCE_FIRST` verdadero.
+
+```text
+F132_CLASS=HARNESS_ARDUINO_PLATFORM_VENDOR_COLLISION
+F132_ROOT_CAUSE=IDENTICAL_VENDOR_ARCH_BOARDS_MANAGER_PRECEDENCE
+F132_LOCAL_REPORT=FAIL_BEFORE_COMPILATION_2_OF_2
+F132_PRODUCT_MUTATION=NONE
+F132_COM4_UPLOAD=NOT_RUN
+F132_COM14=NOT_TOUCHED
+F132_RUNNER_FIX=UNIQUE_EPHEMERAL_VENDOR_CANDIDATE_RETEST_PENDING
+F132_CI_WINDOWS=NOT_YET_PASS
+F131_F1_PRODUCT=MERGED_NOT_PHYSICALLY_VALIDATED
+NEXT_FAILURE_ID=F133
+```
