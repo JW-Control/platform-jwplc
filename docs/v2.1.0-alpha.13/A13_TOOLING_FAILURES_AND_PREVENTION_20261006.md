@@ -2509,3 +2509,25 @@ F132_CI_WINDOWS=NOT_YET_PASS
 F131_F1_PRODUCT=MERGED_NOT_PHYSICALLY_VALIDATED
 NEXT_FAILURE_ID=F133
 ```
+
+
+### F132 — evidencia CI de la segunda etapa, después de seleccionar la plataforma (19/10/2026)
+
+La [CI H0-F1 COM4 #39284131070](https://github.com/JW-Control/platform-jwplc/actions/runs/39284131070), ejecutada para un SHA candidato **anterior** a la corrección de selección explícita de biblioteca, confirmó en Windows:
+
+```text
+H0F1_PLATFORM=PASS_ISOLATED_PACKAGE_PATH_CANONICAL
+H0F1_REVIEW_STOP=WRONG_ETHERNET_LIBRARY
+```
+
+En esa ejecución Arduino CLI pasó el control de plataforma temporal y el comando de compilación regresó sin error; el siguiente control rechazó la biblioteca seleccionada según el log. **No se pudo determinar del log CI visible si la biblioteca era realmente otra o si había una diferencia de formato textual**, porque `COMPILE.log` estaba guardado en una carpeta temporal de Actions no publicada. Por ello, no contabilizar la compilación como source-first PASS ni afirmar defecto de producto.
+
+**Ajuste incremental del mismo F132:** el ejecutor especifica `arduino-cli compile --library <JWPLC_Ethernet staging>` (máxima prioridad según el contrato de selección de bibliotecas Arduino), mantiene la verificación de la ruta del log y, si difiere, imprime `H0F1_ETHERNET_SELECTED` frente a `H0F1_ETHERNET_EXPECTED`. El gate seguirá exigiendo `.d/.o/ELF` desde el staging, sin publicar firmware ni tocar USB.
+
+```text
+F132_STAGING_PLATFORM_CI=PASS_BEFORE_LIBRARY_CHECK
+F132_ETHERNET_LIBRARY_CI=REVIEW_STOP_INSPECT_FURTHER
+F132_SOURCE_TO_OBJECT_ELF=NOT_YET_VERIFIED
+F132_PHYSICAL=NOT_RUN
+NEXT_FAILURE_ID=F133
+```
