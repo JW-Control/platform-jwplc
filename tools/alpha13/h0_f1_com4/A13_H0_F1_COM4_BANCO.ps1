@@ -159,11 +159,17 @@ $objs = @(Get-ChildItem -LiteralPath $build -Recurse -File -Filter 'w5100.cpp.o'
 if ($objs.Count -ne 1) { Fail 'W5100_SOURCE_OBJECT_MISSING_OR_MULTIPLE' }
 # gcc -MMD puede generar w5100.cpp.d o w5100.cpp.o.d; exigir evidencia
 # GCC real con referencia al fuente staged y rechazar .o heredados.
+# PowerShell desenvuelve pipelines con un solo elemento en una cadena.
+# El array exterior preserva la ruta completa para $deps[0] (F003).
 $deps = @(
-  (Join-Path $objs[0].DirectoryName 'w5100.cpp.d'),
-  (Join-Path $objs[0].DirectoryName 'w5100.cpp.o.d')
-) | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf }
-if ($deps.Count -ne 1) { Fail 'W5100_DEP_MISSING_OR_AMBIGUOUS' }
+  @(
+    (Join-Path $objs[0].DirectoryName 'w5100.cpp.d'),
+    (Join-Path $objs[0].DirectoryName 'w5100.cpp.o.d')
+  ) | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf }
+)
+if ($deps.Count -ne 1 -or !($deps[0] -is [string])) {
+  Fail 'W5100_DEP_MISSING_OR_AMBIGUOUS'
+}
 $depText = [IO.File]::ReadAllText($deps[0])
 # GCC Makefile .d usa escapes para los espacios, los dos puntos de Windows,
 # barras duplicadas y continuaciones de linea. Igual regla que F129.
