@@ -18,6 +18,16 @@ F1_HEAD="codex/alpha13-h0-f1-ss-pin-default-20261019"
 F1_BASE="v2.1.0-alpha.13/feature/cleanup-robustness"
 POSTMERGE_HEAD="docs/alpha13-h0-f1-postmerge-com4-20261019"
 POSTMERGE_BASE="f2c6821566fa62df744c3af8d4d70a440994e64f"
+F132_HEAD="codex/alpha13-h0-f1-cli-platform-collision-20261019"
+F132_BASE="01f5aa9a850a332eca5acc2200c30223a2d6f5ea"
+F132_ALLOW=frozenset((
+    "tools/alpha13/h0_f1_com4/A13_H0_F1_COM4_BANCO.ps1",
+    "tools/alpha13/h0_f1_com4/README.md",
+    "docs/v2.1.0-alpha.13/A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md",
+    "docs/v2.1.0-alpha.13/ALPHA13_STATUS.md",
+    "tools/alpha13/gates/a13_g10_r_h0_f1_scope_bridge.py",
+    ".github/workflows/alpha13-h0-f1-com4-runner.yml",
+))
 POSTMERGE_CHANGES=frozenset((
     "tools/alpha13/gates/a13_g10_r_h0_f1_scope_bridge.py",
     "docs/v2.1.0-alpha.13/ALPHA13_STATUS.md",
@@ -87,6 +97,9 @@ def selftest():
     assert not exact_patch(a,b.replace("JWPLC_ETH_CS","10"))
     assert POSTMERGE_CHANGES == set(POSTMERGE_CHANGES)
     assert "JWPLC/2.1.0/boards.txt" not in POSTMERGE_CHANGES
+    assert "JWPLC/2.1.0/boards.txt" not in F132_ALLOW
+    assert "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/utility/w5100.cpp" not in F132_ALLOW
+    assert not any("alpha15" in path.lower() for path in F132_ALLOW)
     print("H0_F1_G10_LEGACY_BRIDGE_NEGATIVES=PASS_7")
     
 def check():
@@ -115,6 +128,22 @@ def check():
         actual=(ROOT/PRODUCT).read_text(encoding="utf-8")
         assert exact_patch(original,actual),"H0_F1_POSTMERGE_PRODUCT_DIFF_DRIFT"
         print("G10_R_H0_F1_POSTMERGE_DOCS=PASS_PRODUCT_F1_UNCHANGED_EXACT_DOCS")
+        return
+    if event=="pull_request" and head==F132_HEAD and base==F1_BASE:
+        run("git","merge-base","--is-ancestor",F132_BASE,"HEAD")
+        changed=set(run("git","diff","--name-only",F132_BASE,"HEAD").splitlines())
+        assert changed==F132_ALLOW, (
+            "H0_F132_STRICT_SCOPE_REVIEW_STOP:"+repr(sorted(changed)))
+        assert not any(p.startswith("JWPLC/") for p in changed),"H0_F132_PRODUCT_CHANGED"
+        # Aun en un PR de herramientas verificar la correccion productiva F1.
+        original=run("git","show",BASE+":"+PRODUCT)
+        actual=(ROOT/PRODUCT).read_text(encoding="utf-8")
+        assert exact_patch(original,actual),"H0_F132_PRODUCT_SS_DRIFT"
+        runner=(ROOT/"tools/alpha13/h0_f1_com4/A13_H0_F1_COM4_BANCO.ps1").read_text(encoding="utf-8")
+        assert "$FQBN = 'jwplc_h0f1:esp32:jwplcbasic'" in runner, "F132_TEMP_VENDOR_MISSING"
+        assert "hardware\\jwplc_h0f1\\esp32" in runner,"F132_STAGING_VENDOR_MISMATCH"
+        assert "H0F1_PLATFORM=PASS_ISOLATED_PACKAGE_PATH_CANONICAL" in runner
+        print("G10_R_F132=PASS_STRICT_SCOPE_AND_PRODUCT_F1_UNMODIFIED")
         return
     # Contrato G10-R original: funciona para todos los demás PR/ramas.
     from a13_g10_r_b3_scope import check as legacy_check
