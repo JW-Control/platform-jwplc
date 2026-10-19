@@ -22,6 +22,7 @@ F132_HEAD="codex/alpha13-h0-f1-cli-platform-collision-20261019"
 F132_BASE="01f5aa9a850a332eca5acc2200c30223a2d6f5ea"
 F132_ALLOW=frozenset((
     "tools/alpha13/h0_f1_com4/A13_H0_F1_COM4_BANCO.ps1",
+    "tools/alpha13/h0_f1_com4/A13_H0_F1_PATH_IDENTITY.ps1",
     "tools/alpha13/h0_f1_com4/README.md",
     "docs/v2.1.0-alpha.13/A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md",
     "docs/v2.1.0-alpha.13/ALPHA13_STATUS.md",
