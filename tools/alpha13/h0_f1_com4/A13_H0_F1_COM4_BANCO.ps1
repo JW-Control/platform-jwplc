@@ -123,13 +123,25 @@ foreach ($property in @('build.board.platform.path','build.core.platform.path',
 }
 Write-Host 'H0F1_PLATFORM=PASS_ISOLATED_PACKAGE_PATH_CANONICAL'
 Write-Host 'H0F1_STAGING_VENDOR=jwplc_h0f1_ALIAS_JWPLC_SOURCE_UNMODIFIED'
+# Prioridad máxima documentada por Arduino CLI: --library <ruta>.
+# No confiar solo en la prioridad de librerías bundled si el vendor de
+# staging cambia, aunque runtime.platform.path ya sea el esperado.
+$stagedEthernet = Join-Path $hw 'libraries\JWPLC_Ethernet'
+if (!(Test-Path -LiteralPath (Join-Path $stagedEthernet 'src\JWPLC_Ethernet.h') -PathType Leaf)) {
+  Fail 'STAGED_ETHERNET_LIBRARY_INCOMPLETE'
+}
 $compile = Run-Checked $Cli @('--config-file',$cfg,'compile','--fqbn',$FQBN,
-                              '--warnings','default','--build-path',$build,'-v',$sketch) (Join-Path $stage 'COMPILE.log')
+                              '--warnings','default','--library',$stagedEthernet,
+                              '--build-path',$build,'-v',$sketch) (Join-Path $stage 'COMPILE.log')
 $found = @($compile -split '\r?\n' | Where-Object { $_ -match '^Using library JWPLC_Ethernet\b' })
 if ($found.Count -ne 1) { Fail 'ETHERNET_LIBRARY_AMBIGUOUS' }
 $norm = ($found[0] -replace '\\','/').ToLowerInvariant()
 $wanted = ((Join-Path $hw 'libraries\JWPLC_Ethernet') -replace '\\','/').ToLowerInvariant()
-if (!$norm.Contains($wanted)) { Fail 'WRONG_ETHERNET_LIBRARY' }
+if (!$norm.Contains($wanted)) {
+  Write-Host ('H0F1_ETHERNET_SELECTED='+$found[0])
+  Write-Host ('H0F1_ETHERNET_EXPECTED='+$stagedEthernet)
+  Fail 'WRONG_ETHERNET_LIBRARY'
+}
 $objs = @(Get-ChildItem -LiteralPath $build -Recurse -File -Filter 'w5100.cpp.o')
 if ($objs.Count -ne 1) { Fail 'W5100_SOURCE_OBJECT_MISSING_OR_MULTIPLE' }
 # gcc -MMD puede generar w5100.cpp.d o w5100.cpp.o.d; exigir evidencia
