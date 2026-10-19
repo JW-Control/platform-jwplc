@@ -51,3 +51,23 @@ G10_P0_PHYSICAL_R1_R4=NOT_RUN_NOT_AUTHORIZED
 H0_F1_EXTENDED_STRICT=REVIEW_EVIDENCE_GAP
 NEXT_GATE=H0_ACCEPTANCE_DECISION_THEN_G10_COMPOSE_DIFF_NONPHYSICAL
 ```
+
+
+## 4. Composición dinámica source-backed verificada — PR #122
+
+**Rama aislada:** `codex/alpha13-g10-p0-readonly-manifest-20261019`; SHA de código del gate `96b4ab31e97aa0c3a9f0c9ab3a67e6628f11b65e`. [CI #39315048980](https://github.com/JW-Control/platform-jwplc/actions/runs/39315048980) **2/2 PASS Windows y Ubuntu**, sin skips. Ejecuta `tools/alpha13/gates/a13_g10_p0_source_inventory.py` que invoca `a13_g10_integrated.py::compose()` en memoria y produce solo manifiesto JSON fuera del checkout; no ejecuta `stage_platform()`.
+
+```text
+G10_P0=PASS_G10_P0_READONLY_EXACT_COMPOSE
+G10_P0_FILES=14
+G10_P0_MODIFIED=10
+G10_P0_ADDED=2
+G10_P0_UNCHANGED=2
+G10_P0_F1_W5100=UNCHANGED_BYTE_FOR_BYTE
+G10_P0_NO_FIRMWARE_WRITE=YES
+G10_P0_PACKAGE_UNMODIFIED=PASS
+```
+
+El runner inicial de Windows detectó un falso rechazo `F1_SOURCE_BYTES_CHANGED` por CRLF de checkout frente a LF del blob Git; la corrección normaliza **únicamente** CRLF al comparar contenido canónico con el commit F1. El run inicial de Ubuntu ya había pasado. El retest Windows/Ubuntu sobre SHA exacto corroboró 10 MODIFIED, 2 ADDED, 2 UNCHANGED, F1 inalterado y package sin cambios. Esta incidencia es **tooling de manifiesto**, no regresión W5500; no abrir F133 sin nueva causa demostrada.
+
+**Manifiestos SHA:** artifacts del run CI, no incluidos manualmente aquí; no inventar hashes. `G10_P0_DYNAMIC_COMPOSE=PASS` **solo en rama candidata read-only**. Permanece `G10_PRODUCT_PROMOTION=NOT_STARTED`, y los gates de compilación N2/N3 y físicos R1–R4 **no están ejecutados para código adoptado**. Se mantiene la necesidad de resolución de `H0_F1_EXTENDED_STRICT=REVIEW_EVIDENCE_GAP` antes de adoptar código.
