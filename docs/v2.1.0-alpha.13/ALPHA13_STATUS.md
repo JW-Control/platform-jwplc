@@ -1,4 +1,339 @@
-# Alpha13 — estado vigente: G10 por hitos integrados (2026-10-13)
+# ESTADO VIGENTE — 19/10/2026 — Alpha13 G10-R / H0: causa raíz identificada (SS_PIN_DEFAULT=10 → GPIO10 flash), corrección F1 pendiente
+
+> **Leer este encabezado antes del bloque del 18/10 que continúa debajo.** La auditoría independiente READ-ONLY cerró la pregunta abierta de H0-F. **No había deadlock.** Documento canónico: [A13_H0_ROOT_CAUSE_SS_PIN_20261019.md](A13_H0_ROOT_CAUSE_SS_PIN_20261019.md). Fallos registrados: **F130** (proceso) y **F131** (defecto latente de producto) en [A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md](A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md).
+
+**Causa raíz (confirmada en fuente):**
+- La cadena `SS_PIN_DEFAULT` de `utility/w5100.cpp` (código original de Arduino Ethernet, presente desde Alpha4 e idéntica en Alpha12) solo reconoce macros. El variant declara `SS` como `static const`, así que el resultado es **10**.
+- `JWPLC_Ethernet.linkStatus()` no aplica `Ethernet.init(JWPLC_ETH_CS)`; solo lo hace `probeHardware()` desde el autoload. Si el sketch consulta antes del primer `service()`, `W5100.init()` → `initSS()` ejecuta `pinMode(10, OUTPUT)`.
+- GPIO10 es IO2 de la flash en QIO. La CPU queda sin acceso a flash y salta `rst:0x8 TG1WDT_SYS_RESET`, justo después de la etapa 63.
+- Explica A–F: C funcionó porque llegó después del primer `service()`; el resto falló en el primer READY.
+
+**Corrección aprobada en principio, NO implementada:** F1 en `w5100.cpp`, `PIN_SPI_SS_ETHERNET_LIB = JWPLC_ETH_CS` (`jwplc_spi_bus.h`, única fuente de verdad del pin) más una guarda `#error` para GPIO6–11 en ESP32. **F2** (`Ethernet.init(_csPin)` en cada `linkStatus()`) **se descarta**: Alpha12 tampoco lo hacía y con F1 no aporta nada en el uso normal. No se toca el variant, las APIs, el autoload ni los periféricos; `LINK=-9` sigue siendo un centinela de laboratorio y no una solución.
+
+**Hallazgos de alcance para el cierre de Alpha13:**
+- **La robustez Ethernet/SPI de G10 existe solo en el overlay temporal de 15 fuentes** (`a13_g10_r_build_candidate.py`). Frente al package de `f0b9075` faltan `JWPLC_W5500_SafeAccess.cpp/.h` y cambios en `EthernetClient/Udp/Server`, `socket.cpp`, `JWPLC_Ethernet.cpp`, `JWPLC_W5x00_Ethernet.h` y `JWPLC_ModbusTCP*`. G1–G8 sí se promovieron (27 archivos). **El cierre exige promover al package lo validado, con F1 incluido, y validar el package instalado; la instrumentación H0 no pasa a producto.**
+- La rama base `v2.1.0-alpha.13/feature/cleanup-robustness` no recibe commits desde 14/10. El estado vivo avanzó por la cadena `codex/alpha13-*` (PR #105, #109–#114, Draft). La documentación de esta auditoría está en `claude/w5500-watchdog-audit-5vobvz`, basada en `e5476a8`.
+
+**Evidencia pendiente sin flashear:**
+- **E1:** `xtensa-esp32-elf-gdb -batch -ex "p/d 'W5100Class::ss_pin'" <ELF H0-F>`. Se espera 10.
+- **E2:** `CONFIG_ESPTOOLPY_FLASHMODE_QIO=1` en `esp32/qio_qspi/include/sdkconfig.h`.
+
+```text
+ALPHA13=OPEN
+BASE_SYNC=PENDIENTE_MERGE_PR_115 KNOWLEDGE_SYNC=PENDIENTE_MERGE_PR_14
+HITO=G10-R
+H0_ROOT_CAUSE=IDENTIFIED_SOURCE_CONFIRMED
+H0_ROOT_CAUSE_OBJECT_E1=PENDING
+H0_FLASH_MODE_E2=PENDING
+H0_FIX_F1=APPROVED_IN_PRINCIPLE_NOT_IMPLEMENTED
+H0_FIX_F2=DISCARDED
+F130=CONFIRMED_PROCESS
+F131=CONFIRMED_SOURCE_LATENT_SINCE_ALPHA4
+NEXT_FAILURE_ID=F132
+G10_PACKAGE_PROMOTION=PENDING_OVERLAY_ONLY
+G10-R-H=REVIEW_STOP_NOT_AUTHORIZED
+G10-R-R1_R2_R3_R4=NOT_RUN
+A13-006=ADOPTION_BLOCKED
+ALPHA15=UNMODIFIED
+NEXT_GATE=H0_E1_E2_THEN_F1_ISOLATED_BRANCH_N0_N1_N2_N3_THEN_AUTHORIZED_COM4_CHECK
+```
+
+---
+
+# ESTADO VIGENTE — 18/10/2026 — Alpha13 G10-R / H0: watchdog localizado en ventana initSS, raíz pendiente
+
+> **Leer este encabezado antes del historial de 16–17/10 que continúa debajo.** El estado PRE-H original (`WAIT_OPERATOR_IDENTITY_AND_FULL_FLASH_BACKUPS`) quedó **superado para las dos unidades de desarrollo**, porque el operador comprobó identidades, autorizó por excepción renunciar a backup y realizó cargas controladas. Esa excepción no autoriza subidas futuras ni la campaña R1–R4.
+
+**Prueba física más reciente: H0-F COM4 — upload PASS exclusivamente COM4; diagnóstico FAIL por watchdog reproducido.** Código efectivamente compilado/subido `f0b9075130158b99d89e0f9a574d964236614b78` desde rama `codex/alpha13-h0-w5100-init-stage-20261018` / [PR #114 Draft](https://github.com/JW-Control/platform-jwplc/pull/114). El operador presentó evidencia local: `G10_R_H0_E_W5100_SOURCE_TO_OBJECT=PASS`, `G10_R_BUILD_COM4=PASS_SOURCE_FIRST`, `G10_R_STAGE=PASS_15_SOURCES`, `G10_R_H0_DIAG_UPLOAD=PASS_COM4_ONLY`, `G10_R_H0_COM14=NOT_TOUCHED`. El objeto `w5100.cpp.o` procede de la fuente staged instrumentada. Ficha waiver local dev, identidad MAC/4 MB verificada antes de escritura y consentimiento específico H0-F introducido por el operador; no copiar MAC o waiver a GitHub.
+
+**Evidencia serial F (18/10 ~19:07):** primer `G10R_READY:... LINK=` se trunca, seguido de `rst:0x8 (TG1WDT_SYS_RESET)`. En el boot siguiente:
+```text
+G10R_H0_PREVIOUS:RUN=1 ATTEMPT=1 LAST_STAGE=63 VALID=1
+G10R_H0_TRACE=REBOOT_NO_AUTO_REPEAT
+```
+`Stage 63` es el checkpoint **después de `SPI.begin()`**, previo a que `initSS()` termine (`Stage 64` no alcanzado). En `JWPLC_Ethernet/src/utility/w5100.h`, la rama ESP32 `initSS()` ejecuta `pinMode(ss_pin, OUTPUT)`. **Bloqueo temporalmente localizado en initSS; NO se ha demostrado error en pinMode, CS ni deadlock específico.** Tras desarmar la sonda, Master `BOOT=B1D755A8` recuperó IP `192.168.0.31` con READY continuo en el intervalo observado, pero `LINK=-9` es centinela ficticio y no una corrección. No confundir el `rst:0x1 (POWERON_RESET)` manual previo con el `rst:0x8` de WDT.
+
+**Historial H0 en una línea:** A inicial (WDT repetitivo en LINK); B omisión de lectura adicional (sin WDT ~30 s); C llamada real tardía (`PHY=1 STAGE=50` y ~25 s sin WDT); D primer READY (`ATTEMPT=1 STAGE=30`, WDT); E getLinkStatus interno (`STAGE=32`, WDT); F initSS (`STAGE=63`, WDT). Todos B–F son sketches/overlays diagnósticos, **NO fuente productiva adoptada**; las lecturas reales siguen siendo necesarias en el package.
+
+**CI del HEAD físico F — 15/15 jobs PASS** (nonphysical, **no valida estabilidad del firmware**): [B2 2/2 #39177861353](https://github.com/JW-Control/platform-jwplc/actions/runs/39177861353), [B4 2/2 #39177861327](https://github.com/JW-Control/platform-jwplc/actions/runs/39177861327), [G10-R source-first Windows/Ubuntu 5/5 #39177861376](https://github.com/JW-Control/platform-jwplc/actions/runs/39177861376), [TCP124 Windows/Ubuntu 2/2 #39177861345](https://github.com/JW-Control/platform-jwplc/actions/runs/39177861345), [B3 N0/N1/N3 4/4 (N3 11/11) #39177861330](https://github.com/JW-Control/platform-jwplc/actions/runs/39177861330). Los commits documentales posteriores al SHA físico requieren distinguir HEAD documental vs código y, si CI se vuelve a disparar, registrar nueva conclusión por SHA exacto.
+
+**Handoff y segunda revisión independiente:** [A13_G10_R_H0_HANDOFF_CLAUDE_CODE_20261018.md](A13_G10_R_H0_HANDOFF_CLAUDE_CODE_20261018.md) y [A13_G10_R_H0_PROMPT_CLAUDE_CODE_20261018.md](A13_G10_R_H0_PROMPT_CLAUDE_CODE_20261018.md). Solicitar primero auditoría read-only sobre `ss_pin` efectivo, `pinMode`/initSS, propiedad SPI/autoload, reentrancia `W5100.init()`, task scheduling y fuente→objeto→ELF, **antes de otra sonda o carga física**. No aceptar bypass `LINK=-9` en producción ni eliminar periféricos/autoload.
+
+```text
+ALPHA13=OPEN
+HITO=G10-R
+H0_F_UPLOAD_COM4=PASS_COM4_ONLY
+H0_F_COM14=NOT_TOUCHED
+H0_F_PHYSICAL_WDT=REPRODUCED_FIRST_READY_STAGE_63
+H0_ROOT_CAUSE=OPEN_PENDING_INDEPENDENT_REVIEW
+H0_BACKUP_POLICY=WAIVED_TWO_DEV_BOARDS_ONLY_BY_OPERATOR
+G10-R-H=REVIEW_STOP_NOT_AUTHORIZED
+G10-R-R1_R2_R3_R4=NOT_RUN
+R3_COMPLETE_PHYSICAL_CAMPAIGN_READY=FALSE
+R3_PHYSICAL_INJECTION_READY=FALSE
+A13-006=ADOPTION_BLOCKED
+ALPHA15=UNMODIFIED
+NEXT_GATE=H0_ROOT_CAUSE_READ_ONLY_REVIEW_THEN_EXPLICIT_APPROVAL
+```
+
+---
+
+> **H0 físico 17/10/2026 — UPLOAD PASS / MASTER WDT REVIEW_STOP.** El operador confirmó `G10_R_UPLOAD_STATUS=PASS_BOTH_EXPLICIT` y HEAD firmware `701196fc5f1b998fcc1b4c0082e9c75e86672a5a` para COM14 Slave y COM4 Master. Ambos TFT inicialmente mostraron IDLE (etiqueta A13); **COM4 Master se reinicia de forma repetida**: `rst:0x8 (TG1WDT_SYS_RESET)` aproximadamente cada 2 s, cambia `G10R_BOOT:NONCE`, llega a `TCP=1 RTU=1`, y el último registro siempre se trunca en `G10R_READY:IP=0.0.0.0 TCP=0 UDP=0 RTU=1 BOOT=<cambiante> LINK=`. Master estaba **sin RJ45, solo USB**; 0.0.0.0/TCP=0 sin router no prueba fallo DHCP. Código del sketch: `G10R_READY` imprime `Serial.print((int)JWPLC_Ethernet.linkStatus())` tras `LINK=`; `JWPLC_EthernetClass::linkStatus()` toma mutex SPI hasta 200 ms y consulta `Ethernet.linkStatus()->W5100.getLinkStatus()`. **Pista de bloqueo, causalidad aún no demostrada**: también existe servicio Ethernet autoload concurrente. Repetidos resets descartan que sea solo refresco visual TFT. El slave fue flasheado pero aún no se acreditó estabilidad RTU física. **G10-R-H=REVIEW_STOP_NO_CAMPAIGN**, sin R1/R2/R3/R4, router/RS-485 sin conectar, sin cambio productivo ni Alpha15. **No repetir flash ni asociar 19/19 CI con PASS físico**. Siguiente acción autorizable: diagnóstico controlado del enlace en router de banco aislado (solo RJ45 COM4, sin RS485, sin cargas, observación 15–30 s, abortar si mantiene resets); si persiste, aislar en variante sketch experimental fuera del package la llamada `linkStatus` y revalidar compilaciones antes de nuevo upload.
+
+> **H0 — banco confirmado por operador (17/10/2026):** Hay dos JWPLC Basic disponibles y aislados. Asignación prevista: **COM4 Master con microSD**, **COM14 Slave RTU sin microSD**. Ambos deberán recibir nuevamente su firmware de laboratorio **solo después** de verificar identidad/ausencia de cargas, realizar respaldos completos de flash y recibir consentimiento de carga. La microSD se prueba únicamente en COM4; no exigirla en COM14. **El respaldo flash no respalda el contenido microSD**. Registro y procedimiento: [B4 banco y backups](A13_G10_R_PREH_B4_BANCO_RESPALDOS_SEGURIDAD_20261017.md). Se conserva `PREH_STEPS_REMAINING=0` (ingeniería), pero `G10-R-H0=WAIT_OPERATOR_IDENTITY_AND_FULL_FLASH_BACKUPS`, `G10-R-H=NOT_RUN`, `R3_COMPLETE_PHYSICAL_CAMPAIGN_READY=FALSE` y `R3_PHYSICAL_INJECTION_READY=FALSE`. Esta confirmación **no autoriza** lecturas ni flasheo.
+
+# ESTADO VIGENTE — 17/10/2026 — PRE-H B1–B4 cerrados NO FÍSICOS
+
+**PRE-H completamente preparado y validado en CI para el candidato de laboratorio.** `B1/B2/B3/B4=CLOSED_NONPHYSICAL`, **0 bloques de ingeniería pendientes para solicitar H0 al operador**. El código exacto verificado es `33990007405cac2b5af9c110943d94f9201e6add`; los cambios documentales posteriores no alteran firmware, staging, guards ni runners. PR #109 sigue **Draft** sin merge.
+
+**CI del mismo código, 19/19 jobs PASS sin omitted/skipped:** [B4 seguridad/backup #39037163647](https://github.com/JW-Control/platform-jwplc/actions/runs/39037163647) 2/2; [N0 G10-R #39037163623](https://github.com/JW-Control/platform-jwplc/actions/runs/39037163623) 2/2; [B1 offline #39037163606](https://github.com/JW-Control/platform-jwplc/actions/runs/39037163606) 2/2; [B2 offline #39037163624](https://github.com/JW-Control/platform-jwplc/actions/runs/39037163624) 2/2; [TCP124 source-first #39037163653](https://github.com/JW-Control/platform-jwplc/actions/runs/39037163653) 2/2; [G10-R build/replay/nativo #39037163667](https://github.com/JW-Control/platform-jwplc/actions/runs/39037163667) 5/5; [B3 integrado N0/N1/N3 #39037163676](https://github.com/JW-Control/platform-jwplc/actions/runs/39037163676) 4/4, N3 candidato **11/11** con artifact y fuente→objeto→ELF. Baseline N3 11/11 reutilizado tras demostrar equivalencia exacta `JWPLC/` con G10-I `a954cabd`. Cinco archives congelados y demás precompilados intactos; Arduino IDE local no ejecutado.
+
+**Documento B4 operativo:** [A13_G10_R_PREH_B4_BANCO_RESPALDOS_SEGURIDAD_20261017.md](A13_G10_R_PREH_B4_BANCO_RESPALDOS_SEGURIDAD_20261017.md). Script `tools/alpha13/gates/a13_g10_r_b4_bench.py` genera ficha LOCAL (vacía por defecto), verifica dos backups completos de flash/identidades/seguridad con 14 negativos y bloquea uso de `--upload`/`--live` sin ficha. R2 requiere UART real LINKOFF y DHCP READY tras las ventanas completas de 12+96 segundos por ciclo. Sólo el **operador** puede verificar banco, leer flash de ambas placas, respaldar, aprobar puertas A/B y aportar la evidencia. **R5/power-cycle** y restauración física siguen separados.
+
+```text
+PREH_B1_TCP124=CLOSED_NONPHYSICAL
+PREH_B2_DHCP_FAIRNESS=CLOSED_NONPHYSICAL
+PREH_B3_N0_N1_N2_N3=CLOSED_NONPHYSICAL_CI_VERIFIED
+PREH_B4_BENCH_BACKUP_SAFETY=CLOSED_NONPHYSICAL_CI_VERIFIED
+PREH_STEPS_REMAINING=0
+G10-R-H0=WAIT_OPERATOR_PHYSICAL_BENCH_IDENTITY_AND_FULL_FLASH_BACKUPS
+G10-R-H=NOT_RUN_NOT_AUTHORIZED
+R3_COMPLETE_PHYSICAL_CAMPAIGN_READY=FALSE
+R3_PHYSICAL_INJECTION_READY=FALSE
+A13-006=ADOPTION_BLOCKED
+ALPHA15=UNMODIFIED
+G10-R-R5=NOT_AUTHORIZED
+NEXT_GATE=G10_R_H0_OPERATOR_BENCH_BACKUPS_AND_SEPARATE_AUTH
+```
+
+---
+
+# Estado vigente PRE-H — 17/10/2026: B3 integrado CERRADO, solo B4 pendiente
+
+**El bloque 3 N0/N1/N2/N3 está `CLOSED_NONPHYSICAL_CI_VERIFIED`**. Código exacto `ba1b0b1ddad78fbdc574b1590abae06bff1030a6`; los commits posteriores a ese SHA son exclusivamente de documentación. No se ha adoptado G10-R en rama productiva.
+
+**CI de integración del candidato:** [#39015874604](https://github.com/JW-Control/platform-jwplc/actions/runs/39015874604) 4/4 jobs PASS (N0 Ubuntu + Windows, N1 nativo y N3 candidato 11/11). [#39015874548](https://github.com/JW-Control/platform-jwplc/actions/runs/39015874548) 5/5 PASS (replay, source-first COM4/COM14 y C++ source-backed). N0 histórico reconciliado [#39015874600](https://github.com/JW-Control/platform-jwplc/actions/runs/39015874600) 2/2 PASS. N2 TCP124 [#39015874532](https://github.com/JW-Control/platform-jwplc/actions/runs/39015874532) 2/2 PASS. **N3 baseline** reutiliza 11/11 de G10-I [#38843599043](https://github.com/JW-Control/platform-jwplc/actions/runs/38843599043) tras comprobación exacta de `JWPLC/` sin cambios; **N3 candidate** es recompilación nueva de 11/11 con el overlay B1/B2. Los archives, GPIO4 y Alpha15 permanecen intactos.
+
+**Documento de cierre con gates/decisiones/artifact y límites:** [A13_G10_R_PREH_B3_CIERRE_20261017.md](A13_G10_R_PREH_B3_CIERRE_20261017.md).
+
+```text
+PREH_BLOCK_1_TCP124=CLOSED_NONPHYSICAL
+PREH_BLOCK_2_DHCP_FAIRNESS=CLOSED_NONPHYSICAL
+PREH_BLOCK_3_INTEGRATED_N0_N1_N2_N3=CLOSED_NONPHYSICAL_CI_VERIFIED
+PREH_BLOCK_4_PHYSICAL_SAFETY_BACKUP_AUTH=OPEN
+PREH_STEPS_REMAINING=1
+G10-R-H=BLOCKED_NOT_AUTHORIZED
+G10-R-PHYSICAL=NOT_RUN
+R3_PHYSICAL_INJECTION_READY=FALSE
+R3_COMPLETE_PHYSICAL_CAMPAIGN_READY=FALSE
+A13-006=ADOPTION_BLOCKED
+ALPHA15=UNMODIFIED
+NEXT_GATE=PREH_BLOCK_4_PHYSICAL_SAFETY_BACKUP_AND_OPERATOR_AUTH
+```
+
+---
+
+# Estado PRE-H vigente — 17/oct/2026: bloques 1 y 2 preparados, 2 restantes
+
+**B2 DHCP/fairness: `CLOSED_NONPHYSICAL_SOURCE_FIRST`.** Se instrumentó mantenimiento DHCP real del backend tras liberar SPI; métricas H3E1 de TFT, edad de scan I/O/TCA cacheado, RTC, SD, FRAM, RTU, UDP y botón; validador fail-closed por **fase+token** para R3. Esta decisión es de preparación y compilación, **NO valida físicamente** renew/rebind, link loss ni fairness del banco.
+
+**Evidencia:** [B2 Windows+Ubuntu #39014708958](https://github.com/JW-Control/platform-jwplc/actions/runs/39014708958) 2/2 SUCCESS; [B1 integración #39014708863](https://github.com/JW-Control/platform-jwplc/actions/runs/39014708863) 2/2 SUCCESS; [N2 source-first de fuentes staging B2/H3E1 #39014564729](https://github.com/JW-Control/platform-jwplc/actions/runs/39014564729) 2/2 SUCCESS (fuentes idénticas tras los cambios de parser/validador). [N2 exacto del HEAD de código #39014708876](https://github.com/JW-Control/platform-jwplc/actions/runs/39014708876) requiere comprobar su conclusión final antes de reutilizarlo como PASS. Detalle: [B2 DHCP y fairness](A13_G10_R_PREH_B2_DHCP_FAIRNESS_20261017.md).
+
+```text
+PREH_BLOCK_1_TCP124=CLOSED_NONPHYSICAL_SOURCE_FIRST
+PREH_BLOCK_2_DHCP_FAIRNESS=CLOSED_NONPHYSICAL_SOURCE_FIRST
+PREH_BLOCK_3_INTEGRATED_N0_N1_N2_N3=OPEN
+PREH_BLOCK_4_PHYSICAL_SAFETY_BACKUP_AUTH=OPEN
+PREH_STEPS_REMAINING=2
+G10-R-H=BLOCKED
+G10-R-DHCP_RENEW_REBIND_PHYSICAL=NOT_RUN
+G10-R-TFT_TCA_FAIRNESS_PHYSICAL=NOT_RUN
+R3_PHYSICAL_INJECTION_READY=FALSE
+R3_COMPLETE_PHYSICAL_CAMPAIGN_READY=FALSE
+A13-006=ADOPTION_BLOCKED
+ALPHA15=UNMODIFIED
+NEXT_GATE=PREH_BLOCK_3_INTEGRATED_N0_N1_N2_N3
+```
+
+---
+
+# Estado vigente PRE-H — 17/oct/2026 (prioridad sobre registros históricos)
+
+**Bloque 1 TCP124: `CLOSED_NONPHYSICAL_READY_FOR_PREH_INTEGRATION`.** Sólo se cierra la implementación y verificación **no física**, no se declara validación de hardware ni adopción al package. Rama de implementación `codex/alpha13-preh-tcp124-review-20261016`, HEAD de código `dc194c4d6e863d5324eea14e515d1be92b18c9b6`.
+
+- [CI TCP124 offline #39010539929](https://github.com/JW-Control/platform-jwplc/actions/runs/39010539929): **2/2 SUCCESS** Windows y Ubuntu. Incluye host 1/2/4 con sockets loopback, contrato UART crudo, collector y correlación PC-TID↔UART-lease↔lifecycle con mutantes.
+- [CI TCP124 source-first #39010539920](https://github.com/JW-Control/platform-jwplc/actions/runs/39010539920): **2/2 SUCCESS** Windows y Ubuntu, COM4 y COM14. Valida plataforma staged, biblioteca seleccionada, fuente `JWPLC_ModbusTCP.cpp` → dependencia `.d` → objeto `.o`, así como W5500 SafeAccess; el producto sigue intacto.
+- Implementación: hook sólo en 14 fuentes del staging experimental; `G10R_TCP_OBS`/ring UART, `CAPTURE`, `DROPPED`, `OVERFLOW`, TID y tupla SID/EPOCH/ALLOC/OWNER. PC: 1/2/4 clientes contra banco de dos JWPLC como máximo; estrés integrado en una sola R3 y evaluador fail-closed del manifest.
+- **Límites:** el código source-backed no es captura física. Los cierres W5500 durante SPI_BUSY, DHCP real ante pérdida de enlace, fairness de TFT/TCA/I/O y endurance NO se han probado con este HEAD en hardware. El servidor Modbus mantiene una sola sesión activa; 4 sockets TCP abiertos no prueban 4 FC03 simultáneos.
+- El workflow legado G10-R usa una lista fija de archivos anterior al PR PRE-H y puede rechazar el nuevo alcance. Su rechazo por whitelist **no se reinterpreta como PASS**, y no invalida los dos workflows específicos de B1; N3 integrado del package será el paso 3.
+
+```text
+PREH_BLOCK_1_TCP124=CLOSED_NONPHYSICAL_SOURCE_FIRST
+PREH_BLOCK_2_DHCP_FAIRNESS=OPEN
+PREH_BLOCK_3_INTEGRATED_N0_N1_N2_N3=OPEN
+PREH_BLOCK_4_PHYSICAL_SAFETY_BACKUP_AUTH=OPEN
+PREH_STEPS_REMAINING=3
+G10-R-PHYSICAL=NOT_RUN
+R3_PHYSICAL_INJECTION_READY=FALSE
+R3_COMPLETE_PHYSICAL_CAMPAIGN_READY=FALSE
+A13-006=ADOPTION_BLOCKED
+ALPHA15=UNMODIFIED
+NEXT_GATE=PREH_BLOCK_2_DHCP_RECOVERY_AND_PERIPHERAL_FAIRNESS
+```
+
+---
+
+# Alpha13 — G10-R, estado vivo de preparación (16/10/2026)
+
+> **16-oct — R3 preparado para inyección en banco, SIN EJECUCIÓN FÍSICA:** el único sketch COM4 temporal `g10_r_integrated.ino` incluye cinco sondas bajo mutex W5500 real (`UDP.stop`, `DNSClient.cancelResolveAsync`, `EthernetClient.cancelConnectAsync`, `DhcpClass.cancelDHCP`, `DhcpClass.finishAsync`). Las dos rutas DHCP usan un objeto `DhcpClass` **local** cuyo UDP privado se arma exclusivamente en puerto **15023** por un `friend` inyectado solo al **staging**: no emite DHCP DISCOVER, no modifica el DHCP global ni productivo. El runner incorpora `r3_suite()` para una **única campaña R1→R2→R3(5)→R4** con abortos y captura de identidad de cada lease. Nuevo handshake `R1R2R3R4_FAULT_LAB_V2`; build y runner rechazan protocolo viejo. Se mantiene `--upload/--live` **fail-closed**: aún faltan cobertura TCP 1/2/4, DHCP renew/rebind físico, fairness TFT/TCA, revisión N2 Windows/Ubuntu del HEAD exacto y autorización del banco. **No se tocó Alpha15 ni se flashearon COM4/COM14.** [Plan R3 y límites](A13_G10_R_CAMPANA_INTEGRADA_Y_TRANSFERENCIA_ALPHA15_20261016.md).
+
+```text
+G10-R-R3-STAGED_FIVE_MODES=UDP_DNS_TCP_DHCP_CANCEL_DHCP_FINISH
+G10-R-R3-DHCP_PROBE=PACKET_FREE_ISOLATED_INSTANCE
+G10-R-R3-FIELD_RUNNER=ONE_INTEGRATED_R1_R2_R3_R4_CAMPAIGN_CODE_PRESENT
+G10-R-R3-UDP_DNS_TCP_DHCP_PHYSICAL=NOT_RUN
+G10-R-R3-CONCURRENT_TCP_1_2_4=REVIEW_REQUIRED
+G10-R-R3-PHYSICAL_DHCP_RENEW_REBIND=NOT_RUN
+G10-R-R3-TFT_TCA_FAIRNESS=NOT_MEASURED
+G10-R-R3-H=FAIL_CLOSED
+G10-R-FLASH=BLOCKED
+A13-006=ADOPTION_BLOCKED
+ALPHA15=UNMODIFIED
+NEXT_GATE=PREH_CONCURRENT_TCP_FAIRNESS_AND_FINAL_CI_THEN_AUTHORIZED_H
+```
+
+
+> **16/10 — Consolidación PRE-H y Alpha15:** la CI de referencia [#38998540944](https://github.com/JW-Control/platform-jwplc/actions/runs/38998540944) fue **5/5 SUCCESS** para `5e4a6d78` (anterior). En HEAD posteriores, se integró al host la captura `r3_udp_lines/sessions/verdicts` con lease exacto y cierres paralelos permitidos, **17 mutantes de contrato offline**, y se blindaron tanto `--live` como `--upload` antes de abrir COM o flashear mientras R3 completo no exista. **Los cambios más recientes necesitan CI por su HEAD exacto**. Se realizó comparación READ-ONLY de blobs entre producto Alpha13 y `v2.1.0-alpha.15-HmiDesigner`: `Dns.cpp`, `EthernetClient.cpp`, `EthernetUdp.cpp`, `JWPLC_TFT.h` y archive TFT **divergen**; `platform.txt`, `JWPLC_Display_API.h`, `JWPLC_Display.cpp`, `DhcpAsyncControl.cpp`, `JWPLC_Ethernet.cpp` y header RTU **coinciden** en los SHA consultados. [Matriz de transferencia](A13_ALPHA15_COMPAT_READONLY_PRETRANSFER_20261016.md). Alpha15 no fue modificada; **G10-H físico R3 no ejecutado, `A13-006=ADOPTION_BLOCKED`**.
+
+```text
+G10-R-R3-UDP_HOST=SOURCE_INTEGRATED_17_OFFLINE_NEGATIVES_CI_FINAL_PENDING
+G10-R-LIVE=BLOCKED_BEFORE_COM
+G10-R-UPLOAD=BLOCKED_BEFORE_COM
+G10-R-R3_DNS_DHCP_TCP_PHYSICAL=NOT_READY
+G10-R-H=NOT_AUTHORIZED
+G10-R-ALPHA15_DIFF=READ_ONLY_CRITICAL_ETHERNET_TFT_DIVERGENCE
+ALPHA15_BRANCH_MODIFIED=NO
+PRODUCT_MODIFIED=NO
+A13-006=ADOPTION_BLOCKED
+```
+
+
+> **PRE-H / R3-UDP 16-oct:** corregida la correlación de lease en presencia de cierres TCP/DNS/DHCP concurrentes: ahora se exige exactamente **un cierre de la sonda UDP identificada**, no un único cierre global. El contrato añade el caso positivo paralelo y **17 negativos**. El runner PC conserva `r3_udp_lines/r3_udp_sessions/r3_udp_verdicts` en el manifiesto y el build gate tiene un bloqueo físico explícito (`R3_COMPLETE_PHYSICAL_CAMPAIGN_READY=False`) adicional al bloqueo de captura (`R3_PHYSICAL_INJECTION_READY=False`). **CI #38998540944 5/5 SUCCESS corresponde a HEAD anterior `5e4a6d78`; verificar CI del HEAD vigente antes de atribuir aprobación.** No hay prueba de campo R3, merge ni flash nuevos. [PRE-H integrado](A13_G10_R_CAMPANA_INTEGRADA_Y_TRANSFERENCIA_ALPHA15_20261016.md).
+
+```text
+G10-R-R3_UDP_PCHOST=SOURCE_WIRED_17_NEGATIVES
+G10-R-HARDWARE_UPLOAD=BLOCKED_BEFORE_COM
+G10-R-HARDWARE_CAPTURE=BLOCKED_BEFORE_COM
+G10-R-R3_COMPLETE=NOT_READY
+A13-006=ADOPTION_BLOCKED
+ALPHA15_TRANSFER=NOT_AUTHORIZED
+```
+
+
+> **R3 — avance de fault injection (16/10/2026):** el sketch temporal agrega una única sonda explícita `G10R_R3_UDP:<token>`: task FreeRTOS con `BusScope(0)` con espera nominal de **80 ms** y duración real **medida en microsegundos** (rango contractual 60–120 ms; cualquier exceso `HOLD_TIMING_REVIEW`), `EthernetUDP::stop()` real durante la contención y lectura del lease `SID/EPOCH/ALLOC/OWNER` antes de inyectar, para correlacionar `QueueRequest→DrainClose` del mismo socket. Esta subfase requiere una sesión de banco autorizada para demostrar el comportamiento físico; **todavía no se ejecutó en hardware**. `a13_g10_r_r3_probe_contract.py` integra 16 mutantes sintéticos, sin reemplazar los 7 mutantes C++ ni los 14 métodos DNS/DHCP/UDP ya validados en host. **La campaña H integral sigue bloqueada en `R3_PHYSICAL_INJECTION_READY=False`** porque faltan inyectores físicos DNS/DHCP/TCP y 1/2/4 clientes con pruebas de seguridad. **No usar `--live` ni flashear COM4/COM14.** [Plan PRE-H](A13_G10_R_CAMPANA_INTEGRADA_Y_TRANSFERENCIA_ALPHA15_20261016.md).
+
+```text
+G10-R-R3-UDP=SOURCE_ONLY_LOCK80_PARTIAL_NOT_PHYSICALLY_RUN
+G10-R-R3-UDP-LEASE=EXACT_PROVENANCE_SID_EPOCH_ALLOC_OWNER
+G10-R-R3-UDP-REPLAY=14_NEGATIVES_SYNTHETIC
+G10-R-R3-DNS_DHCP_TCP=PHYSICAL_INJECTION_NOT_IMPLEMENTED
+G10-R-H=FAIL_CLOSED
+A13-006=ADOPTION_BLOCKED
+ALPHA15_PRODUCT_TRANSFER=NOT_AUTHORIZED
+```
+
+
+> **Actualización PRE-H integrada (16/10/2026):** al preparar una única campaña física R1→R2→R3→R4 se detectó que el runner anterior ejecutaba solo R1/R2/R4. `a13_g10_r_field_runner.py --live` queda **bloqueado intencionalmente** antes de abrir COM, con `G10R_PHYSICAL_BLOCKED_R3_PHASE_MISSING_IN_INTEGRATED_CAMPAIGN`. Su `--selftest` conserva este requisito. La batería nativa del job R3 integra ahora **14 métodos fuente reales** DNS/DHCP/UDP (finish, cancel, timeout, renew/rebind y multicast) con el SafeAccess y trazador del **mismo overlay temporal de 14 fuentes**. En la CI del commit `e9aca4df` el job nativo informó **12 marcadores positivos** y **3 mutaciones negativas rechazadas**; el job previo de SafeAccess sigue cubriendo 7 mutaciones. La compilación completa Windows/Ubuntu del **HEAD vigente** requiere conclusión explícita antes de marcar cierre N0–N2. Documentado en [PRE-H integrado y transferencia Alpha15](A13_G10_R_CAMPANA_INTEGRADA_Y_TRANSFERENCIA_ALPHA15_20261016.md). Ninguna modificación productiva ni transferencia a la rama Alpha15 autorizada.
+
+```text
+G10-R-PREH=INTEGRATED_NONPHYSICAL_IMPLEMENTED_CI_HEAD_PENDING
+G10-R-R3-NATIVE=14_REAL_DNS_DHCP_UDP_METHODS_WITH_R3_TRACE
+G10-R-R3-NEGATIVES=3_PROTOCOL_AND_7_SAFEACCESS_SOURCE_BACKED
+G10-R-H=FAIL_CLOSED_R3_INJECTION_PHASE_NOT_IMPLEMENTED
+G10-R-R1_R2_R3_R4-PHYSICAL=NOT_RUN
+G10-R-ALPHA15=READ_ONLY_COMPATIBILITY_ALLOWED_NO_PRODUCT_MERGE
+A13-006=ADOPTION_BLOCKED
+NEXT_GATE=R3_DETERMINISTIC_PHYSICAL_FAULT_INJECTION_AND_INTEGRATED_H_PREP
+```
+
+
+> **Actualización R3 / historial (16-oct-2026):** el overlay de laboratorio incorpora un anillo fijo de **64 eventos**, con `try-lock` no bloqueante, secuencia, propietario, epoch, allocation y detección de `dropped/overrun`. Sin usar GPIO4 ni escribir SD/FRAM/Q, `G10R_EVENTS:<token>:AFTER=<seq>` exporta eventos al runner, que conserva `r3_lifecycle_trace` y el resultado del auditor semántico. El [job nativo R3 de CI #38995714214](https://github.com/JW-Control/platform-jwplc/actions/runs/38995714214) verifica **7 mutantes de C++ real** rechazados y `TRACE_OVERRUN=PASS_REVIEW_DETECTED`; el contrato UART host rechaza **7 negativos** y el auditor de propietario/epoch **10 negativos** (exclusivamente sintéticos). **La compilación COM4/COM14 Windows+Ubuntu debe terminar en el HEAD exacto antes del PASS global.** Faltan fault injection físico DNS/DHCP/UDP y endurance. `A13-006=ADOPTION_BLOCKED`; ninguno de los firmwares de G10-R se ha subido.
+
+```text
+G10-R-R3-HISTORICAL_TRACE=SOURCE_BACKED_NATIVES_7_NEGATIVES
+G10-R-R3-UART_SEMANTICS=HOST_7_NEGATIVES_AND_OWNER_EPOCH_10_NEGATIVES
+G10-R-R3-PHYSICAL=NOT_RUN
+G10-R-R3-FAULT_INJECTION=NOT_RUN
+G10-R-R1_R2_R4=NOT_RUN_PHYSICALLY
+PRODUCT_MODIFIED=NO
+GPIO4_RESET=DISABLED
+A13-006=ADOPTION_BLOCKED
+NEXT_GATE=G10-R_FINAL_CI_AND_PRE_PHYSICAL_REVIEW
+```
+
+
+> **Actualización de evidencia R3 (16/10/2026):** nueva suite C++ host con **SafeAccess.cpp real compuesto** y exclusión SPI simulada no recursiva; el test verifica `BUS_BUSY`, ticket de cierre pendiente, drenaje de la cola y rechazo de un token obsoleto al reciclar socket. En [CI #38994618424](https://github.com/JW-Control/platform-jwplc/actions/runs/38994618424), el job R3 declaró `G10_R_R3_SOURCE_MUTANTS=4_PASS_REJECTED` junto con los dos casos positivos. **La compilación Arduino Windows/Ubuntu de esa corrida puede continuar en progreso: no se atribuye 5/5 PASS hasta verificarla.** Sigue sin haber fault injection físico DNS/DHCP/UDP ni telemetría histórica real de lifecycle. [Detalles del test y límites](A13_G10_R_PLAN_RECUPERACION_Y_RESISTENCIA_20261016.md). `A13-006=ADOPTION_BLOCKED`, PR #108 Draft, sin nuevas cargas ni modificación de producto.
+
+
+> **Hito actual: seguridad del harness y observabilidad R3; hardware NO ejecutado.** Baseline del código anterior: [CI #38864224010](https://github.com/JW-Control/platform-jwplc/actions/runs/38864224010), **4/4 SUCCESS Windows/Ubuntu** para HEAD `e11e3638858e5063c432c67490feeb8f04764bae`. En la rama `codex/alpha13-g10-r-recovery-prep` se corrigió el parser de nonce HEX Arduino con mayúsculas y se exige concordancia **HEAD local+worktree limpio↔manifiesto de upload**. Los snapshots de ocho sockets se delimitan `G10R_SOCK_BEGIN/G10R_SOCK_END`, se guardan por sesión cada ~15 s y las capturas incompletas/BUS_BUSY quedan clasificadas explícitamente. Nuevo código y CI de Windows/Ubuntu en revisión: **NO atribuirles el PASS del baseline previo hasta verificar la corrida exacta**. R3 no tiene todavía secuencias físicas verificadas de fault injection `SPI_BUSY`. Código productivo y cinco archives intactos; GPIO4 deshabilitado. Los dos equipos aún contienen G10-H diagnóstico sin restauración. `A13-006=ADOPTION_BLOCKED`; PR #108 Draft; sin merge, upload, manipulación RJ45 ni release.
+
+```text
+HITO=G10-R
+BRANCH=codex/alpha13-g10-r-recovery-prep
+G10-R=PREP_NONPHYSICAL_SOURCE_INSTRUMENTED_CI_FINAL_PENDING
+G10-R-BASE_CI=PASS_4X4_RUN_38864224010_HEAD_e11e3638
+G10-R-N0=PASS_SYNTHETIC_CONTRACT_WINDOWS_UBUNTU
+G10-R-R1_R2_R4=SKETCH_REPLAY_CAPTURE_AND_UPLOAD_GATES_IMPLEMENTED_PHYSICAL_NOT_RUN
+G10-R-R3=HOST_CPP_SOURCE_BACKED_PASS_4_MUTANTS_PHYSICAL_FAULT_INJECTION_NOT_RUN
+G10-R-UPLOAD=CONSENT_GATED_NOT_EXECUTED
+G10-R-CAPTURE=CONSENT_GATED_NOT_EXECUTED
+G10-R-R5=NOT_AUTHORIZED
+G10-I=NONPHYSICAL_PASS_CANDIDATE
+G10-H=PASS_PHYSICAL_SMOKE_MANIFEST_REVIEWED
+G10-C=CLOSED_DECISION_DEFER_ADOPTION
+A13-006=ADOPTION_BLOCKED
+G10-FINAL=NOT_CLOSED_FOR_PRODUCT
+PRODUCT_MODIFIED=NO
+AUTOLOAD_NORMAL=UNCHANGED
+FROZEN_ARCHIVES=5_UNCHANGED
+GPIO4_RESET=DISABLED
+OPERATOR_FIRMWARE_RESTORED=NO
+NEXT_GATE=G10-R_FINAL_CI_REVIEW_AND_R3_FAULT_INJECTION_PLAN
+PHYSICAL_UPLOAD=NOT_AUTHORIZED
+PHYSICAL_LINK_FLAP=NOT_AUTHORIZED
+PHYSICAL_POWER_CYCLE=NOT_AUTHORIZED
+MERGE=NOT_AUTHORIZED
+RELEASE=NOT_AUTHORIZED
+OPENPLC=OUT_OF_SCOPE
+HMI_DESIGNER=OUT_OF_SCOPE
+TFT_NEW_FEATURES=OUT_OF_SCOPE
+```
+
+---
+
+
+> **ESTADO VIGENTE DE G10 — 16/10/2026 (rama experimental G10-C).** Este encabezado corrige entradas cronológicas antiguas de este archivo; **NO equivale al estado de adopción de la rama productiva**. G10-I: candidato N1–N3 PASS en CI #38843599043, HEAD `a954cabd9c6e37876b59995a41ff0a449308ccd1`. G10-H: smoke físico COM4/COM14 **PASS** con manifiesto revisado, HEAD ejecutado `c776ab92388e8765e933bf50cab8215e7c18325b`, `47 TCP OK/0 FAIL`, `47 UDP OK/0 FAIL`, `49 RTU Master OK/0 FAIL`, `52 solicitudes Slave/0 CRC`, SD `56 OK/0 FAIL`, FRAM `56`, RTC válido, botón `6`. G10-C: **decisión documental de diferir adopción**, no nueva campaña técnica. No se han acreditado recuperación Ethernet/DNS/DHCP, estrés prolongado, reset/power-cycle, pruebas IDE finales ni integración productiva. `A13-006=ADOPTION_BLOCKED`, `G10-FINAL=NOT_CLOSED_FOR_PRODUCT`; [decisión y checklist](A13_G10_C_DECISION_Y_CIERRE_20261016.md). PR #105 y PR #106 siguen Draft, sin merge/PreRelease. Los dos PLC contienen firmware de diagnóstico y no fueron restaurados.
+
+```text
+HITO=G10-C
+G10-I=NONPHYSICAL_PASS_CANDIDATE
+G10-H=PASS_PHYSICAL_SMOKE_MANIFEST_REVIEWED
+G10-C=CLOSED_DECISION_DEFER_ADOPTION
+G10-FINAL=NOT_CLOSED_FOR_PRODUCT
+A13-006=ADOPTION_BLOCKED
+PRODUCT_MUTATION=NO
+AUTOLOAD_NORMAL=UNCHANGED
+FROZEN_ARCHIVES=5_UNCHANGED
+GPIO4_RESET=DISABLED
+OPERATOR_FIRMWARE_RESTORED=NO
+NEXT_GATE=G10-R_PLAN_IF_PRODUCT_ADOPTION_IS_REQUESTED
+MERGE=NOT_AUTHORIZED
+RELEASE=NOT_AUTHORIZED
+OPENPLC=OUT_OF_SCOPE
+HMI_DESIGNER=OUT_OF_SCOPE
+TFT_NEW_FEATURES=OUT_OF_SCOPE
+```
+
 
 > **G10-I B03 — CI guard agregado 2026-10-14:** script `tools/alpha13/gates/a13_g10_b03_source_contract.py` (commit `2f3b1807`) y paso en `.github/workflows/alpha13-g10-integrated.yml` (commit `a9858dc3`). Detecta en fuente real los patrones DNS finish/cancel y DHCP finish de stop seguido de cierre lógico, con dos mutaciones negativas. **La prueba valida el reconocimiento del riesgo, NO el arreglo**. CI posterior al commit todavía no comprobado desde este chat. `B03=OPEN`, `A13-006=ADOPTION_BLOCKED`, `G10-H=NOT_STARTED`.
 

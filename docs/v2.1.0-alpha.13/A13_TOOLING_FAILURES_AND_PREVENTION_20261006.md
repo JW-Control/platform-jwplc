@@ -2411,3 +2411,58 @@ F129_CI_FINAL=PASS_WINDOWS_LINUX_RUN_38293904677
 G10_P1C_LOCAL_RETEST=NOT_YET_EXECUTED
 G10_P1C_PRODUCT_ADOPTION=NONE
 ```
+
+## F130 — H0: seis ciclos de flasheo para localizar un fallo sin auditar el argumento de la instrucción acotada (2026-10-19)
+
+**Síntoma:** los ensayos H0 A–F (17–18/10) acotaron el `TG1WDT_SYS_RESET` hasta el intervalo entre `SPI.begin()` e `initSS()` (etapa 63). Cada paso añadió una sonda, un build y un upload a COM4, y la causa raíz se dejó como "deadlock/concurrencia no demostrada".
+
+**Causa del proceso:** se buscó *dónde* se detenía la ejecución, no *con qué valores* se ejecutaba. Ninguna sonda ni documento revisó el valor efectivo de `W5100Class::ss_pin` que recibe `pinMode()` dentro de `initSS()`. Tampoco se usó la firma del reset: `TG1WDT_SYS_RESET` (Interrupt WDT, Timer Group 1) sin backtrace excluye por sí sola una espera de mutex, porque una espera cede la CPU. La lectura A/C ("una llamada tardía funciona") se interpretó como un problema de timing o concurrencia, cuando era de **orden de inicialización**. Mismo patrón que F096: se promovió una hipótesis de timing a línea de investigación sin contrastarla con el código.
+
+```text
+PROCESS_FAILURE=YES
+HARNESS_FAILURE=NO
+PRODUCT_FAILURE=NO (el defecto de producto es F131)
+PHYSICAL_CYCLES_SPENT=6 (A-F, solo COM4)
+```
+
+**Prevención:**
+1. Cuando una marca acota el fallo a una sola llamada, **antes de otra sonda** leer esa llamada en el código realmente compilado, resolver sus argumentos (macros, valores por defecto y quién los inicializa y cuándo) y su implementación en el core.
+2. Interpretar la causa del reset: `TG0` = Task WDT, `TG1` = Interrupt WDT/CPU sin servicio, `RTCWDT`, `SW_CPU_RESET`/panic. Un `TG1WDT` sin "Guru Meditation" apunta a CPU sin acceso a flash/caché o con interrupciones bloqueadas, no a un mutex.
+3. Una diferencia "funciona tarde / falla temprano" se analiza primero como **precondición de estado** (qué inicialización falta), y solo después como carrera de concurrencia.
+4. Límite de ciclos físicos por causa: tras dos sondas sin causa raíz, hacer una auditoría read-only de fuente→objeto antes de otro upload.
+
+```text
+F130=CONFIRMED_PROCESS
+F130_ROOT_CAUSE_DOC=A13_H0_ROOT_CAUSE_SS_PIN_20261019.md
+NEXT_FAILURE_ID=F131
+```
+
+## F131 — `SS_PIN_DEFAULT` heredado del Ethernet original resuelve a GPIO10 (flash SPI) en JWPLC Basic (2026-10-19)
+
+**Síntoma:** `JWPLC_Ethernet.linkStatus()` llamado antes del primer `service()` del autoload produce `rst:0x8 (TG1WDT_SYS_RESET)` en el primer `G10R_READY` (H0 A, D, E, F; etapa 63).
+
+**Causa confirmada en fuente:**
+- `utility/w5100.cpp:20-47` (código original de Arduino Ethernet, presente desde Alpha4) elige el CS por defecto solo a partir de macros. El variant `jwplcbasic/pins_arduino.h:16` declara `static const uint8_t SS = 5;`, que es una variable y no una macro. Como no existen `PIN_SPI_SS_ETHERNET_LIB`, `PIN_SPI_SS` ni `CORE_SS0_PIN`, resulta `SS_PIN_DEFAULT=10`.
+- Solo `probeHardware()` aplica `Ethernet.init(JWPLC_ETH_CS=5)`. `linkStatus()` no lo hace y llega a `W5100.init()` → `initSS()` → `pinMode(10, OUTPUT)`.
+- GPIO10 es SD3/SPIWP, IO2 de la flash en QIO (`build.boot=qio`). Reasignarlo deja a la CPU sin acceso a flash.
+
+El defecto estaba **latente desde Alpha4 e idéntico en Alpha12**. Lo destapó el sketch G10-R, que consultó en `millis()≈1000`, el mismo instante en que se habilita el primer tick Ethernet de `jwplcSystemTask`. Afecta a cualquier sketch de usuario que llame `linkStatus()`/`linkUp()` en `setup()`.
+
+```text
+PROCESS_FAILURE=NO
+HARNESS_FAILURE=NO
+PRODUCT_FAILURE=YES_LATENT_SINCE_ALPHA4
+F131_SOURCE_CONFIRMED=YES
+F131_OBJECT_CONFIRMED=PENDING_E1 (valor inicial de W5100Class::ss_pin en el ELF H0-F)
+```
+
+**Corrección aprobada en principio (F1, sin implementar):** en `w5100.cpp`, definir `PIN_SPI_SS_ETHERNET_LIB` a partir de `JWPLC_ETH_CS` (`jwplc_spi_bus.h`), que pasa a ser la única fuente de verdad del pin, y añadir una guarda `#error` si en ESP32 el resultado cae en GPIO6–11. No se modifica el variant ni nada que el usuario configure.
+
+**Prevención:**
+- Al integrar o actualizar una librería de terceros, auditar **todos sus valores por defecto dependientes de hardware** (pines, frecuencias, retardos) contra el variant y `jwplc_spi_bus.h`, y documentar dónde se sobrescriben.
+- Los pines de hardware del package tienen una sola definición. Cuando cambie el hardware (p. ej. el CS del W5500), se modifica ese `#define` y las guardas de compilación detectan valores imposibles.
+
+```text
+F131=CONFIRMED_SOURCE_FIX_F1_APPROVED_NOT_IMPLEMENTED
+NEXT_FAILURE_ID=F132
+```

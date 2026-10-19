@@ -8,6 +8,8 @@
 #include <Dns.h>
 
 static EthernetUDP gUdp;
+static EthernetClient gTcp;
+static EthernetServer gServer(502);
 static DNSClient gDns;
 static IPAddress gResult;
 
@@ -33,6 +35,38 @@ static void exerciseApiOnDemand() {
     (void)gUdp.parsePacket();
     gUdp.stop();
   }
+
+  // Link the candidate Client RX and TX bodies for B02 source provenance.
+  uint8_t tcpByte = 0;
+  (void)gTcp.available();
+  (void)gTcp.read(&tcpByte, 1);
+  (void)gTcp.read();
+  (void)gTcp.peek();
+  (void)gTcp.jwplcReadTcpFastDeferred(&tcpByte, 1);
+  (void)gTcp.jwplcCommitRxFast();
+  (void)gTcp.write(&tcpByte, 1);
+  (void)gTcp.beginWriteAsync(&tcpByte, 1);
+  (void)gTcp.pollWriteAsync();
+  gTcp.cancelWriteAsync();
+  (void)gTcp.availableForWrite();
+  (void)gTcp.beginFlushAsync();
+  (void)gTcp.pollFlushAsync();
+  gTcp.cancelFlushAsync();
+  (void)gTcp.localPort();
+  (void)gTcp.remoteIP();
+  (void)gTcp.remotePort();
+  // B04: link the full cooperative connect/close cycle. B01's internal
+  // status probe is linked by the Modbus Server example.
+  (void)gTcp.beginConnectAsync(IPAddress(192, 168, 1, 2), 502);
+  (void)gTcp.pollConnectAsync();
+  (void)gTcp.connectAsyncInProgress();
+  gTcp.cancelConnectAsync();
+  gTcp.cancelStopAsync();
+  gTcp.stop();
+  // Reach Server listener and broadcast bodies for B04/B05 ELF provenance.
+  gServer.begin();
+  (void)static_cast<bool>(gServer);
+  (void)gServer.write(&tcpByte, 1);
 }
 
 void setup() {

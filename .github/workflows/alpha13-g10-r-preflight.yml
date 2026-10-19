@@ -1,0 +1,92 @@
+name: Alpha13 G10-R N0 contrato sin hardware
+
+on:
+  push:
+    branches: ['codex/alpha13-g10-r-*']
+    paths:
+      - '.github/workflows/alpha13-g10-r-preflight.yml'
+      - 'tools/alpha13/gates/a13_g10_r_preflight.py'
+      - 'docs/v2.1.0-alpha.13/A13_G10_R_PLAN_RECUPERACION_Y_RESISTENCIA_20261016.md'
+      - 'docs/v2.1.0-alpha.13/A13_G10_R_CAMPANA_INTEGRADA_Y_TRANSFERENCIA_ALPHA15_20261016.md'
+      - 'docs/v2.1.0-alpha.13/A13_ALPHA15_COMPAT_READONLY_PRETRANSFER_20261016.md'
+      - 'docs/v2.1.0-alpha.13/ALPHA13_STATUS.md'
+  pull_request:
+    paths:
+      - '.github/workflows/alpha13-g10-r-preflight.yml'
+      - 'tools/alpha13/gates/a13_g10_r_preflight.py'
+      - 'docs/v2.1.0-alpha.13/A13_G10_R_PLAN_RECUPERACION_Y_RESISTENCIA_20261016.md'
+      - 'docs/v2.1.0-alpha.13/A13_G10_R_CAMPANA_INTEGRADA_Y_TRANSFERENCIA_ALPHA15_20261016.md'
+      - 'docs/v2.1.0-alpha.13/A13_ALPHA15_COMPAT_READONLY_PRETRANSFER_20261016.md'
+      - 'docs/v2.1.0-alpha.13/ALPHA13_STATUS.md'
+
+permissions:
+  contents: read
+
+jobs:
+  n0-contract:
+    name: G10-R contrato read-only (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Verificar que no se altero el producto ni ejecutores G10-H
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -B tools/alpha13/gates/a13_g10_r_b3_scope.py --selftest
+          python -B tools/alpha13/gates/a13_g10_r_b3_scope.py --check
+          echo "G10_R_PREH_SCOPE_LEGACY_AND_NEW=PASS_STRICT"
+      - name: Compilar Python y verificar ausencia de I/O fisico
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -B -m py_compile tools/alpha13/gates/a13_g10_r_preflight.py
+          python - <<'PY'
+          import ast,pathlib
+          p=pathlib.Path("tools/alpha13/gates/a13_g10_r_preflight.py")
+          tree=ast.parse(p.read_text(encoding="utf-8"))
+          banned={"serial","socket","requests","subprocess","paramiko","esptool","arduino"}
+          names=[]
+          for node in ast.walk(tree):
+              if isinstance(node,ast.Import):
+                  names.extend(x.name.split(".")[0] for x in node.names)
+              if isinstance(node,ast.ImportFrom) and node.module:
+                  names.append(node.module.split(".")[0])
+          assert banned.isdisjoint(names), "G10_R_FORBIDDEN_PHYSICAL_IMPORT"
+          print("G10_R_N0_NO_HARDWARE_IMPORTS=PASS")
+          PY
+      - name: Contratos sinteticos y trece mutaciones negativas
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -B tools/alpha13/gates/a13_g10_r_preflight.py --selftest
+      - name: Probar CLI de manifiesto con fixture sintetico (NO evidencia fisica)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import importlib.util, json, pathlib, tempfile
+          p=pathlib.Path("tools/alpha13/gates/a13_g10_r_preflight.py")
+          spec=importlib.util.spec_from_file_location("g10r_readonly",p)
+          m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+          with tempfile.TemporaryDirectory(prefix="g10-r-synth-") as t:
+              f=pathlib.Path(t)/"manifest.synthetic.json"
+              payload=m.synthetic_fixture()
+              f.write_text(json.dumps(payload),encoding="utf-8")
+              assert m.check_file(f)==0, "G10_R_SYNTH_CLI_POSITIVE_FAILED"
+              payload["head"]="0"*40
+              f.write_text(json.dumps(payload),encoding="utf-8")
+              assert m.check_file(f)==2, "G10_R_SYNTH_CLI_NEGATIVE_NOT_REJECTED"
+          print("G10_R_N0_CLI_CONTRACT=PASS_SYNTHETIC_ONLY")
+          print("G10_R_BOARD=NOT_TOUCHED")
+          PY

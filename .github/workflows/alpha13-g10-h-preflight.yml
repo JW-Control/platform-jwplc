@@ -1,0 +1,174 @@
+name: Alpha13 G10-H preflight sin hardware
+on:
+  push:
+    branches: ['codex/alpha13-g10-h-*']
+    paths:
+      - '.github/workflows/alpha13-g10-h-preflight.yml'
+      - 'tools/alpha13/gates/a13_g10_integrated.py'
+      - 'tools/alpha13/gates/a13_g10_h_stage_selftest.py'
+      - 'tools/alpha13/gates/a13_g10_h_physical.py'
+      - 'tools/alpha13/gates/run_a13_g10_h_physical.bat'
+      - 'tools/alpha13/sketches/g10_h_integrated/**'
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - uses: arduino/setup-arduino-cli@v2
+        with:
+          version: '1.x'
+      - name: Verificar ejecutor sin puerto ni flash
+        run: |
+          python -m py_compile tools/alpha13/gates/a13_g10_h_physical.py
+          python -B tools/alpha13/gates/a13_g10_h_physical.py --selftest
+          grep -Fq 'G10H_START:' tools/alpha13/sketches/g10_h_integrated/g10_h_integrated.ino
+      - name: Instalar core bootstrap solo en CI
+        run: |
+          arduino-cli config init --overwrite
+          arduino-cli config set board_manager.additional_urls "https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json"
+          arduino-cli core update-index
+          arduino-cli core install "jwplc:esp32@2.1.0-alpha.10"
+      - name: Componer candidato en ubicacion temporal
+        run: |
+          python - <<'PY'
+          import hashlib,importlib.util,os,pathlib,shutil
+          root=pathlib.Path.cwd()
+          spec=importlib.util.spec_from_file_location("g10h_ci_integrator",root/"tools/alpha13/gates/a13_g10_integrated.py")
+          m=importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(m)
+          m.preflight(True)
+          files=m.compose()
+          tmp=pathlib.Path(os.environ["RUNNER_TEMP"])
+          staged=tmp/"g10h-stage"
+          hashes={k:{"sha256":hashlib.sha256(v.encode("utf-8")).hexdigest()} for k,v in files.items()}
+          m.stage_platform(staged,files,hashes)
+          target=tmp/"g10h-user/hardware/jwplc_hbench/esp32"
+          target.parent.mkdir(parents=True,exist_ok=True)
+          shutil.copytree(staged,target)
+          src=(target/"libraries/JWPLC_Ethernet/src/JWPLC_Ethernet.cpp").read_text()
+          assert "jwplc_w5500_candidate::enter(timeoutMs)" in src
+          assert "EthernetUDP::jwplcServiceDeferredClose()" in src
+          print("G10_H_CI_STAGE=PASS")
+          PY
+          arduino-cli config set directories.user "$RUNNER_TEMP/g10h-user"
+      - name: Compilar dos programas en package Alpha13 aislado
+        run: |
+          set -euo pipefail
+          arduino-cli compile --fqbn jwplc_hbench:esp32:jwplcbasic --clean -v --build-path "$RUNNER_TEMP/g10h-build-com4" tools/alpha13/sketches/g10_h_integrated >"$RUNNER_TEMP/g10h-com4.log" 2>&1 || { tail -n 70 "$RUNNER_TEMP/g10h-com4.log"; exit 1; }
+          echo "G10_H_CI_COM4=PASS"
+          arduino-cli compile --fqbn jwplc_hbench:esp32:jwplcbasic --clean -v --build-path "$RUNNER_TEMP/g10h-build-com14" tools/alpha13/sketches/g8_p4_slave >"$RUNNER_TEMP/g10h-com14.log" 2>&1 || { tail -n 70 "$RUNNER_TEMP/g10h-com14.log"; exit 1; }
+          echo "G10_H_CI_COM14=PASS"
+          find "$RUNNER_TEMP/g10h-build-com4" -name 'JWPLC_W5500_SafeAccess.cpp.o' | grep -q .
+          echo "G10_H_CI_W5500_OBJECT=PASS"
+      - name: Evidencia de compilacion
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: g10-h-preflight
+          path: |
+            ${{ runner.temp }}/g10h-com4.log
+            ${{ runner.temp }}/g10h-com14.log
+          if-no-files-found: error
+
+  windows-stage-integrity:
+    name: G10-H staging source-first Windows (sin compilacion ni upload)
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Probar hashes en bytes LF y mutacion SHA (Windows)
+        shell: pwsh
+        run: |
+          python -B tools/alpha13/gates/a13_g10_h_stage_selftest.py
+          if ($LASTEXITCODE -ne 0) { throw 'G10_H_STAGE_WINDOWS_PORTABILITY_FAILED' }
+
+  windows-platform-diagnostic:
+    name: G10-H Windows - diagnostico real de seleccion Arduino CLI
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - uses: arduino/setup-arduino-cli@v2
+        with:
+          version: '1.5.1'
+      - name: Instalar toolchain bootstrap en Windows CI
+        shell: pwsh
+        run: |
+          arduino-cli config init --overwrite
+          arduino-cli config set board_manager.additional_urls 'https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json'
+          arduino-cli core update-index
+          if ($LASTEXITCODE -ne 0) { throw 'G10_H_WIN_CORE_INDEX_ERROR' }
+          arduino-cli core install 'jwplc:esp32@2.1.0-alpha.10'
+          if ($LASTEXITCODE -ne 0) { throw 'G10_H_WIN_CORE_INSTALL_ERROR' }
+      - name: Stage y diagnosticar propriedades Arduino CLI bajo Windows
+        shell: pwsh
+        run: |
+          @'
+          import hashlib,importlib.util,os,pathlib,subprocess,sys,tempfile
+          root=pathlib.Path.cwd()
+          spec=importlib.util.spec_from_file_location('g10h_platform_ci',root/'tools/alpha13/gates/a13_g10_integrated.py')
+          m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m)
+          m.preflight(True);sources=m.compose()
+          hashes={k:{'sha256':hashlib.sha256(v.encode('utf-8')).hexdigest()} for k,v in sources.items()}
+          with tempfile.TemporaryDirectory(prefix='g10h-platform-win-') as t:
+              tmp=pathlib.Path(t)
+              staged=tmp/'staged'
+              m.stage_platform(staged,sources,hashes)
+              sk=tmp/'sketchbook'/'hardware'/'jwplc_hbench'/'esp32'
+              sk.parent.mkdir(parents=True)
+              import shutil
+              shutil.copytree(staged,sk)
+              confdir=tmp/'config'
+              a=subprocess.run(['arduino-cli','config','init','--dest-dir',str(confdir)],text=True,capture_output=True)
+              print('G10_H_WINDOWS_CONFIG_INIT_RC=',a.returncode, a.stdout[-600:], a.stderr[-600:])
+              conf=confdir/'arduino-cli.yaml'
+              b=subprocess.run(['arduino-cli','--config-file',str(conf),'config','set','directories.user',str(tmp/'sketchbook')],text=True,capture_output=True)
+              print('G10_H_WINDOWS_CONFIG_SET_RC=',b.returncode,b.stdout[-500:],b.stderr[-500:])
+              cmd=['arduino-cli','--config-file',str(conf),'compile','--fqbn','jwplc_hbench:esp32:jwplcbasic','--show-properties',str(root/'tools/alpha13/sketches/g10_h_integrated')]
+              p=subprocess.run(cmd,text=True,capture_output=True,errors='replace')
+              print('G10_H_WINDOWS_SHOW_PROPERTIES_EXIT=',p.returncode,'OUTPUT_LINES=',len(p.stdout.splitlines()))
+              for line in p.stdout.splitlines():
+                  if any(w in line.lower() for w in ('runtime.platform.path','directories.user','runtime.hardware.path','runtime.tools','build.core.path','build.variant.path')):
+                      print('G10_H_WINDOWS_PROP='+repr(line[:580]))
+              print('G10_H_WINDOWS_PLATFORM_EXPECTED='+str(sk))
+              if p.returncode:
+                  print('G10_H_WINDOWS_PROPERTIES_ERROR=',p.stderr[-1800:])
+                  sys.exit(2)
+              actual_paths=[line.partition('=')[2].strip() for line in p.stdout.splitlines()
+                            if line.partition('=')[0].strip()=='runtime.platform.path']
+              assert len(actual_paths)==1, 'G10_H_WIN_PLATFORM_PROPERTY_MISSING'
+              real=pathlib.Path(actual_paths[0])
+              assert real.is_dir() and real.samefile(sk), 'G10_H_WIN_PLATFORM_DIR_IDENTITY_FAIL'
+              assert not real.samefile(staged), 'G10_H_WIN_NEGATIVE_WRONG_PLATFORM_ACCEPTED'
+              # El namespace de banco no puede colisionar con el de Arduino15,
+              # aunque la instalación preexistente use jwplc_local:esp32.
+              assert 'jwplc_hbench' in real.parts, 'G10_H_WIN_BENCH_NAMESPACE_NOT_SELECTED'
+              assert 'jwplc_local' not in real.parts, 'G10_H_WIN_INSTALLED_VENDOR_LEAK'
+              print('G10_H_WINDOWS_BENCH_VENDOR=PASS_ISOLATED_FROM_JWPLC_LOCAL')
+              print('G10_H_WINDOWS_PLATFORM_IDENTITY=PASS_SAME_DIRECTORY_8DOT3_ALLOWED')
+              print('G10_H_WINDOWS_PLATFORM_WRONG_COPY=PASS_REJECTED')
+              run_spec=importlib.util.spec_from_file_location('g10h_runner_build',root/'tools/alpha13/gates/a13_g10_h_physical.py')
+              run=importlib.util.module_from_spec(run_spec);sys.modules[run_spec.name]=run;run_spec.loader.exec_module(run)
+              run.OUT=tmp/'evidence';run.OUT.mkdir()
+              run.build('arduino-cli',conf,sk,tmp,True)
+              print('G10_H_WINDOWS_RUNNER_COM4_COM14=PASS_NO_USB_NO_FLASH')
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw 'G10_H_WINDOWS_PLATFORM_DIAGNOSTIC_ERROR' }
