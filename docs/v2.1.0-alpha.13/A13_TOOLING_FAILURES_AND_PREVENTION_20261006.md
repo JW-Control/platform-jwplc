@@ -2718,3 +2718,22 @@ F131_NEW_PRODUCT_FAILURE=NO_EVIDENCE
 F132=RESOLVED
 NEXT_FAILURE_ID=F133
 ```
+
+
+### F131 — complemento EN y USB con RJ45 conectado: seis recuperaciones, sin WDT (2026-10-19)
+
+Tras la campaña de 10+10 con RJ45 desconectado, el operador añadió **tres EN y tres desconexiones/reconexiones USB** con RJ45 conectado. Los seis BOOT nuevos evidencian `STAGE=2`, al menos cinco READY consecutivos y `LINK=1` estable; cinco contienen `EARLY_LINK_RETURN` directo (tres `1`, dos `2`) y el sexto (`F72EA5FC`) inicia su captura en `READY COUNT=1` con `STAGE=2`. Los BOOT iniciales en EN son `7771D843`, `1C9EB6D5`, `195AA6BF`; posteriores a cierre/reapertura USB `BE13DC4E`, `F72EA5FC`, `FD127C6F`. En dos de ellos `LINK=2` al comienzo cambia a `LINK=1` desde COUNT 2: **establecimiento normal del PHY en la muestra, no fallo W5500**.
+
+**Resultado complementario:** `H0_F1_ETH_CONNECTED=PASS_6_OF_6_LINK_RECOVERY`, sin TG1WDT visible. Este resultado refuerza que F1 resuelve la consulta temprana tanto con RJ45 desconectado como con enlace ya presente y durante su negociación. **No corrige retrospectivamente las ventanas de 3–4 READY de la campaña formal 20/20**: ese criterio permanece `REVIEW_EVIDENCE_GAP` hasta aceptación formal. No abrir nuevo ID ni generar modificación del producto; G10 P0 puede inventariarse read-only, promoción de código permanece pendiente.
+
+```text
+F131_H0_RJ45_CONNECTED_EN=PASS_3_OF_3
+F131_H0_RJ45_CONNECTED_USB=PASS_3_OF_3
+F131_EARLY_RETURN_DIRECT=5_OF_6
+F131_EARLY_RETURN_INFERRED_FROM_STAGE2=1_OF_6
+F131_RJ45_LINKON_RECOVERED=6_OF_6
+F131_TG1WDT=NOT_OBSERVED
+F131_EXTENDED_STRICT_20_OF_20=REVIEW_EVIDENCE_GAP
+F131_G10_PROMOTION=NOT_STARTED
+NEXT_FAILURE_ID=F133
+```

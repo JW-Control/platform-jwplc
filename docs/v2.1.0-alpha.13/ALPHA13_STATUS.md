@@ -1,3 +1,32 @@
+# ESTADO VIGENTE — 19/10/2026 — H0-F1 RJ45 conectado: 3 EN + 3 USB PASS; G10-P0 siguiente
+
+**Complemento físico entregado por el operador** al ensayo anterior H0: [evidencia detallada EN/USB con RJ45 conectado](A13_H0_F1_EN_USB_RJ45_CONECTADO_20261019.md). Se observan **3 arranques EN** que regresan `EARLY_LINK_RETURN=1` (LinkON), y **3 arranques tras desconexión/reconexión COM4 por USB**, de los que dos regresan directamente `EARLY_LINK_RETURN=2` (negociación física) y llegan a `LINK=1` desde `COUNT=2`. El tercero solo se captura desde `READY COUNT=1`, pero `STAGE=2` acredita retorno temprano indirecto. Los seis muestran un BOOT diferente, `STAGE=2`, enlace `LINK=1` sostenido en cinco o más contadores y ningún watchdog visible.
+
+**F131:** corrección F1 aceptada por el propietario; H0 físico principal y el complemento RJ45 conectado **PASS**. Los 10 EN y 10 power-cycles con RJ45 desconectado fueron reportados realizados y todos los BOOT visibles retornaron, pero la condición formal de **5 READY capturados en cada maniobra** conserva `REVIEW_EVIDENCE_GAP` para cuatro ventanas; no sustituir la evidencia por los nuevos seis arranques ni inventar `20/20 STRICT PASS`. Se puede preparar **G10-P0 inventario de solo lectura**, sin promocionar código hasta fijar decisión de aceptación de H0 extendido.
+
+**Límites:** rama base del firmware sigue en `2b5802720df552e01a0b4f9d4fe1a7bd2de16daf` sin cambios; esta documentación está en PR #121 Draft. No tocar COM14, GPIO4, autoload, FlashFreq, binarios congelados ni instrumentación de `w5100.cpp`. G10-R R1–R4 permanecen no ejecutados/no autorizados.
+
+```text
+ALPHA13=OPEN
+F131=F1_OWNER_APPROVED_H0_PRIMARY_PASS_EXTENDED_REVIEW_CAPTURE_GAP
+F132=RESOLVED_CI_AND_LOCAL_BUILD
+H0_F1_ETH_CONNECTED_EN=PASS_3_OF_3
+H0_F1_ETH_CONNECTED_USB=PASS_3_OF_3
+H0_F1_ETH_CONNECTED_EARLY_RETURN_DIRECT=5_OF_6
+H0_F1_ETH_CONNECTED_EARLY_RETURN_INDIRECT=1_OF_6
+H0_F1_ETH_CONNECTED_LINK1_RECOVERY=PASS_6_OF_6
+H0_F1_ETH_CONNECTED_TG1WDT=NOT_OBSERVED
+H0_F1_EXTENDED_20_OF_20_STRICT=REVIEW_EVIDENCE_GAP
+G10_P0_INVENTORY=AUTHORIZED_READ_ONLY_PREPARATION
+G10_PACKAGE_PROMOTION=NOT_STARTED_BLOCKED_ON_H0_ACCEPTANCE
+COM14=NOT_TOUCHED
+G10_R_R1_R2_R3_R4=NOT_RUN_NOT_AUTHORIZED
+NEXT_FAILURE_ID=F133
+NEXT_GATE=G10_P0_INVENTORY_AND_H0_EXTENDED_ACCEPTANCE_DECISION
+```
+
+---
+
 # ESTADO VIGENTE — 19/10/2026 — H0 extendido 10 EN + 10 power: sin watchdog visible, brechas menores de captura
 
 **Informe del operador:** «Listo, ambos verificados», tras la autorización de 10 pulsaciones EN y 10 desconexiones/reconexiones de alimentación **únicamente COM4**, con RJ45 desconectado y sin recompilar ni reflashear, package F1 en HEAD `2b5802720df552e01a0b4f9d4fe1a7bd2de16daf`. La consola enviada y el fichero adjunto aportan registros de arranque, `H0F1_EARLY_LINK_RETURN=2`, `STAGE=2 LINK=2` y contadores crecientes; **no muestran TG1WDT_SYS_RESET, panic o bloqueo de `linkStatus()`**.
