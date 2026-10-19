@@ -28,6 +28,10 @@ jobs:
           [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $script).Path, [ref]$tokens, [ref]$errors)
           if ($errors.Count -gt 0) { throw ('POWERSHELL_PARSE_FAIL: '+($errors|Out-String)) }
           $body = [IO.File]::ReadAllText((Resolve-Path $script).Path)
+          $pathHelper = Join-Path $dir 'A13_H0_F1_PATH_IDENTITY.ps1'
+          if (!(Test-Path -LiteralPath $pathHelper -PathType Leaf)) { throw 'F132_PATH_HELPER_MISSING' }
+          . (Resolve-Path -LiteralPath $pathHelper).Path
+          Test-H0F1PathIdentity
           $ino = [IO.File]::ReadAllText((Resolve-Path (Join-Path $dir 'A13_H0_F1_SMOKE.ino')).Path)
           if (!$body.Contains('if (!$UploadCOM4)') -or !$body.Contains('H0F1_UPLOAD=NOT_RUN')) { throw 'BUILD_ONLY_MODE_MISSING' }
           if (!$body.Contains("'COM4'") -or !$body.Contains('H0F1 AUTORIZO SOLO COM4 PACKAGE CORREGIDO SIN BACKUP')) { throw 'COM4_CONSENT_MISSING' }
@@ -36,10 +40,15 @@ jobs:
               !$body.Contains("hardware\jwplc_h0f1\esp32")) {
             throw 'F132_STAGING_VENDOR_MUST_BE_UNIQUE'
           }
-          if (!$body.Contains("'--library',$stagedEthernet") -or
+          if (!$body.Contains('--library') -or
               !$body.Contains('H0F1_ETHERNET_SELECTED=') -or
               !$body.Contains('H0F1_ETHERNET_EXPECTED=')) {
             throw 'F132_EXPLICIT_STAGED_LIBRARY_AND_DIAGNOSTICS_REQUIRED'
+          }
+          if (!$body.Contains('Get-H0F1CanonicalPath $selectedLibLine') -or
+              !$body.Contains('H0F1_ETHERNET=PASS_CANONICAL_SAME_STAGED_LIBRARY') -or
+              !$body.Contains('H0F1_W5100=PASS_GCC_OBJECT_DEPENDENCY_FROM_STAGING')) {
+            throw 'F132_8DOT3_SOURCE_LIBRARY_IDENTITY_GUARD_MISSING'
           }
           if (!$body.Contains('H0F1_PLATFORM=PASS_ISOLATED_PACKAGE_PATH_CANONICAL') -or
               !$body.Contains('W5100_SOURCE_DEPENDENCY_NOT_FROM_STAGING')) {
