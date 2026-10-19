@@ -2701,3 +2701,20 @@ F131_G10_R1_R4=NOT_RUN
 F132=RESOLVED_CI_AND_LOCAL_BUILD
 NEXT_FAILURE_ID=F133
 ```
+
+
+### F131 — campaña extendida EN/POWER reportada completada; revisar regla de captura antes de cierre estricto (2026-10-19)
+
+El operador confirmó manualmente 10 EN y 10 power-cycles **solo COM4**, RJ45 desconectado, HEAD productivo original `2b580272...`. El fichero UART compartido contiene 12 BOOT observados (12/12 `H0F1_EARLY_LINK_RETURN=2`; 9/12 con cinco o más mensajes READY). El bloque de consola posterior contiene 10 BOOT con reapertura de COM4 (10/10 `EARLY_LINK_RETURN=2`; 9/10 con cinco o más READY); la captura `BOOT=915169EA` solo llega hasta `COUNT=3`. Hay un banner de arranque duplicado cerca de las 14:21:08 en la primera captura, cuya causa no se adjudica. No se observa `TG1WDT_SYS_RESET` ni panic en la evidencia recibida.
+
+**Clasificación:** mejora funcional repetida observada, **sin indicio de fallo nuevo de producto**; **`H0_EXTENDED_STRICT=REVIEW_EVIDENCE_GAP`** por faltas de cinco contadores, sin inventar veinte capturas completas ni abrir F133. El operador reporta ambas fases como ejecutadas. El PHY con RJ45 ya pasó ON/OFF/ON previamente; 20 reinicios adicionales con cable conectado **no son gate obligatorio**. Solo proponer 2 EN + 2 power-cycles opcionales con RJ45 conectado y permiso específico, sin promover firmware experimental ni tocar COM14. Si se reconcilia/acepta formalmente la diferencia de capturas, habilitar G10-P0 inventario, todavía sin cambios en `JWPLC/`.
+
+```text
+F131_H0_EN_AND_POWER=OPERATOR_CONFIRMED_COMPLETED
+F131_H0_EARLY_LINK=PASS_ALL_BOOT_MARKERS_OBSERVED
+F131_H0_EXTENDED_STRICT=REVIEW_EVIDENCE_GAP
+F131_H0_ETH_CONNECTED_2_PLUS_2=OPTIONAL_NOT_AUTHORIZED
+F131_NEW_PRODUCT_FAILURE=NO_EVIDENCE
+F132=RESOLVED
+NEXT_FAILURE_ID=F133
+```

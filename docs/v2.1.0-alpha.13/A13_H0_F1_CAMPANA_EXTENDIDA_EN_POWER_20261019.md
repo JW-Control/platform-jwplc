@@ -66,3 +66,8 @@ F132=RESOLVED_CI_AND_LOCAL_BUILD
 NEXT_GATE=H0_F1_EXTENDED_10_EN_THEN_10_POWERCYCLE_OPERATOR
 AFTER_EXTENDED_PASS=G10_PRODUCT_PROMOTION_PLAN_AND_NONPHYSICAL_GATES
 \`\`\`
+
+
+## 7. Resultado recibido — 19/10/2026 (no confundir cobertura física con cobertura de captura)
+
+El operador reporta **10 EN y 10 power-cycles completados**, RJ45 desconectado, sin flashear. En el archivo UART recibido se observan **12 BOOT** con `EARLY_LINK_RETURN=2` (9 con al menos 5 READY); la salida de consola adicional aporta **10 BOOT** con `EARLY_LINK_RETURN=2` (9 con 5 o más READY). No hay `TG1WDT_SYS_RESET` visible. En consola `915169EA` llega solo hasta `COUNT=3`; en el archivo existen tres ventanas que acaban en 3/4. No queda inequívocamente asignado cada BOOT a su maniobra EN/PW respectiva, por lo que **20/20 PASS estricto sigue REVIEW** por evidencia de captura (no es regresión de firmware). Se necesita reconciliar las filas faltantes o decidir explícitamente una excepción de aceptación al criterio de cinco READY. Una comprobación con RJ45 conectado (2 EN y 2 power) es **opcional, no obligatoria**, pendiente de autorización separada. No repetir 20 maniobras por inercia.

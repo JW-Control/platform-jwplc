@@ -1,3 +1,38 @@
+# ESTADO VIGENTE — 19/10/2026 — H0 extendido 10 EN + 10 power: sin watchdog visible, brechas menores de captura
+
+**Informe del operador:** «Listo, ambos verificados», tras la autorización de 10 pulsaciones EN y 10 desconexiones/reconexiones de alimentación **únicamente COM4**, con RJ45 desconectado y sin recompilar ni reflashear, package F1 en HEAD `2b5802720df552e01a0b4f9d4fe1a7bd2de16daf`. La consola enviada y el fichero adjunto aportan registros de arranque, `H0F1_EARLY_LINK_RETURN=2`, `STAGE=2 LINK=2` y contadores crecientes; **no muestran TG1WDT_SYS_RESET, panic o bloqueo de `linkStatus()`**.
+
+**Reconciliación estricta de los logs, sin inventar cuentas:**
+- El **archivo adjunto** muestra **12 identificadores BOOT** entre 14:19:34 y 14:21:15, todos con `EARLY_LINK_RETURN=2`. Nueve de esos doce alcanzaron al menos cinco `H0F1_READY` en la muestra; tres se detienen con `COUNT=3/4` antes del siguiente evento. El archivo por sí solo no delimita inequívocamente qué diez corresponden a EN y cuáles son maniobras adicionales/de otra fase.
+- El **bloque de consola posterior** muestra **10 BOOT nuevos** precedidos por cierres/reaperturas del COM4, todos con `EARLY_LINK_RETURN=2`, `STAGE=2` y `LINK=2`. Nueve alcanzan cinco o más contadores, **`BOOT=915169EA` solo muestra `COUNT=1..3`** antes de desconectarse.
+- En el archivo inicial aparece un **banner de boot duplicado muy cercano a las 14:21:08**, con bytes UART solapados; podría ser maniobra/reset adicional o captura corrupta. No atribuir causa de hardware sin corroborarla. Los `rst:0x1 POWERON_RESET` observados alrededor de maniobras no prueban un watchdog.
+- El operador confirma ambas fases completadas; las muestras son evidencia fuerte de recuperación repetida y ausencia de WDT, pero **no acreditan la regla escrita de cinco heartbeats en cada uno de los veinte ciclos**. Por tanto no registrar `PASS_20_OF_20_STRICT` sin conciliación, ni abrir F133: **`REVIEW_EVIDENCE_GAP`**, no defecto F131 demostrado.
+
+**Decisión sobre Ethernet conectado:** NO es obligatorio repetir otros 20 ciclos con RJ45. El F1 ya pasó LinkON estable y `LINK=1→2→1` dentro del mismo arranque. Como complemento opcional al arranque bajo enlace presente se pueden proponer **2 EN y 2 power-cycles con RJ45 conectado**, con autorización separada del operador; el `EARLY_LINK_RETURN` debe regresar, pero durante la negociación inicial PHY puede informar `2` antes de que `LINK` alcance `1`. La campaña opcional no se ha ejecutado ni autorizado todavía.
+
+**Próxima fase G10:** plan de promoción funcional en [A13_G10_PROMOCION_DESPUES_H0_F1_20261019.md](A13_G10_PROMOCION_DESPUES_H0_F1_20261019.md), **sin modificar package** ni ejecutar R1–R4 hasta reconciliar el gate H0 y aprobar alcance. Preservar `w5100.cpp` corregido; no copiar el overlay de laboratorio H0. Registros sensibles/MAC no se incluyen en Git.
+
+```text
+ALPHA13=OPEN
+F1_APPROVED=YES
+F131=H0_PRIMARY_PASS_EXTENDED_OBSERVED_SUCCESS_REVIEW_CAPTURE_GAPS
+F132=RESOLVED_CI_AND_LOCAL_BUILD
+H0_F1_EN10=OPERATOR_REPORTS_DONE_CAPTURE_GROUPING_REVIEW
+H0_F1_POWER10=OPERATOR_REPORTS_DONE_CAPTURE_9_OF_10_WITH_5_COUNTS
+H0_F1_BOOT_OBSERVED_TOTAL=22_ACROSS_TWO_SUPPLIED_SOURCES
+H0_F1_EARLY_LINK_RETURN=2_ALL_OBSERVED_BOOT_MARKERS
+H0_F1_TG1WDT=NOT_OBSERVED_IN_SUPPLIED_LOGS
+H0_F1_STRICT_20_OF_20=REVIEW_EVIDENCE_GAP
+H0_F1_ETH_CONNECTED_RESTARTS=OPTIONAL_NOT_AUTHORIZED_NOT_RUN
+G10_PACKAGE_PROMOTION=PLANNED_NOT_STARTED
+COM14=NOT_TOUCHED
+G10_R_R1_R2_R3_R4=NOT_RUN_NOT_AUTHORIZED
+NEXT_FAILURE_ID=F133
+NEXT_GATE=H0_F1_RECONCILE_CAPTURE_GAPS_AND_DECIDE_OPTIONAL_ETH_ON_THEN_G10_P0
+```
+
+---
+
 # ESTADO VIGENTE — 19/10/2026 — F1 APROBADO; H0 extendido 10 EN + 10 power-cycle autorizado; G10 después
 
 **Nueva decisión explícita del propietario:** «Aprobado F1. Pasamos a la campaña extendida y luego la integración G10». **No atribuir esta decisión al cierre completo de Alpha13, G10 ni R1–R4**. El gate físico principal de F131/W5500 ya pasó: early-link real, `STAGE=2`, `LINK=2→1→2→1`, sin watchdog reportado, mismo BOOT hasta `COUNT=1600`, y `POWERON_RESET` previo manual. La prueba extendida de **10 EN y 10 cortes completos de alimentación** está **AUTORIZADA PERO NO EJECUTADA** según evidencia disponible.
