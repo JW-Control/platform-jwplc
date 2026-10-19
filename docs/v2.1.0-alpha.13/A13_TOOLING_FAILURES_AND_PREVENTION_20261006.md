@@ -2557,3 +2557,27 @@ F132_RETEST_CI_EXACT_HEAD=PENDING
 F132_COM4_UPLOAD=NOT_RUN
 NEXT_FAILURE_ID=F133
 ```
+
+
+### F132 — retest NTFS PASS, recurrencia F003 en parser de dependencias (2026-10-19)
+
+La [CI Windows #39288903468](https://github.com/JW-Control/platform-jwplc/actions/runs/39288903468) para HEAD `ab68119a4319f84d192904e51a7c75375402bcdf` demostró:
+
+```text
+N0=PASS (incluye alias 8.3 y directorio distinto rechazado)
+H0F1_PLATFORM=PASS_ISOLATED_PACKAGE_PATH_CANONICAL
+H0F1_ETHERNET=PASS_CANONICAL_SAME_STAGED_LIBRARY
+N2=FAIL_HARNESS_BEFORE_DEPENDENCY_AND_ELF_ASSERTIONS
+```
+
+**Nueva causa acotada (recurrencia de F003 ya registrado, no ID nuevo):** el filtro de candidatos `w5100.cpp.d` / `w5100.cpp.o.d` usaba `$deps = @(candidatos) | Where-Object`, lo que devuelve una **cadena escalar** si sobrevive un solo archivo. A continuación `$deps[0]` accedía al primer carácter `C`; la llamada `[IO.File]::ReadAllText('C')` falló buscando un archivo relativo `C`, y **no** la dependencia GCC. El compilador acabó con código cero y se verificó la biblioteca staged; todavía no hay validación completa `.d/.o/ELF`.
+
+**Corrección versionada en la misma rama F132:** aplicar `$deps = @( @(candidatos) | Where-Object {...})`, manteniendo un array real de uno o dos elementos, y exigir `Count == 1`. Se preserva la procedencia GCC, sin ninguna modificación del package. No repetir F003 como una ID nueva y no declarar F132 cerrado hasta CI del SHA posterior.
+
+```text
+F132_NTFS_8DOT3=PASS_CI_N0_AND_LIBRARY_39288903468
+F132_DEPENDENCY_PARSER=FAIL_KNOWN_F003_SINGLE_ELEMENT_ARRAY_COLLAPSE
+F132_FULL_SOURCE_FIRST=NOT_YET_PASS
+F132_PHYSICAL=NOT_RUN
+NEXT_FAILURE_ID=F133
+```
