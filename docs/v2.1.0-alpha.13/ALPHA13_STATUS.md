@@ -1,3 +1,44 @@
+# ESTADO VIGENTE — 19/10/2026 — H0-F1 PHY LinkON→LinkOFF→LinkON PASS sin reinicio
+
+**Nueva evidencia de COM4 entregada por operador:** en el sketch físico `A13_H0_F1_SMOKE.ino` del package F1 desde `2b5802720df552e01a0b4f9d4fe1a7bd2de16daf`, **sin recompilación ni nuevo flash**, se desconectó y reconectó **manualmente** RJ45 manteniendo `BOOT=6BCAE2DA`, `STAGE=2` y el contador a 1 Hz. UART 115200:
+
+```text
+13:37:36.355 COUNT=1586 STAGE=2 LINK=1
+13:37:37.355 COUNT=1587 STAGE=2 LINK=2
+13:37:43.355 COUNT=1593 STAGE=2 LINK=2
+13:37:44.355 COUNT=1594 STAGE=2 LINK=1
+13:37:50.355 COUNT=1600 STAGE=2 LINK=1
+```
+
+**Resultado: `H0_F1_RJ45_ON_OFF_ON=PASS`**, transición PHY real `1→2→1`, recuperada en el **mismo arranque** sin `TG1WDT_SYS_RESET` en el extracto y sin reinicios reportados. Desde el arranque, `COUNT=1600` representa ~26 min 40 s de uptime estimado; **no se dispone de captura UART continua completa de toda la ventana**. La maniobra desconectada se observa durante siete muestras de un segundo. El `rst:0x1 POWERON_RESET` visto antes había sido **manual y confirmado por el operador**; no es una anomalía nueva.
+
+**Decisión actual:** `H0_F1_PHYSICAL_PRIMARY_GATE=PASS` con early-link, `STAGE=2`, LinkOFF/LinkON, estabilidad de 15 min previamente confirmada por operador y **una reconexión manual ON→OFF→ON PASS**. El CS F1 se considera validado para la causa F131 de H0; esta prueba no implica PASS de G10 sockets/Modbus/DHCP/DNS/concurrencia ni de las campañas extendidas 10 resets EN + 10 power-cycles, aún pendientes de decisión/autorización. F132 sigue resuelto CI+compilación local. Ningún cambio de firmware, core, autoload, GPIO4, pines, COM14 o configuración de FlashFreq; documentación en PR #121 Draft para preservar HEAD del banco.
+
+```text
+ALPHA13=OPEN
+F131=FIX_F1_H0_PRIMARY_AND_SINGLE_RJ45_RECONNECT_PASS
+F132=RESOLVED_CI_AND_LOCAL_BUILD
+H0_F1_PRODUCT_HEAD=2b5802720df552e01a0b4f9d4fe1a7bd2de16daf
+H0_F1_PHYSICAL_PRIMARY_GATE=PASS
+H0_F1_RJ45_ON_OFF_ON=PASS_ONE_MANUAL_CYCLE_BOOT_6BCAE2DA
+H0_F1_LINK_TRACE=COUNT_1586_ON_1587_OFF_1593_OFF_1594_ON_1600_ON
+H0_F1_BOOT=6BCAE2DA
+H0_F1_COUNT_LAST=1600
+H0_F1_UPTIME_ESTIMATE=26MIN40S_FROM_COUNTER
+H0_F1_STABILITY_15MIN=PASS_OPERATOR_REPORTED
+H0_F1_UNEXPECTED_RESET=NONE_REPORTED_IN_SAMPLE
+H0_F1_WDT=NOT_OBSERVED_IN_SUPPLIED_UART
+H0_F1_EXTENDED_EN_10=NOT_RUN_NOT_AUTHORIZED
+H0_F1_EXTENDED_POWERCYCLE_10=NOT_RUN_NOT_AUTHORIZED
+G10_R_R1_R2_R3_R4=NOT_RUN_NOT_AUTHORIZED
+COM14=NOT_TOUCHED
+G10_PACKAGE_PROMOTION=PENDING_OVERLAY_ONLY
+NEXT_FAILURE_ID=F133
+NEXT_GATE=H0_F1_DECIDE_EXTENDED_RESTART_CAMPAIGN_AND_G10_R_PROMOTION
+```
+
+---
+
 # ESTADO VIGENTE — 19/10/2026 — Alpha13 H0-F1: EARLY_LINK + LinkOFF/LinkON + estabilidad física ~15 min PASS
 
 **Evidencia suministrada por el operador, COM4, package F1 real** desde `v2.1.0-alpha.13/feature/cleanup-robustness` HEAD **`2b5802720df552e01a0b4f9d4fe1a7bd2de16daf`**; sketch `A13_H0_F1_SMOKE.ino`, 115200 baudios. Se conserva la base productiva sin nuevos cambios. `H0F1_UPLOAD=PASS_COM4_ONLY`, `COM14=NOT_TOUCHED`. El operador **aclaró que el `rst:0x1 (POWERON_RESET)` previo fue causado por él**, y que RJ45 permaneció desconectado antes y después de dicho reset. No atribuir ese reset al firmware.

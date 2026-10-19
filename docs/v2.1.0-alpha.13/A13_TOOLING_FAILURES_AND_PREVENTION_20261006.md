@@ -2673,3 +2673,31 @@ F132=RESOLVED_CI_AND_LOCAL_BUILD
 COM14=NOT_TOUCHED
 NEXT_FAILURE_ID=F133
 ```
+
+
+### F131/H0 — recuperación de enlace ON→OFF→ON sin reinicio (2026-10-19)
+
+El operador realizó una única desconexión y reconexión manual RJ45 **sin reiniciar** el JWPLC Basic COM4. El sketch source-first del package F1, HEAD original `2b5802720df552e01a0b4f9d4fe1a7bd2de16daf`, mantuvo `BOOT=6BCAE2DA`, `STAGE=2` y contador a 1 Hz. Registros seleccionados:
+
+```text
+13:37:36.355 H0F1_READY:BOOT=6BCAE2DA COUNT=1586 STAGE=2 LINK=1
+13:37:37.355 H0F1_READY:BOOT=6BCAE2DA COUNT=1587 STAGE=2 LINK=2
+13:37:43.355 H0F1_READY:BOOT=6BCAE2DA COUNT=1593 STAGE=2 LINK=2
+13:37:44.355 H0F1_READY:BOOT=6BCAE2DA COUNT=1594 STAGE=2 LINK=1
+13:37:50.355 H0F1_READY:BOOT=6BCAE2DA COUNT=1600 STAGE=2 LINK=1
+```
+
+**`F131_H0_F1_RJ45_ON_OFF_ON=PASS_ONE_CYCLE`**, sin watchdog observable en los extractos, sin nuevo boot reportado. `COUNT=1600` indica ~26 min 40 s desde el mismo arranque, pero el UART entregado no cubre cada segundo. La prueba principal de F1 para `SS_PIN_DEFAULT` se sostiene con retorno temprano, estado PHY real, estabilidad y reconexión. No declarar cierre G10-R ni resultados para sockets, DHCP, DNS, Modbus TCP, 10 resets EN o 10 power-cycles. No crear F133 para un gate PASS. MAC, PnP y manifiesto quedan solo locales.
+
+```text
+F131_H0_EARLY_LINK=PASS
+F131_H0_PHYSICAL_PRIMARY=PASS
+F131_H0_LINK_ON_OFF_ON=PASS_SAME_BOOT_ONE_MANUAL_CYCLE
+F131_H0_LAST_COUNT=1600
+F131_H0_UPTIME_FROM_COUNTER=1600S
+F131_H0_EXTENDED_10_EN=NOT_RUN
+F131_H0_EXTENDED_10_POWER_CYCLE=NOT_RUN
+F131_G10_R1_R4=NOT_RUN
+F132=RESOLVED_CI_AND_LOCAL_BUILD
+NEXT_FAILURE_ID=F133
+```
