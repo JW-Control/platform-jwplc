@@ -1,3 +1,32 @@
+# ESTADO VIGENTE — 19/10/2026 — Alpha13 H0-F1 implementado en rama aislada, pendiente de CI y físico
+
+> Este bloque se aplica **solo a la rama candidata F1**, no declara integración en la base ni PASS de H0. Véase [A13_H0_F1_PACKAGE_SS_PIN_20261019.md](A13_H0_F1_PACKAGE_SS_PIN_20261019.md). Último código físico H0-F = `f0b9075130158b99d89e0f9a574d964236614b78` (FAIL TG1WDT Stage63); su evidencia N0–N3 previa corresponde al overlay instrumentado y **no** valida F1.
+>
+> Rama base comprobada al iniciar: `v2.1.0-alpha.13/feature/cleanup-robustness` @ `a9c96273274170195498ff282decf93f0388a450`; BASE_SYNC=OK y KNOWLEDGE_SYNC=OK al iniciar. Código F1 en `codex/alpha13-h0-f1-ss-pin-default-20261019`: solo `w5100.cpp` productivo, con CS desde `JWPLC_ETH_CS` y #error GPIO6–11. No se cambiaron API, variant, GPIO4, autoload, periféricos, archives ni Alpha15. Test nativo negativo y CI específica nuevos. **F1 pendiente de N0–N3 verificadas**. E1/E2 dependen de artifacts/toolchain; no se declara PASS hasta comprobar.
+
+```text
+ALPHA13=OPEN
+HITO=G10-R/H0-F1
+H0_ROOT_CAUSE=IDENTIFIED_SOURCE_CONFIRMED
+H0_FIX_F1=IMPLEMENTED_ISOLATED_UNVERIFIED
+H0_E1_GDB_BEFORE_AFTER=PENDING_CI
+H0_E2_QIO_SDKCONFIG=PENDING_CI
+H0_F1_N0_N1_N2_N3=PENDING_CI
+F130=CONFIRMED_PROCESS
+F131=CONFIRMED_PRODUCT_SOURCE
+NEXT_FAILURE_ID=F132
+G10_PACKAGE_PROMOTION=PENDING_OVERLAY_ONLY
+G10-R-R1_R2_R3_R4=NOT_RUN
+G10-R-H=REVIEW_STOP_NOT_AUTHORIZED
+A13-006=ADOPTION_BLOCKED
+ALPHA15=UNMODIFIED
+BASE_SYNC=OK_AT_BRANCH_START; F1_INTEGRATION=PENDING_OPERATOR
+KNOWLEDGE_SYNC=OK
+NEXT_GATE=H0_F1_CI_N0_N1_N2_N3_THEN_E1_E2_REVIEW_THEN_EXPLICIT_COM4_AUTH
+```
+
+---
+
 # ESTADO VIGENTE — 19/10/2026 — Alpha13 G10-R / H0: causa raíz identificada (SS_PIN_DEFAULT=10 → GPIO10 flash), corrección F1 pendiente
 
 > **Leer este encabezado antes del bloque del 18/10 que continúa debajo.** La auditoría independiente READ-ONLY cerró la pregunta abierta de H0-F. **No había deadlock.** Documento canónico: [A13_H0_ROOT_CAUSE_SS_PIN_20261019.md](A13_H0_ROOT_CAUSE_SS_PIN_20261019.md). Fallos registrados: **F130** (proceso) y **F131** (defecto latente de producto) en [A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md](A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md).
