@@ -1,3 +1,39 @@
+# ESTADO VIGENTE — 19/10/2026 — F132: compilación local source-first PASS; H0 COM4 físico pendiente
+
+**Evidencia informada por el operador en Windows PowerShell**, repositorio `JW-Control/platform-jwplc`, rama `v2.1.0-alpha.13/feature/cleanup-robustness` al HEAD exacto `2b5802720df552e01a0b4f9d4fe1a7bd2de16daf`. Se ejecutaron `git fetch origin`, `git switch`, `git pull --ff-only`, `git status --short` (sin cambios), y `A13_H0_F1_COM4_BANCO.ps1 -ExpectedHead $head` **sin `-UploadCOM4`**. Salida literal:
+
+```text
+H0F1_PLATFORM=PASS_ISOLATED_PACKAGE_PATH_CANONICAL
+H0F1_STAGING_VENDOR=jwplc_h0f1_ALIAS_JWPLC_SOURCE_UNMODIFIED
+H0F1_ETHERNET=PASS_CANONICAL_SAME_STAGED_LIBRARY
+H0F1_W5100=PASS_GCC_OBJECT_DEPENDENCY_FROM_STAGING
+H0F1_BUILD=PASS_SOURCE_FIRST HEAD=2b5802720df552e01a0b4f9d4fe1a7bd2de16daf
+H0F1_UPLOAD=NOT_RUN COM14=NOT_TOUCHED
+```
+
+**Resultado:** F132 `RESOLVED_CI_AND_LOCAL_BUILD`. El manifiesto local en `%TEMP%\jwplc_a13_h0f1_2b5802720df5_20261019124126\MANIFEST.json` queda en el PC del operador y **no se publica**; no se ha inspeccionado su contenido por esta conversación. Este resultado **no** valida Ethernet en hardware, PHY ni watchdog. No cambia `JWPLC/2.1.0`; F131/H0-F1 continúa abierto para autorización y pruebas físicas COM4.
+
+**Próximo gate:** identidad local física de COM4 (CH340, MAC de referencia, flash 4 MB, seguridad de Q/aislamiento) → consentimiento específico de upload del mismo package → UART real 115200 y `EARLY_LINK_RETURN` / STAGE2 / PHY / watchdog. COM14 no tocado. G10-R R1–R4 no autorizados. Documentación de esta evidencia preparada en rama PR aislada para no mover la base tras la compilación y evitar repetir un build ya válido antes de la carga.
+
+```text
+ALPHA13=OPEN
+F131=F1_PRODUCT_MERGED_H0_PHYSICAL_PENDING
+F132=RESOLVED_CI_AND_LOCAL_BUILD
+F132_LOCAL_HEAD=2b5802720df552e01a0b4f9d4fe1a7bd2de16daf
+F132_LOCAL_BUILD=PASS_SOURCE_FIRST
+F132_LOCAL_MANIFEST=ON_OPERATOR_PC_NOT_INSPECTED
+F132_COM4_UPLOAD=NOT_RUN
+F132_COM14=NOT_TOUCHED
+NEXT_FAILURE_ID=F133
+H0_F1_H=NOT_RUN
+G10_R_R1_R2_R3_R4=NOT_RUN_NOT_AUTHORIZED
+G10_PACKAGE_PROMOTION=PENDING_OVERLAY_ONLY
+ALPHA15=UNMODIFIED
+NEXT_GATE=H0_F1_COM4_IDENTITY_CONSENT_UPLOAD_UART_PHY_REAL
+```
+
+---
+
 # ESTADO VIGENTE — 19/10/2026 — Alpha13 F132 corregido y verificado por CI; H0 COM4 físico pendiente
 
 **F132 (tooling) CERRADO A NIVEL NO FÍSICO.** El código del ejecutor en HEAD `c76f7e3a8240c8c6a650445aae2b4be61f5e5488` fue validado por [CI Windows H0-F1 #39289719081](https://github.com/JW-Control/platform-jwplc/actions/runs/39289719081): **N0 y N2 2/2 PASS**, con `H0F1_PLATFORM=PASS_ISOLATED_PACKAGE_PATH_CANONICAL`, `H0F1_ETHERNET=PASS_CANONICAL_SAME_STAGED_LIBRARY`, `H0F1_W5100=PASS_GCC_OBJECT_DEPENDENCY_FROM_STAGING`, `H0F1_BUILD=PASS_SOURCE_FIRST`, `H0F1_UPLOAD=NOT_RUN` y `COM14=NOT_TOUCHED`. El N0 incluye pruebas positivas/negativas para alias NTFS 8.3 y el caso F003 de colección PowerShell de un solo archivo. [G10-R #39289718821](https://github.com/JW-Control/platform-jwplc/actions/runs/39289718821): **2/2 PASS Windows/Ubuntu**. **Total 4/4 PASS, ninguno omitido.**
