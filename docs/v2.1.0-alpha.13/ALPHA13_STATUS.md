@@ -6,6 +6,8 @@
 
 **G10-P0 (solo lectura) iniciado:** [inventario estático source-backed](A13_G10_P0_INVENTARIO_ESTATICO_SOURCE_BACKED_20261019.md) derivado de `a13_g10_integrated.py::compose()` y mapa real Git: 14 rutas destino, 12 existentes en package, 2 SafeAccess nuevos; `Dns.cpp`/`Dhcp.cpp` sin cambios previstos. Aún **no** se ejecutó la composición dinámica ni se generó un diff/hashes del candidato. El productivo `w5100.cpp` F1 está fuera de G10-I y se conserva. **No iniciar promoción** hasta resolver la aceptación formal de las ventanas 20/20 y completar P0 dinámico.
 
+**G10-P0 read-only verificado:** [CI #39315048980](https://github.com/JW-Control/platform-jwplc/actions/runs/39315048980), **2/2 PASS Windows/Ubuntu** en PR #122 Draft con HEAD de código `96b4ab31e97aa0c3a9f0c9ab3a67e6628f11b65e`. El `compose()` fuente genera 14 destinos, **10 MODIFIED + 2 ADDED + 2 UNCHANGED**; `w5100.cpp` F1 conserva contenido canónico Git idéntico, producto sin cambios. [Inventario y contrato](A13_G10_P0_INVENTARIO_ESTATICO_SOURCE_BACKED_20261019.md). No se ha copiado ningún archivo G10 al package; N2/N3 de adopción y R1–R4 permanecen pendientes.
+
 **Límites:** rama base del firmware sigue en `2b5802720df552e01a0b4f9d4fe1a7bd2de16daf` sin cambios; esta documentación está en PR #121 Draft. No tocar COM14, GPIO4, autoload, FlashFreq, binarios congelados ni instrumentación de `w5100.cpp`. G10-R R1–R4 permanecen no ejecutados/no autorizados.
 
 ```text
@@ -19,7 +21,7 @@ H0_F1_ETH_CONNECTED_EARLY_RETURN_INDIRECT=1_OF_6
 H0_F1_ETH_CONNECTED_LINK1_RECOVERY=PASS_6_OF_6
 H0_F1_ETH_CONNECTED_TG1WDT=NOT_OBSERVED
 H0_F1_EXTENDED_20_OF_20_STRICT=REVIEW_EVIDENCE_GAP
-G10_P0_INVENTORY=STATIC_SOURCE_MAP_14_PATHS_12_EXISTING_2_SAFEACCESS
+G10_P0_INVENTORY=PASS_DYNAMIC_COMPOSE_CI_2_OF_2_SHA_96B4AB31
 G10_PACKAGE_PROMOTION=NOT_STARTED_BLOCKED_ON_H0_ACCEPTANCE
 COM14=NOT_TOUCHED
 G10_R_R1_R2_R3_R4=NOT_RUN_NOT_AUTHORIZED
