@@ -36,6 +36,11 @@ jobs:
               !$body.Contains("hardware\jwplc_h0f1\esp32")) {
             throw 'F132_STAGING_VENDOR_MUST_BE_UNIQUE'
           }
+          if (!$body.Contains("'--library',$stagedEthernet") -or
+              !$body.Contains('H0F1_ETHERNET_SELECTED=') -or
+              !$body.Contains('H0F1_ETHERNET_EXPECTED=')) {
+            throw 'F132_EXPLICIT_STAGED_LIBRARY_AND_DIAGNOSTICS_REQUIRED'
+          }
           if (!$body.Contains('H0F1_PLATFORM=PASS_ISOLATED_PACKAGE_PATH_CANONICAL') -or
               !$body.Contains('W5100_SOURCE_DEPENDENCY_NOT_FROM_STAGING')) {
             throw 'F132_SOURCE_FIRST_VALIDATION_MISSING'
