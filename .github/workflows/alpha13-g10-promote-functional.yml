@@ -17,11 +17,23 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
           ref: ${{ github.event.pull_request.head.ref }}
-      - name: Preflight y manifest sin escrituras
-        run: python tools/alpha13/gates/a13_g10_promote_functional.py
+      - name: Distinguir promoción pendiente de promoción ya incorporada
+        id: promotion
+        shell: bash
+        run: |
+          set -euo pipefail
+          if test -f JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/JWPLC_W5500_SafeAccess.cpp; then
+            python -B tools/alpha13/gates/a13_g10_promoted_contract.py
+            echo "already=true" >> "$GITHUB_OUTPUT"
+          else
+            python -B tools/alpha13/gates/a13_g10_promote_functional.py
+            echo "already=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Promover exclusivamente fuentes funcionales a la rama PR
-        run: python tools/alpha13/gates/a13_g10_promote_functional.py --apply
+        if: steps.promotion.outputs.already == 'false'
+        run: python -B tools/alpha13/gates/a13_g10_promote_functional.py --apply
       - name: "Negativos: diff restringido, F1 y archivos precompilados"
+        if: steps.promotion.outputs.already == 'false'
         shell: bash
         run: |
           set -euo pipefail
@@ -32,6 +44,7 @@ jobs:
           test -z "$(git status --porcelain -- '*.a')"
           git diff --check
       - name: Publicar SOLO en la rama aislada G10, nunca en Alpha13 base
+        if: steps.promotion.outputs.already == 'false'
         shell: bash
         env:
           TARGET_BRANCH: codex/alpha13-g10-promote-functional-20261019
