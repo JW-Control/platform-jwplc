@@ -49,8 +49,9 @@ ni tomarlos como referencia para el HMI Designer.
 ## 2. Trabajo activo
 
 ```text
-ACTIVE_ALPHA=v2.1.0-alpha.15
+ACTIVE_ALPHA=v2.1.0-alpha.15 (DEV_CLOSED 2026-10-19; se publica como 2.1.0-alpha.14)
 ACTIVE_BRANCH=v2.1.0-alpha.15-HmiDesigner
+CIERRE=docs/v2.1.0-alpha.15/A15_CIERRE_Y_TRANSFERENCIA_20261019.md (integración con Alpha13 y publicación)
 PARENT_BRANCH=v2.0.1-alpha.15-(HmiDesigner)   (rama anterior de André; congelada, NO modificar)
 PARENT_LAST_MERGED=af797d79 (2026-10-16, fusionado en la rama activa el 2026-10-17)
 ALPHA12_MERGED=4e869985 (Kenyi, VPP 2.1.0-alpha.29; fusionado el 2026-10-18)
@@ -78,9 +79,11 @@ Integración OpenPLC: `docs/v2.1.0-alpha.15/A15_OPENPLC_INTEGRATION_DECISION_202
 Organización de alphas (manda sobre `docs/JWPLC_V2_1_CLOSURE_ROADMAP.md`):
 
 ```text
-ALPHA13=robustez del package (jefe)
+ALPHA13=robustez del package (jefe)                 -> publica 2.1.0-alpha.13
+ALPHA15=HMI Designer (André)                        -> publica 2.1.0-alpha.14 (final del repositorio)
 ALPHA14=OpenPLC (Kenyi)     -> repo JW-Control/openplc-editor + VPP en openplc-editor-installers/
-ALPHA15=HMI Designer (André)
+                                                    -> publica 2.1.0-alpha.15
+Numeración por orden de publicación; ramas y carpetas conservan su etiqueta de trabajo.
 ```
 
 Repos relacionados:

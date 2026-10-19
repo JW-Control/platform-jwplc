@@ -31,24 +31,11 @@ GATES_FISICOS_LISTOS=A15_1_3_Codegen_Static, A15_8_Menu, A15_8_Menu_Designer, A1
                      A15_I2_Reloj, A15_I3_Tildes, A15_F0_OpenPLC_Bool_Rele, 07.Buzzer_Basic
 ```
 
-## Para cerrar Alpha15 (en este orden)
+## Cierre (2026-10-19)
 
-1. **Taller (A15-9).** Ya aprobados en la placa (2026-10-19): MENU, hora del RTC, `°`, BOOL piloto,
-   despertar con OK, pestañas posicionada/seleccionada, guía LEEME y app de escritorio. Faltan:
-   - `07.Buzzer_Basic`: volumen y que no bloquee;
-   - `A15_I1_Formatos`: miles, duración y que no queden restos de dígitos;
-   - `A15_I2_Reloj`: la medianoche y el RTC sin pila;
-   - NAV · Páginas: color de pestaña con el editor fijo (nuevo, sólo Designer).
-
-     Alpha15 se compila con la placa `jwplc_local` (la publicada alpha.12 no tiene MENU).
-
-     Menú del sketch y apertura del Arduino IDE: confirmados por el jefe el 2026-10-18.
-2. **Corregir** lo que salga del taller.
-3. **Regenerar `libJWPLC_Display.a`** una sola vez:
-   - `tools/alpha15/regenerate_libJWPLC_Display.sh build --install` (incluye `JWPLC_UI_Format.cpp`);
-   - volver a poner `precompiled=full` en `JWPLC_Display/library.properties`;
-   - correr el benchmark de compilación en la PC del jefe.
-4. **A15-10**: paquete y docs finales; actualizar STATUS y cerrar.
+Desarrollo y pruebas físicas **cerrados**. Esta Alpha15 se publica como **2.1.0-alpha.14** (la Alpha14 de Kenyi pasa a
+2.1.0-alpha.15). Lo que falta (integración con Alpha13, freeze de `libJWPLC_Display.a`, versiones y publicación) está en
+[A15_CIERRE_Y_TRANSFERENCIA_20261019.md](A15_CIERRE_Y_TRANSFERENCIA_20261019.md), con el procedimiento de fusión verificado.
 
 ## Pendientes conocidos (no bloquean el cierre)
 

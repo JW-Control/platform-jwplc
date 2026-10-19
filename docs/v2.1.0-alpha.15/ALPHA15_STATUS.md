@@ -1,6 +1,6 @@
 # v2.1.0-alpha.15 — Estado
 
-Actualizado: `2026-10-18`
+Actualizado: `2026-10-19`
 
 ## Identidad
 
@@ -10,17 +10,18 @@ PARENT_BRANCH=v2.0.1-alpha.15-(HmiDesigner) (congelada; último commit fusionado
 TEAM_BRANCH=v2.1.0-alpha.15-HmiDesigner (André trabaja aquí desde 2026-10-17)
 BASE_SHA=cc66d69aa1eca461b7111c856293e5f1f6e103b4
 OWNER_ALPHA15=André (HMI Designer)
-ALPHA15_STATUS=IN_PROGRESS
-ALPHA15_RELEASE_PR=NOT_OPENED
+ALPHA15_STATUS=DEV_CLOSED (2026-10-19; cierre y transferencia: A15_CIERRE_Y_TRANSFERENCIA_20261019.md)
+ALPHA15_RELEASE=2.1.0-alpha.14 (por orden de publicación; ver «Organización de alphas»)
+ALPHA15_RELEASE_PR=NOT_OPENED (la integración con Alpha13 la hace el agente de publicación)
 ```
 
 ## Organización de alphas
 
 ```text
-ALPHA13=robustez del package (jefe)
-ALPHA14=OpenPLC (Kenyi)
-ALPHA15=HMI Designer (André)
-ROADMAP_V2_1_NUMERACION=SUSTITUIDA_POR_ESTA_ORGANIZACION
+ALPHA13=robustez del package (jefe)                  -> publica 2.1.0-alpha.13
+ALPHA15=HMI Designer (André, esta rama)              -> publica 2.1.0-alpha.14 (final del repositorio)
+ALPHA14=OpenPLC + integración HMI (Kenyi)            -> publica 2.1.0-alpha.15
+RAMAS_Y_CARPETAS=conservan su etiqueta de trabajo (decisión del jefe 2026-10-19: numeración por orden de publicación)
 ```
 
 ## Gates
@@ -31,31 +32,31 @@ A15_1_CODEGEN_COMPILE=PASS (host g++/nm; arduino-cli en A15-4)
 A15_2_PERSISTENCE_PAGES=PASS
 A15_3_STATIC_OUT_OF_TICK=PASS (tiempos de bus en A15-9)
 A15_4_DESIGNER_CI=PASS_ESP32_COMPILE (smoke host + arduino-cli ESP32 en la nube; falta automatizar en CI)
-A15_5_PURE_CODEGEN_TESTS=PASS_PARTIAL (golden 5/5 + núcleo en node; estática/NAV/PixelMap aún por capas)
-A15_6_JWHMI_V2_MODES_HOST=PENDING
+A15_5_PURE_CODEGEN_TESTS=PASS_PARTIAL_REST_DEFERRED (golden 5/5 + núcleo en node; estática/NAV/PixelMap aún por capas)
+A15_6_JWHMI_V2_MODES_HOST=TRANSFERRED (al trabajo OpenPLC de Kenyi, publicación 2.1.0-alpha.15)
 A15_7A_BAR_FINISH=PASS (A15_7_INSPECTOR_CLOSE_20261017; paridad lienzo/firmware 16/16)
 A15_7B_VALUE=PASS
 A15_7C_TEXT=PASS
 A15_7D_BOOL=PASS
-A15_7E_RAW_SHAPES_NAV_PIXEL=PENDING (NAV: borrar páginas, estilo Contador e indicador NN/TT resueltos en A15_7_INSPECTOR_FOLLOWUP_3)
+A15_7E_RAW_SHAPES_NAV_PIXEL=DEFERRED (NAV: borrar páginas, estilo Contador e indicador NN/TT resueltos en A15_7_INSPECTOR_FOLLOWUP_3)
 A15_7F_IDLE_CONFIG=PASS (Proyecto · Pantalla y arranque; ESC/Por inactividad/Nunca + MENU «Ir al inicio»)
 A15_7G_APPEARANCE_A1=PASS (designer-zone-indicator.js: contorno doble + ▶ + regla; campos y MENU; A15_7_APARIENCIA_A1_ANALISIS_20261018.md §6)
 A15_LOPAKA_REVIEW=DONE (A15_LOPAKA_REVISION_20261018.md; P1 aprobado, P2 ajustado)
 A15_INDUSTRIAL_PLAN=APPROVED (A15_INDUSTRIAL_ARQUITECTURA_PLAN_20261018.md §G; Alpha15 cierra con I1-I3 + A1 + buzzer; resto Alpha16)
-A15_BUZZER=PASS_ESP32_COMPILE (JWPLC_Buzzer en JWPLC_GlobalPeripherals; físico pendiente)
-A15_I1_FORMATS=PASS_PHYSICAL_PARTIAL (A15_I1_FORMATOS_VALUE_BOOL_20261018.md; BOOL piloto OK en la placa 2026-10-19; miles/duración [no verificado] en la placa)
-A15_I2_RTC=PASS_PHYSICAL (A15_I2_FECHA_HORA_RTC_20261018.md; hora del RTC OK en la placa 2026-10-19; medianoche y RTC sin pila [no verificado])
+A15_BUZZER=PASS_PHYSICAL (JWPLC_Buzzer en JWPLC_GlobalPeripherals; pitido, no bloqueante y volumen OK 2026-10-19)
+A15_I1_FORMATS=PASS_PHYSICAL (A15_I1_FORMATOS_VALUE_BOOL_20261018.md; piloto, miles y duración OK en la placa 2026-10-19)
+A15_I2_RTC=PASS_PHYSICAL (A15_I2_FECHA_HORA_RTC_20261018.md; reloj OK en la placa 2026-10-19)
 A15_I3_CP437=PASS_PHYSICAL (A15_I3_TILDES_CP437_20261018.md; «°» OK en la placa 2026-10-19)
 A15_SKETCH_FLOW=PASS_DESKTOP (Escribir en sketch + menú del sketch; el jefe abrió el Arduino IDE desde la app de escritorio el 2026-10-18)
 A15_SKETCH_GUIDE=PASS_DESKTOP (JWPLC_HMI_LEEME.md escrito por la app; el jefe compiló y subió su sketch base con jwplc_local)
 A15_WAKE_KEY_FIX=PASS_PHYSICAL (la tecla que despierta la IDLE ya no entra al contenido ni al MENU; confirmado 2026-10-19)
 A15_NAV_TAB_STATES=PASS_PHYSICAL (pestaña posicionada/seleccionada con doble marco; aprobado por el jefe 2026-10-19)
-A15_NAV_PAGE_COLOR=PASS (color de cada pestaña con el editor fijo en NAV · Páginas; antes sólo rotaba 8 colores)
+A15_NAV_PAGE_COLOR=PASS_PHYSICAL (color de cada pestaña con el editor fijo en NAV · Páginas; OK en la placa 2026-10-19)
 A15_COLOR_EDITOR=PASS (editor de color fijo en Apariencia de campos, MENU y BAR; filas clicables y alineadas)
-A15_FRAM_MAP=PROPOSED (plan §G.6: DataLog hoy sin FRAM; reparto del último KB)
+A15_FRAM_MAP=DEFERRED (plan §G.6: DataLog hoy sin FRAM; reparto del último KB; se fija en I9/I10 del plan industrial)
 A15_8_MENU=PASS_PHYSICAL (A15_8_MENU_20261017; MENU OK en la placa 2026-10-19)
-A15_9_PHYSICAL_PARITY=IN_PROGRESS (MENU, RTC, °, piloto, despertar y pestañas OK; faltan buzzer, miles/duración y medianoche/RTC sin pila)
-A15_10_PACKAGING_DOCS=PENDING
+A15_9_PHYSICAL_PARITY=PASS_PHYSICAL (MENU, RTC, °, piloto, formatos, buzzer, despertar, pestañas y color de pestaña; 2026-10-19)
+A15_10_PACKAGING_DOCS=PENDING_INTEGRATION (freeze de libJWPLC_Display.a, versiones y publicación 2.1.0-alpha.14; ver cierre §4)
 A15_OPENPLC_INTEGRATION_DECISION=PASS (adopta plan rev.2 del fork + correcciones C1-C5)
 A15_ALPHA12_MERGE=PASS (VPP 2.1.0-alpha.29 + overlay IDLE de Kenyi; merge 7cbd427c)
 A15_F0_OPENPLC_BOOL_RELE=PASS_COMPILE (HAL VPP + bloque F0; OpenPLC y placa pendientes, Kenyi)
@@ -320,3 +321,11 @@ MENU_NODE_COUNT_LIMIT=64 por menú, 4 menús, 1 por página (9 nodos = +952 B RA
     cuadro sólo rotaba 8 colores. `setPageMetadata(page, meta, {commit})` admite la vista previa en vivo
     sin historial. [ejecutado] inspector-smoke (HEX, paleta y deshacer) + captura;
   - aviso `-Wformat-truncation` del NN/TT corregido en `JWPLC_UI_Pages.cpp` (`char text[8]`).
+- 2026-10-19 — **Cierre de desarrollo.** El jefe aprueba en la placa el buzzer (pitido, no bloqueante, volumen),
+  los formatos, el reloj y el color de pestaña. Alpha15 se publica como **2.1.0-alpha.14** (orden de publicación);
+  la Alpha14 de Kenyi pasa a 2.1.0-alpha.15.
+
+  Verificado en modo lectura: esta rama **no contiene Alpha13**. Con Alpha12 publicado como ancestro, la fusión
+  deja sólo 2 conflictos (`.gitignore` y `libJWPLC_TFT.a`). La `.a` de la fuente fusionada se regenera con
+  `ABI_COMPAT=PASS`. Procedimiento, pendientes y diferidos:
+  [A15_CIERRE_Y_TRANSFERENCIA_20261019.md](A15_CIERRE_Y_TRANSFERENCIA_20261019.md).
