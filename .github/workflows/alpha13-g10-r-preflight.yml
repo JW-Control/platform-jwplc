@@ -39,13 +39,18 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
-      - name: Verificar que no se altero el producto ni ejecutores G10-H
+      - name: Verificar alcance G10-R legado o excepcion F1 de diff exacto
         shell: bash
+        env:
+          G10R_PR_HEAD_REF: ${{ github.head_ref }}
+          G10R_PR_BASE_REF: ${{ github.base_ref }}
+          G10R_EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
           python -B tools/alpha13/gates/a13_g10_r_b3_scope.py --selftest
-          python -B tools/alpha13/gates/a13_g10_r_b3_scope.py --check
-          echo "G10_R_PREH_SCOPE_LEGACY_AND_NEW=PASS_STRICT"
+          python -B tools/alpha13/gates/a13_g10_r_h0_f1_scope_bridge.py --selftest
+          python -B tools/alpha13/gates/a13_g10_r_h0_f1_scope_bridge.py --check
+          echo "G10_R_SCOPE=PASS_STRICT_LEGACY_OR_EXACT_H0_F1"
       - name: Compilar Python y verificar ausencia de I/O fisico
         shell: bash
         run: |
