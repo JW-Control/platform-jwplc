@@ -43,6 +43,7 @@ def main():
     need(run("branch", "--show-current") == PROMOTION_BRANCH, "WRONG_BRANCH")
     need(not run("status", "--porcelain", "--", "JWPLC/"), "PRODUCT_DIRTY")
     source_before = norm_bytes(ROOT / F1_SOURCE)
+    passthrough = {path: norm_bytes(ROOT / path) for path in UNCHANGED_BY_DESIGN}
     need(source_before == subprocess.run(
         ["git", "-C", str(ROOT), "show", F1_BASE + ":" + F1_SOURCE],
         check=True, capture_output=True).stdout, "F1_BASE_SOURCE_DRIFT")
@@ -78,8 +79,8 @@ def main():
         target.write_bytes(outputs[rel].encode("utf-8"))
 
     need(norm_bytes(ROOT / F1_SOURCE) == source_before, "F1_W5100_CHANGED")
-    need(all(norm_bytes(ROOT / path) == norm_bytes(ROOT / path)
-             for path in UNCHANGED_BY_DESIGN), "DNS_DHCP_UNAVAILABLE")
+    need(all(norm_bytes(ROOT / path) == before
+             for path, before in passthrough.items()), "DNS_DHCP_CHANGED")
     modified = set(run("diff", "--name-only", "--", "JWPLC/").splitlines())
     untracked = set(run("ls-files", "--others", "--exclude-standard", "--", "JWPLC/").splitlines())
     need(modified | untracked == changed, "ACTUAL_PRODUCT_DIFF_DRIFT")
