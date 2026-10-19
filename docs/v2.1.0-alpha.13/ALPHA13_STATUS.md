@@ -1,3 +1,34 @@
+# ESTADO VIGENTE — 19/10/2026 — Alpha13 H0-F1 COM4: fallo F132 de selección de plataforma, sin compilación ni upload
+
+**Fuente:** registros del operador, rama base `v2.1.0-alpha.13/feature/cleanup-robustness`, últimos HEAD locales `d813e1008b23e40bf5248e2111ba85595d864b7d` y `01f5aa9a850a332eca5acc2200c30223a2d6f5ea`, ambos con checkout limpio. **F131/F1 de producto permanece MERGED** (PR #116); la prueba H0 física no se inició.
+
+**F132 — HARNESS confirmado:** los dos intentos del ejecutor COM4 se detuvieron en `H0F1_REVIEW_STOP=WRONG_PLATFORM_SELECTED` **antes** de compilar. La segunda ejecución diagnosticó plataforma Arduino Boards Manager `jwplc_local:esp32@2.1.0-dev`, distinta de `sketchbook/hardware/jwplc_local/esp32` temporal. El PR #119 solo mejoró la comparación de rutas, no cambió la selección real. Arduino CLI puede dar prioridad a Boards Manager sobre la plataforma manual de **igual identificador** ([issue arduino-cli#2766](https://github.com/arduino/arduino-cli/issues/2766)).
+
+**Candidato no físico:** `codex/alpha13-h0-f1-cli-platform-collision-20261019`: monto el mismo package en un *vendor temporal exclusivo* `jwplc_h0f1:esp32:jwplcbasic` y exijo el path real y los archivos `.d/.o/ELF` de staging antes de cualquier upload. No se altera core/librerías/precompilados productivos, IDE ni Arduino15 del operador. **No marcar PASS de compilación ni H0 física sin evidencias exactas del SHA candidato.** G10-R-R1–R4 no autorizados, COM14 intocado.
+
+Registro canónico: [A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md](A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md), incidente F132. La entrega es solamente por repositorio+git pull, no ZIP, conforme a la metodología.
+
+```text
+ALPHA13=OPEN
+HITO=G10-R/H0-F1
+F131=F1_PRODUCT_MERGED_H_PHYSICAL_PENDING
+F132=CONFIRMED_HARNESS_PLATFORM_VENDOR_COLLISION
+F132_FIX=STAGING_UNIQUE_VENDOR_CANDIDATE_NOT_YET_LOCAL_VALIDATED
+F132_LOCAL_BUILD=REVIEW_STOP_BEFORE_COMPILATION_2_OF_2
+F132_CI=NOT_YET_PASS_EXACT_HEAD
+NEXT_FAILURE_ID=F133
+COM4_UPLOAD=NOT_RUN
+COM14=NOT_TOUCHED
+G10-R-R1_R2_R3_R4=NOT_RUN_NOT_AUTHORIZED
+G10_PACKAGE_PROMOTION=PENDING_OVERLAY_ONLY
+ALPHA15=UNMODIFIED
+BASE_SYNC=PENDING_F132_PR_REVIEW
+KNOWLEDGE_SYNC=PENDING_F132_PRIVATE_PR
+NEXT_GATE=F132_N0_WINDOWS_TEST_AND_SOURCE_FIRST_COM4_BUILD_ONLY
+```
+
+---
+
 # ESTADO VIGENTE — 19/10/2026 — Alpha13 H0-F1 integrado en la base, prueba física COM4 preparada
 
 > **Este bloque prevalece sobre estados históricos inferiores que describen PR #116 como Draft, F1 no implementado o E1/E2 pendientes.** [PR #116](https://github.com/JW-Control/platform-jwplc/pull/116) **fusionado** en `v2.1.0-alpha.13/feature/cleanup-robustness` mediante `f2c6821566fa62df744c3af8d4d70a440994e64f`. El único archivo productivo modificado por F1 fue `JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/utility/w5100.cpp`; CS desde `JWPLC_ETH_CS=5`, guarda `#error` GPIO6–11. Ningún variant, archivo congelado, GPIO4, autoload, periférico ni Alpha15 alterado. Documento de prueba: [A13_H_COM4_F1_PHYSICAL_PROTOCOL_20261019.md](A13_H_COM4_F1_PHYSICAL_PROTOCOL_20261019.md).
