@@ -28,6 +28,8 @@ Requisitos: Windows PowerShell 5.1 o superior, Arduino CLI 1.5.1 y la toolchain
 de ESP32 de JWPLC instalada (en CI se usa jwplc:esp32@2.1.0-alpha.10).
 Esperado: H0F1_BUILD=PASS_SOURCE_FIRST, H0F1_UPLOAD=NOT_RUN.
 
+Si Arduino CLI escribe `runtime.platform.path` con barras `/`, `\\`, comillas, una barra final o diferente capitalización de Windows, el ejecutor normaliza ambas rutas antes de compararlas. **No acepta una plataforma diferente**: si realmente difieren, imprime `H0F1_PLATFORM_SELECTED` y `H0F1_PLATFORM_EXPECTED`, deja `H0F1_REVIEW_STOP` y conserva `SHOW_PROPERTIES_LOCAL.log` en `%TEMP%`. La salida `H0F1_PLATFORM=PASS_ISOLATED_PACKAGE_PATH_CANONICAL` confirma la procedencia exacta antes de compilar.
+
 ## 2. Subir a COM4 (solamente despues del build)
 
 El operador debe confirmar que **COM4** es su equipo JWPLC de desarrollo,
