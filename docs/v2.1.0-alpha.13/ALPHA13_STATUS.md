@@ -1,3 +1,36 @@
+# ESTADO VIGENTE — 19/10/2026 — Alpha13 H0-F1 integrado en la base, prueba física COM4 preparada
+
+> **Este bloque prevalece sobre estados históricos inferiores que describen PR #116 como Draft, F1 no implementado o E1/E2 pendientes.** [PR #116](https://github.com/JW-Control/platform-jwplc/pull/116) **fusionado** en `v2.1.0-alpha.13/feature/cleanup-robustness` mediante `f2c6821566fa62df744c3af8d4d70a440994e64f`. El único archivo productivo modificado por F1 fue `JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/utility/w5100.cpp`; CS desde `JWPLC_ETH_CS=5`, guarda `#error` GPIO6–11. Ningún variant, archivo congelado, GPIO4, autoload, periférico ni Alpha15 alterado. Documento de prueba: [A13_H_COM4_F1_PHYSICAL_PROTOCOL_20261019.md](A13_H_COM4_F1_PHYSICAL_PROTOCOL_20261019.md).
+
+**CI definitiva del HEAD `ad9d07aa724297708ddfef48b019699ce7c3a120`, previa al merge, 7/7 jobs PASS, 0 omitidos:** [N0–N3 F1 #39207756701](https://github.com/JW-Control/platform-jwplc/actions/runs/39207756701) (4/4, Windows/Ubuntu, ambos FQBN, N3 11/11 sketches del package), [E1/E2 #39207756798](https://github.com/JW-Control/platform-jwplc/actions/runs/39207756798) (1/1, valor en ELF 10→5 y QIO=1), [G10-R legado compatible #39207756690](https://github.com/JW-Control/platform-jwplc/actions/runs/39207756690) (2/2). Su gate antiguo mantiene negativos y contrato original para ramas ajenas a F1; la excepción F1 requiere rama/base/diff productivo **exactos**.
+
+**Solicitud del operador:** pasar a H0 físico con COM4 únicamente. Aún sin upload ni evidencia física nuevos; debe comprobarse banco local, CH340/MAC/flash 4 MB, fuente→objeto→ELF del package instalado y consentimiento textual antes de escribir. COM14 no se toca. No equivale a permiso para R1–R4 ni publicación. F130/F131 se mantienen, sin duplicar incidentes.
+
+```text
+ALPHA13=OPEN
+HITO=G10-R/H0-F1
+F1_PRODUCT_PR_116=MERGED
+F1_PRODUCT_MERGE_SHA=f2c6821566fa62df744c3af8d4d70a440994e64f
+H0_E1=PASS_ELF_SS_PIN_10_TO_5
+H0_E2=PASS_QIO_SDKCONFIG_1
+H0_F1_N0_N1_N2_N3=PASS_CI_4_OF_4_RUN_39207756701
+H0_G10R_LEGACY_COMPAT=PASS_CI_2_OF_2_RUN_39207756690
+H0_F1_TOTAL_CI=PASS_7_OF_7_NO_SKIPPED
+H0_H=NOT_RUN_OPERATOR_LOCAL_CHECKS_PENDING
+H0_COM4_UPLOAD=NOT_RUN
+H0_COM14=NOT_TOUCHED
+F130=CONFIRMED_PROCESS
+F131=PRODUCT_F1_MERGED_PHYSICAL_OPEN
+NEXT_FAILURE_ID=F132
+PENDIENTE_DE_PROMOCIÓN=G10_W5500_SAFEACCESS_SOCKETS_ETHERNET_MODBUSTCP
+G10-R-R1_R2_R3_R4=NOT_RUN_NOT_AUTHORIZED
+A13-006=ADOPTION_BLOCKED
+ALPHA15=UNMODIFIED
+NEXT_GATE=H0_F1_COM4_OPERATOR_BUILD_IDENTITY_UPLOAD_THEN_UART_PHY
+```
+
+---
+
 # ESTADO VIGENTE — 19/10/2026 — Alpha13 H0-F1: N0–N3 y E1/E2 PASS no físicos, H pendiente
 
 > **Candidato NO fusionado:** [PR #116 Draft](https://github.com/JW-Control/platform-jwplc/pull/116), rama `codex/alpha13-h0-f1-ss-pin-default-20261019`, desde base `a9c96273274170195498ff282decf93f0388a450`. **F1 modifica únicamente `JWPLC_Ethernet/src/utility/w5100.cpp` dentro del package**. No hay flasheo, COM, merge ni publicación. Protocolo y evidencia: [A13_H0_F1_PACKAGE_SS_PIN_20261019.md](A13_H0_F1_PACKAGE_SS_PIN_20261019.md).
