@@ -1,0 +1,108 @@
+name: Alpha13 G10 P1 - promocion funcional con gates sin hardware
+on:
+  push:
+    branches:
+      - 'codex/alpha13-g10-functional-promotion-20261019'
+    paths:
+      - '.github/workflows/alpha13-g10-p1-promote-package.yml'
+      - 'tools/alpha13/gates/a13_g10_promote_functional.py'
+permissions:
+  contents: write
+
+jobs:
+  materialize-test-then-commit:
+    name: G10 P1 - N0 N1 N2 N3 antes de confirmar producto
+    runs-on: ubuntu-24.04
+    timeout-minutes: 95
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref_name }}
+          persist-credentials: true
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Preflight fail-closed y G10-I N1 nativo del compositor original
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git branch --show-current)" = 'codex/alpha13-g10-functional-promotion-20261019'
+          test -z "$(git status --porcelain -- JWPLC/)"
+          python -B tools/alpha13/gates/a13_g10_p0_source_inventory.py --output "$RUNNER_TEMP/g10_p1_before_apply.json"
+          python -B tools/alpha13/gates/a13_g10_integrated.py --ci-standalone
+          echo 'G10_P1_NATIVE_COMPOSITION=PASS_REAL_CPP_SOURCE_BACKED'
+      - name: Materializar SOLO 10 modificados y dos SafeAccess en branch aislado
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -B tools/alpha13/gates/a13_g10_promote_functional.py
+          test -f docs/v2.1.0-alpha.13/A13_G10_P1_MANIFIESTO_PROMOCION_20261019.json
+          python - <<'PY'
+          import json,pathlib,subprocess
+          p=pathlib.Path('docs/v2.1.0-alpha.13/A13_G10_P1_MANIFIESTO_PROMOCION_20261019.json')
+          m=json.loads(p.read_text(encoding='utf-8'))
+          changed=set(m['product_changed_paths'])
+          assert len(changed)==12
+          assert len([f for f in m['files'] if f['status']=='UNCHANGED'])==2
+          tracked=set(subprocess.check_output(['git','diff','--name-only','--','JWPLC/'],text=True).splitlines())
+          extra=set(subprocess.check_output(['git','ls-files','--others','--exclude-standard','--','JWPLC/'],text=True).splitlines())
+          assert tracked|extra==changed,(sorted(tracked|extra),sorted(changed))
+          for entry in m['files']:
+              rel=pathlib.Path(entry['path'])
+              assert entry['composed_sha256']==__import__('hashlib').sha256(rel.read_bytes().replace(b'\r\n',b'\n')).hexdigest(),rel
+          assert not any(f.endswith('.a') or 'bootloader.bin' in f for f in changed)
+          print('G10_P1_N0=PASS_12_EXACT_SOURCE_FILES_AND_MANIFEST')
+          PY
+      - uses: arduino/setup-arduino-cli@v2
+        with:
+          version: '1.5.1'
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15/packages/jwplc
+            ~/.arduino15/staging
+          key: a13-g10-p1-alpha10-${{ runner.os }}-${{ hashFiles('JWPLC/package_jwplc_index_dev.json') }}
+      - name: Instalar toolchain para source-first de package REAL (sin upload)
+        shell: bash
+        run: |
+          set -euo pipefail
+          arduino-cli config init --overwrite
+          arduino-cli config set board_manager.additional_urls "https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json"
+          arduino-cli core update-index
+          arduino-cli core install 'jwplc:esp32@2.1.0-alpha.10'
+      - name: N2 ambos FQBN y N3 11 sketches con fuentes PROMOVIDAS
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -B tools/alpha13/gates/a13_h0_f1_arduino.py --run --output "$RUNNER_TEMP/g10_p1_compile"
+          echo 'G10_P1_N2_N3=PASS_REAL_PRODUCT_SOURCE_FIRST'
+      - name: Confirmar diff productivo controlado solo después de PASS N2 N3
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -- docs/v2.1.0-alpha.13/A13_G10_P1_MANIFIESTO_PROMOCION_20261019.json
+          python - <<'PY'
+          import json,subprocess,pathlib
+          m=json.loads(pathlib.Path('docs/v2.1.0-alpha.13/A13_G10_P1_MANIFIESTO_PROMOCION_20261019.json').read_text())
+          subprocess.run(['git','add','--',*m['product_changed_paths']],check=True)
+          observed=set(subprocess.check_output(['git','diff','--cached','--name-only'],text=True).splitlines())
+          expected=set(m['product_changed_paths']) | {'docs/v2.1.0-alpha.13/A13_G10_P1_MANIFIESTO_PROMOCION_20261019.json'}
+          assert observed==expected, sorted(observed^expected)
+          print('G10_P1_COMMIT_SCOPE=PASS_EXACT_12_PRODUCT_FILES_PLUS_MANIFEST')
+          PY
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m "feat(alpha13/G10-P1): promover 10 fuentes funcionales y dos SafeAccess con N2/N3 PASS"
+          git push origin "HEAD:refs/heads/codex/alpha13-g10-functional-promotion-20261019"
+      - name: Guardar solo manifiestos y logs; nunca ELFs ni binarios
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g10-p1-nonphysical-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/g10_p1_before_apply.json
+            ${{ runner.temp }}/g10_p1_compile/manifest.json
+          if-no-files-found: warn
+          retention-days: 14
