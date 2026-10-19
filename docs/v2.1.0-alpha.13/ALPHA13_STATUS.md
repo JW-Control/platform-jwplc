@@ -1,3 +1,29 @@
+# ESTADO VIGENTE — 19/10/2026 — Alpha13 H0-F1: F132 alias NTFS 8.3 identificado, CI retest pendiente
+
+**Última evidencia comprobada (HEAD candidato anterior `a1a39e30e5b8c9028a17fb2c9d21231efc01ddb5`):** [G10-R N0 #39286737779](https://github.com/JW-Control/platform-jwplc/actions/runs/39286737779) **2/2 PASS Windows/Ubuntu**. [Kit COM4 #39286737847](https://github.com/JW-Control/platform-jwplc/actions/runs/39286737847): N0 Windows PASS, N2 Windows FAIL en la **auditoría posterior a compilar**, por `WRONG_ETHERNET_LIBRARY`. El log muestra que la biblioteca fue realmente seleccionada bajo `.../Users/runneradmin/.../jwplc_h0f1/esp32/libraries/JWPLC_Ethernet` pero el ejecutor esperaba `.../Users/RUNNER~1/...`, el mismo directorio en notación corta NTFS 8.3. **No fue un error de compilación productiva ni de selección de otra biblioteca.**
+
+**F132 corrección candidata:** helper Win32 `GetLongPathNameW` para comparar identidad real de rutas, test positivo de alias 8.3 obtenido con `GetShortPathNameW` y negativo de directorio distinto; exigir source GCC `.d`, objeto `.o` y ELF de la copia temporal. La ruta del package `JWPLC/2.1.0`, su F1 y los periféricos se mantienen **SIN CAMBIOS**. Las pruebas Windows de este nuevo HEAD siguen **NO VERIFICADAS**; no se ha ejecutado la prueba física ni upload a COM4. Registro de fallos: [F132](A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md). El conocimiento privado ya registró F132 en [jwplc-dev-mcp PR #15](https://github.com/JW-Control/jwplc-dev-mcp/pull/15), fusionado.
+
+```text
+ALPHA13=OPEN
+F131=F1_PRODUCT_MERGED_PHYSICAL_PENDING
+F132=HARNESS_CLI_PLATFORM_COLLISION_AND_NTFS_8DOT3_ALIAS
+F132_CI_39286737779=PASS_G10R_2_OF_2_OLD_SHA
+F132_CI_39286737847=FAIL_WINDOWS_N2_LIBRARY_8DOT3_FALSE_NEGATIVE
+F132_8DOT3_FIX=PR_120_CANDIDATE_CI_PENDING
+F132_LOCAL_BUILD=NOT_RETESTED_AFTER_8DOT3_FIX
+F132_FINAL_SOURCE_FIRST=NOT_YET_VERIFIED
+NEXT_FAILURE_ID=F133
+COM4_UPLOAD=NOT_RUN
+COM14=NOT_TOUCHED
+G10-R-R1_R2_R3_R4=NOT_RUN_NOT_AUTHORIZED
+G10_PACKAGE_PROMOTION=PENDING_OVERLAY_ONLY
+ALPHA15=UNMODIFIED
+NEXT_GATE=F132_WINDOWS_N0_N2_EXACT_SHA_THEN_OPERATOR_BUILD_ONLY
+```
+
+---
+
 # ESTADO VIGENTE — 19/10/2026 — Alpha13 H0-F1 COM4: fallo F132 de selección de plataforma, sin compilación ni upload
 
 **Fuente:** registros del operador, rama base `v2.1.0-alpha.13/feature/cleanup-robustness`, últimos HEAD locales `d813e1008b23e40bf5248e2111ba85595d864b7d` y `01f5aa9a850a332eca5acc2200c30223a2d6f5ea`, ambos con checkout limpio. **F131/F1 de producto permanece MERGED** (PR #116); la prueba H0 física no se inició.
