@@ -4,6 +4,8 @@
 
 **F132 — HARNESS confirmado:** los dos intentos del ejecutor COM4 se detuvieron en `H0F1_REVIEW_STOP=WRONG_PLATFORM_SELECTED` **antes** de compilar. La segunda ejecución diagnosticó plataforma Arduino Boards Manager `jwplc_local:esp32@2.1.0-dev`, distinta de `sketchbook/hardware/jwplc_local/esp32` temporal. El PR #119 solo mejoró la comparación de rutas, no cambió la selección real. Arduino CLI puede dar prioridad a Boards Manager sobre la plataforma manual de **igual identificador** ([issue arduino-cli#2766](https://github.com/arduino/arduino-cli/issues/2766)).
 
+**Progreso CI intermedio:** [H0-F1 #39284131070](https://github.com/JW-Control/platform-jwplc/actions/runs/39284131070): Windows confirmó `H0F1_PLATFORM=PASS_ISOLATED_PACKAGE_PATH_CANONICAL`, pero la validación de biblioteca se detuvo en `WRONG_ETHERNET_LIBRARY`; el compilador regresó 0, **todavía no hay PASS de procedencia fuente→objeto→ELF**. La corrección de selección explícita `--library` forma parte del mismo F132 y requiere CI nueva con el SHA exacto. Registro ampliado en FAILURE F132. 
+
 **Candidato no físico:** `codex/alpha13-h0-f1-cli-platform-collision-20261019`: monto el mismo package en un *vendor temporal exclusivo* `jwplc_h0f1:esp32:jwplcbasic` y exijo el path real y los archivos `.d/.o/ELF` de staging antes de cualquier upload. No se altera core/librerías/precompilados productivos, IDE ni Arduino15 del operador. **No marcar PASS de compilación ni H0 física sin evidencias exactas del SHA candidato.** G10-R-R1–R4 no autorizados, COM14 intocado.
 
 Registro canónico: [A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md](A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md), incidente F132. La entrega es solamente por repositorio+git pull, no ZIP, conforme a la metodología.
@@ -15,6 +17,9 @@ F131=F1_PRODUCT_MERGED_H_PHYSICAL_PENDING
 F132=CONFIRMED_HARNESS_PLATFORM_VENDOR_COLLISION
 F132_FIX=STAGING_UNIQUE_VENDOR_CANDIDATE_NOT_YET_LOCAL_VALIDATED
 F132_LOCAL_BUILD=REVIEW_STOP_BEFORE_COMPILATION_2_OF_2
+F132_CI_PLATFORM=PASS_TEMP_VENDOR
+F132_CI_LIBRARY=REVIEW_STOP_OLD_SHA
+F132_CI_SOURCE_OBJECT_ELF=NOT_YET_PASS
 F132_CI=NOT_YET_PASS_EXACT_HEAD
 NEXT_FAILURE_ID=F133
 COM4_UPLOAD=NOT_RUN
