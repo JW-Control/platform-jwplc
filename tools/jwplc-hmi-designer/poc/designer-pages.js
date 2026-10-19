@@ -26,6 +26,15 @@
     { name: 'Rojo', hex565: 0xFA60, css: '#ff5252' }       // Extra
   ];
 
+  // Alpha15: pestaña cuyo color edita el editor fijo de «Páginas» (declarado
+  // arriba: syncNavBarInspector puede correr antes del final del módulo).
+  let navColorPageId = null;
+  const navPageColorEditor = window.JWPLCColorEditor?.create({
+    paletteAttr: 'data-navpage-palette',
+    onInput: (v) => applyNavPageColor(v, false),
+    onCommit: (v) => applyNavPageColor(v, true)
+  });
+
   const gate = document.querySelector('.page-tabs .gate');
   const bottomSummary = document.querySelector('.bottom-summary');
   const pageTabs = document.querySelector('.page-tabs');
@@ -1858,24 +1867,18 @@
             patchUI();
           });
 
+          // Clic en el cuadro o en la fila: el editor de color de abajo pasa a
+          // esta pestaña (Alpha15, mismo editor fijo que la Apariencia).
           const colorBtn = document.createElement('button');
           colorBtn.type = 'button';
           colorBtn.className = 'hmi-nav-color-btn';
+          colorBtn.dataset.navpageColor = String(page.id);
           const curCol = page.color ?? defaultPageColor(idx);
           colorBtn.style.backgroundColor = pageColorCss(curCol);
-          colorBtn.title = 'Clic para cambiar color ST7789';
-
-          colorBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const curHex = page.color ?? defaultPageColor(idx);
-            const foundIdx = PRESET_PAGE_COLORS.findIndex((c) => c.hex565 === curHex);
-            const nextIdx = (foundIdx + 1) % PRESET_PAGE_COLORS.length;
-            const nextCol = PRESET_PAGE_COLORS[nextIdx].hex565;
-            page.color = nextCol;
-            editor()?.setPageMetadata?.(page.id, { color: nextCol });
-            colorBtn.style.backgroundColor = PRESET_PAGE_COLORS[nextIdx].css;
-            patchUI();
-          });
+          colorBtn.title = 'Editar el color de esta pestaña';
+          row.dataset.navpageRow = String(page.id);
+          row.classList.toggle('is-active', page.id === navColorPageId);
+          colorBtn.classList.toggle('active', page.id === navColorPageId);
 
           row.appendChild(num);
           row.appendChild(name);
@@ -1884,7 +1887,45 @@
           pagesList.appendChild(row);
         });
       }
+      syncNavPageColorEditor(pagesList);
     }
+  }
+
+  // --- Alpha15 · Color de cada pestaña con el editor fijo ----------------------
+  function applyNavPageColor(value565, commit) {
+    if (navColorPageId === null) return;
+    editor()?.setPageMetadata?.(navColorPageId, { color: value565 & 0xFFFF }, { commit });
+    patchUI();
+  }
+
+  function syncNavPageColorEditor(pagesList) {
+    if (!navPageColorEditor) return;
+    const list = pages();
+    if (!list.some((p) => p.id === navColorPageId)) navColorPageId = list[0]?.id ?? null;
+    if (!navPageColorEditor.el.isConnected) {
+      const host = document.createElement('div');
+      host.className = 'hmi-nav-color-editor';
+      host.innerHTML = '<div class="insp-note">Clic en una pestaña (texto o cuadro) para editar su color.</div>';
+      host.appendChild(navPageColorEditor.el);
+      pagesList.after(host);
+      pagesList.addEventListener('click', (event) => {
+        if (event.target.closest('.hmi-nav-short-input')) return;
+        const row = event.target.closest('[data-navpage-row]');
+        if (!row) return;
+        navColorPageId = Number(row.dataset.navpageRow);
+        syncNavBarInspector();
+      });
+    }
+    pagesList.querySelectorAll('[data-navpage-row]').forEach((row) => {
+      const on = Number(row.dataset.navpageRow) === navColorPageId;
+      row.classList.toggle('is-active', on);
+      row.querySelector('.hmi-nav-color-btn')?.classList.toggle('active', on);
+    });
+    const idx = list.findIndex((p) => p.id === navColorPageId);
+    if (idx < 0) return;
+    const page = list[idx];
+    const color = Number(page.color ?? defaultPageColor(idx)) & 0xFFFF;
+    navPageColorEditor.set(color, `Pestaña ${page.shortName || computeSmartShortName(page.name, idx)}`);
   }
 
   function patchGeneratedCode() {

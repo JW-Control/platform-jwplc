@@ -3876,7 +3876,9 @@
     return true;
   }
 
-  function setPageMetadata(page, metadata = {}) {
+  // options.commit: false = vista previa en vivo sin historial (editor de color
+  // mientras se arrastra); true = registra el paso aunque el valor ya esté.
+  function setPageMetadata(page, metadata = {}, options = {}) {
     const target = hmiPages.find((item) => item.id === Number(page));
     if (!target) return false;
     let changed = false;
@@ -3901,10 +3903,8 @@
         changed = true;
       }
     }
-    if (changed) {
-      render();
-      commitHistory();
-    }
+    if (changed) render();
+    if (options.commit !== false && (changed || options.commit === true)) commitHistory();
     return changed;
   }
 

@@ -33,18 +33,12 @@ GATES_FISICOS_LISTOS=A15_1_3_Codegen_Static, A15_8_Menu, A15_8_Menu_Designer, A1
 
 ## Para cerrar Alpha15 (en este orden)
 
-1. **Taller (A15-9).** Correr los gates físicos y anotar el resultado en `docs/v2.1.0-alpha.15/` con flags `*_PHYSICAL`. Lo crítico:
-   - `A15_I3_Tildes`: el `°` debe verse como `°`; si sale `≈`, `JWPLC_TFT` no está en `cp437(false)`;
+1. **Taller (A15-9).** Ya aprobados en la placa (2026-10-19): MENU, hora del RTC, `°`, BOOL piloto,
+   despertar con OK, pestañas posicionada/seleccionada, guía LEEME y app de escritorio. Faltan:
+   - `07.Buzzer_Basic`: volumen y que no bloquee;
+   - `A15_I1_Formatos`: miles, duración y que no queden restos de dígitos;
    - `A15_I2_Reloj`: la medianoche y el RTC sin pila;
-   - `A15_I1_Formatos`: el piloto y que no queden restos de dígitos;
-   - `07.Buzzer_Basic`: volumen y que no bloquee.
-   - App de escritorio (Electron, en la PC), instalada con `tools/jwplc-hmi-designer/Generar-e-Instalar-App-Escritorio.cmd`:
-     - «Escribir en sketch» deja `JWPLC_HMI_Generated.h`, `<sketch>.jwhmi` y `JWPLC_HMI_LEEME.md`;
-     - el sketch base de la guía, copiado a un `.ino` vacío, compila y muestra las páginas;
-     - Apariencia: el editor de color fijo (sin selector nativo) en campos, MENU y BAR;
-     - despertar la IDLE con OK debe dejar el selector NN/TT negro (LEFT/RIGHT cambian de página);
-     - barra de pestañas: la pestaña actual con fondo de color en el selector, y con fondo blanco y
-       doble marco tras OK; ESC la devuelve al color sin redibujar la página.
+   - NAV · Páginas: color de pestaña con el editor fijo (nuevo, sólo Designer).
 
      Alpha15 se compila con la placa `jwplc_local` (la publicada alpha.12 no tiene MENU).
 

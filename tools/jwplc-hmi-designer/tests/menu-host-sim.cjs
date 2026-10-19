@@ -111,7 +111,7 @@ function main() {
   // actúa además sobre el selector ni sobre el MENU.
   const wake = path.join(OUT, process.platform === 'win32' ? 'wake_sim.exe' : 'wake_sim');
   execFileSync('g++', [
-    '-std=c++17', '-Wall', '-Wextra', '-Werror', '-Wno-unused-parameter', '-Wno-format-truncation',
+    '-std=c++17', '-Wall', '-Wextra', '-Werror', '-Wno-unused-parameter',
     '-I', path.join(HOST, 'stub'), '-I', SRC,
     path.join(HOST, 'wake_sim.cpp'), path.join(SRC, 'JWPLC_UI_Pages.cpp'), path.join(SRC, 'JWPLC_UI_Menu.cpp'),
     '-o', wake

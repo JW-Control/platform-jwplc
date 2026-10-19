@@ -43,17 +43,18 @@ A15_7G_APPEARANCE_A1=PASS (designer-zone-indicator.js: contorno doble + ▶ + re
 A15_LOPAKA_REVIEW=DONE (A15_LOPAKA_REVISION_20261018.md; P1 aprobado, P2 ajustado)
 A15_INDUSTRIAL_PLAN=APPROVED (A15_INDUSTRIAL_ARQUITECTURA_PLAN_20261018.md §G; Alpha15 cierra con I1-I3 + A1 + buzzer; resto Alpha16)
 A15_BUZZER=PASS_ESP32_COMPILE (JWPLC_Buzzer en JWPLC_GlobalPeripherals; físico pendiente)
-A15_I1_FORMATS=PASS_HOST_AND_ESP32_COMPILE (A15_I1_FORMATOS_VALUE_BOOL_20261018.md; VALUE miles/duración + BOOL piloto; físico pendiente)
-A15_I2_RTC=PASS_HOST_AND_ESP32_COMPILE (A15_I2_FECHA_HORA_RTC_20261018.md; VALUE fecha/hora sin variable; físico pendiente)
-A15_I3_CP437=PASS_HOST_AND_ESP32_COMPILE (A15_I3_TILDES_CP437_20261018.md; desfase cp437(false) resuelto; físico pendiente: ver ° en la placa)
+A15_I1_FORMATS=PASS_PHYSICAL_PARTIAL (A15_I1_FORMATOS_VALUE_BOOL_20261018.md; BOOL piloto OK en la placa 2026-10-19; miles/duración [no verificado] en la placa)
+A15_I2_RTC=PASS_PHYSICAL (A15_I2_FECHA_HORA_RTC_20261018.md; hora del RTC OK en la placa 2026-10-19; medianoche y RTC sin pila [no verificado])
+A15_I3_CP437=PASS_PHYSICAL (A15_I3_TILDES_CP437_20261018.md; «°» OK en la placa 2026-10-19)
 A15_SKETCH_FLOW=PASS_DESKTOP (Escribir en sketch + menú del sketch; el jefe abrió el Arduino IDE desde la app de escritorio el 2026-10-18)
-A15_SKETCH_GUIDE=PASS_HOST (JWPLC_HMI_LEEME.md con sketch base; compila contra los 9 golden; en la app real [no verificado]: requiere regenerarla)
-A15_WAKE_KEY_FIX=PASS_HOST_AND_ESP32_COMPILE (la tecla que despierta la IDLE ya no entra al contenido ni al MENU; físico pendiente)
-A15_NAV_TAB_STATES=PASS_HOST_AND_ESP32_COMPILE (pestaña posicionada/seleccionada con doble marco; físico pendiente)
+A15_SKETCH_GUIDE=PASS_DESKTOP (JWPLC_HMI_LEEME.md escrito por la app; el jefe compiló y subió su sketch base con jwplc_local)
+A15_WAKE_KEY_FIX=PASS_PHYSICAL (la tecla que despierta la IDLE ya no entra al contenido ni al MENU; confirmado 2026-10-19)
+A15_NAV_TAB_STATES=PASS_PHYSICAL (pestaña posicionada/seleccionada con doble marco; aprobado por el jefe 2026-10-19)
+A15_NAV_PAGE_COLOR=PASS (color de cada pestaña con el editor fijo en NAV · Páginas; antes sólo rotaba 8 colores)
 A15_COLOR_EDITOR=PASS (editor de color fijo en Apariencia de campos, MENU y BAR; filas clicables y alineadas)
 A15_FRAM_MAP=PROPOSED (plan §G.6: DataLog hoy sin FRAM; reparto del último KB)
-A15_8_MENU=PASS_HOST_AND_ESP32_COMPILE (A15_8_MENU_20261017; físico pendiente)
-A15_9_PHYSICAL_PARITY=PENDING
+A15_8_MENU=PASS_PHYSICAL (A15_8_MENU_20261017; MENU OK en la placa 2026-10-19)
+A15_9_PHYSICAL_PARITY=IN_PROGRESS (MENU, RTC, °, piloto, despertar y pestañas OK; faltan buzzer, miles/duración y medianoche/RTC sin pila)
 A15_10_PACKAGING_DOCS=PENDING
 A15_OPENPLC_INTEGRATION_DECISION=PASS (adopta plan rev.2 del fork + correcciones C1-C5)
 A15_ALPHA12_MERGE=PASS (VPP 2.1.0-alpha.29 + overlay IDLE de Kenyi; merge 7cbd427c)
@@ -311,3 +312,11 @@ MENU_NODE_COUNT_LIMIT=64 por menú, 4 menús, 1 por página (9 nodos = +952 B RA
       (`T jwplcUIPageModeChanged`);
     - capturas de los 6 estilos en los dos modos.
   - [no verificado] en la placa.
+- 2026-10-19 — Prueba del jefe en la placa:
+  - aprobados el selector de páginas (pestaña posicionada/seleccionada), el MENU, la hora del RTC, el «°»
+    y el BOOL piloto;
+  - pedido: color de cada pestaña editable a gusto. «NAV · Páginas» usa ahora el editor de color fijo
+    bajo la lista (fila o cuadro elige la pestaña, HEX/RGB565/S-V/paleta, deshacer en un paso). Antes el
+    cuadro sólo rotaba 8 colores. `setPageMetadata(page, meta, {commit})` admite la vista previa en vivo
+    sin historial. [ejecutado] inspector-smoke (HEX, paleta y deshacer) + captura;
+  - aviso `-Wformat-truncation` del NN/TT corregido en `JWPLC_UI_Pages.cpp` (`char text[8]`).

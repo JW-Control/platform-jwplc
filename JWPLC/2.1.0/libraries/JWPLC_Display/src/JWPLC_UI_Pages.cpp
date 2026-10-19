@@ -355,7 +355,7 @@ namespace JWPLCUIPages
             INDICATOR_H,
             0xFFFF);
 
-        char text[6] = {};
+        char text[8] = {}; // "NN/TT" + margen: el compilador no sabe que pageCount <= 99
         snprintf(
             text,
             sizeof(text),

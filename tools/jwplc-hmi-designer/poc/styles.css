@@ -2795,3 +2795,12 @@ label.insp-needs-fw { opacity: 0.45; cursor: not-allowed; }
 .nav-states-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 6px 2px 8px; }
 .nav-state-canvas { image-rendering: pixelated; max-width: 100%; display: block; margin: 0 auto 3px; border-radius: 2px; }
 .nav-state-btn.is-static, .nav-state-btn.is-static:hover { cursor: default; transform: none; background: #13222e; border-color: #283d4d; color: #c9d8e4; }
+
+/* Alpha15 · NAV · Páginas: fila clicable y editor de color fijo bajo la lista */
+.hmi-nav-page-row { cursor: pointer; border-radius: 3px; padding-left: 4px; padding-right: 4px; }
+.hmi-nav-page-row:hover { background: rgba(184, 205, 220, 0.08); }
+.hmi-nav-page-row.is-active { background: rgba(255, 154, 67, 0.14); }
+.hmi-nav-page-row.is-active .hmi-nav-page-name { color: #ffd7b0; font-weight: 700; }
+.hmi-nav-color-btn.active { outline: 2px solid #ff9a43; outline-offset: 1px; }
+.hmi-nav-color-editor { margin-top: 8px; border-top: 1px solid #1a2c39; padding-top: 6px; }
+.hmi-nav-color-editor .insp-note { margin: 0 0 6px; }

@@ -659,6 +659,33 @@ async function main() {
     const counterHeader = await header();
     check(/#ifdef JWPLC_UI_HAS_PAGE_INDICATOR_CONFIG\n\s*JWPLC_Display\.setPageIndicator\(true, 2, 155\);\n#endif/.test(counterHeader) && !/jwplcDrawPageNavBar/.test(counterHeader), 'NAV Contador: el header usa el indicador del firmware y no dibuja barra');
 
+    console.log('NAV · PESTAÑAS (estados y color)');
+    await page.click('#navBarInspectorSection [data-navbar-preset="industrial-color"]');
+    await page.waitForTimeout(200);
+    const navPages = await page.evaluate(() => window.JWPLCHMIEditor.getPages().length);
+    if (navPages > 1) {
+      await page.click('#navBarInspectorSection [data-nav-state="selected"]');
+      const navMode = await page.evaluate(() => window.JWPLCHMIPages.getNavigationMode());
+      await page.click('#navBarInspectorSection [data-nav-state="positioned"]');
+      check(navMode === 'CONTENT' && (await page.evaluate(() => window.JWPLCHMIPages.getNavigationMode())) === 'SELECT',
+        'NAV: la tarjeta «Pestaña de la página actual» cambia el lienzo entre posicionado y seleccionado');
+      await page.click('#navBarInspectorSection [data-navbar-tab="pages"]');
+      await page.click('#navBarInspectorPagesList [data-navpage-row="1"] .hmi-nav-page-name');
+      await page.fill('#navBarPanePages [data-ce-hex]', '#ff8000');
+      await page.press('#navBarPanePages [data-ce-hex]', 'Enter');
+      const navColor = await page.evaluate(() => window.JWPLCHMIEditor.getPages()[1].color);
+      await page.click('#navBarPanePages [data-navpage-palette="2016"]');
+      const navPill = await page.evaluate(() => window.JWPLCHMIEditor.getPages()[1].color);
+      await page.evaluate(() => window.JWPLCHMIEditor.undo());
+      const navUndo = await page.evaluate(() => window.JWPLCHMIEditor.getPages()[1].color);
+      check(navColor === 0xFC00 && navPill === 0x07E0 && navUndo === 0xFC00,
+        `NAV · Páginas: el editor fijo cambia el color de la pestaña elegida (HEX, paleta y deshacer: ${[navColor, navPill, navUndo].map((v) => v?.toString(16))})`);
+      const navPane = await page.$('#navBarPanePages');
+      if (navPane) await navPane.screenshot({ path: path.join(OUT, 'nav_paginas_color.png') });
+    } else {
+      check(false, 'NAV: el proyecto de la prueba necesita 2 páginas o más');
+    }
+
     check(errors.length === 0, `sin errores de consola${errors.length ? `: ${errors.join(' | ')}` : ''}`);
   } finally {
     await browser.close();
