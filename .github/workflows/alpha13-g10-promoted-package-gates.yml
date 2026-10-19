@@ -1,0 +1,71 @@
+name: Alpha13 G10 - package promovido N0 N1 N2 N3
+on:
+  pull_request:
+    paths:
+      - 'JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/**'
+      - 'JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/**'
+      - '.github/workflows/alpha13-g10-promoted-package-gates.yml'
+permissions:
+  contents: read
+jobs:
+  scope-n0:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Validación estricta del diff G10 funcional y F1
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -B tools/alpha13/gates/a13_g10_promoted_contract.py
+  build-n2-n3:
+    runs-on: ubuntu-24.04
+    needs: [scope-n0]
+    timeout-minutes: 85
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - uses: arduino/setup-arduino-cli@v2
+        with:
+          version: '1.5.1'
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15/packages/jwplc
+            ~/.arduino15/staging
+          key: a13-g10-promoted-alpha10-${{ runner.os }}-${{ hashFiles('JWPLC/package_jwplc_index_dev.json') }}
+      - name: Instalar toolchain aislada de CI
+        shell: bash
+        run: |
+          set -euo pipefail
+          arduino-cli config init --overwrite
+          arduino-cli config set board_manager.additional_urls "https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json"
+          arduino-cli core update-index
+          arduino-cli core install 'jwplc:esp32@2.1.0-alpha.10'
+      - name: Compilar package real ambos FQBN y 11 sketches source-first
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -B tools/alpha13/gates/a13_h0_f1_arduino.py --run --output "$RUNNER_TEMP/a13-g10-promoted"
+      - name: Registrar evidencias sin binarios
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g10-promoted-source-first-${{ github.run_id }}
+          path: ${{ runner.temp }}/a13-g10-promoted/
+          if-no-files-found: warn
+          retention-days: 14
