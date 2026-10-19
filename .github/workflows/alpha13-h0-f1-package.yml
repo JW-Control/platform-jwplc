@@ -1,0 +1,94 @@
+name: Alpha13 H0 F1 - package SS seguro N0 N1 N2 N3
+on:
+  pull_request:
+    paths:
+      - 'JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/utility/w5100.cpp'
+      - 'tools/alpha13/gates/a13_h0_f1_*.py'
+      - '.github/workflows/alpha13-h0-f1-package.yml'
+      - 'docs/v2.1.0-alpha.13/A13_H0_F1_*.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  n0:
+    name: H0 F1 N0 - scope y negativos (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Scope producto unico y cuatro negativos
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -B tools/alpha13/gates/a13_h0_f1_test.py --selftest
+          python -B tools/alpha13/gates/a13_h0_f1_arduino.py --selftest
+          echo H0_F1_NO_USB_NO_FLASH_NO_MERGE=PASS
+  n1:
+    name: H0 F1 N1 - C++ real 10 a 5 y GPIO10 prohibido
+    runs-on: ubuntu-24.04
+    needs: n0
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: C++ host desde w5100.cpp real
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -B tools/alpha13/gates/a13_h0_f1_test.py --run
+  n2-n3:
+    name: H0 F1 N2 ambos FQBN / N3 11 sketches del package
+    runs-on: ubuntu-24.04
+    needs: [n0, n1]
+    timeout-minutes: 80
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - uses: arduino/setup-arduino-cli@v2
+        with:
+          version: '1.5.1'
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15/packages/jwplc
+            ~/.arduino15/staging
+          key: a13-h0-f1-alpha10-${{ runner.os }}-${{ hashFiles('JWPLC/package_jwplc_index_dev.json') }}
+      - name: Preparar toolchain Arduino aislado
+        shell: bash
+        run: |
+          set -euo pipefail
+          arduino-cli config init --overwrite
+          arduino-cli config set board_manager.additional_urls "https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json"
+          arduino-cli core update-index
+          arduino-cli core install 'jwplc:esp32@2.1.0-alpha.10'
+      - name: E1 original, E2 sdkconfig, source first package y 11 sketches
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -B tools/alpha13/gates/a13_h0_f1_arduino.py --run --output "$RUNNER_TEMP/a13-h0-f1"
+      - name: Evidencias y manifest sin ELF ni firmware
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: a13-h0-f1-package-${{ github.run_id }}
+          path: ${{ runner.temp }}/a13-h0-f1/
+          if-no-files-found: warn
+          retention-days: 14
