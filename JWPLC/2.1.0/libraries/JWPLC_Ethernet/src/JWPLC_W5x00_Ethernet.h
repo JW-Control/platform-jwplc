@@ -1,3 +1,4 @@
+#include "JWPLC_W5500_SafeAccess.h"
 /* Copyright 2018 Paul Stoffregen
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this
@@ -253,6 +254,8 @@ private:
 	uint16_t _remotePort; // remote port of the incoming packet whilst it's being processed
 	uint16_t _offset; // offset into the packet being sent
 	bool _sendPending = false; // JWPLC cooperative UDP SEND state
+	bool _jwplcDeferredSendStart = false;
+	jwplc_w5500_candidate::SocketToken _jwplcSocketToken{};
 
 protected:
 	uint8_t sockindex;
@@ -264,6 +267,8 @@ public:
 	virtual uint8_t begin(uint16_t);      // initialize, start listening on specified port. Returns 1 if successful, 0 if there are no sockets available to use
 	virtual uint8_t beginMulticast(IPAddress, uint16_t);  // initialize, start listening on specified port. Returns 1 if successful, 0 if there are no sockets available to use
 	virtual void stop();  // Finish with the UDP socket
+	// Internal cooperative drain, independent of object lifetime.
+	static uint8_t jwplcServiceDeferredClose();
 
 	// Sending UDP packets
 	virtual int beginPacket(IPAddress ip, uint16_t port);
@@ -310,6 +315,12 @@ public:
 	}
 	EthernetClient(uint8_t s) : _sockindex(s), _timeout(1000) {
 		_startMillis = 0;
+        if (s < MAX_SOCK_NUM) {
+            jwplc_w5500_candidate::BusScope bus(20);
+            if (bus)
+                _jwplcSocketToken = jwplc_w5500_candidate::currentSocketTokenLocked(s);
+            if (!bool(_jwplcSocketToken)) _sockindex = MAX_SOCK_NUM;
+        }
 	}
 	virtual ~EthernetClient() {};
 
@@ -376,6 +387,8 @@ public:
 	virtual bool operator==(const EthernetClient&);
 	virtual bool operator!=(const EthernetClient& rhs) { return !this->operator==(rhs); }
 	uint8_t getSocketNumber() const { return _sockindex; }
+	// Estado tri-valuado interno; no convertir BUS_BUSY a CLOSED.
+	jwplc_w5500_candidate::StatusReadOutcome jwplcProbeSocketStatus(uint8_t& result);
 	virtual uint16_t localPort();
 	virtual IPAddress remoteIP();
 	virtual uint16_t remotePort();
@@ -387,6 +400,11 @@ public:
 
 private:
 	uint8_t _sockindex; // MAX_SOCK_NUM means client not in use
+	jwplc_w5500_candidate::SocketToken _jwplcSocketToken{};
+    bool _jwplcDeferredConnect = false;
+    bool _jwplcCancelConnectPending = false;
+    IPAddress _jwplcDeferredIp;
+    uint16_t _jwplcDeferredPort = 0;
 	uint16_t _timeout;
 	bool _stopPending = false;
 	uint32_t _stopStartedAtMs = 0;
@@ -410,6 +428,8 @@ public:
 	virtual size_t write(uint8_t);
 	virtual size_t write(const uint8_t *buf, size_t size);
 	virtual operator bool();
+	// Optional: observed is valid only when the outcome is Read.
+	jwplc_w5500_candidate::StatusReadOutcome jwplcProbeListening(bool& observed);
 	using Print::write;
 	//void statusreport();
 

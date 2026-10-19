@@ -1,0 +1,128 @@
+{
+  "approval": "H0 cerrado con observación por el propietario; promoción G10 autorizada",
+  "com14": "NOT_TOUCHED",
+  "f1_baseline_head": "2b5802720df552e01a0b4f9d4fe1a7bd2de16daf",
+  "files": [
+    {
+      "composed_bytes": 14539,
+      "composed_sha256": "31b877a1fa9d0ebffddd6fccc7fc7b727fb17ff894bfa955f5d3e7dbfeb20399",
+      "path": "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/Dhcp.cpp",
+      "source_sha256": "31b877a1fa9d0ebffddd6fccc7fc7b727fb17ff894bfa955f5d3e7dbfeb20399",
+      "status": "UNCHANGED"
+    },
+    {
+      "composed_bytes": 11544,
+      "composed_sha256": "765f3587345d3a0656660c82ae27dc08b99655a1325ec29ffc0471fbe72dacff",
+      "path": "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/Dns.cpp",
+      "source_sha256": "765f3587345d3a0656660c82ae27dc08b99655a1325ec29ffc0471fbe72dacff",
+      "status": "UNCHANGED"
+    },
+    {
+      "composed_bytes": 22855,
+      "composed_sha256": "0a2e8b0d63024fa0fd48d3c30cb71eb9f5adeaef166245ab49274ca7e37803f7",
+      "path": "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/EthernetClient.cpp",
+      "source_sha256": "3ebf38739d192bc0c7958b30a1dc27305a7e4a70674843ee183b385e4c9eebce",
+      "status": "MODIFIED"
+    },
+    {
+      "composed_bytes": 8593,
+      "composed_sha256": "29cfc4ea520b8b3a7654a082482e9ddc5757a9b0ea8582e69d67b0f160d27a68",
+      "path": "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/EthernetServer.cpp",
+      "source_sha256": "f36b3e956b5e53030ecb7362dd5d8f3889c38e53abd5e6ff225e50d996e56a87",
+      "status": "MODIFIED"
+    },
+    {
+      "composed_bytes": 11121,
+      "composed_sha256": "0cd3312e4fcdb3cb07f11f6f6352ddb3a895ac6651d0c5541916db4b9d9d21dd",
+      "path": "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/EthernetUdp.cpp",
+      "source_sha256": "26fd845a5611d12c336ba770d5061ec91f08f52b1921519c1c5cef77b44de790",
+      "status": "MODIFIED"
+    },
+    {
+      "composed_bytes": 24221,
+      "composed_sha256": "7a8fb927d95b0f0ccf77fa7f35387f865b8c807c5338cee45faf4b7e1dc70aba",
+      "path": "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/JWPLC_Ethernet.cpp",
+      "source_sha256": "7dd628e38f927331b100a6b9814e2753951682115348146f417e6f0f5eb648d8",
+      "status": "MODIFIED"
+    },
+    {
+      "composed_bytes": 7386,
+      "composed_sha256": "fefc8671b640474d8dfc07a9c93dab814f2144a4149e797d34eef9f0cdd24707",
+      "path": "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/JWPLC_W5500_SafeAccess.cpp",
+      "source_sha256": "fefc8671b640474d8dfc07a9c93dab814f2144a4149e797d34eef9f0cdd24707",
+      "status": "ADDED"
+    },
+    {
+      "composed_bytes": 3865,
+      "composed_sha256": "aa878a046f94b7183dbdbe4c1ab12e63d20844215179322a49363d49be006fce",
+      "path": "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/JWPLC_W5500_SafeAccess.h",
+      "source_sha256": "aa878a046f94b7183dbdbe4c1ab12e63d20844215179322a49363d49be006fce",
+      "status": "ADDED"
+    },
+    {
+      "composed_bytes": 19744,
+      "composed_sha256": "fc3137a1be644da3a1354c63a443d53d464a1b047c68e9a5bd13b4ae221ba1fa",
+      "path": "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/JWPLC_W5x00_Ethernet.h",
+      "source_sha256": "dbd399410ff4c3f2f8c415b164bec39b44a73be56fe9ea8ba3238ad6cfab4eb1",
+      "status": "MODIFIED"
+    },
+    {
+      "composed_bytes": 23576,
+      "composed_sha256": "d89a14e02a6e19d2612c3cebaff46858e67b96db46a7f8fa8b03b207c60c1cbd",
+      "path": "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/socket.cpp",
+      "source_sha256": "b20fdea292631316d2b45dbec68a446e1fe51ce77753a90855c7161c6a5dbb5a",
+      "status": "MODIFIED"
+    },
+    {
+      "composed_bytes": 47753,
+      "composed_sha256": "bec9e3434932b11e9cca8adc9265534b0972f08d1e02c5fcd327119d192fbf06",
+      "path": "JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP.cpp",
+      "source_sha256": "d417a052ac4617d7440a51cce9aa30b8ad19e088bc4ea5f11caadaa84f4a1437",
+      "status": "MODIFIED"
+    },
+    {
+      "composed_bytes": 11368,
+      "composed_sha256": "7cc733031cda2d1e2ca2fbbf030115f11591c5eabbd3360224562b2bb0fb6906",
+      "path": "JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP.h",
+      "source_sha256": "7d8471a94a9aba3cea10ad9c017a50303626dcaf833ee0a83f46a2ea431a7a0b",
+      "status": "MODIFIED"
+    },
+    {
+      "composed_bytes": 31219,
+      "composed_sha256": "b584165aaec92bc04faf5d384304349a876d17db8acffd5d37ee9cbaa3ffaf70",
+      "path": "JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP_Client.cpp",
+      "source_sha256": "6bb2b6c3fb4af58ca99d45bd2df21dcacc81e12c2cd9d5e4df6cbeefa330214c",
+      "status": "MODIFIED"
+    },
+    {
+      "composed_bytes": 7587,
+      "composed_sha256": "d2e7879d8396640b2057cdfdb947f80723099de6dfffccd9bc6fe2b40c085101",
+      "path": "JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP_Client.h",
+      "source_sha256": "f39d60eeff06200e3dedab906f40f8a04bcc86953cf9d7d47bf512a923b576a4",
+      "status": "MODIFIED"
+    }
+  ],
+  "g10_r_r1_r4": "NOT_AUTHORIZED",
+  "hardware": "NOT_RUN",
+  "n2_n3_product": "NOT_RUN_YET",
+  "phase": "G10-P1-CANDIDATE_NOT_RELEASED",
+  "product_changed_paths": [
+    "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/EthernetClient.cpp",
+    "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/EthernetServer.cpp",
+    "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/EthernetUdp.cpp",
+    "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/JWPLC_Ethernet.cpp",
+    "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/JWPLC_W5500_SafeAccess.cpp",
+    "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/JWPLC_W5500_SafeAccess.h",
+    "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/JWPLC_W5x00_Ethernet.h",
+    "JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/socket.cpp",
+    "JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP.cpp",
+    "JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP.h",
+    "JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP_Client.cpp",
+    "JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/JWPLC_ModbusTCP_Client.h"
+  ],
+  "product_w5100_f1_sha256": "eea8919bd36b2b030b10c199c27f3baa3765281d4d71cc87fd0ce9a341ec99aa",
+  "promoted_from_head": "60503e70c96a00b5c2a1d13717ca9728e298f94c",
+  "result": "PASS_10_MODIFIED_2_ADDED_2_UNCHANGED",
+  "schema": "A13-G10-P1-PRODUCT-MATERIALIZATION-1",
+  "source_inventory": "G10-I functional compose() + G10-P0 verified"
+}

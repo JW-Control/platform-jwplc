@@ -1,3 +1,4 @@
+#include "JWPLC_W5500_SafeAccess.h"
 /* Copyright 2018 Paul Stoffregen
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this
@@ -76,6 +77,12 @@ void EthernetClass::socketPortRand(uint16_t n)
 
 uint8_t EthernetClass::socketBegin(uint8_t protocol, uint16_t port)
 {
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus) return MAX_SOCK_NUM;
+	if (!jwplc_w5500_candidate::allocationAvailableLocked()) return MAX_SOCK_NUM;
+	// Drain old UDP tickets before choosing a reusable slot.
+	(void)jwplc_w5500_candidate::serviceDeferredClose(
+		[](uint8_t index, void*) { Ethernet.socketClose(index); }, nullptr, 0);
 	uint8_t s, status[MAX_SOCK_NUM], chip, maxindex=MAX_SOCK_NUM;
 
 	// first check hardware compatibility
@@ -134,12 +141,18 @@ makesocket:
 	state[s].TX_FSR = 0;
 	//Serial.printf("W5000socket prot=%d, RX_RD=%d\n", W5100.readSnMR(s), state[s].RX_RD);
 	SPI.endTransaction();
+	// Solo lease candidato: API Client/Server aun no transporta el token.
+	(void)jwplc_w5500_candidate::allocateSocketLockedAuto(s);
 	return s;
 }
 
 // multicast version to set fields before open  thd
 uint8_t EthernetClass::socketBeginMulticast(uint8_t protocol, IPAddress ip, uint16_t port)
 {
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus || !jwplc_w5500_candidate::allocationAvailableLocked()) return MAX_SOCK_NUM;
+	(void)jwplc_w5500_candidate::serviceDeferredClose(
+		[](uint8_t index, void*) { Ethernet.socketClose(index); }, nullptr, 0);
 	uint8_t s, status[MAX_SOCK_NUM], chip, maxindex=MAX_SOCK_NUM;
 
 	// first check hardware compatibility
@@ -206,12 +219,15 @@ makesocket:
 	state[s].TX_FSR = 0;
 	//Serial.printf("W5000socket prot=%d, RX_RD=%d\n", W5100.readSnMR(s), state[s].RX_RD);
 	SPI.endTransaction();
+	(void)jwplc_w5500_candidate::allocateSocketLockedAuto(s);
 	return s;
 }
 // Return the socket's status
 //
 uint8_t EthernetClass::socketStatus(uint8_t s)
 {
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus) return SnSR::CLOSED;
 #if JWPLC_ETHERNET_ENABLE_PROFILE_HOOKS
 	const uint32_t profileStartUs = micros();
 #endif

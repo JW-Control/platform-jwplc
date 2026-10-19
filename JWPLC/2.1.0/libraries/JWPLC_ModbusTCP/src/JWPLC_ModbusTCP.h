@@ -221,6 +221,7 @@ private:
     bool _serverEnabled;
     bool _serverListening;
     bool _clientActive;
+    bool _jwplcDropPending = false; // G10-I overlay only
     uint8_t _unitId;
     uint16_t _port;
     uint32_t _frameTimeoutMs;
@@ -286,6 +287,7 @@ private:
     void setRxLoadState(uint8_t state);
 
     void dropClient();
+    bool serviceDeferredDrop();
     void ensureServerListening();
     void serviceServer();
 
