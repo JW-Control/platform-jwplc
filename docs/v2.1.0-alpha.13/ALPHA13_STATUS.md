@@ -1,3 +1,41 @@
+# ESTADO VIGENTE — 18/10/2026 — Alpha13 G10-R / H0: watchdog localizado en ventana initSS, raíz pendiente
+
+> **Leer este encabezado antes del historial de 16–17/10 que continúa debajo.** El estado PRE-H original (`WAIT_OPERATOR_IDENTITY_AND_FULL_FLASH_BACKUPS`) quedó **superado para las dos unidades de desarrollo**, porque el operador comprobó identidades, autorizó por excepción renunciar a backup y realizó cargas controladas. Esa excepción no autoriza subidas futuras ni la campaña R1–R4.
+
+**Prueba física más reciente: H0-F COM4 — upload PASS exclusivamente COM4; diagnóstico FAIL por watchdog reproducido.** Código efectivamente compilado/subido `f0b9075130158b99d89e0f9a574d964236614b78` desde rama `codex/alpha13-h0-w5100-init-stage-20261018` / [PR #114 Draft](https://github.com/JW-Control/platform-jwplc/pull/114). El operador presentó evidencia local: `G10_R_H0_E_W5100_SOURCE_TO_OBJECT=PASS`, `G10_R_BUILD_COM4=PASS_SOURCE_FIRST`, `G10_R_STAGE=PASS_15_SOURCES`, `G10_R_H0_DIAG_UPLOAD=PASS_COM4_ONLY`, `G10_R_H0_COM14=NOT_TOUCHED`. El objeto `w5100.cpp.o` procede de la fuente staged instrumentada. Ficha waiver local dev, identidad MAC/4 MB verificada antes de escritura y consentimiento específico H0-F introducido por el operador; no copiar MAC o waiver a GitHub.
+
+**Evidencia serial F (18/10 ~19:07):** primer `G10R_READY:... LINK=` se trunca, seguido de `rst:0x8 (TG1WDT_SYS_RESET)`. En el boot siguiente:
+```text
+G10R_H0_PREVIOUS:RUN=1 ATTEMPT=1 LAST_STAGE=63 VALID=1
+G10R_H0_TRACE=REBOOT_NO_AUTO_REPEAT
+```
+`Stage 63` es el checkpoint **después de `SPI.begin()`**, previo a que `initSS()` termine (`Stage 64` no alcanzado). En `JWPLC_Ethernet/src/utility/w5100.h`, la rama ESP32 `initSS()` ejecuta `pinMode(ss_pin, OUTPUT)`. **Bloqueo temporalmente localizado en initSS; NO se ha demostrado error en pinMode, CS ni deadlock específico.** Tras desarmar la sonda, Master `BOOT=B1D755A8` recuperó IP `192.168.0.31` con READY continuo en el intervalo observado, pero `LINK=-9` es centinela ficticio y no una corrección. No confundir el `rst:0x1 (POWERON_RESET)` manual previo con el `rst:0x8` de WDT.
+
+**Historial H0 en una línea:** A inicial (WDT repetitivo en LINK); B omisión de lectura adicional (sin WDT ~30 s); C llamada real tardía (`PHY=1 STAGE=50` y ~25 s sin WDT); D primer READY (`ATTEMPT=1 STAGE=30`, WDT); E getLinkStatus interno (`STAGE=32`, WDT); F initSS (`STAGE=63`, WDT). Todos B–F son sketches/overlays diagnósticos, **NO fuente productiva adoptada**; las lecturas reales siguen siendo necesarias en el package.
+
+**CI del HEAD físico F — 15/15 jobs PASS** (nonphysical, **no valida estabilidad del firmware**): [B2 2/2 #39177861353](https://github.com/JW-Control/platform-jwplc/actions/runs/39177861353), [B4 2/2 #39177861327](https://github.com/JW-Control/platform-jwplc/actions/runs/39177861327), [G10-R source-first Windows/Ubuntu 5/5 #39177861376](https://github.com/JW-Control/platform-jwplc/actions/runs/39177861376), [TCP124 Windows/Ubuntu 2/2 #39177861345](https://github.com/JW-Control/platform-jwplc/actions/runs/39177861345), [B3 N0/N1/N3 4/4 (N3 11/11) #39177861330](https://github.com/JW-Control/platform-jwplc/actions/runs/39177861330). Los commits documentales posteriores al SHA físico requieren distinguir HEAD documental vs código y, si CI se vuelve a disparar, registrar nueva conclusión por SHA exacto.
+
+**Handoff y segunda revisión independiente:** [A13_G10_R_H0_HANDOFF_CLAUDE_CODE_20261018.md](A13_G10_R_H0_HANDOFF_CLAUDE_CODE_20261018.md) y [A13_G10_R_H0_PROMPT_CLAUDE_CODE_20261018.md](A13_G10_R_H0_PROMPT_CLAUDE_CODE_20261018.md). Solicitar primero auditoría read-only sobre `ss_pin` efectivo, `pinMode`/initSS, propiedad SPI/autoload, reentrancia `W5100.init()`, task scheduling y fuente→objeto→ELF, **antes de otra sonda o carga física**. No aceptar bypass `LINK=-9` en producción ni eliminar periféricos/autoload.
+
+```text
+ALPHA13=OPEN
+HITO=G10-R
+H0_F_UPLOAD_COM4=PASS_COM4_ONLY
+H0_F_COM14=NOT_TOUCHED
+H0_F_PHYSICAL_WDT=REPRODUCED_FIRST_READY_STAGE_63
+H0_ROOT_CAUSE=OPEN_PENDING_INDEPENDENT_REVIEW
+H0_BACKUP_POLICY=WAIVED_TWO_DEV_BOARDS_ONLY_BY_OPERATOR
+G10-R-H=REVIEW_STOP_NOT_AUTHORIZED
+G10-R-R1_R2_R3_R4=NOT_RUN
+R3_COMPLETE_PHYSICAL_CAMPAIGN_READY=FALSE
+R3_PHYSICAL_INJECTION_READY=FALSE
+A13-006=ADOPTION_BLOCKED
+ALPHA15=UNMODIFIED
+NEXT_GATE=H0_ROOT_CAUSE_READ_ONLY_REVIEW_THEN_EXPLICIT_APPROVAL
+```
+
+---
+
 > **H0 físico 17/10/2026 — UPLOAD PASS / MASTER WDT REVIEW_STOP.** El operador confirmó `G10_R_UPLOAD_STATUS=PASS_BOTH_EXPLICIT` y HEAD firmware `701196fc5f1b998fcc1b4c0082e9c75e86672a5a` para COM14 Slave y COM4 Master. Ambos TFT inicialmente mostraron IDLE (etiqueta A13); **COM4 Master se reinicia de forma repetida**: `rst:0x8 (TG1WDT_SYS_RESET)` aproximadamente cada 2 s, cambia `G10R_BOOT:NONCE`, llega a `TCP=1 RTU=1`, y el último registro siempre se trunca en `G10R_READY:IP=0.0.0.0 TCP=0 UDP=0 RTU=1 BOOT=<cambiante> LINK=`. Master estaba **sin RJ45, solo USB**; 0.0.0.0/TCP=0 sin router no prueba fallo DHCP. Código del sketch: `G10R_READY` imprime `Serial.print((int)JWPLC_Ethernet.linkStatus())` tras `LINK=`; `JWPLC_EthernetClass::linkStatus()` toma mutex SPI hasta 200 ms y consulta `Ethernet.linkStatus()->W5100.getLinkStatus()`. **Pista de bloqueo, causalidad aún no demostrada**: también existe servicio Ethernet autoload concurrente. Repetidos resets descartan que sea solo refresco visual TFT. El slave fue flasheado pero aún no se acreditó estabilidad RTU física. **G10-R-H=REVIEW_STOP_NO_CAMPAIGN**, sin R1/R2/R3/R4, router/RS-485 sin conectar, sin cambio productivo ni Alpha15. **No repetir flash ni asociar 19/19 CI con PASS físico**. Siguiente acción autorizable: diagnóstico controlado del enlace en router de banco aislado (solo RJ45 COM4, sin RS485, sin cargas, observación 15–30 s, abortar si mantiene resets); si persiste, aislar en variante sketch experimental fuera del package la llamada `linkStatus` y revalidar compilaciones antes de nuevo upload.
 
 > **H0 — banco confirmado por operador (17/10/2026):** Hay dos JWPLC Basic disponibles y aislados. Asignación prevista: **COM4 Master con microSD**, **COM14 Slave RTU sin microSD**. Ambos deberán recibir nuevamente su firmware de laboratorio **solo después** de verificar identidad/ausencia de cargas, realizar respaldos completos de flash y recibir consentimiento de carga. La microSD se prueba únicamente en COM4; no exigirla en COM14. **El respaldo flash no respalda el contenido microSD**. Registro y procedimiento: [B4 banco y backups](A13_G10_R_PREH_B4_BANCO_RESPALDOS_SEGURIDAD_20261017.md). Se conserva `PREH_STEPS_REMAINING=0` (ingeniería), pero `G10-R-H0=WAIT_OPERATOR_IDENTITY_AND_FULL_FLASH_BACKUPS`, `G10-R-H=NOT_RUN`, `R3_COMPLETE_PHYSICAL_CAMPAIGN_READY=FALSE` y `R3_PHYSICAL_INJECTION_READY=FALSE`. Esta confirmación **no autoriza** lecturas ni flasheo.
