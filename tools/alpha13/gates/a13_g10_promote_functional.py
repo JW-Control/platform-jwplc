@@ -53,7 +53,14 @@ def main():
     parser.add_argument("--apply",action="store_true")
     args=parser.parse_args()
     git("merge-base","--is-ancestor",BASE,"HEAD")
-    if git("status","--porcelain").strip(): stop("DIRTY_CHECKOUT")
+    # El primer pase importa el compositor y Python crea __pycache__
+    # no versionado. Rechazar cambios tracked; permitir solo cache Python
+    # como untracked, nunca archivos de producto u otros archivos ajenos.
+    if git("status","--porcelain","--untracked-files=no").strip():
+        stop("DIRTY_TRACKED_CHECKOUT")
+    untracked=git("ls-files","--others","--exclude-standard").decode().splitlines()
+    if any("/__pycache__/" not in ("/"+x) or not x.endswith(".pyc") for x in untracked):
+        stop("UNEXPECTED_UNTRACKED_"+repr(untracked[:4]))
     if git("branch","--show-current").decode().strip()!=BRANCH:
         stop("WRONG_BRANCH")
     if git("diff","--name-only",BASE,"HEAD","--","JWPLC/").strip():
