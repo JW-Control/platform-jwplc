@@ -122,7 +122,7 @@ foreach ($property in @('build.board.platform.path','build.core.platform.path',
   }
 }
 Write-Host 'H0F1_PLATFORM=PASS_ISOLATED_PACKAGE_PATH_CANONICAL'
-Write-Host 'H0F1_STAGING_VENDOR=jr_h0f1_ALIAS_JWPLC_SOURCE_UNMODIFIED'
+Write-Host 'H0F1_STAGING_VENDOR=jwplc_h0f1_ALIAS_JWPLC_SOURCE_UNMODIFIED'
 $compile = Run-Checked $Cli @('--config-file',$cfg,'compile','--fqbn',$FQBN,
                               '--warnings','default','--build-path',$build,'-v',$sketch) (Join-Path $stage 'COMPILE.log')
 $found = @($compile -split '\r?\n' | Where-Object { $_ -match '^Using library JWPLC_Ethernet\b' })
@@ -138,10 +138,12 @@ $deps = @(
   (Join-Path $objs[0].DirectoryName 'w5100.cpp.d'),
   (Join-Path $objs[0].DirectoryName 'w5100.cpp.o.d')
 ) | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf }
-if ($deps.Count -eq 0) { Fail 'W5100_DEP_MISSING' }
-$depText = ($deps | ForEach-Object { [IO.File]::ReadAllText($_) }) -join "`n"
-$depNorm = $depText.Replace('\','/').Replace('\ ',' ')
-$sourceExpected = ((Join-Path $hw 'libraries\JWPLC_Ethernet\src\utility\w5100.cpp').Replace('\','/'))
+if ($deps.Count -ne 1) { Fail 'W5100_DEP_MISSING_OR_AMBIGUOUS' }
+$depText = [IO.File]::ReadAllText($deps[0])
+# GCC Makefile .d usa escapes para los espacios, los dos puntos de Windows,
+# barras duplicadas y continuaciones de linea. Igual regla que F129.
+$depNorm = $depText.Replace("`r`n","`n").Replace("\`n"," ").Replace('\ ',' ').Replace('\:',':').Replace('\\','\').Replace('\','/').ToLowerInvariant()
+$sourceExpected = ((Join-Path $hw 'libraries\JWPLC_Ethernet\src\utility\w5100.cpp').Replace('\','/')).ToLowerInvariant()
 if (!$depNorm.Contains($sourceExpected)) {
   Fail 'W5100_SOURCE_DEPENDENCY_NOT_FROM_STAGING'
 }
