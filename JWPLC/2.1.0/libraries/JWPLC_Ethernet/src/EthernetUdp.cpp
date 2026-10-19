@@ -1,3 +1,4 @@
+#include "JWPLC_W5500_SafeAccess.h"
 /*
  *  Udp.cpp: Library to send/receive UDP packets with the Arduino Ethernet Shield.
  *  This version only offers minimal wrapping of socket.cpp
@@ -34,7 +35,14 @@
 /* Start EthernetUDP socket, listening at local port PORT */
 uint8_t EthernetUDP::begin(uint16_t port)
 {
-	if (sockindex < MAX_SOCK_NUM) Ethernet.socketClose(sockindex);
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus) return 0; // BUS_BUSY: preserve all previous UDP fields.
+	_jwplcDeferredSendStart=false;
+	if (sockindex < MAX_SOCK_NUM &&
+	    jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) {
+		Ethernet.socketClose(sockindex);
+		(void)jwplc_w5500_candidate::invalidateSocketLocked(_jwplcSocketToken);
+	}
 	sockindex = MAX_SOCK_NUM;
 	_port = 0;
 	_remaining = 0;
@@ -43,6 +51,8 @@ uint8_t EthernetUDP::begin(uint16_t port)
 
 	sockindex = Ethernet.socketBegin(SnMR::UDP, port);
 	if (sockindex >= MAX_SOCK_NUM) return 0;
+	_jwplcSocketToken=jwplc_w5500_candidate::currentSocketTokenLocked(sockindex);
+	if (!bool(_jwplcSocketToken)) { sockindex=MAX_SOCK_NUM; return 0; }
 	_port = port;
 	return 1;
 }
@@ -57,13 +67,23 @@ int EthernetUDP::available()
 /* Release any resources being used by this EthernetUDP instance */
 void EthernetUDP::stop()
 {
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus) {
+		(void)jwplc_w5500_candidate::requestDeferredClose(_jwplcSocketToken);
+		return; // preserve the local handle and publish a durable ticket
+	}
+	_jwplcDeferredSendStart = false;
 	_sendPending = false;
 	_offset = 0;
 	_remaining = 0;
 	_port = 0;
 	_remotePort = 0;
 	_remoteIP = IPAddress(0, 0, 0, 0);
-	if (sockindex < MAX_SOCK_NUM) Ethernet.socketClose(sockindex);
+	if (sockindex < MAX_SOCK_NUM &&
+	    jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) {
+		Ethernet.socketClose(sockindex);
+		(void)jwplc_w5500_candidate::invalidateSocketLocked(_jwplcSocketToken);
+	}
 	sockindex = MAX_SOCK_NUM;
 }
 
@@ -82,6 +102,15 @@ int EthernetUDP::beginPacket(const char *host, uint16_t port)
 
 int EthernetUDP::beginPacket(IPAddress ip, uint16_t port)
 {
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus) return 0;
+	if (sockindex < MAX_SOCK_NUM &&
+	    !jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) {
+		sockindex=MAX_SOCK_NUM;
+		_sendPending=false;
+		_jwplcDeferredSendStart=false;
+		return 0;
+	}
 	if (_sendPending || sockindex >= MAX_SOCK_NUM) return 0;
 	_offset = 0;
 	return Ethernet.socketStartUDP(sockindex, rawIPAddress(ip), port);
@@ -89,6 +118,20 @@ int EthernetUDP::beginPacket(IPAddress ip, uint16_t port)
 
 int EthernetUDP::beginEndPacketAsync()
 {
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus) {
+		if (sockindex >= MAX_SOCK_NUM) return -1;
+		_sendPending = true;
+		_jwplcDeferredSendStart = true;
+		return 0;
+	}
+	if (sockindex < MAX_SOCK_NUM &&
+	    !jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) {
+		sockindex=MAX_SOCK_NUM;
+		_sendPending=false;
+		_jwplcDeferredSendStart=false;
+		return -1;
+	}
 	if (_sendPending) {
 		return 0;
 	}
@@ -105,12 +148,29 @@ int EthernetUDP::beginEndPacketAsync()
 		return -1;
 	}
 
+	_jwplcDeferredSendStart = false;
 	_sendPending = (state == 0);
 	return state;
 }
 
 int EthernetUDP::pollEndPacketAsync()
 {
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus) return 0; // SPI_BUSY, retain send state
+	if (sockindex < MAX_SOCK_NUM &&
+	    !jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) {
+		sockindex=MAX_SOCK_NUM;
+		_sendPending=false;
+		_jwplcDeferredSendStart=false;
+		return -1;
+	}
+	if (_jwplcDeferredSendStart) {
+		if (sockindex >= MAX_SOCK_NUM) return -1;
+		const int startState=Ethernet.socketBeginSendUDP(sockindex);
+		_jwplcDeferredSendStart=false;
+		_sendPending=(startState==0);
+		return startState;
+	}
 	if (!_sendPending || sockindex >= MAX_SOCK_NUM) {
 		return -1;
 	}
@@ -135,6 +195,7 @@ void EthernetUDP::cancelEndPacketAsync()
 	// A W5500 SEND already issued cannot be withdrawn here. Clearing local
 	// state is safe; the next begin clears stale SEND_OK/TIMEOUT flags.
 	_sendPending = false;
+	_jwplcDeferredSendStart = false;
 }
 
 int EthernetUDP::endPacket()
@@ -156,6 +217,9 @@ size_t EthernetUDP::write(uint8_t byte)
 
 size_t EthernetUDP::write(const uint8_t *buffer, size_t size)
 {
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus) return 0;
+	if (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) return 0;
 	if (sockindex >= MAX_SOCK_NUM || _sendPending ||
 	    buffer == nullptr || size == 0 || _offset >= W5100.SSIZE) {
 		return 0;
@@ -173,6 +237,9 @@ size_t EthernetUDP::write(const uint8_t *buffer, size_t size)
 
 int EthernetUDP::parsePacket()
 {
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus) return 0;
+	if (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) return 0;
 	if (sockindex >= MAX_SOCK_NUM) return 0;
 
 	// Preserve Alpha14's bounded, cooperative single-drain contract.
@@ -197,6 +264,9 @@ int EthernetUDP::jwplcReadPacketFastDeferred(
 	uint8_t *buffer,
 	size_t len)
 {
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus) return 0;
+	if (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) return -1;
 	if (
 		sockindex >= MAX_SOCK_NUM ||
 		buffer == nullptr ||
@@ -229,6 +299,9 @@ int EthernetUDP::jwplcReadPacketFastDeferred(
 
 bool EthernetUDP::jwplcCommitRxFast()
 {
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus) return false;
+	if (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) return false;
 	if (sockindex >= MAX_SOCK_NUM) {
 		return false;
 	}
@@ -240,6 +313,9 @@ bool EthernetUDP::jwplcCommitRxFast()
 
 int EthernetUDP::read()
 {
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus) return -1;
+	if (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) return -1;
 	if (sockindex >= MAX_SOCK_NUM) return -1;
 	uint8_t byte;
 	if (_remaining > 0 && Ethernet.socketRecv(sockindex, &byte, 1) > 0) {
@@ -251,6 +327,9 @@ int EthernetUDP::read()
 
 int EthernetUDP::read(unsigned char *buffer, size_t len)
 {
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus) return -1;
+	if (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) return -1;
 	if (sockindex >= MAX_SOCK_NUM || _remaining == 0 || len == 0)
 		return -1;
 
@@ -269,6 +348,9 @@ int EthernetUDP::read(unsigned char *buffer, size_t len)
 
 int EthernetUDP::peek()
 {
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus) return -1;
+	if (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) return -1;
 	// Unlike recv, peek doesn't check to see if there's any data available, so we must.
 	// If the user hasn't called parsePacket yet then return nothing otherwise they
 	// may get the UDP header
@@ -284,12 +366,28 @@ void EthernetUDP::flush()
 /* Start EthernetUDP socket, listening at local port PORT */
 uint8_t EthernetUDP::beginMulticast(IPAddress ip, uint16_t port)
 {
-	if (sockindex < MAX_SOCK_NUM) Ethernet.socketClose(sockindex);
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus) return 0; // preserve previous owner on BUS_BUSY
+	if (sockindex < MAX_SOCK_NUM &&
+	    jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) {
+		Ethernet.socketClose(sockindex);
+		(void)jwplc_w5500_candidate::invalidateSocketLocked(_jwplcSocketToken);
+	}
 	sockindex = Ethernet.socketBeginMulticast(SnMR::UDP | SnMR::MULTI, ip, port);
 	if (sockindex >= MAX_SOCK_NUM) return 0;
+	_jwplcSocketToken=jwplc_w5500_candidate::currentSocketTokenLocked(sockindex);
+	if (!bool(_jwplcSocketToken)) { sockindex=MAX_SOCK_NUM; return 0; }
 	_port = port;
 	_remaining = 0;
 	_offset = 0;
 	_sendPending = false;
 	return 1;
+}
+
+
+// Callable by the core autoload tick after a temporary DNS object is gone.
+uint8_t EthernetUDP::jwplcServiceDeferredClose()
+{
+    return jwplc_w5500_candidate::serviceDeferredClose(
+        [](uint8_t index, void*) { Ethernet.socketClose(index); }, nullptr, 0);
 }
