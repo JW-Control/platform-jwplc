@@ -57,6 +57,13 @@ def sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def canonical_checkout_bytes(path: Path) -> bytes:
+    # GitHub Actions Windows suele aplicar core.autocrlf: los blobs siguen LF,
+    # el checkout presenta CRLF. Comparar con Git canonico sin ocultar otros
+    # cambios; git diff y worktree limpio siguen siendo gates independientes.
+    return path.read_bytes().replace(b"\r\n", b"\n")
+
+
 def build_manifest() -> dict:
     git("merge-base", "--is-ancestor", F1_BASE, "HEAD")
     head = git("rev-parse", "HEAD").decode().strip()
@@ -64,7 +71,7 @@ def build_manifest() -> dict:
     need(not changed_product, "PRODUCT_DIFF_NOT_EMPTY_" + repr(changed_product))
     need(not git("status", "--porcelain", "--", "JWPLC/").strip(), "PRODUCT_WORKTREE_DIRTY")
     need((ROOT / F1_SOURCE).is_file(), "F1_SOURCE_MISSING")
-    need((ROOT / F1_SOURCE).read_bytes() == git("show", F1_BASE + ":" + F1_SOURCE), "F1_SOURCE_BYTES_CHANGED")
+    need(canonical_checkout_bytes(ROOT / F1_SOURCE) == git("show", F1_BASE + ":" + F1_SOURCE), "F1_SOURCE_CONTENT_CHANGED")
 
     # compose() lee módulos y fuentes del checkout; no llama a stage_platform()
     # ni a write_evidence(), por lo que no escribe al árbol de producto.
@@ -94,7 +101,7 @@ def build_manifest() -> dict:
         else:
             need(source.is_file(), "PRODUCT_PATH_MISSING_" + path)
             # Los bytes originales se comparan con los del SHA F1 ya validado.
-            original = source.read_bytes()
+            original = canonical_checkout_bytes(source)
             need(original == git("show", F1_BASE + ":" + path),
                  "PRODUCT_PATH_CHANGED_SINCE_F1_" + path)
             status = "UNCHANGED" if original == generated else "MODIFIED"
@@ -118,7 +125,7 @@ def build_manifest() -> dict:
         "existing": len(results) - classes["ADDED"],
         "new": classes["ADDED"],
         "classification": classes,
-        "f1_w5100_sha256": sha((ROOT / F1_SOURCE).read_bytes()),
+        "f1_w5100_sha256": sha(canonical_checkout_bytes(ROOT / F1_SOURCE)),
         "dns_dhcp_source_intact": True,
         "f1_utility_w5100_not_in_overlay": True,
         "files": results,
