@@ -1,3 +1,25 @@
+# ESTADO VIGENTE — 19/10/2026 — Alpha13 H0-F1: plataforma y biblioteca staged PASS, parser GCC en retest
+
+**Evidencia no física:** [CI #39288903468](https://github.com/JW-Control/platform-jwplc/actions/runs/39288903468) sobre HEAD `ab68119a4319f84d192904e51a7c75375402bcdf`: N0 Windows PASS (alias NTFS 8.3 y negativo), `H0F1_PLATFORM=PASS_ISOLATED_PACKAGE_PATH_CANONICAL`, `H0F1_ETHERNET=PASS_CANONICAL_SAME_STAGED_LIBRARY`; N2 FAIL tras la compilación por recurrencia conocida de **F003** (filtro PowerShell que devuelve una cadena en vez de array y `$deps[0]` pasa a ser `C`). No prueba defecto de producto ni puerto COM. Corregido en PR #120 por array externo `@(...)` que preserva un único archivo `.d`. **CI del nuevo HEAD: aún no PASS**. [Registro F132](A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md).
+
+```text
+ALPHA13=OPEN
+F131=F1_PRODUCT_MERGED_PHYSICAL_PENDING
+F132=HARNESS_CLI_VENDOR_8DOT3_AND_F003_ARRAY_REOCCURRENCE
+F132_N0_NTFS=PASS_OLD_SHA
+F132_N2_PLATFORM=PASS_OLD_SHA
+F132_N2_ETHERNET=PASS_OLD_SHA
+F132_N2_GCC_DEP=REVIEW_STOP_OLD_SHA
+F132_FINAL_SOURCE_FIRST=NOT_YET_PASS_EXACT_HEAD
+NEXT_FAILURE_ID=F133
+COM4_UPLOAD=NOT_RUN
+COM14=NOT_TOUCHED
+G10-R-R1_R2_R3_R4=BLOCKED
+NEXT_GATE=F132_EXACT_HEAD_CI_N0_N2_G10R_THEN_OPERATOR_BUILD_ONLY
+```
+
+---
+
 # ESTADO VIGENTE — 19/10/2026 — Alpha13 H0-F1: F132 alias NTFS 8.3 identificado, CI retest pendiente
 
 **Última evidencia comprobada (HEAD candidato anterior `a1a39e30e5b8c9028a17fb2c9d21231efc01ddb5`):** [G10-R N0 #39286737779](https://github.com/JW-Control/platform-jwplc/actions/runs/39286737779) **2/2 PASS Windows/Ubuntu**. [Kit COM4 #39286737847](https://github.com/JW-Control/platform-jwplc/actions/runs/39286737847): N0 Windows PASS, N2 Windows FAIL en la **auditoría posterior a compilar**, por `WRONG_ETHERNET_LIBRARY`. El log muestra que la biblioteca fue realmente seleccionada bajo `.../Users/runneradmin/.../jwplc_h0f1/esp32/libraries/JWPLC_Ethernet` pero el ejecutor esperaba `.../Users/RUNNER~1/...`, el mismo directorio en notación corta NTFS 8.3. **No fue un error de compilación productiva ni de selección de otra biblioteca.**
