@@ -2629,3 +2629,24 @@ F131_H0_H=NOT_RUN
 COM14=NOT_TOUCHED
 NEXT_FAILURE_ID=F133
 ```
+
+
+### F131/H0 — primera evidencia física positiva con package F1 (2026-10-19)
+
+**No es un ID nuevo:** se actualiza F131, la incidencia original del W5500; **F132** (harness) permanece resuelto por CI y build local. El operador comprobó comunicación de la placa de desarrollo por COM4, aceptó las comprobaciones del ejecutor y autorizó la carga del mismo HEAD de código `2b5802720df552e01a0b4f9d4fe1a7bd2de16daf`. Reportó `H0F1_BUILD=PASS_SOURCE_FIRST`, `H0F1_UPLOAD=PASS_COM4_ONLY COM14=NOT_TOUCHED`.
+
+La UART 115200 del **sketch de package real, no overlay**, mostró `H0F1_EARLY_LINK_BEGIN`, `H0F1_EARLY_LINK_RETURN=2` (PHY LinkOFF real), `H0F1_READY... STAGE=2 LINK=2` con `COUNT=1..12`, tras un `rst:0x1 (POWERON_RESET)`. Antes de ese reset ya aparecía `COUNT=10..12 STAGE=2 LINK=2` de otro boot. El **watchdog TG1WDT_SYS_RESET previo no está presente en esta muestra**, pero eso no acredita estabilidad prolongada.
+
+**Incógnita explícita:** el motivo de `rst:0x1 POWERON_RESET` aún no está identificado (preguntar si hubo reset de EN, reconexión de alimentación o monitor serial); no interpretarlo como watchdog ni descartarlo como espontáneo. `mode:DIO` visible se conserva como dato sin decisión de FlashFreq definitiva. No existe evidencia todavía de `LINK=1` con RJ45, 15 minutos sin resets, 10 ciclos EN/power-cycle, R1–R4 o cierre físico completo. La MAC particular observada no se publica.
+
+```text
+F131_COM4_UPLOAD=PASS_ONLY_COM4
+F131_W5500_EARLY_LINK=PASS_STAGE2_REAL_PHY_LINKOFF
+F131_WDT_SAMPLE=NO_TG1WDT_OBSERVED
+F131_INTERMEDIATE_RESET=POWERON_RESET_ORIGIN_UNKNOWN
+F131_STABILITY_15MIN=NOT_RUN
+F131_RJ45_LINKON=NOT_RUN
+F131_FINAL=OPEN_PENDING_EXTENDED_PHYSICAL_VALIDATION
+F132=RESOLVED_CI_AND_LOCAL_BUILD
+NEXT_FAILURE_ID=F133
+```
