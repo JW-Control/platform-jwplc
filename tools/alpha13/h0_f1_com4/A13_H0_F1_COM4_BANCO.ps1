@@ -66,7 +66,7 @@ $null = Run-Checked $Cli @('--config-file',$cfg,'config','set','directories.user
 # Fail-closed: se exige una unica propiedad runtime.platform.path, ruta valida
 # y equivalencia canonica exacta con la copia aislada del package.
 foreach ($essential in @('boards.txt','platform.txt',
-    'libraries\\JWPLC_Ethernet\\src\\utility\\w5100.cpp')) {
+    'libraries\JWPLC_Ethernet\src\utility\w5100.cpp')) {
   if (!(Test-Path -LiteralPath (Join-Path $hw $essential) -PathType Leaf)) {
     Fail ('ISOLATED_PACKAGE_COPY_INCOMPLETE: '+$essential)
   }
