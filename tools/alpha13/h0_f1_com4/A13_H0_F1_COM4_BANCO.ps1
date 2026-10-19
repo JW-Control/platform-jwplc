@@ -61,9 +61,43 @@ Copy-Item -LiteralPath $ino -Destination $sketch -Force
 $cfg = Join-Path $cfgDir 'arduino-cli.yaml'
 $null = Run-Checked $Cli @('config','init','--dest-dir',$cfgDir,'--overwrite')
 $null = Run-Checked $Cli @('--config-file',$cfg,'config','set','directories.user',$book)
-$props = Run-Checked $Cli @('--config-file',$cfg,'compile','--fqbn',$FQBN,'--show-properties',$sketch)
-$platform = (Resolve-Path -LiteralPath $hw).Path
-if (!$props.Contains('runtime.platform.path='+$platform)) { Fail 'WRONG_PLATFORM_SELECTED' }
+# Comprobar la plataforma seleccionada sin depender de la forma textual de Windows
+# (C:/ frente a C:\, comillas, slash final o diferencias de mayusculas).
+# Fail-closed: se exige una unica propiedad runtime.platform.path, ruta valida
+# y equivalencia canonica exacta con la copia aislada del package.
+foreach ($essential in @('boards.txt','platform.txt',
+    'libraries\\JWPLC_Ethernet\\src\\utility\\w5100.cpp')) {
+  if (!(Test-Path -LiteralPath (Join-Path $hw $essential) -PathType Leaf)) {
+    Fail ('ISOLATED_PACKAGE_COPY_INCOMPLETE: '+$essential)
+  }
+}
+$props = Run-Checked $Cli @('--config-file',$cfg,'compile','--fqbn',$FQBN,'--show-properties',$sketch) (Join-Path $stage 'SHOW_PROPERTIES_LOCAL.log')
+$platform = (Resolve-Path -LiteralPath $hw).ProviderPath
+$platformLines = @($props -split '\r?\n' | Where-Object {
+  $_.Trim() -match '^runtime\.platform\.path\s*='
+})
+if ($platformLines.Count -ne 1) {
+  Write-Host ('H0F1_PLATFORM_EXPECTED='+$platform)
+  Write-Host ('H0F1_PLATFORM_PROPERTY_COUNT='+$platformLines.Count)
+  Fail 'RUNTIME_PLATFORM_PROPERTY_MISSING_OR_DUPLICATED'
+}
+$platformValue = ($platformLines[0] -split '=', 2)[1].Trim().Trim('"')
+try {
+  $selected = (Resolve-Path -LiteralPath ($platformValue.Replace('/','\')) -ErrorAction Stop).ProviderPath
+} catch {
+  Write-Host ('H0F1_PLATFORM_SELECTED_RAW='+$platformValue)
+  Write-Host ('H0F1_PLATFORM_EXPECTED='+$platform)
+  Fail 'RUNTIME_PLATFORM_SELECTED_PATH_NOT_FOUND'
+}
+$expectedCanonical = [IO.Path]::GetFullPath($platform).TrimEnd([char[]]@('\','/'))
+$selectedCanonical = [IO.Path]::GetFullPath($selected).TrimEnd([char[]]@('\','/'))
+if (!([string]::Equals($selectedCanonical,$expectedCanonical,
+                       [StringComparison]::OrdinalIgnoreCase))) {
+  Write-Host ('H0F1_PLATFORM_SELECTED='+$selectedCanonical)
+  Write-Host ('H0F1_PLATFORM_EXPECTED='+$expectedCanonical)
+  Fail 'WRONG_PLATFORM_SELECTED'
+}
+Write-Host 'H0F1_PLATFORM=PASS_ISOLATED_PACKAGE_PATH_CANONICAL'
 $compile = Run-Checked $Cli @('--config-file',$cfg,'compile','--fqbn',$FQBN,
                               '--warnings','default','--build-path',$build,'-v',$sketch) (Join-Path $stage 'COMPILE.log')
 $found = @($compile -split '\r?\n' | Where-Object { $_ -match '^Using library JWPLC_Ethernet\b' })
