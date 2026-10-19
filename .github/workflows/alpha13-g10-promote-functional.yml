@@ -21,7 +21,7 @@ jobs:
         run: python tools/alpha13/gates/a13_g10_promote_functional.py
       - name: Promover exclusivamente fuentes funcionales a la rama PR
         run: python tools/alpha13/gates/a13_g10_promote_functional.py --apply
-      - name: Negativos: diff restringido, F1 y archivos precompilados
+      - name: "Negativos: diff restringido, F1 y archivos precompilados"
         shell: bash
         run: |
           set -euo pipefail
