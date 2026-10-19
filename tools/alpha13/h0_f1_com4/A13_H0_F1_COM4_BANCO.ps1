@@ -94,7 +94,7 @@ $manifestPath = Join-Path $stage 'MANIFEST.json'
 ($manifest | ConvertTo-Json -Depth 5) | Set-Content -LiteralPath $manifestPath -Encoding UTF8
 Write-Host "H0F1_BUILD=PASS_SOURCE_FIRST HEAD=$head" -ForegroundColor Green
 Write-Host "H0F1_EVIDENCE=$manifestPath"
-if (!$UploadCOM4) { Write-Host 'H0F1_UPLOAD=NOT_RUN COM14=NOT_TOUCHED'; exit 0 }
+if (!$UploadCOM4) { Write-Host 'H0F1_UPLOAD=NOT_RUN COM14=NOT_TOUCHED'; return }
 # Frontera fisica, solo COM4.
 Write-Host 'CERRAR TODO MONITOR SERIAL antes de verificar COM4.'
 $devices = @(Get-CimInstance Win32_PnPEntity | Where-Object {
