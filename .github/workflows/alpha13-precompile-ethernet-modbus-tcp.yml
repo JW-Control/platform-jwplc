@@ -126,7 +126,9 @@ jobs:
   promote-candidate:
     name: Adoptar 2 archives SOLO en rama Draft PR125 tras gates completos
     needs: [archive-candidate, cross-os]
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/alpha13-precompile-benchmark-docs-20261020'
+    # Bloqueo A13: no adoptar archives hasta N1/N2 paridad real por FQBN y negativo Core.
+    # Reactivar unicamente tras el gate aprobado, nunca por verde de solo enlace.
+    if: ${{ false }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
