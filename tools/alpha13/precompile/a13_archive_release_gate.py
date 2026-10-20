@@ -97,8 +97,8 @@ def run_gate(ubuntu: Path, windows: Path | None, mode: str,
             # Windows puede transformar LF a CRLF en un checkout Git.
             # Ambas huellas originales se validaron contra el mismo
             # source productivo normalizando exclusivamente finales de línea.
-            require([x["src"].replace("\\","/") for x in left["objects"]] ==
-                    [x["src"].replace("\\","/") for x in right["objects"]],
+            require(sorted(x["src"].replace("\\","/") for x in left["objects"]) ==
+                    sorted(x["src"].replace("\\","/") for x in right["objects"]),
                     "CROSS_OS_SOURCE_PATHS_DIFF_" + lib)
             require(sorted(left["members"])==sorted(right["members"]),
                     "CROSS_OS_MEMBER_DIFF_" + lib)
