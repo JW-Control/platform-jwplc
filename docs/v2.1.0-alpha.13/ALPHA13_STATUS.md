@@ -1,3 +1,45 @@
+# ESTADO VIGENTE — 20/10/2026 — G10-PH0 FÍSICO PASS (COM14+COM4, RTU + router DHCP + Modbus TCP FC03)
+
+**Fuente de evidencia física:** salidas CLI y dos capturas UART remitidas por el operador el 20/10/2026, con hardware de banco y package G10 funcional promovido exclusivamente en PR #124. Último HEAD **usado en upload**, `7c1974c659be4aa88c877a849db6efc32673da60`; último commit productivo `JWPLC/` anterior al kit de uploader y sin modificación posterior (último código productivo `ee27c73d97dd...`). Firmware de ambas placas sin instrumentación G10-R, sin MAC leída explícitamente y sin backup por decisión del operador.
+
+**Identidad de software previa:** `g10p_ph0_upload.py --check` PASS en Windows; dos carpetas de compilación reales `g10p_ph0_c08147eedf3b_*` verificadas por `--seal-existing` `PASS_VERIFIED_NO_USB` contra HEAD `7c1974c6`, con manifiestos y SHA de ELF, binarios, fuentes/objetos y archives. `F135` (el verificador esperó `Sketch.elf` y no `Sketch.ino.elf`) **RESOLVED_LOCAL_SEAL_2_OF_2**, sin defecto de producto demostrado; resultado de la **nueva CI postbuild** permanece **NOT_CONFIRMED** (no convertir el workflow de promoción en CI de build dual). `NEXT_FAILURE_ID=F136`.
+
+**COM14 Slave:** `--upload-com14` devolvió `G10P_PH0_UPLOAD_COMMAND=SUCCESS_COM14_SLAVE`. UART a 115200: 156 heartbeats consecutivos HB=60..215, `BOOT=D998B0A7` inmutable, sin reset/watchdog/panic visible. A HB108 el PHY pasó a `1`; desde HB114 hasta HB215, IP DHCP `192.168.0.31`, `PHY=1 ETH=1 TCP=1`, con RTU listo `RTU=1` y CRC `0`. El log COM14 fue capturado **antes de conectar RTU**, por lo que `RTU_REQUESTS=0` allí no equivale a defecto del Slave. Su banner BOOT inicial no está capturado.
+
+**COM4 Master:** `--upload-com4` completado según la continuación del operador y el firmware observó `BOOT=FEEDC504`, 175 heartbeats consecutivos HB=21..195 sin reset/watchdog/panic. El operador indica secuencia *arranque sin RTU/TCP → conexión RS-485 → conexión RJ45*. Mientras RTU no estaba conectado `RTU_FAIL` subió a 40; desde HB81 al conectar, `RTU_OK` creció de 1 a 142 (HB195) y **RTU_FAIL permaneció 40**, confirmando FC03 RTU real con 4 registros esperados sin nuevos errores observados. PHY=1 a HB148; DHCP otorgó IP `192.168.0.159` a HB164; `ETH=1 TCP=1` sostenidos hasta HB195 mientras RTU_OK continuó creciendo. `SD_FAIL=0`, `SD_OK` y `FRAM_READ` crecieron de 28 a 260; `RTC=1 IO=1 TFT=1` constantes. En este extracto `UDP_RX=0 UDP_TX=0`: UDP no fue ejercitado.
+
+**COM4+COM14 router aislado:** el operador ejecutó `g10p_modbus_tcp_readonly.py --com4-ip 192.168.0.159 --com14-ip 192.168.0.31`, obtuvo exactamente `G10P_TCP_FC03_COM4_MASTER=PASS_4_REGISTERS`, `G10P_TCP_FC03_COM14_SLAVE=PASS_4_REGISTERS`, `G10P_TCP_DUAL_ROUTER=PASS_2_DIFFERENT_IPS`. No hubo escrituras ni acceso serial desde el cliente TCP. Este gate prueba solicitudes reales TCP/502 Unit1 FC03 a ambos PLC y confirma IP DHCP distintas, pero **no prueba tráfico TCP directo PLC→PLC**, UDP echo, DNS, cierre/reuso bajo contención o estabilidad de larga duración.
+
+**Decisión de alcance:** G10-PH0 pasa como validación *funcional física* de package candidato. La campaña profunda G10-H sigue separada y no autorizada: R1 smoke sostenido incluye UDP + convivencia autoload/latencia; R2 desconexión/reconexión link, DHCP/DNS y recuperación TCP/UDP; R3 BUS_BUSY/lease/socket lifecycle; R4 endurance/fairness/starvation SPI. Los 175/156 heartbeats actuales **no** cierran R1–R4. El PR #124 continúa **Draft, NO MERGE**; preparar revisión de decisión/aceptación de R1–R4 y posterior merge a base, nunca auto-merger. No modificar GPIO4, FlashFreq, core/archive congelados ni instrumentación productiva.
+
+```text
+ALPHA13=OPEN
+F135=RESOLVED_LOCAL_2_SEALS_NEW_CI_POSTBUILD_UNCONFIRMED
+NEXT_FAILURE_ID=F136
+G10_PH0=PASS_FUNCTIONAL_PHYSICAL
+G10_PH0_PRODUCT_UPLOAD_HEAD=7c1974c659be4aa88c877a849db6efc32673da60
+G10_PH0_COM14_UPLOAD=PASS
+G10_PH0_COM14_UART=PASS_HB60_TO_215_BOOT_STABLE
+G10_PH0_COM14_DHCP=PASS_IP_192_168_0_31_PHY1_ETH1_TCP1
+G10_PH0_COM4_UPLOAD=PASS_OPERATOR_REPORTED_UART_CONFIRMED
+G10_PH0_COM4_UART=PASS_HB21_TO_195_BOOT_STABLE
+G10_PH0_RTU_MASTER_SLAVE=PASS_COM4_RTU_OK_142_RTU_FAIL_40_STABLE_POST_CONNECT
+G10_PH0_RTU_COM14_SLAVE_REQUEST_COUNT=NOT_CAPTURED_AFTER_CONNECTION
+G10_PH0_COM4_DHCP=PASS_IP_192_168_0_159_PHY1_ETH1_TCP1
+G10_PH0_TCP_FC03_PHYSICAL=PASS_2_OF_2_READ_ONLY
+G10_PH0_UDP_PHYSICAL=NOT_RUN
+G10_PH0_PLC_TO_PLC_TCP_CLIENT=NOT_RUN_OPTIONAL
+G10_H_R1_R2_R3_R4=NOT_RUN_NOT_AUTHORIZED
+G10_E1=PENDING_GDB_UNAVAILABLE
+G10_E2=PENDING_SDKCONFIG_NOT_LOCATED
+PENDIENTE_DE_PROMOCION=PR124_10_MODIFIED_2_ADDED_NOT_IN_ALPHA13_BASE
+BASE_SYNC=PENDING_INTENTIONAL_UNTIL_G10_H_DECISION
+KNOWLEDGE_SYNC=PENDING_F135_TOOLING_LESSON_NO_NEW_PH0_RULE_ADDED
+G10_PR124=DRAFT_NOT_MERGED
+NEXT_GATE=G10_H_R1_R4_SCOPE_AND_PR124_MERGE_DECISION
+```
+
+---
 # ESTADO VIGENTE — 20/10/2026 — G10-PH0 F135: fail del verificador ELF/bin, sin upload
 
 **Evidencia real operador:** VS Code ve USB-SERIAL CH340 en **COM14 y COM4**; N0 local `c08147eedf` PASS. `--prepare` devolvió `G10P_PH0_REVIEW_STOP_ELF_MISSING_COM14_SLAVE`. El nuevo runner suponía `G10P_COM14_Slave.elf` en vez del nombre Arduino `G10P_COM14_Slave.ino.elf`; el mismo defecto afectaba `.bin`. No atribuirlo a firmware ni producto: el ejecutor de build dual anterior prueba ELF real y fuente→objeto. COM14 y COM4 **no han sido flasheados**.
