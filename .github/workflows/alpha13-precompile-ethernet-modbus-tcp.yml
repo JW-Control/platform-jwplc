@@ -54,6 +54,19 @@ jobs:
         run: |
           python -B -m py_compile tools/alpha13/precompile/a13_precompile_benchmark.py
           python -B tools/alpha13/precompile/a13_precompile_benchmark.py --check --ci-detached
+      - name: FQBN negativo - exigir objetos distintos en fuente heredada
+        shell: pwsh
+        run: |
+          python -B tools/alpha13/precompile/a13_fqbn_object_gate.py --expect-mismatch --ci-detached --output (Join-Path $env:RUNNER_TEMP 'a13-fqbn-negative')
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: alpha13-fqbn-negative-${{ matrix.os }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/a13-fqbn-negative/FQBN_OBJECT_MANIFEST.json
+            ${{ runner.temp }}/a13-fqbn-negative/*.log
+          if-no-files-found: warn
+          retention-days: 14
       - name: Fuente vs precompiled-full, BASIC y BASICCORE
         shell: pwsh
         run: |
