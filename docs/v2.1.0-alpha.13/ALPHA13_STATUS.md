@@ -1,3 +1,39 @@
+# ESTADO VIGENTE — 20/10/2026 — G10-H R1–R4 autorizado antes de merge, runner N0 CI PASS
+
+**Decisión propietario:** realizar validación R1–R4 antes de fusionar PR #124. Alcance inmediato: preparar y ejecutar tráfico físico **desde PC a ambos PLC ya flasheados**, sin tocar firmware, `JWPLC/`, GPIO4, archives, puertos COM mediante el runner, MAC ni backup. Router de pruebas aislado, Q sin cargas; **R2 requiere maniobras RJ45 confirmadas por operador**. G10-H se ejecuta sin reutilizar el overlay G10-R como firmware del producto.
+
+**Baseline físico reutilizado:** G10-PH0 en COM4 y COM14 PASS funcional (UART RTU real, DHCP dos IP, TCP FC03 real dos servidores) sobre binarios compilados originalmente en `c08147eedf` con fuentes productivas del HEAD `7c1974c659be4aa88c877a849db6efc32673da60`, sellados SHA 2/2. `E1/E2=PENDING`. PR sigue Draft; base Alpha13 intencionalmente desfasada.
+
+**Herramienta nueva versionada:** `tools/alpha13/g10_promoted_bench/g10p_r1_r4_campaign.py` junto a README y workflow `alpha13-g10-ph0-r-campaign.yml`. Usa Modbus TCP FC03 solamente y UDP eco puerto 15020 del Master; no flash, serie ni lecturas MAC. Un modo/una evidencia local por fase para detenerse ante REVIEW_STOP; RFC ventanas **del runner G10-R original**: R1 605 s, R2 3 ciclos con 12 s sin enlace y 96 s máximo para recuperar, R4 1805 s. R3 externo 90 s es únicamente prueba funcional de churn de conexiones, **no demuestra BUS_BUSY ni tokens/stale/deferred close** y no reemplaza la inyección interna. DNS no está instrumentado por el firmware PH0, tampoco se declaran memoria/sockets SPI PASS por tráfico de PC sin UART complementario.
+
+**CI N0 del nuevo runner:** [run #39477304043](https://github.com/JW-Control/platform-jwplc/actions/runs/39477304043), SHA de ejecución `6ef8fdebeb245699250ff67a8d159e6d5945ef78`, Windows y Ubuntu 2/2 SUCCESS, sin pasos omitidos en jobs de protocolo; pruebas sintéticas FC03, direcciones privadas, protocolo/ventanas, guardia no upload/serial. Es evidencia NO física. No hay nueva compilación Arduino ni prueba de hardware: no hubo cambios productivos.
+
+**Revisión source-backed R3:** la rama candidata contiene `StatusReadOutcome::{Read,BusBusy,Stale}` y cierre diferido con token en `JWPLC_W5500_SafeAccess.cpp`, `EthernetClient.cpp` y `JWPLC_ModbusTCP_Client.cpp`. El sketch PH0 actual no llama los cinco probes del overlay (UDP, DNS, TCP, DHCP_CANCEL, DHCP_FINISH), ni publica socket/heap telemetry. Una campaña externa de cierres/reaperturas solo ejercita el observable; mantener G10-H R3 completo OPEN hasta decisión del mecanismo de evidencia. No modificar el package para acomodar una sonda experimental.
+
+```text
+ALPHA13=OPEN
+NEXT_FAILURE_ID=F136
+G10_PH0=PASS_FUNCTIONAL_PHYSICAL_ALREADY_RECORDED
+G10_H_SCOPE=R1_R2_R3_R4_APPROVED_BY_OWNER_BEFORE_MERGE
+G10_H_R1=READY_NOT_RUN_605S
+G10_H_R2=READY_NOT_RUN_3_CYCLES_12S_96S
+G10_H_R3_EXTERNAL=READY_NOT_RUN_90S
+G10_H_R3_INTERNAL=OPEN_FAULT_INJECTION_UNAVAILABLE_IN_INSTALLED_SKETCH
+G10_H_R4=READY_NOT_RUN_1805S_MEMORY_SPI_TELEMETRY_LIMITED
+G10_H_R_N0_CI=PASS_2_OF_2_RUN_39477304043_SHA_6EF8FDEB
+G10_H_PRODUCT_CHANGE=NO
+G10_H_UPLOAD=NOT_RUN
+G10_H_FIELD_TRAFFIC=NOT_RUN
+G10_E1=PENDING_GDB_UNAVAILABLE
+G10_E2=PENDING_SDKCONFIG_NOT_LOCATED
+PENDIENTE_DE_PROMOCION=PR124_10_MODIFIED_2_ADDED_NOT_IN_ALPHA13_BASE
+BASE_SYNC=PENDING_INTENTIONAL_R1_R4_BEFORE_MERGE
+KNOWLEDGE_SYNC=PENDING_F135_REUSABLE_LESSON
+G10_PR124=DRAFT_NOT_MERGED
+NEXT_GATE=G10_H_R1_605S_FIELD_RUN_AND_UART_EVIDENCE
+```
+
+---
 # ESTADO VIGENTE — 20/10/2026 — G10-PH0 FÍSICO PASS (COM14+COM4, RTU + router DHCP + Modbus TCP FC03)
 
 **Fuente de evidencia física:** salidas CLI y dos capturas UART remitidas por el operador el 20/10/2026, con hardware de banco y package G10 funcional promovido exclusivamente en PR #124. Último HEAD **usado en upload**, `7c1974c659be4aa88c877a849db6efc32673da60`; último commit productivo `JWPLC/` anterior al kit de uploader y sin modificación posterior (último código productivo `ee27c73d97dd...`). Firmware de ambas placas sin instrumentación G10-R, sin MAC leída explícitamente y sin backup por decisión del operador.
