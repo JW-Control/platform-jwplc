@@ -192,8 +192,12 @@ def assert_precompiled(build: Path, log: str, hw: Path) -> None:
                 "FALLBACK_COMPILE_CPP_" + lib)
         require(not list(objdir.rglob("*.c.o")) if objdir.exists() else True,
                 "FALLBACK_COMPILE_C_" + lib)
-        archive_name = "lib" + lib + ".a"
-        require(archive_name.lower() in log.lower(), "ARCHIVE_NOT_LINKED_" + lib)
+        # Arduino CLI enlaza archives mediante '-L<directorio> -l<nombre>';
+        # el comando verbose no incluye necesariamente 'lib<nombre>.a'.
+        libdir = str(expected.parent).replace("\\", "/")
+        normalized = log.replace("\\", "/")
+        require(("-l" + lib) in normalized and libdir in normalized,
+                "ARCHIVE_NOT_LINKED_" + lib)
     print("A13_ARCHIVE_LINK=PASS_TWO_ARCHIVES_ZERO_SOURCE_OBJECTS", flush=True)
 
 def perform(out: Path, cli: str, detached: bool) -> None:
