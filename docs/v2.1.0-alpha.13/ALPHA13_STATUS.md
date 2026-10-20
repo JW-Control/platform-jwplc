@@ -1,3 +1,27 @@
+# ESTADO VIGENTE — 20/10/2026 — Alpha13 release BLOQUEADO hasta precompilar Ethernet/Modbus TCP y medir benchmark
+
+**Decisión explícita del propietario:** son obligatorios los archives `.a` de `JWPLC_Ethernet` y `JWPLC_ModbusTCP` antes de declarar Alpha13 cerrado/publicable; efectuar benchmark frío/caliente y actualizar READMEs de todas las librerías modificadas conservando estilo, ejemplos y APIs, además del README raíz. El cierre de desarrollo anunciado anteriormente era **funcional**, pero no el freeze completo de distribución y velocidad. **No ejecutar el workflow Release** aún.
+
+**Candidata de cierre en rama aislada:** [PR #125 Draft](https://github.com/JW-Control/platform-jwplc/pull/125), `codex/alpha13-precompile-benchmark-docs-20261020`, basada en la rama Alpha13. Incluye documentación README de Ethernet, Modbus TCP/RTU, RS-485, FRAM, SD, TFT, GlobalPeripherals y package; generador `tools/alpha13/precompile/a13_precompile_benchmark.py`; workflow CI Windows+Ubuntu `alpha13-precompile-ethernet-modbus-tcp.yml`. Contrato y tabla PENDING en `A13_PRECOMPILE_BENCHMARK_20261020.md` dentro del PR. El runner prepara candidatos en TEMP sin tocar producto, COM, MAC o firmware. **Ni el éxito de un ensayo temporal ni un CI verde equivalen a archivos `.a` ya integrados**. Validación fuente→objeto→archive→ELF, Basic y Basic Core, benchmark y adopción a cuatro paths del package deben completar antes del merge.
+
+**Baseline que no se repetirá innecesariamente:** core, TFT, FRAM, RTU y SD ya tienen `.a` productivos con fuentes/paridad acreditadas por los G2/G3/G4/G7/G8/G9; nunca alterarlos por optimización de Ethernet. G10 #124 ya fusionado, PH0/R1/R2 aceptados, R3 interno/R4 largo documentados como riesgo residual. E1/E2 siguen PENDING y F135 queda resuelta en tooling. `KNOWLEDGE_SYNC=OK` de lección F135; nueva decisión se sincroniza al terminar el hito.
+
+```text
+ALPHA13=OPEN_PRECOMPILE_AND_BENCHMARK_REQUIRED_BEFORE_RELEASE
+G10_FUNCTIONAL=MERGED_PASS_WITH_RESIDUAL_RISKS
+ALPHA13_PRECOMPILE_PR=125_DRAFT
+ALPHA13_PRECOMPILE_ETHERNET=NOT_YET_ADOPTED
+ALPHA13_PRECOMPILE_MODBUSTCP=NOT_YET_ADOPTED
+ALPHA13_BENCHMARK_COLD_WARM=PENDING_MEASUREMENTS
+ALPHA13_READMES=CANDIDATE_PR125_NOT_YET_MERGED
+ALPHA13_RELEASE_WORKFLOW=BLOCKED_UNTIL_PR125_DONE
+NEXT_FAILURE_ID=F136
+BASE_SYNC=PENDING_PRECOMPILE_PR125
+KNOWLEDGE_SYNC=OK_OLD_LESSON_NEW_DECISION_PENDING
+NEXT_GATE=A13_PR125_CI_ARCHIVE_CANDIDATES_BENCHMARK_ADOPTION
+```
+
+---
 # ESTADO VIGENTE — 20/10/2026 — Origen de PreRelease Alpha13 resuelto, espera dispatch del operador
 
 **Ruta de publicación revisada:** [decisión de origen](A13_RELEASE_SOURCE_DECISION_20261020.md) demuestra que el workflow existente `Release JWPLC Arduino Package` puede ejecutarse mediante `workflow_dispatch` **seleccionando explícitamente la rama base Alpha13** e ingresando `version=2.1.0-alpha.13`. Esta ruta empaqueta `JWPLC/2.1.0` del HEAD elegido, valida raíz ZIP y abre PR de índice dev hacia `main`, sin merge masivo a `release/v2.1.x` (1095 commits por detrás). El README de la base ya contiene `JWPLC_RELEASE_VERSION: 2.1.0-alpha.13` y las notas `PRE_RELEASE.md` son públicas y no afirman publicación antes de tiempo.
