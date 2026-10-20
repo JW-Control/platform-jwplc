@@ -204,7 +204,11 @@
 
   function sync() {
     const selected = editor()?.getSelectedField?.();
-    section.hidden = Boolean(selected);
+    const hasPixel = Boolean(window.JWPLCHMIPixelMaps?.getSelected?.());
+    const currentTool = editor()?.getSelectedTool?.() || 'pointer';
+    const isPixelTool = (currentTool === 'pixel' || currentTool === 'erase');
+    const inspectorMode = window.JWPLCHMIInspectorState?.mode?.() || 'NONE';
+    section.hidden = Boolean(selected) || hasPixel || isPixelTool || inspectorMode !== 'NONE';
     if (!section.hidden) render();
   }
 

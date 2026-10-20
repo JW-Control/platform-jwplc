@@ -52,6 +52,7 @@
     if (field?.type === 'MENU') return 'MENU';
     if (field && SHAPE_TYPES.includes(field.type)) return 'SHAPE';
     if (field) return 'FIELD';
+    if (selectedTool === 'pixel' || selectedTool === 'erase') return 'PIXEL';
     return 'NONE';
   }
 
@@ -64,6 +65,7 @@
     setSectionVisible(shapeSection, mode === 'SHAPE');
     setSectionVisible(rawSection, mode === 'RAW');
     setSectionVisible(pixelInspector, mode === 'PIXEL');
+    setSectionVisible(document.getElementById('idleConfigSection'), mode === 'NONE');
 
     if (mode === 'NAV_BAR' && window.JWPLCHMIPages?.syncNavBarInspector) {
       window.JWPLCHMIPages.syncNavBarInspector();

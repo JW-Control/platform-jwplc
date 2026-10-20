@@ -492,8 +492,8 @@
               </div>
               <label class="field-label full" style="margin-top:6px;">Color de Pista vacía
                 <div class="bar-color-input-wrap">
-                  <input id="barAppLinearTrackNative" type="color" value="#18232c" />
-                  <span id="barAppLinearTrackHex" class="hex-label compact">0x18C3</span>
+                  <input id="barAppLinearTrackNative" type="color" value="#000000" />
+                  <span id="barAppLinearTrackHex" class="hex-label compact">0x0000</span>
                 </div>
               </label>
               <div id="barAppLinearPctColWrap" class="field-label full" style="display:none;margin-top:6px;">
@@ -533,8 +533,8 @@
               </div>
               <label class="field-label full" style="margin-top:6px;">Pista del Anillo
                 <div class="bar-color-input-wrap">
-                  <input id="barAppCircularTrackNative" type="color" value="#212930" />
-                  <span id="barAppCircularTrackHex" class="hex-label compact">0x2104</span>
+                  <input id="barAppCircularTrackNative" type="color" value="#000000" />
+                  <span id="barAppCircularTrackHex" class="hex-label compact">0x0000</span>
                 </div>
               </label>
               <div id="barAppCircularTextColWrap" class="field-label full" style="margin-top:6px;">
@@ -1065,7 +1065,7 @@
 
     // Colores de degradado y pista vacía (Invertido por defecto: Rojo -> Verde)
     if (!Number.isFinite(Number(field.valueColorEnd))) field.valueColorEnd = 0x07E0;
-    if (!Number.isFinite(Number(field.trackColor))) field.trackColor = 0x18C3;
+    if (!Number.isFinite(Number(field.trackColor))) field.trackColor = 0x0000;
 
     // Propiedades de Medidor Circular / Carga
     if (!Number.isFinite(Number(field.circleRadius))) field.circleRadius = 26;
@@ -1079,7 +1079,7 @@
     if (typeof field.circleShowPercent !== 'boolean') field.circleShowPercent = (field.circleCenterMode !== 'NONE');
     if (!Number.isFinite(Number(field.circleTextSize))) field.circleTextSize = 1;
     if (!Number.isFinite(Number(field.circleTextColor))) field.circleTextColor = 0xFFFF;
-    if (!Number.isFinite(Number(field.circleTrackColor))) field.circleTrackColor = 0x2104;
+    if (!Number.isFinite(Number(field.circleTrackColor))) field.circleTrackColor = 0x0000;
 
     // Propiedades de Barra Lineal
     if (typeof field.linearPctPos !== 'string') field.linearPctPos = 'NONE';
@@ -1664,7 +1664,8 @@
       }
 
       const rMid = g.radius - g.thickness / 2;
-      const trackCss = rgb565ToCss(field.circleTrackColor || 0x2104);
+      const trackCol565 = Number.isFinite(Number(field.circleTrackColor)) ? Number(field.circleTrackColor) : 0x0000;
+      const trackCss = rgb565ToCss(trackCol565);
       const activeColor565 = field.valueColor || 0x07FF;
       const endColor565 = field.valueColorEnd || 0x07E0;
       const isGrad = (field.circleColorMode === 'GRADIENT');
@@ -1858,7 +1859,7 @@
       }
 
       // 1. Pista vacía de fondo de la barra (Pixel art sólido para esquinas)
-      const trackCol565 = Number.isFinite(Number(field.trackColor)) ? Number(field.trackColor) : 0x18C3;
+      const trackCol565 = Number.isFinite(Number(field.trackColor)) ? Number(field.trackColor) : 0x0000;
       const trackCss = rgb565ToCss(trackCol565);
       if (radPx <= 0) {
         ctx.fillStyle = trackCss;
@@ -1943,7 +1944,7 @@
                 const col = isGrad ? interpolateColor565(activeCol565, endCol565, prop) : activeCol565;
                 ctx.fillStyle = rgb565ToCss(col);
               } else {
-                ctx.fillStyle = rgb565ToCss(field.trackColor || 0x18C3);
+                ctx.fillStyle = rgb565ToCss(Number.isFinite(Number(field.trackColor)) ? Number(field.trackColor) : 0x0000);
               }
               ctx.beginPath();
               ctx.arc(cx, cy, dotR, 0, 2 * Math.PI);
@@ -2067,7 +2068,7 @@
                 const col = isGrad ? interpolateColor565(activeCol565, endCol565, prop) : activeCol565;
                 ctx.fillStyle = rgb565ToCss(col);
               } else {
-                ctx.fillStyle = rgb565ToCss(field.trackColor || 0x18C3);
+                ctx.fillStyle = rgb565ToCss(Number.isFinite(Number(field.trackColor)) ? Number(field.trackColor) : 0x0000);
               }
               ctx.beginPath();
               ctx.arc(cx, cy, dotR, 0, 2 * Math.PI);
@@ -3002,8 +3003,8 @@
     field.labelColor = 0xFFFF;
     field.valueColor = 0x07FF;
     field.valueColorEnd = 0x07E0;
-    field.trackColor = 0x18C3;
-    field.backgroundColor = 'TRANSPARENT';
+    field.trackColor = 0x0000;
+    field.backgroundColor = 0x0000;
     field.frameColor = 0xFFFF;
     field.circleRadius = 26;
     field.circleThickness = 5;
@@ -3016,7 +3017,7 @@
     field.circleShowPercent = true;
     field.circleTextSize = 1;
     field.circleTextColor = 0xFFFF;
-    field.circleTrackColor = 0x2104;
+    field.circleTrackColor = 0x0000;
     ensureBarState(field);
 
     fieldName.value = field.name;
@@ -3251,7 +3252,7 @@
         if (barAppLinearGradEndHex) barAppLinearGradEndHex.textContent = hex565(field.valueColorEnd || 0x07E0);
       }
       if (barAppLinearTrackNative) {
-        const trackCol = Number.isFinite(Number(field.trackColor)) ? Number(field.trackColor) : 0x18C3;
+        const trackCol = Number.isFinite(Number(field.trackColor)) ? Number(field.trackColor) : 0x0000;
         barAppLinearTrackNative.value = rgb565ToHexCss(trackCol);
         if (barAppLinearTrackHex) barAppLinearTrackHex.textContent = hex565(trackCol);
       }
@@ -3279,8 +3280,9 @@
         if (barAppCircularGradEndHex) barAppCircularGradEndHex.textContent = hex565(field.valueColorEnd || 0x07E0);
       }
       if (barAppCircularTrackNative) {
-        barAppCircularTrackNative.value = rgb565ToHexCss(field.circleTrackColor || 0x2104);
-        if (barAppCircularTrackHex) barAppCircularTrackHex.textContent = hex565(field.circleTrackColor || 0x2104);
+        const cTrack = Number.isFinite(Number(field.circleTrackColor)) ? Number(field.circleTrackColor) : 0x0000;
+        barAppCircularTrackNative.value = rgb565ToHexCss(cTrack);
+        if (barAppCircularTrackHex) barAppCircularTrackHex.textContent = hex565(cTrack);
       }
       if (barAppCircularTextColNative) {
         barAppCircularTextColNative.value = rgb565ToHexCss(field.circleTextColor || 0xFFFF);
@@ -3479,7 +3481,7 @@
   // JWPLC_UIBarField: value = barra, background = fondo del campo y pista
   // vacía (un solo color), label = etiqueta y unidad, frame = marco.
   const BAR_COLOR_PROP = { frame: 'frameColor', label: 'labelColor', value: 'valueColor', track: 'trackColor' };
-  const BAR_COLOR_DEFAULT = { frame: 0xFFFF, label: 0xFFFF, value: 0x07FF, track: 0x18C3 };
+  const BAR_COLOR_DEFAULT = { frame: 0xFFFF, label: 0xFFFF, value: 0x07FF, track: 0x0000 };
   const BAR_LETTER = { frame: 'M', label: 'T', value: 'B', track: 'F' };
   const BAR_NAME = { frame: 'Marco', label: 'Etiqueta y unidad', value: 'Barra', track: 'Fondo y pista' };
   let barActiveKey = 'value';

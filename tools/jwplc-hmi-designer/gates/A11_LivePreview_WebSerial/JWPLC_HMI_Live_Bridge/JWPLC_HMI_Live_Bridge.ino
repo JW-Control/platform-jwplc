@@ -211,22 +211,40 @@ namespace
 
         const uint32_t started = micros();
 
-        // El display comparte SPI con Ethernet, SD y FRAM. Aunque este sketch
-        // sea un bridge de desarrollo, respetamos el mutex común del package.
-        if (!jwplcSPI_acquire(50))
+        JWPLC_TFTClass &tft = JWPLC_Display.tft();
+        if (!tft.beginBatch(50))
         {
             drawUs += micros() - started;
             return false;
         }
 
-        jwplcSPI_prepareForTFT();
-        JWPLC_Display.tft().drawRGBBitmap(
-            (int16_t)x,
-            (int16_t)startY,
-            g_frame,
-            (int16_t)width,
-            (int16_t)rows);
-        jwplcSPI_release();
+        uint32_t idx = 0;
+        for (uint16_t r = 0; r < rows; ++r)
+        {
+            const int16_t curY = (int16_t)(startY + r);
+            uint16_t c = 0;
+            while (c < width)
+            {
+                const uint16_t color = g_frame[idx + c];
+                uint16_t runLen = 1;
+                while (c + runLen < width && g_frame[idx + c + runLen] == color)
+                {
+                    ++runLen;
+                }
+                if (runLen == 1)
+                {
+                    tft.drawPixel((int16_t)(x + c), curY, color);
+                }
+                else
+                {
+                    tft.drawFastHLine((int16_t)(x + c), curY, (int16_t)runLen, color);
+                }
+                c += runLen;
+            }
+            idx += width;
+        }
+
+        tft.endBatch();
 
         drawUs += micros() - started;
         return true;

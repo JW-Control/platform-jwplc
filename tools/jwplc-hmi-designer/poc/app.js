@@ -222,6 +222,81 @@
   const shapeInspectorSection = document.getElementById('shapeInspectorSection');
   const shapeInspectorIcon = document.getElementById('shapeInspectorIcon');
   const shapeInspectorName = document.getElementById('shapeInspectorName');
+  let shapeActiveColorKey = 'border';
+  let shapeColorEditor = null;
+
+  function initShapeColorEditor() {
+    if (shapeColorEditor) return;
+    const host = document.getElementById('shapeColorEditorHost');
+    if (!host || !window.JWPLCColorEditor) return;
+    shapeColorEditor = window.JWPLCColorEditor.create({
+      paletteAttr: 'data-shape-palette',
+      onInput: (v) => applyShapeColor(shapeActiveColorKey, v, false),
+      onCommit: (v) => applyShapeColor(shapeActiveColorKey, v, true)
+    });
+    host.appendChild(shapeColorEditor.el);
+  }
+
+  function applyShapeColor(key, value565, commit) {
+    const f = selectedField();
+    if (!f) return;
+    const col = value565 & 0xFFFF;
+    if (key === 'border') {
+      f.frameColor = col;
+    } else if (key === 'fill') {
+      f.fillColor = col;
+    }
+    syncShapeInspector();
+    render();
+    if (commit) commitHistory();
+  }
+
+  let activeRawMainTab = 'design';
+  let activeRawSubTab = 'form';
+  let rawActiveColorKey = 'textColor';
+  let rawColorEditor = null;
+
+  function initRawColorEditor() {
+    if (rawColorEditor) return;
+    const host = document.getElementById('rawColorEditorHost');
+    if (!host || !window.JWPLCColorEditor) return;
+    rawColorEditor = window.JWPLCColorEditor.create({
+      paletteAttr: 'data-raw-palette',
+      onInput: (v) => applyRawColor(rawActiveColorKey, v, false),
+      onCommit: (v) => applyRawColor(rawActiveColorKey, v, true)
+    });
+    host.appendChild(rawColorEditor.el);
+  }
+
+  function applyRawColor(key, value565, commit) {
+    const f = selectedField();
+    const col = value565 & 0xFFFF;
+    if (key === 'textColor') {
+      if (f && f.type === 'RAW_TEXT') f.textColor = col;
+      rawState.foreground = col;
+      if (rawTextColorSwatch) rawTextColorSwatch.style.background = rgb565ToCss(col);
+      if (rawTextColorInput) rawTextColorInput.value = rgb565ToHex888(col);
+      if (rawTextColorCode) rawTextColorCode.textContent = rgb565ToHex888(col).toUpperCase();
+      if (rawTextColor) ensureSelectOption(rawTextColor, col);
+    } else if (key === 'bgColor') {
+      if (f && f.type === 'RAW_TEXT') {
+        f.backgroundColor = col;
+        f.transparentBackground = false;
+      }
+      rawState.background = col;
+      rawState.transparent = false;
+      if (rawTextTransparentToggle) rawTextTransparentToggle.checked = true;
+      if (rawTextTransparent) rawTextTransparent.value = '0';
+      if (rawTextBgColorSwatch) rawTextBgColorSwatch.style.background = rgb565ToCss(col);
+      if (rawTextBgColorInput) rawTextBgColorInput.value = rgb565ToHex888(col);
+      if (rawTextBgColorCode) rawTextBgColorCode.textContent = rgb565ToHex888(col).toUpperCase();
+      if (rawTextBackground) ensureSelectOption(rawTextBackground, col);
+    }
+    syncRawAppearance();
+    syncRawTextInspector();
+    render();
+    if (commit) commitHistory();
+  }
   const shapeX = document.getElementById('shapeX');
   const shapeY = document.getElementById('shapeY');
   const shapeW = document.getElementById('shapeW');
@@ -1199,6 +1274,8 @@
         field.valueColor = selectedColor.value;
       }
       syncInputsFromState();
+    } else if (window.JWPLCHMIPixelMaps?.getSelected?.()) {
+      window.JWPLCHMIPixelMaps.setActiveColor(selectedColor.value);
     }
     return true;
   }
@@ -1259,7 +1336,64 @@
     fillBufferRect(buffer, x + width - 1, y, 1, height, value);
   }
 
+  function rasterLineThick(buffer, x0, y0, x1, y1, value, size = 1) {
+    if (size <= 1) {
+      return rasterLineBuffer(buffer, x0, y0, x1, y1, value, 1);
+    }
+    const dx = x1 - x0;
+    const dy = y1 - y0;
+    const len = Math.hypot(dx, dy);
+    if (len < 0.001) {
+      const half = Math.floor(size / 2);
+      for (let oy = 0; oy < size; oy++) {
+        for (let ox = 0; ox < size; ox++) {
+          setBufferPixel(buffer, Math.round(x0) + ox - half, Math.round(y0) + oy - half, value);
+        }
+      }
+      return true;
+    }
+    const nx = -dy / len;
+    const ny = dx / len;
+    const h = (size - 1) / 2;
+
+    const v = [
+      { x: x0 + h * nx, y: y0 + h * ny },
+      { x: x0 - h * nx, y: y0 - h * ny },
+      { x: x1 - h * nx, y: y1 - h * ny },
+      { x: x1 + h * nx, y: y1 + h * ny }
+    ];
+
+    const yMin = Math.max(0, Math.floor(Math.min(v[0].y, v[1].y, v[2].y, v[3].y)));
+    const yMax = Math.min(HEIGHT - 1, Math.ceil(Math.max(v[0].y, v[1].y, v[2].y, v[3].y)));
+
+    for (let y = yMin; y <= yMax; y++) {
+      const xIntersects = [];
+      for (let i = 0; i < 4; i++) {
+        const p1 = v[i];
+        const p2 = v[(i + 1) % 4];
+        if (Math.abs(p1.y - p2.y) < 1e-6) continue;
+        const eYMin = Math.min(p1.y, p2.y);
+        const eYMax = Math.max(p1.y, p2.y);
+        if (y >= eYMin - 1e-4 && y <= eYMax + 1e-4) {
+          const t = (y - p1.y) / (p2.y - p1.y);
+          xIntersects.push(p1.x + t * (p2.x - p1.x));
+        }
+      }
+      if (xIntersects.length >= 2) {
+        const xStart = Math.max(0, Math.floor(Math.min(...xIntersects)));
+        const xEnd = Math.min(WIDTH - 1, Math.ceil(Math.max(...xIntersects)));
+        for (let x = xStart; x <= xEnd; x++) {
+          setBufferPixel(buffer, x, y, value);
+        }
+      }
+    }
+    return true;
+  }
+
   function rasterLineBuffer(buffer, x0, y0, x1, y1, value, size = 1) {
+    if (size > 1) {
+      return rasterLineThick(buffer, x0, y0, x1, y1, value, size);
+    }
     let dx = Math.abs(x1 - x0);
     const sx = x0 < x1 ? 1 : -1;
     let dy = -Math.abs(y1 - y0);
@@ -1267,11 +1401,7 @@
     let error = dx + dy;
     let changed = false;
     while (true) {
-      for (let oy = 0; oy < size; oy++) {
-        for (let ox = 0; ox < size; ox++) {
-          setBufferPixel(buffer, x0 + ox - Math.floor(size/2), y0 + oy - Math.floor(size/2), value);
-        }
-      }
+      setBufferPixel(buffer, x0, y0, value);
       changed = true;
       if (x0 === x1 && y0 === y1) break;
       const e2 = 2 * error;
@@ -1457,56 +1587,275 @@
     }
   }
 
+  function isPointInPolygon(px, py, pts) {
+    if (!pts || pts.length < 3) return false;
+    let inside = false;
+    const n = pts.length;
+    for (let i = 0, j = n - 1; i < n; j = i++) {
+      const xi = pts[i].x, yi = pts[i].y;
+      const xj = pts[j].x, yj = pts[j].y;
+      const intersect = ((yi > py) !== (yj > py)) &&
+        (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  }
+
+  function distToPolygonBoundary(px, py, pts) {
+    if (!pts || pts.length < 2) return Infinity;
+    let minDist = Infinity;
+    const n = pts.length;
+    for (let i = 0; i < n; i++) {
+      const p1 = pts[i];
+      const p2 = pts[(i + 1) % n];
+      const d = distToSegment(px, py, p1.x, p1.y, p2.x, p2.y);
+      if (d < minDist) minDist = d;
+    }
+    return minDist;
+  }
+
   function isPointInsideShapeArea(px, py, field) {
-    const cx = ((field.x ?? 0) + (field.x2 ?? field.x ?? 0)) / 2;
-    const cy = ((field.y ?? 0) + (field.y2 ?? field.y ?? 0)) / 2;
-    const angleDeg = Number(field.rotation) || 0;
-    const local = inverseTransformShapePoint(px, py, cx, cy, angleDeg, Boolean(field.flipH), Boolean(field.flipV));
-    px = local.x; py = local.y;
-    const a = { x: field.x, y: field.y };
-    const b = { x: field.x2 ?? field.x, y: field.y2 ?? field.y };
-    if (field.type === 'RECT') {
-      const left = Math.min(a.x, b.x);
-      const right = Math.max(a.x, b.x);
-      const top = Math.min(a.y, b.y);
-      const bottom = Math.max(a.y, b.y);
-      return px >= left && px <= right && py >= top && py <= bottom;
+    if (!field) return false;
+    if (field.type === 'LINE') {
+      const strokeSize = field.borderEnabled !== false ? Math.max(1, Math.round(field.size || 1)) : 1;
+      const x1 = field.x ?? 0; const y1 = field.y ?? 0;
+      const x2 = field.x2 ?? x1; const y2 = field.y2 ?? y1;
+      return distToSegment(px, py, x1, y1, x2, y2) <= Math.max(3.5, strokeSize / 2 + 2.0);
     }
-    if (field.type === 'ELLIPSE') {
-      const rx = Math.abs(b.x - a.x) / 2;
-      const ry = Math.abs(b.y - a.y) / 2;
-      if (rx <= 0 || ry <= 0) return false;
-      const cx = (a.x + b.x) / 2;
-      const cy = (a.y + b.y) / 2;
-      const nx = (px - cx) / rx;
-      const ny = (py - cy) / ry;
-      return (nx * nx + ny * ny) <= 1.05;
-    }
-    if (field.type === 'TRIANGLE') {
-      const topPt = { x: Math.round((a.x + b.x) / 2), y: a.y };
-      const bl = { x: a.x, y: b.y };
-      const br = { x: b.x, y: b.y };
-      const d1 = (px - bl.x) * (topPt.y - bl.y) - (topPt.x - bl.x) * (py - bl.y);
-      const d2 = (px - br.x) * (bl.y - br.y) - (bl.x - br.x) * (py - br.y);
-      const d3 = (px - topPt.x) * (br.y - topPt.y) - (br.x - topPt.x) * (py - topPt.y);
-      const hasNeg = (d1 < 0) || (d2 < 0) || (d3 < 0);
-      const hasPos = (d1 > 0) || (d2 > 0) || (d3 > 0);
-      return !(hasNeg && hasPos);
-    }
-    if (field.type === 'POLYGON') {
-      const pts = getPolygonVertices(field);
-      let inside = false;
-      const n = pts.length;
-      for (let i = 0, j = n - 1; i < n; j = i++) {
-        const xi = pts[i].x, yi = pts[i].y;
-        const xj = pts[j].x, yj = pts[j].y;
-        const intersect = ((yi > py) !== (yj > py)) &&
-          (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
-        if (intersect) inside = !inside;
-      }
-      return inside;
+    const pts = getShapeTransformedVertices(field);
+    if (pts && pts.length >= 3) {
+      return isPointInPolygon(px, py, pts);
     }
     return false;
+  }
+
+  function drawShapeRectScanline(buffer, field, frameColor, fillColor, strokeSize, hasBorder, hasFill) {
+    const x1 = field.x ?? 0; const y1 = field.y ?? 0;
+    const x2 = field.x2 ?? x1; const y2 = field.y2 ?? y1;
+    const left = Math.min(x1, x2);
+    const right = Math.max(x1, x2);
+    const top = Math.min(y1, y2);
+    const bottom = Math.max(y1, y2);
+    const W = right - left + 1;
+    const H = bottom - top + 1;
+    if (W <= 0 || H <= 0) return;
+
+    const maxR = Math.floor(Math.min(W, H) / 2);
+    const R = clamp(Math.round(Number(field.cornerRadius) || 0), 0, maxR);
+    const effStroke = hasBorder ? Math.min(strokeSize, maxR > 0 ? maxR : Math.floor(Math.min(W, H) / 2) || 1) : 0;
+    const borderOn = hasBorder && effStroke > 0;
+
+    const inLeft = left + effStroke;
+    const inRight = right - effStroke;
+    const inTop = top + effStroke;
+    const inBottom = bottom - effStroke;
+    const inR = Math.max(0, R - effStroke);
+    const hasInner = borderOn ? (inLeft <= inRight && inTop <= inBottom) : true;
+
+    const yStart = Math.max(0, top);
+    const yEnd = Math.min(HEIGHT - 1, bottom);
+
+    for (let y = yStart; y <= yEnd; y++) {
+      let dxOut = 0;
+      if (R > 0) {
+        if (y < top + R) {
+          const dy = (top + R) - y;
+          dxOut = R - Math.round(Math.sqrt(Math.max(0, R * R - dy * dy)));
+        } else if (y > bottom - R) {
+          const dy = y - (bottom - R);
+          dxOut = R - Math.round(Math.sqrt(Math.max(0, R * R - dy * dy)));
+        }
+      }
+      const xOutL = Math.max(0, left + dxOut);
+      const xOutR = Math.min(WIDTH - 1, right - dxOut);
+      if (xOutL > xOutR) continue;
+
+      if (!borderOn) {
+        if (hasFill) {
+          for (let x = xOutL; x <= xOutR; x++) setBufferPixel(buffer, x, y, fillColor);
+        }
+        continue;
+      }
+
+      let innerValid = false;
+      let xInL = 0, xInR = -1;
+      if (hasInner && y >= inTop && y <= inBottom) {
+        let dxIn = 0;
+        if (inR > 0) {
+          if (y < inTop + inR) {
+            const dy = (inTop + inR) - y;
+            dxIn = inR - Math.round(Math.sqrt(Math.max(0, inR * inR - dy * dy)));
+          } else if (y > inBottom - inR) {
+            const dy = y - (inBottom - inR);
+            dxIn = inR - Math.round(Math.sqrt(Math.max(0, inR * inR - dy * dy)));
+          }
+        }
+        xInL = Math.max(0, inLeft + dxIn);
+        xInR = Math.min(WIDTH - 1, inRight - dxIn);
+        if (xInL <= xInR && xInL >= xOutL && xInR <= xOutR) {
+          innerValid = true;
+        }
+      }
+
+      if (!innerValid) {
+        for (let x = xOutL; x <= xOutR; x++) setBufferPixel(buffer, x, y, frameColor);
+      } else {
+        for (let x = xOutL; x < xInL; x++) setBufferPixel(buffer, x, y, frameColor);
+        if (hasFill) {
+          for (let x = xInL; x <= xInR; x++) setBufferPixel(buffer, x, y, fillColor);
+        }
+        for (let x = xInR + 1; x <= xOutR; x++) setBufferPixel(buffer, x, y, frameColor);
+      }
+    }
+  }
+
+  function drawShapeEllipseScanline(buffer, field, frameColor, fillColor, strokeSize, hasBorder, hasFill) {
+    const x1 = field.x ?? 0; const y1 = field.y ?? 0;
+    const x2 = field.x2 ?? x1; const y2 = field.y2 ?? y1;
+    const left = Math.min(x1, x2);
+    const right = Math.max(x1, x2);
+    const top = Math.min(y1, y2);
+    const bottom = Math.max(y1, y2);
+    const W = right - left + 1;
+    const H = bottom - top + 1;
+    if (W <= 0 || H <= 0) return;
+
+    const cx = (left + right) / 2;
+    const cy = (top + bottom) / 2;
+    const rx = (right - left) / 2;
+    const ry = (bottom - top) / 2;
+    if (rx < 0.5 || ry < 0.5) return;
+
+    const effStroke = hasBorder ? Math.min(strokeSize, Math.floor(Math.min(rx, ry)) || 1) : 0;
+    const borderOn = hasBorder && effStroke > 0;
+    const inRx = Math.max(0, rx - effStroke);
+    const inRy = Math.max(0, ry - effStroke);
+
+    const yStart = Math.max(0, Math.floor(top));
+    const yEnd = Math.min(HEIGHT - 1, Math.ceil(bottom));
+
+    for (let y = yStart; y <= yEnd; y++) {
+      const dy = y - cy;
+      if (Math.abs(dy) > ry) continue;
+      const factorOut = Math.max(0, 1 - (dy * dy) / (ry * ry));
+      const dxOut = rx * Math.sqrt(factorOut);
+      const xOutL = Math.max(0, Math.round(cx - dxOut));
+      const xOutR = Math.min(WIDTH - 1, Math.round(cx + dxOut));
+      if (xOutL > xOutR) continue;
+
+      if (!borderOn) {
+        if (hasFill) {
+          for (let x = xOutL; x <= xOutR; x++) setBufferPixel(buffer, x, y, fillColor);
+        }
+        continue;
+      }
+
+      let innerValid = false;
+      let xInL = 0, xInR = -1;
+      if (inRx > 0 && inRy > 0 && Math.abs(dy) < inRy) {
+        const factorIn = Math.max(0, 1 - (dy * dy) / (inRy * inRy));
+        const dxIn = inRx * Math.sqrt(factorIn);
+        xInL = Math.max(0, Math.round(cx - dxIn));
+        xInR = Math.min(WIDTH - 1, Math.round(cx + dxIn));
+        if (xInL <= xInR && xInL >= xOutL && xInR <= xOutR) {
+          innerValid = true;
+        }
+      }
+
+      if (!innerValid) {
+        for (let x = xOutL; x <= xOutR; x++) setBufferPixel(buffer, x, y, frameColor);
+      } else {
+        for (let x = xOutL; x < xInL; x++) setBufferPixel(buffer, x, y, frameColor);
+        if (hasFill) {
+          for (let x = xInL; x <= xInR; x++) setBufferPixel(buffer, x, y, fillColor);
+        }
+        for (let x = xInR + 1; x <= xOutR; x++) setBufferPixel(buffer, x, y, frameColor);
+      }
+    }
+  }
+
+  function drawShapePolygonScanline(buffer, pts, frameColor, fillColor, strokeSize, hasBorder, hasFill) {
+    if (!pts || pts.length < 3) return;
+    const n = pts.length;
+    let minY = Infinity, maxY = -Infinity;
+    let minX = Infinity, maxX = -Infinity;
+    for (const p of pts) {
+      if (p.x < minX) minX = p.x;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.y > maxY) maxY = p.y;
+    }
+    const yStart = Math.max(0, Math.floor(minY));
+    const yEnd = Math.min(HEIGHT - 1, Math.ceil(maxY));
+
+    const borderOn = hasBorder && strokeSize > 0;
+    const effStroke = borderOn ? strokeSize : 0;
+
+    const segs = [];
+    for (let i = 0; i < n; i++) {
+      const p1 = pts[i];
+      const p2 = pts[(i + 1) % n];
+      segs.push({
+        x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y,
+        minX: Math.min(p1.x, p2.x), maxX: Math.max(p1.x, p2.x),
+        minY: Math.min(p1.y, p2.y), maxY: Math.max(p1.y, p2.y),
+        dx: p2.x - p1.x, dy: p2.y - p1.y,
+        l2: (p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2
+      });
+    }
+
+    for (let y = yStart; y <= yEnd; y++) {
+      const xNodes = [];
+      for (let i = 0; i < n; i++) {
+        const pA = pts[i];
+        const pB = pts[(i + 1) % n];
+        if ((pA.y <= y && pB.y > y) || (pB.y <= y && pA.y > y)) {
+          xNodes.push(pA.x + ((y - pA.y) * (pB.x - pA.x)) / (pB.y - pA.y));
+        }
+      }
+      xNodes.sort((a, b) => a - b);
+      if (xNodes.length < 2) continue;
+
+      const nearSegs = borderOn ? segs.filter(s => y >= s.minY - effStroke - 1 && y <= s.maxY + effStroke + 1) : [];
+
+      for (let i = 0; i < xNodes.length; i += 2) {
+        if (i + 1 >= xNodes.length) break;
+        const xL = Math.max(0, Math.round(xNodes[i]));
+        const xR = Math.min(WIDTH - 1, Math.round(xNodes[i + 1]));
+        if (xL > xR) continue;
+
+        if (!borderOn) {
+          if (hasFill) {
+            for (let x = xL; x <= xR; x++) setBufferPixel(buffer, x, y, fillColor);
+          }
+          continue;
+        }
+
+        for (let x = xL; x <= xR; x++) {
+          let isBorder = false;
+          if ((x - xL) < effStroke || (xR - x) < effStroke) {
+            isBorder = true;
+          } else {
+            for (let j = 0; j < nearSegs.length; j++) {
+              const s = nearSegs[j];
+              if (x < s.minX - effStroke || x > s.maxX + effStroke) continue;
+              const t = Math.max(0, Math.min(1, ((x - s.x1) * s.dx + (y - s.y1) * s.dy) / (s.l2 || 1)));
+              const dist = Math.hypot(x - (s.x1 + t * s.dx), y - (s.y1 + t * s.dy));
+              if (dist <= effStroke) {
+                isBorder = true;
+                break;
+              }
+            }
+          }
+
+          if (isBorder) {
+            setBufferPixel(buffer, x, y, frameColor);
+          } else if (hasFill) {
+            setBufferPixel(buffer, x, y, fillColor);
+          }
+        }
+      }
+    }
   }
 
   function drawShape(buffer, field) {
@@ -1516,32 +1865,33 @@
 
     const color = field.frameColor || 0xFFFF;
     const fillColor = field.fillColor ?? color;
-    const size = field.size || 1;
-    const pts = getShapeTransformedVertices(field);
-    if (!pts || pts.length === 0) return;
+    const size = Math.max(1, Math.round(field.size || 1));
+    const angleDeg = Number(field.rotation) || 0;
 
     if (field.type === 'LINE') {
-      if (hasBorder && pts.length >= 2) {
-        rasterLineBuffer(buffer, pts[0].x, pts[0].y, pts[1].x, pts[1].y, color, size);
+      if (hasBorder) {
+        const x1 = field.x ?? 0; const y1 = field.y ?? 0;
+        const x2 = field.x2 ?? x1; const y2 = field.y2 ?? y1;
+        rasterLineThick(buffer, x1, y1, x2, y2, color, size);
       }
       return;
     }
 
+    if (field.type === 'RECT' && angleDeg === 0) {
+      drawShapeRectScanline(buffer, field, color, fillColor, size, hasBorder, hasFill);
+      return;
+    }
+
+    if (field.type === 'ELLIPSE' && angleDeg === 0) {
+      drawShapeEllipseScanline(buffer, field, color, fillColor, size, hasBorder, hasFill);
+      return;
+    }
+
+    const pts = getShapeTransformedVertices(field);
+    if (!pts || pts.length === 0) return;
+
     if (field.type === 'RECT' || field.type === 'TRIANGLE' || field.type === 'POLYGON' || field.type === 'ELLIPSE') {
-      if (hasFill && pts.length >= 3) {
-        if (field.type === 'TRIANGLE' && pts.length === 3) {
-          fillShapeTriangle(buffer, pts[0], pts[1], pts[2], fillColor);
-        } else {
-          fillShapePolygon(buffer, pts, fillColor);
-        }
-      }
-      if (hasBorder && pts.length >= 2) {
-        for (let i = 0; i < pts.length; i++) {
-          const p1 = pts[i];
-          const p2 = pts[(i + 1) % pts.length];
-          rasterLineBuffer(buffer, p1.x, p1.y, p2.x, p2.y, color, size);
-        }
-      }
+      drawShapePolygonScanline(buffer, pts, color, fillColor, size, hasBorder, hasFill);
       return;
     }
   }
@@ -1738,6 +2088,58 @@
     }
 
     if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
+      if (field.type === 'LINE') {
+        const x1 = field.x ?? 0; const y1 = field.y ?? 0;
+        const x2 = field.x2 ?? x1; const y2 = field.y2 ?? y1;
+        const strokeSize = field.borderEnabled !== false ? Math.max(1, Math.round(field.size || 1)) : 1;
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const len = Math.hypot(dx, dy);
+        let minX, maxX, minY, maxY;
+        if (len < 0.001) {
+          const h = Math.floor(strokeSize / 2);
+          minX = x1 - h; maxX = x1 + h;
+          minY = y1 - h; maxY = y1 + h;
+        } else {
+          const nx = -dy / len;
+          const ny = dx / len;
+          const h = (strokeSize - 1) / 2;
+          const v = [
+            { x: x1 + h * nx, y: y1 + h * ny },
+            { x: x1 - h * nx, y: y1 - h * ny },
+            { x: x2 - h * nx, y: y2 - h * ny },
+            { x: x2 + h * nx, y: y2 + h * ny }
+          ];
+          minX = Math.floor(Math.min(v[0].x, v[1].x, v[2].x, v[3].x));
+          maxX = Math.ceil(Math.max(v[0].x, v[1].x, v[2].x, v[3].x));
+          minY = Math.floor(Math.min(v[0].y, v[1].y, v[2].y, v[3].y));
+          maxY = Math.ceil(Math.max(v[0].y, v[1].y, v[2].y, v[3].y));
+        }
+        return {
+          x: minX,
+          y: minY,
+          minX,
+          maxX,
+          minY,
+          maxY,
+          width: Math.max(1, maxX - minX + 1),
+          height: Math.max(1, maxY - minY + 1)
+        };
+      }
+      const angleDeg = Number(field.rotation) || 0;
+      if (angleDeg === 0) {
+        const lb = getShapeLocalBounds(field);
+        return {
+          x: lb.minX,
+          y: lb.minY,
+          minX: lb.minX,
+          maxX: lb.maxX,
+          minY: lb.minY,
+          maxY: lb.maxY,
+          width: Math.max(1, lb.maxX - lb.minX + 1),
+          height: Math.max(1, lb.maxY - lb.minY + 1)
+        };
+      }
       const pts = getShapeTransformedVertices(field);
       let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
       for (const p of pts) {
@@ -1756,8 +2158,8 @@
         maxX,
         minY,
         maxY,
-        width: Math.max(1, maxX - minX),
-        height: Math.max(1, maxY - minY)
+        width: Math.max(1, maxX - minX + 1),
+        height: Math.max(1, maxY - minY + 1)
       };
     }
     const g = computeFieldGeometry(field);
@@ -1922,7 +2324,15 @@
   // sin tocar el lienzo ni el orden de capas.
   function renderFieldPreview(field) {
     const buffer = new Uint16Array(WIDTH * HEIGHT);
-    const g = (['TEXT', 'VALUE', 'BOOL'].includes(field.type)) ? drawField(buffer, field) : null;
+    let g = null;
+    if (['TEXT', 'VALUE', 'BOOL'].includes(field.type)) {
+      g = drawField(buffer, field);
+    } else if (field.type === 'RAW_TEXT') {
+      const bg = field.transparentBackground ? null : (field.backgroundColor ?? 0x0000);
+      drawRawTextAt(buffer, field.text || '', field.x, field.y, field.textColor ?? 0xFFFF, bg, field.size || 1, field.font);
+      const b = getFieldBounds(field);
+      g = { fieldX: b.x, fieldY: b.y, fieldW: b.width, fieldH: b.height };
+    }
     return { buffer, g, width: WIDTH, height: HEIGHT };
   }
 
@@ -2608,22 +3018,90 @@
 
   function getSelectionHandles(fields) {
     if (!fields || fields.length === 0) {
-      const selPm = window.JWPLCHMIPixelMaps?.getSelected?.();
-      if (selPm && selectedTool === 'pointer' && Number(selPm.page || 0) === activePage && selPm.editorVisible !== false && selPm.pixels?.length) {
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        selPm.pixels.forEach((p) => {
-          const px = selPm.x + p.x;
-          const py = selPm.y + p.y;
-          if (px < minX) minX = px;
-          if (px > maxX) maxX = px;
-          if (py < minY) minY = py;
-          if (py > maxY) maxY = py;
-        });
-        if (minX !== Infinity) {
-          const sx1 = minX * zoom;
-          const sy1 = minY * zoom;
-          const sx2 = (maxX + 1) * zoom;
-          const sy2 = (maxY + 1) * zoom;
+      const selPms = (window.JWPLCHMIPixelMaps?.getSelectedMaps?.() || []).filter(
+        (pm) => Number(pm.page || 0) === activePage && pm.editorVisible !== false && pm.pixels?.length
+      );
+      if (selPms.length > 0 && selectedTool !== 'pixel' && selectedTool !== 'erase') {
+        const unionB = getPixelMapsUnionBounds(selPms);
+        if (unionB) {
+          const midX = (unionB.screenX1 + unionB.screenX2) / 2;
+          const midY = (unionB.screenY1 + unionB.screenY2) / 2;
+          return [
+            { id: 'tl', x: unionB.screenX1, y: unionB.screenY1, cursor: 'nwse-resize' },
+            { id: 'tc', x: midX, y: unionB.screenY1, cursor: 'ns-resize' },
+            { id: 'tr', x: unionB.screenX2, y: unionB.screenY1, cursor: 'nesw-resize' },
+            { id: 'rc', x: unionB.screenX2, y: midY, cursor: 'ew-resize' },
+            { id: 'br', x: unionB.screenX2, y: unionB.screenY2, cursor: 'nwse-resize' },
+            { id: 'bc', x: midX, y: unionB.screenY2, cursor: 'ns-resize' },
+            { id: 'bl', x: unionB.screenX1, y: unionB.screenY2, cursor: 'nesw-resize' },
+            { id: 'lc', x: unionB.screenX1, y: midY, cursor: 'ew-resize' }
+          ];
+        }
+      }
+      return [];
+    }
+
+    if (fields.length === 1) {
+      const f = fields[0];
+      // RAW_TEXT: sin handles de resize (el texto no se deforma geometricamente)
+      if (f.type === 'RAW_TEXT') return [];
+      if (f.type === 'LINE') {
+        const b = getFieldBounds(f);
+        const sx1 = b.minX * zoom;
+        const sy1 = b.minY * zoom;
+        const sx2 = (b.maxX + 1) * zoom;
+        const sy2 = (b.maxY + 1) * zoom;
+        const x1 = f.x ?? 0; const y1 = f.y ?? 0;
+        const x2 = f.x2 ?? x1; const y2 = f.y2 ?? y1;
+
+        const midX = (sx1 + sx2) / 2;
+        const midY = (sy1 + sy2) / 2;
+
+        let p1Pos, p2Pos;
+        if (Math.abs(x1 - x2) < 0.001) {
+          if (y1 <= y2) {
+            p1Pos = { x: midX, y: sy1 };
+            p2Pos = { x: midX, y: sy2 };
+          } else {
+            p1Pos = { x: midX, y: sy2 };
+            p2Pos = { x: midX, y: sy1 };
+          }
+        } else if (Math.abs(y1 - y2) < 0.001) {
+          if (x1 <= x2) {
+            p1Pos = { x: sx1, y: midY };
+            p2Pos = { x: sx2, y: midY };
+          } else {
+            p1Pos = { x: sx2, y: midY };
+            p2Pos = { x: sx1, y: midY };
+          }
+        } else {
+          if (x1 <= x2 && y1 <= y2) {
+            p1Pos = { x: sx1, y: sy1 };
+            p2Pos = { x: sx2, y: sy2 };
+          } else if (x1 <= x2 && y1 > y2) {
+            p1Pos = { x: sx1, y: sy2 };
+            p2Pos = { x: sx2, y: sy1 };
+          } else if (x1 > x2 && y1 <= y2) {
+            p1Pos = { x: sx2, y: sy1 };
+            p2Pos = { x: sx1, y: sy2 };
+          } else {
+            p1Pos = { x: sx2, y: sy2 };
+            p2Pos = { x: sx1, y: sy1 };
+          }
+        }
+        return [
+          { id: 'p1', x: p1Pos.x, y: p1Pos.y, cursor: 'crosshair' },
+          { id: 'p2', x: p2Pos.x, y: p2Pos.y, cursor: 'crosshair' }
+        ];
+      }
+      if (['RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(f.type)) {
+        const angleDeg = Number(f.rotation) || 0;
+        if (angleDeg === 0) {
+          const b = getFieldBounds(f);
+          const sx1 = b.minX * zoom;
+          const sy1 = b.minY * zoom;
+          const sx2 = (b.maxX + 1) * zoom;
+          const sy2 = (b.maxY + 1) * zoom;
           const midX = (sx1 + sx2) / 2;
           const midY = (sy1 + sy2) / 2;
           return [
@@ -2637,37 +3115,13 @@
             { id: 'lc', x: sx1, y: midY, cursor: 'ew-resize' }
           ];
         }
-      }
-      return [];
-    }
-
-    if (fields.length === 1) {
-      const f = fields[0];
-      // RAW_TEXT: sin handles de resize (el texto no se deforma geometricamente)
-      if (f.type === 'RAW_TEXT') return [];
-      if (f.type === 'LINE') {
-
-        const x1 = f.x ?? 0; const y1 = f.y ?? 0;
-        const x2 = f.x2 ?? x1; const y2 = f.y2 ?? y1;
-        const cx = (x1 + x2) / 2; const cy = (y1 + y2) / 2;
-        const angleDeg = Number(f.rotation) || 0;
-        const flipH = Boolean(f.flipH); const flipV = Boolean(f.flipV);
-        const p1 = transformShapePoint(x1, y1, cx, cy, angleDeg, flipH, flipV);
-        const p2 = transformShapePoint(x2, y2, cx, cy, angleDeg, flipH, flipV);
-        return [
-          { id: 'p1', x: p1.x * zoom, y: p1.y * zoom, cursor: 'crosshair' },
-          { id: 'p2', x: p2.x * zoom, y: p2.y * zoom, cursor: 'crosshair' }
-        ];
-      }
-      if (['RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(f.type)) {
         const lb = getShapeLocalBounds(f);
         const x1 = f.x ?? 0; const y1 = f.y ?? 0;
         const x2 = f.x2 ?? x1; const y2 = f.y2 ?? y1;
         const cx = (x1 + x2) / 2; const cy = (y1 + y2) / 2;
-        const angleDeg = Number(f.rotation) || 0;
         const flipH = Boolean(f.flipH); const flipV = Boolean(f.flipV);
-        const midX = (lb.minX + lb.maxX) / 2;
-        const midY = (lb.minY + lb.maxY) / 2;
+        const midX = (lb.minX + lb.maxX + 1) / 2;
+        const midY = (lb.minY + lb.maxY + 1) / 2;
 
         const tp = (px, py) => {
           const r = transformShapePoint(px, py, cx, cy, angleDeg, flipH, flipV);
@@ -2675,14 +3129,14 @@
         };
 
         return [
-          { id: 'tl', ...tp(lb.minX, lb.minY), cursor: angleDeg === 0 ? 'nwse-resize' : 'crosshair' },
-          { id: 'tc', ...tp(midX, lb.minY), cursor: angleDeg === 0 ? 'ns-resize' : 'crosshair' },
-          { id: 'tr', ...tp(lb.maxX, lb.minY), cursor: angleDeg === 0 ? 'nesw-resize' : 'crosshair' },
-          { id: 'rc', ...tp(lb.maxX, midY), cursor: angleDeg === 0 ? 'ew-resize' : 'crosshair' },
-          { id: 'br', ...tp(lb.maxX, lb.maxY), cursor: angleDeg === 0 ? 'nwse-resize' : 'crosshair' },
-          { id: 'bc', ...tp(midX, lb.maxY), cursor: angleDeg === 0 ? 'ns-resize' : 'crosshair' },
-          { id: 'bl', ...tp(lb.minX, lb.maxY), cursor: angleDeg === 0 ? 'nesw-resize' : 'crosshair' },
-          { id: 'lc', ...tp(lb.minX, midY), cursor: angleDeg === 0 ? 'ew-resize' : 'crosshair' }
+          { id: 'tl', ...tp(lb.minX, lb.minY), cursor: 'crosshair' },
+          { id: 'tc', ...tp(midX, lb.minY), cursor: 'crosshair' },
+          { id: 'tr', ...tp(lb.maxX + 1, lb.minY), cursor: 'crosshair' },
+          { id: 'rc', ...tp(lb.maxX + 1, midY), cursor: 'crosshair' },
+          { id: 'br', ...tp(lb.maxX + 1, lb.maxY + 1), cursor: 'crosshair' },
+          { id: 'bc', ...tp(midX, lb.maxY + 1), cursor: 'crosshair' },
+          { id: 'bl', ...tp(lb.minX, lb.maxY + 1), cursor: 'crosshair' },
+          { id: 'lc', ...tp(lb.minX, midY), cursor: 'crosshair' }
         ];
       }
     }
@@ -2727,22 +3181,35 @@
   function isPointInsideSelection(point) {
     const fields = selectedFields();
     if (fields.length === 0) {
-      const selPm = window.JWPLCHMIPixelMaps?.getSelected?.();
-      if (selPm && selectedTool === 'pointer' && Number(selPm.page || 0) === activePage && selPm.editorVisible !== false && selPm.pixels?.length) {
-        return selPm.pixels.some((p) => {
+      const selPms = (window.JWPLCHMIPixelMaps?.getSelectedMaps?.() || []).filter(
+        (pm) => Number(pm.page || 0) === activePage && pm.editorVisible !== false && pm.pixels?.length
+      );
+      if (selPms.length > 0 && selectedTool !== 'pixel' && selectedTool !== 'erase') {
+        return selPms.some((selPm) => selPm.pixels.some((p) => {
           const px = selPm.x + p.x;
           const py = selPm.y + p.y;
           return Math.abs(px - point.x) <= 2 && Math.abs(py - point.y) <= 2;
-        });
+        }));
       }
       return false;
     }
     if (fields.length === 1 && fields[0].type === 'LINE') {
-      if (distanceToFieldBorder(point, fields[0]) <= 2.0) return true;
-      return false;
+      const strokeSize = fields[0].borderEnabled !== false ? Math.max(1, Math.round(fields[0].size || 1)) : 1;
+      const x1 = fields[0].x ?? 0; const y1 = fields[0].y ?? 0;
+      const x2 = fields[0].x2 ?? x1; const y2 = fields[0].y2 ?? y1;
+      const dist = distToSegment(point.x, point.y, x1, y1, x2, y2);
+      return dist <= Math.max(3.5, strokeSize / 2 + 2.0);
     }
     if (fields.length === 1 && ['RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(fields[0].type)) {
-      if (isPointInsideShapeArea(point.x, point.y, fields[0])) return true;
+      const f = fields[0];
+      const strokeSize = f.borderEnabled !== false ? Math.max(1, Math.round(f.size || 1)) : 0;
+      const pts = getShapeTransformedVertices(f);
+      if (pts && pts.length >= 3) {
+        const isInside = isPointInPolygon(point.x, point.y, pts);
+        if (f.fill && isInside) return true;
+        const distToBorder = distToPolygonBoundary(point.x, point.y, pts);
+        return distToBorder <= Math.max(3.5, strokeSize + 2.0);
+      }
     }
     const b = getSelectionBounds(fields);
     if (!b) return false;
@@ -2755,51 +3222,109 @@
     );
   }
 
+  function getPixelMapBounds(pm) {
+    if (!pm || !pm.pixels?.length) return null;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    pm.pixels.forEach((p) => {
+      const px = pm.x + p.x;
+      const py = pm.y + p.y;
+      if (px < minX) minX = px;
+      if (px > maxX) maxX = px;
+      if (py < minY) minY = py;
+      if (py > maxY) maxY = py;
+    });
+    if (minX === Infinity) return null;
+    const screenX1 = minX * zoom;
+    const screenY1 = minY * zoom;
+    const screenX2 = (maxX + 1) * zoom;
+    const screenY2 = (maxY + 1) * zoom;
+    return {
+      minX, minY, maxX, maxY,
+      screenX1, screenY1, screenX2, screenY2,
+      screenW: Math.max(8, screenX2 - screenX1),
+      screenH: Math.max(8, screenY2 - screenY1)
+    };
+  }
+
+  function getPixelMapsUnionBounds(pms) {
+    if (!pms || pms.length === 0) return null;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    pms.forEach((pm) => {
+      const b = getPixelMapBounds(pm);
+      if (b) {
+        if (b.minX < minX) minX = b.minX;
+        if (b.maxX > maxX) maxX = b.maxX;
+        if (b.minY < minY) minY = b.minY;
+        if (b.maxY > maxY) maxY = b.maxY;
+      }
+    });
+    if (minX === Infinity) return null;
+    const screenX1 = minX * zoom;
+    const screenY1 = minY * zoom;
+    const screenX2 = (maxX + 1) * zoom;
+    const screenY2 = (maxY + 1) * zoom;
+    return {
+      minX, minY, maxX, maxY,
+      screenX1, screenY1, screenX2, screenY2,
+      screenW: Math.max(8, screenX2 - screenX1),
+      screenH: Math.max(8, screenY2 - screenY1)
+    };
+  }
+
   function drawSelectionAndGuides() {
     const fields = selectedFields();
-    if (fields.length === 0) {
-      const selPm = window.JWPLCHMIPixelMaps?.getSelected?.();
-      if (selPm && selectedTool === 'pointer' && Number(selPm.page || 0) === activePage && selPm.editorVisible !== false && selPm.pixels?.length) {
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        selPm.pixels.forEach((p) => {
-          const px = selPm.x + p.x;
-          const py = selPm.y + p.y;
-          if (px < minX) minX = px;
-          if (px > maxX) maxX = px;
-          if (py < minY) minY = py;
-          if (py > maxY) maxY = py;
-        });
-        if (minX !== Infinity) {
-          const sx1 = minX * zoom;
-          const sy1 = minY * zoom;
-          const sx2 = (maxX + 1) * zoom;
-          const sy2 = (maxY + 1) * zoom;
-          const sw = Math.max(8, sx2 - sx1);
-          const sh = Math.max(8, sy2 - sy1);
+    const selPms = (window.JWPLCHMIPixelMaps?.getSelectedMaps?.() || []).filter(
+      (pm) => Number(pm.page || 0) === activePage && pm.editorVisible !== false && pm.pixels?.length
+    );
 
-          displayCtx.save();
+    if (fields.length === 0 && selPms.length === 0) {
+      return;
+    }
+
+    displayCtx.save();
+
+    // Draw individual blue outline for each selected pixel map
+    if (selPms.length > 0 && selectedTool !== 'pixel' && selectedTool !== 'erase') {
+      displayCtx.strokeStyle = '#0084ff';
+      displayCtx.lineWidth = 1;
+      selPms.forEach((pm) => {
+        const b = getPixelMapBounds(pm);
+        if (b) {
+          displayCtx.strokeRect(b.screenX1 + 0.5, b.screenY1 + 0.5, b.screenW, b.screenH);
+        }
+      });
+    }
+
+    // If only pixel maps are selected (no normal fields)
+    if (fields.length === 0 && selPms.length > 0) {
+      if (selectedTool !== 'pixel' && selectedTool !== 'erase') {
+        const unionB = getPixelMapsUnionBounds(selPms);
+        if (unionB) {
           // 1. Dotted projection lines to rulers
           displayCtx.strokeStyle = 'rgba(255, 255, 255, 0.40)';
           displayCtx.setLineDash([2, 3]);
           displayCtx.lineWidth = 1;
           displayCtx.beginPath();
-          displayCtx.moveTo(sx1 + 0.5, 0);
-          displayCtx.lineTo(sx1 + 0.5, displayCanvas.height);
-          displayCtx.moveTo(sx2 + 0.5, 0);
-          displayCtx.lineTo(sx2 + 0.5, displayCanvas.height);
-          displayCtx.moveTo(0, sy1 + 0.5);
-          displayCtx.lineTo(displayCanvas.width, sy1 + 0.5);
-          displayCtx.moveTo(0, sy2 + 0.5);
-          displayCtx.lineTo(displayCanvas.width, sy2 + 0.5);
+          displayCtx.moveTo(unionB.screenX1 + 0.5, 0);
+          displayCtx.lineTo(unionB.screenX1 + 0.5, displayCanvas.height);
+          displayCtx.moveTo(unionB.screenX2 + 0.5, 0);
+          displayCtx.lineTo(unionB.screenX2 + 0.5, displayCanvas.height);
+          displayCtx.moveTo(0, unionB.screenY1 + 0.5);
+          displayCtx.lineTo(displayCanvas.width, unionB.screenY1 + 0.5);
+          displayCtx.moveTo(0, unionB.screenY2 + 0.5);
+          displayCtx.lineTo(displayCanvas.width, unionB.screenY2 + 0.5);
           displayCtx.stroke();
           displayCtx.setLineDash([]);
 
-          // 2. Bounding outline (#0084ff)
-          displayCtx.strokeStyle = '#0084ff';
-          displayCtx.lineWidth = 1;
-          displayCtx.strokeRect(sx1 + 0.5, sy1 + 0.5, sw, sh);
+          // 2. Union outline if multiple
+          if (selPms.length > 1) {
+            displayCtx.strokeStyle = 'rgba(0, 132, 255, 0.6)';
+            displayCtx.setLineDash([4, 4]);
+            displayCtx.strokeRect(unionB.screenX1 + 0.5, unionB.screenY1 + 0.5, unionB.screenW, unionB.screenH);
+            displayCtx.setLineDash([]);
+          }
 
-          // 3. 8 Selection Handles
+          // 3. Selection handles around union
           const hs = 6;
           const handles = getSelectionHandles([]);
           handles.forEach((h) => {
@@ -2811,9 +3336,9 @@
             displayCtx.lineWidth = 1.5;
             displayCtx.strokeRect(rx + 0.5, ry + 0.5, hs - 1, hs - 1);
           });
-          displayCtx.restore();
         }
       }
+      displayCtx.restore();
       return;
     }
 
@@ -2843,32 +3368,30 @@
     displayCtx.lineWidth = 1;
 
     if (fields.length === 1 && fields[0].type === 'LINE') {
-      let rx = b.screenX1;
-      let ry = b.screenY1;
-      let rw = b.screenW;
-      let rh = b.screenH;
-      if (rw < 8) { rx -= (8 - rw) / 2; rw = 8; }
-      if (rh < 8) { ry -= (8 - rh) / 2; rh = 8; }
-      displayCtx.strokeRect(Math.round(rx) + 0.5, Math.round(ry) + 0.5, Math.round(rw), Math.round(rh));
+      displayCtx.strokeRect(b.screenX1 + 0.5, b.screenY1 + 0.5, b.screenW, b.screenH);
     } else if (fields.length === 1 && ['RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(fields[0].type)) {
       const f = fields[0];
-      const lb = getShapeLocalBounds(f);
-      const x1 = f.x ?? 0; const y1 = f.y ?? 0;
-      const x2 = f.x2 ?? x1; const y2 = f.y2 ?? y1;
-      const cx = (x1 + x2) / 2; const cy = (y1 + y2) / 2;
       const angleDeg = Number(f.rotation) || 0;
-      const flipH = Boolean(f.flipH); const flipV = Boolean(f.flipV);
-      const corners = [
-        [lb.minX, lb.minY], [lb.maxX, lb.minY], [lb.maxX, lb.maxY], [lb.minX, lb.maxY]
-      ].map(([px, py]) => {
-        const r = transformShapePoint(px, py, cx, cy, angleDeg, flipH, flipV);
-        return [r.x * zoom + 0.5, r.y * zoom + 0.5];
-      });
-      displayCtx.beginPath();
-      displayCtx.moveTo(corners[0][0], corners[0][1]);
-      for (let i = 1; i < corners.length; i++) displayCtx.lineTo(corners[i][0], corners[i][1]);
-      displayCtx.closePath();
-      displayCtx.stroke();
+      if (angleDeg === 0) {
+        displayCtx.strokeRect(b.screenX1 + 0.5, b.screenY1 + 0.5, b.screenW, b.screenH);
+      } else {
+        const lb = getShapeLocalBounds(f);
+        const x1 = f.x ?? 0; const y1 = f.y ?? 0;
+        const x2 = f.x2 ?? x1; const y2 = f.y2 ?? y1;
+        const cx = (x1 + x2) / 2; const cy = (y1 + y2) / 2;
+        const flipH = Boolean(f.flipH); const flipV = Boolean(f.flipV);
+        const corners = [
+          [lb.minX, lb.minY], [lb.maxX + 1, lb.minY], [lb.maxX + 1, lb.maxY + 1], [lb.minX, lb.maxY + 1]
+        ].map(([px, py]) => {
+          const r = transformShapePoint(px, py, cx, cy, angleDeg, flipH, flipV);
+          return [r.x * zoom + 0.5, r.y * zoom + 0.5];
+        });
+        displayCtx.beginPath();
+        displayCtx.moveTo(corners[0][0], corners[0][1]);
+        for (let i = 1; i < corners.length; i++) displayCtx.lineTo(corners[i][0], corners[i][1]);
+        displayCtx.closePath();
+        displayCtx.stroke();
+      }
     } else {
       displayCtx.strokeRect(b.screenX1 + 0.5, b.screenY1 + 0.5, b.screenW, b.screenH);
     }
@@ -3243,6 +3766,9 @@
     if (rawSection) {
       rawSection.hidden = !isRaw;
       rawSection.style.display = isRaw ? '' : 'none';
+      if (isRaw) {
+        syncRawTextInspector();
+      }
     }
     const showField = Boolean(field && fieldTools.includes(selectedTool) && field.type !== 'RAW_TEXT' && !isShape && field.type !== 'NAV_BAR' && !isMenu);
     if (fieldSection) {
@@ -3424,6 +3950,8 @@
             field.valueColor = color.value;
           }
           syncInputsFromState();
+        } else if (window.JWPLCHMIPixelMaps?.getSelected?.()) {
+          window.JWPLCHMIPixelMaps.setActiveColor(color.value);
         }
         updateActiveColorUI();
         buildPalette();
@@ -3574,71 +4102,346 @@
       if (isLine) field.borderEnabled = true;
       shapeBorderEnabled.checked = field.borderEnabled !== false;
     }
-    const fc = field.frameColor ?? 0xFFFF;
-    if (shapeBorderColorSwatch) shapeBorderColorSwatch.style.background = rgb565ToCss(fc);
-    if (shapeBorderColorInput) shapeBorderColorInput.value = rgb565ToHex888(fc);
-    if (shapeBorderColorCode) shapeBorderColorCode.textContent = rgb565ToHex888(fc).toUpperCase();
     const strokeSize = Number(field.size) || 1;
     if (shapeBorderSize && document.activeElement !== shapeBorderSize) shapeBorderSize.value = strokeSize;
     document.querySelectorAll('#shapeStrokePresetGrid [data-stroke-preset]').forEach((btn) => {
       btn.classList.toggle('active', Number(btn.dataset.strokePreset) === strokeSize);
     });
-    document.querySelectorAll('[data-shape-color-target="border"] .bar-palette-pill').forEach((pill) => {
-      const hex = pill.dataset.colorHex || pill.dataset.hex;
-      pill.classList.toggle('active', hex ? (hex888ToRgb565(hex) === fc) : false);
-    });
 
     // Fill (hidden for lines)
     if (shapeFillRow) shapeFillRow.hidden = isLine;
     if (shapeFillEnabled) shapeFillEnabled.checked = !isLine && !!field.fill;
+
+    // Apariencia: Editor de color fijo (designer-color-editor.js)
+    if (isLine && shapeActiveColorKey === 'fill') shapeActiveColorKey = 'border';
+    const isLight565 = (v) => ((v >> 11) + ((v >> 5) & 0x3F) / 2 + (v & 0x1F)) > 40;
+    const fc = field.frameColor ?? 0xFFFF;
     const fillC = field.fillColor ?? 0xFFE0;
-    if (shapeFillColorSwatch) shapeFillColorSwatch.style.background = rgb565ToCss(fillC);
-    if (shapeFillColorInput) shapeFillColorInput.value = rgb565ToHex888(fillC);
-    if (shapeFillColorCode) shapeFillColorCode.textContent = rgb565ToHex888(fillC).toUpperCase();
-    document.querySelectorAll('[data-shape-color-target="fill"] .bar-palette-pill').forEach((pill) => {
-      const hex = pill.dataset.colorHex || pill.dataset.hex;
-      pill.classList.toggle('active', hex ? (hex888ToRgb565(hex) === fillC) : false);
-    });
+
+    const bSwatch = document.querySelector('[data-shape-swatch="border"]');
+    const bRow = document.querySelector('[data-shape-legend="border"]');
+    if (bSwatch) {
+      bSwatch.style.background = rgb565ToCss(fc);
+      bSwatch.style.color = isLight565(fc) ? '#000' : '#fff';
+      bSwatch.classList.toggle('active', shapeActiveColorKey === 'border');
+    }
+    if (bRow) bRow.classList.toggle('is-active', shapeActiveColorKey === 'border');
+
+    const fSwatch = document.querySelector('[data-shape-swatch="fill"]');
+    const fRow = document.querySelector('[data-shape-legend="fill"]');
+    if (fSwatch) {
+      fSwatch.style.background = rgb565ToCss(fillC);
+      fSwatch.style.color = isLight565(fillC) ? '#000' : '#fff';
+      fSwatch.classList.toggle('active', shapeActiveColorKey === 'fill');
+    }
+    if (fRow) fRow.classList.toggle('is-active', shapeActiveColorKey === 'fill');
+
+    initShapeColorEditor();
+    if (shapeColorEditor) {
+      const activeCol = (shapeActiveColorKey === 'border') ? fc : fillC;
+      const activeName = (shapeActiveColorKey === 'border') ? (isLine ? 'Línea' : 'Borde') : 'Relleno';
+      shapeColorEditor.set(activeCol, activeName);
+    }
 
     // Tech tab C++ snippet preview
     const techPreview = document.getElementById('shapeTechCodePreview');
     if (techPreview) techPreview.textContent = buildShapeCppSnippet(field);
   }
 
-  function syncInputsFromState() {
-    rawTextInput.value = rawState.value;
-    rawTextX.value = String(rawState.x);
-    rawTextY.value = String(rawState.y);
-    rawTextSize.value = String(rawState.size);
-    if (rawTextName) rawTextName.value = 'Texto RAW';
-    if (rawTextTransparent) rawTextTransparent.value = rawState.transparent ? '1' : '0';
-    if (rawTextTransparentToggle) rawTextTransparentToggle.checked = !Boolean(rawState.transparent);
-    if (rawTextBgColorWrap) rawTextBgColorWrap.style.display = rawState.transparent ? 'none' : 'flex';
-    if (rawTextColorSwatch) rawTextColorSwatch.style.background = rgb565ToCss(rawState.foreground);
-    if (rawTextColorInput) rawTextColorInput.value = rgb565ToHex888(rawState.foreground);
-    if (rawTextColorCode) rawTextColorCode.textContent = rgb565ToHex888(rawState.foreground).toUpperCase();
-    if (rawTextBgColorSwatch) rawTextBgColorSwatch.style.background = rgb565ToCss(rawState.background);
-    if (rawTextBgColorInput) rawTextBgColorInput.value = rgb565ToHex888(rawState.background);
-    if (rawTextBgColorCode) rawTextBgColorCode.textContent = rgb565ToHex888(rawState.background).toUpperCase();
-    if (rawTextColor) ensureSelectOption(rawTextColor, rawState.foreground);
-    if (rawTextBackground) ensureSelectOption(rawTextBackground, rawState.background);
-    if (rawTextBackgroundWrap) rawTextBackgroundWrap.hidden = Boolean(rawState.transparent);
+  function syncRawTabPanes() {
+    const mainTabs = document.querySelectorAll('#rawMainTabs [data-raw-tab]');
+    mainTabs.forEach((btn) => btn.classList.toggle('active', btn.dataset.rawTab === activeRawMainTab));
 
-    const field = selectedField();
-    if (!field) {
-      inspectorContract.textContent = 'Sin objeto seleccionado';
-      if (rawInspectorContract) rawInspectorContract.textContent = '// Sin objeto seleccionado';
-      syncAllColorControls();
-      return;
+    const subTabsBar = document.getElementById('rawSubTabs');
+    const isDesign = activeRawMainTab === 'design';
+    if (subTabsBar) {
+      subTabsBar.hidden = !isDesign;
+      subTabsBar.style.display = isDesign ? 'flex' : 'none';
     }
 
-    if (field.type === 'RAW_TEXT') {
-      if (rawTextName) rawTextName.value = field.name || 'Texto RAW';
-      rawTextInput.value = field.text || '';
-      rawTextX.value = String(field.x);
-      rawTextY.value = String(field.y);
-      rawTextSize.value = String(field.size || 1);
-      if (rawTextFont && window.JWPLCDesignerFonts) rawTextFont.value = window.JWPLCDesignerFonts.normalizeId(field.font);
+    const subTabs = document.querySelectorAll('#rawSubTabs [data-raw-subtab]');
+    subTabs.forEach((btn) => btn.classList.toggle('active', isDesign && btn.dataset.rawSubtab === activeRawSubTab));
+
+    const panels = {
+      form: document.getElementById('rawPaneForm'),
+      content: document.getElementById('rawPaneContent'),
+      appearance: document.getElementById('rawPaneAppearance'),
+      placement: document.getElementById('rawPanePlacement'),
+      data: document.getElementById('rawPaneData'),
+      tech: document.getElementById('rawPaneTech')
+    };
+
+    const activePanelKey = isDesign ? activeRawSubTab : activeRawMainTab;
+
+    Object.entries(panels).forEach(([key, panel]) => {
+      if (!panel) return;
+      const isVisible = key === activePanelKey;
+      panel.hidden = !isVisible;
+      panel.style.display = isVisible ? 'flex' : 'none';
+    });
+
+    if (isDesign && activeRawSubTab === 'appearance') {
+      requestAnimationFrame(() => syncRawAppearance());
+    }
+  }
+
+  function syncRawPages(currentField) {
+    const host = document.getElementById('rawPageChipRow');
+    if (!host) return;
+    const current = Number(currentField?.page ?? activePage);
+    const signature = hmiPages.map((p) => `${p.id}:${p.name}`).join('|') + `#${current}`;
+    if (host.dataset.signature === signature) return;
+    host.dataset.signature = signature;
+    host.innerHTML = hmiPages.map((p) => {
+      const active = Number(p.id) === current;
+      const title = p.name ? `Página ${p.id}: ${p.name}` : `Página ${p.id}`;
+      return `<button type="button" class="insp-chip${active ? ' active' : ''}" data-raw-page-id="${p.id}" title="${title}">${String(Number(p.id) + 1).padStart(2, '0')} · ${p.name || ('Página ' + (Number(p.id) + 1))}</button>`;
+    }).join('');
+  }
+
+  function syncRawAppearance() {
+    const field = selectedField();
+    const isRawField = field && field.type === 'RAW_TEXT';
+    const text = isRawField ? (field.text || '') : (rawState.value || '');
+    const font = isRawField ? field.font : rawState.font;
+    const size = Number(isRawField ? field.size : rawState.size) || 1;
+    const isTrans = isRawField ? Boolean(field.transparentBackground) : Boolean(rawState.transparent);
+    const fg = isRawField ? (field.textColor ?? 0xFFFF) : rawState.foreground;
+    const bg = isRawField ? (field.backgroundColor ?? 0x0000) : rawState.background;
+
+    const isLight = (v) => ((v >> 11) + ((v >> 5) & 0x3F) / 2 + (v & 0x1F)) > 40;
+
+    const tSwatch = document.querySelector('[data-raw-swatch="textColor"]');
+    const tRow = document.querySelector('[data-raw-swatch-row="textColor"]');
+    if (tSwatch) {
+      tSwatch.style.background = rgb565ToCss(fg);
+      tSwatch.style.color = isLight(fg) ? '#000' : '#fff';
+      tSwatch.classList.toggle('active', rawActiveColorKey === 'textColor');
+    }
+    if (tRow) tRow.classList.toggle('is-active', rawActiveColorKey === 'textColor');
+
+    const fSwatch = document.querySelector('[data-raw-swatch="bgColor"]');
+    const fRow = document.querySelector('[data-raw-swatch-row="bgColor"]');
+    if (fSwatch) {
+      fSwatch.style.background = rgb565ToCss(bg);
+      fSwatch.style.color = isLight(bg) ? '#000' : '#fff';
+      fSwatch.classList.toggle('active', rawActiveColorKey === 'bgColor');
+      if (isTrans) {
+        fSwatch.style.border = '1px dashed rgba(255, 255, 255, 0.6)';
+        fSwatch.title = 'Color del fondo (sólo modo opaco — clic para activar)';
+      } else {
+        fSwatch.style.border = '';
+        fSwatch.title = 'Color del fondo';
+      }
+    }
+    if (fRow) {
+      fRow.classList.toggle('is-active', rawActiveColorKey === 'bgColor');
+      fRow.style.opacity = isTrans ? '0.75' : '1';
+    }
+
+    const canvas = document.getElementById('rawCaseCanvas');
+    const body = document.getElementById('rawCaseBody');
+    if (canvas && body && body.offsetParent !== null) {
+      const pad = isTrans ? 0 : RAW_BG_PAD;
+      const previewField = {
+        type: 'RAW_TEXT',
+        text: text || 'Texto RAW',
+        font,
+        size,
+        transparentBackground: isTrans,
+        textColor: fg,
+        backgroundColor: bg,
+        x: pad,
+        y: pad
+      };
+      const out = renderFieldPreview(previewField);
+      if (out && out.g) {
+        const w = Math.max(1, Math.min(out.width, Math.ceil(out.g.fieldW)));
+        const h = Math.max(1, Math.min(out.height, Math.ceil(out.g.fieldH)));
+        const legend = body.querySelector('.menu-case-legend');
+        const gutter = (window.JWPLCZoneIndicator?.CHANNEL ?? 12) + 14;
+        const bodyW = body.clientWidth || 280;
+        const legendW = legend ? legend.offsetWidth : 60;
+        const fit = (avail) => Math.max(0, Math.min(3, Math.floor(avail / w)));
+        const rightScale = fit(bodyW - legendW - gutter);
+        const belowScale = fit(bodyW - gutter);
+        const below = rightScale < 2 && belowScale > rightScale;
+        body.classList.toggle('is-below', below);
+        const scale = Math.max(1, below ? belowScale : rightScale);
+        canvas.width = w * scale;
+        canvas.height = h * scale;
+        canvas.dataset.logicalW = String(w);
+        canvas.dataset.logicalH = String(h);
+        canvas.style.width = `${Math.min(w * scale, bodyW - gutter)}px`;
+        const ctx = canvas.getContext('2d');
+        const img = ctx.createImageData(canvas.width, canvas.height);
+        for (let y = 0; y < canvas.height; y++) {
+          const row = Math.floor(y / scale) * out.width;
+          for (let x = 0; x < canvas.width; x++) {
+            const v = out.buffer[row + Math.floor(x / scale)];
+            const o = (y * canvas.width + x) * 4;
+            img.data[o]     = ((v >> 11) & 0x1F) * 255 / 31;
+            img.data[o + 1] = ((v >> 5) & 0x3F) * 255 / 63;
+            img.data[o + 2] = (v & 0x1F) * 255 / 31;
+            img.data[o + 3] = 255;
+          }
+        }
+        ctx.putImageData(img, 0, 0);
+
+        const tb = rawTextBounds(previewField.text, size, font);
+        const zones = {
+          textColor: [{ x: pad, y: pad, w: Math.max(1, tb.width), h: Math.max(1, tb.height) }],
+          bgColor: [{ x: 0, y: 0, w, h, inset: true }]
+        };
+        const rects = zones[rawActiveColorKey] || [];
+        window.JWPLCZoneIndicator?.draw(body, canvas, rects);
+      }
+    }
+
+    initRawColorEditor();
+    if (rawColorEditor) {
+      const activeCol = (rawActiveColorKey === 'textColor') ? fg : bg;
+      const activeName = (rawActiveColorKey === 'textColor') ? 'Texto' : 'Fondo';
+      rawColorEditor.set(activeCol, activeName);
+    }
+  }
+
+  function syncRawTextInspector() {
+    const field = selectedField();
+    const isRawField = field && field.type === 'RAW_TEXT';
+    const textVal = isRawField ? (field.text || '') : (rawState.value || '');
+    const fFont = isRawField ? field.font : rawState.font;
+    const s = Number(isRawField ? field.size : rawState.size) || 1;
+    const isTrans = isRawField ? Boolean(field.transparentBackground) : Boolean(rawState.transparent);
+    const fg = isRawField ? (field.textColor ?? 0xFFFF) : rawState.foreground;
+    const bg = isRawField ? (field.backgroundColor ?? 0x0000) : rawState.background;
+    const curX = isRawField ? (field.x ?? 0) : (rawState.x ?? 0);
+    const curY = isRawField ? (field.y ?? 0) : (rawState.y ?? 0);
+
+    // Header title
+    const headerTitle = document.getElementById('rawTextHeaderTitle');
+    if (headerTitle) {
+      headerTitle.textContent = (isRawField && field.name) ? field.name : (textVal ? `"${textVal.slice(0, 16)}"` : 'Texto RAW');
+    }
+
+    // Tabs
+    syncRawTabPanes();
+
+    // Forma
+    if (rawTextFont && window.JWPLCDesignerFonts && document.activeElement !== rawTextFont) {
+      rawTextFont.value = window.JWPLCDesignerFonts.normalizeId(fFont);
+    }
+    document.querySelectorAll('#rawScaleChipRow [data-raw-scale]').forEach((chip) => {
+      chip.classList.toggle('active', Number(chip.dataset.rawScale) === s);
+    });
+    if (rawTextSize) rawTextSize.value = String(s);
+    if (typeof updateScalePxHint === 'function') updateScalePxHint();
+
+    document.querySelectorAll('#rawBgModeGrid [data-raw-bgmode]').forEach((btn) => {
+      btn.classList.toggle('active', (btn.dataset.rawBgmode === 'transparent') === isTrans);
+    });
+    if (rawTextTransparentToggle) rawTextTransparentToggle.checked = !isTrans;
+    if (rawTextTransparent) rawTextTransparent.value = isTrans ? '1' : '0';
+    const bgNote = document.getElementById('rawBgModeNote');
+    if (bgNote) {
+      bgNote.textContent = isTrans
+        ? 'Texto directo sobre el fondo de la pantalla o capas inferiores.'
+        : 'Fondo rectangular con +2 px de relleno alrededor del texto.';
+    }
+
+    // Contenido
+    if (rawTextInput && document.activeElement !== rawTextInput) rawTextInput.value = textVal;
+    const charCounter = document.getElementById('rawCharCounter');
+    if (charCounter) charCounter.textContent = `${textVal.length}/40`;
+    const rulerText = document.getElementById('rawRulerText');
+    if (rulerText) rulerText.textContent = textVal || 'Texto RAW';
+    const tb = rawTextBounds(textVal || 'Texto RAW', s, fFont);
+    const rulerPx = document.getElementById('rawRulerPx');
+    if (rulerPx) rulerPx.textContent = `${tb.width} × ${tb.height} px`;
+
+    // Apariencia
+    syncRawAppearance();
+
+    // Ubicacion
+    syncRawPages(field);
+    if (rawTextX && document.activeElement !== rawTextX) rawTextX.value = String(curX);
+    if (rawTextY && document.activeElement !== rawTextY) rawTextY.value = String(curY);
+    const b = isRawField ? getFieldBounds(field) : { width: tb.width, height: tb.height };
+    const boundsStatus = document.getElementById('rawBoundsStatus');
+    if (boundsStatus) {
+      boundsStatus.textContent = `X: ${curX}..${curX + b.width}, Y: ${curY}..${curY + b.height} (${b.width} × ${b.height} px)`;
+    }
+
+    // Sincronizar estado visual de la matriz 3×3 de alineacion
+    const curPad = isTrans ? 0 : RAW_BG_PAD;
+    const curMinX = curX - curPad;
+    const curMinY = curY - curPad;
+    const curMaxX = curX + tb.width - 1 + curPad;
+    const curMaxY = curY + tb.height - 1 + curPad;
+    const isL = curMinX === 0;
+    const isR = curMaxX === WIDTH - 1;
+    const isCX = Math.abs(curMinX - Math.round((WIDTH - b.width) / 2)) <= 1;
+    const isT = curMinY === 0;
+    const isB = curMaxY === HEIGHT - 1;
+    const isCY = Math.abs(curMinY - Math.round((HEIGHT - b.height) / 2)) <= 1;
+
+    let matchedAlign = null;
+    if (isT && isL) matchedAlign = 'top-left';
+    else if (isT && isCX) matchedAlign = 'top';
+    else if (isT && isR) matchedAlign = 'top-right';
+    else if (isCY && isL) matchedAlign = 'left';
+    else if (isCY && isCX) matchedAlign = 'center';
+    else if (isCY && isR) matchedAlign = 'right';
+    else if (isB && isL) matchedAlign = 'bottom-left';
+    else if (isB && isCX) matchedAlign = 'bottom';
+    else if (isB && isR) matchedAlign = 'bottom-right';
+
+    document.querySelectorAll('#rawAlignMatrix3x3 [data-align]').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.align === matchedAlign);
+    });
+
+    // Tecnico
+    if (rawTextName && document.activeElement !== rawTextName) {
+      rawTextName.value = (isRawField && field.name) ? field.name : 'Texto RAW';
+    }
+    const rawTextId = document.getElementById('rawTextId');
+    if (rawTextId) {
+      rawTextId.value = (isRawField && field.id) ? field.id : 'FIELD_RAW_1';
+    }
+    if (rawInspectorContract) {
+      const curF = isRawField ? field : {
+        type: 'RAW_TEXT',
+        text: textVal,
+        x: curX,
+        y: curY,
+        font: fFont,
+        size: s,
+        transparentBackground: isTrans,
+        textColor: fg,
+        backgroundColor: bg
+      };
+      const snippet = window.JWPLCHMICodegen?.staticDrawSnippet
+        ? window.JWPLCHMICodegen.staticDrawSnippet(curF)
+        : `JWPLC_Display.getTFT()->setCursor(${curF.x}, ${curF.y});\nJWPLC_Display.getTFT()->print("${curF.text || ''}");`;
+      rawInspectorContract.textContent = snippet;
+    }
+    const diagFont = document.getElementById('rawDiagFont');
+    if (diagFont) {
+      const fontObj = window.JWPLCDesignerFonts?.get(fFont);
+      diagFont.textContent = fontObj ? fontObj.label : (fFont || 'GLCD 5×7');
+    }
+    const diagScale = document.getElementById('rawDiagScale');
+    if (diagScale) diagScale.textContent = `${s}×`;
+    const diagBg = document.getElementById('rawDiagBg');
+    if (diagBg) diagBg.textContent = isTrans ? 'Transparente' : 'Opaco (+2 px)';
+    const diagBounds = document.getElementById('rawDiagBounds');
+    if (diagBounds) diagBounds.textContent = `${b.width} × ${b.height} px`;
+  }
+
+  function syncInputsFromState() {
+    const field = selectedField();
+
+    if (field && field.type === 'RAW_TEXT') {
       const isTrans = Boolean(field.transparentBackground);
       if (rawTextTransparent) rawTextTransparent.value = isTrans ? '1' : '0';
       if (rawTextTransparentToggle) rawTextTransparentToggle.checked = !isTrans;
@@ -3658,12 +4461,36 @@
       if (rawTextBackgroundWrap) rawTextBackgroundWrap.hidden = isTrans;
       syncAllColorControls();
 
-      const contractShort = window.JWPLCHMICodegen?.staticDrawSnippet
-        ? window.JWPLCHMICodegen.staticDrawSnippet(field)
-        : `JWPLC_Display.tft().setCursor(${field.x}, ${field.y});\nJWPLC_Display.tft().print("${field.text || ''}");`;
-      if (rawInspectorContract) rawInspectorContract.textContent = contractShort;
+      syncRawTextInspector();
       inspectorContract.textContent = '// Texto RAW estático: se dibuja en jwplcUIPageEnter() con JWPLC_Display.tft().print(...)';
-      if (typeof updateScalePxHint === 'function') updateScalePxHint();
+      return;
+    }
+
+    if (!field) {
+      if (document.activeElement !== rawTextInput) rawTextInput.value = rawState.value;
+      if (document.activeElement !== rawTextX) rawTextX.value = String(rawState.x);
+      if (document.activeElement !== rawTextY) rawTextY.value = String(rawState.y);
+      if (rawTextSize) rawTextSize.value = String(rawState.size);
+      if (rawTextName && document.activeElement !== rawTextName) rawTextName.value = 'Texto RAW';
+      if (rawTextTransparent) rawTextTransparent.value = rawState.transparent ? '1' : '0';
+      if (rawTextTransparentToggle) rawTextTransparentToggle.checked = !Boolean(rawState.transparent);
+      if (rawTextBgColorWrap) rawTextBgColorWrap.style.display = rawState.transparent ? 'none' : 'flex';
+      if (rawTextColorSwatch) rawTextColorSwatch.style.background = rgb565ToCss(rawState.foreground);
+      if (rawTextColorInput) rawTextColorInput.value = rgb565ToHex888(rawState.foreground);
+      if (rawTextColorCode) rawTextColorCode.textContent = rgb565ToHex888(rawState.foreground).toUpperCase();
+      if (rawTextBgColorSwatch) rawTextBgColorSwatch.style.background = rgb565ToCss(rawState.background);
+      if (rawTextBgColorInput) rawTextBgColorInput.value = rgb565ToHex888(rawState.background);
+      if (rawTextBgColorCode) rawTextBgColorCode.textContent = rgb565ToHex888(rawState.background).toUpperCase();
+      if (rawTextColor) ensureSelectOption(rawTextColor, rawState.foreground);
+      if (rawTextBackground) ensureSelectOption(rawTextBackground, rawState.background);
+      if (rawTextBackgroundWrap) rawTextBackgroundWrap.hidden = Boolean(rawState.transparent);
+
+      inspectorContract.textContent = 'Sin objeto seleccionado';
+      if (rawInspectorContract) rawInspectorContract.textContent = '// Sin objeto seleccionado';
+      syncAllColorControls();
+      if (selectedTool === 'rawText') {
+        syncRawTextInspector();
+      }
       return;
     }
 
@@ -3992,7 +4819,7 @@
       y2: endPoint.y,
       page: activePage,
       frameColor: selectedColor ? selectedColor.value : 0xFFFF,
-      fillColor: selectedColor ? selectedColor.value : 0xFFFF,
+      fillColor: selectedColor ? (selectedColor.value === 0xFFFF ? 0x001F : 0xFFFF) : 0x001F,
       backgroundColor: 0x0000,
       fill: false,
       size: 1,
@@ -4502,16 +5329,19 @@
     rawState.value = rawTextInput.value;
     const field = selectedField();
     if (field && field.type === 'RAW_TEXT') field.text = rawTextInput.value;
+    syncRawTextInspector();
   });
   bindRawInput(rawTextX, () => {
     rawState.x = clamp(Number(rawTextX.value) || 0, 0, WIDTH - 1);
     const field = selectedField();
     if (field && field.type === 'RAW_TEXT') field.x = rawState.x;
+    syncRawTextInspector();
   });
   bindRawInput(rawTextY, () => {
     rawState.y = clamp(Number(rawTextY.value) || 0, 0, HEIGHT - 1);
     const field = selectedField();
     if (field && field.type === 'RAW_TEXT') field.y = rawState.y;
+    syncRawTextInspector();
   });
   if (rawTextFont && window.JWPLCDesignerFonts) {
     const groups = new Map();
@@ -4579,6 +5409,113 @@
       navigator.clipboard.writeText(code);
       copyRawContractBtn.textContent = '¡Copiado!';
       setTimeout(() => { copyRawContractBtn.textContent = 'Copiar'; }, 1500);
+    }
+  });
+
+  // Pestañas principales de Texto RAW
+  document.querySelectorAll('#rawMainTabs [data-raw-tab]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      activeRawMainTab = btn.dataset.rawTab;
+      syncRawTabPanes();
+      syncRawTextInspector();
+    });
+  });
+
+  // Subpestañas de Texto RAW
+  document.querySelectorAll('#rawSubTabs [data-raw-subtab]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      activeRawSubTab = btn.dataset.rawSubtab;
+      syncRawTabPanes();
+      syncRawTextInspector();
+    });
+  });
+
+  // Selector de escala por chips 1×..4×
+  document.getElementById('rawScaleChipRow')?.addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-raw-scale]');
+    if (!chip) return;
+    const s = Number(chip.dataset.rawScale) || 1;
+    const field = selectedField();
+    if (field && field.type === 'RAW_TEXT') field.size = s;
+    rawState.size = s;
+    if (rawTextSize) rawTextSize.value = String(s);
+    syncRawTextInspector();
+    render();
+    commitHistory();
+  });
+
+  // Selector de fondo (Transparente vs Opaco)
+  document.getElementById('rawBgModeGrid')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-raw-bgmode]');
+    if (!btn) return;
+    const isTrans = btn.dataset.rawBgmode === 'transparent';
+    const field = selectedField();
+    if (field && field.type === 'RAW_TEXT') field.transparentBackground = isTrans;
+    rawState.transparent = isTrans;
+    if (rawTextTransparentToggle) rawTextTransparentToggle.checked = !isTrans;
+    if (rawTextTransparent) rawTextTransparent.value = isTrans ? '1' : '0';
+    if (rawTextBgColorWrap) rawTextBgColorWrap.style.display = isTrans ? 'none' : 'flex';
+    syncRawTextInspector();
+    syncRawAppearance();
+    render();
+    commitHistory();
+  });
+
+  // Leyenda de swatches (Texto / Fondo)
+  document.getElementById('rawCaseLegend')?.addEventListener('click', (e) => {
+    const row = e.target.closest('[data-raw-swatch-row]');
+    if (row) {
+      rawActiveColorKey = row.dataset.rawSwatchRow;
+      if (rawActiveColorKey === 'bgColor') {
+        const field = selectedField();
+        const wasTrans = (field && field.type === 'RAW_TEXT') ? Boolean(field.transparentBackground) : Boolean(rawState.transparent);
+        if (wasTrans) {
+          if (field && field.type === 'RAW_TEXT') field.transparentBackground = false;
+          rawState.transparent = false;
+          if (rawTextTransparentToggle) rawTextTransparentToggle.checked = true;
+          if (rawTextTransparent) rawTextTransparent.value = '0';
+          render();
+          commitHistory();
+        }
+      }
+      syncRawTextInspector();
+      syncRawAppearance();
+    }
+  });
+
+  // Matriz 3×3 de alineación en pantalla
+  document.getElementById('rawAlignMatrix3x3')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-align]');
+    if (!btn) return;
+    alignSelectedShapes(btn.dataset.align);
+  });
+
+  // Chips de páginas
+  document.getElementById('rawPageChipRow')?.addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-raw-page-id]');
+    if (!chip) return;
+    const target = Number(chip.dataset.rawPageId);
+    const field = selectedField();
+    if (field && field.type === 'RAW_TEXT') {
+      moveSelectedFieldToPage(target);
+    } else {
+      selectPage(target);
+    }
+    syncRawTextInspector();
+  });
+
+  window.addEventListener('jwplc:editor-refresh', () => {
+    if (rawSection && !rawSection.hidden) {
+      initRawColorEditor();
+      syncRawAppearance();
+    }
+  });
+
+  window.addEventListener('resize', () => {
+    if (rawSection && !rawSection.hidden && activeRawMainTab === 'design' && activeRawSubTab === 'appearance') {
+      syncRawAppearance();
     }
   });
 
@@ -4735,130 +5672,85 @@
   }
 
   function distanceToFieldBorder(point, field) {
-    let px = point.x;
-    let py = point.y;
-    if (['LINE','RECT','ELLIPSE','TRIANGLE','POLYGON'].includes(field.type)) {
-      const rcx = ((field.x ?? 0) + (field.x2 ?? field.x ?? 0)) / 2;
-      const rcy = ((field.y ?? 0) + (field.y2 ?? field.y ?? 0)) / 2;
-      const rotAngle = Number(field.rotation) || 0;
-      const local = inverseTransformShapePoint(px, py, rcx, rcy, rotAngle, Boolean(field.flipH), Boolean(field.flipV));
-      px = local.x; py = local.y;
-    }
-    const a = { x: field.x, y: field.y };
-    const b = { x: field.x2 ?? field.x, y: field.y2 ?? field.y };
-
-    if (field.fill && isPointInsideShapeArea(px, py, field)) {
-      return 0.0;
-    }
-
+    if (!field) return Infinity;
     if (field.type === 'LINE') {
-      return distToSegment(px, py, a.x, a.y, b.x, b.y);
+      const a = { x: field.x ?? 0, y: field.y ?? 0 };
+      const b = { x: field.x2 ?? a.x, y: field.y2 ?? a.y };
+      return distToSegment(point.x, point.y, a.x, a.y, b.x, b.y);
     }
 
-    if (field.type === 'RECT') {
-      const left = Math.min(a.x, b.x);
-      const right = Math.max(a.x, b.x);
-      const top = Math.min(a.y, b.y);
-      const bottom = Math.max(a.y, b.y);
-      return Math.min(
-        distToSegment(px, py, left, top, right, top),
-        distToSegment(px, py, right, top, right, bottom),
-        distToSegment(px, py, right, bottom, left, bottom),
-        distToSegment(px, py, left, bottom, left, top)
-      );
-    }
-
-    if (field.type === 'ELLIPSE') {
-      const rx = Math.abs(b.x - a.x) / 2;
-      const ry = Math.abs(b.y - a.y) / 2;
-      if (rx < 1 || ry < 1) {
-        return distToSegment(px, py, a.x, a.y, b.x, b.y);
+    if (['RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
+      const pts = getShapeTransformedVertices(field);
+      if (pts && pts.length >= 3) {
+        if (field.fill && isPointInPolygon(point.x, point.y, pts)) {
+          return 0.0;
+        }
+        return distToPolygonBoundary(point.x, point.y, pts);
       }
-      const minX = Math.min(a.x, b.x);
-      const maxX = Math.max(a.x, b.x);
-      const minY = Math.min(a.y, b.y);
-      const maxY = Math.max(a.y, b.y);
-      const margin = 12;
-      if (px < minX - margin || px > maxX + margin || py < minY - margin || py > maxY + margin) {
-        const dx = Math.max(minX - px, 0, px - maxX);
-        const dy = Math.max(minY - py, 0, py - maxY);
-        return Math.hypot(dx, dy);
-      }
-
-      const cx = (a.x + b.x) / 2;
-      const cy = (a.y + b.y) / 2;
-      let minDist = Infinity;
-      let prevX = cx + rx * ELLIPSE_UNIT_SAMPLES[0].c;
-      let prevY = cy + ry * ELLIPSE_UNIT_SAMPLES[0].s;
-
-      for (let i = 1; i <= ELLIPSE_SAMPLE_STEPS; i++) {
-        const curX = cx + rx * ELLIPSE_UNIT_SAMPLES[i].c;
-        const curY = cy + ry * ELLIPSE_UNIT_SAMPLES[i].s;
-        const d = distToSegment(px, py, prevX, prevY, curX, curY);
-        if (d < minDist) minDist = d;
-        prevX = curX;
-        prevY = curY;
-      }
-      return minDist;
-    }
-
-    if (field.type === 'TRIANGLE') {
-      const topPt = { x: Math.round((a.x + b.x) / 2), y: a.y };
-      const bl = { x: a.x, y: b.y };
-      const br = { x: b.x, y: b.y };
-      return Math.min(
-        distToSegment(px, py, topPt.x, topPt.y, bl.x, bl.y),
-        distToSegment(px, py, bl.x, bl.y, br.x, br.y),
-        distToSegment(px, py, br.x, br.y, topPt.x, topPt.y)
-      );
-    }
-
-    if (field.type === 'POLYGON') {
-      const pts = getPolygonVertices(field);
-      let minDist = Infinity;
-      const numSides = pts.length;
-      for (let i = 0; i < numSides; i++) {
-        const p1 = pts[i];
-        const p2 = pts[(i + 1) % numSides];
-        minDist = Math.min(minDist, distToSegment(px, py, p1.x, p1.y, p2.x, p2.y));
-      }
-      return minDist;
     }
 
     // For TEXT, VALUE, BOOL, BAR, etc.
     const g = computeFieldGeometry(field);
+    if (!g) return Infinity;
     if (
-      px >= g.fieldX && px <= g.fieldX + g.fieldW &&
-      py >= g.fieldY && py <= g.fieldY + g.fieldH
+      point.x >= g.fieldX && point.x <= g.fieldX + g.fieldW &&
+      point.y >= g.fieldY && point.y <= g.fieldY + g.fieldH
     ) {
       return 0;
     }
     return Math.min(
-      distToSegment(px, py, g.fieldX, g.fieldY, g.fieldX + g.fieldW, g.fieldY),
-      distToSegment(px, py, g.fieldX + g.fieldW, g.fieldY, g.fieldX + g.fieldW, g.fieldY + g.fieldH),
-      distToSegment(px, py, g.fieldX + g.fieldW, g.fieldY + g.fieldH, g.fieldX, g.fieldY + g.fieldH),
-      distToSegment(px, py, g.fieldX, g.fieldY + g.fieldH, g.fieldX, g.fieldY)
+      distToSegment(point.x, point.y, g.fieldX, g.fieldY, g.fieldX + g.fieldW, g.fieldY),
+      distToSegment(point.x, point.y, g.fieldX + g.fieldW, g.fieldY, g.fieldX + g.fieldW, g.fieldY + g.fieldH),
+      distToSegment(point.x, point.y, g.fieldX + g.fieldW, g.fieldY + g.fieldH, g.fieldX, g.fieldY + g.fieldH),
+      distToSegment(point.x, point.y, g.fieldX, g.fieldY + g.fieldH, g.fieldX, g.fieldY)
     );
   }
 
   function hitTestField(point) {
-    let bestField = null;
-    let bestDist = Infinity;
     const pageFields = fieldsForPage(activePage);
 
-    for (let index = 0; index < pageFields.length; index += 1) {
+    // Iterar de adelante hacia atrás (top-to-bottom en orden de dibujo)
+    for (let index = pageFields.length - 1; index >= 0; index--) {
       const field = pageFields[index];
       if (field.hidden || field.locked) continue;
 
-      const tolerance = (field.type === 'LINE') ? 2.0 : (['RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type) ? 3.5 : 2.0);
-      const dist = distanceToFieldBorder(point, field);
-      if (dist <= tolerance && dist < bestDist) {
-        bestDist = dist;
-        bestField = field;
-        break;
+      if (field.type === 'LINE') {
+        const strokeSize = field.borderEnabled !== false ? Math.max(1, Math.round(field.size || 1)) : 1;
+        const dist = distanceToFieldBorder(point, field);
+        const hitTol = Math.max(3.5, strokeSize / 2 + 2.0);
+        if (dist <= hitTol) return field;
+        continue;
       }
+
+      if (['RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
+        const strokeSize = field.borderEnabled !== false ? Math.max(1, Math.round(field.size || 1)) : 0;
+        const pts = getShapeTransformedVertices(field);
+        if (pts && pts.length >= 3) {
+          const isInside = isPointInPolygon(point.x, point.y, pts);
+          if (field.fill && isInside) return field;
+          const distToBorder = distToPolygonBoundary(point.x, point.y, pts);
+          const hitTol = Math.max(3.5, strokeSize + 2.0);
+          if (isInside) {
+            if (distToBorder <= hitTol) return field;
+          } else {
+            if (distToBorder <= 3.5) return field;
+          }
+        }
+        continue;
+      }
+
+      if (field.type === 'RAW_TEXT') {
+        const b = getFieldBounds(field);
+        if (point.x >= b.minX - 2 && point.x <= b.maxX + 2 && point.y >= b.minY - 2 && point.y <= b.maxY + 2) {
+          return field;
+        }
+        continue;
+      }
+
+      const dist = distanceToFieldBorder(point, field);
+      if (dist <= 3.0) return field;
     }
-    return bestField;
+    return null;
   }
 
   function handlePointerDown(event) {
@@ -5093,19 +5985,18 @@
 
           // LINE deformation (endpoint dragging)
           if (f.type === 'LINE') {
-            const angleDeg = Number(orig.rotation) || 0;
-            const flipH = Boolean(orig.flipH);
-            const flipV = Boolean(orig.flipV);
             const ox1 = orig.x ?? 0; const oy1 = orig.y ?? 0;
             const ox2 = orig.x2 ?? ox1; const oy2 = orig.y2 ?? oy1;
-            const ocx = (ox1 + ox2) / 2; const ocy = (oy1 + oy2) / 2;
+
+            const dx = curX - (resizeInitialPointer?.x ?? curX);
+            const dy = curY - (resizeInitialPointer?.y ?? curY);
 
             if (hid === 'p1') {
-              const localP = inverseTransformShapePoint(curX, curY, ocx, ocy, angleDeg, flipH, flipV);
-              f.x = localP.x; f.y = localP.y;
+              f.x = clamp(Math.round(ox1 + dx), 0, WIDTH - 1);
+              f.y = clamp(Math.round(oy1 + dy), 0, HEIGHT - 1);
             } else if (hid === 'p2') {
-              const localP = inverseTransformShapePoint(curX, curY, ocx, ocy, angleDeg, flipH, flipV);
-              f.x2 = localP.x; f.y2 = localP.y;
+              f.x2 = clamp(Math.round(ox2 + dx), 0, WIDTH - 1);
+              f.y2 = clamp(Math.round(oy2 + dy), 0, HEIGHT - 1);
             }
             gestureChanged = true;
             syncShapeInspector();
@@ -5563,10 +6454,10 @@
             }
           }
 
-          // Check pixelmaps for CAD Marquee
-          let matchedPixelMap = null;
+          // Check pixelmaps for CAD Marquee (supports multiple pixel objects)
+          const matchedPixelMaps = [];
           const allPixelMaps = window.JWPLCHMIPixelMaps?.getAll?.() || [];
-          for (let i = allPixelMaps.length - 1; i >= 0; i--) {
+          for (let i = 0; i < allPixelMaps.length; i++) {
             const pm = allPixelMaps[i];
             if (Number(pm.page || 0) !== activePage || pm.editorVisible === false || !pm.pixels?.length) continue;
             if (isLeftToRight) {
@@ -5581,8 +6472,7 @@
                 if (py > pMaxY) pMaxY = py;
               });
               if (pMinX !== Infinity && pMinX >= boxL && pMaxX <= boxR && pMinY >= boxT && pMaxY <= boxB) {
-                matchedPixelMap = pm;
-                break;
+                matchedPixelMaps.push(pm);
               }
             } else {
               // Green Crossing ("modo verde"): Touches ANY drawn pixel
@@ -5592,27 +6482,32 @@
                 return px >= boxL && px <= boxR && py >= boxT && py <= boxB;
               });
               if (touchesPixel) {
-                matchedPixelMap = pm;
-                break;
+                matchedPixelMaps.push(pm);
               }
             }
           }
 
-          if (matchedList.length > 0) {
+          if (matchedList.length > 0 && matchedPixelMaps.length === 0) {
             setSelectedKeys(matchedList.map((f) => f.key));
             const primary = selectedField();
             selectedTool = primary ? toolForField(primary) : 'pointer';
-            window.JWPLCHMIPixelMaps?.setSelectedKey?.(null);
+            window.JWPLCHMIPixelMaps?.setSelectedKeys?.([]);
             syncInputsFromState();
             syncToolUI();
-          } else if (matchedPixelMap) {
+          } else if (matchedPixelMaps.length > 0 && matchedList.length === 0) {
             setSelectedKeys([]);
-            window.JWPLCHMIPixelMaps?.setSelectedKey?.(matchedPixelMap.key);
+            window.JWPLCHMIPixelMaps?.setSelectedKeys?.(matchedPixelMaps.map((m) => m.key));
             selectedTool = 'pointer';
+            syncToolUI();
+          } else if (matchedList.length > 0 && matchedPixelMaps.length > 0) {
+            setSelectedKeys(matchedList.map((f) => f.key));
+            window.JWPLCHMIPixelMaps?.setSelectedKeys?.(matchedPixelMaps.map((m) => m.key));
+            selectedTool = 'pointer';
+            syncInputsFromState();
             syncToolUI();
           } else {
             setSelectedKeys([]);
-            window.JWPLCHMIPixelMaps?.setSelectedKey?.(null);
+            window.JWPLCHMIPixelMaps?.setSelectedKeys?.([]);
             syncToolUI();
           }
         }
@@ -5725,12 +6620,22 @@
         const b = rawTextBounds(rawState.value || '', rawState.size, rawState.font);
         const w = b.width;
         const h = b.height;
-        if (alignType === 'left') rawState.x = 0;
-        else if (alignType === 'hcenter') rawState.x = Math.max(0, Math.round((WIDTH - w) / 2));
-        else if (alignType === 'right') rawState.x = Math.max(0, WIDTH - w);
-        else if (alignType === 'top') rawState.y = 0;
-        else if (alignType === 'vcenter') rawState.y = Math.max(0, Math.round((HEIGHT - h) / 2));
-        else if (alignType === 'bottom') rawState.y = Math.max(0, HEIGHT - h);
+        const cx = Math.max(0, Math.round((WIDTH - w) / 2));
+        const cy = Math.max(0, Math.round((HEIGHT - h) / 2));
+        const rx = Math.max(0, WIDTH - w);
+        const by = Math.max(0, HEIGHT - h);
+
+        if (alignType === 'top-left') { rawState.x = 0; rawState.y = 0; }
+        else if (alignType === 'top') { rawState.x = cx; rawState.y = 0; }
+        else if (alignType === 'top-right') { rawState.x = rx; rawState.y = 0; }
+        else if (alignType === 'left' || alignType === 'mid-left') { rawState.x = 0; rawState.y = cy; }
+        else if (alignType === 'center' || alignType === 'mid-center') { rawState.x = cx; rawState.y = cy; }
+        else if (alignType === 'right' || alignType === 'mid-right') { rawState.x = rx; rawState.y = cy; }
+        else if (alignType === 'bottom-left') { rawState.x = 0; rawState.y = by; }
+        else if (alignType === 'bottom') { rawState.x = cx; rawState.y = by; }
+        else if (alignType === 'bottom-right') { rawState.x = rx; rawState.y = by; }
+        else if (alignType === 'hcenter') { rawState.x = cx; }
+        else if (alignType === 'vcenter') { rawState.y = cy; }
         syncInputsFromState();
         render();
       }
@@ -5740,18 +6645,35 @@
       const b = getFieldBounds(f);
       let dx = 0;
       let dy = 0;
-      if (alignType === 'left') {
-        dx = 0 - b.minX;
-      } else if (alignType === 'hcenter') {
-        dx = Math.round((WIDTH - b.width) / 2) - b.minX;
-      } else if (alignType === 'right') {
-        dx = (WIDTH - 1) - b.maxX;
+      const hCenterX = Math.round((WIDTH - b.width) / 2) - b.minX;
+      const vCenterY = Math.round((HEIGHT - b.height) / 2) - b.minY;
+      const leftX = 0 - b.minX;
+      const rightX = (WIDTH - 1) - b.maxX;
+      const topY = 0 - b.minY;
+      const bottomY = (HEIGHT - 1) - b.maxY;
+
+      if (alignType === 'top-left') {
+        dx = leftX; dy = topY;
       } else if (alignType === 'top') {
-        dy = 0 - b.minY;
-      } else if (alignType === 'vcenter') {
-        dy = Math.round((HEIGHT - b.height) / 2) - b.minY;
+        dx = hCenterX; dy = topY;
+      } else if (alignType === 'top-right') {
+        dx = rightX; dy = topY;
+      } else if (alignType === 'left' || alignType === 'mid-left') {
+        dx = leftX; dy = vCenterY;
+      } else if (alignType === 'center' || alignType === 'mid-center') {
+        dx = hCenterX; dy = vCenterY;
+      } else if (alignType === 'right' || alignType === 'mid-right') {
+        dx = rightX; dy = vCenterY;
+      } else if (alignType === 'bottom-left') {
+        dx = leftX; dy = bottomY;
       } else if (alignType === 'bottom') {
-        dy = (HEIGHT - 1) - b.maxY;
+        dx = hCenterX; dy = bottomY;
+      } else if (alignType === 'bottom-right') {
+        dx = rightX; dy = bottomY;
+      } else if (alignType === 'hcenter') {
+        dx = hCenterX;
+      } else if (alignType === 'vcenter') {
+        dy = vCenterY;
       }
       f.x += dx;
       f.y += dy;
@@ -6218,40 +7140,36 @@
     syncShapeInspector(); render(); commitHistory();
   });
   shapeBorderEnabled?.addEventListener('change', () => {
-    const f = selectedField(); if (!f) return; f.borderEnabled = shapeBorderEnabled.checked; syncShapeInspector(); render(); commitHistory();
-  });
-  function triggerColorPicker(input) {
-    if (!input) return;
-    if (typeof input.showPicker === 'function') {
-      try { input.showPicker(); return; } catch (e) {}
-    }
-    input.click();
-  }
-  shapeBorderColorSwatch?.addEventListener('click', () => triggerColorPicker(shapeBorderColorInput));
-  shapeBorderColorInput?.addEventListener('input', () => {
     const f = selectedField(); if (!f) return;
-    const c = hex888ToRgb565(shapeBorderColorInput.value); f.frameColor = c;
-    syncShapeInspector();
-    render();
+    f.borderEnabled = shapeBorderEnabled.checked;
+    if (f.borderEnabled) shapeActiveColorKey = 'border';
+    syncShapeInspector(); render(); commitHistory();
   });
-  shapeBorderColorInput?.addEventListener('change', () => commitHistory());
+  document.getElementById('shapeAppearanceCard')?.addEventListener('click', (e) => {
+    if (e.target.closest('.bar-toggle-switch') || e.target.closest('input')) return;
+    const row = e.target.closest('[data-shape-legend]');
+    if (row) {
+      shapeActiveColorKey = row.dataset.shapeLegend;
+      const f = selectedField();
+      if (shapeActiveColorKey === 'fill' && f && !f.fill && f.type !== 'LINE') {
+        f.fill = true;
+        render();
+        commitHistory();
+      }
+      syncShapeInspector();
+    }
+  });
   shapeBorderSize?.addEventListener('input', () => {
     const f = selectedField(); if (!f) return; f.size = Number(shapeBorderSize.value) || 1; syncShapeInspector(); render();
   });
   shapeBorderSize?.addEventListener('change', () => commitHistory());
   shapeFillEnabled?.addEventListener('change', () => {
-    const f = selectedField(); if (!f) return; f.fill = shapeFillEnabled.checked;
+    const f = selectedField(); if (!f) return;
+    f.fill = shapeFillEnabled.checked;
+    if (f.fill) shapeActiveColorKey = 'fill';
     syncShapeInspector(); render(); commitHistory();
   });
-  shapeFillColorSwatch?.addEventListener('click', () => triggerColorPicker(shapeFillColorInput));
-  shapeFillColorInput?.addEventListener('input', () => {
-    const f = selectedField(); if (!f) return;
-    const c = hex888ToRgb565(shapeFillColorInput.value); f.fillColor = c;
-    syncShapeInspector();
-    render();
-  });
-  shapeFillColorInput?.addEventListener('change', () => commitHistory());
-  document.querySelectorAll('.align-btn[data-align]').forEach((btn) => {
+  document.querySelectorAll('.align-btn[data-align], .shape-matrix-btn[data-align]').forEach((btn) => {
     btn.addEventListener('click', () => alignSelectedShapes(btn.dataset.align));
   });
   document.getElementById('shapeMergeBitmapBtn')?.addEventListener('click', () => {
@@ -6320,6 +7238,8 @@
     getMaxPages: () => MAX_PAGES,
     computeSelectedGeometry: () => computeFieldGeometry(selectedField()),
     hasFieldSelection: () => selectedFields().length > 0,
+    getSelectionHandles: (fields = selectedFields()) => getSelectionHandles(fields),
+    hitTestHandle,
     hasTextSelection: () => selectedField()?.type === 'TEXT' && selectedTool === 'textField',
     hasValueSelection: () => selectedField()?.type === 'VALUE' && selectedTool === 'valueField',
     setActivePage,
@@ -6355,6 +7275,8 @@
     renderFieldPreview,
     sortObjectListDOM,
     getFieldBounds: (f) => getFieldBounds(f),
+    hitTestField: (pt) => hitTestField(pt),
+    isPointInsideSelection: (pt) => isPointInsideSelection(pt),
     getShapeVertices: (f) => getShapeTransformedVertices(f),
     getMaxCornerRadius: (f) => getMaxCornerRadius(f),
     getPixelFieldOrder: (x, y) => {

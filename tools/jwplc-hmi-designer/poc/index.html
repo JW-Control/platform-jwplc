@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>JWPLC HMI Designer — Alpha11</title>
-  <link rel="stylesheet" href="./styles.css?v=1793800000" />
+  <link rel="stylesheet" href="./styles.css?v=1793800600" />
 </head>
 <body>
   <header class="topbar">
@@ -650,98 +650,66 @@
           <!-- ==================== SUBPESTAÑA: APARIENCIA ==================== -->
           <div id="shapePaneAppear" class="shape-tab-pane" hidden>
             <!-- Tarjeta Borde / Línea -->
-            <div class="bar-card" id="shapeBorderRow">
-              <div class="bar-card-header">
-                <span class="bar-card-title">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00d7ef" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
-                  <span id="shapeBorderLabel">Borde</span>
-                </span>
-                <label class="bar-toggle-switch" id="shapeBorderToggleWrap" title="Mostrar u ocultar borde">
-                  <input id="shapeBorderEnabled" type="checkbox" checked />
-                  <span class="bar-toggle-slider"></span>
-                </label>
-              </div>
-              <div class="shape-color-Control-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px;">
-                <span class="bar-field-subtitle" style="margin: 0;">Color RGB565</span>
-                <div style="display: inline-flex; align-items: center; gap: 6px;">
-                  <button id="shapeBorderEyedropperBtn" type="button" class="shape-eyedropper-btn" title="Cuentagotas: copiar color de pantalla / lienzo">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="m14 7 3 3"/>
-                      <path d="M19 2a2.83 2.83 0 0 1 2 4l-1 1-5-5 1-1a2.83 2.83 0 0 1 3-1Z"/>
-                      <path d="m16 8-8.5 8.5a2.12 2.12 0 0 0-.6 1.5V20l-4 2 2-4h2a2.12 2.12 0 0 0 1.5-.6L17 9Z"/>
-                    </svg>
-                  </button>
-                  <div class="color-mini-wrap" style="flex: 0 0 auto; background: #0b161f; border: 1px solid #243949; padding: 4px 8px; border-radius: 5px;">
-                    <div id="shapeBorderColorSwatch" class="color-mini-swatch" style="background:#ffffff" title="Clic para cambiar color de borde / trazo"></div>
-                    <input id="shapeBorderColorInput" type="color" value="#ffffff" class="color-mini-native" />
-                    <code id="shapeBorderColorCode" class="color-mini-code">#FFFFFF</code>
+            <div class="bar-card" id="shapeAppearanceCard">
+              <div class="bar-card-section-title">▾ Colores de la figura</div>
+              <div class="menu-legend" style="margin-bottom: 8px;">
+                <div class="menu-case-legend" style="display: flex; flex-direction: column; gap: 4px;">
+                  <div class="menu-legend-row is-active" data-shape-legend="border" id="shapeBorderRow">
+                    <span class="menu-legend-label" id="shapeBorderLabel">Borde</span>
+                    <div style="display: inline-flex; align-items: center; gap: 6px;">
+                      <label class="bar-toggle-switch" id="shapeBorderToggleWrap" title="Mostrar u ocultar borde">
+                        <input id="shapeBorderEnabled" type="checkbox" checked />
+                        <span class="bar-toggle-slider"></span>
+                      </label>
+                      <button type="button" class="menu-swatch active" data-shape-swatch="border" title="Borde">
+                        <span>B</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="menu-legend-row" data-shape-legend="fill" id="shapeFillRow">
+                    <span class="menu-legend-label" id="shapeFillLabel">Relleno sólido</span>
+                    <div style="display: inline-flex; align-items: center; gap: 6px;">
+                      <label class="bar-toggle-switch" title="Activar o desactivar relleno">
+                        <input id="shapeFillEnabled" type="checkbox" />
+                        <span class="bar-toggle-slider"></span>
+                      </label>
+                      <button type="button" class="menu-swatch" data-shape-swatch="fill" title="Relleno">
+                        <span>R</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
-              <div class="bar-palette-row" data-shape-color-target="border">
-                <button type="button" class="bar-palette-pill" data-hex="#ffffff" data-color-hex="#ffffff"><span class="bar-palette-preview" style="background:#ffffff"></span>Blanco</button>
-                <button type="button" class="bar-palette-pill" data-hex="#00ffff" data-color-hex="#00ffff"><span class="bar-palette-preview" style="background:#00ffff"></span>Cyan</button>
-                <button type="button" class="bar-palette-pill" data-hex="#ffa500" data-color-hex="#ffa500"><span class="bar-palette-preview" style="background:#ffa500"></span>Naranja</button>
-                <button type="button" class="bar-palette-pill" data-hex="#00ff00" data-color-hex="#00ff00"><span class="bar-palette-preview" style="background:#00ff00"></span>Verde</button>
-                <button type="button" class="bar-palette-pill" data-hex="#ffff00" data-color-hex="#ffff00"><span class="bar-palette-preview" style="background:#ffff00"></span>Amarillo</button>
-                <button type="button" class="bar-palette-pill" data-hex="#ff0000" data-color-hex="#ff0000"><span class="bar-palette-preview" style="background:#ff0000"></span>Rojo</button>
-              </div>
-            </div>
-
-            <!-- Tarjeta Relleno (oculta en LINE) -->
-            <div class="bar-card" id="shapeFillRow">
-              <div class="bar-card-header">
-                <span class="bar-card-title">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00d7ef" stroke-width="2"><path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11Z"/><path d="M2 13h15"/></svg>
-                  <span id="shapeFillLabel">Relleno sólido</span>
-                </span>
-                <label class="bar-toggle-switch" title="Activar o desactivar relleno">
-                  <input id="shapeFillEnabled" type="checkbox" />
-                  <span class="bar-toggle-slider"></span>
-                </label>
-              </div>
-              <div class="shape-color-Control-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px;">
-                <span class="bar-field-subtitle" style="margin: 0;">Color de relleno</span>
-                <div style="display: inline-flex; align-items: center; gap: 6px;">
-                  <button id="shapeFillEyedropperBtn" type="button" class="shape-eyedropper-btn" title="Cuentagotas: copiar color de pantalla / lienzo">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="m14 7 3 3"/>
-                      <path d="M19 2a2.83 2.83 0 0 1 2 4l-1 1-5-5 1-1a2.83 2.83 0 0 1 3-1Z"/>
-                      <path d="m16 8-8.5 8.5a2.12 2.12 0 0 0-.6 1.5V20l-4 2 2-4h2a2.12 2.12 0 0 0 1.5-.6L17 9Z"/>
-                    </svg>
-                  </button>
-                  <div class="color-mini-wrap" style="flex: 0 0 auto; background: #0b161f; border: 1px solid #243949; padding: 4px 8px; border-radius: 5px;">
-                    <div id="shapeFillColorSwatch" class="color-mini-swatch" style="background:#ffff00" title="Clic para cambiar color de relleno"></div>
-                    <input id="shapeFillColorInput" type="color" value="#ffff00" class="color-mini-native" />
-                    <code id="shapeFillColorCode" class="color-mini-code">#FFFF00</code>
-                  </div>
-                </div>
-              </div>
-              <div class="bar-palette-row" data-shape-color-target="fill">
-                <button type="button" class="bar-palette-pill" data-hex="#182c3c" data-color-hex="#182c3c"><span class="bar-palette-preview" style="background:#182c3c"></span>Pizarra</button>
-                <button type="button" class="bar-palette-pill" data-hex="#00ffff" data-color-hex="#00ffff"><span class="bar-palette-preview" style="background:#00ffff"></span>Cyan</button>
-                <button type="button" class="bar-palette-pill" data-hex="#ffa500" data-color-hex="#ffa500"><span class="bar-palette-preview" style="background:#ffa500"></span>Naranja</button>
-                <button type="button" class="bar-palette-pill" data-hex="#00ff00" data-color-hex="#00ff00"><span class="bar-palette-preview" style="background:#00ff00"></span>Verde</button>
-                <button type="button" class="bar-palette-pill" data-hex="#ffff00" data-color-hex="#ffff00"><span class="bar-palette-preview" style="background:#ffff00"></span>Amarillo</button>
-                <button type="button" class="bar-palette-pill" data-hex="#ff0000" data-color-hex="#ff0000"><span class="bar-palette-preview" style="background:#ff0000"></span>Rojo</button>
+              <div class="menu-palette">
+                <div class="insp-note">Clic en una fila (texto o cuadro) para editar ese color.</div>
+                <div id="shapeColorEditorHost" data-shape-color-editor></div>
               </div>
             </div>
           </div>
 
           <!-- ==================== SUBPESTAÑA: UBICACIÓN ==================== -->
           <div id="shapePaneLoc" class="shape-tab-pane" hidden>
-            <!-- Alineación rápida -->
+            <!-- Alineación en lienzo (3×3) -->
             <div class="bar-card">
               <div class="bar-visual-group-title" style="margin-bottom: 6px;">
-                <span>Alineación respecto al lienzo / selección</span>
+                <span>Alineación en lienzo (3×3)</span>
               </div>
-              <div class="align-toolbar" style="padding: 0; background: transparent; border: none;">
-                <button class="align-btn" data-align="left" title="Alinear izquierda"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="10" height="4" rx="1"/><rect x="3" y="13" width="16" height="4" rx="1"/><line x1="3" y1="2" x2="3" y2="22"/></svg></button>
-                <button class="align-btn" data-align="hcenter" title="Centrar horizontal"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="5" width="10" height="4" rx="1"/><rect x="4" y="13" width="16" height="4" rx="1"/><line x1="12" y1="2" x2="12" y2="22"/></svg></button>
-                <button class="align-btn" data-align="right" title="Alinear derecha"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="11" y="5" width="10" height="4" rx="1"/><rect x="5" y="13" width="16" height="4" rx="1"/><line x1="21" y1="2" x2="21" y2="22"/></svg></button>
-                <button class="align-btn" data-align="top" title="Alinear arriba"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="7" width="4" height="12" rx="1"/><rect x="13" y="7" width="4" height="8" rx="1"/><line x1="2" y1="3" x2="22" y2="3"/></svg></button>
-                <button class="align-btn" data-align="vcenter" title="Centrar vertical"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="4" width="4" height="16" rx="1"/><rect x="13" y="7" width="4" height="10" rx="1"/><line x1="2" y1="12" x2="22" y2="12"/></svg></button>
-                <button class="align-btn" data-align="bottom" title="Alinear abajo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="5" width="4" height="12" rx="1"/><rect x="13" y="9" width="4" height="8" rx="1"/><line x1="2" y1="21" x2="22" y2="21"/></svg></button>
+              <div class="shape-align-matrix-row">
+                <div class="shape-align-matrix-3x3" id="shapeAlignMatrix">
+                  <button type="button" class="shape-matrix-btn" data-align="top-left" title="Arriba Izquierda">↖</button>
+                  <button type="button" class="shape-matrix-btn" data-align="top" title="Arriba Centro">↑</button>
+                  <button type="button" class="shape-matrix-btn" data-align="top-right" title="Arriba Derecha">↗</button>
+                  <button type="button" class="shape-matrix-btn" data-align="left" title="Medio Izquierda">←</button>
+                  <button type="button" class="shape-matrix-btn" data-align="center" title="Centro del lienzo">·</button>
+                  <button type="button" class="shape-matrix-btn" data-align="right" title="Medio Derecha">→</button>
+                  <button type="button" class="shape-matrix-btn" data-align="bottom-left" title="Abajo Izquierda">↙</button>
+                  <button type="button" class="shape-matrix-btn" data-align="bottom" title="Abajo Centro">↓</button>
+                  <button type="button" class="shape-matrix-btn" data-align="bottom-right" title="Abajo Derecha">↘</button>
+                </div>
+                <div class="shape-matrix-legend">
+                  <span class="shape-matrix-legend-title">Alinear al lienzo</span>
+                  <span class="shape-matrix-legend-desc">Posiciona la figura en esquinas, bordes o centro (320×170).</span>
+                </div>
               </div>
             </div>
 
@@ -1429,98 +1397,491 @@
         </details>
       </section>
 
-      <section id="rawTextControlsSection" class="inspector-section" hidden>
-        <!-- Header estilo Lopaka: Icono Aa + Nombre editable + Duplicar + Eliminar -->
-        <div class="shape-inspector-header">
-          <span class="shape-header-icon" style="font-size:16px;font-weight:bold;color:#ff9a43;font-family:'Cascadia Code',Consolas,monospace;">Aa</span>
-          <input id="rawTextName" class="shape-name-input" type="text" value="Texto RAW" maxlength="32" title="Nombre del objeto" />
-          <button id="rawDuplicateBtn" class="shape-hdr-btn" title="Duplicar (Ctrl+D)">&#8645;</button>
-          <button id="rawDeleteBtn" class="shape-hdr-btn shape-hdr-danger" title="Eliminar (Del)">&#10005;</button>
+            <section id="rawTextControlsSection" class="inspector-section insp-wrap" hidden>
+        <!-- Cabecera estilo Propuesta 2: Icono Aa + Inspector — Nombre + Acciones -->
+        <div class="inspector-title" style="margin-bottom: 6px;">
+          <h2 style="font-size: 13px; color: #dce9f1; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+            <span style="color: #ff9a43; font-size: 14px; font-weight: bold; font-family: 'Cascadia Code', Consolas, monospace;">Aa</span>
+            <span>Inspector — <span id="rawTextHeaderTitle">Texto RAW</span></span>
+          </h2>
+          <span class="inspector-actions" style="display: inline-flex; gap: 4px;">
+            <button id="rawDuplicateBtn" class="icon-button" type="button" title="Duplicar texto (Ctrl+D)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+            <button id="rawDeleteBtn" class="icon-button inspector-delete" type="button" title="Eliminar texto (Delete)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+          </span>
         </div>
 
-        <!-- Barra de alineación idéntica a Lopaka (6 botones: Izquierda, Centro H, Derecha, Arriba, Centro V, Abajo) -->
-        <div class="align-toolbar">
-          <button class="align-btn" data-align="left" title="Alinear izquierda (X=0)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="10" height="4" rx="1"/><rect x="3" y="13" width="16" height="4" rx="1"/><line x1="3" y1="2" x2="3" y2="22"/></svg></button>
-          <button class="align-btn" data-align="hcenter" title="Centrar horizontal"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="5" width="10" height="4" rx="1"/><rect x="4" y="13" width="16" height="4" rx="1"/><line x1="12" y1="2" x2="12" y2="22"/></svg></button>
-          <button class="align-btn" data-align="right" title="Alinear derecha"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="11" y="5" width="10" height="4" rx="1"/><rect x="5" y="13" width="16" height="4" rx="1"/><line x1="21" y1="2" x2="21" y2="22"/></svg></button>
-          <button class="align-btn" data-align="top" title="Alinear arriba (Y=0)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="7" width="4" height="12" rx="1"/><rect x="13" y="7" width="4" height="8" rx="1"/><line x1="2" y1="3" x2="22" y2="3"/></svg></button>
-          <button class="align-btn" data-align="vcenter" title="Centrar vertical"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="4" width="4" height="16" rx="1"/><rect x="13" y="7" width="4" height="10" rx="1"/><line x1="2" y1="12" x2="22" y2="12"/></svg></button>
-          <button class="align-btn" data-align="bottom" title="Alinear abajo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="5" width="4" height="12" rx="1"/><rect x="13" y="9" width="4" height="8" rx="1"/><line x1="2" y1="21" x2="22" y2="21"/></svg></button>
+        <!-- Navegación por pestañas y subpestañas idéntica a Texto Dinámico (Propuesta 2) -->
+        <div class="bar-nav-header insp-nav-header">
+          <div class="bar-main-tabs" id="rawMainTabs" role="tablist">
+            <button type="button" class="bar-main-tab insp-main-tab active" data-raw-tab="design" role="tab">Diseño</button>
+            <button type="button" class="bar-main-tab insp-main-tab" data-raw-tab="data" role="tab">Datos</button>
+            <button type="button" class="bar-main-tab insp-main-tab" data-raw-tab="tech" role="tab">Técnico</button>
+          </div>
+          <div class="bar-sub-tabs" id="rawSubTabs" role="tablist">
+            <button type="button" class="bar-sub-tab insp-sub-tab active" data-raw-subtab="form" role="tab">Forma</button>
+            <button type="button" class="bar-sub-tab insp-sub-tab" data-raw-subtab="content" role="tab">Contenido</button>
+            <button type="button" class="bar-sub-tab insp-sub-tab" data-raw-subtab="appearance" role="tab">Apariencia</button>
+            <button type="button" class="bar-sub-tab insp-sub-tab" data-raw-subtab="placement" role="tab">Ubicación</button>
+          </div>
         </div>
 
-        <!-- Posición X, Y y Área calculada -->
-        <div class="shape-geom-grid" style="grid-template-columns: 1fr 1fr 1fr;">
-          <label class="geom-label">X<input id="rawTextX" class="geom-input" type="number" min="0" max="319" value="20" /></label>
-          <label class="geom-label">Y<input id="rawTextY" class="geom-input" type="number" min="0" max="169" value="20" /></label>
-          <label class="geom-label" title="Área total del texto (ancho × alto)">Área<span id="rawBoundsStatus" class="geom-input" style="display:flex;align-items:center;justify-content:center;background:#09131a;color:#52c9ff;font-family:'Cascadia Code',Consolas,monospace;font-size:10px;">—</span></label>
-        </div>
-
-        <!-- Controles de tipografía, texto y colores estilo Lopaka -->
-        <div class="shape-style-section">
-          <!-- Fila Fuente -->
-          <div class="shape-style-row" style="flex-wrap: nowrap; gap: 8px;">
-            <span class="style-label" style="width: 55px; flex-shrink: 0;">Fuente</span>
-            <select id="rawTextFont" class="field-input" style="flex: 1; margin: 0; min-height: 28px;"></select>
-          </div>
-
-          <!-- Fila Texto -->
-          <div class="shape-style-row" style="flex-wrap: nowrap; gap: 8px;">
-            <span class="style-label" style="width: 55px; flex-shrink: 0;">Texto</span>
-            <input id="rawTextInput" class="field-input" type="text" value="Texto RAW" maxlength="40" style="flex: 1; margin: 0; min-height: 28px;" />
-          </div>
-
-          <!-- Fila Tamaño / Escala con hint de px -->
-          <div class="shape-style-row" style="flex-wrap: nowrap; gap: 8px; align-items: center;">
-            <span class="style-label" style="width: 55px; flex-shrink: 0;">Tamaño</span>
-            <select id="rawTextSize" class="field-input" style="width: 70px; margin: 0; min-height: 28px;">
-              <option value="1" selected>1×</option>
-              <option value="2">2×</option>
-              <option value="3">3×</option>
-              <option value="4">4×</option>
-            </select>
-            <span id="rawScalePxHint" style="color: #5bbde4; font-size: 11px; font-weight: 600; margin-left: 4px;">· 18 px</span>
-          </div>
-
-          <!-- Fila Color de texto (Fill color) -->
-          <div class="shape-style-row">
-            <span class="style-label" style="width: 55px; flex-shrink: 0;">Color</span>
-            <div class="color-mini-wrap">
-              <div id="rawTextColorSwatch" class="color-mini-swatch" style="background: #ffffff;" title="Clic para elegir color del texto"></div>
-              <input id="rawTextColorInput" type="color" value="#ffffff" class="color-mini-native" />
-              <code id="rawTextColorCode" class="color-mini-code">#FFFFFF</code>
+        <div class="insp-body" id="rawScrollBody">
+          <!-- ==================== SUBPESTAÑA: FORMA ==================== -->
+          <div id="rawPaneForm" class="insp-panel">
+            <div class="bar-card">
+              <div class="bar-card-section-title">Tipografía / Fuente</div>
+              <select id="rawTextFont" class="field-input" style="width: 100%; margin: 4px 0 0 0; min-height: 28px;"></select>
+              <div class="insp-note">GLCD 5×7 clásica o FreeFonts reales de Adafruit GFX integradas en firmware.</div>
             </div>
-            <!-- select oculto para preservar selectores de paleta heredados -->
-            <select id="rawTextColor" class="field-input" style="display:none;"></select>
+
+            <div class="bar-card">
+              <div class="bar-card-section-title">Tamaño de escala <span class="insp-hint" id="rawScalePxHint">· 8 px de alto</span></div>
+              <div class="insp-chip-row" id="rawScaleChipRow">
+                <button type="button" class="insp-chip active" data-raw-scale="1">1×</button>
+                <button type="button" class="insp-chip" data-raw-scale="2">2×</button>
+                <button type="button" class="insp-chip" data-raw-scale="3">3×</button>
+                <button type="button" class="insp-chip" data-raw-scale="4">4×</button>
+              </div>
+              <select id="rawTextSize" style="display:none;">
+                <option value="1" selected>1×</option>
+                <option value="2">2×</option>
+                <option value="3">3×</option>
+                <option value="4">4×</option>
+              </select>
+              <div class="insp-note">Multiplicador entero de píxeles sobre la fuente elegida.</div>
+            </div>
+
+            <div class="bar-card">
+              <div class="bar-card-section-title">Fondo del texto</div>
+              <div class="bar-visual-grid-2" id="rawBgModeGrid">
+                <button type="button" class="bar-visual-btn active" data-raw-bgmode="transparent" title="Sin fondo: muestra lo que hay detrás">
+                  <svg width="34" height="14" viewBox="0 0 34 14"><rect x="1.5" y="1.5" width="31" height="11" rx="1" stroke-width="1" stroke-dasharray="2 2" opacity="0.5"/><rect x="6" y="5" width="22" height="4" fill="currentColor" stroke="none"/></svg>
+                  <span>Transparente</span>
+                </button>
+                <button type="button" class="bar-visual-btn" data-raw-bgmode="opaque" title="Fondo rectangular con 2 px de relleno">
+                  <svg width="34" height="14" viewBox="0 0 34 14"><rect x="1.5" y="1.5" width="31" height="11" rx="1" fill="currentColor" opacity="0.3" stroke="currentColor" stroke-width="1"/><rect x="6" y="5" width="22" height="4" fill="currentColor" stroke="none"/></svg>
+                  <span>Opaco (+2 px)</span>
+                </button>
+              </div>
+              <input id="rawTextTransparentToggle" type="checkbox" style="display:none;" />
+              <select id="rawTextTransparent" style="display:none;">
+                <option value="1">1</option>
+                <option value="0">0</option>
+              </select>
+              <div class="insp-note" id="rawBgModeNote">Texto directo sobre el fondo de la pantalla o capas inferiores.</div>
+            </div>
           </div>
 
-          <!-- Fila Fondo (Back) -->
-          <div class="shape-style-row">
-            <span class="style-label" style="width: 55px; flex-shrink: 0;">Fondo</span>
-            <label class="style-toggle-wrap" title="Activar fondo opaco o transparente">
-              <input id="rawTextTransparentToggle" type="checkbox" />
-              <span class="style-toggle-slider"></span>
-            </label>
-            <div id="rawTextBgColorWrap" class="color-mini-wrap" style="display:none;">
-              <div id="rawTextBgColorSwatch" class="color-mini-swatch" style="background: #000000;" title="Clic para elegir color del fondo"></div>
-              <input id="rawTextBgColorInput" type="color" value="#000000" class="color-mini-native" />
-              <code id="rawTextBgColorCode" class="color-mini-code">#000000</code>
+          <!-- ==================== SUBPESTAÑA: CONTENIDO ==================== -->
+          <div id="rawPaneContent" class="insp-panel" hidden>
+            <div class="bar-card">
+              <div class="bar-card-section-title">Texto visible <span class="insp-hint" id="rawCharCounter">9/40</span></div>
+              <input id="rawTextInput" class="field-input" type="text" value="Texto RAW" maxlength="40" style="width: 100%; box-sizing: border-box; min-height: 28px;" />
+              <div class="insp-ruler" title="Espacio ocupado estimado en pantalla">
+                <code id="rawRulerText">Texto RAW</code>
+                <span class="insp-hint" id="rawRulerPx">53 × 8 px</span>
+              </div>
+              <div class="insp-note">Texto estático fijo. Compatible con caracteres ASCII estándar y GLCD cp437.</div>
             </div>
-            <select id="rawTextTransparent" style="display:none;">
-              <option value="1">1</option>
-              <option value="0">0</option>
-            </select>
-            <select id="rawTextBackground" style="display:none;"></select>
-            <div id="rawTextBackgroundWrap" style="display:none;"></div>
+          </div>
+
+          <!-- ==================== SUBPESTAÑA: APARIENCIA ==================== -->
+          <div id="rawPaneAppearance" class="insp-panel" hidden>
+            <div class="bar-card">
+              <div class="bar-card-section-title">Vista y colores</div>
+              <div class="menu-case-body field-case-body zone-host" id="rawCaseBody" style="position: relative;">
+                <canvas class="menu-case-canvas field-case-canvas" id="rawCaseCanvas"></canvas>
+                <div class="menu-case-legend" id="rawCaseLegend">
+                  <div class="menu-legend-row is-active" data-raw-swatch-row="textColor">
+                    <span class="menu-legend-label">Texto</span>
+                    <button type="button" class="menu-swatch active" data-raw-swatch="textColor" title="Color del texto">
+                      <span>T</span>
+                    </button>
+                  </div>
+                  <div class="menu-legend-row" data-raw-swatch-row="bgColor">
+                    <span class="menu-legend-label">Fondo</span>
+                    <button type="button" class="menu-swatch" data-raw-swatch="bgColor" title="Color del fondo (sólo modo opaco)">
+                      <span>F</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Elementos de compatibilidad ocultos para scripts heredados -->
+              <div style="display:none;">
+                <input id="rawTextColorInput" type="color" value="#ffffff" />
+                <input id="rawTextBgColorInput" type="color" value="#000000" />
+                <select id="rawTextColor"></select>
+                <select id="rawTextBackground"></select>
+                <div id="rawTextColorSwatch"></div>
+                <div id="rawTextColorCode"></div>
+                <div id="rawTextBgColorWrap"></div>
+                <div id="rawTextBgColorSwatch"></div>
+                <div id="rawTextBgColorCode"></div>
+                <div id="rawTextBackgroundWrap"></div>
+              </div>
+
+              <div class="menu-palette">
+                <div class="insp-note">Selecciona una fila para editar su color: el marco ▶ indica la zona activa.</div>
+                <div id="rawColorEditorHost"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ==================== SUBPESTAÑA: UBICACIÓN ==================== -->
+          <div id="rawPanePlacement" class="insp-panel" hidden>
+            <div class="bar-card">
+              <div class="bar-card-section-title">Página</div>
+              <div class="insp-chip-row" id="rawPageChipRow"></div>
+            </div>
+
+            <div class="bar-card">
+              <div class="bar-card-section-title">Coordenadas y dimensiones</div>
+              <div class="insp-two">
+                <label class="field-label">X (px)
+                  <input id="rawTextX" class="field-input" type="number" min="0" max="319" value="20" />
+                </label>
+                <label class="field-label">Y (px)
+                  <input id="rawTextY" class="field-input" type="number" min="0" max="169" value="20" />
+                </label>
+              </div>
+              <div class="insp-readouts" style="margin-top: 8px;">
+                <span>Área calculada <strong id="rawBoundsStatus" class="insp-mono">—</strong></span>
+              </div>
+            </div>
+
+            <div class="bar-card">
+              <div class="bar-card-section-title">Alineación rápida en pantalla</div>
+              <div class="shape-align-matrix-row" style="margin-top: 6px;">
+                <div class="shape-align-matrix-3x3" id="rawAlignMatrix3x3">
+                  <button type="button" class="shape-matrix-btn" data-align="top-left" title="Arriba Izquierda (X=0, Y=0)">↖</button>
+                  <button type="button" class="shape-matrix-btn" data-align="top" title="Arriba Centro">↑</button>
+                  <button type="button" class="shape-matrix-btn" data-align="top-right" title="Arriba Derecha">↗</button>
+                  <button type="button" class="shape-matrix-btn" data-align="left" title="Medio Izquierda">←</button>
+                  <button type="button" class="shape-matrix-btn" data-align="center" title="Centro de Pantalla">·</button>
+                  <button type="button" class="shape-matrix-btn" data-align="right" title="Medio Derecha">→</button>
+                  <button type="button" class="shape-matrix-btn" data-align="bottom-left" title="Abajo Izquierda">↙</button>
+                  <button type="button" class="shape-matrix-btn" data-align="bottom" title="Abajo Centro">↓</button>
+                  <button type="button" class="shape-matrix-btn" data-align="bottom-right" title="Abajo Derecha">↘</button>
+                </div>
+                <div class="shape-matrix-legend">
+                  <span class="shape-matrix-legend-title">Matriz 3×3 (320 × 170 px)</span>
+                  <span class="shape-matrix-legend-desc">Posiciona el texto en esquinas, bordes o en el centro de la pantalla.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ==================== PESTAÑA: DATOS ==================== -->
+          <div id="rawPaneData" class="insp-panel" hidden>
+            <div class="bar-card">
+              <div class="bar-card-section-title">Vinculación de datos <span class="insp-mode-chip">Estático GFX</span></div>
+              <div class="insp-note">El texto RAW es un objeto gráfico estático: se dibuja en <code>jwplcUIPageEnter()</code> con la librería TFT y no requiere variable vinculada en RAM ni setters en el bucle cíclico <code>jwplcUIUpdate()</code>.</div>
+            </div>
+            <div class="bar-card">
+              <div class="bar-card-section-title">¿Necesitas datos dinámicos?</div>
+              <div class="insp-note">Para mostrar valores de variables del PLC o Arduino que cambien en tiempo real, añade un campo de <strong>Texto Dinámico (TEXT)</strong> desde la barra de herramientas de texto.</div>
+            </div>
+          </div>
+
+          <!-- ==================== PESTAÑA: TÉCNICO ==================== -->
+          <div id="rawPaneTech" class="insp-panel" hidden>
+            <div class="bar-card">
+              <label class="field-label">Nombre del objeto (sólo Designer)
+                <input id="rawTextName" class="field-input" type="text" value="Texto RAW" maxlength="32" />
+              </label>
+              <label class="field-label" style="margin-top: 6px;">ID C++ del objeto
+                <input id="rawTextId" class="field-input code-input" type="text" value="FIELD_RAW_1" disabled />
+              </label>
+            </div>
+
+            <div class="bar-card">
+              <div class="bar-card-header">
+                <span class="bar-card-title">Código C++ generado</span>
+                <button type="button" id="copyRawContractBtn" class="icon-button" title="Copiar código C++">⧉</button>
+              </div>
+              <pre id="rawInspectorContract" class="insp-contract" style="white-space: pre-wrap; word-break: break-all; margin: 4px 0 0 0;">JWPLC_Display.getTFT()->...</pre>
+            </div>
+
+            <div class="bar-card">
+              <div class="bar-card-section-title">Diagnóstico</div>
+              <div class="insp-readouts insp-readouts-grid">
+                <span>Fuente <strong id="rawDiagFont">GLCD</strong></span>
+                <span>Escala <strong id="rawDiagScale">1×</strong></span>
+                <span>Fondo <strong id="rawDiagBg">Transparente</strong></span>
+                <span>Dimensiones <strong id="rawDiagBounds">—</strong></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Inspector Mapa de Píxeles / Pincel (Homogéneo con BAR, TEXT, SHAPE - Propuesta 2) -->
+      <section id="pixelMapControlsSection" class="inspector-section bar-inspector-wrap" hidden>
+        <!-- Cabecera estilo Propuesta 2: Icono ▦ + Inspector — Nombre + Acciones -->
+        <div class="inspector-title" style="margin-bottom: 6px;">
+          <h2 style="font-size: 13px; color: #dce9f1; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+            <span id="pixelInspectorIcon" style="color: #ff9a43; font-size: 14px; font-weight: bold;">▦</span>
+            <span>Inspector — <span id="pixelMapHeaderTitle">PIXEL 1</span></span>
+          </h2>
+          <span class="inspector-actions" style="display: inline-flex; gap: 4px;">
+            <button id="pixelMapDuplicate" class="icon-button" type="button" title="Duplicar mapa de píxeles (Ctrl+D)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+            <button id="pixelMapDelete" class="icon-button inspector-delete" type="button" title="Eliminar mapa de píxeles (Delete)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+          </span>
+        </div>
+
+        <!-- Navegación por pestañas y subpestañas (Propuesta 2) -->
+        <div class="bar-nav-header insp-nav-header">
+          <div class="bar-main-tabs" id="pixelMainTabs" role="tablist">
+            <button type="button" class="bar-main-tab insp-main-tab active" data-pixel-tab="design" role="tab">Diseño</button>
+            <button type="button" class="bar-main-tab insp-main-tab" data-pixel-tab="data" role="tab">Datos</button>
+            <button type="button" class="bar-main-tab insp-main-tab" data-pixel-tab="tech" role="tab">Técnico</button>
+          </div>
+          <div class="bar-sub-tabs" id="pixelSubTabs" role="tablist">
+            <button type="button" class="bar-sub-tab insp-sub-tab active" data-pixel-subtab="edit" role="tab">Edición</button>
+            <button type="button" class="bar-sub-tab insp-sub-tab" data-pixel-subtab="appearance" role="tab">Apariencia</button>
+            <button type="button" class="bar-sub-tab insp-sub-tab" data-pixel-subtab="placement" role="tab">Ubicación</button>
           </div>
         </div>
 
-        <!-- Contrato / Código C++ limpio al pie -->
-        <div style="padding: 8px 14px; border-top: 1px solid #1e3040; background: #071016;">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-            <span style="font-size: 9.5px; font-weight: 700; color: #6b8293; text-transform: uppercase; letter-spacing: 0.5px;">Código C++</span>
-            <button id="copyRawContractBtn" class="icon-button" title="Copiar código C++" style="height: 20px; padding: 0 6px; font-size: 10px; cursor: pointer;">Copiar</button>
+        <div class="insp-body" id="pixelScrollBody">
+          <!-- ==================== SUBPESTAÑA: EDICIÓN ==================== -->
+          <div id="pixelPaneEdit" class="insp-panel" data-pixel-panel="design:edit">
+            <div class="bar-card">
+              <div class="bar-card-section-title">▾ Modo de dibujo</div>
+              <div class="bar-visual-grid-3" id="pixelModeGrid">
+                <button type="button" class="bar-visual-btn active" data-pm-mode="DRAW" title="Pincel / Lápiz (B)">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+                    <path d="m15 5 4 4"/>
+                  </svg>
+                  <span>Pincel</span>
+                </button>
+                <button type="button" class="bar-visual-btn" data-pm-mode="ERASE" title="Borrador (E)">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/>
+                    <path d="M22 21H7"/>
+                    <path d="m5 11 9 9"/>
+                  </svg>
+                  <span>Borrador</span>
+                </button>
+                <button type="button" class="bar-visual-btn" data-pm-mode="MOVE" title="Mover capa de píxeles">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="5 9 2 12 5 15"/>
+                    <polyline points="9 5 12 2 15 5"/>
+                    <polyline points="15 19 12 22 9 19"/>
+                    <polyline points="19 9 22 12 19 15"/>
+                    <line x1="2" y1="12" x2="22" y2="12"/>
+                    <line x1="12" y1="2" x2="12" y2="22"/>
+                  </svg>
+                  <span>Mover</span>
+                </button>
+              </div>
+              <div class="insp-note">Huella cuadrada pixel-perfect. Pincel y borrador sólo modifican este objeto PIXEL.</div>
+            </div>
+
+            <div class="bar-card">
+              <div class="bar-card-section-title">Tamaño del pincel <span class="insp-hint" id="pixelBrushSizeHint">· 1 × 1 px</span></div>
+              <div class="insp-stepper" style="margin-bottom: 6px;">
+                <button type="button" id="pixelBrushStepDec">−</button>
+                <strong id="pixelBrushSizeReadout">1 × 1 px</strong>
+                <button type="button" id="pixelBrushStepInc">+</button>
+              </div>
+              <div class="insp-chip-row" id="pixelBrushChips">
+                <button type="button" class="insp-chip active" data-brush-chip="1">1×</button>
+                <button type="button" class="insp-chip" data-brush-chip="2">2×</button>
+                <button type="button" class="insp-chip" data-brush-chip="3">3×</button>
+                <button type="button" class="insp-chip" data-brush-chip="4">4×</button>
+                <button type="button" class="insp-chip" data-brush-chip="6">6×</button>
+                <button type="button" class="insp-chip" data-brush-chip="8">8×</button>
+              </div>
+              <select id="pixelBrushSize" style="display:none;"></select>
+              <div class="insp-note">Grosor de trazo en píxeles. Atajo de teclado: [ y ].</div>
+            </div>
+
+            <div class="bar-card">
+              <div class="bar-card-section-title">Tamaño del borrador <span class="insp-hint" id="pixelEraserSizeHint">· 1 × 1 px</span></div>
+              <div class="insp-stepper" style="margin-bottom: 6px;">
+                <button type="button" id="pixelEraserStepDec">−</button>
+                <strong id="pixelEraserSizeReadout">1 × 1 px</strong>
+                <button type="button" id="pixelEraserStepInc">+</button>
+              </div>
+              <div class="insp-chip-row" id="pixelEraserChips">
+                <button type="button" class="insp-chip active" data-eraser-chip="1">1×</button>
+                <button type="button" class="insp-chip" data-eraser-chip="2">2×</button>
+                <button type="button" class="insp-chip" data-eraser-chip="3">3×</button>
+                <button type="button" class="insp-chip" data-eraser-chip="4">4×</button>
+                <button type="button" class="insp-chip" data-eraser-chip="6">6×</button>
+                <button type="button" class="insp-chip" data-eraser-chip="8">8×</button>
+              </div>
+              <select id="pixelEraserSize" style="display:none;"></select>
+              <div class="insp-note">Atajo: rueda del ratón sobre el lienzo mientras el borrador está activo.</div>
+            </div>
           </div>
-          <code id="rawInspectorContract" style="display: block; font-size: 9.5px; color: #9edbb0; background: #050d12; padding: 5px 8px; border-radius: 4px; border: 1px solid #192732; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">JWPLC_Display.getTFT()->...</code>
+
+          <!-- ==================== SUBPESTAÑA: APARIENCIA ==================== -->
+          <div id="pixelPaneAppearance" class="insp-panel" data-pixel-panel="design:appearance" hidden>
+            <div class="bar-card">
+              <div class="bar-card-section-title">Color de trazado RGB565</div>
+              <div class="menu-case-body field-case-body zone-host" style="position: relative; margin-bottom: 8px;">
+                <div class="menu-case-legend" style="width: 100%;">
+                  <div class="menu-legend-row is-active" data-pixel-swatch-row="drawColor">
+                    <span class="menu-legend-label">Píxeles activos</span>
+                    <button type="button" class="menu-swatch active" id="pixelMapActiveSwatch" title="Muestra de color activo">
+                      <span>P</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Host para el editor de color fijo de la casa (JWPLCColorEditor) -->
+              <div class="menu-palette">
+                <div class="insp-note">Ajusta el color con el editor fijo o las pastillas rápidas RGB565:</div>
+                <div id="pixelMapColorEditorHost"></div>
+              </div>
+
+              <div id="pixelMapColor" style="display:none;"></div>
+            </div>
+
+            <div class="bar-card">
+              <div class="bar-card-section-title">Visibilidad y capa de referencia</div>
+              <div class="bar-visual-grid-2" style="margin-bottom: 8px;">
+                <button id="pixelMapVisibility" class="bar-visual-btn" type="button" title="Ocultar o mostrar capa en el lienzo">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  <span id="pixelMapVisibilityText">Ocultar</span>
+                </button>
+                <button id="pixelMapOnion" class="bar-visual-btn" type="button" title="Conmutar opacidad de referencia">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20z" fill="currentColor"/></svg>
+                  <span id="pixelMapOnionText">Referencia 35%</span>
+                </button>
+              </div>
+
+              <div class="bar-card-section-title" style="margin-top: 10px;">Opacidad de referencia <span class="insp-hint" id="pixelMapOpacityValue">100%</span></div>
+              <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                <input id="pixelMapOpacity" class="bar-top-slider-input" type="range" min="10" max="100" step="5" value="100" style="flex: 1;" />
+              </div>
+              <div class="insp-note" style="margin-top: 6px;">Sólo afecta al Designer. El codegen siempre genera RGB565 opaco; la opacidad sirve como onion skin para dibujar animaciones o calcar referencias.</div>
+            </div>
+          </div>
+
+          <!-- ==================== SUBPESTAÑA: UBICACIÓN ==================== -->
+          <div id="pixelPanePlacement" class="insp-panel" data-pixel-panel="design:placement" hidden>
+            <div class="bar-card">
+              <div class="bar-card-section-title">Página</div>
+              <div class="insp-chip-row" id="pixelPageChipRow"></div>
+              <input id="pixelMapPage" class="field-input" type="hidden" disabled />
+            </div>
+
+            <div class="bar-card">
+              <div class="bar-card-section-title">Coordenadas y dimensiones</div>
+              <div class="insp-two">
+                <label class="field-label">X (px)
+                  <input id="pixelMapX" class="field-input" type="number" min="0" max="319" value="0" />
+                </label>
+                <label class="field-label">Y (px)
+                  <input id="pixelMapY" class="field-input" type="number" min="0" max="169" value="0" />
+                </label>
+              </div>
+              <div class="insp-readouts" style="margin-top: 8px;">
+                <span>Área calculada <strong id="pixelMapBounds" class="insp-mono">—</strong></span>
+                <span>Píxeles activos <strong id="pixelMapCount" class="insp-mono">0</strong></span>
+              </div>
+            </div>
+
+            <div class="bar-card">
+              <div class="bar-card-section-title">Alineación en pantalla</div>
+              <div class="shape-align-matrix-row" style="margin-top: 6px;">
+                <div class="shape-align-matrix-3x3" id="pixelAlignMatrix3x3">
+                  <button type="button" class="shape-matrix-btn" data-pixel-align="top-left" title="Arriba Izquierda (X=0, Y=0)">↖</button>
+                  <button type="button" class="shape-matrix-btn" data-pixel-align="top" title="Arriba Centro">↑</button>
+                  <button type="button" class="shape-matrix-btn" data-pixel-align="top-right" title="Arriba Derecha">↗</button>
+                  <button type="button" class="shape-matrix-btn" data-pixel-align="left" title="Medio Izquierda">←</button>
+                  <button type="button" class="shape-matrix-btn" data-pixel-align="center" title="Centro de Pantalla (320 × 170)">·</button>
+                  <button type="button" class="shape-matrix-btn" data-pixel-align="right" title="Medio Derecha">→</button>
+                  <button type="button" class="shape-matrix-btn" data-pixel-align="bottom-left" title="Abajo Izquierda">↙</button>
+                  <button type="button" class="shape-matrix-btn" data-pixel-align="bottom" title="Abajo Centro">↓</button>
+                  <button type="button" class="shape-matrix-btn" data-pixel-align="bottom-right" title="Abajo Derecha">↘</button>
+                </div>
+                <div class="shape-matrix-legend">
+                  <span class="shape-matrix-legend-title">Matriz 3×3 (320 × 170 px)</span>
+                  <span class="shape-matrix-legend-desc">Posiciona la capa en esquinas, bordes o en el centro del lienzo.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ==================== PESTAÑA: DATOS ==================== -->
+          <div id="pixelPaneData" class="insp-panel" data-pixel-panel="data" hidden>
+            <div class="bar-card">
+              <div class="bar-card-section-title">Almacenamiento de imagen <span class="insp-mode-chip">PROGMEM · Flash</span></div>
+              <div class="insp-note">
+                Los mapas de píxeles son gráficos de usuario dibujados a mano, almacenados como matrices de datos estáticas en Flash (PROGMEM) y emitidos en <code>jwplcUIPageEnter()</code>.
+              </div>
+              <div class="insp-note" style="margin-top: 6px;">
+                No consumen memoria RAM del microcontrolador ni variables cíclicas del PLC durante el refresco <code>jwplcUIUpdate()</code>.
+              </div>
+            </div>
+            <div class="bar-card">
+              <div class="bar-card-section-title">¿Cómo alternar imágenes o animar?</div>
+              <div class="insp-note">
+                Dibuja cada frame o estado en un objeto PIXEL separado. En el sketch de Arduino o programa OpenPLC, muestra u oculta el mapa deseado en tiempo de ejecución con:
+              </div>
+              <pre class="insp-contract" style="margin-top: 6px; white-space: pre-wrap;">JWPLC_Display.setPixelMapVisible(ID, true);</pre>
+            </div>
+          </div>
+
+          <!-- ==================== PESTAÑA: TÉCNICO ==================== -->
+          <div id="pixelPaneTech" class="insp-panel" data-pixel-panel="tech" hidden>
+            <div class="bar-card">
+              <label class="field-label">Nombre del objeto (sólo Designer)
+                <input id="pixelMapName" class="field-input" type="text" maxlength="24" value="Pixel 1" />
+              </label>
+              <label class="field-label" style="margin-top: 6px;">ID C++ / Símbolo
+                <input id="pixelMapId" class="field-input code-input" type="text" value="HMI_PIXEL_1" disabled />
+              </label>
+            </div>
+
+            <div class="bar-card" id="pixelMapOptimizationDetails">
+              <div class="bar-card-header">
+                <span class="bar-card-title">Optimización C++ (Memoria Flash)</span>
+                <span class="insp-mode-chip" id="pixelOptFormat">RGB565_RUN</span>
+              </div>
+              <div class="insp-readouts insp-readouts-grid">
+                <span>Píxeles objeto <strong id="pixelOptPixels">—</strong></span>
+                <span>Colores objeto <strong id="pixelOptColors">—</strong></span>
+                <span>Runs / spans <strong id="pixelOptSpans">—</strong></span>
+                <span>Tamaño Flash <strong id="pixelOptBytes">—</strong></span>
+                <span>Ahorro proyecto <strong id="pixelOptSaving">—</strong></span>
+              </div>
+              <p id="pixelOptNote" class="insp-note" style="margin-top: 6px;"></p>
+            </div>
+
+            <div class="bar-card">
+              <div class="bar-card-header">
+                <span class="bar-card-title">Código C++ generado</span>
+                <button type="button" id="copyPixelContractBtn" class="icon-button" title="Copiar código C++">⧉</button>
+              </div>
+              <pre id="pixelInspectorContract" class="insp-contract" style="white-space: pre-wrap; word-break: break-all; margin: 4px 0 0 0;"></pre>
+            </div>
+
+            <div class="bar-card">
+              <div class="bar-card-section-title">Diagnóstico</div>
+              <div class="insp-readouts insp-readouts-grid">
+                <span>Total capas pág. <strong id="pixelDiagLayers">0</strong></span>
+                <span>Orden de capa <strong id="pixelDiagLayerOrder">0</strong></span>
+                <span>Bloqueado <strong id="pixelDiagLocked">No</strong></span>
+                <span>Visible <strong id="pixelDiagVisible">Sí</strong></span>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -1640,15 +2001,15 @@
     <button id="demoValueButton" type="button"></button>
   </div>
 
-  <script src="./designer-cp437.js?v=1793800000"></script>
-  <script src="./gfx-classic-font.js?v=1793800000"></script>
-  <script src="./designer-fonts-data.js?v=1789765100"></script>
-  <script src="./designer-fonts.js?v=1793800000"></script>
-  <script src="./designer-value-format.js?v=1793800000"></script>
-  <script src="./designer-codegen-core.js?v=1793800000"></script>
-  <script src="./app.js?v=1793800000"></script>
-  <script src="./ux-foundation.js?v=1793800000"></script>
-  <script src="./designer-codegen.js?v=1793800000"></script>
+  <script src="./designer-cp437.js?v=1793800600"></script>
+  <script src="./gfx-classic-font.js?v=1793800600"></script>
+  <script src="./designer-fonts-data.js?v=1793800600"></script>
+  <script src="./designer-fonts.js?v=1793800600"></script>
+  <script src="./designer-value-format.js?v=1793800600"></script>
+  <script src="./designer-codegen-core.js?v=1793800600"></script>
+  <script src="./app.js?v=1793800600"></script>
+  <script src="./ux-foundation.js?v=1793800600"></script>
+  <script src="./designer-codegen.js?v=1793800600"></script>
 
   
 

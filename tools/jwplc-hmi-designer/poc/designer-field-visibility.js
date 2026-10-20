@@ -88,7 +88,7 @@
   function loadInspectorState() {
     if (window.JWPLCHMIInspectorState || document.querySelector('script[data-a11-inspector-state]')) return;
     const script = document.createElement('script');
-    script.src = './designer-inspector-state.js?v=1793800000';
+    script.src = './designer-inspector-state.js?v=1793800400';
     script.async = false;
     script.dataset.a11InspectorState = '1';
     script.onload = () => window.JWPLCHMIInspectorState?.sync?.();
@@ -117,7 +117,7 @@
     }
 
     const pixel = document.createElement('script');
-    pixel.src = './designer-pixelmap.js?v=1789765010';
+    pixel.src = './designer-pixelmap.js?v=1793800800';
     pixel.async = false;
     pixel.dataset.a11Pixelmap = '1';
     pixel.onload = () => {

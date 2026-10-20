@@ -466,12 +466,25 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
       const minY = Math.min(field.y, field.y2);
       const w = Math.abs(field.x2 - field.x);
       const h = Math.abs(field.y2 - field.y);
+      const strokeSize = Math.max(1, Math.trunc(Number(field.size) || 1));
       if (r > 0) {
         if (field.fill) lines.push(`tft.fillRoundRect(${minX}, ${minY}, ${w}, ${h}, ${r}, ${fc});`);
-        if (borderOn) lines.push(`tft.drawRoundRect(${minX}, ${minY}, ${w}, ${h}, ${r}, ${c});`);
+        if (borderOn) {
+          for (let s = 0; s < strokeSize; s++) {
+            const rw = w - 2 * s; const rh = h - 2 * s;
+            if (rw <= 0 || rh <= 0) break;
+            lines.push(`tft.drawRoundRect(${minX + s}, ${minY + s}, ${rw}, ${rh}, ${Math.max(0, r - s)}, ${c});`);
+          }
+        }
       } else {
         if (field.fill) lines.push(`tft.fillRect(${minX}, ${minY}, ${w}, ${h}, ${fc});`);
-        if (borderOn) lines.push(`tft.drawRect(${minX}, ${minY}, ${w}, ${h}, ${c});`);
+        if (borderOn) {
+          for (let s = 0; s < strokeSize; s++) {
+            const rw = w - 2 * s; const rh = h - 2 * s;
+            if (rw <= 0 || rh <= 0) break;
+            lines.push(`tft.drawRect(${minX + s}, ${minY + s}, ${rw}, ${rh}, ${c});`);
+          }
+        }
       }
       return { lines, helpers };
     }
@@ -481,9 +494,15 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
       const cy = Math.round(Math.min(field.y, field.y2) + Math.abs(field.y2 - field.y) / 2);
       const rx = Math.round(Math.abs(field.x2 - field.x) / 2);
       const ry = Math.round(Math.abs(field.y2 - field.y) / 2);
+      const strokeSize = Math.max(1, Math.trunc(Number(field.size) || 1));
       if (rx === ry) {
         if (field.fill) lines.push(`tft.fillCircle(${cx}, ${cy}, ${rx}, ${fc});`);
-        if (borderOn) lines.push(`tft.drawCircle(${cx}, ${cy}, ${rx}, ${c});`);
+        if (borderOn) {
+          for (let s = 0; s < strokeSize; s++) {
+            if (rx - s <= 0) break;
+            lines.push(`tft.drawCircle(${cx}, ${cy}, ${rx - s}, ${c});`);
+          }
+        }
       } else {
         if (field.fill) {
           helpers.add('fillEllipse');
@@ -491,7 +510,10 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
         }
         if (borderOn) {
           helpers.add('drawEllipse');
-          lines.push(`jwplcHMIDrawEllipse(tft, ${cx}, ${cy}, ${rx}, ${ry}, ${c});`);
+          for (let s = 0; s < strokeSize; s++) {
+            if (rx - s <= 0 || ry - s <= 0) break;
+            lines.push(`jwplcHMIDrawEllipse(tft, ${cx}, ${cy}, ${rx - s}, ${ry - s}, ${c});`);
+          }
         }
       }
       return { lines, helpers };

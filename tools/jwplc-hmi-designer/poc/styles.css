@@ -1322,7 +1322,6 @@ body.bottom-collapsed .bottom-tabs { border-bottom: 0; }
   outline: none;
 }
 
-
 /* --- Visual RGB565 Color Picker Swatches --- */
 .a11-custom-color {
   display: grid;
@@ -1733,7 +1732,6 @@ body.bottom-collapsed .bottom-tabs { border-bottom: 0; }
   user-select: all;
 }
 
-
 .shape-actions-row {
   display: flex;
   gap: 6px;
@@ -1990,6 +1988,70 @@ body.bottom-collapsed .bottom-tabs { border-bottom: 0; }
   margin-top: 2px;
   margin-bottom: 2px;
 }
+.shape-align-matrix-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #0d1820;
+  border: 1px solid #1e313f;
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+.shape-align-matrix-3x3 {
+  display: grid;
+  grid-template-columns: repeat(3, 28px);
+  grid-template-rows: repeat(3, 26px);
+  gap: 3px;
+  background: #091218;
+  padding: 4px;
+  border-radius: 6px;
+  border: 1px solid #1d303f;
+  width: fit-content;
+  flex-shrink: 0;
+}
+.shape-matrix-btn {
+  background: #14222c;
+  border: 1px solid #223747;
+  border-radius: 3px;
+  color: #8da4b6;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0;
+  transition: all 0.12s ease;
+}
+.shape-matrix-btn:hover {
+  background: #1e3545;
+  border-color: #00d7ef;
+  color: #00d7ef;
+  box-shadow: 0 0 6px rgba(0, 215, 239, 0.25);
+}
+.shape-matrix-btn.active {
+  background: #0284c7;
+  border-color: #38bdf8;
+  color: #fff;
+  box-shadow: 0 0 6px rgba(2, 132, 199, 0.6);
+}
+.shape-matrix-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.shape-matrix-legend-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #c0d1df;
+}
+.shape-matrix-legend-desc {
+  font-size: 10px;
+  color: #6b8294;
+  line-height: 1.35;
+}
+
 .bar-matrix-col {
   flex-shrink: 0;
   transition: opacity 0.15s ease;
@@ -2512,7 +2574,6 @@ body.bottom-collapsed .bottom-tabs { border-bottom: 0; }
 
 
 
-
 /* ==========================================================================
    A15-7B/7C/7D · Inspector Propuesta 2 para TEXT / VALUE / BOOL
    (designer-field-inspector.js; reutiliza bar-card / bar-visual-btn / tabs)
@@ -2760,13 +2821,16 @@ label.insp-needs-fw { opacity: 0.45; cursor: not-allowed; }
    izquierda, cuadros a la derecha— y editor de color fijo bajo la leyenda
    (designer-color-editor.js) en lugar del selector nativo flotante. */
 .menu-legend-row[data-legend-key], .menu-legend-row[data-menu-legend-row],
-.menu-legend-row[data-menu-frame-row], .menu-legend-row[data-bar-legend] {
+.menu-legend-row[data-menu-frame-row], .menu-legend-row[data-bar-legend],
+.menu-legend-row[data-shape-legend] {
   cursor: pointer; padding: 0 4px; border-radius: 3px;
 }
-.menu-legend-row[data-legend-key], .menu-legend-row[data-bar-legend] { min-width: 150px; }
+.menu-legend-row[data-legend-key], .menu-legend-row[data-bar-legend],
+.menu-legend-row[data-shape-legend] { min-width: 150px; }
 .zone-host > .menu-case-legend:not(.field-case-body > *) { flex: 1; }
 .menu-legend-row[data-legend-key]:hover, .menu-legend-row[data-menu-legend-row]:hover,
-.menu-legend-row[data-menu-frame-row]:hover, .menu-legend-row[data-bar-legend]:hover { background: rgba(184, 205, 220, 0.08); }
+.menu-legend-row[data-menu-frame-row]:hover, .menu-legend-row[data-bar-legend]:hover,
+.menu-legend-row[data-shape-legend]:hover { background: rgba(184, 205, 220, 0.08); }
 .menu-legend-row .menu-legend-label { flex: 1; }
 .menu-swatch { padding: 0; color: inherit; }
 .menu-swatch:focus-visible { outline: 2px solid #e8edf2; outline-offset: 1px; }

@@ -194,6 +194,26 @@
       linked = current?.ok ? current : null;
       updateUi();
     });
+
+    // Sincronización en tiempo real: cuando un agente de IA, CLI o editor externo
+    // modifica el archivo .jwhmi en el sketch, se recarga y redibuja de inmediato.
+    native.onSketchFileChanged?.(async (payload) => {
+      try {
+        let text = payload?.text;
+        if (!text) {
+          const res = await native.readProject();
+          if (res?.ok) text = res.text;
+        }
+        if (!text) return;
+        const data = JSON.parse(text);
+        if (window.JWPLCHMIProject?.apply) {
+          await window.JWPLCHMIProject.apply(data);
+          toast(`Proyecto sincronizado en vivo (${payload?.fileName || 'externo'}).`, 'ok');
+        }
+      } catch (err) {
+        console.warn('[JWPLC HMI Native] Error al recargar proyecto externo:', err);
+      }
+    });
   }
 
   init().catch((error) => {

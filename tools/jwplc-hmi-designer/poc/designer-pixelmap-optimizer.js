@@ -293,25 +293,30 @@
     const inspector = document.getElementById('pixelMapControlsSection');
     if (!inspector) return;
 
-    optimizationDetails = document.createElement('details');
-    optimizationDetails.id = 'pixelMapOptimizationDetails';
-    optimizationDetails.open = true;
-    optimizationDetails.innerHTML = `
-      <summary>Optimización C++</summary>
-      <div class="inspector-body two-cols">
-        <div class="readout"><span>Formato proyecto</span><strong id="pixelOptFormat">—</strong></div>
-        <div class="readout"><span>Píxeles objeto</span><strong id="pixelOptPixels">—</strong></div>
-        <div class="readout"><span>Colores objeto</span><strong id="pixelOptColors">—</strong></div>
-        <div class="readout"><span>Runs / spans</span><strong id="pixelOptSpans">—</strong></div>
-        <div class="readout"><span>Tamaño estimado</span><strong id="pixelOptBytes">—</strong></div>
-        <div class="readout"><span>Ahorro proyecto</span><strong id="pixelOptSaving">—</strong></div>
-        <p id="pixelOptNote" class="a11-pixel-note full"></p>
-      </div>`;
+    const existingCard = document.getElementById('pixelMapOptimizationDetails');
+    if (existingCard) {
+      optimizationDetails = existingCard;
+    } else {
+      optimizationDetails = document.createElement('details');
+      optimizationDetails.id = 'pixelMapOptimizationDetails';
+      optimizationDetails.open = true;
+      optimizationDetails.innerHTML = `
+        <summary>Optimización C++</summary>
+        <div class="inspector-body two-cols">
+          <div class="readout"><span>Formato proyecto</span><strong id="pixelOptFormat">—</strong></div>
+          <div class="readout"><span>Píxeles objeto</span><strong id="pixelOptPixels">—</strong></div>
+          <div class="readout"><span>Colores objeto</span><strong id="pixelOptColors">—</strong></div>
+          <div class="readout"><span>Runs / spans</span><strong id="pixelOptSpans">—</strong></div>
+          <div class="readout"><span>Tamaño estimado</span><strong id="pixelOptBytes">—</strong></div>
+          <div class="readout"><span>Ahorro proyecto</span><strong id="pixelOptSaving">—</strong></div>
+          <p id="pixelOptNote" class="a11-pixel-note full"></p>
+        </div>`;
 
-    const objectDetails = [...inspector.querySelectorAll('details')]
-      .find((node) => node.querySelector('summary')?.textContent?.trim() === 'Objeto');
-    if (objectDetails) inspector.insertBefore(optimizationDetails, objectDetails);
-    else inspector.appendChild(optimizationDetails);
+      const objectDetails = [...inspector.querySelectorAll('details')]
+        .find((node) => node.querySelector('summary')?.textContent?.trim() === 'Objeto');
+      if (objectDetails) inspector.insertBefore(optimizationDetails, objectDetails);
+      else inspector.appendChild(optimizationDetails);
+    }
 
     formatValue = document.getElementById('pixelOptFormat');
     pixelValue = document.getElementById('pixelOptPixels');

@@ -36,6 +36,7 @@
   if (!displayCanvas || !previewCanvas || !objectList) return;
 
   let maps = [];
+  let selectedKeys = [];
   let selectedKey = null;
   let serial = 0;
   let mode = 'DRAW';
@@ -46,6 +47,7 @@
   let lastPoint = null;
   let dragStart = null;
   let dragOrigin = null;
+  let dragOrigins = [];
   let rendering = false;
   let codePatching = false;
 
@@ -97,7 +99,11 @@
   }
 
   function selected() {
-    return maps.find((map) => map.key === selectedKey) || null;
+    return maps.find((map) => map.key === selectedKey || selectedKeys.includes(map.key)) || null;
+  }
+
+  function selectedMaps() {
+    return maps.filter((map) => selectedKeys.includes(map.key) || map.key === selectedKey);
   }
 
   function mapsForPage() {
@@ -235,7 +241,9 @@
   }
 
   function clearFieldSelection() {
-    editor()?.setSelectedFieldKeys?.([]);
+    if (editor()?.getSelectedFieldKeys?.()?.length > 0) {
+      editor()?.setSelectedFieldKeys?.([]);
+    }
   }
 
   function createMap() {
@@ -256,6 +264,7 @@
     editor()?.assignNewLayerOrder?.(map);
     maps.push(map);
     selectedKey = map.key;
+    selectedKeys = [map.key];
     mode = 'DRAW';
     refreshBase();
     changed();
@@ -283,15 +292,17 @@
     copy.y = Math.min(copy.y, Math.max(0, HEIGHT - b.height));
     maps.push(copy);
     selectedKey = copy.key;
+    selectedKeys = [copy.key];
     refreshBase();
     changed();
   }
 
   function deleteMap() {
-    const map = selected();
-    if (!map) return;
-    maps = maps.filter((item) => item.key !== map.key);
+    const toDelete = selectedKeys.length > 0 ? selectedKeys : (selectedKey ? [selectedKey] : []);
+    if (toDelete.length === 0) return;
+    maps = maps.filter((item) => !toDelete.includes(item.key));
     selectedKey = null;
+    selectedKeys = [];
     refreshBase();
     changed();
   }
@@ -419,46 +430,205 @@
   let onionButton = null;
   let opacityInput = null;
   let opacityValue = null;
-  let syncMainColor = () => {};
+  let pixelActiveMainTab = 'design';
+  let pixelActiveSubTab = 'edit';
+  let pixelColorEditor = null;
+  let syncMainColor = () => {
+    ensureColorEditor();
+    if (pixelColorEditor) pixelColorEditor.set(color, 'Píxeles');
+    updatePixelSwatch(color);
+  };
 
   function sizeOptions() {
     return Array.from({ length: MAX_BRUSH_SIZE }, (_, index) => `<option value="${index + 1}">${index + 1} × ${index + 1} px</option>`).join('');
   }
 
+  let isEnsuringMap = false;
+  function ensureActiveMap(createIfNone = true) {
+    if (isEnsuringMap) return selected();
+    isEnsuringMap = true;
+    try {
+      let map = selected();
+      if (!map || Number(map.page || 0) !== page()) {
+        const pageMaps = mapsForPage();
+        const emptyMap = pageMaps.find((m) => !m.pixels || m.pixels.length === 0);
+        if (emptyMap) {
+          selectedKey = emptyMap.key;
+          map = emptyMap;
+        } else if (createIfNone) {
+          map = createMap();
+        } else if (pageMaps.length > 0) {
+          selectedKey = pageMaps[pageMaps.length - 1].key;
+          map = selected();
+        }
+      }
+      return map;
+    } finally {
+      isEnsuringMap = false;
+    }
+  }
+
+  function ensureColorEditor() {
+    if (pixelColorEditor || !window.JWPLCColorEditor) return;
+    const host = document.getElementById('pixelMapColorEditorHost');
+    if (!host) return;
+    pixelColorEditor = window.JWPLCColorEditor.create({
+      paletteAttr: 'data-pixel-palette',
+      onInput: (v565) => setPixelColor(v565, false),
+      onCommit: (v565) => setPixelColor(v565, true)
+    });
+    host.appendChild(pixelColorEditor.el);
+    pixelColorEditor.set(color, 'Píxeles');
+    updatePixelSwatch(color);
+  }
+
+  function setPixelColor(v565, commit = true) {
+    color = v565 & 0xFFFF;
+    updatePixelSwatch(color);
+    const map = selected();
+    if (map && Array.isArray(map.pixels) && map.pixels.length > 0) {
+      map.pixels.forEach((p) => {
+        p.color = color;
+      });
+      render();
+      refreshBase();
+    }
+    if (commit) {
+      changed();
+    }
+  }
+
+  function updatePixelSwatch(v565) {
+    const swatch = document.getElementById('pixelMapActiveSwatch');
+    if (swatch) {
+      swatch.style.background = css565(v565);
+      const isLight = ((v565 >> 11) + ((v565 >> 5) & 0x3F) / 2 + (v565 & 0x1F)) > 40;
+      swatch.style.color = isLight ? '#000000' : '#ffffff';
+    }
+  }
+
+  function syncBrushUI() {
+    const hint = document.getElementById('pixelBrushSizeHint');
+    if (hint) hint.textContent = `· ${brushSize} × ${brushSize} px`;
+    const readout = document.getElementById('pixelBrushSizeReadout');
+    if (readout) readout.textContent = `${brushSize} × ${brushSize} px`;
+    document.querySelectorAll('#pixelBrushChips [data-brush-chip]').forEach((btn) => {
+      btn.classList.toggle('active', Number(btn.dataset.brushChip) === brushSize);
+    });
+    if (brushSizeInput && brushSizeInput.value !== String(brushSize)) {
+      brushSizeInput.value = String(brushSize);
+    }
+  }
+
+  function setBrushSize(size) {
+    brushSize = clamp(Number(size) || 1, 1, MAX_BRUSH_SIZE);
+    syncBrushUI();
+    if (brushSizeInput) {
+      brushSizeInput.value = String(brushSize);
+      brushSizeInput.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }
+
+  function syncEraserUI() {
+    const hint = document.getElementById('pixelEraserSizeHint');
+    if (hint) hint.textContent = `· ${eraserSize} × ${eraserSize} px`;
+    const readout = document.getElementById('pixelEraserSizeReadout');
+    if (readout) readout.textContent = `${eraserSize} × ${eraserSize} px`;
+    document.querySelectorAll('#pixelEraserChips [data-eraser-chip]').forEach((btn) => {
+      btn.classList.toggle('active', Number(btn.dataset.eraserChip) === eraserSize);
+    });
+    if (eraserSizeInput && eraserSizeInput.value !== String(eraserSize)) {
+      eraserSizeInput.value = String(eraserSize);
+    }
+  }
+
+  function setEraserSize(size) {
+    eraserSize = clamp(Number(size) || 1, 1, MAX_BRUSH_SIZE);
+    syncEraserUI();
+    if (eraserSizeInput) {
+      eraserSizeInput.value = String(eraserSize);
+      eraserSizeInput.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    if (mainEraserSizeSelect) mainEraserSizeSelect.value = String(eraserSize);
+  }
+
+  function syncPixelTabPanes() {
+    if (!inspector) return;
+    const isDesign = pixelActiveMainTab === 'design';
+    inspector.querySelectorAll('#pixelMainTabs [data-pixel-tab]').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.pixelTab === pixelActiveMainTab);
+    });
+    const subTabsBar = document.getElementById('pixelSubTabs');
+    if (subTabsBar) subTabsBar.style.display = isDesign ? 'flex' : 'none';
+
+    inspector.querySelectorAll('#pixelSubTabs [data-pixel-subtab]').forEach((btn) => {
+      btn.classList.toggle('active', isDesign && btn.dataset.pixelSubtab === pixelActiveSubTab);
+    });
+
+    const activePanelKey = isDesign ? `design:${pixelActiveSubTab}` : pixelActiveMainTab;
+    inspector.querySelectorAll('[data-pixel-panel]').forEach((panel) => {
+      panel.hidden = panel.dataset.pixelPanel !== activePanelKey;
+    });
+
+    if (isDesign && pixelActiveSubTab === 'appearance') {
+      ensureColorEditor();
+      if (pixelColorEditor) pixelColorEditor.set(color, 'Píxeles');
+      updatePixelSwatch(color);
+    }
+  }
+
+  function syncPixelPages(currentMap) {
+    const host = document.getElementById('pixelPageChipRow');
+    if (!host) return;
+    const curPage = Number(currentMap?.page ?? page());
+    const pages = editor()?.getPages?.() || [{ id: 0, name: 'Principal' }];
+    const signature = pages.map((p) => `${p.id}:${p.name}`).join('|') + `#${curPage}`;
+    if (host.dataset.signature === signature) return;
+    host.dataset.signature = signature;
+    host.innerHTML = pages.map((p) => {
+      const active = Number(p.id) === curPage;
+      const title = p.name ? `Página ${p.id}: ${p.name}` : `Página ${p.id}`;
+      return `<button type="button" class="insp-chip${active ? ' active' : ''}" data-pixel-page-id="${p.id}" title="${title}">${String(Number(p.id) + 1).padStart(2, '0')} · ${p.name || ('Página ' + (Number(p.id) + 1))}</button>`;
+    }).join('');
+
+    host.querySelectorAll('[data-pixel-page-id]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const targetPage = Number(btn.dataset.pixelPageId);
+        const map = selected();
+        if (map && Number(map.page || 0) !== targetPage) {
+          map.page = targetPage;
+          if (mapPage) mapPage.value = String(targetPage);
+          host.dataset.signature = '';
+          changed();
+          refreshBase();
+          syncPixelPages(map);
+        }
+      });
+    });
+  }
+
+  function getPixelSnippet(map) {
+    if (!map) return '// Sin objeto seleccionado';
+    const b = bounds(map);
+    const count = (map.pixels || []).length;
+    const token = cppToken(map.name, 'PIXEL');
+    const p = Number(map.page || 0);
+    return `// Capa: ${map.name} (${count} píxeles, ${b.width} × ${b.height} px, Pág. ${p})\n` +
+      `// Dibuja en jwplcUIPageEnter() al entrar a la página:\n` +
+      `// Formato: RGB565 / PACKED_SPAN16 optimizado en Flash\n` +
+      `JWPLC_Display.setPixelMapVisible(${token}, ${map.editorVisible !== false ? 'true' : 'false'});`;
+  }
+
   function injectInspector() {
-    inspector = document.createElement('section');
-    inspector.id = 'pixelMapControlsSection';
-    inspector.className = 'inspector-section';
-    inspector.hidden = true;
-    inspector.innerHTML = `
-      <div class="inspector-title"><h2>Inspector · PIXEL</h2></div>
-      <details open><summary>Identidad</summary><div class="inspector-body two-cols">
-        <label class="field-label full">Nombre del objeto<input id="pixelMapName" class="field-input" maxlength="24"></label>
-        <label class="field-label">Página<input id="pixelMapPage" class="field-input" disabled></label>
-      </div></details>
-      <details open><summary>Geometría</summary><div class="inspector-body two-cols">
-        <label class="field-label">X<input id="pixelMapX" class="field-input" type="number" min="0" max="319"></label>
-        <label class="field-label">Y<input id="pixelMapY" class="field-input" type="number" min="0" max="169"></label>
-        <div class="readout"><span>Bounds</span><strong id="pixelMapBounds">—</strong></div>
-        <div class="readout"><span>Píxeles</span><strong id="pixelMapCount">0</strong></div>
-      </div></details>
-      <details open><summary>Edición</summary><div class="inspector-body">
-        <div class="a11-pixel-actions"><button data-pm-mode="DRAW">✎ Pincel</button><button data-pm-mode="ERASE">◇ Borrador</button><button data-pm-mode="MOVE">✥ Mover</button></div>
-        <div class="a11-pixel-size-grid">
-          <label class="field-label">Tamaño pincel<select id="pixelBrushSize" class="field-input">${sizeOptions()}</select></label>
-          <label class="field-label">Tamaño borrador<select id="pixelEraserSize" class="field-input">${sizeOptions()}</select></label>
-        </div>
-        <p class="a11-pixel-note">Huella cuadrada pixel-perfect. Pincel y borrador sólo modifican este objeto PIXEL.</p>
-      </div></details>
-      <details open><summary>Color RGB565</summary><div class="inspector-body"><div id="pixelMapColor"></div><p class="a11-pixel-note">Rango completo: 0x0000…0xFFFF. Los presets son sólo atajos.</p></div></details>
-      <details open><summary>Visibilidad de edición</summary><div class="inspector-body">
-        <div class="a11-pixel-layer-actions"><button id="pixelMapVisibility">👁 Ocultar</button><button id="pixelMapOnion">◐ Referencia 35%</button></div>
-        <div class="a11-opacity-row"><input id="pixelMapOpacity" type="range" min="10" max="100" step="5" value="100"><span id="pixelMapOpacityValue" class="a11-opacity-value">100%</span></div>
-        <p class="a11-pixel-note">Sólo afecta al Designer. El codegen conserva todos los PixelMaps opacos RGB565; esta opacidad sirve como onion skin para dibujar frames.</p>
-      </div></details>
-      <details open><summary>Objeto</summary><div class="inspector-body two-cols"><button id="pixelMapDuplicate">⧉ Duplicar</button><button id="pixelMapDelete">🗑 Eliminar</button></div></details>`;
-    rawSection?.insertAdjacentElement('afterend', inspector);
-    if (!inspector.isConnected) fieldSection?.insertAdjacentElement('afterend', inspector);
+    inspector = document.getElementById('pixelMapControlsSection');
+    if (!inspector) {
+      inspector = document.createElement('section');
+      inspector.id = 'pixelMapControlsSection';
+      inspector.className = 'inspector-section bar-inspector-wrap';
+      inspector.hidden = true;
+      rawSection?.insertAdjacentElement('afterend', inspector);
+      if (!inspector.isConnected) fieldSection?.insertAdjacentElement('afterend', inspector);
+    }
 
     mapName = document.getElementById('pixelMapName');
     mapX = document.getElementById('pixelMapX');
@@ -472,27 +642,70 @@
     onionButton = document.getElementById('pixelMapOnion');
     opacityInput = document.getElementById('pixelMapOpacity');
     opacityValue = document.getElementById('pixelMapOpacityValue');
-    syncMainColor = makeColorControl(document.getElementById('pixelMapColor'), () => color, (value) => { color = value & 0xFFFF; });
 
+    if (brushSizeInput && !brushSizeInput.children.length) {
+      brushSizeInput.innerHTML = sizeOptions();
+    }
+    if (eraserSizeInput && !eraserSizeInput.children.length) {
+      eraserSizeInput.innerHTML = sizeOptions();
+    }
+
+    // Pestañas principales y subpestañas
+    inspector.querySelectorAll('#pixelMainTabs [data-pixel-tab]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        pixelActiveMainTab = btn.dataset.pixelTab;
+        syncPixelTabPanes();
+      });
+    });
+    inspector.querySelectorAll('#pixelSubTabs [data-pixel-subtab]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        pixelActiveSubTab = btn.dataset.pixelSubtab;
+        syncPixelTabPanes();
+      });
+    });
+
+    // Modos de dibujo
     inspector.querySelectorAll('[data-pm-mode]').forEach((button) => button.addEventListener('click', () => {
       mode = button.dataset.pmMode;
+      const currentTool = editor()?.getSelectedTool?.() || 'pointer';
+      if (mode === 'DRAW' && currentTool !== 'pixel') {
+        editor()?.setSelectedTool?.('pixel');
+      } else if (mode === 'ERASE' && currentTool !== 'erase') {
+        editor()?.setSelectedTool?.('erase');
+      }
+      syncTools();
       syncInspector();
       render();
     }));
 
-    brushSizeInput.value = String(brushSize);
-    eraserSizeInput.value = String(eraserSize);
-    brushSizeInput.addEventListener('change', () => {
-      brushSize = clamp(Number(brushSizeInput.value) || 1, 1, MAX_BRUSH_SIZE);
-      brushSizeInput.value = String(brushSize);
+    // Tamaño de pincel y borrador (stepper y chips)
+    document.getElementById('pixelBrushStepDec')?.addEventListener('click', () => setBrushSize(brushSize - 1));
+    document.getElementById('pixelBrushStepInc')?.addEventListener('click', () => setBrushSize(brushSize + 1));
+    inspector.querySelectorAll('#pixelBrushChips [data-brush-chip]').forEach((btn) => {
+      btn.addEventListener('click', () => setBrushSize(Number(btn.dataset.brushChip) || 1));
     });
-    eraserSizeInput.addEventListener('change', () => {
+
+    document.getElementById('pixelEraserStepDec')?.addEventListener('click', () => setEraserSize(eraserSize - 1));
+    document.getElementById('pixelEraserStepInc')?.addEventListener('click', () => setEraserSize(eraserSize + 1));
+    inspector.querySelectorAll('#pixelEraserChips [data-eraser-chip]').forEach((btn) => {
+      btn.addEventListener('click', () => setEraserSize(Number(btn.dataset.eraserChip) || 1));
+    });
+
+    brushSizeInput?.addEventListener('change', () => {
+      brushSize = clamp(Number(brushSizeInput.value) || 1, 1, MAX_BRUSH_SIZE);
+      syncBrushUI();
+    });
+    eraserSizeInput?.addEventListener('change', () => {
       eraserSize = clamp(Number(eraserSizeInput.value) || 1, 1, MAX_BRUSH_SIZE);
-      eraserSizeInput.value = String(eraserSize);
+      syncEraserUI();
       if (mainEraserSizeSelect) mainEraserSizeSelect.value = String(eraserSize);
     });
 
-    visibilityButton.addEventListener('click', () => {
+    // Editor de color de la casa
+    ensureColorEditor();
+
+    // Visibilidad y referencia
+    visibilityButton?.addEventListener('click', () => {
       const map = selected();
       if (!map) return;
       ensureEditorMeta(map);
@@ -502,7 +715,7 @@
       changed();
     });
 
-    onionButton.addEventListener('click', () => {
+    onionButton?.addEventListener('click', () => {
       const map = selected();
       if (!map) return;
       ensureEditorMeta(map);
@@ -512,7 +725,7 @@
       changed();
     });
 
-    opacityInput.addEventListener('input', () => {
+    opacityInput?.addEventListener('input', () => {
       const map = selected();
       if (!map) return;
       ensureEditorMeta(map);
@@ -520,18 +733,65 @@
       syncInspector();
       refreshBase();
     });
-    opacityInput.addEventListener('change', changed);
+    opacityInput?.addEventListener('change', changed);
 
-    document.getElementById('pixelMapDuplicate').addEventListener('click', duplicateMap);
-    document.getElementById('pixelMapDelete').addEventListener('click', deleteMap);
-    mapName.addEventListener('change', () => {
+    // Acciones de objeto
+    document.getElementById('pixelMapDuplicate')?.addEventListener('click', duplicateMap);
+    document.getElementById('pixelMapDelete')?.addEventListener('click', deleteMap);
+
+    // Copiar código C++
+    const copyContractBtn = document.getElementById('copyPixelContractBtn');
+    copyContractBtn?.addEventListener('click', () => {
+      const contractPre = document.getElementById('pixelInspectorContract');
+      if (!contractPre || !contractPre.textContent) return;
+      navigator.clipboard?.writeText?.(contractPre.textContent).then(() => {
+        const orig = copyContractBtn.textContent;
+        copyContractBtn.textContent = '✓';
+        setTimeout(() => { copyContractBtn.textContent = orig; }, 1200);
+      }).catch(() => {});
+    });
+
+    // Alineación rápida
+    inspector.querySelectorAll('[data-pixel-align]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const map = selected();
+        if (!map) return;
+        const b = bounds(map);
+        const align = btn.dataset.pixelAlign;
+        const hCenterX = Math.max(0, Math.round((WIDTH - b.width) / 2));
+        const vCenterY = Math.max(0, Math.round((HEIGHT - b.height) / 2));
+        const rightX = Math.max(0, WIDTH - b.width);
+        const bottomY = Math.max(0, HEIGHT - b.height);
+
+        if (align === 'top-left') { map.x = 0; map.y = 0; }
+        else if (align === 'top') { map.x = hCenterX; map.y = 0; }
+        else if (align === 'top-right') { map.x = rightX; map.y = 0; }
+        else if (align === 'left') { map.x = 0; map.y = vCenterY; }
+        else if (align === 'center') { map.x = hCenterX; map.y = vCenterY; }
+        else if (align === 'right') { map.x = rightX; map.y = vCenterY; }
+        else if (align === 'bottom-left') { map.x = 0; map.y = bottomY; }
+        else if (align === 'bottom') { map.x = hCenterX; map.y = bottomY; }
+        else if (align === 'bottom-right') { map.x = rightX; map.y = bottomY; }
+        else if (align === 'hcenter') { map.x = hCenterX; }
+        else if (align === 'vcenter') { map.y = vCenterY; }
+        if (mapX) mapX.value = String(map.x);
+        if (mapY) mapY.value = String(map.y);
+        changed();
+        refreshBase();
+        syncInspector();
+      });
+    });
+
+    mapName?.addEventListener('change', () => {
       const map = selected();
       if (!map) return;
       map.name = mapName.value.trim().slice(0, 24) || map.name;
       changed();
       refreshBase();
+      syncInspector();
     });
-    [mapX, mapY].forEach((input) => input.addEventListener('change', () => {
+
+    [mapX, mapY].forEach((input) => input?.addEventListener('change', () => {
       const map = selected();
       if (!map) return;
       const b = bounds(map);
@@ -539,11 +799,27 @@
       map.y = Math.max(0, Math.min(HEIGHT - b.height, Number(mapY.value) || 0));
       changed();
       refreshBase();
+      syncInspector();
     }));
+
+    syncBrushUI();
+    syncEraserUI();
+    syncPixelTabPanes();
   }
 
   function syncInspector() {
-    const map = selected();
+    let map = selected();
+    const currentTool = editor()?.getSelectedTool?.() || 'pointer';
+    const isPixelTool = (currentTool === 'pixel' || currentTool === 'erase');
+
+    if (!map && isPixelTool) {
+      const pageMaps = mapsForPage();
+      if (pageMaps.length > 0) {
+        selectedKey = pageMaps[pageMaps.length - 1].key;
+        map = selected();
+      }
+    }
+
     if (fieldSection) fieldSection.hidden = Boolean(map) || fieldSection.hidden;
     if (rawSection && map) rawSection.hidden = true;
     if (!inspector) return;
@@ -551,23 +827,98 @@
     if (!map) return;
 
     ensureEditorMeta(map);
+    if (map.pixels && map.pixels.length > 0) {
+      color = map.pixels[map.pixels.length - 1].color;
+      syncMainColor();
+    }
     const b = bounds(map);
-    mapName.value = map.name;
-    mapX.value = map.x;
-    mapY.value = map.y;
-    mapPage.value = String(Number(map.page || 0));
-    pixelCount.textContent = String(map.pixels.length);
-    pixelBounds.textContent = `${b.width} × ${b.height} px`;
-    brushSizeInput.value = String(brushSize);
-    eraserSizeInput.value = String(eraserSize);
-    visibilityButton.textContent = map.editorVisible ? '👁 Ocultar' : '👁 Mostrar';
-    visibilityButton.classList.toggle('active', !map.editorVisible);
-    onionButton.textContent = map.editorOpacity >= 0.99 ? '◐ Referencia 35%' : '◐ Opacidad 100%';
-    onionButton.classList.toggle('active', map.editorOpacity < 0.99);
-    opacityInput.value = String(Math.round(map.editorOpacity * 100));
-    opacityValue.textContent = `${Math.round(map.editorOpacity * 100)}%`;
-    inspector.querySelectorAll('[data-pm-mode]').forEach((button) => button.classList.toggle('active', button.dataset.pmMode === mode));
-    syncMainColor();
+    const displayName = map.name || 'PIXEL';
+    const headerTitle = document.getElementById('pixelMapHeaderTitle');
+    if (headerTitle) headerTitle.textContent = displayName.toUpperCase();
+
+    if (mapName && document.activeElement !== mapName) mapName.value = map.name;
+    if (mapX && document.activeElement !== mapX) mapX.value = String(map.x);
+    if (mapY && document.activeElement !== mapY) mapY.value = String(map.y);
+    if (mapPage) mapPage.value = String(Number(map.page || 0));
+    if (pixelCount) pixelCount.textContent = String(map.pixels.length);
+    if (pixelBounds) pixelBounds.textContent = `${b.width} × ${b.height} px`;
+
+    // Botones de modo
+    inspector.querySelectorAll('[data-pm-mode]').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.pmMode === mode);
+    });
+
+    // Tamaños
+    syncBrushUI();
+    syncEraserUI();
+
+    // Visibilidad y referencia
+    const isVisible = map.editorVisible !== false;
+    const visText = document.getElementById('pixelMapVisibilityText');
+    if (visText) visText.textContent = isVisible ? 'Ocultar' : 'Mostrar';
+    if (visibilityButton) visibilityButton.classList.toggle('active', !isVisible);
+
+    const isOnion = map.editorOpacity < 0.99;
+    const onionText = document.getElementById('pixelMapOnionText');
+    if (onionText) onionText.textContent = isOnion ? 'Opacidad 100%' : 'Referencia 35%';
+    if (onionButton) onionButton.classList.toggle('active', isOnion);
+
+    const opPct = Math.round(map.editorOpacity * 100);
+    if (opacityInput && document.activeElement !== opacityInput) opacityInput.value = String(opPct);
+    if (opacityValue) opacityValue.textContent = `${opPct}%`;
+
+    // Sincronizar celda activa de la matriz 3x3
+    const hCenterX = Math.max(0, Math.round((WIDTH - b.width) / 2));
+    const vCenterY = Math.max(0, Math.round((HEIGHT - b.height) / 2));
+    const rightX = Math.max(0, WIDTH - b.width);
+    const bottomY = Math.max(0, HEIGHT - b.height);
+    const mx = map.x;
+    const my = map.y;
+
+    let activeAlign = null;
+    if (mx === 0 && my === 0) activeAlign = 'top-left';
+    else if (mx === hCenterX && my === 0) activeAlign = 'top';
+    else if (mx === rightX && my === 0) activeAlign = 'top-right';
+    else if (mx === 0 && my === vCenterY) activeAlign = 'left';
+    else if (mx === hCenterX && my === vCenterY) activeAlign = 'center';
+    else if (mx === rightX && my === vCenterY) activeAlign = 'right';
+    else if (mx === 0 && my === bottomY) activeAlign = 'bottom-left';
+    else if (mx === hCenterX && my === bottomY) activeAlign = 'bottom';
+    else if (mx === rightX && my === bottomY) activeAlign = 'bottom-right';
+
+    inspector.querySelectorAll('[data-pixel-align]').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.pixelAlign === activeAlign);
+    });
+
+    // Editor de color y muestra
+    ensureColorEditor();
+    if (pixelColorEditor) pixelColorEditor.set(color, 'Píxeles');
+    updatePixelSwatch(color);
+
+    // Pestañas de página
+    syncPixelPages(map);
+
+    // C++ Token y Contrato
+    const token = cppToken(map.name, 'PIXEL');
+    const pixelMapId = document.getElementById('pixelMapId');
+    if (pixelMapId) pixelMapId.value = `HMI_PIXEL_${token}`;
+
+    const contractPre = document.getElementById('pixelInspectorContract');
+    if (contractPre) {
+      contractPre.textContent = getPixelSnippet(map);
+    }
+
+    // Diagnósticos
+    const diagLayers = document.getElementById('pixelDiagLayers');
+    if (diagLayers) diagLayers.textContent = String(mapsForPage().length);
+    const diagOrder = document.getElementById('pixelDiagLayerOrder');
+    if (diagOrder) diagOrder.textContent = String(map.layerOrder ?? 0);
+    const diagLocked = document.getElementById('pixelDiagLocked');
+    if (diagLocked) diagLocked.textContent = map.locked ? 'Sí' : 'No';
+    const diagVisible = document.getElementById('pixelDiagVisible');
+    if (diagVisible) diagVisible.textContent = isVisible ? 'Sí' : 'No';
+
+    syncPixelTabPanes();
   }
 
   const SVG_EYE_OPEN = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
@@ -606,7 +957,7 @@
       ensureEditorMeta(map);
       editor()?.ensureLayerOrder?.(map);
       const row = document.createElement('div');
-      const isAct = map.key === selectedKey;
+      const isAct = selectedKeys.includes(map.key) || map.key === selectedKey;
       row.className = `object-item a11-pixel-row${isAct ? ' active' : ''}${!map.editorVisible ? ' is-hidden' : ''}${map.locked ? ' is-locked' : ''}`;
       row.dataset.pixelKey = map.key;
       row.dataset.layerOrder = String(map.layerOrder || 0);
@@ -681,10 +1032,22 @@
         if (event.target.closest('.object-btn')) return;
         event.preventDefault();
         clearFieldSelection();
-        selectedKey = map.key;
+        if (event.shiftKey || event.ctrlKey) {
+          if (selectedKeys.includes(map.key)) {
+            selectedKeys = selectedKeys.filter((k) => k !== map.key);
+          } else {
+            selectedKeys.push(map.key);
+          }
+        } else {
+          selectedKeys = [map.key];
+        }
+        selectedKey = selectedKeys.length > 0 ? selectedKeys[selectedKeys.length - 1] : null;
         mode = 'MOVE';
+        const pointerBtn = document.querySelector('.tool[data-tool="pointer"]');
+        if (pointerBtn) pointerBtn.click();
+        else window.dispatchEvent(new CustomEvent('jwplc:tool-changed', { detail: { tool: 'pointer' } }));
         syncInspector();
-        render();
+        refreshBase();
         window.JWPLCHMIInspectorState?.sync?.();
       });
 
@@ -692,10 +1055,14 @@
         if (event.target.closest('.object-btn')) return;
         event.preventDefault();
         clearFieldSelection();
+        selectedKeys = [map.key];
         selectedKey = map.key;
         mode = 'MOVE';
+        const pointerBtn = document.querySelector('.tool[data-tool="pointer"]');
+        if (pointerBtn) pointerBtn.click();
+        else window.dispatchEvent(new CustomEvent('jwplc:tool-changed', { detail: { tool: 'pointer' } }));
         syncInspector();
-        render();
+        refreshBase();
         window.JWPLCHMIEditor?.fitSelection?.();
       });
 
@@ -852,18 +1219,32 @@
     if (pixelTool) {
       pixelTool.title = 'Pincel / Lápiz (B)';
       pixelTool.classList.toggle('active', currentTool === 'pixel');
+      if (currentTool !== 'pixel') pixelTool.blur();
     }
     if (eraseTool) {
       eraseTool.title = 'Borrador (E)';
       eraseTool.classList.toggle('active', currentTool === 'erase');
+      if (currentTool !== 'erase') eraseTool.blur();
     }
   }
 
   pixelTool?.addEventListener('click', () => {
     clearFieldSelection();
     mode = 'DRAW';
+    let map = selected();
+    if (!map || Number(map.page || 0) !== page()) {
+      const pageMaps = mapsForPage();
+      const emptyMap = pageMaps.find((m) => !m.pixels || m.pixels.length === 0);
+      if (emptyMap) {
+        selectedKey = emptyMap.key;
+        map = emptyMap;
+      } else {
+        map = createMap();
+      }
+    }
     syncTools();
     render();
+    syncInspector();
     window.JWPLCHMIInspectorState?.sync?.();
   });
 
@@ -918,8 +1299,10 @@
   eraseTool?.addEventListener('click', () => {
     clearFieldSelection();
     mode = 'ERASE';
+    ensureActiveMap(false);
     syncTools();
     render();
+    syncInspector();
     window.JWPLCHMIInspectorState?.sync?.();
   });
 
@@ -928,14 +1311,18 @@
     if (newTool !== 'erase' && eraserCursorBox) eraserCursorBox.style.display = 'none';
     if (newTool === 'pixel' || newTool === 'erase') {
       mode = (newTool === 'erase') ? 'ERASE' : 'DRAW';
+      ensureActiveMap(newTool !== 'erase');
       syncTools();
       render();
+      syncInspector();
+      window.JWPLCHMIInspectorState?.sync?.();
     } else if (newTool) {
       if (newTool !== 'pointer') {
         selectedKey = null;
       }
       syncTools();
       render();
+      window.JWPLCHMIInspectorState?.sync?.();
     }
   });
 
@@ -969,12 +1356,11 @@
         }
         if (!map) return; // Nothing to erase
       } else {
-        // Pencil: each new stroke creates a new object if none selected or if selected map already has pixels!
         let currentMap = selected();
-        if (currentMap && Number(currentMap.page || 0) === page() && currentMap.pixels.length === 0) {
+        if (currentMap && Number(currentMap.page || 0) === page()) {
           map = currentMap;
         } else {
-          map = createMap();
+          map = ensureActiveMap();
         }
         if (!map) return;
         selectedKey = map.key;
@@ -985,7 +1371,7 @@
       pointer = event.pointerId;
       lastPoint = p;
       try { displayCanvas.setPointerCapture(pointer); } catch (_) {}
-      const drawColor = (editor()?.getSelectedColor?.() ?? color) & 0xFFFF;
+      const drawColor = color & 0xFFFF;
       if (mode === 'ERASE') {
         eraseBrush(map, p.x, p.y, eraserSize);
       } else {
@@ -1003,7 +1389,16 @@
     const hit = hitMap(p);
     if (hit) {
       clearFieldSelection();
-      selectedKey = hit.key;
+      if (event.shiftKey || event.ctrlKey) {
+        if (selectedKeys.includes(hit.key)) {
+          selectedKeys = selectedKeys.filter((k) => k !== hit.key);
+        } else {
+          selectedKeys.push(hit.key);
+        }
+      } else if (!selectedKeys.includes(hit.key)) {
+        selectedKeys = [hit.key];
+      }
+      selectedKey = selectedKeys.length > 0 ? selectedKeys[selectedKeys.length - 1] : null;
       mode = 'MOVE';
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -1011,14 +1406,15 @@
       lastPoint = p;
       try { displayCanvas.setPointerCapture(pointer); } catch (_) {}
       dragStart = p;
-      dragOrigin = { x: hit.x, y: hit.y };
+      dragOrigins = selectedMaps().map((m) => ({ key: m.key, x: m.x, y: m.y }));
       syncInspector();
       refreshBase();
       return;
     }
 
-    if (selectedKey) {
+    if (selectedKeys.length > 0 || selectedKey) {
       selectedKey = null;
+      selectedKeys = [];
       syncInspector();
       refreshBase();
     }
@@ -1027,34 +1423,37 @@
   window.addEventListener('pointermove', (event) => {
     if (pointer === null || pointer !== event.pointerId) return;
     const p = pointFromEvent(event);
+    updateEraserCursor(p);
+    window.JWPLCHMIEditor?.trackViewportPointer?.(event);
     if (!inside(p)) return;
     const map = selected();
     if (!map) return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    if (mode === 'MOVE' && dragStart && dragOrigin) {
+    if (mode === 'MOVE' && dragStart && dragOrigins && dragOrigins.length > 0) {
       const dx = p.x - dragStart.x;
       const dy = p.y - dragStart.y;
-      let nextX = dragOrigin.x + dx;
-      let nextY = dragOrigin.y + dy;
-      
       const snapToggle = document.getElementById('snapToggle');
-      if (snapToggle && snapToggle.checked) {
-        const grid = Number(document.getElementById('gridSizeSelect')?.value) || 8;
-        nextX = Math.round(nextX / grid) * grid;
-        nextY = Math.round(nextY / grid) * grid;
-      }
-      
-      nextX = Math.max(0, Math.min(WIDTH - bounds(map).width, nextX));
-      nextY = Math.max(0, Math.min(HEIGHT - bounds(map).height, nextY));
-      if (map.x !== nextX || map.y !== nextY) {
-        map.x = nextX;
-        map.y = nextY;
-        syncInspector();
-        refreshBase();
-      }
+      const grid = Number(document.getElementById('gridSizeSelect')?.value) || 8;
+      dragOrigins.forEach((orig) => {
+        const m = maps.find((x) => x.key === orig.key);
+        if (m) {
+          let nextX = orig.x + dx;
+          let nextY = orig.y + dy;
+          if (snapToggle && snapToggle.checked) {
+            nextX = Math.round(nextX / grid) * grid;
+            nextY = Math.round(nextY / grid) * grid;
+          }
+          nextX = Math.max(0, Math.min(WIDTH - bounds(m).width, nextX));
+          nextY = Math.max(0, Math.min(HEIGHT - bounds(m).height, nextY));
+          m.x = nextX;
+          m.y = nextY;
+        }
+      });
+      syncInspector();
+      refreshBase();
     } else if (lastPoint) {
-      const drawColor = (editor()?.getSelectedColor?.() ?? color) & 0xFFFF;
+      const drawColor = color & 0xFFFF;
       rasterLine(lastPoint, p, (x, y) => {
         if (mode === 'ERASE') eraseBrush(map, x, y, eraserSize);
         else putBrush(map, x, y, drawColor, brushSize);
@@ -1083,8 +1482,7 @@
 
     const currentTool = editor()?.getSelectedTool?.() || 'pointer';
     if (currentTool === 'pixel') {
-      // When finishing a pencil stroke, deselect so the next stroke automatically creates a new object
-      selectedKey = null;
+      // Conservar selectedKey para permitir trazos sucesivos e inspección continua
     }
 
     changed();
@@ -1095,24 +1493,48 @@
   window.addEventListener('pointerup', endPointer, true);
   window.addEventListener('pointercancel', endPointer, true);
 
-  document.addEventListener('keydown', (event) => {
-    const map = selected();
-    if (!map) return;
+  window.addEventListener('keydown', (event) => {
     const target = event.target;
     if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || target?.isContentEditable) return;
+
+    if (event.key === 'Escape') {
+      const currentTool = editor()?.getSelectedTool?.() || 'pointer';
+      if (currentTool === 'pixel' || currentTool === 'erase' || selectedKey || selectedKeys.length > 0) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        selectedKey = null;
+        selectedKeys = [];
+        clearFieldSelection();
+        if (currentTool === 'pixel' || currentTool === 'erase') {
+          const pointerBtn = document.querySelector('.tool[data-tool="pointer"]');
+          if (pointerBtn) {
+            pointerBtn.click();
+          } else {
+            window.dispatchEvent(new CustomEvent('jwplc:tool-changed', { detail: { tool: 'pointer' } }));
+          }
+        }
+        if (pixelTool) {
+          pixelTool.classList.remove('active');
+          pixelTool.blur();
+        }
+        if (eraseTool) {
+          eraseTool.classList.remove('active');
+          eraseTool.blur();
+        }
+        syncTools();
+        syncInspector();
+        refreshBase();
+        window.JWPLCHMIInspectorState?.sync?.();
+        return;
+      }
+    }
+
+    const map = selected();
+    if (!map) return;
     if (event.key === 'Delete' || event.key === 'Backspace') {
       event.preventDefault();
       event.stopImmediatePropagation();
       deleteMap();
-      return;
-    }
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      selectedKey = null;
-      syncInspector();
-      refreshBase();
-      window.JWPLCHMIInspectorState?.sync?.();
       return;
     }
     const step = event.shiftKey ? 10 : 1;
@@ -1128,8 +1550,10 @@
   }, true);
 
   window.addEventListener('jwplc:editor-refresh', () => {
-    if (editor()?.hasFieldSelection?.()) selectedKey = null;
-    if (selected() && Number(selected().page || 0) !== page()) selectedKey = null;
+    if (selected() && Number(selected().page || 0) !== page()) {
+      selectedKey = null;
+      selectedKeys = [];
+    }
     requestAnimationFrame(() => { render(); syncTools(); });
   });
   window.addEventListener('jwplc:project-loaded', () => requestAnimationFrame(render));
@@ -1185,7 +1609,7 @@
     getAll: () => maps,
     getSelected: selected,
     getActiveColor: () => color,
-    setActiveColor: (value) => { color = Number(value) & 0xFFFF; syncMainColor(); syncInspector(); },
+    setActiveColor: (value) => { setPixelColor(Number(value) & 0xFFFF, true); syncMainColor(); syncInspector(); },
     getBrushSize: () => brushSize,
     getEraserSize: () => eraserSize,
     create: createMap,
@@ -1196,10 +1620,23 @@
     buildCode,
     refresh: render,
     hitTest: (point) => hitMap(point),
-    setSelectedKey: (key) => {
+    getSelectedMaps: selectedMaps,
+    getSelectedKeys: () => (selectedKeys.length > 0 ? selectedKeys : (selectedKey ? [selectedKey] : [])),
+    setSelectedKey: (key, clearFields = true) => {
+      if (clearFields && key) clearFieldSelection();
+      selectedKeys = key ? [key] : [];
       selectedKey = key;
       syncInspector();
       refreshBase();
+      window.JWPLCHMIInspectorState?.sync?.();
+    },
+    setSelectedKeys: (keys, clearFields = true) => {
+      if (clearFields && keys && keys.length > 0) clearFieldSelection();
+      selectedKeys = Array.isArray(keys) ? [...keys] : (keys ? [keys] : []);
+      selectedKey = selectedKeys.length > 0 ? selectedKeys[selectedKeys.length - 1] : null;
+      syncInspector();
+      refreshBase();
+      window.JWPLCHMIInspectorState?.sync?.();
     },
     getBounds: (map) => bounds(map)
   };
