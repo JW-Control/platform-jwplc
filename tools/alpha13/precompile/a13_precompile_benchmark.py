@@ -169,7 +169,7 @@ def publish_stage_archive(cli: str, props: dict[str, str], hw: Path,
         target = libroot / "src/esp32" / f"lib{lib}.a"
         target.parent.mkdir(parents=True, exist_ok=True)
         run([archiver, "crs", str(target)] + [v["object"] for v in objects])
-        members = run([archiver, "t", str(target)]).splitlines()
+        members = [line.strip() for line in run([archiver, "t", str(target)]).splitlines() if line.strip()]
         require(sorted(members) == sorted(Path(x["object"]).name for x in objects),
                 "ARCHIVE_MEMBERS_MISMATCH_" + lib)
         props_path = libroot / "library.properties"
