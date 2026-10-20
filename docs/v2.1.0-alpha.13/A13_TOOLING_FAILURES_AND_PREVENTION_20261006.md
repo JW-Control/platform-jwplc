@@ -2776,3 +2776,18 @@ F134_LEGACY_WHITELIST=UNCHANGED
 F134_G10_PRODUCT_SCOPE=VALIDATED_SEPARATELY_N0_N1
 NEXT_FAILURE_ID=F135
 ```
+
+## F135 — validación PH0 confundió nombre de carpeta con build.project_name de Arduino CLI
+
+- **Detección real Windows (operador 20/10/2026):** rama PR #124, HEAD `c08147eedf3b50036aab895596459db18bfd3336`, `g10p_ph0_upload.py --check` PASS; `--prepare` terminó con `G10P_PH0_REVIEW_STOP_ELF_MISSING_COM14_SLAVE` después del build dual.
+- **Causa fuente:** el nuevo verificador `artifacts()` buscaba `G10P_COM14_Slave.elf` y `G10P_COM14_Slave.bin`; Arduino CLI genera su project_name añadiendo `.ino`, por ejemplo `G10P_COM14_Slave.ino.elf`, `.ino.bin`, `.ino.bootloader.bin` y `.ino.partitions.bin`. El runner dual anterior usaba `glob('*.elf')` y comprobó existencia de ELF. No hay evidencia de fallo de firmware/producto ni upload ejecutado.
+- **Corrección:** validar el ELF único con nombre `Sketch.ino.elf`, cotejar SHA contra `MANIFEST.json`, exigir los tres `.ino.*.bin` de upload y hashes fuente/objeto/.a. La CI dual prueba ahora **postbuild real** invocando `--seal-existing` en Windows y Ubuntu, además de N0. Reutilización local estricta del build anterior sin recompilar, únicamente si no cambiaron package/sketches/build runner/contrato entre HEAD antiguo y actual.
+- **Prevención:** cualquier verificador que acceda a binarios Arduino debe probarse con **artefactos reales de compilación** en CI, no solo en `--check`. Los nombres se toman del sketch `.ino` y se comparan con manifiesto, nunca se adivinan a partir de carpeta.
+
+```text
+F135=TOOLING_FIXED_CANDIDATE_CI_PENDING
+F135_PRODUCT_FAILURE=NO_EVIDENCE
+F135_UPLOAD=NOT_RUN
+F135_HARDWARE=NOT_TOUCHED
+NEXT_FAILURE_ID=F136
+```
