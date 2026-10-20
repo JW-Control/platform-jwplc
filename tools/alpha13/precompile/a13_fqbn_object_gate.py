@@ -62,14 +62,18 @@ def perform(output: Path, cli: str, detached: bool, expect_mismatch: bool) -> No
     a, b = PROFILES
     prop_a = properties(cli, cfg, a, hw)
     prop_b = properties(cli, cfg, b, hw)
-    build_a = output / "build_basic"
-    build_b = output / "build_basiccore"
-    elapsed_a, _ = compile_one(cli, cfg, a, build_a,
+    # Mismo build path físico en ambas ejecuciones: -g/__FILE__ en Windows
+    # puede incluir rutas absolutas distintas aunque la semántica sea igual.
+    # --clean invalida objetos al cambiar FQBN sin contaminar la comparativa.
+    shared_build = output / "build_same_path"
+    elapsed_a, _ = compile_one(cli, cfg, a, shared_build,
                                output / "source_basic.log", True)
-    elapsed_b, _ = compile_one(cli, cfg, b, build_b,
+    objects_a = objects_by_source(hw, shared_build)
+    policy_a = elf_profile_policy(prop_a, shared_build) if not expect_mismatch else None
+    elapsed_b, _ = compile_one(cli, cfg, b, shared_build,
                                output / "source_basiccore.log", True)
-    objects_a = objects_by_source(hw, build_a)
-    objects_b = objects_by_source(hw, build_b)
+    objects_b = objects_by_source(hw, shared_build)
+    policy_b = elf_profile_policy(prop_b, shared_build) if not expect_mismatch else None
     report = {
         "head_sha": sha,
         "profiles": list(PROFILES),
@@ -111,8 +115,8 @@ def perform(output: Path, cli: str, detached: bool, expect_mismatch: bool) -> No
     require(report["same_toolchain_prefix"], "TOOLCHAIN_DIFFER")
     if not expect_mismatch:
         report["elf_profile_policy"] = {
-            a: elf_profile_policy(prop_a, build_a),
-            b: elf_profile_policy(prop_b, build_b),
+            a: policy_a,
+            b: policy_b,
         }
         require(report["elf_profile_policy"] == {a: "W", b: "T"},
                 "POLICY_LINK_WEAK_BASIC_STRONG_BASICCORE")
