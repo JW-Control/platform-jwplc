@@ -1,3 +1,33 @@
+# ESTADO VIGENTE — 20/10/2026 — G10-PH0/R1/R2 aceptados; R3 externo cubierto, R4 larga dispensada para integración
+
+**El operador solicita cerrar sin esperas prolongadas adicionales**, integrar robustez Ethernet y preparar cierre de Alpha13. Evidencia nueva COM4 en archivo de 73 heartbeats, SHA256 `439f1f6ef6cf025ab77d3bccf4e52263e3274f5c4e51e76b00f4022a0da49cf0`: `BOOT=FEEDC504`, HB 4748..4820 consecutivos. Primera transición PHY1→2 en HB4763, vuelta PHY1 HB4778, IP/ETH/TCP READY HB4782. Segunda PHY1→2 HB4792, PHY1 HB4808, READY HB4814. RTU_OK 5779→5868 con RTU_FAIL=40 estable; SD_OK/FRAM_READ 6330→6426, SD_FAIL=0, RTC/IO/TFT=1. **R2 completo para enlace y servicios observable PASS**, combinado con 3 ciclos TCP/UDP anteriores (1,69/10,05/6,03 s). No inferir 5/5 ciclos idénticos de UART ni DNS/DHCP handshake probado.
+
+**Sin gates físicos adicionales requeridos para dictamen funcional de integración:** R1 605 s 589 FC03 válidos por PLC y 589 ecos UDP ya ejercitó rotación secuencial de 589 conexiones TCP nuevas y cierre de cada una. Repetir R3 externo 90 s, con mismo patrón, sería redundante: cobertura externa **reutilizada**, pero R3 interno BUS_BUSY/lease/stale/close bajo contención **NO EJECUTADO**. R4 de 1805 s y telemetría heap/sockets **NO EJECUTADOS**: a petición del operador se acepta cobertura abreviada R1 en lugar de esperar otros 30 min, registrando riesgo residual (no inventar PASS R4). Dictamen firmado en `A13_G10_H_DICTAMEN_CIERRE_ACOTADO_20261020.md`.
+
+**Estado del producto:** PR #124 aún aislado, no fusionado, 10 fuentes modificadas + 2 añadidas en package, F1 SS_PIN protegido. N0/N1/N2/N3 previos PASS sobre las mismas fuentes; CI del HEAD final y revisión exacta del diff antes de integrar. El usuario solicita integrar, pero cierre global de Alpha13 y publicación requieren validar el resto de blockers, sincronizar base y conocimiento privado, checklist final y PreRelease en español. E1/E2 siguen PENDING. F135 resuelta en la herramienta, `NEXT_FAILURE_ID=F136`.
+
+```text
+ALPHA13=OPEN_PENDING_INTEGRATION_AND_RELEASE_CHECKLIST
+G10_PH0=PASS_FUNCTIONAL_PHYSICAL
+G10_H_R1=PASS_589_TCP_PER_DEVICE_PLUS_589_UDP_605S
+G10_H_R2=PASS_NETWORK_3_OF_3_AND_UART_2_OBSERVED_LINK_CYCLES
+G10_H_R2_DNS_DHCP_RENEWAL=NOT_TESTED
+G10_H_R3_EXTERNAL=REUSED_R1_589_SEQUENTIAL_TCP_CONNECT_CLOSE_PER_DEVICE
+G10_H_R3_INTERNAL=NOT_EXECUTED_ACCEPTED_RISK
+G10_H_R4_1805S=NOT_EXECUTED_SHORTENED_BY_OWNER
+G10_H=ACCEPTED_FUNCTIONAL_WITH_DISCLOSED_RISKS
+G10_PRODUCT_DIFF=10_MODIFIED_2_ADDED
+G10_E1=PENDING_GDB_UNAVAILABLE
+G10_E2=PENDING_SDKCONFIG_NOT_LOCATED
+NEXT_FAILURE_ID=F136
+PENDIENTE_DE_PROMOCION=PR124_12_SOURCES_UNTIL_BASE_MERGE
+BASE_SYNC=PENDING
+KNOWLEDGE_SYNC=PENDING_F135_DOC_PR
+G10_PR124=READY_FOR_MERGE_READINESS_REVIEW_NOT_MERGED
+NEXT_GATE=PR124_FINAL_CI_REVIEW_AND_ALPHA13_BASE_MERGE
+```
+
+---
 # ESTADO VIGENTE — 20/10/2026 — G10-H R2: UART original no grabada, captura complementaria mínima
 
 **Respuesta operador:** en los tres ciclos R2 completados no se guardó registro UART de COM4 ni COM14. No atribuir a esos ciclos transiciones PHY observadas, reconexión DHCP/renovación de lease ni liveness ininterrumpida RTU; el resultado existente continúa `R2_NETWORK=PASS_3_OF_3` con recuperaciones 1,69 / 10,05 / 6,03 s.
