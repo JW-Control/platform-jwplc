@@ -587,6 +587,28 @@ JWPLCEthernetError error =
 
 Los enums exactos están definidos en `JWPLC_Ethernet.h`.
 
+## Mejoras de estabilidad en Alpha13
+
+El puerto W5500 mantiene el manejo automático del JWPLC Basic. En esta
+versión mejoramos la recuperación al conectar o desconectar el cable,
+las transferencias TCP y UDP y la convivencia con los otros dispositivos SPI.
+
+- Una conexión TCP que se cierra o falla no debe dejar un socket retenido
+  indefinidamente. El runtime administra su liberación y reutilización.
+- Las escrituras TCP grandes respetan la cantidad realmente aceptada; las
+  lecturas no intentan recibir más bytes de los permitidos por el transporte.
+- UDP admite datagramas que requieren envíos parciales y recupera operaciones
+  incompletas sin depender de un `delay()` en tu sketch.
+- El pin CS del W5500 lo fija el package. **No configures pines internos**
+  ni uses GPIO6–11 para Ethernet.
+
+Tu código habitual con `useDHCP()`, `isReady()`,
+`EthernetClient`, `EthernetServer` y `EthernetUDP` se mantiene.
+
+**Alcance comprobado:** respuestas reales Modbus TCP, eco UDP y
+desconexión/reconexión Ethernet en dos JWPLC Basic. Eso no garantiza la
+ausencia de cualquier fallo de DNS, renovación de DHCP o saturación de sockets.
+
 ## Compatibilidad
 
 Se conservan rutas Arduino Ethernet históricas como:
@@ -620,6 +642,6 @@ hardware del producto desde un sketch normal.
 Documentado para:
 
 ```text
-JWPLC ESP32 v2.1.0-alpha.12
+JWPLC ESP32 v2.1.0-alpha.13 (candidata)
 JWPLC_Ethernet 1.0.0
 ```
