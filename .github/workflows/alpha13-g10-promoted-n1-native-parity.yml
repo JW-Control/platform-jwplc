@@ -1,0 +1,57 @@
+name: Alpha13 G10 - N1 nativo con paridad de fuentes promovidas
+on:
+  pull_request:
+    paths:
+      - 'tools/alpha13/gates/a13_g10_promoted_n1_parity.py'
+      - '.github/workflows/alpha13-g10-promoted-n1-native-parity.yml'
+permissions:
+  contents: read
+jobs:
+  promoted-native-parity:
+    name: G10 N1 nativo y paridad \${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    runs-on: \${{ matrix.os }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: \${{ github.event.pull_request.head.sha }}
+          path: promoted
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: 0344ff9cbe42e9efa65e7d4caabb60ce15464270
+          path: baseline
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Compositor y contratos C++ nativos desde base F1 sin G10-R
+        shell: bash
+        working-directory: baseline
+        run: |
+          set -euo pipefail
+          python -B tools/alpha13/gates/a13_g10_integrated.py --ci-standalone | tee "$RUNNER_TEMP/g10_native.log"
+          grep -Fq 'G10_INTEGRATED_STATUS=N3_READY_NONPHYSICAL' "$RUNNER_TEMP/g10_native.log"
+          grep -Fq 'G10_INTEGRATED_B08_MUTEX_NATIVE=PASS_NONRECURSIVE_3_WRAPPERS_6_NEGATIVES' "$RUNNER_TEMP/g10_native.log"
+          grep -Fq 'G10_INTEGRATED_B03_DNS_DHCP_SHUTDOWN=PASS_SOURCE_BACKED_DEFERRED_CLOSE_9_NEGATIVES' "$RUNNER_TEMP/g10_native.log"
+          echo 'G10_PROMOTED_N1_BASE_NATIVE_CPP=PASS'
+      - name: Comparar 14 fuentes reales promovidas con hashes del compositor
+        shell: bash
+        working-directory: promoted
+        run: |
+          set -euo pipefail
+          python -B tools/alpha13/gates/a13_g10_promoted_n1_parity.py --baseline ../baseline
+          test -z "$(git diff --name-only -- JWPLC/)"
+          echo 'G10_PROMOTED_N1_PRODUCT_NOT_MODIFIED_BY_GATE=PASS'
+      - name: Evidencia textual nativa sin ELF ni firmware
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g10-promoted-n1-\${{ matrix.os }}-\${{ github.run_id }}
+          path: \${{ runner.temp }}/g10_native.log
+          if-no-files-found: warn
+          retention-days: 14
