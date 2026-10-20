@@ -150,7 +150,11 @@ def archiver_from_props(props: dict[str, str]) -> str:
     cmd = props.get("compiler.ar.cmd", "")
     path = props.get("compiler.path", "")
     require(bool(path) and bool(cmd), "ARCHIVER_PROPERTIES_MISSING")
-    binary = Path(path) / (prefix + cmd)
+    # Arduino CLI --show-properties devuelve compiler.ar.cmd YA expandido
+    # con compiler.prefix en algunos cores (ej.: xtensa-esp32-elf-gcc-ar).
+    # No duplicar prefix: antes fallaba solo el runner, no el firmware.
+    name = cmd if cmd.startswith(prefix) else prefix + cmd
+    binary = Path(name) if Path(name).is_absolute() else Path(path) / name
     if os.name == "nt" and not binary.exists():
         binary = binary.with_suffix(".exe")
     require(binary.exists(), "ARCHIVER_MISSING_" + str(binary))
