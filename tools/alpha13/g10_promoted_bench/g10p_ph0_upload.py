@@ -44,14 +44,17 @@ def sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def guard(head: str) -> None:
+def guard(head: str, allow_ci_detached: bool = False) -> None:
     require(run(["git", "rev-parse", "HEAD"]).strip() == head, "HEAD")
-    require(run(["git", "branch", "--show-current"]).strip() == BRANCH,
-            "BRANCH")
+    branch = run(["git", "branch", "--show-current"]).strip()
+    require(branch == BRANCH or (allow_ci_detached and branch == ""), "BRANCH")
     require(not run(["git", "status", "--porcelain",
                      "--untracked-files=no"]).strip(), "DIRTY")
-    run([sys.executable, "-B", str(BENCH / "g10p_dual_build.py"),
-         "--expected-head", head, "--check"])
+    check_cmd = [sys.executable, "-B", str(BENCH / "g10p_dual_build.py"),
+                 "--expected-head", head, "--check"]
+    if allow_ci_detached and branch == "":
+        check_cmd.append("--ci-detached")
+    run(check_cmd)
 
 
 def artifacts(out: Path, manifest: dict) -> dict:
@@ -163,9 +166,12 @@ def main() -> None:
     ap.add_argument("--expected-head", required=True)
     ap.add_argument("--output", type=Path)
     ap.add_argument("--cli", default="arduino-cli")
+    ap.add_argument("--ci-detached", action="store_true",
+                    help="Solo preflight read-only en Actions, nunca upload")
     args = ap.parse_args()
+    require(not args.ci_detached or args.check, "CI_DETACHED_CHECK_ONLY")
     if args.check:
-        guard(args.expected_head)
+        guard(args.expected_head, allow_ci_detached=args.ci_detached)
         print("G10P_PH0_RUNNER_N0=PASS_NO_USB_NO_MAC_NO_BACKUP")
         return
     if args.prepare:
