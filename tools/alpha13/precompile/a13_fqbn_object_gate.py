@@ -66,8 +66,11 @@ def perform(output: Path, cli: str, detached: bool, expect_mismatch: bool) -> No
     # puede incluir rutas absolutas distintas aunque la semántica sea igual.
     # --clean invalida objetos al cambiar FQBN sin contaminar la comparativa.
     shared_build = output / "build_same_path"
+    elapsed_a_first, _ = compile_one(cli, cfg, a, shared_build,
+                                     output / "source_basic_first.log", True)
+    objects_a_first = objects_by_source(hw, shared_build)
     elapsed_a, _ = compile_one(cli, cfg, a, shared_build,
-                               output / "source_basic.log", True)
+                               output / "source_basic_second.log", True)
     objects_a = objects_by_source(hw, shared_build)
     policy_a = elf_profile_policy(prop_a, shared_build) if not expect_mismatch else None
     elapsed_b, _ = compile_one(cli, cfg, b, shared_build,
@@ -84,6 +87,19 @@ def perform(output: Path, cli: str, detached: bool, expect_mismatch: bool) -> No
         "hardware": "NOT_TOUCHED",
     }
     changed_total = 0
+    repeat_diffs = {}
+    for lib in LIBS:
+        first, second = objects_a_first[lib], objects_a[lib]
+        require(set(first) == set(second), "REPEAT_SOURCE_SET_CHANGED_" + lib)
+        repeat_diffs[lib] = [
+            path for path in sorted(first)
+            if first[path]["object_sha256"] != second[path]["object_sha256"]
+        ]
+    report["same_fqbn_repeat"] = repeat_diffs
+    report["basic_first_cold_s"] = elapsed_a_first
+    for lib, paths in repeat_diffs.items():
+        print("A13_SAME_FQBN_REPEAT_" + lib + "=" +
+              str(len(paths)) + "_DIFFER", flush=True)
     for lib in LIBS:
         keys_a = set(objects_a[lib])
         keys_b = set(objects_b[lib])
@@ -120,7 +136,10 @@ def perform(output: Path, cli: str, detached: bool, expect_mismatch: bool) -> No
         }
         require(report["elf_profile_policy"] == {a: "W", b: "T"},
                 "POLICY_LINK_WEAK_BASIC_STRONG_BASICCORE")
-    passed = (changed_total > 0) if expect_mismatch else (changed_total == 0)
+    repeat_stable = all(not paths for paths in repeat_diffs.values())
+    passed = repeat_stable and (
+        (changed_total > 0) if expect_mismatch else (changed_total == 0)
+    )
     report["status"] = ("PASS_EXPECTED_PROFILE_MISMATCH" if passed and expect_mismatch
                         else "PASS_OBJECT_PARITY" if passed
                         else "REVIEW_PROFILE_OBJECTS_DIFFER" if changed_total
