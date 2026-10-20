@@ -1,6 +1,18 @@
 # Alpha13 — Gate obligatorio de precompilación y benchmark Ethernet/Modbus TCP
 
-**Estado:** `CANDIDATE_NOT_ADOPTED`. No hay todavía archives reales verificados, tabla de tiempos medida ni promoción a `JWPLC/`. **La publicación de Alpha13 se pospone** hasta cerrar este gate y revisar sus efectos.
+**Estado:** `F137_CROSS_PROFILE_GATE_IN_PROGRESS`. Los archives iniciales fueron generados y revertidos del PR por incompatibilidad de perfil; faltan aprobación binaria, medición definitiva y promoción a `JWPLC/`. **La publicación de Alpha13 se pospone** hasta cerrar este gate y revisar sus efectos.
+
+## F137 — compatibilidad binaria FQBN (gate previo al freeze)
+
+**Bloqueo activo:** la primera adopción automática de los dos `.a` a PR #125 fue revertida solo en la rama candidata, y el job de adopción quedó deshabilitado. Los archivos anteriores siguen en historial Git; ninguno llegó a la rama base ni al ZIP publicado.
+
+**Prueba negativa antes del arreglo:** [CI #39516689615](https://github.com/JW-Control/platform-jwplc/actions/runs/39516689615) verificó diferencia de `.o` bajo `JWPLC_HAS_ETHERNET=1` / `0`. En Ubuntu, 1/12 objetos de Ethernet difirió (`JWPLC_Ethernet.cpp`), ModbusTCP 0/2. Windows reportó 11/12 y 2/2 con rutas de build diferentes; esa observación requiere un control de reproducibilidad y NO autoriza atribución por perfil. El gate actual recompila con la **misma ruta de build**, verifica además dos compilaciones repetidas del mismo FQBN, contrasta cada objeto, y exige en el ELF `jwplcEthernetProfileAvailable` weak en Basic y strong en Basic Core. Si falla cualquiera, `PRODUCT_ARCHIVES=BLOCKED`.
+
+**Corrección candidata:** `JWPLC_Ethernet.cpp` no depende del `JWPLC_HAS_ETHERNET` del consumer para su código compilado. El core de `jwplcbasiccore` aporta una implementación fuerte de la política que devuelve `false`; Basic conserva la política weak habilitada. Las entradas a SPI/W5500 y el hook se detienen por la política en Core. Se conserva `core.a` sin cambio y no se modifica el autoload ni se exige editar el sketch o variant. Código funcional cambiado: exigir validación H acotada COM4 después de N3 y aprobación del operador.
+
+**Medición actual:** las cifras de una sola pareja bajo el primer archive (Ubuntu 28,985→19,798 s en frío; Windows 59,039→43,540 s en frío para Basic) son **preliminares y corresponden al candidato revocado**. No sustituyen la tabla final. El runner actualizado mide mínimo tres parejas frío/caliente para **Basic y Basic Core**, en ambos sistemas, informa todas las muestras y mediana; no atribuye mejora de upload.
+
+**Criterios de salida:** N0 limpio; N1 negativo reproducible; N2 paridad de cada objeto y política ELF; N3 fuentes→objetos→members `.a`→ELF sobre el package real sin compilar dos veces; benchmark 3 pares con variabilidad explícita; READMEs y checklist revisados; H mínimo aprobado/ejecutado si el cambio funcional lo exige. Solo entonces reactivar la adopción en PR #125, revisar el HEAD post-adopción y solicitar merge. No disparar release antes del merge.
 
 ## Fuente y reglas
 
@@ -69,6 +81,6 @@ PRODUCT_ARCHIVES=NOT_ADOPTED
 PRODUCT_RELEASE=NOT_PUBLISHED
 BASE_SYNC=PENDING_PRECOMPILE_PR
 KNOWLEDGE_SYNC=OK_PREVIOUS_G10_LESSON
-NEXT_FAILURE_ID=F136
-NEXT_GATE=PRECOMPILE_N0_THEN_CI_CANDIDATES_AND_BENCHMARK
+NEXT_FAILURE_ID=F138
+NEXT_GATE=A13_F137_FINAL_SAME_PATH_PARITY_ELF_POLICY_THREE_PAIRS_AND_N3
 ```
