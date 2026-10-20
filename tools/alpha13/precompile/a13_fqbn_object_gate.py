@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -28,6 +30,27 @@ def objects_by_source(hw: Path, build: Path) -> dict[str, dict[str, dict]]:
             row["src"]: row for row in object_manifest(lib, hw, build)
         }
     return result
+
+
+def elf_profile_policy(props: dict[str, str], build: Path) -> str:
+    """Valida enlace weak Basic y strong BasicCore en el ELF resultante."""
+    prefix = props.get("compiler.prefix", "")
+    toolpath = Path(props.get("compiler.path", ""))
+    require(bool(prefix) and toolpath.is_dir(), "NM_TOOLCHAIN_NOT_FOUND")
+    nm = toolpath / (prefix + "nm")
+    if os.name == "nt" and not nm.exists():
+        nm = nm.with_suffix(".exe")
+    require(nm.is_file(), "NM_MISSING")
+    elfs = list(build.glob("*.elf"))
+    require(len(elfs) == 1, "POLICY_ELF_NOT_UNIQUE")
+    from a13_precompile_benchmark import run
+    symbols = run([str(nm), str(elfs[0])])
+    matches = re.findall(
+        r"(?m)^[0-9a-fA-F]+\\s+([A-Z])\\s+jwplcEthernetProfileAvailable$",
+        symbols,
+    )
+    require(len(matches) == 1, "POLICY_SYMBOL_ABSENT_OR_DUPLICATE")
+    return matches[0]
 
 
 def perform(output: Path, cli: str, detached: bool, expect_mismatch: bool) -> None:
@@ -86,6 +109,13 @@ def perform(output: Path, cli: str, detached: bool, expect_mismatch: bool) -> No
         prop_a.get("compiler.cpp.flags") == prop_b.get("compiler.cpp.flags")
     )
     require(report["same_toolchain_prefix"], "TOOLCHAIN_DIFFER")
+    if not expect_mismatch:
+        report["elf_profile_policy"] = {
+            a: elf_profile_policy(prop_a, build_a),
+            b: elf_profile_policy(prop_b, build_b),
+        }
+        require(report["elf_profile_policy"] == {a: "W", b: "T"},
+                "POLICY_LINK_WEAK_BASIC_STRONG_BASICCORE")
     passed = (changed_total > 0) if expect_mismatch else (changed_total == 0)
     report["status"] = ("PASS_EXPECTED_PROFILE_MISMATCH" if passed and expect_mismatch
                         else "PASS_OBJECT_PARITY" if passed
