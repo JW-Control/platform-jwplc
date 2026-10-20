@@ -1,3 +1,34 @@
+# ESTADO VIGENTE — 20/10/2026 — G10 Ethernet/Modbus TCP PROMOVIDO A BASE ALPHA13
+
+**Integración confirmada:** [PR #124](https://github.com/JW-Control/platform-jwplc/pull/124) `MERGED` a rama base `v2.1.0-alpha.13/feature/cleanup-robustness`, commit **`3467a375ccaf7c7ee27220ed0bc348056e5e8219`** por autorización del operador de incluir las mejoras y agilizar cierre. Comparación base vs rama PR después del merge: ahead 1 / behind 0 / **cero archivos divergentes** (commit adicional es merge); las doce fuentes G10 del package están en base. `JWPLC_ETH_CS=5` y guarda F1 se conservan, sin cambios a `utility/w5100.cpp`, autoload, `.a`, GPIO4, FlashFreq ni bootloader. Últimas CI previas al merge en PR SHA `59b4b6f37c701833097c723c2fba560c23b288b8`: promoción contratual SUCCESS, N0 del runner de campo SUCCESS Windows/Ubuntu 2/2, G10-R legacy SKIPPED esperado. N1/N2/N3 PASS se reutilizan con las fuentes verificadas **idénticas** (ver `A13_G10_PROMOTED_N0_N3_20261019.md`). No declarar test CI de integración base si no existe.
+
+**Resultado físico y excepciones:** PH0, R1 y R2 aceptados con límites documentados en `A13_G10_H_DICTAMEN_CIERRE_ACOTADO_20261020.md`: 589 FC03 TCP por placa + 589 UDP eco durante 605 s; R2 3/3 recuperación TCP/UDP y dos ciclos PHY/servicios observados con UART 73 HB sin reboot ni caída RTU. R3 externo secuencial cubierto por R1, R3 interno BUS_BUSY/lease/stale/close no probado en hardware. R4 1805 s no ejecutado; alcance largo dispensado por el operador, sin falsear PASS. E1/E2 pendientes, DNS/DHCP renewal no probado. Estos son **riesgos residuales reconocidos** del producto integrado, no pendientes de copiar fuentes.
+
+**Cierre global Alpha13:** todavía `OPEN_PENDING_FINAL_CHECKLIST`. La promoción funcional G10 ha terminado y **`PENDIENTE_DE_PROMOCION_G10=EMPTY`**; para declarar `ALPHA13=CLOSED_PUBLISHED` falta verificar checklist global de hallazgos/gates, consolidar fallos F135 y excepciones, PR de sincronización al conocimiento privado `knowledge/main`, confirmar compatibilidad release/package index, redactar PreRelease en español y autorización/acción real de publicación. No renombrar este hito como alpha cerrado automáticamente por PR #124.
+
+```text
+ALPHA13=OPEN_PENDING_FINAL_CHECKLIST_AND_PUBLICATION
+G10_PR124=MERGED
+G10_MERGE_SHA=3467a375ccaf7c7ee27220ed0bc348056e5e8219
+G10_PACKAGE_IN_ALPHA13_BASE=YES_12_FILES
+G10_PH0=PASS_FUNCTIONAL_PHYSICAL
+G10_H_R1=PASS_WITH_POST_WINDOW_UART
+G10_H_R2=PASS_3_NETWORK_CYCLES_PLUS_2_UART_PHY_CYCLES
+G10_H_R3_EXTERNAL=REUSED_R1_589_TCP_CONNECT_CLOSE_PER_PLC
+G10_H_R3_INTERNAL=NOT_RUN_ACCEPTED_RISK
+G10_H_R4_1805S=NOT_RUN_ACCEPTED_SHORTENING
+G10_E1=PENDING_GDB_UNAVAILABLE
+G10_E2=PENDING_SDKCONFIG_NOT_LOCATED
+G10_H0_EXTENDED_CAPTURE=REVIEW_EVIDENCE_GAP_ACCEPTED_WITH_OBSERVATION
+F135=RESOLVED_TOOLING_PH0_LOCAL_SEALS_2_OF_2
+NEXT_FAILURE_ID=F136
+PENDIENTE_DE_PROMOCION_G10=EMPTY
+BASE_SYNC=OK_PR124_MERGED
+KNOWLEDGE_SYNC=PENDING_PRIVATE_DOC_PR
+NEXT_GATE=ALPHA13_C_GLOBAL_CHECKLIST_AND_KNOWLEDGE_SYNC_BEFORE_PRERELEASE
+```
+
+---
 # ESTADO VIGENTE — 20/10/2026 — G10-PH0/R1/R2 aceptados; R3 externo cubierto, R4 larga dispensada para integración
 
 **El operador solicita cerrar sin esperas prolongadas adicionales**, integrar robustez Ethernet y preparar cierre de Alpha13. Evidencia nueva COM4 en archivo de 73 heartbeats, SHA256 `439f1f6ef6cf025ab77d3bccf4e52263e3274f5c4e51e76b00f4022a0da49cf0`: `BOOT=FEEDC504`, HB 4748..4820 consecutivos. Primera transición PHY1→2 en HB4763, vuelta PHY1 HB4778, IP/ETH/TCP READY HB4782. Segunda PHY1→2 HB4792, PHY1 HB4808, READY HB4814. RTU_OK 5779→5868 con RTU_FAIL=40 estable; SD_OK/FRAM_READ 6330→6426, SD_FAIL=0, RTC/IO/TFT=1. **R2 completo para enlace y servicios observable PASS**, combinado con 3 ciclos TCP/UDP anteriores (1,69/10,05/6,03 s). No inferir 5/5 ciclos idénticos de UART ni DNS/DHCP handshake probado.
