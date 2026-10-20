@@ -1,0 +1,66 @@
+name: Alpha13 - Ethernet/Modbus TCP archive candidate and benchmark (NO upload)
+on:
+  push:
+    branches:
+      - 'codex/alpha13-precompile-benchmark-docs-*'
+    paths:
+      - 'tools/alpha13/precompile/**'
+      - '.github/workflows/alpha13-precompile-ethernet-modbus-tcp.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  archive-candidate:
+    name: Archive and source benchmark - ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - uses: arduino/setup-arduino-cli@v2
+        with:
+          version: '1.5.1'
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15/packages/jwplc
+            ~/.arduino15/staging
+          key: a13-archive-alpha10-${{ runner.os }}-${{ hashFiles('JWPLC/package_jwplc_index_dev.json') }}
+      - name: Instalar toolchain existente, sin dispositivos ni flash
+        shell: bash
+        run: |
+          set -euo pipefail
+          arduino-cli config init --overwrite
+          arduino-cli config set board_manager.additional_urls "https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json"
+          arduino-cli core update-index
+          arduino-cli core install 'jwplc:esp32@2.1.0-alpha.10'
+      - name: N0 - sintaxis y fuentes inalteradas
+        shell: pwsh
+        run: |
+          python -B -m py_compile tools/alpha13/precompile/a13_precompile_benchmark.py
+          python -B tools/alpha13/precompile/a13_precompile_benchmark.py --check --ci-detached
+      - name: Fuente vs precompiled-full, BASIC y BASICCORE
+        shell: pwsh
+        run: |
+          python -B tools/alpha13/precompile/a13_precompile_benchmark.py --ci-detached --output (Join-Path $env:RUNNER_TEMP 'a13-archive')
+      - name: Publicar solamente archivos candidatos y evidencia - sin promoción de producto
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alpha13-two-archives-${{ matrix.os }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/a13-archive/MANIFEST.json
+            ${{ runner.temp }}/a13-archive/*basic*.log
+            ${{ runner.temp }}/a13-archive/candidate/sketchbook/hardware/jwplc_a13archive/esp32/libraries/JWPLC_Ethernet/src/esp32/libJWPLC_Ethernet.a
+            ${{ runner.temp }}/a13-archive/candidate/sketchbook/hardware/jwplc_a13archive/esp32/libraries/JWPLC_ModbusTCP/src/esp32/libJWPLC_ModbusTCP.a
+          if-no-files-found: warn
+          retention-days: 14
