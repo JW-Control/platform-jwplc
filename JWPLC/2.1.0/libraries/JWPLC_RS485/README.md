@@ -481,6 +481,16 @@ Stream &puerto =
 
 Puede servir cuando una función propia recibe un `Stream&`.
 
+## Mejoras de estabilidad en Alpha13
+
+Se corrigieron aspectos del arranque de UART y del tratamiento de fallas
+del controlador RS-485. La gestión de transmisión y recepción continúa
+a cargo de `JWPLC_RS485`; el sketch no necesita controlar DE/RE.
+
+La validación física se realizó con dos JWPLC Basic intercambiando
+tramas Modbus RTU. Para un sistema Modbus nuevo utiliza
+`JWPLC_ModbusRTU` en vez de construir manualmente el protocolo sobre UART.
+
 ## Compatibilidad
 
 También existe:
@@ -511,6 +521,6 @@ usuario.
 Documentado para:
 
 ```text
-JWPLC ESP32 v2.1.0-alpha.12
+JWPLC ESP32 v2.1.0-alpha.13 (candidata)
 JWPLC_RS485 1.0.1
 ```
