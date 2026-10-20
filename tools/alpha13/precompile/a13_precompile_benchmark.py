@@ -16,6 +16,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import statistics
 import subprocess
 import sys
 import time
@@ -200,62 +201,131 @@ def assert_precompiled(build: Path, log: str, hw: Path) -> None:
                 "ARCHIVE_NOT_LINKED_" + lib)
     print("A13_ARCHIVE_LINK=PASS_TWO_ARCHIVES_ZERO_SOURCE_OBJECTS", flush=True)
 
+REPEAT_PAIRS = 3
+
+
+def measured_pairs(cli: str, cfg: Path, board: str, build: Path,
+                   out: Path, label: str, archive_hw: Path | None = None) -> dict:
+    """Tres pares comparables cold/then-warm sin eliminar toda la cache."""
+    cold, warm = [], []
+    for i in range(1, REPEAT_PAIRS + 1):
+        c, log_c = compile_one(
+            cli, cfg, board, build, out / f"{label}_{i}_cold.log", True)
+        if archive_hw is not None:
+            assert_precompiled(build, log_c, archive_hw)
+        w, log_w = compile_one(
+            cli, cfg, board, build, out / f"{label}_{i}_warm.log", False)
+        if archive_hw is not None:
+            assert_precompiled(build, log_w, archive_hw)
+        cold.append(c)
+        warm.append(w)
+    return {
+        "cold_s": round(statistics.median(cold), 3),
+        "warm_s": round(statistics.median(warm), 3),
+        "cold_samples_s": cold,
+        "warm_samples_s": warm,
+        "min_cold_s": min(cold),
+        "max_cold_s": max(cold),
+        "min_warm_s": min(warm),
+        "max_warm_s": max(warm),
+    }
+
+
+def assert_fqbn_objects_equal(hw: Path, build_basic: Path,
+                              build_core: Path, out: Path) -> dict:
+    """Un archive comun solo se publica si cada fuente genera el MISMO .o."""
+    parity = {}
+    for lib in LIBS:
+        ba = {x["src"]: x for x in object_manifest(lib, hw, build_basic)}
+        co = {x["src"]: x for x in object_manifest(lib, hw, build_core)}
+        require(set(ba) == set(co), "FQBN_SOURCE_SET_DIFFER_" + lib)
+        diffs = [k for k in sorted(ba)
+                 if ba[k]["object_sha256"] != co[k]["object_sha256"]]
+        parity[lib] = {
+            "sources": len(ba),
+            "diff_count": len(diffs),
+            "different_sources": diffs,
+        }
+        print("A13_FQBN_PARITY_" + lib + "=" +
+              ("PASS" if not diffs else "REVIEW_STOP") +
+              "_DIFFS_" + str(len(diffs)), flush=True)
+    (out / "FQBN_OBJECT_PARITY.json").write_text(
+        json.dumps(parity, indent=2) + "\n", encoding="utf-8")
+    require(all(not p["diff_count"] for p in parity.values()),
+            "FQBN_OBJECT_MISMATCH_ARCHIVE_FORBIDDEN")
+    return parity
+
+
 def perform(out: Path, cli: str, detached: bool) -> None:
     head = n0(detached)
     require(not out.exists(), "OUTPUT_EXISTS")
     require(not out.is_relative_to(ROOT), "OUTPUT_INSIDE_WORKTREE")
     out.mkdir(parents=True)
     source_hw, source_cfg = stage(PLATFORM, out / "source", cli)
-    source_props = properties(cli, source_cfg, PROFILES[0], source_hw)
-    report = {"source_sha": head, "fqbn":list(PROFILES), "archives":{},
-              "bench":{}, "hardware":"NOT_TOUCHED", "status":"IN_PROGRESS"}
-    source_build = out / "source_build_basic"
-    a, source_log = compile_one(cli, source_cfg, PROFILES[0], source_build,
-                                out / "source_basic_cold.log", True)
-    b, _ = compile_one(cli, source_cfg, PROFILES[0], source_build,
-                       out / "source_basic_warm.log", False)
-    report["bench"]["source"] = {"cold_s":a, "warm_s":b}
+    basic, core = PROFILES
+    source_props = properties(cli, source_cfg, basic, source_hw)
+    report = {
+        "source_sha": head, "fqbn": list(PROFILES), "archives": {},
+        "bench": {}, "repetitions": REPEAT_PAIRS, "hardware": "NOT_TOUCHED",
+        "status": "IN_PROGRESS"
+    }
+    source_basic = out / "source_build_basic"
+    source_core = out / "source_build_basiccore"
+    sb = measured_pairs(
+        cli, source_cfg, basic, source_basic, out, "source_basic")
+    sc = measured_pairs(
+        cli, source_cfg, core, source_core, out, "source_basiccore")
+    report["bench"]["source"] = {
+        **sb, "basiccore_cold_s": sc["cold_s"],
+        "basiccore_warm_s": sc["warm_s"],
+        "basiccore_cold_samples_s": sc["cold_samples_s"],
+        "basiccore_warm_samples_s": sc["warm_samples_s"],
+    }
+    report["fqbn_object_parity"] = assert_fqbn_objects_equal(
+        source_hw, source_basic, source_core, out)
+
     archive_hw, archive_cfg = stage(PLATFORM, out / "candidate", cli)
-    publish_stage_archive(cli, source_props, archive_hw, source_build, report)
-    archive_props = properties(cli, archive_cfg, PROFILES[0], archive_hw)
-    for key in ("compiler.cpp.flags", "compiler.c.flags", "compiler.prefix", "compiler.path"):
-        require(source_props.get(key) == archive_props.get(key),
-                "STAGE_FLAGS_DIFFER_" + key)
-    cand_build = out / "archive_build_basic"
-    a2, c_log = compile_one(cli, archive_cfg, PROFILES[0], cand_build,
-                            out / "archive_basic_cold.log", True)
-    assert_precompiled(cand_build, c_log, archive_hw)
-    b2, c_warm = compile_one(cli, archive_cfg, PROFILES[0], cand_build,
-                             out / "archive_basic_warm.log", False)
-    assert_precompiled(cand_build, c_warm, archive_hw)
-    report["bench"]["archive"] = {"cold_s":a2, "warm_s":b2}
-    # El segundo perfil no crea otro .a: debe enlazar el mismo archivo.
-    for label, hw, cfg, kind in (
-        ("source", source_hw, source_cfg, "source"),
-        ("archive", archive_hw, archive_cfg, "archive"),
-    ):
-        props = properties(cli, cfg, PROFILES[1], hw)
-        require(props.get("compiler.prefix") == source_props.get("compiler.prefix"),
-                "INCOMPATIBLE_COMPILER_SECOND_FQBN")
-        build = out / f"{label}_build_basiccore"
-        t, log = compile_one(cli, cfg, PROFILES[1], build,
-                             out / f"{label}_basiccore_cold.log", True)
-        if kind == "archive":
-            assert_precompiled(build, log, archive_hw)
-        report["bench"][kind]["basiccore_cold_s"] = t
+    publish_stage_archive(cli, source_props, archive_hw, source_basic, report)
+    for board in PROFILES:
+        source_board_props = properties(cli, source_cfg, board, source_hw)
+        archive_board_props = properties(cli, archive_cfg, board, archive_hw)
+        for key in ("compiler.cpp.flags", "compiler.c.flags",
+                    "compiler.prefix", "compiler.path"):
+            require(source_board_props.get(key) == archive_board_props.get(key),
+                    "STAGE_FLAGS_DIFFER_" + board + "_" + key)
+    ab = measured_pairs(
+        cli, archive_cfg, basic, out / "archive_build_basic",
+        out, "archive_basic", archive_hw)
+    ac = measured_pairs(
+        cli, archive_cfg, core, out / "archive_build_basiccore",
+        out, "archive_basiccore", archive_hw)
+    report["bench"]["archive"] = {
+        **ab, "basiccore_cold_s": ac["cold_s"],
+        "basiccore_warm_s": ac["warm_s"],
+        "basiccore_cold_samples_s": ac["cold_samples_s"],
+        "basiccore_warm_samples_s": ac["warm_samples_s"],
+    }
     for lib in LIBS:
         rel = Path("libraries") / lib / "src/esp32" / f"lib{lib}.a"
-        report["archives"][lib]["stage_path"] = str((archive_hw / rel).relative_to(out))
-    report["status"] = "PASS_TWO_ARCHIVES_TWO_FQBN_SOURCE_VS_PRECOMPILED"
-    (out / "MANIFEST.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+        report["archives"][lib]["stage_path"] = str(
+            (archive_hw / rel).relative_to(out))
+    report["status"] = "PASS_TWO_ARCHIVES_TWO_FQBN_PARITY_THREE_PAIRS"
+    (out / "MANIFEST.json").write_text(
+        json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print("A13_ARCHIVE_BUILD=PASS_TWO_ARCHIVES", flush=True)
-    print("A13_ARCHIVE_FQBN=PASS_BASIC_AND_BASICCORE", flush=True)
-    for kind in ("source","archive"):
-        vals=report["bench"][kind]
-        print("A13_BENCH_" + kind.upper() + "_BASIC_COLD_WARM_SECONDS=" +
+    print("A13_ARCHIVE_FQBN=PASS_PARITY_BASIC_AND_BASICCORE", flush=True)
+    for kind in ("source", "archive"):
+        vals = report["bench"][kind]
+        print("A13_BENCH_" + kind.upper() +
+              "_BASIC_COLD_WARM_MEDIAN_SECONDS=" +
               str(vals["cold_s"]) + "," + str(vals["warm_s"]), flush=True)
+        print("A13_BENCH_" + kind.upper() +
+              "_BASICCORE_COLD_WARM_MEDIAN_SECONDS=" +
+              str(vals["basiccore_cold_s"]) + "," +
+              str(vals["basiccore_warm_s"]), flush=True)
     print("A13_ARCHIVE_REPORT=" + str(out / "MANIFEST.json"), flush=True)
-    print("A13_ARCHIVE_HW=NOT_TOUCHED_COM=NOT_OPENED_UPLOAD=NOT_RUN", flush=True)
+    print("A13_ARCHIVE_HW=NOT_TOUCHED_COM=NOT_OPENED_UPLOAD=NOT_RUN",
+          flush=True)
 
 def main() -> None:
     p=argparse.ArgumentParser(description=__doc__)
