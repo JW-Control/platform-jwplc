@@ -231,13 +231,13 @@ def measured_pairs(cli: str, cfg: Path, board: str, build: Path,
     }
 
 
-def assert_fqbn_objects_equal(hw: Path, build_basic: Path,
-                              build_core: Path, out: Path) -> dict:
-    """Un archive comun solo se publica si cada fuente genera el MISMO .o."""
+def assert_fqbn_objects_equal(ba_by_lib: dict, co_by_lib: dict,
+                              out: Path) -> dict:
+    """Objetos Basic/Core generados en el MISMO build path, distinto --clean."""
     parity = {}
     for lib in LIBS:
-        ba = {x["src"]: x for x in object_manifest(lib, hw, build_basic)}
-        co = {x["src"]: x for x in object_manifest(lib, hw, build_core)}
+        ba = ba_by_lib[lib]
+        co = co_by_lib[lib]
         require(set(ba) == set(co), "FQBN_SOURCE_SET_DIFFER_" + lib)
         diffs = [k for k in sorted(ba)
                  if ba[k]["object_sha256"] != co[k]["object_sha256"]]
@@ -269,12 +269,21 @@ def perform(out: Path, cli: str, detached: bool) -> None:
         "bench": {}, "repetitions": REPEAT_PAIRS, "hardware": "NOT_TOUCHED",
         "status": "IN_PROGRESS"
     }
-    source_basic = out / "source_build_basic"
-    source_core = out / "source_build_basiccore"
+    # Mismo directorio de objetos elimina rutas distintas (especialmente -g
+    # de toolchains Windows) como falso positivo de incompatibilidad FQBN.
+    shared_build = out / "source_build_same_path"
     sb = measured_pairs(
-        cli, source_cfg, basic, source_basic, out, "source_basic")
+        cli, source_cfg, basic, shared_build, out, "source_basic")
+    basic_objects = {
+        lib: {x["src"]: x for x in object_manifest(lib, source_hw, shared_build)}
+        for lib in LIBS
+    }
     sc = measured_pairs(
-        cli, source_cfg, core, source_core, out, "source_basiccore")
+        cli, source_cfg, core, shared_build, out, "source_basiccore")
+    core_objects = {
+        lib: {x["src"]: x for x in object_manifest(lib, source_hw, shared_build)}
+        for lib in LIBS
+    }
     report["bench"]["source"] = {
         **sb, "basiccore_cold_s": sc["cold_s"],
         "basiccore_warm_s": sc["warm_s"],
@@ -282,10 +291,12 @@ def perform(out: Path, cli: str, detached: bool) -> None:
         "basiccore_warm_samples_s": sc["warm_samples_s"],
     }
     report["fqbn_object_parity"] = assert_fqbn_objects_equal(
-        source_hw, source_basic, source_core, out)
+        basic_objects, core_objects, out)
 
     archive_hw, archive_cfg = stage(PLATFORM, out / "candidate", cli)
-    publish_stage_archive(cli, source_props, archive_hw, source_basic, report)
+    # Si cada .o coincide byte a byte, el ultimo build Core contiene objetos
+    # identicos a Basic y es una fuente apta para el unico archive compartido.
+    publish_stage_archive(cli, source_props, archive_hw, shared_build, report)
     for board in PROFILES:
         source_board_props = properties(cli, source_cfg, board, source_hw)
         archive_board_props = properties(cli, archive_cfg, board, archive_hw)
