@@ -1,3 +1,37 @@
+# ESTADO VIGENTE — 20/10/2026 — G10-H R2 red 3/3 PASS, UART PHY/DHCP pendiente
+
+**Evidencia aportada por operador:** PowerShell en rama candidata, HEAD ejecutor `0959781211bc016016c2a626f14ec77559e9085f` y firmware instalado/sellado `7c1974c659be4aa88c877a849db6efc32673da60`. Ejecutó `g10p_r1_r4_campaign.py --phase R2` con el banco dual ya validado y maniobras confirmadas `CONFIRMO` (desconectar/reconectar SOLO RJ45 COM4, mantener COM14 y RS-485). Se conserva `G10P_R2_RESULT.json` local en carpeta temporal del operador; el JSON fue pegado en la conversación, **no se incorporó al repo ni se verificó su SHA de archivo**.
+
+**Evidencia de red:** tres ciclos completos con 3 intentos TCP fallidos **esperados** en COM4 durante la desconexión por cada ciclo (9 en total); el runner verificó TCP FC03 en COM14 durante las caídas y después TCP FC03 a ambos más eco UDP COM4. Recuperaciones observadas: ciclo 1 **1,69 s**, ciclo 2 **10,05 s**, ciclo 3 **6,03 s**; máximo 10,05 s frente a 96 s permitidos. Las 3 recuperaciones de COM4 se produjeron sobre la misma IP conocida. Salida final: `G10P_R2_NETWORK=PASS_3_CYCLES_UART_PHY_DHCP_PENDING`.
+
+**Alcance y cautelas:** el JSON conserva correctamente `status=NETWORK_RECOVERY_PASS_UART_PHY_DHCP_PENDING`, y cada `operator_uart_confirmation=PENDING`. No se entregaron UART de las transiciones R2 en este turno. No afirmar aún que PHY cayó/volvió en cada ciclo, que DHCP hizo un nuevo acuerdo, que RTU permaneció operativo sin cortes ni que no hubo reset durante cada intervalo. Tampoco se ejecutó DNS ni falla de DHCP renewal. `R2_NETWORK=PASS_3_OF_3`, `R2_FULL=REVIEW_PENDING_UART`; **no repetir red R2 automáticamente**. Solicitar extractos UART del Master y, si existen, Slave en cada transición (BOOT idéntico, HB creciente, PHY fuera de 1 → 1, IP/ETH/TCP recuperados, RTU_OK sin nuevos fallos). Si no se guardaron, acordar captura dirigida de validación pendiente sin falsificar los tres ciclos.
+
+**No se ha iniciado R3 ni R4.** Mantener PR #124 Draft, `BASE_SYNC=PENDING`, `E1/E2=PENDING`, `KNOWLEDGE_SYNC=PENDING_F135`, `NEXT_FAILURE_ID=F136`. No cambió firmware, package, GPIO4 ni archivos `.a` y no hubo upload.
+
+```text
+ALPHA13=OPEN
+NEXT_FAILURE_ID=F136
+G10_H_R1=PASS_WITH_POST_WINDOW_UART
+G10_H_R2_NETWORK=PASS_3_OF_3
+G10_H_R2_TCP_DOWN_SAMPLES=3_3_3
+G10_H_R2_RECOVERY_SECONDS=1.69_10.05_6.03
+G10_H_R2_COM14_FC03_DURING_COM4_DOWN=PASS_OBSERVED_BY_RUNNER
+G10_H_R2_FULL=REVIEW_PENDING_UART_PHY_DHCP_BOOT_RTU
+G10_H_R2_DNS=NOT_RUN
+G10_H_R3=NOT_RUN_INTERNAL_OPEN
+G10_H_R4=NOT_RUN
+G10_H_PACKAGE_EDIT=NO
+G10_H_UPLOAD=NOT_RUN
+G10_E1=PENDING_GDB_UNAVAILABLE
+G10_E2=PENDING_SDKCONFIG_NOT_LOCATED
+PENDIENTE_DE_PROMOCION=PR124_10_MODIFIED_2_ADDED
+BASE_SYNC=PENDING_INTENTIONAL
+KNOWLEDGE_SYNC=PENDING_F135_REUSABLE_LESSON
+G10_PR124=DRAFT_NOT_MERGED
+NEXT_GATE=G10_H_R2_UART_EVIDENCE_RECONCILIATION_BEFORE_R3
+```
+
+---
 # ESTADO VIGENTE — 20/10/2026 — G10-H R1 físico PASS, NEXT_GATE R2 link recovery
 
 **Fuente de evidencia:** operador Windows PowerShell, dos extractos UART y archivo externo `G10P_R1_RESULT.json` (local, **no** incorporado ni adjuntado al repositorio). SHA-256 del JSON recibido: `dd64b76c0cc317450ddbfb203fa551d56799007326895179cb65f9af6b24fec8`. Script/HEAD `3ebfb96bbeea50a3221af228497b5c3612fce12f`, `firmware_head=7c1974c659be4aa88c877a849db6efc32673da60`. Ejecutado 20/10/2026, duración medida 605,0 s, protocolo G10-H R1 previsto 605 s. `--selftest` y `--check` locales PASS. `--phase R1` emitió `G10P_R1_NETWORK=PASS_589_SAMPLES`. Estado generado automáticamente `NETWORK_PASS_UART_PERIPHERALS_PENDING`, reconciliado con extractos UART aportados **posteriormente** por el operador.
