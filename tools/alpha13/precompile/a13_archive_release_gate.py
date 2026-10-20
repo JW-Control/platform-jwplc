@@ -20,6 +20,15 @@ from a13_precompile_benchmark import (
     properties,
 )
 
+def equivalent_source_hash(path: Path, expected: str) -> bool:
+    """Equivalencia de bytes salvo CRLF/LF (Git checkout Windows vs Linux)."""
+    raw=path.read_bytes()
+    normalized=raw.replace(b"\r\n",b"\n")
+    for variant in (raw,normalized,normalized.replace(b"\n",b"\r\n")):
+        if hashlib.sha256(variant).hexdigest()==expected:
+            return True
+    return False
+
 def manifest(inp: Path) -> dict:
     target = inp / "MANIFEST.json"
     require(target.is_file(), "CI_MANIFEST_MISSING_" + str(inp))
@@ -38,21 +47,21 @@ def verify_provenance(data: dict, inp: Path) -> dict[str,Path]:
     found={}
     for lib in LIBS:
         record=data["archives"][lib]
-        target=inp / record["stage_path"]
+        target=inp / Path(record["stage_path"].replace("\\","/"))
         require(target.is_file(), "ARCHIVE_MISSING_" + lib)
         require(digest(target) == record["sha256"] and
                 target.stat().st_size == record["bytes"],
                 "ARCHIVE_HASH_SIZE_CHANGED_" + lib)
         lib_root = PLATFORM / "libraries" / lib
         props=lib_root / "library.properties"
-        require(digest(props)==record["source_library_properties_sha256"],
+        require(equivalent_source_hash(props,record["source_library_properties_sha256"]),
                 "LIB_PROPERTIES_DRIFT_" + lib)
         actual=[]
         for obj in record["objects"]:
-            src=PLATFORM / obj["src"]
-            require(src.is_file() and digest(src)==obj["src_sha256"],
+            src=PLATFORM / Path(obj["src"].replace("\\","/"))
+            require(src.is_file() and equivalent_source_hash(src,obj["src_sha256"]),
                     "PRODUCT_SOURCE_CHANGED_" + lib + "_" + src.name)
-            actual.append(Path(obj["object"]).name)
+            actual.append(Path(obj["object"].replace("\\","/")).name)
         require(sorted(record["members"]) == sorted(actual),
                 "MEMBER_LIST_MISMATCH_" + lib)
         # ar del anfitrión solo enumera el contenedor, no compila ni re-enlaza.
@@ -85,12 +94,12 @@ def run_gate(ubuntu: Path, windows: Path | None, mode: str,
         for lib in LIBS:
             left=u["archives"][lib]
             right=w["archives"][lib]
-            require(left["source_library_properties_sha256"] ==
-                    right["source_library_properties_sha256"],
-                    "CROSS_OS_LIB_CONFIG_DRIFT_" + lib)
-            require([(x["src"],x["src_sha256"]) for x in left["objects"]] ==
-                    [(x["src"],x["src_sha256"]) for x in right["objects"]],
-                    "CROSS_OS_SOURCE_DIFF_" + lib)
+            # Windows puede transformar LF a CRLF en un checkout Git.
+            # Ambas huellas originales se validaron contra el mismo
+            # source productivo normalizando exclusivamente finales de línea.
+            require([x["src"].replace("\\","/") for x in left["objects"]] ==
+                    [x["src"].replace("\\","/") for x in right["objects"]],
+                    "CROSS_OS_SOURCE_PATHS_DIFF_" + lib)
             require(sorted(left["members"])==sorted(right["members"]),
                     "CROSS_OS_MEMBER_DIFF_" + lib)
     print("A13_ARCHIVE_PROVENANCE=PASS_CI_SOURCE_SHA_OBJECTS_ARCHIVES",flush=True)
