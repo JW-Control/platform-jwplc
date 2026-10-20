@@ -124,9 +124,29 @@
   function updateStatus() {
     const field = selectedField();
     const g = selectedGeometry();
-    if (hasFieldSelection() && field && g) {
+    const activePg = Number(editor()?.getActivePage?.() ?? 0);
+    const selPms = (window.JWPLCHMIPixelMaps?.getSelectedMaps?.() || []).filter(
+      (pm) => Number(pm.page || 0) === activePg && pm.editorVisible !== false && pm.pixels?.length
+    );
+    const selFields = editor()?.getSelectedFields?.() || (field ? [field] : []);
+    const totalCount = selFields.length + selPms.length;
+
+    if (totalCount > 1) {
+      selectedObjectStatus.textContent = `${totalCount} objetos seleccionados`;
+      const b = editor()?.getSelectionBounds?.(selFields, selPms);
+      if (b) {
+        selectedGeometryStatus.textContent = `X:${b.minX} Y:${b.minY} · ${b.width}×${b.height} px`;
+      } else {
+        selectedGeometryStatus.textContent = 'X:— Y:—';
+      }
+    } else if (hasFieldSelection() && field && g) {
       selectedObjectStatus.textContent = `${field.type} ${field.name || 'Sin nombre'} · ${field.id || 'SIN_ID'}`;
       selectedGeometryStatus.textContent = `X:${field.x} Y:${field.y} · ${g.fieldW}×${g.fieldH} px`;
+    } else if (selPms.length === 1) {
+      const pm = selPms[0];
+      const b = window.JWPLCHMIPixelMaps?.getBounds?.(pm);
+      selectedObjectStatus.textContent = `PIXEL ${pm.name || 'Pixel'} · ${pm.key}`;
+      selectedGeometryStatus.textContent = b ? `X:${b.x} Y:${b.y} · ${b.width}×${b.height} px` : 'X:— Y:—';
     } else {
       selectedObjectStatus.textContent = editor()?.getSelectedTool?.() === 'rawText'
         ? 'Texto GFX RAW'
@@ -255,8 +275,10 @@
           loadScript('./designer-menu.js?v=1793800600');
           loadScript('./designer-idle.js?v=1793800600');
           loadScript('./designer-field-visibility.js?v=1793800600', () => {
-            loadScript('./designer-pages.js?v=1793800600', () => {
-              loadScript('./designer-live.js?v=1793800600');
+            loadScript('./designer-pages.js?v=1793801000', () => {
+              loadScript('./designer-flasher.js?v=1793801000', () => {
+                loadScript('./designer-live.js?v=1793801000');
+              });
             });
           });
         });

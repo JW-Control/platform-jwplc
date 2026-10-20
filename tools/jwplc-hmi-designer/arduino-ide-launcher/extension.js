@@ -38,9 +38,63 @@ function cleanElectronChildEnv() {
   return env;
 }
 
-async function openByProtocol() {
+function getActiveSketchDirectory() {
+  // 1. Priorizar el documento activo en el editor si es un .ino o está en una carpeta con .ino
+  const activeDoc = vscode.window.activeTextEditor?.document;
+  if (activeDoc && activeDoc.uri && activeDoc.uri.scheme === 'file') {
+    const filePath = activeDoc.uri.fsPath;
+    const parentDir = path.dirname(filePath);
+    try {
+      if (fs.existsSync(parentDir)) {
+        const files = fs.readdirSync(parentDir);
+        if (files.some((f) => /\.ino$/i.test(f))) {
+          return parentDir;
+        }
+      }
+    } catch (_) {}
+  }
+
+  // 2. Revisar las carpetas del espacio de trabajo abierto
+  const workspaceFolders = vscode.workspace.workspaceFolders || [];
+  for (const folder of workspaceFolders) {
+    if (folder.uri && folder.uri.scheme === 'file') {
+      const folderPath = folder.uri.fsPath;
+      try {
+        if (fs.existsSync(folderPath)) {
+          const files = fs.readdirSync(folderPath);
+          if (files.some((f) => /\.ino$/i.test(f))) {
+            return folderPath;
+          }
+        }
+      } catch (_) {}
+    }
+  }
+
+  // 3. Revisar cualquier documento de texto abierto con extensión .ino
+  for (const doc of vscode.workspace.textDocuments || []) {
+    if (doc.uri && doc.uri.scheme === 'file') {
+      const filePath = doc.uri.fsPath;
+      if (/\.ino$/i.test(filePath)) {
+        const dir = path.dirname(filePath);
+        if (fs.existsSync(dir)) return dir;
+      }
+    }
+  }
+
+  // 4. Fallback a la primera carpeta del workspace si existe
+  if (workspaceFolders.length > 0 && workspaceFolders[0].uri && workspaceFolders[0].uri.scheme === 'file') {
+    return workspaceFolders[0].uri.fsPath;
+  }
+
+  return null;
+}
+
+async function openByProtocol(sketchDir) {
   try {
-    return await vscode.env.openExternal(vscode.Uri.parse(DESIGNER_URI));
+    const uriString = sketchDir
+      ? `${DESIGNER_URI}?sketch=${encodeURIComponent(sketchDir)}`
+      : DESIGNER_URI;
+    return await vscode.env.openExternal(vscode.Uri.parse(uriString));
   } catch (_) {
     return false;
   }
@@ -50,12 +104,13 @@ function psQuote(value) {
   return String(value).replace(/'/g, "''");
 }
 
-function launchViaWindowsShell(exe) {
+function launchViaWindowsShell(exe, sketchDir) {
   return new Promise((resolve) => {
     const workDir = path.dirname(exe);
+    const argList = sketchDir ? ` -ArgumentList '${psQuote(sketchDir)}'` : '';
     const command =
       `Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue; ` +
-      `Start-Process -FilePath '${psQuote(exe)}' ` +
+      `Start-Process -FilePath '${psQuote(exe)}'${argList} ` +
       `-WorkingDirectory '${psQuote(workDir)}'`;
 
     let settled = false;
@@ -98,7 +153,7 @@ function launchViaWindowsShell(exe) {
   });
 }
 
-function launchDirect(exe) {
+function launchDirect(exe, sketchDir) {
   return new Promise((resolve) => {
     let settled = false;
     const finish = (result) => {
@@ -107,8 +162,10 @@ function launchDirect(exe) {
       resolve(result);
     };
 
+    const args = sketchDir ? [sketchDir] : [];
+
     try {
-      const child = childProcess.spawn(exe, [], {
+      const child = childProcess.spawn(exe, args, {
         cwd: path.dirname(exe),
         detached: true,
         stdio: 'ignore',
@@ -131,12 +188,14 @@ async function launchDesigner() {
   vscode.window.setStatusBarMessage('JW HMI: abriendo Designer…', 1800);
 
   const exe = findDesignerExe();
+  const sketchDir = getActiveSketchDirectory();
+
   if (exe) {
     let result;
 
     // Primero intentamos directamente con un entorno saneado. Es la ruta más
     // determinista para una app Electron lanzada desde otro host Electron.
-    result = await launchDirect(exe);
+    result = await launchDirect(exe, sketchDir);
     if (result.ok) {
       vscode.window.setStatusBarMessage('JW HMI: Designer iniciado', 1800);
       return;
@@ -144,7 +203,7 @@ async function launchDesigner() {
 
     // Fallback Windows Shell, también con ELECTRON_RUN_AS_NODE eliminado.
     if (process.platform === 'win32') {
-      result = await launchViaWindowsShell(exe);
+      result = await launchViaWindowsShell(exe, sketchDir);
       if (result.ok) {
         vscode.window.setStatusBarMessage('JW HMI: Designer iniciado', 1800);
         return;
@@ -152,7 +211,7 @@ async function launchDesigner() {
     }
   }
 
-  const opened = await openByProtocol();
+  const opened = await openByProtocol(sketchDir);
   if (!opened) {
     vscode.window.showErrorMessage(
       'JWPLC HMI Designer no está instalado o Windows no pudo iniciarlo. Reinstala la aplicación y reinicia Arduino IDE.'

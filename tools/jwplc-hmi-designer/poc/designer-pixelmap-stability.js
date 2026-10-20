@@ -77,7 +77,7 @@
 
     // Si el seleccionado es un FIELD, su geometría pertenece al renderer base.
     // No tocar ese canvas desde el compositor PIXEL.
-    if (!map) return;
+    if (!map || editor()?.hasFieldSelection?.()) return;
 
     const gctx = geometryCanvas.getContext('2d');
     gctx.clearRect(0, 0, geometryCanvas.width, geometryCanvas.height);
@@ -300,6 +300,7 @@
   document.addEventListener('keydown', (event) => {
     const pm = pixels();
     if (!pm?.getSelected?.() || isEditingTarget(event.target)) return;
+    if (editor()?.hasFieldSelection?.()) return;
     const ctrl = event.ctrlKey || event.metaKey;
     if (!ctrl || event.key.toLowerCase() !== 'd') return;
 

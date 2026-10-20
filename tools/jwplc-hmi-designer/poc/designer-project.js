@@ -522,6 +522,16 @@
     if (updateButton()) updateButton().disabled = !linked;
   }
 
+  async function unlinkSketch() {
+    if (window.JWPLCHMINative?.unlinkSketch) {
+      try { await window.JWPLCHMINative.unlinkSketch(); } catch (_) {}
+    }
+    linkedSketchDirectory = null;
+    await clearStoredHandle(SKETCH_HANDLE_KEY);
+    updateLinkedUI('none');
+    window.dispatchEvent(new CustomEvent('jwplc:sketch-unlinked'));
+  }
+
   async function linkSketch() {
     if (!('showDirectoryPicker' in window)) {
       toast('Vincular sketch requiere Edge/Chrome de escritorio en contexto seguro.', 'error');
@@ -702,7 +712,10 @@
     document.getElementById('newProjectButton')?.addEventListener('click', () => {
       projectFileHandle = null;
       projectName = 'HMI_ST7789';
-      if (!suppressDirty) setDirty(true);
+      if (!suppressDirty) {
+        setDirty(true);
+        unlinkSketch();
+      }
     });
     setTimeout(() => {
       suppressDirty = false;
@@ -764,6 +777,7 @@
     save: saveProject,
     saveAs: saveProjectAs,
     linkSketch,
+    unlinkSketch,
     updateGeneratedHeader,
     linkedSketchName: () => linkedSketchDirectory?.name || null,
     linkedFileExists,

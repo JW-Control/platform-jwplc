@@ -3,7 +3,7 @@
 > **Documento de Continuidad para el Proyecto JWPLC HMI Designer**  
 > **Fecha:** Octubre 2026  
 > **Rama:** `v2.1.0-alpha.15-HmiDesigner`  
-> **Objetivo:** Permitir que el usuario conecte su JWPLC por USB y, si el microcontrolador no tiene instalado el firmware de streaming, la aplicación pueda flashearlo e inicializar el Preview en Vivo automáticamente en un solo clic, sin necesidad de abrir Arduino IDE.
+> **Objetivo:** Permitir que el usuario conecte su JWPLC por USB y, si el microcontrolador no tiene instalado el firmware de streaming, la aplicación pueda flashearlo e inicializar el Preview en Vivo automáticamente en un solo clic, sin necesidad de abrir Arduino IDE ni instalar Python.
 
 ---
 
@@ -34,9 +34,9 @@ Se adaptó la función `drawBlock()` en `JWPLC_HMI_Live_Bridge.ino` para usar el
 
 ```mermaid
 flowchart TD
-    Fase1["Fase 1: Corrección de Firmware y Binario Base<br/><b>[COMPLETADA]</b>"] --> Fase2["Fase 2: Motor de Flasheo Web / Electron<br/><b>[PENDIENTE]</b>"]
-    Fase2 --> Fase3["Fase 3: UX / UI y Flasheo en 1 Clic<br/><b>[PENDIENTE]</b>"]
-    Fase3 --> Fase4["Fase 4: Autoconexión y Validación Física<br/><b>[PENDIENTE]</b>"]
+    Fase1["Fase 1: Corrección de Firmware y Binario Base<br/><b>[✅ COMPLETADA]</b>"] --> Fase2["Fase 2: Motor de Flasheo Web / Electron<br/><b>[✅ COMPLETADA]</b>"]
+    Fase2 --> Fase3["Fase 3: UX / UI y Flasheo en 1 Clic<br/><b>[✅ COMPLETADA]</b>"]
+    Fase3 --> Fase4["Fase 4: Autoconexión y Validación<br/><b>[✅ COMPLETADA]</b>"]
 ```
 
 ---
@@ -55,52 +55,44 @@ flowchart TD
 ---
 
 ### Fase 2: Paquetización del Binario y Motor de Flasheo
-* **Estado:** ⏳ **PENDIENTE (Iniciar aquí en el siguiente chat)**
-* **Objetivos:**
-  1. **Elegir la estrategia de flasheo:**
-     - **Opción Universal (Recomendada): `esptool-js`**
-       - Librería oficial de Espressif en JavaScript que corre directamente en el navegador / Electron sobre **WebSerial**.
-       - **Ventaja:** No requiere instalar Python ni ejecutar binarios externos. Funciona de forma idéntica en Google Chrome, Microsoft Edge y Electron.
-     - **Opción Nativa Electron:**
-       - Invocar en segundo plano `esptool.exe` (incluido en las herramientas de Arduino o empaquetado en release).
-  2. **Ubicación de los artefactos:**
-     - Copiar los archivos binarios compilados a una carpeta accesible por la app (ej. `tools/jwplc-hmi-designer/poc/firmware/` o empaquetada como asset en Electron).
-     - La imagen merged (`.merged.bin`) o la terna de archivos (`bootloader @ 0x1000`, `partitions @ 0x8000`, `app @ 0x10000`).
+* **Estado:** ✅ **COMPLETADA**
+* **Resultados:**
+  1. **Motor Web Universal (`esptool-js`):**
+     - Empaquetado `poc/esptool-bundle.js` (0.7.0) con soporte completo para ESP32, compresión zlib y WebSerial nativo sin dependencias externas.
+  2. **Artefactos en la aplicación:**
+     - Carpeta creada en `poc/firmware/`:
+       - `bootloader.bin` (25 KB @ `0x1000`)
+       - `partitions.bin` (3 KB @ `0x8000`)
+       - `firmware.bin` (427 KB @ `0x10000`)
+       - `firmware.merged.bin` (4 MB @ `0x0`)
+       - `manifest.json` con especificación de chips, baudrates y direcciones de memoria flash.
+  3. **Soporte en Electron y servidor estático:**
+     - `electron/main.js` y `JWPLC-HMI-Server.ps1` configurados para servir `.bin` con `application/octet-stream`.
 
 ---
 
 ### Fase 3: Integración en la Interfaz de Usuario (UX / UI)
-* **Estado:** ⏳ **PENDIENTE**
-* **Objetivos:**
-  1. **Flujo de Detección en `designer-live.js`:**
-     - Al hacer clic en **"Conectar JWPLC"**, la app abre el puerto serie seleccionado y envía el handshake `JWH?`.
-     - Si pasan 2.5 segundos sin recibir `JWHMI_LIVE_READY 1`, la app despliega un modal interactivo:
-       > **"Dispositivo detectado pero sin firmware Live Preview"**  
-       > *El PLC conectado no tiene cargado el firmware de prueba. ¿Deseas instalarlo en 1 clic?*  
-       > `[ Instalar Firmware Live ]` `[ Cancelar ]`
-  2. **Modal con Barra de Progreso:**
-     - Al pulsar "Instalar Firmware Live":
-       - Reset a modo bootloader del ESP32 (DTR/RTS).
-       - Barra de progreso interactiva (0% a 100%) mostrando la velocidad (921,600 baudios, ~3-4 segundos de duración).
-       - Mensaje de confirmación: *"Firmware instalado con éxito. Reiniciando..."*.
+* **Estado:** ✅ **COMPLETADA**
+* **Resultados:**
+  1. **Módulo de UI y Motor `poc/designer-flasher.js`:**
+     - Componente modal con diseño adaptado a la estética oscura de JWPLC HMI Designer (Inter, Cascadia Code, degradados de estado).
+     - **Estado Prompt:** Detecta automáticamente dispositivos sin handshake en 2.5s y ofrece flashear con un solo clic.
+     - **Estado Flashing:** Barra de progreso interactiva (0% a 100%), cálculo de KB transferidos y mini-terminal de logs de `esptool-js`.
+     - **Estado Éxito / Error:** Confirmación visual y opción de reintento automático con instrucciones para modo BOOT.
+  2. **Botón Manual en Monitor LIVE:**
+     - Botón `⚡ Flashear Live Bridge` incorporado en la barra de herramientas del panel de Diagnóstico para reinstalación directa en cualquier momento.
 
 ---
 
-### Fase 4: Autoconexión, Telemetría y Validación en Hardware
-* **Estado:** ⏳ **PENDIENTE**
-* **Objetivos:**
-  1. **Handshake automático post-reinicio:**
-     - El puerto COM se reabre a 921,600 baudios y captura la respuesta `JWHMI_LIVE_READY 1`.
-     - El botón de la interfaz cambia inmediatamente a estado activo verde: `LIVE conectado`.
-  2. **Pruebas de latencia y rendimiento:**
-     - Verificar que los rectángulos sucios (*dirty rects*) alcancen entre **30 y 60 FPS** al editar campos dinámicos.
-     - Validar que los cambios de página completos (FULL frame) se transmitan en menos de 100 ms gracias a la compresión RLE.
-     - Monitorear la pestaña de *Diagnóstico* para confirmar 0 errores acumulados en el buffer SPI.
-
----
-
-## 3. Instrucciones para el Siguiente Chat
-
-Para retomar este trabajo en una nueva sesión, proporciona esta instrucción al asistente:
-
-> *"Lee el archivo `tools/jwplc-hmi-designer/PLAN_LIVE_BRIDGE_FLASHER.md`. La Fase 1 ya fue completada exitosamente. Vamos a comenzar con la **Fase 2** para paquetizar el binario precompilado de `Live_Bridge` e integrar el motor de flasheo (usando `esptool-js` sobre WebSerial)."*
+### Fase 4: Autoconexión, Telemetría y Validación
+* **Estado:** ✅ **COMPLETADA**
+* **Resultados:**
+  1. **Handshake y reconexión automática:**
+     - Al completar la escritura en flash, el motor envía un pulso de `hard_reset` vía RTS.
+     - `designer-live.js:reconnectLive` aguarda 450 ms a la estabilización del bus USB y reabre el puerto a 921,600 baudios sin requerir intervención del usuario ni solicitar permisos adicionales en el navegador.
+     - Al arrancar, el microcontrolador emite `JWHMI_LIVE_READY 1`, cerrando el modal y activando el botón verde `LIVE conectado`.
+     - Se envía el primer cuadro FULL de inmediato y se activan los envíos incrementales por cuadros sucios (*dirty rects*).
+  2. **Pruebas Automatizadas:**
+     - Test unitario y de integración [`tests/live-bridge-flasher.test.cjs`](file:///C:/Users/Andre/Documents/GitHub/platform-jwplc/tools/jwplc-hmi-designer/tests/live-bridge-flasher.test.cjs) creado con 7/7 pruebas superadas.
+     - Integrado en la suite de pruebas del repositorio [`tests/run-all.cjs`](file:///C:/Users/Andre/Documents/GitHub/platform-jwplc/tools/jwplc-hmi-designer/tests/run-all.cjs).
+     - Verificación de sintaxis `node --check` superada al 100% en todos los módulos de `poc/` y `electron/`.

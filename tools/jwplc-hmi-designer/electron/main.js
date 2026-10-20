@@ -37,7 +37,8 @@ const mimeTypes = new Map([
   [".webmanifest", "application/manifest+json; charset=utf-8"],
   [".svg", "image/svg+xml"],
   [".png", "image/png"],
-  [".ico", "image/x-icon"]
+  [".ico", "image/x-icon"],
+  [".bin", "application/octet-stream"]
 ]);
 
 const resolveWebPath = (requestUrl) => {
@@ -188,6 +189,63 @@ const persistLinkedSketch = async () => {
   }
 };
 
+const clearPersistedLinkedSketch = async () => {
+  try {
+    await fs.rm(linkedStateFile(), { force: true });
+  } catch {
+    // Best-effort
+  }
+};
+
+const resolveSketchFromArg = async (arg) => {
+  if (!arg || typeof arg !== "string") return null;
+  let candidate = arg.trim();
+
+  if ((candidate.startsWith('"') && candidate.endsWith('"')) || (candidate.startsWith("'") && candidate.endsWith("'"))) {
+    candidate = candidate.slice(1, -1).trim();
+  }
+
+  if (candidate.startsWith("jwplc-hmi://") || candidate.startsWith("jwplc-hmi:")) {
+    try {
+      const parsedUrl = new URL(candidate);
+      const sketchParam = parsedUrl.searchParams.get("sketch");
+      if (sketchParam) candidate = sketchParam;
+      else if (parsedUrl.pathname) {
+        candidate = decodeURIComponent(parsedUrl.pathname.replace(/^\/+/, ""));
+      }
+    } catch (_) {}
+  }
+
+  if (candidate.startsWith("--sketch=")) {
+    candidate = candidate.slice("--sketch=".length);
+  }
+
+  if (/\.ino$/i.test(candidate)) {
+    candidate = path.dirname(candidate);
+  }
+
+  if (await directoryContainsSketch(candidate)) {
+    return path.resolve(candidate);
+  }
+
+  return null;
+};
+
+const extractSketchPathFromArgv = async (argv) => {
+  if (!Array.isArray(argv)) return null;
+  for (let i = 1; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === "--sketch" && i + 1 < argv.length) {
+      const resolved = await resolveSketchFromArg(argv[i + 1]);
+      if (resolved) return resolved;
+    }
+    if (arg.startsWith("--") && !arg.startsWith("--sketch")) continue;
+    const resolved = await resolveSketchFromArg(arg);
+    if (resolved) return resolved;
+  }
+  return null;
+};
+
 const restoreLinkedSketchPath = async () => {
   if (linkedSketchPath) return linkedSketchPath;
   try {
@@ -223,6 +281,22 @@ const installNativeIpc = () => {
   ipcMain.handle("jwplc-hmi:get-linked-sketch", async () => {
     await restoreLinkedSketchPath();
     return (await sketchInfo(linkedSketchPath)) || { ok: false };
+  });
+
+  ipcMain.handle("jwplc-hmi:unlink-sketch", async () => {
+    linkedSketchPath = null;
+    await clearPersistedLinkedSketch();
+    return { ok: true };
+  });
+
+  ipcMain.handle("jwplc-hmi:set-linked-sketch", async (_event, payload = {}) => {
+    const targetPath = payload.path ? path.resolve(payload.path) : null;
+    if (targetPath && await directoryContainsSketch(targetPath)) {
+      linkedSketchPath = targetPath;
+      await persistLinkedSketch();
+      return await sketchInfo(linkedSketchPath);
+    }
+    return { ok: false, error: "Ruta de sketch no válida." };
   });
 
   ipcMain.handle("jwplc-hmi:write-generated-header", async (_event, payload = {}) => {
@@ -342,20 +416,42 @@ const createWindow = async () => {
   await mainWindow.loadURL(`${baseUrl}/desktop.html?app=alpha11-electron-v2`);
 };
 
-if (process.platform === "win32") app.setAppUserModelId(appUserModelId);
+if (process.platform === "win32") {
+  app.setAppUserModelId(appUserModelId);
+  app.setAsDefaultProtocolClient("jwplc-hmi");
+}
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
   app.quit();
 } else {
-  app.on("second-instance", () => {
+  app.on("second-instance", async (_event, commandLine) => {
     if (!mainWindow) return;
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.show();
     mainWindow.focus();
+
+    const newSketch = await extractSketchPathFromArgv(commandLine);
+    if (newSketch) {
+      linkedSketchPath = newSketch;
+      await persistLinkedSketch();
+      const info = await sketchInfo(linkedSketchPath);
+      mainWindow.webContents.send("jwplc-hmi:sketch-opened", info);
+    }
   });
 
-  app.whenReady().then(createWindow).catch((error) => {
+  app.whenReady().then(async () => {
+    const cliSketch = await extractSketchPathFromArgv(process.argv);
+    if (cliSketch) {
+      linkedSketchPath = cliSketch;
+      await persistLinkedSketch();
+    } else {
+      // Iniciar proyecto nuevo limpio sin vincular
+      linkedSketchPath = null;
+      await clearPersistedLinkedSketch();
+    }
+    await createWindow();
+  }).catch((error) => {
     dialog.showErrorBox("JWPLC HMI Designer", `No se pudo iniciar la aplicación.\n\n${error?.stack || error}`);
     app.quit();
   });

@@ -1,0 +1,19 @@
+{
+  "target": "esp32",
+  "chip": "ESP32",
+  "flashMode": "dio",
+  "flashFreq": "40m",
+  "flashSize": "4MB",
+  "baudRate": 921600,
+  "romBaudRate": 115200,
+  "parts": [
+    { "name": "bootloader", "path": "./firmware/bootloader.bin", "address": 4096, "desc": "Bootloader (0x1000)" },
+    { "name": "partitions", "path": "./firmware/partitions.bin", "address": 32768, "desc": "Partitions (0x8000)" },
+    { "name": "app", "path": "./firmware/firmware.bin", "address": 65536, "desc": "Live Bridge App (0x10000)" }
+  ],
+  "merged": {
+    "path": "./firmware/firmware.merged.bin",
+    "address": 0,
+    "desc": "Merged full image (0x0)"
+  }
+}

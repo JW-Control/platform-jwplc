@@ -451,6 +451,7 @@
   let resizeInitialPixelMap = null;
   let dragInitialPointer = null;
   let dragInitialFields = null;
+  let dragInitialPixelMaps = null;
   let isMarquee = false;
   let marqueeStart = null;
   let marqueeEnd = null;
@@ -1044,6 +1045,25 @@
         };
       }
     }
+    if (field.type === 'TRIANGLE') {
+      const topPt = { x: Math.round((x1 + x2) / 2), y: y1 };
+      const bl = { x: x1, y: y2 };
+      const br = { x: x2, y: y2 };
+      const pminX = Math.min(topPt.x, bl.x, br.x);
+      const pmaxX = Math.max(topPt.x, bl.x, br.x);
+      const pminY = Math.min(topPt.y, bl.y, br.y);
+      const pmaxY = Math.max(topPt.y, bl.y, br.y);
+      return {
+        minX: pminX,
+        maxX: pmaxX,
+        minY: pminY,
+        maxY: pmaxY,
+        cx: (pminX + pmaxX) / 2,
+        cy: (pminY + pmaxY) / 2,
+        width: Math.max(1, pmaxX - pminX),
+        height: Math.max(1, pmaxY - pminY)
+      };
+    }
     return {
       minX,
       maxX,
@@ -1054,6 +1074,47 @@
       width: Math.max(1, maxX - minX),
       height: Math.max(1, maxY - minY)
     };
+  }
+
+  let toastTimer = null;
+  function showToastMessage(msg, kind = 'info') {
+    let toast = document.getElementById('hmiToastNotification');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'hmiToastNotification';
+      toast.style.position = 'fixed';
+      toast.style.top = '65px';
+      toast.style.left = '50%';
+      toast.style.transform = 'translateX(-50%)';
+      toast.style.padding = '8px 18px';
+      toast.style.borderRadius = '6px';
+      toast.style.fontSize = '13px';
+      toast.style.fontWeight = '500';
+      toast.style.fontFamily = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      toast.style.zIndex = '99999';
+      toast.style.boxShadow = '0 6px 18px rgba(0,0,0,0.45)';
+      toast.style.pointerEvents = 'none';
+      toast.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
+      document.body.appendChild(toast);
+    }
+    if (kind === 'warning') {
+      toast.style.background = '#1e293b';
+      toast.style.color = '#fef08a';
+      toast.style.border = '1px solid #eab308';
+      toast.innerHTML = `<span style="margin-right:6px; color:#eab308; font-weight:bold;">⚠️</span> ${msg}`;
+    } else {
+      toast.style.background = '#1e293b';
+      toast.style.color = '#e2e8f0';
+      toast.style.border = '1px solid #38bdf8';
+      toast.innerHTML = `<span style="margin-right:6px; color:#38bdf8; font-weight:bold;">ℹ️</span> ${msg}`;
+    }
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateX(-50%) translateY(0)';
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(-50%) translateY(-8px)';
+    }, 2800);
   }
 
   function addRecentColor(color565) {
@@ -1809,12 +1870,25 @@
       for (let i = 0; i < n; i++) {
         const pA = pts[i];
         const pB = pts[(i + 1) % n];
-        if ((pA.y <= y && pB.y > y) || (pB.y <= y && pA.y > y)) {
+        if (pA.y === y && pB.y === y) {
+          xNodes.push(pA.x, pB.x);
+        } else if ((pA.y <= y && pB.y > y) || (pB.y <= y && pA.y > y)) {
           xNodes.push(pA.x + ((y - pA.y) * (pB.x - pA.x)) / (pB.y - pA.y));
+        } else if (y === yEnd && (pA.y === y || pB.y === y)) {
+          if (pA.y === y) xNodes.push(pA.x);
+          if (pB.y === y) xNodes.push(pB.x);
         }
       }
       xNodes.sort((a, b) => a - b);
-      if (xNodes.length < 2) continue;
+      if (xNodes.length < 2) {
+        if (xNodes.length === 1) {
+          const xVal = Math.round(xNodes[0]);
+          if (xVal >= 0 && xVal < WIDTH) {
+            setBufferPixel(buffer, xVal, y, borderOn ? frameColor : (hasFill ? fillColor : frameColor));
+          }
+        }
+        continue;
+      }
 
       const nearSegs = borderOn ? segs.filter(s => y >= s.minY - effStroke - 1 && y <= s.maxY + effStroke + 1) : [];
 
@@ -2128,6 +2202,28 @@
       }
       const angleDeg = Number(field.rotation) || 0;
       if (angleDeg === 0) {
+        if (field.type === 'POLYGON' || field.type === 'TRIANGLE' || (Number(field.cornerRadius) || 0) > 0) {
+          const pts = getShapeTransformedVertices(field);
+          let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+          for (const p of pts) {
+            if (p.x < minX) minX = p.x;
+            if (p.x > maxX) maxX = p.x;
+            if (p.y < minY) minY = p.y;
+            if (p.y > maxY) maxY = p.y;
+          }
+          if (Number.isFinite(minX)) {
+            return {
+              x: minX,
+              y: minY,
+              minX,
+              maxX,
+              minY,
+              maxY,
+              width: Math.max(1, maxX - minX + 1),
+              height: Math.max(1, maxY - minY + 1)
+            };
+          }
+        }
         const lb = getShapeLocalBounds(field);
         return {
           x: lb.minX,
@@ -2983,24 +3079,36 @@
     // Rendered via viewport DOM overlay #cadMarqueeBox for unclipped visibility across canvas and workspace
   }
 
-  function getSelectionBounds(fields) {
-    if (!fields || fields.length === 0) return null;
+  function getSelectionBounds(fields, pms = []) {
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (const f of fields) {
-      const b = getFieldBounds(f);
-      if (b.minX < minX) minX = b.minX;
-      if (b.maxX > maxX) maxX = b.maxX;
-      if (b.minY < minY) minY = b.minY;
-      if (b.maxY > maxY) maxY = b.maxY;
+    if (fields && fields.length > 0) {
+      for (const f of fields) {
+        const b = getFieldBounds(f);
+        if (b.minX < minX) minX = b.minX;
+        if (b.maxX > maxX) maxX = b.maxX;
+        if (b.minY < minY) minY = b.minY;
+        if (b.maxY > maxY) maxY = b.maxY;
+      }
     }
-    if (minX > maxX || minY > maxY) return null;
+    if (pms && pms.length > 0) {
+      for (const pm of pms) {
+        const b = getPixelMapBounds(pm);
+        if (b) {
+          if (b.minX < minX) minX = b.minX;
+          if (b.maxX > maxX) maxX = b.maxX;
+          if (b.minY < minY) minY = b.minY;
+          if (b.maxY > maxY) maxY = b.maxY;
+        }
+      }
+    }
+    if (minX > maxX || minY > maxY || minX === Infinity) return null;
 
     const screenX1 = minX * zoom;
     const screenY1 = minY * zoom;
-    const screenX2 = (maxX + 1) * zoom;
-    const screenY2 = (maxY + 1) * zoom;
-    const screenW = screenX2 - screenX1;
-    const screenH = screenY2 - screenY1;
+    const screenX2 = (maxX + 1) * zoom - 1;
+    const screenY2 = (maxY + 1) * zoom - 1;
+    const screenW = Math.max(1, screenX2 - screenX1);
+    const screenH = Math.max(1, screenY2 - screenY1);
 
     return {
       minX,
@@ -3016,32 +3124,16 @@
     };
   }
 
-  function getSelectionHandles(fields) {
-    if (!fields || fields.length === 0) {
-      const selPms = (window.JWPLCHMIPixelMaps?.getSelectedMaps?.() || []).filter(
-        (pm) => Number(pm.page || 0) === activePage && pm.editorVisible !== false && pm.pixels?.length
-      );
-      if (selPms.length > 0 && selectedTool !== 'pixel' && selectedTool !== 'erase') {
-        const unionB = getPixelMapsUnionBounds(selPms);
-        if (unionB) {
-          const midX = (unionB.screenX1 + unionB.screenX2) / 2;
-          const midY = (unionB.screenY1 + unionB.screenY2) / 2;
-          return [
-            { id: 'tl', x: unionB.screenX1, y: unionB.screenY1, cursor: 'nwse-resize' },
-            { id: 'tc', x: midX, y: unionB.screenY1, cursor: 'ns-resize' },
-            { id: 'tr', x: unionB.screenX2, y: unionB.screenY1, cursor: 'nesw-resize' },
-            { id: 'rc', x: unionB.screenX2, y: midY, cursor: 'ew-resize' },
-            { id: 'br', x: unionB.screenX2, y: unionB.screenY2, cursor: 'nwse-resize' },
-            { id: 'bc', x: midX, y: unionB.screenY2, cursor: 'ns-resize' },
-            { id: 'bl', x: unionB.screenX1, y: unionB.screenY2, cursor: 'nesw-resize' },
-            { id: 'lc', x: unionB.screenX1, y: midY, cursor: 'ew-resize' }
-          ];
-        }
-      }
+  function getSelectionHandles(fields, pms = null) {
+    const selPms = pms || (window.JWPLCHMIPixelMaps?.getSelectedMaps?.() || []).filter(
+      (pm) => Number(pm.page || 0) === activePage && pm.editorVisible !== false && pm.pixels?.length
+    );
+
+    if ((!fields || fields.length === 0) && selPms.length === 0) {
       return [];
     }
 
-    if (fields.length === 1) {
+    if (fields && fields.length === 1 && selPms.length === 0) {
       const f = fields[0];
       // RAW_TEXT: sin handles de resize (el texto no se deforma geometricamente)
       if (f.type === 'RAW_TEXT') return [];
@@ -3049,8 +3141,8 @@
         const b = getFieldBounds(f);
         const sx1 = b.minX * zoom;
         const sy1 = b.minY * zoom;
-        const sx2 = (b.maxX + 1) * zoom;
-        const sy2 = (b.maxY + 1) * zoom;
+        const sx2 = (b.maxX + 1) * zoom - 1;
+        const sy2 = (b.maxY + 1) * zoom - 1;
         const x1 = f.x ?? 0; const y1 = f.y ?? 0;
         const x2 = f.x2 ?? x1; const y2 = f.y2 ?? y1;
 
@@ -3100,8 +3192,8 @@
           const b = getFieldBounds(f);
           const sx1 = b.minX * zoom;
           const sy1 = b.minY * zoom;
-          const sx2 = (b.maxX + 1) * zoom;
-          const sy2 = (b.maxY + 1) * zoom;
+          const sx2 = (b.maxX + 1) * zoom - 1;
+          const sy2 = (b.maxY + 1) * zoom - 1;
           const midX = (sx1 + sx2) / 2;
           const midY = (sy1 + sy2) / 2;
           return [
@@ -3120,8 +3212,8 @@
         const x2 = f.x2 ?? x1; const y2 = f.y2 ?? y1;
         const cx = (x1 + x2) / 2; const cy = (y1 + y2) / 2;
         const flipH = Boolean(f.flipH); const flipV = Boolean(f.flipV);
-        const midX = (lb.minX + lb.maxX + 1) / 2;
-        const midY = (lb.minY + lb.maxY + 1) / 2;
+        const midX = (lb.minX + lb.maxX) / 2;
+        const midY = (lb.minY + lb.maxY) / 2;
 
         const tp = (px, py) => {
           const r = transformShapePoint(px, py, cx, cy, angleDeg, flipH, flipV);
@@ -3131,18 +3223,18 @@
         return [
           { id: 'tl', ...tp(lb.minX, lb.minY), cursor: 'crosshair' },
           { id: 'tc', ...tp(midX, lb.minY), cursor: 'crosshair' },
-          { id: 'tr', ...tp(lb.maxX + 1, lb.minY), cursor: 'crosshair' },
-          { id: 'rc', ...tp(lb.maxX + 1, midY), cursor: 'crosshair' },
-          { id: 'br', ...tp(lb.maxX + 1, lb.maxY + 1), cursor: 'crosshair' },
-          { id: 'bc', ...tp(midX, lb.maxY + 1), cursor: 'crosshair' },
-          { id: 'bl', ...tp(lb.minX, lb.maxY + 1), cursor: 'crosshair' },
+          { id: 'tr', ...tp(lb.maxX, lb.minY), cursor: 'crosshair' },
+          { id: 'rc', ...tp(lb.maxX, midY), cursor: 'crosshair' },
+          { id: 'br', ...tp(lb.maxX, lb.maxY), cursor: 'crosshair' },
+          { id: 'bc', ...tp(midX, lb.maxY), cursor: 'crosshair' },
+          { id: 'bl', ...tp(lb.minX, lb.maxY), cursor: 'crosshair' },
           { id: 'lc', ...tp(lb.minX, midY), cursor: 'crosshair' }
         ];
       }
     }
 
-    // Default: AABB handles for multi-selection or text fields
-    const b = getSelectionBounds(fields);
+    // Default: AABB handles for multi-selection or pixelmaps
+    const b = getSelectionBounds(fields, selPms);
     if (!b) return [];
 
     return [
@@ -3159,14 +3251,17 @@
 
   function hitTestHandle(event) {
     const fields = selectedFields();
-    if (fields.length === 0 && !window.JWPLCHMIPixelMaps?.getSelected?.()) return null;
+    const selPms = (window.JWPLCHMIPixelMaps?.getSelectedMaps?.() || []).filter(
+      (pm) => Number(pm.page || 0) === activePage && pm.editorVisible !== false && pm.pixels?.length
+    );
+    if (fields.length === 0 && selPms.length === 0) return null;
     const rect = displayCanvas.getBoundingClientRect();
     const scaleX = displayCanvas.width / rect.width;
     const scaleY = displayCanvas.height / rect.height;
     const mouseScreenX = (event.clientX - rect.left) * scaleX;
     const mouseScreenY = (event.clientY - rect.top) * scaleY;
 
-    const handles = getSelectionHandles(fields);
+    const handles = getSelectionHandles(fields, selPms);
     const hitRadius = 12;
     for (const h of handles) {
       const dx = mouseScreenX - h.x;
@@ -3180,11 +3275,14 @@
 
   function isPointInsideSelection(point) {
     const fields = selectedFields();
-    if (fields.length === 0) {
-      const selPms = (window.JWPLCHMIPixelMaps?.getSelectedMaps?.() || []).filter(
-        (pm) => Number(pm.page || 0) === activePage && pm.editorVisible !== false && pm.pixels?.length
-      );
-      if (selPms.length > 0 && selectedTool !== 'pixel' && selectedTool !== 'erase') {
+    const selPms = (window.JWPLCHMIPixelMaps?.getSelectedMaps?.() || []).filter(
+      (pm) => Number(pm.page || 0) === activePage && pm.editorVisible !== false && pm.pixels?.length
+    );
+    const totalCount = fields.length + selPms.length;
+    if (totalCount === 0) return false;
+
+    if (fields.length === 0 && selPms.length > 0) {
+      if (selectedTool !== 'pixel' && selectedTool !== 'erase') {
         return selPms.some((selPm) => selPm.pixels.some((p) => {
           const px = selPm.x + p.x;
           const py = selPm.y + p.y;
@@ -3193,25 +3291,55 @@
       }
       return false;
     }
-    if (fields.length === 1 && fields[0].type === 'LINE') {
-      const strokeSize = fields[0].borderEnabled !== false ? Math.max(1, Math.round(fields[0].size || 1)) : 1;
-      const x1 = fields[0].x ?? 0; const y1 = fields[0].y ?? 0;
-      const x2 = fields[0].x2 ?? x1; const y2 = fields[0].y2 ?? y1;
-      const dist = distToSegment(point.x, point.y, x1, y1, x2, y2);
-      return dist <= Math.max(3.5, strokeSize / 2 + 2.0);
-    }
-    if (fields.length === 1 && ['RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(fields[0].type)) {
-      const f = fields[0];
-      const strokeSize = f.borderEnabled !== false ? Math.max(1, Math.round(f.size || 1)) : 0;
-      const pts = getShapeTransformedVertices(f);
-      if (pts && pts.length >= 3) {
-        const isInside = isPointInPolygon(point.x, point.y, pts);
-        if (f.fill && isInside) return true;
-        const distToBorder = distToPolygonBoundary(point.x, point.y, pts);
-        return distToBorder <= Math.max(3.5, strokeSize + 2.0);
+
+    if (fields.length === 1 && selPms.length === 0) {
+      if (fields[0].type === 'LINE') {
+        const strokeSize = fields[0].borderEnabled !== false ? Math.max(1, Math.round(fields[0].size || 1)) : 1;
+        const x1 = fields[0].x ?? 0; const y1 = fields[0].y ?? 0;
+        const x2 = fields[0].x2 ?? x1; const y2 = fields[0].y2 ?? y1;
+        const dist = distToSegment(point.x, point.y, x1, y1, x2, y2);
+        return dist <= Math.max(3.5, strokeSize / 2 + 2.0);
+      }
+      if (['RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(fields[0].type)) {
+        const f = fields[0];
+        const strokeSize = f.borderEnabled !== false ? Math.max(1, Math.round(f.size || 1)) : 0;
+        const pts = getShapeTransformedVertices(f);
+        if (pts && pts.length >= 3) {
+          const isInside = isPointInPolygon(point.x, point.y, pts);
+          if (f.fill && isInside) return true;
+          const distToBorder = distToPolygonBoundary(point.x, point.y, pts);
+          return distToBorder <= Math.max(3.5, strokeSize + 2.0);
+        }
       }
     }
-    const b = getSelectionBounds(fields);
+
+    // Check pixelmaps in selection
+    if (selPms.some((selPm) => selPm.pixels.some((p) => {
+      const px = selPm.x + p.x;
+      const py = selPm.y + p.y;
+      return Math.abs(px - point.x) <= 2 && Math.abs(py - point.y) <= 2;
+    }))) {
+      return true;
+    }
+
+    // Check field geometries in selection
+    for (const f of fields) {
+      if (f.type === 'LINE') {
+        const strokeSize = f.borderEnabled !== false ? Math.max(1, Math.round(f.size || 1)) : 1;
+        const x1 = f.x ?? 0; const y1 = f.y ?? 0;
+        const x2 = f.x2 ?? x1; const y2 = f.y2 ?? y1;
+        if (distToSegment(point.x, point.y, x1, y1, x2, y2) <= Math.max(3.5, strokeSize / 2 + 2.0)) return true;
+      } else if (['RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(f.type)) {
+        const pts = getShapeTransformedVertices(f);
+        if (pts && pts.length >= 3) {
+          if (f.fill && isPointInPolygon(point.x, point.y, pts)) return true;
+          const strokeSize = f.borderEnabled !== false ? Math.max(1, Math.round(f.size || 1)) : 0;
+          if (distToPolygonBoundary(point.x, point.y, pts) <= Math.max(3.5, strokeSize + 2.0)) return true;
+        }
+      }
+    }
+
+    const b = getSelectionBounds(fields, selPms);
     if (!b) return false;
     const margin = 4;
     return (
@@ -3236,8 +3364,8 @@
     if (minX === Infinity) return null;
     const screenX1 = minX * zoom;
     const screenY1 = minY * zoom;
-    const screenX2 = (maxX + 1) * zoom;
-    const screenY2 = (maxY + 1) * zoom;
+    const screenX2 = (maxX + 1) * zoom - 1;
+    const screenY2 = (maxY + 1) * zoom - 1;
     return {
       minX, minY, maxX, maxY,
       screenX1, screenY1, screenX2, screenY2,
@@ -3261,8 +3389,8 @@
     if (minX === Infinity) return null;
     const screenX1 = minX * zoom;
     const screenY1 = minY * zoom;
-    const screenX2 = (maxX + 1) * zoom;
-    const screenY2 = (maxY + 1) * zoom;
+    const screenX2 = (maxX + 1) * zoom - 1;
+    const screenY2 = (maxY + 1) * zoom - 1;
     return {
       minX, minY, maxX, maxY,
       screenX1, screenY1, screenX2, screenY2,
@@ -3277,14 +3405,15 @@
       (pm) => Number(pm.page || 0) === activePage && pm.editorVisible !== false && pm.pixels?.length
     );
 
-    if (fields.length === 0 && selPms.length === 0) {
+    const totalCount = fields.length + selPms.length;
+    if (totalCount === 0 || selectedTool === 'pixel' || selectedTool === 'erase') {
       return;
     }
 
     displayCtx.save();
 
-    // Draw individual blue outline for each selected pixel map
-    if (selPms.length > 0 && selectedTool !== 'pixel' && selectedTool !== 'erase') {
+    // 1. Draw individual blue outline for each selected pixel map
+    if (selPms.length > 0) {
       displayCtx.strokeStyle = '#0084ff';
       displayCtx.lineWidth = 1;
       selPms.forEach((pm) => {
@@ -3295,119 +3424,97 @@
       });
     }
 
-    // If only pixel maps are selected (no normal fields)
-    if (fields.length === 0 && selPms.length > 0) {
-      if (selectedTool !== 'pixel' && selectedTool !== 'erase') {
-        const unionB = getPixelMapsUnionBounds(selPms);
-        if (unionB) {
-          // 1. Dotted projection lines to rulers
-          displayCtx.strokeStyle = 'rgba(255, 255, 255, 0.40)';
-          displayCtx.setLineDash([2, 3]);
-          displayCtx.lineWidth = 1;
-          displayCtx.beginPath();
-          displayCtx.moveTo(unionB.screenX1 + 0.5, 0);
-          displayCtx.lineTo(unionB.screenX1 + 0.5, displayCanvas.height);
-          displayCtx.moveTo(unionB.screenX2 + 0.5, 0);
-          displayCtx.lineTo(unionB.screenX2 + 0.5, displayCanvas.height);
-          displayCtx.moveTo(0, unionB.screenY1 + 0.5);
-          displayCtx.lineTo(displayCanvas.width, unionB.screenY1 + 0.5);
-          displayCtx.moveTo(0, unionB.screenY2 + 0.5);
-          displayCtx.lineTo(displayCanvas.width, unionB.screenY2 + 0.5);
-          displayCtx.stroke();
-          displayCtx.setLineDash([]);
-
-          // 2. Union outline if multiple
-          if (selPms.length > 1) {
-            displayCtx.strokeStyle = 'rgba(0, 132, 255, 0.6)';
-            displayCtx.setLineDash([4, 4]);
-            displayCtx.strokeRect(unionB.screenX1 + 0.5, unionB.screenY1 + 0.5, unionB.screenW, unionB.screenH);
-            displayCtx.setLineDash([]);
-          }
-
-          // 3. Selection handles around union
-          const hs = 6;
-          const handles = getSelectionHandles([]);
-          handles.forEach((h) => {
-            const rx = Math.round(h.x - hs / 2);
-            const ry = Math.round(h.y - hs / 2);
-            displayCtx.fillStyle = '#060d13';
-            displayCtx.fillRect(rx, ry, hs, hs);
-            displayCtx.strokeStyle = '#0084ff';
-            displayCtx.lineWidth = 1.5;
-            displayCtx.strokeRect(rx + 0.5, ry + 0.5, hs - 1, hs - 1);
-          });
-        }
-      }
-      displayCtx.restore();
-      return;
-    }
-
-    const b = getSelectionBounds(fields);
-    if (!b) return;
-
-    displayCtx.save();
-
-    // 1. Dotted projection lines to rulers (always use AABB for guides)
-    displayCtx.strokeStyle = 'rgba(255, 255, 255, 0.40)';
-    displayCtx.setLineDash([2, 3]);
-    displayCtx.lineWidth = 1;
-    displayCtx.beginPath();
-    displayCtx.moveTo(b.screenX1 + 0.5, 0);
-    displayCtx.lineTo(b.screenX1 + 0.5, displayCanvas.height);
-    displayCtx.moveTo(b.screenX2 + 0.5, 0);
-    displayCtx.lineTo(b.screenX2 + 0.5, displayCanvas.height);
-    displayCtx.moveTo(0, b.screenY1 + 0.5);
-    displayCtx.lineTo(displayCanvas.width, b.screenY1 + 0.5);
-    displayCtx.moveTo(0, b.screenY2 + 0.5);
-    displayCtx.lineTo(displayCanvas.width, b.screenY2 + 0.5);
-    displayCtx.stroke();
-    displayCtx.setLineDash([]);
-
-    // 2. Bounding outline
-    displayCtx.strokeStyle = '#0084ff';
-    displayCtx.lineWidth = 1;
-
-    if (fields.length === 1 && fields[0].type === 'LINE') {
-      displayCtx.strokeRect(b.screenX1 + 0.5, b.screenY1 + 0.5, b.screenW, b.screenH);
-    } else if (fields.length === 1 && ['RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(fields[0].type)) {
-      const f = fields[0];
-      const angleDeg = Number(f.rotation) || 0;
-      if (angleDeg === 0) {
-        displayCtx.strokeRect(b.screenX1 + 0.5, b.screenY1 + 0.5, b.screenW, b.screenH);
-      } else {
-        const lb = getShapeLocalBounds(f);
-        const x1 = f.x ?? 0; const y1 = f.y ?? 0;
-        const x2 = f.x2 ?? x1; const y2 = f.y2 ?? y1;
-        const cx = (x1 + x2) / 2; const cy = (y1 + y2) / 2;
-        const flipH = Boolean(f.flipH); const flipV = Boolean(f.flipV);
-        const corners = [
-          [lb.minX, lb.minY], [lb.maxX + 1, lb.minY], [lb.maxX + 1, lb.maxY + 1], [lb.minX, lb.maxY + 1]
-        ].map(([px, py]) => {
-          const r = transformShapePoint(px, py, cx, cy, angleDeg, flipH, flipV);
-          return [r.x * zoom + 0.5, r.y * zoom + 0.5];
-        });
-        displayCtx.beginPath();
-        displayCtx.moveTo(corners[0][0], corners[0][1]);
-        for (let i = 1; i < corners.length; i++) displayCtx.lineTo(corners[i][0], corners[i][1]);
-        displayCtx.closePath();
-        displayCtx.stroke();
-      }
-    } else {
-      displayCtx.strokeRect(b.screenX1 + 0.5, b.screenY1 + 0.5, b.screenW, b.screenH);
-    }
-
-    // 3. Selection Handles
-    const hs = 6;
-    const handles = getSelectionHandles(fields);
-    handles.forEach((h) => {
-      const rx = Math.round(h.x - hs / 2);
-      const ry = Math.round(h.y - hs / 2);
-      displayCtx.fillStyle = '#060d13';
-      displayCtx.fillRect(rx, ry, hs, hs);
+    // 2. Draw individual outline for each selected shape/field
+    if (fields.length > 0) {
       displayCtx.strokeStyle = '#0084ff';
-      displayCtx.lineWidth = 1.5;
-      displayCtx.strokeRect(rx + 0.5, ry + 0.5, hs - 1, hs - 1);
-    });
+      displayCtx.lineWidth = 1;
+
+      if (fields.length === 1 && totalCount === 1) {
+        const f = fields[0];
+        const angleDeg = Number(f.rotation) || 0;
+        if (f.type === 'LINE') {
+          const b = getFieldBounds(f);
+          const sw = Math.max(1, (b.maxX - b.minX + 1) * zoom - 1);
+          const sh = Math.max(1, (b.maxY - b.minY + 1) * zoom - 1);
+          displayCtx.strokeRect(b.minX * zoom + 0.5, b.minY * zoom + 0.5, sw, sh);
+        } else if (['RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(f.type) && angleDeg !== 0) {
+          const lb = getShapeLocalBounds(f);
+          const x1 = f.x ?? 0; const y1 = f.y ?? 0;
+          const x2 = f.x2 ?? x1; const y2 = f.y2 ?? y1;
+          const cx = (x1 + x2) / 2; const cy = (y1 + y2) / 2;
+          const flipH = Boolean(f.flipH); const flipV = Boolean(f.flipV);
+          const corners = [
+            [lb.minX, lb.minY], [lb.maxX, lb.minY], [lb.maxX, lb.maxY], [lb.minX, lb.maxY]
+          ].map(([px, py]) => {
+            const r = transformShapePoint(px, py, cx, cy, angleDeg, flipH, flipV);
+            return [r.x * zoom + 0.5, r.y * zoom + 0.5];
+          });
+          displayCtx.beginPath();
+          displayCtx.moveTo(corners[0][0], corners[0][1]);
+          for (let i = 1; i < corners.length; i++) displayCtx.lineTo(corners[i][0], corners[i][1]);
+          displayCtx.closePath();
+          displayCtx.stroke();
+        } else {
+          const fb = getFieldBounds(f);
+          if (fb) {
+            const sw = Math.max(1, (fb.maxX - fb.minX + 1) * zoom - 1);
+            const sh = Math.max(1, (fb.maxY - fb.minY + 1) * zoom - 1);
+            displayCtx.strokeRect(fb.minX * zoom + 0.5, fb.minY * zoom + 0.5, sw, sh);
+          }
+        }
+      } else {
+        // Multi-selection (either multiple fields, or fields + pixelmaps)
+        fields.forEach((f) => {
+          const fb = getFieldBounds(f);
+          if (fb) {
+            const sw = Math.max(1, (fb.maxX - fb.minX + 1) * zoom - 1);
+            const sh = Math.max(1, (fb.maxY - fb.minY + 1) * zoom - 1);
+            displayCtx.strokeRect(fb.minX * zoom + 0.5, fb.minY * zoom + 0.5, sw, sh);
+          }
+        });
+      }
+    }
+
+    // 3. Combined union bounds for guides, outer dashed box and handles
+    const b = getSelectionBounds(fields, selPms);
+    if (b) {
+      // Dotted projection lines to rulers
+      displayCtx.strokeStyle = 'rgba(255, 255, 255, 0.40)';
+      displayCtx.setLineDash([2, 3]);
+      displayCtx.lineWidth = 1;
+      displayCtx.beginPath();
+      displayCtx.moveTo(b.screenX1 + 0.5, 0);
+      displayCtx.lineTo(b.screenX1 + 0.5, displayCanvas.height);
+      displayCtx.moveTo(b.screenX2 + 0.5, 0);
+      displayCtx.lineTo(b.screenX2 + 0.5, displayCanvas.height);
+      displayCtx.moveTo(0, b.screenY1 + 0.5);
+      displayCtx.lineTo(displayCanvas.width, b.screenY1 + 0.5);
+      displayCtx.moveTo(0, b.screenY2 + 0.5);
+      displayCtx.lineTo(displayCanvas.width, b.screenY2 + 0.5);
+      displayCtx.stroke();
+      displayCtx.setLineDash([]);
+
+      // Outer dashed bounding box if multiple items selected
+      if (totalCount > 1) {
+        displayCtx.strokeStyle = 'rgba(0, 132, 255, 0.6)';
+        displayCtx.setLineDash([4, 4]);
+        displayCtx.strokeRect(b.screenX1 + 0.5, b.screenY1 + 0.5, b.screenW, b.screenH);
+        displayCtx.setLineDash([]);
+      }
+
+      // Selection Handles around union bounding box (or shape's own handles)
+      const hs = 6;
+      const handles = getSelectionHandles(fields, selPms);
+      handles.forEach((h) => {
+        const rx = Math.round(h.x - hs / 2);
+        const ry = Math.round(h.y - hs / 2);
+        displayCtx.fillStyle = '#060d13';
+        displayCtx.fillRect(rx, ry, hs, hs);
+        displayCtx.strokeStyle = '#0084ff';
+        displayCtx.lineWidth = 1.5;
+        displayCtx.strokeRect(rx + 0.5, ry + 0.5, hs - 1, hs - 1);
+      });
+    }
 
     displayCtx.restore();
   }
@@ -4043,7 +4150,16 @@
       shapeInspectorName.value = displayName;
     }
     const headerTitle = document.getElementById('shapeInspectorHeaderTitle');
-    if (headerTitle) headerTitle.textContent = displayName.toUpperCase();
+    const curFields = selectedFields();
+    const curPms = (window.JWPLCHMIPixelMaps?.getSelectedMaps?.() || []).filter(
+      (pm) => Number(pm.page || 0) === activePage && pm.editorVisible !== false && pm.pixels?.length
+    );
+    const selCount = curFields.length + curPms.length;
+    if (headerTitle) {
+      headerTitle.textContent = selCount > 1
+        ? `${displayName.toUpperCase()} (${selCount} seleccionados)`
+        : displayName.toUpperCase();
+    }
 
     // Active shape type button
     document.querySelectorAll('#shapeTypeSelectorGrid [data-shape-type]').forEach((btn) => {
@@ -4938,28 +5054,34 @@
 
   function duplicateSelectedField() {
     const sources = selectedFields();
-    if (sources.length === 0 || hmiFields.length + sources.length > MAX_FIELDS) return;
-    const newKeys = [];
-    sources.forEach((source) => {
-      fieldSerial += 1;
-      const copy = { ...source };
-      delete copy.layerOrder;
-      const prefix = source.type.toLowerCase();
-      copy.key = `${prefix}-${fieldSerial}`;
-      copy.name = `${source.name || source.type} copia`;
-      copy.id = uniqueFieldSymbol(`${sanitizeSymbol(source.id, fieldFallbackId(source, 0))}_COPY`);
-      copy.variable = uniqueVariable(`${sanitizeSymbol(source.variable, variableFallback(source, 0))}Copy`);
-      copy.page = activePage;
-      copy.x = source.x + 8;
-      copy.y = source.y + 8;
-      if (source.x2 !== undefined) copy.x2 = source.x2 + 8;
-      if (source.y2 !== undefined) copy.y2 = source.y2 + 8;
-      placeNewField(copy);
-      assignNewLayerOrder(copy);
-      hmiFields.push(copy);
-      newKeys.push(copy.key);
-    });
-    setSelectedKeys(newKeys);
+    const selPms = window.JWPLCHMIPixelMaps?.getSelectedMaps?.() || [];
+    if (sources.length === 0 && selPms.length === 0) return;
+    if (sources.length > 0 && hmiFields.length + sources.length <= MAX_FIELDS) {
+      const newKeys = [];
+      sources.forEach((source) => {
+        fieldSerial += 1;
+        const copy = { ...source };
+        delete copy.layerOrder;
+        const prefix = source.type.toLowerCase();
+        copy.key = `${prefix}-${fieldSerial}`;
+        copy.name = `${source.name || source.type} copia`;
+        copy.id = uniqueFieldSymbol(`${sanitizeSymbol(source.id, fieldFallbackId(source, 0))}_COPY`);
+        copy.variable = uniqueVariable(`${sanitizeSymbol(source.variable, variableFallback(source, 0))}Copy`);
+        copy.page = activePage;
+        copy.x = source.x + 8;
+        copy.y = source.y + 8;
+        if (source.x2 !== undefined) copy.x2 = source.x2 + 8;
+        if (source.y2 !== undefined) copy.y2 = source.y2 + 8;
+        placeNewField(copy);
+        assignNewLayerOrder(copy);
+        hmiFields.push(copy);
+        newKeys.push(copy.key);
+      });
+      setSelectedKeys(newKeys);
+    }
+    if (window.JWPLCHMIPixelMaps?.duplicate) {
+      window.JWPLCHMIPixelMaps.duplicate();
+    }
     const primary = selectedField();
     selectedTool = primary ? toolForField(primary) : 'pointer';
     syncInputsFromState();
@@ -4970,8 +5092,12 @@
 
   function deleteSelectedField() {
     const keysToDelete = new Set(selectedFieldKeys);
-    if (keysToDelete.size === 0) return;
-    hmiFields = hmiFields.filter((field) => !keysToDelete.has(field.key));
+    if (keysToDelete.size > 0) {
+      hmiFields = hmiFields.filter((field) => !keysToDelete.has(field.key));
+    }
+    if (window.JWPLCHMIPixelMaps?.removeSelected) {
+      window.JWPLCHMIPixelMaps.removeSelected();
+    }
     const pageFields = fieldsForPage(activePage);
     const replacement = pageFields[pageFields.length - 1] || null;
     setSelectedKeys(replacement ? [replacement.key] : []);
@@ -5593,7 +5719,18 @@
   bindFieldInput(fieldY, (field) => { field.y = clamp(Number(fieldY.value) || 0, 0, HEIGHT - 1); });
   bindFieldInput(fieldX2, (field) => { field.x2 = clamp(Number(fieldX2.value) || 0, 0, WIDTH - 1); });
   bindFieldInput(fieldY2, (field) => { field.y2 = clamp(Number(fieldY2.value) || 0, 0, HEIGHT - 1); });
-  bindFieldInput(fieldSides, (field) => { field.sides = clamp(Number(fieldSides.value) || 5, 3, 12); });
+  bindFieldInput(fieldSides, (field) => {
+    let val = parseInt(fieldSides.value, 10);
+    if (!isNaN(val)) {
+      if (val > 12) {
+        showToastMessage('El número máximo de lados para un polígono es 12.', 'warning');
+        val = 12;
+        fieldSides.value = '12';
+      }
+      field.sides = clamp(val, 3, 12);
+      if (shapeSides2) shapeSides2.value = String(field.sides);
+    }
+  });
   bindFieldInput(fieldFill, (field) => {
     field.fill = fieldFill.value === '1';
     if (fieldFillColorWrap) fieldFillColorWrap.hidden = !field.fill;
@@ -5918,6 +6055,7 @@
         draggingObject = true;
         dragInitialPointer = { ...point, rawX: point.x, rawY: point.y };
         dragInitialFields = curSelected.map((f) => ({ ...f }));
+        dragInitialPixelMaps = (window.JWPLCHMIPixelMaps?.getSelectedMaps?.() || []).map((m) => ({ key: m.key, x: m.x, y: m.y }));
         render();
         return;
       }
@@ -5927,6 +6065,7 @@
     const hit = hitTestField(point);
     if (hit) {
       setSelectedKeys([hit.key]);
+      window.JWPLCHMIPixelMaps?.setSelectedKeys?.([]);
       selectedTool = toolForField(hit);
       if (!hit.locked) {
         draggingObject = true;
@@ -5941,6 +6080,7 @@
 
     // 5. Empty space clicked: Clear selection and start CAD Marquee box
     setSelectedKeys([]);
+    window.JWPLCHMIPixelMaps?.setSelectedKeys?.([]);
     selectedTool = 'pointer';
     isMarquee = true;
     marqueeStart = point;
@@ -6308,6 +6448,16 @@
           }
           gestureChanged = true;
         });
+        if (dragInitialPixelMaps && dragInitialPixelMaps.length > 0) {
+          dragInitialPixelMaps.forEach((orig) => {
+            const pm = window.JWPLCHMIPixelMaps?.getAll?.()?.find((x) => x.key === orig.key);
+            if (pm) {
+              pm.x = orig.x + dx;
+              pm.y = orig.y + dy;
+              gestureChanged = true;
+            }
+          });
+        }
       }
       syncInputsFromState();
       render();
@@ -6421,6 +6571,11 @@
     resizeInitialPixelMap = null;
     dragInitialPointer = null;
     dragInitialFields = null;
+    if (dragInitialPixelMaps && dragInitialPixelMaps.length > 0) {
+      window.JWPLCHMIPixelMaps?.syncInspector?.();
+      window.JWPLCHMIPixelMaps?.notifyChanged?.();
+    }
+    dragInitialPixelMaps = null;
     lastPoint = null;
     gestureChanged = false;
 
@@ -6434,6 +6589,12 @@
 
         const isLeftToRight = marqueeEnd.x >= marqueeStart.x;
 
+        // When marquee selection covers near or across canvas edges, ensure full canvas coverage
+        const effectiveBoxL = boxL <= 4 ? -Infinity : boxL;
+        const effectiveBoxR = boxR >= WIDTH - 5 ? Infinity : boxR;
+        const effectiveBoxT = boxT <= 4 ? -Infinity : boxT;
+        const effectiveBoxB = boxB >= HEIGHT - 5 ? Infinity : boxB;
+
         if (boxR - boxL >= 2 || boxB - boxT >= 2) {
           const matchedList = [];
           for (let i = 0; i < hmiFields.length; i++) {
@@ -6442,13 +6603,15 @@
 
             if (isLeftToRight) {
               const fb = getFieldBounds(f);
-              const fullyInside = (fb.minX >= boxL && fb.maxX <= boxR && fb.minY >= boxT && fb.maxY <= boxB);
+              const fullyInside = (fb.minX >= effectiveBoxL && fb.maxX <= effectiveBoxR && fb.minY >= effectiveBoxT && fb.maxY <= effectiveBoxB);
               if (fullyInside) {
                 matchedList.push(f);
               }
             } else {
               // SolidWorks Crossing: Touches or crosses the ACTUAL CONTOUR or is enclosed
-              if (doesBoxTouchContour(boxL, boxR, boxT, boxB, f)) {
+              const fb = getFieldBounds(f);
+              const fullyInside = (fb.minX >= boxL && fb.maxX <= boxR && fb.minY >= boxT && fb.maxY <= boxB);
+              if (fullyInside || doesBoxTouchContour(boxL, boxR, boxT, boxB, f)) {
                 matchedList.push(f);
               }
             }
@@ -6471,7 +6634,7 @@
                 if (py < pMinY) pMinY = py;
                 if (py > pMaxY) pMaxY = py;
               });
-              if (pMinX !== Infinity && pMinX >= boxL && pMaxX <= boxR && pMinY >= boxT && pMaxY <= boxB) {
+              if (pMinX !== Infinity && pMinX >= effectiveBoxL && pMaxX <= effectiveBoxR && pMinY >= effectiveBoxT && pMaxY <= effectiveBoxB) {
                 matchedPixelMaps.push(pm);
               }
             } else {
@@ -6501,7 +6664,7 @@
             syncToolUI();
           } else if (matchedList.length > 0 && matchedPixelMaps.length > 0) {
             setSelectedKeys(matchedList.map((f) => f.key));
-            window.JWPLCHMIPixelMaps?.setSelectedKeys?.(matchedPixelMaps.map((m) => m.key));
+            window.JWPLCHMIPixelMaps?.setSelectedKeys?.(matchedPixelMaps.map((m) => m.key), false);
             selectedTool = 'pointer';
             syncInputsFromState();
             syncToolUI();
@@ -6550,6 +6713,21 @@
       target?.isContentEditable;
   }
 
+  function selectAllOnPage() {
+    const pageFields = fieldsForPage(activePage).filter((f) => !f.hidden && !f.locked);
+    const allPixelMaps = (window.JWPLCHMIPixelMaps?.getAll?.() || []).filter(
+      (pm) => Number(pm.page || 0) === activePage && pm.editorVisible !== false && !pm.locked && pm.pixels?.length
+    );
+
+    setSelectedKeys(pageFields.map((f) => f.key));
+    window.JWPLCHMIPixelMaps?.setSelectedKeys?.(allPixelMaps.map((m) => m.key), false);
+
+    selectedTool = 'pointer';
+    syncInputsFromState();
+    syncToolUI();
+    render();
+  }
+
   function nudgeSelection(dx, dy) {
     const snapStep = getSnapStep();
     if (snapStep > 0) {
@@ -6558,8 +6736,12 @@
     }
 
     const fields = selectedFields();
+    const selPms = (window.JWPLCHMIPixelMaps?.getSelectedMaps?.() || []).filter(
+      (pm) => Number(pm.page || 0) === activePage && pm.editorVisible !== false && !pm.locked && pm.pixels?.length
+    );
+
+    let moved = false;
     if (fields.length > 0) {
-      let moved = false;
       fields.forEach((field) => {
         if (field.locked) return;
         if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
@@ -6586,13 +6768,27 @@
           field.y = nextY;
         }
       });
-      if (moved) {
-        syncInputsFromState();
-        render();
-        return true;
-      }
-      return false;
     }
+
+    if (selPms.length > 0) {
+      selPms.forEach((pm) => {
+        const b = window.JWPLCHMIPixelMaps?.getBounds?.(pm);
+        if (b) {
+          pm.x = Math.max(0, Math.min(WIDTH - b.width, pm.x + dx));
+          pm.y = Math.max(0, Math.min(HEIGHT - b.height, pm.y + dy));
+          moved = true;
+        }
+      });
+      window.JWPLCHMIPixelMaps?.syncInspector?.();
+      window.JWPLCHMIPixelMaps?.notifyChanged?.();
+    }
+
+    if (moved) {
+      syncInputsFromState();
+      render();
+      return true;
+    }
+    if (fields.length > 0) return false;
 
     if (selectedTool === 'rawText') {
       let nextX = clamp(rawState.x + dx, 0, WIDTH - 1);
@@ -6730,6 +6926,11 @@
         }
       }
 
+      if (ctrl && event.key.toLowerCase() === 'a') {
+        event.preventDefault();
+        selectAllOnPage();
+        return;
+      }
       if (event.code === 'Space' || event.key === ' ') {
         event.preventDefault();
         if (event.shiftKey) {
@@ -6986,7 +7187,9 @@
   document.querySelectorAll('#shapeSidesPresetGrid [data-sides-preset]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const f = selectedField(); if (!f) return;
-      f.sides = Math.max(3, Math.min(20, Number(btn.dataset.sidesPreset) || 5));
+      f.sides = Math.max(3, Math.min(12, Number(btn.dataset.sidesPreset) || 5));
+      if (shapeSides2) shapeSides2.value = String(f.sides);
+      if (fieldSides) fieldSides.value = String(f.sides);
       syncShapeInspector();
       render();
       commitHistory();
@@ -7104,7 +7307,21 @@
     const w = Math.max(1, Number(shapeW?.value) || 1); const h = Math.max(1, Number(shapeH?.value) || 1);
     const hw = Math.round(w / 2); const hh = Math.round(h / 2);
     f.x = cx - hw; f.y = cy - hh; f.x2 = cx + hw; f.y2 = cy + hh;
-    if (shapeSides2 && !shapeSidesWrap2?.hidden) f.sides = Number(shapeSides2.value);
+    if (shapeSides2 && !shapeSidesWrap2?.hidden) {
+      let val = parseInt(shapeSides2.value, 10);
+      if (!isNaN(val)) {
+        if (val > 12) {
+          showToastMessage('El número máximo de lados para un polígono es 12.', 'warning');
+          val = 12;
+          shapeSides2.value = '12';
+        } else if (val < 3) {
+          val = 3;
+          shapeSides2.value = '3';
+        }
+        f.sides = val;
+        if (fieldSides) fieldSides.value = String(val);
+      }
+    }
     syncShapeInspector();
     render();
   }
@@ -7112,10 +7329,48 @@
     el?.addEventListener('input', shapeGeomUpdate);
     el?.addEventListener('change', () => { shapeGeomUpdate(); commitHistory(); });
   });
-  shapeSides2?.addEventListener('input', () => {
-    const f = selectedField(); if (!f) return; f.sides = Number(shapeSides2.value); syncShapeInspector(); render();
+
+  function handleShapeSidesInput(commit = false) {
+    const f = selectedField(); if (!f) return;
+    let val = parseInt(shapeSides2.value, 10);
+    if (isNaN(val)) return;
+    if (val > 12) {
+      showToastMessage('El número máximo de lados para un polígono es 12.', 'warning');
+      val = 12;
+      shapeSides2.value = '12';
+    } else if (commit && val < 3) {
+      showToastMessage('El número mínimo de lados para un polígono es 3.', 'warning');
+      val = 3;
+      shapeSides2.value = '3';
+    }
+    f.sides = clamp(val, 3, 12);
+    if (fieldSides) fieldSides.value = String(f.sides);
+    syncShapeInspector();
+    render();
+    if (commit) commitHistory();
+  }
+  shapeSides2?.addEventListener('input', () => handleShapeSidesInput(false));
+  shapeSides2?.addEventListener('change', () => handleShapeSidesInput(true));
+
+  const mainPolySidesInput = document.getElementById('mainPolySidesInput');
+  mainPolySidesInput?.addEventListener('input', () => {
+    let val = parseInt(mainPolySidesInput.value, 10);
+    if (isNaN(val)) return;
+    if (val > 12) {
+      showToastMessage('El número máximo de lados para un polígono es 12.', 'warning');
+      mainPolySidesInput.value = '12';
+    }
   });
-  shapeSides2?.addEventListener('change', () => commitHistory());
+  mainPolySidesInput?.addEventListener('change', () => {
+    let val = parseInt(mainPolySidesInput.value, 10);
+    if (isNaN(val) || val < 3) {
+      showToastMessage('El número mínimo de lados para un polígono es 3.', 'warning');
+      mainPolySidesInput.value = '3';
+    } else if (val > 12) {
+      showToastMessage('El número máximo de lados para un polígono es 12.', 'warning');
+      mainPolySidesInput.value = '12';
+    }
+  });
   shapeRotation?.addEventListener('input', () => {
     const f = selectedField(); if (!f) return; f.rotation = Number(shapeRotation.value) % 360; syncShapeInspector(); render();
   });
@@ -7237,8 +7492,13 @@
     getActivePage: () => activePage,
     getMaxPages: () => MAX_PAGES,
     computeSelectedGeometry: () => computeFieldGeometry(selectedField()),
+    selectAll: selectAllOnPage,
+    selectAllOnPage,
+    getSelectedFields: () => selectedFields(),
     hasFieldSelection: () => selectedFields().length > 0,
     getSelectionHandles: (fields = selectedFields()) => getSelectionHandles(fields),
+    isPointInsideSelection: (p) => isPointInsideSelection(p),
+    hitTestField: (p) => hitTestField(p),
     hitTestHandle,
     hasTextSelection: () => selectedField()?.type === 'TEXT' && selectedTool === 'textField',
     hasValueSelection: () => selectedField()?.type === 'VALUE' && selectedTool === 'valueField',
@@ -7279,6 +7539,7 @@
     isPointInsideSelection: (pt) => isPointInsideSelection(pt),
     getShapeVertices: (f) => getShapeTransformedVertices(f),
     getMaxCornerRadius: (f) => getMaxCornerRadius(f),
+    showToast: (msg, kind) => showToastMessage(msg, kind),
     getPixelFieldOrder: (x, y) => {
       const px = Math.trunc(Number(x));
       const py = Math.trunc(Number(y));

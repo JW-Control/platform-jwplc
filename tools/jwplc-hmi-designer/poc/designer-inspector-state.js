@@ -43,15 +43,23 @@
   }
 
   function currentMode() {
-    if (pixels()?.getSelected?.()) return 'PIXEL';
+    const field = editor()?.getSelectedField?.();
+    const hasFields = Boolean(editor()?.hasFieldSelection?.() && field);
+    const hasPixels = Boolean(pixels()?.getSelected?.());
+
+    if (hasFields) {
+      if (field.type === 'RAW_TEXT') return 'RAW';
+      if (field.type === 'NAV_BAR') return 'NAV_BAR';
+      if (field.type === 'MENU') return 'MENU';
+      if (SHAPE_TYPES.includes(field.type)) return 'SHAPE';
+      return 'FIELD';
+    }
+
+    if (hasPixels) return 'PIXEL';
+
     const selectedTool = editor()?.getSelectedTool?.() || 'none';
     if (selectedTool === 'rawText') return 'RAW';
-    const field = editor()?.getSelectedField?.();
-    if (field?.type === 'RAW_TEXT') return 'RAW';
-    if (field?.type === 'NAV_BAR' || selectedTool === 'navBarField') return 'NAV_BAR';
-    if (field?.type === 'MENU') return 'MENU';
-    if (field && SHAPE_TYPES.includes(field.type)) return 'SHAPE';
-    if (field) return 'FIELD';
+    if (selectedTool === 'navBarField') return 'NAV_BAR';
     if (selectedTool === 'pixel' || selectedTool === 'erase') return 'PIXEL';
     return 'NONE';
   }

@@ -820,11 +820,12 @@
       }
     }
 
-    if (fieldSection) fieldSection.hidden = Boolean(map) || fieldSection.hidden;
-    if (rawSection && map) rawSection.hidden = true;
+    const hasFields = Boolean(editor()?.hasFieldSelection?.());
+    if (fieldSection) fieldSection.hidden = (!hasFields && Boolean(map)) || fieldSection.hidden;
+    if (rawSection && map && !hasFields) rawSection.hidden = true;
     if (!inspector) return;
-    inspector.hidden = !map;
-    if (!map) return;
+    inspector.hidden = hasFields || !map;
+    if (!map || hasFields) return;
 
     ensureEditorMeta(map);
     if (map.pixels && map.pixels.length > 0) {
@@ -1031,7 +1032,9 @@
       row.addEventListener('click', (event) => {
         if (event.target.closest('.object-btn')) return;
         event.preventDefault();
-        clearFieldSelection();
+        if (!event.shiftKey && !event.ctrlKey) {
+          clearFieldSelection();
+        }
         if (event.shiftKey || event.ctrlKey) {
           if (selectedKeys.includes(map.key)) {
             selectedKeys = selectedKeys.filter((k) => k !== map.key);
@@ -1386,9 +1389,17 @@
       return;
     }
 
+    // If clicking inside an active selection (multi-selection containing shapes and/or pixelmaps),
+    // allow editor (app.js) to handle unified dragging without clearing selection
+    if (editor()?.isPointInsideSelection?.(p)) {
+      return;
+    }
+
     const hit = hitMap(p);
     if (hit) {
-      clearFieldSelection();
+      if (!event.shiftKey && !event.ctrlKey && !selectedKeys.includes(hit.key)) {
+        clearFieldSelection();
+      }
       if (event.shiftKey || event.ctrlKey) {
         if (selectedKeys.includes(hit.key)) {
           selectedKeys = selectedKeys.filter((k) => k !== hit.key);
@@ -1412,11 +1423,13 @@
       return;
     }
 
-    if (selectedKeys.length > 0 || selectedKey) {
-      selectedKey = null;
-      selectedKeys = [];
-      syncInspector();
-      refreshBase();
+    if (!event.shiftKey && !event.ctrlKey) {
+      if (selectedKeys.length > 0 || selectedKey) {
+        selectedKey = null;
+        selectedKeys = [];
+        syncInspector();
+        refreshBase();
+      }
     }
   }, true);
 
@@ -1500,11 +1513,13 @@
     if (event.key === 'Escape') {
       const currentTool = editor()?.getSelectedTool?.() || 'pointer';
       if (currentTool === 'pixel' || currentTool === 'erase' || selectedKey || selectedKeys.length > 0) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
+        if (!editor()?.hasFieldSelection?.()) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        }
         selectedKey = null;
         selectedKeys = [];
-        clearFieldSelection();
+        if (!editor()?.hasFieldSelection?.()) clearFieldSelection();
         if (currentTool === 'pixel' || currentTool === 'erase') {
           const pointerBtn = document.querySelector('.tool[data-tool="pointer"]');
           if (pointerBtn) {
@@ -1532,6 +1547,7 @@
     const map = selected();
     if (!map) return;
     if (event.key === 'Delete' || event.key === 'Backspace') {
+      if (editor()?.hasFieldSelection?.()) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       deleteMap();
@@ -1540,6 +1556,7 @@
     const step = event.shiftKey ? 10 : 1;
     const delta = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[event.key];
     if (!delta) return;
+    if (editor()?.hasFieldSelection?.()) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     const b = bounds(map);
@@ -1622,6 +1639,8 @@
     hitTest: (point) => hitMap(point),
     getSelectedMaps: selectedMaps,
     getSelectedKeys: () => (selectedKeys.length > 0 ? selectedKeys : (selectedKey ? [selectedKey] : [])),
+    syncInspector: () => syncInspector(),
+    notifyChanged: () => changed(),
     setSelectedKey: (key, clearFields = true) => {
       if (clearFields && key) clearFieldSelection();
       selectedKeys = key ? [key] : [];

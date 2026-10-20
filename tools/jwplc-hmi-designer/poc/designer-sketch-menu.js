@@ -336,6 +336,11 @@
     if (++ticks >= 12) clearInterval(timer);
   }, 300);
   window.addEventListener('jwplc:header-written', async () => refreshButtons(await backend.info().catch(() => null)));
+  window.addEventListener('jwplc:sketch-linked', async () => refreshButtons(await backend.info().catch(() => null)));
+  window.addEventListener('jwplc:sketch-unlinked', () => {
+    refreshButtons(null);
+    closeMenu();
+  });
 
   window.JWPLCHMISketchMenu = { writeToSketch, linkFlow, openMenu, closeMenu, backend };
 })();
