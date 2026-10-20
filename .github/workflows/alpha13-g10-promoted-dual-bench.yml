@@ -47,6 +47,10 @@ jobs:
         shell: pwsh
         run: |
           python -B tools/alpha13/g10_promoted_bench/g10p_dual_build.py --expected-head "${{ github.sha }}" --ci-detached --check
+      - name: N0 PH0 upload runner sin puertos, MAC ni backup
+        shell: pwsh
+        run: |
+          python -B tools/alpha13/g10_promoted_bench/g10p_ph0_upload.py --check --ci-detached --expected-head "${{ github.sha }}"
       - name: Compilar ambos sketches desde package promovido y FQBN temporal
         shell: pwsh
         run: |
