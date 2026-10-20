@@ -1,3 +1,32 @@
+# ESTADO VIGENTE — 20/10/2026 — G10-PH0 F135: fail del verificador ELF/bin, sin upload
+
+**Evidencia real operador:** VS Code ve USB-SERIAL CH340 en **COM14 y COM4**; N0 local `c08147eedf` PASS. `--prepare` devolvió `G10P_PH0_REVIEW_STOP_ELF_MISSING_COM14_SLAVE`. El nuevo runner suponía `G10P_COM14_Slave.elf` en vez del nombre Arduino `G10P_COM14_Slave.ino.elf`; el mismo defecto afectaba `.bin`. No atribuirlo a firmware ni producto: el ejecutor de build dual anterior prueba ELF real y fuente→objeto. COM14 y COM4 **no han sido flasheados**.
+
+**F135 (tooling, corregido en rama candidata, CI posterior pendiente):** `g10p_ph0_upload.py` ahora exige ELF `Sketch.ino.elf`, firmware `.ino.bin`, bootloader `.ino.bootloader.bin`, particiones `.ino.partitions.bin`, SHA de manifiesto/objetos/libs y sello; el workflow dual prueba el sellado real sin USB en Windows/Ubuntu. Incluye `--seal-existing` para recuperar la build anterior sin recompilar si el diff Git entre el HEAD compilado y actual no modifica package, sketches, compilador o contrato. Procedimiento versionado en `tools/alpha13/g10_promoted_bench/README.md`; el registro de fallos único está en `A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md`.
+
+**Próximo gate:** verificar CI de sellado postbuild y que las tres imágenes por placa existen; operador hará `git pull --ff-only` en la rama candidata y `--seal-existing` sobre la carpeta temporal previa. Solo luego de PASS y observación de puerto/rol procede upload autorizado COM14→COM4 y UART; RS-485, TCP/router y R1–R4 permanecen no ejecutados.
+
+```text
+ALPHA13=OPEN
+F135=TOOLING_FIX_PENDING_REAL_POSTBUILD_CI
+NEXT_FAILURE_ID=F136
+G10_PH0_LOCAL_N0_C08147=PASS
+G10_PH0_PREP_C08147=REVIEW_STOP_ELF_MISSING_COM14_SLAVE
+G10_PH0_FIRMWARE_CHANGED=NO
+G10_PH0_UPLOAD_COM14=NOT_RUN
+G10_PH0_UPLOAD_COM4=NOT_RUN
+G10_PH0_MAC_EXPLICIT_READ=NOT_RUN_NOT_NEEDED
+G10_PH0_FLASH_BACKUP=WAIVED_BY_OWNER
+G10_PH0_RTU_TCP_PHYSICAL=NOT_RUN
+G10_E1=PENDING_GDB_UNAVAILABLE
+G10_E2=PENDING_SDKCONFIG_NOT_LOCATED
+PENDIENTE_DE_PROMOCION=PR124_12_SOURCES_NOT_IN_ALPHA13_BASE
+BASE_SYNC=PENDIENTE_G10_OPEN
+KNOWLEDGE_SYNC=PENDIENTE_F135_REUSABLE_LESSON
+NEXT_GATE=G10_PH0_F135_CI_POSTBUILD_THEN_SEAL_EXISTING_AND_UPLOAD_COM14
+```
+
+---
 # ESTADO VIGENTE — 20/10/2026 — G10-PH0 dual autorizado, sin backup ni consulta MAC
 
 **Decisión del propietario:** COM14 Slave y COM4 Master pueden actualizar el firmware de banco G10-PH0. No se exige backup de flash, comprobación MAC ni consentimiento adicional por cada upload. La decisión sustituye solo esos requisitos de las entradas históricas; se mantienen Q sin cargas, puertos correctos, red aislada y UART posterior. R1–R4, merge y release NO autorizados.
