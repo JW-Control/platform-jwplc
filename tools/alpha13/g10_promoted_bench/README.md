@@ -19,7 +19,7 @@ temporales del intento previo:
 
 ```powershell
 $head = (git rev-parse HEAD).Trim()
-Get-ChildItem $env:TEMP -Directory -Filter 'g10p_ph0_c08147eedf3_*' |
+Get-ChildItem $env:TEMP -Directory -Filter 'g10p_ph0_c08147eedf3b_*' |
   Sort-Object LastWriteTime -Descending |
   Select-Object -First 5 FullName, LastWriteTime
 ```
