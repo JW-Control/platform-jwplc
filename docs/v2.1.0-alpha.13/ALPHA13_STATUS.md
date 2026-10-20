@@ -1,3 +1,38 @@
+# ESTADO VIGENTE — 20/10/2026 — PR125: paridad Ethernet por FQBN bloquea release (F137)
+
+**Gate aprobado en conversación:** la publicación Alpha13 sigue BLOQUEADA hasta confirmar que `JWPLC_Ethernet` y `JWPLC_ModbusTCP` comparten un archive válido en ambos FQBN. Los nuevos `.a` del primer candidato de PR #125 fueron retirados **solo de la rama Draft**, conservados en Git histórico; `precompiled=full` revertido temporalmente y `promote-candidate` deshabilitado. No se modificaron archives congelados de otras librerías, `core.a`, pines ni GPIO4. Ningún upload o release autorizado.
+
+**F137:** prueba negativa `--expect-mismatch` del source heredado en CI [#39516689615](https://github.com/JW-Control/platform-jwplc/actions/runs/39516689615): Ubuntu Ethernet 1/12 distinto (`JWPLC_Ethernet.cpp`), Modbus TCP 0/2. Windows comparó rutas de build distintas y reportó diferencias más amplias, no interpretables como fallos semánticos; el gate se normalizó a misma ruta con `--clean`. Corrección candidata: Ethernet independiente del perfil mediante policy weak Basic/strong Core, con sus 21 bloques convertidos a guardas runtime. Debe pasar igualdad objeto por objeto, símbolo ELF, fuente→objeto→archive→ELF, N2/N3 de package real, benchmark 3 pares frío/caliente en Windows/Ubuntu para ambos FQBN y revisión final de README. **No atribuir PASS hasta obtener CI del HEAD exacto**.
+
+**Sincronización de rama:** la candidata integró los dos commits documentales adelantados de la base mediante merge `261fcc0b3a9e21ce3e406457ab00883f452f627b`. Esta operación NO fusiona PR #125 a la base. `KNOWLEDGE_SYNC` G10/F135 previo OK, pero la lección F137 requiere nueva rama documental privada y PR cuando haya evidencia definitiva.
+
+```text
+ALPHA13=OPEN_PRECOMPILE_F137_AND_BENCHMARK_BLOCK_RELEASE
+PR125=DRAFT
+G10_PR124=MERGED_IN_BASE
+PRECOMPILE_FIRST_CANDIDATE=REVOKED_ONLY_IN_PR125
+NEW_ARCHIVES_IN_PRODUCT_BASE=NO
+PROFILE_OBJECT_PARITY=GATE_PENDING_FINAL_SHA
+PROFILE_POLICY_ELF=GATE_PENDING_FINAL_SHA
+BENCHMARK_3_PAIRS_BOTH_FQBN_OS=PENDING_FINAL_RUN
+PRECOMPILED_FREEZE_ALPHA13=NOT_PASS
+RELEASE_WORKFLOW=BLOCKED
+UPLOAD=NOT_AUTHORIZED
+F137=OPEN_CANDIDATE_FIX_PENDING_CI
+NEXT_FAILURE_ID=F138
+E1=PENDING_GDB_UNAVAILABLE
+E2=PENDING_SDKCONFIG_NOT_LOCATED
+G10_R3_INTERNAL=NOT_TESTED_ACCEPTED_RISK
+G10_R4_1805S=NOT_RUN_ACCEPTED_SHORTENING
+G10_DHCP_DNS_SPECIFIC=NOT_TESTED
+PENDIENTE_DE_PROMOCION=ETHERNET_AND_MODBUSTCP_TWO_ARCHIVES_UNTIL_FINAL_GATE
+BASE_SYNC=PENDING_PR125_OPERATOR_MERGE
+KNOWLEDGE_SYNC=PENDING_F137_LESSON_PR
+NEXT_GATE=A13_F137_FINAL_SAME_PATH_PARITY_ELF_POLICY_THREE_PAIRS_AND_N3
+```
+
+---
+
 # ESTADO VIGENTE — 20/10/2026 — Alpha13 release BLOQUEADO hasta precompilar Ethernet/Modbus TCP y medir benchmark
 
 **Decisión explícita del propietario:** son obligatorios los archives `.a` de `JWPLC_Ethernet` y `JWPLC_ModbusTCP` antes de declarar Alpha13 cerrado/publicable; efectuar benchmark frío/caliente y actualizar READMEs de todas las librerías modificadas conservando estilo, ejemplos y APIs, además del README raíz. El cierre de desarrollo anunciado anteriormente era **funcional**, pero no el freeze completo de distribución y velocidad. **No ejecutar el workflow Release** aún.
