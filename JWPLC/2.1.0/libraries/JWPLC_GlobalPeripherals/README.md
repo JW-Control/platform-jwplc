@@ -502,6 +502,18 @@ JWPLC_writeOutputs(0b00000001);
 Estas funciones son útiles para protocolos, Remote I/O o lógica basada en
 bitmaps.
 
+## Mejoras de mantenimiento en Alpha13
+
+Se simplificaron estados privados redundantes de los periféricos y se
+conserva el servicio automático del RTC, botonera e I/O. El código de
+usuario no debe volver a inicializar dispositivos que el runtime
+ya administra.
+
+Se probó en hardware la lectura de hora RTC y un evento real de
+presión/liberación de tecla, además de la convivencia con Ethernet
+y Modbus RTU. No se presume que el mismo smoke pruebe todas las
+entradas, teclas o condiciones de fallo.
+
 ## Compatibilidad
 
 Los namespaces:
@@ -528,6 +540,6 @@ periféricos que el runtime ya administra.
 Documentado para:
 
 ```text
-JWPLC ESP32 v2.1.0-alpha.12
+JWPLC ESP32 v2.1.0-alpha.13 (candidata)
 JWPLC_GlobalPeripherals 1.0.0
 ```
