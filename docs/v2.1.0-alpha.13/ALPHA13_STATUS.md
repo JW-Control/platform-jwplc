@@ -1,3 +1,35 @@
+# ESTADO VIGENTE — 20/10/2026 — G10-PH0 dual autorizado, sin backup ni consulta MAC
+
+**Decisión del propietario:** COM14 Slave y COM4 Master pueden actualizar el firmware de banco G10-PH0. No se exige backup de flash, comprobación MAC ni consentimiento adicional por cada upload. La decisión sustituye solo esos requisitos de las entradas históricas; se mantienen Q sin cargas, puertos correctos, red aislada y UART posterior. R1–R4, merge y release NO autorizados.
+
+**Preflight del operador:** worktree limpio; rama candidata y HEAD a3019fe62df1a2ee3d58d0f95043822eb0ebda8e confirmados; base local restaurada a 0344ff9cbe42e9efa65e7d4caabb60ce15464270; G10P_N0 y G10P_PREFLIGHT sin hardware PASS. Este PASS corresponde al commit anterior a las herramientas nuevas y no acredita todavía su CI.
+
+**Preparación versionada:** tools/alpha13/g10_promoted_bench/g10p_ph0_upload.py permite --check, --prepare (compilar ambos en espacio temporal, SHA de binarios), --upload-com14 y --upload-com4 en ese orden. No invoca read_flash, consulta explícita MAC ni erase-all. Uso completo documentado en el README del banco. CI dual incorpora N0 read-only del uploader; el resultado del HEAD nuevo se verificará antes de cualquier upload.
+
+**Campaña aún pendiente:** preparar build con package real; upload COM14 y observar BOOT/HEARTBEAT sin watchdog; luego COM4 y UART; después RS-485 Modbus RTU Master/Slave y router aislado con dos IP DHCP distintas, PHY=1, ETH=1, TCP=1 y PC FC03 read-only. Ni éxito de CLI ni CI constituyen PASS físico de estos gates sin UART y observación del operador.
+
+```text
+ALPHA13=OPEN
+NEXT_FAILURE_ID=F135
+G10_PH0_UPLOAD_APPROVAL=COM14_SLAVE_AND_COM4_MASTER_APPROVED
+G10_PH0_FLASH_BACKUP=WAIVED_BY_OWNER
+G10_PH0_MAC_EXPLICIT_READ=NOT_NEEDED_NOT_REQUESTED
+G10_PH0_LOCAL_N0_AT_A3019FE=PASS_OWNER_REPORTED
+G10_PH0_NEW_RUNNER_CI=PENDING_CHECK
+G10_PH0_UPLOAD_COM14=NOT_RUN
+G10_PH0_UPLOAD_COM4=NOT_RUN
+G10_PH0_RTU_PHYSICAL=NOT_RUN
+G10_PH0_DUAL_TCP_PHYSICAL=NOT_RUN
+G10_R_R1_R2_R3_R4=NOT_RUN_NOT_AUTHORIZED
+G10_E1=PENDING_GDB_UNAVAILABLE
+G10_E2=PENDING_SDKCONFIG_NOT_LOCATED
+PENDIENTE_DE_PROMOCION=PR124_12_SOURCES_NOT_IN_ALPHA13_BASE
+BASE_SYNC=PENDIENTE_INTENCIONAL_G10_OPEN
+KNOWLEDGE_SYNC=OK_THROUGH_F134
+NEXT_GATE=G10_PH0_RUNNER_N0_CI_THEN_PREPARE_UPLOAD_COM14_COM4_UART
+```
+
+---
 # ESTADO VIGENTE — 19/10/2026 — G10-PH0: banco dual COM4+COM14 y router, CI no física PASS
 
 **Nueva decisión del propietario:** preparar y validar ambos JWPLC Basic de desarrollo, **COM4 Master y COM14 Slave**, incluidos sus puertos Ethernet conectados posteriormente al mismo router/switch de laboratorio aislado. Es continuación del [PR #124](https://github.com/JW-Control/platform-jwplc/pull/124) **Draft**. La corrección F1 de `JWPLC_ETH_CS=5` **ya está integrada en la base** de Alpha13 y validada en la placa de COM4; el nuevo código funcional G10 solo está promovido en la rama del PR.
