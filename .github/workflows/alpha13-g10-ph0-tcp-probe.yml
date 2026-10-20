@@ -1,0 +1,30 @@
+name: Alpha13 G10 PH0 - Modbus TCP FC03 dual synthetic
+on:
+  push:
+    branches:
+      - 'codex/alpha13-g10-promote-functional-*'
+    paths:
+      - 'tools/alpha13/g10_promoted_bench/g10p_modbus_tcp_readonly.py'
+      - '.github/workflows/alpha13-g10-ph0-tcp-probe.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tcp-read-only:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Verificar FC03 solo lectura y rechazo IP fuera de LAN
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -B tools/alpha13/g10_promoted_bench/g10p_modbus_tcp_readonly.py --selftest
