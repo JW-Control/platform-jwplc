@@ -1,3 +1,32 @@
+# ESTADO VIGENTE — 19/10/2026 — G10 promovido en PR #124, N0/N1/N2/N3 PASS no físico
+
+**F1/H0 aprobado con observación por el propietario**, documentado en PR #121 ya fusionado. **G10 funcional promovido a `JWPLC/2.1.0` solamente en [PR #124](https://github.com/JW-Control/platform-jwplc/pull/124), aún Draft**, no en la rama base de Alpha13. Cambiaron 10 fuentes existentes y se añadieron 2 `SafeAccess`; F1, CS W5500, DNS/DHCP y archives `.a` congelados se conservaron. [Matriz de evidencia y límites](A13_G10_PROMOTED_N0_N3_20261019.md).
+
+**Resultados verificados:** N0 Windows/Ubuntu 2/2 PASS, N1 contratos nativos C++ más paridad de **14/14 fuentes SHA** Windows/Ubuntu 2/2 PASS en [CI #39358616596](https://github.com/JW-Control/platform-jwplc/actions/runs/39358616596), N2 ambos FQBN y N3 **11/11 sketches fuente→objeto→ELF** en [CI #39329439143](https://github.com/JW-Control/platform-jwplc/actions/runs/39329439143). La procedencia del ELF sí está acreditada, pero E1 GDB y E2 sdkconfig permanecen `PENDING` en ese runner. No se ha realizado build/upload físico del nuevo package; el firmware de COM4 continúa siendo el F1 previo.
+
+**Seguridad:** la autorización H0 EN/USB no es autorización para **G10-R R1–R4** ni para sobrescribir COM14. Falta revisión del protocolo y aprobación específica del operador para gate físico; G10 no se fusiona ni se declara cerrado todavía. F133 agrupa los incidentes de harness YAML, caché `__pycache__` y etiquetado de DNS/DHCP, todos resueltos y sin defecto productivo.
+
+```text
+ALPHA13=OPEN
+F131=H0_ACCEPTED_WITH_OBSERVATION
+F132=RESOLVED_CI_AND_LOCAL
+F133=RESOLVED_G10_PROMOTION_TOOLING
+NEXT_FAILURE_ID=F134
+G10_PACKAGE_PROMOTION=APPLIED_PR124_NOT_MERGED
+G10_N0=PASS_2_OF_2
+G10_N1=PASS_NATIVE_PARITY_2_OF_2_14_FILES
+G10_N2=PASS_BOTH_FQBN
+G10_N3=PASS_11_OF_11
+G10_E1=PENDING_GDB_UNAVAILABLE
+G10_E2=PENDING_SDKCONFIG_NOT_LOCATED
+G10_PHYSICAL_R1_R4=NOT_RUN_NOT_AUTHORIZED
+COM4_G10_UPLOAD=NOT_RUN
+COM14=NOT_TOUCHED
+NEXT_GATE=G10_PHYSICAL_PREP_AND_SPECIFIC_AUTHORIZATION_R1_R4
+```
+
+---
+
 # ESTADO VIGENTE — 19/10/2026 — H0-F1 RJ45 conectado: 3 EN + 3 USB PASS; G10-P0 siguiente
 
 **Complemento físico entregado por el operador** al ensayo anterior H0: [evidencia detallada EN/USB con RJ45 conectado](A13_H0_F1_EN_USB_RJ45_CONECTADO_20261019.md). Se observan **3 arranques EN** que regresan `EARLY_LINK_RETURN=1` (LinkON), y **3 arranques tras desconexión/reconexión COM4 por USB**, de los que dos regresan directamente `EARLY_LINK_RETURN=2` (negociación física) y llegan a `LINK=1` desde `COUNT=2`. El tercero solo se captura desde `READY COUNT=1`, pero `STAGE=2` acredita retorno temprano indirecto. Los seis muestran un BOOT diferente, `STAGE=2`, enlace `LINK=1` sostenido en cinco o más contadores y ningún watchdog visible.

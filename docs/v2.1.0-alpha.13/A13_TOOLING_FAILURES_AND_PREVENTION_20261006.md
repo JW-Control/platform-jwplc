@@ -2737,3 +2737,24 @@ F131_EXTENDED_STRICT_20_OF_20=REVIEW_EVIDENCE_GAP
 F131_G10_PROMOTION=NOT_STARTED
 NEXT_FAILURE_ID=F133
 ```
+
+
+## F133 — Harness de promoción G10: YAML de Actions, caché Python y etiqueta N1 (2026-10-19)
+
+**Ámbito:** PR #124, rama aislada `codex/alpha13-g10-promote-functional-20261019`. **Tipo:** `HARNESS_FAILURE=YES`, `PROCESS_FAILURE=YES`, `PRODUCT_FAILURE=NO`. No hay evidencia de defecto W5500 ni de modificación ajena a las 12 fuentes objetivo.
+
+1. **Workflow YAML inválido:** [run #39328813731](https://github.com/JW-Control/platform-jwplc/actions/runs/39328813731), falló al cargar un step cuyo nombre contenía `Negativos: diff...` sin comillas, **0 jobs**. Reparación: entrecomillar el `name` y exigir jobs reales.
+2. **Falso dirty en dos pases:** [run #39328974334](https://github.com/JW-Control/platform-jwplc/actions/runs/39328974334): `G10_PROMO_SOURCE_FIRST=PASS`, `G10_PROMO_ARCHIVES_FROZEN=12`; al invocar `--apply` tras importar el compositor, archivos temporales `__pycache__/*.pyc` activaron `G10_PROMO_REVIEW_STOP_DIRTY_CHECKOUT` antes de escribir. Reparación: rechazar cambios tracked, permitir exclusivamente `.pyc` en `__pycache__` y bloquear otros untracked, archivos productivos y cambios ajenos. [Retest #39329074387](https://github.com/JW-Control/platform-jwplc/actions/runs/39329074387) promueve 10+2; [#39329439178](https://github.com/JW-Control/platform-jwplc/actions/runs/39329439178) confirma segundo paso idempotente.
+3. **Etiqueta N1 incorrecta, contenido correcto:** gate de paridad imprimió `STATE=MODIFIED` en `Dns.cpp`/`Dhcp.cpp` simplemente porque existían, aunque su contenido era igual al compositor y base. Corrección de clasificación usando igualdad binaria canónica, comprobada en [N1 #39358616596](https://github.com/JW-Control/platform-jwplc/actions/runs/39358616596) Windows/Ubuntu: ambos `STATE=UNCHANGED`, 14/14 SHA coinciden. Sin cambio productivo.
+
+**Prevención:** validar YAML antes de disparar CI; no interpretar cero jobs como error de firmware; el runner debe ser seguro ante efectos secundarios del import Python y rechazar untracked no previstos; separar clasificación `ADDED/MODIFIED/UNCHANGED` por diferencias reales; no reejecutar N2/N3 costoso si únicamente cambian scripts auxiliares; no equiparar PASS del overlay con N2 source-first del package ni con autorización física. La configuración de N2/N3 usa ahora `push` filtrado por fuentes `JWPLC/` o dispatch explícito.
+
+```text
+F133=RESOLVED_HARNESS_CI_G10_PROMOTION
+F133_PRODUCT_REGRESSION=NO
+F133_YAML=FIXED
+F133_UNTRACKED_PYTHON_CACHE=FIXED
+F133_N1_DNS_DHCP_LABEL=FIXED
+F133_CI_N1=PASS_2_OF_2_39358616596
+NEXT_FAILURE_ID=F134
+```
