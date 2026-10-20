@@ -329,3 +329,19 @@ MENU_NODE_COUNT_LIMIT=64 por menú, 4 menús, 1 por página (9 nodos = +952 B RA
   deja sólo 2 conflictos (`.gitignore` y `libJWPLC_TFT.a`). La `.a` de la fuente fusionada se regenera con
   `ABI_COMPAT=PASS`. Procedimiento, pendientes y diferidos:
   [A15_CIERRE_Y_TRANSFERENCIA_20261019.md](A15_CIERRE_Y_TRANSFERENCIA_20261019.md).
+- 2026-10-20 — Revisión final de André (commit `d06e28c6`):
+  - selección múltiple unificada (campos y PixelMap) con arrastre y marquesina;
+  - color del pincel PixelMap y Esc para soltar la herramienta;
+  - inspectores de RAW_TEXT y de figuras (Apariencia con el editor de color y matriz de alineación de 9 posiciones);
+  - pista vacía de BAR negra por defecto (`0x0000`; golden `full.h` actualizado, el cambio es intencional);
+  - fase 1 del flasheo del Live Bridge (`PLAN_LIVE_BRIDGE_FLASHER.md`: el sketch puente ya no usa `drawRGBBitmap`;
+    binarios en `poc/firmware/` y `esptool-bundle.js`).
+
+  [ejecutado] `run-all.cjs`: 8/9 PASS sobre su commit; sólo fallaba el golden por el color de pista, ahora 9/9.
+- 2026-10-20 — En la PC de André, `Generar-e-Instalar-App-Escritorio.cmd` fallaba al extraer `winCodeSign`.
+  Causa: los enlaces simbólicos de macOS del `.7z`; sin modo desarrollador, Windows no deja crearlos.
+  - Nuevo `JWPLC-ElectronBuilderCache.ps1`, usado por los builds portable y Setup: prepara
+    `%LOCALAPPDATA%\electron-builder\Cache\winCodeSign\winCodeSign-2.6.0` sin `darwin\`, con el 7-Zip de electron-builder.
+  - Los `.ps1` con tildes llevan ahora BOM UTF-8; sin BOM, Windows PowerShell 5.1 los leía como ANSI («fallÃ³»).
+  - [ejecutado] con PowerShell 7 en Linux: sintaxis de los 10 `.ps1`, y la función crea la caché con
+    `rcedit-x64.exe` y la reutiliza la segunda vez. [no verificado] build completo en Windows: lo confirma André.

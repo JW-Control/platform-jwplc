@@ -113,7 +113,7 @@ static const JWPLC_UIField HMI_FIELDS[] =
         JWPLC_UIColors(
             0xFFFF,
             0x07FF,
-            0x18C3,
+            0x0000,
             0xFFFF)),
     // Barra Sólida (HORIZONTAL) - Estilo: SOLID, Radio: 0
     JWPLC_UIBarField(
@@ -129,7 +129,7 @@ static const JWPLC_UIField HMI_FIELDS[] =
         JWPLC_UIColors(
             0xFFFF,
             0x07FF,
-            0x18C3,
+            0x0000,
             0xFFFF))
 };
 

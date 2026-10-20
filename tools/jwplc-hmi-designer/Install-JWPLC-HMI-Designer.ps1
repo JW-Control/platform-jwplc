@@ -1,4 +1,4 @@
-param(
+﻿param(
     [switch]$NoStartMenu,
     [switch]$NoDesktop,
     [switch]$NoArduinoIDEExtension,

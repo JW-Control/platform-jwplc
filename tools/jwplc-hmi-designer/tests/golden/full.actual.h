@@ -113,7 +113,7 @@ static const JWPLC_UIField HMI_FIELDS[] =
         JWPLC_UIColors(
             0xFFFF,
             0x07FF,
-            0x18C3,
+            0x0000,
             0xFFFF)),
     // Barra Sólida (HORIZONTAL) - Estilo: SOLID, Radio: 0
     JWPLC_UIBarField(
@@ -129,7 +129,7 @@ static const JWPLC_UIField HMI_FIELDS[] =
         JWPLC_UIColors(
             0xFFFF,
             0x07FF,
-            0x18C3,
+            0x0000,
             0xFFFF))
 };
 
@@ -340,18 +340,18 @@ static void jwplcDrawPageNavTab(uint8_t activePage, bool selecting)
     case 1:
         if (selecting)
         {
-            tft.fillRoundRect(115, 148, 90, 20, 3, 0xFFFF);
+            tft.fillRoundRect(115, 148, 90, 20, 3, 0x7BEF);
             tft.setCursor(148, 154);
-            tft.setTextColor(0x0000);
+            tft.setTextColor(0xFFFF);
             tft.print("ALRM");
         }
         else
         {
             tft.fillRoundRect(115, 148, 90, 20, 3, 0xFFFF);
-            tft.drawRoundRect(115, 148, 90, 20, 3, 0x8C71);
-            tft.drawRoundRect(117, 150, 86, 16, 1, 0x8C71);
+            tft.drawRoundRect(115, 148, 90, 20, 3, 0x738E);
+            tft.drawRoundRect(117, 150, 86, 16, 1, 0x738E);
             tft.setCursor(148, 154);
-            tft.setTextColor(0x8C71);
+            tft.setTextColor(0x738E);
             tft.print("ALRM");
         }
         break;
@@ -366,10 +366,10 @@ static void jwplcDrawPageNavTab(uint8_t activePage, bool selecting)
         else
         {
             tft.fillRoundRect(208, 148, 90, 20, 3, 0xFFFF);
-            tft.drawRoundRect(208, 148, 90, 20, 3, 0x8210);
-            tft.drawRoundRect(210, 150, 86, 16, 1, 0x8210);
+            tft.drawRoundRect(208, 148, 90, 20, 3, 0x69AD);
+            tft.drawRoundRect(210, 150, 86, 16, 1, 0x69AD);
             tft.setCursor(241, 154);
-            tft.setTextColor(0x8210);
+            tft.setTextColor(0x69AD);
             tft.print("AJST");
         }
         break;

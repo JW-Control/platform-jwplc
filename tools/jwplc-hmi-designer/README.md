@@ -33,6 +33,12 @@ Doble clic en **`Generar-e-Instalar-App-Escritorio.cmd`**. Requiere Node.js LTS
 
 Repetirlo después de cada `git pull` que cambie el Designer.
 
+Si una versión anterior del generador falló con `Cannot create symbolic link : El cliente no dispone de un
+privilegio requerido` (en `winCodeSign`), basta con hacer `git pull` y volver a ejecutarlo. El paquete
+`winCodeSign` de electron-builder trae enlaces simbólicos de macOS que Windows no deja crear sin modo
+desarrollador; ahora el generador lo prepara en la caché de electron-builder sin esa carpeta
+(`JWPLC-ElectronBuilderCache.ps1`). No hace falta activar el modo desarrollador ni ejecutar como administrador.
+
 Sólo la app de escritorio puede **abrir el sketch en el Arduino IDE** y **abrir su
 carpeta** (menú «Sketch: nombre ▾»). La versión de navegador no puede lanzar programas.
 
