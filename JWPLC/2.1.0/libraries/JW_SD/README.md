@@ -537,7 +537,20 @@ auto file = JWPLC_SD.open("/log.txt", FILE_READ);
 
 ---
 
-## Estado Alpha12
+## Correcciones de mantenimiento en Alpha13
+
+Se corrigió un carácter de control NUL accidental en la fuente de SD y
+se volvió a generar `libJW_SD.a` desde el código corregido. Se conserva
+la API `JWPLC_SD` y el DataLog buffered de Alpha12.
+
+Se comprobó en un JWPLC Basic real que la microSD puede montarse y
+abrir su carpeta raíz en modo **sólo lectura**, con RTC y botonera activos.
+Esa prueba no incluye escritura o extracción de la tarjeta en caliente.
+
+**Recomendación:** cierra los archivos después de escribir y no realices
+operaciones SD dentro de callbacks gráficos.
+
+## Estado Alpha12 (funcionalidad conservada en Alpha13)
 
 ```text
 JWPLC ESP32 v2.1.0-alpha.12
