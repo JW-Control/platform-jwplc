@@ -56,12 +56,13 @@ def verify_provenance(data: dict, inp: Path) -> dict[str,Path]:
         require(sorted(record["members"]) == sorted(actual),
                 "MEMBER_LIST_MISMATCH_" + lib)
         # ar del anfitrión solo enumera el contenedor, no compila ni re-enlaza.
-        x=subprocess.run(["ar","t",str(target)],
-                         capture_output=True,text=True,errors="replace",timeout=20)
-        if x.returncode == 0:
-            require(sorted(line.strip() for line in x.stdout.splitlines()
-                           if line.strip()) == sorted(actual),
-                    "RAW_ARCHIVE_MEMBER_LIST_MISMATCH_"+lib)
+        if shutil.which("ar"):
+            x=subprocess.run(["ar","t",str(target)],
+                             capture_output=True,text=True,errors="replace",timeout=20)
+            if x.returncode == 0:
+                require(sorted(line.strip() for line in x.stdout.splitlines()
+                               if line.strip()) == sorted(actual),
+                        "RAW_ARCHIVE_MEMBER_LIST_MISMATCH_"+lib)
         found[lib]=target
     return found
 
