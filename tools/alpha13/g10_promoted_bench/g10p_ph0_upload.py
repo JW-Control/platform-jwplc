@@ -133,7 +133,7 @@ def upload(out: Path, head: str, role: str, cli: str) -> None:
     original = json.loads(seal_file.read_text(encoding="utf-8"))
     require(check_output(out, head) == original,
             "BINARIES_OR_PLATFORM_CHANGED")
-    port, _ = ROLES[role]
+    port, sketch = ROLES[role]
     if role == "COM4_MASTER":
         receipt = out / "PH0_UPLOADED_COM14_SLAVE.json"
         require(receipt.is_file(), "COM14_MUST_PASS_FIRST")
@@ -146,7 +146,8 @@ def upload(out: Path, head: str, role: str, cli: str) -> None:
     # --input-dir reutiliza esos mismos binarios, sin recompilar ni erase-all.
     run([cli, "--config-file", str(out / "config/arduino-cli.yaml"),
          "upload", "--fqbn", FQBN, "--port", port,
-         "--input-dir", str(out / ("build_" + role))], timeout=300)
+         "--input-dir", str(out / ("build_" + role)),
+         str(BENCH / sketch)], timeout=300)
     (out / ("PH0_UPLOADED_" + role + ".json")).write_text(
         json.dumps({"head": head, "role": role, "port": port,
                     "status": "UPLOAD_COMMAND_SUCCESS",
