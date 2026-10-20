@@ -54,10 +54,10 @@ jobs:
         run: |
           python -B -m py_compile tools/alpha13/precompile/a13_precompile_benchmark.py
           python -B tools/alpha13/precompile/a13_precompile_benchmark.py --check --ci-detached
-      - name: FQBN negativo - exigir objetos distintos en fuente heredada
+      - name: FQBN fuente-objeto - exigir paridad completa y símbolo policy por perfil
         shell: pwsh
         run: |
-          python -B tools/alpha13/precompile/a13_fqbn_object_gate.py --expect-mismatch --ci-detached --output (Join-Path $env:RUNNER_TEMP 'a13-fqbn-negative')
+          python -B tools/alpha13/precompile/a13_fqbn_object_gate.py --require-match --ci-detached --output (Join-Path $env:RUNNER_TEMP 'a13-fqbn-parity')
       - uses: actions/upload-artifact@v4
         if: always()
         with:
