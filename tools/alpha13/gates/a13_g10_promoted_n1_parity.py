@@ -46,7 +46,8 @@ def main():
         was_present=(baseline/relative).exists()
         if was_present and (baseline/relative).read_bytes().replace(b"\r\n",b"\n")!=source:
             changed+=1
-        print("G10_N1_SOURCE="+relative+" SHA256="+h(source)+" STATE="+("MODIFIED" if was_present else "ADDED"))
+        state="ADDED" if not was_present else ("UNCHANGED" if (baseline/relative).read_bytes().replace(b"\r\n",b"\n")==source else "MODIFIED")
+        print("G10_N1_SOURCE="+relative+" SHA256="+h(source)+" STATE="+state)
     if changed!=10:die("EXPECTED_10_MODIFIED_GOT_"+str(changed))
     f1="JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/utility/w5100.cpp"
     for product_root in (ROOT,baseline):

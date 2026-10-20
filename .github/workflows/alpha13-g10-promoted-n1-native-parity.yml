@@ -1,9 +1,12 @@
 name: Alpha13 G10 - N1 nativo con paridad de fuentes promovidas
 on:
-  pull_request:
+  push:
+    branches:
+      - 'codex/alpha13-g10-promote-functional-*'
     paths:
       - 'tools/alpha13/gates/a13_g10_promoted_n1_parity.py'
       - '.github/workflows/alpha13-g10-promoted-n1-native-parity.yml'
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
@@ -19,7 +22,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.sha }}
           path: promoted
       - uses: actions/checkout@v5
         with:
