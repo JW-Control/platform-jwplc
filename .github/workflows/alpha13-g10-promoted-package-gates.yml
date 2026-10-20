@@ -1,10 +1,16 @@
 name: Alpha13 G10 - package promovido N0 N1 N2 N3
+# N2/N3 es costoso. Ejecutar solo cuando un PUSH modifica realmente
+# las fuentes productivas, o mediante dispatch explicito de auditoria.
+# pull_request.paths reejecutaria N2/N3 con cualquier update de tooling
+# mientras el PR todavia contenga el diff previo de JWPLC/.
 on:
-  pull_request:
+  push:
+    branches:
+      - 'codex/alpha13-g10-promote-functional-*'
     paths:
       - 'JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/**'
       - 'JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/**'
-      - '.github/workflows/alpha13-g10-promoted-package-gates.yml'
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
@@ -18,7 +24,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.sha }}
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
@@ -35,7 +41,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.sha }}
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
