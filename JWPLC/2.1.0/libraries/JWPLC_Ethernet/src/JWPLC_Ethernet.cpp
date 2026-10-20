@@ -9,6 +9,14 @@
 
 JWPLC_EthernetClass JWPLC_Ethernet;
 
+// Default for JWPLC Basic precompiled core; Basic Core overrides this weak symbol.
+// The override is resolved by the linker rather than by the library FQBN.
+extern "C" bool __attribute__((weak, noinline, used))
+jwplcEthernetProfileAvailable(void)
+{
+    return true;
+}
+
 JWPLC_EthernetClass::JWPLC_EthernetClass()
     : _csPin(JWPLC_ETH_CS),
       _resetPin(JWPLC_ETH_RESET_PIN),
@@ -88,12 +96,15 @@ void JWPLC_EthernetClass::setRetransmissionCount(uint8_t count)
 
 bool JWPLC_EthernetClass::probeHardware()
 {
-#if !JWPLC_HAS_ETHERNET
+    if (!jwplcEthernetProfileAvailable())
+    {
     _ready = false;
     setRuntimeState(JWPLC_ETH_STATE_ERROR);
     setError(JWPLC_ETH_DISABLED);
     return false;
-#else
+    }
+    else
+    {
     _ready = false;
     setRuntimeState(JWPLC_ETH_STATE_PROBING);
     clearError();
@@ -155,14 +166,17 @@ bool JWPLC_EthernetClass::probeHardware()
     clearError();
     setRuntimeState(JWPLC_ETH_STATE_PHY_READY);
     return true;
-#endif
+    }
 }
 
 void JWPLC_EthernetClass::service()
 {
-#if !JWPLC_HAS_ETHERNET
+    if (!jwplcEthernetProfileAvailable())
+    {
     return;
-#else
+    }
+    else
+    {
     // The core tick runs even after DNS/DHCP becomes logically inactive.
     (void)EthernetUDP::jwplcServiceDeferredClose();
     const uint32_t now = millis();
@@ -356,18 +370,21 @@ void JWPLC_EthernetClass::service()
     }
 
     (void)finishNetworkConfiguration();
-#endif
+    }
 }
 
 bool JWPLC_EthernetClass::begin()
 {
-#if !JWPLC_HAS_ETHERNET
+    if (!jwplcEthernetProfileAvailable())
+    {
     _beginAttempted = true;
     _ready = false;
     setRuntimeState(JWPLC_ETH_STATE_ERROR);
     setError(JWPLC_ETH_DISABLED);
     return false;
-#else
+    }
+    else
+    {
     _beginAttempted = true;
     _ready = false;
     _lastAutoAttemptMs = millis();
@@ -413,7 +430,7 @@ bool JWPLC_EthernetClass::begin()
     }
 
     return finishNetworkConfiguration();
-#endif
+    }
 }
 
 bool JWPLC_EthernetClass::begin(const uint8_t mac[6])
@@ -434,9 +451,12 @@ bool JWPLC_EthernetClass::begin(
 
 int JWPLC_EthernetClass::maintain()
 {
-#if !JWPLC_HAS_ETHERNET
+    if (!jwplcEthernetProfileAvailable())
+    {
     return 0;
-#else
+    }
+    else
+    {
     if (!_ready)
     {
         return 0;
@@ -459,16 +479,19 @@ int JWPLC_EthernetClass::maintain()
     }
 
     return result;
-#endif
+    }
 }
 
 bool JWPLC_EthernetClass::isEnabled() const
 {
-#if JWPLC_HAS_ETHERNET
+    if (jwplcEthernetProfileAvailable())
+    {
     return true;
-#else
+    }
+    else
+    {
     return false;
-#endif
+    }
 }
 
 bool JWPLC_EthernetClass::isBeginAttempted() const
@@ -478,11 +501,14 @@ bool JWPLC_EthernetClass::isBeginAttempted() const
 
 bool JWPLC_EthernetClass::isReady() const
 {
-#if JWPLC_HAS_ETHERNET
+    if (jwplcEthernetProfileAvailable())
+    {
     return _ready;
-#else
+    }
+    else
+    {
     return false;
-#endif
+    }
 }
 
 bool JWPLC_EthernetClass::isBusy() const
@@ -494,27 +520,36 @@ bool JWPLC_EthernetClass::isBusy() const
 
 bool JWPLC_EthernetClass::hardwarePresent()
 {
-#if !JWPLC_HAS_ETHERNET
+    if (!jwplcEthernetProfileAvailable())
+    {
     return false;
-#else
+    }
+    else
+    {
     return hardwareStatus() != EthernetNoHardware;
-#endif
+    }
 }
 
 bool JWPLC_EthernetClass::linkUp()
 {
-#if !JWPLC_HAS_ETHERNET
+    if (!jwplcEthernetProfileAvailable())
+    {
     return false;
-#else
+    }
+    else
+    {
     return linkStatus() == LinkON;
-#endif
+    }
 }
 
 EthernetHardwareStatus JWPLC_EthernetClass::hardwareStatus()
 {
-#if !JWPLC_HAS_ETHERNET
+    if (!jwplcEthernetProfileAvailable())
+    {
     return EthernetNoHardware;
-#else
+    }
+    else
+    {
     if (!acquireBus(200))
     {
         setError(JWPLC_ETH_BUS_LOCK_TIMEOUT);
@@ -526,14 +561,17 @@ EthernetHardwareStatus JWPLC_EthernetClass::hardwareStatus()
 
     releaseBus();
     return status;
-#endif
+    }
 }
 
 EthernetLinkStatus JWPLC_EthernetClass::linkStatus()
 {
-#if !JWPLC_HAS_ETHERNET
+    if (!jwplcEthernetProfileAvailable())
+    {
     return Unknown;
-#else
+    }
+    else
+    {
     if (!acquireBus(200))
     {
         setError(JWPLC_ETH_BUS_LOCK_TIMEOUT);
@@ -545,14 +583,17 @@ EthernetLinkStatus JWPLC_EthernetClass::linkStatus()
 
     releaseBus();
     return status;
-#endif
+    }
 }
 
 IPAddress JWPLC_EthernetClass::localIP()
 {
-#if !JWPLC_HAS_ETHERNET
+    if (!jwplcEthernetProfileAvailable())
+    {
     return IPAddress(0, 0, 0, 0);
-#else
+    }
+    else
+    {
     if (!acquireBus(200))
     {
         setError(JWPLC_ETH_BUS_LOCK_TIMEOUT);
@@ -564,14 +605,17 @@ IPAddress JWPLC_EthernetClass::localIP()
 
     releaseBus();
     return ip;
-#endif
+    }
 }
 
 IPAddress JWPLC_EthernetClass::subnetMask()
 {
-#if !JWPLC_HAS_ETHERNET
+    if (!jwplcEthernetProfileAvailable())
+    {
     return IPAddress(0, 0, 0, 0);
-#else
+    }
+    else
+    {
     if (!acquireBus(200))
     {
         setError(JWPLC_ETH_BUS_LOCK_TIMEOUT);
@@ -583,14 +627,17 @@ IPAddress JWPLC_EthernetClass::subnetMask()
 
     releaseBus();
     return ip;
-#endif
+    }
 }
 
 IPAddress JWPLC_EthernetClass::gatewayIP()
 {
-#if !JWPLC_HAS_ETHERNET
+    if (!jwplcEthernetProfileAvailable())
+    {
     return IPAddress(0, 0, 0, 0);
-#else
+    }
+    else
+    {
     if (!acquireBus(200))
     {
         setError(JWPLC_ETH_BUS_LOCK_TIMEOUT);
@@ -602,14 +649,17 @@ IPAddress JWPLC_EthernetClass::gatewayIP()
 
     releaseBus();
     return ip;
-#endif
+    }
 }
 
 IPAddress JWPLC_EthernetClass::dnsServerIP()
 {
-#if !JWPLC_HAS_ETHERNET
+    if (!jwplcEthernetProfileAvailable())
+    {
     return IPAddress(0, 0, 0, 0);
-#else
+    }
+    else
+    {
     if (!acquireBus(200))
     {
         setError(JWPLC_ETH_BUS_LOCK_TIMEOUT);
@@ -621,7 +671,7 @@ IPAddress JWPLC_EthernetClass::dnsServerIP()
 
     releaseBus();
     return ip;
-#endif
+    }
 }
 
 JWPLCEthernetMode JWPLC_EthernetClass::mode() const
@@ -666,9 +716,12 @@ const char *JWPLC_EthernetClass::lastErrorString() const
 
 const char *JWPLC_EthernetClass::statusString()
 {
-#if !JWPLC_HAS_ETHERNET
+    if (!jwplcEthernetProfileAvailable())
+    {
     return "Ethernet disabled";
-#else
+    }
+    else
+    {
     switch (_runtimeState)
     {
     case JWPLC_ETH_STATE_NOT_STARTED:
@@ -721,14 +774,17 @@ const char *JWPLC_EthernetClass::statusString()
     }
 
     return "OK";
-#endif
+    }
 }
 
 const char *JWPLC_EthernetClass::diagnosticCode() const
 {
-#if !JWPLC_HAS_ETHERNET
+    if (!jwplcEthernetProfileAvailable())
+    {
     return "DIS";
-#else
+    }
+    else
+    {
     switch (_runtimeState)
     {
     case JWPLC_ETH_STATE_NOT_STARTED:
@@ -779,7 +835,7 @@ const char *JWPLC_EthernetClass::diagnosticCode() const
     default:
         return "ERR";
     }
-#endif
+    }
 }
 
 const uint8_t *JWPLC_EthernetClass::mac() const
@@ -883,10 +939,13 @@ void JWPLC_EthernetClass::resetHardwareIfNeeded()
 
 bool JWPLC_EthernetClass::prepareSPI()
 {
-#if !JWPLC_HAS_ETHERNET
+    if (!jwplcEthernetProfileAvailable())
+    {
     setError(JWPLC_ETH_DISABLED);
     return false;
-#else
+    }
+    else
+    {
     SPI.begin(JWPLC_SPI_SCK, JWPLC_SPI_MISO, JWPLC_SPI_MOSI);
 
     if (!jwplcSPI_begin())
@@ -896,24 +955,28 @@ bool JWPLC_EthernetClass::prepareSPI()
     }
 
     return true;
-#endif
+    }
 }
 
 bool JWPLC_EthernetClass::acquireBus(uint32_t timeoutMs)
 {
-#if !JWPLC_HAS_ETHERNET
+    if (!jwplcEthernetProfileAvailable())
+    {
     (void)timeoutMs;
     return false;
-#else
+    }
+    else
+    {
     return jwplc_w5500_candidate::enter(timeoutMs);
-#endif
+    }
 }
 
 void JWPLC_EthernetClass::releaseBus()
 {
-#if JWPLC_HAS_ETHERNET
+    if (jwplcEthernetProfileAvailable())
+    {
     jwplc_w5500_candidate::leave();
-#endif
+    }
 }
 
 void JWPLC_EthernetClass::setError(JWPLCEthernetError error)
@@ -989,13 +1052,16 @@ bool JWPLC_EthernetClass::finishNetworkConfiguration()
 bool JWPLC_EthernetClass::serviceL2RefreshLocked(
     uint32_t now)
 {
-#if !JWPLC_HAS_ETHERNET || \
-    JWPLC_ETH_L2_REFRESH_PERIOD_MS == 0
+    if (!jwplcEthernetProfileAvailable() || JWPLC_ETH_L2_REFRESH_PERIOD_MS == 0)
+    {
+
 
     (void)now;
     return false;
 
-#else
+    }
+    else
+    {
 
     // Se marca el intento al entrar para garantizar que un fallo
     // best-effort nunca genere un retry cerrado en cada tick.
@@ -1098,7 +1164,7 @@ bool JWPLC_EthernetClass::serviceL2RefreshLocked(
     udp.stop();
 
     return ok;
-#endif
+    }
 }
 
 // =====================================================
@@ -1109,7 +1175,8 @@ bool JWPLC_EthernetClass::serviceL2RefreshLocked(
 
 extern "C" void jwplcEthernetTickCallback(void)
 {
-#if JWPLC_HAS_ETHERNET
+    if (jwplcEthernetProfileAvailable())
+    {
     JWPLC_Ethernet.service();
-#endif
+    }
 }
