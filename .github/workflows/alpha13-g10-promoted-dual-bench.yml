@@ -1,0 +1,71 @@
+name: Alpha13 G10 PH0 - Dual COM4 COM14 build-only
+on:
+  push:
+    branches:
+      - 'codex/alpha13-g10-promote-functional-*'
+    paths:
+      - 'tools/alpha13/g10_promoted_bench/**'
+      - '.github/workflows/alpha13-g10-promoted-dual-bench.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preflight-build:
+    name: Dual product PH0 (no upload) ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - uses: arduino/setup-arduino-cli@v2
+        with:
+          version: '1.5.1'
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15/packages/jwplc
+            ~/.arduino15/staging
+          key: a13-g10-promoted-alpha10-${{ runner.os }}-${{ hashFiles('JWPLC/package_jwplc_index_dev.json') }}
+      - name: Preparar toolchain de CI sin USB ni firmware
+        shell: bash
+        run: |
+          set -euo pipefail
+          arduino-cli config init --overwrite
+          arduino-cli config set board_manager.additional_urls "https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json"
+          arduino-cli core update-index
+          arduino-cli core install 'jwplc:esp32@2.1.0-alpha.10'
+      - name: Verificar contrato G10 y ambos sketches sin tocar dispositivos
+        shell: pwsh
+        run: |
+          python -B tools/alpha13/g10_promoted_bench/g10p_dual_build.py --expected-head "${{ github.sha }}" --ci-detached --check
+      - name: N0 PH0 upload runner sin puertos, MAC ni backup
+        shell: pwsh
+        run: |
+          python -B tools/alpha13/g10_promoted_bench/g10p_ph0_upload.py --check --ci-detached --expected-head "${{ github.sha }}"
+      - name: Compilar ambos sketches desde package promovido y FQBN temporal
+        shell: pwsh
+        run: |
+          python -B tools/alpha13/g10_promoted_bench/g10p_dual_build.py --expected-head "${{ github.sha }}" --ci-detached --output (Join-Path $env:RUNNER_TEMP 'g10p-dual')
+      - name: N0 fisico preparable - validar ELF y tres binarios por placa sin USB
+        shell: pwsh
+        run: |
+          python -B tools/alpha13/g10_promoted_bench/g10p_ph0_upload.py --seal-existing --ci-detached --expected-head "${{ github.sha }}" --output (Join-Path $env:RUNNER_TEMP 'g10p-dual')
+      - name: Publicar solo manifiesto SHA y logs (no ELF/firmware)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g10p-dual-build-${{ matrix.os }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/g10p-dual/MANIFEST.json
+            ${{ runner.temp }}/g10p-dual/*.log
+          if-no-files-found: warn
+          retention-days: 14

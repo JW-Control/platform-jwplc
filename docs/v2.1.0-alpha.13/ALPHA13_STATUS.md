@@ -1,3 +1,342 @@
+# ESTADO VIGENTE — 20/10/2026 — G10-PH0/R1/R2 aceptados; R3 externo cubierto, R4 larga dispensada para integración
+
+**El operador solicita cerrar sin esperas prolongadas adicionales**, integrar robustez Ethernet y preparar cierre de Alpha13. Evidencia nueva COM4 en archivo de 73 heartbeats, SHA256 `439f1f6ef6cf025ab77d3bccf4e52263e3274f5c4e51e76b00f4022a0da49cf0`: `BOOT=FEEDC504`, HB 4748..4820 consecutivos. Primera transición PHY1→2 en HB4763, vuelta PHY1 HB4778, IP/ETH/TCP READY HB4782. Segunda PHY1→2 HB4792, PHY1 HB4808, READY HB4814. RTU_OK 5779→5868 con RTU_FAIL=40 estable; SD_OK/FRAM_READ 6330→6426, SD_FAIL=0, RTC/IO/TFT=1. **R2 completo para enlace y servicios observable PASS**, combinado con 3 ciclos TCP/UDP anteriores (1,69/10,05/6,03 s). No inferir 5/5 ciclos idénticos de UART ni DNS/DHCP handshake probado.
+
+**Sin gates físicos adicionales requeridos para dictamen funcional de integración:** R1 605 s 589 FC03 válidos por PLC y 589 ecos UDP ya ejercitó rotación secuencial de 589 conexiones TCP nuevas y cierre de cada una. Repetir R3 externo 90 s, con mismo patrón, sería redundante: cobertura externa **reutilizada**, pero R3 interno BUS_BUSY/lease/stale/close bajo contención **NO EJECUTADO**. R4 de 1805 s y telemetría heap/sockets **NO EJECUTADOS**: a petición del operador se acepta cobertura abreviada R1 en lugar de esperar otros 30 min, registrando riesgo residual (no inventar PASS R4). Dictamen firmado en `A13_G10_H_DICTAMEN_CIERRE_ACOTADO_20261020.md`.
+
+**Estado del producto:** PR #124 aún aislado, no fusionado, 10 fuentes modificadas + 2 añadidas en package, F1 SS_PIN protegido. N0/N1/N2/N3 previos PASS sobre las mismas fuentes; CI del HEAD final y revisión exacta del diff antes de integrar. El usuario solicita integrar, pero cierre global de Alpha13 y publicación requieren validar el resto de blockers, sincronizar base y conocimiento privado, checklist final y PreRelease en español. E1/E2 siguen PENDING. F135 resuelta en la herramienta, `NEXT_FAILURE_ID=F136`.
+
+```text
+ALPHA13=OPEN_PENDING_INTEGRATION_AND_RELEASE_CHECKLIST
+G10_PH0=PASS_FUNCTIONAL_PHYSICAL
+G10_H_R1=PASS_589_TCP_PER_DEVICE_PLUS_589_UDP_605S
+G10_H_R2=PASS_NETWORK_3_OF_3_AND_UART_2_OBSERVED_LINK_CYCLES
+G10_H_R2_DNS_DHCP_RENEWAL=NOT_TESTED
+G10_H_R3_EXTERNAL=REUSED_R1_589_SEQUENTIAL_TCP_CONNECT_CLOSE_PER_DEVICE
+G10_H_R3_INTERNAL=NOT_EXECUTED_ACCEPTED_RISK
+G10_H_R4_1805S=NOT_EXECUTED_SHORTENED_BY_OWNER
+G10_H=ACCEPTED_FUNCTIONAL_WITH_DISCLOSED_RISKS
+G10_PRODUCT_DIFF=10_MODIFIED_2_ADDED
+G10_E1=PENDING_GDB_UNAVAILABLE
+G10_E2=PENDING_SDKCONFIG_NOT_LOCATED
+NEXT_FAILURE_ID=F136
+PENDIENTE_DE_PROMOCION=PR124_12_SOURCES_UNTIL_BASE_MERGE
+BASE_SYNC=PENDING
+KNOWLEDGE_SYNC=PENDING_F135_DOC_PR
+G10_PR124=READY_FOR_MERGE_READINESS_REVIEW_NOT_MERGED
+NEXT_GATE=PR124_FINAL_CI_REVIEW_AND_ALPHA13_BASE_MERGE
+```
+
+---
+# ESTADO VIGENTE — 20/10/2026 — G10-H R2: UART original no grabada, captura complementaria mínima
+
+**Respuesta operador:** en los tres ciclos R2 completados no se guardó registro UART de COM4 ni COM14. No atribuir a esos ciclos transiciones PHY observadas, reconexión DHCP/renovación de lease ni liveness ininterrumpida RTU; el resultado existente continúa `R2_NETWORK=PASS_3_OF_3` con recuperaciones 1,69 / 10,05 / 6,03 s.
+
+**Decisión operativa sin tocar producto:** ejecutar **un ciclo complementario R2-UART** manual, no relanzar `--phase R2` (que haría otros 3 ciclos). Abrir monitor COM4 115200 ANTES de la maniobra; dejarlo abierto durante toda la ventana y obtener varias líneas heartbeat de baseline, caída RJ45 SOLO COM4 12–15 s, retorno y estabilidad durante 20–30 s. Registrar BOOT estable durante el ciclo, HB progresivo, `PHY != 1` durante desconexión y `PHY=1 ETH=1 TCP=1`/IP tras reconectar; RTU_OK progresivo y RTU_FAIL sin nuevos errores. El monitor serie puede provocar reset inicial por DTR/RTS: esperar nuevo baseline estable **antes de manipular RJ45** y nunca confundir ese reset de apertura con watchdog de la campaña. En COM14, si es viable, comprobar `RTU_REQUESTS` progresivo y `RTU_CRC` estable después del ciclo. Cerrar gate de enlace solo si la captura respalda los marcadores, sin exigir MAC ni backup.
+
+**Límites deliberados:** esta captura complementaria verifica comportamiento UART **en un cuarto ciclo**, no retroactivamente en cada uno de los tres anteriores. IP recuperada con `ETH=1` no demuestra necesariamente nueva transacción DHCP, renovación de lease ni una consulta DNS desde el PLC. Si esos subcriterios siguen obligatorios para cerrar R2 integral, documentar `R2_DHCP_DNS=NOT_TESTED` y diseñar gate específico; nunca asignar PASS solo por la prueba del PC. Mantener R3/R4 sin ejecutar, F136 reservado, PR #124 Draft, BASE_SYNC y KNOWLEDGE_SYNC pendientes.
+
+```text
+ALPHA13=OPEN
+NEXT_FAILURE_ID=F136
+G10_H_R2_NETWORK=PASS_3_OF_3
+G10_H_R2_ORIGINAL_UART=NOT_CAPTURED_COM4_COM14
+G10_H_R2_SUPPLEMENTARY_UART=READY_NOT_RUN_1_MANUAL_CYCLE
+G10_H_R2_DHCP_HANDSHAKE=NOT_TESTED
+G10_H_R2_DNS=NOT_TESTED
+G10_H_R2_FULL=PENDING_SCOPE_EVIDENCE
+G10_H_R3=NOT_RUN_INTERNAL_OPEN
+G10_H_R4=NOT_RUN
+BASE_SYNC=PENDING_INTENTIONAL
+KNOWLEDGE_SYNC=PENDING_F135_REUSABLE_LESSON
+G10_E1=PENDING_GDB_UNAVAILABLE
+G10_E2=PENDING_SDKCONFIG_NOT_LOCATED
+G10_PR124=DRAFT_NOT_MERGED
+NEXT_GATE=G10_H_R2_SUPPLEMENTARY_COM4_UART_ONE_CYCLE
+```
+
+---
+# ESTADO VIGENTE — 20/10/2026 — G10-H R2 red 3/3 PASS, UART PHY/DHCP pendiente
+
+**Evidencia aportada por operador:** PowerShell en rama candidata, HEAD ejecutor `0959781211bc016016c2a626f14ec77559e9085f` y firmware instalado/sellado `7c1974c659be4aa88c877a849db6efc32673da60`. Ejecutó `g10p_r1_r4_campaign.py --phase R2` con el banco dual ya validado y maniobras confirmadas `CONFIRMO` (desconectar/reconectar SOLO RJ45 COM4, mantener COM14 y RS-485). Se conserva `G10P_R2_RESULT.json` local en carpeta temporal del operador; el JSON fue pegado en la conversación, **no se incorporó al repo ni se verificó su SHA de archivo**.
+
+**Evidencia de red:** tres ciclos completos con 3 intentos TCP fallidos **esperados** en COM4 durante la desconexión por cada ciclo (9 en total); el runner verificó TCP FC03 en COM14 durante las caídas y después TCP FC03 a ambos más eco UDP COM4. Recuperaciones observadas: ciclo 1 **1,69 s**, ciclo 2 **10,05 s**, ciclo 3 **6,03 s**; máximo 10,05 s frente a 96 s permitidos. Las 3 recuperaciones de COM4 se produjeron sobre la misma IP conocida. Salida final: `G10P_R2_NETWORK=PASS_3_CYCLES_UART_PHY_DHCP_PENDING`.
+
+**Alcance y cautelas:** el JSON conserva correctamente `status=NETWORK_RECOVERY_PASS_UART_PHY_DHCP_PENDING`, y cada `operator_uart_confirmation=PENDING`. No se entregaron UART de las transiciones R2 en este turno. No afirmar aún que PHY cayó/volvió en cada ciclo, que DHCP hizo un nuevo acuerdo, que RTU permaneció operativo sin cortes ni que no hubo reset durante cada intervalo. Tampoco se ejecutó DNS ni falla de DHCP renewal. `R2_NETWORK=PASS_3_OF_3`, `R2_FULL=REVIEW_PENDING_UART`; **no repetir red R2 automáticamente**. Solicitar extractos UART del Master y, si existen, Slave en cada transición (BOOT idéntico, HB creciente, PHY fuera de 1 → 1, IP/ETH/TCP recuperados, RTU_OK sin nuevos fallos). Si no se guardaron, acordar captura dirigida de validación pendiente sin falsificar los tres ciclos.
+
+**No se ha iniciado R3 ni R4.** Mantener PR #124 Draft, `BASE_SYNC=PENDING`, `E1/E2=PENDING`, `KNOWLEDGE_SYNC=PENDING_F135`, `NEXT_FAILURE_ID=F136`. No cambió firmware, package, GPIO4 ni archivos `.a` y no hubo upload.
+
+```text
+ALPHA13=OPEN
+NEXT_FAILURE_ID=F136
+G10_H_R1=PASS_WITH_POST_WINDOW_UART
+G10_H_R2_NETWORK=PASS_3_OF_3
+G10_H_R2_TCP_DOWN_SAMPLES=3_3_3
+G10_H_R2_RECOVERY_SECONDS=1.69_10.05_6.03
+G10_H_R2_COM14_FC03_DURING_COM4_DOWN=PASS_OBSERVED_BY_RUNNER
+G10_H_R2_FULL=REVIEW_PENDING_UART_PHY_DHCP_BOOT_RTU
+G10_H_R2_DNS=NOT_RUN
+G10_H_R3=NOT_RUN_INTERNAL_OPEN
+G10_H_R4=NOT_RUN
+G10_H_PACKAGE_EDIT=NO
+G10_H_UPLOAD=NOT_RUN
+G10_E1=PENDING_GDB_UNAVAILABLE
+G10_E2=PENDING_SDKCONFIG_NOT_LOCATED
+PENDIENTE_DE_PROMOCION=PR124_10_MODIFIED_2_ADDED
+BASE_SYNC=PENDING_INTENTIONAL
+KNOWLEDGE_SYNC=PENDING_F135_REUSABLE_LESSON
+G10_PR124=DRAFT_NOT_MERGED
+NEXT_GATE=G10_H_R2_UART_EVIDENCE_RECONCILIATION_BEFORE_R3
+```
+
+---
+# ESTADO VIGENTE — 20/10/2026 — G10-H R1 físico PASS, NEXT_GATE R2 link recovery
+
+**Fuente de evidencia:** operador Windows PowerShell, dos extractos UART y archivo externo `G10P_R1_RESULT.json` (local, **no** incorporado ni adjuntado al repositorio). SHA-256 del JSON recibido: `dd64b76c0cc317450ddbfb203fa551d56799007326895179cb65f9af6b24fec8`. Script/HEAD `3ebfb96bbeea50a3221af228497b5c3612fce12f`, `firmware_head=7c1974c659be4aa88c877a849db6efc32673da60`. Ejecutado 20/10/2026, duración medida 605,0 s, protocolo G10-H R1 previsto 605 s. `--selftest` y `--check` locales PASS. `--phase R1` emitió `G10P_R1_NETWORK=PASS_589_SAMPLES`. Estado generado automáticamente `NETWORK_PASS_UART_PERIPHERALS_PENDING`, reconciliado con extractos UART aportados **posteriormente** por el operador.
+
+**589 ciclos completos sin error TCP/UDP de los que se reportó, 1767 operaciones:** 589 lecturas Modbus TCP FC03 4 registros exactos de COM4, otras 589 de COM14 y 589 ecos UDP de COM4 en puerto 15020. `read()` comprueba Unit1/TID/protocolo/4 registros; echo confirma contenido y remitente/puerto. Estadísticos calculados sobre JSON (ms, resolución de reloj Windows, valores `0` son redondeo y no latencia nula):
+
+| Canal | Media | P95 | P99 | Máx. |
+| --- | ---: | ---: | ---: | ---: |
+| TCP/502 COM4 Master | 14,679 | 31 | 32 | 47 |
+| TCP/502 COM14 Slave | 11,550 | 31 | 32 | 125 |
+| UDP echo COM4:15020 | 0,959 | 15 | 16 | 16 |
+
+**Observaciones UART inmediatamente posteriores:** COM4 HB=2368..2379, mismo `BOOT=FEEDC504` de PH0, `PHY=1 ETH=1 TCP=1`; `UDP_RX=589 UDP_TX=589`, mismos contadores que tráfico 589, RTU_OK 2832→2846, RTU_FAIL **40 sin aumento**, SD_OK 3157→3172, SD_FAIL=0 y FRAM_READ 3157→3172, RTC=1 IO=1 TFT=1. COM14 HB=3000..3009, mismo `BOOT=D998B0A7` de PH0, `PHY=1 ETH=1 TCP=1 RTU=1`, RTU_REQUESTS 2865→2877, CRC=0. UART se abrió *después* de finalizar la ventana: prueba continuidad entre PH0 y final, no serie capturada a cada segundo dentro de R1.
+
+**Dictamen:** `G10_H_R1=PASS_WITH_POST_WINDOW_UART_EVIDENCE` y producto instalado sin WDT/reinicio observado, RTU y periféricos activos al finalizar tráfico concurrente. No inferir ausencia absoluta de starvation SPI, uso de heap o límites internos de socket: no instrumentados. El evento de una latencia COM14 de 125 ms no causó fallo ni timeout. No repetir R1 sin variación de inputs/producto.
+
+**Siguiente gate autorizado:** `R2` 3 ciclos independientes de *retirar SOLO RJ45 COM4*, mantener USB, alimentación, RTU, COM14 y PC intactos; cada ciclo 12 s link down y recuperación de FC03+UDP en máximo 96 s. Operador confirmar maniobras con `CONFIRMO` en runner; grabar UART en COM4 y COM14 para `BOOT` estable, `PHY`, DHCP y RTU. No confundir servidor inaccesible por IP con detección directa de PHY/DHCP. Si el IP cambia tras DHCP, detener, documentar y conciliar; no reflashear. No hay permiso de merge hasta R2–R4 y aceptación explícita de limitaciones R3 y E1/E2.
+
+```text
+ALPHA13=OPEN
+NEXT_FAILURE_ID=F136
+G10_PH0=PASS_FUNCTIONAL_PHYSICAL
+G10_H_R1=PASS_WITH_POST_WINDOW_UART_EVIDENCE
+G10_H_R1_DURATION_S=605
+G10_H_R1_ROUNDS=589
+G10_H_R1_TCP_COM4_FC03=PASS_589
+G10_H_R1_TCP_COM14_FC03=PASS_589
+G10_H_R1_UDP_COM4_ECHO=PASS_589_COUNTER_MATCH
+G10_H_R1_RTU=PASS_POSTWINDOW_NO_ADDITIONAL_ERRORS
+G10_H_R1_SD_FRAM_RTC_IO_TFT=PASS_POSTWINDOW_OBSERVATION
+G10_H_R2=READY_NOT_RUN_3_CYCLES_12S_96S
+G10_H_R3=EXTERNAL_NOT_RUN_INTERNAL_OPEN
+G10_H_R4=NOT_RUN_1805S
+G10_H_FW_CHANGES=NO
+G10_H_UPLOAD=NOT_RUN
+G10_E1=PENDING_GDB_UNAVAILABLE
+G10_E2=PENDING_SDKCONFIG_NOT_LOCATED
+PENDIENTE_DE_PROMOCION=PR124_10_MODIFIED_2_ADDED
+BASE_SYNC=PENDING_INTENTIONAL_UNTIL_R1_R4_AND_MERGE_DECISION
+KNOWLEDGE_SYNC=PENDING_F135_REUSABLE_LESSON
+G10_PR124=DRAFT_NOT_MERGED
+NEXT_GATE=G10_H_R2_THREE_LINK_LOSS_RECOVERY_CYCLES
+```
+
+---
+# ESTADO VIGENTE — 20/10/2026 — G10-H R1–R4 autorizado antes de merge, runner N0 CI PASS
+
+**Decisión propietario:** realizar validación R1–R4 antes de fusionar PR #124. Alcance inmediato: preparar y ejecutar tráfico físico **desde PC a ambos PLC ya flasheados**, sin tocar firmware, `JWPLC/`, GPIO4, archives, puertos COM mediante el runner, MAC ni backup. Router de pruebas aislado, Q sin cargas; **R2 requiere maniobras RJ45 confirmadas por operador**. G10-H se ejecuta sin reutilizar el overlay G10-R como firmware del producto.
+
+**Baseline físico reutilizado:** G10-PH0 en COM4 y COM14 PASS funcional (UART RTU real, DHCP dos IP, TCP FC03 real dos servidores) sobre binarios compilados originalmente en `c08147eedf` con fuentes productivas del HEAD `7c1974c659be4aa88c877a849db6efc32673da60`, sellados SHA 2/2. `E1/E2=PENDING`. PR sigue Draft; base Alpha13 intencionalmente desfasada.
+
+**Herramienta nueva versionada:** `tools/alpha13/g10_promoted_bench/g10p_r1_r4_campaign.py` junto a README y workflow `alpha13-g10-ph0-r-campaign.yml`. Usa Modbus TCP FC03 solamente y UDP eco puerto 15020 del Master; no flash, serie ni lecturas MAC. Un modo/una evidencia local por fase para detenerse ante REVIEW_STOP; RFC ventanas **del runner G10-R original**: R1 605 s, R2 3 ciclos con 12 s sin enlace y 96 s máximo para recuperar, R4 1805 s. R3 externo 90 s es únicamente prueba funcional de churn de conexiones, **no demuestra BUS_BUSY ni tokens/stale/deferred close** y no reemplaza la inyección interna. DNS no está instrumentado por el firmware PH0, tampoco se declaran memoria/sockets SPI PASS por tráfico de PC sin UART complementario.
+
+**CI N0 del nuevo runner:** [run #39477304043](https://github.com/JW-Control/platform-jwplc/actions/runs/39477304043), SHA de ejecución `6ef8fdebeb245699250ff67a8d159e6d5945ef78`, Windows y Ubuntu 2/2 SUCCESS, sin pasos omitidos en jobs de protocolo; pruebas sintéticas FC03, direcciones privadas, protocolo/ventanas, guardia no upload/serial. Es evidencia NO física. No hay nueva compilación Arduino ni prueba de hardware: no hubo cambios productivos.
+
+**Revisión source-backed R3:** la rama candidata contiene `StatusReadOutcome::{Read,BusBusy,Stale}` y cierre diferido con token en `JWPLC_W5500_SafeAccess.cpp`, `EthernetClient.cpp` y `JWPLC_ModbusTCP_Client.cpp`. El sketch PH0 actual no llama los cinco probes del overlay (UDP, DNS, TCP, DHCP_CANCEL, DHCP_FINISH), ni publica socket/heap telemetry. Una campaña externa de cierres/reaperturas solo ejercita el observable; mantener G10-H R3 completo OPEN hasta decisión del mecanismo de evidencia. No modificar el package para acomodar una sonda experimental.
+
+```text
+ALPHA13=OPEN
+NEXT_FAILURE_ID=F136
+G10_PH0=PASS_FUNCTIONAL_PHYSICAL_ALREADY_RECORDED
+G10_H_SCOPE=R1_R2_R3_R4_APPROVED_BY_OWNER_BEFORE_MERGE
+G10_H_R1=READY_NOT_RUN_605S
+G10_H_R2=READY_NOT_RUN_3_CYCLES_12S_96S
+G10_H_R3_EXTERNAL=READY_NOT_RUN_90S
+G10_H_R3_INTERNAL=OPEN_FAULT_INJECTION_UNAVAILABLE_IN_INSTALLED_SKETCH
+G10_H_R4=READY_NOT_RUN_1805S_MEMORY_SPI_TELEMETRY_LIMITED
+G10_H_R_N0_CI=PASS_2_OF_2_RUN_39477304043_SHA_6EF8FDEB
+G10_H_PRODUCT_CHANGE=NO
+G10_H_UPLOAD=NOT_RUN
+G10_H_FIELD_TRAFFIC=NOT_RUN
+G10_E1=PENDING_GDB_UNAVAILABLE
+G10_E2=PENDING_SDKCONFIG_NOT_LOCATED
+PENDIENTE_DE_PROMOCION=PR124_10_MODIFIED_2_ADDED_NOT_IN_ALPHA13_BASE
+BASE_SYNC=PENDING_INTENTIONAL_R1_R4_BEFORE_MERGE
+KNOWLEDGE_SYNC=PENDING_F135_REUSABLE_LESSON
+G10_PR124=DRAFT_NOT_MERGED
+NEXT_GATE=G10_H_R1_605S_FIELD_RUN_AND_UART_EVIDENCE
+```
+
+---
+# ESTADO VIGENTE — 20/10/2026 — G10-PH0 FÍSICO PASS (COM14+COM4, RTU + router DHCP + Modbus TCP FC03)
+
+**Fuente de evidencia física:** salidas CLI y dos capturas UART remitidas por el operador el 20/10/2026, con hardware de banco y package G10 funcional promovido exclusivamente en PR #124. Último HEAD **usado en upload**, `7c1974c659be4aa88c877a849db6efc32673da60`; último commit productivo `JWPLC/` anterior al kit de uploader y sin modificación posterior (último código productivo `ee27c73d97dd...`). Firmware de ambas placas sin instrumentación G10-R, sin MAC leída explícitamente y sin backup por decisión del operador.
+
+**Identidad de software previa:** `g10p_ph0_upload.py --check` PASS en Windows; dos carpetas de compilación reales `g10p_ph0_c08147eedf3b_*` verificadas por `--seal-existing` `PASS_VERIFIED_NO_USB` contra HEAD `7c1974c6`, con manifiestos y SHA de ELF, binarios, fuentes/objetos y archives. `F135` (el verificador esperó `Sketch.elf` y no `Sketch.ino.elf`) **RESOLVED_LOCAL_SEAL_2_OF_2**, sin defecto de producto demostrado; resultado de la **nueva CI postbuild** permanece **NOT_CONFIRMED** (no convertir el workflow de promoción en CI de build dual). `NEXT_FAILURE_ID=F136`.
+
+**COM14 Slave:** `--upload-com14` devolvió `G10P_PH0_UPLOAD_COMMAND=SUCCESS_COM14_SLAVE`. UART a 115200: 156 heartbeats consecutivos HB=60..215, `BOOT=D998B0A7` inmutable, sin reset/watchdog/panic visible. A HB108 el PHY pasó a `1`; desde HB114 hasta HB215, IP DHCP `192.168.0.31`, `PHY=1 ETH=1 TCP=1`, con RTU listo `RTU=1` y CRC `0`. El log COM14 fue capturado **antes de conectar RTU**, por lo que `RTU_REQUESTS=0` allí no equivale a defecto del Slave. Su banner BOOT inicial no está capturado.
+
+**COM4 Master:** `--upload-com4` completado según la continuación del operador y el firmware observó `BOOT=FEEDC504`, 175 heartbeats consecutivos HB=21..195 sin reset/watchdog/panic. El operador indica secuencia *arranque sin RTU/TCP → conexión RS-485 → conexión RJ45*. Mientras RTU no estaba conectado `RTU_FAIL` subió a 40; desde HB81 al conectar, `RTU_OK` creció de 1 a 142 (HB195) y **RTU_FAIL permaneció 40**, confirmando FC03 RTU real con 4 registros esperados sin nuevos errores observados. PHY=1 a HB148; DHCP otorgó IP `192.168.0.159` a HB164; `ETH=1 TCP=1` sostenidos hasta HB195 mientras RTU_OK continuó creciendo. `SD_FAIL=0`, `SD_OK` y `FRAM_READ` crecieron de 28 a 260; `RTC=1 IO=1 TFT=1` constantes. En este extracto `UDP_RX=0 UDP_TX=0`: UDP no fue ejercitado.
+
+**COM4+COM14 router aislado:** el operador ejecutó `g10p_modbus_tcp_readonly.py --com4-ip 192.168.0.159 --com14-ip 192.168.0.31`, obtuvo exactamente `G10P_TCP_FC03_COM4_MASTER=PASS_4_REGISTERS`, `G10P_TCP_FC03_COM14_SLAVE=PASS_4_REGISTERS`, `G10P_TCP_DUAL_ROUTER=PASS_2_DIFFERENT_IPS`. No hubo escrituras ni acceso serial desde el cliente TCP. Este gate prueba solicitudes reales TCP/502 Unit1 FC03 a ambos PLC y confirma IP DHCP distintas, pero **no prueba tráfico TCP directo PLC→PLC**, UDP echo, DNS, cierre/reuso bajo contención o estabilidad de larga duración.
+
+**Decisión de alcance:** G10-PH0 pasa como validación *funcional física* de package candidato. La campaña profunda G10-H sigue separada y no autorizada: R1 smoke sostenido incluye UDP + convivencia autoload/latencia; R2 desconexión/reconexión link, DHCP/DNS y recuperación TCP/UDP; R3 BUS_BUSY/lease/socket lifecycle; R4 endurance/fairness/starvation SPI. Los 175/156 heartbeats actuales **no** cierran R1–R4. El PR #124 continúa **Draft, NO MERGE**; preparar revisión de decisión/aceptación de R1–R4 y posterior merge a base, nunca auto-merger. No modificar GPIO4, FlashFreq, core/archive congelados ni instrumentación productiva.
+
+```text
+ALPHA13=OPEN
+F135=RESOLVED_LOCAL_2_SEALS_NEW_CI_POSTBUILD_UNCONFIRMED
+NEXT_FAILURE_ID=F136
+G10_PH0=PASS_FUNCTIONAL_PHYSICAL
+G10_PH0_PRODUCT_UPLOAD_HEAD=7c1974c659be4aa88c877a849db6efc32673da60
+G10_PH0_COM14_UPLOAD=PASS
+G10_PH0_COM14_UART=PASS_HB60_TO_215_BOOT_STABLE
+G10_PH0_COM14_DHCP=PASS_IP_192_168_0_31_PHY1_ETH1_TCP1
+G10_PH0_COM4_UPLOAD=PASS_OPERATOR_REPORTED_UART_CONFIRMED
+G10_PH0_COM4_UART=PASS_HB21_TO_195_BOOT_STABLE
+G10_PH0_RTU_MASTER_SLAVE=PASS_COM4_RTU_OK_142_RTU_FAIL_40_STABLE_POST_CONNECT
+G10_PH0_RTU_COM14_SLAVE_REQUEST_COUNT=NOT_CAPTURED_AFTER_CONNECTION
+G10_PH0_COM4_DHCP=PASS_IP_192_168_0_159_PHY1_ETH1_TCP1
+G10_PH0_TCP_FC03_PHYSICAL=PASS_2_OF_2_READ_ONLY
+G10_PH0_UDP_PHYSICAL=NOT_RUN
+G10_PH0_PLC_TO_PLC_TCP_CLIENT=NOT_RUN_OPTIONAL
+G10_H_R1_R2_R3_R4=NOT_RUN_NOT_AUTHORIZED
+G10_E1=PENDING_GDB_UNAVAILABLE
+G10_E2=PENDING_SDKCONFIG_NOT_LOCATED
+PENDIENTE_DE_PROMOCION=PR124_10_MODIFIED_2_ADDED_NOT_IN_ALPHA13_BASE
+BASE_SYNC=PENDING_INTENTIONAL_UNTIL_G10_H_DECISION
+KNOWLEDGE_SYNC=PENDING_F135_TOOLING_LESSON_NO_NEW_PH0_RULE_ADDED
+G10_PR124=DRAFT_NOT_MERGED
+NEXT_GATE=G10_H_R1_R4_SCOPE_AND_PR124_MERGE_DECISION
+```
+
+---
+# ESTADO VIGENTE — 20/10/2026 — G10-PH0 F135: fail del verificador ELF/bin, sin upload
+
+**Evidencia real operador:** VS Code ve USB-SERIAL CH340 en **COM14 y COM4**; N0 local `c08147eedf` PASS. `--prepare` devolvió `G10P_PH0_REVIEW_STOP_ELF_MISSING_COM14_SLAVE`. El nuevo runner suponía `G10P_COM14_Slave.elf` en vez del nombre Arduino `G10P_COM14_Slave.ino.elf`; el mismo defecto afectaba `.bin`. No atribuirlo a firmware ni producto: el ejecutor de build dual anterior prueba ELF real y fuente→objeto. COM14 y COM4 **no han sido flasheados**.
+
+**F135 (tooling, corregido en rama candidata, CI posterior pendiente):** `g10p_ph0_upload.py` ahora exige ELF `Sketch.ino.elf`, firmware `.ino.bin`, bootloader `.ino.bootloader.bin`, particiones `.ino.partitions.bin`, SHA de manifiesto/objetos/libs y sello; el workflow dual prueba el sellado real sin USB en Windows/Ubuntu. Incluye `--seal-existing` para recuperar la build anterior sin recompilar si el diff Git entre el HEAD compilado y actual no modifica package, sketches, compilador o contrato. Procedimiento versionado en `tools/alpha13/g10_promoted_bench/README.md`; el registro de fallos único está en `A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md`.
+
+**Próximo gate:** verificar CI de sellado postbuild y que las tres imágenes por placa existen; operador hará `git pull --ff-only` en la rama candidata y `--seal-existing` sobre la carpeta temporal previa. Solo luego de PASS y observación de puerto/rol procede upload autorizado COM14→COM4 y UART; RS-485, TCP/router y R1–R4 permanecen no ejecutados.
+
+```text
+ALPHA13=OPEN
+F135=TOOLING_FIX_PENDING_REAL_POSTBUILD_CI
+NEXT_FAILURE_ID=F136
+G10_PH0_LOCAL_N0_C08147=PASS
+G10_PH0_PREP_C08147=REVIEW_STOP_ELF_MISSING_COM14_SLAVE
+G10_PH0_FIRMWARE_CHANGED=NO
+G10_PH0_UPLOAD_COM14=NOT_RUN
+G10_PH0_UPLOAD_COM4=NOT_RUN
+G10_PH0_MAC_EXPLICIT_READ=NOT_RUN_NOT_NEEDED
+G10_PH0_FLASH_BACKUP=WAIVED_BY_OWNER
+G10_PH0_RTU_TCP_PHYSICAL=NOT_RUN
+G10_E1=PENDING_GDB_UNAVAILABLE
+G10_E2=PENDING_SDKCONFIG_NOT_LOCATED
+PENDIENTE_DE_PROMOCION=PR124_12_SOURCES_NOT_IN_ALPHA13_BASE
+BASE_SYNC=PENDIENTE_G10_OPEN
+KNOWLEDGE_SYNC=PENDIENTE_F135_REUSABLE_LESSON
+NEXT_GATE=G10_PH0_F135_CI_POSTBUILD_THEN_SEAL_EXISTING_AND_UPLOAD_COM14
+```
+
+---
+# ESTADO VIGENTE — 20/10/2026 — G10-PH0 dual autorizado, sin backup ni consulta MAC
+
+**Decisión del propietario:** COM14 Slave y COM4 Master pueden actualizar el firmware de banco G10-PH0. No se exige backup de flash, comprobación MAC ni consentimiento adicional por cada upload. La decisión sustituye solo esos requisitos de las entradas históricas; se mantienen Q sin cargas, puertos correctos, red aislada y UART posterior. R1–R4, merge y release NO autorizados.
+
+**Preflight del operador:** worktree limpio; rama candidata y HEAD a3019fe62df1a2ee3d58d0f95043822eb0ebda8e confirmados; base local restaurada a 0344ff9cbe42e9efa65e7d4caabb60ce15464270; G10P_N0 y G10P_PREFLIGHT sin hardware PASS. Este PASS corresponde al commit anterior a las herramientas nuevas y no acredita todavía su CI.
+
+**Preparación versionada:** tools/alpha13/g10_promoted_bench/g10p_ph0_upload.py permite --check, --prepare (compilar ambos en espacio temporal, SHA de binarios), --upload-com14 y --upload-com4 en ese orden. No invoca read_flash, consulta explícita MAC ni erase-all. Uso completo documentado en el README del banco. CI dual incorpora N0 read-only del uploader; el resultado del HEAD nuevo se verificará antes de cualquier upload.
+
+**Campaña aún pendiente:** preparar build con package real; upload COM14 y observar BOOT/HEARTBEAT sin watchdog; luego COM4 y UART; después RS-485 Modbus RTU Master/Slave y router aislado con dos IP DHCP distintas, PHY=1, ETH=1, TCP=1 y PC FC03 read-only. Ni éxito de CLI ni CI constituyen PASS físico de estos gates sin UART y observación del operador.
+
+```text
+ALPHA13=OPEN
+NEXT_FAILURE_ID=F135
+G10_PH0_UPLOAD_APPROVAL=COM14_SLAVE_AND_COM4_MASTER_APPROVED
+G10_PH0_FLASH_BACKUP=WAIVED_BY_OWNER
+G10_PH0_MAC_EXPLICIT_READ=NOT_NEEDED_NOT_REQUESTED
+G10_PH0_LOCAL_N0_AT_A3019FE=PASS_OWNER_REPORTED
+G10_PH0_NEW_RUNNER_CI=PENDING_CHECK
+G10_PH0_UPLOAD_COM14=NOT_RUN
+G10_PH0_UPLOAD_COM4=NOT_RUN
+G10_PH0_RTU_PHYSICAL=NOT_RUN
+G10_PH0_DUAL_TCP_PHYSICAL=NOT_RUN
+G10_R_R1_R2_R3_R4=NOT_RUN_NOT_AUTHORIZED
+G10_E1=PENDING_GDB_UNAVAILABLE
+G10_E2=PENDING_SDKCONFIG_NOT_LOCATED
+PENDIENTE_DE_PROMOCION=PR124_12_SOURCES_NOT_IN_ALPHA13_BASE
+BASE_SYNC=PENDIENTE_INTENCIONAL_G10_OPEN
+KNOWLEDGE_SYNC=OK_THROUGH_F134
+NEXT_GATE=G10_PH0_RUNNER_N0_CI_THEN_PREPARE_UPLOAD_COM14_COM4_UART
+```
+
+---
+# ESTADO VIGENTE — 19/10/2026 — G10-PH0: banco dual COM4+COM14 y router, CI no física PASS
+
+**Nueva decisión del propietario:** preparar y validar ambos JWPLC Basic de desarrollo, **COM4 Master y COM14 Slave**, incluidos sus puertos Ethernet conectados posteriormente al mismo router/switch de laboratorio aislado. Es continuación del [PR #124](https://github.com/JW-Control/platform-jwplc/pull/124) **Draft**. La corrección F1 de `JWPLC_ETH_CS=5` **ya está integrada en la base** de Alpha13 y validada en la placa de COM4; el nuevo código funcional G10 solo está promovido en la rama del PR.
+
+**Sketche(s) de package real:** `tools/alpha13/g10_promoted_bench/G10P_COM4_Master` (RTU Master, Ethernet DHCP/ModbusTCP Server/UDP y lecturas no destructivas de periféricos), `G10P_COM14_Slave` (RTU Slave ID 2 y Ethernet DHCP/ModbusTCP Server; sin lectura SD). Dos puertos RJ45 al **mismo router DHCP aislado**, dos IP privadas distintas; comunicación RTU físicamente por RS-485 independiente. No usar el overlay G10-R H0 con centinela `LINK=-9`.
+
+**Gates no físicos verificados:** [CI build-dual #39368656011](https://github.com/JW-Control/platform-jwplc/actions/runs/39368656011) **2/2 PASS Ubuntu/Windows**, con namespace temporal `jwplc_g10ph0`, selección de plataforma real, dependencia GCC `.d`, objeto `.o` y ELF de ambos sketches. [CI TCP-FC03 #39369086270](https://github.com/JW-Control/platform-jwplc/actions/runs/39369086270) **2/2 PASS sintéticos Windows/Ubuntu**, valida consulta Modbus TCP **solo lectura**, no implica prueba de red real. [Protocolo dual](../../tools/alpha13/g10_promoted_bench/README.md) y [preparación de gate físico](A13_G10_PROMOTED_GATE_FISICO_PREPARACION_20261019.md).
+
+**F134, tooling:** el workflow legado G10-R N0 [run #39368659798](https://github.com/JW-Control/platform-jwplc/actions/runs/39368659798) se activó por archivos `ALPHA13_STATUS` y quiso aplicar a PR #124 una whitelist diseñada para overlay G10-R, provocando fallo de scope sin fallo productivo. La regla quedó **excluida de esa rama PR** con un `if` específico; [run #39369091800](https://github.com/JW-Control/platform-jwplc/actions/runs/39369091800) `SKIPPED_EXPECTED_NOT_APPLICABLE`. Se mantienen los N0/N1/N2/N3 del producto, y la whitelist original de G10-R **no fue relajada**.
+
+**Permisos:** aprobada preparación de banco **para ambas placas**, NO upload. Falta comprobar identidad COM4 y COM14 contra registros previos independientes, 4 MB flash, relés Q aislados, consentimiento explícito de riesgo/backup **por cada equipo** y aprobación separada antes de sobrescribirlos. Aún no se ha ejecutado el ensayo DHCP/TCP del router ni el enlace físico RS-485 del firmware nuevo. R1–R4 G10 continúan NO autorizados. Evitar cambiar la rama base, COM4 con firmware F1, COM14, GPIO4, FlashFreq o archives congelados sin permiso.
+
+```text
+ALPHA13=OPEN
+F131=F1_PHYSICAL_PASS_OWNER_ACCEPTED
+F132=RESOLVED
+F133=RESOLVED
+F134=RESOLVED_LEGACY_G10_R_SCOPE_MISROUTING
+NEXT_FAILURE_ID=F135
+G10_PRODUCT_BRANCH=PR124_DRAFT_NOT_MERGED
+G10_PH0_DUAL_SCOPE=COM4_MASTER_COM14_SLAVE_PREPARATION_APPROVED
+G10_PH0_DUAL_ETHERNET_ROUTER=PLANNED_NOT_EXECUTED
+G10_PH0_BUILD_WIN_UBUNTU=PASS_2_OF_2_CI_39368656011
+G10_PH0_TCP_FC03_SYNTH_WIN_UBUNTU=PASS_2_OF_2_CI_39369086270
+G10_PH0_UPLOAD=NOT_AUTHORIZED_NOT_RUN_BOTH
+G10_PH0_TCP_PHYSICAL=NOT_RUN
+G10_PH0_RTU_PHYSICAL=NOT_RUN
+G10_R_R1_R2_R3_R4=NOT_RUN_NOT_AUTHORIZED
+COM14=NOT_TOUCHED
+NEXT_GATE=G10_PH0_IDENTITY_BACKUP_AND_EXPLICIT_UPLOAD_APPROVAL_PER_DEVICE
+```
+
+---
+
+# ESTADO VIGENTE — 19/10/2026 — G10 promovido en PR #124, N0/N1/N2/N3 PASS no físico
+
+**F1/H0 aprobado con observación por el propietario**, documentado en PR #121 ya fusionado. **G10 funcional promovido a `JWPLC/2.1.0` solamente en [PR #124](https://github.com/JW-Control/platform-jwplc/pull/124), aún Draft**, no en la rama base de Alpha13. Cambiaron 10 fuentes existentes y se añadieron 2 `SafeAccess`; F1, CS W5500, DNS/DHCP y archives `.a` congelados se conservaron. [Matriz de evidencia y límites](A13_G10_PROMOTED_N0_N3_20261019.md).
+
+**Resultados verificados:** N0 Windows/Ubuntu 2/2 PASS, N1 contratos nativos C++ más paridad de **14/14 fuentes SHA** Windows/Ubuntu 2/2 PASS en [CI #39358616596](https://github.com/JW-Control/platform-jwplc/actions/runs/39358616596), N2 ambos FQBN y N3 **11/11 sketches fuente→objeto→ELF** en [CI #39329439143](https://github.com/JW-Control/platform-jwplc/actions/runs/39329439143). La procedencia del ELF sí está acreditada, pero E1 GDB y E2 sdkconfig permanecen `PENDING` en ese runner. No se ha realizado build/upload físico del nuevo package; el firmware de COM4 continúa siendo el F1 previo.
+
+**Seguridad:** la autorización H0 EN/USB no es autorización para **G10-R R1–R4** ni para sobrescribir COM14. Falta revisión del protocolo y aprobación específica del operador para gate físico; G10 no se fusiona ni se declara cerrado todavía. F133 agrupa los incidentes de harness YAML, caché `__pycache__` y etiquetado de DNS/DHCP, todos resueltos y sin defecto productivo.
+
+```text
+ALPHA13=OPEN
+F131=H0_ACCEPTED_WITH_OBSERVATION
+F132=RESOLVED_CI_AND_LOCAL
+F133=RESOLVED_G10_PROMOTION_TOOLING
+NEXT_FAILURE_ID=F134
+G10_PACKAGE_PROMOTION=APPLIED_PR124_NOT_MERGED
+G10_N0=PASS_2_OF_2
+G10_N1=PASS_NATIVE_PARITY_2_OF_2_14_FILES
+G10_N2=PASS_BOTH_FQBN
+G10_N3=PASS_11_OF_11
+G10_E1=PENDING_GDB_UNAVAILABLE
+G10_E2=PENDING_SDKCONFIG_NOT_LOCATED
+G10_PHYSICAL_R1_R4=NOT_RUN_NOT_AUTHORIZED
+COM4_G10_UPLOAD=NOT_RUN
+COM14=NOT_TOUCHED
+NEXT_GATE=G10_PHYSICAL_PREP_AND_SPECIFIC_AUTHORIZATION_R1_R4
+```
+
+---
+
 # ESTADO VIGENTE — 19/10/2026 — H0-F1 RJ45 conectado: 3 EN + 3 USB PASS; G10-P0 siguiente
 
 **Complemento físico entregado por el operador** al ensayo anterior H0: [evidencia detallada EN/USB con RJ45 conectado](A13_H0_F1_EN_USB_RJ45_CONECTADO_20261019.md). Se observan **3 arranques EN** que regresan `EARLY_LINK_RETURN=1` (LinkON), y **3 arranques tras desconexión/reconexión COM4 por USB**, de los que dos regresan directamente `EARLY_LINK_RETURN=2` (negociación física) y llegan a `LINK=1` desde `COUNT=2`. El tercero solo se captura desde `READY COUNT=1`, pero `STAGE=2` acredita retorno temprano indirecto. Los seis muestran un BOOT diferente, `STAGE=2`, enlace `LINK=1` sostenido en cinco o más contadores y ningún watchdog visible.

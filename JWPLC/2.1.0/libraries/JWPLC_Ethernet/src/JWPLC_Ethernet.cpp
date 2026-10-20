@@ -1,3 +1,4 @@
+#include "JWPLC_W5500_SafeAccess.h"
 #include "JWPLC_Ethernet.h"
 
 #include <SPI.h>
@@ -162,6 +163,8 @@ void JWPLC_EthernetClass::service()
 #if !JWPLC_HAS_ETHERNET
     return;
 #else
+    // The core tick runs even after DNS/DHCP becomes logically inactive.
+    (void)EthernetUDP::jwplcServiceDeferredClose();
     const uint32_t now = millis();
 
     if (_runtimeState == JWPLC_ETH_STATE_READY)
@@ -902,14 +905,14 @@ bool JWPLC_EthernetClass::acquireBus(uint32_t timeoutMs)
     (void)timeoutMs;
     return false;
 #else
-    return jwplcSPI_acquire(timeoutMs);
+    return jwplc_w5500_candidate::enter(timeoutMs);
 #endif
 }
 
 void JWPLC_EthernetClass::releaseBus()
 {
 #if JWPLC_HAS_ETHERNET
-    jwplcSPI_release();
+    jwplc_w5500_candidate::leave();
 #endif
 }
 

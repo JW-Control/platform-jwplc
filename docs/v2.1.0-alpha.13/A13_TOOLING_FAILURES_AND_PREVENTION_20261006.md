@@ -2737,3 +2737,57 @@ F131_EXTENDED_STRICT_20_OF_20=REVIEW_EVIDENCE_GAP
 F131_G10_PROMOTION=NOT_STARTED
 NEXT_FAILURE_ID=F133
 ```
+
+
+## F133 — Harness de promoción G10: YAML de Actions, caché Python y etiqueta N1 (2026-10-19)
+
+**Ámbito:** PR #124, rama aislada `codex/alpha13-g10-promote-functional-20261019`. **Tipo:** `HARNESS_FAILURE=YES`, `PROCESS_FAILURE=YES`, `PRODUCT_FAILURE=NO`. No hay evidencia de defecto W5500 ni de modificación ajena a las 12 fuentes objetivo.
+
+1. **Workflow YAML inválido:** [run #39328813731](https://github.com/JW-Control/platform-jwplc/actions/runs/39328813731), falló al cargar un step cuyo nombre contenía `Negativos: diff...` sin comillas, **0 jobs**. Reparación: entrecomillar el `name` y exigir jobs reales.
+2. **Falso dirty en dos pases:** [run #39328974334](https://github.com/JW-Control/platform-jwplc/actions/runs/39328974334): `G10_PROMO_SOURCE_FIRST=PASS`, `G10_PROMO_ARCHIVES_FROZEN=12`; al invocar `--apply` tras importar el compositor, archivos temporales `__pycache__/*.pyc` activaron `G10_PROMO_REVIEW_STOP_DIRTY_CHECKOUT` antes de escribir. Reparación: rechazar cambios tracked, permitir exclusivamente `.pyc` en `__pycache__` y bloquear otros untracked, archivos productivos y cambios ajenos. [Retest #39329074387](https://github.com/JW-Control/platform-jwplc/actions/runs/39329074387) promueve 10+2; [#39329439178](https://github.com/JW-Control/platform-jwplc/actions/runs/39329439178) confirma segundo paso idempotente.
+3. **Etiqueta N1 incorrecta, contenido correcto:** gate de paridad imprimió `STATE=MODIFIED` en `Dns.cpp`/`Dhcp.cpp` simplemente porque existían, aunque su contenido era igual al compositor y base. Corrección de clasificación usando igualdad binaria canónica, comprobada en [N1 #39358616596](https://github.com/JW-Control/platform-jwplc/actions/runs/39358616596) Windows/Ubuntu: ambos `STATE=UNCHANGED`, 14/14 SHA coinciden. Sin cambio productivo.
+
+**Prevención:** validar YAML antes de disparar CI; no interpretar cero jobs como error de firmware; el runner debe ser seguro ante efectos secundarios del import Python y rechazar untracked no previstos; separar clasificación `ADDED/MODIFIED/UNCHANGED` por diferencias reales; no reejecutar N2/N3 costoso si únicamente cambian scripts auxiliares; no equiparar PASS del overlay con N2 source-first del package ni con autorización física. La configuración de N2/N3 usa ahora `push` filtrado por fuentes `JWPLC/` o dispatch explícito.
+
+```text
+F133=RESOLVED_HARNESS_CI_G10_PROMOTION
+F133_PRODUCT_REGRESSION=NO
+F133_YAML=FIXED
+F133_UNTRACKED_PYTHON_CACHE=FIXED
+F133_N1_DNS_DHCP_LABEL=FIXED
+F133_CI_N1=PASS_2_OF_2_39358616596
+NEXT_FAILURE_ID=F134
+```
+
+
+## F134 — scope del gate legado G10-R ejecutado sobre promoción productiva G10-PH0
+
+**19/10/2026. Clasificación:** `HARNESS_FAILURE=YES`, `SCOPE_MISROUTING=YES`, `PRODUCT_FAILURE=NO`. Nueva clase respecto de F133: el validador histórico está diseñado para el **overlay experimental G10-R** y compara su diff contra una whitelist cerrada. El PR #124 adopta fuentes del **package real G10-I** y tiene su propio gate N0 de 12 fuentes; por tanto **no es un candidato G10-R**.
+
+- **Detección:** [CI #39368659798](https://github.com/JW-Control/platform-jwplc/actions/runs/39368659798), ambas matrices Ubuntu/Windows `failure`, con mensajes `G10_R_PREH_B3_REVIEW_STOP=UNEXPECTED_PATH:...G10P_COM4_Master...`, `G10P_COM14_Slave`, scripts G10-P0, H0, etc. No es compilación del firmware ni falla de W5500; el checker se activó por `ALPHA13_STATUS.md` y demás docs del PR.
+- **Causa:** `.github/workflows/alpha13-g10-r-preflight.yml` tenía disparador amplio de PR para `ALPHA13_STATUS.md` y no discriminaba que el branch head fuera de promoción productiva. La whitelist legado rechazó correctamente el scope no previsto, pero el workflow se estaba aplicando a un objeto equivocado.
+- **Corrección:** añadir un guard **solo para branches head `codex/alpha13-g10-promote-functional-*`** a nivel job, dejando inalterada la lógica del checker legacy G10-R, sus whitelist y su disparador histórico para las campañas a las que corresponde. [Run #39369091800](https://github.com/JW-Control/platform-jwplc/actions/runs/39369091800) informa `skipped` esperado como **not applicable**, no PASS de ese validador. Los gates N0/N1 productivos de PR #124 siguen activos y ya habían pasado.
+- **Prevención:** antes de tratar un CI rojo como defecto de producto, comprobar si el gate valida ese **tipo de artefacto/branch**; no ampliar whitelists para hacer pasar una rama de naturaleza distinta; preferir un filtro de dominio explícito y un gate productivo independiente. No pasar `SKIPPED` por `PASS`.
+
+```text
+F134=RESOLVED_LEGACY_GATE_NOT_APPLICABLE_TO_PRODUCT_PROMOTION
+F134_PRODUCT_FAILURE=NO
+F134_LEGACY_WHITELIST=UNCHANGED
+F134_G10_PRODUCT_SCOPE=VALIDATED_SEPARATELY_N0_N1
+NEXT_FAILURE_ID=F135
+```
+
+## F135 — validación PH0 confundió nombre de carpeta con build.project_name de Arduino CLI
+
+- **Detección real Windows (operador 20/10/2026):** rama PR #124, HEAD `c08147eedf3b50036aab895596459db18bfd3336`, `g10p_ph0_upload.py --check` PASS; `--prepare` terminó con `G10P_PH0_REVIEW_STOP_ELF_MISSING_COM14_SLAVE` después del build dual.
+- **Causa fuente:** el nuevo verificador `artifacts()` buscaba `G10P_COM14_Slave.elf` y `G10P_COM14_Slave.bin`; Arduino CLI genera su project_name añadiendo `.ino`, por ejemplo `G10P_COM14_Slave.ino.elf`, `.ino.bin`, `.ino.bootloader.bin` y `.ino.partitions.bin`. El runner dual anterior usaba `glob('*.elf')` y comprobó existencia de ELF. No hay evidencia de fallo de firmware/producto ni upload ejecutado.
+- **Corrección:** validar el ELF único con nombre `Sketch.ino.elf`, cotejar SHA contra `MANIFEST.json`, exigir los tres `.ino.*.bin` de upload y hashes fuente/objeto/.a. La CI dual prueba ahora **postbuild real** invocando `--seal-existing` en Windows y Ubuntu, además de N0. Reutilización local estricta del build anterior sin recompilar, únicamente si no cambiaron package/sketches/build runner/contrato entre HEAD antiguo y actual.
+- **Prevención:** cualquier verificador que acceda a binarios Arduino debe probarse con **artefactos reales de compilación** en CI, no solo en `--check`. Los nombres se toman del sketch `.ino` y se comparan con manifiesto, nunca se adivinan a partir de carpeta.
+
+```text
+F135=TOOLING_FIXED_CANDIDATE_CI_PENDING
+F135_PRODUCT_FAILURE=NO_EVIDENCE
+F135_UPLOAD=NOT_RUN
+F135_HARDWARE=NOT_TOUCHED
+NEXT_FAILURE_ID=F136
+```

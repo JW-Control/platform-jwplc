@@ -1,0 +1,47 @@
+name: Alpha13 G10 PH0 - R1 R4 network runner N0 (no hardware)
+on:
+  push:
+    branches:
+      - 'codex/alpha13-g10-promote-functional-*'
+    paths:
+      - 'tools/alpha13/g10_promoted_bench/g10p_r1_r4_campaign.py'
+      - '.github/workflows/alpha13-g10-ph0-r-campaign.yml'
+  pull_request:
+    branches:
+      - 'v2.1.0-alpha.13/feature/cleanup-robustness'
+    paths:
+      - 'tools/alpha13/g10_promoted_bench/g10p_r1_r4_campaign.py'
+      - '.github/workflows/alpha13-g10-ph0-r-campaign.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline:
+    name: R1-R4 protocol offline - ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+          ref: ${{ github.sha }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Sintaxis y matriz de contratos, sin red ni puertos
+        shell: pwsh
+        run: |
+          python -B -m py_compile tools/alpha13/g10_promoted_bench/g10p_r1_r4_campaign.py
+          python -B tools/alpha13/g10_promoted_bench/g10p_r1_r4_campaign.py --selftest
+          python -B tools/alpha13/g10_promoted_bench/g10p_modbus_tcp_readonly.py --selftest
+      - name: Asegurar que el runner no manipula firmware ni puertos serie
+        shell: pwsh
+        run: |
+          $src = Get-Content 'tools/alpha13/g10_promoted_bench/g10p_r1_r4_campaign.py' -Raw
+          foreach ($pattern in @('import serial', 'esptool', 'erase_flash', 'write_flash', 'read_mac', 'read_flash', 'arduino-cli upload')) {
+            if ($src.Contains($pattern)) { throw "PHYSICAL_SIDE_EFFECT_FORBIDDEN: $pattern" }
+          }
+          Write-Output 'G10P_R_OFFLINE_NO_UPLOAD_NO_SERIAL=PASS'

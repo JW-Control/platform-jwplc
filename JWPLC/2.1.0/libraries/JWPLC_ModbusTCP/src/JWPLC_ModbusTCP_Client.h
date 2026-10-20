@@ -163,6 +163,8 @@ private:
     bool _sessionConnected;
     bool _connectStarted;
     bool _sendStarted;
+    // G10-I: retener el objeto/socket hasta CLOSE o STALE real.
+    bool _jwplcClosePending = false;
 
     JWPLCModbusTCPClientState _state;
     JWPLCModbusTCPClientError _result;
@@ -194,6 +196,7 @@ private:
     void resetRx();
     void resetTransactionContext();
     void closeSession();
+    bool serviceDeferredClose();
     void fail(JWPLCModbusTCPClientError error, bool closeTransport);
     void completeSuccess();
 
