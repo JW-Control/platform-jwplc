@@ -6,6 +6,12 @@ on:
     paths:
       - 'tools/alpha13/precompile/**'
       - '.github/workflows/alpha13-precompile-ethernet-modbus-tcp.yml'
+  pull_request:
+    branches:
+      - 'v2.1.0-alpha.13/feature/cleanup-robustness'
+    paths:
+      - 'tools/alpha13/precompile/**'
+      - '.github/workflows/alpha13-precompile-ethernet-modbus-tcp.yml'
   workflow_dispatch:
 permissions:
   contents: read
