@@ -55,6 +55,10 @@ jobs:
         shell: pwsh
         run: |
           python -B tools/alpha13/g10_promoted_bench/g10p_dual_build.py --expected-head "${{ github.sha }}" --ci-detached --output (Join-Path $env:RUNNER_TEMP 'g10p-dual')
+      - name: N0 fisico preparable - validar ELF y tres binarios por placa sin USB
+        shell: pwsh
+        run: |
+          python -B tools/alpha13/g10_promoted_bench/g10p_ph0_upload.py --seal-existing --ci-detached --expected-head "${{ github.sha }}" --output (Join-Path $env:RUNNER_TEMP 'g10p-dual')
       - name: Publicar solo manifiesto SHA y logs (no ELF/firmware)
         if: always()
         uses: actions/upload-artifact@v4
