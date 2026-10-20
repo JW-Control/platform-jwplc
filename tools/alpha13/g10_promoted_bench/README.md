@@ -2,6 +2,93 @@
 
 **Decisión del operador 20/10/2026:** COM4 Master y COM14 Slave disponibles y autorizados para actualizar firmware G10-PH0. No realizar backup de flash, no consultar MAC ni exigir aprobación adicional por placa. Esta autorización se limita al upload de estos dos sketches; R1–R4, merge y release siguen separados. Antes de conectar cada equipo: banco aislado, Q sin cargas/tensiones y monitor serie cerrado durante upload. Si la identidad de puerto/rol es dudosa, STOP sin flashear.
 
+## G10-H — campaña R1–R4 sobre las placas ya flasheadas (20/10/2026)
+
+**Autorización del propietario:** proceder R1–R4 antes de fusionar PR #124.
+Preparación **sin nueva carga**, sin cambios en JWPLC/ ni en los sketches
+instalados, con PC en router aislado, RS-485 mantenido y salidas Q sin cargas.
+**Package firmware efectivamente subido:** `7c1974c659be4aa88c877a849db6efc32673da60`.
+Las ediciones posteriores son solo tooling/documentación. La CI no abre sockets
+contra PLC reales.
+
+**Ventanas canónicas de la campaña G10-R previa:** R1=605 s (10m05s);
+R2=3 ciclos, 12 s link caído y hasta 96 s de reconexión; R4=1805 s
+(30m05s). No sustituirlas por ventanas inventadas cortas. R3 no dispone
+de inyector interno en el firmware PH0 actualmente instalado.
+
+El runner **solo PC, solo FC03+UDP eco a COM4, FC03 a COM14** es
+`g10p_r1_r4_campaign.py`. No abre serial ni lee MAC, no busca IP,
+no usa esptool, no escribe registros ni realiza uploads. Asegurarse en
+UART 115200 de que siguen vivos RTU, Display/IO y memoria durante
+el tráfico, de modo que los PASS de red no sustituyan liveness.
+
+### Preparación local y orden
+
+Desde la rama `codex/alpha13-g10-promote-functional-20261019`
+limpia, con `git pull --ff-only` en ella:
+
+```powershell
+$head = (git rev-parse HEAD).Trim()
+py -3 tools/alpha13/g10_promoted_bench/g10p_r1_r4_campaign.py --selftest
+py -3 tools/alpha13/g10_promoted_bench/g10p_r1_r4_campaign.py --check
+
+# Confirmar por UART la IP DHCP actual de cada PLC antes de usar estas variables.
+$com4 = '192.168.0.159'
+$com14 = '192.168.0.31'
+$log = Join-Path $env:TEMP ('g10p_r_campaign_' + (Get-Date -Format 'yyyyMMdd_HHmmss'))
+```
+
+**R1:** tráfico FC03 de ambos PLC y UDP eco al Master durante 605 s,
+verificando contenido, puertos de respuesta y latencia de cada consulta.
+```powershell
+py -3 tools/alpha13/g10_promoted_bench/g10p_r1_r4_campaign.py --phase R1 --com4-ip $com4 --com14-ip $com14 --output $log
+```
+Guardar además salida UART de COM4/COM14 **antes y después**: mismo BOOT,
+HB creciente, RTU_OK/RTU_REQUESTS en progreso, RTU_FAIL/CRC sin incremento
+tras estabilidad, UDP_RX/UDP_TX creciendo, SD_FAIL sin aumento, FRAM_READ
+progresando, RTC/IO/TFT sanos. Sin captura UART, R1 es
+`NETWORK_PASS_UART_PERIPHERALS_PENDING`, no R1 completo.
+
+**R2:** únicamente retirar/reconectar el cable RJ45 de COM4
+(no apagar PLC, no retirar RS-485 y no desconectar el switch entero).
+El ejecutor pregunta `CONFIRMO` antes de cada maniobra, realiza 3 ciclos,
+verifica TCP caído en COM4 y COM14 todavía accesible y recupera
+FC03+UDP de COM4 en un máximo de 96 s. Capturar UART para confirmar PHY
+caído y vuelto a 1, DHCP e IP y ausencia de resets. **Si DHCP cambia
+la IP de COM4, detener la campaña**, actualizar el valor tras verificar
+por UART y reconciliar esa ejecución en vez de atribuir error al producto.
+DNS no está ejercitado: requiere prueba separada.
+```powershell
+py -3 tools/alpha13/g10_promoted_bench/g10p_r1_r4_campaign.py --phase R2 --com4-ip $com4 --com14-ip $com14 --output $log
+```
+
+**R3, alcance externo:** 90 s de conexiones TCP FC03 nuevas, cierres y
+reaperturas sobre ambos servidores; ejercicio observable de sockets,
+**pero no** certifica mutex contendido, `BUS_BUSY`, leasing/epoch
+internos, close diferido, staleness ni DNS/DHCP cancel. Los cinco probes
+que hacía G10-R pertenecen al overlay viejo y no se deben invocar ni
+reflashear sin una decisión separada. El resultado externo permanece
+`R3_EXTERNAL_PASS_INTERNAL_NOT_VERIFIED`.
+```powershell
+py -3 tools/alpha13/g10_promoted_bench/g10p_r1_r4_campaign.py --phase R3 --com4-ip $com4 --com14-ip $com14 --output $log
+```
+
+**R4:** 1805 s de FC03+UDP con RTU activo. El script demuestra
+continuidad de **red**, pero memoria libre, contadores de socket,
+starvation SPI y watchdog precisan telemetría UART / contrato de producto
+no presente en el sketch PH0; no declarar R4 integral por tráfico solo.
+```powershell
+py -3 tools/alpha13/g10_promoted_bench/g10p_r1_r4_campaign.py --phase R4 --com4-ip $com4 --com14-ip $com14 --output $log
+```
+
+Cada fase genera `G10P_RN_RESULT.json` **solo localmente en %TEMP%**.
+Fallos/timeout/abortos = `REVIEW_STOP`, nunca PASS parcial automático.
+No subir logs UART o las IP privadas a GitHub sin sanitizar.
+Fase R2 necesita maniobras físicas del operador; **no** es unattended.
+R3 completo y parte de R4 requieren decisión técnica tras los resultados.
+
+---
+
 ## Corrección F135 (tooling PH0): nombre ELF/bin Arduino y recuperación sin recompilar
 
 Con el HEAD `c08147eedf...`, N0 local dio PASS pero la preparación falló
