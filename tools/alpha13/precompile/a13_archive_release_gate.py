@@ -33,14 +33,23 @@ def manifest(inp: Path) -> dict:
     target = inp / "MANIFEST.json"
     require(target.is_file(), "CI_MANIFEST_MISSING_" + str(inp))
     data=json.loads(target.read_text(encoding="utf-8"))
-    require(data["status"] == "PASS_TWO_ARCHIVES_TWO_FQBN_SOURCE_VS_PRECOMPILED",
+    require(data["status"] == "PASS_TWO_ARCHIVES_TWO_FQBN_PARITY_THREE_PAIRS",
             "SOURCE_CANDIDATE_CI_NOT_PASS")
     require(data["fqbn"] == list(PROFILES), "FQBN_NOT_TWO")
+    require(data.get("repetitions") == 3, "BENCHMARK_NOT_THREE_PAIRS")
+    for lib in LIBS:
+        parity = data.get("fqbn_object_parity", {}).get(lib, {})
+        require(parity.get("sources", 0) >= 2 and parity.get("diff_count") == 0,
+                "FQBN_OBJECT_MISMATCH_ARCHIVE_FORBIDDEN_" + lib)
     for mode in ("source","archive"):
         row=data["bench"][mode]
         require(all(float(row.get(x,0)) > 0
-                    for x in ("cold_s","warm_s","basiccore_cold_s")),
+                    for x in ("cold_s", "warm_s", "basiccore_cold_s", "basiccore_warm_s")),
                 "MISSING_BENCHMARK_" + mode)
+        require(all(len(row.get(k, [])) == 3 and all(v > 0 for v in row[k])
+                    for k in ("cold_samples_s", "warm_samples_s",
+                              "basiccore_cold_samples_s", "basiccore_warm_samples_s")),
+                "BENCHMARK_SAMPLES_NOT_THREE_" + mode)
     return data
 
 def verify_provenance(data: dict, inp: Path) -> dict[str,Path]:
