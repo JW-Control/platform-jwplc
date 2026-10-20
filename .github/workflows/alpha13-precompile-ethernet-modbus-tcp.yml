@@ -1,14 +1,13 @@
 name: Alpha13 - Ethernet/Modbus TCP archive candidate and benchmark (NO upload)
+# Solo push de rama candidata durante la correccion: evita builds duplicados
+# de push y PR. Todos los commits y artifacts siguen atribuidos al HEAD real.
+concurrency:
+  group: a13-precompile-${{ github.ref_name }}
+  cancel-in-progress: true
 on:
   push:
     branches:
       - 'codex/alpha13-precompile-benchmark-docs-*'
-    paths:
-      - 'tools/alpha13/precompile/**'
-      - '.github/workflows/alpha13-precompile-ethernet-modbus-tcp.yml'
-  pull_request:
-    branches:
-      - 'v2.1.0-alpha.13/feature/cleanup-robustness'
     paths:
       - 'tools/alpha13/precompile/**'
       - '.github/workflows/alpha13-precompile-ethernet-modbus-tcp.yml'
