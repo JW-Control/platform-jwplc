@@ -1,3 +1,28 @@
+# ESTADO VIGENTE — 20/10/2026 — Origen de PreRelease Alpha13 resuelto, espera dispatch del operador
+
+**Ruta de publicación revisada:** [decisión de origen](A13_RELEASE_SOURCE_DECISION_20261020.md) demuestra que el workflow existente `Release JWPLC Arduino Package` puede ejecutarse mediante `workflow_dispatch` **seleccionando explícitamente la rama base Alpha13** e ingresando `version=2.1.0-alpha.13`. Esta ruta empaqueta `JWPLC/2.1.0` del HEAD elegido, valida raíz ZIP y abre PR de índice dev hacia `main`, sin merge masivo a `release/v2.1.x` (1095 commits por detrás). El README de la base ya contiene `JWPLC_RELEASE_VERSION: 2.1.0-alpha.13` y las notas `PRE_RELEASE.md` son públicas y no afirman publicación antes de tiempo.
+
+**Limitación de ejecución:** acceso de GitHub disponible en esta conversación **no dispone de workflow_dispatch**, por lo que no se disparó ninguna publicación; la acción restante requiere la interfaz de GitHub del operador, verificación de rama seleccionada y revisión del resultado/PR automático. El gate de instalación Arduino IDE/CLI desde el ZIP **publicado** y el cierre global posterior aún no se ejecutaron. No confundir integración con publicación.
+
+```text
+ALPHA13=OPEN_WAITING_RELEASE_WORKFLOW_DISPATCH
+BASE_SYNC=OK_G10_MERGED
+KNOWLEDGE_SYNC=OK_PRIVATE_PR25_MERGED
+PENDIENTE_DE_PROMOCION_G10=EMPTY
+README_RELEASE_MARKER=2.1.0-alpha.13
+RELEASE_SOURCE_BRANCH=v2.1.0-alpha.13/feature/cleanup-robustness
+RELEASE_SOURCE_WORKFLOW=release-jwplc-package.yml
+RELEASE_INPUT_VERSION=2.1.0-alpha.13
+RELEASE_WORKFLOW=NOT_RUN
+TAG_AND_ZIP=NOT_CREATED
+INDEX_DEV_PR=NOT_CREATED
+POSTPUBLISH_VALIDATION=NOT_RUN
+ALPHA13_FINAL_STATUS=OPEN_NOT_PUBLISHED
+NEXT_FAILURE_ID=F136
+NEXT_GATE=OWNER_RELEASE_DISPATCH_THEN_VERIFY_ZIP_INDEX_AND_POSTPUBLISH
+```
+
+---
 # ESTADO VIGENTE — 20/10/2026 — Alpha13 G10 integrado, conocimiento sincronizado, PreRelease preparada sin publicar
 
 **BASE_SYNC:** G10 #124 fusionado, base `3467a375ccaf7c7ee27220ed0bc348056e5e8219` más commits documentales; `PENDIENTE_DE_PROMOCION_G10=EMPTY`. **KNOWLEDGE_SYNC:** [PR privado #25](https://github.com/JW-Control/jwplc-dev-mcp/pull/25) fusionado a `knowledge/main`, commit `5e0a6b8eebc6ca77c63533b88b8b62fae7a31687`, únicamente lección F135 y límites de evidencia G10. Se redactaron [PreRelease Alpha13](PRE_RELEASE.md) y [checklist de cierre](ALPHA13_CIERRE_CHECKLIST.md) en español, todavía con metadatos no publicados. No publicar ni marcar CLOSED automáticamente.
