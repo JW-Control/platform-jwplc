@@ -1,3 +1,31 @@
+# ESTADO VIGENTE — 20/10/2026 — G10-H R2: UART original no grabada, captura complementaria mínima
+
+**Respuesta operador:** en los tres ciclos R2 completados no se guardó registro UART de COM4 ni COM14. No atribuir a esos ciclos transiciones PHY observadas, reconexión DHCP/renovación de lease ni liveness ininterrumpida RTU; el resultado existente continúa `R2_NETWORK=PASS_3_OF_3` con recuperaciones 1,69 / 10,05 / 6,03 s.
+
+**Decisión operativa sin tocar producto:** ejecutar **un ciclo complementario R2-UART** manual, no relanzar `--phase R2` (que haría otros 3 ciclos). Abrir monitor COM4 115200 ANTES de la maniobra; dejarlo abierto durante toda la ventana y obtener varias líneas heartbeat de baseline, caída RJ45 SOLO COM4 12–15 s, retorno y estabilidad durante 20–30 s. Registrar BOOT estable durante el ciclo, HB progresivo, `PHY != 1` durante desconexión y `PHY=1 ETH=1 TCP=1`/IP tras reconectar; RTU_OK progresivo y RTU_FAIL sin nuevos errores. El monitor serie puede provocar reset inicial por DTR/RTS: esperar nuevo baseline estable **antes de manipular RJ45** y nunca confundir ese reset de apertura con watchdog de la campaña. En COM14, si es viable, comprobar `RTU_REQUESTS` progresivo y `RTU_CRC` estable después del ciclo. Cerrar gate de enlace solo si la captura respalda los marcadores, sin exigir MAC ni backup.
+
+**Límites deliberados:** esta captura complementaria verifica comportamiento UART **en un cuarto ciclo**, no retroactivamente en cada uno de los tres anteriores. IP recuperada con `ETH=1` no demuestra necesariamente nueva transacción DHCP, renovación de lease ni una consulta DNS desde el PLC. Si esos subcriterios siguen obligatorios para cerrar R2 integral, documentar `R2_DHCP_DNS=NOT_TESTED` y diseñar gate específico; nunca asignar PASS solo por la prueba del PC. Mantener R3/R4 sin ejecutar, F136 reservado, PR #124 Draft, BASE_SYNC y KNOWLEDGE_SYNC pendientes.
+
+```text
+ALPHA13=OPEN
+NEXT_FAILURE_ID=F136
+G10_H_R2_NETWORK=PASS_3_OF_3
+G10_H_R2_ORIGINAL_UART=NOT_CAPTURED_COM4_COM14
+G10_H_R2_SUPPLEMENTARY_UART=READY_NOT_RUN_1_MANUAL_CYCLE
+G10_H_R2_DHCP_HANDSHAKE=NOT_TESTED
+G10_H_R2_DNS=NOT_TESTED
+G10_H_R2_FULL=PENDING_SCOPE_EVIDENCE
+G10_H_R3=NOT_RUN_INTERNAL_OPEN
+G10_H_R4=NOT_RUN
+BASE_SYNC=PENDING_INTENTIONAL
+KNOWLEDGE_SYNC=PENDING_F135_REUSABLE_LESSON
+G10_E1=PENDING_GDB_UNAVAILABLE
+G10_E2=PENDING_SDKCONFIG_NOT_LOCATED
+G10_PR124=DRAFT_NOT_MERGED
+NEXT_GATE=G10_H_R2_SUPPLEMENTARY_COM4_UART_ONE_CYCLE
+```
+
+---
 # ESTADO VIGENTE — 20/10/2026 — G10-H R2 red 3/3 PASS, UART PHY/DHCP pendiente
 
 **Evidencia aportada por operador:** PowerShell en rama candidata, HEAD ejecutor `0959781211bc016016c2a626f14ec77559e9085f` y firmware instalado/sellado `7c1974c659be4aa88c877a849db6efc32673da60`. Ejecutó `g10p_r1_r4_campaign.py --phase R2` con el banco dual ya validado y maniobras confirmadas `CONFIRMO` (desconectar/reconectar SOLO RJ45 COM4, mantener COM14 y RS-485). Se conserva `G10P_R2_RESULT.json` local en carpeta temporal del operador; el JSON fue pegado en la conversación, **no se incorporó al repo ni se verificó su SHA de archivo**.
