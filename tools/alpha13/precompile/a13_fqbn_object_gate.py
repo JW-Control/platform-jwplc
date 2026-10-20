@@ -46,7 +46,7 @@ def elf_profile_policy(props: dict[str, str], build: Path) -> str:
     from a13_precompile_benchmark import run
     symbols = run([str(nm), str(elfs[0])])
     matches = re.findall(
-        r"(?m)^[0-9a-fA-F]+\\s+([A-Z])\\s+jwplcEthernetProfileAvailable$",
+        r"(?m)^\s*[0-9a-fA-F]+\s+([A-Za-z])\s+jwplcEthernetProfileAvailable$",
         symbols,
     )
     require(len(matches) == 1, "POLICY_SYMBOL_ABSENT_OR_DUPLICATE")
