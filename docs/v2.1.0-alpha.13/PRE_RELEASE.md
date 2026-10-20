@@ -1,6 +1,6 @@
 # v2.1.0-alpha.13 — Robustez Ethernet W5500, SPI compartido y sockets Modbus TCP
 
-**Estado del documento:** notas finales de candidata; **NO publicada todavía**. Se actualizarán exclusivamente los metadatos reales de la PreRelease al ejecutar y validar el flujo de publicación. Código de referencia integrado en la base Alpha13 por [PR #124](https://github.com/JW-Control/platform-jwplc/pull/124), merge `3467a375ccaf7c7ee27220ed0bc348056e5e8219`.
+**Canal:** PreRelease de desarrollo para Arduino IDE/CLI. **Origen del código:** rama Alpha13 tras [PR #124](https://github.com/JW-Control/platform-jwplc/pull/124), merge `3467a375ccaf7c7ee27220ed0bc348056e5e8219`. Los metadatos de publicación (tag, ZIP y checksum) pertenecen al GitHub Release y al índice de Boards Manager una vez generados; estas notas no los anticipan.
 
 ## Alcance
 
@@ -38,18 +38,4 @@ Fuentes y criterios de no repetición: `A13_G10_PROMOTED_N0_N3_20261019.md`, `A1
 
 Se mantiene el perfil de hardware y periféricos de JWPLC Basic sin configuración de pines por el sketch. No tocar `boards.txt`, `platform.txt`, `GPIO4` ni los archives precompilados congelados solo por velocidad. No cambiar el canal estable: Alpha13 es **PreRelease de desarrollo**, dev index únicamente.
 
-**Publicación planificada, no ejecutada:**
-
-```text
-TAG_PLAN=v2.1.0-alpha.13
-PACKAGE_ROOT=2.1.0/
-ZIP_PLAN=jwplc-esp32-2.1.0-alpha.13.zip
-ZIP_SIZE=PENDING
-ZIP_SHA256=PENDING
-GITHUB_PRERELEASE=NOT_RUN
-INDEX_DEV_PR=NOT_CREATED
-PUBLISHED_INSTALL_COMPILE_UPLOAD=NOT_RUN
-ALPHA13_STATUS=OPEN_RELEASE_PENDING
-```
-
-Tras publicar: incluir el SHA real del source/tag, tamaño y checksum del ZIP, URL de PreRelease, número y estado del PR de index hacia `main`, instalación/compilación/upload físico desde el package publicado, y **solo entonces** documentar `CLOSED_PUBLISHED`.
+**Distribución:** versión `2.1.0-alpha.13`, carpeta raíz esperada dentro del ZIP `2.1.0/`, canal **dev** de Boards Manager (no sustituye `v2.0.0` estable). El GitHub Release debe exponer el ZIP y su SHA-256/tamaño real; el índice dev se actualiza mediante PR hacia `main`. La instalación, compilación y carga desde el **package ya distribuido** forman parte del gate postpublicación y no deben confundirse con las pruebas PH0 realizadas sobre la fuente candidata.
