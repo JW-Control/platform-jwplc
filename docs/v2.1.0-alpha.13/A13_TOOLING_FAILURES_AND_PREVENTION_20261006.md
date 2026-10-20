@@ -2791,3 +2791,18 @@ F135_UPLOAD=NOT_RUN
 F135_HARDWARE=NOT_TOUCHED
 NEXT_FAILURE_ID=F136
 ```
+
+## F136 — generador de archives interpretó incorrectamente metadata de Arduino CLI y salida del archiver
+
+- **20/10/2026, CI PR #125, sin acceso a hardware:** [run #39506556290](https://github.com/JW-Control/platform-jwplc/actions/runs/39506556290): Ubuntu N0 PASS y source-first compiló; después el generador buscó `xtensa-esp32-elf-xtensa-esp32-elf-gcc-ar`, duplicando el prefijo. Arduino CLI `--show-properties` ya expande `compiler.ar.cmd` en el core utilizado. **No es fallo de código Ethernet/Modbus TCP.**
+- **Retest del mismo generador** [run #39506835618](https://github.com/JW-Control/platform-jwplc/actions/runs/39506835618): compilación fuente y archivo Ethernet `.a` real generado, pero el comparador de miembros trató un renglón vacío delimitador `stdout+stderr` como si fuera un miembro del archive, causando `ARCHIVE_MEMBERS_MISMATCH_JWPLC_Ethernet`. Inspección de artifact ELF/`.a` del run: `ar t` enumera 12 `.o` válidos. El bug está en el *harness*; no se promovieron archivos al package.
+- **Corrección exacta:** si `compiler.ar.cmd` ya comienza con `compiler.prefix`, no concatenarlo; filtrar líneas vacías al comparar `ar t` con objetos seleccionados. Mantener el cotejo de miembros, no eliminarlo ni relajar la integridad.
+- **Prevención:** validar propiedades reales expandidas de Arduino CLI y salidas binarias de la herramienta, no asumir formato sin probar. Integrar gate de construcción **post-compilación real** en CI y evitar `archive PASS` basados solo en N0. No reejecutar hardware ni recompilar core/TFT/RTU/FRAM/SD por un fallo del script.
+- **Estado:** F136 corregido en rama candidata, retest CI [#39507123455](https://github.com/JW-Control/platform-jwplc/actions/runs/39507123455) **PENDING**; no declarar un PASS antes de verificar jobs y binarios reales. Sin modificación de fuente funcional de producto ni upload.
+
+```text
+F136=TOOLING_ARCHIVER_PROPERTIES_AND_OUTPUT_PARSER
+F136_PRODUCT_FAILURE=NO_EVIDENCE
+F136_RETATEST=CI_PENDING_39507123455
+NEXT_FAILURE_ID=F137
+```
