@@ -1,3 +1,48 @@
+# ESTADO VIGENTE — 20/10/2026 — G10-H R1 físico PASS, NEXT_GATE R2 link recovery
+
+**Fuente de evidencia:** operador Windows PowerShell, dos extractos UART y archivo externo `G10P_R1_RESULT.json` (local, **no** incorporado ni adjuntado al repositorio). SHA-256 del JSON recibido: `dd64b76c0cc317450ddbfb203fa551d56799007326895179cb65f9af6b24fec8`. Script/HEAD `3ebfb96bbeea50a3221af228497b5c3612fce12f`, `firmware_head=7c1974c659be4aa88c877a849db6efc32673da60`. Ejecutado 20/10/2026, duración medida 605,0 s, protocolo G10-H R1 previsto 605 s. `--selftest` y `--check` locales PASS. `--phase R1` emitió `G10P_R1_NETWORK=PASS_589_SAMPLES`. Estado generado automáticamente `NETWORK_PASS_UART_PERIPHERALS_PENDING`, reconciliado con extractos UART aportados **posteriormente** por el operador.
+
+**589 ciclos completos sin error TCP/UDP de los que se reportó, 1767 operaciones:** 589 lecturas Modbus TCP FC03 4 registros exactos de COM4, otras 589 de COM14 y 589 ecos UDP de COM4 en puerto 15020. `read()` comprueba Unit1/TID/protocolo/4 registros; echo confirma contenido y remitente/puerto. Estadísticos calculados sobre JSON (ms, resolución de reloj Windows, valores `0` son redondeo y no latencia nula):
+
+| Canal | Media | P95 | P99 | Máx. |
+| --- | ---: | ---: | ---: | ---: |
+| TCP/502 COM4 Master | 14,679 | 31 | 32 | 47 |
+| TCP/502 COM14 Slave | 11,550 | 31 | 32 | 125 |
+| UDP echo COM4:15020 | 0,959 | 15 | 16 | 16 |
+
+**Observaciones UART inmediatamente posteriores:** COM4 HB=2368..2379, mismo `BOOT=FEEDC504` de PH0, `PHY=1 ETH=1 TCP=1`; `UDP_RX=589 UDP_TX=589`, mismos contadores que tráfico 589, RTU_OK 2832→2846, RTU_FAIL **40 sin aumento**, SD_OK 3157→3172, SD_FAIL=0 y FRAM_READ 3157→3172, RTC=1 IO=1 TFT=1. COM14 HB=3000..3009, mismo `BOOT=D998B0A7` de PH0, `PHY=1 ETH=1 TCP=1 RTU=1`, RTU_REQUESTS 2865→2877, CRC=0. UART se abrió *después* de finalizar la ventana: prueba continuidad entre PH0 y final, no serie capturada a cada segundo dentro de R1.
+
+**Dictamen:** `G10_H_R1=PASS_WITH_POST_WINDOW_UART_EVIDENCE` y producto instalado sin WDT/reinicio observado, RTU y periféricos activos al finalizar tráfico concurrente. No inferir ausencia absoluta de starvation SPI, uso de heap o límites internos de socket: no instrumentados. El evento de una latencia COM14 de 125 ms no causó fallo ni timeout. No repetir R1 sin variación de inputs/producto.
+
+**Siguiente gate autorizado:** `R2` 3 ciclos independientes de *retirar SOLO RJ45 COM4*, mantener USB, alimentación, RTU, COM14 y PC intactos; cada ciclo 12 s link down y recuperación de FC03+UDP en máximo 96 s. Operador confirmar maniobras con `CONFIRMO` en runner; grabar UART en COM4 y COM14 para `BOOT` estable, `PHY`, DHCP y RTU. No confundir servidor inaccesible por IP con detección directa de PHY/DHCP. Si el IP cambia tras DHCP, detener, documentar y conciliar; no reflashear. No hay permiso de merge hasta R2–R4 y aceptación explícita de limitaciones R3 y E1/E2.
+
+```text
+ALPHA13=OPEN
+NEXT_FAILURE_ID=F136
+G10_PH0=PASS_FUNCTIONAL_PHYSICAL
+G10_H_R1=PASS_WITH_POST_WINDOW_UART_EVIDENCE
+G10_H_R1_DURATION_S=605
+G10_H_R1_ROUNDS=589
+G10_H_R1_TCP_COM4_FC03=PASS_589
+G10_H_R1_TCP_COM14_FC03=PASS_589
+G10_H_R1_UDP_COM4_ECHO=PASS_589_COUNTER_MATCH
+G10_H_R1_RTU=PASS_POSTWINDOW_NO_ADDITIONAL_ERRORS
+G10_H_R1_SD_FRAM_RTC_IO_TFT=PASS_POSTWINDOW_OBSERVATION
+G10_H_R2=READY_NOT_RUN_3_CYCLES_12S_96S
+G10_H_R3=EXTERNAL_NOT_RUN_INTERNAL_OPEN
+G10_H_R4=NOT_RUN_1805S
+G10_H_FW_CHANGES=NO
+G10_H_UPLOAD=NOT_RUN
+G10_E1=PENDING_GDB_UNAVAILABLE
+G10_E2=PENDING_SDKCONFIG_NOT_LOCATED
+PENDIENTE_DE_PROMOCION=PR124_10_MODIFIED_2_ADDED
+BASE_SYNC=PENDING_INTENTIONAL_UNTIL_R1_R4_AND_MERGE_DECISION
+KNOWLEDGE_SYNC=PENDING_F135_REUSABLE_LESSON
+G10_PR124=DRAFT_NOT_MERGED
+NEXT_GATE=G10_H_R2_THREE_LINK_LOSS_RECOVERY_CYCLES
+```
+
+---
 # ESTADO VIGENTE — 20/10/2026 — G10-H R1–R4 autorizado antes de merge, runner N0 CI PASS
 
 **Decisión propietario:** realizar validación R1–R4 antes de fusionar PR #124. Alcance inmediato: preparar y ejecutar tráfico físico **desde PC a ambos PLC ya flasheados**, sin tocar firmware, `JWPLC/`, GPIO4, archives, puertos COM mediante el runner, MAC ni backup. Router de pruebas aislado, Q sin cargas; **R2 requiere maniobras RJ45 confirmadas por operador**. G10-H se ejecuta sin reutilizar el overlay G10-R como firmware del producto.
