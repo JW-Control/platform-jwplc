@@ -52,3 +52,22 @@ G10_R1_R2_R3_R4=NOT_RUN_NOT_AUTHORIZED
 G10_BASE_MERGE=NOT_RUN
 NEXT_GATE=G10_PHYSICAL_SCOPE_AND_SAFETY_APPROVAL_THEN_RUNNER_N0
 ```
+
+
+## 5. Decisión COM4 + COM14 y router, kit productivo
+
+El propietario aprobó preparar **ambas** placas. No equivale a permiso de flash ni a R1–R4. El kit versionado en `tools/alpha13/g10_promoted_bench/` contiene firmware Master/Slave con Ethernet en ambos y banco de router de dos IP DHCP, una sonda Modbus TCP FC03 de **solo lectura** para PC, y compilación aislada por FQBN temporal `jwplc_g10ph0:esp32:jwplcbasic`.
+
+- [CI dual #39368656011](https://github.com/JW-Control/platform-jwplc/actions/runs/39368656011): Windows y Ubuntu **PASS 2/2**, ambos sketches fuente→dependencia GCC→objeto→ELF, `G10P_UPLOAD=NOT_RUN COM4=NOT_OPENED COM14=NOT_OPENED`.
+- [CI FC03 #39369086270](https://github.com/JW-Control/platform-jwplc/actions/runs/39369086270): Windows y Ubuntu **PASS sintético 2/2**, sin acceso de red. El test con router requiere ambos conectados realmente al mismo switch/router de laboratorio, IPs privadas distintas y PC en esa red.
+- Gate físico individual: registrar antes de cada upload **COM4 Master** y **COM14 Slave**, MAC/CH340/4 MB verificadas con referencia independiente local, ausencia de cargas Q, decisión explícita sobre backup/pérdida de firmware anterior. COM14 **sin microSD**; firmware Slave no accede a SD.
+- **No usar** el sketch `g10_r_integrated.ino` o el ejecutor de overlay `a13_g10_r_build_candidate.py` para probar el package promovido.
+
+```text
+G10_PH0_SCOPE_COM4_COM14=APPROVED_FOR_PREPARATION
+G10_PH0_BUILD=PASS_2_CI_OS
+G10_PH0_MODBUS_TCP_SYNTH=PASS_2_CI_OS
+G10_PH0_ROUTERS_TEST=NOT_RUN
+G10_PH0_UPLOAD_BOTH=NOT_AUTHORIZED
+G10_PH0_R1_R4=NOT_AUTHORIZED
+```

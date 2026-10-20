@@ -2758,3 +2758,21 @@ F133_N1_DNS_DHCP_LABEL=FIXED
 F133_CI_N1=PASS_2_OF_2_39358616596
 NEXT_FAILURE_ID=F134
 ```
+
+
+## F134 — scope del gate legado G10-R ejecutado sobre promoción productiva G10-PH0
+
+**19/10/2026. Clasificación:** `HARNESS_FAILURE=YES`, `SCOPE_MISROUTING=YES`, `PRODUCT_FAILURE=NO`. Nueva clase respecto de F133: el validador histórico está diseñado para el **overlay experimental G10-R** y compara su diff contra una whitelist cerrada. El PR #124 adopta fuentes del **package real G10-I** y tiene su propio gate N0 de 12 fuentes; por tanto **no es un candidato G10-R**.
+
+- **Detección:** [CI #39368659798](https://github.com/JW-Control/platform-jwplc/actions/runs/39368659798), ambas matrices Ubuntu/Windows `failure`, con mensajes `G10_R_PREH_B3_REVIEW_STOP=UNEXPECTED_PATH:...G10P_COM4_Master...`, `G10P_COM14_Slave`, scripts G10-P0, H0, etc. No es compilación del firmware ni falla de W5500; el checker se activó por `ALPHA13_STATUS.md` y demás docs del PR.
+- **Causa:** `.github/workflows/alpha13-g10-r-preflight.yml` tenía disparador amplio de PR para `ALPHA13_STATUS.md` y no discriminaba que el branch head fuera de promoción productiva. La whitelist legado rechazó correctamente el scope no previsto, pero el workflow se estaba aplicando a un objeto equivocado.
+- **Corrección:** añadir un guard **solo para branches head `codex/alpha13-g10-promote-functional-*`** a nivel job, dejando inalterada la lógica del checker legacy G10-R, sus whitelist y su disparador histórico para las campañas a las que corresponde. [Run #39369091800](https://github.com/JW-Control/platform-jwplc/actions/runs/39369091800) informa `skipped` esperado como **not applicable**, no PASS de ese validador. Los gates N0/N1 productivos de PR #124 siguen activos y ya habían pasado.
+- **Prevención:** antes de tratar un CI rojo como defecto de producto, comprobar si el gate valida ese **tipo de artefacto/branch**; no ampliar whitelists para hacer pasar una rama de naturaleza distinta; preferir un filtro de dominio explícito y un gate productivo independiente. No pasar `SKIPPED` por `PASS`.
+
+```text
+F134=RESOLVED_LEGACY_GATE_NOT_APPLICABLE_TO_PRODUCT_PROMOTION
+F134_PRODUCT_FAILURE=NO
+F134_LEGACY_WHITELIST=UNCHANGED
+F134_G10_PRODUCT_SCOPE=VALIDATED_SEPARATELY_N0_N1
+NEXT_FAILURE_ID=F135
+```

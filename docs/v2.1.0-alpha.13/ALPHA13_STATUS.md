@@ -1,3 +1,37 @@
+# ESTADO VIGENTE — 19/10/2026 — G10-PH0: banco dual COM4+COM14 y router, CI no física PASS
+
+**Nueva decisión del propietario:** preparar y validar ambos JWPLC Basic de desarrollo, **COM4 Master y COM14 Slave**, incluidos sus puertos Ethernet conectados posteriormente al mismo router/switch de laboratorio aislado. Es continuación del [PR #124](https://github.com/JW-Control/platform-jwplc/pull/124) **Draft**. La corrección F1 de `JWPLC_ETH_CS=5` **ya está integrada en la base** de Alpha13 y validada en la placa de COM4; el nuevo código funcional G10 solo está promovido en la rama del PR.
+
+**Sketche(s) de package real:** `tools/alpha13/g10_promoted_bench/G10P_COM4_Master` (RTU Master, Ethernet DHCP/ModbusTCP Server/UDP y lecturas no destructivas de periféricos), `G10P_COM14_Slave` (RTU Slave ID 2 y Ethernet DHCP/ModbusTCP Server; sin lectura SD). Dos puertos RJ45 al **mismo router DHCP aislado**, dos IP privadas distintas; comunicación RTU físicamente por RS-485 independiente. No usar el overlay G10-R H0 con centinela `LINK=-9`.
+
+**Gates no físicos verificados:** [CI build-dual #39368656011](https://github.com/JW-Control/platform-jwplc/actions/runs/39368656011) **2/2 PASS Ubuntu/Windows**, con namespace temporal `jwplc_g10ph0`, selección de plataforma real, dependencia GCC `.d`, objeto `.o` y ELF de ambos sketches. [CI TCP-FC03 #39369086270](https://github.com/JW-Control/platform-jwplc/actions/runs/39369086270) **2/2 PASS sintéticos Windows/Ubuntu**, valida consulta Modbus TCP **solo lectura**, no implica prueba de red real. [Protocolo dual](../../tools/alpha13/g10_promoted_bench/README.md) y [preparación de gate físico](A13_G10_PROMOTED_GATE_FISICO_PREPARACION_20261019.md).
+
+**F134, tooling:** el workflow legado G10-R N0 [run #39368659798](https://github.com/JW-Control/platform-jwplc/actions/runs/39368659798) se activó por archivos `ALPHA13_STATUS` y quiso aplicar a PR #124 una whitelist diseñada para overlay G10-R, provocando fallo de scope sin fallo productivo. La regla quedó **excluida de esa rama PR** con un `if` específico; [run #39369091800](https://github.com/JW-Control/platform-jwplc/actions/runs/39369091800) `SKIPPED_EXPECTED_NOT_APPLICABLE`. Se mantienen los N0/N1/N2/N3 del producto, y la whitelist original de G10-R **no fue relajada**.
+
+**Permisos:** aprobada preparación de banco **para ambas placas**, NO upload. Falta comprobar identidad COM4 y COM14 contra registros previos independientes, 4 MB flash, relés Q aislados, consentimiento explícito de riesgo/backup **por cada equipo** y aprobación separada antes de sobrescribirlos. Aún no se ha ejecutado el ensayo DHCP/TCP del router ni el enlace físico RS-485 del firmware nuevo. R1–R4 G10 continúan NO autorizados. Evitar cambiar la rama base, COM4 con firmware F1, COM14, GPIO4, FlashFreq o archives congelados sin permiso.
+
+```text
+ALPHA13=OPEN
+F131=F1_PHYSICAL_PASS_OWNER_ACCEPTED
+F132=RESOLVED
+F133=RESOLVED
+F134=RESOLVED_LEGACY_G10_R_SCOPE_MISROUTING
+NEXT_FAILURE_ID=F135
+G10_PRODUCT_BRANCH=PR124_DRAFT_NOT_MERGED
+G10_PH0_DUAL_SCOPE=COM4_MASTER_COM14_SLAVE_PREPARATION_APPROVED
+G10_PH0_DUAL_ETHERNET_ROUTER=PLANNED_NOT_EXECUTED
+G10_PH0_BUILD_WIN_UBUNTU=PASS_2_OF_2_CI_39368656011
+G10_PH0_TCP_FC03_SYNTH_WIN_UBUNTU=PASS_2_OF_2_CI_39369086270
+G10_PH0_UPLOAD=NOT_AUTHORIZED_NOT_RUN_BOTH
+G10_PH0_TCP_PHYSICAL=NOT_RUN
+G10_PH0_RTU_PHYSICAL=NOT_RUN
+G10_R_R1_R2_R3_R4=NOT_RUN_NOT_AUTHORIZED
+COM14=NOT_TOUCHED
+NEXT_GATE=G10_PH0_IDENTITY_BACKUP_AND_EXPLICIT_UPLOAD_APPROVAL_PER_DEVICE
+```
+
+---
+
 # ESTADO VIGENTE — 19/10/2026 — G10 promovido en PR #124, N0/N1/N2/N3 PASS no físico
 
 **F1/H0 aprobado con observación por el propietario**, documentado en PR #121 ya fusionado. **G10 funcional promovido a `JWPLC/2.1.0` solamente en [PR #124](https://github.com/JW-Control/platform-jwplc/pull/124), aún Draft**, no en la rama base de Alpha13. Cambiaron 10 fuentes existentes y se añadieron 2 `SafeAccess`; F1, CS W5500, DNS/DHCP y archives `.a` congelados se conservaron. [Matriz de evidencia y límites](A13_G10_PROMOTED_N0_N3_20261019.md).
