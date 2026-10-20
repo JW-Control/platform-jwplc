@@ -1,3 +1,26 @@
+# ESTADO VIGENTE — 20/10/2026 — Alpha13 G10 integrado, conocimiento sincronizado, PreRelease preparada sin publicar
+
+**BASE_SYNC:** G10 #124 fusionado, base `3467a375ccaf7c7ee27220ed0bc348056e5e8219` más commits documentales; `PENDIENTE_DE_PROMOCION_G10=EMPTY`. **KNOWLEDGE_SYNC:** [PR privado #25](https://github.com/JW-Control/jwplc-dev-mcp/pull/25) fusionado a `knowledge/main`, commit `5e0a6b8eebc6ca77c63533b88b8b62fae7a31687`, únicamente lección F135 y límites de evidencia G10. Se redactaron [PreRelease Alpha13](PRE_RELEASE.md) y [checklist de cierre](ALPHA13_CIERRE_CHECKLIST.md) en español, todavía con metadatos no publicados. No publicar ni marcar CLOSED automáticamente.
+
+**Bloqueo técnico de promoción a release branch:** `release/v2.1.x` es ancestro de la base Alpha13 con **1095 commits** de diferencia y múltiples rutas ajenas al package, por lo que **no fusionar la base completa a release/v2.1.x sin inventario**. El workflow `release-jwplc-package.yml` acepta `workflow_dispatch(version)` y prepara `JWPLC/2.1.0` desde el checkout de la rama seleccionada; será necesario auditar rama/HEAD, PRE_RELEASE y el README que trasladará al PR automático de índice antes de publicarlo. El conector disponible no permite disparar ese workflow aquí; la publicación real requerirá ejecución explícita y verificación del asset/índice. El PreRelease de Alpha13 sigue `NOT_PUBLISHED`.
+
+```text
+ALPHA13=OPEN_RELEASE_AND_FINAL_CHECKLIST_PENDING
+G10_PR124=MERGED
+PENDIENTE_DE_PROMOCION_G10=EMPTY
+BASE_SYNC=OK_G10_IN_BASE
+KNOWLEDGE_SYNC=OK_PRIVATE_PR25_MERGED
+KNOWLEDGE_MERGE_SHA=5e0a6b8eebc6ca77c63533b88b8b62fae7a31687
+PRE_RELEASE_MD=PREPARED_NOT_PUBLISHED
+ALPHA13_RELEASE_CHECKLIST=PREPARED_WITH_OPEN_ITEMS
+RELEASE_BRANCH_DIFF=1095_COMMITS_REVIEW_BEFORE_USE
+ALPHA13_RELEASE=NOT_RUN
+ALPHA13_POSTPUBLISH_GATE=NOT_RUN
+NEXT_FAILURE_ID=F136
+NEXT_GATE=ALPHA13_C_FINAL_AUDIT_SOURCE_AND_PUBLICATION_WORKFLOW
+```
+
+---
 # ESTADO VIGENTE — 20/10/2026 — G10 Ethernet/Modbus TCP PROMOVIDO A BASE ALPHA13
 
 **Integración confirmada:** [PR #124](https://github.com/JW-Control/platform-jwplc/pull/124) `MERGED` a rama base `v2.1.0-alpha.13/feature/cleanup-robustness`, commit **`3467a375ccaf7c7ee27220ed0bc348056e5e8219`** por autorización del operador de incluir las mejoras y agilizar cierre. Comparación base vs rama PR después del merge: ahead 1 / behind 0 / **cero archivos divergentes** (commit adicional es merge); las doce fuentes G10 del package están en base. `JWPLC_ETH_CS=5` y guarda F1 se conservan, sin cambios a `utility/w5100.cpp`, autoload, `.a`, GPIO4, FlashFreq ni bootloader. Últimas CI previas al merge en PR SHA `59b4b6f37c701833097c723c2fba560c23b288b8`: promoción contratual SUCCESS, N0 del runner de campo SUCCESS Windows/Ubuntu 2/2, G10-R legacy SKIPPED esperado. N1/N2/N3 PASS se reutilizan con las fuentes verificadas **idénticas** (ver `A13_G10_PROMOTED_N0_N3_20261019.md`). No declarar test CI de integración base si no existe.
