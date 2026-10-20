@@ -75,13 +75,25 @@ def artifacts(out: Path, manifest: dict) -> dict:
         require(entry.get("status") == "PASS_SOURCE_TO_OBJECT_ELF",
                 "BUILD_" + role)
         build = out / ("build_" + role)
-        elf = build / (sketch + ".elf")
-        require(elf.is_file(), "ELF_MISSING_" + role)
+        # El project_name de Arduino CLI conserva la extensión .ino.
+        # No adivinar el nombre desde la carpeta ni aceptar otro ELF.
+        prefix = sketch + ".ino"
+        elfs = sorted(build.glob("*.elf"))
+        require(len(elfs) == 1 and elfs[0].name == prefix + ".elf",
+                "ELF_UNEXPECTED_" + role)
+        elf = elfs[0]
         require(sha(elf) == entry.get("elf_sha256"),
                 "ELF_CHANGED_" + role)
-        binaries = sorted(build.glob(sketch + "*.bin"))
-        require((build / (sketch + ".bin")).is_file() and len(binaries) >= 2,
-                "FIRMWARE_BINARIES_MISSING_" + role)
+        required_bins = (
+            prefix + ".bin",
+            prefix + ".bootloader.bin",
+            prefix + ".partitions.bin",
+        )
+        require(all((build / name).is_file() for name in required_bins),
+                "UPLOAD_BINARIES_MISSING_" + role)
+        binaries = sorted(build.glob(prefix + "*.bin"))
+        require(len(binaries) >= len(required_bins),
+                "UPLOAD_BINARIES_INCOMPLETE_" + role)
         for obj in entry.get("source_objects", []):
             rel = obj["relative_source"]
             source = stage / rel
@@ -107,9 +119,34 @@ def check_output(out: Path, head: str) -> dict:
     manifest_file = out / "MANIFEST.json"
     require(manifest_file.is_file(), "BUILD_MANIFEST_MISSING")
     m = json.loads(manifest_file.read_text(encoding="utf-8"))
-    require(m.get("head") == head, "BUILD_HEAD_MISMATCH")
+    build_head = m.get("head")
+    require(isinstance(build_head, str) and len(build_head) == 40,
+            "BUILD_HEAD_INVALID")
+    if build_head != head:
+        # Permite reutilizar CI/build anterior SOLO si ningun input compilado
+        # ha cambiado en Git entre ambos commits; la instrumentación sí puede.
+        run(["git", "merge-base", "--is-ancestor", build_head, head])
+        changed_inputs = run([
+            "git", "diff", "--name-only", build_head, head, "--",
+            "JWPLC/",
+            "tools/alpha13/g10_promoted_bench/G10P_COM4_Master/",
+            "tools/alpha13/g10_promoted_bench/G10P_COM14_Slave/",
+            "tools/alpha13/g10_promoted_bench/g10p_dual_build.py",
+            "tools/alpha13/gates/a13_g10_promoted_contract.py",
+        ]).strip()
+        require(not changed_inputs, "COMPILED_INPUT_CHANGED")
     fingerprints = artifacts(out, m)
-    return {"head": head, "fqbn": FQBN, "artifacts": fingerprints}
+    return {"head": head, "build_head": build_head, "fqbn": FQBN,
+            "artifacts": fingerprints}
+
+
+def seal_existing(out: Path, head: str) -> None:
+    require(not (out / "PH0_SEAL.json").exists(), "SEAL_ALREADY_EXISTS")
+    seal = check_output(out, head)
+    (out / "PH0_SEAL.json").write_text(
+        json.dumps(seal, indent=2) + "\n", encoding="utf-8")
+    print("G10P_PH0_BUILD_SEAL=PASS_VERIFIED_NO_USB")
+    print("G10P_PH0_OUTPUT=" + str(out))
 
 
 def prepare(out: Path, head: str, cli: str) -> None:
@@ -118,9 +155,7 @@ def prepare(out: Path, head: str, cli: str) -> None:
     require(not out.exists(), "OUTPUT_ALREADY_EXISTS")
     run([sys.executable, "-B", str(BENCH / "g10p_dual_build.py"),
          "--expected-head", head, "--output", str(out), "--cli", cli])
-    seal = check_output(out, head)
-    (out / "PH0_SEAL.json").write_text(
-        json.dumps(seal, indent=2) + "\n", encoding="utf-8")
+    seal_existing(out, head)
     print("G10P_PH0_PREPARE=PASS_TWO_BUILDS_NO_USB")
     print("G10P_PH0_UPLOAD=NOT_RUN")
     print("G10P_PH0_OUTPUT=" + str(out))
@@ -162,6 +197,8 @@ def main() -> None:
     actions = ap.add_mutually_exclusive_group(required=True)
     actions.add_argument("--check", action="store_true")
     actions.add_argument("--prepare", action="store_true")
+    actions.add_argument("--seal-existing", action="store_true",
+                         help="Reutiliza build verificado sin recompilar ni USB")
     actions.add_argument("--upload-com14", action="store_true")
     actions.add_argument("--upload-com4", action="store_true")
     ap.add_argument("--expected-head", required=True)
@@ -170,15 +207,22 @@ def main() -> None:
     ap.add_argument("--ci-detached", action="store_true",
                     help="Solo preflight read-only en Actions, nunca upload")
     args = ap.parse_args()
-    require(not args.ci_detached or args.check, "CI_DETACHED_CHECK_ONLY")
+    require(not args.ci_detached or args.check or args.seal_existing,
+            "CI_DETACHED_READ_ONLY")
     if args.check:
         guard(args.expected_head, allow_ci_detached=args.ci_detached)
         print("G10P_PH0_RUNNER_N0=PASS_NO_USB_NO_MAC_NO_BACKUP")
+        return
+    if args.seal_existing:
+        require(args.output is not None, "OUTPUT_REQUIRED")
+        guard(args.expected_head, allow_ci_detached=args.ci_detached)
+        seal_existing(args.output.resolve(), args.expected_head)
         return
     if args.prepare:
         dest = (args.output or (Path(tempfile.gettempdir()) /
                 ("g10p_ph0_" + args.expected_head[:12] + "_" +
                  str(time.time_ns())))).resolve()
+        print("G10P_PH0_OUTPUT=" + str(dest), flush=True)
         prepare(dest, args.expected_head, args.cli)
     else:
         require(args.output is not None, "OUTPUT_REQUIRED")
