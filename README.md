@@ -1,6 +1,6 @@
 # JWPLC Platform for Arduino IDE
 
-<!-- JWPLC_RELEASE_VERSION: 2.1.0-alpha.12 -->
+<!-- JWPLC_RELEASE_VERSION: 2.1.0-alpha.13 -->
 
 Package personalizado de **JW Control** para programar **JWPLC Basic** desde
 Arduino IDE y Arduino CLI.
@@ -22,9 +22,11 @@ El package integra al runtime del JWPLC los periféricos principales del equipo:
 No se retiran periféricos del autoload normal sólo para reducir tiempos de
 compilación.
 
-> **Nota de publicación:** `v2.1.0-alpha.12` ya fue publicada como GitHub
-> PreRelease. El índice dev se integra a `main` mediante el PR automático de
-> publicación antes de ejecutar la validación aislada post-publicación.
+> **Canal de desarrollo:** `v2.1.0-alpha.13` es el siguiente package de
+> PreRelease, con Ethernet G10 integrado en su rama de origen.
+> La disponibilidad efectiva de su ZIP, checksum e índice dev se comprueba en
+> [GitHub Releases](https://github.com/JW-Control/platform-jwplc/releases)
+> y tras el PR automático hacia `main`. No alterar la versión estable `v2.0.0`.
 
 ---
 
@@ -33,14 +35,14 @@ compilación.
 | Canal | Versión | Estado |
 |---|---|---|
 | Estable | `v2.0.0` | Release pública estable |
-| Dev / PreRelease publicada | `v2.1.0-alpha.12` | Publicada y validada |
-| PreRelease anterior | `v2.1.0-alpha.11` | Publicada y validada |
+| Dev / próxima PreRelease | `v2.1.0-alpha.13` | G10 integrado; confirmar ZIP e índice tras publicación |
+| Última PreRelease verificada | `v2.1.0-alpha.12` | Publicada y validada |
 
-Alpha12 es la última versión completamente cerrada, publicada y validada; Alpha13 sigue en desarrollo:
+Alpha12 es la última versión con validación completa de distribución registrada; Alpha13 integró G10 y queda sujeta al gate de publicación/postpublicación:
 
 ```text
 ALPHA12_STATUS=CLOSED_PUBLISHED
-ALPHA13_STATUS=IN_PROGRESS
+ALPHA13_STATUS=RELEASE_PREPARATION
 ```
 
 Estado actual de Alpha12:
