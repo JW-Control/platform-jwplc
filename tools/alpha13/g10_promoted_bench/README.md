@@ -2,6 +2,44 @@
 
 **Decisión del operador 20/10/2026:** COM4 Master y COM14 Slave disponibles y autorizados para actualizar firmware G10-PH0. No realizar backup de flash, no consultar MAC ni exigir aprobación adicional por placa. Esta autorización se limita al upload de estos dos sketches; R1–R4, merge y release siguen separados. Antes de conectar cada equipo: banco aislado, Q sin cargas/tensiones y monitor serie cerrado durante upload. Si la identidad de puerto/rol es dudosa, STOP sin flashear.
 
+## Corrección F135 (tooling PH0): nombre ELF/bin Arduino y recuperación sin recompilar
+
+Con el HEAD `c08147eedf...`, N0 local dio PASS pero la preparación falló
+en `ELF_MISSING_COM14_SLAVE`. `g10p_dual_build.py` terminó correctamente:
+el verificador añadido asumió `<sketch>.elf` cuando el CLI genera
+`<sketch>.ino.elf` (mismo patrón en `.ino.bin`, bootloader y particiones).
+La corrección reconoce exclusivamente nombres de sketch `.ino`, coteja SHA
+con MANIFEST y requiere los 3 binarios por placa. Ningún cambio en `JWPLC/`
+ni en los sketches. Las compilaciones de CI se verifican ahora con
+`--seal-existing --ci-detached`, no solamente con el N0 sintáctico.
+
+**Para reutilizar sin recompilar la build local anterior**, tras un
+`git pull --ff-only` con árbol limpio y nuevo HEAD, hallar directorios
+temporales del intento previo:
+
+```powershell
+$head = (git rev-parse HEAD).Trim()
+Get-ChildItem $env:TEMP -Directory -Filter 'g10p_ph0_c08147eedf3_*' |
+  Sort-Object LastWriteTime -Descending |
+  Select-Object -First 5 FullName, LastWriteTime
+```
+
+Elegir solo la carpeta de esa preparación, con `MANIFEST.json`,
+`build_COM14_SLAVE` y `build_COM4_MASTER`. **No eliminarla ni modificarla**.
+Luego:
+
+```powershell
+$out = 'PEGA_RUTA_FULLNAME_DEL_INTENTO_ANTERIOR'
+py -3 tools/alpha13/g10_promoted_bench/g10p_ph0_upload.py --seal-existing --expected-head $head --output $out
+```
+
+Este modo no llama Arduino CLI ni abre COM, y aborta si detecta cambios en
+package, sketches, contrato o compilador entre el HEAD que generó los binarios
+y el actual. Exige coincidencia de fuente→objeto→ELF y hashes de los
+archives `.a`, y produce `PH0_SEAL.json`. Si falta un binario o no se puede
+demostrar procedencia, STOP y compilar con `--prepare` en un nuevo directorio
+(ningún `--clean` sobre el repo).
+
 ## Flujo local versión controlada (Windows)
 
 Ejecutar desde la rama limpia `codex/alpha13-g10-promote-functional-20261019`, tras `git pull --ff-only` **en esa misma rama**. No descargar ejecutables ni copiar scripts de chats. Requiere Arduino CLI y las herramientas del package instaladas, según el gate dual ya validado en CI.
