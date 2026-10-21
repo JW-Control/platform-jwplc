@@ -12,7 +12,15 @@
 
 **Medición actual:** las cifras de una sola pareja bajo el primer archive (Ubuntu 28,985→19,798 s en frío; Windows 59,039→43,540 s en frío para Basic) son **preliminares y corresponden al candidato revocado**. No sustituyen la tabla final. El runner actualizado mide mínimo tres parejas frío/caliente para **Basic y Basic Core**, en ambos sistemas, informa todas las muestras y mediana; no atribuye mejora de upload.
 
-**Criterios de salida:** N0 limpio; N1 negativo reproducible; N2 paridad de cada objeto y política ELF; N3 fuentes→objetos→members `.a`→ELF sobre el package real sin compilar dos veces; benchmark 3 pares con variabilidad explícita; READMEs y checklist revisados; H mínimo aprobado/ejecutado si el cambio funcional lo exige. Solo entonces reactivar la adopción en PR #125, revisar el HEAD post-adopción y solicitar merge. No disparar release antes del merge.
+**Criterios de salida:** N0 limpio; N1 negativo reproducible; N2 paridad de cada objeto realmente archivado tras `objcopy --strip-debug` y política ELF; N3 fuentes→objetos→members `.a`→ELF sobre el package real sin compilar dos veces; benchmark 3 pares con variabilidad explícita; READMEs y checklist revisados; H mínimo aprobado/ejecutado si el cambio funcional lo exige. Solo entonces reactivar la adopción en PR #125, revisar el HEAD post-adopción y solicitar merge. No disparar release antes del merge.
+
+
+### Diagnóstico Windows y normalización segura de objetos (F137)
+
+- [CI #39518443069](https://github.com/JW-Control/platform-jwplc/actions/runs/39518443069): mismo FQBN Basic recompilado 2 veces en el mismo directorio genera 0/12 discrepancias Ethernet y 0/2 ModbusTCP. Cambiar Basic a Basic Core sigue generando diferencias crudas de 11/12 y 2/2, respectivamente.
+- [CI #39519348684](https://github.com/JW-Control/platform-jwplc/actions/runs/39519348684): los archivos .o de ambos perfiles normalizados con `objcopy --strip-debug` difieren **0/12 Ethernet y 0/2 ModbusTCP**, sin cambiar fuente funcional ni toolchain. Se mantiene evidencia de los SHA originales distintos. Solo objetos normalizados e idénticos podrán entrar en el archive; el generador comprueba cada miembro extraído con su SHA y falla cerrado si existe alguna diferencia.
+- [CI #39520417396](https://github.com/JW-Control/platform-jwplc/actions/runs/39520417396): Ubuntu N2 y benchmark 3 pares por perfil completados PASS, pero **run global CANCELLED** antes de finalizar Windows y enlace cruzado. Medianas Ubuntu preliminares (fría/caliente): Basic fuentes 29,175/3,902 s, archive 19,826/3,812 s; Basic Core fuentes 36,910/3,836 s, archive 28,546/3,833 s. No constituyen PASS final combinado.
+- El nuevo gate de publicación exige `PASS_TWO_ARCHIVES_CANONICAL_PARITY_THREE_PAIRS`, fuentes→objetos→miembros reales del .a→ELF, N3 post-adopción de 11 sketches y 2 FQBN y verificación física mínima autorizada. El cambio se limita al PR Draft y jamás publica automáticamente.
 
 ## Fuente y reglas
 
