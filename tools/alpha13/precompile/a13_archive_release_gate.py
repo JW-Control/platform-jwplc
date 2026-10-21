@@ -33,13 +33,14 @@ def manifest(inp: Path) -> dict:
     target = inp / "MANIFEST.json"
     require(target.is_file(), "CI_MANIFEST_MISSING_" + str(inp))
     data=json.loads(target.read_text(encoding="utf-8"))
-    require(data["status"] == "PASS_TWO_ARCHIVES_TWO_FQBN_PARITY_THREE_PAIRS",
+    require(data["status"] == "PASS_TWO_ARCHIVES_CANONICAL_PARITY_THREE_PAIRS",
             "SOURCE_CANDIDATE_CI_NOT_PASS")
     require(data["fqbn"] == list(PROFILES), "FQBN_NOT_TWO")
     require(data.get("repetitions") == 3, "BENCHMARK_NOT_THREE_PAIRS")
     for lib in LIBS:
         parity = data.get("fqbn_object_parity", {}).get(lib, {})
-        require(parity.get("sources", 0) >= 2 and parity.get("diff_count") == 0,
+        require(parity.get("sources", 0) >= 2 and parity.get("diff_count") == 0
+                and parity.get("comparison") == "ARCHIVE_READY_OBJCOPY_STRIP_DEBUG",
                 "FQBN_OBJECT_MISMATCH_ARCHIVE_FORBIDDEN_" + lib)
     for mode in ("source","archive"):
         row=data["bench"][mode]
@@ -73,6 +74,11 @@ def verify_provenance(data: dict, inp: Path) -> dict[str,Path]:
             actual.append(Path(obj["object"].replace("\\","/")).name)
         require(sorted(record["members"]) == sorted(actual),
                 "MEMBER_LIST_MISMATCH_" + lib)
+        require(record.get("normalization") == "OBJCOPY_STRIP_DEBUG",
+                "ARCHIVE_MEMBER_NORMALIZATION_MISSING_" + lib)
+        require(all(len(obj.get("archive_member_sha256", "")) == 64
+                    for obj in record["objects"]),
+                "ARCHIVE_CANONICAL_MEMBER_HASH_MISSING_" + lib)
         # ar del anfitrión solo enumera el contenedor, no compila ni re-enlaza.
         if shutil.which("ar"):
             x=subprocess.run(["ar","t",str(target)],

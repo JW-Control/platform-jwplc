@@ -171,11 +171,16 @@ def perform(output: Path, cli: str, detached: bool, expect_mismatch: bool) -> No
         require(report["elf_profile_policy"] == {a: "W", b: "T"},
                 "POLICY_LINK_WEAK_BASIC_STRONG_BASICCORE")
     repeat_stable = all(not paths for paths in repeat_diffs.values())
+    canonical_diff_count = sum(
+        len(paths) for paths in report["diagnostic_strip_debug_different"].values()
+    )
+    report["archive_ready_diff_count"] = canonical_diff_count
     passed = repeat_stable and (
-        (changed_total > 0) if expect_mismatch else (changed_total == 0)
+        (changed_total > 0) if expect_mismatch else
+        (canonical_diff_count == 0)
     )
     report["status"] = ("PASS_EXPECTED_PROFILE_MISMATCH" if passed and expect_mismatch
-                        else "PASS_OBJECT_PARITY" if passed
+                        else "PASS_ARCHIVE_READY_OBJECT_PARITY_AFTER_STRIP_DEBUG" if passed
                         else "REVIEW_PROFILE_OBJECTS_DIFFER" if changed_total
                         else "REVIEW_NEGATIVE_DID_NOT_REPRODUCE")
     (output / "FQBN_OBJECT_MANIFEST.json").write_text(

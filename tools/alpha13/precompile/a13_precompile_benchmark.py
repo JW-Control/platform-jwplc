@@ -162,17 +162,26 @@ def archiver_from_props(props: dict[str, str]) -> str:
     return str(binary)
 
 def publish_stage_archive(cli: str, props: dict[str, str], hw: Path,
-                          build: Path, manifest: dict) -> None:
+                          normalized_objects: dict, manifest: dict) -> None:
     archiver = archiver_from_props(props)
     for lib in LIBS:
-        objects = object_manifest(lib, hw, build)
+        objects = [normalized_objects[lib][k] for k in sorted(normalized_objects[lib])]
         libroot = hw / "libraries" / lib
         target = libroot / "src/esp32" / f"lib{lib}.a"
         target.parent.mkdir(parents=True, exist_ok=True)
-        run([archiver, "crs", str(target)] + [v["object"] for v in objects])
+        run([archiver, "crs", str(target)] +
+            [v["archive_member_path"] for v in objects])
         members = [line.strip() for line in run([archiver, "t", str(target)]).splitlines() if line.strip()]
-        require(sorted(members) == sorted(Path(x["object"]).name for x in objects),
+        require(sorted(members) == sorted(Path(x["archive_member_path"]).name for x in objects),
                 "ARCHIVE_MEMBERS_MISMATCH_" + lib)
+        for item in objects:
+            member = Path(item["archive_member_path"]).name
+            extracted = subprocess.run([archiver, "p", str(target), member],
+                                       capture_output=True, timeout=30)
+            require(extracted.returncode == 0 and
+                    hashlib.sha256(extracted.stdout).hexdigest() ==
+                    item["archive_member_sha256"],
+                    "ARCHIVE_MEMBER_HASH_MISMATCH_" + lib + "_" + member)
         props_path = libroot / "library.properties"
         props_text = props_path.read_text(encoding="utf-8")
         props_path.write_text(props_text.rstrip() + "\nprecompiled=full\n",
@@ -180,6 +189,7 @@ def publish_stage_archive(cli: str, props: dict[str, str], hw: Path,
         manifest["archives"][lib] = {
             "sha256":digest(target), "bytes":target.stat().st_size,
             "objects":objects, "members":members,
+            "normalization":"OBJCOPY_STRIP_DEBUG",
             "source_library_properties_sha256":digest(PLATFORM / "libraries" / lib / "library.properties")
         }
 
@@ -231,7 +241,35 @@ def measured_pairs(cli: str, cfg: Path, board: str, build: Path,
     }
 
 
+def canonicalize_objects(props: dict, objects: dict, out: Path) -> dict:
+    """Guardar objetos sin DWARF, sin tocar originales ni el package.
+    SOLO estos .o se usarán al crear .a si coinciden en ambos FQBN.
+    """
+    prefix = props.get("compiler.prefix", "")
+    toolpath = Path(props.get("compiler.path", ""))
+    objcopy = toolpath / (prefix + "objcopy")
+    if os.name == "nt" and not objcopy.exists():
+        objcopy = objcopy.with_suffix(".exe")
+    require(bool(prefix) and objcopy.is_file(), "OBJCOPY_TOOL_MISSING")
+    canon = {}
+    for lib in LIBS:
+        libroot = out / lib
+        libroot.mkdir(parents=True, exist_ok=True)
+        canon[lib] = {}
+        for key, entry in sorted(objects[lib].items()):
+            target = libroot / Path(entry["object"]).name
+            require(not target.exists(), "CANON_MEMBER_DUPLICATE_" + lib)
+            run([str(objcopy), "--strip-debug", entry["object"], str(target)])
+            canon[lib][key] = {
+                **entry,
+                "archive_member_path": str(target),
+                "archive_member_sha256": digest(target),
+            }
+    return canon
+
+
 def assert_fqbn_objects_equal(ba_by_lib: dict, co_by_lib: dict,
+                              ba_normalized: dict, co_normalized: dict,
                               out: Path) -> dict:
     """Objetos Basic/Core generados en el MISMO build path, distinto --clean."""
     parity = {}
@@ -239,16 +277,25 @@ def assert_fqbn_objects_equal(ba_by_lib: dict, co_by_lib: dict,
         ba = ba_by_lib[lib]
         co = co_by_lib[lib]
         require(set(ba) == set(co), "FQBN_SOURCE_SET_DIFFER_" + lib)
-        diffs = [k for k in sorted(ba)
-                 if ba[k]["object_sha256"] != co[k]["object_sha256"]]
+        raw_diffs = [k for k in sorted(ba)
+                     if ba[k]["object_sha256"] != co[k]["object_sha256"]]
+        require(set(ba_normalized[lib]) == set(co_normalized[lib]),
+                "FQBN_CANONICAL_SOURCE_SET_CHANGED_" + lib)
+        archive_diffs = [k for k in sorted(ba)
+                         if ba_normalized[lib][k]["archive_member_sha256"] !=
+                         co_normalized[lib][k]["archive_member_sha256"]]
         parity[lib] = {
             "sources": len(ba),
-            "diff_count": len(diffs),
-            "different_sources": diffs,
+            "raw_diff_count": len(raw_diffs),
+            "raw_different_sources": raw_diffs,
+            "diff_count": len(archive_diffs),
+            "different_sources": archive_diffs,
+            "comparison": "ARCHIVE_READY_OBJCOPY_STRIP_DEBUG",
         }
-        print("A13_FQBN_PARITY_" + lib + "=" +
-              ("PASS" if not diffs else "REVIEW_STOP") +
-              "_DIFFS_" + str(len(diffs)), flush=True)
+        print("A13_FQBN_RAW_" + lib + "_DIFFS=" + str(len(raw_diffs)), flush=True)
+        print("A13_FQBN_ARCHIVE_READY_" + lib + "=" +
+              ("PASS" if not archive_diffs else "REVIEW_STOP") +
+              "_DIFFS_" + str(len(archive_diffs)), flush=True)
     (out / "FQBN_OBJECT_PARITY.json").write_text(
         json.dumps(parity, indent=2) + "\n", encoding="utf-8")
     require(all(not p["diff_count"] for p in parity.values()),
@@ -278,12 +325,17 @@ def perform(out: Path, cli: str, detached: bool) -> None:
         lib: {x["src"]: x for x in object_manifest(lib, source_hw, shared_build)}
         for lib in LIBS
     }
+    basic_normalized = canonicalize_objects(
+        source_props, basic_objects, out / "canonical_basic")
     sc = measured_pairs(
         cli, source_cfg, core, shared_build, out, "source_basiccore")
     core_objects = {
         lib: {x["src"]: x for x in object_manifest(lib, source_hw, shared_build)}
         for lib in LIBS
     }
+    core_props = properties(cli, source_cfg, core, source_hw)
+    core_normalized = canonicalize_objects(
+        core_props, core_objects, out / "canonical_core")
     report["bench"]["source"] = {
         **sb, "basiccore_cold_s": sc["cold_s"],
         "basiccore_warm_s": sc["warm_s"],
@@ -291,12 +343,11 @@ def perform(out: Path, cli: str, detached: bool) -> None:
         "basiccore_warm_samples_s": sc["warm_samples_s"],
     }
     report["fqbn_object_parity"] = assert_fqbn_objects_equal(
-        basic_objects, core_objects, out)
+        basic_objects, core_objects, basic_normalized, core_normalized, out)
 
     archive_hw, archive_cfg = stage(PLATFORM, out / "candidate", cli)
-    # Si cada .o coincide byte a byte, el ultimo build Core contiene objetos
-    # identicos a Basic y es una fuente apta para el unico archive compartido.
-    publish_stage_archive(cli, source_props, archive_hw, shared_build, report)
+    # Solo empaquetar objetos canónicos idénticos, sin metadata DWARF/FQBN.
+    publish_stage_archive(cli, source_props, archive_hw, core_normalized, report)
     for board in PROFILES:
         source_board_props = properties(cli, source_cfg, board, source_hw)
         archive_board_props = properties(cli, archive_cfg, board, archive_hw)
@@ -320,7 +371,7 @@ def perform(out: Path, cli: str, detached: bool) -> None:
         rel = Path("libraries") / lib / "src/esp32" / f"lib{lib}.a"
         report["archives"][lib]["stage_path"] = str(
             (archive_hw / rel).relative_to(out))
-    report["status"] = "PASS_TWO_ARCHIVES_TWO_FQBN_PARITY_THREE_PAIRS"
+    report["status"] = "PASS_TWO_ARCHIVES_CANONICAL_PARITY_THREE_PAIRS"
     (out / "MANIFEST.json").write_text(
         json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print("A13_ARCHIVE_BUILD=PASS_TWO_ARCHIVES", flush=True)
