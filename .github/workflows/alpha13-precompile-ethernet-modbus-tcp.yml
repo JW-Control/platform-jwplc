@@ -60,10 +60,10 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: alpha13-fqbn-negative-${{ matrix.os }}-${{ github.run_id }}
+          name: alpha13-fqbn-parity-${{ matrix.os }}-${{ github.run_id }}
           path: |
-            ${{ runner.temp }}/a13-fqbn-negative/FQBN_OBJECT_MANIFEST.json
-            ${{ runner.temp }}/a13-fqbn-negative/*.log
+            ${{ runner.temp }}/a13-fqbn-parity/FQBN_OBJECT_MANIFEST.json
+            ${{ runner.temp }}/a13-fqbn-parity/*.log
           if-no-files-found: warn
           retention-days: 14
       - name: Fuente vs precompiled-full, BASIC y BASICCORE
@@ -77,6 +77,7 @@ jobs:
           name: alpha13-two-archives-${{ matrix.os }}-${{ github.run_id }}
           path: |
             ${{ runner.temp }}/a13-archive/MANIFEST.json
+            ${{ runner.temp }}/a13-archive/FQBN_OBJECT_PARITY.json
             ${{ runner.temp }}/a13-archive/*basic*.log
             ${{ runner.temp }}/a13-archive/candidate/sketchbook/hardware/jwplc_a13archive/esp32/libraries/JWPLC_Ethernet/src/esp32/libJWPLC_Ethernet.a
             ${{ runner.temp }}/a13-archive/candidate/sketchbook/hardware/jwplc_a13archive/esp32/libraries/JWPLC_ModbusTCP/src/esp32/libJWPLC_ModbusTCP.a
