@@ -2,7 +2,7 @@
 
 **PR #125:** Draft; adopción de dos archivos `.a` canónicos y dos `library.properties` completada **solamente en la rama candidata**, commit `1a55c3be8473a37018c2815dd68697abdad56441`. Rama base, distribución ZIP y Release todavía sin cambios. Sin flasheo, COM, USB ni modificaciones de GPIO4, `core.a` o archives congelados de otros periféricos.
 
-**Evidencia no física:** [CI #39531758494](https://github.com/JW-Control/platform-jwplc/actions/runs/39531758494): paridad 12/12 Ethernet y 2/2 ModbusTCP, ELF `W` en Basic y `T` en Basic Core, benchmark 3 pares por FQBN/OS, prueba cruzada Ubuntu→Windows y adopción del PR **todos PASS**. El workflow global terminó FAILURE por la inspección de rutas `-L` de N3 Windows (su primer sketch sí compiló y enlazó). N3 Ubuntu 13/13 PASS. El replay aislado [#39538155047](https://github.com/JW-Control/platform-jwplc/actions/runs/39538155047) sobre `5e1010927a8c03c7ad46d38e4d5459b06bae543f` ya pasó Ubuntu y mantiene Windows en ejecución al registrar este estado. Los logs reales se usaron para corregir escapes y alias 8.3 sin relajar `-L/-l`.
+**Evidencia no física:** [CI #39531758494](https://github.com/JW-Control/platform-jwplc/actions/runs/39531758494): paridad 12/12 Ethernet y 2/2 ModbusTCP, ELF `W` en Basic y `T` en Basic Core, benchmark 3 pares por FQBN/OS, prueba cruzada Ubuntu→Windows y adopción del PR **todos PASS**. El workflow global terminó FAILURE por la inspección de rutas `-L` de N3 Windows (su primer sketch sí compiló y enlazó). N3 Ubuntu 13/13 PASS. El replay aislado [#39538155047](https://github.com/JW-Control/platform-jwplc/actions/runs/39538155047) sobre `5e1010927a8c03c7ad46d38e4d5459b06bae543f` terminó **SUCCESS global: N3 Ubuntu 13/13 PASS y Windows 13/13 PASS**, ambos con los mismos hashes de los dos archives. Los logs reales se usaron para corregir escapes y alias 8.3 sin relajar `-L/-l`.
 
 **Benchmark mediano frío (fuentes→archives):** Ubuntu Basic 27,245→18,976 s (30,4 %); Ubuntu Basic Core 35,065→26,141 s (25,4 %); Windows Basic 85,163→51,945 s (39,0 %); Windows Basic Core 95,054→79,908 s (15,9 %). Tabla, variación y hashes en [A13_PRECOMPILE_BENCHMARK_20261020.md](A13_PRECOMPILE_BENCHMARK_20261020.md). No se infiere mejora de velocidad de upload.
 
@@ -12,13 +12,13 @@ F137_TWO_ARCHIVES_DRAFT_PR125=ADOPTED
 F137_N2_CROSS_OS=PASS
 F137_BENCHMARK_3_PAIRS_TWO_FQBN_TWO_OS=PASS
 F137_N3_UBUNTU=PASS
-F137_N3_WINDOWS=CI_IN_PROGRESS_39538155047
+F137_N3_WINDOWS=PASS_13_OF_13_CI_39538155047
 F137_H_PHYSICAL=NOT_AUTHORIZED
 PRECOMPILED_FREEZE_ALPHA13=NOT_FINAL
 PR125_MERGE=NOT_AUTHORIZED
 RELEASE=BLOCKED
 NEXT_FAILURE_ID=F138
-NEXT_GATE=F137_N3_WIN_PASS_THEN_EXPLICIT_H_COM4
+NEXT_GATE=F137_H_COM4_IDENTITY_BACKUP_AND_EXPLICIT_UPLOAD_APPROVAL
 ```
 
 ---
