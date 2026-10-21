@@ -53,6 +53,27 @@ def elf_profile_policy(props: dict[str, str], build: Path) -> str:
     return matches[0]
 
 
+def stripped_hashes(props: dict[str, str], objs: dict, directory: Path) -> dict:
+    """Solo DIAGNOSTICO: objcopy --strip-debug no altera el criterio crudo."""
+    toolpath = Path(props.get("compiler.path", ""))
+    prefix = props.get("compiler.prefix", "")
+    objcopy = toolpath / (prefix + "objcopy")
+    if os.name == "nt" and not objcopy.exists():
+        objcopy = objcopy.with_suffix(".exe")
+    require(objcopy.is_file(), "OBJCOPY_MISSING")
+    from a13_precompile_benchmark import run
+    directory.mkdir(parents=True, exist_ok=True)
+    hashes = {}
+    for lib in LIBS:
+        hashes[lib] = {}
+        for i, (source, record) in enumerate(sorted(objs[lib].items())):
+            destination = directory / (lib + "_" + str(i) + ".o")
+            run([str(objcopy), "--strip-debug", record["object"],
+                 str(destination)])
+            hashes[lib][source] = digest(destination)
+    return hashes
+
+
 def perform(output: Path, cli: str, detached: bool, expect_mismatch: bool) -> None:
     sha = n0(detached)
     require(not output.exists(), "OUTPUT_EXISTS")
@@ -72,10 +93,12 @@ def perform(output: Path, cli: str, detached: bool, expect_mismatch: bool) -> No
     elapsed_a, _ = compile_one(cli, cfg, a, shared_build,
                                output / "source_basic_second.log", True)
     objects_a = objects_by_source(hw, shared_build)
+    stripped_a = stripped_hashes(prop_a, objects_a, output / "strip_basic")
     policy_a = elf_profile_policy(prop_a, shared_build) if not expect_mismatch else None
     elapsed_b, _ = compile_one(cli, cfg, b, shared_build,
                                output / "source_basiccore.log", True)
     objects_b = objects_by_source(hw, shared_build)
+    stripped_b = stripped_hashes(prop_b, objects_b, output / "strip_basiccore")
     policy_b = elf_profile_policy(prop_b, shared_build) if not expect_mismatch else None
     report = {
         "head_sha": sha,
@@ -121,6 +144,17 @@ def perform(output: Path, cli: str, detached: bool, expect_mismatch: bool) -> No
                 changed_total += 1
         report["libs"][lib] = changed
 
+    report["changed_objects"] = changed_total
+    report["diagnostic_strip_debug_different"] = {}
+    for lib in LIBS:
+        different = [
+            path for path in sorted(stripped_a[lib])
+            if stripped_a[lib][path] != stripped_b[lib][path]
+        ]
+        report["diagnostic_strip_debug_different"][lib] = different
+        print("A13_DIAG_STRIP_DEBUG_" + lib + "=" + str(len(different)) +
+              "_DIFFER", flush=True)
+    # El diagnóstico NO puede convertir objetos crudos diferentes en PASS.
     report["changed_objects"] = changed_total
     report["same_toolchain_prefix"] = (
         prop_a.get("compiler.prefix") == prop_b.get("compiler.prefix")
