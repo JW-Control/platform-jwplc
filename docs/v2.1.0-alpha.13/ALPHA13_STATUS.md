@@ -4,6 +4,8 @@
 
 **F137:** prueba negativa `--expect-mismatch` del source heredado en CI [#39516689615](https://github.com/JW-Control/platform-jwplc/actions/runs/39516689615): Ubuntu Ethernet 1/12 distinto (`JWPLC_Ethernet.cpp`), Modbus TCP 0/2. Windows comparó rutas de build distintas y reportó diferencias más amplias, no interpretables como fallos semánticos; el gate se normalizó a misma ruta con `--clean`. Corrección candidata: Ethernet independiente del perfil mediante policy weak Basic/strong Core, con sus 21 bloques convertidos a guardas runtime. Debe pasar igualdad objeto por objeto, símbolo ELF, fuente→objeto→archive→ELF, N2/N3 de package real, benchmark 3 pares frío/caliente en Windows/Ubuntu para ambos FQBN y revisión final de README. **No atribuir PASS hasta obtener CI del HEAD exacto**.
 
+**Evidencia posterior:** Windows mismo FQBN repetido 0/14 diferencias, distinto FQBN 13/14 diferencias crudas, y **0/14 diferencias tras `objcopy --strip-debug`** ([CI #39519348684](https://github.com/JW-Control/platform-jwplc/actions/runs/39519348684)). Ubuntu del [run #39520417396](https://github.com/JW-Control/platform-jwplc/actions/runs/39520417396) completó el gate normalizado y 3 pares fuente/archive para ambos FQBN, pero el run global acabó CANCELLED antes de terminar Windows+cross-OS. Nuevo generador solo archivará miembros normalizados idénticos, comprobando su SHA; su adopción permanece bloqueada hasta CI final. Se versionó N3 real post-adopción en `tools/alpha13/f137_product_n3.py` y workflow `alpha13-f137-product-n3.yml`: 11 sketches y ambos FQBN, sin USB/COM/flash.
+
 **Sincronización de rama:** la candidata integró los dos commits documentales adelantados de la base mediante merge `261fcc0b3a9e21ce3e406457ab00883f452f627b`. Esta operación NO fusiona PR #125 a la base. `KNOWLEDGE_SYNC` G10/F135 previo OK, pero la lección F137 requiere nueva rama documental privada y PR cuando haya evidencia definitiva.
 
 ```text
@@ -12,8 +14,8 @@ PR125=DRAFT
 G10_PR124=MERGED_IN_BASE
 PRECOMPILE_FIRST_CANDIDATE=REVOKED_ONLY_IN_PR125
 NEW_ARCHIVES_IN_PRODUCT_BASE=NO
-PROFILE_OBJECT_PARITY=GATE_PENDING_FINAL_SHA
-PROFILE_POLICY_ELF=GATE_PENDING_FINAL_SHA
+PROFILE_OBJECT_PARITY=CANONICAL_ONLY_CI_FULL_PENDING
+PROFILE_POLICY_ELF=PARTIAL_PASS_FINAL_SHA_PENDING
 BENCHMARK_3_PAIRS_BOTH_FQBN_OS=PENDING_FINAL_RUN
 PRECOMPILED_FREEZE_ALPHA13=NOT_PASS
 RELEASE_WORKFLOW=BLOCKED
