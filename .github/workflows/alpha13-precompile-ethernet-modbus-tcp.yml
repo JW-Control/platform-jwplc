@@ -1,0 +1,247 @@
+name: Alpha13 - Ethernet/Modbus TCP archive candidate and benchmark (NO upload)
+# Solo push de rama candidata durante la correccion: evita builds duplicados
+# de push y PR. Todos los commits y artifacts siguen atribuidos al HEAD real.
+concurrency:
+  group: a13-precompile-${{ github.ref_name }}
+  cancel-in-progress: true
+on:
+  push:
+    branches:
+      - 'codex/alpha13-precompile-benchmark-docs-*'
+    paths:
+      - 'tools/alpha13/precompile/**'
+      - '.github/workflows/alpha13-precompile-ethernet-modbus-tcp.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  archive-candidate:
+    name: Archive and source benchmark - ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - uses: arduino/setup-arduino-cli@v2
+        with:
+          version: '1.5.1'
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15/packages/jwplc
+            ~/.arduino15/staging
+          key: a13-archive-alpha10-${{ runner.os }}-${{ hashFiles('JWPLC/package_jwplc_index_dev.json') }}
+      - name: Instalar toolchain existente, sin dispositivos ni flash
+        shell: bash
+        run: |
+          set -euo pipefail
+          arduino-cli config init --overwrite
+          arduino-cli config set board_manager.additional_urls "https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json"
+          arduino-cli core update-index
+          arduino-cli core install 'jwplc:esp32@2.1.0-alpha.10'
+      - name: N0 - sintaxis y fuentes inalteradas
+        shell: pwsh
+        run: |
+          python -B -m py_compile tools/alpha13/precompile/a13_precompile_benchmark.py tools/alpha13/precompile/a13_fqbn_object_gate.py tools/alpha13/precompile/a13_archive_release_gate.py
+          python -B tools/alpha13/precompile/a13_precompile_benchmark.py --check --ci-detached
+      - name: FQBN fuente-objeto - exigir paridad completa y símbolo policy por perfil
+        shell: pwsh
+        run: |
+          python -B tools/alpha13/precompile/a13_fqbn_object_gate.py --require-match --ci-detached --output (Join-Path $env:RUNNER_TEMP 'a13-fqbn-parity')
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: alpha13-fqbn-parity-${{ matrix.os }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/a13-fqbn-parity/FQBN_OBJECT_MANIFEST.json
+            ${{ runner.temp }}/a13-fqbn-parity/*.log
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Fuente vs precompiled-full, BASIC y BASICCORE
+        shell: pwsh
+        run: |
+          python -B tools/alpha13/precompile/a13_precompile_benchmark.py --ci-detached --output (Join-Path $env:RUNNER_TEMP 'a13-archive')
+      - name: Publicar solamente archivos candidatos y evidencia - sin promoción de producto
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alpha13-two-archives-${{ matrix.os }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/a13-archive/MANIFEST.json
+            ${{ runner.temp }}/a13-archive/FQBN_OBJECT_PARITY.json
+            ${{ runner.temp }}/a13-archive/*basic*.log
+            ${{ runner.temp }}/a13-archive/candidate/sketchbook/hardware/jwplc_a13archive/esp32/libraries/JWPLC_Ethernet/src/esp32/libJWPLC_Ethernet.a
+            ${{ runner.temp }}/a13-archive/candidate/sketchbook/hardware/jwplc_a13archive/esp32/libraries/JWPLC_ModbusTCP/src/esp32/libJWPLC_ModbusTCP.a
+          if-no-files-found: warn
+          retention-days: 14
+
+  cross-os:
+    name: Verificar .a Ubuntu en Arduino CLI Windows (ambos FQBN)
+    needs: archive-candidate
+    runs-on: windows-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - uses: arduino/setup-arduino-cli@v2
+        with:
+          version: '1.5.1'
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15/packages/jwplc
+            ~/.arduino15/staging
+          key: a13-archive-alpha10-${{ runner.os }}-${{ hashFiles('JWPLC/package_jwplc_index_dev.json') }}
+      - name: Instalar toolchain JWPLC para FQBN Windows
+        shell: bash
+        run: |
+          set -euo pipefail
+          arduino-cli config init --overwrite
+          arduino-cli config set board_manager.additional_urls "https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json"
+          arduino-cli core update-index
+          arduino-cli core install 'jwplc:esp32@2.1.0-alpha.10'
+      - uses: actions/download-artifact@v4
+        with:
+          name: alpha13-two-archives-ubuntu-24.04-${{ github.run_id }}
+          path: ${{ runner.temp }}/a13-input/ubuntu
+      - uses: actions/download-artifact@v4
+        with:
+          name: alpha13-two-archives-windows-latest-${{ github.run_id }}
+          path: ${{ runner.temp }}/a13-input/windows
+      - name: Paridad de fuentes y enlace real del archive Ubuntu en Windows
+        shell: pwsh
+        run: |
+          python -B -m py_compile tools/alpha13/precompile/a13_archive_release_gate.py
+          python -B tools/alpha13/precompile/a13_archive_release_gate.py --mode cross --ubuntu-artifact (Join-Path $env:RUNNER_TEMP 'a13-input/ubuntu') --windows-artifact (Join-Path $env:RUNNER_TEMP 'a13-input/windows') --output (Join-Path $env:RUNNER_TEMP 'a13-cross')
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: alpha13-cross-os-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/a13-cross/GATE.json
+            ${{ runner.temp }}/a13-cross/*.log
+          if-no-files-found: warn
+          retention-days: 14
+  promote-candidate:
+    name: Adoptar 2 archives SOLO en rama Draft PR125 tras gates completos
+    needs: [archive-candidate, cross-os]
+    # Solo tras ambos SO, FQBN, hashes canonicos y cross-OS PASS.
+    # Una diferencia o job omitted bloquea el job y evita modificar JWPLC/.
+    if: ${{ github.event_name == 'push' && github.ref_name == 'codex/alpha13-precompile-benchmark-docs-20261020' }}
+    outputs:
+      adopted_sha: ${{ steps.adopt.outputs.adopted_sha }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # El adopt gate exige branch real (no HEAD detached).
+          # El siguiente test verifica igualdad con SHA exacto del run.
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: alpha13-two-archives-ubuntu-24.04-${{ github.run_id }}
+          path: ${{ runner.temp }}/a13-input/ubuntu
+      - uses: actions/download-artifact@v4
+        with:
+          name: alpha13-two-archives-windows-latest-${{ github.run_id }}
+          path: ${{ runner.temp }}/a13-input/windows
+      - name: Comprobar SHA de branch y adoptar cuatro rutas acotadas
+        id: adopt
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+          python -B tools/alpha13/precompile/a13_archive_release_gate.py             --mode adopt             --ubuntu-artifact "$RUNNER_TEMP/a13-input/ubuntu"             --windows-artifact "$RUNNER_TEMP/a13-input/windows"             --output "$RUNNER_TEMP/a13-adoption"
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add             JWPLC/2.1.0/libraries/JWPLC_Ethernet/library.properties             JWPLC/2.1.0/libraries/JWPLC_Ethernet/src/esp32/libJWPLC_Ethernet.a             JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/library.properties             JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/src/esp32/libJWPLC_ModbusTCP.a
+          test "$(git diff --cached --name-only | wc -l)" -eq 4
+          git commit -m "build(alpha13): precompilar Ethernet y ModbusTCP desde fuentes verificadas"
+          git push origin HEAD:refs/heads/codex/alpha13-precompile-benchmark-docs-20261020
+          echo "adopted_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: alpha13-adoption-evidence-${{ github.run_id }}
+          path: ${{ runner.temp }}/a13-adoption/GATE.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  n3-product-after-adoption:
+    name: N3 package real 11 sketches y dos FQBN - ${{ matrix.os }}
+    needs: [promote-candidate]
+    if: ${{ needs.promote-candidate.result == 'success' }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.promote-candidate.outputs.adopted_sha }}
+          fetch-depth: 0
+      - name: Confirmar exactamente el SHA de adopción
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ needs.promote-candidate.outputs.adopted_sha }}"
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - uses: arduino/setup-arduino-cli@v2
+        with:
+          version: '1.5.1'
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15/packages/jwplc
+            ~/.arduino15/staging
+          key: a13-f137-n3-${{ runner.os }}-${{ hashFiles('JWPLC/package_jwplc_index_dev.json') }}
+      - name: Instalar toolchain existente sin USB/COM/flash
+        shell: bash
+        run: |
+          set -euo pipefail
+          arduino-cli config init --overwrite
+          arduino-cli config set board_manager.additional_urls "https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json"
+          arduino-cli core update-index
+          arduino-cli core install 'jwplc:esp32@2.1.0-alpha.10'
+      - name: N0 producto real con archives y matriz
+        shell: pwsh
+        run: |
+          python -B -m py_compile tools/alpha13/f137_product_n3.py
+          python -B tools/alpha13/f137_product_n3.py --check
+      - name: N3 package real - 11 sketches Basic y prueba dual Basic/Core
+        shell: pwsh
+        run: |
+          python -B tools/alpha13/f137_product_n3.py --output (Join-Path $env:RUNNER_TEMP 'f137-product-n3')
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: alpha13-f137-product-n3-${{ matrix.os }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/f137-product-n3/MANIFEST.json
+            ${{ runner.temp }}/f137-product-n3/*.log
+          retention-days: 14
+          if-no-files-found: warn

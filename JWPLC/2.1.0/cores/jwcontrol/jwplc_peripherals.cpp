@@ -9,6 +9,17 @@ extern "C"
 #include "jwplc_i2c_bridge.h"
 }
 
+// Esta unidad se compila por FQBN en JWPLC Basic Core.
+// El archive Ethernet es unico y contiene un default weak habilitado para
+// JWPLC Basic; la implementacion strong en Basic Core impide todo acceso W5500.
+// Nunca se exige configuracion ni cambio de pines desde el sketch.
+#if !JWPLC_HAS_ETHERNET
+extern "C" bool jwplcEthernetProfileAvailable(void)
+{
+    return false;
+}
+#endif
+
 extern "C" void ARDUINO_ISR_ATTR __pinMode(uint8_t pin, uint8_t mode);
 extern "C" void ARDUINO_ISR_ATTR __digitalWrite(uint8_t pin, uint8_t val);
 extern "C" int ARDUINO_ISR_ATTR __digitalRead(uint8_t pin);

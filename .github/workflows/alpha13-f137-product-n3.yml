@@ -1,0 +1,70 @@
+name: Alpha13 F137 - N3 archived package real (NO upload)
+
+# La matriz N3 productiva se ejecuta automáticamente una sola vez como
+# job dependiente de adopción en alpha13-precompile-ethernet-modbus-tcp.yml.
+# Este workflow permanece para replay manual únicamente si hace falta.
+on:
+  # Solo N3, sin reejecutar benchmark ni tocar hardware, al corregir su gate.
+  push:
+    branches:
+      - codex/alpha13-precompile-benchmark-docs-20261020
+    paths:
+      - tools/alpha13/f137_product_n3.py
+      - .github/workflows/alpha13-f137-product-n3.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  n3-product:
+    name: N3 package real - ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - uses: arduino/setup-arduino-cli@v2
+        with:
+          version: '1.5.1'
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15/packages/jwplc
+            ~/.arduino15/staging
+          key: a13-f137-n3-${{ runner.os }}-${{ hashFiles('JWPLC/package_jwplc_index_dev.json') }}
+      - name: Instalar toolchain y CLI (sin USB, COM, flash)
+        shell: bash
+        run: |
+          set -euo pipefail
+          arduino-cli config init --overwrite
+          arduino-cli config set board_manager.additional_urls "https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json"
+          arduino-cli core update-index
+          arduino-cli core install 'jwplc:esp32@2.1.0-alpha.10'
+      - name: N0 - contrato de dos archives del package
+        shell: pwsh
+        run: |
+          python -B -m py_compile tools/alpha13/f137_product_n3.py
+          python -B tools/alpha13/f137_product_n3.py --check
+      - name: N3 - once sketches Basic y consumidor dual Basic/Core con archives reales
+        shell: pwsh
+        run: |
+          python -B tools/alpha13/f137_product_n3.py --output (Join-Path $env:RUNNER_TEMP 'f137-product-n3')
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: alpha13-f137-product-n3-${{ matrix.os }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/f137-product-n3/MANIFEST.json
+            ${{ runner.temp }}/f137-product-n3/*.log
+          retention-days: 14
+          if-no-files-found: warn

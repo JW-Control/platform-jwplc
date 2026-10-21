@@ -655,6 +655,35 @@ correspondiente.
 Son herramientas de desarrollo/qualification y **no forman parte de la API de
 aplicación que debe usar un sketch normal**.
 
+## Mejoras de estabilidad en Alpha13
+
+El Server y el Client mantienen las mismas APIs de usuario. Internamente,
+las conexiones sobre el W5500 administran mejor el cierre y la reutilización
+de sockets cuando Ethernet comparte el bus SPI con SD, TFT y FRAM.
+
+- Se mejora la recuperación después de perder o recuperar el cable Ethernet.
+- Una transacción TCP no debe apropiarse de un socket que ya se cerró
+  o que pertenece a una operación nueva.
+- Modbus TCP puede coexistir con **Modbus RTU por RS-485** sin que sea
+  necesario detener el servicio RTU para esperar al servidor TCP.
+
+Ejemplo de uso recomendado: configura el Server una vez y consulta su estado.
+
+```cpp
+JWPLC_ModbusTCP.beginServer(1, 502);
+
+if (JWPLC_ModbusTCP.serverReady())
+{
+    // El Server está disponible para los Clients.
+}
+```
+
+En el banco con dos JWPLC Basic conectados a un router aislado se comprobó
+FC03 con cuatro registros en ambos servidores, además de tráfico TCP/UDP
+en R1. Esto no significa que todas las funciones Modbus se hayan ensayado
+bajo fallos físicos simultáneos. R3 interno (contención/leases/cierre diferido),
+R4 prolongado y DHCP/DNS específicos siguen sin prueba integral.
+
 ## Compatibilidad
 
 `poll()` permanece como alias de `task()` tanto en Server como en Client.
@@ -667,6 +696,6 @@ No se recomienda implementar Modbus TCP directamente sobre
 Documentado para:
 
 ```text
-JWPLC ESP32 v2.1.0-alpha.12
+JWPLC ESP32 v2.1.0-alpha.13 (candidata)
 JWPLC_ModbusTCP 0.1.0
 ```

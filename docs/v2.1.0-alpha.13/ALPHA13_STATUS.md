@@ -30,7 +30,7 @@ NEXT_GATE=F137_C_APPROVE_PR125_RECONCILIATION_THEN_OPERATOR_MERGE_AND_RELEASE_SO
 
 **Pruebas independientes completadas por operador en su PC (sin escritura ni upload):** `g10p_modbus_tcp_readonly.py` -> `G10P_TCP_FC03_COM4_MASTER=PASS_4_REGISTERS`, `G10P_TCP_FC03_COM14_SLAVE=PASS_4_REGISTERS`, `G10P_TCP_DUAL_ROUTER=PASS_2_DIFFERENT_IPS`; `h_f137_udp_echo.py --samples 3` -> `F137_UDP_COM4=PASS_3_OF_3_ECHO`, sin abrir USB ni escribir registros. `0.00 ms` es salida redondeada, NO latencia cero. **No se exige repetir banco, flash ni respaldo.**
 
-**Evidencia H y límites:** documento del PR #125 `docs/v2.1.0-alpha.13/A13_F137_H_DICTAMEN_FISICO_20261021.md` disponible en <https://github.com/JW-Control/platform-jwplc/pull/125> (rama PR Draft). CI N3 #39538155047 PASS 13/13 Windows+Ubuntu; build dual #39622285204 PASS Windows+Ubuntu; UDP N0 #39625796508 jobs Ubuntu+Windows SUCCESS observados. La captura UART muestra heartbeat, pero **no** el marcador exacto `VER=G10_PROMOTED_PRODUCT_F137_V1` del BOOT: identidad basada en sellos y uploads, sin lectura posterior de flash. No se probó físicamente Basic Core ni estrés/RJ45/DNS-DHCP exhaustivo/E1-E2. No ampliar falsamente el alcance de H.
+**Evidencia H y límites:** documento `docs/v2.1.0-alpha.13/A13_F137_H_DICTAMEN_FISICO_20261021.md` disponible en <https://github.com/JW-Control/platform-jwplc/pull/125> (rama PR Draft). CI N3 #39538155047 PASS 13/13 Windows+Ubuntu; build dual #39622285204 PASS Windows+Ubuntu; UDP N0 #39625796508 jobs Ubuntu+Windows SUCCESS observados. La captura UART muestra heartbeat, pero **no** el marcador exacto `VER=G10_PROMOTED_PRODUCT_F137_V1` del BOOT: identidad basada en sellos y uploads, sin lectura posterior de flash. No se probó físicamente Basic Core ni estrés/RJ45/DNS-DHCP exhaustivo/E1-E2. No ampliar falsamente el alcance de H.
 
 **Integración:** Los dos archivos `.a` y las dos propiedades `precompiled=full` viven en **PR #125 Draft**, no en la rama base. No merge ni release autorizado todavía; la rama experimental tiene desfase con la base y requiere reconciliación revisada sin invalidar evidencias de los archivos productivos. El knowledge del caso está en PR #27 Draft, no en `knowledge/main`.
 
@@ -83,13 +83,38 @@ NEXT_GATE=F137_H_FC03_DUAL_AND_UDP_SMOKE_THEN_REVIEW_C
 
 ---
 
-**Nota base:** el código y los archives F137 siguen solo en PR #125 Draft; esta actualización es estrictamente documental.
+# ESTADO VIGENTE — F137-H dual COM14 + COM4 aprobado por operador (21/10/2026)
+
+**Alcance:** el propietario confirma **COM4 Master y COM14 Slave de prueba**, conectados por RS-485, y autoriza subir sus dos sketches F137 conjuntamente **sin respaldo**, conforme a la decisión histórica de 17/10. Orden protegido del runner: COM14 Slave primero, COM4 Master después, dentro de una sola operación. Salidas Q sin cargas/tensión, banco aislado. **Se necesita LAN local con DHCP y RJ45 de ambas placas más PC al router/switch** para validar Ethernet y Modbus TCP además de RTU. El último inventario local anterior vio solo COM4; la identidad USB real de los dos puertos debe confirmarse de nuevo y el runner falla cerrado si COM14 sigue ausente.
+
+**Código versionado:** `tools/alpha13/h_f137_dual.py` reutiliza el sellado local de COM4 `MANIFEST.json` del 21/10 si Git confirma ninguna modificación de `JWPLC/`, sketch Master y generador; compila **solo** el Slave con el mismo staged package y sella `MANIFEST_COM14.json`. Exige SHA, -L/-l y cero cpp.o de archivos precompilados; confirmación interactiva conjunta, no `erase-all`. Ante falla de COM14 **no** intenta COM4; ante falla de COM4 registra parcial y detiene; jamás repetir automáticamente. Las dos placas emiten `VER=G10_PROMOTED_PRODUCT_F137_V1`. Guía: `tools/alpha13/h_f137_com4/DUAL_UPLOAD.md`.
+
+**Evidencia:** N2+N3 13/13 Windows/Ubuntu y benchmark precompilados PASS; COM4 Master CI `#39551136908` PASS Windows+Ubuntu. **Build/sello dual CI y campañas físicas pendientes al registrar esta entrada**, sin afirmar éxito anticipado. El PR #125 permanece Draft, base sin archives nuevos y release bloqueada. La autorización del usuario no significa que este chat haya hecho upload físico.
+
+```text
+F137_DUAL_OPERATOR_AUTH=COM14_AND_COM4_DEV_ONLY_20261021
+F137_BACKUP=WAIVED_EXISTING_DEV_BOARD_EXCEPTION
+F137_COM4_LOCAL_BUILD=PASS_SEALED_20261021_092404_USER
+F137_COM14_LOCAL_BUILD=WAIT_OPERATOR
+F137_DUAL_CI=IN_REVIEW
+F137_ETHERNET_TEST=REQUIRE_BOTH_RJ45_ROUTER_DHCP_PC_LAN
+F137_COM4_USB=OBSERVED_PREVIOUSLY
+F137_COM14_USB=RECHECK_REQUIRED_PREVIOUSLY_ABSENT
+F137_PHYSICAL_UPLOAD=NOT_PERFORMED
+F137_UART_NETWORK_RTU=NOT_PERFORMED
+PR125=DRAFT_NO_MERGE
+RELEASE=BLOCKED
+NEXT_FAILURE_ID=F138
+NEXT_GATE=F137_DUAL_CI_THEN_LOCAL_SLAVE_SEAL_AND_COM14_COM4_UPLOAD
+```
+
+---
 
 # ESTADO VIGENTE — F137 H: build Master COM4 sellado, esperando operador (21/10/2026)
 
 **Run H-F137:** [CI #39551136908](https://github.com/JW-Control/platform-jwplc/actions/runs/39551136908), HEAD `bbb1af42269b66f17c79804d4ef140496882f484`, **SUCCESS global Windows+Ubuntu**, único sketch `G10P_COM4_Master` con marcador `G10_PROMOTED_PRODUCT_F137_V1`, los 2 archives Ethernet/Modbus TCP fijados por SHA-256 y `precompiled=full`, plataforma staged real y hashes sellados de ELF, firmware, bootloader y particiones. Ambos reportaron `H_F137_COM4_BUILD=PASS_ARCHIVES_BINARIES_SEALED`, `H_F137_COM4_UPLOAD=NOT_RUN`, `hardware=NOT_TOUCHED`. Los binarios Windows/Ubuntu tienen hash diferente: usar únicamente **build local sellado**, no copiar artefactos CI para flashear.
 
-**Scope:** COM4 Master es placa de desarrollo con firmware anterior prescindible: waiver de backup del 17/10/2026 aplicado, nunca equipos de cliente. No se abrió COM4 ni COM14, no se leyó ni escribió flash, no se repitió N3; el F137 N3 previamente PASS 13/13 ambos sistemas. La identificación física COM4 por operador y el build local aún están pendientes. El modo de upload del runner está protegido por confirmación interactiva y **requiere autorización expresa separada** del operador. La evidencia corresponde al PR #125 Draft; en la base NO hay nuevos archives. PR #125 permanece Draft, sin merge/release.
+**Scope:** COM4 Master es placa de desarrollo con firmware anterior prescindible: waiver de backup del 17/10/2026 aplicado, nunca equipos de cliente. No se abrió COM4 ni COM14, no se leyó ni escribió flash, no se repitió N3; el F137 N3 previamente PASS 13/13 ambos sistemas. La identificación física COM4 por operador y el build local aún están pendientes. El modo de upload del runner está protegido por confirmación interactiva y **requiere autorización expresa separada** del operador. PR #125 permanece Draft, sin merge/release.
 
 ```text
 ALPHA13=OPEN
@@ -110,42 +135,72 @@ NEXT_GATE=H_F137_COM4_LOCAL_IDENTITY_AND_BUILD_SEAL_THEN_UPLOAD_CONSENT
 
 ---
 
-# ESTADO VIGENTE EN BASE — F137 H sin respaldo de placas de desarrollo (21/10/2026)
+# ESTADO VIGENTE — H-F137: SIN backup obligatorio en placas de desarrollo (21/10/2026)
 
-**Decisión ratificada:** COM4 Master y COM14 Slave son placas de prueba, firmware anterior prescindible: el propietario ya dispensó respaldos el **17/10/2026**. Se eliminó el respaldo obligatorio del runner candidato H-F137 y se sustituyó por inventario USB no intrusivo (COM4 requerido, COM14 opcional). No se exige firma de renuncia repetida. Solo para estas placas, nunca clientes.
+**Decisión ratificada:** el propietario ya había dispensado los backups para COM4 y COM14 como placas de pruebas el 17/10/2026. Se corrigió el runner H-F137: sin --backup-com4 ni read_flash; identificación USB COM4 no intrusiva, COM14 opcional y nunca abierto. No se necesita respaldar el firmware previo antes de preparar el upload COM4. No generalizar la excepción a placas de clientes.
 
-**Alcance:** el PR #125 sigue Draft, sin archivos binarios nuevos en la base. N3 del candidato PASS 13/13 ambos SO; CI del runner reducido pendiente. COM4 upload requiere aprobación expresa posterior, independiente del preflight; COM14 no se toca. H no ejecutada, Release bloqueada.
+La autorización actual solo alcanza N0/inventario. Carga COM4, maniobra RJ45, merge de PR125 y Release siguen separados. Los archives Ethernet/ModbusTCP permanecen solo en PR125 Draft. N2, cross-OS, benchmark y N3 son PASS sin cambios funcionales posteriores.
 
 ```text
-H_F137_COM4_BACKUP=WAIVED_EXISTING_DEV_BOARD_DECISION
-H_F137_COM4_IDENTITY=WAIT_OPERATOR
-H_F137_COM4_UPLOAD=NOT_AUTHORIZED
-H_F137_COM14=UNTOUCHED
-NEXT_GATE=H_F137_LOCAL_INVENTORY_AND_BUILD_SEAL_BEFORE_UPLOAD
-BASE_SYNC=DOC_ONLY
+H_F137_COM4_BACKUP=WAIVED_DEV_BOARD_20261017
+H_F137_COM4_INVENTORY=WAIT_OPERATOR
+H_F137_COM4_UPLOAD=WAIT_SEPARATE_EXPLICIT_AUTH
+H_F137_COM14=NO_UPLOAD_NO_PORT_OPEN
+NEXT_GATE=H_F137_COM4_IDENTITY_THEN_APPROVE_UPLOAD
+PR125=DRAFT
 RELEASE=BLOCKED
 ```
 
 ---
 
-# HISTÓRICO SUPERADO EN BASE — H-F137 con respaldo (sustituido por waiver existente) (20/10/2026 Lima)
+# HISTÓRICO SUPERADO — H-F137 propuesta anterior de backup (20/10/2026 Lima)
 
-**NO hay cambios binarios/productivos nuevos en esta rama base.** Los precompilados Ethernet/ModbusTCP F137 están adoptados únicamente en [PR #125 Draft](https://github.com/JW-Control/platform-jwplc/pull/125), cuya cabeza candidata al registrar fue `bca8697ac92799ac2e093002e9ce18f015bafebe`. **No fusionar automáticamente**, no publicar ni flashear.
+**Alcance:** aprobado iniciar preflight H-F137 sin subir firmware. [N3 #39538155047](https://github.com/JW-Control/platform-jwplc/actions/runs/39538155047) 13/13 PASS Windows+Ubuntu con archivos .a reales. [H-N0 CI #39545618484](https://github.com/JW-Control/platform-jwplc/actions/runs/39545618484): selftest estático en Windows y Ubuntu **PASS**; no se abrió COM ni se utilizó ESP32.
 
-**Evidencia candidata:** [N3 #39538155047](https://github.com/JW-Control/platform-jwplc/actions/runs/39538155047) cerró 13/13 Ubuntu+Windows; benchmark 3 pares por OS/FQBN y paridad de archives aceptados. [H-N0 #39545618484](https://github.com/JW-Control/platform-jwplc/actions/runs/39545618484) PASS 2/2 autopruebas, sin usar hardware. El procedimiento H es `tools/alpha13/h_f137_com4.py` **solo en PR #125** y su README. Autorización: iniciar identidad/respaldo local COM4, con confirmación interactiva y posible reset de esptool; NO upload, erase, RJ45 ni tocar COM14. Aún no existe recibo físico validado.
+**Runner versionado:** `tools/alpha13/h_f137_com4.py`; contrato e instrucciones locales en `tools/alpha13/h_f137_com4/README.md`. Antes de leer flash, requiere HEAD/árbol limpio, hashes fijados de Ethernet/ModbusTCP, dos puertos USB CH340 diferentes con identidad física confirmada por el operador y consentimiento interactivo. Solo permite flash_id y read_flash sobre COM4; esas operaciones pueden reiniciar el Master. **No tiene opción de upload** y COM14 no se abre. Ningún backup físico ha sido presentado ni evaluado todavía.
+
+**PR #125:** Draft, archives solo allí. **La rama base NO recibió firmware ni archives nuevos**, pero este estado documental se sincroniza sin fusionar código. Conocimiento privado: PR #27 Draft actualizado con lección F137.
 
 ```text
-BASE_SYNC=OK_DOC_STATUS_ONLY_PENDING_PR125_OPERATOR_MERGE
-F137_ARCHIVES_IN_BASE=NO
-F137_N3_CANDIDATE=PASS_BOTH_OS
-H_F137_N0_CANDIDATE=PASS_BOTH_OS
-H_F137_COM4_IDENTITY=WAIT_OPERATOR
-H_F137_COM4_FULL_BACKUP=WAIT_OPERATOR
-H_F137_UPLOAD=NOT_AUTHORIZED
-H_F137_COM14=NO_TOUCH
+ALPHA13=OPEN
+F137_N2_BENCHMARK_CROSS_OS=PASS
+F137_N3=PASS_13_OF_13_BOTH_WINDOWS_UBUNTU
+H_F137_N0=PASS_SELFTEST_BOTH_OS_39545618484
+H_F137_COM4_USB_IDENTITY=WAIT_OPERATOR
+H_F137_COM4_BACKUP_FULL_FLASH=WAIT_OPERATOR
+H_F137_COM4_UPLOAD=NOT_AUTHORIZED
+H_F137_COM14=UNTOUCHED
+H_F137_RJ45_MANEUVER=NOT_AUTHORIZED
+PRECOMPILED_FREEZE_ALPHA13=NOT_FINAL_UNTIL_H
+PR125=DRAFT_NO_MERGE
+RELEASE=BLOCKED
 NEXT_FAILURE_ID=F138
 NEXT_GATE=H_F137_COM4_OPERATOR_LOCAL_IDENTITY_AND_BACKUP_RECEIPT
+```
+
+---
+
+# ESTADO VIGENTE — F137 precompilación, corte 20/10/2026 (Lima)
+
+**PR #125:** Draft; adopción de dos archivos `.a` canónicos y dos `library.properties` completada **solamente en la rama candidata**, commit `1a55c3be8473a37018c2815dd68697abdad56441`. Rama base, distribución ZIP y Release todavía sin cambios. Sin flasheo, COM, USB ni modificaciones de GPIO4, `core.a` o archives congelados de otros periféricos.
+
+**Evidencia no física:** [CI #39531758494](https://github.com/JW-Control/platform-jwplc/actions/runs/39531758494): paridad 12/12 Ethernet y 2/2 ModbusTCP, ELF `W` en Basic y `T` en Basic Core, benchmark 3 pares por FQBN/OS, prueba cruzada Ubuntu→Windows y adopción del PR **todos PASS**. El workflow global terminó FAILURE por la inspección de rutas `-L` de N3 Windows (su primer sketch sí compiló y enlazó). N3 Ubuntu 13/13 PASS. El replay aislado [#39538155047](https://github.com/JW-Control/platform-jwplc/actions/runs/39538155047) sobre `5e1010927a8c03c7ad46d38e4d5459b06bae543f` terminó **SUCCESS global: N3 Ubuntu 13/13 PASS y Windows 13/13 PASS**, ambos con los mismos hashes de los dos archives. Los logs reales se usaron para corregir escapes y alias 8.3 sin relajar `-L/-l`.
+
+**Benchmark mediano frío (fuentes→archives):** Ubuntu Basic 27,245→18,976 s (30,4 %); Ubuntu Basic Core 35,065→26,141 s (25,4 %); Windows Basic 85,163→51,945 s (39,0 %); Windows Basic Core 95,054→79,908 s (15,9 %). Tabla, variación y hashes en [A13_PRECOMPILE_BENCHMARK_20261020.md](A13_PRECOMPILE_BENCHMARK_20261020.md). No se infiere mejora de velocidad de upload.
+
+```text
+ALPHA13=OPEN
+F137_TWO_ARCHIVES_DRAFT_PR125=ADOPTED
+F137_N2_CROSS_OS=PASS
+F137_BENCHMARK_3_PAIRS_TWO_FQBN_TWO_OS=PASS
+F137_N3_UBUNTU=PASS
+F137_N3_WINDOWS=PASS_13_OF_13_CI_39538155047
+F137_H_PHYSICAL=NOT_AUTHORIZED
+PRECOMPILED_FREEZE_ALPHA13=NOT_FINAL
+PR125_MERGE=NOT_AUTHORIZED
 RELEASE=BLOCKED
+NEXT_FAILURE_ID=F138
+NEXT_GATE=F137_H_COM4_IDENTITY_BACKUP_AND_EXPLICIT_UPLOAD_APPROVAL
 ```
 
 ---
@@ -6536,3 +6591,49 @@ DO_NOT_PUBLISH_BOOTLOADER_BIN_AS_FINAL
 DO_NOT_IMPLEMENT_JW_BUSIO_YET
 G1_CLOSED_G2_MAY_START_WITH_READ_ONLY_PREFLIGHT
 ```
+
+---
+
+## Histórico exclusivo de la base (reconciliación de 21/10/2026)
+
+El siguiente material fue conservado de la base y **está superado** por el encabezado vigente de este archivo. No reabre el respaldo obligatorio, reinicia gates ni invalida el upload dual de laboratorio.
+
+# ESTADO VIGENTE EN BASE — F137 H sin respaldo de placas de desarrollo (21/10/2026)
+
+**Decisión ratificada:** COM4 Master y COM14 Slave son placas de prueba, firmware anterior prescindible: el propietario ya dispensó respaldos el **17/10/2026**. Se eliminó el respaldo obligatorio del runner candidato H-F137 y se sustituyó por inventario USB no intrusivo (COM4 requerido, COM14 opcional). No se exige firma de renuncia repetida. Solo para estas placas, nunca clientes.
+
+**Alcance:** el PR #125 sigue Draft, sin archivos binarios nuevos en la base. N3 del candidato PASS 13/13 ambos SO; CI del runner reducido pendiente. COM4 upload requiere aprobación expresa posterior, independiente del preflight; COM14 no se toca. H no ejecutada, Release bloqueada.
+
+```text
+H_F137_COM4_BACKUP=WAIVED_EXISTING_DEV_BOARD_DECISION
+H_F137_COM4_IDENTITY=WAIT_OPERATOR
+H_F137_COM4_UPLOAD=NOT_AUTHORIZED
+H_F137_COM14=UNTOUCHED
+NEXT_GATE=H_F137_LOCAL_INVENTORY_AND_BUILD_SEAL_BEFORE_UPLOAD
+BASE_SYNC=DOC_ONLY
+RELEASE=BLOCKED
+```
+
+---
+
+# HISTÓRICO SUPERADO EN BASE — H-F137 con respaldo (sustituido por waiver existente) (20/10/2026 Lima)
+
+**NO hay cambios binarios/productivos nuevos en esta rama base.** Los precompilados Ethernet/ModbusTCP F137 están adoptados únicamente en [PR #125 Draft](https://github.com/JW-Control/platform-jwplc/pull/125), cuya cabeza candidata al registrar fue `bca8697ac92799ac2e093002e9ce18f015bafebe`. **No fusionar automáticamente**, no publicar ni flashear.
+
+**Evidencia candidata:** [N3 #39538155047](https://github.com/JW-Control/platform-jwplc/actions/runs/39538155047) cerró 13/13 Ubuntu+Windows; benchmark 3 pares por OS/FQBN y paridad de archives aceptados. [H-N0 #39545618484](https://github.com/JW-Control/platform-jwplc/actions/runs/39545618484) PASS 2/2 autopruebas, sin usar hardware. El procedimiento H es `tools/alpha13/h_f137_com4.py` **solo en PR #125** y su README. Autorización: iniciar identidad/respaldo local COM4, con confirmación interactiva y posible reset de esptool; NO upload, erase, RJ45 ni tocar COM14. Aún no existe recibo físico validado.
+
+```text
+BASE_SYNC=OK_DOC_STATUS_ONLY_PENDING_PR125_OPERATOR_MERGE
+F137_ARCHIVES_IN_BASE=NO
+F137_N3_CANDIDATE=PASS_BOTH_OS
+H_F137_N0_CANDIDATE=PASS_BOTH_OS
+H_F137_COM4_IDENTITY=WAIT_OPERATOR
+H_F137_COM4_FULL_BACKUP=WAIT_OPERATOR
+H_F137_UPLOAD=NOT_AUTHORIZED
+H_F137_COM14=NO_TOUCH
+NEXT_FAILURE_ID=F138
+NEXT_GATE=H_F137_COM4_OPERATOR_LOCAL_IDENTITY_AND_BACKUP_RECEIPT
+RELEASE=BLOCKED
+```
+
+---

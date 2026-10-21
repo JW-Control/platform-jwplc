@@ -38,11 +38,11 @@ compilación.
 | Dev / próxima PreRelease | `v2.1.0-alpha.13` | G10 integrado; confirmar ZIP e índice tras publicación |
 | Última PreRelease verificada | `v2.1.0-alpha.12` | Publicada y validada |
 
-Alpha12 es la última versión con validación completa de distribución registrada; Alpha13 integró G10 y queda sujeta al gate de publicación/postpublicación:
+Alpha12 sigue siendo la última versión con validación completa de distribución. Alpha13 integró G10 y, **solo en PR #125 Draft**, los archives Ethernet/Modbus TCP superaron paridad, benchmark y N3 13/13 en Windows y Ubuntu ([CI #39538155047](https://github.com/JW-Control/platform-jwplc/actions/runs/39538155047)). Antes de publicar falta **H física autorizada**, revisión y merge del operador, workflow Release y validación de instalación desde ZIP público:
 
 ```text
 ALPHA12_STATUS=CLOSED_PUBLISHED
-ALPHA13_STATUS=RELEASE_PREPARATION
+ALPHA13_STATUS=OPEN_F137_H_PENDING_RELEASE_BLOCKED
 ```
 
 Estado actual de Alpha12:
@@ -509,6 +509,69 @@ LIVE Preview usa Web Serial.
 
 ---
 
+# Alpha13 — Robustez, mantenimiento y precompilación
+
+Alpha13 refuerza el funcionamiento del JWPLC Basic **sin retirar periféricos
+del autoload ni exigir configuración de hardware en el sketch**.
+
+| Área | Mejora de Alpha13 |
+|---|---|
+| DNS | Protección ante respuestas truncadas para evitar bucles bloqueantes |
+| TCA / salidas | Inicialización segura de EN_IO y operaciones RMW/shadow protegidas entre tareas |
+| TFT | Propiedad exclusiva del bus SPI en operaciones batch |
+| Ethernet TCP | Lecturas/escrituras parciales y retorno correcto ante errores |
+| Ethernet UDP | Tratamiento de datagramas, fragmentación y recuperación |
+| FRAM | Lectura segura de cadenas vacías y fallos SPI |
+| RS-485 / Modbus RTU | Recepción UART, errores de transporte y prueba Master/Slave real |
+| microSD | Corrección de carácter NUL y reconstrucción de archive |
+| Runtime | Eliminación de estado privado redundante; README y ejemplos coherentes |
+| W5500 / Modbus TCP | Arbitraje SPI, propiedad y reciclaje de sockets, cierre diferido, corrección del CS de W5500 |
+
+Los cambios productivos G10 se integraron en la base de Alpha13 mediante
+[PR #124](https://github.com/JW-Control/platform-jwplc/pull/124).
+No se habilita OTA ni OpenPLC dentro del autoload Arduino normal.
+
+## Evidencia y límites
+
+- Los gates de compilación y regresión existentes cubren los perfiles
+  JWPLC Basic y Basic Core, con librerías elegidas desde el package.
+- Dos equipos JWPLC Basic demostraron Modbus RTU real en paralelo con
+  Modbus TCP/UDP y Ethernet DHCP.
+- R1: 589 solicitudes TCP FC03 válidas por dispositivo y 589 ecos UDP en
+  605 segundos; R2: tres recuperaciones de red más dos transiciones PHY
+  observadas por UART.
+- La inyección interna de R3, el ensayo largo R4 de 1805 segundos y la
+  renovación DHCP/DNS no se ejecutaron. Se mantiene esa limitación explícita,
+  sin presentar cobertura parcial como PASS global.
+
+## Archives y benchmark de compilación
+
+El **core**, TFT, FRAM, Modbus RTU y SD ya tienen archivos
+precompilados asociados a las correcciones de Alpha13. Para **Ethernet W5500**
+y **Modbus TCP**, la precompilación se exige como gate adicional de cierre:
+reconstruir ambos `.a` desde fuentes, probar la selección
+`precompiled=full`, ausencia de compilación duplicada y compatibilidad
+Arduino IDE/CLI en ambos perfiles.
+
+En JWPLC Basic Core (`JWPLC_HAS_ETHERNET=0`), el contrato exige que el
+servicio Ethernet no realice transacciones W5500 ni cambie el CS. La política
+de placa debe resolverse dentro del package, sin intervención del sketch.
+El candidato F137 conserva `source-first` y mantiene bloqueada la promoción
+hasta demostrar paridad objeto por objeto en los dos FQBN y enlace ELF de
+la política Basic/Core. Los dos archivos `.a` iniciales fueron revocados
+solamente en la rama Draft.
+
+El benchmark comparará **compilación fría y caliente** desde fuente contra
+la candidata precompilada usando igual placa, toolchain y sketch. Se exigen
+tres parejas por sistema operativo y por FQBN, con muestras y dispersión.
+La precompilación no implica reducción automática del tiempo de upload. Los números
+reales y SHA de los archives se registrarán en
+`docs/v2.1.0-alpha.13/A13_PRECOMPILE_BENCHMARK_20261020.md`.
+Hasta completar esa evidencia no se declara `PRECOMPILED_FREEZE=PASS`
+ni se publica el ZIP de Alpha13.
+
+---
+
 # Robustez del runtime
 
 La línea 2.1.x mantiene:
@@ -732,8 +795,8 @@ docs/v2.1.0-alpha.12/ALPHA12_PUBLISHED_VALIDATION_20261005.md
 # Roadmap posterior
 
 ```text
-Alpha13 = TFT / Display update
-Alpha14 = OpenPLC + mejoras de integración sobre TCP/RTU optimizados
+Alpha13 = cleanup, robustez SPI/Ethernet/TCP/UDP, FRAM, RTU y periféricos
+Alpha14 = roadmap independiente (no forma parte del alcance de Alpha13)
 ```
 
 La evidencia histórica de algunas mejoras Alpha12 puede aparecer bajo ramas o
