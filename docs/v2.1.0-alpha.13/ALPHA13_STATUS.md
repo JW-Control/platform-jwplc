@@ -1,3 +1,28 @@
+# ESTADO VIGENTE — F137 H: build Master COM4 sellado, esperando operador (21/10/2026)
+
+**Run H-F137:** [CI #39551136908](https://github.com/JW-Control/platform-jwplc/actions/runs/39551136908), HEAD `bbb1af42269b66f17c79804d4ef140496882f484`, **SUCCESS global Windows+Ubuntu**, único sketch `G10P_COM4_Master` con marcador `G10_PROMOTED_PRODUCT_F137_V1`, los 2 archives Ethernet/Modbus TCP fijados por SHA-256 y `precompiled=full`, plataforma staged real y hashes sellados de ELF, firmware, bootloader y particiones. Ambos reportaron `H_F137_COM4_BUILD=PASS_ARCHIVES_BINARIES_SEALED`, `H_F137_COM4_UPLOAD=NOT_RUN`, `hardware=NOT_TOUCHED`. Los binarios Windows/Ubuntu tienen hash diferente: usar únicamente **build local sellado**, no copiar artefactos CI para flashear.
+
+**Scope:** COM4 Master es placa de desarrollo con firmware anterior prescindible: waiver de backup del 17/10/2026 aplicado, nunca equipos de cliente. No se abrió COM4 ni COM14, no se leyó ni escribió flash, no se repitió N3; el F137 N3 previamente PASS 13/13 ambos sistemas. La identificación física COM4 por operador y el build local aún están pendientes. El modo de upload del runner está protegido por confirmación interactiva y **requiere autorización expresa separada** del operador. PR #125 permanece Draft, sin merge/release.
+
+```text
+ALPHA13=OPEN
+F137_N3=PASS_13_OF_13_BOTH_OS
+H_F137_COM4_BUILD_CI=PASS_WINDOWS_UBUNTU_39551136908
+H_F137_COM4_UART_MARKER=G10_PROMOTED_PRODUCT_F137_V1
+H_F137_DEV_BACKUP=WAIVED_EXISTING_DECISION
+H_F137_LOCAL_COM4_IDENTITY=WAIT_OPERATOR
+H_F137_LOCAL_COM4_BUILD_SEAL=WAIT_OPERATOR
+H_F137_COM4_UPLOAD=WAIT_SEPARATE_EXPLICIT_AUTH
+H_F137_COM14=NO_UPLOAD_NO_TOUCH
+PRECOMPILED_FREEZE_ALPHA13=NOT_FINAL_UNTIL_H
+PR125=DRAFT_NO_MERGE
+RELEASE=BLOCKED
+NEXT_FAILURE_ID=F138
+NEXT_GATE=H_F137_COM4_LOCAL_IDENTITY_AND_BUILD_SEAL_THEN_UPLOAD_CONSENT
+```
+
+---
+
 # ESTADO VIGENTE — H-F137: SIN backup obligatorio en placas de desarrollo (21/10/2026)
 
 **Decisión ratificada:** el propietario ya había dispensado los backups para COM4 y COM14 como placas de pruebas el 17/10/2026. Se corrigió el runner H-F137: sin --backup-com4 ni read_flash; identificación USB COM4 no intrusiva, COM14 opcional y nunca abierto. No se necesita respaldar el firmware previo antes de preparar el upload COM4. No generalizar la excepción a placas de clientes.
