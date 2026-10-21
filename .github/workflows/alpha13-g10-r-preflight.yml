@@ -27,8 +27,8 @@ jobs:
     # El PR #124 promueve fuentes G10-I al PRODUCTO; no es el overlay
     # experimental G10-R. El checker legado compara contra otro baseline y
     # rechaza por diseño archivos del package. La promocion tiene N0/N1
-    # independientes; no relajar aquí la whitelist G10-R.
-    if: ${{ github.event_name != 'pull_request' || !startsWith(github.head_ref, 'codex/alpha13-g10-promote-functional-') }}
+    # independientes; el PR #125 de precompilados tampoco es G10-R.\n    # No relajar la whitelist del validador legado.
+    if: ${{ github.event_name != 'pull_request' || (!startsWith(github.head_ref, 'codex/alpha13-g10-promote-functional-') && !startsWith(github.head_ref, 'codex/alpha13-precompile-benchmark-docs-')) }}
     name: G10-R contrato read-only (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
