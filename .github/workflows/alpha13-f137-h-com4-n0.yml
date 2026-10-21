@@ -6,6 +6,7 @@ on:
       - codex/alpha13-precompile-benchmark-docs-20261020
     paths:
       - tools/alpha13/h_f137_com4.py
+      - tools/alpha13/g10_promoted_bench/h_f137_udp_echo.py
       - .github/workflows/alpha13-f137-h-com4-n0.yml
   workflow_dispatch:
 
@@ -25,6 +26,8 @@ jobs:
         run: |
           python -B -m py_compile tools/alpha13/h_f137_com4.py
           python -B tools/alpha13/h_f137_com4.py --selftest
+          python -B -m py_compile tools/alpha13/g10_promoted_bench/h_f137_udp_echo.py
+          python -B tools/alpha13/g10_promoted_bench/h_f137_udp_echo.py --selftest
 
   windows:
     runs-on: windows-latest
@@ -39,3 +42,5 @@ jobs:
         run: |
           python -B -m py_compile tools/alpha13/h_f137_com4.py
           python -B tools/alpha13/h_f137_com4.py --selftest
+          python -B -m py_compile tools/alpha13/g10_promoted_bench/h_f137_udp_echo.py
+          python -B tools/alpha13/g10_promoted_bench/h_f137_udp_echo.py --selftest
