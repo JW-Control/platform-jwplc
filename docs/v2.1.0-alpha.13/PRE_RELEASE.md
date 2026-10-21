@@ -21,6 +21,20 @@ La integración productiva F137 y la huella del package están verificadas. La a
 
 **Canal:** PreRelease de desarrollo para Arduino IDE/CLI. **Origen del código:** rama Alpha13 tras [PR #124](https://github.com/JW-Control/platform-jwplc/pull/124), merge `3467a375ccaf7c7ee27220ed0bc348056e5e8219`. Los metadatos de publicación (tag, ZIP y checksum) pertenecen al GitHub Release y al índice de Boards Manager una vez generados; estas notas no los anticipan.
 
+## Guías para un primer JWPLC Basic
+
+Para empezar por el nivel básico y avanzar sin configurar pines ni buses,
+consulta `JWPLC_Ethernet/README.md` (DHCP, TCP/UDP, luego operaciones cooperativas
+avanzadas opcionales) y `JWPLC_ModbusTCP/README.md` (Server/Client, FC03 y
+después los ocho FC implementados, sin atribuir cobertura física a los que
+no la tienen). Las operaciones avanzadas se separan de la API recomendada.
+
+El benchmark de F137 obtenido en runners Windows/Ubuntu **no sustituye**
+la medición local del equipo del operador: `LOCAL_PC_BENCHMARK=NOT_EXECUTED`
+hasta incorporar el manifiesto de la campaña Windows de tres parejas por perfil.
+Los valores de esta nota siguen siendo de CI y la subida USB no fue
+benchmarkeada.
+
 ## Alcance
 
 Alpha13 consolida mantenimiento, robustez y corrección de fallos del package Arduino JWPLC Basic v2.0.0, respetando las APIs existentes y el autoload de Display, Ethernet W5500, SD, FRAM, RTC, botones, RS-485, Modbus RTU, Modbus TCP y TCA/I/O.
