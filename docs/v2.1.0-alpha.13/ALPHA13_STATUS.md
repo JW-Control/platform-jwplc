@@ -1,3 +1,29 @@
+# ESTADO VIGENTE — F137-C revisión de integridad PASS; integración no autorizada (21/10/2026)
+
+**H física:** `PASS_FUNCIONAL_ACOTADO` para COM4 Master/COM14 Slave, FC03 TCP 2/2 servidores, UDP 3/3, RTU real y autoload observado, sin necesidad de más uploads. Documento candidato `A13_F137_H_DICTAMEN_FISICO_20261021.md`.
+
+**F137-C (no físico):** [CI #39628750096](https://github.com/JW-Control/platform-jwplc/actions/runs/39628750096) **PASS global Windows+Ubuntu**; `F137_C_REVIEW=PASS_EXACT_14_PRODUCT_PATHS`, `F137_C_ARCHIVES=PASS_2_SHA256`, `F137_C_PROFILE_POLICY=PASS_WEAK_BASIC_STRONG_BASICCORE`. El árbol N3 exacto de `JWPLC/2.1.0` es `cc17716f173509b1e0f3c0df5eb99549014c1d61`, inalterado en el PR. Se corrigió el guard para comparar el tree SHA sin requerir acceder al commit N3 tras eventual squash; CI del pequeño ajuste pendiente de cierre de run. Ver [informe C del PR](https://github.com/JW-Control/platform-jwplc/blob/codex/alpha13-precompile-benchmark-docs-20261020/docs/v2.1.0-alpha.13/A13_F137_C_RECONCILIACION_20261021.md).
+
+**Estado de integración:** PR #125 Draft, `mergeable_state=dirty`, **no merge autorizado**. La rama base solo cambió documentación, incluido `A13_RELEASE_SOURCE_DECISION_20261020.md` con aviso vinculante `RELEASE_DISPATCH=BLOCKED_UNTIL_PR125_APPROVED_AND_PROMOTED`. Reconciliar los docs de estado y fallos sin perder evidencia, conservar package tree SHA exacto. El knowledge privado PR #27 todavía Draft.
+
+```text
+F137_C_REVIEW=PASS_NONPHYSICAL_BOTH_OS
+F137_C_PACKAGE_TREE=cc17716f173509b1e0f3c0df5eb99549014c1d61
+F137_C_CRITICAL_FILES=6
+F137_C_PACKAGE_DIFF_FILES=14
+F137_C_PR125_MERGE=NOT_AUTHORIZED
+F137_H=PASS_FUNCIONAL_ACOTADO
+PENDIENTE_DE_PROMOCION=F137_6_FUNCTIONAL_PLUS_8_READMES
+BASE_SYNC=DOC_ONLY_PRODUCT_NOT_INTEGRATED
+KNOWLEDGE_SYNC=PR27_DRAFT
+RELEASE=BLOCKED
+ALPHA13=OPEN
+NEXT_FAILURE_ID=F138
+NEXT_GATE=F137_C_APPROVE_PR125_RECONCILIATION_THEN_OPERATOR_MERGE_AND_RELEASE_SOURCE
+```
+
+---
+
 # ESTADO VIGENTE — F137-H validación funcional acotada PASS; siguiente gate C (21/10/2026)
 
 **Veredicto de banco:** `F137_H_VERDICT=PASS_FUNCIONAL_ACOTADO`. Ambas placas de desarrollo autorizadas, **COM14 Slave → COM4 Master** flasheadas por operador con sellos verificados y sin backup (exención histórica aprobada). Serial COM4/COM14: PHY/ETH/TCP=1, DHCP/IP privada distinta, heartbeat estable, RTU Master→Slave con `RTU_OK` y `RTU_REQUESTS` crecientes, `RTU_FAIL=0`, `RTU_CRC=0`; Master SD_OK/FRAM_READ crecientes, SD_FAIL=0, RTC/IO/TFT=1.
