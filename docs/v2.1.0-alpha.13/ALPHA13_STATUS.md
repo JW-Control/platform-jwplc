@@ -16,7 +16,7 @@ RELEASE=BLOCKED
 
 ---
 
-# ESTADO VIGENTE — H-F137: identidad y respaldo COM4 (20/10/2026 Lima)
+# HISTÓRICO SUPERADO — H-F137 propuesta anterior de backup (20/10/2026 Lima)
 
 **Alcance:** aprobado iniciar preflight H-F137 sin subir firmware. [N3 #39538155047](https://github.com/JW-Control/platform-jwplc/actions/runs/39538155047) 13/13 PASS Windows+Ubuntu con archivos .a reales. [H-N0 CI #39545618484](https://github.com/JW-Control/platform-jwplc/actions/runs/39545618484): selftest estático en Windows y Ubuntu **PASS**; no se abrió COM ni se utilizó ESP32.
 
