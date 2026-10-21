@@ -553,8 +553,18 @@ reconstruir ambos `.a` desde fuentes, probar la selección
 `precompiled=full`, ausencia de compilación duplicada y compatibilidad
 Arduino IDE/CLI en ambos perfiles.
 
+En JWPLC Basic Core (`JWPLC_HAS_ETHERNET=0`), el contrato exige que el
+servicio Ethernet no realice transacciones W5500 ni cambie el CS. La política
+de placa debe resolverse dentro del package, sin intervención del sketch.
+El candidato F137 conserva `source-first` y mantiene bloqueada la promoción
+hasta demostrar paridad objeto por objeto en los dos FQBN y enlace ELF de
+la política Basic/Core. Los dos archivos `.a` iniciales fueron revocados
+solamente en la rama Draft.
+
 El benchmark comparará **compilación fría y caliente** desde fuente contra
-la candidata precompilada usando igual placa, toolchain y sketch. Los números
+la candidata precompilada usando igual placa, toolchain y sketch. Se exigen
+tres parejas por sistema operativo y por FQBN, con muestras y dispersión.
+La precompilación no implica reducción automática del tiempo de upload. Los números
 reales y SHA de los archives se registrarán en
 `docs/v2.1.0-alpha.13/A13_PRECOMPILE_BENCHMARK_20261020.md`.
 Hasta completar esa evidencia no se declara `PRECOMPILED_FREEZE=PASS`
