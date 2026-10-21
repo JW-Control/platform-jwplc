@@ -9,8 +9,6 @@ on:
       - 'tools/alpha13/c_release_like.py'
       - 'tools/alpha13/a13_local_pc_benchmark.py'
       - 'tools/alpha13/RUN_ALPHA13_LOCAL_PC_BENCHMARK.bat'
-      - 'tools/alpha13/a13_local_pc_benchmark.py'
-      - 'tools/alpha13/RUN_ALPHA13_LOCAL_PC_BENCHMARK.bat'
       - 'JWPLC/2.1.0/libraries/JWPLC_Ethernet/README.md'
       - 'JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/README.md'
       - 'README.md'
@@ -25,6 +23,8 @@ on:
     paths:
       - '.github/workflows/alpha13-c-release-like.yml'
       - 'tools/alpha13/c_release_like.py'
+      - 'tools/alpha13/a13_local_pc_benchmark.py'
+      - 'tools/alpha13/RUN_ALPHA13_LOCAL_PC_BENCHMARK.bat'
       - 'JWPLC/2.1.0/libraries/JWPLC_Ethernet/README.md'
       - 'JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/README.md'
       - 'README.md'
