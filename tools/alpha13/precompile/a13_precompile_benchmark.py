@@ -19,6 +19,7 @@ import shutil
 import statistics
 import subprocess
 import sys
+import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -174,14 +175,27 @@ def publish_stage_archive(cli: str, props: dict[str, str], hw: Path,
         members = [line.strip() for line in run([archiver, "t", str(target)]).splitlines() if line.strip()]
         require(sorted(members) == sorted(Path(x["archive_member_path"]).name for x in objects),
                 "ARCHIVE_MEMBERS_MISMATCH_" + lib)
-        for item in objects:
-            member = Path(item["archive_member_path"]).name
-            extracted = subprocess.run([archiver, "p", str(target), member],
-                                       capture_output=True, timeout=30)
-            require(extracted.returncode == 0 and
-                    hashlib.sha256(extracted.stdout).hexdigest() ==
-                    item["archive_member_sha256"],
-                    "ARCHIVE_MEMBER_HASH_MISMATCH_" + lib + "_" + member)
+        # Verificar bytes de los miembros realmente extraidos. En Windows,
+        # 'ar p' puede escribir stdout en modo texto y transformar LF a CRLF:
+        # un hash de stdout no siempre equivale al del objeto empaquetado.
+        # 'ar x' conserva los bytes y comprueba integridad sin relajar el gate.
+        with tempfile.TemporaryDirectory(prefix="a13_ar_members_") as tempdir:
+            extraction = subprocess.run(
+                [archiver, "x", str(target)], cwd=tempdir,
+                capture_output=True, timeout=30)
+            require(extraction.returncode == 0,
+                    "ARCHIVE_EXTRACTION_FAILED_" + lib + "_" +
+                    extraction.stderr.decode(errors="replace")[-250:])
+            extracted_names = {p.name for p in Path(tempdir).iterdir()
+                               if p.is_file()}
+            require(extracted_names == set(members),
+                    "ARCHIVE_EXTRACTED_MEMBER_LIST_MISMATCH_" + lib)
+            for item in objects:
+                member = Path(item["archive_member_path"]).name
+                extracted = Path(tempdir) / member
+                require(extracted.is_file() and
+                        digest(extracted) == item["archive_member_sha256"],
+                        "ARCHIVE_MEMBER_HASH_MISMATCH_" + lib + "_" + member)
         props_path = libroot / "library.properties"
         props_text = props_path.read_text(encoding="utf-8")
         props_path.write_text(props_text.rstrip() + "\nprecompiled=full\n",
@@ -224,7 +238,7 @@ def assert_elf_policy(props: dict[str, str], build: Path, expected: str,
     require(len(elf) == 1, "ELF_MISSING_OR_DUPLICATE_" + profile)
     result = run([str(nm), str(elf[0])])
     found = re.findall(
-        r"(?m)^\\s*[0-9a-fA-F]+\\s+([A-Za-z])\\s+jwplcEthernetProfileAvailable$",
+        r"(?m)^\s*[0-9a-fA-F]+\s+([A-Za-z])\s+jwplcEthernetProfileAvailable$",
         result,
     )
     require(len(found) == 1 and found[0] == expected,
