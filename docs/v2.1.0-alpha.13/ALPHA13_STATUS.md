@@ -1,4 +1,38 @@
-# ESTADO DE TRABAJO ACTUAL — Alpha13 C con benchmark local PASS (21/10/2026; PR Draft)
+# ESTADO VIGENTE EN BASE — Alpha13 C integrada, pendiente de Release (21/10/2026)
+
+**Alcance de la autorización del operador:** integración de los dos PR de documentación y conocimiento; **no** se autorizó publicar Alpha13 ni flashear dispositivos.
+
+- **Producto:** [PR #126](https://github.com/JW-Control/platform-jwplc/pull/126) **MERGED por squash** en `v2.1.0-alpha.13/feature/cleanup-robustness`; commit `efe20fe0ba90ed79dab38b354ddba3d5278a4b8c`. HEAD revisado de la rama de PR `3ed7e08946d6862b1cb7acc93591ffa26a099aab`.
+- **CI final:** [#39663616618](https://github.com/JW-Control/platform-jwplc/actions/runs/39663616618) **SUCCESS completo**, incluye prueba del `MANIFEST` local, ZIP release-like, SHA de ambos .a y compilación CLI Basic/Core; workflow G10-R [#39663616657](https://github.com/JW-Control/platform-jwplc/actions/runs/39663616657) **SKIPPED_NOT_APPLICABLE** (no contarlo como PASS). ZIP del run es candidato, **no** asset publicado.
+- **Package:** únicamente cambiaron `JWPLC_Ethernet/README.md` y `JWPLC_ModbusTCP/README.md` dentro de `JWPLC/2.1.0`. Tree Git actual del package `6b498f4a0797e2a1bb0054b005b91f985bc071e2` (documentación); tree funcional de referencia N3 anterior `cc17716f173509b1e0f3c0df5eb99549014c1d61`. Sin cambios a `.cpp`, `.h`, archivos `.a`, `library.properties`, variants, pines, autoload o bootloader.
+- **Conocimiento privado:** [PR #29](https://github.com/JW-Control/jwplc-dev-mcp/pull/29) **MERGED por squash** a `jwplc-dev-mcp/main`; commit `55015c5e145e065eaf4d3af2ea3e48d048ecc490`. No se alteró PR #28 de Alpha15.
+- **Benchmark PC:** `PASS_LOCAL_PC_THREE_PAIRS_TWO_FQBN`, 12/12 runs y 24 tiempos en Windows del operador. Fría Basic `52,120 → 40,190 s` (**−22,89 %**); Basic Core `54,964 → 47,958 s` (**−12,75 %**). Medianas de 3 y evidencia en [resultado](A13_LOCAL_PC_BENCHMARK_RESULTADOS_20261021.md) y [MANIFEST](evidence/A13_LOCAL_PC_BENCHMARK_MANIFEST_20261021.json). Upload **no** benchmarkeado.
+- **Límites:** R3 interno, R4 de 1805 s, DHCP/DNS específico, Basic Core físico, E1/E2 y BOOT marker literal siguen fuera de la cobertura aprobada; no convertirlos en PASS. `PENDIENTE_DE_PROMOCION_GLOBAL_ALPHA13=EMPTY_AUDITED_SCOPE`.
+- **Publicación:** sin autorización de despacho de Release; no se realizó instalación desde índice dev publicado, pruebas IDE GUI ni postpublicación en esta fase. El siguiente paso es verificar fuente de Release **en la BASE actual** y solicitar autorización separada para `Release JWPLC Arduino Package` con `version=2.1.0-alpha.13`.
+
+```text
+ALPHA13=OPEN
+PR126=MERGED_SQUASH_efe20fe0ba90ed79dab38b354ddba3d5278a4b8c
+KNOWLEDGE_PR29=MERGED_SQUASH_55015c5e145e065eaf4d3af2ea3e48d048ecc490
+C_AUDIT=PASS_SCOPED_MERGED_BASE
+C_RELEASE_LIKE=PASS_39663616618_PREMERGE_SOURCE
+DOCS_AND_README=TECHNICALLY_COMPLETE
+LOCAL_PC_BENCHMARK=PASS_THREE_PAIRS_BOTH_FQBN
+UPLOAD_BENCHMARK=NOT_MEASURED
+PACKAGE_DOC_TREE=6b498f4a0797e2a1bb0054b005b91f985bc071e2
+PACKAGE_FUNCTIONAL_CHANGES_SINCE_N3=NONE
+PENDIENTE_DE_PROMOCION_GLOBAL_ALPHA13=EMPTY_AUDITED_SCOPE
+BASE_SYNC=OK_PR126
+KNOWLEDGE_SYNC=OK_PR29
+NEXT_FAILURE_ID=F138
+NEXT_GATE=ALPHA13_RELEASE_SOURCE_REVIEW_AND_SEPARATE_DISPATCH_APPROVAL
+RELEASE_DISPATCH=NOT_AUTHORIZED
+POSTPUBLISH=NOT_RUN
+```
+
+---
+
+# CORTE HISTÓRICO DE PR — Alpha13 C con benchmark local PASS (21/10/2026; PR Draft)
 
 **Autorización del operador:** únicamente revisión, documentación y prueba release-like **sin publicación**. Rama `codex/alpha13-c-global-release-like-20261021`; fuente inicial base `d86ccdd3fab2352d0a6579e676b07a54662ccfc3`. Archivo de auditoría: [A13_C_AUDITORIA_GLOBAL_Y_DISTRIBUCION_20261021.md](A13_C_AUDITORIA_GLOBAL_Y_DISTRIBUCION_20261021.md). Se conserva el código, las propiedades y los precompilados de `JWPLC/2.1.0` intactos (el árbol cambió solo por dos README educativos) y se usa el mismo ZIP del generador de Release para un gate de Arduino CLI aislado, **sin `gh release`, merge, COM o upload**. **C-RELEASE-LIKE PASS**: [CI #39641744857](https://github.com/JW-Control/platform-jwplc/actions/runs/39641744857), HEAD `4aa3c82a`, job completo sin omitidos, ZIP 1 992 archivos / 24 522 767 bytes / SHA-256 `02dfbc70053b652a1c2df202070573bb15abcb4ed4ab000e8699ed5f5643c783`; bytes y SHA de archives, índice simulado y compilación CLI Basic/Core. Este es el checksum del **ZIP candidato de ese run**, no del Release final. G10-R legado no aplicable falló por F134 en #39641744816 y su guard de rama ha sido ajustado para registrar SKIPPED fuera de alcance sin alterar el validador. Pendiente nueva CI del HEAD documental final.
 
