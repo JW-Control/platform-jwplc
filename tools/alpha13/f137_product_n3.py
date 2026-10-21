@@ -86,7 +86,7 @@ def verify_selected(log, staged, require_tcp):
         # aparezca dentro de un token -L real (no solo en "Using library").
         stage_tail = "/".join(staged.parts[-5:])
         rel = stage_tail + "/libraries/" + lib + "/src/esp32"
-        linked_dirs = re.findall(r'-L([^"\\s]+)', norm)
+        linked_dirs = re.findall(r'-L([^"\s]+)', norm)
         require(("Using library " + lib + " ") in norm,
                 "LIBRARY_NOT_SELECTED_" + lib)
         require(any(d.endswith(rel) for d in linked_dirs),
