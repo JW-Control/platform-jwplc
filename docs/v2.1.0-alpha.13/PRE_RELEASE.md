@@ -6,9 +6,9 @@ La auditoría de G1–G10, H0-F1 y F137, sus límites y las decisiones reproduci
 
 ## F137 — integridad de los archivos precompilados incluidos (21/10/2026)
 
-Los archives `libJWPLC_Ethernet.a` y `libJWPLC_ModbusTCP.a`, sus flags `precompiled=full` y la política Ethernet `weak Basic / strong Basic Core` fueron integrados al package mediante [PR #125 MERGED](https://github.com/JW-Control/platform-jwplc/pull/125), commit `23fae3a3febf8e6a9c19e7e8cb63b7b6a62cdb11`. El árbol `JWPLC/2.1.0` verificado es `cc17716f173509b1e0f3c0df5eb99549014c1d61`, idéntico al N3. Se mantienen autoload, configuración interna de pines y APIs. Los hashes de los assets distribuidos se verifican contra los valores publicados en el índice real.
+Los archives `libJWPLC_Ethernet.a` y `libJWPLC_ModbusTCP.a`, sus flags `precompiled=full` y la política Ethernet `weak Basic / strong Basic Core` fueron integrados al package mediante [PR #125 MERGED](https://github.com/JW-Control/platform-jwplc/pull/125), commit `23fae3a3febf8e6a9c19e7e8cb63b7b6a62cdb11`. El árbol funcional de referencia antes de los nuevos README es `cc17716f173509b1e0f3c0df5eb99549014c1d61` (N3). El árbol completo posterior, con **solo dos README de librería ampliados**, es `6b498f4a0797e2a1bb0054b005b91f985bc071e2`; las fuentes, propiedades y archivos `.a` aprobados no cambiaron. Se mantienen autoload, configuración interna de pines y APIs. Los hashes de los assets distribuidos se verifican contra los valores publicados en el índice real.
 
-**Mediciones de compilación, mediana fría fuente → archive, tres pares por sistema/perfil:**
+**Mediciones de compilación de CI, mediana fría fuente → archive, tres pares por sistema/perfil (no confundir con PC local):**
 - Ubuntu Basic: 27,245 → 18,976 s (−30,4 %); Basic Core: 35,065 → 26,141 s (−25,4 %).
 - Windows Basic: 85,163 → 51,945 s (−39,0 %); Basic Core: 95,054 → 79,908 s (−15,9 %).
 - Las compilaciones calientes cambiaron poco; **NO se midió ahorro de tiempo de upload**. El bootloader del build local no queda fijado como binario definitivo del package.
@@ -29,11 +29,7 @@ avanzadas opcionales) y `JWPLC_ModbusTCP/README.md` (Server/Client, FC03 y
 después los ocho FC implementados, sin atribuir cobertura física a los que
 no la tienen). Las operaciones avanzadas se separan de la API recomendada.
 
-El benchmark de F137 obtenido en runners Windows/Ubuntu **no sustituye**
-la medición local del equipo del operador: `LOCAL_PC_BENCHMARK=NOT_EXECUTED`
-hasta incorporar el manifiesto de la campaña Windows de tres parejas por perfil.
-Los valores de esta nota siguen siendo de CI y la subida USB no fue
-benchmarkeada.
+**Benchmark Windows local final:** el operador ejecutó en su PC la campaña de tres parejas frío/caliente por perfil, fuentes contra dos `.a`, y aportó el manifiesto que se conservó en [evidencia local](evidence/A13_LOCAL_PC_BENCHMARK_MANIFEST_20261021.json). **JWPLC Basic**: fría 52,120 → 40,190 s (**−22,89 %**), caliente 9,251 → 9,055 s. **JWPLC Basic Core**: fría 54,964 → 47,958 s (**−12,75 %**), caliente 9,175 → 9,146 s. Todos son valores de **mediana de 3** por escenario en **su PC**, diferentes de Windows/Ubuntu CI. La evaluación íntegra está en [A13_LOCAL_PC_BENCHMARK_RESULTADOS_20261021.md](A13_LOCAL_PC_BENCHMARK_RESULTADOS_20261021.md). `LOCAL_PC_BENCHMARK=PASS_LOCAL_PC_THREE_PAIRS_TWO_FQBN`, con 12 runs, 24 tiempos y hashes `.a` confirmados. **No se midió velocidad de subida USB**; el ensayo solo aplica a compilación.
 
 ## Alcance
 
