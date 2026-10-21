@@ -71,7 +71,7 @@ P2_ABRIR_DESDE_ARDUINO_IDE=PENDING (André: con .jwhmi, con y sin cambios sin gu
 P3_APP_ESCRITORIO_SIN_MODO_DESARROLLADOR=PENDING (André: Generar-e-Instalar-App-Escritorio.cmd termina y abre la app)
 P4_GATES_BUILD_EN_REPO=DONE (2026-10-21: tools/jwplc-hmi-designer/gates/**/build/ fuera del repo y en .gitignore)
 P5_VERSION_VISIBLE_DEL_DESIGNER=DONE (2026-10-21: título, distintivo, barra de estado, panel Estado y app Electron dicen 2.1.0-alpha.14)
-P6_KNOWLEDGE_PR=PENDING (rama docs/hmi-designer-alpha15-cierre-20261019 de jwplc-dev-mcp sin fusionar a main)
+P6_KNOWLEDGE_PR=OPEN (JW-Control/jwplc-dev-mcp#28, sin conflictos con main; falta fusionarlo)
 ```
 
 Fuera del cierre de esta alpha (integración y publicación 2.1.0-alpha.14): ver
