@@ -1,6 +1,6 @@
 # Alpha13 — Benchmark FINAL en la PC del operador (Windows)
 
-**Estado al preparar la guía:** `LOCAL_PC_BENCHMARK=NOT_EXECUTED`; no inventar tiempos. El comparativo CI de Windows y Ubuntu F137 ya tiene 3 pares por perfil/OS y N3 PASS, pero **ninguno equivale al rendimiento de esta PC**.
+**Estado final (21/10/2026):** `LOCAL_PC_BENCHMARK=PASS_LOCAL_PC_THREE_PAIRS_TWO_FQBN`. La campaña fue ejecutada por el operador en su **PC Windows** y el `MANIFEST.json` fue conservado en [evidencia versionada](evidence/A13_LOCAL_PC_BENCHMARK_MANIFEST_20261021.json); resultados, muestras y limitaciones en [informe de cierre](A13_LOCAL_PC_BENCHMARK_RESULTADOS_20261021.md). Medianas frías: Basic **52,120 → 40,190 s (−22,89 %)** y Basic Core **54,964 → 47,958 s (−12,75 %)**. El comparativo CI sigue siendo independiente.
 
 ## Qué mediremos
 
@@ -64,10 +64,10 @@ En `RESULT_ROOT` se guardan:
 
 ## Criterios para darlo por cerrado
 
-- [ ] `A13_LOCAL_BENCH=PASS_THREE_PAIRS_BOTH_FQBN` en tu PC, sin errores omitidos.
-- [ ] Comparación de las **medianas** fría/caliente de Basic y Basic Core contra resultados CI, identificando el host (CI vs local).
-- [ ] Confirmación en el manifiesto de los dos SHA-256 de archivos precompilados y la selección desde copias aisladas.
-- [ ] Registrar metodología, HEAD, ruta local de evidencias y tiempos finales en este directorio y en el README principal de Alpha13.
-- [ ] Mantener **UPLOAD_BENCHMARK=NOT_MEASURED**, salvo una campaña posterior específica de subida autorizada.
+- [x] `A13_LOCAL_BENCH=PASS_THREE_PAIRS_BOTH_FQBN` en Windows del operador, 12/12 runs PASS.
+- [x] Medianas de fría/caliente Basic/Core calculadas y separadas explícitamente de las muestras CI.
+- [x] Dos hashes congelados confirmados; compilación desde fuentes 12+2 `.cpp.o`, desde archives 0+0, procedencia desde copias aisladas.
+- [x] HEAD `158d12a2`, metodología, 24 tiempos y manifest preservado en repo; README principal actualizado. Logs completos siguen en la carpeta TEMP de la PC del operador.
+- [x] **UPLOAD_BENCHMARK=NOT_MEASURED** declarado explícitamente; no se requirió USB/COM.
 
 El benchmark no autoriza merge ni Release por sí solo. Tras incorporar el resultado local a `README.md`, `PRE_RELEASE.md`, `ALPHA13_STATUS.md` y checklist se solicita autorización del operador para cerrar el PR #126.
