@@ -11,6 +11,7 @@ import hashlib
 import importlib.util
 import json
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -74,13 +75,18 @@ def preflight():
 
 
 def verify_selected(log, staged, require_tcp):
-    norm = log.replace("\\", "/")
+    # El compilador de Windows escribe paths escapados (C:\\\\Users...);
+    # normalizar un separador simple no basta: quedarian C://Users...
+    # Conservar la comprobacion REAL de -L y -l; no permitir fallback .cpp.
+    norm = re.sub(r"/+", "/", log.replace("\\", "/"))
     for lib in LIBS if require_tcp else ("JWPLC_Ethernet",):
         rel = (staged / "libraries" / lib / "src/esp32").as_posix()
         require(("Using library " + lib + " ") in norm,
                 "LIBRARY_NOT_SELECTED_" + lib)
-        require(rel in norm and ("-l" + lib) in norm,
-                "ARCHIVE_NOT_LINKED_" + lib)
+        require(("-L" + rel) in norm,
+                "ARCHIVE_LINKER_SEARCH_PATH_MISSING_" + lib)
+        require(("-l" + lib) in norm,
+                "ARCHIVE_LINKER_FLAG_MISSING_" + lib)
 
 
 def build(output: Path, cli: str):

@@ -4,6 +4,13 @@ name: Alpha13 F137 - N3 archived package real (NO upload)
 # job dependiente de adopción en alpha13-precompile-ethernet-modbus-tcp.yml.
 # Este workflow permanece para replay manual únicamente si hace falta.
 on:
+  # Solo N3, sin reejecutar benchmark ni tocar hardware, al corregir su gate.
+  push:
+    branches:
+      - codex/alpha13-precompile-benchmark-docs-20261020
+    paths:
+      - tools/alpha13/f137_product_n3.py
+      - .github/workflows/alpha13-f137-product-n3.yml
   workflow_dispatch:
 
 permissions:
