@@ -2,6 +2,26 @@
 
 **Versión:** `v2.1.0-alpha.13`. **Rama base del alpha:** `v2.1.0-alpha.13/feature/cleanup-robustness`. **Fuente de verdad:** `ALPHA13_STATUS.md` en esta rama. **NO actualizar histórico de Alpha30 ni asumir que el package de Alpha13 ya se publicó.**
 
+## Gate F137 (archives Ethernet/Modbus TCP) — cierre técnico H y preparación C, 21/10/2026
+
+- [x] N2 y mediciones con 3 pares por SO/FQBN; fuente, objeto, archive y ELF, política weak/strong según Basic/Core; N3 package real 13/13 Windows+Ubuntu PASS ([#39538155047](https://github.com/JW-Control/platform-jwplc/actions/runs/39538155047)).
+- [x] Dos archivos `.a` de `JWPLC_Ethernet` y `JWPLC_ModbusTCP` (ambos `precompiled=full`) adoptados en **PR #125 Draft**, no base; autoload y demás periféricos preservados.
+- [x] CI de Master y Slave con archivos reales: [#39622285204](https://github.com/JW-Control/platform-jwplc/actions/runs/39622285204) PASS Windows y Ubuntu.
+- [x] Operador autorizó y ejecutó upload dual en COM14 Slave y COM4 Master de desarrollo, ambos `COMMAND_SUCCESS`; backup exento solo para dichas placas.
+- [x] UART: dos enlaces Ethernet activos, IP DHCP privadas distintas, RTU Master-Slave con contadores correctos, Master SD/FRAM/RTC/IO/TFT observados.
+- [x] FC03 read-only por Ethernet a ambos PLC: 4 registros correctos cada uno y IP distintas.
+- [x] Eco UDP COM4: 3/3 datagramas de prueba correctos.
+- [x] Dictamen H `PASS_FUNCIONAL_ACOTADO` con límites: `A13_F137_H_DICTAMEN_FISICO_20261021.md`. No falsear boot marker UART no capturado, Basic Core físico, E1/E2, R3 interno, R4 largo, renovación DNS/DHCP o RJ45 de este F137.
+- [ ] **Reconciliar PR #125 con base Alpha13**: esta rama candidata está adelantada en código, pero detrás de la base en cambios documentales; revisar `JWPLC/2.1.0` y SHA de los dos archives después de integrar. No hacer merge sin autorización de propietario.
+- [ ] Confirmar adopción de los cuatro archivos producto F137 (dos `.a`, dos `library.properties`) en **rama base** antes de Release. Hasta entonces `PENDIENTE_DE_PROMOCION=F137_ARCHIVES`, y `BASE_SYNC=DOC_ONLY`.
+- [ ] Comprobar que `PRE_RELEASE.md`, README, source SHA y ZIP de publicación correspondan **a la rama base actualizada**, nunca publicar base antigua ni binarios de runner CI.
+- [ ] Cierre C: revisión de scope, límites y excepciones; `KNOWLEDGE_SYNC` PR #27 Draft hacia main; checklist de distribución e instalación publicada pendiente.
+- [ ] No marcar `ALPHA13=CLOSED_PUBLISHED` hasta fusionar con autorización y verificar GitHub Release, SHA ZIP, índice dev y Arduino CLI/IDE de **package publicado**.
+
+**Estado:** `F137_H=PASS_FUNCIONAL_ACOTADO`, `F137_C=PENDING_OPERATOR_REVIEW_AND_BASE_PROMOTION`, `RELEASE=BLOCKED`.
+
+---
+
 ## Integración técnica de G10
 
 - [x] Merge funcional [PR #124](https://github.com/JW-Control/platform-jwplc/pull/124) a base, `3467a375ccaf7c7ee27220ed0bc348056e5e8219`.
