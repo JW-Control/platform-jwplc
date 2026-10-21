@@ -1,4 +1,4 @@
-name: Alpha13 F137 H COM4 - single Master sealed build (NO upload)
+name: Alpha13 F137 H - dual sealed builds COM14 COM4 (NO upload)
 
 on:
   push:
@@ -6,6 +6,9 @@ on:
       - codex/alpha13-precompile-benchmark-docs-20261020
     paths:
       - tools/alpha13/h_f137_com4_build.py
+      - tools/alpha13/h_f137_dual.py
+      - tools/alpha13/g10_promoted_bench/G10P_COM14_Slave/**
+      - tools/alpha13/h_f137_com4/DUAL_UPLOAD.md
       - tools/alpha13/g10_promoted_bench/G10P_COM4_Master/**
       - .github/workflows/alpha13-f137-h-com4-build.yml
   workflow_dispatch:
@@ -54,10 +57,18 @@ jobs:
           python -B tools/alpha13/h_f137_com4_build.py --selftest
           python -B tools/alpha13/h_f137_com4_build.py --check --ci-detached --expected-head '${{ github.sha }}'
           python -B tools/alpha13/h_f137_com4.py --selftest
+          python -B -m py_compile tools/alpha13/h_f137_dual.py
+          python -B tools/alpha13/h_f137_dual.py --selftest
+          python -B tools/alpha13/h_f137_dual.py --upload-both --ci-detached --expected-head '${{ github.sha }}' 2>$null
+          if ($LASTEXITCODE -eq 0) { throw 'F137_CI_UPLOAD_GUARD_FALSE_PASS' }
       - name: Compilar y sellar COM4 con los archives REALES del PR
         shell: pwsh
         run: |
           python -B tools/alpha13/h_f137_com4_build.py --prepare --ci-detached --expected-head '${{ github.sha }}' --output (Join-Path $env:RUNNER_TEMP 'f137-com4-seal')
+      - name: Compilar y sellar COM14 Slave usando el stage Master
+        shell: pwsh
+        run: |
+          python -B tools/alpha13/h_f137_dual.py --prepare-slave --ci-detached --expected-head '${{ github.sha }}' --output (Join-Path $env:RUNNER_TEMP 'f137-com4-seal')
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -65,5 +76,7 @@ jobs:
           path: |
             ${{ runner.temp }}/f137-com4-seal/MANIFEST.json
             ${{ runner.temp }}/f137-com4-seal/compile_COM4_MASTER.log
+            ${{ runner.temp }}/f137-com4-seal/MANIFEST_COM14.json
+            ${{ runner.temp }}/f137-com4-seal/compile_COM14_SLAVE.log
           retention-days: 14
           if-no-files-found: warn
