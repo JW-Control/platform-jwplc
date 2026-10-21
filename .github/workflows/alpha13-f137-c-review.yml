@@ -7,6 +7,8 @@ on:
     paths:
       - tools/alpha13/f137_c_release_guard.py
       - .github/workflows/alpha13-f137-c-review.yml
+      - docs/v2.1.0-alpha.13/ALPHA13_STATUS.md
+      - docs/v2.1.0-alpha.13/A13_RELEASE_SOURCE_DECISION_20261020.md
   workflow_dispatch:
 
 permissions:

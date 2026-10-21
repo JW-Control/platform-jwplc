@@ -1,3 +1,21 @@
+## AVISO VIGENTE — Bloqueado hasta promover F137 (21/10/2026)
+
+**Este aviso reemplaza la condición histórica `READY_FOR_OPERATOR_RELEASE_DISPATCH` del 20/10/2026. NO ejecutar el workflow Release JWPLC Arduino Package aún.** H-F137 de los archives Ethernet/Modbus TCP concluyó `PASS_FUNCIONAL_ACOTADO`, y F137-C verificó el package candidato exacto en [CI #39628750096](https://github.com/JW-Control/platform-jwplc/actions/runs/39628750096) Windows/Ubuntu, pero el código sigue únicamente en [PR #125 Draft](https://github.com/JW-Control/platform-jwplc/pull/125). La base Alpha13 **carece de los dos archives**, la política de perfil weak/strong y `precompiled=full` hasta que se autorice la integración.
+
+**Huella obligatoria de package para futura publicación:** `JWPLC/2.1.0` Git tree SHA-1 `cc17716f173509b1e0f3c0df5eb99549014c1d61`. Comprobar desde la base ya integrada con el guard F137-C (en el PR candidato): `--verify-release-source --expected-head <SHA_REAL_BASE>`. Si el árbol no coincide, `REVIEW_STOP`; no disparar release ni alegar que las pruebas previas cubren otra fuente.
+
+Después de integración revisada por operador, se mantiene la decisión sobre el workflow: seleccionar **rama base Alpha13** con `version=2.1.0-alpha.13`, nunca mezclar ciegamente `release/v2.1.x`; comprobar source SHA, README, PRE_RELEASE, ZIP raíz, checksum, índice dev y post-install. La autorización de merge y release son decisiones separadas. No cambiar el canal estable.
+
+```text
+F137_C_CI=PASS_NONPHYSICAL
+RELEASE_SOURCE_TREE_REQUIRED=cc17716f173509b1e0f3c0df5eb99549014c1d61
+RELEASE_DISPATCH=BLOCKED_UNTIL_PR125_APPROVED_AND_PROMOTED
+RELEASE_SOURCE_BRANCH=v2.1.0-alpha.13/feature/cleanup-robustness
+ALPHA13=CANDIDATE_NOT_PUBLISHED
+```
+
+---
+
 # Alpha13 — Decisión de origen de PreRelease sin integrar 1095 commits ajenos
 
 **20/10/2026. Estado: READY_FOR_OPERATOR_RELEASE_DISPATCH, no publicación ejecutada.**

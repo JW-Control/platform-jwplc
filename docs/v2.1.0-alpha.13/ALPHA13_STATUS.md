@@ -6591,3 +6591,49 @@ DO_NOT_PUBLISH_BOOTLOADER_BIN_AS_FINAL
 DO_NOT_IMPLEMENT_JW_BUSIO_YET
 G1_CLOSED_G2_MAY_START_WITH_READ_ONLY_PREFLIGHT
 ```
+
+---
+
+## Histórico exclusivo de la base (reconciliación de 21/10/2026)
+
+El siguiente material fue conservado de la base y **está superado** por el encabezado vigente de este archivo. No reabre el respaldo obligatorio, reinicia gates ni invalida el upload dual de laboratorio.
+
+# ESTADO VIGENTE EN BASE — F137 H sin respaldo de placas de desarrollo (21/10/2026)
+
+**Decisión ratificada:** COM4 Master y COM14 Slave son placas de prueba, firmware anterior prescindible: el propietario ya dispensó respaldos el **17/10/2026**. Se eliminó el respaldo obligatorio del runner candidato H-F137 y se sustituyó por inventario USB no intrusivo (COM4 requerido, COM14 opcional). No se exige firma de renuncia repetida. Solo para estas placas, nunca clientes.
+
+**Alcance:** el PR #125 sigue Draft, sin archivos binarios nuevos en la base. N3 del candidato PASS 13/13 ambos SO; CI del runner reducido pendiente. COM4 upload requiere aprobación expresa posterior, independiente del preflight; COM14 no se toca. H no ejecutada, Release bloqueada.
+
+```text
+H_F137_COM4_BACKUP=WAIVED_EXISTING_DEV_BOARD_DECISION
+H_F137_COM4_IDENTITY=WAIT_OPERATOR
+H_F137_COM4_UPLOAD=NOT_AUTHORIZED
+H_F137_COM14=UNTOUCHED
+NEXT_GATE=H_F137_LOCAL_INVENTORY_AND_BUILD_SEAL_BEFORE_UPLOAD
+BASE_SYNC=DOC_ONLY
+RELEASE=BLOCKED
+```
+
+---
+
+# HISTÓRICO SUPERADO EN BASE — H-F137 con respaldo (sustituido por waiver existente) (20/10/2026 Lima)
+
+**NO hay cambios binarios/productivos nuevos en esta rama base.** Los precompilados Ethernet/ModbusTCP F137 están adoptados únicamente en [PR #125 Draft](https://github.com/JW-Control/platform-jwplc/pull/125), cuya cabeza candidata al registrar fue `bca8697ac92799ac2e093002e9ce18f015bafebe`. **No fusionar automáticamente**, no publicar ni flashear.
+
+**Evidencia candidata:** [N3 #39538155047](https://github.com/JW-Control/platform-jwplc/actions/runs/39538155047) cerró 13/13 Ubuntu+Windows; benchmark 3 pares por OS/FQBN y paridad de archives aceptados. [H-N0 #39545618484](https://github.com/JW-Control/platform-jwplc/actions/runs/39545618484) PASS 2/2 autopruebas, sin usar hardware. El procedimiento H es `tools/alpha13/h_f137_com4.py` **solo en PR #125** y su README. Autorización: iniciar identidad/respaldo local COM4, con confirmación interactiva y posible reset de esptool; NO upload, erase, RJ45 ni tocar COM14. Aún no existe recibo físico validado.
+
+```text
+BASE_SYNC=OK_DOC_STATUS_ONLY_PENDING_PR125_OPERATOR_MERGE
+F137_ARCHIVES_IN_BASE=NO
+F137_N3_CANDIDATE=PASS_BOTH_OS
+H_F137_N0_CANDIDATE=PASS_BOTH_OS
+H_F137_COM4_IDENTITY=WAIT_OPERATOR
+H_F137_COM4_FULL_BACKUP=WAIT_OPERATOR
+H_F137_UPLOAD=NOT_AUTHORIZED
+H_F137_COM14=NO_TOUCH
+NEXT_FAILURE_ID=F138
+NEXT_GATE=H_F137_COM4_OPERATOR_LOCAL_IDENTITY_AND_BACKUP_RECEIPT
+RELEASE=BLOCKED
+```
+
+---
