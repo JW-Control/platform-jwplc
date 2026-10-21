@@ -1,16 +1,19 @@
-## AVISO VIGENTE — Bloqueado hasta promover F137 (21/10/2026)
+## ESTADO VIGENTE — F137 integrado; PreRelease aún NO autorizada (21/10/2026)
 
-**Este aviso reemplaza la condición histórica `READY_FOR_OPERATOR_RELEASE_DISPATCH` del 20/10/2026. NO ejecutar el workflow Release JWPLC Arduino Package aún.** H-F137 de los archives Ethernet/Modbus TCP concluyó `PASS_FUNCIONAL_ACOTADO`, y F137-C verificó el package candidato exacto en [CI #39628750096](https://github.com/JW-Control/platform-jwplc/actions/runs/39628750096) Windows/Ubuntu, pero el código sigue únicamente en [PR #125 Draft](https://github.com/JW-Control/platform-jwplc/pull/125). La base Alpha13 **carece de los dos archives**, la política de perfil weak/strong y `precompiled=full` hasta que se autorice la integración.
+**Cambio de estado:** el bloqueo `BLOCKED_UNTIL_PR125_APPROVED_AND_PROMOTED` quedó superado. El propietario autorizó y se integró [PR #125](https://github.com/JW-Control/platform-jwplc/pull/125) por squash en la **base Alpha13**, commit `23fae3a3febf8e6a9c19e7e8cb63b7b6a62cdb11`. El package real de `JWPLC/2.1.0` mantiene tree SHA-1 `cc17716f173509b1e0f3c0df5eb99549014c1d61` idéntico al source de N3; política weak/strong Basic/Core, archivos `.a` canónicos y `precompiled=full` están realmente en base. El conocimiento F137 [PR privado #27](https://github.com/JW-Control/jwplc-dev-mcp/pull/27) quedó integrado en `knowledge/main`.
 
-**Huella obligatoria de package para futura publicación:** `JWPLC/2.1.0` Git tree SHA-1 `cc17716f173509b1e0f3c0df5eb99549014c1d61`. Comprobar desde la base ya integrada con el guard F137-C (en el PR candidato): `--verify-release-source --expected-head <SHA_REAL_BASE>`. Si el árbol no coincide, `REVIEW_STOP`; no disparar release ni alegar que las pruebas previas cubren otra fuente.
+**NO ejecutar todavía el workflow Release.** Aunque F137-H y F137-C ya son PASS, la auditoría global Alpha13, el gate de fuente release-like, la confirmación separada de despacho y el post-publicación del ZIP/Boards Manager siguen pendientes. Último preflight de tag/Release `v2.1.0-alpha.13`: ambos ausentes (404). Si el árbol del package de base cambia, revisar impacto y no reutilizar la evidencia N3/H como PASS de otro producto.
 
-Después de integración revisada por operador, se mantiene la decisión sobre el workflow: seleccionar **rama base Alpha13** con `version=2.1.0-alpha.13`, nunca mezclar ciegamente `release/v2.1.x`; comprobar source SHA, README, PRE_RELEASE, ZIP raíz, checksum, índice dev y post-install. La autorización de merge y release son decisiones separadas. No cambiar el canal estable.
+**Origen reservado cuando se autorice:** seleccionar deliberadamente `v2.1.0-alpha.13/feature/cleanup-robustness` y `version=2.1.0-alpha.13`; NO fusionar a ciegas `release/v2.1.x`. En el despacho registrar `GITHUB_SHA`, raíz ZIP `2.1.0/`, checksum, índice dev, README y PRE_RELEASE exactos. La autorización del merge de PR125/27 **no** incluye autorización de publicar.
 
 ```text
-F137_C_CI=PASS_NONPHYSICAL
-RELEASE_SOURCE_TREE_REQUIRED=cc17716f173509b1e0f3c0df5eb99549014c1d61
-RELEASE_DISPATCH=BLOCKED_UNTIL_PR125_APPROVED_AND_PROMOTED
-RELEASE_SOURCE_BRANCH=v2.1.0-alpha.13/feature/cleanup-robustness
+F137_IN_ALPHA13_BASE=YES
+F137_PACKAGE_TREE=cc17716f173509b1e0f3c0df5eb99549014c1d61
+F137_PROMOTION_COMMIT=23fae3a3febf8e6a9c19e7e8cb63b7b6a62cdb11
+BASE_SYNC=OK
+KNOWLEDGE_SYNC=OK
+RELEASE_SOURCE_SHA=TO_CONFIRM_AT_DISPATCH
+RELEASE_DISPATCH=NOT_AUTHORIZED_PENDING_ALPHA13_GLOBAL_AUDIT
 ALPHA13=CANDIDATE_NOT_PUBLISHED
 ```
 

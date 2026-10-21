@@ -1,8 +1,8 @@
 # v2.1.0-alpha.13 — Robustez Ethernet W5500, SPI compartido y sockets Modbus TCP
 
-## Actualización F137 — candidata, pendiente de promoción y publicación (21/10/2026)
+## Actualización F137 — integrada en Alpha13; pendiente de publicación (21/10/2026)
 
-**Todavía NO publicada.** En [PR #125 Draft](https://github.com/JW-Control/platform-jwplc/pull/125) se integraron como **candidato** los archives `libJWPLC_Ethernet.a` y `libJWPLC_ModbusTCP.a`, con `precompiled=full` en las dos `library.properties`. Esta optimización evita recompilar las dos bibliotecas en cada build; mantiene el autoload normal y los periféricos de JWPLC Basic. **La base Alpha13 aún NO contiene estas cuatro modificaciones**: antes de publicar, aprobar y fusionar el PR, reconciliar la base y validar el source SHA final.
+**Todavía NO publicada.** Los archives `libJWPLC_Ethernet.a` y `libJWPLC_ModbusTCP.a`, sus `precompiled=full` y la política de perfil Ethernet `weak Basic / strong Basic Core` fueron **integrados a la rama base Alpha13** mediante [PR #125 MERGED](https://github.com/JW-Control/platform-jwplc/pull/125), commit `23fae3a3febf8e6a9c19e7e8cb63b7b6a62cdb11`. El árbol final `JWPLC/2.1.0` = `cc17716f173509b1e0f3c0df5eb99549014c1d61`, idéntico al que aprobó N3. La optimización mantiene autoload y APIs. El workflow de GitHub Release y el postpublicación siguen pendientes de una autorización independiente.
 
 **Mediciones de compilación, mediana fría fuente → archive, tres pares por sistema/perfil:**
 - Ubuntu Basic: 27,245 → 18,976 s (−30,4 %); Basic Core: 35,065 → 26,141 s (−25,4 %).
@@ -11,7 +11,7 @@
 
 **Evidencias:** N3 13/13 Windows+Ubuntu [#39538155047](https://github.com/JW-Control/platform-jwplc/actions/runs/39538155047); compilaciones Master/Slave Windows+Ubuntu [#39622285204](https://github.com/JW-Control/platform-jwplc/actions/runs/39622285204); H física dual por operador con COM4 Master y COM14 Slave, RS-485, IP distintas, `PHY=ETH=TCP=1`, FC03 a ambos **4/4 registros**, eco UDP COM4 **3/3**, heartbeat y periféricos observados. Ver `A13_F137_H_DICTAMEN_FISICO_20261021.md`. **H=PASS_FUNCIONAL_ACOTADO**, no representa un test de Basic Core físico ni R4 prolongado, DNS/DHCP renewal, E1/E2 o versión literal de UART BOOT no capturada. No inventar validaciones post-publicación.
 
-El cierre sigue bloqueado hasta integrar el código en base, confirmar el SHA y revisar la publicación del package exacto, el índice dev, el ZIP y la instalación Arduino IDE/CLI. Esta sección describe un **candidato pre-release**, no asegura un GitHub Release existente.
+La integración del código F137 en la base está concluida y la huella del package verificada. El cierre sigue bloqueado por auditoría global, autorización del despacho y posterior verificación del ZIP, índice dev e instalación Arduino IDE/CLI. Esta sección describe un **candidato pre-release**, no asegura un GitHub Release existente.
 
 ---
 

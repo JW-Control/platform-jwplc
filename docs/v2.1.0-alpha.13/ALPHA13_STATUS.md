@@ -1,3 +1,36 @@
+# ESTADO VIGENTE — Alpha13 F137 integrado y conocimiento sincronizado (21/10/2026)
+
+**PROMOCIÓN AUTORIZADA Y EJECUTADA:** [PR #125](https://github.com/JW-Control/platform-jwplc/pull/125) **MERGED por squash** en `v2.1.0-alpha.13/feature/cleanup-robustness`, commit `23fae3a3febf8e6a9c19e7e8cb63b7b6a62cdb11`. La fuente actual de `JWPLC/2.1.0` conserva tree SHA `cc17716f173509b1e0f3c0df5eb99549014c1d61`, idéntico al de N3 [#39538155047](https://github.com/JW-Control/platform-jwplc/actions/runs/39538155047). Incluye **6 archivos funcionales inseparables** (dos CPP de política Ethernet Basic/Core, dos `library.properties` con `precompiled=full` y dos `.a` con SHA canónicos), más ocho README; autoload y periféricos intactos. **No hay necesidad de nuevo upload ni repetir N3** porque el árbol del package es idéntico.
+
+**Verificaciones:** [F137-C #39631264428](https://github.com/JW-Control/platform-jwplc/actions/runs/39631264428) **SUCCESS Windows+Ubuntu** sobre la reconciliación; revisión source previa [#39629312465](https://github.com/JW-Control/platform-jwplc/actions/runs/39629312465) PASS; F137-H `PASS_FUNCIONAL_ACOTADO`, con uploads COM14 Slave/COM4 Master, FC03 TCP 2/2 servidores, eco UDP 3/3, RTU real y periféricos del Master observados. Limitaciones explícitas en `A13_F137_H_DICTAMEN_FISICO_20261021.md` (Basic Core físico no probado, UART BOOT marker literal no capturado, R3 interno, R4 largo, E1/E2, DNS/DHCP extenso). Nada de esto se reclasifica como PASS.
+
+**CONOCIMIENTO:** [PR privado #27](https://github.com/JW-Control/jwplc-dev-mcp/pull/27) **MERGED en `knowledge/main`**, commit `28ac12e033106a6debeec45eded6d84f93c1a3ea` — `KNOWLEDGE_SYNC=OK`.
+
+**PUBLICACIÓN TODAVÍA NO AUTORIZADA:** se verificó la inexistencia de tag y Release `v2.1.0-alpha.13` (GitHub 404 al preflight). **No se ejecutó** `release-jwplc-package.yml`; no existe ZIP de esta alpha ni instalación desde Boards Manager de un package Alpha13 publicado. El siguiente gate es auditoría global, revisión de origen/README/PRE_RELEASE, verificación release-like de distribución, solicitud separada para despachar Release y comprobación postpublicación. **No confundir F137 integrada con `ALPHA13=CLOSED_PUBLISHED`.**
+
+```text
+ALPHA13=OPEN
+F137_C=PASS_MERGED_BASE
+F137_H=PASS_FUNCIONAL_ACOTADO
+F137_PRODUCT_PACKAGE_TREE=cc17716f173509b1e0f3c0df5eb99549014c1d61
+PR125=MERGED_23fae3a3febf8e6a9c19e7e8cb63b7b6a62cdb11
+PENDIENTE_DE_PROMOCION_F137=EMPTY
+PENDIENTE_DE_PROMOCION_GLOBAL_ALPHA13=REVIEW_AUDIT_PENDING
+BASE_SYNC=OK
+KNOWLEDGE_SYNC=OK_PR27_MAIN_28ac12e0
+RELEASE_SOURCE_BRANCH=v2.1.0-alpha.13/feature/cleanup-robustness
+RELEASE_SOURCE_PACKAGE_TREE=cc17716f173509b1e0f3c0df5eb99549014c1d61
+RELEASE_SOURCE_SHA=TO_CONFIRM_AT_DISPATCH
+RELEASE_DISPATCH=NOT_AUTHORIZED
+RELEASE_GITHUB_TAG=ABSENT_AT_PREFLIGHT
+RELEASE_ZIP_INSTALL=NOT_RUN
+ALPHA13_RELEASE=BLOCKED
+NEXT_FAILURE_ID=F138
+NEXT_GATE=ALPHA13_C_GLOBAL_AUDIT_AND_RELEASE_SOURCE_APPROVAL
+```
+
+---
+
 # ESTADO VIGENTE — F137-C revisión de integridad PASS; integración no autorizada (21/10/2026)
 
 **H física:** `PASS_FUNCIONAL_ACOTADO` para COM4 Master/COM14 Slave, FC03 TCP 2/2 servidores, UDP 3/3, RTU real y autoload observado, sin necesidad de más uploads. Documento candidato `A13_F137_H_DICTAMEN_FISICO_20261021.md`.

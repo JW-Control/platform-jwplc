@@ -5,7 +5,7 @@
 ## Gate F137 (archives Ethernet/Modbus TCP) — cierre técnico H y preparación C, 21/10/2026
 
 - [x] N2 y mediciones con 3 pares por SO/FQBN; fuente, objeto, archive y ELF, política weak/strong según Basic/Core; N3 package real 13/13 Windows+Ubuntu PASS ([#39538155047](https://github.com/JW-Control/platform-jwplc/actions/runs/39538155047)).
-- [x] Dos archivos `.a` de `JWPLC_Ethernet` y `JWPLC_ModbusTCP` (ambos `precompiled=full`) adoptados en **PR #125 Draft**, no base; autoload y demás periféricos preservados.
+- [x] Los dos `.a` y `precompiled=full`, junto con política weak/strong Basic/Core y ocho README, **integrados en base Alpha13** mediante [PR #125 MERGED](https://github.com/JW-Control/platform-jwplc/pull/125); autoload y periféricos preservados.
 - [x] CI de Master y Slave con archivos reales: [#39622285204](https://github.com/JW-Control/platform-jwplc/actions/runs/39622285204) PASS Windows y Ubuntu.
 - [x] Operador autorizó y ejecutó upload dual en COM14 Slave y COM4 Master de desarrollo, ambos `COMMAND_SUCCESS`; backup exento solo para dichas placas.
 - [x] UART: dos enlaces Ethernet activos, IP DHCP privadas distintas, RTU Master-Slave con contadores correctos, Master SD/FRAM/RTC/IO/TFT observados.
@@ -13,13 +13,14 @@
 - [x] Eco UDP COM4: 3/3 datagramas de prueba correctos.
 - [x] Dictamen H `PASS_FUNCIONAL_ACOTADO` con límites: `A13_F137_H_DICTAMEN_FISICO_20261021.md`. No falsear boot marker UART no capturado, Basic Core físico, E1/E2, R3 interno, R4 largo, renovación DNS/DHCP o RJ45 de este F137.
 - [x] **F137-C read-only:** [CI #39628750096](https://github.com/JW-Control/platform-jwplc/actions/runs/39628750096) y replay corregido [#39629312465](https://github.com/JW-Control/platform-jwplc/actions/runs/39629312465) **SUCCESS global Windows+Ubuntu**, paquete N3 tree `cc17716f173509b1e0f3c0df5eb99549014c1d61`, 14 paths exactos, dos SHA-256 de archives, política Basic/Basic Core weak/strong PASS. El guard admite squash/referencia SHA de árbol sin exigir disponer del commit histórico N3.
-- [ ] **Reconciliar PR #125 con base Alpha13**: esta rama candidata está adelantada en código, pero detrás de la base en cambios documentales; revisar `JWPLC/2.1.0` y SHA de los dos archives después de integrar. No hacer merge sin autorización de propietario.
-- [ ] Confirmar adopción de los cuatro archivos producto F137 (dos `.a`, dos `library.properties`) en **rama base** antes de Release. Hasta entonces `PENDIENTE_DE_PROMOCION=F137_ARCHIVES`, y `BASE_SYNC=DOC_ONLY`.
+- [x] **Reconciliar e integrar PR #125 en base Alpha13**, autorizado por propietario, resultado MERGED squash `23fae3a3febf8e6a9c19e7e8cb63b7b6a62cdb11`; revisión de tres documentos divergentes, historia preservada y árbol package `cc17716f173509b1e0f3c0df5eb99549014c1d61` idéntico a N3.
+- [x] Confirmar en **base** las seis rutas funcionales F137 (2 CPP, 2 `.a`, 2 `library.properties`) y 8 README, `precompiled=full`, SHA-256 canónicos, tree exacto N3; `PENDIENTE_DE_PROMOCION_F137=EMPTY`, `BASE_SYNC=OK`.
 - [ ] Comprobar que `PRE_RELEASE.md`, README, source SHA y ZIP de publicación correspondan **a la rama base actualizada**, nunca publicar base antigua ni binarios de runner CI.
-- [ ] Cierre C: revisión de scope, límites y excepciones; `KNOWLEDGE_SYNC` PR #27 Draft hacia main; checklist de distribución e instalación publicada pendiente.
+- [x] Cierre técnico C-F137: guard source SHA Windows/Ubuntu PASS y límites físicos explícitos; [PR privado #27](https://github.com/JW-Control/jwplc-dev-mcp/pull/27) MERGED a `knowledge/main`, `KNOWLEDGE_SYNC=OK`.
+- [ ] Auditoría global Alpha13 y comprobaciones release-like completas del package ya integrado (incluido source SHA real al despacho), checklist de distribución e instalación publicada.
 - [ ] No marcar `ALPHA13=CLOSED_PUBLISHED` hasta fusionar con autorización y verificar GitHub Release, SHA ZIP, índice dev y Arduino CLI/IDE de **package publicado**.
 
-**Estado:** `F137_H=PASS_FUNCIONAL_ACOTADO`, `F137_C=PENDING_OPERATOR_REVIEW_AND_BASE_PROMOTION`, `RELEASE=BLOCKED`.
+**Estado:** `F137_H=PASS_FUNCIONAL_ACOTADO`, `F137_C=PASS_MERGED_BASE`, `BASE_SYNC=OK`, `KNOWLEDGE_SYNC=OK`, `RELEASE=BLOCKED_PENDING_SEPARATE_AUTH`.
 
 ---
 

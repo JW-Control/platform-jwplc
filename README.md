@@ -23,7 +23,7 @@ No se retiran periféricos del autoload normal sólo para reducir tiempos de
 compilación.
 
 > **Canal de desarrollo:** `v2.1.0-alpha.13` es el siguiente package de
-> PreRelease, con Ethernet G10 integrado en su rama de origen.
+> PreRelease, con Ethernet G10 y F137 precompilado integrados en su rama base.
 > La disponibilidad efectiva de su ZIP, checksum e índice dev se comprueba en
 > [GitHub Releases](https://github.com/JW-Control/platform-jwplc/releases)
 > y tras el PR automático hacia `main`. No alterar la versión estable `v2.0.0`.
@@ -35,14 +35,14 @@ compilación.
 | Canal | Versión | Estado |
 |---|---|---|
 | Estable | `v2.0.0` | Release pública estable |
-| Dev / próxima PreRelease | `v2.1.0-alpha.13` | G10 integrado; confirmar ZIP e índice tras publicación |
+| Dev / próxima PreRelease | `v2.1.0-alpha.13` | G10+F137 integrados; publicación e instalación pendientes |
 | Última PreRelease verificada | `v2.1.0-alpha.12` | Publicada y validada |
 
-Alpha12 sigue siendo la última versión con validación completa de distribución. Alpha13 integró G10 y, **solo en PR #125 Draft**, los archives Ethernet/Modbus TCP superaron paridad, benchmark y N3 13/13 en Windows y Ubuntu ([CI #39538155047](https://github.com/JW-Control/platform-jwplc/actions/runs/39538155047)). Antes de publicar falta **H física autorizada**, revisión y merge del operador, workflow Release y validación de instalación desde ZIP público:
+Alpha12 sigue siendo la última versión con distribución validada. Alpha13 integró G10 y los archives Ethernet/Modbus TCP de F137 mediante [PR #125 MERGED](https://github.com/JW-Control/platform-jwplc/pull/125), package tree `cc17716f173509b1e0f3c0df5eb99549014c1d61`. N3 13/13 Windows+Ubuntu, H-F137 físico acotado (COM4+COM14, FC03 dual, RTU, UDP), C de integridad y conocimiento privado PR #27 fueron aprobados. **No se ha publicado** Alpha13: faltan auditoría global, autorización independiente de Release y validación de instalación desde ZIP/Boards Manager:
 
 ```text
 ALPHA12_STATUS=CLOSED_PUBLISHED
-ALPHA13_STATUS=OPEN_F137_H_PENDING_RELEASE_BLOCKED
+ALPHA13_STATUS=OPEN_F137_MERGED_RELEASE_BLOCKED
 ```
 
 Estado actual de Alpha12:
