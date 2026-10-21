@@ -1,0 +1,108 @@
+name: Alpha13 C - auditoría ZIP release-like y CLI aislado (SIN Release)
+
+on:
+  push:
+    branches:
+      - codex/alpha13-c-global-release-like-20261021
+    paths:
+      - '.github/workflows/alpha13-c-release-like.yml'
+      - 'tools/alpha13/c_release_like.py'
+      - 'README.md'
+      - 'docs/v2.1.0-alpha.13/A13_C_AUDITORIA_GLOBAL_Y_DISTRIBUCION_20261021.md'
+      - 'docs/v2.1.0-alpha.13/PRE_RELEASE.md'
+      - 'docs/v2.1.0-alpha.13/ALPHA13_CIERRE_CHECKLIST.md'
+      - 'docs/v2.1.0-alpha.13/ALPHA13_STATUS.md'
+  pull_request:
+    branches:
+      - v2.1.0-alpha.13/feature/cleanup-robustness
+    paths:
+      - '.github/workflows/alpha13-c-release-like.yml'
+      - 'tools/alpha13/c_release_like.py'
+      - 'README.md'
+      - 'docs/v2.1.0-alpha.13/**'
+
+permissions:
+  contents: read
+
+jobs:
+  release-like:
+    name: N0/C ZIP exacto + Arduino CLI Basic/Core (sin hardware)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 80
+    steps:
+      - name: Checkout commit exacto del PR/branch
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Arduino CLI 1.5.1
+        uses: arduino/setup-arduino-cli@v2
+        with:
+          version: '1.5.1'
+
+      - name: N0 - congelar árbol de package y verificar sintaxis
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:JWPLC/2.1.0)" = "cc17716f173509b1e0f3c0df5eb99549014c1d61"
+          git diff --exit-code -- JWPLC/2.1.0
+          python -B -m py_compile tools/alpha13/c_release_like.py
+          echo "C_SOURCE_TREE=PASS_IDENTICAL_TO_F137_N3"
+          echo "C_NO_FIRMWARE_CHANGE=PASS"
+
+      - name: Sembrar índices exactamente desde main (como el workflow Release)
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --depth=1
+          git show origin/main:JWPLC/package_jwplc_index_dev.json > JWPLC/package_jwplc_index_dev.json
+          git show origin/main:JWPLC/package_jwplc_index.json > JWPLC/package_jwplc_index.json
+          sha256sum JWPLC/package_jwplc_index.json > "$RUNNER_TEMP/stable-before.sha256"
+          echo "C_INDEX_SEED=PASS_FROM_MAIN"
+
+      - name: Ejecutar prepare REAL de Release (sin publicar nada)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python JWPLC/tools/jwplc_release.py prepare \
+            --version "2.1.0-alpha.13" \
+            --channel auto \
+            --source-folder "JWPLC/2.1.0" \
+            --recreate-zip \
+            --archive-root-mode folder \
+            --repo-full-name "$GITHUB_REPOSITORY" \
+            --update-public-index auto \
+            --replace-existing-index-entry \
+            --release-title "v2.1.0-alpha.13 - JWPLC Arduino package"
+          test -f "dist/jwplc-esp32-2.1.0-alpha.13.zip"
+          sha256sum -c "$RUNNER_TEMP/stable-before.sha256"
+          git diff --exit-code -- JWPLC/2.1.0
+          echo "C_RELEASE_GENERATOR=PASS_NO_GITHUB_PUBLISH"
+
+      - name: C - bytes ZIP, archives, propiedades, índices y dos FQBN
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -B tools/alpha13/c_release_like.py \
+            --zip "dist/jwplc-esp32-2.1.0-alpha.13.zip" \
+            --output "$RUNNER_TEMP/alpha13-c-release-like"
+          cat "$RUNNER_TEMP/alpha13-c-release-like/MANIFEST.json"
+          echo "C_RELEASE_LIKE_HW=NO_USB_NO_COM_NO_FLASH"
+
+      - name: Evidencia del gate (no contiene binarios de flash a instalar automáticamente)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alpha13-c-release-like-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/alpha13-c-release-like/MANIFEST.json
+            ${{ runner.temp }}/alpha13-c-release-like/*.log
+            dist/jwplc-esp32-2.1.0-alpha.13.zip
+          retention-days: 14
+          if-no-files-found: warn
