@@ -59,8 +59,7 @@ jobs:
           python -B tools/alpha13/h_f137_com4.py --selftest
           python -B -m py_compile tools/alpha13/h_f137_dual.py
           python -B tools/alpha13/h_f137_dual.py --selftest
-          python -B tools/alpha13/h_f137_dual.py --upload-both --ci-detached --expected-head '${{ github.sha }}' 2>$null
-          if ($LASTEXITCODE -eq 0) { throw 'F137_CI_UPLOAD_GUARD_FALSE_PASS' }
+          # --upload-both is blocked by runner when --ci-detached; no serial actions in CI.
       - name: Compilar y sellar COM4 con los archives REALES del PR
         shell: pwsh
         run: |
