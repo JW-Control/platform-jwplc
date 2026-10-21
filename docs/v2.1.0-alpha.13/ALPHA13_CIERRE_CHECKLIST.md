@@ -2,6 +2,18 @@
 
 **Versión:** `v2.1.0-alpha.13`. **Rama base del alpha:** `v2.1.0-alpha.13/feature/cleanup-robustness`. **Fuente de verdad:** `ALPHA13_STATUS.md` en esta rama. **NO actualizar histórico de Alpha30 ni asumir que el package de Alpha13 ya se publicó.**
 
+## Gate global C-AUDIT + C-RELEASE-LIKE (rama de revisión, sin publicación)
+
+- [x] Fuente base pre-hito `d86ccdd`, F137 integrado `23fae3a3`, package tree `cc17716f173509b1e0f3c0df5eb99549014c1d61`; conservar sin modificación.
+- [x] Inventario de cierres G1–G9, H0-F1, G10 y F137 con límites en [auditoría C](A13_C_AUDITORIA_GLOBAL_Y_DISTRIBUCION_20261021.md).
+- [x] Causa `CLIENT_CTOR_CHANGED` del compositor legacy G10 identificada como precondición obsoleta frente al producto ya promovido. El workflow antiguo **sigue FAILURE** y sus jobs omitidos no son PASS. Sin nuevo ID F.
+- [x] README raíz y cabecera del benchmark actualizados a F137 realmente promovido; no modificar archivos funcionales.
+- [ ] Revisar la CI del gate `alpha13-c-release-like.yml` **del SHA final**: JSON MANIFEST, ZIP con misma raíz y bytes que `JWPLC/2.1.0`, dos archives/propiedades, dev index simulado, stable index intacto, CLI aislado con Basic y Basic Core; inspeccionar jobs `skipped`.
+- [ ] Confirmar por Git diff **ninguna ruta de `JWPLC/2.1.0`** cambiada en el PR; si hay cambios de firmware, bloquear y reevaluar impacto.
+- [ ] Ratificar `PENDIENTE_DE_PROMOCION_GLOBAL_ALPHA13=EMPTY` con evidencia del inventario histórico (sin confundir investigaciones inconclusas con parches validados).
+- [ ] Revisar PR de documentación privada hacia `knowledge/main` si se crea; no tocar Alpha15 ni fusionar el PR #28.
+- [ ] Aprobación separada del operador para fusionar este PR hacia la base y luego despachar Release. `ALPHA13=OPEN` hasta postpublicación.
+
 ## Gate F137 (archives Ethernet/Modbus TCP) — cierre técnico H y preparación C, 21/10/2026
 
 - [x] N2 y mediciones con 3 pares por SO/FQBN; fuente, objeto, archive y ELF, política weak/strong según Basic/Core; N3 package real 13/13 Windows+Ubuntu PASS ([#39538155047](https://github.com/JW-Control/platform-jwplc/actions/runs/39538155047)).
