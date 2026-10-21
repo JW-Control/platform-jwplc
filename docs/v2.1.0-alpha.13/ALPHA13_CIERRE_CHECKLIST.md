@@ -2,6 +2,34 @@
 
 **Versión:** `v2.1.0-alpha.13`. **Rama base del alpha:** `v2.1.0-alpha.13/feature/cleanup-robustness`. **Fuente de verdad:** `ALPHA13_STATUS.md` en esta rama. **NO actualizar histórico de Alpha30 ni asumir que el package de Alpha13 ya se publicó.**
 
+## Gate global C-AUDIT + C-RELEASE-LIKE (rama de revisión, sin publicación)
+
+- [x] Fuente base pre-hito `d86ccdd`, F137 integrado `23fae3a3`, package tree `cc17716f173509b1e0f3c0df5eb99549014c1d61`; conservar sin modificación.
+- [x] Inventario de cierres G1–G9, H0-F1, G10 y F137 con límites en [auditoría C](A13_C_AUDITORIA_GLOBAL_Y_DISTRIBUCION_20261021.md).
+- [x] Causa `CLIENT_CTOR_CHANGED` del compositor legacy G10 identificada como precondición obsoleta frente al producto ya promovido. El workflow antiguo **sigue FAILURE** y sus jobs omitidos no son PASS. Sin nuevo ID F.
+- [x] README raíz y cabecera del benchmark actualizados a F137 realmente promovido; no modificar archivos funcionales.
+- [x] **C-RELEASE-LIKE #39641744857 sobre `4aa3c82a` PASS**: ZIP 1 992 archivos / 24 522 767 bytes / SHA `02dfbc70053b652a1c2df202070573bb15abcb4ed4ab000e8699ed5f5643c783`; prueba de bytes frente al tree y compilación Basic/Core; ver `MANIFEST.json`. Requiere ratificar el nuevo HEAD documental final antes de merge.\n- [ ] Revisar la CI del gate `alpha13-c-release-like.yml` **del SHA final**: JSON MANIFEST, ZIP con misma raíz y bytes que `JWPLC/2.1.0`, dos archives/propiedades, dev index simulado, stable index intacto, CLI aislado con Basic y Basic Core; inspeccionar jobs `skipped`.
+- [x] Diff contra BASE revisado: las **únicas** rutas modificadas de `JWPLC/2.1.0` son `JWPLC_Ethernet/README.md` y `JWPLC_ModbusTCP/README.md`. Ningún `.cpp`, `.h`, `.a`, propiedades ni pines alterados.
+- [x] Inventario G1–G9/G10/F1/F137 sin cambios validados pendientes de copiar a package: `PENDIENTE_DE_PROMOCION_GLOBAL_ALPHA13=EMPTY` bajo el mismo árbol; QA residual no es promoción.
+- [ ] Revisar PR de documentación privada hacia `knowledge/main` si se crea; no tocar Alpha15 ni fusionar el PR #28.
+- [ ] Aprobación separada del operador para fusionar este PR hacia la base y luego despachar Release. `ALPHA13=OPEN` hasta postpublicación.
+
+- [x] El workflow G10-R legado disparado fuera de alcance falló en #39641744816 (F134). Se acotó únicamente la condición del job a ramas G10-R/H0-F1; exigir `SKIPPED_NOT_APPLICABLE` cuando se trate de C, sin inventar PASS G10-R.
+
+**Actualización de evidencia de distribución:** [CI #39651311781](https://github.com/JW-Control/platform-jwplc/actions/runs/39651311781) PASS completo tras la incorporación de clases en los dos README, ZIP candidato 1.992 archivos, ambos FQBN y hashes de ambos `.a`. La nueva documentación de benchmark posterior requiere aún **CI del HEAD final** antes de aprobar merge.
+
+## Puerta previa: clases de librerías y benchmark en PC
+
+- [x] Ampliar `JWPLC_Ethernet/README.md` siguiendo su formato de clase: introducción para principiantes, ejemplo cooperativo, funciones avanzadas `begin/poll/cancel` y lectura rápida TCP diferida con advertencias.
+- [x] Corregir `JWPLC_ModbusTCP/README.md`: ocho FC declarados/implementados, enseñanza de coils/bits LSB-first, registros y escrituras; distinguir implementación de evidencia física, sin generalizar FC03 a otros FC.
+- [x] Mantener intactos `.cpp`, `.h`, `.a`, propiedades precompiled, pines, variantes y autoload. Guard C acepta exactamente los dos README de librería y verifica los hashes binarios.
+- [x] Preparar runner de benchmark PC `a13_local_pc_benchmark.py`, lanzador `.bat` y procedimiento; solo stage aislado, sin USB/COM/upload.
+- [x] **CI #39651311781** tras los dos README: fuente funcional N3 congelada, ZIP real validado, dos `.a` SHA intactos, Basic/Core PASS; no se confundió el nuevo árbol documental con N3 antiguo.
+- [ ] **Última CI al HEAD de documentación + benchmark local**: comprobar todos los pasos, artifact y diff funcional vacío. No inventar PASS antes de su conclusión.
+- [x] **Benchmark PC del operador PASS**: 3 parejas fuente/precompilado, fría/caliente, Basic/Core; 12/12 runs y 24 tiempos con `MANIFEST.json` original en [evidence/](evidence/A13_LOCAL_PC_BENCHMARK_MANIFEST_20261021.json), HEAD `158d12a2`; mediana fría Basic 52,120→40,190 s (22,89 %) / Basic Core 54,964→47,958 s (12,75 %).
+- [x] Tabla local, conclusión, PRE_RELEASE, README raíz, status y [informe de benchmark](A13_LOCAL_PC_BENCHMARK_RESULTADOS_20261021.md) actualizados. **UPLOAD_BENCHMARK=NOT_MEASURED**.
+- [ ] Revisión del operador del README final como material de primer microcontrolador/PLC, seguida de autorización separada de merge/Release.
+
 ## Gate F137 (archives Ethernet/Modbus TCP) — cierre técnico H y preparación C, 21/10/2026
 
 - [x] N2 y mediciones con 3 pares por SO/FQBN; fuente, objeto, archive y ELF, política weak/strong según Basic/Core; N3 package real 13/13 Windows+Ubuntu PASS ([#39538155047](https://github.com/JW-Control/platform-jwplc/actions/runs/39538155047)).
