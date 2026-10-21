@@ -1,5 +1,9 @@
 # v2.1.0-alpha.13 — Robustez Ethernet W5500, SPI compartido y sockets Modbus TCP
 
+## Auditoría global y paquete distribuible — todavía por aprobar (21/10/2026)
+
+Revisión C propuesta sobre la rama base, sin nuevo firmware: inventario de G1–G10, H0-F1 y F137, discrepancias documentales y riesgo residual disponibles en [A13_C_AUDITORIA_GLOBAL_Y_DISTRIBUCION_20261021.md](A13_C_AUDITORIA_GLOBAL_Y_DISTRIBUCION_20261021.md). El antiguo workflow G10 de composición de overlays mantiene un fallo histórico `CLIENT_CTOR_CHANGED` porque su precondición ya está satisfecha por el producto; no representa un PASS ni implica que fallen los `.a`. El nuevo gate release-like **debe** validar primero el ZIP y dos FQBN antes de solicitar permiso de publicación. **No hay ZIP ni index Alpha13 publicado a la fecha de esta nota**.
+
 ## Actualización F137 — integrada en Alpha13; pendiente de publicación (21/10/2026)
 
 **Todavía NO publicada.** Los archives `libJWPLC_Ethernet.a` y `libJWPLC_ModbusTCP.a`, sus `precompiled=full` y la política de perfil Ethernet `weak Basic / strong Basic Core` fueron **integrados a la rama base Alpha13** mediante [PR #125 MERGED](https://github.com/JW-Control/platform-jwplc/pull/125), commit `23fae3a3febf8e6a9c19e7e8cb63b7b6a62cdb11`. El árbol final `JWPLC/2.1.0` = `cc17716f173509b1e0f3c0df5eb99549014c1d61`, idéntico al que aprobó N3. La optimización mantiene autoload y APIs. El workflow de GitHub Release y el postpublicación siguen pendientes de una autorización independiente.
