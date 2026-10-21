@@ -1,3 +1,29 @@
+## Resultado final de integración aprobado (21/10/2026) — prevalece sobre el plan pendiente inferior
+
+- **PR producto #125 = MERGED** por squash en la base `v2.1.0-alpha.13/feature/cleanup-robustness`, commit `23fae3a3febf8e6a9c19e7e8cb63b7b6a62cdb11`; los tres documentos de conflicto fueron conciliados, conservando las entradas de la base y la revisión C de la candidata. No hubo cambio de fuentes ni de archives después de N3.
+- El package integrado `JWPLC/2.1.0` tiene **tree SHA `cc17716f173509b1e0f3c0df5eb99549014c1d61`**, el mismo de N3. Se conserva el par `precompiled=full`, símbolo Basic weak, override Basic Core strong y los `.a` canónicos.
+- [CI reconciliación #39631264428](https://github.com/JW-Control/platform-jwplc/actions/runs/39631264428): **SUCCESS** Ubuntu y Windows sobre HEAD de PR reconciliado `3993f051`; [CI base source #39632213031](https://github.com/JW-Control/platform-jwplc/actions/runs/39632213031): **SUCCESS global**, dos jobs PASS sobre HEAD documental `7cf87eec9ab8eb4d7e7cb894c522e305b7a33ed1`, `F137_C_RELEASE_SOURCE=PASS_PACKAGE_TREE_IDENTICAL_TO_N3`, `F137_C_ARCHIVES=PASS_2_SHA256`, `F137_C_PROFILE_POLICY=PASS_WEAK_BASIC_STRONG_BASICCORE`.
+- **Conocimiento PR privado #27 = MERGED en `knowledge/main`** mediante `28ac12e033106a6debeec45eded6d84f93c1a3ea`. `BASE_SYNC=OK` y `KNOWLEDGE_SYNC=OK`.
+- **PreRelease NO ejecutada y no autorizada.** Comprobación de GitHub: tag y Release `v2.1.0-alpha.13` ausentes (404). La versión y raíz del ZIP siguen pendientes de workflow de publicación y validación postpublicación. No proclamar `CLOSED_PUBLISHED`.
+- **Separación de incidencia heredada:** el workflow antiguo `alpha13-g10-integrated.yml` volvió a fallar sobre el commit de integración `23fae3a3`, con `RuntimeError: CLIENT_CTOR_CHANGED`, pero **el mismo error ya figuraba sobre la base anterior** en CI [#39487371928](https://github.com/JW-Control/platform-jwplc/actions/runs/39487371928), antes de adoptar F137. Es un **bloqueo de CI legacy por diagnosticar**, no evidencia de regresión en los archivos `.a` ni PASS del flujo viejo. Separar su diagnóstico durante la auditoría global; no crear un nuevo ID F sin causa verificada ni repetir hardware.
+- Los apartados de abajo documentan el **plan anterior** al merge y permanecen únicamente como evidencia histórica.
+
+```text
+F137_C_REVIEW=PASS
+F137_C_BASE_SOURCE_CI=PASS_39632213031
+PR125=MERGED_23fae3a3
+PR27=MERGED_28ac12e0
+F137_PACKAGE_PROMOTION=COMPLETE_TREE_N3_IDENTICAL
+BASE_SYNC=OK
+KNOWLEDGE_SYNC=OK
+LEGACY_G10_INTEGRATED_CI=FAIL_PREEXISTING_CLIENT_CTOR_CHANGED_AUDIT_PENDING
+ALPHA13=OPEN
+RELEASE_DISPATCH=NOT_AUTHORIZED
+NEXT_GATE=ALPHA13_C_GLOBAL_AUDIT_AND_RELEASE_SOURCE_APPROVAL
+```
+
+---
+
 # Alpha13 F137-C — Revisión de integración y preparación de PreRelease (21/10/2026)
 
 > **Actualización de reconciliación (posterior a la primera comparación):** la rama base recibió exclusivamente una protección documental adicional en `A13_RELEASE_SOURCE_DECISION_20261020.md` y su estado, para bloquear la publicación prematura. Al concluir la sincronización documental de base quedaron **8 commits de base por incorporar** (conteo de este corte; comprobar nuevamente antes de resolver), con **tres documentos** de diferencia del lado base (`ALPHA13_STATUS.md`, `A13_TOOLING_FAILURES_AND_PREVENTION_20261006.md` y `A13_RELEASE_SOURCE_DECISION_20261020.md`). El **package no cambió**. Los 6 commits/2 documentos que se mencionan más abajo corresponden al primer corte, no al estado posterior. No integrar ciegamente ninguno de estos documentos.
