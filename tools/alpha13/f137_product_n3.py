@@ -17,7 +17,7 @@ import sys
 import tempfile
 import time
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[2]
 PKG = ROOT / "JWPLC/2.1.0"
 LIBS = ("JWPLC_Ethernet", "JWPLC_ModbusTCP")
 BOARDS = ("jwplcbasic", "jwplcbasiccore")
