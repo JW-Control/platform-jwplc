@@ -678,9 +678,11 @@ if (JWPLC_ModbusTCP.serverReady())
 }
 ```
 
-En una conexión directa JWPLC–PC se comprobó FC03 con cuatro registros
-en dos servidores; no significa que todas las funciones Modbus hayan
-sido ensayadas simultáneamente bajo fallo físico.
+En el banco con dos JWPLC Basic conectados a un router aislado se comprobó
+FC03 con cuatro registros en ambos servidores, además de tráfico TCP/UDP
+en R1. Esto no significa que todas las funciones Modbus se hayan ensayado
+bajo fallos físicos simultáneos. R3 interno (contención/leases/cierre diferido),
+R4 prolongado y DHCP/DNS específicos siguen sin prueba integral.
 
 ## Compatibilidad
 
