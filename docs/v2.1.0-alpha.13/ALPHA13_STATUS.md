@@ -1,33 +1,33 @@
-# CORTE PROPUESTO C-AUDIT/C-RELEASE-LIKE — 21/10/2026 (rama PR, NO estado fusionado en BASE)
+# ESTADO DE TRABAJO ACTUAL — Alpha13 C con benchmark local PASS (21/10/2026; PR Draft)
 
-**Autorización del operador:** únicamente revisión, documentación y prueba release-like **sin publicación**. Rama `codex/alpha13-c-global-release-like-20261021`; fuente inicial base `d86ccdd3fab2352d0a6579e676b07a54662ccfc3`. Archivo de auditoría: [A13_C_AUDITORIA_GLOBAL_Y_DISTRIBUCION_20261021.md](A13_C_AUDITORIA_GLOBAL_Y_DISTRIBUCION_20261021.md). Se conserva `JWPLC/2.1.0` intacto y se usa el mismo ZIP del generador de Release para un gate de Arduino CLI aislado, **sin `gh release`, merge, COM o upload**. **C-RELEASE-LIKE PASS**: [CI #39641744857](https://github.com/JW-Control/platform-jwplc/actions/runs/39641744857), HEAD `4aa3c82a`, job completo sin omitidos, ZIP 1 992 archivos / 24 522 767 bytes / SHA-256 `02dfbc70053b652a1c2df202070573bb15abcb4ed4ab000e8699ed5f5643c783`; bytes y SHA de archives, índice simulado y compilación CLI Basic/Core. Este es el checksum del **ZIP candidato de ese run**, no del Release final. G10-R legado no aplicable falló por F134 en #39641744816 y su guard de rama ha sido ajustado para registrar SKIPPED fuera de alcance sin alterar el validador. Pendiente nueva CI del HEAD documental final.
+**Autorización del operador:** únicamente revisión, documentación y prueba release-like **sin publicación**. Rama `codex/alpha13-c-global-release-like-20261021`; fuente inicial base `d86ccdd3fab2352d0a6579e676b07a54662ccfc3`. Archivo de auditoría: [A13_C_AUDITORIA_GLOBAL_Y_DISTRIBUCION_20261021.md](A13_C_AUDITORIA_GLOBAL_Y_DISTRIBUCION_20261021.md). Se conserva el código, las propiedades y los precompilados de `JWPLC/2.1.0` intactos (el árbol cambió solo por dos README educativos) y se usa el mismo ZIP del generador de Release para un gate de Arduino CLI aislado, **sin `gh release`, merge, COM o upload**. **C-RELEASE-LIKE PASS**: [CI #39641744857](https://github.com/JW-Control/platform-jwplc/actions/runs/39641744857), HEAD `4aa3c82a`, job completo sin omitidos, ZIP 1 992 archivos / 24 522 767 bytes / SHA-256 `02dfbc70053b652a1c2df202070573bb15abcb4ed4ab000e8699ed5f5643c783`; bytes y SHA de archives, índice simulado y compilación CLI Basic/Core. Este es el checksum del **ZIP candidato de ese run**, no del Release final. G10-R legado no aplicable falló por F134 en #39641744816 y su guard de rama ha sido ajustado para registrar SKIPPED fuera de alcance sin alterar el validador. Pendiente nueva CI del HEAD documental final.
 
 **Fase documentación educativa autorizada (21/10):** se ampliaron `JWPLC_Ethernet/README.md` y `JWPLC_ModbusTCP/README.md` con clases para primer PLC, conservando al final secciones avanzadas. El Client Modbus TCP ofrece ocho FC implementados en header/CPP; solo los que cuentan con evidencia H específica deben anunciarse como validados físicamente. **Precompilados F137 aprobados por operador, sin cambios.** Los dos README internos cambian el Git tree del package aunque sus archivos funcionales y SHA de `.a` estén congelados. El nuevo guard C permite **solo** esas dos rutas de README respecto de `d86ccdd3`; la CI C debe revisarse sobre el HEAD final.
 
-**Benchmark PC:** `LOCAL_PC_BENCHMARK=NOT_EXECUTED`. Runner Python + BAT y procedimiento Windows en el PR #126; ninguna medición de runner GitHub se atribuye al PC del operador. **README raíz = PROVISIONAL_PENDING_LOCAL_PC_BENCHMARK**, no cerrar ni publicar antes de incorporar los resultados reales.
+**Benchmark local Windows = PASS:** el operador ejecutó el runner del PR #126 y aportó `MANIFEST.json` original (SHA-256 `6bdf6c969f5bf776c648225a901402f6fec298f199fdaa259a87f436b76ebb59`). Fuente exacta `158d12a242aa09cf414207c10217954a034a0b68`; tree package posterior a los dos README `6b498f4a0797e2a1bb0054b005b91f985bc071e2`; árbol funcional N3 previo `cc17716f173509b1e0f3c0df5eb99549014c1d61`. **Basic:** frío 52,120 → 40,190 s (−22,89 %), caliente 9,251 → 9,055 s; **Basic Core:** frío 54,964 → 47,958 s (−12,75 %), caliente 9,175 → 9,146 s. Tres repeticiones por escenario, 12/12 runs PASS, source 12+2 CPP vs archives 0+0, SHA de ambos archives intactos. Reporte [A13_LOCAL_PC_BENCHMARK_RESULTADOS_20261021.md](A13_LOCAL_PC_BENCHMARK_RESULTADOS_20261021.md) y manifest [evidence/A13_LOCAL_PC_BENCHMARK_MANIFEST_20261021.json](evidence/A13_LOCAL_PC_BENCHMARK_MANIFEST_20261021.json). Estos resultados pertenecen a la PC del operador; los CI Windows/Ubuntu son independientes. **UPLOAD_BENCHMARK=NOT_MEASURED**. README de Alpha13 integrado; falta únicamente verificación CI de HEAD documental final y aprobación de PR, no nuevas mediciones locales.
 
 **Incidencia legacy:** el workflow antiguo `alpha13-g10-integrated.yml` falló por `CLIENT_CTOR_CHANGED` **antes** de compilar: su compositor esperaba constructor `EthernetClient(uint8_t s)` sin `_jwplcSocketToken`, pero la protección ya forma parte del producto. El mismo fallo está en #39487371928 (anterior a F137). `LEGACY_G10_INTEGRATED=HISTORICAL_FAIL_STALE_OVERLAY_PRECONDITION`, no PASS ni regresión de firmware demostrada. Mantener el workflow con su historia, no reflashear.
 
 ```text
 ALPHA13=OPEN
 C_AUDIT=PASS_SCOPED_INVENTORY_PENDING_PR_MERGE
-C_RELEASE_LIKE=PASS_PRE_DOC_UPDATE_NEW_CI_PENDING
+C_RELEASE_LIKE=PASS_39651311781_PRE_LOCAL_DOCS_FINAL_CI_PENDING
 PENDIENTE_DE_PROMOCION_G10=EMPTY
 PENDIENTE_DE_PROMOCION_F137=EMPTY
 PENDIENTE_DE_PROMOCION_GLOBAL_ALPHA13=EMPTY_AUDITED_SCOPE
 BASE_SYNC=PENDING_C_PR_OPERATOR_MERGE
 KNOWLEDGE_SYNC=OK_F137_MAIN_NEW_C_DOC_REVIEW
 NEXT_FAILURE_ID=F138
-NEXT_GATE=ALPHA13_DOC_CI_THEN_LOCAL_PC_BENCHMARK_THEN_RELEASE_SOURCE_APPROVAL
-LOCAL_PC_BENCHMARK=NOT_EXECUTED
-README_ALPHA13=PROVISIONAL_PENDING_LOCAL_BENCHMARK
+NEXT_GATE=ALPHA13_C_FINAL_CI_AND_OPERATOR_PR_APPROVAL
+LOCAL_PC_BENCHMARK=PASS_12_RUNS_24_TIMES_WINDOWS_PC
+README_ALPHA13=TECHNICALLY_COMPLETE_PENDING_FINAL_CI_REVIEW
 RELEASE_DISPATCH=NOT_AUTHORIZED
 POSTPUBLISH=NOT_RUN
 ```
 
 ---
 
-# ESTADO VIGENTE — Alpha13 F137 integrado y conocimiento sincronizado (21/10/2026)
+# CORTE HISTÓRICO — Alpha13 F137 integrado y conocimiento sincronizado (21/10/2026)
 
 **PROMOCIÓN AUTORIZADA Y EJECUTADA:** [PR #125](https://github.com/JW-Control/platform-jwplc/pull/125) **MERGED por squash** en `v2.1.0-alpha.13/feature/cleanup-robustness`, commit `23fae3a3febf8e6a9c19e7e8cb63b7b6a62cdb11`. La fuente actual de `JWPLC/2.1.0` conserva tree SHA `cc17716f173509b1e0f3c0df5eb99549014c1d61`, idéntico al de N3 [#39538155047](https://github.com/JW-Control/platform-jwplc/actions/runs/39538155047). Incluye **6 archivos funcionales inseparables** (dos CPP de política Ethernet Basic/Core, dos `library.properties` con `precompiled=full` y dos `.a` con SHA canónicos), más ocho README; autoload y periféricos intactos. **No hay necesidad de nuevo upload ni repetir N3** porque el árbol del package es idéntico.
 
@@ -60,7 +60,7 @@ NEXT_GATE=ALPHA13_C_GLOBAL_AUDIT_AND_RELEASE_SOURCE_APPROVAL
 
 ---
 
-# ESTADO VIGENTE — F137-C revisión de integridad PASS; integración no autorizada (21/10/2026)
+# CORTE HISTÓRICO — F137-C antes de integración del PR #125 (21/10/2026)
 
 **H física:** `PASS_FUNCIONAL_ACOTADO` para COM4 Master/COM14 Slave, FC03 TCP 2/2 servidores, UDP 3/3, RTU real y autoload observado, sin necesidad de más uploads. Documento candidato `A13_F137_H_DICTAMEN_FISICO_20261021.md`.
 
