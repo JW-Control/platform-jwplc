@@ -7,6 +7,8 @@ on:
     paths:
       - '.github/workflows/alpha13-c-release-like.yml'
       - 'tools/alpha13/c_release_like.py'
+      - 'JWPLC/2.1.0/libraries/JWPLC_Ethernet/README.md'
+      - 'JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/README.md'
       - 'README.md'
       - 'docs/v2.1.0-alpha.13/A13_C_AUDITORIA_GLOBAL_Y_DISTRIBUCION_20261021.md'
       - 'docs/v2.1.0-alpha.13/PRE_RELEASE.md'
@@ -18,6 +20,8 @@ on:
     paths:
       - '.github/workflows/alpha13-c-release-like.yml'
       - 'tools/alpha13/c_release_like.py'
+      - 'JWPLC/2.1.0/libraries/JWPLC_Ethernet/README.md'
+      - 'JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/README.md'
       - 'README.md'
       - 'docs/v2.1.0-alpha.13/**'
 
@@ -50,10 +54,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD:JWPLC/2.1.0)" = "cc17716f173509b1e0f3c0df5eb99549014c1d61"
-          git diff --exit-code -- JWPLC/2.1.0
           python -B -m py_compile tools/alpha13/c_release_like.py
-          echo "C_SOURCE_TREE=PASS_IDENTICAL_TO_F137_N3"
+          python -B tools/alpha13/c_release_like.py --check-source
+          git diff --exit-code -- JWPLC/2.1.0
+          echo "C_PACKAGE_DOCS=PASS_README_ONLY_VS_F137_N3"
           echo "C_NO_FIRMWARE_CHANGE=PASS"
 
       - name: Sembrar índices exactamente desde main (como el workflow Release)
