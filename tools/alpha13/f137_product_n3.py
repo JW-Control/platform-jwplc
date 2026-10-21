@@ -80,10 +80,16 @@ def verify_selected(log, staged, require_tcp):
     # Conservar la comprobacion REAL de -L y -l; no permitir fallback .cpp.
     norm = re.sub(r"/+", "/", log.replace("\\", "/"))
     for lib in LIBS if require_tcp else ("JWPLC_Ethernet",):
-        rel = (staged / "libraries" / lib / "src/esp32").as_posix()
+        # Arduino CLI puede convertir C:/Users/RUNNER~1 a
+        # C:/Users/runneradmin en el log del enlazador de Windows.
+        # Anclar al directorio temporal unico + vendor y verificar que
+        # aparezca dentro de un token -L real (no solo en "Using library").
+        stage_tail = "/".join(staged.parts[-5:])
+        rel = stage_tail + "/libraries/" + lib + "/src/esp32"
+        linked_dirs = re.findall(r'-L([^"\\s]+)', norm)
         require(("Using library " + lib + " ") in norm,
                 "LIBRARY_NOT_SELECTED_" + lib)
-        require(("-L" + rel) in norm,
+        require(any(d.endswith(rel) for d in linked_dirs),
                 "ARCHIVE_LINKER_SEARCH_PATH_MISSING_" + lib)
         require(("-l" + lib) in norm,
                 "ARCHIVE_LINKER_FLAG_MISSING_" + lib)
