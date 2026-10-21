@@ -2818,6 +2818,8 @@ NEXT_FAILURE_ID=F137
 - **Estado al registrar:** `FIX_CANDIDATE_IN_PR125`, sin prueba física nueva, sin merge ni release. Los resultados CI del nuevo HEAD deben revisarse para cerrar; no inferir PASS de tests previos.
 
 ```text
+- **Acotación binaria adicional:** Windows [#39518443069](https://github.com/JW-Control/platform-jwplc/actions/runs/39518443069) confirmó 0/14 diferencias al compilar dos veces Basic y 13/14 al cambiar a Basic Core en mismo directorio. [#39519348684](https://github.com/JW-Control/platform-jwplc/actions/runs/39519348684) demostró que después de `objcopy --strip-debug` las diferencias restantes son **0/14**; los objetos originales siguen distintos y no son aceptables como archive común. Corregido el generador para empaquetar **exclusivamente miembros normalizados cuyo hash coincide entre ambos FQBN**, contrastando además miembro extraído, toolchain, fuentes, `.d` y ELF. Ubuntu [#39520417396](https://github.com/JW-Control/platform-jwplc/actions/runs/39520417396) pasó comparación canónica y sus tres parejas, pero el workflow global fue CANCELLED antes de terminar Windows y cross-OS: **F137 no cerrado**, sin `.a` promovidos y sin release.
+
 F137=CANDIDATE_PRECOMPILED_ETHERNET_CROSS_FQBN_INCOMPATIBILITY
 F137_NEGATIVE=PASS_REPRODUCED_39516689615
 F137_REMEDIATION=IN_PR125_UNVERIFIED_FINAL_CI
