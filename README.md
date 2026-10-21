@@ -42,7 +42,10 @@ Alpha12 conserva la evidencia histórica de publicación e instalación desde el
 
 ```text
 ALPHA12_STATUS=CLOSED_PUBLISHED
-ALPHA13_SOURCE=G10_F137_INTEGRATED_C_RELEASE_LIKE_PASS\nALPHA13_PUBLISHED_STATUS=CONSULT_RELEASE_INDEX_AND_ALPHA13_STATUS
+ALPHA13_SOURCE=G10_F137_INTEGRATED
+ALPHA13_DOCS=TUTORIALS_UPDATED_PR126
+ALPHA13_LOCAL_PC_BENCHMARK=NOT_EXECUTED
+ALPHA13_PUBLISHED_STATUS=CONSULT_RELEASE_INDEX_AND_ALPHA13_STATUS
 ```
 
 Estado actual de Alpha12:
@@ -546,7 +549,7 @@ No se habilita OTA ni OpenPLC dentro del autoload Arduino normal.
 
 ## Archives y benchmark de compilación — F137 integrado
 
-**Estado del código:** [PR #125](https://github.com/JW-Control/platform-jwplc/pull/125) fusionado por squash (`23fae3a3`). Los archives canónicos de **JWPLC_Ethernet** y **JWPLC_ModbusTCP** forman parte del package de la rama Alpha13, junto con sus `library.properties` (`precompiled=full`) y la política Ethernet Basic `weak` / Basic Core `strong`. La huella del árbol `JWPLC/2.1.0` es `cc17716f173509b1e0f3c0df5eb99549014c1d61`, idéntica a la sometida a N3 13/13 en Windows y Ubuntu.
+**Estado del código:** [PR #125](https://github.com/JW-Control/platform-jwplc/pull/125) fusionado por squash (`23fae3a3`). Los archives canónicos de **JWPLC_Ethernet** y **JWPLC_ModbusTCP** forman parte del package de la rama Alpha13, junto con sus `library.properties` (`precompiled=full`) y la política Ethernet Basic `weak` / Basic Core `strong`. El árbol **funcional de referencia N3** de `JWPLC/2.1.0` es `cc17716f173509b1e0f3c0df5eb99549014c1d61`. Los README educativos de Ethernet y Modbus TCP se ampliaron después: el **tree Git completo del package cambia por documentación**, mientras que el código, `library.properties` y los hashes de ambos `.a` siguen congelados. El gate C comprueba explícitamente esa diferencia documental y vuelve a generar el ZIP.
 
 El archive de Ethernet contiene 12 miembros (SHA-256 `f190bbbbd69861941807a290be653de422e11a898d1a9583d289cc573d38a0f4`); el de Modbus TCP contiene 2 (SHA-256 `d5456307c5e8a4d2c4fcd3252464b96859faaa4df3ece3ca23e3c720f3b25a1d`). En Basic Core la política fuerte impide el acceso al W5500; no se exige configuración de pines desde el sketch. No se recompilan estos dos `.cpp` en el consumidor con el modo precompilado. Se conservan los demás archives y el autoload normal.
 
@@ -558,6 +561,60 @@ Medianas de compilación **fría, fuentes → ambos archives** (3 pares por FQBN
 | Windows | 85,163 → 51,945 s (**−39,0 %**) | 95,054 → 79,908 s (**−15,9 %**) |
 
 La compilación caliente cambió poco; estos números **no** miden velocidad de upload. Método, variabilidad, prueba cruzada y hashes: [benchmark F137](docs/v2.1.0-alpha.13/A13_PRECOMPILE_BENCHMARK_20261020.md). H física de COM4/COM14 = `PASS_FUNCIONAL_ACOTADO`, no incluye Basic Core físico, R3 interno, R4 de 1805 s, DNS/DHCP renewal ni E1/E2. La validación del ZIP final y la instalación desde el índice dev **siguen pendientes** hasta la publicación; un N3 del árbol fuente no las reemplaza.
+
+
+## Inventario vigente de librerías Alpha13
+
+El package integra librerías desde su propia instalación; el usuario
+**no** necesita instalar manualmente copias con el mismo nombre.
+
+| Biblioteca / componente | Modo en Alpha13 | Comentario |
+|---|---|---|
+| `JWPLC_Ethernet` | **Precompiled full** | Nuevo archive F137 y política Basic/Basic Core |
+| `JWPLC_ModbusTCP` | **Precompiled full** | Nuevo archive F137 |
+| `JWPLC_ModbusRTU` | Precompilada conservada | Freeze anterior no reconstruido |
+| `JWPLC_Display` / `JWPLC_TFT` | Precompiladas conservadas | Backend de TFT administrado |
+| `JW_FRAM` / `JW_SD` | Precompiladas conservadas | Ver contratos de uso de cada librería |
+| `SPI` / `core.a` | Precompilados del package | No reconstruidos por el cambio F137 |
+| `JWPLC_RS485` / `JWPLC_GlobalPeripherals` / `JW_RTC` | Fuentes intencionales | No retiradas del autoload por velocidad |
+
+En la documentación de Alpha13, **precompilado** significa que Arduino
+enlaza el archivo `.a` ya construido; no quiere decir que debas configurar
+pines, inicializar el W5500 o deshabilitar periféricos. Las librerías
+que permanecen en fuentes se compilan normalmente cuando el package
+las requiere.
+
+## Aprende Alpha13 según tu nivel
+
+1. **Primer proyecto Ethernet:** sigue
+   [JWPLC_Ethernet](JWPLC/2.1.0/libraries/JWPLC_Ethernet/README.md),
+   desde DHCP hasta el ejemplo básico. La clase avanzada al final
+   enseña conexión cooperativa y lectura RX diferida **opcional**.
+2. **Primer proyecto Modbus TCP:** sigue
+   [JWPLC_ModbusTCP](JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/README.md):
+   primero un Server y FC03, después registros, Coils y el resto
+   de funciones implementadas. No confundas «disponible» con
+   «validada físicamente».
+3. Para sensores, salidas, botonera o TFT, utiliza los README de
+   `JWPLC_GlobalPeripherals`, `JWPLC_ModbusRTU`,
+   `JWPLC_Display` y `JWPLC_TFT` antes de trabajar con
+   interfaces internas.
+
+## Benchmark final del PC del operador — todavía pendiente
+
+**Estado:** `ALPHA13_LOCAL_PC_BENCHMARK=NOT_EXECUTED`. Los resultados
+Windows y Ubuntu de la tabla anterior pertenecen a **GitHub Actions**,
+no a la PC de desarrollo del operador.
+
+Está versionado un runner local seguro y un procedimiento para
+comparar tres pares de compilaciones frías/calientes en ambos FQBN,
+fuentes contra archives, con el mismo sketch y autoload:
+
+[Procedimiento y ejecución en Windows](docs/v2.1.0-alpha.13/A13_LOCAL_PC_BENCHMARK_PROCEDIMIENTO_20261021.md).
+
+**La tabla local definitiva se incorporará cuando exista el
+`MANIFEST.json` generado en esa PC.** No atribuir los tiempos de CI
+al ordenador del operador ni suponer mejoras de velocidad de upload.
 
 
 ---
@@ -588,9 +645,12 @@ Estas cifras son evidencia de qualification, no garantías hard-real-time.
 
 ---
 
-# Precompilación Alpha12
+# Precompilación Alpha12 — evidencia histórica
 
-Alpha12 cerró auditoría global y freeze de precompilados.
+Alpha12 cerró auditoría global y freeze de precompilados. **Los cuadros de
+esta sección describen Alpha12**, no el inventario final de Alpha13.
+En particular, Ethernet fue `source-only` en ese corte histórico;
+**en Alpha13 está precompilada** junto con Modbus TCP.
 
 ## Release-like activos
 
@@ -744,7 +804,7 @@ con una API recomendada de aplicación.
 
 ---
 
-# Última PreRelease publicada
+# PreRelease Alpha12 publicada — referencia histórica
 
 ```text
 TAG=v2.1.0-alpha.12
