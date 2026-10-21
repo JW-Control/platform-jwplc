@@ -1,34 +1,32 @@
-## Decisión vigente — placas de desarrollo SIN respaldo previo (21/10/2026)
+# Alpha13 F137 — H física mínima, placas de desarrollo sin backup
 
-**Corrección de alcance:** la decisión del propietario del 17/10/2026 sigue vigente: COM4/COM14 son unidades de laboratorio con firmware previo prescindible. No se requiere ni se ofrece respaldo del sketch o full-flash en H-F137, y no se vuelve a solicitar renuncia por cada alpha. Esto no se aplica a equipos de clientes.
+**Estado (21/10/2026):** N2/benchmark/cross-OS PASS, N3 PASS 13/13 en Ubuntu y Windows ([CI #39538155047](https://github.com/JW-Control/platform-jwplc/actions/runs/39538155047)). La adopción de los dos archives Ethernet/ModbusTCP existe únicamente en el PR #125 Draft. H física aún no ejecutada.
 
-H-F137 usa ahora tools/alpha13/h_f137_com4.py para selftest, verificación de SHA del package y enumeración USB COM4; COM14 es opcional para inventario y permanece intacto. No abre puertos, no usa esptool ni reinicia la placa. El paso posterior (upload COM4) conserva aprobación independiente y explícita, identidad física del Master y salidas Q sin cargas. N3 Ubuntu/Windows 13/13 PASS; el resultado físico todavía no se ha ejecutado.
+## Decisión vinculante: firmware anterior prescindible
 
----
+El propietario estableció el **17/10/2026** que las placas **COM4 Master (microSD presente)** y **COM14 Slave (sin microSD)** son equipos de desarrollo propios, sin necesidad de respaldar el sketch ni la flash completa antes de sobreescribirlos. Se acepta que el firmware previo podría no ser recuperable. **No volver a exigir respaldo ni nueva renuncia por cada alpha** sobre estas unidades. Fuente: `A13_G10_R_PREH_B4_BANCO_RESPALDOS_SEGURIDAD_20261017.md`, sección H0, excepción para placas de desarrollo. Esta exención NO aplica a un PLC de cliente o en servicio.
 
-# Alpha13 F137 — validación física mínima tras cambio de política Ethernet
+## Secuencia
 
-**Estado vigente:** `H_F137_N0_OFFLINE=PASS_WINDOWS_UBUNTU`; se aprobó iniciar el gate de identificación y respaldo **COM4 solamente**. [N3 #39538155047](https://github.com/JW-Control/platform-jwplc/actions/runs/39538155047) pasó 13/13 en Windows y Ubuntu; [N0 H #39545618484](https://github.com/JW-Control/platform-jwplc/actions/runs/39545618484) pasó autopruebas en ambos SO. Procedimiento versionado de identidad/backup: [tools/alpha13/h_f137_com4/README.md](../../tools/alpha13/h_f137_com4/README.md) y runner `tools/alpha13/h_f137_com4.py`. **Aún no hay identidad ni backup físico nuevo observado.** Inventory no abre puertos; `flash_id/read_flash` pueden reiniciar COM4 al entrar al bootloader, requieren consentimiento interactivo y banco aislado. **No están autorizados upload, erase, restauración, maniobra RJ45 ni COM14.**
+1. **N0 local sin acceso COM:** usar `tools/alpha13/h_f137_com4.py --selftest`, `--check --expected-head` y `--inventory --expected-head`, tras `git pull --ff-only` en la rama del PR #125. El inventario USB requiere CH340 `1A86:7523` en COM4, y si COM14 está conectado comprueba identidad USB distinta, sin abrir COM14. Confirmar presencialmente que COM4 es el Master; un VID/PID no prueba rol.
+2. **Seguridad de banco:** router LAN aislado, salidas Q sin cargas ni tensión, fuente estable, monitor serie cerrado antes de cualquier upload. No usar GPIO4 ni cambiar pines/periféricos; no cambiar microSD ni contenido de COM14.
+3. **Build y sellado futuro:** preparar binarios del sketch Master contra el package real del PR #125, exigir fuentes-archive-ELF, SHA de binarios, FQBN correcto y HEAD/árbol limpio. No usar ejecutor antiguo G10-PH0 que exige flashear COM14 antes.
+4. **Upload COM4:** requiere aprobación explícita **de COM4**, recogida de manera independiente tras identidad y binarios sellados. Se permite sobreescribir firmware previo sin respaldo por la decisión vigente, sin `erase-all` ni cambios en COM14. Ninguna aprobación de N0 equivale a autorización de carga.
+5. **Observación H acotada tras upload aprobado:** comprobar BOOT/HB estables y sin TG0/TG1/panic, PHY/ETH/TCP y DHCP en LAN aislada, FC03 read-only y UDP eco, progreso RS-485/RTU, TFT, RTC, I/O/TCA, SD y FRAM. Se propone ventana dirigida de 90–120 s, sin repetir R1 605 s/R2 3 ciclos/R4 1805 s ya acreditados. Una maniobra RJ45 sobre COM4 requiere aprobación separada.
+6. **Basic Core:** conservar N2/ELF y política weak Basic/strong Core deshabilitada; no inferir hardware probado para Basic Core sin reflasheo específico y consentimiento independiente.
 
-## Motivo y alcance
+## Aborto y límites
 
-La corrección de F137 cambia código de `JWPLC_Ethernet.cpp` de compilación por perfil a guardas runtime: en `jwplcbasic` la política weak debe mantenerse habilitada, y en `jwplcbasiccore` el core presenta override strong deshabilitado. No modifica APIs ni registros de Q, CS W5500, GPIO4, otros archives, `core.a` ni fuentes ModbusTCP. El gate N2 positivo debe mostrar objeto idéntico por fuente de ambos FQBN (build path controlado), símbolo `W` Basic / `T` Core en ELF, y que el `.a` se selecciona sin recompilar fuentes.
+Si cambian HEAD, SHA archives, identidad/rol USB, aparece reset inesperado, I/O anómala, fallas RTU, SPI/W5500 o no existe evidencia suficiente, detenerse en `REVIEW_STOP` y conservar logs sanitizados. E1/E2, G10 R3 interno, R4 largo y casos DNS/DHCP específicos siguen como limitaciones registradas; no reclasificarlos como PASS.
 
-## Banco mínimo propuesto (requiere permiso de upload COM4)
-
-1. Recuperar HEAD exacto y SHA binarios desde `platform-jwplc` y resultado N3; usar solo runner/sketch **versionado** (ningún ZIP temporal descargado ni edición manual de variant). COM4 Master, COM14 Slave en router aislado; COM14 y sus contenidos permanecen intactos. Preflight de puerto/identidad y confirmación del operador antes de cualquier upload.
-2. Compilar source→archive→ELF con package real del HEAD aprobado, aplicar upload únicamente en COM4 después de aprobación explícita de esa placa; no erase-all, no modificación de flash ajena, conservar archivos de manifiesto/log en ruta local del operador.
-3. Observar arranque, `BOOT` estable, `HB` continuo, `PHY=1 ETH=1 TCP=1` y DHCP en la red aislada; exigir ausencia de `TG0/TG1`/panic sin confundir reset DTR/RTS con fallo.
-4. Desde PC ejecutar FC03 read-only a COM4, eco UDP y observar progreso RTU Master→COM14 Slave, RTC/SD/FRAM/IO/TFT sin nuevos errores. Reutilizar el criterio reducido de G10 R1/R2 sin relanzar automáticamente la campaña de 605 s. Proponer ventana dirigida de 90–120 s y, solo si el operador autoriza, **una** desconexión/reconexión RJ45 del Master para confirmar PHY/servicio.
-5. Basic Core: verificar N2/ELF y prueba negativa de `isEnabled() == false`, callback inactivo y ausencia de ruta SPI/CS/W5500. Cualquier prueba física de Core que requiera reflashear otro equipo se solicita por separado; no se infiere GPIO5 medido por un PASS lógico.
-
-## Criterios de parada
-
-- SHA/procedencia distinto, ELF sin override strong Core, fallo de arranque, reset `TGx`, IO inesperado, CS de W5500 diferente del package, errores de Modbus/RTU nuevos, prueba insuficiente o dispositivo/puerto dudoso → **REVIEW_STOP**. Conservar logs y no reinterpretar como PASS.
-- **No repetir** H0-F1 10+10, G10 R1 completo, R2 3/3, R3 interno ni R4 1805 s sin evidencia que invalide las pruebas precedentes. R3 interno, R4 largo y DNS/DHCP handshake específicos siguen riesgos residuales aceptados, E1/E2 siguen PENDING.
-
-## Secuencia de cierre
-
-`N0 → N1_NEGATIVO → N2_OBJETOS/ELF → N3_PACKAGE_FINAL → H_ACOTADO_AUTORIZADO → C_PR125_MERGE_OPERADOR → RELEASE_DISPATCH_OPERADOR → ZIP_PUBLICADO_IDE_CLI → CLOSED_PUBLISHED`.
-
-Nada en este documento autoriza merge de PR #125, ejecución del workflow Release ni cierre automático de Alpha13.
+```text
+H_F137_N0_CI=PASS_39545618484_EVIDENCE_OLD_RUNNER
+H_F137_NO_BACKUP_DEV_BOARDS=DECISION_20261017
+H_F137_INVENTORY_REVISED_CI=PENDING
+H_F137_COM4_PHYSICAL=NOT_RUN
+H_F137_COM4_UPLOAD=SEPARATE_EXPLICIT_AUTH_REQUIRED
+H_F137_COM14=NO_UPLOAD
+PR125=DRAFT_NO_MERGE
+RELEASE=BLOCKED
+NEXT_GATE=H_F137_COM4_IDENTITY_THEN_BUILD_SEAL_AND_UPLOAD_APPROVAL
+```
