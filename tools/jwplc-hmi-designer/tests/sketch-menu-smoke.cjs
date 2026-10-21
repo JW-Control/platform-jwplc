@@ -85,7 +85,10 @@ function nativeMock() {
     writeProject: async (fileName, text, overwrite) => { calls.push(`project:${fileName}:${overwrite}`); sketches[linked].files[fileName] = text; return { ok: true }; },
     readProject: async () => { const i = info(); return i.projectExists ? { ok: true, fileName: i.projectFile, text: sketches[linked].files[i.projectFile] } : { ok: false, missing: true, fileName: i.projectFile }; },
     openSketchIno: async () => { calls.push('open-ino'); return { ok: true }; },
-    openSketchFolder: async () => { calls.push('open-folder'); return { ok: true }; }
+    openSketchFolder: async () => { calls.push('open-folder'); return { ok: true }; },
+    unlinkSketch: async () => { calls.push('unlink'); return { ok: true }; },
+    // Apertura desde Arduino IDE: el test dispara el evento con __sketchMock.openFromIde(ruta).
+    onSketchOpened: (cb) => { window.__sketchMock.openFromIde = async (p) => { linked = p; await cb(info()); }; }
   };
 }
 
@@ -98,7 +101,8 @@ async function main() {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   const dialogs = [];
-  page.on('dialog', (d) => { dialogs.push(d.message()); d.accept(); });
+  let dismissDialogs = false;
+  page.on('dialog', (d) => { dialogs.push(d.message()); if (dismissDialogs) d.dismiss(); else d.accept(); });
   await page.addInitScript(nativeMock);
 
   try {
@@ -184,6 +188,26 @@ async function main() {
     await page.waitForTimeout(900);
     check(dialogs.length === 1 && /ya tiene un HMI guardado/.test(dialogs[0]) && (await page.evaluate(() => window.JWPLCHMIEditor.getAllFields().length)) === fieldsBefore,
       'al vincular un sketch con .jwhmi pregunta y lo abre');
+
+    console.log('ABRIR DESDE ARDUINO IDE');
+    // Diseño con cambios sin guardar: pregunta y, si el usuario dice que no, lo conserva.
+    await page.evaluate(() => { window.JWPLCHMIEditor.addTextField(); window.JWPLCHMIEditor.addTextField(); });
+    const dirtyCount = await page.evaluate(() => window.JWPLCHMIEditor.getAllFields().length);
+    const isDirty = await page.evaluate(() => Boolean(window.JWPLCHMIProject.isDirty?.()));
+    dialogs.length = 0;
+    dismissDialogs = true;
+    await page.evaluate(() => window.__sketchMock.openFromIde('C:/Arduino/demo'));
+    await page.waitForTimeout(500);
+    dismissDialogs = false;
+    const kept = await page.evaluate(() => window.JWPLCHMIEditor.getAllFields().length);
+    check(isDirty && dialogs.length === 1 && /cambios sin guardar/.test(dialogs[0]) && kept === dirtyCount,
+      `con cambios sin guardar pregunta antes de reemplazar y conserva el diseño al rechazar (${JSON.stringify({ isDirty, dialogs, kept, dirtyCount })})`);
+    // Aceptando, carga el .jwhmi del sketch.
+    dialogs.length = 0;
+    await page.evaluate(() => window.__sketchMock.openFromIde('C:/Arduino/demo'));
+    await page.waitForTimeout(700);
+    check((await page.evaluate(() => window.JWPLCHMIEditor.getAllFields().length)) === fieldsBefore,
+      'al aceptar carga el HMI del sketch abierto desde Arduino IDE');
 
     check(errors.length === 0, `sin errores JS (${errors.join(' | ') || 'ninguno'})`);
   } finally {

@@ -56,6 +56,7 @@ A15_COLOR_EDITOR=PASS (editor de color fijo en Apariencia de campos, MENU y BAR;
 A15_FRAM_MAP=DEFERRED (plan §G.6: DataLog hoy sin FRAM; reparto del último KB; se fija en I9/I10 del plan industrial)
 A15_8_MENU=PASS_PHYSICAL (A15_8_MENU_20261017; MENU OK en la placa 2026-10-19)
 A15_9_PHYSICAL_PARITY=PASS_PHYSICAL (MENU, RTC, °, piloto, formatos, buzzer, despertar, pestañas y color de pestaña; 2026-10-19)
+A15_LIVE_BRIDGE_FLASHER=PASS_HOST (flasheo en un clic; 10/10 tests; físico [no verificado])
 A15_10_PACKAGING_DOCS=PENDING_INTEGRATION (freeze de libJWPLC_Display.a, versiones y publicación 2.1.0-alpha.14; ver cierre §4)
 A15_OPENPLC_INTEGRATION_DECISION=PASS (adopta plan rev.2 del fork + correcciones C1-C5)
 A15_ALPHA12_MERGE=PASS (VPP 2.1.0-alpha.29 + overlay IDLE de Kenyi; merge 7cbd427c)
@@ -345,3 +346,34 @@ MENU_NODE_COUNT_LIMIT=64 por menú, 4 menús, 1 por página (9 nodos = +952 B RA
   - Los `.ps1` con tildes llevan ahora BOM UTF-8; sin BOM, Windows PowerShell 5.1 los leía como ANSI («fallÃ³»).
   - [ejecutado] con PowerShell 7 en Linux: sintaxis de los 10 `.ps1`, y la función crea la caché con
     `rcedit-x64.exe` y la reutiliza la segunda vez. [no verificado] build completo en Windows: lo confirma André.
+- 2026-10-21 — André (commits `c3fbef42` y `e80145a9`):
+  - **flasheo del Live Bridge en un clic**: `designer-flasher.js`, `esptool-bundle.js` (esptool-js 0.7.0) y
+    `poc/firmware/`. Ver `INFORME_CAMBIOS_FLASHER.md`;
+  - **apertura desde el Arduino IDE** con el sketch activo ya vinculado (argumento o `jwplc-hmi://`), y
+    «Desvincular sketch».
+
+  [ejecutado] `run-all.cjs` 10/10 PASS.
+
+  Revisión y continuación:
+  - el manifiesto no escribía `boot_app0.bin @0xE000`, que la subida de Arduino sí escribe (`flash_args`); agregado
+    (es idéntico a `JWPLC/2.1.0/tools/partitions/boot_app0.bin`), con su test;
+  - el modal ahora avisa que el flasheo **reemplaza el programa del PLC** (máquina sin lógica y salidas
+    apagadas hasta volver a subir el sketch);
+  - abrir desde el Arduino IDE con cambios sin guardar pregunta antes de reemplazar el diseño
+    (`JWPLCHMIProject.isDirty()`);
+  - quitadas 4 copias idénticas `JWPLC_HMI_Live_Bridge.ino.*` de `poc/firmware/` (4,6 MB que no usaba nadie);
+  - nuevo `tools/alpha15/build_live_bridge_firmware.sh`: compila el Live Bridge desde la fuente.
+
+  [ejecutado] Con el package actual (`jwplc_local`), bootloader, particiones y `boot_app0` salen idénticos; la
+  app difiere (429.264 frente a 427.392 B; André usó el package publicado alpha.12). Se conserva su binario.
+
+  [no verificado] en la placa:
+  - flasheo, autoconexión y FPS del Live Bridge;
+  - apertura desde el Arduino IDE.
+
+  Ambas cosas requieren regenerar la app de escritorio, porque cambiaron `electron/main.js` y `preload.cjs`.
+
+  Pendiente de limpieza (no se tocó sin acuerdo):
+  - `scratch/` en la raíz (26 scripts temporales);
+  - artefactos de compilación en `gates/A11_LivePreview_WebSerial/JWPLC_HMI_Live_Bridge/build/` (~44 MB). Los
+    genera el hook «Export compiled binary» del package.

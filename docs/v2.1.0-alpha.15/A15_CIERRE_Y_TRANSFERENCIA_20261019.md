@@ -94,7 +94,11 @@ Si Alpha13 cierra con más commits (por ejemplo F1/H0), repetir la medición sob
    - roadmap del README raíz con la numeración de §2;
    - cierre en `docs/v2.1.0-alpha.15/ALPHA15_STATUS.md` con el número publicado.
 5. Prueba física corta del package integrado, autorizada por el operador: Ethernet + RS-485 + HMI con MENU y
-   pestañas en la misma placa.
+   pestañas en la misma placa. Ese mismo día:
+   - regenerar el Live Bridge con `tools/alpha15/build_live_bridge_firmware.sh --install` sobre el package
+     integrado;
+   - probar «⚡ Instalar Firmware Live» y LIVE conectado;
+   - regenerar la app de escritorio, porque `electron/main.js` cambió (protocolo `jwplc-hmi://`).
 6. Publicar en el índice dev. Después, Kenyi integra su trabajo sobre 2.1.0-alpha.14 publicada.
 
 ## 5. Diferido (no bloquea la publicación)

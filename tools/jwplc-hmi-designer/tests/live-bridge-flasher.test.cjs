@@ -47,13 +47,21 @@ async function run() {
     assert.strictEqual(manifest.target, 'esp32');
     assert.strictEqual(manifest.baudRate, 921600);
     assert.strictEqual(manifest.romBaudRate, 115200);
-    assert.strictEqual(manifest.parts.length, 3);
+    assert.strictEqual(manifest.parts.length, 4);
 
+    // Mismas partes y direcciones que la subida de Arduino (build/.../flash_args).
     const names = manifest.parts.map(p => p.name);
-    assert.deepStrictEqual(names, ['bootloader', 'partitions', 'app']);
+    assert.deepStrictEqual(names, ['bootloader', 'partitions', 'boot_app0', 'app']);
 
     const addresses = manifest.parts.map(p => p.address);
-    assert.deepStrictEqual(addresses, [0x1000, 0x8000, 0x10000]);
+    assert.deepStrictEqual(addresses, [0x1000, 0x8000, 0xe000, 0x10000]);
+  });
+
+  test('boot_app0.bin es otadata válida que arranca app0 (0xE000)', () => {
+    const otadata = fs.readFileSync(path.join(FW_DIR, 'boot_app0.bin'));
+    assert.strictEqual(otadata.length, 8192, 'otadata de 8 KB (dos sectores)');
+    assert.strictEqual(otadata.readUInt32LE(0), 1, 'ota_seq = 1 -> app0');
+    assert(otadata.subarray(4, 28).every((b) => b === 0xFF), 'label vacío');
   });
 
   test('Binarios de firmware existen y tienen encabezados ESP32 válidos', () => {

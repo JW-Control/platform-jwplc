@@ -162,6 +162,13 @@
 
   async function loadProjectFromSketch(info) {
     if (!info?.projectExists) return false;
+    // Abrir desde Arduino IDE con el Designer ya en uso no debe perder un diseño
+    // sin guardar: se pregunta antes de reemplazarlo (el sketch queda vinculado igual).
+    if (window.JWPLCHMIProject?.isDirty?.() &&
+        !window.confirm(`El diseño en pantalla tiene cambios sin guardar.\n\n¿Abrir el HMI del sketch «${info.name}» (${info.projectFile})? El diseño actual se reemplaza.`)) {
+      toast(`Sketch «${info.name}» vinculado; se conserva el diseño en pantalla.`, 'ok');
+      return false;
+    }
     try {
       const res = await native.readProject();
       if (!res?.ok || !res.text) return false;

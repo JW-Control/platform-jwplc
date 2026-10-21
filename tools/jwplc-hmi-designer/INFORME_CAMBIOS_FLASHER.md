@@ -6,6 +6,15 @@
 > **Referencia de diseño:** [`PLAN_LIVE_BRIDGE_FLASHER.md`](PLAN_LIVE_BRIDGE_FLASHER.md)  
 > **Objetivo:** Permitir que el usuario conecte su JWPLC por USB y, si el microcontrolador no tiene instalado el firmware de streaming, la aplicación pueda flashearlo e inicializar el Preview en Vivo automáticamente en un solo clic, sin necesidad de abrir Arduino IDE ni instalar Python.
 
+> **Revisión 2026-10-21 (Claude):**
+> - El manifiesto incluye `boot_app0.bin @ 0xE000`, igual que la subida de Arduino (`flash_args`), con lo
+>   que quedan 4 partes;
+> - el modal avisa que el flasheo reemplaza el programa del PLC;
+> - se quitaron las copias duplicadas `JWPLC_HMI_Live_Bridge.ino.*` de `poc/firmware/`;
+> - `tools/alpha15/build_live_bridge_firmware.sh` regenera los binarios desde el `.ino`.
+>
+> Ver `ALPHA15_STATUS.md` (2026-10-21).
+
 ---
 
 ## 1. Resumen Ejecutivo

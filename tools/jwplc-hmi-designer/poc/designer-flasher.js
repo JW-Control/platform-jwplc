@@ -60,6 +60,8 @@
         parts: [
           { name: 'bootloader', path: './firmware/bootloader.bin', address: 0x1000 },
           { name: 'partitions', path: './firmware/partitions.bin', address: 0x8000 },
+          // Igual que la subida de Arduino (flash_args): otadata que arranca app0.
+          { name: 'boot_app0', path: './firmware/boot_app0.bin', address: 0xe000 },
           { name: 'app', path: './firmware/firmware.bin', address: 0x10000 }
         ]
       };
@@ -494,7 +496,10 @@
     el.desc.innerHTML = `
       El JWPLC conectado no respondió al handshake del Preview en Vivo.
       Es probable que tenga cargado un programa PLC estándar o esté en blanco.<br/><br/>
-      <strong>¿Deseas instalar el firmware Live Bridge en 1 clic?</strong>
+      <strong>Instalar el Live Bridge reemplaza el programa que tiene el PLC.</strong>
+      Mientras tanto la máquina no ejecuta su lógica y las salidas quedan apagadas; para volver,
+      sube de nuevo tu sketch desde Arduino IDE. Hazlo sólo con la máquina detenida y segura.<br/><br/>
+      <strong>¿Instalar el firmware Live Bridge?</strong>
       El proceso toma ~3 segundos a 921,600 baudios y no requiere abrir Arduino IDE.
     `;
     el.specs.hidden = false;

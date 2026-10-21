@@ -772,6 +772,7 @@
 
   window.JWPLCHMIProject = {
     serialize: serializeProject,
+    isDirty: () => dirty,
     apply: applyProject,
     open: openProject,
     save: saveProject,

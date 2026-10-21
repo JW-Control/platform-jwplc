@@ -21,7 +21,7 @@ de `index.html` e inyecta los scripts en orden.
 
 ```text
 index.html:      designer-cp437 -> gfx-classic-font -> designer-fonts-data -> designer-fonts -> designer-value-format -> designer-codegen-core -> app -> ux-foundation -> designer-codegen
-ux-foundation:   designer-color-editor -> designer-bool -> designer-bar -> designer-zone-indicator -> designer-field-inspector -> (designer-menu, designer-idle) -> designer-field-visibility -> designer-pages -> designer-live
+ux-foundation:   designer-color-editor -> designer-bool -> designer-bar -> designer-zone-indicator -> designer-field-inspector -> (designer-menu, designer-idle) -> designer-field-visibility -> designer-pages -> designer-flasher -> designer-live
 field-visibility: designer-inspector-state, designer-pixelmap-compat -> designer-pixelmap -> designer-pixelmap-stability
 desktop.html:    designer-project, designer-native-project, designer-project-integration-fix,
                  designer-pixelmap-workbench/-optimizer/-codegen-guard, desktop-responsive,
@@ -44,6 +44,7 @@ window.JWPLCHMIPages      designer-pages    pestañas, NAV_BAR, layout de navega
 window.JWPLCHMIPixelMaps  designer-pixelmap capas Pixel
 window.JWPLCHMIProject    designer-project  serialize/apply/open/save/linkSketch/updateGeneratedHeader
 window.JWPLCHMILive       designer-live     Live Preview WebSerial (JWH1/JWH2, 921600)
+window.JWPLCHMIFlasher    designer-flasher  flasheo del Live Bridge en un clic (esptool-js de esptool-bundle.js + poc/firmware/)
 window.JWPLCHMIIdle       designer-idle     Proyecto · Pantalla y arranque (IDLE) -> patchHeader en jwplcHMISetup
 window.JWPLCHMISketchMenu designer-sketch-menu    «Escribir en sketch» (header + .jwhmi) y menú «Sketch: nombre ▾»
 window.JWPLCZoneIndicator designer-zone-indicator indicador A1 de Apariencia (contorno + ▶ + regla; campos y MENU)
@@ -67,6 +68,30 @@ window.JWPLCValueFormat   designer-value-format   formato de VALUE (número, mil
   `designer-project.js`. Tests: `tests/sketch-menu-smoke.cjs` (simula `JWPLCHMINative`) y
   `tests/sketch-guide.test.cjs` (compila el sketch base de la guía contra cada golden). Una app generada
   antes de `write-guide` escribe header y `.jwhmi` y avisa que regenere la app para la guía.
+
+- Apertura desde el Arduino IDE (extensión `arduino-ide-launcher` 0.1.7): pasa la carpeta del sketch activo
+  por argumento o por `jwplc-hmi://open?sketch=…`. `electron/main.js` (`extractSketchPathFromArgv`, también en
+  `second-instance`) vincula el sketch y `designer-native-project.js` carga su `.jwhmi`; si el diseño en
+  pantalla tiene cambios sin guardar (`JWPLCHMIProject.isDirty()`), pregunta antes de reemplazarlo. Abrir la
+  app sin sketch empieza sin vínculo. «Desvincular sketch»: IPC `unlink-sketch`.
+
+## Live Bridge: flasheo en un clic (André, 2026-10-20)
+
+- Plan e informe: `PLAN_LIVE_BRIDGE_FLASHER.md`, `INFORME_CAMBIOS_FLASHER.md`.
+- «Conectar JWPLC» envía `JWH?`; sin `JWHMI_LIVE_READY 1` en 2,5 s abre el modal de `designer-flasher.js`.
+  El modal avisa que **el flasheo reemplaza el programa del PLC**. También está el botón
+  «⚡ Flashear Live Bridge» del panel Diagnóstico.
+- `poc/firmware/manifest.json` y el respaldo de `designer-flasher.js` escriben lo mismo que la subida de
+  Arduino (`flash_args`):
+  - `bootloader @0x1000`;
+  - `partitions @0x8000`;
+  - `boot_app0 @0xE000`;
+  - `firmware @0x10000`.
+
+  No quitar `boot_app0`.
+- Binarios desde la fuente: `tools/alpha15/build_live_bridge_firmware.sh [--install]` (compila el `.ino` de
+  `gates/A11_LivePreview_WebSerial/` con `jwplc_local` y compara con el repo). Un binario nuevo se prueba en
+  la placa antes de publicarlo. Test: `tests/live-bridge-flasher.test.cjs`.
 
 ## Patrón de inspector objetivo (Propuesta 2 de BAR)
 
@@ -136,8 +161,9 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
   emite TEXT/VALUE; BOOL/BAR salen como `JWPLC_UITextField` provisional que reemplazan sus capas.
 - Tras tocar el codegen: `node tests/codegen-golden.cjs` (salida byte a byte) y
   `node tests/codegen-smoke.cjs`. Un cambio intencional: `--update` y revisar el diff.
-- Tras tocar JS/CSS: subir `?v=` (hoy 1793800100) en `index.html`/`desktop.html`/`ux-foundation.js`/
-  `designer-field-visibility.js` y `CACHE_NAME` en `service-worker.js`.
+- Tras tocar JS/CSS: subir el `?v=` **del archivo tocado** (hoy entre 1793800400 y 1793801100) en
+  `index.html`/`desktop.html`/`ux-foundation.js`/`designer-field-visibility.js` y `CACHE_NAME` en
+  `service-worker.js` (hoy `jwplc-hmi-designer-a15-flasher-v35`).
 
 ## Probar sin hardware
 
@@ -150,6 +176,7 @@ node tests/menu-host-sim.cjs            # MENU: JWPLC_UI_Menu.cpp real en host (
 node tests/menu-smoke.cjs               # MENU: Designer + paridad lienzo/firmware + header
 node tests/sketch-menu-smoke.cjs        # Escribir en sketch + menú del sketch
 node tests/sketch-guide.test.cjs        # guía JWPLC_HMI_LEEME.md + su sketch base compila
+node tests/live-bridge-flasher.test.cjs # flasheador Live Bridge: manifiesto, binarios ESP32, integración
 cd poc && python3 -m http.server 8765 --bind 127.0.0.1   # abrir /desktop.html
 ```
 
