@@ -63,29 +63,43 @@ A15_ALPHA12_MERGE=PASS (VPP 2.1.0-alpha.29 + overlay IDLE de Kenyi; merge 7cbd42
 A15_F0_OPENPLC_BOOL_RELE=PASS_COMPILE (HAL VPP + bloque F0; OpenPLC y placa pendientes, Kenyi)
 ```
 
+## Pendiente para la confirmación de cierre (2026-10-21)
+
+```text
+P1_LIVE_BRIDGE_FISICO=PENDING (André: regenerar app; sin Live Bridge -> aviso -> instalar -> LIVE conectado y diseño en la TFT)
+P2_ABRIR_DESDE_ARDUINO_IDE=PENDING (André: con .jwhmi, con y sin cambios sin guardar)
+P3_APP_ESCRITORIO_SIN_MODO_DESARROLLADOR=PENDING (André: Generar-e-Instalar-App-Escritorio.cmd termina y abre la app)
+P4_GATES_BUILD_EN_REPO=DECISION (17 archivos, ~44 MB en gates/A11_LivePreview_WebSerial/.../build/; propuesta: .gitignore como scratch/)
+P5_VERSION_VISIBLE_DEL_DESIGNER=DECISION (la UI y la app dicen «Alpha11» / 0.11.0-alpha.11; propuesta: 2.1.0-alpha.14)
+P6_KNOWLEDGE_PR=PENDING (rama docs/hmi-designer-alpha15-cierre-20261019 de jwplc-dev-mcp sin fusionar a main)
+```
+
+Fuera del cierre de esta alpha (integración y publicación 2.1.0-alpha.14): ver
+[A15_CIERRE_Y_TRANSFERENCIA_20261019.md](A15_CIERRE_Y_TRANSFERENCIA_20261019.md) §4.
+
 ## Bloqueantes abiertos (de A15-0)
 
 ```text
 B1_GETTFT_NOT_IN_API=CLOSED (A15-1)
 B2_TFT_MISSING_PRIMITIVES=CLOSED (JWPLC_TFT 0.2.0 nativo + respaldo para 0.1.0)
-B3_TFT_A_NOT_REGENERATED_ABI=MITIGATED (fuentes JWPLC_TFT revertidas a main; fuentes -> Alpha13 desde bf0fba1)
+B3_TFT_A_NOT_REGENERATED_ABI=CLOSED (libJWPLC_TFT.a 0.3.0 regenerado con ABI_COMPAT=PASS; fuentes y primitivas en uso)
 B4_BAR_CIRCULAR_GRADIENT_HELPERS_MISSING=CLOSED_IN_DESIGNER (deshabilitado + fallback lineal; firmware -> Alpha13)
 B5_DELETE_PAGE_BREAKS_REOPEN=CLOSED (A15-2)
 B6_STATIC_DRAW_EVERY_TICK=CLOSED (A15-3)
-B7_NO_PHYSICAL_GATES=OPEN (gate A15_1_3_Codegen_Static listo, pendiente de taller)
+B7_NO_PHYSICAL_GATES=CLOSED (gates físicos en PASS el 2026-10-19; ver A15_9_PHYSICAL_PARITY)
 ```
 
 ## Inspector (adopción del patrón Propuesta 2)
 
 ```text
 BAR=ADOPTED (BAR-1..BAR-7 cerrados; variantes sin firmware deshabilitadas)
-SHAPES=PARTIAL (reutiliza bar-inspector-wrap)
+SHAPES=ADOPTED_UI (André 2026-10-20: Apariencia con editor de color fijo y matriz de alineación 3×3)
 VALUE=ADOPTED (designer-field-inspector.js)
 TEXT=ADOPTED (designer-field-inspector.js)
 BOOL=ADOPTED (designer-field-inspector.js)
-RAW_TEXT=LEGACY
+RAW_TEXT=ADOPTED_UI (André 2026-10-20: #rawTextControlsSection con editor de color fijo)
 NAV_BAR=ADOPTED_UI (André, af797d79: Diseño/Páginas/Técnico, 6 presets, 4 posiciones); codegen replica el lienzo con el pintor compartido (NAV-1/NAV-2, 207f1594)
-PIXELMAP=LEGACY
+PIXELMAP=PARTIAL (André 2026-10-20: selección múltiple, color del pincel con editor fijo)
 MENU=ADOPTED (designer-menu.js; firmware JWPLC_Display 1.1.0)
 ```
 
