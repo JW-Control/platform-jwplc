@@ -1,3 +1,21 @@
+# ESTADO VIGENTE — H-F137: SIN backup obligatorio en placas de desarrollo (21/10/2026)
+
+**Decisión ratificada:** el propietario ya había dispensado los backups para COM4 y COM14 como placas de pruebas el 17/10/2026. Se corrigió el runner H-F137: sin --backup-com4 ni read_flash; identificación USB COM4 no intrusiva, COM14 opcional y nunca abierto. No se necesita respaldar el firmware previo antes de preparar el upload COM4. No generalizar la excepción a placas de clientes.
+
+La autorización actual solo alcanza N0/inventario. Carga COM4, maniobra RJ45, merge de PR125 y Release siguen separados. Los archives Ethernet/ModbusTCP permanecen solo en PR125 Draft. N2, cross-OS, benchmark y N3 son PASS sin cambios funcionales posteriores.
+
+```text
+H_F137_COM4_BACKUP=WAIVED_DEV_BOARD_20261017
+H_F137_COM4_INVENTORY=WAIT_OPERATOR
+H_F137_COM4_UPLOAD=WAIT_SEPARATE_EXPLICIT_AUTH
+H_F137_COM14=NO_UPLOAD_NO_PORT_OPEN
+NEXT_GATE=H_F137_COM4_IDENTITY_THEN_APPROVE_UPLOAD
+PR125=DRAFT
+RELEASE=BLOCKED
+```
+
+---
+
 # ESTADO VIGENTE — H-F137: identidad y respaldo COM4 (20/10/2026 Lima)
 
 **Alcance:** aprobado iniciar preflight H-F137 sin subir firmware. [N3 #39538155047](https://github.com/JW-Control/platform-jwplc/actions/runs/39538155047) 13/13 PASS Windows+Ubuntu con archivos .a reales. [H-N0 CI #39545618484](https://github.com/JW-Control/platform-jwplc/actions/runs/39545618484): selftest estático en Windows y Ubuntu **PASS**; no se abrió COM ni se utilizó ESP32.

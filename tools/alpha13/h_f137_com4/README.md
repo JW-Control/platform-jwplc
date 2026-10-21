@@ -1,24 +1,19 @@
-# Alpha13 F137 — H COM4: identidad y respaldo sin upload
+# Alpha13 F137 — H COM4 sin respaldo obligatorio
 
-**Estado:** preparación de un gate físico. Esta ficha NO autoriza upload, erase, restauración, maniobra RJ45 ni actuación en COM14. COM4 se utilizará solo para comprobaciones y lectura completa de flash después de una frase de consentimiento local. El acceso por esptool puede reiniciar COM4; nunca hacerlo en una máquina en operación.
+**Decisión vigente del propietario:** COM4 (Master con microSD) y COM14 (Slave sin microSD) son unidades de desarrollo, su firmware anterior es prescindible y no se exige respaldo de sketch ni full-flash antes de reprogramarlas. Se reutiliza la excepción documentada el 17/10/2026 en A13_G10_R_PREH_B4_BANCO_RESPALDOS_SEGURIDAD_20261017.md; no extenderla a equipos de clientes.
 
-**Fuente:** PR #125 Draft, rama codex/alpha13-precompile-benchmark-docs-20261020. N2, benchmark y N3 Windows/Ubuntu 13/13 PASARON en CI #39538155047. Los archivos precompilados no están aún en la base Alpha13.
+## Hito actual: identidad e integridad, sin flasheo
 
-## Precondiciones de seguridad
+Runner: tools/alpha13/h_f137_com4.py; PR #125 Draft, rama codex/alpha13-precompile-benchmark-docs-20261020.
 
-Banco aislado, sin cargas ni tensión de red en salidas Q, alimentación segura, monitores serie cerrados, PC Windows con Python, pyserial y esptool previamente disponibles. Identificar físicamente COM4 = Master con microSD y COM14 = Slave sin microSD. Que ambos figuren como CH340 VID/PID 1A86:7523 no demuestra por sí solo su correspondencia física. El runner revisa identidad PnP diferenciada y flash 4 MB, pero exige la verificación presencial del operador.
+- --selftest: contrato sintético positivo/negativo, no hardware.
+- --check: HEAD limpio y SHA de los archives de Ethernet y Modbus TCP más precompiled=full.
+- --inventory: enumera el USB de Windows (sin abrir COM); COM4 debe ser CH340 VID/PID 1A86:7523; si COM14 está conectado, comprueba VID/PID y que su identidad USB sea distinta. COM14 no es requisito para inventariar COM4 y no se interviene.
+- No hay modo --backup-com4, read_flash, borrado, restore ni upload. No se pide instalar esptool. El inventario de Windows no verifica por sí solo el rol físico de la placa; el operador debe confirmar COM4=Master.
 
-No usar el runner antiguo g10p_ph0_upload.py: exige COM14 primero, fue creado para otra rama y no respalda flash. No mover GPIO4, no cambiar pines, no usar erase-all ni modificar periféricos. La lectura full-flash tampoco respalda la tarjeta microSD, que se debe preservar por separado si contiene datos valiosos.
-
-## Pasos PowerShell en Windows
-
-Primero examinar el estado Git local: si hay cambios tracked, detenerse, sin git reset/clean/stash automático.
+En PowerShell, desde un worktree limpio y sin descartar cambios:
 
     git status --short
-    git branch --show-current
-
-Con el worktree limpio, situarse en la rama Draft y recuperar scripts exclusivamente mediante Git:
-
     git switch codex/alpha13-precompile-benchmark-docs-20261020
     git pull --ff-only
     $head = (git rev-parse HEAD).Trim()
@@ -26,19 +21,10 @@ Con el worktree limpio, situarse en la rama Draft y recuperar scripts exclusivam
     py -3 tools/alpha13/h_f137_com4.py --check --expected-head $head
     py -3 tools/alpha13/h_f137_com4.py --inventory --expected-head $head
 
-Selftest y check no abren COM; inventory enumera USB sin abrir COM ni provocar reset. Si cualquier etapa devuelve REVIEW_STOP, no avanzar.
+Si pyserial falta, el inventario da REVIEW_STOP; no modificar estado de la placa para resolver un problema de dependencia. Confirmar banco aislado y salidas Q sin cargas/tensión de red, COM4 Master físicamente identificado y monitor serial cerrado antes de un upload futuro.
 
-Tras verificar realmente COM4 Master, aislamiento y ausencia de cargas, hacer copia única en directorio nuevo y persistente fuera del checkout. La entrada interactiva exige escribir exactamente AUTORIZO LECTURA Y RESPALDO SOLO COM4:
+## Siguiente gate
 
-    $backupDir = Join-Path ([Environment]::GetFolderPath('MyDocuments')) ('JWPLC_Backups\F137_COM4_' + (Get-Date -Format 'yyyyMMdd_HHmmss'))
-    py -3 tools/alpha13/h_f137_com4.py --backup-com4 --expected-head $head --output $backupDir
+El próximo paso es **compilar y sellar los binarios reales desde el package del PR #125**, comprobar el sketch/HEAD/sha y solicitar autorización expresa **para subir únicamente COM4**. Se acepta que el sketch anterior de la placa de pruebas se sobrescribirá sin backup, según la decisión existente. COM14 permanece sin reprogramar y la maniobra RJ45 requiere acuerdo separado.
 
-La operación realiza únicamente esptool flash_id y read_flash 0x0 0x400000 sobre COM4. Puede resetear COM4 al entrar/salir del bootloader. Exige 4 194 304 bytes y SHA-256. Si se corta, conservar directorio parcial y detenerse; no relanzar ni borrar backup anterior. No restaura firmware ni escribe flash. Guardar el archivo COM4_FULL_FLASH_0x400000.bin y MANIFEST_LOCAL.json en PC y una segunda ubicación privada, nunca GitHub. No publicar MAC, USB PnP, rutas sensibles ni imagen.
-
-Salida positiva: H_F137_COM4_BACKUP=PASS_FULL_FLASH_SHA256, H_F137_FLASH_SIZE_BYTES=4194304, H_F137_COM14=UNTOUCHED, H_F137_UPLOAD=NOT_RUN.
-
-## Puertas posteriores (no autorizadas todavía)
-
-Después de verificar el recibo local de respaldo, preparar compilación COM4 del package real en un stage aislado, verificar SHA de ELF/binarios y evidencia source-archive-ELF; entonces solicitar autorización de upload COM4 por separado. No instalar nada en COM14. La prueba de tráfico físico FC03/UDP, UART y RJ45 exige confirmación del operador para la maniobra correspondiente. No repetir la campaña G10 de 605 s ni R4 de 1805 s sin nuevos motivos.
-
-H_COM4_IDENTITY_BACKUP=WAIT_OPERATOR; H_COM4_UPLOAD=NOT_AUTHORIZED; COM14_UNTOUCHED=YES; ALPHA13_RELEASE=BLOCKED.
+N2+N3: PASS en CI previa. H_COM4_BACKUP=WAIVED_DEV_BOARD; H_COM4_IDENTITY=WAIT_LOCAL_OPERATOR; H_COM4_UPLOAD=SEPARATE_EXPLICIT_APPROVAL; COM14_NO_UPLOAD=YES; RELEASE=BLOCKED.

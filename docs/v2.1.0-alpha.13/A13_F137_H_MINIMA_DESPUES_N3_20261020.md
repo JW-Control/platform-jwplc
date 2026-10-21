@@ -1,3 +1,11 @@
+## Decisión vigente — placas de desarrollo SIN respaldo previo (21/10/2026)
+
+**Corrección de alcance:** la decisión del propietario del 17/10/2026 sigue vigente: COM4/COM14 son unidades de laboratorio con firmware previo prescindible. No se requiere ni se ofrece respaldo del sketch o full-flash en H-F137, y no se vuelve a solicitar renuncia por cada alpha. Esto no se aplica a equipos de clientes.
+
+H-F137 usa ahora tools/alpha13/h_f137_com4.py para selftest, verificación de SHA del package y enumeración USB COM4; COM14 es opcional para inventario y permanece intacto. No abre puertos, no usa esptool ni reinicia la placa. El paso posterior (upload COM4) conserva aprobación independiente y explícita, identidad física del Master y salidas Q sin cargas. N3 Ubuntu/Windows 13/13 PASS; el resultado físico todavía no se ha ejecutado.
+
+---
+
 # Alpha13 F137 — validación física mínima tras cambio de política Ethernet
 
 **Estado vigente:** `H_F137_N0_OFFLINE=PASS_WINDOWS_UBUNTU`; se aprobó iniciar el gate de identificación y respaldo **COM4 solamente**. [N3 #39538155047](https://github.com/JW-Control/platform-jwplc/actions/runs/39538155047) pasó 13/13 en Windows y Ubuntu; [N0 H #39545618484](https://github.com/JW-Control/platform-jwplc/actions/runs/39545618484) pasó autopruebas en ambos SO. Procedimiento versionado de identidad/backup: [tools/alpha13/h_f137_com4/README.md](../../tools/alpha13/h_f137_com4/README.md) y runner `tools/alpha13/h_f137_com4.py`. **Aún no hay identidad ni backup físico nuevo observado.** Inventory no abre puertos; `flash_id/read_flash` pueden reiniciar COM4 al entrar al bootloader, requieren consentimiento interactivo y banco aislado. **No están autorizados upload, erase, restauración, maniobra RJ45 ni COM14.**
