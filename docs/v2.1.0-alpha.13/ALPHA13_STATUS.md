@@ -1,4 +1,22 @@
-# ESTADO VIGENTE EN BASE — H-F137 preparación COM4 pendiente de operación local (20/10/2026 Lima)
+# ESTADO VIGENTE EN BASE — F137 H sin respaldo de placas de desarrollo (21/10/2026)
+
+**Decisión ratificada:** COM4 Master y COM14 Slave son placas de prueba, firmware anterior prescindible: el propietario ya dispensó respaldos el **17/10/2026**. Se eliminó el respaldo obligatorio del runner candidato H-F137 y se sustituyó por inventario USB no intrusivo (COM4 requerido, COM14 opcional). No se exige firma de renuncia repetida. Solo para estas placas, nunca clientes.
+
+**Alcance:** el PR #125 sigue Draft, sin archivos binarios nuevos en la base. N3 del candidato PASS 13/13 ambos SO; CI del runner reducido pendiente. COM4 upload requiere aprobación expresa posterior, independiente del preflight; COM14 no se toca. H no ejecutada, Release bloqueada.
+
+```text
+H_F137_COM4_BACKUP=WAIVED_EXISTING_DEV_BOARD_DECISION
+H_F137_COM4_IDENTITY=WAIT_OPERATOR
+H_F137_COM4_UPLOAD=NOT_AUTHORIZED
+H_F137_COM14=UNTOUCHED
+NEXT_GATE=H_F137_LOCAL_INVENTORY_AND_BUILD_SEAL_BEFORE_UPLOAD
+BASE_SYNC=DOC_ONLY
+RELEASE=BLOCKED
+```
+
+---
+
+# HISTÓRICO SUPERADO EN BASE — H-F137 con respaldo (sustituido por waiver existente) (20/10/2026 Lima)
 
 **NO hay cambios binarios/productivos nuevos en esta rama base.** Los precompilados Ethernet/ModbusTCP F137 están adoptados únicamente en [PR #125 Draft](https://github.com/JW-Control/platform-jwplc/pull/125), cuya cabeza candidata al registrar fue `bca8697ac92799ac2e093002e9ce18f015bafebe`. **No fusionar automáticamente**, no publicar ni flashear.
 
