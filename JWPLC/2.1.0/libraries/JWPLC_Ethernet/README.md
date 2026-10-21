@@ -587,6 +587,183 @@ JWPLCEthernetError error =
 
 Los enums exactos están definidos en `JWPLC_Ethernet.h`.
 
+
+## Clase avanzada Alpha13 — Comunicación TCP sin bloquear la espera
+
+> **Si estás comenzando:** con los ejemplos anteriores y los métodos
+> `connect()`, `read()`, `write()` y `stop()` puedes crear tus primeras
+> aplicaciones. Esta clase es **opcional**: explica cómo trabajar en varios
+> pasos cuando tu máquina no puede dedicar todo el `loop()` a esperar red.
+
+### Paso 1. ¿Qué significa «cooperativo»?
+
+Imagina que quieres conectar el JWPLC a un servidor mientras sigues leyendo
+botones y atendiendo la lógica de una máquina. En vez de esperar en un
+`while` hasta conectar, puedes **iniciar** la conexión y **consultar**
+su resultado desde vueltas sucesivas de `loop()`.
+
+En las operaciones `begin...Async()` y `poll...Async()`, el resultado es:
+
+| Valor | Significado | Qué debes hacer |
+|---|---|---|
+| `1` | Operación completada | Continuar |
+| `0` | Sigue pendiente, incluso si otro periférico está usando SPI | Consultar de nuevo más adelante |
+| `-1` | Error, timeout o cancelación según el método | Revisar el estado y decidir cómo recuperar |
+
+El autoload de JWPLC mantiene sus servicios normales. **Cooperativo no
+significa tiempo real estricto:** otros métodos clásicos del sketch pueden
+seguir bloqueando, y el código de usuario debe llamar periódicamente al
+motor que haya iniciado.
+
+### Paso 2. Ejemplo 5 — Conectarse sin esperar en un bucle
+
+El servidor debe estar encendido y escuchando en el puerto elegido.
+Sustituye la IP por la de tu servidor y abre el Monitor Serie a 115200.
+
+```cpp
+#include <JWPLC_Ethernet.h>
+
+EthernetClient cliente;
+
+const IPAddress SERVIDOR(192, 168, 1, 100);
+const uint16_t PUERTO = 5000;
+
+bool conexionIniciada = false;
+bool pruebaTerminada = false;
+uint32_t inicioMs = 0;
+
+void finalizar(int resultado)
+{
+    pruebaTerminada = true;
+
+    if (resultado == 1)
+    {
+        Serial.println("Conectado");
+        cliente.println("Hola desde JWPLC");
+        cliente.stop(); // Método clásico: simplifica el ejemplo.
+    }
+    else
+    {
+        Serial.println("Conexion no completada");
+        cliente.cancelConnectAsync();
+    }
+}
+
+void setup()
+{
+    Serial.begin(115200);
+    JWPLC_Ethernet.useDHCP();
+}
+
+void loop()
+{
+    if (pruebaTerminada ||
+        !JWPLC_Ethernet.isReady())
+    {
+        return;
+    }
+
+    if (!conexionIniciada)
+    {
+        conexionIniciada = true;
+        inicioMs = millis();
+
+        int estado = cliente.beginConnectAsync(
+            SERVIDOR,
+            PUERTO);
+
+        if (estado != 0)
+        {
+            finalizar(estado);
+        }
+
+        return;
+    }
+
+    if (millis() - inicioMs >= 5000)
+    {
+        finalizar(-1);
+        return;
+    }
+
+    int estado = cliente.pollConnectAsync();
+
+    if (estado != 0)
+    {
+        finalizar(estado);
+    }
+}
+```
+
+**¿Qué aprendiste?** `beginConnectAsync()` se ejecuta una sola vez;
+`pollConnectAsync()` se consulta después. En cada vuelta el sketch
+puede salir y dejar avanzar otras tareas. El envío `println()` y el
+cierre `stop()` del ejemplo siguen siendo llamadas clásicas; no
+debes considerarlos automáticamente asíncronos.
+
+### Paso 3. Tabla de métodos TCP cooperativos — Avanzado
+
+Estas funciones están declaradas en **`EthernetClient`**.
+No son métodos de `JWPLC_Ethernet`, ni es necesario llamarlas para
+habilitar la Ethernet integrada.
+
+| Acción | Empezar | Consultar avance | Saber si sigue activa | Cancelar |
+|---|---|---|---|---|
+| Conectar | `beginConnectAsync(ip, puerto)` | `pollConnectAsync()` | `connectAsyncInProgress()` | `cancelConnectAsync()` |
+| Cerrar TCP | `beginStopAsync()` | `pollStopAsync()` | `stopAsyncInProgress()` | `cancelStopAsync()` |
+| Esperar TX | `beginFlushAsync()` | `pollFlushAsync()` | `flushAsyncInProgress()` | `cancelFlushAsync()` |
+| Enviar bytes | `beginWriteAsync(buffer, cantidad)` | `pollWriteAsync()` | `writeAsyncInProgress()` | `cancelWriteAsync()` |
+
+Para un primer proyecto usa preferentemente `connect()`, `read()`,
+`write()` y `stop()`, que son más fáciles de manejar aunque puedan
+esperar hasta su timeout.
+
+**Cuidado con la escritura cooperativa:** el arreglo que pasas a
+`beginWriteAsync()` debe existir y conservar exactamente sus datos
+hasta que la operación termine o sea cancelada. No pases un buffer local
+que desaparezca al salir de la función. No lances una segunda operación
+sobre el mismo cliente sin gestionar la primera.
+
+`cancelStopAsync()` puede forzar el cierre del socket; no es una
+«pausa» reversible. Si el resultado de un poll es `0`, no concluyas
+que el cable Ethernet se desconectó: el bus SPI puede estar ocupado.
+
+### Paso 4. Lectura TCP de alta velocidad — Integración avanzada
+
+Hay dos métodos públicos adicionales en `EthernetClient`:
+
+| Método | Función |
+|---|---|
+| `jwplcReadTcpFastDeferred(buffer, maxBytes)` | Extrae bytes y aplaza la confirmación del puntero RX al W5500 |
+| `jwplcCommitRxFast()` | Confirma que el hardware puede liberar la memoria RX correspondiente |
+
+Se usan **en pareja**. Si una lectura diferida consume datos y
+nunca se confirma, la memoria de recepción puede quedar retenida. El
+`commit` devuelve `bool`; un resultado `false` no demuestra que el
+hardware haya registrado el avance. El integrador debe gestionar
+reintento/recuperación según su máquina de estados. Una lectura con
+retorno `0` tampoco distingue por sí sola «sin datos» de «SPI ocupado».
+
+**Para comenzar, no necesitas estos métodos.** Usa
+`available()` y `read()`; el camino de lectura normal administra
+el avance de recepción por ti.
+
+### Errores comunes en las funciones avanzadas
+
+- **Reiniciar la conexión en cada vuelta:** llama una vez a
+  `beginConnectAsync()` y luego usa `pollConnectAsync()`.
+- **Esperar con `while (pollConnectAsync() == 0)`:** anula la ventaja
+  del comportamiento cooperativo y puede retrasar tu lógica de aplicación.
+- **Tratar `0` como fallo:** significa pendiente, posiblemente por SPI.
+- **Modificar o destruir un buffer mientras se transmite:** el motor
+  puede necesitarlo en las siguientes llamadas.
+- **Olvidar `jwplcCommitRxFast()`:** puede retener memoria RX.
+
+**Cobertura:** estos contratos existen en el código Alpha13, pero no se
+afirma que cada combinación de cancelación, contención SPI y cierre
+diferido haya superado ensayos físicos independientes. Ver el dictamen
+G10-H para los límites de las pruebas.
+
 ## Mejoras de estabilidad en Alpha13
 
 El puerto W5500 mantiene el manejo automático del JWPLC Basic. En esta
