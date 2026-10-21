@@ -139,9 +139,11 @@ jobs:
   promote-candidate:
     name: Adoptar 2 archives SOLO en rama Draft PR125 tras gates completos
     needs: [archive-candidate, cross-os]
-    # Bloqueo A13: no adoptar archives hasta N1/N2 paridad real por FQBN y negativo Core.
-    # Reactivar unicamente tras el gate aprobado, nunca por verde de solo enlace.
-    if: ${{ false }}
+    # Solo tras ambos SO, FQBN, hashes canonicos y cross-OS PASS.
+    # Una diferencia o job omitted bloquea el job y evita modificar JWPLC/.
+    if: ${{ github.event_name == 'push' && github.ref_name == 'codex/alpha13-precompile-benchmark-docs-20261020' }}
+    outputs:
+      adopted_sha: ${{ steps.adopt.outputs.adopted_sha }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -149,7 +151,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: true
       - uses: actions/download-artifact@v4
@@ -161,10 +163,11 @@ jobs:
           name: alpha13-two-archives-windows-latest-${{ github.run_id }}
           path: ${{ runner.temp }}/a13-input/windows
       - name: Comprobar SHA de branch y adoptar cuatro rutas acotadas
+        id: adopt
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
           python -B tools/alpha13/precompile/a13_archive_release_gate.py             --mode adopt             --ubuntu-artifact "$RUNNER_TEMP/a13-input/ubuntu"             --windows-artifact "$RUNNER_TEMP/a13-input/windows"             --output "$RUNNER_TEMP/a13-adoption"
           git diff --check
           git config user.name "github-actions[bot]"
@@ -173,6 +176,7 @@ jobs:
           test "$(git diff --cached --name-only | wc -l)" -eq 4
           git commit -m "build(alpha13): precompilar Ethernet y ModbusTCP desde fuentes verificadas"
           git push origin HEAD:refs/heads/codex/alpha13-precompile-benchmark-docs-20261020
+          echo "adopted_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -180,3 +184,62 @@ jobs:
           path: ${{ runner.temp }}/a13-adoption/GATE.json
           if-no-files-found: warn
           retention-days: 14
+
+  n3-product-after-adoption:
+    name: N3 package real 11 sketches y dos FQBN - ${{ matrix.os }}
+    needs: [promote-candidate]
+    if: ${{ needs.promote-candidate.result == 'success' }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.promote-candidate.outputs.adopted_sha }}
+          fetch-depth: 0
+      - name: Confirmar exactamente el SHA de adopción
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ needs.promote-candidate.outputs.adopted_sha }}"
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - uses: arduino/setup-arduino-cli@v2
+        with:
+          version: '1.5.1'
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15/packages/jwplc
+            ~/.arduino15/staging
+          key: a13-f137-n3-${{ runner.os }}-${{ hashFiles('JWPLC/package_jwplc_index_dev.json') }}
+      - name: Instalar toolchain existente sin USB/COM/flash
+        shell: bash
+        run: |
+          set -euo pipefail
+          arduino-cli config init --overwrite
+          arduino-cli config set board_manager.additional_urls "https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json"
+          arduino-cli core update-index
+          arduino-cli core install 'jwplc:esp32@2.1.0-alpha.10'
+      - name: N0 producto real con archives y matriz
+        shell: pwsh
+        run: |
+          python -B -m py_compile tools/alpha13/f137_product_n3.py
+          python -B tools/alpha13/f137_product_n3.py --check
+      - name: N3 package real - 11 sketches Basic y prueba dual Basic/Core
+        shell: pwsh
+        run: |
+          python -B tools/alpha13/f137_product_n3.py --output (Join-Path $env:RUNNER_TEMP 'f137-product-n3')
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: alpha13-f137-product-n3-${{ matrix.os }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/f137-product-n3/MANIFEST.json
+            ${{ runner.temp }}/f137-product-n3/*.log
+          retention-days: 14
+          if-no-files-found: warn
