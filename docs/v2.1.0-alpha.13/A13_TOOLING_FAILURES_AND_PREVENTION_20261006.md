@@ -2826,3 +2826,9 @@ F137_REMEDIATION=IN_PR125_UNVERIFIED_FINAL_CI
 F137_PRODUCT_BASE=NOT_AFFECTED
 NEXT_FAILURE_ID=F138
 ```
+
+## Actualización F137 — distinguir compilador de inspección N3 (20/10/2026, Lima)
+
+El mismo incidente F137 incluyó falsos negativos **del harness**, no del producto: en el N3 Windows de [CI #39531758494](https://github.com/JW-Control/platform-jwplc/actions/runs/39531758494) el primer sketch compiló y enlazó los dos `.a`, pero la verificación de ruta `-L` no reconoció barras escapadas y el alias Windows `RUNNER~1` frente a `runneradmin`. Una revisión intermedia introdujo `\\s` en una regex raw donde correspondía `\s`, lo que reprodujo el falso negativo en Linux. La variante corregida se probó **con tres logs reales** de compilación (uno Ubuntu y dos Windows) y mantiene la exigencia de librería seleccionada, opciones `-L` y `-l`, hashes correctos y ausencia de recompilación de las fuentes. Replay [CI #39538155047](https://github.com/JW-Control/platform-jwplc/actions/runs/39538155047).
+
+**Prevención:** comprobar el parser con logs de ambos sistemas antes de gastar compilaciones N3, normalizar `\\` escapada, tomar el sufijo de ruta temporal único como ancla de `-L`, y no confundir resultado global FAILURE con los subjobs de benchmark/adopción que pasaron. Mantener la falla bajo **F137**; siguiente identificador libre **F138**. La H física, el merge y la Release permanecen fuera de este gate.
