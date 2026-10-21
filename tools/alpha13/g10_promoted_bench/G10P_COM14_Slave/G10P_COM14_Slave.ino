@@ -29,7 +29,7 @@ void setup() {
   tcpConfigured = JWPLC_ModbusTCP.beginServer(1, 502);
   Serial.print("G10P_COM14_BOOT:NONCE=");
   Serial.print(bootNonce, HEX);
-  Serial.print(" VER=G10_PROMOTED_PRODUCT_PH0_V1 RTU=");
+  Serial.print(" VER=G10_PROMOTED_PRODUCT_F137_V1 RTU=");
   Serial.print(rtuConfigured ? 1 : 0);
   Serial.print(" TCP_CFG=");
   Serial.println(tcpConfigured ? 1 : 0);
