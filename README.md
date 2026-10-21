@@ -35,14 +35,14 @@ compilación.
 | Canal | Versión | Estado |
 |---|---|---|
 | Estable | `v2.0.0` | Release pública estable |
-| Dev / próxima PreRelease | `v2.1.0-alpha.13` | G10+F137 integrados; publicación e instalación pendientes |
-| Última PreRelease verificada | `v2.1.0-alpha.12` | Publicada y validada |
+| Dev / PreRelease Alpha13 | `v2.1.0-alpha.13` | G10+F137 integrados; comprobar disponibilidad efectiva en Release e índice dev |
+| PreRelease de referencia histórica | `v2.1.0-alpha.12` | Publicación e instalación pospublicación validadas |
 
-Alpha12 sigue siendo la última versión con distribución validada. Alpha13 integró G10 y los archives Ethernet/Modbus TCP de F137 mediante [PR #125 MERGED](https://github.com/JW-Control/platform-jwplc/pull/125), package tree `cc17716f173509b1e0f3c0df5eb99549014c1d61`. N3 13/13 Windows+Ubuntu, H-F137 físico acotado (COM4+COM14, FC03 dual, RTU, UDP), C de integridad y conocimiento privado PR #27 fueron aprobados. **No se ha publicado** Alpha13: faltan auditoría global, autorización independiente de Release y validación de instalación desde ZIP/Boards Manager:
+Alpha12 conserva la evidencia histórica de publicación e instalación desde el índice dev. Alpha13 integró G10 y los archives Ethernet/Modbus TCP de F137 mediante [PR #125 MERGED](https://github.com/JW-Control/platform-jwplc/pull/125), con package tree `cc17716f173509b1e0f3c0df5eb99549014c1d61`. N3 13/13 Windows+Ubuntu, H-F137 físico acotado (COM4+COM14, FC03 dual, RTU, UDP) y C release-like desde ZIP con ambos FQBN pasaron. **La confirmación de que Alpha13 está publicada y es instalable se consulta en el tag/asset y el índice dev efectivos**, con la evidencia postpublicación registrada en `docs/v2.1.0-alpha.13/ALPHA13_STATUS.md` de la base; un build release-like no equivale a esa comprobación:
 
 ```text
 ALPHA12_STATUS=CLOSED_PUBLISHED
-ALPHA13_STATUS=OPEN_F137_MERGED_RELEASE_BLOCKED
+ALPHA13_SOURCE=G10_F137_INTEGRATED_C_RELEASE_LIKE_PASS\nALPHA13_PUBLISHED_STATUS=CONSULT_RELEASE_INDEX_AND_ALPHA13_STATUS
 ```
 
 Estado actual de Alpha12:
