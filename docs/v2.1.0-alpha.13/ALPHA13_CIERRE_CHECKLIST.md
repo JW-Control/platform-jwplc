@@ -16,6 +16,17 @@
 
 - [x] El workflow G10-R legado disparado fuera de alcance falló en #39641744816 (F134). Se acotó únicamente la condición del job a ramas G10-R/H0-F1; exigir `SKIPPED_NOT_APPLICABLE` cuando se trate de C, sin inventar PASS G10-R.
 
+## Puerta previa: clases de librerías y benchmark en PC
+
+- [x] Ampliar `JWPLC_Ethernet/README.md` siguiendo su formato de clase: introducción para principiantes, ejemplo cooperativo, funciones avanzadas `begin/poll/cancel` y lectura rápida TCP diferida con advertencias.
+- [x] Corregir `JWPLC_ModbusTCP/README.md`: ocho FC declarados/implementados, enseñanza de coils/bits LSB-first, registros y escrituras; distinguir implementación de evidencia física, sin generalizar FC03 a otros FC.
+- [x] Mantener intactos `.cpp`, `.h`, `.a`, propiedades precompiled, pines, variantes y autoload. Guard C acepta exactamente los dos README de librería y verifica los hashes binarios.
+- [x] Preparar runner de benchmark PC `a13_local_pc_benchmark.py`, lanzador `.bat` y procedimiento; solo stage aislado, sin USB/COM/upload.
+- [ ] Verificar con CI al **HEAD final** el nuevo ZIP docente, ruta exacta del package, SHA de archivos precompilados y ambos FQBN; reusar N3 funcional previo sin falsificar tree completo idéntico.
+- [ ] **Ejecutar en el PC del operador** el benchmark 3 pares fuente/precompiled, frío/caliente, Basic/Core. Guardar `MANIFEST.json`, medianas y evidencia real local (no reemplazar con GitHub Actions).
+- [ ] Actualizar tabla de tiempos **locales** y conclusiones, raíz README, PRE_RELEASE y estado. Aceptar limitaciones de upload no medido.
+- [ ] Revisión del operador del README final como material de primer microcontrolador/PLC, seguida de autorización separada de merge/Release.
+
 ## Gate F137 (archives Ethernet/Modbus TCP) — cierre técnico H y preparación C, 21/10/2026
 
 - [x] N2 y mediciones con 3 pares por SO/FQBN; fuente, objeto, archive y ELF, política weak/strong según Basic/Core; N3 package real 13/13 Windows+Ubuntu PASS ([#39538155047](https://github.com/JW-Control/platform-jwplc/actions/runs/39538155047)).
