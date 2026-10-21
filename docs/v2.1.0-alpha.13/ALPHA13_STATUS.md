@@ -1,3 +1,30 @@
+# ESTADO VIGENTE — F137-H dual COM14 + COM4 aprobado por operador (21/10/2026)
+
+**Alcance:** el propietario confirma **COM4 Master y COM14 Slave de prueba**, conectados por RS-485, y autoriza subir sus dos sketches F137 conjuntamente **sin respaldo**, conforme a la decisión histórica de 17/10. Orden protegido del runner: COM14 Slave primero, COM4 Master después, dentro de una sola operación. Salidas Q sin cargas/tensión, banco aislado. **Se necesita LAN local con DHCP y RJ45 de ambas placas más PC al router/switch** para validar Ethernet y Modbus TCP además de RTU. El último inventario local anterior vio solo COM4; la identidad USB real de los dos puertos debe confirmarse de nuevo y el runner falla cerrado si COM14 sigue ausente.
+
+**Código versionado:** `tools/alpha13/h_f137_dual.py` reutiliza el sellado local de COM4 `MANIFEST.json` del 21/10 si Git confirma ninguna modificación de `JWPLC/`, sketch Master y generador; compila **solo** el Slave con el mismo staged package y sella `MANIFEST_COM14.json`. Exige SHA, -L/-l y cero cpp.o de archivos precompilados; confirmación interactiva conjunta, no `erase-all`. Ante falla de COM14 **no** intenta COM4; ante falla de COM4 registra parcial y detiene; jamás repetir automáticamente. Las dos placas emiten `VER=G10_PROMOTED_PRODUCT_F137_V1`. Guía: `tools/alpha13/h_f137_com4/DUAL_UPLOAD.md`.
+
+**Evidencia:** N2+N3 13/13 Windows/Ubuntu y benchmark precompilados PASS; COM4 Master CI `#39551136908` PASS Windows+Ubuntu. **Build/sello dual CI y campañas físicas pendientes al registrar esta entrada**, sin afirmar éxito anticipado. El PR #125 permanece Draft, base sin archives nuevos y release bloqueada. La autorización del usuario no significa que este chat haya hecho upload físico.
+
+```text
+F137_DUAL_OPERATOR_AUTH=COM14_AND_COM4_DEV_ONLY_20261021
+F137_BACKUP=WAIVED_EXISTING_DEV_BOARD_EXCEPTION
+F137_COM4_LOCAL_BUILD=PASS_SEALED_20261021_092404_USER
+F137_COM14_LOCAL_BUILD=WAIT_OPERATOR
+F137_DUAL_CI=IN_REVIEW
+F137_ETHERNET_TEST=REQUIRE_BOTH_RJ45_ROUTER_DHCP_PC_LAN
+F137_COM4_USB=OBSERVED_PREVIOUSLY
+F137_COM14_USB=RECHECK_REQUIRED_PREVIOUSLY_ABSENT
+F137_PHYSICAL_UPLOAD=NOT_PERFORMED
+F137_UART_NETWORK_RTU=NOT_PERFORMED
+PR125=DRAFT_NO_MERGE
+RELEASE=BLOCKED
+NEXT_FAILURE_ID=F138
+NEXT_GATE=F137_DUAL_CI_THEN_LOCAL_SLAVE_SEAL_AND_COM14_COM4_UPLOAD
+```
+
+---
+
 # ESTADO VIGENTE — F137 H: build Master COM4 sellado, esperando operador (21/10/2026)
 
 **Run H-F137:** [CI #39551136908](https://github.com/JW-Control/platform-jwplc/actions/runs/39551136908), HEAD `bbb1af42269b66f17c79804d4ef140496882f484`, **SUCCESS global Windows+Ubuntu**, único sketch `G10P_COM4_Master` con marcador `G10_PROMOTED_PRODUCT_F137_V1`, los 2 archives Ethernet/Modbus TCP fijados por SHA-256 y `precompiled=full`, plataforma staged real y hashes sellados de ELF, firmware, bootloader y particiones. Ambos reportaron `H_F137_COM4_BUILD=PASS_ARCHIVES_BINARIES_SEALED`, `H_F137_COM4_UPLOAD=NOT_RUN`, `hardware=NOT_TOUCHED`. Los binarios Windows/Ubuntu tienen hash diferente: usar únicamente **build local sellado**, no copiar artefactos CI para flashear.
