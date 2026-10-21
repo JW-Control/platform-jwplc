@@ -544,31 +544,21 @@ No se habilita OTA ni OpenPLC dentro del autoload Arduino normal.
   renovación DHCP/DNS no se ejecutaron. Se mantiene esa limitación explícita,
   sin presentar cobertura parcial como PASS global.
 
-## Archives y benchmark de compilación
+## Archives y benchmark de compilación — F137 integrado
 
-El **core**, TFT, FRAM, Modbus RTU y SD ya tienen archivos
-precompilados asociados a las correcciones de Alpha13. Para **Ethernet W5500**
-y **Modbus TCP**, la precompilación se exige como gate adicional de cierre:
-reconstruir ambos `.a` desde fuentes, probar la selección
-`precompiled=full`, ausencia de compilación duplicada y compatibilidad
-Arduino IDE/CLI en ambos perfiles.
+**Estado del código:** [PR #125](https://github.com/JW-Control/platform-jwplc/pull/125) fusionado por squash (`23fae3a3`). Los archives canónicos de **JWPLC_Ethernet** y **JWPLC_ModbusTCP** forman parte del package de la rama Alpha13, junto con sus `library.properties` (`precompiled=full`) y la política Ethernet Basic `weak` / Basic Core `strong`. La huella del árbol `JWPLC/2.1.0` es `cc17716f173509b1e0f3c0df5eb99549014c1d61`, idéntica a la sometida a N3 13/13 en Windows y Ubuntu.
 
-En JWPLC Basic Core (`JWPLC_HAS_ETHERNET=0`), el contrato exige que el
-servicio Ethernet no realice transacciones W5500 ni cambie el CS. La política
-de placa debe resolverse dentro del package, sin intervención del sketch.
-El candidato F137 conserva `source-first` y mantiene bloqueada la promoción
-hasta demostrar paridad objeto por objeto en los dos FQBN y enlace ELF de
-la política Basic/Core. Los dos archivos `.a` iniciales fueron revocados
-solamente en la rama Draft.
+El archive de Ethernet contiene 12 miembros (SHA-256 `f190bbbbd69861941807a290be653de422e11a898d1a9583d289cc573d38a0f4`); el de Modbus TCP contiene 2 (SHA-256 `d5456307c5e8a4d2c4fcd3252464b96859faaa4df3ece3ca23e3c720f3b25a1d`). En Basic Core la política fuerte impide el acceso al W5500; no se exige configuración de pines desde el sketch. No se recompilan estos dos `.cpp` en el consumidor con el modo precompilado. Se conservan los demás archives y el autoload normal.
 
-El benchmark comparará **compilación fría y caliente** desde fuente contra
-la candidata precompilada usando igual placa, toolchain y sketch. Se exigen
-tres parejas por sistema operativo y por FQBN, con muestras y dispersión.
-La precompilación no implica reducción automática del tiempo de upload. Los números
-reales y SHA de los archives se registrarán en
-`docs/v2.1.0-alpha.13/A13_PRECOMPILE_BENCHMARK_20261020.md`.
-Hasta completar esa evidencia no se declara `PRECOMPILED_FREEZE=PASS`
-ni se publica el ZIP de Alpha13.
+Medianas de compilación **fría, fuentes → ambos archives** (3 pares por FQBN y sistema):
+
+| Sistema | JWPLC Basic | JWPLC Basic Core |
+|---|---|---|
+| Ubuntu | 27,245 → 18,976 s (**−30,4 %**) | 35,065 → 26,141 s (**−25,4 %**) |
+| Windows | 85,163 → 51,945 s (**−39,0 %**) | 95,054 → 79,908 s (**−15,9 %**) |
+
+La compilación caliente cambió poco; estos números **no** miden velocidad de upload. Método, variabilidad, prueba cruzada y hashes: [benchmark F137](docs/v2.1.0-alpha.13/A13_PRECOMPILE_BENCHMARK_20261020.md). H física de COM4/COM14 = `PASS_FUNCIONAL_ACOTADO`, no incluye Basic Core físico, R3 interno, R4 de 1805 s, DNS/DHCP renewal ni E1/E2. La validación del ZIP final y la instalación desde el índice dev **siguen pendientes** hasta la publicación; un N3 del árbol fuente no las reemplaza.
+
 
 ---
 
