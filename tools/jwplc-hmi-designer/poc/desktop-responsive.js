@@ -60,7 +60,7 @@
         ? `Sketch vinculado: ${name}. Clic para cambiar la vinculación.`
         : 'Seleccionar la carpeta del sketch Arduino';
     }
-    const title = name ? `${name} · JWPLC HMI Designer — Alpha11` : 'JWPLC HMI Designer — Alpha11';
+    const title = name ? `${name} · JWPLC HMI Designer — 2.1.0-alpha.14` : 'JWPLC HMI Designer — 2.1.0-alpha.14';
     if (document.title !== title) document.title = title;
   }
 

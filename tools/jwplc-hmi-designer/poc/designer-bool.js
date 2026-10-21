@@ -252,17 +252,12 @@
   }
 
   function patchStatusText() {
-    if (!codeOutput?.textContent.startsWith('A11 UX Foundation:')) return;
+    // Resumen del panel «Estado» (app.js): se agrega el conteo de BOOL.
+    if (!codeOutput?.textContent.startsWith('JWPLC HMI Designer ')) return;
     const activePage = Number(editor()?.getActivePage?.() ?? 0);
     const boolCount = allBoolFields().filter((field) => Number(field.page || 0) === activePage).length;
 
-    let text = codeOutput.textContent
-      .replace('A11-3B VALUE: IN_PROGRESS', 'A11-3B VALUE: PASS')
-      .replace('A11-3C BOOL y A11-3D BAR permanecen pendientes.', 'A11-3D BAR permanece pendiente.');
-
-    if (!text.includes('A11-3C BOOL: IN_PROGRESS') && !text.includes('A11-3C BOOL: PASS')) {
-      text = text.replace('A11-3B VALUE: PASS', 'A11-3B VALUE: PASS\nA11-3C BOOL: IN_PROGRESS');
-    }
+    let text = codeOutput.textContent;
     if (!text.includes('\n- BOOL:')) {
       text = text.replace(/(\n- VALUE: \d+)/, `$1\n- BOOL: ${boolCount}`);
     } else {
@@ -274,8 +269,8 @@
   function patchUI() {
     const field = selectedField();
     if (field?.type === 'BOOL') ensureBoolState(field);
-    if (gate) gate.textContent = 'Gate: A11-3C BOOL · API pública';
-    if (bottomSummary) bottomSummary.textContent = 'A11-3C · BOOL sobre API pública';
+    if (gate) gate.textContent = 'v2.1.0-alpha.14';
+    if (bottomSummary) bottomSummary.textContent = 'BOOL sobre API pública';
     patchObjectList();
     patchInspector(field);
     patchGeneratedCode();

@@ -267,17 +267,17 @@
     document.body.appendChild(script);
   }
 
-  loadScript('./designer-color-editor.js?v=1793800600', () => {
-  loadScript('./designer-bool.js?v=1793800600', () => {
-    loadScript('./designer-bar.js?v=1793800600', () => {
-      loadScript('./designer-zone-indicator.js?v=1793800600', () => {
-        loadScript('./designer-field-inspector.js?v=1793800600', () => {
-          loadScript('./designer-menu.js?v=1793800600');
-          loadScript('./designer-idle.js?v=1793800600');
-          loadScript('./designer-field-visibility.js?v=1793800600', () => {
-            loadScript('./designer-pages.js?v=1793801000', () => {
-              loadScript('./designer-flasher.js?v=1793801200', () => {
-                loadScript('./designer-live.js?v=1793801000');
+  loadScript('./designer-color-editor.js?v=1793801300', () => {
+  loadScript('./designer-bool.js?v=1793801300', () => {
+    loadScript('./designer-bar.js?v=1793801300', () => {
+      loadScript('./designer-zone-indicator.js?v=1793801300', () => {
+        loadScript('./designer-field-inspector.js?v=1793801300', () => {
+          loadScript('./designer-menu.js?v=1793801300');
+          loadScript('./designer-idle.js?v=1793801300');
+          loadScript('./designer-field-visibility.js?v=1793801300', () => {
+            loadScript('./designer-pages.js?v=1793801300', () => {
+              loadScript('./designer-flasher.js?v=1793801300', () => {
+                loadScript('./designer-live.js?v=1793801300');
               });
             });
           });

@@ -1,9 +1,0 @@
-{
-  "additionalFiles": "",
-  "compiler.optimization_flags": "-Os",
-  "customBuildProperties": "",
-  "fqbn": "jwplc:esp32:jwplcbasic",
-  "hardwareFolders": "C:\\Users\\Andre\\AppData\\Local\\Arduino15\\packages",
-  "otherLibrariesFolders": "C:\\Users\\Andre\\Documents\\Arduino\\libraries",
-  "sketchLocation": "C:\\Users\\Andre\\Documents\\GitHub\\platform-jwplc\\tools\\jwplc-hmi-designer\\gates\\A11_LivePreview_WebSerial\\JWPLC_HMI_Live_Bridge"
-}

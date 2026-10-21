@@ -3445,22 +3445,15 @@
   }
 
   function patchStatusText() {
-    if (!codeOutput?.textContent.startsWith('A11 UX Foundation:')) return;
+    // Resumen del panel «Estado» (app.js): se agrega el conteo de BAR.
+    if (!codeOutput?.textContent.startsWith('JWPLC HMI Designer ')) return;
     const barCount = visibleBars().length;
-    let text = codeOutput.textContent
-      .replace('A11-3C BOOL: IN_PROGRESS', 'A11-3C BOOL: PASS')
-      .replace('A11-3D BAR permanece pendiente.', 'A11-3D BAR: IN_PROGRESS');
-
-    if (!text.includes('A11-3D BAR: IN_PROGRESS') && !text.includes('A11-3D BAR: PASS')) {
-      const marker = text.includes('A11-3C BOOL: PASS') ? 'A11-3C BOOL: PASS' : 'A11-3B VALUE: PASS';
-      text = text.replace(marker, `${marker}\nA11-3D BAR: IN_PROGRESS`);
-    }
+    let text = codeOutput.textContent;
     if (!text.includes('\n- BAR:')) {
       text = text.replace(/(\n- BOOL: \d+)/, `$1\n- BAR: ${barCount}`);
     } else {
       text = text.replace(/\n- BAR: \d+/, `\n- BAR: ${barCount}`);
     }
-    text = text.replace(/\n\nA11-3D BAR permanece pendiente\.?/, '');
     codeOutput.textContent = text;
   }
 
@@ -3615,8 +3608,8 @@
   function patchUI() {
     const field = selectedField();
     if (field?.type === 'BAR') ensureBarState(field);
-    if (gate) gate.textContent = 'Gate: A11-3D BAR — Presets y Medidores';
-    if (bottomSummary) bottomSummary.textContent = 'A11-3D — BAR: Sólida, Degradado y Circular';
+    if (gate) gate.textContent = 'v2.1.0-alpha.14';
+    if (bottomSummary) bottomSummary.textContent = 'BAR: Sólida, Degradado y Circular';
     patchObjectList();
     patchInspector(field);
     if (field?.type === 'BAR') syncBarMini(field);

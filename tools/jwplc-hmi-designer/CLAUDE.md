@@ -162,9 +162,12 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
   emite TEXT/VALUE; BOOL/BAR salen como `JWPLC_UITextField` provisional que reemplazan sus capas.
 - Tras tocar el codegen: `node tests/codegen-golden.cjs` (salida byte a byte) y
   `node tests/codegen-smoke.cjs`. Un cambio intencional: `--update` y revisar el diff.
-- Tras tocar JS/CSS: subir el `?v=` **del archivo tocado** (hoy entre 1793800400 y 1793801100) en
+- Tras tocar JS/CSS: subir el `?v=` del archivo tocado (hoy 1793801300; `app.js` 1793801400) en
   `index.html`/`desktop.html`/`ux-foundation.js`/`designer-field-visibility.js` y `CACHE_NAME` en
-  `service-worker.js` (hoy `jwplc-hmi-designer-a15-flasher-v35`).
+  `service-worker.js` (hoy `jwplc-hmi-designer-a15-v38`).
+- Versión visible: `2.1.0-alpha.14` (título, `.brand-badge`, `.gate` de la barra de estado, panel «Estado»,
+  `electron/package.json`). El comentario `// API pública JWPLC_UI · Alpha11 A11-4` del header generado es un
+  marcador interno de las capas del codegen: no cambiarlo.
 
 ## Probar sin hardware
 

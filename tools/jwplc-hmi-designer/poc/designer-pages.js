@@ -1949,8 +1949,8 @@
     const current = pages().find((page) => page.id === activePage());
     const cfg = getNavBarConfig();
     if (statusPage) statusPage.textContent = `Página: ${activePage()} · ${current?.name || 'Página'}`;
-    if (gate) gate.textContent = cfg.enabled ? `Gate: A11-3E PAGES · Menú HMI (${cfg.preset})` : 'Gate: A11-3E PAGES · indicador NN/TT';
-    if (bottomSummary) bottomSummary.textContent = cfg.enabled ? `A11-3E · Páginas + Barra HMI (${pages().length} págs)` : 'A11-3E · Páginas + navegación compacta';
+    if (gate) gate.textContent = 'v2.1.0-alpha.14';
+    if (bottomSummary) bottomSummary.textContent = cfg.enabled ? `Páginas + Barra HMI (${pages().length} págs)` : 'Páginas + navegación compacta';
   }
 
   function patchUI() {

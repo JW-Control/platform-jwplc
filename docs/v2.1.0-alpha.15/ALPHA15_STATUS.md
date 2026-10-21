@@ -69,8 +69,8 @@ A15_F0_OPENPLC_BOOL_RELE=PASS_COMPILE (HAL VPP + bloque F0; OpenPLC y placa pend
 P1_LIVE_BRIDGE_FISICO=PENDING (André: regenerar app; sin Live Bridge -> aviso -> instalar -> LIVE conectado y diseño en la TFT)
 P2_ABRIR_DESDE_ARDUINO_IDE=PENDING (André: con .jwhmi, con y sin cambios sin guardar)
 P3_APP_ESCRITORIO_SIN_MODO_DESARROLLADOR=PENDING (André: Generar-e-Instalar-App-Escritorio.cmd termina y abre la app)
-P4_GATES_BUILD_EN_REPO=DECISION (17 archivos, ~44 MB en gates/A11_LivePreview_WebSerial/.../build/; propuesta: .gitignore como scratch/)
-P5_VERSION_VISIBLE_DEL_DESIGNER=DECISION (la UI y la app dicen «Alpha11» / 0.11.0-alpha.11; propuesta: 2.1.0-alpha.14)
+P4_GATES_BUILD_EN_REPO=DONE (2026-10-21: tools/jwplc-hmi-designer/gates/**/build/ fuera del repo y en .gitignore)
+P5_VERSION_VISIBLE_DEL_DESIGNER=DONE (2026-10-21: título, distintivo, barra de estado, panel Estado y app Electron dicen 2.1.0-alpha.14)
 P6_KNOWLEDGE_PR=PENDING (rama docs/hmi-designer-alpha15-cierre-20261019 de jwplc-dev-mcp sin fusionar a main)
 ```
 

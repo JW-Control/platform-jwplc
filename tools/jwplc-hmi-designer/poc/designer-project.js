@@ -301,7 +301,7 @@
 
   function validateProject(data) {
     if (!data || data.format !== PROJECT_FORMAT || Number(data.version) !== PROJECT_VERSION) {
-      throw new Error('El archivo no es un proyecto JWPLC HMI compatible con Alpha11.');
+      throw new Error('El archivo no es un proyecto compatible con el JWPLC HMI Designer.');
     }
     if (!Array.isArray(data.pages) || !data.pages.length || data.pages.length > 16) {
       throw new Error('El proyecto contiene una cantidad de páginas inválida.');

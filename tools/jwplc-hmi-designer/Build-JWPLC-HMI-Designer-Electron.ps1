@@ -20,7 +20,7 @@ if (-not (Test-Path -LiteralPath $packageJson -PathType Leaf)) {
     throw "No se encontró electron\package.json."
 }
 if (-not (Test-Path -LiteralPath $packageLock -PathType Leaf)) {
-    throw "No se encontró electron\package-lock.json. Alpha11 requiere el lockfile para un build reproducible."
+    throw "No se encontró electron\package-lock.json. el build reproducible requiere el lockfile."
 }
 if (-not (Test-Path -LiteralPath $sourceIcon -PathType Leaf)) {
     throw "No se encontró el icono del Designer: $sourceIcon"
@@ -36,7 +36,7 @@ New-Item -ItemType Directory -Force -Path $distRoot | Out-Null
 Copy-Item -LiteralPath $sourceIcon -Destination $electronIcon -Force
 
 Write-Host '================================================' -ForegroundColor DarkCyan
-Write-Host ' JWPLC HMI Designer - Build Electron Alpha11' -ForegroundColor Cyan
+Write-Host ' JWPLC HMI Designer - Build Electron 2.1.0-alpha.14' -ForegroundColor Cyan
 Write-Host '================================================' -ForegroundColor DarkCyan
 Write-Host ''
 Write-Host "Icono nativo: $sourceIcon"

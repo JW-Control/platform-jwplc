@@ -88,7 +88,7 @@
   function loadInspectorState() {
     if (window.JWPLCHMIInspectorState || document.querySelector('script[data-a11-inspector-state]')) return;
     const script = document.createElement('script');
-    script.src = './designer-inspector-state.js?v=1793800400';
+    script.src = './designer-inspector-state.js?v=1793801300';
     script.async = false;
     script.dataset.a11InspectorState = '1';
     script.onload = () => window.JWPLCHMIInspectorState?.sync?.();
@@ -117,7 +117,7 @@
     }
 
     const pixel = document.createElement('script');
-    pixel.src = './designer-pixelmap.js?v=1793800900';
+    pixel.src = './designer-pixelmap.js?v=1793801300';
     pixel.async = false;
     pixel.dataset.a11Pixelmap = '1';
     pixel.onload = () => {
@@ -125,12 +125,12 @@
       if (!window.JWPLCHMIPixelMaps) return;
 
       const pageGate = document.querySelector('.page-tabs .gate');
-      if (pageGate) pageGate.textContent = 'Gate: A11-7B · PIXEL por capas';
+      if (pageGate) pageGate.textContent = 'v2.1.0-alpha.14';
       const bottomSummary = document.querySelector('.bottom-summary');
-      if (bottomSummary) bottomSummary.textContent = 'A11-7B · pincel, borrador y onion skin';
+      if (bottomSummary) bottomSummary.textContent = 'pincel, borrador y onion skin';
       const statusGate = [...document.querySelectorAll('.statusbar span')]
         .find((node) => node.textContent.trim().startsWith('Gate:'));
-      if (statusGate) statusGate.textContent = 'Gate: A11-7B PIXEL LAYERS';
+      if (statusGate) statusGate.textContent = 'v2.1.0-alpha.14';
 
       loadInspectorState();
       loadPixelStability();

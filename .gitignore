@@ -24,3 +24,7 @@
 
 # Scripts temporales de trabajo (no versionar; CLAUDE.md §5)
 /scratch/
+
+# Salidas de «Exportar binario compilado» del Arduino IDE dentro de los gates
+# (el hook savehex del package copia .bin/.elf/.map/sdkconfig a <sketch>/build/).
+/tools/jwplc-hmi-designer/gates/**/build/
