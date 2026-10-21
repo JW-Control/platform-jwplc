@@ -7,11 +7,16 @@ on:
     paths:
       - '.github/workflows/alpha13-c-release-like.yml'
       - 'tools/alpha13/c_release_like.py'
+      - 'tools/alpha13/a13_local_pc_benchmark.py'
+      - 'tools/alpha13/RUN_ALPHA13_LOCAL_PC_BENCHMARK.bat'
+      - 'tools/alpha13/a13_local_pc_benchmark.py'
+      - 'tools/alpha13/RUN_ALPHA13_LOCAL_PC_BENCHMARK.bat'
       - 'JWPLC/2.1.0/libraries/JWPLC_Ethernet/README.md'
       - 'JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/README.md'
       - 'README.md'
       - 'docs/v2.1.0-alpha.13/A13_C_AUDITORIA_GLOBAL_Y_DISTRIBUCION_20261021.md'
       - 'docs/v2.1.0-alpha.13/PRE_RELEASE.md'
+      - 'docs/v2.1.0-alpha.13/A13_LOCAL_PC_BENCHMARK_PROCEDIMIENTO_20261021.md'
       - 'docs/v2.1.0-alpha.13/ALPHA13_CIERRE_CHECKLIST.md'
       - 'docs/v2.1.0-alpha.13/ALPHA13_STATUS.md'
   pull_request:
@@ -54,7 +59,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -B -m py_compile tools/alpha13/c_release_like.py
+          python -B -m py_compile tools/alpha13/c_release_like.py tools/alpha13/a13_local_pc_benchmark.py
+          python -B tools/alpha13/a13_local_pc_benchmark.py --check
           python -B tools/alpha13/c_release_like.py --check-source
           git diff --exit-code -- JWPLC/2.1.0
           echo "C_PACKAGE_DOCS=PASS_README_ONLY_VS_F137_N3"
