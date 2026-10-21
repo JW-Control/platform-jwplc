@@ -37,7 +37,7 @@ El error aparece antes de F137 en [#39487371928](https://github.com/JW-Control/p
 
 ## PENDIENTE_DE_PROMOCIÓN, riesgos y discrepancias
 
-- G10: `EMPTY`. F137: `EMPTY`. G1–G9: los cierres del registro declaran adopción productiva; no se identificó un overlay funcional aprobado cuyo código deba copiarse ahora. **Global: pendiente de ratificación C**, no convertir un inventario documental por sí solo en PASS de que nunca hubo trabajo pendiente.
+- G10: `EMPTY`. F137: `EMPTY`. G1–G9: los cierres canónicos registran promoción productiva; no apareció ningún cambio funcional **validado** limitado a un overlay pendiente de integrar. **C-AUDIT dictamen de inventario: `PENDIENTE_DE_PROMOCION_GLOBAL=EMPTY`**, condicionado a que el PR siga con diff `JWPLC/2.1.0` vacío. Los pendientes históricos de mapeo A13-008, instrumentación, R3/R4 y tests físicos **no son funcionalidades aprobadas pendientes de promoción** ni se convierten en PASS.
 - El README raíz y la cabecera del benchmark F137 contenían párrafos cronológicamente obsoletos: corregidos en esta rama documental; las secciones históricas continúan explícitas. `PRE_RELEASE.md` y el checklist mantienen estado previo a publicación.
 - `knowledge/main` en `28ac12e0` tiene lección F137 y PR #27 merged, pero `OPERATING_KNOWLEDGE.md` conserva párrafos Draft anteriores al merge; sincronizar por **nuevo PR privado**, no tocar el PR #28 de Alpha15.
 - Exclusiones: `OPENPLC=OUT_OF_SCOPE`, `HMI_DESIGNER=OUT_OF_SCOPE`, `TFT_NEW_FEATURES=OUT_OF_SCOPE`. No mover trabajo a Alpha15 sin planificación separada.
@@ -45,9 +45,13 @@ El error aparece antes de F137 en [#39487371928](https://github.com/JW-Control/p
 
 ## C-RELEASE-LIKE — contrato y criterio de parada
 
-**Sujeto al resultado del workflow dedicado en esta rama:** ejecutar `JWPLC/tools/jwplc_release.py prepare` con los mismos argumentos de Release real, índices semilla de `main`, `--recreate-zip --archive-root-mode folder --version 2.1.0-alpha.13`. Prohibidas APIs `gh release create`, `git push`, upload COM, merge y escritura en índices remotos.
+**Validación release-like ejecutada con éxito en [CI #39641744857](https://github.com/JW-Control/platform-jwplc/actions/runs/39641744857), commit `4aa3c82a` (todos sus pasos SUCCESS; sin skipped):** ejecutar `JWPLC/tools/jwplc_release.py prepare` con los mismos argumentos de Release real, índices semilla de `main`, `--recreate-zip --archive-root-mode folder --version 2.1.0-alpha.13`. Prohibidas APIs `gh release create`, `git push`, upload COM, merge y escritura en índices remotos.
 
 El gate debe demostrar en artifact `MANIFEST.json`: (1) HEAD exacto y tree esperado; (2) ZIP `jwplc-esp32-2.1.0-alpha.13.zip`, única raíz `2.1.0/`; (3) todos los bytes de entradas de ZIP idénticos al source de `JWPLC/2.1.0`, SHA-256 y tamaño; (4) dos `.a` con SHA canónicos y `library.properties` con `precompiled=full`; (5) índice dev simulado apuntando al ZIP generado, índice estable **sin cambios**; (6) instalación aislada/extracción del ZIP en sketchbook Arduino CLI, selección de **exactamente** el package extraído en ambos FQBN `jwplc:esp32:jwplcbasic`/`jwplcbasiccore`; (7) compilación de consumidores representativos, `-L/-l`, ELF real y ausencia de recompilación de los `.cpp` de las dos librerías.
+
+**Evidencia comprobada (run #39641744857):** `C_SOURCE_TREE=PASS_IDENTICAL_TO_F137_N3`; `C_NO_FIRMWARE_CHANGE=PASS`; `C_RELEASE_GENERATOR=PASS_NO_GITHUB_PUBLISH`; `C_ZIP_STRUCTURE=PASS_UNIQUE_ROOT_ALL_SOURCE_BYTES`; `C_ARCHIVES=PASS_TWO_SHA256_LIBRARY_PROPERTIES`; `C_INDEX_SIMULATED=PASS_DEV_ONLY_STABLE_OMITTED`; `C_CLI_STAGE=PASS_ZIP_EXTRACTED_IN_ISOLATED_DATA`; `C_CLI_COMPILE_jwplcbasic=PASS_ELF_LINK_ARCHIVES`; `C_CLI_COMPILE_jwplcbasiccore=PASS_ELF_LINK_ARCHIVES`. ZIP: `jwplc-esp32-2.1.0-alpha.13.zip`, **1 992 archivos**, **24 522 767 bytes**, SHA-256 **`02dfbc70053b652a1c2df202070573bb15abcb4ed4ab000e8699ed5f5643c783`**. Estos bytes son del ZIP de **este run candidato**; el despacho final regenerará el ZIP y deberá usar su propio SHA-256 real. Artifacts del run: `MANIFEST.json`, logs y ZIP. No se creó Release ni índice remoto.
+
+**Segundo workflow legacy disparado por el cambio de STATUS:** [CI G10-R #39641744816](https://github.com/JW-Control/platform-jwplc/actions/runs/39641744816) terminó FAILURE en Windows/Ubuntu en el **scope preflight** al interpretar el PR global como overlay experimental G10-R (F134), con etapas dependientes SKIPPED; no es una regresión de producto. Se acotó su `if:` a ramas experimentales G10-R/H0-F1, **sin relajar la whitelist**; para un PR Alpha13-C su job debe ser `SKIPPED_NOT_APPLICABLE`, nunca PASS de la función G10-R. Validar esa clasificación en el siguiente run.
 
 **Matiz de instalación:** el staging local del ZIP en sketchbook **no** equivale a una instalación desde el índice dev publicado. Eso queda `POSTPUBLISH=NOT_RUN` hasta un asset y entrada de índice reales. Tampoco acredita Arduino IDE gráfico ni upload. Una CI con pasos `skipped` críticos se considera REVIEW/FAIL, no PASS.
 
@@ -55,11 +59,11 @@ El gate debe demostrar en artifact `MANIFEST.json`: (1) HEAD exacto y tree esper
 
 ```text
 ALPHA13=OPEN
-C_AUDIT=REVIEW_PENDING_CI_AND_BASE_MERGE
-C_RELEASE_LIKE=NOT_RUN_UNTIL_CI_RESULT
+C_AUDIT=PASS_SCOPED_INVENTORY_PENDING_OPERATOR_PR_MERGE
+C_RELEASE_LIKE=PASS_39641744857_SHA_4aa3c82a
 PENDIENTE_DE_PROMOCION_G10=EMPTY
 PENDIENTE_DE_PROMOCION_F137=EMPTY
-PENDIENTE_DE_PROMOCION_GLOBAL=REVIEW_PENDING
+PENDIENTE_DE_PROMOCION_GLOBAL=EMPTY_AUDITED_SCOPE
 BASE_SYNC=PENDING_PR_MERGE
 KNOWLEDGE_SYNC=OK_F137_MAIN__NEW_DOC_PR_PENDING
 NEXT_FAILURE_ID=F138
