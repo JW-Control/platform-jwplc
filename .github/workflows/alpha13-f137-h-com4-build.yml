@@ -1,0 +1,69 @@
+name: Alpha13 F137 H COM4 - single Master sealed build (NO upload)
+
+on:
+  push:
+    branches:
+      - codex/alpha13-precompile-benchmark-docs-20261020
+    paths:
+      - tools/alpha13/h_f137_com4_build.py
+      - tools/alpha13/g10_promoted_bench/G10P_COM4_Master/**
+      - .github/workflows/alpha13-f137-h-com4-build.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  com4-master:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - uses: arduino/setup-arduino-cli@v2
+        with:
+          version: '1.5.1'
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15/packages/jwplc
+            ~/.arduino15/staging
+          key: f137-com4-${{ runner.os }}-${{ hashFiles('JWPLC/package_jwplc_index_dev.json') }}
+      - name: Instalar toolchain usado por N3 (sin USB ni flash)
+        shell: bash
+        run: |
+          set -euo pipefail
+          arduino-cli config init --overwrite
+          arduino-cli config set board_manager.additional_urls "https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json"
+          arduino-cli core update-index
+          arduino-cli core install 'jwplc:esp32@2.1.0-alpha.10'
+      - name: N0 fuente, contrato y autopruebas no fisicas
+        shell: pwsh
+        run: |
+          python -B -m py_compile tools/alpha13/h_f137_com4_build.py
+          python -B -m py_compile tools/alpha13/h_f137_com4.py
+          python -B tools/alpha13/h_f137_com4_build.py --selftest
+          python -B tools/alpha13/h_f137_com4_build.py --check --ci-detached --expected-head '${{ github.sha }}'
+          python -B tools/alpha13/h_f137_com4.py --selftest
+      - name: Compilar y sellar COM4 con los archives REALES del PR
+        shell: pwsh
+        run: |
+          python -B tools/alpha13/h_f137_com4_build.py --prepare --ci-detached --expected-head '${{ github.sha }}' --output (Join-Path $env:RUNNER_TEMP 'f137-com4-seal')
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: alpha13-f137-h-com4-seal-${{ matrix.os }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/f137-com4-seal/MANIFEST.json
+            ${{ runner.temp }}/f137-com4-seal/compile_COM4_MASTER.log
+          retention-days: 14
+          if-no-files-found: warn
