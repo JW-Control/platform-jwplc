@@ -28,8 +28,12 @@ jobs:
     # experimental G10-R. El checker legado compara contra otro baseline y
     # rechaza por diseño archivos del package. La promocion tiene N0/N1
     # independientes; el PR #125 de precompilados tampoco es G10-R.
+    # Al cerrar Alpha13, el STATUS cambia en PR de distribución que NO son
+    # G10-R ni H0-F1. No ejecutar este comprobador sobre esos PR; el resultado
+    # del job será SKIPPED_NOT_APPLICABLE, nunca PASS. Preserva F1 y las ramas
+    # experimentales originales, sin modificar la whitelist interna.
     # No relajar la whitelist del validador legado.
-    if: ${{ github.event_name != 'pull_request' || (!startsWith(github.head_ref, 'codex/alpha13-g10-promote-functional-') && !startsWith(github.head_ref, 'codex/alpha13-precompile-benchmark-docs-')) }}
+    if: ${{ github.event_name != 'pull_request' || startsWith(github.head_ref, 'codex/alpha13-g10-r-') || startsWith(github.head_ref, 'claude/alpha13-g10-r-') || startsWith(github.head_ref, 'codex/alpha13-h0-f1-') || startsWith(github.head_ref, 'claude/w5500-watchdog-audit-') }}
     name: G10-R contrato read-only (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
