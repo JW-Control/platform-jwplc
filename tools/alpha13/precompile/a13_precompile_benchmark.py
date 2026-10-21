@@ -211,6 +211,29 @@ def assert_precompiled(build: Path, log: str, hw: Path) -> None:
                 "ARCHIVE_NOT_LINKED_" + lib)
     print("A13_ARCHIVE_LINK=PASS_TWO_ARCHIVES_ZERO_SOURCE_OBJECTS", flush=True)
 
+def assert_elf_policy(props: dict[str, str], build: Path, expected: str,
+                      profile: str, kind: str) -> str:
+    """Una biblioteca compartida no puede activar W5500 en Basic Core."""
+    prefix, path = props.get("compiler.prefix", ""), props.get("compiler.path", "")
+    require(bool(prefix) and bool(path), "NM_PROPERTIES_MISSING")
+    nm = Path(path) / (prefix + "nm")
+    if os.name == "nt" and not nm.exists():
+        nm = nm.with_suffix(".exe")
+    require(nm.is_file(), "NM_MISSING_" + profile)
+    elf = list(build.glob("*.elf"))
+    require(len(elf) == 1, "ELF_MISSING_OR_DUPLICATE_" + profile)
+    result = run([str(nm), str(elf[0])])
+    found = re.findall(
+        r"(?m)^\\s*[0-9a-fA-F]+\\s+([A-Za-z])\\s+jwplcEthernetProfileAvailable$",
+        result,
+    )
+    require(len(found) == 1 and found[0] == expected,
+            "ETHERNET_POLICY_ELF_" + kind + "_" + profile + "_" + str(found))
+    print("A13_ARCHIVE_POLICY_ELF_" + kind + "_" + profile + "=" +
+          found[0] + "_PASS", flush=True)
+    return found[0]
+
+
 REPEAT_PAIRS = 3
 
 
@@ -361,6 +384,15 @@ def perform(out: Path, cli: str, detached: bool) -> None:
     ac = measured_pairs(
         cli, archive_cfg, core, out / "archive_build_basiccore",
         out, "archive_basiccore", archive_hw)
+    report["elf_policy_archive"] = {}
+    for board, build in (
+        (basic, out / "archive_build_basic"),
+        (core, out / "archive_build_basiccore"),
+    ):
+        props = properties(cli, archive_cfg, board, archive_hw)
+        report["elf_policy_archive"][board] = assert_elf_policy(
+            props, build, "W" if board == basic else "T",
+            board, "archive")
     report["bench"]["archive"] = {
         **ab, "basiccore_cold_s": ac["cold_s"],
         "basiccore_warm_s": ac["warm_s"],
