@@ -102,7 +102,7 @@ void setup() {
   rtuStarted = JWPLC_ModbusRTU.begin(247, 115200, SERIAL_8N1);
   Serial.print("G10P_COM4_BOOT:NONCE=");
   Serial.print(bootNonce, HEX);
-  Serial.print(" VER=G10_PROMOTED_PRODUCT_PH0_V1 TCP_CFG=");
+  Serial.print(" VER=G10_PROMOTED_PRODUCT_F137_V1 TCP_CFG=");
   Serial.print(tcpConfigured ? 1 : 0);
   Serial.print(" RTU=");
   Serial.println(rtuStarted ? 1 : 0);

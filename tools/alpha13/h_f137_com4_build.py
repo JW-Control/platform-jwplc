@@ -70,6 +70,8 @@ def check(head, ci=False):
             "WORKTREE_DIRTY")
     require(INO.is_file(), "MASTER_SKETCH_MISSING")
     source = INO.read_text(encoding="utf-8")
+    require("VER=G10_PROMOTED_PRODUCT_F137_V1" in source,
+            "FIRMWARE_IDENTITY_MARKER_MISSING")
     for forbidden in ("G10RLabDhcpProbe", "LabSocketSnapshot",
                       "gpio_set_level(", "ESP.restart(", "jwplcWriteQ(",
                       "FILE_WRITE", "erase_flash", "write_flash"):
