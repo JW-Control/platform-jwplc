@@ -2,19 +2,25 @@
 
 **Autorización del operador:** únicamente revisión, documentación y prueba release-like **sin publicación**. Rama `codex/alpha13-c-global-release-like-20261021`; fuente inicial base `d86ccdd3fab2352d0a6579e676b07a54662ccfc3`. Archivo de auditoría: [A13_C_AUDITORIA_GLOBAL_Y_DISTRIBUCION_20261021.md](A13_C_AUDITORIA_GLOBAL_Y_DISTRIBUCION_20261021.md). Se conserva `JWPLC/2.1.0` intacto y se usa el mismo ZIP del generador de Release para un gate de Arduino CLI aislado, **sin `gh release`, merge, COM o upload**. **C-RELEASE-LIKE PASS**: [CI #39641744857](https://github.com/JW-Control/platform-jwplc/actions/runs/39641744857), HEAD `4aa3c82a`, job completo sin omitidos, ZIP 1 992 archivos / 24 522 767 bytes / SHA-256 `02dfbc70053b652a1c2df202070573bb15abcb4ed4ab000e8699ed5f5643c783`; bytes y SHA de archives, índice simulado y compilación CLI Basic/Core. Este es el checksum del **ZIP candidato de ese run**, no del Release final. G10-R legado no aplicable falló por F134 en #39641744816 y su guard de rama ha sido ajustado para registrar SKIPPED fuera de alcance sin alterar el validador. Pendiente nueva CI del HEAD documental final.
 
+**Fase documentación educativa autorizada (21/10):** se ampliaron `JWPLC_Ethernet/README.md` y `JWPLC_ModbusTCP/README.md` con clases para primer PLC, conservando al final secciones avanzadas. El Client Modbus TCP ofrece ocho FC implementados en header/CPP; solo los que cuentan con evidencia H específica deben anunciarse como validados físicamente. **Precompilados F137 aprobados por operador, sin cambios.** Los dos README internos cambian el Git tree del package aunque sus archivos funcionales y SHA de `.a` estén congelados. El nuevo guard C permite **solo** esas dos rutas de README respecto de `d86ccdd3`; la CI C debe revisarse sobre el HEAD final.
+
+**Benchmark PC:** `LOCAL_PC_BENCHMARK=NOT_EXECUTED`. Runner Python + BAT y procedimiento Windows en el PR #126; ninguna medición de runner GitHub se atribuye al PC del operador. **README raíz = PROVISIONAL_PENDING_LOCAL_PC_BENCHMARK**, no cerrar ni publicar antes de incorporar los resultados reales.
+
 **Incidencia legacy:** el workflow antiguo `alpha13-g10-integrated.yml` falló por `CLIENT_CTOR_CHANGED` **antes** de compilar: su compositor esperaba constructor `EthernetClient(uint8_t s)` sin `_jwplcSocketToken`, pero la protección ya forma parte del producto. El mismo fallo está en #39487371928 (anterior a F137). `LEGACY_G10_INTEGRATED=HISTORICAL_FAIL_STALE_OVERLAY_PRECONDITION`, no PASS ni regresión de firmware demostrada. Mantener el workflow con su historia, no reflashear.
 
 ```text
 ALPHA13=OPEN
 C_AUDIT=PASS_SCOPED_INVENTORY_PENDING_PR_MERGE
-C_RELEASE_LIKE=PASS_39641744857_HEAD_4aa3c82a
+C_RELEASE_LIKE=PASS_PRE_DOC_UPDATE_NEW_CI_PENDING
 PENDIENTE_DE_PROMOCION_G10=EMPTY
 PENDIENTE_DE_PROMOCION_F137=EMPTY
 PENDIENTE_DE_PROMOCION_GLOBAL_ALPHA13=EMPTY_AUDITED_SCOPE
 BASE_SYNC=PENDING_C_PR_OPERATOR_MERGE
 KNOWLEDGE_SYNC=OK_F137_MAIN_NEW_C_DOC_REVIEW
 NEXT_FAILURE_ID=F138
-NEXT_GATE=ALPHA13_C_GLOBAL_AUDIT_AND_RELEASE_SOURCE_APPROVAL
+NEXT_GATE=ALPHA13_DOC_CI_THEN_LOCAL_PC_BENCHMARK_THEN_RELEASE_SOURCE_APPROVAL
+LOCAL_PC_BENCHMARK=NOT_EXECUTED
+README_ALPHA13=PROVISIONAL_PENDING_LOCAL_BENCHMARK
 RELEASE_DISPATCH=NOT_AUTHORIZED
 POSTPUBLISH=NOT_RUN
 ```
