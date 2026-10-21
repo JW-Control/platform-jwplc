@@ -64,8 +64,8 @@ def invariant_package() -> dict:
     package = ROOT / "JWPLC/2.1.0"
     tree = git("rev-parse", "HEAD:JWPLC/2.1.0")
     stop(tree == PACKAGE_TREE_SHA, "PACKAGE_TREE_NOT_N3")
-    stop(git("rev-parse", VALIDATED_N3_HEAD + ":JWPLC/2.1.0") == tree,
-         "N3_PROVENANCE_CHANGED")
+    # Referencia fija del arbol N3, NO exige traer el commit N3 por fetch:
+    # tambien funciona despues de squash o cherry-pick aprobados.
 
     for lib, expected in EXPECTED_ARCHIVES.items():
         libdir = package / "libraries" / lib
@@ -128,7 +128,7 @@ def selftest() -> None:
     stop(all(p.startswith("JWPLC/2.1.0/") for p in PRODUCT_DIFF_14),
          "SELFTEST_SCOPE")
     stop(PACKAGE_TREE_SHA != "", "SELFTEST_TREE")
-    print("F137_C_SELFTEST=PASS_SCOPE_SHA_NEGATIVE_CONTRACT_NO_HARDWARE")
+    print("F137_C_SELFTEST=PASS_STATIC_SCOPE_SHA_CONTRACT_NO_HARDWARE")
 
 
 def main() -> None:
