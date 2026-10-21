@@ -8,7 +8,22 @@ console.log('=== live-bridge-flasher.test.cjs — Verificación del Flasheador L
 
 const ROOT = path.resolve(__dirname, '..');
 const POC_DIR = path.join(ROOT, 'poc');
-const FW_DIR = path.join(POC_DIR, 'firmware');
+// Formato de exportación del package JWPLC («Exportar binario compilado»).
+const FW_DIR = path.join(POC_DIR, 'firmware', 'jwplc.esp32.jwplcbasic');
+const PKG = path.resolve(ROOT, '..', '..', 'JWPLC', '2.1.0');
+const APP = 'JWPLC_HMI_Live_Bridge.ino';
+
+// designer-flasher.js real en un contexto mínimo (sin DOM) para usar su parser.
+function loadFlasher() {
+  const vm = require('vm');
+  const el = () => ({ style: {}, appendChild() {}, setAttribute() {}, addEventListener() {}, querySelector: () => null });
+  const document = { baseURI: 'http://127.0.0.1/', createElement: el, head: el(), body: el(), getElementById: () => null, querySelector: () => null, addEventListener() {} };
+  const ctx = { window: {}, document, navigator: {}, console, URL, setTimeout, clearTimeout };
+  ctx.window.document = document;
+  vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.join(POC_DIR, 'designer-flasher.js'), 'utf8'), ctx);
+  return ctx.window.JWPLCHMIFlasher;
+}
 
 let passes = 0;
 let fails = 0;
@@ -40,21 +55,43 @@ async function testAsync(name, fn) {
 async function run() {
   console.log('FASE 2: Empaquetado y Artefactos de Firmware');
 
-  test('manifest.json existe y tiene la estructura correcta', () => {
-    const manifestPath = path.join(FW_DIR, 'manifest.json');
-    assert(fs.existsSync(manifestPath), 'manifest.json no existe');
-    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-    assert.strictEqual(manifest.target, 'esp32');
-    assert.strictEqual(manifest.baudRate, 921600);
-    assert.strictEqual(manifest.romBaudRate, 115200);
-    assert.strictEqual(manifest.parts.length, 4);
+  test('flash_args del package: mismas partes y direcciones que la subida de Arduino', () => {
+    const flasher = loadFlasher();
+    assert.strictEqual(flasher.FIRMWARE_DIR, './firmware/jwplc.esp32.jwplcbasic/');
+    const args = flasher.parseFlashArgs(fs.readFileSync(path.join(FW_DIR, 'flash_args'), 'utf8'));
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(args.parts.map((p) => [p.name, p.address, p.file]))), [
+      ['bootloader', 0x1000, `${APP}.bootloader.bin`],
+      ['partitions', 0x8000, `${APP}.partitions.bin`],
+      ['boot_app0', 0xe000, 'boot_app0.bin'],
+      ['app', 0x10000, `${APP}.bin`]
+    ]);
+    assert.deepStrictEqual([args.flashMode, args.flashFreq, args.flashSize], ['dio', '40m', '4MB']);
+    args.parts.forEach((p) => assert(fs.existsSync(path.join(FW_DIR, p.file)), `falta ${p.file}`));
+    // El mismo orden y direcciones que la receta del package (platform.txt).
+    const platform = fs.readFileSync(path.join(PKG, 'platform.txt'), 'utf8');
+    assert(/0x8000 \{build\.project_name\}\.partitions\.bin.*0xe000 boot_app0\.bin.*0x10000 \{build\.project_name\}\.bin/.test(platform),
+      'platform.txt ya no genera flash_args con 0x8000/0xe000/0x10000');
+  });
 
-    // Mismas partes y direcciones que la subida de Arduino (build/.../flash_args).
-    const names = manifest.parts.map(p => p.name);
-    assert.deepStrictEqual(names, ['bootloader', 'partitions', 'boot_app0', 'app']);
+  test('la tabla de particiones grabada es jwplc_max_app_4mb del package', () => {
+    const csv = fs.readFileSync(path.join(PKG, 'tools', 'partitions', 'jwplc_max_app_4mb.csv'), 'utf8')
+      .split(/\r?\n/).filter((l) => l.trim() && !l.startsWith('#'))
+      .map((l) => l.split(',').map((c) => c.trim()).slice(0, 5).map((c) => (/^0x/i.test(c) ? parseInt(c, 16) : c)));
+    const bin = fs.readFileSync(path.join(FW_DIR, `${APP}.partitions.bin`));
+    const TYPE = { 0: 'app', 1: 'data' };
+    const SUB = { '0:16': 'ota_0', '1:0': 'ota', '1:2': 'nvs', '1:3': 'coredump' };
+    const rows = [];
+    for (let o = 0; o < bin.length && bin.readUInt16LE(o) === 0x50AA; o += 32) {
+      rows.push([bin.toString('latin1', o + 12, o + 28).replace(/\0+$/, ''), TYPE[bin[o + 2]], SUB[`${bin[o + 2]}:${bin[o + 3]}`], bin.readUInt32LE(o + 4), bin.readUInt32LE(o + 8)]);
+    }
+    assert.deepStrictEqual(rows, csv);
+    assert.strictEqual(fs.readFileSync(path.join(PKG, 'boards.txt'), 'utf8').match(/^jwplcbasic\.build\.partitions=(.*)$/m)[1].trim(), 'jwplc_max_app_4mb');
+  });
 
-    const addresses = manifest.parts.map(p => p.address);
-    assert.deepStrictEqual(addresses, [0x1000, 0x8000, 0xe000, 0x10000]);
+  test('el flasher graba con flash-mode/freq/size keep, como la subida del package', () => {
+    const src = fs.readFileSync(path.join(POC_DIR, 'designer-flasher.js'), 'utf8');
+    assert(/flashMode: 'keep',\s*flashFreq: 'keep',\s*flashSize: 'keep'/.test(src));
+    assert(/--flash-mode keep --flash-freq keep --flash-size keep/.test(fs.readFileSync(path.join(PKG, 'platform.txt'), 'utf8')));
   });
 
   test('boot_app0.bin es otadata válida que arranca app0 (0xE000)', () => {
@@ -65,10 +102,9 @@ async function run() {
   });
 
   test('Binarios de firmware existen y tienen encabezados ESP32 válidos', () => {
-    const bootloader = fs.readFileSync(path.join(FW_DIR, 'bootloader.bin'));
-    const partitions = fs.readFileSync(path.join(FW_DIR, 'partitions.bin'));
-    const firmware = fs.readFileSync(path.join(FW_DIR, 'firmware.bin'));
-    const merged = fs.readFileSync(path.join(FW_DIR, 'firmware.merged.bin'));
+    const bootloader = fs.readFileSync(path.join(FW_DIR, `${APP}.bootloader.bin`));
+    const partitions = fs.readFileSync(path.join(FW_DIR, `${APP}.partitions.bin`));
+    const firmware = fs.readFileSync(path.join(FW_DIR, `${APP}.bin`));
 
     // Bootloader ESP32 empieza con magic byte 0xE9
     assert.strictEqual(bootloader[0], 0xE9, 'Bootloader magic byte debe ser 0xE9');
@@ -82,8 +118,6 @@ async function run() {
     assert.strictEqual(firmware[0], 0xE9, 'App firmware magic byte debe ser 0xE9');
     assert(firmware.length > 300000, 'App firmware tamaño insuficiente');
 
-    // Merged flash image 4MB (4,194,304 bytes)
-    assert.strictEqual(merged.length, 4194304, 'Merged image debe tener exactamente 4MB');
   });
 
   await testAsync('esptool-bundle.js se carga e implementa ESPLoader y Transport', async () => {
@@ -130,7 +164,7 @@ async function run() {
     const swSource = fs.readFileSync(path.join(POC_DIR, 'service-worker.js'), 'utf8');
     assert(swSource.includes('designer-flasher.js'), 'service-worker debe cachear designer-flasher.js');
     assert(swSource.includes('esptool-bundle.js'), 'service-worker debe cachear esptool-bundle.js');
-    assert(swSource.includes('firmware/manifest.json'), 'service-worker debe cachear manifest.json');
+    assert(swSource.includes('firmware/jwplc.esp32.jwplcbasic/flash_args'), 'service-worker debe cachear flash_args');
   });
 
   test('Mapeo de direcciones flash (0x1000 bootloader, 0x8000 partitions, 0x10000 app)', () => {

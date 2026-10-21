@@ -276,7 +276,7 @@
           loadScript('./designer-idle.js?v=1793800600');
           loadScript('./designer-field-visibility.js?v=1793800600', () => {
             loadScript('./designer-pages.js?v=1793801000', () => {
-              loadScript('./designer-flasher.js?v=1793801100', () => {
+              loadScript('./designer-flasher.js?v=1793801200', () => {
                 loadScript('./designer-live.js?v=1793801000');
               });
             });

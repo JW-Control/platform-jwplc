@@ -13,7 +13,12 @@
 > - se quitaron las copias duplicadas `JWPLC_HMI_Live_Bridge.ino.*` de `poc/firmware/`;
 > - `tools/alpha15/build_live_bridge_firmware.sh` regenera los binarios desde el `.ino`.
 >
-> Ver `ALPHA15_STATUS.md` (2026-10-21).
+> - **Formato:** el firmware pasa al formato de exportación del package, en
+>   `poc/firmware/jwplc.esp32.jwplcbasic/`, con los nombres originales y `flash_args`;
+> - el flasher lee `flash_args` en lugar de `manifest.json` (retirado) y graba con `keep`;
+> - `firmware.merged.bin` (4 MB, sin uso) se retiró.
+>
+> Las secciones 2 a 4 describen la versión original. Ver `ALPHA15_STATUS.md` (2026-10-21).
 
 ---
 

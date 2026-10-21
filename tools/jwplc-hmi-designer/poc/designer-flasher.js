@@ -38,57 +38,97 @@
     }
   }
 
+  // Firmware en el formato de exportación del package JWPLC («Exportar binario
+  // compilado»): firmware/jwplc.esp32.jwplcbasic/ con los nombres que deja el
+  // package y su flash_args (platform.txt, recipe.hooks.objcopy.postobjcopy.4).
+  // flash_args es el manifiesto: las mismas partes y direcciones que usa la
+  // subida de Arduino. No hay manifiesto escrito a mano.
+  const FIRMWARE_DIR = './firmware/jwplc.esp32.jwplcbasic/';
+  // Igual que jwplcbasic.upload.speed y el ROM del ESP32.
+  const UPLOAD_BAUD = 921600;
+  const ROM_BAUD = 115200;
+  // Respaldo si flash_args no se puede leer (mismo contenido que exporta el package).
+  const FLASH_ARGS_FALLBACK = [
+    '--flash-mode dio --flash-freq 40m --flash-size 4MB',
+    '0x1000 JWPLC_HMI_Live_Bridge.ino.bootloader.bin',
+    '0x8000 JWPLC_HMI_Live_Bridge.ino.partitions.bin',
+    '0xe000 boot_app0.bin',
+    '0x10000 JWPLC_HMI_Live_Bridge.ino.bin'
+  ].join('\n');
+
+  function partName(file) {
+    if (/\.bootloader\.bin$/i.test(file)) return 'bootloader';
+    if (/\.partitions\.bin$/i.test(file)) return 'partitions';
+    if (/^boot_app0\.bin$/i.test(file)) return 'boot_app0';
+    return 'app';
+  }
+
+  // "--flash-mode dio --flash-freq 40m --flash-size 4MB" + líneas "0xADDR archivo".
+  function parseFlashArgs(text) {
+    const options = {};
+    const parts = [];
+    String(text || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean).forEach((line) => {
+      if (line.startsWith('--')) {
+        const re = /--(flash-mode|flash-freq|flash-size)\s+(\S+)/g;
+        let m;
+        while ((m = re.exec(line))) options[m[1]] = m[2];
+        return;
+      }
+      const m = /^(0x[0-9a-f]+)\s+(\S+)$/i.exec(line);
+      if (m) parts.push({ address: parseInt(m[1], 16), file: m[2], name: partName(m[2]) });
+    });
+    if (!parts.length) throw new Error('flash_args no contiene partes para grabar.');
+    return {
+      flashMode: options['flash-mode'] || null,
+      flashFreq: options['flash-freq'] || null,
+      flashSize: options['flash-size'] || null,
+      parts
+    };
+  }
+
   async function loadFirmwareBinaries(onLog) {
     if (cachedFirmware) return cachedFirmware;
 
-    onLog?.('Descargando binarios precompilados del Live Bridge...');
-    const manifestUrl = resolveAssetUrl('./firmware/manifest.json');
-    let manifest;
+    onLog?.('Leyendo flash_args del Live Bridge (formato de exportación del package)...');
+    let args;
     try {
-      const resp = await fetch(manifestUrl, { cache: 'no-store' });
+      const resp = await fetch(resolveAssetUrl(`${FIRMWARE_DIR}flash_args`), { cache: 'no-store' });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      manifest = await resp.json();
+      args = parseFlashArgs(await resp.text());
     } catch (e) {
-      onLog?.(`Aviso: manifest.json no cargó (${e.message}), usando rutas por defecto`);
-      manifest = {
-        target: 'esp32',
-        flashMode: 'dio',
-        flashFreq: '40m',
-        flashSize: '4MB',
-        baudRate: 921600,
-        romBaudRate: 115200,
-        parts: [
-          { name: 'bootloader', path: './firmware/bootloader.bin', address: 0x1000 },
-          { name: 'partitions', path: './firmware/partitions.bin', address: 0x8000 },
-          // Igual que la subida de Arduino (flash_args): otadata que arranca app0.
-          { name: 'boot_app0', path: './firmware/boot_app0.bin', address: 0xe000 },
-          { name: 'app', path: './firmware/firmware.bin', address: 0x10000 }
-        ]
-      };
+      onLog?.(`Aviso: flash_args no cargó (${e.message}); se usan las partes por defecto del package.`);
+      args = parseFlashArgs(FLASH_ARGS_FALLBACK);
     }
 
     const loadedParts = [];
-    for (const part of manifest.parts) {
-      const fileUrl = resolveAssetUrl(part.path);
-      onLog?.(`Cargando ${part.name} (${part.path})...`);
+    for (const part of args.parts) {
+      const fileUrl = resolveAssetUrl(FIRMWARE_DIR + part.file);
+      onLog?.(`Cargando ${part.name} @0x${part.address.toString(16)} (${part.file})...`);
       const fileResp = await fetch(fileUrl, { cache: 'no-store' });
-      if (!fileResp.ok) throw new Error(`No se pudo descargar ${part.path}: HTTP ${fileResp.status}`);
+      if (!fileResp.ok) throw new Error(`No se pudo descargar ${part.file}: HTTP ${fileResp.status}`);
       const arrayBuffer = await fileResp.arrayBuffer();
       loadedParts.push({
         name: part.name,
         address: part.address,
         data: new Uint8Array(arrayBuffer),
-        desc: part.desc || part.name
+        desc: `${part.file} @0x${part.address.toString(16)}`
       });
     }
 
     cachedFirmware = {
-      manifest,
+      manifest: {
+        target: 'esp32',
+        baudRate: UPLOAD_BAUD,
+        romBaudRate: ROM_BAUD,
+        flashMode: args.flashMode,
+        flashFreq: args.flashFreq,
+        flashSize: args.flashSize
+      },
       parts: loadedParts,
       totalBytes: loadedParts.reduce((acc, p) => acc + p.data.length, 0)
     };
 
-    onLog?.(`Binarios listos: ${(cachedFirmware.totalBytes / 1024).toFixed(1)} KB en total.`);
+    onLog?.(`Binarios listos: ${(cachedFirmware.totalBytes / 1024).toFixed(1)} KB en total (${args.flashMode}/${args.flashFreq}/${args.flashSize}).`);
     return cachedFirmware;
   }
 
@@ -441,9 +481,11 @@
 
     const flashOptions = {
       fileArray,
-      flashMode: firmware.manifest.flashMode || 'dio',
-      flashFreq: firmware.manifest.flashFreq || '40m',
-      flashSize: firmware.manifest.flashSize || '4MB',
+      // Como la subida del package (--flash-mode keep --flash-freq keep
+      // --flash-size keep): se graba el encabezado tal como lo generó el build.
+      flashMode: 'keep',
+      flashFreq: 'keep',
+      flashSize: 'keep',
       eraseAll: false,
       compress: true,
       reportProgress: (fileIndex, written, total) => {
@@ -605,6 +647,8 @@
   window.JWPLCHMIFlasher = {
     isSupported: () => typeof navigator !== 'undefined' && 'serial' in navigator,
     loadBinaries: loadFirmwareBinaries,
+    parseFlashArgs,
+    FIRMWARE_DIR,
     flash: executeFlash,
     showPromptModal,
     runFlashWithModal

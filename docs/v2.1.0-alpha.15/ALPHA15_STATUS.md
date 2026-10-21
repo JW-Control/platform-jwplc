@@ -377,3 +377,18 @@ MENU_NODE_COUNT_LIMIT=64 por menú, 4 menús, 1 por página (9 nodos = +952 B RA
   - `scratch/` en la raíz (26 scripts temporales);
   - artefactos de compilación en `gates/A11_LivePreview_WebSerial/JWPLC_HMI_Live_Bridge/build/` (~44 MB). Los
     genera el hook «Export compiled binary» del package.
+- 2026-10-21 — **Live Bridge en el formato de exportación del package** (observación del jefe):
+  - [ejecutado] la partición grabada es `jwplc_max_app_4mb` (`jwplcbasic.build.partitions`): decodificada
+    entrada por entrada y comparada con el `.csv` del package, con MD5 válido. El flasher no borra la flash
+    entera, así que la NVS del PLC queda intacta;
+  - `poc/firmware/jwplc.esp32.jwplcbasic/` guarda los nombres que deja «Exportar binario compilado» y su
+    `flash_args`. `designer-flasher.js` lo lee como manifiesto y graba con `flash-mode/freq/size keep`, como
+    la subida del package. Se retiran `manifest.json`, escrito a mano (el que había omitido `boot_app0`), y
+    `firmware.merged.bin` (4 MB sin uso);
+  - [ejecutado] `build_live_bridge_firmware.sh` produce la misma carpeta: el `flash_args`, el bootloader, las
+    particiones y `boot_app0` salen idénticos al repo;
+  - [ejecutado] en Chromium, `JWPLCHMIFlasher.loadBinaries()` lee `flash_args` y descarga las 4 partes con sus
+    direcciones y encabezados. `live-bridge-flasher.test.cjs` pasa 10/10, con tests nuevos de `flash_args`,
+    de la partición y de `keep`.
+- 2026-10-21 — `scratch/` sale del repo y queda en `.gitignore` (`1b8e4d77`); se recupera con
+  `git checkout d06e28c6 -- scratch`.

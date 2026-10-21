@@ -81,17 +81,18 @@ window.JWPLCValueFormat   designer-value-format   formato de VALUE (número, mil
 - «Conectar JWPLC» envía `JWH?`; sin `JWHMI_LIVE_READY 1` en 2,5 s abre el modal de `designer-flasher.js`.
   El modal avisa que **el flasheo reemplaza el programa del PLC**. También está el botón
   «⚡ Flashear Live Bridge» del panel Diagnóstico.
-- `poc/firmware/manifest.json` y el respaldo de `designer-flasher.js` escriben lo mismo que la subida de
-  Arduino (`flash_args`):
-  - `bootloader @0x1000`;
-  - `partitions @0x8000`;
-  - `boot_app0 @0xE000`;
-  - `firmware @0x10000`.
+- Firmware en el **formato de exportación del package** («Exportar binario compilado»):
+  - `poc/firmware/jwplc.esp32.jwplcbasic/` con los nombres que deja el package (`JWPLC_HMI_Live_Bridge.ino.*.bin`
+    y `boot_app0.bin`);
+  - su `flash_args`, que es el manifiesto: `designer-flasher.js` (`parseFlashArgs`) graba esas partes en esas
+    direcciones (0x1000/0x8000/0xE000/0x10000) con `flash-mode/freq/size keep`, igual que la subida del package;
+  - partición `jwplc_max_app_4mb`; sin borrado de flash, así que la NVS queda intacta.
 
-  No quitar `boot_app0`.
+  No escribir un manifiesto a mano.
 - Binarios desde la fuente: `tools/alpha15/build_live_bridge_firmware.sh [--install]` (compila el `.ino` de
-  `gates/A11_LivePreview_WebSerial/` con `jwplc_local` y compara con el repo). Un binario nuevo se prueba en
-  la placa antes de publicarlo. Test: `tests/live-bridge-flasher.test.cjs`.
+  `gates/A11_LivePreview_WebSerial/` con `jwplc_local`, deja la misma carpeta y la compara con el repo). Un binario
+  nuevo se prueba en la placa antes de publicarlo. Test: `tests/live-bridge-flasher.test.cjs`, que también
+  verifica la tabla de particiones contra el `.csv` del package.
 
 ## Patrón de inspector objetivo (Propuesta 2 de BAR)
 
