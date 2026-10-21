@@ -1,3 +1,33 @@
+# ESTADO VIGENTE — F137 H: dual upload físico 2/2 y UART/RTU/Ethernet iniciales PASS (21/10/2026)
+
+**Prueba física aportada por operador:** el banco tiene JWPLC **COM4 Master** y **COM14 Slave**, conectados por RS-485 y por Ethernet. En PowerShell, después de `--inventory`, `--selftest`, `--prepare-slave` y `--check-dual` exitosos con reutilización del sello COM4, el operador autorizó y ejecutó una única campaña `h_f137_dual.py --upload-both`: `H_F137_UPLOAD_COM14=COMMAND_SUCCESS_UART_PENDING`, `H_F137_UPLOAD_COM4=COMMAND_SUCCESS_UART_PENDING` y `H_F137_DUAL_UPLOAD=COMMAND_SUCCESS_2_OF_2_UART_PENDING`. No se hizo backup, conforme a la exención histórica de placas de desarrollo. No hubo acciones del asistente sobre USB/flash ni cambios en el PLC productivo.
+
+**Captura VS Code UART 115200:** ambos muestran `PHY=1 ETH=1 TCP=1` y direcciones IP privadas diferentes en la LAN, `HB` creciente y BOOT nonces estables en la captura; COM4 `RTU_OK` creciente con `RTU_FAIL=0`; COM14 `RTU_REQUESTS` creciente y `RTU_CRC=0`. COM4: `SD_OK` y `FRAM_READ` crecientes, `SD_FAIL=0`, `RTC=1 IO=1 TFT=1`. **No confundir estado de servicio TCP=1 con FC03 remoto exitoso:** FC03 externo a ambos aún sin ejecutar; UDP COM4 sigue `RX=0 TX=0` en captura porque no se envió paquete. El marcador de arranque `VER=G10_PROMOTED_PRODUCT_F137_V1` no aparece en la porción de captura: pendiente de verificación explícita, aunque ambos uploads de Arduino CLI terminaron SUCCESS.
+
+**CI dual:** [#39622285204](https://github.com/JW-Control/platform-jwplc/actions/runs/39622285204) `SUCCESS` global Ubuntu+Windows con sellado de ambos roles, además N3 13/13 PASS. Nuevo probe UDP de COM4 `tools/alpha13/g10_promoted_bench/h_f137_udp_echo.py` es **solo red**, sin COM/flash; CI sintética independiente por validar. No repetir largos G10 R1/R4 ni reflashear. Guía canónica: `tools/alpha13/h_f137_com4/DUAL_UPLOAD.md`.
+
+```text
+F137_H_DUAL_UPLOAD=PASS_COMMAND_2_OF_2_BY_OPERATOR
+F137_H_COM4_MASTER_COM14_SLAVE=PASS_USB_IDENTITIES_PHYSICAL_DECLARATION
+F137_H_ETHERNET_LINK_DHCP_TCP_STATUS=PASS_BOTH_PLCS_UART
+F137_H_RTU_MASTER_SLAVE=PASS_READ_ONLY_COUNTERS
+F137_H_MASTER_SD_FRAM_RTC_IO_TFT=PASS_UART_COUNTERS
+F137_H_BOOT_F137_VERSION=WAIT_BOOT_CAPTURE
+F137_H_MODBUS_TCP_FC03_EXTERNAL=WAIT_OPERATOR
+F137_H_UDP_ECHO_COM4=WAIT_OPERATOR
+F137_H_WATCHDOG_VISIBLE_WINDOW=NO_RESET_OBSERVED
+F137_H_USB_UPLOAD=NO_MORE_REQUIRED
+F137_H_BACKUPS=WAIVED_DEV_BOARDS
+F137_H_FLASH_CONTENTS=NOT_READ_BACK
+PR125=DRAFT_NO_MERGE
+RELEASE=BLOCKED
+NEXT_GATE=F137_H_FC03_DUAL_AND_UDP_SMOKE_THEN_REVIEW_C
+```
+
+---
+
+**Nota base:** el código y los archives F137 siguen solo en PR #125 Draft; esta actualización es estrictamente documental.
+
 # ESTADO VIGENTE — F137 H: build Master COM4 sellado, esperando operador (21/10/2026)
 
 **Run H-F137:** [CI #39551136908](https://github.com/JW-Control/platform-jwplc/actions/runs/39551136908), HEAD `bbb1af42269b66f17c79804d4ef140496882f484`, **SUCCESS global Windows+Ubuntu**, único sketch `G10P_COM4_Master` con marcador `G10_PROMOTED_PRODUCT_F137_V1`, los 2 archives Ethernet/Modbus TCP fijados por SHA-256 y `precompiled=full`, plataforma staged real y hashes sellados de ELF, firmware, bootloader y particiones. Ambos reportaron `H_F137_COM4_BUILD=PASS_ARCHIVES_BINARIES_SEALED`, `H_F137_COM4_UPLOAD=NOT_RUN`, `hardware=NOT_TOUCHED`. Los binarios Windows/Ubuntu tienen hash diferente: usar únicamente **build local sellado**, no copiar artefactos CI para flashear.
