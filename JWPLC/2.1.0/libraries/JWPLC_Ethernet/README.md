@@ -599,8 +599,12 @@ las transferencias TCP y UDP y la convivencia con los otros dispositivos SPI.
   lecturas no intentan recibir más bytes de los permitidos por el transporte.
 - UDP admite datagramas que requieren envíos parciales y recupera operaciones
   incompletas sin depender de un `delay()` en tu sketch.
-- El pin CS del W5500 lo fija el package. **No configures pines internos**
-  ni uses GPIO6–11 para Ethernet.
+- El pin CS del W5500 lo fija el package mediante `JWPLC_ETH_CS` y la
+  corrección H0-F1 de `SS_PIN_DEFAULT`. **No configures pines internos**
+  ni uses GPIO6–11 para Ethernet. El sketch no debe corregir el variant.
+- El perfil `JWPLC Basic Core` deshabilita Ethernet desde el core: la
+  política del package impide al servicio acceder a W5500/CS en ese perfil.
+  Los binarios compartidos solo se aprueban tras verificar ambos FQBN.
 
 Tu código habitual con `useDHCP()`, `isReady()`,
 `EthernetClient`, `EthernetServer` y `EthernetUDP` se mantiene.
