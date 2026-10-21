@@ -51,7 +51,7 @@ jobs:
       - name: N0 - sintaxis y fuentes inalteradas
         shell: pwsh
         run: |
-          python -B -m py_compile tools/alpha13/precompile/a13_precompile_benchmark.py
+          python -B -m py_compile tools/alpha13/precompile/a13_precompile_benchmark.py tools/alpha13/precompile/a13_fqbn_object_gate.py tools/alpha13/precompile/a13_archive_release_gate.py
           python -B tools/alpha13/precompile/a13_precompile_benchmark.py --check --ci-detached
       - name: FQBN fuente-objeto - exigir paridad completa y símbolo policy por perfil
         shell: pwsh
