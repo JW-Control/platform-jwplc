@@ -1,3 +1,26 @@
+# F137 — resultados verificados (20/10/2026, Lima)
+
+**Estado N2:** PASS Ubuntu/Windows, ambos FQBN, 12 objetos Ethernet + 2 ModbusTCP, política ELF W Basic / T Basic Core. **CROSS_OS:** PASS. **Adopción:** realizada exclusivamente en PR #125 Draft, commit `1a55c3be8473a37018c2815dd68697abdad56441`; NO fusionado a rama base y NO publicado. **N3:** revisar el [replay CI #39538155047](https://github.com/JW-Control/platform-jwplc/actions/runs/39538155047) antes de declarar cierre técnico. **H física:** pendiente de autorización. No se modificaron los archives congelados ni hardware.
+
+Los benchmarks de [CI #39531758494](https://github.com/JW-Control/platform-jwplc/actions/runs/39531758494) contienen **tres parejas frías/calientes por perfil y SO**. Medianas medidas, segundos (fuente → archives):
+
+| Sistema | FQBN | Frío fuentes → archives | Ahorro frío | Caliente fuentes → archives |
+|---|---|---|---|---|
+| Ubuntu | Basic | 27,245 → 18,976 | 8,269 s / **30,4 %** | 3,829 → 3,762 |
+| Ubuntu | Basic Core | 35,065 → 26,141 | 8,924 s / **25,4 %** | 3,798 → 3,759 |
+| Windows | Basic | 85,163 → 51,945 | 33,218 s / **39,0 %** | 10,413 → 10,246 |
+| Windows | Basic Core | 95,054 → 79,908 | 15,146 s / **15,9 %** | 10,344 → 10,139 |
+
+**Rango de muestras frías, segundos (fuente → archive):** Ubuntu Basic 27,217–27,943 → 18,601–19,171; Ubuntu Basic Core 34,731–35,335 → 26,123–26,631; Windows Basic 78,691–87,078 → 51,144–52,227; Windows Basic Core 94,620–96,247 → 74,266–81,065. El cambio **no mide ni promete** acelerar subida USB.
+
+**Archives canónicos, idénticos Windows/Ubuntu:** Ethernet (12 miembros; 344774 bytes; SHA-256 `f190bbbbd69861941807a290be653de422e11a898d1a9583d289cc573d38a0f4`); Modbus TCP (2 miembros; 97740 bytes; SHA-256 `d5456307c5e8a4d2c4fcd3252464b96859faaa4df3ece3ca23e3c720f3b25a1d`). Manifest y `PASS_CROSS` disponibles como artifacts del run.
+
+**Nota CI:** el run global #39531758494 concluyó FAILURE **después de pasar** ambos benchmarks, enlace cruzado y adopción: N3 Ubuntu pasó 13/13, pero N3 Windows rechazó erróneamente rutas `-L` escapadas/alias 8.3 aunque su primer ELF se enlazó. Se corrigió el gate de logs y se inició N3 aislado #39538155047. No interpretar PASS parcial como N3 Windows PASS.
+
+---
+
+## Histórico de decisiones y pruebas anteriores (no sustituye al estado actualizado anterior)
+
 # Alpha13 — Gate obligatorio de precompilación y benchmark Ethernet/Modbus TCP
 
 **Estado:** `F137_CROSS_PROFILE_GATE_IN_PROGRESS`. Los archives iniciales fueron generados y revertidos del PR por incompatibilidad de perfil; faltan aprobación binaria, medición definitiva y promoción a `JWPLC/`. **La publicación de Alpha13 se pospone** hasta cerrar este gate y revisar sus efectos.
