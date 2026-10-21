@@ -8,11 +8,13 @@
 - [x] Inventario de cierres G1–G9, H0-F1, G10 y F137 con límites en [auditoría C](A13_C_AUDITORIA_GLOBAL_Y_DISTRIBUCION_20261021.md).
 - [x] Causa `CLIENT_CTOR_CHANGED` del compositor legacy G10 identificada como precondición obsoleta frente al producto ya promovido. El workflow antiguo **sigue FAILURE** y sus jobs omitidos no son PASS. Sin nuevo ID F.
 - [x] README raíz y cabecera del benchmark actualizados a F137 realmente promovido; no modificar archivos funcionales.
-- [ ] Revisar la CI del gate `alpha13-c-release-like.yml` **del SHA final**: JSON MANIFEST, ZIP con misma raíz y bytes que `JWPLC/2.1.0`, dos archives/propiedades, dev index simulado, stable index intacto, CLI aislado con Basic y Basic Core; inspeccionar jobs `skipped`.
+- [x] **C-RELEASE-LIKE #39641744857 sobre `4aa3c82a` PASS**: ZIP 1 992 archivos / 24 522 767 bytes / SHA `02dfbc70053b652a1c2df202070573bb15abcb4ed4ab000e8699ed5f5643c783`; prueba de bytes frente al tree y compilación Basic/Core; ver `MANIFEST.json`. Requiere ratificar el nuevo HEAD documental final antes de merge.\n- [ ] Revisar la CI del gate `alpha13-c-release-like.yml` **del SHA final**: JSON MANIFEST, ZIP con misma raíz y bytes que `JWPLC/2.1.0`, dos archives/propiedades, dev index simulado, stable index intacto, CLI aislado con Basic y Basic Core; inspeccionar jobs `skipped`.
 - [ ] Confirmar por Git diff **ninguna ruta de `JWPLC/2.1.0`** cambiada en el PR; si hay cambios de firmware, bloquear y reevaluar impacto.
-- [ ] Ratificar `PENDIENTE_DE_PROMOCION_GLOBAL_ALPHA13=EMPTY` con evidencia del inventario histórico (sin confundir investigaciones inconclusas con parches validados).
+- [x] Inventario G1–G9/G10/F1/F137 sin cambios validados pendientes de copiar a package: `PENDIENTE_DE_PROMOCION_GLOBAL_ALPHA13=EMPTY` bajo el mismo árbol; QA residual no es promoción.
 - [ ] Revisar PR de documentación privada hacia `knowledge/main` si se crea; no tocar Alpha15 ni fusionar el PR #28.
 - [ ] Aprobación separada del operador para fusionar este PR hacia la base y luego despachar Release. `ALPHA13=OPEN` hasta postpublicación.
+
+- [x] El workflow G10-R legado disparado fuera de alcance falló en #39641744816 (F134). Se acotó únicamente la condición del job a ramas G10-R/H0-F1; exigir `SKIPPED_NOT_APPLICABLE` cuando se trate de C, sin inventar PASS G10-R.
 
 ## Gate F137 (archives Ethernet/Modbus TCP) — cierre técnico H y preparación C, 21/10/2026
 
