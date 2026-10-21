@@ -1,3 +1,34 @@
+# ESTADO VIGENTE — F137-H validación funcional acotada PASS; siguiente gate C (21/10/2026)
+
+**Veredicto de banco:** `F137_H_VERDICT=PASS_FUNCIONAL_ACOTADO`. Ambas placas de desarrollo autorizadas, **COM14 Slave → COM4 Master** flasheadas por operador con sellos verificados y sin backup (exención histórica aprobada). Serial COM4/COM14: PHY/ETH/TCP=1, DHCP/IP privada distinta, heartbeat estable, RTU Master→Slave con `RTU_OK` y `RTU_REQUESTS` crecientes, `RTU_FAIL=0`, `RTU_CRC=0`; Master SD_OK/FRAM_READ crecientes, SD_FAIL=0, RTC/IO/TFT=1.
+
+**Pruebas independientes completadas por operador en su PC (sin escritura ni upload):** `g10p_modbus_tcp_readonly.py` -> `G10P_TCP_FC03_COM4_MASTER=PASS_4_REGISTERS`, `G10P_TCP_FC03_COM14_SLAVE=PASS_4_REGISTERS`, `G10P_TCP_DUAL_ROUTER=PASS_2_DIFFERENT_IPS`; `h_f137_udp_echo.py --samples 3` -> `F137_UDP_COM4=PASS_3_OF_3_ECHO`, sin abrir USB ni escribir registros. `0.00 ms` es salida redondeada, NO latencia cero. **No se exige repetir banco, flash ni respaldo.**
+
+**Evidencia H y límites:** documento `docs/v2.1.0-alpha.13/A13_F137_H_DICTAMEN_FISICO_20261021.md` disponible en <https://github.com/JW-Control/platform-jwplc/pull/125> (rama PR Draft). CI N3 #39538155047 PASS 13/13 Windows+Ubuntu; build dual #39622285204 PASS Windows+Ubuntu; UDP N0 #39625796508 jobs Ubuntu+Windows SUCCESS observados. La captura UART muestra heartbeat, pero **no** el marcador exacto `VER=G10_PROMOTED_PRODUCT_F137_V1` del BOOT: identidad basada en sellos y uploads, sin lectura posterior de flash. No se probó físicamente Basic Core ni estrés/RJ45/DNS-DHCP exhaustivo/E1-E2. No ampliar falsamente el alcance de H.
+
+**Integración:** Los dos archivos `.a` y las dos propiedades `precompiled=full` viven en **PR #125 Draft**, no en la rama base. No merge ni release autorizado todavía; la rama experimental tiene desfase con la base y requiere reconciliación revisada sin invalidar evidencias de los archivos productivos. El knowledge del caso está en PR #27 Draft, no en `knowledge/main`.
+
+```text
+F137_H_VERDICT=PASS_FUNCIONAL_ACOTADO
+F137_H_FC03_COM4=PASS
+F137_H_FC03_COM14=PASS
+F137_H_UDP_COM4=PASS_3_OF_3
+F137_H_RTU=PASS_COUNTERS
+F137_H_COM4_COM14_UPLOAD=PASS_COMMAND_2_OF_2
+F137_H_BOOT_F137_MARKER_VISIBLE=NO_CAPTURE_PROVENANCE_BY_SEALS
+F137_H_NO_FURTHER_UPLOAD_REQUIRED=YES
+ALPHA13=OPEN
+PR125=DRAFT_NO_MERGE
+PENDIENTE_DE_PROMOCION=F137_ARCHIVES_ETHERNET_MODBUSTCP_FROM_PR125_TO_ALPHA13_BASE
+BASE_SYNC=STATUS_DOC_ONLY_CODE_PENDING_OPERATOR_APPROVAL
+KNOWLEDGE_SYNC=PR27_DRAFT_MAIN_PENDING
+RELEASE=BLOCKED
+NEXT_FAILURE_ID=F138
+NEXT_GATE=F137_C_PR125_REVIEW_BASE_RECONCILIATION_AND_RELEASE_PREP
+```
+
+---
+
 # ESTADO VIGENTE — F137 H: dual upload físico 2/2 y UART/RTU/Ethernet iniciales PASS (21/10/2026)
 
 **Prueba física aportada por operador:** el banco tiene JWPLC **COM4 Master** y **COM14 Slave**, conectados por RS-485 y por Ethernet. En PowerShell, después de `--inventory`, `--selftest`, `--prepare-slave` y `--check-dual` exitosos con reutilización del sello COM4, el operador autorizó y ejecutó una única campaña `h_f137_dual.py --upload-both`: `H_F137_UPLOAD_COM14=COMMAND_SUCCESS_UART_PENDING`, `H_F137_UPLOAD_COM4=COMMAND_SUCCESS_UART_PENDING` y `H_F137_DUAL_UPLOAD=COMMAND_SUCCESS_2_OF_2_UART_PENDING`. No se hizo backup, conforme a la exención histórica de placas de desarrollo. No hubo acciones del asistente sobre USB/flash ni cambios en el PLC productivo.
