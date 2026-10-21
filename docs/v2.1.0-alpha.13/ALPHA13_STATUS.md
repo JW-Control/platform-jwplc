@@ -1,3 +1,30 @@
+# ESTADO VIGENTE — H-F137: identidad y respaldo COM4 (20/10/2026 Lima)
+
+**Alcance:** aprobado iniciar preflight H-F137 sin subir firmware. [N3 #39538155047](https://github.com/JW-Control/platform-jwplc/actions/runs/39538155047) 13/13 PASS Windows+Ubuntu con archivos .a reales. [H-N0 CI #39545618484](https://github.com/JW-Control/platform-jwplc/actions/runs/39545618484): selftest estático en Windows y Ubuntu **PASS**; no se abrió COM ni se utilizó ESP32.
+
+**Runner versionado:** `tools/alpha13/h_f137_com4.py`; contrato e instrucciones locales en `tools/alpha13/h_f137_com4/README.md`. Antes de leer flash, requiere HEAD/árbol limpio, hashes fijados de Ethernet/ModbusTCP, dos puertos USB CH340 diferentes con identidad física confirmada por el operador y consentimiento interactivo. Solo permite flash_id y read_flash sobre COM4; esas operaciones pueden reiniciar el Master. **No tiene opción de upload** y COM14 no se abre. Ningún backup físico ha sido presentado ni evaluado todavía.
+
+**PR #125:** Draft, archives solo allí. **La rama base NO recibió firmware ni archives nuevos**, pero este estado documental se sincroniza sin fusionar código. Conocimiento privado: PR #27 Draft actualizado con lección F137.
+
+```text
+ALPHA13=OPEN
+F137_N2_BENCHMARK_CROSS_OS=PASS
+F137_N3=PASS_13_OF_13_BOTH_WINDOWS_UBUNTU
+H_F137_N0=PASS_SELFTEST_BOTH_OS_39545618484
+H_F137_COM4_USB_IDENTITY=WAIT_OPERATOR
+H_F137_COM4_BACKUP_FULL_FLASH=WAIT_OPERATOR
+H_F137_COM4_UPLOAD=NOT_AUTHORIZED
+H_F137_COM14=UNTOUCHED
+H_F137_RJ45_MANEUVER=NOT_AUTHORIZED
+PRECOMPILED_FREEZE_ALPHA13=NOT_FINAL_UNTIL_H
+PR125=DRAFT_NO_MERGE
+RELEASE=BLOCKED
+NEXT_FAILURE_ID=F138
+NEXT_GATE=H_F137_COM4_OPERATOR_LOCAL_IDENTITY_AND_BACKUP_RECEIPT
+```
+
+---
+
 # ESTADO VIGENTE — F137 precompilación, corte 20/10/2026 (Lima)
 
 **PR #125:** Draft; adopción de dos archivos `.a` canónicos y dos `library.properties` completada **solamente en la rama candidata**, commit `1a55c3be8473a37018c2815dd68697abdad56441`. Rama base, distribución ZIP y Release todavía sin cambios. Sin flasheo, COM, USB ni modificaciones de GPIO4, `core.a` o archives congelados de otros periféricos.
