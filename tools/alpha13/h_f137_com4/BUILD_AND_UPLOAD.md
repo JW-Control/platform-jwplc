@@ -8,7 +8,7 @@
 
 Se reutiliza el sketch G10P_COM4_Master ya validado en N3. El ejecutor tools/alpha13/h_f137_com4_build.py prepara SOLO COM4 desde una copia completa del package del PR. Comprueba HEAD, árbol limpio, SHA-256 de los dos archives, precompiled=full, origen de la plataforma, opciones -L/-l y cero recompilaciones de las fuentes de Ethernet/Modbus TCP. Sella un ELF, firmware, bootloader y particiones (todos asociados a esa configuración de build) con sus hashes en MANIFEST.json fuera del checkout.
 
-La CI Windows+Ubuntu corre el modo --prepare, pero **no abre USB ni tiene permiso de upload**. El bootloader del build no se considera definitivo para la plataforma.
+La CI Windows+Ubuntu terminó PASS con --prepare en el HEAD bbb1af42, pero **no abre USB ni tiene permiso de upload**. El bootloader del build no se considera definitivo para la plataforma.
 
 ## Operación Windows PowerShell
 
@@ -40,4 +40,4 @@ El operador aprobará por separado **subir solo COM4**, después de verificar su
 
 Tras upload autorizado, verificar UART 115200 (BOOT/HB estables sin TG0/TG1/panic), PHY/ETH/TCP, DHCP, FC03, UDP y progreso RTC, RTU, SD, FRAM, IO/TCA y TFT. RJ45 requiere autorización separada. No repetir R1/R4 largos por inercia.
 
-H_F137_BACKUP=WAIVED_DEV; H_F137_BUILD=CI_PENDING; H_F137_UPLOAD=WAIT_EXPLICIT_APPROVAL; COM14=UNTOUCHED; PR125=DRAFT; RELEASE=BLOCKED.
+H_F137_BACKUP=WAIVED_DEV; H_F137_BUILD=PASS_BOTH_OS_CI_39551136908; H_F137_UPLOAD=WAIT_EXPLICIT_APPROVAL; COM14=UNTOUCHED; PR125=DRAFT; RELEASE=BLOCKED.
