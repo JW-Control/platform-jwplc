@@ -1,3 +1,59 @@
+# ESTADO VIGENTE — F137: DWARF aislado, archive canónico todavía sujeto a CI/N3
+
+**Evidencia no física atribuible:** [Windows/Ubuntu #39519348684](https://github.com/JW-Control/platform-jwplc/actions/runs/39519348684): dos compilaciones del **mismo FQBN** dieron `0/14` objetos divergentes en ambos sistemas. Basic frente a Basic Core en Windows produjo diferencias `11/12` Ethernet y `2/2` ModbusTCP en objetos originales, pero después de `objcopy --strip-debug` se obtuvo `0/12` y `0/2`, respectivamente. En Ubuntu, la paridad cruda ya era `12/12 + 2/2`. Esto atribuye las diferencias observadas a metadatos de depuración y permite evaluar **miembros canónicos**, sin convertir el antiguo `.a` en válido ni omitir el enlace ELF.
+
+**CI actual:** el candidato usa objetos canónicos de ambas bibliotecas, valida sus hashes al extraer miembros y comprueba los dos FQBN; la matriz de benchmark repite tres pares por perfil/SO. El [run #39520417396](https://github.com/JW-Control/platform-jwplc/actions/runs/39520417396) validó **solo Ubuntu** (build candidates PASS) y fue cancelado mientras terminaba Windows: no es PASS global. El HEAD más reciente exige enlace `nm` W en Basic/T en Basic Core con los `.a`. Revisar CI del **SHA exacto** antes de adoptar. `NEXT_FAILURE_ID=F138`, sin creación de nuevo fallo por reintentos del mismo F137.
+
+```text
+F137_RAW_OBJECT_DIFFERENCE_WINDOWS=11_OF_12_ETH_PLUS_2_OF_2_TCP
+F137_SAME_FQBN_REPEAT=PASS_ZERO_OF_14_CHANGED
+F137_STRIP_DEBUG_PARITY=PASS_12_OF_12_ETH_PLUS_2_OF_2_TCP
+F137_CANONICAL_ARCHIVES=CI_PENDING_CURRENT_SHA
+F137_PRODUCT_N3=NOT_RUN_ARCHIVES_NOT_ADOPTED
+PRECOMPILED_FREEZE_ALPHA13=NOT_PASS
+NEXT_FAILURE_ID=F138
+NEXT_GATE=A13_F137_CROSS_OS_ARCHIVE_SOURCE_ELF_THEN_PRODUCT_N3
+```
+
+---
+
+# ESTADO VIGENTE — 20/10/2026 — PR125: paridad Ethernet por FQBN bloquea release (F137)
+
+**Gate aprobado en conversación:** la publicación Alpha13 sigue BLOQUEADA hasta confirmar que `JWPLC_Ethernet` y `JWPLC_ModbusTCP` comparten un archive válido en ambos FQBN. Los nuevos `.a` del primer candidato de PR #125 fueron retirados **solo de la rama Draft**, conservados en Git histórico; `precompiled=full` revertido temporalmente y `promote-candidate` deshabilitado. No se modificaron archives congelados de otras librerías, `core.a`, pines ni GPIO4. Ningún upload o release autorizado.
+
+**F137:** prueba negativa `--expect-mismatch` del source heredado en CI [#39516689615](https://github.com/JW-Control/platform-jwplc/actions/runs/39516689615): Ubuntu Ethernet 1/12 distinto (`JWPLC_Ethernet.cpp`), Modbus TCP 0/2. Windows comparó rutas de build distintas y reportó diferencias más amplias, no interpretables como fallos semánticos; el gate se normalizó a misma ruta con `--clean`. Corrección candidata: Ethernet independiente del perfil mediante policy weak Basic/strong Core, con sus 21 bloques convertidos a guardas runtime. Debe pasar igualdad objeto por objeto, símbolo ELF, fuente→objeto→archive→ELF, N2/N3 de package real, benchmark 3 pares frío/caliente en Windows/Ubuntu para ambos FQBN y revisión final de README. **No atribuir PASS hasta obtener CI del HEAD exacto**.
+
+**Evidencia posterior:** Windows mismo FQBN repetido 0/14 diferencias, distinto FQBN 13/14 diferencias crudas, y **0/14 diferencias tras `objcopy --strip-debug`** ([CI #39519348684](https://github.com/JW-Control/platform-jwplc/actions/runs/39519348684)). Ubuntu del [run #39520417396](https://github.com/JW-Control/platform-jwplc/actions/runs/39520417396) completó el gate normalizado y 3 pares fuente/archive para ambos FQBN, pero el run global acabó CANCELLED antes de terminar Windows+cross-OS. Nuevo generador solo archivará miembros normalizados idénticos, comprobando su SHA; su adopción permanece bloqueada hasta CI final. Se versionó N3 real post-adopción en `tools/alpha13/f137_product_n3.py` y workflow `alpha13-f137-product-n3.yml`: 11 sketches y ambos FQBN, sin USB/COM/flash.
+
+**Sincronización de rama:** la candidata integró los dos commits documentales adelantados de la base mediante merge `261fcc0b3a9e21ce3e406457ab00883f452f627b`. Esta operación NO fusiona PR #125 a la base. `KNOWLEDGE_SYNC` G10/F135 previo OK, pero la lección F137 requiere nueva rama documental privada y PR cuando haya evidencia definitiva.
+
+```text
+ALPHA13=OPEN_PRECOMPILE_F137_AND_BENCHMARK_BLOCK_RELEASE
+PR125=DRAFT
+G10_PR124=MERGED_IN_BASE
+PRECOMPILE_FIRST_CANDIDATE=REVOKED_ONLY_IN_PR125
+NEW_ARCHIVES_IN_PRODUCT_BASE=NO
+PROFILE_OBJECT_PARITY=CANONICAL_ONLY_CI_FULL_PENDING
+PROFILE_POLICY_ELF=PARTIAL_PASS_FINAL_SHA_PENDING
+BENCHMARK_3_PAIRS_BOTH_FQBN_OS=PENDING_FINAL_RUN
+PRECOMPILED_FREEZE_ALPHA13=NOT_PASS
+RELEASE_WORKFLOW=BLOCKED
+UPLOAD=NOT_AUTHORIZED
+F137=OPEN_CANDIDATE_FIX_PENDING_CI
+NEXT_FAILURE_ID=F138
+E1=PENDING_GDB_UNAVAILABLE
+E2=PENDING_SDKCONFIG_NOT_LOCATED
+G10_R3_INTERNAL=NOT_TESTED_ACCEPTED_RISK
+G10_R4_1805S=NOT_RUN_ACCEPTED_SHORTENING
+G10_DHCP_DNS_SPECIFIC=NOT_TESTED
+PENDIENTE_DE_PROMOCION=ETHERNET_AND_MODBUSTCP_TWO_ARCHIVES_UNTIL_FINAL_GATE
+BASE_SYNC=PENDING_PR125_OPERATOR_MERGE
+KNOWLEDGE_SYNC=PENDING_F137_LESSON_PR
+NEXT_GATE=A13_F137_FINAL_SAME_PATH_PARITY_ELF_POLICY_THREE_PAIRS_AND_N3
+```
+
+---
+
 # ESTADO VIGENTE — 20/10/2026 — Alpha13 release BLOQUEADO hasta precompilar Ethernet/Modbus TCP y medir benchmark
 
 **Decisión explícita del propietario:** son obligatorios los archives `.a` de `JWPLC_Ethernet` y `JWPLC_ModbusTCP` antes de declarar Alpha13 cerrado/publicable; efectuar benchmark frío/caliente y actualizar READMEs de todas las librerías modificadas conservando estilo, ejemplos y APIs, además del README raíz. El cierre de desarrollo anunciado anteriormente era **funcional**, pero no el freeze completo de distribución y velocidad. **No ejecutar el workflow Release** aún.
