@@ -151,7 +151,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: ${{ github.sha }}
+          # El adopt gate exige branch real (no HEAD detached).
+          # El siguiente test verifica igualdad con SHA exacto del run.
+          ref: ${{ github.ref_name }}
           fetch-depth: 0
           persist-credentials: true
       - uses: actions/download-artifact@v4
