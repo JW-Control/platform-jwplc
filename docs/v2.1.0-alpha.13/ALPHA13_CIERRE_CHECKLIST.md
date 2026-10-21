@@ -12,6 +12,7 @@
 - [x] FC03 read-only por Ethernet a ambos PLC: 4 registros correctos cada uno y IP distintas.
 - [x] Eco UDP COM4: 3/3 datagramas de prueba correctos.
 - [x] Dictamen H `PASS_FUNCIONAL_ACOTADO` con límites: `A13_F137_H_DICTAMEN_FISICO_20261021.md`. No falsear boot marker UART no capturado, Basic Core físico, E1/E2, R3 interno, R4 largo, renovación DNS/DHCP o RJ45 de este F137.
+- [x] **F137-C read-only:** [CI #39628750096](https://github.com/JW-Control/platform-jwplc/actions/runs/39628750096) y replay corregido [#39629312465](https://github.com/JW-Control/platform-jwplc/actions/runs/39629312465) **SUCCESS global Windows+Ubuntu**, paquete N3 tree `cc17716f173509b1e0f3c0df5eb99549014c1d61`, 14 paths exactos, dos SHA-256 de archives, política Basic/Basic Core weak/strong PASS. El guard admite squash/referencia SHA de árbol sin exigir disponer del commit histórico N3.
 - [ ] **Reconciliar PR #125 con base Alpha13**: esta rama candidata está adelantada en código, pero detrás de la base en cambios documentales; revisar `JWPLC/2.1.0` y SHA de los dos archives después de integrar. No hacer merge sin autorización de propietario.
 - [ ] Confirmar adopción de los cuatro archivos producto F137 (dos `.a`, dos `library.properties`) en **rama base** antes de Release. Hasta entonces `PENDIENTE_DE_PROMOCION=F137_ARCHIVES`, y `BASE_SYNC=DOC_ONLY`.
 - [ ] Comprobar que `PRE_RELEASE.md`, README, source SHA y ZIP de publicación correspondan **a la rama base actualizada**, nunca publicar base antigua ni binarios de runner CI.
