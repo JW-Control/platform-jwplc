@@ -1,3 +1,25 @@
+# ESTADO VIGENTE EN BASE — H-F137 preparación COM4 pendiente de operación local (20/10/2026 Lima)
+
+**NO hay cambios binarios/productivos nuevos en esta rama base.** Los precompilados Ethernet/ModbusTCP F137 están adoptados únicamente en [PR #125 Draft](https://github.com/JW-Control/platform-jwplc/pull/125), cuya cabeza candidata al registrar fue `bca8697ac92799ac2e093002e9ce18f015bafebe`. **No fusionar automáticamente**, no publicar ni flashear.
+
+**Evidencia candidata:** [N3 #39538155047](https://github.com/JW-Control/platform-jwplc/actions/runs/39538155047) cerró 13/13 Ubuntu+Windows; benchmark 3 pares por OS/FQBN y paridad de archives aceptados. [H-N0 #39545618484](https://github.com/JW-Control/platform-jwplc/actions/runs/39545618484) PASS 2/2 autopruebas, sin usar hardware. El procedimiento H es `tools/alpha13/h_f137_com4.py` **solo en PR #125** y su README. Autorización: iniciar identidad/respaldo local COM4, con confirmación interactiva y posible reset de esptool; NO upload, erase, RJ45 ni tocar COM14. Aún no existe recibo físico validado.
+
+```text
+BASE_SYNC=OK_DOC_STATUS_ONLY_PENDING_PR125_OPERATOR_MERGE
+F137_ARCHIVES_IN_BASE=NO
+F137_N3_CANDIDATE=PASS_BOTH_OS
+H_F137_N0_CANDIDATE=PASS_BOTH_OS
+H_F137_COM4_IDENTITY=WAIT_OPERATOR
+H_F137_COM4_FULL_BACKUP=WAIT_OPERATOR
+H_F137_UPLOAD=NOT_AUTHORIZED
+H_F137_COM14=NO_TOUCH
+NEXT_FAILURE_ID=F138
+NEXT_GATE=H_F137_COM4_OPERATOR_LOCAL_IDENTITY_AND_BACKUP_RECEIPT
+RELEASE=BLOCKED
+```
+
+---
+
 # ESTADO VIGENTE — F137: DWARF aislado, archive canónico todavía sujeto a CI/N3
 
 **Evidencia no física atribuible:** [Windows/Ubuntu #39519348684](https://github.com/JW-Control/platform-jwplc/actions/runs/39519348684): dos compilaciones del **mismo FQBN** dieron `0/14` objetos divergentes en ambos sistemas. Basic frente a Basic Core en Windows produjo diferencias `11/12` Ethernet y `2/2` ModbusTCP en objetos originales, pero después de `objcopy --strip-debug` se obtuvo `0/12` y `0/2`, respectivamente. En Ubuntu, la paridad cruda ya era `12/12 + 2/2`. Esto atribuye las diferencias observadas a metadatos de depuración y permite evaluar **miembros canónicos**, sin convertir el antiguo `.a` en válido ni omitir el enlace ELF.
