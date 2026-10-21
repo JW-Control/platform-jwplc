@@ -1,3 +1,22 @@
+# ESTADO VIGENTE — F137: DWARF aislado, archive canónico todavía sujeto a CI/N3
+
+**Evidencia no física atribuible:** [Windows/Ubuntu #39519348684](https://github.com/JW-Control/platform-jwplc/actions/runs/39519348684): dos compilaciones del **mismo FQBN** dieron `0/14` objetos divergentes en ambos sistemas. Basic frente a Basic Core en Windows produjo diferencias `11/12` Ethernet y `2/2` ModbusTCP en objetos originales, pero después de `objcopy --strip-debug` se obtuvo `0/12` y `0/2`, respectivamente. En Ubuntu, la paridad cruda ya era `12/12 + 2/2`. Esto atribuye las diferencias observadas a metadatos de depuración y permite evaluar **miembros canónicos**, sin convertir el antiguo `.a` en válido ni omitir el enlace ELF.
+
+**CI actual:** el candidato usa objetos canónicos de ambas bibliotecas, valida sus hashes al extraer miembros y comprueba los dos FQBN; la matriz de benchmark repite tres pares por perfil/SO. El [run #39520417396](https://github.com/JW-Control/platform-jwplc/actions/runs/39520417396) validó **solo Ubuntu** (build candidates PASS) y fue cancelado mientras terminaba Windows: no es PASS global. El HEAD más reciente exige enlace `nm` W en Basic/T en Basic Core con los `.a`. Revisar CI del **SHA exacto** antes de adoptar. `NEXT_FAILURE_ID=F138`, sin creación de nuevo fallo por reintentos del mismo F137.
+
+```text
+F137_RAW_OBJECT_DIFFERENCE_WINDOWS=11_OF_12_ETH_PLUS_2_OF_2_TCP
+F137_SAME_FQBN_REPEAT=PASS_ZERO_OF_14_CHANGED
+F137_STRIP_DEBUG_PARITY=PASS_12_OF_12_ETH_PLUS_2_OF_2_TCP
+F137_CANONICAL_ARCHIVES=CI_PENDING_CURRENT_SHA
+F137_PRODUCT_N3=NOT_RUN_ARCHIVES_NOT_ADOPTED
+PRECOMPILED_FREEZE_ALPHA13=NOT_PASS
+NEXT_FAILURE_ID=F138
+NEXT_GATE=A13_F137_CROSS_OS_ARCHIVE_SOURCE_ELF_THEN_PRODUCT_N3
+```
+
+---
+
 # ESTADO VIGENTE — 20/10/2026 — PR125: paridad Ethernet por FQBN bloquea release (F137)
 
 **Gate aprobado en conversación:** la publicación Alpha13 sigue BLOQUEADA hasta confirmar que `JWPLC_Ethernet` y `JWPLC_ModbusTCP` comparten un archive válido en ambos FQBN. Los nuevos `.a` del primer candidato de PR #125 fueron retirados **solo de la rama Draft**, conservados en Git histórico; `precompiled=full` revertido temporalmente y `promote-candidate` deshabilitado. No se modificaron archives congelados de otras librerías, `core.a`, pines ni GPIO4. Ningún upload o release autorizado.
