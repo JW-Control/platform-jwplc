@@ -23,7 +23,14 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[2]
 PKG = ROOT / "JWPLC/2.1.0"
 VERSION = "2.1.0-alpha.13"
-TREE = "cc17716f173509b1e0f3c0df5eb99549014c1d61"
+BASE_COMMIT = "d86ccdd3fab2352d0a6579e676b07a54662ccfc3"
+BASE_TREE = "cc17716f173509b1e0f3c0df5eb99549014c1d61"
+# Los dos README de biblioteca forman parte del ZIP. Su edición cambia
+# correctamente el Git tree, pero no invalida el N3 binario/funcional.
+ALLOWED_PACKAGE_DOCS = {
+    "JWPLC/2.1.0/libraries/JWPLC_Ethernet/README.md",
+    "JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/README.md",
+}
 ARCHIVES = {
     "JWPLC_Ethernet": "f190bbbbd69861941807a290be653de422e11a898d1a9583d289cc573d38a0f4",
     "JWPLC_ModbusTCP": "d5456307c5e8a4d2c4fcd3252464b96859faaa4df3ece3ca23e3c720f3b25a1d",
@@ -59,11 +66,30 @@ def run(cmd: list[str | Path], *, log: Path | None = None, timeout: int = 1200) 
     return out
 
 
+def source_provenance() -> dict:
+    base_tree = run(["git", "rev-parse", BASE_COMMIT + ":JWPLC/2.1.0"]).strip()
+    fail_if(base_tree != BASE_TREE, "BASELINE_N3_TREE_CHANGED")
+    changes = [p for p in run(["git", "diff", "--name-only", BASE_COMMIT,
+                                 "HEAD", "--", "JWPLC/2.1.0"]).splitlines()
+               if p.strip()]
+    unexpected = sorted(set(changes) - ALLOWED_PACKAGE_DOCS)
+    fail_if(bool(unexpected), "FUNCTIONAL_PACKAGE_PATH_DIFF_" + ",".join(unexpected))
+    fail_if(bool(run(["git", "diff", "--name-only", "--", "JWPLC/2.1.0"]).strip()),
+            "UNCOMMITTED_PACKAGE_DIFF")
+    tree = run(["git", "rev-parse", "HEAD:JWPLC/2.1.0"]).strip()
+    for lib, digest in ARCHIVES.items():
+        archive = PKG / "libraries" / lib / "src/esp32" / ("lib" + lib + ".a")
+        fail_if(not archive.is_file() or sha(archive) != digest,
+                "FROZEN_ARCHIVE_CHANGED_" + lib)
+    print("C_N3_FUNCTIONAL_PROVENANCE=PASS_ONLY_DOCS_CHANGED", flush=True)
+    return {"package_tree": tree, "n3_functional_baseline_tree": BASE_TREE,
+            "allowed_documentation_changes": changes}
+
+
 def zip_inventory(zip_path: Path) -> dict:
     fail_if(not zip_path.is_file(), "ZIP_ABSENT")
     fail_if(zip_path.name != f"jwplc-esp32-{VERSION}.zip", "ZIP_NAME")
-    fail_if(run(["git", "rev-parse", "HEAD:JWPLC/2.1.0"]).strip() != TREE,
-            "PACKAGE_TREE_CHANGED_FROM_N3")
+    provenance = source_provenance()
     fail_if(not SKETCH.is_dir(), "MASTER_SKETCH_ABSENT")
     skip = {".git", "__pycache__"}
     source_paths = {
@@ -99,7 +125,7 @@ def zip_inventory(zip_path: Path) -> dict:
     return {
         "zip_name": zip_path.name, "zip_sha256": sha(zip_path),
         "zip_size": zip_path.stat().st_size, "entries": len(names),
-        "package_tree": TREE,
+        **provenance,
         "archive_sha256": ARCHIVES,
     }
 
@@ -201,10 +227,19 @@ def isolated_compile(zip_path: Path, output: Path, cli: str) -> list[dict]:
 
 def main() -> int:
     p = argparse.ArgumentParser()
-    p.add_argument("--zip", required=True, type=Path)
-    p.add_argument("--output", required=True, type=Path)
+    p.add_argument("--check-source", action="store_true")
+    p.add_argument("--zip", type=Path)
+    p.add_argument("--output", type=Path)
     p.add_argument("--cli", default="arduino-cli")
     args = p.parse_args()
+    if args.check_source:
+        try:
+            source_provenance()
+            return 0
+        except Exception as exc:
+            print(str(exc), file=sys.stderr, flush=True)
+            return 2
+    fail_if(args.zip is None or args.output is None, "ZIP_AND_OUTPUT_REQUIRED")
     output = args.output.resolve()
     fail_if(output.is_relative_to(ROOT), "OUTPUT_INSIDE_REPO")
     output.mkdir(parents=True, exist_ok=True)
