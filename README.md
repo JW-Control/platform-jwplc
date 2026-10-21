@@ -43,8 +43,8 @@ Alpha12 conserva la evidencia histórica de publicación e instalación desde el
 ```text
 ALPHA12_STATUS=CLOSED_PUBLISHED
 ALPHA13_SOURCE=G10_F137_INTEGRATED
-ALPHA13_DOCS=TUTORIALS_UPDATED_PR126
-ALPHA13_LOCAL_PC_BENCHMARK=NOT_EXECUTED
+ALPHA13_DOCS=TUTORIALS_AND_LOCAL_BENCHMARK_COMPLETE_PR126
+ALPHA13_LOCAL_PC_BENCHMARK=PASS_3_PAIRS_BOTH_FQBN
 ALPHA13_PUBLISHED_STATUS=CONSULT_RELEASE_INDEX_AND_ALPHA13_STATUS
 ```
 
@@ -553,7 +553,7 @@ No se habilita OTA ni OpenPLC dentro del autoload Arduino normal.
 
 El archive de Ethernet contiene 12 miembros (SHA-256 `f190bbbbd69861941807a290be653de422e11a898d1a9583d289cc573d38a0f4`); el de Modbus TCP contiene 2 (SHA-256 `d5456307c5e8a4d2c4fcd3252464b96859faaa4df3ece3ca23e3c720f3b25a1d`). En Basic Core la política fuerte impide el acceso al W5500; no se exige configuración de pines desde el sketch. No se recompilan estos dos `.cpp` en el consumidor con el modo precompilado. Se conservan los demás archives y el autoload normal.
 
-Medianas de compilación **fría, fuentes → ambos archives** (3 pares por FQBN y sistema):
+Medianas de compilación **fría en runners GitHub Actions**, fuentes → ambos archives (3 pares por FQBN y sistema):
 
 | Sistema | JWPLC Basic | JWPLC Basic Core |
 |---|---|---|
@@ -600,21 +600,41 @@ las requiere.
    `JWPLC_Display` y `JWPLC_TFT` antes de trabajar con
    interfaces internas.
 
-## Benchmark final del PC del operador — todavía pendiente
+## Benchmark final de Alpha13 en la PC Windows del operador — PASS
 
-**Estado:** `ALPHA13_LOCAL_PC_BENCHMARK=NOT_EXECUTED`. Los resultados
-Windows y Ubuntu de la tabla anterior pertenecen a **GitHub Actions**,
-no a la PC de desarrollo del operador.
+**Estado:** `ALPHA13_LOCAL_PC_BENCHMARK=PASS_3_PAIRS_BOTH_FQBN`.
+El operador ejecutó el benchmark en su PC Windows con **Arduino CLI 1.5.1**
+sobre el HEAD `158d12a242aa09cf414207c10217954a034a0b68`.
+Se usó el mismo sketch de integración G10P y se realizaron **tres
+compilaciones frías y tres calientes por variante y FQBN**, comparando
+Ethernet y Modbus TCP desde fuentes frente a sus dos archives aprobados.
 
-Está versionado un runner local seguro y un procedimiento para
-comparar tres pares de compilaciones frías/calientes en ambos FQBN,
-fuentes contra archives, con el mismo sketch y autoload:
+| Perfil | Fría desde fuentes | Fría con `.a` | Ahorro frío | Caliente fuentes | Caliente con `.a` |
+|---|---:|---:|---:|---:|---:|
+| JWPLC Basic | 52,120 s | 40,190 s | **11,930 s / 22,89 %** | 9,251 s | 9,055 s |
+| JWPLC Basic Core | 54,964 s | 47,958 s | **7,006 s / 12,75 %** | 9,175 s | 9,146 s |
 
-[Procedimiento y ejecución en Windows](docs/v2.1.0-alpha.13/A13_LOCAL_PC_BENCHMARK_PROCEDIMIENTO_20261021.md).
+Todas las cifras son **medianas de tres muestras**. Los resultados
+anteriores de GitHub Actions corresponden a máquinas distintas;
+**no son tiempos de la PC del operador**. Los ahorros calientes
+observados (0,196 s en Basic y 0,029 s en Core) son pequeños y
+no se presentan como una optimización sostenida universal.
 
-**La tabla local definitiva se incorporará cuando exista el
-`MANIFEST.json` generado en esa PC.** No atribuir los tiempos de CI
-al ordenador del operador ni suponer mejoras de velocidad de upload.
+**Verificación de compilación:** el escenario desde fuentes generó 12
+objetos CPP de Ethernet y 2 de Modbus TCP; con los dos `.a`
+estos recuentos fueron **0 / 0**. Los hashes canónicos de los archives
+permanecen intactos, y ninguna otra biblioteca o periférico fue
+retirado del autoload.
+
+Documentación y evidencia:
+[resultado y las 12 filas originales](docs/v2.1.0-alpha.13/A13_LOCAL_PC_BENCHMARK_RESULTADOS_20261021.md),
+[MANIFEST.json original de Windows](docs/v2.1.0-alpha.13/evidence/A13_LOCAL_PC_BENCHMARK_MANIFEST_20261021.json)
+y [procedimiento reproducible](docs/v2.1.0-alpha.13/A13_LOCAL_PC_BENCHMARK_PROCEDIMIENTO_20261021.md).
+
+**Límite:** este benchmark demuestra ahorro de **compilación** para
+el sketch y host ensayados; no mide subida USB, flashing, arranque ni
+instalación desde el índice dev **publicado**. El release-like previo
+valida el ZIP candidato, no sustituye el gate postpublicación.
 
 
 ---
