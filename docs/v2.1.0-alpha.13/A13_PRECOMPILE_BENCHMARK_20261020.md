@@ -1,6 +1,6 @@
 # F137 — resultados verificados (20/10/2026, Lima)
 
-**Estado N2:** PASS Ubuntu/Windows, ambos FQBN, 12 objetos Ethernet + 2 ModbusTCP, política ELF W Basic / T Basic Core. **CROSS_OS:** PASS. **Adopción:** realizada exclusivamente en PR #125 Draft, commit `1a55c3be8473a37018c2815dd68697abdad56441`; NO fusionado a rama base y NO publicado. **N3:** revisar el [replay CI #39538155047](https://github.com/JW-Control/platform-jwplc/actions/runs/39538155047) antes de declarar cierre técnico. **H física:** pendiente de autorización. No se modificaron los archives congelados ni hardware.
+**Estado N2:** PASS Ubuntu/Windows, ambos FQBN, 12 objetos Ethernet + 2 ModbusTCP, política ELF W Basic / T Basic Core. **CROSS_OS:** PASS. **Adopción:** realizada exclusivamente en PR #125 Draft, commit `1a55c3be8473a37018c2815dd68697abdad56441`; NO fusionado a rama base y NO publicado. **N3:** [CI #39538155047](https://github.com/JW-Control/platform-jwplc/actions/runs/39538155047) **SUCCESS global, 13/13 PASS Ubuntu y 13/13 PASS Windows**, SHA ejecutado `5e1010927a8c03c7ad46d38e4d5459b06bae543f`; ambos MANIFEST reproducen los hashes de archives consignados abajo. Queda **H física aprobada por operador** antes del freeze final. **H física:** pendiente de autorización. No se modificaron los archives congelados ni hardware.
 
 Los benchmarks de [CI #39531758494](https://github.com/JW-Control/platform-jwplc/actions/runs/39531758494) contienen **tres parejas frías/calientes por perfil y SO**. Medianas medidas, segundos (fuente → archives):
 
@@ -15,7 +15,7 @@ Los benchmarks de [CI #39531758494](https://github.com/JW-Control/platform-jwplc
 
 **Archives canónicos, idénticos Windows/Ubuntu:** Ethernet (12 miembros; 344774 bytes; SHA-256 `f190bbbbd69861941807a290be653de422e11a898d1a9583d289cc573d38a0f4`); Modbus TCP (2 miembros; 97740 bytes; SHA-256 `d5456307c5e8a4d2c4fcd3252464b96859faaa4df3ece3ca23e3c720f3b25a1d`). Manifest y `PASS_CROSS` disponibles como artifacts del run.
 
-**Nota CI:** el run global #39531758494 concluyó FAILURE **después de pasar** ambos benchmarks, enlace cruzado y adopción: N3 Ubuntu pasó 13/13, pero N3 Windows rechazó erróneamente rutas `-L` escapadas/alias 8.3 aunque su primer ELF se enlazó. Se corrigió el gate de logs y se inició N3 aislado #39538155047. No interpretar PASS parcial como N3 Windows PASS.
+**Nota CI:** el run global #39531758494 concluyó FAILURE **después de pasar** ambos benchmarks, enlace cruzado y adopción: N3 Ubuntu pasó 13/13, pero N3 Windows rechazó erróneamente rutas `-L` escapadas/alias 8.3 aunque su primer ELF se enlazó. Se corrigió el gate de logs y el N3 aislado **#39538155047 terminó SUCCESS** en ambos sistemas: 13/13 sketches por runner. El FAILURE global anterior permanece como evidencia histórica del falso negativo del inspector.
 
 ---
 
