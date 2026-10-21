@@ -1,12 +1,12 @@
 # v2.1.0-alpha.13 — Robustez Ethernet W5500, SPI compartido y sockets Modbus TCP
 
-## Auditoría global y paquete distribuible — todavía por aprobar (21/10/2026)
+## Evidencia de auditoría e integración previa a este lanzamiento (21/10/2026)
 
-Revisión C propuesta sobre la rama base, sin nuevo firmware: inventario de G1–G10, H0-F1 y F137, discrepancias documentales y riesgo residual disponibles en [A13_C_AUDITORIA_GLOBAL_Y_DISTRIBUCION_20261021.md](A13_C_AUDITORIA_GLOBAL_Y_DISTRIBUCION_20261021.md). El antiguo workflow G10 de composición de overlays mantiene un fallo histórico `CLIENT_CTOR_CHANGED` porque su precondición ya está satisfecha por el producto; no representa un PASS ni implica que fallen los `.a`. El gate release-like [CI #39641744857](https://github.com/JW-Control/platform-jwplc/actions/runs/39641744857) pasó ZIP byte-a-byte, ambos archivos `.a` y sus `library.properties`, índice dev simulado y extracción aislada + compilación CLI Basic/Core. No acredita publicación ni instalación desde Boards Manager real. Se requiere confirmar HEAD final de base y aprobación independiente antes de despachar el workflow. **No hay ZIP ni index Alpha13 publicado a la fecha de esta nota**.
+La auditoría de G1–G10, H0-F1 y F137, sus límites y las decisiones reproducibles están en [A13_C_AUDITORIA_GLOBAL_Y_DISTRIBUCION_20261021.md](A13_C_AUDITORIA_GLOBAL_Y_DISTRIBUCION_20261021.md). El workflow antiguo de composición G10 conserva el fallo histórico de harness `CLIENT_CTOR_CHANGED` previo a la compilación, sin implicar una regresión del producto. El gate release-like [#39641744857](https://github.com/JW-Control/platform-jwplc/actions/runs/39641744857) verificó ZIP byte-a-byte, dos `.a`, dos `library.properties`, índice simulado y compilación Arduino CLI en ambos FQBN. La **verificación de instalación desde Boards Manager publicado** constituye un gate postpublicación distinto; consultar su evidencia en el estado vivo de la rama base. Estas notas describen el contenido de la PreRelease y no inventan un checksum o estado de instalación que corresponde al asset efectivo.
 
-## Actualización F137 — integrada en Alpha13; pendiente de publicación (21/10/2026)
+## F137 — integridad de los archivos precompilados incluidos (21/10/2026)
 
-**Todavía NO publicada.** Los archives `libJWPLC_Ethernet.a` y `libJWPLC_ModbusTCP.a`, sus `precompiled=full` y la política de perfil Ethernet `weak Basic / strong Basic Core` fueron **integrados a la rama base Alpha13** mediante [PR #125 MERGED](https://github.com/JW-Control/platform-jwplc/pull/125), commit `23fae3a3febf8e6a9c19e7e8cb63b7b6a62cdb11`. El árbol final `JWPLC/2.1.0` = `cc17716f173509b1e0f3c0df5eb99549014c1d61`, idéntico al que aprobó N3. La optimización mantiene autoload y APIs. El workflow de GitHub Release y el postpublicación siguen pendientes de una autorización independiente.
+Los archives `libJWPLC_Ethernet.a` y `libJWPLC_ModbusTCP.a`, sus flags `precompiled=full` y la política Ethernet `weak Basic / strong Basic Core` fueron integrados al package mediante [PR #125 MERGED](https://github.com/JW-Control/platform-jwplc/pull/125), commit `23fae3a3febf8e6a9c19e7e8cb63b7b6a62cdb11`. El árbol `JWPLC/2.1.0` verificado es `cc17716f173509b1e0f3c0df5eb99549014c1d61`, idéntico al N3. Se mantienen autoload, configuración interna de pines y APIs. Los hashes de los assets distribuidos se verifican contra los valores publicados en el índice real.
 
 **Mediciones de compilación, mediana fría fuente → archive, tres pares por sistema/perfil:**
 - Ubuntu Basic: 27,245 → 18,976 s (−30,4 %); Basic Core: 35,065 → 26,141 s (−25,4 %).
@@ -15,7 +15,7 @@ Revisión C propuesta sobre la rama base, sin nuevo firmware: inventario de G1�
 
 **Evidencias:** N3 13/13 Windows+Ubuntu [#39538155047](https://github.com/JW-Control/platform-jwplc/actions/runs/39538155047); compilaciones Master/Slave Windows+Ubuntu [#39622285204](https://github.com/JW-Control/platform-jwplc/actions/runs/39622285204); H física dual por operador con COM4 Master y COM14 Slave, RS-485, IP distintas, `PHY=ETH=TCP=1`, FC03 a ambos **4/4 registros**, eco UDP COM4 **3/3**, heartbeat y periféricos observados. Ver `A13_F137_H_DICTAMEN_FISICO_20261021.md`. **H=PASS_FUNCIONAL_ACOTADO**, no representa un test de Basic Core físico ni R4 prolongado, DNS/DHCP renewal, E1/E2 o versión literal de UART BOOT no capturada. No inventar validaciones post-publicación.
 
-La integración del código F137 en la base está concluida y la huella del package verificada. El cierre sigue bloqueado por auditoría global, autorización del despacho y posterior verificación del ZIP, índice dev e instalación Arduino IDE/CLI. Esta sección describe un **candidato pre-release**, no asegura un GitHub Release existente.
+La integración productiva F137 y la huella del package están verificadas. La aceptación técnica pre-release no sustituye la verificación posterior del ZIP publicado, índice dev, instalación Arduino IDE/CLI y cualquier prueba física adicional expresamente autorizada.
 
 ---
 
@@ -51,7 +51,7 @@ Fuentes y criterios de no repetición: `A13_G10_PROMOTED_N0_N3_20261019.md`, `A1
 - No se probó resolución DNS ni renovación/rebind de DHCP interna; `PHY=1` y DHCP READY no acreditan por sí solos estos protocolos.
 - E1 `PENDING_GDB_UNAVAILABLE`; E2 `PENDING_SDKCONFIG_NOT_LOCATED`. La prueba H0 extendida 20/20 estricta conserva brechas de captura aceptadas con observación, no se transforma en PASS perfecto.
 - No existen afirmaciones de determinismo duro de RTU, OTA definida, OpenPLC integrado, FlashFreq universal definitivo o `bootloader.bin` publicable.
-- **CLI/IDE instalando la PreRelease desde el índice publicado, subida desde package distribuido y postpublicación quedan pendientes hasta que exista el asset ZIP real.**
+- **Cobertura de distribución distinta de ingeniería:** la instalación desde el índice publicado, la compatibilidad Arduino IDE GUI y la subida desde el package distribuido requieren evidencias postpublicación independientes. Ningún N3 o release-like se anuncia como sustituto.
 
 ## Seguridad, compatibilidad y distribución
 
