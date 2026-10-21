@@ -5,6 +5,7 @@ on:
       - codex/alpha13-precompile-benchmark-docs-20261020
     paths:
       - tools/alpha13/h_f137_dual.py
+      - tools/alpha13/h_f137_com4/DUAL_UPLOAD.md
       - tools/alpha13/g10_promoted_bench/G10P_COM14_Slave/**
       - .github/workflows/alpha13-f137-h-dual-build.yml
   workflow_dispatch:
