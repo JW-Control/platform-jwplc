@@ -1,3 +1,26 @@
+# CORTE PROPUESTO C-AUDIT/C-RELEASE-LIKE — 21/10/2026 (rama PR, NO estado fusionado en BASE)
+
+**Autorización del operador:** únicamente revisión, documentación y prueba release-like **sin publicación**. Rama `codex/alpha13-c-global-release-like-20261021`; fuente inicial base `d86ccdd3fab2352d0a6579e676b07a54662ccfc3`. Archivo de auditoría: [A13_C_AUDITORIA_GLOBAL_Y_DISTRIBUCION_20261021.md](A13_C_AUDITORIA_GLOBAL_Y_DISTRIBUCION_20261021.md). Se conserva `JWPLC/2.1.0` intacto y se usa el mismo ZIP del generador de Release para un gate de Arduino CLI aislado, **sin `gh release`, merge, COM o upload**. Resultado del runner: pendiente de CI; no inferir PASS de un workflow redactado.
+
+**Incidencia legacy:** el workflow antiguo `alpha13-g10-integrated.yml` falló por `CLIENT_CTOR_CHANGED` **antes** de compilar: su compositor esperaba constructor `EthernetClient(uint8_t s)` sin `_jwplcSocketToken`, pero la protección ya forma parte del producto. El mismo fallo está en #39487371928 (anterior a F137). `LEGACY_G10_INTEGRATED=HISTORICAL_FAIL_STALE_OVERLAY_PRECONDITION`, no PASS ni regresión de firmware demostrada. Mantener el workflow con su historia, no reflashear.
+
+```text
+ALPHA13=OPEN
+C_AUDIT=REVIEW_PENDING_FINAL_CI_AND_MERGE
+C_RELEASE_LIKE=CI_PENDING
+PENDIENTE_DE_PROMOCION_G10=EMPTY
+PENDIENTE_DE_PROMOCION_F137=EMPTY
+PENDIENTE_DE_PROMOCION_GLOBAL_ALPHA13=REVIEW_AUDIT_PENDING
+BASE_SYNC=PENDING_C_PR_OPERATOR_MERGE
+KNOWLEDGE_SYNC=OK_F137_MAIN_NEW_C_DOC_REVIEW
+NEXT_FAILURE_ID=F138
+NEXT_GATE=ALPHA13_C_GLOBAL_AUDIT_AND_RELEASE_SOURCE_APPROVAL
+RELEASE_DISPATCH=NOT_AUTHORIZED
+POSTPUBLISH=NOT_RUN
+```
+
+---
+
 # ESTADO VIGENTE — Alpha13 F137 integrado y conocimiento sincronizado (21/10/2026)
 
 **PROMOCIÓN AUTORIZADA Y EJECUTADA:** [PR #125](https://github.com/JW-Control/platform-jwplc/pull/125) **MERGED por squash** en `v2.1.0-alpha.13/feature/cleanup-robustness`, commit `23fae3a3febf8e6a9c19e7e8cb63b7b6a62cdb11`. La fuente actual de `JWPLC/2.1.0` conserva tree SHA `cc17716f173509b1e0f3c0df5eb99549014c1d61`, idéntico al de N3 [#39538155047](https://github.com/JW-Control/platform-jwplc/actions/runs/39538155047). Incluye **6 archivos funcionales inseparables** (dos CPP de política Ethernet Basic/Core, dos `library.properties` con `precompiled=full` y dos `.a` con SHA canónicos), más ocho README; autoload y periféricos intactos. **No hay necesidad de nuevo upload ni repetir N3** porque el árbol del package es idéntico.
