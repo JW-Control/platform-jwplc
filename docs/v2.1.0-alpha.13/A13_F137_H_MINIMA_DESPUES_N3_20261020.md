@@ -1,3 +1,9 @@
+## Actualización H-F137 — build sellado COM4 ya acreditado (21/10/2026)
+
+[CI #39551136908](https://github.com/JW-Control/platform-jwplc/actions/runs/39551136908), SHA `bbb1af42269b66f17c79804d4ef140496882f484`, **PASS Windows+Ubuntu** en compilación de un único sketch Master, SHA archives, enlace -L/-l y cero cpp.o de ambos precompilados; sellado ELF/bin/bootloader/particiones. El sketch emite `VER=G10_PROMOTED_PRODUCT_F137_V1` al arrancar, distinguiéndose del firmware PH0 anterior. El runner es `tools/alpha13/h_f137_com4_build.py`; no hay backup obligatorio para las dos placas de prueba. **COM4 físico, identidad local y upload aún no ejecutados ni autorizados.** Cualquier futuro upload requiere consentimiento explícito y binarios locales sellados. COM14 no se programa. Base de alpha sin nuevos archives, PR #125 Draft.
+
+---
+
 # Alpha13 F137 — H física mínima, placas de desarrollo sin backup
 
 **Estado (21/10/2026):** N2/benchmark/cross-OS PASS, N3 PASS 13/13 en Ubuntu y Windows ([CI #39538155047](https://github.com/JW-Control/platform-jwplc/actions/runs/39538155047)). La adopción de los dos archives Ethernet/ModbusTCP existe únicamente en el PR #125 Draft. H física aún no ejecutada.
