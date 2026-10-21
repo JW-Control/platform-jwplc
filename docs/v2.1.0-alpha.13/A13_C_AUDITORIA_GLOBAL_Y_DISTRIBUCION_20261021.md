@@ -5,7 +5,7 @@
 ## Origen del código y protección de invariantes
 
 - HEAD de base previo a esta revisión: `d86ccdd3fab2352d0a6579e676b07a54662ccfc3`. Última integración funcional/código: PR #125 squash `23fae3a3febf8e6a9c19e7e8cb63b7b6a62cdb11`. PR #124 G10 promovido: `3467a375ccaf7c7ee27220ed0bc348056e5e8219`.
-- Tree Git inmutable de `JWPLC/2.1.0` esperado: `cc17716f173509b1e0f3c0df5eb99549014c1d61`; mismo tree N3 #39538155047 y verificación de fuente base #39632213031 (Windows y Ubuntu, dos jobs).
+- Tree Git **funcional de referencia antes de las ampliaciones docentes**: `cc17716f173509b1e0f3c0df5eb99549014c1d61`; mismo tree N3 #39538155047 y verificación base #39632213031 (Windows y Ubuntu). El tree completo del ZIP educativo posterior cambia porque sus README internos cambian, **sin modificar compiladores/CPP/headers/archives**. El guard C permite exclusivamente `JWPLC_Ethernet/README.md` y `JWPLC_ModbusTCP/README.md` respecto del commit base `d86ccdd3`; verifica los SHA canónicos de ambos `.a`, y rechaza cualquier otro path funcional del package.
 - Ethernet: `src/esp32/libJWPLC_Ethernet.a` SHA-256 `f190bbbbd69861941807a290be653de422e11a898d1a9583d289cc573d38a0f4`. Modbus TCP: `src/esp32/libJWPLC_ModbusTCP.a` SHA-256 `d5456307c5e8a4d2c4fcd3252464b96859faaa4df3ece3ca23e3c720f3b25a1d`. Ambos `precompiled=full`. Basic policy `weak`, Basic Core `strong`. No modificar core, archives, GPIO4, pines, variants ni `platform.txt`.
 - La rama candidata del PR #125 fue fusionada por squash. Compararla directamente con la base genera divergencia histórica; **no** es prueba de que su firmware tenga mejoras pendientes. Confirmar por árbol y hashes del producto. No fusionar `release/v2.1.x` a ciegas.
 
@@ -27,7 +27,7 @@
 | G10 — SafeAccess/TCP/UDP/Modbus | Promovido en [PR #124](https://github.com/JW-Control/platform-jwplc/pull/124), N0/N1/N2/N3 y PH0/R1/R2; R1 605 s: 589 FC03 por PLC + 589 UDP; R2 3/3 recuperación y 2 PHY reales | R3 interno, R4 1805 s, DNS y renovación DHCP no ejecutados |
 | F137 — precompilados por FQBN | [N3 #39538155047](https://github.com/JW-Control/platform-jwplc/actions/runs/39538155047) 13/13 por SO; [F137-C #39631264428](https://github.com/JW-Control/platform-jwplc/actions/runs/39631264428) 2 jobs; H COM4/COM14 `PASS_FUNCIONAL_ACOTADO` | Basic Core físico y BOOT marker literal no capturado |
 
-**Último código vs documentación:** después del squash `23fae3a3`, la base añadió `7cf87ee` y `d86ccdd` sin modificar el árbol `JWPLC/2.1.0`. Los PASS de source anteriores pertenecen a sus SHA específicos y al tree verificado, no a cualquier commit nuevo.
+**Último código vs documentación:** después del squash `23fae3a3`, la base añadió `7cf87ee` y `d86ccdd` sin modificar el árbol `JWPLC/2.1.0`. El PR #126 incorpora ahora únicamente dos **README** del package como mejoras didácticas, además de herramientas/doc externos. Los PASS de source anteriores pertenecen a sus SHA específicos y al tree verificado, no a cualquier commit nuevo.
 
 ## Incidencia legacy G10 — causa y clasificación
 
@@ -37,11 +37,19 @@ El error aparece antes de F137 en [#39487371928](https://github.com/JW-Control/p
 
 ## PENDIENTE_DE_PROMOCIÓN, riesgos y discrepancias
 
-- G10: `EMPTY`. F137: `EMPTY`. G1–G9: los cierres canónicos registran promoción productiva; no apareció ningún cambio funcional **validado** limitado a un overlay pendiente de integrar. **C-AUDIT dictamen de inventario: `PENDIENTE_DE_PROMOCION_GLOBAL=EMPTY`**, condicionado a que el PR siga con diff `JWPLC/2.1.0` vacío. Los pendientes históricos de mapeo A13-008, instrumentación, R3/R4 y tests físicos **no son funcionalidades aprobadas pendientes de promoción** ni se convierten en PASS.
+- G10: `EMPTY`. F137: `EMPTY`. G1–G9: los cierres canónicos registran promoción productiva; no apareció ningún cambio funcional **validado** limitado a un overlay pendiente de integrar. **C-AUDIT dictamen de inventario: `PENDIENTE_DE_PROMOCION_GLOBAL=EMPTY`**, condicionado a que las únicas modificaciones dentro de `JWPLC/2.1.0` sean **los dos README autorizados** y que todo el código/archives permanezca idéntico. Los pendientes históricos de mapeo A13-008, instrumentación, R3/R4 y tests físicos **no son funcionalidades aprobadas pendientes de promoción** ni se convierten en PASS.
 - El README raíz y la cabecera del benchmark F137 contenían párrafos cronológicamente obsoletos: corregidos en esta rama documental; las secciones históricas continúan explícitas. `PRE_RELEASE.md` y el checklist mantienen estado previo a publicación.
 - `knowledge/main` en `28ac12e0` tiene lección F137 y PR #27 merged, pero `OPERATING_KNOWLEDGE.md` conserva párrafos Draft anteriores al merge; sincronizar por **nuevo PR privado**, no tocar el PR #28 de Alpha15.
 - Exclusiones: `OPENPLC=OUT_OF_SCOPE`, `HMI_DESIGNER=OUT_OF_SCOPE`, `TFT_NEW_FEATURES=OUT_OF_SCOPE`. No mover trabajo a Alpha15 sin planificación separada.
 - Pendientes **aceptados y no PASS**: R3 interno y churning concurrente, R4 1805 s, renovación y rebind DHCP/DNS, Basic Core físico, E1 `PENDING_GDB_UNAVAILABLE`, E2 `PENDING_SDKCONFIG_NOT_LOCATED`, literal UART BOOT F137 no capturado, long-term SPI starvation y ausencia de ensayo RJ45 nuevo para F137.
+
+## Documentación didáctica y benchmark local — actualización del PR #126
+
+- `JWPLC_Ethernet/README.md`: se añadió una clase avanzada opcional con introducción cooperativa, tabla de los métodos `begin/poll/cancel` de conexión/cierre/flush/escritura, ejemplo completo de conexión, buffers y commit RX. Las funciones internas no se presentan como APIs obligatorias para principiantes.
+- `JWPLC_ModbusTCP/README.md`: se añadió una clase de FC01/02/03/04/05/06/15/16. Se comprobó contra `JWPLC_ModbusTCP_Client.h/.cpp` que están implementados; **solo FC03 tiene evidencia H física destacada**, por lo que el resto mantiene cobertura física pendiente explícita.
+- No se tocaron fuentes `.cpp`, cabeceras `.h`, `library.properties`, precompilados `.a`, `boards.txt`, variantes ni `platform.txt`.
+- Runner PC: `tools/alpha13/a13_local_pc_benchmark.py` y `RUN_ALPHA13_LOCAL_PC_BENCHMARK.bat` para 3 pares fríos/calientes de Basic/Core comparando fuente y archive **en copias temporales**, no en el package. Procedimiento: `A13_LOCAL_PC_BENCHMARK_PROCEDIMIENTO_20261021.md`. **LOCAL_PC_BENCHMARK=NOT_EXECUTED**. No mezclar con las mediciones CI.
+- Tras estas ediciones, deben verificarse el nuevo HEAD y el nuevo tree Git del package que ahora incluye documentación. No reutilizar como ID de ZIP final el árbol anterior, aunque la parte funcional conserve los mismos hashes.
 
 ## C-RELEASE-LIKE — contrato y criterio de parada
 
@@ -60,7 +68,7 @@ El gate debe demostrar en artifact `MANIFEST.json`: (1) HEAD exacto y tree esper
 ```text
 ALPHA13=OPEN
 C_AUDIT=PASS_SCOPED_INVENTORY_PENDING_OPERATOR_PR_MERGE
-C_RELEASE_LIKE=PASS_39641744857_SHA_4aa3c82a
+C_RELEASE_LIKE=PASS_PRIOR_SHA_4aa3c82a_RECHECK_DOC_PACKAGE_TREE_PENDING
 PENDIENTE_DE_PROMOCION_G10=EMPTY
 PENDIENTE_DE_PROMOCION_F137=EMPTY
 PENDIENTE_DE_PROMOCION_GLOBAL=EMPTY_AUDITED_SCOPE
