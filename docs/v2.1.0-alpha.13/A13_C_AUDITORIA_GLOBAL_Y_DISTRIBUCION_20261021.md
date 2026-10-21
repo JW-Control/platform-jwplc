@@ -48,8 +48,10 @@ El error aparece antes de F137 en [#39487371928](https://github.com/JW-Control/p
 - `JWPLC_Ethernet/README.md`: se añadió una clase avanzada opcional con introducción cooperativa, tabla de los métodos `begin/poll/cancel` de conexión/cierre/flush/escritura, ejemplo completo de conexión, buffers y commit RX. Las funciones internas no se presentan como APIs obligatorias para principiantes.
 - `JWPLC_ModbusTCP/README.md`: se añadió una clase de FC01/02/03/04/05/06/15/16. Se comprobó contra `JWPLC_ModbusTCP_Client.h/.cpp` que están implementados; **solo FC03 tiene evidencia H física destacada**, por lo que el resto mantiene cobertura física pendiente explícita.
 - No se tocaron fuentes `.cpp`, cabeceras `.h`, `library.properties`, precompilados `.a`, `boards.txt`, variantes ni `platform.txt`.
-- Runner PC: `tools/alpha13/a13_local_pc_benchmark.py` y `RUN_ALPHA13_LOCAL_PC_BENCHMARK.bat` para 3 pares fríos/calientes de Basic/Core comparando fuente y archive **en copias temporales**, no en el package. Procedimiento: `A13_LOCAL_PC_BENCHMARK_PROCEDIMIENTO_20261021.md`. **LOCAL_PC_BENCHMARK=NOT_EXECUTED**. No mezclar con las mediciones CI.
+- Benchmark PC **EJECUTADO Y PASS**: `tools/alpha13/a13_local_pc_benchmark.py` y `RUN_ALPHA13_LOCAL_PC_BENCHMARK.bat`, 3 pares fríos/calientes por FQBN, fuentes versus archives **en copias temporales**. HEAD `158d12a2`, 12/12 runs PASS: Basic frío 52,120→40,190 s (−22,89 %), Core frío 54,964→47,958 s (−12,75 %). SHA de ambos .a intactos y 0 nuevos objetos CPP con archives. [Resultado completo](A13_LOCAL_PC_BENCHMARK_RESULTADOS_20261021.md), [MANIFEST original](evidence/A13_LOCAL_PC_BENCHMARK_MANIFEST_20261021.json). Resultado LOCAL, no mezclarlo con las mediciones CI. UPLOAD no medido.
 - Tras estas ediciones, deben verificarse el nuevo HEAD y el nuevo tree Git del package que ahora incluye documentación. No reutilizar como ID de ZIP final el árbol anterior, aunque la parte funcional conserve los mismos hashes.
+
+**Estado documentación y distribución después del tutorial:** el PR #126 superó [CI #39651311781](https://github.com/JW-Control/platform-jwplc/actions/runs/39651311781) con dos README modificados dentro del package, ningún cambio funcional, hashes .a congelados y compilación exitosa Basic y Basic Core desde ZIP. Los commits posteriores registran **solamente el resultado local**, su manifiesto y cierres documentales; el gate final debe validar el último HEAD, no reutilizar hashes de ZIP anteriores como si fueran definitivos. La CI final valida también la estructura del manifiesto local, pero **no repite** sus 24 tiempos.
 
 ## C-RELEASE-LIKE — contrato y criterio de parada
 
@@ -68,15 +70,17 @@ El gate debe demostrar en artifact `MANIFEST.json`: (1) HEAD exacto y tree esper
 ```text
 ALPHA13=OPEN
 C_AUDIT=PASS_SCOPED_INVENTORY_PENDING_OPERATOR_PR_MERGE
-C_RELEASE_LIKE=PASS_PRIOR_SHA_4aa3c82a_RECHECK_DOC_PACKAGE_TREE_PENDING
+C_RELEASE_LIKE=PASS_39651311781_TWO_README_DOCS_AND_TWO_FQBN
 PENDIENTE_DE_PROMOCION_G10=EMPTY
 PENDIENTE_DE_PROMOCION_F137=EMPTY
 PENDIENTE_DE_PROMOCION_GLOBAL=EMPTY_AUDITED_SCOPE
 BASE_SYNC=PENDING_PR_MERGE
 KNOWLEDGE_SYNC=OK_F137_MAIN__NEW_DOC_PR_PENDING
 NEXT_FAILURE_ID=F138
-NEXT_GATE=ALPHA13_C_GLOBAL_AUDIT_AND_RELEASE_SOURCE_APPROVAL
+NEXT_GATE=ALPHA13_C_FINAL_DOC_EVIDENCE_CI_AND_OPERATOR_PR_APPROVAL
 RELEASE_DISPATCH=NOT_AUTHORIZED
+LOCAL_PC_BENCHMARK=PASS_THREE_PAIRS_BOTH_FQBN
+README_ALPHA13=TECHNICALLY_COMPLETE_PR126
 POSTPUBLISH=NOT_RUN
 ```
 
