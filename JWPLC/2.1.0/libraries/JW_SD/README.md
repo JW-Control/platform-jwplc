@@ -77,7 +77,7 @@ En `JWPLC Basic`, normalmente se usa mediante el objeto global:
 JWPLC_SD
 ```
 
-En ese caso, el package puede exponer la microSD ya integrada al runtime y al bus SPI compartido.
+En ese caso, el package puede exponer la microSD ya integrada al runtime y al bus SPI compartido. No hace falta `#include <JW_SD.h>`: el package ya la carga.
 
 ---
 
@@ -356,8 +356,6 @@ JWPLCDataLog
 Ejemplo:
 
 ```cpp
-#include <JW_SD.h>
-
 JWPLCDataLog logProceso;
 
 void setup()

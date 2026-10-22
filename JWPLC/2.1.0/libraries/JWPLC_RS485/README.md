@@ -27,6 +27,7 @@ El JWPLC Basic actual usa un transceptor con autodirección.
 
 Por eso no tienes que:
 
+- escribir `#include <JWPLC_RS485.h>`: el package ya la carga;
 - controlar señales DE/RE;
 - decidir cuándo cambiar entre transmisión y recepción;
 - conocer los pines RX/TX internos;
@@ -39,8 +40,6 @@ Sólo debes elegir velocidad y formato serial.
 Este ejemplo envía un mensaje cada segundo.
 
 ```cpp
-#include <JWPLC_RS485.h>
-
 uint32_t contador = 0;
 uint32_t ultimoEnvio = 0;
 
@@ -128,8 +127,6 @@ JWPLC_RS485.write(data, length);
 ## Ejemplo 1 — Básico: enviar texto
 
 ```cpp
-#include <JWPLC_RS485.h>
-
 uint32_t ultimoEnvio = 0;
 
 void setup()
@@ -164,8 +161,6 @@ ejecutándose.
 Este ejemplo devuelve por RS-485 cada byte recibido.
 
 ```cpp
-#include <JWPLC_RS485.h>
-
 void setup()
 {
     Serial.begin(115200);
@@ -203,8 +198,6 @@ Supongamos que otro equipo envía un carácter:
 - `'?'`: consultar estado.
 
 ```cpp
-#include <JWPLC_RS485.h>
-
 bool salida = false;
 
 void setup()
@@ -256,8 +249,6 @@ un protocolo estándar como Modbus RTU.
 Si esperas muchos datos puedes leerlos en bloque:
 
 ```cpp
-#include <JWPLC_RS485.h>
-
 uint8_t buffer[64];
 
 void setup()

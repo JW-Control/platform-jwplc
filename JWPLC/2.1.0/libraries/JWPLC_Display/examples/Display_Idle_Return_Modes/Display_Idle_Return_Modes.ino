@@ -17,8 +17,6 @@
   - Presiona OK para entrar a USER.
 */
 
-#include <JWPLC_Display.h>
-
 // Cambia esta línea para probar los tres modos:
 // IDLE_RETURN_TIMEOUT
 // IDLE_RETURN_ESC_ONLY
