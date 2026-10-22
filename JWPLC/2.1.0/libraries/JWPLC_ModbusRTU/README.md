@@ -754,6 +754,20 @@ appendCRC()
 Son útiles para herramientas o protocolos manuales. Las operaciones Modbus de
 alto nivel ya gestionan el CRC.
 
+## Mejoras de estabilidad en Alpha13
+
+Se refuerza la recepción y el tratamiento de errores de la UART RS-485.
+La aplicación sigue usando `begin()`, `task()` y la familia de
+operaciones Master/Slave sin configurar manualmente los pines del transceptor.
+
+Con dos JWPLC Basic se verificó el intercambio real FC03 Master/Slave,
+incluido el progreso de Modbus RTU mientras Ethernet TCP/UDP estaba activo.
+
+**Consejo:** cuando el Master está en modo `ASYNC`, no vuelvas a iniciar
+la siguiente consulta antes de revisar `masterDone()` y liberar el resultado
+con `clearMasterResult()`. El cable desconectado puede generar timeouts
+normales; el código de aplicación debe decidir cómo reaccionar.
+
 ## Compatibilidad
 
 `poll()` se mantiene como alias de `task()`.
@@ -778,6 +792,6 @@ clearMasterResult()
 Documentado para:
 
 ```text
-JWPLC ESP32 v2.1.0-alpha.12
+JWPLC ESP32 v2.1.0-alpha.13 (candidata)
 JWPLC_ModbusRTU 1.0.0
 ```

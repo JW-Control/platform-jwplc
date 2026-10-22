@@ -17,6 +17,13 @@
 /**            Default SS pin setting             **/
 /***************************************************/
 
+// JWPLC F1: el CS real del W5500 procede exclusivamente del package.
+// SS del variant es static const uint8_t y no participa en #if defined(...).
+#if !defined(PIN_SPI_SS_ETHERNET_LIB) && __has_include("jwplc_spi_bus.h")
+#include "jwplc_spi_bus.h"
+#define PIN_SPI_SS_ETHERNET_LIB JWPLC_ETH_CS
+#endif
+
 // If variant.h or other headers specifically define the
 // default SS pin for Ethernet, use it.
 #if defined(PIN_SPI_SS_ETHERNET_LIB)
@@ -48,6 +55,10 @@
 
 
 
+
+#if defined(CONFIG_IDF_TARGET_ESP32) && (SS_PIN_DEFAULT >= 6) && (SS_PIN_DEFAULT <= 11)
+#error "SS_PIN_DEFAULT apunta a GPIO6-11, reservado para flash SPI en ESP32"
+#endif
 
 // W5100 controller instance
 uint8_t  W5100Class::chip = 0;

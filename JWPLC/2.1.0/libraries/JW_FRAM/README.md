@@ -261,6 +261,20 @@ fram.disableDebug();
 
 Eso evita amarrar la librería exclusivamente a `Serial`.
 
+## Correcciones de lectura en Alpha13
+
+`readString()` distingue ahora una cadena vacía válida de un fallo de
+lectura SPI. También comprueba la reserva de memoria para textos no vacíos
+y acepta una cadena vacía en la última dirección disponible de la FRAM.
+
+Se conservan las firmas y el formato almacenado: primero la longitud y
+después los bytes del contenido. **No es necesario convertir ni borrar los
+datos existentes** por esta corrección.
+
+En JWPLC Basic se mantiene el archive `libJW_FRAM.a` precompilado y
+verificado contra las fuentes correspondientes. Evita usar una copia
+externa de `JW_FRAM` que oculte la versión incluida en el package.
+
 ## Estado de la versión bundled
 
 ```text
