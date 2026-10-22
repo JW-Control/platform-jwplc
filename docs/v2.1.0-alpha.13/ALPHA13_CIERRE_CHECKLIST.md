@@ -1,6 +1,6 @@
 # Alpha13 — Checklist de cierre técnico y publicación
 
-**Versión:** `v2.1.0-alpha.13`. **Rama base del alpha:** `v2.1.0-alpha.13/feature/cleanup-robustness`. **Fuente de verdad:** `ALPHA13_STATUS.md` en esta rama. **NO actualizar histórico de Alpha30 ni asumir que el package de Alpha13 ya se publicó.**
+**Versión:** `v2.1.0-alpha.13`. **Rama base del alpha:** `v2.1.0-alpha.13/feature/cleanup-robustness`. **Fuente de verdad:** `ALPHA13_STATUS.md` en esta rama. **Publicada el 22/10/2026 como PreRelease de desarrollo.**
 
 ## Cierre de integración C — estado VIGENTE de la BASE (21/10/2026)
 
@@ -9,9 +9,10 @@
 - [x] [CI final del PR #126 #39663616618](https://github.com/JW-Control/platform-jwplc/actions/runs/39663616618) SUCCESS, validación del manifiesto local 12/12 y 24 tiempos, ZIP de distribución y ambos FQBN; G10-R legado omitido por no aplicar.
 - [x] `BASE_SYNC=OK`, `KNOWLEDGE_SYNC=OK` y `PENDIENTE_DE_PROMOCION_GLOBAL_ALPHA13=EMPTY_AUDITED_SCOPE`; fuente productiva intacta salvo los dos README docentes.
 - [x] README didácticos, `README.md`, `PRE_RELEASE.md` y benchmark local Windows completados y conservados en BASE.
-- [ ] **Autorizar por separado** despacho del workflow `Release JWPLC Arduino Package` desde HEAD efectivo de BASE; validar preflight de Release (HEAD/tag/índices/ZIP).
-- [ ] Postpublicación: asset Release, SHA256 del ZIP final, índice dev real, instalación y compilación CLI/IDE, y cualquier upload físico solo si autorizado y necesario.
-- [ ] Declarar `ALPHA13=CLOSED_PUBLISHED` solamente tras la evidencia real postpublicación.
+- [x] Publicación autorizada por el propietario (22/10). PR #129 a `release/v2.1.x` (squash `11237c2c`), Release automática [#39740054387](https://github.com/JW-Control/platform-jwplc/actions/runs/39740054387).
+- [x] Postpublicación: asset `jwplc-esp32-2.1.0-alpha.13.zip`, SHA-256 `b3dc5ac710229bd272b0382fb56dd8988e242a66eebc872198cd82c5bdc57428`, 24 527 296 bytes, igual byte a byte al árbol `6b498f4a`; índice dev en `main` por PR #130; instalación limpia con Arduino CLI 1.3.1 desde el índice publicado y 6/6 compilaciones (Basic y Basic Core) con Ethernet y Modbus TCP precompilados.
+- [ ] Instalación desde Arduino IDE (GUI) y upload desde el package distribuido: pendientes del operador en su PC.
+- [ ] Declarar `ALPHA13=CLOSED_PUBLISHED` tras esa comprobación.
 
 ### Evidencia anterior a integración (conservada para trazabilidad)
 
