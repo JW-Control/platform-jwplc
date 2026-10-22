@@ -27,8 +27,6 @@
   - El ejemplo escribe su bloque de prueba desde la direccion FRAM 0x0100.
 */
 
-#include <JWPLC_Display.h>
-
 #include <string.h>
 #include <stdlib.h>
 

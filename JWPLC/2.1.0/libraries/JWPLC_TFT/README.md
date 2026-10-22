@@ -25,6 +25,7 @@ físico de la TFT.
 
 No necesitas:
 
+- escribir `#include <JWPLC_TFT.h>`: el package ya la carga;
 - crear un objeto ST7789;
 - configurar pines;
 - elegir frecuencia del bus;
@@ -48,8 +49,6 @@ auto &tft =
 Este ejemplo muestra un título y un círculo.
 
 ```cpp
-#include <JWPLC_TFT.h>
-
 void setup()
 {
 
@@ -159,8 +158,6 @@ JWPLC_TFT.println("RUN");
 Este ejemplo muestra `RUN` o `STOP` según `I0_0`.
 
 ```cpp
-#include <JWPLC_TFT.h>
-
 bool ultimoEstado = false;
 bool primeraVez = true;
 
@@ -209,8 +206,6 @@ Sólo redibujamos cuando cambia el estado.
 ## Ejemplo 2 — Intermedio: figuras e indicador de nivel
 
 ```cpp
-#include <JWPLC_TFT.h>
-
 uint8_t nivel = 0;
 uint32_t ultimaActualizacion = 0;
 
@@ -282,8 +277,6 @@ El ejemplo muestra:
 - un contador de segundos.
 
 ```cpp
-#include <JWPLC_TFT.h>
-
 bool ultimoInput = false;
 bool primeraVez = true;
 uint32_t ultimoSegundo = 0;
@@ -386,8 +379,6 @@ Es útil cuando quieres dibujar una vista completa con varias primitivas
 consecutivas.
 
 ```cpp
-#include <JWPLC_TFT.h>
-
 void setup()
 {
 

@@ -16,8 +16,6 @@
   - ESC : retorna a IDLE.
 */
 
-#include <JWPLC_Display.h>
-
 static uint8_t lastSecondDrawn = 255;
 
 extern "C" void jwplcUIEnter()
