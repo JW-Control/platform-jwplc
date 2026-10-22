@@ -6,6 +6,7 @@
 
 #define USER_SETUP_INFO "JWPLC_TFT Basic v2"
 #define JWPLC_TFT_BACKEND_SETUP 1
+#define JWPLC_TFT_DEFER_DISPON 1
 
 #define ST7789_DRIVER
 

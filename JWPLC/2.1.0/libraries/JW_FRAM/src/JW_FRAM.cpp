@@ -32,18 +32,10 @@ static uint32_t jw_fram_check_supported_device(uint8_t manufID, uint16_t prodID)
 }
 
 JW_FRAM::JW_FRAM(int8_t cs, SPIClass *theSPI, uint32_t freq) {
-  if (_spi_dev) {
-    delete _spi_dev;
-  }
-
   _spi_dev = new Adafruit_SPIDevice(cs, freq, SPI_BITORDER_MSBFIRST, SPI_MODE0, theSPI);
 }
 
 JW_FRAM::JW_FRAM(int8_t clk, int8_t miso, int8_t mosi, int8_t cs) {
-  if (_spi_dev) {
-    delete _spi_dev;
-  }
-
   _spi_dev = new Adafruit_SPIDevice(cs, clk, miso, mosi, 1000000,
                                     SPI_BITORDER_MSBFIRST, SPI_MODE0);
 }
@@ -246,6 +238,11 @@ bool JW_FRAM::write(uint32_t addr, const uint8_t *values, size_t count) {
     return true;
   }
 
+  if (values == nullptr) {
+    debugPrint(F("JW_FRAM::write() buffer nulo"));
+    return false;
+  }
+
   if (!isAddressValid(addr, count)) {
     debugPrint(F("JW_FRAM::write() direccion fuera de rango"));
     return false;
@@ -267,6 +264,11 @@ bool JW_FRAM::write(uint32_t addr, const uint8_t *values, size_t count) {
 bool JW_FRAM::read(uint32_t addr, uint8_t *values, size_t count) {
   if (count == 0) {
     return true;
+  }
+
+  if (values == nullptr) {
+    debugPrint(F("JW_FRAM::read() buffer nulo"));
+    return false;
   }
 
   if (!isAddressValid(addr, count)) {
@@ -385,13 +387,22 @@ bool JW_FRAM::readString(uint32_t addr, String &value, uint8_t maxLen) {
     return false;
   }
 
-  const uint8_t len = read8(addr);
+  uint8_t len = 0;
+  // read8() devuelve 0 tanto para cadena vacia como para fallo SPI.
+  // read() conserva el resultado de error sin cambiar el formato en FRAM.
+  if (!read(addr, &len, sizeof(len))) {
+    debugPrint(F("JW_FRAM::readString() fallo al leer longitud"));
+    return false;
+  }
+
   if (len > maxLen || len > MAX_TEXT_LENGTH) {
     debugPrint(F("JW_FRAM::readString() longitud almacenada invalida"));
     return false;
   }
 
-  if (!isAddressValid(addr + 1, len)) {
+  // Una cadena vacia solo almacena su byte de longitud: tambien es
+  // valida si empieza en la ultima direccion fisica de la FRAM.
+  if (len > 0 && !isAddressValid(addr + 1, len)) {
     debugPrint(F("JW_FRAM::readString() payload fuera de rango"));
     return false;
   }
@@ -402,7 +413,12 @@ bool JW_FRAM::readString(uint32_t addr, String &value, uint8_t maxLen) {
     return false;
   }
 
-  value.reserve(len);
+  // Longitud cero es un valor valido; no reservar para una cadena vacia.
+  if (len > 0 && !value.reserve(len)) {
+    debugPrint(F("JW_FRAM::readString() memoria insuficiente"));
+    return false;
+  }
+
   for (uint8_t i = 0; i < len; i++) {
     value += static_cast<char>(buffer[i]);
   }
@@ -500,18 +516,6 @@ void JW_FRAM::disableDebug() { _debugEnabled = false; }
 bool JW_FRAM::debugEnabled() const { return _debugEnabled; }
 
 void JW_FRAM::debugPrint(const __FlashStringHelper *msg) {
-  if (_debugEnabled && _debugPort != nullptr) {
-    _debugPort->println(msg);
-  }
-}
-
-void JW_FRAM::debugPrint(const String &msg) {
-  if (_debugEnabled && _debugPort != nullptr) {
-    _debugPort->println(msg);
-  }
-}
-
-void JW_FRAM::debugPrint(const char *msg) {
   if (_debugEnabled && _debugPort != nullptr) {
     _debugPort->println(msg);
   }

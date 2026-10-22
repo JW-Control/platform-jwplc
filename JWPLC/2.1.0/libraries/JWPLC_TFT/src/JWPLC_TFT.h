@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <stdint.h>
+#include <atomic>
 
 #define JWPLC_TFT_VERSION_MAJOR 0
 #define JWPLC_TFT_VERSION_MINOR 1
@@ -165,7 +166,9 @@ public:
 
 private:
     bool _ready;
-    bool _batchActive;
+    // NULL = sin batch. La tarea propietaria se publica de forma atomica.
+    // No se expone al sketch ni cambia la API publica.
+    std::atomic<void *> _batchOwner;
     uint8_t _textSize;
     uint16_t _textColor;
     uint16_t _textBackground;

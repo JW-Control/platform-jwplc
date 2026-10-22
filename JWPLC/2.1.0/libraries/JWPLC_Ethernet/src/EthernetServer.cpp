@@ -1,3 +1,4 @@
+#include "JWPLC_W5500_SafeAccess.h"
 /* Copyright 2018 Paul Stoffregen
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this
@@ -27,10 +28,14 @@ uint16_t EthernetServer::server_port[MAX_SOCK_NUM];
 
 void EthernetServer::begin()
 {
+    jwplc_w5500_candidate::BusScope bus(20);
+    if (!bus) return;
 	uint8_t sockindex = Ethernet.socketBegin(SnMR::TCP, _port);
 	if (sockindex < MAX_SOCK_NUM) {
 		if (Ethernet.socketListen(sockindex)) {
 			server_port[sockindex] = _port;
+            jwplc_w5500_candidate::mapListenerLocked(sockindex,_port,
+                jwplc_w5500_candidate::currentSocketTokenLocked(sockindex));
 		} else {
 			Ethernet.socketDisconnect(sockindex);
 		}
@@ -39,6 +44,8 @@ void EthernetServer::begin()
 
 EthernetClient EthernetServer::available()
 {
+    jwplc_w5500_candidate::BusScope bus(20);
+    if (!bus) return EthernetClient(MAX_SOCK_NUM);
 	bool listening = false;
 	uint8_t sockindex = MAX_SOCK_NUM;
 	uint8_t chip, maxindex=MAX_SOCK_NUM;
@@ -49,7 +56,7 @@ EthernetClient EthernetServer::available()
 	if (chip == 51) maxindex = 4; // W5100 chip never supports more than 4 sockets
 #endif
 	for (uint8_t i=0; i < maxindex; i++) {
-		if (server_port[i] == _port) {
+		if (server_port[i] == _port && jwplc_w5500_candidate::listenerMatchesLocked(i,_port,jwplc_w5500_candidate::currentSocketTokenLocked(i))) {
 			uint8_t stat = Ethernet.socketStatus(i);
 			if (stat == SnSR::ESTABLISHED || stat == SnSR::CLOSE_WAIT) {
 				if (Ethernet.socketRecvAvailable(i) > 0) {
@@ -74,6 +81,8 @@ EthernetClient EthernetServer::available()
 
 EthernetClient EthernetServer::accept()
 {
+    jwplc_w5500_candidate::BusScope bus(20);
+    if (!bus) return EthernetClient(MAX_SOCK_NUM);
 	bool listening = false;
 	uint8_t sockindex = MAX_SOCK_NUM;
 	uint8_t chip, maxindex=MAX_SOCK_NUM;
@@ -84,7 +93,7 @@ EthernetClient EthernetServer::accept()
 	if (chip == 51) maxindex = 4; // W5100 chip never supports more than 4 sockets
 #endif
 	for (uint8_t i=0; i < maxindex; i++) {
-		if (server_port[i] == _port) {
+		if (server_port[i] == _port && jwplc_w5500_candidate::listenerMatchesLocked(i,_port,jwplc_w5500_candidate::currentSocketTokenLocked(i))) {
 			uint8_t stat = Ethernet.socketStatus(i);
 			if (sockindex == MAX_SOCK_NUM &&
 			  (stat == SnSR::ESTABLISHED || stat == SnSR::CLOSE_WAIT)) {
@@ -106,12 +115,16 @@ EthernetClient EthernetServer::accept()
 
 EthernetServer::operator bool()
 {
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus) return false; // public bool cannot encode BUS_BUSY
 	uint8_t maxindex=MAX_SOCK_NUM;
 #if MAX_SOCK_NUM > 4
 	if (W5100.getChip() == 51) maxindex = 4; // W5100 chip never supports more than 4 sockets
 #endif
 	for (uint8_t i=0; i < maxindex; i++) {
-		if (server_port[i] == _port) {
+		if (server_port[i] == _port &&
+            jwplc_w5500_candidate::listenerMatchesLocked(
+                i, _port, jwplc_w5500_candidate::currentSocketTokenLocked(i))) {
 			if (Ethernet.socketStatus(i) == SnSR::LISTEN) {
 				return true; // server is listening for incoming clients
 			}
@@ -160,20 +173,69 @@ size_t EthernetServer::write(uint8_t b)
 
 size_t EthernetServer::write(const uint8_t *buffer, size_t size)
 {
-	uint8_t chip, maxindex=MAX_SOCK_NUM;
+    if (buffer == nullptr || size == 0) return 0;
+    // Keep the legacy listener-maintenance pass, outside the snapshot lock.
+    available();
 
-	chip = W5100.getChip();
-	if (!chip) return 0;
+    EthernetClient clients[MAX_SOCK_NUM];
+    uint8_t count = 0;
+    {
+        jwplc_w5500_candidate::BusScope bus(20);
+        if (!bus) return 0; // no listener or socket inference on SPI_BUSY
+        const uint8_t chip = W5100.getChip();
+        if (!chip) return 0;
+        uint8_t maxindex = MAX_SOCK_NUM;
 #if MAX_SOCK_NUM > 4
-	if (chip == 51) maxindex = 4; // W5100 chip never supports more than 4 sockets
+        if (chip == 51) maxindex = 4;
 #endif
-	available();
-	for (uint8_t i=0; i < maxindex; i++) {
-		if (server_port[i] == _port) {
-			if (Ethernet.socketStatus(i) == SnSR::ESTABLISHED) {
-				Ethernet.socketSend(i, buffer, size);
-			}
-		}
-	}
-	return size;
+        for (uint8_t i = 0; i < maxindex; i++) {
+            const auto token = jwplc_w5500_candidate::currentSocketTokenLocked(i);
+            if (server_port[i] != _port ||
+                !jwplc_w5500_candidate::listenerMatchesLocked(i, _port, token) ||
+                Ethernet.socketStatus(i) != SnSR::ESTABLISHED) continue;
+            // The constructor captures the token while this same scope owns
+            // SPI. A recycled slot cannot become a new broadcast target.
+            clients[count] = EthernetClient(i);
+            if (clients[count].getSocketNumber() == i &&
+                jwplc_w5500_candidate::matchesLocked(clients[count]._jwplcSocketToken))
+                ++count;
+        }
+    }
+
+    // Each write may wait for SEND_OK. Never hold the server scan lock here.
+    size_t minimumWritten = size;
+    for (uint8_t i = 0; i < count; i++) {
+        const size_t written = clients[i].write(buffer, size);
+        if (written < minimumWritten) minimumWritten = written;
+    }
+    return count ? minimumWritten : 0;
+}
+
+
+// G10-I B01: query the listener under SPI and its mapped socket lease.
+jwplc_w5500_candidate::StatusReadOutcome
+EthernetServer::jwplcProbeListening(bool& observed)
+{
+    jwplc_w5500_candidate::BusScope bus(20);
+    if (!bus) return jwplc_w5500_candidate::StatusReadOutcome::BusBusy;
+    const uint8_t chip = W5100.getChip();
+    if (!chip) return jwplc_w5500_candidate::StatusReadOutcome::Stale;
+    uint8_t maxindex = MAX_SOCK_NUM;
+#if MAX_SOCK_NUM > 4
+    if (chip == 51) maxindex = 4;
+#endif
+    bool hasCurrentListener = false;
+    bool listening = false;
+    for (uint8_t i = 0; i < maxindex; ++i) {
+        if (server_port[i] != _port) continue;
+        const auto token = jwplc_w5500_candidate::currentSocketTokenLocked(i);
+        if (!jwplc_w5500_candidate::listenerMatchesLocked(i, _port, token))
+            continue;
+        hasCurrentListener = true;
+        if (Ethernet.socketStatus(i) == SnSR::LISTEN) listening = true;
+    }
+    if (!hasCurrentListener)
+        return jwplc_w5500_candidate::StatusReadOutcome::Stale;
+    observed = listening;
+    return jwplc_w5500_candidate::StatusReadOutcome::Read;
 }

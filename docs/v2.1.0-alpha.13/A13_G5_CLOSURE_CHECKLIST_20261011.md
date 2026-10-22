@@ -1,0 +1,14 @@
+# Alpha13 — Checklist de cierre G5
+- [x] Fuente Ethernet previa protegida por hashes y respaldos temporales.
+- [x] Escrituras TCP divididas en fragmentos de tamaño W5500.
+- [x] Lectura TCP con límite INT16_MAX.
+- [x] Escritura del servidor devuelve cero sin cliente.
+- [x] Test PC ↔ JWPLC: 5000 TX / 128 RX / 64 servidor.
+- [x] Regresiones de compilación overlay 3/3 y normales 3/3.
+- [x] F112 self-test Python/Git ejecutado.
+- [x] Solo dos fuentes TCP versionadas en commit productivo.
+- [x] Archivos core.a/TFT.a de G3/G4 sin cambios.
+- [x] Cierre documental sin publicación ni PR.
+- [ ] Consultar informe canónico para mapping individual A13-005/A13-006.
+- [ ] G6 datagram robustness (A13-007 y revisión A13-008).
+- [ ] Regresión final CI/Arduino IDE y publicación Alpha13 en español.

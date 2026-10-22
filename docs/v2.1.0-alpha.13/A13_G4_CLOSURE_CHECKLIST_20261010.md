@@ -1,0 +1,12 @@
+# Alpha13 — checklist G4
+- [x] Correccion de ownership de batch por tarea FreeRTOS.
+- [x] F111: SHA historico erroneo diagnosticado y corregido.
+- [x] Backend TFT_eSPI externo sin alteracion.
+- [x] Archive de 2 miembros con paridad y link precompilado normal.
+- [x] Serial unico, ensayo fisico 50/50 PASS y 0 errores.
+- [x] Operador confirmo pruebas en banco y TFT visual estable.
+- [x] Regresiones con producto adoptado: 4/4 PASS.
+- [x] Tres cambios productivos versionados por commit separado.
+- [x] Sin merge a release, PR ni publicacion.
+- [ ] G5 correccion TCP.
+- [ ] CI final, Arduino IDE/package aislado, PR y PreRelease en espanol.

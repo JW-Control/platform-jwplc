@@ -1,3 +1,4 @@
+#include "JWPLC_W5500_SafeAccess.h"
 #include "JWPLC_ModbusTCP.h"
 
 #include <string.h>
@@ -143,6 +144,8 @@ bool JWPLC_ModbusTCPClass::beginServer(uint8_t unitId, uint16_t port)
 
 void JWPLC_ModbusTCPClass::task()
 {
+    // El cierre pendiente se atiende incluso si Ethernet deja de READY.
+    if (_jwplcDropPending && !serviceDeferredDrop()) return;
     if (!_serverEnabled)
     {
         return;
@@ -153,6 +156,10 @@ void JWPLC_ModbusTCPClass::task()
         // Un reset/reinicio del W5500 invalida los handles de sockets previos.
         // No se llama stop() aquí porque el propio backend Ethernet puede estar
         // reconstruyendo el chip y el mutex SPI pertenece al runtime común.
+        if (_clientActive || (bool)_client) {
+            dropClient();
+            if (_jwplcDropPending) return;
+        }
         _serverListening = false;
         _clientActive = false;
         _client = EthernetClient();
@@ -415,20 +422,20 @@ void JWPLC_ModbusTCPClass::printStatus(Print &out) const
 
 bool JWPLC_ModbusTCPClass::acquireBus(uint32_t timeoutMs)
 {
-    if (!jwplcSPI_acquire(timeoutMs))
+    if (!jwplc_w5500_candidate::enter(timeoutMs))
     {
         _stats.busLockTimeouts++;
         setError(JWPLC_MODBUS_TCP_BUS_LOCK_TIMEOUT);
         return false;
     }
 
-    jwplcSPI_deselectAll();
+    // enter() deselects on first acquire only.
     return true;
 }
 
 void JWPLC_ModbusTCPClass::releaseBus()
 {
-    jwplcSPI_release();
+    jwplc_w5500_candidate::leave();
 }
 
 void JWPLC_ModbusTCPClass::setError(JWPLCModbusTCPError error)
@@ -946,34 +953,19 @@ void JWPLC_ModbusTCPClass::finishRxIntService(bool rxDataKnownPending)
 
 void JWPLC_ModbusTCPClass::dropClient()
 {
-    if (_clientActive && acquireBus(20))
-    {
-        disableRxIntLocked();
-
-        // timeout 0 mantiene el cierre forzado acotado. stop() puede ejecutar
-        // una única cesión de scheduler, pero sólo se usa para tramas inválidas
-        // o timeout, no en el camino normal de cada request.
-        _client.setConnectionTimeout(0);
-        _client.stop();
-        releaseBus();
-    }
-
-    _client = EthernetClient();
+    // No perder la identidad del socket mientras falte mutex.
+    _jwplcDropPending = _jwplcDropPending || (bool)_client;
     _clientActive = false;
     resetRx();
-
+    if (_jwplcDropPending && !serviceDeferredDrop()) {
+        return; // must be serviced before accepting any new socket
+    }
     if (_serverEnabled && JWPLC_Ethernet.isReady())
-    {
         _serverState = JWPLC_MODBUS_TCP_SERVER_LISTENING;
-    }
     else if (_serverEnabled)
-    {
         _serverState = JWPLC_MODBUS_TCP_SERVER_WAIT_ETHERNET;
-    }
     else
-    {
         _serverState = JWPLC_MODBUS_TCP_SERVER_STOPPED;
-    }
 }
 
 void JWPLC_ModbusTCPClass::ensureServerListening()
@@ -998,16 +990,23 @@ void JWPLC_ModbusTCPClass::ensureServerListening()
     }
 
     // Si el socket LISTEN sobrevivió a una reentrada, no crear otro.
-    bool listening = (bool)_server;
-    if (!listening)
+    bool listening = false;
+    auto probe = _server.jwplcProbeListening(listening);
+    if (probe == jwplc_w5500_candidate::StatusReadOutcome::BusBusy) {
+        releaseBus();
+        return; // unknown: keep the listener operation pending
+    }
+    if (probe != jwplc_w5500_candidate::StatusReadOutcome::Read || !listening)
     {
         _server.begin();
-        listening = (bool)_server;
+        probe = _server.jwplcProbeListening(listening);
     }
 
     releaseBus();
+    if (probe == jwplc_w5500_candidate::StatusReadOutcome::BusBusy)
+        return; // do not report a false listener failure
 
-    if (!listening)
+    if (probe != jwplc_w5500_candidate::StatusReadOutcome::Read || !listening)
     {
         _serverListening = false;
         _serverState = JWPLC_MODBUS_TCP_SERVER_ERROR;
@@ -1024,6 +1023,9 @@ void JWPLC_ModbusTCPClass::ensureServerListening()
 void JWPLC_ModbusTCPClass::serviceServer()
 {
     const uint32_t now = millis();
+    if (_jwplcDropPending && !serviceDeferredDrop())
+        return;
+
 
     if (_clientActive && _rxLength > 0 &&
         (uint32_t)(now - _lastRxMs) >= _frameTimeoutMs)
@@ -1085,6 +1087,18 @@ void JWPLC_ModbusTCPClass::serviceServer()
         return;
     }
 
+    uint8_t observedStatus = 0;
+    const auto probe = _client.jwplcProbeSocketStatus(observedStatus);
+    if (probe == jwplc_w5500_candidate::StatusReadOutcome::BusBusy) {
+        releaseBus();
+        return; // ownership unknown: retry without changing session
+    }
+    if (probe == jwplc_w5500_candidate::StatusReadOutcome::Stale) {
+        releaseBus();
+        dropClient(); // no W5500 access through the old handle
+        return;
+    }
+
     bool fatalFrame = false;
     JWPLCModbusTCPError fatalError = JWPLC_MODBUS_TCP_OK;
 
@@ -1129,10 +1143,8 @@ void JWPLC_ModbusTCPClass::serviceServer()
 
         if (!connected)
         {
-            _client = EthernetClient();
-            _clientActive = false;
-            resetRx();
-            _serverState = JWPLC_MODBUS_TCP_SERVER_LISTENING;
+            dropClient(); // owns valid token or defers safely
+            if (_jwplcDropPending) return;
         }
         return;
     }
@@ -1784,4 +1796,29 @@ void JWPLC_ModbusTCPClass::setPackedBit(
     {
         target &= (uint8_t)~mask;
     }
+}
+
+
+// G10-I server cooperative cleanup. Never close an index without lease.
+bool JWPLC_ModbusTCPClass::serviceDeferredDrop()
+{
+    if (!_jwplcDropPending) return true;
+    if (!acquireBus(20)) return false;
+    // The configured INT socket can no longer belong to this client.
+    // Only touch W5500 INT state if the token is CURRENT.
+    uint8_t observedStatus = 0;
+    const auto outcome = _client.jwplcProbeSocketStatus(observedStatus);
+    if (outcome == jwplc_w5500_candidate::StatusReadOutcome::Read &&
+        _rxIntConfigured && _rxIntSocket == _client.getSocketNumber())
+        disableRxIntLocked();
+    _client.cancelStopAsync();  // nested scope checks token before close
+    const bool released = !(bool)_client;
+    releaseBus();
+    if (released) {
+        _client = EthernetClient();
+        _jwplcDropPending = false;
+        resetRx();
+        resetRxIntSoftware();
+    }
+    return released;
 }

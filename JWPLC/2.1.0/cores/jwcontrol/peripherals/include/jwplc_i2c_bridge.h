@@ -7,6 +7,11 @@
 extern "C" {
 #endif
 
+// Exclusión recursiva interna: proteger transacciones compuestas y shadows TCA.
+// Estas funciones no forman parte de la API Arduino de usuario.
+int jwplcI2C_transactionBegin(void);
+void jwplcI2C_transactionEnd(void);
+
 int jwplcI2C_begin(void);
 int jwplcI2C_beginWithPins(uint8_t sdaPin, uint8_t sclPin, uint32_t frequencyHz);
 int jwplcI2C_setClock(uint32_t frequencyHz);

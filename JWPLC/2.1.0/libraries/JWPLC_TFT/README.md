@@ -704,6 +704,17 @@ JWPLC_TFT.fillCircle(
     miColor);
 ```
 
+## Mejoras de estabilidad en Alpha13
+
+La gestión de operaciones batch del display distingue mejor qué tarea
+FreeRTOS tiene el control del SPI. Esto evita que dos tareas crean
+simultáneamente que poseen una operación gráfica pendiente.
+
+Los ejemplos y las funciones de dibujo continúan igual. Para una pantalla
+de aplicación usa normalmente `JWPLC_Display.tft()` y evita dibujar
+desde varios tasks sin coordinar sus accesos. El backend y los pines
+físicos siguen administrados por el package.
+
 ## Compatibilidad
 
 `JWPLC_TFT.begin(timeoutMs)` sigue siendo público para escenarios de
@@ -739,7 +750,7 @@ auto &tft =
 Documentado para:
 
 ```text
-JWPLC ESP32 v2.1.0-alpha.12
+JWPLC ESP32 v2.1.0-alpha.13 (candidata)
 JWPLC_TFT 0.1.0
 ```
 

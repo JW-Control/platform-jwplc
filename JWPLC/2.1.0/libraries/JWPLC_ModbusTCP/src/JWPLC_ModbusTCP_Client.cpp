@@ -1,3 +1,4 @@
+#include "JWPLC_W5500_SafeAccess.h"
 #include "JWPLC_ModbusTCP_Client.h"
 
 #include <string.h>
@@ -44,6 +45,10 @@ bool JWPLC_ModbusTCPClientClass::begin(
     uint8_t unitId,
     uint16_t port)
 {
+    if (_jwplcClosePending) {
+        _result = JWPLC_MODBUS_TCP_CLIENT_BUSY;
+        return false;
+    }
     if (busy())
     {
         _result = JWPLC_MODBUS_TCP_CLIENT_BUSY;
@@ -102,6 +107,8 @@ void JWPLC_ModbusTCPClientClass::end()
 
 void JWPLC_ModbusTCPClientClass::task()
 {
+    // Incluso despues de fail()/end() se debe poder drenar CLOSE.
+    if (_jwplcClosePending && !serviceDeferredClose()) return;
     if (!busy())
     {
         return;
@@ -415,6 +422,8 @@ bool JWPLC_ModbusTCPClientClass::sessionConnected() const
 
 bool JWPLC_ModbusTCPClientClass::busy() const
 {
+    // Mantener task() activo si el cierre necesita reintento.
+    if (_jwplcClosePending) return true;
     return _state == JWPLC_MODBUS_TCP_CLIENT_WAIT_ETHERNET ||
            _state == JWPLC_MODBUS_TCP_CLIENT_CONNECTING ||
            _state == JWPLC_MODBUS_TCP_CLIENT_SENDING ||
@@ -556,20 +565,20 @@ void JWPLC_ModbusTCPClientClass::printStatus(Print &out) const
 
 bool JWPLC_ModbusTCPClientClass::acquireBus(uint32_t timeoutMs)
 {
-    if (!jwplcSPI_acquire(timeoutMs))
+    if (!jwplc_w5500_candidate::enter(timeoutMs))
     {
         _stats.busLockTimeouts++;
         _result = JWPLC_MODBUS_TCP_CLIENT_BUS_LOCK_TIMEOUT;
         return false;
     }
 
-    jwplcSPI_deselectAll();
+    // enter() deselects on first acquire only.
     return true;
 }
 
 void JWPLC_ModbusTCPClientClass::releaseBus()
 {
-    jwplcSPI_release();
+    jwplc_w5500_candidate::leave();
 }
 
 void JWPLC_ModbusTCPClientClass::resetRx()
@@ -601,19 +610,19 @@ void JWPLC_ModbusTCPClientClass::resetTransactionContext()
 void JWPLC_ModbusTCPClientClass::closeSession()
 {
     _asyncTx.reset();
+    // No abandonar el token si otro task posee SPI.
+    _jwplcClosePending = _jwplcClosePending || (bool)_tcpClient;
+    if (_jwplcClosePending)
+        (void)serviceDeferredClose();
+    else
+        _tcpClient = EthernetClient();
 
-    if ((bool)_tcpClient && acquireBus(20))
-    {
-        _tcpClient.cancelConnectAsync();
-        releaseBus();
-    }
-
-    _tcpClient = EthernetClient();
     _sessionConnected = false;
     _connectStarted = false;
     _sendStarted = false;
     resetRx();
 }
+
 
 void JWPLC_ModbusTCPClientClass::fail(
     JWPLCModbusTCPClientError error,
@@ -672,6 +681,10 @@ bool JWPLC_ModbusTCPClientClass::startRequest(
     uint16_t *destination,
     uint32_t timeoutMs)
 {
+    if (_jwplcClosePending) {
+        _result = JWPLC_MODBUS_TCP_CLIENT_BUSY;
+        return false;
+    }
     if (busy())
     {
         _result = JWPLC_MODBUS_TCP_CLIENT_BUSY;
@@ -813,7 +826,15 @@ void JWPLC_ModbusTCPClientClass::serviceConnection()
             return;
         }
 
-        const bool stillConnected = _tcpClient.connected() != 0;
+        uint8_t observedStatus = 0;
+        const auto probe = _tcpClient.jwplcProbeSocketStatus(observedStatus);
+        if (probe == jwplc_w5500_candidate::StatusReadOutcome::BusBusy) {
+            releaseBus();
+            return; // no falsa desconexion con SPI ocupado
+        }
+        const bool stillConnected =
+            probe == jwplc_w5500_candidate::StatusReadOutcome::Read &&
+            _tcpClient.connected() != 0;
         releaseBus();
 
         if (stillConnected)
@@ -954,6 +975,17 @@ void JWPLC_ModbusTCPClientClass::serviceResponse()
         return;
     }
 
+    uint8_t observedStatus = 0;
+    const auto probe = _tcpClient.jwplcProbeSocketStatus(observedStatus);
+    if (probe == jwplc_w5500_candidate::StatusReadOutcome::BusBusy) {
+        releaseBus();
+        return; // SPI_BUSY != link failure
+    }
+    if (probe == jwplc_w5500_candidate::StatusReadOutcome::Stale) {
+        releaseBus();
+        fail(JWPLC_MODBUS_TCP_CLIENT_TRANSPORT_ERROR, true);
+        return;
+    }
     int availableBytes = _tcpClient.available();
     const bool connectedNow = _tcpClient.connected() != 0;
 
@@ -1221,4 +1253,20 @@ void JWPLC_ModbusTCPClientClass::writeU16BE(uint8_t *p, uint16_t value)
 {
     p[0] = (uint8_t)(value >> 8);
     p[1] = (uint8_t)(value & 0xFFU);
+}
+
+
+// Servicio cooperativo, sin espera ocupada ni cierre por indice sin owner.
+bool JWPLC_ModbusTCPClientClass::serviceDeferredClose()
+{
+    if (!_jwplcClosePending) return true;
+    if (!acquireBus(20)) return false; // retain _tcpClient and token
+    _tcpClient.cancelStopAsync(); // guard anidado y lease en EthernetClient
+    const bool released = !(bool)_tcpClient;
+    releaseBus();
+    if (released) {
+        _tcpClient = EthernetClient();
+        _jwplcClosePending = false;
+    }
+    return released;
 }
