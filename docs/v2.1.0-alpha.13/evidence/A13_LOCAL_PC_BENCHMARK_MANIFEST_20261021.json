@@ -1,0 +1,197 @@
+{
+  "schema": "A13-WINDOWS-LOCAL-BENCH-1",
+  "status": "PASS_LOCAL_PC_THREE_PAIRS_TWO_FQBN",
+  "host": "LOCAL_OPERATOR_PC",
+  "repetitions": 3,
+  "metrics": {
+    "jwplcbasic": {
+      "board": "jwplcbasic",
+      "source_cold_median_s": 52.12,
+      "source_warm_median_s": 9.251,
+      "archive_cold_median_s": 40.19,
+      "archive_warm_median_s": 9.055,
+      "cold_savings_s": 11.93,
+      "cold_savings_percent": 22.89
+    },
+    "jwplcbasiccore": {
+      "board": "jwplcbasiccore",
+      "source_cold_median_s": 54.964,
+      "source_warm_median_s": 9.175,
+      "archive_cold_median_s": 47.958,
+      "archive_warm_median_s": 9.146,
+      "cold_savings_s": 7.006,
+      "cold_savings_percent": 12.75
+    }
+  },
+  "runs": [
+    {
+      "mode": "source",
+      "board": "jwplcbasic",
+      "repetition": 1,
+      "cold_seconds": 57.89,
+      "warm_seconds": 9.425,
+      "objects": {
+        "JWPLC_Ethernet": 12,
+        "JWPLC_ModbusTCP": 2
+      },
+      "elf_sha256": "6973ecdd0ed9a77c97b8fdab7bc77c27d564fcb9119f5d0b23f7f64ea27e2037",
+      "status": "PASS"
+    },
+    {
+      "mode": "source",
+      "board": "jwplcbasic",
+      "repetition": 2,
+      "cold_seconds": 52.12,
+      "warm_seconds": 9.181,
+      "objects": {
+        "JWPLC_Ethernet": 12,
+        "JWPLC_ModbusTCP": 2
+      },
+      "elf_sha256": "223db41fcb6d4ad237ec8126b96f2c0b03047be3188ce8ddd6fe8befd584aaa6",
+      "status": "PASS"
+    },
+    {
+      "mode": "source",
+      "board": "jwplcbasic",
+      "repetition": 3,
+      "cold_seconds": 50.747,
+      "warm_seconds": 9.251,
+      "objects": {
+        "JWPLC_Ethernet": 12,
+        "JWPLC_ModbusTCP": 2
+      },
+      "elf_sha256": "b6bbe0460bbf098f674541efae38c08a0ad6c0fc91bd67a6a423820323f80a21",
+      "status": "PASS"
+    },
+    {
+      "mode": "source",
+      "board": "jwplcbasiccore",
+      "repetition": 1,
+      "cold_seconds": 59.47,
+      "warm_seconds": 9.133,
+      "objects": {
+        "JWPLC_Ethernet": 12,
+        "JWPLC_ModbusTCP": 2
+      },
+      "elf_sha256": "462e0a55cf24604ee3a84d130d6fdebe65053b03fba271d8e822c9d068556a8d",
+      "status": "PASS"
+    },
+    {
+      "mode": "source",
+      "board": "jwplcbasiccore",
+      "repetition": 2,
+      "cold_seconds": 54.489,
+      "warm_seconds": 9.207,
+      "objects": {
+        "JWPLC_Ethernet": 12,
+        "JWPLC_ModbusTCP": 2
+      },
+      "elf_sha256": "159136c258f098675adcfce2ed2559dc8478e74f6e6ba469e3b9ba615b7dd8b6",
+      "status": "PASS"
+    },
+    {
+      "mode": "source",
+      "board": "jwplcbasiccore",
+      "repetition": 3,
+      "cold_seconds": 54.964,
+      "warm_seconds": 9.175,
+      "objects": {
+        "JWPLC_Ethernet": 12,
+        "JWPLC_ModbusTCP": 2
+      },
+      "elf_sha256": "4c54722228313045c65edc5781ae87e6febe43d8f482bfdb95b624a146b9dbe5",
+      "status": "PASS"
+    },
+    {
+      "mode": "archive",
+      "board": "jwplcbasic",
+      "repetition": 1,
+      "cold_seconds": 40.19,
+      "warm_seconds": 9.12,
+      "objects": {
+        "JWPLC_Ethernet": 0,
+        "JWPLC_ModbusTCP": 0
+      },
+      "elf_sha256": "e7a988f23b0000c4b837349cdcd5b1d2a61bac69d58b702b081a76806dbb7b9d",
+      "status": "PASS"
+    },
+    {
+      "mode": "archive",
+      "board": "jwplcbasic",
+      "repetition": 2,
+      "cold_seconds": 40.018,
+      "warm_seconds": 9.055,
+      "objects": {
+        "JWPLC_Ethernet": 0,
+        "JWPLC_ModbusTCP": 0
+      },
+      "elf_sha256": "96ff19e8bf271608197eee2dc60f6a407b58e4ea7d0b748992459aa573f641e4",
+      "status": "PASS"
+    },
+    {
+      "mode": "archive",
+      "board": "jwplcbasic",
+      "repetition": 3,
+      "cold_seconds": 41.408,
+      "warm_seconds": 8.942,
+      "objects": {
+        "JWPLC_Ethernet": 0,
+        "JWPLC_ModbusTCP": 0
+      },
+      "elf_sha256": "a5a59ef735eb3c7064ca142d382498c45aae1e43290b56c5bc7b5b409c4f13b6",
+      "status": "PASS"
+    },
+    {
+      "mode": "archive",
+      "board": "jwplcbasiccore",
+      "repetition": 1,
+      "cold_seconds": 47.958,
+      "warm_seconds": 9.146,
+      "objects": {
+        "JWPLC_Ethernet": 0,
+        "JWPLC_ModbusTCP": 0
+      },
+      "elf_sha256": "7e21653109186b2560f397ad245bb6adde9a9c99b77bea3e0868bc285d2a4ebd",
+      "status": "PASS"
+    },
+    {
+      "mode": "archive",
+      "board": "jwplcbasiccore",
+      "repetition": 2,
+      "cold_seconds": 48.086,
+      "warm_seconds": 9.192,
+      "objects": {
+        "JWPLC_Ethernet": 0,
+        "JWPLC_ModbusTCP": 0
+      },
+      "elf_sha256": "5c87b5f3ca7d8089948f21ad70b371446d1d16465e276bfd9056796feb8cfacd",
+      "status": "PASS"
+    },
+    {
+      "mode": "archive",
+      "board": "jwplcbasiccore",
+      "repetition": 3,
+      "cold_seconds": 47.624,
+      "warm_seconds": 8.897,
+      "objects": {
+        "JWPLC_Ethernet": 0,
+        "JWPLC_ModbusTCP": 0
+      },
+      "elf_sha256": "109fc28c064913bbe3c41195f5e00a18f6e26843132330c6008dac5ffa46a076",
+      "status": "PASS"
+    }
+  ],
+  "head": "158d12a242aa09cf414207c10217954a034a0b68",
+  "package_tree": "6b498f4a0797e2a1bb0054b005b91f985bc071e2",
+  "baseline_functional_tree": "cc17716f173509b1e0f3c0df5eb99549014c1d61",
+  "allowed_package_docs": [
+    "JWPLC/2.1.0/libraries/JWPLC_Ethernet/README.md",
+    "JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/README.md"
+  ],
+  "archives": {
+    "JWPLC_Ethernet": "f190bbbbd69861941807a290be653de422e11a898d1a9583d289cc573d38a0f4",
+    "JWPLC_ModbusTCP": "d5456307c5e8a4d2c4fcd3252464b96859faaa4df3ece3ca23e3c720f3b25a1d"
+  },
+  "arduino_cli_version": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+  "hardware": "NOT_TOUCHED"
+}

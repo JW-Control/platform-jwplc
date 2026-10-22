@@ -17,3 +17,6 @@
 /tools/jwplc-hmi-designer/electron/build/
 /tools/jwplc-hmi-designer/electron/node_modules/
 /tools/jwplc-hmi-designer/electron/release/
+
+# Archivos temporales CMake/VS Code en la carpeta raiz.
+/build/

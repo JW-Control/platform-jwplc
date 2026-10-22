@@ -21,9 +21,7 @@ extern "C"
 // del package lo solicita.
 JW_RTC JWPLC_RTC;
 
-// Flags básicos para futura expansión.
-// Por ahora el RTC está habilitado por defecto y siempre se muestra en IDLE.
-static bool g_rtcEnabled = true;
+// RTC está habilitado cuando JWPLC_HAS_RTC=1; no existe flag interno configurable.
 
 // =====================================================
 // FRAM global del ecosistema JWPLC
@@ -79,7 +77,7 @@ static constexpr UBaseType_t BUTTON_SCAN_TASK_PRIORITY = 2;
 // pressed()/released() ni depender de la cola de eventos del usuario.
 static uint8_t g_lastButtonDownMask = 0;
 
-static uint32_t g_buttonRefreshThrottleMs = 25;
+static constexpr uint32_t g_buttonRefreshThrottleMs = 25;
 static uint32_t g_lastButtonRefreshRequestMs = 0;
 
 // Fuerza un refresh del display, pero respetando un intervalo mínimo
@@ -490,11 +488,6 @@ extern "C" bool jwplcRTCBeginCallback(void)
 #if !JWPLC_HAS_RTC
     return false;
 #else
-    if (!g_rtcEnabled)
-    {
-        return false;
-    }
-
     return JWPLC_RTC.begin();
 #endif
 }
@@ -505,7 +498,7 @@ extern "C" bool jwplcRTCReadCallback(JWPLC_RTCState *rtc)
     (void)rtc;
     return false;
 #else
-    if (!g_rtcEnabled || rtc == nullptr)
+    if (rtc == nullptr)
     {
         return false;
     }

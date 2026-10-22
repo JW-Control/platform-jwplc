@@ -1,3 +1,4 @@
+#include "JWPLC_W5500_SafeAccess.h"
 /* Copyright 2018 Paul Stoffregen
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this
@@ -29,10 +30,16 @@ int EthernetClient::connect(const char * host, uint16_t port)
 	IPAddress remote_addr;
 
 	if (_sockindex < MAX_SOCK_NUM) {
-		if (Ethernet.socketStatus(_sockindex) != SnSR::CLOSED) {
-			Ethernet.socketDisconnect(_sockindex); // TODO: should we call stop()?
+		jwplc_w5500_candidate::BusScope bus(20);
+		if (!bus) return 0; // preserve active socket under contention
+		if (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) {
+			_sockindex = MAX_SOCK_NUM; // stale copied handle
+		} else {
+			if (Ethernet.socketStatus(_sockindex) != SnSR::CLOSED)
+				Ethernet.socketDisconnect(_sockindex);
+			(void)jwplc_w5500_candidate::invalidateSocketLocked(_jwplcSocketToken);
+			_sockindex = MAX_SOCK_NUM;
 		}
-		_sockindex = MAX_SOCK_NUM;
 	}
 	dns.begin(Ethernet.dnsServerIP());
 	if (!dns.getHostByName(host, remote_addr)) return 0; // TODO: use _timeout
@@ -41,6 +48,22 @@ int EthernetClient::connect(const char * host, uint16_t port)
 
 int EthernetClient::beginConnectAsync(IPAddress ip, uint16_t port)
 {
+	// An explicit new target supersedes a pending cancellation.
+	_jwplcCancelConnectPending = false;
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus) {
+		_jwplcDeferredConnect = true;
+		_jwplcDeferredIp = ip;
+		_jwplcDeferredPort = port;
+		return 0; // SPI_BUSY, not failure
+	}
+	_jwplcDeferredConnect = false;
+	// No touching an old socket whose allocation changed.
+	if (_sockindex < MAX_SOCK_NUM &&
+	    !jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) {
+		_sockindex = MAX_SOCK_NUM;
+		_jwplcSocketToken = {};
+	}
 	// Una nueva conexiÃ³n invalida cualquier lifecycle cooperativo anterior.
 	cancelWriteAsync();
 	_stopPending = false;
@@ -57,6 +80,7 @@ int EthernetClient::beginConnectAsync(IPAddress ip, uint16_t port)
 			// Una conexión todavía en progreso se aborta inmediatamente.
 			Ethernet.socketClose(_sockindex);
 		}
+		(void)jwplc_w5500_candidate::invalidateSocketLocked(_jwplcSocketToken);
 		_sockindex = MAX_SOCK_NUM;
 	}
 
@@ -68,6 +92,11 @@ int EthernetClient::beginConnectAsync(IPAddress ip, uint16_t port)
 
 	_sockindex = Ethernet.socketBegin(SnMR::TCP, 0);
 	if (_sockindex >= MAX_SOCK_NUM) return -1;
+	_jwplcSocketToken = jwplc_w5500_candidate::currentSocketTokenLocked(_sockindex);
+	if (!bool(_jwplcSocketToken)) {
+		_sockindex = MAX_SOCK_NUM;
+		return -1; // Never issue CONNECT with an unowned socket.
+	}
 
 	// socketConnect() sólo configura destino y dispara Sock_CONNECT en el
 	// W5x00. La espera de ESTABLISHED se hace luego mediante pollConnectAsync().
@@ -77,12 +106,26 @@ int EthernetClient::beginConnectAsync(IPAddress ip, uint16_t port)
 
 int EthernetClient::pollConnectAsync()
 {
+	if (_jwplcCancelConnectPending) {
+		cancelConnectAsync();
+		return _jwplcCancelConnectPending ? 0 : -1;
+	}
+	if (_jwplcDeferredConnect)
+		return beginConnectAsync(_jwplcDeferredIp,_jwplcDeferredPort);
+	if (_sockindex >= MAX_SOCK_NUM) return -1;
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus) return 0;
+	if (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) {
+		_sockindex = MAX_SOCK_NUM;
+		return -1;
+	}
 	if (_sockindex >= MAX_SOCK_NUM) return -1;
 
 	uint8_t stat = Ethernet.socketStatus(_sockindex);
 	if (stat == SnSR::ESTABLISHED || stat == SnSR::CLOSE_WAIT) return 1;
 
 	if (stat == SnSR::CLOSED) {
+		(void)jwplc_w5500_candidate::invalidateSocketLocked(_jwplcSocketToken);
 		_sockindex = MAX_SOCK_NUM;
 		return -1;
 	}
@@ -92,6 +135,12 @@ int EthernetClient::pollConnectAsync()
 
 bool EthernetClient::connectAsyncInProgress()
 {
+	if (_jwplcCancelConnectPending) return true;
+	if (_jwplcDeferredConnect) return true;
+	if (_sockindex >= MAX_SOCK_NUM) return false;
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus) return true; // Unknown under contention, not disconnected.
+	if (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) return false;
 	if (_sockindex >= MAX_SOCK_NUM) return false;
 
 	uint8_t stat = Ethernet.socketStatus(_sockindex);
@@ -102,6 +151,26 @@ bool EthernetClient::connectAsyncInProgress()
 
 void EthernetClient::cancelConnectAsync()
 {
+	_jwplcDeferredConnect = false; // cancel the queued retarget too
+	if (_sockindex >= MAX_SOCK_NUM) {
+		_jwplcDeferredConnect = false;
+		_jwplcCancelConnectPending = false;
+		return;
+	}
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus) {
+		_jwplcCancelConnectPending = true;
+		// A temporary client may die after a timeout. The autoload
+		// service owns this token until CLOSE or a newer allocation.
+		(void)jwplc_w5500_candidate::requestDeferredClose(_jwplcSocketToken);
+		return; // retain the handle for an explicit retry too
+	}
+	_jwplcCancelConnectPending = false;
+	_jwplcDeferredConnect = false;
+	if (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) {
+		_sockindex = MAX_SOCK_NUM;
+		return;
+	}
 	if (_sockindex >= MAX_SOCK_NUM) return;
 
 	uint8_t stat = Ethernet.socketStatus(_sockindex);
@@ -114,6 +183,7 @@ void EthernetClient::cancelConnectAsync()
 		Ethernet.socketClose(_sockindex);
 	}
 
+	(void)jwplc_w5500_candidate::invalidateSocketLocked(_jwplcSocketToken);
 	_sockindex = MAX_SOCK_NUM;
 }
 
@@ -141,7 +211,9 @@ int EthernetClient::connect(IPAddress ip, uint16_t port)
 
 int EthernetClient::availableForWrite(void)
 {
-	if (_sockindex >= MAX_SOCK_NUM) return 0;
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus || _sockindex >= MAX_SOCK_NUM) return 0;
+	if (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) return 0;
 	return Ethernet.socketSendAvailable(_sockindex);
 }
 
@@ -152,14 +224,37 @@ size_t EthernetClient::write(uint8_t b)
 
 size_t EthernetClient::write(const uint8_t *buf, size_t size)
 {
-	if (_sockindex >= MAX_SOCK_NUM) return 0;
-	if (writeAsyncInProgress()) {
-		setWriteError();
-		return 0;
-	}
-	if (Ethernet.socketSend(_sockindex, buf, size, _timeout)) return size;
-	setWriteError();
-	return 0;
+    if (size == 0) return 0;
+    if (_sockindex >= MAX_SOCK_NUM || buf == nullptr ||
+        writeAsyncInProgress() || _stopPending || _flushPending) {
+        setWriteError();
+        return 0;
+    }
+
+    // One SEND step per poll; yield only after its bus scope was released.
+    const uint32_t startedMs = millis();
+    size_t totalWritten = 0;
+    while (totalWritten < size) {
+        if ((uint32_t)(millis() - startedMs) >= _timeout) break;
+        const size_t remaining = size - totalWritten;
+        const uint16_t chunk = (uint16_t)(
+            remaining < (size_t)W5100.SSIZE ? remaining : (size_t)W5100.SSIZE);
+        int state = beginWriteAsync(buf + totalWritten, chunk);
+        while (state == 0) {
+            if ((uint32_t)(millis() - startedMs) >= _timeout) {
+                // If SEND was not issued, cancellation releases the buffer
+                // even under BUS_BUSY. After SEND, cleanup retains its lease.
+                cancelWriteAsync();
+                break;
+            }
+            yield(); // no JWPLC SPI mutex held here
+            state = pollWriteAsync();
+        }
+        if (state != 1) break;
+        totalWritten += chunk;
+    }
+    if (totalWritten != size) setWriteError();
+    return totalWritten;
 }
 
 int EthernetClient::beginWriteAsync(const uint8_t *buf, size_t size)
@@ -187,6 +282,17 @@ int EthernetClient::pollWriteAsync()
 		return -1;
 	}
 
+
+    jwplc_w5500_candidate::BusScope bus(20);
+    if (!bus) return 0; // retain the SEND state and its buffer
+    if (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) {
+        _sockindex = MAX_SOCK_NUM;
+        _writeAsyncState = 0;
+        _writeAsyncBuffer = nullptr;
+        _writeAsyncLength = 0;
+        _writeAsyncStartedAtMs = 0;
+        return -1; // recycled slot or chip epoch: no W5500 access
+    }
 	if (_writeAsyncState == 1) {
 		const int state = Ethernet.socketBeginSendTCP(
 			_sockindex,
@@ -225,6 +331,26 @@ bool EthernetClient::writeAsyncInProgress() const
 
 void EthernetClient::cancelWriteAsync()
 {
+	// Guard before touching any shared W5500 socket, including SEND pending.
+    if (_writeAsyncState == 1) {
+        // No SEND command was issued; dropping the borrowed buffer is safe.
+        _writeAsyncState = 0;
+        _writeAsyncBuffer = nullptr;
+        _writeAsyncLength = 0;
+        _writeAsyncStartedAtMs = 0;
+        return;
+    }
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus) return; // SPI_BUSY: preserve TX state/handle.
+	if (_sockindex < MAX_SOCK_NUM &&
+	    !jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) {
+		_sockindex=MAX_SOCK_NUM; // no hardware operation on recycled slot
+		_writeAsyncState=0;
+		_writeAsyncBuffer=nullptr;
+		_writeAsyncLength=0;
+		_writeAsyncStartedAtMs=0;
+		return;
+	}
 	const bool sendWasIssued = _writeAsyncState == 2;
 
 	_writeAsyncState = 0;
@@ -234,12 +360,16 @@ void EthernetClient::cancelWriteAsync()
 
 	if (sendWasIssued && _sockindex < MAX_SOCK_NUM) {
 		Ethernet.socketClose(_sockindex);
+		(void)jwplc_w5500_candidate::invalidateSocketLocked(_jwplcSocketToken);
 		_sockindex = MAX_SOCK_NUM;
 	}
 }
 
 int EthernetClient::available()
 {
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus) return 0;
+	if (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) return 0;
 	if (_sockindex >= MAX_SOCK_NUM) return 0;
 	return Ethernet.socketRecvAvailable(_sockindex);
 	// TODO: do the WIZnet chips automatically retransmit TCP ACK
@@ -252,12 +382,22 @@ int EthernetClient::available()
 
 int EthernetClient::read(uint8_t *buf, size_t size)
 {
-	if (_sockindex >= MAX_SOCK_NUM) return 0;
-	return Ethernet.socketRecv(_sockindex, buf, size);
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus) return 0;
+	if (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) return 0;
+    if (_sockindex >= MAX_SOCK_NUM || size == 0) return 0;
+
+    // socketRecv() recibe int16_t: size_t >= 32768 podría ser negativo.
+    const int16_t boundedSize = (int16_t)(
+        size > (size_t)INT16_MAX ? (size_t)INT16_MAX : size);
+    return Ethernet.socketRecv(_sockindex, buf, boundedSize);
 }
 
 int EthernetClient::jwplcReadTcpFastDeferred(uint8_t *buf, size_t size)
 {
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus) return 0;
+	if (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) return -1;
 	if (_sockindex >= MAX_SOCK_NUM || size > UINT16_MAX) return -1;
 	return Ethernet.socketRecvTCPFastDeferred(
 		_sockindex,
@@ -267,12 +407,18 @@ int EthernetClient::jwplcReadTcpFastDeferred(uint8_t *buf, size_t size)
 
 bool EthernetClient::jwplcCommitRxFast()
 {
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus) return false;
+	if (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) return false;
 	if (_sockindex >= MAX_SOCK_NUM) return false;
 	return Ethernet.socketCommitTCPFast(_sockindex);
 }
 
 int EthernetClient::peek()
 {
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus) return -1;
+	if (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) return -1;
 	if (_sockindex >= MAX_SOCK_NUM) return -1;
 	if (!available()) return -1;
 	return Ethernet.socketPeek(_sockindex);
@@ -280,6 +426,9 @@ int EthernetClient::peek()
 
 int EthernetClient::read()
 {
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus) return -1;
+	if (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) return -1;
 	uint8_t b;
 	if (Ethernet.socketRecv(_sockindex, &b, 1) > 0) return b;
 	return -1;
@@ -325,6 +474,21 @@ int EthernetClient::pollFlushAsync()
 		if (writeState == 0) return 0;
 	}
 
+    // pollWriteAsync() has completed its own short bus scope. Acquire a
+    // fresh lease before reading status and TX space on this socket.
+    jwplc_w5500_candidate::BusScope bus(20);
+    if (!bus) {
+        if ((uint32_t)(millis() - _flushStartedAtMs) < _timeout) return 0;
+        _flushPending = false;
+        _flushStartedAtMs = 0;
+        return -1;
+    }
+    if (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) {
+        _sockindex = MAX_SOCK_NUM;
+        _flushPending = false;
+        _flushStartedAtMs = 0;
+        return -1;
+    }
 	const uint8_t stat = Ethernet.socketStatus(_sockindex);
 	if (stat != SnSR::ESTABLISHED && stat != SnSR::CLOSE_WAIT) {
 		_flushPending = false;
@@ -369,6 +533,15 @@ void EthernetClient::flush()
 
 int EthernetClient::beginStopAsync()
 {
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus) return 0;
+	if (_sockindex < MAX_SOCK_NUM &&
+	    !jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) {
+		_sockindex = MAX_SOCK_NUM;
+		_stopPending = false;
+		_stopStartedAtMs = 0;
+		return 1; // antiguo propietario: no tocar W5500
+	}
 	cancelFlushAsync();
 	cancelWriteAsync();
 
@@ -384,6 +557,7 @@ int EthernetClient::beginStopAsync()
 
 	const uint8_t stat = Ethernet.socketStatus(_sockindex);
 	if (stat == SnSR::CLOSED) {
+		(void)jwplc_w5500_candidate::invalidateSocketLocked(_jwplcSocketToken);
 		_sockindex = MAX_SOCK_NUM;
 		_stopPending = false;
 		_stopStartedAtMs = 0;
@@ -400,7 +574,8 @@ int EthernetClient::beginStopAsync()
 int EthernetClient::pollStopAsync()
 {
 	if (!_stopPending) {
-		return (_sockindex >= MAX_SOCK_NUM) ? 1 : -1;
+		// Un begin previo pudo quedar pendiente exclusivamente por BUS_BUSY.
+		return (_sockindex < MAX_SOCK_NUM) ? beginStopAsync() : 1;
 	}
 
 	if (_sockindex >= MAX_SOCK_NUM) {
@@ -408,8 +583,17 @@ int EthernetClient::pollStopAsync()
 		_stopStartedAtMs = 0;
 		return 1;
 	}
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus) return 0;
+	if (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) {
+		_sockindex = MAX_SOCK_NUM;
+		_stopPending = false;
+		_stopStartedAtMs = 0;
+		return 1;
+	}
 
 	if (Ethernet.socketStatus(_sockindex) == SnSR::CLOSED) {
+		(void)jwplc_w5500_candidate::invalidateSocketLocked(_jwplcSocketToken);
 		_sockindex = MAX_SOCK_NUM;
 		_stopPending = false;
 		_stopStartedAtMs = 0;
@@ -419,6 +603,7 @@ int EthernetClient::pollStopAsync()
 	if ((uint32_t)(millis() - _stopStartedAtMs) >= _timeout) {
 		// Conserva la semÃ¡ntica legacy: al vencer timeout se fuerza CLOSE.
 		Ethernet.socketClose(_sockindex);
+		(void)jwplc_w5500_candidate::invalidateSocketLocked(_jwplcSocketToken);
 		_sockindex = MAX_SOCK_NUM;
 		_stopPending = false;
 		_stopStartedAtMs = 0;
@@ -435,11 +620,24 @@ bool EthernetClient::stopAsyncInProgress() const
 
 void EthernetClient::cancelStopAsync()
 {
+    jwplc_w5500_candidate::BusScope bus(20);
+    if (!bus) {
+		(void)jwplc_w5500_candidate::requestDeferredClose(_jwplcSocketToken);
+		return; // retain the handle for an explicit retry too
+	}
+    if (_sockindex < MAX_SOCK_NUM &&
+        !jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) {
+        _sockindex = MAX_SOCK_NUM; // stale handle: no tocar hardware ajeno
+        _stopPending = false;
+        _stopStartedAtMs = 0;
+        return;
+    }
 	cancelFlushAsync();
 	cancelWriteAsync();
 
 	if (_sockindex < MAX_SOCK_NUM) {
 		Ethernet.socketClose(_sockindex);
+        (void)jwplc_w5500_candidate::invalidateSocketLocked(_jwplcSocketToken);
 	}
 
 	_sockindex = MAX_SOCK_NUM;
@@ -449,8 +647,16 @@ void EthernetClient::cancelStopAsync()
 
 void EthernetClient::stop()
 {
+	const uint32_t waitStartedMs = millis();
 	int state = beginStopAsync();
 	while (state == 0) {
+		// Void legacy API: la contención no permite cerrar W5500.
+		// Bounded return: conservar handle y dejar reintento explícito.
+		if ((uint32_t)(millis() - waitStartedMs) >= _timeout) {
+			// The caller may destroy this client after a void stop().
+			(void)jwplc_w5500_candidate::requestDeferredClose(_jwplcSocketToken);
+			return;
+		}
 		delay(1);
 		state = pollStopAsync();
 	}
@@ -458,7 +664,10 @@ void EthernetClient::stop()
 
 uint8_t EthernetClient::connected()
 {
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus) return 0;
 	if (_sockindex >= MAX_SOCK_NUM) return 0;
+	if (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) return 0;
 
 	uint8_t s = Ethernet.socketStatus(_sockindex);
 	return !(s == SnSR::LISTEN || s == SnSR::CLOSED || s == SnSR::FIN_WAIT ||
@@ -468,6 +677,9 @@ uint8_t EthernetClient::connected()
 uint8_t EthernetClient::status()
 {
 	if (_sockindex >= MAX_SOCK_NUM) return SnSR::CLOSED;
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus) return SnSR::CLOSED;
+	if (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) return SnSR::CLOSED;
 	return Ethernet.socketStatus(_sockindex);
 }
 
@@ -485,7 +697,9 @@ bool EthernetClient::operator==(const EthernetClient& rhs)
 // from: https://github.com/ntruchsess/Arduino-1/commit/937bce1a0bb2567f6d03b15df79525569377dabd
 uint16_t EthernetClient::localPort()
 {
-	if (_sockindex >= MAX_SOCK_NUM) return 0;
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus || _sockindex >= MAX_SOCK_NUM) return 0;
+	if (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) return 0;
 	uint16_t port;
 	SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
 	port = W5100.readSnPORT(_sockindex);
@@ -497,7 +711,9 @@ uint16_t EthernetClient::localPort()
 // returns the remote IP address: https://forum.arduino.cc/index.php?topic=82416.0
 IPAddress EthernetClient::remoteIP()
 {
-	if (_sockindex >= MAX_SOCK_NUM) return IPAddress((uint32_t)0);
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus || _sockindex >= MAX_SOCK_NUM) return IPAddress((uint32_t)0);
+	if (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) return IPAddress((uint32_t)0);
 	uint8_t remoteIParray[4];
 	SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
 	W5100.readSnDIPR(_sockindex, remoteIParray);
@@ -509,10 +725,27 @@ IPAddress EthernetClient::remoteIP()
 // from: https://github.com/ntruchsess/Arduino-1/commit/ca37de4ba4ecbdb941f14ac1fe7dd40f3008af75
 uint16_t EthernetClient::remotePort()
 {
-	if (_sockindex >= MAX_SOCK_NUM) return 0;
+	jwplc_w5500_candidate::BusScope bus(20);
+	if (!bus || _sockindex >= MAX_SOCK_NUM) return 0;
+	if (!jwplc_w5500_candidate::matchesLocked(_jwplcSocketToken)) return 0;
 	uint16_t port;
 	SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
 	port = W5100.readSnDPORT(_sockindex);
 	SPI.endTransaction();
 	return port;
+}
+
+
+// G10-I B01: Status bajo ownership y la misma exclusión W5500.
+jwplc_w5500_candidate::StatusReadOutcome
+EthernetClient::jwplcProbeSocketStatus(uint8_t& result)
+{
+    if (_sockindex >= MAX_SOCK_NUM)
+        return jwplc_w5500_candidate::StatusReadOutcome::Stale;
+    return jwplc_w5500_candidate::readStatusIfCurrent(
+        _jwplcSocketToken,
+        [](uint8_t index, void*) -> uint8_t {
+            return Ethernet.socketStatus(index);
+        },
+        nullptr, 20, &result);
 }
