@@ -17,8 +17,6 @@
   - Solo se espera JWPLC_Display.isReady() para confirmar que ya se puede dibujar/loguear.
 */
 
-#include <JWPLC_Display.h>
-
 // =====================================================
 // Configuracion general
 // =====================================================

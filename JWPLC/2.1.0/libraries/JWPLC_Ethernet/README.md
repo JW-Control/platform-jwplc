@@ -26,6 +26,7 @@ de red.
 
 En un sketch normal no tienes que:
 
+- escribir `#include <JWPLC_Ethernet.h>`: el package ya la carga;
 - llamar `Ethernet.begin()`;
 - configurar el pin CS del W5500;
 - reiniciar manualmente el chip;
@@ -39,8 +40,6 @@ El runtime mantiene Ethernet en segundo plano.
 Este sketch solicita una dirección por DHCP y la imprime cuando esté lista.
 
 ```cpp
-#include <JWPLC_Ethernet.h>
-
 bool ipMostrada = false;
 
 void setup()
@@ -134,8 +133,6 @@ Port  = 5000
 ## Ejemplo 1 — Básico: DHCP y estado de red
 
 ```cpp
-#include <JWPLC_Ethernet.h>
-
 uint32_t ultimoReporte = 0;
 
 void setup()
@@ -177,8 +174,6 @@ arranque.
 Cambia estos valores según tu red.
 
 ```cpp
-#include <JWPLC_Ethernet.h>
-
 const IPAddress IP_LOCAL(
     192, 168, 1, 50);
 
@@ -236,8 +231,6 @@ Comandos:
 - `?` -> responde el estado.
 
 ```cpp
-#include <JWPLC_Ethernet.h>
-
 EthernetServer server(5000);
 
 bool serverIniciado = false;
@@ -303,8 +296,6 @@ void loop()
 Este ejemplo envía el estado de las entradas una vez por segundo.
 
 ```cpp
-#include <JWPLC_Ethernet.h>
-
 EthernetUDP udp;
 
 const IPAddress DESTINO(
@@ -621,8 +612,6 @@ El servidor debe estar encendido y escuchando en el puerto elegido.
 Sustituye la IP por la de tu servidor y abre el Monitor Serie a 115200.
 
 ```cpp
-#include <JWPLC_Ethernet.h>
-
 EthernetClient cliente;
 
 const IPAddress SERVIDOR(192, 168, 1, 100);

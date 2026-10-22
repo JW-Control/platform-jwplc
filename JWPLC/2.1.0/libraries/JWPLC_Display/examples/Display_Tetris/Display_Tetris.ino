@@ -26,8 +26,6 @@
   - Ya no usa workaround con JWPLC_Display.forceRedraw().
 */
 
-#include <JWPLC_Display.h>
-
 // =====================================================
 // Configuracion general
 // =====================================================
