@@ -9,7 +9,7 @@
 
 | Rol | Rama | Estado |
 |---|---|---|
-| Base de integración | `v2.1.0-alpha.13/feature/cleanup-robustness` | `fdb59846` + rama `alpha13/cierre-publicacion` (guard y estado) |
+| Base de integración | `v2.1.0-alpha.13/feature/cleanup-robustness` | `8704a1a0` (PR #127) |
 | Publicación | `release/v2.1.x` | alpha.12; 1118 commits por detrás de la base |
 | Índice Boards Manager | `main` | alpha.12 |
 
@@ -31,7 +31,7 @@
 | H física | `PASS_FUNCIONAL_ACOTADO` (COM4 Master, COM14 Slave, FC03 4/4, UDP 3/3, RTU) | `A13_F137_H_DICTAMEN_FISICO_20261021.md` |
 | C release-like | PASS en el HEAD del PR #126 | [#39663616618](https://github.com/JW-Control/platform-jwplc/actions/runs/39663616618) |
 | Benchmark PC | Basic frío −22,89 %, Basic Core frío −12,75 % | `A13_LOCAL_PC_BENCHMARK_RESULTADOS_20261021.md` |
-| Guard F137-C en BASE | FAIL en `efe20fe0` y `908a9c2f`; corregido en `alpha13/cierre-publicacion` | [#39665793173](https://github.com/JW-Control/platform-jwplc/actions/runs/39665793173) |
+| Guard F137-C en BASE | PASS en `8704a1a0` (FAIL previo en `efe20fe0` y `908a9c2f`) | [#39729850539](https://github.com/JW-Control/platform-jwplc/actions/runs/39729850539) |
 
 **Por qué falla el guard en BASE:** `tools/alpha13/f137_c_release_guard.py` solo acepta el árbol N3 (`cc17716f`). El PR #126 cambió dos README, así que el árbol pasó a ser `6b498f4a` y el guard se detiene con `F137_C_REVIEW_STOP_PACKAGE_TREE_NOT_N3`. No es una regresión del producto. Con la aprobación del propietario (22/10), el guard acepta `6b498f4a` como segundo árbol aprobado y sigue verificando los SHA-256 de los `.a`, `precompiled=full` y la política weak/strong. Un cambio en una fuente del package sigue deteniéndolo.
 
@@ -39,8 +39,8 @@
 
 ## 4. Pendiente para cerrar Alpha13
 
-1. Fusionar `alpha13/cierre-publicacion` en BASE y confirmar el guard F137-C en verde.
-2. Retirar los workflows `alpha13-*` de gates cerrados (aprobado por el propietario el 22/10) y fusionar BASE en `release/v2.1.x` con squash (ver sección 5). Publicación autorizada el 22/10.
+1. ~~Fusionar la corrección del guard en BASE~~: PR #127, guard F137-C en verde ([#39729850539](https://github.com/JW-Control/platform-jwplc/actions/runs/39729850539)).
+2. Retirar los 53 workflows `alpha13-*` de gates cerrados (rama `alpha13/retirar-workflows`) y fusionar BASE en `release/v2.1.x` con squash (ver sección 5). Publicación autorizada el 22/10.
 3. Publicar: workflow `Release JWPLC Arduino Package`, `version=2.1.0-alpha.13`.
 4. Postpublicación: asset y SHA-256 del ZIP, PR automático de índice hacia `main`, instalación limpia desde el índice dev con Arduino CLI e IDE y compilación de los dos FQBN.
 5. Completar `PRE_RELEASE.md` con los metadatos reales y marcar `ALPHA13=CLOSED_PUBLISHED`.
@@ -49,17 +49,17 @@
 
 - `auto-release-jwplc-on-readme.yml` despacha la Release **automáticamente** cuando llega a `release/v2.1.x` un README con un `JWPLC_RELEASE_VERSION` nuevo. El README de la base ya marca `2.1.0-alpha.13`. **Fusionar la base en `release/v2.1.x` equivale a publicar.**
 - Recomendación: PR de la base hacia `release/v2.1.x` con **squash** (un commit en lugar de 1118), revisado con el diff de `JWPLC/2.1.0` y el README.
-- Cuidado con los 55 workflows `alpha13-*`: 11 tienen `pull_request` sin filtro de rama (`g10-p0-source-manifest`, `g10-promote-functional`, `g10-r-preflight`, `g10-r-source-build`, `h0-e1e2`, `h0-f1-com4-runner`, `h0-f1-package`, `preh-b2/b3/b4`, `preh-tcp124-offline/source-build`). Un PR hacia `release/v2.1.x` los dispararía y varios fallarían por harness obsoleto (F134, `CLIENT_CTOR_CHANGED`). Decisión del propietario (22/10): retirarlos de `.github/workflows/` antes de ese PR; siguen en el historial de Git. Se conservan `alpha13-f137-c-base-source.yml` y `alpha13-c-release-like.yml`.
+- Cuidado con los 55 workflows `alpha13-*`: 11 tienen `pull_request` sin filtro de rama (`g10-p0-source-manifest`, `g10-promote-functional`, `g10-r-preflight`, `g10-r-source-build`, `h0-e1e2`, `h0-f1-com4-runner`, `h0-f1-package`, `preh-b2/b3/b4`, `preh-tcp124-offline/source-build`). Un PR hacia `release/v2.1.x` los dispararía y varios fallarían por harness obsoleto (F134, `CLIENT_CTOR_CHANGED`). Decisión del propietario (22/10): retirarlos de `.github/workflows/` antes de ese PR; siguen en el historial de Git. Se conservan `alpha13-f137-c-base-source.yml` y `alpha13-c-release-like.yml`. En el PR hacia `release/v2.1.x` corre además `ci-jwplc-package-smoke.yml`.
 - No reutilizar un tag ni un asset existentes. El workflow rechaza un tag ya presente.
 
 ```text
 ALPHA13=OPEN
 PACKAGE_TREE=6b498f4a0797e2a1bb0054b005b91f985bc071e2
 PACKAGE_FUNCTIONAL_CHANGES_SINCE_N3=NONE
-BASE_CI=GUARD_FIX_PENDING_MERGE
+BASE_CI=PASS_F137_C_8704a1a0
 PENDIENTE_DE_PROMOCION_GLOBAL_ALPHA13=EMPTY_AUDITED_SCOPE
 RELEASE_DISPATCH=AUTHORIZED_20261022
 POSTPUBLISH=NOT_RUN
 NEXT_FAILURE_ID=F138
-NEXT_GATE=MERGE_GUARD_FIX_RETIRE_WORKFLOWS_THEN_RELEASE_PR
+NEXT_GATE=RETIRE_WORKFLOWS_THEN_RELEASE_PR
 ```
