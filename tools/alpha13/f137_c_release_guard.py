@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """F137-C: guard de integridad del package candidato y release-source, sin build/USB.
 
-Comprueba que el arbol JWPLC/2.1.0 es el mismo que ya aprobo N3 y H fisica;
-el guard --review exige 14 rutas producto conocidas respecto de base Alpha13.
+Comprueba que el arbol JWPLC/2.1.0 es el que ya aprobo N3 y H fisica, o el
+arbol C aprobado en PR #126 que solo amplia dos README; el guard --review exige 14 rutas producto conocidas respecto de base Alpha13.
 Nunca ejecuta merge, upload, publication, Git writes, ni modifica firmware.
 """
 from __future__ import annotations
@@ -18,6 +18,13 @@ import sys
 ROOT = Path(__file__).resolve().parents[2]
 VALIDATED_N3_HEAD = "5e1010927a8c03c7ad46d38e4d5459b06bae543f"
 PACKAGE_TREE_SHA = "cc17716f173509b1e0f3c0df5eb99549014c1d61"
+# PR #126 (squash efe20fe0) cambio solo los README de Ethernet y ModbusTCP;
+# fuentes, propiedades y .a siguen siendo los de N3.
+C_DOCS_PACKAGE_TREE_SHA = "6b498f4a0797e2a1bb0054b005b91f985bc071e2"
+APPROVED_PACKAGE_TREES = {
+    PACKAGE_TREE_SHA: "N3",
+    C_DOCS_PACKAGE_TREE_SHA: "N3_PLUS_C_README_PR126",
+}
 EXPECTED_ARCHIVES = {
     "JWPLC_Ethernet": "f190bbbbd69861941807a290be653de422e11a898d1a9583d289cc573d38a0f4",
     "JWPLC_ModbusTCP": "d5456307c5e8a4d2c4fcd3252464b96859faaa4df3ece3ca23e3c720f3b25a1d",
@@ -63,9 +70,9 @@ def sha256(path: Path) -> str:
 def invariant_package() -> dict:
     package = ROOT / "JWPLC/2.1.0"
     tree = git("rev-parse", "HEAD:JWPLC/2.1.0")
-    stop(tree == PACKAGE_TREE_SHA, "PACKAGE_TREE_NOT_N3")
-    # Referencia fija del arbol N3, NO exige traer el commit N3 por fetch:
-    # tambien funciona despues de squash o cherry-pick aprobados.
+    stop(tree in APPROVED_PACKAGE_TREES, "PACKAGE_TREE_NOT_N3")
+    # Referencias fijas de arboles aprobados, NO exige traer el commit N3 por
+    # fetch: tambien funciona despues de squash o cherry-pick aprobados.
 
     for lib, expected in EXPECTED_ARCHIVES.items():
         libdir = package / "libraries" / lib
@@ -91,6 +98,7 @@ def invariant_package() -> dict:
     return {
         "head": git("rev-parse", "HEAD"),
         "package_tree_sha1": tree,
+        "package_tree_approval": APPROVED_PACKAGE_TREES[tree],
         "validated_n3_head": VALIDATED_N3_HEAD,
         "archives_sha256": EXPECTED_ARCHIVES,
         "ethernet_profile_policy": "BASIC_WEAK_TRUE_BASICCORE_STRONG_FALSE",
@@ -127,7 +135,8 @@ def selftest() -> None:
              EXPECTED_ARCHIVES.values()), "SELFTEST_SHA256")
     stop(all(p.startswith("JWPLC/2.1.0/") for p in PRODUCT_DIFF_14),
          "SELFTEST_SCOPE")
-    stop(PACKAGE_TREE_SHA != "", "SELFTEST_TREE")
+    stop(all(re.fullmatch(r"[0-9a-f]{40}", sha) for sha in
+             APPROVED_PACKAGE_TREES), "SELFTEST_TREE")
     print("F137_C_SELFTEST=PASS_STATIC_SCOPE_SHA_CONTRACT_NO_HARDWARE")
 
 
@@ -153,9 +162,9 @@ def main() -> None:
         data = review(args.base_ref or "")
     else:
         data = invariant_package()
-        data["source_integrity_only"] = "PASS_MATCHES_N3"
+        data["source_integrity_only"] = "PASS_" + data["package_tree_approval"]
         data["pre_release"] = "NOT_PUBLISHED"
-        print("F137_C_RELEASE_SOURCE=PASS_PACKAGE_TREE_IDENTICAL_TO_N3")
+        print("F137_C_RELEASE_SOURCE=PASS_PACKAGE_TREE_" + data["package_tree_approval"])
     if args.output:
         output = args.output.expanduser().resolve()
         stop(output != ROOT and ROOT not in output.parents,
