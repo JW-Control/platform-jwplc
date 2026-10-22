@@ -1,6 +1,6 @@
 # JWPLC Platform for Arduino IDE
 
-<!-- JWPLC_RELEASE_VERSION: 2.1.0-alpha.12 -->
+<!-- JWPLC_RELEASE_VERSION: 2.1.0-alpha.13 -->
 
 Package personalizado de **JW Control** para programar **JWPLC Basic** desde
 Arduino IDE y Arduino CLI.
@@ -22,9 +22,11 @@ El package integra al runtime del JWPLC los periféricos principales del equipo:
 No se retiran periféricos del autoload normal sólo para reducir tiempos de
 compilación.
 
-> **Nota de publicación:** `v2.1.0-alpha.12` ya fue publicada como GitHub
-> PreRelease. El índice dev se integra a `main` mediante el PR automático de
-> publicación antes de ejecutar la validación aislada post-publicación.
+> **Canal de desarrollo:** `v2.1.0-alpha.13` es el siguiente package de
+> PreRelease, con Ethernet G10 y F137 precompilado integrados en su rama base.
+> La disponibilidad efectiva de su ZIP, checksum e índice dev se comprueba en
+> [GitHub Releases](https://github.com/JW-Control/platform-jwplc/releases)
+> y tras el PR automático hacia `main`. No alterar la versión estable `v2.0.0`.
 
 ---
 
@@ -33,13 +35,17 @@ compilación.
 | Canal | Versión | Estado |
 |---|---|---|
 | Estable | `v2.0.0` | Release pública estable |
-| Dev / PreRelease publicada | `v2.1.0-alpha.12` | Publicada y validada |
-| PreRelease anterior | `v2.1.0-alpha.11` | Publicada y validada |
+| Dev / PreRelease Alpha13 | `v2.1.0-alpha.13` | G10+F137 integrados; comprobar disponibilidad efectiva en Release e índice dev |
+| PreRelease de referencia histórica | `v2.1.0-alpha.12` | Publicación e instalación pospublicación validadas |
 
-Alpha11 permanece como última versión completamente cerrada y validada:
+Alpha12 conserva la evidencia histórica de publicación e instalación desde el índice dev. Alpha13 integró G10 y los archives Ethernet/Modbus TCP de F137 mediante [PR #125 MERGED](https://github.com/JW-Control/platform-jwplc/pull/125), con package tree `cc17716f173509b1e0f3c0df5eb99549014c1d61`. N3 13/13 Windows+Ubuntu, H-F137 físico acotado (COM4+COM14, FC03 dual, RTU, UDP) y C release-like desde ZIP con ambos FQBN pasaron. **La confirmación de que Alpha13 está publicada y es instalable se consulta en el tag/asset y el índice dev efectivos**, con la evidencia postpublicación registrada en `docs/v2.1.0-alpha.13/ALPHA13_STATUS.md` de la base; un build release-like no equivale a esa comprobación:
 
 ```text
-ALPHA11_STATUS=CLOSED_PUBLISHED
+ALPHA12_STATUS=CLOSED_PUBLISHED
+ALPHA13_SOURCE=G10_F137_INTEGRATED
+ALPHA13_DOCS=TUTORIALS_AND_LOCAL_BENCHMARK_COMPLETE_PR126
+ALPHA13_LOCAL_PC_BENCHMARK=PASS_3_PAIRS_BOTH_FQBN
+ALPHA13_PUBLISHED_STATUS=CONSULT_RELEASE_INDEX_AND_ALPHA13_STATUS
 ```
 
 Estado actual de Alpha12:
@@ -506,6 +512,133 @@ LIVE Preview usa Web Serial.
 
 ---
 
+# Alpha13 — Robustez, mantenimiento y precompilación
+
+Alpha13 refuerza el funcionamiento del JWPLC Basic **sin retirar periféricos
+del autoload ni exigir configuración de hardware en el sketch**.
+
+| Área | Mejora de Alpha13 |
+|---|---|
+| DNS | Protección ante respuestas truncadas para evitar bucles bloqueantes |
+| TCA / salidas | Inicialización segura de EN_IO y operaciones RMW/shadow protegidas entre tareas |
+| TFT | Propiedad exclusiva del bus SPI en operaciones batch |
+| Ethernet TCP | Lecturas/escrituras parciales y retorno correcto ante errores |
+| Ethernet UDP | Tratamiento de datagramas, fragmentación y recuperación |
+| FRAM | Lectura segura de cadenas vacías y fallos SPI |
+| RS-485 / Modbus RTU | Recepción UART, errores de transporte y prueba Master/Slave real |
+| microSD | Corrección de carácter NUL y reconstrucción de archive |
+| Runtime | Eliminación de estado privado redundante; README y ejemplos coherentes |
+| W5500 / Modbus TCP | Arbitraje SPI, propiedad y reciclaje de sockets, cierre diferido, corrección del CS de W5500 |
+
+Los cambios productivos G10 se integraron en la base de Alpha13 mediante
+[PR #124](https://github.com/JW-Control/platform-jwplc/pull/124).
+No se habilita OTA ni OpenPLC dentro del autoload Arduino normal.
+
+## Evidencia y límites
+
+- Los gates de compilación y regresión existentes cubren los perfiles
+  JWPLC Basic y Basic Core, con librerías elegidas desde el package.
+- Dos equipos JWPLC Basic demostraron Modbus RTU real en paralelo con
+  Modbus TCP/UDP y Ethernet DHCP.
+- R1: 589 solicitudes TCP FC03 válidas por dispositivo y 589 ecos UDP en
+  605 segundos; R2: tres recuperaciones de red más dos transiciones PHY
+  observadas por UART.
+- La inyección interna de R3, el ensayo largo R4 de 1805 segundos y la
+  renovación DHCP/DNS no se ejecutaron. Se mantiene esa limitación explícita,
+  sin presentar cobertura parcial como PASS global.
+
+## Archives y benchmark de compilación — F137 integrado
+
+**Estado del código:** [PR #125](https://github.com/JW-Control/platform-jwplc/pull/125) fusionado por squash (`23fae3a3`). Los archives canónicos de **JWPLC_Ethernet** y **JWPLC_ModbusTCP** forman parte del package de la rama Alpha13, junto con sus `library.properties` (`precompiled=full`) y la política Ethernet Basic `weak` / Basic Core `strong`. El árbol **funcional de referencia N3** de `JWPLC/2.1.0` es `cc17716f173509b1e0f3c0df5eb99549014c1d61`. Los README educativos de Ethernet y Modbus TCP se ampliaron después: el **tree Git completo del package cambia por documentación**, mientras que el código, `library.properties` y los hashes de ambos `.a` siguen congelados. El gate C comprueba explícitamente esa diferencia documental y vuelve a generar el ZIP.
+
+El archive de Ethernet contiene 12 miembros (SHA-256 `f190bbbbd69861941807a290be653de422e11a898d1a9583d289cc573d38a0f4`); el de Modbus TCP contiene 2 (SHA-256 `d5456307c5e8a4d2c4fcd3252464b96859faaa4df3ece3ca23e3c720f3b25a1d`). En Basic Core la política fuerte impide el acceso al W5500; no se exige configuración de pines desde el sketch. No se recompilan estos dos `.cpp` en el consumidor con el modo precompilado. Se conservan los demás archives y el autoload normal.
+
+Medianas de compilación **fría en runners GitHub Actions**, fuentes → ambos archives (3 pares por FQBN y sistema):
+
+| Sistema | JWPLC Basic | JWPLC Basic Core |
+|---|---|---|
+| Ubuntu | 27,245 → 18,976 s (**−30,4 %**) | 35,065 → 26,141 s (**−25,4 %**) |
+| Windows | 85,163 → 51,945 s (**−39,0 %**) | 95,054 → 79,908 s (**−15,9 %**) |
+
+La compilación caliente cambió poco; estos números **no** miden velocidad de upload. Método, variabilidad, prueba cruzada y hashes: [benchmark F137](docs/v2.1.0-alpha.13/A13_PRECOMPILE_BENCHMARK_20261020.md). H física de COM4/COM14 = `PASS_FUNCIONAL_ACOTADO`, no incluye Basic Core físico, R3 interno, R4 de 1805 s, DNS/DHCP renewal ni E1/E2. La validación del ZIP final y la instalación desde el índice dev **siguen pendientes** hasta la publicación; un N3 del árbol fuente no las reemplaza.
+
+
+## Inventario vigente de librerías Alpha13
+
+El package integra librerías desde su propia instalación; el usuario
+**no** necesita instalar manualmente copias con el mismo nombre.
+
+| Biblioteca / componente | Modo en Alpha13 | Comentario |
+|---|---|---|
+| `JWPLC_Ethernet` | **Precompiled full** | Nuevo archive F137 y política Basic/Basic Core |
+| `JWPLC_ModbusTCP` | **Precompiled full** | Nuevo archive F137 |
+| `JWPLC_ModbusRTU` | Precompilada conservada | Freeze anterior no reconstruido |
+| `JWPLC_Display` / `JWPLC_TFT` | Precompiladas conservadas | Backend de TFT administrado |
+| `JW_FRAM` / `JW_SD` | Precompiladas conservadas | Ver contratos de uso de cada librería |
+| `SPI` / `core.a` | Precompilados del package | No reconstruidos por el cambio F137 |
+| `JWPLC_RS485` / `JWPLC_GlobalPeripherals` / `JW_RTC` | Fuentes intencionales | No retiradas del autoload por velocidad |
+
+En la documentación de Alpha13, **precompilado** significa que Arduino
+enlaza el archivo `.a` ya construido; no quiere decir que debas configurar
+pines, inicializar el W5500 o deshabilitar periféricos. Las librerías
+que permanecen en fuentes se compilan normalmente cuando el package
+las requiere.
+
+## Aprende Alpha13 según tu nivel
+
+1. **Primer proyecto Ethernet:** sigue
+   [JWPLC_Ethernet](JWPLC/2.1.0/libraries/JWPLC_Ethernet/README.md),
+   desde DHCP hasta el ejemplo básico. La clase avanzada al final
+   enseña conexión cooperativa y lectura RX diferida **opcional**.
+2. **Primer proyecto Modbus TCP:** sigue
+   [JWPLC_ModbusTCP](JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/README.md):
+   primero un Server y FC03, después registros, Coils y el resto
+   de funciones implementadas. No confundas «disponible» con
+   «validada físicamente».
+3. Para sensores, salidas, botonera o TFT, utiliza los README de
+   `JWPLC_GlobalPeripherals`, `JWPLC_ModbusRTU`,
+   `JWPLC_Display` y `JWPLC_TFT` antes de trabajar con
+   interfaces internas.
+
+## Benchmark final de Alpha13 en la PC Windows del operador — PASS
+
+**Estado:** `ALPHA13_LOCAL_PC_BENCHMARK=PASS_3_PAIRS_BOTH_FQBN`.
+El operador ejecutó el benchmark en su PC Windows con **Arduino CLI 1.5.1**
+sobre el HEAD `158d12a242aa09cf414207c10217954a034a0b68`.
+Se usó el mismo sketch de integración G10P y se realizaron **tres
+compilaciones frías y tres calientes por variante y FQBN**, comparando
+Ethernet y Modbus TCP desde fuentes frente a sus dos archives aprobados.
+
+| Perfil | Fría desde fuentes | Fría con `.a` | Ahorro frío | Caliente fuentes | Caliente con `.a` |
+|---|---:|---:|---:|---:|---:|
+| JWPLC Basic | 52,120 s | 40,190 s | **11,930 s / 22,89 %** | 9,251 s | 9,055 s |
+| JWPLC Basic Core | 54,964 s | 47,958 s | **7,006 s / 12,75 %** | 9,175 s | 9,146 s |
+
+Todas las cifras son **medianas de tres muestras**. Los resultados
+anteriores de GitHub Actions corresponden a máquinas distintas;
+**no son tiempos de la PC del operador**. Los ahorros calientes
+observados (0,196 s en Basic y 0,029 s en Core) son pequeños y
+no se presentan como una optimización sostenida universal.
+
+**Verificación de compilación:** el escenario desde fuentes generó 12
+objetos CPP de Ethernet y 2 de Modbus TCP; con los dos `.a`
+estos recuentos fueron **0 / 0**. Los hashes canónicos de los archives
+permanecen intactos, y ninguna otra biblioteca o periférico fue
+retirado del autoload.
+
+Documentación y evidencia:
+[resultado y las 12 filas originales](docs/v2.1.0-alpha.13/A13_LOCAL_PC_BENCHMARK_RESULTADOS_20261021.md),
+[MANIFEST.json original de Windows](docs/v2.1.0-alpha.13/evidence/A13_LOCAL_PC_BENCHMARK_MANIFEST_20261021.json)
+y [procedimiento reproducible](docs/v2.1.0-alpha.13/A13_LOCAL_PC_BENCHMARK_PROCEDIMIENTO_20261021.md).
+
+**Límite:** este benchmark demuestra ahorro de **compilación** para
+el sketch y host ensayados; no mide subida USB, flashing, arranque ni
+instalación desde el índice dev **publicado**. El release-like previo
+valida el ZIP candidato, no sustituye el gate postpublicación.
+
+
+---
+
 # Robustez del runtime
 
 La línea 2.1.x mantiene:
@@ -532,9 +665,12 @@ Estas cifras son evidencia de qualification, no garantías hard-real-time.
 
 ---
 
-# Precompilación Alpha12
+# Precompilación Alpha12 — evidencia histórica
 
-Alpha12 cerró auditoría global y freeze de precompilados.
+Alpha12 cerró auditoría global y freeze de precompilados. **Los cuadros de
+esta sección describen Alpha12**, no el inventario final de Alpha13.
+En particular, Ethernet fue `source-only` en ese corte histórico;
+**en Alpha13 está precompilada** junto con Modbus TCP.
 
 ## Release-like activos
 
@@ -688,7 +824,7 @@ con una API recomendada de aplicación.
 
 ---
 
-# Última PreRelease publicada
+# PreRelease Alpha12 publicada — referencia histórica
 
 ```text
 TAG=v2.1.0-alpha.12
@@ -729,8 +865,8 @@ docs/v2.1.0-alpha.12/ALPHA12_PUBLISHED_VALIDATION_20261005.md
 # Roadmap posterior
 
 ```text
-Alpha13 = TFT / Display update
-Alpha14 = OpenPLC + mejoras de integración sobre TCP/RTU optimizados
+Alpha13 = cleanup, robustez SPI/Ethernet/TCP/UDP, FRAM, RTU y periféricos
+Alpha14 = roadmap independiente (no forma parte del alcance de Alpha13)
 ```
 
 La evidencia histórica de algunas mejoras Alpha12 puede aparecer bajo ramas o
