@@ -16,7 +16,6 @@
   LEFT/RIGHT = pagina | OK = pausa/reanuda | UP/DOWN = intervalo | ESC = ACK
 */
 
-#include <JWPLC_Display.h>
 #include <JWPLC_Ethernet_DNS.h>
 
 #include <stdint.h>

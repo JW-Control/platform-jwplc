@@ -20,8 +20,6 @@
   - setText() sólo invalida el field cuando cambia su contenido.
 */
 
-#include <JWPLC_Display.h>
-
 bool displayConfigured = false;
 
 unsigned long lastCheckMs = 0;

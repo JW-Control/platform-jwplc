@@ -37,6 +37,8 @@ JWPLC actualiza la TFT automáticamente
 ## Qué hace automáticamente el JWPLC
 
 La pantalla y la botonera se inicializan como parte del runtime del JWPLC.
+No hace falta `#include <JWPLC_Display.h>`: el package ya la carga, y el
+archivo que genera HMI Designer también la incluye.
 
 Si utilizas HMI Designer, además:
 
@@ -65,7 +67,6 @@ El Designer genera `JWPLC_HMI_Generated.h`.
 Tu sketch puede quedar así:
 
 ```cpp
-#include <JWPLC_Display.h>
 #include <JWPLC_HMI_Generated.h>
 
 void setup()
@@ -289,7 +290,6 @@ bool q1 = false;
 y que esos valores están asociados a dos indicadores BOOL.
 
 ```cpp
-#include <JWPLC_Display.h>
 #include <JWPLC_HMI_Generated.h>
 
 void setup()
@@ -328,7 +328,6 @@ bool motor = false;
 El botón `OK` alterna el motor, la salida física y la HMI.
 
 ```cpp
-#include <JWPLC_Display.h>
 #include <JWPLC_HMI_Generated.h>
 
 void setup()
@@ -385,7 +384,6 @@ Este ejemplo simula una temperatura y actualiza los textos sin bloquear el
 programa.
 
 ```cpp
-#include <JWPLC_Display.h>
 #include <JWPLC_HMI_Generated.h>
 
 uint32_t ultimaActualizacion = 0;
@@ -462,8 +460,6 @@ La API manual sigue siendo pública y válida.
 en lugar de usar Designer.
 
 ```cpp
-#include <JWPLC_Display.h>
-
 enum FieldId : uint8_t
 {
     FIELD_CONTADOR = 1,
@@ -552,7 +548,6 @@ esas llamadas.
 Esqueleto recomendado:
 
 ```cpp
-#include <JWPLC_Display.h>
 #include <JWPLC_HMI_Generated.h>
 
 void setup()

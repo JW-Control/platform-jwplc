@@ -12,8 +12,6 @@
   - Resetear la caché de dibujo al volver a entrar a USER.
 */
 
-#include <JWPLC_Display.h>
-
 bool displayConfigured = false;
 
 static uint32_t g_processCounter = 0;

@@ -15,8 +15,6 @@
   - Entrada USER con OK y retorno automático USER -> IDLE
 */
 
-#include <JWPLC_Display.h>
-
 bool displayConfigured = false;
 uint32_t refreshCounter = 0;
 unsigned long lastSerialMs = 0;

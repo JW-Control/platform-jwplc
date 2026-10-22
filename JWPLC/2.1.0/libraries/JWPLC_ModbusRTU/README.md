@@ -36,6 +36,7 @@ FC16  Write Multiple Registers
 
 No necesitas:
 
+- escribir `#include <JWPLC_ModbusRTU.h>`: el package ya la carga;
 - manejar DE/RE del transceptor RS-485;
 - calcular CRC manualmente;
 - construir tramas Modbus byte por byte;
@@ -49,8 +50,6 @@ La librería usa `JWPLC_RS485` como transporte.
 Este ejemplo crea un Slave ID 2 con ocho Holding Registers.
 
 ```cpp
-#include <JWPLC_ModbusRTU.h>
-
 uint16_t holding[8] = {};
 
 void setup()
@@ -167,8 +166,6 @@ El resultado llega después mientras `task()` sigue ejecutándose.
 ## Ejemplo 1 — Básico: Slave con Holding Registers
 
 ```cpp
-#include <JWPLC_ModbusRTU.h>
-
 uint16_t holding[8] =
 {
     0, 100, 200, 300,
@@ -218,8 +215,6 @@ Un Master puede modificar `holding[1]` mediante FC06 o FC16.
 Este ejemplo lee cuatro Holding Registers del Slave 2 cada segundo.
 
 ```cpp
-#include <JWPLC_ModbusRTU.h>
-
 uint16_t values[4] = {};
 uint32_t proximaLectura = 0;
 
@@ -295,8 +290,6 @@ Supongamos un Slave que publica:
 El Master lee HR0 y después escribe HR1.
 
 ```cpp
-#include <JWPLC_ModbusRTU.h>
-
 enum class Paso
 {
     Leer,

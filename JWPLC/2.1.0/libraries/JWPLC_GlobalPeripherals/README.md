@@ -32,6 +32,7 @@ JWPLC_SD
 
 En un JWPLC Basic normal no tienes que:
 
+- escribir `#include <JWPLC_GlobalPeripherals.h>`: el package ya la carga;
 - crear otra instancia de la botonera;
 - escanear manualmente la matriz de botones;
 - volver a inicializar RTC, FRAM o microSD;
@@ -45,8 +46,6 @@ El runtime mantiene esos recursos y expone una vista lista para el sketch.
 Este ejemplo enciende o apaga `Q0_0` cada vez que pulsas el botón `OK`.
 
 ```cpp
-#include <JWPLC_GlobalPeripherals.h>
-
 bool salida = false;
 
 void setup()
@@ -143,8 +142,6 @@ En este ejemplo:
 - `UP` informa por Serial mientras permanece presionado.
 
 ```cpp
-#include <JWPLC_GlobalPeripherals.h>
-
 void setup()
 {
     Serial.begin(115200);
@@ -185,8 +182,6 @@ void loop()
 Este ejemplo refleja `I0_0` en `Q0_0` y, cada segundo, imprime un resumen.
 
 ```cpp
-#include <JWPLC_GlobalPeripherals.h>
-
 void setup()
 {
     Serial.begin(115200);
@@ -244,8 +239,6 @@ Supongamos una máquina sencilla:
 - el estado se muestra por Serial junto con la hora.
 
 ```cpp
-#include <JWPLC_GlobalPeripherals.h>
-
 bool enMarcha = false;
 
 void setup()
@@ -303,8 +296,6 @@ Cuando necesitas procesar las ocho entradas o salidas juntas puedes usar la API
 de bloque del core JWPLC:
 
 ```cpp
-#include <JWPLC_GlobalPeripherals.h>
-
 void setup()
 {
 }
