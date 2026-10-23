@@ -1,28 +1,29 @@
 /*
   Status
 
-  Inicia dos puertos RS-485 independientes e imprime su estado.
+  Inicia el puerto RS-485 integrado del JWPLC Basic e imprime su estado.
+
+  El JWPLC Basic tiene un solo transceptor RS-485 (MAX13487E con
+  AutoDirection) en Serial2. Los pines salen de jwplc_hardware_config.h:
+  JWPLC_RS485_RX_PIN (GPIO16) y JWPLC_RS485_TX_PIN (GPIO17).
+
+  Nota: no usar GPIO25/26/27 para un segundo bus: son TFT DC, buzzer y
+  EN_IO (habilitación del expansor de E/S).
 */
 
 #include <JW_RS485.h>
 
-JW_RS485 busA(Serial1, 26, 25);
-JW_RS485 busB(Serial2, 16, 17);
+JW_RS485 bus(Serial2, JWPLC_RS485_RX_PIN, JWPLC_RS485_TX_PIN);
 
 void setup()
 {
     Serial.begin(115200);
 
-    busA.setDirectionPin(27);
-    busA.begin(19200, SERIAL_8E1);
+    bus.setAutoDirection();
+    bus.begin(115200, SERIAL_8N1);
 
-    busB.setAutoDirection();
-    busB.begin(115200, SERIAL_8N1);
-
-    Serial.println("== Bus A ==");
-    busA.printStatus(Serial);
-    Serial.println("== Bus B ==");
-    busB.printStatus(Serial);
+    Serial.println("== RS-485 ==");
+    bus.printStatus(Serial);
 }
 
 void loop()
