@@ -239,6 +239,34 @@ const showNativeSerialPortDialog = (portList, callback) => {
 
 const linkedStateFile = () => path.join(app.getPath("userData"), "linked-sketch.json");
 
+// Proyectos recientes («Abrir ▾»): rutas de .jwhmi, el último primero.
+const RECENT_MAX = 10;
+const recentStateFile = () => path.join(app.getPath("userData"), "recent-projects.json");
+
+const readRecent = async () => {
+  try {
+    const list = JSON.parse(await fs.readFile(recentStateFile(), "utf8"));
+    return Array.isArray(list) ? list.filter((item) => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+};
+
+const writeRecent = async (list) => {
+  try {
+    await fs.mkdir(path.dirname(recentStateFile()), { recursive: true });
+    await fs.writeFile(recentStateFile(), JSON.stringify(list.slice(0, RECENT_MAX), null, 2), "utf8");
+  } catch {
+    // Best-effort: la lista de recientes nunca bloquea abrir o guardar.
+  }
+};
+
+const addRecent = async (filePath) => {
+  const resolved = path.resolve(filePath);
+  const list = (await readRecent()).filter((item) => path.resolve(item).toLowerCase() !== resolved.toLowerCase());
+  await writeRecent([resolved, ...list]);
+};
+
 const directoryContainsSketch = async (directoryPath) => {
   try {
     const entries = await fs.readdir(directoryPath, { withFileTypes: true });
@@ -380,6 +408,28 @@ const restoreLinkedSketchPath = async () => {
   return linkedSketchPath;
 };
 
+// Abre un .jwhmi: si está junto a un .ino ese sketch queda vinculado; si no,
+// el Designer queda sin sketch (como «Nuevo proyecto»).
+const openProjectAt = async (filePath) => {
+  let text;
+  try {
+    text = await fs.readFile(filePath, "utf8");
+  } catch (error) {
+    return { ok: false, error: `No se pudo leer ${path.basename(filePath)}: ${error?.message || error}` };
+  }
+
+  const directoryPath = path.dirname(filePath);
+  if (await directoryContainsSketch(directoryPath)) {
+    linkedSketchPath = directoryPath;
+    await persistLinkedSketch();
+  } else {
+    linkedSketchPath = null;
+    await clearPersistedLinkedSketch();
+  }
+  await addRecent(filePath);
+  return { ok: true, fileName: path.basename(filePath), path: filePath, text, sketch: await sketchInfo(linkedSketchPath) };
+};
+
 const installNativeIpc = () => {
   if (ipcInstalled) return;
   ipcInstalled = true;
@@ -497,6 +547,7 @@ const installNativeIpc = () => {
       }
       linkedSketchPath = null;
       await clearPersistedLinkedSketch();
+      await addRecent(target.filePath);
       return { ok: true, fileName: path.basename(target.filePath), path: target.filePath };
     }
     return { ok: false, error: "Acción de guardado no válida." };
@@ -525,23 +576,42 @@ const installNativeIpc = () => {
     });
     if (result.canceled || !result.filePaths?.[0]) return { ok: false, canceled: true };
 
-    const filePath = result.filePaths[0];
-    let text;
-    try {
-      text = await fs.readFile(filePath, "utf8");
-    } catch (error) {
-      return { ok: false, error: `No se pudo leer ${path.basename(filePath)}: ${error?.message || error}` };
-    }
+    return await openProjectAt(result.filePaths[0]);
+  });
 
-    const directoryPath = path.dirname(filePath);
-    if (await directoryContainsSketch(directoryPath)) {
-      linkedSketchPath = directoryPath;
-      await persistLinkedSketch();
-    } else {
-      linkedSketchPath = null;
-      await clearPersistedLinkedSketch();
+  // «Abrir ▾»: lista con el sketch de cada .jwhmi (si sigue existiendo).
+  ipcMain.handle("jwplc-hmi:list-recent-projects", async () => {
+    const items = await Promise.all((await readRecent()).map(async (filePath) => {
+      const directoryPath = path.dirname(filePath);
+      const exists = await fileExists(filePath);
+      return {
+        path: filePath,
+        fileName: path.basename(filePath),
+        folder: directoryPath,
+        sketch: exists && await directoryContainsSketch(directoryPath) ? path.basename(directoryPath) : null,
+        exists
+      };
+    }));
+    return { ok: true, items };
+  });
+
+  // Sólo abre rutas que están en la lista (la ventana no abre rutas arbitrarias).
+  ipcMain.handle("jwplc-hmi:open-recent-project", async (_event, payload = {}) => {
+    const requested = path.resolve(String(payload.path || ""));
+    const list = await readRecent();
+    if (!list.some((item) => path.resolve(item).toLowerCase() === requested.toLowerCase())) {
+      return { ok: false, error: "Ese proyecto ya no está en la lista de recientes." };
     }
-    return { ok: true, fileName: path.basename(filePath), path: filePath, text, sketch: await sketchInfo(linkedSketchPath) };
+    if (!(await fileExists(requested))) {
+      await writeRecent(list.filter((item) => path.resolve(item).toLowerCase() !== requested.toLowerCase()));
+      return { ok: false, missing: true, error: `${path.basename(requested)} ya no existe; se quitó de recientes.` };
+    }
+    return await openProjectAt(requested);
+  });
+
+  ipcMain.handle("jwplc-hmi:clear-recent-projects", async () => {
+    await writeRecent([]);
+    return { ok: true };
   });
 
   ipcMain.handle("jwplc-hmi:get-linked-sketch", async () => {
@@ -589,6 +659,7 @@ const installNativeIpc = () => {
     if (!info) return { ok: false, error: "No hay un sketch vinculado válido." };
     if (!info.projectExists) return { ok: false, missing: true, fileName: info.projectFile };
     const text = await fs.readFile(path.join(linkedSketchPath, info.projectFile), "utf8");
+    await addRecent(path.join(linkedSketchPath, info.projectFile));
     return { ok: true, fileName: info.projectFile, text };
   });
 
@@ -642,6 +713,7 @@ const installNativeIpc = () => {
     if (exists && !payload.overwrite) return { ok: false, requiresOverwrite: true, name: info.name };
 
     await fs.writeFile(target, String(payload.text || ""), "utf8");
+    await addRecent(target);
     return { ok: true, name: info.name, path: target };
   });
 };

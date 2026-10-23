@@ -2806,6 +2806,8 @@ label.insp-needs-fw { opacity: 0.45; cursor: not-allowed; }
 .sketch-menu-text { display: flex; flex-direction: column; min-width: 0; }
 .sketch-menu-text small { color: #7f97a8; font-size: 11px; }
 .sketch-menu-sep { height: 1px; background: #1d2f3b; margin: 4px 0; }
+.recent-menu { max-width: 440px; }
+.recent-menu .sketch-menu-text small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sketch-toast {
   position: fixed; left: 50%; bottom: 38px; transform: translateX(-50%); z-index: 9100;
   min-width: 300px; max-width: min(700px, calc(100vw - 32px)); padding: 10px 14px;

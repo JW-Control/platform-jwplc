@@ -10,6 +10,8 @@
   //                        .jwhmi y guía). Sin sketch: cuadro «Guardar» en
   //                        Documentos\Arduino; si ahí ya hay un sketch se vincula,
   //                        si no se ofrece crearlo o guardar sólo el .jwhmi.
+  //   Abrir ▾              (escritorio) «Abrir archivo…» y los proyectos
+  //                        recientes; la lista la guarda main.js.
   //
   // Los clics se toman en fase de captura en document (otros módulos clonan
   // los botones). Necesita designer-dialog.js y designer-sketch-menu.js.
@@ -185,22 +187,103 @@
     return saving;
   }
 
+  // --- Abrir ▾ (recientes) --------------------------------------------------------
+
+  let recentMenu = null;
+
+  function closeRecentMenu() {
+    recentMenu?.remove();
+    recentMenu = null;
+    document.getElementById('openProjectButton')?.setAttribute('aria-expanded', 'false');
+  }
+
+  const escapeHtml = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  function recentItem(action, icon, label, hint, extra = '', disabled = false) {
+    return `<button type="button" class="sketch-menu-item" role="menuitem" data-open-action="${action}"${extra}${disabled ? ' disabled' : ''}>` +
+      `<span class="sketch-menu-icon" aria-hidden="true">${icon}</span><span class="sketch-menu-text"><strong>${escapeHtml(label)}</strong>` +
+      `${hint ? `<small title="${escapeHtml(hint)}">${escapeHtml(hint)}</small>` : ''}</span></button>`;
+  }
+
+  async function openRecentMenu(button) {
+    closeRecentMenu();
+    const result = await native.listRecentProjects().catch(() => null);
+    const items = result?.items || [];
+    recentMenu = document.createElement('div');
+    recentMenu.className = 'sketch-menu recent-menu';
+    recentMenu.setAttribute('role', 'menu');
+    recentMenu.innerHTML = `
+      ${recentItem('file', '🗀', 'Abrir archivo…', 'Elegir un .jwhmi en el explorador')}
+      <div class="sketch-menu-sep"></div>
+      <div class="sketch-menu-head"><strong>Recientes</strong>${items.length ? '' : '<small>Todavía no hay proyectos recientes</small>'}</div>
+      ${items.map((item, index) => recentItem('recent', item.sketch ? '⧉' : '◇',
+        item.fileName.replace(/\.jwhmi$/i, ''),
+        item.exists ? `${item.sketch ? `Sketch ${item.sketch} · ` : ''}${item.folder}` : `No existe: ${item.folder}`,
+        ` data-recent-index="${index}"`)).join('')}
+      ${items.length ? `<div class="sketch-menu-sep"></div>${recentItem('clear', '✕', 'Limpiar recientes', '')}` : ''}`;
+    document.body.appendChild(recentMenu);
+    const r = button.getBoundingClientRect();
+    recentMenu.style.top = `${Math.round(r.bottom + 6)}px`;
+    recentMenu.style.left = `${Math.round(Math.max(8, Math.min(window.innerWidth - recentMenu.offsetWidth - 8, r.left)))}px`;
+    button.setAttribute('aria-expanded', 'true');
+    recentMenu.querySelector('.sketch-menu-item:not([disabled])')?.focus();
+
+    recentMenu.addEventListener('click', async (event) => {
+      const item = event.target.closest('[data-open-action]');
+      if (!item || item.disabled) return;
+      const action = item.dataset.openAction;
+      const recent = items[Number(item.dataset.recentIndex)];
+      closeRecentMenu();
+      if (action === 'clear') {
+        await native.clearRecentProjects();
+        toast('Lista de recientes vaciada.', 'ok');
+        return;
+      }
+      if (!(await guardChanges('abrir otro proyecto'))) return;
+      if (action === 'file') {
+        clickBypassing('openProjectButton');
+        return;
+      }
+      try {
+        const opened = await native.openRecentProject(recent.path);
+        if (!opened?.ok) throw new Error(opened?.error || 'No se pudo abrir el proyecto.');
+        await window.JWPLCHMIProjectIntegrationFix.applyOpened(opened);
+      } catch (error) {
+        toast(error?.message || 'No se pudo abrir el proyecto.', 'error');
+      }
+    });
+  }
+
   // --- Botones, atajo y cierre -------------------------------------------------------
 
   let bypass = false;
 
-  async function guardedClick(id, actionText) {
-    if (!(await guardChanges(actionText))) return;
+  function clickBypassing(id) {
     const button = document.getElementById(id);
     if (!button) return;
     bypass = true;
     try { button.click(); } finally { bypass = false; }
+  }
+
+  async function guardedClick(id, actionText) {
+    if (!(await guardChanges(actionText))) return;
+    clickBypassing(id);
     if (id === 'newProjectButton') markSavedSoon();
   }
 
+  const recentsAvailable = () => Boolean(native?.listRecentProjects && window.JWPLCHMIProjectIntegrationFix?.applyOpened);
+
   document.addEventListener('click', (event) => {
     const button = event.target.closest?.('#newProjectButton, #openProjectButton, #saveProjectButton');
+    if (recentMenu && !recentMenu.contains(event.target) && button?.id !== 'openProjectButton') closeRecentMenu();
     if (!button || bypass || applying) return;
+    if (button.id === 'openProjectButton' && recentsAvailable()) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (recentMenu) closeRecentMenu();
+      else openRecentMenu(button);
+      return;
+    }
     if (button.id === 'saveProjectButton') {
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -215,6 +298,7 @@
   }, true);
 
   document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && recentMenu) { closeRecentMenu(); return; }
     if (!(event.ctrlKey || event.metaKey) || event.altKey || event.key.toLowerCase() !== 's') return;
     if (document.querySelector('.jw-dialog')) return;
     event.preventDefault();
@@ -225,6 +309,7 @@
   window.addEventListener('jwplc:project-loaded', markSavedSoon);
   window.addEventListener('jwplc:project-written', markSaved);
   window.addEventListener('jwplc:editor-refresh', scheduleStatus);
+  window.addEventListener('resize', closeRecentMenu);
 
   native?.registerCloseGuard?.(async () => {
     if (await guardChanges('cerrar la app')) native.confirmClose();

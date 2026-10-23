@@ -15,6 +15,9 @@ contextBridge.exposeInMainWorld('JWPLCHMINative', {
   writeGuide: (text) => ipcRenderer.invoke('jwplc-hmi:write-guide', { text }),
   readProject: () => ipcRenderer.invoke('jwplc-hmi:read-project'),
   openProjectFile: () => ipcRenderer.invoke('jwplc-hmi:open-project-file'),
+  listRecentProjects: () => ipcRenderer.invoke('jwplc-hmi:list-recent-projects'),
+  openRecentProject: (path) => ipcRenderer.invoke('jwplc-hmi:open-recent-project', { path }),
+  clearRecentProjects: () => ipcRenderer.invoke('jwplc-hmi:clear-recent-projects'),
   chooseSaveTarget: (suggestedName) => ipcRenderer.invoke('jwplc-hmi:choose-save-target', { suggestedName }),
   applySaveTarget: (action, extra = {}) => ipcRenderer.invoke('jwplc-hmi:apply-save-target', { ...extra, action }),
   // Cerrar la app con cambios sin guardar (poc/designer-save-flow.js).

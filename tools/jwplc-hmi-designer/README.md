@@ -70,7 +70,9 @@ carpeta** (menú «Sketch: nombre ▾»). La versión de navegador no puede lanz
 
 ### Abrir y «Nuevo proyecto» con el sketch
 
-En la app de escritorio, **Abrir** un `.jwhmi` que está junto a un `.ino` vincula ese sketch; un `.jwhmi`
+En la app de escritorio, **Abrir** despliega «Abrir archivo…» y los **proyectos recientes** (los últimos
+10 `.jwhmi` abiertos o guardados, con su sketch). Uno que ya no existe se quita al elegirlo; «Limpiar
+recientes» vacía la lista. **Abrir** un `.jwhmi` que está junto a un `.ino` vincula ese sketch; un `.jwhmi`
 suelto (sin `.ino` en su carpeta) deja el Designer sin sketch vinculado. **Nuevo proyecto** también
 desvincula el sketch. Necesita la app generada después del 2026-10-23.
 
