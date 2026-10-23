@@ -414,27 +414,23 @@ enum HMIPixelMapId : uint8_t
 };
 
 // PixelMaps estáticos RGB565 · JWPLC HMI Designer
-static const JWPLC_UIPixelRun HMI_PIXEL_TROFEO_1_RUNS[] =
+// Formato: PACKED_SPAN16 · 50 px -> 14 spans · 1 entradas de paleta
+// Estimado: 78 B vs 124 B RGB565_RUN · ahorro 37%
+
+static const uint16_t HMI_PM_1_PAL[] =
 {
-    JWPLC_UIPixelRun(110, 104, 9, 0xFEA0),
-    JWPLC_UIPixelRun(110, 105, 1, 0xFEA0),
-    JWPLC_UIPixelRun(112, 105, 5, 0xFEA0),
-    JWPLC_UIPixelRun(118, 105, 1, 0xFEA0),
-    JWPLC_UIPixelRun(110, 106, 1, 0xFEA0),
-    JWPLC_UIPixelRun(112, 106, 5, 0xFEA0),
-    JWPLC_UIPixelRun(118, 106, 1, 0xFEA0),
-    JWPLC_UIPixelRun(111, 107, 7, 0xFEA0),
-    JWPLC_UIPixelRun(112, 108, 5, 0xFEA0),
-    JWPLC_UIPixelRun(113, 109, 3, 0xFEA0),
-    JWPLC_UIPixelRun(114, 110, 1, 0xFEA0),
-    JWPLC_UIPixelRun(114, 111, 1, 0xFEA0),
-    JWPLC_UIPixelRun(112, 112, 5, 0xFEA0),
-    JWPLC_UIPixelRun(112, 113, 5, 0xFEA0)
+    0xFEA0
 };
 
-static const JWPLC_UIPixelMap HMI_PIXEL_MAPS[] =
+static const uint32_t HMI_PM_1_DATA[] =
 {
-    JWPLC_UIPixelMap(1, HMI_PIXEL_TROFEO_1_RUNS, sizeof(HMI_PIXEL_TROFEO_1_RUNS) / sizeof(HMI_PIXEL_TROFEO_1_RUNS[0]))
+    0x0010D06Eu, 0x0000D26Eu, 0x0008D270u, 0x0000D276u, 0x0000D46Eu, 0x0008D470u, 0x0000D476u, 0x000CD66Fu,
+    0x0008D870u, 0x0004DA71u, 0x0000DC72u, 0x0000DE72u, 0x0008E070u, 0x0008E270u
+};
+
+static const JWPLC_UIPixelPackedMap HMI_PIXEL_MAPS[] =
+{
+    JWPLC_UIPixelPackedMap(1, HMI_PM_1_PAL, sizeof(HMI_PM_1_PAL) / sizeof(HMI_PM_1_PAL[0]), HMI_PM_1_DATA, sizeof(HMI_PM_1_DATA) / sizeof(HMI_PM_1_DATA[0]))
 };
 
 void jwplcHMISetup()
@@ -451,7 +447,7 @@ void jwplcHMISetup()
 #ifdef JWPLC_UI_HAS_PAGE_INDICATOR_CONFIG
     JWPLC_Display.setPageIndicator(false);
 #endif
-    JWPLC_Display.setPixelMaps(HMI_PIXEL_MAPS, sizeof(HMI_PIXEL_MAPS) / sizeof(HMI_PIXEL_MAPS[0]));
+    JWPLC_Display.setPackedPixelMaps(HMI_PIXEL_MAPS, sizeof(HMI_PIXEL_MAPS) / sizeof(HMI_PIXEL_MAPS[0]));
     JWPLC_Display.setUserRefreshMode(USER_REFRESH_PERIODIC);
 
     // Pantalla IDLE (Designer · Pantalla y arranque)
