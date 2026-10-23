@@ -83,14 +83,38 @@ architectures=esp32
 includes=JWPLC_TFT.h
 depends=TFT_eSPI,SPI
 P
+
+  # Alpha13 (TFT-PRE4..CLOSURE): el ST7789 se enciende recién cuando JWPLC_TFT
+  # ya limpió la GRAM a negro. Para eso init() de TFT_eSPI no debe mandar
+  # DISPON: se compila contra una copia de TFT_eSPI con los dos DISPON de
+  # ST7789_Init.h bajo #ifndef JWPLC_TFT_DEFER_DISPON (misma receta que
+  # tools/alpha13/gates/a13_tft_closure.py). Sin esto, al reiniciar o tras
+  # subir código el panel muestra basura/flashes antes del fillScreen.
+  local espi="$ARDUINO_DIRECTORIES_USER/libraries/TFT_eSPI"
+  [[ -f "$espi/TFT_Drivers/ST7789_Init.h" ]] || { echo "ERROR: TFT_eSPI no instalado en $espi"; exit 1; }
+  cp -r "$espi" "$out/src-lib/TFT_eSPI"
+  perl -0pi -e 's{^([ \t]*)writecommand\(ST7789_DISPON\);[ \t]*//[ \t]*Display on[ \t]*\n\1delay\(120\);}{$1#ifndef JWPLC_TFT_DEFER_DISPON\n$1writecommand(ST7789_DISPON);    // Display on\n$1delay(120);\n$1#endif}mg' \
+    "$out/src-lib/TFT_eSPI/TFT_Drivers/ST7789_Init.h"
+  [[ "$(grep -c 'JWPLC_TFT_DEFER_DISPON' "$out/src-lib/TFT_eSPI/TFT_Drivers/ST7789_Init.h")" == "2" ]] ||
+    { echo "ERROR: parche DISPON de ST7789_Init.h no aplicado (se esperaban 2 anclas)"; exit 1; }
+  # Si tft_setup.h no llega a TFT_eSPI.cpp el parche no tendría efecto: cortar.
+  perl -0pi -e 's{(#include "TFT_eSPI.h"\n)}{$1#if !defined(ST7789_DRIVER) || !defined(JWPLC_TFT_DEFER_DISPON)\n#error "JWPLC_TFT: tft_setup.h no llegó a TFT_eSPI (DISPON diferido)"\n#endif\n}' \
+    "$out/src-lib/TFT_eSPI/TFT_eSPI.cpp"
+  grep -q 'DISPON diferido' "$out/src-lib/TFT_eSPI/TFT_eSPI.cpp" ||
+    { echo "ERROR: guard de configuración no insertado en TFT_eSPI.cpp"; exit 1; }
+  echo "ST7789_DISPON_DEFERRED=YES"
+
   arduino-cli compile --fqbn "$FQBN" -j 0 -v --clean \
     --build-path "$out/build" --library "$out/src-lib/JWPLC_TFT" \
+    --library "$out/src-lib/TFT_eSPI" \
     --libraries "$REPO/JWPLC/2.1.0/libraries" \
     --build-property "compiler.cpp.extra_flags=-DJWPLC_TFT_ESPI_DIAGNOSTIC_NO_DISPLAY_AUTOLOAD=1" \
     "$PROBE_SKETCH" > "$out/source.log" 2>&1 || { tail -40 "$out/source.log"; exit 1; }
 
   grep -q "Using library TFT_eSPI at version $TFT_ESPI_VERSION" "$out/source.log" ||
     { echo "ERROR: TFT_eSPI $TFT_ESPI_VERSION no seleccionada"; exit 1; }
+  grep -q "Using library TFT_eSPI at version $TFT_ESPI_VERSION in folder: $out/src-lib/TFT_eSPI" "$out/source.log" ||
+    { echo "ERROR: no se usó la copia de TFT_eSPI con DISPON diferido"; exit 1; }
   local diag
   diag=$(grep -ciE '\b(warning|error):' "$out/source.log" || true)
   [[ "$diag" == "0" ]] || { echo "ERROR: $diag diagnósticos del compilador"; exit 1; }
