@@ -55,6 +55,37 @@
 #endif
 
 // =====================================================
+// Botonera (matriz 2 filas x 3 columnas, JWPLC Basic v2)
+// =====================================================
+// La escanea JWPLC_Buttons (JWPLC_GlobalPeripherals) desde el arranque.
+//   fila 0: BTN_LEFT, BTN_UP, BTN_RIGHT
+//   fila 1: BTN_ESC,  BTN_OK, BTN_DOWN
+// Las columnas son GPIO sólo entrada (pull-up externo).
+
+#ifndef JWPLC_BTN_ROW0_PIN
+#define JWPLC_BTN_ROW0_PIN 12
+#endif
+
+#ifndef JWPLC_BTN_ROW1_PIN
+#define JWPLC_BTN_ROW1_PIN 2
+#endif
+
+#ifndef JWPLC_BTN_COL0_PIN
+#define JWPLC_BTN_COL0_PIN 35
+#endif
+
+#ifndef JWPLC_BTN_COL1_PIN
+#define JWPLC_BTN_COL1_PIN 34
+#endif
+
+#ifndef JWPLC_BTN_COL2_PIN
+#define JWPLC_BTN_COL2_PIN 36
+#endif
+
+#define JWPLC_BTN_ROWS 2
+#define JWPLC_BTN_COLS 3
+
+// =====================================================
 // microSD
 // =====================================================
 

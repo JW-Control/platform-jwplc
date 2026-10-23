@@ -8,8 +8,8 @@
 
 #include <JW_RS485.h>
 
-static constexpr int8_t RS485_RX = 16;
-static constexpr int8_t RS485_TX = 17;
+static constexpr int8_t RS485_RX = JWPLC_RS485_RX_PIN;
+static constexpr int8_t RS485_TX = JWPLC_RS485_TX_PIN;
 static constexpr int8_t RS485_DE = 4;
 
 JW_RS485 rs485(Serial2, RS485_RX, RS485_TX);
