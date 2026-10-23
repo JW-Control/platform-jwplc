@@ -213,7 +213,7 @@ static const JWPLC_UIField HMI_FIELDS[] =
             0xFFFF)),
     JWPLC_UITextField(
         FIELD_MODO,
-        JWPLC_UIRect(212, 114),
+        JWPLC_UIRect(216, 112),
         JWPLC_UIText("Modo", nullptr, 6),
         JWPLC_UITextFieldStyle(
             1,
@@ -579,75 +579,47 @@ enum HMIPixelMapId : uint8_t
 };
 
 // PixelMaps estáticos RGB565 · JWPLC HMI Designer
-static const JWPLC_UIPixelRun HMI_PIXEL_LLAMA_CONTORNO_1_RUNS[] =
+// Formato: PACKED_SPAN16 · 115 px -> 43 spans · 3 entradas de paleta
+// Estimado: 238 B vs 452 B RGB565_RUN · ahorro 47%
+
+static const uint16_t HMI_PM_1_PAL[] =
 {
-    JWPLC_UIPixelRun(165, 132, 1, 0xFD20),
-    JWPLC_UIPixelRun(164, 133, 2, 0xFD20),
-    JWPLC_UIPixelRun(164, 134, 3, 0xFD20),
-    JWPLC_UIPixelRun(163, 135, 4, 0xFD20),
-    JWPLC_UIPixelRun(163, 136, 2, 0xFD20),
-    JWPLC_UIPixelRun(166, 136, 2, 0xFD20),
-    JWPLC_UIPixelRun(162, 137, 2, 0xFD20),
-    JWPLC_UIPixelRun(167, 137, 1, 0xFD20),
-    JWPLC_UIPixelRun(162, 138, 2, 0xFD20),
-    JWPLC_UIPixelRun(167, 138, 2, 0xFD20),
-    JWPLC_UIPixelRun(161, 139, 2, 0xFD20),
-    JWPLC_UIPixelRun(168, 139, 2, 0xFD20),
-    JWPLC_UIPixelRun(161, 140, 2, 0xFD20),
-    JWPLC_UIPixelRun(168, 140, 2, 0xFD20),
-    JWPLC_UIPixelRun(161, 141, 2, 0xFD20),
-    JWPLC_UIPixelRun(168, 141, 2, 0xFD20),
-    JWPLC_UIPixelRun(162, 142, 2, 0xFD20),
-    JWPLC_UIPixelRun(167, 142, 2, 0xFD20),
-    JWPLC_UIPixelRun(163, 143, 5, 0xFD20)
+    0xFD20
 };
 
-static const JWPLC_UIPixelRun HMI_PIXEL_LLAMA_NUCLEO_2_RUNS[] =
+static const uint32_t HMI_PM_1_DATA[] =
 {
-    JWPLC_UIPixelRun(165, 136, 1, 0xFFE0),
-    JWPLC_UIPixelRun(164, 137, 3, 0xFFE0),
-    JWPLC_UIPixelRun(164, 138, 3, 0xFFE0),
-    JWPLC_UIPixelRun(163, 139, 5, 0xFFE0),
-    JWPLC_UIPixelRun(163, 140, 5, 0xFFE0),
-    JWPLC_UIPixelRun(163, 141, 5, 0xFFE0),
-    JWPLC_UIPixelRun(164, 142, 3, 0xFFE0)
+    0x400704A6u, 0x400706A5u, 0x400508A7u, 0x40070AA4u, 0x40050CA8u, 0x400B0EA3u, 0x400910A9u, 0x400512A2u,
+    0x400512AAu, 0x400318A4u, 0x400318A8u, 0x40011AA5u, 0x40011AA6u, 0x40011AA7u
 };
 
-static const JWPLC_UIPixelRun HMI_PIXEL_AVISO_3_RUNS[] =
+static const uint16_t HMI_PM_2_PAL[] =
 {
-    JWPLC_UIPixelRun(14, 10, 1, 0xFFE0),
-    JWPLC_UIPixelRun(13, 11, 3, 0xFFE0),
-    JWPLC_UIPixelRun(13, 12, 1, 0xFFE0),
-    JWPLC_UIPixelRun(15, 12, 1, 0xFFE0),
-    JWPLC_UIPixelRun(12, 13, 2, 0xFFE0),
-    JWPLC_UIPixelRun(15, 13, 2, 0xFFE0),
-    JWPLC_UIPixelRun(12, 14, 1, 0xFFE0),
-    JWPLC_UIPixelRun(14, 14, 1, 0xFFE0),
-    JWPLC_UIPixelRun(16, 14, 1, 0xFFE0),
-    JWPLC_UIPixelRun(11, 15, 2, 0xFFE0),
-    JWPLC_UIPixelRun(14, 15, 1, 0xFFE0),
-    JWPLC_UIPixelRun(16, 15, 2, 0xFFE0),
-    JWPLC_UIPixelRun(11, 16, 1, 0xFFE0),
-    JWPLC_UIPixelRun(14, 16, 1, 0xFFE0),
-    JWPLC_UIPixelRun(17, 16, 1, 0xFFE0),
-    JWPLC_UIPixelRun(10, 17, 2, 0xFFE0),
-    JWPLC_UIPixelRun(14, 17, 1, 0xFFE0),
-    JWPLC_UIPixelRun(17, 17, 2, 0xFFE0),
-    JWPLC_UIPixelRun(10, 18, 1, 0xFFE0),
-    JWPLC_UIPixelRun(18, 18, 1, 0xFFE0),
-    JWPLC_UIPixelRun(9, 19, 2, 0xFFE0),
-    JWPLC_UIPixelRun(14, 19, 1, 0xFFE0),
-    JWPLC_UIPixelRun(18, 19, 2, 0xFFE0),
-    JWPLC_UIPixelRun(9, 20, 1, 0xFFE0),
-    JWPLC_UIPixelRun(19, 20, 1, 0xFFE0),
-    JWPLC_UIPixelRun(8, 21, 13, 0xFFE0)
+    0xFFE0
 };
 
-static const JWPLC_UIPixelMap HMI_PIXEL_MAPS[] =
+static const uint32_t HMI_PM_2_DATA[] =
 {
-    JWPLC_UIPixelMap(1, HMI_PIXEL_LLAMA_CONTORNO_1_RUNS, sizeof(HMI_PIXEL_LLAMA_CONTORNO_1_RUNS) / sizeof(HMI_PIXEL_LLAMA_CONTORNO_1_RUNS[0])),
-    JWPLC_UIPixelMap(1, HMI_PIXEL_LLAMA_NUCLEO_2_RUNS, sizeof(HMI_PIXEL_LLAMA_NUCLEO_2_RUNS) / sizeof(HMI_PIXEL_LLAMA_NUCLEO_2_RUNS[0])),
-    JWPLC_UIPixelMap(2, HMI_PIXEL_AVISO_3_RUNS, sizeof(HMI_PIXEL_AVISO_3_RUNS) / sizeof(HMI_PIXEL_AVISO_3_RUNS[0]))
+    0x400D10A5u, 0x400B12A4u, 0x400B12A6u, 0x400516A3u, 0x400516A7u
+};
+
+static const uint16_t HMI_PM_3_PAL[] =
+{
+    0xFFE0
+};
+
+static const uint32_t HMI_PM_3_DATA[] =
+{
+    0x4002140Eu, 0x4004160Du, 0x4004160Fu, 0x40041A0Cu, 0x40041A10u, 0x40061C0Eu, 0x40041E0Bu, 0x40041E11u,
+    0x4004220Au, 0x40042212u, 0x40042609u, 0x4000260Eu, 0x40042613u, 0x40002A08u, 0x40002A0Au, 0x40002A0Bu,
+    0x40002A0Cu, 0x40002A0Du, 0x40002A0Eu, 0x40002A0Fu, 0x40002A10u, 0x40002A11u, 0x40002A12u, 0x40002A14u
+};
+
+static const JWPLC_UIPixelPackedMap HMI_PIXEL_MAPS[] =
+{
+    JWPLC_UIPixelPackedMap(1, HMI_PM_1_PAL, sizeof(HMI_PM_1_PAL) / sizeof(HMI_PM_1_PAL[0]), HMI_PM_1_DATA, sizeof(HMI_PM_1_DATA) / sizeof(HMI_PM_1_DATA[0])),
+    JWPLC_UIPixelPackedMap(1, HMI_PM_2_PAL, sizeof(HMI_PM_2_PAL) / sizeof(HMI_PM_2_PAL[0]), HMI_PM_2_DATA, sizeof(HMI_PM_2_DATA) / sizeof(HMI_PM_2_DATA[0])),
+    JWPLC_UIPixelPackedMap(2, HMI_PM_3_PAL, sizeof(HMI_PM_3_PAL) / sizeof(HMI_PM_3_PAL[0]), HMI_PM_3_DATA, sizeof(HMI_PM_3_DATA) / sizeof(HMI_PM_3_DATA[0]))
 };
 
 void jwplcHMISetup()
@@ -664,7 +636,7 @@ void jwplcHMISetup()
 #ifdef JWPLC_UI_HAS_PAGE_INDICATOR_CONFIG
     JWPLC_Display.setPageIndicator(false);
 #endif
-    JWPLC_Display.setPixelMaps(HMI_PIXEL_MAPS, sizeof(HMI_PIXEL_MAPS) / sizeof(HMI_PIXEL_MAPS[0]));
+    JWPLC_Display.setPackedPixelMaps(HMI_PIXEL_MAPS, sizeof(HMI_PIXEL_MAPS) / sizeof(HMI_PIXEL_MAPS[0]));
     JWPLC_Display.setUserRefreshMode(USER_REFRESH_PERIODIC);
 
     // Pantalla IDLE (Designer · Pantalla y arranque)
@@ -760,17 +732,17 @@ static void jwplcDrawPageNavTab(uint8_t activePage, bool selecting)
     case 0:
         if (selecting)
         {
-            tft.fillRoundRect(4, 148, 60, 20, 3, 0x073F);
-            tft.setCursor(13, 154);
+            tft.fillRoundRect(6, 145, 60, 18, 3, 0x073F);
+            tft.setCursor(15, 150);
             tft.setTextColor(0x0000);
             tft.print("RESUMEN");
         }
         else
         {
-            tft.fillRoundRect(4, 148, 60, 20, 3, 0xFFFF);
-            tft.drawRoundRect(4, 148, 60, 20, 3, 0x032E);
-            tft.drawRoundRect(6, 150, 56, 16, 1, 0x032E);
-            tft.setCursor(13, 154);
+            tft.fillRoundRect(6, 145, 60, 18, 3, 0xFFFF);
+            tft.drawRoundRect(6, 145, 60, 18, 3, 0x032E);
+            tft.drawRoundRect(8, 147, 56, 14, 1, 0x032E);
+            tft.setCursor(15, 150);
             tft.setTextColor(0x032E);
             tft.print("RESUMEN");
         }
@@ -778,17 +750,17 @@ static void jwplcDrawPageNavTab(uint8_t activePage, bool selecting)
     case 1:
         if (selecting)
         {
-            tft.fillRoundRect(67, 148, 60, 20, 3, 0xFC80);
-            tft.setCursor(76, 154);
+            tft.fillRoundRect(69, 145, 60, 18, 3, 0xFC80);
+            tft.setCursor(78, 150);
             tft.setTextColor(0x0000);
             tft.print("PROCESO");
         }
         else
         {
-            tft.fillRoundRect(67, 148, 60, 20, 3, 0xFFFF);
-            tft.drawRoundRect(67, 148, 60, 20, 3, 0x7200);
-            tft.drawRoundRect(69, 150, 56, 16, 1, 0x7200);
-            tft.setCursor(76, 154);
+            tft.fillRoundRect(69, 145, 60, 18, 3, 0xFFFF);
+            tft.drawRoundRect(69, 145, 60, 18, 3, 0x7200);
+            tft.drawRoundRect(71, 147, 56, 14, 1, 0x7200);
+            tft.setCursor(78, 150);
             tft.setTextColor(0x7200);
             tft.print("PROCESO");
         }
@@ -796,17 +768,17 @@ static void jwplcDrawPageNavTab(uint8_t activePage, bool selecting)
     case 2:
         if (selecting)
         {
-            tft.fillRoundRect(130, 148, 60, 20, 3, 0xF800);
-            tft.setCursor(139, 154);
+            tft.fillRoundRect(132, 145, 60, 18, 3, 0xF800);
+            tft.setCursor(141, 150);
             tft.setTextColor(0xFFFF);
             tft.print("ALARMAS");
         }
         else
         {
-            tft.fillRoundRect(130, 148, 60, 20, 3, 0xFFFF);
-            tft.drawRoundRect(130, 148, 60, 20, 3, 0xF800);
-            tft.drawRoundRect(132, 150, 56, 16, 1, 0xF800);
-            tft.setCursor(139, 154);
+            tft.fillRoundRect(132, 145, 60, 18, 3, 0xFFFF);
+            tft.drawRoundRect(132, 145, 60, 18, 3, 0xF800);
+            tft.drawRoundRect(134, 147, 56, 14, 1, 0xF800);
+            tft.setCursor(141, 150);
             tft.setTextColor(0xF800);
             tft.print("ALARMAS");
         }
@@ -814,17 +786,17 @@ static void jwplcDrawPageNavTab(uint8_t activePage, bool selecting)
     case 3:
         if (selecting)
         {
-            tft.fillRoundRect(193, 148, 60, 20, 3, 0x072E);
-            tft.setCursor(205, 154);
+            tft.fillRoundRect(195, 145, 60, 18, 3, 0x072E);
+            tft.setCursor(207, 150);
             tft.setTextColor(0x0000);
             tft.print("PRODUC");
         }
         else
         {
-            tft.fillRoundRect(193, 148, 60, 20, 3, 0xFFFF);
-            tft.drawRoundRect(193, 148, 60, 20, 3, 0x0346);
-            tft.drawRoundRect(195, 150, 56, 16, 1, 0x0346);
-            tft.setCursor(205, 154);
+            tft.fillRoundRect(195, 145, 60, 18, 3, 0xFFFF);
+            tft.drawRoundRect(195, 145, 60, 18, 3, 0x0346);
+            tft.drawRoundRect(197, 147, 56, 14, 1, 0x0346);
+            tft.setCursor(207, 150);
             tft.setTextColor(0x0346);
             tft.print("PRODUC");
         }
@@ -832,17 +804,17 @@ static void jwplcDrawPageNavTab(uint8_t activePage, bool selecting)
     case 4:
         if (selecting)
         {
-            tft.fillRoundRect(256, 148, 60, 20, 3, 0xFF20);
-            tft.setCursor(265, 154);
+            tft.fillRoundRect(258, 145, 60, 18, 3, 0xFF20);
+            tft.setCursor(267, 150);
             tft.setTextColor(0x0000);
             tft.print("AJUSTES");
         }
         else
         {
-            tft.fillRoundRect(256, 148, 60, 20, 3, 0xFFFF);
-            tft.drawRoundRect(256, 148, 60, 20, 3, 0x7340);
-            tft.drawRoundRect(258, 150, 56, 16, 1, 0x7340);
-            tft.setCursor(265, 154);
+            tft.fillRoundRect(258, 145, 60, 18, 3, 0xFFFF);
+            tft.drawRoundRect(258, 145, 60, 18, 3, 0x7340);
+            tft.drawRoundRect(260, 147, 56, 14, 1, 0x7340);
+            tft.setCursor(267, 150);
             tft.setTextColor(0x7340);
             tft.print("AJUSTES");
         }
@@ -861,117 +833,117 @@ static void jwplcDrawPageNavBar(uint8_t activePage)
     switch (activePage)
     {
     case 0:
-        tft.fillRoundRect(0, 147, 320, 22, 3, 0x0000);
-        tft.fillRoundRect(67, 148, 60, 20, 3, 0x0000);
-        tft.drawRoundRect(67, 148, 60, 20, 3, 0xFC80);
-        tft.setCursor(76, 154);
+        tft.fillRoundRect(2, 144, 320, 20, 3, 0x0000);
+        tft.fillRoundRect(69, 145, 60, 18, 3, 0x0000);
+        tft.drawRoundRect(69, 145, 60, 18, 3, 0xFC80);
+        tft.setCursor(78, 150);
         tft.setTextColor(0xFC80);
         tft.print("PROCESO");
-        tft.fillRoundRect(130, 148, 60, 20, 3, 0x0000);
-        tft.drawRoundRect(130, 148, 60, 20, 3, 0xF800);
-        tft.setCursor(139, 154);
+        tft.fillRoundRect(132, 145, 60, 18, 3, 0x0000);
+        tft.drawRoundRect(132, 145, 60, 18, 3, 0xF800);
+        tft.setCursor(141, 150);
         tft.setTextColor(0xF800);
         tft.print("ALARMAS");
-        tft.fillRoundRect(193, 148, 60, 20, 3, 0x0000);
-        tft.drawRoundRect(193, 148, 60, 20, 3, 0x072E);
-        tft.setCursor(205, 154);
+        tft.fillRoundRect(195, 145, 60, 18, 3, 0x0000);
+        tft.drawRoundRect(195, 145, 60, 18, 3, 0x072E);
+        tft.setCursor(207, 150);
         tft.setTextColor(0x072E);
         tft.print("PRODUC");
-        tft.fillRoundRect(256, 148, 60, 20, 3, 0x0000);
-        tft.drawRoundRect(256, 148, 60, 20, 3, 0xFF20);
-        tft.setCursor(265, 154);
+        tft.fillRoundRect(258, 145, 60, 18, 3, 0x0000);
+        tft.drawRoundRect(258, 145, 60, 18, 3, 0xFF20);
+        tft.setCursor(267, 150);
         tft.setTextColor(0xFF20);
         tft.print("AJUSTES");
         break;
     case 1:
-        tft.fillRoundRect(0, 147, 320, 22, 3, 0x0000);
-        tft.fillRoundRect(4, 148, 60, 20, 3, 0x0000);
-        tft.drawRoundRect(4, 148, 60, 20, 3, 0x073F);
-        tft.setCursor(13, 154);
+        tft.fillRoundRect(2, 144, 320, 20, 3, 0x0000);
+        tft.fillRoundRect(6, 145, 60, 18, 3, 0x0000);
+        tft.drawRoundRect(6, 145, 60, 18, 3, 0x073F);
+        tft.setCursor(15, 150);
         tft.setTextColor(0x073F);
         tft.print("RESUMEN");
-        tft.fillRoundRect(130, 148, 60, 20, 3, 0x0000);
-        tft.drawRoundRect(130, 148, 60, 20, 3, 0xF800);
-        tft.setCursor(139, 154);
+        tft.fillRoundRect(132, 145, 60, 18, 3, 0x0000);
+        tft.drawRoundRect(132, 145, 60, 18, 3, 0xF800);
+        tft.setCursor(141, 150);
         tft.setTextColor(0xF800);
         tft.print("ALARMAS");
-        tft.fillRoundRect(193, 148, 60, 20, 3, 0x0000);
-        tft.drawRoundRect(193, 148, 60, 20, 3, 0x072E);
-        tft.setCursor(205, 154);
+        tft.fillRoundRect(195, 145, 60, 18, 3, 0x0000);
+        tft.drawRoundRect(195, 145, 60, 18, 3, 0x072E);
+        tft.setCursor(207, 150);
         tft.setTextColor(0x072E);
         tft.print("PRODUC");
-        tft.fillRoundRect(256, 148, 60, 20, 3, 0x0000);
-        tft.drawRoundRect(256, 148, 60, 20, 3, 0xFF20);
-        tft.setCursor(265, 154);
+        tft.fillRoundRect(258, 145, 60, 18, 3, 0x0000);
+        tft.drawRoundRect(258, 145, 60, 18, 3, 0xFF20);
+        tft.setCursor(267, 150);
         tft.setTextColor(0xFF20);
         tft.print("AJUSTES");
         break;
     case 2:
-        tft.fillRoundRect(0, 147, 320, 22, 3, 0x0000);
-        tft.fillRoundRect(4, 148, 60, 20, 3, 0x0000);
-        tft.drawRoundRect(4, 148, 60, 20, 3, 0x073F);
-        tft.setCursor(13, 154);
+        tft.fillRoundRect(2, 144, 320, 20, 3, 0x0000);
+        tft.fillRoundRect(6, 145, 60, 18, 3, 0x0000);
+        tft.drawRoundRect(6, 145, 60, 18, 3, 0x073F);
+        tft.setCursor(15, 150);
         tft.setTextColor(0x073F);
         tft.print("RESUMEN");
-        tft.fillRoundRect(67, 148, 60, 20, 3, 0x0000);
-        tft.drawRoundRect(67, 148, 60, 20, 3, 0xFC80);
-        tft.setCursor(76, 154);
+        tft.fillRoundRect(69, 145, 60, 18, 3, 0x0000);
+        tft.drawRoundRect(69, 145, 60, 18, 3, 0xFC80);
+        tft.setCursor(78, 150);
         tft.setTextColor(0xFC80);
         tft.print("PROCESO");
-        tft.fillRoundRect(193, 148, 60, 20, 3, 0x0000);
-        tft.drawRoundRect(193, 148, 60, 20, 3, 0x072E);
-        tft.setCursor(205, 154);
+        tft.fillRoundRect(195, 145, 60, 18, 3, 0x0000);
+        tft.drawRoundRect(195, 145, 60, 18, 3, 0x072E);
+        tft.setCursor(207, 150);
         tft.setTextColor(0x072E);
         tft.print("PRODUC");
-        tft.fillRoundRect(256, 148, 60, 20, 3, 0x0000);
-        tft.drawRoundRect(256, 148, 60, 20, 3, 0xFF20);
-        tft.setCursor(265, 154);
+        tft.fillRoundRect(258, 145, 60, 18, 3, 0x0000);
+        tft.drawRoundRect(258, 145, 60, 18, 3, 0xFF20);
+        tft.setCursor(267, 150);
         tft.setTextColor(0xFF20);
         tft.print("AJUSTES");
         break;
     case 3:
-        tft.fillRoundRect(0, 147, 320, 22, 3, 0x0000);
-        tft.fillRoundRect(4, 148, 60, 20, 3, 0x0000);
-        tft.drawRoundRect(4, 148, 60, 20, 3, 0x073F);
-        tft.setCursor(13, 154);
+        tft.fillRoundRect(2, 144, 320, 20, 3, 0x0000);
+        tft.fillRoundRect(6, 145, 60, 18, 3, 0x0000);
+        tft.drawRoundRect(6, 145, 60, 18, 3, 0x073F);
+        tft.setCursor(15, 150);
         tft.setTextColor(0x073F);
         tft.print("RESUMEN");
-        tft.fillRoundRect(67, 148, 60, 20, 3, 0x0000);
-        tft.drawRoundRect(67, 148, 60, 20, 3, 0xFC80);
-        tft.setCursor(76, 154);
+        tft.fillRoundRect(69, 145, 60, 18, 3, 0x0000);
+        tft.drawRoundRect(69, 145, 60, 18, 3, 0xFC80);
+        tft.setCursor(78, 150);
         tft.setTextColor(0xFC80);
         tft.print("PROCESO");
-        tft.fillRoundRect(130, 148, 60, 20, 3, 0x0000);
-        tft.drawRoundRect(130, 148, 60, 20, 3, 0xF800);
-        tft.setCursor(139, 154);
+        tft.fillRoundRect(132, 145, 60, 18, 3, 0x0000);
+        tft.drawRoundRect(132, 145, 60, 18, 3, 0xF800);
+        tft.setCursor(141, 150);
         tft.setTextColor(0xF800);
         tft.print("ALARMAS");
-        tft.fillRoundRect(256, 148, 60, 20, 3, 0x0000);
-        tft.drawRoundRect(256, 148, 60, 20, 3, 0xFF20);
-        tft.setCursor(265, 154);
+        tft.fillRoundRect(258, 145, 60, 18, 3, 0x0000);
+        tft.drawRoundRect(258, 145, 60, 18, 3, 0xFF20);
+        tft.setCursor(267, 150);
         tft.setTextColor(0xFF20);
         tft.print("AJUSTES");
         break;
     case 4:
-        tft.fillRoundRect(0, 147, 320, 22, 3, 0x0000);
-        tft.fillRoundRect(4, 148, 60, 20, 3, 0x0000);
-        tft.drawRoundRect(4, 148, 60, 20, 3, 0x073F);
-        tft.setCursor(13, 154);
+        tft.fillRoundRect(2, 144, 320, 20, 3, 0x0000);
+        tft.fillRoundRect(6, 145, 60, 18, 3, 0x0000);
+        tft.drawRoundRect(6, 145, 60, 18, 3, 0x073F);
+        tft.setCursor(15, 150);
         tft.setTextColor(0x073F);
         tft.print("RESUMEN");
-        tft.fillRoundRect(67, 148, 60, 20, 3, 0x0000);
-        tft.drawRoundRect(67, 148, 60, 20, 3, 0xFC80);
-        tft.setCursor(76, 154);
+        tft.fillRoundRect(69, 145, 60, 18, 3, 0x0000);
+        tft.drawRoundRect(69, 145, 60, 18, 3, 0xFC80);
+        tft.setCursor(78, 150);
         tft.setTextColor(0xFC80);
         tft.print("PROCESO");
-        tft.fillRoundRect(130, 148, 60, 20, 3, 0x0000);
-        tft.drawRoundRect(130, 148, 60, 20, 3, 0xF800);
-        tft.setCursor(139, 154);
+        tft.fillRoundRect(132, 145, 60, 18, 3, 0x0000);
+        tft.drawRoundRect(132, 145, 60, 18, 3, 0xF800);
+        tft.setCursor(141, 150);
         tft.setTextColor(0xF800);
         tft.print("ALARMAS");
-        tft.fillRoundRect(193, 148, 60, 20, 3, 0x0000);
-        tft.drawRoundRect(193, 148, 60, 20, 3, 0x072E);
-        tft.setCursor(205, 154);
+        tft.fillRoundRect(195, 145, 60, 18, 3, 0x0000);
+        tft.drawRoundRect(195, 145, 60, 18, 3, 0x072E);
+        tft.setCursor(207, 150);
         tft.setTextColor(0x072E);
         tft.print("PRODUC");
         break;

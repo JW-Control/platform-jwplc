@@ -9,7 +9,7 @@
     "pixelFormat": "RGB565"
   },
   "projectName": "Caldera_01",
-  "savedAt": "2026-10-23T19:21:08.241Z",
+  "savedAt": "2026-10-23T19:38:49.561Z",
   "activePage": 0,
   "navigationBar": {
     "enabled": true,
@@ -18,10 +18,18 @@
     "height": 22,
     "showIndicator": true,
     "showArrows": true,
-    "x": 0,
-    "y": 147,
+    "x": 2,
+    "y": 142,
     "width": 320,
-    "orientation": "horizontal"
+    "orientation": "horizontal",
+    "tabDistribution": "center",
+    "textAlign": "center",
+    "fontSize": "normal",
+    "labelFormat": "short",
+    "bgMode": "solid",
+    "borderMode": "none",
+    "radius": 3,
+    "gap": 3
   },
   "display": {
     "start": "IDLE",
@@ -67,7 +75,7 @@
       "type": "NAV_BAR",
       "preset": "industrial-color",
       "position": "bottom",
-      "height": 22,
+      "height": 20,
       "name": "Barra de Navegación",
       "label": "NAV_BAR",
       "global": true,
@@ -75,8 +83,8 @@
       "locked": false,
       "layerOrder": 999,
       "width": 320,
-      "x": 0,
-      "y": 147,
+      "x": 2,
+      "y": 144,
       "orientation": "horizontal",
       "page": 0,
       "cornerRadius": 0
@@ -211,7 +219,7 @@
       "frame": true,
       "valueColor": 13535,
       "trackColor": 4293,
-      "barValue": 68,
+      "barValue": 50,
       "page": 0,
       "label": "",
       "unit": "",
@@ -330,8 +338,8 @@
       "variable": "modo",
       "label": "Modo",
       "capacity": 6,
-      "x": 212,
-      "y": 114,
+      "x": 216,
+      "y": 112,
       "valueSize": 1,
       "preview": "AUTO",
       "valueColor": 2016,
@@ -457,7 +465,8 @@
       "backgroundColor": 0,
       "id": "FIELD_LINE_16",
       "name": "FIELD_LINE_16",
-      "layerOrder": 16
+      "layerOrder": 16,
+      "borderEnabled": true
     },
     {
       "type": "TRIANGLE",
@@ -1104,8 +1113,8 @@
       "type": "PIXELMAP",
       "name": "Llama contorno",
       "page": 1,
-      "x": 161,
-      "y": 132,
+      "x": 162,
+      "y": 130,
       "editorVisible": true,
       "editorOpacity": 1,
       "pixels": [
